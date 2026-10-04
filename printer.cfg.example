@@ -371,4 +371,98 @@ enable_force_move: True
 #[include klipper-e3-r2d2/macros/16_labels.cfg]   # R63 label generator (LCD 'Labels' menu)
 #[include klipper-e3-r2d2/macros/17_generator.cfg]  # R86 part generators (Kabelbinder + Winkel)
 
+# =====================================================================================
+# R86.2 ELECTRONICS EXPANSION (OPTIONAL, everything commented) - see MANUAL ch. 26
+# BTT U2C V2.1 (USB->CAN on the Pi) + BTT EBB42 CAN V1.2.1 (toolhead, mounted at
+# the extruder stepper) + BTT Relay V1.2 (230V side) + nozzle LEDs on the EBB.
+#
+# POWER ARCHITECTURE (see MANUAL ch. 26 for the full wiring plan + safety):
+#   mains L --[Relay V1.2]--> PSU L          (relay switches the PHASE only)
+#   mains N ---------------> PSU N           (direct, never switched)
+#   PE    -----------------> PSU PE          (ALWAYS direct - never switch PE!)
+#   Pi Zero 2: OWN 5V USB power supply       (never from the SKR again!)
+#   U2C: USB from the Pi                     (stays alive with the printer off)
+#   EBB42: 24V + GND from the relay-switched rail + CAN from the U2C
+#   120R jumper ON at BOTH ends (U2C + EBB)  (exactly two terminators!)
+#
+# ---- host side (once, per SSH - NOT printer.cfg): can0 interface ----------
+#   sudo nano /etc/network/interfaces.d/can0
+#     allow-hotplug can0
+#     iface can0 can static
+#         bitrate 1000000      # must match the EBB firmware CAN speed!
+#         up ifconfig can0 txqueuelen 1024
+#   sudo reboot, then: ~/klippy-env/bin/python ~/klipper/scripts/canbus_query.py can0
+#   -> "Found canbus_uuid=xxxxxxxx"  (EBB must be powered + wired for this)
+# =====================================================================================
+
+# ---- the EBB42 as a second MCU (pins per BTT/Klipper sample config) ----------------
+#[mcu EBB]
+#canbus_uuid: 0e0d81e4210c        # <- YOUR uuid from canbus_query.py
+## EBB42 CAN V1.2/1.2.1 firmware: STM32G0B1, 8MHz crystal, CAN bus (PB0/PB1),
+## 1000000 baud (BTT precompiled) or 500000 (self-built - then change can0 too)
+
+# ---- toolhead devices move to the EBB (delete the copies on [mcu]!) ---------------
+# extruder stepper (onboard TMC2209, UART address 0):
+#[extruder]
+#step_pin: EBB:PD0
+#dir_pin: !EBB:PD1
+#enable_pin: !EBB:PD2
+## ... keep YOUR rotation_distance / gear ratio etc.
+#[tmc2209 extruder]
+#uart_pin: EBB:PA15
+## ... keep your run_current etc.
+# hotend heater (max 5A on the EBB - a 40W cartridge is ~1.7A: fine):
+#heater_pin: EBB:PB13
+#sensor_pin: EBB:PA3            # TH0, 100K NTC (PT1000 via MAX31865: see BTT doc)
+# part fan + hotend fan:
+#[fan]                          # part cooling fan
+#pin: EBB:PA0
+#[heater_fan hotend_fan]
+#pin: EBB:PA1
+# BTT MicroProbe (BLTouch-compatible: 3-pin power 5V/GND/PA1-style + 2-pin probe):
+#[probe]
+#pin: ^EBB:PB8                  # probe signal
+## on the MicroProbe the third wire is POWER, not servo control - see ch. 26
+# filament sensor (if you have one on the toolhead):
+#[filament_switch_sensor switch_sensor]
+#switch_pin: EBB:PB4
+
+# ---- nozzle LEDs on the EBB (own chain) + frame LEDs stay on the SKR --------------
+#[neopixel printer_leds]        # ADJUST: now only the FRAME LEDs
+#pin: PA8
+#chain_count: 4                 # was 5
+#color_order: GRBG
+#[neopixel nozzle_led]
+#pin: EBB:PD3                   # RGB port of the EBB42
+#chain_count: 2                 # max ~15 at full white (5V/1A) - we cap at 0.5
+#color_order: GRB
+## then: uncomment [led_effect r2_nozzle_on_split] in 03_leds.cfg and run
+##       SET_NOZZLE_SPLIT STATE=1   (once - persisted)
+
+# ---- BTT Relay V1.2 (230V side!) - printer off while the Pi stays on ----------------
+# Relay control input (5V_IN + GND on the relay) from a free SKR pin. While
+# klipper runs the pin is HIGH = printer on. Klipper shutdown/crash -> pin
+# drops -> relay opens: FAIL-SAFE (a dead host cannot leave heaters powered).
+#[output_pin power_hold]
+#pin: PC13                      # ADJUST: a free 3.3V-capable pin on your board
+#value: 1
+#shutdown_value: 0
+#
+#[gcode_macro PRINTER_POWER_OFF]
+#description: Heaters off, then cut the printer power (the Pi stays on!)
+#gcode:
+#    {% if printer.idle_timeout.state == 'Printing' or printer.print_stats.state == 'printing' %}
+#        RESPOND MSG="Printer power OFF refused - a print is running"
+#        M117 Refused: printing
+#    {% else %}
+#        M104 S0
+#        M140 S0
+#        M106 S0
+#        RESPOND MSG="Printer power OFF in 3s - the Pi stays on (relay V1.2)"
+#        G4 P1500
+#        SET_PIN PIN=power_hold VALUE=0
+#    {% endif %}
+## power ON after a relay-off: press the button on the relay module (or wire
+## your own), then FIRMWARE_RESTART (the boards were completely off).
+
 #[include klipper-e3-r2d2/menus/lcd_menues.cfg]

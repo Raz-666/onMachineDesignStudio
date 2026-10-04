@@ -24,7 +24,7 @@ BLUE = colors.HexColor('#1c4e8c'); LBLUE = colors.HexColor('#e8f0fa')
 ORANGE = colors.HexColor('#e07b00'); GRAY = colors.HexColor('#58595b')
 LGRAY = colors.HexColor('#f2f2f2'); GREEN = colors.HexColor('#1e7d32')
 RED = colors.HexColor('#b3261e'); PURPLE = colors.HexColor('#6a3fb5')
-TEAL = colors.HexColor('#00706b')
+TEAL = colors.HexColor('#00706b'); BLACK = colors.HexColor('#111111')
 
 S = {
  'title': ParagraphStyle('t', fontName='DVSB', fontSize=26, leading=30, textColor=BLUE, alignment=TA_CENTER),
@@ -676,7 +676,7 @@ def d_range_variants():
     panel(6, 'FOOTPRINT + GRID', 'hull bridges concavities', hull=True)
     panel(126, 'OUTLINE + GRID', 'outline follows the wall', col=GREEN)
     panel(246, 'FOOTPRINT + SOLID', 'lines overlap: solid', hull=True, solid=True)
-    panel(366, 'BRIM (Brim 3)', 'zero-gap loops', hull=True, brim=3, col=ORANGE)
+    panel(358, 'BRIM (Brim 3)', 'zero-gap loops', hull=True, brim=3, col=ORANGE)
     d.add(String(240, 28, 'Floor = generated raft UNDER the section (welds flush, zero gap) · Top = solid cap OVER the last layer', fontName='DVS', fontSize=6.4, textAnchor='middle', fillColor=GRAY))
     return d
 
@@ -917,6 +917,111 @@ def d_angle_anatomy():
                  textAnchor='middle', fillColor=GRAY))
     return d
 
+
+def d_range_hole():
+    """R86.2: floor hole (boss ring) + top hole (bridge-first) anatomy."""
+    d = Drawing(480, 208)
+    d.add(String(240, 198, 'Range holes — centered, with a thick boss ring', fontName='DVSB',
+                 fontSize=9.5, textAnchor='middle', fillColor=BLUE))
+    d.add(Rect(18, 46, 216, 138, fillColor=colors.white, strokeColor=GRAY, strokeWidth=1.2))
+    d.add(String(126, 172, 'FLOOR hole — top view', fontName='DVSB', fontSize=8,
+                 textAnchor='middle', fillColor=BLUE))
+    d.add(Rect(44, 66, 164, 92, fillColor=LBLUE, strokeColor=BLUE, strokeWidth=1.2))
+    d.add(Circle(126, 112, 20, fillColor=colors.white, strokeColor=ORANGE, strokeWidth=2.2))
+    d.add(Circle(126, 112, 16.5, fillColor=colors.white, strokeColor=ORANGE, strokeWidth=1.2))
+    d.add(Circle(126, 112, 13, fillColor=colors.white, strokeColor=ORANGE, strokeWidth=1.2))
+    d.add(Circle(126, 112, 9.5, fillColor=None, strokeColor=GRAY, strokeWidth=0.8))
+    d.add(String(126, 109, 'hole', fontName='DVS', fontSize=6, textAnchor='middle', fillColor=GRAY))
+    for yy in (78, 92, 106, 120, 134, 148):
+        d.add(Line(46, yy, 104, yy, strokeColor=BLUE, strokeWidth=0.7))
+        d.add(Line(148, yy, 206, yy, strokeColor=BLUE, strokeWidth=0.7))
+    d.add(String(126, 58, 'boss = 3-6 wall loops (thick rim), hatch', fontName='DVS', fontSize=6.2,
+                 textAnchor='middle', fillColor=GRAY))
+    d.add(String(126, 51, 'stops at its outer edge - E14 15 / E27 28 mm', fontName='DVS', fontSize=6.2,
+                 textAnchor='middle', fillColor=GRAY))
+    d.add(Rect(246, 46, 216, 138, fillColor=colors.white, strokeColor=GRAY, strokeWidth=1.2))
+    d.add(String(354, 172, 'TOP hole — bridge-first, side view', fontName='DVSB', fontSize=8,
+                 textAnchor='middle', fillColor=BLUE))
+    d.add(Rect(286, 60, 136, 9, fillColor=LBLUE, strokeColor=BLUE, strokeWidth=1))
+    d.add(String(281, 63, 'body', fontName='DVS', fontSize=5.8, textAnchor='end', fillColor=GRAY))
+    d.add(Rect(286, 70, 136, 8, fillColor=LBLUE, strokeColor=BLUE, strokeWidth=1))
+    d.add(Line(326, 74, 386, 74, strokeColor=ORANGE, strokeWidth=2.4))
+    d.add(String(430, 72, 'layer 1: anchor', fontName='DVS', fontSize=5.8, textAnchor='end', fillColor=ORANGE))
+    d.add(String(430, 65, 'ring at the edge', fontName='DVS', fontSize=5.8, textAnchor='end', fillColor=ORANGE))
+    for yy in (80, 90):
+        d.add(Rect(286, yy, 32, 8, fillColor=LBLUE, strokeColor=BLUE, strokeWidth=1))
+        d.add(Rect(390, yy, 32, 8, fillColor=LBLUE, strokeColor=BLUE, strokeWidth=1))
+    d.add(String(430, 84, 'layers 2+: hole open,', fontName='DVS', fontSize=5.8, textAnchor='end', fillColor=GREEN))
+    d.add(String(430, 77, 'boss rim on top', fontName='DVS', fontSize=5.8, textAnchor='end', fillColor=GREEN))
+    d.add(String(354, 84, 'air', fontName='DVS', fontSize=5.6, textAnchor='middle', fillColor=GRAY))
+    d.add(String(354, 94, 'air', fontName='DVS', fontSize=5.6, textAnchor='middle', fillColor=GRAY))
+    d.add(String(354, 120, 'nothing sags: every clipped', fontName='DVS', fontSize=6.2, textAnchor='middle', fillColor=GRAY))
+    d.add(String(354, 113, 'line welds onto the ring', fontName='DVS', fontSize=6.2, textAnchor='middle', fillColor=GRAY))
+    d.add(String(354, 106, 'Top auto-raises to 3 layers', fontName='DVS', fontSize=6.2, textAnchor='middle', fillColor=GRAY))
+    d.add(String(240, 34, 'Floor hole: cable feed, E14/E27 lampholder (thread 15 / 28 mm; body: measure + 0.3) · '
+                 'diameter auto-clamps to the raft', fontName='DVS', fontSize=6.0,
+                 textAnchor='middle', fillColor=GRAY))
+    d.add(String(240, 4, 'Console: SET_LAYER_RANGE FLOOR=3 FLOOR_HOLE=15 TOP=3 TOP_HOLE=28 · presets E14 = 15.0, E27 = 28.0',
+                 fontName='DVS', fontSize=6.0, textAnchor='middle', fillColor=GRAY))
+    return d
+
+
+def d_wiring():
+    """R86.2: power + CAN architecture with the BTT Relay / U2C / EBB42."""
+    d = Drawing(480, 252)
+    d.add(String(240, 242, 'One harness to the toolhead - printer off, Pi stays on', fontName='DVSB',
+                 fontSize=9.5, textAnchor='middle', fillColor=BLUE))
+    d.add(Rect(14, 196, 60, 30, fillColor=colors.white, strokeColor=RED, strokeWidth=1.4))
+    d.add(String(44, 210, '230V', fontName='DVSB', fontSize=8, textAnchor='middle', fillColor=RED))
+    d.add(String(44, 202, 'mains', fontName='DVS', fontSize=6.5, textAnchor='middle', fillColor=RED))
+    d.add(Rect(96, 196, 74, 30, fillColor=colors.white, strokeColor=RED, strokeWidth=1.4))
+    d.add(String(133, 210, 'RELAY V1.2', fontName='DVSB', fontSize=7.5, textAnchor='middle', fillColor=RED))
+    d.add(String(133, 202, '10A/250VAC - L only', fontName='DVS', fontSize=5.8, textAnchor='middle', fillColor=RED))
+    d.add(Rect(192, 196, 66, 30, fillColor=colors.white, strokeColor=BLACK, strokeWidth=1.4))
+    d.add(String(225, 210, 'PSU 24V', fontName='DVSB', fontSize=8, textAnchor='middle', fillColor=BLACK))
+    d.add(String(225, 202, 'N + PE direct!', fontName='DVS', fontSize=5.8, textAnchor='middle', fillColor=GRAY))
+    d.add(Line(74, 211, 96, 211, strokeColor=RED, strokeWidth=1.6))
+    d.add(String(85, 216, 'L', fontName='DVSB', fontSize=6.5, textAnchor='middle', fillColor=RED))
+    d.add(Line(170, 211, 192, 211, strokeColor=RED, strokeWidth=1.6))
+    d.add(String(225, 188, 'never switch PE', fontName='DVS', fontSize=5.8, textAnchor='middle', fillColor=RED))
+    d.add(Rect(120, 140, 96, 34, fillColor=colors.white, strokeColor=BLUE, strokeWidth=1.4))
+    d.add(String(168, 160, 'SKR Mini E3 V3', fontName='DVSB', fontSize=7.5, textAnchor='middle', fillColor=BLUE))
+    d.add(String(168, 152, 'bed, X/Y/Z, LCD, frame LEDs', fontName='DVS', fontSize=5.8, textAnchor='middle', fillColor=GRAY))
+    d.add(String(168, 145, 'UART to Pi (10k series!)', fontName='DVS', fontSize=5.8, textAnchor='middle', fillColor=GRAY))
+    d.add(Rect(300, 140, 96, 34, fillColor=colors.white, strokeColor=BLUE, strokeWidth=1.4))
+    d.add(String(348, 160, 'EBB42 CAN V1.2.1', fontName='DVSB', fontSize=7.5, textAnchor='middle', fillColor=BLUE))
+    d.add(String(348, 152, 'at the extruder stepper', fontName='DVS', fontSize=5.8, textAnchor='middle', fillColor=GRAY))
+    d.add(String(348, 145, 'heater, fans, probe, LEDs', fontName='DVS', fontSize=5.8, textAnchor='middle', fillColor=GRAY))
+    d.add(Line(216, 196, 168, 174, strokeColor=BLACK, strokeWidth=1.2))
+    d.add(String(178, 184, '24V (switched)', fontName='DVS', fontSize=5.8, fillColor=GRAY))
+    d.add(Line(240, 196, 340, 174, strokeColor=BLACK, strokeWidth=1.2))
+    d.add(String(300, 186, '24V + GND, 20AWG', fontName='DVS', fontSize=5.8, fillColor=GRAY))
+    d.add(Rect(60, 78, 118, 34, fillColor=colors.white, strokeColor=GREEN, strokeWidth=1.4))
+    d.add(String(119, 98, 'Pi Zero 2', fontName='DVSB', fontSize=8, textAnchor='middle', fillColor=GREEN))
+    d.add(String(119, 90, 'OWN 5V USB PSU (>=2.5A)', fontName='DVS', fontSize=5.8, textAnchor='middle', fillColor=GREEN))
+    d.add(String(119, 83, 'runs Mainsail + klipper', fontName='DVS', fontSize=5.8, textAnchor='middle', fillColor=GRAY))
+    d.add(Rect(240, 78, 86, 34, fillColor=colors.white, strokeColor=GREEN, strokeWidth=1.4))
+    d.add(String(283, 98, 'U2C V2.1', fontName='DVSB', fontSize=8, textAnchor='middle', fillColor=GREEN))
+    d.add(String(283, 90, 'USB to CAN', fontName='DVS', fontSize=5.8, textAnchor='middle', fillColor=GRAY))
+    d.add(String(283, 83, '120R jumper ON', fontName='DVS', fontSize=5.8, textAnchor='middle', fillColor=ORANGE))
+    d.add(Line(178, 95, 240, 95, strokeColor=GREEN, strokeWidth=1.6))
+    d.add(String(209, 100, 'USB', fontName='DVS', fontSize=6, textAnchor='middle', fillColor=GREEN))
+    d.add(Line(326, 112, 348, 140, strokeColor=ORANGE, strokeWidth=1.6))
+    d.add(String(344, 122, 'CAN H/L twisted, 120R ON', fontName='DVS', fontSize=5.8, fillColor=ORANGE))
+    d.add(String(344, 116, '(exactly 2 terminators)', fontName='DVS', fontSize=5.8, fillColor=ORANGE))
+    d.add(Line(140, 140, 118, 196, strokeColor=RED, strokeWidth=1.2, strokeDashArray=[4, 3]))
+    d.add(String(96, 168, 'control pin', fontName='DVS', fontSize=5.8, fillColor=RED))
+    d.add(String(96, 162, 'HIGH = ON', fontName='DVS', fontSize=5.8, fillColor=RED))
+    d.add(String(96, 156, 'klipper dead', fontName='DVS', fontSize=5.8, fillColor=RED))
+    d.add(String(96, 150, '= printer OFF', fontName='DVS', fontSize=5.8, fillColor=RED))
+    d.add(String(240, 60, 'button on the relay = manual ON - then FIRMWARE_RESTART (the MCUs were completely off)',
+                 fontName='DVS', fontSize=6.2, textAnchor='middle', fillColor=GRAY))
+    d.add(String(240, 50, 'CAN-H to CAN-L with everything off: ~60 ohm = two 120R - the termination check',
+                 fontName='DVS', fontSize=6.2, textAnchor='middle', fillColor=GRAY))
+    d.add(String(240, 4, 'Relay switches the 230V PHASE only (L). Printer ~1.5A at 230V - never use it on the 24V side (bed ~10A DC arc!)',
+                 fontName='DVS', fontSize=6.0, textAnchor='middle', fillColor=RED))
+    return d
+
 # ---- cover ----
 E+= [Spacer(1,10*mm),Paragraph('R2-D2 Macro System',S['title']),Spacer(1,2*mm),
      Paragraph('The Complete User Handbook — illustrated edition',S['sub']),Spacer(1,3*mm),
@@ -1061,7 +1166,7 @@ chapter('3','From file to print — the daily workflow',
    ['Features','12 submenus: file original + ON + speed percent + accel per feature'],
    ['Flow / 1st layer','global flow 1–300 percent, first-layer speed (default 75 percent)'],
    ['Bed Mesh','ON/AUTO/OFF, adaptive, travel cap, profiles'],
-   ['Range/Stop','planned end at layer N + the range generator (ch. 5.1)'],
+   ['Range/Stop','planned end at layer N + the range generator: From/To, Floor/Top shapes+fills, Fl.hole + Top hole 0-80 mm centered, Brim, Create (ch. 5.1)'],
    ['Filament','load / unload / change before the print'],
    ['RetFix','ON/OFF - auto-treats every NEW upload (retract pairs -> G10/G11). For the SELECTED file use File > RetFix file / Vol->mm fix: repaired ON DISK, no re-upload (beeps at start + done, markers survive); Marlin-volumetric files get a loud warning'],
    ['Click pacing','multi-value actions (material, presets, range, fixes) insert ~100ms pauses between disk writes - Pi Zero burst protection; no-ops while printing'],
@@ -1100,7 +1205,41 @@ chapter('3','From file to print — the daily workflow',
    ['Pure movement data (no heaters, no macros)','would run cold','net probe: home + heat + purge first, then 1:1'],
    ],[44*mm,52*mm,64*mm]),
   P("The file info line 'sliced by &lt;slicer&gt; for &lt;firmware&gt;' tells you upfront what you are holding. The "
-    "reverse case (direct-drive file on a Bowden machine) needs no file fix — just your retraction values."))
+    "reverse case (direct-drive file on a Bowden machine) needs no file fix — just your retraction values."),
+  H2('Slicing for this system — the settings that unlock everything'),
+  P("Why does G-code for other firmware or machines print here at all? Because the system does not "
+    "trust the file — it READS it: 12 slicer families' dialects are normalized (layer comments to "
+    "LAYER_MARK, feature names to the 12 codes, header to file info), the interceptors translate "
+    "Marlin habits on the fly, PRINT_START/PRINT_END wrap every file in the same choreography. What "
+    "cannot be translated is DETECTED and offered a fix (volumetric E, Bowden retracts)."),
+  TBL(['Slice it like this','What it unlocks'],[
+   [';TYPE: feature comments (slicer default)','the 12 feature overrides + Live Tuning showing the feature printing NOW'],
+   ['layer comments (LAYER_CHANGE / LAYER: / CHANGE_LAYER)','layer counting, L1/L2 temps, fan from layer 2, Pause@, Stop@, the Range generator'],
+   ['Klipper flavor (absolute or relative E — both fine)','clean values everywhere; Marlin-volumetric works after the Vol-&gt;mm fix'],
+   ['start gcode calls PRINT_START with the file values','full start choreography: dialog, mesh, purge, first-layer rules'],
+   ['end gcode calls PRINT_END','park, stats, fanfare, cooldown — never a parked hot nozzle'],
+   ['\"label objects\" enabled','KAMP adaptive mesh, object skip, smart park'],
+   ['no M220/M221 spam from custom scripts','the clean-global system stays honest'],
+  ],[64*mm,96*mm]),
+  CODE('PRINT_START MATERIAL=[filament_type] BED=[first_layer_bed_temperature]\n'
+       'HOTEND_FIRST=[first_layer_temperature] HOTEND_AFTER=[temperature]\n'
+       'LAYER_HEIGHT=[layer_height] TOTAL_LAYERS=[num_layers]\n'
+       'OUTER_WALL_SPEED=[outer_wall_speed] SUPPORT_SPEED=[support_speed]\n'
+       'IRONING_SPEED=[ironing_speed]   ... PRINT_END at the end\n'
+       '(Orca/Prusa/SuperSlicer/Bambu/Elegoo placeholders — Cura: {material_type} etc.;\n'
+       'step by step: slicer/ORCA.md + slicer/CURA.md)'),
+  TBL(['Slicer','Watch out for'],[
+   ['OrcaSlicer (reference), PrusaSlicer, SuperSlicer','works out of the box — enable label objects'],
+   ['Bambu Studio','export without Bambu header macros; keep type comments on'],
+   ['Elegoo Slicer, SliceBeam','Orca relatives — behave like Orca'],
+   ['Cura','CURA.md start gcode; Marlin (Volumetric) files: Vol-&gt;mm fix once'],
+   ['Kiri:Moto, AstroPrint','layer comments by default; PRINT_START/PRINT_END into the boxes'],
+   ['ideaMaker, Simplify3D, FlashPrint','set flavor to Klipper; old profiles bake in long retracts — RetFix file'],
+  ],[64*mm,96*mm]),
+  P("<b>Limits no translation can fix:</b> the machine is still this machine (bigger bed / Delta / "
+    "15 mm/s² files run clamped to YOUR limits); M-codes the firmware does not know stop the print "
+    "(move exotic Marlin logic to macros); arcs G2/G3 are fine; AS SLICED = 1:1 with first-layer rules "
+    "per your switch."))
 
 
 chapter('4','Scenario library — every file type walked through',
@@ -1157,9 +1296,20 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties &amp; Angles',
    ['F.Fill / T.Fill','GRID, SOLID','GRID = 45/135-degree hatch lattice (fast); SOLID = dense overlapping lines (solid surface, E-compensated)'],
    ['Floor / Top','0–10 layers','generated raft under the section (welds flush, zero gap) / solid cap over the last layer'],
    ['Brim','0–10 loops','zero-gap loops around the start — the first loop touches the model wall'],
+   ['Fl.hole (floor hole)','0–80 mm, 0 = off','centered hole in the base with a THICK boss ring (3–6 wall loops); auto-clamps to the raft'],
+   ['Top hole','0–80 mm, 0 = off','centered hole in the cap, BRIDGE-FIRST: layer 1 anchors the edge (no sagging), layers 2+ open'],
   ],[34*mm,34*mm,92*mm]),
+  CENT(d_range_hole()),CAP('Floor hole: cable feed or lampholder — E14 thread 15.0, E27 28.0, socket body: measure + 0.3 mm · top hole prints bridge-first'),
+  TBL(['Preset','Diameter','Fits'],[
+   ['cable feed','3–12 mm','zip ties, sensor cables, mains cable with gland'],
+   ['E14','15.0 mm','E14 thread passes through (14 mm + tolerance)'],
+   ['E27','28.0 mm','E27 thread passes through (27 mm + tolerance)'],
+   ['socket body','measure + 0.3','whole lampholder body: typical E14 ~24, E27 ~33 mm — measure YOURS'],
+  ],[40*mm,34*mm,86*mm]),
+  P("Lamp parts: PETG, and for a press-fit thread start 0.2–0.3 mm under the measured diameter. A top "
+    "hole auto-raises Top to 3 layers (bridge + 2 solid)."),
   P("The raft counts as INFILL-SOLID, the brim as BRIM — feature overrides work on the generated geometry. "
-    "Console: SET_LAYER_RANGE FROM=125 TO=225 FLOOR=5 FLOOR_SHAPE=OUTLINE TOP=2 BRIM=4 CREATE=1. <b>Stop@ N</b> "
+    "Console: SET_LAYER_RANGE FROM=125 TO=225 FLOOR=5 FLOOR_SHAPE=OUTLINE TOP=3 BRIM=4 FLOOR_HOLE=15 TOP_HOLE=28 CREATE=1. <b>Stop@ N</b> "
     "in the same menu ends a print NORMALLY at layer N (stats, fanfare — not a cancel)."),
   H2('5.2 Labels — the built-in label maker'),
   P("Name tags, key fobs, drawer labels — engraved text without a slicer, entirely from the LCD: Labels > Text "
@@ -1523,7 +1673,7 @@ chapter('14','LCD menu reference',
   TBL(['Winkel+Flach (angles + flat — ch. 5.5)','Contents'],[
    ['Info','every setting + the auto-hole rules'],
    ['Mode','Angle (L) / Flat splice — the * marks the active mode'],
-   ['Settings','Angle 30-170° (HIDDEN in Flat mode) · Leg A/B 20-150 (Left/Right in Flat mode) · Width 8-60 · Layers 4-12 · LH · Holes 0-6 · Hole D 2-10 (auto-clamped) · Countersunk/Normal · Rib None/Gusset/Stepped (hidden in Flat) · Count 1-12 · Vers'],
+   ['Settings','Angle 30-170° (HIDDEN in Flat mode) · Leg A/B 20-150 (Left/Right in Flat mode) · Width 8-60 · Layers 4-12 · LH · Holes 0-6 · Hole D 2-10 (auto-clamped) · Countersunk/Normal · Rib None/Gusset/Stepped (hidden in Flat) · Walls 1-6 · Infill 20-100% · Ironing on/off · Count 1-12 · Vers'],
    ['Create (beeps)','validates, bumps the job counter — ready in ~1-2 s with the full adjustment report'],
   ],[42*mm,122*mm]),
   TBL(['Maintenance (calibration order!)','Contents'],[
@@ -1750,7 +1900,8 @@ chapter('24','Cheat sheet: LCD paths &amp; Mainsail commands',
    ['change material preset','Pre-Print &gt; Material &gt; LOAD NOW'],['see ALL file parameters','Pre-Print / Live Tuning &gt; File (G-code)'],['compare with the file values','Pre-Print &gt; Temps &gt; File H:/File B:'],
    ['first layer slower/faster','Pre-Print &gt; 1st layer %'],['calibrate flow','Maintenance &gt; Flow Cal.'],
    ['run a temperature tower','Maintenance &gt; Temp Tower'],['test ironing','Maintenance &gt; Ironing Cal.'],
-   ['print cable ties','Kabelbinder &gt; Create (beeps)'],
+   ['print cable ties','Kabelbinder &gt; Create (beeps)'],['cable/lamp hole in a range part','Pre-Print &gt; Range/Stop &gt; Fl.hole / Top hole'],
+   ['printer off, Pi stays on','PRINTER_POWER_OFF (console — relay, ch. 26)'],
    ['print an angle bracket','Winkel+Flach &gt; Mode &gt; Angle, Settings, Create'],
    ['join two boards flush','Winkel+Flach &gt; Mode &gt; Flat splice, Left/Right, Create'],
    ['purge manual / cold pull','Macros &gt; Purge · Maintenance &gt; Filament'],['shutdown the Pi','System &gt; Shutdown (2×)'],
@@ -1762,7 +1913,8 @@ chapter('24','Cheat sheet: LCD paths &amp; Mainsail commands',
        'SET_LIVE_PRESSURE_ADVANCE · SET_LIVE_RETRACTION · SET_FLOW_RATE · SET_FAN_SCALE\n'
        'PAUSE · RESUME · CANCEL_PRINT (2×) · PAUSE_AT_LAYER LAYER=n · SKIP_OBJECT OBJECT=name\n'
        'GEN_LABELS TEXT=\"A|B\" W=60 H=30 · GEN_CABLE_TIES COUNT=6 LENGTH=120 VARIANT=LATCH ·\n'
-       'GEN_ANGLES ANGLE=90 LEG_A=60 LEG_B=60 WIDTH=25 HOLES=2 CS=1 STIFFENER=1\n'
+       'GEN_ANGLES ANGLE=90 WIDTH=25 WALLS=4 INFILL=60 IRONING=1 ·\n'
+       'SET_LAYER_RANGE FLOOR=3 FLOOR_HOLE=15 TOP_HOLE=28 · SET_NOZZLE_SPLIT STATE=1\n'
        'CALIBRATE_PA · CALIBRATE_PA_SMOOTH · PA_SMOOTH_RESULT SEG=n · FLOW_CAL MEASURE=0.46 ·\nTEMP_TOWER_START START=200 END=230 STEP=5 BAND=10'),
   H2('Abbreviation decoder — the short codes the console, M117 and the LCD use'),
   TBL(['Code','Means','Code','Means'],[
@@ -1774,6 +1926,7 @@ chapter('24','Cheat sheet: LCD paths &amp; Mainsail commands',
    ['Src:','value source: file / overwrite / live','Now:','the feature printing right now'],
    ['LH','layer height','CS','countersink (generator holes)'],
    ['Vers / V01..','generated file version','RAT / LAT','RATCHET / LATCH closure (cable ties)'],
+   ['Boss','thick wall ring around a generated hole','Bridge-first','cap layer 1 anchors the top hole edge'],
    ['Zoff','Z offset (babystepping total)','RetLen / RetSpd / Unret','retract length / speed / unretract'],
    ['MCR','minimum cruise ratio','SCV','square corner velocity'],
   ],[30*mm,54*mm,26*mm,54*mm]),
@@ -1797,13 +1950,21 @@ _MIDX.append(["Labels — 16_labels.cfg ", [
     ["LABEL_DEL_CHAR", "—", "delete the character at the cursor position"],
     ["LABEL_CLEAR_TEXT", "—", "clear the edit buffer"],
     ["LABEL_INFO", "—", "queue + size + font + bed-fit info"]]])
+# R86.2: SET_LAYER_RANGE (08 group) + SET_NOZZLE_SPLIT (LEDs group)
+for _g in _MIDX:
+    if _g[0].startswith('Print start & end'):
+        _g[1].append(["SET_LAYER_RANGE", "FROM, TO, FLOOR, FLOOR_SHAPE, FLOOR_FILL, TOP, TOP_SHAPE, TOP_FILL, FLOOR_HOLE, TOP_HOLE, BRIM",
+                      "layer-range excerpt: raft + cap + centered floor/top holes (E14 15 / E27 28 mm presets, ch. 5.1)"])
+    if _g[0].startswith('LEDs'):
+        _g[1].append(["SET_NOZZLE_SPLIT", "STATE=0/1",
+                      "nozzle LEDs on their own EBB42 chain (1) or LED 5 of the main chain (0) - persisted (ch. 26)"])
 # R86: part generators in the index
 _MIDX.append(["Part generators — 17_generator.cfg", [
     ["GEN_CABLE_TIES", "COUNT=6, LENGTH=120, WIDTH=8, LAYERS=3, VARIANT='RATCHET', LAYER_H=0.2, BRIM=1",
      "console/Mainsail cable-tie job: COUNT=6 LENGTH=120 VARIANT=LATCH - sets everything + creates the file (RATCHET one-way, LATCH releasable)"],
     ["CABLE_TIE_GENERATE", "—", "create the tie file from the stored settings (watcher builds it, beeps + selects)"],
     ["CABLE_TIE_INFO", "—", "every tie setting in one listing + material tip"],
-    ["GEN_ANGLES", "COUNT=2, ANGLE=90, LEG_A=60, LEG_B=60, WIDTH=25, LAYERS=6, HOLES=2, HOLE_D=4, CS=1, STIFFENER=1, FLAT=0, LAYER_H=0.2",
+    ["GEN_ANGLES", "COUNT=2, ANGLE=90, LEG_A=60, LEG_B=60, WIDTH=25, LAYERS=6, HOLES=2, HOLE_D=4, CS=1, STIFFENER=1, WALLS=2, INFILL=100, IRONING=0, FLAT=0, LAYER_H=0.2",
      "console/Mainsail angle/flat job: CS=1 countersunk, FLAT=1 flat connector - holes auto-arrange and auto-clamp"],
     ["ANGLE_GENERATE", "—", "create the plate file from the stored settings (watcher builds it)"],
     ["ANGLE_INFO", "—", "every angle/flat setting + the auto-hole rules"]]])
@@ -1827,6 +1988,68 @@ for _t,_rows in _MIDX:
     _flow29.append(TBL(['Macro','Parameters (default)','What it does'],[[_n,_p,_d] for _n,_p,_d in _rows],[48*mm,56*mm,60*mm]))
 
 chapter('25','Complete macro index — all macros with parameters', *_flow29)
+
+chapter('26','Electronics &amp; expansion — U2C + EBB42 + Relay V1.2',
+  P("One four-wire harness to the toolhead instead of a thick bundle, the printer switchable off while "
+    "the Pi stays on, nozzle LEDs at the print head. All OPTIONAL — the system runs unchanged on a bare "
+    "SKR Mini E3 V3. Pin data from BigTreeTech's GitHub (EBB repo, Relay V1.2 manual) and Klipper's "
+    "sample-bigtreetech-ebb-canbus-v1.2.cfg."),
+  CENT(d_wiring()),CAP('The whole architecture: relay in the 230V phase, Pi on its own PSU, U2C as the CAN bridge, one 4-wire harness to the EBB42'),
+  H2('26.1 The architecture — and why'),
+  *B('<b>Pi Zero 2 on its OWN 5V USB PSU</b> (2.5A+ headroom) — the relay kills the printer, the Pi stays. '
+     'Remove the old 5V-from-SKR line (never two sources!).',
+     '<b>U2C V2.1</b> on the Pi USB (powered by the Pi, stays alive) — USB to CAN, 120R jumper ON (one end of the bus).',
+     '<b>EBB42 CAN V1.2.1 at the extruder stepper</b> — one 4-wire harness replaces heater + 2 fans + probe + '
+     'stepper + LED cables. 120R ON (the other end) — exactly TWO terminators total.',
+     '<b>Relay V1.2 in the 230V phase</b> — 10A/250VAC vs ~1.5A printer load. Control input (3.3–5V logic) from '
+     'a free SKR pin held HIGH by Klipper: Klipper dead = printer OFF (fail-safe). Your DC-DC 5V module is '
+     'not needed here — keep it as a spare.',
+     '<b>UART stays</b> (the Pi Zero\'s only USB data port is used by the U2C) — add 10k in series with each '
+     'UART line so the always-on Pi cannot phantom-power the unpowered SKR through its RX pin.'),
+  H2('26.2 The cable list — EBB at the extruder stepper'),
+  P("Measure along the real route (carriage, X extrusion, chain, electronics bay); proven starting points "
+    "for an Ender-3 class frame:"),
+  TBL(['#','Cable','From → To','Type / gauge','Length','EBB connector'],[
+   ['1','24V + GND','PSU out (switched) → EBB','2× silicone 0.5mm² (20AWG)','~1.4 m','VIN terminal (polarity + fuse)'],
+   ['2','CAN-H / CAN-L','U2C → EBB','twisted pair 0.14–0.25mm²','~1.4 m','4-pin CAN (H, L, GND — check BOTH silkscreens)'],
+   ['3','Extruder stepper','motor → EBB','existing 4-pin, shortened','10–15 cm','motor header (TMC2209 onboard)'],
+   ['4','Hotend heater','cartridge → EBB','existing silicone, shortened','15–20 cm','HE (40W = 1.7A; EBB allows 5A)'],
+   ['5','Thermistor','→ EBB','existing, shortened','15–20 cm','TH0 (PA3)'],
+   ['6','Hotend fan','→ EBB','existing, shortened','~15 cm','FAN (PA1), max 1A'],
+   ['7','Part fan','→ EBB','existing, shortened','~20 cm','FAN (PA0), max 1A'],
+   ['8','MicroProbe','→ EBB','BLTouch-style, shortened','20–25 cm','probe: PB8 signal, PB9 control/power'],
+   ['9','Nozzle LEDs','strip → EBB','3-pin 5V/GND/DATA','15–20 cm','RGB (PD3), max ~15 LEDs full white'],
+   ['10','Filament sensor (opt.)','→ EBB','2-pin','~20 cm','PB4 (switch) / PB3 (motion)'],
+  ],[8*mm,34*mm,38*mm,38*mm,16*mm,32*mm]),
+  P("Stays where it is: X endstop (stationary on the gantry — SKR), frame LEDs 1–4 (SKR neopixel port, "
+    "chain_count 4 after the split), bed + Z + Y. Reuse existing cables by SHORTENING them at the toolhead "
+    "end — the long run to the bay is only the 4-wire harness."),
+  H2('26.3 Firmware: flashing the EBB42 (once)'),
+  CODE('cd ~/klipper && make menuconfig\n'
+       '  STM32 / STM32G0B1 / 8MHz crystal / CAN bus (PB0/PB1) / 1000000 baud\n'
+       '  8KiB bootloader (katapult)\n'
+       'make            # then DFU: USB-power jumper, RESET+BOOT, lsusb, make flash\n'
+       '/etc/network/interfaces.d/can0:  bitrate 1000000   (must match the firmware!)\n'
+       '~/klippy-env/bin/python ~/klipper/scripts/canbus_query.py can0\n'
+       'Found canbus_uuid=...   -> [mcu EBB] in printer.cfg (template: printer.cfg.example)'),
+  H2('26.4 printer.cfg changes'),
+  P("Move to the EBB: extruder (PD0 / !PD1 / !PD2, TMC2209 UART PA15), heater PB13, thermistor PA3, part "
+    "fan PA0, hotend fan PA1, MicroProbe PB8/PB9, optional filament sensor PB4, nozzle LEDs PD3. Then: "
+    "[neopixel printer_leds] chain_count 5→4, [neopixel nozzle_led] on EBB:PD3, uncomment "
+    "[led_effect r2_nozzle_on_split] in 03_leds.cfg, SET_NOZZLE_SPLIT STATE=1 (once — persisted)."),
+  H2('26.5 Relay V1.2 — printer OFF, Pi stays on'),
+  P("Mains L through the relay to the PSU (N + PE direct). 5V_IN + GND from the SKR\'s [output_pin "
+    "power_hold] (value: 1, shutdown_value: 0). The relay button = manual power-on. PRINTER_POWER_OFF "
+    "(template in printer.cfg.example): refuses while printing, heaters off, pin drops. After a relay-off: "
+    "button, then FIRMWARE_RESTART — the MCUs were completely off."),
+  P('<b>SAFETY:</b> 230V is lethal — plug pulled, or an electrician. Never switch or interrupt PE; only L '
+    'goes through the relay. Ferrules + strain relief on the mains side. Do NOT use the 10A relay on the '
+    '24V side — the bed alone draws ~10A DC (arcing). The relay PCB carries live power on open pads — '
+    'enclosed bay only. Termination check with everything off: CAN-H to CAN-L = ~60 ohm (two 120R).'),
+  H2('26.6 NeoPixel limits at the EBB'),
+  P("The EBB42 RGB port shares the board 5V rail — budget 1A total: ~15 WS2812 at full white is the hard "
+    "ceiling. The system caps every channel at 0.5 anyway, so 15 LEDs run cool. More LEDs: feed the strip "
+    "from its own 5V supply (common GND!), keep only DATA from the EBB."))
 
 chapter('A','Appendix A: Installation (detailed)',
   H2('3.1 Requirements'),

@@ -47,6 +47,7 @@ reference tables at the end. Installation and wiring live in the appendices.
 23. [Limits & known behavior](#23-limits--known-behavior)
 24. [Cheat sheet: LCD paths & Mainsail commands](#24-cheat-sheet-lcd-paths--mainsail-commands)
 25. [Complete macro index — all macros with parameters](#25-complete-macro-index)
+26. [Electronics & expansion — U2C + EBB42 + Relay V1.2](#26-electronics--expansion--u2c--ebb42--relay-v12)
 
 Appendices: [A Installation](#appendix-a-installation-detailed) ·
 [B Power & electrics](#appendix-b-power--electrics) ·
@@ -293,7 +294,7 @@ Everything here is saved and reused; nothing is lost on restart.
 | Features | 12 submenus, one per feature (outer/inner wall, sparse/solid infill, top/bottom surface, bridge, gap fill, support, ironing, skirt, brim): file original + ON switch + speed % + accel each |
 | Flow / 1st layer | global flow (1–300 %) and first-layer speed (0 = off, default 75 %) |
 | Bed Mesh | Level old files · Mesh ON/AUTO/OFF · Save after · Adaptive · Travel cap while meshing · Calibrate now · Load…/Delete… |
-| Range/Stop | planned end at layer N + the range generator (ch. 5.1) |
+| Range/Stop | planned end at layer N + the range generator with floor/top holes (ch. 5.1) |
 | Filament | Load / Unload / Change (M600) before the print, load & unload lengths |
 
 **The golden rule:** overrides only apply when they are ON. A stored value
@@ -346,7 +347,7 @@ cooldown with the part fan, heaters off. The LED celebration runs for
 resets all per-print state — the next print starts clean, with your pre-print
 settings, the selected material and the loaded mesh deliberately KEPT.
 
-### 3.6 Foreign G-code — other slicers, other firmware, other hardware
+### 3.8 Foreign G-code — other slicers, other firmware, other hardware
 
 Files not sliced by you, not sliced for Klipper, or sliced for a DIFFERENT
 extruder: here is the complete map of what differs, what the system handles
@@ -406,6 +407,79 @@ values.
 | a file calling its own `START_PRINT` | real legacy start: homing, heat, purge — then your rules | decision in the dialog |
 | pure movement data (no heaters, no macros) | net probe catches it: home + heat + purge first | nothing — it just works |
 
+
+### 3.9 Slicing for this system — the settings that unlock everything
+
+Why does G-code written for other firmware or machines print here at all?
+Because the system does not trust the file — it READS it: the post-processor
+normalizes 12 slicer families' dialects into one language (layer comments →
+`LAYER_MARK`, feature names → the 12 internal codes, header → file info), the
+interceptors translate Marlin habits on the fly (M104/M106/M140/M109/M204/
+M220/SET_RETRACTION/SET_PRESSURE_ADVANCE are OUR macros), and PRINT_START/
+PRINT_END wrap every file in the same choreography. What the system cannot
+translate it DETECTS and offers a fix for (volumetric E, Bowden-era retracts).
+
+**What you get when you slice the RIGHT way — the full package:**
+
+| Requirement | What it unlocks |
+|---|---|
+| `;TYPE:` feature comments (default in every modern slicer) | the 12 feature overrides + Live Tuning showing the feature printing RIGHT NOW + measured per-feature originals in the file info |
+| layer comments (`;LAYER_CHANGE` / `;LAYER:` / `;CHANGE_LAYER`) | layer counting, L1/L2 temp system, fan-from-layer-2, pause-at-layer, Stop@, the Range generator |
+| Klipper flavor, absolute or relative E (both fine) | clean values everywhere; Marlin-volumetric works but needs the Vol->mm fix first |
+| start gcode calls `PRINT_START` with the file's values (templates below) | the full start choreography: dialog, mesh, purge, first-layer rules |
+| end gcode calls `PRINT_END` | park, stats, fanfare, cooldown — never a parked hot nozzle |
+| "label objects" / per-object G-code enabled | KAMP adaptive mesh, object skip (2× confirm), smart park |
+| no M220/M221 spam from custom scripts | the clean-global system (Speeds > Global stays honest) |
+
+**Start/end g-code that fills everything in** (Orca / Prusa / SuperSlicer /
+Bambu / Elegoo — same placeholders):
+
+```text
+PRINT_START MATERIAL=[filament_type] BED=[first_layer_bed_temperature]
+HOTEND_FIRST=[first_layer_temperature] HOTEND_AFTER=[temperature]
+LAYER_HEIGHT=[layer_height] TOTAL_LAYERS=[num_layers]
+OUTER_WALL_SPEED=[outer_wall_speed] SUPPORT_SPEED=[support_speed]
+IRONING_SPEED=[ironing_speed]
+PRINT_END
+```
+
+Cura (same idea, Cura placeholders): `PRINT_START MATERIAL={material_type}
+BED={material_bed_temperature_layer_0} HOTEND_FIRST={material_print_temperature_layer_0}
+HOTEND_AFTER={material_print_temperature} LAYER_HEIGHT={layer_height}` …
+`PRINT_END`. Kiri:Moto, AstroPrint, SliceBeam, ideaMaker, Simplify3D, FlashPrint:
+put the same PRINT_START/PRINT_END calls in their start/end g-code boxes with
+their own placeholder names — the step-by-step for Orca and Cura lives in
+`slicer/ORCA.md` and `slicer/CURA.md`.
+
+**The per-slicer checklist (all 12 families)**
+
+| Slicer | Flavor | Watch out for |
+|---|---|---|
+| OrcaSlicer | Klipper | the reference — works out of the box; enable "label objects" |
+| PrusaSlicer / SuperSlicer | Klipper | same as Orca (config at the file tail is parsed too) |
+| Bambu Studio | Klipper | export WITHOUT the Bambu-specific header macros; keep "type" comments on |
+| Elegoo Slicer | Klipper | Orca fork — behaves like Orca |
+| Cura | Klipper or Marlin | use the CURA.md start gcode; if the file says "Marlin (Volumetric)", run the Vol->mm fix once |
+| Kiri:Moto | Klipper | layer comments are on by default; check that `;TYPE:` lines exist |
+| AstroPrint | — | start/end gcode boxes: PRINT_START/PRINT_END manually |
+| SliceBeam | Klipper | Orca-relative; verify feature comments in the preview |
+| ideaMaker | Marlin default | set G-code flavor to Klipper; older profiles bake in long retracts → RetFix file |
+| Simplify3D | Marlin default | set flavor Klipper; add PRINT_END (its default end script is minimal) |
+| FlashPrint | Marlin | slicer is detected as FlashForge/FlashPrint; expect LEGACY start flow |
+
+**Limits — what NO translation can fix (honest list)**
+
+- The machine is still this machine: a file sliced for a bigger bed, a Delta,
+  or 15 mm/s² accelerations will run — but clamped to YOUR limits (that is a
+  safety feature, not a bug).
+- M-codes the firmware does not know stop the print (Klipper errors on
+  unknown commands) — slicer scripts with exotic Marlin tool changes are the
+  usual suspect; move that logic to macros.
+- Filament-runout logic of other firmwares (M600 variants) is replaced by the
+  system's own filament handling.
+- Arcs (G2/G3) are supported; nothing to do.
+- AS SLICED means 1:1: overrides OFF, first-layer rules stay on (per your
+  switch), Live Tuning still works (live commands are not overrides).
 
 ## 4. Scenario library — every file type walked through
 
@@ -573,6 +647,31 @@ walls (zero gap, it welds directly to the section).
 Same two switches (T.Shape FOOTPRINT/OUTLINE, T.Fill GRID/SOLID — Top defaults
 to SOLID). Prints over the last range layer at the original layer spacing.
 
+**Floor hole — a centered hole in the base (Fl.hole, 0–80 mm)**
+
+For cable feeds — or a lamp: a centered hole with a THICK boss ring (3–6 wall
+loops) around it, the hatch stops at the ring's outer edge. The diameter
+auto-clamps to what the raft actually offers (console reports every change).
+
+| Preset | Diameter | Fits |
+|---|---|---|
+| cable feed | 3–12 mm | zip ties, sensor cables, mains cable with gland |
+| **E14** | 15.0 mm | E14 thread passes through (14 mm + tolerance) |
+| **E27** | 28.0 mm | E27 thread passes through (27 mm + tolerance) |
+| socket body | measure + 0.3 | if the whole lampholder BODY must pass: typical E14 body ~24 mm, E27 ~33 mm — measure YOUR socket |
+
+Print tips: PETG for lamp parts, and for a press-fit thread start 0.2–0.3 mm
+below the measured diameter — the boss gives the thread something to bite.
+
+**Top hole — a centered hole in the cap (Top hole, 0–80 mm)**
+
+The tricky one — a hole in a horizontal ceiling means printing over open air.
+The generator does it BRIDGE-FIRST: cap layer 1 bridges over the void with an
+anchor ring exactly at the hole edge — every clipped hatch line welds onto
+that ring, so the edge cannot sag and the hole stays OPEN from layer 1. Layers
+2+ open the hole with the same boss ring as the floor. A top hole auto-raises
+Top to 3 layers (bridge + 2 solid) — more Top layers = thicker rim.
+
 **Brim — loops around the start (0–10)**
 
 N loops around the raft/section outline, zero gap — the first loop's inner
@@ -586,7 +685,7 @@ edge touches the model wall. Key-ring style adhesion helper.
 - The excerpt's layer 1 = always 0.2 mm high, whatever the source layer
   height; following layers keep the source spacing.
 - Every parameter is also available per console:
-  `SET_LAYER_RANGE FROM=125 TO=225 FLOOR=5 FLOOR_SHAPE=OUTLINE FLOOR_FILL=SOLID TOP=2 BRIM=4 CREATE=1`
+  `SET_LAYER_RANGE FROM=125 TO=225 FLOOR=5 FLOOR_SHAPE=OUTLINE FLOOR_FILL=SOLID TOP=3 BRIM=4 FLOOR_HOLE=15 TOP_HOLE=28 CREATE=1`
 - E and Z of the body are shifted so the section prints as a standalone part
   in the file's own extrusion mode (relative or absolute E — both work).
 - Works with any tagged source file, including multi-object files (EXCLUDE
@@ -834,6 +933,19 @@ fully automatic hole layout. LCD: `Winkel+Flach`, top level.
 - **Countersink ON/OFF:** ON adds a two-step cone (two top layers) so
   flat-head screws sit flush; OFF = straight hole for screw head + nut.
 
+**Walls, infill, ironing — the strength dial**
+
+- **Walls 1–6**: concentric loops per layer (outer + inner walls). Wall
+  thickness = walls × line width — 4 walls at a 0.6 nozzle ≈ 2.6 mm. The
+  number auto-reduces when the leg is too narrow (console reports it).
+- **Infill 20–100 %**: 100 prints the classic solid hatch; lower values widen
+  the line spacing — lighter plates that stay strong because the walls carry
+  the load around the holes. 40–60 % is a good everyday setting.
+- **Ironing ON**: one slow, low-flow pass over the top face after the last
+  layer — smooth, even surface (skips the countersink cones automatically).
+- The hatch inside the walls alternates 45°/135° per layer (cross-lamination)
+  and every hole keeps its keep-out — stability = walls + cross-hatch + rib.
+
 **Stiffener (angle mode only; hidden in FLAT mode)**
 
 | Value | What it adds |
@@ -857,6 +969,9 @@ fully automatic hole layout. LCD: `Winkel+Flach`, top level.
 | Hole D | 2–10 mm | hole diameter (auto-clamped to the leg width) |
 | Holes: countersunk / normal | toggle | flush flat-head screws vs straight through-hole |
 | Rib | None / Gusset / Stepped | corner stiffening (angle mode only) |
+| Walls | 1–6 | concentric wall loops per layer — wall thickness = walls × line width (auto-reduced on narrow legs) |
+| Infill | 20–100 % | 100 = solid hatch, lower = wider line spacing (the walls carry the load) |
+| Ironing | ON / off | one slow, low-flow pass over the top face — smooth finish |
 | Count | 1–12 | plates in ONE project file |
 | Vers | V01–V09 | version in the file name (same convention as Labels) |
 
@@ -877,7 +992,7 @@ per leg; use longer legs for more screws.
 **Console one-liner (Mainsail — every parameter optional):**
 
 ```
-GEN_ANGLES COUNT=2 ANGLE=90 LEG_A=60 LEG_B=60 WIDTH=25 LAYERS=6 HOLES=2 HOLE_D=4 CS=1 STIFFENER=1 FLAT=0
+GEN_ANGLES COUNT=2 ANGLE=90 LEG_A=60 LEG_B=60 WIDTH=25 LAYERS=6 HOLES=2 HOLE_D=4 CS=1 STIFFENER=1 WALLS=4 INFILL=60 IRONING=1 FLAT=0
 ```
 
 `CS=1` = countersunk, `CS=0` = normal holes. `FLAT=1` switches to the flat
@@ -1433,7 +1548,7 @@ while plotting (ch. C.3).
 |---|---|
 | Info | every setting in one console listing + the auto-hole rules |
 | Mode | Angle (L) / Flat splice — the `*` marks the active mode |
-| Settings | Angle 30–170° (**hidden in Flat mode**) · Leg A/B 20–150 mm (renamed Left/Right in Flat mode) · Width 8–60 · Layers 4–12 · LH · Holes 0–6 per leg · Hole D 2–10 mm (auto-clamped to the leg width) · Holes: Countersunk/Normal · Rib None/Gusset/Stepped (**hidden in Flat mode**) · Count 1–12 · Vers V01–V09 |
+| Settings | Angle 30–170° (**hidden in Flat mode**) · Leg A/B 20–150 mm (renamed Left/Right in Flat mode) · Width 8–60 · Layers 4–12 · LH · Holes 0–6 per leg · Hole D 2–10 mm (auto-clamped to the leg width) · Holes: Countersunk/Normal · Rib None/Gusset/Stepped (**hidden in Flat mode**) · Count 1–12 · Vers V01–V09  Walls 1-6 · Infill 20-100% · Ironing on/off |
 | Create (beeps) | validates, bumps the job counter — ready in ~1–2 s with the full adjustment report |
 
 Dependency rules the menu enforces itself: Flat mode hides the Angle input
@@ -1749,6 +1864,8 @@ Diagnostics: SHOW_STATUS · SELF_TEST · KAMP_STATUS · HOST_CHECK (Pi health) �
 | test ironing | Maintenance > Ironing Cal. |
 | purge / cold pull | Macros > Purge · Maintenance > Filament |
 | shutdown the Pi | System > Shutdown (2×) |
+| cable/lamp hole in a range part | Pre-Print > Range/Stop > Fl.hole / Top hole, then Create |
+| printer off, Pi stays on | PRINTER_POWER_OFF (console — needs the relay, ch. 26) |
 
 **Mainsail — the 20 you will actually use**
 
@@ -1759,7 +1876,8 @@ PRINT_AS_LEGACY · SET_GLOBAL_SPEED · SET_GLOBAL_ACCEL · SET_LIVE_VELOCITY ·
 SET_LIVE_MINIMUM_CRUISE_RATIO · SET_LIVE_PRESSURE_ADVANCE · SET_LIVE_RETRACTION ·
 SET_FLOW_RATE · SET_FAN_SCALE · PAUSE · RESUME · CANCEL_PRINT (2×) ·
 PAUSE_AT_LAYER LAYER=n · SKIP_OBJECT OBJECT=name · GEN_LABELS TEXT="A|B" ·
-GEN_CABLE_TIES COUNT=6 LENGTH=120 · GEN_ANGLES ANGLE=90 LEG_A=60 LEG_B=60 ·
+GEN_CABLE_TIES COUNT=6 LENGTH=120 · GEN_ANGLES ANGLE=90 WIDTH=25 WALLS=4 INFILL=60 ·
+SET_LAYER_RANGE FLOOR=3 FLOOR_HOLE=15 TOP_HOLE=28 · SET_NOZZLE_SPLIT STATE=1 ·
 CALIBRATE_PA · FLOW_CAL MEASURE=0.46 · TEMP_TOWER_START START=200 END=230 STEP=5 BAND=10
 ```
 
@@ -1780,11 +1898,12 @@ usage line and the valid values instead of doing something.
 | **Src:** | where a value comes from: file / overwrite / live | **Now:** | the feature printing right now |
 | **LH** | layer height | **CS** | countersink (generator holes) |
 | **Vers / V01…** | the generated file's version number | **RAT / LAT** | RATCHET / LATCH closure (cable ties) |
+| **Boss** | thick wall ring around a generated hole | **Bridge-first** | cap layer 1 anchors the top hole edge (no sagging) |
 | **Zoff** | Z offset (babystepping total) | **RetLen / RetSpd / Unret** | retract length / speed / unretract speed |
 | **MCR** | minimum cruise ratio | **SCV** | square corner velocity |
 
 ## 25. Complete macro index
-All 136 public macros with parameters (defaults in parentheses; blank = no parameters). Internal helpers (leading `_`) are not user-facing. Grouped by module file — the same file you would edit.
+All 137 public macros with parameters (defaults in parentheses; blank = no parameters). Internal helpers (leading `_`) are not user-facing. Grouped by module file — the same file you would edit.
 
 ### Sounds — 02_sounds.cfg (4)
 | Macro | Parameters | Purpose |
@@ -1799,6 +1918,7 @@ All 136 public macros with parameters (defaults in parentheses; blank = no param
 |---|---|---|
 | **SET_LED_STATE** | STATE='idle' | switch the LED pattern (12 states, ch. 17) — applies the nozzle mode too |
 | **NOZZLE_LED** | MODE, BRIGHT, R, G, B | nozzle light: on/off/auto + live dimming + live color (ch. 17) |
+| **SET_NOZZLE_SPLIT** | STATE=0/1 | nozzle LEDs on their own EBB42 chain (1) or LED 5 of the main chain (0) — persisted (ch. 26) |
 | **TOGGLE_LEDS** | — | frame LEDs off/on (persisted: leds_on) |
 | **TEST_LEDS** | — | LED test animation |
 | _NOZZLE_SET | ON | internal: writes LED 5 (color × brightness, capped 0.5) |
@@ -1850,6 +1970,7 @@ All 136 public macros with parameters (defaults in parentheses; blank = no param
 | **PRINT_START** | BED, HOTEND_FIRST, HOTEND_AFTER, BED_AFTER, MATERIAL='PLA', LAYER_HEIGHT=0.2, TOTAL_LAYERS=0, OUTER_WALL_SPEED=0, SUPPORT_SPEED=0, IRONING_SPEED=0 | start choreography — called by the sliced file |
 | **START_PRINT** | — | old macro name: marked = no-op · legacy = real legacy start (dialog or auto-prep) |
 | **PRINT_END** | — | end choreography: heaters/fans per settings, stats, sound, LED celebration → idle after led_finish_time s, full _PRINT_CLEANUP |
+| **SET_LAYER_RANGE** | FROM, TO, FLOOR, FLOOR_SHAPE, FLOOR_FILL, TOP, TOP_SHAPE, TOP_FILL, FLOOR_HOLE, TOP_HOLE, BRIM | layer-range excerpt with raft/cap, centered floor+top holes (E14/E27 presets: ch. 5.1) |
 
 ### Pause & filament — 09_pause_filament.cfg (11)
 | Macro | Parameters | Purpose |
@@ -1967,7 +2088,7 @@ All 136 public macros with parameters (defaults in parentheses; blank = no param
 | **GEN_CABLE_TIES** | COUNT=6, LENGTH=120, WIDTH=8, LAYERS=3, VARIANT='RATCHET', LAYER_H=0.2, BRIM=1 | console/Mainsail cable-tie job: `GEN_CABLE_TIES COUNT=6 LENGTH=120 VARIANT=LATCH` — sets everything + creates the file (VARIANT: RATCHET one-way · LATCH releasable) |
 | **CABLE_TIE_GENERATE** | — | create the tie file from the stored settings (bumps cable_tie_nonce; the watcher builds it, beeps + selects) |
 | **CABLE_TIE_INFO** | — | every tie setting in one listing + material tip |
-| **GEN_ANGLES** | COUNT=2, ANGLE=90, LEG_A=60, LEG_B=60, WIDTH=25, LAYERS=6, HOLES=2, HOLE_D=4, CS=1, STIFFENER=1, FLAT=0, LAYER_H=0.2 | console/Mainsail angle/flat job: `GEN_ANGLES ANGLE=45 LEG_A=80 LEG_B=50 STIFFENER=2` — CS=1 countersunk · FLAT=1 flat connector |
+| **GEN_ANGLES** | COUNT=2, ANGLE=90, LEG_A=60, LEG_B=60, WIDTH=25, LAYERS=6, HOLES=2, HOLE_D=4, CS=1, STIFFENER=1, WALLS=2, INFILL=100, IRONING=0, FLAT=0, LAYER_H=0.2 | console/Mainsail angle/flat job: `GEN_ANGLES ANGLE=45 LEG_A=80 LEG_B=50 STIFFENER=2` — CS=1 countersunk · FLAT=1 flat connector |
 | **ANGLE_GENERATE** | — | create the plate file from the stored settings (bumps angle_nonce) |
 | **ANGLE_INFO** | — | every angle/flat setting + the auto-hole rules |
 
@@ -1991,6 +2112,134 @@ All 136 public macros with parameters (defaults in parentheses; blank = no param
 ---
 
 *Built and tested for one purpose: printing happily — with R2-D2 keeping watch.*
+
+---
+
+## 26. Electronics & expansion — U2C + EBB42 + Relay V1.2
+
+One four-wire harness to the toolhead instead of a thick bundle, the printer
+switchable off while the Pi stays on, nozzle LEDs at the print head. All of
+this is OPTIONAL — the system runs unchanged on a bare SKR Mini E3 V3. Pin
+data from BigTreeTech's GitHub (EBB repo + Relay V1.2 manual) and Klipper's
+`sample-bigtreetech-ebb-canbus-v1.2.cfg`.
+
+### 26.1 The architecture — and why
+
+```text
+230V mains --L--[RELAY V1.2]--L--> PSU 24V          (relay switches the PHASE)
+230V mains --N----------------> PSU 24V             (direct, never switched)
+PE ----------------------------------> PSU + frame  (ALWAYS direct!)
+PSU 24V out ---> SKR Mini E3 V3  (board, bed, motors, LCD, frame LEDs)
+PSU 24V out ---> EBB42 VIN       (hotend, toolhead fans) - via the SAME relay
+Pi Zero 2  <== OWN 5V USB PSU ==  (never powered from the SKR again!)
+Pi Zero 2 USB ---> U2C V2.1 ---> CAN (H/L, twisted) ---> EBB42 at the toolhead
+SKR free pin  ---> Relay 5V_IN   (HIGH while Klipper runs = printer ON)
+```
+
+- **Pi on its own 5V USB PSU** (≥ 2.5 A headroom): the relay kills the
+  printer, the Pi stays — exactly what you wanted. Never power the Pi from
+  two sources at once: REMOVE the old 5V-from-SKR line.
+- **U2C V2.1** hangs on the Pi's USB port (powered by the Pi — stays alive).
+  It converts USB to CAN. 120 Ω jumper ON (it is one end of the bus).
+- **EBB42 CAN V1.2.1** sits at the toolhead (mounted at the extruder stepper)
+  — one 4-wire harness replaces heater + 2 fans + probe + stepper + LED
+  cables. 120 Ω jumper ON (the other end). EXACTLY TWO terminators total.
+- **Relay V1.2 in the 230V phase**: rated 10 A / 250 VAC — the whole printer
+  draws ~1.5 A at 230 V. The module's control input (5V_IN, logic 3.3–5 V)
+  comes from a free SKR pin that Klipper holds HIGH. Klipper dead = pin LOW
+  = printer OFF: a hard FAIL-SAFE (a crashed host can never leave heaters
+  powered). Your DC-DC 5V module is not needed in this architecture — keep
+  it as a spare.
+- **UART stays**: the SKR keeps talking to the Pi on the UART pins (the Pi
+  Zero's only USB data port is used by the U2C). Add a 10 kΩ resistor in
+  series with each UART line so the always-on Pi cannot phantom-power the
+  unpowered SKR through its RX pin when the relay is off.
+
+### 26.2 The cable list — EBB at the extruder stepper
+
+Measure along the real route (carriage → X extrusion → chain → electronics
+bay); these are proven starting points for an Ender-3 class frame:
+
+| # | Cable | From → To | Type / gauge | Length | Connector at the EBB |
+|---|---|---|---|---|---|
+| 1 | 24 V + GND | PSU out (relay-switched) → EBB | 2 × silicone 0.5 mm² (20 AWG) | ~1.4 m | VIN screw terminal (mind polarity + onboard fuse) |
+| 2 | CAN-H / CAN-L | U2C CAN port → EBB | twisted pair 0.14–0.25 mm² (26–24 AWG) | ~1.4 m | 4-pin CAN (use H, L, GND; verify pin order on BOTH silkscreens — never trust wire colors) |
+| 3 | Extruder stepper | motor → EBB | existing 4-pin, shortened | 10–15 cm | motor header (onboard TMC2209) |
+| 4 | Hotend heater | cartridge → EBB | existing silicone, shortened | 15–20 cm | HE terminal (40 W ≈ 1.7 A, EBB allows 5 A) |
+| 5 | Hotend thermistor | → EBB | existing, shortened | 15–20 cm | TH0 (PA3) |
+| 6 | Hotend fan | → EBB | existing, shortened | ~15 cm | FAN (PA1) — max 1 A |
+| 7 | Part fan | → EBB | existing, shortened | ~20 cm | FAN (PA0) — max 1 A |
+| 8 | MicroProbe | → EBB | existing BLTouch-style, shortened | 20–25 cm | probe port: signal PB8, control/power PB9 (MicroProbe: 3rd wire = POWER) |
+| 9 | Nozzle LEDs | strip → EBB | 3-pin (5 V / GND / DATA) | 15–20 cm | RGB port (PD3) — max ~15 LEDs full white (5 V/1 A) |
+| 10 | Filament sensor (optional) | → EBB | 2-pin | ~20 cm | PB4 (switch) or PB3 (motion) |
+
+Stays where it is: **X endstop** (stationary at the gantry — stays on the
+SKR), **frame LEDs 1–4** (SKR neopixel port, chain_count 4 after the split),
+bed + Z + Y (SKR). Reuse your existing cables by SHORTENING them at the
+toolhead end — the long run to the bay is now only the 4-wire harness.
+
+### 26.3 Firmware: flashing the EBB42 (once)
+
+1. On the Pi: `cd ~/klipper && make menuconfig` — STM32, **STM32G0B1**,
+   8 MHz crystal, **CAN bus (on PB0/PB1)**, CAN speed **1000000** (matches
+   BTT's precompiled firmware; if you build for 500 k, change can0 too),
+   8 KiB bootloader (katapult).
+2. `make` → flash via DFU: USB-C jumper for USB power, hold RESET+BOOT,
+   release RESET then BOOT, `lsusb` shows the DFU device, flash with
+   `make flash FLASH_DEVICE=...`.
+3. Bring CAN up on the Pi (`/etc/network/interfaces.d/can0`, bitrate matching
+   the firmware, `sudo reboot`), then
+   `~/klippy-env/bin/python ~/klipper/scripts/canbus_query.py can0`
+   → `Found canbus_uuid=...`.
+4. Copy the `[mcu EBB]` block from `printer.cfg.example` into printer.cfg.
+
+### 26.4 printer.cfg changes (full template in printer.cfg.example)
+
+Move to the EBB: extruder stepper (PD0/!PD1/!PD2, TMC2209 UART PA15), hotend
+heater (PB13) + thermistor (PA3), part fan (PA0), hotend fan (PA1),
+MicroProbe (PB8/PB9), optional filament sensor (PB4), nozzle LEDs (PD3).
+Delete the old copies on the SKR pins. Then: `[neopixel printer_leds]`
+chain_count 5→4 (frame only) + `[neopixel nozzle_led]` on EBB:PD3 +
+uncomment `[led_effect r2_nozzle_on_split]` in 03_leds.cfg + `SET_NOZZLE_SPLIT
+STATE=1` (once — persisted). Frame and nozzle effects then work exactly as
+before, just on two chains.
+
+### 26.5 Relay V1.2 — printer OFF, Pi stays on
+
+Wiring: mains L into the relay's AC-in, AC-out to the PSU's L (N and PE
+direct). 5V_IN + GND of the relay to the SKR's `[output_pin power_hold]` pin
+(`value: 1`, `shutdown_value: 0`). The relay's button connector takes any
+momentary switch for manual power-on. `PRINTER_POWER_OFF` (template in
+printer.cfg.example): refuses while printing, heaters off, then drops the
+pin. Power-on flow: press the button → boards boot → **FIRMWARE_RESTART**
+(the MCUs were completely off). Add the macro to your System menu or console
+— the system's `SYS_SHUTDOWN` (Pi off) stays as it is.
+
+**SAFETY — read before touching mains**
+
+- 230 V is lethal. Work only with the plug pulled; if you are not sure, have
+  an electrician do the mains side. The relay PCB carries live power on open
+  pads — mount it in the enclosed electronics bay, away from anything
+  conductive, "No touch! High voltage danger!" is printed on it for a reason.
+- NEVER switch or interrupt PE. Only the L conductor goes through the relay.
+- Wire gauge: mains side 0.75 mm²+ with ferrules and strain relief; 24 V
+  bed path stays untouched (it runs through the SKR, not the relay).
+- The 10 A relay contact is for the whole printer at ~1.5 A — do NOT use it
+  to switch 24 V DC directly (arcing!) — on the DC side the bed alone draws
+  ~10 A: over the rating and DC arcs do not self-extinguish.
+- Insulate everything, check every crimp twice, measure before powering up
+  (with everything off: CAN-H↔CAN-L should read ~60 Ω = two 120 Ω in
+  parallel — the standard termination check).
+- After a relay-off, the EBB was unpowered while Klipper ran — expect one
+  "MCU shutdown/lost" message; FIRMWARE_RESTART after power-on is normal.
+
+### 26.6 NeoPixel limits at the EBB
+
+The EBB42's RGB port shares the board's 5 V rail — budget 1 A total:
+**~15 WS2812 at full white is the hard ceiling**. The system caps every
+channel at 0.5 anyway (board protection), so 15 LEDs run at ~50 % brightness
+without ever stressing the rail. More LEDs? Feed the strip's 5 V from its
+own supply (common GND!), keep only DATA from the EBB — and keep the cap.
 
 ---
 

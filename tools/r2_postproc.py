@@ -565,9 +565,76 @@ class _GenE:
         self.line(px, py, pts[0][0], pts[0][1], e_per_mm, feed)
 
 
+def _seg_outside_circle(p, q, cx, cy, r):
+    """R86.2: clip segment (p,q) to the parts OUTSIDE circle (cx,cy,r).
+
+    Range floor/cap holes: hatch lines must stop at the hole's boss ring.
+    Returns 0..2 segments."""
+    dx, dy = q[0] - p[0], q[1] - p[1]
+    fx, fy = p[0] - cx, p[1] - cy
+    a = dx * dx + dy * dy
+    if a < 1e-12:
+        return [(p, q)] if (fx * fx + fy * fy) >= r * r else []
+    b = 2.0 * (fx * dx + fy * dy)
+    c = fx * fx + fy * fy - r * r
+    disc = b * b - 4.0 * a * c
+    if disc <= 0.0:
+        return [(p, q)] if c > 0.0 else []
+    sq = math.sqrt(disc)
+    t1 = max(0.0, (-b - sq) / (2.0 * a))
+    t2 = min(1.0, (-b + sq) / (2.0 * a))
+    if t1 >= t2:
+        return [(p, q)]
+    parts = []
+    if t1 > 0.02:
+        parts.append((p, (p[0] + dx * t1, p[1] + dy * t1)))
+    if t2 < 0.98:
+        parts.append(((p[0] + dx * t2, p[1] + dy * t2), q))
+    return parts
+
+
+def _range_hole_prep(hole_d, bbox, wid, notes, what):
+    """R86.2: centered hole in a range floor/cap (cable / E14-E27 lampholder).
+
+    The diameter is clamped so the boss ring (thick wall around the hole)
+    always keeps >=5mm solid material to the edges. Returns None (off) or a
+    dict(cx, cy, r, rim, r_out)."""
+    d = float(hole_d or 0.0)
+    if d <= 0.05:
+        return None
+    x0, y0, x1, y1 = bbox
+    cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+    span = min(x1 - x0, y1 - y0)
+    rim = max(3, min(6, int(round(d / 10.0))))          # boss loops (thick wall)
+    max_d = span - 2.0 * rim * wid - 10.0
+    if max_d < 8.0:
+        notes.append('%s hole skipped: the %s area is too small for a hole + boss'
+                     % (what, what))
+        return None
+    if d < 3.0:
+        d = 3.0
+    if d > max_d:
+        notes.append('%s hole %.1fmm clamped to %.1fmm (boss ring + 5mm margin)'
+                     % (what, d, max_d))
+        d = max_d
+    return {'cx': cx, 'cy': cy, 'r': d / 2.0, 'rim': rim,
+            'r_out': d / 2.0 + rim * wid}
+
+
+def _anchor_bbox(anchor, mask, res):
+    """bbox of the raft/cap anchor: hull polygon or outline-mask extents."""
+    if anchor:
+        return (min(p[0] for p in anchor), min(p[1] for p in anchor),
+                max(p[0] for p in anchor), max(p[1] for p in anchor))
+    if mask is not None:
+        return (mask[1], mask[2], mask[1] + mask[3] * res, mask[2] + mask[4] * res)
+    return None
+
+
 def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                floor_shape='hull', floor_fill='grid',
-               top_shape='hull', top_fill='solid'):
+               top_shape='hull', top_fill='solid',
+               floor_hole=0.0, top_hole=0.0):
     """R62/R73/R74: create <stem>_L<s>-<e>.gcode next to src.
 
     The excerpt starts ON THE BED: layer START prints as the FIRST layer at
@@ -757,6 +824,10 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
     top_shape = 'outline' if str(top_shape).lower().startswith('out') else 'hull'
     floor_fill = 'solid' if str(floor_fill).lower().startswith('sol') else 'grid'
     top_fill = 'solid' if str(top_fill).lower().startswith('sol') else 'grid'
+    # R86.2: centered floor/cap holes, 0 = off (diameter mm)
+    floor_hole = max(0.0, min(float(floor_hole or 0.0), 90.0))
+    top_hole = max(0.0, min(float(top_hole or 0.0), 90.0))
+    notes = []
     a = a_idx                 # first line of layer <start> (its LAYER_MARK)
     b = marks[end] if end < total else n_stream   # exclusive end
     # the cap anchor: layer 'end' complete (falls back to the file's last
@@ -811,11 +882,23 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
     # ---- generated geometry: raft (FLOOR), brim (BRIM), solid cap (TOP) -------
     gen = []            # gcode lines, inserted BEFORE the body (raft/brim)
     gen_top = []        # gcode lines, inserted AFTER the body (cap)
+    fh = None           # R86.2: floor hole (bound below when floor > 0)
     if floor > 0 or brim > 0:
         anchor = _as_poly(hull1)
         if anchor is None and mask1 is None:
             raise ValueError('the range layers carry no extrusion moves - '
                              'nothing to anchor a raft/brim on')
+        # R86.2: centered floor hole (cable feed / E14-E27 lampholder)
+        fh = None
+        if floor_hole > 0 and floor > 0:
+            bb = _anchor_bbox(anchor, mask1, res)
+            if bb:
+                fh = _range_hole_prep(floor_hole, bb, wid, notes, 'floor')
+                if fh:
+                    gen.append('; R2-RANGE floor hole: centered d=%.1fmm, '
+                               'boss %d loops (thick wall)' % (fh['r'] * 2.0, fh['rim']))
+        elif floor_hole > 0:
+            notes.append('floor hole ignored - no FLOOR layers set')
         g = _GenE(gen, e_rel)
         # RAFT: 'floor' solid layers under the section footprint - the hull is
         # offset by half a line width so the raft edge sits flush with the
@@ -845,17 +928,24 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                     for poly in _mask_contours(mask1[0], mask1[1], mask1[2],
                                                mask1[3], mask1[4], res):
                         g.loop(poly, ep, 1200)
-                    for (p, q) in _mask_hatch(mask1[0], mask1[1], mask1[2],
-                                              mask1[3], mask1[4], res,
-                                              spacing, ang):
-                        g.move(p[0], p[1], 4800)
-                        g.line(p[0], p[1], q[0], q[1], eph, 1200)
+                    segs = _mask_hatch(mask1[0], mask1[1], mask1[2],
+                                       mask1[3], mask1[4], res, spacing, ang)
                 else:
                     hull_off = _offset_hull(anchor, wid / 2.0)
                     g.loop(hull_off, ep, 1200)
-                    for (p, q) in _hull_hatch(anchor, spacing, ang):
-                        g.move(p[0], p[1], 4800)
-                        g.line(p[0], p[1], q[0], q[1], eph, 1200)
+                    segs = _hull_hatch(anchor, spacing, ang)
+                if fh:
+                    # R86.2: hole open from layer 1 - the boss ring forms the
+                    # thick wall around it, the hatch stops at its outer edge
+                    for k in range(fh['rim']):
+                        g.loop(_circle(fh['cx'], fh['cy'],
+                                       fh['r'] + wid * (0.5 + k), 40), ep, 1200)
+                    segs = [s for (p, q) in segs
+                            for s in _seg_outside_circle(p, q, fh['cx'],
+                                                         fh['cy'], fh['r_out'])]
+                for (p, q) in segs:
+                    g.move(p[0], p[1], 4800)
+                    g.line(p[0], p[1], q[0], q[1], eph, 1200)
         # BRIM: N loops around the raft/section outline - zero gap, the first
         # loop starts directly at the model wall
         if brim > 0:
@@ -869,6 +959,20 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
 
     hull_n = _as_poly(hull_n)
     t_shape = _shape_ok(top_shape, hull_n, mask_n) if top else None
+    # R86.2: centered cap hole (bridge-first, see docstring)
+    th = None
+    if top_hole > 0:
+        if top <= 0 or t_shape is None:
+            notes.append('cap hole ignored - no TOP layers (or no cap anchor)')
+        else:
+            bb = _anchor_bbox(hull_n, mask_n, res)
+            if bb:
+                th = _range_hole_prep(top_hole, bb, wid, notes, 'cap')
+                if th:
+                    if top < 3:
+                        notes.append('cap hole: TOP auto-raised %d -> 3 layers '
+                                     '(bridge layer + 2 solid)' % top)
+                        top = 3
     if top > 0 and t_shape is not None:
         gt = _GenE(gen_top, e_rel)
         gen_top.append('; R2-RANGE cap: %d %s layer(s), %s fill, over the last layer'
@@ -890,17 +994,32 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                 for poly in _mask_contours(mask_n[0], mask_n[1], mask_n[2],
                                            mask_n[3], mask_n[4], res):
                     gt.loop(poly, ep, 1200)
-                for (p, q) in _mask_hatch(mask_n[0], mask_n[1], mask_n[2],
-                                          mask_n[3], mask_n[4], res,
-                                          spacing, ang):
-                    gt.move(p[0], p[1], 4800)
-                    gt.line(p[0], p[1], q[0], q[1], eph, 1200)
+                segs = _mask_hatch(mask_n[0], mask_n[1], mask_n[2],
+                                   mask_n[3], mask_n[4], res, spacing, ang)
             else:
                 hull_off = _offset_hull(hull_n, wid / 2.0)
                 gt.loop(hull_off, ep, 1200)
-                for (p, q) in _hull_hatch(hull_n, spacing, ang):
-                    gt.move(p[0], p[1], 4800)
-                    gt.line(p[0], p[1], q[0], q[1], eph, 1200)
+                segs = _hull_hatch(hull_n, spacing, ang)
+            if th:
+                if i == 0:
+                    # R86.2 BRIDGE LAYER: the hatch stops AT the hole edge and
+                    # an anchor ring runs exactly on it - every clipped line
+                    # welds onto the ring, so the edge cannot sag into the
+                    # hole and the hole stays OPEN from the first cap layer
+                    segs = [s for (p, q) in segs
+                            for s in _seg_outside_circle(p, q, th['cx'],
+                                                         th['cy'], th['r'])]
+                    gt.loop(_circle(th['cx'], th['cy'], th['r'], 40), ep, 1200)
+                else:
+                    for k in range(th['rim']):
+                        gt.loop(_circle(th['cx'], th['cy'],
+                                        th['r'] + wid * (0.5 + k), 40), ep, 1200)
+                    segs = [s for (p, q) in segs
+                            for s in _seg_outside_circle(p, q, th['cx'],
+                                                         th['cy'], th['r_out'])]
+            for (p, q) in segs:
+                gt.move(p[0], p[1], 4800)
+                gt.line(p[0], p[1], q[0], q[1], eph, 1200)
 
     # ---- prologue: a NORMAL file head with PRINT_START -> full start flow ----
     n_layers = end - start + 1 + floor + top
@@ -915,7 +1034,9 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
         f'; layer {start} prints as the FIRST layer at Z{base_z:g} on the bed'
         + (f' (on a {floor}-layer raft)' if floor else '')
         + (f', {top} solid cap layers on top' if top else '')
-        + (f', brim {brim}' if brim else ''),
+        + (f', brim {brim}' if brim else '')
+        + ((', floor hole d%gmm' % (fh['r'] * 2.0)) if fh else '')
+        + ((', cap hole d%gmm bridge-first' % (th['r'] * 2.0)) if th else ''),
         '; R79: this file AUTO-SELECTS itself after generation (the source file',
         '; selection is replaced - nothing is deleted). AS LEGACY = mesh + purge',
         '; + YOUR pre-print settings (recommended) | AS SLICED = 1:1 (source temps)',
@@ -924,6 +1045,8 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
     ]
     if file_info_line:
         out_lines.append(file_info_line)
+    for _nt in notes:
+        out_lines.append('; R2-RANGE note: %s' % _nt)
     out_lines += [
         f'PRINT_START MATERIAL={material} BED={bed:g} BED_AFTER={bed:g}'
         f' HOTEND_FIRST={hot:g} HOTEND_AFTER={hot:g} LAYER_HEIGHT={lh:g} TOTAL_LAYERS={n_layers}',
@@ -5621,11 +5744,15 @@ def _inset_poly(poly, d):
         # intersection of the two inset edge lines
         a1, b1 = n1[0], n1[1]
         a2, b2 = n2[0], n2[1]
-        c1 = a1 * p1[0] + b1 * p1[1] - d
-        c2 = a2 * p1[0] + b2 * p1[1] - d
+        # R86.2 sign fix: for a CCW polygon the LEFT normal points INWARD,
+        # so offsetting by +d along the normal shrinks the polygon. (The old
+        # '-d' outsized CCW input -> the area guard returned None every time
+        # and callers silently skipped the inner wall entirely.)
+        c1 = a1 * p1[0] + b1 * p1[1] + d
+        c2 = a2 * p1[0] + b2 * p1[1] + d
         det = a1 * b2 - a2 * b1
         if abs(det) < 1e-12:
-            out.append((p1[0] - (n1[0] + n2[0]) * d / 2, p1[1] - (n1[1] + n2[1]) * d / 2))
+            out.append((p1[0] + (n1[0] + n2[0]) * d / 2, p1[1] + (n1[1] + n2[1]) * d / 2))
             continue
         x = (c1 * b2 - c2 * b1) / det
         y = (a1 * c2 - a2 * c1) / det
@@ -5912,7 +6039,8 @@ def make_cable_ties(count=6, length=120.0, width=8.0, layers=3, variant='RATCHET
 def make_angles(count=2, angle_deg=90, leg_a=60.0, leg_b=60.0, width=25.0,
                 layers=6, holes=2, hole_d=4.0, countersink=True, stiffener=1,
                 flat=False, layer_h=0.2, first_h=0.28, material='PLA',
-                bed=None, bed_margin=6.0, nozzle=0.6, out_dir='.', version=1):
+                bed=None, bed_margin=6.0, nozzle=0.6, out_dir='.', version=1,
+                walls=2, infill=100.0, ironing=False):
     """R86: angle plates (Winkel) + flat connectors (Flachenverbinder).
 
     ANGLE  - flat plate, two legs at angle_deg (30..170), leg lengths a/b
@@ -5936,6 +6064,10 @@ def make_angles(count=2, angle_deg=90, leg_a=60.0, leg_b=60.0, width=25.0,
     holes = max(0, min(int(holes), 6))
     layer_h = max(0.06, min(float(layer_h), 0.34))
     first_h = max(0.08, min(float(first_h), 0.42))
+    # R86.2: walls (concentric loops), infill % (100 = solid), ironing pass
+    walls = max(1, min(int(walls), 6))
+    infill = max(20.0, min(float(infill), 100.0))
+    ironing = bool(ironing)
     notes = []
     if flat:
         stiffener = 0                      # a gusset makes no sense on a strip
@@ -5989,6 +6121,12 @@ def make_angles(count=2, angle_deg=90, leg_a=60.0, leg_b=60.0, width=25.0,
         bed = (0.0, -3.0, 244.0, 238.0)
     wid = max(0.4, nozzle * 1.08)
     fil = FIL_AREA
+    # R86.2: the walls must fit the leg (2 x walls x line width + 4mm material)
+    max_walls = max(1, int((width / 2.0 - 2.0) / wid))
+    if walls > max_walls:
+        notes.append('%d walls do not fit the %.0fmm leg - reduced to %d'
+                     % (walls, width, max_walls))
+        walls = max_walls
 
     # ---- geometry (local frame, later rotated per copy) --------------------
     uA = (1.0, 0.0)
@@ -6085,11 +6223,12 @@ def make_angles(count=2, angle_deg=90, leg_a=60.0, leg_b=60.0, width=25.0,
       ('flat connector' if flat else 'angle'))
     a(TAG)
     a('; %d plate(s): %s %s, legs %.0f/%.0fmm, width %.0fmm, %d layers @%.2gmm, '
-      'holes %d/%d x %.1fmm%s, stiffener %s'
+      'holes %d/%d x %.1fmm%s, stiffener %s, walls %d, infill %g%%, ironing %s'
       % (count, kind, ('%g deg' % theta) if not flat else '(180 straight)',
          la, lb, width, layers, layer_h, len(holes_a), len(holes_b), hole_d,
          ' CS%.1f' % cs_d2 if countersink else '',
-         ('rib %d layers' % rib_layers) if tri else 'none'))
+         ('rib %d layers' % rib_layers) if tri else 'none',
+         walls, infill, 'on' if ironing else 'off'))
     a('; holes: auto-arranged, diameter clamped to the leg width, count '
       'auto-reduced when the leg is too short')
 
@@ -6114,10 +6253,15 @@ def make_angles(count=2, angle_deg=90, leg_a=60.0, leg_b=60.0, width=25.0,
             L.append(';TYPE:Outer wall')
             _emit_loop(pen, [(ox + px, oy + py) for px, py in outline], e_wall,
                        1500 if first else 2400)
-            inner = _inset_poly(outline, wid)
-            if inner:
+            # R86.2: WALLS = 1 outer + (walls-1) inner concentric loops
+            wall_poly = outline
+            for _k in range(1, walls):
+                _npl = _inset_poly(wall_poly, wid)
+                if not _npl or len(_npl) < 3:
+                    break
+                wall_poly = _npl
                 L.append(';TYPE:Inner wall')
-                _emit_loop(pen, [(ox + px, oy + py) for px, py in inner], e_wall,
+                _emit_loop(pen, [(ox + px, oy + py) for px, py in wall_poly], e_wall,
                            1500 if first else 2700)
             # hole walls + keep-outs
             keeps = []
@@ -6130,10 +6274,26 @@ def make_angles(count=2, angle_deg=90, leg_a=60.0, leg_b=60.0, width=25.0,
                 _emit_loop(pen, _circle(ox + hx, oy + hy, d / 2.0), e_wall,
                            1500 if first else 2400)
             L.append(';TYPE:Internal solid infill')
+            # R86.2: INFILL % - line spacing wid at 100 (solid), wider below;
+            # the hatch runs INSIDE the walls (no overlap with the loops)
+            _sp = wid * (100.0 / infill)
             _emit_hatch(pen, _poly_hatch(
-                [(ox + px, oy + py) for px, py in outline],
-                wid, 45.0 if li % 2 else 135.0, keep_circles=keeps), e_wall,
+                [(ox + px, oy + py) for px, py in wall_poly],
+                _sp, 45.0 if li % 2 else 135.0, keep_circles=keeps), e_wall,
                 1500 if first else 2700)
+        # R86.2: IRONING - one slow, low-flow pass over the top surface
+        # (with a rib: over the rib's top; the face around it stays as printed)
+        if ironing and li == total_layers:
+            _ipoly = ((tri2 if (stiffener == 2 and plate_z > layers + rib_layers // 2)
+                       else tri) if (tri and in_rib) else wall_poly)
+            _d_ir = (cs_d2 if countersink else hole_d)
+            _kir = [(ox + hx, oy + hy, _d_ir / 2.0 + wid * 0.8)
+                    for (hx, hy, _ha) in hole_pos]
+            L.append(';TYPE:Ironing')
+            _emit_hatch(pen, _poly_hatch(
+                [(ox + px, oy + py) for px, py in _ipoly],
+                max(wid * 0.8, 0.45), 90.0, keep_circles=_kir),
+                0.15 * layer_h * wid / fil, 1500)
         L.append('EXCLUDE_OBJECT_END NAME=PLATE_%d' % (idx + 1))
 
     for li in range(1, total_layers + 1):
@@ -6175,6 +6335,7 @@ def make_angles(count=2, angle_deg=90, leg_a=60.0, leg_b=60.0, width=25.0,
             'legs': (la, lb), 'width': width, 'layers': total_layers,
             'holes': '%d+%d' % (len(holes_a), len(holes_b)), 'hole_d': hole_d,
             'cs_d': cs_d2 if countersink else 0, 'stiffener': stiffener,
+            'walls': walls, 'infill': infill, 'ironing': ironing,
             'grid': '%dx%d' % (cols, rr), 'notes': notes}
     return out, info
 
@@ -7310,6 +7471,15 @@ def watch(directory, interval=5.0, once=False):
                 rff = 'solid' if _rng_flag('range_floor_fill', '0') else 'grid'
                 rts = 'outline' if _rng_flag('range_top_shape', '0') else 'hull'
                 rtf = 'solid' if _rng_flag('range_top_fill', '1') else 'grid'
+                # R86.2: centered floor/cap holes (mm, 0 = off)
+                try:
+                    rfh = float(rv.get('range_floor_hole', 0) or 0)
+                except (TypeError, ValueError):
+                    rfh = 0.0
+                try:
+                    rth = float(rv.get('range_top_hole', 0) or 0)
+                except (TypeError, ValueError):
+                    rth = 0.0
                 src_path = os.path.join(directory, rsrc.strip())
                 if rsrc and os.path.isfile(src_path):
                     try:
@@ -7334,10 +7504,11 @@ def watch(directory, interval=5.0, once=False):
                                                  brim=int(float(rbrim)),
                                                  floor_shape=rfs, floor_fill=rff,
                                                  top_shape=rts, top_fill=rtf,
+                                                 floor_hole=rfh, top_hole=rth,
                                                  version=_gv62)
                             print(f'[range] {os.path.basename(out)}: layers {rs}..{re_} ({nl} layers, '
                                   f'floor {rflo} {rfs}/{rff}, top {rtop} {rts}/{rtf}, '
-                                  f'brim {rbrim})', flush=True)
+                                  f'brim {rbrim}, holes f{rfh:g}/t{rth:g}mm)', flush=True)
                             # R79: the generated excerpt REPLACES the pending
                             # selection (field log .62: confirming the dialog
                             # after generating printed the SOURCE file). The
@@ -7638,6 +7809,9 @@ def watch(directory, interval=5.0, once=False):
                         hole_d=_vfa('angle_hole_d', 4.0),
                         countersink=_vba('angle_countersink', True),
                         stiffener=max(0, min(int(_vfa('angle_stiffener', 1)), 2)),
+                        walls=max(1, min(int(_vfa('angle_walls', 2)), 6)),
+                        infill=max(20.0, min(_vfa('angle_infill', 100.0), 100.0)),
+                        ironing=_vba('angle_ironing', False),
                         flat=_vba('angle_flat', False),
                         layer_h=_vfa('angle_layer_h', 0.2),
                         material=str(rv.get('material', 'PLA') or 'PLA'),

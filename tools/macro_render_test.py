@@ -137,6 +137,8 @@ def build_printer(kamp=False, objs=None, excl=None, old_klipper=False, bare_idle
     'fan': M({'speed': 0.5}),
     'led_effect r2_idle': M({}),           # R46: led_effect library installed
     'neopixel printer_leds': M({}),        # R46: 5-pixel chain (index 5 = nozzle)
+    'neopixel nozzle_led': M({}),          # R86.2: split chain (EBB42) - gated by nozzle_split
+    'led_effect r2_nozzle_on_split': M({}),  # R86.2: split work-light effect
     'input_shaper': M({'shaper_type_x':'zv','shaper_freq_x':52.3,'shaper_type_y':'mzv','shaper_freq_y':41.7}),
     'filament_switch_sensor filament_sensor': M({'enabled':True,'filament_detected':True}),
     'gcode_macro _STATE': M(state_vars),
@@ -6147,6 +6149,163 @@ for _k86 in range(5):
 tests.append(('R86 generators: 10 files in < 3s single-pass (Pi-friendly)',
     _t86.time() - _t086 < 3.0, '%.2fs' % (_t86.time() - _t086)))
 
+
+# =====================================================================================
+# R86.2: range floor/top holes + angle walls/infill/ironing + nozzle LED split
+# =====================================================================================
+import re as _re862, math as _math862, tempfile as _tf862, os as _os862
+
+# --- (1) SET_LAYER_RANGE renders the hole params, paced ---
+_sr862 = get_body('macros/08_print_start_stop.cfg', 'SET_LAYER_RANGE')
+out = render(_sr862, {'START': '3', 'END': '6', 'FLOOR': '3', 'TOP': '3',
+                      'FLOOR_HOLE': '24.5', 'TOP_HOLE': '28'})
+_sv862 = [l.strip() for l in out.split(chr(10))
+          if l.strip().startswith('SAVE_VARIABLE') or l.strip() == '_PACE']
+_adj862 = sum(1 for i in range(len(_sv862) - 1)
+              if _sv862[i].startswith('SAVE_VARIABLE') and _sv862[i + 1].startswith('SAVE_VARIABLE'))
+tests.append(('R86.2 SET_LAYER_RANGE: 13 writes incl. holes, paced, no adjacency',
+    'VARIABLE=range_floor_hole VALUE=24.5' in out and 'VARIABLE=range_top_hole VALUE=28.0' in out
+    and _adj862 == 0 and _sv862.count('_PACE') >= 12 and len([l for l in _sv862 if l.startswith('SAVE_VARIABLE')]) == 13,
+    'writes %d pace %d adjacent %d' % (len([l for l in _sv862 if l.startswith('SAVE_VARIABLE')]),
+                                       _sv862.count('_PACE'), _adj862)))
+tests.append(('R86.2 SET_LAYER_RANGE: hole announce lines (E14/E27 hint, bridge-first)',
+    'floor hole 24.5mm centered' in out and 'top hole 28.0mm centered' in out
+    and 'BRIDGE-FIRST' in out and 'E14 ~15mm' in out, out[:150]))
+out = render(_sr862, {'START': '3', 'END': '6'})
+tests.append(('R86.2 SET_LAYER_RANGE: hole defaults 0 (no holes, unchanged path)',
+    'VARIABLE=range_floor_hole VALUE=0.0' in out and 'VARIABLE=range_top_hole VALUE=0.0' in out,
+    out[:120]))
+
+# --- (2) GEN_ANGLES with WALLS/INFILL/IRONING ---
+out = render(get_body(_gen86, 'GEN_ANGLES'),
+             {'WALLS': '4', 'INFILL': '50', 'IRONING': '1', 'ANGLE': '90'})
+tests.append(('R86.2 GEN_ANGLES: WALLS/INFILL/IRONING saved + paced',
+    'VARIABLE=angle_walls VALUE=4' in out and 'VARIABLE=angle_infill VALUE=50.0' in out
+    and 'VARIABLE=angle_ironing VALUE=True' in out and out.count('_PACE') >= 13, out[:150]))
+out = render(get_body(_gen86, 'ANGLE_INFO'))
+tests.append(('R86.2 ANGLE_INFO: walls/infill/ironing reported',
+    'walls 2 loop(s)' in out and 'infill 100%' in out and 'ironing off' in out, out[:200]))
+
+# --- (3) LCD additions ---
+_lcd862 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R86.2 LCD: range hole inputs + Create passes them',
+    all(k in _lcd862 for k in ['[menu __main __preprint __rng __fho]', '[menu __main __preprint __rng __tho]',
+        'VARIABLE=range_floor_hole', 'VARIABLE=range_top_hole',
+        "FLOOR_HOLE={printer['save_variables'].variables.range_floor_hole|default(0)|float}",
+        "TOP_HOLE={printer['save_variables'].variables.range_top_hole|default(0)|float}"]), 'ids'))
+tests.append(('R86.2 LCD: angle Walls/Infill/Ironing items',
+    all(k in _lcd862 for k in ['[menu __main __angle __set __wal]', '[menu __main __angle __set __inf]',
+        '[menu __main __angle __set __iro __on]', '[menu __main __angle __set __iro __off]',
+        'VARIABLE=angle_walls', 'VARIABLE=angle_infill', 'VARIABLE=angle_ironing']), 'ids'))
+tests.append(('R86.2 LCD: hole input names <=16 incl. worst-case value',
+    len('Top hole: 80.0mm') <= 16 and len('Fl.hole: 80.0mm') <= 16 and len('Walls:  6') <= 16
+    and len('Infill: 100%') <= 16, 'name lengths'))
+
+# --- (4) postproc geometry: range holes ---
+_d862 = tempfile.mkdtemp(prefix='r862_')
+_ln862 = ['; R2-POSTPROC v4', '_FILE_INFO MATERIAL=PLA TOTAL_LAYERS=8 BED=60 HOTEND=210',
+          'G90', 'M82', 'G28', 'G1 Z0.2 F600']
+_e862 = 0.0
+for _ly in range(8):
+    _ln862.append('LAYER_MARK')
+    _ln862.append(';Z:%.3f' % (0.2 + _ly * 0.2))
+    for (_x0, _y0, _x1, _y1) in [(50, 50, 100, 50), (100, 50, 100, 100),
+                                  (100, 100, 50, 100), (50, 100, 50, 50)]:
+        _e862 += _math862.hypot(_x1 - _x0, _y1 - _y0) * 0.05
+        _ln862.append('G1 X%g Y%g E%.4f F1200' % (_x1, _y1, _e862))
+_src862 = _os862.path.join(_d862, 'src_rng.gcode')
+open(_src862, 'w').write(chr(10).join(_ln862) + chr(10))
+_c862, _n862 = 75.0, 75.0
+_o862, _ = _pp.make_range(_src862, 3, 6, floor=3, top=3,
+                          floor_hole=15.0, top_hole=28.0)
+_t862 = open(_o862).read()
+_raft862 = _t862[_t862.index('R2-RANGE raft'):_t862.index('PRINT_START')]
+_bad862 = sum(1 for _m in _re862.finditer(r'G1 X([\d.]+) Y([\d.]+) E([\d.]+)', _raft862)
+              if float(_m.group(3)) > 0 and _math862.hypot(float(_m.group(1)) - _c862, float(_m.group(2)) - _c862) < 7.3)
+tests.append(('R86.2 range: floor hole open (nothing extrudes inside r-0.2)',
+    _bad862 == 0 and 'R2-RANGE floor hole: centered d=15.0mm' in _t862, 'inside %d' % _bad862))
+_cap862 = _t862[_t862.index('R2-RANGE cap:'):]
+_lms862 = _cap862.split('LAYER_MARK   ; R2-RANGE cap')
+tests.append(('R86.2 range: cap hole bridge-first (ring on layer 1, open 1-3)',
+    len(_lms862) == 4 and all(
+        sum(1 for _m in _re862.finditer(r'G1 X([\d.]+) Y([\d.]+) E([\d.]+)', _lms862[i])
+            if float(_m.group(3)) > 0 and
+            _math862.hypot(float(_m.group(1)) - _c862, float(_m.group(2)) - _c862) < 13.8) == 0
+        for i in (1, 2, 3)), 'layers %d' % (len(_lms862) - 1)))
+_o862b, _ = _pp.make_range(_src862, 3, 6, floor=2, floor_hole=45.0)
+_tb862 = open(_o862b).read()
+tests.append(('R86.2 range: oversized hole auto-clamps with a note',
+    'clamped to' in _tb862 and 'R2-RANGE note' in _tb862, [l for l in _tb862.split(chr(10)) if 'note' in l][:1]))
+_o862c, _ = _pp.make_range(_src862, 3, 6, top=1, top_hole=20.0)
+tests.append(('R86.2 range: top hole auto-raises TOP to 3',
+    'TOP auto-raised 1 -> 3' in open(_o862c).read(), ''))
+_o862d, _ = _pp.make_range(_src862, 3, 6, top_hole=20.0)
+tests.append(('R86.2 range: top hole without TOP reports, no crash',
+    'cap hole ignored - no TOP layers' in open(_o862d).read(), ''))
+
+# --- (5) postproc geometry: angle walls/infill/ironing ---
+_o862e, _i862e = _pp.make_angles(count=1, angle_deg=90, leg_a=60, leg_b=60, width=25,
+                                 layers=6, holes=2, hole_d=4, walls=4, infill=50,
+                                 ironing=True, out_dir=_d862, bed=(0.0, -3.0, 244.0, 238.0))
+_te862 = open(_o862e).read()
+_seg862 = _te862.split(';LAYER_CHANGE')[3]
+tests.append(('R86.2 angles: walls=4 -> 3 wall loops + 4 hole circles per layer',
+    _seg862.count(';TYPE:Outer wall') == 1 and _seg862.count(';TYPE:Inner wall') == 7,
+    'outer %d inner %d' % (_seg862.count(';TYPE:Outer wall'), _seg862.count(';TYPE:Inner wall'))))
+tests.append(('R86.2 angles: ironing section on the top layer',
+    _te862.count(';TYPE:Ironing') >= 1 and 'APPLY_TYPE TYPE=IRONING' in _te862, ''))
+_o862f, _ = _pp.make_angles(count=1, angle_deg=90, leg_a=60, leg_b=60, width=25,
+                            layers=6, holes=2, hole_d=4, infill=50,
+                            out_dir=_d862, bed=(0.0, -3.0, 244.0, 238.0))
+_tf862a = open(_o862f).read()          # read NOW - the next build overwrites V01
+_o862g, _ = _pp.make_angles(count=1, angle_deg=90, leg_a=60, leg_b=60, width=25,
+                            layers=6, holes=2, hole_d=4, infill=100,
+                            out_dir=_d862, bed=(0.0, -3.0, 244.0, 238.0))
+_tf862b = open(_o862g).read()
+def _infill862(txt, n=3):
+    _s = txt.split(';LAYER_CHANGE')[n]
+    _i = _s.split(';TYPE:Internal solid infill')[1].split(';TYPE:')[0]
+    return len([l for l in _i.split(chr(10)) if l.startswith('G1')])
+tests.append(('R86.2 angles: infill 50% halves the hatch moves',
+    _infill862(_tf862a) < _infill862(_tf862b) * 0.65,
+    '%d vs %d' % (_infill862(_tf862a), _infill862(_tf862b))))
+_o862h, _i862h = _pp.make_angles(count=1, width=8, layers=4, holes=0, walls=6,
+                                 out_dir=_d862, bed=(0.0, -3.0, 244.0, 238.0))
+tests.append(('R86.2 angles: walls auto-reduce on a narrow leg (+note)',
+    any('walls do not fit' in str(x) for x in _i862h['notes']), str(_i862h['notes'])[:120]))
+
+# --- (6) nozzle LED split (03_leds.cfg) ---
+_led862 = open('macros/03_leds.cfg', encoding='utf-8').read()
+tests.append(('R86.2 leds: split effect shipped (commented) + header doc',
+    '#[led_effect r2_nozzle_on_split]' in _led862 and 'SET_NOZZLE_SPLIT' in _led862
+    and 'max ~15' in _led862 or 'Max LEDs' in _led862 or 'EBB42' in _led862, ''))
+save_vars['nozzle_split'] = 1
+out = render(get_body('macros/03_leds.cfg', '_NOZZLE_SET'), {'ON': '1'})
+tests.append(('R86.2 _NOZZLE_SET split=1 -> writes the EBB chain (no INDEX=5)',
+    'SET_LED LED=nozzle_led RED=' in out and 'INDEX=5' not in out, out[:120]))
+save_vars['nozzle_split'] = 0
+out = render(get_body('macros/03_leds.cfg', '_NOZZLE_SET'), {'ON': '1'})
+tests.append(('R86.2 _NOZZLE_SET split=0 -> unchanged LED 5 path',
+    'SET_LED LED=printer_leds INDEX=5' in out, out[:120]))
+save_vars['nozzle_split'] = 1
+out = render(get_body('macros/03_leds.cfg', 'SET_LED_STATE'), {'STATE': 'printing'})
+tests.append(('R86.2 SET_LED_STATE split: work light via _split effect',
+    'EFFECT=r2_nozzle_on_split' in out, out[:160]))
+out = render(get_body('macros/03_leds.cfg', 'SET_NOZZLE_SPLIT'), {'STATE': '1'})
+tests.append(('R86.2 SET_NOZZLE_SPLIT STATE=1 persisted',
+    'SAVE_VARIABLE VARIABLE=nozzle_split VALUE=1' in out and 'EBB42 PD3' in out, out[:140]))
+out = render(get_body('macros/03_leds.cfg', 'SET_NOZZLE_SPLIT'), {'STATE': '7'})
+tests.append(('R86.2 SET_NOZZLE_SPLIT bad value -> usage hint',
+    'SET_NOZZLE_SPLIT STATE=1' in out and 'SAVE_VARIABLE' not in out, out[:140]))
+save_vars['nozzle_split'] = 0
+
+# --- (7) printer.cfg.example electronics template ---
+_pc862 = open('printer.cfg.example', encoding='utf-8').read()
+tests.append(('R86.2 example cfg: EBB/U2C/relay/nozzle-LED templates present',
+    all(k in _pc862 for k in ['#[mcu EBB]', 'canbus_uuid:', 'EBB:PD0', 'EBB:PB13',
+        'EBB:PA0', 'EBB:PA1', 'EBB:PB8', 'EBB:PD3', '#[output_pin power_hold]',
+        'PRINTER_POWER_OFF', 'shutdown_value: 0', 'bitrate 1000000',
+        'SET_NOZZLE_SPLIT STATE=1']), 'ids'))
 
 fails = 0
 for name, ok, info in tests:
