@@ -74,7 +74,7 @@ def d_state_machine():
     box(190,85,100,26,'paused',colors.HexColor('#c79100')); box(190,12,100,26,'filament',TEAL)
     box(15,12,90,26,'finished',PURPLE)
     arrow(105,168,190,168,'PRINT_START',0,8); arrow(290,168,355,168,'decision',0,8)
-    arrow(405,155,405,111,'file released',58,0); arrow(355,98,290,98,'PAUSE / M600',0,8)
+    arrow(405,155,405,111,'file released',8,7); arrow(355,98,290,98,'PAUSE / M600',0,8)
     arrow(290,85,355,85,'RESUME',0,-11); arrow(240,85,240,38,'runout / M600',8,0)
     arrow(240,38,240,85,'RESUME (purge)',0,-13)
     arrow(355,90,105,30,'PRINT_END / legacy end',26,26)
@@ -88,15 +88,15 @@ def d_start_stages():
             ('Temp ok','-','r2_hot'),('Purge/Prime','leveling','r2_prime'),('PRINT','blue wave','r2_printing')]
     d=Drawing(480,120); x=8
     for i,(n,led,snd) in enumerate(stages):
-        w=64
+        w=57
         d.add(Rect(x,55,w,30,rx=5,fill=1,stroke=0,fillColor=BLUE if i<len(stages)-1 else GREEN))
         d.add(String(x+w/2,75,n,fontName='DVSB',fontSize=7.6,textAnchor='middle',fillColor=colors.white))
         d.add(String(x+w/2,64,'LED: '+led,fontName='DVS',fontSize=6.3,textAnchor='middle',fillColor=colors.HexColor('#d7e3f4')))
         d.add(String(x+w/2,43,snd,fontName='DVS',fontSize=6.6,textAnchor='middle',fillColor=GRAY))
         if i<len(stages)-1:
-            d.add(Line(x+w+1,70,x+w+9,70,strokeColor=GRAY,strokeWidth=1.2))
-            d.add(Polygon(points=[x+w+9,70,x+w+4,72.4,x+w+4,67.6],fillColor=GRAY,stroke=0))
-        x+=w+10
+            d.add(Line(x+w+1,70,x+w+8,70,strokeColor=GRAY,strokeWidth=1.2))
+            d.add(Polygon(points=[x+w+8,70,x+w+3,72.4,x+w+3,67.6],fillColor=GRAY,stroke=0))
+        x+=w+8
     d.add(String(240,26,'parked HIGH while heating · nozzle never waits on the bed · overrides applied before the file runs',
                  fontName='DVS',fontSize=7.5,textAnchor='middle',fillColor=GRAY))
     d.add(String(240,97,'Print start choreography (identical for every start mode)',fontName='DVSB',fontSize=9.5,textAnchor='middle',fillColor=BLUE))
@@ -110,7 +110,7 @@ def d_l1l2():
     for i in range(5):
         d.add(Line(ox+i*100,oy,ox+i*100,oy+3,strokeColor=colors.black))
         d.add(String(ox+i*100,oy-10,f'obj {i+1}' if i else 'obj 1',fontName='DVS',fontSize=7,textAnchor='middle'))
-    d.add(String(ox+w/2,6,'print progress — sequential "print by object"',fontName='DVS',fontSize=7.5,textAnchor='middle',fillColor=GRAY))
+    d.add(String(ox+w/2,2,'print progress — sequential "print by object"',fontName='DVS',fontSize=7,textAnchor='middle',fillColor=GRAY))
     yL1,yL2,ys1,ys2=oy+30,oy+88,oy+12,oy+54
     poly=[]; x=ox
     for i in range(4):
@@ -134,7 +134,7 @@ def d_seq():
     d.add(Line(ox,oy,ox+w,oy,strokeColor=colors.black,strokeWidth=1))
     yts,ytl=oy+96,oy+30
     d.add(Line(ox,yts,ox+w,yts,strokeColor=GREEN,strokeWidth=0.8,strokeDashArray=[4,3]))
-    d.add(String(ox+w+2,yts-2,'high-water ≥1.6',fontName='DVS',fontSize=6.6,fillColor=GREEN))
+    d.add(String(ox+w-2,yts+3,'high-water ≥1.6',fontName='DVS',fontSize=6.6,textAnchor='end',fillColor=GREEN))
     d.add(Line(ox,ytl,ox+w,ytl,strokeColor=ORANGE,strokeWidth=0.8,strokeDashArray=[4,3]))
     d.add(String(ox+w+2,ytl-2,'Z < 1.5',fontName='DVS',fontSize=6.6,fillColor=ORANGE))
     d.add(Line(ox+10,ytl+6,ox+10,oy+106,strokeColor=BLUE,strokeWidth=1.8))
@@ -157,14 +157,15 @@ def d_calibration():
     steps=['1 Shaper','2 Probe Z','3 Screws','4 Extruder','5 PID','6 Mesh','7 PA','8 Flow']
     d=Drawing(480,62); x=6
     for i,s in enumerate(steps):
-        w=55
+        w=54
         d.add(Rect(x,22,w,24,rx=5,fill=1,stroke=0,fillColor=BLUE if i%2==0 else colors.HexColor('#2f6db3')))
         d.add(String(x+w/2,31,s,fontName='DVSB',fontSize=7,textAnchor='middle',fillColor=colors.white))
         if i<len(steps)-1:
-            d.add(Line(x+w+1,34,x+w+5.5,34,strokeColor=GRAY,strokeWidth=1.2))
-            d.add(Polygon(points=[x+w+5.5,34,x+w+3,35.4,x+w+3,32.6],fillColor=GRAY,stroke=0))
-        x+=w+6
-    d.add(String(240,10,'once per printer (left -> right) - then per material: Temp Tower + Ironing card',fillColor=GRAY))
+            d.add(Line(x+w+1,34,x+w+4.5,34,strokeColor=GRAY,strokeWidth=1.2))
+            d.add(Polygon(points=[x+w+4.5,34,x+w+2.5,35.4,x+w+2.5,32.6],fillColor=GRAY,stroke=0))
+        x+=w+5
+    d.add(String(240,10,'once per printer (left -> right) - then per material: Temp Tower + Ironing card',
+                 fontName='DVS', fontSize=6.8, textAnchor='middle', fillColor=GRAY))
     return d
 
 def d_menu():
@@ -193,26 +194,27 @@ def d_menu():
     return d
 
 def d_led():
-    d=Drawing(470,150)
-    d.add(String(235,138,'LED states + sound volume — the audio-visual vocabulary',fontName='DVSB',fontSize=9.5,textAnchor='middle',fillColor=BLUE))
+    d=Drawing(470,168)
+    d.add(String(235,158,'LED states + sound volume — the audio-visual vocabulary',fontName='DVSB',fontSize=9.5,textAnchor='middle',fillColor=BLUE))
     states=[('idle','#0a1f4d','breathe'),('waiting','#1c4e8c','blink'),('heating','#b34700','chase'),
             ('homing','#00666d','scanner'),('leveling','#4d0033','scanner'),('pid','#1c4e8c','blink'),
             ('printing','#00337a','wave'),('paused','#4d3300','breathe'),('filament','#00333d','chase'),
             ('alarm','#b30000','strobe'),('finished','#1e7d32','twinkle'),('boot','#1c4e8c','scanner')]
-    x=6
-    for n,hx,pat in states:
+    for k,(n,hx,pat) in enumerate(states):
+        row, col = divmod(k, 6)
+        x = 10 + col * 77
+        cy = 128 - row * 38
         c=colors.HexColor(hx)
-        for i in range(4): d.add(Circle(x+i*11,106,4.2,fillColor=c,stroke=0))
-        d.add(String(x+16,89,n,fontName='DVSB',fontSize=6.8,textAnchor='middle',fillColor=colors.black))
-        d.add(String(x+16,80,pat,fontName='DVS',fontSize=6.2,textAnchor='middle',fillColor=GRAY))
-        x+=58
-    d.add(String(6,52,'Sound volume dynamics (M300 V):',fontName='DVSB',fontSize=7.5,fillColor=colors.black))
+        for i in range(4): d.add(Circle(x+i*11,cy,4.2,fillColor=c,stroke=0))
+        d.add(String(x+16,cy-15,n,fontName='DVSB',fontSize=6.8,textAnchor='middle',fillColor=colors.black))
+        d.add(String(x+16,cy-24,pat,fontName='DVS',fontSize=6.2,textAnchor='middle',fillColor=GRAY))
+    d.add(String(6,38,'Sound volume dynamics (M300 V):',fontName='DVSB',fontSize=7.5,fillColor=colors.black))
     x=6
     for n,v in [('ticks 0.15',15),('mid 0.35',35),('confirm 0.44',44),('alarm 0.5',50)]:
-        d.add(Rect(x,26,90,12,rx=3,fill=1,stroke=0,fillColor=LGRAY))
-        d.add(Rect(x,26,90*v/50,12,rx=3,fill=1,stroke=0,fillColor=BLUE))
-        d.add(String(x+4,29.5,n,fontName='DVS',fontSize=6.4,fillColor=colors.white)); x+=112
-    d.add(String(6,12,'12 frame states · TOGGLE_LEDS off/on · nozzle LED 5: OWN switch — AUTO/ON/OFF + live dimming & color',
+        d.add(Rect(x,14,90,12,rx=3,fill=1,stroke=0,fillColor=LGRAY))
+        d.add(Rect(x,14,90*v/50,12,rx=3,fill=1,stroke=0,fillColor=BLUE))
+        d.add(String(x+4,17.5,n,fontName='DVS',fontSize=6.4,fillColor=colors.white)); x+=112
+    d.add(String(6,2,'12 frame states · TOGGLE_LEDS off/on · nozzle LED 5: OWN switch — AUTO/ON/OFF + live dimming & color',
                  fontName='DVS',fontSize=7,fillColor=GRAY))
     return d
 
@@ -237,8 +239,8 @@ def d_park():
            ('resume: XY first, then Z F300','slow — cannot rip the print off')]
     y=160
     for a,b in notes:
-        d.add(String(350,y,a,fontName='DVSB',fontSize=7,fillColor=colors.black))
-        d.add(String(350,y-9,b,fontName='DVS',fontSize=6.6,fillColor=GRAY)); y-=30
+        d.add(String(344,y,a,fontName='DVSB',fontSize=7,fillColor=colors.black))
+        d.add(String(344,y-9,b,fontName='DVS',fontSize=6.6,fillColor=GRAY)); y-=30
     return d
 
 def d_runout():
@@ -265,7 +267,7 @@ def d_mesh():
     d.add(Rect(10,60,120,30,rx=6,fill=1,stroke=0,fillColor=BLUE))
     d.add(String(70,74,'_CALIBRATE_MESH',fontName='DVSB',fontSize=7.4,textAnchor='middle',fillColor=colors.white))
     d.add(String(70,65,'PROFILE=r2',fontName='DVS',fontSize=6.6,textAnchor='middle',fillColor=colors.white))
-    qs=[('KAMP installed + objects + ON?','KAMP adaptive (margin in KAMP_Settings.cfg)',GREEN,160),
+    qs=[('KAMP installed + objects + ON?','KAMP adaptive (KAMP cfg)',GREEN,160),
         ('native ADAPTIVE + objects?','Klipper adaptive, margin 5',ORANGE,270),
         ('else','full bed',RED,380)]
     for q,a,c,xx in qs:
@@ -346,7 +348,7 @@ def d_supply_target():
     box(12,120,86,64,'24 V PSU\nV+  V-',GRAY)
     d.add(Line(98,168,290,168,strokeColor=RED,strokeWidth=2)); d.add(String(120,172,'+24 V (red)',fontName='DVS',fontSize=7,fillColor=RED))
     box(290,128,96,56,'DCDC 24V->5V\n>=3 A\n(5.0-5.2 V!)',GREEN)
-    d.add(Line(386,168,455,168,strokeColor=RED,strokeWidth=2)); d.add(String(390,172,'+5 V (Pi)',fontName='DVS',fontSize=7,fillColor=RED))
+    d.add(Line(386,168,455,168,strokeColor=RED,strokeWidth=2)); d.add(String(390,199,'+5 V (Pi)',fontName='DVS',fontSize=7,fillColor=RED))
     box(120,128,130,56,'SKR mini E3 v3.0\nVIN+ / VIN-\nUART to Pi (3 wires)',BLUE)
     box(372,150,98,44,'Pi Zero 2 W\nUSB-PWR or GPIO\n5V (2/4) + GND (6)',ORANGE,fs=6.8)
     box(372,86,98,44,'5x Neopixel\nexternal 5 V\ndata: PA8 + resistor',PURPLE,fs=6.8)
@@ -516,17 +518,17 @@ def d_file_flow():
     box(160, 168, 160, 20, 'upload / copy / scp', 'Mainsail · USB · scp', colors.HexColor('#2f6db3'))
     box(160, 136, 160, 20, 'gcodes folder', 'systemd service watches (1 s)', GRAY)
     box(120, 100, 240, 22, 'r2_postproc.py — the interceptor', '', BLUE)
-    box(8, 58, 145, 26, 'G-code', 'tagged: LAYER_MARK +', GREEN)
-    d.add(String(80, 62, 'APPLY_TYPE + _FILE_INFO', fontName='DVS', fontSize=6.0, textAnchor='middle', fillColor=colors.white))
+    box(8, 54, 145, 34, 'G-code', 'tagged: LAYER_MARK +', GREEN)
+    d.add(String(80, 56, 'APPLY_TYPE + _FILE_INFO', fontName='DVS', fontSize=6.0, textAnchor='middle', fillColor=colors.white))
     box(160, 52, 150, 32, 'images / text', 'png/jpg/svg/pdf/txt ->', GREEN)
     d.add(String(235, 56, 'pen-plot file in place', fontName='DVS', fontSize=6.0, textAnchor='middle', fillColor=colors.white))
-    box(318, 58, 150, 26, 'generators', 'Range · Labels · towers', GREEN)
-    d.add(String(393, 62, '· bridge · resonance', fontName='DVS', fontSize=6.0, textAnchor='middle', fillColor=colors.white))
+    box(318, 54, 150, 34, 'generators', 'Range · Labels · towers', GREEN)
+    d.add(String(393, 56, '· bridge · resonance', fontName='DVS', fontSize=6.0, textAnchor='middle', fillColor=colors.white))
     box(160, 14, 240, 22, 'start dialog: AS LEGACY or AS SLICED', '', ORANGE)
     d.add(String(240, 40, 'PRINT -> held at position 0 -> decision', fontName='DVS', fontSize=6.4, textAnchor='middle', fillColor=GRAY))
     d.add(String(240, 2, 'then: homing -> bed temp -> adaptive mesh -> nozzle wipe -> purge -> L1 rules -> layer 2 = L2', fontName='DVS', fontSize=6.6, textAnchor='middle', fillColor=GRAY))
     arr(240, 168, 240, 156); arr(240, 136, 240, 122)
-    arr(200, 100, 80, 84); arr(240, 100, 240, 84); arr(285, 100, 393, 84)
+    arr(200, 100, 80, 88); arr(240, 100, 240, 84); arr(285, 100, 393, 88)
     arr(240, 52, 240, 36)
     return d
 
@@ -586,35 +588,35 @@ def d_label_anatomy():
     _p = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'r2_postproc.py')
     _sp = _ilu.spec_from_file_location('r2p_fonts', _p)
     _m = _ilu.module_from_spec(_sp); _sp.loader.exec_module(_m)
-    d = Drawing(480, 172)
-    d.add(String(240, 163, 'Label anatomy — hole, margins, auto-fit and the grown fallback', fontName='DVSB', fontSize=9.5, textAnchor='middle', fillColor=BLUE))
-    # left: normal 50x15 label, hole LEFT
-    sc = 4.6
-    x0, y0, w, h = 22, 40, 50 * sc, 15 * sc
+    d = Drawing(480, 150)
+    d.add(String(240, 141, 'Label anatomy — hole, margins, auto-fit and the grown fallback', fontName='DVSB', fontSize=9.5, textAnchor='middle', fillColor=BLUE))
+    # left: normal 50x15 label, hole LEFT  ·  right: grown label (same scale!)
+    sc = 2.7
+    y0 = 48
+    x0, w = 30, 50 * sc
+    x1, w1 = 300, 61 * sc
+    h = 15 * sc
     d.add(Rect(x0, y0, w, h, rx=3, fillColor=colors.HexColor('#f4f7fb'), strokeColor=BLUE, strokeWidth=1.2))
     d.add(Circle(x0 + 2 * sc, y0 + h / 2, 2.5 * sc, fillColor=colors.white, strokeColor=GRAY, strokeWidth=1.0))
-    tx = x0 + 10 * sc + (w - 14 * sc) / 2 - 24
-    lines, xe = _font_lines(_m, 'GARAGE', 'COND', x0 + 10 * sc, y0 + 10.6 * sc, 7.6 * sc, stroke=1.0, col=BLUE)
+    lines, xe = _font_lines(_m, 'GARAGE', 'COND', x0 + 10 * sc, y0 + 5.4 * sc, 7.6 * sc, stroke=1.0, col=BLUE)
     for ln in lines:
         d.add(ln)
-    d.add(String(x0 + w / 2, y0 + h + 8, '50 × 15 mm · hole LEFT, 2 mm from the edge', fontName='DVS', fontSize=6.4, textAnchor='middle', fillColor=GRAY))
-    d.add(String(x0 + w / 2, y0 + h + 1, 'text fills ~94% of the free area', fontName='DVS', fontSize=6.0, textAnchor='middle', fillColor=GRAY))
-    # margin arrows
-    d.add(Line(x0, y0 - 6, x0 + 2 * sc, y0 - 6, strokeColor=GREEN, strokeWidth=1.0))
-    d.add(String(x0 + 1.2 * sc, y0 - 14, '2mm', fontName='DVS', fontSize=5.4, fillColor=GREEN))
-    # right: grown label 61x15 (too long text -> grow)
-    x1, w1 = 300, 61 * sc
-    d.add(Rect(x1, y0, w1, 15 * sc, rx=3, fillColor=colors.HexColor('#f4f7fb'), strokeColor=GREEN, strokeWidth=1.4))
+    d.add(String(x0 + w / 2, y0 + h + 12, '50 × 15 mm · hole LEFT, 2 mm from the edge', fontName='DVS', fontSize=6.4, textAnchor='middle', fillColor=GRAY))
+    d.add(String(x0 + w / 2, y0 + h + 4, 'text fills ~94% of the free area', fontName='DVS', fontSize=6.0, textAnchor='middle', fillColor=GRAY))
+    d.add(Line(x0, y0 - 7, x0 + 2 * sc, y0 - 7, strokeColor=GREEN, strokeWidth=1.0))
+    d.add(String(x0 + 1.0 * sc, y0 - 16, '2mm', fontName='DVS', fontSize=5.4, textAnchor='middle', fillColor=GREEN))
+    # right: grown label (too long text -> grow), SAME scale
+    d.add(Rect(x1, y0, w1, h, rx=3, fillColor=colors.HexColor('#f4f7fb'), strokeColor=GREEN, strokeWidth=1.4))
     d.add(Circle(x1 + 2 * sc, y0 + h / 2, 2.5 * sc, fillColor=colors.white, strokeColor=GRAY, strokeWidth=1.0))
-    lines, xe = _font_lines(_m, 'WERKSTATT', 'COND', x1 + 10 * sc, y0 + 10.6 * sc, 7.6 * sc, stroke=1.0, col=GREEN)
+    lines, xe = _font_lines(_m, 'WERKSTATT', 'COND', x1 + 10 * sc, y0 + 5.4 * sc, 7.6 * sc, stroke=1.0, col=GREEN)
     for ln in lines:
         d.add(ln)
-    d.add(String(x1 + w1 / 2, y0 + h + 8, 'same text too long -> label GROWS (here 50 -> 61 mm)', fontName='DVS', fontSize=6.4, textAnchor='middle', fillColor=GREEN))
-    d.add(String(x1 + w1 / 2, y0 + h + 1, 'text is NEVER shortened · grows up to bed size (width first, then height)', fontName='DVS', fontSize=6.0, textAnchor='middle', fillColor=GRAY))
+    d.add(String(x1 + w1 / 2, y0 + h + 12, 'same text too long -> label GROWS (50 -> 61 mm)', fontName='DVS', fontSize=6.4, textAnchor='middle', fillColor=GREEN))
+    d.add(String(x1 + w1 / 2, y0 + h + 4, 'text is NEVER shortened · grows up to bed size (width first)', fontName='DVS', fontSize=6.0, textAnchor='middle', fillColor=GRAY))
     # center arrows between panels
-    d.add(Line(x0 + w + 14, y0 + h / 2, x1 - 12, y0 + h / 2, strokeColor=GRAY, strokeWidth=1.0, strokeDashArray=[3, 2]))
-    d.add(String(285, y0 + h / 2 + 6, 'auto-fit', fontName='DVS', fontSize=6.2, textAnchor='middle', fillColor=GRAY))
-    d.add(String(240, 16, 'hole NONE/LEFT/RIGHT/TOP/BOTTOM · stroke = line width · floor cap 2.8 mm (readability with a 0.6 nozzle)', fontName='DVS', fontSize=6.6, textAnchor='middle', fillColor=GRAY))
+    d.add(Line(x0 + w + 10, y0 + h / 2, x1 - 10, y0 + h / 2, strokeColor=GRAY, strokeWidth=1.0, strokeDashArray=[3, 2]))
+    d.add(String((x0 + w + x1) / 2, y0 + h / 2 + 6, 'auto-fit', fontName='DVS', fontSize=6.2, textAnchor='middle', fillColor=GRAY))
+    d.add(String(240, 14, 'hole NONE/LEFT/RIGHT/TOP/BOTTOM · stroke = line width · floor cap 2.8 mm (readability with a 0.6 nozzle)', fontName='DVS', fontSize=6.6, textAnchor='middle', fillColor=GRAY))
     return d
 
 
@@ -671,14 +673,249 @@ def d_range_variants():
                 off = 2.4 * (k + 1)
                 d.add(Polygon(points=[c for (a, b) in [(10 - off, 4 - off), (40 + off, 4 - off), (40 + off, 30 + off), (10 - off, 30 + off)] for c in (ox + a * s, oy + b * s)],
                               fillColor=None, strokeColor=GREEN, strokeWidth=0.9))
-    panel(6, 'FOOTPRINT + GRID', 'convex hull, lattice hatch — bridges concavities', hull=True)
-    panel(126, 'OUTLINE + GRID', 'true outline — concavity stays open', col=GREEN)
-    panel(246, 'FOOTPRINT + SOLID', 'dense lines overlap into a solid surface', hull=True, solid=True)
-    panel(366, 'BRIM (Brim 3)', 'zero-gap loops around the section', hull=True, brim=3, col=ORANGE)
+    panel(6, 'FOOTPRINT + GRID', 'hull bridges concavities', hull=True)
+    panel(126, 'OUTLINE + GRID', 'outline follows the wall', col=GREEN)
+    panel(246, 'FOOTPRINT + SOLID', 'lines overlap: solid', hull=True, solid=True)
+    panel(366, 'BRIM (Brim 3)', 'zero-gap loops', hull=True, brim=3, col=ORANGE)
     d.add(String(240, 28, 'Floor = generated raft UNDER the section (welds flush, zero gap) · Top = solid cap OVER the last layer', fontName='DVS', fontSize=6.4, textAnchor='middle', fillColor=GRAY))
     return d
 
 E=[]
+
+# ---- R86 diagrams: cable-tie anatomy + angle-plate anatomy ----------------------
+
+def d_tie_anatomy():
+    d = Drawing(480, 208)
+    d.add(String(240, 199, 'Cable tie anatomy — strap, teeth, and the auto-scaled closure head',
+                 fontName='DVSB', fontSize=9.5, textAnchor='middle', fillColor=BLUE))
+
+    # ---- top view: head + strap with teeth + tip (left half of the panel) ----
+    y0 = 96
+    d.add(String(120, 180, 'TOP VIEW (width 8 mm example)', fontName='DVSB', fontSize=6.9,
+                 textAnchor='middle', fillColor=GRAY))
+    sc = 2.1
+    hx, hy, hl, hw = 30, y0, 19.2 * sc, 22.4 * sc     # head 19.2 x 22.4 at width 8
+    d.add(Rect(hx, hy, hl, hw, fillColor=colors.HexColor('#eef3fa'), strokeColor=BLUE, strokeWidth=1.3))
+    slotw = 8.6 * sc
+    cy = hy + hw / 2
+    # slot channel (open through the head)
+    d.add(Rect(hx, cy - slotw / 2, hl, slotw, fillColor=colors.white, strokeColor=GRAY, strokeWidth=0.8))
+    # pawl tab in the channel (top view: the middle strip)
+    d.add(Rect(hx + 2.4 * sc, cy - (slotw / 2 + 0.8), hl - 5 * sc, slotw + 1.6,
+               fillColor=colors.HexColor('#dbe6f4'), strokeColor=BLUE, strokeWidth=0.8))
+    # strap with teeth
+    sx = hx + hl
+    d.add(Rect(sx, cy - 8 * sc / 2, 120 * sc, 8 * sc, fillColor=colors.HexColor('#eef3fa'),
+               strokeColor=BLUE, strokeWidth=1.2))
+    # chamfered tip
+    d.add(Polygon(points=[sx + 120 * sc, cy - 4 * sc * 0.75, sx + 116 * sc, cy - 4 * sc,
+                          sx + 116 * sc, cy + 4 * sc, sx + 120 * sc, cy + 4 * sc * 0.75],
+                  fillColor=colors.HexColor('#eef3fa'), strokeColor=BLUE, strokeWidth=1.0))
+    # teeth (stepped nubs, pitch 5.6)
+    tx = sx + 6 * sc
+    while tx < sx + 112 * sc:
+        d.add(Rect(tx, cy - 4 * sc, 2 * sc, 8 * sc, fillColor=colors.HexColor('#9db4d6'),
+                   strokeColor=BLUE, strokeWidth=0.6))
+        d.add(Rect(tx + 1 * sc, cy - 4 * sc, 1 * sc, 8 * sc, fillColor=colors.HexColor('#5a7fb5'),
+                   strokeColor=None))
+        tx += 5.6 * sc
+    d.add(String(hx + hl / 2 + 26, hy - 12, 'head 2.4 x width · slot = width + 0.6', fontName='DVS',
+                 fontSize=6.2, textAnchor='middle', fillColor=GRAY))
+    d.add(String(sx + 60 * sc, cy + 4 * sc + 8, 'teeth: low ramp (light) + high flank (dark), pitch 0.7 x width',
+                 fontName='DVS', fontSize=6.2, textAnchor='middle', fillColor=GRAY))
+    d.add(String(sx + 118 * sc, cy - 14, 'chamfered tip', fontName='DVS', fontSize=5.8,
+                 textAnchor='end', fillColor=GRAY))
+    # dimension line: strap width
+    d.add(Line(sx + 20 * sc, cy - 4 * sc - 6, sx + 20 * sc, cy + 4 * sc + 6,
+               strokeColor=GREEN, strokeWidth=0.9))
+    d.add(String(sx + 22 * sc, cy - 4 * sc - 15, 'Width 5-12', fontName='DVS', fontSize=5.8,
+                 textAnchor='middle', fillColor=GREEN))
+
+    # ---- cross-section through the head (right half) -------------------------
+    x1 = 300
+    d.add(String(390, 180, 'HEAD CROSS-SECTION (RATCHET)', fontName='DVSB', fontSize=6.9,
+                 textAnchor='middle', fillColor=GRAY))
+    s = 2.1
+    bx, by = x1, 100
+    # layers bottom-up: base plate (2), channel (layers+3), ceiling (2)
+    zb = [12, 9]           # heights of the two base layers
+    ch = 18                # channel band
+    ce = [5, 5]            # ceiling layers
+    # base plate
+    d.add(Rect(bx, by, 60 * s, (zb[0] + zb[1]) * 1.0, fillColor=colors.HexColor('#dbe6f4'),
+               strokeColor=BLUE, strokeWidth=1.1))
+    d.add(String(bx - 4, by + 14, 'base', fontName='DVS', fontSize=5.8, textAnchor='end', fillColor=GRAY))
+    # channel walls
+    wy = by + zb[0] + zb[1]
+    wallh = ch
+    d.add(Rect(bx, wy, 60 * s, wallh, fillColor=None, strokeColor=None))
+    d.add(Rect(bx, wy, 60 * s, 6, fillColor=colors.HexColor('#dbe6f4'), strokeColor=BLUE, strokeWidth=1.0))
+    d.add(Rect(bx, wy + wallh - 6, 60 * s, 6, fillColor=colors.HexColor('#dbe6f4'),
+               strokeColor=BLUE, strokeWidth=1.0))
+    # strap + teeth inside the channel
+    d.add(Rect(bx + 8, wy + 6, 44, 8, fillColor=colors.HexColor('#9db4d6'),
+               strokeColor=BLUE, strokeWidth=0.8))
+    d.add(Rect(bx + 18, wy + 14, 6, 4, fillColor=colors.HexColor('#5a7fb5'), strokeColor=None))
+    d.add(Rect(bx + 30, wy + 14, 6, 4, fillColor=colors.HexColor('#5a7fb5'), strokeColor=None))
+    d.add(String(bx + 30, wy + 24, 'strap + teeth ride in the channel (1 layer clearance)',
+                 fontName='DVS', fontSize=5.8, textAnchor='middle', fillColor=GRAY))
+    # ceiling: entry strip, pawl tab with lip, exit strip
+    cyy = wy + wallh
+    d.add(Rect(bx, cyy, 9, 10, fillColor=colors.HexColor('#dbe6f4'), strokeColor=BLUE, strokeWidth=1.0))
+    d.add(String(bx + 7, cyy + 22, 'entry', fontName='DVS', fontSize=5.6, textAnchor='end', fillColor=GRAY))
+    d.add(Rect(bx + 13, cyy + 5, 34, 5, fillColor=colors.HexColor('#bcd0ea'), strokeColor=BLUE, strokeWidth=0.9))
+    d.add(Rect(bx + 13, cyy, 38, 5, fillColor=colors.HexColor('#dbe6f4'), strokeColor=BLUE, strokeWidth=0.9))
+    d.add(String(bx + 66, cyy + 34, 'pawl tab (darker): the LOWER ceiling layer reaches 1.2 mm further = the lip',
+                 fontName='DVS', fontSize=5.6, textAnchor='middle', fillColor=GRAY))
+    d.add(Rect(bx + 50, cyy, 10 * s - 50 + 60, 10, fillColor=colors.HexColor('#dbe6f4'),
+               strokeColor=BLUE, strokeWidth=1.0))
+    d.add(String(bx + 84, cyy + 22, 'exit (anchored)', fontName='DVS', fontSize=5.6,
+                 textAnchor='start', fillColor=GRAY))
+    # (flex info folded into the pawl caption above)
+
+    # ---- bottom strip: the two variants + width auto-scaling -----------------
+    d.add(String(240, 84, 'THE TWO CLOSURES', fontName='DVSB', fontSize=6.9,
+                 textAnchor='middle', fillColor=GRAY))
+    def variant(x, name, sub, open_entry, col):
+        d.add(String(x + 52, 70, name, fontName='DVSB', fontSize=6.8, textAnchor='middle', fillColor=col))
+        yy = 30
+        d.add(Rect(x, yy, 104, 28, fillColor=colors.HexColor('#eef3fa'), strokeColor=col, strokeWidth=1.2))
+        # channel mouth (left) + tab
+        d.add(Rect(x + 6, yy + 4, 92, 20, fillColor=colors.white, strokeColor=GRAY, strokeWidth=0.7))
+        d.add(Rect(x + 22, yy + 16, 60, 6, fillColor=colors.HexColor('#bcd0ea'),
+                   strokeColor=col, strokeWidth=0.9))
+        if not open_entry:
+            d.add(Rect(x + 6, yy + 16, 12, 6, fillColor=colors.HexColor('#dbe6f4'),
+                       strokeColor=col, strokeWidth=0.9))
+            d.add(String(x + 12, yy + 24, 'closed', fontName='DVS', fontSize=5.4,
+                         textAnchor='middle', fillColor=col))
+        else:
+            d.add(String(x + 10, yy + 24, 'OPEN', fontName='DVS', fontSize=5.6,
+                         textAnchor='middle', fillColor=col))
+            d.add(String(x + 10, yy + 34, 'lift tab here', fontName='DVS', fontSize=5.4,
+                         textAnchor='middle', fillColor=col))
+        d.add(String(x + 52, yy - 10, sub, fontName='DVS', fontSize=5.6,
+                     textAnchor='middle', fillColor=GRAY))
+    variant(60, 'RATCHET — one-way', 'entry closed: locks at every tooth, cut to remove', False, BLUE)
+    variant(280, 'LATCH — releasable', 'open slot: lift the pawl tab to release', True, GREEN)
+
+    # width auto-scaling mini strip
+    d.add(String(240, 10, 'Width sets everything: width 5 -> head 12x14 · width 8 -> head 19x22 · '
+                 'width 12 -> head 29x34 (slot, tooth pitch and lip scale with it)',
+                 fontName='DVS', fontSize=6.2, textAnchor='middle', fillColor=GRAY))
+    return d
+
+
+def d_angle_anatomy():
+    d = Drawing(480, 196)
+    d.add(String(240, 187, 'Angle plate & flat connector — auto hole layout, countersink, stiffening',
+                 fontName='DVSB', fontSize=9.5, textAnchor='middle', fillColor=BLUE))
+
+    # ---- left: 90 deg plate top view with the auto hole layout ---------------
+    d.add(String(112, 176, 'ANGLE 90° — TOP VIEW (60/60, width 25)', fontName='DVSB', fontSize=6.9,
+                 textAnchor='middle', fillColor=GRAY))
+    s = 1.62
+    ox, oy = 34, 44
+    Lp = [(0, 0), (60, 0), (60, 25), (25, 25), (25, 60), (0, 60)]
+    d.add(Polygon(points=[c for (a, b) in Lp for c in (ox + a * s, oy + b * s)],
+                  fillColor=colors.HexColor('#eef3fa'), strokeColor=BLUE, strokeWidth=1.3))
+    # corner zone (legs overlap there) + hole centerline zones
+    d.add(Rect(ox, oy, 25 * s, 25 * s, fillColor=colors.HexColor('#f7ddd2'),
+               strokeColor=None))
+    d.add(String(ox + 12.5 * s, oy + 13.5 * s, 'corner', fontName='DVS', fontSize=5.2,
+                 textAnchor='middle', fillColor=ORANGE))
+    d.add(String(ox + 12.5 * s, oy + 9.5 * s, 'zone', fontName='DVS', fontSize=5.2,
+                 textAnchor='middle', fillColor=ORANGE))
+    # holes on leg A (y = 12.5): centers 30.5 / 54.5
+    for cxx in (30.5, 54.5):
+        d.add(Circle(ox + cxx * s, oy + 12.5 * s, 2 * s, fillColor=colors.white,
+                     strokeColor=GREEN, strokeWidth=1.1))
+        d.add(Circle(ox + cxx * s, oy + 12.5 * s, 0.7 * s, fillColor=GREEN, strokeColor=None))
+    # holes on leg B (x = 12.5)
+    for cyy in (30.5, 54.5):
+        d.add(Circle(ox + 12.5 * s, oy + cyy * s, 2 * s, fillColor=colors.white,
+                     strokeColor=GREEN, strokeWidth=1.1))
+        d.add(Circle(ox + 12.5 * s, oy + cyy * s, 0.7 * s, fillColor=GREEN, strokeColor=None))
+    # gusset rib over the corner
+    tri = [(2.2, 2.2), (20, 2.2), (2.2, 20)]
+    d.add(Polygon(points=[c for (a, b) in tri for c in (ox + a * s, oy + b * s)],
+                  fillColor=colors.HexColor('#cfe0f2'), strokeColor=BLUE, strokeWidth=1.0,
+                  strokeDashArray=[2.5, 2]))
+    d.add(String(ox + 9 * s, oy + 6.5 * s, 'rib', fontName='DVS', fontSize=5.4,
+                 textAnchor='middle', fillColor=BLUE))
+    d.add(String(ox + 26 * s, oy - 12, 'holes auto-space on the centerline', fontName='DVS',
+                 fontSize=6.0, textAnchor='middle', fillColor=GRAY))
+    d.add(String(ox + 26 * s + 10, oy - 20, 'diameter clamps to width-6 · 2+2 placed', fontName='DVSB',
+                 fontSize=6.0, textAnchor='middle', fillColor=GREEN))
+
+    # ---- right top: countersink cross-section ---------------------------------
+    x1 = 300
+    d.add(String(390, 176, 'COUNTERSINK (CROSS-SECTION)', fontName='DVSB', fontSize=6.9,
+                 textAnchor='middle', fillColor=GRAY))
+    px, py, pw = x1, 118, 180
+    d.add(Rect(px, py, pw, 26, fillColor=colors.HexColor('#eef3fa'), strokeColor=BLUE, strokeWidth=1.2))
+    # stepped cone: 4 -> 6 -> 8
+    d.add(Polygon(points=[px + 70, py, px + 84, py, px + 98, py + 26, px + 56, py + 26],
+                  fillColor=colors.white, strokeColor=GREEN, strokeWidth=1.1))
+    d.add(Line(px + 70, py, px + 56, py + 26, strokeColor=GREEN, strokeWidth=1.1))
+    d.add(Line(px + 84, py, px + 98, py + 26, strokeColor=GREEN, strokeWidth=1.1))
+    # screw (schematic, flat head sits flush)
+    d.add(Polygon(points=[px + 66, py + 26, px + 88, py + 26, px + 88, py + 34, px + 66, py + 34],
+                  fillColor=colors.HexColor('#9db4d6'), strokeColor=GRAY, strokeWidth=0.8))
+    d.add(Rect(px + 73, py - 22, 8, 22, fillColor=colors.HexColor('#9db4d6'),
+               strokeColor=GRAY, strokeWidth=0.8))
+    d.add(String(px + 90, py + 30, 'flat-head screw sits FLUSH', fontName='DVS', fontSize=5.8,
+                 anchor='start', textAnchor='start', fillColor=GRAY))
+    d.add(String(px + 90, py + 8, 'top 2 layers: 1.5x then 2x hole', fontName='DVS', fontSize=5.8,
+                 textAnchor='start', fillColor=GREEN))
+    d.add(String(px + 90, py - 2, 'hole D stays through the plate', fontName='DVS', fontSize=5.8,
+                 textAnchor='start', fillColor=GRAY))
+    d.add(String(px + pw / 2, py - 34, 'OFF = straight hole for screw head + nut', fontName='DVS',
+                 fontSize=5.8, textAnchor='middle', fillColor=GRAY))
+
+    # ---- right bottom: angle variants + flat splice ---------------------------
+    d.add(String(390, 76, 'ANGLE & FLAT — what the parameters do', fontName='DVSB', fontSize=6.9,
+                 textAnchor='middle', fillColor=GRAY))
+    def plate(x, y, deg, label, col, flat=False):
+        s2 = 0.78
+        if flat:
+            pts = [(0, 0), (46, 0), (46, 10), (0, 10)]
+        else:
+            import math as _m
+            th = _m.radians(deg)
+            uA = (1, 0)
+            uB = (_m.cos(th), _m.sin(th))
+            la, lb, w = 34, 30, 11
+            A2 = (la, 0)
+            A3 = (la, w)
+            B1 = (lb * uB[0], lb * uB[1])
+            B2 = (B1[0] + w * uB[1], B1[1] - w * uB[0])
+            B0 = (w * uB[1], -w * uB[0])
+            # inner corner: intersect y=w line with B inner edge
+            # B inner edge: from B0 dir uB: point = B0 + t*uB, y = -w*cos + t*sin = w -> t = w(1+cos)/sin
+            if abs(uB[1]) > 1e-9:
+                t = w * (1 + uB[0]) / uB[1]
+                P_in = (B0[0] + t * uB[0], w)
+            pts = [(0, 0), A2, A3, P_in, B2, B1]
+        d.add(Polygon(points=[c for (a, b) in pts for c in (x + a * s2, y + b * s2)],
+                      fillColor=colors.HexColor('#eef3fa'), strokeColor=col, strokeWidth=1.2))
+        if flat:
+            for hx in (9, 20, 33):
+                d.add(Circle(x + hx * s2, y + 5 * s2, 2.2, fillColor=colors.white,
+                             strokeColor=GREEN, strokeWidth=0.9))
+                d.add(Circle(x + (46 - hx) * s2, y + 5 * s2, 2.2, fillColor=colors.white,
+                             strokeColor=GREEN, strokeWidth=0.9))
+        d.add(String(x + 18, y - 10, label, fontName='DVS', fontSize=5.6,
+                     textAnchor='middle', fillColor=col))
+    plate(300, 44, 45, 'Angle 45° — sharp', BLUE)
+    plate(380, 44, 135, 'Angle 135°', ORANGE)
+    plate(300, 22, 0, 'FLAT splice', GREEN, flat=True)
+    d.add(String(386, 14, 'same hole pattern on BOTH halves', fontName='DVS', fontSize=5.4,
+                 textAnchor='middle', fillColor=GREEN))
+    d.add(String(240, 4, 'Leg A/B set independently (20-150) · Width 8-60 · Layers 4-12 · rib = gusset over '
+                 'the corner (none / gusset / stepped)', fontName='DVS', fontSize=6.0,
+                 textAnchor='middle', fillColor=GRAY))
+    return d
 
 # ---- cover ----
 E+= [Spacer(1,10*mm),Paragraph('R2-D2 Macro System',S['title']),Spacer(1,2*mm),
@@ -841,11 +1078,29 @@ chapter('3','From file to print — the daily workflow',
     "profile, or your material preset / feature speeds / first-layer brake should apply — <b>AS LEGACY</b> "
     "(recommended default). Range and label files announce it in their header comment. start_confirm OFF = "
     "immediate LEGACY takeover."),
-  H2('3.5 While it prints · 3.6 After the print'),
+  H2('3.5 While it prints / after the print'),
   P("Everything is adjustable while the job runs — global and per-feature speed, flow, PA, accel, temps, "
     "babystepping — plus pauses, object skips and the planned end (ch. 6). After PRINT_END: lift, park away from "
     "the part, stats, fanfare, cooldown, heaters off; _PRINT_CLEANUP resets all per-print state — your pre-print "
-    "settings, material and mesh deliberately KEPT."))
+    "settings, material and mesh deliberately KEPT."),
+  H2('3.6 Foreign G-code — other slicers, other firmware, other hardware'),
+  P("Files not sliced by you, not sliced for Klipper, or sliced for a DIFFERENT extruder. Twelve slicer families are "
+    "recognized by their header (OrcaSlicer, PrusaSlicer, SuperSlicer, Bambu Studio, Cura, Elegoo, Kiri:Moto, "
+    "AstroPrint, SliceBeam, ideaMaker, Simplify3D, FlashPrint) and their dialects normalized: layer comments "
+    "(LAYER_CHANGE / LAYER:n / CHANGE_LAYER) all become LAYER_MARKs, feature names (Outer wall vs WALL-OUTER vs "
+    "Support/Base) map to the same 12 internal codes, config headers feed the preview. Two Marlin habits break "
+    "on Klipper — both detected, flagged and fixed IN PLACE:"),
+  TBL(['Case','Symptom','The fix (one click)'],[
+   ['Marlin-volumetric file (FLAVOR:Marlin (Volumetric), Cura)','E counts mm³ instead of mm — the print starves',
+     'Pre-Print &gt; File &gt; Vol-&gt;mm fix: every E divided by 2.405 mm², markers neutralized, idempotent'],
+   ['Old Bowden-era file (5–6 mm retracts baked in)','overrides your tuned ~0.8 mm direct-drive retraction',
+     'Pre-Print &gt; File &gt; RetFix file (or RetFix ON for future uploads): pairs become G10/G11 — your retraction applies, live-tunable'],
+   ['Marlin file without those quirks','nothing breaks','LEGACY start flow takes over: dialog, mesh, purge, L1/L2 — just press PRINT'],
+   ['File calling its own START_PRINT','double start risk','real legacy start: homing, heat, purge — then your decision rules'],
+   ['Pure movement data (no heaters, no macros)','would run cold','net probe: home + heat + purge first, then 1:1'],
+   ],[44*mm,52*mm,64*mm]),
+  P("The file info line 'sliced by &lt;slicer&gt; for &lt;firmware&gt;' tells you upfront what you are holding. The "
+    "reverse case (direct-drive file on a Bowden machine) needs no file fix — just your retraction values."))
 
 
 chapter('4','Scenario library — every file type walked through',
@@ -884,7 +1139,7 @@ chapter('4','Scenario library — every file type walked through',
        'CANCEL_PRINT                                    # twice within 60 s'))
 
 
-chapter('5','The generators: Range, Labels &amp; Plotter',
+chapter('5','The generators: Range, Labels, Plotter, Cable ties &amp; Angles',
   H2('5.1 Range — print a section of an existing file'),
   P("Re-print a broken section, test the critical middle of a long print, or make a part from a few layers. "
     "Pre-Print > Range/Stop: From/To (capped to the real layer count), Floor, Top, Brim + their shapes and fills, "
@@ -946,7 +1201,60 @@ chapter('5','The generators: Range, Labels &amp; Plotter',
      'corner limits, extruder ON/OFF (draw with filament), speeds, Drive frame test — everything centered automatically',
      'start: AS SLICED = pure pen (no purge); AS LEGACY heats when the extruder is ON. Multi-color plots pause '
      '(M0) at every pen change; live tuning while plotting: pen speed percent, pen Z +-0.05, X/Y +-0.5',
-     'the resonance diagrams of the calibration chapter are plotted or printed the same way (ch. 10.5)'))
+     'the resonance diagrams of the calibration chapter are plotted or printed the same way (ch. 10.5)'),
+  H2('5.4 Cable ties — the built-in cable-tie maker'),
+  P("Printable cable ties in ONE file, straight from the LCD (top-level menu Kabelbinder) — no slicer, no modeling. "
+    "Each tie is a flat strap with ratchet teeth plus an integrated closure head whose size, slot clearance and "
+    "tooth pitch ALL auto-scale with the strap width — you never tune the mechanism. Two closures: RATCHET "
+    "(one-way — locks at every tooth, cut to remove) and LATCH (releasable — lift the pawl tab through the open "
+    "front slot). Settings: Count 1-24, Len 60-300 mm, Width 5-12 mm, Layers 3-6 (strap thickness), LH 0.12-0.32 "
+    "(finer layers = smoother ratchet teeth), Closure, Brim, Vers. Create (beeps) builds the file in the "
+    "background (~1-3 s, niced), it auto-selects as 00_Ties_lenxwid_RAT|LAT_Vxx.gcode and the ready-message "
+    "lists everything that was auto-adapted. Every tie is an exclude object (TIE_1..n)."),
+  CENT(d_tie_anatomy()),CAP("Anatomy of a generated tie: top view with teeth and chamfered tip, the head "
+    "cross-section (channel, pawl tab with locking lip), the two closures — and how width 5/8/12 auto-scales the head"),
+  TBL(['Setting','Range','Meaning'],[
+   ['Count','1-24','ties in ONE project file — the grid fits them or errors clearly'],
+   ['Len','60-300 mm','strap length: bundle circumference + head + pull-in reserve'],
+   ['Width','5-12 mm','strap width — the closure AUTO-SCALES: head 2.4x long, 2.8x wide, slot width+0.6, pitch 0.7x'],
+   ['Layers','3-6','strap thickness: 3 = flexible, 6 = stiff strong band'],
+   ['LH','0.12-0.32 mm','layer height — 0.12-0.16 prints smoother teeth'],
+   ['Closure','RATCHET / LATCH','one-way (enclosed pawl) vs releasable (open slot, lift the tab)'],
+   ['Brim','ON/OFF','loops around each head on layer 1 (thin-part adhesion)'],
+   ['Vers','V01-V09','same settings + same version = the file replaces itself'],
+  ],[26*mm,32*mm,102*mm]),
+  P("Material matters (thin flexing parts): PETG or TPU bend best and hold tight loops; PLA works for gentle "
+    "curves only. The file sets fan from layer 2 itself; the standard first-layer brake applies. Console: "
+    "GEN_CABLE_TIES COUNT=6 LENGTH=120 WIDTH=8 LAYERS=3 VARIANT=LATCH (everything optional)."),
+  H2('5.5 Angles & flat connectors — structural plates'),
+  P("Angle plates (L-brackets in ANY angle 30-170, equal or unequal legs) and flat connectors (two boards joined "
+    "side by side) — screw-on structural parts, top-level menu Winkel+Flach. Mode switches between Angle (L) and "
+    "Flat splice (the Angle input and the Rib submenu hide themselves in Flat mode; the legs rename to "
+    "Left/Right). THE HOLE SYSTEM: holes sit on each leg's centerline, evenly spaced between the corner zone "
+    "and the leg end; the diameter is CLAMPED to width - 6 mm (never too big for the leg); the count "
+    "auto-reduces if the leg is too short; in FLAT mode both halves share the SAME pattern. Countersink ON "
+    "adds a two-step cone so flat-head screws sit flush. Stiffener: None / Gusset rib (triangle over the "
+    "corner) / Stepped rib (gusset + smaller one on top — strongest). Create (beeps) -> "
+    "00_Angle_90deg_60x60_Vxx.gcode or 00_Flat_80x25_Vxx.gcode, auto-selected, each plate an exclude object."),
+  CENT(d_angle_anatomy()),CAP("The auto hole layout (corner zone shaded, holes on the centerline, clamped "
+    "diameter), the countersink cross-section (flat-head screw flush), and what Angle 45/135 + Flat splice look like"),
+  TBL(['Setting','Range','Meaning'],[
+   ['Mode','Angle / Flat','bracket vs straight splice — Flat hides Angle and Rib, renames legs to Left/Right'],
+   ['Angle','30-170 deg','only in Angle mode'],
+   ['Leg A / B (Left/Right)','20-150 mm','the two legs (from the corner) or the two halves of a flat splice'],
+   ['Width','8-60 mm','leg width (plate depth)'],
+   ['Layers','4-12','plate thickness'],
+   ['Holes + Hole D','0-6 per leg, 2-10 mm','auto-arranged, diameter clamped to width-6 (max 10), count auto-reduced'],
+   ['Countersink','ON/OFF','two-step cone on the top layers (flush flat-head screws) vs straight hole'],
+   ['Rib','None / Gusset / Stepped','corner stiffening (angle mode only)'],
+   ['Count + Vers','1-12, V01-V09','plates per project file; version in the name'],
+  ],[30*mm,34*mm,96*mm]),
+  P("Sizing rule of thumb: an angle's corner zone is as wide as the leg (the legs overlap there) — the first "
+    "hole sits about width + hole/2 + 1.5 mm from the corner; a 90/40/40 bracket with 4 mm screws fits 1-2 "
+    "holes per leg. The ready-message lists EVERY automatic adjustment — nothing clamps silently. Console: "
+    "GEN_ANGLES COUNT=2 ANGLE=90 LEG_A=60 LEG_B=60 WIDTH=25 LAYERS=6 HOLES=2 HOLE_D=4 CS=1 STIFFENER=1 FLAT=0 "
+    "(CS=1 countersunk; FLAT=1 = flat connector)."),
+  )
 
 
 chapter('6','During the print: tuning, pauses, objects',
@@ -1173,7 +1481,7 @@ chapter('13','Maintenance &amp; care',
 
 
 chapter('14','LCD menu reference',
-  CENT(d_menu()),CAP('Eight top groups in LCD order — Start Print? (waiting), Live Tuning (printing), then Pre-Print, Labels , Plotter (top level), Quick Macros, Maintenance, System'),
+  CENT(d_menu()),CAP('Ten top groups in LCD order — Start Print? (waiting), Live Tuning (printing), then Pre-Print, Kabelbinder + Winkel+Flach (the part generators, top level like Labels and Plotter), Labels, Plotter, Quick Macros, Maintenance, System'),
   P('Every line fits the 16 characters of the 12864 display — the value you edit is always visible '
     '(test-enforced). Pattern: first line = ON/OFF toggle (value stays stored), then the values.'),
   TBL(['Live Tuning (during print)','Contents'],[
@@ -1205,6 +1513,18 @@ chapter('14','LCD menu reference',
    ['Text','L1-L5 pickers (up to 5 lines per label) · Show text · Pos 1-N (N = character limit of the label size) · Chr (A-Z a-z 0-9 space ÄÖÜäöüß + symbols) · Delete char · Clear text'],
    ['Settings','W/H · Font SMOOTH/MONO/COND/NARROW/CAPS · Lines 1-5 · Size (cap mm, 0=auto) · Spc · Stroke · Vers V01-V09 · Preview fit? (real numbers incl. growth) · Base/Text layers · LH · 1st · Ironing · Hole · Brim · 2 colors · Gap'],
    ['Job','Queue n/24 · Add label · Del last · Clear all (2×) · Create (beeps, watcher builds the file) · Fit (how many fit the bed)'],
+  ],[42*mm,122*mm]),
+  TBL(['Kabelbinder (cable ties — ch. 5.4)','Contents'],[
+   ['Info','every setting in one console listing + material tip'],
+   ['Settings','Count 1-24 · Len 60-300 mm · Width 5-12 mm · Layers 3-6 · LH 0.12-0.32 · Closure RATCHET/LATCH (the * marks the active) · Brim · Vers V01-V09'],
+   ['Create (beeps)','validates, bumps the job counter — the watcher builds the file in the background, beeps + auto-selects'],
+   ['How it works','the flow + PETG/TPU tip + the Mainsail one-liner on the LCD'],
+  ],[42*mm,122*mm]),
+  TBL(['Winkel+Flach (angles + flat — ch. 5.5)','Contents'],[
+   ['Info','every setting + the auto-hole rules'],
+   ['Mode','Angle (L) / Flat splice — the * marks the active mode'],
+   ['Settings','Angle 30-170° (HIDDEN in Flat mode) · Leg A/B 20-150 (Left/Right in Flat mode) · Width 8-60 · Layers 4-12 · LH · Holes 0-6 · Hole D 2-10 (auto-clamped) · Countersunk/Normal · Rib None/Gusset/Stepped (hidden in Flat) · Count 1-12 · Vers'],
+   ['Create (beeps)','validates, bumps the job counter — ready in ~1-2 s with the full adjustment report'],
   ],[42*mm,122*mm]),
   TBL(['Maintenance (calibration order!)','Contents'],[
    ['Clean Nozzle','heat 180C + zigzag pad wipe X0-13/Y0-13, Z<=4, parks high; in every purge '],
@@ -1353,6 +1673,17 @@ chapter('20','Variables &amp; editing',
 
 
 chapter('21','What happens when a macro executes',
+  P("<b>The idea in one sentence: the printer understands its files.</b> Four building blocks: (1) a service on "
+    "the Pi READS every file that lands in the gcodes folder — layer comments, ;TYPE: feature comments, slicer "
+    "header, object definitions, temperatures, speeds; (2) it TAGS the file — ; R2-POSTPROC v4, a _FILE_INFO "
+    "parameter block, LAYER_MARK before every layer, APPLY_TYPE after every ;TYPE:; (3) the markers carry "
+    "FEATURE knowledge — selecting the file replays _FILE_INFO into the preview, volumetric Marlin files get "
+    "flagged; (4) during the print the markers TRIGGER macros: LAYER_MARK counts layers (layer 2 = L2 temps, "
+    "fan back, full speed), APPLY_TYPE switches the live overrides to the feature printing right now, "
+    "PRINT_START/PRINT_END run the choreography. File NAMES are triggers too (photo.png.gcode → pen plot) and "
+    "the nonce counters trigger the five generators of chapter 5. Nothing is baked in: AS SLICED runs the file "
+    "1:1, every automatic rule is a switch."),
+  H2('21.1 Execution mechanics'),
   *B('<b>1 Render before execute:</b> Klipper evaluates the whole template FIRST, then runs plain gcode — a macro '
      'cannot see values it just set. Verification phases run as delayed_gcode (_LEGACY_PREP2 1.5 s, _OBJECT_PREP 2 s) '
      'and render FRESH.',
@@ -1419,6 +1750,9 @@ chapter('24','Cheat sheet: LCD paths &amp; Mainsail commands',
    ['change material preset','Pre-Print &gt; Material &gt; LOAD NOW'],['see ALL file parameters','Pre-Print / Live Tuning &gt; File (G-code)'],['compare with the file values','Pre-Print &gt; Temps &gt; File H:/File B:'],
    ['first layer slower/faster','Pre-Print &gt; 1st layer %'],['calibrate flow','Maintenance &gt; Flow Cal.'],
    ['run a temperature tower','Maintenance &gt; Temp Tower'],['test ironing','Maintenance &gt; Ironing Cal.'],
+   ['print cable ties','Kabelbinder &gt; Create (beeps)'],
+   ['print an angle bracket','Winkel+Flach &gt; Mode &gt; Angle, Settings, Create'],
+   ['join two boards flush','Winkel+Flach &gt; Mode &gt; Flat splice, Left/Right, Create'],
    ['purge manual / cold pull','Macros &gt; Purge · Maintenance &gt; Filament'],['shutdown the Pi','System &gt; Shutdown (2×)'],
   ],[64*mm,100*mm]),
   H2('Mainsail console — the 20 you will actually use'),
@@ -1427,7 +1761,22 @@ chapter('24','Cheat sheet: LCD paths &amp; Mainsail commands',
        'SET_GLOBAL_SPEED · SET_GLOBAL_ACCEL · SET_LIVE_VELOCITY · SET_LIVE_MINIMUM_CRUISE_RATIO\n'
        'SET_LIVE_PRESSURE_ADVANCE · SET_LIVE_RETRACTION · SET_FLOW_RATE · SET_FAN_SCALE\n'
        'PAUSE · RESUME · CANCEL_PRINT (2×) · PAUSE_AT_LAYER LAYER=n · SKIP_OBJECT OBJECT=name\n'
+       'GEN_LABELS TEXT=\"A|B\" W=60 H=30 · GEN_CABLE_TIES COUNT=6 LENGTH=120 VARIANT=LATCH ·\n'
+       'GEN_ANGLES ANGLE=90 LEG_A=60 LEG_B=60 WIDTH=25 HOLES=2 CS=1 STIFFENER=1\n'
        'CALIBRATE_PA · CALIBRATE_PA_SMOOTH · PA_SMOOTH_RESULT SEG=n · FLOW_CAL MEASURE=0.46 ·\nTEMP_TOWER_START START=200 END=230 STEP=5 BAND=10'),
+  H2('Abbreviation decoder — the short codes the console, M117 and the LCD use'),
+  TBL(['Code','Means','Code','Means'],[
+   ['L1 / L2','layer 1 / layer 2 (temp + fan system)','PA','pressure advance'],
+   ['OW / IW','outer wall / inner wall','SP / SO','sparse infill / solid infill'],
+   ['TP / BT','top surface / bottom surface','BR / GP','bridge / gap fill'],
+   ['SU / IR','support / ironing','SK / BM','skirt / brim'],
+   ["FS_* / FA_*","file's measured speed / accel per feature",'o:ON',"that feature's override is ON"],
+   ['Src:','value source: file / overwrite / live','Now:','the feature printing right now'],
+   ['LH','layer height','CS','countersink (generator holes)'],
+   ['Vers / V01..','generated file version','RAT / LAT','RATCHET / LATCH closure (cable ties)'],
+   ['Zoff','Z offset (babystepping total)','RetLen / RetSpd / Unret','retract length / speed / unretract'],
+   ['MCR','minimum cruise ratio','SCV','square corner velocity'],
+  ],[30*mm,54*mm,26*mm,54*mm]),
   Spacer(1,12*mm),Paragraph('Built and tested for one purpose: printing happily — with R2-D2 keeping watch. Have fun!',S['end']),
   Spacer(1,4*mm),Paragraph('R2-D2 Macro System · R2-2026-09-07.69',S['cap']))
 
@@ -1448,6 +1797,16 @@ _MIDX.append(["Labels — 16_labels.cfg ", [
     ["LABEL_DEL_CHAR", "—", "delete the character at the cursor position"],
     ["LABEL_CLEAR_TEXT", "—", "clear the edit buffer"],
     ["LABEL_INFO", "—", "queue + size + font + bed-fit info"]]])
+# R86: part generators in the index
+_MIDX.append(["Part generators — 17_generator.cfg", [
+    ["GEN_CABLE_TIES", "COUNT=6, LENGTH=120, WIDTH=8, LAYERS=3, VARIANT='RATCHET', LAYER_H=0.2, BRIM=1",
+     "console/Mainsail cable-tie job: COUNT=6 LENGTH=120 VARIANT=LATCH - sets everything + creates the file (RATCHET one-way, LATCH releasable)"],
+    ["CABLE_TIE_GENERATE", "—", "create the tie file from the stored settings (watcher builds it, beeps + selects)"],
+    ["CABLE_TIE_INFO", "—", "every tie setting in one listing + material tip"],
+    ["GEN_ANGLES", "COUNT=2, ANGLE=90, LEG_A=60, LEG_B=60, WIDTH=25, LAYERS=6, HOLES=2, HOLE_D=4, CS=1, STIFFENER=1, FLAT=0, LAYER_H=0.2",
+     "console/Mainsail angle/flat job: CS=1 countersunk, FLAT=1 flat connector - holes auto-arrange and auto-clamp"],
+    ["ANGLE_GENERATE", "—", "create the plate file from the stored settings (watcher builds it)"],
+    ["ANGLE_INFO", "—", "every angle/flat setting + the auto-hole rules"]]])
 # R64: resonance diagram + bridging + plotter text/status in the index
 for _g in _MIDX:
     if _g[0].startswith('Maintenance'):

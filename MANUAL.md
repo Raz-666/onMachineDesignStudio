@@ -26,7 +26,7 @@ reference tables at the end. Installation and wiring live in the appendices.
 2. [The system in five minutes](#2-the-system-in-five-minutes)
 3. [From file to print — the daily workflow](#3-from-file-to-print--the-daily-workflow)
 4. [Scenario library — every file type walked through](#4-scenario-library--every-file-type-walked-through)
-5. [The generators: Range, Labels & Plotter](#5-the-generators-range-labels--plotter)
+5. [The generators: Range, Labels, Plotter, Cable ties & Angles](#5-the-generators-range-labels-plotter-cable-ties--angles)
 6. [During the print: tuning, pauses, objects](#6-during-the-print-tuning-pauses-objects)
 7. [Filament: load / unload / change / runout / cold pull](#7-filament-load--unload--change--runout--cold-pull)
 8. [Temperature system L1/L2](#8-temperature-system-l1l2)
@@ -218,12 +218,14 @@ re-upload (R84/R85):**
   future uploads you can instead leave **Pre-Print > RetFix ON** — every new
   upload gets the treatment automatically.
 
-**Click pacing (R85):** actions that write many values at once (material
-select, preset load/save, range create, file fixes) insert ~100 ms
-micro-pauses between the disk writes — the Pi Zero never faces a write burst.
-While a print runs the pauses no-op (a dwell would stutter motion).
 | FS_* / FA_* | the MEASURED original speed / acceleration of each feature |
 | L1/L2 temps, PA, retraction, fan, nozzle, wall loops | everything Pre-Print can override |
+
+**Click pacing (R85):** actions that write many values at once (material
+select, preset load/save, range create, file fixes, the part generators)
+insert ~100 ms micro-pauses between the disk writes — the Pi Zero never faces
+a write burst. While a print runs the pauses no-op (a dwell would stutter
+motion).
 
 ### 3.2 What the tools do with every file — the flow
 
@@ -344,6 +346,67 @@ cooldown with the part fan, heaters off. The LED celebration runs for
 resets all per-print state — the next print starts clean, with your pre-print
 settings, the selected material and the loaded mesh deliberately KEPT.
 
+### 3.6 Foreign G-code — other slicers, other firmware, other hardware
+
+Files not sliced by you, not sliced for Klipper, or sliced for a DIFFERENT
+extruder: here is the complete map of what differs, what the system handles
+by itself, and where you click once.
+
+**A) Other slicers — detected, normalized, zero clicks**
+
+The watcher recognizes 12 slicer families by their header signature (OrcaSlicer,
+PrusaSlicer, SuperSlicer, Bambu Studio, Cura, Elegoo Slicer, Kiri:Moto,
+AstroPrint, SliceBeam, ideaMaker, Simplify3D, FlashPrint) and normalizes
+their dialects:
+
+| What differs between slicers | What the system does |
+|---|---|
+| layer comments: `;LAYER_CHANGE` (Orca/Prusa) · `;LAYER:n` · `;CHANGE_LAYER` (older/other) | all recognized — a `LAYER_MARK` is inserted for each; files with NO layer comments get a Z-scan instead (and say so in the console) |
+| feature names: Orca `;TYPE:Outer wall` · Cura `;TYPE:WALL-OUTER` · `;TYPE:Support/Base` … | everything is mapped to the system's 12 internal feature codes — overrides work on ANY slicer's file |
+| config headers `; line_width = 0.62` … | the relevant keys are read into `_FILE_INFO` (line widths, flow ratio, PA, speeds) — the Pre-Print preview shows the file's REAL values |
+| `EXCLUDE_OBJECT_DEFINE` blocks | only present when the slicer was told to label objects (Orca: "Label objects") — with them: adaptive mesh + live skip; without: honest full-bed mesh message |
+
+**B) Files sliced for Marlin (other firmware) — two real differences**
+
+Klipper-flavored files and Marlin-flavored files share nearly all commands,
+but two Marlin habits break on Klipper. Both are detected, flagged loudly,
+and fixed in place:
+
+| Marlin habit | Symptom on Klipper | The fix |
+|---|---|---|
+| **Volumetric E** (`;FLAVOR:Marlin (Volumetric)`, common from Cura profiles with volumetric mode on) | E counts mm³ instead of mm → the print starves, barely extrudes at all | **Pre-Print > File > `Vol->mm fix`**: every E value (G0/G1 and G92) is divided by the filament cross-section (1.75 mm → 2.405 mm²), the volumetric markers are neutralized, a note lands in the header. Idempotent — never converts twice. |
+| **Long retraction moves** (E-only retract/unretract pairs, typical 5–6 mm from Bowden-era profiles) | they work, but they OVERRIDE your tuned ~0.8 mm direct-drive retraction and cannot be live-tuned | **Pre-Print > File > `RetFix file`** (or Pre-Print > RetFix ON for every FUTURE upload): clean pairs become `G10/G11` firmware retraction — your current retraction applies and stays live-tunable. Wipes and folded retracts stay untouched. |
+
+The file info line **"sliced by <slicer> for <firmware>"** (Pre-Print > File)
+tells you upfront what you are holding — fresh uploads and foreign downloads
+alike. Marlin files WITHOUT volumetric markers and without extreme retracts
+just run: the LEGACY start flow (dialog, mesh, purge, L1/L2) takes over.
+
+**C) Files from other hardware (Bowden profile → your direct extruder)**
+
+An old file from your Bowden days (or a friend's Bowden machine) contains
+retraction distances tuned for a 400 mm filament path. Your direct extruder
+wants ~0.8 mm. `RetFix file` rewrites exactly those pairs to G10/G11 — the
+DISTANCE then comes from your saved retraction setting (Pre-Print > Motion,
+live-tunable during the print via Live Tuning > Extrusion). Nothing else in
+the file changes; the R2 markers survive, so no re-processing happens.
+
+The reverse (direct-drive file on a Bowden machine) is simply the same
+setting tuned the other way — no file fix needed, just your retraction
+values.
+
+**Decision table — what happens when**
+
+| You have… | The system… | You click… |
+|---|---|---|
+| a normal Klipper file from any of the 13 slicers | tags it, previews it, offers the start dialog | PRINT |
+| a Marlin-flavor file, no volumetric, normal retracts | same — LEGACY flow (mesh, purge, L1/L2) | AS LEGACY |
+| a Marlin-volumetric file | flags it loudly (file info + alarm at start) | `Vol->mm fix`, then PRINT |
+| an old Bowden-era file | tags it; long retracts stay as-is until you say so | `RetFix file` (or RetFix ON for all future uploads) |
+| a file calling its own `START_PRINT` | real legacy start: homing, heat, purge — then your rules | decision in the dialog |
+| pure movement data (no heaters, no macros) | net probe catches it: home + heat + purge first | nothing — it just works |
+
+
 ## 4. Scenario library — every file type walked through
 
 Real situations, start to finish. Each scenario lists the clicks and what the
@@ -450,13 +513,15 @@ PAUSE_AT_LAYER LAYER=17
 CANCEL_PRINT                                    # twice within 60 s
 ```
 
-## 5. The generators: Range, Labels & Plotter
+## 5. The generators: Range, Labels, Plotter, Cable ties & Angles
 
-Three generators turn the printer into a manufacturing tool of its own: partial
-prints from any G-code, label plates from typed text, pen plots from images.
-All of them write normal G-code files into the gcodes folder (the watcher
-picks them up), all of them run through the NORMAL start flow, and all
-generated objects are exclude-objects (skippable live).
+Five generators turn the printer into a manufacturing tool of its own: partial
+prints from any G-code, label plates from typed text, pen plots from images,
+printable cable ties and angle plates / flat connectors. All of them write
+normal G-code files into the gcodes folder (the watcher builds them in the
+background — niced, single-pass, a few seconds), all of them run through the
+NORMAL start flow, and all generated objects are exclude-objects (skippable
+live).
 
 ### 5.1 Range — print a section of an existing file
 
@@ -679,6 +744,148 @@ vector graphics or text — no slicer involved.
 **Resonance plates and other generated plots:** the calibration chapter
 (10.4) shows how the shaper diagrams are PLOTTED or printed as thin plates —
 the plotter is part of the calibration toolset too.
+
+### 5.4 Cable ties — the built-in cable-tie maker
+
+Printable cable ties in ONE file, straight from the LCD — no slicer, no
+modeling. Each tie is a flat strap with ratchet teeth plus an integrated
+closure head whose size, slot clearance and tooth pitch ALL auto-scale with
+the strap width: you never tune the mechanism itself.
+
+**Two closure variants (Setting: Closure)**
+
+| Variant | How it closes | How it opens |
+|---|---|---|
+| **RATCHET** | the strap's stepped teeth ratchet under an enclosed pawl tab — pulls tight, locks at every tooth | one-way: cut to remove |
+| **LATCH** | identical ratchet, but the head's front ceiling is left OPEN | lift the pawl tab through the open slot with a fingernail / small screwdriver — reusable |
+
+**The workflow (LCD: `Kabelbinder`, top level — same level as Plotter and
+Labels)**
+
+1. **Settings** — Count, Length, Width, Layers (strap thickness), LH (layer
+   height), Closure, Brim, Vers (see table below).
+2. **Create (beeps)** — a confirm blip immediately, then the watcher builds
+   the file in the background (niced, ~1–3 s). The happy tune plays and the
+   file **auto-selects**: `00_Ties_<len>x<wid>_<RAT|LAT>_V<xx>.gcode` — it
+   sorts to the TOP of the file list.
+3. Start it like any file: start dialog → AS LEGACY or AS SLICED. The message
+   lists everything that was auto-adapted (head size, slot, tooth pitch).
+
+**Settings**
+
+| Setting | Range | Meaning |
+|---|---|---|
+| Count | 1–24 | ties in ONE project file; the grid arranges them automatically (all fit the bed or you get a clear error) |
+| Len | 60–300 mm | strap length. Rule of thumb: bundle circumference + head (~19 mm at width 8) + a few cm of pull-in reserve |
+| Width | 5–12 mm | strap width. The closure head auto-scales: head ≈ 2.4×width long, 2.8×width wide, slot = width + 0.6 mm, tooth pitch ≈ 0.7×width |
+| Layers | 3–6 | strap thickness in layers. 3 = flexible, 6 = stiff, strong band |
+| LH | 0.12–0.32 mm | layer height. 0.12–0.16 = smoother teeth (finer ratchet steps) |
+| Closure | RATCHET / LATCH | one-way vs releasable (see table above) |
+| Brim | ON/OFF | loops around each head on layer 1 — the thin head sticks better |
+| Vers | V01–V09 | same settings + same version = the file replaces itself; bump to keep an iteration. The upload area is never touched |
+
+**What prints** — each tie: head (solid base, channel walls, pawl tab),
+strap with a chamfered insertion tip, and stepped teeth on top (two-layer
+nubs: a low ramp climbs in, the steep flank locks). Every tie is an
+**exclude object** (`TIE_1..n`) — skip a failed one live in Objects. The
+teeth engage INSIDE the channel: strap + teeth pass with one layer of
+clearance; the pawl tab's underside catches the tooth flanks when you pull.
+
+**Material matters (thin flexing parts):** PETG or TPU bend best and hold
+tight loops; PLA works for gentle curves and fixed mounts only. Print slow
+on layer 1 (the standard first-layer brake applies) and let the fan run from
+layer 2 (the file sets it itself).
+
+**Console one-liner (Mainsail — every parameter optional):**
+
+```
+GEN_CABLE_TIES COUNT=6 LENGTH=120 WIDTH=8 LAYERS=3 VARIANT=RATCHET LAYER_H=0.2 BRIM=1
+```
+
+`VARIANT=RATCHET` (one-way) or `VARIANT=LATCH` (releasable). Example:
+`GEN_CABLE_TIES COUNT=12 LENGTH=100 WIDTH=6 VARIANT=LATCH` = a dozen
+reusable 100 mm ties for cable management.
+
+### 5.5 Angles & flat connectors — structural plates
+
+Angle plates (L-brackets in ANY angle, equal or unequal legs) and flat
+connectors (two boards joined side by side) — screw-on, printable, with a
+fully automatic hole layout. LCD: `Winkel+Flach`, top level.
+
+**Mode (the first menu entry)**
+
+| Mode | What it builds | Typical use |
+|---|---|---|
+| **Angle (L)** | two legs at the set angle (30–170°), leg lengths A and B independently | inside corners, frames, kickers, brackets |
+| **Flat splice** | one straight strip of length A+B | joining two boards flat: LEFT/RIGHT = the two halves, each screwed with the SAME hole pattern |
+
+**The hole system — auto-arranged, auto-clamped, never broken**
+
+- Holes sit on each leg's centerline, evenly spaced between the corner zone
+  and the leg end — you set only the COUNT and the DIAMETER.
+- The diameter can never exceed the leg: it is clamped to `width − 6 mm`
+  (≥ 3 mm material around every hole) and to 10 mm. If it was clamped, the
+  result message says so.
+- If the leg is too short for the requested count, the count drops
+  automatically (e.g. 3 → 1 on a short B leg) — the message lists every
+  reduction.
+- In FLAT mode both halves carry the SAME pattern (mirrored): the parameters
+  of one side transfer to the other, so both boards always match.
+- **Countersink ON/OFF:** ON adds a two-step cone (two top layers) so
+  flat-head screws sit flush; OFF = straight hole for screw head + nut.
+
+**Stiffener (angle mode only; hidden in FLAT mode)**
+
+| Value | What it adds |
+|---|---|
+| 0 — None | flat plate, the thinnest option |
+| 1 — Gusset rib | a triangle over the corner on top of the plate — the standard stiffening; roughly half the plate height |
+| 2 — Stepped rib | gusset plus a second, smaller one on top — strongest, for large angles under load |
+
+**Settings (all of them, in menu order)**
+
+| Setting | Range | Meaning |
+|---|---|---|
+| Mode | Angle / Flat | bracket vs straight splice (see above) |
+| Angle | 30–170° | only in Angle mode — hidden in Flat mode |
+| Leg A / Left | 20–150 mm | first leg (from the corner) / left half of a flat splice |
+| Leg B / Right | 20–150 mm | second leg / right half — set both equal for a symmetric splice |
+| Width | 8–60 mm | leg width (the plate's depth) |
+| Layers | 4–12 | plate thickness in layers |
+| LH | 0.12–0.32 mm | layer height |
+| Holes | 0–6 per leg | screw holes per leg (auto-reduced if they do not fit) |
+| Hole D | 2–10 mm | hole diameter (auto-clamped to the leg width) |
+| Holes: countersunk / normal | toggle | flush flat-head screws vs straight through-hole |
+| Rib | None / Gusset / Stepped | corner stiffening (angle mode only) |
+| Count | 1–12 | plates in ONE project file |
+| Vers | V01–V09 | version in the file name (same convention as Labels) |
+
+**The workflow**
+
+1. Mode → Settings → **Create (beeps)**. The file appears after ~1–2 s,
+   auto-selected: `00_Angle_<deg>deg_<A>x<B>_V<xx>.gcode` or
+   `00_Flat_<A+B>x<width>_V<xx>.gcode`.
+2. The ready-message summarizes the plate AND every automatic adjustment
+   (clamped diameter, reduced hole count) — nothing adjusts silently.
+3. Start like any file; each plate is an **exclude object** (`PLATE_1..n`).
+
+**Sizing rule of thumb:** the corner zone of an angle is as wide as the leg
+(the legs overlap there) — the first hole sits ~width + hole/2 + 1.5 mm from
+the corner. For a 90°/40/40 bracket with 4 mm screws that leaves ~1–2 holes
+per leg; use longer legs for more screws.
+
+**Console one-liner (Mainsail — every parameter optional):**
+
+```
+GEN_ANGLES COUNT=2 ANGLE=90 LEG_A=60 LEG_B=60 WIDTH=25 LAYERS=6 HOLES=2 HOLE_D=4 CS=1 STIFFENER=1 FLAT=0
+```
+
+`CS=1` = countersunk, `CS=0` = normal holes. `FLAT=1` switches to the flat
+connector (ANGLE is then ignored). Examples:
+`GEN_ANGLES ANGLE=135 LEG_A=70 LEG_B=40 WIDTH=30 HOLES=3 STIFFENER=2` = heavy
+135° bracket with stepped rib; `GEN_ANGLES FLAT=1 LEG_A=50 LEG_B=50 WIDTH=25
+HOLES=2 HOLE_D=5 CS=0` = plain 100 mm splice strip.
+
 
 ## 6. During the print: tuning, pauses, objects
 
@@ -1151,10 +1358,12 @@ wiring changes without heating anything.
 
 ## 14. LCD menu reference
 
-Eight top groups — in LCD order: **Start Print?** (appears in the waiting
+Ten top groups — in LCD order: **Start Print?** (appears in the waiting
 state, position 1), **Live Tuning** (during a print, position 2), then
-Pre-Print, **Labels**, **Plotter**, Quick Macros, Maintenance, System. Start
-dialog and live tuning sit right at the top. Every line fits the 16 characters
+Pre-Print, the two part generators **Kabelbinder** (cable ties) and
+**Winkel+Flach** (angles + flat connectors, both at the same level as Labels
+and Plotter), **Labels**, **Plotter**, Quick Macros, Maintenance, System.
+Start dialog and live tuning sit right at the top. Every line fits the 16 characters
 of the 12864 display — the value you edit is always visible (test-enforced).
 Pattern: first line = ON/OFF toggle (value stays stored), then the values.
 
@@ -1208,6 +1417,29 @@ bed corner limits, extruder ON/OFF, Z up/down, speeds, max size, auto-
 contrast, Invert AUTO/ON/OFF, Drive frame test, Start (overrides), Plot text
 file, > Plot status. All baked into the file at conversion time; live entries
 while plotting (ch. C.3).
+
+**Kabelbinder** (cable ties, top level — ch. 5.4)
+
+| Entry | Contents |
+|---|---|
+| Info | every setting in one console listing + material tip |
+| Settings | Count 1–24 · Len 60–300 mm · Width 5–12 mm · Layers 3–6 (strap thickness) · LH 0.12–0.32 (finer = smoother teeth) · Closure: RATCHET (one-way, `*` marks active) / LATCH (releasable) · Brim ON/OFF · Vers V01–V09 |
+| Create (beeps) | validates, bumps the job counter — the watcher builds the file in the background, it beeps + auto-selects |
+| How it works | the flow + PETG/TPU tip + the Mainsail one-liner, right on the LCD |
+
+**Winkel+Flach** (angles + flat connectors, top level — ch. 5.5)
+
+| Entry | Contents |
+|---|---|
+| Info | every setting in one console listing + the auto-hole rules |
+| Mode | Angle (L) / Flat splice — the `*` marks the active mode |
+| Settings | Angle 30–170° (**hidden in Flat mode**) · Leg A/B 20–150 mm (renamed Left/Right in Flat mode) · Width 8–60 · Layers 4–12 · LH · Holes 0–6 per leg · Hole D 2–10 mm (auto-clamped to the leg width) · Holes: Countersunk/Normal · Rib None/Gusset/Stepped (**hidden in Flat mode**) · Count 1–12 · Vers V01–V09 |
+| Create (beeps) | validates, bumps the job counter — ready in ~1–2 s with the full adjustment report |
+
+Dependency rules the menu enforces itself: Flat mode hides the Angle input
+and the Rib submenu (a straight splice has neither), and the leg entries
+rename to Left/Right so the halves are unambiguous. The hole count/diameter
+never error out — the generator clamps and reports.
 
 **Maintenance — in calibration order** (the ladder, ch. 9):
 
@@ -1385,6 +1617,50 @@ inline comments in gcode · SAVE_VARIABLE names lowercase · True/False capitali
 
 ## 21. What happens when a macro executes
 
+### 21.1 The idea in one worked example — from upload to finished print
+
+The system's purpose in one sentence: **the printer understands its files.**
+Four building blocks make that work — reading files, tagging them,
+recognizing features, and triggering functions. Here is the complete chain
+for a real print (`vase.gcode`, sliced in OrcaSlicer for Klipper):
+
+**1. Reading the file (the watcher).** A service on the Pi
+(`tools/r2_postproc.py`) watches the gcodes folder. One second after
+`vase.gcode` arrives it reads the WHOLE file once: layer comments, `;TYPE:`
+feature comments, slicer header, object definitions, temperatures, speeds —
+and writes what it learned into the file itself.
+
+**2. Tagging.** The watcher inserts markers that Klipper macros can react to:
+
+```
+; R2-POSTPROC v4          ← the tag: "this file is processed" (never twice)
+_FILE_INFO LAYERS=312 …   ← everything the preview shows, one block
+LAYER_MARK               ← before every layer change
+APPLY_TYPE TYPE=WALL-OUTER  ← after every ;TYPE: comment
+```
+
+**3. Feature recognition.** `_FILE_INFO` contains the MEASURED values per
+feature (which speeds really are in the file), the layer count, by-object
+mode, the slicer + firmware it was made for. The moment you SELECT the file,
+this block replays into the system — Pre-Print > File fills itself, the
+start dialog knows what it is dealing with, volumetric Marlin files get
+flagged.
+
+**4. Triggering functions.** During the print, the markers fire macros:
+`LAYER_MARK` counts layers (→ layer 2: L2 temps, file fan back, full speed),
+`APPLY_TYPE` switches the live overrides to whatever feature is printing
+right now, `PRINT_START`/`PRINT_END` (or their absence in a legacy file!)
+trigger the start/end choreography. The file NAME is a trigger too:
+`photo.png.gcode` converts to a pen-plot file, `notes.txt` to a text plot —
+and a saved variable bumping (the "nonce" counters) triggers the five
+generators of chapter 5 in the background.
+
+The same pattern everywhere: **detect once, decide in a macro, act live.**
+Nothing is baked in — AS SLICED runs the file 1:1, and every automatic rule
+is a switch you can turn off.
+
+### 21.2 Execution mechanics
+
 1. **Render before execute:** Klipper evaluates the whole template FIRST, then
    runs plain gcode — a macro cannot see values it just set. Verification phases
    run as delayed_gcode (_LEGACY_PREP2 1.5 s, _OBJECT_PREP 2 s) and render FRESH.
@@ -1467,6 +1743,9 @@ Diagnostics: SHOW_STATUS · SELF_TEST · KAMP_STATUS · HOST_CHECK (Pi health) �
 | first layer slower/faster | Pre-Print > 1st layer % |
 | calibrate flow | Maintenance > Flow Cal. |
 | run a temperature tower | Maintenance > Temp Tower |
+| print cable ties | Kabelbinder > Create (beeps) |
+| print an angle bracket | Winkel+Flach > Mode > Angle, Settings, Create |
+| join two boards flush | Winkel+Flach > Mode > Flat splice, Left/Right, Create |
 | test ironing | Maintenance > Ironing Cal. |
 | purge / cold pull | Macros > Purge · Maintenance > Filament |
 | shutdown the Pi | System > Shutdown (2×) |
@@ -1479,12 +1758,33 @@ TOGGLE_OVERRIDE NAME=… · CLEAR_OVERRIDES · PRINT_AS_SLICED / PRINT_WITH_OVER
 PRINT_AS_LEGACY · SET_GLOBAL_SPEED · SET_GLOBAL_ACCEL · SET_LIVE_VELOCITY ·
 SET_LIVE_MINIMUM_CRUISE_RATIO · SET_LIVE_PRESSURE_ADVANCE · SET_LIVE_RETRACTION ·
 SET_FLOW_RATE · SET_FAN_SCALE · PAUSE · RESUME · CANCEL_PRINT (2×) ·
-PAUSE_AT_LAYER LAYER=n · SKIP_OBJECT OBJECT=name · CALIBRATE_PA ·
-FLOW_CAL MEASURE=0.46 · TEMP_TOWER_START START=200 END=230 STEP=5 BAND=10
+PAUSE_AT_LAYER LAYER=n · SKIP_OBJECT OBJECT=name · GEN_LABELS TEXT="A|B" ·
+GEN_CABLE_TIES COUNT=6 LENGTH=120 · GEN_ANGLES ANGLE=90 LEG_A=60 LEG_B=60 ·
+CALIBRATE_PA · FLOW_CAL MEASURE=0.46 · TEMP_TOWER_START START=200 END=230 STEP=5 BAND=10
 ```
 
+**Mainsail's macro panel:** every macro carries a one-line `description:`
+(the same text Mainsail shows under the macro name). Type the macro name in
+the console with a `?` and no parameters — most macros answer with their
+usage line and the valid values instead of doing something.
+
+**Abbreviation decoder** — the short codes the console, M117 and the LCD use:
+
+| Code | Means | Code | Means |
+|---|---|---|---|
+| **L1 / L2** | layer 1 / layer 2 (temp & fan system, ch. 8) | **PA** | pressure advance |
+| **OW / IW** | outer wall / inner wall | **SP / SO** | sparse infill / solid infill |
+| **TP / BT** | top surface / bottom surface | **BR / GP** | bridge / gap fill |
+| **SU / IR** | support / ironing | **SK / BM** | skirt / brim |
+| **FS_* / FA_*** | file's measured speed / acceleration of that feature | **o:ON** | that feature's override is ON |
+| **Src:** | where a value comes from: file / overwrite / live | **Now:** | the feature printing right now |
+| **LH** | layer height | **CS** | countersink (generator holes) |
+| **Vers / V01…** | the generated file's version number | **RAT / LAT** | RATCHET / LATCH closure (cable ties) |
+| **Zoff** | Z offset (babystepping total) | **RetLen / RetSpd / Unret** | retract length / speed / unretract speed |
+| **MCR** | minimum cruise ratio | **SCV** | square corner velocity |
+
 ## 25. Complete macro index
-All 127 public macros with parameters (defaults in parentheses; blank = no parameters). Internal helpers (leading `_`) are not user-facing. Grouped by module file — the same file you would edit.
+All 136 public macros with parameters (defaults in parentheses; blank = no parameters). Internal helpers (leading `_`) are not user-facing. Grouped by module file — the same file you would edit.
 
 ### Sounds — 02_sounds.cfg (4)
 | Macro | Parameters | Purpose |
@@ -1660,6 +1960,16 @@ All 127 public macros with parameters (defaults in parentheses; blank = no param
 | **LABEL_DEL_CHAR** | — | delete the character at the cursor position |
 | **LABEL_CLEAR_TEXT** | — | clear the edit buffer |
 | **LABEL_INFO** | — | queue + size + font + bed-fit info |
+
+### Part generators — 17_generator.cfg (6)
+| Macro | Parameters | Purpose |
+|---|---|---|
+| **GEN_CABLE_TIES** | COUNT=6, LENGTH=120, WIDTH=8, LAYERS=3, VARIANT='RATCHET', LAYER_H=0.2, BRIM=1 | console/Mainsail cable-tie job: `GEN_CABLE_TIES COUNT=6 LENGTH=120 VARIANT=LATCH` — sets everything + creates the file (VARIANT: RATCHET one-way · LATCH releasable) |
+| **CABLE_TIE_GENERATE** | — | create the tie file from the stored settings (bumps cable_tie_nonce; the watcher builds it, beeps + selects) |
+| **CABLE_TIE_INFO** | — | every tie setting in one listing + material tip |
+| **GEN_ANGLES** | COUNT=2, ANGLE=90, LEG_A=60, LEG_B=60, WIDTH=25, LAYERS=6, HOLES=2, HOLE_D=4, CS=1, STIFFENER=1, FLAT=0, LAYER_H=0.2 | console/Mainsail angle/flat job: `GEN_ANGLES ANGLE=45 LEG_A=80 LEG_B=50 STIFFENER=2` — CS=1 countersunk · FLAT=1 flat connector |
+| **ANGLE_GENERATE** | — | create the plate file from the stored settings (bumps angle_nonce) |
+| **ANGLE_INFO** | — | every angle/flat setting + the auto-hole rules |
 
 ### KAMP — 14_kamp.cfg (5)
 | Macro | Parameters | Purpose |

@@ -58,6 +58,12 @@ save_vars = {
     'label_layer_h': 0.2, 'label_first_h': 0.28, 'label_ironing': True,
     'label_hole_side': 1, 'label_hole_d': 5.0, 'label_brim': True, 'label_gap': 6,
     'label_color2': True, 'label_gen_nonce': 0, 'label_fit': '?',
+    'tie_count': 6, 'tie_length': 120, 'tie_width': 8, 'tie_layers': 3,
+    'tie_variant': 'RATCHET', 'tie_layer_h': 0.2, 'tie_brim': True, 'cable_tie_nonce': 0,
+    'angle_count': 2, 'angle_deg': 90, 'angle_leg_a': 60, 'angle_leg_b': 60,
+    'angle_width': 25, 'angle_layers': 6, 'angle_holes': 2, 'angle_hole_d': 4.0,
+    'angle_countersink': True, 'angle_stiffener': 1, 'angle_flat': False,
+    'angle_layer_h': 0.2, 'angle_nonce': 0,
 }
 state_vars = {
     'mode': 'printing', 'layer': 2, 'total_layers': 100, 'current_type': 'WALL-OUTER', 'file_type': 'marked',
@@ -151,7 +157,7 @@ def build_printer(kamp=False, objs=None, excl=None, old_klipper=False, bare_idle
         d['gcode_macro ' + _m] = M({})
     for _v in ['_V01_STATE','_V02_SOUNDS','_V03_LEDS','_V04_NOTIFY','_V05_MATERIALS','_V06_TEMPS',
                '_V07_CONFIRM','_V08_STARTSTOP','_V09_PAUSE','_V10_LIVE','_V11_GANTRY','_V12_MAINT',
-               '_V13_SYSTEM','_V15_OBJECTS','_V16_MENUS'] + ([] if drop14 else ['_V14_KAMP']):
+               '_V13_SYSTEM','_V15_OBJECTS','_V16_MENUS','_V17_LABELS','_V18_GEN'] + ([] if drop14 else ['_V14_KAMP']):
         d['gcode_macro ' + _v] = M({})
     if old_klipper:
         d['idle_timeout'] = M({'state':'Printing','printing_time':0.0})   # older Klipper: no 'idle_timeout' key
@@ -164,6 +170,7 @@ def build_printer(kamp=False, objs=None, excl=None, old_klipper=False, bare_idle
     d['gcode_macro _LABELS'] = M({'charset': LABEL_CHARSET_LCD,
                                   'max_text': 12, 'max_labels': 24})
     d['gcode_macro _LEGACY_PREP'] = M({})
+    d['gcode_macro _GENERATORS'] = M({'max_ties': 24, 'max_plates': 12})
     if kamp:
         d['gcode_macro _KAMP_Settings'] = M({'mesh_margin':0,'fuzz_amount':0,'purge_amount':30,
                                              'purge_margin':10,'purge_height':0.8,
@@ -562,7 +569,7 @@ state_vars['idle_timeout_saved'] = 3600.0
 
 body = get_body('macros/01_state.cfg', '_CHECK_INSTALL')
 out = render(body, {})
-tests.append(('CHECK_INSTALL all loaded', 'all 16 modules loaded and current' in out and 'MISSING' not in out, out[:160]))
+tests.append(('CHECK_INSTALL all loaded', 'all 17 modules loaded and current' in out and 'MISSING' not in out, out[:160]))
 out = render(body, {}, drop14=True)
 tests.append(('CHECK_INSTALL detects missing/outdated 14', '14_kamp.cfg' in out and 'MODULES MISSING OR OUTDATED' in out and 'sentinel' in out, out[:220]))
 
@@ -3791,7 +3798,7 @@ for _f69 in sorted(_glob65.glob('macros/*.cfg') + _glob65.glob('menus/*.cfg')):
             # R79: '[' = list literal (VALUE=[]) - safe, Klipper passes the object
             _badg69.append('%s:%d' % (_f69, _n69))
 tests.append(('R69 static gate: no bare VALUE=" (the shutdown class) in any cfg line',
-    not _badg69 and len(_glob65.glob('macros/*.cfg')) == 16, str(_badg69[:3])))
+    not _badg69 and len(_glob65.glob('macros/*.cfg')) == 17, str(_badg69[:3])))
 
 _lb69 = get_body('macros/16_labels.cfg', '_LABEL_SET_CHAR')
 _bad69 = []
@@ -4857,7 +4864,8 @@ tests.append(('R75 watcher: _prime_nonces adopts the current counters (no re-fir
     _mod73._prime_nonces({'preview_nonce': '7', 'label_gen_nonce': '2'}) == {
         'preview_nonce': '7', 'range_nonce': None, 'label_gen_nonce': '2', 'reso_nonce': None,
         'bridge_nonce': None, 'plot_text_nonce': None, 'plot_status_nonce': None, 'host_nonce': None,
-        'label_fit_nonce': None, 'retract_fix_nonce': None, 'vol_fix_nonce': None}, ''))
+        'label_fit_nonce': None, 'retract_fix_nonce': None, 'vol_fix_nonce': None,
+        'cable_tie_nonce': None, 'angle_nonce': None}, ''))
 tests.append(('R75 watcher: daemon runs niced + primes on the first pass',
     'os.nice(4)' in open('tools/r2_postproc.py').read()
     and 'first_prime' in open('tools/r2_postproc.py').read(), ''))
@@ -5897,6 +5905,248 @@ _lcd85 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 tests.append(('R85 LCD: Pre-Print > File has RetFix file + Vol->mm fix (volumetric-gated)',
     '__preprint __file __fixr]' in _lcd85 and '__preprint __file __fixv]' in _lcd85
     and 'FIX_FILE WHAT=RETRACT' in _lcd85 and 'FIX_FILE WHAT=VOL' in _lcd85, ''))
+
+# ============================== R86 tests: part generators (ties + angles) =======
+import os as _os86
+import re as _re86
+import math as _math86
+import tempfile as _tf86
+
+# --- (1) macro renders ---------------------------------------------------------
+_gen86 = 'macros/17_generator.cfg'
+out = render(get_body(_gen86, 'CABLE_TIE_INFO'))
+tests.append(('R86 CABLE_TIE_INFO: shows every setting + material tip',
+    'length 120mm' in out and 'width 8' in out and '3 strap layers' in out
+    and 'RATCHET' in out and 'brim on' in out and 'PETG/TPU' in out, out[:150]))
+
+save_vars['tie_variant'] = 'LATCH'
+out = render(get_body(_gen86, 'CABLE_TIE_INFO'))
+tests.append(('R86 CABLE_TIE_INFO: LATCH variant marked releasable',
+    'releasable' in out, out[:120]))
+out = render(get_body(_gen86, 'CABLE_TIE_GENERATE'))
+tests.append(('R86 CABLE_TIE_GENERATE: valid -> nonce bump + confirm + creating',
+    'VARIABLE=cable_tie_nonce VALUE=1' in out and 'r2_confirm' in out
+    and 'creating' in out, out[:150]))
+save_vars['tie_length'] = 400
+out = render(get_body(_gen86, 'CABLE_TIE_GENERATE'))
+tests.append(('R86 CABLE_TIE_GENERATE: length 400 blocked (60..300)',
+    'NOTIFY' in out and 'length must be 60..300' in out
+    and 'VARIABLE=cable_tie_nonce' not in out, out[:140]))
+save_vars['tie_length'] = 120
+out = render(get_body(_gen86, 'GEN_CABLE_TIES'),
+             {'COUNT': '4', 'VARIANT': 'LATCH', 'WIDTH': '6'})
+_sv86 = [l.strip() for l in out.split(chr(10))
+         if l.strip().startswith('SAVE_VARIABLE') or l.strip() == '_PACE']
+_adj86 = sum(1 for i in range(len(_sv86) - 1)
+             if _sv86[i].startswith('SAVE_VARIABLE') and _sv86[i + 1].startswith('SAVE_VARIABLE'))
+_out86n = _re86.sub(r'\s+', ' ', out)
+tests.append(('R86 GEN_CABLE_TIES: params saved (variant quoted) + paced + chains',
+    'VARIABLE=tie_count VALUE=4' in _out86n and 'VARIABLE=tie_width VALUE=6.0' in _out86n
+    and 'VARIABLE=tie_variant VALUE=' in _out86n and 'LATCH' in _out86n
+    and 'CABLE_TIE_GENERATE' in out and _adj86 == 0 and _sv86.count('_PACE') >= 5,
+    'adjacent %d' % _adj86))
+
+out = render(get_body(_gen86, 'ANGLE_INFO'))
+tests.append(('R86 ANGLE_INFO: angle mode shows legs + rib',
+    '90 deg' in out and 'legs 60/60mm' in out and 'gusset rib' in out
+    and 'countersink ON' in out, out[:150]))
+save_vars['angle_flat'] = True
+out = render(get_body(_gen86, 'ANGLE_INFO'))
+tests.append(('R86 ANGLE_INFO: flat mode = straight strip',
+    'Flat connectors' in out and '60+60mm' in out, out[:120]))
+out = render(get_body(_gen86, 'ANGLE_GENERATE'))
+tests.append(('R86 ANGLE_GENERATE: valid -> angle_nonce bump + confirm',
+    'VARIABLE=angle_nonce VALUE=1' in out and 'r2_confirm' in out
+    and 'creating' in out, out[:150]))
+save_vars['angle_flat'] = False
+save_vars['angle_deg'] = 25
+out = render(get_body(_gen86, 'ANGLE_GENERATE'))
+tests.append(('R86 ANGLE_GENERATE: angle 25 blocked (30..170)',
+    'angle must be 30..170' in out and 'VARIABLE=angle_nonce' not in out, out[:130]))
+save_vars['angle_deg'] = 90
+out = render(get_body(_gen86, 'GEN_ANGLES'),
+             {'ANGLE': '45', 'LEG_A': '80', 'LEG_B': '50', 'WIDTH': '30',
+              'HOLES': '3', 'HOLE_D': '5', 'CS': '0', 'STIFFENER': '2', 'FLAT': '1'})
+_sv86b = [l.strip() for l in out.split(chr(10))
+          if l.strip().startswith('SAVE_VARIABLE') or l.strip() == '_PACE']
+_adj86b = sum(1 for i in range(len(_sv86b) - 1)
+              if _sv86b[i].startswith('SAVE_VARIABLE') and _sv86b[i + 1].startswith('SAVE_VARIABLE'))
+_out86bn = _re86.sub(r'\s+', ' ', out)
+tests.append(('R86 GEN_ANGLES: 12 params saved, paced, no adjacent writes',
+    'VARIABLE=angle_deg VALUE=45.0' in _out86bn and 'VARIABLE=angle_stiffener VALUE=2' in _out86bn
+    and 'VARIABLE=angle_flat VALUE=True' in _out86bn and 'ANGLE_GENERATE' in out
+    and _adj86b == 0 and _sv86b.count('_PACE') >= 10,
+    'adjacent %d pace %d' % (_adj86b, _sv86b.count('_PACE'))))
+
+# --- (2) LCD menus -------------------------------------------------------------
+_lcd86 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R86 LCD: Kabelbinder + Winkel+Flach top level, guarded, all params',
+    all(k in _lcd86 for k in ['[menu __main __cable]', '[menu __main __angle]',
+        '__cable __set __cnt]', '__cable __set __len]', '__cable __set __wid]',
+        '__cable __set __lay]', '__cable __set __lh]', '__cable __set __var __rat]',
+        '__cable __set __var __lat]', '__cable __set __brim]', '__cable __set __vers]',
+        '__angle __mode __ang]', '__angle __mode __flt]', '__angle __set __deg]',
+        '__angle __set __la]', '__angle __set __lb]', '__angle __set __wid]',
+        '__angle __set __lay]', '__angle __set __lh]', '__angle __set __hol]',
+        '__angle __set __hd]', '__angle __set __cs __on]', '__angle __set __cs __off]',
+        '__angle __set __stf __s1]', '__angle __set __stf __s2]', '__angle __set __stf __s0]',
+        '__angle __set __cnt]', '__angle __set __vers]',
+        'CABLE_TIE_GENERATE', 'ANGLE_GENERATE',
+        "enable: {'gcode_macro _GENERATORS' in printer}"]), 'ids'))
+tests.append(('R86 LCD: angle + rib hidden in FLAT mode (enable gates)',
+    _lcd86.count('enable: {not printer[\'save_variables\'].variables.angle_flat|default(False)}') == 2,
+    'gates %d' % _lcd86.count('angle_flat|default(False)')))
+_blk86a = _lcd86[_lcd86.index('[menu __main __cable]'):_lcd86.index('[menu __main __labels]')]
+_n86 = [l.strip()[6:].strip("'") for l in _blk86a.split(chr(10)) if l.strip().startswith('name: ')]
+_n86 = [l.split('{')[0].strip() if '{' in l else l for l in _n86]   # static prefix of dynamic names
+_long86 = [l for l in _n86 if len(l) > 16]
+tests.append(('R86 LCD: menu names stay short (R29)', len(_long86) == 0, str(_long86[:6])))
+
+# --- (3) module wiring ---------------------------------------------------------
+tests.append(('R86 modules: 17_generator.cfg sentinel + _CHECK_INSTALL lists 17',
+    '_V18_GEN' in open(_gen86).read()
+    and "('17_generator.cfg',       ['_V18_GEN'])" in open('macros/01_state.cfg').read()
+    and 'all 17 modules' not in open('macros/01_state.cfg').read(), ''))
+tests.append(('R86 watcher: NONCE_KEYS has 13 channels incl. both new',
+    len(_pp.NONCE_KEYS) == 13 and 'cable_tie_nonce' in _pp.NONCE_KEYS
+    and 'angle_nonce' in _pp.NONCE_KEYS, str(_pp.NONCE_KEYS)))
+
+# --- (4) generator geometry (real files) ----------------------------------------
+_d86 = _tf86.mkdtemp(prefix='r86_')
+_p86t, _i86t = _pp.make_cable_ties(count=6, length=120, width=8, layers=3,
+                                   variant='RATCHET', out_dir=_d86,
+                                   bed=(0.0, -3.0, 244.0, 238.0))
+_g86t = open(_p86t).read()
+tests.append(('R86 ties: file name 00_+_V01, TAG, PRINT_START, 6 exclude objects',
+    _os86.path.basename(_p86t) == '00_Ties_120x8_RAT_V01.gcode'
+    and _pp.TAG in _g86t and 'PRINT_START MATERIAL=PLA' in _g86t
+    and _g86t.count('EXCLUDE_OBJECT_DEFINE') == 6, _os86.path.basename(_p86t)))
+tests.append(('R86 ties: 10 layer marks + header order TAG->defines->PRINT_START->G90',
+    _g86t.count('LAYER_MARK') == 10
+    and _g86t.index(_pp.TAG) < _g86t.index('EXCLUDE_OBJECT_DEFINE')
+    < _g86t.index('PRINT_START') < _g86t.index('G90'), ''))
+_chan86 = 0
+_z86 = None
+_x86 = _y86 = None
+for _l86 in _g86t.split(chr(10)):
+    if _l86.startswith(';Z:'):
+        _z86 = float(_l86[3:])
+    _m86 = _re86.match(r'G1 X([\d.-]+) Y([\d.-]+) E([\d.]+)', _l86)
+    if _m86 and float(_m86.group(3)) > 0 and _z86 is not None:
+        for _ln86 in range(6):
+            _cy86 = 36.5 + _ln86 * 32.4
+            if (abs(float(_m86.group(2)) - _cy86) < 3.6 and 52.4 < float(_m86.group(1)) < 71.6
+                    and 0.6 < _z86 < 1.5):
+                _chan86 += 1
+tests.append(('R86 ties: channel stays OPEN in the slot band (nothing in the way)',
+    _chan86 == 0, 'intrusions %d' % _chan86))
+
+_p86a, _i86a = _pp.make_angles(count=2, angle_deg=90, leg_a=60, leg_b=60, width=25,
+                               layers=6, holes=2, hole_d=4, countersink=True,
+                               stiffener=1, out_dir=_d86, bed=(0.0, -3.0, 244.0, 238.0))
+_g86a = open(_p86a).read()
+tests.append(('R86 angles: name + L-outline polygon (6 pts) + 2 plates + rib layers',
+    _os86.path.basename(_p86a) == '00_Angle_90deg_60x60_V01.gcode'
+    and _i86a['layers'] == 9 and _g86a.count('EXCLUDE_OBJECT_DEFINE') == 2
+    and _g86a.count('LAYER_MARK') == 9, _os86.path.basename(_p86a)))
+
+def _holes_ok86(path, centers, r_expect, layers=None):
+    g = open(path).read().split(chr(10))
+    x = y = None
+    z = None
+    intr = 0
+    dmin = 9e9
+    for l in g:
+        if l.startswith(';Z:'):
+            z = float(l[3:])
+        m = _re86.match(r'G1 X([\d.-]+) Y([\d.-]+) E([\d.]+)', l)
+        if m:
+            nx, ny, e = float(m.group(1)), float(m.group(2)), float(m.group(3))
+            if e > 0:
+                for t in [i / 6.0 for i in range(7)]:
+                    px, py = x + (nx - x) * t, y + (ny - y) * t
+                    for (cx, cy) in centers:
+                        d = _math86.hypot(px - cx, py - cy)
+                        dmin = min(dmin, d)
+                        if d < r_expect - 0.12:
+                            intr += 1
+            x, y = nx, ny
+        elif l.startswith('G0 X'):
+            m2 = _re86.match(r'G0 X([\d.-]+) Y([\d.-]+)', l)
+            x, y = float(m2.group(1)), float(m2.group(2))
+    return intr, dmin
+
+# 90deg/60/60/w25: corner_clear = 25 + 2 + 1.5 = 28.5, end 3.5 -> usable 24,
+# n=2 step 24 -> centers 30.5 / 54.5 on each leg centerline, both plates
+_cs86 = []
+for _ox86 in (55.0, 129.0):
+    for _dd86 in (30.5, 54.5):
+        _cs86.append((_ox86 + _dd86, _ox86 * 0 + 87.5 + 12.5))
+        _cs86.append((_ox86 + 12.5, 87.5 + _dd86))
+_intr86, _dmin86 = _holes_ok86(_p86a, _cs86, 2.0)
+tests.append(('R86 angles: hole walls sit at r, NOTHING extrudes inside (auto keep-out)',
+    _intr86 == 0 and 1.9 < _dmin86 < 2.3, 'intr %d dmin %.2f' % (_intr86, _dmin86)))
+
+_p86f, _i86f = _pp.make_angles(count=1, flat=True, leg_a=40, leg_b=40, width=25,
+                               layers=6, holes=2, hole_d=4, countersink=False,
+                               stiffener=0, out_dir=_d86, bed=(0.0, -3.0, 244.0, 238.0))
+tests.append(('R86 flat: own file name + both halves share the SAME hole pattern',
+    _os86.path.basename(_p86f) == '00_Flat_80x25_V01.gcode' and _i86f['holes'] == '2+2',
+    _os86.path.basename(_p86f)))
+
+# hole clamp: 9mm on a 20mm leg -> clamped to 14? no: max_d = min(20-6, 10) = 10 -> stays 9? edge=3
+_p86c, _i86c = _pp.make_angles(count=1, angle_deg=90, leg_a=40, leg_b=40, width=20,
+                               layers=6, holes=4, hole_d=9, stiffener=0, out_dir=_d86,
+                               bed=(0.0, -3.0, 244.0, 238.0))
+tests.append(('R86 angles: short leg reduces hole count + notes say so',
+    _i86c['holes'] == '0+0' and any('too short' in n for n in _i86c['notes']), str(_i86c['notes'])))
+_p86c2, _i86c2 = _pp.make_angles(count=1, angle_deg=90, leg_a=100, leg_b=100, width=16,
+                                 layers=6, holes=3, hole_d=9, stiffener=0, out_dir=_d86,
+                                 bed=(0.0, -3.0, 244.0, 238.0))
+tests.append(('R86 angles: 9mm hole clamped to the 16mm leg (max 10)',
+    _i86c2['hole_d'] == 9.0 and 'clamped' not in str(_i86c2['notes']), str(_i86c2['notes'])))
+_p86c3, _i86c3 = _pp.make_angles(count=1, angle_deg=90, leg_a=100, leg_b=100, width=12,
+                                 layers=6, holes=2, hole_d=8, stiffener=0, out_dir=_d86,
+                                 bed=(0.0, -3.0, 244.0, 238.0))
+tests.append(('R86 angles: 8mm hole on a 12mm leg clamps to 6mm',
+    _i86c3['hole_d'] == 6.0 and any('clamped' in n for n in _i86c3['notes']), str(_i86c3['notes'])))
+
+# countersink: the top plate layers widen the hole in two steps (6 -> 8mm for d=4)
+def _hole_r_by_layer(path, cx, cy, plate_layers):
+    radii = {}
+    z = None
+    zn = 0
+    x = y = None
+    for l in open(path).read().split(chr(10)):
+        if l.startswith(';Z:'):
+            z = l[3:]
+            zn += 1
+        m = _re86.match(r'G1 X([\d.-]+) Y([\d.-]+) E([\d.]+)', l)
+        if m and float(m.group(3)) > 0 and z is not None and zn <= plate_layers:
+            d = _math86.hypot(float(m.group(1)) - cx, float(m.group(2)) - cy)
+            if d < 4.6 and d > 0.5:
+                radii.setdefault(zn, []).append(d)
+            x, y = float(m.group(1)), float(m.group(2))
+        elif l.startswith('G0 X'):
+            m2 = _re86.match(r'G0 X([\d.-]+) Y([\d.-]+)', l)
+            x, y = float(m2.group(1)), float(m2.group(2))
+    return {k: min(v) for k, v in radii.items()}
+_rad86 = _hole_r_by_layer(_p86a, 85.5, 100.0, 6)
+tests.append(('R86 angles: countersink grows 2.0 -> 3.0 -> 4.0 over the top layers',
+    [round(_rad86[k], 1) for k in sorted(_rad86)] == [2.0] * 4 + [3.0, 4.0],
+    str(_rad86)))
+
+# generation stays cheap (CPU guard for the Pi)
+import time as _t86
+_t086 = _t86.time()
+for _k86 in range(5):
+    _pp.make_cable_ties(count=6, length=120, width=8, layers=3, out_dir=_d86,
+                        bed=(0.0, -3.0, 244.0, 238.0))
+    _pp.make_angles(count=2, angle_deg=90, out_dir=_d86,
+                    bed=(0.0, -3.0, 244.0, 238.0))
+tests.append(('R86 generators: 10 files in < 3s single-pass (Pi-friendly)',
+    _t86.time() - _t086 < 3.0, '%.2fs' % (_t86.time() - _t086)))
+
 
 fails = 0
 for name, ok, info in tests:

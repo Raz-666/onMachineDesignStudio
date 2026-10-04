@@ -4949,7 +4949,8 @@ def _r2_version():
 # re-running in one burst right after the .58 update installed)
 NONCE_KEYS = ('preview_nonce', 'range_nonce', 'label_gen_nonce', 'reso_nonce',
               'bridge_nonce', 'plot_text_nonce', 'plot_status_nonce', 'host_nonce',
-              'label_fit_nonce', 'retract_fix_nonce', 'vol_fix_nonce')
+              'label_fit_nonce', 'retract_fix_nonce', 'vol_fix_nonce',
+              'cable_tie_nonce', 'angle_nonce')
 
 
 def _prime_nonces(rv):
@@ -5526,6 +5527,655 @@ def make_bridge(length=160.0, short_pct=30, h_long=35.0, h_short=18.0, version=1
             'short_pct': short_pct, 'h_long': round(h_long, 1), 'h_short': round(h_short, 1),
             'tower': tower, 'layers': total_layers, 'bridge_layers': bridge_layers,
             'speed': speed, 'fan': fan}
+    return out, info
+
+
+# ---- R86: polygon helpers + cable-tie / angle-plate generators ----------------
+
+def _poly_hatch(poly, spacing, angle_deg, keep_circles=None, min_len=0.35):
+    """R86: scanline hatch clipped to an ARBITRARY simple polygon (convex or
+    concave - a chevron plate has a concave inner corner) minus keep-out
+    circles (screw holes). Returns [(p, q), ...] segments in SWEEP order
+    (R77 rule: neighbors adjacent, no center-out hopping)."""
+    keep_circles = keep_circles or []
+    ang = math.radians(angle_deg)
+    dx, dy = math.cos(ang), math.sin(ang)
+    nx, ny = -dy, dx
+    xs = [p[0] for p in poly] + [c[0] + c[2] for c in keep_circles] \
+        + [c[0] - c[2] for c in keep_circles]
+    ys = [p[1] for p in poly] + [c[1] + c[2] for c in keep_circles] \
+        + [c[1] - c[2] for c in keep_circles]
+    mx, my = (min(xs) + max(xs)) / 2.0, (min(ys) + max(ys)) / 2.0
+    tmax = max(abs((px - mx) * nx + (py - my) * ny) for px, py in poly) + spacing
+    segs = []
+    n_scan = 0
+    t = -tmax
+    while t <= tmax:
+        ox, oy = mx + nx * t, my + ny * t
+        # polygon edge intersections -> inside intervals along the scan direction
+        cuts = []
+        n = len(poly)
+        for i in range(n):
+            x1, y1 = poly[i]
+            x2, y2 = poly[(i + 1) % n]
+            ex, ey = x2 - x1, y2 - y1
+            denom = dx * ey - dy * ex
+            if abs(denom) < 1e-12:
+                continue
+            s = ((x1 - ox) * ey - (y1 - oy) * ex) / denom
+            u = ((x1 - ox) * dy - (y1 - oy) * dx) / denom
+            if -1e-9 <= u <= 1.0 + 1e-9:
+                cuts.append(s)
+        cuts.sort()
+        spans = []
+        for i in range(0, len(cuts) - 1, 2):
+            a, b = cuts[i], cuts[i + 1]
+            if b - a >= min_len:
+                spans.append([a, b])
+        # subtract keep-out circles
+        for (cx, cy, r) in keep_circles:
+            dist = (cx - ox) * nx + (cy - oy) * ny
+            if abs(dist) >= r:
+                continue
+            half = math.sqrt(r * r - dist * dist)
+            sc = (cx - ox) * dx + (cy - oy) * dy
+            lo, hi = sc - half, sc + half
+            out = []
+            for a, b in spans:
+                if hi <= a or lo >= b:
+                    out.append([a, b])
+                    continue
+                if a < lo - min_len:
+                    out.append([a, min(b, lo)])
+                if b > hi + min_len:
+                    out.append([max(a, hi), b])
+            spans = out
+        line_segs = [((ox + dx * a, oy + dy * a), (ox + dx * b, oy + dy * b))
+                     for a, b in spans if b - a >= min_len]
+        if n_scan % 2:
+            line_segs = [(q, p) for (p, q) in reversed(line_segs)]
+        segs.extend(line_segs)
+        n_scan += 1
+        t += spacing
+    return segs
+
+
+def _inset_poly(poly, d):
+    """R86: inset a polygon by d (edge offset, CCW assumed). Returns None if
+    the inset degenerates (self-intersection risk) - the caller then skips the
+    inner wall loop instead of printing garbage."""
+    n = len(poly)
+    out = []
+    for i in range(n):
+        p0 = poly[(i - 1) % n]
+        p1 = poly[i]
+        p2 = poly[(i + 1) % n]
+        v1 = (p1[0] - p0[0], p1[1] - p0[1])
+        v2 = (p2[0] - p1[0], p2[1] - p1[1])
+        l1 = math.hypot(*v1)
+        l2 = math.hypot(*v2)
+        if l1 < 1e-9 or l2 < 1e-9:
+            return None
+        n1 = (-v1[1] / l1, v1[0] / l1)      # left normal = inward for CCW
+        n2 = (-v2[1] / l2, v2[0] / l2)
+        # intersection of the two inset edge lines
+        a1, b1 = n1[0], n1[1]
+        a2, b2 = n2[0], n2[1]
+        c1 = a1 * p1[0] + b1 * p1[1] - d
+        c2 = a2 * p1[0] + b2 * p1[1] - d
+        det = a1 * b2 - a2 * b1
+        if abs(det) < 1e-12:
+            out.append((p1[0] - (n1[0] + n2[0]) * d / 2, p1[1] - (n1[1] + n2[1]) * d / 2))
+            continue
+        x = (c1 * b2 - c2 * b1) / det
+        y = (a1 * c2 - a2 * c1) / det
+        # guard: the inset vertex must stay near the original (no blow-up)
+        if math.hypot(x - p1[0], y - p1[1]) > 3.0 * d + 1.0:
+            return None
+        out.append((x, y))
+    # area sanity: must shrink
+    def area(pp):
+        s = 0.0
+        for i in range(len(pp)):
+            x1, y1 = pp[i]
+            x2, y2 = pp[(i + 1) % len(pp)]
+            s += x1 * y2 - x2 * y1
+        return abs(s) / 2.0
+    if area(out) >= area(poly) - 1e-6 or len(out) < 3:
+        return None
+    return out
+
+
+def _gen_markers(L):
+    """R86: inject LAYER_MARK + APPLY_TYPE into a generated line list (the
+    labels/angles/ties builders share this post-pass)."""
+    outl = []
+    for l in L:
+        outl.append(l)
+        ls = l.strip()
+        if ls.startswith(';TYPE:'):
+            key = ls[6:].strip().lower()
+            outl.append('APPLY_TYPE TYPE=%s' % TYPE_MAP.get(key, 'CUSTOM'))
+        elif LAYER_COMMENT.match(ls):
+            outl.append('LAYER_MARK')
+    return outl
+
+
+def make_cable_ties(count=6, length=120.0, width=8.0, layers=3, variant='RATCHET',
+                    layer_h=0.2, first_h=0.28, brim=True, material='PLA',
+                    bed=None, bed_margin=6.0, nozzle=0.6, out_dir='.', version=1):
+    """R86: printable cable ties (Kabelbinder) - strap + integrated head.
+
+    Two closing mechanisms (auto-scaled with the width):
+      RATCHET - one-way: the strap's stepped teeth ratchet under the head's
+                flex tab; pulling tight locks, the tab is enclosed.
+      LATCH   - releasable: same ratchet, but the entry ceiling strip is
+                omitted - lift the pawl tab through the open slot to release.
+    The closure ADAPTS automatically: head length/width, slot clearance,
+    tooth pitch and heights all derive from the strap width + layer height.
+    Thin flexible parts - PETG/TPU bends best, PLA works for gentle curves.
+    Returns (path, info).
+    """
+    count = max(1, min(int(count), 24))
+    length = float(length)
+    width = float(width)
+    layers = max(3, min(int(layers), 6))
+    if not (60.0 <= length <= 300.0):
+        raise ValueError('tie length %.0fmm out of range (60..300)' % length)
+    if not (5.0 <= width <= 12.0):
+        raise ValueError('tie width %.0fmm out of range (5..12)' % width)
+    variant = str(variant).upper()
+    if variant not in ('RATCHET', 'LATCH'):
+        variant = 'RATCHET'
+    if bed is None:
+        bed = (0.0, -3.0, 244.0, 238.0)
+    layer_h = max(0.06, min(float(layer_h), 0.34))
+    first_h = max(0.08, min(float(first_h), 0.42))
+
+    wid = max(0.4, nozzle * 1.08)
+    twid = max(0.4, nozzle * 1.02)
+    fil = FIL_AREA
+
+    # ---- auto-adapted closure geometry (derived from W + layers) ----------
+    clr = 0.30                                   # slot clearance per side
+    HL = round(2.4 * width, 1)                   # head length (along the strap)
+    HW = round(2.8 * width, 1)                   # head width (across)
+    slotw = width + 2 * clr                      # slot width
+    head_base = 2                                # head bottom plate layers
+    # the channel carries strap (layers) + teeth (2) + 1 layer clearance
+    slot_layers = layers + 3
+    head_layers = head_base + slot_layers + 2    # + 2 ceiling layers
+    pitch = max(3.0, round(0.7 * width, 1))      # tooth pitch
+    tooth_len = 2.0
+    es = 2.0                                     # entry ceiling strip (RATCHET)
+    # RATCHET: the entry strip encloses the pawl tab = one-way lock.
+    # LATCH: no entry strip - the channel stays open at the top front, so a
+    # fingernail / small screwdriver can lift the pawl tab to release.
+    gap = 0.4                                    # flex gap (2 layer heights)
+
+    # ---- plate layout ------------------------------------------------------
+    item_w = HL + length + 6.0
+    item_h = max(HW, width) + 6.0
+    bx0, by0, bx1, by1 = bed
+    ux0, uy0 = bx0 + bed_margin, by0 + bed_margin
+    ux1, uy1 = bx1 - bed_margin, by1 - bed_margin
+    uw, uh = ux1 - ux0, uy1 - uy0
+    best = None
+    for cols in range(count, 0, -1):
+        rows = -(-count // cols)
+        gw = cols * item_w + (cols - 1) * 4.0
+        gh = rows * item_h + (rows - 1) * 4.0
+        if gw <= uw and gh <= uh:
+            best = (cols, rows)
+            break
+    if best is None:
+        raise ValueError('%d ties of %.0fmm do not fit the bed - fewer ties or '
+                         'shorter length' % (count, length))
+    cols, rows = best
+    gw = cols * item_w + (cols - 1) * 4.0
+    gh = rows * item_h + (rows - 1) * 4.0
+    gx0 = ux0 + (uw - gw) / 2.0
+    gy0 = uy0 + (uh - gh) / 2.0
+    positions = []
+    for i in range(count):
+        r, c = divmod(i, cols)
+        positions.append((gx0 + c * (item_w + 4.0) + 3.0,
+                          gy0 + r * (item_h + 4.0) + 3.0))
+
+    total_layers = head_layers                  # head is the thickest part
+    L = []
+    a = L.append
+    a('; R2-TIES generated cable ties (R86) - start it like any other file')
+    a(TAG)
+    a('; %d tie(s): %s, strap %.0fx%.1fmm, %d strap layers @%.2gmm, closure '
+      '%s (auto: head %.1fx%.1fmm, slot %.2fmm, pitch %.1fmm)'
+      % (count, variant, length, width, layers, layer_h, variant,
+         HL, HW, slotw, pitch))
+    a('; thin flexing parts - PETG/TPU bend best; PLA works for gentle curves')
+    a('; every tie is an exclude object - skip single ties live')
+
+    pen = _Pen(L, jump_d=6.0)
+
+    def tie_block(idx, x0, y0, z, li, first):
+        """one tie at layer li: strap (+teeth) below the head's z-bands"""
+        cy = y0 + HW / 2.0
+        e_wall = (first_h if li == 1 else layer_h) * wid / fil
+        L.append('EXCLUDE_OBJECT_START NAME=TIE_%d' % (idx + 1))
+        if li <= layers:
+            # strap rect + tip chamfer (trapezoid) - the strap's own layers
+            L.append(';TYPE:Outer wall')
+            strap = [(x0 + HL, cy - width / 2.0), (x0 + HL + length - 4.0, cy - width / 2.0),
+                     (x0 + HL + length, cy - width / 2.0 + width * 0.25),
+                     (x0 + HL + length, cy + width / 2.0 - width * 0.25),
+                     (x0 + HL + length - 4.0, cy + width / 2.0), (x0 + HL, cy + width / 2.0)]
+            _emit_loop(pen, strap, e_wall, 1500 if first else 2400)
+            L.append(';TYPE:Internal solid infill')
+            _emit_hatch(pen, _hatch(x0 + HL + wid, cy - width / 2.0 + wid,
+                                    x0 + HL + length - wid, cy + width / 2.0 - wid,
+                                    None, wid, 45.0 if li % 2 else 135.0), e_wall,
+                        1500 if first else 2700)
+        elif li in (layers + 1, layers + 2):
+            # teeth on top of the strap: low nub (front ramp) + high nub (steep
+            # lock flank at its right edge). Two steps = printable ratchet.
+            L.append(';TYPE:Inner wall')
+            tx = x0 + HL + 6.0
+            while tx < x0 + HL + length - 8.0:
+                if li == layers + 1:
+                    _emit_loop(pen, _rect_loop(tx, cy - width / 2.0,
+                                               tx + tooth_len, cy + width / 2.0),
+                               e_wall, 1800)
+                else:
+                    _emit_loop(pen, _rect_loop(tx + 1.0, cy - width / 2.0,
+                                               tx + tooth_len, cy + width / 2.0),
+                               e_wall, 1800)
+                tx += pitch
+        # ---- head (only within its own z-bands) -----------------------------
+        hx0, hx1 = x0, x0 + HL
+        if li <= head_base:
+            # solid bottom plate (the channel floor)
+            L.append(';TYPE:Outer wall')
+            _emit_loop(pen, _rect_loop(hx0, y0, hx1, y0 + HW), e_wall, 1500 if first else 2400)
+            L.append(';TYPE:Internal solid infill')
+            _emit_hatch(pen, _hatch(hx0 + wid, y0 + wid, hx1 - wid, y0 + HW - wid,
+                                    None, wid, 45.0 if li % 2 else 135.0), e_wall,
+                        1500 if first else 2700)
+        elif li <= head_base + slot_layers:
+            # slot band: two side walls, the channel between stays open
+            L.append(';TYPE:Outer wall')
+            _emit_loop(pen, _rect_loop(hx0, y0, hx1, cy - slotw / 2.0), e_wall,
+                       1500 if first else 2400)
+            _emit_loop(pen, _rect_loop(hx0, cy + slotw / 2.0, hx1, y0 + HW), e_wall,
+                       1500 if first else 2400)
+            L.append(';TYPE:Internal solid infill')
+            _emit_hatch(pen, _hatch(hx0 + wid, y0 + wid, hx1 - wid, cy - slotw / 2.0 - wid,
+                                    None, wid, 45.0 if li % 2 else 135.0), e_wall,
+                        1500 if first else 2700)
+            _emit_hatch(pen, _hatch(hx0 + wid, cy + slotw / 2.0 + wid, hx1 - wid, y0 + HW - wid,
+                                    None, wid, 45.0 if li % 2 else 135.0), e_wall,
+                        1500 if first else 2700)
+        elif li <= head_layers:
+            # ceiling band: side walls + (RATCHET: entry strip) + pawl tab +
+            # exit strip. The TAB carries the pawl: at the LOWER ceiling layer
+            # it reaches 1.2mm further toward the entry = the locking lip.
+            cl = li - head_base - slot_layers          # 1..2
+            L.append(';TYPE:Outer wall')
+            _emit_loop(pen, _rect_loop(hx0, y0, hx1, cy - slotw / 2.0 - gap), e_wall,
+                       1500 if first else 2400)
+            _emit_loop(pen, _rect_loop(hx0, cy + slotw / 2.0 + gap, hx1, y0 + HW), e_wall,
+                       1500 if first else 2400)
+            L.append(';TYPE:Internal solid infill')
+            _emit_hatch(pen, _hatch(hx0 + wid, y0 + wid, hx1 - wid, cy - slotw / 2.0 - gap - wid,
+                                    None, wid, 45.0 if li % 2 else 135.0), e_wall,
+                        1500 if first else 2700)
+            _emit_hatch(pen, _hatch(hx0 + wid, cy + slotw / 2.0 + gap + wid, hx1 - wid,
+                                    y0 + HW - wid, None, wid, 45.0 if li % 2 else 135.0),
+                        e_wall, 1500 if first else 2700)
+            if variant == 'RATCHET':
+                # entry strip: anchored to the walls, encloses the pawl
+                _emit_loop(pen, _rect_loop(hx0, cy - slotw / 2.0 - gap,
+                                           hx0 + es, cy + slotw / 2.0 + gap), e_wall, 1800)
+            # LATCH: nothing here - the channel front stays open (release slot)
+            # exit strip (anchored to the walls) + the pawl tab
+            _emit_loop(pen, _rect_loop(hx1 - 2.5, cy - slotw / 2.0 - gap,
+                                       hx1, cy + slotw / 2.0 + gap), e_wall, 1800)
+            tab_x1 = hx0 + (es if variant == 'RATCHET' else 0.0) + gap \
+                - (1.2 if cl == 1 else 0.0)
+            _emit_loop(pen, _rect_loop(tab_x1, cy - slotw / 2.0 - 0.4,
+                                       hx1 - 2.5 - gap, cy + slotw / 2.0 + 0.4), e_wall, 1800)
+        L.append('EXCLUDE_OBJECT_END NAME=TIE_%d' % (idx + 1))
+
+    # brim (first layer): two loops around the head only (the strap needs none)
+    def tie_brim(x0, y0):
+        e_wall = first_h * wid / fil
+        for off in (wid * 0.35, wid * 0.35 + wid):
+            b = (x0 - off, y0 - off, x0 + HL + off, y0 + HW + off)
+            L.append(';TYPE:Brim')
+            _emit_loop(pen, _rect_loop(*b), e_wall, 1500)
+
+    for li in range(1, total_layers + 1):
+        z = round(first_h + (li - 1) * layer_h, 3)
+        L.append(';LAYER_CHANGE')
+        L.append(';Z:%.3f' % z)
+        pen.set_z(z)
+        if li == 2:
+            L.append('M106 S178   ; R2-TIES: part fan from layer 2')
+        for idx, (x0, y0) in enumerate(positions):
+            if li == 1 and brim:
+                L.append('EXCLUDE_OBJECT_START NAME=TIE_%d' % (idx + 1))
+                tie_brim(x0, y0)
+                L.append('EXCLUDE_OBJECT_END NAME=TIE_%d' % (idx + 1))
+            tie_block(idx, x0, y0, z, li, li == 1)
+
+    a('M107')
+    a('PRINT_END')
+
+    # header: exclude objects + PRINT_START (labels pattern: TAG first, the
+    # first COMMAND is PRINT_START - that is where a legacy _FILE_INFO would go)
+    hdr = []
+    for idx, (x0, y0) in enumerate(positions):
+        poly = '%.1f,%.1f %.1f,%.1f %.1f,%.1f %.1f,%.1f' % (
+            x0, y0, x0 + HL + length, y0,
+            x0 + HL + length, y0 + HW, x0, y0 + HW)
+        hdr.append('EXCLUDE_OBJECT_DEFINE NAME=TIE_%d CENTER=%.1f,%.1f POLYGON=[%s]'
+                   % (idx + 1, (x0 + (HL + length) / 2.0), y0 + HW / 2.0, poly))
+    ps = 'PRINT_START MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d OUTER_WALL_SPEED=40' % (
+        material, layer_h, total_layers)
+    # R83 header order (labels pattern): TAG + comments, exclude defines,
+    # PRINT_START, G90/M83, fan off for the first layer
+    i0 = next(i for i, l in enumerate(L) if l.startswith(';LAYER_CHANGE'))
+    outl = (L[:i0] + hdr + [ps, 'G90', 'M83',
+                            'M107   ; R2-TIES: first layer = fan off']
+            + _gen_markers(L[i0:]))
+
+    fname = '00_Ties_%.0fx%.0f_%s_V%02d.gcode' % (
+        length, width, variant[:3], max(1, min(int(version), 99)))
+    out = os.path.join(out_dir, fname)
+    with open(out, 'w') as f:
+        f.write('\n'.join(outl) + '\n')
+    info = {'file': fname, 'count': count, 'variant': variant,
+            'length': length, 'width': width, 'layers': total_layers,
+            'head': '%.1fx%.1fmm' % (HL, HW), 'slot': round(slotw, 2),
+            'pitch': pitch, 'grid': '%dx%d' % (cols, rows),
+            'notes': (['closure auto-scaled: head %.1fx%.1fmm, slot %.2fmm '
+                       '(+0.3mm clearance), tooth pitch %.1fmm' % (HL, HW, slotw, pitch),
+                       'RATCHET: one-way - cut to remove',
+                       'use PETG/TPU for tight bends - PLA holds gentle curves only']
+                      if variant == 'RATCHET' else
+                      ['closure auto-scaled: head %.1fx%.1fmm, slot %.2fmm '
+                       '(+0.3mm clearance), tooth pitch %.1fmm' % (HL, HW, slotw, pitch),
+                       'LATCH: lift the pawl tab through the open front slot '
+                       'to release (reusable)',
+                       'use PETG/TPU for tight bends - PLA holds gentle curves only'])}
+    return out, info
+
+
+def make_angles(count=2, angle_deg=90, leg_a=60.0, leg_b=60.0, width=25.0,
+                layers=6, holes=2, hole_d=4.0, countersink=True, stiffener=1,
+                flat=False, layer_h=0.2, first_h=0.28, material='PLA',
+                bed=None, bed_margin=6.0, nozzle=0.6, out_dir='.', version=1):
+    """R86: angle plates (Winkel) + flat connectors (Flachenverbinder).
+
+    ANGLE  - flat plate, two legs at angle_deg (30..170), leg lengths a/b
+             (equal legs or not), optional corner gusset rib (stiffener 1/2),
+             screw holes per leg (auto-arranged, auto-clamped).
+    FLAT   - straight strip joining two boards side by side (flat=True):
+             both halves share the SAME hole pattern (leg_a = left half,
+             leg_b = right half; set both equal for symmetry).
+    Holes: diameter is clamped so a hole NEVER exceeds the leg (>=3mm edge
+    all around); the count auto-reduces if the leg is too short. Countersink
+    adds a stepped cone (2 layers) for flat-head screws.
+    Returns (path, info).
+    """
+    count = max(1, min(int(count), 12))
+    flat = bool(flat)
+    theta = 180.0 if flat else max(30.0, min(float(angle_deg), 170.0))
+    la = max(20.0, min(float(leg_a), 150.0))
+    lb = max(20.0, min(float(leg_b), 150.0))
+    width = float(width)
+    layers = max(4, min(int(layers), 12))
+    holes = max(0, min(int(holes), 6))
+    layer_h = max(0.06, min(float(layer_h), 0.34))
+    first_h = max(0.08, min(float(first_h), 0.42))
+    notes = []
+    if flat:
+        stiffener = 0                      # a gusset makes no sense on a strip
+        if countersink is None:
+            countersink = True
+
+    # ---- hole layout (auto-clamp + auto-reduce) ---------------------------
+    if not (8.0 <= width <= 60.0):
+        raise ValueError('leg width %.0fmm out of range (8..60)' % width)
+    edge = 3.0
+    max_d = min(round(width - 2 * edge, 1), 10.0)
+    if max_d < 2.0:
+        raise ValueError('leg width %.0fmm too narrow for holes (needs >= 10mm)' % width)
+    hole_d = round(float(hole_d), 1)
+    if hole_d > max_d:
+        notes.append('hole %.1fmm too big for the %.0fmm leg - clamped to %.1fmm'
+                     % (hole_d, width, max_d))
+        hole_d = max_d
+    if hole_d < 2.0:
+        hole_d = 2.0
+    cs_d1 = min(round(hole_d * 1.5, 1), max_d)     # countersink step 1 (upper)
+    cs_d2 = min(round(hole_d * 2.0, 1), max_d)     # countersink step 2 (top)
+
+    def leg_holes(leg_len, leg_name):
+        """hole centers along one leg's centerline (from the corner outward)"""
+        if holes == 0:
+            return []
+        corner_clear = (4.0 if flat else width) + hole_d / 2.0 + 1.5
+        end_clear = max(3.5, hole_d * 0.8)
+        usable = leg_len - corner_clear - end_clear - hole_d
+        n = holes
+        if usable < 0:
+            notes.append('%s leg too short for holes - none placed' % leg_name)
+            return []
+        fit = int(usable // (hole_d + 3.0)) + 1
+        if n > fit:
+            notes.append('%s leg: %d hole(s) do not fit - reduced to %d'
+                         % (leg_name, n, fit))
+            n = fit
+        if n == 0:
+            return []
+        if n == 1:
+            return [corner_clear + hole_d / 2.0 + usable / 2.0]
+        step = usable / (n - 1)
+        return [corner_clear + hole_d / 2.0 + i * step for i in range(n)]
+
+    holes_a = leg_holes(la, 'A')
+    holes_b = leg_holes(lb, 'B') if not flat else list(holes_a)
+
+    if bed is None:
+        bed = (0.0, -3.0, 244.0, 238.0)
+    wid = max(0.4, nozzle * 1.08)
+    fil = FIL_AREA
+
+    # ---- geometry (local frame, later rotated per copy) --------------------
+    uA = (1.0, 0.0)
+    th = math.radians(theta)
+    uB = (math.cos(th), math.sin(th))
+    nA = (0.0, 1.0)                       # into the wedge
+    nB = (math.sin(th), -math.cos(th))    # into the wedge (right normal of uB)
+
+    if flat:
+        outline = [(0.0, 0.0), (la + lb, 0.0), (la + lb, width), (0.0, width)]
+        # holes: left half along uA (from 0), right half mirrored from the end
+        hole_pos = []
+        for d in holes_a:
+            hole_pos.append((d, width / 2.0, 0.0))          # (x, y, 0)
+            hole_pos.append((la + lb - d, width / 2.0, 0.0))
+        item_w = la + lb + 8.0
+        item_h = width + 8.0
+    else:
+        A2 = (la, 0.0)
+        A3 = (la, width)
+        # inner concave corner: intersection of the two inner edge lines
+        # A inner line: y = width (dir uA); B inner line: through width*nB, dir uB
+        bx, by = width * nB[0], width * nB[1]
+        # solve: P = (t, width) = (bx + s*uBx, by + s*uBy)
+        if abs(uB[1]) < 1e-9:
+            P_in = (width, width)
+        else:
+            s = (width - by) / uB[1]
+            P_in = (bx + s * uB[0], width)
+        if not (width - 0.01 <= P_in[0] <= la and width - 0.01 <= P_in[1] <= lb + width):
+            # very acute angle - clamp the corner point
+            P_in = (max(width, min(P_in[0], la)), max(width, min(P_in[1], lb + width)))
+        B1 = (lb * uB[0], lb * uB[1])
+        B2 = (B1[0] + width * nB[0], B1[1] + width * nB[1])
+        B0 = (width * nB[0], width * nB[1])
+        outline = [(0.0, 0.0), A2, A3, P_in, B2, B1]
+        hole_pos = []
+        for d in holes_a:
+            hole_pos.append((d, width / 2.0, 0.0))
+        for d in holes_b:
+            x, y = d * uB[0] + (width / 2.0) * nB[0], d * uB[1] + (width / 2.0) * nB[1]
+            hole_pos.append((x, y, th))
+
+    # stiffener gusset triangle (angle mode only)
+    rib_layers = 0
+    tri = None
+    if stiffener and not flat:
+        g = min(la, lb, 2.0 * width) * 0.8
+        tri = [(2.0, 2.0), (g * uA[0], g * uA[1]), (g * uB[0], g * uB[1])]
+        rib_layers = max(2, layers // 2) if stiffener == 1 else max(3, 2 * layers // 3)
+        if stiffener == 2:
+            tri2 = [(3.0, 3.0), (g * 0.6 * uA[0], g * 0.6 * uA[1]),
+                    (g * 0.6 * uB[0], g * 0.6 * uB[1])]
+
+    # ---- plate layout ------------------------------------------------------
+    bx0, by0, bx1, by1 = bed
+    ux0, uy0 = bx0 + bed_margin, by0 + bed_margin
+    ux1, uy1 = bx1 - bed_margin, by1 - bed_margin
+    # bounding box of the local geometry (angle legs may reach up-left)
+    allpts = list(outline) + [(0.0, 0.0)]
+    minx = min(p[0] for p in allpts)
+    maxx = max(p[0] for p in allpts)
+    miny = min(p[1] for p in allpts)
+    maxy = max(p[1] for p in allpts)
+    item_w = (maxx - minx) + 8.0
+    item_h = (maxy - miny) + 8.0
+    uw, uh = ux1 - ux0, uy1 - uy0
+    best = None
+    for cols in range(count, 0, -1):
+        rr = -(-count // cols)
+        gw = cols * item_w + (cols - 1) * 6.0
+        gh = rr * item_h + (rr - 1) * 6.0
+        if gw <= uw and gh <= uh:
+            best = (cols, rr)
+            break
+    if best is None:
+        raise ValueError('%d plates of %.0fx%.0fmm do not fit the bed'
+                         % (count, item_w, item_h))
+    cols, rr = best
+    gw = cols * item_w + (cols - 1) * 6.0
+    gh = rr * item_h + (rr - 1) * 6.0
+    gx0 = ux0 + (uw - gw) / 2.0 - minx
+    gy0 = uy0 + (uh - gh) / 2.0 - miny
+    positions = []
+    for i in range(count):
+        r, c = divmod(i, cols)
+        positions.append((gx0 + c * (item_w + 6.0) + 4.0, gy0 + r * (item_h + 6.0) + 4.0))
+
+    total_layers = layers + rib_layers
+    L = []
+    a = L.append
+    kind = 'FLAT' if flat else 'ANGLE'
+    a('; R2-ANGLES generated %s plates (R86) - start it like any other file' %
+      ('flat connector' if flat else 'angle'))
+    a(TAG)
+    a('; %d plate(s): %s %s, legs %.0f/%.0fmm, width %.0fmm, %d layers @%.2gmm, '
+      'holes %d/%d x %.1fmm%s, stiffener %s'
+      % (count, kind, ('%g deg' % theta) if not flat else '(180 straight)',
+         la, lb, width, layers, layer_h, len(holes_a), len(holes_b), hole_d,
+         ' CS%.1f' % cs_d2 if countersink else '',
+         ('rib %d layers' % rib_layers) if tri else 'none'))
+    a('; holes: auto-arranged, diameter clamped to the leg width, count '
+      'auto-reduced when the leg is too short')
+
+    pen = _Pen(L, jump_d=6.0)
+
+    def plate_block(idx, ox, oy, li, first):
+        e_wall = (first_h if li == 1 else layer_h) * wid / fil
+        L.append('EXCLUDE_OBJECT_START NAME=PLATE_%d' % (idx + 1))
+        plate_z = li
+        in_rib = plate_z > layers
+        top = plate_z >= layers - 1              # top 2 plate layers = countersink
+        if in_rib and tri:
+            poly = tri2 if (stiffener == 2 and plate_z > layers + rib_layers // 2) else tri
+            L.append(';TYPE:Outer wall')
+            _emit_loop(pen, [(ox + px, oy + py) for px, py in poly], e_wall,
+                       1500 if first else 2400)
+            L.append(';TYPE:Internal solid infill')
+            _emit_hatch(pen, _poly_hatch([(ox + px, oy + py) for px, py in poly],
+                                          wid, 45.0 if li % 2 else 135.0), e_wall,
+                        1500 if first else 2700)
+        else:
+            L.append(';TYPE:Outer wall')
+            _emit_loop(pen, [(ox + px, oy + py) for px, py in outline], e_wall,
+                       1500 if first else 2400)
+            inner = _inset_poly(outline, wid)
+            if inner:
+                L.append(';TYPE:Inner wall')
+                _emit_loop(pen, [(ox + px, oy + py) for px, py in inner], e_wall,
+                           1500 if first else 2700)
+            # hole walls + keep-outs
+            keeps = []
+            for (hx, hy, _ha) in hole_pos:
+                d = hole_d
+                if countersink and top:
+                    d = cs_d2 if plate_z == layers else cs_d1
+                keeps.append((ox + hx, oy + hy, d / 2.0 + wid * 0.6))
+                L.append(';TYPE:Inner wall')
+                _emit_loop(pen, _circle(ox + hx, oy + hy, d / 2.0), e_wall,
+                           1500 if first else 2400)
+            L.append(';TYPE:Internal solid infill')
+            _emit_hatch(pen, _poly_hatch(
+                [(ox + px, oy + py) for px, py in outline],
+                wid, 45.0 if li % 2 else 135.0, keep_circles=keeps), e_wall,
+                1500 if first else 2700)
+        L.append('EXCLUDE_OBJECT_END NAME=PLATE_%d' % (idx + 1))
+
+    for li in range(1, total_layers + 1):
+        z = round(first_h + (li - 1) * layer_h, 3)
+        L.append(';LAYER_CHANGE')
+        L.append(';Z:%.3f' % z)
+        pen.set_z(z)
+        if li == 2:
+            L.append('M106 S178   ; R2-ANGLES: part fan from layer 2')
+        for idx, (ox, oy) in enumerate(positions):
+            plate_block(idx, ox, oy, li, li == 1)
+
+    a('M107')
+    a('PRINT_END')
+
+    hdr = []
+    for idx, (ox, oy) in enumerate(positions):
+        pts = ' '.join('%.1f,%.1f' % (ox + px, oy + py) for px, py in outline)
+        hdr.append('EXCLUDE_OBJECT_DEFINE NAME=PLATE_%d CENTER=%.1f,%.1f POLYGON=[%s]'
+                   % (idx + 1, ox + (minx + maxx) / 2.0, oy + (miny + maxy) / 2.0, pts))
+    ps = 'PRINT_START MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d OUTER_WALL_SPEED=40' % (
+        material, layer_h, total_layers)
+    # R83 header order (labels pattern): TAG + comments, exclude defines,
+    # PRINT_START, G90/M83, fan off for the first layer
+    i0 = next(i for i, l in enumerate(L) if l.startswith(';LAYER_CHANGE'))
+    outl = (L[:i0] + hdr + [ps, 'G90', 'M83',
+                            'M107   ; R2-ANGLES: first layer = fan off']
+            + _gen_markers(L[i0:]))
+
+    if flat:
+        fname = '00_Flat_%.0fx%.0f_V%02d.gcode' % (la + lb, width, max(1, min(int(version), 99)))
+    else:
+        fname = '00_Angle_%ddeg_%.0fx%.0f_V%02d.gcode' % (
+            round(theta), la, lb, max(1, min(int(version), 99)))
+    out = os.path.join(out_dir, fname)
+    with open(out, 'w') as f:
+        f.write('\n'.join(outl) + '\n')
+    info = {'file': fname, 'count': count, 'kind': kind, 'angle': round(theta),
+            'legs': (la, lb), 'width': width, 'layers': total_layers,
+            'holes': '%d+%d' % (len(holes_a), len(holes_b)), 'hole_d': hole_d,
+            'cs_d': cs_d2 if countersink else 0, 'stiffener': stiffener,
+            'grid': '%dx%d' % (cols, rr), 'notes': notes}
     return out, info
 
 
@@ -6583,6 +7233,8 @@ def watch(directory, interval=5.0, once=False):
     last_nonce = None
     last_preview_nonce = None
     last_label_nonce = None
+    last_cable_tie_nonce = None
+    last_angle_nonce = None
     last_fit_nonce = None
     last_retract_fix_nonce = None
     last_vol_fix_nonce = None
@@ -6610,6 +7262,8 @@ def watch(directory, interval=5.0, once=False):
                 last_preview_nonce = _np['preview_nonce']
                 last_nonce = _np['range_nonce']
                 last_label_nonce = _np['label_gen_nonce']
+                last_cable_tie_nonce = _np.get('cable_tie_nonce')
+                last_angle_nonce = _np.get('angle_nonce')
                 last_fit_nonce = _np.get('label_fit_nonce')
                 last_retract_fix_nonce = _np.get('retract_fix_nonce')
                 last_vol_fix_nonce = _np.get('vol_fix_nonce')
@@ -6882,6 +7536,150 @@ def watch(directory, interval=5.0, once=False):
                         pass
         except Exception as e:                          # noqa: BLE001
             print(f'[labels] poll error: {e!r}', flush=True)
+
+        # R86: cable-tie generator request (cable_tie_nonce bumps per job)
+        try:
+            tn = rv.get('cable_tie_nonce', '')
+            if tn and tn != last_cable_tie_nonce:
+                last_cable_tie_nonce = tn
+                try:
+                    def _vbt(key, dflt):
+                        v = str(rv.get(key, dflt)).strip().lower()
+                        if v == '':
+                            return dflt
+                        return v in ('true', '1', 'on', 'yes')
+
+                    def _vft(key, dflt):
+                        try:
+                            return float(rv.get(key, dflt) or dflt)
+                        except (TypeError, ValueError):
+                            return float(dflt)
+
+                    cfg_bed = _bed_limits(os.path.join(
+                        os.path.dirname(os.path.abspath(directory).rstrip('/')),
+                        'config', 'printer.cfg'))
+                    variant_t = str(rv.get('tie_variant', 'RATCHET') or 'RATCHET').upper()
+                    if variant_t not in ('RATCHET', 'LATCH'):
+                        variant_t = 'RATCHET'
+                    out_t, info_t = make_cable_ties(
+                        count=max(1, min(int(_vft('tie_count', 6)), 24)),
+                        length=_vft('tie_length', 120),
+                        width=_vft('tie_width', 8),
+                        layers=max(3, min(int(_vft('tie_layers', 3)), 6)),
+                        variant=variant_t,
+                        layer_h=_vft('tie_layer_h', 0.2),
+                        brim=_vbt('tie_brim', True),
+                        material=str(rv.get('material', 'PLA') or 'PLA'),
+                        bed=cfg_bed, out_dir=directory,
+                        version=max(1, min(int(_vft('gen_version', 1)), 99)))
+                    _rel86t = os.path.relpath(
+                        os.path.join(directory, info_t['file']), directory)
+                    _msg86t = ('Ties: %s - %d tie(s), %s, strap %.0fx%.0fmm, '
+                               '%d layers, head %s (auto), %s - selected for printing'
+                               % (info_t['file'], info_t['count'], info_t['variant'],
+                                  info_t['length'], info_t['width'], info_t['layers'],
+                                  info_t['head'],
+                                  'releasable (lift the tab)' if info_t['variant'] == 'LATCH'
+                                  else 'one-way'))
+                    for _note86t in info_t.get('notes', []):
+                        _msg86t += ' | ' + _note86t
+                    try:
+                        _moonraker_gcode(
+                            'RESPOND MSG="%s"\n'
+                            'M117 Ties ready\n'
+                            '_SOUND_LIB NAME=r2_done\n'
+                            '_SELECT_FILE FILE="%s"' % (_msg86t, _rel86t))
+                    except Exception as me:                      # noqa: BLE001
+                        print(f'[ties] moonraker unreachable ({me.__class__.__name__})',
+                              flush=True)
+                    print(f'[ties] {info_t["file"]}: {info_t["count"]} tie(s), '
+                          f'{info_t["variant"]}, grid {info_t["grid"]}, '
+                          f'{info_t["layers"]} layers', flush=True)
+                except Exception as e:                          # noqa: BLE001
+                    print(f'[ties] error: {e}', flush=True)
+                    try:
+                        _moonraker_gcode(
+                            'RESPOND MSG="Ties ERROR: %s"\nM117 Tie error\n'
+                            '_SOUND_LIB NAME=r2_error' % e)
+                    except Exception:                           # noqa: BLE001
+                        pass
+        except Exception as e:                              # noqa: BLE001
+            print(f'[ties] poll error: {e!r}', flush=True)
+
+        # R86: angle-plate / flat-connector generator (angle_nonce bumps per job)
+        try:
+            an = rv.get('angle_nonce', '')
+            if an and an != last_angle_nonce:
+                last_angle_nonce = an
+                try:
+                    def _vba(key, dflt):
+                        v = str(rv.get(key, dflt)).strip().lower()
+                        if v == '':
+                            return dflt
+                        return v in ('true', '1', 'on', 'yes')
+
+                    def _vfa(key, dflt):
+                        try:
+                            return float(rv.get(key, dflt) or dflt)
+                        except (TypeError, ValueError):
+                            return float(dflt)
+
+                    cfg_bed = _bed_limits(os.path.join(
+                        os.path.dirname(os.path.abspath(directory).rstrip('/')),
+                        'config', 'printer.cfg'))
+                    out_a, info_a = make_angles(
+                        count=max(1, min(int(_vfa('angle_count', 2)), 12)),
+                        angle_deg=_vfa('angle_deg', 90),
+                        leg_a=_vfa('angle_leg_a', 60),
+                        leg_b=_vfa('angle_leg_b', 60),
+                        width=_vfa('angle_width', 25),
+                        layers=max(4, min(int(_vfa('angle_layers', 6)), 12)),
+                        holes=max(0, min(int(_vfa('angle_holes', 2)), 6)),
+                        hole_d=_vfa('angle_hole_d', 4.0),
+                        countersink=_vba('angle_countersink', True),
+                        stiffener=max(0, min(int(_vfa('angle_stiffener', 1)), 2)),
+                        flat=_vba('angle_flat', False),
+                        layer_h=_vfa('angle_layer_h', 0.2),
+                        material=str(rv.get('material', 'PLA') or 'PLA'),
+                        bed=cfg_bed, out_dir=directory,
+                        version=max(1, min(int(_vfa('gen_version', 1)), 99)))
+                    _rel86a = os.path.relpath(
+                        os.path.join(directory, info_a['file']), directory)
+                    _msg86a = ('%s: %s - %d plate(s), legs %.0f/%.0fmm, width %.0fmm, '
+                               'holes %s x %.1fmm%s%s, %d layers - selected for printing'
+                               % (info_a['kind'], info_a['file'], info_a['count'],
+                                  info_a['legs'][0], info_a['legs'][1], info_a['width'],
+                                  info_a['holes'], info_a['hole_d'],
+                                  ' CS%.1f' % info_a['cs_d'] if info_a['cs_d'] else '',
+                                  ' +rib' if info_a['stiffener'] else '',
+                                  info_a['layers']))
+                    for _note86a in info_a.get('notes', []):
+                        _msg86a += ' | ' + _note86a
+                    try:
+                        _moonraker_gcode(
+                            'RESPOND MSG="%s"\n'
+                            'M117 %s ready\n'
+                            '_SOUND_LIB NAME=r2_done\n'
+                            '_SELECT_FILE FILE="%s"'
+                            % (_msg86a, 'Flat' if info_a['kind'] == 'FLAT' else 'Angle',
+                               _rel86a))
+                    except Exception as me:                      # noqa: BLE001
+                        print(f'[angles] moonraker unreachable ({me.__class__.__name__})',
+                              flush=True)
+                    print(f'[angles] {info_a["file"]}: {info_a["count"]} plate(s), '
+                          f'{info_a["kind"]} {info_a["angle"]}deg, grid {info_a["grid"]}',
+                          flush=True)
+                except Exception as e:                          # noqa: BLE001
+                    print(f'[angles] error: {e}', flush=True)
+                    try:
+                        _moonraker_gcode(
+                            'RESPOND MSG="Angles ERROR: %s"\nM117 Angle error\n'
+                            '_SOUND_LIB NAME=r2_error' % e)
+                    except Exception:                           # noqa: BLE001
+                        pass
+        except Exception as e:                              # noqa: BLE001
+            print(f'[angles] poll error: {e!r}', flush=True)
+
         # R64: resonance diagram request (reso_nonce bumps per job)
         try:
             rsn = rv.get('reso_nonce', '')
