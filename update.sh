@@ -110,13 +110,13 @@ else
     MISSING=""
     for f in 01_state 02_sounds 03_leds 04_notify 05_materials 06_temp_controls \
              07_start_confirm 08_print_start_stop 09_pause_filament 10_live_tuning \
-             11_gantry_sync 12_maintenance 13_system 14_kamp 15_objects 16_labels; do
+             11_gantry_sync 12_maintenance 13_system 14_kamp 15_objects 16_labels 17_generator; do
         if ! grep -q "${PKG_REL}/macros/${f}.cfg" "${CFG}"; then
             MISSING="${MISSING} ${f}"
         fi
     done
     if [ -z "${MISSING}" ]; then
-        echo "[ok] all 16 macro files are included in printer.cfg"
+        echo "[ok] all 17 macro files are included in printer.cfg"
     else
         echo "[!] MISSING include lines for:${MISSING}"
         echo "    add at the end of ${CFG}:"
@@ -155,7 +155,7 @@ fi
 if [ "${SENT}" -eq 0 ]; then
     echo "[ok] FIRMWARE_RESTART sent - the LCD goes DARK for ~10-60 s,"
     echo "     the boot beep + 'R2 ready' confirm success. Check the console for"
-    echo "     'Macro system OK: all 16 modules loaded and current (build ${V:-?})'"
+    echo "     'Macro system OK: all 17 modules loaded and current (build ${V:-?})'"
 else
     echo "[!] Moonraker unreachable - run FIRMWARE_RESTART in the Mainsail console yourself."
 fi

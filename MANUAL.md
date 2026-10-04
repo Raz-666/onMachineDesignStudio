@@ -46,7 +46,7 @@ reference tables at the end. Installation and wiring live in the appendices.
 22. [Troubleshooting](#22-troubleshooting)
 23. [Limits & known behavior](#23-limits--known-behavior)
 24. [Cheat sheet: LCD paths & Mainsail commands](#24-cheat-sheet-lcd-paths--mainsail-commands)
-25. [Complete macro index — all macros with parameters](#25-complete-macro-index)
+25. [Complete macro index](#25-complete-macro-index)
 26. [Electronics & expansion — U2C + EBB42 + Relay V1.2](#26-electronics--expansion--u2c--ebb42--relay-v12)
 
 Appendices: [A Installation](#appendix-a-installation-detailed) ·
@@ -2410,7 +2410,7 @@ system). Better a quiet fan at full speed than a fast one slowed down.
 ## Appendix C: First start & updates
 
 - upload the folder → includes at the end of printer.cfg → RESTART
-- console: `Macro system OK: all 16 modules loaded and current (build R2-2026-09-07.66)`
+- console: `Macro system OK: all 17 modules loaded and current (build R2-2026-09-07)`
 - ~10 s later: boot sound + LED animation
 - SHOW_STATUS → mode, material, overrides · Maintenance > Tests > demos + self test
 
@@ -2437,10 +2437,12 @@ Only the milestones — the full reasoning lives in SESSION_STATE.md.
 
 | Version | Core changes |
 |---|---|
-| .65 | postproc streaming: range generation + upload tagging no longer load whole files into RAM (32 MB source → Pi-safe memory), byte-identical outputs (golden test added) |
+| .70 | part generators (cable ties + angles/flat connectors, LCD top menus), centered layer-range holes: floor hole with boss ring (E14/E27 presets) + bridge-first top hole, angle walls/infill/ironing (+ inner-wall fix), nozzle LED split for the EBB42 (SET_NOZZLE_SPLIT), slicing guide for any slicer, electronics chapter: U2C V2.1 + EBB42 CAN + 230 V relay (wiring lists, firmware, safety) |
 | .69 | file fixes IN PLACE (no re-upload): Pre-Print > File > RetFix file rewrites the selected file's retract pairs to G10/G11 on disk (markers survive), Vol->mm fix converts Marlin-volumetric E to mm (idempotent, beeps at start + done), start dialog auto-released; ~100 ms micro-pauses between multi-value disk writes (idle only) |
 | .68 | file info shows the slicer + firmware flavor of every file (Orca/Prusa/Cura/Elegoo/Kiri:Moto/AstroPrint/SliceBeam … for Klipper/Marlin), loud warning on Marlin-volumetric files (Klipper counts E in mm), RetFix: old Bowden-era files re-uploaded with retracts rewritten to G10/G11 (current retraction applies, live-tunable) |
 | .67 | print-start killer fixed (feature lists + material saves survive Klipper's command parser), generated files sort to the top (00_…_V version suffix, same name overwrites), label quality (glyph retracts, stroke ≤ cap/5, purge tower 15 mm on the probe-safe side), real fit preview on the LCD, labels up to 5 lines / near-bed size, filament stat in meters, SAVE+RESTART restarts when nothing is pending |
+| .66 | user-handbook manual + PDF (scenarios, generators, calibration ladder); three small-text label fonts (COND/NARROW/CAPS); maintenance menu in calibration order |
+| .65 | postproc streaming: range generation + upload tagging no longer load whole files into RAM (32 MB source → Pi-safe memory), byte-identical outputs (golden test added) |
 | .64 | start-killer fixed (list literals with spaces broke SET_GCODE_VARIABLE), labels auto-fit/auto-grow instead of errors, All-OFF removed |
 | .63 | generator files auto-select themselves, range OUTLINE floor fills the enclosed area, L1/L2 rules in every mode, live-tuning clarity (PARAM_SOURCES, FeatSpd) |
 | .62 | (field round: MCU shutdowns solved host-side) |

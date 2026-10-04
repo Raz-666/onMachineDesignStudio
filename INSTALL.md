@@ -20,18 +20,18 @@ just unpack once by hand:
 
 ```bash
 cd ~/printer_data/config
-unzip -o klipper-e3-r2d2-UPDATE-R2-2026-09-07.69.zip
+unzip -o klipper-e3-r2d2-UPDATE-R2-2026-09-07.70.zip
 bash klipper-e3-r2d2/update.sh
 ```
 
 No `unzip` on the Pi?
-`python3 -m zipfile -e klipper-e3-r2d2-UPDATE-R2-2026-09-07.69.zip .` does the
+`python3 -m zipfile -e klipper-e3-r2d2-UPDATE-R2-2026-09-07.70.zip .` does the
 same — update.sh uses that fallback automatically.
 
 **What update.sh does:** it finds the newest `klipper-e3-r2d2-UPDATE-R2-*.zip`
 next to your printer.cfg, unzips it OVER the old `klipper-e3-r2d2` folder
 (never touches variables.cfg or printer.cfg — all settings survive), then
-verifies that this is the folder your printer.cfg includes, checks all 16
+verifies that this is the folder your printer.cfg includes, checks all 18
 include lines, makes sure the .47/.48 `#` boot blocker is gone, sends
 FIRMWARE_RESTART via Moonraker (also works while Klipper shows the red
 config-error banner) and restarts r2-postproc (asks for sudo). An OLDER zip is
@@ -41,7 +41,7 @@ again). The uploaded ZIP can stay in the config folder (harmless) or be
 deleted in Mainsail.
 
 Boot sound + `M117 R2 ready` ~10 s later confirm success; the console line must
-say `build R2-2026-09-07.69`
+say `build R2-2026-09-07.70`
 
 ---
 
@@ -123,7 +123,7 @@ if you do NOT use KAMP: that file contains the mesh & purge dispatch
 (`_CALIBRATE_MESH_PROFILE`, `_PURGE_SMART`) that EVERY print start calls - with
 KAMP installed or with the native fallback. Skipping it breaks every print with
 `Unknown command:"_CALIBRATE_MESH_PROFILE"`. After boot the console must say
-`Macro system OK: all 16 modules loaded and current` - if not, run
+`Macro system OK: all 17 modules loaded and current` - if not, run
 `_CHECK_INSTALL`: every file carries a version sentinel, so MISSING and
 OUTDATED copies (old file under the same name!) are reported by filename.
 
