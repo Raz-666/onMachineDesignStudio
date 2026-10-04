@@ -1,0 +1,8 @@
+# python
+__pycache__/
+*.pyc
+# test artifacts from local battery runs (never ship)
+*.gcode
+!slicer/*.py
+# local working material (kept in the workspace, not in the repo history)
+tools/manual_work/

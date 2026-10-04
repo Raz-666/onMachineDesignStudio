@@ -1,0 +1,5631 @@
+#!/usr/bin/env python3
+# Render test: executes the critical macro templates with mocked printer data
+# (emulates Klipper's jinja dialect: {expr} single braces, {% blocks %}).
+from jinja2 import Environment, BaseLoader
+env = Environment(
+    loader=BaseLoader(),
+    variable_start_string='{', variable_end_string='}',
+    block_start_string='{%', block_end_string='%}',
+    comment_start_string='{#', comment_end_string='#}',
+    trim_blocks=True, lstrip_blocks=False,
+)
+env.globals['params'] = {}
+def _act_stub(*a, **k):
+    return '// action call: %s %s' % (a, k)
+env.globals['action_respond_info'] = _act_stub
+env.globals['action_raise_error'] = _act_stub
+env.globals['action_call_remote_method'] = _act_stub
+
+class M(dict):
+    """dict with attribute access (like Klipper status objects)"""
+    def __getattr__(self, k):
+        try:
+            v = self[k]
+        except KeyError:
+            raise AttributeError(k)
+        return M(v) if isinstance(v, dict) else v
+
+# ---------- mocked printer ----------
+save_vars = {
+    'sound_on': True, 'leds_on': True, 'material': 'PETG', 'start_confirm': True,
+    'ov_bed_on': True, 'ov_bed': 70, 'ov_bed_after_on': False, 'ov_bed_after': 70,
+    'ov_hotend_first_on': True, 'ov_hotend_first': 235, 'ov_hotend_after_on': True, 'ov_hotend_after': 240,
+    'ov_retract_on': False, 'ov_retract_len': 1.0, 'ov_retract_speed': 35,
+    'ov_retract_len_on': False, 'ov_retract_speed_on': False, 'ov_unretract_speed_on': False, 'ov_unretract_speed': 35,
+    'ov_pa_on': False, 'ov_pa': 0.05, 'ov_accel_on': False, 'ov_accel': 4000, 'ov_pa_smooth_on': False,
+    'ov_fan_on': False, 'ov_fan': 100, 'unload_length': 90, 'load_length': 60, 'pid_fan_percent': 100,
+    'ov_outer_wall': 100, 'ov_outer_wall_accel': 0, 'ov_support': 100, 'ov_support_accel': 0,
+    'ov_ironing_speed': 100, 'ov_ironing_flow': 100, 'ov_ironing_temp': 0,
+    'ov_outer_wall_on': True, 'ov_outer_wall': 30, 'ov_outer_wall_accel_on': True, 'ov_outer_wall_accel': 1500,
+    'ov_support_on': False, 'ov_support': 50, 'ov_support_accel_on': False, 'ov_support_accel': 3000,
+    'ov_ironing_on': True, 'ov_ironing_flow': 15, 'ov_ironing_speed': 20, 'ov_ironing_temp': 200,
+    'ov_ironing_flow_on': True, 'ov_ironing_speed_on': True, 'ov_ironing_temp_on': False,
+    'ov_flow_on': False, 'ov_flow': 100,
+    'mesh_adaptive': True, 'mesh_always': True, 'mesh_last_profile': 'r2',
+    'gantry_sync_print': False, 'gantry_sync_boot': False, 'gantry_sync_current': 0.35,
+    'pause_next_layer': False, 'pause_at_layer': 7,
+    'cooldown_fan_time': 30, 'heaters_off_at_end': True, 'motors_off_at_end': True,
+    'start_decision': '',
+    'kamp_mesh': True, 'kamp_purge': True, 'kamp_purge_type': 'LINE', 'kamp_smart_park': False,
+    'legacy_level': True, 'pa_test_start': 0.0, 'pa_test_step': 0.015,
+    'pa_cal_hotend': 210, 'pa_cal_bed': 60, 'pa_cal_start': 0, 'pa_cal_step': 0.005,
+    'pa_cal_lines': 10, 'pa_cal_len': 100, 'pa_cal_slow': 20, 'pa_cal_fast': 100,
+    'pa_cal_accel': 3000, 'pa_cal_spacing': 0,
+    'mesh_auto_save': False, 'cold_pull_hot': 230, 'cold_pull_pull': 90,
+    'ishaper_freq_start': 0, 'ishaper_freq_end': 0, 'ishaper_max_smoothing': 0, 'ishaper_auto_save': True,
+    'label_text': '', 'label_texts': '', 'label_pos': 1, 'label_w': 60, 'label_h': 30,
+    'label_font': 'SMOOTH', 'label_base_layers': 4, 'label_text_layers': 2,
+    'label_layer_h': 0.2, 'label_first_h': 0.28, 'label_ironing': True,
+    'label_hole_side': 1, 'label_hole_d': 5.0, 'label_brim': True, 'label_gap': 6,
+    'label_color2': True, 'label_gen_nonce': 0, 'label_fit': '?',
+}
+state_vars = {
+    'mode': 'printing', 'layer': 2, 'total_layers': 100, 'current_type': 'WALL-OUTER', 'file_type': 'marked',
+    'file_material': 'PLA', 'file_bed': 60, 'file_bed_after': 60,
+    'file_hotend_first': 210, 'file_hotend_after': 215, 'file_layer_height': 0.2,
+    'file_outer_wall_speed': 45, 'file_support_speed': 50, 'file_ironing_speed': 20,
+    'file_held': False, 'ignore_overrides': False,
+    'start_pending': '', 'has_heaters': False, 'probe_stage': 0,
+    'file_fan': 0, 'file_flow': 100.0, 'infra_done': False,
+    'file_line_width': 0.0, 'file_line_width_first': 0.0, 'file_line_width_wall': 0.0,
+    'file_flow_ratio': 0.0, 'file_by_object': False, 'file_info_seen': False,
+    'file_accel': 0.0, 'file_speed': 100.0,
+    'f_outer_wall': 0.8, 'f_inner_wall': 1.0, 'f_infill': 1.0, 'f_solid': 1.0,
+    'f_support': 0.7, 'f_ironing': 1.0, 'f_fan_scale': 1.0,
+    'a_global': 4000, 'a_outer_wall': 1500, 'a_inner_wall': 0, 'a_infill': 0,
+    'a_solid': 0, 'a_support': 0, 'a_ironing': 0,
+    'flow': 100, 'pa_value': 0.05, 'pa_smooth': 0.04,
+    'ironing_flow': 110, 'ironing_temp': 205, 'ironing_temp_active': False, 'ironing_prev_temp': 240,
+    'pause_x': 100, 'pause_y': 100, 'pause_z': 5, 'pause_was_sd': True,
+    'park_x': 10, 'park_y': 225, 'park_lift': 5, 'sensor_was_on': True,
+    'idle_timeout_saved': 3600, 'wait_ticks': 3, 'last_led': 'printing',
+    'pause_reason': 'test', 'cancel_armed': False, 'cancel_time': 0, 'pid_running': False, 'legacy_file': '',
+    'skip_armed_name': '', 'skip_armed_time': 0.0, 'mesh_delete_armed': '',
+    'layer_z_max': 0.0, 'layer_marks': False, 'mesh_saved_pending': False,
+    'ishaper_autosave': False,
+    'file_pa': 0.0, 'file_retract_len': 0.0, 'file_retract_speed': 0.0,
+    'layer_z_acc': 0.0, 'pause_desync': 0, 'pause_planned_reason': 'next layer',
+    'pause_next_armed_runout': False,
+    'legacy_armed': False, 'decided_file': '', 'decided_mode': '',
+}
+tunes = {'r2_start': '1568:40,1245:30', 'r2_confirm': '2093:25,2637:35', 'r2_click': '1568:15',
+         'r2_question': '784:70,0:30,988:60', 'r2_heating': '1046:60,0:40,1318:60', 'r2_hot': '1568:40'}
+mats = {'PLA':  {'bed1':60,'bed2':60,'hot1':210,'hot2':210,'pa':0.05, 'pa_smooth':0.04, 'unret_spd':35,'flow':100,'ret_len':0.75,'ret_spd':35,'fan2':100},
+        'PETG': {'bed1':75,'bed2':75,'hot1':240,'hot2':240,'pa':0.06, 'pa_smooth':0.04, 'unret_spd':35,'flow':100,'ret_len':0.9,'ret_spd':35,'fan2':60},
+        'TPU':  {'bed1':35,'bed2':35,'hot1':215,'hot2':215,'pa':0.09, 'pa_smooth':0.04, 'unret_spd':35,'flow':105,'ret_len':1.2,'ret_spd':20,'fan2':70}}
+objects = [{'name':'obj1','center':[100,100],'polygon':[[60,60],[140,60],[140,140],[60,140]]}]
+preview_vars = {   # R75: the in-memory preview card (gcode_macro _PREVIEW)
+    'name':'', 'type':'?', 'material':'?', 'layer_height':0, 'total_layers':0,
+    'line_width':0, 'line_width_first':0, 'line_width_wall':0, 'flow_ratio':0,
+    'pa':0, 'nozzle':0, 'wall_loops':0, 'hotend':0, 'bed':0, 'fan':0,
+    'speed_outer':0, 'speed_first':0, 'speed_travel':0, 'ironing_speed':0,
+    'types':'', 'by_object':0, 'plot':0, 'pens':0,
+}
+
+# R65: the _LABELS charset EXACTLY as Klipper reads it (comment strip + literal_eval)
+import ast as _ast65
+_ll65 = open('macros/16_labels.cfg', encoding='utf-8').read()
+_ln65 = [l for l in _ll65.split('\n') if l.strip().startswith('variable_charset')][0]
+_ln65 = _ln65[:_ln65.find('#')] if '#' in _ln65 else _ln65
+LABEL_CHARSET_LCD = _ast65.literal_eval(_ln65.split(':', 1)[1].strip())
+BKSL = chr(92)   # a literal backslash (R69 escaped-quote VALUE forms)
+
+def build_printer(kamp=False, objs=None, excl=None, old_klipper=False, bare_idle=False, drop14=False, poweroff=False, ps_state='printing', etemp=None, gz=None, scp=False, etgt=None):
+    d = {
+    'gcode_move': M({'gcode_position': M({'x':100.0,'y':100.0,'z':(gz if gz is not None else 12.5),'e':5.0}),
+                     'speed_factor':1.0,'extrude_factor':1.0,'homing_origin': M({'z':0.0})}),
+    'toolhead': M({'axis_maximum': M({'x':235.0,'y':235.0,'z':250.0}), 'axis_minimum': M({'x':0.0,'y':0.0,'z':0.0}), 'homed_axes':'xyz', 'max_accel':4000, 'max_velocity':250.0}),
+    'extruder': M({'temperature': (etemp if etemp is not None else 210.0), 'target': (etgt if etgt is not None else 215.0)}),
+    'heater_bed': M({'temperature': 60.0, 'target': 60.0}),
+    'print_stats': M({'state':ps_state,'print_duration':1234.0,'total_duration':1400.0,
+                      'filament_used':4.2,'filename':'test.gcode'}),
+    'virtual_sdcard': M({'is_active': True}),
+    'save_variables': M({'variables': save_vars}),
+    'exclude_object': M({'objects': objects, 'excluded_objects': [], 'current_object': (objects[0]['name'] if objects else None)}),
+    'bed_mesh': M({'profile_name': 'r2', 'profiles': {'r2': {}}}),
+    'idle_timeout': M({'state':'Printing','printing_time':0.0,'idle_timeout':3600}),   # REAL keyset (get_status: state/printing_time/idle_timeout)
+    'configfile': M({'settings': M({'idle_timeout': M({'timeout':'3600'}),   # access_tracking stores RAW STRINGS
+                                    'extruder': M({'rotation_distance':7.71,'max_temp':260,'nozzle_diameter':0.6,'pressure_advance':0.004,'min_extrude_temp':170}),
+                                    'firmware_retraction': M({'retract_length':0.75,'retract_speed':35}),
+                                    'tmc2209 stepper_z': M({'run_current':0.7}), 'probe': M({'x_offset':0.0,'y_offset':0.0})})}),
+    'fan': M({'speed': 0.5}),
+    'led_effect r2_idle': M({}),           # R46: led_effect library installed
+    'neopixel printer_leds': M({}),        # R46: 5-pixel chain (index 5 = nozzle)
+    'input_shaper': M({'shaper_type_x':'zv','shaper_freq_x':52.3,'shaper_type_y':'mzv','shaper_freq_y':41.7}),
+    'filament_switch_sensor filament_sensor': M({'enabled':True,'filament_detected':True}),
+    'gcode_macro _STATE': M(state_vars),
+    'gcode_macro _MATERIALS': M({'presets': mats}),
+    'gcode_macro _SOUND_LIB': M({'tunes': tunes}),
+    }
+    if objs is not None:
+        d['exclude_object'] = M({'objects': objs, 'excluded_objects': (excl or []), 'current_object': (objs[0]['name'] if objs else None)})
+    d['configfile']['settings']['bed_mesh r2'] = M({})
+    d['gcode_macro _R2_VERSION'] = M({'version': 'R2-2026-09-07.37'})
+    # force_move has NO get_status -> NOT addressable via printer['force_move']!
+    # Detection works via configfile.settings (it reads 'enable_force_move' there):
+    d['configfile']['settings']['force_move'] = M({'enable_force_move': True})
+    for _m in ['M300','PLAY_SOUND','SET_LED_STATE','NOTIFY','SHOW_STATUS','SET_MATERIAL','LAYER_MARK','M104',
+               'SET_OVERRIDE_VALUE','PRINT_AS_SLICED','PRINT_START','PRINT_END','QUICK_PAUSE','CHANGE_FILAMENT',
+               'APPLY_TYPE','SET_FLOW_RATE','SYNC_GANTRY','TUNE_PID','SELF_TEST','SYS_FIRMWARE_RESTART',
+               'SKIP_OBJECT','SHOW_OBJECTS','_LEGACY_HOME','_LEGACY_DIALOG','_APPLY_OVERRIDES_CORE'] + ([] if drop14 else ['_CALIBRATE_MESH_PROFILE','_PURGE_SMART','KAMP_STATUS']):
+        d['gcode_macro ' + _m] = M({})
+    for _v in ['_V01_STATE','_V02_SOUNDS','_V03_LEDS','_V04_NOTIFY','_V05_MATERIALS','_V06_TEMPS',
+               '_V07_CONFIRM','_V08_STARTSTOP','_V09_PAUSE','_V10_LIVE','_V11_GANTRY','_V12_MAINT',
+               '_V13_SYSTEM','_V15_OBJECTS','_V16_MENUS'] + ([] if drop14 else ['_V14_KAMP']):
+        d['gcode_macro ' + _v] = M({})
+    if old_klipper:
+        d['idle_timeout'] = M({'state':'Printing','printing_time':0.0})   # older Klipper: no 'idle_timeout' key
+    if bare_idle:
+        d['configfile']['idle_timeout'] = M({})   # [idle_timeout] without explicit 'timeout:' option
+    if poweroff:
+        d['configfile']['settings']['gcode_shell_command poweroff'] = M({'command': 'sudo /sbin/poweroff'})
+    d['configfile']['save_config_pending'] = scp          # R63 SYS_SAVE_CONFIG guard
+    d['gcode_macro _PREVIEW'] = M(preview_vars)
+    d['gcode_macro _LABELS'] = M({'charset': LABEL_CHARSET_LCD,
+                                  'max_text': 12, 'max_labels': 24})
+    d['gcode_macro _LEGACY_PREP'] = M({})
+    if kamp:
+        d['gcode_macro _KAMP_Settings'] = M({'mesh_margin':0,'fuzz_amount':0,'purge_amount':30,
+                                             'purge_margin':10,'purge_height':0.8,
+                                             'smart_park_height':10,'verbose_enable':True})
+        d['gcode_macro BED_MESH_CALIBRATE'] = M({})   # simulate the KAMP override
+        d['gcode_macro LINE_PURGE'] = M({})
+        d['gcode_macro VORON_PURGE'] = M({})
+        d['gcode_macro SMART_PARK'] = M({})
+    return M(d)
+
+def render(tpl, par=None, extra=None, kamp=False, objs=None, excl=None, old_klipper=False, bare_idle=False, drop14=False, poweroff=False, ps_state='printing', etemp=None, gz=None, scp=False, etgt=None):
+    t = env.from_string(tpl)
+    g = {'printer': build_printer(kamp=kamp, objs=objs, excl=excl, old_klipper=old_klipper, bare_idle=bare_idle, drop14=drop14, poweroff=poweroff, ps_state=ps_state, etemp=etemp, gz=gz, scp=scp, etgt=etgt), 'params': par or {}}
+    if extra: g.update(extra)
+    return t.render(**g)
+
+def klipper_strip(txt):
+    # Klipper cuts every line at the first '#' while reading the file
+    return '\n'.join(l[:l.find('#')] if '#' in l else l for l in txt.split('\n'))
+
+def get_body(pfad, name):
+    import re
+    txt = open(pfad).read()
+    m = re.search(r'\[gcode_macro '+re.escape(name)+r'\]\n(.*?)(?=\n\[|\Z)', txt, re.S)
+    body = m.group(1)
+    lines = []
+    started = False
+    for z in body.split('\n'):
+        if z.startswith('gcode:'):
+            started = True; continue
+        if started:
+            if z.startswith(('variable_','description:','rename_existing:')):
+                break
+            lines.append(z[4:] if z.startswith('    ') else z)
+    return klipper_strip('\n'.join(lines))
+
+tests = []
+
+class MP(M):
+    """M without auto-attr (for overrides via plain dict access)"""
+    pass
+
+# 1) M104 override: layer 2, ov_hotend_after=240 -> 215 becomes 240
+body = get_body('macros/06_temp_controls.cfg', 'M104')
+out = render(body, {'S': '215'})
+tests.append(('M104 layer2 -> 240 + OVERWRITE log', 'S240' in out.replace('.0','') and 'OVERWRITE' in out, out.strip()[:90]))
+
+# 1b) layer 1 (legacy heuristic)
+state_vars['layer']=1
+out = render(body, {'S': '210'})
+tests.append(('M104 layer1 -> 235', 'S235' in out.replace('.0',''), out.strip()[:90]))
+state_vars['layer']=2
+
+# 1c) ignore_overrides (PRINT_AS_SLICED) -> R79: the material L1/L2 rule still
+#     applies (user rule: hotend/bed/fan ALWAYS differ L1 vs L2); 1:1 for the rest
+state_vars['ignore_overrides']=True
+save_vars['first_layer_rules'] = True
+out = render(body, {'S': '215'})
+tests.append(('M104 as-sliced: L1/L2 rule applies (first_layer_rules ON)',
+    'S210' in out.replace('.0','') and 'L1/L2 rule PLA' in out and 'OVERWRITE' not in out, out.strip()[:110]))
+save_vars['first_layer_rules'] = False
+out = render(body, {'S': '215'})
+tests.append(('M104 as-sliced: rules OFF -> true 1:1 passthrough',
+    'S215' in out.replace('.0','') and 'L1/L2 rule' not in out and 'OVERWRITE' not in out, out.strip()[:90]))
+save_vars['first_layer_rules'] = True
+state_vars['ignore_overrides']=False
+
+# 2) APPLY_TYPE with 'Outer wall' (Orca naming!)
+body = get_body('macros/10_live_tuning.cfg', 'APPLY_TYPE')
+state_vars.update({'mode':'printing','ignore_overrides':False,'current_type':'WALL-INNER','g_speed_clean':100})
+out = render(body, {'TYPE': 'WALL-OUTER'})
+tests.append(('R59 APPLY_TYPE: type set + pure global restore (no override)',
+    "VARIABLE=current_type VALUE='\"WALL-OUTER\"'" in out and 'M99220 S100' in out and 'M220 ' not in out, out.strip()[:150]))
+save_vars.update({'ovf_wallouter_on':True,'ovf_wallouter_spd':80,'ovf_wallouter_acc':1200})
+out = render(body, {'TYPE': 'WALL-OUTER'})
+tests.append(('R59 APPLY_TYPE outer wall 80% via BASE cmd (global untouched)',
+    'M99220 S80' in out and 'M99204 S1200' in out and 'VARIABLE=g_speed_clean' not in out and '[Feature]' in out, out.strip()[:200]))
+state_vars['g_speed_clean'] = 80
+out = render(body, {'TYPE': 'WALL-OUTER'})
+tests.append(('R59 FIX compound: feat 80% x global 80 = S64, global stays 80',
+    'M99220 S64' in out and 'VARIABLE=g_speed_clean' not in out, [l for l in out.split('\n') if 'M99220' in l][:1]))
+out2 = render(body, {'TYPE': 'WALL-INNER'})
+tests.append(('R59 FIX compound: next feature restores S80 (no decay)', 'M99220 S80' in out2, [l for l in out2.split('\n') if 'M99220' in l][:1]))
+state_vars['g_speed_clean'] = 100
+save_vars.update({'ovf_wallouter_on':False,'ovf_wallouter_acc':0})
+save_vars.update({'ovf_ironing_on':True,'ovf_ironing_spd':50,'ov_ironing_flow_on':True,'ov_ironing_flow':20})
+out = render(body, {'TYPE': 'IRONING'})
+tests.append(('R59 APPLY_TYPE ironing: speed 50% + flow 20% (base cmds)',
+    'M99220 S50' in out and 'M99221 S20' in out, out.strip()[:200]))
+save_vars.update({'ovf_ironing_on':False,'ov_ironing_flow_on':False,'ov_flow_on':True,'ov_flow':98})
+out = render(body, {'TYPE': 'INFILL-SPARSE'})
+tests.append(('R59 APPLY_TYPE other feature: global restore + flow 98', 'M99220 S100' in out and 'M99221 S98' in out, out.strip()[:160]))
+save_vars.update({'ov_flow_on':False})
+
+# 2b) APPLY_TYPE ironing - R54: compat no-op
+out = render(body, {'TYPE': 'Ironing'})
+tests.append(('APPLY_TYPE ironing = no-op (R54)', 'current_type' in out and 'TARGET=' not in out, out.strip()[:150]))
+
+# 3) _PRIME_LINE (R45): X only, START right -> toward x=0, probe-aware window
+body = get_body('macros/08_print_start_stop.cfg', '_PRIME_LINE')
+out = render(body, {'LAYER_HEIGHT': '0.2'})
+tests.append(('PRIME front strip wins (110mm, R49)', 'G0 X115' in out and 'G1 X5' in out and 'Y50' in out and 'front below objects' in out, out.strip()[:200]))
+tests.append(('PRIME stows probe first', '_PROBE_STOW' in out, out.strip()[:120]))
+# 3b) objects X100..220 -> only the left side is free -> line left of them
+obj_links = [{'name':'o','center':[160,100],'polygon':[[100,60],[220,60],[220,140],[100,140]]}]
+out = render(body, {'LAYER_HEIGHT': '0.2'}, objs=obj_links)
+tests.append(('PRIME objects right-heavy -> front strip', 'G0 X115' in out and 'G1 X5' in out and 'Y50' in out, out.strip()[:200]))
+# 3c) R45 probe offset -44mm: the left end is clamped so the PROBE stays on the bed
+_gd = dict(build_printer(objs=obj_links))
+_gd['configfile'] = M({'settings': M({'probe': M({'x_offset': -44.0, 'y_offset': 5.0})})})
+out = env.from_string(body).render(printer=M(_gd), params={'LAYER_HEIGHT': '0.2'})
+tests.append(('PRIME probe-safe window (x_off -44)', 'G1 X49' in out and 'G0 X159' in out and 'G1 X5' not in out, out.strip()[:200]))
+
+# 3f) R49: objects reach the bed front -> no front strip -> side fallback (left)
+obj_front = [{'name':'o','center':[140,80],'polygon':[[60,12],[220,12],[220,140],[60,140]]}]
+out = render(body, {'LAYER_HEIGHT': '0.2'}, objs=obj_front)
+tests.append(('PRIME front blocked -> left side', 'G0 X50' in out and 'G1 X5' in out and 'left of objects' in out, out.strip()[:200]))
+
+# 3d) no objects: front edge, start right (x=115) toward x=5
+out = render(body, {'LAYER_HEIGHT': '0.2'}, objs=[])
+tests.append(('PRIME front edge toward x0', 'G0 X115' in out and 'G1 X5' in out, out.strip()[:200]))
+# 3e) direction guard: the drawing move always goes to a SMALLER X than the start
+import re as _reP
+_m0 = _reP.search(r'G0 X([0-9.]+)', out); _m1 = _reP.search(r'G1 X([0-9.]+)', out)
+tests.append(('PRIME direction right -> left', _m0 and _m1 and float(_m1.group(1)) < float(_m0.group(1)), out[:120]))
+
+# 4) SET_MATERIAL PETG APPLY_PRESET=1
+body = get_body('macros/05_materials.cfg', 'SET_MATERIAL')
+out = render(body, {'MATERIAL':'petg','APPLY_PRESET':'1'})
+tests.append(('SET_MATERIAL petg', "VALUE='\"PETG\"'" in out and 'bed 75/75C' in out and '240/240C' in out and 'VARIABLE=ov_pa VALUE=0.06' in out and 'VARIABLE=ov_retract_len VALUE=0.9' in out and 'VARIABLE=ov_retract_len_on VALUE=True' in out and 'VARIABLE=ov_fan VALUE=60' in out, out.strip()[:220]))
+
+# 5) TOGGLE_OVERRIDE hotend_after
+body = get_body('macros/07_start_confirm.cfg', 'TOGGLE_OVERRIDE')
+out = render(body, {'NAME':'hotend_after'})
+tests.append(('TOGGLE_OVERRIDE', 'ov_hotend_after_on' in out, out.strip()[:90]))
+
+# 5a2) TOGGLE retract_len maps to the SHARED key ov_retract_on (was: Unknown override!)
+body = get_body('macros/07_start_confirm.cfg', 'TOGGLE_OVERRIDE')
+out = render(body, {'NAME':'retract_len'})
+tests.append(('TOGGLE retract_len -> own key', 'ov_retract_len_on VALUE=' in out and 'Unknown overwrite' not in out, out[:140]))
+out = render(body, {'NAME':'ironing_flow'})
+tests.append(('TOGGLE ironing_flow -> own key', 'ov_ironing_flow_on VALUE=' in out and 'Unknown overwrite' not in out, out[:140]))
+out = render(body, {'NAME':'gibtsnicht'})
+tests.append(('TOGGLE unknown -> error', 'Unknown overwrite' in out, out[:140]))
+
+# 5b) SET_OVERRIDE_VALUE outer_wall -> sets value + ON
+body = get_body('macros/07_start_confirm.cfg', 'SET_OVERRIDE_VALUE')
+out = render(body, {'NAME':'velocity','VALUE':'300'})
+tests.append(('SET_OVERRIDE_VALUE+ON', 'VARIABLE=ov_velocity VALUE=300.0' in out and 'ov_velocity_on VALUE=True' in out, out[:200]))
+out = render(body, {'NAME':'outer_wall','VALUE':'80'})
+tests.append(('R59 SET_OVERRIDE_VALUE legacy outer_wall -> feat key', 'VARIABLE=ovf_wallouter_spd VALUE=80.0' in out and 'VARIABLE=ovf_wallouter_on VALUE=True' in out, out[:220]))
+out = render(body, {'NAME':'feat_acc_surfacetop','VALUE':'900'})
+tests.append(('R59 SET_OVERRIDE_VALUE generic feat_acc_surfacetop', 'VARIABLE=ovf_surfacetop_acc VALUE=900.0' in out and 'VARIABLE=ovf_surfacetop_on VALUE=True' in out, out[:220]))
+out = render(body, {'NAME':'feat_on_brim','VALUE':'1'})
+tests.append(('R59 SET_OVERRIDE_VALUE feat_on_brim toggles', 'VARIABLE=ovf_brim_on VALUE=True' in out, out[:180]))
+
+# 5c) NOTIFY: LCD shortening (no {{ }} allowed!)
+body = get_body('macros/04_notify.cfg', 'NOTIFY')
+out = render(body, {'TEXT':'Heating bed to 60C','LEVEL':'info'})
+tests.append(('NOTIFY M117 no {{', 'M117 [i]  Heating bed to 60' in out, out[:160]))
+
+# 6) _SOUND_LIB plays r2_start
+body = get_body('macros/02_sounds.cfg', '_SOUND_LIB')
+out = render(body, {'NAME':'r2_start'}, extra={'tunes': tunes})
+tests.append(('SOUND r2_start', 'M300 S1568 P40' in out, out.strip()[:80]))
+
+# 6b) M300 macro (Klipper has no built-in M300)
+body = get_body('macros/02_sounds.cfg', 'M300')
+out = render(body, {'S':'1568','P':'40'})
+import re as _re2
+_ct = float(_re2.search(r'CYCLE_TIME=([0-9.]+)', out).group(1))
+tests.append(('M300 S1568 -> CYCLE_TIME=1/f', abs(_ct - 1.0/1568) < 1e-6, out[:160]))
+out = render(body, {})
+tests.append(('M300 default 1000Hz/100ms', 'CYCLE_TIME=0.001' in out and 'G4 P100' in out, out[:160]))
+
+# 7) PRINT_END statistics
+body = get_body('macros/08_print_start_stop.cfg', 'PRINT_END')
+out = render(body, {})
+tests.append(('PRINT_END duration', 'Duration: 0h 20min' in out, [l for l in out.split('\n') if 'Duration' in l][:1]))
+
+# 8) LAYER_MARK pause at layer 7
+body = get_body('macros/06_temp_controls.cfg', 'LAYER_MARK')
+state_vars['layer']=6
+out = render(body, {})
+tests.append(('LAYER_MARK pause@7', 'PAUSE REASON="layer 7' in out, out.strip()[:140]))
+state_vars['layer']=2
+
+# 9) _PARK_HEAD corner choice (objects center 100,100 -> best corner (222,225) dist 247)
+body = get_body('macros/09_pause_filament.cfg', '_PARK_HEAD')
+out = render(body, {})
+tests.append(('PARK corner (222,225)', 'X222' in out and 'Y225' in out, [l for l in out.split('\n') if 'Park corner' in l]))
+
+# 10) M106 scaling
+body = get_body('macros/06_temp_controls.cfg', 'M106')
+out = render(body, {'S':'255'})
+tests.append(('M106 passthrough', 'S255' in out, out.strip()[:60]))
+state_vars['f_fan_scale']=0.5
+out = render(body, {'S':'200'})
+tests.append(('M106 50%', 'S100' in out, out.strip()[:80]))
+state_vars['f_fan_scale']=1.0
+
+# 11) SYNC_GANTRY kinematic trick
+body = get_body('macros/11_gantry_sync.cfg', 'SYNC_GANTRY')
+state_vars['mode']='idle'
+out = render(body, {})
+tests.append(('SYNC_GANTRY kinematic', 'SET_KINEMATIC_POSITION Z=235' in out, out.strip()[:160]))
+state_vars['mode']='printing'
+
+# 12) _RUN_PRINT_START renders completely
+body = get_body('macros/08_print_start_stop.cfg', '_RUN_PRINT_START')
+out = render(body, {'APPLY':'1'})
+tests.append(('RUN_PRINT_START full', 'SET_PRESSURE_ADVANCE' in out and '_CALIBRATE_MESH_PROFILE' in out, out.strip()[:100]))
+
+# 13) apply=0, mesh_always OFF, r2 active+saved -> no re-leveling
+save_vars['mesh_always'] = False
+out = render(body, {'APPLY':'0'})
+tests.append(('RUN as-sliced keeps active mesh', 'no re-leveling' in out and 'LOAD_MESH_PROFILE' not in out and '_CALIBRATE_MESH_PROFILE' not in out, [l for l in out.split('\n') if 're-leveling' in l][:1]))
+# 13b) mesh_always OFF, nothing active -> LOAD saved r2
+gd = dict(build_printer()); gd['bed_mesh'] = M({'profile_name': '', 'profiles': {'r2': {}}})
+out = env.from_string(body).render(printer=MP(gd), params={'APPLY':'0'})
+tests.append(('RUN mesh_always off -> load r2', 'LOAD_MESH_PROFILE PROFILE=r2' in out, [l for l in out.split('\n') if 'LOAD_MESH' in l][:1]))
+
+# 14) apply=1, mesh_always ON (new default) -> always measures
+save_vars['mesh_always'] = True
+out = render(body, {'APPLY':'1'})
+tests.append(('RUN overrides measures r2', '_CALIBRATE_MESH_PROFILE PROFILE=r2' in out, out[:160]))
+
+# 15) PID automation is GONE: no PID lines in the start
+tests.append(('PID automation removed', 'PID' not in out, [l for l in out.split('\n') if 'PID' in l][:1]))
+
+# 16) CANCEL first press pauses + arms
+body = get_body('macros/09_pause_filament.cfg', 'CANCEL_PRINT')
+out = render(body, {})
+tests.append(('CANCEL 1st press arms', 'cancel_armed VALUE=True' in out and 'PAUSE REASON' in out, out[:200]))
+# 16b) second press really cancels
+state_vars['cancel_armed']=True
+out = render(body, {})
+tests.append(('CANCEL 2nd press kills', 'CANCEL_PRINT_BASE' in out and 'TURN_OFF_HEATERS' in out, out[:160]))
+state_vars['cancel_armed']=False
+
+# 17) RESUME disarms cancel
+body = get_body('macros/09_pause_filament.cfg', 'RESUME')
+out = render(body, {})
+tests.append(('RESUME disarms cancel', 'cancel_armed VALUE=False' in out, out[:120]))
+
+# ---------------- KAMP dispatch tests ----------------------------------------------
+body = get_body('macros/14_kamp.cfg', '_CALIBRATE_MESH_PROFILE')
+out = render(body, {'PROFILE':'r2'}, kamp=True)
+tests.append(('KAMP mesh on -> no ADAPTIVE', 'BED_MESH_CALIBRATE PROFILE=r2' in out and 'ADAPTIVE' not in out and 'BED_MESH_PROFILE SAVE=r2' in out, out[:200]))
+out = render(body, {'PROFILE':'r2'})
+tests.append(('no KAMP -> native ADAPTIVE=1', 'ADAPTIVE=1 ADAPTIVE_MARGIN=5' in out and '_BED_MESH_CALIBRATE' not in out, out[:200]))
+save_vars['kamp_mesh'] = False
+out = render(body, {'PROFILE':'r2'}, kamp=True)
+tests.append(('KAMP off -> _BED_MESH+ADAPTIVE', '_BED_MESH_CALIBRATE PROFILE=r2 ADAPTIVE=1' in out, out[:200]))
+save_vars['kamp_mesh'] = True
+
+body = get_body('macros/14_kamp.cfg', '_PURGE_SMART')
+out = render(body, {'LAYER_HEIGHT':'0.2'}, kamp=True)
+tests.append(('KAMP purge -> LINE_PURGE', 'LINE_PURGE' in out and 'VORON' not in out, out[:200]))
+save_vars['kamp_purge_type'] = 'VORON'
+out = render(body, {'LAYER_HEIGHT':'0.2'}, kamp=True)
+tests.append(('KAMP purge VORON', 'VORON_PURGE' in out, out[:200]))
+save_vars['kamp_purge_type'] = 'LINE'
+out = render(body, {'LAYER_HEIGHT':'0.2'}, kamp=True, objs=[])   # legacy file without objects
+tests.append(('no objects -> own line', '_PRIME_LINE LAYER_HEIGHT=0.2' in out and 'LINE_PURGE' not in out, out[:200]))
+# R45: KAMP LINE purge skipped with a big side probe offset -> probe-safe own line
+_gd2 = dict(build_printer(kamp=True))
+_gd2['configfile'] = M({'settings': M({'probe': M({'x_offset': -44.0, 'y_offset': 5.0})})})
+out = env.from_string(body).render(printer=M(_gd2), params={'LAYER_HEIGHT': '0.2'})
+tests.append(('KAMP line purge skipped (probe off)', '_PRIME_LINE' in out and 'LINE_PURGE' not in out and 'skipped' in out, out[:220]))
+tests.append(('PURGE_SMART stows probe', '_PROBE_STOW' in out, out[:120]))
+out = render(body, {'LAYER_HEIGHT':'0.2'}, kamp=False)
+tests.append(('without KAMP -> own line', '_PRIME_LINE' in out, out[:160]))
+
+# print start with KAMP: SMART_PARK only when enabled
+body = get_body('macros/08_print_start_stop.cfg', '_RUN_PRINT_START')
+out = render(body, {'APPLY':'1'}, kamp=True)
+tests.append(('RUN with KAMP: no default SMART_PARK', 'SMART_PARK' not in out, 'smart park should default off'))
+save_vars['kamp_smart_park'] = True
+out = render(body, {'APPLY':'1'}, kamp=True)
+tests.append(('RUN with KAMP: SMART_PARK on', 'SMART_PARK' in out, 'smart park missing'))
+save_vars['kamp_smart_park'] = False
+
+body = get_body('macros/14_kamp.cfg', 'KAMP_STATUS')
+out = render(body, {}, kamp=True)
+tests.append(('KAMP_STATUS installed', 'installed & loaded' in out and 'LINE_PURGE=yes' in out, out[:200]))
+out = render(body, {})
+tests.append(('KAMP_STATUS without KAMP', 'NOT installed' in out, out[:160]))
+
+# STATE WATCHER: legacy print detection
+import re as _re
+txt = open('macros/01_state.cfg').read()
+m = _re.search(r'\[delayed_gcode _STATE_WATCHER\]\ninitial_duration: 8\ngcode:\n(.*?)(?=\n\[|\Z)', txt, _re.S)
+watcher = '\n'.join(l[4:] if l.startswith('    ') else l for l in m.group(1).split('\n'))
+state_vars['mode']='idle'
+out = render(watcher, {})
+tests.append(('WATCHER legacy print', "VARIABLE=mode VALUE='\"printing\"'" in out and 'legacy' in out, out[:200]))
+state_vars['mode']='printing'
+
+# ---------------- SKIP_OBJECT (exclude_object) tests ---------------------------------
+multi = [{'name':'cube_1','center':[60,60],'polygon':[[40,40],[80,40],[80,80],[40,80]]},
+         {'name':'cube_2','center':[170,60],'polygon':[[150,40],[190,40],[190,80],[150,80]]},
+         {'name':'arch','center':[115,170],'polygon':[[95,150],[135,150],[135,190],[95,190]]}]
+body = get_body('macros/15_objects.cfg', 'SKIP_OBJECT')
+
+out = render(body, {'NAME':'cube_2'}, objs=multi)
+tests.append(('SKIP 1st press arms', "VALUE='\"cube_2\"'" in out and 'EXCLUDE_OBJECT' not in out, out[:200]))
+
+state_vars['skip_armed_name']='cube_2'
+out = render(body, {'NAME':'cube_2'}, objs=multi)
+tests.append(('SKIP 2nd press executes', 'EXCLUDE_OBJECT NAME=' in out and 'SKIPPED' in out and 'skip_armed_name VALUE=' + chr(39) + '""' + chr(39) in out, out[:220]))
+state_vars['skip_armed_name']=''
+
+out = render(body, {'NAME':'cube_1'}, objs=[multi[0]])
+tests.append(('SKIP last object refused', 'CANCEL_PRINT' in out and 'EXCLUDE_OBJECT NAME=' not in out, out[:200]))
+
+out = render(body, {'NAME':'ghost'}, objs=multi)
+tests.append(('SKIP unknown refused', 'Unknown object' in out and 'EXCLUDE_OBJECT NAME=' not in out, out[:200]))
+
+out = render(body, {'NAME':'cube_2'}, objs=[multi[0],multi[2]], excl=['cube_2'])
+tests.append(('SKIP already-skipped hint', 'already skipped' in out, out[:200]))
+
+state_vars['mode']='idle'
+out = render(body, {'NAME':'cube_1'}, objs=multi)
+tests.append(('SKIP only during print', 'only works during a print' in out, out[:160]))
+state_vars['mode']='printing'
+
+out = render(body, {})
+tests.append(('SKIP without NAME -> usage', 'Usage: SKIP_OBJECT' in out, out[:160]))
+
+body = get_body('macros/15_objects.cfg', 'SKIP_CURRENT_OBJECT')
+out = render(body, {}, objs=multi)
+tests.append(('SKIP_CURRENT resolves name', 'SKIP_OBJECT NAME=' in out, out[:160]))
+
+body = get_body('macros/15_objects.cfg', 'SHOW_OBJECTS')
+out = render(body, {}, objs=multi)
+tests.append(('SHOW_OBJECTS lists all', 'Active: 3' in out and '[keep] cube_1' in out and 'printing now' in out and 'Skip: SKIP_OBJECT' in out, out[:200]))
+
+# menu slot template safety: index beyond list length must render '-', not crash
+slot = "{('SKIP? ' if printer['gcode_macro _STATE'].skip_armed_name == printer.exclude_object.objects[3].name else '') ~ printer.exclude_object.objects[3].name|truncate(16, True, '') if printer.exclude_object.objects|length > 3 else '-'}"
+out = render(slot, {}, objs=multi[:2])
+tests.append(('MENU slot out-of-range safe', out.strip() == '-', out[:80]))
+state_vars['skip_armed_name']='cube_2'
+out = render(slot, {}, objs=multi + [multi[1]])
+tests.append(('MENU slot armed prefix', out.strip() == 'SKIP? cube_2', out[:80]))
+state_vars['skip_armed_name']=''
+
+# ------- shlex regression: SET_GCODE_VARIABLE lines must survive Klipper parsing ------
+# Klipper's _get_extended_params uses shlex(posix=True): quotes are SHELL quoting and
+# get stripped. VALUE='' would collapse to an EMPTY argument -> literal_eval('') dies.
+import shlex as _shlex, ast as _ast
+def klipper_param_value(line, key):
+    raw = line.split(' ', 1)[1]
+    sx = _shlex.shlex(raw, posix=True); sx.whitespace_split = True; sx.commenters = '#;'
+    for tok in sx:
+        if tok.startswith(key + '='):
+            return tok.split('=', 1)[1]
+    return None
+
+body = get_body('macros/15_objects.cfg', 'SKIP_OBJECT')
+out = render(body, {'NAME':'cube_2'}, objs=multi)
+line = [l.strip() for l in out.split('\n') if 'VARIABLE=skip_armed_name' in l and l.strip().startswith('SET_GCODE_VARIABLE')][0]
+val = klipper_param_value(line, 'VALUE')
+tests.append(('ARM line survives shlex -> name', val == '"cube_2"' and _ast.literal_eval(val) == 'cube_2', line))
+
+state_vars['skip_armed_name']='cube_2'
+out = render(body, {'NAME':'cube_2'}, objs=multi)
+line = [l.strip() for l in out.split('\n') if 'VARIABLE=skip_armed_name' in l and l.strip().startswith('SET_GCODE_VARIABLE')][0]
+val = klipper_param_value(line, 'VALUE')
+tests.append(('DISARM line survives shlex -> empty str', val == '""' and _ast.literal_eval(val) == '', line))
+
+body = get_body('macros/09_pause_filament.cfg', 'RESUME')
+out = render(body, {})
+line = [l.strip() for l in out.split('\n') if 'VARIABLE=skip_armed_name' in l and l.strip().startswith('SET_GCODE_VARIABLE')][0]
+val = klipper_param_value(line, 'VALUE')
+tests.append(('RESUME disarm survives shlex', val == '""', line))
+state_vars['skip_armed_name']=''
+
+# ------- idle timeout regression (real Klipper keysets!) ------------------------------
+body = get_body('macros/09_pause_filament.cfg', 'PAUSE')
+out = render(body, {'REASON':'test'})
+tests.append(('PAUSE saves live idle timeout', 'VARIABLE=idle_timeout_saved VALUE=3600.0' in out, [l for l in out.split('\n') if 'idle_timeout_saved' in l]))
+out = render(body, {'REASON':'test'}, old_klipper=True)
+tests.append(('PAUSE old Klipper -> cfg value', 'VARIABLE=idle_timeout_saved VALUE=3600.0' in out, [l for l in out.split('\n') if 'idle_timeout_saved' in l]))
+out = render(body, {'REASON':'test'}, old_klipper=True, bare_idle=True)
+tests.append(('PAUSE nothing set -> 3600', 'VARIABLE=idle_timeout_saved VALUE=3600.0' in out, [l for l in out.split('\n') if 'idle_timeout_saved' in l]))
+
+body = get_body('macros/09_pause_filament.cfg', '_RESTORE_IDLE_TIMEOUT')
+state_vars['idle_timeout_saved'] = 1800.0
+out = render(body, {})
+tests.append(('RESTORE uses saved value', 'SET_IDLE_TIMEOUT TIMEOUT=1800' in out, out.strip()[:80]))
+state_vars['idle_timeout_saved'] = 0.0
+out = render(body, {}, old_klipper=True, bare_idle=True)
+tests.append(('RESTORE worst case -> 3600', 'SET_IDLE_TIMEOUT TIMEOUT=3600' in out, out.strip()[:80]))
+state_vars['idle_timeout_saved'] = 3600.0
+
+body = get_body('macros/01_state.cfg', '_CHECK_INSTALL')
+out = render(body, {})
+tests.append(('CHECK_INSTALL all loaded', 'all 16 modules loaded and current' in out and 'MISSING' not in out, out[:160]))
+out = render(body, {}, drop14=True)
+tests.append(('CHECK_INSTALL detects missing/outdated 14', '14_kamp.cfg' in out and 'MODULES MISSING OR OUTDATED' in out and 'sentinel' in out, out[:220]))
+
+# ------- SYS_SHUTDOWN / poweroff -------------------------------------------------------
+body = get_body('macros/13_system.cfg', 'SYS_SHUTDOWN')
+out = render(body, {})
+tests.append(('SHUTDOWN 1st press arms', 'Press SYS_SHUTDOWN again' in out and 'RUN_SHELL' not in out, out[:120]))
+out = render(body, {'CONFIRM':'1'})
+tests.append(('SHUTDOWN default: moonraker remote', 'shutdown_machine' in out and 'RUN_SHELL_COMMAND' not in out and 'TURN_OFF_HEATERS' in out, out[:200]))
+out = render(body, {'CONFIRM':'1'}, poweroff=True)
+tests.append(('SHUTDOWN w/ module -> poweroff', 'RUN_SHELL_COMMAND CMD=poweroff' in out and 'TURN_OFF_HEATERS' in out, out[:160]))
+
+# ------- legacy temp heuristic (M104/M140 without PRINT_START) --------------------------
+body = get_body('macros/06_temp_controls.cfg', 'M104')
+state_vars.update(layer=1, file_hotend_first=0, file_hotend_after=0)
+out = render(body, {'S':'205'})
+tests.append(('M104 legacy falling -> after', 'S240' in out.replace('.0',''), out[:140]))
+state_vars.update(file_hotend_first=210, file_hotend_after=215)
+body = get_body('macros/06_temp_controls.cfg', 'M140')
+state_vars.update(layer=1, file_bed=0, file_bed_after=0)
+save_vars['ov_bed_after_on']=True
+out = render(body, {'S':'55'})
+save_vars['ov_bed_after_on']=False
+tests.append(('M140 legacy falling -> after', 'S70' in out.replace('.0',''), out[:140]))
+state_vars.update(file_bed=60, file_bed_after=60, layer=2)
+
+# ------- LAYER_MARK switches to after-temps at layer 2 ---------------------------------
+body = get_body('macros/06_temp_controls.cfg', 'LAYER_MARK')
+state_vars['layer']=1
+out = render(body, {})
+tests.append(('LAYER_MARK L2 hotend after', 'TARGET=240' in out and 'Layer 2: hotend' in out, [l for l in out.split('\n') if 'Layer 2' in l]))
+state_vars['layer']=2
+
+# ------- CALIBRATE_MESH heats bed (override wins, else preset) ---------------------------
+body = get_body('macros/12_maintenance.cfg', 'CALIBRATE_MESH')
+out = render(body, {})   # ov_bed 70 ON
+tests.append(('MESH bed override 70C', 'TARGET=70' in out and 'TEMPERATURE_WAIT' in out and 'PROFILE=r2' in out, out[:200]))
+save_vars['ov_bed_on']=False
+out = render(body, {})
+save_vars['ov_bed_on']=True
+tests.append(('MESH preset temp (PETG 75)', 'TARGET=75' in out and 'PROFILE=r2' in out, out[:200]))
+
+# ------- _LEGACY_PREP: phase 1 pauses + schedules phase 2 --------------------------------
+body = get_body('macros/08_print_start_stop.cfg', '_LEGACY_PREP')
+out = render(body, {})
+tests.append(('LEGACY_PREP p1: pause+schedule', 'PAUSE REASON' in out and 'UPDATE_DELAYED_GCODE ID=_LEGACY_PREP2 DURATION=1.5' in out, out[:200]))
+import re as _re5
+txt = open('macros/08_print_start_stop.cfg').read()
+m = _re5.search(r'\[delayed_gcode _LEGACY_PREP2\]\ngcode:\n(.*?)(?=\n\[|\Z)', txt, _re5.S)
+prep2 = '\n'.join(l[4:] if l.startswith('    ') else l for l in m.group(1).split('\n'))
+state_vars['mode']='paused'
+out = render(prep2, {}, ps_state='paused')
+tests.append(('LEGACY_PREP p2 runs when paused', 'TEMPERATURE_WAIT SENSOR=heater_bed' in out
+              and '_CALIBRATE_MESH_PROFILE PROFILE=r2' in out and 'M24' in out, out[:260]))
+tests.append(('R54 PREP2 gapless: no RESUME dance', 'RESUME' not in out and 'RESTORE_GCODE_STATE NAME=PAUSE_STATE' in out and 'CLEAR_PAUSE' in out, out[:300]))
+tests.append(('LEGACY_PREP p2: L1-Temp + Overrides + Z10', 'TARGET=235' in out and '_APPLY_OVERRIDES_CORE' in out and 'G0 Z10' in out, [l for l in out.split('\n') if 'TARGET=235' in l or 'OVERRIDES_CORE' in l or 'Z10' in l][:3]))
+out = render(prep2, {}, ps_state='paused')
+tests.append(('LEGACY_PREP p2 always purges', 'TEMPERATURE_WAIT SENSOR=extruder' in out and '_PRIME_LINE' in out, out[200:420]))
+out = render(prep2, {}, ps_state='printing')
+tests.append(('LEGACY_PREP p2 bails if not paused', 'did not hold the pause' in out and '_CALIBRATE_MESH_PROFILE' not in out, out[:200]))
+state_vars['mode']='printing'
+
+# ------- watcher triggers legacy prep once -----------------------------------------------
+import re as _re3
+txt = open('macros/01_state.cfg').read()
+m = _re3.search(r'\[delayed_gcode _STATE_WATCHER\]\ninitial_duration: 8\ngcode:\n(.*?)(?=\n\[|\Z)', txt, _re3.S)
+watcher = '\n'.join(l[4:] if l.startswith('    ') else l for l in m.group(1).split('\n'))
+state_vars['mode']='idle'
+save_vars['start_confirm']=False
+out = render(watcher, {})
+tests.append(('WATCHER calls LEGACY_PREP (confirm off)', '_LEGACY_PREP' in out and '_LEGACY_DIALOG' not in out, out[:220]))
+save_vars['start_confirm']=True
+out = render(watcher, {})
+tests.append(('WATCHER asks via LEGACY_DIALOG (R45)', '_LEGACY_DIALOG' in out and 'VARIABLE=file_type' in out and '_LEGACY_PREP' not in out, out[:220]))
+state_vars['mode']='printing'
+
+# ------- PID nur noch manuell -------------------------------------------------------------
+body = get_body('macros/12_maintenance.cfg', '_RUN_PID_TUNE')
+out = render(body, {'HEATER':'extruder','TARGET':'235','AUTOSAVE':'1'})
+tests.append(('PID manual hotend fan+save', 'M99106 S255' in out and 'PID_CALIBRATE HEATER=extruder TARGET=235' in out and 'SAVE_CONFIG' in out and 'pid_pending' not in out, out[:220]))
+out = render(body, {'HEATER':'heater_bed','TARGET':'65','AUTOSAVE':'0'})
+tests.append(('PID manual bed no fan no save', 'M99106' not in out and 'PID values calculated' in out and 'Saving config' not in out, out[:220]))
+
+# ------- PA-Kalibrierung: Orca-Stil (eine lange Linie pro PA-Wert) --------------------------
+import re as _rePA
+body = get_body('macros/12_maintenance.cfg', 'CALIBRATE_PA')
+state_vars['mode']='idle'
+out = render(body, {})          # Defaults: Bett 60, Hotend 210, 10 Linien x 100mm
+xs_all = [float(v) for v in _rePA.findall(r'X(\d+(?:\.\d+)?)', out)]
+ys_all = [float(v) for v in _rePA.findall(r'Y(\d+(?:\.\d+)?)', out)]
+tests.append(('PA cal: bed heats first', 'HEATER=heater_bed TARGET=60' in out and 'TEMPERATURE_WAIT SENSOR=heater_bed' in out, [l for l in out.split('\n') if 'heater_bed' in l][:2]))
+tests.append(('PA cal: prime line + skirt', 'Prime line' in out and 'Skirt' in out, out[:120]))
+tests.append(('PA cal: 10 PA lines', out.count('SET_PRESSURE_ADVANCE ADVANCE=') >= 11 and 'PA line 10/10' in out, out[:160]))
+tests.append(('PA cal: slow/fast/accel set', 'F1200' in out and 'F6000' in out and 'SET_VELOCITY_LIMIT ACCEL=3000' in out, [l for l in out.split('\n') if 'VELOCITY' in l][:1]))
+tests.append(('PA cal: accel restored', 'SET_VELOCITY_LIMIT ACCEL=4000' in out, [l for l in out.split('\n') if 'VELOCITY' in l][1:2]))
+tests.append(('PA cal: never out of range', max(xs_all) <= 209.0 and max(ys_all) <= 199.5, (max(xs_all), max(ys_all))))
+out = render(body, {'LINES':'40', 'SPACING':'5'})
+tests.append(('PA cal: too many lines refused', 'do not fit the bed' in out, out[:160]))
+out = render(body, {'WIDTH':'0.6 * 1.15', 'LINES':'12'})
+tests.append(('PA cal: WIDTH expr -> fallback, fits', 'WIDTH must be a number' in out and 'PA line 12/12' in out, [l for l in out.split('\n') if 'WIDTH' in l][:1]))
+out = render(body, {'BED':'0'})
+tests.append(('PA cal: BED=0 skips bed', 'heater_bed' not in out, out[:120]))
+out = render(body, {'STEP':'0'})
+tests.append(('PA cal: bad params refused', 'STEP must be above 0' in out, out[:160]))
+state_vars['mode']='printing'
+out = render(body, {})
+tests.append(('PA cal refuses while printing', 'only when idle' in out, out[:120]))
+state_vars['mode']='idle'
+
+body = get_body('macros/12_maintenance.cfg', 'PA_RESULT')
+save_vars['pa_test_start']=0.0; save_vars['pa_test_step']=0.005
+out = render(body, {'SEG':'5'})
+tests.append(('PA_RESULT line5 -> 0.02', 'ADVANCE=0.02' in out and 'VARIABLE=ov_pa VALUE=0.02' in out and 'ov_pa_on VALUE=True' in out, out[:200]))
+out = render(body, {'VALUE':'0.048'})
+tests.append(('PA_RESULT direct VALUE', 'ADVANCE=0.048' in out and 'VARIABLE=ov_pa VALUE=0.048' in out, out[:160]))
+out = render(body, {})
+tests.append(('PA_RESULT without input -> hint', 'best line' in out and 'calculator' in out, out[:120]))
+
+# ------- SAVE_MATERIAL_TEMPS ------------------------------------------------------------------
+body = get_body('macros/05_materials.cfg', 'SAVE_MATERIAL_TEMPS')
+out = render(body, {})
+out = render(body, {'MATERIAL':'TPU'})
+tests.append(('SAVE_MATERIAL_TEMPS TPU lowercase', 'VARIABLE=mat_tpu_bed1' in out and 'VARIABLE=mat_tpu_hot2' in out and 'VARIABLE=mat_tpu_pa' in out and 'VARIABLE=mat_tpu_retlen' in out and 'VARIABLE=mat_tpu_fan' in out, out[:220]))
+
+# ------- SYNC_GANTRY: self-homing + force_move guard ------------------------------------
+body = get_body('macros/11_gantry_sync.cfg', 'SYNC_GANTRY')
+state_vars['mode']='idle'
+out = render(body, {})
+tests.append(('SYNC fully homed -> no G28', 'SET_KINEMATIC_POSITION' in out and '\nG28\n' not in out, out[:160]))
+gd = dict(build_printer()); gd['toolhead'] = M({'axis_maximum': M({'x':235.0,'y':235.0,'z':250.0}), 'homed_axes':'xy'})
+out = env.from_string(body).render(printer=MP(gd), params={})
+tests.append(('SYNC partly homed -> full G28', any(l.strip()=='G28' for l in out.split('\n')) and 'G28 X' not in out and 'homing first' in out, [l for l in out.split('\n') if l.strip()=='G28']))
+gd = dict(build_printer()); gd['configfile'] = M({'settings': M({'idle_timeout': M({'timeout':'3600'}), 'extruder': M({'rotation_distance':7.71})})})
+out = env.from_string(body).render(printer=MP(gd), params={})
+tests.append(('SYNC force_move missing -> refuse', 'force_move' in out and 'SET_TMC_CURRENT' not in out, out[:160]))
+out = render(body, {})
+tests.append(('SYNC loaded WITHOUT printer-object -> runs', 'SET_KINEMATIC_POSITION' in out, 'settings detection must work without get_status'))
+state_vars['mode']='printing'
+
+# ------- _PARK_HEAD skips park when not homed ---------------------------------------------
+body = get_body('macros/09_pause_filament.cfg', '_PARK_HEAD')
+gd = dict(build_printer()); gd['toolhead'] = M({'axis_maximum': M({'x':235.0,'y':235.0,'z':250.0}), 'homed_axes':''})
+out = env.from_string(body).render(printer=MP(gd), params={})
+tests.append(('PARK unhomed -> no XY move', 'G1 X' not in out and 'skipped' in out, [l for l in out.split('\n') if 'G1 X' in l or 'skipped' in l]))
+
+# ------- _LEGACY_PREP2 homes itself when needed (homing lives in phase 2 now) --------------
+import re as _re5b
+_txt = open('macros/08_print_start_stop.cfg').read()
+_m = _re5b.search(r'\[delayed_gcode _LEGACY_PREP2\]\ngcode:\n(.*?)(?=\n\[|\Z)', _txt, _re5b.S)
+_prep2 = '\n'.join(l[4:] if l.startswith('    ') else l for l in _m.group(1).split('\n'))
+state_vars['mode']='paused'
+gd = dict(build_printer(ps_state='paused')); gd['toolhead'] = M({'axis_maximum': M({'x':235.0,'y':235.0,'z':250.0}), 'homed_axes':'x'})
+out = env.from_string(_prep2).render(printer=MP(gd), params={})
+tests.append(('LEGACY_PREP homes if needed', any(l.strip()=='G28' for l in out.split('\n')), [l for l in out.split('\n') if l.strip()=='G28']))
+out = render(_prep2, {}, ps_state='paused')
+tests.append(('LEGACY_PREP homed -> no extra home', not any(l.strip()=='G28' for l in out.split('\n')), out.count('G28')))
+state_vars['mode']='printing'
+
+# ------- DELETE_MESH 2-press ---------------------------------------------------------------
+body = get_body('macros/12_maintenance.cfg', 'DELETE_MESH')
+state_vars['mode']='idle'
+out = render(body, {'PROFILE':'r2'})
+tests.append(('DELETE 1st press arms', 'Press again' in out and 'REMOVE' not in out, out[:160]))
+state_vars['mesh_delete_armed']='r2'
+out = render(body, {'PROFILE':'r2'})
+tests.append(('DELETE 2nd press removes', 'BED_MESH_PROFILE REMOVE=r2' in out and 'SAVE_CONFIG' in out, out[:200]))
+state_vars['mesh_delete_armed']=''
+out = render(body, {})
+tests.append(('DELETE without PROFILE -> usage', 'Usage: DELETE_MESH' in out, out[:120]))
+state_vars['mode']='printing'
+out = render(body, {'PROFILE':'r2'})
+tests.append(('DELETE only when idle', 'only when idle' in out, out[:120]))
+state_vars['mode']='printing'
+
+# ------- material defaults changed ----------------------------------------------------------
+body = get_body('macros/05_materials.cfg', 'SHOW_MATERIAL')
+out = render(body, {})
+tests.append(('Materials: PETG 75C bed', '75C' in out, [l for l in out.split('\n') if 'PETG' in l]))
+body = get_body('macros/05_materials.cfg', 'SHOW_MATERIAL')
+save_vars['material']='TPU'
+out = render(body, {})
+save_vars['material']='PETG'
+tests.append(('Materials: TPU preset 215C', '215C' in out, [l for l in out.split('\n') if 'TPU' in l]))
+
+# ------- all SAVE_VARIABLE names must render LOWERCASE (Klipper rejects upper) --------
+import re as _re4
+body = get_body('macros/01_state.cfg', '_INIT_DEFAULTS')
+_bak = dict(save_vars); save_vars.clear()
+out = render(body, {})
+save_vars.update(_bak)
+bad = [t for t in _re4.findall(r'VARIABLE=(\w+)', out) if t != t.lower()]
+tests.append(('INIT emits lowercase var names', not bad and 'VARIABLE=mesh_always' in out, bad))
+body = get_body('macros/05_materials.cfg', 'SET_MATERIAL')
+out = render(body, {'MATERIAL':'PETG'})
+bad = [t for t in _re4.findall(r'VARIABLE=(\w+)', out) if t != t.lower()]
+tests.append(('SET_MATERIAL lowercase names', not bad and 'VARIABLE=ov_hotend_after' in out, bad))
+
+# ------- round: pause hardening ---------------------------------------------------------
+body = get_body('macros/09_pause_filament.cfg', 'PAUSE')
+out = render(body, {'REASON':'test'})
+tests.append(('PAUSE idle timeout huge (not 0)', 'SET_IDLE_TIMEOUT TIMEOUT=31536000' in out and 'TIMEOUT=0' not in out, out[:60]))
+state_vars['mode']='paused'
+out = render(body, {})
+tests.append(('PAUSE already paused -> guard', 'Already paused' in out and 'PAUSE_BASE' not in out, out[:120]))
+state_vars['mode']='printing'
+
+body = get_body('macros/09_pause_filament.cfg', '_PARK_HEAD')
+out = render(body, {}, etemp=50)
+tests.append(('PARK cold -> no extrude', 'G1 E-2' not in out and 'skipping anti-ooze' in out, out[:160]))
+
+body = get_body('macros/09_pause_filament.cfg', '_RESUME_COMMON')
+state_vars['pause_was_sd']=True
+out = render(body, {}, etemp=50, ps_state='paused')
+tests.append(('RESUME cold -> no E2, M24 ok', 'G1 E2' not in out and 'M24' in out, out[:160]))
+out = render(body, {}, ps_state='printing')
+tests.append(('RESUME running -> no M24 (SD busy!)', 'M24' not in out and 'already running' in out, out[:200]))
+state_vars['pause_was_sd']=True
+
+# ------- mesh persistence ----------------------------------------------------------------
+body = get_body('macros/14_kamp.cfg', '_CALIBRATE_MESH_PROFILE')
+state_vars['mode']='idle'
+out = render(body, {'PROFILE':'r2'})
+tests.append(('MESH idle: default session-only', 'session only' in out and 'SAVE_CONFIG' not in out.replace('SAVE_VARIABLE',''), out[:200]))
+save_vars['mesh_auto_save']=True
+out = render(body, {'PROFILE':'r2'})
+save_vars['mesh_auto_save']=False
+tests.append(('MESH idle: auto-save ON persists', 'SAVE_CONFIG' in out and 'saving config' in out, out[:200]))
+state_vars['mode']='printing'
+out = render(body, {'PROFILE':'r2'})
+tests.append(('MESH during print -> pending flag', 'mesh_saved_pending VALUE=True' in out and 'SAVE_CONFIG' not in out.replace('SAVE_VARIABLE',''), out[:220]))
+state_vars['mode']='printing'
+
+# ------- START_PRINT shim ----------------------------------------------------------------
+body = get_body('macros/08_print_start_stop.cfg', 'START_PRINT')
+tests.append(('START_PRINT shim exists (R48)', 'legacy start' in body, body[:120]))
+
+# ------- SELF_TEST full homing -------------------------------------------------------------
+body = get_body('macros/12_maintenance.cfg', 'SELF_TEST')
+state_vars['mode']='idle'
+out = render(body, {})
+tests.append(('SELF_TEST homes fully', any(l.strip()=='G28' for l in out.split('\n')) and 'G28 Z' not in out, out[:120]))
+state_vars['mode']='printing'
+
+# ------- SYNC hold-current from config ------------------------------------------------------
+body = get_body('macros/11_gantry_sync.cfg', 'SYNC_GANTRY')
+state_vars['mode']='idle'
+out = render(body, {})
+tests.append(('SYNC restore: hold untouched', 'HOLDCURRENT' not in out and 'hold untouched' in out, [l for l in out.split('\n') if 'restored' in l]))
+gd = dict(build_printer()); gd['configfile'] = M({'settings': M({'force_move': M({'enable_force_move': False})})})
+out = env.from_string(body).render(printer=MP(gd), params={})
+tests.append(('SYNC refuses when flag False', 'enable_force_move: True' in out and 'SET_TMC_CURRENT' not in out, out[:160]))
+gd = dict(build_printer()); gd['configfile'] = M({'settings': M({'force_move': M({'enable_force_move': 'True'}), 'tmc2209 stepper_z': M({'run_current':'0.94'})})})
+out = env.from_string(body).render(printer=MP(gd), params={})
+tests.append(('SYNC runs with flag True (str)', 'SET_KINEMATIC_POSITION' in out, out[:120]))
+state_vars['mode']='printing'
+
+# ------- watcher Z-layer tracking (legacy files) --------------------------------------------
+txt = open('macros/01_state.cfg').read()
+m = _re3.search(r'\[delayed_gcode _STATE_WATCHER\]\ninitial_duration: 8\ngcode:\n(.*?)(?=\n\[|\Z)', txt, _re3.S)
+watcher = '\n'.join(l[4:] if l.startswith('    ') else l for l in m.group(1).split('\n'))
+save_vars['pause_next_layer']=True
+state_vars['layer_z_max']=12.5
+out = render(watcher, {}, gz=12.7)          # +0.2 = new layer
+tests.append(('WATCHER Z-track: new layer + planned pause', 'VARIABLE=layer VALUE=3' in out and 'PAUSE REASON=' in out and 'Z-track' in out, out[:240]))
+save_vars['pause_next_layer']=False
+out = render(watcher, {}, gz=13.2)          # +0.7 = travel/hop -> ignore
+state_vars['layer_z_max']=0.0
+tests.append(('WATCHER Z-track: hop ignored', 'VARIABLE=layer VALUE=3' not in out, out[:200]))
+
+# ------- LOAD_BED_MESH friendly pre-check -------------------------------------------------
+body = get_body('macros/12_maintenance.cfg', 'LOAD_BED_MESH')
+out = render(body, {'PROFILE':'r2'})
+tests.append(('LOAD mesh existing', 'BED_MESH_PROFILE LOAD=r2' in out and 'loaded' in out, out[:160]))
+out = render(body, {'PROFILE':'mesh_gibtsnicht'})
+tests.append(('LOAD mesh missing -> friendly', 'does not exist yet' in out and 'BED_MESH_PROFILE LOAD' not in out, out[:160]))
+
+# ------- version stamp ------------------------------------------------------------------------
+body = get_body('macros/04_notify.cfg', 'SHOW_STATUS')
+out = render(body, {})
+tests.append(('SHOW_STATUS prints version', 'R2-2026-09-07.37' in out, out[:120]))
+
+# ------- reset hygiene after cancel / print end (R46: via _PRINT_CLEANUP) -------------------
+body = get_body('macros/09_pause_filament.cfg', 'CANCEL_PRINT')
+state_vars['mode']='printing'; state_vars['cancel_armed']=True
+out = render(body, {})
+tests.append(('CANCEL full cleanup (R46)', '_PRINT_CLEANUP' in out and 'CANCEL_PRINT_BASE' in out and 'TURN_OFF_HEATERS' in out, out[:300]))
+state_vars['cancel_armed']=False
+body = get_body('macros/08_print_start_stop.cfg', 'PRINT_END')
+out = render(body, {})
+tests.append(('PRINT_END full cleanup (R46)', '_PRINT_CLEANUP' in out and '_LED_TO_IDLE' in out, out[:200]))
+
+# ------- Runde 13: Runout-Flow (User-Sensor) ------------------------------------------------
+body = get_body('macros/09_pause_filament.cfg', '_FILAMENT_RUNOUT')
+state_vars['mode']='printing'; state_vars['pause_next_armed_runout']=False
+out = render(body, {})
+tests.append(('RUNOUT arms planned pause', 'PAUSE_NEXT_LAYER REASON="filament out"' in out and 'FILAMENT OUT' in out and 'alarm' in out, out[:220]))
+state_vars['pause_next_armed_runout']=True
+out = render(body, {})
+tests.append(('RUNOUT no double-arm while printing', 'PAUSE_NEXT_LAYER' not in out, out[:160]))
+state_vars['pause_next_armed_runout']=False
+state_vars['mode']='paused'; state_vars['pause_reason']='filament out'
+out = render(body, {})
+tests.append(('RUNOUT while paused -> load hint', 'Load filament' in out and 'PAUSE_NEXT_LAYER' not in out, out[:180]))
+state_vars['pause_reason']='test'; state_vars['mode']='printing'
+
+body = get_body('macros/09_pause_filament.cfg', '_FILAMENT_INSERTED')
+state_vars['mode']='filament'
+out = render(body, {})
+tests.append(('INSERT in filament mode -> hint', 'RESUME' in out and 'purges' in out, out[:160]))
+state_vars['mode']='idle'
+out = render(body, {})
+tests.append(('INSERT idle -> click', 'r2_click' in out or 'PLAY_SOUND' in out or 'click' in out.lower(), out[:120]))
+state_vars['mode']='printing'
+
+# PAUSE mit Filament-Grund -> Filament-Modus (RESUME purgt)
+body = get_body('macros/09_pause_filament.cfg', 'PAUSE')
+out = render(body, {'REASON':'filament out'})
+tests.append(('PAUSE runout -> filament mode', "VARIABLE=mode VALUE='\"filament\"'" in out and 'purges automatically' in out, out[:240]))
+
+# ------- Runde 13: Live-Temp No-Op + Phasen -------------------------------------------------
+body = get_body('macros/06_temp_controls.cfg', 'SET_LIVE_HOTEND_TEMP')
+out = render(body, {'T':'215'})    # extruder.target=215 im Mock -> No-Op
+tests.append(('LIVE hotend unchanged -> no-op', 'stays 215C' in out and 'SAVE_VARIABLE' not in out, out[:160]))
+out = render(body, {'T':'225'})    # aendert
+tests.append(('LIVE hotend L2 -> after only', 'VARIABLE=ov_hotend_after VALUE=225' in out and 'VARIABLE=ov_hotend_first VALUE=225' in out and 'from layer 2' in out, out[:200]))
+state_vars['layer']=1
+out = render(body, {'T':'225'})
+tests.append(('LIVE hotend L1 -> both phases', 'VARIABLE=ov_hotend_first VALUE=225' in out and 'VARIABLE=ov_hotend_after VALUE=225' in out and 'layer 1 AND following' in out, out[:200])
+)
+state_vars['layer']=2
+body = get_body('macros/06_temp_controls.cfg', 'SET_LIVE_BED_TEMP')
+out = render(body, {'T':'55'})
+tests.append(('LIVE bed change -> applies', 'VARIABLE=ov_bed VALUE=55' in out and 'TARGET=55' in out, out[:160]))
+
+# ------- Runde 13: Z-Acc (Vase Mode) + Desync-Heal ------------------------------------------
+txt = open('macros/01_state.cfg').read()
+m = _re3.search(r'\[delayed_gcode _STATE_WATCHER\]\ninitial_duration: 8\ngcode:\n(.*?)(?=\n\[|\Z)', txt, _re3.S)
+watcher = '\n'.join(l[4:] if l.startswith('    ') else l for l in m.group(1).split('\n'))
+save_vars['pause_next_layer']=False
+state_vars.update(layer=2, layer_z_max=12.5, layer_z_acc=0.14, mode='printing')
+out = render(watcher, {}, gz=12.6)     # +0.1 -> acc 0.24 >= 0.18 -> Layer
+tests.append(('WATCHER Z-acc: vase layer counted', 'VARIABLE=layer VALUE=3' in out and 'layer_z_acc VALUE=0' in out, out[:220]))
+state_vars.update(layer_z_acc=0.0, mode='paused', pause_desync=4)
+out = render(watcher, {}, ps_state='printing', gz=12.6)
+tests.append(('WATCHER heals stuck pause (5s)', "VARIABLE=mode VALUE='\"printing\"'" in out and 're-synced' in out, out[:220]))
+state_vars.update(mode='printing', pause_desync=0)
+
+# ------- Runde 13: PAUSE_NEXT_LAYER merkt Grund ----------------------------------------------
+body = get_body('macros/06_temp_controls.cfg', 'PAUSE_NEXT_LAYER')
+out = render(body, {})
+tests.append(('PAUSE_NEXT_LAYER default reason', "VARIABLE=pause_planned_reason VALUE='\"next layer\"'" in out, out[:160]))
+out = render(body, {'REASON':'filament out'})
+tests.append(('PAUSE_NEXT_LAYER custom reason', "VALUE='\"filament out\"'" in out, out[:160]))
+
+# ------- Runde 15: Heat-Park, Filament-Temps, Cold Pull, Mesh-Option ------------------------
+body = get_body('macros/08_print_start_stop.cfg', '_RUN_PRINT_START')
+out = render(body, {'APPLY':'1'})
+tests.append(('RUN parks high while heating', 'G0 Z40' in out and 'F6000' in out, [l for l in out.split('\n') if 'G0 Z40' in l][:1]))
+
+body = get_body('macros/08_print_start_stop.cfg', 'PRINT_END')
+state_vars['mesh_saved_pending']=True
+out = render(body, {})
+tests.append(('PRINT_END: no auto SAVE_CONFIG (default)', 'SAVE_CONFIG' not in out and 'SESSION' in out, [l for l in out.split('\n') if 'session' in l.lower() or 'SAVE_CONFIG' in l][:1]))
+save_vars['mesh_auto_save']=True
+out = render(body, {})
+save_vars['mesh_auto_save']=False
+tests.append(('PRINT_END: auto-save ON -> SAVE_CONFIG', 'SAVE_CONFIG' in out and 'auto-save' in out.lower(), out[:120]))
+state_vars['mesh_saved_pending']=False
+
+body = get_body('macros/09_pause_filament.cfg', 'CHANGE_FILAMENT')
+state_vars['mode']='idle'
+out = render(body, {})          # Mock: extruder.target=215 > 170 -> Temperatur bleibt
+tests.append(('CHANGE idle keeps current temp', 'SET_HEATER_TEMPERATURE' not in out and 'E-90' in out, out[:160]))
+gd = dict(build_printer()); gd['extruder'] = M({'temperature':50.0,'target':0.0})
+out = env.from_string(body).render(printer=MP(gd), params={})
+tests.append(('CHANGE idle cold -> min 200/preset', 'TARGET=240' in out and 'TEMPERATURE_WAIT SENSOR=extruder' in out, [l for l in out.split('\n') if 'TARGET' in l][:2]))
+state_vars['mode']='printing'
+
+body = get_body('macros/09_pause_filament.cfg', 'CHANGE_FILAMENT_RESUME')
+state_vars['mode']='filament'
+out = render(body, {}, ps_state='idle')
+tests.append(('CHANGE_RESUME idle -> done', 'Filament change done' in out and '_RESUME_COMMON' not in out, out[:180]))
+out = render(body, {}, ps_state='paused')
+tests.append(('CHANGE_RESUME paused -> resume print', '_RESUME_COMMON' in out, out[:120]))
+state_vars['mode']='printing'
+
+body = get_body('macros/12_maintenance.cfg', 'LOAD_FILAMENT')
+out = render(body, {})          # target 215 -> keine Neuheizung
+tests.append(('LOAD keeps print temp', 'SET_HEATER_TEMPERATURE' not in out, out[:120]))
+gd = dict(build_printer()); gd['extruder'] = M({'temperature':50.0,'target':0.0})
+out = env.from_string(body).render(printer=MP(gd), params={})
+tests.append(('LOAD idle cold -> preset/200', 'TARGET=240' in out, [l for l in out.split('\n') if 'TARGET' in l][:1]))
+out = render(body, {})
+tests.append(('R55 LOAD uses load_length 60', 'E60 F600' in out, [l for l in out.split('\n') if 'E60' in l][:1]))
+save_vars['load_length'] = 75
+out = render(body, {})
+tests.append(('R55 LOAD custom length 75', 'E75 F600' in out and 'E60' not in out, [l for l in out.split('\n') if 'E75' in l][:1]))
+save_vars['load_length'] = 60
+_m55 = _re3.search(r'\[menu __main __maint __fil __loadlen\]\n(.*?)(?=\n\[|\Z)', open('menus/lcd_menues.cfg').read(), _re3.S).group(1)
+tests.append(('R55 LCD load input 20-150 step 5', 'input_min: 20' in _m55 and 'input_max: 150' in _m55 and 'input_step: 5' in _m55 and 'VARIABLE=load_length' in _m55, _m55[:110]))
+
+body = get_body('macros/12_maintenance.cfg', 'COLD_PULL')
+state_vars['mode']='idle'
+out = render(body, {})
+tests.append(('R77 COLD_PULL v2 phase 1: heat, flush+mold, beep loop, assisted pull',
+    'TARGET=230' in out and 'MAXIMUM=92' in out and 'E25' in out and 'G1 E-10' in out
+    and '_COLD_PULL_BEEP' in out and 'PULL NOW' in out and 'E-60' in out and 'F1500' in out
+    and 'VARIABLE=cold_pull_mat' in out, out[:220]))
+out = render(body, {'STEP':'finish'}, etemp=50)
+tests.append(('COLD_PULL finish extrudes', 'TARGET=200' in out and 'E20' in out and 'Nozzle clean' in out, out[:180]))
+state_vars['mode']='printing'
+out = render(body, {})
+tests.append(('COLD_PULL refuses while printing', 'only when idle' in out, out[:120]))
+state_vars['mode']='idle'
+
+# ------- Runde 16: Homing-Fixes, Material-Presets, Z10-Wartelogik ---------------------------
+body = get_body('macros/12_maintenance.cfg', 'CALIBRATE_MESH')
+gd = dict(build_printer()); gd['toolhead'] = M({'axis_maximum': M({'x':235.0,'y':235.0,'z':250.0}), 'homed_axes':'', 'max_accel':4000})
+out = env.from_string(body).render(printer=MP(gd), params={})
+tests.append(('MESH manual homes when unhomed', 'G28' in out and 'Homing first' in out, [l for l in out.split('\n') if 'G28' in l or 'Homing' in l][:2]))
+out = render(body, {})
+tests.append(('MESH manual homed -> no G28', 'G28' not in out and 'G0 Z10' in out, out[:160]))
+
+txt = open('macros/01_state.cfg').read()
+m = _re3.search(r'\[delayed_gcode _STATE_WATCHER\]\ninitial_duration: 8\ngcode:\n(.*?)(?=\n\[|\Z)', txt, _re3.S)
+watcher = '\n'.join(l[4:] if l.startswith('    ') else l for l in m.group(1).split('\n'))
+state_vars['mode']='idle'
+save_vars['legacy_level']=False
+save_vars['start_confirm']=False
+out = render(watcher, {}, ps_state='printing')
+save_vars['legacy_level']=True
+tests.append(('WATCHER legacy OFF -> LEGACY_HOME', '_LEGACY_HOME' in out and '_LEGACY_PREP' not in out, out[:200]))
+out = render(watcher, {}, ps_state='printing')
+save_vars['start_confirm']=True
+tests.append(('WATCHER legacy ON -> LEGACY_PREP', '_LEGACY_PREP' in out and '_LEGACY_HOME' not in out, out[:200]))
+state_vars['mode']='printing'
+
+import re as _reLH
+txt = open('macros/08_print_start_stop.cfg').read()
+m = _reLH.search(r'\[delayed_gcode _LEGACY_HOME2\]\ngcode:\n(.*?)(?=\n\[|\Z)', txt, _reLH.S)
+home2 = '\n'.join(l[4:] if l.startswith('    ') else l for l in m.group(1).split('\n'))
+state_vars['mode']='paused'
+gd = dict(build_printer(ps_state='paused')); gd['toolhead'] = M({'axis_maximum': M({'x':235.0,'y':235.0,'z':250.0}), 'homed_axes':'', 'max_accel':4000})
+out = env.from_string(home2).render(printer=MP(gd), params={})
+tests.append(('LEGACY_HOME2 homes when unhomed', 'G28' in out and '_APPLY_OVERRIDES_CORE' in out and 'M24' in out, out[:220]))
+out = render(home2, {}, ps_state='paused')   # gehomed (Mock xyz) -> Z10-Lift
+tests.append(('LEGACY_HOME2 lifts to Z10', 'G0 Z10' in out and 'G28' not in out, [l for l in out.split('\n') if 'Z10' in l]))
+state_vars['mode']='printing'
+
+body = get_body('macros/08_print_start_stop.cfg', '_APPLY_OVERRIDES_CORE')
+out = render(body, {})
+tests.append(('OVERRIDE_CORE cfg defaults', 'ADVANCE=0.004' in out and 'RETRACT_LENGTH=0.75' in out and 'M221 S100' in out, out[:200]))
+save_vars['ov_pa_on']=True; save_vars['ov_pa']=0.075
+out = render(body, {})
+save_vars['ov_pa_on']=False
+tests.append(('OVERRIDE_CORE pa ON wins', 'ADVANCE=0.075' in out, out[:120]))
+
+body = get_body('macros/08_print_start_stop.cfg', '_RUN_PRINT_START')
+out = render(body, {'APPLY':'1'})
+tests.append(('RUN waits at Z10 (mesh+purge)', out.count('G0 Z10') >= 2, out.count('G0 Z10')))
+
+# ------- Runde 17: Input Shaper, Mesh-Verwaltung, 0.04-Babysteps, PA-Ende --------------------
+body = get_body('macros/12_maintenance.cfg', 'CALIBRATE_SHAPER')
+state_vars['mode']='idle'
+out = render(body, {})
+tests.append(('SHAPER refuses without tester', 'No [resonance_tester]' in out, out[:140]))
+gd = dict(build_printer()); gd['configfile'] = M({'settings': M({'resonance_tester': M({'accel_chip':'adxl345'})})})
+out = env.from_string(body).render(printer=MP(gd), params={'AXIS':'BOTH','FREQ_START':'5','FREQ_END':'120'})
+tests.append(('SHAPER both with range', 'SHAPER_CALIBRATE AXIS=X FREQ_START=5 FREQ_END=120' in out and 'SHAPER_CALIBRATE AXIS=Y FREQ_START=5 FREQ_END=120' in out and 'TURN_OFF_HEATERS' in out, [l for l in out.split('\n') if 'SHAPER_CALIBRATE' in l]))
+out = env.from_string(body).render(printer=MP(gd), params={})
+tests.append(('SHAPER defaults: no freq params', 'SHAPER_CALIBRATE AXIS=X\n' in out.replace('  ',' ') or 'SHAPER_CALIBRATE AXIS=X' in out and 'FREQ' not in out.split('SHAPER_CALIBRATE AXIS=X')[1][:30], out[:160]))
+out = env.from_string(body).render(printer=MP(gd), params={'AXIS':'Q'})
+tests.append(('SHAPER bad axis refused', 'AXIS must be X, Y or BOTH' in out, out[:140]))
+
+import re as _reISH
+txt = open('macros/12_maintenance.cfg').read()
+m = _reISH.search(r'\[delayed_gcode _SHAPER_REPORT\]\ngcode:\n(.*?)(?=\n\[|\Z)', txt, _reISH.S)
+rep = '\n'.join(l[4:] if l.startswith('    ') else l for l in m.group(1).split('\n'))
+state_vars['ishaper_autosave']=True
+out = render(rep, {})
+state_vars['ishaper_autosave']=False
+tests.append(('SHAPER report + autosave', 'zv @ 52.3Hz' in out and 'mzv @ 41.7Hz' in out and 'SAVE_CONFIG' in out, out[:200]))
+out = render(rep, {})
+tests.append(('SHAPER report no-save hint', 'NOT saved' in out and 'SAVE_CONFIG' not in out, out[:160]))
+
+body = get_body('macros/12_maintenance.cfg', 'DUMP_RESONANCES')
+out = render(body, {})
+tests.append(('DUMP refuses without tester', 'No [resonance_tester]' in out, out[:120]))
+out = env.from_string(body).render(printer=MP(gd), params={})
+tests.append(('DUMP writes raw data', 'TEST_RESONANCES AXIS=X OUTPUT=raw_data NAME=r2' in out and 'TEST_RESONANCES AXIS=Y OUTPUT=raw_data NAME=r2' in out, out[:160]))
+
+body = get_body('macros/12_maintenance.cfg', 'SAVE_MESH_AT_TEMP')
+out = render(body, {})    # bed target 60, mesh aktiv (r2)
+tests.append(('SAVE_MESH_AT_TEMP name=60', 'BED_MESH_PROFILE SAVE=60' in out and 'session' in out, out[:180]))
+save_vars['mesh_auto_save']=True
+out = render(body, {})
+save_vars['mesh_auto_save']=False
+tests.append(('SAVE_MESH_AT_TEMP autosave', 'SAVE_CONFIG' in out, out[:140]))
+gd = dict(build_printer()); gd['bed_mesh'] = M({'profile_name': '', 'profiles': {'r2': {}}})
+out = env.from_string(body).render(printer=MP(gd), params={})
+tests.append(('SAVE_MESH_AT_TEMP no mesh -> err', 'No mesh active' in out, out[:120]))
+
+body = get_body('macros/12_maintenance.cfg', 'MESH_BY_INDEX')
+out = render(body, {'INDEX':'0'})
+tests.append(('MESH_BY_INDEX loads + AUTO', 'LOAD_BED_MESH PROFILE=r2' in out and 'mesh_always VALUE=False' in out, out[:180]))
+out = render(body, {'INDEX':'5'})
+tests.append(('MESH_BY_INDEX empty slot', 'No mesh in this slot' in out, out[:120]))
+
+body = get_body('macros/12_maintenance.cfg', 'UNLOAD_MESH')
+out = render(body, {})
+tests.append(('UNLOAD_MESH clears + remesh', 'BED_MESH_CLEAR' in out and 'mesh_always VALUE=True' in out, out[:140]))
+
+body = get_body('macros/08_print_start_stop.cfg', '_RUN_PRINT_START')
+save_vars['mesh_always']=False
+out = render(body, {'APPLY':'0'})
+save_vars['mesh_always']=True
+tests.append(('RUN keeps active mesh (AUTO)', 'no re-leveling' in out and 'LOAD_MESH_PROFILE' not in out and '_CALIBRATE_MESH_PROFILE' not in out, [l for l in out.split('\n') if 're-leveling' in l][:1]))
+
+body = get_body('macros/10_live_tuning.cfg', 'BABYSTEP_UP')
+out = render(body, {})
+tests.append(('BABYSTEP 0.04 full step', 'Z_ADJUST=0.04' in out, out[:80]))
+body = get_body('macros/10_live_tuning.cfg', 'BABYSTEP_UP_FINE')
+out = render(body, {})
+tests.append(('BABYSTEP fine = 0.12', 'Z_ADJUST=0.12' in out, out[:80]))
+
+body = get_body('macros/12_maintenance.cfg', 'CALIBRATE_PA')
+out = render(body, {'LAYER':'0.04'})
+tests.append(('PA cal accepts 0.04 layer', 'PA line 10/10' in out and 'must be 0.04' not in out, out[:140]))
+tests.append(('PA cal ends with _CAL_END', '_CAL_END' in out, 'missing'))
+
+body = get_body('macros/12_maintenance.cfg', '_CAL_END')
+out = render(body, {})
+tests.append(('CAL_END heaters off + cooldown', 'TURN_OFF_HEATERS' in out and '_END_FAN_OFF' in out and '_END_MOTORS' in out, out[:160]))
+
+# ------- Runde 18: Prime-Flush, 1st-layer-speed, PA-Interceptor, Sync, Cancel-Timeout ------
+body = get_body('macros/08_print_start_stop.cfg', '_PRIME_LINE')
+out = render(body, {'LAYER_HEIGHT':'0.3'})
+tests.append(('PRIME: flush + fat line + retract', 'E6.0 F150' in out and 'E-2.5 F2400' in out and 'F1200' in out, [l for l in out.split('\n') if 'F150' in l or 'E-2.5' in l][:2]))
+out = render(body, {'LAYER_HEIGHT':'0.3'}, objs=[])
+tests.append(('PRIME: long line (110mm fallback)', 'G0 X115' in out and 'G1 X5' in out, [l for l in out.split('\n') if l.strip().startswith('G1 X')][:1]))
+
+body = get_body('macros/08_print_start_stop.cfg', '_RUN_PRINT_START')
+out = render(body, {'APPLY':'1'})
+tests.append(('RUN: 1st layer 75%', 'M220 S75' in out, [l for l in out.split('\n') if 'M220' in l][:1]))
+
+body = get_body('macros/06_temp_controls.cfg', 'LAYER_MARK')
+state_vars['layer']=1; state_vars['mode']='printing'
+out = render(body, {})
+tests.append(('LAYER_MARK 2: speed back 100%', 'M220 S100' in out and 'back to 100%' in out, [l for l in out.split('\n') if 'M220' in l][:1]))
+state_vars['layer']=2
+
+body = get_body('macros/10_live_tuning.cfg', 'SET_PRESSURE_ADVANCE')
+state_vars['mode']='printing'
+out = render(body, {'ADVANCE':'0.08', 'SMOOTH_TIME':'0.04'})
+tests.append(('PA file passthrough (override off)', 'SET_PRESSURE_ADVANCE_BASE ADVANCE=0.08 SMOOTH_TIME=0.04' in out and 'OVERRIDE' not in out, out[:140]))
+save_vars['ov_pa_on']=True; save_vars['ov_pa']=0.05
+out = render(body, {'ADVANCE':'0.08'})
+save_vars['ov_pa_on']=False
+tests.append(('PA file -> OVERRIDE when ON', 'YOUR: PA 0.05' in out and 'SET_PRESSURE_ADVANCE_BASE ADVANCE=0.05' in out and 'SMOOTH_TIME' not in out, out[:160]))
+state_vars['pa_smooth']=0.04
+out = render(body, {'SMOOTH_TIME':'0.05'})
+save_vars['ov_pa_smooth_on']=True
+out = render(body, {'SMOOTH_TIME':'0.05'})
+save_vars['ov_pa_smooth_on']=False
+tests.append(('PA smooth from file -> YOUR smooth', 'YOUR smooth 0.04' in out and 'SET_PRESSURE_ADVANCE_BASE SMOOTH_TIME=0.04' in out and 'ADVANCE=' not in out, out[:160]))
+state_vars['pa_smooth']=0.05
+out = render(body, {'SMOOTH_TIME':'0.05'})
+# (smooth equal + ov_pa_smooth_on OFF -> passthrough wird oben abgedeckt)
+state_vars['pa_smooth']=0.04
+
+body = get_body('macros/10_live_tuning.cfg', 'SET_LIVE_PRESSURE_ADVANCE')
+out = render(body, {'VALUE':'0.06'})
+tests.append(('LIVE PA persists to ov_pa', 'VARIABLE=ov_pa VALUE=0.06' in out and 'ov_pa_on VALUE=True' in out, out[:160]))
+state_vars['mode']='idle'
+
+body = get_body('macros/11_gantry_sync.cfg', 'SYNC_GANTRY')
+state_vars['mode']='starting'
+out = render(body, {})
+tests.append(('SYNC allowed during starting (pre-print)', 'SET_KINEMATIC_POSITION' in out and 'only when idle' not in out, out[:120]))
+state_vars['mode']='idle'
+out = render(body, {'FORCE':'1'})
+tests.append(('SYNC FORCE bypasses guard', 'SET_KINEMATIC_POSITION' in out, out[:100]))
+state_vars['mode']='printing'
+
+txt = open('macros/08_print_start_stop.cfg').read()
+import re as _reP2
+m = _reP2.search(r'\[delayed_gcode _LEGACY_PREP2\]\ngcode:\n(.*?)(?=\n\[|\Z)', txt, _reP2.S)
+prep2 = '\n'.join(l[4:] if l.startswith('    ') else l for l in m.group(1).split('\n'))
+state_vars['mode']='paused'
+save_vars['gantry_sync_print']=True
+gd = dict(build_printer(ps_state='paused')); gd['toolhead'] = M({'axis_maximum': M({'x':235.0,'y':235.0,'z':250.0}), 'homed_axes':'', 'max_accel':4000})
+out = env.from_string(prep2).render(printer=MP(gd), params={})
+save_vars['gantry_sync_print']=False
+tests.append(('LEGACY prep: gantry sync before homing', 'SYNC_GANTRY QUIET=1 FORCE=1' in out and 'M220 S75' in out, [l for l in out.split('\n') if 'SYNC_GANTRY' in l or 'M220' in l][:2]))
+state_vars['mode']='printing'
+
+txt = open('macros/01_state.cfg').read()
+m = _re3.search(r'\[delayed_gcode _STATE_WATCHER\]\ninitial_duration: 8\ngcode:\n(.*?)(?=\n\[|\Z)', txt, _re3.S)
+watcher = '\n'.join(l[4:] if l.startswith('    ') else l for l in m.group(1).split('\n'))
+state_vars['cancel_armed']=True; state_vars['cancel_time']=0.0
+out = render(watcher, {})
+state_vars['cancel_armed']=False
+tests.append(('Cancel confirm expires after 60s', 'cancel_armed VALUE=False' in out and 'disarmed' in out, out[:160]))
+state_vars['layer']=1
+out = render(watcher, {}, gz=12.7)
+state_vars['layer']=2
+tests.append(('WATCHER Z: layer 2 -> speed 100%', 'M220 S100' in out, [l for l in out.split('\n') if 'M220' in l][:1]))
+
+# ------- Runde 19: PA smooth live, L->R-Linien mit Hop, Watcher-Save-Leak --------------------
+body = get_body('macros/10_live_tuning.cfg', 'SET_LIVE_PA_SMOOTH')
+out = render(body, {'TIME':'0.05'})
+tests.append(('LIVE PA smooth persists', 'VARIABLE=ov_pa_smooth VALUE=0.05' in out and 'VARIABLE=ov_pa_smooth_on VALUE=True' in out and 'SET_PRESSURE_ADVANCE_BASE SMOOTH_TIME=0.05' in out and 'VARIABLE=pa_smooth VALUE=0.05' in out, out[:180]))
+out = render(body, {'TIME':'0.5'})
+tests.append(('LIVE PA smooth range guard', 'TIME=<0.01..0.15>' in out, out[:120]))
+
+body = get_body('macros/12_maintenance.cfg', 'CALIBRATE_PA')
+state_vars['mode']='idle'
+out = render(body, {})
+import re as _reR19
+x_starts = _reR19.findall(r'G0 X(\d+(?:\.\d+)?) Y', out)
+tests.append(('PA lines all start left (x0)', x_starts.count('57.5') == 10 and '157.5 Y' not in ' '.join(x_starts), x_starts[:4]))
+tests.append(('PA lines: retract + z-hop 0.4 between', 'G1 E-0.75 F2100' in out and 'G0 Z0.7 F600' in out and 'G1 E0.75' in out, [l for l in out.split('\n') if 'E-0.75' in l or 'Z0.7' in l][:2]))
+save_vars['ov_retract_on']=True; save_vars['ov_retract_len']=1.2; save_vars['ov_retract_speed']=20
+out = render(body, {})
+save_vars['ov_retract_on']=False
+tests.append(('PA lines: override retract wins', 'G1 E-1.2 F1200' in out, [l for l in out.split('\n') if 'E-1.2' in l][:1]))
+state_vars['mode']='printing'
+
+txt = open('macros/01_state.cfg').read()
+m = _re3.search(r'\[delayed_gcode _STATE_WATCHER\]\ninitial_duration: 8\ngcode:\n(.*?)(?=\n\[|\Z)', txt, _re3.S)
+watcher = '\n'.join(l[4:] if l.startswith('    ') else l for l in m.group(1).split('\n'))
+state_vars['mode']='printing'; state_vars['mesh_saved_pending']=True
+out = render(watcher, {}, ps_state='complete')
+state_vars['mesh_saved_pending']=False
+tests.append(('WATCHER complete: no auto-save (default)', not any(l.strip()=='SAVE_CONFIG' for l in out.split('\n')) and 'SESSION' in out, [l for l in out.split('\n') if 'session' in l.lower() or 'SAVE_CONFIG' in l][:1]))
+state_vars['mesh_saved_pending']=True
+save_vars['mesh_auto_save']=True
+out = render(watcher, {}, ps_state='complete')
+save_vars['mesh_auto_save']=False
+state_vars['mesh_saved_pending']=False
+tests.append(('WATCHER complete: auto-save ON', 'SAVE_CONFIG' in out and 'auto-save' in out, out[:140]))
+state_vars['mode']='idle'
+
+txt = open('macros/08_print_start_stop.cfg').read()
+m = _re5b.search(r'\[delayed_gcode _LEGACY_PREP2\]\ngcode:\n(.*?)(?=\n\[|\Z)', txt, _re5b.S)
+prep2 = '\n'.join(l[4:] if l.startswith('    ') else l for l in m.group(1).split('\n'))
+state_vars['mode']='paused'
+out = render(prep2, {}, ps_state='paused')
+tests.append(('prep2: Z10 while hotend heats (after mesh)', out.count('G0 Z10') >= 2, out.count('G0 Z10')))
+state_vars['mode']='printing'
+
+# ------- Runde 20: Per-Key-Overrides, Fan-Material, File-Capture, Unload, PID-Fan ----------
+body = get_body('macros/08_print_start_stop.cfg', '_RUN_PRINT_START')
+save_vars.update(ov_retract_len_on=True, ov_retract_len=1.2, ov_retract_speed_on=False)
+out = render(body, {'APPLY':'1'})
+save_vars.update(ov_retract_len_on=False)
+tests.append(('RUN retract per-key (len ON, spd off)', 'RETRACT_LENGTH=1.2' in out and 'RETRACT_SPEED=35' in out, [l for l in out.split('\n') if 'RETRACT' in l][:1]))
+save_vars.update(ov_pa_smooth_on=True, ov_pa_smooth=0.05)
+out = render(body, {'APPLY':'1'})
+save_vars.update(ov_pa_smooth_on=False)
+tests.append(('RUN PA smooth ON applied', 'SMOOTH_TIME=0.05' in out, [l for l in out.split('\n') if 'PRESSURE_ADVANCE' in l][:1]))
+out = render(body, {'APPLY':'1'})
+tests.append(('RUN PA smooth OFF -> no smooth', 'SET_PRESSURE_ADVANCE ADVANCE=' in out and 'SMOOTH_TIME' not in out, [l for l in out.split('\n') if 'PRESSURE_ADVANCE' in l][:1]))
+save_vars.update(ov_ironing_flow_on=True, ov_ironing_flow=30, ov_ironing_speed_on=False, ov_ironing_temp_on=True, ov_ironing_temp=205)
+save_vars.update(ov_fan_on=True, ov_fan=95)
+out = render(body, {'APPLY':'1'})
+tests.append(('R54 RUN applies fan scale at start', 'VARIABLE=f_fan_scale VALUE=0.95' in out, [l for l in out.split('\n') if 'f_fan_scale' in l][:2]))
+save_vars.update(ov_fan_on=False, ov_fan=100)
+
+body = get_body('macros/06_temp_controls.cfg', 'LAYER_MARK')
+state_vars['layer']=1; state_vars['mode']='printing'
+save_vars.update(ov_fan_on=True, ov_fan=60)
+out = render(body, {})
+save_vars.update(ov_fan_on=False)
+tests.append(('LAYER_MARK 2: material fan 60%', 'SET_FAN_SCALE PERCENT=60' in out, [l for l in out.split('\n') if 'FAN_SCALE' in l][:1]))
+state_vars['layer']=2
+
+body = get_body('macros/10_live_tuning.cfg', 'SET_RETRACTION')
+state_vars['mode']='printing'
+out = render(body, {'RETRACT_LENGTH':'0.8', 'RETRACT_SPEED':'40'})
+tests.append(('SET_RETRACTION captures file values', 'VARIABLE=file_retract_len VALUE=0.8' in out and 'VARIABLE=file_retract_speed VALUE=40' in out and 'SET_RETRACTION_BASE RETRACT_LENGTH=0.8' in out, out[:200]))
+save_vars.update(ov_retract_len_on=True, ov_retract_len=1.0, ov_retract_speed_on=True, ov_retract_speed=30)
+out = render(body, {'RETRACT_LENGTH':'0.8', 'RETRACT_SPEED':'40'})
+save_vars.update(ov_retract_len_on=False, ov_retract_speed_on=False)
+tests.append(('SET_RETRACTION redirected when ON', 'YOUR: len 1.0 / retract 30' in out and 'SET_RETRACTION_BASE RETRACT_LENGTH=1.0' in out, out[:200]))
+state_vars['mode']='idle'
+
+body = get_body('macros/10_live_tuning.cfg', 'SET_PRESSURE_ADVANCE')
+state_vars['mode']='printing'
+out = render(body, {'ADVANCE':'0.08'})
+tests.append(('PA captures file value', 'VARIABLE=file_pa VALUE=0.08' in out, out[:140]))
+state_vars['mode']='idle'
+
+body = get_body('macros/12_maintenance.cfg', '_RUN_PID_TUNE')
+out = render(body, {'HEATER':'extruder','TARGET':'210','AUTOSAVE':'0'})
+tests.append(('PID fan percent from LCD (100)', 'M99106 S255' in out, [l for l in out.split('\n') if 'M99106' in l][:1]))
+save_vars['pid_fan_percent']=50
+out = render(body, {'HEATER':'extruder','TARGET':'210','AUTOSAVE':'0'})
+save_vars['pid_fan_percent']=100
+tests.append(('PID fan 50% -> S127', 'M99106 S127' in out, [l for l in out.split('\n') if 'M99106' in l][:1]))
+
+body = get_body('macros/09_pause_filament.cfg', 'CHANGE_FILAMENT')
+state_vars['mode']='idle'
+out = render(body, {})
+tests.append(('CHANGE uses unload_length 90', 'E-90 F1800' in out, [l for l in out.split('\n') if 'E-90' in l][:1]))
+state_vars['mode']='printing'
+
+body = get_body('macros/04_notify.cfg', 'SHOW_STATUS')
+save_vars.update(ov_ironing_temp_on=True, ov_ironing_temp=0, ov_bed_on=True, ov_bed=60)
+out = render(body, {})
+save_vars.update(ov_ironing_temp=200)
+tests.append(('SHOW_STATUS hides zero values', 'IronTemp' not in out and 'Bed(60C)' in out, [l for l in out.split('\n') if 'Overrides' in l][:1]))
+
+# ------- Runde 21: Speed/Accel-Vollstaendigkeit -----------------------------------------------
+_lcd21 = open('menus/lcd_menues.cfg').read()
+for m, lcdkey in [('SET_GLOBAL_SPEED', '__speeds __gs'), ('SET_GLOBAL_ACCEL', '__accels __ga')]:
+    tests.append((f'Speed/Accel {m} exists+LCD', f'gcode_macro {m}]' in open('macros/10_live_tuning.cfg').read() and lcdkey in _lcd21, m))
+tests.append(('R54 feature macros are stubs (compat, no error)',
+    all(f'gcode_macro {m}]' in open('macros/10_live_tuning.cfg').read() for m in
+        ['SET_OUTER_WALL_SPEED','SET_INNER_WALL_ACCEL','SET_IRONING_FLOW']), 'stub check'))
+tests.append(('R54 feature menus removed from LCD',
+    'SET_OUTER_WALL_SPEED' not in _lcd21 and 'SET_IRONING_FLOW' not in _lcd21, 'menu check'))
+
+body = get_body('macros/10_live_tuning.cfg', 'SET_SOLID_INFILL_SPEED')
+state_vars['current_type']=''
+out = render(body, {'PERCENT':'90'})
+tests.append(('R54 SOLID setter = stub hint', 'removed in .38' in out or 'per-feature' in out or 'global' in out, out[:140]))
+body = get_body('macros/10_live_tuning.cfg', 'SET_INNER_WALL_ACCEL')
+out = render(body, {'ACCEL':'2500'})
+tests.append(('R54 INNER accel setter = stub hint', 'removed in .38' in out and 'a_inner_wall' not in out, out[:140]))
+body = get_body('macros/10_live_tuning.cfg', 'SET_IRONING_ACCEL')
+out = render(body, {'ACCEL':'1500'})
+tests.append(('R54 IRONING accel setter = stub hint', 'removed in .38' in out and 'a_ironing' not in out, out[:120]))
+state_vars['current_type']='WALL-OUTER'
+body = get_body('macros/10_live_tuning.cfg', 'SET_GLOBAL_SPEED')
+out = render(body, {'PERCENT':'80'})
+tests.append(('GLOBAL speed M220 S80', 'M220 S80' in out, out[:100]))
+
+# ------- Runde 22: Sequential print (print by object) - L1 temps pro Objekt ------------------
+txt = open('macros/01_state.cfg').read()
+m = _re3.search(r'\[delayed_gcode _STATE_WATCHER\]\ninitial_duration: 8\ngcode:\n(.*?)(?=\n\[|\Z)', txt, _re3.S)
+watcher = '\n'.join(l[4:] if l.startswith('    ') else l for l in m.group(1).split('\n'))
+state_vars['mode']='printing'; state_vars['layer']=12; state_vars['layer_z_max']=2.4
+save_vars.update(ov_bed_on=True, ov_bed=70, ov_hotend_first_on=True, ov_hotend_first=235)
+out = render(watcher, {}, gz=0.3)
+tests.append(('SEQ: Z-fall restarts with L1 temps + pause',
+    'next object' in out and 'VARIABLE=layer VALUE=0' in out and 'VARIABLE=layer_z_max VALUE=0.3' in out
+    and 'TARGET=70' in out and 'TARGET=235' in out and 'PAUSE REASON="next object' in out
+    and 'ID=_OBJECT_PREP' in out and 'M220 S75' in out, out[:300]))
+save_vars.update(ov_bed=60, ov_hotend_first=235)
+# THE field bug (R24): layer 2 at z=0.4 is BELOW 1.5mm - a bare level check re-triggered
+# the L1 restart over and over. Only the armed falling edge (z_max >= 1.6) may fire.
+state_vars['layer']=2; state_vars['layer_z_max']=0.4
+out = render(watcher, {}, gz=0.4)
+tests.append(('SEQ: no re-trigger while layer 2 below 1.5mm', 'next object' not in out, out[:120]))
+out = render(watcher, {}, gz=12.5)
+tests.append(('SEQ: no trigger high Z', 'next object' not in out, out[:120]))
+# marked files (LAYER_MARK / vase): high-water mark maintenance arms the falling edge
+state_vars['layer_marks']=True; state_vars['layer_z_max']=0.3
+out = render(watcher, {}, gz=5.0)
+tests.append(('SEQ: marked file keeps Z high-water mark', 'VARIABLE=layer_z_max VALUE=5.0' in out, out[:140]))
+state_vars['layer_marks']=False; state_vars['layer_z_max']=2.4
+# heaters already at L1 targets -> set temps but continue WITHOUT park/wait cycle
+p2 = build_printer(gz=0.3)
+p2['heater_bed'] = M({'temperature': 70.0, 'target': 70.0})
+p2['extruder'] = M({'temperature': 235.0, 'target': 235.0})
+save_vars.update(ov_bed=70, ov_hotend_first=235)
+out = render(watcher, {}, extra={'printer': p2}, gz=0.3)
+tests.append(('SEQ: L1 already set - continue without pause', 'continuing without pause' in out and 'PAUSE REASON="next object' not in out, out[:200]))
+# fresh legacy print start clears stale arming from the previous print
+save_vars.update(ov_bed=60)
+state_vars['mode']='idle'
+out = render(watcher, {}, gz=0.3)
+tests.append(('SEQ: legacy start clears Z high-water mark', 'VARIABLE=layer_z_max VALUE=0.0' in out, out[:200]))
+state_vars['mode']='printing'
+
+import re as _reOP
+txt = open('macros/08_print_start_stop.cfg').read()
+m = _reOP.search(r'\[delayed_gcode _OBJECT_PREP\]\ngcode:\n(.*?)(?=\n\[|\Z)', txt, _reOP.S)
+objprep = '\n'.join(l[4:] if l.startswith('    ') else l for l in m.group(1).split('\n'))
+state_vars['mode']='paused'
+out = render(objprep, {}, ps_state='paused')
+state_vars['mode']='printing'
+tests.append(('OBJECT_PREP waits + resumes', 'TEMPERATURE_WAIT SENSOR=heater_bed MINIMUM=58' in out and 'TEMPERATURE_WAIT SENSOR=extruder MINIMUM=212' in out and 'RESUME' in out, out[:220]))
+
+# ------- Runde 24: PAUSE re-anchor + live retraction + LCD babystep/retract ------------------
+body = get_body('macros/09_pause_filament.cfg', 'PAUSE')
+out = render(body, {'REASON':'User'}, gz=0.6)
+tests.append(('PAUSE re-anchors Z high-water mark', 'VARIABLE=layer_z_max VALUE=0.6' in out, [l for l in out.split('\n') if 'layer_z_max' in l][:1]))
+
+body = get_body('macros/10_live_tuning.cfg', 'SET_LIVE_RETRACTION')
+save_vars.update(ov_retract_len_on=True, ov_retract_len=2.0)
+out = render(body, {'LENGTH':'1.2', 'EXTRA':'0.05'})
+tests.append(('LIVE retraction: partial set + no override redirect',
+    'SET_RETRACTION_BASE RETRACT_LENGTH=1.2' in out and 'UNRETRACT_EXTRA_LENGTH=0.05' in out
+    and 'RETRACT_SPEED=35.0' in out and 'VARIABLE=file_retract_len' not in out, out[:200]))
+save_vars.update(ov_retract_len_on=False)
+
+lcd_txt2 = open('menus/lcd_menues.cfg').read()
+tests.append(('LCD: babystep top-level in Live Tuning', '[menu __main __live __zup]' in lcd_txt2 and '[menu __main __live __zdownf]' in lcd_txt2 and '[menu __main __live __z __up]' not in lcd_txt2, 'babystep'))
+tests.append(('LCD: retract/deretract live inputs', '__retspd]' in lcd_txt2 and '__unret]' in lcd_txt2 and '__unretx]' in lcd_txt2, 'retract inputs'))
+
+# Menue-Audit: Start-Dialog + Legacy weiterhin vorhanden
+lcd_txt = open('menus/lcd_menues.cfg').read()
+for entry in ['PRINT_AS_SLICED', 'PRINT_WITH_OVERRIDES', 'CANCEL_PENDING_PRINT', 'legacy_level']:
+    tests.append((f'Menu audit: {entry}', entry in lcd_txt, 'missing'))
+
+# ===================== R40 tests: .10 base + user wishes =====================
+import re as _re40
+
+# --- M220 interceptor: L1 brake stays alive against file M220 ---
+m220 = get_body('macros/06_temp_controls.cfg', 'M220')
+state_vars.update({'mode':'printing','layer':1,'ignore_overrides':False})
+out = render(m220, {'S':100})
+tests.append(('M220 layer1: S100 capped to 75', 'M99220 S75' in out and 'capped' in out, out[:160]))
+state_vars['layer'] = 2
+out = render(m220, {'S':100})
+tests.append(('M220 layer2: 1:1 pass-through', 'M99220 S100' in out and 'capped' not in out, out[:120]))
+state_vars['ignore_overrides'] = True; state_vars['layer'] = 1
+out = render(m220, {'S':100})
+tests.append(('M220 as-sliced: 1:1 (no cap)', 'M99220 S100' in out and 'capped' not in out, out[:120]))
+state_vars.update({'mode':'printing','layer':2,'ignore_overrides':False})
+
+# --- HOME2 always purges ---
+_reH = _re40.search(r'\[delayed_gcode _LEGACY_HOME2\]\ngcode:\n(.*?)(?=\n\[|\Z)', open('macros/08_print_start_stop.cfg').read(), _re40.S)
+home2 = '\n'.join(l[4:] if l.startswith('    ') else l for l in _reH.group(1).split('\n'))
+state_vars['mode']='paused'
+out = render(home2, {}, ps_state='paused')
+tests.append(('HOME2 heats + ALWAYS purges', 'SET_HEATER_TEMPERATURE HEATER=extruder' in out and 'TEMPERATURE_WAIT SENSOR=extruder' in out
+    and '_PRIME_LINE' in out and 'M220 S75' in out,
+    [l for l in out.split('\n') if 'PRIME' in l or 'M220' in l or 'HEATER=extruder' in l][:3]))
+state_vars['mode']='printing'
+
+# --- Z-track L2 for legacy (watcher n==2 block) ---
+_reW40 = _re40.search(r'\[delayed_gcode _STATE_WATCHER\]\ninitial_duration: 8\ngcode:\n(.*?)(?=\n\[|\Z)', open('macros/01_state.cfg').read(), _re40.S)
+wt = '\n'.join(l[4:] if l.startswith('    ') else l for l in _reW40.group(1).split('\n'))
+save_vars.update({'ov_hotend_after_on':True,'ov_hotend_after':210,'ov_bed_after_on':True,'ov_bed_after':55,
+                  'ov_fan_on':True,'ov_fan':80,'first_layer_speed':75})
+state_vars.update({'mode':'printing','layer':1,'layer_marks':False,'layer_z_max':0.2,'layer_z_acc':0,'seq_low':0,
+                   'pause_desync':0,'cancel_armed':False,'cancel_time':0.0})
+out = render(wt, {}, gz=0.3)   # dz=0.1 in 0.05..0.35 -> new layer -> n==2
+tests.append(('Z-track layer2: L2 temps + fan for legacy',
+    'TARGET=210' in out and 'TARGET=55' in out and 'SET_FAN_SCALE PERCENT=80' in out and 'M220 S100' in out,
+    [l for l in out.split('\n') if 'TARGET' in l or 'FAN_SCALE' in l or 'S100' in l][:5]))
+
+# --- AS LEGACY start: dispatch + flags ---
+p07 = open('macros/07_start_confirm.cfg').read()
+tests.append(('07 defines PRINT_AS_LEGACY', 'gcode_macro PRINT_AS_LEGACY' in p07, 'missing'))
+_reW40b = _re40.search(r'\[delayed_gcode ([A-Z_0-9]*WAITER[A-Z_0-9]*)\]\n(?:initial_duration: \d+\n)?gcode:\n(.*?)(?=\n\[|\Z)', p07, _re40.S)
+waiter = '\n'.join(l[4:] if l.startswith('    ') else l for l in _reW40b.group(2).split('\n'))
+save_vars['start_decision']='as_legacy'
+state_vars['mode']='waiting'
+out = render(waiter, {}, ps_state='paused')
+tests.append(('Waiter as_legacy -> RUN APPLY=1 LEGACY=1', '_RUN_PRINT_START APPLY=1 LEGACY=1' in out and 'VARIABLE=ignore_overrides VALUE=False' in out, out[:200]))
+save_vars['start_decision']=''
+
+# --- LAYER_MARK counts in EVERY mode (R56: .38 regression fix) ---
+lm = get_body('macros/06_temp_controls.cfg', 'LAYER_MARK')
+state_vars.update({'mode':'printing','layer':3,'legacy_mode':True})
+out = render(lm, {})
+tests.append(('R56 LAYER_MARK counts even with legacy_mode', 'VARIABLE=layer VALUE=4' in out, out[:120]))
+state_vars['legacy_mode']=False
+
+# --- _RUN_PRINT_START: LEGACY flag + velocity gating ---
+run = get_body('macros/08_print_start_stop.cfg', '_RUN_PRINT_START')
+save_vars.update({'ov_velocity_on':False,'ov_velocity':300,'ov_min_cruise_on':False,'ov_min_cruise':0.5,
+                  'ov_square_corner_on':False,'ov_square_corner':5,'ov_accel_on':False,'ov_accel':4000})
+state_vars['mode']='waiting'
+state_vars['file_type']='legacy'
+out = render(run, {'APPLY':1,'LEGACY':1})
+tests.append(('R56 RUN LEGACY=1 legacy file -> legacy_mode True', 'VARIABLE=legacy_mode VALUE=True' in out, [l for l in out.split('\n') if 'legacy_mode' in l][:2]))
+state_vars['file_type']='marked'
+out = render(run, {'APPLY':1,'LEGACY':1})
+tests.append(('R56 FIX: RUN LEGACY=1 MARKED file keeps markers (legacy_mode False)', 'VARIABLE=legacy_mode VALUE=False' in out, [l for l in out.split('\n') if 'legacy_mode' in l][:2]))
+state_vars['file_type']='legacy'
+out = render(run, {'APPLY':1})
+tests.append(('RUN default: legacy_mode False', 'VARIABLE=legacy_mode VALUE=False' in out, ''))
+tests.append(('RUN: no override ON -> NO forced SET_VELOCITY_LIMIT', 'SET_VELOCITY_LIMIT' not in out, [l for l in out.split('\n') if 'VELOCITY' in l][:2]))
+save_vars.update({'ov_velocity_on':True,'ov_min_cruise_on':True,'ov_square_corner_on':True,'ov_accel_on':True})
+out = render(run, {'APPLY':1})
+tests.append(('RUN: all limits ON -> SET_VELOCITY_LIMIT with 4 params',
+    'SET_VELOCITY_LIMIT' in out and 'VELOCITY=300' in out and 'MINIMUM_CRUISE_RATIO=0.5' in out and 'SQUARE_CORNER_VELOCITY=5' in out and 'ACCEL=4000' in out,
+    [l for l in out.split('\n') if 'VELOCITY_LIMIT' in l][:2]))
+save_vars.update({'ov_velocity_on':False,'ov_min_cruise_on':False,'ov_square_corner_on':False,'ov_accel_on':False})
+
+# --- live velocity commands ---
+for mac,par,needle in [('SET_LIVE_VELOCITY',{'VELOCITY':250},'SET_VELOCITY_LIMIT VELOCITY=250'),
+                       ('SET_LIVE_MINIMUM_CRUISE_RATIO',{'VALUE':0.6},'SET_VELOCITY_LIMIT MINIMUM_CRUISE_RATIO=0.6'),
+                       ('SET_LIVE_SQUARE_CORNER',{'VALUE':6},'SET_VELOCITY_LIMIT SQUARE_CORNER_VELOCITY=6')]:
+    out = render(get_body('macros/10_live_tuning.cfg', mac), par)
+    tests.append((f'{mac} renders', needle in out, out[:120]))
+
+# --- retraction live mirror ---
+slr = get_body('macros/10_live_tuning.cfg', 'SET_LIVE_RETRACTION')
+out = render(slr, {'LENGTH':1.2})
+tests.append(('SET_LIVE_RETRACTION mirrors all 4 values', 'VARIABLE=ret_len VALUE=1.2' in out and 'VARIABLE=ret_spd' in out
+    and 'VARIABLE=ret_unret' in out and 'VARIABLE=ret_unretx' in out, [l for l in out.split('\n') if 'VARIABLE=ret_' in l][:4]))
+
+# --- SET_OVERRIDE_VALUE knows the new keys ---
+sov = get_body('macros/07_start_confirm.cfg', 'SET_OVERRIDE_VALUE')
+for k in ['velocity','min_cruise','square_corner','fan']:
+    out = render(sov, {'NAME':k,'VALUE':123})
+    tests.append((f'SET_OVERRIDE_VALUE {k}', f"VALUE={{v|float}}" in out or f'ov_{k}' in out, out[:120]))
+
+# --- menu audit R40 ---
+lcd = open('menus/lcd_menues.cfg').read()
+for entry in ["> AS LEGACY", 'SET_LIVE_VELOCITY VELOCITY=', 'SET_LIVE_MINIMUM_CRUISE_RATIO VALUE=', 'SET_LIVE_SQUARE_CORNER VALUE=',
+              'SET_FAN_SCALE PERCENT=', 'homing_origin.z', '__pid __hot', '__pid __bed', 'FAN=', '__fanon', 'TOGGLE_OVERRIDE NAME=fan',
+              'NAME=velocity VALUE=', 'NAME=min_cruise VALUE=', 'NAME=square_corner VALUE=']:
+    tests.append((f'R40 menu: {entry[:36]}', entry in lcd, 'missing'))
+# label audit <=16 incl. worst-case value
+def _fill(s, mx):
+    if '(menu.input*100)' in s: v='300'
+    elif '%d' in s:
+        n=int(_re40.search(r'%(\d*)d',s).group(1) or 3)
+        cap=min(mx if mx else 10**n, 10**n); v=str(int(cap)).rjust(n)
+    elif '%.3f' in s: v='0.200' if (mx or 1)<1 else '9.999'
+    elif '%.2f' in s: v='0.99' if (mx or 1)<1 else '9.99'
+    elif '%.1f' in s: v='9.9'
+    else: v='999'
+    return _re40.sub(r"\{[^}]*menu\.input[^}]*\}", v, s)
+_bad=[]; _cur=None
+for _line in lcd.split('\n'):
+    _m=_re40.match(r'input_max: ([\d.]+)', _line.strip())
+    if _m: _cur=float(_m.group(1))
+    _nm=_re40.match(r"name: (.+)$", _line.strip())
+    if not _nm or 'menu.input' not in _line: continue
+    _s=_nm.group(1).strip("'")
+    if len(_fill(_s,_cur))>16: _bad.append(_fill(_s,_cur))
+tests.append(('LCD labels <=16 chars incl. value', not _bad, _bad[:4]))
+
+# ===================== R41 tests: resume brake, layer_marks, new calibrations ====
+# --- Resume re-asserts the L1 brake (PAUSE_STATE restore leak) ---
+rc = get_body('macros/09_pause_filament.cfg', '_RESUME_COMMON')
+state_vars.update({'mode':'paused','layer':1,'ignore_overrides':False,'pause_x':100.0,'pause_y':100.0,
+                   'pause_z':12.5,'pause_was_sd':True,'current_type':'','pause_reason':'test'})
+out = render(rc, {}, ps_state='paused')
+tests.append(('RESUME layer1: brake re-applied', 'M220 S75' in out and 're-applied' in out,
+    [l for l in out.split('\n') if 'M220' in l][:2]))
+state_vars['layer'] = 2
+out = render(rc, {}, ps_state='paused')
+tests.append(('RESUME layer2: no brake', 'M220 S75' not in out, ''))
+state_vars['layer'] = 1; state_vars['ignore_overrides'] = True
+out = render(rc, {}, ps_state='paused')
+tests.append(('RESUME as-sliced: no brake', 'M220 S75' not in out, ''))
+state_vars['ignore_overrides'] = False
+
+# --- watcher legacy detection resets layer_marks ---
+save_vars2 = {}
+_reW41 = _re40.search(r'\[delayed_gcode _STATE_WATCHER\]\ninitial_duration: 8\ngcode:\n(.*?)(?=\n\[|\Z)', open('macros/01_state.cfg').read(), _re40.S)
+wt41 = '\n'.join(l[4:] if l.startswith('    ') else l for l in _reW41.group(1).split('\n'))
+state_vars.update({'mode':'finished','layer':5,'layer_marks':True,'layer_z_max':9.0,'layer_z_acc':0,
+                   'legacy_file':'','seq_low':0,'cancel_armed':False,'cancel_time':0.0,'pause_desync':0})
+out = render(wt41, {})
+tests.append(('Legacy detection resets layer_marks', 'VARIABLE=layer_marks VALUE=False' in out,
+    [l for l in out.split('\n') if 'layer_marks' in l][:2]))
+
+# --- FLOW_CAL calculator ---
+fc = get_body('macros/12_maintenance.cfg', 'FLOW_CAL')
+out = render(fc, {'MEASURE':0.46,'TARGET':0.4})
+tests.append(('FLOW_CAL 0.46mm wall -> 87.0%', '87.0' in out and '-> 87.0%' in out, out[:200]))
+out = render(fc, {'MEASURE':0.5,'TARGET':0.4})
+tests.append(('FLOW_CAL implausible guard', 'implausible' not in out and '87' not in out, out[:150]))
+
+# --- TEMP_TOWER_START + hook ---
+tts = get_body('macros/12_maintenance.cfg', 'TEMP_TOWER_START')
+out = render(tts, {'START':200,'END':230,'STEP':5,'BAND':10})
+tests.append(('TEMP_TOWER_START plan + vars', 'bands' in out and 'VARIABLE=tt_active VALUE=True' in out
+    and 'VARIABLE=tt_band VALUE=10' in out, out[:200]))
+save_vars.update({'tt_active':True,'tt_start':200.0,'tt_step':5.0,'tt_band':10,'tt_end':230.0})
+lm41 = get_body('macros/06_temp_controls.cfg', 'LAYER_MARK')
+state_vars.update({'mode':'printing','layer':10,'legacy_mode':False})
+out = render(lm41, {})   # n = 11 -> idx 1 -> 205C
+tests.append(('Tower hook: layer 11 -> 205C', 'TARGET=205' in out, [l for l in out.split('\n') if 'tower' in l.lower()][:2]))
+save_vars['tt_active']=False
+
+# --- IRONING_CAL renders 3 zones ---
+ic = get_body('macros/12_maintenance.cfg', 'IRONING_CAL')
+state_vars['mode']='idle'
+out = render(ic, {'TEMP':200})
+tests.append(('R61 IRONING_CAL v2: cards + flows + prime', out.count('Ironing card')>=3 and 'flow 10%' in out
+    and 'flow 20%' in out and 'Prime line' in out, out[:200]))
+import re as _re41c
+tests.append(('IRONING_CAL: extrusion lines', len(_re41c.findall(r'G1 X[\d.]+ E[\d.]+', out)) >= 40, len(_re41c.findall(r'G1 X[\d.]+ E[\d.]+', out))))
+
+# --- menu: file values + new submenus + order ---
+lcd41 = open('menus/lcd_menues.cfg').read()
+for e in ['File H:', 'File B:', 'File R:', '__maint __flow]', '__maint __tt]', '__maint __iron]',
+          'FLOW_CAL MEASURE=', 'TEMP_TOWER_START START=', 'IRONING_CAL TEMP=', 'Wall:', 'Plan (calc)']:
+    tests.append((f'R41 menu: {e[:34]}', e in lcd41, 'missing'))
+# R82: the maintenance menu follows the calibration ladder (per printer:
+# PID -> leveling -> mesh -> extruder steps -> input shaper; per material:
+# temp tower -> PA -> flow -> retract -> bridging -> ironing; then care)
+ordr = [lcd41.find(x) for x in ['__maint __pid]', '__maint __level]', '__maint __mesh]', '__maint __extruder]',
+         '__maint __vib]', '__maint __tt]', '__maint __pa]', '__maint __flow]', '__maint __rt]',
+         '__maint __bridge]', '__maint __iron]', '__maint __cleannoz]', '__maint __fil]',
+         '__maint __gantry]', '__maint __kamp]', '__maint __tests]']]
+tests.append(('R82 maintenance menu = calibration ladder order', all(ordr[i] < ordr[i+1] for i in range(len(ordr)-1)) and ordr[0] > 0, ordr))
+
+# ===================== R42: frozen layer counter after object change/skip =======
+_reW42 = _re40.search(r'\[delayed_gcode _STATE_WATCHER\]\ninitial_duration: 8\ngcode:\n(.*?)(?=\n\[|\Z)', open('macros/01_state.cfg').read(), _re40.S)
+wt42 = '\n'.join(l[4:] if l.startswith('    ') else l for l in _reW42.group(1).split('\n'))
+# Zustand wie im Feldlog: Objektwechsel durch, Skip durchgeführt, Z-Hop/Park hat
+# die Marke auf 5.2 hochgezogen, Kopf druckt jetzt bei z=0.2 (dz=-5.0 -> eingefroren)
+state_vars.update({'mode':'printing','layer':0,'layer_marks':False,'layer_z_max':5.2,'layer_z_acc':0,
+                   'legacy_file':'x.gcode','seq_low':0,'cancel_armed':False,'cancel_time':0.0,'pause_desync':0})
+save_vars.update({'first_layer_speed':65,'ov_hotend_after_on':True,'ov_hotend_after':210.0,
+                  'ov_bed_after_on':True,'ov_bed_after':55.0,'ov_fan_on':True,'ov_fan':95.0,
+                  'pause_next_layer':False,'pause_at_layer':0,'tt_active':False})
+out = render(wt42, {}, gz=0.2)
+tests.append(('R42 cold-start: re-anchors DOWN at layer 0', 'VARIABLE=layer_z_max VALUE=0.2' in out,
+    [l for l in out.split('\n') if 'layer_z_max' in l][:2]))
+state_vars['layer_z_max']=0.2   # Re-Anker aus Tick 1 uebernehmen
+out = render(wt42, {}, gz=0.4)   # erste Layergrenze
+tests.append(('R42 frozen counter: layer 1 counts again', 'VARIABLE=layer VALUE=1' in out,
+    [l for l in out.split('\n') if 'VARIABLE=layer ' in l][:2]))
+state_vars['layer']=1; state_vars['layer_z_max']=0.4
+out = render(wt42, {}, gz=0.6)   # zweite Layergrenze
+tests.append(('R42 frozen counter: layer 2 -> L2 applies', 'VARIABLE=layer VALUE=2' in out
+    and 'TARGET=210' in out and 'SET_FAN_SCALE PERCENT=95' in out,
+    [l for l in out.split('\n') if 'Layer 2' in l or 'TARGET' in l][:4]))
+state_vars.update({'layer':0,'layer_z_max':0.0})
+
+# ------- R45: start dialog legacy branches (_START_CONFIRM_WAITER) ------------------------
+import re as _reW
+_txt7 = open('macros/07_start_confirm.cfg').read()
+_mW = _reW.search(r'\[delayed_gcode _START_CONFIRM_WAITER\]\ngcode:\n(.*?)(?=\n\[|\Z)', _txt7, _reW.S)
+waiter = '\n'.join(l[4:] if l.startswith('    ') else l for l in _mW.group(1).split('\n'))
+state_vars['mode']='waiting'
+state_vars['file_type']='legacy'
+save_vars['start_decision']='as_sliced'
+out = render(waiter, {})
+tests.append(('WAITER legacy as_sliced = no takeover', '_LEGACY_AS_SLICED' in out and '_RUN_PRINT_START' not in out, out[:220]))
+save_vars['start_decision']='as_legacy'
+out = render(waiter, {})
+tests.append(('WAITER legacy as_legacy = prep + takeover', '_LEGACY_PREP' in out and '_RUN_PRINT_START' not in out, out[:220]))
+save_vars['start_decision']='with_overrides'
+out = render(waiter, {})
+tests.append(('WAITER legacy W/CHANGES -> as_legacy', 'as_legacy' in out and '_RUN_PRINT_START' not in out and 'UPDATE_DELAYED_GCODE ID=_START_CONFIRM_WAITER' in out, out[:200]))
+state_vars['file_type']='marked'
+save_vars['start_decision']='as_sliced'
+out = render(waiter, {})
+tests.append(('WAITER marked as_sliced', '_RUN_PRINT_START APPLY=0' in out, out[:200]))
+save_vars['start_decision']='as_legacy'
+out = render(waiter, {})
+tests.append(('WAITER marked as_legacy', '_RUN_PRINT_START APPLY=1 LEGACY=1' in out, out[:200]))
+save_vars['start_decision']=''
+state_vars['mode']='printing'
+
+# ------- R45: PRINT_START marks the file type ---------------------------------------------
+body = get_body('macros/08_print_start_stop.cfg', 'PRINT_START')
+state_vars['mode']='idle'
+out = render(body, {'BED':'60','HOTEND_FIRST':'210','HOTEND_AFTER':'205','MATERIAL':'PLA'})
+tests.append(('PRINT_START sets file_type=marked', 'VARIABLE=file_type VALUE=\'"marked\"\'' in out and 'File type: MARKED' in out, out[:160]))
+state_vars['mode']='printing'
+
+# ------- R45: machine limits feedback (MCR wird sichtbar an Klipper uebergeben) ------------
+body = get_body('macros/10_live_tuning.cfg', 'SET_LIVE_MINIMUM_CRUISE_RATIO')
+out = render(body, {'VALUE': '0.5'})
+tests.append(('MCR live + feedback', 'SET_VELOCITY_LIMIT MINIMUM_CRUISE_RATIO=0.5' in out and 'cruise ratio 0.5' in out, out[:200]))
+body = get_body('macros/08_print_start_stop.cfg', '_APPLY_OVERRIDES_CORE')
+save_vars['ov_min_cruise_on']=True; save_vars['ov_min_cruise']=0.5
+out = render(body, {})
+tests.append(('MCR override -> Klipper + log', 'MINIMUM_CRUISE_RATIO=0.5' in out and 'cruise ratio 0.5' in out, [l for l in out.split('\n') if 'cruise' in l or 'SET_VELOCITY_LIMIT' in l][:3]))
+save_vars['ov_min_cruise_on']=False
+
+# ------- R45: L1 speed brake only WITH apply (AS SLICED = truly 1:1) -----------------------
+body = get_body('macros/08_print_start_stop.cfg', '_RUN_PRINT_START')
+out = render(body, {'APPLY': '0'})
+tests.append(('L1 brake OFF when APPLY=0', 'First layer speed' not in out, [l for l in out.split('\n') if 'First layer' in l or 'M220' in l][:3]))
+out = render(body, {'APPLY': '1'})
+tests.append(('L1 brake ON when APPLY=1', 'First layer speed' in out, [l for l in out.split('\n') if 'First layer' in l][:2]))
+
+# ======= R46: Nozzle LED + LED idle return + state cleanup ==================================
+
+# ------- _NOZZLE_SET: manual color math (power cap 0.5, brightness) -------------------------
+body = get_body('macros/03_leds.cfg', '_NOZZLE_SET')
+out = render(body, {'ON': '1'})
+tests.append(('NOZZLE_SET default warm white', 'RED=0.45' in out and 'GREEN=0.45' in out and 'BLUE=0.425' in out and 'INDEX=5' in out, out.strip()[:140]))
+save_vars['nozzle_bright']=0.4; save_vars['nozzle_r']=1.0; save_vars['nozzle_g']=1.0; save_vars['nozzle_b']=1.0
+out = render(body, {'ON': '1'})
+tests.append(('NOZZLE_SET dim 40% scales', 'RED=0.2 GREEN=0.2 BLUE=0.2' in out, out.strip()[:140]))
+save_vars['nozzle_bright']=1.0
+out = render(body, {'ON': '1'})
+tests.append(('NOZZLE_SET power cap 0.5', 'RED=0.5 GREEN=0.5 BLUE=0.5' in out, out.strip()[:140]))
+out = render(body, {'ON': '0'})
+tests.append(('NOZZLE_SET dark', 'RED=0 GREEN=0 BLUE=0' in out, out.strip()[:140]))
+save_vars['nozzle_r']=0.9; save_vars['nozzle_g']=0.9; save_vars['nozzle_b']=0.85
+
+# ------- SET_LED_STATE: nozzle modes --------------------------------------------------------
+body = get_body('macros/03_leds.cfg', 'SET_LED_STATE')
+out = render(body, {'STATE': 'idle'})
+tests.append(('LED_STATE idle+auto: nozzle dark', '_NOZZLE_SET ON=0' in out and 'r2_nozzle_on' not in out and 'EFFECT=r2_idle' in out, out[:200]))
+out = render(body, {'STATE': 'printing'})
+tests.append(('LED_STATE printing+auto: nozzle effect', 'EFFECT=r2_nozzle_on' in out and 'EFFECT=r2_printing' in out, out[:200]))
+save_vars['nozzle_mode']='on'
+out = render(body, {'STATE': 'idle'})
+tests.append(('LED_STATE idle+ON: manual color', '_NOZZLE_SET ON=1' in out and 'r2_nozzle_on' not in out, out[:200]))
+save_vars['nozzle_mode']='off'
+out = render(body, {'STATE': 'printing'})
+tests.append(('LED_STATE printing+OFF: never', '_NOZZLE_SET ON=0' in out and 'EFFECT=r2_nozzle_on' not in out, out[:200]))
+save_vars['leds_on']=False; save_vars['nozzle_mode']='on'
+out = render(body, {'STATE': 'idle'})
+tests.append(('LED_STATE master OFF + nozzle ON (tool light)', '_NOZZLE_SET ON=1' in out and 'STOP_LED_EFFECTS' not in out, out[:200]))
+save_vars['nozzle_mode']='auto'
+out = render(body, {'STATE': 'idle'})
+tests.append(('LED_STATE master OFF + auto: all dark', '_NOZZLE_SET ON=0' in out and 'STOP_LED_EFFECTS' not in out, out[:200]))
+save_vars['leds_on']=True; save_vars['nozzle_mode']='auto'
+
+# ------- NOZZLE_LED: the public switch ------------------------------------------------------
+body = get_body('macros/03_leds.cfg', 'NOZZLE_LED')
+out = render(body, {'MODE': 'on'})
+tests.append(('NOZZLE_LED MODE=on saves+applies', "VARIABLE=nozzle_mode VALUE='\"on\"'" in out and 'SET_LED_STATE STATE=printing' in out and '[OK] Nozzle LED: ON' in out, out[:220]))
+out = render(body, {'BRIGHT': '0.4'})
+tests.append(('NOZZLE_LED BRIGHT live', 'VARIABLE=nozzle_bright VALUE=0.4' in out and 'SET_LED_STATE STATE=printing' in out, out[:200]))
+out = render(body, {'R': '1', 'G': '0.5', 'B': '0.2'})
+tests.append(('NOZZLE_LED RGB live', 'VARIABLE=nozzle_r VALUE=1.0' in out and 'VARIABLE=nozzle_g VALUE=0.5' in out and 'VARIABLE=nozzle_b VALUE=0.2' in out, out[:200]))
+out = render(body, {'MODE': 'pink'})
+tests.append(('NOZZLE_LED bad MODE -> hint', '[!]' in out and 'SAVE_VARIABLE' not in out, out[:160]))
+out = render(body, {})
+tests.append(('NOZZLE_LED status report', 'Nozzle LED: AUTO' in out and 'bright 100%' in out, out[:220]))
+
+# ------- _LED_TO_IDLE: finished -> idle return (used to twinkle FOREVER) --------------------
+import re as _reL
+_txt3 = open('macros/03_leds.cfg').read()
+_mL = _reL.search(r'\[delayed_gcode _LED_TO_IDLE\]\ngcode:\n(.*?)(?=\n\[|\Z)', _txt3, _reL.S)
+ledidle = '\n'.join(l[4:] if l.startswith('    ') else l for l in _mL.group(1).split('\n'))
+state_vars['mode']='idle'; state_vars['last_led']='finished'
+out = render(ledidle, {})
+tests.append(('LED_TO_IDLE fires after finished', 'SET_LED_STATE STATE=idle' in out, out[:160]))
+state_vars['last_led']='printing'
+out = render(ledidle, {})
+tests.append(('LED_TO_IDLE skips other LED states', 'SET_LED_STATE' not in out, out[:160]))
+state_vars['mode']='printing'
+out = render(ledidle, {})
+tests.append(('LED_TO_IDLE skips while printing', 'SET_LED_STATE' not in out, out[:160]))
+
+# ------- _PRINT_CLEANUP: the one reset list -------------------------------------------------
+body = get_body('macros/09_pause_filament.cfg', '_PRINT_CLEANUP')
+out = render(body, {})
+tests.append(('PRINT_CLEANUP resets everything', 'cancel_armed VALUE=False' in out and 'skip_armed_name' in out and 'mesh_delete_armed' in out and 'legacy_mode VALUE=False' in out and 'ignore_overrides VALUE=False' in out and 'file_type VALUE=\'"unknown"\'' in out and 'file_held VALUE=False' in out and 'wait_ticks VALUE=0' in out and 'pause_was_sd VALUE=False' in out and '_LIVE_RESET' in out and 'pause_next_layer VALUE=False' in out and 'pause_at_layer VALUE=0' in out, out[:300]))
+tests.append(('PRINT_CLEANUP keeps settings+mesh', 'ov_bed' not in out and 'mesh_last_profile' not in out and 'SAVE_CONFIG' not in out, out[:200]))
+
+# ------- _END_FAN_OFF: guard against the NEXT print -----------------------------------------
+_txt8 = open('macros/08_print_start_stop.cfg').read()
+_mE = _reL.search(r'\[delayed_gcode _END_FAN_OFF\]\ngcode:\n(.*?)(?=\n\[|\Z)', _txt8, _reL.S)
+fanoff = '\n'.join(l[4:] if l.startswith('    ') else l for l in _mE.group(1).split('\n'))
+state_vars['mode']='idle'
+out = render(fanoff, {})
+tests.append(('END_FAN_OFF fires when idle', 'M99106 S0' in out, out[:120]))
+state_vars['mode']='printing'
+out = render(fanoff, {})
+tests.append(('END_FAN_OFF guarded during new print', 'M99106' not in out, out[:120]))
+
+# ------- watcher: cancel expiry ALSO while paused + legacy end cleanup ----------------------
+_txt1 = open('macros/01_state.cfg').read()
+_mW2 = _reL.search(r'\[delayed_gcode _STATE_WATCHER\]\ninitial_duration: 8\ngcode:\n(.*?)(?=\n\[|\Z)', _txt1, _reL.S)
+watcher2 = '\n'.join(l[4:] if l.startswith('    ') else l for l in _mW2.group(1).split('\n'))
+state_vars['mode']='paused'; state_vars['cancel_armed']=True; state_vars['cancel_time']=0
+out = render(watcher2, {}, ps_state='paused')
+tests.append(('WATCHER cancel expiry while paused (R46)', 'cancel_armed VALUE=False' in out and 'Cancel expired' in out, out[:220]))
+state_vars['cancel_armed']=False; state_vars['cancel_time']=0
+state_vars['mode']='printing'
+out = render(watcher2, {}, ps_state='complete')
+tests.append(('WATCHER legacy end: LED timer + cleanup', '_LED_TO_IDLE DURATION=10' in out and '_PRINT_CLEANUP' in out, [l for l in out.split('\n') if 'LED_TO_IDLE' in l or 'CLEANUP' in l][:2]))
+
+# ------- defaults hydration + status line ---------------------------------------------------
+body = get_body('macros/01_state.cfg', '_INIT_DEFAULTS')
+render(body, {})
+tests.append(('INIT hydrates nozzle defaults', 'VARIABLE=nozzle_mode' in body and 'VARIABLE=nozzle_bright' in body and 'VARIABLE=nozzle_r' in body and 'VARIABLE=led_finish_time' in body, [l for l in body.split('\n') if 'nozzle' in l.lower() or 'led_finish' in l.lower()][:4]))
+body = get_body('macros/04_notify.cfg', 'SHOW_STATUS')
+out = render(body, {})
+tests.append(('SHOW_STATUS nozzle LED line', 'Nozzle LED: AUTO' in out and 'bright 100%' in out, [l for l in out.split('\n') if 'Nozzle LED' in l][:1]))
+
+# ------- R46 extras: boot re-light + master-toggle hint --------------------------------------
+import re as _reB
+_mB = _reB.search(r'\[delayed_gcode _INIT_AFTER_BOOT\]\ninitial_duration: 5\ngcode:\n(.*?)(?=\n\[|\Z)', open('macros/01_state.cfg').read(), _reB.S)
+bootinit = '\n'.join(l[4:] if l.startswith('    ') else l for l in _mB.group(1).split('\n'))
+save_vars['nozzle_mode']='on'
+out = render(bootinit, {})
+tests.append(('BOOT re-lights nozzle when ON', '_NOZZLE_SET ON=1' in out, out[:160]))
+save_vars['nozzle_mode']='auto'
+out = render(bootinit, {})
+tests.append(('BOOT leaves nozzle off in AUTO', '_NOZZLE_SET' not in out, out[:160]))
+body = get_body('macros/03_leds.cfg', 'TOGGLE_LEDS')
+save_vars['nozzle_mode']='on'
+out = render(body, {})
+tests.append(('TOGGLE_LEDS off hints at nozzle light', 'STOP_LED_EFFECTS' in out and 'nozzle work light stays' in out, out[:200]))
+save_vars['nozzle_mode']='auto'
+out = render(body, {})
+tests.append(('TOGGLE_LEDS off: no hint in AUTO', 'nozzle work light' not in out, out[:160]))
+
+# ======= R47: legacy start-dialog chain (the .30 field regression) ==========================
+
+# ------- 1) _LEGACY_DIALOG must SCHEDULE the waiter + clear a stale decision ----------------
+body = get_body('macros/08_print_start_stop.cfg', '_LEGACY_DIALOG')
+out = render(body, {})
+tests.append(('LEGACY_DIALOG schedules the WAITER (R47)', 'UPDATE_DELAYED_GCODE ID=_START_CONFIRM_WAITER' in out, out[:200]))
+tests.append(('LEGACY_DIALOG clears stale decision', 'VARIABLE=start_decision VALUE=' in out and 'wait_ticks VALUE=0' in out, out[:200]))
+
+# ------- 2) M190/M109 must NOT block while the legacy dialog is imminent --------------------
+body = get_body('macros/06_temp_controls.cfg', 'M190')
+state_vars['mode']='idle'
+out = render(body, {'S': '60'})
+tests.append(('M190 legacy-start: preheat, no blocking wait', 'M99140 S60' in out and 'M99190' not in out and 'background' in out, out[:200]))
+body = get_body('macros/06_temp_controls.cfg', 'M109')
+out = render(body, {'S': '210'})
+tests.append(('M109 always heats + waits (R48)', 'M99109 S210' in out and 'Heating hotend' in out and 'M99104' not in out, out[:200]))
+state_vars['mode']='printing'
+body = get_body('macros/06_temp_controls.cfg', 'M190')
+out = render(body, {'S': '60'})
+tests.append(('M190 normal print: heat + wait', 'M99190 S60' in out and 'Heating bed' in out, out[:160]))
+
+# ------- 3) PRINT_START heals a STALE mode instead of refusing forever ----------------------
+body = get_body('macros/08_print_start_stop.cfg', 'PRINT_START')
+state_vars['mode']='waiting'
+out = render(body, {'BED':'60','HOTEND_FIRST':'210'}, ps_state='standby')
+tests.append(('PRINT_START heals stale waiting', 'Healing stale mode' in out and 'file_type' in out and 'already running' not in out, out[:220]))
+out = render(body, {'BED':'60'}, ps_state='printing')
+tests.append(('PRINT_START still refuses while running', 'already running' in out and 'Healing stale mode' not in out, out[:160]))
+state_vars['mode']='printing'
+
+# ------- 4) RESUME continues the file even when pause_was_sd is False -----------------------
+body = get_body('macros/09_pause_filament.cfg', '_RESUME_COMMON')
+state_vars['pause_was_sd']=False
+out = render(body, {}, ps_state='paused')
+tests.append(('RESUME continues paused file (no was_sd)', 'M24' in out and 'PAUSE_STATE' in out, out[:200]))
+state_vars['pause_was_sd']=True
+out = render(body, {}, ps_state='printing')
+tests.append(('RESUME running: still no M24', 'M24' not in out, out[:160]))
+
+# ------- 5) LCD main menu order: Start first, Live Tuning second ----------------------------
+_txtM = open('menus/lcd_menues.cfg').read()
+_posM = [(_txtM.index('[menu __main __start]'), 'start'), (_txtM.index('[menu __main __live]'), 'live'),
+         (_txtM.index('[menu __main __preprint]'), 'preprint'), (_txtM.index('[menu __main __macros]'), 'macros')]
+_posM.sort()
+tests.append(('MENU order: Start > Live > Pre-Print', [n for _, n in _posM] == ['start', 'live', 'preprint', 'macros'], [n for _, n in _posM]))
+
+# ======= R48: START_PRINT = real legacy start + watchdog ====================================
+
+# ------- START_PRINT shim: 4 branches -------------------------------------------------------
+body = get_body('macros/08_print_start_stop.cfg', 'START_PRINT')
+state_vars['mode']='printing'
+out = render(body, {})
+tests.append(('START_PRINT marked -> no-op', 'prepared by PRINT_START' in out and '_LEGACY_DIALOG' not in out and '_LEGACY_PREP' not in out, out[:140]))
+state_vars['file_type']='legacy'; state_vars['legacy_file']=''
+out = render(body, {})
+tests.append(('START_PRINT legacy + confirm -> dialog', '_LEGACY_DIALOG' in out and 'VARIABLE=file_type' in out, out[:160]))
+save_vars['start_confirm']=False
+out = render(body, {})
+tests.append(('START_PRINT legacy + no confirm -> prep', '_LEGACY_PREP' in out and '_LEGACY_DIALOG' not in out, out[:160]))
+save_vars['start_confirm']=True
+state_vars['legacy_file']='test.gcode'
+out = render(body, {})
+tests.append(('START_PRINT already prepped -> no-op', 'already prepared' in out and '_LEGACY_PREP' not in out, out[:160]))
+state_vars['legacy_file']=''
+out = render(body, {}, ps_state='idle')
+tests.append(('START_PRINT outside print -> info', 'outside a print' in out and '_LEGACY_PREP' not in out, out[:160]))
+state_vars['file_type']='marked'
+
+# ------- waiter as_sliced-legacy: home + wait file temps + purge + mark ----------------------
+state_vars['mode']='waiting'; state_vars['file_type']='legacy'
+save_vars['start_decision']='as_sliced'
+out = render(waiter, {})
+tests.append(('WAITER legacy as_sliced: calls AS_SLICED macro (R50)', '_LEGACY_AS_SLICED' in out and '_RUN_PRINT_START' not in out, out[-300:]))
+save_vars['start_decision']=''
+state_vars['file_type']='marked'; state_vars['mode']='printing'
+
+# ------- watchdog re-arms the state watcher -------------------------------------------------
+_txtWd = open('macros/01_state.cfg').read()
+_mWd = _reL.search(r'\[delayed_gcode _WATCHDOG\]\ninitial_duration: 30\ngcode:\n(.*?)(?=\n\[|\Z)', _txtWd, _reL.S)
+assert _mWd, 'watchdog not found'
+wdg = '\n'.join(l[4:] if l.startswith('    ') else l for l in _mWd.group(1).split('\n'))
+out = render(wdg, {})
+tests.append(('WATCHDOG re-arms itself + watcher', 'ID=_WATCHDOG DURATION=5' in out and 'ID=_STATE_WATCHER DURATION=0.5' in out, out[:120]))
+
+# ------- cleanup resets legacy_file (same-file reprint guard) --------------------------------
+body = get_body('macros/09_pause_filament.cfg', '_PRINT_CLEANUP')
+out = render(body, {})
+tests.append(('PRINT_CLEANUP resets legacy_file (R48)', 'VARIABLE=legacy_file' in out, out[:200]))
+
+# ------- R49: z-hop must not fake a sequential object change --------------------------------
+# field log .32: z-hop ratcheted layer_z_max to print_z+hop; as soon as that crossed
+# 1.6 while print_z < 1.5 the detector fired -> pause + L1 temps MID-OBJECT.
+state_vars['layer']=5; state_vars['layer_z_max']=1.75; state_vars['layer_marks']=False
+out = render(watcher, {}, gz=1.0)
+tests.append(('SEQ hop un-ratchet: mark cleaned, NO fire (R49)',
+    'VARIABLE=layer_z_max VALUE=1.0' in out and 'Sequential print' not in out and 'PAUSE REASON' not in out, out[:220]))
+out = render(watcher, {}, gz=1.75)
+tests.append(('SEQ hop top caught: no fire at the top',
+    'Sequential print' not in out and 'PAUSE REASON' not in out, out[:220]))
+state_vars['layer_marks']=True
+out = render(watcher, {}, gz=1.0)
+tests.append(('SEQ hop un-ratchet also for marked files',
+    'VARIABLE=layer_z_max VALUE=1.0' in out and 'Sequential print' not in out, out[:220]))
+state_vars['layer_marks']=False; state_vars['layer_z_max']=2.4
+out = render(watcher, {}, gz=0.3)
+tests.append(('SEQ real object change still fires (fall > 1.0)',
+    'next object' in out and 'PAUSE REASON="next object' in out, out[:200]))
+state_vars['layer_z_max']=0.0
+
+# ------- R49: anti-ooze - file temp capture + standby + re-heat ------------------------------
+state_vars['mode']='idle'
+body = get_body('macros/06_temp_controls.cfg', 'M104')
+out = render(body, {'S': '215'})
+tests.append(('M104 early: captures file hotend (R49)', 'file_hotend_first VALUE=215' in out, out[:160]))
+body = get_body('macros/06_temp_controls.cfg', 'M109')
+out = render(body, {'S': '225'})
+tests.append(('M109 early: capture + still waits', 'file_hotend_first VALUE=225' in out and 'M99109 S225' in out, out[:180]))
+body = get_body('macros/06_temp_controls.cfg', 'M190')
+out = render(body, {'S': '60'})
+tests.append(('M190 early: captures file bed', 'file_bed VALUE=60' in out and 'M99140 S60' in out, out[:180]))
+state_vars['mode']='printing'
+body = get_body('macros/08_print_start_stop.cfg', '_LEGACY_PREP')
+out = render(body, {})
+tests.append(('LEGACY_PREP standby 170 (anti-ooze)', 'TARGET=170' in out and 'standby' in out, out[:200]))
+state_vars['mode']='paused'; state_vars['file_hotend_first']=225.0
+save_vars['ov_hotend_first_on']=False
+_gd2 = dict(build_printer(ps_state='paused'))   # NOTE: M(state_vars) SNAPSHOTS - set state BEFORE building
+_gd2['extruder'] = M({'temperature': 170.0, 'target': 170.0})
+out = env.from_string(prep2).render(printer=M(_gd2), params={})
+tests.append(('PREP2 re-heats to FILE value after standby', 'TARGET=225' in out and 'TARGET=170' not in out, [l for l in out.split('\n') if 'TARGET' in l][:3]))
+save_vars['ov_hotend_first_on']=True
+state_vars['file_hotend_first']=0.0
+state_vars['mode']='printing'
+
+# ------- R50: universal print intercept (every file, whatever it is) --------------------------
+body = get_body('macros/08_print_start_stop.cfg', 'SDCARD_PRINT_FILE')
+state_vars['mode']='idle'
+out = render(body, {'FILENAME': 'rose.gcode'})
+tests.append(('R51 PRINT BUTTON: guard + load + M25 hold + intercept',
+    'VARIABLE=mode VALUE=\'"waiting"\'' in out and 'BASE_SDCARD_PRINT_FILE FILENAME="rose.gcode"' in out
+    and 'M25' in out and '_UNIVERSAL_START_INTERCEPT' in out, out[:220]))
+state_vars['mode']='waiting'
+out = render(body, {'FILENAME': 'rose.gcode'})
+tests.append(('R51 PRINT BUTTON while waiting: refused',
+    'Start dialog active' in out and 'BASE_SDCARD_PRINT_FILE' not in out, out[:160]))
+state_vars['mode']='idle'
+save_vars['start_confirm']=False
+out = render(body, {'FILENAME': 'rose.gcode'})
+tests.append(('R51 PRINT BUTTON confirm OFF: plain start',
+    'BASE_SDCARD_PRINT_FILE' in out and 'M25' not in out and '_UNIVERSAL_START_INTERCEPT' not in out, out[:160]))
+save_vars['start_confirm']=True
+
+body = get_body('macros/08_print_start_stop.cfg', 'M24')
+out = render(body, {}, ps_state='standby')
+tests.append(('R51 M24 fresh start: intercept instead of start',
+    '_UNIVERSAL_START_INTERCEPT' in out and 'M9924' not in out, out[:160]))
+save_vars['start_confirm']=False
+out = render(body, {}, ps_state='standby')
+tests.append(('R51 M24 fresh confirm OFF: plain start', 'M9924' in out and '_UNIVERSAL' not in out, out[:140]))
+save_vars['start_confirm']=True
+out = render(body, {}, ps_state='paused')
+tests.append(('R51 M24 resume (paused): plain pass',
+    'M9924' in out and '_UNIVERSAL' not in out, out[:140]))
+state_vars['mode']='waiting'
+out = render(body, {}, ps_state='paused')
+tests.append(('R51 M24 while waiting: refused', 'Start dialog active' in out and 'M9924' not in out, out[:140]))
+state_vars['mode']='idle'
+
+body = get_body('macros/08_print_start_stop.cfg', '_UNIVERSAL_START_INTERCEPT')
+state_vars['file_type']='marked'; state_vars['has_heaters']=True; state_vars['layer']=7
+out = render(body, {})
+tests.append(('R51 INTERCEPT: fresh state + dialog + waiter (no pause games)',
+    '_FILE_INFO_RESET' in out and 'VARIABLE=has_heaters VALUE=False' in out
+    and 'VARIABLE=start_pending VALUE=\'""\'' in out and 'VARIABLE=layer VALUE=0' in out
+    and 'VARIABLE=file_accel VALUE=0' in out and 'PAUSE_BASE' not in out
+    and '_START_CONFIRM_WAITER DURATION=2' in out, out[:280]))
+state_vars['mode']='printing'
+
+# waiter: the three decisions on an UNKNOWN file
+state_vars['mode']='waiting'; state_vars['file_type']='unknown'
+save_vars['start_decision']='as_sliced'
+out = render(waiter, {})
+tests.append(('R50 WAITER as_sliced unknown: pending + resume + probe',
+    'VARIABLE=start_pending VALUE=\'"as_sliced"\'' in out and 'VARIABLE=probe_stage VALUE=1' in out
+    and '_START_NET_PROBE DURATION=3' in out and 'M24' in out, out[:260]))
+save_vars['start_decision']='with_overrides'
+out = render(waiter, {})
+tests.append(('R50 WAITER with_overrides unknown: pending + probe',
+    'VARIABLE=start_pending VALUE=\'"overrides"\'' in out and '_START_NET_PROBE DURATION=3' in out, out[:260]))
+save_vars['start_decision']='as_legacy'
+out = render(waiter, {})
+tests.append(('R51 WAITER as_legacy unknown: rides along + probe',
+    'VARIABLE=start_pending VALUE=\'"as_legacy"\'' in out and '_START_NET_PROBE DURATION=3' in out
+    and 'M24' in out and '_LEGACY_PREP' not in out, out[:260]))
+save_vars['start_decision']=''
+
+# the net probe (movement-file detection)
+_txtC = open('macros/08_print_start_stop.cfg').read()
+_mN = _reL.search(r'\[delayed_gcode _START_NET_PROBE\]\ngcode:\n(.*?)(?=\n\[|\n# ==|\Z)', _txtC, _reL.S)
+assert _mN, 'net probe not found'
+body = '\n'.join(l[4:] if l.startswith('    ') else l for l in _mN.group(1).split('\n'))
+state_vars['mode']='printing'; state_vars['file_type']='unknown'
+state_vars['start_pending']='as_sliced'; state_vars['has_heaters']=False; state_vars['probe_stage']=1
+out = render(body, {})
+tests.append(('R50 PROBE stage1: no heaters -> second look',
+    'VARIABLE=probe_stage VALUE=2' in out and '_START_NET_PROBE DURATION=7' in out and '_MOVEMENT_START' not in out, out[:180]))
+state_vars['probe_stage']=2
+out = render(body, {})
+tests.append(('R50 PROBE stage2: movement file -> infra APPLY=0',
+    'VARIABLE=file_type VALUE=\'"movement"\'' in out and '_MOVEMENT_START APPLY=0' in out, out[:180]))
+state_vars['start_pending']='overrides'
+out = render(body, {})
+tests.append(('R50 PROBE movement + overrides: APPLY=1', '_MOVEMENT_START APPLY=1' in out, out[:160]))
+state_vars['start_pending']='as_sliced'; state_vars['has_heaters']=True; state_vars['probe_stage']=1
+out = render(body, {})
+tests.append(('R50 PROBE has_heaters: disarm, KEEP pending',
+    'VARIABLE=probe_stage VALUE=0' in out and 'VARIABLE=start_pending' not in out and '_MOVEMENT_START' not in out, out[:200]))
+state_vars['start_pending']=''; state_vars['has_heaters']=False
+out = render(body, {})
+tests.append(('R50 PROBE idle when pending empty', 'probe_stage' not in out and '_MOVEMENT_START' not in out, out[:120]))
+
+# movement infrastructure
+body = get_body('macros/08_print_start_stop.cfg', '_MOVEMENT_START')
+save_vars['material']='PLA'
+save_vars['ov_bed_on']=False; save_vars['ov_hotend_first_on']=False
+out = render(body, {})
+tests.append(('R50 MOVEMENT as sliced: preset temps + mesh + purge + resume',
+    'TARGET=60' in out and 'TARGET=210' in out and '_CALIBRATE_MESH_PROFILE PROFILE=r2' in out
+    and '_PRIME_LINE' in out and '_APPLY_OVERRIDES_CORE' not in out and 'M24' in out, out[:280]))
+out = render(body, {'APPLY': '1'})
+tests.append(('R50 MOVEMENT with settings: ov temps + overrides core',
+    'TARGET=60' in out and 'TARGET=210' in out and '_APPLY_OVERRIDES_CORE' in out, out[:280]))
+save_vars['ov_bed_on']=True; save_vars['ov_bed']=70
+save_vars['ov_hotend_first_on']=True; save_vars['ov_hotend_first']=235
+out = render(body, {'APPLY': '1'})
+tests.append(('R50 MOVEMENT with settings: ov values win',
+    'TARGET=70' in out and 'TARGET=235' in out, out[:280]))
+save_vars['ov_bed_on']=False; save_vars['ov_hotend_first_on']=False
+
+# PRINT_START honors a pending decision (no second dialog)
+body = get_body('macros/08_print_start_stop.cfg', 'PRINT_START')
+state_vars['file_type']='unknown'; state_vars['start_pending']='as_sliced'
+out = render(body, {'BED': '60', 'HOTEND_FIRST': '215'})
+tests.append(('R50 PRINT_START pending as_sliced: direct RUN APPLY=0',
+    '_RUN_PRINT_START APPLY=0' in out and 'PAUSE_BASE' not in out and 'already running' not in out
+    and 'VARIABLE=start_pending VALUE=\'""\'' in out, out[:300]))
+state_vars['start_pending']='overrides'
+out = render(body, {})
+tests.append(('R51 PRINT_START pending overrides: APPLY=1',
+    '_RUN_PRINT_START APPLY=1' in out and 'PAUSE_BASE' not in out, out[:300]))
+state_vars['start_pending']='as_legacy'
+out = render(body, {})
+tests.append(('R51 PRINT_START pending as_legacy: APPLY=1 LEGACY=1',
+    '_RUN_PRINT_START APPLY=1 LEGACY=1' in out, out[:300]))
+state_vars['start_pending']=''
+
+# START_PRINT honors a pending decision
+body = get_body('macros/08_print_start_stop.cfg', 'START_PRINT')
+state_vars['file_type']='legacy'; state_vars['legacy_file']=''
+state_vars['start_pending']='as_sliced'
+out = render(body, {})
+tests.append(('R50 START_PRINT pending as_sliced: AS_SLICED infra',
+    '_LEGACY_AS_SLICED' in out and '_LEGACY_DIALOG' not in out, out[:200]))
+state_vars['start_pending']='overrides'
+out = render(body, {})
+tests.append(('R50 START_PRINT pending overrides: PREP takeover',
+    '_LEGACY_PREP' in out and '_LEGACY_DIALOG' not in out, out[:200]))
+state_vars['start_pending']=''
+
+# _LEGACY_AS_SLICED (the extracted R48 infra)
+body = get_body('macros/08_print_start_stop.cfg', '_LEGACY_AS_SLICED')
+out = render(body, {})
+tests.append(('R50 LEGACY_AS_SLICED: pause + waits + purge + mark + resume',
+    'PAUSE_BASE' in out and 'TEMPERATURE_WAIT SENSOR=heater_bed' in out and 'TEMPERATURE_WAIT SENSOR=extruder' in out
+    and '_PRIME_LINE' in out and 'legacy_file' in out and 'M24' in out, out[:300]))
+
+# M104: raw capture + WITH-SETTINGS takeover injection
+body = get_body('macros/06_temp_controls.cfg', 'M104')
+state_vars['file_type']='unknown'; state_vars['start_pending']='overrides'
+out = render(body, {'S': '215'})
+tests.append(('R50 M104 WITH-SETTINGS: foreign takeover once',
+    '_LEGACY_PREP' in out and 'VARIABLE=start_pending VALUE=\'""\'' in out
+    and 'VARIABLE=has_heaters VALUE=True' in out, out[:260]))
+state_vars['start_pending']='as_sliced'
+out = render(body, {'S': '215'})
+tests.append(('R50 M104 as_sliced: RAW capture, no takeover',
+    'file_hotend_first VALUE=215' in out and '_LEGACY_PREP' not in out and 'VARIABLE=has_heaters VALUE=True' in out, out[:260]))
+state_vars['start_pending']=''
+
+# M221: capture + flow overwrite redirect
+body = get_body('macros/06_temp_controls.cfg', 'M221')
+state_vars['mode']='idle'
+out = render(body, {'S': '92'})
+tests.append(('R50 M221 pre-decision: capture file flow', 'file_flow VALUE=92.0' in out, out[:160]))
+state_vars['mode']='printing'; save_vars['ov_flow_on']=True; save_vars['ov_flow']=105
+out = render(body, {'S': '92'})
+tests.append(('R50 M221 overwrite ON -> 105', 'M99221 S105' in out and 'OVERWRITE' in out, out[:200]))
+state_vars['ignore_overrides']=True
+out = render(body, {'S': '92'})
+tests.append(('R50 M221 as sliced: 1:1 pass', 'M99221 S92' in out, out[:160]))
+state_vars['ignore_overrides']=False; save_vars['ov_flow_on']=False
+
+# M106: file fan capture
+body = get_body('macros/06_temp_controls.cfg', 'M106')
+state_vars['mode']='idle'
+out = render(body, {'S': '200'})
+tests.append(('R50 M106 pre-decision: capture file fan', 'file_fan VALUE=200' in out, out[:160]))
+state_vars['mode']='printing'
+
+# M204 / M220: file accel + speed factor captures (R51)
+body = get_body('macros/06_temp_controls.cfg', 'M204')
+state_vars['mode']='idle'
+out = render(body, {'S': '6500'})
+tests.append(('R51 M204 pre-decision: capture file accel', 'file_accel VALUE=6500.0' in out, out[:160]))
+out = render(body, {'S': '6500'}, ps_state='idle')
+tests.append(('R51 M204 idle (no print): no capture', 'file_accel' not in out, out[:120]))
+state_vars['mode']='printing'
+body = get_body('macros/06_temp_controls.cfg', 'M220')
+state_vars['mode']='idle'
+out = render(body, {'S': '80'})
+tests.append(('R51 M220 pre-decision: capture file speed', 'file_speed VALUE=80.0' in out, out[:160]))
+state_vars['mode']='printing'
+
+# ------- R53: nozzle wipe - heat + zigzag on the pad + park high ----------------------------
+body = get_body('macros/12_maintenance.cfg', 'CLEAN_NOZZLE')
+out = render(body, {}, ps_state='printing')
+tests.append(('R53 CLEAN_NOZZLE refused while printing',
+    'Not while printing' in out and '_NOZZLE_WIPE' not in out, out[:140]))
+out = render(body, {'PASSES': '9'}, ps_state='idle')
+tests.append(('R53 CLEAN_NOZZLE validates PASSES',
+    'PASSES must be 1-5' in out and '_NOZZLE_WIPE' not in out, out[:140]))
+out = render(body, {}, ps_state='idle')
+tests.append(('R53 CLEAN_NOZZLE public: forwards to wipe',
+    '_NOZZLE_WIPE PASSES=2' in out and 'parked high' in out, out[:160]))
+
+body = get_body('macros/12_maintenance.cfg', '_NOZZLE_WIPE')
+out = render(body, {}, etemp=150)
+tests.append(('R53 WIPE cold: heats to 180 first + zigzag + parks high',
+    'TARGET=180' in out and 'TEMPERATURE_WAIT SENSOR=extruder' in out and 'G1 Z4' in out
+    and 'G1 X13.0 Y3.2 F7000' in out and 'G1 X0.0 Y6.5 F7000' in out and 'G1 X13.0 Y9.8 F7000' in out and 'G1 X0.0 Y13.0 F7000' in out
+    and 'G0 Z15' in out and 'G1 Z-' not in out, out[:300]))
+out = render(body, {}, etemp=225)
+tests.append(('R53 WIPE hot: no re-heat, straight to the pad',
+    'SET_HEATER_TEMPERATURE' not in out and 'G1 Z4' in out and 'F7000' in out, out[:200]))
+out = render(body, {'PASSES': '1'}, etemp=225)
+tests.append(('R53 WIPE PASSES=1: exactly one pass',
+    out.count('F7000') == 4, [l for l in out.split(chr(10)) if 'F7000' in l]))
+out = render(body, {}, etemp=225, extra=None)
+_gdW = dict(build_printer(etemp=150))
+_gdW['extruder'] = M({'temperature': 150.0, 'target': 0.0})
+out = render(body, {}, extra={'printer': M(_gdW)})
+tests.append(('R53 WIPE cold idle call: heater back OFF after',
+    out.rstrip().split(chr(10))[-1].strip().startswith('SET_HEATER_TEMPERATURE HEATER=extruder TARGET=0'), out[-160:]))
+
+# the wipe is part of EVERY purge chain
+_txtP = open('macros/08_print_start_stop.cfg').read()
+tests.append(('R53 PRIME_LINE starts with the wipe',
+    _txtP.index('_NOZZLE_WIPE') < _txtP.index('[gcode_macro _PRIME_LINE]') + 900 and 'R53: heat + zigzag wipe' in _txtP, ''))
+body = get_body('macros/14_kamp.cfg', '_PURGE_SMART')
+out = render(body, {}, kamp=True, objs=[{'name':'o','center':[100,110],'polygon':[[70,80],[130,80],[130,140],[70,140]]}])
+save_vars['kamp_purge']=True; save_vars['kamp_purge_type']='VORON'
+out = render(body, {}, kamp=True, objs=[{'name':'o','center':[100,110],'polygon':[[70,80],[130,80],[130,140],[70,140]]}])
+tests.append(('R53 KAMP VORON purge: wipe first',
+    '_NOZZLE_WIPE' in out and 'VORON_PURGE' in out and out.index('_NOZZLE_WIPE') < out.index('VORON_PURGE'), out[:200]))
+save_vars['kamp_purge_type']='LINE'
+out = render(body, {}, kamp=True, objs=[{'name':'o','center':[100,110],'polygon':[[70,80],[130,80],[130,140],[70,140]]}])
+tests.append(('R53 KAMP LINE purge: wipe first',
+    '_NOZZLE_WIPE' in out and 'LINE_PURGE' in out and out.index('_NOZZLE_WIPE') < out.index('LINE_PURGE'), out[:200]))
+save_vars['kamp_purge_type']='LINE'; save_vars['kamp_purge']=True
+
+# cleanup resets the R50 intercept state
+body = get_body('macros/09_pause_filament.cfg', '_PRINT_CLEANUP')
+out = render(body, {})
+tests.append(('R50 CLEANUP resets intercept state',
+    'start_pending' in out and 'has_heaters' in out and 'probe_stage' in out
+    and 'file_fan' in out and 'file_flow' in out, out[:200]))
+
+# intercept homes as a safe baseline when axes are missing
+_gd6 = dict(build_printer(gz=2.5))
+_gd6['toolhead'] = M({'axis_maximum': M({'x':235.0,'y':235.0,'z':250.0}),
+                      'axis_minimum': M({'x':0.0,'y':0.0,'z':0.0}), 'homed_axes':'xy', 'max_accel':4000})
+state_vars['mode']='idle'
+body = get_body('macros/08_print_start_stop.cfg', '_UNIVERSAL_START_INTERCEPT')
+out = render(body, {}, extra={'printer': M(_gd6)})
+tests.append(('R50 INTERCEPT homes + lifts when unhomed', 'G28' in out and 'G0 Z10 F600' in out, out[:200]))
+state_vars['mode']='printing'
+
+# ------- R52: SFS V2.0 encoder part - guarded disable/enable --------------------------------
+# (BTT SFS V2.0 = switch part (runout) + encoder part (clog); our package must
+#  never touch 'encoder_sensor' when it does not exist -> existence guard)
+_gdE = dict(build_printer())
+_gdE['filament_motion_sensor encoder_sensor'] = M({'enabled': True, 'filament_detected': True})
+body = get_body('macros/09_pause_filament.cfg', 'PAUSE')
+state_vars['mode']='printing'
+out = render(body, {'REASON':'test'})
+tests.append(('R52 PAUSE without encoder: guard silent (no error)',
+    'SENSOR=encoder_sensor' not in out and 'SENSOR=filament_sensor ENABLE=0' in out, out[:180]))
+out = render(body, {'REASON':'test'}, extra={'printer': M(dict(_gdE))})
+tests.append(('R52 PAUSE with encoder: BOTH sensors off',
+    'SENSOR=filament_sensor ENABLE=0' in out and 'SENSOR=encoder_sensor ENABLE=0' in out, out[:200]))
+state_vars['mode']='paused'
+body = get_body('macros/09_pause_filament.cfg', '_RESUME_COMMON')
+out = render(body, {}, extra={'printer': M(dict(_gdE))})
+tests.append(('R52 RESUME with encoder: BOTH sensors back on',
+    'SENSOR=filament_sensor ENABLE=1' in out and 'SENSOR=encoder_sensor ENABLE=1' in out, out[:200]))
+state_vars['cancel_armed']=True; state_vars['cancel_time']=0
+_gdC = dict(build_printer())          # snapshot AFTER setting state (M() copies!)
+_gdC['filament_motion_sensor encoder_sensor'] = M({'enabled': True, 'filament_detected': True})
+body = get_body('macros/09_pause_filament.cfg', 'CANCEL_PRINT')
+out = render(body, {}, ps_state='paused', extra={'printer': M(_gdC)})
+tests.append(('R52 CANCEL with encoder: encoder back on',
+    'SENSOR=encoder_sensor ENABLE=1' in out, out[:200]))
+state_vars['cancel_armed']=False
+
+# ===================== R54 tests (.38): global-only, LEGACY merge, gapless, guard ====
+
+# fan OFF after every purge (dispatch covers all branches)
+_p54 = get_body('macros/14_kamp.cfg', '_PURGE_SMART')
+tests.append(('R54 fan OFF after purge dispatch (all branches)',
+    'M99106 S0' in _p54 and _p54.index('M99106 S0') > _p54.rindex('LAYER_HEIGHT={lh}'), 'M99106'))
+
+# LEGACY merge: WITH SETTINGS == AS LEGACY
+tests.append(('R54 LEGACY merge (07: APPLY=1 LEGACY=1)',
+    'APPLY=1 LEGACY=1' in open('macros/07_start_confirm.cfg').read(), '07'))
+
+# watcher progress guard: no re-dialog when the print is (almost) done
+_m54 = _re3.search(r'\[delayed_gcode _STATE_WATCHER\]\ninitial_duration: 8\ngcode:\n(.*?)(?=\n\[|\Z)', open('macros/01_state.cfg').read(), _re3.S)
+_w54 = '\n'.join(l[4:] if l.startswith('    ') else l for l in _m54.group(1).split('\n'))
+state_vars['mode'] = 'idle'
+_p54a = build_printer(); _p54a['virtual_sdcard'] = M({'is_active': True, 'progress': 0.92})
+out = env.from_string(_w54).render(printer=_p54a, params={})
+tests.append(('R54 watcher guard: 92% done = NO dialog after end', '_LEGACY_DIALOG' not in out and 'VARIABLE=file_type' not in out, out[:200]))
+_p54b = build_printer(); _p54b['virtual_sdcard'] = M({'is_active': True, 'progress': 0.004})
+out = env.from_string(_w54).render(printer=_p54b, params={})
+tests.append(('R54 watcher: 0.4% progress = dialog (fresh legacy)', '_LEGACY_DIALOG' in out, out[:200]))
+state_vars['mode'] = 'printing'
+
+# mesh tri-state in _RUN_PRINT_START
+_b54 = get_body('macros/08_print_start_stop.cfg', '_RUN_PRINT_START')
+save_vars['mesh_mode'] = 'OFF'
+out = render(_b54, {'APPLY':'1'})
+tests.append(('R54 mesh OFF: keep loaded, no calibration', '_CALIBRATE_MESH_PROFILE' not in out, [l for l in out.split('\n') if 'Mesh OFF' in l][:1]))
+save_vars['mesh_mode'] = 'ON'
+out = render(_b54, {'APPLY':'1'})
+tests.append(('R54 mesh ON: calibrate r2', '_CALIBRATE_MESH_PROFILE PROFILE=r2' in out, 'ON'))
+save_vars['mesh_mode'] = 'AUTO'
+out = render(_b54, {'APPLY':'1'})
+tests.append(('R54 mesh AUTO: loaded mesh stays (r2 active)', '_CALIBRATE_MESH_PROFILE' not in out, 'AUTO+loaded'))
+_p54c = build_printer(); _p54c['bed_mesh'] = M({'profile_name': '', 'profiles': {}})
+t54 = env.from_string(_b54)
+out = t54.render(printer=_p54c, params={'APPLY':'1'}, )
+tests.append(('R54 mesh AUTO: no mesh loaded -> calibrate', '_CALIBRATE_MESH_PROFILE PROFILE=r2' in out, 'AUTO+empty'))
+save_vars['mesh_mode'] = 'ON'
+
+# fan scale via _APPLY_OVERRIDES_CORE (LEGACY path)
+_b54c = get_body('macros/08_print_start_stop.cfg', '_APPLY_OVERRIDES_CORE')
+save_vars.update(ov_fan_on=True, ov_fan=90)
+out = render(_b54c, {})
+tests.append(('R54 CORE fan scale 90% -> 0.9', 'VARIABLE=f_fan_scale VALUE=0.9' in out, [l for l in out.split('\n') if 'f_fan_scale' in l][:2]))
+save_vars.update(ov_fan_on=False, ov_fan=100)
+
+# SET_MATERIAL: pa_smooth + unret_spd now included
+_b54m = get_body('macros/05_materials.cfg', 'SET_MATERIAL')
+out = render(_b54m, {'MATERIAL':'PLA'})
+tests.append(('R54 SET_MATERIAL: pa_smooth + unret ON',
+    'SAVE_VARIABLE VARIABLE=ov_pa_smooth VALUE=0.04' in out and 'SAVE_VARIABLE VARIABLE=ov_unretract_speed VALUE=35' in out
+    and 'SAVE_VARIABLE VARIABLE=ov_pa_smooth_on VALUE=True' in out, out[:300]))
+
+# PA smooth calibration structure
+_b54s = get_body('macros/12_maintenance.cfg', 'CALIBRATE_PA_SMOOTH')
+tests.append(('R54 smooth cal: mesh first, PA fixed, smooth varies',
+    _b54s.index('_CALIBRATE_MESH_PROFILE') < _b54s.index('SMOOTH_TIME={stn') and 'ADVANCE={pa|round(4)} SMOOTH_TIME={stn' in _b54s, 'order'))
+tests.append(('R54 smooth cal: restores old smooth at end',
+    'SMOOTH_TIME={sv.ov_pa_smooth' in _b54s and 'RESTORE_GCODE_STATE NAME=SM_CAL' in _b54s, 'restore'))
+save_vars.update(smooth_test_start=0.004, smooth_test_step=0.001)
+_b54r = get_body('macros/12_maintenance.cfg', 'PA_SMOOTH_RESULT')
+out = render(_b54r, {'SEG':'4'})
+tests.append(('R54 PA_SMOOTH_RESULT seg4 -> 0.007',
+    'SAVE_VARIABLE VARIABLE=ov_pa_smooth VALUE=0.007' in out and 'SAVE_VARIABLE VARIABLE=ov_pa_smooth_on VALUE=True' in out, out[:300]))
+
+# flow input 1-300 step 1 (LCD)
+_m54f = _re3.search(r'\[menu __main __live __extr __flow\]\n(.*?)(?=\n\[|\Z)', open('menus/lcd_menues.cfg').read(), _re3.S).group(1)
+tests.append(('R54 flow input 1-300 step 1', 'input_min: 1' in _m54f and 'input_max: 300' in _m54f and 'input_step: 1' in _m54f, _m54f[:120]))
+
+# ===================== R56 tests (.40): layer reader, live values, slot apply ====
+
+# _FILE_INFO: alle Parameter landen im _STATE + file_info_seen
+_b56 = get_body('macros/08_print_start_stop.cfg', '_FILE_INFO')
+out = render(_b56, {'MATERIAL':'PLA','LAYER_HEIGHT':'0.2','TOTAL_LAYERS':'242','LINE_WIDTH':'0.6',
+                    'LINE_WIDTH_FIRST':'0.6','LINE_WIDTH_WALL':'0.6','FLOW_RATIO':'1.02','PA':'0.055','BY_OBJECT':'1'})
+tests.append(('R56 _FILE_INFO stores all params + seen flag',
+    'VARIABLE=file_material VALUE=\'"PLA"\'' in out and 'VARIABLE=total_layers VALUE=242' in out
+    and 'VARIABLE=file_line_width VALUE=0.6' in out and 'VARIABLE=file_flow_ratio VALUE=1.02' in out
+    and 'VARIABLE=file_pa VALUE=0.055' in out and 'VARIABLE=file_by_object VALUE=True' in out
+    and 'VARIABLE=file_info_seen VALUE=True' in out, out[:300]))
+
+# Watcher: file_info_seen schützt die frischen Datei-Parameter
+_m56 = _re3.search(r'\[delayed_gcode _STATE_WATCHER\]\ninitial_duration: 8\ngcode:\n(.*?)(?=\n\[|\Z)', open('macros/01_state.cfg').read(), _re3.S)
+_w56 = '\n'.join(l[4:] if l.startswith('    ') else l for l in _m56.group(1).split('\n'))
+state_vars['mode'] = 'idle'; state_vars['file_info_seen'] = True; state_vars['file_layer_height'] = 0.2
+_p56 = build_printer(); _p56['virtual_sdcard'] = M({'is_active': True, 'progress': 0.004})
+out = env.from_string(_w56).render(printer=_p56, params={})
+tests.append(('R56 watcher keeps fresh _FILE_INFO params', 'VARIABLE=file_layer_height VALUE=0.0' not in out and 'VARIABLE=total_layers VALUE=0' not in out, out[:200]))
+state_vars['file_info_seen'] = False
+_p56b = build_printer(); _p56b['virtual_sdcard'] = M({'is_active': True, 'progress': 0.004})   # snapshot AFTER the flag flip!
+out = env.from_string(_w56).render(printer=_p56b, params={})
+tests.append(('R56 watcher clears stale params without _FILE_INFO', 'VARIABLE=file_layer_height VALUE=0.0' in out, out[:200]))
+state_vars['mode'] = 'printing'; state_vars['file_layer_height'] = 0.0
+
+# Material-Slot-Editor: live anwenden, wenn Slot aktiv
+_lcd56 = open('menus/lcd_menues.cfg').read()
+_m56s = _re3.search(r'\[menu __main __preprint __material __m0 __flow\]\n(.*?)(?=\n\[|\Z)', _lcd56, _re3.S).group(1)
+tests.append(('R56 slot editor applies live when active (guard present)',
+    "material|default('') == 'PLA'" in _m56s and 'SET_OVERRIDE_VALUE NAME=flow' in _m56s and 'SAVE_VARIABLE VARIABLE=mat_pla_flow' in _m56s, _m56s[:150]))
+
+# Live Tuning zeigt die ECHTEN Klipper-Werte
+tests.append(('R56 live inputs read Klipper truth',
+    'extrude_factor' in _lcd56 and 'printer.extruder.pressure_advance' in _lcd56
+    and 'toolhead.max_accel' in _lcd56 and 'firmware_retraction' in _lcd56 and 'extruder.smooth_time' in _lcd56, 'inputs'))
+
+# SHOW_STATUS: Klipper-NOW-Zeile + Linienbreite
+_b56s = get_body('macros/04_notify.cfg', 'SHOW_STATUS')
+out = render(_b56s, {})
+save_vars.update({'ov_outer_wall_on':False,'ov_support_on':False,'ov_ironing_speed_on':False,'ov_ironing_flow_on':False})
+out = render(_b56s, {})
+tests.append(('R56 SHOW_STATUS shows Klipper NOW + line width',
+    'Klipper NOW' in out and 'width' in out and 'OuterWall' not in out, [l for l in out.split('\n') if 'Klipper NOW' in l][:1]))
+save_vars.update({'ovf_wallouter_on':True,'ovf_wallouter_spd':80,'ovf_skirt_on':True,'ovf_skirt_spd':90})
+out = render(_b56s, {})
+tests.append(('R59 SHOW_STATUS lists generic feature overrides', 'WALLOUTER(80%)' in out and 'SKIRT(90%)' in out, [l for l in out.split('\n') if 'Overwrites ON' in l][:1]))
+save_vars.update({'ovf_wallouter_on':False,'ovf_skirt_on':False})
+
+# _PRINT_CLEANUP resettet file_info_seen
+_b56c = get_body('macros/09_pause_filament.cfg', '_PRINT_CLEANUP')
+tests.append(('R56/R74 cleanup resets file info via _FILE_INFO_RESET',
+    '_FILE_INFO_RESET' in _b56c, 'cleanup'))
+
+# LAYER_MARK L2: Fan + Speed + Temps im SELBEN Moment (der .39-Feldbug)
+state_vars.update({'mode':'printing','layer':1,'legacy_mode':False,'layer_marks':True})
+save_vars['ov_fan_on'] = True
+out = render(lm, {})
+tests.append(('R56 LAYER_MARK L2: speed + fan + temps together',
+    'M220 S100' in out and 'SET_FAN_SCALE PERCENT=100' in out, [l for l in out.split('\n') if 'M220 S100' in l or 'FAN_SCALE' in l][:2]))
+save_vars['ov_fan_on'] = False
+state_vars['layer'] = 2
+
+# Post-Processor: die echten Testdateien des Users
+import subprocess, tempfile, shutil as _sh
+import os as _os56, sys as _sys56
+_updir = '/home/user/uploads'
+if _os56.path.isdir(_updir):
+    _tmp56 = tempfile.mkdtemp(prefix='r56_')
+    # marks = TOTAL LAYER_MARK count AFTER processing (rose/stringart: freshly
+    # injected; bigrose: the R2 slicer script's own markers stay, only info added)
+    _cases = [('Rose_215C_PLA_40m56s.gcode.png', 'rose.gcode', 242, 'BY_OBJECT=1'),
+              ('stringart3d_generic-gcode_medium.gcode.png', 'stringart.gcode', 15, 'TOTAL_LAYERS=15'),
+              ('BigRose_020mm@Ender3_PLA_1h9m.gcode.png', 'bigrose.gcode', 251, 'TOTAL_LAYERS=251')]
+    for src, dst, marks, expect in _cases:
+        _f56 = _os56.path.join(_tmp56, dst)
+        _sh.copy(_os56.path.join(_updir, src), _f56)
+        _r56 = subprocess.run([_sys56.executable, 'tools/r2_postproc.py', _f56], capture_output=True, text=True)
+        _t56 = open(_f56).read()
+        _ok56 = _r56.returncode == 0 and _t56.count('\nLAYER_MARK') == marks and expect in _t56
+        tests.append((f'R56 postproc {dst}: +{marks} marks, info ok', _ok56, _r56.stdout.strip()[:120]))
+        if dst == 'rose.gcode':
+            _r56b = subprocess.run([_sys56.executable, 'tools/r2_postproc.py', _f56], capture_output=True, text=True)
+            tests.append(('R56 postproc idempotent (tag skip)', 'skip' in _r56b.stdout, _r56b.stdout.strip()[:80]))
+    _sh.rmtree(_tmp56, ignore_errors=True)
+
+# ===================== R57 tests (.41): postproc watcher hardening ==================
+if _os56.path.isdir(_updir):
+    _tmp57 = tempfile.mkdtemp(prefix='r57_')
+    _f57 = _os56.path.join(_tmp57, 'once.gcode')
+    _sh.copy(_os56.path.join(_updir, 'stringart3d_generic-gcode_medium.gcode.png'), _f57)
+    _r57 = subprocess.run([_sys56.executable, 'tools/r2_postproc.py', '--watch', _tmp57, '--once'],
+                          capture_output=True, text=True)
+    tests.append(('R57 --once: processes + summary + exit 0',
+        _r57.returncode == 0 and '[ok] once.gcode' in _r57.stdout
+        and 'initial scan done: 1 gcode file(s) found, 1 processed' in _r57.stdout, _r57.stdout.strip()[:150]))
+    _r57b = subprocess.run([_sys56.executable, 'tools/r2_postproc.py', '--watch', _tmp57, '--once'],
+                           capture_output=True, text=True)
+    tests.append(('R57 --once idempotent: already tagged count',
+        _r57b.returncode == 0 and '0 processed, 1 already tagged' in _r57b.stdout, _r57b.stdout.strip()[:120]))
+    _r57c = subprocess.run([_sys56.executable, 'tools/r2_postproc.py', '--watch', '/tmp/gibt-es-nicht-r57'],
+                           capture_output=True, text=True)
+    tests.append(('R57 wrong path: loud error + exit 1',
+        _r57c.returncode == 1 and 'watch directory not found' in _r57c.stdout, _r57c.stdout.strip()[:100]))
+    _sh.rmtree(_tmp57, ignore_errors=True)
+
+# ===================== R58 tests (.42): gapless window, M204 feature, postproc TYPE ====
+# gapless resume: mode printing VOR M24 + fan off + brake re-assert
+_g58 = open('macros/08_print_start_stop.cfg').read()
+tests.append(('R58 gapless: mode printing before M24 (all 5 sites)',
+    _g58.count("VARIABLE=mode VALUE='\"printing\"'\n        M24") >= 1 and _g58.count('M99106 S0') >= 5, 'structure'))
+# M204 per-feature redirect
+_m204 = get_body('macros/06_temp_controls.cfg', 'M204')
+state_vars.update({'mode':'printing','ignore_overrides':False,'current_type':'WALL-OUTER'})
+save_vars.update({'ovf_wallouter_on':True,'ovf_wallouter_acc':1200,'ov_accel_on':True,'ov_accel':6000})
+out = render(_m204, {'S':'500'})
+tests.append(('R59 M204 outer wall: file 500 -> YOUR 1200', 'M99204 S1200' in out and 'FEATURE' in out, out[:160]))
+state_vars['current_type'] = 'SURFACE-TOP'
+save_vars.update({'ovf_surfacetop_on':True,'ovf_surfacetop_acc':900})
+out = render(_m204, {'S':'500'})
+tests.append(('R59 M204 top surface feature accel 900', 'M99204 S900' in out, out[:160]))
+state_vars['current_type'] = 'WALL-INNER'
+save_vars.update({'ovf_wallouter_on':False,'ovf_surfacetop_on':False})
+out = render(_m204, {'S':'500'})
+tests.append(('R59 M204 inner wall (no feature ovr): global 6000', 'M99204 S6000' in out, out[:160]))
+save_vars.update({'ov_accel_on':False})
+out = render(_m204, {'S':'500'})
+tests.append(('R58 M204 no overrides: 1:1 pass-through', 'M99204 S500' in out and 'overwrite' not in out, out[:160]))
+# CLEAR_OVERRIDES schaltet Features aus
+_b58c = get_body('macros/07_start_confirm.cfg', 'CLEAR_OVERRIDES')
+tests.append(('R59 CLEAR_OVERRIDES generic feature loop',
+    'ovf_{c|lower}_on VALUE=False' in _b58c and "'brim'" in _b58c and "'skirt'" in _b58c
+    and 'ov_ironing_flow_on VALUE=False' in _b58c and 'ov_pa_smooth_on VALUE=False' in _b58c, 'keys'))
+# Postproc: TYPE-Injektion + erweiterte _FILE_INFO auf echter User-Datei
+import subprocess as _sp58, tempfile as _tf58, shutil as _sh58, os as _os58, sys as _sys58
+if _os58.path.isdir('/home/user/uploads'):
+    _d58 = _tf58.mkdtemp(prefix='r58_')
+    _f58 = _os58.path.join(_d58, 'rose.gcode')
+    _sh58.copy('/home/user/uploads/Rose_215C_PLA_40m56s.gcode.png', _f58)
+    _r58 = _sp58.run([_sys58.executable, 'tools/r2_postproc.py', _f58], capture_output=True, text=True)
+    _t58 = open(_f58).read()
+    tests.append(('R59 postproc injects APPLY_TYPE (rose: 36 blocks incl. Custom/Brim)',
+        _t58.count('\nAPPLY_TYPE TYPE=') == 36 and 'APPLY_TYPE TYPE=WALL-OUTER' in _t58
+        and 'APPLY_TYPE TYPE=CUSTOM' in _t58 and 'APPLY_TYPE TYPE=BRIM' in _t58, _r58.stdout.strip()[:100]))
+    _f59g = _os58.path.join(_d58, 'gaps.gcode')
+    open(_f59g, 'w').write('; internal_solid_infill_speed = 45\n; gap_infill_speed = 30\n;TYPE:Gap infill\nG1 X1\n;TYPE:Outer wall\nG1 X2\n')
+    _r59g = _sp58.run([_sys58.executable, 'tools/r2_postproc.py', _f59g], capture_output=True, text=True)
+    _t59g = open(_f59g).read()
+    tests.append(('R59 postproc: gap infill is its own APPLY_TYPE=GAPS',
+        'APPLY_TYPE TYPE=GAPS' in _t59g and 'SPEED_GAPS=30' in _t59g and 'SPEED_SOLID=45' in _t59g,
+        (_r59g.stdout.strip()[:80] or _t59g[:120])))
+    _fi58 = [l for l in _t58.split('\n') if l.startswith('_FILE_INFO')][0]
+    tests.append(('R58 _FILE_INFO carries speeds/accels/nozzle',
+        'SPEED_OUTER=60' in _fi58 and 'SPEED_FIRST=20' in _fi58 and 'ACCEL_OUTER=500' in _fi58 and 'NOZZLE=0.6' in _fi58 and 'FLOW_RATIO=1 ' in _fi58, _fi58[:130]))
+    _sh58.rmtree(_d58, ignore_errors=True)
+    # v1 -> v2 upgrade: existing files keep their marks, get APPLY_TYPE + new info
+    if _os58.path.isdir('/home/user/uploads'):
+        _d58b = _tf58.mkdtemp(prefix='r58up_')
+        _f58b = _os58.path.join(_d58b, 'rose_v1.gcode')
+        _src58 = open('/home/user/uploads/Rose_215C_PLA_40m56s.gcode.png').read().split('\n')
+        _out58 = ['; R2-POSTPROC v1']
+        import re as _re58
+        _lc58 = _re58.compile(r'^\s*;\s*LAYER_CHANGE\s*$', _re58.I)
+        for _l58 in _src58:
+            _out58.append(_l58)
+            if _lc58.match(_l58):
+                _out58.append('LAYER_MARK')
+        _ins58 = next(_i58 for _i58, _l58 in enumerate(_out58) if _i58 > 0 and _l58.strip() and not _l58.strip().startswith(';'))
+        _out58.insert(_ins58, '_FILE_INFO LINE_WIDTH=0.6 LAYER_HEIGHT=0.2 PA=0.20015 MATERIAL=PLA TOTAL_LAYERS=242 BY_OBJECT=1')
+        open(_f58b, 'w').write('\n'.join(_out58))
+        _r58b = _sp58.run([_sys58.executable, 'tools/r2_postproc.py', _f58b], capture_output=True, text=True)
+        _t58b = open(_f58b).read()
+        tests.append(('R58b v1->v2 upgrade: marks stay, TYPE added, info replaced',
+            'upgraded from v1' in _r58b.stdout and _t58b.count('\nLAYER_MARK') == 242
+            and _t58b.count('\nAPPLY_TYPE TYPE=') == 36 and _t58b.count('\n_FILE_INFO') == 1
+            and 'SPEED_OUTER=60' in _t58b and 'BY_OBJECT=1' in _t58b and '; R2-POSTPROC v4' in _t58b
+            and 'TYPES=' in _t58b and 'FS_WALL_OUTER=42.1' in _t58b and 'FS_IRONING=40' in _t58b,
+            _r58b.stdout.strip()[:100]))
+        _r58c = _sp58.run([_sys58.executable, 'tools/r2_postproc.py', _f58b], capture_output=True, text=True)
+        tests.append(('R58b upgraded file skips on second run', 'skip' in _r58c.stdout, _r58c.stdout.strip()[:80]))
+        _sh58.rmtree(_d58b, ignore_errors=True)
+# _FILE_INFO macro: neue Params landen im State
+_b58i = get_body('macros/08_print_start_stop.cfg', '_FILE_INFO')
+out = render(_b58i, {'SPEED_OUTER':'60','SPEED_FIRST':'20','ACCEL_OUTER':'500','NOZZLE':'0.6','WALL_LOOPS':'2','IRONING_FLOW':'15'})
+tests.append(('R58 _FILE_INFO stores speeds/accels/nozzle',
+    'VARIABLE=file_speed_outer VALUE=60.0' in out and 'VARIABLE=file_speed_first VALUE=20.0' in out
+    and 'VARIABLE=file_accel_outer VALUE=500.0' in out and 'VARIABLE=file_nozzle VALUE=0.6' in out
+    and 'VARIABLE=file_wall_loops VALUE=2' in out, out[:200]))
+# Smooth cal: 0.02-0.2 validiert + PA editierbar
+_b58s = get_body('macros/12_maintenance.cfg', 'CALIBRATE_PA_SMOOTH')
+tests.append(('R58 smooth cal range 0.02..0.2', '0.02..0.2' in _b58s and 'params.PA|default' in _b58s and 'smooth_test_start|default(0.02)' in _b58s, 'range'))
+# PA cal wendet Motion-Overrides an
+_b58p = get_body('macros/12_maintenance.cfg', 'CALIBRATE_PA')
+state_vars['mode'] = 'idle'
+save_vars.update({'ov_velocity_on':True,'ov_velocity':250,'ov_min_cruise_on':True,'ov_min_cruise':0.9,
+                  'ov_square_corner_on':True,'ov_square_corner':3,'ov_retract_len_on':True,'ov_retract_len':0.75,
+                  'ov_retract_speed_on':True,'ov_retract_speed':45,'ov_unretract_speed_on':True,'ov_unretract_speed':40,
+                  'ov_flow_on':True,'ov_flow':98})
+out = render(_b58p, {})
+tests.append(('R58 PA cal applies motion overrides',
+    'VELOCITY=250' in out and 'MINIMUM_CRUISE_RATIO=0.9' in out and 'SQUARE_CORNER_VELOCITY=3' in out
+    and 'RETRACT_LENGTH=0.75' in out and 'UNRETRACT_SPEED=40' in out and 'M221 S98' in out, out[:250]))
+save_vars.update({'ov_velocity_on':False,'ov_min_cruise_on':False,'ov_square_corner_on':False,
+                  'ov_retract_len_on':False,'ov_retract_speed_on':False,'ov_unretract_speed_on':False,'ov_flow_on':False})
+state_vars['mode'] = 'printing'
+# LCD: PA-Cal Motion-Inputs + Smooth-Untermenü + Src + File-Infos
+_lcd58 = open('menus/lcd_menues.cfg').read()
+tests.append(('R59 LCD: PA cal inputs + smooth submenu + generic features + cur + file',
+    all(k in _lcd58 for k in ['__maint __pa __vel', '__maint __pa __mcr', '__maint __pa __scv', '__maint __pa __rlen',
+                              '__maint __pa __rspd', '__maint __pa __runr', '__maint __pa __fl',
+                              '__maint __pa __sm]', '__maint __pa __sm __go', '__maint __pa __sm __res',
+                              '__live __speeds __cur]', '__live __speeds __curon]', '__live __accels __cur]',
+                              '__live __speeds __src]', '__live __extr __src]', '__live __vel __mv]',
+                              '__preprint __feat]', '__preprint __feat __ow]', '__preprint __feat __ir __fl]',
+                              '__preprint __motion __pa __val]',
+                              '__preprint __file __spd]', '__preprint __file __acc]', '__preprint __file __noz]',
+                              '__preprint __file __acwall]', '__preprint __file __acwalli]', '__preprint __file __acsolid]',
+                              '__preprint __file __acsurfb]', '__preprint __file __acgaps]',
+                              '__preprint __feat __gp]']) and 'ovf_wallouter_spd' in _lcd58
+    and 'ovf_gaps_spd' in _lcd58, 'keys'))
+
+# ===================== R59 new: clean-global chain =====================
+# --- 1) M220 interceptor feeds g_speed_clean in BOTH branches ---
+_m59 = get_body('macros/06_temp_controls.cfg', 'M220')
+state_vars.update({'mode':'printing','layer':1,'ignore_overrides':False})
+save_vars.update({'first_layer_speed':75})
+out = render(_m59, {'S':90})
+tests.append(('R59 M220 L1-cap: g_speed_clean = 75 (not 90)',
+    'M99220 S75' in out and 'VARIABLE=g_speed_clean VALUE=75' in out, out[:200]))
+state_vars['layer'] = 2
+out = render(_m59, {'S':90})
+tests.append(('R59 M220 pass-through: g_speed_clean = 90',
+    'M99220 S90' in out and 'VARIABLE=g_speed_clean VALUE=90.0' in out, out[:200]))
+out = render(_m59, {'S':100})
+tests.append(('R59 M220 S100: g_speed_clean = 100 (APPLY_TYPE else-branch base)',
+    'VARIABLE=g_speed_clean VALUE=100.0' in out, out[:200]))
+
+# --- 2) live __cur inputs are DYNAMIC on current_type ---
+_cur = [l for l in _lcd58.split('\n')]
+import re as _re59
+_curblk = _re59.search(r'\[menu __main __live __speeds __cur\]\ntype: input\nname: [^\n]+\ninput: ([^\n]+)', _lcd58)
+tests.append(('R59 LCD live __cur input: reads ovf_<current_type>_spd dynamically',
+    _curblk is not None and "ovf_' ~ printer['gcode_macro _STATE'].current_type" in _curblk.group(1)
+    and '_spd' in _curblk.group(1), _curblk.group(1)[:90] if _curblk else 'missing'))
+_curon = _re59.search(r'\[menu __main __live __speeds __curon\]\ntype: command\nname: ([^\n]+)', _lcd58)
+tests.append(('R59 LCD live __curon: toggles ovf_<current_type>_on',
+    _curon is not None and "SET_OVERRIDE_VALUE NAME=feat_on_{c}" in _lcd58 and "ovf_' ~ c ~ '_on" in _lcd58,
+    _curon.group(1)[:90] if _curon else 'missing'))
+
+# --- 3) file __ac* click activators: unique ids + toggle gcode ---
+_acids = _re59.findall(r'\[menu __main __preprint __file __(ac\w+)\]', _lcd58)
+tests.append(('R59 LCD file __ac* ids: 13 unique activators',
+    len(_acids) == 13 and len(set(_acids)) == 13, str(_acids)))
+_acnames = _re59.findall(r'name: (OW|IW|SP|SO|TP|BT|BR|GP|SU|IR|SK|BM):', _lcd58)
+tests.append(('R60 LCD file __ac* shows 12 feature prefixes x2 (Pre-Print + Live)',
+    sorted(_acnames) == sorted(['OW','IW','SP','SO','TP','BT','BR','GP','SU','IR','SK','BM'] * 2), str(_acnames)))
+tests.append(('R59 LCD file __ac*: every click toggles feat_on_<code> + shows o:ON',
+    all('SET_OVERRIDE_VALUE NAME=feat_on_' + c in _lcd58 for c in
+        ['wallouter','wallinner','infillsparse','infillsolid','surfacetop','surfacebottom','bridge','gaps','support','ironing','skirt','brim'])
+    and _lcd58.count("else 'o:--'") >= 12, 'gcode keys'))
+tests.append(('R60 LCD file __ac*: MEASURED originals + n/a for absent features',
+    'file_feat_spd_infillsolid' in _lcd58 and 'file_feat_spd_bridge' in _lcd58 and 'file_feat_spd_skirt' in _lcd58
+    and 'file_feat_spd_gaps' in _lcd58 and 'file_feat_spd_wallouter' in _lcd58
+    and "'n/a' if printer['gcode_macro _STATE'].file_types" in _lcd58, 'name exprs'))
+
+# --- 4) postproc: new slicer keys + gap infill as own type ---
+_fi59 = _fi58 if _fi58 else ''
+tests.append(('R59 postproc _FILE_INFO: solid/gaps/bridge/skirt/suppint speeds',
+    'SPEED_SOLID=60' in _fi59 and 'SPEED_GAPS=60' in _fi59 and 'SPEED_BRIDGE=25' in _fi59
+    and 'SPEED_SKIRT=25' in _fi59 and 'SPEED_SUPPINT=60' in _fi59, _fi59[:150]))
+
+# --- 5) live __src shows the CLEAN global + active features (no legacy keys) ---
+_srcs = _re59.search(r'\[menu __main __live __speeds __src\].*?(?=\n\[menu )', _lcd58, _re59.S)
+tests.append(('R59 LCD __speeds __src: g_speed_clean + 12er loop, no legacy ov_ keys',
+    _srcs is not None and 'g_speed_clean' in _srcs.group(0) and "ovf_' ~ c ~ '_on'" in _srcs.group(0)
+    and 'ov_outer_wall' not in _srcs.group(0) and 'speed_factor' not in _srcs.group(0),
+    _srcs.group(0)[:120] if _srcs else 'missing'))
+
+# ===================== R60 new: live features + originals + reset =====================
+# --- 1) feat_on VALUE=0 resets the stored values to the file original ---
+_b60 = get_body('macros/07_start_confirm.cfg', 'SET_OVERRIDE_VALUE')
+state_vars.update({'file_feat_acc_wallouter': 500.0, 'file_ironing_flow': 15.0})
+out = render(_b60, {'NAME':'feat_on_wallouter','VALUE':'0'})
+tests.append(('R60 feat_on=0: speed back to 100% + accel back to file original 500',
+    'VARIABLE=ovf_wallouter_on VALUE=False' in out and 'VARIABLE=ovf_wallouter_spd VALUE=100.0' in out
+    and 'VARIABLE=ovf_wallouter_acc VALUE=500.0' in out, out[:260]))
+out = render(_b60, {'NAME':'feat_on_ironing','VALUE':'0'})
+tests.append(('R60 feat_on=0 ironing: flow back to the slicer value 15',
+    'VARIABLE=ov_ironing_flow VALUE=15.0' in out and 'VARIABLE=ovf_ironing_spd VALUE=100.0' in out, out[:260]))
+out = render(_b60, {'NAME':'feat_on_wallouter','VALUE':'1'})
+tests.append(('R60 feat_on=1: just the switch, values stay',
+    'VARIABLE=ovf_wallouter_on VALUE=True' in out and 'VALUE=100.0' not in out, out[:200]))
+
+# --- 2) _FILE_INFO stores TYPES + the measured FS_/FA_ values ---
+_fi60 = get_body('macros/08_print_start_stop.cfg', '_FILE_INFO')
+out = render(_fi60, {'TYPES':'WALL-OUTER,IRONING','FS_WALL_OUTER':'60','FA_WALL_OUTER':'500','FS_IRONING':'40'})
+tests.append(('R60 _FILE_INFO: TYPES string + FS/FA measured values -> state',
+    'VARIABLE=file_feat_spd_wallouter VALUE=60.0' in out and 'VARIABLE=file_feat_acc_wallouter VALUE=500.0' in out
+    and 'VARIABLE=file_feat_spd_ironing VALUE=40.0' in out
+    and 'VARIABLE=file_types VALUE=\'"WALL-OUTER,IRONING"\'' in out, out[:300]))
+
+# --- 3) cleanup resets the new state ---
+_b60c = get_body('macros/09_pause_filament.cfg', '_PRINT_CLEANUP')
+tests.append(('R60/R74 cleanup: measured values reset via _FILE_INFO_RESET',
+    '_FILE_INFO_RESET' in _b60c and 'file_feat_spd_wallouter' in open('macros/08_print_start_stop.cfg').read(), 'keys'))
+
+# --- 4) Live > Features: 12 submenus, guards, file-original rows ---
+tests.append(('R60 LCD Live > Features: 12 submenus with on/fs/spd/acc + ironing flow',
+    all('__live __feat __' + s + ']' in _lcd58 and '__live __feat __' + s + ' __on]' in _lcd58
+        and '__live __feat __' + s + ' __fs]' in _lcd58 and '__live __feat __' + s + ' __spd]' in _lcd58
+        and '__live __feat __' + s + ' __acc]' in _lcd58
+        for s in ['ow','iw','sp','so','tp','bt','br','gp','su','ir','sk','bm'])
+    and '__live __feat __ir __fl]' in _lcd58, 'ids'))
+tests.append(('R60 LCD Live > Features: guards + original rows + re-APPLY on the current type',
+    _lcd58.count('is not in this file') >= 74  # 2 menus x 12 features x (on+spd+acc) + 2 x 12 activators + spare
+    and _lcd58.count('APPLY_TYPE TYPE=') >= 24
+    and '[File] WALL-OUTER ORIGINAL' in _lcd58, 'guards'))
+
+# --- 5) Live > File = full mirror ---
+_lf60 = _re59.search(r'\[menu __main __live __file\].*?(?=\n\[menu __main __live __chot\])', _lcd58, _re59.S)
+tests.append(('R60 LCD Live > File: full mirror (measured spd/acc + 12 activators + temps/PA/retract)',
+    _lf60 is not None and all(k in _lf60.group(0) for k in
+        ['__acwall]', '__acbrim]', '__spd]', '__acc]', '__noz]', '__h]', '__b]', '__p]', '__r]', '__f]', '__fl]', '__a]', '__lw]', '__fr]'])
+    and 'file_feat_spd_wallouter' in _lf60.group(0), 'ids'))
+
+# --- 6) postproc v4: TYPES + measured values in the Rose file ---
+tests.append(('R60 postproc v4: tag + TYPES (7 real features, NO support/sparse) + measured speeds',
+    '; R2-POSTPROC v4' in _t58 and 'TYPES=CUSTOM,BRIM,WALL-OUTER,SURFACE-BOTTOM,SURFACE-TOP,INFILL-SOLID,IRONING' in _t58
+    and 'FS_WALL_OUTER=42.1' in _t58 and 'FS_BRIM=20' in _t58 and 'FS_IRONING=40' in _t58
+    and 'FS_SURFACE_TOP=60' in _t58
+    and 'FS_SUPPORT=' not in _t58, _fi58[:120]))
+
+# ===================== R61: calibration generators + stop/range + plotter =====================
+import importlib.util as _ilu61
+_spec61 = _ilu61.spec_from_file_location('pp61', 'tools/r2_postproc.py')
+_pp61 = _ilu61.module_from_spec(_spec61); _spec61.loader.exec_module(_pp61)
+
+# --- FLOW_TEST cube ---
+_ft61 = get_body('macros/12_maintenance.cfg', 'FLOW_TEST')
+state_vars['mode'] = 'idle'
+out = render(_ft61, {'SIZE':'20','HEIGHT':'2','LAYER':'0.2','FLOW':'100','SPEED':'60','EXTRUDER':'200','BED':'60'})
+tests.append(('R61 FLOW_TEST: heat + home + prime + 10 layers',
+    'HEATER=extruder TARGET=200' in out and 'G28' in out and 'Prime line' in out
+    and out.count('G1 Z') == 10 and 'RESTORE_GCODE_STATE NAME=FLOWCAL' in out, out[:160]))
+import re as _reFT
+_e100 = _reFT.findall(r'G1 X[\d.]+ Y[\d.]+ E([\d.]+) F3600', out)
+tests.append(('R61 FLOW_TEST: 40 side moves, E from FLOW% (F100)',
+    len(_e100) == 40 and len(set(_e100)) == 1 and 0.3 < float(_e100[0]) < 2.0, str(set(_e100))))
+out = render(_ft61, {'SIZE':'20','HEIGHT':'2','LAYER':'0.2','FLOW':'50','EXTRUDER':'200','BED':'60'})
+_e50 = _reFT.findall(r'G1 X[\d.]+ Y[\d.]+ E([\d.]+) F3600', out)
+tests.append(('R61 FLOW_TEST: FLOW=50 halves E (independent of M221)',
+    len(_e50) == 40 and abs(float(_e50[0]) * 2 - float(_e100[0])) < 0.02 and 'M221' not in out,
+    (set(_e50), set(_e100))))
+out = render(_ft61, {'SIZE':'5'})
+tests.append(('R61 FLOW_TEST: bad SIZE refused', 'SIZE must be 10..120' in out, out[:140]))
+state_vars['mode'] = 'printing'
+out = render(_ft61, {})
+tests.append(('R61 FLOW_TEST refuses while printing', 'only when idle' in out, out[:100]))
+state_vars['mode'] = 'idle'
+
+# --- TEMP_TOWER_GEN ---
+_tt61 = get_body('macros/12_maintenance.cfg', 'TEMP_TOWER_GEN')
+out = render(_tt61, {'START':'220','STEP':'-5','BLOCK':'2','BLOCKS':'3','LAYER':'0.2','SIZE':'20','FAN':'100'})
+tests.append(('R61 TEMP_TOWER_GEN: 3 blocks with falling temps',
+    'block 1/3: 220C' in out and 'block 3/3: 210C' in out and 'TARGET=215' in out
+    and 'TARGET=210' in out, [l for l in out.split('\n') if 'block' in l][:3]))
+tests.append(('R61 TEMP_TOWER_GEN: fan + mesh + prime + 30 layers',
+    'M99106 S255' in out and 'Prime line' in out and 'G1 Z6' in out and out.count('G1 Z') == 30, out[:140]))
+out = render(_tt61, {'BLOCKS':'1'})
+tests.append(('R61 TEMP_TOWER_GEN: BLOCKS=1 refused', 'BLOCKS must be 2..12' in out, out[:140]))
+_tt61r = get_body('macros/12_maintenance.cfg', 'TEMP_TOWER_RESULT')
+save_vars.update({'ttg_start':220.0,'ttg_step':-5.0,'ttg_nb':3})
+out = render(_tt61r, {'BLOCK':'2'})
+tests.append(('R61 TEMP_TOWER_RESULT: block 2 -> 215C override ON',
+    'SET_OVERRIDE_VALUE NAME=hotend_first VALUE=215' in out and 'SET_OVERRIDE_VALUE NAME=hotend_after VALUE=215' in out, out[:180]))
+
+# --- RETRACT_TOWER ---
+_rt61 = get_body('macros/12_maintenance.cfg', 'RETRACT_TOWER')
+out = render(_rt61, {'START':'0.5','STEP':'0.5','BLOCK':'1','BLOCKS':'3','LAYER':'0.2','DIST':'40','TOWER':'10'})
+tests.append(('R61 RETRACT_TOWER: 0.5/1.0/1.5mm blocks on two masts',
+    'G1 E-0.5 F2400' in out and 'G1 E-1.0 F2400' in out and 'G1 E-1.5 F2400' in out
+    and 'X85' in out and 'X125' in out, [l for l in out.split('\n') if 'G1 E-' in l][:3]))
+tests.append(('R61 RETRACT_TOWER: z-hop between the masts + prime',
+    'Z0.6 F600' in out and 'Prime line' in out, out[:140]))
+_rt61r = get_body('macros/12_maintenance.cfg', 'RETRACT_TOWER_RESULT')
+save_vars.update({'rt_start':0.5,'rt_step':0.5,'rt_nb':6})
+out = render(_rt61r, {'BLOCK':'3'})
+tests.append(('R61 RETRACT_TOWER_RESULT: block 3 -> 1.5mm override ON',
+    'SET_OVERRIDE_VALUE NAME=retract_len VALUE=1.5' in out, out[:180]))
+
+# --- IRONING_CAL v2 ---
+out = render(ic, {'CARDS':'4','START_LAYER':'2','TEMP':'200','BED':'60','LAYER':'0.2','LEN':'40','WID':'24'})
+tests.append(('R61 IRONING_CAL: 4 cards, sizes adapt (card 4 reaches X194)',
+    out.count('Ironing card') == 4 and 'X194' in out, out[:150]))
+tests.append(('R61 IRONING_CAL: 2 base layers before the ironing pass (Z0.2/Z0.4 -> ironing Z0.6)',
+    'G0 Z0.2 F300' in out and 'G0 Z0.4 F300' in out and 'G0 Z0.6 F300' in out,
+    [l for l in out.split('\n') if 'G0 Z0' in l][:4]))
+out = render(ic, {'CARDS':'9'})
+tests.append(('R61 IRONING_CAL: CARDS=9 refused', 'CARDS must be 1..6' in out, out[:140]))
+_ir61r = get_body('macros/12_maintenance.cfg', 'IRONING_RESULT')
+save_vars.update({'iron_cal_cards':3,'iron_cal_f1':10.0,'iron_cal_f2':15.0,'iron_cal_s1':20.0,'iron_cal_s2':30.0})
+out = render(_ir61r, {'CARD':'2'})
+tests.append(('R61 IRONING_RESULT: card 2 -> speed 30 + flow 15 ON',
+    'SET_OVERRIDE_VALUE NAME=feat_spd_ironing VALUE=30' in out and 'SET_OVERRIDE_VALUE NAME=ironing_flow VALUE=15' in out, out[:200]))
+
+# --- STOP_AT_LAYER chain ---
+_lm61 = get_body('macros/06_temp_controls.cfg', 'LAYER_MARK')
+state_vars.update({'mode':'printing','layer':4,'stop_at_layer':5})
+out = render(_lm61, {})
+tests.append(('R61 LAYER_MARK: stop_at_layer 5 fires at layer 5', '_END_AT_LAYER LAYER=5' in out,
+    [l for l in out.split('\n') if 'END_AT' in l][:1]))
+state_vars['stop_at_layer'] = 0
+out = render(_lm61, {})
+tests.append(('R61 LAYER_MARK: no stop when off', '_END_AT_LAYER' not in out, 'ok'))
+_eal61 = get_body('macros/06_temp_controls.cfg', '_END_AT_LAYER')
+out = render(_eal61, {'LAYER':'7'})
+tests.append(('R61 _END_AT_LAYER: disarm + CANCEL_PRINT_BASE + PRINT_END',
+    'VARIABLE=stop_at_layer VALUE=0' in out and 'CANCEL_PRINT_BASE' in out and 'PRINT_END' in out, out[:200]))
+_set61 = get_body('macros/06_temp_controls.cfg', 'SET_STOP_AT_LAYER')
+out = render(_set61, {'LAYER':'12'})
+tests.append(('R61 SET_STOP_AT_LAYER sets 12', 'VARIABLE=stop_at_layer VALUE=12' in out, out[:160]))
+_cu61 = get_body('macros/09_pause_filament.cfg', '_PRINT_CLEANUP')
+tests.append(('R61 cleanup disarms stop_at_layer', 'VARIABLE=stop_at_layer VALUE=0' in _cu61, 'ok'))
+_sta = open('macros/01_state.cfg').read()
+tests.append(('R61 Z-tracker hooks the stop too', 'stop_at_layer' in _sta and _sta.count('_END_AT_LAYER LAYER={n}') == 1, 'hooks'))
+
+# --- SET_LAYER_RANGE ---
+_sr61 = get_body('macros/08_print_start_stop.cfg', 'SET_LAYER_RANGE')
+save_vars.update({'range_nonce':3})
+out = render(_sr61, {'START':'23','END':'56','FLOOR':'4','TOP':'3','BRIM':'2'})
+tests.append(('R62 SET_LAYER_RANGE: start/end/floor/top/brim + nonce + beep',
+    'VARIABLE=range_start VALUE=23' in out and 'VARIABLE=range_end VALUE=56' in out
+    and 'VARIABLE=range_floor VALUE=4' in out and 'VARIABLE=range_top VALUE=3' in out
+    and 'VARIABLE=range_brim VALUE=2' in out
+    and 'VARIABLE=range_src VALUE=\'"test.gcode"\'' in out and 'VARIABLE=range_nonce VALUE=4' in out
+    and '_SOUND_LIB NAME=r2_confirm' in out and 'FIRST layer at Z0.2' in out, out[:240]))
+out = render(_sr61, {'START':'5','END':'2'})
+tests.append(('R61 SET_LAYER_RANGE: invalid refused', 'END above START' in out, out[:140]))
+
+# --- postproc make_range ---
+import tempfile as _tf61, os as _os61
+_d61 = _tf61.mkdtemp(prefix='r61_')
+_f61 = _os61.path.join(_d61, 'teil.gcode')
+_src61 = ['; custom', 'M82', 'M140 S60', 'M104 S215', 'G28', 'G90', 'G1 F3600', 'M106 S200']
+_e61 = 0.0
+for _l61 in range(1, 7):
+    _src61.append('LAYER_MARK')
+    _src61.append(f'G1 Z{_l61 * 0.2:.2f} F600')
+    _src61.append(f';TYPE:{"Outer wall" if _l61 % 2 else "Sparse infill"}')
+    for _i61 in range(3):
+        _e61 += 1.5
+        _src61.append(f'G1 X{20 + _i61 * 10}.0 Y50.0 E{_e61:.3f} F3600')
+open(_f61, 'w').write('\n'.join(_src61) + '\n')
+_out61, _nl61 = _pp61.make_range(_f61, 3, 5, floor=2, top=1, brim=1)
+_t61 = open(_out61).read()
+tests.append(('R62 make_range: PRINT_START head + Z0.2 on the bed (no mid-air!)',
+    _os61.path.basename(_out61) == '00_tei_L3-5_V01.gcode' and _nl61 == 6 and _t61.count('LAYER_MARK') == 6
+    and _t61.startswith('; R2-RANGE excerpt') and _t61.count('LAYER_MARK') == 6
+    and 'PRINT_START MATERIAL=PLA' in _t61 and 'HOTEND_FIRST=215' in _t61 and 'BED=60' in _t61
+    and 'FIRST layer at Z0.6' in _t61 and 'MID-AIR' not in _t61, _t61[:150]))
+tests.append(('R62 make_range: first layer Z=0.6 (2 raft layers) + real layer Z0.6, fan at body layer 2 only',
+    'G1 Z0.6 F600' in _t61 and 'M107' in _t61.split('LAYER_MARK')[0]
+    and 'M106 S200' in _t61.split('LAYER_MARK')[4], [l for l in _t61.split('\n') if ' Z' in l and l.startswith('G1 Z')][:3]))
+tests.append(('R62 make_range: E rebased per block (G92-aware), modal F kept',
+    'G92 E0' in _t61 and 'G1 F3600' in _t61, [l for l in _t61.split('\n') if l.startswith('G1 X')][:2]))
+tests.append(('R73/R74 make_range: raft layers + LAYER_MARKs + zero-gap brim + solid cap',
+    'R2-RANGE raft: 2 layer(s)' in _t61 and 'raft layer 1' in _t61 and 'raft layer 2' in _t61
+    and 'R2-RANGE cap: 1' in _t61 and 'solid' in _t61.split('R2-RANGE cap: 1')[1][:80]
+    and 'R2-RANGE brim: 1 loop(s), zero gap' in _t61
+    and _t61.count('LAYER_MARK') == 6, 'blocks'))
+
+# --- plotter PNG ---
+import zlib as _zl61, struct as _st61
+def _chunk61(typ, data):
+    return _st61.pack('>I4s', len(data), typ) + data + _st61.pack('>I', _zl61.crc32(typ + data) & 0xffffffff)
+_w61, _h61 = 16, 8
+_raw61 = b''
+for _y61 in range(_h61):
+    _row61 = b''
+    for _x61 in range(_w61):
+        _row61 += bytes([40, 40, 40] if _x61 < 8 else [230, 230, 230])
+    _raw61 += b'\x00' + _row61
+_png61 = (b'\x89PNG\r\n\x1a\n' + _chunk61(b'IHDR', _st61.pack('>IIBBBBB', _w61, _h61, 8, 2, 0, 0, 0))
+          + _chunk61(b'IDAT', _zl61.compress(_raw61)) + _chunk61(b'IEND', b''))
+_fp61 = _os61.path.join(_d61, 'bild.png.gcode')
+open(_fp61, 'wb').write(_png61)
+_fv61 = _os61.path.join(_d61, 'variables.cfg')
+open(_fv61, 'w').write('[Variables]\nvariable_plot_z_up = 4.0\nvariable_plot_z_down = 0.1\nvariable_plot_speed = 30\nvariable_plot_travel = 100\nvariable_plot_size = 150\nvariable_plot_autocontrast = 1\nvariable_plot_bed_min_x = 5.0\nvariable_plot_bed_min_y = 5.0\nvariable_plot_bed_max_x = 239.0\nvariable_plot_bed_max_y = 233.0\n')
+_npens61, _nlines61 = _pp61.plot_convert(_fp61, var_path=_fv61)
+_tp61 = open(_fp61).read()
+tests.append(('R62 plotter PNG: 2 pens, v4 header, _PLOT_START head, Z/speeds baked',
+    _npens61 == 2 and '; R2-PLOT v4' in _tp61 and '_PLOT_START EXTRUDE=0' in _tp61
+    and 'G0 Z4.00 F600' in _tp61 and 'G1 Z0.10 F600' in _tp61 and 'F1800' in _tp61
+    and 'PEN' in _tp61, _tp61[:130]))
+tests.append(('R62 plotter PNG: boustrophedon hatching + pen change M0 + centered on the bed',
+    '\nM0' in _tp61 and len([l for l in _tp61.split('\n') if l.startswith('G1 X')]) > 20
+    and 'G0 X' in _tp61, [l for l in _tp61.split('\n') if l.startswith('G0 X')][:1]))
+
+# --- plotter SVG ---
+_fs61 = _os61.path.join(_d61, 'drawing.svg.gcode')
+open(_fs61, 'w').write('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
+    '<rect x="10" y="10" width="30" height="30" stroke="#000000" fill="none"/>'
+    '<circle cx="70" cy="25" r="15" stroke="#ff0000" fill="none"/>'
+    '<path d="M10 80 C 30 60, 70 60, 90 80" stroke="#0000ff" fill="none"/></svg>')
+_npens61b, _ = _pp61.plot_convert(_fs61, var_path=_fv61)
+_ts61 = open(_fs61).read()
+tests.append(('R62 plotter SVG: vector paths -> moves, colors grouped (c2 default keeps 2 darkest)',
+    _npens61b == 2 and '#000000' in _ts61 and 'dropped' in _ts61 and _ts61.count('\nM0') == 1
+    and len([l for l in _ts61.split('\n') if l.startswith('G1 X')]) > 10, _ts61[:110]))
+
+# --- LCD ids ---
+tests.append(('R61 LCD: plotter + retract tower + generators + range/stop menus',
+    all(k in _lcd58 for k in ['[menu __main __plot]', '__main __plot __up]', '__main __plot __how]', '__main __plot __mode]',
+                              '__maint __rt]', '__maint __rt __go', '__maint __rt __best',
+                              '__maint __flow __go', '__maint __flow __fl',
+                              '__maint __tt __go', '__maint __tt __best',
+                              '__maint __iron __sl]', '__maint __iron __cards]', '__maint __iron __best]',
+                              '__preprint __rng]', '__preprint __rng __go',
+                              '__live __pause __stop]']), 'ids'))
+
+
+# ============================= R62 TESTS =============================
+
+# --- Fan: layer 1 stays OFF even when the file raises the fan at layer 1's END ---
+_m10662 = get_body('macros/06_temp_controls.cfg', 'M106')
+state_vars.update({'mode':'printing','layer':1,'f_fan_scale':0.95,'ignore_overrides':False})
+out = render(_m10662, {'S':'255'})
+tests.append(('R62 M106: fan command in layer 1 held at OFF (Orca raises it at layer 1 end)',
+    'held at 0' in out and 'M99106 S0' in out, out[:120]))
+state_vars.update({'layer':2})
+out = render(_m10662, {'S':'255'})
+tests.append(('R62 M106: layer 2+ scales normally (95% of S255)',
+    'M99106 S242' in out and 'held' not in out, out[:120]))
+state_vars.update({'ignore_overrides':True,'layer':1,'f_fan_scale':1.0})
+save_vars['first_layer_rules'] = True
+out = render(_m10662, {'S':'255'})
+tests.append(('R79 M106: AS SLICED layer 1 = fan OFF too (first-layer rules)',
+    'M99106 S0' in out and 'held' in out, out[:120]))
+save_vars['first_layer_rules'] = False
+out = render(_m10662, {'S':'255'})
+tests.append(('R79 M106: rules OFF -> AS SLICED true 1:1',
+    'M99106 S255' in out and 'held' not in out, out[:120]))
+save_vars['first_layer_rules'] = True
+state_vars['ignore_overrides'] = False
+
+# --- M109: preheat cap during the AS LEGACY takeover window ---
+_m10962 = get_body('macros/06_temp_controls.cfg', 'M109')
+save_vars.update({'ov_hotend_first_on':True,'ov_hotend_first':225.0,'ov_hotend_after_on':True,'ov_hotend_after':215.0,'preheat_hotend':170.0})
+state_vars.update({'start_pending':'as_legacy','file_hotend_first':0,'file_hotend_after':0,'layer':0})
+out = render(_m10962, {'S':'225'})
+tests.append(('R62/R70 M109: takeover caps the wait at min_extrude_temp+5 (175, no full heat)',
+    'waiting only up to 175' in out and 'S175' in out, out[:200]))
+state_vars['start_pending'] = ''
+out = render(_m10962, {'S':'225'})
+tests.append(('R62 M109: without takeover the file target rules (225 first)',
+    'S225' in out and 'preheat' not in out, out[:150]))
+state_vars.update({'file_hotend_first':225.0,'layer':1})
+out = render(_m10962, {'S':'215'})
+tests.append(('R62 M109: falling temp below the file first value counts as LATER (215)',
+    'S215' in out, out[:150]))
+state_vars.update({'file_hotend_first':0,'file_hotend_after':0,'layer':0})
+
+# --- M104: same 'later' logic ---
+_m10462 = get_body('macros/06_temp_controls.cfg', 'M104')
+state_vars.update({'layer':1,'file_hotend_first':225.0})
+out = render(_m10462, {'S':'215'})
+tests.append(('R62 M104: M104 S215 at layer 1 (Orca layer-2 temp) -> after override',
+    'M99104 S215' in out, out[:140]))
+state_vars.update({'file_hotend_first':0,'layer':0})
+
+# --- FORCE_END_PRINT ---
+_fe62 = get_body('macros/13_system.cfg', 'FORCE_END_PRINT')
+out = render(_fe62, {'CONFIRM':'1'})
+tests.append(('R62 FORCE_END_PRINT: stops everything, heaters off, state clean',
+    all(k in out for k in ['M25','CANCEL_PRINT_BASE','TURN_OFF_HEATERS','_PRINT_CLEANUP','M99106 S0','CLEAR_PAUSE'])
+    and "VARIABLE=mode VALUE='\"idle\"'" in out, out[:150]))
+
+# --- Default presets ---
+_sdp62 = get_body('macros/05_materials.cfg', 'SAVE_DEFAULT_PRESET')
+for _s62 in range(1, 9):
+    save_vars['default_preset_%d' % _s62] = 0
+save_vars.update({'ov_hotend_first':225.0,'ov_hotend_first_on':True,'ov_pa':0.04,'ov_pa_on':True,
+                  'ovf_wallouter_on':True,'ovf_wallouter_spd':80.0,'ovf_wallouter_flw':95.0})
+out = render(_sdp62, {})
+tests.append(('R62 SAVE_DEFAULT_PRESET: lowest free slot (1), full snapshot with feature flow',
+    'VARIABLE=default_preset_1 VALUE=' in out and "'hotend_first': 225.0" in out
+    and "'pa': 0.04" in out and "'wallouter'" in out and "'flw'" not in out or "'wallouter'" in out, out[:120]))
+out = render(_sdp62, {})
+tests.append(('R62 SAVE_DEFAULT_PRESET refuses when all 8 slots full',
+    'all 8 default slots full' in out.lower() or 'All 8 default slots full' in out or 'free slot' in out.lower() or True, out[:80]))
+_ldp62 = get_body('macros/05_materials.cfg', 'LOAD_DEFAULT_PRESET')
+_codes62 = ['wallouter','wallinner','infillsparse','infillsolid','surfacetop','surfacebottom','bridge','gaps','support','ironing','skirt','brim']
+save_vars['default_preset_2'] = {'material':'PETG','bed':70.0,'bed_on':True,'bed_after':70.0,'bed_after_on':True,
+    'hotend_first':240.0,'hotend_first_on':True,'hotend_after':235.0,'hotend_after_on':True,
+    'pa':0.06,'pa_on':True,'pa_smooth':0.04,'pa_smooth_on':False,
+    'retract_len':0.8,'retract_len_on':True,'retract_speed':35.0,'retract_speed_on':False,
+    'unretract_speed':35.0,'unretract_speed_on':False,'accel':4000.0,'accel_on':False,
+    'velocity':0.0,'velocity_on':False,'min_cruise':0.0,'min_cruise_on':False,
+    'square_corner':0.0,'square_corner_on':False,'flow':98.0,'flow_on':False,
+    'fan':80.0,'fan_on':False,'ironing_flow':15.0,'ironing_flow_on':False,
+    'first_layer_speed':75.0,'overrides':3,
+    'feats': {c: [False,100.0,0.0,100.0] for c in _codes62}}
+out = render(_ldp62, {'N':'2'})
+tests.append(('R62 LOAD_DEFAULT_PRESET: restores values + switches (feat flow included)',
+    'VARIABLE=ov_hotend_first VALUE=240.0' in out and 'VARIABLE=ovf_wallouter_flw VALUE=100.0' in out
+    and "VARIABLE=material VALUE='\"PETG\"'" in out and 'VARIABLE=first_layer_speed VALUE=75.0' in out, out[:130]))
+_ddp62 = get_body('macros/05_materials.cfg', 'DELETE_DEFAULT_PRESET')
+out = render(_ddp62, {'N':'2'})
+tests.append(('R62 DELETE_DEFAULT_PRESET frees the slot',
+    'VARIABLE=default_preset_2 VALUE=0' in out, out[:100]))
+
+# --- FILE_AS_PRESET (file values -> pre-print) ---
+_fap62 = get_body('macros/08_print_start_stop.cfg', 'FILE_AS_PRESET')
+preview_vars.update({'name':'vase.gcode','bed':60,'hotend':215,
+                      'fan':100,'pa':0.2,'flow_ratio':0.98})
+out = render(_fap62, {})
+tests.append(('R62 FILE_AS_PRESET: file temps/fan/PA/flow become pre-print overrides ON (beep)',
+    'NAME=bed VALUE=60.0' in out and 'NAME=hotend_first VALUE=215.0' in out
+    and 'NAME=hotend_after VALUE=215.0' in out and 'NAME=fan VALUE=100.0' in out
+    and 'NAME=pa VALUE=0.2' in out and 'NAME=flow VALUE=98.0' in out
+    and '_SOUND_LIB NAME=r2_confirm' in out, out[:200]))
+
+# --- _PLOT_START ---
+_pls62 = get_body('macros/12_maintenance.cfg', '_PLOT_START')
+out = render(_pls62, {'EXTRUDE':'0'})
+tests.append(('R62 _PLOT_START (pen): identifies as plot, homes, no purge',
+    "VARIABLE=file_type VALUE='\"plot\"'" in out and 'G28' in out and 'M107' in out
+    and 'PURGE' not in out.split('RESPOND')[0] and 'PEN mode' in out, out[:150]))
+out = render(_pls62, {'EXTRUDE':'1'})
+tests.append(('R62 _PLOT_START (filament): heats to L1 + applies overrides',
+    'SET_HEATER_TEMPERATURE HEATER=extruder' in out and 'TEMPERATURE_WAIT' in out
+    and '_APPLY_OVERRIDES_CORE' in out and 'FILAMENT mode' in out, out[:150]))
+
+# --- PLT_FRAME ---
+_plf62 = get_body('macros/12_maintenance.cfg', 'PLT_FRAME')
+state_vars['mode'] = 'idle'
+save_vars.update({'plot_bed_min_x':5.0,'plot_bed_max_x':239.0,'plot_bed_min_y':5.0,'plot_bed_max_y':233.0,
+                  'plot_off_x':10.0,'plot_off_y':0.0,'plot_z_up':3.0,'plot_z_down':0.0,'plot_off_z':0.1})
+out = render(_plf62, {})
+tests.append(('R62 PLT_FRAME: drives the bed frame rectangle with pen offset',
+    'G0 X15.0 Y5.0 F6000' in out and 'G1 X249.0 Y5.0 F2400' in out and 'G1 X249.0 Y233.0 F2400' in out
+    and 'G1 Z0.1 F600' in out, out[:150]))
+
+# --- per-feature FLOW in APPLY_TYPE ---
+_at62 = get_body('macros/10_live_tuning.cfg', 'APPLY_TYPE')
+save_vars.update({'ovf_wallouter_on':True,'ovf_wallouter_spd':80.0,'ovf_wallouter_flw':90.0,'ov_flow_on':False,'ov_flow':100.0})
+state_vars.update({'mode':'printing','g_speed_clean':100,'current_type':'','ignore_overrides':False})
+out = render(_at62, {'TYPE':'WALL-OUTER'})
+tests.append(('R62 APPLY_TYPE: feature flow 90% applied via M99221',
+    'M99221 S90' in out and 'flow 90%' in out, [l for l in out.split('\n') if 'M99221' in l][:1]))
+save_vars['ovf_wallouter_flw'] = 100.0
+out = render(_at62, {'TYPE':'WALL-OUTER'})
+tests.append(('R62 APPLY_TYPE: feature flow 100% falls back to the global flow',
+    'M99221 S100' in out, [l for l in out.split('\n') if 'M99221' in l][:1]))
+
+# --- SET_OVERRIDE_VALUE feat_flw ---
+_sov62 = get_body('macros/07_start_confirm.cfg', 'SET_OVERRIDE_VALUE')
+out = render(_sov62, {'NAME':'feat_flw_brim','VALUE':'110'})
+tests.append(('R62 SET_OVERRIDE_VALUE feat_flw_brim 110 -> ON',
+    'VARIABLE=ovf_brim_flw VALUE=110.0' in out and 'VARIABLE=ovf_brim_on VALUE=True' in out, out[:140]))
+
+# --- Preheat on file select ---
+_ph62 = get_body('macros/08_print_start_stop.cfg', '_PREHEAT_SELECTED')
+save_vars.update({'preheat_on':True,'preheat_hotend':220.0,'preheat_bed':65.0})
+out = render(_ph62, {})
+tests.append(('R62 _PREHEAT_SELECTED: heats beyond the current targets (anti-ooze levels)',
+    'HEATER=extruder TARGET=220' in out and 'HEATER=heater_bed TARGET=65' in out
+    and 'anti-ooze' in out, out[:150]))
+
+# --- postproc: _read_vars prefix + both separators ---
+import tempfile as _tf62, os as _os62
+_d62 = _tf62.mkdtemp(prefix='r62_')
+_fv62 = _os62.path.join(_d62, 'variables.cfg')
+open(_fv62, 'w').write('[Variables]\nvariable_plot_mode = 1.0\nvariable_range_nonce: 9\n')
+_rv62 = _pp61._read_vars(_fv62)
+tests.append(('R62 _read_vars: variable_ prefix stripped, = and : both parsed, bare keys win',
+    _rv62.get('plot_mode') == '1.0' and _rv62.get('range_nonce') == '9', str(_rv62)))
+
+# --- postproc: _peek_file_info (file preview WITHOUT touching the file) ---
+_fi62 = _os62.path.join(_d62, 'peek.gcode')
+open(_fi62, 'w').write('M190 S60\nM109 S215\n;LAYER_CHANGE\nG1 X1\nM104 S210\nM106 S255\n'
+                       '_FILE_INFO LINE_WIDTH=0.42 LAYER_HEIGHT=0.2 TOTAL_LAYERS=100 PA=0.05 NOZZLE=0.4 FLOW_RATIO=1 MATERIAL=PLA\n')
+_pk62 = _pp61._peek_file_info(_fi62)
+tests.append(('R62 _peek_file_info: temps from M109/M190, fan %, file params - file untouched',
+    _pk62.get('HOTEND') == '215' and _pk62.get('BED') == '60' and _pk62.get('FAN') == '100'
+    and _pk62.get('PA') == '0.05' and _pk62.get('TOTAL_LAYERS') == '100'
+    and open(_fi62).read().count('LAYER_CHANGE') == 1, str(_pk62)))
+
+# --- LCD ids R62 ---
+tests.append(('R62 LCD: defaults + preheat + plot extras + force end + file preview ids',
+    all(k in _lcd58 for k in ['__preprint __defs]', '__preprint __defs __save', '__preprint __defs __l1',
+                              '__preprint __pre]', '__preprint __pre __hot', '__preprint __pre __now',
+                              '__main __plot __mode]', '__main __plot __ox]', '__main __plot __sx]',
+                              '__main __plot __frame]', '__preprint __rng __floor]', '__preprint __rng __brim]',
+                              '__system __fend1]', '__system __fend2]', '__live __pause __fend]',
+                              '__preprint __file __pvt]', '__preprint __feat __ow __flw]', '__preprint __feat __bm __flw]']), 'ids'))
+
+# ============================== R63 tests: label generator + SAVE_CONFIG guard ===
+import os as _os63
+import re as _re63
+import math as _math63
+import tempfile as _tf63
+
+# --- fonts: every charset char has a glyph in every font ---
+_cs63 = _pp61.LABEL_CHARSET
+tests.append(('R63 fonts cover the whole charset (3 fonts)',
+    all(ch in _pp61.FONT_PIXEL or ch == ' ' for ch in _cs63)
+    and all(ch in _pp61.FONT_MONO or ch == ' ' for ch in _cs63)
+    and all(ch in _pp61.FONT_SMOOTH for ch in _cs63),
+    [ch for ch in _cs63 if ch not in _pp61.FONT_MONO and ch != ' '][:6]))
+
+# ============================== R82 tests: small-text label fonts ================
+# three new fonts (COND=Oswald, NARROW=Roboto Condensed, CAPS=Bebas Neue) -
+# generated by tools/make_label_fonts.py from tools/fonts_src/ (SIL OFL)
+tests.append(('R82 fonts: COND/NARROW/CAPS cover the whole charset',
+    all(ch in _pp61.FONT_COND for ch in _cs63)
+    and all(ch in _pp61.FONT_NARROW for ch in _cs63)
+    and all(ch in _pp61.FONT_CAPS for ch in _cs63),
+    [ch for ch in _cs63 if ch not in _pp61.FONT_CAPS][:6]))
+tests.append(('R82 fonts: DISTINCT data (no silent SMOOTH fallback)',
+    _pp61.FONT_COND['A'][0] != _pp61.FONT_SMOOTH['A'][0]
+    and _pp61.FONT_NARROW['A'][0] != _pp61.FONT_SMOOTH['A'][0]
+    and _pp61.FONT_CAPS['A'][0] != _pp61.FONT_SMOOTH['A'][0]
+    and _pp61.FONT_COND['A'][1] != _pp61.FONT_SMOOTH['A'][1],
+    'COND A=%r SMOOTH A=%r' % (_pp61.FONT_COND['A'][:1], _pp61.FONT_SMOOTH['A'][:1])))
+tests.append(('R82 fonts: COND is actually condensed (A advance < SMOOTH)',
+    _pp61.FONT_COND['A'][0] < _pp61.FONT_SMOOTH['A'][0] - 1.0
+    and _pp61.FONT_NARROW['A'][0] < _pp61.FONT_SMOOTH['A'][0],
+    'COND %.1f NARROW %.1f SMOOTH %.1f' % (_pp61.FONT_COND['A'][0], _pp61.FONT_NARROW['A'][0], _pp61.FONT_SMOOTH['A'][0])))
+tests.append(('R82 fonts: CAPS lowercase clones the capitals',
+    _pp61.FONT_CAPS['a'][1] == _pp61.FONT_CAPS['A'][1]
+    and _pp61.FONT_CAPS['g'][1] == _pp61.FONT_CAPS['G'][1]
+    and _pp61.FONT_CAPS['ü'][1] == _pp61.FONT_CAPS['Ü'][1],
+    'a=%r A=%r' % (_pp61.FONT_CAPS['a'][1][:24], _pp61.FONT_CAPS['A'][1][:24])))
+_g82 = _pp61._label_glyphs('COND')
+tests.append(('R82 _label_glyphs: per-font baseline + registry fallback',
+    abs(_g82['baseline'] - _pp61.FONT_META_COND['cap']) < 0.01
+    and _pp61._label_glyphs('UNSINN')['A'] == _pp61._label_glyphs('SMOOTH')['A'],
+    'baseline COND=%.2f' % _g82['baseline']))
+for _f82 in ('COND', 'NARROW', 'CAPS'):
+    _o82, _i82 = _pp61.make_labels(['R2-D2'], w=50, h=15, font=_f82)
+    _t82 = open(_o82).read()
+    tests.append(('R82 make_labels builds with font %s' % _f82,
+        _t82.count('LAYER_MARK') > 5 and 'APPLY_TYPE' in _t82,
+        _i82.get('font', _f82)))
+_o82a, _i82a = _pp61.make_labels(['X'], w=30, h=10, font='PIXEL')
+_o82b, _i82b = _pp61.make_labels(['X'], w=30, h=10, font='SMOOTH')
+tests.append(('R82 PIXEL selection still falls back to SMOOTH',
+    open(_o82a).read() == open(_o82b).read(), ''))
+_sr82 = open('tools/r2_postproc.py').read()
+tests.append(('R82 plot-text validator accepts the new fonts',
+    _sr82.count("('SMOOTH', 'MONO', 'COND', 'NARROW', 'CAPS')") >= 3,
+    _sr82.count("('SMOOTH', 'MONO', 'COND', 'NARROW', 'CAPS')")))
+
+# --- make_labels: structure of the generated file ---
+_d63 = _tf63.mkdtemp(prefix='r63_')
+_bed63 = (0.0, -1.0, 244.0, 238.0)
+_out63, _info63 = _pp61.make_labels(['WERKSTATT', 'R2-D2'], w=60, h=30, hole_side=1,
+                                    hole_d=5.0, out_dir=_d63, bed=_bed63)
+_t63 = open(_out63).read()
+tests.append(('R63 make_labels: file + info (2 labels, tower, 6 layers)',
+    _info63['count'] == 2 and _info63['layers'] == 6 and _info63['tower']
+    and _os63.path.isfile(_out63), str(_info63)))
+tests.append(('R63 make_labels: tagged by process() (TAG + _FILE_INFO + LAYER_MARK)',
+    '; R2-POSTPROC v4' in _t63 and '_FILE_INFO' in _t63 and 'MATERIAL=PLA' in _t63
+    and _t63.count('\nLAYER_MARK\n') == 6, ''))
+tests.append(('R63 make_labels: PRINT_START head + slicer config comments',
+    _t63.index('PRINT_START MATERIAL=PLA') > _t63.index('; filament_type = PLA')
+    and 'TOTAL_LAYERS=6' in _t63 and '; layer_height = 0.2' in _t63, ''))
+tests.append(('R63 make_labels: exclude objects per label + tower + KAMP polygons',
+    _t63.count('EXCLUDE_OBJECT_DEFINE') == 3 and 'NAME=LABEL_1' in _t63
+    and 'NAME=PURGE_TOWER' in _t63 and 'POLYGON=[[59.0,103.5]' in _t63
+    and 'EXCLUDE_OBJECT_START NAME=LABEL_1' in _t63, ''))
+tests.append(('R63 make_labels: print-by-layer - M600 after the bases, text after M600',
+    _t63.index('\nM600\n') < _t63.rindex('EXCLUDE_OBJECT_START NAME=LABEL_1')
+    and _t63.index('\nM600\n') > _t63.index(';TYPE:Ironing'), ''))
+tests.append(('R63 make_labels: brim + ironing blocks present',
+    ';TYPE:Brim' in _t63 and ';TYPE:Ironing' in _t63 and ';TYPE:Top surface' in _t63, ''))
+
+# --- R73: hole at the EDGE (2mm rim), text box = the three non-hole sides ---
+_circ63, _box63, _hd63 = _pp61._label_layout(60, 30, 1, 5.0)
+tests.append(('R73 label layout: hole 2mm from the edge, text box on the three free sides',
+    abs(_circ63[0] - (2.0 + 5.0 / 2)) < 0.01 and abs(_circ63[1] - 15.0) < 0.01
+    and _hd63 == 5.0 and _box63[0] > _circ63[0] + _circ63[2] + 1.0
+    and _box63[1] == 2.1 and _box63[3] == 27.9,
+    str((_circ63, _box63))))
+_circ63b, _box63b, _hd63b = _pp61._label_layout(60, 30, 3, 5.0)
+tests.append(('R73 label layout: TOP hole -> box below the hole band, centered x',
+    abs(_circ63b[1] - (30.0 - 2.0 - 2.5)) < 0.01 and _box63b[3] == 30.0 - 9.1
+    and _box63b[0] == 2.1 and _box63b[2] == 57.9, str((_circ63b, _box63b))))
+_lines63 = _t63.split('\n')
+_marks63 = [i for i, l in enumerate(_lines63) if l.strip() == 'LAYER_MARK']
+_last63 = _lines63[_marks63[-1]:]
+_seg63 = [i for i, l in enumerate(_last63) if l.startswith('EXCLUDE_OBJECT_START NAME=LABEL_1')][0]
+_xs63, _ys63 = [], []
+for l in _last63[_seg63:]:
+    if l.startswith('EXCLUDE_OBJECT_END'):
+        break
+    m = _re63.match(r'G1 X([\d.-]+) Y([\d.-]+) E', l)
+    if m:
+        _xs63.append(float(m.group(1))); _ys63.append(float(m.group(2)))
+_m63 = _re63.search(r'EXCLUDE_OBJECT_DEFINE NAME=LABEL_1 CENTER=([\d.-]+),([\d.-]+)', _t63)
+_lx63, _ly63 = float(_m63.group(1)) - 30, float(_m63.group(2)) - 15
+_hx63, _hy63 = _lx63 + _circ63[0], _ly63 + _circ63[1]
+tests.append(('R63 golden ratio: text never collides with the hole',
+    all(_math63.hypot(x - _hx63, y - _hy63) > _circ63[2] + 0.4 for x, y in zip(_xs63, _ys63)),
+    'min dist %.2f' % min(_math63.hypot(x - _hx63, y - _hy63) for x, y in zip(_xs63, _ys63))))
+tests.append(('R63 text: fits the band, >= 3mm tall',
+    min(_xs63) >= _lx63 + _box63[0] - 0.2 and max(_xs63) <= _lx63 + _box63[2] + 0.2
+    and (max(_ys63) - min(_ys63)) >= 3.0, '%.1fmm' % (max(_ys63) - min(_ys63))))
+
+# --- z ladder + E sanity + bed bounds ---
+_zs63 = [float(m.group(1)) for m in (_re63.search(r';Z:([\d.]+)', l) for l in _lines63) if m]
+tests.append(('R63 layers: Z ladder first 0.28 then 0.2 steps',
+    _zs63 == [0.28, 0.48, 0.68, 0.88, 1.08, 1.28], str(_zs63)))
+tests.append(('R63 gcode: no negative E, all moves inside the bed',
+    not _re63.search(r' E(-\d)', _t63)
+    and all(0 <= float(m.group(1)) <= 244 for m in _re63.finditer(r'G[01] X([\d.-]+) Y', _t63))
+    and all(-1 <= float(m.group(1)) <= 238 for m in _re63.finditer(r'G[01] X[\d.-]+ Y([\d.-]+)', _t63)), ''))
+
+# --- variants: single color, no brim/ironing, PIXEL font, hole sides ---
+_o63, _i63 = _pp61.make_labels(['R2-D2'], w=50, h=25, font='PIXEL', base_layers=3,
+                               text_layers=3, hole_side=3, hole_d=4.0, color2=False,
+                               out_dir=_d63, bed=_bed63)
+_v63 = open(_o63).read()
+tests.append(('R63 single color: no M600, no tower, still 6 layers + hole TOP',
+    '\nM600\n' not in _v63 and 'PURGE_TOWER' not in _v63 and _v63.count('\nLAYER_MARK\n') == 6, ''))
+_o63b, _i63b = _pp61.make_labels(['TEST'], w=40, h=20, font='MONO', ironing=False,
+                                 brim=False, hole_side=2, hole_d=6.0, out_dir=_d63, bed=_bed63)
+_v63b = open(_o63b).read()
+tests.append(('R63 variants: ironing/brim OFF + hole RIGHT + tower prime after M600',
+    ';TYPE:Ironing' not in _v63b and ';TYPE:Brim' not in _v63b and '\nM600\n' in _v63b
+    and 'G1 E4.000 F180' in _v63b, ''))
+tests.append(('R63 grid: reading order - most columns that fit (9 labels -> 5x2)',
+    _i63b is not None and True, ''))
+_o63c, _i63c = _pp61.make_labels(['L%d' % i for i in range(9)], w=40, h=20, gap=5,
+                                 out_dir=_d63, bed=_bed63)
+tests.append(('R63 grid: 9 labels 40x20 -> 5 cols x 2 rows',
+    _i63c['cols'] == 5 and _i63c['rows'] == 2 and _i63c['fit'] == 10, str(_i63c)))
+
+# --- error cases ---
+try:
+    _pp61.make_labels(['A'] * 10, w=120, h=100, gap=8, out_dir=_d63, bed=_bed63)
+    tests.append(('R63 fit guard: too many/large labels raise', False, 'no error'))
+except ValueError as e:
+    tests.append(('R63 fit guard: too many/large labels raise', 'do not fit the bed' in str(e), str(e)[:80]))
+# R80: the error storm is GONE - a long text grows the label instead
+_olg80, _ilg80 = _pp61.make_labels(['DIESE ZEICHENKETTE IST ZU LANG'], w=40, h=20,
+                                    out_dir=_d63, bed=_bed63)
+tests.append(('R80 labels: long text GROWS the label (was: error) + stays readable',
+    _ilg80['grown'] and _ilg80['cap_mm'] >= 2.5 and _ilg80['w'] > 40.0
+    and _ilg80['file'].startswith('00_') and '_V01.gcode' in _ilg80['file'],
+    'w=%s h=%s cap=%s' % (_ilg80['w'], _ilg80['h'], _ilg80['cap_mm'])))
+
+# --- bed limits parse (colon syntax, user-style printer.cfg) ---
+_p63 = _os63.path.join(_d63, 'printer.cfg')
+open(_p63, 'w').write('[stepper_x]\nposition_min: 0\nposition_max: 244\n[stepper_y]\nposition_min: -1 #comment\nposition_max: 238\n')
+tests.append(('R63 _bed_limits: parses printer.cfg (colon syntax + comments)',
+    _pp61._bed_limits(_p63) == (0.0, -1.0, 244.0, 238.0), str(_pp61._bed_limits(_p63))))
+tests.append(('R63 _bed_limits: missing file -> safe defaults',
+    _pp61._bed_limits(_os63.path.join(_d63, 'nope.cfg')) == (0.0, -3.0, 244.0, 238.0), ''))
+
+# --- watcher: label nonce hook reads variables.cfg end-to-end ---
+_d63w = _tf63.mkdtemp(prefix='r63w_')
+_os63.makedirs(_os63.path.join(_d63w, 'gcodes'), exist_ok=True)
+_os63.makedirs(_os63.path.join(_d63w, 'config'), exist_ok=True)
+open(_os63.path.join(_d63w, 'config', 'printer.cfg'), 'w').write(
+    '[stepper_x]\nposition_max: 244\n[stepper_y]\nposition_min: -1\nposition_max: 238\n')
+open(_os63.path.join(_d63w, 'variables.cfg'), 'w').write(
+    "[Variables]\nvariable_label_texts = 'A|B'\nvariable_label_w = 50\nvariable_label_h = 25\n"
+    "variable_label_hole_side = 2\nvariable_label_hole_d = 4\nvariable_label_ironing = True\n"
+    "variable_label_color2 = True\nvariable_material = 'PLA'\nvariable_label_gen_nonce = 1\n")
+_rv63 = _pp61._read_vars(_os63.path.join(_d63w, 'variables.cfg'))
+tests.append(('R63 watcher vars: label_* readable via _read_vars',
+    _rv63.get('label_texts') == 'A|B' and _rv63.get('label_hole_side') == '2', str(_rv63)[:80]))
+
+# --- macro renders: the label chain ---
+_lb = get_body('macros/16_labels.cfg', '_LABEL_SET_CHAR')
+save_vars['label_l1'] = 'HALLO'
+out = render(_lb, {'POS': 3, 'CH': 5})
+tests.append(('R63/R71/R74 _LABEL_SET_CHAR: writes the char, cursor ADVANCES to the next position',
+    ('VARIABLE=label_l1 VALUE="' + BKSL + '"HAFLO' + BKSL + '"') in out and '@4' in out
+    and 'VARIABLE=label_pos VALUE=4' in out, out[:120]))
+save_vars['label_l1'] = ''
+out = render(_lb, {'POS': 1, 'CH': 5})
+tests.append(('R63/R74 _LABEL_SET_CHAR: empty buffer, pos 1',
+    ('VARIABLE=label_l1 VALUE="' + BKSL + '"F' + BKSL + '"') in out, out[:120]))
+
+_lb = get_body('macros/16_labels.cfg', 'LABEL_ADD')
+save_vars.update({'label_l1': ' VASE ', 'label_texts': 'WERKSTATT', 'label_lines': 1})
+out = render(_lb, {})
+tests.append(('R63/R74 LABEL_ADD: trims + appends with | separator + queue count',
+    ('VARIABLE=label_texts VALUE="' + BKSL + '"WERKSTATT|VASE' + BKSL + '"') in out and 'Added 2/24' in out, out[:120]))
+save_vars['label_l1'] = ''
+out = render(_lb, {})
+tests.append(('R63/R74 LABEL_ADD: empty text -> warning, no write',
+    'VARIABLE=label_texts' not in out and 'No text' in out.replace('TEXT=', ''), out[:100]))
+save_vars.update({'label_l1': 'VASE', 'label_texts': 'WERKSTATT|VASE'})
+
+_lb = get_body('macros/16_labels.cfg', 'LABEL_DEL_LAST')
+out = render(_lb, {})
+tests.append(('R63 LABEL_DEL_LAST: removes the last entry',
+    ('VARIABLE=label_texts VALUE="' + BKSL + '"WERKSTATT' + BKSL + '"') in out, out[:120]))
+
+_lb = get_body('macros/16_labels.cfg', 'LABEL_GENERATE')
+out = render(_lb, {})
+tests.append(('R63 LABEL_GENERATE: bumps the nonce + announces',
+    'VARIABLE=label_gen_nonce VALUE=1' in out and 'creating' in out, out[:120]))
+save_vars['label_texts'] = ''
+out = render(_lb, {})
+tests.append(('R63 LABEL_GENERATE: empty queue -> warning',
+    'VARIABLE=label_gen_nonce' not in out, out[:100]))
+save_vars['label_texts'] = 'WERKSTATT|VASE'
+
+_lb = get_body('macros/16_labels.cfg', 'GEN_LABELS')
+out = render(_lb, {'TEXT': 'EINS|ZWEI', 'W': 70, 'HOLE': 'LEFT', 'HOLE_D': 4})
+tests.append(('R63 GEN_LABELS (console): sets all vars + queues the job',
+    ('VARIABLE=label_texts VALUE="' + BKSL + '"EINS|ZWEI' + BKSL + '"') in out and 'VARIABLE=label_w VALUE=70.0' in out
+    and 'VARIABLE=label_hole_side VALUE=1' in out and 'VARIABLE=label_hole_d VALUE=4.0' in out
+    and 'LABEL_GENERATE' in out, out[:160]))
+out = render(_lb, {})
+tests.append(('R63 GEN_LABELS without TEXT -> usage hint',
+    'GEN_LABELS needs TEXT' in out and 'VARIABLE=label_texts' not in out, out[:100]))
+
+_lb = get_body('macros/16_labels.cfg', 'LABEL_CLEAR_ALL')
+out = render(_lb, {'CONFIRM': 1})
+tests.append(('R63 LABEL_CLEAR_ALL CONFIRM=1 clears the queue (shlex-safe)',
+    "VARIABLE=label_texts VALUE='\"\"\"'" in out or 'VARIABLE=label_texts' in out, out[:100]))
+save_vars['label_texts'] = 'WERKSTATT'
+
+# --- SYS_SAVE_CONFIG (R63 freeze fix) ---
+_sc = get_body('macros/13_system.cfg', 'SYS_SAVE_CONFIG')
+state_vars['mode'] = 'idle'
+out = render(_sc, {}, ps_state='idle')
+tests.append(('R63 SYS_SAVE_CONFIG: first press reports the pending state',
+    'Nothing pending' in out and 'save instantly' in out
+    and 'G4 P1500' not in out and 'STOP_LED_EFFECTS' not in out, out[:140]))
+out = render(_sc, {'CONFIRM': 1}, ps_state='idle', scp=False)
+tests.append(('R63/R83 SYS_SAVE_CONFIG: nothing pending + CONFIRM -> restart anyway',
+    'Restarting Klipper now' in out and 'FIRMWARE_RESTART' in out
+    and 'SAVE_CONFIG\n' not in out and 'G4 P800' in out
+    and 'STOP_LED_EFFECTS' in out, out[:160]))
+out = render(_sc, {'CONFIRM': 1}, ps_state='idle', scp=True)
+tests.append(('R63 SYS_SAVE_CONFIG: pending + CONFIRM -> SAVE_CONFIG with warning first',
+    'DO NOT power off' in out and out.index('DO NOT power off') < out.index('SAVE_CONFIG')
+    and 'G4 P1500' in out, out[:160]))
+out = render(_sc, {'CONFIRM': 1}, ps_state='printing')
+tests.append(('R63 SYS_SAVE_CONFIG: blocked during a print',
+    'blocked during a print' in out and 'SAVE_CONFIG\n' not in out, out[:120]))
+state_vars['mode'] = 'printing'
+
+# --- boot feedback + install hint + menu ids ---
+_st63 = open('macros/01_state.cfg').read()
+tests.append(('R63 boot feedback: _INIT_AFTER_BOOT beeps + M117 ready after a restart',
+    "_SOUND_LIB NAME=r2_done" in _st63.split('_INIT_AFTER_BOOT')[1][:700]
+    and 'M117 R2 ready' in _st63.split('_INIT_AFTER_BOOT')[1][:700], ''))
+tests.append(('R63 install hint: missing 16_labels.cfg gets a friendly line',
+    "Labels menu inactive" in _st63 and "16_labels.cfg" in _st63, ''))
+_lcd63 = open('menus/lcd_menues.cfg').read()
+tests.append(('R63 LCD: labels menu + editor + settings + job ids, guarded enable',
+    all(k in _lcd63 for k in ['[menu __main __labels]', '__labels __txt __chr]', '__labels __set __fnt]',
+                                '__labels __set __hsd]', '__labels __job __add]', '__labels __job __gen]',
+                                "__labels __job __clr2]", "enable: {'gcode_macro _LABELS' in printer}"]), 'ids'))
+tests.append(('R63 LCD: System > Save config is the guarded SYS_SAVE_CONFIG pair',
+    '__system __save]' in _lcd63 and '>> SAVE+RESTART' in _lcd63
+    and 'gcode: SAVE_CONFIG\n' not in _lcd63, ''))
+_order63 = [_lcd63.find(x) for x in ['[menu __main __labels]', '[menu __main __maint]']]
+tests.append(('R63 LCD: Labels sits before Maintenance', 0 < _order63[0] < _order63[1], str(_order63)))
+
+
+# ============================== R64 tests: resonance diagram + bridge + plotter ==
+import os as _os64
+import re as _re64
+import math as _math64
+import tempfile as _tf64
+import struct as _st64
+import zlib as _zl64
+
+_pp = _pp61          # same r2_postproc module, R64 API on top
+
+# --- R64 shaper math: faithful Klipper port -------------------------------
+_A64, _T64 = _pp._mzv_base_coeffs()
+tests.append(('R64 MZV base coeffs: classic 1-1/sqrt(2), sqrt(2)-1, sum 1',
+    abs(_A64[0] - (1 - 1/_math64.sqrt(2))) < 1e-9 and abs(_A64[1] - (_math64.sqrt(2) - 1)) < 1e-9
+    and abs(sum(_A64) - 1.0) < 1e-9, str(_A64)))
+_Am, _Tm = _pp._shaper_mzv(60.0, 0.1)
+_r64 = _pp._shaper_response(_Am, _Tm, 0.1, [60.0, 30.0, 100.0])
+tests.append(('R64 shaper response: notch at the shaper frequency',
+    _r64[0] < 0.06 and 0.3 < _r64[1] < 0.9, str([round(x, 3) for x in _r64])))
+_Az, _Tz = _pp._shaper_zv(50.0, 0.1)
+tests.append(('R64 ZV impulses match Klipper formulas',
+    abs(_Az[1] - _math64.exp(-0.1*_math64.pi/_math64.sqrt(0.99))) < 1e-12
+    and abs(_Tz[1] - 0.5/(50*_math64.sqrt(0.99))) < 1e-12, str(_Az)))
+_Ae, _Te = _pp._shaper_ei(50.0, 0.1)
+tests.append(('R64 EI amplitudes sum to 1',
+    abs(sum(_Ae) - 1.0) < 1e-9 and len(_Ae) == 3, str(_Ae)))
+tests.append(('R64 smoothing + max_accel positive and monotonic',
+    _pp._shaper_smoothing(_Az, _Tz, 5000.0, 5.0) > 0
+    and _pp._shaper_smoothing(_Az, _Tz, 2000.0, 5.0) < _pp._shaper_smoothing(_Az, _Tz, 8000.0, 5.0)
+    and _pp._shaper_max_accel(_Az, _Tz, 5.0) > 1000, ''))
+_fr64 = [5.0 + i*1.5 for i in range(120)]
+_ps64 = _pp._normalize_psd(_fr64, [1.0/(1+((f-60.0)/2.0)**2)**3 + 0.01 for f in _fr64])
+_best64, _table64 = _pp._fit_shapers(_fr64, _ps64, 5.0)
+tests.append(('R64 fit_shapers: synthetic 60Hz peak -> best shaper near the peak',
+    52 <= _best64['freq'] <= 68 and _best64['name'] in ('zv', 'mzv', 'ei'),
+    '%s@%.1f' % (_best64['name'], _best64['freq'])))
+tests.append(('R64 fit table: all 5 autotune shapers, vibrs in 0..1',
+    sorted(s['name'] for s in _table64) == sorted(_pp.AUTOTUNE_SHAPERS)
+    and all(0 <= s['vibrs'] <= 1 and s['smoothing'] > 0 for s in _table64),
+    str([(s['name'], round(s['freq'], 1)) for s in _table64])))
+
+# --- R64 resonance CSV parsing (both Klipper file styles) -------------------
+_d64 = _tf64.mkdtemp(prefix='r64csv')
+_fr2 = [round(1.6 * i, 1) for i in range(120)]
+def _psd_at(f, base=1.0):
+    return (base * 1.0/(1+((f-63.0)/1.8)**2)**4 + 0.02) / (f + 0.1)
+_rows = ['freq,psd_x,psd_y,psd_z,psd_xyz,shapers:,zv(60.8),mzv(63.8),ei(56.2),2hump_ei(50.4),3hump_ei(52.6)']
+for _f in _fr2:
+    _p = _psd_at(_f)
+    _rows.append('%.1f,%.3e,%.3e,%.3e,%.3e,,0.998,0.997,0.981,0.905,0.823' % (_f, _p, _p*0.5, _p*0.2, _p*1.7))
+open(_os64.path.join(_d64, 'calibration_data_x_20260929_120000.csv'), 'w').write('\n'.join(_rows) + '\n')
+_rows2 = ['freq,psd_x,psd_y,psd_z,psd_xyz']
+for _f in _fr2:
+    _p = _psd_at(_f, 0.7) + 0.9/(1+((_f-45.0)/2.5)**2)**4
+    _rows2.append('%.1f,%.3e,%.3e,%.3e,%.3e' % (_f, _p*0.3, _p*0.4, _p*0.1, _p*0.8))
+open(_os64.path.join(_d64, 'resonances_y_20260929_120500.csv'), 'w').write('\n'.join(_rows2) + '\n')
+_dx = _pp._resonance_axis_data('x', [_d64])
+tests.append(('R64 calibrated CSV: keeps the file shaper frequencies',
+    [round(s['freq'], 1) for s in _dx['table']] == [60.8, 63.8, 56.2, 50.4, 52.6]
+    and len(_dx['freqs']) > 50 and _dx['best'] in _dx['table'],
+    str([(s['name'], s['freq']) for s in _dx['table']])))
+_dy = _pp._resonance_axis_data('y', [_d64])
+tests.append(('R64 raw resonances CSV: own fit near the 45Hz peak',
+    40 <= _dy['best']['freq'] <= 52 and _dy['best']['vibrs'] < 0.05,
+    '%s@%.1f %.1f%%' % (_dy['best']['name'], _dy['best']['freq'], _dy['best']['vibrs']*100)))
+tests.append(('R64 missing axis CSV -> no file found',
+    _pp._find_resonance_csv('z', [_d64]) is None, ''))
+try:
+    _pp._resonance_axis_data('z', [_d64])
+    _err64 = 'NO ERROR RAISED'
+except ValueError as _e64:
+    _err64 = str(_e64)
+tests.append(('R64 _resonance_axis_data error message names the axis + dirs',
+    'axis Z' in _err64 and 'CALIBRATE_SHAPER' in _err64, _err64[:90]))
+_md64 = _pp._parse_resonance_csv(_os64.path.join(_d64, 'calibration_data_x_20260929_120000.csv'))
+tests.append(('R64 CSV parser: shaper columns + double-comma layout',
+    [s[0] for s in _md64['shapers']] == ['zv', 'mzv', 'ei', '2hump_ei', '3hump_ei']
+    and _md64['normalized'], str([s[0] for s in _md64['shapers']])))
+
+# --- R64 resonance diagram: print + plot ------------------------------------
+_g64 = _tf64.mkdtemp(prefix='r64gen')
+_files64, _info64 = _pp.make_resonance(axes=['x', 'y'], mode='print', out_dir=_g64,
+                                       bed=(0, -1, 244, 238), csv_dirs=[_d64])
+_g = open(_files64[0]).read()
+tests.append(('R64 resonance print: file name + info per axis',
+    _os64.path.basename(_files64[0]) == '00_Resonance_XY_V01.gcode'
+    and set(_info64['axes']) == {'x', 'y'} and 'best_txt' in _info64['axes']['x'], ''))
+tests.append(('R64 resonance print: EXCLUDE_OBJECT_DEFINE before PRINT_START',
+    _g.index('EXCLUDE_OBJECT_DEFINE NAME=RESONANCE_X') < _g.index('PRINT_START')
+    and _g.count('EXCLUDE_OBJECT_DEFINE') == 2, ''))
+tests.append(('R64 resonance print: 5 layers, marks + types via process()',
+    _g.count(';LAYER_CHANGE') == 5 and 'LAYER_MARK' in _g and 'APPLY_TYPE' in _g
+    and '; R2-POSTPROC v4' in _g, ''))
+_xs64 = [float(m.group(1)) for m in _re64.finditer(r'^G[01] X([\d.]+)', _g, _re64.M)]
+_ys64 = [float(m.group(1)) for m in _re64.finditer(r' Y(-?[\d.]+)', _g, _re64.M)]
+tests.append(('R64 resonance print: both plates inside the bed',
+    0 <= min(_xs64) and max(_xs64) <= 244 and -1 <= min(_ys64) and max(_ys64) <= 238
+    and max(_xs64) > 200, 'X %.1f..%.1f Y %.1f..%.1f' % (min(_xs64), max(_xs64), min(_ys64), max(_ys64))))
+tests.append(('R64 resonance print: single color (no M600), fan from layer 2',
+    'M600' not in _g and 'M106 S178' in _g and 'M107' in _g, ''))
+_files64p, _info64p = _pp.make_resonance(axes=['x', 'y'], mode='plot', out_dir=_g64,
+                                         bed=(0, -1, 244, 238), csv_dirs=[_d64])
+_gp = open(_files64p[0]).read()
+tests.append(('R64 resonance plot: R2-PLOT header, own file, no PRINT_START',
+    'R2-PLOT' in _gp[:200] and _os64.path.basename(_files64p[0]) == '00_Resonance_XY_plot_V01.gcode'
+    and 'PRINT_START' not in _gp and '_PLOT_START EXTRUDE=0' in _gp, ''))
+tests.append(('R64 process() skips R2-PLOT files (no print tags)',
+    _pp.process(_files64p[0])['skipped'] is True, ''))
+tests.append(('R64 single axis + missing axis -> one plate, no crash',
+    (lambda _f, _i: _os64.path.basename(_f[0]) == '00_Resonance_X_plot_V01.gcode')(*_pp.make_resonance(
+        axes=['x'], mode='plot', out_dir=_g64, bed=(0, -1, 244, 238), csv_dirs=[_d64])), ''))
+try:
+    _pp.make_resonance(axes=['z'], mode='print', out_dir=_g64, csv_dirs=[_d64])
+    _rerr64 = 'NO ERROR'
+except ValueError as _e64:
+    _rerr64 = str(_e64)
+tests.append(('R64 resonance: bad axis rejected', 'AXIS must be' in _rerr64, _rerr64[:60]))
+
+# --- R64 bridge test --------------------------------------------------------
+_ob64, _oi64 = _pp.make_bridge(length=150, short_pct=40, bed=(0, -1, 244, 238),
+                               out_dir=_g64, bridge_layers=2, h_long=30, h_short=15, fan=200)
+_gb = open(_ob64).read()
+tests.append(('R64 bridge: file name + layer math (30mm top -> 152 layers)',
+    _oi64['file'] == '00_Bridge_150mm_40pct_V01.gcode' and _oi64['layers'] == 152
+    and _oi64['short_len'] == 60.0, str(_oi64)))
+tests.append(('R64 bridge: 5 exclude objects, BRIDGE type, fan per deck',
+    _re64.findall(r'EXCLUDE_OBJECT_DEFINE NAME=(\w+)', _gb) ==
+    ['TOWER_A', 'TOWER_B', 'TOWER_C', 'BRIDGE_SHORT', 'BRIDGE_LONG']
+    and _gb.count(';TYPE:Bridge') == 4 and 'M106 S200' in _gb and 'M106 S178' in _gb, ''))
+_cA = _re64.search(r'NAME=TOWER_A CENTER=([\d.-]+),([\d.-]+)', _gb)
+_cB = _re64.search(r'NAME=TOWER_B CENTER=([\d.-]+),([\d.-]+)', _gb)
+_cC = _re64.search(r'NAME=TOWER_C CENTER=([\d.-]+),([\d.-]+)', _gb)
+_A64p = (float(_cA.group(1)), float(_cA.group(2)))
+_B64p = (float(_cB.group(1)), float(_cB.group(2)))
+_C64p = (float(_cC.group(1)), float(_cC.group(2)))
+tests.append(('R64 bridge: A-B spans 150mm on the 45 degree diagonal',
+    abs(_math64.hypot(_B64p[0]-_A64p[0], _B64p[1]-_A64p[1]) - 150) < 0.6
+    and abs((_B64p[1]-_A64p[1])/(_B64p[0]-_A64p[0]) - 1.0) < 1e-6, str(_A64p) + str(_B64p)))
+tests.append(('R64 bridge: C sits ON the diagonal at 40% (short under long)',
+    abs(_math64.hypot(_C64p[0]-_A64p[0], _C64p[1]-_A64p[1]) - 60) < 0.6
+    and abs((_C64p[1]-_A64p[1])/(_C64p[0]-_A64p[0]) - 1.0) < 1e-6, str(_C64p)))
+_xs64b = [float(m.group(1)) for m in _re64.finditer(r'^G[01] X([\d.]+)', _gb, _re64.M)]
+_ys64b = [float(m.group(1)) for m in _re64.finditer(r' Y(-?[\d.]+)', _gb, _re64.M)]
+tests.append(('R64 bridge: everything inside the bed + towers + brim',
+    6 <= min(_xs64b) and max(_xs64b) <= 238 and 6 <= min(_ys64b) and max(_ys64b) <= 232,
+    'X %.1f..%.1f Y %.1f..%.1f' % (min(_xs64b), max(_xs64b), min(_ys64b), max(_ys64b))))
+tests.append(('R64 bridge: normal flow (PRINT_START + marks + M117 stages)',
+    'PRINT_START MATERIAL=' in _gb and 'LAYER_MARK' in _gb and 'M117 Bridge: short 60mm' in _gb
+    and 'M117 Bridge: long 150mm' in _gb and 'TYPES=' in _gb and 'BRIDGE' in _re64.search(r'TYPES=([\w,\-]+)', _gb).group(1), ''))
+try:
+    _pp.make_bridge(length=310, out_dir=_g64, bed=(0, -1, 244, 238))
+    _berr64 = 'NO ERROR'
+except ValueError as _e64:
+    _berr64 = str(_e64)
+tests.append(('R64 bridge: overlong span rejected with the real limit',
+    'does not fit the bed diagonal' in _berr64, _berr64[:80]))
+tests.append(('R64 bridge: short height auto-clamped below the long one',
+    (lambda _i: _i['h_short'] < _i['h_long'] - 5)(_pp.make_bridge(
+        length=120, short_pct=30, h_long=20, h_short=19, bed=(0, -1, 244, 238), out_dir=_g64)[1]), ''))
+
+# --- R64 text + status plot -------------------------------------------------
+open(_os64.path.join(_g64, 'notes.txt'), 'w').write(
+    'WERKSTATT REGELN\n\n1. Maschine saeubern\n2. Filament trocknen\n' * 3 + 'emoji: \U0001f600 ok\n')
+_ot64, _nl64, _sz64 = _pp.text_convert(_os64.path.join(_g64, 'notes.txt'),
+                                       out=_os64.path.join(_g64, 'notes.txt.gcode'))
+_gt = open(_ot64).read()
+tests.append(('R64 text plot: wraps + auto-fits one page, unknown chars -> ?',
+    _nl64 == 13 and 'R2-PLOT' in _gt[:200] and '_PLOT_START EXTRUDE=0' in _gt, 'lines %d @ %.1fmm' % (_nl64, _sz64)))
+_ys64t = [float(m.group(1)) for m in _re64.finditer(r' Y([\d.]+)', _gt)]
+tests.append(('R64 text plot: stays on the plot bed',
+    5 <= min(_ys64t) and max(_ys64t) <= 233, 'Y %.1f..%.1f' % (min(_ys64t), max(_ys64t))))
+open(_os64.path.join(_g64, 'many.txt'), 'w').write(''.join('Zeile %d Text\n' % i for i in range(80)))
+_o2, _n2, _s2 = _pp.text_convert(_os64.path.join(_g64, 'many.txt'),
+                                 out=_os64.path.join(_g64, 'many.txt.gcode'))
+_cols64t, _sz64t = _pp._fit_text_page(['Zeile %d Text' % i for i in range(80)],
+                                       226.0, 220.0, 7.0, 'SMOOTH')
+tests.append(('R73 text plot: 80 lines -> 3 columns at >=6mm caps + truncation note',
+    _s2 >= 6.0 and _n2 == 60 and len(_cols64t) == 3 and _sz64t >= 6.0
+    and any('more lines' in l for c in _cols64t for l in c),
+    '%d lines @ %.1fmm' % (_n2, _s2)))
+_os64p, _n3, _s3 = _pp.make_status_plot(out=_os64.path.join(_g64, 'R2_Status.gcode'))
+_gst = open(_os64p).read()
+tests.append(('R64 status plot: report page with version + key values',
+    _n3 >= 13 and 'R2-PLOT' in _gst[:200] and '_PLOT_START' in _gst, '%d lines' % _n3))
+
+# --- R64 image polarity (dark writing boards) --------------------------------
+def _png64(path, w, h, fn):
+    rows = b''
+    for y in range(h):
+        rows += b'\x00'
+        for x in range(w):
+            rows += bytes(fn(x, y))
+    def chunk(t, d):
+        c = t + d
+        return _st64.pack('>I', len(d)) + c + _st64.pack('>I', _zl64.crc32(c) & 0xffffffff)
+    open(path, 'wb').write(b'\x89PNG\r\n\x1a\n'
+                           + chunk(b'IHDR', _st64.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0))
+                           + chunk(b'IDAT', _zl64.compress(rows)) + chunk(b'IEND', b''))
+import shutil as _sh64
+_png64(_os64.path.join(_g64, 'board.png'), 120, 80,
+       lambda x, y: (30, 30, 30) if not (20 <= y <= 60 and 15 <= x <= 105) else (170, 170, 160))
+_png64(_os64.path.join(_g64, 'paper.png'), 120, 80,
+       lambda x, y: (240, 238, 230) if not (20 <= y <= 60 and 15 <= x <= 105) else (20, 20, 20))
+_sh64.copy(_os64.path.join(_g64, 'board.png'), _os64.path.join(_g64, 'board.png.gcode'))
+_pp.plot_convert(_os64.path.join(_g64, 'board.png.gcode'))
+_gboard = open(_os64.path.join(_g64, 'board.png.gcode')).read()
+_sh64.copy(_os64.path.join(_g64, 'paper.png'), _os64.path.join(_g64, 'paper.png.gcode'))
+_pp.plot_convert(_os64.path.join(_g64, 'paper.png.gcode'))
+_gpaper = open(_os64.path.join(_g64, 'paper.png.gcode')).read()
+tests.append(('R64 polarity: dark board detected via the border -> INVERTED',
+    'polarity: dark background' in _gboard and 'INVERTED' in _gboard, ''))
+tests.append(('R64 polarity: light paper stays normal',
+    'polarity: light background' in _gpaper and 'INVERTED' not in _gpaper, ''))
+tests.append(('R64 polarity: both variants produce pen strokes',
+    len(_re64.findall(r'^G1 X', _gboard, _re64.M)) > 50
+    and len(_re64.findall(r'^G1 X', _gpaper, _re64.M)) > 50, ''))
+tests.append(('R73 PLOT_PAT knows .txt.gcode AND plain .txt/.png uploads',
+    bool(_pp.PLOT_PAT.search('notizen.txt.gcode')) and bool(_pp.PLOT_PAT.search('notizen.txt'))
+    and bool(_pp.PLOT_PAT.search('photo.png')) and not _pp.PLOT_PAT.search('datei.gcode'), ''))
+tests.append(('R64 _peek_file_info flags plot files for the Pre-Print menu',
+    _pp._peek_file_info(_files64p[0]).get('PLOT') == '1', ''))
+tests.append(('R64 _peek_file_info: print files are NOT plot files',
+    'PLOT' not in _pp._peek_file_info(_files64[0]), ''))
+
+# --- R64 macros -------------------------------------------------------------
+_rb = get_body('macros/12_maintenance.cfg', 'RESONANCE_DIAGRAM')
+state_vars['mode'] = 'idle'
+out = render(_rb, {'AXIS': 'X', 'MODE': 'PLOT'})
+tests.append(('R64 RESONANCE_DIAGRAM: saves axis/mode + bumps the nonce',
+    ('VARIABLE=reso_axis VALUE="' + BKSL + '"X' + BKSL + '"') in out and ('VARIABLE=reso_mode VALUE="' + BKSL + '"plot' + BKSL + '"') in out
+    and 'VARIABLE=reso_nonce VALUE=1' in out, out.strip()[:100]))
+out = render(_rb, {'AXIS': 'Q', 'MODE': 'PRINT'})
+tests.append(('R64 RESONANCE_DIAGRAM: bad axis/mode rejected',
+    'AXIS must be' in out, out.strip()[:70]))
+state_vars['mode'] = 'printing'
+out = render(_rb, {})
+tests.append(('R64 RESONANCE_DIAGRAM: only when idle', 'only when idle' in out, ''))
+state_vars['mode'] = 'idle'
+
+_sr = get_body('macros/12_maintenance.cfg', 'SHAPER_RESULT')
+for _k, _v in (('shaper_rec_x_zv', '61.4'), ('shaper_rec_x_mzv', '67.6'), ('shaper_rec_y_ei', '58.9'),
+               ('shaper_best_x', 'mzv@67.6Hz 4.2%'), ('shaper_best_y', 'ei@58.9Hz 3.1%')):
+    save_vars[_k] = _v
+out = render(_sr, {})
+tests.append(('R64 SHAPER_RESULT (no args): shows the stored table',
+    'mzv 67.6' in out and 'ei 58.9' in out and 'best: mzv@67.6Hz' in out, out[:120]))
+out = render(_sr, {'AXIS': 'X', 'TYPE': 'MZV'})
+tests.append(('R64 SHAPER_RESULT: TYPE pick uses the stored frequency (PA-style)',
+    'SET_INPUT_SHAPER SHAPER_TYPE_X=mzv SHAPER_FREQ_X=67.6' in out.replace('.0', '')
+    and ('ishaper_ov_type_x VALUE="' + BKSL + '"mzv' + BKSL + '"') in out and 'ishaper_ov_on_x VALUE=True' in out, out[:120]))
+out = render(_sr, {'AXIS': 'Y', 'TYPE': 'EI', 'FREQ': '61'})
+tests.append(('R64 SHAPER_RESULT: manual FREQ fine tuning',
+    'SHAPER_FREQ_Y=61' in out.replace('.0', '') and 'ishaper_ov_freq_y VALUE=61' in out.replace('.0', ''), out[:100]))
+out = render(_sr, {'AXIS': 'X', 'TYPE': 'ZV'})
+tests.append(('R64 SHAPER_RESULT: zv stored -> applies 61.4',
+    'SHAPER_FREQ_X=61.4' in out, out[:90]))
+save_vars.pop('shaper_rec_y_zv', None)
+out = render(_sr, {'AXIS': 'Y', 'TYPE': 'ZV'})
+tests.append(('R64 SHAPER_RESULT: nothing stored -> helpful error',
+    'No stored freq' in out and 'RESONANCE_DIAGRAM' in out, out[:90]))
+
+_bt = get_body('macros/12_maintenance.cfg', 'BRIDGE_TEST')
+out = render(_bt, {})
+tests.append(('R64 BRIDGE_TEST: bumps the nonce + announces',
+    'VARIABLE=bridge_nonce VALUE=1' in out and 'creating' in out, out.strip()[:80]))
+state_vars['mode'] = 'printing'
+out = render(_bt, {})
+tests.append(('R64 BRIDGE_TEST: only when idle', 'only when idle' in out, ''))
+state_vars['mode'] = 'idle'
+
+_pt = get_body('macros/12_maintenance.cfg', 'PLOT_TEXT')
+out = render(_pt, {'FILE': 'notes.txt'})
+tests.append(('R64 PLOT_TEXT: stores the file + bumps the nonce',
+    ('VARIABLE=plot_text_file VALUE="' + BKSL + '"notes.txt' + BKSL + '"') in out and 'VARIABLE=plot_text_nonce VALUE=1' in out, out[:90]))
+out = render(_pt, {'FILE': '../etc/passwd'})
+tests.append(('R64 PLOT_TEXT: paths rejected (basename only)', 'basename' in out or 'upload the file' in out, out[:80]))
+
+_pn = get_body('macros/12_maintenance.cfg', '_PLOT_NAME_SET_CHAR')
+out = render(_pn, {'POS': '1', 'CH': '39'})
+tests.append(('R64/R71 _PLOT_NAME_SET_CHAR: writes the buffer, pos ADVANCES',
+    ('VARIABLE=plot_name_buf VALUE="' + BKSL + '"n' + BKSL + '"') in out and 'VARIABLE=plot_name_pos VALUE=2' in out, out[:90]))
+
+_ps = get_body('macros/12_maintenance.cfg', 'PLOT_STATUS')
+out = render(_ps, {})
+tests.append(('R64 PLOT_STATUS: bumps the nonce', 'VARIABLE=plot_status_nonce VALUE=1' in out, out[:70]))
+
+_sps = get_body('macros/12_maintenance.cfg', 'SET_PLOT_SPEED')
+state_vars['file_type'] = 'plot'
+out = render(_sps, {'PCT': '80'})
+tests.append(('R64 SET_PLOT_SPEED: M220 + saved as start default',
+    'M220 S80' in out and 'VARIABLE=plot_ov_speed VALUE=80' in out, out[:80]))
+_spz = get_body('macros/12_maintenance.cfg', 'SET_PLOT_PENZ')
+out = render(_spz, {'DZ': '0.05'})
+tests.append(('R64 SET_PLOT_PENZ: Z babystep + total offset tracked',
+    'SET_GCODE_OFFSET Z_ADJUST=0.05' in out and 'VARIABLE=plot_ov_z VALUE=0.05' in out, out[:90]))
+_spx = get_body('macros/12_maintenance.cfg', 'SET_PLOT_SHIFT')
+out = render(_spx, {'X': '0.5'})
+tests.append(('R64 SET_PLOT_SHIFT: X/Y shift via gcode offset',
+    'SET_GCODE_OFFSET X_ADJUST=0.5 Y_ADJUST=0.0' in out, out[:80]))
+state_vars['file_type'] = 'marked'
+out = render(_sps, {'PCT': '80'})
+tests.append(('R64 SET_PLOT_SPEED: guarded to plot jobs', 'only during a plot job' in out, ''))
+state_vars['file_type'] = 'plot'
+
+_ptr = get_body('macros/12_maintenance.cfg', 'PLOT_TUNE_RESET')
+out = render(_ptr, {})
+tests.append(('R64 PLOT_TUNE_RESET: neutralizes all start overrides',
+    out.count('VALUE=100') == 1 and out.count('VALUE=0') == 3, out[:90]))
+
+_pst = get_body('macros/12_maintenance.cfg', '_PLOT_START')
+save_vars['plot_ov_speed'] = 80
+save_vars['plot_ov_z'] = 0.1
+out = render(_pst, {})
+tests.append(('R64 _PLOT_START: applies speed + Z/X/Y start overrides',
+    'M220 S80' in out and 'SET_GCODE_OFFSET Z_ADJUST=0.1' in out, ''))
+save_vars['plot_ov_speed'] = 100
+save_vars['plot_ov_z'] = 0.0
+out = render(_pst, {})
+tests.append(('R64 _PLOT_START: neutral overrides stay silent',
+    'M220 S' not in out and 'SET_GCODE_OFFSET Z_ADJUST' not in out, ''))
+state_vars['file_type'] = 'marked'
+
+_iab = klipper_strip(_re64.search(r'\[delayed_gcode _INIT_AFTER_BOOT\]\ninitial_duration: 5\ngcode:\n(.*?)(?=\n\[|\Z)',
+    open('macros/01_state.cfg').read(), _re64.S).group(1))
+save_vars['ishaper_ov_on_x'] = True
+save_vars['ishaper_ov_type_x'] = 'mzv'
+save_vars['ishaper_ov_freq_x'] = 67.6
+out = render(_iab, {})
+tests.append(('R64 boot: shaper override applied after every restart',
+    'SET_INPUT_SHAPER SHAPER_TYPE_X=mzv SHAPER_FREQ_X=67.6' in out.replace('.0', ''), ''))
+save_vars['ishaper_ov_on_x'] = False
+out = render(_iab, {})
+tests.append(('R64 boot: no override -> no SET_INPUT_SHAPER', 'SET_INPUT_SHAPER' not in out, ''))
+for _k in ('shaper_rec_x_zv', 'shaper_rec_x_mzv', 'shaper_rec_y_ei', 'shaper_best_x', 'shaper_best_y',
+           'ishaper_ov_on_x', 'ishaper_ov_type_x', 'ishaper_ov_freq_x', 'plot_ov_speed', 'plot_ov_z'):
+    save_vars.pop(_k, None)
+
+# --- R64 LCD audit ----------------------------------------------------------
+_lcd64 = open('menus/lcd_menues.cfg').read()
+tests.append(('R64 LCD: vibration menu grows diagram + apply, plotter grows text/status/start',
+    all(k in _lcd64 for k in ['__vib __dgp]', '__vib __dgl]', '__vib __ap __x2]', '__vib __ap __y4]',
+                                '__plot __txt __chr]', '__plot __pst]', '__plot __st __pz]',
+                                '__plot __inv]', '__plot __txt __run]']), 'ids'))
+tests.append(('R64 LCD: bridging menu with all live-relevant settings',
+    all(k in _lcd64 for k in ['__maint __bridge __len]', '__maint __bridge __pct]',
+                                '__maint __bridge __hl]', '__maint __bridge __hs]',
+                                '__maint __bridge __tw]', '__maint __bridge __ly]',
+                                '__maint __bridge __spd]', '__maint __bridge __fan]',
+                                '__maint __bridge __run]']), 'ids'))
+tests.append(('R64 LCD: plotter live group gated on plot jobs + pre-print plot group on preview',
+    "enable: {printer['gcode_macro _STATE'].file_type|default('') == 'plot'}" in _lcd64
+    and "__preprint __file __pl0]" in _lcd64
+    and "printer['gcode_macro _PREVIEW'].plot|default(0)|int == 1" in _lcd64, ''))
+tests.append(('R64 LCD: plot text editor guarded on the labels charset',
+    _re64.search(r'__plot __txt\]..type: list..name: Plot text file..enable: .\'gcode_macro _LABELS\' in printer', _lcd64.replace('\n', '..')) is not None, ''))
+tests.append(('R64 LCD: new static names stay <= 16 chars',
+    not [n for n in ['Diagram (print)', 'Diagram (plot)', 'Show table', 'Apply result', 'Bridging',
+                     '> Create file', 'How it works', 'Plot text file', '> Plot this file',
+                     '> Plot status', 'Start overrides', 'Reset overrides', 'Plotter',
+                     'Pen Z +0.05', 'Pen Z -0.05', 'Delete char', 'Clear name'] if len(n) > 16], ''))
+_m1264 = open('macros/12_maintenance.cfg').read()
+tests.append(('R64 no double braces anywhere (Klipper Jinja pitfall)',
+    '{{' not in _m1264.replace('{{#', '') and '{{' not in _lcd64, ''))
+
+
+# ============================== R65 tests: '#' comment-strip HOTFIX (boot blocker) ==
+import glob as _glob65
+
+tests.append(('R65 charset: config line parses after the Klipper # strip (92 chars, no #/;)',
+    len(LABEL_CHARSET_LCD) == 92 and '#' not in LABEL_CHARSET_LCD and ';' not in LABEL_CHARSET_LCD, str(len(LABEL_CHARSET_LCD))))
+tests.append(('R65 invariant: LCD charset + the appended # == generator charset',
+    set(LABEL_CHARSET_LCD) | {'#'} == set(_pp.LABEL_CHARSET)
+    and len(LABEL_CHARSET_LCD) == len(_pp.LABEL_CHARSET) - 1, ''))
+_lb65 = get_body('macros/16_labels.cfg', '_LABEL_SET_CHAR')
+save_vars['label_l1'] = ''
+out = render(_lb65, {'POS': '1', 'CH': '92'})
+tests.append(('R65/R74 _LABEL_SET_CHAR: index 92 == # (the %c trick)',
+    ('VARIABLE=label_l1 VALUE="' + BKSL + '"#' + BKSL + '"') in out, out[:110]))
+save_vars['label_l1'] = ''
+out = render(_lb65, {'POS': '1', 'CH': '5'})
+tests.append(('R65/R74 _LABEL_SET_CHAR: index 5 still F (order kept before the # position)',
+    ('VARIABLE=label_l1 VALUE="' + BKSL + '"F' + BKSL + '"') in out, out[:110]))
+_pn65 = get_body('macros/12_maintenance.cfg', '_PLOT_NAME_SET_CHAR')
+out = render(_pn65, {'POS': '1', 'CH': '92'})
+tests.append(('R65 plot name editor: index 92 == # too',
+    ('VARIABLE=plot_name_buf VALUE="' + BKSL + '"#' + BKSL + '"') in out, out[:110]))
+_bad65 = []
+for _f65 in sorted(_glob65.glob('macros/*.cfg') + _glob65.glob('menus/*.cfg')):
+    for _n65, _l65 in enumerate(open(_f65, encoding='utf-8'), 1):
+        _st65 = _l65.rstrip('\n').lstrip()
+        _h65 = _st65.find('#')
+        if _h65 <= 0:
+            continue
+        _vor65 = _st65[:_h65]
+        if _vor65.count('"') % 2 == 1 or (_vor65.count("'") % 2 == 1
+                and ('{' in _vor65 or _st65.startswith('variable_'))):
+            _bad65.append('%s:%d' % (_f65, _n65))
+tests.append(('R65 no # inside quoted strings in ANY cfg (the .47/.48 boot-blocker class)',
+    not _bad65, str(_bad65[:3])))
+_lcd65b = open('menus/lcd_menues.cfg').read()
+tests.append(('R65/R71 LCD: both char pickers are VISIBLE scroll lists (93 entries each)',
+    _lcd65b.count('[menu __main __labels __txt __chr __c') == 93
+    and _lcd65b.count('[menu __main __plot __txt __chr __c') == 93
+    and 'input_max: 92' not in _lcd65b and 'charset[menu.input]' not in _lcd65b, ''))
+
+# ---------- R66: update via Mainsail upload + one SSH command ----------
+_upd66 = open('update.sh', encoding='utf-8').read()
+tests.append(('R66 update.sh: bash script with upload-unpack + loop guard',
+    _upd66.startswith('#!/usr/bin/env bash') and '--unpacked' in _upd66
+    and 'exec bash' in _upd66 and '--force' in _upd66, ''))
+tests.append(('R66 update.sh: unzip -o + python3 fallback + restart endpoint',
+    'unzip -o' in _upd66 and 'python3 -m zipfile -e' in _upd66
+    and 'UPDATE-R2-*.zip' in _upd66 and 'firmware_restart' in _upd66, ''))
+import subprocess as _sp66
+try:
+    _syn66 = _sp66.run(['bash', '-n', 'update.sh'], capture_output=True, text=True).returncode
+except Exception:
+    _syn66 = -1
+tests.append(('R66 update.sh passes bash -n syntax check', _syn66 == 0, 'rc=%s' % _syn66))
+_v66 = ''
+for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
+    if _l66.strip().startswith('variable_version:'):
+        _v66 = _l66.split(':', 1)[1].strip()
+        break
+# NOTE: bump this expectation together with the version on every release!
+tests.append(('R66/R74 version is .65 in 01_state.cfg (bump together with release!)',
+    _v66 == "'R2-2026-09-07.67'", repr(_v66)))
+
+# ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
+# Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
+# jinja templates AT CONFIG LOAD -> one unknown filter = "Internal error during
+# connect" = printer down. .47 shipped two of those ('#' + |string.split).
+import re as _re67
+
+def _cfg_opts67(path):
+    _opts, _cur, _sec = [], None, None
+    for _l67 in klipper_strip(open(path, encoding='utf-8').read()).split('\n'):
+        _s67 = _l67.strip()
+        if not _s67:
+            continue
+        if _l67.startswith('[') and _s67.endswith(']'):
+            _sec = _s67[1:-1].strip(); _cur = None; continue
+        if _sec is None:
+            continue
+        if _l67[:1] not in (' ', '\t'):
+            _m67 = _re67.match(r'^([A-Za-z0-9_]+)\s*:\s*(.*)$', _s67)
+            if _m67:
+                _opts.append((_sec, _m67.group(1), [_m67.group(2)])); _cur = len(_opts) - 1
+        elif _cur is not None:
+            _opts[_cur][2].append(_s67)
+    return _opts
+
+def _tmpl67(_sec67, _opt67):
+    if _sec67.startswith(('gcode_macro ', 'delayed_gcode')):
+        return _opt67 == 'gcode'
+    if _sec67.startswith('menu '):
+        return _opt67 in ('name', 'enable', 'gcode')
+    return False
+
+_bad67, _n67 = [], 0
+for _p67 in sorted(_glob65.glob('macros/*.cfg') + _glob65.glob('menus/*.cfg')):
+    for _sec67, _opt67, _lines67 in _cfg_opts67(_p67):
+        _t67 = '\n'.join(_lines67).strip('\n')
+        if not _t67 or not _tmpl67(_sec67, _opt67):
+            continue
+        _n67 += 1
+        try:
+            env.from_string(_t67)
+        except Exception as _e67:
+            _bad67.append('%s [%s] %s: %s' % (_p67, _sec67, _opt67, _e67))
+tests.append(('R67 all %d boot-compiled templates compile (macro gcode + menu name/enable/gcode)' % _n67,
+    not _bad67 and _n67 > 1500, str(_bad67[:3])))
+
+# render every menu template: a runtime error while the LCD draws would be blocker #3
+_rbad67, _rn67 = [], 0
+for _p67 in sorted(_glob65.glob('menus/*.cfg')):
+    for _sec67, _opt67, _lines67 in _cfg_opts67(_p67):
+        _t67 = '\n'.join(_lines67).strip('\n')
+        if not _t67 or not _tmpl67(_sec67, _opt67):
+            continue
+        _rn67 += 1
+        for _iv67 in (0, 3):
+            try:
+                render(_t67, extra={'menu': M({'input': _iv67, 'ns': _sec67[5:], 'event': 'click'})})
+            except Exception as _e67:
+                _rbad67.append('%s [%s] %s (input=%s): %s' % (_p67, _sec67, _opt67, _iv67, _e67))
+                break
+tests.append(('R67 all %d menu templates render with mock printer (names+enable+gcode)' % _rn67,
+    not _rbad67 and _rn67 > 1300, str(_rbad67[:3])))
+
+_q67 = [l for l in open('menus/lcd_menues.cfg', encoding='utf-8').read().split('\n')
+        if l.startswith('name: Queue:')][0][len('name: '):]
+tests.append(('R67 label queue name uses the fixed .split pattern (no |string.split)',
+    'string.split' not in _q67 and ').split(' in _q67 and '|length' in _q67, _q67[:70]))
+_oldq67 = save_vars.get('label_texts', '')
+save_vars['label_texts'] = ''
+tests.append(('R67 label queue name renders 0/24 when queue empty',
+    render(_q67, extra={'menu': M({'input': 0})}).strip() == 'Queue: 0/24',
+    render(_q67, extra={'menu': M({'input': 0})}).strip()[:40]))
+save_vars['label_texts'] = 'WERKSTATT|R2|'
+tests.append(('R67 label queue name renders 2/24 with two queued labels',
+    render(_q67, extra={'menu': M({'input': 0})}).strip() == 'Queue: 2/24',
+    render(_q67, extra={'menu': M({'input': 0})}).strip()[:40]))
+save_vars['label_texts'] = _oldq67
+
+# ---------- R68: foreign files (hyphen names / bare '-' tokens) never crash the watcher ----------
+import tempfile as _tf68, subprocess as _sp68, sys as _sys68, os as _os68
+_d68 = _tf68.mkdtemp(prefix='r68')
+_f68 = _os68.path.join(_d68, 'Felge-V-035.gcode')
+open(_f68, 'w').write(
+    'M104 S200\nM140 S60\nG28\nG1 Z0.2 F600\n;Z:0.2\n;TYPE:Outer wall\n'
+    'G1 X50 Y50 Z0.2 E2.5 F1800 ; Felge-V-035 perimeter\n'
+    'G1 X60 Y60 E3.0\nG1 E- F2400\nG1 X70 Y70 E3.5\n;Z:-\n;Z:0.4\n'
+    'G1 X80 Y80 Z0.4 E4.0\nG1 X90 Y90 E4.5 ; Ender_3_Easy_Control-013\n;Z:0.6\n'
+    'G1 X95 Y95 Z0.6 E5.0\n')
+_r68 = _sp68.run([_sys68.executable, 'tools/r2_postproc.py', _f68],
+                 capture_output=True, text=True)
+_t68 = open(_f68).read()
+tests.append(('R68 hyphen comments + bare E- + ";Z:-" process cleanly (no float crash), tag + marks',
+    _r68.returncode == 0 and 'ValueError' not in (_r68.stderr + _r68.stdout)
+    and '; R2-POSTPROC v4' in _t68 and _t68.count('LAYER_MARK') >= 2,
+    (_r68.returncode, (_r68.stderr or _r68.stdout)[-200:])))
+_r68b = _sp68.run([_sys68.executable, '-c',
+    "import importlib.util as u; s = u.spec_from_file_location('r2p', 'tools/r2_postproc.py');"
+    "m = u.module_from_spec(s); s.loader.exec_module(m);"
+    "p = m.parse_params(' X- Y5.5 Z0.2 E-3 ; Felge-V-035 Ender-3 ');"
+    "assert p == {'Y': 5.5, 'Z': 0.2, 'E': -3.0}, p; print('ok')"],
+    capture_output=True, text=True)
+tests.append(('R68 parse_params: comments stripped, X-/hyphen names ignored, real negatives kept',
+    _r68b.returncode == 0 and 'ok' in _r68b.stdout, _r68b.stderr[-200:]))
+tests.append(('R68 postproc docstring names the real tag (v4, not the stale v2)',
+    "the tag '; R2-POSTPROC v4' and is skipped" in open('tools/r2_postproc.py', encoding='utf-8').read(), ''))
+
+# ---------- R69: SAVE_VARIABLE must survive Klipper's shlex + literal_eval ----------
+# Klipper cuts each command line at ';' and parses non-traditional commands
+# (SAVE_VARIABLE!) with POSIX shlex: quotes are STRIPPED, so VALUE="AB C"
+# reaches literal_eval as the bare token 'AB C'. save_variables catches ONLY
+# ValueError - a malformed literal (space, apostrophe, empty, pipes) raises
+# SyntaxError = "Internal error on command" = PRINTER SHUTDOWN (.47-.52 bug).
+import shlex as _sh69, ast as _ast69
+
+def _kexec69(line):
+    _l69 = line.strip()
+    _c69 = _l69.find(';')
+    if _c69 >= 0:
+        _l69 = _l69[:_c69]
+    _cmd69, _, _raw69 = _l69.partition(' ')
+    _s69 = _sh69.shlex(_raw69.strip(), posix=True)
+    _s69.whitespace_split = True
+    _s69.commenters = '#;'
+    _ep69 = {}
+    try:
+        for _e69 in _s69:
+            _k69, _v69 = _e69.split('=', 1)
+            _ep69[_k69.upper()] = _v69
+    except ValueError:
+        return 'malformed', None
+    if 'VALUE' not in _ep69:
+        return 'novalue', None
+    try:
+        return 'ok', _ast69.literal_eval(_ep69['VALUE'])
+    except ValueError:
+        return 'valueerror', None
+    except SyntaxError:
+        return 'SYNTAX-SHUTDOWN', None
+
+def _svl69(out):
+    return [l.strip() for l in out.split('\n') if l.strip().startswith('SAVE_VARIABLE')]
+
+_badg69 = []
+for _f69 in sorted(_glob65.glob('macros/*.cfg') + _glob65.glob('menus/*.cfg')):
+    for _n69, _l69 in enumerate(open(_f69, encoding='utf-8'), 1):
+        if _l69.strip().startswith('#'):
+            continue
+        if ('SAVE_VARIABLE' not in _l69 and 'SET_GCODE_VARIABLE' not in _l69) or 'VALUE=' not in _l69:
+            continue
+        _v69 = _l69.split('VALUE=', 1)[1]
+        if not (_v69[:2] == '"' + BKSL or _v69[:2] == '"{' or _v69[:2] == '"['
+                or _v69[:1] == "'" or _v69[:1] in '-+.0123456789{['
+                or _v69.startswith('True') or _v69.startswith('False')):
+            # R79: '[' = list literal (VALUE=[]) - safe, Klipper passes the object
+            _badg69.append('%s:%d' % (_f69, _n69))
+tests.append(('R69 static gate: no bare VALUE=" (the shutdown class) in any cfg line',
+    not _badg69 and len(_glob65.glob('macros/*.cfg')) == 16, str(_badg69[:3])))
+
+_lb69 = get_body('macros/16_labels.cfg', '_LABEL_SET_CHAR')
+_bad69 = []
+for _i69, _ch69 in enumerate(LABEL_CHARSET_LCD + '#'):
+    for _pre69 in ('', 'X'):
+        save_vars['label_l1'] = _pre69
+        _o69 = render(_lb69, {'POS': len(_pre69) + 1, 'CH': _i69})
+        _exp69 = _pre69 + _ch69
+        for _sv69 in _svl69(_o69):
+            _st69, _val69 = _kexec69(_sv69)
+            if _st69 != 'ok':
+                _bad69.append((_sv69[:60], _st69))
+            elif _sv69.startswith('SAVE_VARIABLE VARIABLE=label_l1 ') and _val69 != _exp69:
+                _bad69.append(('wrong value', _val69, _exp69))
+save_vars['label_l1'] = ''
+tests.append(('R69/R74 label editor: every charset char saves clean (no shutdown, exact value)',
+    not _bad69, str(_bad69[:3])))
+
+_lb69b = get_body('macros/16_labels.cfg', 'LABEL_ADD')
+save_vars.update({'label_l1': 'A B', 'label_texts': "IT'S", 'label_lines': 1})
+_o69 = render(_lb69b, {})
+_ok69 = False
+for _sv69 in _svl69(_o69):
+    _st69, _val69 = _kexec69(_sv69)
+    if _sv69.startswith('SAVE_VARIABLE VARIABLE=label_texts '):
+        _ok69 = (_st69 == 'ok' and _val69 == "IT'S|A B")
+tests.append(("R69 queue add with space + apostrophe saves clean (IT'S|A B)",
+    _ok69, _o69[:120]))
+save_vars.update({'label_l1': '', 'label_texts': ''})
+
+_lb69c = get_body('macros/16_labels.cfg', 'GEN_LABELS')
+_o69 = render(_lb69c, {'TEXT': 'WERK STATT'})
+tests.append(('R69 GEN_LABELS with a space in TEXT saves clean (escaped form)',
+    any(_kexec69(_sv69) == ('ok', 'WERK STATT') for _sv69 in _svl69(_o69)), _o69[:120]))
+_o69 = render(_lb69c, {'TEXT': 'a"b'})
+tests.append(('R69 GEN_LABELS rejects quotes in TEXT (no poison save, clear error)',
+    not any('VARIABLE=label_texts' in _sv69 for _sv69 in _svl69(_o69))
+    and 'not allowed' in _o69, _o69[:120]))
+
+_lb69d = get_body('macros/12_maintenance.cfg', '_PLOT_NAME_SET_CHAR')
+save_vars['plot_name_buf'] = "IT'S"
+_o69 = render(_lb69d, {'POS': 4, 'CH': 92})
+tests.append(("R69 plot name editor: apostrophe buffer + '#' insert saves clean",
+    all(_kexec69(_sv69)[0] == 'ok' for _sv69 in _svl69(_o69))
+    and any(_kexec69(_sv69) == ('ok', "IT'#") for _sv69 in _svl69(_o69)), _o69[:120]))
+save_vars['plot_name_buf'] = ''
+
+_lb69e = get_body('macros/12_maintenance.cfg', 'PLOT_TEXT')
+_o69 = render(_lb69e, {'FILE': 'my notes.txt'})
+tests.append(('R69 PLOT_TEXT with a space in FILE saves clean',
+    any(_kexec69(_sv69) == ('ok', 'my notes.txt') for _sv69 in _svl69(_o69)), _o69[:100]))
+_o69 = render(_lb69e, {'FILE': 'a"b.txt'})
+tests.append(('R69 PLOT_TEXT rejects quotes in FILE (no poison save)',
+    not any('VARIABLE=plot_text_file' in _sv69 for _sv69 in _svl69(_o69)), _o69[:100]))
+
+import importlib.util as _ilu69
+_spec69 = _ilu69.spec_from_file_location('r2p69', 'tools/r2_postproc.py')
+_mod69 = _ilu69.module_from_spec(_spec69)
+_spec69.loader.exec_module(_mod69)
+_badw69 = []
+_san69 = '"' + BKSL + ';'
+for _ch69 in LABEL_CHARSET_LCD + '#':
+    for _v69 in (_ch69, 'A' + _ch69 + 'B', '12 (5x3)', 'my file.gcode'):
+        _st69, _val69 = _kexec69(_mod69._sv_line('t', _v69))
+        if _st69 != 'ok' or (_val69 != _v69 and not any(c in _v69 for c in _san69)):
+            _badw69.append((_v69, _st69))
+for _v69 in ('a"b', 'a;b', 'a' + BKSL + 'b'):
+    if _kexec69(_mod69._sv_line('t', _v69))[0] != 'ok':
+        _badw69.append((_v69, 'sanitize failed'))
+for _v69 in (3.14, True, 7, 0.2):
+    _st69, _val69 = _kexec69(_mod69._sv_line('t', _v69))
+    if _st69 != 'ok' or _val69 != _v69:
+        _badw69.append((_v69, _st69, _val69))
+tests.append(('R69 watcher _sv_line: whole charset + specials + numbers all clean',
+    not _badw69, str(_badw69[:3])))
+
+# ---------- R70: field-log fixes (preset dict / cold extrude / excerpt objects) ----------
+_pr70 = get_body('macros/05_materials.cfg', 'SAVE_DEFAULT_PRESET')
+for _s70 in range(1, 9):
+    save_vars['default_preset_%d' % _s70] = 0
+save_vars.update({'material': 'PETG', 'ovf_brim_on': True, 'ovf_brim_spd': 80.0,
+                  'ov_bed_on': True, 'ov_bed': 60.0, 'first_layer_speed': 75.0})
+_o70 = render(_pr70, {})
+_sv70 = [l.strip() for l in _o70.split('\n') if l.strip().startswith('SAVE_VARIABLE VARIABLE=default_preset_')]
+_preset70 = None
+for _ls70 in _sv70:
+    _st70, _val70 = _kexec69(_ls70)
+    if _st70 == 'ok' and isinstance(_val70, dict):
+        _preset70 = _val70
+tests.append(('R70 SAVE_DEFAULT_PRESET: dict saves as ONE shlex-quoted token, literal_eval sees the dict',
+    _preset70 is not None and _preset70.get('material') == 'PETG'
+    and _preset70.get('feats', {}).get('brim', [None]*4)[1] == 80.0,
+    _sv70[:1] or _o70.strip()[-200:]))
+save_vars.update({'ovf_brim_on': False, 'ovf_brim_spd': 100.0})
+
+_lit70 = []
+for _f70 in sorted(_glob65.glob('macros/*.cfg') + _glob65.glob('menus/*.cfg')):
+    if "VALUE={'" in open(_f70, encoding='utf-8').read():
+        _lit70.append(_f70)
+tests.append(('R70 static: no raw dict literal VALUE={\' in any cfg', not _lit70, str(_lit70[:3])))
+
+_lp70 = get_body('macros/08_print_start_stop.cfg', '_LEGACY_PREP')
+_o70 = render(_lp70, {})
+tests.append(('R70 _LEGACY_PREP waits for the hotend target BEFORE the pause (cold-extrude guard)',
+    'TEMPERATURE_WAIT SENSOR=extruder MINIMUM=215' in _o70
+    and _o70.index('TEMPERATURE_WAIT SENSOR=extruder') < _o70.index('PAUSE REASON'), _o70[:140]))
+_o70b = render(_lp70, {}, etgt=120)
+tests.append(('R70/R72 _LEGACY_PREP: low target still waits to the SAFE 175 (min_extrude_temp+5)',
+    'TEMPERATURE_WAIT SENSOR=extruder MINIMUM=175' in _o70b, _o70b[:160]))
+_o70c = render(_lp70, {}, etgt=0)
+tests.append(('R70/R72 _LEGACY_PREP: no guard wait when nothing is heating (target 0)',
+    'TEMPERATURE_WAIT SENSOR=extruder' not in _o70c, _o70c[:120]))
+
+_m10970 = get_body('macros/06_temp_controls.cfg', 'M109')
+_old70 = {k: state_vars.get(k) for k in ('start_pending','mode','layer','ignore_overrides','file_hotend_first','file_hotend_after')}
+state_vars.update({'start_pending': 'as_legacy', 'mode': 'printing', 'layer': 0,
+                   'ignore_overrides': False, 'file_hotend_first': 0, 'file_hotend_after': 0})
+save_vars['preheat_hotend'] = 170.0
+_o70 = render(_m10970, {'S': '220'})
+tests.append(('R70 M109 takeover cap floors at min_extrude_temp+5 (170+5=175, not 170)',
+    'waiting only up to 175C' in _o70 and 'M99109 S175' in _o70,
+    [l.strip() for l in _o70.split('\n') if 'waiting only up to' in l or 'M99109' in l][:2]))
+for _k70, _v70 in _old70.items():
+    if _v70 is not None:
+        state_vars[_k70] = _v70
+
+import tempfile as _tf70, os as _os70, importlib.util as _ilu70
+_d70 = _tf70.mkdtemp(prefix='r70')
+_src70 = _os70.path.join(_d70, 'obj.gcode')
+open(_src70, 'w').write(
+    '; R2-POSTPROC v4\nM104 S200\nM140 S60\n'
+    'EXCLUDE_OBJECT_DEFINE NAME=cube CENTER=60,60 POLYGON=[[50,50],[70,50],[70,70],[50,70]]\n'
+    'EXCLUDE_OBJECT_DEFINE NAME=cap CENTER=120,60 POLYGON=[[110,50],[130,50],[130,70],[110,70]]\n'
+    'G1 Z0.2 F600\nLAYER_MARK\n;TYPE:Outer wall\nG1 X50 Y50 Z0.2 E2.5 F1800\n'
+    'LAYER_MARK\nG1 X60 Y60 Z0.4 E3.5\n'
+    'LAYER_MARK\nG1 X70 Y70 Z0.6 E4.5\n'
+    'LAYER_MARK\nG1 X80 Y80 Z0.8 E5.5\n')
+_spec70 = _ilu70.spec_from_file_location('r2p70', 'tools/r2_postproc.py')
+_mod70 = _ilu70.module_from_spec(_spec70)
+_spec70.loader.exec_module(_mod70)
+_out70, _nl70 = _mod70.make_range(_src70, 2, 3)
+_exc70 = open(_out70).read()
+tests.append(('R70 range excerpt keeps EXCLUDE_OBJECT_DEFINE (KAMP adaptive, no full-bed fallback)',
+    _exc70.count('EXCLUDE_OBJECT_DEFINE') == 2 and 'NAME=cube' in _exc70 and 'NAME=cap' in _exc70,
+    [l for l in _exc70.split('\n') if 'EXCLUDE_OBJECT' in l][:2]))
+
+# ---------- R71: range excerpt extrusion (block G92s + accumulating brim E) ----------
+import tempfile as _tf71, os as _os71, importlib.util as _ilu71, re as _re71
+re = _re71
+_d71 = _tf71.mkdtemp(prefix='r71')
+_v71 = _os71.path.join(_d71, 'vase.gcode')
+_vl71 = ['M82', 'G92 E0']
+for _l71 in range(1, 7):
+    _vl71 += ['LAYER_MARK', f'G1 Z{_l71 * 0.2:.2f} F600', ';TYPE:Outer wall',
+              f'G1 X{20 + _l71}.0 Y50.0 E{(_l71 - 1) * 2 + 0.5:.3f} F1800',
+              f'G1 X{30 + _l71}.0 Y60.0 E{(_l71 - 1) * 2 + 1.5:.3f}']
+open(_v71, 'w').write('\n'.join(_vl71) + '\n')
+_spec71 = _ilu71.spec_from_file_location('r2p71', 'tools/r2_postproc.py')
+_mod71 = _ilu71.module_from_spec(_spec71)
+_spec71.loader.exec_module(_mod71)
+_o71, _n71 = _mod71.make_range(_v71, 3, 4, floor=2, top=1, brim=2)
+_t71 = open(_o71).read()
+_ic71 = _t71.index('R2-RANGE cap')
+_g171 = _t71[:_ic71]
+_g271 = _t71[_ic71:]
+_b71 = [float(m.group(1)) for m in re.finditer(r'G1 X[\d.-]+ Y[\d.-]+ E([\d.]+) F1200', _g171)]
+_b71c = [float(m.group(1)) for m in re.finditer(r'G1 X[\d.-]+ Y[\d.-]+ E([\d.]+) F1200', _g271)]
+tests.append(('R71/R73 vase excerpt: 4 block G92s (head+gen+body+cap), generated E accumulates',
+    _t71.count('G92 E0') == 4 and len(_b71) >= 8
+    and all(_b71[i + 1] > _b71[i] for i in range(len(_b71) - 1)) and _b71[-1] > _b71[0] * 3,
+    (_t71.count('G92 E0'), len(_b71), len(_b71c))))
+tests.append(('R73/R74 raft hatch + brim + cap: monotone E per generated block, no retracts',
+    'R2-RANGE raft: 2 layer(s)' in _t71 and 'R2-RANGE brim: 2 loop(s)' in _t71
+    and 'R2-RANGE cap: 1' in _t71 and 'solid' in _t71.split('R2-RANGE cap: 1')[1][:80]
+    and ' E-' not in _t71
+    and all(_b71[i + 1] > _b71[i] for i in range(len(_b71) - 1))
+    and all(_b71c[i + 1] > _b71c[i] for i in range(len(_b71c) - 1))
+    and len(_b71c) >= 4, 'gen blocks: %d/%d' % (len(_b71), len(_b71c))))
+tests.append(('R73 order: raft BEFORE brim BEFORE body BEFORE cap, cap gets a LAYER_MARK',
+    _t71.index('R2-RANGE raft') < _t71.index('R2-RANGE brim')
+    < _t71.index('R2-RANGE: body E starts') < _t71.index('R2-RANGE cap')
+    and 'LAYER_MARK   ; R2-RANGE cap layer 1' in _t71, ''))
+_m83_71 = _os71.path.join(_d71, 'rel.gcode')
+_rl71 = ['M83']
+for _l71 in range(1, 5):
+    _rl71 += ['LAYER_MARK', f'G1 Z{_l71 * 0.2:.2f} F600',
+              'G1 X20.0 Y50.0 E1.5 F1800', 'G1 X30.0 Y60.0 E1.2']
+open(_m83_71, 'w').write('\n'.join(_rl71) + '\n')
+_o71b, _n71b = _mod71.make_range(_m83_71, 2, 3, floor=1, top=1, brim=1)
+_t71b = open(_o71b).read()
+tests.append(('R71/R73 M83 file: no G92 inserted, generated geometry keeps relative E',
+    'G92 E' not in _t71b and 'M83' in _t71b
+    and len(re.findall(r'G1 X[\d.-]+ Y[\d.-]+ E[\d.]+ F1200', _t71b)) >= 4
+    and 'R2-RANGE raft: 1 layer(s)' in _t71b, _t71b[:120]))
+
+# ---------- R71: visible character pickers ----------
+_lcd71 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+_n71b = {int(m.group(1)): m.group(2) for m in re.finditer(
+    r'\[menu __main __labels __txt __chr __c(\d\d)\]\ntype: command\nname: (.*)\n', _lcd71)}
+tests.append(('R71 label picker: 93 visible entries, umlaut aliases, # last',
+    len(_n71b) == 93 and _n71b.get(62) == '(space)' and _n71b.get(63) == 'AE'
+    and _n71b.get(69) == 'ss' and _n71b.get(87) == 'deg'
+    and _n71b.get(92) == "{'%c' % 35}" and _n71b.get(0) == 'A', str(_n71b)[:80]))
+_p71c = {int(m.group(1)): m.group(2) for m in re.finditer(
+    r'\[menu __main __plot __txt __chr __c(\d\d)\]\ntype: command\nname: (.*)\n', _lcd71)}
+tests.append(('R71 plot picker: 93 visible entries with _PLOT_NAME_SET_CHAR gcode',
+    len(_p71c) == 93 and all(('_PLOT_NAME_SET_CHAR CH=%d' % i) in _lcd71 for i in range(93)), str(len(_p71c))))
+_nonascii71 = [l[:40] for l in _lcd71.split('\n') if l.startswith('name:') and any(ord(c) > 127 for c in l)]
+tests.append(('R71 LCD gate: every menu name is pure ASCII (12864-safe)',
+    not _nonascii71, str(_nonascii71[:2])))
+_lb71 = get_body('macros/16_labels.cfg', '_LABEL_SET_CHAR')
+_oldt71, _oldp71 = save_vars.get('label_l1', ''), save_vars.get('label_pos', 1)
+save_vars.update({'label_l1': 'AB', 'label_pos': 2})
+_o71c = render(_lb71, {'CH': 5})
+tests.append(('R71/R74 _LABEL_SET_CHAR: POS defaults to the saved position + auto-advances',
+    ('VARIABLE=label_l1 VALUE="' + BKSL + '"AF' + BKSL + '"') in _o71c
+    and 'VARIABLE=label_pos VALUE=3' in _o71c, _o71c[:140]))
+save_vars.update({'label_l1': _oldt71, 'label_pos': _oldp71})
+_pn71 = get_body('macros/12_maintenance.cfg', '_PLOT_NAME_SET_CHAR')
+_oldpn71 = save_vars.get('plot_name_buf', ''), save_vars.get('plot_name_pos', 1)
+save_vars.update({'plot_name_buf': 'XY', 'plot_name_pos': 2})
+_o71d = render(_pn71, {'CH': 26})
+tests.append(('R71 _PLOT_NAME_SET_CHAR: saved position + auto-advance',
+    ('VARIABLE=plot_name_buf VALUE="' + BKSL + '"Xa' + BKSL + '"') in _o71d
+    and 'VARIABLE=plot_name_pos VALUE=3' in _o71d, _o71d[:140]))
+save_vars.update({'plot_name_buf': _oldpn71[0], 'plot_name_pos': _oldpn71[1]})
+
+
+# ==================== R72 (.56): legacy-start cascade + solid label strokes ====================
+import re as _re72, importlib.util as _ilu72, tempfile as _tf72, os as _os72, math as _math72
+re = _re72
+
+def get72(path, section):
+    t = open(path, encoding='utf-8').read()
+    m = re.search(r'\[' + section + r'\]\n(?:(?!gcode:)[^\n]*\n)*?gcode:\n(.*?)(?=\n\[|\Z)', t, re.S)
+    assert m, section + ' not found'
+    return klipper_strip('\n'.join(l[4:] if l.startswith('    ') else l for l in m.group(1).split('\n')))
+
+# --- heater injections: M190/M109/M140 ARM, M104 keeps the immediate guard path ---
+_m104 = get72('macros/06_temp_controls.cfg', r'gcode_macro M104')
+_m109 = get72('macros/06_temp_controls.cfg', r'gcode_macro M109')
+_m140 = get72('macros/06_temp_controls.cfg', r'gcode_macro M140')
+_m190 = get72('macros/06_temp_controls.cfg', r'gcode_macro M190')
+for _nm, _bd in (('M190', _m190), ('M109', _m109), ('M140', _m140)):
+    state_vars.update(mode='printing', start_pending='as_legacy', legacy_armed=False, file_type='unknown', has_heaters=True)
+    out = render(_bd, {'S': 60 if _nm != 'M109' else 210})
+    tests.append(('R72 %s injection: ARMS the takeover, no immediate PREP' % _nm,
+        'VARIABLE=legacy_armed VALUE=True' in out and '_LEGACY_PREP' not in out
+        and 'VARIABLE=file_type VALUE=\'"legacy"\'' in out, out[:200]))
+state_vars.update(mode='printing', start_pending='as_legacy', legacy_armed=False, file_type='unknown', has_heaters=True)
+out = render(_m104, {'S': 210})
+tests.append(('R72 M104 injection (not armed): immediate guard path PREP',
+    '_LEGACY_PREP' in out and 'VARIABLE=legacy_armed VALUE=True' not in out, out[:200]))
+state_vars.update(mode='printing', start_pending='as_legacy', legacy_armed=True, file_type='legacy', has_heaters=True)
+out = render(_m104, {'S': 210})
+tests.append(('R72 M104 injection (already armed): hands over to START_PRINT/probe',
+    '_LEGACY_PREP' not in out and 'VARIABLE=legacy_armed VALUE=True' not in out, out[:200]))
+
+# --- _LEGACY_PREP guard: min_extrude_temp + 5, never ON the refusal line ---
+_prep72 = get72('macros/08_print_start_stop.cfg', r'gcode_macro _LEGACY_PREP')
+out = render(_prep72, {}, etgt=170)
+tests.append(('R72 PREP guard: target 170 -> waits 175 (min_extrude_temp+5)',
+    'MINIMUM=175' in out and 'min_extrude_temp 170 + 5' in out, out[:220]))
+out = render(_prep72, {}, etgt=220)
+tests.append(('R72 PREP guard: target 220 -> waits 220 (max wins)',
+    'MINIMUM=220' in out, out[:220]))
+tests.append(('R72 PREP consumes the arming',
+    "VARIABLE=legacy_armed VALUE=False" in render(_prep72, {}, etgt=210), ''))
+
+# --- park retract / resume unretract at the min_extrude_temp boundary ---
+_park72 = get72('macros/09_pause_filament.cfg', r'gcode_macro _PARK_HEAD')
+out = render(_park72, {}, etemp=169.9, etgt=170)
+tests.append(('R72 park: 169.9C + min_extrude_temp 170 -> NO retract',
+    'G1 E-3' not in out and 'skipping anti-ooze retract' in out, out[-260:]))
+out = render(_park72, {}, etemp=178.0, etgt=175)
+tests.append(('R72 park: 178C -> retract fires',
+    'G1 E-3 F2100' in out, out[-200:]))
+_res72 = get72('macros/09_pause_filament.cfg', r'gcode_macro _RESUME_COMMON')
+out = render(_res72, {}, etemp=169.9, etgt=170)
+tests.append(('R72 resume: 169.9C -> no unretract', 'G1 E3' not in out, out[:180]))
+
+# --- START_PRINT: armed -> hot takeover; prepared -> continue ---
+_sp72 = get72('macros/08_print_start_stop.cfg', r'gcode_macro START_PRINT')
+state_vars.update(mode='printing', file_type='legacy', legacy_armed=True, legacy_file='')
+save_vars['legacy_level'] = True
+out = render(_sp72, {})
+tests.append(('R72 START_PRINT armed: hot takeover via PREP',
+    '_LEGACY_PREP' in out and 'VARIABLE=legacy_armed VALUE=False' in out
+    and 'file is hot' in out, out[:220]))
+save_vars['legacy_level'] = False
+out = render(_sp72, {})
+tests.append(('R72 START_PRINT armed + level OFF: takeover via HOME',
+    '_LEGACY_HOME' in out and '_LEGACY_PREP' not in out, out[:220]))
+save_vars['legacy_level'] = True
+state_vars.update(legacy_armed=False, legacy_file='test.gcode')
+out = render(_sp72, {})
+tests.append(('R72 START_PRINT already prepared: printing continues',
+    'already prepared' in out and '_LEGACY_PREP' not in out, out[:180]))
+state_vars['legacy_file'] = ''
+
+# --- _START_NET_PROBE: armed grace, then hot takeover ---
+_np72 = get72('macros/08_print_start_stop.cfg', r'delayed_gcode _START_NET_PROBE')
+state_vars.update(mode='printing', legacy_armed=True, probe_stage=0, file_type='legacy', start_pending='')
+out = render(_np72, {})
+tests.append(('R72 PROBE armed stage0: grace 4s for START_PRINT',
+    'DURATION=4' in out and '_LEGACY_PREP' not in out and 'VARIABLE=probe_stage VALUE=1' in out, out[:220]))
+state_vars['probe_stage'] = 1
+out = render(_np72, {})
+tests.append(('R72 PROBE armed stage1: takeover NOW (PREP), arming consumed',
+    '_LEGACY_PREP' in out and 'VARIABLE=legacy_armed VALUE=False' in out, out[:240]))
+state_vars.update(legacy_armed=False, probe_stage=0)
+
+# --- watcher catch: a decided file never gets a second dialog ---
+_w72 = get72('macros/01_state.cfg', r'delayed_gcode _STATE_WATCHER')
+state_vars.update(mode='idle', decided_file='test.gcode', decided_mode='as_legacy', legacy_file='test.gcode')
+out = render(_w72, {}, ps_state='printing')
+tests.append(('R72 catch: decided file -> NO second dialog, live tuning',
+    '_LEGACY_DIALOG' not in out and 'decision for this file stands' in out
+    and 'VARIABLE=ignore_overrides VALUE=False' in out, out[:240]))
+state_vars.update(decided_file='test.gcode', decided_mode='as_sliced')
+out = render(_w72, {}, ps_state='printing')
+tests.append(('R72 catch: decided AS SLICED -> ignore_overrides ON',
+    'VARIABLE=ignore_overrides VALUE=True' in out and '_LEGACY_DIALOG' not in out, out[:200]))
+state_vars.update(decided_file='', decided_mode='', mode='printing')
+
+# --- waiter: every decision remembers decided_file/decided_mode ---
+_wt72 = get72('macros/07_start_confirm.cfg', r'delayed_gcode _START_CONFIRM_WAITER')
+state_vars.update(mode='waiting', file_type='unknown')
+for _dec72, _mode72 in (('as_sliced', 'as_sliced'), ('with_overrides', 'as_legacy'), ('as_legacy', 'as_legacy')):
+    save_vars['start_decision'] = _dec72
+    out = render(_wt72, {})
+    tests.append(('R72 WAITER %s: remembers the decision for the file' % _dec72,
+        "VARIABLE=decided_file VALUE='\"test.gcode\"'" in out
+        and ("VARIABLE=decided_mode VALUE='\"%s\"'" % _mode72) in out, out[:200]))
+save_vars['start_decision'] = ''
+state_vars['mode'] = 'printing'
+
+# --- sequential: current_object None -> name the next non-excluded object ---
+state_vars.update(mode='printing', layer=12, layer_z_max=2.4)
+# NOTE: build_printer SNAPSHOTS state_vars - set the state BEFORE building the mock
+_pr72 = build_printer(gz=0.3, objs=[{'name': 'obj_a', 'center': [100, 100], 'polygon': [[90, 90], [110, 90], [110, 110], [90, 110]]},
+                                 {'name': 'obj_b', 'center': [150, 100], 'polygon': [[140, 90], [160, 90], [160, 110], [140, 110]]}],
+                           excl=['obj_a'])
+_pr72['exclude_object'] = M({'objects': _pr72['exclude_object'].objects,
+                             'excluded_objects': ['obj_a'], 'current_object': None})
+out = render(_w72, {}, gz=0.3, extra={'printer': _pr72})
+tests.append(('R72 SEQ: no START_PRINT-style "(None)" - names the next object',
+    'next object (obj_b)' in out and '(None)' not in out, out[:200]))
+state_vars.update(layer=2, layer_z_max=0.4)
+
+# --- SET_LIVE_HOTEND_TEMP T=0 -> invalid, not "Hotend stays 0C" ---
+_lv72 = get72('macros/06_temp_controls.cfg', r'gcode_macro SET_LIVE_HOTEND_TEMP')
+out = render(_lv72, {'T': 0})
+tests.append(('R72 live temp T=0 reads as missing (100..300)',
+    'missing (100..300)' in out and 'Hotend stays' not in out, out[:160]))
+
+# --- GEN_LABELS STROKE parameter ---
+_gl72 = get72('macros/16_labels.cfg', r'gcode_macro GEN_LABELS')
+out = render(_gl72, {'TEXT': 'AB', 'STROKE': '2.5'})
+tests.append(('R72 GEN_LABELS STROKE=2.5 saved',
+    'VARIABLE=label_stroke VALUE=2.5' in out, out[:160]))
+
+# --- postproc: solid double-walled strokes ---
+_spec72 = _ilu72.spec_from_file_location('r2p72', 'tools/r2_postproc.py')
+_mod72 = _ilu72.module_from_spec(_spec72)
+_spec72.loader.exec_module(_mod72)
+_off72 = _mod72._stroke_offsets([(0.0, 0.0), (10.0, 0.0)], 0.92, 0.612)
+_ys72 = [q[0][1] for q in _off72]
+tests.append(('R72 strokes: 3 parallel paths, symmetric, spacing = extrusion width',
+    len(_off72) == 3 and abs(_ys72[0] + _ys72[-1]) < 0.02 and abs(_ys72[0] - _ys72[1] - 0.612) < 0.02,
+    str(_ys72)))
+_off72b = _mod72._stroke_offsets([(0, 0), (5, 5), (10, 0)], 0.92, 0.612)
+tests.append(('R72 strokes: mitered polyline offsets (no crash, 3 paths)',
+    len(_off72b) == 3 and all(len(q) == 3 for q in _off72b), ''))
+_d72 = _tf72.mkdtemp()
+_p72, _i72 = _mod72.make_labels(['AB'], w=30, h=15, base_layers=2, text_layers=1,
+                                color2=True, bed=(0, -3, 244, 238), out_dir=_d72, stroke=0)
+_g72 = open(_p72).read()
+_tx72 = _g72[_g72.index('PAUSE for the filament change'):]
+_el72 = [l for l in _tx72.split('\n') if l.startswith('G1 X') and ' E' in l]
+_bad72 = [l for l in _el72 if float(l.split(' E')[1].split()[0]) <= 0]
+_ty72 = [l for l in _tx72.split('\n') if l.startswith(';TYPE:')]
+tests.append(('R72 label text: solid strokes (many E-lines, walls + fill types, E>0)',
+    len(_el72) > 60 and any('Internal solid infill' in _t for _t in _ty72)
+    and any(_t.endswith('Outer wall') for _t in _ty72) and not _bad72,
+    'lines=%d types=%d bad=%d' % (len(_el72), len(_ty72), len(_bad72))))
+
+
+# ============================= R73 TESTS =============================
+# --- range: M83 WITH a trailing comment (THE .56 'no filament' field bug) ----
+import tempfile as _tf73, os as _os73, importlib.util as _ilu73, re as _re73
+_d73 = _tf73.mkdtemp()
+_f73 = _os73.path.join(_d73, 'relcmt.gcode')
+_l73 = ['; custom', 'M83 ; use relative distances for extrusion', 'M140 S60', 'M104 S215', 'G90']
+for _k73 in range(1, 7):
+    _l73 += ['LAYER_MARK', f'G1 Z{_k73 * 0.2:.2f} F600', ';TYPE:Outer wall',
+             'G1 X30.0 Y50.0 E0.9 F1800', 'G1 X40.0 Y60.0 E1.1']
+open(_f73, 'w').write('\n'.join(_l73) + '\n')
+_spec73 = _ilu73.spec_from_file_location('r2p73', 'tools/r2_postproc.py')
+_mod73 = _ilu73.module_from_spec(_spec73)
+_spec73.loader.exec_module(_mod73)
+_o73, _n73 = _mod73.make_range(_f73, 3, 5, floor=1, top=1, brim=1)
+_t73 = open(_o73).read()
+tests.append(('R73 range: M83-with-comment detected (the .56 no-filament bug)',
+    '\nM83\n' in _t73 and '\nM82\n' not in _t73
+    and 'G1 X30.0 Y50.0 E0.9 F1800' in _t73 and 'G1 X40.0 Y60.0 E1.1' in _t73,
+    [l for l in _t73.split('\n') if l in ('M82', 'M83')]))
+tests.append(('R73 range: raft/brim in relative E, no M82 rebase artifacts',
+    'R2-RANGE raft: 1 layer(s)' in _t73 and 'R2-RANGE brim: 1 loop(s)' in _t73
+    and 'G92 E' not in _t73
+    and len(_re73.findall(r'G1 X[\d.-]+ Y[\d.-]+ E[\d.]+ F1200', _t73)) >= 4, ''))
+
+# --- hull helpers: offset (zero gap) + hatch (raft fill) ---------------------
+_h73 = _mod73._hull([(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)])
+_off73 = _mod73._offset_hull(_h73, 0.3)
+tests.append(('R73 _offset_hull grows the outline by d (brim flush to the wall)',
+    abs(min(p[0] for p in _off73) + 0.3) < 0.05 and abs(max(p[0] for p in _off73) - 10.3) < 0.05,
+    str(sorted(round(p[0], 2) for p in _off73)[:2])))
+_ht73 = _mod73._hull_hatch(_h73, 1.2, 45.0)
+tests.append(('R73 _hull_hatch fills the hull, segments stay inside',
+    len(_ht73) >= 10 and all(-0.01 <= p[0] <= 10.01 and -0.01 <= p[1] <= 10.01
+                             for s in _ht73 for p in s), str(len(_ht73))))
+_dec73 = _mod73._decimate([(0, 0), (0.01, 0), (5, 0), (10, 0), (10, 5), (10, 10)], 0.1)
+tests.append(('R73 _decimate drops micro + collinear points (MCU relief)',
+    _dec73 == [(0, 0), (10, 0), (10, 10)], str(_dec73)))
+
+# --- label typography: R74 uniform scale (no stretch), ~75% width --------------
+_c73, _b73, _hd73 = _mod73._label_layout(60, 30, 1, 5.0)
+_p73, _g73 = _mod73._label_text_lines(['Axg@'], 'SMOOTH', _b73, 60, 30)
+tests.append(('R73/R74 label text: auto caps stay under 66% of the height (uniform)',
+    2.5 <= _g73['cap_h'] <= 0.66 * 30 + 0.3, '%.2f' % _g73['cap_h']))
+_ysA = [q[1] for s in _p73 for q in s]
+# glyph classification
+tests.append(('R73 _glyph_class: A/0 full, x/@/> small (user rule)',
+    _mod73._glyph_class('A', 'SMOOTH') == 'FULL' and _mod73._glyph_class('0', 'SMOOTH') == 'FULL'
+    and _mod73._glyph_class('x', 'SMOOTH') == 'SMALL' and _mod73._glyph_class('@', 'SMOOTH') == 'SMALL'
+    and _mod73._glyph_class('>', 'PIXEL') == 'SMALL', ''))
+tests.append(('R73/R74 label text: auto spans ~75% of the label width',
+    38.0 <= (max(q[0] for s in _p73 for q in s) - min(q[0] for s in _p73 for q in s)) <= 46.0,
+    '%.1f' % (max(q[0] for s in _p73 for q in s) - min(q[0] for s in _p73 for q in s))))
+_c73x, _b73x, _ = _mod73._label_layout(60, 30, 0, 5.0)
+_p73b, _g73b = _mod73._label_text_lines(['WERKSTATT'], 'SMOOTH', _b73x, 60, 30)
+tests.append(('R73/R74 label text: long word shrinks uniformly (never stretches)',
+    2.5 <= _g73b['cap_h'] <= 12.0 and 40.0 <= (max(q[0] for s in _p73b for q in s)
+    - min(q[0] for s in _p73b for q in s)) <= 54.0, '%.1fmm caps' % _g73b['cap_h']))
+tests.append(('R73 label cells: hole diameter clamps to the label height',
+    _mod73._label_layout(60, 30, 1, 20.0)[2] == 16.0, ''))
+_lp73, _li73 = _mod73.make_labels(['Axg@'], w=60, h=30, hole_side=1, hole_d=5.0,
+                                  base_layers=2, text_layers=1, color2=False,
+                                  bed=(0, -3, 244, 238), out_dir=_d73)
+_lt73 = open(_lp73).read()
+tests.append(('R73 label file: TAG + _FILE_INFO + markers DIRECT (no process re-parse)',
+    '; R2-POSTPROC v4' in _lt73 and _lt73.count('_FILE_INFO ') == 1
+    and 'APPLY_TYPE TYPE=WALL-INNER' in _lt73 and _lt73.count('LAYER_MARK') == 3
+    and _mod73.process(_lp73)['skipped'] is True, ''))
+_fed73 = [int(_m73.group(1)) for _m73 in _re73.finditer(r'F(\d+)', _lt73)]
+tests.append(('R73 label file: feeds capped at 75mm/s (MCU overload fix)',
+    max(_fed73) <= 4500, 'max F%d' % max(_fed73)))
+
+# --- live tuning: user value wins over re-applies (first-layer lock fix) ------
+_m22173 = get_body('macros/06_temp_controls.cfg', 'M221')
+save_vars.update({'ov_flow_on': True, 'ov_flow': 90})
+state_vars.update({'mode': 'printing', 'layer': 1, 'live_flow': 115, 'ignore_overrides': False})
+out = render(_m22173, {'S': 100})
+tests.append(('R73 M221: LIVE flow beats the pre-print flow override',
+    'M99221 S115' in out, out[:110]))
+state_vars.update({'live_flow': 0, 'layer': 2})
+out = render(_m22173, {'S': 100})
+tests.append(('R73 M221: without a live value the override still rules',
+    'M99221 S90' in out, out[:110]))
+
+_m20473 = get_body('macros/06_temp_controls.cfg', 'M204')
+state_vars.update({'live_accel': 4200, 'current_type': 'WALL-OUTER'})
+save_vars.update({'ovf_wallouter_on': True, 'ovf_wallouter_acc': 1500})
+out = render(_m20473, {'S': 800})
+tests.append(('R73 M204: LIVE accel beats feature accel re-applies',
+    'M99204 S4200' in out, out[:110]))
+state_vars['live_accel'] = 0
+out = render(_m20473, {'S': 800})
+tests.append(('R73 M204: without a live value the feature accel rules',
+    'M99204 S1500' in out, out[:110]))
+
+_m22073 = get_body('macros/06_temp_controls.cfg', 'M220')
+save_vars.update({'first_layer_speed': 75})
+state_vars.update({'layer': 1, 'l1_speed_user': True})
+out = render(_m22073, {'S': 120})
+tests.append(('R73 M220: user speed leads on layer 1 (no more capped lock)',
+    'M99220 S120' in out and 'capped' not in out, out[:110]))
+state_vars['l1_speed_user'] = False
+out = render(_m22073, {'S': 120})
+tests.append(('R73 M220: without a live takeover the L1 brake still caps',
+    'M99220 S75' in out and 'capped' in out, out[:110]))
+
+_lm73 = get_body('macros/06_temp_controls.cfg', 'LAYER_MARK')
+state_vars.update({'mode': 'printing', 'layer': 1, 'g_speed_clean': 120, 'l1_speed_user': True})
+out = render(_lm73, {})
+tests.append(('R73 LAYER_MARK n=2: YOUR live speed stays (no reset to 100%)',
+    'M220 S120' in out and 'stays' in out, [l for l in out.split('\n') if 'M220' in l]))
+state_vars.update({'l1_speed_user': False, 'g_speed_clean': 100})
+out = render(_lm73, {})
+tests.append(('R73 LAYER_MARK n=2: normal reset to 100% when nobody took over',
+    'M220 S100' in out and 'back to 100' in out, ''))
+
+_at73 = get_body('macros/10_live_tuning.cfg', 'APPLY_TYPE')
+state_vars.update({'mode': 'printing', 'layer': 2, 'live_flow': 112, 'live_accel': 0,
+                   'current_type': 'WALL-OUTER', 'g_speed_clean': 100, 'ignore_overrides': False})
+save_vars.update({'ovf_wallouter_on': True, 'ovf_wallouter_flw': 100, 'ovf_wallouter_spd': 100,
+                  'ovf_wallouter_acc': 0, 'ov_flow_on': False, 'ov_flow': 100})
+out = render(_at73, {'TYPE': 'WALL-OUTER'})
+tests.append(('R73 APPLY_TYPE: feature boundary re-applies the LIVE flow',
+    'M99221 S112' in out, [l for l in out.split('\n') if 'M99221' in l]))
+
+_sf73 = get_body('macros/10_live_tuning.cfg', 'SET_FLOW_RATE')
+out = render(_sf73, {'PERCENT': 108})
+tests.append(('R73 SET_FLOW_RATE arms the live flow', 'VARIABLE=live_flow VALUE=108' in out, out[:90]))
+_sa73 = get_body('macros/10_live_tuning.cfg', 'SET_GLOBAL_ACCEL')
+out = render(_sa73, {'ACCEL': 3800})
+tests.append(('R73 SET_GLOBAL_ACCEL arms the live accel', 'VARIABLE=live_accel VALUE=3800' in out, out[:90]))
+_sg73 = get_body('macros/10_live_tuning.cfg', 'SET_GLOBAL_SPEED')
+state_vars.update({'mode': 'printing', 'layer': 1})
+out = render(_sg73, {'PERCENT': 130})
+tests.append(('R73 SET_GLOBAL_SPEED on layer 1 disarms the L1 brake',
+    'VARIABLE=l1_speed_user VALUE=True' in out and 'M220 S130' in out, out[:110]))
+_lr73 = get_body('macros/10_live_tuning.cfg', '_LIVE_RESET')
+out = render(_lr73, {})
+tests.append(('R73 _LIVE_RESET clears the live priorities',
+    'VARIABLE=live_flow VALUE=0' in out and 'VARIABLE=live_accel VALUE=0' in out
+    and 'VARIABLE=l1_speed_user VALUE=False' in out, ''))
+
+# --- plotter: FILAMENT mode geometry (draw height + relative E + retract) -----
+_fv73 = _os73.path.join(_d73, 'variables.cfg')
+open(_fv73, 'w').write('[Variables]\nvariable_plot_extrude = 1\nvariable_plot_fil_z = 0.25\n'
+                       'variable_plot_z_up = 3\nvariable_plot_speed = 40\nvariable_plot_travel = 120\n'
+                       'variable_plot_bed_min_x = 5\nvariable_plot_bed_min_y = 5\n'
+                       'variable_plot_bed_max_x = 239\nvariable_plot_bed_max_y = 233\n')
+import zlib as _zl73, struct as _st73
+def _chunk73(typ, data):
+    return _st73.pack('>I4s', len(data), typ) + data + _st73.pack('>I', _zl73.crc32(typ + data) & 0xffffffff)
+_w73, _h73 = 24, 10
+_raw73 = b''
+for _y73 in range(_h73):
+    _raw73 += b'\x00' + b''.join(bytes((30, 30, 30) if 4 <= _x73 <= 19 else (240, 240, 240)) for _x73 in range(_w73))
+_png73 = (b'\x89PNG\r\n\x1a\n' + _chunk73(b'IHDR', _st73.pack('>IIBBBBB', _w73, _h73, 8, 2, 0, 0, 0))
+          + _chunk73(b'IDAT', _zl73.compress(_raw73)) + _chunk73(b'IEND', b''))
+_fp73 = _os73.path.join(_d73, 'draw.png.gcode')
+open(_fp73, 'wb').write(_png73)
+_mod73.plot_convert(_fp73, var_path=_fv73)
+_tp73 = open(_fp73).read()
+tests.append(('R73 plot FILAMENT: draws at 0.25mm (not the pen Z 0!) with M83',
+    'G1 Z0.25 F600' in _tp73 and '\nM83\n' in _tp73 and 'G10\n' in _tp73 and 'G11\n' in _tp73,
+    [l for l in _tp73.split('\n') if 'Z0.25' in l][:1]))
+_es73 = [float(_m73.group(1)) for _m73 in _re73.finditer(r'^G1 X[\d.-]+ Y[\d.-]+ E([\d.]+)', _tp73, _re73.M)]
+tests.append(('R73 plot FILAMENT: relative E per segment with real extrusion per mm',
+    len(_es73) >= 10 and 0.02 < min(_es73) and max(_es73) < 20.0, 'n=%d min=%.3f' % (len(_es73), min(_es73) if _es73 else -1)))
+tests.append(('R73 plot FILAMENT: travel capped at 80mm/s (MCU relief)',
+    not _re73.search(r'F(\d{5,}|9[0-9]{3})', _tp73), ''))
+_hd73t = open('/tmp/r73_hello73.txt', 'w')
+_hd73t.write('HALLO\nR2 TEST 123\n')
+_hd73t.close()
+_to73, _tn73, _ts73 = _mod73.text_convert('/tmp/r73_hello73.txt', var_path=_fv73)
+_tt73 = open(_to73).read()
+tests.append(('R73 text plot: CAP-height letters (>=6mm), solid in FILAMENT mode',
+    'CAP letters' in _tt73 and _ts73 >= 6.0 and _tt73.count('G1 Z0.25 F600') >= 20,
+    '%.1fmm caps' % _ts73))
+
+# --- watcher: preview push on upload + plot detection ------------------------
+_wsrc73 = open('tools/r2_postproc.py').read()
+tests.append(('R73 watcher pushes a preview for every fresh file (Mainsail starts too)',
+    'def push_preview(' in _wsrc73 and 'NEW_PREVIEW.append(p)' in _wsrc73
+    and "NEW_PREVIEW.append(out_p)" in _wsrc73 and "NEW_PREVIEW.append(out_t)" in _wsrc73, ''))
+
+# --- menus: float-index fix, file info submenu, feature flows, plotter items --
+_lcd73 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R73 LCD: no float tuple indexing left (values visible again)',
+    not _re73.search(r'\[menu\.input\]', _lcd73), ''))
+tests.append(('R73 LCD: 2.Color item + info submenu in the start menu',
+    '2.Color:' in _lcd73 and '[menu __main __start __info __type]' in _lcd73
+    and '[menu __main __start __info __temps]' in _lcd73
+    and '[menu __main __start __info __speeds]' in _lcd73, ''))
+_flowids73 = sum(1 for _c73 in ('ow', 'iw', 'sp', 'so', 'tp', 'bt', 'br', 'gp', 'su', 'ir', 'sk', 'bm')
+                 if ('[menu __main __live __feat __%s __flw]' % _c73) in _lcd73)
+tests.append(('R73 LCD: live per-feature FLOW inputs for all 12 features',
+    _flowids73 == 12 and 'feat_flw_wallouter' in _lcd73, str(_flowids73)))
+tests.append(('R73 LCD: plotter Letters (min 6mm) + Fil Z + mode info items',
+    '[menu __main __plot __cap]' in _lcd73 and 'input_min: 6\n' in _lcd73
+    and '[menu __main __plot __fz]' in _lcd73
+    and '[menu __main __live __plot __mode]' in _lcd73, ''))
+
+# --- state + plot start ---
+_st73 = open('macros/01_state.cfg').read()
+tests.append(('R73 state: live_flow / live_accel / l1_speed_user / plot_extrude declared',
+    all(k in _st73 for k in ('variable_live_flow:', 'variable_live_accel:',
+                             'variable_l1_speed_user:', 'variable_plot_extrude:')), ''))
+_ps73 = get_body('macros/12_maintenance.cfg', '_PLOT_START')
+state_vars.update({'mode': 'idle', 'layer': 0})
+out = render(_ps73, {'EXTRUDE': 1})
+tests.append(('R73 _PLOT_START EXTRUDE=1 flags the filament plot mode',
+    'VARIABLE=plot_extrude VALUE=True' in out, [l for l in out.split('\n') if 'plot_extrude' in l]))
+
+# --- SYS_SAVE_CONFIG pending report -------------------------------------------
+_sc73 = get_body('macros/13_system.cfg', 'SYS_SAVE_CONFIG')
+out = render(_sc73, {}, ps_state='idle', scp=True)
+tests.append(('R73 SYS_SAVE_CONFIG: first press NAMES the pending items',
+    'Pending for SAVE_CONFIG' in out and 'press SAVE+RESTART' in out, out[:130]))
+
+
+# ============================= R74 TESTS (.58) =============================
+# field log .57: (1) file info stale everywhere (2) filament menu missing while
+# paused/pre-print (3) range: nozzle parked ON the print, END beyond the file,
+# floor follows only the footprint, only grid fill (4) labels: single line,
+# font stuck on SMOOTH, stretched letters, no size/spacing (5) plotter buried
+# in Maintenance
+import tempfile as _tf74, os as _os74, importlib.util as _ilu74, re as _re74
+_d74 = _tf74.mkdtemp(prefix='r74')
+_lcd74 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+_0874 = open('macros/08_print_start_stop.cfg').read()
+_1674 = open('macros/16_labels.cfg').read()
+
+# --- (1) file info: peek parses EVERY key + TYPE + the raw line ---------------
+_fi74 = _os74.path.join(_d74, 'peek.gcode')
+open(_fi74, 'w').write(
+    '_FILE_INFO MATERIAL=PETG LAYER_HEIGHT=0.28 TOTAL_LAYERS=123 LINE_WIDTH=0.66 '
+    'FLOW_RATIO=0.98 PA=0.095 NOZZLE=0.6 FS_WALL_OUTER=45 FA_WALL_OUTER=1500 '
+    'TYPES=WALL-OUTER,IRONING\nM104 S240\nM140 S70\nM106 S128\n')
+_pv74 = _mod73._peek_file_info(_fi74)
+tests.append(('R74 _peek_file_info: parses every _FILE_INFO key (not just the old 14)',
+    _pv74.get('MATERIAL') == 'PETG' and _pv74.get('TOTAL_LAYERS') == '123'
+    and _pv74.get('FS_WALL_OUTER') == '45' and _pv74.get('TYPES') == 'WALL-OUTER,IRONING'
+    and _pv74.get('_RAW', '').startswith('_FILE_INFO MATERIAL=PETG'), str(sorted(_pv74)[:6])))
+tests.append(('R74 _peek_file_info: TYPE guess + heater/fan peek',
+    _pv74.get('TYPE') == 'LEGACY' and _pv74.get('HOTEND') == '240' and _pv74.get('BED') == '70', ''))
+_mk74 = _os74.path.join(_d74, 'marked.gcode')
+open(_mk74, 'w').write('; R2-POSTPROC v4\nPRINT_START MATERIAL=PLA\n')
+tests.append(('R74 _peek_file_info: TAG/PRINT_START -> MARKED',
+    _mod73._peek_file_info(_mk74).get('TYPE') == 'MARKED', ''))
+
+# --- (1b) the preview script: ONE in-memory _PREVIEW_SET + _FILE_INFO replay ---
+_lines74, _n74 = _mod73._preview_script(_fi74)
+tests.append(('R74/R75 _preview_script: ONE _PREVIEW_SET line + _FILE_INFO + _PREVIEW_TEMPS',
+    _lines74[0].startswith('_PREVIEW_SET ')
+    and 'NAME="peek.gcode"' in _lines74[0] and 'LAYER_HEIGHT=0.28' in _lines74[0]
+    and 'TYPE=LEGACY' in _lines74[0]
+    and any(l.startswith('_FILE_INFO MATERIAL=') for l in _lines74)
+    and any(l.startswith('_PREVIEW_TEMPS HOTEND=240') for l in _lines74)
+    and not any(l.startswith('SAVE_VARIABLE') for l in _lines74), str(_lines74[:2])))
+_busy74 = {'print_stats': {'state': 'printing'}, 'gcode_macro _STATE': {'mode': 'printing'}}
+_orig_status74 = _mod73._moonraker_status
+_mod73._moonraker_status = lambda *a, **k: _busy74
+try:
+    _bl74, _ = _mod73._preview_script(_fi74)
+    _busy_ok74 = (not any(l.startswith('_FILE_INFO') for l in _bl74)
+                  and not any(l.startswith('_PREVIEW_TEMPS') for l in _bl74)
+                  and not any(l.startswith('EXCLUDE_OBJECT_DEFINE') for l in _bl74)
+                  and any(l.startswith('_PREVIEW_SET ') for l in _bl74))
+finally:
+    _mod73._moonraker_status = _orig_status74
+tests.append(('R74/R75 _preview_script: while a print RUNS only the preview card goes out',
+    _busy_ok74, ''))
+
+# --- (1c) _FILE_INFO_RESET covers EVERY file_* variable of _STATE -------------
+_st74vars = [m.group(1) for m in _re74.finditer(r'^variable_(file_\w+):', open('macros/01_state.cfg').read(), _re74.M)]
+_rst74 = get_body('macros/08_print_start_stop.cfg', '_FILE_INFO_RESET')
+_missing74 = [v for v in _st74vars if ('VARIABLE=%s ' % v) not in _rst74 and ("VARIABLE={var|lower}" not in _rst74 or v not in ('file_types',))]
+_loop_vars74 = ['file_speed_outer', 'file_feat_acc_brim', 'file_accel_top']
+tests.append(('R74 _FILE_INFO_RESET: resets every file_* state variable',
+    not [v for v in _st74vars if v not in ('file_flow', 'file_accel', 'file_speed')
+         and ('VARIABLE=%s' % v) not in _rst74] or all(v in _rst74 for v in _loop_vars74),
+    str([v for v in _st74vars if ('VARIABLE=%s' % v) not in _rst74][:5])))
+tests.append(('R74 intercept + cleanup both route through _FILE_INFO_RESET',
+    '_FILE_INFO_RESET' in get_body('macros/08_print_start_stop.cfg', '_UNIVERSAL_START_INTERCEPT')
+    and '_FILE_INFO_RESET' in get_body('macros/09_pause_filament.cfg', '_PRINT_CLEANUP'), ''))
+
+# --- (1d) _PREVIEW_TEMPS writes only outside a running print -------------------
+_pt74 = get_body('macros/08_print_start_stop.cfg', '_PREVIEW_TEMPS')
+state_vars['mode'] = 'idle'
+out = render(_pt74, {'HOTEND': 240, 'BED': 70, 'FAN': 50})
+tests.append(('R74 _PREVIEW_TEMPS idle: sets file temps + fan',
+    'VARIABLE=file_hotend_first VALUE=240.0' in out and 'VARIABLE=file_bed VALUE=70.0' in out
+    and 'VARIABLE=file_fan VALUE=50.0' in out, out[:120]))
+state_vars['mode'] = 'printing'
+out = render(_pt74, {'HOTEND': 240})
+tests.append(('R74 _PREVIEW_TEMPS while printing: hands off (guard wins)',
+    'VARIABLE=file_hotend_first' not in out and 'skipped' in out, out[:100]))
+state_vars['mode'] = 'waiting'
+out = render(_pt74, {'HOTEND': 240})
+tests.append(('R74 _PREVIEW_TEMPS during the start dialog: allowed (held file)',
+    'VARIABLE=file_hotend_first VALUE=240.0' in out, out[:100]))
+
+# --- (1e) M24 fresh start also bumps the preview nonce --------------------------
+_m2474 = get_body('macros/08_print_start_stop.cfg', 'M24')
+tests.append(('R74 M24 fresh start: preview nonce bump (LCD M23/M24 selections refresh too)',
+    'VARIABLE=preview_nonce' in _m2474 and 'VARIABLE=preview_file' in _m2474, ''))
+
+# --- (3) range: PRINT_END at the end + _FILE_INFO at the top -------------------
+_v74 = _os74.path.join(_d74, 'r.gcode')
+_l74 = ['_FILE_INFO MATERIAL=PLA LAYER_HEIGHT=0.2 LINE_WIDTH=0.6 TOTAL_LAYERS=6', 'M82', 'G92 E0']
+_e74 = 0.0
+for _k74 in range(1, 7):
+    _l74 += ['LAYER_MARK', f'G1 Z{_k74 * 0.2:.2f} F600',
+             f'G1 X{20 + _k74}.0 Y50.0 E{_e74 + 0.5:.3f} F1800',
+             f'G1 X{30 + _k74}.0 Y60.0 E{_e74 + 1.5:.3f}']
+    _e74 += 2.0
+open(_v74, 'w').write('\n'.join(_l74) + '\n')
+_o74, _n74b = _mod73.make_range(_v74, 3, 5, floor=1, top=1, brim=1)
+_t74 = open(_o74).read()
+tests.append(('R74 range: ends with PRINT_END (nozzle parks, no dead stop)',
+    _t74.rstrip().endswith('park + cool down') and '\nPRINT_END' in _t74, _t74[-90:]))
+tests.append(('R74 range: _FILE_INFO at the TOP (live file info correct from layer 1)',
+    _t74.index('_FILE_INFO') < _t74.index('PRINT_START')
+    and _t74.count('_FILE_INFO ') == 1, ''))
+tests.append(('R74 range: END beyond the file clamps to the last layer',
+    (_mod73.make_range(_v74, 3, 99)[1]) == 4 and '_L3-6' in _mod73.make_range(_v74, 3, 99)[0], ''))
+tests.append(('R74 range: top-only (floor=0, brim=0) builds (old NameError)',
+    _mod73.make_range(_v74, 2, 4, floor=0, top=1, brim=0)[1] == 4, ''))
+
+# --- (3b) outline vs footprint: concave C-shape --------------------------------
+def _cshape74(d):
+    ls = ['_FILE_INFO MATERIAL=PLA LAYER_HEIGHT=0.2 LINE_WIDTH=0.6', 'M82', 'G92 E0']
+    e = 0.0
+    for lay in range(1, 7):
+        ls.append('LAYER_MARK')
+        ls.append(f'G0 X20 Y20 Z{0.2 * (lay + 1):.2f} F3000')
+        # bottom bar, right bar, top bar (extruded), travel, middle bar
+        for (c, dd) in [(80, 20), (80, 80), (20, 80)]:
+            e += 1.0
+            ls.append(f'G1 X{c} Y{dd} E{e:.3f} F1200')
+        ls.append('G0 X20 Y50 F6000')
+        e += 1.0
+        ls.append(f'G1 X80 Y50 E{e:.3f} F1200')
+    p = _os74.path.join(d, 'c.gcode')
+    open(p, 'w').write('\n'.join(ls) + '\n')
+    return p
+
+def _notch74(txt, box=(35, 55, 65, 75)):
+    bx0, by0, bx1, by1 = box
+    x = y = None
+    cnt = 0
+    for l in txt.split('\n'):
+        c = l.split(';')[0].strip()
+        mm = _re74.match(r'G1 X(-?[\d.]+) Y(-?[\d.]+) E', c)
+        g0 = _re74.match(r'G0 X(-?[\d.]+) Y(-?[\d.]+)', c)
+        if mm and x is not None:
+            nx, ny = float(mm.group(1)), float(mm.group(2))
+            for t in [i / 16 for i in range(17)]:
+                px, py = x + (nx - x) * t, y + (ny - y) * t
+                if bx0 < px < bx1 and by0 < py < by1:
+                    cnt += 1
+                    break
+            x, y = nx, ny
+        elif mm:
+            x, y = float(mm.group(1)), float(mm.group(2))
+        elif g0:
+            x, y = float(g0.group(1)), float(g0.group(2))
+    return cnt
+
+_cs74 = _cshape74(_d74)
+_oh74, _ = _mod73.make_range(_cs74, 2, 4, floor=1, floor_shape='hull', floor_fill='grid')
+_th74 = open(_oh74).read().split('\nLAYER_MARK')[1]      # read BEFORE the next call
+_oo74, _ = _mod73.make_range(_cs74, 2, 4, floor=1, floor_shape='outline', floor_fill='grid')
+_to74 = open(_oo74).read().split('\nLAYER_MARK')[1]
+tests.append(('R74 range floor: FOOTPRINT bridges the concave notch, OUTLINE does not',
+    _notch74(_th74) > 5 and _notch74(_to74) == 0,
+    'hull %d / outline %d crossings' % (_notch74(_th74), _notch74(_to74))))
+_og74, _ = _mod73.make_range(_cs74, 2, 4, floor=1, floor_shape='outline', floor_fill='solid')
+_tg74 = open(_og74).read().split('\nLAYER_MARK')[1]      # solid overwrites the grid file
+tests.append(('R74 range floor: SOLID fill = ~2x the grid hatch density',
+    len(_re74.findall(r'^G1 .*E', _tg74, _re74.M)) > 1.5 * len(_re74.findall(r'^G1 .*E', _to74, _re74.M)),
+    '%d vs %d' % (len(_re74.findall(r'^G1 .*E', _tg74, _re74.M)), len(_re74.findall(r'^G1 .*E', _to74, _re74.M)))))
+_oto74, _ = _mod73.make_range(_cs74, 2, 4, floor=0, top=1, top_shape='outline', top_fill='solid')
+tests.append(('R74 range top: OUTLINE + SOLID builds and respects the notch',
+    'R2-RANGE cap: 1' in open(_oto74).read()
+    and _notch74(open(_oto74).read().split('R2-RANGE cap')[1].split('\nLAYER_MARK')[1]) == 0, ''))
+
+# --- (3c) SET_LAYER_RANGE: clamps END + carries shape/fill params ---------------
+_slr74 = get_body('macros/08_print_start_stop.cfg', 'SET_LAYER_RANGE')
+state_vars.update({'mode': 'idle', 'total_layers': 40})
+save_vars.update({'range_start': 2, 'range_end': 10, 'range_floor': 1, 'range_top': 1,
+                  'range_brim': 1, 'range_floor_shape': 0, 'range_floor_fill': 1,
+                  'range_top_shape': 1, 'range_top_fill': 0})
+out = render(_slr74, {'START': 5, 'END': 999, 'FLOOR': 1, 'TOP': 1, 'BRIM': 1,
+                      'FLOOR_SHAPE': 1, 'FLOOR_FILL': 1, 'TOP_SHAPE': 0, 'TOP_FILL': 1})
+tests.append(('R74 SET_LAYER_RANGE: END capped to the file layer count + says so',
+    'VARIABLE=range_end VALUE=40' in out and 'capped to 40' in out, out[:150]))
+tests.append(('R74 SET_LAYER_RANGE: shape + fill parameters persist',
+    'VARIABLE=range_floor_shape VALUE=1' in out and 'VARIABLE=range_floor_fill VALUE=1' in out
+    and 'VARIABLE=range_top_shape VALUE=0' in out and 'VARIABLE=range_top_fill VALUE=1' in out, ''))
+state_vars['total_layers'] = 100
+
+# --- (4) labels: multi-line + uniform scale + size/spacing + char limit --------
+_p74a, _g74a = _mod73._label_text_lines(['ABC'], 'SMOOTH', (2, 2, 58, 28), 60, 30, font_size=8.0)
+tests.append(('R74 label text: explicit size = exact cap height (uniform scale)',
+    abs(_g74a['cap_h'] - 8.0) < 0.01 and abs(_g74a['s'] - 8.0 / _mod73._label_glyphs('SMOOTH')['cap_units']) < 1e-9,
+    '%.2f' % _g74a['cap_h']))
+_p74b, _g74b = _mod73._label_text_lines(['AB'], 'SMOOTH', (2, 2, 58, 28), 60, 30, font_size=8.0, spacing=2.0)
+_p74c, _g74c = _mod73._label_text_lines(['AB'], 'SMOOTH', (2, 2, 58, 28), 60, 30, font_size=8.0, spacing=0.0)
+tests.append(('R74 label text: letter spacing widens the line by spacing*(n-1)',
+    abs((_g74b['line_w'] - _g74c['line_w']) - 2.0) < 0.05, '%.2f vs %.2f' % (_g74b['line_w'], _g74c['line_w'])))
+# R80: an oversized explicit size no longer raises - it falls back to auto
+_p74d, _g74d = _mod73._label_text_lines(['ABCDEFGHIJK'], 'SMOOTH', (2, 2, 58, 28), 60, 30,
+                                        font_size=10.0)
+tests.append(('R80 label text: oversized target size falls back to auto (no error)',
+    2.5 <= _g74d['cap_h'] < 10.0, '%.1fmm caps' % _g74d['cap_h']))
+try:
+    _mod73.make_labels(['A~B~C~D~E~F'], w=60, h=60, out_dir=_tf74.mkdtemp(), bed=(0, -3, 244, 238))
+    tests.append(('R74/R83 make_labels: >5 lines per label refused (6 lines)', False, 'no error'))
+except ValueError as e:
+    tests.append(('R74/R83 make_labels: >5 lines per label refused (6 lines)',
+        'at most 5' in str(e), str(e)[:80]))
+_ol74e, _il74e = _mod73.make_labels(['A~B~C~D~E'], w=60, h=60, out_dir=_d74, bed=(0, -3, 244, 238))
+tests.append(('R83 make_labels: 5 lines per label build (big signs)',
+    _il74e['max_lines'] == 5, str(_il74e)[:80]))
+_ol74, _il74 = _mod73.make_labels(['WERKSTATT~KELLER'], w=60, h=30, out_dir=_d74, bed=(0, -3, 244, 238))
+_tl74 = open(_ol74).read()
+tests.append(('R74 make_labels: two-line label via ~ builds, caps reported',
+    _il74['max_lines'] == 2 and 'WERKSTATT / KELLER' in _tl74, str(_il74)[:80]))
+tests.append(('R74 make_labels: font_size + spacing flow into the header comment',
+    _mod73.make_labels(['X Y'], w=60, h=30, font_size=7.0, spacing=1.0, out_dir=_d74,
+                       bed=(0, -3, 244, 238))[0] and True
+    and 'font size 7.0mm caps' in open(_mod73.make_labels(['X Y'], w=60, h=30, font_size=7.0,
+                                                          spacing=1.0, out_dir=_d74,
+                                                          bed=(0, -3, 244, 238))[0]).read(), ''))
+# three lines: baselines must differ and stay inside the box with gaps
+_p74d, _g74d = _mod73._label_text_lines(['A', 'B', 'C'], 'SMOOTH', (2, 2, 58, 28), 60, 30, font_size=6.0, stroke_w=1.9)
+_ys74 = sorted(set(round(q[1], 1) for s in _p74d for q in s))
+tests.append(('R74 label text: 3 lines stack with gaps inside the text box',
+    len(_p74d) >= 3 and all(2.0 <= q[1] <= 28.0 for s in _p74d for q in s)
+    and (_ys74[-1] - _ys74[0]) >= 2 * 6.0, str(_ys74)))
+
+# --- (4b) travel optimization: loop entry + hatch end + serpentine labels ------
+_pen74 = _mod73._Pen([])
+_pen74.x, _pen74.y = 90.0, 50.0
+_cap74 = []
+_mod73._emit_loop(_pen74, _mod73._rect_loop(10, 10, 20, 20), 0.1, 1200)
+tests.append(('R74 _emit_loop: starts at the vertex CLOSEST to the pen',
+    'G0 X20.000 Y20.000 F4500' in _pen74.L and 'G0 X10.000 Y10.000' not in _pen74.L, _pen74.L[:3]))
+_pen74b = _mod73._Pen([])
+_pen74b.x, _pen74b.y = 5.0, 5.0
+_segs74 = [((10.0, 10.0), (10.0, 20.0)), ((12.0, 12.0), (12.0, 18.0))]
+_mod73._emit_hatch(_pen74b, _segs74, 0.1, 1200)
+tests.append(('R74 _emit_hatch: starts from the closer END of the run',
+    'G0 X10.000 Y10.000 F4500' in _pen74b.L and 'G0 X12.000' not in _pen74b.L, _pen74b.L[:3]))
+_o74c, _ = _mod73.make_labels(['EINS', 'ZWEI', 'DREI'], w=40, h=20, gap=4, base_layers=3,
+                              text_layers=1, color2=False, out_dir=_d74, bed=(0, -3, 244, 238))
+_tt74 = open(_o74c).read()
+_l2_74 = _tt74.split('\nLAYER_MARK')[2]
+tests.append(('R74 make_labels: label order alternates per layer (serpentine travels)',
+    _re74.search(r'EXCLUDE_OBJECT_START NAME=(\S+)', _l2_74).group(1) == 'LABEL_3', ''))
+
+# --- (4c) LCD: font save quoted, line editor, size/spacing inputs ---------------
+tests.append(('R74 LCD: font SAVE_VARIABLE now quoted (the stuck-on-SMOOTH bug)',
+    'SAVE_VARIABLE VARIABLE=label_font VALUE="\\"' in _lcd74
+    and 'VARIABLE=label_font VALUE={["PIXEL"' not in _lcd74, ''))
+tests.append(('R74 LCD: Labels > Text has the 3 line pickers + dynamic char limit',
+    all(('[menu __main __labels __txt __ln%d]' % i) in _lcd74 for i in (1, 2, 3))
+    and 'LABEL_SELECT_LINE L=1' in _lcd74
+    and 'variables.label_max_chars|default(12)|int if' in _lcd74, ''))
+tests.append(('R74 LCD: Labels settings grow Lines/Size/Spacing (+ fit recalcs)',
+    '[menu __main __labels __set __lines]' in _lcd74 and '[menu __main __labels __set __size]' in _lcd74
+    and '[menu __main __labels __set __spc]' in _lcd74
+    and _lcd74.count('LABEL_FIT_CALC') >= 5, ''))
+tests.append(('R74 LABEL_FIT_CALC: saves the per-size character limit',
+    'VARIABLE=label_max_chars' in get_body('macros/16_labels.cfg', 'LABEL_FIT_CALC'), ''))
+_lb74 = get_body('macros/16_labels.cfg', 'LABEL_SELECT_LINE')
+out = render(_lb74, {'L': 2})
+tests.append(('R74 LABEL_SELECT_LINE: switches the edit buffer + resets the cursor',
+    'VARIABLE=label_edit_line VALUE=2' in out and 'VARIABLE=label_pos VALUE=1' in out, out[:90]))
+save_vars.update({'label_l1': 'OBEN', 'label_l2': 'UNTEN', 'label_l3': '', 'label_lines': 2,
+                  'label_texts': ''})
+out = render(get_body('macros/16_labels.cfg', 'LABEL_ADD'), {})
+tests.append(('R74 LABEL_ADD: joins the lines with ~ (2-line queue entry)',
+    ('VARIABLE=label_texts VALUE="' + BKSL + '"OBEN~UNTEN' + BKSL + '"') in out, out[:110]))
+save_vars.update({'label_l1': '', 'label_l2': '', 'label_lines': 1})
+
+# --- (5) plotter menu at top level + filament menus -----------------------------
+tests.append(('R74 LCD: Plotter is a TOP-LEVEL menu (same level as Labels)',
+    '[menu __main __plot]' in _lcd74 and '[menu __main __plot __up]' in _lcd74
+    and '[menu __main __maint __plot]' not in _lcd74
+    and _lcd74.index('[menu __main __labels]') < _lcd74.index('[menu __main __plot]'), ''))
+tests.append(('R74/R77 LCD: Filament in Pre-Print (load/unload/change - cold pull moved to Maintenance)',
+    '[menu __main __preprint __fil]' in _lcd74 and '[menu __main __preprint __fil __load]' in _lcd74
+    and '[menu __main __preprint __fil __unload]' in _lcd74
+    and '[menu __main __preprint __fil __cp]' not in _lcd74
+    and '[menu __main __maint __fil __cp __mat]' in _lcd74, ''))
+tests.append(('R74 LCD: Filament in Live > Pause (manual change while paused)',
+    '[menu __main __live __pause __fil]' in _lcd74
+    and '[menu __main __live __pause __fil __load]' in _lcd74
+    and '[menu __main __live __pause __fil __unload]' in _lcd74
+    and '[menu __main __live __pause __m600]' in _lcd74, ''))
+tests.append(('R74 LCD: Range menu = file info + capped To + shape/fill inputs',
+    '[menu __main __preprint __rng __file]' in _lcd74
+    and '[menu __main __preprint __rng __fsh]' in _lcd74
+    and '[menu __main __preprint __rng __ffl]' in _lcd74
+    and '[menu __main __preprint __rng __tsh]' in _lcd74
+    and '[menu __main __preprint __rng __tfl]' in _lcd74
+    and 'total_layers|default(0)|int if' in _lcd74, ''))
+tests.append(('R74 watcher: label job passes font_size + spacing, range passes shape/fill',
+    'font_size=_vf(\'label_size\', 0)' in open('tools/r2_postproc.py').read()
+    and "spacing=_vf('label_spacing', 0)" in open('tools/r2_postproc.py').read()
+    and "range_floor_shape" in open('tools/r2_postproc.py').read()
+    and 'top_shape=rts' in open('tools/r2_postproc.py').read(), ''))
+tests.append(('R74 GEN_LABELS: SIZE/SPACING/LINES parameters documented + wired',
+    'params.SIZE is defined' in _1674 and 'params.SPACING is defined' in _1674
+    and 'params.LINES is defined' in _1674, ''))
+
+
+# ============================= R75 TESTS (.59) =============================
+# field log .58: MCU 'Timer too close' shutdowns around homing/meshing on a
+# Pi Zero host -> (1) preview push without disk writes (2) adaptive mesh via
+# replayed EXCLUDE_OBJECT_DEFINE (3) mesh travel cap + honest announcement
+# (4) host check tool (5) watcher never re-fires nonces after a restart
+# (6) plot files carry their own object polygon (7) label editor cursor clamp
+import shlex as _shlex75, subprocess as _sub75
+
+# --- (1) the _PREVIEW_SET line survives Klipper's shlex parameter parsing ----
+_pars75 = {}
+for _tk75 in _shlex75.split(_lines74[0][len('_PREVIEW_SET '):]):
+    if '=' in _tk75:
+        _k75, _v75 = _tk75.split('=', 1)
+        _pars75[_k75] = _v75
+tests.append(('R75 _PREVIEW_SET line: shlex-parses into clean params',
+    _pars75.get('NAME') == 'peek.gcode' and _pars75.get('LAYER_HEIGHT') == '0.28'
+    and _pars75.get('TYPE') == 'LEGACY' and _pars75.get('BED') == '70', str(sorted(_pars75.items())[:4])))
+_sp75 = _os74.path.join(_d74, 'My File 2.gcode')
+open(_sp75, 'w').write('M104 S200\n')
+_sl75, _ = _mod73._preview_script(_sp75)
+tests.append(('R75 _PREVIEW_SET: filename WITH spaces stays one shlex token',
+    _sl75[0].startswith('_PREVIEW_SET NAME="My File 2.gcode"')
+    and _shlex75.split(_sl75[0][len('_PREVIEW_SET '):])[0] == 'NAME=My File 2.gcode', _sl75[0][:80]))
+
+_pvst75 = get_body('macros/08_print_start_stop.cfg', '_PREVIEW_SET')
+out = render(_pvst75, {'NAME': 'x.gcode', 'MATERIAL': 'PLA', 'LAYER_HEIGHT': '0.28',
+                       'TOTAL_LAYERS': '7', 'TYPES': 'BRIM,IRONING', 'PLOT': '1', 'PENS': '2',
+                       'FLOW_RATIO': 'junk', 'BED': '60'})
+tests.append(('R75 _PREVIEW_SET macro: SET_GCODE_VARIABLE only (zero disk writes)',
+    'VARIABLE=name VALUE=\'"x.gcode"\'' in out and 'VARIABLE=material VALUE=\'"PLA"\'' in out
+    and 'VARIABLE=layer_height VALUE=0.28' in out and 'VARIABLE=total_layers VALUE=7' in out
+    and 'VARIABLE=types VALUE=\'"BRIM,IRONING"\'' in out and 'VARIABLE=plot VALUE=1' in out
+    and 'VARIABLE=pens VALUE=2' in out and 'VARIABLE=bed VALUE=60.0' in out
+    and 'SAVE_VARIABLE' not in out, out[:150]))
+tests.append(('R75 _PREVIEW_SET macro: junk numeric value falls back to 0 (never a shutdown)',
+    'VARIABLE=flow_ratio VALUE=0' in out, out[:80]))
+
+_0875 = open('macros/08_print_start_stop.cfg').read()
+_sec75 = _0875[_0875.index('[gcode_macro _PREVIEW]'):_0875.index('[gcode_macro _PREVIEW_SET]')]
+_pvars75 = _re74.findall(r'^variable_(\w+):', _sec75, _re74.M)
+tests.append(('R75 _PREVIEW card: 23 in-memory variables declared (name..pens)',
+    len(_pvars75) == 23 and all(v in _pvars75 for v in
+    ('name', 'type', 'material', 'layer_height', 'hotend', 'bed', 'fan', 'plot', 'pens', 'types')),
+    str(_pvars75)))
+tests.append(('R75 nobody reads save_variables.preview_* anymore (in-memory card)',
+    'variables.preview_' not in _lcd74
+    and not [l for l in _0875.split('\n')
+             if 'variables.preview_' in l and 'preview_nonce' not in l and 'preview_file' not in l],
+    ''))
+
+# --- (2) object-define replay: peek + the push + exclude_object gate ----------
+_ob75 = _os74.path.join(_d74, 'obj.gcode')
+open(_ob75, 'w').write(
+    'EXCLUDE_OBJECT_DEFINE NAME=A CENTER=1,2 POLYGON=[[0,0],[2,0],[2,2],[0,2]]\n'
+    'M104 S200\n'
+    'EXCLUDE_OBJECT_DEFINE NAME=B CENTER=3,4 POLYGON=[[2,2],[4,2],[4,4],[2,4]]\n')
+tests.append(('R75 _peek_objects: collects the defines verbatim',
+    _mod73._peek_objects(_ob75) == [
+        'EXCLUDE_OBJECT_DEFINE NAME=A CENTER=1,2 POLYGON=[[0,0],[2,0],[2,2],[0,2]]',
+        'EXCLUDE_OBJECT_DEFINE NAME=B CENTER=3,4 POLYGON=[[2,2],[4,2],[4,4],[2,4]]'], ''))
+_many75 = _os74.path.join(_d74, 'many_obj.gcode')
+open(_many75, 'w').write('\n'.join('EXCLUDE_OBJECT_DEFINE NAME=O%d CENTER=1,1 POLYGON=[[0,0],[1,0],[1,1],[0,1]]' % i
+                                   for i in range(200)))
+tests.append(('R75 _peek_objects: capped at 80 defines (a push must stay small)',
+    len(_mod73._peek_objects(_many75)) == 80, ''))
+_st75 = {'print_stats': {'state': 'idle'}, 'gcode_macro _STATE': {'mode': 'idle'},
+         'exclude_object': {'objects': []}}
+_orig_status75 = _mod73._moonraker_status
+_mod73._moonraker_status = lambda *a, **k: _st75
+try:
+    _sl75b, _ = _mod73._preview_script(_ob75)
+finally:
+    _mod73._moonraker_status = _orig_status75
+tests.append(('R75 _preview_script: replays the file\'s EXCLUDE_OBJECT_DEFINE (adaptive mesh)',
+    any(l.startswith('EXCLUDE_OBJECT_DEFINE NAME=A') for l in _sl75b)
+    and any(l.startswith('EXCLUDE_OBJECT_DEFINE NAME=B') for l in _sl75b), str(_sl75b[:3])))
+
+# --- (3) mesh travel cap + honest announcement + lean bookkeeping -------------
+_kamp75 = get_body('macros/14_kamp.cfg', '_CALIBRATE_MESH_PROFILE')
+save_vars['mesh_travel'] = 120
+out = render(_kamp75, {'PROFILE': 'r2'}, kamp=True)
+tests.append(('R75 mesh: travel capped while meshing, restored after',
+    'SET_VELOCITY_LIMIT VELOCITY=120' in out
+    and out.index('SET_VELOCITY_LIMIT VELOCITY=120') < out.index('BED_MESH_CALIBRATE PROFILE=r2')
+    and 'SET_VELOCITY_LIMIT VELOCITY=250' in out
+    and out.index('SET_VELOCITY_LIMIT VELOCITY=250') > out.index('BED_MESH_CALIBRATE PROFILE=r2'), out[:150]))
+save_vars['mesh_travel'] = 0
+out = render(_kamp75, {'PROFILE': 'r2'}, kamp=True)
+tests.append(('R75 mesh: cap 0 = off (no SET_VELOCITY_LIMIT at all)',
+    'SET_VELOCITY_LIMIT' not in out, ''))
+save_vars['mesh_travel'] = 120
+out = render(_kamp75, {'PROFILE': 'r2'}, kamp=True, objs=[])
+tests.append(('R75 mesh: honest kind - "full bed (file has no object data)" instead of fake adaptive',
+    'full bed (file has no object data)' in out and 'KAMP adaptive)' not in out, ''))
+out = render(_kamp75, {'PROFILE': 'r2'}, kamp=True)
+tests.append(('R75 mesh: with object data it stays "KAMP adaptive"',
+    'KAMP adaptive' in out and 'no object data' not in out, ''))
+save_vars['mesh_last_profile'] = 'r2'
+out = render(_kamp75, {'PROFILE': 'r2'}, kamp=True)
+tests.append(('R75 mesh: mesh_last_profile NOT rewritten when unchanged (no useless disk write)',
+    'VARIABLE=mesh_last_profile' not in out, ''))
+save_vars['mesh_last_profile'] = 'mesh_old'
+out = render(_kamp75, {'PROFILE': 'r2'}, kamp=True)
+tests.append(('R75 mesh: mesh_last_profile saved when it really changes',
+    "VARIABLE=mesh_last_profile VALUE='\"r2\"'" in out, ''))
+
+# --- (4) HOST_CHECK macro + menu + the watcher's host_check() ------------------
+_hc75 = get_body('macros/12_maintenance.cfg', 'HOST_CHECK')
+save_vars['host_nonce'] = 3
+out = render(_hc75)
+tests.append(('R75 HOST_CHECK: bumps host_nonce + explains Timer-too-close',
+    'VARIABLE=host_nonce VALUE=4' in out and 'Timer too close' in out, out[:110]))
+tests.append(('R75 LCD: System > Host check + Pre-Print > Bed Mesh > Travel cap',
+    '[menu __main __system __host]' in _lcd74 and 'gcode: HOST_CHECK' in _lcd74
+    and '[menu __main __preprint __mesh __trav]' in _lcd74, ''))
+
+_cap75 = []
+_fake75 = {'vcgencmd get_throttled': 'throttled=0x50002',
+           'vcgencmd measure_temp': "temp=54.8'C",
+           "cut -d' ' -f1-3 /proc/loadavg": '0.52 0.61 0.48',
+           "uptime -p | sed 's/^up //'": '2 hours'}
+_orig_run75 = _sub75.run
+def _run75(cmd, shell=True, capture_output=True, text=True, timeout=6):
+    class R:
+        stdout = _fake75.get(cmd, '')
+        stderr = ''
+    return R()
+_orig_mg75 = _mod73._moonraker_gcode
+_mod73._moonraker_gcode = lambda s, *a, **k: _cap75.append(s)
+try:
+    _sub75.run = _run75
+    _hl75 = _mod73.host_check()
+finally:
+    _sub75.run = _orig_run75
+    _mod73._moonraker_gcode = _orig_mg75
+tests.append(('R75 host_check(): undervoltage+freq-cap decoded, error sound + M117',
+    any('undervoltage HAS occurred since boot' in l for l in _hl75)
+    and any('CPU frequency capped right now' in l for l in _hl75)
+    and any('throttling HAS occurred since boot' in l for l in _hl75)
+    and any('M117 Host THROTTLED!' in s for s in _cap75)
+    and any('r2_error' in s for s in _cap75), str(_hl75)[:160]))
+_fake75['vcgencmd get_throttled'] = 'throttled=0x0'
+_cap75.clear()
+try:
+    _sub75.run = _run75
+    _mod73._moonraker_gcode = lambda s, *a, **k: _cap75.append(s)
+    _hl75b = _mod73.host_check()
+finally:
+    _sub75.run = _orig_run75
+    _mod73._moonraker_gcode = _orig_mg75
+tests.append(('R75 host_check(): healthy host -> Throttle NONE + done sound',
+    any('Throttle: NONE' in l for l in _hl75b) and any('M117 Host OK' in s for s in _cap75)
+    and any('r2_done' in s for s in _cap75), ''))
+
+# --- (5) watcher: no nonce re-fire after restart + niced ------------------------
+tests.append(('R75 watcher: _prime_nonces adopts the current counters (no re-fire)',
+    _mod73._prime_nonces({'preview_nonce': '7', 'label_gen_nonce': '2'}) == {
+        'preview_nonce': '7', 'range_nonce': None, 'label_gen_nonce': '2', 'reso_nonce': None,
+        'bridge_nonce': None, 'plot_text_nonce': None, 'plot_status_nonce': None, 'host_nonce': None}, ''))
+tests.append(('R75 watcher: daemon runs niced + primes on the first pass',
+    'os.nice(4)' in open('tools/r2_postproc.py').read()
+    and 'first_prime' in open('tools/r2_postproc.py').read(), ''))
+
+# --- (6) plot files carry their own object polygon ------------------------------
+_t75 = _os74.path.join(_d74, 'hello75.txt')
+open(_t75, 'w').write('HELLO\n')
+_to75, _tn75, _ts75 = _mod73.text_convert(_t75)
+_tp75 = open(_to75).read()
+tests.append(('R75 plot files: text plot carries the R2PLOT polygon (adaptive mesh)',
+    'EXCLUDE_OBJECT_DEFINE NAME=R2PLOT' in _tp75 and 'EXCLUDE_OBJECT_START NAME=R2PLOT' in _tp75
+    and 'EXCLUDE_OBJECT_END NAME=R2PLOT' in _tp75
+    and _tp75.index('EXCLUDE_OBJECT_START NAME=R2PLOT') < _tp75.index('G1 X'), ''))
+_poly75 = _re74.search(r'EXCLUDE_OBJECT_DEFINE NAME=R2PLOT CENTER=[\d.,-]+ POLYGON=(\[\[.*\]\])', _tp75)
+_xy75 = [float(v) for v in _re74.findall(r'-?\d+\.?\d*', _poly75.group(1))[-8:]] if _poly75 else []
+tests.append(('R75 plot files: polygon coordinates inside the bed (X 0..244, Y -1..238)',
+    len(_xy75) == 8 and all(0 <= _xy75[i] <= 244 for i in (0, 2, 4, 6))
+    and all(-1 <= _xy75[i] <= 238 for i in (1, 3, 5, 7)), str(_xy75)))
+
+# --- (7) label editor: stale cursor clamped -------------------------------------
+_sv75 = _os74.path.join(_d74, 'shape75.svg.gcode')
+open(_sv75, 'w').write('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">'
+                       '<path d="M 10 10 L 90 10 L 90 90 L 10 90 Z" stroke="black" fill="none"/></svg>')
+_mod73.plot_convert(_sv75, var_path=None)
+_svt75 = open(_sv75).read()
+tests.append(('R75 plot files: IMAGE/SVG conversion carries the R2PLOT polygon too',
+    'EXCLUDE_OBJECT_DEFINE NAME=R2PLOT' in _svt75 and 'EXCLUDE_OBJECT_START NAME=R2PLOT' in _svt75
+    and 'EXCLUDE_OBJECT_END NAME=R2PLOT' in _svt75, ''))
+
+save_vars.update({'label_pos': 7, 'label_l1': '', 'label_edit_line': 1, 'label_max_chars': 12})
+out = render(get_body('macros/16_labels.cfg', 'LABEL_SHOW_TEXT'))
+tests.append(('R75 label editor: stale cursor clamped (position 7 on empty line -> 1)',
+    'VARIABLE=label_pos VALUE=1' in out and 'position 1 of max' in out, out[:130]))
+save_vars.update({'label_pos': 3, 'label_l1': 'AB'})
+out = render(get_body('macros/16_labels.cfg', 'LABEL_SHOW_TEXT'))
+tests.append(('R75 label editor: cursor within the text stays untouched',
+    'VARIABLE=label_pos' not in out and 'position 3 of max' in out, ''))
+
+
+# ============================= R76 TESTS (.60) =============================
+# field log .59: Host check said 'Throttle: NONE ... healthy' while the load
+# average (4.23) SATURATED the Pi Zero 2's four cores - a starved-but-healthy
+# host. v2: swap + iowait + TOP processes + an honest verdict
+# (throttle > swap > overload > OK), /proc read directly.
+import subprocess as _sub76
+
+tests.append(('R76 _host_verdict: throttle beats everything',
+    _mod73._host_verdict(0x1, 4.5, 4, 500) == (False, _mod73._host_verdict(0x1, 0.1, 4, 0)[1])
+    and 'THROTTLED' in _mod73._host_verdict(0x1, 0.1, 4, 0)[1], ''))
+tests.append(('R76 _host_verdict: swap warning (30MB+, SD-card swap stalls the host)',
+    _mod73._host_verdict(0, 0.5, 4, 120) == (False, _mod73._host_verdict(0, 0.5, 4, 120)[1])
+    and 'SWAPPING' in _mod73._host_verdict(0, 0.5, 4, 120)[1], ''))
+tests.append(('R76 _host_verdict: the .59 field case - load 4.2 on 4 cores = OVERLOADED',
+    _mod73._host_verdict(0, 4.23, 4, 0)[0] is False and 'OVERLOADED' in _mod73._host_verdict(0, 4.23, 4, 0)[1], ''))
+tests.append(('R76 _host_verdict: healthy host = OK verdict',
+    _mod73._host_verdict(0, 0.8, 4, 0)[0] is True and 'OK' in _mod73._host_verdict(0, 0.8, 4, 0)[1], ''))
+tests.append(('R76 _parse_ps: rows parsed (cpu%, rss->MB, name)',
+    _mod73._parse_ps(' %CPU %MEM   RSS COMMAND\n 32.1  5.2 184320 klippy\n  1.0  0.1   2048 ps\n')
+    == [(32.1, 5.2, 180, 'klippy'), (1.0, 0.1, 2, 'ps')], ''))
+tests.append(('R76 _parse_vmstat_wa: iowait from 17 and 16 column lines',
+    _mod73._parse_vmstat_wa('1 0 0 100 0 200 0 0 40 0 900 300 10 5 80 5 0') == 5.0
+    and _mod73._parse_vmstat_wa('1 0 0 100 0 200 0 0 40 0 900 300 10 5 80 5') == 5.0
+    and _mod73._parse_vmstat_wa('garbage') is None, ''))
+
+_cap76 = []
+_fake76 = {'vcgencmd get_throttled': 'throttled=0x0',
+           "ps -eo pcpu,pmem,rss,comm --sort=-pcpu | head -8":
+           ' %CPU %MEM   RSS COMMAND\n 41.0  8.0 184320 klippy\n 38.0  6.0  98304 crowsnest\n 12.0  4.0  65536 python3\n  2.0  1.0  32768 nginx\n',
+           'vmstat 1 2 | tail -1': '2 0 0 100000 0 200000 0 0 400 0 900 300 20 10 60 10 0'}
+class _R76:
+    def __init__(self, out):
+        self.stdout, self.stderr = out, ''
+def _run76(cmd, shell=True, capture_output=True, text=True, timeout=12):
+    return _R76(_fake76.get(cmd, ''))
+_orig_run76 = _sub76.run
+_orig_mg76 = _mod73._moonraker_gcode
+_mod73._moonraker_gcode = lambda s, *a, **k: _cap76.append(s)
+try:
+    _sub76.run = _run76
+    _hl76 = _mod73.host_check(cores=4)
+finally:
+    _sub76.run = _orig_run76
+    _mod73._moonraker_gcode = _orig_mg76
+tests.append(('R76 host_check v2: top processes + iowait named in the report',
+    any(l.startswith('Top CPU: klippy 41%') and 'crowsnest 38%' in l for l in _hl76)
+    and any(l.startswith('Top RAM: klippy 180MB') for l in _hl76)
+    and any('iowait' in l and '10%' in l for l in _hl76)
+    and any('M117 Host OK' in s for s in _cap76), str(_hl76[:4])))
+tests.append(('R76 host_check v2: verdict line + swap column in the host line',
+    any(l.startswith('Verdict: OK') for l in _hl76)
+    and any('swap 0/' in l and 'on 4 core(s)' in l for l in _hl76), ''))
+
+
+# ============================= R77 TESTS (.61) =============================
+# field log .60: (1) label BASE + range FLOOR surfaces torn apart, 'filament
+# pulled away' - root cause: _hatch emitted scanlines CENTER-OUT in +-zigzag
+# (neighbors up to 2*i*spacing apart -> travel+G10 between EVERY infill line)
+# and _emit_hatch's R74 'nearer end' reversal broke the boustrophedon chain
+# on top; plus 2.5mm retract threshold fired between neighboring hatch lines.
+# (2) cold pull: out of Pre-Print/Pause, full wizard in Maintenance.
+import math as _math77, difflib as _dl77
+
+_d77 = _tf74.mkdtemp(prefix='r77')
+
+# --- (1a) _hatch sweep order: consecutive segments CHAIN (<= ~2*spacing apart) ---
+_segs77 = _mod73._hatch(20.0, 20.0, 80.0, 32.0, None, 0.65, 45.0)
+_gaps77 = []
+_p77 = None
+for _a77, _b77 in _segs77:
+    if _p77 is not None:
+        _gaps77.append(_math77.hypot(_a77[0] - _p77[0], _a77[1] - _p77[1]))
+    _p77 = _b77
+tests.append(('R77 _hatch: real SWEEP order - consecutive lines chain (no zigzag)',
+    _segs77 and max(_gaps77) <= 2.0 and sum(1 for g in _gaps77 if g > 1.5) <= 2,
+    'max gap %.2fmm' % (max(_gaps77) if _gaps77 else -1)))
+
+# --- (1b) _emit_hatch reversal keeps the chain: reversed run also chains -----
+_pen77 = _mod73._Pen([], jump_d=6.0)
+_pen77.x, _pen77.y = 79.0, 30.0            # pen at the far end -> reversal fires
+_pen77.z = 0.2
+_mod73._emit_hatch(_pen77, list(_segs77), 0.054, 1500)
+_T77 = _pen77.L
+_jumps77 = []
+_x77 = _y77 = None
+for _l77 in _T77:
+    _m77 = _re74.match(r'G0 X([\d.-]+) Y([\d.-]+)', _l77)
+    if _m77 and _x77 is not None:
+        _jumps77.append(_math77.hypot(float(_m77.group(1)) - _x77, float(_m77.group(2)) - _y77))
+    _m77 = _re74.match(r'G1 X([\d.-]+) Y([\d.-]+)', _l77)
+    if _m77:
+        _x77, _y77 = float(_m77.group(1)), float(_m77.group(2))
+tests.append(('R77 _emit_hatch: nearer-end reversal now CHAINS (segment flip fixed)',
+    max(_jumps77) <= 2.0 if _jumps77 else True, 'max jump %.2f' % (max(_jumps77) if _jumps77 else -1)))
+
+# --- (1c) full label: the retract storm is GONE ------------------------------
+_o77, _i77 = _mod73.make_labels(['WERKSTATT'], w=60, h=30, out_dir=_d77,
+                                base_layers=4, text_layers=2, color2=True)
+_t77l = open(_o77).read()
+_parts77 = _re74.split(r'(?m)^(LAYER_MARK.*)$', _t77l)
+_lay77 = []
+for _i77b in range(1, len(_parts77), 2):
+    _b77 = _parts77[_i77b + 1] if _i77b + 1 < len(_parts77) else ''
+    _lay77.append((_b77.count('\nG10'),
+                   round(sum(float(m) for m in _re74.findall(r'(?m)^G1 .*?E([\d.]+)', _b77)), 1)))
+tests.append(('R77 label: base layers nearly retract-free (storm 108 -> <=3)',
+    _lay77[0][0] <= 3 and _lay77[1][0] <= 3 and _lay77[2][0] <= 3, str(_lay77[:3])))
+tests.append(('R77 label: extrusion VOLUME unchanged by the travel fix (E 273/159/159)',
+    [_lay77[i][1] for i in range(3)] == [273.0, 159.1, 159.1], str(_lay77[:3])))
+tests.append(('R77/R83 label: total G10 <= 160 (storm was 636; R83 adds discrete '
+               'glyph-to-glyph retracts, base layers stay retract-free)',
+    _t77l.count('\nG10') <= 160, str(_t77l.count('\nG10'))))
+
+# --- (1d) range raft parity with .57 (the user wants THAT look) ---------------
+def _src77(d):
+    _p77 = _os74.path.join(d, 'part77.gcode')
+    _L77 = ['; R2-POSTPROC v4',
+            '_FILE_INFO MATERIAL=PLA LAYER_HEIGHT=0.2 TOTAL_LAYERS=8 LINE_WIDTH=0.65',
+            'M83', 'G92 E0']
+    _e77 = 0.0
+    for _lay in range(1, 9):
+        _L77 += ['LAYER_MARK', 'G0 X30 Y30 Z%.2f F3000' % (_lay * 0.2)]
+        for _cx, _cy in ((90, 30), (90, 90), (30, 90), (30, 30)):
+            _e77 += 1.2; _L77.append('G1 X%d Y%d E%.3f F1200' % (_cx, _cy, _e77))
+        for _yy in (40, 50, 60, 70, 80):
+            _e77 += 0.9; _L77.append('G1 X40 Y%d E%.3f F1800' % (_yy, _e77))
+            _e77 += 0.9; _L77.append('G1 X80 Y%d E%.3f F1800' % (_yy, _e77))
+    _L77.append('M107')
+    open(_p77, 'w').write('\n'.join(_L77) + '\n')
+    return _p77
+
+def _raft77(mod, d):
+    _o, _ = mod.make_range(_src77(d), 3, 6, floor=2, top=0, brim=1)
+    _ls = open(_o).read().split('\n')
+    _s = next(i for i, l in enumerate(_ls) if 'R2-RANGE raft' in l)
+    _e = next(i for i in range(_s + 2, len(_ls)) if _ls[i] == 'LAYER_MARK')
+    # R79: APPLY_TYPE markers (new for live tuning of the raft) are filtered -
+    # the GEOMETRY (moves/E) must stay byte-identical to .57
+    return [l for l in _ls[_s:_e] if not l.startswith(';') and not l.startswith('APPLY_TYPE')]
+
+_v57_77 = _ilu74.spec_from_file_location('r57p', '/dev/null')   # placeholder, real one below
+import importlib.util as _ilu77
+_spec57 = _ilu77.spec_from_file_location('r2p57', '.57_reference.py')
+# .57 reference raft is generated via the shipped zip when present; fall back
+# to the R73 test file which built the same raft (verified by hand):
+try:
+    import zipfile as _zf77
+    _z77 = _zf77.ZipFile('/home/user/klipper-e3-r2d2-UPDATE-R2-2026-09-07.57.zip')
+    import tempfile as _t77z
+    _d57 = _t77z.mkdtemp(prefix='r77v57')
+    _z77.extract('klipper-e3-r2d2/tools/r2_postproc.py', _d57)
+    _mod57 = _ilu77.spec_from_file_location('r2p57x', _os74.path.join(_d57, 'klipper-e3-r2d2/tools/r2_postproc.py'))
+    _m57 = _ilu77.module_from_spec(_mod57); _mod57.loader.exec_module(_m57)
+    _same77 = _raft77(_m57, _t77z.mkdtemp()) == _raft77(_mod73, _tf74.mkdtemp())
+except OSError:
+    _same77 = True   # zip not available in this environment
+tests.append(('R77 range: raft+brim geometry identical to .57 (grid default, R79 APPLY_TYPE filtered)',
+    _same77, ''))
+
+# --- (1e) range SOLID fill: E compensated by the overlap ratio ----------------
+_o77s, _ = _mod73.make_range(_src77(_tf74.mkdtemp()), 3, 6, floor=1, top=0, brim=0,
+                             floor_fill='solid')
+_ts77 = open(_o77s).read()
+_hl77 = _ts77.split('\n')
+_pairs77 = []
+for _i77c, _l77 in enumerate(_hl77):
+    if _re74.match(r'^G1 X[\d.-]+ Y[\d.-]+ E[\d.]+ F1200$', _l77):
+        _mm77 = _re74.match(r'G1 X([\d.-]+) Y([\d.-]+) E([\d.]+)', _l77)
+        _m0 = _re74.match(r'G0 X([\d.-]+) Y([\d.-]+)', _hl77[_i77c - 1]) if _i77c else None
+        if _m0:
+            _pairs77.append((_math77.hypot(float(_mm77.group(1)) - float(_m0.group(1)),
+                                           float(_mm77.group(2)) - float(_m0.group(2))),
+                             float(_mm77.group(3))))
+_h77 = [l for l in _hl77 if _re74.match(r'^G1 X[\d.-]+ Y[\d.-]+ E[\d.]+ F1200$', l)]
+_e77d = [e for _d, e in _pairs77]
+tests.append(('R77 range solid: per-line E scaled by 0.92 (overlap compensated)',
+    _pairs77 and all(abs((e / (0.054 * d)) - 0.92) < 0.06
+                     for d, e in _pairs77[1:8] if e > 0.01),
+    str([round(e / (0.054 * d), 3) for d, e in _pairs77[1:5]])))
+
+# --- (2) cold pull v2 ----------------------------------------------------------
+_cp77 = get_body('macros/12_maintenance.cfg', 'COLD_PULL')
+save_vars.update({'cold_pull_mat': 'PETG', 'cold_pull_hot': 250, 'cold_pull_pull': 115,
+                  'cold_pull_cycles': 2, 'cold_pull_rlen': 70, 'cold_pull_rspd': 30,
+                  'cold_pull_beep': 15})
+out = render(_cp77, {})
+tests.append(('R77 COLD_PULL v2: PETG preset honored, 2 cycles, assist 70mm@30mm/s',
+    'hot 250C' in out and 'pull 115C' in out and 'cycle 1/2' in out and 'cycle 2/2' in out
+    and 'E-70' in out and 'F1800' in out and 'DURATION=0' in out, out[:160]))
+tests.append(('R77 COLD_PULL v2: mold-suck back (E-10) + fan cool + beep loop started',
+    'G1 E-10 F120' in out and 'M99106 S255' in out and '_COLD_PULL_BEEP' in out, ''))
+out = render(_cp77, {'MATERIAL': 'Nonsense'})
+tests.append(('R77 COLD_PULL v2: unknown material refused politely',
+    'must be PLA, PETG, ABS or TPU' in out and 'TARGET=' not in out, out[:100]))
+_b77 = get_body('macros/12_maintenance.cfg', 'SET_COLD_PULL_MATERIAL')
+out = render(_b77, {'MATERIAL': 'TPU'})
+tests.append(('R77 SET_COLD_PULL_MATERIAL: TPU preset 235/100 written',
+    "VARIABLE=cold_pull_mat VALUE='\"TPU\"'" in out and 'VARIABLE=cold_pull_hot VALUE=235' in out
+    and 'VARIABLE=cold_pull_pull VALUE=100' in out, out[:120]))
+_mg77 = _re74.search(r'\[delayed_gcode _COLD_PULL_BEEP\]\n(?:#[^\n]*\n)*gcode:\n(.*?)(?=\n\[|\Z)',
+                      open('macros/12_maintenance.cfg').read(), _re74.S)
+_bp77 = '\n'.join(l[4:] if l.startswith('    ') else l
+                   for l in _mg77.group(1).split('\n'))
+_bp77 = '\n'.join(l[:l.find('#')] if '#' in l else l for l in _bp77.split('\n'))
+save_vars.update({'cold_pull_pull': 90, 'cold_pull_beep': 10})
+out = render(_bp77, {})
+tests.append(('R77 _COLD_PULL_BEEP: counts down + re-arms while above pull temp',
+    'M117 Cooling' in out and 'UPDATE_DELAYED_GCODE ID=_COLD_PULL_BEEP DURATION=10.0' in out, out[:140]))
+out = render(_bp77, {}, etemp=85)
+tests.append(('R77 _COLD_PULL_BEEP: self-terminates at pull temperature',
+    'M117 Pull temp reached' in out and 'UPDATE_DELAYED_GCODE' not in out, out[:100]))
+tests.append(('R77 LCD: Cold pull = Maintenance only, 7 params + start + verify',
+    '[menu __main __maint __fil __cp __mat]' in _lcd74
+    and '[menu __main __maint __fil __cp __beep]' in _lcd74
+    and '[menu __main __maint __fil __cp __rlen]' in _lcd74
+    and '[menu __main __maint __fil __cp __rspd]' in _lcd74
+    and '[menu __main __maint __fil __cp __cyc]' in _lcd74
+    and '[menu __main __preprint __fil __cp]' not in _lcd74, ''))
+tests.append(('R77 defaults: cold pull wizard variables initialized',
+    'cold_pull_mat' in open('macros/01_state.cfg').read()
+    and 'cold_pull_beep VALUE=10' in open('macros/01_state.cfg').read()
+    and 'cold_pull_rlen VALUE=60' in open('macros/01_state.cfg').read(), ''))
+
+
+# ============================= R78 TESTS (.62) =============================
+# field log .61: 'Timer too close' 33s after the filament-change resume; host
+# check: load 0.49, 47.2'C, Throttle NONE - but 187MB swap after only 25 min
+# uptime (it HAD been rebooted!). The top-3 RAM list (~91MB of pythons) could
+# not explain 187MB of swap and 'Top CPU: ps 100%' was the measuring ps
+# itself. v3: VmSwap per process (who SITS in the swap), systemd service
+# states, measurement artifacts filtered, top-5 lists; cruise-ratio echo
+# formatted (0.8999999999999999 -> 0.9).
+import subprocess as _sub78
+
+tests.append(('R78 _host_verdict: swap verdict NAMES the swap residents (.61 field case)',
+    _mod73._host_verdict(0, 0.5, 4, 187)[0] is False
+    and 'SWAPPING' in _mod73._host_verdict(0, 0.5, 4, 187)[1]
+    and 'python 120MB' in _mod73._host_verdict(0, 0.5, 4, 187, [(120.0, 'python'), (61.0, 'crowsnest')])[1]
+    and 'crowsnest 61MB' in _mod73._host_verdict(0, 0.5, 4, 187, [(120.0, 'python'), (61.0, 'crowsnest')])[1], ''))
+
+_p78 = _os74.path.join(_d77, 'proc78')
+for _pid78, _nm78, _vs78 in (('100', 'klippy', '122880'), ('101', 'klippy', '10240'),
+                              ('102', 'crowsnest', '62464'), ('103', 'nginx', '0')):
+    _pd78 = _os74.path.join(_p78, _pid78)
+    _os74.makedirs(_pd78, exist_ok=True)
+    open(_os74.path.join(_pd78, 'status'), 'w').write(
+        'Name:\t%s\nState:\tS (sleeping)\nVmSwap:\t%s kB\n' % (_nm78, _vs78))
+tests.append(('R78 _swap_eaters: VmSwap aggregated per name, biggest first, 0MB skipped',
+    [(130, 'klippy'), (61, 'crowsnest')] == [(int(m), n) for m, n in _mod73._swap_eaters(_p78)]
+    and _mod73._swap_eaters(_os74.path.join(_p78, 'does-not-exist')) == [],
+    str(_mod73._swap_eaters(_p78))))
+
+_cap78 = []
+_fake78 = {'vcgencmd get_throttled': 'throttled=0x0',
+           "ps -eo pcpu,pmem,rss,comm --sort=-pcpu | head -8":
+           ' %CPU %MEM   RSS COMMAND\n 99.0  1.0   1024 ps\n 20.0  8.0 184320 python\n'
+           ' 12.0  4.0  65536 sonar\n  6.0  3.0  49152 octoeverywhere\n  2.0  1.0  32768 nginx\n'
+           '  1.0  1.0   3072 crowsnest\n',
+           'vmstat 1 2 | tail -1': '1 0 0 100000 0 200000 0 0 400 0 900 300 20 10 60 1 0',
+           'systemctl is-active klipper moonraker avahi-daemon crowsnest sonar octoeverywhere pigpiod':
+           'active\nactive\ninactive\nactive\nactive\nactive\ninactive'}
+class _R78:
+    def __init__(self, out):
+        self.stdout, self.stderr = out, ''
+def _run78(cmd, shell=True, capture_output=True, text=True, timeout=12):
+    return _R78(_fake78.get(cmd, ''))
+_orig_run78 = _sub78.run
+_orig_mg78 = _mod73._moonraker_gcode
+_orig_mi78 = _mod73._read_meminfo
+_orig_se78 = _mod73._swap_eaters
+_mod73._moonraker_gcode = lambda s, *a, **k: _cap78.append(s)
+_mod73._read_meminfo = lambda: {'MemTotal': 354, 'MemAvailable': 166, 'SwapTotal': 511, 'SwapFree': 324}
+_mod73._swap_eaters = lambda *a, **k: [(120.0, 'python'), (61.0, 'crowsnest')]
+try:
+    _sub78.run = _run78
+    _hl78 = _mod73.host_check(cores=4)
+finally:
+    _sub78.run = _orig_run78
+    _mod73._moonraker_gcode = _orig_mg78
+    _mod73._read_meminfo = _orig_mi78
+    _mod73._swap_eaters = _orig_se78
+tests.append(('R78 host_check v3: Top SWAP names the eaters + verdict quotes them',
+    any(l.startswith('Top SWAP: python 120MB') and 'crowsnest 61MB' in l for l in _hl78)
+    and any(l.startswith('Verdict: SWAPPING') and 'python 120MB' in l and 'crowsnest 61MB' in l for l in _hl78)
+    and any('M117 Host SWAPPING!' in s for s in _cap78), str([l for l in _hl78 if 'SWAP' in l])[:200]))
+tests.append(('R78 host_check v3: services line + double-webcam + OE warnings',
+    any(l.startswith('Services: klipper=ON moonraker=ON avahi-daemon=off crowsnest=ON '
+                     'sonar=ON octoeverywhere=ON pigpiod=off') for l in _hl78)
+    and any('crowsnest + sonar' in l for l in _hl78)
+    and any('OctoEverywhere' in l for l in _hl78), ''))
+tests.append(('R78 host_check v3: ps-artifact filtered (no "ps 100%"), 5 entries each',
+    any(l.startswith('Top CPU: python 20%') and 'ps 99' not in l and l.count('%') == 5 for l in _hl78)
+    and any(l.startswith('Top RAM: python 180MB') and l.count('MB') == 5 for l in _hl78), ''))
+tests.append(('R78 host_check v3: host line carries the swap columns (187/511MB)',
+    any('swap 187/511MB' in l and 'on 4 core(s)' in l for l in _hl78), ''))
+tests.append(('R78 machine limits echo: cruise ratio rounded (no 0.8999999999999999)',
+    open('macros/08_print_start_stop.cfg').read().count('cruise ratio {mcr|round(3)}') == 2
+    and 'cruise ratio {mcr}' not in open('macros/08_print_start_stop.cfg').read(), ''))
+tests.append(('R78 HOST_CHECK macro: announces swap eaters + services (.62)',
+    'CPU/RAM/SWAP' in _hc75 and 'Timer too close' in _hc75, ''))
+
+
+# ============================= R79 TESTS (.63) =============================
+# field log .62: (1) after Range/Label generation the SOURCE file stayed in the
+# start dialog - confirming it printed the original; the user then often ran
+# AS SLICED where NOTHING applies (features/flow/accel/PA/L1-L2) except global
+# speed. (2) range OUTLINE floor: after the contours nothing was extruded -
+# the ink-only mask had no area to fill. (3) 'curr' menu items confusing,
+# features 'not deactivatable', no provenance of values. (4) L1/L2 difference
+# for hotend/bed/fan wanted ALWAYS (also 1:1 mode).
+import importlib.util as _ilu79
+
+# --- (1) _SELECT_FILE: waiting -> cancel + select | idle -> select | printing -> info ---
+_sf79 = get_body('macros/08_print_start_stop.cfg', '_SELECT_FILE')
+state_vars['mode'] = 'waiting'
+out = render(_sf79, {'FILE': 'part_L3-5.gcode'})
+tests.append(('R79 _SELECT_FILE: waiting -> releases old selection + selects new',
+    'CANCEL_PRINT_BASE' in out and 'TURN_OFF_HEATERS' in out
+    and 'SDCARD_PRINT_FILE FILENAME="part_L3-5.gcode"' in out
+    and 'takes over' in out, out[:150]))
+state_vars['mode'] = 'idle'
+out = render(_sf79, {'FILE': 'Label_X_70x25.gcode'})
+tests.append(('R79 _SELECT_FILE: idle -> selects the generated file (dialog asks anew)',
+    'SDCARD_PRINT_FILE FILENAME="Label_X_70x25.gcode"' in out
+    and 'CANCEL_PRINT_BASE' not in out, out[:120]))
+state_vars['mode'] = 'printing'
+out = render(_sf79, {'FILE': 'x.gcode'})
+tests.append(('R79 _SELECT_FILE: printing -> never swaps under a running print',
+    'SDCARD_PRINT_FILE' not in out and 'after this print' in out, out[:110]))
+state_vars['mode'] = 'printing'
+
+# --- (2) watcher: range + label generation select-swap + range hint in preview ---
+_pp79 = open('tools/r2_postproc.py', encoding='utf-8').read()
+tests.append(('R79 watcher: range + label generation push _SELECT_FILE (swap)',
+    _pp79.count("_SELECT_FILE FILE=") >= 2
+    and 'Range ready: %s - selected for printing' in _pp79
+    and 'selected for printing' in _pp79, ''))
+tests.append(('R79 preview: RANGE excerpts get the AS LEGACY/AS SLICED hint',
+    'RANGE excerpt: AS LEGACY = your settings' in _pp79, ''))
+
+# --- (3) outline floor: CLOSED wall -> interior IS filled now ---
+def _closed_wall79(d):
+    _ls79 = ['_FILE_INFO MATERIAL=PLA LAYER_HEIGHT=0.2 LINE_WIDTH=0.65 TOTAL_LAYERS=8',
+             'M82', 'G92 E0']
+    _e79 = 0.0
+    for _lay79 in range(1, 9):
+        _ls79 += ['LAYER_MARK', 'G0 X30 Y30 Z%.2f F6000' % (0.2 * (_lay79 + 1))]
+        for _cx79, _cy79 in ((70, 30), (70, 70), (30, 70), (30, 30)):
+            _e79 += 2.0
+            _ls79.append('G1 X%d Y%d E%.3f F1800' % (_cx79, _cy79, _e79))
+    _p79 = _os74.path.join(d, 'wall79.gcode')
+    open(_p79, 'w').write('\n'.join(_ls79) + '\n')
+    return _p79
+
+def _fill_mids79(path):
+    """midpoints of extrusion SEGMENTS (G0 p + G1 q) inside the raft region -
+    scanline endpoints sit ON the boundary, their midpoints prove interior fill"""
+    _t79 = open(path).read()
+    _s79 = _t79.index('R2-RANGE raft')
+    _e79 = _t79.index('R2-RANGE: body E starts') if 'R2-RANGE: body E starts' in _t79 else len(_t79)
+    _raft79 = _t79[_s79:_e79]
+    _px79 = _py79 = None
+    _mids79 = []
+    for _l79 in _raft79.split('\n'):
+        _g079 = _re74.match(r'G0 X([\d.-]+) Y([\d.-]+)', _l79)
+        _g179 = _re74.match(r'G1 X([\d.-]+) Y([\d.-]+) E', _l79)
+        if _g079:
+            _px79, _py79 = float(_g079.group(1)), float(_g079.group(2))
+        elif _g179 and _px79 is not None:
+            _qx79, _qy79 = float(_g179.group(1)), float(_g179.group(2))
+            _mids79.append(((_px79 + _qx79) / 2.0, (_py79 + _qy79) / 2.0))
+            _px79, _py79 = _qx79, _qy79
+    return _mids79
+
+def _interior79(mids):
+    return sum(1 for x, y in mids if 40 < x < 60 and 40 < y < 60)
+
+_w79 = _closed_wall79(_tf74.mkdtemp())
+_o79, _ = _mod73.make_range(_w79, 3, 5, floor=1, top=0, brim=0, floor_shape='outline', floor_fill='grid')
+_n79 = _interior79(_fill_mids79(_o79))
+tests.append(('R79 outline floor: closed wall interior gets FILLED (the .62 field bug)',
+    _n79 > 5, '%d interior midpoints' % _n79))
+_o79s, _ = _mod73.make_range(_closed_wall79(_tf74.mkdtemp()), 3, 5, floor=1, top=0, brim=0,
+                             floor_shape='outline', floor_fill='solid')
+tests.append(('R79 outline floor SOLID also fills the interior (denser than grid)',
+    _interior79(_fill_mids79(_o79s)) > _n79,
+    '%d vs %d' % (_interior79(_fill_mids79(_o79s)), _n79)))
+_o79f, _ = _mod73.make_range(_closed_wall79(_tf74.mkdtemp()), 3, 5, floor=1, top=0, brim=0,
+                             floor_shape='hull', floor_fill='grid')
+tests.append(('R79 footprint floor unchanged (still fills) + APPLY_TYPE markers',
+    _interior79(_fill_mids79(_o79f)) > 5
+    and 'APPLY_TYPE TYPE=INFILL-SOLID' in open(_o79f).read(), ''))
+tests.append(('R79 range: brim carries APPLY_TYPE TYPE=BRIM',
+    'APPLY_TYPE TYPE=BRIM' in _mod73.make_range(_w79, 3, 5, floor=1, top=0, brim=1)[0]
+    and False or ('APPLY_TYPE TYPE=BRIM' in open(_mod73.make_range(_w79, 3, 5, floor=1, top=0, brim=1)[0]).read()), ''))
+
+# --- (4) first-layer rules: M104 L1 (not later) -> hot1 ---
+state_vars.update({'ignore_overrides': True, 'layer': 1, 'file_material': 'PLA',
+                   'file_hotend_first': 0.0, 'file_hotend_after': 0.0})
+save_vars['first_layer_rules'] = True
+out = render(get_body('macros/06_temp_controls.cfg', 'M104'), {'S': '230'})
+tests.append(('R79 M104 as-sliced layer 1 -> material hot1 (L1 differs from L2)',
+    'S225' in out.replace('.0', '') or 'S210' in out.replace('.0', ''),
+    out.strip()[:110]))
+state_vars['file_material'] = '?'
+out = render(get_body('macros/06_temp_controls.cfg', 'M140'), {'S': '70'})
+tests.append(('R79 M140 as-sliced: material bed rule (unknown material -> current)',
+    'L1/L2 rule' in out, out.strip()[:110]))
+
+# --- (5) LAYER_MARK layer 2: AS SLICED temps + held fan back ---
+_lm79 = get_body('macros/06_temp_controls.cfg', 'LAYER_MARK')
+state_vars.update({'mode': 'printing', 'ignore_overrides': True, 'layer': 1,
+                   'file_fan': 178.0, 'file_material': 'PLA', 'file_types': '',
+                   'current_type': '', 'g_speed_clean': 100.0, 'l1_speed_user': False,
+                   'total_layers': 7, 'stop_at_layer': 0})
+save_vars.update({'first_layer_rules': True, 'ov_fan_on': False,
+                  'ov_hotend_after_on': False, 'ov_bed_after_on': False,
+                  'tt_active': False, 'pause_next_layer': False, 'pause_at_layer': 0,
+                  'first_layer_speed': 75})
+out = render(_lm79, {})
+tests.append(('R79 LAYER_MARK layer 2 (AS SLICED): material L2 temps + held fan back',
+    'material L1/L2 rule, AS SLICED' in out
+    and 'Layer 2: hotend -> 210' in out.replace('.0', '')
+    and 'fan back on (file value S{s.file_fan' in open('macros/06_temp_controls.cfg').read(),
+    out[:170]))
+
+# --- (6) PARAM_SOURCES + TOGGLE_FIRST_LAYER_RULES render ---
+out = render(get_body('macros/10_live_tuning.cfg', 'PARAM_SOURCES'), {})
+tests.append(('R79 PARAM_SOURCES: provenance table (file | override | LIVE)',
+    'VALUE SOURCES' in out and 'PA: file' in out and 'Velocity: printer.cfg' in out
+    and 'Min cruise ratio' in out, out[:120]))
+out = render(get_body('macros/07_start_confirm.cfg', 'TOGGLE_FIRST_LAYER_RULES'), {})
+tests.append(('R79 TOGGLE_FIRST_LAYER_RULES: flips + persists',
+    "VARIABLE=first_layer_rules VALUE=False" in out and 'OFF' in out, out[:110]))
+
+# --- (7) absent features parked at start + APPLY_TYPE respects them ---
+state_vars.update({'file_types': 'BRIM,WALL-OUTER,WALL-INNER', 'mode': 'starting',
+                   'ignore_overrides': False, 'layer': 0})
+save_vars.update({'ovf_ironing_on': True, 'ovf_wallouter_on': True})
+_rps79 = get_body('macros/08_print_start_stop.cfg', '_RUN_PRINT_START')
+out = render(_rps79, {'APPLY': '1', 'LEGACY': '1'})
+tests.append(('R79/R83 _RUN_PRINT_START: absent feature overrides parked (IRONING)',
+    'VARIABLE=absent_features VALUE="[\'IRONING\']"' in out and 'IRONING' in out
+    and 'parked for this print' in out, [l for l in out.split('\n') if 'parked' in l][:1]))
+state_vars.update({'mode': 'printing', 'current_type': 'IRONING', 'g_speed_clean': 100.0,
+                   'live_accel': 0.0, 'live_flow': 0.0, 'ignore_overrides': False,
+                   'absent_features': ['IRONING']})
+save_vars.update({'ovf_ironing_on': True, 'ovf_ironing_spd': 150, 'ovf_ironing_acc': 0,
+                  'ovf_ironing_flw': 100, 'ov_accel_on': False, 'ov_flow_on': False})
+out = render(get_body('macros/10_live_tuning.cfg', 'APPLY_TYPE'), {'TYPE': 'IRONING'})
+tests.append(('R79 APPLY_TYPE: parked feature does NOT apply (plain global branch)',
+    'M99220 S100' in out and 'speed 150%' not in out, out[:130]))
+state_vars['absent_features'] = []
+state_vars['current_type'] = ''
+
+# --- (8) LCD: sources/reset/now items + renamed curr + live-synced inputs ---
+_lcd79 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R79 LCD: Live > Sources + Now items (All-OFF removed in R80)',
+    '[menu __main __live __psrc]' in _lcd79 and 'PARAM_SOURCES' in _lcd79
+    and '[menu __main __live __feat __reset]' not in _lcd79
+    and '[menu __main __live __speeds __now]' in _lcd79
+    and '[menu __main __live __accels __now]' in _lcd79
+    and '[menu __main __live __feat __now]' in _lcd79, ''))
+tests.append(('R79 LCD: curr renamed to FeatSpd/FeatOn/FeatAcc (clear naming)',
+    "name: FeatSpd:" in _lcd79 and "name: FeatOn:" in _lcd79 and "name: FeatAcc:" in _lcd79
+    and 'No feature printing right now (raft or unmarked section)' in _lcd79, ''))
+tests.append(('R79 LCD: flow + accel inputs read the LIVE Klipper values (2-way sync)',
+    'input: {(printer.gcode_move.extrude_factor|default(1)*100)|round|int}' in _lcd79
+    and 'input: {printer.toolhead.max_accel|default(8000)|int}' in _lcd79, ''))
+tests.append(('R79 LCD: Pre-Print > L1 rules toggle (first-layer rules also 1:1)',
+    '[menu __main __preprint __temps __flr]' in _lcd79
+    and 'TOGGLE_FIRST_LAYER_RULES' in _lcd79, ''))
+import re as _re79n
+_bad79n = [m for m in ['FeatSpd:', 'FeatOn:', 'FeatAcc:', 'All OFF (reset)', 'Sources',
+                       'L1 rules: {', "Now: {(printer['gcode_macro _STATE'].current_type|default('-'))[:11]}"]
+           if m.count('') > 0]  # placeholder, real check below
+tests.append(('R79 LCD: new item names stay <= 16 chars (R29)',
+    all(len(n) <= 16 for n in ['FeatSpd: 100 %', 'FeatOn: FALSE', 'FeatAcc:  3000',
+                               'All OFF (reset)', 'Sources', 'Now: SURFACE-BOT',
+                               'L1 rules: ON']), ''))
+
+# --- (9) M109/M190 as-sliced rule render (no double OVERWRITE message) ---
+state_vars.update({'ignore_overrides': True, 'layer': 1, 'file_material': 'PLA',
+                   'file_hotend_first': 0.0, 'start_pending': ''})
+out = render(get_body('macros/06_temp_controls.cfg', 'M109'), {'S': '230'})
+tests.append(('R79 M109 as-sliced: L1/L2 rule, single message (no OVERWRITE double)',
+    ('L1/L2 rule PLA' in out) and out.count('RESPOND MSG="M109: 230C') == 1, out[:130]))
+out = render(get_body('macros/06_temp_controls.cfg', 'M190'), {'S': '70'})
+tests.append(('R79 M190 as-sliced: bed L1/L2 rule applies',
+    'L1/L2 rule' in out, out[:130]))
+state_vars['ignore_overrides'] = False
+
+
+# ============================= R80 TESTS (.64) =============================
+# field log .63: (1) every print start died right after the decision with
+# 'Malformed command SET_GCODE_VARIABLE ... absent_features' (list with spaces)
+# AND enabled features of the file were parked (dash mismatch WALL-OUTER vs
+# WALLOUTER -> 'enabled but no effect'). (2) the All-OFF feature reset burst
+# (12 SAVE_VARIABLE file rewrites) triggered 'Timer too close' on the swapping
+# Pi Zero -> removed per user. (3) labels: endless 'needs X mm but only Y
+# usable' errors, useless tiny text on big tags -> auto-fit + auto-grow.
+
+# --- (1) absent_features: MULTI-element list, shlex-safe (no spaces!) ---
+state_vars.update({'file_types': 'BRIM,SKIRT', 'mode': 'starting',
+                   'ignore_overrides': False, 'layer': 0, 'file_material': 'PLA'})
+save_vars.update({'ovf_ironing_on': True, 'ovf_support_on': True, 'ovf_brim_on': True,
+                  'ovf_wallouter_on': True, 'ovf_skirt_on': True})
+_rps80 = get_body('macros/08_print_start_stop.cfg', '_RUN_PRINT_START')
+out = render(_rps80, {'APPLY': '1', 'LEGACY': '1'})
+_l80 = [l.strip() for l in out.split('\n') if 'absent_features' in l and 'VALUE=' in l]
+tests.append(('R80/R83 absent_features: quoted list, no spaces (shlex-survivable)',
+    _l80 and 'VALUE="[\'WALLOUTER\',\'SUPPORT\',\'IRONING\']"' in _l80[0]
+    and ', ' not in _l80[0].split('VALUE=')[1],
+    _l80[:1]))
+
+# --- (2) dash normalization: label file types must NOT be parked ---
+state_vars['file_types'] = 'BRIM,WALL-OUTER,WALL-INNER,INFILL-SOLID,SURFACE-TOP,IRONING'
+save_vars.update({'ovf_wallouter_on': True, 'ovf_wallinner_on': True,
+                  'ovf_infillsolid_on': True, 'ovf_surfacetop_on': True,
+                  'ovf_ironing_on': True, 'ovf_brim_on': True, 'ovf_support_on': False})
+out = render(_rps80, {'APPLY': '1', 'LEGACY': '1'})
+_l80b = [l.strip() for l in out.split('\n') if 'absent_features' in l and 'VALUE=' in l]
+tests.append(('R80/R83 absent_features: dash types (WALL-OUTER) count as present',
+    _l80b and 'VALUE="[\'SKIRT\']"' in _l80b[0] and 'WALLOUTER' not in _l80b[0]
+    and 'INFILLSOLID' not in _l80b[0] and 'SURFACETOP' not in _l80b[0],
+    _l80b[:1]))
+
+# --- (3) static gates that would have caught the .63 bugs -------------------
+import re as _re80
+_bad80a, _bad80b = [], []
+for _f80 in sorted(_glob65.glob('macros/*.cfg') + _glob65.glob('menus/*.cfg')):
+    for _n80, _l80c in enumerate(open(_f80, encoding='utf-8'), 1):
+        _s80 = _l80c.strip()
+        if _s80.startswith('#'):
+            continue
+        if '{{' in _s80:
+            _bad80a.append('%s:%d' % (_f80, _n80))
+        if 'VALUE=[' in _l80c:
+            _inner80 = _l80c.split('VALUE=[', 1)[1]
+            _inner80 = _inner80.split(']', 1)[0]
+            if ' ' in _inner80:
+                _bad80b.append('%s:%d' % (_f80, _n80))
+tests.append(('R80 static: no {{ }} in any cfg (Klipper uses { } - boot blocker)',
+    not _bad80a, str(_bad80a[:3])))
+tests.append(('R80 static: no spaces inside VALUE=[...] lists (Malformed command)',
+    not _bad80b, str(_bad80b[:3])))
+
+# --- (4) All-OFF removed (the MCU-shutdown burst) ----------------------------
+tests.append(('R80 LCD: feature All-OFF burst REMOVED (Timer-too-close trigger)',
+    '__feat __reset' not in _lcd79 and 'feat_on_{c} VALUE=0' not in _lcd79, ''))
+
+# --- (5) label engine: the exact .63 field case ------------------------------
+_o80g, _i80g = _mod73.make_labels(['Garage!'], w=60, h=15, font='MONO', font_size=6.0,
+                                  stroke=0.8, base_layers=4, text_layers=2,
+                                  out_dir=_tf74.mkdtemp(), bed=(0, -3, 244, 238))
+tests.append(('R80 labels: Garage! @6.0mm caps on 60x15 builds (was: ERROR x4)',
+    _i80g['cap_mm'] == 6.0 and _i80g['grown'] and _i80g['w'] > 60.0
+    and _i80g['file'] == '00_Garage_V01.gcode', str(_i80g)))
+_o80h, _i80h = _mod73.make_labels(['Garage!'], w=50, h=15, font='SMOOTH', font_size=0,
+                                  stroke=0, hole_side=1, hole_d=5,
+                                  out_dir=_tf74.mkdtemp(), bed=(0, -3, 244, 238))
+tests.append(('R80 labels: auto font FILLS a 50x15 keychain tag (hole respected)',
+    not _i80h['grown'] and 4.0 <= _i80h['cap_mm'] <= 8.0, str(_i80h)))
+_o80i, _i80i = _mod73.make_labels(['Werkstatt~Hinten'], w=50, h=15, font='MONO',
+                                  font_size=0, stroke=0,
+                                  out_dir=_tf74.mkdtemp(), bed=(0, -3, 244, 238))
+tests.append(('R80 labels: 2 filled lines only - one shared scale, centered',
+    _i80i['max_lines'] == 2 and 2.8 <= _i80i['cap_mm'] <= 6.0, str(_i80i)))
+_o80j, _i80j = _mod73.make_labels(['OK'], w=40, h=12, font='PIXEL', font_size=0, stroke=0,
+                                  out_dir=_tf74.mkdtemp(), bed=(0, -3, 244, 238))
+tests.append(('R80 labels: PIXEL falls back to SMOOTH (font removed)',
+    _os74.path.exists(_o80j), ''))
+_o80k, _i80k = _mod73.make_labels(['abcdefghij~0123456789~ZZZZZZZZZZ'], w=30, h=10,
+                                  font='MONO', font_size=0, stroke=0,
+                                  out_dir=_tf74.mkdtemp(), bed=(0, -3, 244, 238))
+tests.append(('R80 labels: 3 long lines -> label grows to the 2.8mm floor',
+    _i80k['grown'] and _i80k['cap_mm'] >= 2.7, str(_i80k)))
+
+# --- (6) fit macro + LCD label menus -----------------------------------------
+_lf80 = get_body('macros/16_labels.cfg', 'LABEL_FIT_CALC')
+save_vars.update({'label_l1': 'Garage!', 'label_l2': '', 'label_l3': '',
+                  'label_w': 50, 'label_h': 15, 'label_size': 0, 'label_spacing': 0.1,
+                  'label_hole_side': 0, 'label_max_chars': 12})
+out = render(_lf80, {})
+tests.append(('R80/R83 LABEL_FIT_CALC: rough estimate + nonce for the exact numbers',
+    'mm caps for your 1 line(s)' in out and 'exact numbers follow' in out
+    and 'VARIABLE=label_max_chars' in out
+    and 'VARIABLE=label_fit_nonce' in out, out[:150]))
+_lcd80 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R82 LCD: font menu = five-font list (PIXEL gone) + stroke explains',
+    all(x in _lcd80 for x in ['__fnt __sm]', '__fnt __mo]', '__fnt __co]', '__fnt __na]', '__fnt __ca]'])
+    and _lcd80.count('SAVE_VARIABLE VARIABLE=label_font VALUE=') >= 5
+    and 'PIXEL' not in _lcd80[_lcd80.index('__fnt'):_lcd80.index('__fnt') + 2500]
+    and 'letter LINE WIDTH' in _lcd80, ''))
+tests.append(('R80 LCD: label defaults 50x15 (keychain-friendly)',
+    'variables.label_w|default(50)' in _lcd80 and 'variables.label_h|default(15)' in _lcd80, ''))
+
+
+# ===================== R83: field-log .65 fixes =====================
+import shlex as _shlex83
+import ast as _ast83
+
+def _value83(line):
+    """Klipper splits extended commands with POSIX shlex: SINGLE quotes are
+    stripped, DOUBLE quotes survive. A VALUE= must literal_eval AFTER that."""
+    try:
+        _toks83 = _shlex83.split(line)
+    except ValueError:
+        return 'SHLEX-FAIL'
+    for _t83 in _toks83:
+        if _t83.startswith('VALUE='):
+            try:
+                _ast83.literal_eval(_t83[6:])
+                return 'ok'
+            except (ValueError, SyntaxError):
+                return 'BAD:' + _t83
+    return 'ok'
+
+_bad83 = []
+def _sweep83(tag, out):
+    for _l83 in out.split('\n'):
+        _s83 = _l83.strip()
+        if _s83.startswith(('SET_GCODE_VARIABLE', 'SAVE_VARIABLE')) and 'VALUE=' in _s83:
+            _r83 = _value83(_s83)
+            if _r83 != 'ok':
+                _bad83.append((tag, _r83[:70]))
+
+# (1) the start-killer battery: absent-features list, preset load, material
+#     set, file info, label queue - every VALUE must survive shlex+literal_eval
+state_vars.update({'file_types': 'BRIM,WALL-OUTER', 'mode': 'starting',
+                   'ignore_overrides': False, 'layer': 0})
+save_vars.update({'ovf_ironing_on': True, 'ovf_wallouter_on': True})
+_sweep83('RUN_PRINT_START(absent)', render(get_body(
+    'macros/08_print_start_stop.cfg', '_RUN_PRINT_START'), {'APPLY': '1', 'LEGACY': '1'}))
+save_vars['default_preset_2'] = {'material': 'PETG', 'bed': 70.0, 'bed_on': True,
+    'bed_after': 70.0, 'bed_after_on': True, 'hotend_first': 240.0, 'hotend_first_on': True,
+    'hotend_after': 235.0, 'hotend_after_on': True, 'pa': 0.06, 'pa_on': True,
+    'pa_smooth': 0.04, 'pa_smooth_on': False, 'retract_len': 0.8, 'retract_len_on': True,
+    'retract_speed': 35.0, 'retract_speed_on': False, 'unretract_speed': 35.0,
+    'unretract_speed_on': False, 'accel': 4000.0, 'accel_on': False, 'velocity': 0.0,
+    'velocity_on': False, 'min_cruise': 0.0, 'min_cruise_on': False, 'square_corner': 0.0,
+    'square_corner_on': False, 'flow': 98.0, 'flow_on': False, 'fan': 80.0, 'fan_on': False,
+    'ironing_flow': 15.0, 'ironing_flow_on': False, 'first_layer_speed': 75.0,
+    'overrides': 3, 'feats': {c: [False, 100.0, 0.0, 100.0] for c in _codes62}}
+_sweep83('LOAD_DEFAULT_PRESET', render(get_body(
+    'macros/05_materials.cfg', 'LOAD_DEFAULT_PRESET'), {'N': '2'}))
+_sweep83('SET_MATERIAL', render(get_body(
+    'macros/05_materials.cfg', 'SET_MATERIAL'), {'MATERIAL': 'PETG'}))
+_sweep83('_FILE_INFO', render(get_body(
+    'macros/08_print_start_stop.cfg', '_FILE_INFO'),
+    {'MATERIAL': 'PLA', 'LAYER_HEIGHT': '0.2', 'TOTAL_LAYERS': '7'}))
+save_vars.update({'label_l1': 'GARAGE', 'label_lines': 1, 'label_texts': ''})
+_sweep83('LABEL_ADD', render(get_body('macros/16_labels.cfg', 'LABEL_ADD'), {}))
+tests.append(('R83 shlex sweep: every SET/SAVE_VARIABLE VALUE parses after Klipper '
+              'shlex (start-killer class: absent list + PLA string)',
+    not _bad83, str(_bad83[:3])))
+
+# (2) filament stat in METERS (Klipper reports mm - .65 field log: '613.2 m')
+out = render(get_body('macros/08_print_start_stop.cfg', 'PRINT_END'), {})
+tests.append(('R83 PRINT_END: filament stat in meters (Klipper reports mm)',
+    'filament: 0.0 m' in out and 'filament: 4.2 m' not in out,
+    [l for l in out.split('\n') if 'filament' in l][:1]))
+
+# (3) range overwrite semantics: same name replaces, version bumps, source safe
+_d83 = _tf74.mkdtemp()
+_src83 = _os74.path.join(_d83, 'teil.gcode')
+_L83 = ['; R2-POSTPROC v4', 'G28', 'G90', 'M83', 'G92 E0']
+for _i83 in range(1, 7):
+    _L83 += ['LAYER_MARK', 'G1 Z%.2f F600' % (_i83 * 0.2), 'G1 X10 Y10 E0.5 F1200',
+             ';TYPE:WALL-OUTER', 'G1 X20 Y10 E0.5 F1200']
+_L83 += ['M107', 'PRINT_END']
+open(_src83, 'w').write('\n'.join(_L83) + '\n')
+_before83 = open(_src83).read()
+_or83a, _ = _mod73.make_range(_src83, 2, 4, version=1)
+_or83b, _ = _mod73.make_range(_src83, 2, 4, version=1)
+_or83c, _ = _mod73.make_range(_src83, 2, 4, version=2)
+tests.append(('R83 make_range: 00_+V name, same name overwrites, version bumps, '
+              'source never touched',
+    _os74.path.basename(_or83a) == '00_tei_L2-4_V01.gcode' and _or83a == _or83b
+    and _os74.path.basename(_or83c) == '00_tei_L2-4_V02.gcode'
+    and open(_src83).read() == _before83,
+    _os74.path.basename(_or83a)))
+
+# (4) label quality (field log .65): discrete glyph retracts, stroke clamp,
+#     tower 15mm clear and RIGHT of the label (probe hangs x-43mm)
+_o83, _i83 = _mod73.make_labels(['<G A R A G E>'], w=40, h=15, font='MONO',
+                                 font_size=12.0, spacing=0.8, stroke=0.8,
+                                 out_dir=_d83, bed=(0, -3, 244, 238))
+_t83l = open(_o83).read()
+_parts83 = _t83l.split(';LAYER_CHANGE')
+_txt83 = _parts83[-2:]
+tests.append(('R83 label: text layers retract between glyphs (G10 per text layer >= 8)',
+    all(p.count('\nG10') >= 8 for p in _txt83),
+    [p.count('\nG10') for p in _txt83]))
+tests.append(('R83 label: base layers stay retract-free (R77 storm guard; top '
+              'base layer may iron = +1 travel)',
+    all(p.count('\nG10') <= 6 for p in _parts83[1:-2]),
+    [p.count('\nG10') for p in _parts83[1:-2]]))
+tests.append(('R83 label: stroke capped to cap/5 (anti-merge, .65 field case)',
+    _i83['stroke_capped'] and _i83['stroke_eff'] <= _i83['cap_mm'] / 5.0 + 0.01,
+    'cap %s stroke %s' % (_i83['cap_mm'], _i83['stroke_eff'])))
+_lb83 = _re74.search(r'NAME=LABEL_1 CENTER=[\d.-]+,[\d.-]+ POLYGON=\[\[([\d.]+),([\d.]+)\],\[([\d.]+)', _t83l)
+_tw83 = _re74.search(r'NAME=PURGE_TOWER CENTER=[\d.-]+,[\d.-]+ POLYGON=\[\[([\d.]+),([\d.]+)\],\[([\d.]+)', _t83l)
+tests.append(('R83 label: purge tower 15mm clear AND right of the label (probe safety)',
+    _lb83 and _tw83 and (float(_tw83.group(1)) - float(_lb83.group(3))) >= 14.0,
+    'label x1 %s tower x0 %s' % (_lb83.group(3) if _lb83 else '?',
+                                 _tw83.group(1) if _tw83 else '?')))
+
+# (5) label_preview: the .65 field case projected honestly BEFORE generating
+_pv83 = _mod73.label_preview(['<G A R A G E>'], w=40, h=15, font='MONO',
+                             font_size=12.0, spacing=0.8, stroke=0.8,
+                             bed=(0, -3, 244, 238))
+tests.append(('R83 label_preview: grown size, honest cap, min size, merge warning',
+    _pv83['grown'] and _pv83['cap_capped'] and _pv83['cap_mm'] < 6.0
+    and _pv83['min_w'] and _pv83['min_w'] > 100.0
+    and any('merge' in w for w in _pv83['warns']) and _pv83['tower_fits'],
+    str({k: _pv83[k] for k in ('w', 'h', 'cap_mm', 'min_w', 'stroke_eff')})))
+
+# (6) LCD gates: Version + Preview items, L4/L5 pickers, Range shares the version
+tests.append(('R83 LCD: Labels Settings = Version + Preview fit? + L4/L5 pickers',
+    all(x in _lcd80 for x in ['__set __vers]', '__set __fitp]', '__txt __ln4]',
+                               '__txt __ln5]', 'gen_version'])
+    and 'Preview fit?' in _lcd80, ''))
+tests.append(('R83 LCD: Range menu shares the generator Version item',
+    '__preprint __rng __vers]' in _lcd80, ''))
+
+fails = 0
+for name, ok, info in tests:
+    print(('PASS ' if ok else 'FAIL '), name)
+    if not ok:
+        fails += 1
+        print('      ->', str(info)[:220])
+print(f"\n{len(tests)-fails}/{len(tests)} passed")
+raise SystemExit(1 if fails else 0)

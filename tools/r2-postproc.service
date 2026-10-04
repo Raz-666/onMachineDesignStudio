@@ -1,0 +1,21 @@
+# R2 gcode post-processor - LAYER_MARK + _FILE_INFO injection for EVERY file
+# that lands in the gcodes folder (upload, USB copy, scp). Install (one time):
+#   cp ~/printer_data/config/klipper-e3-r2d2/tools/r2-postproc.service /etc/systemd/system/
+#   systemctl daemon-reload
+#   systemctl enable --now r2-postproc
+#   systemctl status r2-postproc        <- must say "active (running)"
+# Logs: journalctl -u r2-postproc -f
+[Unit]
+Description=R2 macro system - gcode post-processor (layer markers + file info)
+After=local-fs.target moonraker.service
+
+[Service]
+Type=simple
+User=pi
+ExecStart=/usr/bin/python3 /home/pi/printer_data/config/klipper-e3-r2d2/tools/r2_postproc.py --watch /home/pi/printer_data/gcodes
+Restart=on-failure
+RestartSec=5
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

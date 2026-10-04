@@ -1,0 +1,372 @@
+# =====================================================================================
+#  printer.cfg.example - Ender-3 (modded) with BTT SKR Mini E3 V3.0
+#  -----------------------------------------------------------------------------------
+#  IMPORTANT: This is a REFERENCE structure! If your printer already runs, keep your
+#  existing hardware sections ([stepper_x], [tmc2209 ...], [probe], [display], ...)
+#  and only add the marked parts:
+#    1) copy the [include] lines at the very bottom into your printer.cfg
+#    2) add missing base sections ([save_variables], [exclude_object],
+#       [firmware_retraction], [filament_switch_sensor] ...) if you don't have them
+#    3) everywhere you see "ADJUST" enter your own values
+#
+#  Hardware reference (pins from the official BTT SKR Mini E3 V3.0 sample):
+#    - TMC2209 via UART (PC11/PC10), addresses: X=0, Z=1, Y=2, E=3
+#    - Neopixel port (3-pin, 5V): data pin PA8
+#    - Filament sensor port (Fil-DET): PC15
+#    - Probe/BLTouch port: sensor PC14, servo/power PA1
+#    - Fans: part cooling PC6, hotend fan PC7, electronics fan PB15
+# =====================================================================================
+
+# -------------------------------------------------------------------------------------
+# [mcu] - ADJUST: your serial number (found in your existing printer.cfg)
+# -------------------------------------------------------------------------------------
+#[mcu]
+#serial: /dev/serial/by-id/usb-Klipper_stm32g0b1xx_XXXXXXXXXXXXXXXXXXXX-if00
+
+# -------------------------------------------------------------------------------------
+# [printer] - base settings (linear rails + direct drive can handle more, but tune
+# carefully and validate with input shaper measurements first!)
+# -------------------------------------------------------------------------------------
+[printer]
+kinematics: cartesian
+max_velocity: 300          # mm/s
+max_accel: 4000            # mm/s^2 - starting point, tune with resonance test
+max_z_velocity: 8
+max_z_accel: 200
+square_corner_velocity: 5.0
+
+# -------------------------------------------------------------------------------------
+# Axes - ADJUST: reference only, if your printer already runs do NOT replace these!
+# -------------------------------------------------------------------------------------
+#[stepper_x]
+#step_pin: PB13
+#dir_pin: !PB12
+#enable_pin: !PB14
+#microsteps: 16
+#rotation_distance: 40
+#endstop_pin: ^PC0
+#position_endstop: 0
+#position_max: 235
+#homing_speed: 60
+#
+#[tmc2209 stepper_x]
+#uart_pin: PC11
+#tx_pin: PC10
+#uart_address: 0
+#run_current: 0.60
+#hold_current: 0.50
+#stealthchop_threshold: 0
+#
+#[stepper_y]
+#step_pin: PB10
+#dir_pin: !PB2
+#enable_pin: !PB11
+#microsteps: 16
+#rotation_distance: 40
+#endstop_pin: ^PC1
+#position_endstop: 0
+#position_max: 235
+#homing_speed: 60
+#
+#[tmc2209 stepper_y]
+#uart_pin: PC11
+#tx_pin: PC10
+#uart_address: 2
+#run_current: 0.60
+#hold_current: 0.50
+#stealthchop_threshold: 0
+#
+# -------------------------------------------------------------------------------------
+# DUAL Z IN PARALLEL: both motors on ONE driver (ZA connector, jumper on ZB).
+# -> only ONE [stepper_z] section, no stepper_z1!
+# -> The top-stop synchronization trick still works: if the gantry sits crooked
+#    (one motor lost steps) exactly the early side skips until both rest on top.
+#    See macros/11_gantry_sync.cfg
+# -------------------------------------------------------------------------------------
+#[stepper_z]
+#step_pin: PB0
+#dir_pin: PC5
+#enable_pin: !PB1
+#microsteps: 16
+#rotation_distance: 8
+## MicroProbe as virtual Z endstop (the Z-endstop cable stays unused):
+#endstop_pin: probe:z_virtual_endstop
+#position_min: -3
+#position_max: 250              # ADJUST: your max build height
+#
+#[tmc2209 stepper_z]
+#uart_pin: PC11
+#tx_pin: PC10
+#uart_address: 1
+#run_current: 0.70               # two motors on one driver -> slightly more current
+#hold_current: 0.55
+#stealthchop_threshold: 0
+
+# -------------------------------------------------------------------------------------
+# Extruder - BMG (3:1 geared) direct drive: rotation_distance 7.71 is the standard
+# starting value. Correct it after the first extruder calibration (Maintenance menu).
+# -------------------------------------------------------------------------------------
+#[extruder]
+#step_pin: PB3
+#dir_pin: !PB4
+#enable_pin: !PD1
+#microsteps: 16
+#rotation_distance: 7.71
+#nozzle_diameter: 0.4
+#filament_diameter: 1.750
+#max_extrude_only_distance: 120   # important for filament unload (long retract moves!)
+#heater_pin: PC8
+#sensor_pin: PA0
+#sensor_type: EPCOS 100K B57560G104F    # ADJUST: see your own config
+#control: pid
+#pid_Kp: 22.0            # placeholders - replaced by automatic PID tuning
+#pid_Ki: 1.1
+#pid_Kd: 110.0
+#min_temp: 0
+#max_temp: 260           # ADJUST depending on hotend
+#pressure_advance: 0.045 # starting value, set per material by 05_materials.cfg
+#
+#[tmc2209 extruder]
+#uart_pin: PC11
+#tx_pin: PC10
+#uart_address: 3
+#run_current: 0.65
+#hold_current: 0.45
+#stealthchop_threshold: 0
+
+# -------------------------------------------------------------------------------------
+# Heated bed
+# -------------------------------------------------------------------------------------
+#[heater_bed]
+#heater_pin: PC9
+#sensor_pin: PC4
+#sensor_type: ATC Semitec 104GT-2    # ADJUST (try "EPCOS 100K" for Creality stock)
+#control: pid
+#pid_Kp: 54.0
+#pid_Ki: 0.77
+#pid_Kd: 948.0
+#min_temp: 0
+#max_temp: 125
+
+# -------------------------------------------------------------------------------------
+# FANS - keep these exact names, the macros use "hotend_fan"
+# -------------------------------------------------------------------------------------
+#[fan]                       # part cooling fan
+#pin: PC6
+#kick_start_time: 0.5
+#
+#[heater_fan hotend_fan]     # hotend fan, always on above 50C
+#pin: PC7
+#heater: extruder
+#heater_temp: 50.0
+#
+#[heater_fan electronics_fan]  # electronics fan, on above 45C bed temp
+#pin: PB15
+#heater: heater_bed
+#heater_temp: 45.0
+
+# -------------------------------------------------------------------------------------
+# BTT MicroProbe (BLTouch compatible, connected to the BLTouch port)
+#   Wiring like a BLTouch: 3-pin to SERVOS (5V/GND/PA1), 2-pin to PROBE (PC14).
+#   On the MicroProbe the old "control" wire (PA1) is the POWER supply.
+#   Variant A (standard per BTT manual): PA1 supplies 5V via the servo connector
+#     -> the [probe] block below is enough.
+#   Variant B (if your MicroProbe needs PA1 as power-enable): enable the
+#     [output_pin microprobe_power] block below.
+# -------------------------------------------------------------------------------------
+[probe]
+pin: ^PC14                 # pull-up needed (CR-Touch/MicroProbe logic)
+z_offset: 0.0              # ADJUST - determined via PROBE_CALIBRATE (Maintenance menu)
+speed: 3.0
+lift_speed: 8.0
+x_offset: -40              # ADJUST: nozzle->probe distance in X
+y_offset: -10              # ADJUST: nozzle->probe distance in Y
+#samples: 2
+#sample_retract_dist: 2
+
+#[output_pin microprobe_power]   # variant B - only enable if the probe needs it
+#pin: PA1
+#value: 1
+
+# -------------------------------------------------------------------------------------
+# Safe Z homing: XY to the middle first (over the bed), then Z via probe
+# -------------------------------------------------------------------------------------
+[safe_z_home]
+home_xy_position: 117,117
+speed: 80
+z_hop: 10
+z_hop_speed: 8
+
+# -------------------------------------------------------------------------------------
+# Bed mesh - every material gets its own profile (mesh_pla, mesh_petg, ...)
+# ADAPTIVE: Klipper probes only the object area (needs [exclude_object] and
+# "label objects" enabled in the slicer).
+# -------------------------------------------------------------------------------------
+[bed_mesh]
+speed: 120
+horizontal_move_z: 6
+mesh_min: 30, 20            # ADJUST: reachable area of YOUR probe
+mesh_max: 190, 220          # ADJUST
+probe_count: 5,5
+adaptive_margin: 5
+
+# -------------------------------------------------------------------------------------
+# BED SCREW ALIGNMENT (for the Maintenance menu "Level bed screws"):
+# SCREWS_TILT_CALCULATE drives each bed screw and measures the tilt via probe.
+# ADJUST positions to the actual screw centers of YOUR bed.
+# -------------------------------------------------------------------------------------
+[screws_tilt_adjust]
+screw1_name: front left
+screw1: 45, 25
+screw2_name: front right
+screw2: 195, 25
+screw3_name: rear right
+screw3: 195, 205
+screw4_name: rear left
+screw4: 45, 205
+# Valid values: CW-M3, CCW-M3, CW-M4, CCW-M4, CW-M5, CCW-M5, CW-M6, CCW-M6
+# (direction + thread; M4 = 0.7mm pitch -> Ender-3 bed screws)
+screw_thread: CW-M4
+horizontal_move_z: 6
+
+# -------------------------------------------------------------------------------------
+# Filament runout sensor - the name "filament_sensor" is used by the macros!
+#   runout_gcode = filament empty -> R2 alarm + gentle pause at the NEXT LAYER
+#                  boundary (direct drive: enough filament left to finish the layer)
+#   insert_gcode = filament inserted -> R2 confirmation + LED
+# pause_on_runout MUST stay False - the macros do EVERYTHING themselves
+# (alarm, planned pause, filament mode with purge on resume, LEDs, sounds).
+# -------------------------------------------------------------------------------------
+[filament_switch_sensor filament_sensor]
+switch_pin: !PC15
+pause_on_runout: False
+runout_gcode: _FILAMENT_RUNOUT
+insert_gcode: _FILAMENT_INSERTED
+#runout_distance: 3.0
+
+# -------------------------------------------------------------------------------------
+# FIRMWARE RETRACTION - requirement for LIVE retract changes on the LCD/Mainsail!
+# Enable "use firmware retraction" in the slicer - values are set per material.
+# -------------------------------------------------------------------------------------
+[firmware_retraction]
+retract_length: 0.8
+retract_speed: 35
+unretract_extra_length: 0
+unretract_speed: 35
+
+# -------------------------------------------------------------------------------------
+# NEOPIXEL - 5 LEDs: index 1-4 = frame, index 5 = nozzle LED (print lighting)
+# All effects are capped at 50% brightness to protect the board - keep it that way!
+# -------------------------------------------------------------------------------------
+[neopixel printer_leds]
+pin: PA8
+chain_cnt: 5
+color_order: GRBGR          # ADJUST: GRB or RGB per your strip (last = nozzle LED)
+
+# -------------------------------------------------------------------------------------
+# PIEZO/BEEPER on the Creality 12864 LCD (EXP1) - for the R2-D2 sounds (M300)
+# IMPORTANT: [pwm_cycle_time], NOT [output_pin]! Only this pin type supports
+# "SET_PIN ... CYCLE_TIME=" (tone frequency at runtime).
+# -------------------------------------------------------------------------------------
+[pwm_cycle_time beeper]
+pin: PB5
+value: 0
+shutdown_value: 0
+cycle_time: 0.001
+
+# -------------------------------------------------------------------------------------
+# Creality 12864 LCD on EXP1/EXP2 - with menu control ([menu] sections in menus/)
+# -------------------------------------------------------------------------------------
+[display]
+lcd_type: st7920
+cs_pin: PB8
+sclk_pin: PD6
+sid_pin: PB9
+encoder_pins: ^PA10, ^PA9
+click_pin: ^!PA15
+#menu_timeout: 60
+
+# -------------------------------------------------------------------------------------
+# Required sections for macros/Mainsail
+# -------------------------------------------------------------------------------------
+[virtual_sdcard]
+path: ~/printer_data/gcodes
+
+[pause_resume]
+
+[display_status]
+
+[respond]
+default_type: echo
+
+[exclude_object]           # object data from gcode (adaptive mesh, collision-free parking)
+
+[idle_timeout]
+timeout: 3600
+
+[save_variables]
+filename: ~/printer_data/variables.cfg
+
+# =====================================================================================
+#  INCLUDES - copy these lines to the END of your printer.cfg.
+#  NOTE: if you still have the old German file set on the Pi, DELETE the old
+#  macros/ and menus/ files first (or replace the whole klipper-e3-r2d2 folder).
+# =====================================================================================
+#[include klipper-e3-r2d2/macros/01_state.cfg]
+#[include klipper-e3-r2d2/macros/02_sounds.cfg]
+#[include klipper-e3-r2d2/macros/03_leds.cfg]
+#[include klipper-e3-r2d2/macros/04_notify.cfg]
+#[include klipper-e3-r2d2/macros/05_materials.cfg]
+#[include klipper-e3-r2d2/macros/06_temp_controls.cfg]
+#[include klipper-e3-r2d2/macros/07_start_confirm.cfg]
+#[include klipper-e3-r2d2/macros/08_print_start_stop.cfg]
+#[include klipper-e3-r2d2/macros/09_pause_filament.cfg]
+#[include klipper-e3-r2d2/macros/10_live_tuning.cfg]
+#[include klipper-e3-r2d2/macros/11_gantry_sync.cfg]
+#[include klipper-e3-r2d2/macros/12_maintenance.cfg]
+#[include klipper-e3-r2d2/macros/13_system.cfg]
+# ----------------------------------------------------------------------------------
+# REQUIRED for SYNC_GANTRY (dual-Z synchronization). IMPORTANT: SET_KINEMATIC_POSITION
+# is only registered when enable_force_move is True (verified in Klipper source)!
+# Without this option the sync would silently do NOTHING (no bump at all).
+# Safety note: this also enables the raw FORCE_MOVE command - nothing in this
+# package uses it, do not run it by hand.
+# ----------------------------------------------------------------------------------
+[force_move]
+enable_force_move: True
+
+# ----------------------------------------------------------------------------------
+# OPTIONAL: input shaper calibration from the LCD (Maintenance > Vibration Cal.)
+# Needs an accelerometer - wiring & setup guide: ISHAPER.md in this package.
+# ----------------------------------------------------------------------------------
+#[adxl345]
+#(on the Pi host: nothing else needed here. On the SKR mini E3: add the SPI pins
+# of YOUR board + a free CS pin - check the board pinout!)
+#
+#[resonance_tester]
+#accel_chip: adxl345
+#probe_points:
+#    117.5, 117.5, 20      # EXAMPLE: Ender-3 bed center, 20mm up - adjust!
+
+# ----------------------------------------------------------------------------------
+# PI SHUTDOWN FROM THE LCD (System > 'Pi shutdown', press 2x) - NO EXTRA SETUP!
+#
+# SYS_SHUTDOWN uses moonraker's remote method 'shutdown_machine' - the exact
+# same call the Mainsail 'Shutdown' button makes. Since you run Mainsail,
+# it works out of the box. IMPORTANT (Pi powered by the SKR mini!): ALWAYS
+# shut the Pi down via the LCD before switching the printer off, otherwise
+# the SD card may corrupt.
+#
+# The OPTIONAL section below is only an alternative path (gcode-shell-command
+# extension) - NOT required anymore. If you had it commented in: you can leave
+# it or remove it. !!!! Do NOT uncomment it without the extension installed
+# (Klipper would halt: "not a valid config section") !!!!
+# ----------------------------------------------------------------------------------
+#[gcode_shell_command poweroff]
+#command: sudo /sbin/poweroff
+#timeout: 10.
+
+#[include klipper-e3-r2d2/macros/14_kamp.cfg]
+#[include klipper-e3-r2d2/macros/15_objects.cfg]
+#[include klipper-e3-r2d2/macros/16_labels.cfg]   # R63 label generator (LCD 'Labels' menu)
+#[include klipper-e3-r2d2/menus/lcd_menues.cfg]
