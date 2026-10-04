@@ -1258,7 +1258,7 @@ chapter('4','Scenario library — every file type walked through',
      'Temps/fan/PA/retraction/flow from the preset, geometry stays the file',
      '<b>G — printing a RANGE:</b> Pre-Print > Range/Stop: From/To/Floor/Brim, Create — the excerpt auto-selects, '
      'start AS LEGACY (ch. 5.1)',
-     '<b>H — printing LABELS:</b> Labels > Text, Settings, Job > Add, Create — start like any file; M600 pause '
+     '<b>H — printing LABELS:</b> Generatoren > Labels > Text, Settings, Job > Add, Create — start like any file; M600 pause '
      'for color 2 (ch. 5.2)',
      '<b>I — plotting an image:</b> upload name.png.gcode (converted in place), start (AS SLICED = pure pen), M0 '
      'pauses at pen changes (ch. 5.3)',
@@ -1312,7 +1312,7 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties &amp; Angles',
     "Console: SET_LAYER_RANGE FROM=125 TO=225 FLOOR=5 FLOOR_SHAPE=OUTLINE TOP=3 BRIM=4 FLOOR_HOLE=15 TOP_HOLE=28 CREATE=1. <b>Stop@ N</b> "
     "in the same menu ends a print NORMALLY at layer N (stats, fanfare — not a cancel)."),
   H2('5.2 Labels — the built-in label maker'),
-  P("Name tags, key fobs, drawer labels — engraved text without a slicer, entirely from the LCD: Labels > Text "
+  P("Name tags, key fobs, drawer labels — engraved text without a slicer, entirely from the LCD: Generatoren > Labels > Text "
     "(up to 5 lines, character editor), Settings, Job > Add (queue n/24), Create. The watcher builds "
     "00_text_V01.gcode (00_ = top of the file list, V = your version number) and beeps. The same text at the same "
     "version REPLACES its own generated file — tweaks never pile up, and the uploaded original is never touched. "
@@ -1332,7 +1332,7 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties &amp; Angles',
    ['Base/Text layers, LH, Ironing, Brim, 2 colors, Gap','—','plate thickness, text relief, surface, adhesion, two-color mode, grid spacing'],
   ],[34*mm,44*mm,82*mm]),
   P("Auto-fit / auto-grow: if the letters would drop below ~2.8 mm caps — or an explicit size does not fit — the "
-    "label grows (width first, then height, up to bed size) instead of erroring. Preview fit? (Labels > Settings) "
+    "label grows (width first, then height, up to bed size) instead of erroring. Preview fit? (Generatoren > Labels > Settings) "
     "answers with the REAL numbers before you generate anything: final label size including growth, cap height, "
     "effective stroke, ~characters per line, the MINIMUM size a fixed font needs, plus warnings (stroke capped, "
     "tower does not fit). Console one-liner: "
@@ -1353,7 +1353,7 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties &amp; Angles',
      '(M0) at every pen change; live tuning while plotting: pen speed percent, pen Z +-0.05, X/Y +-0.5',
      'the resonance diagrams of the calibration chapter are plotted or printed the same way (ch. 10.5)'),
   H2('5.4 Cable ties — the built-in cable-tie maker'),
-  P("Printable cable ties in ONE file, straight from the LCD (top-level menu Kabelbinder) — no slicer, no modeling. "
+  P("Printable cable ties in ONE file, straight from the LCD (menu Generatoren > Kabelbinder) — no slicer, no modeling. "
     "Each tie is a flat strap with ratchet teeth plus an integrated closure head whose size, slot clearance and "
     "tooth pitch ALL auto-scale with the strap width — you never tune the mechanism. Two closures: RATCHET "
     "(one-way — locks at every tooth, cut to remove) and LATCH (releasable — lift the pawl tab through the open "
@@ -1378,7 +1378,7 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties &amp; Angles',
     "GEN_CABLE_TIES COUNT=6 LENGTH=120 WIDTH=8 LAYERS=3 VARIANT=LATCH (everything optional)."),
   H2('5.5 Angles & flat connectors — structural plates'),
   P("Angle plates (L-brackets in ANY angle 30-170, equal or unequal legs) and flat connectors (two boards joined "
-    "side by side) — screw-on structural parts, top-level menu Winkel+Flach. Mode switches between Angle (L) and "
+    "side by side) — screw-on structural parts, menu Generatoren > Winkel+Flach. Mode switches between Angle (L) and "
     "Flat splice (the Angle input and the Rib submenu hide themselves in Flat mode; the legs rename to "
     "Left/Right). THE HOLE SYSTEM: holes sit on each leg's centerline, evenly spaced between the corner zone "
     "and the leg end; the diameter is CLAMPED to width - 6 mm (never too big for the leg); the count "
@@ -1631,7 +1631,7 @@ chapter('13','Maintenance &amp; care',
 
 
 chapter('14','LCD menu reference',
-  CENT(d_menu()),CAP('Ten top groups in LCD order — Start Print? (waiting), Live Tuning (printing), then Pre-Print, Kabelbinder + Winkel+Flach (the part generators, top level like Labels and Plotter), Labels, Plotter, Quick Macros, Maintenance, System'),
+  CENT(d_menu()),CAP('Seven top groups in LCD order — Start Print? (waiting), Live Tuning (printing), then Pre-Print, Quick Macros, Generatoren (the four part generators: Kabelbinder · Winkel+Flach · Labels · Plotter), Maintenance, System'),
   P('Every line fits the 16 characters of the 12864 display — the value you edit is always visible '
     '(test-enforced). Pattern: first line = ON/OFF toggle (value stays stored), then the values.'),
   TBL(['Live Tuning (during print)','Contents'],[
@@ -1659,18 +1659,18 @@ chapter('14','LCD menu reference',
    ['Defaults','Save the current settings as Default 1-8 (lowest free slot, never overwrites) + Load + Delete '],
    ['Preheat','ON/OFF + nozzle/bed standby levels - preheats the moment you select a file '],
   ],[42*mm,122*mm]),
-  TBL(['Labels ','Contents'],[
+  TBL(['Labels (in Generatoren)','Contents'],[
    ['Text','L1-L5 pickers (up to 5 lines per label) · Show text · Pos 1-N (N = character limit of the label size) · Chr (A-Z a-z 0-9 space ÄÖÜäöüß + symbols) · Delete char · Clear text'],
    ['Settings','W/H · Font SMOOTH/MONO/COND/NARROW/CAPS · Lines 1-5 · Size (cap mm, 0=auto) · Spc · Stroke · Vers V01-V09 · Preview fit? (real numbers incl. growth) · Base/Text layers · LH · 1st · Ironing · Hole · Brim · 2 colors · Gap'],
    ['Job','Queue n/24 · Add label · Del last · Clear all (2×) · Create (beeps, watcher builds the file) · Fit (how many fit the bed)'],
   ],[42*mm,122*mm]),
-  TBL(['Kabelbinder (cable ties — ch. 5.4)','Contents'],[
+  TBL(['Kabelbinder (in Generatoren — ch. 5.4)','Contents'],[
    ['Info','every setting in one console listing + material tip'],
    ['Settings','Count 1-24 · Len 60-300 mm · Width 5-12 mm · Layers 3-6 · LH 0.12-0.32 · Closure RATCHET/LATCH (the * marks the active) · Brim · Vers V01-V09'],
    ['Create (beeps)','validates, bumps the job counter — the watcher builds the file in the background, beeps + auto-selects'],
    ['How it works','the flow + PETG/TPU tip + the Mainsail one-liner on the LCD'],
   ],[42*mm,122*mm]),
-  TBL(['Winkel+Flach (angles + flat — ch. 5.5)','Contents'],[
+  TBL(['Winkel+Flach (in Generatoren — ch. 5.5)','Contents'],[
    ['Info','every setting + the auto-hole rules'],
    ['Mode','Angle (L) / Flat splice — the * marks the active mode'],
    ['Settings','Angle 30-170° (HIDDEN in Flat mode) · Leg A/B 20-150 (Left/Right in Flat mode) · Width 8-60 · Layers 4-12 · LH · Holes 0-6 · Hole D 2-10 (auto-clamped) · Countersunk/Normal · Rib None/Gusset/Stepped (hidden in Flat) · Walls 1-6 · Infill 20-100% · Ironing on/off · Count 1-12 · Vers'],
@@ -1690,7 +1690,7 @@ chapter('14','LCD menu reference',
    ['Temp Tower','band plan for real files + GENERATED standalone tower + Best '],
    ['Ironing Cal.','CARDS cards x (flow%/speed) on BASE base layers, sizes auto-fit, Best → overrides '],
    ['Retract Tower','two masts, retract rises per block, Best → retract override '],
-   ['Plotter','(now TOP LEVEL next to Labels,) DRAW/DOTS, dot gap, pen offset X/Y/Z, scale X/Y% (bed-capped), corners, frame test, extruder on/off, Fil Z , auto-contrast, Z/speeds '],
+   ['Plotter (in Generatoren)','DRAW/DOTS, dot gap, pen offset X/Y/Z, scale X/Y% (bed-capped), corners, frame test, extruder on/off, Fil Z , auto-contrast, Z/speeds '],
    ['Filament','load 60 / unload 90 mm (LCD-settable), M600 change, retraction test - ALSO in Pre-Print and while paused ; cold pull = Maintenance only (wizard: material presets, beep countdown, extruder assist)'],
    ['Z Gantry Sync','run now + boot/print toggles'],['KAMP','mesh/purge/smart-park toggles (when installed)'],
    ['Tests','sound demo, LED demo, self test'],
@@ -1900,10 +1900,10 @@ chapter('24','Cheat sheet: LCD paths &amp; Mainsail commands',
    ['change material preset','Pre-Print &gt; Material &gt; LOAD NOW'],['see ALL file parameters','Pre-Print / Live Tuning &gt; File (G-code)'],['compare with the file values','Pre-Print &gt; Temps &gt; File H:/File B:'],
    ['first layer slower/faster','Pre-Print &gt; 1st layer %'],['calibrate flow','Maintenance &gt; Flow Cal.'],
    ['run a temperature tower','Maintenance &gt; Temp Tower'],['test ironing','Maintenance &gt; Ironing Cal.'],
-   ['print cable ties','Kabelbinder &gt; Create (beeps)'],['cable/lamp hole in a range part','Pre-Print &gt; Range/Stop &gt; Fl.hole / Top hole'],
+   ['print cable ties','Generatoren &gt; Kabelbinder &gt; Create (beeps)'],['cable/lamp hole in a range part','Pre-Print &gt; Range/Stop &gt; Fl.hole / Top hole'],
    ['printer off, Pi stays on','PRINTER_POWER_OFF (console — relay, ch. 26)'],
-   ['print an angle bracket','Winkel+Flach &gt; Mode &gt; Angle, Settings, Create'],
-   ['join two boards flush','Winkel+Flach &gt; Mode &gt; Flat splice, Left/Right, Create'],
+   ['print an angle bracket','Generatoren &gt; Winkel+Flach &gt; Mode &gt; Angle, Settings, Create'],
+   ['join two boards flush','Generatoren &gt; Winkel+Flach &gt; Mode &gt; Flat splice, Left/Right, Create'],
    ['purge manual / cold pull','Macros &gt; Purge · Maintenance &gt; Filament'],['shutdown the Pi','System &gt; Shutdown (2×)'],
   ],[64*mm,100*mm]),
   H2('Mainsail console — the 20 you will actually use'),

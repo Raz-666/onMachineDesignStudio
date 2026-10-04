@@ -2759,7 +2759,7 @@ tests.append(('R62 plotter SVG: vector paths -> moves, colors grouped (c2 defaul
 
 # --- LCD ids ---
 tests.append(('R61 LCD: plotter + retract tower + generators + range/stop menus',
-    all(k in _lcd58 for k in ['[menu __main __plot]', '__main __plot __up]', '__main __plot __how]', '__main __plot __mode]',
+    all(k in _lcd58 for k in ['[menu __main __gen __plot]', '__main __gen __plot __up]', '__main __gen __plot __how]', '__main __gen __plot __mode]',
                               '__maint __rt]', '__maint __rt __go', '__maint __rt __best',
                               '__maint __flow __go', '__maint __flow __fl',
                               '__maint __tt __go', '__maint __tt __best',
@@ -2939,8 +2939,8 @@ tests.append(('R62 _peek_file_info: temps from M109/M190, fan %, file params - f
 tests.append(('R62 LCD: defaults + preheat + plot extras + force end + file preview ids',
     all(k in _lcd58 for k in ['__preprint __defs]', '__preprint __defs __save', '__preprint __defs __l1',
                               '__preprint __pre]', '__preprint __pre __hot', '__preprint __pre __now',
-                              '__main __plot __mode]', '__main __plot __ox]', '__main __plot __sx]',
-                              '__main __plot __frame]', '__preprint __rng __floor]', '__preprint __rng __brim]',
+                              '__main __gen __plot __mode]', '__main __gen __plot __ox]', '__main __gen __plot __sx]',
+                              '__main __gen __plot __frame]', '__preprint __rng __floor]', '__preprint __rng __brim]',
                               '__system __fend1]', '__system __fend2]', '__live __pause __fend]',
                               '__preprint __file __pvt]', '__preprint __feat __ow __flw]', '__preprint __feat __bm __flw]']), 'ids'))
 
@@ -3207,13 +3207,13 @@ tests.append(('R63 install hint: missing 16_labels.cfg gets a friendly line',
     "Labels menu inactive" in _st63 and "16_labels.cfg" in _st63, ''))
 _lcd63 = open('menus/lcd_menues.cfg').read()
 tests.append(('R63 LCD: labels menu + editor + settings + job ids, guarded enable',
-    all(k in _lcd63 for k in ['[menu __main __labels]', '__labels __txt __chr]', '__labels __set __fnt]',
+    all(k in _lcd63 for k in ['[menu __main __gen __labels]', '__labels __txt __chr]', '__labels __set __fnt]',
                                 '__labels __set __hsd]', '__labels __job __add]', '__labels __job __gen]',
                                 "__labels __job __clr2]", "enable: {'gcode_macro _LABELS' in printer}"]), 'ids'))
 tests.append(('R63 LCD: System > Save config is the guarded SYS_SAVE_CONFIG pair',
     '__system __save]' in _lcd63 and '>> SAVE+RESTART' in _lcd63
     and 'gcode: SAVE_CONFIG\n' not in _lcd63, ''))
-_order63 = [_lcd63.find(x) for x in ['[menu __main __labels]', '[menu __main __maint]']]
+_order63 = [_lcd63.find(x) for x in ['[menu __main __gen __labels]', '[menu __main __maint]']]
 tests.append(('R63 LCD: Labels sits before Maintenance', 0 < _order63[0] < _order63[1], str(_order63)))
 
 
@@ -3618,8 +3618,8 @@ tests.append(('R65 no # inside quoted strings in ANY cfg (the .47/.48 boot-block
     not _bad65, str(_bad65[:3])))
 _lcd65b = open('menus/lcd_menues.cfg').read()
 tests.append(('R65/R71 LCD: both char pickers are VISIBLE scroll lists (93 entries each)',
-    _lcd65b.count('[menu __main __labels __txt __chr __c') == 93
-    and _lcd65b.count('[menu __main __plot __txt __chr __c') == 93
+    _lcd65b.count('[menu __main __gen __labels __txt __chr __c') == 93
+    and _lcd65b.count('[menu __main __gen __plot __txt __chr __c') == 93
     and 'input_max: 92' not in _lcd65b and 'charset[menu.input]' not in _lcd65b, ''))
 
 # ---------- R66: update via Mainsail upload + one SSH command ----------
@@ -3999,13 +3999,13 @@ tests.append(('R71/R73 M83 file: no G92 inserted, generated geometry keeps relat
 # ---------- R71: visible character pickers ----------
 _lcd71 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 _n71b = {int(m.group(1)): m.group(2) for m in re.finditer(
-    r'\[menu __main __labels __txt __chr __c(\d\d)\]\ntype: command\nname: (.*)\n', _lcd71)}
+    r'\[menu __main __gen __labels __txt __chr __c(\d\d)\]\ntype: command\nname: (.*)\n', _lcd71)}
 tests.append(('R71 label picker: 93 visible entries, umlaut aliases, # last',
     len(_n71b) == 93 and _n71b.get(62) == '(space)' and _n71b.get(63) == 'AE'
     and _n71b.get(69) == 'ss' and _n71b.get(87) == 'deg'
     and _n71b.get(92) == "{'%c' % 35}" and _n71b.get(0) == 'A', str(_n71b)[:80]))
 _p71c = {int(m.group(1)): m.group(2) for m in re.finditer(
-    r'\[menu __main __plot __txt __chr __c(\d\d)\]\ntype: command\nname: (.*)\n', _lcd71)}
+    r'\[menu __main __gen __plot __txt __chr __c(\d\d)\]\ntype: command\nname: (.*)\n', _lcd71)}
 tests.append(('R71 plot picker: 93 visible entries with _PLOT_NAME_SET_CHAR gcode',
     len(_p71c) == 93 and all(('_PLOT_NAME_SET_CHAR CH=%d' % i) in _lcd71 for i in range(93)), str(len(_p71c))))
 _nonascii71 = [l[:40] for l in _lcd71.split('\n') if l.startswith('name:') and any(ord(c) > 127 for c in l)]
@@ -4385,8 +4385,8 @@ _flowids73 = sum(1 for _c73 in ('ow', 'iw', 'sp', 'so', 'tp', 'bt', 'br', 'gp', 
 tests.append(('R73 LCD: live per-feature FLOW inputs for all 12 features',
     _flowids73 == 12 and 'feat_flw_wallouter' in _lcd73, str(_flowids73)))
 tests.append(('R73 LCD: plotter Letters (min 6mm) + Fil Z + mode info items',
-    '[menu __main __plot __cap]' in _lcd73 and 'input_min: 6\n' in _lcd73
-    and '[menu __main __plot __fz]' in _lcd73
+    '[menu __main __gen __plot __cap]' in _lcd73 and 'input_min: 6\n' in _lcd73
+    and '[menu __main __gen __plot __fz]' in _lcd73
     and '[menu __main __live __plot __mode]' in _lcd73, ''))
 
 # --- state + plot start ---
@@ -4654,12 +4654,12 @@ tests.append(('R74 LCD: font SAVE_VARIABLE now quoted (the stuck-on-SMOOTH bug)'
     'SAVE_VARIABLE VARIABLE=label_font VALUE="\\"' in _lcd74
     and 'VARIABLE=label_font VALUE={["PIXEL"' not in _lcd74, ''))
 tests.append(('R74 LCD: Labels > Text has the 3 line pickers + dynamic char limit',
-    all(('[menu __main __labels __txt __ln%d]' % i) in _lcd74 for i in (1, 2, 3))
+    all(('[menu __main __gen __labels __txt __ln%d]' % i) in _lcd74 for i in (1, 2, 3))
     and 'LABEL_SELECT_LINE L=1' in _lcd74
     and 'variables.label_max_chars|default(12)|int if' in _lcd74, ''))
 tests.append(('R74 LCD: Labels settings grow Lines/Size/Spacing (+ fit recalcs)',
-    '[menu __main __labels __set __lines]' in _lcd74 and '[menu __main __labels __set __size]' in _lcd74
-    and '[menu __main __labels __set __spc]' in _lcd74
+    '[menu __main __gen __labels __set __lines]' in _lcd74 and '[menu __main __gen __labels __set __size]' in _lcd74
+    and '[menu __main __gen __labels __set __spc]' in _lcd74
     and _lcd74.count('LABEL_FIT_CALC') >= 5, ''))
 tests.append(('R74 LABEL_FIT_CALC: saves the per-size character limit',
     'VARIABLE=label_max_chars' in get_body('macros/16_labels.cfg', 'LABEL_FIT_CALC'), ''))
@@ -4674,11 +4674,11 @@ tests.append(('R74 LABEL_ADD: joins the lines with ~ (2-line queue entry)',
     ('VARIABLE=label_texts VALUE="' + BKSL + '"OBEN~UNTEN' + BKSL + '"') in out, out[:110]))
 save_vars.update({'label_l1': '', 'label_l2': '', 'label_lines': 1})
 
-# --- (5) plotter menu at top level + filament menus -----------------------------
-tests.append(('R74 LCD: Plotter is a TOP-LEVEL menu (same level as Labels)',
-    '[menu __main __plot]' in _lcd74 and '[menu __main __plot __up]' in _lcd74
+# --- (5) plotter menu (R87: inside Generatoren) + filament menus -----------------------------
+tests.append(('R74/R87 LCD: Plotter lives in the Generatoren menu (was top level until .70)',
+    '[menu __main __gen __plot]' in _lcd74 and '[menu __main __gen __plot __up]' in _lcd74
     and '[menu __main __maint __plot]' not in _lcd74
-    and _lcd74.index('[menu __main __labels]') < _lcd74.index('[menu __main __plot]'), ''))
+    and _lcd74.index('[menu __main __gen __labels]') < _lcd74.index('[menu __main __gen __plot]'), ''))
 tests.append(('R74/R77 LCD: Filament in Pre-Print (load/unload/change - cold pull moved to Maintenance)',
     '[menu __main __preprint __fil]' in _lcd74 and '[menu __main __preprint __fil __load]' in _lcd74
     and '[menu __main __preprint __fil __unload]' in _lcd74
@@ -5982,8 +5982,8 @@ tests.append(('R86 GEN_ANGLES: 12 params saved, paced, no adjacent writes',
 
 # --- (2) LCD menus -------------------------------------------------------------
 _lcd86 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
-tests.append(('R86 LCD: Kabelbinder + Winkel+Flach top level, guarded, all params',
-    all(k in _lcd86 for k in ['[menu __main __cable]', '[menu __main __angle]',
+tests.append(('R86 LCD: Kabelbinder + Winkel+Flach in the Generatoren menu, guarded, all params',
+    all(k in _lcd86 for k in ['[menu __main __gen __cable]', '[menu __main __gen __angle]',
         '__cable __set __cnt]', '__cable __set __len]', '__cable __set __wid]',
         '__cable __set __lay]', '__cable __set __lh]', '__cable __set __var __rat]',
         '__cable __set __var __lat]', '__cable __set __brim]', '__cable __set __vers]',
@@ -5998,7 +5998,7 @@ tests.append(('R86 LCD: Kabelbinder + Winkel+Flach top level, guarded, all param
 tests.append(('R86 LCD: angle + rib hidden in FLAT mode (enable gates)',
     _lcd86.count('enable: {not printer[\'save_variables\'].variables.angle_flat|default(False)}') == 2,
     'gates %d' % _lcd86.count('angle_flat|default(False)')))
-_blk86a = _lcd86[_lcd86.index('[menu __main __cable]'):_lcd86.index('[menu __main __labels]')]
+_blk86a = _lcd86[_lcd86.index('[menu __main __gen __cable]'):_lcd86.index('[menu __main __gen __labels]')]
 _n86 = [l.strip()[6:].strip("'") for l in _blk86a.split(chr(10)) if l.strip().startswith('name: ')]
 _n86 = [l.split('{')[0].strip() if '{' in l else l for l in _n86]   # static prefix of dynamic names
 _long86 = [l for l in _n86 if len(l) > 16]
@@ -6194,8 +6194,8 @@ tests.append(('R86.2 LCD: range hole inputs + Create passes them',
         "FLOOR_HOLE={printer['save_variables'].variables.range_floor_hole|default(0)|float}",
         "TOP_HOLE={printer['save_variables'].variables.range_top_hole|default(0)|float}"]), 'ids'))
 tests.append(('R86.2 LCD: angle Walls/Infill/Ironing items',
-    all(k in _lcd862 for k in ['[menu __main __angle __set __wal]', '[menu __main __angle __set __inf]',
-        '[menu __main __angle __set __iro __on]', '[menu __main __angle __set __iro __off]',
+    all(k in _lcd862 for k in ['[menu __main __gen __angle __set __wal]', '[menu __main __gen __angle __set __inf]',
+        '[menu __main __gen __angle __set __iro __on]', '[menu __main __gen __angle __set __iro __off]',
         'VARIABLE=angle_walls', 'VARIABLE=angle_infill', 'VARIABLE=angle_ironing']), 'ids'))
 tests.append(('R86.2 LCD: hole input names <=16 incl. worst-case value',
     len('Top hole: 80.0mm') <= 16 and len('Fl.hole: 80.0mm') <= 16 and len('Walls:  6') <= 16
@@ -6306,6 +6306,33 @@ tests.append(('R86.2 example cfg: EBB/U2C/relay/nozzle-LED templates present',
         'EBB:PA0', 'EBB:PA1', 'EBB:PB8', 'EBB:PD3', '#[output_pin power_hold]',
         'PRINTER_POWER_OFF', 'shutdown_value: 0', 'bitrate 1000000',
         'SET_NOZZLE_SPLIT STATE=1']), 'ids'))
+
+
+# ---------- R87: Generators container menu (LCD declutter, user field request .70) ----------
+import re as _re87
+_lcd87 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+_top87 = sorted(_re87.findall(r'^\[menu __main ([a-z_0-9]+)\]$', _lcd87, _re87.M))
+tests.append(('R87 LCD: exactly 7 top-level menus (4 generators moved into one container)',
+    _top87 == ['__gen', '__live', '__macros', '__maint', '__preprint', '__start', '__system'],
+    str(_top87)))
+tests.append(('R87 LCD: container Generatoren + all four trees re-parented, old roots gone',
+    '[menu __main __gen]\ntype: list\nname: Generatoren' in _lcd87
+    and all(('[menu __main __gen %s]' % _x) in _lcd87 for _x in ('__cable', '__angle', '__labels', '__plot'))
+    and all(('[menu __main %s]' % _x) not in _lcd87 for _x in ('__cable', '__angle', '__labels', '__plot'))
+    and len('Generatoren') <= 16, ''))
+tests.append(('R87 LCD: container sits between Quick Macros and Maintenance, live plotter untouched',
+    _lcd87.index('[menu __main __macros]') < _lcd87.index('[menu __main __gen]')
+    < _lcd87.index('[menu __main __maint]')
+    and '[menu __main __live __plot __mode]' in _lcd87
+    and '[menu __main __live __plot]' in _lcd87, ''))
+tests.append(('R87 LCD: guards preserved (cable/angle need 17_generator, labels optional, plot+container free)',
+    _lcd87.count("enable: {'gcode_macro _GENERATORS' in printer}") == 2
+    and "enable: {'gcode_macro _LABELS' in printer}" in _lcd87
+    and '[menu __main __gen __plot]\ntype: list\nname: Plotter\n' in _lcd87, ''))
+tests.append(('R87 docs: cfg console paths say Generatoren (labels + plotter + generator header)',
+    open('macros/16_labels.cfg', encoding='utf-8').read().count('Generatoren > Labels >') == 4
+    and open('macros/12_maintenance.cfg', encoding='utf-8').read().count('Generatoren > Plotter >') == 4
+    and 'Generatoren > Kabelbinder / Winkel+Flach' in open('macros/17_generator.cfg', encoding='utf-8').read(), ''))
 
 fails = 0
 for name, ok, info in tests:

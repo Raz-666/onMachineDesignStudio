@@ -260,7 +260,7 @@ just restart it after the update):
   journalctl -u r2-postproc --no-pager | tail -5
   ```
 - **Label generator (.47):** every 5 s it also polls `label_gen_nonce`; when
-  Labels > Job > Create (or the console `GEN_LABELS TEXT="A|B" ...`) bumps it,
+  Generatoren > Labels > Job > Create (or the console `GEN_LABELS TEXT="A|B" ...`) bumps it,
   it builds `Label_<text>_WxH.gcode` in the gcodes folder: solid bases with an
   optional golden-ratio hole, brim, ironing, a purge tower, `M600` filament
   change and the text on top - each label an exclude object. The file is
