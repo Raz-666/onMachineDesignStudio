@@ -195,18 +195,33 @@ Live > File panel):
 | By-object | sequential printing detected (several objects, Z falls) |
 | TYPES= | which features the file really contains (walls, infill, supports …) |
 
-**Two file quirks the system now flags for you (R84):**
+**Two file quirks the system flags and FIXES for you — in place, no
+re-upload (R84/R85):**
 
 - **Marlin-volumetric files** (`;FLAVOR:Marlin (Volumetric)`, e.g. from Cura):
   they count E in mm³ — Klipper expects mm and would print them heavily
   under-extruded. The file info shows the warning and the print start says it
-  out loud (alarm + M117). Re-slice for Klipper, or convert the E values.
+  out loud (alarm + M117). **Pre-Print > File > `Vol->mm fix`** converts the
+  file directly: every E value (including G92) is divided by the filament
+  cross-section (1.75 mm → 2.405 mm²), the volumetric markers are neutralized
+  and a conversion note lands in the header. R2-D2 beeps at the start and
+  plays the happy tune when the file is Klipper-ready (then simply select it
+  anew). Idempotent — a converted file is never converted twice.
 - **Old Bowden-era files** with long baked-in retracts (5–6 mm where your
-  direct extruder wants ~0.8): **Pre-Print > RetFix ON**, then re-upload the
-  file. Its clean retract/unretract pairs become **G10/G11** (firmware
-  retraction) — your CURRENT retraction applies, live-tunable during the
-  print. Wipes and folded retracts stay untouched; the original values are
-  only replaced where a clean pair was found (the console reports the count).
+  direct extruder wants ~0.8): select the file, then **Pre-Print > File >
+  `RetFix file`** — the watcher rewrites the file ON DISK: clean
+  retract/unretract pairs become **G10/G11** (firmware retraction), so your
+  CURRENT retraction applies — live-tunable during the print. The R2 markers
+  survive (no re-processing needed), wipes and folded retracts stay
+  untouched, start beep + done beep, and the console reports the pair count.
+  If a start dialog holds the file it is released automatically first. For
+  future uploads you can instead leave **Pre-Print > RetFix ON** — every new
+  upload gets the treatment automatically.
+
+**Click pacing (R85):** actions that write many values at once (material
+select, preset load/save, range create, file fixes) insert ~100 ms
+micro-pauses between the disk writes — the Pi Zero never faces a write burst.
+While a print runs the pauses no-op (a dwell would stutter motion).
 | FS_* / FA_* | the MEASURED original speed / acceleration of each feature |
 | L1/L2 temps, PA, retraction, fan, nozzle, wall loops | everything Pre-Print can override |
 
@@ -1176,7 +1191,8 @@ retraction reads the firmware values — what you see is what runs.
 | Bed Mesh | Level old files · Mesh ON/AUTO/OFF · Save after · Adaptive · Travel cap · Calibrate now · Load…/Delete… |
 | Range/Stop | Stop@ layer + From/To (capped to the selected file's layer count!) + Floor/Top (each FOOTPRINT or OUTLINE, each GRID or SOLID fill) + Brim + Create excerpt (ch. C.1) |
 | Filament | Load / Load length / Unload / Unload length / Change (M600) — available BEFORE the print too |
-| RetFix | ON/OFF — the NEXT upload's clean retract pairs become G10/G11: your current retraction applies (old Bowden-era files) |
+| RetFix | ON/OFF — auto-treats every NEW upload's clean retract pairs into G10/G11 (old Bowden-era files); for the SELECTED file use Pre-Print > File > RetFix file instead (in place, no re-upload) |
+| File fixes (in File menu) | RetFix file + Vol->mm fix — repair the SELECTED file directly on disk (start beep + done beep, markers survive) |
 
 **Labels**
 
@@ -1863,6 +1879,7 @@ Only the milestones — the full reasoning lives in SESSION_STATE.md.
 | Version | Core changes |
 |---|---|
 | .65 | postproc streaming: range generation + upload tagging no longer load whole files into RAM (32 MB source → Pi-safe memory), byte-identical outputs (golden test added) |
+| .69 | file fixes IN PLACE (no re-upload): Pre-Print > File > RetFix file rewrites the selected file's retract pairs to G10/G11 on disk (markers survive), Vol->mm fix converts Marlin-volumetric E to mm (idempotent, beeps at start + done), start dialog auto-released; ~100 ms micro-pauses between multi-value disk writes (idle only) |
 | .68 | file info shows the slicer + firmware flavor of every file (Orca/Prusa/Cura/Elegoo/Kiri:Moto/AstroPrint/SliceBeam … for Klipper/Marlin), loud warning on Marlin-volumetric files (Klipper counts E in mm), RetFix: old Bowden-era files re-uploaded with retracts rewritten to G10/G11 (current retraction applies, live-tunable) |
 | .67 | print-start killer fixed (feature lists + material saves survive Klipper's command parser), generated files sort to the top (00_…_V version suffix, same name overwrites), label quality (glyph retracts, stroke ≤ cap/5, purge tower 15 mm on the probe-safe side), real fit preview on the LCD, labels up to 5 lines / near-bed size, filament stat in meters, SAVE+RESTART restarts when nothing is pending |
 | .64 | start-killer fixed (list literals with spaces broke SET_GCODE_VARIABLE), labels auto-fit/auto-grow instead of errors, All-OFF removed |

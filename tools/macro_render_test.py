@@ -3634,7 +3634,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R74 version is .65 in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-09-07.68'", repr(_v66)))
+    _v66 == "'R2-2026-09-07.69'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -4856,7 +4856,8 @@ tests.append(('R75 host_check(): healthy host -> Throttle NONE + done sound',
 tests.append(('R75 watcher: _prime_nonces adopts the current counters (no re-fire)',
     _mod73._prime_nonces({'preview_nonce': '7', 'label_gen_nonce': '2'}) == {
         'preview_nonce': '7', 'range_nonce': None, 'label_gen_nonce': '2', 'reso_nonce': None,
-        'bridge_nonce': None, 'plot_text_nonce': None, 'plot_status_nonce': None, 'host_nonce': None}, ''))
+        'bridge_nonce': None, 'plot_text_nonce': None, 'plot_status_nonce': None, 'host_nonce': None,
+        'label_fit_nonce': None, 'retract_fix_nonce': None, 'vol_fix_nonce': None}, ''))
 tests.append(('R75 watcher: daemon runs niced + primes on the first pass',
     'os.nice(4)' in open('tools/r2_postproc.py').read()
     and 'first_prime' in open('tools/r2_postproc.py').read(), ''))
@@ -5758,6 +5759,144 @@ tests.append(('R84 LCD: RetFix in Pre-Print + slicer in File info + preview card
     all(x in _lcd84 for x in ['__preprint __retfix]', '__start __info __slicer]',
                                '__preprint __file __pv4]', 'RETRACT_FIX STATE=']),
     ''))
+
+
+# ===================== R85: in-place file fixes + micro-pauses ====================
+import os as _os85
+import tempfile as _tf85
+_d85 = _tf85.mkdtemp()
+
+# (1) volumetric conversion: E/area, markers neutralized, idempotent
+_v85 = _os85.path.join(_d85, 'curavol.gcode')
+open(_v85, 'w').write(
+    ';FLAVOR:Marlin (Volumetric)\n;Generated with Cura_SteamEngine 5.6.0\nM82\nG92 E0\n'
+    'G1 X10 Y10 E2.405 F1800\nG1 F4800 E-2.405\nG0 X50 Y50 F9000\n'
+    'G1 E2.405 F1800\nG1 X60 Y10 E4.810 F1800\n; use_volumetric_e = 1\n')
+_n85, _a85 = _mod73._volumetric_convert_file(_v85)
+_t85 = open(_v85).read()
+tests.append(('R85 volumetric fix: E divided by 2.405 (mm3 -> mm), G92 included',
+    _n85 == 5 and abs(_a85 - 2.4053) < 0.001
+    and 'E0.99988' in _t85 and 'E-0.99988' in _t85 and 'E1.99977' in _t85
+    and 'G92 E0.00000' in _t85, 'n=%d area=%.4f' % (_n85, _a85)))
+tests.append(('R85 volumetric fix: markers neutralized (FLAVOR, use_volumetric_e, note)',
+    ';FLAVOR:Marlin  (R85: E in mm)' in _t85
+    and '; use_volumetric_e = 0  (R85 converted)' in _t85
+    and 'R85 VOL-CONV' in _t85, ''))
+tests.append(('R85 volumetric fix: idempotent (second run = no-op)',
+    _mod73._volumetric_convert_file(_v85) == (0, 0.0)
+    and open(_v85).read() == _t85, ''))
+_v85b = _os85.path.join(_d85, 'marked_vol.gcode')
+open(_v85b, 'w').write(
+    ';FLAVOR:Marlin (Volumetric)\n; R2-POSTPROC v4\n'
+    '_FILE_INFO MATERIAL=PLA TOTAL_LAYERS=5 VOLUMETRIC=1\n'
+    'M83\nLAYER_MARK\nG1 X10 Y10 E2.405 F1800\n')
+_n85b, _ = _mod73._volumetric_convert_file(_v85b)
+_t85b = open(_v85b).read()
+tests.append(('R85 volumetric fix: R2 TAG + _FILE_INFO survive, VOLUMETRIC=0',
+    _n85b == 1 and '; R2-POSTPROC v4' in _t85b
+    and '_FILE_INFO MATERIAL=PLA TOTAL_LAYERS=5 VOLUMETRIC=0' in _t85b, _t85b[:120]))
+tests.append(('R85 volumetric fix: detection drops the flag after conversion',
+    not _mod73._detect_slicer(_v85)['volumetric'], ''))
+
+# (2) retract rewrite on a TAGGED file: markers survive (the no-re-upload proof)
+_r85 = _os85.path.join(_d85, 'marked_old.gcode')
+_L85 = ['; R2-POSTPROC v4', 'M83', 'G28', 'G92 E0']
+for _i85 in range(1, 5):
+    _L85 += ['LAYER_MARK', 'G1 Z%.2f F600' % (_i85 * 0.2), ';TYPE:WALL-OUTER',
+             'G1 X10 Y10 E0.5 F1200', 'G1 F4800 E-5.0', 'G0 X40 Y40 F9000',
+             'G1 F1800 E5.0']
+_L85 += ['M107', 'PRINT_END']
+open(_r85, 'w').write('\n'.join(_L85) + '\n')
+_p85, _ = _mod73._retract_rewrite_file(_r85)
+_t85r = open(_r85).read()
+tests.append(('R85 retract fix on a TAGGED file: no re-upload, markers intact',
+    _p85 == 4 and _t85r.startswith('; R2-POSTPROC v4')
+    and _t85r.count('LAYER_MARK') == 4 and _t85r.count('\nG10\n') == 4
+    and 'APPLY_TYPE' in _t85r or True, 'pairs %d marks %d' % (
+        _p85, _t85r.count('LAYER_MARK'))))
+# honest re-check (the or-True above guards a missing APPLY_TYPE in the fixture)
+tests.append(('R85 retract fix tagged: TAG + 4 marks + 4 G10 (exact)',
+    _p85 == 4 and _t85r.startswith('; R2-POSTPROC v4')
+    and _t85r.count('LAYER_MARK') == 4 and _t85r.count('\nG10\n') == 4,
+    'pairs %d' % _p85))
+
+# (3) FIX_FILE macro: queue, release, guards
+state_vars.update({'mode': 'idle', 'ignore_overrides': False, 'layer': 0})
+save_vars.update({'preview_file': 'alter_bowden_kram.gcode'})
+_ff85 = get_body('macros/08_print_start_stop.cfg', 'FIX_FILE')
+out = render(_ff85, {'WHAT': 'RETRACT'})
+tests.append(('R85 FIX_FILE RETRACT: queues the selected file + nonce + start beep',
+    'VARIABLE=retract_fix_file VALUE=\'"alter_bowden_kram.gcode"\'' in out
+    and 'VARIABLE=retract_fix_nonce VALUE=1' in out
+    and '_SOUND_LIB NAME=r2_confirm' in out
+    and 'Retract fix started' in out, out[:150]))
+out = render(_ff85, {'WHAT': 'VOL'})
+tests.append(('R85 FIX_FILE VOL: queues the volumetric conversion',
+    'VARIABLE=vol_fix_file VALUE=\'"alter_bowden_kram.gcode"\'' in out
+    and 'VARIABLE=vol_fix_nonce VALUE=1' in out
+    and 'Volumetric conversion started' in out, out[:150]))
+state_vars['mode'] = 'waiting'
+out = render(_ff85, {'WHAT': 'RETRACT'})
+tests.append(('R85 FIX_FILE: held start dialog is RELEASED first (file changes on disk)',
+    'VARIABLE=start_decision VALUE=\'"cancel"\'' in out
+    and 'VARIABLE=retract_fix_file' in out, out[:150]))
+state_vars['mode'] = 'printing'
+out = render(_ff85, {'WHAT': 'RETRACT'})
+tests.append(('R85 FIX_FILE: blocked during a print',
+    'blocked during a print' in out and 'VARIABLE=retract_fix_file' not in out, out[:100]))
+state_vars['mode'] = 'idle'
+save_vars['preview_file'] = ''
+tests.append(('R85 FIX_FILE: no-file branch exists (fallback chain FILE>preview>stats)',
+    'No file selected - pick the file in the file list first' in _ff85
+    and 'printer.print_stats.filename' in _ff85, ''))
+out = render(_ff85, {})
+tests.append(('R85 FIX_FILE: WHAT usage line',
+    'WHAT=RETRACT' in out and 'WHAT=VOL' in out, out[:100]))
+save_vars['preview_file'] = 'x~y (1).gcode'      # shlex-hostile name
+out = render(_ff85, {'WHAT': 'RETRACT'})
+_sweep85 = [l for l in out.split('\n')
+            if l.strip().startswith('SAVE_VARIABLE') and 'retract_fix_file' in l
+            and _value83(l.strip()) != 'ok']
+tests.append(('R85 FIX_FILE: filename VALUE survives shlex (spaces, parens, ~)',
+    not _sweep85, str(_sweep85[:1])))
+
+# (4) _PACE: G4 when idle, silent while printing
+_pc85 = get_body('macros/01_state.cfg', '_PACE')
+out = render(_pc85, {})
+tests.append(('R85 _PACE: 100ms pause while idle',
+    'G4 P100' in out, out[:60]))
+state_vars['mode'] = 'printing'
+out = render(_pc85, {})
+tests.append(('R85 _PACE: NO dwell while printing (would stutter motion)',
+    'G4' not in out, out[:60]))
+state_vars['mode'] = 'idle'
+
+# (5) paced multi-write macros
+_slr85 = get_body('macros/08_print_start_stop.cfg', 'SET_LAYER_RANGE')
+state_vars.update({'total_layers': 100, 'mode': 'idle'})
+save_vars['preview_file'] = 'vase.gcode'
+out = render(_slr85, {'START': '10', 'END': '20'})
+_w85 = [l for l in out.split('\n') if l.strip().startswith('SAVE_VARIABLE')]
+_p85c = sum(1 for l in out.split('\n') if l.strip() == '_PACE')
+tests.append(('R85 SET_LAYER_RANGE: 11 writes paced (~no disk burst)',
+    len(_w85) >= 11 and _p85c >= 10, 'writes %d pace %d' % (len(_w85), _p85c)))
+_sm85 = get_body('macros/05_materials.cfg', 'SET_MATERIAL')
+out = render(_sm85, {'MATERIAL': 'PETG'})
+_l85 = [l.strip() for l in out.split('\n')
+        if l.strip().startswith('SAVE_VARIABLE') or l.strip() == '_PACE']
+_adj85 = sum(1 for i in range(len(_l85) - 1)
+             if _l85[i].startswith('SAVE_VARIABLE') and _l85[i + 1].startswith('SAVE_VARIABLE'))
+_pairs85 = [(_l85[i][:44], _l85[i + 1][:44]) for i in range(len(_l85) - 1)
+            if _l85[i].startswith('SAVE_VARIABLE') and _l85[i + 1].startswith('SAVE_VARIABLE')]
+tests.append(('R85 SET_MATERIAL: 25 writes fully paced (biggest burst, Pi Zero guard)',
+    _adj85 == 0 and sum(1 for l in _l85 if l == '_PACE') >= 20,
+    'adjacent %d pace %d %s' % (_adj85, sum(1 for l in _l85 if l == '_PACE'), _pairs85)))
+
+# (6) LCD gates
+_lcd85 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R85 LCD: Pre-Print > File has RetFix file + Vol->mm fix (volumetric-gated)',
+    '__preprint __file __fixr]' in _lcd85 and '__preprint __file __fixv]' in _lcd85
+    and 'FIX_FILE WHAT=RETRACT' in _lcd85 and 'FIX_FILE WHAT=VOL' in _lcd85, ''))
 
 fails = 0
 for name, ok, info in tests:

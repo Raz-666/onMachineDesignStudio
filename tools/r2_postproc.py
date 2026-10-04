@@ -4948,7 +4948,8 @@ def _r2_version():
 # restart can never re-fire old jobs - field log .58 showed all four tools
 # re-running in one burst right after the .58 update installed)
 NONCE_KEYS = ('preview_nonce', 'range_nonce', 'label_gen_nonce', 'reso_nonce',
-              'bridge_nonce', 'plot_text_nonce', 'plot_status_nonce', 'host_nonce')
+              'bridge_nonce', 'plot_text_nonce', 'plot_status_nonce', 'host_nonce',
+              'label_fit_nonce', 'retract_fix_nonce', 'vol_fix_nonce')
 
 
 def _prime_nonces(rv):
@@ -5728,6 +5729,58 @@ def _retract_rewrite_file(path):
     return pairs, aborted
 
 
+def _volumetric_convert_file(path, diameter=0.0):
+    """R85: convert a Marlin-volumetric file (E in mm3) to Klipper mm.
+
+    Divides every G0/G1 E value and every G92 E value by the filament
+    cross-section area (default 1.75mm -> 2.405 mm2), neutralizes the
+    volumetric markers (;FLAVOR:...(Volumetric), use_volumetric_e = 1,
+    _FILE_INFO VOLUMETRIC=1) and prepends a conversion note. Idempotent: a
+    file that no longer LOOKS volumetric is returned untouched (0, area).
+    Streamed - O(1) memory, safe for 30MB+ files.
+    """
+    if not _detect_slicer(path)['volumetric']:
+        return 0, 0.0
+    if diameter <= 0:
+        diameter = 1.75
+    area = math.pi * (diameter / 2.0) ** 2
+    ge = re.compile(r'^(\s*G[01][^;]*?\bE)(-?\d+\.?\d*)(.*)$')
+    g92 = re.compile(r'^(\s*G92\s+[^;]*?\bE)(-?\d+\.?\d*)(.*)$')
+    note = '; R85 VOL-CONV: E divided by %.4f mm2 (Marlin volumetric mm3 -> Klipper mm)' % area
+    n = 0
+    tmp = path + '.vfx'
+    with open(path, 'r', errors='replace') as fi, open(tmp, 'w') as fo:
+        fo.write(note + '\n')
+        for raw in fi:
+            line = raw[:-1] if raw.endswith('\n') else raw
+            ls = line.strip()
+            if ls.startswith(';'):
+                low = ls.lower()
+                if 'flavor:' in low and 'volumetric' in low:
+                    base = ls.split(':', 1)[1].split('(')[0].strip()
+                    line = ';FLAVOR:%s  (R85: E in mm)' % base
+                elif low.startswith('; use_volumetric_e'):
+                    line = '; use_volumetric_e = 0  (R85 converted)'
+                fo.write(line + '\n')
+                continue
+            if ls.startswith('_FILE_INFO') and 'VOLUMETRIC=1' in ls:
+                fo.write(line.replace('VOLUMETRIC=1', 'VOLUMETRIC=0') + '\n')
+                continue
+            m = g92.match(line)
+            if m:
+                fo.write('%s%.5f%s\n' % (m.group(1), float(m.group(2)) / area, m.group(3)))
+                n += 1
+                continue
+            m = ge.match(line)
+            if m:
+                fo.write('%s%.5f%s\n' % (m.group(1), float(m.group(2)) / area, m.group(3)))
+                n += 1
+                continue
+            fo.write(line + '\n')
+    os.replace(tmp, path)
+    return n, area
+
+
 def process(path, dry=False, verbose=False, retract_rewrite=False):
     """Inject _FILE_INFO + LAYER_MARK. Returns a change summary dict.
 
@@ -6339,6 +6392,82 @@ def watch(directory, interval=5.0, once=False):
         except Exception as e:                              # noqa: BLE001
             print(f'[preview:{label}] {ppath}: {e!r}', flush=True)
 
+    def file_fix(kind, name):
+        """R85: fix a file IN PLACE - no re-upload (LCD: Pre-Print > File >
+        RetFix file / Vol->mm fix queues itself via a save_variables nonce).
+        Sound protocol: r2_confirm comes from the macro (start), this end
+        reports with r2_done / r2_notice / r2_error."""
+        if not name:
+            _moonraker_gcode('RESPOND MSG="File fix: no file selected"\n'
+                             'M117 Fix: no file\n_SOUND_LIB NAME=r2_error')
+            return
+        rel = name.strip().lstrip('/')
+        p = os.path.join(directory, rel)
+        if not os.path.isfile(p):
+            _moonraker_gcode('RESPOND MSG="File fix: %s not found"\n'
+                             'M117 Fix: no file\n_SOUND_LIB NAME=r2_error' % rel)
+            return
+        # never touch a file while a print runs (the macro released the
+        # start dialog before queueing - this catches console races)
+        try:
+            st = _moonraker_status()
+            if (st.get('print_stats') or {}).get('state') in ('printing', 'paused'):
+                _moonraker_gcode('RESPOND MSG="File fix: blocked - a print is '
+                                 'running"\nM117 Fix: printing\n_SOUND_LIB NAME=r2_error')
+                return
+        except Exception:                                   # noqa: BLE001
+            pass          # status unknown - the macro side already guarded
+        try:
+            base = os.path.basename(rel)
+            if kind == 'retract':
+                with open(p, 'r', errors='replace') as f:
+                    tagged = TAG in f.read(8192)
+                if tagged:
+                    # R2 markers survive the rewrite (they are no G0/G1-E
+                    # lines) - no re-processing, no re-upload needed
+                    pairs, aborted = _retract_rewrite_file(p)
+                    extra = ''
+                else:
+                    sm = process(p, retract_rewrite=True)
+                    pairs = sm.get('retract_pairs', 0)
+                    extra = ' (+R2 markers added)'
+                if pairs:
+                    msg = ('Retract fix DONE: %d pair(s) rewritten to G10/G11 in '
+                           '%s%s - your CURRENT retraction now applies'
+                           % (pairs, base, extra))
+                    snd = 'r2_done'
+                else:
+                    msg = ('Retract fix: no clean retract pairs in %s '
+                           '(G10/G11 already, or wipes only) - nothing changed'
+                           % base)
+                    snd = 'r2_notice'
+                _moonraker_gcode('RESPOND MSG="%s"\nM117 RetFix done\n'
+                                 '_SOUND_LIB NAME=%s' % (msg, snd))
+                print(f'[retractfix] {rel}: {msg}', flush=True)
+            else:
+                n, area = _volumetric_convert_file(p)
+                if n:
+                    msg = ('Volumetric fix DONE: %d E value(s) divided by %.3f mm2 '
+                           'in %s - Klipper-ready (select the file anew)'
+                           % (n, area, os.path.basename(rel)))
+                    snd = 'r2_done'
+                else:
+                    msg = ('Volumetric fix: %s is not volumetric - nothing to do'
+                           % os.path.basename(rel))
+                    snd = 'r2_notice'
+                _moonraker_gcode('RESPOND MSG="%s"\nM117 VolFix done\n'
+                                 '_SOUND_LIB NAME=%s' % (msg, snd))
+                # refresh the LCD preview so the file info drops the warning
+                try:
+                    _moonraker_gcode('\n'.join(_preview_script(p)))
+                except Exception:                           # noqa: BLE001
+                    pass
+                print(f'[volfix] {rel}: {msg}', flush=True)
+        except Exception as e:                              # noqa: BLE001
+            _moonraker_gcode('RESPOND MSG="File fix ERROR: %s"\n'
+                             'M117 Fix error\n_SOUND_LIB NAME=r2_error' % e)
+            print(f'[filefix] {rel}: {e!r}', flush=True)
+
     def data_head_if_text(p):
         try:
             with open(p, 'rb') as f:
@@ -6455,6 +6584,8 @@ def watch(directory, interval=5.0, once=False):
     last_preview_nonce = None
     last_label_nonce = None
     last_fit_nonce = None
+    last_retract_fix_nonce = None
+    last_vol_fix_nonce = None
     last_reso_nonce = None
     last_bridge_nonce = None
     last_plottext_nonce = None
@@ -6480,6 +6611,8 @@ def watch(directory, interval=5.0, once=False):
                 last_nonce = _np['range_nonce']
                 last_label_nonce = _np['label_gen_nonce']
                 last_fit_nonce = _np.get('label_fit_nonce')
+                last_retract_fix_nonce = _np.get('retract_fix_nonce')
+                last_vol_fix_nonce = _np.get('vol_fix_nonce')
                 last_reso_nonce = _np['reso_nonce']
                 last_bridge_nonce = _np['bridge_nonce']
                 last_plottext_nonce = _np['plot_text_nonce']
@@ -6646,6 +6779,23 @@ def watch(directory, interval=5.0, once=False):
                     '_SOUND_LIB NAME=r2_error' % e)
             except Exception:               # noqa: BLE001
                 pass
+
+        # R85: direct file fixes - no re-upload. The macro (FIX_FILE)
+        # released the start dialog and queued the file + nonce.
+        try:
+            rfn85 = rv.get('retract_fix_nonce', '')
+            if rfn85 and rfn85 != last_retract_fix_nonce:
+                last_retract_fix_nonce = rfn85
+                file_fix('retract', str(rv.get('retract_fix_file', '')).strip())
+        except Exception as e:                              # noqa: BLE001
+            print(f'[retractfix] poll error: {e!r}', flush=True)
+        try:
+            vfn85 = rv.get('vol_fix_nonce', '')
+            if vfn85 and vfn85 != last_vol_fix_nonce:
+                last_vol_fix_nonce = vfn85
+                file_fix('vol', str(rv.get('vol_fix_file', '')).strip())
+        except Exception as e:                              # noqa: BLE001
+            print(f'[volfix] poll error: {e!r}', flush=True)
 
         # R63: label generator request from the LCD (label_gen_nonce bumps per job)
         try:
