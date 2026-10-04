@@ -348,8 +348,13 @@ def main():
             print('FAIL %s: output differs from the .64 builder (md5 %s != %s)'
                   % (name, md5[:10], REF_MD5[name][:10]))
             fails += 1
-        if summ != REF_SUMMARY.get(name):
-            print('FAIL %s: summary differs: %r != %r' % (name, summ, REF_SUMMARY.get(name)))
+        # R84: newer builders add summary keys (retract_pairs, slicer, ...) -
+        # compare only the keys the .64 reference knows (byte-identical output
+        # is the real contract; the reference must stay re-baseline-free)
+        _ref_summ = REF_SUMMARY.get(name)
+        _summ_cmp = {k: v for k, v in summ.items() if k in _ref_summ} if _ref_summ else summ
+        if _summ_cmp != _ref_summ:
+            print('FAIL %s: summary differs: %r != %r' % (name, _summ_cmp, _ref_summ))
             fails += 1
     if not fails:
         print('R81 golden check: %d/%d cases byte-identical to the .64 builder' % (len(res), len(res)))

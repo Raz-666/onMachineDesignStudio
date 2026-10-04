@@ -190,9 +190,23 @@ Live > File panel):
 | Field | Meaning |
 |---|---|
 | Type | MARKED (fully tagged) / LEGACY (no markers) / PLOT (pen file) |
+| Sliced by | R84: the slicer + version and the firmware flavor the file was made for (OrcaSlicer, PrusaSlicer, Cura, Elegoo, Kiri:Moto, AstroPrint, SliceBeam, … for Klipper / Marlin) — works for fresh uploads AND foreign downloads |
 | Material, layer height × count, line width, flow ratio | straight from the slicer header |
 | By-object | sequential printing detected (several objects, Z falls) |
 | TYPES= | which features the file really contains (walls, infill, supports …) |
+
+**Two file quirks the system now flags for you (R84):**
+
+- **Marlin-volumetric files** (`;FLAVOR:Marlin (Volumetric)`, e.g. from Cura):
+  they count E in mm³ — Klipper expects mm and would print them heavily
+  under-extruded. The file info shows the warning and the print start says it
+  out loud (alarm + M117). Re-slice for Klipper, or convert the E values.
+- **Old Bowden-era files** with long baked-in retracts (5–6 mm where your
+  direct extruder wants ~0.8): **Pre-Print > RetFix ON**, then re-upload the
+  file. Its clean retract/unretract pairs become **G10/G11** (firmware
+  retraction) — your CURRENT retraction applies, live-tunable during the
+  print. Wipes and folded retracts stay untouched; the original values are
+  only replaced where a clean pair was found (the console reports the count).
 | FS_* / FA_* | the MEASURED original speed / acceleration of each feature |
 | L1/L2 temps, PA, retraction, fan, nozzle, wall loops | everything Pre-Print can override |
 
@@ -1153,7 +1167,7 @@ retraction reads the firmware values — what you see is what runs.
 
 | Entry | Contents |
 |---|---|
-| File (G-code) | full slicer summary of the selected file (type, material, layer height × layers, line widths, flow ratio, by-object, nozzle × wall loops, ALL speeds, accels, L1/L2 temps, PA, retraction) — shown from the MOMENT you select the file; the per-feature values are MEASURED from the g-code — PLUS 12 activator rows (OW…BM): each shows the file's REAL speed + o:ON state; CLICK toggles that feature's override; features NOT in the file show 'n/a' and refuse |
+| File (G-code) | full slicer summary of the selected file (type, material, layer height × layers, line widths, flow ratio, by-object, nozzle × wall loops, ALL speeds, accels, L1/L2 temps, PA, retraction) + **sliced by <slicer> for <firmware>** (volumetric files get a loud warning) — shown from the MOMENT you select the file; the per-feature values are MEASURED from the g-code — PLUS 12 activator rows (OW…BM): each shows the file's REAL speed + o:ON state; CLICK toggles that feature's override; features NOT in the file show 'n/a' and refuse |
 | Material | LOAD NOW + all material values + Save as preset — editing a value of the ACTIVE material applies LIVE too |
 | Temperatures | Bed L1/L2, Hotend L1/L2, Fan L2 (ON/OFF each) + File H:/File B: = the file's own values |
 | Motion | PA (+smooth), retraction len/spd/unretract, Accel + Vel + MCR + Corner (ON/OFF each) + File R: |
@@ -1162,6 +1176,7 @@ retraction reads the firmware values — what you see is what runs.
 | Bed Mesh | Level old files · Mesh ON/AUTO/OFF · Save after · Adaptive · Travel cap · Calibrate now · Load…/Delete… |
 | Range/Stop | Stop@ layer + From/To (capped to the selected file's layer count!) + Floor/Top (each FOOTPRINT or OUTLINE, each GRID or SOLID fill) + Brim + Create excerpt (ch. C.1) |
 | Filament | Load / Load length / Unload / Unload length / Change (M600) — available BEFORE the print too |
+| RetFix | ON/OFF — the NEXT upload's clean retract pairs become G10/G11: your current retraction applies (old Bowden-era files) |
 
 **Labels**
 
@@ -1848,6 +1863,7 @@ Only the milestones — the full reasoning lives in SESSION_STATE.md.
 | Version | Core changes |
 |---|---|
 | .65 | postproc streaming: range generation + upload tagging no longer load whole files into RAM (32 MB source → Pi-safe memory), byte-identical outputs (golden test added) |
+| .68 | file info shows the slicer + firmware flavor of every file (Orca/Prusa/Cura/Elegoo/Kiri:Moto/AstroPrint/SliceBeam … for Klipper/Marlin), loud warning on Marlin-volumetric files (Klipper counts E in mm), RetFix: old Bowden-era files re-uploaded with retracts rewritten to G10/G11 (current retraction applies, live-tunable) |
 | .67 | print-start killer fixed (feature lists + material saves survive Klipper's command parser), generated files sort to the top (00_…_V version suffix, same name overwrites), label quality (glyph retracts, stroke ≤ cap/5, purge tower 15 mm on the probe-safe side), real fit preview on the LCD, labels up to 5 lines / near-bed size, filament stat in meters, SAVE+RESTART restarts when nothing is pending |
 | .64 | start-killer fixed (list literals with spaces broke SET_GCODE_VARIABLE), labels auto-fit/auto-grow instead of errors, All-OFF removed |
 | .63 | generator files auto-select themselves, range OUTLINE floor fills the enclosed area, L1/L2 rules in every mode, live-tuning clarity (PARAM_SOURCES, FeatSpd) |
