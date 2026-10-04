@@ -3642,8 +3642,8 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         _v66 = _l66.split(':', 1)[1].strip()
         break
 # NOTE: bump this expectation together with the version on every release!
-tests.append(('R66/R74 version is .70 in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-09-07.70'", repr(_v66)))
+tests.append(('R66/R74 version is .71 in 01_state.cfg (bump together with release!)',
+    _v66 == "'R2-2026-09-07.71'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -4674,8 +4674,8 @@ tests.append(('R74 LABEL_ADD: joins the lines with ~ (2-line queue entry)',
     ('VARIABLE=label_texts VALUE="' + BKSL + '"OBEN~UNTEN' + BKSL + '"') in out, out[:110]))
 save_vars.update({'label_l1': '', 'label_l2': '', 'label_lines': 1})
 
-# --- (5) plotter menu (R87: inside Generatoren) + filament menus -----------------------------
-tests.append(('R74/R87 LCD: Plotter lives in the Generatoren menu (was top level until .70)',
+# --- (5) plotter menu (R87: inside Tools) + filament menus -----------------------------
+tests.append(('R74/R87 LCD: Plotter lives in the Tools menu (was top level until .70)',
     '[menu __main __gen __plot]' in _lcd74 and '[menu __main __gen __plot __up]' in _lcd74
     and '[menu __main __maint __plot]' not in _lcd74
     and _lcd74.index('[menu __main __gen __labels]') < _lcd74.index('[menu __main __gen __plot]'), ''))
@@ -5982,7 +5982,7 @@ tests.append(('R86 GEN_ANGLES: 12 params saved, paced, no adjacent writes',
 
 # --- (2) LCD menus -------------------------------------------------------------
 _lcd86 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
-tests.append(('R86 LCD: Kabelbinder + Winkel+Flach in the Generatoren menu, guarded, all params',
+tests.append(('R86 LCD: Kabelbinder + Winkel+Flach in the Tools menu, guarded, all params',
     all(k in _lcd86 for k in ['[menu __main __gen __cable]', '[menu __main __gen __angle]',
         '__cable __set __cnt]', '__cable __set __len]', '__cable __set __wid]',
         '__cable __set __lay]', '__cable __set __lh]', '__cable __set __var __rat]',
@@ -6315,11 +6315,11 @@ _top87 = sorted(_re87.findall(r'^\[menu __main ([a-z_0-9]+)\]$', _lcd87, _re87.M
 tests.append(('R87 LCD: exactly 7 top-level menus (4 generators moved into one container)',
     _top87 == ['__gen', '__live', '__macros', '__maint', '__preprint', '__start', '__system'],
     str(_top87)))
-tests.append(('R87 LCD: container Generatoren + all four trees re-parented, old roots gone',
-    '[menu __main __gen]\ntype: list\nname: Generatoren' in _lcd87
+tests.append(('R87 LCD: container Tools + all four trees re-parented, old roots gone',
+    '[menu __main __gen]\ntype: list\nname: Tools' in _lcd87
     and all(('[menu __main __gen %s]' % _x) in _lcd87 for _x in ('__cable', '__angle', '__labels', '__plot'))
     and all(('[menu __main %s]' % _x) not in _lcd87 for _x in ('__cable', '__angle', '__labels', '__plot'))
-    and len('Generatoren') <= 16, ''))
+    and len('Tools') <= 16, ''))
 tests.append(('R87 LCD: container sits between Quick Macros and Maintenance, live plotter untouched',
     _lcd87.index('[menu __main __macros]') < _lcd87.index('[menu __main __gen]')
     < _lcd87.index('[menu __main __maint]')
@@ -6329,10 +6329,10 @@ tests.append(('R87 LCD: guards preserved (cable/angle need 17_generator, labels 
     _lcd87.count("enable: {'gcode_macro _GENERATORS' in printer}") == 2
     and "enable: {'gcode_macro _LABELS' in printer}" in _lcd87
     and '[menu __main __gen __plot]\ntype: list\nname: Plotter\n' in _lcd87, ''))
-tests.append(('R87 docs: cfg console paths say Generatoren (labels + plotter + generator header)',
-    open('macros/16_labels.cfg', encoding='utf-8').read().count('Generatoren > Labels >') == 4
-    and open('macros/12_maintenance.cfg', encoding='utf-8').read().count('Generatoren > Plotter >') == 4
-    and 'Generatoren > Kabelbinder / Winkel+Flach' in open('macros/17_generator.cfg', encoding='utf-8').read(), ''))
+tests.append(('R87 docs: cfg console paths say Tools (labels + plotter + generator header)',
+    open('macros/16_labels.cfg', encoding='utf-8').read().count('Tools > Labels >') == 4
+    and open('macros/12_maintenance.cfg', encoding='utf-8').read().count('Tools > Plotter >') == 4
+    and 'Tools > Kabelbinder / Winkel+Flach' in open('macros/17_generator.cfg', encoding='utf-8').read(), ''))
 
 fails = 0
 for name, ok, info in tests:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MANUAL.pdf — the illustrated user handbook (R2-2026-09-07.70).
+"""MANUAL.pdf — the illustrated user handbook (R2-2026-09-07.71).
 Mirrors MANUAL.md: daily workflow first, generators next, calibration ladder,
 reference tables. 21 vector diagrams (font specimens + range variants drawn
 from the REAL generator glyph data), full parameter tables."""
@@ -473,7 +473,7 @@ class Doc(BaseDocTemplate):
         c.drawRightString(A4[0]-17*mm,A4[1]-10*mm,self.ch); c.restoreState()
     def footer(self,c,doc):
         c.saveState(); c.setFont('DVS',7.5); c.setFillColor(GRAY)
-        c.drawString(17*mm,9*mm,'R2-D2 Macro System · R2-2026-09-07.70 · user handbook')
+        c.drawString(17*mm,9*mm,'R2-D2 Macro System · R2-2026-09-07.71 · user handbook')
         c.drawRightString(A4[0]-17*mm,9*mm,f'Page {doc.page}')
         c.setStrokeColor(colors.HexColor('#c9d4e4')); c.setLineWidth(0.6); c.line(17*mm,12*mm,A4[0]-17*mm,12*mm)
         c.restoreState()
@@ -1025,7 +1025,7 @@ def d_wiring():
 # ---- cover ----
 E+= [Spacer(1,10*mm),Paragraph('R2-D2 Macro System',S['title']),Spacer(1,2*mm),
      Paragraph('The Complete User Handbook — illustrated edition',S['sub']),Spacer(1,3*mm),
-     Paragraph('Version R2-2026-09-07.70 · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail)',S['sub']),
+     Paragraph('Version R2-2026-09-07.71 · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail)',S['sub']),
      Spacer(1,6*mm),CENT(d_robot()),Spacer(1,6*mm),
      Paragraph('The USER HANDBOOK: from file to print in one read — every file type (by layer / by object / vase /<br/>'
                'legacy / movement data), the start dialog, pre-print settings, live tuning, pauses, object skip ·<br/>'
@@ -1258,7 +1258,7 @@ chapter('4','Scenario library — every file type walked through',
      'Temps/fan/PA/retraction/flow from the preset, geometry stays the file',
      '<b>G — printing a RANGE:</b> Pre-Print > Range/Stop: From/To/Floor/Brim, Create — the excerpt auto-selects, '
      'start AS LEGACY (ch. 5.1)',
-     '<b>H — printing LABELS:</b> Generatoren > Labels > Text, Settings, Job > Add, Create — start like any file; M600 pause '
+     '<b>H — printing LABELS:</b> Tools > Labels > Text, Settings, Job > Add, Create — start like any file; M600 pause '
      'for color 2 (ch. 5.2)',
      '<b>I — plotting an image:</b> upload name.png.gcode (converted in place), start (AS SLICED = pure pen), M0 '
      'pauses at pen changes (ch. 5.3)',
@@ -1312,7 +1312,7 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties &amp; Angles',
     "Console: SET_LAYER_RANGE FROM=125 TO=225 FLOOR=5 FLOOR_SHAPE=OUTLINE TOP=3 BRIM=4 FLOOR_HOLE=15 TOP_HOLE=28 CREATE=1. <b>Stop@ N</b> "
     "in the same menu ends a print NORMALLY at layer N (stats, fanfare — not a cancel)."),
   H2('5.2 Labels — the built-in label maker'),
-  P("Name tags, key fobs, drawer labels — engraved text without a slicer, entirely from the LCD: Generatoren > Labels > Text "
+  P("Name tags, key fobs, drawer labels — engraved text without a slicer, entirely from the LCD: Tools > Labels > Text "
     "(up to 5 lines, character editor), Settings, Job > Add (queue n/24), Create. The watcher builds "
     "00_text_V01.gcode (00_ = top of the file list, V = your version number) and beeps. The same text at the same "
     "version REPLACES its own generated file — tweaks never pile up, and the uploaded original is never touched. "
@@ -1332,7 +1332,7 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties &amp; Angles',
    ['Base/Text layers, LH, Ironing, Brim, 2 colors, Gap','—','plate thickness, text relief, surface, adhesion, two-color mode, grid spacing'],
   ],[34*mm,44*mm,82*mm]),
   P("Auto-fit / auto-grow: if the letters would drop below ~2.8 mm caps — or an explicit size does not fit — the "
-    "label grows (width first, then height, up to bed size) instead of erroring. Preview fit? (Generatoren > Labels > Settings) "
+    "label grows (width first, then height, up to bed size) instead of erroring. Preview fit? (Tools > Labels > Settings) "
     "answers with the REAL numbers before you generate anything: final label size including growth, cap height, "
     "effective stroke, ~characters per line, the MINIMUM size a fixed font needs, plus warnings (stroke capped, "
     "tower does not fit). Console one-liner: "
@@ -1353,7 +1353,7 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties &amp; Angles',
      '(M0) at every pen change; live tuning while plotting: pen speed percent, pen Z +-0.05, X/Y +-0.5',
      'the resonance diagrams of the calibration chapter are plotted or printed the same way (ch. 10.5)'),
   H2('5.4 Cable ties — the built-in cable-tie maker'),
-  P("Printable cable ties in ONE file, straight from the LCD (menu Generatoren > Kabelbinder) — no slicer, no modeling. "
+  P("Printable cable ties in ONE file, straight from the LCD (menu Tools > Kabelbinder) — no slicer, no modeling. "
     "Each tie is a flat strap with ratchet teeth plus an integrated closure head whose size, slot clearance and "
     "tooth pitch ALL auto-scale with the strap width — you never tune the mechanism. Two closures: RATCHET "
     "(one-way — locks at every tooth, cut to remove) and LATCH (releasable — lift the pawl tab through the open "
@@ -1378,7 +1378,7 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties &amp; Angles',
     "GEN_CABLE_TIES COUNT=6 LENGTH=120 WIDTH=8 LAYERS=3 VARIANT=LATCH (everything optional)."),
   H2('5.5 Angles & flat connectors — structural plates'),
   P("Angle plates (L-brackets in ANY angle 30-170, equal or unequal legs) and flat connectors (two boards joined "
-    "side by side) — screw-on structural parts, menu Generatoren > Winkel+Flach. Mode switches between Angle (L) and "
+    "side by side) — screw-on structural parts, menu Tools > Winkel+Flach. Mode switches between Angle (L) and "
     "Flat splice (the Angle input and the Rib submenu hide themselves in Flat mode; the legs rename to "
     "Left/Right). THE HOLE SYSTEM: holes sit on each leg's centerline, evenly spaced between the corner zone "
     "and the leg end; the diameter is CLAMPED to width - 6 mm (never too big for the leg); the count "
@@ -1631,7 +1631,7 @@ chapter('13','Maintenance &amp; care',
 
 
 chapter('14','LCD menu reference',
-  CENT(d_menu()),CAP('Seven top groups in LCD order — Start Print? (waiting), Live Tuning (printing), then Pre-Print, Quick Macros, Generatoren (the four part generators: Kabelbinder · Winkel+Flach · Labels · Plotter), Maintenance, System'),
+  CENT(d_menu()),CAP('Seven top groups in LCD order — Start Print? (waiting), Live Tuning (printing), then Pre-Print, Quick Macros, Tools (the four part generators: Kabelbinder · Winkel+Flach · Labels · Plotter), Maintenance, System'),
   P('Every line fits the 16 characters of the 12864 display — the value you edit is always visible '
     '(test-enforced). Pattern: first line = ON/OFF toggle (value stays stored), then the values.'),
   TBL(['Live Tuning (during print)','Contents'],[
@@ -1659,18 +1659,18 @@ chapter('14','LCD menu reference',
    ['Defaults','Save the current settings as Default 1-8 (lowest free slot, never overwrites) + Load + Delete '],
    ['Preheat','ON/OFF + nozzle/bed standby levels - preheats the moment you select a file '],
   ],[42*mm,122*mm]),
-  TBL(['Labels (in Generatoren)','Contents'],[
+  TBL(['Labels (in Tools)','Contents'],[
    ['Text','L1-L5 pickers (up to 5 lines per label) · Show text · Pos 1-N (N = character limit of the label size) · Chr (A-Z a-z 0-9 space ÄÖÜäöüß + symbols) · Delete char · Clear text'],
    ['Settings','W/H · Font SMOOTH/MONO/COND/NARROW/CAPS · Lines 1-5 · Size (cap mm, 0=auto) · Spc · Stroke · Vers V01-V09 · Preview fit? (real numbers incl. growth) · Base/Text layers · LH · 1st · Ironing · Hole · Brim · 2 colors · Gap'],
    ['Job','Queue n/24 · Add label · Del last · Clear all (2×) · Create (beeps, watcher builds the file) · Fit (how many fit the bed)'],
   ],[42*mm,122*mm]),
-  TBL(['Kabelbinder (in Generatoren — ch. 5.4)','Contents'],[
+  TBL(['Kabelbinder (in Tools — ch. 5.4)','Contents'],[
    ['Info','every setting in one console listing + material tip'],
    ['Settings','Count 1-24 · Len 60-300 mm · Width 5-12 mm · Layers 3-6 · LH 0.12-0.32 · Closure RATCHET/LATCH (the * marks the active) · Brim · Vers V01-V09'],
    ['Create (beeps)','validates, bumps the job counter — the watcher builds the file in the background, beeps + auto-selects'],
    ['How it works','the flow + PETG/TPU tip + the Mainsail one-liner on the LCD'],
   ],[42*mm,122*mm]),
-  TBL(['Winkel+Flach (in Generatoren — ch. 5.5)','Contents'],[
+  TBL(['Winkel+Flach (in Tools — ch. 5.5)','Contents'],[
    ['Info','every setting + the auto-hole rules'],
    ['Mode','Angle (L) / Flat splice — the * marks the active mode'],
    ['Settings','Angle 30-170° (HIDDEN in Flat mode) · Leg A/B 20-150 (Left/Right in Flat mode) · Width 8-60 · Layers 4-12 · LH · Holes 0-6 · Hole D 2-10 (auto-clamped) · Countersunk/Normal · Rib None/Gusset/Stepped (hidden in Flat) · Walls 1-6 · Infill 20-100% · Ironing on/off · Count 1-12 · Vers'],
@@ -1690,7 +1690,7 @@ chapter('14','LCD menu reference',
    ['Temp Tower','band plan for real files + GENERATED standalone tower + Best '],
    ['Ironing Cal.','CARDS cards x (flow%/speed) on BASE base layers, sizes auto-fit, Best → overrides '],
    ['Retract Tower','two masts, retract rises per block, Best → retract override '],
-   ['Plotter (in Generatoren)','DRAW/DOTS, dot gap, pen offset X/Y/Z, scale X/Y% (bed-capped), corners, frame test, extruder on/off, Fil Z , auto-contrast, Z/speeds '],
+   ['Plotter (in Tools)','DRAW/DOTS, dot gap, pen offset X/Y/Z, scale X/Y% (bed-capped), corners, frame test, extruder on/off, Fil Z , auto-contrast, Z/speeds '],
    ['Filament','load 60 / unload 90 mm (LCD-settable), M600 change, retraction test - ALSO in Pre-Print and while paused ; cold pull = Maintenance only (wizard: material presets, beep countdown, extruder assist)'],
    ['Z Gantry Sync','run now + boot/print toggles'],['KAMP','mesh/purge/smart-park toggles (when installed)'],
    ['Tests','sound demo, LED demo, self test'],
@@ -1900,10 +1900,10 @@ chapter('24','Cheat sheet: LCD paths &amp; Mainsail commands',
    ['change material preset','Pre-Print &gt; Material &gt; LOAD NOW'],['see ALL file parameters','Pre-Print / Live Tuning &gt; File (G-code)'],['compare with the file values','Pre-Print &gt; Temps &gt; File H:/File B:'],
    ['first layer slower/faster','Pre-Print &gt; 1st layer %'],['calibrate flow','Maintenance &gt; Flow Cal.'],
    ['run a temperature tower','Maintenance &gt; Temp Tower'],['test ironing','Maintenance &gt; Ironing Cal.'],
-   ['print cable ties','Generatoren &gt; Kabelbinder &gt; Create (beeps)'],['cable/lamp hole in a range part','Pre-Print &gt; Range/Stop &gt; Fl.hole / Top hole'],
+   ['print cable ties','Tools &gt; Kabelbinder &gt; Create (beeps)'],['cable/lamp hole in a range part','Pre-Print &gt; Range/Stop &gt; Fl.hole / Top hole'],
    ['printer off, Pi stays on','PRINTER_POWER_OFF (console — relay, ch. 26)'],
-   ['print an angle bracket','Generatoren &gt; Winkel+Flach &gt; Mode &gt; Angle, Settings, Create'],
-   ['join two boards flush','Generatoren &gt; Winkel+Flach &gt; Mode &gt; Flat splice, Left/Right, Create'],
+   ['print an angle bracket','Tools &gt; Winkel+Flach &gt; Mode &gt; Angle, Settings, Create'],
+   ['join two boards flush','Tools &gt; Winkel+Flach &gt; Mode &gt; Flat splice, Left/Right, Create'],
    ['purge manual / cold pull','Macros &gt; Purge · Maintenance &gt; Filament'],['shutdown the Pi','System &gt; Shutdown (2×)'],
   ],[64*mm,100*mm]),
   H2('Mainsail console — the 20 you will actually use'),
@@ -1931,7 +1931,7 @@ chapter('24','Cheat sheet: LCD paths &amp; Mainsail commands',
    ['MCR','minimum cruise ratio','SCV','square corner velocity'],
   ],[30*mm,54*mm,26*mm,54*mm]),
   Spacer(1,12*mm),Paragraph('Built and tested for one purpose: printing happily — with R2-D2 keeping watch. Have fun!',S['end']),
-  Spacer(1,4*mm),Paragraph('R2-D2 Macro System · R2-2026-09-07.70',S['cap']))
+  Spacer(1,4*mm),Paragraph('R2-D2 Macro System · R2-2026-09-07.71',S['cap']))
 
 import json as _json
 _MIDX=_json.loads(r'''[["Sounds \u2014 02_sounds.cfg", [["M300", "P=100, S=1000", "single beep \u2014 wrapper; the real beep lives on as M99300"], ["PLAY_SOUND", "NAME='r2_click'", "play a tune by name (ch. 16)"], ["TOGGLE_SOUNDS", "\u2014", "sounds on/off (persisted: sound_on)"], ["TEST_SOUNDS", "\u2014", "play all 20 tunes in sequence"]]], ["LEDs \u2014 03_leds.cfg", [["SET_LED_STATE", "STATE='idle'", "switch the LED pattern (12 states, ch. 17) - applies the nozzle mode too"], ["NOZZLE_LED", "MODE, BRIGHT, R, G, B", "nozzle light: on/off/auto + live dimming + live color (ch. 17)"], ["TOGGLE_LEDS", "\u2014", "frame LEDs off/on (persisted: leds_on)"], ["TEST_LEDS", "\u2014", "LED test animation"], ["_NOZZLE_SET", "ON", "internal: writes LED 5 (color x brightness, capped 0.5)"]]], ["Notifications \u2014 04_notify.cfg", [["NOTIFY", "TEXT, LEVEL='info', LED, SOUND", "notification helper: text + sound + LED in one call"], ["SHOW_STATUS", "\u2014", "full status: mode, material, overrides, live values"]]], ["Materials \u2014 05_materials.cfg", [["SET_MATERIAL", "MATERIAL=&lt;current>, APPLY_PRESET=1", "select material; APPLY_PRESET=1 also loads its preset"], ["SAVE_MATERIAL_TEMPS", "MATERIAL=&lt;current>", "save current values as this material's preset"], ["SHOW_MATERIAL", "\u2014", "show the current material + its stored preset"]]], ["Temperatures & marks \u2014 06_temp_controls.cfg", [["M104", "S=-1, T", "hotend temp \u2014 interceptor, redirects by layer (real: M99104)"], ["M109", "S=-1, T", "like M104, but waits"], ["M140", "S=-1", "bed temp \u2014 interceptor (real: M99140)"], ["M190", "S=-1", "like M140, but waits"], ["M106", "S=255", "part fan \u2014 scaling + from-layer-2 rule"], ["M204", "P, S, T", "acceleration \u2014 interceptor (M99204): feature accel , else global overwrite ON \u2192 your accel, else file 1:1"], ["LAYER_MARK", "\u2014", "layer marker (inserted by the post-processor)"], ["M220", "S=100", "speed \u2014 interceptor (M99220): L1 cap + stores the clean global % as g_speed_clean "], ["PAUSE_NEXT_LAYER", "REASON='next layer'", "one-shot pause at the next layer boundary"], ["PAUSE_AT_LAYER", "LAYER=0", "one-shot pause at layer n (n greater than 1)"], ["SET_LIVE_HOTEND_TEMP", "T=-1", "change the hotend target live"], ["SET_LIVE_BED_TEMP", "T=-1", "change the bed target live"]]], ["Start dialog & overrides \u2014 07_start_confirm.cfg", [["PRINT_AS_SLICED", "\u2014", "start dialog: answer AS SLICED"], ["PRINT_WITH_OVERRIDES", "\u2014", "alias for AS LEGACY since then (merged mode)"], ["PRINT_AS_LEGACY", "\u2014", "start dialog: AS LEGACY"], ["CANCEL_PENDING_PRINT", "\u2014", "start dialog: cancel (nothing is hot yet)"], ["SET_OVERRIDE_VALUE", "NAME, VALUE", "set one override + switch it ON; feat_on=0 resets the values to the file original "], ["TOGGLE_OVERRIDE", "NAME=''", "flip one override switch"], ["CLEAR_OVERRIDES", "\u2014", "all switches OFF (values stay stored)"], ["TOGGLE_START_CONFIRMATION", "\u2014", "start dialog on/off (persisted: start_confirm)"]]], ["Print start & end \u2014 08_print_start_stop.cfg", [["PRINT_START", "BED, HOTEND_FIRST, HOTEND_AFTER, BED_AFTER, MATERIAL='PLA', LAYER_HEIGHT=0.2, TOTAL_LAYERS=0, OUTER_WALL_SPEED=0, SUPPORT_SPEED=0, IRONING_SPEED=0", "start choreography \u2014 called by the sliced file"], ["START_PRINT", "\u2014", "old macro name: marked = no-op / legacy = real legacy start (dialog or auto-prep,)"], ["PRINT_END", "\u2014", "end choreography: heaters/fans, stats, sound, LED -> idle, _PRINT_CLEANUP"]]], ["Pause & filament \u2014 09_pause_filament.cfg", [["PAUSE", "REASON='User'", "pause + park (mode-aware)"], ["QUICK_PAUSE", "\u2014", "alias for PAUSE"], ["RESUME", "\u2014", "the full resume sequence (ch. 6)"], ["CANCEL_PRINT", "\u2014", "1st press arms (expires 60 s, also while paused), 2nd press cancels + cleanup"], ["M600", "\u2014", "filament change (park, unload, wait for load)"], ["CHANGE_FILAMENT", "\u2014", "M600 for humans \u2014 works from idle too (heats)"], ["CHANGE_FILAMENT_RESUME", "\u2014", "internal continuation after the load"], ["PURGE_MORE", "\u2014", "purge 15 mm more (after change/resume)"], ["M0", "\u2014", "slicer pause \u2014 mapped to PAUSE"], ["M1", "\u2014", "slicer pause \u2014 mapped to PAUSE"], ["_PRINT_CLEANUP", "\u2014", "resets ALL per-print state (PRINT_END/CANCEL/watcher - settings + mesh stay)"]]], ["Live tuning \u2014 10_live_tuning.cfg", [["APPLY_TYPE", "TYPE=''", "feature switch : sets current_type + applies THIS feature\u2019s overrides (speed % × clean global, absolute accel, ironing flow)"], ["SET_OUTER_WALL_SPEED + 11 more per-feature macros", "\u2014", "per-feature setters : forward to feat_spd/feat_acc + ON \u2014 % on top of the CLEAN global"], ["SET_GLOBAL_SPEED", "PERCENT=100", "global speed % (M220 style, never capped)"], ["SET_GLOBAL_ACCEL", "ACCEL=4000", "global acceleration, mm/s\u00b2"], ["SET_LIVE_VELOCITY", "VELOCITY=300", "max velocity, live"], ["SET_LIVE_MINIMUM_CRUISE_RATIO", "VALUE=0.5", "minimum cruise ratio, live"], ["SET_LIVE_SQUARE_CORNER", "VALUE=5", "square corner velocity, live"], ["SET_FLOW_RATE", "PERCENT=100", "global flow % (M221)"], ["SET_LIVE_PRESSURE_ADVANCE", "VALUE=0.045", "pressure advance, live"], ["SET_LIVE_PA_SMOOTH", "TIME=0", "PA smooth time, live"], ["SET_LIVE_RETRACTION", "LENGTH, SPEED, UNRETRACT_SPEED, EXTRA", "live retraction \u2014 one parameter, the others stay"], ["SET_RETRACTION", "RETRACT_LENGTH=0, RETRACT_SPEED=35, UNRETRACT_SPEED", "firmware retraction \u2014 interceptor, override-aware"], ["SET_PRESSURE_ADVANCE", "ADVANCE, SMOOTH_TIME", "interceptor \u2014 with the PA override ON your value wins"], ["SET_FAN_SCALE", "PERCENT=100", "fan scaling %"], ["SET_IRONING_FLOW", "PERCENT=100", "ironing-only flow override \u2014 separate from the global flow"], ["PARAM_SOURCES", "\u2014", "value provenance : file | your override | LIVE now, for every parameter \u2014 LCD: Live > Sources"], ["TOGGLE_FIRST_LAYER_RULES", "\u2014", "first-layer rules (L1/L2 temps + fan off) also in AS SLICED on/off "], ["SET_IRONING_TEMP", "T=0", "compat stub \u2014 use the temp overrides"], ["BABYSTEP_UP", "\u2014", "Z +0.04 mm live (SET_GCODE_OFFSET MOVE=1)"], ["BABYSTEP_DOWN", "\u2014", "Z --0.04 mm live"], ["BABYSTEP_UP_FINE", "\u2014", "Z +0.12 mm \u2014 quick rescue step"], ["BABYSTEP_DOWN_FINE", "\u2014", "Z --0.12 mm \u2014 quick rescue step"]]], ["Gantry \u2014 11_gantry_sync.cfg", [["SYNC_GANTRY", "FORCE=0, QUIET=0", "mechanical Z gantry sync (needs [force_move])"], ["TOGGLE_GANTRY_SYNC_BOOT", "\u2014", "sync at every boot on/off"], ["TOGGLE_GANTRY_SYNC_PRINT", "\u2014", "sync at every print start on/off"]]], ["Maintenance & calibration \u2014 12_maintenance.cfg", [["TUNE_PID", "HEATER='extruder', TARGET=210, FAN=-1, AUTOSAVE=1", "PID tune; FAN=% runs with the fan on (like printing)"], ["CALIBRATE_MESH", "\u2014", "full bed mesh now (at bed temperature)"], ["SET_MESH_TRAVEL", "SPEED=120", "cap the mesh travel speed, 0 = off "], ["HOST_CHECK", "\u2014", "Pi health report: throttle, temp, load, RAM/swap, top processes, swap residents + services "], ["LOAD_BED_MESH", "PROFILE=''", "load a mesh profile (menu list)"], ["DELETE_MESH", "PROFILE=''", "delete a profile (2x confirm)"], ["LEVEL_BED_SCREWS", "\u2014", "screw leveling with console report"], ["CALIBRATE_PROBE_OFFSET", "\u2014", "probe Z offset \u2014 paper method, TESTZ, SAVE_CONFIG"], ["CALIBRATE_EXTRUDER", "TEMP=210, MEASURED=0, STEP=''", "extruder steps: mark 120 mm, extrude 100, enter the rest"], ["TEST_RETRACTION", "\u2014", "retract/unretract pairs at temperature"], ["LOAD_FILAMENT", "LENGTH via load_length", "heat if cold + feed load_length mm (default 60, LCD 20-150;)"], ["UNLOAD_FILAMENT", "\u2014", "heat + reverse (unload_length, LCD 40-150)"], ["CALIBRATE_PA", "TEMP, BED, START, STEP, LINES, LEN, SLOW, FAST, ACCEL, LAYER, SPACING, WIDTH \u2014 all from menu/preset", "PA pattern print"], ["PA_RESULT", "SEG=0, VALUE=-1", "SEG=best line: PA computed + set live \u00b7 VALUE=... skips the math"], ["CALIBRATE_PA_SMOOTH", "START=0.004, STEP=0.001, LINES", "smooth-time pattern with YOUR PA fixed ; mesh + prime first; babystepping works"], ["PA_SMOOTH_RESULT", "SEG=n", "line n \u2192 smooth = start+(n-1)\u00b7step, set live + override ON"], ["COLD_PULL", "MATERIAL, CYCLES, HOT, PULL, RLEN, RSPD, BEEP, STEP=finish", "cold pull WIZARD : material presets, flush+mold, beep countdown, assisted pull, verify"], ["SET_COLD_PULL_MATERIAL", "MATERIAL=PLA|PETG|ABS|TPU", "cold pull preset temperatures"], ["CALIBRATE_SHAPER", "AXIS='BOTH', FREQ_START, FREQ_END, MAX_SMOOTHING, AUTOSAVE", "input shaper measurement (ADXL; ISHAPER.md)"], ["DUMP_RESONANCES", "AXIS='BOTH'", "export raw shaper data"], ["SAVE_MESH_AT_TEMP", "\u2014", "save the mesh as a bed-temp profile (e.g. r2_60C)"], ["MESH_BY_INDEX", "INDEX=-1", "load a mesh by menu index"], ["UNLOAD_MESH", "\u2014", "clear the mesh + level again next time"], ["SELF_TEST", "\u2014", "system self test \u2014 run before long prints"], ["FLOW_CAL", "MEASURE=&lt;menu>, TARGET", "wall measurement -> suggested flow %"], ["FLOW_CAL_APPLY", "\u2014", "apply the suggested flow (override ON, 50-150 % guard)"], ["TEMP_TOWER_START", "START=200, END=230, STEP=5, BAND=10", "temperature tower (marker + legacy files)"], ["TEMP_TOWER_STOP", "\u2014", "stop early (otherwise the last temperature holds)"], ["IRONING_CAL", "F1=10, F2=15, F3=20, S1=20, S2=30, S3=40, TEMP=200, BED=60, LAYER=0.2, LEN=40, WID=24, ACCEL=3000", "3-zone ironing test card"]]], ["System \u2014 13_system.cfg", [["SYS_FIRMWARE_RESTART", "CONFIRM=0", "Klipper restart (2x)"], ["SYS_HOST_RESTART", "CONFIRM=0", "host services restart (2x)"], ["SYS_SHUTDOWN", "CONFIRM=0", "heaters/fans/LEDs off, then Pi shutdown (2x)"], ["HOST_RESTART_INFO", "\u2014", "explains what a host restart does"], ["EMERGENCY_STOP", "\u2014", "immediate full halt"]]], ["KAMP \u2014 14_kamp.cfg", [["TOGGLE_KAMP_MESH", "\u2014", "KAMP adaptive mesh on/off"], ["TOGGLE_KAMP_PURGE", "\u2014", "KAMP purge on/off"], ["SET_KAMP_PURGE_TYPE", "TYPE='LINE'", "KAMP purge style: LINE or VORON"], ["TOGGLE_KAMP_SMART_PARK", "\u2014", "KAMP smart parking on/off"], ["KAMP_STATUS", "\u2014", "KAMP configuration report"]]], ["Objects \u2014 15_objects.cfg", [["SKIP_OBJECT", "NAME=''", "arm a skip for one object (2x confirm)"], ["SKIP_CURRENT_OBJECT", "\u2014", "skip the object currently printing (2x)"], ["SKIP_DISARM", "\u2014", "disarm a pending skip"], ["SHOW_OBJECTS", "\u2014", "list objects + skip state"]]]]''')
@@ -2181,6 +2181,7 @@ chapter('D','Appendix D: Version history',
   P("Only the milestones — the full reasoning lives in SESSION_STATE.md. The manual itself describes the CURRENT "
     "system; this table is just the record."),
   TBL(['Version','Core changes'],[
+      ['.71','LCD declutter: the four part generators (Kabelbinder, Winkel+Flach, Labels, Plotter) now live in ONE \'Tools\' top-level menu - the root drops from 10 to 7 entries; guards unchanged, console paths + manual follow'],
    ['.70','part generators (cable ties + angles/flat connectors, LCD top menus), centered layer-range holes: floor hole with boss ring (E14/E27 presets) + bridge-first top hole, angle walls/infill/ironing (+ inner-wall fix), nozzle LED split for the EBB42 (SET_NOZZLE_SPLIT), slicing guide for any slicer, electronics chapter: U2C V2.1 + EBB42 CAN + 230 V relay (wiring lists, firmware, safety)'],
    ['.69','file fixes IN PLACE (no re-upload): RetFix file rewrites the selected file\'s retracts to G10/G11 on disk (markers survive), Vol->mm fix converts Marlin-volumetric E to mm (idempotent), start dialog auto-released, micro-pauses between multi-value writes'],
    ['.68','file info: slicer + firmware flavor of every file (Orca/Prusa/Cura/Elegoo/Kiri:Moto/AstroPrint/SliceBeam for Klipper/Marlin), Marlin-volumetric warning (Klipper counts E in mm), RetFix rewrites old Bowden-era files\' retracts to G10/G11 on re-upload (current retraction applies, live-tunable)'],
@@ -2199,4 +2200,4 @@ chapter('D','Appendix D: Version history',
 
 doc=Doc(os.path.join(os.path.dirname(__file__),'..','MANUAL.pdf'))
 doc.build(E)
-print('MANUAL.pdf built (illustrated user handbook, .70)')
+print('MANUAL.pdf built (illustrated user handbook, .71)')

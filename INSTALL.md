@@ -20,12 +20,12 @@ just unpack once by hand:
 
 ```bash
 cd ~/printer_data/config
-unzip -o klipper-e3-r2d2-UPDATE-R2-2026-09-07.70.zip
+unzip -o klipper-e3-r2d2-UPDATE-R2-2026-09-07.71.zip
 bash klipper-e3-r2d2/update.sh
 ```
 
 No `unzip` on the Pi?
-`python3 -m zipfile -e klipper-e3-r2d2-UPDATE-R2-2026-09-07.70.zip .` does the
+`python3 -m zipfile -e klipper-e3-r2d2-UPDATE-R2-2026-09-07.71.zip .` does the
 same — update.sh uses that fallback automatically.
 
 **What update.sh does:** it finds the newest `klipper-e3-r2d2-UPDATE-R2-*.zip`
@@ -41,7 +41,7 @@ again). The uploaded ZIP can stay in the config folder (harmless) or be
 deleted in Mainsail.
 
 Boot sound + `M117 R2 ready` ~10 s later confirm success; the console line must
-say `build R2-2026-09-07.70`
+say `build R2-2026-09-07.71`
 
 ---
 
@@ -260,7 +260,7 @@ just restart it after the update):
   journalctl -u r2-postproc --no-pager | tail -5
   ```
 - **Label generator (.47):** every 5 s it also polls `label_gen_nonce`; when
-  Generatoren > Labels > Job > Create (or the console `GEN_LABELS TEXT="A|B" ...`) bumps it,
+  Tools > Labels > Job > Create (or the console `GEN_LABELS TEXT="A|B" ...`) bumps it,
   it builds `Label_<text>_WxH.gcode` in the gcodes folder: solid bases with an
   optional golden-ratio hole, brim, ironing, a purge tower, `M600` filament
   change and the text on top - each label an exclude object. The file is

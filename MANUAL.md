@@ -540,9 +540,9 @@ A 6-hour vase broke at layer 200 of 626? Make the section a real part:
 Details and all parameters: ch. 5.1.
 
 **Scenario H — printing LABELS (name tags without a slicer)**
-1. Generatoren > Labels > Text: pick line 1–3, position, rotate to the character, click —
+1. Tools > Labels > Text: pick line 1–3, position, rotate to the character, click —
    the text assembles live on the display.
-2. Generatoren > Labels > Settings: size (default 50×15), font (SMOOTH / MONO / COND /
+2. Tools > Labels > Settings: size (default 50×15), font (SMOOTH / MONO / COND /
    NARROW / CAPS), hole side + diameter, stroke = letter line width.
 3. Job > Add label — repeat for several DIFFERENT labels (queue shows n/24).
 4. Job > Create — the watcher builds `00_<text>_V<xx>.gcode` and beeps.
@@ -552,7 +552,7 @@ Details and all parameters: ch. 5.1.
 Details: ch. 5.2.
 
 **Scenario I — plotting an image (pen instead of nozzle)**
-1. Mount a pen (Generatoren > Plotter > Pen offset X/Y/Z tells the system where it sits).
+1. Mount a pen (Tools > Plotter > Pen offset X/Y/Z tells the system where it sits).
 2. Upload `bild.png.gcode` (or .jpg/.svg/.pdf/.txt) — the converter replaces
    the file in place with pen G-code; auto-contrast finds the ink on any paper
    tint, dark boards invert automatically.
@@ -704,12 +704,12 @@ entirely from the LCD (or one console line).
 
 **The workflow**
 
-1. **Generatoren > Labels > Text**: up to **5 lines per label** — pick the line (1–5),
+1. **Tools > Labels > Text**: up to **5 lines per label** — pick the line (1–5),
    pick the position (Pos 1–N), rotate to the character (Chr), click. A–Z a–z
    0–9 space ÄÖÜäöüß and the common symbols are available; the text prints
    correctly even where the 12864 display can only hint at umlauts. Only
    FILLED lines print — one line simply centers in the free area.
-2. **Generatoren > Labels > Settings**: size, font, stroke, layers, hole … (table below).
+2. **Tools > Labels > Settings**: size, font, stroke, layers, hole … (table below).
 3. **Job > Add label** — repeat Text+Add for several DIFFERENT labels (same
    text twice = two identical plates). The queue shows n/24.
 4. **Job > Create** — the watcher generates `00_<text>_V<xx>.gcode` (beeps
@@ -769,13 +769,13 @@ exceeds ⅕ of the cap height (anti-merge). The console shows the final
 
 COND, NARROW and CAPS are the small-text fonts: narrow glyphs with a tall
 x-height keep their readability at 2.8–3 mm caps where SMOOTH starts to blur.
-**Fit preview (Generatoren > Labels > Settings > `Preview fit?`):** answers with the REAL
+**Fit preview (Tools > Labels > Settings > `Preview fit?`):** answers with the REAL
 numbers the generator will print — final label size including growth, cap
 height, effective stroke, ~characters per line, and for a fixed Size the
 MINIMUM label size it needs (e.g. `for 12mm caps make the label >= 228x17mm`),
 plus warnings (stroke capped, purge tower does not fit, plate exceeds the
 bed). The LCD keeps the short form (e.g. `80x17+ 3.7`). The instant estimate
-in Generatoren > Labels > Text is a rough guess — the exact numbers follow ~2 s later in
+in Tools > Labels > Text is a rough guess — the exact numbers follow ~2 s later in
 the console.
 
 **Console one-liner (everything optional):**
@@ -814,11 +814,11 @@ vector graphics or text — no slicer involved.
   conversion time); the decision is logged in the file header.
 - **Text files**: auto-wraps and auto-shrinks to fit ONE page (letters 7 mm
   down to 1.8 mm), umlauts print correctly, unknown characters become `?`.
-- **Status on paper**: Generatoren > Plotter > **> Plot status** (`PLOT_STATUS`) draws the
+- **Status on paper**: Tools > Plotter > **> Plot status** (`PLOT_STATUS`) draws the
   SHOW_STATUS report — version, mode, material, temps, PA, flow, speed, accel,
   input shaper, mesh, active overrides — on one page.
 
-**Plotter menu** (in **Generatoren**)
+**Plotter menu** (in **Tools**)
 
 - DRAW lines vs **DOTS stipple** (fine pencil lines), dot gap
 - pen **offset X/Y/Z** (pen next to the nozzle), **scale X/Y in %** (auto-
@@ -858,7 +858,7 @@ the strap width: you never tune the mechanism itself.
 | **RATCHET** | the strap's stepped teeth ratchet under an enclosed pawl tab — pulls tight, locks at every tooth | one-way: cut to remove |
 | **LATCH** | identical ratchet, but the head's front ceiling is left OPEN | lift the pawl tab through the open slot with a fingernail / small screwdriver — reusable |
 
-**The workflow (LCD: `Generatoren > Kabelbinder`)**
+**The workflow (LCD: `Tools > Kabelbinder`)**
 
 1. **Settings** — Count, Length, Width, Layers (strap thickness), LH (layer
    height), Closure, Brim, Vers (see table below).
@@ -908,7 +908,7 @@ reusable 100 mm ties for cable management.
 
 Angle plates (L-brackets in ANY angle, equal or unequal legs) and flat
 connectors (two boards joined side by side) — screw-on, printable, with a
-fully automatic hole layout. LCD: `Generatoren > Winkel+Flach`.
+fully automatic hole layout. LCD: `Tools > Winkel+Flach`.
 
 **Mode (the first menu entry)**
 
@@ -1474,7 +1474,7 @@ wiring changes without heating anything.
 
 Seven top groups — in LCD order: **Start Print?** (appears in the waiting
 state, position 1), **Live Tuning** (during a print, position 2), then
-Pre-Print, Quick Macros, **Generatoren** (the four part generators:
+Pre-Print, Quick Macros, **Tools** (the four part generators:
 Kabelbinder · Winkel+Flach · Labels · Plotter, each with its own sub-menu),
 Maintenance, System. Start dialog and live tuning sit right at the top. Every line fits the 16 characters
 of the 12864 display — the value you edit is always visible (test-enforced).
@@ -1516,7 +1516,7 @@ retraction reads the firmware values — what you see is what runs.
 | RetFix | ON/OFF — auto-treats every NEW upload's clean retract pairs into G10/G11 (old Bowden-era files); for the SELECTED file use Pre-Print > File > RetFix file instead (in place, no re-upload) |
 | File fixes (in File menu) | RetFix file + Vol->mm fix — repair the SELECTED file directly on disk (start beep + done beep, markers survive) |
 
-**Labels** (in Generatoren)
+**Labels** (in Tools)
 
 | Entry | Contents |
 |---|---|
@@ -1525,13 +1525,13 @@ retraction reads the firmware values — what you see is what runs.
 | Job | Queue n/24 · Add label · Del last · Clear all (2×) · Create (beeps) · Fit (how many fit the bed) · How it works |
 | Settings | W/H · Lines 1–5 · Size (auto or cap mm) · Spc · Base/Text layers · LH/1st · Ironing · Hole · Stroke · **Vers V01–V09** · **Preview fit?** (real numbers incl. growth + minimum size for a fixed font) |
 
-**Plotter** (in Generatoren) — DRAW/DOTS, dot gap, pen offset X/Y/Z, scale X/Y %,
+**Plotter** (in Tools) — DRAW/DOTS, dot gap, pen offset X/Y/Z, scale X/Y %,
 bed corner limits, extruder ON/OFF, Z up/down, speeds, max size, auto-
 contrast, Invert AUTO/ON/OFF, Drive frame test, Start (overrides), Plot text
 file, > Plot status. All baked into the file at conversion time; live entries
 while plotting (ch. C.3).
 
-**Kabelbinder** (cable ties, in Generatoren — ch. 5.4)
+**Kabelbinder** (cable ties, in Tools — ch. 5.4)
 
 | Entry | Contents |
 |---|---|
@@ -1540,7 +1540,7 @@ while plotting (ch. C.3).
 | Create (beeps) | validates, bumps the job counter — the watcher builds the file in the background, it beeps + auto-selects |
 | How it works | the flow + PETG/TPU tip + the Mainsail one-liner, right on the LCD |
 
-**Winkel+Flach** (angles + flat connectors, in Generatoren — ch. 5.5)
+**Winkel+Flach** (angles + flat connectors, in Tools — ch. 5.5)
 
 | Entry | Contents |
 |---|---|
@@ -1856,9 +1856,9 @@ Diagnostics: SHOW_STATUS · SELF_TEST · KAMP_STATUS · HOST_CHECK (Pi health) �
 | first layer slower/faster | Pre-Print > 1st layer % |
 | calibrate flow | Maintenance > Flow Cal. |
 | run a temperature tower | Maintenance > Temp Tower |
-| print cable ties | Generatoren > Kabelbinder > Create (beeps) |
-| print an angle bracket | Generatoren > Winkel+Flach > Mode > Angle, Settings, Create |
-| join two boards flush | Generatoren > Winkel+Flach > Mode > Flat splice, Left/Right, Create |
+| print cable ties | Tools > Kabelbinder > Create (beeps) |
+| print an angle bracket | Tools > Winkel+Flach > Mode > Angle, Settings, Create |
+| join two boards flush | Tools > Winkel+Flach > Mode > Flat splice, Left/Right, Create |
 | test ironing | Maintenance > Ironing Cal. |
 | purge / cold pull | Macros > Purge · Maintenance > Filament |
 | shutdown the Pi | System > Shutdown (2×) |
@@ -2435,6 +2435,7 @@ Only the milestones — the full reasoning lives in SESSION_STATE.md.
 
 | Version | Core changes |
 |---|---|
+| .71 | LCD declutter: the four part generators (Kabelbinder, Winkel+Flach, Labels, Plotter) now live in ONE 'Tools' top-level menu — the root drops from 10 to 7 entries; guards unchanged (a missing module include hides its entry), console paths + manual follow |
 | .70 | part generators (cable ties + angles/flat connectors, LCD top menus), centered layer-range holes: floor hole with boss ring (E14/E27 presets) + bridge-first top hole, angle walls/infill/ironing (+ inner-wall fix), nozzle LED split for the EBB42 (SET_NOZZLE_SPLIT), slicing guide for any slicer, electronics chapter: U2C V2.1 + EBB42 CAN + 230 V relay (wiring lists, firmware, safety) |
 | .69 | file fixes IN PLACE (no re-upload): Pre-Print > File > RetFix file rewrites the selected file's retract pairs to G10/G11 on disk (markers survive), Vol->mm fix converts Marlin-volumetric E to mm (idempotent, beeps at start + done), start dialog auto-released; ~100 ms micro-pauses between multi-value disk writes (idle only) |
 | .68 | file info shows the slicer + firmware flavor of every file (Orca/Prusa/Cura/Elegoo/Kiri:Moto/AstroPrint/SliceBeam … for Klipper/Marlin), loud warning on Marlin-volumetric files (Klipper counts E in mm), RetFix: old Bowden-era files re-uploaded with retracts rewritten to G10/G11 (current retraction applies, live-tunable) |
