@@ -89,16 +89,19 @@ stehend oder Bausatz-Aufteilung per Hinweis.
 ## Implementation status (R90, first release)
 
 Built exactly per the four decisions (ask_user): Closure **C** (BACK + SIDE),
-box **Auto** (one piece / split kit), shapes **RECT (corner radius) + OVAL**,
-surface **Smooth + Ironing**.
+box **Auto** (one piece / multi-plate / split kit), shapes **RECT (corner
+radius) + OVAL**, surface **Smooth + Ironing**.
 
 **What shipped**
 
-- `make_frame()` in tools/r2_postproc.py: one-piece frame + backplate (+ stand),
-  auto 4-strip glue kit when frame+plate don't fit, OVAL with a clear error
-  instead of a kit. Presets: 9x13 / 10x15 / 13x18 / 15x21 landscape / A6 /
-  A5 landscape (20x30, A4 and portrait 15x21/A5 can NEVER fit this bed and
-  are not offered).
+- `make_frame()` in tools/r2_postproc.py: one-piece frame + backplate (+ stand);
+  R90.1a **multi-plate before kit**: when frame + plate don't fit side by side
+  it writes TWO files (Part A = frame, Part B = backplate + stand, end-of-plate
+  hint + beeps in the file, no auto-start); the 4-strip glue kit only when even
+  the frame alone overflows the bed; OVAL with a clear error instead of a kit.
+  Presets sized for the REAL 220x220 bed: 9x13 / 10x15 / 13x18 / A6 (15x21,
+  A5, A4, 20x30 overflow the bed even as strips - custom W/H up to 230 says
+  so clearly).
 - Zero-overhang profile, front up: back band -> groove (photo + 0.8mm plate +
   closure nubs) -> bridge shelf -> ironed front with the view opening.
 - Closure BACK = bayonet: 2 nubs 1mm over the plate, plate edge notches

@@ -6532,11 +6532,12 @@ _d90 = _tf90.mkdtemp(prefix='r90_')
 _p90a, _i90a = _pp.make_frame(preset='10x15', depth=8, frame_w=10, corner=4,
                               closure='BACK', hang='TOP', stand=True, out_dir=_d90)
 _g90a = open(_p90a, encoding='utf-8').read()
-tests.append(('R90 frame 10x15 one piece: name, TAG, PRINT_START, 3 objects, ironing',
-    _os90.path.basename(_p90a) == '00_Frame_10x15_FLATx8_V01.gcode'
+tests.append(('R90.1a multi: 10x15 -> Part A (frame alone), TAG + PRINT_START',
+    _i90a['multi'] and not _i90a['kit'] and len(_i90a['plates']) == 2
+    and _os90.path.basename(_p90a) == '00_Frame_10x15_FLATx8_A_V01.gcode'
     and _pp.TAG in _g90a and 'PRINT_START MATERIAL=PLA LAYER_HEIGHT=0.2' in _g90a
-    and _g90a.count('EXCLUDE_OBJECT_DEFINE') == 3 and ';TYPE:Ironing' in _g90a
-    and not _i90a['kit'], _os90.path.basename(_p90a)))
+    and _g90a.count('EXCLUDE_OBJECT_DEFINE') == 1 and ';TYPE:Ironing' in _g90a
+    and 'PLATE A of 2' in _g90a, _os90.path.basename(_p90a)))
 _zs90 = [float(_m.group(1)) for _m in _re90.finditer(r';Z:([\d.-]+)', _g90a)]
 tests.append(('R90 frame: layer z strictly ascending, first 0.28, 40 layers',
     all(b >= a for a, b in zip(_zs90, _zs90[1:])) and _zs90[0] == 0.28
@@ -6581,18 +6582,60 @@ for _l90 in _g90a.split(chr(10)):
 tests.append(('R90 frame bayonet: nub band = 2 layers just above the back band',
     _nubz90 == [5.68, 5.88], str(_nubz90)))
 
+# --- R90.1a: multi-plate mechanics (Part B, trailer, no auto-start) -----------
+_g90b = open(_os90.path.join(_d90, _i90a['plates'][1]), encoding='utf-8').read()
+_tlA90 = int(_re90.search(r'TOTAL_LAYERS=(\d+)', _g90a).group(1))
+_tlB90 = int(_re90.search(r'TOTAL_LAYERS=(\d+)', _g90b).group(1))
+tests.append(('R90.1a multi: plate B = backplate+stand, own TOTAL_LAYERS, PRINT_END',
+    _g90b.count('EXCLUDE_OBJECT_DEFINE') == 2
+    and 'EXCLUDE_OBJECT_DEFINE NAME=BACKPLATE' in _g90b
+    and 'EXCLUDE_OBJECT_DEFINE NAME=STAND' in _g90b
+    and _tlB90 < _tlA90 and _tlA90 == _g90a.count(';LAYER_CHANGE')
+    and _tlB90 == _g90b.count(';LAYER_CHANGE')
+    and 'PRINT_END' in _g90b and 'M300 P150 S880' not in _g90b,
+    'A=%d B=%d' % (_tlA90, _tlB90)))
+tests.append(('R90.1a multi: end-of-plate hint + beeps in A, NO auto-start',
+    'plate A of 2 done' in _g90a and 'NOT auto-started' in _g90a
+    and _i90a['plates'][1] in _g90a
+    and 'M117 R2-FRAME: next -> Part B' in _g90a
+    and _g90a.count('M300 P150 S880') == 2 and 'PRINT_END' in _g90a, ''))
+
+# --- R90.1a: small format stays ONE file ---------------------------------------
+_p90s, _i90s = _pp.make_frame(preset='9x13', depth=6, frame_w=6, out_dir=_d90)
+_g90s = open(_p90s, encoding='utf-8').read()
+tests.append(('R90.1a single: 9x13 border 6 = ONE file frame+plate + PRINT_END',
+    not _i90s['multi'] and not _i90s['kit'] and len(_i90s['plates']) == 1
+    and _os90.path.basename(_p90s) == '00_Frame_9x13_FLATx6_V01.gcode'
+    and _g90s.count('EXCLUDE_OBJECT_DEFINE') == 2 and 'PRINT_END' in _g90s
+    and 'M300 P150 S880' not in _g90s, _os90.path.basename(_p90s)))
+
 # kit: 13x18 border 12 -> 4 strips + plate (+stand beside plate)
 _p90k, _i90k = _pp.make_frame(preset='13x18', depth=6, frame_w=8,
                               closure='BACK', stand=True, out_dir=_d90)
 _g90k = open(_p90k, encoding='utf-8').read()
-tests.append(('R90 kit: 13x18 border 8 splits into 6 objects (4 strips+plate+stand)',
-    _i90k['kit'] and _g90k.count('EXCLUDE_OBJECT_DEFINE') == 6
-    and '00_Frame_13x18_FLATx6_KIT_V01.gcode' == _os90.path.basename(_p90k),
-    _os90.path.basename(_p90k)))
-# strips: shelf band extends into the opening (view overlap)
-tests.append(('R90 kit strips: corner dropped note + wood glue hint',
-    any('butt joints' in _n90 for _n90 in _i90k['notes'])
-    and any('corner radius dropped' in _n90 for _n90 in _i90k['notes']), ''))
+tests.append(('R90.1a: 13x18 border 8 = 2 plates (multi-plate BEFORE kit)',
+    _i90k['multi'] and not _i90k['kit'] and len(_i90k['plates']) == 2
+    and _os90.path.basename(_p90k) == '00_Frame_13x18_FLATx6_A_V01.gcode'
+    and _g90k.count('EXCLUDE_OBJECT_DEFINE') == 1, _os90.path.basename(_p90k)))
+
+# real kit: custom 40x200 border 6 - even the frame alone is too tall
+_p90kk, _i90kk = _pp.make_frame(width=40, height=200, depth=6, frame_w=6,
+                                closure='BACK', out_dir=_d90)
+_g90kk = open(_p90kk, encoding='utf-8').read()
+_g90kkb = open(_os90.path.join(_d90, _i90kk['plates'][1]),
+               encoding='utf-8').read()
+tests.append(('R90.1a kit: frame alone too tall -> 4 strips on A + plate on B',
+    _i90kk['kit'] and _i90kk['multi'] and len(_i90kk['plates']) == 2
+    and _os90.path.basename(_p90kk) == '00_Frame_40x200_FLATx6_KIT_A_V01.gcode'
+    and _g90kk.count('EXCLUDE_OBJECT_DEFINE') == 4
+    and 'EXCLUDE_OBJECT_DEFINE NAME=STRIP_T' in _g90kk
+    and 'EXCLUDE_OBJECT_DEFINE NAME=STRIP_L' in _g90kk
+    and _g90kkb.count('EXCLUDE_OBJECT_DEFINE') == 1
+    and 'M300 P150 S880' in _g90kk and 'PRINT_END' in _g90kkb,
+    _os90.path.basename(_p90kk)))
+tests.append(('R90.1a kit: corner dropped note + wood glue hint',
+    any('butt joints' in _n90 for _n90 in _i90kk['notes'])
+    and any('corner radius dropped' in _n90 for _n90 in _i90kk['notes']), ''))
 
 # OVAL one piece + SIDE slot
 _p90o, _i90o = _pp.make_frame(width=90, height=130, depth=6, frame_w=10,
@@ -6631,12 +6674,15 @@ for _kw90, _frag90 in ((dict(width=300, height=200), 'out of range'),
                        (dict(preset='10x15', depth=61), 'out of range'),
                        (dict(preset='10x15', frame_w=3), 'out of range'),
                        (dict(preset='A5', shape='OVAL'), 'oval frame'),
-                       (dict(preset='10x15', infill=10), 'out of range')):
+                       (dict(preset='10x15', infill=10), 'out of range'),
+                       (dict(width=40, height=208, frame_w=6), 'backplate')):
     try:
         _pp.make_frame(out_dir=_d90, **_kw90)
         _ok90 = False
     except ValueError as _e90:
         _ok90 = _frag90 in str(_e90)
+    _ok90 = _ok90 and (_frag90 != 'backplate'
+                       or not [f for f in _os90.listdir(_d90) if '40x208' in f])
     tests.append(('R90 guard: %s -> ValueError(%s)' % (list(_kw90.items())[0], _frag90),
         _ok90, ''))
 

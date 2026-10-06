@@ -1024,7 +1024,7 @@ def d_frame_anatomy():
     d.add(String(sx + 36, sy - 10, 'photo + plate slide in', fontName='DVS',
                  fontSize=5.4, textAnchor='middle', fillColor=GREEN))
     d.add(String(350, 26, 'hang keyhole hidden in the plate (4 sides) · stand studs plug '
-                 'into 2 plate holes · too big = 4-strip glue kit',
+                 'into 2 plate holes · no room = 2 plates (frame | plate+stand), kit only if even the frame overflows',
                  fontName='DVS', fontSize=5.6, textAnchor='middle', fillColor=GREEN))
     return d
 
@@ -1669,14 +1669,18 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
   P("A frame for a photo or a deep display case, printed in one piece with its backplate, stand and "
     "hidden hanging options (menu Tools > Frames). Main design goal: a uniform, smooth FRONT face — the "
     "frame prints lying on its back, the visible face points up and gets the ironing pass. Settings: "
-    "Preset (9x13 · 10x15 · 13x18 · 15x21 landscape · A6 · A5 landscape) or custom W/H 40-230, Depth 3-60 "
+    "Preset (9x13 · 10x15 · 13x18 · A6 — sized for the real 220mm bed) or custom W/H 40-230, Depth 3-60 "
     "(under 15 = flat frame, 15+ = display case), Border 4-30, Corner r 0-30, Shape RECT/OVAL, Closure "
     "BACK/SIDE, Hang TOP/BOTTOM/LEFT/RIGHT/OFF, Stand, Ironing, Infill, Vers. The profile is "
     "zero-overhang: solid back band, photo groove with the closure nubs, bridge shelf, ironed front."),
-  P("Bed fit is checked while generating: frame + backplate side by side fit = one piece; too big and "
-    "RECT = 4-strip glue kit (strips + plate + stand, every part an exclude object, glue the butt joints "
-    "with wood glue); still too big or OVAL = a clear message with the border limit — the guard beeps "
-    "and shows on the LCD. Assembly BACK: photo onto the back band, backplate in with its edge notches "
+  P("Bed fit is checked while generating (real bed from [r2_postproc]): frame + backplate side by side "
+    "fit = one file; they don't but the frame alone fits = TWO PLATES (R90.1a): Part A = frame, Part B = "
+    "backplate + stand — Part A auto-selects (never auto-starts), the generation beeps once per plate, "
+    "and the end of Part A says on console + LCD which file is next; even the frame alone too big and "
+    "RECT = 4-strip glue kit (strips on plate A, plate on B, every part an exclude object, glue the "
+    "butt joints with wood glue); still too big or OVAL = a clear message with the border limit — the "
+    "guard beeps and shows on the LCD, nothing is written. Assembly BACK: photo onto the back band, "
+    "backplate in with its edge notches "
     "at the left/right nubs, slide 2.5mm — locked, no flex. SIDE: photo + cover plate slide together "
     "through the slot in the left wall. The hang keyhole hides in the plate (invisible from the front); "
     "the easel stand plugs into two D2.7 plate holes. Console: GEN_FRAME PRESET=10x15 DEPTH=8 BORDER=12 "

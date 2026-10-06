@@ -1110,13 +1110,15 @@ back, the visible face points up and gets the ironing pass.
 
 **The workflow (LCD: `Tools > Frames`)**
 
-1. **Settings** — Preset (9x13 · 10x15 · 13x18 · 15x21 landscape · A6 ·
-   A5 landscape) or custom W/H, Depth, Border, Corner r, Shape, Closure,
-   Hang, Stand, Ironing, Infill, Vers.
+1. **Settings** — Preset (9x13 · 10x15 · 13x18 · A6) or custom W/H, Depth,
+   Border, Corner r, Shape, Closure, Hang, Stand, Ironing, Infill, Vers.
 2. **Create (beeps)** — the watcher checks the bed fit while generating
    (≈ 1 s), the happy tune plays and the file **auto-selects**:
-   `00_Frame_<preset>_FLATx8_V01.gcode`.
-3. Start it like any file.
+   `00_Frame_<preset>_FLATx8_V01.gcode` (Part A when the bed needs two
+   plates — one beep per plate, the number of beeps = number of files).
+3. Start it like any file. Multi-plate: after the last layer of Part A the
+   console + LCD say which file is next — **nothing auto-starts**, load and
+   start Part B yourself (same material, same settings).
 
 **What a frame consists of**
 
@@ -1126,12 +1128,13 @@ back, the visible face points up and gets the ironing pass.
 | BACKPLATE | 0.8 mm cover plate, 1.2 mm rim — hidden keyhole (TOP/BOTTOM/LEFT/RIGHT) and, with Stand, two D2.7 stud holes |
 | STAND | easel leg with two studs that plug into the backplate holes (24 mm apart) |
 | STRIP_T/B/L/R | only in the split KIT: the four frame walls as glue strips |
+| Part A / B | multi-plate: when frame + backplate do not fit side by side, the generator writes two files — `.._A_V01.gcode` (frame) and `.._B_V01.gcode` (backplate + stand). Part A auto-selects, the end-of-plate hint (console + LCD + beeps) names Part B, no auto-start |
 
 **Settings**
 
 | Setting | Range | Meaning |
 |---|---|---|
-| Preset / W·H | 40–230 mm | photo inner size; 15x21 and A5 default to landscape because their portrait backplate never fits this bed |
+| Preset / W·H | 40–230 mm | photo inner size (9x13 stays one file up to border 10; 10x15/13x18/A6 print as 2 plates on the 220 mm bed) |
 | Depth | 3–60 mm | under 15 = flat photo frame, 15+ = deep display case (same closure system) |
 | Border | 4–30 mm | frame width around the photo |
 | Corner r | 0–30 mm | corner radius (RECT only; a split kit drops it to 0 with a note) |
@@ -1142,11 +1145,18 @@ back, the visible face points up and gets the ironing pass.
 | Ironing | ON/OFF | the smooth shiny front pass |
 | Infill | 20–100 % | frame body infill (front/back bands stay solid) |
 
-**Bed-fit logic (automatic):** frame + backplate side by side fit → one piece.
-Too big and RECT → 4-strip glue kit (strips + plate + stand, every part an
-exclude object; the notes say: glue the butt joints with wood glue). Still
-too big, or OVAL → a clear console message with the border limit — the
-guard beeps and shows on the LCD, nothing half-fits.
+**Bed-fit logic (automatic, real bed 220×220 from `[r2_postproc]`):**
+
+1. frame + backplate side by side fit → **one file** (small formats).
+2. they don't, but the frame alone fits → **two plates** (R90.1a): Part A =
+   frame, Part B = backplate (+ stand). Nothing is glued, the finished
+   frame is identical to the one-piece print.
+3. even the frame alone overflows the bed (RECT only) → **4-strip glue
+   kit** (strips on plate A, backplate on plate B; every part an exclude
+   object, the notes say: glue the butt joints with wood glue).
+4. still too big, or OVAL that doesn't fit → a clear console message with
+   the border limit — the guard beeps and shows on the LCD, nothing
+   half-fits and no file is written.
 
 **Assembly (BACK):** photo lies flat onto the back band, backplate goes in
 with its edge notches at the left/right nubs, slide 2.5 mm — locked, no
@@ -1757,7 +1767,7 @@ while plotting (ch. C.3).
 | Entry | Contents |
 |---|---|
 | Info | every setting in one console listing + closure explanation |
-| Settings | Preset: Custom/9x13/10x15/13x18/15x21/A6/A5 (`*` marks active) · W + H 40–230 (custom) · Depth 3–60 mm · Border 4–30 mm · Corner r 0–30 mm · Shape RECT/OVAL · Closure BACK/SIDE · Hang TOP/BOTTOM/LEFT/RIGHT/OFF · Stand ON/OFF · Ironing ON/OFF · Infill 20–100 % · Vers V01–V09 |
+| Settings | Preset: Custom/9x13/10x15/13x18/A6 (`*` marks active) · W + H 40–230 (custom) · Depth 3–60 mm · Border 4–30 mm · Corner r 0–30 mm · Shape RECT/OVAL · Closure BACK/SIDE · Hang TOP/BOTTOM/LEFT/RIGHT/OFF · Stand ON/OFF · Ironing ON/OFF · Infill 20–100 % · Vers V01–V09 |
 | Create (beeps) | validates, bumps the job counter — the watcher checks the bed fit and builds the file, it beeps + auto-selects |
 | How it works | workflow, kit logic, bayonet/slide assembly, Mainsail one-liner |
 
@@ -2087,7 +2097,7 @@ Diagnostics: SHOW_STATUS · SELF_TEST · KAMP_STATUS · HOST_CHECK (Pi health) �
 | print a lithophane | Tools > Lithophane > Images (Create) — slot press, then start |
 | print a gasket | Tools > Gaskets > Settings, Create (beeps) |
 | print a picture frame | Tools > Frames > Settings, Create (beeps) |
-| frame as glue kit | Tools > Frames > Preset 13x18+, Create — strips + plate, glue the joints |
+| frame as glue kit | Tools > Frames > Preset 13x18, Border 16+, Create — strips + plate, glue the joints |
 | delete a lithophane image | Tools > Lithophane > Delete image — press the slot twice |
 | test ironing | Maintenance > Ironing Cal. |
 | purge / cold pull | Macros > Purge · Maintenance > Filament |
