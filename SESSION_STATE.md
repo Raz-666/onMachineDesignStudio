@@ -1,4 +1,50 @@
-# SESSION STATE — R90 FERTIG (Commit 8d32770, Tests 1054/1054, Golden 23/23)
+# SESSION STATE — R92 FERTIG (Commit 9f9f67a, Tests 1068/1068, Golden 23/23)
+
+R92 QUALITAETSPAKET fertig: (1) BETT-WAHRHEIT: _bed_limits liest [r2_postproc]-Sektion
+(bed_min_x/max_x/min_y/max_y) aus printer.cfg, ignoriert die gelifteten Steppers,
+Default Ender-3 220x220 (x 0..220, y -3..217) + Konsolen-Hinweis; _PRIME_LINE/
+_PARK_HEAD/_PURGE_STRIP lesen dieselbe Quelle; Park-Ecken nicht mehr hartkodiert
+(222/225 lagen ausserhalb des Betts); Parser-Fix [sektion]->Name. (2) FARBWECHSEL-
+PURGE: _PURGE_STRIP (neu) - CHANGE_FILAMENT_RESUME/PURGE_MORE ziehen 15mm als
+flachen 0.3mm-Streifen neben die Objekte (Front, probe-safe, hoch fahren, nur in
+freier Zone abtauchen, bis 4 Zeilen) statt E15-Klumpen an der Parkecke (Microprobe-
+Haengenbleiben beim Meshing - User-Feldbericht Label-Generator). (3) LITHO-TAGS:
+ehrliche ;TYPE (Bottom surface L1-2 / Internal solid infill Kern / Top surface
+letzte 2 / Brim / Ironing) + Haupttyp nach Brim re-asserted (Layer-1-Ribbon lief
+unter BRIM!) + TYPES-Liste; Bett-Fallback im Litho 220x217. Doku: MANUAL 7/23/
+Anhang A.2.1 + PDF 85 S. Beachte: Auf 220er Bett sind 9x13/10x15 mit border >8
+automatisch Kit (eherlich so); User muss [r2_postproc] einmalig in printer.cfg
+eintragen (Beispiel in Anhang A.2.1).
+
+USER-ENTSCHEDUNGEN (ask_user, verbindlich): Bett real 220x220 (Ursprung wie
+printer.cfg). MULTI-PLATE VOR KIT (Frame auf Plate A, Platte/Staender auf B;
+Klebe-Kit nur wenn der Rahmen selbst nicht passt). ERSTE PLATE AUTO-SELEKTIEREN
+(nicht starten). REIHENFOLGE: R92 Qualität -> R90.1 Rahmen-Erweiterung -> R91
+Textur-Tool -> R93 Datei-Check/Re-Tag.
+
+VOLLSTAENDIGE R90.1-SPEZ (nachgelieferter Prompt, alles offen ausser marks):
+Plexi/Glas/Folie/Litho-Einsatz bündig (Fuge vorder-/rückseitig, Dicke param.),
+verstecktes Kabelloch (hinten beginnend, in Innenraum gekrümmt, max von hinten
+sichtbar je Rahmen-Art mit/ohne Rueckwand/Bausatz), Front-Flip-Option (sichtbare
+Front = first layer = Bettextur, wahlweise statt Ironing), Strukturen Linien/
+Wellen/Waben (Breite/Winkel/Amplitude/Abstand/Wabengröße, nach innen/außen),
+eindeutige Einstellungen + Untermenüs, Multi-Plate-Dateien Part A/B/C +
+End-of-Plate-Hinweis mit Beeps (Anzahl = Plates), kein Auto-Link zur nächsten
+Datei (bewusst verzichtet), Bausatzmasse muessen passen.
+R91 TEXTUR-TOOL: Pre-Print-Menü, optional an/aus, Untermenü; Fuzzy-Skin (alle
+üblichen Parameter) + parametrisches Bump-Meshing (Mandelbrot/Gitter/Wellen/
+Waben, nahtlos, ugly-layer-Kaschierung), nach außen/innen wahlweise, Features/
+Tags duerfen nicht verloren gehen, separates Python-Script (lazy import, Watcher
+unbelastet), erzeugt NEUE Datei, KEIN Auto-Start sondern Hinweis "im 3D-Viewer
+anschauen". R93: LCD-System-Punkt + SSH-Einzeiler: alle Gcode scannen/taggen/
+Versionsstand pruefen mit Konsolen-Feedback.
+Purge-Tower-Belange: Prime-Line/Purge-Strip platzieren sich objektfrei; Slicer-
+eigene Prime Tower (keine exclude_objects) kann das System nicht sehen - im
+Reply erwaehnt. Rest-Backlog unveraendert (Dreieck/Stern-Formen etc. s. unten).
+
+---
+
+# VERLAUF (aeltere Runden) — R90 FERTIG (Commit 8d32770, Tests 1054/1054, Golden 23/23)
 
 R90 Bilderrahmen/Schaukasten-Generator KOMPLETT implementiert + getestet:
 make_frame (One-Piece + Auto-4-Streifen-Kit + OVAL-Fehler), Bajonett-Verschluss
