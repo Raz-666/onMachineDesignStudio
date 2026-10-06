@@ -3645,8 +3645,8 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         _v66 = _l66.split(':', 1)[1].strip()
         break
 # NOTE: bump this expectation together with the version on every release!
-tests.append(('R66/R74 version is .71 in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-09-07.71'", repr(_v66)))
+tests.append(('R66/R74 version is .72 in 01_state.cfg (bump together with release!)',
+    _v66 == "'R2-2026-09-07.72'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -6339,7 +6339,7 @@ tests.append(('R87 docs: cfg console paths say Tools (labels + plotter + generat
 
 
 # ---------- R87.2: field-log .71 fixes (polygon json, hole spiral, marker synthesis, global x feature) ----------
-import json as _json872, re as _re872, math as _math872, tempfile as _tf872
+import json as _json872, re as _re872, math as _math872, tempfile as _tf872, os as _os872
 _d872 = _tf872.mkdtemp(prefix='r872_')
 
 # --- (1) EVERY generator: every EXCLUDE_OBJECT_DEFINE POLYGON must be json (Klipper parses it) ---
@@ -6381,7 +6381,8 @@ _lines872 = ['; r872', '; layer_height = 0.2', '; line_width = 0.6', 'M82', 'G90
 for _L872 in range(1, 9):
     _lines872 += ['LAYER_MARK', ';TYPE:%s' % ['outer wall', 'sparse infill'][_L872 % 2],
                   'G0 Z%.2f F600' % (0.2 * _L872), 'G0 X10 Y10 F6000',
-                  'G1 X80 Y10 E1.0 F1200', 'G1 X80 Y80 E2.0', 'G0 X10 Y10 F6000']
+                  'G1 X80 Y10 E1.0 F1200', 'G1 X80 Y80 E2.0',
+                  'G1 X10 Y80 E3.0', 'G1 X10 Y10 E4.0', 'G0 X10 Y10 F6000']
 _src872 = _os872path = __import__('os').path.join(_d872, 'r872src.gcode')
 open(_src872, 'w', encoding='utf-8').write('\n'.join(_lines872) + '\n')
 _pp.process(_src872)
@@ -6413,6 +6414,47 @@ _src872v = __import__('os').path.join(_d872, 'r872old.gcode')
 open(_src872v, 'w', encoding='utf-8').write('\n'.join(_lines872v) + '\n')
 _out872v, _ = _pp.make_range(_src872v, 2, 5, floor=1, first_h=0.2)
 _e872v = open(_out872v, encoding='utf-8').read()
+# --- (3b) R88 bug 4: the hole clamps against the REAL outline, not the bbox ---
+_ln872L = ['; r872L', '; layer_height = 0.2', '; line_width = 0.6', 'M82', 'G90',
+           'M104 S200', 'M140 S60', 'G28', 'G92 E0']
+_e872L = 0.0
+for _L872 in range(1, 9):      # thin L: 2-segment layers, hull diagonal runs THROUGH the center
+    _ln872L += ['LAYER_MARK', ';TYPE:outer wall', 'G0 Z%.2f F600' % (0.2 * _L872),
+                'G0 X10 Y10 F6000', 'G1 X80 Y10 E1.0 F1200', 'G1 X80 Y80 E2.0']
+_src872L = _os872.path.join(_d872, 'r872L.gcode')
+open(_src872L, 'w', encoding='utf-8').write(chr(10).join(_ln872L) + chr(10))
+_out872L, _ = _pp.make_range(_src872L, 3, 6, floor=2, floor_hole=25.0)
+_t872L = open(_out872L, encoding='utf-8').read()
+tests.append(('R88 bug4: thin-L section - centered hole SKIPPED (center in air/too close to the hull edge)',
+    'real outline leaves less than 8mm' in _t872L and 'centered d=' not in _t872L,
+    [l for l in _t872L.split(chr(10)) if 'hole' in l.lower() and 'note' in l.lower()][:1]))
+_ln872T = ['; r872T', '; layer_height = 0.2', '; line_width = 0.6', 'M82', 'G90',
+           'M104 S200', 'M140 S60', 'G28', 'G92 E0']
+_e872T = 0.0
+_segs872T = [(50, 50, 150, 50), (150, 50, 150, 80), (150, 80, 80, 80), (80, 80, 80, 150),
+             (80, 150, 50, 150), (50, 150, 50, 50)]
+for _L872 in range(1, 9):      # thick L (arms 30mm): old bbox let a 50mm boss float in air
+    _ln872T += ['LAYER_MARK', ';TYPE:outer wall', 'G0 Z%.2f F600' % (0.2 * _L872),
+                'G0 X50 Y50 F6000']
+    for (_sx, _sy, _ex, _ey) in _segs872T:
+        _e872T += _math872.hypot(_ex - _sx, _ey - _sy) * 0.05
+        _ln872T.append('G1 X%g Y%g E%.4f F1200' % (_ex, _ey, _e872T))
+_src872T = _os872.path.join(_d872, 'r872T.gcode')
+open(_src872T, 'w', encoding='utf-8').write(chr(10).join(_ln872T) + chr(10))
+_out872T, _ = _pp.make_range(_src872T, 3, 6, floor=2, floor_hole=50.0)
+_t872T = open(_out872T, encoding='utf-8').read()
+_m872T = _re872.search(r'centered d=([\d.]+)mm, boss (\d+) loops', _t872T)
+tests.append(('R88 bug4: thick-L 50mm hole clamps to the real hull (~32mm, boss stays inside)',
+    _m872T is not None and 'clamped to' in _t872T and 'real outline' in _t872T
+    and 30.0 < float(_m872T.group(1)) < 35.0
+    and float(_m872T.group(1)) / 2.0 + int(_m872T.group(2)) * 0.6
+        <= 30.0 / _math872.sqrt(2) - 2.0 + 1e-9,
+    _m872T.group(1) if _m872T else 'no hole'))
+_out872O, _ = _pp.make_range(_src872T, 3, 6, floor=2, floor_shape='outline', floor_hole=50.0)
+_t872O = open(_out872O, encoding='utf-8').read()
+tests.append(('R88 bug4: OUTLINE mode - hole skipped when the true outline leaves no room',
+    'real outline leaves less than 8mm' in _t872O and 'centered d=' not in _t872O, ''))
+
 tests.append(('R87.2 range: body APPLY_TYPE re-derived from ;TYPE: when the source has none',
     _e872v.count('marker re-derived') == 4
     and _e872v.count('APPLY_TYPE TYPE=WALL-OUTER') >= 2

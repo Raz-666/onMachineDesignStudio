@@ -653,8 +653,11 @@ For cable feeds — or a lamp: a centered hole with a THICK boss ring around
 it, printed as ONE continuous spiral from the hole edge outwards — one bead
 of plastic per revolution, no seams, no travel breaks, no strings over the
 void (travels that cross the open hole retract first). The hatch stops at the
-ring's outer edge. The diameter auto-clamps to what the raft actually offers
-(console reports every change).
+ring's outer edge. The diameter auto-clamps to the section's REAL outline
+(footprint hull or true outline, whichever the floor fills) + a 2 mm margin —
+on L-shaped, round or oval sections the boss NEVER sticks out into air; if the
+center leaves no room at all the hole is skipped with a console note (every
+change is reported).
 
 | Preset | Diameter | Fits |
 |---|---|---|
@@ -2444,6 +2447,7 @@ Only the milestones — the full reasoning lives in SESSION_STATE.md.
 
 | Version | Core changes |
 |---|---|
+| .72 | field-log .71 fixes: EXCLUDE_OBJECT POLYGON as valid json (cable ties + angles/plates start crash; all 5 generators verified), global speed/accel no longer eat feature overrides (feature rides ON TOP of the global, re-applied on every change; feature accel beats the global), range holes print as ONE spiral boss with retracting travels (no more strings over the hole), APPLY_TYPE re-derived from ;TYPE: when a source carries none (everything-printed-as-solid-infill mitigation), hole diameter clamps to the REAL section outline + 2mm margin (boss never sticks out of L/round sections) |
 | .71 | LCD declutter: the four part generators (Kabelbinder, Winkel+Flach, Labels, Plotter) now live in ONE 'Tools' top-level menu — the root drops from 10 to 7 entries; guards unchanged (a missing module include hides its entry), console paths + manual follow |
 | .70 | part generators (cable ties + angles/flat connectors, LCD top menus), centered layer-range holes: floor hole with boss ring (E14/E27 presets) + bridge-first top hole, angle walls/infill/ironing (+ inner-wall fix), nozzle LED split for the EBB42 (SET_NOZZLE_SPLIT), slicing guide for any slicer, electronics chapter: U2C V2.1 + EBB42 CAN + 230 V relay (wiring lists, firmware, safety) |
 | .69 | file fixes IN PLACE (no re-upload): Pre-Print > File > RetFix file rewrites the selected file's retract pairs to G10/G11 on disk (markers survive), Vol->mm fix converts Marlin-volumetric E to mm (idempotent, beeps at start + done), start dialog auto-released; ~100 ms micro-pauses between multi-value disk writes (idle only) |

@@ -670,30 +670,108 @@ def _seg_outside_circle(p, q, cx, cy, r):
     return parts
 
 
-def _range_hole_prep(hole_d, bbox, wid, notes, what):
+def _poly_min_edge_dist(pts, cx, cy):
+    """R88 (field log .71, bug 4): min distance from (cx, cy) to the polygon
+    edges. For a CONVEX polygon (the layer ink hull / the bbox fallback rect)
+    this is exactly the radius of the largest circle around (cx, cy) that fits
+    inside the outline - concave shapes need the mask variant below."""
+    best = None
+    n = len(pts)
+    for i in range(n):
+        ax, ay = pts[i]
+        bx, by = pts[(i + 1) % n]
+        dx, dy = bx - ax, by - ay
+        l2 = dx * dx + dy * dy
+        if l2 < 1e-12:
+            d = math.hypot(cx - ax, cy - ay)
+        else:
+            t = ((cx - ax) * dx + (cy - ay) * dy) / l2
+            t = 0.0 if t < 0.0 else (1.0 if t > 1.0 else t)
+            d = math.hypot(cx - (ax + dx * t), cy - (ay + dy * t))
+        if best is None or d < best:
+            best = d
+    return best
+
+
+def _mask_center_dist(grid, res, cx, cy):
+    """R88: distance from (cx, cy) to the nearest cell the outline mask does
+    NOT cover (the true section boundary, concavities included). Chebyshev
+    ring scan with an exact early exit: every cell beyond ring k is at
+    Chebyshev distance >= k+1, and the Euclidean distance is never smaller
+    than the Chebyshev distance - so once (k+1)*res >= the best hit, no
+    unscanned cell can beat it. Cell-center approximation (error <= res*0.71)
+    is absorbed by the hole edge margin."""
+    rows, x0, y0, nx, ny = grid
+    ci = int((cx - x0) / res)
+    cj = int((cy - y0) / res)
+    if not (0 <= ci < nx and 0 <= cj < ny) or not rows[cj][ci]:
+        return 0.0                     # center itself is outside the area
+    best = None
+    k = 0
+    while k < max(nx, ny):
+        jlo, jhi = max(0, cj - k), min(ny, cj + k + 1)
+        ilo, ihi = max(0, ci - k), min(nx, ci + k + 1)
+        for j in range(jlo, jhi):
+            row = rows[j]
+            edge_j = (j == cj - k or j == cj + k)
+            for i in range(ilo, ihi):
+                if not edge_j and i != ci - k and i != ci + k:
+                    continue            # interior of the ring - already scanned
+                if not row[i]:
+                    dd = math.hypot(x0 + (i + 0.5) * res - cx,
+                                    y0 + (j + 0.5) * res - cy)
+                    if best is None or dd < best:
+                        best = dd
+        if best is not None and (k + 1) * res >= best:
+            return best
+        k += 1
+    return best if best is not None else min(nx, ny) * res
+
+
+# R88 (field log .71, bug 4): solid rim the boss outer edge keeps INSIDE the
+# real section outline - the hatch must have something to weld to outwards
+_HOLE_EDGE_MARGIN = 2.0
+
+
+def _range_hole_prep(hole_d, bbox, wid, notes, what, poly=None, grid=None, res=0.3):
     """R86.2: centered hole in a range floor/cap (cable / E14-E27 lampholder).
 
-    The diameter is clamped so the boss ring (thick wall around the hole)
-    always keeps >=5mm solid material to the edges. Returns None (off) or a
-    dict(cx, cy, r, rim, r_out)."""
+    R88 (field log .71, bug 4): the diameter is clamped against the section's
+    REAL outline - the hull polygon (FOOTPRINT mode) or the outline mask
+    (OUTLINE mode), whichever that floor/cap actually fills - so hole + boss
+    + a tolerance margin NEVER stick out of round, L-shaped or otherwise
+    non-rectangular sections. (The old clamp only knew the bounding BOX
+    around them and happily let the boss float in air.) Returns None (off) or
+    a dict(cx, cy, r, rim, r_out)."""
     d = float(hole_d or 0.0)
     if d <= 0.05:
         return None
     x0, y0, x1, y1 = bbox
     cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
-    span = min(x1 - x0, y1 - y0)
+    lim = None                         # available radius at the center
+    src = 'bounding box (fallback)'
+    if poly is not None:
+        lim = _poly_min_edge_dist(poly, cx, cy)
+        src = 'footprint hull'
+    if grid is not None:
+        m = _mask_center_dist(grid, res, cx, cy)
+        lim = m if lim is None else min(lim, m)
+        src = 'true outline'
+    if lim is None:
+        lim = min(x1 - x0, y1 - y0) / 2.0
     rim = max(3, min(6, int(round(d / 10.0))))          # boss loops (thick wall)
-    max_d = span - 2.0 * rim * wid - 10.0
-    if max_d < 8.0:
-        notes.append('%s hole skipped: the %s area is too small for a hole + boss'
-                     % (what, what))
+    max_r = lim - _HOLE_EDGE_MARGIN - rim * wid
+    if max_r < 4.0:
+        notes.append('%s hole skipped: the section\'s real outline leaves less '
+                     'than 8mm for the hole + boss' % what)
         return None
     if d < 3.0:
         d = 3.0
-    if d > max_d:
-        notes.append('%s hole %.1fmm clamped to %.1fmm (boss ring + 5mm margin)'
-                     % (what, d, max_d))
-        d = max_d
+    if d / 2.0 > max_r:
+        notes.append('%s hole %.1fmm clamped to %.1fmm - the real outline (%s) '
+                     'only fits the boss + %.1fmm margin'
+                     % (what, d, 2.0 * max_r, src, _HOLE_EDGE_MARGIN))
+        d = 2.0 * max_r
     return {'cx': cx, 'cy': cy, 'r': d / 2.0, 'rim': rim,
             'r_out': d / 2.0 + rim * wid}
 
@@ -988,12 +1066,18 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
         if anchor is None and mask1 is None:
             raise ValueError('the range layers carry no extrusion moves - '
                              'nothing to anchor a raft/brim on')
+        # R88: the shape the raft will actually fill decides which geometry
+        # clamps the hole (hull polygon vs. true-outline mask)
+        f_shape = _shape_ok(floor_shape, anchor, mask1) if floor > 0 else None
         # R86.2: centered floor hole (cable feed / E14-E27 lampholder)
         fh = None
         if floor_hole > 0 and floor > 0:
             bb = _anchor_bbox(anchor, mask1, res)
             if bb:
-                fh = _range_hole_prep(floor_hole, bb, wid, notes, 'floor')
+                fh = _range_hole_prep(floor_hole, bb, wid, notes, 'floor',
+                                      poly=anchor if f_shape == 'hull' else None,
+                                      grid=mask1 if f_shape == 'outline' else None,
+                                      res=res)
                 if fh:
                     gen.append('; R2-RANGE floor hole: centered d=%.1fmm, '
                                'boss %d loops (thick wall)' % (fh['r'] * 2.0, fh['rim']))
@@ -1007,7 +1091,6 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
         # offset by half a line width so the raft edge sits flush with the
         # model walls (ZERO gap - it welds directly to the section).
         if floor > 0:
-            f_shape = _shape_ok(floor_shape, anchor, mask1)
             gen.append('; R2-RANGE raft: %d layer(s), %s, %s fill, zero gap to the section'
                        % (floor, {'hull': 'footprint', 'outline': 'true outline'}[f_shape],
                           floor_fill))
@@ -1074,7 +1157,10 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
         else:
             bb = _anchor_bbox(hull_n, mask_n, res)
             if bb:
-                th = _range_hole_prep(top_hole, bb, wid, notes, 'cap')
+                th = _range_hole_prep(top_hole, bb, wid, notes, 'cap',
+                                      poly=hull_n if t_shape == 'hull' else None,
+                                      grid=mask_n if t_shape == 'outline' else None,
+                                      res=res)
                 if th:
                     if top < 3:
                         notes.append('cap hole: TOP auto-raised %d -> 3 layers '
