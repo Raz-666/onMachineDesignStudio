@@ -1735,7 +1735,7 @@ chapter('6','During the print: tuning, pauses, objects',
   P("While paused: heaters KEEP targets, idle timeout infinite, sensor disabled, the LCD shows the reason. "
     "Self-healing: if our mode disagrees with Klipper, the watcher re-syncs after ~5 s."),
   H2('6.3 Resume &amp; cancel'),
-  *B('RESUME: disarms confirmations, XY first then Z slowly, re-primes ooze compensation, re-applies the current '
+  *B('RESUME: disarms confirmations, returns XY, refills the park retract ON THE WAY (net -0.5mm de-ooze, never a positive extrusion at the print position - after a filament change the strip already settled the pressure), then Z slowly, re-applies the current '
      'feature type, re-applies the L1 speed brake while layer 1 runs (the brake always has the last word)',
      'CANCEL_PRINT (2x): 1st press arms, 2nd within 60 s: lift, park, heaters off, stats — override switches stay as set',
      'after EVERY end: _PRINT_CLEANUP resets per-print state (live tuning to 100 percent, layer tracking, planned '
@@ -1900,7 +1900,7 @@ chapter('12','Purge / prime line',
      'X0-13/Y0-13 at max Z4, then parks HIGH before the line/logo is drawn',
      '<b>1) Flush 6 mm</b> (E F150) after a 3 s heat soak — refills the molten pocket, presses debris out',
      '<b>2) Fat line</b> up to 110 mm, 1.2 mm wide (E from layer height) at F1200 — visible, wipes the nozzle',
-     '<b>3) Retract −2.5 mm</b> — no blob on the first perimeter',
+     '<b>3) De-ooze handover</b> (field log): retract −3.5 mm + slow push-back +3.0 mm = net −0.5 mm held back — nothing drips on the way to the part, the file\'s first extrusion fills the rest invisibly',
      'part fan OFF after every purge — a cool-down fan from the PREVIOUS print (100% for 30 s) can no longer bleed into the new first layer',
      'placement : LONGEST option wins — front strip 10 mm below the objects, left or right of them,',
      'never over them (field log: 56 mm beside vs 110 mm in front)',
@@ -2188,7 +2188,8 @@ chapter('22','Troubleshooting',
 
 
 chapter('23','Limits &amp; known behavior',
-  *B('sequential detection needs the previous object ≥ 1.6 mm tall (protects by-layer prints from z-hop false alarms)',
+  *B('nozzle diameter = printer.cfg truth: every generator reads [extruder] nozzle_diameter - line widths, E-per-mm and hatch spacing derive from it (fallback 0.6)',
+     'sequential detection needs the previous object ≥ 1.6 mm tall (protects by-layer prints from z-hop false alarms)',
      'by-feature factors are gone : the old SET_* commands are compatibility stubs — SET_GLOBAL_SPEED / SET_GLOBAL_ACCEL / SET_FLOW_RATE are the real controls',
      '"State re-synced" after object-change resumes: cosmetic self-healing (double resume through _OBJECT_PREP)',
      'AS SLICED = no injections, but homing/mesh/prime still run BEFORE the file (start choreography, not a file change)',

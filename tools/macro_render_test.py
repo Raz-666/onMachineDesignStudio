@@ -1113,7 +1113,11 @@ tests.append(('CAL_END heaters off + cooldown', 'TURN_OFF_HEATERS' in out and '_
 # ------- Runde 18: Prime-Flush, 1st-layer-speed, PA-Interceptor, Sync, Cancel-Timeout ------
 body = get_body('macros/08_print_start_stop.cfg', '_PRIME_LINE')
 out = render(body, {'LAYER_HEIGHT':'0.3'})
-tests.append(('PRIME: flush + fat line + retract', 'E6.0 F150' in out and 'E-2.5 F2400' in out and 'F1200' in out, [l for l in out.split('\n') if 'F150' in l or 'E-2.5' in l][:2]))
+tests.append(('PRIME: flush + fat line + de-ooze handover (net -0.5)',
+    'E6.0 F150' in out and 'E-3.5 F2400' in out and 'E3.0 F300' in out
+    and 'E-2.5 F2400' not in out and 'F1200' in out
+    and out.index('E3.0 F300') < out.index('RESTORE_GCODE_STATE NAME=PRIME_S'),
+    [l for l in out.split('\n') if 'F150' in l or 'E-3.5' in l or 'E3.0 F300' in l][:3]))
 out = render(body, {'LAYER_HEIGHT':'0.3'}, objs=[])
 tests.append(('PRIME: long line (110mm fallback)', 'G0 X115' in out and 'G1 X5' in out, [l for l in out.split('\n') if l.strip().startswith('G1 X')][:1]))
 
@@ -6896,6 +6900,51 @@ tests.append(('R90.1b LCD: Disc submenu (5 materials + side + thickness) + cable
     all(k in _lcd90 for k in ('__dsc __non', '__dsc __gla', '__dsc __ple',
                               '__dsc __fol', '__dsc __lit', '__dsc __sid',
                               '__dsc __thk', '__set __cab')), ''))
+
+# ============== R90.1c field fixes: resume handover, park retract tracking =======
+_rc = get_body('macros/09_pause_filament.cfg', '_RESUME_COMMON')
+state_vars.update({'mode': 'paused', 'park_retracted': True})
+_rc_hot = render(_rc, {'UNRETRACT': '-1'}, etemp=215)
+tests.append(('R90.1c resume: XY travel FIRST, refill ON THE WAY, Z last - never E at the part',
+    _rc_hot.index('G1 X') < _rc_hot.index('E3.0 F2100')
+    and _rc_hot.index('E3.0 F2100') < _rc_hot.index('E-0.5 F300')
+    and _rc_hot.index('E-0.5 F300') < _rc_hot.index('G1 Z')
+    and 'E0.8' not in _rc_hot
+    and 'park retract refilled on the way' in _rc_hot, ''))
+state_vars['park_retracted'] = False
+_rc_cold = render(_rc, {'UNRETRACT': '-1'}, etemp=215)
+tests.append(('R90.1c resume: cold park (no retract) -> no refill, mapping note',
+    'E3.0 F2100' not in _rc_cold and 'no extrusion at the print position' in _rc_cold, ''))
+_rc_fil = render(_rc, {'UNRETRACT': '0'}, etemp=215)
+tests.append(('R90.1c resume: UNRETRACT=0 (filament change) -> ZERO E moves',
+    'E3.0 F2100' not in _rc_fil and 'E-0.5' not in _rc_fil
+    and 'no extrusion at the print position' in _rc_fil, ''))
+_pk = get_body('macros/09_pause_filament.cfg', '_PARK_HEAD')
+_pk_hot = render(_pk, {}, etemp=215)
+tests.append(('R90.1c park: retract tracks park_retracted=True when hot',
+    'E-3 F2100' in _pk_hot and 'VARIABLE=park_retracted VALUE=True' in _pk_hot, ''))
+_pk_cold = render(_pk, {}, etemp=100)
+tests.append(('R90.1c park: cold -> park_retracted=False (resume pushes nothing)',
+    'E-3 F2100' not in _pk_cold and 'VARIABLE=park_retracted VALUE=False' in _pk_cold, ''))
+state_vars['mode'] = 'filament'
+state_vars['park_retracted'] = True
+_cfr = render(get_body('macros/09_pause_filament.cfg', 'CHANGE_FILAMENT_RESUME'), {},
+              ps_state='paused', etemp=215)
+tests.append(('R90.1c filament resume: strip settles pressure, resume WITHOUT object purge',
+    '_PURGE_STRIP MM=15' in _cfr and '_RESUME_COMMON UNRETRACT=0' in _cfr
+    and 'NO purge at the object' in _cfr, _cfr[:120]))
+state_vars.update({'mode': 'idle', 'park_retracted': False})
+
+# nozzle from printer.cfg
+import tempfile as _tf90c, os as _os90c
+_nz_dir = _tf90c.mkdtemp()
+_nz_cfg = _os90c.path.join(_nz_dir, 'printer.cfg')
+open(_nz_cfg, 'w').write('[extruder]\nnozzle_diameter: 0.4\n')
+tests.append(('R90.1c nozzle: generators read the REAL diameter from printer.cfg',
+    _pp._nozzle_diameter(_nz_cfg) == (0.4, True)
+    and _pp._nozzle_diameter(_os90c.path.join(_nz_dir, 'nope.cfg')) == (0.6, False)
+    and 'nozzle=_gen_nozzle(directory)' in open('tools/r2_postproc.py',
+        encoding='utf-8').read(), ''))
 
 # ===================== R92: purge strip, park corners, litho tags =================
 import struct as _st92, zlib as _zl92

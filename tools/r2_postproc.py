@@ -3636,6 +3636,57 @@ def _bed_limits(cfg_path):
     return dflt
 
 
+
+_NOZZLE_CACHE = {}
+
+
+def _nozzle_diameter(cfg_path):
+    """R90.1c(field): the REAL nozzle diameter from printer.cfg [extruder]
+    (nozzle_diameter:) - ONE truth for every generator (line widths, E per mm,
+    hatch spacing all derive from it). Fallback 0.6 (the machine default).
+    Returns (diameter, from_cfg)."""
+    try:
+        _ck = (cfg_path, os.path.getmtime(cfg_path))
+    except OSError:
+        _ck = (cfg_path, -1)
+    if _ck in _NOZZLE_CACHE:
+        return _NOZZLE_CACHE[_ck]
+    val, ok = 0.6, False
+    try:
+        with open(cfg_path, errors='replace') as f:
+            cur = None
+            for l in f:
+                ls = l.strip()
+                if ls.startswith('[') and ls.endswith(']'):
+                    cur = ls[1:-1].strip().lower()
+                elif cur == 'extruder' and ':' in ls and not ls.startswith(('#', ';')):
+                    k, v = ls.split(':', 1)
+                    if k.strip().lower() == 'nozzle_diameter':
+                        try:
+                            val = max(0.1, min(float(v.split('#')[0].split(';')[0]), 2.0))
+                            ok = True
+                        except ValueError:
+                            pass
+                        break
+    except OSError:
+        pass
+    _NOZZLE_CACHE[_ck] = (val, ok)
+    return val, ok
+
+
+def _gen_nozzle(directory):
+    """R90.1c(field): nozzle diameter for the watcher's generator calls -
+    reads printer.cfg [extruder] nozzle_diameter next to the gcodes folder.
+    One console line when it deviates from the 0.6 machine default (line
+    widths / E-per-mm / hatch spacing all derive from it)."""
+    val, ok = _nozzle_diameter(os.path.join(
+        os.path.dirname(os.path.abspath(directory).rstrip('/')),
+        'config', 'printer.cfg'))
+    if ok and abs(val - 0.6) > 0.01:
+        print(f'[gen] nozzle {val}mm from printer.cfg - line widths adapt',
+              flush=True)
+    return val
+
 def _safe_label_name(t):
     return (re.sub(r'[^A-Za-z0-9_.-]+', '', t)[:16] or 'label')
 
@@ -9661,7 +9712,7 @@ def watch(directory, interval=5.0, once=False):
                         gap=_vf('label_gap', 6),
                         color2=_vb('label_color2', True),
                         material=str(rv.get('material', 'PLA') or 'PLA'),
-                        bed=cfg_bed, out_dir=directory,
+                        bed=cfg_bed, nozzle=_gen_nozzle(directory), out_dir=directory,
                         version=max(1, min(int(_vf('gen_version', 1)), 99)))
                     fitmsg = '%d fit (%dx%d), using %d' % (
                         info_l['fit'], info_l['cols'], info_l['rows'], info_l['count'])
@@ -9736,7 +9787,7 @@ def watch(directory, interval=5.0, once=False):
                         layer_h=_vft('tie_layer_h', 0.2),
                         brim=_vbt('tie_brim', True),
                         material=str(rv.get('material', 'PLA') or 'PLA'),
-                        bed=cfg_bed, out_dir=directory,
+                        bed=cfg_bed, nozzle=_gen_nozzle(directory), out_dir=directory,
                         version=max(1, min(int(_vft('gen_version', 1)), 99)))
                     _rel86t = os.path.relpath(
                         os.path.join(directory, info_t['file']), directory)
@@ -9810,7 +9861,7 @@ def watch(directory, interval=5.0, once=False):
                         flat=_vba('angle_flat', False),
                         layer_h=_vfa('angle_layer_h', 0.2),
                         material=str(rv.get('material', 'PLA') or 'PLA'),
-                        bed=cfg_bed, out_dir=directory,
+                        bed=cfg_bed, nozzle=_gen_nozzle(directory), out_dir=directory,
                         version=max(1, min(int(_vfa('gen_version', 1)), 99)))
                     _rel86a = os.path.relpath(
                         os.path.join(directory, info_a['file']), directory)
@@ -9913,7 +9964,7 @@ def watch(directory, interval=5.0, once=False):
                     brim_loops=max(0, min(int(_vfl89('litho_brim', 6)), 10)),
                     ironing=_vbl89('litho_ironing', False),
                     material=str(rv.get('material', 'PLA') or 'PLA'),
-                    bed=_bed89, out_dir=directory,
+                    bed=_bed89, nozzle=_gen_nozzle(directory), out_dir=directory,
                     version=max(1, min(int(_vfl89('gen_version', 1)), 99)))
 
                 def _litho_job89(p=_p89, params=_params89, src=_src89):
@@ -9980,7 +10031,7 @@ def watch(directory, interval=5.0, once=False):
                     ironing=_vbs89('seal_ironing', False),
                     layer_h=_vfs89('seal_layer_h', 0.2),
                     material=str(rv.get('material', 'PLA') or 'PLA'),
-                    bed=_bed89s, out_dir=directory,
+                    bed=_bed89s, nozzle=_gen_nozzle(directory), out_dir=directory,
                     version=max(1, min(int(_vfs89('gen_version', 1)), 99)))
                 _rel89s = os.path.relpath(
                     os.path.join(directory, info_s['file']), directory)
@@ -10062,7 +10113,7 @@ def watch(directory, interval=5.0, once=False):
                         s_size=_vf90('frame_s_size', 8.0),
                         s_dir=_vs90('frame_s_dir', 'OUT', ('IN', 'OUT')),
                         material=str(rv.get('material', 'PLA') or 'PLA'),
-                        bed=_bed90, out_dir=directory,
+                        bed=_bed90, nozzle=_gen_nozzle(directory), out_dir=directory,
                         version=max(1, min(int(_vf90('gen_version', 1)), 99)))
                 except ValueError as ve:
                     print(f'[frame] guard: {ve}', flush=True)
@@ -10223,7 +10274,8 @@ def watch(directory, interval=5.0, once=False):
                         layer_h=_vf64('bridge_layer_h', 0.2),
                         first_h=_vf64('bridge_first_h', 0.28),
                         material=str(rv.get('material', 'PLA') or 'PLA'),
-                        bed=cfg_bed, out_dir=directory)
+                        bed=cfg_bed, nozzle=_gen_nozzle(directory),
+                        out_dir=directory)
                     try:
                         _moonraker_gcode(
                             'RESPOND MSG="Bridging test: %s - long %.0fmm, short %.0fmm '

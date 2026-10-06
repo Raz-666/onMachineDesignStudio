@@ -2056,6 +2056,10 @@ Diagnostics: SHOW_STATUS · SELF_TEST · KAMP_STATUS · HOST_CHECK (Pi health) �
 
 ## 23. Limits & known behavior
 
+- **nozzle diameter = printer.cfg truth**: every generator (labels, ties,
+  angles, frames, litho, seals, bridge) reads `[extruder] nozzle_diameter`
+  from printer.cfg — line widths, E-per-mm and hatch spacing all derive from
+  it (fallback 0.6, console note when it deviates)
 - sequential detection needs the previous object ≥1.6 mm tall (protects by-layer prints)
 - legacy files (no APPLY_TYPE): feature factors apply instantly, but only the
   GLOBAL factor is re-applied at layer 2 / after resumes
