@@ -2573,7 +2573,9 @@ tests.append(('R60 LCD Live > Features: guards + original rows + re-APPLY on the
     and '[File] WALL-OUTER ORIGINAL' in _lcd58, 'guards'))
 
 # --- 5) Live > File = full mirror ---
-_lf60 = _re59.search(r'\[menu __main __live __file\].*?(?=\n\[menu __main __live __chot\])', _lcd58, _re59.S)
+# R-audit: Live > File ist jetzt der LETZTE Live-Punkt (Reihenfolge-Umbau:
+# Zoff zu den Babysteps, Thermik zusammen, Info-Listen nach hinten)
+_lf60 = _re59.search(r'\[menu __main __live __file\](?:(?!\[menu __main (?!__live __file)[^\]]*\]).)*', _lcd58, _re59.S)
 tests.append(('R60 LCD Live > File: full mirror (measured spd/acc + 12 activators + temps/PA/retract)',
     _lf60 is not None and all(k in _lf60.group(0) for k in
         ['__acwall]', '__acbrim]', '__spd]', '__acc]', '__noz]', '__h]', '__b]', '__p]', '__r]', '__f]', '__fl]', '__a]', '__lw]', '__fr]'])

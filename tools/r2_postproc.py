@@ -90,6 +90,7 @@ TYPE_MAP = {
     'internal solid infill': 'INFILL-SOLID',
     'gap infill': 'GAPS',
     'top surface': 'SURFACE-TOP',
+    'top surface infill': 'SURFACE-TOP',      # R90.1b: frame structure layers
     'bottom surface': 'SURFACE-BOTTOM',
     'support': 'SUPPORT',
     'support interface': 'SUPPORT',

@@ -60,12 +60,23 @@ labels/litho/seal/resonance/bridge) haben weiterhin Bett-Default 244x238
 hardcoded — Produktion unberührt (Watcher übergibt _bed_limits), nur direkte
 CLI-Testnutzung. Bei Gelegenheit vereinheitlichen.
 
-R90.1 REST FERTIG (dieser Commit). WEITER: GROSSES SYSTEM-AUDIT laufend
-(User-Auftrag: alles als Nutzer durchgehen — LCD-Menü-Struktur/Gruppierung z.B.
-Z-Offset+Babysteps zusammen im Live-Tuning, Befehlsfluten/MCU-Last/PACE prüfen,
-Sicherheit bei technischen/elektrischen Fehlern, Simulationsläufe über alle
-Generatoren/Makro-Kombinationen, LCD-Bedienbarkeit). Danach R91 Textur-Tool,
-R93 Datei-Check. Release .73-Entscheidung per ask_user (m). Dreieck/Stern Backlog.
+R90.1 REST FERTIG. SYSTEM-AUDIT FERTIG (dieser Commit, Details AUDIT_REPORT.md):
+(1) 4 Bugs gefixt: _rr_pts-Sternkontur + _convex_intervals-Vorzeichen (beide
+KRITISCH, R90-Rahmen waeren Bowtie-Schalen ohne Regal gewesen — schon in
+R90.1b committet), TYPE_MAP 'top surface infill' -> SURFACE-TOP (Struktur-
+Layer waren CUSTOM). (2) tools/audit_sweep.py NEU: 59-Dateien-Matrix ueber
+alle Generatoren mit Invarianten (Bett, Z, EXCLUDE, APPLY_TYPE, PRINT_END-
+Rahmung, Move-Rate < 400/s) — 0 FAIL, vor Releases laufen lassen.
+(3) Befehlsfluten: _PACE flächendeckend, Worst-Case 373/s (Labels, feldbewährt)
+unter dem 450/s-Seriell-Budget — keine MCU-Shutdown-Quelle. (4) Live-Tuning-
+Menü thematisch umgeordnet: Zoff direkt zu den Babysteps, Thermik (Hot/Bed/
+Fan + Temps&Fan) gruppiert, 30-Punkte-File-Info ans Ende; alle Submenüs
+unangetastet. Backlog: Pre-Print-File-Info mischt Plotter-Overrides, 244er-
+Default bei Neben-Generatoren.
+
+WEITER: R91 Textur-Tool (separates Script, lazy, kein Auto-Start, Viewer-
+Hinweis), R93 Datei-Check (LCD+SSH). Release .73-Entscheidung per ask_user (m).
+Dreieck/Stern Backlog.
 
 R92.1 (FERTIG, 1ec3bd1): Parameter-Modell eff = Basis × GLOBAL × FEATURE; Flow
 multiplikativ (Fix: Feature-% bezog sich absolut auf Globalen), Feature-Accels
