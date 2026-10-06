@@ -1386,13 +1386,16 @@ import re as _re40
 m220 = get_body('macros/06_temp_controls.cfg', 'M220')
 state_vars.update({'mode':'printing','layer':1,'ignore_overrides':False})
 out = render(m220, {'S':100})
-tests.append(('M220 layer1: S100 capped to 75', 'M99220 S75' in out and 'capped' in out, out[:160]))
+tests.append(('M220 layer1: S100 capped to 75 (R87.2: value goes out via _SPEED_COMBINED)',
+    'capped' in out and '_SPEED_COMBINED' in out and 'VARIABLE=g_speed_clean VALUE=75' in out, out[:160]))
 state_vars['layer'] = 2
 out = render(m220, {'S':100})
-tests.append(('M220 layer2: 1:1 pass-through', 'M99220 S100' in out and 'capped' not in out, out[:120]))
+tests.append(('M220 layer2: 1:1 pass-through (via _SPEED_COMBINED)',
+    '_SPEED_COMBINED' in out and 'capped' not in out and 'VARIABLE=g_speed_clean VALUE=100' in out, out[:120]))
 state_vars['ignore_overrides'] = True; state_vars['layer'] = 1
 out = render(m220, {'S':100})
-tests.append(('M220 as-sliced: 1:1 (no cap)', 'M99220 S100' in out and 'capped' not in out, out[:120]))
+tests.append(('M220 as-sliced: 1:1 (no cap, via _SPEED_COMBINED)',
+    '_SPEED_COMBINED' in out and 'capped' not in out and 'VARIABLE=g_speed_clean VALUE=100' in out, out[:120]))
 state_vars.update({'mode':'printing','layer':2,'ignore_overrides':False})
 
 # --- HOME2 always purges ---
@@ -2475,11 +2478,11 @@ state_vars.update({'mode':'printing','layer':1,'ignore_overrides':False})
 save_vars.update({'first_layer_speed':75})
 out = render(_m59, {'S':90})
 tests.append(('R59 M220 L1-cap: g_speed_clean = 75 (not 90)',
-    'M99220 S75' in out and 'VARIABLE=g_speed_clean VALUE=75' in out, out[:200]))
+    'VARIABLE=g_speed_clean VALUE=75' in out and 'capped' in out and '_SPEED_COMBINED' in out, out[:200]))
 state_vars['layer'] = 2
 out = render(_m59, {'S':90})
 tests.append(('R59 M220 pass-through: g_speed_clean = 90',
-    'M99220 S90' in out and 'VARIABLE=g_speed_clean VALUE=90.0' in out, out[:200]))
+    'VARIABLE=g_speed_clean VALUE=90.0' in out and 'capped' not in out and '_SPEED_COMBINED' in out, out[:200]))
 out = render(_m59, {'S':100})
 tests.append(('R59 M220 S100: g_speed_clean = 100 (APPLY_TYPE else-branch base)',
     'VARIABLE=g_speed_clean VALUE=100.0' in out, out[:200]))
@@ -4276,8 +4279,8 @@ _m20473 = get_body('macros/06_temp_controls.cfg', 'M204')
 state_vars.update({'live_accel': 4200, 'current_type': 'WALL-OUTER'})
 save_vars.update({'ovf_wallouter_on': True, 'ovf_wallouter_acc': 1500})
 out = render(_m20473, {'S': 800})
-tests.append(('R73 M204: LIVE accel beats feature accel re-applies',
-    'M99204 S4200' in out, out[:110]))
+tests.append(('R73/R87.2 M204: FEATURE accel beats the live global (field log .71)',
+    'M99204 S1500' in out, out[:110]))
 state_vars['live_accel'] = 0
 out = render(_m20473, {'S': 800})
 tests.append(('R73 M204: without a live value the feature accel rules',
@@ -4288,11 +4291,11 @@ save_vars.update({'first_layer_speed': 75})
 state_vars.update({'layer': 1, 'l1_speed_user': True})
 out = render(_m22073, {'S': 120})
 tests.append(('R73 M220: user speed leads on layer 1 (no more capped lock)',
-    'M99220 S120' in out and 'capped' not in out, out[:110]))
+    'VARIABLE=g_speed_clean VALUE=120' in out and 'capped' not in out and '_SPEED_COMBINED' in out, out[:110]))
 state_vars['l1_speed_user'] = False
 out = render(_m22073, {'S': 120})
 tests.append(('R73 M220: without a live takeover the L1 brake still caps',
-    'M99220 S75' in out and 'capped' in out, out[:110]))
+    'VARIABLE=g_speed_clean VALUE=75' in out and 'capped' in out and '_SPEED_COMBINED' in out, out[:110]))
 
 _lm73 = get_body('macros/06_temp_controls.cfg', 'LAYER_MARK')
 state_vars.update({'mode': 'printing', 'layer': 1, 'g_speed_clean': 120, 'l1_speed_user': True})
@@ -6333,6 +6336,107 @@ tests.append(('R87 docs: cfg console paths say Tools (labels + plotter + generat
     open('macros/16_labels.cfg', encoding='utf-8').read().count('Tools > Labels >') == 4
     and open('macros/12_maintenance.cfg', encoding='utf-8').read().count('Tools > Plotter >') == 4
     and 'Tools > Kabelbinder / Winkel+Flach' in open('macros/17_generator.cfg', encoding='utf-8').read(), ''))
+
+
+# ---------- R87.2: field-log .71 fixes (polygon json, hole spiral, marker synthesis, global x feature) ----------
+import json as _json872, re as _re872, math as _math872, tempfile as _tf872
+_d872 = _tf872.mkdtemp(prefix='r872_')
+
+# --- (1) EVERY generator: every EXCLUDE_OBJECT_DEFINE POLYGON must be json (Klipper parses it) ---
+import math as _math872b, os as _os872b
+_csv872 = _os872b.path.join(_d872, 'resonances_x_20261006_120000.csv')
+with open(_csv872, 'w') as _fh872:
+    _fh872.write('freq,psd_x,psd_x_smooth_min,psd_x_smooth,psd_x_smooth_max,harmonics_x\n')
+    for _i872 in range(60):
+        _fh872.write('%.1f,%.6f,%.6f,%.6f,%.6f,%.6f\n' % (5.0 + _i872 * 0.5, 1.0, 0.8, 1.0, 1.2, 0.1))
+_files872 = []
+for _ret872 in (_pp.make_labels(['TEST'], out_dir=_d872),
+                _pp.make_resonance(axes=('x',), mode='print', out_dir=_d872, csv_dirs=[_d872]),
+                _pp.make_bridge(out_dir=_d872),
+                _pp.make_cable_ties(count=2, length=90, width=6, layers=3, variant='LATCH',
+                                    out_dir=_d872, bed=(0.0, -3.0, 244.0, 238.0)),
+                _pp.make_angles(out_dir=_d872)):
+    _h872 = _ret872[0] if isinstance(_ret872, tuple) else _ret872
+    _files872.extend(_h872 if isinstance(_h872, list) else [_h872])
+_polys872 = []
+for _f872 in _files872:
+    for _l872 in open(_f872, encoding='utf-8'):
+        _m872 = _re872.search(r'POLYGON=(\S+)', _l872)
+        if _m872:
+            _polys872.append(_m872.group(1).strip())
+def _poly_ok872(s):
+    try:
+        v = _json872.loads(s)
+        return isinstance(v, list) and len(v) >= 3 and all(
+            isinstance(p, list) and len(p) == 2 for p in v)
+    except Exception:
+        return False
+tests.append(('R87.2 ties+angles: all POLYGON definitions are json ([[x,y],...], no whitespace)',
+    len(_polys872) >= 3 and all(_poly_ok872(p) for p in _polys872),
+    '%d polys, bad: %s' % (len(_polys872), [p[:40] for p in _polys872 if not _poly_ok872(p)][:2])))
+
+# --- (2) floor hole: spiral boss + retracting travels + nothing extrudes inside the hole ---
+_lines872 = ['; r872', '; layer_height = 0.2', '; line_width = 0.6', 'M82', 'G90',
+             'M104 S200', 'M140 S60', 'G28', 'G92 E0']
+for _L872 in range(1, 9):
+    _lines872 += ['LAYER_MARK', ';TYPE:%s' % ['outer wall', 'sparse infill'][_L872 % 2],
+                  'G0 Z%.2f F600' % (0.2 * _L872), 'G0 X10 Y10 F6000',
+                  'G1 X80 Y10 E1.0 F1200', 'G1 X80 Y80 E2.0', 'G0 X10 Y10 F6000']
+_src872 = _os872path = __import__('os').path.join(_d872, 'r872src.gcode')
+open(_src872, 'w', encoding='utf-8').write('\n'.join(_lines872) + '\n')
+_pp.process(_src872)
+_out872, _ = _pp.make_range(_src872, 3, 6, floor=3, floor_hole=25.0, first_h=0.2)
+_e872 = open(_out872, encoding='utf-8').read()
+_raft872 = _e872[_e872.index('raft layer 1'):_e872.index('raft layer 2')]
+_spiral872 = len([l for l in _raft872.split('\n') if 'F1200' in l and l.startswith('G1 ')])
+_rets872 = len(_re872.findall(r'G1 E-?[\d.]+ F2400', _raft872))
+_bad872 = 0
+for _l872 in _raft872.split('\n'):
+    _m872 = _re872.match(r'G1 X(\S+) Y(\S+) E(\S+) F1200', _l872)
+    if _m872 and float(_m872.group(3)) > 0:
+        if _math872.hypot(float(_m872.group(1)) - 45.0, float(_m872.group(2)) - 45.0) < 12.0:
+            _bad872 += 1
+tests.append(('R87.2 range hole: spiral boss (1 continuous stroke) fills the band',
+    _spiral872 >= 150, 'F1200 moves in raft layer 1: %d' % _spiral872))
+tests.append(('R87.2 range hole: travels over the hole RETRACT (strings fix .71)',
+    _rets872 >= 4, 'retract lines: %d' % _rets872))
+tests.append(('R87.2 range hole: nothing extrudes inside the open hole',
+    _bad872 == 0, 'inside: %d' % _bad872))
+
+# --- (3) body markers re-derived when the source carries no APPLY_TYPE (v1 tag era) ---
+_lines872v = ['; old', 'M82', 'G90', 'M104 S200', 'M140 S60', 'G28', 'G92 E0']
+for _L872 in range(1, 7):
+    _lines872v += ['LAYER_MARK', ';TYPE:%s' % ['outer wall', 'top surface'][_L872 % 2],
+                   'G0 Z%.2f F600' % (0.2 * _L872), 'G0 X10 Y10 F6000',
+                   'G1 X70 Y10 E1.0 F1200', 'G1 X70 Y70 E2.0']
+_src872v = __import__('os').path.join(_d872, 'r872old.gcode')
+open(_src872v, 'w', encoding='utf-8').write('\n'.join(_lines872v) + '\n')
+_out872v, _ = _pp.make_range(_src872v, 2, 5, floor=1, first_h=0.2)
+_e872v = open(_out872v, encoding='utf-8').read()
+tests.append(('R87.2 range: body APPLY_TYPE re-derived from ;TYPE: when the source has none',
+    _e872v.count('marker re-derived') == 4
+    and _e872v.count('APPLY_TYPE TYPE=WALL-OUTER') >= 2
+    and 're-derived from the ;TYPE: comments' in _e872v, 'count %d' % _e872v.count('marker re-derived')))
+
+# --- (4) global speed x feature: _SPEED_COMBINED (M220 path) ---
+_sc872 = get_body('macros/06_temp_controls.cfg', '_SPEED_COMBINED')
+state_vars.update({'mode': 'printing', 'ignore_overrides': False, 'current_type': 'WALL-OUTER',
+                   'g_speed_clean': 150.0, 'absent_features': []})
+save_vars.update({'ovf_wallouter_on': True, 'ovf_wallouter_spd': 200.0})
+out = render(_sc872, {})
+tests.append(('R87.2 speed: global 150% x feature 200% = 300% (not 150 - field log .71)',
+    'M99220 S300' in out and 'stays on top' in out, out[:150]))
+state_vars['current_type'] = ''
+out = render(_sc872, {})
+tests.append(('R87.2 speed: without a feature the global applies 1:1',
+    'M99220 S150' in out and 'stays on top' not in out, out[:120]))
+
+# --- (5) SET_GLOBAL_ACCEL keeps a feature accel ---
+state_vars.update({'current_type': 'WALL-OUTER', 'live_accel': 0})
+save_vars.update({'ovf_wallouter_acc': 1000.0})
+out = render(get_body('macros/10_live_tuning.cfg', 'SET_GLOBAL_ACCEL'), {'ACCEL': '4000'})
+tests.append(('R87.2 accel: global 4000 keeps the feature accel 1000 (message + value)',
+    'ACCEL=1000' in out and 'keeps its own' in out and 'live_accel VALUE=4000' in out, out[:160]))
 
 fails = 0
 for name, ok, info in tests:

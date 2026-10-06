@@ -649,9 +649,12 @@ to SOLID). Prints over the last range layer at the original layer spacing.
 
 **Floor hole — a centered hole in the base (Fl.hole, 0–80 mm)**
 
-For cable feeds — or a lamp: a centered hole with a THICK boss ring (3–6 wall
-loops) around it, the hatch stops at the ring's outer edge. The diameter
-auto-clamps to what the raft actually offers (console reports every change).
+For cable feeds — or a lamp: a centered hole with a THICK boss ring around
+it, printed as ONE continuous spiral from the hole edge outwards — one bead
+of plastic per revolution, no seams, no travel breaks, no strings over the
+void (travels that cross the open hole retract first). The hatch stops at the
+ring's outer edge. The diameter auto-clamps to what the raft actually offers
+(console reports every change).
 
 | Preset | Diameter | Fits |
 |---|---|---|
@@ -669,7 +672,7 @@ The tricky one — a hole in a horizontal ceiling means printing over open air.
 The generator does it BRIDGE-FIRST: cap layer 1 bridges over the void with an
 anchor ring exactly at the hole edge — every clipped hatch line welds onto
 that ring, so the edge cannot sag and the hole stays OPEN from layer 1. Layers
-2+ open the hole with the same boss ring as the floor. A top hole auto-raises
+2+ open the hole with the same spiral boss as the floor. A top hole auto-raises
 Top to 3 layers (bridge + 2 solid) — more Top layers = thicker rim.
 
 **Brim — loops around the start (0–10)**
@@ -1009,10 +1012,12 @@ tuning works in EVERY start mode — including AS SLICED and while plotting.
 ### 6.1 Live tuning reference
 
 ```
-Speeds:  SET_GLOBAL_SPEED PERCENT=20..300 (never capped) — ONE global factor
+Speeds:  SET_GLOBAL_SPEED PERCENT=20..300 (never capped) — ONE global factor; the
+         running feature's % re-applies on top immediately
 Feature: SET_OVERRIDE_VALUE NAME=feat_spd_<code> VALUE= · NAME=feat_acc_<code> VALUE= · NAME=feat_on_<code> VALUE=1|0
          (12 feature codes) · SET_IRONING_FLOW PERCENT=
-Accel:   SET_GLOBAL_ACCEL ACCEL= — the global accel
+Accel:   SET_GLOBAL_ACCEL ACCEL= — the global accel; a feature with its own accel
+         keeps it (feature beats the global)
 Limits:  SET_LIVE_VELOCITY VELOCITY= · SET_LIVE_MINIMUM_CRUISE_RATIO VALUE= (each confirms "[OK] … -> Klipper") ·
          SET_LIVE_SQUARE_CORNER VALUE=
 Extrusion: SET_FLOW_RATE PERCENT=1..300 · SET_LIVE_PRESSURE_ADVANCE VALUE= ·
@@ -1191,7 +1196,11 @@ never multiplied by anything else. **Per-feature values sit ON TOP of the clean
 global value and never change it**: Feature speed = percent x global (e.g.
 global 80 + wall 80 -> wall segments run at 64, the next feature is back at
 80 — no decay). Feature accel is absolute (mm/s²) and replaces the file's M204
-while that feature prints.
+while that feature prints. Two rules keep it intuitive when BOTH are set:
+every global speed change re-applies the running feature on the spot (global
+100 -> 150 with wall at 200% moves the wall from 200 to 300%, not back to
+150), and a feature with its own accel KEEPS it — the global accel rules
+everything that prints without one.
 
 **Why the redesign (field log):** the old
 APPLY_TYPE ran through the M220 interceptor — 75% brake x 80% wall multiplied
@@ -1990,8 +1999,8 @@ All 137 public macros with parameters (defaults in parentheses; blank = no param
 |---|---|---|
 | **APPLY_TYPE** | TYPE='' | feature switch: sets current_type + applies the active overrides for THIS feature (speed % x clean global via M99220, absolute accel via M99204, ironing flow via M99221) — injected after every ;TYPE: by the post-processor |
 | **SET_OVERRIDE_VALUE** | NAME, VALUE | generic: NAME=feat_spd_<code> / feat_acc_<code> / feat_on_<code> for 12 codes + all legacy names; feat_on=0 resets speed→100% + accel→file M204 + ironing flow→slicer value |
-| **SET_GLOBAL_SPEED** | PERCENT=100 | global speed % (M220 style, never capped) |
-| **SET_GLOBAL_ACCEL** | ACCEL=4000 | global acceleration, mm/s² |
+| **SET_GLOBAL_SPEED** | PERCENT=100 | global speed % (M220 style, never capped); the running feature stays on top — re-applied immediately |
+| **SET_GLOBAL_ACCEL** | ACCEL=4000 | global acceleration, mm/s²; a feature with its own accel keeps it |
 | **SET_LIVE_VELOCITY** | VELOCITY=300 | max velocity, live |
 | **SET_LIVE_MINIMUM_CRUISE_RATIO** | VALUE=0.5 | minimum cruise ratio, live |
 | **SET_LIVE_SQUARE_CORNER** | VALUE=5 | square corner velocity, live |

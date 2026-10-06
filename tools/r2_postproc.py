@@ -539,11 +539,40 @@ class _GenE:
         self.out = out
         self.e_rel = e_rel
         self.acc = 0.0
+        self.px = None            # R87.2: pen position (travel retract logic)
+        self.py = None
+        self.hole = None          # (cx, cy, r) - travels crossing it retract
+        self.ret_mm = 0.6         # R87.2: retract over open holes (direct drive)
+        self.ret_feed = 2400
         if not e_rel:
             out.append('G92 E0   ; R2-RANGE: generated geometry E starts at 0')
 
+    def _retract(self):
+        if self.e_rel:
+            self.out.append('G1 E-%.3f F%d' % (self.ret_mm, self.ret_feed))
+        else:
+            self.acc -= self.ret_mm
+            self.out.append('G1 E%.5f F%d' % (self.acc, self.ret_feed))
+
+    def _unretract(self):
+        if self.e_rel:
+            self.out.append('G1 E%.3f F%d' % (self.ret_mm, self.ret_feed))
+        else:
+            self.acc += self.ret_mm
+            self.out.append('G1 E%.5f F%d' % (self.acc, self.ret_feed))
+
     def move(self, x, y, feed):
+        # R87.2: a travel over the OPEN hole retracts first - unretracted
+        # crossings dragged strings across the hole (field log .71)
+        crosses = (self.hole is not None and self.px is not None
+                   and _seg_hits_circle((self.px, self.py), (x, y),
+                                        self.hole[0], self.hole[1], self.hole[2]))
+        if crosses:
+            self._retract()
         self.out.append('G0 X%.3f Y%.3f F%d' % (x, y, feed))
+        if crosses:
+            self._unretract()
+        self.px, self.py = x, y
 
     def line(self, x0, y0, x1, y1, e_per_mm, feed):
         d = math.hypot(x1 - x0, y1 - y0)
@@ -555,6 +584,7 @@ class _GenE:
         else:
             self.acc += e
             self.out.append('G1 X%.3f Y%.3f E%.5f F%d' % (x1, y1, self.acc, feed))
+        self.px, self.py = x1, y1
 
     def loop(self, pts, e_per_mm, feed):
         self.move(pts[0][0], pts[0][1], 4800)
@@ -563,6 +593,53 @@ class _GenE:
             self.line(px, py, x, y, e_per_mm, feed)
             px, py = x, y
         self.line(px, py, pts[0][0], pts[0][1], e_per_mm, feed)
+
+    def loop_open(self, pts, e_per_mm, feed):
+        # R87.2: open polyline (the hole spiral must NOT close back)
+        self.move(pts[0][0], pts[0][1], 4800)
+        px, py = pts[0]
+        for (x, y) in pts[1:]:
+            self.line(px, py, x, y, e_per_mm, feed)
+            px, py = x, y
+
+
+def _seg_hits_circle(p, q, cx, cy, r):
+    """R87.2: does segment (p,q) pass closer than r to (cx,cy)?
+
+    Travel moves that cross an open range hole drag strings across it
+    (field log .71: 'the floor fills straight over the hole, filament hangs
+    in it') - _GenE uses this to retract before such travels."""
+    dx, dy = q[0] - p[0], q[1] - p[1]
+    a = dx * dx + dy * dy
+    if a < 1e-12:
+        return (p[0] - cx) ** 2 + (p[1] - cy) ** 2 < r * r
+    t = max(0.0, min(1.0, ((cx - p[0]) * dx + (cy - p[1]) * dy) / a))
+    hx, hy = p[0] + t * dx, p[1] + t * dy
+    return (hx - cx) ** 2 + (hy - cy) ** 2 < r * r
+
+
+def _spiral_ring(g, cx, cy, r, r_out, wid, e_per_mm, feed):
+    """R87.2: the boss ring around a hole as ONE CONTINUOUS archimedean
+    spiral from the hole edge out to r_out.
+
+    Field log .71: the discrete rim loops + clipped hatch left strings across
+    the open hole (travels crossed it unretracted). The spiral fills the whole
+    band in a single stroke - no travel inside the band at all - and the hatch
+    only starts outside r_out (its remaining crossing travels retract via
+    _GenE.hole). Same wall thickness as the old rim loops."""
+    r0 = r + wid / 2.0                 # wall inner edge touches the hole
+    if r_out <= r0:
+        r_out = r0 + wid * 0.5
+    turns = max(1, int(math.ceil((r_out - r0) / max(wid * 0.95, 0.05))))
+    spt = 56                           # points per turn (smooth up to d=80mm)
+    total = turns * spt
+    pts = []
+    for k in range(total + 1):
+        frac = k / float(total)
+        rr = r0 + (r_out - r0) * frac
+        ang = 2.0 * math.pi * frac * turns
+        pts.append((cx + rr * math.cos(ang), cy + rr * math.sin(ang)))
+    g.loop_open(pts, e_per_mm, feed)
 
 
 def _seg_outside_circle(p, q, cx, cy, r):
@@ -690,6 +767,7 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
     lay1_done = False
     layn_on = False
     body_done = False
+    b_idx = None          # R87.2: raw index where the body ends (mark of end+1)
     # modal state at the cut: E mode/value, F, Z, fan, heater targets
     # (R73: comment-tolerant - 'M83 ; use relative...' counts as M83)
     e_rel = False
@@ -741,6 +819,7 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
             if is_mark and mc == end_raw + 1:
                 layn_on = False
                 body_done = True       # this line is b (exclusive) - body ends here
+                b_idx = i
             if layn_on:
                 layn.append(line)
             # modal state of the head (lines[:a], exclusive of the cut mark)
@@ -810,6 +889,27 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                         if mx and my:
                             fx, fy = float(mx.group(1)), float(my.group(1))
     last_layer = cur_layer
+
+    # R87.2: body feature diagnostics (field log .71: the model printed as
+    # 'solid infill' all the way - the body carried no APPLY_TYPE markers, so
+    # the floor's type stayed active). Count what layers start..end carry.
+    body_types = 0      # ;TYPE: comments with a known feature
+    body_applies = 0    # APPLY_TYPE commands
+    if a_idx is not None:
+        _b = b_idx if b_idx is not None else n_stream
+        with open(src, 'r', errors='replace') as f:
+            _i = 0
+            for raw in f:
+                _ls = raw.strip()
+                if _i >= a_idx and _i < _b:
+                    _mty = TYPE_RE.match(raw)
+                    if _mty and TYPE_MAP.get(_mty.group(1).strip().lower()):
+                        body_types += 1
+                    elif _ls.startswith('APPLY_TYPE'):
+                        body_applies += 1
+                _i += 1
+    else:
+        body_types = body_applies = 0   # invalid range - the checks below raise
 
     total = len(marks)
     if total < 2:
@@ -900,6 +1000,9 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
         elif floor_hole > 0:
             notes.append('floor hole ignored - no FLOOR layers set')
         g = _GenE(gen, e_rel)
+        if fh:
+            # R87.2: from the very first travel on, crossings retract
+            g.hole = (fh['cx'], fh['cy'], fh['r'])
         # RAFT: 'floor' solid layers under the section footprint - the hull is
         # offset by half a line width so the raft edge sits flush with the
         # model walls (ZERO gap - it welds directly to the section).
@@ -935,11 +1038,15 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                     g.loop(hull_off, ep, 1200)
                     segs = _hull_hatch(anchor, spacing, ang)
                 if fh:
-                    # R86.2: hole open from layer 1 - the boss ring forms the
-                    # thick wall around it, the hatch stops at its outer edge
-                    for k in range(fh['rim']):
-                        g.loop(_circle(fh['cx'], fh['cy'],
-                                       fh['r'] + wid * (0.5 + k), 40), ep, 1200)
+                    # R87.2 FIELD REWORK (.71 log: strings hung across the open
+                    # hole): the boss ring is ONE CONTINUOUS spiral from the
+                    # hole edge out to r_out (same wall thickness as the old
+                    # rim loops) - not a single travel crosses the open hole;
+                    # the hatch only starts outside the band and every travel
+                    # that still passes over the hole retracts (_GenE.hole)
+                    g.hole = (fh['cx'], fh['cy'], fh['r'])
+                    _spiral_ring(g, fh['cx'], fh['cy'], fh['r'],
+                                 fh['r_out'], wid, ep, 1200)
                     segs = [s for (p, q) in segs
                             for s in _seg_outside_circle(p, q, fh['cx'],
                                                          fh['cy'], fh['r_out'])]
@@ -1001,6 +1108,8 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                 gt.loop(hull_off, ep, 1200)
                 segs = _hull_hatch(hull_n, spacing, ang)
             if th:
+                # R87.2: travels over the open cap hole retract too
+                gt.hole = (th['cx'], th['cy'], th['r'])
                 if i == 0:
                     # R86.2 BRIDGE LAYER: the hatch stops AT the hole edge and
                     # an anchor ring runs exactly on it - every clipped line
@@ -1011,15 +1120,24 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                                                          th['cy'], th['r'])]
                     gt.loop(_circle(th['cx'], th['cy'], th['r'], 40), ep, 1200)
                 else:
-                    for k in range(th['rim']):
-                        gt.loop(_circle(th['cx'], th['cy'],
-                                        th['r'] + wid * (0.5 + k), 40), ep, 1200)
+                    # R87.2: spiral band (same as the floor) - no strings
+                    _spiral_ring(gt, th['cx'], th['cy'], th['r'],
+                                 th['r_out'], wid, ep, 1200)
                     segs = [s for (p, q) in segs
                             for s in _seg_outside_circle(p, q, th['cx'],
                                                          th['cy'], th['r_out'])]
             for (p, q) in segs:
                 gt.move(p[0], p[1], 4800)
                 gt.line(p[0], p[1], q[0], q[1], eph, 1200)
+
+    # R87.2: feature diagnostics for the excerpt header (out_lines is built
+    # right below - the notes must be complete before that)
+    if body_types > 0 and body_applies == 0:
+        notes.append('body feature markers re-derived from the ;TYPE: comments '
+                     '(the source carried no APPLY_TYPE - Live > Features works anyway)')
+    elif body_types == 0 and body_applies == 0:
+        notes.append('NO feature markers in these layers - Live > Features '
+                     'cannot switch, the body prints with the last active feature')
 
     # ---- prologue: a NORMAL file head with PRINT_START -> full start flow ----
     n_layers = end - start + 1 + floor + top
@@ -1106,6 +1224,8 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
     # body (E rebased to start at 0) + EXCLUDE_OBJECT cleanup, streamed
     lm_seen = 0
     open_obj = None
+    held_type = None     # R87.2: a ;TYPE: line held back one line - synthesized
+    held_key = None      # APPLY_TYPE follows only when the source has none
     with open(out, 'w') as fo:
         for l in out_lines:
             fo.write(l + '\n')
@@ -1127,15 +1247,34 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                         m = re.search(r'NAME=(\S+)', c)
                         open_obj = m.group(1) if m else None
                     if not drop:
+                        if held_type is not None:
+                            fo.write(held_type + '\n')
+                            if not c.startswith('APPLY_TYPE'):
+                                # R87.2: source without markers (old v1 tag)
+                                # - the floor's INFILL-SOLID used to stay
+                                # active for the WHOLE model
+                                fo.write('APPLY_TYPE TYPE=%s   ; R2-RANGE: marker re-derived (source had none)'
+                                         % held_key + '\n')
+                            held_type = None
                         # carry the source fan into layer 2 (first layer = fan off)
-                        if l.strip() == 'LAYER_MARK':
+                        if c == 'LAYER_MARK':
                             lm_seen += 1
                             fo.write(l + '\n')
                             if lm_seen == 2 and fan:
                                 fo.write(f'M106 S{fan}   ; R2-RANGE: fan state carried over from the source layers (layer 2+)' + '\n')
                         else:
-                            fo.write(l + '\n')
+                            mty = TYPE_RE.match(l)
+                            key = TYPE_MAP.get(mty.group(1).strip().lower()) if mty else None
+                            if key:
+                                held_type = l
+                                held_key = key
+                            else:
+                                fo.write(l + '\n')
                 idx += 1
+        if held_type is not None:
+            fo.write(held_type + '\n')
+            fo.write('APPLY_TYPE TYPE=%s   ; R2-RANGE: marker re-derived (source had none)'
+                     % held_key + '\n')
         # old split('\n') semantics: a source ending in '\n' contributes a
         # final '' element to the body when the body runs to the end of the
         # file - keep the empty line so the output stays byte-identical
@@ -6000,10 +6139,15 @@ def make_cable_ties(count=6, length=120.0, width=8.0, layers=3, variant='RATCHET
     # first COMMAND is PRINT_START - that is where a legacy _FILE_INFO would go)
     hdr = []
     for idx, (x0, y0) in enumerate(positions):
-        poly = '%.1f,%.1f %.1f,%.1f %.1f,%.1f %.1f,%.1f' % (
+        # R87.2 FIELD FIX (.71 log: ties print aborted right after the start
+        # confirm): Klipper's [exclude_object] json-parses POLYGON - it MUST be
+        # '[[x,y],[x,y],...]' with NO whitespace (klipper3d.org/Exclude_Object).
+        # The old flat 'x,y x,y ...' format raised on the very first define,
+        # which killed every ties print seconds after confirming the dialog.
+        poly = '[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]' % (
             x0, y0, x0 + HL + length, y0,
             x0 + HL + length, y0 + HW, x0, y0 + HW)
-        hdr.append('EXCLUDE_OBJECT_DEFINE NAME=TIE_%d CENTER=%.1f,%.1f POLYGON=[%s]'
+        hdr.append('EXCLUDE_OBJECT_DEFINE NAME=TIE_%d CENTER=%.1f,%.1f POLYGON=%s'
                    % (idx + 1, (x0 + (HL + length) / 2.0), y0 + HW / 2.0, poly))
     ps = 'PRINT_START MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d OUTER_WALL_SPEED=40' % (
         material, layer_h, total_layers)
@@ -6311,7 +6455,9 @@ def make_angles(count=2, angle_deg=90, leg_a=60.0, leg_b=60.0, width=25.0,
 
     hdr = []
     for idx, (ox, oy) in enumerate(positions):
-        pts = ' '.join('%.1f,%.1f' % (ox + px, oy + py) for px, py in outline)
+        # R87.2 FIELD FIX: same as the ties - POLYGON must be json
+        # ([x,y] tuples, no whitespace) or Klipper aborts the print.
+        pts = ','.join('[%.1f,%.1f]' % (ox + px, oy + py) for px, py in outline)
         hdr.append('EXCLUDE_OBJECT_DEFINE NAME=PLATE_%d CENTER=%.1f,%.1f POLYGON=[%s]'
                    % (idx + 1, ox + (minx + maxx) / 2.0, oy + (miny + maxy) / 2.0, pts))
     ps = 'PRINT_START MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d OUTER_WALL_SPEED=40' % (

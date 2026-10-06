@@ -8,11 +8,16 @@ close' during range generation) to two-pass streaming. The refactor was
 verified byte-identical against the PREVIOUS builder (.64) - this script
 keeps that guarantee alive: it rebuilds the 23 fixture cases, runs them
 through the CURRENT module and compares MD5s + change summaries against the
-references frozen from the .64 code.
+frozen references.
 
-If this test fails after an edit to make_range/process, the output of the
-edited code is no longer byte-identical to the .64 builder - either fix the
-edit or (deliberate change only!) re-freeze the references with
+RE-FREEZE HISTORY: the references were originally frozen from the .64 code
+(R81). R87.2 re-froze them from the R87.2 builder: make_range now re-derives
+APPLY_TYPE markers from ;TYPE: comments when the source carries none (field
+log .71 - the whole model printed as 'solid infill'), which is a deliberate
+output change for such sources. The .64 reference is preserved in the .64
+release ZIP. If this test fails after an edit to make_range/process, the
+output of the edited code is no longer byte-identical to the frozen
+reference - either fix the edit or (deliberate change only!) re-freeze with
 --freeze=<old_module.py>.
 
 Usage:
@@ -27,20 +32,21 @@ import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-# frozen from the .64 builder (R81 references) - 23 cases
-REF_MD5 = {'mr01': 'e0abb730ada20734c29e3626fa6ad3c5',
- 'mr02': '5be10ec073aee713298dde84a254edca',
- 'mr03': '385e3af3b1a6785619c0e259d9e05013',
- 'mr04': '9c1ee774df4da95050239561a330a3c2',
- 'mr05': 'cf238b988ccc4112b741675ea1209daf',
- 'mr06': 'c817613e881390f695260edfe36967c0',
- 'mr07': 'a5b162790d150d06942c4898935cfa92',
- 'mr08': '1888d2f70bfdaa5c48a4bee2877b75c3',
- 'mr09': 'af1c5dee0c782a7bad1bfa7ea0a51957',
- 'mr10': 'f24da5255655789ba6e715a115e85b0b',
- 'mr11': '29c17863b4483af9939204c3a333c5b4',
- 'mr12': 'bb37abea5e935099555f75bb06ae3b58',
- 'mr13': '67c05efdcf34908170c793badfe1b491',
+# frozen from the .64 builder (R81), re-frozen from R87.2 - 23 cases
+REF_MD5 = {
+ 'mr01': 'ecfecfbb517eecb71e0a1c778b07fd08',
+ 'mr02': '0b3af2fc484df120f9f4dc3fc4347eb8',
+ 'mr03': 'bc551cd152b3b652ace80d4322a5ef75',
+ 'mr04': 'c7a71fe81ab3e75a93b35f089714ab1e',
+ 'mr05': '6835665498237cc9339959d407c0d482',
+ 'mr06': '17ad9197732255092d32ff8b92e0f021',
+ 'mr07': 'e981a6109b3fbed5740e138c97ae1425',
+ 'mr08': 'ab395b58ff04132fd4bb44790e307adc',
+ 'mr09': 'b510f025bc9f11b3a756e5b5124f0d1a',
+ 'mr10': 'd042cd14bd30b3f5d3c1a9dddceb76f8',
+ 'mr11': '8bfae9b77a21c161220550f8c4ae1b24',
+ 'mr12': '04796069418f6ab5fea9c806f641b69a',
+ 'mr13': '6418854b598c2a4631402cba66cd0a72',
  'pr01': '79e28c82893f77486883839b30499edb',
  'pr02': 'c5ca9a4bc68a3f96c5ec661b862af0b6',
  'pr03': '0d14ef2caebcd00e7d5af20d9f710a79',
@@ -50,121 +56,34 @@ REF_MD5 = {'mr01': 'e0abb730ada20734c29e3626fa6ad3c5',
  'pr07': '17fdc789395c2d6f83efc279bb751f21',
  'pr08': '0d14ef2caebcd00e7d5af20d9f710a79',
  'pr09': 'd38293831fb7ef6f1d31c7056ec2745e',
- 'pr10': 'c4caae4ffb28c45721fd09dbe50a066d'}
+ 'pr10': 'c4caae4ffb28c45721fd09dbe50a066d',
+ }
 
-REF_SUMMARY = {'mr01': {'nl': 8, 'size': 2614},
- 'mr02': {'nl': 10, 'size': 8937},
- 'mr03': {'nl': 10, 'size': 8781},
- 'mr04': {'nl': 9, 'size': 9007},
- 'mr05': {'nl': 10, 'size': 15202},
- 'mr06': {'nl': 10, 'size': 12544},
- 'mr07': {'nl': 7, 'size': 2401},
- 'mr08': {'nl': 6, 'size': 2210},
- 'mr09': {'nl': 8, 'size': 5873},
- 'mr10': {'nl': 8, 'size': 8964},
- 'mr11': {'nl': 8, 'size': 5514},
- 'mr12': {'nl': 2, 'size': 1348},
- 'mr13': {'nl': 30, 'size': 13448},
- 'pr01': {'by_object': False,
-          'info_added': True,
-          'layers': 9,
-          'marks_added': 9,
-          'method': 'layer comments',
-          'skipped': False,
-          'tagged': True,
-          'types': 18,
-          'upgraded': False,
-          'upgraded_from': 'v1'},
- 'pr02': {'by_object': False,
-          'info_added': True,
-          'layers': 9,
-          'marks_added': 9,
-          'method': 'layer comments',
-          'skipped': False,
-          'tagged': True,
-          'types': 18,
-          'upgraded': False,
-          'upgraded_from': 'v1'},
- 'pr03': {'by_object': False,
-          'info_added': True,
-          'layers': 8,
-          'marks_added': 8,
-          'method': 'Z scan',
-          'skipped': False,
-          'tagged': True,
-          'types': 0,
-          'upgraded': False,
-          'upgraded_from': 'v1'},
- 'pr04': {'by_object': False,
-          'info_added': False,
-          'layers': 0,
-          'marks_added': 0,
-          'method': None,
-          'skipped': True,
-          'tagged': False,
-          'types': 0,
-          'upgraded': False,
-          'upgraded_from': 'v1'},
- 'pr05': {'by_object': False,
-          'info_added': True,
-          'layers': 9,
-          'marks_added': 9,
-          'method': 'layer comments',
-          'skipped': False,
-          'tagged': True,
-          'types': 18,
-          'upgraded': True,
-          'upgraded_from': 'v1'},
- 'pr06': {'by_object': False,
-          'info_added': True,
-          'layers': 9,
-          'marks_added': 9,
-          'method': 'layer comments',
-          'skipped': False,
-          'tagged': True,
-          'types': 18,
-          'upgraded': False,
-          'upgraded_from': 'v1'},
- 'pr07': {'by_object': False,
-          'info_added': False,
-          'layers': 0,
-          'marks_added': 0,
-          'method': None,
-          'skipped': True,
-          'tagged': False,
-          'types': 0,
-          'upgraded': False,
-          'upgraded_from': 'v1'},
- 'pr08': {'by_object': False,
-          'info_added': True,
-          'layers': 8,
-          'marks_added': 8,
-          'method': 'Z scan',
-          'skipped': False,
-          'tagged': True,
-          'types': 0,
-          'upgraded': False,
-          'upgraded_from': 'v1'},
- 'pr09': {'by_object': False,
-          'info_added': True,
-          'layers': 9,
-          'marks_added': 9,
-          'method': 'layer comments',
-          'skipped': False,
-          'tagged': True,
-          'types': 18,
-          'upgraded': False,
-          'upgraded_from': 'v1'},
- 'pr10': {'by_object': False,
-          'info_added': True,
-          'layers': 9,
-          'marks_added': 9,
-          'method': 'layer comments',
-          'skipped': False,
-          'tagged': True,
-          'types': 18,
-          'upgraded': False,
-          'upgraded_from': 'v1'}}
+REF_SUMMARY = {
+ 'mr01': {'nl': 8, 'size': 3994},
+ 'mr02': {'nl': 10, 'size': 10317},
+ 'mr03': {'nl': 10, 'size': 10161},
+ 'mr04': {'nl': 9, 'size': 10387},
+ 'mr05': {'nl': 10, 'size': 16582},
+ 'mr06': {'nl': 10, 'size': 13924},
+ 'mr07': {'nl': 7, 'size': 3626},
+ 'mr08': {'nl': 6, 'size': 3280},
+ 'mr09': {'nl': 8, 'size': 7098},
+ 'mr10': {'nl': 8, 'size': 10189},
+ 'mr11': {'nl': 8, 'size': 6739},
+ 'mr12': {'nl': 2, 'size': 1798},
+ 'mr13': {'nl': 30, 'size': 18083},
+ 'pr01': {'by_object': False, 'fw': '', 'info_added': True, 'layers': 9, 'marks_added': 9, 'method': 'layer comments', 'retract_pairs': 0, 'skipped': False, 'slicer': '', 'tagged': True, 'types': 18, 'upgraded': False, 'upgraded_from': 'v1', 'volumetric': False},
+ 'pr02': {'by_object': False, 'fw': '', 'info_added': True, 'layers': 9, 'marks_added': 9, 'method': 'layer comments', 'retract_pairs': 0, 'skipped': False, 'slicer': '', 'tagged': True, 'types': 18, 'upgraded': False, 'upgraded_from': 'v1', 'volumetric': False},
+ 'pr03': {'by_object': False, 'fw': '', 'info_added': True, 'layers': 8, 'marks_added': 8, 'method': 'Z scan', 'retract_pairs': 0, 'skipped': False, 'slicer': '', 'tagged': True, 'types': 0, 'upgraded': False, 'upgraded_from': 'v1', 'volumetric': False},
+ 'pr04': {'by_object': False, 'info_added': False, 'layers': 0, 'marks_added': 0, 'method': None, 'retract_pairs': 0, 'skipped': True, 'tagged': False, 'types': 0, 'upgraded': False, 'upgraded_from': 'v1'},
+ 'pr05': {'by_object': False, 'fw': '', 'info_added': True, 'layers': 9, 'marks_added': 9, 'method': 'layer comments', 'retract_pairs': 0, 'skipped': False, 'slicer': '', 'tagged': True, 'types': 18, 'upgraded': True, 'upgraded_from': 'v1', 'volumetric': False},
+ 'pr06': {'by_object': False, 'fw': '', 'info_added': True, 'layers': 9, 'marks_added': 9, 'method': 'layer comments', 'retract_pairs': 0, 'skipped': False, 'slicer': '', 'tagged': True, 'types': 18, 'upgraded': False, 'upgraded_from': 'v1', 'volumetric': False},
+ 'pr07': {'by_object': False, 'info_added': False, 'layers': 0, 'marks_added': 0, 'method': None, 'retract_pairs': 0, 'skipped': True, 'tagged': False, 'types': 0, 'upgraded': False, 'upgraded_from': 'v1'},
+ 'pr08': {'by_object': False, 'fw': '', 'info_added': True, 'layers': 8, 'marks_added': 8, 'method': 'Z scan', 'retract_pairs': 0, 'skipped': False, 'slicer': '', 'tagged': True, 'types': 0, 'upgraded': False, 'upgraded_from': 'v1', 'volumetric': False},
+ 'pr09': {'by_object': False, 'fw': '', 'info_added': True, 'layers': 9, 'marks_added': 9, 'method': 'layer comments', 'retract_pairs': 0, 'skipped': False, 'slicer': '', 'tagged': True, 'types': 18, 'upgraded': False, 'upgraded_from': 'v1', 'volumetric': False},
+ 'pr10': {'by_object': False, 'fw': '', 'info_added': True, 'layers': 9, 'marks_added': 9, 'method': 'layer comments', 'retract_pairs': 0, 'skipped': False, 'slicer': '', 'tagged': True, 'types': 18, 'upgraded': False, 'upgraded_from': 'v1', 'volumetric': False},
+ }
 
 CASES = [
     ('mr01', dict(src='vase_m83.gcode', start=5, end=12)),
@@ -345,11 +264,11 @@ def main():
             fails += 1
             continue
         if md5 != REF_MD5[name]:
-            print('FAIL %s: output differs from the .64 builder (md5 %s != %s)'
+            print('FAIL %s: output differs from the frozen reference (md5 %s != %s)'
                   % (name, md5[:10], REF_MD5[name][:10]))
             fails += 1
         # R84: newer builders add summary keys (retract_pairs, slicer, ...) -
-        # compare only the keys the .64 reference knows (byte-identical output
+        # compare only the keys the reference knows (byte-identical output
         # is the real contract; the reference must stay re-baseline-free)
         _ref_summ = REF_SUMMARY.get(name)
         _summ_cmp = {k: v for k, v in summ.items() if k in _ref_summ} if _ref_summ else summ
@@ -357,7 +276,7 @@ def main():
             print('FAIL %s: summary differs: %r != %r' % (name, _summ_cmp, _ref_summ))
             fails += 1
     if not fails:
-        print('R81 golden check: %d/%d cases byte-identical to the .64 builder' % (len(res), len(res)))
+        print('R81 golden check: %d/%d cases byte-identical to the R87.2 reference' % (len(res), len(res)))
     return 1 if fails else 0
 
 
