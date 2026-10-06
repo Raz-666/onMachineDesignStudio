@@ -1,6 +1,37 @@
-# SESSION STATE — R90.1a MULTI-PLATE FERTIG (dd2594d, Tests 1082/1082, Golden 23/23)
+# SESSION STATE — R90.1b FRAMES KOMPLETT + AUDIT-FIXES (Tests 1100/1100, Golden 23/23)
 
-## AKTUELL: R90.1a Multi-Plate umgesetzt
+## AKTUELL: R90.1-Rest umgesetzt + 2 KRITISCHE AUDIT-BUGS GEFUNDEN/GEFIXT
+
+R90.1b LIEFERUMFANG: (1) SURFACE-Select (front=IRON/FLIP/LINES/WAVES/HEX):
+FLIP = Front druckt gegen das Bett (Bandspiegelung via eli = frame_layers+1-li,
+Ironing aus, Note), Strukturen auf dem Frontband (struct_l Layer oben: Wände +
+nur Muster; IN = Furchen in die Fläche, OUT = Grate über der Fläche; LINES via
+_ring_hatch exakt, WAVES als 0.4mm-Sinus-Sampling mit Rounded-Rect-Clip,
+HEX als geschlossene Sechsecke mit Zentrum-im-Ring-Test, alle RECT-only, ersetzen
+Ironing mit Note). (2) DISC: GLASS/PLEXI/FOIL/LITHO, disc_t 0.4-6, FRONT = 1.2mm
+Fang-Lippe (Frontband-Innenkontur lip_c verkleinert, Kit-Streifen: ext+lip am
+Frontband), BACK = liegt hinten auf dem Rückband, Backplate klemmt, Nubs um
+disc_l höher (nub_zn-Offset). Nut wächst um disc_t+0.2. (3) CABLE (nur CASE,
+Guard hinter Kit-Entscheidung): 6mm-Schlitz durch die untere Wand, Layer 1..12,
+oeffnet 2.5mm hinter der Rückfläche in den Innenraum, Notch-Mechanismus von
+SIDE-Slot wiederverwendet. Kit: Struktur+Kabel ehrlich übersprungen (Notes).
+LCD: Untermenüs Surf (5 Modi + 6 Params + Dir), Disc (5 Materialien + Side +
+Thick), Cable-Toggle; alter Ironing-Toggle gefaltet (eindeutige Auswahl).
+GEN_FRAME: FRONT/DISC/DISC_T/DISC_SIDE/CABLE/S_* mit Guards, _PACE-Blöcke.
+Watcher: liest alle neuen frame_* Variablen. Tests: 18 neue R90.1b (Suite 1100).
+
+AUDIT-KRITISCH (bei R90.1b-Geometrieverifikation entdeckt, BEIDE gefixt):
+- _rr_pts ECK-FEHLER: Reihenfolge TR->BR->BL->TL statt TR->TL->BL->BR erzeugte
+  eine selbst-schneidende 4-zackige STERN-Kontur statt Rundrechteck — alle R90-
+  Rahmen hätten Bowtie-Wände gedruckt! (_rr_pts wird NUR von make_frame benutzt.)
+- _convex_intervals VORZEICHENFEHLER: Strahl lief rückwärts, alle Schnitte bei
+  t<0 gefiltert -> _ring_hatch lieferte 0 Segmente: R90-Rahmen hatten KEIN
+  Wandinfill, KEIN Regal (Photo wäre durchgefallen), KEIN Ironing-Inhalt.
+Beide jetzt segmentlevel-getestet (Ring-Hatch 0 Verletzer in der Photoöffnung,
+Lip/Flip/Kabel/Struktur-Geometrie-Checks in der Suite).
+
+R90.1a (dd2594d): Multi-Plate vor Kit (Part A/B, End-of-Plate-Trailer + Beeps,
+PRINT_END-Bugfix, Presets 9x13/10x15/13x18/A6, Realbett-Default 220).
 
 R90.1a (Multi-Plate vor Kit) KOMPLETT: make_frame in tools/r2_postproc.py auf
 Plates-Loop umgebaut. ENTSCHEIDUNG (Realbett 220x220, Default make_frame jetzt
@@ -29,10 +60,11 @@ labels/litho/seal/resonance/bridge) haben weiterhin Bett-Default 244x238
 hardcoded — Produktion unberührt (Watcher übergibt _bed_limits), nur direkte
 CLI-Testnutzung. Bei Gelegenheit vereinheitlichen.
 
-WEITER mit R90.1-REST: Scheiben-Einsatz (Glas/Plexi/Folie/Litho bündig, Fugen
-mit Dickenparameter), Kabelloch (hinten beginnend, in Innenraum gekrümmt),
-Front-Flip (Front als erste Schicht = Bettextur statt Ironing), Strukturen
-(Linien/Wellen/Waben, nach innen/außen), Untermenüs — dann R91 Textur-Tool,
+R90.1 REST FERTIG (dieser Commit). WEITER: GROSSES SYSTEM-AUDIT laufend
+(User-Auftrag: alles als Nutzer durchgehen — LCD-Menü-Struktur/Gruppierung z.B.
+Z-Offset+Babysteps zusammen im Live-Tuning, Befehlsfluten/MCU-Last/PACE prüfen,
+Sicherheit bei technischen/elektrischen Fehlern, Simulationsläufe über alle
+Generatoren/Makro-Kombinationen, LCD-Bedienbarkeit). Danach R91 Textur-Tool,
 R93 Datei-Check. Release .73-Entscheidung per ask_user (m). Dreieck/Stern Backlog.
 
 R92.1 (FERTIG, 1ec3bd1): Parameter-Modell eff = Basis × GLOBAL × FEATURE; Flow

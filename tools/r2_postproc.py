@@ -6360,8 +6360,13 @@ def _rr_pts(w, h, r):
         return [(-w / 2, -h / 2), (w / 2, -h / 2), (w / 2, h / 2), (-w / 2, h / 2)]
     k = 6
     pts = []
-    for (sx, sy, a0) in ((1, 1, 0.0), (1, -1, -math.pi / 2),
-                         (-1, -1, math.pi), (-1, 1, math.pi / 2)):
+    # R90.1b FIX (audit): the corner order was TR->BR->BL->TL, so each arc
+    # ENDED where the next one BEGINS only after a straight line across the
+    # shape - the "rounded rect" was a 4-pointed STAR (self-intersecting),
+    # which wrecked the hatch clipping and printed bowtie walls. Correct CCW
+    # chain: TR -> TL -> BL -> BR, arcs 0/90/180/270 deg chaining edge-to-edge.
+    for (sx, sy, a0) in ((1, 1, 0.0), (-1, 1, math.pi / 2),
+                         (-1, -1, math.pi), (1, -1, 3 * math.pi / 2)):
         cx, cy = sx * (w / 2 - r), sy * (h / 2 - r)
         for i in range(k):
             a = a0 + (math.pi / 2) * i / (k - 1)
@@ -6386,7 +6391,12 @@ def _convex_intervals(poly, ox, oy, dx, dy):
         denom = dx * ey - dy * ex
         if abs(denom) < 1e-12:
             continue
-        t = ((ox - x1) * ey - (oy - y1) * ex) / denom
+        # R90.1b FIX (audit): the edge parameter had a SIGN ERROR - the ray
+        # ran backwards, every intersection landed at t<0 and _convex_intervals
+        # returned None. Result: the whole R90 frame ring printed as NAKED
+        # walls - no infill, no photo shelf, no ironing content. Correct:
+        # solve O + s*d = A + u*e for u:
+        t = (dy * (x1 - ox) - dx * (y1 - oy)) / denom
         if 0.0 <= t <= 1.0:
             s = (x1 + ex * t - ox) * dx + (y1 + ey * t - oy) * dy
             cuts.append(s)
@@ -6498,7 +6508,15 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                corner=6.0, shape='RECT', closure='BACK', hang='TOP', stand=False,
                wall=1.6, infill=60.0, ironing=True, layer_h=0.2, first_h=0.28,
                material='PLA', bed=None, bed_margin=6.0, nozzle=0.6,
-               out_dir='.', version=1):
+               out_dir='.', version=1, front='IRON', disc='NONE', disc_t=1.0,
+               disc_side='FRONT', cable=False, s_deep=0.8, s_space=6.0,
+               s_angle=45.0, s_amp=1.2, s_size=8.0, s_dir='OUT'):
+    # R90.1b: front = IRON (ironed, classic) / FLIP (bed texture as the visible
+    # face - prints front-down) / LINES / WAVES / HEX (structured front band)
+    # disc = disc insert (GLASS/PLEXI/FOIL/LITHO), disc_t thickness, FRONT
+    # (captured by a lip in front of the photo) or BACK (backlit, behind the
+    # photo on the back band). cable = hidden duct through the bottom wall
+    # (CASE only). s_* = structure parameters (depth/space/angle/amp/size/dir).
     """R90: picture frame (Bilderrahmen) or display case (Schaukasten).
 
     Lying print, FRONT UP = the visible face gets the ironing pass. Classic
@@ -6549,6 +6567,41 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
         raise ValueError('wall thickness %.1fmm out of range (0.8..3)' % wall)
     if not (20.0 <= float(infill) <= 100.0):
         raise ValueError('infill %.0f%% out of range (20..100)' % infill)
+    front = str(front).upper()
+    if front not in ('IRON', 'FLIP', 'LINES', 'WAVES', 'HEX'):
+        raise ValueError('front %r must be IRON, FLIP, LINES, WAVES or HEX'
+                         % front)
+    disc = str(disc).upper()
+    if disc not in ('NONE', 'GLASS', 'PLEXI', 'FOIL', 'LITHO'):
+        raise ValueError('disc %r must be NONE, GLASS, PLEXI, FOIL or LITHO'
+                         % disc)
+    disc_side = str(disc_side).upper()
+    if disc_side not in ('FRONT', 'BACK'):
+        raise ValueError('disc_side %r must be FRONT or BACK' % disc_side)
+    if disc != 'NONE' and not (0.4 <= float(disc_t) <= 6.0):
+        raise ValueError('disc thickness %.1fmm out of range (0.4..6)' % disc_t)
+    if front in ('LINES', 'WAVES', 'HEX'):
+        if shape != 'RECT':
+            raise ValueError('structured front (%s) needs SHAPE=RECT - an oval '
+                             'clip is not supported' % front)
+        if not (0.4 <= float(s_deep) <= 2.4):
+            raise ValueError('structure depth %.1fmm out of range (0.4..2.4)'
+                             % s_deep)
+        if not (2.0 <= float(s_space) <= 15.0):
+            raise ValueError('structure spacing %.1fmm out of range (2..15)'
+                             % s_space)
+        if not (0.0 <= float(s_angle) <= 90.0):
+            raise ValueError('structure angle %.0f out of range (0..90)'
+                             % s_angle)
+        if front == 'WAVES' and not (0.3 <= float(s_amp) <= 3.0):
+            raise ValueError('wave amplitude %.1fmm out of range (0.3..3)'
+                             % s_amp)
+        if front == 'HEX' and not (4.0 <= float(s_size) <= 20.0):
+            raise ValueError('honeycomb cell %.1fmm out of range (4..20)'
+                             % s_size)
+        if str(s_dir).upper() not in ('IN', 'OUT'):
+            raise ValueError('structure direction %r must be IN or OUT' % s_dir)
+        s_dir = str(s_dir).upper()
     # R90.1a: default bed = the REAL Ender-3 plate (the watcher passes
     # _bed_limits() anyway - [r2_postproc] section, manual ch. 23)
     if bed is None:
@@ -6566,14 +6619,22 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
     ow, oh = width + 2 * frame_w, height + 2 * frame_w          # outer
     pw, ph = width + 0.6, height + 0.6                          # photo opening
     vw, vh = width - 3.0, height - 3.0                          # view opening
+    # R90.1b: FRONT disc capture lip - the front band opening shrinks so the
+    # disc cannot fall out of the front (the lip covers its edge by 1.2mm)
+    lip = 1.2 if (disc != 'NONE' and disc_side == 'FRONT') else 0.0
     if shape == 'OVAL':
         outer_c = _el_pts(ow / 2, oh / 2)
         photo_c = _el_pts(pw / 2, ph / 2)
         view_c = _el_pts(vw / 2, vh / 2)
+        lip_c = (_el_pts((vw - 2 * lip) / 2, (vh - 2 * lip) / 2)
+                 if lip else view_c)
     else:
         outer_c = _rr_pts(ow, oh, corner)
         photo_c = _rr_pts(pw, ph, max(0.0, corner - frame_w * 0.6))
         view_c = _rr_pts(vw, vh, max(0.0, corner - frame_w * 0.6 - 2.0))
+        lip_c = (_rr_pts(vw - 2 * lip, vh - 2 * lip,
+                         max(0.0, corner - frame_w * 0.6 - 2.0 - lip))
+                 if lip else view_c)
 
     # ---- vertical profile (layer bands, bed = frame BACK) ---------------------
     ft = max(2 * layer_h, 1.0)              # front band (visible face)
@@ -6590,11 +6651,34 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                              '(needs >= %.1fmm)' % (depth, ft + shelf_th + groove + layer_h))
         notes.append('shallow frame: groove reduced to %.1fmm (thin photo + '
                      '0.8mm backplate)' % groove)
+    # ---- R90.1b: disc insert deepens the groove (photo stack grows) ------
+    disc_l = 0
+    if disc != 'NONE':
+        disc_l = max(1, int(round((float(disc_t) + 0.2) / layer_h)))
+        groove += disc_l * layer_h
+        bb = depth - ft - shelf_th - groove
+        if bb < layer_h:
+            raise ValueError('depth %.1fmm too shallow for photo + %.1fmm '
+                             'disc (needs >= %.1fmm)'
+                             % (depth, disc_t,
+                                ft + shelf_th + groove + layer_h))
+    # ---- R90.1b: structured front band -----------------------------------
+    struct_l = 0
+    if front in ('LINES', 'WAVES', 'HEX'):
+        struct_l = max(2, int(round(float(s_deep) / layer_h)))
+        if s_dir == 'OUT':
+            ft += struct_l * layer_h     # ridges proud of the face
     n_ft = max(1, int(round(ft / layer_h)))
     n_sh = max(1, int(round(shelf_th / layer_h)))
     n_gr = max(1, int(round(groove / layer_h)))
     n_bb = max(1, int(round(bb / layer_h)))
     frame_layers = n_bb + n_gr + n_sh + n_ft
+    # front-band layers that stay solid hatch; the top struct_l layers carry
+    # ONLY the pattern (IN: grooves cut in / OUT: ridges added on top)
+    solid_ft = n_ft - struct_l if struct_l else n_ft
+    if solid_ft < 1:
+        raise ValueError('front band too thin for %.1fmm deep grooves - '
+                         'increase DEPTH or use direction OUT' % float(s_deep))
     bp_layers = max(3, int(round(0.8 / layer_h)))
     st_layers = max(6, int(round(1.2 / layer_h)))
     stud_layers = 6
@@ -6609,10 +6693,42 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
     # (0.2mm overlap with the plate top). The plate's left/right edge
     # notches clear the nubs on the straight insert; sliding 2mm locks it.
     nub_d, nub_l = 1.0, 6.0
-    nub_zn = set(range(n_bb + 3, n_bb + 5)) if closure == 'BACK' else set()
+    # BACK disc: the plate rests on the disc rim - the nubs move up with it
+    _nub_off = disc_l if (disc != 'NONE' and disc_side == 'BACK') else 0
+    nub_zn = (set(range(n_bb + _nub_off + 3, n_bb + _nub_off + 5))
+              if closure == 'BACK' else set())
 
     # SIDE closure: slot through the LEFT wall, open across the groove band
     # and the FULL wall length (photo + cover plate are ph+0.4 tall)
+    # R90.1b: hidden cable duct - a 6mm slot through the bottom wall, opening
+    # at the BACK edge (2.5mm up from the bed face), straight into the case
+    # interior. Printable: the wall above bridges the 6mm gap.
+    if front == 'FLIP' and ironing:
+        notes.append('FLIP front: the bed texture IS the visible face (front '
+                     'prints against the bed) - no ironing pass')
+    if front in ('LINES', 'WAVES', 'HEX') and ironing:
+        notes.append('%s structure is the finish - no ironing pass'
+                     % front.capitalize())
+    if disc != 'NONE':
+        if disc_side == 'FRONT':
+            notes.append('%s disc %.1fmm in FRONT of the photo: insert it '
+                         'from behind onto the shelf, the 1.2mm front lip '
+                         'holds it captive' % (disc, float(disc_t)))
+        else:
+            notes.append('%s disc %.1fmm BEHIND the photo on the back band '
+                         '(backlit/litho) - the backplate rim clamps the disc '
+                         'rim, nubs lock the stack' % (disc, float(disc_t)))
+    cable_box = None
+    n_cable_l = 0
+    if cable:
+        n_cable = min(max(2, int(round(2.5 / layer_h))), n_bb)
+        n_cable_l = n_cable
+        cable_w = 6.0
+        cable_box = (-cable_w / 2, -oh / 2 - 1.0,
+                     cable_w / 2, -ph / 2 + 0.2)
+        notes.append('cable duct: 6mm slot through the bottom bar, 2.5mm '
+                     'behind the back face - hidden from the front, opens '
+                     'straight into the case interior (LED wiring)')
     side_slot = None
     if closure == 'SIDE':
         # full-height slit: everything left of the photo opening edge goes
@@ -6670,6 +6786,15 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                 corner = 0.0
                 notes.append('corner radius dropped to 0 - the split kit uses '
                              'straight strips with butt joints')
+            if front in ('LINES', 'WAVES', 'HEX'):
+                notes.append('structure skipped in kit mode - the strips '
+                             'print a smooth face')
+            if cable:
+                cable_box = None
+                n_cable_l = 0
+                notes.append('cable duct skipped in kit mode - drill the '
+                             'bottom strip after gluing (6mm, 2.5mm behind '
+                             'the back face)')
             if ow > uw:
                 raise ValueError('frame %.0fx%.0fmm exceeds the bed width even '
                                  'split into strips' % (ow, oh))
@@ -6710,6 +6835,11 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
         # nothing was written yet - bail out BEFORE any file appears
         raise ValueError('backplate %.0fx%.0fmm does not fit the bed - a '
                          'smaller photo or less border is needed' % (bw, bh))
+    if cable and mode == 'FLAT' and not kit:
+        # a kit skips the duct with a drill hint instead - everything else
+        # needs the deep hollow body of a display case
+        raise ValueError('cable duct needs a display CASE (DEPTH >= 15) - a '
+                         'flat frame has no interior to reach')
     # ---- backplate contour (shared by one-piece + kit) -------------------------
     # the bites clear the nubs on the straight insert; their ASYMMETRIC
     # y-ranges lock the plate against sliding both ways after a 2.5mm drop
@@ -6829,7 +6959,7 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                     raise ValueError('backplate %.0fx%.0fmm does not fit the '
                                      'bed' % (bw, bh))
 
-            def emit_ring(li, inner, notch=None):
+            def emit_ring(li, inner, notch=None, hatch=True):
                 ew = e_w(li)
                 f1 = 1500 if li == 1 else 2400
                 for loop in (outer_c, inner):
@@ -6865,11 +6995,16 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                             _emit_loop(pen, pl, ew, f1, close=False)
                     else:
                         _emit_loop(pen, [(x + cx, y + cy) for (x, y) in loop], ew, f1)
-                spacing = wid if inner is view_c else wid * 100.0 / max(20.0, infill)
-                hs = _ring_hatch(outer_c, inner, spacing,
-                                 45.0 if li % 2 else 135.0, notch=notch)
-                _emit_hatch(pen, [((p[0] + cx, p[1] + cy), (q[0] + cx, q[1] + cy))
-                                  for (p, q) in hs], ew, 1500 if li == 1 else 2700)
+                if hatch:
+                    # view/lip band = the solid face, photo band = body infill
+                    spacing = (wid * 100.0 / max(20.0, infill)
+                               if inner is photo_c else wid)
+                    hs = _ring_hatch(outer_c, inner, spacing,
+                                     45.0 if li % 2 else 135.0, notch=notch)
+                    _emit_hatch(pen, [((p[0] + cx, p[1] + cy),
+                                       (q[0] + cx, q[1] + cy))
+                                      for (p, q) in hs],
+                                ew, 1500 if li == 1 else 2700)
 
             def emit_nubs(li):
                 # bayonet: exactly TWO nubs on the left/right wall centers,
@@ -6880,6 +7015,81 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                     x1 = nx if nx > 0 else nx + nub_d
                     _emit_loop(pen, _rect_loop(x0 + cx, cy - nub_l / 2,
                                                x1 + cx, cy + nub_l / 2), ew, 1800)
+
+            # ---- R90.1b: structured front (LINES / WAVES / HEX) -----------
+            def _pt_in_rr(x, y, hw, hh, r):
+                ax, ay = abs(x), abs(y)
+                if ax > hw or ay > hh:
+                    return False
+                dx, dy = ax - (hw - r), ay - (hh - r)
+                if dx > 0 and dy > 0:
+                    return dx * dx + dy * dy <= r * r
+                return True
+
+            _ic = max(0.0, corner - frame_w * 0.6 - 2.0 - lip)
+            _iw2, _ih2 = (vw - 2 * lip) / 2, (vh - 2 * lip) / 2
+
+            def pat_ok(x, y, inset=0.0):
+                # inside the front-band region (outer inset by `inset` so
+                # ridges do not fuse into the walls, outside the view/lip)
+                return (_pt_in_rr(x, y, ow / 2 - inset, oh / 2 - inset,
+                                  max(0.0, corner - inset))
+                        and not _pt_in_rr(x, y, _iw2, _ih2, _ic))
+
+            def emit_pattern(li):
+                ew = e_w(li)
+                a(';TYPE:Top surface infill')
+                if front == 'LINES':
+                    hs = _ring_hatch(outer_c, lip_c if lip else view_c,
+                                     float(s_space), float(s_angle))
+                    _emit_hatch(pen, [((p[0] + cx, p[1] + cy),
+                                       (q[0] + cx, q[1] + cy))
+                                      for (p, q) in hs], ew, 1200)
+                elif front == 'WAVES':
+                    ang = math.radians(float(s_angle))
+                    ca_, sa_ = math.cos(ang), math.sin(ang)
+                    R = math.hypot(ow, oh) / 2 + 2.0
+                    step = 0.4
+                    k = 0
+                    while -R + k * s_space <= R:
+                        off = -R + k * s_space
+                        run = []
+                        nsteps = int(2 * R / step) + 1
+                        for t in range(nsteps):
+                            u = -R + t * step
+                            v = off + (float(s_amp) *
+                                       math.sin(2 * math.pi * u /
+                                                max(1.0, float(s_space))))
+                            x = cx + u * ca_ - v * sa_
+                            y = cy + u * sa_ + v * ca_
+                            if pat_ok(x - cx, y - cy, 0.4):
+                                run.append((x, y))
+                            else:
+                                if len(run) > 1:
+                                    _emit_loop(pen, run, ew, 1200, close=False)
+                                run = []
+                        if len(run) > 1:
+                            _emit_loop(pen, run, ew, 1200, close=False)
+                        k += 1
+                else:   # HEX honeycomb, closed cells
+                    hr = float(s_size) / 2.0
+                    dxh = math.sqrt(3.0) * hr
+                    dyh = 1.5 * hr
+                    row = 0
+                    gy = -oh / 2
+                    while gy <= oh / 2:
+                        gx = -ow / 2 + (dxh / 2 if row % 2 else 0.0)
+                        while gx <= ow / 2:
+                            verts = [(gx + hr * math.cos(math.radians(a6)),
+                                      gy + hr * math.sin(math.radians(a6)))
+                                     for a6 in range(0, 360, 60)]
+                            if all(pat_ok(vx, vy, 0.8) for vx, vy in verts):
+                                _emit_loop(pen, [(vx + cx, vy + cy)
+                                                 for vx, vy in verts],
+                                           ew, 1200, close=True)
+                            gx += dxh
+                        gy += dyh
+                        row += 1
 
             pl_total = frame_layers
             if want_rest:
@@ -6898,27 +7108,38 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                 # ---- frame ring ----
                 if want_frame and li <= frame_layers:
                     a('EXCLUDE_OBJECT_START NAME=FRAME')
-                    if li <= n_bb:
+                    # R90.1b FLIP: the band order mirrors - layer li carries
+                    # the geometry of layer frame_layers+1-li (front on bed)
+                    eli = frame_layers + 1 - li if front == 'FLIP' else li
+                    if eli <= n_bb:
                         a(';TYPE:Outer wall')
-                        emit_ring(li, photo_c)
-                    elif li <= n_bb + n_gr:
+                        emit_ring(eli, photo_c,
+                                  notch=(cable_box if eli <= n_cable_l
+                                         else None))
+                    elif eli <= n_bb + n_gr:
                         a(';TYPE:Outer wall')
                         # groove band: the SIDE slot opens the left wall HERE
-                        emit_ring(li, photo_c, notch=side_slot)
-                        if li in nub_zn:
+                        emit_ring(eli, photo_c, notch=side_slot)
+                        if eli in nub_zn:
                             a(';TYPE:Inner wall')
-                            emit_nubs(li)
-                    elif li <= n_bb + n_gr + n_sh:
+                            emit_nubs(eli)
+                    elif eli <= n_bb + n_gr + n_sh:
                         # shelf band = the bridge from the view edge to the photo
                         # edge (the photo's front stop) - same contour as the front
                         a(';TYPE:Bridge')
-                        emit_ring(li, view_c)
+                        emit_ring(eli, view_c)
                     else:
                         a(';TYPE:Outer wall')
-                        emit_ring(li, view_c)
-                        if ironing and li == frame_layers:
+                        _fin = lip_c if lip else view_c
+                        if eli <= n_bb + n_gr + n_sh + solid_ft:
+                            emit_ring(eli, _fin)
+                        else:
+                            # R90.1b structure layer: walls only + pattern
+                            emit_ring(eli, _fin, hatch=False)
+                            emit_pattern(eli)
+                        if front == 'IRON' and ironing and eli == frame_layers:
                             a(';TYPE:Ironing')
-                            iw = _ring_hatch(outer_c, view_c, 2.4, 0.0)
+                            iw = _ring_hatch(outer_c, _fin, 2.4, 0.0)
                             _emit_hatch(pen, [((p[0] + cx, p[1] + cy),
                                                (q[0] + cx, q[1] + cy))
                                               for (p, q) in iw],
@@ -7065,9 +7286,18 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                         if li <= frame_layers:
                             a('EXCLUDE_OBJECT_START NAME=%s' % nm)
                             a(';TYPE:Outer wall')
-                            # shelf + front bands extend into the opening by the view
-                            # overlap (the photo stop) - back/groove bands stay plain
-                            ext = (pw - vw) / 2.0 if li > n_bb + n_gr else 0.0
+                            eli = (frame_layers + 1 - li
+                                   if front == 'FLIP' else li)
+                            # shelf + front bands extend into the opening by
+                            # the view overlap (the photo stop); a FRONT disc
+                            # adds the capture lip to the FRONT band only -
+                            # back/groove bands stay plain
+                            if eli > n_bb + n_gr + n_sh:
+                                ext = (pw - vw) / 2.0 + lip
+                            elif eli > n_bb + n_gr:
+                                ext = (pw - vw) / 2.0
+                            else:
+                                ext = 0.0
                             r = list(rect)
                             if ext:
                                 if edir == 'ym':
@@ -7079,7 +7309,7 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                                 else:
                                     r[2] += ext
                             emit_strip(li, tuple(r))
-                            if closure == 'BACK' and li in nub_zn and                                 edir in ('xm', 'xp'):
+                            if closure == 'BACK' and eli in nub_zn and                                 edir in ('xm', 'xp'):
                                 # bayonet nub at the strip's inner END, lengthwise
                                 # center - mini bridge, same as the one-piece frame
                                 a(';TYPE:Inner wall')
@@ -7092,7 +7322,7 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                                     _emit_loop(pen, _rect_loop(rect[2], yc - nub_l / 2,
                                                                rect[2] + nub_d, yc + nub_l / 2),
                                                e_w(li), 1800)
-                            if ironing and li == frame_layers:
+                            if front == 'IRON' and ironing                                 and eli == frame_layers:
                                 a(';TYPE:Ironing')
                                 _emit_hatch(pen, _hatch(r[0] + 1.0, r[1] + 1.0,
                                                         r[2] - 1.0, r[3] - 1.0, [],
@@ -7184,7 +7414,10 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
     info = {'file': files[0], 'mode': mode, 'shape': shape, 'preset': preset,
             'width': width, 'height': height, 'depth': depth, 'border': frame_w,
             'closure': closure, 'hang': hang, 'stand': bool(stand_ok), 'kit': kit,
-            'multi': multi, 'plates': files,
+            'multi': multi, 'plates': files, 'front': front,
+            'disc': disc if disc != 'NONE' else '', 'disc_side': disc_side,
+            'disc_t': float(disc_t) if disc != 'NONE' else 0.0,
+            'cable': bool(cable and cable_box),
             'layers': total_layers, 'outer': '%.0fx%.0fmm' % (ow, oh),
             'photo_open': '%.1fx%.1fmm' % (pw, ph),
             'notes': notes + (['stand: easel-leg studs plug into the 2 backplate '
@@ -9813,6 +10046,20 @@ def watch(directory, interval=5.0, once=False):
                         ironing=_vb90('frame_ironing', True),
                         infill=_vf90('frame_infill', 60.0),
                         layer_h=_vf90('frame_layer_h', 0.2),
+                        front=_vs90('frame_front', 'IRON',
+                                    ('IRON', 'FLIP', 'LINES', 'WAVES', 'HEX')),
+                        disc=_vs90('frame_disc', 'NONE',
+                                   ('NONE', 'GLASS', 'PLEXI', 'FOIL', 'LITHO')),
+                        disc_t=_vf90('frame_disc_t', 1.0),
+                        disc_side=_vs90('frame_disc_side', 'FRONT',
+                                        ('FRONT', 'BACK')),
+                        cable=_vb90('frame_cable', False),
+                        s_deep=_vf90('frame_s_deep', 0.8),
+                        s_space=_vf90('frame_s_space', 6.0),
+                        s_angle=_vf90('frame_s_angle', 45.0),
+                        s_amp=_vf90('frame_s_amp', 1.2),
+                        s_size=_vf90('frame_s_size', 8.0),
+                        s_dir=_vs90('frame_s_dir', 'OUT', ('IN', 'OUT')),
                         material=str(rv.get('material', 'PLA') or 'PLA'),
                         bed=_bed90, out_dir=directory,
                         version=max(1, min(int(_vf90('gen_version', 1)), 99)))

@@ -92,7 +92,23 @@ Built exactly per the four decisions (ask_user): Closure **C** (BACK + SIDE),
 box **Auto** (one piece / multi-plate / split kit), shapes **RECT (corner
 radius) + OVAL**, surface **Smooth + Ironing**.
 
-**What shipped**
+**What shipped (R90.1b additions)**
+
+- Surface select (Front): Ironed / Bed texture (FLIP - the front prints against
+  the bed, band order mirrored) / Lines / Waves / Honeycomb structures
+  (depth/spacing/angle/amplitude/cell size, IN grooves or OUT ridges, RECT
+  only, replaces ironing) - LCD submenu "Surf".
+- Disc insert GLASS/PLEXI/FOIL/LITHO, FRONT (captured by a 1.2mm lip in the
+  front band) or BACK (behind the photo on the back band, backlit; the
+  backplate rim clamps it, nubs ride higher) - groove grows by disc+0.2mm.
+- Hidden cable duct (CASE only): 6mm slot through the bottom bar opening
+  2.5mm behind the back face straight into the interior.
+- AUDIT FIXES: _rr_pts corner order (the contour was a self-intersecting
+  4-pointed star -> bowtie walls) and _convex_intervals sign error (the ray
+  ran backwards -> zero hatch: R90 frames printed naked walls with no photo
+  shelf). Both verified with segment-level geometry tests.
+
+**Earlier (R90/R90.1a)**
 
 - `make_frame()` in tools/r2_postproc.py: one-piece frame + backplate (+ stand);
   R90.1a **multi-plate before kit**: when frame + plate don't fit side by side

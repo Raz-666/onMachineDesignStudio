@@ -1685,6 +1685,15 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
     "through the slot in the left wall. The hang keyhole hides in the plate (invisible from the front); "
     "the easel stand plugs into two D2.7 plate holes. Console: GEN_FRAME PRESET=10x15 DEPTH=8 BORDER=12 "
     "SHAPE=RECT CLOSURE=BACK HANG=TOP STAND=1."),
+  P("R90.1b surface & extras (each its own submenu): SURF picks the visible face — Ironed (classic), "
+    "Bed texture (FLIP: the front prints against the bed, the plate texture is the face, no ironing), "
+    "or a structured border: Lines / Waves / Honeycomb with depth 0.4-2.4, spacing 2-15, angle 0-90, "
+    "wave amplitude 0.3-3, cell 4-20mm, direction IN (grooves) or OUT (ridges) — RECT only, replaces "
+    "ironing. DISC adds a glass/plexi/foil/litho insert: FRONT = in front of the photo, captured by a "
+    "1.2mm lip; BACK = behind the photo on the back band (backlit) — the groove grows by the disc "
+    "thickness. CABLE (display case only) = a hidden 6mm duct through the bottom bar, opening 2.5mm "
+    "behind the back face straight into the interior — LED wiring without a visible hole. Console: "
+    "GEN_FRAME PRESET=10x15 DEPTH=20 CABLE=1 DISC=PLEXI DISC_T=1 DISC_SIDE=BACK."),
   CENT(d_frame_anatomy()),CAP("Cross-section through the wall (front up: ironed front band, bridge "
     "shelf, groove with photo + plate + nubs, back band) and the two closures: BACK = bayonet plate "
     "with edge notches (slide 2.5mm), SIDE = slide-in slot in the left wall"),

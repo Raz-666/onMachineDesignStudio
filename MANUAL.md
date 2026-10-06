@@ -1111,7 +1111,8 @@ back, the visible face points up and gets the ironing pass.
 **The workflow (LCD: `Tools > Frames`)**
 
 1. **Settings** — Preset (9x13 · 10x15 · 13x18 · A6) or custom W/H, Depth,
-   Border, Corner r, Shape, Closure, Hang, Stand, Ironing, Infill, Vers.
+   Border, Corner r, Shape, Closure, Hang, Stand, Surface (Front), Disc,
+   Cable, Infill, Vers — each topic is its own submenu.
 2. **Create (beeps)** — the watcher checks the bed fit while generating
    (≈ 1 s), the happy tune plays and the file **auto-selects**:
    `00_Frame_<preset>_FLATx8_V01.gcode` (Part A when the bed needs two
@@ -1142,7 +1143,11 @@ back, the visible face points up and gets the ironing pass.
 | Closure | BACK / SIDE | BACK = bayonet backplate: drop it in straight, slide 2.5 mm to lock (zero flex). SIDE = photo + plate slide together through the slot in the left wall |
 | Hang | TOP/BOTTOM/LEFT/RIGHT/OFF | keyhole position in the backplate — **invisible from the front** |
 | Stand | ON/OFF | easel leg; auto-dropped with a note if the bed has no room |
-| Ironing | ON/OFF | the smooth shiny front pass |
+| Front (Surface) | Ironed / Bed texture / Lines / Waves / Honeycomb | the visible face: classic ironing pass, the flipped print (bed texture = the face, no ironing) or a structured border band |
+| — structure | Depth 0.4–2.4 mm · Spacing 2–15 mm · Angle 0–90° · Wave amp 0.3–3 mm · Cell 4–20 mm · Dir IN/OUT | Lines/Waves/Honeycomb parameters; OUT = ridges proud of the face, IN = grooves cut into it (RECT only, replaces ironing) |
+| Disc | NONE / GLASS / PLEXI / FOIL / LITHO · Side FRONT/BACK · Thick 0.4–6 mm | optional disc insert: FRONT = in front of the photo, captured by a 1.2 mm lip; BACK = behind the photo on the back band (backlit litho) — the groove grows by the disc thickness |
+| Cable | ON/OFF | hidden 6 mm cable duct through the bottom bar (display CASE only, depth 15+) — opens 2.5 mm behind the back face straight into the interior, invisible from the front |
+| Ironing | ON/OFF | the smooth shiny front pass (only with Front = Ironed) |
 | Infill | 20–100 % | frame body infill (front/back bands stay solid) |
 
 **Bed-fit logic (automatic, real bed 220×220 from `[r2_postproc]`):**
@@ -1167,6 +1172,8 @@ wall slot. The hang keyhole works with a normal nail or screw head.
 
 ```
 GEN_FRAME PRESET=10x15 DEPTH=8 BORDER=12 SHAPE=RECT CLOSURE=BACK HANG=TOP STAND=1
+GEN_FRAME PRESET=10x15 DEPTH=20 CABLE=1 DISC=PLEXI DISC_T=1 DISC_SIDE=BACK
+GEN_FRAME PRESET=9x13 FRONT=HEX S_SIZE=9 S_DIR=IN
 ```
 
 
@@ -1767,7 +1774,7 @@ while plotting (ch. C.3).
 | Entry | Contents |
 |---|---|
 | Info | every setting in one console listing + closure explanation |
-| Settings | Preset: Custom/9x13/10x15/13x18/A6 (`*` marks active) · W + H 40–230 (custom) · Depth 3–60 mm · Border 4–30 mm · Corner r 0–30 mm · Shape RECT/OVAL · Closure BACK/SIDE · Hang TOP/BOTTOM/LEFT/RIGHT/OFF · Stand ON/OFF · Ironing ON/OFF · Infill 20–100 % · Vers V01–V09 |
+| Settings | Preset: Custom/9x13/10x15/13x18/A6 (`*` marks active) · W + H 40–230 (custom) · Depth 3–60 mm · Border 4–30 mm · Corner r 0–30 mm · Shape RECT/OVAL · Closure BACK/SIDE · Hang TOP/BOTTOM/LEFT/RIGHT/OFF · Stand ON/OFF · Surf: Ironed/Bed texture/Lines/Waves/Honeycomb (+ Depth/Spacing/Angle/Wave amp/Cell/Dir) · Disc: None/Glass/Plexi/Foil/Litho (+ Side/Thick) · Cable ON/OFF · Infill 20–100 % · Vers V01–V09 |
 | Create (beeps) | validates, bumps the job counter — the watcher checks the bed fit and builds the file, it beeps + auto-selects |
 | How it works | workflow, kit logic, bayonet/slide assembly, Mainsail one-liner |
 

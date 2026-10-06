@@ -6637,6 +6637,148 @@ tests.append(('R90.1a kit: corner dropped note + wood glue hint',
     any('butt joints' in _n90 for _n90 in _i90kk['notes'])
     and any('corner radius dropped' in _n90 for _n90 in _i90kk['notes']), ''))
 
+# --- R90.1b: disc insert, front flip, structures, cable duct -------------------
+def _segs90(path):
+    _L90 = {}
+    _z90 = None
+    _px90 = _py90 = None
+    for _l90 in open(path, encoding='utf-8'):
+        if _l90.startswith(';Z:'):
+            _z90 = float(_l90[3:])
+        _m90 = _re90.match(r'^G1 X([\d.-]+) Y([\d.-]+)(?:.* E([\d.]+))?', _l90)
+        if _m90 and _z90 is not None:
+            _x90, _y90, _e90 = (float(_m90.group(1)), float(_m90.group(2)),
+                                 float(_m90.group(3) or 0))
+            if _px90 is not None and _e90 > 0:
+                _L90.setdefault(_z90, []).append((_px90, _py90, _x90, _y90))
+            _px90, _py90 = _x90, _y90
+        elif _l90.startswith('G0 X'):
+            _m290 = _re90.match(r'^G0 X([\d.-]+) Y([\d.-]+)', _l90)
+            if _m290:
+                _px90, _py90 = float(_m290.group(1)), float(_m290.group(2))
+    return _L90
+
+# FLIP: bed texture as the face - bridge lands at the BOTTOM, no ironing
+_p90f, _i90f = _pp.make_frame(preset='9x13', depth=8, frame_w=6, out_dir=_d90)
+_g90f = open(_p90f, encoding='utf-8').read()
+_p90fl, _i90fl = _pp.make_frame(preset='9x13', depth=8, frame_w=6, front='FLIP',
+                                out_dir=_d90)
+_g90fl = open(_p90fl, encoding='utf-8').read()
+_z90 = None
+_bz90n, _bz90f = [], []
+for _l90 in _g90f.split(chr(10)):
+    if _l90.startswith(';Z:'):
+        _z90 = float(_l90[3:])
+    elif _l90.startswith(';TYPE:Bridge'):
+        _bz90n.append(_z90)
+for _l90 in _g90fl.split(chr(10)):
+    if _l90.startswith(';Z:'):
+        _z90 = float(_l90[3:])
+    elif _l90.startswith(';TYPE:Bridge'):
+        _bz90f.append(_z90)
+tests.append(('R90.1b FLIP: front band on the bed (bridge at the bottom), no ironing',
+    _i90fl['front'] == 'FLIP' and ';TYPE:Ironing' not in _g90fl
+    and any('bed texture IS the visible face' in _n90 for _n90 in _i90fl['notes'])
+    and max(_bz90f) < min(_bz90n) and len(_bz90f) == len(_bz90n),
+    'flip=%s normal=%s' % (_bz90f, _bz90n)))
+
+# disc FRONT: capture lip shrinks the front band opening by 1.2mm
+_p90df, _i90df = _pp.make_frame(preset='9x13', depth=8, frame_w=6, disc='GLASS',
+                                disc_t=2.0, out_dir=_d90)
+_g90df = open(_p90df, encoding='utf-8').read()
+_c90 = [float(_v90) for _v90 in _re90.search(
+    r'NAME=FRAME CENTER=([\d.-]+),([\d.-]+)', _g90df).groups()]
+_S90df = _segs90(_p90df)
+_zs90df = sorted(_S90df)
+def _omin90(zz):
+    _xs90 = [min(_a90, _c90x) for _a90, _b90, _c90x, _d90 in _S90df[zz]
+             if abs((_b90 + _d90) / 2 - _c90[1]) < 2]
+    return min(abs(_x90 - _c90[0]) for _x90 in _xs90)
+tests.append(('R90.1b disc FRONT: lip 1.2mm smaller than the view opening + note',
+    _i90df['disc'] == 'GLASS' and 'disc' in _i90df['notes'][0].lower()
+    and abs(_omin90(_zs90df[-1]) - (_omin90(_zs90df[-7]) - 1.2)) < 0.35
+    and 'front lip holds it captive' in ' '.join(_i90df['notes']),
+    'front=%.2f shelf=%.2f' % (_omin90(_zs90df[-1]), _omin90(_zs90df[-7]))))
+
+# disc BACK: note + nubs ride on the disc rim (z unchanged: bb shrinks alike)
+_p90db, _i90db = _pp.make_frame(preset='9x13', depth=8, frame_w=6, disc='LITHO',
+                                disc_t=3.0, disc_side='BACK', out_dir=_d90)
+tests.append(('R90.1b disc BACK: backlit note + plate clamps the disc rim',
+    _i90db['disc'] == 'LITHO' and _i90db['disc_side'] == 'BACK'
+    and any('BEHIND the photo' in _n90 for _n90 in _i90db['notes'])
+    and any('backplate rim clamps' in _n90 for _n90 in _i90db['notes']), ''))
+
+# structures: pattern layers replace the solid face, tag + ironing-off note
+for _fr90, _kw90 in (('LINES', {}), ('WAVES', {}), ('HEX', {})):
+    _p90s, _i90s = _pp.make_frame(preset='9x13', depth=8, frame_w=6,
+                                  front=_fr90, out_dir=_d90, **_kw90)
+    _g90s = open(_p90s, encoding='utf-8').read()
+    _S90s = _segs90(_p90s)
+    _zs90s = sorted(_S90s)
+    _solid90 = len(_S90s[_zs90s[-6]])
+    _pat90 = len(_S90s[_zs90s[-1]])
+    # WAVES = dense 0.4mm curve sampling (many SHORT segments), the others
+    # clearly thinner than the solid base layer
+    if _fr90 == 'WAVES':
+        _thin90 = sum(1 for _a90, _b90, _c90x, _d90 in _S90s[_zs90s[-1]]
+                      if _math63.hypot(_c90x - _a90, _d90 - _b90) < 1.0) > 300
+        _info90 = 'short=%d' % sum(
+            1 for _a90, _b90, _c90x, _d90 in _S90s[_zs90s[-1]]
+            if _math63.hypot(_c90x - _a90, _d90 - _b90) < 1.0)
+    else:
+        _thin90 = _pat90 < _solid90 * 0.6
+        _info90 = 'solid=%d pattern=%d' % (_solid90, _pat90)
+    tests.append(('R90.1b %s: pattern layer replaces the solid face, no ironing'
+                  % _fr90,
+        _i90s['front'] == _fr90 and _thin90
+        and ';TYPE:Top surface infill' in _g90s
+        and ';TYPE:Ironing' not in _g90s
+        and any('no ironing pass' in _n90 for _n90 in _i90s['notes']),
+        _info90))
+
+# cable duct: CASE only, slot free in the low layers, closed above
+_p90c, _i90c = _pp.make_frame(preset='10x15', depth=20, frame_w=6, cable=True,
+                              out_dir=_d90)
+_g90c = open(_p90c, encoding='utf-8').read()
+_c90c = [float(_v90) for _v90 in _re90.search(
+    r'NAME=FRAME CENTER=([\d.-]+),([\d.-]+)', _g90c).groups()]
+_S90c = _segs90(_p90c)
+_zs90c = sorted(_S90c)
+_box90 = (_c90c[0] - 2.2, _c90c[1] - 82.5, _c90c[0] + 2.2, _c90c[1] - 76.9)
+def _boxhits90(zz):
+    return sum(1 for _a90, _b90, _c90x, _d90 in _S90c[zz]
+               if _box90[0] <= (_a90 + _c90x) / 2 <= _box90[2]
+               and _box90[1] <= (_b90 + _d90) / 2 <= _box90[3])
+tests.append(('R90.1b cable: 6mm slot in the bottom bar, open low / closed high',
+    _i90c['cable'] and any('cable duct' in _n90 for _n90 in _i90c['notes'])
+    and _boxhits90(_zs90c[0]) <= 1 and _boxhits90(_zs90c[11]) <= 1
+    and _boxhits90(_zs90c[12]) >= 2,
+    'L1=%d L12=%d L13=%d' % (_boxhits90(_zs90c[0]), _boxhits90(_zs90c[11]),
+                             _boxhits90(_zs90c[12]))))
+
+# guards + kit skip note
+for _kw90, _frag90 in (
+        (dict(preset='9x13', depth=8, cable=True), 'cable duct needs'),
+        (dict(preset='9x13', depth=8, front='HEX', shape='OVAL'), 'SHAPE=RECT'),
+        (dict(preset='9x13', depth=8, front='FLAT'), 'must be IRON'),
+        (dict(preset='9x13', depth=8, disc='STEIN'), 'must be NONE'),
+        (dict(preset='9x13', depth=8, front='WAVES', s_amp=9.0), 'out of range'),
+        (dict(preset='9x13', depth=8, front='LINES', s_dir='UP'), 'IN or OUT')):
+    try:
+        _pp.make_frame(out_dir=_d90, **_kw90)
+        _ok90 = False
+    except ValueError as _e90:
+        _ok90 = _frag90 in str(_e90)
+    tests.append(('R90.1b guard: %s -> ValueError(%s)'
+                  % (list(_kw90.items())[0][1], _frag90), _ok90, ''))
+_p90ks, _i90ks = _pp.make_frame(width=40, height=200, depth=6, frame_w=6,
+                                front='HEX', cable=True, out_dir=_d90)
+tests.append(('R90.1b kit: structure + cable skipped with honest notes',
+    _i90ks['kit'] and _i90ks['front'] == 'HEX'
+    and any('structure skipped in kit mode' in _n90 for _n90 in _i90ks['notes'])
+    and any('cable duct skipped in kit mode' in _n90 for _n90 in _i90ks['notes']),
+    ''))
+
 # OVAL one piece + SIDE slot
 _p90o, _i90o = _pp.make_frame(width=90, height=130, depth=6, frame_w=10,
                               shape='OVAL', closure='SIDE', out_dir=_d90)
@@ -6713,6 +6855,18 @@ tests.append(('R90 GEN_FRAME: params land in the save_variables + generates',
     and 'FRAME_GENERATE' in out, out[:200]))
 out = render(get_body('macros/17_generator.cfg', 'GEN_FRAME'), {'SHAPE': 'HEX'})
 tests.append(('R90 GEN_FRAME: HEX shape rejected', 'must be RECT or OVAL' in out, out[:120]))
+out = render(get_body('macros/17_generator.cfg', 'GEN_FRAME'),
+             {'PRESET': '10x15', 'FRONT': 'HEX', 'DISC': 'GLASS', 'DISC_T': '2',
+              'DISC_SIDE': 'BACK', 'CABLE': '1', 'S_SIZE': '9', 'S_DIR': 'IN'})
+tests.append(('R90.1b GEN_FRAME: surface/disc/cable params land in the variables',
+    'frame_front VALUE=' in out and 'HEX' in out
+    and 'frame_disc VALUE=' in out and 'GLASS' in out
+    and 'frame_disc_t VALUE=2.0' in out and 'frame_cable VALUE=True' in out
+    and 'frame_s_size VALUE=9.0' in out and 'frame_s_dir VALUE=' in out
+    and 'FRAME_GENERATE' in out, out[:200]))
+out = render(get_body('macros/17_generator.cfg', 'GEN_FRAME'), {'FRONT': 'GLAS'})
+tests.append(('R90.1b GEN_FRAME: bad FRONT rejected',
+    'FRONT must be IRON, FLIP' in out, out[:120]))
 
 # --- (3) LCD menu --------------------------------------------------------------
 _lcd90 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
@@ -6720,7 +6874,9 @@ tests.append(('R90 LCD: Frames menu in Tools with preset/shape/closure/hang/stan
     '[menu __main __gen __frame]' in _lcd90 and 'name: Frames' in _lcd90
     and all(k in _lcd90 for k in ('__frame __set __pre', '__frame __set __sha',
                                   '__frame __set __clo', '__frame __set __han',
-                                  '__frame __set __sta', '__frame __gen'))
+                                  '__frame __set __sta', '__frame __set __sur',
+                                  '__frame __set __dsc', '__frame __set __cab',
+                                  '__frame __gen'))
     and 'FRAME_GENERATE' in _lcd90, ''))
 _fb90 = _lcd90[_lcd90.index('[menu __main __gen __frame]'):
                 _lcd90.index('[menu __main __gen __labels]')]
@@ -6728,6 +6884,16 @@ _long90 = [ln[6:] for ln in _fb90.split(chr(10))
            if ln.startswith('name: ') and len(ln[6:]) > 16 and '{' not in ln]
 tests.append(('R90 LCD: new names stay short (R29)', len(_long90) == 0,
               str(_long90[:4])))
+tests.append(('R90.1b LCD: Surface submenu = ONE choice (5 modes) + structure params',
+    all(k in _lcd90 for k in ('__sur __iro', '__sur __flp', '__sur __lin',
+                              '__sur __wav', '__sur __hex', '__sur __dee',
+                              '__sur __spa', '__sur __ang', '__sur __amp',
+                              '__sur __cel', '__sur __dir'))
+    and 'Ironing:' not in _fb90, ''))
+tests.append(('R90.1b LCD: Disc submenu (5 materials + side + thickness) + cable',
+    all(k in _lcd90 for k in ('__dsc __non', '__dsc __gla', '__dsc __ple',
+                              '__dsc __fol', '__dsc __lit', '__dsc __sid',
+                              '__dsc __thk', '__set __cab')), ''))
 
 # ===================== R92: purge strip, park corners, litho tags =================
 import struct as _st92, zlib as _zl92
