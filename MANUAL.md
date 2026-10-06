@@ -1865,7 +1865,7 @@ never error out — the generator clamps and reports.
 LEDs on/off, Nozzle LED — mode AUTO/ON/OFF + live brightness + live color
 R/G/B + presets.
 
-**System:** restarts (2×), Pi shutdown (2×), **Force end print**, save config
+**System:** File check (+ Retag old 2×), restarts (2×), Pi shutdown (2×), **Force end print**, save config
 (2×, warns that the LCD goes dark), status.
 
 ## 15. Overrides reference
@@ -1970,8 +1970,20 @@ Print running (legacy file) - live tuning and overrides ACTIVE
 | SYS_SAVE_CONFIG | guarded SAVE_CONFIG: refuses during a print, skips when nothing is pending, warns that the LCD goes DARK for up to 2 min before restarting (2×) |
 | HOST_CHECK | **Pi health report**: throttle/undervoltage flags (now + since boot), CPU temp, load **vs. core count**, **RAM + swap**, disk, **iowait**, **TOP CPU/RAM processes (top 5)** and **who sits IN the swap** (VmSwap per process — names the RAM eater even when the top-RAM list looks innocent) + **service states** (klipper/moonraker/avahi/crowsnest/sonar/OctoEverywhere/pigpiod, with warnings: double webcam stack, avahi still on, cloud relay) — honest verdict: THROTTLED / SWAPPING / OVERLOADED / OK. LCD: System > Host check |
 | EMERGENCY_STOP | immediate halt |
+| FILE_CHECK | **g-code inventory**: scans every file's tag version — how many are current, old (upgradeable), untouched (never processed) or plotter files — each file listed on the console with age + size. `FILE_CHECK RETAG=1` (2×/CONFIRM=1) additionally upgrades old + untouched files to the current markers: **.r2bak backup first**, never while printing, max 20 per run. LCD: System > File check |
 
 All destructive paths need TWO presses (60 s window). Serial link: UART (ch. B.5).
+
+**Why FILE_CHECK exists:** markers (`APPLY_TYPE`, extended `_FILE_INFO`,
+measured per-feature speeds) grew over the versions — a file uploaded long
+ago prints, but the newer features (feature overrides, live preview,
+measured originals) stay blind to it. `FILE_CHECK` shows exactly which
+files those are, `RETAG` brings them up to date without a re-upload. The
+direct SSH variant (no Klipper needed):
+
+```
+python3 tools/r2_postproc.py --file-check ~/printer_data/gcodes
+```
 
 ## 20. Variables & editing the .cfg files
 
@@ -1989,6 +2001,7 @@ never edit the file while Klipper runs. Runtime state lives in _STATE (not persi
 | Cold pull / misc | cold_pull_hot, cold_pull_pull, cooldown_fan_time, heaters_off_at_end, motors_off_at_end |
 | System | sound_on, leds_on, start_confirm, gantry_sync_*, kamp_*, ishaper_* |
 | Nozzle LED | nozzle_mode (auto) · nozzle_bright (1.0) · nozzle_r/g/b (0.9/0.9/0.85) · led_finish_time (10 s finished celebration) |
+| Generators / texture | *_nonce job counters · texture_mode/thick/density/pattern/scale/amp/dir · file_check_retag |
 
 Nice edit spots per file:
 
@@ -2186,6 +2199,7 @@ Diagnostics: SHOW_STATUS · SELF_TEST · KAMP_STATUS · HOST_CHECK (Pi health) �
 | purge / cold pull | Macros > Purge · Maintenance > Filament |
 | shutdown the Pi | System > Shutdown (2×) |
 | cable/lamp hole in a range part | Pre-Print > Range/Stop > Fl.hole / Top hole, then Create |
+| which g-code files are outdated | System > File check — console lists every file; Retag old (2×) upgrades them |
 | printer off, Pi stays on | PRINTER_POWER_OFF (console — needs the relay, ch. 26) |
 
 **Mainsail — the 20 you will actually use**
@@ -2201,6 +2215,7 @@ GEN_CABLE_TIES COUNT=6 LENGTH=120 · GEN_ANGLES ANGLE=90 WIDTH=25 WALLS=4 INFILL
 GEN_FRAME PRESET=10x15 DEPTH=8 CLOSURE=BACK HANG=TOP STAND=1 ·
 TEXTURE_APPLY FILE=myfile.gcode MODE=BUMPS PATTERN=WAVES SCALE=10 AMP=0.35 ·
 SET_LAYER_RANGE FLOOR=3 FLOOR_HOLE=15 TOP_HOLE=28 · SET_NOZZLE_SPLIT STATE=1 ·
+FILE_CHECK · FILE_CHECK RETAG=1 CONFIRM=1 ·
 CALIBRATE_PA · FLOW_CAL MEASURE=0.46 · TEMP_TOWER_START START=200 END=230 STEP=5 BAND=10
 ```
 
@@ -2226,7 +2241,7 @@ usage line and the valid values instead of doing something.
 | **MCR** | minimum cruise ratio | **SCV** | square corner velocity |
 
 ## 25. Complete macro index
-All 144 public macros with parameters (defaults in parentheses; blank = no parameters). Internal helpers (leading `_`) are not user-facing. Grouped by module file — the same file you would edit.
+All 145 public macros with parameters (defaults in parentheses; blank = no parameters). Internal helpers (leading `_`) are not user-facing. Grouped by module file — the same file you would edit.
 
 ### Sounds — 02_sounds.cfg (4)
 | Macro | Parameters | Purpose |
@@ -2392,6 +2407,7 @@ All 144 public macros with parameters (defaults in parentheses; blank = no param
 | **FORCE_END_PRINT** | CONFIRM=0 | emergency: ALWAYS ends the print cleanly, even from a wedged state |
 | **HOST_RESTART_INFO** | — | explains what a host restart does |
 | **EMERGENCY_STOP** | — | immediate full halt |
+| **FILE_CHECK** | RETAG=0, CONFIRM=0 | g-code inventory: tag version census (current/old/untouched/plotter) on console + LCD; `RETAG=1 CONFIRM=1` upgrades old files (.r2bak backup, never while printing) |
 
 ### Labels — 16_labels.cfg (9)
 | Macro | Parameters | Purpose |

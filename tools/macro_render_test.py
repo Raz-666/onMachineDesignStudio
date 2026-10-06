@@ -4884,7 +4884,8 @@ tests.append(('R75 watcher: _prime_nonces adopts the current counters (no re-fir
         'bridge_nonce': None, 'plot_text_nonce': None, 'plot_status_nonce': None, 'host_nonce': None,
         'label_fit_nonce': None, 'retract_fix_nonce': None, 'vol_fix_nonce': None,
         'cable_tie_nonce': None, 'angle_nonce': None, 'litho_nonce': None,
-        'seal_nonce': None, 'litho_del_nonce': None, 'frame_nonce': None}, ''))
+        'seal_nonce': None, 'litho_del_nonce': None, 'frame_nonce': None,
+        'texture_nonce': None, 'file_check_nonce': None}, ''))
 tests.append(('R75 watcher: daemon runs niced + primes on the first pass',
     'os.nice(4)' in open('tools/r2_postproc.py').read()
     and 'first_prime' in open('tools/r2_postproc.py').read(), ''))
@@ -6027,8 +6028,9 @@ tests.append(('R86 modules: 17_generator.cfg sentinel + _CHECK_INSTALL lists 17'
     '_V18_GEN' in open(_gen86).read()
     and "('17_generator.cfg',       ['_V18_GEN'])" in open('macros/01_state.cfg').read()
     and 'all 17 modules' not in open('macros/01_state.cfg').read(), ''))
-tests.append(('R86/R89/R90 watcher: NONCE_KEYS has 17 channels incl. litho/seal/frame',
-    len(_pp.NONCE_KEYS) == 17 and 'cable_tie_nonce' in _pp.NONCE_KEYS
+tests.append(('R86-R93 watcher: NONCE_KEYS has 19 channels incl. litho/seal/frame/texture',
+    len(_pp.NONCE_KEYS) == 19 and 'cable_tie_nonce' in _pp.NONCE_KEYS
+    and 'texture_nonce' in _pp.NONCE_KEYS and 'file_check_nonce' in _pp.NONCE_KEYS
     and 'angle_nonce' in _pp.NONCE_KEYS and 'litho_nonce' in _pp.NONCE_KEYS
     and 'seal_nonce' in _pp.NONCE_KEYS and 'litho_del_nonce' in _pp.NONCE_KEYS
     and 'frame_nonce' in _pp.NONCE_KEYS,
@@ -7184,6 +7186,76 @@ tests.append(('R91 watcher: texture_nonce handler + lazy r2_texture import',
     "from r2_texture import apply_texture" in open('tools/r2_postproc.py',
         encoding='utf-8').read()
     and 'texture_nonce' in open('tools/r2_postproc.py', encoding='utf-8').read(), ''))
+
+
+# ===================== R93: file check (version census + retag) =================
+import subprocess as _sp93
+import sys as _sys93
+_d93 = _tf91.mkdtemp(prefix='r93_')
+def _w93(n, c):
+    open(_os91.path.join(_d93, n), 'w').write(c)
+_w93('a_current.gcode', '; R2-POSTPROC v4\n_FILE_INFO x\nG28\n')
+_w93('b_old.gcode', '; R2-POSTPROC v2\nG28\n')
+_w93('c_untouched.gcode', ';FLAVOR:Marvin\nG28\n')
+_w93('d_plot.gcode', '; R2-PLOT v3 (pen)\nG28\n')
+_w93('e_tex.gcode', '; R2-TEXTURE v1 (R91) applied to x.gcode\n'
+                    '; R2-POSTPROC v4\nG28\n')
+_rows93, _tot93 = _mod73.file_check_scan(_d93)
+_st93 = {r['name']: r['status'] for r in _rows93}
+tests.append(('R93 scan: current / old / untouched / plotter + texture flag',
+    _st93 == {'a_current.gcode': 'CURRENT', 'b_old.gcode': 'OLD',
+              'c_untouched.gcode': 'UNTOUCHED', 'd_plot.gcode': 'PLOT',
+              'e_tex.gcode': 'CURRENT'}
+    and _tot93 == {'files': 5, 'current': 2, 'old': 1, 'untouched': 1,
+                   'plot': 1}
+    and [r for r in _rows93 if r['name'] == 'e_tex.gcode'][0]['tex'],
+    str(_tot93)))
+tests.append(('R93 scan: age 0 days, sorted by name, .txt ignored',
+    all(r['age'] == 0 for r in _rows93)
+    and [r['name'] for r in _rows93] == sorted(r['name'] for r in _rows93)
+    and not any(r['name'].endswith('.txt') for r in _rows93), ''))
+
+# SSH one-liner: --file-check works without Klipper
+_p93 = _sp93.run([_sys93.executable, 'r2_postproc.py', '--file-check', _d93],
+                 capture_output=True, text=True, cwd='tools')
+tests.append(('R93 CLI: --file-check lists every file + summary line',
+    _p93.returncode == 0 and 'a_current.gcode' in _p93.stdout
+    and 'CURRENT' in _p93.stdout and '5 files: 2 current, 1 old' in _p93.stdout,
+    _p93.stdout.strip().splitlines()[-1] if _p93.stdout else _p93.stderr[:80]))
+
+# FILE_CHECK macro: scan branch / arm branch / confirmed branch
+save_vars.update({'file_check_nonce': 7})
+out = render(get_body('macros/13_system.cfg', 'FILE_CHECK'), {})
+tests.append(('R93 FILE_CHECK: scan -> retag cleared + nonce bumped',
+    'file_check_retag VALUE=0' in out and 'file_check_nonce VALUE=8' in out
+    and 'scanning every g-code file' in out, out[:120]))
+state_vars.update({'fc_armed': False})
+out = render(get_body('macros/13_system.cfg', 'FILE_CHECK'), {'RETAG': 1})
+tests.append(('R93 FILE_CHECK: RETAG without confirm only ARMS',
+    'press again' in out and 'fc_armed VALUE=True' in out
+    and 'file_check_nonce' not in out, out[:120]))
+out = render(get_body('macros/13_system.cfg', 'FILE_CHECK'),
+             {'RETAG': 1, 'CONFIRM': 1})
+tests.append(('R93 FILE_CHECK: RETAG + CONFIRM -> retag=1 + nonce + disarm',
+    'file_check_retag VALUE=1' in out and 'file_check_nonce VALUE=8' in out
+    and 'fc_armed VALUE=False' in out and '.r2bak' in out, out[:140]))
+state_vars.update({'fc_armed': False})
+save_vars.update({'file_check_nonce': 0})
+
+# LCD + watcher wiring
+_lcd93 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R93 LCD: System > File check (+ Retag 2-press, gated NOW)',
+    all(k in _lcd93 for k in ('__system __fc0]', '__system __fc1]',
+                              '__system __fc2]', '__system __fc3]'))
+    and 'FILE_CHECK RETAG=1 CONFIRM=1' in _lcd93
+    and "fc_armed}" in _lcd93, ''))
+_pp93 = open('tools/r2_postproc.py', encoding='utf-8').read()
+tests.append(('R93 watcher: file_check_nonce handler + .r2bak backup + print guard',
+    'file_check_nonce' in _pp93 and '.r2bak' in _pp93
+    and 'RETAG refused: printing' in _pp93
+    and 'max 20 per run' in _pp93, ''))
+tests.append(('R93/R91 watcher: both nonces in NONCE_KEYS (restart-safe)',
+    "'texture_nonce'" in _pp93 and "'file_check_nonce'" in _pp93, ''))
 
 
 # ===================== R92.1: global x feature parameter model ==================

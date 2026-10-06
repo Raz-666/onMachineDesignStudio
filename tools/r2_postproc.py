@@ -44,6 +44,7 @@ HOST_CHECK with the Pi's throttle/temperature/load/disk health report.
 import os
 import re
 import math
+import shutil
 
 from math import cos, pi
 import sys
@@ -5368,7 +5369,8 @@ NONCE_KEYS = ('preview_nonce', 'range_nonce', 'label_gen_nonce', 'reso_nonce',
               'bridge_nonce', 'plot_text_nonce', 'plot_status_nonce', 'host_nonce',
               'label_fit_nonce', 'retract_fix_nonce', 'vol_fix_nonce',
               'cable_tie_nonce', 'angle_nonce', 'litho_nonce', 'seal_nonce',
-              'litho_del_nonce', 'frame_nonce')
+              'litho_del_nonce', 'frame_nonce', 'texture_nonce',
+              'file_check_nonce')
 
 
 def _prime_nonces(rv):
@@ -9200,6 +9202,58 @@ class _SkipHandler(Exception):
     """R89: handler decided everything itself - exit the try block quietly."""
 
 
+
+def file_check_scan(directory):
+    """R93: version census over every .gcode in DIRECTORY.
+
+    Streams only each file's header (~120 lines) - the tag line, plotter
+    marker and _FILE_INFO all live at the top. Returns (rows, totals):
+    every row is {'name', 'status', 'age', 'size', 'gen', 'tex'} with
+    status CURRENT (tag v4) / OLD (v1-v3, upgradeable in place) /
+    PLOT (pen-plotter file - never tagged, fine) / UNTOUCHED (never
+    processed: fresh upload from before the system existed or a foreign
+    file). Pure read - nothing is modified.
+    """
+    rows = []
+    now = time.time()
+    for name in sorted(os.listdir(directory)):
+        if not name.lower().endswith('.gcode'):
+            continue
+        p = os.path.join(directory, name)
+        if not os.path.isfile(p):
+            continue
+        st = os.stat(p)
+        head = []
+        try:
+            with open(p, errors='replace') as f:
+                for i, line in enumerate(f):
+                    head.append(line)
+                    if i > 120:
+                        break
+        except OSError:
+            continue
+        h = ''.join(head)
+        if 'R2-PLOT' in h[:2048]:
+            status = 'PLOT'
+        elif TAG in h:
+            status = 'CURRENT'
+        elif any(t in h for t in OLD_TAGS):
+            status = 'OLD'
+        else:
+            status = 'UNTOUCHED'
+        rows.append({'name': name, 'status': status,
+                     'age': int(max(0, (now - st.st_mtime)) // 86400),
+                     'size': st.st_size / 1e6,
+                     'gen': name.startswith('00_'),
+                     'tex': '; R2-TEXTURE' in h})
+    totals = {'files': len(rows),
+              'current': sum(1 for r in rows if r['status'] == 'CURRENT'),
+              'old': sum(1 for r in rows if r['status'] == 'OLD'),
+              'untouched': sum(1 for r in rows if r['status'] == 'UNTOUCHED'),
+              'plot': sum(1 for r in rows if r['status'] == 'PLOT')}
+    return rows, totals
+
+
 def watch(directory, interval=5.0, once=False):
     """Daemon: process every new/changed .gcode file under DIRECTORY.
 
@@ -9437,6 +9491,7 @@ def watch(directory, interval=5.0, once=False):
     last_seal_nonce = None
     last_frame_nonce = None         # R90: picture frame / display case
     last_texture_nonce = None       # R91: fuzzy skin / bumps on an existing file
+    last_file_check_nonce = None   # R93: file version census / retag
     last_litho_del_nonce = None
     pushed_images = None             # R89: last image list pushed to the LCD
     last_fit_nonce = None
@@ -9479,6 +9534,8 @@ def watch(directory, interval=5.0, once=False):
                 last_litho_nonce = _np.get('litho_nonce')       # R89
                 last_seal_nonce = _np.get('seal_nonce')
                 last_frame_nonce = _np.get('frame_nonce')    # R90
+                last_texture_nonce = _np.get('texture_nonce')   # R91
+                last_file_check_nonce = _np.get('file_check_nonce')  # R93
                 last_litho_del_nonce = _np.get('litho_del_nonce')
                 first_prime = False
             # R62: file preview request - SDCARD_PRINT_FILE stored the selected
@@ -10108,6 +10165,67 @@ def watch(directory, interval=5.0, once=False):
             except Exception:                               # noqa: BLE001
                 pass
             print(f'[texture] guard: {ve91}', flush=True)
+
+        # R93: FILE CHECK (file_check_nonce) - version census over every
+        # g-code file. RETAG additionally upgrades old/untouched files:
+        # .r2bak backup first, never while a print runs, max 20 per run
+        # (Pi-friendly - run again for the rest).
+        try:
+            _fc93 = rv.get('file_check_nonce', '')
+            if _fc93 and _fc93 != last_file_check_nonce:
+                last_file_check_nonce = _fc93
+                _retag93 = str(rv.get('file_check_retag', '') or '').strip().lower() \
+                    in ('1', 'true', 'yes', 'on')
+                rows93, tot93 = file_check_scan(directory)
+                for _r93 in rows93:
+                    print('[file-check] %-46s %-9s age=%4dd %7.1f MB%s'
+                          % (_r93['name'][:46], _r93['status'], _r93['age'],
+                             _r93['size'],
+                             ' [texture]' if _r93['tex'] else ''), flush=True)
+                _up93 = [r for r in rows93 if r['status'] in ('OLD', 'UNTOUCHED')]
+                _extra93 = ''
+                if _retag93:
+                    _st93 = {}
+                    try:
+                        _st93 = _moonraker_status()
+                    except Exception:                          # noqa: BLE001
+                        pass
+                    if ((_st93.get('print_stats') or {}).get('state')
+                            in ('printing', 'paused')):
+                        _extra93 = ' | RETAG refused: printing'
+                    elif not _up93:
+                        _extra93 = ' | RETAG: nothing to do'
+                    else:
+                        _n93 = 0
+                        for _r93 in _up93[:20]:
+                            _p93 = os.path.join(directory, _r93['name'])
+                            try:
+                                shutil.copy2(_p93, _p93 + '.r2bak')
+                                process(_p93)
+                                _n93 += 1
+                                print('[file-check] retag: %s -> current'
+                                      % _r93['name'], flush=True)
+                            except OSError as _oe93:
+                                print('[file-check] retag failed: %s (%r)'
+                                      % (_r93['name'], _oe93), flush=True)
+                        _extra93 = (' | RETAG: %d/%d upgraded (backup .r2bak)'
+                                    % (_n93, len(_up93)))
+                        if len(_up93) > 20:
+                            _extra93 += ' - run again for the rest'
+                _msg93 = ('File check: %d files - %d current, %d old, %d '
+                          'untouched, %d plotter'
+                          % (tot93['files'], tot93['current'], tot93['old'],
+                             tot93['untouched'], tot93['plot']))
+                try:
+                    _moonraker_gcode(
+                        'RESPOND MSG="%s%s"\nM117 Files: %dcur %dold %dnew\n'
+                        '_SOUND_LIB NAME=r2_done'
+                        % (_msg93, _extra93, tot93['current'], tot93['old'],
+                           tot93['untouched']))
+                except Exception as me93:                      # noqa: BLE001
+                    print(f'[file-check] moonraker unreachable '
+                          f'({me93.__class__.__name__})', flush=True)
+                print('[file-check] %s%s' % (_msg93, _extra93), flush=True)
         except Exception as e:                              # noqa: BLE001
             print(f'[texture] poll error: {e!r}', flush=True)
 
@@ -10582,6 +10700,22 @@ def main():
         br = int(args[6]) if len(args) > 6 else 0
         out, nl = make_range(args[1], int(args[2]), int(args[3]), floor=fl, top=tp, brim=br)
         print(f'[ok] {out}: {nl} layers (floor {fl}/top {tp}/brim {br}) - start via the dialog')
+        return
+    if args[0] == '--file-check':
+        # R93: SSH one-liner - version census over a gcodes folder, no
+        # Klipper needed:  r2_postproc.py --file-check ~/printer_data/gcodes
+        d93 = args[1] if len(args) > 1 else '.'
+        if not os.path.isdir(d93):
+            print(f'[ERROR] not a directory: {d93}', flush=True)
+            sys.exit(1)
+        rows93, tot93 = file_check_scan(d93)
+        for _r93 in rows93:
+            print('[file-check] %-46s %-9s age=%4dd %7.1f MB%s'
+                  % (_r93['name'][:46], _r93['status'], _r93['age'],
+                     _r93['size'], ' [texture]' if _r93['tex'] else ''))
+        print('[file-check] %d files: %d current, %d old, %d untouched, '
+              '%d plotter' % (tot93['files'], tot93['current'], tot93['old'],
+                              tot93['untouched'], tot93['plot']))
         return
     dry = '--dry-run' in args
     verbose = '-v' in args or '--verbose' in args
