@@ -1,26 +1,52 @@
-# SESSION STATE — R92 FERTIG (Commit 9f9f67a, Tests 1068/1068, Golden 23/23)
+# SESSION STATE — R90.1a MULTI-PLATE FERTIG (dd2594d, Tests 1082/1082, Golden 23/23)
 
-R92 QUALITAETSPAKET fertig: (1) BETT-WAHRHEIT: _bed_limits liest [r2_postproc]-Sektion
-(bed_min_x/max_x/min_y/max_y) aus printer.cfg, ignoriert die gelifteten Steppers,
-Default Ender-3 220x220 (x 0..220, y -3..217) + Konsolen-Hinweis; _PRIME_LINE/
-_PARK_HEAD/_PURGE_STRIP lesen dieselbe Quelle; Park-Ecken nicht mehr hartkodiert
-(222/225 lagen ausserhalb des Betts); Parser-Fix [sektion]->Name. (2) FARBWECHSEL-
-PURGE: _PURGE_STRIP (neu) - CHANGE_FILAMENT_RESUME/PURGE_MORE ziehen 15mm als
-flachen 0.3mm-Streifen neben die Objekte (Front, probe-safe, hoch fahren, nur in
-freier Zone abtauchen, bis 4 Zeilen) statt E15-Klumpen an der Parkecke (Microprobe-
-Haengenbleiben beim Meshing - User-Feldbericht Label-Generator). (3) LITHO-TAGS:
-ehrliche ;TYPE (Bottom surface L1-2 / Internal solid infill Kern / Top surface
-letzte 2 / Brim / Ironing) + Haupttyp nach Brim re-asserted (Layer-1-Ribbon lief
-unter BRIM!) + TYPES-Liste; Bett-Fallback im Litho 220x217. Doku: MANUAL 7/23/
-Anhang A.2.1 + PDF 85 S. Beachte: Auf 220er Bett sind 9x13/10x15 mit border >8
-automatisch Kit (eherlich so); User muss [r2_postproc] einmalig in printer.cfg
-eintragen (Beispiel in Anhang A.2.1).
+## AKTUELL: R90.1a Multi-Plate umgesetzt
 
-USER-ENTSCHEDUNGEN (ask_user, verbindlich): Bett real 220x220 (Ursprung wie
-printer.cfg). MULTI-PLATE VOR KIT (Frame auf Plate A, Platte/Staender auf B;
-Klebe-Kit nur wenn der Rahmen selbst nicht passt). ERSTE PLATE AUTO-SELEKTIEREN
-(nicht starten). REIHENFOLGE: R92 Qualität -> R90.1 Rahmen-Erweiterung -> R91
-Textur-Tool -> R93 Datei-Check/Re-Tag.
+R90.1a (Multi-Plate vor Kit) KOMPLETT: make_frame in tools/r2_postproc.py auf
+Plates-Loop umgebaut. ENTSCHEIDUNG (Realbett 220x220, Default make_frame jetzt
+(0,-3,220,217), Watcher übergibt _bed_limits() wie gehabt): (1) Rahmen+Platte
+nebeneinander passen -> EINE Datei (9x13 bis border 10). (2) Passt das nicht,
+Rahmen aber allein -> ZWEI Platten: '00_Frame_..._A_V01.gcode' (Rahmen) +
+'..._B_V01.gcode' (Backplate+Stand, eigene TOTAL_LAYERS, eigene EXCLUDE-DEFINEs);
+Stand-Drop-Entscheidung jetzt auf Plate B (neben/unter Platte, sonst Note).
+(3) Rahmen allein zu gross (nur RECT) -> 4-Streifen-Klebe-Kit, ebenfalls
+A=Streifen / B=Platte wenn Zeilen zusammen nicht passen; Kit-Platten-Guard
+'backplate does not fit' VOR jedem Datei-Write. (4) OVAL/zu gross -> Fehler
+mit Border-Limit. DATEI-ENDE JEDER PLATE: M107 + PRINT_END (BUGFIX: R90-Dateien
+hatten gar kein PRINT_END!) + bei nicht-letzter Plate: RESPOND 'plate A of 2
+done - next file: ... (NOT auto-started)' + M117 + M300-Beeps (Anzahl=Plates).
+WATCHER: Part A wird _SELECT_FILE-iert (nicht gestartet), Message nennt Plattenzahl,
+Beeps = Plates. LCD: 15x21/A5 aus Preset-Menü entfernt (überlaufen das 220er
+Bett immer), Preset-RESPONDs auf Realbett umformuliert, Info-Text Multi-Plate.
+Tests: R90-Block auf Multi-Plate umgeschrieben + 7 neue R90.1a-Tests (Plates-
+Mechanik, Trailer, Single-File, Kit-A/B, Guard-vor-Write, TOTAL_LAYERS pro
+Plate, keine Beeps in letzter Plate). Doku: MANUAL 5.8 (Workflow, Parts-Tabelle
+Part A/B, Settings, Bed-fit-Logik 4-stufig), LCD-Referenz + Cheat-Sheet-Zeile,
+frame_design.md, PDF 5.8 (85 S., pypdf-verifiziert).
+
+BEKANNTE INKONSISTENZ (später aufräumen): die anderen Generatoren (ties/angles/
+labels/litho/seal/resonance/bridge) haben weiterhin Bett-Default 244x238
+hardcoded — Produktion unberührt (Watcher übergibt _bed_limits), nur direkte
+CLI-Testnutzung. Bei Gelegenheit vereinheitlichen.
+
+WEITER mit R90.1-REST: Scheiben-Einsatz (Glas/Plexi/Folie/Litho bündig, Fugen
+mit Dickenparameter), Kabelloch (hinten beginnend, in Innenraum gekrümmt),
+Front-Flip (Front als erste Schicht = Bettextur statt Ironing), Strukturen
+(Linien/Wellen/Waben, nach innen/außen), Untermenüs — dann R91 Textur-Tool,
+R93 Datei-Check. Release .73-Entscheidung per ask_user (m). Dreieck/Stern Backlog.
+
+R92.1 (FERTIG, 1ec3bd1): Parameter-Modell eff = Basis × GLOBAL × FEATURE; Flow
+multiplikativ (Fix: Feature-% bezog sich absolut auf Globalen), Feature-Accels
+= harte Limits × SET_GLOBAL_ACCEL_PERCENT (10..300, save_var ovf_accel_pct,
+sofortige Anwendung), LCD __accels __pct/__eff + __extr __fsrc, MANUAL Kap. 9
+Modellkasten. R92 (FERTIG, 9f9f67a): [r2_postproc]-Bett-Wahrheit, Purge-Strip
+(0.3mm flach, objektfrei, probe-safe), Litho-Tags ehrlich, Park aus Real-Bett.
+
+USER-ENTSCHEDUNGEN (bleiben verbindlich): Bett real 220x220 (Ursprung wie
+printer.cfg). MULTI-PLATE VOR KIT. ERSTE PLATE AUTO-SELEKTIEREN (nicht starten).
+KEIN Auto-Link/Auto-Start zwischen Platten-Dateien. REIHENFOLGE: R92 ✓ ->
+R92.1 ✓ -> R90.1 (a ✓ Multi-Plate, Rest offen) -> R91 Textur-Tool -> R93
+Datei-Check/Re-Tag.
 
 VOLLSTAENDIGE R90.1-SPEZ (nachgelieferter Prompt, alles offen ausser marks):
 Plexi/Glas/Folie/Litho-Einsatz bündig (Fuge vorder-/rückseitig, Dicke param.),
