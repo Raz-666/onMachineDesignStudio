@@ -872,7 +872,7 @@ auto-scale with the strap width — you never tune the mechanism itself.
 | **CLASSIC** | the normal cable tie: a small pawl in the head reaches into the slot, the strap's teeth ratchet past it — pulls tight, locks at every tooth | one-way: cut to remove |
 | **LOOP** | a frame loop with an open slot plus beads along the strap — pull the tip through, it snaps over each bead | lift the strap back out of the loop — adjustable at every bead, **reusable** |
 
-**The workflow (LCD: `Tools > Kabelbinder`)**
+**The workflow (LCD: `Tools > Cable ties`)**
 
 1. **Settings** — Count, Length, Width, Layers (strap thickness), LH (layer
    height), Closure, Brim, Vers (see table below).
@@ -922,7 +922,7 @@ reusable 100 mm ties for cable management.
 
 Angle plates (L-brackets in ANY angle, equal or unequal legs) and flat
 connectors (two boards joined side by side) — screw-on, printable, with a
-fully automatic hole layout. LCD: `Tools > Winkel+Flach`.
+fully automatic hole layout. LCD: `Tools > Angles+Flat`.
 
 **Mode (the first menu entry)**
 
@@ -1070,7 +1070,7 @@ Sealing rings straight from the LCD: outer/inner diameter and height, with a
 flat face or a groove that raises the contact pressure. One continuous
 spiral per band — no seam, no start-stop blob where a seal would leak.
 
-**The workflow (LCD: `Tools > Dichtungen`)**
+**The workflow (LCD: `Tools > Gaskets`)**
 
 1. **Settings** — OD, ID, Height, Face (FLAT/NUT), Ironing, LH, Vers.
 2. **Create (beeps)** — the watcher builds the file in seconds, the happy
@@ -1581,7 +1581,7 @@ wiring changes without heating anything.
 Seven top groups — in LCD order: **Start Print?** (appears in the waiting
 state, position 1), **Live Tuning** (during a print, position 2), then
 Pre-Print, Quick Macros, **Tools** (the six part generators:
-Kabelbinder · Winkel+Flach · Lithophane · Dichtungen · Labels · Plotter, each
+Cable ties · Angles+Flat · Lithophane · Gaskets · Labels · Plotter, each
 with its own sub-menu),
 Maintenance, System. Start dialog and live tuning sit right at the top. Every line fits the 16 characters
 of the 12864 display — the value you edit is always visible (test-enforced).
@@ -1638,7 +1638,7 @@ contrast, Invert AUTO/ON/OFF, Drive frame test, Start (overrides), Plot text
 file, > Plot status. All baked into the file at conversion time; live entries
 while plotting (ch. C.3).
 
-**Kabelbinder** (cable ties, in Tools — ch. 5.4)
+**Cable ties** (in Tools — ch. 5.4)
 
 | Entry | Contents |
 |---|---|
@@ -1647,7 +1647,7 @@ while plotting (ch. C.3).
 | Create (beeps) | validates, bumps the job counter — the watcher builds the file in the background, it beeps + auto-selects |
 | How it works | the flow + PETG/TPU tip + the Mainsail one-liner, right on the LCD |
 
-**Winkel+Flach** (angles + flat connectors, in Tools — ch. 5.5)
+**Angles+Flat** (angles + flat connectors, in Tools — ch. 5.5)
 
 | Entry | Contents |
 |---|---|
@@ -1666,7 +1666,7 @@ while plotting (ch. C.3).
 | Settings | Height 30–200 mm · Layer 0.08–0.2 (0.12 default) · Levels 0–12 (0 = photo, 2–12 posterized) · Frame ON/OFF · Brim 0–10 · Ironing ON/OFF · Vers V01–V09 |
 | How it works | upload, slot press, standing print, white PLA tip, Mainsail one-liner |
 
-**Dichtungen** (gaskets, in Tools — ch. 5.7)
+**Gaskets** (in Tools — ch. 5.7)
 
 | Entry | Contents |
 |---|---|
@@ -1982,9 +1982,12 @@ Diagnostics: SHOW_STATUS · SELF_TEST · KAMP_STATUS · HOST_CHECK (Pi health) �
 | first layer slower/faster | Pre-Print > 1st layer % |
 | calibrate flow | Maintenance > Flow Cal. |
 | run a temperature tower | Maintenance > Temp Tower |
-| print cable ties | Tools > Kabelbinder > Create (beeps) |
-| print an angle bracket | Tools > Winkel+Flach > Mode > Angle, Settings, Create |
-| join two boards flush | Tools > Winkel+Flach > Mode > Flat splice, Left/Right, Create |
+| print cable ties | Tools > Cable ties > Create (beeps) |
+| print an angle bracket | Tools > Angles+Flat > Mode > Angle, Settings, Create |
+| join two boards flush | Tools > Angles+Flat > Mode > Flat splice, Left/Right, Create |
+| print a lithophane | Tools > Lithophane > Images (Create) — slot press, then start |
+| print a gasket | Tools > Gaskets > Settings, Create (beeps) |
+| delete a lithophane image | Tools > Lithophane > Delete image — press the slot twice |
 | test ironing | Maintenance > Ironing Cal. |
 | purge / cold pull | Macros > Purge · Maintenance > Filament |
 | shutdown the Pi | System > Shutdown (2×) |

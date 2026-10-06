@@ -5987,7 +5987,7 @@ tests.append(('R86 GEN_ANGLES: 12 params saved, paced, no adjacent writes',
 
 # --- (2) LCD menus -------------------------------------------------------------
 _lcd86 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
-tests.append(('R86 LCD: Kabelbinder + Winkel+Flach in the Tools menu, guarded, all params',
+tests.append(('R86/R89 LCD: Cable ties + Angles+Flat in the Tools menu, guarded, all params',
     all(k in _lcd86 for k in ['[menu __main __gen __cable]', '[menu __main __gen __angle]',
         '__cable __set __cnt]', '__cable __set __len]', '__cable __set __wid]',
         '__cable __set __lay]', '__cable __set __lh]', '__cable __set __var __cla]',
@@ -6371,7 +6371,7 @@ tests.append(('R87/R89 LCD: guards preserved (cable/angle/litho/seal need 17_gen
 tests.append(('R87 docs: cfg console paths say Tools (labels + plotter + generator header)',
     open('macros/16_labels.cfg', encoding='utf-8').read().count('Tools > Labels >') == 4
     and open('macros/12_maintenance.cfg', encoding='utf-8').read().count('Tools > Plotter >') == 4
-    and 'Tools > Kabelbinder / Winkel+Flach' in open('macros/17_generator.cfg', encoding='utf-8').read(), ''))
+    and 'Tools > Cable ties / Angles+Flat' in open('macros/17_generator.cfg', encoding='utf-8').read(), ''))
 
 
 # ---------- R87.2: field-log .71 fixes (polygon json, hole spiral, marker synthesis, global x feature) ----------

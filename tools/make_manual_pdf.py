@@ -176,20 +176,23 @@ def d_menu():
         d.add(String(x+w/2,y+h/2-2.5,t,fontName='DVSB',fontSize=fs,textAnchor='middle',fillColor=colors.white))
     def ln(x1,y1,x2,y2): d.add(Line(x1,y1,x2,y2,strokeColor=colors.HexColor('#9bb2cc'),strokeWidth=0.9))
     box(195,155,90,18,'R2-D2',BLUE,fs=9)
-    items=[('Start Print?',ORANGE),('Live Tuning',GREEN),('Pre-Print',GRAY),('Macros',TEAL),('Maintenance',PURPLE),('System',RED)]
-    xs=[6,86,166,246,326,406]
+    # R89: seven groups - Tools (the six part generators) joined the row
+    items=[('Start Print?',ORANGE),('Live Tuning',GREEN),('Pre-Print',GRAY),('Macros',TEAL),
+           ('Tools',colors.HexColor('#5a3d8a')),('Maintenance',PURPLE),('System',RED)]
+    xs=[2,70,138,206,274,342,410]
     for (n,c),x in zip(items,xs):
-        ln(240,155,x+34,127); box(x,109,68,18,n,c,fs=6.6)
-    subs=['AS SLICED / AS LEGACY /','cancel / info',
-          'Z-babysteps, cockpit,','speed+accel global, vel,','extrusion, pause',
-          'material, temps+fan L2,','motion+limits, mesh',
-          'load/unload, sync,','sounds, LEDs, nozzle LED',
-          'vib, level, mesh, extr,','PID, PA, flow, tower,','iron, fil, gantry, KAMP,','tests',
-          'restarts 2x, shutdown 2x,','save config, status']
-    ys=[94,85, 94,85,76, 94,85, 94,85, 94,85,76,69, 94,85]
-    for line,y in zip(subs,ys):
-        idx=subs.index(line); xi=xs[[0,0,1,1,1,2,2,3,3,4,4,4,4,5,5][idx]]
-        d.add(String(xi+34,y,line,fontName='DVS',fontSize=6.1,textAnchor='middle',fillColor=GRAY))
+        ln(240,155,x+32,127); box(x,109,64,18,n,c,fs=6.4)
+    subs=[('AS SLICED / AS','LEGACY / cancel',),
+          ('speed+accel global,','vel, extrusion,','pause'),
+          ('Z-babysteps,','cockpit, material,','temps+fan L2, mesh'),
+          ('load/unload, sync,','sounds, LEDs,','nozzle LED'),
+          ('cable ties, angles,','lithophane, gaskets,','labels, plotter'),
+          ('vib, level, mesh,','extr, PID, PA, flow,','tower, iron, fil,','KAMP, tests'),
+          ('restarts 2x,','shutdown 2x,','save config')]
+    col=[0,0, 1,1,1, 2,2,2, 3,3,3, 4,4,4, 5,5,5,5, 6,6,6]
+    ys=[96,88, 96,88,80, 96,88,80, 96,88,80, 96,88,80, 96,88,80,72, 96,88,80]
+    for line,y,c in zip([l for grp in subs for l in grp],ys,col):
+        d.add(String(xs[c]+32,y,line,fontName='DVS',fontSize=5.9,textAnchor='middle',fillColor=GRAY))
     d.add(String(240,12,'Live Tuning appears during a print — for EVERY start mode, legacy included',fontName='DVS',fontSize=7.5,textAnchor='middle',fillColor=GRAY))
     return d
 
@@ -1484,7 +1487,7 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
      '(M0) at every pen change; live tuning while plotting: pen speed percent, pen Z +-0.05, X/Y +-0.5',
      'the resonance diagrams of the calibration chapter are plotted or printed the same way (ch. 10.5)'),
   H2('5.4 Cable ties — the built-in cable-tie maker'),
-  P("Printable cable ties in ONE file, straight from the LCD (menu Tools > Kabelbinder) — no slicer, no modeling. "
+  P("Printable cable ties in ONE file, straight from the LCD (menu Tools > Cable ties) — no slicer, no modeling. "
     "Each tie is a flat strap with a NORMAL small closure head like a shop-bought tie: thread the chamfered tip "
     "in, pull tight, cut off the excess. Head size, slot clearance, tooth pitch and bead spacing ALL auto-scale "
     "with the strap width — you never tune the mechanism. Two closures: CLASSIC (the normal one-way pawl — locks "
@@ -1510,7 +1513,7 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
     "GEN_CABLE_TIES COUNT=6 LENGTH=120 WIDTH=8 LAYERS=3 VARIANT=LOOP (everything optional)."),
   H2('5.5 Angles & flat connectors — structural plates'),
   P("Angle plates (L-brackets in ANY angle 30-170, equal or unequal legs) and flat connectors (two boards joined "
-    "side by side) — screw-on structural parts, menu Tools > Winkel+Flach. Mode switches between Angle (L) and "
+    "side by side) — screw-on structural parts, menu Tools > Angles+Flat. Mode switches between Angle (L) and "
     "Flat splice (the Angle input and the Rib submenu hide themselves in Flat mode; the legs rename to "
     "Left/Right). THE HOLE SYSTEM: holes sit on each leg's centerline, evenly spaced between the corner zone "
     "and the leg end; the diameter is CLAMPED to width - 6 mm (never too big for the leg); the count "
@@ -1559,7 +1562,7 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
    ['Vers','V01-V09','same settings + same version = the file replaces itself'],
   ],[26*mm,32*mm,102*mm]),
   H2('5.7 Gaskets — the built-in seal maker'),
-  P("Sealing rings straight from the LCD (menu Tools > Dichtungen): outer/inner diameter and height, flat face "
+  P("Sealing rings straight from the LCD (menu Tools > Gaskets): outer/inner diameter and height, flat face "
     "or groove. One continuous spiral per band — no seam, no start-stop blob where a seal would leak. Settings: "
     "OD 12-200, ID 6-190 (band >= 2.4 mm), Height 0.4-6 mm, Face FLAT/NUT, Ironing, LH, Vers. NUT mills a "
     "groove into the face: two raised sealing lips = higher contact pressure = seals better on uneven flanges "
@@ -1799,7 +1802,7 @@ chapter('13','Maintenance &amp; care',
 
 
 chapter('14','LCD menu reference',
-  CENT(d_menu()),CAP('Seven top groups in LCD order — Start Print? (waiting), Live Tuning (printing), then Pre-Print, Quick Macros, Tools (the six part generators: Kabelbinder · Winkel+Flach · Lithophane · Dichtungen · Labels · Plotter), Maintenance, System'),
+  CENT(d_menu()),CAP('Seven top groups in LCD order — Start Print? (waiting), Live Tuning (printing), then Pre-Print, Quick Macros, Tools (the six part generators: Cable ties · Angles+Flat · Lithophane · Gaskets · Labels · Plotter), Maintenance, System'),
   P('Every line fits the 16 characters of the 12864 display — the value you edit is always visible '
     '(test-enforced). Pattern: first line = ON/OFF toggle (value stays stored), then the values.'),
   TBL(['Live Tuning (during print)','Contents'],[
@@ -1832,15 +1835,15 @@ chapter('14','LCD menu reference',
    ['Settings','W/H · Font SMOOTH/MONO/COND/NARROW/CAPS · Lines 1-5 · Size (cap mm, 0=auto) · Spc · Stroke · Vers V01-V09 · Preview fit? (real numbers incl. growth) · Base/Text layers · LH · 1st · Ironing · Hole · Brim · 2 colors · Gap'],
    ['Job','Queue n/24 · Add label · Del last · Clear all (2×) · Create (beeps, watcher builds the file) · Fit (how many fit the bed)'],
   ],[42*mm,122*mm]),
-  TBL(['Kabelbinder (in Tools — ch. 5.4)','Contents'],[
+  TBL(['Cable ties (in Tools — ch. 5.4)','Contents'],[
    ['Info','every setting in one console listing + material tip'],
    ['Settings','Count 1-24 · Len 50-300 mm · Width 2-12 mm · Layers 3-6 · LH 0.12-0.32 · Closure CLASSIC/LOOP (the * marks the active) · Brim · Vers V01-V09'],
    ['Info | Images (Create) | Delete image | Settings | How it works','LITHOPHANE (ch. 5.6): the gcodes folder\'s .png/.jpg list (newest first, 10 slots; plotter uploads included) — slot press = Create; Delete = 2-press confirm (plotter .gcode stays); Height 30-200 · Layer 0.08-0.2 · Levels 0-12 (0 = photo) · Frame · Brim 0-10 · Ironing · Vers'],
-   ['Info | Settings | Create (beeps) | How it works','DICHTUNGEN (ch. 5.7): OD 12-200 · ID 6-190 · Height 0.4-6 · Face FLAT/NUT (groove + two sealing lips) · Ironing · LH · Vers'],
+   ['Info | Settings | Create (beeps) | How it works','GASKETS (ch. 5.7): OD 12-200 · ID 6-190 · Height 0.4-6 · Face FLAT/NUT (groove + two sealing lips) · Ironing · LH · Vers'],
    ['Create (beeps)','validates, bumps the job counter — the watcher builds the file in the background, beeps + auto-selects'],
    ['How it works','the flow + PETG/TPU tip + the Mainsail one-liner on the LCD'],
   ],[42*mm,122*mm]),
-  TBL(['Winkel+Flach (in Tools — ch. 5.5)','Contents'],[
+  TBL(['Angles+Flat (in Tools — ch. 5.5)','Contents'],[
    ['Info','every setting + the auto-hole rules'],
    ['Mode','Angle (L) / Flat splice — the * marks the active mode'],
    ['Settings','Angle 30-170° (HIDDEN in Flat mode) · Leg A/B 20-150 (Left/Right in Flat mode) · Width 8-60 · Layers 4-12 · LH · Holes 0-6 · Hole D 2-10 (auto-clamped) · Countersunk/Normal · Rib None/Gusset/Stepped (hidden in Flat) · Walls 1-6 · Infill 20-100% · Ironing on/off · Count 1-12 · Vers'],
@@ -2070,10 +2073,10 @@ chapter('24','Cheat sheet: LCD paths &amp; Mainsail commands',
    ['change material preset','Pre-Print &gt; Material &gt; LOAD NOW'],['see ALL file parameters','Pre-Print / Live Tuning &gt; File (G-code)'],['compare with the file values','Pre-Print &gt; Temps &gt; File H:/File B:'],
    ['first layer slower/faster','Pre-Print &gt; 1st layer %'],['calibrate flow','Maintenance &gt; Flow Cal.'],
    ['run a temperature tower','Maintenance &gt; Temp Tower'],['test ironing','Maintenance &gt; Ironing Cal.'],
-   ['print cable ties','Tools &gt; Kabelbinder &gt; Create (beeps)'],['cable/lamp hole in a range part','Pre-Print &gt; Range/Stop &gt; Fl.hole / Top hole'],
+   ['print cable ties','Tools &gt; Cable ties &gt; Create (beeps)'],['cable/lamp hole in a range part','Pre-Print &gt; Range/Stop &gt; Fl.hole / Top hole'],
    ['printer off, Pi stays on','PRINTER_POWER_OFF (console — relay, ch. 26)'],
-   ['print an angle bracket','Tools &gt; Winkel+Flach &gt; Mode &gt; Angle, Settings, Create'],
-   ['join two boards flush','Tools &gt; Winkel+Flach &gt; Mode &gt; Flat splice, Left/Right, Create'],
+   ['print an angle bracket','Tools &gt; Angles+Flat &gt; Mode &gt; Angle, Settings, Create'],
+   ['join two boards flush','Tools &gt; Angles+Flat &gt; Mode &gt; Flat splice, Left/Right, Create'],
    ['purge manual / cold pull','Macros &gt; Purge · Maintenance &gt; Filament'],['shutdown the Pi','System &gt; Shutdown (2×)'],
   ],[64*mm,100*mm]),
   H2('Mainsail console — the 20 you will actually use'),
