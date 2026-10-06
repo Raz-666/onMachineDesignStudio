@@ -694,15 +694,18 @@ def d_tie_anatomy():
     d.add(String(120, 180, 'TOP VIEW (width 8 mm example)', fontName='DVSB', fontSize=6.9,
                  textAnchor='middle', fillColor=GRAY))
     sc = 2.1
-    hx, hy, hl, hw = 30, y0, 19.2 * sc, 22.4 * sc     # head 19.2 x 22.4 at width 8
+    # R89 CLASSIC head: HL = width+4.5 = 12.5, HW = width+2.6 = 10.6 at width 8
+    hx, hy, hl, hw = 30, y0, 12.5 * sc, 10.6 * sc
     d.add(Rect(hx, hy, hl, hw, fillColor=colors.HexColor('#eef3fa'), strokeColor=BLUE, strokeWidth=1.3))
-    slotw = 8.6 * sc
+    slotw = 8.5 * sc                    # slot = width + 0.5
     cy = hy + hw / 2
     # slot channel (open through the head)
     d.add(Rect(hx, cy - slotw / 2, hl, slotw, fillColor=colors.white, strokeColor=GRAY, strokeWidth=0.8))
-    # pawl tab in the channel (top view: the middle strip)
-    d.add(Rect(hx + 2.4 * sc, cy - (slotw / 2 + 0.8), hl - 5 * sc, slotw + 1.6,
-               fillColor=colors.HexColor('#dbe6f4'), strokeColor=BLUE, strokeWidth=0.8))
+    # pawl strip at the channel ENTRY (top view: the short strip at the left end)
+    d.add(Rect(hx + 1.2 * sc, cy - (slotw / 2 + 0.9), max(2.5, 8 * 0.4) * sc, slotw + 1.8,
+               fillColor=colors.HexColor('#bcd0ea'), strokeColor=BLUE, strokeWidth=0.8))
+    d.add(String(hx + 2.8 * sc, cy + slotw / 2 + 12, 'pawl strip (entry)', fontName='DVS',
+                 fontSize=5.8, textAnchor='middle', fillColor=GRAY))
     # strap with teeth
     sx = hx + hl
     d.add(Rect(sx, cy - 8 * sc / 2, 120 * sc, 8 * sc, fillColor=colors.HexColor('#eef3fa'),
@@ -711,47 +714,45 @@ def d_tie_anatomy():
     d.add(Polygon(points=[sx + 120 * sc, cy - 4 * sc * 0.75, sx + 116 * sc, cy - 4 * sc,
                           sx + 116 * sc, cy + 4 * sc, sx + 120 * sc, cy + 4 * sc * 0.75],
                   fillColor=colors.HexColor('#eef3fa'), strokeColor=BLUE, strokeWidth=1.0))
-    # teeth (stepped nubs, pitch 5.6)
-    tx = sx + 6 * sc
+    # teeth (low nub + steep lock flank, pitch 3.6 at width 8)
+    tx = sx + 4 * sc
     while tx < sx + 112 * sc:
-        d.add(Rect(tx, cy - 4 * sc, 2 * sc, 8 * sc, fillColor=colors.HexColor('#9db4d6'),
+        d.add(Rect(tx, cy - 4 * sc, 1.8 * sc, 8 * sc, fillColor=colors.HexColor('#9db4d6'),
                    strokeColor=BLUE, strokeWidth=0.6))
-        d.add(Rect(tx + 1 * sc, cy - 4 * sc, 1 * sc, 8 * sc, fillColor=colors.HexColor('#5a7fb5'),
+        d.add(Rect(tx + 0.6 * sc, cy - 4 * sc, 0.8 * sc, 8 * sc, fillColor=colors.HexColor('#5a7fb5'),
                    strokeColor=None))
-        tx += 5.6 * sc
-    d.add(String(hx + hl / 2 + 26, hy - 12, 'head 2.4 x width · slot = width + 0.6', fontName='DVS',
+        tx += 3.6 * sc
+    d.add(String(hx + hl / 2, hy - 12, 'head (width+4.5) x (width+2.6) · slot = width + 0.5', fontName='DVS',
                  fontSize=6.2, textAnchor='middle', fillColor=GRAY))
-    d.add(String(sx + 60 * sc, cy + 4 * sc + 8, 'teeth: low ramp (light) + high flank (dark), pitch 0.7 x width',
+    d.add(String(sx + 60 * sc, cy + 4 * sc + 8, 'teeth: low ramp (light) + steep flank (dark), pitch 0.45 x width',
                  fontName='DVS', fontSize=6.2, textAnchor='middle', fillColor=GRAY))
     d.add(String(sx + 118 * sc, cy - 14, 'chamfered tip', fontName='DVS', fontSize=5.8,
                  textAnchor='end', fillColor=GRAY))
     # dimension line: strap width
     d.add(Line(sx + 20 * sc, cy - 4 * sc - 6, sx + 20 * sc, cy + 4 * sc + 6,
                strokeColor=GREEN, strokeWidth=0.9))
-    d.add(String(sx + 22 * sc, cy - 4 * sc - 15, 'Width 5-12', fontName='DVS', fontSize=5.8,
+    d.add(String(sx + 22 * sc, cy - 4 * sc - 15, 'Width 2-12', fontName='DVS', fontSize=5.8,
                  textAnchor='middle', fillColor=GREEN))
 
     # ---- cross-section through the head (right half) -------------------------
     x1 = 300
-    d.add(String(390, 180, 'HEAD CROSS-SECTION (RATCHET)', fontName='DVSB', fontSize=6.9,
+    d.add(String(390, 180, 'HEAD CROSS-SECTION (CLASSIC)', fontName='DVSB', fontSize=6.9,
                  textAnchor='middle', fillColor=GRAY))
     s = 2.1
     bx, by = x1, 100
-    # layers bottom-up: base plate (2), channel (layers+3), ceiling (2)
+    # layers bottom-up: base plate (2), channel band (layers+3), ceiling (2)
     zb = [12, 9]           # heights of the two base layers
     ch = 18                # channel band
     ce = [5, 5]            # ceiling layers
-    # base plate
+    # base plate (the channel floor)
     d.add(Rect(bx, by, 60 * s, (zb[0] + zb[1]) * 1.0, fillColor=colors.HexColor('#dbe6f4'),
                strokeColor=BLUE, strokeWidth=1.1))
     d.add(String(bx - 4, by + 14, 'base', fontName='DVS', fontSize=5.8, textAnchor='end', fillColor=GRAY))
     # channel walls
     wy = by + zb[0] + zb[1]
     wallh = ch
-    d.add(Rect(bx, wy, 60 * s, wallh, fillColor=None, strokeColor=None))
     d.add(Rect(bx, wy, 60 * s, 6, fillColor=colors.HexColor('#dbe6f4'), strokeColor=BLUE, strokeWidth=1.0))
-    d.add(Rect(bx, wy + wallh - 6, 60 * s, 6, fillColor=colors.HexColor('#dbe6f4'),
-               strokeColor=BLUE, strokeWidth=1.0))
+    d.add(Rect(bx, wy + wallh - 6, 60 * s, 6, fillColor=colors.HexColor('#dbe6f4'), strokeColor=BLUE, strokeWidth=1.0))
     # strap + teeth inside the channel
     d.add(Rect(bx + 8, wy + 6, 44, 8, fillColor=colors.HexColor('#9db4d6'),
                strokeColor=BLUE, strokeWidth=0.8))
@@ -759,50 +760,176 @@ def d_tie_anatomy():
     d.add(Rect(bx + 30, wy + 14, 6, 4, fillColor=colors.HexColor('#5a7fb5'), strokeColor=None))
     d.add(String(bx + 30, wy + 24, 'strap + teeth ride in the channel (1 layer clearance)',
                  fontName='DVS', fontSize=5.8, textAnchor='middle', fillColor=GRAY))
-    # ceiling: entry strip, pawl tab with lip, exit strip
+    # ceiling band: side walls + the PAWL at the entry reaching one layer DOWN
     cyy = wy + wallh
-    d.add(Rect(bx, cyy, 9, 10, fillColor=colors.HexColor('#dbe6f4'), strokeColor=BLUE, strokeWidth=1.0))
-    d.add(String(bx + 7, cyy + 22, 'entry', fontName='DVS', fontSize=5.6, textAnchor='end', fillColor=GRAY))
-    d.add(Rect(bx + 13, cyy + 5, 34, 5, fillColor=colors.HexColor('#bcd0ea'), strokeColor=BLUE, strokeWidth=0.9))
-    d.add(Rect(bx + 13, cyy, 38, 5, fillColor=colors.HexColor('#dbe6f4'), strokeColor=BLUE, strokeWidth=0.9))
-    d.add(String(bx + 66, cyy + 34, 'pawl tab (darker): the LOWER ceiling layer reaches 1.2 mm further = the lip',
+    d.add(Rect(bx, cyy, 8, 10, fillColor=colors.HexColor('#dbe6f4'), strokeColor=BLUE, strokeWidth=1.0))
+    d.add(String(bx + 6, cyy + 22, 'entry', fontName='DVS', fontSize=5.6, textAnchor='end', fillColor=GRAY))
+    d.add(Rect(bx + 8, cyy, 44, 5, fillColor=colors.HexColor('#dbe6f4'), strokeColor=BLUE, strokeWidth=0.9))
+    # the pawl: hangs one layer into the slot, right at the entry
+    d.add(Rect(bx + 8, cyy - 5, 10, 5, fillColor=colors.HexColor('#bcd0ea'), strokeColor=BLUE, strokeWidth=0.9))
+    d.add(String(bx + 62, cyy + 32, 'pawl (darker): the first ceiling layer drops INTO the slot at the entry —'
+                 ' the tooth flanks catch under it',
                  fontName='DVS', fontSize=5.6, textAnchor='middle', fillColor=GRAY))
-    d.add(Rect(bx + 50, cyy, 10 * s - 50 + 60, 10, fillColor=colors.HexColor('#dbe6f4'),
+    d.add(Rect(bx + 52, cyy, 10 * s - 52 + 60, 10, fillColor=colors.HexColor('#dbe6f4'),
                strokeColor=BLUE, strokeWidth=1.0))
     d.add(String(bx + 84, cyy + 22, 'exit (anchored)', fontName='DVS', fontSize=5.6,
                  textAnchor='start', fillColor=GRAY))
-    # (flex info folded into the pawl caption above)
 
     # ---- bottom strip: the two variants + width auto-scaling -----------------
     d.add(String(240, 84, 'THE TWO CLOSURES', fontName='DVSB', fontSize=6.9,
                  textAnchor='middle', fillColor=GRAY))
-    def variant(x, name, sub, open_entry, col):
-        d.add(String(x + 52, 70, name, fontName='DVSB', fontSize=6.8, textAnchor='middle', fillColor=col))
-        yy = 30
-        d.add(Rect(x, yy, 104, 28, fillColor=colors.HexColor('#eef3fa'), strokeColor=col, strokeWidth=1.2))
-        # channel mouth (left) + tab
-        d.add(Rect(x + 6, yy + 4, 92, 20, fillColor=colors.white, strokeColor=GRAY, strokeWidth=0.7))
-        d.add(Rect(x + 22, yy + 16, 60, 6, fillColor=colors.HexColor('#bcd0ea'),
-                   strokeColor=col, strokeWidth=0.9))
-        if not open_entry:
-            d.add(Rect(x + 6, yy + 16, 12, 6, fillColor=colors.HexColor('#dbe6f4'),
-                       strokeColor=col, strokeWidth=0.9))
-            d.add(String(x + 12, yy + 24, 'closed', fontName='DVS', fontSize=5.4,
-                         textAnchor='middle', fillColor=col))
-        else:
-            d.add(String(x + 10, yy + 24, 'OPEN', fontName='DVS', fontSize=5.6,
-                         textAnchor='middle', fillColor=col))
-            d.add(String(x + 10, yy + 34, 'lift tab here', fontName='DVS', fontSize=5.4,
-                         textAnchor='middle', fillColor=col))
-        d.add(String(x + 52, yy - 10, sub, fontName='DVS', fontSize=5.6,
-                     textAnchor='middle', fillColor=GRAY))
-    variant(60, 'RATCHET — one-way', 'entry closed: locks at every tooth, cut to remove', False, BLUE)
-    variant(280, 'LATCH — releasable', 'open slot: lift the pawl tab to release', True, GREEN)
+    # CLASSIC: small head box, pawl strip at the entry (left), tooth strap
+    x = 40
+    d.add(String(x + 52, 70, 'CLASSIC — one-way', fontName='DVSB', fontSize=6.8,
+                 textAnchor='middle', fillColor=BLUE))
+    yy = 30
+    d.add(Rect(x, yy, 104, 28, fillColor=colors.HexColor('#eef3fa'), strokeColor=BLUE, strokeWidth=1.2))
+    d.add(Rect(x + 6, yy + 4, 26, 20, fillColor=colors.HexColor('#dbe6f4'), strokeColor=BLUE, strokeWidth=1.0))
+    d.add(Rect(x + 9, yy + 16, 5, 8, fillColor=colors.HexColor('#bcd0ea'), strokeColor=BLUE, strokeWidth=0.9))
+    d.add(String(x + 19, yy + 34, 'pawl', fontName='DVS', fontSize=5.4, textAnchor='middle', fillColor=BLUE))
+    for k in range(4):
+        d.add(Rect(x + 40 + k * 12, yy + 10, 4, 8, fillColor=colors.HexColor('#9db4d6'),
+                   strokeColor=BLUE, strokeWidth=0.7))
+    d.add(String(x + 52, yy - 10, 'thread in, pull tight, cut to remove', fontName='DVS',
+                 fontSize=5.6, textAnchor='middle', fillColor=GRAY))
+    # LOOP: frame ring with open slot + strap with beads
+    x = 260
+    d.add(String(x + 52, 70, 'LOOP — adjustable + reusable', fontName='DVSB', fontSize=6.8,
+                 textAnchor='middle', fillColor=GREEN))
+    yy = 30
+    d.add(Rect(x, yy, 104, 28, fillColor=colors.HexColor('#eef3fa'), strokeColor=GREEN, strokeWidth=1.2))
+    d.add(Rect(x + 6, yy + 4, 30, 20, fillColor=colors.HexColor('#dbe6f4'), strokeColor=GREEN, strokeWidth=1.0))
+    d.add(Rect(x + 14, yy + 9, 18, 10, fillColor=colors.white, strokeColor=GRAY, strokeWidth=0.8))
+    d.add(String(x + 21, yy + 34, 'loop (open slot)', fontName='DVS', fontSize=5.4,
+                 textAnchor='middle', fillColor=GREEN))
+    for k in range(4):
+        bxk = x + 42 + k * 12
+        d.add(Polygon(points=[bxk + 3, yy + 14 + 3, bxk + 6, yy + 14, bxk + 3, yy + 14 - 3, bxk, yy + 14],
+                      fillColor=colors.HexColor('#9db4d6'), strokeColor=GREEN, strokeWidth=0.8))
+    d.add(String(x + 66, yy + 34, 'beads', fontName='DVS', fontSize=5.4,
+                 textAnchor='middle', fillColor=GREEN))
+    d.add(String(x + 52, yy - 10, 'catches at every bead, lifts back out', fontName='DVS',
+                 fontSize=5.6, textAnchor='middle', fillColor=GRAY))
 
     # width auto-scaling mini strip
-    d.add(String(240, 10, 'Width sets everything: width 5 -> head 12x14 · width 8 -> head 19x22 · '
-                 'width 12 -> head 29x34 (slot, tooth pitch and lip scale with it)',
+    d.add(String(240, 10, 'Width sets everything: width 2 -> head 8x6.6 · width 8 -> head 12.5x10.6 · '
+                 'width 12 -> head 16.5x14.6 (slot, tooth pitch, bead gap scale with it)',
                  fontName='DVS', fontSize=6.2, textAnchor='middle', fillColor=GRAY))
+    return d
+
+
+def d_litho_anatomy():
+    d = Drawing(480, 208)
+    d.add(String(240, 199, 'Lithophane — brightness becomes thickness, levels posterize',
+                 fontName='DVSB', fontSize=9.5, textAnchor='middle', fillColor=BLUE))
+
+    # ---- left: the standing plate (side view) with thickness ramp -----------
+    d.add(String(110, 182, 'SIDE VIEW — STANDING ON THE BED', fontName='DVSB', fontSize=6.9,
+                 textAnchor='middle', fillColor=GRAY))
+    x0, y0 = 40, 40
+    d.add(Rect(x0, y0, 24, 6, fillColor=colors.HexColor('#dbe6f4'), strokeColor=GRAY, strokeWidth=0.7))
+    d.add(String(x0 + 12, y0 - 10, 'brim', fontName='DVS', fontSize=5.6, textAnchor='middle', fillColor=GRAY))
+    # the plate: thickness ramps from 0.7 (light) to 3.0 (dark)
+    steps = 12
+    for k in range(steps):
+        h = 14 + k * 5
+        shade = 235 - k * 16
+        d.add(Rect(x0 + 24 + k * 9, y0, 9, h,
+                   fillColor=colors.Color(shade / 255.0, shade / 255.0, shade / 255.0),
+                   strokeColor=GRAY, strokeWidth=0.5))
+    d.add(String(x0 + 24, y0 + 96, 'thin 0.7 mm = light (glows first)', fontName='DVS',
+                 fontSize=5.8, textAnchor='start', fillColor=GREEN))
+    d.add(String(x0 + 24 + 9 * steps, y0 + 96, 'thick 3.0 mm = dark', fontName='DVS',
+                 fontSize=5.8, textAnchor='end', fillColor=GRAY))
+    d.add(String(x0 + 78, y0 - 10, '100% solid, one picture row per layer', fontName='DVS',
+                 fontSize=5.8, textAnchor='middle', fillColor=GRAY))
+    # light rays behind
+    for k in range(3):
+        d.add(Line(x0 - 18, y0 + 20 + k * 18, x0 - 4, y0 + 20 + k * 18,
+                   strokeColor=colors.HexColor('#e8b84b'), strokeWidth=1.4))
+    d.add(String(x0 - 12, y0 + 76, 'back-light', fontName='DVS', fontSize=5.6,
+                 textAnchor='middle', fillColor=colors.HexColor('#b58a1f')))
+
+    # ---- right: Levels effect (0 = photo vs 4 vs 12) -------------------------
+    d.add(String(330, 182, 'LEVELS — HOW MANY BRIGHTNESS STEPS', fontName='DVSB', fontSize=6.9,
+                 textAnchor='middle', fillColor=GRAY))
+    def ramp(x, y, w, h, n):
+        if n == 0:      # continuous gradient -> 24 stripes
+            for k in range(24):
+                v = 235 - k * 9
+                d.add(Rect(x + k * w / 24.0, y, w / 24.0, h,
+                           fillColor=colors.Color(v / 255.0, v / 255.0, v / 255.0),
+                           strokeColor=None))
+        else:
+            for k in range(n):
+                v = 235 - int(k * 200 / max(1, n - 1))
+                d.add(Rect(x + k * w / float(n), y, w / float(n), h,
+                           fillColor=colors.Color(v / 255.0, v / 255.0, v / 255.0),
+                           strokeColor=colors.white, strokeWidth=0.8))
+        d.add(Rect(x, y, w, h, fillColor=None, strokeColor=GRAY, strokeWidth=0.8))
+    d.add(String(268, 158, '0 = photo (continuous)', fontName='DVS', fontSize=5.8,
+                 textAnchor='start', fillColor=GRAY))
+    ramp(268, 138, 130, 14, 0)
+    d.add(String(268, 122, '4 = posterized (chunky retro)', fontName='DVS', fontSize=5.8,
+                 textAnchor='start', fillColor=GRAY))
+    ramp(268, 102, 130, 14, 4)
+    d.add(String(268, 86, '12 = subtle terraces', fontName='DVS', fontSize=5.8,
+                 textAnchor='start', fillColor=GRAY))
+    ramp(268, 66, 130, 14, 12)
+    d.add(String(330, 46, 'every step prints as ONE thickness — chunky at 2-4, photo-like at 8-12',
+                 fontName='DVS', fontSize=5.6, textAnchor='middle', fillColor=GRAY))
+    d.add(String(330, 26, 'auto-optimized before slicing: contrast stretch · smoothing · mirror '
+                 '(white/natural PLA glows best)',
+                 fontName='DVS', fontSize=5.8, textAnchor='middle', fillColor=GREEN))
+    return d
+
+
+def d_seal_anatomy():
+    d = Drawing(480, 208)
+    d.add(String(240, 199, 'Gasket — flat face vs groove with two sealing lips',
+                 fontName='DVSB', fontSize=9.5, textAnchor='middle', fillColor=BLUE))
+
+    # ---- left: top view ring ----
+    d.add(String(120, 182, 'TOP VIEW (OD / ID)', fontName='DVSB', fontSize=6.9,
+                 textAnchor='middle', fillColor=GRAY))
+    cx, cy, ro, ri = 120, 118, 64, 34
+    d.add(Circle(cx, cy, ro, fillColor=colors.HexColor('#eef3fa'), strokeColor=BLUE, strokeWidth=1.3))
+    d.add(Circle(cx, cy, ri, fillColor=colors.white, strokeColor=BLUE, strokeWidth=1.1))
+    d.add(Line(cx + ri * 0.72, cy + ri * 0.72, cx + ro * 0.72, cy + ro * 0.72,
+               strokeColor=GREEN, strokeWidth=0.9))
+    d.add(String(cx + 58, cy + 62, 'OD 12-200', fontName='DVS', fontSize=5.8,
+                 textAnchor='middle', fillColor=GREEN))
+    d.add(String(cx, cy - 4, 'ID 6-190', fontName='DVS', fontSize=5.8,
+                 textAnchor='middle', fillColor=GRAY))
+    d.add(String(cx, cy - 50, 'one CONTINUOUS spiral per band — no seam, no start blob',
+                 fontName='DVS', fontSize=5.8, textAnchor='middle', fillColor=GRAY))
+
+    # ---- right: the two faces in cross-section --------------------------------
+    d.add(String(330, 182, 'THE TWO FACES (CROSS-SECTION)', fontName='DVSB', fontSize=6.9,
+                 textAnchor='middle', fillColor=GRAY))
+    # FLAT
+    y = 130
+    d.add(String(268, y + 32, 'FLAT — the all-round gasket', fontName='DVSB', fontSize=6.4,
+                 textAnchor='start', fillColor=BLUE))
+    d.add(Rect(268, y, 190, 12, fillColor=colors.HexColor('#dbe6f4'), strokeColor=BLUE, strokeWidth=1.1))
+    d.add(Line(268, y + 16, 458, y + 16, strokeColor=GREEN, strokeWidth=1.2))
+    d.add(String(363, y + 20, 'flange contact (full face)', fontName='DVS', fontSize=5.6,
+                 textAnchor='middle', fillColor=GREEN))
+    # NUT
+    y = 70
+    d.add(String(268, y + 32, 'NUT — groove + two sealing lips', fontName='DVSB', fontSize=6.4,
+                 textAnchor='start', fillColor=GREEN))
+    d.add(Rect(268, y, 190, 12, fillColor=colors.HexColor('#dbe6f4'), strokeColor=GREEN, strokeWidth=1.1))
+    d.add(Rect(318, y, 90, 5, fillColor=colors.white, strokeColor=GREEN, strokeWidth=0.9))
+    d.add(Line(268, y + 16, 458, y + 16, strokeColor=GREEN, strokeWidth=1.2))
+    d.add(String(288, y + 20, 'lip', fontName='DVS', fontSize=5.4, textAnchor='middle', fillColor=GREEN))
+    d.add(String(438, y + 20, 'lip', fontName='DVS', fontSize=5.4, textAnchor='middle', fillColor=GREEN))
+    d.add(String(363, y - 12, 'groove: 2 raised lips = higher contact pressure on uneven flanges '
+                 '(falls back to FLAT if the band is too narrow)',
+                 fontName='DVS', fontSize=5.6, textAnchor='middle', fillColor=GRAY))
+    d.add(String(330, 26, 'Height 0.4-6 mm (1.2 standard, 2+ for NUT) · TPU seals best, PETG works '
+                 '— the file already prints at 15 mm/s',
+                 fontName='DVS', fontSize=5.8, textAnchor='middle', fillColor=GREEN))
     return d
 
 
@@ -1045,7 +1172,7 @@ E+=[Mark('Contents'),H1('Contents'),HRFlowable(width='100%', thickness=1.1, colo
 TBL(['Ch.','Topic'],[
  ['1','Safety first — fire &amp; hardware'],['2','The system in five minutes'],
  ['3','From file to print — the daily workflow'],['4','Scenario library — every file type walked through'],
- ['5','The generators: Range, Labels &amp; Plotter'],['6','During the print: tuning, pauses, objects'],
+ ['5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes &amp; Gaskets'],['6','During the print: tuning, pauses, objects'],
  ['7','Filament: load / unload / change / runout / cold pull'],['8','Temperature system L1/L2'],
  ['9','Speed, acceleration &amp; machine limits'],['10','Calibration — the ladder to good prints'],
  ['11','Bed mesh &amp; KAMP'],['12','Purge / prime line'],['13','Maintenance &amp; care'],
@@ -1202,7 +1329,8 @@ chapter('3','From file to print — the daily workflow',
    ['Marlin-volumetric file (FLAVOR:Marlin (Volumetric), Cura)','E counts mm³ instead of mm — the print starves',
      'Pre-Print &gt; File &gt; Vol-&gt;mm fix: every E divided by 2.405 mm², markers neutralized, idempotent'],
    ['Old Bowden-era file (5–6 mm retracts baked in)','overrides your tuned ~0.8 mm direct-drive retraction',
-     'Pre-Print &gt; File &gt; RetFix file (or RetFix ON for future uploads): pairs become G10/G11 — your retraction applies, live-tunable'],
+     'Pre-Print &gt; File &gt; RetFix file (or RetFix ON for future uploads): pairs become G10/G11 — your retraction applies, live-tunable. '
+     'The offer only shows when it applies: firmware-retraction files (G10/G11) and already-fixed files never show it; the file info names the case (field log .72)'],
    ['Marlin file without those quirks','nothing breaks','LEGACY start flow takes over: dialog, mesh, purge, L1/L2 — just press PRINT'],
    ['File calling its own START_PRINT','double start risk','real legacy start: homing, heat, purge — then your decision rules'],
    ['Pure movement data (no heaters, no macros)','would run cold','net probe: home + heat + purge first, then 1:1'],
@@ -1281,7 +1409,7 @@ chapter('4','Scenario library — every file type walked through',
        'CANCEL_PRINT                                    # twice within 60 s'))
 
 
-chapter('5','The generators: Range, Labels, Plotter, Cable ties &amp; Angles',
+chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes &amp; Gaskets',
   H2('5.1 Range — print a section of an existing file'),
   P("Re-print a broken section, test the critical middle of a long print, or make a part from a few layers. "
     "Pre-Print > Range/Stop: From/To (capped to the real layer count), Floor, Top, Brim + their shapes and fills, "
@@ -1357,28 +1485,29 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties &amp; Angles',
      'the resonance diagrams of the calibration chapter are plotted or printed the same way (ch. 10.5)'),
   H2('5.4 Cable ties — the built-in cable-tie maker'),
   P("Printable cable ties in ONE file, straight from the LCD (menu Tools > Kabelbinder) — no slicer, no modeling. "
-    "Each tie is a flat strap with ratchet teeth plus an integrated closure head whose size, slot clearance and "
-    "tooth pitch ALL auto-scale with the strap width — you never tune the mechanism. Two closures: RATCHET "
-    "(one-way — locks at every tooth, cut to remove) and LATCH (releasable — lift the pawl tab through the open "
-    "front slot). Settings: Count 1-24, Len 60-300 mm, Width 5-12 mm, Layers 3-6 (strap thickness), LH 0.12-0.32 "
-    "(finer layers = smoother ratchet teeth), Closure, Brim, Vers. Create (beeps) builds the file in the "
-    "background (~1-3 s, niced), it auto-selects as 00_Ties_lenxwid_RAT|LAT_Vxx.gcode and the ready-message "
-    "lists everything that was auto-adapted. Every tie is an exclude object (TIE_1..n)."),
+    "Each tie is a flat strap with a NORMAL small closure head like a shop-bought tie: thread the chamfered tip "
+    "in, pull tight, cut off the excess. Head size, slot clearance, tooth pitch and bead spacing ALL auto-scale "
+    "with the strap width — you never tune the mechanism. Two closures: CLASSIC (the normal one-way pawl — locks "
+    "at every tooth, cut to remove) and LOOP (a frame loop with an open slot plus beads along the strap — catches "
+    "at every bead, lifts back out: adjustable and reusable). Settings: Count 1-24, Len 50-300 mm, Width 2-12 mm, "
+    "Layers 3-6 (strap thickness), LH 0.12-0.32 (finer layers = smoother teeth), Closure, Brim, Vers. Create "
+    "(beeps) builds the file in the background (~1-3 s, niced), it auto-selects as 00_Ties_lenxwid_CLA|LOO_Vxx.gcode "
+    "and the ready-message lists everything that was auto-adapted. Every tie is an exclude object (TIE_1..n)."),
   CENT(d_tie_anatomy()),CAP("Anatomy of a generated tie: top view with teeth and chamfered tip, the head "
-    "cross-section (channel, pawl tab with locking lip), the two closures — and how width 5/8/12 auto-scales the head"),
+    "cross-section (channel, pawl strip at the entry), the two closures CLASSIC vs LOOP — and how width 2/8/12 auto-scales the head"),
   TBL(['Setting','Range','Meaning'],[
    ['Count','1-24','ties in ONE project file — the grid fits them or errors clearly'],
-   ['Len','60-300 mm','strap length: bundle circumference + head + pull-in reserve'],
-   ['Width','5-12 mm','strap width — the closure AUTO-SCALES: head 2.4x long, 2.8x wide, slot width+0.6, pitch 0.7x'],
+   ['Len','50-300 mm','strap length: bundle circumference + head + pull-in reserve'],
+   ['Width','2-12 mm','strap width — the closure AUTO-SCALES: head (w+4.5)x(w+2.6), slot w+0.5, pitch 0.45x; under 3.6 mm a 0.4 nozzle prints crisper'],
    ['Layers','3-6','strap thickness: 3 = flexible, 6 = stiff strong band'],
    ['LH','0.12-0.32 mm','layer height — 0.12-0.16 prints smoother teeth'],
-   ['Closure','RATCHET / LATCH','one-way (enclosed pawl) vs releasable (open slot, lift the tab)'],
+   ['Closure','CLASSIC / LOOP','normal one-way pawl vs adjustable bead loop (reusable)'],
    ['Brim','ON/OFF','loops around each head on layer 1 (thin-part adhesion)'],
    ['Vers','V01-V09','same settings + same version = the file replaces itself'],
   ],[26*mm,32*mm,102*mm]),
   P("Material matters (thin flexing parts): PETG or TPU bend best and hold tight loops; PLA works for gentle "
     "curves only. The file sets fan from layer 2 itself; the standard first-layer brake applies. Console: "
-    "GEN_CABLE_TIES COUNT=6 LENGTH=120 WIDTH=8 LAYERS=3 VARIANT=LATCH (everything optional)."),
+    "GEN_CABLE_TIES COUNT=6 LENGTH=120 WIDTH=8 LAYERS=3 VARIANT=LOOP (everything optional)."),
   H2('5.5 Angles & flat connectors — structural plates'),
   P("Angle plates (L-brackets in ANY angle 30-170, equal or unequal legs) and flat connectors (two boards joined "
     "side by side) — screw-on structural parts, menu Tools > Winkel+Flach. Mode switches between Angle (L) and "
@@ -1407,6 +1536,39 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties &amp; Angles',
     "holes per leg. The ready-message lists EVERY automatic adjustment — nothing clamps silently. Console: "
     "GEN_ANGLES COUNT=2 ANGLE=90 LEG_A=60 LEG_B=60 WIDTH=25 LAYERS=6 HOLES=2 HOLE_D=4 CS=1 STIFFENER=1 FLAT=0 "
     "(CS=1 countersunk; FLAT=1 = flat connector)."),
+  H2('5.6 Lithophanes — photos that glow'),
+  P("Turn any picture into a back-lit relief print: dark areas print thick, light areas thin — held against a "
+    "lamp or window the photo appears. No slicer, no modeling, no manual image editing: upload a .png/.jpg into "
+    "the gcodes folder (drag + drop in Mainsail), the Images list of Tools > Lithophane refreshes on its own "
+    "(newest first, 10 slots — pictures uploaded for PEN PLOTTING are in the same list, the original stays "
+    "untouched). Slot press = Create: the watcher generates in its own background thread (big pictures ~a "
+    "minute), the file auto-selects as 00_Litho_name_Vxx.gcode. The picture prints STANDING (layer lines run "
+    "with the image — that is what keeps the detail), 100% solid, thickness 0.7-3.0 mm, the file sets speeds "
+    "and fan itself. White or natural PLA glows best; the effect unfolds with back-light 20-50 mm behind the "
+    "plate. Delete image = 2-press confirm — only the image goes away, its plotter .gcode stays. Console: "
+    "LITHO_CREATE INDEX=0 / LITHO_DEL_SLOT INDEX=2."),
+  CENT(d_litho_anatomy()),CAP("How brightness becomes thickness (0.7 mm light - 3.0 mm dark, standing plate "
+    "with brim) and what Levels does: 0 = continuous photo grey, 4 = chunky posterized, 12 = subtle terraces"),
+  TBL(['Setting','Range','Meaning'],[
+   ['Height','30-200 mm','picture height — width follows the aspect ratio (auto-clamped to the bed)'],
+   ['Layer','0.08-0.2 mm','0.12 default; 0.08 = maximum detail (double the print time)'],
+   ['Levels','0-12','0 = continuous grey (photo). 2-12 = posterized brightness steps — retro at 2-4, subtle at 8-12'],
+   ['Frame','ON/OFF','border frame that holds the thin plate straight (recommended)'],
+   ['Brim','0-10 loops','the plate prints STANDING — the brim anchors it'],
+   ['Ironing','ON/OFF','slow smoothing pass over the light side'],
+   ['Vers','V01-V09','same settings + same version = the file replaces itself'],
+  ],[26*mm,32*mm,102*mm]),
+  H2('5.7 Gaskets — the built-in seal maker'),
+  P("Sealing rings straight from the LCD (menu Tools > Dichtungen): outer/inner diameter and height, flat face "
+    "or groove. One continuous spiral per band — no seam, no start-stop blob where a seal would leak. Settings: "
+    "OD 12-200, ID 6-190 (band >= 2.4 mm), Height 0.4-6 mm, Face FLAT/NUT, Ironing, LH, Vers. NUT mills a "
+    "groove into the face: two raised sealing lips = higher contact pressure = seals better on uneven flanges "
+    "(needs 2 mm+ height, falls back to FLAT with a note if the band is too narrow). Create (beeps) -> "
+    "00_Seal_odxidxh_Vxx.gcode, auto-selected. Measure the sealing surface of the flange, not the pipe. TPU "
+    "seals best (the file already prints at 15 mm/s), PETG works — and DRY the filament: moisture bubbles are "
+    "the #1 seal killer. Console: GEN_SEAL OD=40 ID=20 HEIGHT=1.2 PROFILE=FLAT IRONING=0."),
+  CENT(d_seal_anatomy()),CAP("The ring (OD/ID, one continuous spiral — no seam) and the two faces in "
+    "cross-section: FLAT = full contact, NUT = groove with two raised sealing lips"),
   )
 
 
@@ -1637,7 +1799,7 @@ chapter('13','Maintenance &amp; care',
 
 
 chapter('14','LCD menu reference',
-  CENT(d_menu()),CAP('Seven top groups in LCD order — Start Print? (waiting), Live Tuning (printing), then Pre-Print, Quick Macros, Tools (the four part generators: Kabelbinder · Winkel+Flach · Labels · Plotter), Maintenance, System'),
+  CENT(d_menu()),CAP('Seven top groups in LCD order — Start Print? (waiting), Live Tuning (printing), then Pre-Print, Quick Macros, Tools (the six part generators: Kabelbinder · Winkel+Flach · Lithophane · Dichtungen · Labels · Plotter), Maintenance, System'),
   P('Every line fits the 16 characters of the 12864 display — the value you edit is always visible '
     '(test-enforced). Pattern: first line = ON/OFF toggle (value stays stored), then the values.'),
   TBL(['Live Tuning (during print)','Contents'],[
@@ -1672,7 +1834,9 @@ chapter('14','LCD menu reference',
   ],[42*mm,122*mm]),
   TBL(['Kabelbinder (in Tools — ch. 5.4)','Contents'],[
    ['Info','every setting in one console listing + material tip'],
-   ['Settings','Count 1-24 · Len 60-300 mm · Width 5-12 mm · Layers 3-6 · LH 0.12-0.32 · Closure RATCHET/LATCH (the * marks the active) · Brim · Vers V01-V09'],
+   ['Settings','Count 1-24 · Len 50-300 mm · Width 2-12 mm · Layers 3-6 · LH 0.12-0.32 · Closure CLASSIC/LOOP (the * marks the active) · Brim · Vers V01-V09'],
+   ['Info | Images (Create) | Delete image | Settings | How it works','LITHOPHANE (ch. 5.6): the gcodes folder\'s .png/.jpg list (newest first, 10 slots; plotter uploads included) — slot press = Create; Delete = 2-press confirm (plotter .gcode stays); Height 30-200 · Layer 0.08-0.2 · Levels 0-12 (0 = photo) · Frame · Brim 0-10 · Ironing · Vers'],
+   ['Info | Settings | Create (beeps) | How it works','DICHTUNGEN (ch. 5.7): OD 12-200 · ID 6-190 · Height 0.4-6 · Face FLAT/NUT (groove + two sealing lips) · Ironing · LH · Vers'],
    ['Create (beeps)','validates, bumps the job counter — the watcher builds the file in the background, beeps + auto-selects'],
    ['How it works','the flow + PETG/TPU tip + the Mainsail one-liner on the LCD'],
   ],[42*mm,122*mm]),
@@ -1918,7 +2082,7 @@ chapter('24','Cheat sheet: LCD paths &amp; Mainsail commands',
        'SET_GLOBAL_SPEED · SET_GLOBAL_ACCEL · SET_LIVE_VELOCITY · SET_LIVE_MINIMUM_CRUISE_RATIO\n'
        'SET_LIVE_PRESSURE_ADVANCE · SET_LIVE_RETRACTION · SET_FLOW_RATE · SET_FAN_SCALE\n'
        'PAUSE · RESUME · CANCEL_PRINT (2×) · PAUSE_AT_LAYER LAYER=n · SKIP_OBJECT OBJECT=name\n'
-       'GEN_LABELS TEXT=\"A|B\" W=60 H=30 · GEN_CABLE_TIES COUNT=6 LENGTH=120 VARIANT=LATCH ·\n'
+       'GEN_LABELS TEXT=\"A|B\" W=60 H=30 · GEN_CABLE_TIES COUNT=6 LENGTH=120 VARIANT=LOOP ·\n'
        'GEN_ANGLES ANGLE=90 WIDTH=25 WALLS=4 INFILL=60 IRONING=1 ·\n'
        'SET_LAYER_RANGE FLOOR=3 FLOOR_HOLE=15 TOP_HOLE=28 · SET_NOZZLE_SPLIT STATE=1\n'
        'CALIBRATE_PA · CALIBRATE_PA_SMOOTH · PA_SMOOTH_RESULT SEG=n · FLOW_CAL MEASURE=0.46 ·\nTEMP_TOWER_START START=200 END=230 STEP=5 BAND=10'),
@@ -1931,7 +2095,7 @@ chapter('24','Cheat sheet: LCD paths &amp; Mainsail commands',
    ["FS_* / FA_*","file's measured speed / accel per feature",'o:ON',"that feature's override is ON"],
    ['Src:','value source: file / overwrite / live','Now:','the feature printing right now'],
    ['LH','layer height','CS','countersink (generator holes)'],
-   ['Vers / V01..','generated file version','RAT / LAT','RATCHET / LATCH closure (cable ties)'],
+   ['Vers / V01..','generated file version','CLA / LOO','CLASSIC / LOOP closure (cable ties)'],
    ['Boss','thick wall ring around a generated hole','Bridge-first','cap layer 1 anchors the top hole edge'],
    ['Zoff','Z offset (babystepping total)','RetLen / RetSpd / Unret','retract length / speed / unretract'],
    ['MCR','minimum cruise ratio','SCV','square corner velocity'],
@@ -1966,10 +2130,19 @@ for _g in _MIDX:
                       "nozzle LEDs on their own EBB42 chain (1) or LED 5 of the main chain (0) - persisted (ch. 26)"])
 # R86: part generators in the index
 _MIDX.append(["Part generators — 17_generator.cfg", [
-    ["GEN_CABLE_TIES", "COUNT=6, LENGTH=120, WIDTH=8, LAYERS=3, VARIANT='RATCHET', LAYER_H=0.2, BRIM=1",
-     "console/Mainsail cable-tie job: COUNT=6 LENGTH=120 VARIANT=LATCH - sets everything + creates the file (RATCHET one-way, LATCH releasable)"],
+    ["GEN_CABLE_TIES", "COUNT=6, LENGTH=120, WIDTH=8, LAYERS=3, VARIANT='CLASSIC', LAYER_H=0.2, BRIM=1",
+     "console/Mainsail cable-tie job: COUNT=6 LENGTH=120 VARIANT=LOOP - sets everything + creates the file (CLASSIC one-way pawl, LOOP adjustable bead loop)"],
+    ["LITHO_CREATE", "INDEX=0",
+     "lithophane from image slot INDEX (0 = newest picture in Tools > Lithophane; big jobs run in a background thread)"],
+    ["LITHO_DEL_SLOT", "INDEX=0",
+     "delete image slot INDEX - 2-press logic: first call arms, the second deletes (plotter .gcode stays)"],
+    ["GEN_SEAL", "OD=40, ID=20, HEIGHT=1.2, PROFILE='FLAT', IRONING=0, LAYER_H=0.2",
+     "console/Mainsail gasket job: GEN_SEAL OD=30 ID=15 HEIGHT=2 PROFILE=NUT - groove + two sealing lips"],
     ["CABLE_TIE_GENERATE", "—", "create the tie file from the stored settings (watcher builds it, beeps + selects)"],
     ["CABLE_TIE_INFO", "—", "every tie setting in one listing + material tip"],
+    ["LITHO_INFO", "—", "lithophane settings + how many images are ready"],
+    ["SEAL_INFO", "—", "gasket settings + NUT/material tips"],
+    ["SEAL_GENERATE", "—", "create the seal file from the stored settings (bumps seal_nonce)"],
     ["GEN_ANGLES", "COUNT=2, ANGLE=90, LEG_A=60, LEG_B=60, WIDTH=25, LAYERS=6, HOLES=2, HOLE_D=4, CS=1, STIFFENER=1, WALLS=2, INFILL=100, IRONING=0, FLAT=0, LAYER_H=0.2",
      "console/Mainsail angle/flat job: CS=1 countersunk, FLAT=1 flat connector - holes auto-arrange and auto-clamp"],
     ["ANGLE_GENERATE", "—", "create the plate file from the stored settings (watcher builds it)"],

@@ -26,7 +26,7 @@ reference tables at the end. Installation and wiring live in the appendices.
 2. [The system in five minutes](#2-the-system-in-five-minutes)
 3. [From file to print — the daily workflow](#3-from-file-to-print--the-daily-workflow)
 4. [Scenario library — every file type walked through](#4-scenario-library--every-file-type-walked-through)
-5. [The generators: Range, Labels, Plotter, Cable ties & Angles](#5-the-generators-range-labels-plotter-cable-ties--angles)
+5. [The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes & Gaskets](#5-the-generators-range-labels-plotter-cable-ties-angles-lithophanes--gaskets)
 6. [During the print: tuning, pauses, objects](#6-during-the-print-tuning-pauses-objects)
 7. [Filament: load / unload / change / runout / cold pull](#7-filament-load--unload--change--runout--cold-pull)
 8. [Temperature system L1/L2](#8-temperature-system-l1l2)
@@ -218,6 +218,12 @@ re-upload (R84/R85):**
   If a start dialog holds the file it is released automatically first. For
   future uploads you can instead leave **Pre-Print > RetFix ON** — every new
   upload gets the treatment automatically.
+- **The offer only shows when it applies:** files that use **firmware
+  retraction (G10/G11)** — e.g. OrcaSlicer with firmware retraction enabled —
+  and files whose retracts are **already fixed** never show `RetFix file`
+  again. The file info says which case you have: `retract … (firmware
+  G10/G11)` / `(FIXED -> G10/G11)` / `(slicer moves — Pre-Print > File:
+  RetFix!)` / nothing detected = offer stays hidden (field log .72).
 
 | FS_* / FA_* | the MEASURED original speed / acceleration of each feature |
 | L1/L2 temps, PA, retraction, fan, nozzle, wall loops | everything Pre-Print can override |
@@ -587,11 +593,12 @@ PAUSE_AT_LAYER LAYER=17
 CANCEL_PRINT                                    # twice within 60 s
 ```
 
-## 5. The generators: Range, Labels, Plotter, Cable ties & Angles
+## 5. The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes & Gaskets
 
-Five generators turn the printer into a manufacturing tool of its own: partial
+Seven generators turn the printer into a manufacturing tool of its own: partial
 prints from any G-code, label plates from typed text, pen plots from images,
-printable cable ties and angle plates / flat connectors. All of them write
+cable ties, angle plates / flat connectors, lithophanes from photos and
+sealing gaskets. All of them write
 normal G-code files into the gcodes folder (the watcher builds them in the
 background — niced, single-pass, a few seconds), all of them run through the
 NORMAL start flow, and all generated objects are exclude-objects (skippable
@@ -853,16 +860,17 @@ the plotter is part of the calibration toolset too.
 ### 5.4 Cable ties — the built-in cable-tie maker
 
 Printable cable ties in ONE file, straight from the LCD — no slicer, no
-modeling. Each tie is a flat strap with ratchet teeth plus an integrated
-closure head whose size, slot clearance and tooth pitch ALL auto-scale with
-the strap width: you never tune the mechanism itself.
+modeling. Each tie is a flat strap with a normal, small closure head like a
+shop-bought cable tie: thread the chamfered tip in, pull tight, cut off the
+excess. Head size, slot clearance, tooth pitch and bead spacing ALL
+auto-scale with the strap width — you never tune the mechanism itself.
 
 **Two closure variants (Setting: Closure)**
 
 | Variant | How it closes | How it opens |
 |---|---|---|
-| **RATCHET** | the strap's stepped teeth ratchet under an enclosed pawl tab — pulls tight, locks at every tooth | one-way: cut to remove |
-| **LATCH** | identical ratchet, but the head's front ceiling is left OPEN | lift the pawl tab through the open slot with a fingernail / small screwdriver — reusable |
+| **CLASSIC** | the normal cable tie: a small pawl in the head reaches into the slot, the strap's teeth ratchet past it — pulls tight, locks at every tooth | one-way: cut to remove |
+| **LOOP** | a frame loop with an open slot plus beads along the strap — pull the tip through, it snaps over each bead | lift the strap back out of the loop — adjustable at every bead, **reusable** |
 
 **The workflow (LCD: `Tools > Kabelbinder`)**
 
@@ -870,7 +878,7 @@ the strap width: you never tune the mechanism itself.
    height), Closure, Brim, Vers (see table below).
 2. **Create (beeps)** — a confirm blip immediately, then the watcher builds
    the file in the background (niced, ~1–3 s). The happy tune plays and the
-   file **auto-selects**: `00_Ties_<len>x<wid>_<RAT|LAT>_V<xx>.gcode` — it
+   file **auto-selects**: `00_Ties_<len>x<wid>_<CLA|LOO>_V<xx>.gcode` — it
    sorts to the TOP of the file list.
 3. Start it like any file: start dialog → AS LEGACY or AS SLICED. The message
    lists everything that was auto-adapted (head size, slot, tooth pitch).
@@ -880,20 +888,20 @@ the strap width: you never tune the mechanism itself.
 | Setting | Range | Meaning |
 |---|---|---|
 | Count | 1–24 | ties in ONE project file; the grid arranges them automatically (all fit the bed or you get a clear error) |
-| Len | 60–300 mm | strap length. Rule of thumb: bundle circumference + head (~19 mm at width 8) + a few cm of pull-in reserve |
-| Width | 5–12 mm | strap width. The closure head auto-scales: head ≈ 2.4×width long, 2.8×width wide, slot = width + 0.6 mm, tooth pitch ≈ 0.7×width |
+| Len | 50–300 mm | strap length. Rule of thumb: bundle circumference + head + a few cm of pull-in reserve |
+| Width | 2–12 mm | strap width. The head auto-scales: at width 8 the head is ~12.5×10.6 mm, the slot is width + 0.5 mm, the tooth pitch ~0.45×width. Under 3.6 mm a 0.4 nozzle prints the teeth crisper (the message reminds you) |
 | Layers | 3–6 | strap thickness in layers. 3 = flexible, 6 = stiff, strong band |
 | LH | 0.12–0.32 mm | layer height. 0.12–0.16 = smoother teeth (finer ratchet steps) |
-| Closure | RATCHET / LATCH | one-way vs releasable (see table above) |
+| Closure | CLASSIC / LOOP | one-way pawl vs adjustable bead loop (see table above) |
 | Brim | ON/OFF | loops around each head on layer 1 — the thin head sticks better |
 | Vers | V01–V09 | same settings + same version = the file replaces itself; bump to keep an iteration. The upload area is never touched |
 
-**What prints** — each tie: head (solid base, channel walls, pawl tab),
-strap with a chamfered insertion tip, and stepped teeth on top (two-layer
-nubs: a low ramp climbs in, the steep flank locks). Every tie is an
-**exclude object** (`TIE_1..n`) — skip a failed one live in Objects. The
-teeth engage INSIDE the channel: strap + teeth pass with one layer of
-clearance; the pawl tab's underside catches the tooth flanks when you pull.
+**What prints** — CLASSIC: each tie gets a small box head (solid floor, two
+channel walls, a ceiling) with a pawl strip at the channel entry, plus the
+strap with stepped teeth on top (a low ramp climbs in, the steep flank
+locks). LOOP: a frame with an open slot and a strap with diamond beads —
+each bead is a light snap-fit detent that still holds under pull. Every tie
+is an **exclude object** (`TIE_1..n`) — skip a failed one live in Objects.
 
 **Material matters (thin flexing parts):** PETG or TPU bend best and hold
 tight loops; PLA works for gentle curves and fixed mounts only. Print slow
@@ -903,11 +911,11 @@ layer 2 (the file sets it itself).
 **Console one-liner (Mainsail — every parameter optional):**
 
 ```
-GEN_CABLE_TIES COUNT=6 LENGTH=120 WIDTH=8 LAYERS=3 VARIANT=RATCHET LAYER_H=0.2 BRIM=1
+GEN_CABLE_TIES COUNT=6 LENGTH=120 WIDTH=8 LAYERS=3 VARIANT=CLASSIC LAYER_H=0.2 BRIM=1
 ```
 
-`VARIANT=RATCHET` (one-way) or `VARIANT=LATCH` (releasable). Example:
-`GEN_CABLE_TIES COUNT=12 LENGTH=100 WIDTH=6 VARIANT=LATCH` = a dozen
+`VARIANT=CLASSIC` (one-way) or `VARIANT=LOOP` (adjustable, reusable). Example:
+`GEN_CABLE_TIES COUNT=12 LENGTH=100 WIDTH=3 VARIANT=LOOP` = a dozen fine
 reusable 100 mm ties for cable management.
 
 ### 5.5 Angles & flat connectors — structural plates
@@ -1005,6 +1013,92 @@ connector (ANGLE is then ignored). Examples:
 `GEN_ANGLES ANGLE=135 LEG_A=70 LEG_B=40 WIDTH=30 HOLES=3 STIFFENER=2` = heavy
 135° bracket with stepped rib; `GEN_ANGLES FLAT=1 LEG_A=50 LEG_B=50 WIDTH=25
 HOLES=2 HOLE_D=5 CS=0` = plain 100 mm splice strip.
+
+
+### 5.6 Lithophanes — photos that glow
+
+Turn any picture into a back-lit relief print: dark areas print thick, light
+areas thin — held against a lamp or window the photo appears. No slicer, no
+modeling, no manual image editing: the generator takes the picture as-is and
+does the optimization itself (contrast stretch, smoothing, mirror for the
+correct viewing side).
+
+**The workflow (LCD: `Tools > Lithophane`)**
+
+1. **Upload a picture** — drop any `.png`/`.jpg`/`.jpeg` into the gcodes
+   folder (Mainsail drag & drop). The **Images** list refreshes on its own
+   (newest first, 10 slots). Pictures you uploaded for **pen plotting are in
+   the same list** — the original is never touched, plotting keeps working.
+2. **Settings** — Height, Layer, Levels, Frame, Brim, Ironing (see table).
+3. **Slot press = Create** — a confirm blip, the watcher generates in its own
+   background thread (big pictures ~a minute, the printer keeps serving
+   previews meanwhile), the happy tune plays and the file **auto-selects**:
+   `00_Litho_<name>_V<xx>.gcode`.
+4. Start it like any file. The message reports the plate size, layer count,
+   thickness range and the level count.
+
+**Settings**
+
+| Setting | Range | Meaning |
+|---|---|---|
+| Height | 30–200 mm | picture height. Width follows the aspect ratio (auto-clamped to the bed) |
+| Layer | 0.08–0.2 mm | 0.12 = default; 0.08 = maximum detail, roughly double the print time |
+| Levels | 0–12 | 0 = continuous grey shades (photo look). 2–12 = posterized: the picture is reduced to N brightness steps — chunky retro look at 2–4, subtle terraces at 8–12 |
+| Frame | ON/OFF | border frame that holds the thin plate straight (recommended) |
+| Brim | 0–10 loops | the plate prints STANDING — the brim anchors it to the bed |
+| Ironing | ON/OFF | slow smoothing pass over the light side (front) |
+| Vers | V01–V09 | same picture + same version = replaces itself; bump to keep an iteration |
+
+**How it prints** — standing upright, one picture row per layer (the layer
+lines run WITH the image, that is what keeps the detail). Thickness runs
+from 0.7 mm (brightest, glows first) to 3.0 mm (shadows), 100 % solid —
+the file sets everything itself: slow walls, fan curve, PRINT_START. The
+plate is one **exclude object**.
+
+**Material & light:** white or natural PLA glows best. The effect unfolds
+with back-light 20–50 mm behind the plate (window, LED, tea light with a
+diffuser). Big plates above ~120 mm can be printed in two halves and glued.
+
+**Housekeeping** — `Delete image` (2-press confirm: press the slot, press it
+again) removes the picture from the folder. Its **plotter `.gcode` stays** in
+the file list — only the image goes away. Console: `LITHO_CREATE INDEX=0`
+(first image slot) or `LITHO_DEL_SLOT INDEX=2`.
+
+### 5.7 Gaskets — the built-in seal maker
+
+Sealing rings straight from the LCD: outer/inner diameter and height, with a
+flat face or a groove that raises the contact pressure. One continuous
+spiral per band — no seam, no start-stop blob where a seal would leak.
+
+**The workflow (LCD: `Tools > Dichtungen`)**
+
+1. **Settings** — OD, ID, Height, Face (FLAT/NUT), Ironing, LH, Vers.
+2. **Create (beeps)** — the watcher builds the file in seconds, the happy
+   tune plays and the file **auto-selects**:
+   `00_Seal_<od>x<id>x<h>_V<xx>.gcode`.
+3. Start it like any file.
+
+**Settings**
+
+| Setting | Range | Meaning |
+|---|---|---|
+| OD | 12–200 mm | outer diameter — measure the flange face, not the pipe |
+| ID | 6–190 mm | inner diameter; the ring band must be ≥ 2.4 mm wide |
+| Height | 0.4–6 mm | 1.2 mm = standard flat gasket; 2 mm+ recommended for NUT |
+| Face | FLAT / NUT | FLAT = full contact face. NUT = a groove in the face leaves two raised sealing lips — higher pressure, seals better on uneven/flanged surfaces (falls back to FLAT with a note if the band is too narrow) |
+| Ironing | ON/OFF | slow smoothing pass over the sealing face |
+| LH | 0.12–0.32 mm | layer height; 0.12–0.16 = smoother face |
+| Vers | V01–V09 | same settings + same version = replaces itself |
+
+**Material:** TPU seals best (the file already prints at 15 mm/s), PETG
+works, PLA only for dry, low-pressure lids. Dry the filament — moisture
+bubbles are the #1 seal killer.
+
+**Console one-liner (Mainsail):**
+
+```
+GEN_SEAL OD=40 ID=20 HEIGHT=1.2 PROFILE=FLAT IRONING=0
+```
 
 
 ## 6. During the print: tuning, pauses, objects
@@ -1486,8 +1580,9 @@ wiring changes without heating anything.
 
 Seven top groups — in LCD order: **Start Print?** (appears in the waiting
 state, position 1), **Live Tuning** (during a print, position 2), then
-Pre-Print, Quick Macros, **Tools** (the four part generators:
-Kabelbinder · Winkel+Flach · Labels · Plotter, each with its own sub-menu),
+Pre-Print, Quick Macros, **Tools** (the six part generators:
+Kabelbinder · Winkel+Flach · Lithophane · Dichtungen · Labels · Plotter, each
+with its own sub-menu),
 Maintenance, System. Start dialog and live tuning sit right at the top. Every line fits the 16 characters
 of the 12864 display — the value you edit is always visible (test-enforced).
 Pattern: first line = ON/OFF toggle (value stays stored), then the values.
@@ -1548,7 +1643,7 @@ while plotting (ch. C.3).
 | Entry | Contents |
 |---|---|
 | Info | every setting in one console listing + material tip |
-| Settings | Count 1–24 · Len 60–300 mm · Width 5–12 mm · Layers 3–6 (strap thickness) · LH 0.12–0.32 (finer = smoother teeth) · Closure: RATCHET (one-way, `*` marks active) / LATCH (releasable) · Brim ON/OFF · Vers V01–V09 |
+| Settings | Count 1–24 · Len 50–300 mm · Width 2–12 mm · Layers 3–6 (strap thickness) · LH 0.12–0.32 (finer = smoother teeth) · Closure: CLASSIC (one-way pawl, `*` marks active) / LOOP (adjustable bead loop, reusable) · Brim ON/OFF · Vers V01–V09 |
 | Create (beeps) | validates, bumps the job counter — the watcher builds the file in the background, it beeps + auto-selects |
 | How it works | the flow + PETG/TPU tip + the Mainsail one-liner, right on the LCD |
 
@@ -1560,6 +1655,25 @@ while plotting (ch. C.3).
 | Mode | Angle (L) / Flat splice — the `*` marks the active mode |
 | Settings | Angle 30–170° (**hidden in Flat mode**) · Leg A/B 20–150 mm (renamed Left/Right in Flat mode) · Width 8–60 · Layers 4–12 · LH · Holes 0–6 per leg · Hole D 2–10 mm (auto-clamped to the leg width) · Holes: Countersunk/Normal · Rib None/Gusset/Stepped (**hidden in Flat mode**) · Count 1–12 · Vers V01–V09  Walls 1-6 · Infill 20-100% · Ironing on/off |
 | Create (beeps) | validates, bumps the job counter — ready in ~1–2 s with the full adjustment report |
+
+**Lithophane** (picture → back-lit relief, in Tools — ch. 5.6)
+
+| Entry | Contents |
+|---|---|
+| Info | every setting + how many images are ready |
+| Images (Create) | the gcodes folder's `.png/.jpg` list (newest first, 10 slots; plotter uploads included) — slot press = Create |
+| Delete image | same slots, **2-press confirm** (press, press again) — only the image goes away, its plotter `.gcode` stays |
+| Settings | Height 30–200 mm · Layer 0.08–0.2 (0.12 default) · Levels 0–12 (0 = photo, 2–12 posterized) · Frame ON/OFF · Brim 0–10 · Ironing ON/OFF · Vers V01–V09 |
+| How it works | upload, slot press, standing print, white PLA tip, Mainsail one-liner |
+
+**Dichtungen** (gaskets, in Tools — ch. 5.7)
+
+| Entry | Contents |
+|---|---|
+| Info | every setting + material tips |
+| Settings | OD 12–200 mm · ID 6–190 mm · Height 0.4–6 mm · Face: FLAT / NUT (groove + two sealing lips, `*` marks active) · Ironing ON/OFF · LH 0.12–0.32 · Vers V01–V09 |
+| Create (beeps) | validates, bumps the job counter — the watcher builds the file, it beeps + auto-selects |
+| How it works | spiral-per-band, NUT fallback rule, TPU/PETG tip, Mainsail one-liner |
 
 Dependency rules the menu enforces itself: Flat mode hides the Angle input
 and the Rib submenu (a straight splice has neither), and the leg entries
@@ -1907,13 +2021,13 @@ usage line and the valid values instead of doing something.
 | **FS_* / FA_*** | file's measured speed / acceleration of that feature | **o:ON** | that feature's override is ON |
 | **Src:** | where a value comes from: file / overwrite / live | **Now:** | the feature printing right now |
 | **LH** | layer height | **CS** | countersink (generator holes) |
-| **Vers / V01…** | the generated file's version number | **RAT / LAT** | RATCHET / LATCH closure (cable ties) |
+| **Vers / V01…** | the generated file's version number | **CLA / LOO** | CLASSIC / LOOP closure (cable ties) |
 | **Boss** | thick wall ring around a generated hole | **Bridge-first** | cap layer 1 anchors the top hole edge (no sagging) |
 | **Zoff** | Z offset (babystepping total) | **RetLen / RetSpd / Unret** | retract length / speed / unretract speed |
 | **MCR** | minimum cruise ratio | **SCV** | square corner velocity |
 
 ## 25. Complete macro index
-All 137 public macros with parameters (defaults in parentheses; blank = no parameters). Internal helpers (leading `_`) are not user-facing. Grouped by module file — the same file you would edit.
+All 143 public macros with parameters (defaults in parentheses; blank = no parameters). Internal helpers (leading `_`) are not user-facing. Grouped by module file — the same file you would edit.
 
 ### Sounds — 02_sounds.cfg (4)
 | Macro | Parameters | Purpose |
@@ -2092,12 +2206,18 @@ All 137 public macros with parameters (defaults in parentheses; blank = no param
 | **LABEL_CLEAR_TEXT** | — | clear the edit buffer |
 | **LABEL_INFO** | — | queue + size + font + bed-fit info |
 
-### Part generators — 17_generator.cfg (6)
+### Part generators — 17_generator.cfg (12)
 | Macro | Parameters | Purpose |
 |---|---|---|
-| **GEN_CABLE_TIES** | COUNT=6, LENGTH=120, WIDTH=8, LAYERS=3, VARIANT='RATCHET', LAYER_H=0.2, BRIM=1 | console/Mainsail cable-tie job: `GEN_CABLE_TIES COUNT=6 LENGTH=120 VARIANT=LATCH` — sets everything + creates the file (VARIANT: RATCHET one-way · LATCH releasable) |
+| **GEN_CABLE_TIES** | COUNT=6, LENGTH=120, WIDTH=8, LAYERS=3, VARIANT='CLASSIC', LAYER_H=0.2, BRIM=1 | console/Mainsail cable-tie job: `GEN_CABLE_TIES COUNT=6 LENGTH=120 VARIANT=LOOP` — sets everything + creates the file (VARIANT: CLASSIC one-way pawl · LOOP adjustable bead loop, reusable) |
+| **LITHO_CREATE** | INDEX=0 | lithophane from image slot INDEX (0 = newest picture in Tools > Lithophane; big jobs run in a background thread) |
+| **LITHO_DEL_SLOT** | INDEX=0 | delete image slot INDEX — 2-press logic like the LCD: first call arms, the second deletes (plotter `.gcode` stays) |
+| **GEN_SEAL** | OD=40, ID=20, HEIGHT=1.2, PROFILE='FLAT', IRONING=0, LAYER_H=0.2 | console/Mainsail gasket job: `GEN_SEAL OD=30 ID=15 HEIGHT=2 PROFILE=NUT` — groove + two sealing lips |
 | **CABLE_TIE_GENERATE** | — | create the tie file from the stored settings (bumps cable_tie_nonce; the watcher builds it, beeps + selects) |
 | **CABLE_TIE_INFO** | — | every tie setting in one listing + material tip |
+| **LITHO_INFO** | — | lithophane settings + how many images are ready |
+| **SEAL_INFO** | — | gasket settings + NUT/material tips |
+| **SEAL_GENERATE** | — | create the seal file from the stored settings (bumps seal_nonce) |
 | **GEN_ANGLES** | COUNT=2, ANGLE=90, LEG_A=60, LEG_B=60, WIDTH=25, LAYERS=6, HOLES=2, HOLE_D=4, CS=1, STIFFENER=1, WALLS=2, INFILL=100, IRONING=0, FLAT=0, LAYER_H=0.2 | console/Mainsail angle/flat job: `GEN_ANGLES ANGLE=45 LEG_A=80 LEG_B=50 STIFFENER=2` — CS=1 countersunk · FLAT=1 flat connector |
 | **ANGLE_GENERATE** | — | create the plate file from the stored settings (bumps angle_nonce) |
 | **ANGLE_INFO** | — | every angle/flat setting + the auto-hole rules |

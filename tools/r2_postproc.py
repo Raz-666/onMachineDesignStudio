@@ -5298,7 +5298,8 @@ def _r2_version():
 NONCE_KEYS = ('preview_nonce', 'range_nonce', 'label_gen_nonce', 'reso_nonce',
               'bridge_nonce', 'plot_text_nonce', 'plot_status_nonce', 'host_nonce',
               'label_fit_nonce', 'retract_fix_nonce', 'vol_fix_nonce',
-              'cable_tie_nonce', 'angle_nonce')
+              'cable_tie_nonce', 'angle_nonce', 'litho_nonce', 'seal_nonce',
+              'litho_del_nonce')
 
 
 def _prime_nonces(rv):
@@ -6013,57 +6014,71 @@ def _gen_markers(L):
     return outl
 
 
-def make_cable_ties(count=6, length=120.0, width=8.0, layers=3, variant='RATCHET',
+def make_cable_ties(count=6, length=120.0, width=8.0, layers=3, variant='CLASSIC',
                     layer_h=0.2, first_h=0.28, brim=True, material='PLA',
                     bed=None, bed_margin=6.0, nozzle=0.6, out_dir='.', version=1):
-    """R86: printable cable ties (Kabelbinder) - strap + integrated head.
+    """R89: classic printable cable ties (Kabelbinder) - strap + small head.
 
-    Two closing mechanisms (auto-scaled with the width):
-      RATCHET - one-way: the strap's stepped teeth ratchet under the head's
-                flex tab; pulling tight locks, the tab is enclosed.
-      LATCH   - releasable: same ratchet, but the entry ceiling strip is
-                omitted - lift the pawl tab through the open slot to release.
-    The closure ADAPTS automatically: head length/width, slot clearance,
-    tooth pitch and heights all derive from the strap width + layer height.
-    Thin flexible parts - PETG/TPU bends best, PLA works for gentle curves.
+    Field request R89 (replaces the R86 oversize closure): a CLASSIC tie with
+    a normal-size one-way pawl head (thread the tip in, pull tight, cut to
+    remove) and the LOOP variant - a frame loop with an open slot plus BEADS
+    along the strap: pull the tip through the loop, it catches on a bead,
+    adjustable tighter/looser at every bead and lifts back out = reusable.
+    Widths 2-12mm (2mm = fine detail: works best with a 0.4 nozzle),
+    lengths 50-300mm. Thin flexing parts - PETG/TPU bend best.
     Returns (path, info).
     """
     count = max(1, min(int(count), 24))
     length = float(length)
     width = float(width)
     layers = max(3, min(int(layers), 6))
-    if not (60.0 <= length <= 300.0):
-        raise ValueError('tie length %.0fmm out of range (60..300)' % length)
-    if not (5.0 <= width <= 12.0):
-        raise ValueError('tie width %.0fmm out of range (5..12)' % width)
+    if not (50.0 <= length <= 300.0):
+        raise ValueError('tie length %.0fmm out of range (50..300)' % length)
+    if not (2.0 <= width <= 12.0):
+        raise ValueError('tie width %.0fmm out of range (2..12)' % width)
     variant = str(variant).upper()
-    if variant not in ('RATCHET', 'LATCH'):
-        variant = 'RATCHET'
+    if variant not in ('CLASSIC', 'LOOP'):
+        variant = 'CLASSIC'
     if bed is None:
         bed = (0.0, -3.0, 244.0, 238.0)
     layer_h = max(0.06, min(float(layer_h), 0.34))
     first_h = max(0.08, min(float(first_h), 0.42))
 
     wid = max(0.4, nozzle * 1.08)
-    twid = max(0.4, nozzle * 1.02)
     fil = FIL_AREA
 
-    # ---- auto-adapted closure geometry (derived from W + layers) ----------
-    clr = 0.30                                   # slot clearance per side
-    HL = round(2.4 * width, 1)                   # head length (along the strap)
-    HW = round(2.8 * width, 1)                   # head width (across)
-    slotw = width + 2 * clr                      # slot width
-    head_base = 2                                # head bottom plate layers
-    # the channel carries strap (layers) + teeth (2) + 1 layer clearance
-    slot_layers = layers + 3
-    head_layers = head_base + slot_layers + 2    # + 2 ceiling layers
-    pitch = max(3.0, round(0.7 * width, 1))      # tooth pitch
-    tooth_len = 2.0
-    es = 2.0                                     # entry ceiling strip (RATCHET)
-    # RATCHET: the entry strip encloses the pawl tab = one-way lock.
-    # LATCH: no entry strip - the channel stays open at the top front, so a
-    # fingernail / small screwdriver can lift the pawl tab to release.
-    gap = 0.4                                    # flex gap (2 layer heights)
+    notes = []
+    if width < 3.6:
+        notes.append('%.1fmm strap = fine detail - a 0.4 nozzle prints the '
+                     'teeth/beads crisper than the 0.6 default' % width)
+
+    if variant == 'CLASSIC':
+        # ---- classic small pawl head (R89: was 2.4x/2.8x the width - HUGE) --
+        HL = round(max(8.0, width + 4.5), 1)      # head along the strap
+        HW = round(max(6.0, width + 2.6), 1)      # head across
+        clr = 0.25                                # slot clearance per side
+        slotw = width + 2 * clr
+        head_base = 2                             # channel floor layers
+        slot_layers = layers + 3                  # strap + teeth + clearance
+        head_layers = head_base + slot_layers + 2 # + ceiling
+        pitch = max(2.0, round(0.45 * width, 1))  # tooth pitch
+        tooth_len = round(min(1.6, pitch * 0.55), 1)
+        pawl_in = 0.8                             # pawl reaches into the slot
+        total_layers = head_layers
+    else:
+        # ---- LOOP: frame with an open slot + beads along the strap ---------
+        wall = round(max(2.2, 2.6 * wid), 1)      # frame wall thickness
+        hole_w = width + 0.4                      # slot across (strap fits)
+        hole_l = round(max(2.0, width * 0.6 + 0.8), 1)   # slot along
+        LL = round(hole_l + 2 * wall, 1)          # frame along the strap
+        HW = round(hole_w + 2 * wall, 1)          # frame across (= head width)
+        HL = LL                                   # head length = frame length
+        bead_h = 0.5                              # bead bulge per side (snaps
+                                                  # through the slot with a light
+                                                  # push but holds under pull)
+        bead_l = round(max(1.6, 1.2 * bead_h * 2), 1)    # bead along (45 deg)
+        bead_gap = round(max(3.0, width * 0.5 + 1.5), 1) # spacing between beads
+        total_layers = layers + 2                 # frame is 2 layers thicker
 
     # ---- plate layout ------------------------------------------------------
     item_w = HL + length + 6.0
@@ -6094,109 +6109,156 @@ def make_cable_ties(count=6, length=120.0, width=8.0, layers=3, variant='RATCHET
         positions.append((gx0 + c * (item_w + 4.0) + 3.0,
                           gy0 + r * (item_h + 4.0) + 3.0))
 
-    total_layers = head_layers                  # head is the thickest part
     L = []
     a = L.append
-    a('; R2-TIES generated cable ties (R86) - start it like any other file')
+    a('; R2-TIES generated cable ties (R89) - start it like any other file')
     a(TAG)
-    a('; %d tie(s): %s, strap %.0fx%.1fmm, %d strap layers @%.2gmm, closure '
-      '%s (auto: head %.1fx%.1fmm, slot %.2fmm, pitch %.1fmm)'
-      % (count, variant, length, width, layers, layer_h, variant,
-         HL, HW, slotw, pitch))
+    if variant == 'CLASSIC':
+        a('; %d tie(s): CLASSIC one-way pawl, strap %.0fx%.1fmm, %d strap layers '
+          '@%.2gmm (head %.1fx%.1fmm, slot %.2fmm, tooth pitch %.1fmm)'
+          % (count, length, width, layers, layer_h, HL, HW, slotw, pitch))
+    else:
+        a('; %d tie(s): LOOP with beads, strap %.0fx%.1fmm, %d strap layers '
+          '@%.2gmm (loop %.1fx%.1fmm, slot %.1fx%.1fmm, beads every %.1fmm)'
+          % (count, length, width, layers, layer_h, HL, HW, hole_l, hole_w, bead_gap))
     a('; thin flexing parts - PETG/TPU bend best; PLA works for gentle curves')
     a('; every tie is an exclude object - skip single ties live')
 
     pen = _Pen(L, jump_d=6.0)
 
     def tie_block(idx, x0, y0, z, li, first):
-        """one tie at layer li: strap (+teeth) below the head's z-bands"""
+        """one tie at layer li"""
         cy = y0 + HW / 2.0
         e_wall = (first_h if li == 1 else layer_h) * wid / fil
         L.append('EXCLUDE_OBJECT_START NAME=TIE_%d' % (idx + 1))
-        if li <= layers:
-            # strap rect + tip chamfer (trapezoid) - the strap's own layers
+        if variant == 'CLASSIC':
+            hx0, hx1 = x0, x0 + HL
+            sx0 = x0 + HL                       # strap starts at the head exit
+            sx1 = x0 + HL + length
+            if li <= layers:
+                # strap rect + tip chamfer - the strap's own layers
+                L.append(';TYPE:Outer wall')
+                strap = [(sx0, cy - width / 2.0), (sx1 - 4.0, cy - width / 2.0),
+                         (sx1, cy - width / 2.0 + width * 0.25),
+                         (sx1, cy + width / 2.0 - width * 0.25),
+                         (sx1 - 4.0, cy + width / 2.0), (sx0, cy + width / 2.0)]
+                _emit_loop(pen, strap, e_wall, 1500 if first else 2400)
+                L.append(';TYPE:Internal solid infill')
+                _emit_hatch(pen, _hatch(sx0 + wid, cy - width / 2.0 + wid,
+                                        sx1 - wid, cy + width / 2.0 - wid,
+                                        None, wid, 45.0 if li % 2 else 135.0), e_wall,
+                            1500 if first else 2700)
+            elif li in (layers + 1, layers + 2):
+                # teeth on top of the strap: low nub + steep lock flank
+                L.append(';TYPE:Inner wall')
+                tx = sx0 + 4.0
+                while tx + tooth_len < sx1 - 8.0:
+                    if li == layers + 1:
+                        _emit_loop(pen, _rect_loop(tx, cy - width / 2.0,
+                                                   tx + tooth_len, cy + width / 2.0),
+                                   e_wall, 1800)
+                    else:
+                        _emit_loop(pen, _rect_loop(tx + 0.6, cy - width / 2.0,
+                                                   tx + tooth_len, cy + width / 2.0),
+                                   e_wall, 1800)
+                    tx += pitch
+            # ---- head: small classic box with a straight channel ------------
+            if li <= head_base:
+                # solid bottom plate (the channel floor)
+                L.append(';TYPE:Outer wall')
+                _emit_loop(pen, _rect_loop(hx0, y0, hx1, y0 + HW), e_wall, 1500 if first else 2400)
+                L.append(';TYPE:Internal solid infill')
+                _emit_hatch(pen, _hatch(hx0 + wid, y0 + wid, hx1 - wid, y0 + HW - wid,
+                                        None, wid, 45.0 if li % 2 else 135.0), e_wall,
+                            1500 if first else 2700)
+            elif li <= head_base + slot_layers:
+                # channel band: two side walls, the slot between stays open
+                L.append(';TYPE:Outer wall')
+                _emit_loop(pen, _rect_loop(hx0, y0, hx1, cy - slotw / 2.0), e_wall,
+                           1500 if first else 2400)
+                _emit_loop(pen, _rect_loop(hx0, cy + slotw / 2.0, hx1, y0 + HW), e_wall,
+                           1500 if first else 2400)
+                L.append(';TYPE:Internal solid infill')
+                _emit_hatch(pen, _hatch(hx0 + wid, y0 + wid, hx1 - wid, cy - slotw / 2.0 - wid,
+                                        None, wid, 45.0 if li % 2 else 135.0), e_wall,
+                            1500 if first else 2700)
+                _emit_hatch(pen, _hatch(hx0 + wid, cy + slotw / 2.0 + wid, hx1 - wid, y0 + HW - wid,
+                                        None, wid, 45.0 if li % 2 else 135.0), e_wall,
+                            1500 if first else 2700)
+            else:
+                # ceiling band (2 layers). Layer 1 of it = the PAWL: a strip
+                # across the channel at the ENTRY that reaches INTO the slot -
+                # the strap teeth ratchet under it. Layer 2 closes the box.
+                cl = li - head_base - slot_layers          # 1..2
+                L.append(';TYPE:Outer wall')
+                _emit_loop(pen, _rect_loop(hx0, y0, hx1, cy - slotw / 2.0 - wid), e_wall,
+                           1500 if first else 2400)
+                _emit_loop(pen, _rect_loop(hx0, cy + slotw / 2.0 + wid, hx1, y0 + HW), e_wall,
+                           1500 if first else 2400)
+                L.append(';TYPE:Internal solid infill')
+                _emit_hatch(pen, _hatch(hx0 + wid, y0 + wid, hx1 - wid,
+                                        cy - slotw / 2.0 - wid - wid,
+                                        None, wid, 45.0 if li % 2 else 135.0), e_wall,
+                            1500 if first else 2700)
+                _emit_hatch(pen, _hatch(hx0 + wid, cy + slotw / 2.0 + wid + wid, hx1 - wid,
+                                        y0 + HW - wid, None, wid, 45.0 if li % 2 else 135.0),
+                            e_wall, 1500 if first else 2700)
+                if cl == 1:
+                    # the pawl: full-width strip one layer DOWN into the slot,
+                    # at the entry, so the teeth catch (classic one-way)
+                    L.append(';TYPE:Inner wall')
+                    _emit_loop(pen, _rect_loop(hx0 + 1.2, cy - slotw / 2.0 - wid,
+                                               hx0 + 1.2 + max(2.5, width * 0.4),
+                                               cy + slotw / 2.0 + wid), e_wall, 1800)
+        else:
+            # ================= LOOP variant =================================
+            fx0, fx1 = x0, x0 + LL                 # frame along the strap
+            hx0 = (fx0 + fx1 - hole_l) / 2.0       # hole rect
+            hx1 = hx0 + hole_l
+            hy0 = cy - hole_w / 2.0
+            hy1 = cy + hole_w / 2.0
+            sx0 = hx1 - wid                        # strap overlaps the right wall
+            sx1 = fx1 + length
+            # frame ring: outer loop .. hole edge (concentric)
             L.append(';TYPE:Outer wall')
-            strap = [(x0 + HL, cy - width / 2.0), (x0 + HL + length - 4.0, cy - width / 2.0),
-                     (x0 + HL + length, cy - width / 2.0 + width * 0.25),
-                     (x0 + HL + length, cy + width / 2.0 - width * 0.25),
-                     (x0 + HL + length - 4.0, cy + width / 2.0), (x0 + HL, cy + width / 2.0)]
-            _emit_loop(pen, strap, e_wall, 1500 if first else 2400)
-            L.append(';TYPE:Internal solid infill')
-            _emit_hatch(pen, _hatch(x0 + HL + wid, cy - width / 2.0 + wid,
-                                    x0 + HL + length - wid, cy + width / 2.0 - wid,
-                                    None, wid, 45.0 if li % 2 else 135.0), e_wall,
-                        1500 if first else 2700)
-        elif li in (layers + 1, layers + 2):
-            # teeth on top of the strap: low nub (front ramp) + high nub (steep
-            # lock flank at its right edge). Two steps = printable ratchet.
+            n_loops = max(2, int(round(wall / wid)))
+            for k in range(n_loops + 1):
+                off = k * wid
+                # shrink the outer rect toward the hole
+                ox0 = fx0 + off
+                oy0 = cy - (HW / 2.0) + off
+                ox1 = fx1 - off
+                oy1 = cy + (HW / 2.0) - off
+                if ox1 - ox0 < 2 * wid or oy1 - oy0 < 2 * wid:
+                    break
+                _emit_loop(pen, _rect_loop(ox0, oy0, ox1, oy1), e_wall,
+                           1500 if first else 2400)
+            # hole edge: the innermost loop must not fall below the hole
             L.append(';TYPE:Inner wall')
-            tx = x0 + HL + 6.0
-            while tx < x0 + HL + length - 8.0:
-                if li == layers + 1:
-                    _emit_loop(pen, _rect_loop(tx, cy - width / 2.0,
-                                               tx + tooth_len, cy + width / 2.0),
-                               e_wall, 1800)
-                else:
-                    _emit_loop(pen, _rect_loop(tx + 1.0, cy - width / 2.0,
-                                               tx + tooth_len, cy + width / 2.0),
-                               e_wall, 1800)
-                tx += pitch
-        # ---- head (only within its own z-bands) -----------------------------
-        hx0, hx1 = x0, x0 + HL
-        if li <= head_base:
-            # solid bottom plate (the channel floor)
-            L.append(';TYPE:Outer wall')
-            _emit_loop(pen, _rect_loop(hx0, y0, hx1, y0 + HW), e_wall, 1500 if first else 2400)
-            L.append(';TYPE:Internal solid infill')
-            _emit_hatch(pen, _hatch(hx0 + wid, y0 + wid, hx1 - wid, y0 + HW - wid,
-                                    None, wid, 45.0 if li % 2 else 135.0), e_wall,
-                        1500 if first else 2700)
-        elif li <= head_base + slot_layers:
-            # slot band: two side walls, the channel between stays open
-            L.append(';TYPE:Outer wall')
-            _emit_loop(pen, _rect_loop(hx0, y0, hx1, cy - slotw / 2.0), e_wall,
-                       1500 if first else 2400)
-            _emit_loop(pen, _rect_loop(hx0, cy + slotw / 2.0, hx1, y0 + HW), e_wall,
-                       1500 if first else 2400)
-            L.append(';TYPE:Internal solid infill')
-            _emit_hatch(pen, _hatch(hx0 + wid, y0 + wid, hx1 - wid, cy - slotw / 2.0 - wid,
-                                    None, wid, 45.0 if li % 2 else 135.0), e_wall,
-                        1500 if first else 2700)
-            _emit_hatch(pen, _hatch(hx0 + wid, cy + slotw / 2.0 + wid, hx1 - wid, y0 + HW - wid,
-                                    None, wid, 45.0 if li % 2 else 135.0), e_wall,
-                        1500 if first else 2700)
-        elif li <= head_layers:
-            # ceiling band: side walls + (RATCHET: entry strip) + pawl tab +
-            # exit strip. The TAB carries the pawl: at the LOWER ceiling layer
-            # it reaches 1.2mm further toward the entry = the locking lip.
-            cl = li - head_base - slot_layers          # 1..2
-            L.append(';TYPE:Outer wall')
-            _emit_loop(pen, _rect_loop(hx0, y0, hx1, cy - slotw / 2.0 - gap), e_wall,
-                       1500 if first else 2400)
-            _emit_loop(pen, _rect_loop(hx0, cy + slotw / 2.0 + gap, hx1, y0 + HW), e_wall,
-                       1500 if first else 2400)
-            L.append(';TYPE:Internal solid infill')
-            _emit_hatch(pen, _hatch(hx0 + wid, y0 + wid, hx1 - wid, cy - slotw / 2.0 - gap - wid,
-                                    None, wid, 45.0 if li % 2 else 135.0), e_wall,
-                        1500 if first else 2700)
-            _emit_hatch(pen, _hatch(hx0 + wid, cy + slotw / 2.0 + gap + wid, hx1 - wid,
-                                    y0 + HW - wid, None, wid, 45.0 if li % 2 else 135.0),
-                        e_wall, 1500 if first else 2700)
-            if variant == 'RATCHET':
-                # entry strip: anchored to the walls, encloses the pawl
-                _emit_loop(pen, _rect_loop(hx0, cy - slotw / 2.0 - gap,
-                                           hx0 + es, cy + slotw / 2.0 + gap), e_wall, 1800)
-            # LATCH: nothing here - the channel front stays open (release slot)
-            # exit strip (anchored to the walls) + the pawl tab
-            _emit_loop(pen, _rect_loop(hx1 - 2.5, cy - slotw / 2.0 - gap,
-                                       hx1, cy + slotw / 2.0 + gap), e_wall, 1800)
-            tab_x1 = hx0 + (es if variant == 'RATCHET' else 0.0) + gap \
-                - (1.2 if cl == 1 else 0.0)
-            _emit_loop(pen, _rect_loop(tab_x1, cy - slotw / 2.0 - 0.4,
-                                       hx1 - 2.5 - gap, cy + slotw / 2.0 + 0.4), e_wall, 1800)
+            _emit_loop(pen, _rect_loop(hx0, hy0, hx1, hy1), e_wall, 1500 if first else 2400)
+            if li <= layers:
+                # strap with beads: lower edge + mirrored upper edge
+                w2 = width / 2.0
+                lower = [(sx0, cy - w2)]
+                x = hx1 + 6.0
+                while x + bead_l < sx1 - 10.0:
+                    lower.append((x, cy - w2))
+                    lower.append((x + bead_l / 2.0, cy - w2 - bead_h))
+                    lower.append((x + bead_l, cy - w2))
+                    x += bead_l + bead_gap
+                lower.append((sx1 - 4.0, cy - w2))
+                lower.append((sx1, cy - w2 + width * 0.25))
+                upper = [(px, 2 * cy - py) for (px, py) in reversed(lower)]
+                L.append(';TYPE:Outer wall')
+                _emit_loop(pen, lower + upper, e_wall, 1500 if first else 2400)
+                L.append(';TYPE:Internal solid infill')
+                _emit_hatch(pen, _hatch(sx0 + wid, cy - w2 + wid,
+                                        sx1 - wid, cy + w2 - wid,
+                                        None, wid, 45.0 if li % 2 else 135.0), e_wall,
+                            1500 if first else 2700)
         L.append('EXCLUDE_OBJECT_END NAME=TIE_%d' % (idx + 1))
 
-    # brim (first layer): two loops around the head only (the strap needs none)
+    # brim (first layer): loops around the head only (the strap needs none)
     def tie_brim(x0, y0):
         e_wall = first_h * wid / fil
         for off in (wid * 0.35, wid * 0.35 + wid):
@@ -6225,11 +6287,7 @@ def make_cable_ties(count=6, length=120.0, width=8.0, layers=3, variant='RATCHET
     # first COMMAND is PRINT_START - that is where a legacy _FILE_INFO would go)
     hdr = []
     for idx, (x0, y0) in enumerate(positions):
-        # R87.2 FIELD FIX (.71 log: ties print aborted right after the start
-        # confirm): Klipper's [exclude_object] json-parses POLYGON - it MUST be
-        # '[[x,y],[x,y],...]' with NO whitespace (klipper3d.org/Exclude_Object).
-        # The old flat 'x,y x,y ...' format raised on the very first define,
-        # which killed every ties print seconds after confirming the dialog.
+        # R87.2 FIELD FIX (.71 log): Klipper json-parses POLYGON - no whitespace
         poly = '[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]' % (
             x0, y0, x0 + HL + length, y0,
             x0 + HL + length, y0 + HW, x0, y0 + HW)
@@ -6237,8 +6295,6 @@ def make_cable_ties(count=6, length=120.0, width=8.0, layers=3, variant='RATCHET
                    % (idx + 1, (x0 + (HL + length) / 2.0), y0 + HW / 2.0, poly))
     ps = 'PRINT_START MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d OUTER_WALL_SPEED=40' % (
         material, layer_h, total_layers)
-    # R83 header order (labels pattern): TAG + comments, exclude defines,
-    # PRINT_START, G90/M83, fan off for the first layer
     i0 = next(i for i, l in enumerate(L) if l.startswith(';LAYER_CHANGE'))
     outl = (L[:i0] + hdr + [ps, 'G90', 'M83',
                             'M107   ; R2-TIES: first layer = fan off']
@@ -6249,20 +6305,21 @@ def make_cable_ties(count=6, length=120.0, width=8.0, layers=3, variant='RATCHET
     out = os.path.join(out_dir, fname)
     with open(out, 'w') as f:
         f.write('\n'.join(outl) + '\n')
+    if variant == 'CLASSIC':
+        notes = (['classic one-way pawl: head %.1fx%.1fmm, slot %.2fmm, '
+                  'tooth pitch %.1fmm - pull tight, cut to remove'
+                  % (HL, HW, slotw, pitch)] + notes)
+    else:
+        notes = (['ball-loop: pull the tip through the loop - it catches on '
+                  'every bead, adjustable, lifts back out (reusable); '
+                  'bead every %.1fmm' % bead_gap] + notes)
     info = {'file': fname, 'count': count, 'variant': variant,
             'length': length, 'width': width, 'layers': total_layers,
-            'head': '%.1fx%.1fmm' % (HL, HW), 'slot': round(slotw, 2),
-            'pitch': pitch, 'grid': '%dx%d' % (cols, rows),
-            'notes': (['closure auto-scaled: head %.1fx%.1fmm, slot %.2fmm '
-                       '(+0.3mm clearance), tooth pitch %.1fmm' % (HL, HW, slotw, pitch),
-                       'RATCHET: one-way - cut to remove',
-                       'use PETG/TPU for tight bends - PLA holds gentle curves only']
-                      if variant == 'RATCHET' else
-                      ['closure auto-scaled: head %.1fx%.1fmm, slot %.2fmm '
-                       '(+0.3mm clearance), tooth pitch %.1fmm' % (HL, HW, slotw, pitch),
-                       'LATCH: lift the pawl tab through the open front slot '
-                       'to release (reusable)',
-                       'use PETG/TPU for tight bends - PLA holds gentle curves only'])}
+            'head': '%.1fx%.1fmm' % (HL, HW),
+            'slot': round(slotw, 2) if variant == 'CLASSIC' else
+                    '%.1fx%.1f' % (hole_l, hole_w),
+            'pitch': pitch if variant == 'CLASSIC' else bead_gap,
+            'grid': '%dx%d' % (cols, rows), 'notes': notes}
     return out, info
 
 
@@ -6572,6 +6629,494 @@ def make_angles(count=2, angle_deg=90, leg_a=60.0, leg_b=60.0, width=25.0,
     return out, info
 
 
+# ---- R89: lithophane + gasket generators ---------------------------------------
+
+def _img_luma(data, kind):
+    """R89: decode PNG/JPEG -> (w, h, rows of luminance 0..1)."""
+    if kind == 'png':
+        w, h, px = _png_to_rgb(data)
+    elif kind in ('jpg', 'jpeg'):
+        w, h, px = _jpeg_to_rgb(data)   # raises a clear message on progressive
+    else:
+        raise ValueError('unsupported image type %r (png/jpg/jpeg only)' % kind)
+    if w < 8 or h < 8:
+        raise ValueError('image too small (%dx%d px) - at least 8x8' % (w, h))
+    lum = []
+    for y in range(h):
+        row = px[y]
+        lr = []
+        for x in range(w):
+            r, g, b = row[x]
+            lr.append((0.299 * r + 0.587 * g + 0.114 * b) / 255.0)
+        lum.append(lr)
+    return w, h, lum
+
+
+def _litho_grid(lum, w, h, cols, rows, gamma=1.0, levels=0):
+    """R89: the 'always beautiful without visual feedback' image pipeline.
+
+    1. robust contrast stretch (2..98 percentiles - a dark photo or a washed
+       out scan both end up using the full thickness range)
+    2. gamma (optional, default neutral)
+    3. box downsample with capped sampling (anti-aliasing, fast on a Pi Zero)
+    4. 3x3 gaussian blur (sigma~1 cell) - single-pixel speckle would print as
+       pinholes and flicker; the blur costs almost no detail at line width
+       resolution
+    5. optional quantization to N brightness levels (posterized look + the
+       thickness changes come in clean steps = smoother walls)
+    6. horizontal mirror (a lithophane is viewed against the light from the
+       front face - unmirrored it would read backwards)
+    Returns (grid, report) with grid[row][col] in 0..1 (0 = brightest).
+    """
+    ys = range(0, h, max(1, h // 90))
+    xs = range(0, w, max(1, w // 90))
+    sample = sorted(lum[y][x] for y in ys for x in xs)
+    lo = sample[max(0, int(len(sample) * 0.02))]
+    hi = sample[min(len(sample) - 1, int(len(sample) * 0.98))]
+    if hi - lo < 0.02:
+        lo, hi = 0.0, 1.0        # flat image - nothing to stretch
+    grid = []
+    for gy in range(rows):
+        y0 = gy * h // rows
+        y1 = max(y0 + 1, (gy + 1) * h // rows)
+        sy = max(1, (y1 - y0) // 4)
+        row = []
+        for gx in range(cols):
+            x0 = gx * w // cols
+            x1 = max(x0 + 1, (gx + 1) * w // cols)
+            sx = max(1, (x1 - x0) // 4)
+            s = n = 0
+            for y in range(y0, y1, sy):
+                lr = lum[y]
+                for x in range(x0, x1, sx):
+                    s += lr[x]
+                    n += 1
+            v = (s / float(n) - lo) / (hi - lo)
+            v = 0.0 if v < 0.0 else (1.0 if v > 1.0 else v)
+            if gamma != 1.0:
+                v = v ** gamma
+            row.append(v)
+        grid.append(row)
+    # 3x3 gaussian (kernel 1 2 1 / 2 4 2 / 1 2 1, normalized)
+    k = (1.0 / 16.0, 2.0 / 16.0)
+    blur = []
+    for y in range(rows):
+        yp = grid[y - 1] if y > 0 else grid[0]
+        yc = grid[y]
+        yn = grid[y + 1] if y < rows - 1 else grid[rows - 1]
+        br = []
+        for x in range(cols):
+            xl = x - 1 if x > 0 else 0
+            xr = x + 1 if x < cols - 1 else cols - 1
+            br.append((k[0] * (yp[xl] + yp[xr] + yn[xl] + yn[xr])
+                       + k[1] * (yp[x] + yn[x] + yc[xl] + yc[xr])
+                       + 4.0 / 16.0 * yc[x]))
+        blur.append(br)
+    grid = blur
+    if levels >= 2:
+        n1 = float(levels - 1)
+        grid = [[round(v * n1) / n1 for v in row] for row in grid]
+    grid = [list(reversed(r)) for r in grid]     # mirror: front view reads right
+    rep = ('auto-optimize: contrast %d..%d%% stretched, smoothed, mirrored'
+           % (round(lo * 100), round(hi * 100)))
+    if levels >= 2:
+        rep += ', %d brightness levels' % levels
+    return grid, rep
+
+
+class _Sink:
+    """R89: streaming line sink - a lithophane runs to ~250k gcode lines,
+    building one Python list would eat 40+MB on the Pi Zero (R86 RAM rule).
+    Flushes every 4000 lines; _Pen only ever calls .append()."""
+
+    def __init__(self, fh):
+        self.fh = fh
+        self.buf = []
+
+    def append(self, line):
+        self.buf.append(line)
+        if len(self.buf) >= 4000:
+            self.fh.write('\n'.join(self.buf) + '\n')
+            self.buf = []
+
+    def flush(self):
+        if self.buf:
+            self.fh.write('\n'.join(self.buf) + '\n')
+            self.buf = []
+
+
+def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
+                    brim_loops=6, ironing=False, base=0.7, dyn=2.3, gamma=1.0,
+                    material='PLA', bed=None, bed_margin=6.0, nozzle=0.6,
+                    out_dir='.', version=1):
+    """R89: photo -> lithophane g-code, printed STANDING (vertical).
+
+    Why standing (the field recipe from itslitho/3dp.rocks research): the
+    plate stands on edge, every layer is ONE thin ribbon across the bed -
+    layer lines run ALONG the image, XY resolution carries the detail, no
+    top-surface banding, self-supporting. Printed flat you would see every
+    layer as a contour line. Each image row becomes ONE layer; the thickness
+    per column prints as a zigzag of constant-width beads (front face flat,
+    back face = the image). Frame = solid border at full thickness (stability
+    + hides edge artifacts), brim holds the narrow base down.
+    Dark = thick: brightest highlight = base, deepest shadow = base + dyn.
+    """
+    height_mm = max(30.0, min(float(height_mm or 100.0), 200.0))
+    layer_h = max(0.08, min(float(layer_h or 0.12), 0.2))
+    levels = max(0, min(int(levels or 0), 16))
+    base = max(0.4, min(float(base or 0.7), 1.5))
+    dyn = max(1.2, min(float(dyn or 2.3), 3.5))
+    brim_loops = max(0, min(int(brim_loops or 0), 10))
+    if bed is None:
+        bed = (0.0, -3.0, 244.0, 238.0)
+    ext = os.path.splitext(src)[1].lower().lstrip('.')
+    kind = {'png': 'png', 'jpg': 'jpg', 'jpeg': 'jpg'}.get(ext)
+    if kind is None:
+        raise ValueError('lithophane source must be .png/.jpg/.jpeg (got %r)' % ext)
+    if not os.path.isfile(src):
+        raise ValueError('image not found: %s' % src)
+    with open(src, 'rb') as f:
+        data = f.read()
+    w, h, lum = _img_luma(data, kind)
+
+    wid = max(0.4, nozzle * 1.08)
+    fil = FIL_AREA
+    notes = []
+
+    # ---- geometry: rows = layers (image height), cols follow the aspect ----
+    rows = max(4, int(round(height_mm / layer_h)))
+    height_real = rows * layer_h
+    # image aspect -> plate width in mm -> columns at LINE WIDTH spacing
+    # (each layer is one image row at layer_h; each column is one bead at wid)
+    width_target = height_real * (w / float(h))
+    cols = max(4, int(round(width_target / wid)))
+    bx0, by0, bx1, by1 = bed
+    ux0, uy0 = bx0 + bed_margin, by0 + bed_margin
+    ux1, uy1 = bx1 - bed_margin, by1 - bed_margin
+    max_cols = int((ux1 - ux0) // wid)
+    if cols > max_cols:
+        old_h = height_real
+        cols = max_cols
+        width_mm = cols * wid
+        rows = max(4, int(round(width_mm * (h / float(w)) / layer_h)))
+        height_real = rows * layer_h
+        notes.append('image too wide for the bed - height clamped %.0f -> %.0fmm'
+                     % (old_h, height_real))
+    z_max = 235.0                      # Ender-3 build height, headroom included
+    if height_real > z_max:
+        old_h = height_real
+        rows = max(4, int(z_max / layer_h))
+        height_real = rows * layer_h
+        cols = max(4, int(round(height_real * (w / float(h)) / wid)))
+        notes.append('too tall - height clamped %.0f -> %.0fmm' % (old_h, height_real))
+    width_mm = cols * wid
+
+    grid, rep = _litho_grid(lum, w, h, cols, rows, gamma=gamma, levels=levels)
+    notes.append(rep)
+
+    # ---- thickness map (dark = thick) + solid frame border ------------------
+    t_min = max(base, wid)
+    t_max = t_min + dyn
+    fw_c = max(2, int(round(2.4 / wid))) if frame else 0
+    fw_r = max(2, int(round(2.4 / max(layer_h, wid)))) if frame else 0
+    T = []
+    for r in range(rows):
+        tr = []
+        for c in range(cols):
+            if frame and (r < fw_r or r >= rows - fw_r or c < fw_c or c >= cols - fw_c):
+                tr.append(t_max)
+            else:
+                tr.append(t_min + dyn * grid[r][c])
+        T.append(tr)
+
+    # ---- placement: centered, front face at fixed Y -------------------------
+    cx = (ux0 + ux1) / 2.0
+    x0 = cx - width_mm / 2.0
+    yF = (uy0 + uy1) / 2.0 - t_max / 2.0
+
+    stem = re.sub(r'[^A-Za-z0-9]', '', os.path.splitext(os.path.basename(src))[0])[:8] or 'IMG'
+    fname = '00_Litho_%s_V%02d.gcode' % (stem, max(1, min(int(version), 99)))
+    out = os.path.join(out_dir, fname)
+
+    e_wall = layer_h * wid / fil
+    e_iron = 0.15 * layer_h * wid / fil
+    fpoly = '[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]' % (
+        x0, yF, x0 + width_mm, yF, x0 + width_mm, yF + t_max, x0, yF + t_max)
+
+    with open(out, 'w') as f:
+        sk = _Sink(f)
+        a = sk.append
+        a('; R2-LITHO generated lithophane (R89) - start it like any other file')
+        a(TAG)
+        a('; source %s (%dx%d px) -> %dx%d cells, standing print, dark = thick'
+          % (os.path.basename(src), w, h, cols, rows))
+        a('; plate %.1f x %.1f mm, thickness %.1f..%.1f mm, %d layers @%.2gmm'
+          % (width_mm, height_real, t_min, t_max, rows, layer_h))
+        a('; %s' % rep)
+        a('; frame %s, brim %d loop(s), ironing %s'
+          % ('ON (solid border at full thickness)' if frame else 'OFF',
+             brim_loops, 'ON (top edge)' if ironing else 'OFF'))
+        a('; print tips: WHITE or natural PLA glows best; slow (the file already'
+          ' prints at 25mm/s); light it from BEHIND')
+        a('; filament_type = %s' % material)
+        a('; layer_height = %.2g' % layer_h)
+        a('; nozzle_diameter = %.1f' % nozzle)
+        a('; line_width = %.2g' % wid)
+        a('; inner_wall_speed = 25')
+        a('; initial_layer_speed = 10')
+        a('; travel_speed = 120')
+        if ironing:
+            a('; ironing_speed = 25')
+            a('; ironing_flow = 0.15')
+        types = ['WALL-INNER', 'SURFACE-TOP'] + (['IRONING'] if ironing else [])
+        if brim_loops:
+            types.insert(0, 'BRIM')
+        a('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d LINE_WIDTH=%.2g '
+          'LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g FLOW_RATIO=1 NOZZLE=%.1f '
+          'WALL_LOOPS=2 SPEED_INNER=25 SPEED_FIRST=10 SPEED_TRAVEL=120%s TYPES=%s BY_OBJECT=0'
+          % (material, layer_h, rows, wid, layer_h, wid, nozzle,
+             ' IRONING_SPEED=25' if ironing else '', ','.join(types)))
+        a('EXCLUDE_OBJECT_DEFINE NAME=LITHO CENTER=%.1f,%.1f POLYGON=%s'
+          % (cx, yF + t_max / 2.0, fpoly))
+        ps = ('PRINT_START MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d OUTER_WALL_SPEED=25'
+              % (material, layer_h, rows))
+        a(ps)
+        a('G90')
+        a('M83')
+        a('M107   ; R2-LITHO: first layer = fan off')
+
+        pen = _Pen(sk, jump_d=6.0)
+
+        def ribbon(li, row, feed, e_per_mm):
+            """one layer = one continuous zigzag across all columns.
+
+            State machine: at the BACK of a column (yF+t) the move to the next
+            column is a short DIAGONAL along the image face (E = hypot(wid,
+            dt)); at the FRONT (yF) it is a straight line (E = wid). Then the
+            column prints vertically (E = t). One continuous bead, no travel
+            inside the layer."""
+            rev = (li % 2 == 0)                # alternate direction per layer
+            rng = range(cols - 1, -1, -1) if rev else range(cols)
+            first = True
+            at_back = False
+            pen_t = 0.0
+            for c in rng:
+                x = x0 + (c + 0.5) * wid
+                t = T[row][c]
+                if first:
+                    pen.travel(x, yF, 4500)
+                    pen.extrude(x, yF + t, e_per_mm * t, feed)
+                    at_back = True
+                    first = False
+                elif at_back:
+                    pen.extrude(x, yF + t, e_per_mm * math.hypot(wid, t - pen_t), feed)
+                    pen.extrude(x, yF, e_per_mm * t, feed)
+                    at_back = False
+                else:
+                    pen.extrude(x, yF, e_per_mm * wid, feed)
+                    pen.extrude(x, yF + t, e_per_mm * t, feed)
+                    at_back = True
+                pen_t = t
+
+        for li in range(1, rows + 1):
+            z = round(li * layer_h, 3)         # uniform layers: image stays true
+            row = rows - li                    # image row 0 = top = highest layer
+            a(';LAYER_CHANGE')
+            a(';Z:%.3f' % z)
+            a('LAYER_MARK')
+            a(';TYPE:Inner wall')
+            a('APPLY_TYPE TYPE=WALL-INNER')
+            if li == 2:
+                a('M106 S178   ; R2-LITHO: part fan from layer 2')
+            a('EXCLUDE_OBJECT_START NAME=LITHO')
+            if li == 1 and brim_loops:
+                a(';TYPE:Brim')
+                a('APPLY_TYPE TYPE=BRIM')
+                for k in range(brim_loops):
+                    off = wid * (k + 0.5)
+                    b = (x0 - off, yF - off, x0 + width_mm + off, yF + t_max + off)
+                    _emit_loop(pen, _rect_loop(*b), e_wall, 900)
+            ribbon(li, row, 600 if li == 1 else 1500, e_wall)
+            if ironing and li == rows:
+                a(';TYPE:Ironing')
+                a('APPLY_TYPE TYPE=IRONING')
+                ribbon(li, row, 1500, e_iron)
+            a('EXCLUDE_OBJECT_END NAME=LITHO')
+        a('M107')
+        a('PRINT_END')
+        sk.flush()
+
+    info = {'file': fname, 'source': os.path.basename(src), 'kind': 'lithophane',
+            'width': round(width_mm, 1), 'height': round(height_real, 1),
+            'thickness': '%.1f..%.1f' % (t_min, t_max), 'layers': rows,
+            'cols': cols, 'levels': levels, 'frame': bool(frame),
+            'ironing': bool(ironing), 'notes': notes}
+    return out, info
+
+
+def make_seal(od=40.0, id_=20.0, height=1.2, profile='FLAT', ironing=False,
+              layer_h=0.2, first_h=None, material='TPU', bed=None,
+              bed_margin=6.0, nozzle=0.6, out_dir='.', version=1):
+    """R89: gasket / seal ring (Dichtung) - OD/ID/height, FLAT face or with a
+    center GROOVE (Nut) that splits the sealing face into two raised lips:
+    less contact area = higher surface pressure = seals better on uneven
+    flanges. Printed as ONE continuous spiral per band (R87.2 boss tech) -
+    no seams, no travel inside the ring. TPU seals best, PETG works; print
+    slow and dry (the file prints at 15mm/s after layer 1).
+    """
+    od = float(od)
+    id_ = float(id_)
+    height = float(height)
+    profile = str(profile).upper()
+    if profile not in ('FLAT', 'NUT', 'GROOVE'):
+        profile = 'FLAT'
+    groove = profile in ('NUT', 'GROOVE')
+    if not (12.0 <= od <= 200.0):
+        raise ValueError('OD %.0fmm out of range (12..200)' % od)
+    if not (6.0 <= id_ <= 190.0):
+        raise ValueError('ID %.0fmm out of range (6..190)' % id_)
+    layer_h = max(0.06, min(float(layer_h or 0.2), 0.32))
+    first_h = layer_h if first_h is None else max(layer_h, min(float(first_h), 0.42))
+    if bed is None:
+        bed = (0.0, -3.0, 244.0, 238.0)
+    wid = max(0.4, nozzle * 1.08)
+    fil = FIL_AREA
+    r_in, r_out = id_ / 2.0, od / 2.0
+    wr = r_out - r_in
+    if wr < 2.0 * wid + 0.4:
+        raise ValueError('ring band OD-ID=%.1fmm too narrow (need >= %.1fmm)'
+                         % (2.0 * wr, 2.0 * (2.0 * wid + 0.4)))
+    if groove and wr < 3.0 * wid + 0.8:
+        groove = False      # band too narrow for two lips - flat fallback
+    notes = []
+    if profile in ('NUT', 'GROOVE') and not groove:
+        notes.append('groove skipped: ring band too narrow (%.1fmm < %.1fmm) '
+                     '- flat sealing face instead' % (2.0 * wr, 2.0 * (3.0 * wid + 0.8)))
+    layers = max(2, int(round(height / layer_h)))
+    height_real = round(first_h + (layers - 1) * layer_h, 2)
+    lip = wr * 0.30 if groove else 0.0
+    g_lay = 0
+    if groove:
+        g_depth = max(layer_h, min(0.6, height_real * 0.4))
+        g_lay = max(1, int(round(g_depth / layer_h)))
+        notes.append('groove: %.1fmm wide x %.2gmm deep, lips %.1fmm each'
+                     % (2.0 * (wr - 2.0 * lip), g_lay * layer_h, lip))
+    notes.append('height %.2gmm = %d layers @%.2gmm (first %.2gmm)'
+                 % (height_real, layers, layer_h, first_h))
+    notes.append('TPU seals best (slow + dry filament), PETG works; PLA only '
+                 'for dry, static seals')
+
+    bx0, by0, bx1, by1 = bed
+    ux0, uy0 = bx0 + bed_margin, by0 + bed_margin
+    ux1, uy1 = bx1 - bed_margin, by1 - bed_margin
+    if od > min(ux1 - ux0, uy1 - uy0):
+        raise ValueError('OD %.0fmm does not fit the bed' % od)
+    cx, cy = (ux0 + ux1) / 2.0, (uy0 + uy1) / 2.0
+
+    def band_pts(r0, r1, out_in=False):
+        """archimedean spiral centerline from r0 to r1, spacing ~0.95*wid"""
+        if r1 - r0 < wid * 0.4:
+            r1 = r0 + wid * 0.4
+        turns = max(1, int(math.ceil((r1 - r0) / (wid * 0.95))))
+        spt = 56
+        total = turns * spt
+        pts = []
+        for k in range(total + 1):
+            frac = k / float(total)
+            if out_in:
+                frac = 1.0 - frac
+            rr = r0 + (r1 - r0) * frac
+            ang = 2.0 * math.pi * frac * turns
+            pts.append((cx + rr * math.cos(ang), cy + rr * math.sin(ang)))
+        return pts
+
+    L = []
+    a = L.append
+    a('; R2-SEAL generated gasket ring (R89) - start it like any other file')
+    a(TAG)
+    a('; OD %.1f / ID %.1f / height %.2gmm, face %s'
+      % (od, id_, height_real, 'GROOVE (two lips)' if groove else 'FLAT'))
+    a('; one continuous spiral per band - no seam, no travel inside the ring')
+    a('; %s' % ' | '.join(notes))
+    a('; filament_type = %s' % material)
+    a('; layer_height = %.2g' % layer_h)
+    a('; nozzle_diameter = %.1f' % nozzle)
+    a('; line_width = %.2g' % wid)
+    a('; internal_solid_infill_speed = 15')
+    a('; initial_layer_speed = 10')
+    a('; travel_speed = 120')
+    if ironing:
+        a('; ironing_speed = 25')
+        a('; ironing_flow = 0.15')
+    types = ['INFILL-SOLID', 'SURFACE-TOP'] + (['IRONING'] if ironing else [])
+    a('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d LINE_WIDTH=%.2g '
+      'LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g FLOW_RATIO=1 NOZZLE=%.1f '
+      'WALL_LOOPS=2 SPEED_SOLID=15 SPEED_FIRST=10 SPEED_TRAVEL=120%s TYPES=%s BY_OBJECT=0'
+      % (material, layer_h, layers, wid, first_h, wid, nozzle,
+         ' IRONING_SPEED=25' if ironing else '', ','.join(types)))
+    poly = '[[%.1f,%.1f],' % (cx + r_out, cy)
+    for k in range(1, 16):
+        ang = 2.0 * math.pi * k / 16.0
+        poly += '[%.1f,%.1f]%s' % (cx + r_out * math.cos(ang),
+                                   cy + r_out * math.sin(ang),
+                                   ',' if k < 15 else '')
+    poly += ']'
+    a('EXCLUDE_OBJECT_DEFINE NAME=SEAL CENTER=%.1f,%.1f POLYGON=%s' % (cx, cy, poly))
+    a('PRINT_START MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d OUTER_WALL_SPEED=15'
+      % (material, layer_h, layers))
+    a('G90')
+    a('M83')
+    a('M107   ; R2-SEAL: first layer = fan off')
+
+    pen = _Pen(L, jump_d=6.0)
+
+    def spiral_band(r0, r1, e, feed, flip=False):
+        _emit_loop(pen, band_pts(r0, r1, out_in=flip), e, feed, close=False)
+
+    for li in range(1, layers + 1):
+        z = round(first_h + (li - 1) * layer_h, 3)
+        a(';LAYER_CHANGE')
+        a(';Z:%.3f' % z)
+        a('LAYER_MARK')
+        a(';TYPE:Internal solid infill')
+        a('APPLY_TYPE TYPE=INFILL-SOLID')
+        if li == 2:
+            a('M106 S178   ; R2-SEAL: part fan from layer 2')
+        a('EXCLUDE_OBJECT_START NAME=SEAL')
+        e_wall = (first_h if li == 1 else layer_h) * wid / fil
+        feed = 600 if li == 1 else 900
+        flip = (li % 2 == 0)
+        in_groove = groove and li > layers - g_lay
+        if in_groove:
+            spiral_band(r_in + wid / 2.0, r_in + lip - wid / 2.0, e_wall, feed, flip)
+            spiral_band(r_out - lip + wid / 2.0, r_out - wid / 2.0, e_wall, feed, not flip)
+        else:
+            spiral_band(r_in + wid / 2.0, r_out - wid / 2.0, e_wall, feed, flip)
+        if ironing and li == layers:
+            a(';TYPE:Ironing')
+            a('APPLY_TYPE TYPE=IRONING')
+            e_ir = 0.15 * layer_h * wid / fil
+            if groove:
+                spiral_band(r_in + wid / 2.0, r_in + lip - wid / 2.0, e_ir, 1500, False)
+                spiral_band(r_out - lip + wid / 2.0, r_out - wid / 2.0, e_ir, 1500, True)
+            else:
+                spiral_band(r_in + wid / 2.0, r_out - wid / 2.0, e_ir, 1500, False)
+        a('EXCLUDE_OBJECT_END NAME=SEAL')
+    a('M107')
+    a('PRINT_END')
+
+    fname = '00_Seal_%.0fx%.0fx%.2g_V%02d.gcode' % (
+        od, id_, height_real, max(1, min(int(version), 99)))
+    out = os.path.join(out_dir, fname)
+    with open(out, 'w') as f:
+        f.write('\n'.join(L) + '\n')
+    info = {'file': fname, 'kind': 'seal', 'od': od, 'id': id_,
+            'height': height_real, 'layers': layers,
+            'profile': 'GROOVE' if groove else 'FLAT', 'ironing': bool(ironing),
+            'notes': notes}
+    return out, info
+
+
 # ---- R84: slicer + firmware target detection --------------------------------
 _SLICER_NAMES = [
     ('orcaslicer', 'OrcaSlicer'), ('prusaslicer', 'PrusaSlicer'),
@@ -6746,6 +7291,34 @@ class _RetractFix:
         return self._take_held()
 
 
+def _patch_info_retract(path, style):
+    """R89: set/replace RETRACT=<style> in a file's _FILE_INFO line (streamed
+    in-place, one pass). Used after the retract fix so a TAGGED file (process()
+    skips those) also reports the new state to the preview/LCD."""
+    tmp = path + '.riq'
+    hit = False
+    with open(path, 'r', errors='replace') as fi, open(tmp, 'w') as fo:
+        for raw in fi:
+            if not hit and raw.startswith('_FILE_INFO'):
+                line = raw.rstrip('\n')
+                if 'RETRACT=' in line:
+                    line = re.sub(r'RETRACT=\w+', 'RETRACT=%s' % style, line)
+                else:
+                    line = line + ' RETRACT=%s' % style
+                fo.write(line + '\n')
+                hit = True
+            else:
+                fo.write(raw)
+    if hit:
+        os.replace(tmp, path)
+    else:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+    return hit
+
+
 def _retract_rewrite_file(path):
     """R84: stream-rewrite a file's retract pairs to G10/G11 in place.
     Returns (pairs, aborted). Memory stays O(1) - safe for 30MB+ files."""
@@ -6760,7 +7333,9 @@ def _retract_rewrite_file(path):
             fo.write(l)
         pairs, aborted = rf.pairs, rf.aborted
         if pairs:
-            fo.write('\n; R84 RETRACT-FIX: %d retract pair(s) rewritten to G10/G11 '
+            # R89: the marker makes process() report RETRACT=fixed (the file
+            # info + LCD show 'already fixed' instead of offering again)
+            fo.write('\n; R2-RETRACTFIX: %d retract pair(s) rewritten to G10/G11 '
                      '- your CURRENT retraction (overrides/live) applies\n' % pairs)
     if pairs:
         os.replace(tmp, path)
@@ -6872,6 +7447,14 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
     acc_seg_start = None     # M204 in effect when the current segment began
     seg_acc = None           # own M204 inside the current segment (last one wins)
     fv_re = re.compile(r'F(\d+(?:\.\d+)?)')
+    # R89: retraction style - gates the Bowden rescue offer (field log .72:
+    # the fix hint showed even on Orca files WITH firmware retraction on)
+    fw_ret = 0              # bare G10/G11 = firmware retraction in effect
+    slicer_ret = 0          # E-only G1 retracts = slicer moves (fix target)
+    fixed_mark = False      # '; R2-RETRACTFIX' = already rewritten by us
+    e_rel = False           # M83 seen?
+    e_run = 0.0             # running absolute E (M82 world)
+    eret_re = re.compile(r'G1\s+E(-?\d+(?:\.\d+)?)(?:\s+F\d+(?:\.\d+)?)?\s*$')
 
     def _close_seg():
         if cur_type is None:
@@ -6927,6 +7510,35 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
             m = zre.match(line)
             if m:
                 zs_fall.append(float(m.group(1)))
+            # ---- R89: retraction style counters -----------------------------
+            if ls == 'G10' or ls == 'G11':
+                fw_ret += 1
+            elif ls.startswith('; R2-RETRACTFIX'):
+                fixed_mark = True
+            elif ls == 'M82':
+                e_rel = False
+            elif ls == 'M83':
+                e_rel = True
+            else:
+                m = eret_re.match(ls)
+                if m:
+                    ev = float(m.group(1))
+                    if e_rel:
+                        if ev < -0.05:
+                            slicer_ret += 1
+                    elif ev < e_run - 0.05:
+                        slicer_ret += 1
+                if not e_rel:
+                    m = re.match(r'G9?[12]\b[^;]*?\bE(-?\d+(?:\.\d+)?)', ls)
+                    if m:
+                        e_run = float(m.group(1))
+                    elif ls.startswith('G92'):
+                        m = EWORD_RE.search(ls)
+                        if m:
+                            try:
+                                e_run = float(m.group(1))
+                            except ValueError:
+                                pass
             # ---- 4b) APPLY_TYPE positions (every ;TYPE: comment with a feature) ----
             # both worlds: pass B counts j (upgrade-filtered) when had_v1, else i
             m = TYPE_RE.match(line)
@@ -7050,6 +7662,22 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
         info.append('FW=' + re.sub(r'[^A-Za-z0-9]', '', det84['fw']))
     if det84['volumetric']:
         info.append('VOLUMETRIC=1')
+    # R89: retraction style - 'fw' (G10/G11: the current retraction applies,
+    # no fix needed) / 'fixed' (already rewritten by the R84 rescue) /
+    # 'slicer' (explicit E retracts - THE case the fix is made for) / ''
+    # (nothing detected - old files, keep the offer hidden)
+    if fixed_mark:
+        retract_style = 'fixed'
+    elif fw_ret > 0:
+        retract_style = 'fw'
+    elif slicer_ret >= 2:
+        retract_style = 'slicer'
+    else:
+        retract_style = ''
+    if retract_style:
+        info.append('RETRACT=' + retract_style)
+    summary['retract_style'] = retract_style
+    summary['retract_slicer_moves'] = slicer_ret
     summary['slicer'] = det84['slicer']
     summary['fw'] = det84['fw']
     summary['volumetric'] = det84['volumetric']
@@ -7397,6 +8025,10 @@ def _preview_script(ppath):
     return lines, len(pv) + 1
 
 
+class _SkipHandler(Exception):
+    """R89: handler decided everything itself - exit the try block quietly."""
+
+
 def watch(directory, interval=5.0, once=False):
     """Daemon: process every new/changed .gcode file under DIRECTORY.
 
@@ -7469,6 +8101,8 @@ def watch(directory, interval=5.0, once=False):
                     # R2 markers survive the rewrite (they are no G0/G1-E
                     # lines) - no re-processing, no re-upload needed
                     pairs, aborted = _retract_rewrite_file(p)
+                    if pairs:
+                        _patch_info_retract(p, 'fixed')
                     extra = ''
                 else:
                     sm = process(p, retract_rewrite=True)
@@ -7628,6 +8262,10 @@ def watch(directory, interval=5.0, once=False):
     last_label_nonce = None
     last_cable_tie_nonce = None
     last_angle_nonce = None
+    last_litho_nonce = None          # R89: lithophane / seal / image-delete
+    last_seal_nonce = None
+    last_litho_del_nonce = None
+    pushed_images = None             # R89: last image list pushed to the LCD
     last_fit_nonce = None
     last_retract_fix_nonce = None
     last_vol_fix_nonce = None
@@ -7665,6 +8303,9 @@ def watch(directory, interval=5.0, once=False):
                 last_plottext_nonce = _np['plot_text_nonce']
                 last_plotstatus_nonce = _np['plot_status_nonce']
                 last_host_nonce = _np['host_nonce']
+                last_litho_nonce = _np.get('litho_nonce')       # R89
+                last_seal_nonce = _np.get('seal_nonce')
+                last_litho_del_nonce = _np.get('litho_del_nonce')
                 first_prime = False
             # R62: file preview request - SDCARD_PRINT_FILE stored the selected
             # name; we read the file's parameters NOW and push them to Klipper
@@ -7961,9 +8602,9 @@ def watch(directory, interval=5.0, once=False):
                     cfg_bed = _bed_limits(os.path.join(
                         os.path.dirname(os.path.abspath(directory).rstrip('/')),
                         'config', 'printer.cfg'))
-                    variant_t = str(rv.get('tie_variant', 'RATCHET') or 'RATCHET').upper()
-                    if variant_t not in ('RATCHET', 'LATCH'):
-                        variant_t = 'RATCHET'
+                    variant_t = str(rv.get('tie_variant', 'CLASSIC') or 'CLASSIC').upper()
+                    if variant_t not in ('CLASSIC', 'LOOP'):
+                        variant_t = 'CLASSIC'
                     out_t, info_t = make_cable_ties(
                         count=max(1, min(int(_vft('tie_count', 6)), 24)),
                         length=_vft('tie_length', 120),
@@ -7982,8 +8623,8 @@ def watch(directory, interval=5.0, once=False):
                                % (info_t['file'], info_t['count'], info_t['variant'],
                                   info_t['length'], info_t['width'], info_t['layers'],
                                   info_t['head'],
-                                  'releasable (lift the tab)' if info_t['variant'] == 'LATCH'
-                                  else 'one-way'))
+                                  'reusable ball-loop (beads)' if info_t['variant'] == 'LOOP'
+                                  else 'classic one-way pawl'))
                     for _note86t in info_t.get('notes', []):
                         _msg86t += ' | ' + _note86t
                     try:
@@ -8085,6 +8726,192 @@ def watch(directory, interval=5.0, once=False):
                         pass
         except Exception as e:                              # noqa: BLE001
             print(f'[angles] poll error: {e!r}', flush=True)
+
+        # R89: image list push - the Lithophane browser on the LCD shows the
+        # gcodes folder's images. Whenever the set changes, ONE SAVE_VARIABLE
+        # via moonraker (the watcher owns the folder view; macros cannot list
+        # files). Newest first, 10 slots, only top-level .png/.jpg/.jpeg.
+        try:
+            _imgs89 = []
+            for _fn89 in os.listdir(directory):
+                if not _fn89.lower().endswith(('.png', '.jpg', '.jpeg')):
+                    continue
+                _p89 = os.path.join(directory, _fn89)
+                try:
+                    if os.path.isfile(_p89) and '"' not in _fn89 and "'" not in _fn89:
+                        _imgs89.append((os.path.getmtime(_p89), _fn89))
+                except OSError:
+                    pass
+            _imgs89.sort(reverse=True)
+            _names89 = [fn for (_mt, fn) in _imgs89[:10]]
+            if _names89 != pushed_images:
+                _val89 = '[' + ','.join("'%s'" % fn for fn in _names89) + ']'
+                _moonraker_gcode(
+                    'SAVE_VARIABLE VARIABLE=litho_files VALUE="%s"\n'
+                    'RESPOND MSG="[i] %d image(s) ready for lithophane '
+                    '(Tools > Lithophane)"' % (_val89, len(_names89)))
+                pushed_images = _names89
+        except Exception as e:                              # noqa: BLE001
+            print(f'[litholist] push error: {e!r}', flush=True)
+
+        # R89: lithophane generator request (litho_nonce) - runs THREADED:
+        # a 100mm lithophane is ~200k gcode lines, the scan loop must keep
+        # serving previews/requests while it generates.
+        try:
+            _ln89 = rv.get('litho_nonce', '')
+            if _ln89 and _ln89 != last_litho_nonce:
+                last_litho_nonce = _ln89
+
+                def _vbl89(key, dflt):
+                    v = str(rv.get(key, dflt)).strip().lower()
+                    if v == '':
+                        return dflt
+                    return v in ('true', '1', 'on', 'yes')
+
+                def _vfl89(key, dflt):
+                    try:
+                        return float(rv.get(key, dflt) or dflt)
+                    except (TypeError, ValueError):
+                        return float(dflt)
+
+                _src89 = os.path.basename(str(rv.get('litho_file', '') or ''))
+                if not _src89.lower().endswith(('.png', '.jpg', '.jpeg')):
+                    raise ValueError('not an image: %r' % _src89)
+                _p89 = os.path.join(directory, _src89)
+                if not os.path.isfile(_p89):
+                    raise ValueError('image not found: %s' % _src89)
+                _bed89 = _bed_limits(os.path.join(
+                    os.path.dirname(os.path.abspath(directory).rstrip('/')),
+                    'config', 'printer.cfg'))
+                _params89 = dict(
+                    height_mm=_vfl89('litho_height', 100.0),
+                    layer_h=_vfl89('litho_layer_h', 0.12),
+                    levels=max(0, min(int(_vfl89('litho_levels', 0)), 16)),
+                    frame=_vbl89('litho_frame', True),
+                    brim_loops=max(0, min(int(_vfl89('litho_brim', 6)), 10)),
+                    ironing=_vbl89('litho_ironing', False),
+                    material=str(rv.get('material', 'PLA') or 'PLA'),
+                    bed=_bed89, out_dir=directory,
+                    version=max(1, min(int(_vfl89('gen_version', 1)), 99)))
+
+                def _litho_job89(p=_p89, params=_params89, src=_src89):
+                    try:
+                        out_l, info_l = make_lithophane(p, **params)
+                        _rel89 = os.path.relpath(
+                            os.path.join(directory, info_l['file']), directory)
+                        _msg89 = ('Litho: %s - from %s, %.0fx%.0fmm plate, '
+                                  '%d layers, thickness %smm%s - selected '
+                                  'for printing'
+                                  % (info_l['file'], src, info_l['width'],
+                                     info_l['height'], info_l['layers'],
+                                     info_l['thickness'],
+                                     ', %d levels' % info_l['levels'] if info_l['levels'] else ''))
+                        for _n89 in info_l.get('notes', [])[:2]:
+                            _msg89 += ' | ' + _n89
+                        _moonraker_gcode(
+                            'RESPOND MSG="%s"\nM117 Litho ready\n'
+                            '_SOUND_LIB NAME=r2_done\n_SELECT_FILE FILE="%s"'
+                            % (_msg89, _rel89))
+                    except Exception as e:                      # noqa: BLE001
+                        print(f'[litho] error: {e!r}', flush=True)
+                        try:
+                            _moonraker_gcode(
+                                'RESPOND MSG="Litho ERROR: %s"\nM117 Litho error\n'
+                                '_SOUND_LIB NAME=r2_error' % e)
+                        except Exception:                       # noqa: BLE001
+                            pass
+
+                import threading
+                threading.Thread(target=_litho_job89, daemon=True).start()
+        except Exception as e:                              # noqa: BLE001
+            print(f'[litho] poll error: {e!r}', flush=True)
+
+        # R89: gasket/seal generator request (seal_nonce) - small file, inline
+        try:
+            _sn89 = rv.get('seal_nonce', '')
+            if _sn89 and _sn89 != last_seal_nonce:
+                last_seal_nonce = _sn89
+
+                def _vfs89(key, dflt):
+                    try:
+                        return float(rv.get(key, dflt) or dflt)
+                    except (TypeError, ValueError):
+                        return float(dflt)
+
+                def _vbs89(key, dflt):
+                    v = str(rv.get(key, dflt)).strip().lower()
+                    if v == '':
+                        return dflt
+                    return v in ('true', '1', 'on', 'yes')
+
+                _bed89s = _bed_limits(os.path.join(
+                    os.path.dirname(os.path.abspath(directory).rstrip('/')),
+                    'config', 'printer.cfg'))
+                _prof89 = str(rv.get('seal_profile', 'FLAT') or 'FLAT').upper()
+                if _prof89 not in ('FLAT', 'NUT', 'GROOVE'):
+                    _prof89 = 'FLAT'
+                out_s, info_s = make_seal(
+                    od=_vfs89('seal_od', 40.0),
+                    id_=_vfs89('seal_id', 20.0),
+                    height=_vfs89('seal_height', 1.2),
+                    profile=_prof89,
+                    ironing=_vbs89('seal_ironing', False),
+                    layer_h=_vfs89('seal_layer_h', 0.2),
+                    material=str(rv.get('material', 'PLA') or 'PLA'),
+                    bed=_bed89s, out_dir=directory,
+                    version=max(1, min(int(_vfs89('gen_version', 1)), 99)))
+                _rel89s = os.path.relpath(
+                    os.path.join(directory, info_s['file']), directory)
+                _msg89s = ('Seal: %s - OD %.0f / ID %.0fmm, height %.2gmm, '
+                           '%s face - selected for printing'
+                           % (info_s['file'], info_s['od'], info_s['id'],
+                              info_s['height'], info_s['profile']))
+                for _n89 in info_s.get('notes', [])[:2]:
+                    _msg89s += ' | ' + _n89
+                try:
+                    _moonraker_gcode(
+                        'RESPOND MSG="%s"\nM117 Seal ready\n'
+                        '_SOUND_LIB NAME=r2_done\n_SELECT_FILE FILE="%s"'
+                        % (_msg89s, _rel89s))
+                except Exception as me:                      # noqa: BLE001
+                    print(f'[seal] moonraker unreachable ({me.__class__.__name__})',
+                          flush=True)
+                print(f'[seal] {info_s["file"]}: OK', flush=True)
+        except Exception as e:                              # noqa: BLE001
+            print(f'[seal] poll error: {e!r}', flush=True)
+
+        # R89: image delete request (litho_del_nonce) - LCD browser housekeeping.
+        # Only ever deletes a plain image BASENAME inside the gcodes folder;
+        # generated .gcode files (plotter output) are never touched.
+        try:
+            _dn89 = rv.get('litho_del_nonce', '')
+            if _dn89 and _dn89 != last_litho_del_nonce:
+                last_litho_del_nonce = _dn89
+                _fn89d = os.path.basename(str(rv.get('litho_del_file', '') or ''))
+                if not _fn89d.lower().endswith(('.png', '.jpg', '.jpeg')):
+                    # LCD slots only ever pass image names - this is a manual
+                    # console call: refuse LOUDLY but do not crash the poll
+                    _moonraker_gcode(
+                        'RESPOND MSG="Image delete refused: %s is not a '
+                        '.png/.jpg/.jpeg file"\nM117 Delete refused\n'
+                        '_SOUND_LIB NAME=r2_notice' % _fn89d)
+                    raise _SkipHandler()
+                _p89d = os.path.join(directory, _fn89d)
+                if os.path.isfile(_p89d):
+                    os.remove(_p89d)
+                    _msg89d = ('Image deleted: %s - its plotter .gcode (if any) '
+                               'stays in the file list' % _fn89d)
+                    _snd89d = 'r2_done'
+                else:
+                    _msg89d = 'Image not found: %s' % _fn89d
+                    _snd89d = 'r2_notice'
+                _moonraker_gcode(
+                    'RESPOND MSG="%s"\nM117 Image deleted\n'
+                    '_SOUND_LIB NAME=%s' % (_msg89d, _snd89d))
+        except _SkipHandler:
+            pass
+        except Exception as e:                              # noqa: BLE001
+            print(f'[lithodel] poll error: {e!r}', flush=True)
 
         # R64: resonance diagram request (reso_nonce bumps per job)
         try:

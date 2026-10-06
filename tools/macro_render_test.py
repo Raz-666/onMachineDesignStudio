@@ -4749,10 +4749,10 @@ tests.append(('R75 _PREVIEW_SET macro: junk numeric value falls back to 0 (never
 _0875 = open('macros/08_print_start_stop.cfg').read()
 _sec75 = _0875[_0875.index('[gcode_macro _PREVIEW]'):_0875.index('[gcode_macro _PREVIEW_SET]')]
 _pvars75 = _re74.findall(r'^variable_(\w+):', _sec75, _re74.M)
-tests.append(('R75/R84 _PREVIEW card: 26 in-memory variables (name..pens + slicer/fw/volumetric)',
-    len(_pvars75) == 26 and all(v in _pvars75 for v in
+tests.append(('R75/R84/R89 _PREVIEW card: 27 in-memory variables (name..pens + slicer/fw/vol/retract)',
+    len(_pvars75) == 27 and all(v in _pvars75 for v in
     ('name', 'type', 'material', 'layer_height', 'hotend', 'bed', 'fan', 'plot', 'pens', 'types',
-     'slicer', 'firmware', 'volumetric')),
+     'slicer', 'firmware', 'volumetric', 'retract_style')),
     str(_pvars75)))
 tests.append(('R75 nobody reads save_variables.preview_* anymore (in-memory card)',
     'variables.preview_' not in _lcd74
@@ -4870,7 +4870,8 @@ tests.append(('R75 watcher: _prime_nonces adopts the current counters (no re-fir
         'preview_nonce': '7', 'range_nonce': None, 'label_gen_nonce': '2', 'reso_nonce': None,
         'bridge_nonce': None, 'plot_text_nonce': None, 'plot_status_nonce': None, 'host_nonce': None,
         'label_fit_nonce': None, 'retract_fix_nonce': None, 'vol_fix_nonce': None,
-        'cable_tie_nonce': None, 'angle_nonce': None}, ''))
+        'cable_tie_nonce': None, 'angle_nonce': None, 'litho_nonce': None,
+        'seal_nonce': None, 'litho_del_nonce': None}, ''))
 tests.append(('R75 watcher: daemon runs niced + primes on the first pass',
     'os.nice(4)' in open('tools/r2_postproc.py').read()
     and 'first_prime' in open('tools/r2_postproc.py').read(), ''))
@@ -5919,27 +5920,28 @@ import tempfile as _tf86
 
 # --- (1) macro renders ---------------------------------------------------------
 _gen86 = 'macros/17_generator.cfg'
+save_vars['tie_variant'] = 'CLASSIC'
 out = render(get_body(_gen86, 'CABLE_TIE_INFO'))
-tests.append(('R86 CABLE_TIE_INFO: shows every setting + material tip',
+tests.append(('R86/R89 CABLE_TIE_INFO: shows every setting + material tip',
     'length 120mm' in out and 'width 8' in out and '3 strap layers' in out
-    and 'RATCHET' in out and 'brim on' in out and 'PETG/TPU' in out, out[:150]))
+    and 'CLASSIC' in out and 'brim on' in out and 'PETG/TPU' in out, out[:150]))
 
-save_vars['tie_variant'] = 'LATCH'
+save_vars['tie_variant'] = 'LOOP'
 out = render(get_body(_gen86, 'CABLE_TIE_INFO'))
-tests.append(('R86 CABLE_TIE_INFO: LATCH variant marked releasable',
-    'releasable' in out, out[:120]))
+tests.append(('R89 CABLE_TIE_INFO: LOOP variant marked reusable (beads)',
+    'reusable' in out and 'beads' in out, out[:120]))
 out = render(get_body(_gen86, 'CABLE_TIE_GENERATE'))
 tests.append(('R86 CABLE_TIE_GENERATE: valid -> nonce bump + confirm + creating',
     'VARIABLE=cable_tie_nonce VALUE=1' in out and 'r2_confirm' in out
     and 'creating' in out, out[:150]))
 save_vars['tie_length'] = 400
 out = render(get_body(_gen86, 'CABLE_TIE_GENERATE'))
-tests.append(('R86 CABLE_TIE_GENERATE: length 400 blocked (60..300)',
-    'NOTIFY' in out and 'length must be 60..300' in out
+tests.append(('R86/R89 CABLE_TIE_GENERATE: length 400 blocked (50..300)',
+    'NOTIFY' in out and 'length must be 50..300' in out
     and 'VARIABLE=cable_tie_nonce' not in out, out[:140]))
 save_vars['tie_length'] = 120
 out = render(get_body(_gen86, 'GEN_CABLE_TIES'),
-             {'COUNT': '4', 'VARIANT': 'LATCH', 'WIDTH': '6'})
+             {'COUNT': '4', 'VARIANT': 'LOOP', 'WIDTH': '6'})
 _sv86 = [l.strip() for l in out.split(chr(10))
          if l.strip().startswith('SAVE_VARIABLE') or l.strip() == '_PACE']
 _adj86 = sum(1 for i in range(len(_sv86) - 1)
@@ -5947,7 +5949,7 @@ _adj86 = sum(1 for i in range(len(_sv86) - 1)
 _out86n = _re86.sub(r'\s+', ' ', out)
 tests.append(('R86 GEN_CABLE_TIES: params saved (variant quoted) + paced + chains',
     'VARIABLE=tie_count VALUE=4' in _out86n and 'VARIABLE=tie_width VALUE=6.0' in _out86n
-    and 'VARIABLE=tie_variant VALUE=' in _out86n and 'LATCH' in _out86n
+    and 'VARIABLE=tie_variant VALUE=' in _out86n and 'LOOP' in _out86n
     and 'CABLE_TIE_GENERATE' in out and _adj86 == 0 and _sv86.count('_PACE') >= 5,
     'adjacent %d' % _adj86))
 
@@ -5988,8 +5990,8 @@ _lcd86 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 tests.append(('R86 LCD: Kabelbinder + Winkel+Flach in the Tools menu, guarded, all params',
     all(k in _lcd86 for k in ['[menu __main __gen __cable]', '[menu __main __gen __angle]',
         '__cable __set __cnt]', '__cable __set __len]', '__cable __set __wid]',
-        '__cable __set __lay]', '__cable __set __lh]', '__cable __set __var __rat]',
-        '__cable __set __var __lat]', '__cable __set __brim]', '__cable __set __vers]',
+        '__cable __set __lay]', '__cable __set __lh]', '__cable __set __var __cla]',
+        '__cable __set __var __loo]', '__cable __set __brim]', '__cable __set __vers]',
         '__angle __mode __ang]', '__angle __mode __flt]', '__angle __set __deg]',
         '__angle __set __la]', '__angle __set __lb]', '__angle __set __wid]',
         '__angle __set __lay]', '__angle __set __lh]', '__angle __set __hol]',
@@ -6012,39 +6014,73 @@ tests.append(('R86 modules: 17_generator.cfg sentinel + _CHECK_INSTALL lists 17'
     '_V18_GEN' in open(_gen86).read()
     and "('17_generator.cfg',       ['_V18_GEN'])" in open('macros/01_state.cfg').read()
     and 'all 17 modules' not in open('macros/01_state.cfg').read(), ''))
-tests.append(('R86 watcher: NONCE_KEYS has 13 channels incl. both new',
-    len(_pp.NONCE_KEYS) == 13 and 'cable_tie_nonce' in _pp.NONCE_KEYS
-    and 'angle_nonce' in _pp.NONCE_KEYS, str(_pp.NONCE_KEYS)))
+tests.append(('R86/R89 watcher: NONCE_KEYS has 16 channels incl. litho/seal/delete',
+    len(_pp.NONCE_KEYS) == 16 and 'cable_tie_nonce' in _pp.NONCE_KEYS
+    and 'angle_nonce' in _pp.NONCE_KEYS and 'litho_nonce' in _pp.NONCE_KEYS
+    and 'seal_nonce' in _pp.NONCE_KEYS and 'litho_del_nonce' in _pp.NONCE_KEYS,
+    str(_pp.NONCE_KEYS)))
 
 # --- (4) generator geometry (real files) ----------------------------------------
 _d86 = _tf86.mkdtemp(prefix='r86_')
 _p86t, _i86t = _pp.make_cable_ties(count=6, length=120, width=8, layers=3,
-                                   variant='RATCHET', out_dir=_d86,
+                                   variant='CLASSIC', out_dir=_d86,
                                    bed=(0.0, -3.0, 244.0, 238.0))
 _g86t = open(_p86t).read()
-tests.append(('R86 ties: file name 00_+_V01, TAG, PRINT_START, 6 exclude objects',
-    _os86.path.basename(_p86t) == '00_Ties_120x8_RAT_V01.gcode'
+tests.append(('R89 ties: file name 00_+_V01, TAG, PRINT_START, 6 exclude objects',
+    _os86.path.basename(_p86t) == '00_Ties_120x8_CLA_V01.gcode'
     and _pp.TAG in _g86t and 'PRINT_START MATERIAL=PLA' in _g86t
     and _g86t.count('EXCLUDE_OBJECT_DEFINE') == 6, _os86.path.basename(_p86t)))
 tests.append(('R86 ties: 10 layer marks + header order TAG->defines->PRINT_START->G90',
     _g86t.count('LAYER_MARK') == 10
     and _g86t.index(_pp.TAG) < _g86t.index('EXCLUDE_OBJECT_DEFINE')
     < _g86t.index('PRINT_START') < _g86t.index('G90'), ''))
-_chan86 = 0
+# R89: per-tie bboxes from the EXCLUDE polygons (no hardcoded grid rows) -
+# inside each head's slot band only the PAWL layer may extrude
+import json as _json86
+_bbox86 = {}
+for _l86 in _g86t.split(chr(10)):
+    if _l86.startswith('EXCLUDE_OBJECT_DEFINE NAME=TIE_'):
+        _nm86 = _l86.split('NAME=')[1].split(' ')[0]
+        _pts86 = _json86.loads(_l86[_l86.index('POLYGON=') + 8:])
+        _xs86 = [p[0] for p in _pts86]; _ys86 = [p[1] for p in _pts86]
+        _bbox86[_nm86] = (min(_xs86), min(_ys86), max(_xs86), max(_ys86))
 _z86 = None
-_x86 = _y86 = None
+_intr86 = {}          # (tie, z) -> segments crossing the slot band of the head
+_xp86 = _yp86 = None  # running position (travels included - segments!)
 for _l86 in _g86t.split(chr(10)):
     if _l86.startswith(';Z:'):
         _z86 = float(_l86[3:])
-    _m86 = _re86.match(r'G1 X([\d.-]+) Y([\d.-]+) E([\d.]+)', _l86)
-    if _m86 and float(_m86.group(3)) > 0 and _z86 is not None:
-        for _ln86 in range(6):
-            _cy86 = 36.5 + _ln86 * 32.4
-            if (abs(float(_m86.group(2)) - _cy86) < 3.6 and 52.4 < float(_m86.group(1)) < 71.6
-                    and 0.6 < _z86 < 1.5):
-                _chan86 += 1
-tests.append(('R86 ties: channel stays OPEN in the slot band (nothing in the way)',
-    _chan86 == 0, 'intrusions %d' % _chan86))
+    _m86 = _re86.match(r'G[01] X([\d.-]+) Y([\d.-]+)', _l86)
+    if not _m86:
+        continue
+    _nx86, _ny86 = float(_m86.group(1)), float(_m86.group(2))
+    _e86 = _l86.split(' E')
+    _ext86 = len(_e86) == 2 and float(_e86[1].split()[0]) > 0
+    if _ext86 and _z86 is not None and _xp86 is not None:
+        for _nm86, (_bx0, _by0, _bx1, _by1) in _bbox86.items():
+            _cy86 = (_by0 + _by1) / 2.0            # strap centerline
+            # head zone from the STRAP TIP backwards (brim-independent):
+            # head spans [tip-length-HL, tip-length] along x
+            _hx0_86 = _bx1 - 120.0 - 12.5          # head start (length=120, HL=12.5)
+            _wx086, _wx186 = _hx0_86 + 0.5, _hx0_86 + 12.5 - 1.0
+            _bd86 = 8.0 / 2.0 - 0.3                # open-slot half band
+            # segment [prev -> next] crosses the slot band inside the head zone?
+            if (min(_xp86, _nx86) <= _wx186 and max(_xp86, _nx86) >= _wx086
+                    and min(_yp86, _ny86) <= _cy86 + _bd86
+                    and max(_yp86, _ny86) >= _cy86 - _bd86):
+                _intr86[(_nm86, _z86)] = _intr86.get((_nm86, _z86), 0) + 1
+    _xp86, _yp86 = _nx86, _ny86
+# allowed blockers per tie: 2 solid head-floor layers + the pawl layer ABOVE
+# the channel (never a channel-band layer itself: z 0.68..1.68 must stay clear)
+_zok86 = {}
+for _nm86 in _bbox86:
+    _zs86 = sorted({z for (n, z) in _intr86 if n == _nm86})
+    _bad86 = [z for z in _zs86 if 0.6 < z < 1.7]   # channel-band z window
+    _zok86[_nm86] = (len(_zs86) == 3 and not _bad86
+                     and _zs86[0] < 0.5 and _zs86[2] > 1.7, _zs86)
+tests.append(('R89 ties CLASSIC: slot blocked ONLY by 2 floor layers + the pawl',
+    all(v[0] for v in _zok86.values()),
+    {k: v[1] for k, v in _zok86.items() if not v[0]}))
 
 _p86a, _i86a = _pp.make_angles(count=2, angle_deg=90, leg_a=60, leg_b=60, width=25,
                                layers=6, holes=2, hole_d=4, countersink=True,
@@ -6328,8 +6364,8 @@ tests.append(('R87 LCD: container sits between Quick Macros and Maintenance, liv
     < _lcd87.index('[menu __main __maint]')
     and '[menu __main __live __plot __mode]' in _lcd87
     and '[menu __main __live __plot]' in _lcd87, ''))
-tests.append(('R87 LCD: guards preserved (cable/angle need 17_generator, labels optional, plot+container free)',
-    _lcd87.count("enable: {'gcode_macro _GENERATORS' in printer}") == 2
+tests.append(('R87/R89 LCD: guards preserved (cable/angle/litho/seal need 17_generator, labels optional, plot+container free)',
+    _lcd87.count("enable: {'gcode_macro _GENERATORS' in printer}") == 4
     and "enable: {'gcode_macro _LABELS' in printer}" in _lcd87
     and '[menu __main __gen __plot]\ntype: list\nname: Plotter\n' in _lcd87, ''))
 tests.append(('R87 docs: cfg console paths say Tools (labels + plotter + generator header)',
@@ -6353,7 +6389,7 @@ _files872 = []
 for _ret872 in (_pp.make_labels(['TEST'], out_dir=_d872),
                 _pp.make_resonance(axes=('x',), mode='print', out_dir=_d872, csv_dirs=[_d872]),
                 _pp.make_bridge(out_dir=_d872),
-                _pp.make_cable_ties(count=2, length=90, width=6, layers=3, variant='LATCH',
+                _pp.make_cable_ties(count=2, length=90, width=6, layers=3, variant='LOOP',
                                     out_dir=_d872, bed=(0.0, -3.0, 244.0, 238.0)),
                 _pp.make_angles(out_dir=_d872)):
     _h872 = _ret872[0] if isinstance(_ret872, tuple) else _ret872
