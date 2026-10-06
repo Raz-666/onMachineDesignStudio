@@ -7022,6 +7022,170 @@ _ia92 = _g92.index('APPLY_TYPE TYPE=SURFACE-BOTTOM', _ib92)
 tests.append(('R92 litho: main type re-asserted AFTER the brim (was BRIM before)',
     _ib92 < _ia92 and _g92.index('LAYER_MARK', _ia92) > _ia92, ''))
 
+# ===================== R91: texture tool (fuzzy + bumps) ========================
+import os as _os91, tempfile as _tf91, re as _re91
+from r2_texture import apply_texture as _at91
+
+_d91 = _tf91.mkdtemp(prefix='r91_')
+_p91, _i91 = _pp.make_frame(preset='9x13', depth=8, frame_w=6, out_dir=_d91,
+                            bed=(0.0, -3.0, 220.0, 217.0))
+
+def _outer91(path):
+    _pts, _cur = [], ''
+    for _l91 in open(path, encoding='utf-8'):
+        if _l91.startswith(';TYPE:'):
+            _cur = _l91[6:].strip().lower()
+            continue
+        _m91 = _re91.match(r'^G1 X([\d.-]+) Y([\d.-]+).* E([\d.]+)', _l91)
+        if _m91 and float(_m91.group(3)) > 0 and _cur == 'outer wall':
+            _pts.append((float(_m91.group(1)), float(_m91.group(2))))
+    return _pts
+
+_o91 = _outer91(_p91)
+
+# FUZZY: every outer vertex moves, deterministic, original untouched
+_t91a, _ti91a = _at91(_p91, out_dir=_d91, mode='FUZZY', fuzzy_thick=0.3)
+_a91 = _outer91(_t91a)
+_moved91 = sum(1 for _u, _v in zip(_o91, _a91)
+               if abs(_u[0] - _v[0]) + abs(_u[1] - _v[1]) > 1e-6)
+tests.append(('R91 fuzzy: ALL outer vertices scattered, original untouched',
+    _ti91a['shifted'] == len(_o91) and _moved91 == len(_o91)
+    and _os91.path.basename(_t91a) == '00_Frame_9x13_FLATx8_TX_V01.gcode'
+    and _os91.path.exists(_p91) and _ti91a['layers'] > 30,
+    'shifted=%d/%d' % (_ti91a['shifted'], len(_o91))))
+
+_d91b = _tf91.mkdtemp(prefix='r91_')
+_t91b1, _ = _at91(_p91, out_dir=_d91b, mode='FUZZY', fuzzy_thick=0.25)
+_t91b2, _ = _at91(_p91, out_dir=_d91b, mode='FUZZY', fuzzy_thick=0.25, version=1)
+tests.append(('R91 fuzzy: seeded = deterministic (same params, same output)',
+    open(_t91b1, encoding='utf-8').read() == open(_t91b2, encoding='utf-8').read(),
+    ''))
+_t91c, _ti91c = _at91(_p91, out_dir=_d91b, mode='FUZZY', fuzzy_thick=0.3,
+                      fuzzy_density=20, version=5)
+_c91 = _outer91(_t91c)
+_moved91c = sum(1 for _u, _v in zip(_o91, _c91)
+                if abs(_u[0] - _v[0]) + abs(_u[1] - _v[1]) > 1e-6)
+tests.append(('R91 fuzzy: density 20% shifts ~1/5 of the vertices',
+    0.12 < _moved91c / max(1, len(_o91)) < 0.28,
+    '%d/%d' % (_moved91c, len(_o91))))
+
+# BUMPS: bounded amplitude, IN = -OUT, tags/E untouched
+_t91d, _ti91d = _at91(_p91, out_dir=_d91b, mode='BUMPS', bump_pattern='WAVES',
+                      bump_scale=10, bump_amp=0.35, direction='OUT')
+_d91 = _outer91(_t91d)
+_dmax91 = max((abs(_u[0] - _v[0]) + abs(_u[1] - _v[1])
+               for _u, _v in zip(_o91, _d91)), default=0)
+_t91e, _ = _at91(_p91, out_dir=_d91b, mode='BUMPS', bump_pattern='WAVES',
+                 bump_scale=10, bump_amp=0.35, direction='IN', version=2)
+_e91 = _outer91(_t91e)
+tests.append(('R91 bumps: amplitude bounded (<= amp), IN is the mirror of OUT',
+    _dmax91 <= 0.36 and _ti91d['pattern'] == 'WAVES'
+    and all(abs((_v[0] - _u[0]) + (_w[0] - _u[0])) < 0.01
+            for _u, _v, _w in zip(_o91, _d91, _e91)),
+    'max=%.3f' % _dmax91))
+
+_keep91 = (';TYPE:', 'EXCLUDE_OBJECT', 'APPLY_TYPE', 'LAYER_MARK')
+_src91 = [l for l in open(_p91, encoding='utf-8') if l.startswith(_keep91)]
+_out91 = [l for l in open(_t91d, encoding='utf-8') if l.startswith(_keep91)]
+tests.append(('R91 bumps: tags / EXCLUDE / APPLY_TYPE / LAYER_MARK untouched',
+    _src91 == _out91, ''))
+_E91s = [l.split(' E')[1].split()[0] for l in open(_p91, encoding='utf-8')
+         if l.startswith('G1') and ' E' in l]
+_E91o = [l.split(' E')[1].split()[0] for l in open(_t91d, encoding='utf-8')
+         if l.startswith('G1') and ' E' in l]
+tests.append(('R91 bumps: E values + count untouched (features stay honest)',
+    _E91s == _E91o, ''))
+
+# seamless: same (x,y,z) -> same displacement (grid pattern is periodic)
+def _disp_profile(path):
+    prof = {}
+    for _u, _v in zip(_o91, _outer91(path)):
+        prof[(round(_u[0], 1), round(_u[1], 1))] = round(_v[0] - _u[0], 3)
+    return prof
+_p91f, _ = _at91(_p91, out_dir=_d91b, mode='BUMPS', bump_pattern='GRID',
+                 bump_scale=8, bump_amp=0.4, version=3)
+_pr91 = _disp_profile(_p91f)
+tests.append(('R91 bumps GRID: seamless - identical positions, identical shift',
+    len(_pr91) > 100 and len(set(_pr91.values())) > 10, ''))
+
+# special cases: version bump when _TX exists, file without outer walls
+_d91v = _tf91.mkdtemp(prefix='r91v_')
+_at91(_p91, out_dir=_d91v, mode='FUZZY')
+_t91g, _ti91g = _at91(_p91, out_dir=_d91v, mode='FUZZY')
+tests.append(('R91: existing _TX file -> next free version (never overwritten)',
+    _os91.path.basename(_t91g) == '00_Frame_9x13_FLATx8_TX_V02.gcode'
+    and _ti91g['version'] == 2, str(_ti91g)))
+# a slicer file that only has infill/fill + inner walls (no 'outer wall' type)
+_p91h = _os91.path.join(_d91v, '00_nowall.gcode')
+open(_p91h, 'w', encoding='utf-8').write(
+    ';FLAVOR:Marlin\n;LAYER_COUNT:2\n'
+    'G4\n;TYPE:infill\nG1 X10 Y10 E0.5\nG1 X20 Y10 E0.6\n'
+    ';TYPE:inner wall\nG1 X20 Y20 E0.7\nG1 X10 Y20 E0.8\n'
+    ';LAYER_CHANGE\n;Z:0.4\n;TYPE:infill\nG1 X12 Y12 E0.9\n')
+_t91h, _ti91h = _at91(_p91h, out_dir=_d91v, mode='BUMPS', bump_pattern='GRID')
+tests.append(('R91: file without outer walls -> zero shifts, no crash',
+    _ti91h['shifted'] == 0 and _os91.path.exists(_t91h), str(_ti91h)))
+def _guard91(fn):
+    try:
+        fn()
+        return None
+    except ValueError as _e91:
+        return str(_e91)
+for _gn91, _fn91, _fr91 in (
+        ('mode FLAT', lambda: _at91(_p91, out_dir=_d91b, mode='FLAT'),
+         'must be FUZZY'),
+        ('direction UP', lambda: _at91(_p91, out_dir=_d91b, direction='UP'),
+         'must be OUT'),
+        ('thick 9', lambda: _at91(_p91, out_dir=_d91b, mode='FUZZY',
+                                  fuzzy_thick=9.0), 'out of range'),
+        ('pattern KREIS', lambda: _at91(_p91, out_dir=_d91b, mode='BUMPS',
+                                        bump_pattern='KREIS'), 'GRID'),
+        ('missing src', lambda: _at91('/gibt/es/nicht.gcode',
+                                      out_dir=_d91b), 'not found')):
+    _err91 = _guard91(_fn91)
+    tests.append(('R91 guard: %s -> ValueError(%s)' % (_gn91, _fr91),
+                  _err91 is not None and _fr91 in _err91, _err91 or ''))
+
+# TEXTURE_APPLY macro: guards + nonce + preview_file default
+out = render(get_body('macros/17_generator.cfg', 'TEXTURE_APPLY'), {'MODE': 'GLAS'})
+tests.append(('R91 TEXTURE_APPLY: bad mode rejected', 'must be FUZZY or BUMPS' in out, out[:100]))
+save_vars.update({'texture_mode': 'OFF', 'preview_file': 'test.gcode',
+                   'texture_nonce': 3})
+out = render(get_body('macros/17_generator.cfg', 'TEXTURE_APPLY'), {})
+tests.append(('R91 TEXTURE_APPLY: OFF mode -> pick-mode notice, no nonce',
+    'pick a mode first' in out and 'texture_nonce' not in out, out[:100]))
+save_vars['texture_mode'] = 'BUMPS'
+preview_vars.update({'name': 'texcase.gcode'})
+out = render(get_body('macros/17_generator.cfg', 'TEXTURE_APPLY'), {})
+tests.append(('R91 TEXTURE_APPLY: queued - the SELECTED file becomes the target + nonce bump',
+    'VARIABLE=texture_file VALUE=' in out and 'texcase.gcode' in out
+    and 'texture_nonce VALUE=4' in out, out[:140]))
+# no selection anywhere -> friendly error, no nonce
+preview_vars.update({'name': ''})
+save_vars.update({'preview_file': '', 'texture_mode': 'BUMPS'})
+out = render(get_body('macros/17_generator.cfg', 'TEXTURE_APPLY'), {})
+tests.append(('R91 TEXTURE_APPLY: nothing selected -> error, nonce untouched',
+    'no file selected' in out and 'texture_nonce' not in out, out[:140]))
+preview_vars.update({'name': 'vase.gcode'})
+save_vars.update({'texture_mode': 'OFF', 'preview_file': 'vase.gcode'})
+save_vars.update({'texture_mode': 'OFF', 'preview_file': 'vase.gcode'})
+
+# LCD structure
+_lcd91 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R91 LCD: Pre-Print > Texture (mode/fuzzy/bumps params + apply)',
+    all(k in _lcd91 for k in ('__preprint __tex]', '__tex __mode __fuz',
+                              '__tex __mode __bum', '__tex __thk',
+                              '__tex __den', '__tex __pat __gri',
+                              '__tex __pat __man', '__tex __scl',
+                              '__tex __amp', '__tex __dir', '__tex __go'))
+    and 'TEXTURE_APPLY' in _lcd91, ''))
+# watcher wires the nonce
+tests.append(('R91 watcher: texture_nonce handler + lazy r2_texture import',
+    "from r2_texture import apply_texture" in open('tools/r2_postproc.py',
+        encoding='utf-8').read()
+    and 'texture_nonce' in open('tools/r2_postproc.py', encoding='utf-8').read(), ''))
+
+
 # ===================== R92.1: global x feature parameter model ==================
 # model: eff = base x GLOBAL x FEATURE - the global is the ONE regulator,
 # feature % always refers to it; feature accels = hard limits, scaled by ONE

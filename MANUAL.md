@@ -1177,6 +1177,72 @@ GEN_FRAME PRESET=9x13 FRONT=HEX S_SIZE=9 S_DIR=IN
 ```
 
 
+### 5.9 Texture: fuzzy skin & shaped bumps (any g-code file)
+
+The only generator that does not create a part — it rewrites the **outer
+wall of a file you already have**. Two looks:
+
+- **FUZZY** — every outer-wall vertex gets a random offset (a seeded
+  scatter, same file + same settings = same result). That is the classic
+  "fuzzy skin": matte, grippy, hides small wall flaws.
+- **BUMPS** — the offset follows a **pattern**: Grid (egg-crate dimples),
+  Waves (diagonal ripples **with a z-phase** — the pattern crawls slightly
+  from layer to layer, which visually swallows layer lines), Honeycomb
+  (hex dimples) or Mandelbrot (a fractal landscape — every spot on the bed
+  gets its own bump height, unique per position).
+
+Everything else stays **byte-identical**: `;TYPE:` tags, EXCLUDE_OBJECT,
+APPLY_TYPE/LAYER_MARK markers, **E values, Z values, speeds (F)** — inner
+walls, infill, ironing and supports print exactly as sliced. Only the
+outer skin moves.
+
+**Workflow (LCD):**
+
+1. select the file as always (file list — Mainsail or the LCD; the
+   selection preview shows the target),
+2. **Pre-Print > Texture**, pick the mode + parameters,
+3. **> Apply (beeps)** — the watcher builds the result in the background,
+4. a **NEW file** `<name>_TX_V01.gcode` appears (V02, V03 … if you apply
+   again — the source is never touched),
+5. **check it in the 3D viewer** — nothing auto-starts, by design,
+6. print the `_TX` file like any other (AS SLICED keeps the texture).
+
+| Parameter | Range | Meaning |
+|---|---|---|
+| Mode | OFF / FUZZY / BUMPS | OFF = the menu is inert (Apply refuses with a hint) |
+| Fuz thick | 0.1–0.6 mm | scatter radius (fuzzy) |
+| Fuz dens | 10–100 % | share of vertices that scatter (100 = all) |
+| Pattern | Grid / Waves / Honeycomb / Mandelbrot | bump shape (bumps) |
+| Scale | 3–60 mm | pattern cell size — small = fine orange peel, large = bold dimples |
+| Amp | 0.1–0.8 mm | bump depth |
+| Dir | OUT / IN | OUT = grows away from the part, IN = cuts into it |
+
+**What the tool will never do:** overwrite the source file · auto-start
+the result · move anything but outer-wall vertices · leave the bed
+(clamping with a counter) · touch E/Z/F values · run without guards (bad
+mode/pattern/direction, missing file, all 99 versions used → clear error,
+nothing half-done).
+
+**Special cases (tested):** a file without outer walls (infill-only
+parts) → zero shifts, no crash · the very first outer vertex of a file and
+zero-length restarts after a retract have **no approach direction** — they
+stay untextured instead of guessing one · absolute-E files (M82),
+E-only retract lines, G0 travels and CRLF line endings pass through
+untouched · OrcaSlicer/Bambu spellings (`;TYPE:Outer wall` in any case)
+are recognized.
+
+**Console one-liner (Mainsail):**
+
+```
+TEXTURE_APPLY FILE=myfile.gcode MODE=FUZZY THICK=0.3 DENSITY=100
+TEXTURE_APPLY FILE=myfile.gcode MODE=BUMPS PATTERN=WAVES SCALE=10 AMP=0.35 DIR=OUT
+```
+
+FILE may be omitted — then the **selected** file is the target (same as
+the LCD). The result beeps when done (`r2_done`) and shows a console
+summary; on error the alarm sounds and the LCD says what to fix.
+
+
 ## 6. During the print: tuning, pauses, objects
 
 Everything that happens between "print started" and "print finished". Live
@@ -1716,6 +1782,7 @@ retraction reads the firmware values — what you see is what runs.
 | Filament | Load / Load length / Unload / Unload length / Change (M600) — available BEFORE the print too |
 | RetFix | ON/OFF — auto-treats every NEW upload's clean retract pairs into G10/G11 (old Bowden-era files); for the SELECTED file use Pre-Print > File > RetFix file instead (in place, no re-upload) |
 | File fixes (in File menu) | RetFix file + Vol->mm fix — repair the SELECTED file directly on disk (start beep + done beep, markers survive) |
+| Texture | acts on the SELECTED file: File (shows the target) · Mode OFF/Fuzzy/Bumps · Fuz thick · Fuz dens · Pattern Grid/Waves/Honeycomb/Mandelbrot · Scale · Amp · Dir IN/OUT · > Apply (beeps) · How it works — writes a NEW `_TX` file (ch. 5.9), never auto-starts |
 
 **Labels** (in Tools)
 
@@ -2060,6 +2127,10 @@ Diagnostics: SHOW_STATUS · SELF_TEST · KAMP_STATUS · HOST_CHECK (Pi health) �
   angles, frames, litho, seals, bridge) reads `[extruder] nozzle_diameter`
   from printer.cfg — line widths, E-per-mm and hatch spacing all derive from
   it (fallback 0.6, console note when it deviates)
+- texture tool: only outer-wall vertices move; the first outer vertex of a
+  file and zero-length restarts stay untextured (no approach direction),
+  a file without outer walls gets zero shifts — and the 100th version
+  (V99 full) refuses with a cleanup hint instead of overwriting
 - sequential detection needs the previous object ≥1.6 mm tall (protects by-layer prints)
 - legacy files (no APPLY_TYPE): feature factors apply instantly, but only the
   GLOBAL factor is re-applied at layer 2 / after resumes
@@ -2109,6 +2180,7 @@ Diagnostics: SHOW_STATUS · SELF_TEST · KAMP_STATUS · HOST_CHECK (Pi health) �
 | print a gasket | Tools > Gaskets > Settings, Create (beeps) |
 | print a picture frame | Tools > Frames > Settings, Create (beeps) |
 | frame as glue kit | Tools > Frames > Preset 13x18, Border 16+, Create — strips + plate, glue the joints |
+| fuzzy skin / dimples on a part | Pre-Print > Texture — pick mode + values, > Apply, check the _TX file in the viewer |
 | delete a lithophane image | Tools > Lithophane > Delete image — press the slot twice |
 | test ironing | Maintenance > Ironing Cal. |
 | purge / cold pull | Macros > Purge · Maintenance > Filament |
@@ -2127,6 +2199,7 @@ SET_FLOW_RATE · SET_GLOBAL_ACCEL_PERCENT PERCENT=150 · SET_FAN_SCALE · PAUSE 
 PAUSE_AT_LAYER LAYER=n · SKIP_OBJECT OBJECT=name · GEN_LABELS TEXT="A|B" ·
 GEN_CABLE_TIES COUNT=6 LENGTH=120 · GEN_ANGLES ANGLE=90 WIDTH=25 WALLS=4 INFILL=60 ·
 GEN_FRAME PRESET=10x15 DEPTH=8 CLOSURE=BACK HANG=TOP STAND=1 ·
+TEXTURE_APPLY FILE=myfile.gcode MODE=BUMPS PATTERN=WAVES SCALE=10 AMP=0.35 ·
 SET_LAYER_RANGE FLOOR=3 FLOOR_HOLE=15 TOP_HOLE=28 · SET_NOZZLE_SPLIT STATE=1 ·
 CALIBRATE_PA · FLOW_CAL MEASURE=0.46 · TEMP_TOWER_START START=200 END=230 STEP=5 BAND=10
 ```
@@ -2153,7 +2226,7 @@ usage line and the valid values instead of doing something.
 | **MCR** | minimum cruise ratio | **SCV** | square corner velocity |
 
 ## 25. Complete macro index
-All 143 public macros with parameters (defaults in parentheses; blank = no parameters). Internal helpers (leading `_`) are not user-facing. Grouped by module file — the same file you would edit.
+All 144 public macros with parameters (defaults in parentheses; blank = no parameters). Internal helpers (leading `_`) are not user-facing. Grouped by module file — the same file you would edit.
 
 ### Sounds — 02_sounds.cfg (4)
 | Macro | Parameters | Purpose |
@@ -2333,7 +2406,7 @@ All 143 public macros with parameters (defaults in parentheses; blank = no param
 | **LABEL_CLEAR_TEXT** | — | clear the edit buffer |
 | **LABEL_INFO** | — | queue + size + font + bed-fit info |
 
-### Part generators — 17_generator.cfg (12)
+### Part generators — 17_generator.cfg (13)
 | Macro | Parameters | Purpose |
 |---|---|---|
 | **GEN_CABLE_TIES** | COUNT=6, LENGTH=120, WIDTH=8, LAYERS=3, VARIANT='CLASSIC', LAYER_H=0.2, BRIM=1 | console/Mainsail cable-tie job: `GEN_CABLE_TIES COUNT=6 LENGTH=120 VARIANT=LOOP` — sets everything + creates the file (VARIANT: CLASSIC one-way pawl · LOOP adjustable bead loop, reusable) |
@@ -2351,6 +2424,7 @@ All 143 public macros with parameters (defaults in parentheses; blank = no param
 | **GEN_ANGLES** | COUNT=2, ANGLE=90, LEG_A=60, LEG_B=60, WIDTH=25, LAYERS=6, HOLES=2, HOLE_D=4, CS=1, STIFFENER=1, WALLS=2, INFILL=100, IRONING=0, FLAT=0, LAYER_H=0.2 | console/Mainsail angle/flat job: `GEN_ANGLES ANGLE=45 LEG_A=80 LEG_B=50 STIFFENER=2` — CS=1 countersunk · FLAT=1 flat connector |
 | **ANGLE_GENERATE** | — | create the plate file from the stored settings (bumps angle_nonce) |
 | **ANGLE_INFO** | — | every angle/flat setting + the auto-hole rules |
+| **TEXTURE_APPLY** | FILE='', MODE='OFF', THICK, DENSITY, PATTERN, SCALE, AMP, DIR='OUT' | fuzzy skin / shaped bumps for the SELECTED (or FILE) g-code: `TEXTURE_APPLY MODE=FUZZY THICK=0.3 DENSITY=100` — new `_TX_V01` file in the background, never auto-started (ch. 5.9) |
 
 ### KAMP — 14_kamp.cfg (5)
 | Macro | Parameters | Purpose |

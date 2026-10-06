@@ -9436,6 +9436,7 @@ def watch(directory, interval=5.0, once=False):
     last_litho_nonce = None          # R89: lithophane / seal / image-delete
     last_seal_nonce = None
     last_frame_nonce = None         # R90: picture frame / display case
+    last_texture_nonce = None       # R91: fuzzy skin / bumps on an existing file
     last_litho_del_nonce = None
     pushed_images = None             # R89: last image list pushed to the LCD
     last_fit_nonce = None
@@ -10052,6 +10053,63 @@ def watch(directory, interval=5.0, once=False):
                 print(f'[seal] {info_s["file"]}: OK', flush=True)
         except Exception as e:                              # noqa: BLE001
             print(f'[seal] poll error: {e!r}', flush=True)
+
+        # R91: TEXTURE tool (texture_nonce) - fuzzy skin / bumps on an EXISTING
+        # file. Separate script, lazy import; writes a NEW _TX file - never an
+        # overwrite, never auto-started (the user checks it in the 3D viewer).
+        try:
+            _tx91 = rv.get('texture_nonce', '')
+            if _tx91 and _tx91 != last_texture_nonce:
+                last_texture_nonce = _tx91
+                from r2_texture import apply_texture          # lazy (R91 rule)
+                _fn91 = os.path.basename(str(rv.get('texture_file', '') or ''))
+                _bed91 = _bed_limits(os.path.join(
+                    os.path.dirname(os.path.abspath(directory.rstrip('/'))),
+                    'config', 'printer.cfg'))
+                # NOTE: fuzzy/bump values are ABSOLUTE mm - no hidden scaling
+                # (blind-safe parameter rule)
+                out_t91, info_t91 = apply_texture(
+                    os.path.join(directory, _fn91),
+                    out_dir=directory,
+                    mode=str(rv.get('texture_mode', 'FUZZY') or 'FUZZY'),
+                    fuzzy_thick=float(rv.get('texture_fuzzy_thick', 0.3)
+                                      or 0.3),
+                    fuzzy_density=float(rv.get('texture_fuzzy_density', 100)
+                                        or 100),
+                    bump_pattern=str(rv.get('texture_pattern', 'GRID')
+                                     or 'GRID'),
+                    bump_scale=float(rv.get('texture_scale', 10.0) or 10.0),
+                    bump_amp=float(rv.get('texture_amp', 0.35) or 0.35),
+                    direction=str(rv.get('texture_dir', 'OUT') or 'OUT'),
+                    bed=_bed91,
+                    version=max(1, min(int(float(
+                        rv.get('gen_version', 1) or 1)), 99)))
+                _msg91 = ('Texture: %s -> %s (%s, %d outer-wall points '
+                          'shifted, %d layers) - CHECK IT IN THE 3D VIEWER, '
+                          'nothing auto-starts'
+                          % (info_t91['src'], info_t91['file'],
+                             info_t91['mode'], info_t91['shifted'],
+                             info_t91['layers']))
+                try:
+                    _moonraker_gcode(
+                        'RESPOND MSG="%s"\nM117 Texture ready\n'
+                        '_SOUND_LIB NAME=r2_done' % _msg91)
+                except Exception as me:                      # noqa: BLE001
+                    print(f'[texture] moonraker unreachable '
+                          f'({me.__class__.__name__})', flush=True)
+                print(f'[texture] {info_t91["file"]}: OK '
+                      f'({info_t91["shifted"]} pts, {info_t91["secs"]}s)',
+                      flush=True)
+        except ValueError as ve91:
+            try:
+                _moonraker_gcode(
+                    'RESPOND MSG="Texture: %s"\nM117 Texture error\n'
+                    '_SOUND_LIB NAME=r2_error' % ve91)
+            except Exception:                               # noqa: BLE001
+                pass
+            print(f'[texture] guard: {ve91}', flush=True)
+        except Exception as e:                              # noqa: BLE001
+            print(f'[texture] poll error: {e!r}', flush=True)
 
         # R90: picture frame / display case generator (frame_nonce) - inline
         # (a 10x15 frame is ~25k gcode lines, well under a second)

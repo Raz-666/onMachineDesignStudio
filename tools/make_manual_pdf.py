@@ -1699,6 +1699,35 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
     "with edge notches (slide 2.5mm), SIDE = slide-in slot in the left wall"),
   )
 
+chapter('5.9','Texture: fuzzy skin & shaped bumps (any g-code file)',
+  P("The only generator that does not create a part - it rewrites the OUTER WALL of a file you "
+    "already have. FUZZY scatters every outer-wall vertex (seeded - same file + same settings = same "
+    "result): matte, grippy, the classic fuzzy skin. BUMPS follows a pattern: Grid (egg-crate "
+    "dimples), Waves (diagonal ripples WITH a z-phase - the pattern crawls layer to layer and "
+    "visually swallows layer lines), Honeycomb (hex dimples) or Mandelbrot (a fractal landscape, "
+    "unique per bed position). Everything else stays byte-identical: ;TYPE: tags, EXCLUDE_OBJECT, "
+    "markers, E, Z and F values - inner walls, infill, ironing and supports print exactly as sliced."),
+  TBL(['Parameter','Range','Meaning'],[
+   ['Mode','OFF / FUZZY / BUMPS','OFF = Apply refuses with a hint'],
+   ['Fuz thick','0.1-0.6 mm','scatter radius (fuzzy)'],
+   ['Fuz dens','10-100 %','share of scattered vertices'],
+   ['Pattern','Grid / Waves / Honeycomb / Mandelbrot','bump shape (bumps)'],
+   ['Scale','3-60 mm','cell size - fine orange peel .. bold dimples'],
+   ['Amp','0.1-0.8 mm','bump depth'],
+   ['Dir','OUT / IN','grows away from / cuts into the part'],
+  ],[34*mm,52*mm,78*mm]),
+  P("Workflow: select the file as always, Pre-Print > Texture, pick mode + values, > Apply (beeps) - "
+    "the watcher writes a NEW <name>_TX_V01.gcode in the background (V02, V03 ... on repeat, the "
+    "source is never touched), then CHECK IT IN THE 3D VIEWER - nothing auto-starts, by design. "
+    "Special cases (tested): files without outer walls get zero shifts, no crash; the first outer "
+    "vertex and zero-length restarts stay untextured (no approach direction); M82 absolute E, E-only "
+    "retracts, G0 travels and CRLF endings pass untouched; OrcaSlicer/Bambu spellings are recognized."),
+  CODE('TEXTURE_APPLY FILE=myfile.gcode MODE=FUZZY THICK=0.3 DENSITY=100\n'
+       'TEXTURE_APPLY FILE=myfile.gcode MODE=BUMPS PATTERN=WAVES SCALE=10 AMP=0.35 DIR=OUT'),
+  P("FILE may be omitted - the SELECTED file is the target (same as the LCD). Done = r2_done beeps "
+    "+ console summary; an error sounds the alarm and the LCD says what to fix."),
+  )
+
 
 chapter('6','During the print: tuning, pauses, objects',
   H2('6.1 Live tuning reference'),
@@ -2227,7 +2256,7 @@ chapter('24','Cheat sheet: LCD paths &amp; Mainsail commands',
        'GEN_LABELS TEXT=\"A|B\" W=60 H=30 · GEN_CABLE_TIES COUNT=6 LENGTH=120 VARIANT=LOOP ·\n'
        'GEN_ANGLES ANGLE=90 WIDTH=25 WALLS=4 INFILL=60 IRONING=1 ·\n'
        'GEN_FRAME PRESET=10x15 DEPTH=8 CLOSURE=BACK HANG=TOP STAND=1 ·\n'
-       'SET_LAYER_RANGE FLOOR=3 FLOOR_HOLE=15 TOP_HOLE=28 · SET_NOZZLE_SPLIT STATE=1\n'
+       'TEXTURE_APPLY FILE=part.gcode MODE=BUMPS PATTERN=WAVES SCALE=10 AMP=0.35 ·\n'       'SET_LAYER_RANGE FLOOR=3 FLOOR_HOLE=15 TOP_HOLE=28 · SET_NOZZLE_SPLIT STATE=1\n'
        'CALIBRATE_PA · CALIBRATE_PA_SMOOTH · PA_SMOOTH_RESULT SEG=n · FLOW_CAL MEASURE=0.46 ·\nTEMP_TOWER_START START=200 END=230 STEP=5 BAND=10'),
   H2('Abbreviation decoder — the short codes the console, M117 and the LCD use'),
   TBL(['Code','Means','Code','Means'],[
@@ -2294,7 +2323,9 @@ _MIDX.append(["Part generators — 17_generator.cfg", [
     ["GEN_ANGLES", "COUNT=2, ANGLE=90, LEG_A=60, LEG_B=60, WIDTH=25, LAYERS=6, HOLES=2, HOLE_D=4, CS=1, STIFFENER=1, WALLS=2, INFILL=100, IRONING=0, FLAT=0, LAYER_H=0.2",
      "console/Mainsail angle/flat job: CS=1 countersunk, FLAT=1 flat connector - holes auto-arrange and auto-clamp"],
     ["ANGLE_GENERATE", "—", "create the plate file from the stored settings (watcher builds it)"],
-    ["ANGLE_INFO", "—", "every angle/flat setting + the auto-hole rules"]]])
+    ["ANGLE_INFO", "—", "every angle/flat setting + the auto-hole rules"],
+    ["TEXTURE_APPLY", "FILE='', MODE='OFF', THICK, DENSITY, PATTERN, SCALE, AMP, DIR='OUT'",
+     "fuzzy skin / shaped bumps for the SELECTED (or FILE) g-code - new _TX_V01 file in the background, never auto-started (ch. 5.9)"]]])
 # R64: resonance diagram + bridging + plotter text/status in the index
 for _g in _MIDX:
     if _g[0].startswith('Maintenance'):
