@@ -176,7 +176,7 @@ def d_menu():
         d.add(String(x+w/2,y+h/2-2.5,t,fontName='DVSB',fontSize=fs,textAnchor='middle',fillColor=colors.white))
     def ln(x1,y1,x2,y2): d.add(Line(x1,y1,x2,y2,strokeColor=colors.HexColor('#9bb2cc'),strokeWidth=0.9))
     box(195,155,90,18,'R2-D2',BLUE,fs=9)
-    # R89: seven groups - Tools (the six part generators) joined the row
+    # R89/R90: seven groups - Tools (the seven part generators) joined the row
     items=[('Start Print?',ORANGE),('Live Tuning',GREEN),('Pre-Print',GRAY),('Macros',TEAL),
            ('Tools',colors.HexColor('#5a3d8a')),('Maintenance',PURPLE),('System',RED)]
     xs=[2,70,138,206,274,342,410]
@@ -186,11 +186,11 @@ def d_menu():
           ('speed+accel global,','vel, extrusion,','pause'),
           ('Z-babysteps,','cockpit, material,','temps+fan L2, mesh'),
           ('load/unload, sync,','sounds, LEDs,','nozzle LED'),
-          ('cable ties, angles,','lithophane, gaskets,','labels, plotter'),
+          ('cable ties, angles,','lithophane, gaskets,','frames, labels,','plotter'),
           ('vib, level, mesh,','extr, PID, PA, flow,','tower, iron, fil,','KAMP, tests'),
           ('restarts 2x,','shutdown 2x,','save config')]
-    col=[0,0, 1,1,1, 2,2,2, 3,3,3, 4,4,4, 5,5,5,5, 6,6,6]
-    ys=[96,88, 96,88,80, 96,88,80, 96,88,80, 96,88,80, 96,88,80,72, 96,88,80]
+    col=[0,0, 1,1,1, 2,2,2, 3,3,3, 4,4,4,4, 5,5,5,5, 6,6,6]
+    ys=[96,88, 96,88,80, 96,88,80, 96,88,80, 96,88,80,72, 96,88,80,72, 96,88,80]
     for line,y,c in zip([l for grp in subs for l in grp],ys,col):
         d.add(String(xs[c]+32,y,line,fontName='DVS',fontSize=5.9,textAnchor='middle',fillColor=GRAY))
     d.add(String(240,12,'Live Tuning appears during a print — for EVERY start mode, legacy included',fontName='DVS',fontSize=7.5,textAnchor='middle',fillColor=GRAY))
@@ -936,6 +936,99 @@ def d_seal_anatomy():
     return d
 
 
+def d_frame_anatomy():
+    d = Drawing(480, 208)
+    d.add(String(240, 199, 'Frame — the zero-overhang profile & the two closures',
+                 fontName='DVSB', fontSize=9.5, textAnchor='middle', fillColor=BLUE))
+
+    # ---- left: cross-section through the wall (front UP) --------------------
+    d.add(String(120, 182, 'CROSS-SECTION (PRINTS LYING, FRONT UP)',
+                 fontName='DVSB', fontSize=6.9, textAnchor='middle', fillColor=GRAY))
+    bx, by = 34, 46
+    # front band (ironed top) + shelf + groove + back band, then the plate
+    d.add(Rect(bx, by + 96, 152, 14, fillColor=colors.HexColor('#dbe6f4'),
+               strokeColor=BLUE, strokeWidth=1.1))
+    d.add(String(bx + 76, by + 101, 'FRONT — ironing pass (the visible face)',
+                 fontName='DVSB', fontSize=5.4, textAnchor='middle', fillColor=BLUE))
+    # shelf + view step (left half only wall, right half the bridge)
+    d.add(Rect(bx, by + 84, 152, 12, fillColor=colors.HexColor('#dbe6f4'),
+               strokeColor=BLUE, strokeWidth=1.0))
+    d.add(String(bx + 76, by + 88, 'shelf — photo stop (bridge over the groove)',
+                 fontName='DVS', fontSize=5.4, textAnchor='middle', fillColor=GRAY))
+    # groove zone: photo + plate + nub
+    d.add(Rect(bx + 8, by + 70, 60, 9, fillColor=colors.HexColor('#f7ddd2'),
+               strokeColor=ORANGE, strokeWidth=0.8))
+    d.add(String(bx + 38, by + 73, 'photo', fontName='DVS', fontSize=5.2,
+                 textAnchor='middle', fillColor=ORANGE))
+    d.add(Rect(bx + 8, by + 58, 60, 10, fillColor=colors.HexColor('#e8e2f4'),
+               strokeColor=colors.HexColor('#7b5fb5'), strokeWidth=0.8))
+    d.add(String(bx + 38, by + 61, 'backplate 0.8', fontName='DVS', fontSize=5.2,
+                 textAnchor='middle', fillColor=colors.HexColor('#7b5fb5')))
+    # nubs above the plate at the wall inner edge
+    for nxx in (bx + 2, bx + 72):
+        d.add(Rect(nxx, by + 58, 6, 12, fillColor=colors.HexColor('#cfe3cf'),
+                   strokeColor=GREEN, strokeWidth=0.9))
+    d.add(String(bx + 40, by + 47, 'nubs 1mm over the plate — bayonet (drop in, slide 2.5mm)',
+                 fontName='DVS', fontSize=5.3, textAnchor='middle', fillColor=GREEN))
+    # back band + wall
+    d.add(Rect(bx, by + 40, 152, 18, fillColor=colors.HexColor('#eef3fa'),
+               strokeColor=BLUE, strokeWidth=1.0))
+    d.add(String(bx + 76, by + 47, 'back band (case: the deep box)',
+                 fontName='DVS', fontSize=5.4, textAnchor='middle', fillColor=GRAY))
+    d.add(String(bx + 76, by + 28, 'groove = photo + plate + play · depth < 15 = flat frame, '
+                 '15+ = case', fontName='DVS', fontSize=5.5, textAnchor='middle', fillColor=GRAY))
+    d.add(String(bx + 76, by + 16, 'border 4-30 · corner r 0-30 · RECT or OVAL · every part '
+                 'an exclude object', fontName='DVS', fontSize=5.5, textAnchor='middle', fillColor=GRAY))
+
+    # ---- right: front view + the two closures -------------------------------
+    d.add(String(350, 182, 'THE TWO CLOSURES', fontName='DVSB', fontSize=6.9,
+                 textAnchor='middle', fillColor=GRAY))
+    # BACK: front view with view opening + plate with notches
+    fx, fy = 288, 96
+    d.add(String(fx + 40, fy + 72, 'BACK — bayonet plate', fontName='DVSB',
+                 fontSize=6.4, fillColor=BLUE))
+    d.add(Rect(fx, fy, 80, 60, fillColor=colors.HexColor('#eef3fa'),
+               strokeColor=BLUE, strokeWidth=1.2, rx=6))
+    d.add(Rect(fx + 12, fy + 9, 56, 42, fillColor=colors.white,
+               strokeColor=BLUE, strokeWidth=0.9, rx=4))
+    d.add(String(fx + 40, fy + 27, 'photo', fontName='DVS', fontSize=5.4,
+                 textAnchor='middle', fillColor=GRAY))
+    # the plate below with L/R notches + slide arrow
+    d.add(Rect(fx + 6, fy - 26, 68, 20, fillColor=colors.HexColor('#e8e2f4'),
+               strokeColor=colors.HexColor('#7b5fb5'), strokeWidth=1.0))
+    d.add(Rect(fx + 6, fy - 16, 8, 10, fillColor=colors.white,
+               strokeColor=colors.HexColor('#7b5fb5'), strokeWidth=0.8))
+    d.add(Rect(fx + 66, fy - 16, 8, 10, fillColor=colors.white,
+               strokeColor=colors.HexColor('#7b5fb5'), strokeWidth=0.8))
+    d.add(String(fx + 40, fy - 20, 'notches', fontName='DVS', fontSize=5.0,
+                 textAnchor='middle', fillColor=colors.HexColor('#7b5fb5')))
+    d.add(Line(fx + 40, fy - 34, fx + 40, fy - 42, strokeColor=GREEN, strokeWidth=1.4))
+    d.add(Polygon(points=[fx + 40, fy - 46, fx + 36, fy - 40, fx + 44, fy - 40],
+                  fillColor=GREEN, stroke=0))
+    d.add(String(fx + 52, fy - 43, 'slide 2.5mm = locked', fontName='DVS',
+                 fontSize=5.4, fillColor=GREEN))
+    # SIDE: slot in the left wall
+    sx, sy = 400, 96
+    d.add(String(sx + 36, sy + 72, 'SIDE — slide-in slot', fontName='DVSB',
+                 fontSize=6.4, fillColor=GREEN))
+    d.add(Rect(sx, sy, 72, 60, fillColor=colors.HexColor('#eef3fa'),
+               strokeColor=GREEN, strokeWidth=1.2, rx=6))
+    d.add(Rect(sx + 10, sy + 9, 52, 42, fillColor=colors.white,
+               strokeColor=GREEN, strokeWidth=0.9, rx=4))
+    # the slot: gap in the left wall + arrow
+    d.add(Rect(sx - 2, sy + 24, 14, 12, fillColor=colors.white,
+               strokeColor=GREEN, strokeWidth=1.0))
+    d.add(Line(sx - 18, sy + 30, sx - 6, sy + 30, strokeColor=GREEN, strokeWidth=1.4))
+    d.add(Polygon(points=[sx - 2, sy + 30, sx - 9, sy + 26, sx - 9, sy + 34],
+                  fillColor=GREEN, stroke=0))
+    d.add(String(sx + 36, sy - 10, 'photo + plate slide in', fontName='DVS',
+                 fontSize=5.4, textAnchor='middle', fillColor=GREEN))
+    d.add(String(350, 26, 'hang keyhole hidden in the plate (4 sides) · stand studs plug '
+                 'into 2 plate holes · too big = 4-strip glue kit',
+                 fontName='DVS', fontSize=5.6, textAnchor='middle', fillColor=GREEN))
+    return d
+
+
 def d_angle_anatomy():
     d = Drawing(480, 196)
     d.add(String(240, 187, 'Angle plate & flat connector — auto hole layout, countersink, stiffening',
@@ -1175,7 +1268,7 @@ E+=[Mark('Contents'),H1('Contents'),HRFlowable(width='100%', thickness=1.1, colo
 TBL(['Ch.','Topic'],[
  ['1','Safety first — fire &amp; hardware'],['2','The system in five minutes'],
  ['3','From file to print — the daily workflow'],['4','Scenario library — every file type walked through'],
- ['5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes &amp; Gaskets'],['6','During the print: tuning, pauses, objects'],
+ ['5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes, Gaskets &amp; Frames'],['6','During the print: tuning, pauses, objects'],
  ['7','Filament: load / unload / change / runout / cold pull'],['8','Temperature system L1/L2'],
  ['9','Speed, acceleration &amp; machine limits'],['10','Calibration — the ladder to good prints'],
  ['11','Bed mesh &amp; KAMP'],['12','Purge / prime line'],['13','Maintenance &amp; care'],
@@ -1412,7 +1505,7 @@ chapter('4','Scenario library — every file type walked through',
        'CANCEL_PRINT                                    # twice within 60 s'))
 
 
-chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes &amp; Gaskets',
+chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes, Gaskets &amp; Frames',
   H2('5.1 Range — print a section of an existing file'),
   P("Re-print a broken section, test the critical middle of a long print, or make a part from a few layers. "
     "Pre-Print > Range/Stop: From/To (capped to the real layer count), Floor, Top, Brim + their shapes and fills, "
@@ -1572,6 +1665,25 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
     "the #1 seal killer. Console: GEN_SEAL OD=40 ID=20 HEIGHT=1.2 PROFILE=FLAT IRONING=0."),
   CENT(d_seal_anatomy()),CAP("The ring (OD/ID, one continuous spiral — no seam) and the two faces in "
     "cross-section: FLAT = full contact, NUT = groove with two raised sealing lips"),
+  H2('5.8 Frames — picture frames & display cases'),
+  P("A frame for a photo or a deep display case, printed in one piece with its backplate, stand and "
+    "hidden hanging options (menu Tools > Frames). Main design goal: a uniform, smooth FRONT face — the "
+    "frame prints lying on its back, the visible face points up and gets the ironing pass. Settings: "
+    "Preset (9x13 · 10x15 · 13x18 · 15x21 landscape · A6 · A5 landscape) or custom W/H 40-230, Depth 3-60 "
+    "(under 15 = flat frame, 15+ = display case), Border 4-30, Corner r 0-30, Shape RECT/OVAL, Closure "
+    "BACK/SIDE, Hang TOP/BOTTOM/LEFT/RIGHT/OFF, Stand, Ironing, Infill, Vers. The profile is "
+    "zero-overhang: solid back band, photo groove with the closure nubs, bridge shelf, ironed front."),
+  P("Bed fit is checked while generating: frame + backplate side by side fit = one piece; too big and "
+    "RECT = 4-strip glue kit (strips + plate + stand, every part an exclude object, glue the butt joints "
+    "with wood glue); still too big or OVAL = a clear message with the border limit — the guard beeps "
+    "and shows on the LCD. Assembly BACK: photo onto the back band, backplate in with its edge notches "
+    "at the left/right nubs, slide 2.5mm — locked, no flex. SIDE: photo + cover plate slide together "
+    "through the slot in the left wall. The hang keyhole hides in the plate (invisible from the front); "
+    "the easel stand plugs into two D2.7 plate holes. Console: GEN_FRAME PRESET=10x15 DEPTH=8 BORDER=12 "
+    "SHAPE=RECT CLOSURE=BACK HANG=TOP STAND=1."),
+  CENT(d_frame_anatomy()),CAP("Cross-section through the wall (front up: ironed front band, bridge "
+    "shelf, groove with photo + plate + nubs, back band) and the two closures: BACK = bayonet plate "
+    "with edge notches (slide 2.5mm), SIDE = slide-in slot in the left wall"),
   )
 
 
@@ -1802,7 +1914,7 @@ chapter('13','Maintenance &amp; care',
 
 
 chapter('14','LCD menu reference',
-  CENT(d_menu()),CAP('Seven top groups in LCD order — Start Print? (waiting), Live Tuning (printing), then Pre-Print, Quick Macros, Tools (the six part generators: Cable ties · Angles+Flat · Lithophane · Gaskets · Labels · Plotter), Maintenance, System'),
+  CENT(d_menu()),CAP('Seven top groups in LCD order — Start Print? (waiting), Live Tuning (printing), then Pre-Print, Quick Macros, Tools (the seven part generators: Cable ties · Angles+Flat · Lithophane · Gaskets · Frames · Labels · Plotter), Maintenance, System'),
   P('Every line fits the 16 characters of the 12864 display — the value you edit is always visible '
     '(test-enforced). Pattern: first line = ON/OFF toggle (value stays stored), then the values.'),
   TBL(['Live Tuning (during print)','Contents'],[
@@ -1840,6 +1952,7 @@ chapter('14','LCD menu reference',
    ['Settings','Count 1-24 · Len 50-300 mm · Width 2-12 mm · Layers 3-6 · LH 0.12-0.32 · Closure CLASSIC/LOOP (the * marks the active) · Brim · Vers V01-V09'],
    ['Info | Images (Create) | Delete image | Settings | How it works','LITHOPHANE (ch. 5.6): the gcodes folder\'s .png/.jpg list (newest first, 10 slots; plotter uploads included) — slot press = Create; Delete = 2-press confirm (plotter .gcode stays); Height 30-200 · Layer 0.08-0.2 · Levels 0-12 (0 = photo) · Frame · Brim 0-10 · Ironing · Vers'],
    ['Info | Settings | Create (beeps) | How it works','GASKETS (ch. 5.7): OD 12-200 · ID 6-190 · Height 0.4-6 · Face FLAT/NUT (groove + two sealing lips) · Ironing · LH · Vers'],
+   ['Info | Settings | Create (beeps) | How it works','FRAMES (ch. 5.8): Preset or W/H 40-230 · Depth 3-60 · Border 4-30 · Corner r · RECT/OVAL · Closure BACK/SIDE · Hang 4 sides/OFF · Stand · Ironing · Infill'],
    ['Create (beeps)','validates, bumps the job counter — the watcher builds the file in the background, beeps + auto-selects'],
    ['How it works','the flow + PETG/TPU tip + the Mainsail one-liner on the LCD'],
   ],[42*mm,122*mm]),
@@ -2087,6 +2200,7 @@ chapter('24','Cheat sheet: LCD paths &amp; Mainsail commands',
        'PAUSE · RESUME · CANCEL_PRINT (2×) · PAUSE_AT_LAYER LAYER=n · SKIP_OBJECT OBJECT=name\n'
        'GEN_LABELS TEXT=\"A|B\" W=60 H=30 · GEN_CABLE_TIES COUNT=6 LENGTH=120 VARIANT=LOOP ·\n'
        'GEN_ANGLES ANGLE=90 WIDTH=25 WALLS=4 INFILL=60 IRONING=1 ·\n'
+       'GEN_FRAME PRESET=10x15 DEPTH=8 CLOSURE=BACK HANG=TOP STAND=1 ·\n'
        'SET_LAYER_RANGE FLOOR=3 FLOOR_HOLE=15 TOP_HOLE=28 · SET_NOZZLE_SPLIT STATE=1\n'
        'CALIBRATE_PA · CALIBRATE_PA_SMOOTH · PA_SMOOTH_RESULT SEG=n · FLOW_CAL MEASURE=0.46 ·\nTEMP_TOWER_START START=200 END=230 STEP=5 BAND=10'),
   H2('Abbreviation decoder — the short codes the console, M117 and the LCD use'),
@@ -2146,6 +2260,10 @@ _MIDX.append(["Part generators — 17_generator.cfg", [
     ["LITHO_INFO", "—", "lithophane settings + how many images are ready"],
     ["SEAL_INFO", "—", "gasket settings + NUT/material tips"],
     ["SEAL_GENERATE", "—", "create the seal file from the stored settings (bumps seal_nonce)"],
+    ["GEN_FRAME", "PRESET='', W=102, H=152, DEPTH=8, BORDER=12, CORNER=6, SHAPE='RECT', CLOSURE='BACK', HANG='TOP', STAND=0, IRONING=1, INFILL=60",
+     "console/Mainsail frame job: bed fit checked, kit fallback, guard errors beep + show on the LCD"],
+    ["FRAME_GENERATE", "—", "create the frame file from the stored settings (bumps frame_nonce)"],
+    ["FRAME_INFO", "—", "every frame setting in one listing + closure explanation"],
     ["GEN_ANGLES", "COUNT=2, ANGLE=90, LEG_A=60, LEG_B=60, WIDTH=25, LAYERS=6, HOLES=2, HOLE_D=4, CS=1, STIFFENER=1, WALLS=2, INFILL=100, IRONING=0, FLAT=0, LAYER_H=0.2",
      "console/Mainsail angle/flat job: CS=1 countersunk, FLAT=1 flat connector - holes auto-arrange and auto-clamp"],
     ["ANGLE_GENERATE", "—", "create the plate file from the stored settings (watcher builds it)"],

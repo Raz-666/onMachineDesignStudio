@@ -4871,7 +4871,7 @@ tests.append(('R75 watcher: _prime_nonces adopts the current counters (no re-fir
         'bridge_nonce': None, 'plot_text_nonce': None, 'plot_status_nonce': None, 'host_nonce': None,
         'label_fit_nonce': None, 'retract_fix_nonce': None, 'vol_fix_nonce': None,
         'cable_tie_nonce': None, 'angle_nonce': None, 'litho_nonce': None,
-        'seal_nonce': None, 'litho_del_nonce': None}, ''))
+        'seal_nonce': None, 'litho_del_nonce': None, 'frame_nonce': None}, ''))
 tests.append(('R75 watcher: daemon runs niced + primes on the first pass',
     'os.nice(4)' in open('tools/r2_postproc.py').read()
     and 'first_prime' in open('tools/r2_postproc.py').read(), ''))
@@ -6014,10 +6014,11 @@ tests.append(('R86 modules: 17_generator.cfg sentinel + _CHECK_INSTALL lists 17'
     '_V18_GEN' in open(_gen86).read()
     and "('17_generator.cfg',       ['_V18_GEN'])" in open('macros/01_state.cfg').read()
     and 'all 17 modules' not in open('macros/01_state.cfg').read(), ''))
-tests.append(('R86/R89 watcher: NONCE_KEYS has 16 channels incl. litho/seal/delete',
-    len(_pp.NONCE_KEYS) == 16 and 'cable_tie_nonce' in _pp.NONCE_KEYS
+tests.append(('R86/R89/R90 watcher: NONCE_KEYS has 17 channels incl. litho/seal/frame',
+    len(_pp.NONCE_KEYS) == 17 and 'cable_tie_nonce' in _pp.NONCE_KEYS
     and 'angle_nonce' in _pp.NONCE_KEYS and 'litho_nonce' in _pp.NONCE_KEYS
-    and 'seal_nonce' in _pp.NONCE_KEYS and 'litho_del_nonce' in _pp.NONCE_KEYS,
+    and 'seal_nonce' in _pp.NONCE_KEYS and 'litho_del_nonce' in _pp.NONCE_KEYS
+    and 'frame_nonce' in _pp.NONCE_KEYS,
     str(_pp.NONCE_KEYS)))
 
 # --- (4) generator geometry (real files) ----------------------------------------
@@ -6364,8 +6365,8 @@ tests.append(('R87 LCD: container sits between Quick Macros and Maintenance, liv
     < _lcd87.index('[menu __main __maint]')
     and '[menu __main __live __plot __mode]' in _lcd87
     and '[menu __main __live __plot]' in _lcd87, ''))
-tests.append(('R87/R89 LCD: guards preserved (cable/angle/litho/seal need 17_generator, labels optional, plot+container free)',
-    _lcd87.count("enable: {'gcode_macro _GENERATORS' in printer}") == 4
+tests.append(('R87/R89/R90 LCD: guards preserved (cable/angle/litho/seal/frame need 17_generator, labels optional, plot+container free)',
+    _lcd87.count("enable: {'gcode_macro _GENERATORS' in printer}") == 5
     and "enable: {'gcode_macro _LABELS' in printer}" in _lcd87
     and '[menu __main __gen __plot]\ntype: list\nname: Plotter\n' in _lcd87, ''))
 tests.append(('R87 docs: cfg console paths say Tools (labels + plotter + generator header)',
@@ -6515,6 +6516,165 @@ save_vars.update({'ovf_wallouter_acc': 1000.0})
 out = render(get_body('macros/10_live_tuning.cfg', 'SET_GLOBAL_ACCEL'), {'ACCEL': '4000'})
 tests.append(('R87.2 accel: global 4000 keeps the feature accel 1000 (message + value)',
     'ACCEL=1000' in out and 'keeps its own' in out and 'live_accel VALUE=4000' in out, out[:160]))
+
+# ===================== R90: picture frames / display cases =======================
+import os as _os90, re as _re90, json as _json90, tempfile as _tf90
+_d90 = _tf90.mkdtemp(prefix='r90_')
+
+# --- (1) geometry: one-piece FLAT, kit fallback, OVAL, CASE, SIDE -----------
+_p90a, _i90a = _pp.make_frame(preset='10x15', depth=8, frame_w=10, corner=4,
+                              closure='BACK', hang='TOP', stand=True, out_dir=_d90)
+_g90a = open(_p90a, encoding='utf-8').read()
+tests.append(('R90 frame 10x15 one piece: name, TAG, PRINT_START, 3 objects, ironing',
+    _os90.path.basename(_p90a) == '00_Frame_10x15_FLATx8_V01.gcode'
+    and _pp.TAG in _g90a and 'PRINT_START MATERIAL=PLA LAYER_HEIGHT=0.2' in _g90a
+    and _g90a.count('EXCLUDE_OBJECT_DEFINE') == 3 and ';TYPE:Ironing' in _g90a
+    and not _i90a['kit'], _os90.path.basename(_p90a)))
+_zs90 = [float(_m.group(1)) for _m in _re90.finditer(r';Z:([\d.-]+)', _g90a)]
+tests.append(('R90 frame: layer z strictly ascending, first 0.28, 40 layers',
+    all(b >= a for a, b in zip(_zs90, _zs90[1:])) and _zs90[0] == 0.28
+    and len(_zs90) == _i90a['layers'], '%s..' % _zs90[:3]))
+tests.append(('R90 frame: photo opening stays free (nothing extrudes > 1.05 deep)',
+    not _re90.search(r'G1 X' + r'|'.join([]), ''), True))   # placeholder replaced below
+tests.pop()   # (replaced by the real scan below)
+_fp90 = None
+for _l90 in _g90a.split(chr(10)):
+    if _l90.startswith('EXCLUDE_OBJECT_DEFINE NAME=FRAME'):
+        _q90 = _json90.loads(_l90[_l90.index('POLYGON=') + 8:])
+        _fp90 = ((min(p[0] for p in _q90) + max(p[0] for p in _q90)) / 2.0,
+                 (min(p[1] for p in _q90) + max(p[1] for p in _q90)) / 2.0)
+        break
+_deep90, _z90, _xp90, _yp90 = [], None, None, None
+_pw90, _ph90 = 102.6, 152.6
+for _l90 in _g90a.split(chr(10)):
+    if _l90.startswith(';Z:'):
+        _z90 = float(_l90[3:])
+    _m90 = _re90.match(r'G1 X([\d.-]+) Y([\d.-]+).* E([\d.]+)', _l90)
+    if _m90 and float(_m90.group(3)) > 0 and _xp90 is not None and _z90 is not None \
+            and _z90 <= 6.68:
+        _mx90 = (_xp90 + float(_m90.group(1))) / 2.0
+        _my90 = (_yp90 + float(_m90.group(2))) / 2.0
+        if (abs(_mx90 - _fp90[0]) < _pw90 / 2 - 1.05
+                and abs(_my90 - _fp90[1]) < _ph90 / 2 - 1.05):
+            _deep90.append((_mx90, _my90, _z90))
+    _m291 = _re90.match(r'G[01] X([\d.-]+) Y([\d.-]+)', _l90)
+    if _m291:
+        _xp90, _yp90 = float(_m291.group(1)), float(_m291.group(2))
+tests.append(('R90 frame: photo opening stays free below the shelf (nub tips ok)',
+    len(_deep90) == 0, str(_deep90[:2])))
+
+# bayonet: exactly one ;TYPE:Inner wall pair per nub layer (2 layers, L+R)
+_z90 = None
+_nubz90 = []
+for _l90 in _g90a.split(chr(10)):
+    if _l90.startswith(';Z:'):
+        _z90 = float(_l90[3:])
+    elif _l90.startswith(';TYPE:Inner wall'):
+        _nubz90.append(round(_z90, 2))
+tests.append(('R90 frame bayonet: nub band = 2 layers just above the back band',
+    _nubz90 == [5.68, 5.88], str(_nubz90)))
+
+# kit: 13x18 border 12 -> 4 strips + plate (+stand beside plate)
+_p90k, _i90k = _pp.make_frame(preset='13x18', depth=6, frame_w=8,
+                              closure='BACK', stand=True, out_dir=_d90)
+_g90k = open(_p90k, encoding='utf-8').read()
+tests.append(('R90 kit: 13x18 border 8 splits into 6 objects (4 strips+plate+stand)',
+    _i90k['kit'] and _g90k.count('EXCLUDE_OBJECT_DEFINE') == 6
+    and '00_Frame_13x18_FLATx6_KIT_V01.gcode' == _os90.path.basename(_p90k),
+    _os90.path.basename(_p90k)))
+# strips: shelf band extends into the opening (view overlap)
+tests.append(('R90 kit strips: corner dropped note + wood glue hint',
+    any('butt joints' in _n90 for _n90 in _i90k['notes'])
+    and any('corner radius dropped' in _n90 for _n90 in _i90k['notes']), ''))
+
+# OVAL one piece + SIDE slot
+_p90o, _i90o = _pp.make_frame(width=90, height=130, depth=6, frame_w=10,
+                              shape='OVAL', closure='SIDE', out_dir=_d90)
+_g90o = open(_p90o, encoding='utf-8').read()
+tests.append(('R90 oval SIDE: 2 objects, slide-in note, slot in the left wall',
+    _g90o.count('EXCLUDE_OBJECT_DEFINE') == 2
+    and any('slide' in _n90 for _n90 in _i90o['notes']), ''))
+# left of the photo opening nothing extrudes in the groove band (full slit)
+_q90o = None
+for _l90 in _g90o.split(chr(10)):
+    if _l90.startswith('EXCLUDE_OBJECT_DEFINE NAME=FRAME'):
+        _q90o = _json90.loads(_l90[_l90.index('POLYGON=') + 8:])
+        break
+_cx90o = (min(p[0] for p in _q90o) + max(p[0] for p in _q90o)) / 2.0
+_slit90, _z90, _xp90, _yp90 = 0, None, None, None
+for _l90 in _g90o.split(chr(10)):
+    if _l90.startswith(';Z:'):
+        _z90 = float(_l90[3:])
+    _m90 = _re90.match(r'G1 X([\d.-]+) Y([\d.-]+).* E([\d.]+)', _l90)
+    if _m90 and float(_m90.group(3)) > 0 and _xp90 is not None and 3.15 < _z90 <= 4.65:
+        if max(_xp90, float(_m90.group(1))) < _cx90o - 44.5:
+            _slit90 += 1
+    _m291 = _re90.match(r'G[01] X([\d.-]+) Y([\d.-]+)', _l90)
+    if _m291:
+        _xp90, _yp90 = float(_m291.group(1)), float(_m291.group(2))
+tests.append(('R90 oval SIDE: groove-band layers have NOTHING left of the slot edge',
+    _slit90 == 0, 'count %d' % _slit90))
+
+# CASE + guards
+_p90c, _i90c = _pp.make_frame(preset='13x18', depth=20, frame_w=6,
+                              closure='BACK', stand=True, out_dir=_d90)
+tests.append(('R90 CASE 20mm: mode CASE, 100 layers, stand included',
+    _i90c['mode'] == 'CASE' and _i90c['layers'] == 100 and _i90c['stand'], ''))
+for _kw90, _frag90 in ((dict(width=300, height=200), 'out of range'),
+                       (dict(preset='10x15', depth=61), 'out of range'),
+                       (dict(preset='10x15', frame_w=3), 'out of range'),
+                       (dict(preset='A5', shape='OVAL'), 'oval frame'),
+                       (dict(preset='10x15', infill=10), 'out of range')):
+    try:
+        _pp.make_frame(out_dir=_d90, **_kw90)
+        _ok90 = False
+    except ValueError as _e90:
+        _ok90 = _frag90 in str(_e90)
+    tests.append(('R90 guard: %s -> ValueError(%s)' % (list(_kw90.items())[0], _frag90),
+        _ok90, ''))
+
+# --- (2) macros render (FRAME_INFO / FRAME_GENERATE / GEN_FRAME) -------------
+save_vars.update({'frame_preset': '10x15', 'frame_w': 102.0, 'frame_h': 152.0,
+                  'frame_depth': 8.0, 'frame_border': 12.0, 'frame_corner': 6.0,
+                  'frame_shape': 'RECT', 'frame_closure': 'BACK',
+                  'frame_hang': 'TOP', 'frame_stand': False, 'frame_ironing': True,
+                  'frame_infill': 60.0, 'frame_nonce': 3, 'gen_version': 1})
+out = render(get_body('macros/17_generator.cfg', 'FRAME_INFO'), {})
+tests.append(('R90 FRAME_INFO: settings echo incl. closure + bayonet hint',
+    '10x15 photo' in out and 'closure BACK' in out and 'slide 2.5mm' in out, out[:160]))
+out = render(get_body('macros/17_generator.cfg', 'FRAME_GENERATE'), {})
+tests.append(('R90 FRAME_GENERATE: valid settings bump frame_nonce 3 -> 4',
+    'frame_nonce VALUE=4' in out and 'r2_confirm' in out, out[:160]))
+save_vars.update({'frame_preset': '', 'frame_w': 300.0})
+out = render(get_body('macros/17_generator.cfg', 'FRAME_GENERATE'), {})
+tests.append(('R90 FRAME_GENERATE: custom 300mm blocked with LCD notice',
+    'must be 40..230' in out and 'frame_nonce' not in out, out[:160]))
+save_vars.update({'frame_w': 102.0})
+out = render(get_body('macros/17_generator.cfg', 'GEN_FRAME'),
+             {'PRESET': 'A6', 'DEPTH': '16', 'SHAPE': 'RECT', 'CLOSURE': 'SIDE',
+              'HANG': 'OFF', 'STAND': '1'})
+tests.append(('R90 GEN_FRAME: params land in the save_variables + generates',
+    'VARIABLE=frame_preset VALUE=' in out and 'A6' in out
+    and 'frame_depth VALUE=16.0' in out and 'frame_stand VALUE=True' in out
+    and 'frame_shape VALUE=' in out and 'RECT' in out
+    and 'FRAME_GENERATE' in out, out[:200]))
+out = render(get_body('macros/17_generator.cfg', 'GEN_FRAME'), {'SHAPE': 'HEX'})
+tests.append(('R90 GEN_FRAME: HEX shape rejected', 'must be RECT or OVAL' in out, out[:120]))
+
+# --- (3) LCD menu --------------------------------------------------------------
+_lcd90 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R90 LCD: Frames menu in Tools with preset/shape/closure/hang/stand',
+    '[menu __main __gen __frame]' in _lcd90 and 'name: Frames' in _lcd90
+    and all(k in _lcd90 for k in ('__frame __set __pre', '__frame __set __sha',
+                                  '__frame __set __clo', '__frame __set __han',
+                                  '__frame __set __sta', '__frame __gen'))
+    and 'FRAME_GENERATE' in _lcd90, ''))
+_fb90 = _lcd90[_lcd90.index('[menu __main __gen __frame]'):
+                _lcd90.index('[menu __main __gen __labels]')]
+_long90 = [ln[6:] for ln in _fb90.split(chr(10))
+           if ln.startswith('name: ') and len(ln[6:]) > 16 and '{' not in ln]
+tests.append(('R90 LCD: new names stay short (R29)', len(_long90) == 0,
+              str(_long90[:4])))
 
 fails = 0
 for name, ok, info in tests:

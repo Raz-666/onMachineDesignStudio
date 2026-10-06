@@ -26,7 +26,7 @@ reference tables at the end. Installation and wiring live in the appendices.
 2. [The system in five minutes](#2-the-system-in-five-minutes)
 3. [From file to print — the daily workflow](#3-from-file-to-print--the-daily-workflow)
 4. [Scenario library — every file type walked through](#4-scenario-library--every-file-type-walked-through)
-5. [The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes & Gaskets](#5-the-generators-range-labels-plotter-cable-ties-angles-lithophanes--gaskets)
+5. [The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes, Gaskets & Frames](#5-the-generators-range-labels-plotter-cable-ties-angles-lithophanes-gaskets--frames)
 6. [During the print: tuning, pauses, objects](#6-during-the-print-tuning-pauses-objects)
 7. [Filament: load / unload / change / runout / cold pull](#7-filament-load--unload--change--runout--cold-pull)
 8. [Temperature system L1/L2](#8-temperature-system-l1l2)
@@ -593,12 +593,12 @@ PAUSE_AT_LAYER LAYER=17
 CANCEL_PRINT                                    # twice within 60 s
 ```
 
-## 5. The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes & Gaskets
+## 5. The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes, Gaskets & Frames
 
-Seven generators turn the printer into a manufacturing tool of its own: partial
+Eight generators turn the printer into a manufacturing tool of its own: partial
 prints from any G-code, label plates from typed text, pen plots from images,
-cable ties, angle plates / flat connectors, lithophanes from photos and
-sealing gaskets. All of them write
+cable ties, angle plates / flat connectors, lithophanes from photos,
+sealing gaskets and picture frames / display cases. All of them write
 normal G-code files into the gcodes folder (the watcher builds them in the
 background — niced, single-pass, a few seconds), all of them run through the
 NORMAL start flow, and all generated objects are exclude-objects (skippable
@@ -1098,6 +1098,65 @@ bubbles are the #1 seal killer.
 
 ```
 GEN_SEAL OD=40 ID=20 HEIGHT=1.2 PROFILE=FLAT IRONING=0
+```
+
+
+### 5.8 Frames — picture frames & display cases
+
+A frame for a photo, or a deep display case for a collectible — printed in
+one piece with its backplate, stand and hidden hanging options. The main
+design goal: a **uniform, smooth front face** — the frame prints lying on its
+back, the visible face points up and gets the ironing pass.
+
+**The workflow (LCD: `Tools > Frames`)**
+
+1. **Settings** — Preset (9x13 · 10x15 · 13x18 · 15x21 landscape · A6 ·
+   A5 landscape) or custom W/H, Depth, Border, Corner r, Shape, Closure,
+   Hang, Stand, Ironing, Infill, Vers.
+2. **Create (beeps)** — the watcher checks the bed fit while generating
+   (≈ 1 s), the happy tune plays and the file **auto-selects**:
+   `00_Frame_<preset>_FLATx8_V01.gcode`.
+3. Start it like any file.
+
+**What a frame consists of**
+
+| Part | Job |
+|---|---|
+| FRAME | the ring: solid back band → photo groove (with the closure nubs) → bridge shelf → front face with the view opening; the front's last layer is ironed |
+| BACKPLATE | 0.8 mm cover plate, 1.2 mm rim — hidden keyhole (TOP/BOTTOM/LEFT/RIGHT) and, with Stand, two D2.7 stud holes |
+| STAND | easel leg with two studs that plug into the backplate holes (24 mm apart) |
+| STRIP_T/B/L/R | only in the split KIT: the four frame walls as glue strips |
+
+**Settings**
+
+| Setting | Range | Meaning |
+|---|---|---|
+| Preset / W·H | 40–230 mm | photo inner size; 15x21 and A5 default to landscape because their portrait backplate never fits this bed |
+| Depth | 3–60 mm | under 15 = flat photo frame, 15+ = deep display case (same closure system) |
+| Border | 4–30 mm | frame width around the photo |
+| Corner r | 0–30 mm | corner radius (RECT only; a split kit drops it to 0 with a note) |
+| Shape | RECT / OVAL | OVAL = ellipse from W×H (two diameters); no kit split for ovals |
+| Closure | BACK / SIDE | BACK = bayonet backplate: drop it in straight, slide 2.5 mm to lock (zero flex). SIDE = photo + plate slide together through the slot in the left wall |
+| Hang | TOP/BOTTOM/LEFT/RIGHT/OFF | keyhole position in the backplate — **invisible from the front** |
+| Stand | ON/OFF | easel leg; auto-dropped with a note if the bed has no room |
+| Ironing | ON/OFF | the smooth shiny front pass |
+| Infill | 20–100 % | frame body infill (front/back bands stay solid) |
+
+**Bed-fit logic (automatic):** frame + backplate side by side fit → one piece.
+Too big and RECT → 4-strip glue kit (strips + plate + stand, every part an
+exclude object; the notes say: glue the butt joints with wood glue). Still
+too big, or OVAL → a clear console message with the border limit — the
+guard beeps and shows on the LCD, nothing half-fits.
+
+**Assembly (BACK):** photo lies flat onto the back band, backplate goes in
+with its edge notches at the left/right nubs, slide 2.5 mm — locked, no
+tools, no flex. **(SIDE):** photo + cover plate slide together into the left
+wall slot. The hang keyhole works with a normal nail or screw head.
+
+**Console one-liner (Mainsail):**
+
+```
+GEN_FRAME PRESET=10x15 DEPTH=8 BORDER=12 SHAPE=RECT CLOSURE=BACK HANG=TOP STAND=1
 ```
 
 
@@ -1675,6 +1734,15 @@ while plotting (ch. C.3).
 | Create (beeps) | validates, bumps the job counter — the watcher builds the file, it beeps + auto-selects |
 | How it works | spiral-per-band, NUT fallback rule, TPU/PETG tip, Mainsail one-liner |
 
+**Frames** (picture frames / display cases, in Tools — ch. 5.8)
+
+| Entry | Contents |
+|---|---|
+| Info | every setting in one console listing + closure explanation |
+| Settings | Preset: Custom/9x13/10x15/13x18/15x21/A6/A5 (`*` marks active) · W + H 40–230 (custom) · Depth 3–60 mm · Border 4–30 mm · Corner r 0–30 mm · Shape RECT/OVAL · Closure BACK/SIDE · Hang TOP/BOTTOM/LEFT/RIGHT/OFF · Stand ON/OFF · Ironing ON/OFF · Infill 20–100 % · Vers V01–V09 |
+| Create (beeps) | validates, bumps the job counter — the watcher checks the bed fit and builds the file, it beeps + auto-selects |
+| How it works | workflow, kit logic, bayonet/slide assembly, Mainsail one-liner |
+
 Dependency rules the menu enforces itself: Flat mode hides the Angle input
 and the Rib submenu (a straight splice has neither), and the leg entries
 rename to Left/Right so the halves are unambiguous. The hole count/diameter
@@ -1987,6 +2055,8 @@ Diagnostics: SHOW_STATUS · SELF_TEST · KAMP_STATUS · HOST_CHECK (Pi health) �
 | join two boards flush | Tools > Angles+Flat > Mode > Flat splice, Left/Right, Create |
 | print a lithophane | Tools > Lithophane > Images (Create) — slot press, then start |
 | print a gasket | Tools > Gaskets > Settings, Create (beeps) |
+| print a picture frame | Tools > Frames > Settings, Create (beeps) |
+| frame as glue kit | Tools > Frames > Preset 13x18+, Create — strips + plate, glue the joints |
 | delete a lithophane image | Tools > Lithophane > Delete image — press the slot twice |
 | test ironing | Maintenance > Ironing Cal. |
 | purge / cold pull | Macros > Purge · Maintenance > Filament |
@@ -2004,6 +2074,7 @@ SET_LIVE_MINIMUM_CRUISE_RATIO · SET_LIVE_PRESSURE_ADVANCE · SET_LIVE_RETRACTIO
 SET_FLOW_RATE · SET_FAN_SCALE · PAUSE · RESUME · CANCEL_PRINT (2×) ·
 PAUSE_AT_LAYER LAYER=n · SKIP_OBJECT OBJECT=name · GEN_LABELS TEXT="A|B" ·
 GEN_CABLE_TIES COUNT=6 LENGTH=120 · GEN_ANGLES ANGLE=90 WIDTH=25 WALLS=4 INFILL=60 ·
+GEN_FRAME PRESET=10x15 DEPTH=8 CLOSURE=BACK HANG=TOP STAND=1 ·
 SET_LAYER_RANGE FLOOR=3 FLOOR_HOLE=15 TOP_HOLE=28 · SET_NOZZLE_SPLIT STATE=1 ·
 CALIBRATE_PA · FLOW_CAL MEASURE=0.46 · TEMP_TOWER_START START=200 END=230 STEP=5 BAND=10
 ```
@@ -2221,6 +2292,9 @@ All 143 public macros with parameters (defaults in parentheses; blank = no param
 | **LITHO_INFO** | — | lithophane settings + how many images are ready |
 | **SEAL_INFO** | — | gasket settings + NUT/material tips |
 | **SEAL_GENERATE** | — | create the seal file from the stored settings (bumps seal_nonce) |
+| **GEN_FRAME** | PRESET='', W=102, H=152, DEPTH=8, BORDER=12, CORNER=6, SHAPE='RECT', CLOSURE='BACK', HANG='TOP', STAND=0, IRONING=1, INFILL=60 | console/Mainsail frame job: `GEN_FRAME PRESET=A6 DEPTH=16 CLOSURE=BACK HANG=OFF STAND=1` — bed fit checked, kit fallback, guard errors beep + show |
+| **FRAME_GENERATE** | — | create the frame file from the stored settings (bumps frame_nonce) |
+| **FRAME_INFO** | — | every frame setting in one listing + closure explanation |
 | **GEN_ANGLES** | COUNT=2, ANGLE=90, LEG_A=60, LEG_B=60, WIDTH=25, LAYERS=6, HOLES=2, HOLE_D=4, CS=1, STIFFENER=1, WALLS=2, INFILL=100, IRONING=0, FLAT=0, LAYER_H=0.2 | console/Mainsail angle/flat job: `GEN_ANGLES ANGLE=45 LEG_A=80 LEG_B=50 STIFFENER=2` — CS=1 countersunk · FLAT=1 flat connector |
 | **ANGLE_GENERATE** | — | create the plate file from the stored settings (bumps angle_nonce) |
 | **ANGLE_INFO** | — | every angle/flat setting + the auto-hole rules |

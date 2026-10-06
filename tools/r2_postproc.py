@@ -5299,7 +5299,7 @@ NONCE_KEYS = ('preview_nonce', 'range_nonce', 'label_gen_nonce', 'reso_nonce',
               'bridge_nonce', 'plot_text_nonce', 'plot_status_nonce', 'host_nonce',
               'label_fit_nonce', 'retract_fix_nonce', 'vol_fix_nonce',
               'cable_tie_nonce', 'angle_nonce', 'litho_nonce', 'seal_nonce',
-              'litho_del_nonce')
+              'litho_del_nonce', 'frame_nonce')
 
 
 def _prime_nonces(rv):
@@ -6320,6 +6320,738 @@ def make_cable_ties(count=6, length=120.0, width=8.0, layers=3, variant='CLASSIC
                     '%.1fx%.1f' % (hole_l, hole_w),
             'pitch': pitch if variant == 'CLASSIC' else bead_gap,
             'grid': '%dx%d' % (cols, rows), 'notes': notes}
+    return out, info
+
+
+
+# =====================================================================================
+#  R90: PICTURE FRAME / DISPLAY CASE (Bilderrahmen / Schaukasten)
+# =====================================================================================
+FRAME_PRESETS = {   # photo inner size mm (W x H). The bed (244x241, ~232x229
+    # usable) fits frame + backplate up to ~10x15 as one piece; bigger
+    # formats work as split kit or landscape. 20x30/A4 would NEVER fit -
+    # not offered. 15x21/A5 default to LANDSCAPE (210 wide): their portrait
+    # backplate is too tall for the kit layout.
+    '9x13': (90, 130), '10x15': (102, 152), '13x18': (130, 180),
+    '15x21': (210, 150), 'A6': (105, 148), 'A5': (210, 148),
+}
+
+
+def _rr_pts(w, h, r):
+    """rounded rect contour, CCW, centered on (0,0)."""
+    w, h, r = float(w), float(h), max(0.0, min(float(r), min(w, h) / 2.0 - 0.01))
+    if r < 0.05:
+        return [(-w / 2, -h / 2), (w / 2, -h / 2), (w / 2, h / 2), (-w / 2, h / 2)]
+    k = 6
+    pts = []
+    for (sx, sy, a0) in ((1, 1, 0.0), (1, -1, -math.pi / 2),
+                         (-1, -1, math.pi), (-1, 1, math.pi / 2)):
+        cx, cy = sx * (w / 2 - r), sy * (h / 2 - r)
+        for i in range(k):
+            a = a0 + (math.pi / 2) * i / (k - 1)
+            pts.append((cx + r * math.cos(a), cy + r * math.sin(a)))
+    return pts
+
+
+def _el_pts(a, b, n=48):
+    """ellipse contour, CCW, centered on (0,0)."""
+    return [(a * math.cos(2.0 * math.pi * i / n), b * math.sin(2.0 * math.pi * i / n))
+            for i in range(n)]
+
+
+def _convex_intervals(poly, ox, oy, dx, dy):
+    """scanline through convex poly -> inside interval along (dx,dy) or None."""
+    cuts = []
+    n = len(poly)
+    for i in range(n):
+        x1, y1 = poly[i]
+        x2, y2 = poly[(i + 1) % n]
+        ex, ey = x2 - x1, y2 - y1
+        denom = dx * ey - dy * ex
+        if abs(denom) < 1e-12:
+            continue
+        t = ((ox - x1) * ey - (oy - y1) * ex) / denom
+        if 0.0 <= t <= 1.0:
+            s = (x1 + ex * t - ox) * dx + (y1 + ey * t - oy) * dy
+            cuts.append(s)
+    if len(cuts) < 2:
+        return None
+    cuts.sort()
+    return (cuts[0], cuts[-1])
+
+
+def _ring_hatch(outer, inner, spacing, angle_deg, notch=None, min_len=0.35):
+    """R90: scanline hatch over the RING between two convex contours (outer,
+    inner), optionally minus a rectangular notch (the SIDE-closure slot).
+    Boustrophedon sweep like _hatch (R77 rule: neighbors stay adjacent)."""
+    ang = math.radians(angle_deg)
+    dx, dy = math.cos(ang), math.sin(ang)
+    nx, ny = -dy, dx
+    xs = [p[0] for p in outer]
+    ys = [p[1] for p in outer]
+    if notch:
+        xs += [notch[0], notch[2]]
+        ys += [notch[1], notch[3]]
+    mx, my = (min(xs) + max(xs)) / 2.0, (min(ys) + max(ys)) / 2.0
+    tmax = max(abs((px - mx) * nx + (py - my) * ny) for px, py in outer) + spacing
+    notch_poly = None
+    if notch:
+        notch_poly = _rect_loop(notch[0], notch[1], notch[2], notch[3])
+    segs = []
+    flip = False
+    t = -tmax
+    while t <= tmax:
+        ox, oy = mx + nx * t, my + ny * t
+        ov = _convex_intervals(outer, ox, oy, dx, dy)
+        if ov is None:
+            t += spacing
+            continue
+        gaps = []
+        iv = _convex_intervals(inner, ox, oy, dx, dy)
+        if iv:
+            gaps.append(iv)
+        if notch_poly:
+            nv = _convex_intervals(notch_poly, ox, oy, dx, dy)
+            if nv:
+                gaps.append(nv)
+        gaps.sort()
+        spans = []
+        cur = ov[0]
+        for g0, g1 in gaps:
+            if g1 <= cur or g0 >= ov[1]:
+                continue
+            if g0 > cur:
+                spans.append((cur, g0))
+            cur = max(cur, g1)
+        if cur < ov[1]:
+            spans.append((cur, ov[1]))
+        row = []
+        for s0, s1 in spans:
+            if s1 - s0 < min_len:
+                continue
+            p = (ox + dx * s0, oy + dy * s0)
+            q = (ox + dx * s1, oy + dy * s1)
+            row.append((p, q) if not flip else (q, p))
+        if row:
+            if flip:
+                row.reverse()
+            segs.extend(row)
+            flip = not flip
+        t += spacing
+    return segs
+
+
+def _bite_contour(pts, side, y0, y1, nd):
+    """rectangular bite into the left('L')/right('R') edge of a closed convex
+    contour: material removed for y in [y0, y1], from the edge inwards by nd.
+    Used for the R90 backplate bayonet notches (rect or oval plates)."""
+    if side == 'L':
+        xe = min(p[0] for p in pts)
+        xin = xe + nd
+
+        def inb(p):
+            return y0 <= p[1] <= y1 and p[0] <= xe + 1e-6
+        bite = [(xe, y0), (xin, y0), (xin, y1), (xe, y1)]
+    else:
+        xe = max(p[0] for p in pts)
+        xin = xe - nd
+
+        def inb(p):
+            return y0 <= p[1] <= y1 and p[0] >= xe - 1e-6
+        bite = [(xe, y0), (xin, y0), (xin, y1), (xe, y1)]
+    n = len(pts)
+    pts = list(pts)
+    if inb(pts[0]):                       # rotate: avoid a wrap-around run
+        k = next((i for i in range(n) if not inb(pts[i])), 0)
+        pts = pts[k:] + pts[:k]
+    out, i, done = [], 0, False
+    while i < n:
+        if inb(pts[i]):
+            if not done:
+                out.extend(bite)
+                done = True
+            while i < n and inb(pts[i]):
+                i += 1
+        else:
+            out.append(pts[i])
+            i += 1
+    return out
+
+
+def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
+               corner=6.0, shape='RECT', closure='BACK', hang='TOP', stand=False,
+               wall=1.6, infill=60.0, ironing=True, layer_h=0.2, first_h=0.28,
+               material='PLA', bed=None, bed_margin=6.0, nozzle=0.6,
+               out_dir='.', version=1):
+    """R90: picture frame (Bilderrahmen) or display case (Schaukasten).
+
+    Lying print, FRONT UP = the visible face gets the ironing pass. Classic
+    frame profile with ZERO overhangs: solid ring from back to front; the
+    photo groove is cut into the INNER edge (the shelf bridges it - R87.2
+    short-bridge tech), the closure nubs grow from the ring walls in-plane.
+
+    depth < 15 mm  -> FLAT photo frame (groove = photo + backplate)
+    depth >= 15 mm -> display CASE: same profile on a deep hollow body
+    Closure BACK: photo from behind; bayonet backplate (edge notches clear
+    the 2 side-wall nubs, slide 2.5mm to lock - zero flex needed)
+    Closure SIDE: slot through the left wall - photo + card slide in sideways
+    Backplate always included: hidden hang keyhole (hang TOP/BOTTOM/LEFT/
+    RIGHT/OFF) + 2 stud holes when stand=ON (easel leg plugs in).
+    Oversized RECT frames auto-split into a 4-strip glue kit (every part
+    fits the bed); oversized OVAL raises a clear error.
+
+    Returns (path, info).
+    """
+    preset = str(preset or '')
+    _pk = preset.upper()
+    for _k, _v in FRAME_PRESETS.items():
+        if _k.upper() == _pk:
+            preset = _k
+            width, height = _v
+            break
+    width, height = float(width), float(height)
+    depth, frame_w = float(depth), float(frame_w)
+    shape = str(shape).upper()
+    if shape not in ('RECT', 'OVAL'):
+        shape = 'RECT'
+    closure = str(closure).upper()
+    if closure not in ('BACK', 'SIDE'):
+        closure = 'BACK'
+    hang = str(hang or 'OFF').upper()
+    if hang not in ('TOP', 'BOTTOM', 'LEFT', 'RIGHT', 'OFF'):
+        hang = 'TOP'
+    if not (40.0 <= width <= 230.0 and 40.0 <= height <= 230.0):
+        raise ValueError('photo size %.0fx%.0fmm out of range (40..230 each)' % (width, height))
+    if not (3.0 <= depth <= 60.0):
+        raise ValueError('frame depth %.1fmm out of range (3..60; <15 = photo '
+                         'frame, >=15 = display case)' % depth)
+    if not (4.0 <= frame_w <= 30.0):
+        raise ValueError('frame border %.1fmm out of range (4..30)' % frame_w)
+    if not (0.8 <= float(wall) <= 3.0):
+        raise ValueError('wall thickness %.1fmm out of range (0.8..3)' % wall)
+    if not (20.0 <= float(infill) <= 100.0):
+        raise ValueError('infill %.0f%% out of range (20..100)' % infill)
+    if bed is None:
+        bed = (0.0, -3.0, 244.0, 238.0)
+    layer_h = max(0.06, min(float(layer_h), 0.34))
+    first_h = max(0.08, min(float(first_h), 0.42))
+    infill = float(infill)
+
+    wid = max(0.4, nozzle * 1.08)
+    fil = FIL_AREA
+    mode = 'CASE' if depth >= 15.0 else 'FLAT'
+    notes = []
+
+    # ---- contours (centered on 0,0) ------------------------------------------
+    ow, oh = width + 2 * frame_w, height + 2 * frame_w          # outer
+    pw, ph = width + 0.6, height + 0.6                          # photo opening
+    vw, vh = width - 3.0, height - 3.0                          # view opening
+    if shape == 'OVAL':
+        outer_c = _el_pts(ow / 2, oh / 2)
+        photo_c = _el_pts(pw / 2, ph / 2)
+        view_c = _el_pts(vw / 2, vh / 2)
+    else:
+        outer_c = _rr_pts(ow, oh, corner)
+        photo_c = _rr_pts(pw, ph, max(0.0, corner - frame_w * 0.6))
+        view_c = _rr_pts(vw, vh, max(0.0, corner - frame_w * 0.6 - 2.0))
+
+    # ---- vertical profile (layer bands, bed = frame BACK) ---------------------
+    ft = max(2 * layer_h, 1.0)              # front band (visible face)
+    shelf_th = max(layer_h, 0.4)            # photo shelf (bridges the groove)
+    # groove = photo + 0.8mm backplate + play; plate locks 0.2mm under the
+    # nubs - the photo lies flat between back band and plate
+    groove = 1.6 if mode == 'FLAT' else 2.8
+    bb = depth - ft - shelf_th - groove     # back band (the rest)
+    if bb < 2 * layer_h:
+        groove = 1.4
+        bb = depth - ft - shelf_th - groove
+        if bb < layer_h:
+            raise ValueError('depth %.1fmm too shallow for a photo groove '
+                             '(needs >= %.1fmm)' % (depth, ft + shelf_th + groove + layer_h))
+        notes.append('shallow frame: groove reduced to %.1fmm (thin photo + '
+                     '0.8mm backplate)' % groove)
+    n_ft = max(1, int(round(ft / layer_h)))
+    n_sh = max(1, int(round(shelf_th / layer_h)))
+    n_gr = max(1, int(round(groove / layer_h)))
+    n_bb = max(1, int(round(bb / layer_h)))
+    frame_layers = n_bb + n_gr + n_sh + n_ft
+    bp_layers = max(3, int(round(0.8 / layer_h)))
+    st_layers = max(6, int(round(1.2 / layer_h)))
+    stud_layers = 6
+    total_layers = frame_layers
+    if bp_layers > total_layers:
+        total_layers = bp_layers
+    if stand and st_layers + stud_layers > total_layers:
+        total_layers = st_layers + stud_layers
+
+    # ---- closure nubs (BACK only): mini-bridges 1mm over the backplate -----
+    # plate = 4 layers on the back band; nub band = layers n_bb+3..n_bb+4
+    # (0.2mm overlap with the plate top). The plate's left/right edge
+    # notches clear the nubs on the straight insert; sliding 2mm locks it.
+    nub_d, nub_l = 1.0, 6.0
+    nub_zn = set(range(n_bb + 3, n_bb + 5)) if closure == 'BACK' else set()
+
+    # SIDE closure: slot through the LEFT wall, open across the groove band
+    # and the FULL wall length (photo + cover plate are ph+0.4 tall)
+    side_slot = None
+    if closure == 'SIDE':
+        # full-height slit: everything left of the photo opening edge goes
+        # (wall incl. corner stubs) - the T/B groove layers then simply
+        # start 1.5mm further right, still sitting on the back band
+        side_slot = (-ow / 2 - 1.0, -oh / 2 - 1.0, -pw / 2 + 0.5, oh / 2 + 1.0)
+
+    # ---- bed layout ------------------------------------------------------------
+    # frame left; right column = backplate (top) + stand (below). 4mm gaps,
+    # 2mm plate rim - a 10x15 frame with border 10 still fits beside its plate
+    gap = 3.0
+    if closure == 'BACK':
+        # bayonet plate: 1.2mm rim rests on the ring back, L/R edge notches
+        bw, bh = pw + 2.4, ph + 2.4
+    else:
+        # SIDE: the cover plate slides through the wall slot - photo size
+        bw, bh = pw + 0.4, ph + 0.4
+    sw, sh = (26.0, 62.0) if stand else (0.0, 0.0)
+    bx0, by0, bx1, by1 = bed
+    ux0, uy0 = bx0 + bed_margin, by0 + bed_margin
+    ux1, uy1 = bx1 - bed_margin, by1 - bed_margin
+    uw, uh = ux1 - ux0, uy1 - uy0
+    kit = False
+    stand_ok = stand
+    stand_below = False
+    # does the frame+plate alone fit as ONE PIECE? (the stand is decided
+    # after - it must never force a kit or an error on its own)
+    if ow + gap + bw <= uw and max(oh, bh) <= uh:
+        if stand:
+            # stand below the plate (right column), else under the frame,
+            # else dropped with a note (wall mounting still works)
+            if ow + gap + max(bw, 26.0) <= uw and max(oh, bh + gap + 62.0) <= uh:
+                pass                       # default: stand under the plate
+            elif ow + gap + bw <= uw and max(oh + gap + 62.0, bh) <= uh:
+                stand_below = True         # stand under the frame
+            else:
+                stand_ok = False
+                notes.append('stand skipped - no room on this bed beside the '
+                             'frame (wall mounting still works)')
+    sw, sh = (26.0, 62.0) if stand_ok else (0.0, 0.0)
+    right_w = max(bw, sw)
+    col2_h = bh + (gap + sh if stand_ok and not stand_below else 0.0)
+    need_w = ow + gap + right_w
+    need_h = max(oh + (gap + sh if stand_below else 0.0), col2_h)
+    if need_w > uw or need_h > uh:
+        # auto split kit (user decision R90): 4 butt-jointed strips + plate.
+        # RECT only - an OVAL cannot be split into straight strips.
+        if shape != 'RECT':
+            raise ValueError('oval frame %.0fx%.0fmm does not fit the bed '
+                             'together with its backplate (needs %.0fx%.0fmm) - '
+                             'smaller photo/preset or less border'
+                             % (ow, oh, need_w, need_h))
+        kit = True
+        if corner > 0.5:
+            corner = 0.0
+            notes.append('corner radius dropped to 0 - the split kit uses '
+                         'straight strips with butt joints')
+        if ow > uw:
+            raise ValueError('frame %.0fx%.0fmm exceeds the bed width even '
+                             'split into strips' % (ow, oh))
+
+    # ---- backplate contour (shared by one-piece + kit) -------------------------
+    # the bites clear the nubs on the straight insert; their ASYMMETRIC
+    # y-ranges lock the plate against sliding both ways after a 2.5mm drop
+    if shape == 'OVAL':
+        plate_pts = _el_pts(bw / 2, bh / 2)
+    else:
+        plate_pts = _rr_pts(bw, bh, max(0.0, corner - frame_w * 0.6))
+    if closure == 'BACK':
+        # densify: a plain rect contour has no vertices inside the bite
+        # zone, so _bite_contour would find nothing to cut
+        dens = []
+        for i, (x0, y0) in enumerate(plate_pts):
+            dens.append((x0, y0))
+            x1, y1 = plate_pts[(i + 1) % len(plate_pts)]
+            seg = ((x1 - x0) ** 2 + (y1 - y0) ** 2) ** 0.5
+            if seg > 1.5:
+                k = int(seg / 1.5) + 1
+                for t in range(1, k):
+                    dens.append((x0 + (x1 - x0) * t / k, y0 + (y1 - y0) * t / k))
+        plate_pts = dens
+        plate_pts = _bite_contour(plate_pts, 'L', -5.0, 4.0, 2.5)
+        plate_pts = _bite_contour(plate_pts, 'R', -4.0, 5.0, 2.5)
+
+    def plate_keeps(px, py):
+        keep = []
+        if hang != 'OFF':
+            if hang in ('TOP', 'BOTTOM'):
+                hx, hy = 0.0, (bh / 2 - 6.0) * (1 if hang == 'TOP' else -1)
+                keep.append((px + hx, py + hy, 2.6))
+                keep.append((px + hx, py + hy - (3.4 if hang == 'TOP' else -3.4), 1.7))
+            else:
+                hx, hy = (bw / 2 - 6.0) * (1 if hang == 'RIGHT' else -1), 0.0
+                keep.append((px + hx, py + hy, 2.6))
+                keep.append((px + hx - (3.4 if hang == 'RIGHT' else -3.4), py + hy, 1.7))
+        if stand:
+            keep.append((px - 12.0, py - bh / 2 + 6.0, 1.35))
+            keep.append((px + 12.0, py - bh / 2 + 6.0, 1.35))
+        return keep
+
+    # ---- the line list ---------------------------------------------------------
+    L = []
+    a = L.append
+    a('; ' + TAG)
+    a('; R2-FRAME generated picture frame (R90) - start it like any other file')
+    if kit:
+        a('; SPLIT KIT (too big for one piece): 4 frame strips to glue + '
+          'backplate%s - butt joints, wood glue works' % (' + stand' if stand else ''))
+    a('; %s %s: photo %.0fx%.0fmm, border %.0fmm, depth %.1fmm, closure %s%s'
+      % (mode, shape, width, height, frame_w, depth, closure,
+         ', hidden hang keyhole %s' % hang if hang != 'OFF' else ''))
+    a('; front prints UP (ironing pass on the visible face); %s' % (
+        'deep hollow body, backplate closes the back' if mode == 'CASE' else
+        'photo lies on the shelf behind the view opening'))
+    a('; every part is an exclude object - skip one live in the Objects menu')
+    pen = _Pen(L, jump_d=6.0)
+
+    def e_w(li):
+        return (first_h if li == 1 else layer_h) * wid / fil
+
+    # ===================  ONE-PIECE frame (the ring) ============================
+    if not kit:
+        top = uy0 + need_h
+        cx = ux0 + ow / 2
+        cy = top - oh / 2
+        bx = ux0 + ow + gap + right_w / 2
+        by = top - bh / 2
+        sx = sy = 0.0
+        if stand_ok and not stand_below:
+            sx = ux0 + ow + gap + right_w / 2
+            sy = uy0 + sh / 2
+        elif stand_ok:
+            sx = ux0 + sw / 2
+            sy = uy0 + sh / 2
+
+        def emit_ring(li, inner, notch=None):
+            ew = e_w(li)
+            f1 = 1500 if li == 1 else 2400
+            for loop in (outer_c, inner):
+                if notch and loop is outer_c:
+                    # the slot cuts through the whole wall: outer loop split
+                    # into polylines OUTSIDE the notch box (local coords!)
+                    polylines = []
+                    cur = []
+                    for (x, y) in list(outer_c) + [outer_c[0]]:
+                        if notch[0] <= x <= notch[2] and notch[1] <= y <= notch[3]:
+                            if len(cur) > 1:
+                                polylines.append(cur)
+                            cur = []
+                        else:
+                            cur.append((x + cx, y + cy))
+                    if len(cur) > 1:
+                        polylines.append(cur)
+                    for pl in polylines:
+                        _emit_loop(pen, pl, ew, f1, close=False)
+                elif notch and loop is inner and inner is photo_c:
+                    polylines = []
+                    cur = []
+                    for (x, y) in list(photo_c) + [photo_c[0]]:
+                        if notch[0] <= x <= notch[2] and notch[1] <= y <= notch[3]:
+                            if len(cur) > 1:
+                                polylines.append(cur)
+                            cur = []
+                        else:
+                            cur.append((x + cx, y + cy))
+                    if len(cur) > 1:
+                        polylines.append(cur)
+                    for pl in polylines:
+                        _emit_loop(pen, pl, ew, f1, close=False)
+                else:
+                    _emit_loop(pen, [(x + cx, y + cy) for (x, y) in loop], ew, f1)
+            spacing = wid if inner is view_c else wid * 100.0 / max(20.0, infill)
+            hs = _ring_hatch(outer_c, inner, spacing,
+                             45.0 if li % 2 else 135.0, notch=notch)
+            _emit_hatch(pen, [((p[0] + cx, p[1] + cy), (q[0] + cx, q[1] + cy))
+                              for (p, q) in hs], ew, 1500 if li == 1 else 2700)
+
+        def emit_nubs(li):
+            # bayonet: exactly TWO nubs on the left/right wall centers,
+            # reaching 1.0mm into the photo opening
+            ew = e_w(li)
+            for nx in (-pw / 2, pw / 2):
+                x0 = nx - nub_d if nx > 0 else nx
+                x1 = nx if nx > 0 else nx + nub_d
+                _emit_loop(pen, _rect_loop(x0 + cx, cy - nub_l / 2,
+                                           x1 + cx, cy + nub_l / 2), ew, 1800)
+
+        for li in range(1, total_layers + 1):
+            z = round(first_h + (li - 1) * layer_h, 3)
+            a(';LAYER_CHANGE')
+            a(';Z:%.3f' % z)
+            pen.set_z(z)
+            if li == 2:
+                a('M106 S178   ; R2-FRAME: part fan from layer 2')
+            # ---- frame ring ----
+            if li <= frame_layers:
+                a('EXCLUDE_OBJECT_START NAME=FRAME')
+                if li <= n_bb:
+                    a(';TYPE:Outer wall')
+                    emit_ring(li, photo_c)
+                elif li <= n_bb + n_gr:
+                    a(';TYPE:Outer wall')
+                    # groove band: the SIDE slot opens the left wall HERE
+                    emit_ring(li, photo_c, notch=side_slot)
+                    if li in nub_zn:
+                        a(';TYPE:Inner wall')
+                        emit_nubs(li)
+                elif li <= n_bb + n_gr + n_sh:
+                    # shelf band = the bridge from the view edge to the photo
+                    # edge (the photo's front stop) - same contour as the front
+                    a(';TYPE:Bridge')
+                    emit_ring(li, view_c)
+                else:
+                    a(';TYPE:Outer wall')
+                    emit_ring(li, view_c)
+                    if ironing and li == frame_layers:
+                        a(';TYPE:Ironing')
+                        iw = _ring_hatch(outer_c, view_c, 2.4, 0.0)
+                        _emit_hatch(pen, [((p[0] + cx, p[1] + cy),
+                                           (q[0] + cx, q[1] + cy))
+                                          for (p, q) in iw],
+                                    0.15 * layer_h * wid / fil, 600)
+                a('EXCLUDE_OBJECT_END NAME=FRAME')
+            # ---- backplate ----
+            if li <= bp_layers:
+                a('EXCLUDE_OBJECT_START NAME=BACKPLATE')
+                a(';TYPE:Outer wall')
+                _emit_loop(pen, [(x + bx, y + by) for (x, y) in plate_pts],
+                           e_w(li), 1500 if li == 1 else 2400)
+                a(';TYPE:Internal solid infill')
+                segs = _poly_hatch([(x + bx, y + by) for (x, y) in plate_pts],
+                                   wid, 45.0 if li % 2 else 135.0,
+                                   keep_circles=plate_keeps(bx, by))
+                _emit_hatch(pen, segs, e_w(li), 1500 if li == 1 else 2700)
+                a('EXCLUDE_OBJECT_END NAME=BACKPLATE')
+            # ---- stand ----
+            if stand_ok and li <= st_layers:
+                a('EXCLUDE_OBJECT_START NAME=STAND')
+                a(';TYPE:Outer wall')
+                leg_h = min(58.0, sh - 4.0)
+                tri = [(sx - sw / 2, sy - sh / 2), (sx + sw / 2, sy - sh / 2),
+                       (sx - sw / 2, sy - sh / 2 + leg_h)]
+                _emit_loop(pen, tri, e_w(li), 1500 if li == 1 else 2400)
+                a(';TYPE:Internal solid infill')
+                _emit_hatch(pen, _poly_hatch(tri, wid, 45.0 if li % 2 else 135.0),
+                            e_w(li), 1500 if li == 1 else 2700)
+                a('EXCLUDE_OBJECT_END NAME=STAND')
+            if stand_ok and st_layers < li <= st_layers + stud_layers:
+                a('EXCLUDE_OBJECT_START NAME=STAND')
+                a(';TYPE:Outer wall')
+                for sxx in (sx - 12.0, sx + 12.0):
+                    _emit_loop(pen, _rect_loop(sxx - 1.1, sy - sh / 2 + 3.0,
+                                               sxx + 1.1, sy - sh / 2 + 5.4),
+                               e_w(li), 900)
+                a('EXCLUDE_OBJECT_END NAME=STAND')
+
+        defs = [('FRAME', cx, cy, ow, oh), ('BACKPLATE', bx, by, bw, bh)]
+        if stand_ok:
+            defs.append(('STAND', sx, sy, sw, sh))
+        hdr = []
+        for nm, px, py, pww, phh in defs:
+            poly = '[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]' % (
+                px - pww / 2, py - phh / 2, px + pww / 2, py - phh / 2,
+                px + pww / 2, py + phh / 2, px - pww / 2, py + phh / 2)
+            hdr.append('EXCLUDE_OBJECT_DEFINE NAME=%s CENTER=%.1f,%.1f POLYGON=%s'
+                       % (nm, px, py, poly))
+        if closure == 'BACK':
+            notes.append('assembly: photo flat onto the back, then the '
+                         'backplate with its edge notches at the left/right '
+                         'nubs - drop it in and slide 2.5mm to lock')
+        else:
+            notes.append('assembly: photo + cover plate slide together into '
+                         'the slot in the left wall')
+
+    # ===================  SPLIT KIT (oversized RECT, corner 0) ==================
+    else:
+        # 4 butt-jointed strips, each printed FLAT as a horizontal bar
+        # (a straight strip has no fixed orientation in the XY plane), one
+        # per row; backplate (+ stand beside it) in the row below.
+        vh_st = oh - 2 * frame_w
+        # edir = which bar edge faces the frame CENTER (shelf+front bands
+        # extend by the view overlap, nubs sit at the L/R inner ends)
+        rows = [('STRIP_T', ow, 'ym'), ('STRIP_B', ow, 'yp'),
+                ('STRIP_L', vh_st, 'xm'), ('STRIP_R', vh_st, 'xp')]
+        strip_h = 4 * frame_w + 3 * gap
+
+        def kit_footprint():
+            rh = max(bh, sh if stand_ok else 0.0)
+            return (max(max(r[1] for r in rows),
+                        bw + (gap + sw if stand_ok else 0.0)),
+                    strip_h + gap + rh, rh)
+
+        kit_w, kit_h, row2_h = kit_footprint()
+        if (kit_w > uw or kit_h > uh) and stand_ok:
+            # drop the stand, keep the printable frame + plate
+            stand_ok = False
+            sw = sh = 0.0
+            notes.append('stand skipped - no room on this bed beside the '
+                         'kit parts (wall mounting still works)')
+            kit_w, kit_h, row2_h = kit_footprint()
+        if kit_w > uw or kit_h > uh:
+            fw_max = (uh - gap - row2_h - 3 * gap) / 4.0
+            raise ValueError('split kit needs %.0fx%.0fmm - the backplate '
+                             '(%.0fx%.0f) leaves only %.0fmm for the strips. '
+                             'Reduce the border to <= %.0fmm or use a smaller '
+                             'photo/preset'
+                             % (kit_w, kit_h, bw, bh, uh - row2_h - gap,
+                                max(4.0, min(30.0, fw_max))))
+        parts = []
+        yy = uy0
+        for nm, slen, edir in rows:
+            parts.append((nm, (ux0, yy, ux0 + slen, yy + frame_w), edir))
+            yy += frame_w + gap
+        bpx = ux0 + bw / 2
+        bpy = uy0 + strip_h + gap + bh / 2
+        sxk, syk = 0.0, 0.0
+        if stand_ok:
+            sxk = ux0 + bw + gap + sw / 2
+            syk = uy0 + strip_h + gap + sh / 2
+
+        # NOTE: strips carry the profile via their INNER edge position:
+        #   band  back band   -> inner edge = photo opening (pw/ph)
+        #   band  shelf/front -> inner edge = view opening (vw/vh)
+        # For horizontal strips the inner edge is y = y0 + frame_w stays
+        # constant; the OPENING size only decides whether the strip is emitted
+        # as full rect (it always is - the opening is BETWEEN the strips).
+
+        def emit_strip(li, rect):
+            ew = e_w(li)
+            x0, y0, x1, y1 = rect
+            _emit_loop(pen, _rect_loop(x0, y0, x1, y1), ew, 1500 if li == 1 else 2400)
+            a(';TYPE:Internal solid infill')
+            _emit_hatch(pen, _hatch(x0 + wid, y0 + wid, x1 - wid, y1 - wid, [],
+                                    wid * 100.0 / max(20.0, infill),
+                                    45.0 if li % 2 else 135.0),
+                        ew, 1500 if li == 1 else 2700)
+
+        # which bands exist per strip: back band (+nubs on the T/B strips),
+        # groove (nothing between strips - the whole middle is open in a kit),
+        # shelf+front band. In a kit the 'groove' is simply absent: photo +
+        # backplate are held by the assembled frame exactly like one piece.
+        for li in range(1, total_layers + 1):
+            z = round(first_h + (li - 1) * layer_h, 3)
+            a(';LAYER_CHANGE')
+            a(';Z:%.3f' % z)
+            pen.set_z(z)
+            if li == 2:
+                a('M106 S178   ; R2-FRAME: part fan from layer 2')
+            for nm, rect, edir in parts:
+                if li <= frame_layers:
+                    a('EXCLUDE_OBJECT_START NAME=%s' % nm)
+                    a(';TYPE:Outer wall')
+                    # shelf + front bands extend into the opening by the view
+                    # overlap (the photo stop) - back/groove bands stay plain
+                    ext = (pw - vw) / 2.0 if li > n_bb + n_gr else 0.0
+                    r = list(rect)
+                    if ext:
+                        if edir == 'ym':
+                            r[1] -= ext
+                        elif edir == 'yp':
+                            r[3] += ext
+                        elif edir == 'xm':
+                            r[0] -= ext
+                        else:
+                            r[2] += ext
+                    emit_strip(li, tuple(r))
+                    if closure == 'BACK' and li in nub_zn and                             edir in ('xm', 'xp'):
+                        # bayonet nub at the strip's inner END, lengthwise
+                        # center - mini bridge, same as the one-piece frame
+                        a(';TYPE:Inner wall')
+                        yc = (rect[1] + rect[3]) / 2.0
+                        if edir == 'xm':
+                            _emit_loop(pen, _rect_loop(rect[0] - nub_d, yc - nub_l / 2,
+                                                       rect[0], yc + nub_l / 2),
+                                       e_w(li), 1800)
+                        else:
+                            _emit_loop(pen, _rect_loop(rect[2], yc - nub_l / 2,
+                                                       rect[2] + nub_d, yc + nub_l / 2),
+                                       e_w(li), 1800)
+                    if ironing and li == frame_layers:
+                        a(';TYPE:Ironing')
+                        _emit_hatch(pen, _hatch(r[0] + 1.0, r[1] + 1.0,
+                                                r[2] - 1.0, r[3] - 1.0, [],
+                                                2.4, 0.0),
+                                    0.15 * layer_h * wid / fil, 600)
+                    a('EXCLUDE_OBJECT_END NAME=%s' % nm)
+            if li <= bp_layers:
+                a('EXCLUDE_OBJECT_START NAME=BACKPLATE')
+                a(';TYPE:Outer wall')
+                _emit_loop(pen, [(x + bpx, y + bpy) for (x, y) in plate_pts],
+                           e_w(li), 1500 if li == 1 else 2400)
+                a(';TYPE:Internal solid infill')
+                _emit_hatch(pen, _poly_hatch([(x + bpx, y + bpy)
+                                              for (x, y) in plate_pts],
+                                             wid, 45.0 if li % 2 else 135.0,
+                                             keep_circles=plate_keeps(bpx, bpy)),
+                            e_w(li), 1500 if li == 1 else 2700)
+                a('EXCLUDE_OBJECT_END NAME=BACKPLATE')
+            if stand_ok and li <= st_layers:
+                a('EXCLUDE_OBJECT_START NAME=STAND')
+                a(';TYPE:Outer wall')
+                leg_h = min(58.0, sh - 4.0)
+                tri = [(sxk - sw / 2, syk - sh / 2), (sxk + sw / 2, syk - sh / 2),
+                       (sxk - sw / 2, syk - sh / 2 + leg_h)]
+                _emit_loop(pen, tri, e_w(li), 1500 if li == 1 else 2400)
+                a(';TYPE:Internal solid infill')
+                _emit_hatch(pen, _poly_hatch(tri, wid, 45.0 if li % 2 else 135.0),
+                            e_w(li), 1500 if li == 1 else 2700)
+                a('EXCLUDE_OBJECT_END NAME=STAND')
+            if stand_ok and st_layers < li <= st_layers + stud_layers:
+                a('EXCLUDE_OBJECT_START NAME=STAND')
+                a(';TYPE:Outer wall')
+                for sxx in (sxk - 12.0, sxk + 12.0):
+                    _emit_loop(pen, _rect_loop(sxx - 1.1, syk - sh / 2 + 3.0,
+                                               sxx + 1.1, syk - sh / 2 + 5.4),
+                               e_w(li), 900)
+                a('EXCLUDE_OBJECT_END NAME=STAND')
+
+        defs = [(nm, (r[0] + r[2]) / 2, (r[1] + r[3]) / 2, r[2] - r[0], r[3] - r[1])
+                for nm, r, _ed in parts]
+        defs.append(('BACKPLATE', bpx, bpy, bw, bh))
+        if stand_ok:
+            defs.append(('STAND', sxk, syk, sw, sh))
+        hdr = []
+        for nm, px, py, pww, phh in defs:
+            poly = '[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]' % (
+                px - pww / 2, py - phh / 2, px + pww / 2, py - phh / 2,
+                px + pww / 2, py + phh / 2, px - pww / 2, py + phh / 2)
+            hdr.append('EXCLUDE_OBJECT_DEFINE NAME=%s CENTER=%.1f,%.1f POLYGON=%s'
+                       % (nm, px, py, poly))
+        notes.append('split kit: 4 strips with butt joints - glue the corners '
+                     '(wood glue), then insert photo + backplate from behind')
+        if closure == 'SIDE':
+            notes.append('kit + SIDE: after gluing, cut the side slot into the '
+                         'left strip (the groove band is only ~%.1fmm deep - '
+                         'two passes with a saw knife)' % groove)
+
+    # ---- header assembly (angles pattern) --------------------------------------
+    ps = 'PRINT_START MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d OUTER_WALL_SPEED=15' % (
+        material, layer_h, total_layers)
+    i0 = next(i for i, l in enumerate(L) if l.startswith(';LAYER_CHANGE'))
+    outl = (L[:i0] + hdr + [ps, 'G90', 'M83',
+                            'M107   ; R2-FRAME: first layer = fan off']
+            + _gen_markers(L[i0:]))
+
+    fname = '00_Frame_%s_%sx%.0f%s_V%02d.gcode' % (
+        preset if preset else '%.0fx%.0f' % (width, height),
+        mode, depth, '_KIT' if kit else '', max(1, min(int(version), 99)))
+    out = os.path.join(out_dir, fname)
+    with open(out, 'w') as f:
+        f.write('\n'.join(outl) + '\n')
+
+    info = {'file': fname, 'mode': mode, 'shape': shape, 'preset': preset,
+            'width': width, 'height': height, 'depth': depth, 'border': frame_w,
+            'closure': closure, 'hang': hang, 'stand': bool(stand_ok), 'kit': kit,
+            'layers': total_layers, 'outer': '%.0fx%.0fmm' % (ow, oh),
+            'photo_open': '%.1fx%.1fmm' % (pw, ph),
+            'notes': notes + (['stand: easel-leg studs plug into the 2 backplate '
+                               'holes (D2.7, 24mm apart)'] if stand_ok else [])}
     return out, info
 
 
@@ -8264,6 +8996,7 @@ def watch(directory, interval=5.0, once=False):
     last_angle_nonce = None
     last_litho_nonce = None          # R89: lithophane / seal / image-delete
     last_seal_nonce = None
+    last_frame_nonce = None         # R90: picture frame / display case
     last_litho_del_nonce = None
     pushed_images = None             # R89: last image list pushed to the LCD
     last_fit_nonce = None
@@ -8305,6 +9038,7 @@ def watch(directory, interval=5.0, once=False):
                 last_host_nonce = _np['host_nonce']
                 last_litho_nonce = _np.get('litho_nonce')       # R89
                 last_seal_nonce = _np.get('seal_nonce')
+                last_frame_nonce = _np.get('frame_nonce')    # R90
                 last_litho_del_nonce = _np.get('litho_del_nonce')
                 first_prime = False
             # R62: file preview request - SDCARD_PRINT_FILE stored the selected
@@ -8879,6 +9613,85 @@ def watch(directory, interval=5.0, once=False):
                 print(f'[seal] {info_s["file"]}: OK', flush=True)
         except Exception as e:                              # noqa: BLE001
             print(f'[seal] poll error: {e!r}', flush=True)
+
+        # R90: picture frame / display case generator (frame_nonce) - inline
+        # (a 10x15 frame is ~25k gcode lines, well under a second)
+        try:
+            _fn90 = rv.get('frame_nonce', '')
+            if _fn90 and _fn90 != last_frame_nonce:
+                last_frame_nonce = _fn90
+
+                def _vf90(key, dflt):
+                    try:
+                        return float(rv.get(key, dflt) or dflt)
+                    except (TypeError, ValueError):
+                        return float(dflt)
+
+                def _vb90(key, dflt):
+                    v = str(rv.get(key, dflt)).strip().lower()
+                    if v == '':
+                        return dflt
+                    return v in ('true', '1', 'on', 'yes')
+
+                def _vs90(key, dflt, allowed):
+                    v = str(rv.get(key, dflt) or dflt).strip().upper()
+                    return v if v in allowed else dflt
+
+                _bed90 = _bed_limits(os.path.join(
+                    os.path.dirname(os.path.abspath(directory.rstrip('/'))),
+                    'config', 'printer.cfg'))
+                _shape90 = _vs90('frame_shape', 'RECT', ('RECT', 'OVAL'))
+                _clos90 = _vs90('frame_closure', 'BACK', ('BACK', 'SIDE'))
+                _hang90 = _vs90('frame_hang', 'TOP',
+                                ('TOP', 'BOTTOM', 'LEFT', 'RIGHT', 'OFF'))
+                try:
+                    out_f, info_f = make_frame(
+                        preset=str(rv.get('frame_preset', '') or ''),
+                        width=_vf90('frame_w', 102.0),
+                        height=_vf90('frame_h', 152.0),
+                        depth=_vf90('frame_depth', 8.0),
+                        frame_w=_vf90('frame_border', 12.0),
+                        corner=_vf90('frame_corner', 6.0),
+                        shape=_shape90,
+                        closure=_clos90,
+                        hang=_hang90,
+                        stand=_vb90('frame_stand', False),
+                        ironing=_vb90('frame_ironing', True),
+                        infill=_vf90('frame_infill', 60.0),
+                        layer_h=_vf90('frame_layer_h', 0.2),
+                        material=str(rv.get('material', 'PLA') or 'PLA'),
+                        bed=_bed90, out_dir=directory,
+                        version=max(1, min(int(_vf90('gen_version', 1)), 99)))
+                except ValueError as ve:
+                    print(f'[frame] guard: {ve}', flush=True)
+                    try:
+                        _moonraker_gcode(
+                            'RESPOND MSG="Frame: %s"\nM117 Frame error\n'
+                            '_SOUND_LIB NAME=r2_error' % ve)
+                    except Exception:                       # noqa: BLE001
+                        pass
+                else:
+                    _rel90 = os.path.relpath(
+                        os.path.join(directory, info_f['file']), directory)
+                    _msg90 = ('Frame: %s - %s %s, photo %.0fx%.0f, border '
+                              '%.0fmm, %s closure%s - selected for printing'
+                              % (info_f['file'], info_f['mode'], info_f['shape'],
+                                 info_f['width'], info_f['height'],
+                                 info_f['border'], _clos90,
+                                 ' (KIT)' if info_f['kit'] else ''))
+                    for _n90 in info_f.get('notes', [])[:3]:
+                        _msg90 += ' | ' + _n90
+                    try:
+                        _moonraker_gcode(
+                            'RESPOND MSG="%s"\nM117 Frame ready\n'
+                            '_SOUND_LIB NAME=r2_done\n_SELECT_FILE FILE="%s"'
+                            % (_msg90, _rel90))
+                    except Exception as me:                  # noqa: BLE001
+                        print(f'[frame] moonraker unreachable '
+                              f'({me.__class__.__name__})', flush=True)
+                    print(f'[frame] {info_f["file"]}: OK', flush=True)
+        except Exception as e:                              # noqa: BLE001
+            print(f'[frame] poll error: {e!r}', flush=True)
 
         # R89: image delete request (litho_del_nonce) - LCD browser housekeeping.
         # Only ever deletes a plain image BASENAME inside the gcodes folder;
