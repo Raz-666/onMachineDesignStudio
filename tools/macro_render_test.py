@@ -6759,6 +6759,82 @@ _ia92 = _g92.index('APPLY_TYPE TYPE=SURFACE-BOTTOM', _ib92)
 tests.append(('R92 litho: main type re-asserted AFTER the brim (was BRIM before)',
     _ib92 < _ia92 and _g92.index('LAYER_MARK', _ia92) > _ia92, ''))
 
+# ===================== R92.1: global x feature parameter model ==================
+# model: eff = base x GLOBAL x FEATURE - the global is the ONE regulator,
+# feature % always refers to it; feature accels = hard limits, scaled by ONE
+# global percent (the global accel itself stays absolute)
+_at921 = get_body('macros/10_live_tuning.cfg', 'APPLY_TYPE')
+
+# --- flow: global override x feature flow ---
+state_vars.update({'mode': 'printing', 'g_speed_clean': 100, 'current_type': '',
+                   'ignore_overrides': False, 'live_flow': 0})
+save_vars.update({'ovf_wallouter_on': True, 'ovf_wallouter_spd': 100.0,
+                  'ovf_wallouter_flw': 110.0, 'ovf_wallouter_acc': 0.0,
+                  'ov_flow_on': True, 'ov_flow': 98.0, 'ovf_accel_pct': 100.0})
+out = render(_at921, {'TYPE': 'WALL-OUTER'})
+tests.append(('R92.1 flow: global 98% x feature 110% = 108% (was absolute 110 before)',
+    'M99221 S108' in out and '110% x global 98%' in out, out[:200]))
+# --- flow: LIVE flow is the global, feature multiplies on top ---
+state_vars['live_flow'] = 150
+out = render(_at921, {'TYPE': 'WALL-OUTER'})
+tests.append(('R92.1 flow: live 150% (the global) x feature 110% = 165%',
+    'M99221 S165' in out, out[:200]))
+state_vars['live_flow'] = 0
+# --- ironing legacy flow also refers to the global now ---
+save_vars.update({'ovf_wallouter_on': False, 'ovf_ironing_on': True,
+                  'ovf_ironing_spd': 100.0, 'ovf_ironing_flw': 100.0,
+                  'ovf_ironing_acc': 0.0, 'ov_ironing_flow_on': True,
+                  'ov_ironing_flow': 110.0, 'ov_flow': 90.0})
+out = render(_at921, {'TYPE': 'IRONING'})
+tests.append(('R92.1 ironing flow: legacy 110% x global 90% = 99%',
+    'M99221 S99' in out, out[:200]))
+save_vars.update({'ovf_ironing_on': False, 'ov_ironing_flow_on': False,
+                  'ov_flow_on': False, 'ov_flow': 100.0})
+
+# --- accel: feature limit x global percent scaler ---
+save_vars.update({'ovf_wallouter_on': True, 'ovf_wallouter_spd': 100.0,
+                  'ovf_wallouter_flw': 100.0, 'ovf_wallouter_acc': 1000.0,
+                  'ovf_accel_pct': 150.0})
+out = render(_at921, {'TYPE': 'WALL-OUTER'})
+tests.append(('R92.1 accel: feature 1000 x 150% = 1500 mm/s2 (limit scaled)',
+    'M99204 S1500' in out and '1000 mm/s2 x 150%' in out, out[:220]))
+save_vars.update({'ovf_accel_pct': 100.0})
+
+# --- SET_GLOBAL_ACCEL_PERCENT: saves + applies to the running feature ---
+state_vars.update({'current_type': 'WALL-OUTER', 'a_global': 4000.0})
+save_vars.update({'ovf_wallouter_on': True, 'ovf_wallouter_acc': 1200.0})
+out = render(get_body('macros/10_live_tuning.cfg', 'SET_GLOBAL_ACCEL_PERCENT'),
+             {'PERCENT': '150'})
+tests.append(('R92.1 SET_GLOBAL_ACCEL_PERCENT: saves 150 + applies 1200->1800 now',
+    'VARIABLE=ovf_accel_pct VALUE=150.0' in out and 'ACCEL=1800' in out
+    and '1800' in out, out[:220]))
+out = render(get_body('macros/10_live_tuning.cfg', 'SET_GLOBAL_ACCEL_PERCENT'),
+             {'PERCENT': '400'})
+tests.append(('R92.1 SET_GLOBAL_ACCEL_PERCENT: 400 rejected (10..300)',
+    'PERCENT=<10..300>' in out and 'SAVE_VARIABLE' not in out, out[:140]))
+
+# --- SET_GLOBAL_ACCEL: the message shows the scaled feature limit ---
+save_vars['ovf_accel_pct'] = 150.0
+out = render(get_body('macros/10_live_tuning.cfg', 'SET_GLOBAL_ACCEL'),
+             {'ACCEL': '4000'})
+tests.append(('R92.1 SET_GLOBAL_ACCEL: feature keeps 1200 x 150% = 1800',
+    'ACCEL=1800' in out and 'x 150%' in out, out[:220]))
+
+# --- SET_FLOW_RATE explains the model ---
+out = render(get_body('macros/10_live_tuning.cfg', 'SET_FLOW_RATE'),
+             {'PERCENT': '98'})
+tests.append(('R92.1 SET_FLOW_RATE: global = the ONE regulator, features on top',
+    'ONE regulator' in out and 'M221 S98' in out, out[:160]))
+
+# --- LCD: percent regulator + effective displays ---
+_lcd921 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R92.1 LCD: Feat x%% input + effective accel + flow Src in Live Tuning',
+    '[menu __main __live __accels __pct]' in _lcd921
+    and 'name: Feat x:' in _lcd921
+    and '[menu __main __live __accels __eff]' in _lcd921
+    and '[menu __main __live __extr __fsrc]' in _lcd921
+    and 'SET_GLOBAL_ACCEL_PERCENT PERCENT=' in _lcd921, ''))
+
 fails = 0
 for name, ok, info in tests:
     print(('PASS ' if ok else 'FAIL '), name)

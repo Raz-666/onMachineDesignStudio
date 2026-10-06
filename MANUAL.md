@@ -1350,17 +1350,31 @@ purpose; hotend fan cool-down (cooldown_fan_time, 30 s default).
 - the file's own M220 commands are capped to the limit while layer 1 runs
 - AS SLICED: not applied · restored at layer 2 (marker or Z-tracked)
 
-**Global = the ONE overall regulator:** Global Speed % (LCD, L1 brake,
-file M220) scales EVERY speed in relation — stored clean as `g_speed_clean`,
-never multiplied by anything else. **Per-feature values sit ON TOP of the clean
-global value and never change it**: Feature speed = percent x global (e.g.
-global 80 + wall 80 -> wall segments run at 64, the next feature is back at
-80 — no decay). Feature accel is absolute (mm/s²) and replaces the file's M204
-while that feature prints. Two rules keep it intuitive when BOTH are set:
-every global speed change re-applies the running feature on the spot (global
-100 -> 150 with wall at 200% moves the wall from 200 to 300%, not back to
-150), and a feature with its own accel KEEPS it — the global accel rules
-everything that prints without one.
+**Global = the ONE overall regulator (R92.1 model, all three parameters):**
+
+- **Speed:** global % (LCD, L1 brake, file M220) scales everything — stored
+  clean as `g_speed_clean`, never multiplied by anything else. Feature speed
+  = percent **x global** (global 80 + wall 80 -> wall runs at 64, the next
+  feature is back at 80 — no decay). Example: feature base 60 mm/s, feature
+  200% -> 120; global 150% -> 180 mm/s, feature stays 200%.
+- **Flow:** the exact same shape. Global flow (SET_FLOW_RATE / pre-print
+  override) is the one regulator; a feature flow % always **refers to the
+  global**: global 98% x feature 110% = 107.8% effective. Raising the global
+  raises every feature's effective flow with it — the feature percentages
+  themselves never move. (R92.1 fix: feature flow used to REPLACE the global
+  instead of multiplying with it.)
+- **Accel:** feature values are **hard limits** (absolute mm/s²) — the global
+  accel never overrides them; it rules everything without its own feature
+  accel (travel/unknown). ON TOP of that there is ONE global percent scaler
+  (`Feat x%`, `SET_GLOBAL_ACCEL_PERCENT PERCENT=150`) that scales ALL feature
+  limits in the same ratio (1500 at 150%) without touching the global accel —
+  Live Tuning > Accel shows the current feature's effective value live
+  (`Eff: 1500mm/s2`), and Live > Extrusion > Src shows the flow model.
+
+Two rules keep it intuitive when BOTH are set: every global change re-applies
+the running feature on the spot (global 100 -> 150 with wall at 200% moves
+the wall from 200 to 300%, not back to 150), and a feature with its own accel
+KEEPS it — the global accel rules everything that prints without one.
 
 **Why the redesign (field log):** the old
 APPLY_TYPE ran through the M220 interceptor — 75% brake x 80% wall multiplied
@@ -2088,7 +2102,7 @@ SHOW_STATUS · SET_MATERIAL MATERIAL=PLA · SET_OVERRIDE_VALUE NAME=… VALUE=�
 TOGGLE_OVERRIDE NAME=… · CLEAR_OVERRIDES · PRINT_AS_SLICED / PRINT_WITH_OVERRIDES /
 PRINT_AS_LEGACY · SET_GLOBAL_SPEED · SET_GLOBAL_ACCEL · SET_LIVE_VELOCITY ·
 SET_LIVE_MINIMUM_CRUISE_RATIO · SET_LIVE_PRESSURE_ADVANCE · SET_LIVE_RETRACTION ·
-SET_FLOW_RATE · SET_FAN_SCALE · PAUSE · RESUME · CANCEL_PRINT (2×) ·
+SET_FLOW_RATE · SET_GLOBAL_ACCEL_PERCENT PERCENT=150 · SET_FAN_SCALE · PAUSE · RESUME · CANCEL_PRINT (2×) ·
 PAUSE_AT_LAYER LAYER=n · SKIP_OBJECT OBJECT=name · GEN_LABELS TEXT="A|B" ·
 GEN_CABLE_TIES COUNT=6 LENGTH=120 · GEN_ANGLES ANGLE=90 WIDTH=25 WALLS=4 INFILL=60 ·
 GEN_FRAME PRESET=10x15 DEPTH=8 CLOSURE=BACK HANG=TOP STAND=1 ·
@@ -2209,6 +2223,7 @@ All 143 public macros with parameters (defaults in parentheses; blank = no param
 | **SET_OVERRIDE_VALUE** | NAME, VALUE | generic: NAME=feat_spd_<code> / feat_acc_<code> / feat_on_<code> for 12 codes + all legacy names; feat_on=0 resets speed→100% + accel→file M204 + ironing flow→slicer value |
 | **SET_GLOBAL_SPEED** | PERCENT=100 | global speed % (M220 style, never capped); the running feature stays on top — re-applied immediately |
 | **SET_GLOBAL_ACCEL** | ACCEL=4000 | global acceleration, mm/s²; a feature with its own accel keeps it |
+| **SET_GLOBAL_ACCEL_PERCENT** | PERCENT=100 | scales ALL per-feature accel limits by % (10–300) in the same ratio — the global accel itself stays absolute |
 | **SET_LIVE_VELOCITY** | VELOCITY=300 | max velocity, live |
 | **SET_LIVE_MINIMUM_CRUISE_RATIO** | VALUE=0.5 | minimum cruise ratio, live |
 | **SET_LIVE_SQUARE_CORNER** | VALUE=5 | square corner velocity, live |
