@@ -1305,7 +1305,11 @@ section From–To.
 
 - temperatures always right: print temp kept during prints; idle heats ≥200 °C
 - load_length 60 mm (LCD 20-150) feeds LOAD_FILAMENT · unload_length 90 mm
-  (LCD 40-150) feeds unload AND change — both settable - PURGE_MORE purges another 15 mm during a change
+  (LCD 40-150) feeds unload AND change — both settable
+- **color-change purge (R92):** the 15 mm flush after a change lands as a FLAT
+  0.3 mm strip beside the objects (front edge, probe-safe window) — never as a
+  blob at the park corner where the micro probe would catch it on the next
+  mesh. PURGE_MORE lays another strip the same way.
 - repeat runout events while armed are ignored
 - **BTT SFS V2.0 (two-part sensor):** switch part `[filament_switch_sensor
   filament_sensor]` = filament end → alarm + planned pause at the layer boundary
@@ -2028,6 +2032,19 @@ Diagnostics: SHOW_STATUS · SELF_TEST · KAMP_STATUS · HOST_CHECK (Pi health) �
 - AS SLICED = no injections, but homing/mesh/prime still run BEFORE the file
 - temperature tower holds the last temperature at the end — stop it afterwards
 - a2d/accel_to_decel no longer exists — minimum_cruise_ratio replaced it everywhere
+- **the real bed is NOT position_max (R92):** the steppers' position_max is
+  lifted on this machine (micro probe + mesh rides beyond the plate). All
+  generators, the prime line and the park corners use the **[r2_postproc]**
+  section in printer.cfg instead — without it everything falls back to the
+  Ender-3 default 220×220 (x 0…220, y −3…217) and the console says so:
+
+  ```
+  [r2_postproc]
+  bed_min_x: 0
+  bed_max_x: 220
+  bed_min_y: -3
+  bed_max_y: 217
+  ```
 
 ## 24. Cheat sheet: LCD paths & Mainsail commands
 
@@ -2480,6 +2497,22 @@ own supply (common GND!), keep only DATA from the EBB — and keep the cap.
 [include klipper-e3-r2d2/menus/lcd_menues.cfg]
 -- at the END of printer.cfg; macros first, menus last
 ```
+
+**A.2.1 The real bed — [r2_postproc] (R92, required once):**
+this machine's `position_max` is lifted on purpose (micro probe + bed mesh
+rides beyond the plate). So the generators, the prime line and the park
+corners read the REAL printable bed from this section — add it once:
+
+```
+[r2_postproc]
+bed_min_x: 0
+bed_max_x: 220
+bed_min_y: -3
+bed_max_y: 217
+```
+
+Without it everything falls back to the Ender-3 default 220×220 and the
+console notes that on every watcher start.
 
 ### A.3 Z-probe variants
 

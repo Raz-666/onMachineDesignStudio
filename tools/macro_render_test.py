@@ -360,10 +360,14 @@ out = render(body, {})
 tests.append(('LAYER_MARK pause@7', 'PAUSE REASON="layer 7' in out, out.strip()[:140]))
 state_vars['layer']=2
 
-# 9) _PARK_HEAD corner choice (objects center 100,100 -> best corner (222,225) dist 247)
+# 9) _PARK_HEAD corner choice - R92: corners from the REAL bed (default
+# Ender-3 0..220 / -3..217 when [r2_postproc] is absent), never beyond it
 body = get_body('macros/09_pause_filament.cfg', '_PARK_HEAD')
 out = render(body, {})
-tests.append(('PARK corner (222,225)', 'X222' in out and 'Y225' in out, [l for l in out.split('\n') if 'Park corner' in l]))
+_pc92 = [l for l in out.split('\n') if 'G1 X' in l and ' Y' in l and 'F6000' in l]
+tests.append(('PARK corner inside the real bed (R92)', _pc92 and
+    all(0 <= float(l.split('X')[1].split(' ')[0]) <= 220
+        and -3 <= float(l.split('Y')[1].split(' ')[0]) <= 217 for l in _pc92), str(_pc92[:1])))
 
 # 10) M106 scaling
 body = get_body('macros/06_temp_controls.cfg', 'M106')
@@ -3107,10 +3111,13 @@ tests.append(('R80 labels: long text GROWS the label (was: error) + stays readab
 # --- bed limits parse (colon syntax, user-style printer.cfg) ---
 _p63 = _os63.path.join(_d63, 'printer.cfg')
 open(_p63, 'w').write('[stepper_x]\nposition_min: 0\nposition_max: 244\n[stepper_y]\nposition_min: -1 #comment\nposition_max: 238\n')
-tests.append(('R63 _bed_limits: parses printer.cfg (colon syntax + comments)',
-    _pp61._bed_limits(_p63) == (0.0, -1.0, 244.0, 238.0), str(_pp61._bed_limits(_p63))))
-tests.append(('R63 _bed_limits: missing file -> safe defaults',
-    _pp61._bed_limits(_os63.path.join(_d63, 'nope.cfg')) == (0.0, -3.0, 244.0, 238.0), ''))
+# R92: the steppers are lifted on this machine (meshing rides beyond the
+# plate) - [r2_postproc] is the truth, the fallback is the Ender-3 220x220
+open(_p63, 'a').write('\n[r2_postproc]\nbed_min_x: 0\nbed_max_x: 220\nbed_min_y: -1\nbed_max_y: 216\n')
+tests.append(('R63/R92 _bed_limits: [r2_postproc] section wins over the lifted steppers',
+    _pp61._bed_limits(_p63) == (0.0, -1.0, 220.0, 216.0), str(_pp61._bed_limits(_p63))))
+tests.append(('R63/R92 _bed_limits: no section / no file -> Ender-3 default 220x220',
+    _pp61._bed_limits(_os63.path.join(_d63, 'other.cfg')) == (0.0, -3.0, 220.0, 217.0), ''))
 
 # --- watcher: label nonce hook reads variables.cfg end-to-end ---
 _d63w = _tf63.mkdtemp(prefix='r63w_')
@@ -6675,6 +6682,82 @@ _long90 = [ln[6:] for ln in _fb90.split(chr(10))
            if ln.startswith('name: ') and len(ln[6:]) > 16 and '{' not in ln]
 tests.append(('R90 LCD: new names stay short (R29)', len(_long90) == 0,
               str(_long90[:4])))
+
+# ===================== R92: purge strip, park corners, litho tags =================
+import struct as _st92, zlib as _zl92
+
+# --- (1) _PURGE_STRIP: with objects -> flat line BELOW them, probe-safe ------
+_ps92 = get_body('macros/09_pause_filament.cfg', '_PURGE_STRIP')
+_objs92 = [{'name': 'plate', 'center': [160, 100], 'polygon': [[100, 60], [220, 60], [220, 140], [100, 140]]}]
+out = render(_ps92, {'MM': '15'}, objs=_objs92)
+tests.append(('R92 purge strip: front below objects, flat line, never the park corner',
+    'front below objects' in out and 'Y52' in out and 'G1 X' in out
+    and 'E15.0' in out and 'G1 E15 F240' not in out, out[-260:]))
+tests.append(('R92 purge strip: travels HIGH first, descends only in the free zone',
+    out.index('G0 Z') < out.index('G0 X') and out.count('G0 Z') >= 3, ''))
+tests.append(('R92 purge strip: retract after the line (no strings over the print)',
+    'E-2.0' in out, ''))
+out = render(_ps92, {'MM': '15'}, objs=[])
+tests.append(('R92 purge strip: no objects -> front bed edge',
+    'front bed edge' in out and 'Y5' in out, out[-200:]))
+out = render(_ps92, {'MM': '15'}, etemp=100)
+tests.append(('R92 purge strip: cold hotend -> skipped with notice',
+    'Purge skipped' in out and 'G1 E' not in out, out[:120]))
+_full92 = [{'name': 'f', 'center': [110, 104], 'polygon': [[6, 3], [214, 3], [214, 205], [6, 205]]}]
+out = render(_ps92, {'MM': '15'}, objs=_full92)
+tests.append(('R92 purge strip: bed full -> in the air (never into the objects)',
+    'in the air' in out and 'G0 X' not in out, out[:140]))
+
+# --- (2) park corner: real bed even with objects ------------------------------
+_pc92b = [l for l in render(get_body('macros/09_pause_filament.cfg', '_PARK_HEAD'),
+                            {}, objs=_objs92).split('\n')
+          if 'G1 X' in l and 'F6000' in l]
+import re as _re92
+_mvs92 = _re92.findall(r'X([\d.-]+) Y([\d.-]+)', ' '.join(_pc92b))
+tests.append(('R92 park: corner chosen inside 0..220 / -3..217 with objects',
+    _mvs92 and all(0 <= float(_x92) <= 220 and -3 <= float(_y92) <= 217
+                   for _x92, _y92 in _mvs92), str(_mvs92[:2])))
+
+# --- (3) CHANGE_FILAMENT_RESUME / PURGE_MORE use the strip -------------------
+state_vars['mode'] = 'filament'
+out = render(get_body('macros/09_pause_filament.cfg', 'CHANGE_FILAMENT_RESUME'), {})
+state_vars['mode'] = 'printing'
+tests.append(('R92 filament change: purge runs as the strip, not a corner blob',
+    '_PURGE_STRIP MM=15' in out and 'G1 E15 F240' not in out, out[:160]))
+out = render(get_body('macros/09_pause_filament.cfg', 'PURGE_MORE'), {})
+tests.append(('R92 PURGE_MORE: strip as well', '_PURGE_STRIP MM=15' in out, out[:120]))
+
+# --- (4) lithophane: honest feature tags (bottom / solid / top / brim / ironing)
+def _chunk92(t, d):
+    return _st92.pack('>I', len(d)) + t + d + _st92.pack('>I', _zl92.crc32(t + d) & 0xffffffff)
+_W92, _H92 = 24, 16
+_raw92 = b''
+for _y92 in range(_H92):
+    _raw92 += b'\x00' + bytes(60 + (x92 * 7 + _y92 * 13) % 120 for x92 in range(_W92))
+_png92 = (b'\x89PNG\r\n\x1a\n'
+          + _chunk92(b'IHDR', _st92.pack('>IIBBBBB', _W92, _H92, 8, 0, 0, 0, 0))
+          + _chunk92(b'IDAT', _zl92.compress(_raw92))
+          + _chunk92(b'IEND', b''))
+_d92 = _tf90.mkdtemp(prefix='r92_')
+_src92 = _os90.path.join(_d92, 'gray92.png')
+open(_src92, 'wb').write(_png92)
+_p92, _i92 = _pp.make_lithophane(_src92, height_mm=30.0, layer_h=0.12, frame=True,
+                                 brim_loops=2, ironing=True, out_dir=_d92)
+_g92 = open(_p92, encoding='utf-8').read()
+tests.append(('R92 litho: TYPES list = bottom/solid/top + brim + ironing',
+    'TYPES=BRIM,SURFACE-BOTTOM,INFILL-SOLID,SURFACE-TOP,IRONING' in _g92, ''))
+tests.append(('R92 litho: layer 1+2 tagged Bottom surface (not inner wall)',
+    _g92.count(';TYPE:Bottom surface') >= 3          # 2 layers + re-assert after the brim
+    and 'APPLY_TYPE TYPE=SURFACE-BOTTOM' in _g92
+    and ';TYPE:Inner wall' not in _g92, ''))
+tests.append(('R92 litho: ribbon core tagged Internal solid infill',
+    _g92.count(';TYPE:Internal solid infill') > 200, ''))
+tests.append(('R92 litho: top layers + ironing stay tagged',
+    _g92.count(';TYPE:Top surface') >= 2 and ';TYPE:Ironing' in _g92, ''))
+_ib92 = _g92.index(';TYPE:Brim')
+_ia92 = _g92.index('APPLY_TYPE TYPE=SURFACE-BOTTOM', _ib92)
+tests.append(('R92 litho: main type re-asserted AFTER the brim (was BRIM before)',
+    _ib92 < _ia92 and _g92.index('LAYER_MARK', _ia92) > _ia92, ''))
 
 fails = 0
 for name, ok, info in tests:

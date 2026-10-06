@@ -3584,12 +3584,20 @@ def _emit_hatch(pen, segs, e_per_mm, feed):
 
 
 def _bed_limits(cfg_path):
-    """parse [stepper_x]/[stepper_y] position_min/max from a printer.cfg ->
-    (x_min, y_min, x_max, y_max); best-effort with sane Ender-3 defaults."""
-    dflt = (0.0, -3.0, 244.0, 238.0)
+    """R92: the REAL printable bed, not the stepper range.
+
+    This machine's position_max values are deliberately lifted (micro probe +
+    bed mesh rides beyond the plate), so they must NEVER size generator
+    placements. Source chain:
+      1. [r2_postproc] section in printer.cfg: bed_min_x / bed_max_x /
+         bed_min_y / bed_max_y  (also read by the LCD macros - ONE truth)
+      2. Ender-3 default: x 0..220, y -3..217 (confirmed by the user, R92)
+    A one-line hint is printed when the section is missing.
+    """
+    dflt = (0.0, -3.0, 220.0, 217.0)
+    secs = {}
     try:
         with open(cfg_path, errors='replace') as f:
-            secs = {}
             cur = None
             for l in f:
                 ls = l.strip()
@@ -3608,14 +3616,23 @@ def _bed_limits(cfg_path):
         try:
             return float(secs.get(sec, {}).get(key, d))
         except (TypeError, ValueError):
-            return d
-    x0 = val('stepper_x', 'position_min', 0.0)
-    x1 = val('stepper_x', 'position_max', 244.0)
-    y0 = val('stepper_y', 'position_min', -3.0)
-    y1 = val('stepper_y', 'position_max', 238.0)
-    if x1 <= x0 or y1 <= y0:
-        return dflt
-    return (x0, y0, x1, y1)
+            return float(d)
+    r2 = secs.get('r2_postproc', {})
+    if ('bed_min_x' in r2 and 'bed_max_x' in r2
+            and 'bed_min_y' in r2 and 'bed_max_y' in r2):
+        x0 = val('r2_postproc', 'bed_min_x', 0.0)
+        x1 = val('r2_postproc', 'bed_max_x', 220.0)
+        y0 = val('r2_postproc', 'bed_min_y', -3.0)
+        y1 = val('r2_postproc', 'bed_max_y', 217.0)
+        if x1 > x0 and y1 > y0:
+            return (x0, y0, x1, y1)
+        print('[bed] [r2_postproc] bed values are not sane - using the '
+              'Ender-3 default 220x220', flush=True)
+    else:
+        print('[bed] no [r2_postproc] section in printer.cfg - using the '
+              'Ender-3 default 220x220 (add bed_min_x/bed_max_x/bed_min_y/'
+              'bed_max_y to configure)', flush=True)
+    return dflt
 
 
 def _safe_label_name(t):
@@ -7594,13 +7611,17 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
         a('; layer_height = %.2g' % layer_h)
         a('; nozzle_diameter = %.1f' % nozzle)
         a('; line_width = %.2g' % wid)
-        a('; inner_wall_speed = 25')
+        a('; inner_wall_speed = 25')   # ribbon core = solid infill (R92 tags)
         a('; initial_layer_speed = 10')
         a('; travel_speed = 120')
         if ironing:
             a('; ironing_speed = 25')
             a('; ironing_flow = 0.15')
-        types = ['WALL-INNER', 'SURFACE-TOP'] + (['IRONING'] if ironing else [])
+        # R92: honest feature tags - the standing litho is one solid body:
+        # first layers = bottom surface, the ribbon core = solid infill,
+        # the topmost layers = top surface (brim + ironing on top of that)
+        types = ['SURFACE-BOTTOM', 'INFILL-SOLID', 'SURFACE-TOP'] \
+            + (['IRONING'] if ironing else [])
         if brim_loops:
             types.insert(0, 'BRIM')
         a('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d LINE_WIDTH=%.2g '
@@ -7656,8 +7677,16 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
             a(';LAYER_CHANGE')
             a(';Z:%.3f' % z)
             a('LAYER_MARK')
-            a(';TYPE:Inner wall')
-            a('APPLY_TYPE TYPE=WALL-INNER')
+            # R92 feature tags: bottom layers / solid ribbon core / top layers
+            if li <= 2:
+                a(';TYPE:Bottom surface')
+                a('APPLY_TYPE TYPE=SURFACE-BOTTOM')
+            elif li > rows - 2:
+                a(';TYPE:Top surface')
+                a('APPLY_TYPE TYPE=SURFACE-TOP')
+            else:
+                a(';TYPE:Internal solid infill')
+                a('APPLY_TYPE TYPE=INFILL-SOLID')
             if li == 2:
                 a('M106 S178   ; R2-LITHO: part fan from layer 2')
             a('EXCLUDE_OBJECT_START NAME=LITHO')
@@ -7668,6 +7697,10 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                     off = wid * (k + 0.5)
                     b = (x0 - off, yF - off, x0 + width_mm + off, yF + t_max + off)
                     _emit_loop(pen, _rect_loop(*b), e_wall, 900)
+                # R92 fix: re-assert the layer's main type - the ribbon used
+                # to keep running under TYPE=BRIM on layer 1
+                a(';TYPE:Bottom surface')
+                a('APPLY_TYPE TYPE=SURFACE-BOTTOM')
             ribbon(li, row, 600 if li == 1 else 1500, e_wall)
             if ironing and li == rows:
                 a(';TYPE:Ironing')

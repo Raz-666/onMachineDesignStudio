@@ -1747,6 +1747,8 @@ chapter('7','Filament: load / unload / change / runout / cold pull',
   *B('temperatures always right: print temp kept during prints; idle heats to ≥ 200 °C (or preset)',
      'load_length 60 mm (LCD 20-150) feeds LOAD_FILAMENT · unload_length 90 mm (LCD 40-150) feeds unload AND change',
      'PURGE_MORE purges another 15 mm during a change (until the old color is gone)',
+     '<b>R92 color-change purge:</b> the flush lands as a FLAT 0.3 mm strip beside the objects (front edge, '
+     'probe-safe window) - never a blob at the park corner where the micro probe would catch it while meshing',
      'repeat runout events while armed are ignored (no spam)',
      '<b>BTT SFS V2.0:</b> switch part = filament end (planned pause at the boundary); encoder part = clog '
      '(immediate safe pause). SET_FILAMENT_SENSOR takes the SECTION name - the BTT example\'s switch_sensor '
@@ -2172,7 +2174,11 @@ chapter('23','Limits &amp; known behavior',
      '"State re-synced" after object-change resumes: cosmetic self-healing (double resume through _OBJECT_PREP)',
      'AS SLICED = no injections, but homing/mesh/prime still run BEFORE the file (start choreography, not a file change)',
      'temperature tower holds the last temperature at the end — stop it or set the preset afterwards',
-     'a2d/accel_to_decel no longer exists — minimum_cruise_ratio replaced it everywhere (LCD + overrides + live)'))
+     'a2d/accel_to_decel no longer exists — minimum_cruise_ratio replaced it everywhere (LCD + overrides + live)',
+     '<b>R92: the real bed is NOT position_max</b> - the steppers are lifted on purpose (micro probe + mesh rides '
+     'beyond the plate). Generators, prime line and park corners read [r2_postproc] in printer.cfg '
+     '(bed_min_x/bed_max_x/bed_min_y/bed_max_y); without it the Ender-3 default 220x220 applies (console note)',
+     'color-change purge = flat strip beside the objects (never a park-corner blob the probe could catch)'))
 
 
 chapter('24','Cheat sheet: LCD paths &amp; Mainsail commands',
