@@ -1,3 +1,19 @@
+# SESSION STATE — R90 FERTIG (Commit 8d32770, Tests 1054/1054, Golden 23/23)
+
+R90 Bilderrahmen/Schaukasten-Generator KOMPLETT implementiert + getestet:
+make_frame (One-Piece + Auto-4-Streifen-Kit + OVAL-Fehler), Bajonett-Verschluss
+BACK (Platten-Ausnehmungen + 2 Wand-Nubs, 2.5mm schieben = verriegelt, null
+Flex), SIDE-Schlitz volle Wandhoehe, verdeckte Keyhole in der Platte, Staender
+mit Stiften in 2 Plattenloecher (D2.7/24mm), Stand-Auto-Drop mit Note,
+frame_nonce-Handler (NONCE_KEYS 17) mit Guard-Beep+LCD, FRAME_INFO/
+FRAME_GENERATE/GEN_FRAME, LCD Tools > Frames, MANUAL 5.8 + d_frame_anatomy,
+PDF 85 S. Presets auf Bett-Realitaet reduziert (15x21/A5 landscape; 20x30/A4/
+portrait-15x21/A5 nie machbar - nicht angeboten). Dreieck/Stern + Linien/
+Wellen/Rauten/Waben = explizites Spaeter-Backlog (docs/frame_design.md).
+Release-Entscheidung .73 per ask_user (m) OFFEN.
+
+---
+
 # Session State (... + R65 HOTFIX: '#'-BOOT-BLOCKER 16_labels.cfg + Validator-Comment-Strip + Update-Pfade + R66 UPDATE PER BILDSCHIRM: Mainsail-Upload + 1 SSH-Befehl + R67 HOTFIX: BOOT-BLOCKER #2 string.split + Compile/Render-ALL-Testgate + R68 HOTFIX: WATCHER-CRASH float('-') + R69 HOTFIX: SAVE_VARIABLE-SHUTDOWN + R70 FELDLOG: Preset-Dict + Kaltextrusion + Excerpt-Objekte)
 
 ## ROUND 89 (Arbeitsversion auf .72-Basis, Version NICHT gebumpt) — R89: 5 PAKETE IMPLEMENTIERT
