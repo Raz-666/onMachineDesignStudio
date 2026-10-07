@@ -32,10 +32,62 @@ import random
 import re
 import time
 
-TAG = 'R2-TEXTURE v1 (R91)'
+TAG = 'R2-TEXTURE v2 (R95)'
 
 _G1 = re.compile(r'^(G1|G0)\s+X([\d.\-]+)\s+Y([\d.\-]+)(?:\s+Z([\d.\-]+))?'
                  r'(?:\s+E([\d.\-]+))?')
+# R95: slicers with arc fitting emit the OUTER WALL as G2/G3 arcs - the R91
+# scatter only touched G1 vertices, so round parts (vases!) carried texture
+# only in the few straight bits between arcs ("only the corners"). Arcs are
+# flattened into short G1 chords first, then textured like any other vertex.
+_GARC = re.compile(r'^(G[23])\s+X([\d.\-]+)\s+Y([\d.\-]+)'
+                  r'(?:\s+Z([\d.\-]+))?'
+                  r'(?:\s+I([\d.\-]+)\s+J([\d.\-]+)|\s+R([\d.\-]+))?'
+                  r'(?:\s+E(-?[\d.]+))?(?:\s+F([\d.]+))?(?:\s*;.*)?$')
+
+
+def _arc_points(x0, y0, x1, y1, i=None, j=None, rr=None, cw=True,
+                chord=0.35):
+    """R95: points of a G2 (cw=True) / G3 arc from (x0,y0) to (x1,y1).
+    I/J = center offset from the start, R = radius form. Returns None when
+    the arc cannot be resolved (garbage input stays untouched)."""
+    cx = cy = None
+    if i is not None and j is not None:
+        cx, cy = x0 + i, y0 + j
+    elif rr is not None and rr != 0:
+        # Marlin R form: center on the perpendicular bisector, h = side of
+        # the chord chosen so the sweep is <= 180 deg for +R, > 180 for -R
+        mx, my = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+        d = math.hypot(x1 - x0, y1 - y0) / 2.0
+        if d > abs(rr):
+            return None
+        h = math.sqrt(max(0.0, rr * rr - d * d))
+        ux, uy = (y1 - y0), -(x1 - x0)        # perpendicular (right of chord)
+        if not (rr < 0) == cw:
+            ux, uy = -ux, -uy
+        cx, cy = mx + ux / (2 * d + 1e-12) * h, my + uy / (2 * d + 1e-12) * h
+    else:
+        return None
+    r = math.hypot(x0 - cx, y0 - cy)
+    r2 = math.hypot(x1 - cx, y1 - cy)
+    if r < 1e-6 or abs(r - r2) > max(0.05, r * 0.01):
+        return None
+    a0 = math.atan2(y0 - cy, x0 - cx)
+    a1 = math.atan2(y1 - cy, x1 - cx)
+    if cw:
+        sweep = (a0 - a1) % (2 * math.pi)
+    else:
+        sweep = (a1 - a0) % (2 * math.pi)
+    if sweep < 1e-9:
+        sweep = 2 * math.pi
+    arclen = sweep * r
+    n = int(math.ceil(arclen / max(chord, 0.05)))
+    n = max(2, min(n, 720))
+    pts = []
+    for k in range(1, n + 1):
+        a = a0 + (-sweep if cw else sweep) * k / float(n)
+        pts.append((cx + r * math.cos(a), cy + r * math.sin(a)))
+    return pts
 _TYPE = re.compile(r'^;TYPE:(.+)')
 _MIN_E = 0.0001
 
@@ -82,8 +134,8 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
         raise ValueError('mode %r must be FUZZY or BUMPS' % mode)
     if direction not in ('OUT', 'IN'):
         raise ValueError('direction %r must be OUT or IN' % direction)
-    if not (0.05 <= float(fuzzy_thick) <= 0.6):
-        raise ValueError('fuzzy thickness %.2fmm out of range (0.05..0.6)'
+    if not (0.05 <= float(fuzzy_thick) <= 1.5):
+        raise ValueError('fuzzy thickness %.2fmm out of range (0.05..1.5)'
                          % float(fuzzy_thick))
     if not (10.0 <= float(fuzzy_density) <= 100.0):
         raise ValueError('fuzzy density %.0f%% out of range (10..100)'
@@ -133,13 +185,51 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
             return _bump_hex(x, y, z, float(bump_scale))
         return _bump_mandelbrot(x, y, z, float(bump_scale), cx, cy)
 
-    stats = {'moves': 0, 'shifted': 0, 'clamped': 0, 'layers': 0}
+    stats = {'moves': 0, 'shifted': 0, 'clamped': 0, 'layers': 0, 'arcs': 0}
     cur_type = ''
+    t0 = time.time()
     # px/py = None until the first move is seen: a vertex with no known
     # approach direction gets NO offset (same rule as zero-length moves -
     # never invent a direction from the home position)
     px = py = None
-    t0 = time.time()
+    # R95: E bookkeeping for arc flattening - chords must carry exactly the
+    # arc's extrusion (relative: distributed by chord length; absolute:
+    # interpolated from the last E to the arc's end value)
+    e_rel = False
+    last_e = 0.0
+
+    def _shift_txt(txt, x, y, z):
+        """R91 displacement on ONE move line -> possibly shifted text.
+        Reads px/py from the enclosing scope (approach direction)."""
+        dx, dy = (x - px, y - py) if px is not None else (0.0, 0.0)
+        ln = math.hypot(dx, dy)
+        stats['moves'] += 1
+        if ln <= 0.01:
+            return txt
+        # left-hand normal of the move direction (consistent sign)
+        ox, oy = -dy / ln, dx / ln
+        nx = ny = 0.0
+        if mode == 'FUZZY':
+            if rng.random() <= dens:
+                # random point in a disc of radius fuzzy_thick
+                ang = rng.random() * 2 * math.pi
+                rad = math.sqrt(rng.random()) * float(fuzzy_thick)
+                nx = ox * math.cos(ang) * rad - oy * math.sin(ang) * rad
+                ny = ox * math.sin(ang) * rad + oy * math.cos(ang) * rad
+        else:
+            zz = z if z is not None else 0.0
+            nx = ox * pattern(x, y, zz) * sig * sign
+            ny = oy * pattern(x, y, zz) * sig * sign
+        if nx or ny:
+            nx, ny = round(x + nx, 3), round(y + ny, 3)
+            if not (bed[0] <= nx <= bed[2] and bed[1] <= ny <= bed[3]):
+                nx = max(bed[0], min(nx, bed[2]))
+                ny = max(bed[1], min(ny, bed[3]))
+                stats['clamped'] += 1
+            txt = re.sub(r'X[\d.\-]+', 'X%.3f' % nx, txt, count=1)
+            txt = re.sub(r'Y[\d.\-]+', 'Y%.3f' % ny, txt, count=1)
+            stats['shifted'] += 1
+        return txt
 
     with open(src, errors='replace') as fi, open(out, 'w') as fo:
         fo.write('; %s applied to %s: mode %s%s\n' % (
@@ -151,6 +241,8 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                                             float(bump_amp), direction)))
         fo.write('; fuzzy scatters / bumps displace ONLY outer-wall vertices '
                  '- tags, features, E and Z stay untouched\n')
+        fo.write('; R95: G2/G3 outer-wall arcs are flattened into textured '
+                 'chords (arc-fitted files get a seamless all-around texture)\n')
         for line in fi:
             ls = line.rstrip('\n')
             m = _TYPE.match(ls)
@@ -160,45 +252,64 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                 continue
             if ls.startswith(';LAYER_CHANGE'):
                 stats['layers'] += 1
+            elif ls == 'M83':
+                e_rel = True
+            elif ls == 'M82':
+                e_rel = False
+            elif ls.startswith('G92'):
+                me92 = re.match(r'^G92(?:\s+E(-?[\d.]+))?', ls)
+                if me92 and me92.group(1) is not None:
+                    last_e = float(me92.group(1))
             g = _G1.match(ls)
             if (g and g.group(1) == 'G1' and cur_type == 'outer wall'
                     and g.group(5) is not None
                     and float(g.group(5)) > _MIN_E and g.group(2) is not None):
                 x, y = float(g.group(2)), float(g.group(3))
-                dx, dy = (x - px, y - py) if px is not None else (0.0, 0.0)
-                ln = math.hypot(dx, dy)
                 z = float(g.group(4)) if g.group(4) is not None else None
-                stats['moves'] += 1
-                nx = ny = 0.0
-                if ln > 0.01:
-                    # left-hand normal of the move direction (consistent sign)
-                    ox, oy = -dy / ln, dx / ln
-                    if mode == 'FUZZY':
-                        if rng.random() <= dens:
-                            # random point in a disc of radius fuzzy_thick
-                            ang = rng.random() * 2 * math.pi
-                            rad = math.sqrt(rng.random()) * float(fuzzy_thick)
-                            nx = ox * math.cos(ang) * rad - oy * math.sin(ang) * rad
-                            ny = ox * math.sin(ang) * rad + oy * math.cos(ang) * rad
-                    else:
-                        zz = z if z is not None else 0.0
-                        nx = ox * pattern(x, y, zz) * sig * sign
-                        ny = oy * pattern(x, y, zz) * sig * sign
-                    if nx or ny:
-                        nx, ny = round(x + nx, 3), round(y + ny, 3)
-                        if not (bed[0] <= nx <= bed[2] and bed[1] <= ny <= bed[3]):
-                            nx = max(bed[0], min(nx, bed[2]))
-                            ny = max(bed[1], min(ny, bed[3]))
-                            stats['clamped'] += 1
-                        ls = re.sub(r'X[\d.\-]+', 'X%.3f' % nx, ls, count=1)
-                        ls = re.sub(r'Y[\d.\-]+', 'Y%.3f' % ny, ls, count=1)
-                        stats['shifted'] += 1
+                fo.write(_shift_txt(ls, x, y, z) + '\n')
                 px, py = x, y
-                fo.write(ls + '\n')
+                last_e = float(g.group(5))
                 continue
+            # ---- R95: outer-wall G2/G3 arcs -> short G1 chords, textured ---
+            ga = _GARC.match(ls)
+            if (ga and cur_type == 'outer wall' and ga.group(8) is not None
+                    and float(ga.group(8)) > _MIN_E and px is not None):
+                x1, y1 = float(ga.group(2)), float(ga.group(3))
+                z1 = float(ga.group(4)) if ga.group(4) is not None else None
+                pts = _arc_points(
+                    px, py, x1, y1,
+                    float(ga.group(5)) if ga.group(5) is not None else None,
+                    float(ga.group(6)) if ga.group(6) is not None else None,
+                    float(ga.group(7)) if ga.group(7) is not None else None,
+                    cw=(ga.group(1) == 'G2'))
+                if pts:
+                    stats['arcs'] += 1
+                    e_arc = float(ga.group(8))
+                    _all = [(px, py)] + pts[:-1]
+                    arc_len = sum(math.hypot(b[0] - a[0], b[1] - a[1])
+                                  for a, b in zip(_all, pts))
+                    f_txt = (' F' + ga.group(9)) if ga.group(9) else ''
+                    for (ax, ay), (qx, qy) in zip(_all, pts):
+                        cl = math.hypot(qx - ax, qy - ay)
+                        frac = (cl / arc_len) if arc_len > 1e-9 else 0.0
+                        if e_rel:
+                            ec = e_arc * frac
+                        else:
+                            ec = last_e + (e_arc - last_e) * frac
+                        ch = 'G1 X%.3f Y%.3f E%.5f%s' % (qx, qy, ec, f_txt)
+                        fo.write(_shift_txt(ch, qx, qy, z1) + '\n')
+                        if not e_rel:
+                            last_e = ec
+                    px, py = x1, y1
+                    if not e_rel:
+                        last_e = e_arc
+                    continue
+                # unresolvable arc geometry -> untouched passthrough (below)
             gm = _G1.match(ls)
             if gm and gm.group(2) is not None:
                 px, py = float(gm.group(2)), float(gm.group(3))
+                if gm.group(5) is not None:
+                    last_e = float(gm.group(5))
             fo.write(ls + '\n')
 
     info = {'file': fname, 'src': base, 'mode': mode, 'version': ver,
@@ -208,5 +319,6 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
             'scale': float(bump_scale), 'amp': float(bump_amp),
             'direction': direction, 'shifted': stats['shifted'],
             'outer_moves': stats['moves'], 'clamped': stats['clamped'],
-            'layers': stats['layers'], 'secs': round(time.time() - t0, 2)}
+            'layers': stats['layers'], 'arcs_flattened': stats['arcs'],
+            'secs': round(time.time() - t0, 2)}
     return out, info

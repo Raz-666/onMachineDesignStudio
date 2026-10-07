@@ -117,6 +117,24 @@ TYPE_MAP = {
     'bridge infill': 'BRIDGE',
     'support material': 'SUPPORT',
     'support material interface': 'SUPPORT',
+    # R95 (field log .73): the remaining slicer features, all families.
+    # Prusa/Orca slow-overhang walls, internal bridges, the purge tower
+    # (3 spellings) - now EDITABLE features; approximations documented.
+    'overhang perimeter': 'OVERHANG-PERIM',
+    'internal bridge': 'INTERNAL-BRIDGE',
+    'wipe tower': 'PRIME-TOWER',
+    'prime tower': 'PRIME-TOWER',
+    'prime-tower': 'PRIME-TOWER',
+    'thin wall': 'WALL-INNER',        # SuperSlicer: no own override
+    'support transition': 'SUPPORT',
+    'ooze shield': 'SKIRT',
+    # Cura: dashed forms + combined skin (top/bottom share one type)
+    'skin': 'SURFACE-TOP',
+    'top-skin': 'SURFACE-TOP',
+    'bottom-skin': 'SURFACE-BOTTOM',
+    'support-interface': 'SUPPORT',
+    'raft': 'SURFACE-BOTTOM',
+    'infill': 'INFILL-SPARSE',
 }
 
 # ---- slicer config header keys (OrcaSlicer / PrusaSlicer '; key = value') ---------
@@ -151,6 +169,10 @@ CFG_KEYS = {
     'wall_loops': 'WALL_LOOPS',
     'ironing_flow': 'IRONING_FLOW',
     'ironing_spacing': 'IRONING_SPACING',
+    # R95: small perimeters are a SPEED setting inside the walls (no
+    # separate ;TYPE: exists) - shown in the file info instead
+    'small_perimeter_speed': 'SPEED_SMALL',
+    'small_perimeter_acceleration': 'ACCEL_SMALL',
 }
 CFG_RE = re.compile(r'^\s*;\s*([A-Za-z0-9_]+)\s*=\s*(.+?)\s*$')
 
@@ -619,6 +641,44 @@ class _GenE:
         for (x, y) in pts[1:]:
             self.line(px, py, x, y, e_per_mm, feed)
             px, py = x, y
+
+
+def _pt_in_poly(pt, poly):
+    """R95: even-odd point-in-polygon (open-slot keep-out support)."""
+    x, y = pt
+    inside = False
+    n = len(poly)
+    j = n - 1
+    for i in range(n):
+        xi, yi = poly[i]
+        xj, yj = poly[j]
+        if (yi > y) != (yj > y) and x < (xj - xi) * (y - yi) / (yj - yi + 1e-12) + xi:
+            inside = not inside
+        j = i
+    return inside
+
+
+def _segs_cross(p1, p2, p3, p4):
+    """R95: do segments (p1,p2) and (p3,p4) properly cross?"""
+    def _c(o, a, b):
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+    d1 = _c(p3, p4, p1)
+    d2 = _c(p3, p4, p2)
+    d3 = _c(p1, p2, p3)
+    d4 = _c(p1, p2, p4)
+    return ((d1 > 0) != (d2 > 0)) and ((d3 > 0) != (d4 > 0))
+
+
+def _seg_hits_poly(p, q, poly):
+    """R95: does segment (p,q) enter the polygon? (endpoint inside or an
+    edge crossing) - used for open slots like a frame's view opening."""
+    if _pt_in_poly(p, poly) or _pt_in_poly(q, poly):
+        return True
+    for i in range(len(poly)):
+        a, b = poly[i], poly[(i + 1) % len(poly)]
+        if _segs_cross(p, q, a, b):
+            return True
+    return False
 
 
 def _seg_hits_circle(p, q, cx, cy, r):
@@ -1270,14 +1330,34 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                 # R87.2: travels over the open cap hole retract too
                 gt.hole = (th['cx'], th['cy'], th['r'])
                 if i == 0:
-                    # R86.2 BRIDGE LAYER: the hatch stops AT the hole edge and
-                    # an anchor ring runs exactly on it - every clipped line
-                    # welds onto the ring, so the edge cannot sag into the
-                    # hole and the hole stays OPEN from the first cap layer
+                    # R95 (field log .74): the anchor ring used to print right
+                    # ON the hole edge - its inner half hung in the air over
+                    # the open hole, sagged into the opening and closed it
+                    # with a bridge that had to be picked out. BRIDGE-FIRST
+                    # now, exactly like a slicer builds a hole in a top
+                    # surface: (1) short radial BRIDGES across the edge, each
+                    # anchored on the body outside, (2) the hole ring prints
+                    # ON TOP of the bridges (INTERNAL-BRIDGE), (3) only then
+                    # the solid hatch fills up TO the hole edge - the opening
+                    # itself stays free (spoke tips reach in < 0.15mm).
                     segs = [s for (p, q) in segs
                             for s in _seg_outside_circle(p, q, th['cx'],
                                                          th['cy'], th['r'])]
-                    gt.loop(_circle(th['cx'], th['cy'], th['r'], 40), ep, 1200)
+                    gen_top.append('APPLY_TYPE TYPE=BRIDGE   ; R95: bridges around the hole first')
+                    _over95 = min(0.15, 0.4 * wid)
+                    _nb95 = max(12, min(64, int((2.0 * math.pi * th['r']) / 4.0)))
+                    for k in range(_nb95):
+                        _a95 = 2.0 * math.pi * (k + 0.5) / _nb95
+                        _ca95, _sa95 = math.cos(_a95), math.sin(_a95)
+                        _x095 = th['cx'] + (th['r'] + 1.5 * wid) * _ca95
+                        _y095 = th['cy'] + (th['r'] + 1.5 * wid) * _sa95
+                        _x195 = th['cx'] + (th['r'] - _over95) * _ca95
+                        _y195 = th['cy'] + (th['r'] - _over95) * _sa95
+                        gt.move(_x095, _y095, 4800)
+                        gt.line(_x095, _y095, _x195, _y195, ep, 1300)
+                    gen_top.append('APPLY_TYPE TYPE=INTERNAL-BRIDGE   ; R95: the ring prints ON the bridges')
+                    gt.loop(_circle(th['cx'], th['cy'], th['r'], 48), ep, 1200)
+                    gen_top.append('APPLY_TYPE TYPE=INFILL-SOLID   ; R95: back to the cap solid')
                 else:
                     # R87.2: spiral band (same as the floor) - no strings
                     _spiral_ring(gt, th['cx'], th['cy'], th['r'],
@@ -1308,6 +1388,13 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
         bstats['INFILL-SOLID'] = {'f': {20.0: 1}, 'acc': None}
     if brim > 0 and 'BRIM' not in bstats:
         bstats['BRIM'] = {'f': {20.0: 1}, 'acc': None}
+    # R95: a cap with a hole builds real bridges now (spokes F1300, ring
+    # F1200) - both belong in the excerpt's TYPES so the features are honest
+    if th is not None:
+        if 'BRIDGE' not in bstats:
+            bstats['BRIDGE'] = {'f': {21.6: 1}, 'acc': None}
+        if 'INTERNAL-BRIDGE' not in bstats:
+            bstats['INTERNAL-BRIDGE'] = {'f': {20.0: 1}, 'acc': None}
 
     # ---- prologue: a NORMAL file head with PRINT_START -> full start flow ----
     n_layers = end - start + 1 + floor + top
@@ -3528,6 +3615,12 @@ class _Pen:
         self.z = None
         self.ret = True
         self.retracts = retracts
+        # R95 (field log .74, rule dd): open holes [(cx, cy, r), ...] and
+        # open slots [poly, ...] - a travel crossing one drags strings across
+        # the opening no matter how SHORT it is, so crossings retract even
+        # below jump_d
+        self.holes = []
+        self.hole_polys = []
         # R77: retract/hop only for jumps LONGER than jump_d. 2.5mm fired
         # between neighboring hatch lines (field log: retract storm = the
         # label base tore apart, the filament was 'pulled away'). Print
@@ -3539,17 +3632,32 @@ class _Pen:
         self.L.append('G0 Z%.3f F%d' % (z, feed))
         self.z = z
 
+    def _hole_cross(self, x, y):
+        # R95: does the travel (pen -> x,y) cross an OPEN hole or slot?
+        if self.x is None:
+            return False
+        p, q = (self.x, self.y), (x, y)
+        if self.holes and any(_seg_hits_circle(p, q, cx, cy, r)
+                              for (cx, cy, r) in self.holes):
+            return True
+        if self.hole_polys and any(_seg_hits_poly(p, q, poly)
+                                   for poly in self.hole_polys):
+            return True
+        return False
+
     def travel(self, x, y, feed=4500, hop=True, force_d=None):
         # R73: travel capped at 75mm/s (the .56 label jobs overloaded the MCU
         # with 150mm/s travels) and Z-hops only above 2.5mm
         # R83: force_d lowers the retract threshold for THIS move (text
         # bundles retract from 1.2mm gaps - field log .65: no-retract travels
         # between letters drew ghost lines and the letters grew together)
+        # R95: hole crossings retract at ANY length (rule dd)
         if self.x is None:
             self.L.append('G0 X%.3f Y%.3f F%d' % (x, y, feed))
         else:
             d = math.hypot(x - self.x, y - self.y)
-            if d > (self.jump_d if force_d is None else force_d):
+            if (self._hole_cross(x, y)
+                    or d > (self.jump_d if force_d is None else force_d)):
                 hopz = hop and self.z is not None and self.z > 0.35
                 if self.retracts:
                     self.L.append('G10')
@@ -4135,6 +4243,10 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
     a('M107   ; R2-LABELS: first layer = fan off')
 
     pen = _Pen(L, jump_d=6.0)   # R77: no retracts between neighboring hatch lines
+    # R95 (field log .74, rule dd): the label holes stay OPEN through every
+    # layer - travels across them retract at ANY length now
+    pen.holes = [(lb['circ'][0] + lb['x'], lb['circ'][1] + lb['y'], lb['circ'][2])
+                 for lb in labels if lb['circ']]
 
     def base_block(lb, z, layer_idx, first, top):
         """one label's base layer: brim + perimeters + hole + solid infill (+ironing)"""
@@ -7116,6 +7228,12 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                 cx = cy = 0.0
                 bx, by = ux0 + bw / 2, uy0 + bh / 2
                 sx = sy = 0.0
+            # R95 (field log .74, rule dd): the view opening stays OPEN from
+            # the bed up to the shelf - travels across it (front band <->
+            # backplate <-> stand) drag strings into the opening. Registered
+            # as a polygon keep-out: crossings retract at ANY travel length.
+            if want_frame:
+                pen.hole_polys = [[(x + cx, y + cy) for (x, y) in view_c]]
                 if stand_ok:
                     if bw + gap + sw <= uw and max(bh, sh) <= uh:
                         sx, sy = ux0 + bw + gap + sw / 2, uy0 + sh / 2
@@ -7795,6 +7913,10 @@ def make_angles(count=2, angle_deg=90, leg_a=60.0, leg_b=60.0, width=25.0,
       'auto-reduced when the leg is too short')
 
     pen = _Pen(L, jump_d=6.0)
+    # R95 (rule dd): the screw holes stay OPEN through every layer (incl.
+    # the countersink steps) - travels across them retract at ANY length
+    pen.holes = [(ox + hx, oy + hy, hole_d / 2.0 + wid * 0.6)
+                 for (ox, oy) in positions for (hx, hy, _ha) in hole_pos]
 
     def plate_block(idx, ox, oy, li, first):
         e_wall = (first_h if li == 1 else layer_h) * wid / fil

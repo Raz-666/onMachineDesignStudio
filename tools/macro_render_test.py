@@ -2509,11 +2509,11 @@ tests.append(('R59 LCD live __curon: toggles ovf_<current_type>_on',
 
 # --- 3) file __ac* click activators: unique ids + toggle gcode ---
 _acids = _re59.findall(r'\[menu __main __preprint __file __(ac\w+)\]', _lcd58)
-tests.append(('R59 LCD file __ac* ids: 13 unique activators',
-    len(_acids) == 13 and len(set(_acids)) == 13, str(_acids)))
-_acnames = _re59.findall(r'name: (OW|IW|SP|SO|TP|BT|BR|GP|SU|IR|SK|BM):', _lcd58)
-tests.append(('R60 LCD file __ac* shows 12 feature prefixes x2 (Pre-Print + Live)',
-    sorted(_acnames) == sorted(['OW','IW','SP','SO','TP','BT','BR','GP','SU','IR','SK','BM'] * 2), str(_acnames)))
+tests.append(('R59 LCD file __ac* ids: 17 unique activators',
+    len(_acids) == 17 and len(set(_acids)) == 17, str(_acids)))
+_acnames = _re59.findall(r'name: (OW|IW|SP|SO|TP|BT|BR|GP|SU|IR|SK|BM|OH|IB|PT|CU):', _lcd58)
+tests.append(('R95 LCD file __ac* shows 16 feature prefixes x2 (Pre-Print + Live)',
+    sorted(_acnames) == sorted(['OW','IW','SP','SO','TP','BT','BR','GP','SU','IR','SK','BM','OH','IB','PT','CU'] * 2), str(_acnames)))
 tests.append(('R59 LCD file __ac*: every click toggles feat_on_<code> + shows o:ON',
     all('SET_OVERRIDE_VALUE NAME=feat_on_' + c in _lcd58 for c in
         ['wallouter','wallinner','infillsparse','infillsolid','surfacetop','surfacebottom','bridge','gaps','support','ironing','skirt','brim'])
@@ -6290,6 +6290,58 @@ tests.append(('R86.2 range: cap hole bridge-first (ring on layer 1, open 1-3)',
             if float(_m.group(3)) > 0 and
             _math862.hypot(float(_m.group(1)) - _c862, float(_m.group(2)) - _c862) < 13.8) == 0
         for i in (1, 2, 3)), 'layers %d' % (len(_lms862) - 1)))
+# --- R95: cap hole prints bridges FIRST, ring ON them, hole stays open ---
+_i95br = _cap862.index('APPLY_TYPE TYPE=BRIDGE')
+_i95ib = _cap862.index('APPLY_TYPE TYPE=INTERNAL-BRIDGE')
+_i95so = _cap862.index('APPLY_TYPE TYPE=INFILL-SOLID   ; R95: back to the cap solid')
+_l95c1 = _cap862.split('LAYER_MARK   ; R2-RANGE cap')[1]
+tests.append(('R95 cap hole: bridge spokes -> ring on them -> solid (order)',
+    _i95br < _i95ib < _i95so
+    and _l95c1.index('APPLY_TYPE TYPE=BRIDGE')
+        < _l95c1.index('APPLY_TYPE TYPE=INTERNAL-BRIDGE')
+    and _l95c1.index('F1300') < _l95c1.index('APPLY_TYPE TYPE=INTERNAL-BRIDGE'), ''))
+_spk95 = _re862.findall(r'F1300', _l95c1)
+tests.append(('R95 cap hole: >= 12 short radial bridge spokes (F1300)',
+    len(_spk95) >= 12, 'spokes %d' % len(_spk95)))
+# every travel that crosses the open hole must retract first (dd rule)
+def _seg95(p, q, cx, cy, r):
+    dx, dy = q[0] - p[0], q[1] - p[1]
+    a = dx * dx + dy * dy
+    if a < 1e-12:
+        return (p[0] - cx) ** 2 + (p[1] - cy) ** 2 < r * r
+    t = max(0.0, min(1.0, ((cx - p[0]) * dx + (cy - p[1]) * dy) / a))
+    return (p[0] + t * dx - cx) ** 2 + (p[1] + t * dy - cy) ** 2 < r * r
+_cx95, _cy95, _cr95 = _c862, _c862, 14.0
+_pos95, _e95, _was95, _bad95, _ret95 = None, 0.0, False, 0, 0
+for _l95 in _cap862.split(chr(10)):
+    _m95t = _re862.match(r'G0 X([\d.-]+) Y([\d.-]+)', _l95)
+    _m95e = _re862.match(r'G1 X([\d.-]+) Y([\d.-]+) E(-?[\d.]+)', _l95)
+    _m95o = _re862.match(r'G1 E(-?[\d.]+) F2400', _l95)
+    if _m95o:                       # pure retract / unretract line
+        _new95 = float(_m95o.group(1))
+        _was95 = _new95 < _e95 - 1e-6
+        _e95 = _new95
+    elif _m95e:
+        _new95 = float(_m95e.group(3))
+        if _new95 < _e95 - 1e-6 and abs(_new95 - _e95) < 1.0:
+            _was95 = True           # combined move starting with a retract
+        else:
+            _was95 = False
+        _e95 = _new95
+        _pos95 = (float(_m95e.group(1)), float(_m95e.group(2)))
+    if _m95t:
+        if _pos95 is not None and _seg95(
+                _pos95, (float(_m95t.group(1)), float(_m95t.group(2))),
+                _cx95, _cy95, _cr95):
+            if _was95:
+                _ret95 += 1         # retracted crossing - allowed
+            else:
+                _bad95 += 1         # UNRETRACTED crossing - strings!
+        _pos95 = (float(_m95t.group(1)), float(_m95t.group(2)))
+tests.append(('R95 cap hole: travels over the open hole retract (bridges + clipped hatch)',
+    _bad95 == 0 and _ret95 >= 2, 'bad %d / retracted %d' % (_bad95, _ret95)))
+tests.append(('R95 cap hole: TYPES lists BRIDGE + INTERNAL-BRIDGE',
+    'BRIDGE' in _t862.split('TYPES=')[-1].split()[0] and 'INTERNAL-BRIDGE' in _t862, _t862[:80]))
 _o862b, _ = _pp.make_range(_src862, 3, 6, floor=2, floor_hole=45.0)
 _tb862 = open(_o862b).read()
 tests.append(('R86.2 range: oversized hole auto-clamps with a note',
@@ -7448,6 +7500,379 @@ tests.append(('R92.1 LCD: Feat x%% input + effective accel + flow Src in Live Tu
     and '[menu __main __live __accels __eff]' in _lcd921
     and '[menu __main __live __extr __fsrc]' in _lcd921
     and 'SET_GLOBAL_ACCEL_PERCENT PERCENT=' in _lcd921, ''))
+
+
+# ===================== R95: slicer feature census 12 -> 16 =====================
+# field log .74: features the slicers emit but the R2 system could neither
+# show nor tune. New: overhang wall, internal bridge, prime tower, custom
+# code (the mystery low-accel sections). Small perimeters have NO own ;TYPE:
+# marker -> config header only (SPEED_SMALL/ACCEL_SMALL in the file info).
+
+# --- TYPE_MAP: the new dialect entries map to the R2 canon ---
+from r2_postproc import CFG_KEYS as _CK95
+tests.append(('R95 TYPE_MAP: overhang/internal bridge/prime tower/custom map',
+    _TM94.get('overhang perimeter') == 'OVERHANG-PERIM'
+    and _TM94.get('internal bridge') == 'INTERNAL-BRIDGE'
+    and _TM94.get('prime tower') == 'PRIME-TOWER'
+    and _TM94.get('wipe tower') == 'PRIME-TOWER'
+    and _TM94.get('custom') == 'CUSTOM'
+    and _TM94.get('thin wall') == 'WALL-INNER'
+    and _TM94.get('skin') == 'SURFACE-TOP'
+    and _TM94.get('raft') == 'SURFACE-BOTTOM'
+    and _TM94.get('ooze shield') == 'SKIRT'
+    and _TM94.get('support transition') == 'SUPPORT', ''))
+tests.append(('R95 TYPE_MAP: Cura dialects map (lookup lowercases)',
+    _TM94.get('prime-tower') == 'PRIME-TOWER' and _TM94.get('wall-outer') == 'WALL-OUTER'
+    and _TM94.get('support-interface') == 'SUPPORT' and _TM94.get('skin') == 'SURFACE-TOP'
+    and _TM94.get('raft') == 'SURFACE-BOTTOM' and _TM94.get('top-skin') == 'SURFACE-TOP', ''))
+tests.append(('R95 CFG_KEYS: small perimeter speed/accel -> SPEED_SMALL/ACCEL_SMALL',
+    _CK95.get('small_perimeter_speed') == 'SPEED_SMALL'
+    and _CK95.get('small_perimeter_acceleration') == 'ACCEL_SMALL', ''))
+
+# --- _FILE_INFO: the new FS_/FA_ keys + small perimeter replay ---
+_fi95 = get_body('macros/08_print_start_stop.cfg', '_FILE_INFO')
+out = render(_fi95, {'SPEED_SMALL': '20', 'ACCEL_SMALL': '2500',
+                     'FS_OVERHANG_PERIM': '25', 'FS_PRIME_TOWER': '45',
+                     'FA_CUSTOM': '800', 'TYPES': 'WALL-OUTER,OVERHANG-PERIM,PRIME-TOWER,CUSTOM'})
+tests.append(('R95 _FILE_INFO: replays the 4 new FS/FA features',
+    'VARIABLE=file_feat_spd_overhangperim VALUE=25.0' in out
+    and 'VARIABLE=file_feat_spd_primetower VALUE=45.0' in out
+    and 'VARIABLE=file_feat_acc_custom VALUE=800.0' in out, out[:200]))
+tests.append(('R95 _FILE_INFO: small perimeter speed/accel from the config header',
+    'VARIABLE=file_speed_small VALUE=20.0' in out
+    and 'VARIABLE=file_accel_small VALUE=2500.0' in out, out[:200]))
+_f95all = open('macros/08_print_start_stop.cfg', encoding='utf-8').read()
+tests.append(('R95 08 cfg: absent-feature check runs over all 16 codes',
+    _f95all.count("'overhangperim','internalbridge','primetower','custom']") >= 1, ''))
+
+# --- _FILE_INFO_RESET wipes the new vars too ---
+out = render(get_body('macros/08_print_start_stop.cfg', '_FILE_INFO_RESET'), {})
+tests.append(('R95 _FILE_INFO_RESET: new feature vars + small perimeter wiped',
+    'VARIABLE=file_feat_spd_overhangperim VALUE=0.0' in out
+    and 'VARIABLE=file_feat_acc_custom VALUE=0.0' in out
+    and 'VARIABLE=file_speed_small VALUE=0.0' in out
+    and 'VARIABLE=file_accel_small VALUE=0.0' in out, out[:160]))
+
+# --- APPLY_TYPE tunes the new types like the old ones ---
+_at95 = get_body('macros/10_live_tuning.cfg', 'APPLY_TYPE')
+state_vars.update({'mode': 'printing', 'ignore_overrides': False,
+                   'current_type': '', 'g_speed_clean': 100, 'live_flow': 0})
+save_vars['ovf_accel_pct'] = 100.0
+save_vars.update({'ovf_overhangperim_on': True, 'ovf_overhangperim_spd': 50.0,
+                  'ovf_overhangperim_acc': 800.0, 'ovf_overhangperim_flw': 100.0})
+out = render(_at95, {'TYPE': 'OVERHANG-PERIM'})
+tests.append(('R95 APPLY_TYPE: overhang wall 50% + accel 800 applied',
+    'M99220 S50' in out and 'M99204 S800' in out, out[:200]))
+save_vars.update({'ovf_overhangperim_on': False, 'ovf_overhangperim_spd': 100.0,
+                  'ovf_overhangperim_acc': 0.0})
+save_vars.update({'ovf_custom_on': True, 'ovf_custom_acc': 600.0})
+out = render(_at95, {'TYPE': 'CUSTOM'})
+tests.append(('R95 APPLY_TYPE: custom code accel limit applied',
+    'M99204 S600' in out, out[:200]))
+save_vars.update({'ovf_custom_on': False, 'ovf_custom_acc': 0.0})
+
+# --- SAVE_DEFAULT_PRESET carries all 16 features ---
+save_vars.update({'ovf_primetower_on': True, 'ovf_primetower_spd': 60.0,
+                  'ovf_primetower_acc': 500.0, 'ovf_primetower_flw': 110.0})
+out = render(get_body('macros/05_materials.cfg', 'SAVE_DEFAULT_PRESET'), {})
+tests.append(('R95 preset SAVE: all 16 feats in the snapshot',
+    "'primetower': [True, 60.0, 500.0, 110.0]" in out
+    and "'custom':" in out and "'internalbridge':" in out, out[:200]))
+save_vars.update({'ovf_primetower_on': False, 'ovf_primetower_spd': 100.0,
+                  'ovf_primetower_acc': 0.0, 'ovf_primetower_flw': 100.0})
+
+# --- LOAD: a 16-feat preset restores every feature ---
+save_vars['default_preset_1'] = {
+    'material': 'PLA', 'bed': 60, 'bed_on': False, 'bed_after': 60, 'bed_after_on': False,
+    'hotend_first': 210, 'hotend_first_on': False, 'hotend_after': 210, 'hotend_after_on': False,
+    'pa': 0.05, 'pa_on': False, 'pa_smooth': 0.04, 'pa_smooth_on': False,
+    'retract_len': 0.8, 'retract_len_on': False, 'retract_speed': 35, 'retract_speed_on': False,
+    'unretract_speed': 35, 'unretract_speed_on': False,
+    'accel': 4000, 'accel_on': False, 'velocity': 100, 'velocity_on': False,
+    'min_cruise': 0, 'min_cruise_on': False, 'square_corner': 0, 'square_corner_on': False,
+    'flow': 100, 'flow_on': False, 'fan': 100, 'fan_on': False,
+    'ironing_flow': 100, 'ironing_flow_on': False, 'first_layer_speed': 75, 'overrides': 1,
+    'feats': {c: [False, 100.0, 0.0, 100.0] for c in
+              ['wallouter','wallinner','infillsparse','infillsolid','surfacetop','surfacebottom',
+               'bridge','gaps','support','ironing','skirt','brim','overhangperim','internalbridge',
+               'primetower','custom']}}
+save_vars['default_preset_1']['feats']['primetower'] = [True, 60.0, 500.0, 110.0]
+save_vars['default_preset_1']['feats']['custom'] = [True, 100.0, 700.0, 100.0]
+out = render(get_body('macros/05_materials.cfg', 'LOAD_DEFAULT_PRESET'), {'N': '1'})
+tests.append(('R95 preset LOAD (16 feats): primetower + custom restored',
+    'VARIABLE=ovf_primetower_spd VALUE=60.0' in out
+    and 'VARIABLE=ovf_custom_acc VALUE=700.0' in out
+    and out.count('ovf_') >= 64, out[:200]))
+
+# --- LOAD: an OLD preset (12 feats) must still load - fallback for the 4 new ---
+save_vars['default_preset_2'] = dict(save_vars['default_preset_1'])
+save_vars['default_preset_2']['feats'] = {c: v for c, v in
+    save_vars['default_preset_1']['feats'].items()
+    if c not in ('overhangperim', 'internalbridge', 'primetower', 'custom')}
+out = render(get_body('macros/05_materials.cfg', 'LOAD_DEFAULT_PRESET'), {'N': '2'})
+tests.append(('R95 preset LOAD (old 12 feats): new 4 fall back to OFF/100',
+    'VARIABLE=ovf_overhangperim_on VALUE=False' in out
+    and 'VARIABLE=ovf_custom_spd VALUE=100.0' in out
+    and 'VARIABLE=ovf_primetower_on VALUE=False' in out, out[:200]))
+del save_vars['default_preset_1'], save_vars['default_preset_2']
+
+# --- _STATE defines the new vars (boot safety) ---
+_st95 = open('macros/01_state.cfg', encoding='utf-8').read()
+tests.append(('R95 _STATE: new feature vars + small perimeter declared',
+    'variable_file_feat_spd_overhangperim' in _st95
+    and 'variable_file_feat_acc_custom' in _st95
+    and 'variable_file_speed_small' in _st95
+    and 'variable_file_accel_small' in _st95, ''))
+
+# --- LCD: 4 new submenu pairs + OH/IB/PT/CU activators ---
+_lcd95 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R95 LCD: 4 new feature submenus (preprint + live)',
+    all('[menu __main __%s __feat __%s]' % (a, b) in _lcd95
+        for a in ('preprint', 'live') for b in ('oh', 'ib', 'pt', 'cu')), ''))
+tests.append(('R95 LCD: new submenu names human (not the activator prefix)',
+    'name: Overhang Wall' in _lcd95 and 'name: Internal Bridge' in _lcd95
+    and 'name: Prime Tower' in _lcd95 and 'name: Custom Code' in _lcd95, ''))
+
+
+# ===================== R95 P2: hole-travel discipline in every generator ====
+# rule dd: NO unretracted travel over an open hole - at ANY length. The _Pen
+# (labels / angles / frames / litho / seal) used to retract only above
+# jump_d = 6mm: short crossings (label holes, screw holes) ran flat and
+# dragged strings across the opening (field log .74).
+
+# --- unit: the pen retracts on hole crossings BELOW jump_d ---
+from r2_postproc import _Pen as _Pen95
+_L95 = []
+_p95 = _Pen95(_L95, jump_d=6.0)
+_p95.holes = [(50.0, 50.0, 5.0)]
+_p95.set_z(1.0)
+_p95.extrude(47.5, 50.0, 0.5, 1200)
+_p95.travel(52.5, 50.0)          # 5mm < jump_d, but crosses the hole
+_t95a = chr(10).join(_L95)
+_L95b = []
+_p95b = _Pen95(_L95b, jump_d=6.0)
+_p95b.set_z(1.0)
+_p95b.extrude(47.5, 50.0, 0.5, 1200)
+_p95b.travel(52.5, 50.0)         # same length, no hole registered
+_t95b = chr(10).join(_L95b)
+tests.append(('R95 pen: travel over an open hole retracts BELOW jump_d',
+    'G10' in _t95a and 'G10' not in _t95b, _t95a.replace(chr(10), ' | ')[:120]))
+
+# --- unit: polygon slots (frame view opening) cross -> retract ---
+_L95c = []
+_p95c = _Pen95(_L95c, jump_d=6.0)
+_p95c.hole_polys = [[(45.0, 45.0), (55.0, 45.0), (55.0, 55.0), (45.0, 55.0)]]
+_p95c.set_z(1.0)
+_p95c.extrude(41.0, 50.0, 0.5, 1200)
+_p95c.travel(44.5, 50.0)         # short, ends at the slot edge
+_p95c.travel(56.0, 50.0)         # crosses the whole slot (2mm)
+_t95c = chr(10).join(_L95c)
+tests.append(('R95 pen: travel through a polygon slot retracts',
+    _t95c.count('G10') >= 1 and _t95c.index('G10') < _t95c.index('X56.000'),
+    _t95c.replace(chr(10), ' | ')[:150]))
+
+# --- generic audit: NO unretracted travel over a known open hole ---
+def _audit95(path, centers):
+    """every G0 travel crossing one of centers [(cx, cy, r)] must have a
+    G10 in the lines right before it (rule dd audit)."""
+    _ln95 = open(path).read().split(chr(10))
+    _pos, _was, _bad, _ok = None, False, 0, 0
+    for _i95, _l95 in enumerate(_ln95):
+        _m95t = _re862.match(r'G0 X([\d.-]+) Y([\d.-]+)', _l95)
+        _m95e = _re862.match(r'G1 X([\d.-]+) Y([\d.-]+)', _l95)
+        if _l95.startswith('G10'):
+            _was = True
+        elif _l95.startswith('G11'):
+            _was = False
+        elif _m95e:
+            _pos = (float(_m95e.group(1)), float(_m95e.group(2)))
+            _was = False
+        if _m95t:
+            _np95 = (float(_m95t.group(1)), float(_m95t.group(2)))
+            if _pos is not None and any(
+                    _seg95(_pos, _np95, _cx, _cy, _r)
+                    for (_cx, _cy, _r) in centers):
+                if _was:
+                    _ok += 1
+                else:
+                    _bad += 1
+            _pos = _np95
+    return _bad, _ok
+
+_d95lb = tempfile.mkdtemp(prefix='r95lb_')
+_o95lb1, _ = _pp.make_labels(['LOCH'], hole_side=1, hole_d=10, out_dir=_d95lb)
+_lns95 = open(_o95lb1).read().split(chr(10))
+_i95x = next(_i95 for _i95, _l95 in enumerate(_lns95)
+             if _l95.startswith('EXCLUDE_OBJECT_START NAME=LABEL_1'))
+_m95e = next(_re862.match(r'G1 X([\d.-]+) Y([\d.-]+)', _l95)
+             for _l95 in _lns95[_i95x:] if _re862.match(r'G1 X([\d.-]+) Y([\d.-]+)', _l95))
+_x95, _y95 = float(_m95e.group(1)), float(_m95e.group(2))
+_c95l = _pp._label_layout(60.0, 30.0, 1, 10)
+_hole95 = (_x95 - 0.2 + _c95l[0][0], _y95 - 0.2 + _c95l[0][1], _c95l[0][2])
+_b95l, _o95l = _audit95(_o95lb1, [_hole95])
+tests.append(('R95 labels: every travel over the label hole retracts (audit)',
+    _b95l == 0 and _o95l >= 1, 'bad %d / ok %d' % (_b95l, _o95l)))
+
+# --- angles: find the screw-hole circles in the file itself, then audit ---
+def _find_circles95(path):
+    _lns = open(path).read().split(chr(10))
+    _grp, _out = [], []
+    for _l95 in _lns + ['END']:
+        _m95 = _re862.match(r'G1 X([\d.-]+) Y([\d.-]+)', _l95)
+        if _m95:
+            _grp.append((float(_m95.group(1)), float(_m95.group(2))))
+        else:
+            if len(_grp) >= 12:
+                _cx95 = sum(p[0] for p in _grp) / len(_grp)
+                _cy95 = sum(p[1] for p in _grp) / len(_grp)
+                _rs95 = sorted(_math862.hypot(p[0] - _cx95, p[1] - _cy95) for p in _grp)
+                if _rs95[-1] - _rs95[0] < 0.5 and 1.0 < _rs95[len(_rs95) // 2] < 20.0:
+                    _c95 = (_cx95, _cy95, _rs95[len(_rs95) // 2])
+                    if not any(abs(_c95[0] - o[0]) < 1.5 and abs(_c95[1] - o[1]) < 1.5
+                               for o in _out):
+                        _out.append(_c95)
+            _grp = []
+    return _out
+
+_o95an1, _ = _pp.make_angles(count=1, angle_deg=90, leg_a=60, leg_b=60, width=25,
+                             layers=6, holes=2, hole_d=6, out_dir=_d95lb,
+                             bed=(0.0, -3.0, 244.0, 238.0))
+_cs95 = _find_circles95(_o95an1)
+_b95a, _o95a = _audit95(_o95an1, _cs95)
+tests.append(('R95 angles: every travel over a screw hole retracts (audit)',
+    len(_cs95) == 4 and _b95a == 0, 'holes %d / bad %d' % (len(_cs95), _b95a)))
+
+# --- frame: the view opening is a registered polygon keep-out ---
+_src95f = 'pen.hole_polys = [[(x + cx, y + cy) for (x, y) in view_c]]'
+tests.append(('R95 frame: view opening registered as polygon keep-out',
+    _src95f in open('tools/r2_postproc.py').read(), ''))
+
+
+# ===================== R95 P4: beep discipline while printing ==================
+# rule cc: a beep blocks the firmware -> the standing filament oozes a purge
+# blob into the print. Confirmation/feedback beeps stay silent during an
+# ACTIVE print (NeoPixel carries the feedback); critical sounds always play.
+
+_body95s = get_body('macros/02_sounds.cfg', '_SOUND_LIB')
+state_vars['mode'] = 'printing'
+out = render(_body95s, {'NAME': 'r2_confirm'}, extra={'tunes': tunes})
+tests.append(('R95 beep: r2_confirm SILENT while printing',
+    'M300' not in out, out.strip()[:100]))
+out = render(_body95s, {'NAME': 'r2_click'}, extra={'tunes': tunes})
+tests.append(('R95 beep: r2_click SILENT while printing',
+    'M300' not in out, out.strip()[:100]))
+out = render(_body95s, {'NAME': 'r2_happy'}, extra={'tunes': tunes})
+tests.append(('R95 beep: r2_happy (generator success) SILENT while printing',
+    'M300' not in out, out.strip()[:100]))
+out = render(_body95s, {'NAME': 'r2_hot'}, extra={'tunes': tunes})
+tests.append(('R95 beep: r2_hot (live temp reached) SILENT while printing',
+    'M300' not in out, out.strip()[:100]))
+_critical95 = []
+for _nm95 in ('r2_alarm', 'r2_question', 'r2_pause', 'r2_filament', 'r2_error',
+              'r2_notice', 'r2_resume', 'r2_done'):
+    out = render(_body95s, {'NAME': _nm95}, extra={'tunes': tunes})
+    _critical95.append('%s:%s' % (_nm95, 'M300' in out))
+tests.append(('R95 beep: critical sounds ALWAYS audible while printing',
+    all(x.endswith(':True') for x in _critical95), ' '.join(_critical95)))
+state_vars['mode'] = 'idle'
+out = render(_body95s, {'NAME': 'r2_confirm'}, extra={'tunes': tunes})
+tests.append(('R95 beep: r2_confirm audible again when idle',
+    'M300' in out, out.strip()[:100]))
+state_vars['mode'] = 'printing'
+
+
+# ===================== R95 P3: seamless texture on arcs =======================
+# field log .74: the texture showed "only at the corners" - arc-fitted files
+# (vases!) carry the outer wall as G2/G3 arcs and R91 only scattered G1
+# vertices. Arcs are flattened into short textured chords now; presets are
+# sized after OrcaSlicer's fuzzy skin (thickness 0.3 / point distance 0.8).
+
+import math as _m95
+_d95t = _tf91.mkdtemp(prefix='r95tex_')
+_p95v = _os91.path.join(_d95t, 'vase95.gcode')
+_L95v = ['; R2-POSTPROC v4', 'M83', 'G90', 'G28',
+         'G0 X120.000 Y100.000', 'G1 Z0.2 F600']
+for _ly95 in range(1, 4):
+    _L95v += ['LAYER_MARK', 'G1 Z%.2f F600' % (0.2 * _ly95), ';TYPE:Outer wall']
+    for _q95 in range(4):
+        _a095 = _q95 * _m95.pi / 2
+        _a195 = (_q95 + 1) * _m95.pi / 2
+        _x095 = 100 + 20 * _m95.cos(_a095)
+        _y095 = 100 + 20 * _m95.sin(_a095)
+        _x195 = 100 + 20 * _m95.cos(_a195)
+        _y195 = 100 + 20 * _m95.sin(_a195)
+        _L95v.append('G3 X%.3f Y%.3f I%.3f J%.3f E%.4f F1500'
+                     % (_x195, _y195, 100 - _x095, 100 - _y095,
+                        (_m95.pi * 20 / 2) * 0.05))
+_L95v.append('PRINT_END')
+open(_p95v, 'w').write('\n'.join(_L95v) + '\n')
+_o95v, _i95v = _at91(_p95v, mode='FUZZY', fuzzy_thick=0.3, fuzzy_density=100,
+                     out_dir=_d95t)
+_t95v = open(_o95v).read().split('\n')
+_arcs95 = [l for l in _t95v if l.startswith(('G2 ', 'G3 '))]
+_ch95 = [l for l in _t95v if l.startswith('G1 X') and ' E' in l]
+_off95 = 0
+for _l95 in _ch95:
+    _m95r = _re91.match(r'G1 X([\d.-]+) Y([\d.-]+)', _l95)
+    _rr95 = _m95.hypot(float(_m95r.group(1)) - 100, float(_m95r.group(2)) - 100)
+    if abs(_rr95 - 20) > 0.005:
+        _off95 += 1
+tests.append(('R95 texture: ALL 12 arcs flattened, no G2/G3 left',
+    _i95v['arcs_flattened'] == 12 and len(_arcs95) == 0 and len(_ch95) > 600,
+    'arcs %d / left %d / chords %d' % (_i95v['arcs_flattened'], len(_arcs95), len(_ch95))))
+tests.append(('R95 texture: chords carry texture ALL around (> 95% shifted)',
+    _off95 >= int(0.95 * len(_ch95)), '%d / %d' % (_off95, len(_ch95))))
+_es95 = sum(float(_re91.search(r'E([\d.]+)', l).group(1)) for l in _ch95)
+tests.append(('R95 texture: arc E preserved (chords sum to the arc total)',
+    abs(_es95 - 12 * (_m95.pi * 20 / 2) * 0.05) < 0.02,
+    '%.3f vs %.3f' % (_es95, 12 * (_m95.pi * 20 / 2) * 0.05)))
+
+# --- R-form arcs flatten too ---
+_p95r = _os91.path.join(_d95t, 'rform95.gcode')
+open(_p95r, 'w').write('M83\nG90\nG0 X95 Y100\n;TYPE:Outer wall\n'
+                       'G2 X105 Y100 R5.0 E0.785 F1500\n'
+                       'G2 X95 Y100 R-5.0 E0.785 F1500\n')
+_o95r, _i95r = _at91(_p95r, mode='FUZZY', fuzzy_thick=0.3, fuzzy_density=100,
+                     out_dir=_d95t)
+tests.append(('R95 texture: R-form arcs flatten too',
+    _i95r['arcs_flattened'] == 2, 'arcs %d' % _i95r['arcs_flattened']))
+
+# --- thick range now Orca-sized 0.05..1.5 ---
+_ok95a = _ok95b = _bad95 = False
+try:
+    _at91(_p95r, mode='FUZZY', fuzzy_thick=1.5, fuzzy_density=100, out_dir=_d95t)
+    _ok95a = True
+except ValueError:
+    pass
+try:
+    _at91(_p95r, mode='FUZZY', fuzzy_thick=2.0, fuzzy_density=100, out_dir=_d95t)
+    _ok95b = True
+except ValueError:
+    _bad95 = True
+tests.append(('R95 texture: thickness range 0.05..1.5 (Orca sizes, 2.0 refused)',
+    _ok95a and _bad95 and not _ok95b, ''))
+
+# --- TEXTURE_APPLY presets (Orca sizes) ---
+_body95tx = get_body('macros/17_generator.cfg', 'TEXTURE_APPLY')
+out = render(_body95tx, {'PRESET': 'ORCA'})
+tests.append(('R95 TEXTURE_APPLY: PRESET=ORCA sets FUZZY 0.3 / 100%',
+    'VARIABLE=texture_mode' in out and 'FUZZY' in out
+    and 'VARIABLE=texture_fuzzy_thick VALUE=0.3' in out
+    and 'VARIABLE=texture_fuzzy_density VALUE=100.0' in out, out[:200]))
+out = render(_body95tx, {'PRESET': 'LAYERS'})
+tests.append(('R95 TEXTURE_APPLY: PRESET=LAYERS sets FUZZY 0.25 (hide layer lines)',
+    'VARIABLE=texture_fuzzy_thick VALUE=0.25' in out
+    and 'hide layer lines' in out, out[:200]))
+out = render(_body95tx, {'PRESET': 'BLA'})
+tests.append(('R95 TEXTURE_APPLY: unknown preset refused',
+    'PRESET must be ORCA' in out, out[:120]))
+
+# --- LCD: preset submenu ---
+_lcd95t = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R95 LCD: texture presets menu (ORCA/LAYERS/SUBTLE/GRIP)',
+    '[menu __main __preprint __tex __preset]' in _lcd95t
+    and _lcd95t.count('TEXTURE_APPLY PRESET=') == 4
+    and 'input_max: 1.5' in _lcd95t, ''))
 
 fails = 0
 for name, ok, info in tests:

@@ -1386,10 +1386,10 @@ chapter('3','From file to print — the daily workflow',
   ],[40*mm,52*mm,66*mm]),
   H2('3.3 Pre-Print — the settings before you start'),
   TBL(['Entry','Contents'],[
-   ['File (G-code)','full slicer summary + slicer/firmware of the file + 12 feature activator rows (file value + ON switch, n/a guard)'],
+   ['File (G-code)','full slicer summary + slicer/firmware of the file + 16 feature activator rows (file value + ON switch, n/a guard)'],
    ['Material','LOAD NOW + all values + Save as preset — active-material edits apply live'],
    ['Temperatures / Motion','L1/L2 bed+hotend, fan L2, PA + smooth, retraction, accel, velocity, MCR, corner'],
-   ['Features','12 submenus: file original + ON + speed percent + accel per feature'],
+   ['Features','16 submenus: file original + ON + speed percent + accel per feature'],
    ['Flow / 1st layer','global flow 1–300 percent, first-layer speed (default 75 percent)'],
    ['Bed Mesh','ON/AUTO/OFF, adaptive, travel cap, profiles'],
    ['Range/Stop','planned end at layer N + the range generator: From/To, Floor/Top shapes+fills, Fl.hole + Top hole 0-80 mm centered, Brim, Create (ch. 5.1)'],
@@ -1419,7 +1419,7 @@ chapter('3','From file to print — the daily workflow',
     "recognized by their header (OrcaSlicer, PrusaSlicer, SuperSlicer, Bambu Studio, Cura, Elegoo, Kiri:Moto, "
     "AstroPrint, SliceBeam, ideaMaker, Simplify3D, FlashPrint) and their dialects normalized: layer comments "
     "(LAYER_CHANGE / LAYER:n / CHANGE_LAYER) all become LAYER_MARKs, feature names (Outer wall vs WALL-OUTER vs "
-    "Support/Base) map to the same 12 internal codes, config headers feed the preview. Two Marlin habits break "
+    "Support/Base) map to the same 16 internal codes (census table below), config headers feed the preview. Two Marlin habits break "
     "on Klipper — both detected, flagged and fixed IN PLACE:"),
   TBL(['Case','Symptom','The fix (one click)'],[
    ['Marlin-volumetric file (FLAVOR:Marlin (Volumetric), Cura)','E counts mm³ instead of mm — the print starves',
@@ -1436,11 +1436,11 @@ chapter('3','From file to print — the daily workflow',
   H2('Slicing for this system — the settings that unlock everything'),
   P("Why does G-code for other firmware or machines print here at all? Because the system does not "
     "trust the file — it READS it: 12 slicer families' dialects are normalized (layer comments to "
-    "LAYER_MARK, feature names to the 12 codes, header to file info), the interceptors translate "
+    "LAYER_MARK, feature names to the 16 codes, header to file info), the interceptors translate "
     "Marlin habits on the fly, PRINT_START/PRINT_END wrap every file in the same choreography. What "
     "cannot be translated is DETECTED and offered a fix (volumetric E, Bowden retracts)."),
   TBL(['Slice it like this','What it unlocks'],[
-   [';TYPE: feature comments (slicer default)','the 12 feature overrides + Live Tuning showing the feature printing NOW'],
+   [';TYPE: feature comments (slicer default)','the 16 feature overrides + Live Tuning showing the feature printing NOW'],
    ['layer comments (LAYER_CHANGE / LAYER: / CHANGE_LAYER)','layer counting, L1/L2 temps, fan from layer 2, Pause@, Stop@, the Range generator'],
    ['Klipper flavor (absolute or relative E — both fine)','clean values everywhere; Marlin-volumetric works after the Vol-&gt;mm fix'],
    ['start gcode calls PRINT_START with the file values','full start choreography: dialog, mesh, purge, first-layer rules'],
@@ -1448,6 +1448,35 @@ chapter('3','From file to print — the daily workflow',
    ['\"label objects\" enabled','KAMP adaptive mesh, object skip, smart park'],
    ['no M220/M221 spam from custom scripts','the clean-global system stays honest'],
   ],[64*mm,96*mm]),
+  H2('3.7 The feature census — all 16 features in every slicer family'),
+  P("Every modern slicer writes ;TYPE: comments into the G-code. The post-processor maps each spelling to one "
+    "internal code, MEASURES speeds/accels per feature and injects an APPLY_TYPE marker after every ;TYPE: — that "
+    "is what makes features live-tunable. Values without an own marker (e.g. small perimeters) come from the "
+    "config header into the file info instead (R95, field log .74):"),
+  TBL(['Feature (menu)','OrcaSlicer / Bambu','PrusaSlicer / SuperSlicer','Cura'],[
+   ['OW Outer wall','Outer wall','External perimeter','WALL-OUTER'],
+   ['IW Inner wall','Inner wall','Perimeter (Thin wall too)','WALL-INNER'],
+   ['OH Overhang wall','Overhang perimeter','Overhang perimeter','— (in WALL-OUTER)'],
+   ['SP Sparse infill','Sparse infill','Internal infill','FILL'],
+   ['SO Solid infill','Internal solid infill','Solid infill','— (in FILL/SKIN)'],
+   ['TP Top surface','Top surface / Top solid infill','Top solid infill','SKIN'],
+   ['BT Bottom surface','Bottom surface / Bottom solid infill','Bottom solid infill','SKIN (bottom)'],
+   ['BR Bridge','Bridge','Bridge infill','BRIDGE'],
+   ['IB Internal bridge','Internal bridge','Internal bridge infill','—'],
+   ['GP Gap fill','Gap fill / Gap infill','Gap fill','—'],
+   ['SU Support','Support (+ interface/transition)','Support material (+interface)','SUPPORT (+SUPPORT-INTERFACE)'],
+   ['IR Ironing','Ironing','Ironing','—'],
+   ['SK Skirt','Skirt / Ooze shield','Skirt','SKIRT'],
+   ['BM Brim','Brim','Brim','BRIM'],
+   ['PT Prime tower','Prime tower','Wipe tower','PRIME-TOWER'],
+   ['CU Custom code','custom (custom G-code)','custom','—'],
+   ],[30*mm,42*mm,48*mm,40*mm]),
+  P("Small perimeters are a pure SPEED setting (Orca default 50% of the wall speed) — the slicer decides per loop "
+    "which wall counts as small, there is no own ;TYPE: marker: small_perimeter_speed/acceleration is read from "
+    "the config header and shown in the file info (Speed/Accel small) so you can see why short loops run slower. "
+    "Types without an own menu entry map honestly: Raft to BT, Support interface/transition to SU, Ooze shield to "
+    "SK, plain Infill to SP. The 'mystery feature' from the field log (low accel values, no menu owned it) were "
+    "custom G-code sections with their own M204 — they are now the editable feature CU Custom code."),
   CODE('PRINT_START MATERIAL=[filament_type] BED=[first_layer_bed_temperature]\n'
        'HOTEND_FIRST=[first_layer_temperature] HOTEND_AFTER=[temperature]\n'
        'LAYER_HEIGHT=[layer_height] TOTAL_LAYERS=[num_layers]\n'
@@ -1739,7 +1768,7 @@ chapter('6','During the print: tuning, pauses, objects',
   P("Works in EVERY start mode — including AS SLICED and while plotting. The LCD shows Klipper REAL values: flow "
     "reads the actual extrude factor, PA reads pressure_advance, accel reads max_accel — what you see is what runs."),
   CODE('Speeds:  SET_GLOBAL_SPEED PERCENT=20..300 — ONE global factor (running feature re-applies on top)\n'
-       'Feature: SET_OVERRIDE_VALUE NAME=feat_spd_<code> VALUE= · feat_acc_<code> · feat_on_<code> (12 codes)\n'
+       'Feature: SET_OVERRIDE_VALUE NAME=feat_spd_<code> VALUE= · feat_acc_<code> · feat_on_<code> (16 codes)\n'
        'Accel:   SET_GLOBAL_ACCEL ACCEL= — features with their own accel keep it\n'
        'FeatAcc: SET_GLOBAL_ACCEL_PERCENT PERCENT=10..300 — scales ALL feature accel limits in the same ratio\n'
        'Limits:  SET_LIVE_VELOCITY · SET_LIVE_MINIMUM_CRUISE_RATIO · SET_LIVE_SQUARE_CORNER\n'
@@ -1841,9 +1870,10 @@ chapter('9','Speed, acceleration &amp; machine limits',
      'WHY (field log: "19% although 75% was set"): the old APPLY_TYPE ran through the M220 interceptor and '
      'multiplied on the ALREADY scaled factor, feature by feature (75×80 = 60 = 48 = ... = 19%). Now features '
      'talk to Klipper directly via the BASE commands M99220/M99221/M99204 — the global value is never touched',
-     '12 features: outer/inner wall, sparse/solid infill, top/bottom surface, bridge, gap fill, support, ironing '
-     '(+flow), skirt, brim — own ON switch each (Pre-Print > Features); Live Tuning shows the CURRENTLY printing '
-     'feature as Cur:/CurOv:/CurAcc: and since then has ALL 12 as Live > Features (edits re-apply on the spot)',
+     '16 features: outer/inner wall, overhang wall, sparse/solid infill, top/bottom surface, bridge, internal '
+     'bridge, gap fill, support, ironing (+flow), skirt, brim, prime tower, custom code — own ON switch each '
+     '(Pre-Print > Features); Live Tuning shows the CURRENTLY printing feature as Cur:/CurOv:/CurAcc: and has '
+     'ALL 16 as Live > Features (edits re-apply on the spot)',
      'ORIGINALS & OFF : post-processor v4 MEASURES the real speed (most frequent F per feature segment) and '
      'accel (M204 in effect) straight from the g-code — shown everywhere (File: rows) and used as the reset target: '
      'switching a feature OFF restores speed 100% / the file\'s accel / the slicer ironing flow. Only features the '
@@ -1977,8 +2007,8 @@ chapter('14','LCD menu reference',
    ['Hot / Bed / Fan / Zoff','cockpit: temperatures, fan %, Z-offset display — one click deep'],
    ['Speeds','Global % (THE overall regulator,) + Cur: currently printing feature % + CurOv: its ON switch + Src info'],
    ['Accels','Global mm/s² + CurAcc: the currently printing feature\'s accel '],
-   ['Features','12 submenus = Pre-Print > Features LIVE: edits re-apply immediately when that feature prints'],
-   ['File (G-code)','FULL mirror of the Pre-Print file info : measured originals per feature, 12 activators, temps, PA, retraction, fan, flow'],
+   ['Features','16 submenus = Pre-Print > Features LIVE: edits re-apply immediately when that feature prints'],
+   ['File (G-code)','FULL mirror of the Pre-Print file info : measured originals per feature, 16 activators, temps, PA, retraction, fan, flow'],
    ['Extrusion','Flow 1–300, PA, PA smooth, RetLen/RetSpd/Unret, Ironing flow — every input shows what Klipper REALLY runs + Src info '],
    ['Velocity','max velocity · minimum cruise ratio · square corner — live, like Mainsail'],
    ['File (G-code)','what the file asks for: type, material, layers, L1/L2 temps, PA, retract, fan F, flow Fl, accel A'],
@@ -1986,9 +2016,9 @@ chapter('14','LCD menu reference',
    ['Objects','skip single objects (2× confirm)'],
   ],[56*mm,108*mm]),
   TBL(['Pre-Print','Contents'],[
-   ['File (G-code)','full slicer summary + MEASURED per-feature originals (post-processor v4): speeds/accels straight from the g-code, temps, PA, retraction, sliced-by slicer + firmware flavor (volumetric warning) — PLUS 12 activator rows (OW..BM): real file speed + o:ON; CLICK toggles (absent features: n/a, refuse)'],
+   ['File (G-code)','full slicer summary + MEASURED per-feature originals (post-processor v4): speeds/accels straight from the g-code, temps, PA, retraction, sliced-by slicer + firmware flavor (volumetric warning) — PLUS 16 activator rows (OW..BM + OH/IB/PT/CU): real file speed + o:ON; CLICK toggles (absent features: n/a, refuse)'],
    ['Material','LOAD NOW + 11 values + Save as preset — edits of the ACTIVE material apply LIVE too '],
-   ['Features','12 submenus : each shows the file\'s ORIGINAL (File:) + own ON switch + speed % (× global) + accel; only features in the file are editable (n/a guard); OFF resets to the original — never touches the global values'],
+   ['Features','16 submenus : each shows the file\'s ORIGINAL (File:) + own ON switch + speed % (× global) + accel; only features in the file are editable (n/a guard); OFF resets to the original — never touches the global values'],
    ['Temperatures','Bed L1/L2, Hotend L1/L2, Fan L2 (ON/OFF each) + File H:215/210C / File B:60/55C = the file\'s own values'],
    ['Motion','PA (+smooth), retraction len/spd/unretract, Accel + Vel + MCR + Corner (ON/OFF each) + File R:len/speed'],
    ['Flow / 1st layer','global flow (1–300 %) · first-layer speed % (0 = off, default 75)'],
@@ -2552,6 +2582,7 @@ chapter('D','Appendix D: Version history',
   P("Only the milestones — the full reasoning lives in SESSION_STATE.md. The manual itself describes the CURRENT "
     "system; this table is just the record."),
   TBL(['Version','Core changes'],[
+      ('.74', 'range feature truth (vase opens with the cut feature, brim on the FIRST layer inside raft layer 1, TYPES/FS/FA describe the excerpt) · full slicer feature census 12 to 16: overhang wall, internal bridge, prime tower and custom G-code sections are editable features; small-perimeter speed/accel from the config header in the file info; every slicer family dialect mapped (census table ch. 3.7); old default presets keep loading (new features fall back to OFF) · range hole quality: cap holes print bridges around the opening first, ring on the bridges, hole stays open; all generators retract travels over open holes at any length · beep discipline while printing: confirmation/feedback beeps silent during an active print (no purge blobs from micro pauses), critical sounds always play · seamless texture on arc-fitted files (G2/G3 flattened into textured chords, E preserved; fuzzy presets sized after OrcaSlicer: ORCA/Hide layers/Subtle/Grip, thickness 0.05-1.5mm'),
       ('.73', 'frame & display-case generator (real-bed fit: one file / multi-plate Part A+B / 4-strip glue kit, RECT/OVAL, BACK bayonet - SIDE slide-in, hang keyhole + easel stand, surface Lines/Waves/Honeycomb/FLIP, disc insert glass/plexi/foil/litho, hidden cable duct), texture tool for ANY g-code file (fuzzy skin + GRID/WAVES/HEX/MANDELBROT bumps on outer walls only - tags/E/Z/F untouched, _TX result never auto-started), file check (tag version census on LCD/console/SSH + safe retag with .r2bak backup), seal + lithophane generators with LCD image browser, cable-tie redesign CLASSIC/LOOP, real-bed truth via [r2_postproc], probe-safe color-change purge strip, global x feature parameter model (flow multiplies, accel percent scaler), Tools menu English, live-tuning menu regrouped (audit), nozzle diameter from printer.cfg for every generator, prime-line de-ooze + resume without object purge (field log .73)'),
       ['.72','field-log .71 fixes: EXCLUDE_OBJECT POLYGON as valid json (cable ties + angles/plates start crash; all 5 generators verified), global speed/accel no longer eat feature overrides (feature rides ON TOP of the global, re-applied on every change; feature accel beats the global), range holes print as ONE spiral boss with retracting travels (no more strings over the hole), APPLY_TYPE re-derived from ;TYPE: when a source carries none (everything-printed-as-solid-infill mitigation), hole diameter clamps to the REAL section outline + 2mm margin (boss never sticks out of L/round sections)'],
       ['.71','LCD declutter: the four part generators (Kabelbinder, Winkel+Flach, Labels, Plotter) now live in ONE \'Tools\' top-level menu - the root drops from 10 to 7 entries; guards unchanged, console paths + manual follow'],

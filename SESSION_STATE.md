@@ -1100,3 +1100,70 @@ FIXES (R94, alle in tools/r2_postproc.py):
 TESTS: 1136 -> 1144 (8 neue R94: Cut-Marker-Position + Nicht-Erbung, Brim in Layer 1 + Rueckkehr + floor=0-eigene-Z, ehrliche TYPES, TYPE_MAP-Dialekte, Prusa-Quelle). R73/R74-Brim-String aktualisiert; R77-.57-Referenzvergleich auf MULTISET umgestellt (Brim-Loops byte-identisch zur .57, nur Position anders). GOLDEN RE-GEFREEZT (R94-Referenz): alle 13 mr-Faelle bewusst geaendert (Cut-Marker + Brim-Ordnung + TYPES), alle 10 pr-Faelle (process) UNVERAENDERT. Sweep 59/59, Validator clean, r91_simulate ALL PASS, PDF 87 S. mit Sonden.
 DOKU: MANUAL.md ch. 5.1 (Brim = first layer, Cut-Feature-Bullet, ehrliche Dateiinfo, Dialekt-Bullet) + make_manual_pdf parallel.
 GIT: Commit nach 7055b0c/R93-Release-Pfad; Session-Status: .73 ist draussen, R94 ist der erste .74-Kandidat.
+
+===============================================================================
+R95 (Feld-Log .74) — Feature-Census, Loch-Qualitaet, Textur auf Boegen, Beep-Disziplin
+===============================================================================
+AUFRAG: 4 Pakete aus dem Feld-Log .74. ALLE VIER ABGESCHLOSSEN.
+
+P1 SLICER-FEATURE-CENSUS 12 -> 16 (Feld-Log .74: unerklärlicher Feature-Wechsel mit niedrigen Accel-Werten):
+  NEU: OH Overhang Wall (overhangperim/OVERHANG-PERIM, Prusa+Orca ';TYPE:Overhang perimeter'),
+  IB Internal Bridge, PT Prime Tower (Orca 'prime tower', Prusa 'wipe tower', Cura 'PRIME-TOWER'),
+  CU Custom Code (= das Raetsel-Feature: Custom-G-Code-Sektionen mit eigenem M204).
+  Small Perimeters: KEIN eigener ;TYPE:-Marker (reine Speed-Einstellung, Orca ~50% der Wall-Speed)
+  -> nur Config-Header: CFG_KEYS +2 (small_perimeter_speed/acceleration -> SPEED_SMALL/ACCEL_SMALL),
+  _FILE_INFO-Replay + _STATE-Vars file_speed_small/file_accel_small + Reset-Listen.
+  TYPE_MAP +13 (thin wall->WALL-INNER, skin/top-skin/bottom-skin, raft->SURFACE-BOTTOM,
+  support transition/interface->SUPPORT, ooze shield->SKIRT, infill->INFILL-SPARSE, wipe/prime tower x3).
+  Code-Listen 12->16 in 04/05/06/07/08/10; FS/FA-Maps + Reset in 08 (dynamisch aus feat_stats/bstats).
+  LCD: +4 Submenues (preprint+live __oh/__ib/__pt/__cu, Namen 'Overhang Wall' etc.) + 8 Aktivator-Reihen
+  (OH:/IB:/PT:/CU:, ids __acovhg/__acintb/__acprit/__accust — Fehler 228 gefixt: Tupel-Reihenfolge
+  (sid,code,canon,pfx,name) vs clone(name,pfx) war VERTAUSCHT, LCD einmal revertiert+neu geklont).
+  05_materials: Preset-Dict +4 Features; LOAD-Fallback [False,100.0,0.0,100.0] fuer Alt-Presets (Fehler 225).
+  SUITE-FIXES: file_feat_brim-Typo, Spalte-0-Tupelzeilen eingrueckt (Klipper-Options-Regel, Fehler 227-Klasse),
+  R59/R60-Erwartungen 13->17 Aktivatoren / 12->16 Pfx, keine {# #}-Kommentare in gcode (2x passiert!).
+  USER-FRAGE BEENWORTET + DOKUMENTIERT: Census-Tabelle aller 16 Features x 4 Slicer-Familien
+  (MANUAL ch. 3 'A.1 feature census' + PDF ch. 3.7) inkl. wie aus dem G-Code gelesen wird
+  (;TYPE: -> APPLY_TYPE -> Live; Config-Header -> Datei-Info) und den Mapping-Entscheidungen.
+
+P2 RANGE-LOCH-QUALITAET (Regel dd):
+  CAP-LOCH (top_hole): vorher Ring AUF der Lochkante (innere Haelfte hing in der Luft, sackte ab,
+  verschloss das Loch mit einer 'freizupulten' Bruecke). NEU bridge-first wie im Slicer:
+  (1) radiale BRIDGE-Speichen ueber die Kante (APPLY_TYPE BRIDGE, F1300, >=12, bis r-0.15mm),
+  (2) Loch-Ring AUF den Speichen (APPLY_TYPE INTERNAL-BRIDGE), (3) erst dann Solid-Hatch bis zur Kante
+  — Oeffnung bleibt frei; bstats +BRIDGE/INTERNAL-BRIDGE (TYPES ehrlich).
+  AUDIT ALLER GENERATOREN auf retractlose Fahrten ueber offene Loecher: _Pen (labels/angles/frames/
+  litho/seal) retractete nur > jump_d=6mm — KURZE Kreuzungen liefen flach. FIX generisch:
+  _Pen.holes (Kreise) + _Pen.hole_polys (Polygone, neu: _pt_in_poly/_segs_cross/_seg_hits_poly)
+  — Kreuzungen retracten JEDER Laenge. Registriert: make_labels (Label-Loch), make_angles
+  (Schraubloecher), make_frame (Ansichtsoeffnung view_c als Polygon-Keep-out).
+  _GenE (Range) hatte die Logik bereits (R87.2) — unverändert.
+
+P3 TEXTUR AUF BOEGEN (User-Hypothese BESTAETIGT):
+  r2_texture.py matchte nur G1 — G2/G3-Boegen (Arc-Fitting!) wurden NIE texturiert -> 'Wirkung nur
+  an Ecken' bei runden Objekten. NEU: _GARC + _arc_points (I/J- und R-Form, CW/CCW, chord 0.35mm,
+  cap 720) — Boegen werden VOR der Streuung in G1-Sehnen zerlegt, jede Sehne texturiert;
+  E exakt erhalten (relativ: nach Sehnenlaenge verteilt; absolut: von last_e interpoliert,
+  M82/M83/G92-getrackt). Unaufloesbare Bogengeometrie (Start != px) bleibt unangetastet.
+  1260 Sehnen bei 12 Boegen, >95% verschoben = nahtlos rundum. Range fuzzy_thick 0.05..1.5 (Orca-Groessen).
+  PRESETS nach OrcaSlicer (thickness 0.3 / point dist 0.8 default): ORCA (0.3/100),
+  LAYERS (0.25/100, Layer-Lines kaschieren), SUBTLE (0.15/60), GRIP (0.5/100) —
+  TEXTURE_APPLY PRESET= (impliziert FUZZY, bad-preset-eigener elif-Zweig, R69-Gate: VALUE escaped)
+  + LCD Pre-Print > Texture > Presets + Fuz-th-Range im Input.
+
+P4 BEEP-DISZIPLIN (Regel cc):
+  Zentraler Guard in _SOUND_LIB (02_sounds.cfg): mode=='printing' + Name in
+  [r2_confirm, r2_click, r2_happy, r2_heating, r2_hot] -> STUMM (Beep blockt die Firmware ->
+  stehendes Filament oozt Purge-Blobs; NeoPixel traegt das Feedback). KRITISCH bleibt IMMER hoerbar:
+  r2_question/pause/resume/filament/alarm/error/notice/sad/done/start/printing/leveling/pid.
+  PRINT_END-Fanfare laeuft nach mode-Reset (finished) -> hoerbar. TOGGLE_SOUNDS/TEST_SOUNDS unberührt.
+
+TESTS: 1144 -> 1183/1183 (39 neue R95: TYPE_MAP/CFG_KEYS, _FILE_INFO-Replay 16+SMALL, RESET,
+APPLY_TYPE OH/CU, Preset SAVE/LOAD 16 + Alt-12-Fallback, _STATE-Vars, LCD-Submenues/-Namen,
+Cap-Bruecken-Ordnung/Speichen/Retract-Audit/TYPES, Pen-Unit unter jump_d, Label-/Angle-Kreuzungs-Audit,
+Frame-Poly-Keep-out, Beep 6x, Textur 12-Boegen/E-Summe/R-Form/Range/Presets/LCD).
+GOLDEN: 23/23 byte-identisch zur R94-Referenz (kein Re-freeze noetig — Golden-Faelle ohne top_hole/Boegen).
+MANUAL.md + MANUAL.pdf: Census-Tabelle ch.3/A.1+3.7, 12->16 ueberall, Beep-Discipline ch.16,
+Textur ch.5.9 (Arc-Flattening + Preset-Tabelle), Changelog .74 (R94+R95 gemeinsam, Version bleibt .73
+bis Release-Bump — Versionsfrage .74 an den User gestellt, offen).
+GIT: R95 uncommittiert im Working Tree auf bb264d9.
