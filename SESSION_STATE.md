@@ -1362,3 +1362,36 @@ Rand-Platzierung (bzw. Stand bei 0,0 / Stand-Ueberlappung) und die Einzellinien-
 MIGRATION: ZIP in Mainsail in den Config-Ordner hochladen, 'bash ~/printer_data/config/
 klipper-e3-r2d2/update.sh' — Ausgabe endet auf '== done. Happy printing! ==', danach 'sudo
 systemctl restart r2-postproc' (macht update.sh selbst, wenn sudo greift).
+
+BUMP .74->.75 (USER-FEEDBACK: "ich brauche keine zweimal eine 74"): Der User hat bereits .74
+installiert und hebt zu Recht hervor, dass ein gleichnamiges .74-ZIP mit anderem Inhalt verwirrt
+("wo noch steht du hast nichts geändert obwohl du was gemacht hast"). R96 und R97 waren seit dem
+.74-Release still unter derselben Nummer eingebaut worden — Konsequenz: ab jetzt bekommt JEDE
+ausgelieferte Aenderung ihre eigene Nummer. Bump nach .72-Schema: 01_state variable_version,
+make_manual_pdf (Docstring, Fuss, Cover, Rueckseite, Build-Msg), INSTALL 3x (unzip/zipfile/build-
+Zeile), Test-Erwartung + Testname (R66/R75). MANUAL- + PDF-Changelog neu gegliedert: .74-Zeile
+zurueck auf den Release-Stand (Commit 323d704), R96-Rest-Audit + R97-Rahmen unter NEUER .75-Zeile.
+PDF NEU: 90 Seiten, MD5 024c70c387ff84f2664799b019fe7eac (308497 B), 92x 'R2-2026-09-07.75'.
+Suite 1202/1202 (inkl. Versionstest .75), Golden 23/23.
+
+RELEASE .75: klipper-e3-r2d2-UPDATE-R2-2026-09-07.75.zip, 43 Dateien (Liste identisch zu .74),
+zipfile -t OK, Frisch-Entpackung byte-identisch 43/43. ZIP MD5 9f809274a36cf5c3f536b08595e71a8a
+(1090506 B). MANUAL.pdf im ZIP == Workspace-PDF (MD5 024c70c3..., 90 S.). Zusaetzlich korrigiert:
+Die Workspace-.74-ZIP trug heute frueh versehentlich R97-Inhalt unter altem Namen; neu gepackt
+aus Commit d5b8251 (= R96-Stand, kein R97-Code; MD5 e58490f5d542ad7568ad50f162cb850f — weicht
+vom R96-Original-Build e797507 nur durch Zip-Zeitstempel + vollstaendigen SESSION_STATE-Stand ab).
+Alte ZIPs (.10-.73) unangetastet.
+FELD-SIMULATION .74->.75 (eigenes HOME, printer.cfg mit 17 Includes, installiert = restaurierte
+.74): 'installed: R2-2026-09-07.74' -> zip found (.75) -> 43 Dateien entpackt -> exec neues
+update.sh -> '[ok] all 17 macro files are included' -> 'package version: R2-2026-09-07.75' ->
+'#'-Sanity ok -> Moonraker/sudo in der Sandbox graceful (am echten Pi verfuegbar). Ein Durchlauf.
+Endzustand: r2_postproc.py + MANUAL.pdf MD5-gleich zum Workspace, 5x R97-Marker, variable_version
+.75.
+MIGRATION FUER USER: .75-ZIP in Mainsail in den Config-Ordner hochladen, SSH 'bash
+~/printer_data/config/klipper-e3-r2d2/update.sh' — die Ausgabe zeigt den Fortschritt jetzt
+eindeutig ('installed: R2-2026-09-07.74' -> 'package version: R2-2026-09-07.75'). Boot-Konsole
+danach: 'Macro system OK: all 17 modules loaded and current (build R2-2026-09-07.75)' + Bootsound
++ 'M117 R2 ready'. Bereits generierte FRAME-Dateien NEU generieren (alte: Rand-Platzierung, Stand
+bei 0,0/Ueberlappung, Einzellinien-Erste-Schicht).
+KONVENTION FUER DIE ZUKUNFT: nie wieder eine bereits ausgegebene Versionsnummer neu belegen —
+jede Lieferung bekommt die naechste Nummer, auch wenn sie nur ein Feld-Log-Nachtrag ist.
