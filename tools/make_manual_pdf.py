@@ -1535,6 +1535,11 @@ chapter('4','Scenario library — every file type walked through',
 
 
 chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes, Gaskets &amp; Frames',
+  P("One quality rule applies to every generator (field-log rule): the nozzle never travels over an "
+    "open hole or slot without retracting, no matter how short the hop. Every opening is a registered "
+    "keep-out: label and screw holes, the cable-tie head channel and loop slot, the gasket groove, the "
+    "backplate keyhole and stud holes, the frame view opening and the bridge-test spans. FLAT gaskets "
+    "and lithophanes have no openings at all — one continuous bead per layer, nothing to cross."),
   H2('5.1 Range — print a section of an existing file'),
   P("Re-print a broken section, test the critical middle of a long print, or make a part from a few layers. "
     "Pre-Print > Range/Stop: From/To (capped to the real layer count), Floor, Top, Brim + their shapes and fills, "
@@ -1690,7 +1695,9 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
   ],[26*mm,32*mm,102*mm]),
   H2('5.7 Gaskets — the built-in seal maker'),
   P("Sealing rings straight from the LCD (menu Tools > Gaskets): outer/inner diameter and height, flat face "
-    "or groove. One continuous spiral per band — no seam, no start-stop blob where a seal would leak. Settings: "
+    "or groove. One continuous spiral per band — no seam, no start-stop blob where a seal would leak, and no "
+    "string ever dragged across the open groove (crossings retract, even the short band-to-band hop between "
+    "the lips). Settings: "
     "OD 12-200, ID 6-190 (band >= 2.4 mm), Height 0.4-6 mm, Face FLAT/NUT, Ironing, LH, Vers. NUT mills a "
     "groove into the face: two raised sealing lips = higher contact pressure = seals better on uneven flanges "
     "(needs 2 mm+ height, falls back to FLAT with a note if the band is too narrow). Create (beeps) -> "
@@ -2582,7 +2589,7 @@ chapter('D','Appendix D: Version history',
   P("Only the milestones — the full reasoning lives in SESSION_STATE.md. The manual itself describes the CURRENT "
     "system; this table is just the record."),
   TBL(['Version','Core changes'],[
-      ('.74', 'range feature truth (vase opens with the cut feature, brim on the FIRST layer inside raft layer 1, TYPES/FS/FA describe the excerpt) · full slicer feature census 12 to 16: overhang wall, internal bridge, prime tower and custom G-code sections are editable features; small-perimeter speed/accel from the config header in the file info; every slicer family dialect mapped (census table ch. 3.7); old default presets keep loading (new features fall back to OFF) · range hole quality: cap holes print bridges around the opening first, ring on the bridges, hole stays open; all generators retract travels over open holes at any length · beep discipline while printing: confirmation/feedback beeps silent during an active print (no purge blobs from micro pauses), critical sounds always play · seamless texture on arc-fitted files (G2/G3 flattened into textured chords, E preserved; fuzzy presets sized after OrcaSlicer: ORCA/Hide layers/Subtle/Grip, thickness 0.05-1.5mm'),
+      ('.74', 'range feature truth (vase opens with the cut feature, brim on the FIRST layer inside raft layer 1, TYPES/FS/FA describe the excerpt) · full slicer feature census 12 to 16: overhang wall, internal bridge, prime tower and custom G-code sections are editable features; small-perimeter speed/accel from the config header in the file info; every slicer family dialect mapped (census table ch. 3.7); old default presets keep loading (new features fall back to OFF) · range hole quality: cap holes print bridges around the opening first, ring on the bridges, hole stays open; all generators retract travels over open holes at any length — the rest audit closed the last gaps (cable-tie head channel + loop slot, gasket groove, backplate keyhole + stud holes, bridge spans are registered keep-outs too; found & fixed: 74 unretracted backplate crossings, 22 narrow cable-tie heads, 17 loops, 1 gasket groove; FLAT gaskets and lithophanes have no openings at all) · beep discipline while printing: confirmation/feedback beeps silent during an active print (no purge blobs from micro pauses), critical sounds always play · seamless texture on arc-fitted files (G2/G3 flattened into textured chords, E preserved; fuzzy presets sized after OrcaSlicer: ORCA/Hide layers/Subtle/Grip, thickness 0.05-1.5mm'),
       ('.73', 'frame & display-case generator (real-bed fit: one file / multi-plate Part A+B / 4-strip glue kit, RECT/OVAL, BACK bayonet - SIDE slide-in, hang keyhole + easel stand, surface Lines/Waves/Honeycomb/FLIP, disc insert glass/plexi/foil/litho, hidden cable duct), texture tool for ANY g-code file (fuzzy skin + GRID/WAVES/HEX/MANDELBROT bumps on outer walls only - tags/E/Z/F untouched, _TX result never auto-started), file check (tag version census on LCD/console/SSH + safe retag with .r2bak backup), seal + lithophane generators with LCD image browser, cable-tie redesign CLASSIC/LOOP, real-bed truth via [r2_postproc], probe-safe color-change purge strip, global x feature parameter model (flow multiplies, accel percent scaler), Tools menu English, live-tuning menu regrouped (audit), nozzle diameter from printer.cfg for every generator, prime-line de-ooze + resume without object purge (field log .73)'),
       ['.72','field-log .71 fixes: EXCLUDE_OBJECT POLYGON as valid json (cable ties + angles/plates start crash; all 5 generators verified), global speed/accel no longer eat feature overrides (feature rides ON TOP of the global, re-applied on every change; feature accel beats the global), range holes print as ONE spiral boss with retracting travels (no more strings over the hole), APPLY_TYPE re-derived from ;TYPE: when a source carries none (everything-printed-as-solid-infill mitigation), hole diameter clamps to the REAL section outline + 2mm margin (boss never sticks out of L/round sections)'],
       ['.71','LCD declutter: the four part generators (Kabelbinder, Winkel+Flach, Labels, Plotter) now live in ONE \'Tools\' top-level menu - the root drops from 10 to 7 entries; guards unchanged, console paths + manual follow'],

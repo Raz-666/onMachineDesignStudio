@@ -1209,3 +1209,81 @@ Bootsound + 'M117 R2 ready'. Danach 'sudo systemctl restart r2-postproc' macht u
 
 OFFEN (optional, bei Bedarf): dd-Rest-Audit seal/lithophane/cable_ties/bridge (Loch-Retracts wirken
 bisher nur bei registrierten Lochern: labels/angles/frame).
+
+# ROUND 97 (R96, bleibt Release .74): DD-REST-AUDIT — TIES/SEAL/BRIDGE/FRAME-BACKPLATE
+
+User-Auftrag: dd-Rest-Audit nachziehen (Loch-Retracts wirkten bisher nur bei
+registrierten Lochern: labels/angles/frame-view). Ergebnis: 4 der 5 Rest-Generatoren
+hatten TATSAECHLICHE Verstoesse, nur der Lithophane ist struktur-bedingt lochfrei.
+
+PRE-FIX-BEFUNDE (geometrischer Audit ueber alle G0-Travels: Kreuzung einer offenen
+Oeffnung ohne G10 davor = Verstoss; Layer-Filter: CLASSIC-Kanal erst ab Boden-Ende
+offen; Bridge nur Deck-Bloecke — Turm-Hops laufen ueber solide Turme):
+- Ties CLASSIC schmal (w3): 22 bad (Kopf-Kanal: Wand->Wand-, Hatch->Hatch- und
+  Pawl-Travel < jump_d 6mm); w8: 0 bad (Kreuzungen alle > 6mm -> retract by length).
+- Ties LOOP: 13-17 bad (Rahmen-Slot; u.a. Lochkante->Bandanfang schneidet die Slot-Ecke).
+- Seal GROOVE: 1 bad (Band->Band-Hop 2-4.6mm quer ueber die offene Nut = Leckpfad);
+  Seal FLAT: 0/0 (nur Null-Laengen-Layer-Seams) -> Datei unveraendert.
+- Frame-BACKPLATE (1pc UND multi Part B): je 74 bad (!) — Keyhole (r2.6+r1.7) und 2
+  Stud-Holes (r1.35) waren nur als Hatch-Keep-OUT registriert, der Hop ueber die
+  gesplittete Scanline kreuzt das rohe Loch < 6mm ohne Retract. (view_c war R95
+  registriert, die Keep-KREISE nicht.)
+- Bridge: Standard-Geometrie 0 bad (alle Spann-Kreuzungen > jump_d, retract by
+  length); Edge-Case length=47/short_pct=30 (Strang-Spannweite 5.7mm, Tuerme fast
+  beruehrend): 14 bad.
+- Litho: strukturell sauber — gar keine Oeffnungen (volle Platte + Rahmen), 1
+  kontinuierliches Ribbon/Layer, ~1 kurzer vertikaler Seam-Travel je Layer ueber
+  solider Spalte, der EINZIG lange Travel (Ironing-Pass) hat sein G10.
+
+FIXES (r2_postproc.py, alles ueber pen.holes/hole_polys; 5x Marker 'R96 (rule dd audit)'):
+1. tie_block: CLASSIC-Kanal-Rechteck ab li > head_base (2 Boden-Layer massiv, Kanal
+   darueber oben offen — Gurt wird von oben eingefaedelt); LOOP-Slot jede Layer.
+2. seal: pen.holes = [(cx,cy,r_in)] immer; in GROOVE-Layern zusaetzlich Scheibe
+   (cx,cy,r_out-wid/2) — dort kreuzt JEDE Travel die offene Nut (Band-Hop, Seam,
+   Ironing); Spiralen sind kontinuierlich -> keine False Positives in der Praxis.
+3. bridge deck(): Spann-Quad zwischen den Turm-Nahkanten als hole_poly, gesetzt am
+   Deck-Anfang und GELOESCHT am Deck-Ende — Turm-Hatch-Hops sehen es NIE (R77-
+   Retract-Sturm-Gefahr). Standard-Geometrie byte-identisch (reiner Guard),
+   Edge-Case 47/30 retractet jetzt.
+4. frame non-kit + kit (2 Stellen): pen.holes = list(plate_keeps(bx/bpx, by/bpy)).
+5. _Pen.travel(): Loch-Check nur bei ECHTEN Moves — '(d > 0.02 and self._hole_cross(
+   x, y))'. Die Seal-Registrierung enthuellte Null-Laengen-Retracts am Layer-Seam
+   (Pen steht schon am Bandstart, Punkt-im-Kreis feuerte ohne Bewegung).
+
+NO-OP-BEWEISE (byte-identisch vor/nach): Seal FLAT, Ties CLASSIC w8, Bridge 160/30 —
+Registrierung dort reiner Guard. Alle Fix-Diffs enthielten NUR G10/G11/G0-Z-Zeilen
+um die Kreuzungs-Travels (z. B. Frame +148 Zeilen = 74 Kreuzungen x G10+G11).
+
+TESTS: 1183 -> 1193/1193 (10 neu: _audit96-Helper circles+polys+min_li+deck_only;
+Ties CLASSIC w3 min_li=3; Ties LOOP w3; Seal FLAT 0/0; Seal GROOVE bad 0 + exakt
+3 G10s (2 lange + 1 fix, keine Null-Laengen-Extras); Bridge 160/30 + Edge 47/30
+deck-scoped; Frame 1pc Keeps (vorher 74 bad); Litho 0 unretracted lange Travels;
+Source-Check 5x R96-Anchor + li>head_base + 2x plate_keeps + travel-Guard).
+GOLDEN: 23/23 byte-identisch (make_range/process unberuehrt — _Pen ist generator-only).
+
+BUGS UNTERWEGS (Lesson): (a) hole_polys will Liste-von-Polygonen [[4 Punkte]], nicht
+flache 4-Tupel-Liste -> TypeError; (b) EXCLUDE-POLYGON-Parsing: Punkte 1+2 haben
+GLEICHE y-Koordinate — Hoehen MUESSEN aus Punkt 3 kommen (Frame-Test fiel auf
+bad 0/ok 0 statt 74, weil bh=0 die Keeps an die falsche y-Position legte); bei
+capturendem CENTER Gruppen 7/8, sonst 5/6; (c) Testparameter deck_only vs Referenz
+_deck_only; (d) _seg_hits_poly beim any() NICHT entpacken (nur Kreise *_c); (e)
+PNG-Chunk-Helper ohne '+ d +' baut korrupte Dateien (IHDR ohne Daten -> irrefuehrender
+'interlaced'-Fehler) — immer das R92-Muster kopieren.
+
+MANUAL: ch.5-Intro-Absatz (Eine Regel fuer alle Generatoren: nie ohne Retract ueber
+offene Locher/Slots, beliebig kurz — alle Oeffnungen als Keep-out registriert;
+FLAT-Gaskets/Lithos oeffnungsfrei), 5.7 Gasket-Nut-Satz (kein String ueber die offene
+Nut), Changelog .74 um Rest-Audit ergaenzt (74/22/17/1-Zahlen). PDF NEU: 90 Seiten,
+MD5 14dd51d0fd3668708fd380302baf36d6 (307562 B).
+
+RELEASE .74 ZIP NEU GEBAUT — setzt das ZIP aus dem Release-Commit 323d704 ausser
+Kraft (war noch nie im Feld): gleiche 43 Dateien, MD5 e797507bd974c549638728c38d169291
+(1079583 B). Feld-Simulation .73->.74 erneut durchlaufen: 43 Dateien entpackt,
+Version .74, r2_postproc im Sim MD5-gleich zum Workspace, Null-Touch-Update
+(kein neuer Include, ein einziger Durchlauf).
+
+BEOBACHTUNG (nicht geaendert, kein dd-Thema): make_bridge entlaeuft bei kleiner
+Spannweite (slen < tower*1.41, z. B. length=47 + short_pct=10-30 per Konsole) in
+degenerierte Geometrie (Tuermecken ueberlappen, Strang-Spannweite schrumpft bis
+negativ). LCD/Makro ruft nur Defaults (160/30 — sicher). Bei Bedarf spaeter
+slen >= tower + 4 clampsen.

@@ -650,6 +650,14 @@ background — niced, single-pass, a few seconds), all of them run through the
 NORMAL start flow, and all generated objects are exclude-objects (skippable
 live).
 
+One quality rule applies to every one of them (field-log rule): **the nozzle
+never travels over an open hole or slot without retracting — no matter how
+short the hop.** Every opening is a registered keep-out: label and screw
+holes, the cable-tie head channel and the loop slot, the gasket groove, the
+backplate keyhole and stud holes, the frame view opening and the
+bridge-test spans. FLAT gaskets and lithophanes have no openings at all —
+one continuous bead per layer, nothing to cross.
+
 ### 5.1 Range — print a section of an existing file
 
 Perfect for re-printing a broken section, testing the critical middle of a
@@ -1125,7 +1133,9 @@ the file list — only the image goes away. Console: `LITHO_CREATE INDEX=0`
 
 Sealing rings straight from the LCD: outer/inner diameter and height, with a
 flat face or a groove that raises the contact pressure. One continuous
-spiral per band — no seam, no start-stop blob where a seal would leak.
+spiral per band — no seam, no start-stop blob where a seal would leak, and
+no string ever dragged across the open groove (crossings retract, even the
+short band-to-band hop between the lips).
 
 **The workflow (LCD: `Tools > Gaskets`)**
 
@@ -2889,7 +2899,7 @@ Only the milestones — the full reasoning lives in SESSION_STATE.md.
 
 | Version | Core changes |
 |---|---|
-| .74 | range feature truth (field log .73: vase opens with the cut feature instead of the raft type, brim prints on the FIRST layer inside raft layer 1, TYPES/FS/FA describe the EXCERPT not the whole source) · full slicer feature census 12 → 16 (field log .74: overhang wall, internal bridge, prime tower and custom G-code sections are now real, editable features; small-perimeter speed/accel from the config header visible in the file info; every slicer family's `;TYPE:` dialect mapped — see the census table in ch. 3) · old default presets keep loading (new features fall back to OFF) · range hole quality (field log .74): the cap hole prints bridges AROUND the opening first, the hole ring sits ON the bridges, the solid fills up to the edge — no sagged ring, no bridge to pick out, the hole stays open; every generator (labels, angles, frames) retracts travels over open holes at ANY length (screws/label holes, frame view opening as polygon keep-out) · beep discipline while printing (confirmation/feedback beeps silent during an active print — no more purge blobs from micro pauses; critical sounds always play) · seamless texture on arc-fitted files (G2/G3 outer walls flattened into textured chords, E exactly preserved — vases get the texture all around, not just in the corners; fuzzy presets sized after OrcaSlicer: ORCA/Hide layers/Subtle/Grip, thickness 0.05–1.5 mm) |
+| .74 | range feature truth (field log .73: vase opens with the cut feature instead of the raft type, brim prints on the FIRST layer inside raft layer 1, TYPES/FS/FA describe the EXCERPT not the whole source) · full slicer feature census 12 → 16 (field log .74: overhang wall, internal bridge, prime tower and custom G-code sections are now real, editable features; small-perimeter speed/accel from the config header visible in the file info; every slicer family's `;TYPE:` dialect mapped — see the census table in ch. 3) · old default presets keep loading (new features fall back to OFF) · range hole quality (field log .74): the cap hole prints bridges AROUND the opening first, the hole ring sits ON the bridges, the solid fills up to the edge — no sagged ring, no bridge to pick out, the hole stays open; every generator retracts travels over open holes at ANY length — the rest audit closed the last gaps: cable-tie head channel + loop slot, gasket groove, backplate keyhole + stud holes and the bridge-test spans are registered keep-outs too (found & fixed before release: 74 unretracted keyhole/stud crossings on a 9x13 frame, 22 in narrow cable-tie heads, 17 in loops, 1 across a gasket groove; FLAT gaskets and lithophanes have no openings at all) · beep discipline while printing (confirmation/feedback beeps silent during an active print — no more purge blobs from micro pauses; critical sounds always play) · seamless texture on arc-fitted files (G2/G3 outer walls flattened into textured chords, E exactly preserved — vases get the texture all around, not just in the corners; fuzzy presets sized after OrcaSlicer: ORCA/Hide layers/Subtle/Grip, thickness 0.05–1.5 mm) |
 | .73 | frame & display-case generator (real-bed fit: one file / multi-plate Part A+B / 4-strip glue kit, RECT/OVAL, BACK bayonet - SIDE slide-in, hang keyhole + easel stand, surface Lines/Waves/Honeycomb/FLIP, disc insert glass/plexi/foil/litho, hidden cable duct), texture tool for ANY g-code file (fuzzy skin + GRID/WAVES/HEX/MANDELBROT bumps on outer walls only - tags/E/Z/F untouched, _TX result never auto-started), file check (tag version census on LCD/console/SSH + safe retag with .r2bak backup), seal + lithophane generators with LCD image browser, cable-tie redesign CLASSIC/LOOP, real-bed truth via [r2_postproc], probe-safe color-change purge strip, global x feature parameter model (flow multiplies, accel percent scaler), Tools menu English, live-tuning menu regrouped (audit), nozzle diameter from printer.cfg for every generator, prime-line de-ooze + resume without object purge (field log .73) |
 | .72 | field-log .71 fixes: EXCLUDE_OBJECT POLYGON as valid json (cable ties + angles/plates start crash; all 5 generators verified), global speed/accel no longer eat feature overrides (feature rides ON TOP of the global, re-applied on every change; feature accel beats the global), range holes print as ONE spiral boss with retracting travels (no more strings over the hole), APPLY_TYPE re-derived from ;TYPE: when a source carries none (everything-printed-as-solid-infill mitigation), hole diameter clamps to the REAL section outline + 2mm margin (boss never sticks out of L/round sections) |
 | .71 | LCD declutter: the four part generators (Kabelbinder, Winkel+Flach, Labels, Plotter) now live in ONE 'Tools' top-level menu — the root drops from 10 to 7 entries; guards unchanged (a missing module include hides its entry), console paths + manual follow |

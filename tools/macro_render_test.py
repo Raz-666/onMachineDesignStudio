@@ -7874,6 +7874,194 @@ tests.append(('R95 LCD: texture presets menu (ORCA/LAYERS/SUBTLE/GRIP)',
     and _lcd95t.count('TEXTURE_APPLY PRESET=') == 4
     and 'input_max: 1.5' in _lcd95t, ''))
 
+# ================== R96: dd rest audit - ties / seal / bridge / frame ==================
+# rule dd: never travel over an OPEN hole/slot without retracting, at ANY
+# travel length. R95 registered labels/angles + the frame view opening;
+# R96 audited the remaining generators. Pre-fix violations (found where the
+# crossing was SHORTER than the 6mm jump threshold): CLASSIC tie head
+# channel 22, LOOP tie slot 13-17, GROOVE seal 1 (a string across the
+# sealing groove = a leak path), frame BACKPLATE keyhole/stud holes 74 (!).
+# Bridge deck travels are span-long and always retracted - the span is a
+# registered keep-out now anyway (fires only when towers nearly touch).
+# FLAT seals (zero-length layer seams only) and lithophanes (one continuous
+# ribbon per layer, solid plate - no openings at all) are clean by design.
+
+_d96 = _tf90.mkdtemp(prefix='r96_')
+
+def _audit96(path, circles=(), polys=(), deck_only=False, min_li=1,
+             first_h=0.28, layer_h=0.2):
+    """every G0 travel (from layer min_li up) crossing one of the circles
+    [(cx, cy, r)] or polys [poly] must have a G10 right before it (dd)."""
+    _ln96 = open(path).read().split(chr(10))
+    _pos, _was, _bad, _ok, _deck, _li = None, False, 0, 0, False, 1
+    for _l96 in _ln96:
+        if 'EXCLUDE_OBJECT_START NAME=BRIDGE_' in _l96:
+            _deck = True
+        if 'EXCLUDE_OBJECT_END NAME=BRIDGE_' in _l96:
+            _deck = False
+        _mz96 = _re862.match(r';Z:([\d.]+)', _l96)
+        if _mz96:
+            _li = int(round((float(_mz96.group(1)) - first_h) / layer_h)) + 1
+        _mt96 = _re862.match(r'G0 X([\d.-]+) Y([\d.-]+)', _l96)
+        _me96 = _re862.match(r'G1 X([\d.-]+) Y([\d.-]+)', _l96)
+        if _l96.startswith('G10'):
+            _was = True
+        elif _l96.startswith('G11'):
+            _was = False
+        elif _me96:
+            _pos = (float(_me96.group(1)), float(_me96.group(2)))
+            _was = False
+        if _mt96:
+            _n96 = (float(_mt96.group(1)), float(_mt96.group(2)))
+            if ((not deck_only or _deck) and _li >= min_li and _pos is not None
+                    and (any(_pp._seg_hits_circle(_pos, _n96, *_c96)
+                             for _c96 in circles)
+                         or any(_pp._seg_hits_poly(_pos, _n96, _g96)
+                                for _g96 in polys))):
+                if _was:
+                    _ok += 1
+                else:
+                    _bad += 1
+            _pos = _n96
+    return _bad, _ok
+
+def _tie_polys96(path, length, width, variant, count=2):
+    """open-slot rects from the EXCLUDE polygons (tie bbox + parameters)"""
+    _t96 = open(path).read()
+    _out96 = []
+    for _i96 in range(1, count + 1):
+        _m96 = _re862.search(
+            r'NAME=TIE_%d CENTER=[\d.-]+,[\d.-]+ POLYGON=\[\[([\d.-]+),([\d.-]+)\],'
+            r'\[([\d.-]+),([\d.-]+)\],\[([\d.-]+),([\d.-]+)\]' % _i96, _t96)
+        _x096, _y096 = float(_m96.group(1)), float(_m96.group(2))
+        _w96 = abs(float(_m96.group(5)) - _x096)      # bbox from points 1 + 3
+        _h96 = abs(float(_m96.group(6)) - _y096)
+        _hl96 = _w96 - length
+        _cy96 = _y096 + _h96 / 2.0
+        if variant == 'CLASSIC':
+            _sw96 = width + 0.5                       # slot clearance 0.25/side
+            _r96 = (_x096, _cy96 - _sw96 / 2.0,
+                    _x096 + _hl96, _cy96 + _sw96 / 2.0)
+        else:
+            _hlp96 = round(max(2.0, width * 0.6 + 0.8), 1)
+            _hw96 = width + 0.4
+            _r96 = (_x096 + (_hl96 - _hlp96) / 2.0, _cy96 - _hw96 / 2.0,
+                    _x096 + (_hl96 + _hlp96) / 2.0, _cy96 + _hw96 / 2.0)
+        _out96.append([(_r96[0], _r96[1]), (_r96[2], _r96[1]),
+                       (_r96[2], _r96[3]), (_r96[0], _r96[3])])
+    return _out96
+
+# --- ties: CLASSIC head channel (open above the 2 solid floor layers) ---
+_p96tc, _ = _pp.make_cable_ties(count=2, length=60, width=3.0,
+                                variant='CLASSIC', out_dir=_d96)
+_b96, _o96 = _audit96(_p96tc, polys=_tie_polys96(_p96tc, 60, 3.0, 'CLASSIC'),
+                      min_li=3)
+tests.append(('R96 ties CLASSIC: head-channel crossings retract at any length',
+    _b96 == 0 and _o96 >= 20, 'bad %d / ok %d' % (_b96, _o96)))
+
+_p96tl, _ = _pp.make_cable_ties(count=2, length=60, width=3.0,
+                                variant='LOOP', out_dir=_d96)
+_b96, _o96 = _audit96(_p96tl, polys=_tie_polys96(_p96tl, 60, 3.0, 'LOOP'))
+tests.append(('R96 ties LOOP: slot-hole crossings retract at any length',
+    _b96 == 0 and _o96 >= 10, 'bad %d / ok %d' % (_b96, _o96)))
+
+# --- seal: FLAT is clean by design; GROOVE band hops retract ---
+_p96sf, _ = _pp.make_seal(od=40, id_=20, height=1.2, profile='FLAT',
+                          out_dir=_d96, version=2)
+_b96, _o96 = _audit96(_p96sf, circles=[(122.0, 117.5, 10.0)])
+tests.append(('R96 seal FLAT: zero-length seams only - no hole crossing',
+    _b96 == 0 and _o96 == 0, 'bad %d / ok %d' % (_b96, _o96)))
+_p96sg, _ = _pp.make_seal(od=40, id_=20, height=1.2, profile='NUT', out_dir=_d96)
+_b96, _o96 = _audit96(_p96sg,
+    circles=[(122.0, 117.5, 10.0), (122.0, 117.5, 20.0 - 0.324)])
+tests.append(('R96 seal GROOVE: travels across the open groove retract',
+    _b96 == 0 and _o96 >= 1, 'bad %d / ok %d' % (_b96, _o96)))
+tests.append(('R96 seal GROOVE: exactly 3 retracts (2 long + 1 fixed, '
+    'no zero-length extra)',
+    open(_p96sg).read().count(chr(10) + 'G10' + chr(10)) == 3, ''))
+
+# --- bridge: deck spans are keep-outs (scoped to the deck blocks) ---
+def _bridge_polys96(length, short_pct):
+    _cx96, _cy96 = 122.0, 118.5
+    _s96 = 1.0 / _math862.sqrt(2.0)
+    _dv96, _pv96, _t96 = (_s96, _s96), (-_s96, _s96), 5.0
+    _A96 = (_cx96 - _dv96[0] * length / 2.0, _cy96 - _dv96[1] * length / 2.0)
+    _B96 = (_cx96 + _dv96[0] * length / 2.0, _cy96 + _dv96[1] * length / 2.0)
+    _C96 = (_A96[0] + _dv96[0] * length * short_pct / 100.0,
+            _A96[1] + _dv96[1] * length * short_pct / 100.0)
+    def _band96(c0, c1):
+        _q096 = (c0[0] + _dv96[0] * _t96, c0[1] + _dv96[1] * _t96)
+        _q196 = (c1[0] - _dv96[0] * _t96, c1[1] - _dv96[1] * _t96)
+        return [(_q096[0] - _pv96[0] * _t96, _q096[1] - _pv96[1] * _t96),
+                (_q096[0] + _pv96[0] * _t96, _q096[1] + _pv96[1] * _t96),
+                (_q196[0] + _pv96[0] * _t96, _q196[1] + _pv96[1] * _t96),
+                (_q196[0] - _pv96[0] * _t96, _q196[1] - _pv96[1] * _t96)]
+    return _band96(_A96, _C96), _band96(_A96, _B96)
+
+_p96bd, _ = _pp.make_bridge(length=160, short_pct=30, out_dir=_d96)
+_b96, _o96 = _audit96(_p96bd, polys=_bridge_polys96(160, 30), deck_only=True)
+tests.append(('R96 bridge: every deck travel over the span retracts',
+    _b96 == 0 and _o96 >= 20, 'bad %d / ok %d' % (_b96, _o96)))
+_p96be, _ = _pp.make_bridge(length=47, short_pct=30, out_dir=_d96, version=2)
+_b96, _o96 = _audit96(_p96be, polys=_bridge_polys96(47, 30), deck_only=True)
+tests.append(('R96 bridge edge case (towers nearly touch): span crossings '
+    'retract below the jump threshold too',
+    _b96 == 0 and _o96 >= 10, 'bad %d / ok %d' % (_b96, _o96)))
+
+# --- frame: the backplate keyhole + stand stud holes are keep-outs ---
+def _frame_keeps96(path):
+    _m96 = _re862.search(
+        r'NAME=BACKPLATE CENTER=([\d.-]+),([\d.-]+) POLYGON=\[\[([\d.-]+),([\d.-]+)\],'
+        r'\[([\d.-]+),([\d.-]+)\],\[([\d.-]+),([\d.-]+)\]', open(path).read())
+    _bx96, _by96 = float(_m96.group(1)), float(_m96.group(2))
+    _bw96 = abs(float(_m96.group(5)) - float(_m96.group(3)))   # pt2.x-pt1.x
+    _bh96 = abs(float(_m96.group(8)) - float(_m96.group(4)))   # pt3.y-pt1.y
+    return [(_bx96, _by96 + _bh96 / 2.0 - 6.0, 2.6),           # keyhole
+            (_bx96, _by96 + _bh96 / 2.0 - 9.4, 1.7),           # keyhole slot
+            (_bx96 - 12.0, _by96 - _bh96 / 2.0 + 6.0, 1.35),   # stand studs
+            (_bx96 + 12.0, _by96 - _bh96 / 2.0 + 6.0, 1.35)]
+
+_p96f, _ = _pp.make_frame(preset='9x13', depth=6, frame_w=6, stand=True,
+                          out_dir=_d96)
+_b96, _o96 = _audit96(_p96f, circles=_frame_keeps96(_p96f))
+tests.append(('R96 frame: keyhole + stud-hole crossings retract (was 74 bad)',
+    _b96 == 0 and _o96 >= 20, 'bad %d / ok %d' % (_b96, _o96)))
+
+# --- lithophane: solid plate, one continuous ribbon per layer - no open
+# holes exist; the only long travel (the ironing pass) retracts ---
+_pos96l, _was96l, _long96, _longr96 = None, False, 0, 0
+for _l96 in open(_p92).read().split(chr(10)):
+    _mt96 = _re862.match(r'G0 X([\d.-]+) Y([\d.-]+)', _l96)
+    _me96 = _re862.match(r'G1 X([\d.-]+) Y([\d.-]+)', _l96)
+    if _l96.startswith('G10'):
+        _was96l = True
+    elif _l96.startswith('G11'):
+        _was96l = False
+    elif _me96:
+        _pos96l = (float(_me96.group(1)), float(_me96.group(2)))
+        _was96l = False
+    if _mt96:
+        _n96l = (float(_mt96.group(1)), float(_mt96.group(2)))
+        if (_pos96l is not None and _math862.hypot(_n96l[0] - _pos96l[0],
+                                                   _n96l[1] - _pos96l[1]) > 6.0):
+            if _was96l:
+                _longr96 += 1
+            else:
+                _long96 += 1
+        _pos96l = _n96l
+tests.append(('R96 litho: no openings - the only long travel (ironing) retracts',
+    _long96 == 0 and 1 <= _longr96 <= 3,
+    'unretracted %d / retracted %d' % (_long96, _longr96)))
+
+# --- source: every generator registers its openings + the zero-length guard --
+_src96 = open('tools/r2_postproc.py').read()
+tests.append(('R96 source: ties/seal/bridge/frame keep-outs + zero-length guard',
+    _src96.count('R96 (rule dd audit)') == 5
+    and 'if li > head_base else [])' in _src96
+    and _src96.count('pen.holes = list(plate_keeps(') == 2
+    and '(d > 0.02 and self._hole_cross(x, y))' in _src96, ''))
+
+
 fails = 0
 for name, ok, info in tests:
     print(('PASS ' if ok else 'FAIL '), name)

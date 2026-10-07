@@ -3656,7 +3656,9 @@ class _Pen:
             self.L.append('G0 X%.3f Y%.3f F%d' % (x, y, feed))
         else:
             d = math.hypot(x - self.x, y - self.y)
-            if (self._hole_cross(x, y)
+            # R96: the hole check only counts REAL moves - a zero-length hop
+            # (layer seam straight into the band start) crosses nothing
+            if ((d > 0.02 and self._hole_cross(x, y))
                     or d > (self.jump_d if force_d is None else force_d)):
                 hopz = hop and self.z is not None and self.z > 0.35
                 if self.retracts:
@@ -6118,6 +6120,20 @@ def make_bridge(length=160.0, short_pct=30, h_long=35.0, h_short=18.0, version=1
         """one bridge deck layer: strands along the span, ;TYPE:Bridge"""
         e_line = layer_h_eff(min(li, 3)) * twid / fil
         L.append('EXCLUDE_OBJECT_START NAME=%s' % name)
+        # R96 (rule dd audit): the span between the tower near-edges is OPEN
+        # air at deck height - registered as a polygon keep-out so a travel
+        # across it retracts at ANY length. Normally the strand travels are
+        # span-long and retract anyway (jump_d); the guard fires only when
+        # the towers nearly touch (tiny spans). Cleared again afterwards -
+        # tower hatch hops must never see it (R77 retract storm).
+        _t9 = tower / 2.0
+        _q0 = (c0[0] + d[0] * _t9, c0[1] + d[1] * _t9)
+        _q1 = (c1[0] - d[0] * _t9, c1[1] - d[1] * _t9)
+        pen.hole_polys = [[
+            (_q0[0] - p[0] * _t9, _q0[1] - p[1] * _t9),
+            (_q0[0] + p[0] * _t9, _q0[1] + p[1] * _t9),
+            (_q1[0] + p[0] * _t9, _q1[1] + p[1] * _t9),
+            (_q1[0] - p[0] * _t9, _q1[1] - p[1] * _t9)]]
         L.append(';TYPE:Bridge')
         L.append('M106 S%d   ; R2-BRIDGE: bridge fan' % fan)
         s0 = (c0[0] + d[0] * (tower / 2.0 - 0.8), c0[1] + d[1] * (tower / 2.0 - 0.8))
@@ -6130,6 +6146,7 @@ def make_bridge(length=160.0, short_pct=30, h_long=35.0, h_short=18.0, version=1
             pen.travel(a0[0], a0[1], feed=9000, hop=False)
             pen.extrude(a1[0], a1[1], math.hypot(a1[0] - a0[0], a1[1] - a0[1]) * e_line,
                         int(speed * 60))
+        pen.hole_polys = []
         L.append('M106 S178   ; R2-BRIDGE: back to tower fan')
         L.append('EXCLUDE_OBJECT_END NAME=%s' % name)
 
@@ -6431,6 +6448,19 @@ def make_cable_ties(count=6, length=120.0, width=8.0, layers=3, variant='CLASSIC
         """one tie at layer li"""
         cy = y0 + HW / 2.0
         e_wall = (first_h if li == 1 else layer_h) * wid / fil
+        # R96 (rule dd audit): the open slots are registered keep-outs -
+        # travels across them retract at ANY travel length. CLASSIC: the
+        # head channel is open from the first wall layer above the solid
+        # floor (the top never closes over it - the strap drops in from
+        # above). LOOP: the frame slot is open through every layer.
+        if variant == 'CLASSIC':
+            pen.hole_polys = (
+                [_rect_loop(x0, cy - slotw / 2.0, x0 + HL, cy + slotw / 2.0)]
+                if li > head_base else [])
+        else:
+            pen.hole_polys = [
+                _rect_loop(x0 + (LL - hole_l) / 2.0, cy - hole_w / 2.0,
+                           x0 + (LL + hole_l) / 2.0, cy + hole_w / 2.0)]
         L.append('EXCLUDE_OBJECT_START NAME=TIE_%d' % (idx + 1))
         if variant == 'CLASSIC':
             hx0, hx1 = x0, x0 + HL
@@ -7248,6 +7278,13 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                 if bw > uw or bh > uh:
                     raise ValueError('backplate %.0fx%.0fmm does not fit the '
                                      'bed' % (bw, bh))
+            # R96 (rule dd audit): the backplate's hang keyhole + stand stud
+            # holes stay OPEN through every layer - the hatch splits its
+            # scanlines around them, and the hop across the split crossed
+            # the raw hole unretracted. Registered as circle keep-outs:
+            # crossings retract at ANY travel length.
+            if want_rest:
+                pen.holes = list(plate_keeps(bx, by))
 
             def emit_ring(li, inner, notch=None, hatch=True):
                 ew = e_w(li)
@@ -7533,8 +7570,12 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                                          'backplate on plate B (wall mounting '
                                          'still works)')
                     if bw > uw or bh > uh:
-                        raise ValueError('backplate %.0fx%.0fmm does not fit the '
-                                         'bed' % (bw, bh))
+                        raise ValueError('backplate %.0fx%.0fmm does not fit '
+                                         'the bed' % (bw, bh))
+            # R96 (rule dd audit): same keep-out circles for the KIT
+            # backplate (Part B): keyhole + stud holes retract-crossed.
+            if want_rest:
+                pen.holes = list(plate_keeps(bpx, bpy))
 
             # NOTE: strips carry the profile via their INNER edge position:
             #   band  back band   -> inner edge = photo opening (pw/ph)
@@ -8500,6 +8541,16 @@ def make_seal(od=40.0, id_=20.0, height=1.2, profile='FLAT', ironing=False,
         feed = 600 if li == 1 else 900
         flip = (li % 2 == 0)
         in_groove = groove and li > layers - g_lay
+        # R96 (rule dd audit): the ring's center hole is open through every
+        # layer. In the GROOVE layers the annulus between the lips prints
+        # NOTHING (that IS the sealing groove) - every travel there (the
+        # band->band hop, the layer seam, the ironing pass) crosses the open
+        # groove and drags a string across it = a leak path, so the whole
+        # groove disc retracts. FLAT rings only ever see zero-length layer
+        # seams - nothing crosses, the registration is a pure guard.
+        pen.holes = [(cx, cy, r_in)]
+        if in_groove:
+            pen.holes.append((cx, cy, r_out - wid / 2.0))
         if in_groove:
             spiral_band(r_in + wid / 2.0, r_in + lip - wid / 2.0, e_wall, feed, flip)
             spiral_band(r_out - lip + wid / 2.0, r_out - wid / 2.0, e_wall, feed, not flip)
