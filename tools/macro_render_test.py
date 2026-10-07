@@ -6634,14 +6634,16 @@ for _l90 in _g90a.split(chr(10)):
 tests.append(('R90 frame: photo opening stays free below the shelf (nub tips ok)',
     len(_deep90) == 0, str(_deep90[:2])))
 
-# bayonet: exactly one ;TYPE:Inner wall pair per nub layer (2 layers, L+R)
+# bayonet: the nub layers carry TWO Inner-wall tags (R97: the ring's inner
+# contour prints as Inner wall on EVERY layer now - the nubs add the 2nd)
 _z90 = None
-_nubz90 = []
+_seen90 = {}
 for _l90 in _g90a.split(chr(10)):
     if _l90.startswith(';Z:'):
         _z90 = float(_l90[3:])
     elif _l90.startswith(';TYPE:Inner wall'):
-        _nubz90.append(round(_z90, 2))
+        _seen90[round(_z90, 2)] = _seen90.get(round(_z90, 2), 0) + 1
+_nubz90 = sorted(_z90x for _z90x, _c90x in _seen90.items() if _c90x >= 2)
 tests.append(('R90 frame bayonet: nub band = 2 layers just above the back band',
     _nubz90 == [5.68, 5.88], str(_nubz90)))
 
@@ -6807,7 +6809,9 @@ _c90c = [float(_v90) for _v90 in _re90.search(
     r'NAME=FRAME CENTER=([\d.-]+),([\d.-]+)', _g90c).groups()]
 _S90c = _segs90(_p90c)
 _zs90c = sorted(_S90c)
-_box90 = (_c90c[0] - 2.2, _c90c[1] - 82.5, _c90c[0] + 2.2, _c90c[1] - 76.9)
+_box90 = (_c90c[0] - 2.2, _c90c[1] - 81.4, _c90c[0] + 2.2, _c90c[1] - 77.5)
+# R97: the box sits INSIDE the bottom wall - the brim (new) runs below the
+# outer contour and would count as slot material otherwise
 def _boxhits90(zz):
     return sum(1 for _a90, _b90, _c90x, _d90 in _S90c[zz]
                if _box90[0] <= (_a90 + _c90x) / 2 <= _box90[2]
@@ -8060,6 +8064,187 @@ tests.append(('R96 source: ties/seal/bridge/frame keep-outs + zero-length guard'
     and 'if li > head_base else [])' in _src96
     and _src96.count('pen.holes = list(plate_keeps(') == 2
     and '(d > 0.02 and self._hole_cross(x, y))' in _src96, ''))
+
+
+# ================== R97: frame bed centering + first-layer discipline ========
+# field log .74: (a) frame parts printed hard against the x0/y0 bed corner -
+# the plate-B stand even sat at the RAW bed origin, half off the bed, and the
+# one-piece stand overlapped the frame ring. Now every plate (one-piece,
+# multi Part A/B, kit, kit-multi) is CENTERED on the usable bed. (b) The
+# first layer ran as singly printed hatch lines - filament curled up at the
+# line starts/ends, borders frayed, the fill grew holes. Now layer 1 =
+# brim -> inner wall -> outer wall -> ONE CONTINUOUS zigzag fill (extruded
+# connectors; crossings of open holes stay retracting travels, rule dd).
+
+_d97 = _tf90.mkdtemp(prefix='r97_')
+_UCX97, _UCY97 = 110.0, 107.0        # usable-bed center (bed 0,-1,220,215 + 6)
+
+def _exc_polys97(path):
+    _out97 = {}
+    for _l97 in open(path, encoding='utf-8'):
+        if _l97.startswith('EXCLUDE_OBJECT_DEFINE'):
+            _nm97 = _l97.split('NAME=')[1].split(' ')[0]
+            _pts97 = _json86.loads(_l97[_l97.index('POLYGON=') + 8:])
+            _xs97 = [_p97[0] for _p97 in _pts97]
+            _ys97 = [_p97[1] for _p97 in _pts97]
+            _out97[_nm97] = (min(_xs97), min(_ys97), max(_xs97), max(_ys97))
+    return _out97
+
+def _centered97(path, tol=2.5):
+    _P97 = _exc_polys97(path)
+    _x097 = min(v[0] for v in _P97.values())
+    _x197 = max(v[2] for v in _P97.values())
+    _y097 = min(v[1] for v in _P97.values())
+    _y197 = max(v[3] for v in _P97.values())
+    return (abs((_x097 + _x197) / 2.0 - _UCX97) <= tol
+            and abs((_y097 + _y197) / 2.0 - _UCY97) <= tol
+            and _x097 > 4.0 and _y097 > 3.0), \
+           'bbox %.0f,%.0f..%.0f,%.0f' % (_x097, _y097, _x197, _y197)
+
+_p97a, _ = _pp.make_frame(preset='9x13', depth=6, frame_w=6, stand=True,
+                          out_dir=_d97)
+_ok97, _inf97 = _centered97(_p97a)
+tests.append(('R97 frame 1pc: whole plate centered, nothing at the bed corner',
+    _ok97, _inf97))
+
+_i97m = _pp.make_frame(preset='13x18', depth=6, frame_w=8, stand=True,
+                       out_dir=_d97)[1]
+_okA97, _iA97 = _centered97(_os90.path.join(_d97, _i97m['plates'][0]))
+_okB97, _iB97 = _centered97(_os90.path.join(_d97, _i97m['plates'][1]))
+_P97B = _exc_polys97(_os90.path.join(_d97, _i97m['plates'][1]))
+_st97 = _P97B['STAND']
+_bp97 = _P97B['BACKPLATE']
+_noOv97 = (_st97[0] >= _bp97[2] or _bp97[0] >= _st97[2]
+           or _st97[1] >= _bp97[3] or _bp97[1] >= _st97[3])
+tests.append(('R97 frame multi: both plates centered, stand OFF the origin '
+    'and clear of the backplate (was CENTER=0,0 half off the bed)',
+    _okA97 and _okB97 and _noOv97 and _st97[0] > 30.0,
+    'A %s | B %s | stand %s' % (_iA97, _iB97, _st97)))
+
+_i97k = _pp.make_frame(width=40, height=200, depth=6, frame_w=6,
+                       out_dir=_d97)[1]
+_okK97 = True
+for _f97 in _i97k['plates']:
+    _okk97, _ii97 = _centered97(_os90.path.join(_d97, _f97))
+    _okK97 = _okK97 and _okk97
+tests.append(('R97 frame kit: every kit plate centered (strips / backplate)',
+    _okK97 and len(_i97k['plates']) == 2, str(_i97k['plates'])))
+
+# --- first-layer discipline: brim -> inner -> outer -> continuous fill -------
+_ln97 = open(_p97a, encoding='utf-8').read().split(chr(10))
+_i97f = next(_i97 for _i97, _l97 in enumerate(_ln97)
+             if _l97.startswith('EXCLUDE_OBJECT_START NAME=FRAME'))
+_seq97 = [_l97[6:] for _l97 in _ln97[_i97f:_i97f + 600]
+          if _l97.startswith(';TYPE:')][:4]
+tests.append(('R97 frame ring L1: brim -> inner wall -> outer wall -> bottom',
+    _seq97 == ['Brim', 'Inner wall', 'Outer wall', 'Bottom surface'],
+    str(_seq97)))
+
+def _bottom_block97(lines, start_idx):
+    _ib97 = next(_i97 for _i97 in range(start_idx, len(lines))
+                 if lines[_i97] == ';TYPE:Bottom surface')
+    _ie97 = next(_i97 for _i97 in range(_ib97, len(lines))
+                 if lines[_i97].startswith('EXCLUDE_OBJECT_END'))
+    return lines[_ib97:_ie97]
+
+_bt97 = _bottom_block97(_ln97, _i97f)
+tests.append(('R97 frame ring L1: serpentine fill - one bead chain, photo '
+    'crossings retract',
+    len([_l97 for _l97 in _bt97 if _re862.match(r'G0 X', _l97)]) >= 50
+    and _bt97.count('G10') >= 50
+    and len([_l97 for _l97 in _bt97 if _re862.match(r'G1 X', _l97)]) > 200,
+    'G0 %d G10 %d G1 %d' % (
+        len([_l97 for _l97 in _bt97 if _re862.match(r'G0 X', _l97)]),
+        _bt97.count('G10'),
+        len([_l97 for _l97 in _bt97 if _re862.match(r'G1 X', _l97)]))))
+
+_i97bp = next(_i97 for _i97, _l97 in enumerate(_ln97)
+              if _l97.startswith('EXCLUDE_OBJECT_START NAME=BACKPLATE'))
+_bt97b = _bottom_block97(_ln97, _i97bp)
+_conn97 = 0
+_pos97 = None
+for _l97 in _bt97b:
+    _me97 = _re862.match(r'G1 X([\d.-]+) Y([\d.-]+)', _l97)
+    if _me97:
+        _n97 = (float(_me97.group(1)), float(_me97.group(2)))
+        if _pos97 is not None:
+            _dx97, _dy97 = _n97[0] - _pos97[0], _n97[1] - _pos97[1]
+            _dd97 = _math862.hypot(_dx97, _dy97)
+            if 0.05 < _dd97 < 2.5 and abs(abs(_dx97) - abs(_dy97)) > 0.3 * _dd97:
+                _conn97 += 1        # short move NOT along the 45deg lines
+        _pos97 = _n97
+    _mt97 = _re862.match(r'G0 X([\d.-]+) Y([\d.-]+)', _l97)
+    if _mt97:
+        _pos97 = (float(_mt97.group(1)), float(_mt97.group(2)))
+tests.append(('R97 backplate L1: continuous zigzag (connectors >= 100, '
+    'travels only at the open holes)',
+    0 < len([_l97 for _l97 in _bt97b if _re862.match(r'G0 X', _l97)]) <= 30
+    and _conn97 >= 100
+    and len([_l97 for _l97 in _bt97b if _re862.match(r'G1 X', _l97)]) > 400,
+    'conn %d travels %d' % (
+        _conn97, len([_l97 for _l97 in _bt97b if _re862.match(r'G0 X', _l97)]))))
+
+# kit strip: brim -> outer wall -> ONE single uninterrupted fill chain
+_kf97 = _os90.path.join(_d97, _i97k['plates'][0])
+_ln97k = open(_kf97, encoding='utf-8').read().split(chr(10))
+_i97s = next(_i97 for _i97, _l97 in enumerate(_ln97k)
+             if _l97.startswith('EXCLUDE_OBJECT_START NAME=STRIP_T'))
+_seq97k = [_l97[6:] for _l97 in _ln97k[_i97s:_i97s + 60]
+           if _l97.startswith(';TYPE:')][:3]
+_bt97s = _bottom_block97(_ln97k, _i97s)
+tests.append(('R97 kit strip L1: brim -> outer wall -> bottom, ONE travel '
+    '(a single continuous bead)',
+    _seq97k == ['Brim', 'Outer wall', 'Bottom surface']
+    and len([_l97 for _l97 in _bt97s if _re862.match(r'G0 X', _l97)]) == 1,
+    '%s | G0 %d' % (str(_seq97k),
+                    len([_l97 for _l97 in _bt97s
+                         if _re862.match(r'G0 X', _l97)]))))
+
+# cable slot stays OPEN at layer 1: no extruded connector crosses the notch,
+# the travels across it retract (rule dd)
+_p97c, _ = _pp.make_frame(preset='10x15', depth=20, frame_w=6, cable=True,
+                          out_dir=_d97)
+_g97c = open(_p97c, encoding='utf-8').read()
+_c97c = [float(_v97) for _v97 in _re862.search(
+    r'NAME=FRAME CENTER=([\d.-]+),([\d.-]+)', _g97c).groups()]
+_notch97 = (_c97c[0] - 3.0, _c97c[1] - 83.0, _c97c[0] + 3.0, _c97c[1] - 76.1)
+_poly97n = [(_notch97[0], _notch97[1]), (_notch97[2], _notch97[1]),
+            (_notch97[2], _notch97[3]), (_notch97[0], _notch97[3])]
+_l1c97 = _g97c.split(chr(10))
+_z1c97 = _l1c97.index(';Z:0.280')
+_bad97 = _okCross97 = 0
+_pos97 = None
+_was97 = False
+for _l97 in _l1c97[_z1c97:]:
+    if _l97.startswith(';Z:') and _l97 != ';Z:0.280':
+        break
+    _mt97 = _re862.match(r'G0 X([\d.-]+) Y([\d.-]+)', _l97)
+    _me97 = _re862.match(r'G1 X([\d.-]+) Y([\d.-]+)', _l97)
+    if _l97 == 'G10':
+        _was97 = True
+    elif _l97 == 'G11':
+        _was97 = False
+    elif _me97:
+        _pos97 = (float(_me97.group(1)), float(_me97.group(2)))
+        _was97 = False
+    if _mt97:
+        _n97 = (float(_mt97.group(1)), float(_mt97.group(2)))
+        if _pos97 is not None and _pp._seg_hits_poly(_pos97, _n97, _poly97n):
+            if _was97:
+                _okCross97 += 1
+            else:
+                _bad97 += 1
+        _pos97 = _n97
+tests.append(('R97 cable slot L1: crossings of the open slot retract (no '
+    'extruded connector across it)',
+    _bad97 == 0, 'bad %d / retracted %d' % (_bad97, _okCross97)))
+
+# source anchors
+_src97 = open('tools/r2_postproc.py').read()
+tests.append(('R97 source: centering + serpentine + poly offset + plate-B fix',
+    'def _emit_serp(' in _src97 and 'def _poly_offset(' in _src97
+    and 'def _plate_b_block(' in _src97
+    and _src97.count('R97 (field log .74)') >= 5, ''))
 
 
 fails = 0

@@ -3813,6 +3813,56 @@ def _emit_hatch(pen, segs, e_per_mm, feed):
         pen.extrude(q[0], q[1], math.hypot(q[0] - p[0], q[1] - p[1]) * e_per_mm, feed)
 
 
+def _poly_offset(pts, off):
+    """R97: offset a simple polygon OUTWARD by off (miter at the vertices) -
+    brim rings around frame contours (rounded rects, ovals, triangles)."""
+    n = len(pts)
+    area = 0.0
+    for i in range(n):
+        x0, y0 = pts[i]
+        x1, y1 = pts[(i + 1) % n]
+        area += x0 * y1 - x1 * y0
+    sgn = 1.0 if area >= 0.0 else -1.0          # CCW -> outward normal
+    out = []
+    for i in range(n):
+        ax, ay = pts[i - 1]
+        bx, by = pts[i]
+        cx, cy = pts[(i + 1) % n]
+        dx1, dy1 = bx - ax, by - ay
+        dx2, dy2 = cx - bx, cy - by
+        l1 = math.hypot(dx1, dy1) or 1.0
+        l2 = math.hypot(dx2, dy2) or 1.0
+        nx = (dy1 / l1 + dy2 / l2) * sgn
+        ny = -(dx1 / l1 + dx2 / l2) * sgn
+        nl = math.hypot(nx, ny) or 1.0
+        out.append((bx + nx / nl * off, by + ny / nl * off))
+    return out
+
+
+def _emit_serp(pen, segs, e_per_mm, feed, max_conn=3.0):
+    """R97: first-layer fill as ONE CONTINUOUS zigzag (field log .74: the
+    singly printed hatch lines curled up at their starts and ends - filament
+    lifted off the bed, the first layer frayed at the borders and grew
+    holes). Adjacent hatch lines connect with an EXTRUDED move along the
+    border; only crossings of open holes (registered keep-outs, rule dd) or
+    long gaps stay travels - and those retract."""
+    if segs and pen.x is not None:
+        d0 = (segs[0][0][0] - pen.x) ** 2 + (segs[0][0][1] - pen.y) ** 2
+        d1 = (segs[-1][0][0] - pen.x) ** 2 + (segs[-1][0][1] - pen.y) ** 2
+        if d1 < d0:
+            segs = [(q, p) for (p, q) in reversed(segs)]
+    for (p, q) in segs:
+        if pen.x is None:
+            pen.travel(p[0], p[1], hop=False)
+        else:
+            d = math.hypot(p[0] - pen.x, p[1] - pen.y)
+            if d <= max_conn and not pen._hole_cross(p[0], p[1]):
+                pen.extrude(p[0], p[1], d * e_per_mm, feed)   # connector bead
+            else:
+                pen.travel(p[0], p[1], hop=False)
+        pen.extrude(q[0], q[1], math.hypot(q[0] - p[0], q[1] - p[1]) * e_per_mm, feed)
+
+
 def _bed_limits(cfg_path):
     """R92: the REAL printable bed, not the stepper range.
 
@@ -7193,6 +7243,25 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
             keep.append((px + 12.0, py - bh / 2 + 6.0, 1.35))
         return keep
 
+    def _plate_b_block():
+        """R97: PLATE B (backplate + stand) as ONE block, centered on the
+        usable bed. Returns (lx, ly, stand_below_block); drops stand_ok with
+        a note when the stand fits neither beside nor below the plate."""
+        nonlocal stand_ok, sw, sh
+        bwid, bhei, below = bw, bh, False
+        if stand_ok:
+            if bw + gap + sw <= uw and max(bh, sh) <= uh:
+                bwid, bhei = bw + gap + sw, max(bh, sh)
+            elif max(bw, sw) <= uw and bh + gap + sh <= uh:
+                bwid, bhei = max(bw, sw), bh + gap + sh
+                below = True
+            else:
+                stand_ok = False
+                sw = sh = 0.0
+                notes.append('stand skipped - no room beside the backplate '
+                             'on plate B (wall mounting still works)')
+        return (ux0 + (uw - bwid) / 2.0, uy0 + (uh - bhei) / 2.0, below)
+
     # ---- plate plan (R90.1a) ----------------------------------------------------
     # 1 file  = frame + backplate (+stand) side by side on one bed
     # 2 files = Part A: frame alone, Part B: backplate + stand (multi) - no
@@ -7236,48 +7305,48 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
 
         # ===================  ONE-PIECE frame (the ring) =========================
         if not kit:
+            # R97 (field log .74): every plate is CENTERED on the usable bed -
+            # parts used to sit hard against the x0/y0 corner (and the plate-B
+            # stand even printed at the raw bed origin, half off the bed).
             if want_frame and want_rest:
-                top = uy0 + need_h
-                cx = ux0 + ow / 2
+                lx = ux0 + (uw - need_w) / 2.0
+                ly = uy0 + (uh - need_h) / 2.0
+                top = ly + need_h
+                cx = lx + ow / 2
                 cy = top - oh / 2
-                bx = ux0 + ow + gap + right_w / 2
+                bx = lx + ow + gap + right_w / 2
                 by = top - bh / 2
                 sx = sy = 0.0
                 if stand_ok and not stand_below:
-                    sx = ux0 + ow + gap + right_w / 2
-                    sy = uy0 + sh / 2
+                    sx = lx + ow + gap + right_w / 2
+                    sy = ly + sh / 2
                 elif stand_ok:
-                    sx = ux0 + sw / 2
-                    sy = uy0 + sh / 2
+                    sx = lx + sw / 2
+                    sy = ly + sh / 2
             elif want_frame:
-                # PLATE A: the ring alone, bottom-left on the bed
-                cx, cy = ux0 + ow / 2, uy0 + oh / 2
+                # PLATE A: the ring alone - centered on the bed
+                cx, cy = ux0 + uw / 2.0, uy0 + uh / 2.0
                 bx = by = sx = sy = 0.0
             else:
-                # PLATE B: backplate bottom-left + stand beside/below it
+                # PLATE B: backplate + stand as ONE centered block
                 cx = cy = 0.0
-                bx, by = ux0 + bw / 2, uy0 + bh / 2
+                lx, ly, _below = _plate_b_block()
+                bx, by = lx + bw / 2.0, ly + bh / 2.0
                 sx = sy = 0.0
+                if stand_ok:
+                    if _below:
+                        sx, sy = lx + sw / 2.0, ly + bh + gap + sh / 2.0
+                    else:
+                        sx, sy = lx + bw + gap + sw / 2.0, ly + sh / 2.0
             # R95 (field log .74, rule dd): the view opening stays OPEN from
             # the bed up to the shelf - travels across it (front band <->
             # backplate <-> stand) drag strings into the opening. Registered
             # as a polygon keep-out: crossings retract at ANY travel length.
             if want_frame:
                 pen.hole_polys = [[(x + cx, y + cy) for (x, y) in view_c]]
-                if stand_ok:
-                    if bw + gap + sw <= uw and max(bh, sh) <= uh:
-                        sx, sy = ux0 + bw + gap + sw / 2, uy0 + sh / 2
-                    elif max(bw, sw) <= uw and bh + gap + sh <= uh:
-                        sx, sy = ux0 + sw / 2, uy0 + bh + gap + sh / 2
-                    else:
-                        stand_ok = False
-                        sw = sh = 0.0
-                        notes.append('stand skipped - no room beside the '
-                                     'backplate on plate B (wall mounting '
-                                     'still works)')
-                if bw > uw or bh > uh:
-                    raise ValueError('backplate %.0fx%.0fmm does not fit the '
-                                     'bed' % (bw, bh))
+            if want_rest and (bw > uw or bh > uh):
+                raise ValueError('backplate %.0fx%.0fmm does not fit the '
+                                 'bed' % (bw, bh))
             # R96 (rule dd audit): the backplate's hang keyhole + stand stud
             # holes stay OPEN through every layer - the hatch splits its
             # scanlines around them, and the hop across the split crossed
@@ -7286,52 +7355,67 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
             if want_rest:
                 pen.holes = list(plate_keeps(bx, by))
 
-            def emit_ring(li, inner, notch=None, hatch=True):
+            def emit_ring(li, inner, notch=None, hatch=True, wtype='Outer wall'):
                 ew = e_w(li)
                 f1 = 1500 if li == 1 else 2400
-                for loop in (outer_c, inner):
-                    if notch and loop is outer_c:
-                        # the slot cuts through the whole wall: outer loop split
-                        # into polylines OUTSIDE the notch box (local coords!)
-                        polylines = []
-                        cur = []
-                        for (x, y) in list(outer_c) + [outer_c[0]]:
-                            if notch[0] <= x <= notch[2] and notch[1] <= y <= notch[3]:
-                                if len(cur) > 1:
-                                    polylines.append(cur)
-                                cur = []
-                            else:
-                                cur.append((x + cx, y + cy))
-                        if len(cur) > 1:
-                            polylines.append(cur)
-                        for pl in polylines:
-                            _emit_loop(pen, pl, ew, f1, close=False)
-                    elif notch and loop is inner and inner is photo_c:
-                        polylines = []
-                        cur = []
-                        for (x, y) in list(photo_c) + [photo_c[0]]:
-                            if notch[0] <= x <= notch[2] and notch[1] <= y <= notch[3]:
-                                if len(cur) > 1:
-                                    polylines.append(cur)
-                                cur = []
-                            else:
-                                cur.append((x + cx, y + cy))
-                        if len(cur) > 1:
-                            polylines.append(cur)
-                        for pl in polylines:
-                            _emit_loop(pen, pl, ew, f1, close=False)
-                    else:
-                        _emit_loop(pen, [(x + cx, y + cy) for (x, y) in loop], ew, f1)
+
+                def _split_emit(loop_pts, box):
+                    polylines = []
+                    cur = []
+                    for (x, y) in list(loop_pts) + [loop_pts[0]]:
+                        if box[0] <= x <= box[2] and box[1] <= y <= box[3]:
+                            if len(cur) > 1:
+                                polylines.append(cur)
+                            cur = []
+                        else:
+                            cur.append((x + cx, y + cy))
+                    if len(cur) > 1:
+                        polylines.append(cur)
+                    for pl in polylines:
+                        _emit_loop(pen, pl, ew, f1, close=False)
+
+                # R97 (field log .74): the INNER contour prints first, the
+                # outer wall bonds onto it - first-layer edges stop fraying.
+                # A bridge band (the shelf) keeps ONE type for both loops.
+                _keep97 = None
+                if notch is not None:
+                    # R97 (rule dd): the notch (cable duct / side slot) is an
+                    # OPEN hole while its band prints - serpentine connectors
+                    # never extrude across it, travels retract
+                    _keep97 = [(notch[0] + cx, notch[1] + cy),
+                               (notch[2] + cx, notch[1] + cy),
+                               (notch[2] + cx, notch[3] + cy),
+                               (notch[0] + cx, notch[3] + cy)]
+                    pen.hole_polys.append(_keep97)
+                a(';TYPE:' + ('Bridge' if wtype == 'Bridge' else 'Inner wall'))
+                if notch and inner is photo_c:
+                    _split_emit(photo_c, notch)
+                else:
+                    _emit_loop(pen, [(x + cx, y + cy) for (x, y) in inner], ew, f1)
+                if wtype != 'Bridge':
+                    a(';TYPE:Outer wall')
+                if notch:
+                    _split_emit(outer_c, notch)
+                else:
+                    _emit_loop(pen, [(x + cx, y + cy) for (x, y) in outer_c], ew, f1)
                 if hatch:
                     # view/lip band = the solid face, photo band = body infill
                     spacing = (wid * 100.0 / max(20.0, infill)
                                if inner is photo_c else wid)
                     hs = _ring_hatch(outer_c, inner, spacing,
                                      45.0 if li % 2 else 135.0, notch=notch)
-                    _emit_hatch(pen, [((p[0] + cx, p[1] + cy),
-                                       (q[0] + cx, q[1] + cy))
-                                      for (p, q) in hs],
-                                ew, 1500 if li == 1 else 2700)
+                    segs = [((p[0] + cx, p[1] + cy), (q[0] + cx, q[1] + cy))
+                            for (p, q) in hs]
+                    if li == 1:
+                        # R97: first layer prints as ONE continuous zigzag -
+                        # singly printed lines curled up at their ends
+                        a(';TYPE:Bottom surface')
+                        _emit_serp(pen, segs, ew, 1500, spacing * 2.5)
+                    else:
+                        a(';TYPE:Internal solid infill')
+                        _emit_hatch(pen, segs, ew, 2700)
+                if _keep97 is not None:
+                    pen.hole_polys.remove(_keep97)
 
             def emit_nubs(li):
                 # bayonet: exactly TWO nubs on the left/right wall centers,
@@ -7435,16 +7519,24 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                 # ---- frame ring ----
                 if want_frame and li <= frame_layers:
                     a('EXCLUDE_OBJECT_START NAME=FRAME')
+                    if li == 1:
+                        # R97 (field log .74): BRIM FIRST, then inner wall,
+                        # outer wall, fill - and the fill as one continuous
+                        # zigzag. Long frame bands lifted without it.
+                        a(';TYPE:Brim')
+                        _eb97 = e_w(1)
+                        for _off97 in (wid * 0.35, wid * 0.35 + wid):
+                            _emit_loop(pen, [(x + cx, y + cy) for (x, y)
+                                             in _poly_offset(outer_c, _off97)],
+                                       _eb97, 1500)
                     # R90.1b FLIP: the band order mirrors - layer li carries
                     # the geometry of layer frame_layers+1-li (front on bed)
                     eli = frame_layers + 1 - li if front == 'FLIP' else li
                     if eli <= n_bb:
-                        a(';TYPE:Outer wall')
                         emit_ring(eli, photo_c,
                                   notch=(cable_box if eli <= n_cable_l
                                          else None))
                     elif eli <= n_bb + n_gr:
-                        a(';TYPE:Outer wall')
                         # groove band: the SIDE slot opens the left wall HERE
                         emit_ring(eli, photo_c, notch=side_slot)
                         if eli in nub_zn:
@@ -7453,10 +7545,8 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                     elif eli <= n_bb + n_gr + n_sh:
                         # shelf band = the bridge from the view edge to the photo
                         # edge (the photo's front stop) - same contour as the front
-                        a(';TYPE:Bridge')
-                        emit_ring(eli, view_c)
+                        emit_ring(eli, view_c, wtype='Bridge')
                     else:
-                        a(';TYPE:Outer wall')
                         _fin = lip_c if lip else view_c
                         if eli <= n_bb + n_gr + n_sh + solid_ft:
                             emit_ring(eli, _fin)
@@ -7475,26 +7565,50 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                 # ---- backplate ----
                 if want_rest and li <= bp_layers:
                     a('EXCLUDE_OBJECT_START NAME=BACKPLATE')
+                    if li == 1:
+                        a(';TYPE:Brim')
+                        for _off97 in (wid * 0.35, wid * 0.35 + wid):
+                            _emit_loop(pen, [(x + bx, y + by) for (x, y)
+                                             in _poly_offset(plate_pts, _off97)],
+                                       e_w(1), 1500)
                     a(';TYPE:Outer wall')
                     _emit_loop(pen, [(x + bx, y + by) for (x, y) in plate_pts],
                                e_w(li), 1500 if li == 1 else 2400)
-                    a(';TYPE:Internal solid infill')
                     segs = _poly_hatch([(x + bx, y + by) for (x, y) in plate_pts],
                                        wid, 45.0 if li % 2 else 135.0,
                                        keep_circles=plate_keeps(bx, by))
-                    _emit_hatch(pen, segs, e_w(li), 1500 if li == 1 else 2700)
+                    if li == 1:
+                        # R97: one continuous zigzag; the connector across a
+                        # keyhole/stud hole stays a retracting travel (dd)
+                        a(';TYPE:Bottom surface')
+                        _emit_serp(pen, segs, e_w(1), 1500, wid * 2.5)
+                    else:
+                        a(';TYPE:Internal solid infill')
+                        _emit_hatch(pen, segs, e_w(li), 2700)
                     a('EXCLUDE_OBJECT_END NAME=BACKPLATE')
                 # ---- stand ----
                 if want_rest and stand_ok and li <= st_layers:
                     a('EXCLUDE_OBJECT_START NAME=STAND')
-                    a(';TYPE:Outer wall')
                     leg_h = min(58.0, sh - 4.0)
                     tri = [(sx - sw / 2, sy - sh / 2), (sx + sw / 2, sy - sh / 2),
                            (sx - sw / 2, sy - sh / 2 + leg_h)]
+                    if li == 1:
+                        a(';TYPE:Brim')
+                        for _off97 in (wid * 0.35, wid * 0.35 + wid):
+                            _emit_loop(pen, _poly_offset(tri, _off97),
+                                       e_w(1), 1500)
+                    a(';TYPE:Outer wall')
                     _emit_loop(pen, tri, e_w(li), 1500 if li == 1 else 2400)
-                    a(';TYPE:Internal solid infill')
-                    _emit_hatch(pen, _poly_hatch(tri, wid, 45.0 if li % 2 else 135.0),
-                                e_w(li), 1500 if li == 1 else 2700)
+                    if li == 1:
+                        a(';TYPE:Bottom surface')
+                        _emit_serp(pen, _poly_hatch(tri, wid,
+                                                    45.0 if li % 2 else 135.0),
+                                   e_w(1), 1500, wid * 2.5)
+                    else:
+                        a(';TYPE:Internal solid infill')
+                        _emit_hatch(pen, _poly_hatch(tri, wid,
+                                                     45.0 if li % 2 else 135.0),
+                                    e_w(li), 2700)
                     a('EXCLUDE_OBJECT_END NAME=STAND')
                 if want_rest and stand_ok and st_layers < li <= st_layers + stud_layers:
                     a('EXCLUDE_OBJECT_START NAME=STAND')
@@ -7540,35 +7654,43 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                     ('STRIP_L', vh_st, 'xm'), ('STRIP_R', vh_st, 'xp')]
             strip_h = 4 * frame_w + 3 * gap
 
+            # R97 (field log .74): the kit plate is CENTERED on the usable
+            # bed - strips used to start hard at the x0/y0 corner.
+            strips_w = max(ow, vh_st)
+            if want_rest and not want_frame:
+                # PLATE B: backplate + stand as ONE centered block
+                kx, ky, _bel97 = _plate_b_block()
+            else:
+                if want_rest:
+                    bwid = max(strips_w, bw + (gap + sw if stand_ok else 0.0))
+                    bhei = strip_h + gap + max(bh, sh if stand_ok else 0.0)
+                else:
+                    bwid, bhei = strips_w, strip_h
+                kx = ux0 + (uw - bwid) / 2.0
+                ky = uy0 + (uh - bhei) / 2.0
+
             parts = []
             if want_frame:
-                yy = uy0
+                yy = ky
                 for nm, slen, edir in rows:
-                    parts.append((nm, (ux0, yy, ux0 + slen, yy + frame_w), edir))
+                    parts.append((nm, (kx, yy, kx + slen, yy + frame_w), edir))
                     yy += frame_w + gap
             bpx, bpy, sxk, syk = 0.0, 0.0, 0.0, 0.0
             if want_rest:
                 if want_frame:
                     # single kit file: plate row below the strip block
-                    bpx = ux0 + bw / 2
-                    bpy = uy0 + strip_h + gap + bh / 2
+                    bpx = kx + bw / 2
+                    bpy = ky + strip_h + gap + bh / 2
                     if stand_ok:
-                        sxk = ux0 + bw + gap + sw / 2
-                        syk = uy0 + strip_h + gap + sh / 2
+                        sxk = kx + bw + gap + sw / 2
+                        syk = ky + strip_h + gap + sh / 2
                 else:
-                    # PLATE B: backplate bottom-left + stand beside/below it
-                    bpx, bpy = ux0 + bw / 2, uy0 + bh / 2
+                    bpx, bpy = kx + bw / 2, ky + bh / 2
                     if stand_ok:
-                        if bw + gap + sw <= uw and max(bh, sh) <= uh:
-                            sxk, syk = ux0 + bw + gap + sw / 2, uy0 + sh / 2
-                        elif max(bw, sw) <= uw and bh + gap + sh <= uh:
-                            sxk, syk = ux0 + sw / 2, uy0 + bh + gap + sh / 2
+                        if _bel97:
+                            sxk, syk = kx + sw / 2, ky + bh + gap + sh / 2
                         else:
-                            stand_ok = False
-                            sw = sh = 0.0
-                            notes.append('stand skipped - no room beside the '
-                                         'backplate on plate B (wall mounting '
-                                         'still works)')
+                            sxk, syk = kx + bw + gap + sw / 2, ky + sh / 2
                     if bw > uw or bh > uh:
                         raise ValueError('backplate %.0fx%.0fmm does not fit '
                                          'the bed' % (bw, bh))
@@ -7587,12 +7709,25 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
             def emit_strip(li, rect):
                 ew = e_w(li)
                 x0, y0, x1, y1 = rect
+                if li == 1:
+                    # R97 (field log .74): brim first - long thin strips
+                    # lifted without it, then one continuous zigzag fill
+                    a(';TYPE:Brim')
+                    for _off97 in (wid * 0.35, wid * 0.35 + wid):
+                        _emit_loop(pen, _rect_loop(x0 - _off97, y0 - _off97,
+                                                   x1 + _off97, y1 + _off97),
+                                   ew, 1500)
+                a(';TYPE:Outer wall')
                 _emit_loop(pen, _rect_loop(x0, y0, x1, y1), ew, 1500 if li == 1 else 2400)
-                a(';TYPE:Internal solid infill')
-                _emit_hatch(pen, _hatch(x0 + wid, y0 + wid, x1 - wid, y1 - wid, [],
-                                        wid * 100.0 / max(20.0, infill),
-                                        45.0 if li % 2 else 135.0),
-                            ew, 1500 if li == 1 else 2700)
+                _spc97 = wid * 100.0 / max(20.0, infill)
+                _segs97 = _hatch(x0 + wid, y0 + wid, x1 - wid, y1 - wid, [],
+                                 _spc97, 45.0 if li % 2 else 135.0)
+                if li == 1:
+                    a(';TYPE:Bottom surface')
+                    _emit_serp(pen, _segs97, ew, 1500, _spc97 * 2.5)
+                else:
+                    a(';TYPE:Internal solid infill')
+                    _emit_hatch(pen, _segs97, ew, 1500 if li == 1 else 2700)
 
             # which bands exist per strip: back band (+nubs on the T/B strips),
             # groove (nothing between strips - the whole middle is open in a kit),
@@ -7616,7 +7751,6 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                     for nm, rect, edir in parts:
                         if li <= frame_layers:
                             a('EXCLUDE_OBJECT_START NAME=%s' % nm)
-                            a(';TYPE:Outer wall')
                             eli = (frame_layers + 1 - li
                                    if front == 'FLIP' else li)
                             # shelf + front bands extend into the opening by
@@ -7662,26 +7796,47 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                             a('EXCLUDE_OBJECT_END NAME=%s' % nm)
                 if want_rest and li <= bp_layers:
                     a('EXCLUDE_OBJECT_START NAME=BACKPLATE')
+                    if li == 1:
+                        a(';TYPE:Brim')
+                        for _off97 in (wid * 0.35, wid * 0.35 + wid):
+                            _emit_loop(pen, [(x + bpx, y + bpy) for (x, y)
+                                             in _poly_offset(plate_pts, _off97)],
+                                       e_w(1), 1500)
                     a(';TYPE:Outer wall')
                     _emit_loop(pen, [(x + bpx, y + bpy) for (x, y) in plate_pts],
                                e_w(li), 1500 if li == 1 else 2400)
-                    a(';TYPE:Internal solid infill')
-                    _emit_hatch(pen, _poly_hatch([(x + bpx, y + bpy)
-                                                  for (x, y) in plate_pts],
-                                                 wid, 45.0 if li % 2 else 135.0,
-                                                 keep_circles=plate_keeps(bpx, bpy)),
-                                e_w(li), 1500 if li == 1 else 2700)
+                    _segs97 = _poly_hatch([(x + bpx, y + bpy)
+                                           for (x, y) in plate_pts],
+                                          wid, 45.0 if li % 2 else 135.0,
+                                          keep_circles=plate_keeps(bpx, bpy))
+                    if li == 1:
+                        a(';TYPE:Bottom surface')
+                        _emit_serp(pen, _segs97, e_w(1), 1500, wid * 2.5)
+                    else:
+                        a(';TYPE:Internal solid infill')
+                        _emit_hatch(pen, _segs97, e_w(li), 1500 if li == 1 else 2700)
                     a('EXCLUDE_OBJECT_END NAME=BACKPLATE')
                 if want_rest and stand_ok and li <= st_layers:
                     a('EXCLUDE_OBJECT_START NAME=STAND')
-                    a(';TYPE:Outer wall')
                     leg_h = min(58.0, sh - 4.0)
                     tri = [(sxk - sw / 2, syk - sh / 2), (sxk + sw / 2, syk - sh / 2),
                            (sxk - sw / 2, syk - sh / 2 + leg_h)]
+                    if li == 1:
+                        a(';TYPE:Brim')
+                        for _off97 in (wid * 0.35, wid * 0.35 + wid):
+                            _emit_loop(pen, _poly_offset(tri, _off97),
+                                       e_w(1), 1500)
+                    a(';TYPE:Outer wall')
                     _emit_loop(pen, tri, e_w(li), 1500 if li == 1 else 2400)
-                    a(';TYPE:Internal solid infill')
-                    _emit_hatch(pen, _poly_hatch(tri, wid, 45.0 if li % 2 else 135.0),
-                                e_w(li), 1500 if li == 1 else 2700)
+                    if li == 1:
+                        a(';TYPE:Bottom surface')
+                        _emit_serp(pen, _poly_hatch(tri, wid,
+                                                    45.0 if li % 2 else 135.0),
+                                   e_w(1), 1500, wid * 2.5)
+                    else:
+                        a(';TYPE:Internal solid infill')
+                        _emit_hatch(pen, _poly_hatch(tri, wid, 45.0 if li % 2 else 135.0),
+                                    e_w(li), 1500 if li == 1 else 2700)
                     a('EXCLUDE_OBJECT_END NAME=STAND')
                 if want_rest and stand_ok and st_layers < li <= st_layers + stud_layers:
                     a('EXCLUDE_OBJECT_START NAME=STAND')

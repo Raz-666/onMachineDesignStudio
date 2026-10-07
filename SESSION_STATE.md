@@ -1287,3 +1287,78 @@ Spannweite (slen < tower*1.41, z. B. length=47 + short_pct=10-30 per Konsole) in
 degenerierte Geometrie (Tuermecken ueberlappen, Strang-Spannweite schrumpft bis
 negativ). LCD/Makro ruft nur Defaults (160/30 — sicher). Bei Bedarf spaeter
 slen >= tower + 4 clampsen.
+
+R97 (Feld-Log .74) — Bilderrahmen: Bett-Zentrierung + First-Layer-Disziplin
+USER-AUFTRAG (3 Teile): (1) Rahmen-Plates druckten ab Bettkante x0/y0 ("zu krank") — alles
+(einteilig, Multi A/B, KIT, KIT-Multi) moeglichst bett-mittig, nie hardcore am Rand. (2) Erste
+Schicht: zuerst IMMER Brim, dann Innenwand, dann Aussenwand, dann solide Fuellung — nicht als
+einzeln nebeneinanderliegende Filamentstriche, sondern hin und her AM STUECK (durchgehende
+Serpentine, damit Raender nicht ausfransen); Filament rollte sich bisher an Linienstarts/-enden
+vom Hotbed hoch. (3) FRAGE Duese: Generatoren lesen Nozzle-Grade automatisch aus printer.cfg
+[extruder] nozzle_diameter (R90.1c, _nozzle_diameter()/_gen_nozzle()), Linienbreite = Duese*1.08,
+E-Werte daraus abgeleitet, Fallback 0.6 + Console-Note — KEINE AEnderung noetig.
+
+ROOT CAUSES (empirisch bestaetigt): (a) Multi-Plate B: der Stand-Block war unter `if want_frame:`
+verschachtelt statt im Plate-B-Zweig -> STAND CENTER=0.0,0.0, halbes Teil neben dem Bett. (b) 1pc:
+Stand-Neben-Platzierung ueberlappte die FRAME-Ecke um 6mm. (c) Non-Kit- wie Kit-Layouts begannen
+an/near x0/y0 statt zentriert. (d) emit_ring druckte Band-ausser->innen, L1-Fuellung als einzelne
+Hatch-Linien (Start/End-Loecher), Brim fehlte bei Backplate/Stand/Strips.
+
+FIXES (r2_postproc.py, Marker 'R97 (field log .74)'):
+1. _poly_offset: Miter-Polygon-Offset (CCW via Vorzeichen), Basis fuer Brim-Loops.
+2. _emit_serp: durchgehende Zickzack-Kette — Scanlines wie Hatch, aber Konnektoren an den
+   Blockkanten werden EXTRUDIERT (eine Perlenkette statt Einzellinien); Travels (nur bei
+   max_conn-Ueberschreitung) via pen.travel -> Regel-dd-Retract.
+3. _plate_b_block(): Plate B = Backplate + Stand als EIN gemeinsam zentrierter Block (Stand-Drop
+   mit Note; nonlocal stand_ok/sw/sh), Stand steht jetzt NEBEN der Backplate (x~178) statt 0,0.
+4. Non-Kit-Platzierung: 1pc (Ring+Stand+Backplate) via lx/ly-Zentrierung, Plate A Ring zentriert,
+   Plate B via _plate_b_block — alles exakt Mitte (110,107) = nutzbar (6,5)-(214,209);
+   Backplate-Fit-Check + pen.holes unter want_rest wie gehabt.
+5. emit_ring neu: innen->aussen, Signatur (li, inner, notch=None, hatch=True, wtype='Outer wall'),
+   eigene TYPE-Tags, L1 = ;TYPE:Bottom surface + Serpentine (max_conn = spacing*2.5, sonst
+   wid*2.5); Notch-Keep-out (Kabel-/Side-Slot) als hole_poly waehrend der KOMPLETTEN emit_ring
+   inkl. Hatch (remove erst danach) — keine extrudierte Slot-Querung mehr.
+6. L1-Brim ueberall: Ring (im Band-Loop), Backplate, Stand (non-kit), Kit-Strips + Kit-Backplate/
+   Stand — je 2 Loops (Offsets wid*0.35 und +wid), ;TYPE:Brim.
+7. Kit-Layout zentriert (kx/ky: Strips + Plate-Row als Block), emit_strip mit Brim + eigener
+   Serpentine + eigenen TYPE-Tags.
+
+VERIFIKATION (empirisch, alle Varianten): jede Plate (1pc, multi A/B, KIT A/B) bbox-Mitte exakt
+(110,107), Stand nie bei 0,0, keine Teile-Ueberlappung. L1-TYPES [Brim, Inner wall, Outer wall,
+Bottom surface] (Kit-Strip ohne Inner). Serpentine: Kit-Strip = 1 einziger Travel (durchgehende
+Kette), Backplate 240 Konnektoren/22 Travels, Ring 151 Konnektoren (Travels = Photo-Querungen,
+alle mit G10), Stand 0 Travels. Kabel-/Side-Slot: Wand-Box L1-12 = 0 Kreuzungen, ab L13 = 3
+(Slot bleibt offen, dd-Keep-out waehrend emit_ring wirksam). Brim-Loops zählen NICHT als
+Slot-Material — Test-Boxen muessen INNERHALB der Wand liegen.
+
+TESTS: 1193 -> 1202/1202 (9 neue R97: 1pc/multi/kit zentriert, Ring-L1-Sequenz, Ring-Serpentine,
+Backplate-Zickzack >=100 Konnektoren, Kit-Strip 1 Travel, Kabel-Slot-Kreuzungen retracten via
+_pp._seg_hits_poly, Source-Anker 5x 'R97 (field log .74)'). 2 R90-Tests angepasst: Nub-Test zaehlt
+Layer mit >=2 ;TYPE:Inner wall (Serpentine-Parsing), Cable-Slot-Box _c90c[1]-81.4..-77.5 (in der
+Wand, Brim-safe). Zentrierungs-Check gelockert auf x0>4.0/y0>3.0: eine 202mm-KIT-Backplate fuellt
+die nutzbare Hoehe (208mm) fast komplett — y0=6.0 IST korrekte Zentrierung, >6.0 wuerde sie
+faelschlich ablehnen. GOLDEN: 23/23 byte-identisch (make_range/process unberuehrt).
+
+MANUAL: 5.8 neuer Absatz "Placement & first layer (field log .74)" (zentriert + feste L1-Folge +
+durchgehende Serpentine + offene Locher nur mit Retract), Changelog .74 um frame placement & first
+layer ergaenzt (beide Placement-Bugs + Serpentine-Begruendung genannt); make_manual_pdf.py
+gespiegelt. PDF NEU: 90 Seiten, MD5 dffbdc8c244bcc5f608ebd1dcc81b81b (308458 B).
+
+RELEASE .74 ZIP NEU GEBAUT (setzt das R96-Rebuild ausser Kraft, war noch nie im Feld): gleiche
+43 Dateien, Reihenfolge erhalten, zipfile -t OK, Frisch-Entpackung byte-identisch 43/43.
+ZIP MD5 34ae472c5eea769575be293b64aeaac2 (1089782 B). MANUAL.pdf im ZIP == Workspace-PDF
+(MD5 dffbdc8c..., 90 S.). Alte ZIPs unangetastet.
+FELD-SIMULATION .74->.74 Null-Touch (eigenes HOME, printer.cfg mit 17 Includes, installierter
+Stand = R96-ZIP, neues ZIP daneben): '[ok] this is the included package folder' -> 'zip found
+(installed: R2-2026-09-07.74)' -> 43 Dateien entpackt -> exec auf neues update.sh -> '[ok] all
+17 macro files are included' -> 'package version: R2-2026-09-07.74' -> '#'-Sanity ok ->
+Moonraker/sudo in der Sandbox graceful (am echten Pi verfuegbar). Kein neuer Include, ein
+einziger Durchlauf (gleiche Version wird entpackt — nur AELTERE zips braucht --force).
+r2_postproc.py + macro_render_test.py im Sim MD5-gleich zum Workspace (R97-Stand angekommen).
+
+USER-HINWEIS: bereits generierte FRAME-Dateien NEU generieren — alte Frame-Gcodes haben die
+Rand-Platzierung (bzw. Stand bei 0,0 / Stand-Ueberlappung) und die Einzellinien-Erste-Schicht.
+
+MIGRATION: ZIP in Mainsail in den Config-Ordner hochladen, 'bash ~/printer_data/config/
+klipper-e3-r2d2/update.sh' — Ausgabe endet auf '== done. Happy printing! ==', danach 'sudo
+systemctl restart r2-postproc' (macht update.sh selbst, wenn sudo greift).
