@@ -687,14 +687,24 @@ Top to 3 layers (bridge + 2 solid) — more Top layers = thicker rim.
 
 **Brim — loops around the start (0–10)**
 
-N loops around the raft/section outline, zero gap — the first loop's inner
-edge touches the model wall. Key-ring style adhesion helper.
+N loops around the outline, zero gap — the first loop's inner edge touches
+the model wall. Key-ring style adhesion helper — printed on the **first
+layer** (right at the start of raft layer 1, not after the raft).
 
 **Notes**
 
 - The generated raft counts as INFILL-SOLID, the brim as BRIM — feature
   overrides (speed/accel/flow) work on the generated geometry like on any
   sliced section.
+- The excerpt OPENS with the feature that was active at the cut (a
+  vase-style source states its `;TYPE:` once in layer 1 — the excerpt
+  re-asserts it, so the section never prints as the raft's solid infill).
+- The file info (Pre-Print > File) describes what the EXCERPT really
+  contains: features from layers outside the range show as n/a, and the
+  per-feature speeds are measured from the excerpt's own layers.
+- `;TYPE:` names from OrcaSlicer/Bambu (`gap fill`), PrusaSlicer
+  (`External perimeter`, `top solid infill`, …) and Cura (`WALL-OUTER`) all
+  map to their features.
 - The excerpt's layer 1 = always 0.2 mm high, whatever the source layer
   height; following layers keep the source spacing.
 - Every parameter is also available per console:

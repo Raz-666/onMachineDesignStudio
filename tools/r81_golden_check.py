@@ -11,7 +11,8 @@ through the CURRENT module and compares MD5s + change summaries against the
 frozen references.
 
 RE-FREEZE HISTORY: the references were originally frozen from the .64 code
-(R81). R87.2 re-froze them from the R87.2 builder: make_range now re-derives
+(R81). R87.2 re-froze them (APPLY_TYPE re-derivation). R94 re-froze them
+again (field log .73: cut-feature marker + brim on layer 1 + honest TYPES):
 APPLY_TYPE markers from ;TYPE: comments when the source carries none (field
 log .71 - the whole model printed as 'solid infill'), which is a deliberate
 output change for such sources. The .64 reference is preserved in the .64
@@ -34,19 +35,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 # frozen from the .64 builder (R81), re-frozen from R87.2 - 23 cases
 REF_MD5 = {
- 'mr01': 'ecfecfbb517eecb71e0a1c778b07fd08',
- 'mr02': '0b3af2fc484df120f9f4dc3fc4347eb8',
- 'mr03': 'bc551cd152b3b652ace80d4322a5ef75',
- 'mr04': 'c7a71fe81ab3e75a93b35f089714ab1e',
- 'mr05': '6835665498237cc9339959d407c0d482',
- 'mr06': '17ad9197732255092d32ff8b92e0f021',
- 'mr07': 'e981a6109b3fbed5740e138c97ae1425',
- 'mr08': 'ab395b58ff04132fd4bb44790e307adc',
- 'mr09': 'b510f025bc9f11b3a756e5b5124f0d1a',
- 'mr10': 'd042cd14bd30b3f5d3c1a9dddceb76f8',
- 'mr11': '8bfae9b77a21c161220550f8c4ae1b24',
- 'mr12': '04796069418f6ab5fea9c806f641b69a',
- 'mr13': '6418854b598c2a4631402cba66cd0a72',
+ 'mr01': '54cfa47de19d6cdf1818c0d6849a4848',
+ 'mr02': '37dcfd1c7b09d2fba774ef9387c57b6f',
+ 'mr03': 'a4b826c4cc261a52ba3ef26dd22eb488',
+ 'mr04': 'cdcd68dd801e5d9d951439957f70bced',
+ 'mr05': '0faccbac810279e29a575a92ccdcc552',
+ 'mr06': '25ef2cd6d0f97e50bf9cad12cff98183',
+ 'mr07': '4cd968c708b64b4028ea6e6d0232dafb',
+ 'mr08': '4ac642f229e138c885b30a3cb25dec46',
+ 'mr09': 'd27ed1921c47107045981f2525c59f70',
+ 'mr10': 'dbdd2e282c28d7ace6f61a94c24608c4',
+ 'mr11': '47f51c958d4ba3979d59c28a25f13e9b',
+ 'mr12': '3c4ec0875edc0829774caaa421cf64c6',
+ 'mr13': 'cc8311cbf978284e825be5c36d886053',
  'pr01': '79e28c82893f77486883839b30499edb',
  'pr02': 'c5ca9a4bc68a3f96c5ec661b862af0b6',
  'pr03': '0d14ef2caebcd00e7d5af20d9f710a79',
@@ -60,19 +61,19 @@ REF_MD5 = {
  }
 
 REF_SUMMARY = {
- 'mr01': {'nl': 8, 'size': 3994},
- 'mr02': {'nl': 10, 'size': 10317},
- 'mr03': {'nl': 10, 'size': 10161},
- 'mr04': {'nl': 9, 'size': 10387},
- 'mr05': {'nl': 10, 'size': 16582},
- 'mr06': {'nl': 10, 'size': 13924},
- 'mr07': {'nl': 7, 'size': 3626},
- 'mr08': {'nl': 6, 'size': 3280},
- 'mr09': {'nl': 8, 'size': 7098},
- 'mr10': {'nl': 8, 'size': 10189},
- 'mr11': {'nl': 8, 'size': 6739},
- 'mr12': {'nl': 2, 'size': 1798},
- 'mr13': {'nl': 30, 'size': 18083},
+ 'mr01': {'nl': 8, 'size': 4174},
+ 'mr02': {'nl': 10, 'size': 10639},
+ 'mr03': {'nl': 10, 'size': 10373},
+ 'mr04': {'nl': 9, 'size': 10599},
+ 'mr05': {'nl': 10, 'size': 16794},
+ 'mr06': {'nl': 10, 'size': 14246},
+ 'mr07': {'nl': 7, 'size': 3806},
+ 'mr08': {'nl': 6, 'size': 3461},
+ 'mr09': {'nl': 8, 'size': 7425},
+ 'mr10': {'nl': 8, 'size': 10401},
+ 'mr11': {'nl': 8, 'size': 6951},
+ 'mr12': {'nl': 2, 'size': 1978},
+ 'mr13': {'nl': 30, 'size': 18295},
  'pr01': {'by_object': False, 'fw': '', 'info_added': True, 'layers': 9, 'marks_added': 9, 'method': 'layer comments', 'retract_pairs': 0, 'skipped': False, 'slicer': '', 'tagged': True, 'types': 18, 'upgraded': False, 'upgraded_from': 'v1', 'volumetric': False},
  'pr02': {'by_object': False, 'fw': '', 'info_added': True, 'layers': 9, 'marks_added': 9, 'method': 'layer comments', 'retract_pairs': 0, 'skipped': False, 'slicer': '', 'tagged': True, 'types': 18, 'upgraded': False, 'upgraded_from': 'v1', 'volumetric': False},
  'pr03': {'by_object': False, 'fw': '', 'info_added': True, 'layers': 8, 'marks_added': 8, 'method': 'Z scan', 'retract_pairs': 0, 'skipped': False, 'slicer': '', 'tagged': True, 'types': 0, 'upgraded': False, 'upgraded_from': 'v1', 'volumetric': False},
@@ -276,7 +277,7 @@ def main():
             print('FAIL %s: summary differs: %r != %r' % (name, _summ_cmp, _ref_summ))
             fails += 1
     if not fails:
-        print('R81 golden check: %d/%d cases byte-identical to the R87.2 reference' % (len(res), len(res)))
+        print('R81 golden check: %d/%d cases byte-identical to the R94 reference' % (len(res), len(res)))
     return 1 if fails else 0
 
 

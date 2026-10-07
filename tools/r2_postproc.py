@@ -101,6 +101,22 @@ TYPE_MAP = {
     'skirt': 'SKIRT',
     'brim': 'BRIM',
     'custom': 'CUSTOM',
+    # R94 (field log .73): OrcaSlicer/Bambu Studio emit ';TYPE:gap fill' (the
+    # map only knew 'gap infill' - gap fill segments NEVER switched). Plus
+    # the classic PrusaSlicer names and Cura's dashed forms - lowercase keys,
+    # the lookup is .strip().lower().
+    'gap fill': 'GAPS',
+    'wall-outer': 'WALL-OUTER',
+    'wall-inner': 'WALL-INNER',
+    'perimeter': 'WALL-INNER',
+    'external perimeter': 'WALL-OUTER',
+    'fill': 'INFILL-SPARSE',
+    'solid infill': 'INFILL-SOLID',
+    'top solid infill': 'SURFACE-TOP',
+    'bottom solid infill': 'SURFACE-BOTTOM',
+    'bridge infill': 'BRIDGE',
+    'support material': 'SUPPORT',
+    'support material interface': 'SUPPORT',
 }
 
 # ---- slicer config header keys (OrcaSlicer / PrusaSlicer '; key = value') ---------
@@ -869,6 +885,11 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
     cur_layer = []       # running buffer - holds the file's LAST layer at EOF
     excludes = []        # EXCLUDE_OBJECT_DEFINE lines from the head
     file_info_line = None
+    cut_key = None       # R94: feature ACTIVE at the cut (last ;TYPE: /
+                         # APPLY_TYPE before layer 'start') - a vase carries a
+                         # single ;TYPE: in layer 1, so a range from layer >= 2
+                         # had NO type in its body and printed as the raft's
+                         # INFILL-SOLID all the way (field log .73)
     with open(src, 'r', errors='replace') as f:
         for raw in f:
             trailing_empty = raw.endswith('\n')
@@ -905,7 +926,19 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
             # modal state of the head (lines[:a], exclusive of the cut mark)
             if a_idx is None or i < a_idx:
                 c = _stripped(line)
+                # R94: ;TYPE: comments are comments - _stripped() empties
+                # them. Match the RAW line for the feature, the command
+                # string for APPLY_TYPE.
+                _mty94 = TYPE_RE.match(line)
+                if _mty94:
+                    _mk94 = TYPE_MAP.get(_mty94.group(1).strip().lower())
+                    if _mk94:
+                        cut_key = _mk94
                 if c:
+                    if c.startswith('APPLY_TYPE'):
+                        _ma94 = re.match(r'APPLY_TYPE\s+TYPE=(\S+)', c)
+                        if _ma94:
+                            cut_key = _ma94.group(1)
                     if c == 'M83':
                         e_rel = True
                     elif c == 'M82':
@@ -975,8 +1008,18 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
     # the floor's type stayed active). Count what layers start..end carry.
     body_types = 0      # ;TYPE: comments with a known feature
     body_applies = 0    # APPLY_TYPE commands
+    bstats = {}         # R94: honest per-feature stats OF THE BODY - the
+                        # excerpt's _FILE_INFO must describe what the excerpt
+                        # really prints, not the whole source (field log .73:
+                        # features from layers outside the range showed as
+                        # activatable but never printed)
     if a_idx is not None:
         _b = b_idx if b_idx is not None else n_stream
+        _frun = None    # canonical type of the current body segment
+        _fv = None      # modal F (mm/min)
+        _acc = None     # last M204 seen (mm/s2) - 'in effect there'
+        _fvre = re.compile(r'F(\d+(?:\.\d+)?)')
+        _evre = re.compile(r'\bE(-?\d+(?:\.\d+)?)')
         with open(src, 'r', errors='replace') as f:
             _i = 0
             for raw in f:
@@ -985,8 +1028,27 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                     _mty = TYPE_RE.match(raw)
                     if _mty and TYPE_MAP.get(_mty.group(1).strip().lower()):
                         body_types += 1
+                        _frun = TYPE_MAP[_mty.group(1).strip().lower()]
                     elif _ls.startswith('APPLY_TYPE'):
                         body_applies += 1
+                        _ma94 = re.match(r'APPLY_TYPE\s+TYPE=(\S+)', _ls)
+                        if _ma94:
+                            _frun = _ma94.group(1)
+                    elif _ls.startswith('M204'):
+                        _mp94 = re.search(r'[PS](\d+(?:\.\d+)?)', _ls)
+                        if _mp94:
+                            _acc = float(_mp94.group(1))
+                    elif _ls.startswith(('G0 ', 'G1 ')):
+                        _mf94 = _fvre.search(_ls)
+                        if _mf94:
+                            _fv = float(_mf94.group(1))
+                        _me94 = _evre.search(_ls)
+                        if _me94 and _frun and float(_me94.group(1)) > 0:
+                            _sp94 = round(_fv / 60.0, 2) if _fv else 0.0
+                            d = bstats.setdefault(_frun, {'f': {}, 'acc': None})
+                            d['f'][_sp94] = d['f'].get(_sp94, 0) + 1
+                            if _acc is not None:
+                                d['acc'] = _acc
                 _i += 1
     else:
         body_types = body_applies = 0   # invalid range - the checks below raise
@@ -1089,6 +1151,16 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
         if fh:
             # R87.2: from the very first travel on, crossings retract
             g.hole = (fh['cx'], fh['cy'], fh['r'])
+        # R94 helper: the brim belongs to the FIRST layer, printed right at
+        # the outline (field log .73: it used to run AFTER the last raft
+        # layer - on top of the raft, where it could not help adhesion)
+        def _brim_block():
+            gen.append('; R2-RANGE brim: %d loop(s) on the FIRST layer, '
+                       'zero gap to the outline' % brim)
+            gen.append('APPLY_TYPE TYPE=BRIM')
+            for k in range(brim):
+                hull_off = _offset_hull(anchor, wid + k * wid)
+                g.loop(hull_off, first_h * wid / FIL_AREA, 1200)
         # RAFT: 'floor' solid layers under the section footprint - the hull is
         # offset by half a line width so the raft edge sits flush with the
         # model walls (ZERO gap - it welds directly to the section).
@@ -1104,6 +1176,9 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                 z = round(first_h + i * lh, 3)
                 gen.append('LAYER_MARK   ; R2-RANGE raft layer %d' % (i + 1))
                 gen.append('G0 Z%.3f F600' % z)
+                if i == 0 and brim > 0:
+                    _brim_block()                     # R94: brim ON layer 1
+                    gen.append('APPLY_TYPE TYPE=INFILL-SOLID   ; R2-RANGE: back to the raft')
                 ep = (first_h if i == 0 else lh) * wid / FIL_AREA
                 ang = 45.0 if i % 2 == 0 else 135.0
                 spacing = wid * 0.92 if floor_fill == 'solid' else 2.0 * wid
@@ -1138,16 +1213,12 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                 for (p, q) in segs:
                     g.move(p[0], p[1], 4800)
                     g.line(p[0], p[1], q[0], q[1], eph, 1200)
-        # BRIM: N loops around the raft/section outline - zero gap, the first
-        # loop starts directly at the model wall
-        if brim > 0:
-            gen.append('; R2-RANGE brim: %d loop(s), zero gap' % brim)
-            gen.append('APPLY_TYPE TYPE=BRIM')
-            # first loop center sits one full line width out from the wall
-            # center line -> its inner edge touches the model wall: ZERO gap
-            for k in range(brim):
-                hull_off = _offset_hull(anchor, wid + k * wid)
-                g.loop(hull_off, first_h * wid / FIL_AREA, 1200)
+        if brim > 0 and floor <= 0:
+            # R94: no raft - the brim runs alone BEFORE the body, at the
+            # body's first Z (it used to inherit whatever Z was modal -
+            # undefined without a raft). Z FIRST, then the loops.
+            gen.append('G0 Z%.3f F600   ; R2-RANGE: brim at the first layer Z' % base_z)
+            _brim_block()
 
     hull_n = _as_poly(hull_n)
     t_shape = _shape_ok(top_shape, hull_n, mask_n) if top else None
@@ -1224,8 +1295,19 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
         notes.append('body feature markers re-derived from the ;TYPE: comments '
                      '(the source carried no APPLY_TYPE - Live > Features works anyway)')
     elif body_types == 0 and body_applies == 0:
-        notes.append('NO feature markers in these layers - Live > Features '
-                     'cannot switch, the body prints with the last active feature')
+        if cut_key:
+            notes.append('these layers carry no own ;TYPE: (vase-style: the '
+                         'source states it once) - the body opens with %s, '
+                         'the feature active at the cut' % cut_key)
+        else:
+            notes.append('NO feature markers in these layers - Live > Features '
+                         'cannot switch, the body prints with the last active feature')
+    # R94: the generated geometry is content too - raft/cap count as
+    # INFILL-SOLID, the brim as BRIM (both print at F1200 = 20 mm/s)
+    if (floor > 0 or top > 0) and 'INFILL-SOLID' not in bstats:
+        bstats['INFILL-SOLID'] = {'f': {20.0: 1}, 'acc': None}
+    if brim > 0 and 'BRIM' not in bstats:
+        bstats['BRIM'] = {'f': {20.0: 1}, 'acc': None}
 
     # ---- prologue: a NORMAL file head with PRINT_START -> full start flow ----
     n_layers = end - start + 1 + floor + top
@@ -1235,6 +1317,26 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
     # PRINT_START, with the corrected layer count.
     if file_info_line:
         file_info_line = re.sub(r'TOTAL_LAYERS=\d+', f'TOTAL_LAYERS={n_layers}', file_info_line)
+        # R94 (field log .73): TYPES=/FS_/FA_ described the WHOLE source -
+        # features whose layers lie outside the range showed as activatable
+        # but never printed. Replace them with what the EXCERPT really
+        # contains: the body's own stats + the generated geometry.
+        file_info_line = re.sub(r'\s+(TYPES|FS_[A-Z0-9_-]+|FA_[A-Z0-9_-]+)=\S+',
+                                '', file_info_line)
+        _own94 = []
+        for _canon94 in bstats:
+            _d94 = bstats[_canon94]
+            _suf94 = _canon94.replace('-', '_')
+            if _d94['f']:
+                _own94.append('FS_%s=%g' % (_suf94,
+                                            max(_d94['f'], key=_d94['f'].get)))
+            if _d94['acc'] is not None:
+                _own94.append('FA_%s=%g' % (_suf94, _d94['acc']))
+        if bstats:
+            _own94.append('TYPES=' + ','.join(bstats))
+        if _own94:
+            file_info_line = (file_info_line.rstrip() + ' '
+                              + ' '.join(_own94)).rstrip()
     out_lines = [
         f'; R2-RANGE excerpt of {os.path.basename(src)}: layers {start}..{end} of {total}',
         f'; layer {start} prints as the FIRST layer at Z{base_z:g} on the bed'
@@ -1314,6 +1416,8 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
     open_obj = None
     held_type = None     # R87.2: a ;TYPE: line held back one line - synthesized
     held_key = None      # APPLY_TYPE follows only when the source has none
+    cut_pending = cut_key is not None   # R94: re-assert the cut feature right
+    body_open = False                   # after the body's first line
     with open(out, 'w') as fo:
         for l in out_lines:
             fo.write(l + '\n')
@@ -1358,6 +1462,20 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                                 held_key = key
                             else:
                                 fo.write(l + '\n')
+                        if not body_open:
+                            # R94 (field log .73): the body must OPEN with the
+                            # feature that was active at the cut - a vase-style
+                            # source states ;TYPE: once in layer 1, so a range
+                            # from layer >= 2 printed as the raft's INFILL-
+                            # SOLID all the way. Re-asserting here makes every
+                            # excerpt self-contained.
+                            body_open = True
+                            if cut_pending:
+                                fo.write('; R2-RANGE: %s was active at the cut '
+                                         '(layer %d)\n' % (cut_key, start))
+                                fo.write('APPLY_TYPE TYPE=%s   ; R2-RANGE: '
+                                         'active at the cut\n' % cut_key)
+                            cut_pending = False
                 idx += 1
         if held_type is not None:
             fo.write(held_type + '\n')

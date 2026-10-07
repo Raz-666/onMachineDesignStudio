@@ -1522,7 +1522,7 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
    ['F.Shape / T.Shape','FOOTPRINT, OUTLINE','FOOTPRINT = convex hull (compact base); OUTLINE = true outline (concavities and holes stay open)'],
    ['F.Fill / T.Fill','GRID, SOLID','GRID = 45/135-degree hatch lattice (fast); SOLID = dense overlapping lines (solid surface, E-compensated)'],
    ['Floor / Top','0–10 layers','generated raft under the section (welds flush, zero gap) / solid cap over the last layer'],
-   ['Brim','0–10 loops','zero-gap loops around the start — the first loop touches the model wall'],
+   ['Brim','0–10 loops','zero-gap loops around the outline, printed on the FIRST layer (at the start of raft layer 1) — the first loop touches the model wall'],
    ['Fl.hole (floor hole)','0–80 mm, 0 = off','centered hole in the base with a THICK boss ring, printed as ONE continuous spiral from the hole edge outwards; travels over the hole retract; auto-clamps to the REAL outline + 2mm margin (never sticks out of L/round sections)'],
    ['Top hole','0–80 mm, 0 = off','centered hole in the cap, BRIDGE-FIRST: layer 1 anchors the edge (no sagging), layers 2+ open'],
   ],[34*mm,34*mm,92*mm]),
@@ -1536,6 +1536,11 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
   P("Lamp parts: PETG, and for a press-fit thread start 0.2–0.3 mm under the measured diameter. A top "
     "hole auto-raises Top to 3 layers (bridge + 2 solid)."),
   P("The raft counts as INFILL-SOLID, the brim as BRIM — feature overrides work on the generated geometry. "
+    "The excerpt OPENS with the feature that was active at the cut (a vase-style source states its ;TYPE: once in "
+    "layer 1 - the excerpt re-asserts it, so the section never prints as the raft's solid infill), and the file info "
+    "describes what the EXCERPT really contains: features from layers outside the range show as n/a, per-feature "
+    "speeds are measured from the excerpt's own layers. ;TYPE: names from Orca/Bambu (gap fill), PrusaSlicer "
+    "(External perimeter, top solid infill, ...) and Cura (WALL-OUTER) all map. "
     "Console: SET_LAYER_RANGE FROM=125 TO=225 FLOOR=5 FLOOR_SHAPE=OUTLINE TOP=3 BRIM=4 FLOOR_HOLE=15 TOP_HOLE=28 CREATE=1. <b>Stop@ N</b> "
     "in the same menu ends a print NORMALLY at layer N (stats, fanfare — not a cancel)."),
   H2('5.2 Labels — the built-in label maker'),

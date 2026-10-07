@@ -2728,7 +2728,7 @@ tests.append(('R62 make_range: E rebased per block (G92-aware), modal F kept',
 tests.append(('R73/R74 make_range: raft layers + LAYER_MARKs + zero-gap brim + solid cap',
     'R2-RANGE raft: 2 layer(s)' in _t61 and 'raft layer 1' in _t61 and 'raft layer 2' in _t61
     and 'R2-RANGE cap: 1' in _t61 and 'solid' in _t61.split('R2-RANGE cap: 1')[1][:80]
-    and 'R2-RANGE brim: 1 loop(s), zero gap' in _t61
+    and 'R2-RANGE brim: 1 loop(s) on the FIRST layer' in _t61
     and _t61.count('LAYER_MARK') == 6, 'blocks'))
 
 # --- plotter PNG ---
@@ -5062,8 +5062,11 @@ def _raft77(mod, d):
     _s = next(i for i, l in enumerate(_ls) if 'R2-RANGE raft' in l)
     _e = next(i for i in range(_s + 2, len(_ls)) if _ls[i] == 'LAYER_MARK')
     # R79: APPLY_TYPE markers (new for live tuning of the raft) are filtered -
-    # the GEOMETRY (moves/E) must stay byte-identical to .57
-    return [l for l in _ls[_s:_e] if not l.startswith(';') and not l.startswith('APPLY_TYPE')]
+    # the GEOMETRY (moves/E) must stay identical to .57.
+    # R94: the brim loops moved ONTO layer 1 (field log .73) - same lines,
+    # different position in the sequence -> compare as a multiset
+    return sorted(l for l in _ls[_s:_e]
+                  if not l.startswith(';') and not l.startswith('APPLY_TYPE'))
 
 _v57_77 = _ilu74.spec_from_file_location('r57p', '/dev/null')   # placeholder, real one below
 import importlib.util as _ilu77
@@ -5078,7 +5081,7 @@ try:
     _z77.extract('klipper-e3-r2d2/tools/r2_postproc.py', _d57)
     _mod57 = _ilu77.spec_from_file_location('r2p57x', _os74.path.join(_d57, 'klipper-e3-r2d2/tools/r2_postproc.py'))
     _m57 = _ilu77.module_from_spec(_mod57); _mod57.loader.exec_module(_m57)
-    _same77 = _raft77(_m57, _t77z.mkdtemp()) == _raft77(_mod73, _tf74.mkdtemp())
+    _same77 = _raft77(_m57, _t77z.mkdtemp()) == _raft77(_mod73, _tf74.mkdtemp())  # R94: multiset
 except OSError:
     _same77 = True   # zip not available in this environment
 tests.append(('R77 range: raft+brim geometry identical to .57 (grid default, R79 APPLY_TYPE filtered)',
@@ -7256,6 +7259,118 @@ tests.append(('R93 watcher: file_check_nonce handler + .r2bak backup + print gua
     and 'max 20 per run' in _pp93, ''))
 tests.append(('R93/R91 watcher: both nonces in NONCE_KEYS (restart-safe)',
     "'texture_nonce'" in _pp93 and "'file_check_nonce'" in _pp93, ''))
+
+
+# ===================== R94: range feature truth (field log .73) =================
+import math as _math94
+
+def _src94(d, name='vase94.gcode'):
+    """OrcaSlicer-style vase: ;TYPE:outer wall stated ONCE in layer 1, a gap
+    fill section in layer 5, skirt only in layer 1 - a range from layer >= 2
+    used to lose ALL feature info and print as the raft's INFILL-SOLID."""
+    _p94 = _os91.path.join(d, name)
+    with open(_p94, 'w') as _f94:
+        _f94.write('; R2-POSTPROC v4\n'
+                   '_FILE_INFO MATERIAL=PLA LAYER_HEIGHT=0.2 LINE_WIDTH=0.6 '
+                   'TOTAL_LAYERS=30 TYPES=SKIRT,WALL-OUTER,GAPS FS_SKIRT=30 '
+                   'FS_WALL_OUTER=45 FA_WALL_OUTER=4000 BY_OBJECT=0\n'
+                   'M104 S210\nM140 S60\nM83\nG28\nG90\n')
+        _z94 = 0.2
+        for _lay94 in range(1, 31):
+            _f94.write('LAYER_MARK\nG1 Z%.2f F600\n' % _z94)
+            if _lay94 == 1:
+                _f94.write(';TYPE:skirt\n')
+                for _i94 in range(8):
+                    _f94.write('G1 X%.2f Y10 E0.5 F1800\n' % (100 + _i94))
+                _f94.write(';TYPE:outer wall\n')
+            if _lay94 == 5:
+                _f94.write(';TYPE:gap fill\n')
+                for _i94 in range(4):
+                    _f94.write('G1 X%.2f Y20 E0.3 F1500\n' % (105 + _i94))
+                _f94.write(';TYPE:outer wall\n')
+            for _i94 in range(30):
+                _a94 = _i94 / 30.0 * 6.283
+                _f94.write('G1 X%.3f Y%.3f E0.05 F2700\n'
+                           % (110 + 30 * _math94.cos(_a94),
+                              107 + 30 * _math94.sin(_a94)))
+            _z94 += 0.2
+    return _p94
+
+_d94 = _tf91.mkdtemp(prefix='r94_')
+_o94, _ = _mod73.make_range(_src94(_d94), 3, 12, floor=2, brim=3, version=1)
+_t94 = open(_o94).read()
+_l94 = _t94.splitlines()
+_i_cut = next((i for i, l in enumerate(_l94)
+               if 'was active at the cut' in l), -1)
+tests.append(('R94 vase: body OPENS with the cut feature (WALL-OUTER), not the raft type',
+    _i_cut > 0 and 'WALL-OUTER' in _l94[_i_cut]
+    and _l94[_i_cut - 1].strip() == 'LAYER_MARK'
+    and 'APPLY_TYPE TYPE=WALL-OUTER' in _l94[_i_cut + 1]
+    and _t94.index('APPLY_TYPE TYPE=WALL-OUTER') < _t94.index('APPLY_TYPE TYPE=GAPS'),
+    _l94[_i_cut][:70] if _i_cut > 0 else 'MISSING'))
+
+# the body's own WALL-OUTER marker sits AFTER the raft's last INFILL-SOLID
+# (the 'back to the raft' return after the brim) - and BEFORE any body move
+tests.append(('R94 vase: the body does not inherit INFILL-SOLID from the raft',
+    _t94.index('APPLY_TYPE TYPE=INFILL-SOLID   ; R2-RANGE: back to the raft')
+    < _t94.index('APPLY_TYPE TYPE=WALL-OUTER   ; R2-RANGE: active at the cut')
+    < _t94.index('G1 X140.000 Y107.000'), ''))
+
+# brim ON layer 1: after 'raft layer 1' + its Z line, BEFORE 'raft layer 2'
+_i_r1 = next(i for i, l in enumerate(_l94) if 'raft layer 1' in l)
+_i_br = next(i for i, l in enumerate(_l94) if 'R2-RANGE brim' in l)
+_i_r2 = next(i for i, l in enumerate(_l94) if 'raft layer 2' in l)
+_z94s = [l for l in _l94[_i_r1:_i_br] if l.startswith('G0 Z')]
+tests.append(('R94 brim: on the FIRST layer - inside raft layer 1, before layer 2',
+    _i_r1 < _i_br < _i_r2 and _z94s and _z94s[0] == 'G0 Z%.3f F600' % 0.2
+    and 'APPLY_TYPE TYPE=BRIM' in _t94
+    and _t94.index('APPLY_TYPE TYPE=BRIM') < _t94.index('raft layer 2'),
+    _z94s[0] if _z94s else 'no Z'))
+tests.append(('R94 brim: raft resumes INFILL-SOLID right after the brim',
+    'APPLY_TYPE TYPE=INFILL-SOLID   ; R2-RANGE: back to the raft' in _t94, ''))
+
+# honest _FILE_INFO: skirt (layer 1 only) must NOT be activatable
+_fi94 = next(l for l in _l94 if l.startswith('_FILE_INFO'))
+tests.append(('R94 info: TYPES describes the EXCERPT (skirt gone, body + generated in)',
+    'TYPES=' in _fi94 and 'SKIRT' not in _fi94.split('TYPES=')[1].split()[0]
+    and all(k in _fi94 for k in ('WALL-OUTER', 'GAPS', 'INFILL-SOLID', 'BRIM'))
+    and 'FS_SKIRT' not in _fi94 and 'FS_WALL_OUTER=45' in _fi94
+    and 'FS_INFILL_SOLID=20' in _fi94,
+    _fi94[_fi94.index('TYPES='):][:60]))
+
+# floor=0 + brim: the brim block carries its OWN Z (the body's first Z)
+_o94b, _ = _mod73.make_range(_src94(_d94, 'vase94b.gcode'), 4, 9,
+                             floor=0, brim=2, version=1)
+_lb94 = open(_o94b).read().splitlines()
+_ib94 = next(i for i, l in enumerate(_lb94) if 'R2-RANGE brim' in l)
+_zb94 = [l for l in _lb94[max(0, _ib94 - 4):_ib94] if l.startswith('G0 Z')]
+tests.append(('R94 brim without raft: own Z line BEFORE the loops',
+    _zb94 and _zb94[0].startswith('G0 Z')
+    and 'first layer Z' in _zb94[0], _zb94[0] if _zb94 else 'no Z'))
+
+# Orca/Prusa/Cura ;TYPE: spellings all map
+from r2_postproc import TYPE_MAP as _TM94
+tests.append(('R94 TYPE_MAP: gap fill + Prusa/Cura dialects map',
+    _TM94.get('gap fill') == 'GAPS' and _TM94.get('external perimeter') == 'WALL-OUTER'
+    and _TM94.get('perimeter') == 'WALL-INNER' and _TM94.get('top solid infill') == 'SURFACE-TOP'
+    and _TM94.get('wall-outer') == 'WALL-OUTER' and _TM94.get('bridge infill') == 'BRIDGE'
+    and _TM94.get('support material') == 'SUPPORT', ''))
+
+# a Prusa-dialect source gets APPLY_TYPE markers in the excerpt too
+_p94p = _os91.path.join(_d94, 'prusa94.gcode')
+with open(_p94p, 'w') as _f94p:
+    _f94p.write('; R2-POSTPROC v4\n_FILE_INFO MATERIAL=PLA TOTAL_LAYERS=10 BY_OBJECT=0\n'
+                'M104 S210\nM83\nG28\nG90\n')
+    for _lay94 in range(1, 11):
+        _f94p.write('LAYER_MARK\nG1 Z%.2f F600\n' % (0.2 * _lay94))
+        if _lay94 == 1:
+            _f94p.write(';TYPE:External perimeter\n')
+        for _i94 in range(10):
+            _f94p.write('G1 X%d Y%d E0.2 F1500\n' % (50 + _i94, 50 + _lay94))
+_o94p, _ = _mod73.make_range(_p94p, 3, 8, floor=0, top=0, brim=0, version=1)
+_tp94 = open(_o94p).read()
+tests.append(('R94 Prusa dialect: External perimeter -> WALL-OUTER marker',
+    'APPLY_TYPE TYPE=WALL-OUTER' in _tp94 and 'was active at the cut' in _tp94, ''))
 
 
 # ===================== R92.1: global x feature parameter model ==================
