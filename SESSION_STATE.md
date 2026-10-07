@@ -1167,3 +1167,45 @@ MANUAL.md + MANUAL.pdf: Census-Tabelle ch.3/A.1+3.7, 12->16 ueberall, Beep-Disci
 Textur ch.5.9 (Arc-Flattening + Preset-Tabelle), Changelog .74 (R94+R95 gemeinsam, Version bleibt .73
 bis Release-Bump — Versionsfrage .74 an den User gestellt, offen).
 GIT: R95 uncommittiert im Working Tree auf bb264d9.
+
+# ROUND 96 (R2-2026-09-07.74 RELEASE): VERSIONSBUMP .74 — R94+R95 GEMEINSAM (User-Entscheid)
+
+USER-ENTSCHEIDUNG: Release heisst .74, enthaelt R94+R95 gemeinsam (kein .75). Der .74-Changelog-
+Eintrag (MANUAL.md + make_manual_pdf.py) beschreibt bereits R94+R95 — unverstaendlich belassen.
+
+BUMPS (genau diese Stellen, nichts Historisches angefasst):
+- macros/01_state.cfg:331 variable_version 'R2-2026-09-07.73' -> .74
+- tools/make_manual_pdf.py: 4x Titel-/Fusszeilen-/Cover-/Rueckseiten-String + build-print (Z. 2, 479, 1254, 2318, 2607)
+- tools/macro_render_test.py: R66/R74-Versionstest (Erwartung + Testname, Z. 3661f)
+- INSTALL.md: 3x (ZIP-Name 2x, 'build R2-2026-09-07.74', Z. 23/28/44)
+- NICHT gebumpt: Changelog-Zeilen ('.73',...) = Historie; generisches 'R2-2026-09-07' (make_manual_pdf 2569,
+  MANUAL.md 2865, by design); Mock-Version .37 im SHOW_STATUS-Test; 'field log .73'-Erwaehnungen;
+  r81_golden_check.py Header; SESSION_STATE-Historie; R73-Kommentare in 01_state.cfg.
+- _r2_version() (r2_postproc) liest variable_version DYNAMISCH, nur R2-STATUS-Report -> kein Einfluss auf
+  generierten Gcode -> Golden bleibt unberuehrt.
+
+PRUEFUNGEN NACH BUMP:
+- Suite 1183/1183 (inkl. gebumptem Versionstest '.74 in 01_state.cfg').
+- Golden 23/23 byte-identisch zur R94-Referenz.
+- MANUAL.pdf NEU gebaut: 89 Seiten (87+2), 91x 'R2-2026-09-07.74', 93x '.74', '.73' nur 2x (Historie:
+  Changelog-Kopf + 'field log .73' im .74-Eintrag). MD5 8f60b5d05e16fd7cbfc754aaf9fa77e1, 306024 B.
+  Inhalt verifiziert (pypdf, whitespace-normalisiert): census, beep discipline, Orca-Presets, Arc-Textur.
+
+RELEASE .74: klipper-e3-r2d2-UPDATE-R2-2026-09-07.74.zip, 43 Dateien (.73-Liste + tools/r95_featext.py),
+zipfile -t OK, Frisch-Entpackung byte-identisch 43/43. ZIP MD5 d358eb3d70b8c4fb4ba7daa0ada3fdb2
+(1073102 B). MANUAL.pdf im ZIP == frisches Workspace-PDF (MD5-Match). Alte ZIPs unangetastet.
+FELD-SIMULATION .73->.74 (eigenes HOME, printer.cfg mit 17 Includes, .74-ZIP daneben):
+'[ok] this is the included package folder' -> zip found (installed .73) -> 43 Dateien entpackt ->
+exec auf neues update.sh -> '[ok] all 17 macro files are included' -> 'package version:
+R2-2026-09-07.74' -> '#'-Sanity ok -> Moonraker/sudo in der Sandbox graceful (am echten Pi verfuegbar).
+Null-Touch-Update: kein neuer Include, ein einziger Durchlauf.
+FALLE im Sim-Versuch: update.sh-Ausgabe per 'head -45' pipen bricht unzip mit SIGPIPE ab (letzte
+alphabetische Dateien fehlten) — Ausgabe in Datei umleiten, nie per head kappen.
+
+MIGRATION FUER USER: ZIP in Mainsail in den Config-Ordner hochladen, SSH 'bash ~/printer_data/config/
+klipper-e3-r2d2/update.sh' (oder CONSOLE-Pfad aus INSTALL.md). Boot-Konsole muss danach sagen:
+'Macro system OK: all 17 modules loaded and current (build R2-2026-09-07.74)' + ~10 s spaeter
+Bootsound + 'M117 R2 ready'. Danach 'sudo systemctl restart r2-postproc' macht update.sh selbst.
+
+OFFEN (optional, bei Bedarf): dd-Rest-Audit seal/lithophane/cable_ties/bridge (Loch-Retracts wirken
+bisher nur bei registrierten Lochern: labels/angles/frame).
