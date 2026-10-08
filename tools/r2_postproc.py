@@ -9700,6 +9700,17 @@ def file_check_scan(directory):
     return rows, totals
 
 
+# R98 (field log .75): start-scan chunk budget (seconds). The first scan
+# after a boot/restart used to run as ONE blocking pass - on a swapping
+# Pi Zero it held the watch loop for 12+ minutes (field log: boot 02:10,
+# first reaction 02:23) and every file selected in that window showed an
+# EMPTY file info. The scan now works at most this many seconds per 5 s
+# loop pass; the loop keeps servicing the preview/selection nonces while
+# the start backlog drains in background chunks. once-mode (catch-up runs
+# via --once) is exempt and scans everything in one go as before.
+_SCAN_CHUNK_S = 2.0
+
+
 def watch(directory, interval=5.0, once=False):
     """Daemon: process every new/changed .gcode file under DIRECTORY.
 
@@ -9718,7 +9729,8 @@ def watch(directory, interval=5.0, once=False):
     mode = 'one-shot' if once else f'watching, every {interval:g}s'
     print(f'R2 post-processor {mode}: {directory}', flush=True)
     seen = {}
-    stats = {'processed': 0, 'tagged_before': 0, 'errors': 0, 'files': 0}
+    stats = {'processed': 0, 'tagged_before': 0, 'errors': 0, 'files': 0,
+             'deferred': 0}
     last_beat = time.time()
     NEW_PREVIEW = []          # R73: freshly processed files -> LCD preview push
 
@@ -9824,6 +9836,10 @@ def watch(directory, interval=5.0, once=False):
             return b''
 
     def scan(rrw=False):
+        # R98 (field log .75): time-boxed chunk - see _SCAN_CHUNK_S above
+        _dl98 = None if once else time.time() + _SCAN_CHUNK_S
+        _done98 = 0
+        stats['deferred'] = 0
         for root, dirs, files in os.walk(directory):
             dirs[:] = [d for d in dirs if not d.startswith('.')]
             for fn in sorted(files):
@@ -9849,7 +9865,15 @@ def watch(directory, interval=5.0, once=False):
                 if not once and 0 < time.time() - st.st_mtime < 6:
                     continue          # still settling - do NOT mark as seen, the
                                      # next scan picks it up
+                # R98 (field log .75): budget spent? defer the REST of the
+                # backlog to the next loop pass (NOT marked seen) so the
+                # preview/selection service stays responsive - at least one
+                # backlog file per pass keeps the catch-up moving.
+                if _dl98 is not None and _done98 and time.time() > _dl98:
+                    stats['deferred'] += 1
+                    continue
                 seen[p] = key
+                _done98 += 1
                 # R61 plotter: image smuggled in as *.png.gcode / *.svg.gcode
                 # R64: + plain text files (*.txt.gcode) drawn with the stroke fonts
                 if PLOT_PAT.search(fn):
@@ -9916,6 +9940,14 @@ def watch(directory, interval=5.0, once=False):
                           + (f' [sliced by {s.get("slicer", "")} for {s.get("fw", "?")}]'
                              if s.get('slicer') else '')
                           + (' [upgraded from ' + s['upgraded_from'] + ']' if s['upgraded'] else ''), flush=True)
+        # R98 (field log .75): backlog bookkeeping - the initial message
+        # reports what is deferred, the last chunk reports completion
+        if stats['deferred']:
+            stats['_backlog98'] = True
+        elif stats.get('_backlog98'):
+            stats['_backlog98'] = False
+            print('[i] background catch-up done - the whole start backlog '
+                  'is scanned now', flush=True)
 
     # R61: plotter settings + layer-range requests live in the save_variables file
     global VAR_PATH
@@ -11000,14 +11032,26 @@ def watch(directory, interval=5.0, once=False):
             print(f'[!] scan error: {e!r}', flush=True)
         # R73: freshly uploaded/converted files -> push their parameters to the
         # LCD right away (Pre-Print > File + the plotter group for plot files)
-        for _pp in NEW_PREVIEW[-1:]:
-            push_preview(_pp)
+        # R98 (field log .75): a selection that arrived while this pass was
+        # busy scanning owns the LCD - re-check the preview nonce and never
+        # let a backlog push overwrite a fresher selection (the .57 'always
+        # the same file info' bug shape). The selection push itself fires
+        # within seconds via the nonce handler.
+        try:
+            _pn98 = (_read_vars(VAR_PATH) or {}).get('preview_nonce', '')
+        except Exception:
+            _pn98 = rv.get('preview_nonce', '')
+        if _pn98 == rv.get('preview_nonce', ''):
+            for _pp in NEW_PREVIEW[-1:]:
+                push_preview(_pp)
         if first:
             # R57: the summary makes the initial batch visible - before, the
             # journal just went quiet after the first files ("nothing happens?")
             print(f'[i] initial scan done: {stats["files"]} gcode file(s) found, '
                   f'{stats["processed"]} processed, {stats["tagged_before"]} already tagged, '
                   f'{stats["errors"]} errors'
+                  + (f", {stats['deferred']} deferred to the next pass(es)"
+                     if stats['deferred'] else '')
                   + (' - now watching for new files' if not once else ''), flush=True)
             first = False
             if once:

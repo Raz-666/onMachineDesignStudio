@@ -3658,8 +3658,8 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         _v66 = _l66.split(':', 1)[1].strip()
         break
 # NOTE: bump this expectation together with the version on every release!
-tests.append(('R66/R75 version is .75 in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-09-07.75'", repr(_v66)))
+tests.append(('R66/R76 version is .76 in 01_state.cfg (bump together with release!)',
+    _v66 == "'R2-2026-09-07.76'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -8246,6 +8246,27 @@ tests.append(('R97 source: centering + serpentine + poly offset + plate-B fix',
     and 'def _plate_b_block(' in _src97
     and _src97.count('R97 (field log .74)') >= 5, ''))
 
+
+# ---------- R98 (field log .75): watcher start scan in time-boxed chunks ----------
+# The .75 field log: right after the reboot the watcher's first scan ran as ONE
+# blocking pass (12+ min on a swapping Pi Zero) - every file selected in that
+# window showed an EMPTY file info; the first selection was even lost entirely
+# (overwritten by the next before the loop caught up).
+_src98 = open('tools/r2_postproc.py').read()
+tests.append(('R98 source: start scan time-boxed (chunk constant + deferral, once exempt)',
+    _src98.count('R98 (field log .75)') >= 5
+    and '_SCAN_CHUNK_S = 2.0' in _src98
+    and "_dl98 = None if once else time.time() + _SCAN_CHUNK_S" in _src98
+    and "stats['deferred'] += 1" in _src98
+    and "stats['deferred'] = 0" in _src98, ''))
+tests.append(('R98 source: deferred files are NOT marked seen (retried next pass)',
+    _src98.find("stats['deferred'] += 1") < _src98.find("seen[p] = key", _src98.find("stats['deferred'] += 1") - 4000), ''))
+tests.append(('R98 source: backlog push re-checks the preview nonce (never overwrites a selection)',
+    "_pn98 == rv.get('preview_nonce', '')" in _src98
+    and _src98.find("if _pn98 ==") < _src98.find("for _pp in NEW_PREVIEW[-1:]"), ''))
+tests.append(('R98 source: catch-up messages (initial deferral + background done)',
+    'deferred to the next pass(es)' in _src98
+    and 'background catch-up done' in _src98, ''))
 
 fails = 0
 for name, ok, info in tests:

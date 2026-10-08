@@ -1395,3 +1395,61 @@ danach: 'Macro system OK: all 17 modules loaded and current (build R2-2026-09-07
 bei 0,0/Ueberlappung, Einzellinien-Erste-Schicht).
 KONVENTION FUER DIE ZUKUNFT: nie wieder eine bereits ausgegebene Versionsnummer neu belegen —
 jede Lieferung bekommt die naechste Nummer, auch wenn sie nur ein Feld-Log-Nachtrag ist.
+
+R98 (Feld-Log .75) — Watcher-Startscan blockierte die Loop: Datei-Infos leer nach Boot
+USER-REPORT (.75, direkt nach Installation + Pi-Neustart): "g-code-informationen bzw
+dateiinformationen enthalten keine Werte mehr" - dabei hatte .74 beim Auswaehlen sofort Werte
+gezeigt. KONSOLE-LOG des Users (02:10-02:25) mit der vollstaendigen Aufloesung:
+- 02:10:31 Boot OK (build R2-2026-09-07.75), Watcher startet ~02:10:35.
+- 02:17:42 Auswahl 20mm_xyz_cube.gcode (Catch-Flow setzt preview_file+nonce) - KEINE Reaktion.
+- 02:19:57 Auswahl 00_Huhuu+2_V03.gcode - KEINE Reaktion.
+- 02:23:06 _PREVIEW_SET NAME="AxtBunny.png.gcode" (PLOT=1 PENS=2) = der 'Upload'-Push des
+  LETZTEN im Startscan verarbeiteten Backlog-Files (NEW_PREVIEW[-1:], R73) - AxtBunny.png.gcode
+  war beim ersten Scan neu/veraendert und wurde (re)getaggt.
+- 02:23:12 _PREVIEW_SET NAME="00_Huhuu+2_V03.gcode" mit ALLEN 13 Werten + _FILE_INFO +
+  _PREVIEW_TEMPS + litho_files-Push = die nonce-Reaktion der Loop-Iteration 2.
+- Danach "File info: 8 layers | lh 0.2 | width 0.65 ..." - die .75-Pipeline liefert korrekt.
+ROOT CAUSE: Der Startscan lief EINMAL blockierend durch die ganze Loop-Iteration (Scan steht im
+Loop-Koerper NACH den nonce-Handlern) - auf dem swappenden Pi Zero (HOST_CHECK des Users:
+"SWAPPING - the host stalls in bursts", 132MB Swap, 121MB frei, python3 87% CPU) dauerte das
+12,5 Minuten. In dem Fenster: jede Dateiauswahl ohne Werte (leeres File-Info), die Wuerfel-
+Auswahl ging GANZ verloren (preview_file von Huhuu ueberschrieben, bevor die Loop drankam).
+Der AxtBunny-Push war zudem ein Risiko in Gegenrichtung: ein Backlog-Push haette eine frischere
+Auswahl ueberschreiben koennen (.57-Bug-Form 'immer dieselben Werte').
+
+FIXES (r2_postproc.py, Marker 'R98 (field log .75)' 5x):
+1. _SCAN_CHUNK_S = 2.0 (Modul-Konstante): scan() arbeitet max ~2s pro 5s-Loop-Pass; mindestens
+   EIN Backlog-File pro Pass (Fortschritts-Garantie); aufgeschobene Files werden NICHT als seen
+   markiert -> der naechste Pass wiederholt sie. once-Modus (--once/Catch-up-Runs) ausgenommen,
+   verhaelt sich wie bisher (alles in einem Rutsch).
+2. Meldungen: "initial scan done: ... N deferred to the next pass(es)" + "background catch-up
+   done - the whole start backlog is scanned now" (stats['deferred'] wird pro Pass
+   zurueckgesetzt - erste Version vergass das, done-Meldung kam nie).
+3. Upload-Push-Guard: vor dem NEW_PREVIEW[-1:]-Push wird preview_nonce NEU gelesen; hat sich die
+   Nonce waehrend des Scans geaendert (User hat ausgewaehlt), wird der Backlog-Push UEBERSPRUNGEN
+   - die Auswahl gehoert dem LCD, die nonce-Reaktion pusht das richtige File in Sekunden.
+
+VERIFIKATION (Sandbox, Watcher live, _SCAN_CHUNK_S kuenstlich 0.0001): 6 ungetaggte Dateien ->
+"Iteration 1: 1 processed, 5 deferred"; Chunk-fuer-Chunk-Abarbeitung (1 Datei/Pass); waehrend
+des Catch-ups preview_nonce gebumpt -> [preview]-Reaktion IMMEDIATE (innerhalb eines 5s-Passes,
+10 Files noch im Backlog); abschliessend "background catch-up done". once-Modus: 12 Dateien in
+einem Durchlauf, kein Deferral (Verhalten unveraendert).
+
+TESTS: 1202 -> 1206/1206 (4 neue R98: Chunk-Konstante+Deferral+once-Exempt, deferred-nicht-seen,
+Push-Guard vor NEW_PREVIEW[-1:], Catch-up-Meldungen). GOLDEN: 23/23 byte-identisch (Generatoren
+unberuehrt). Bump .75->.76 nach Schema: 01_state, make_manual_pdf (4x + Build-Msg), INSTALL 3x,
+Test-Name+Erwartung, Changelog .76 in MD+PDF (.75-Zeile unveraendert darunter).
+
+RELEASE .76: klipper-e3-r2d2-UPDATE-R2-2026-09-07.76.zip, 43 Dateien (Liste identisch zu .75),
+zipfile -t OK, Frisch-Entpackung byte-identisch 43/43. ZIP MD5 45d93422c4ff0dbe451f5273b98f6547
+(1094662 B). MANUAL.pdf im ZIP == Workspace-PDF (MD5 c613b87e..., 90 S., 308903 B). Alte ZIPs
+unangetastet. FELD-SIMULATION .75->.76 (eigenes HOME, printer.cfg mit 17 Includes): 'installed:
+R2-2026-09-07.75' -> 43 Dateien entpackt -> 'package version: R2-2026-09-07.76' -> '#'-Sanity
+ok -> Moonraker/sudo in der Sandbox graceful -> '== done. Happy printing! =='. R98-Code im
+Sim-Paket verifiziert (5 Marker).
+MIGRATION FUER USER: .76-ZIP in Mainsail in den Config-Ordner hochladen, SSH 'bash
+~/printer_data/config/klipper-e3-r2d2/update.sh'. Danach wie immer. Der Fix wirkt automatisch
+beim naechsten Boot/Watcher-Restart: Datei-Infos erscheinen jetzt auch waehrend der Start-Scan
+laeuft (statt erst Minuten danach). HINWEIS LANGFRISTIG: Der echte Flaschenhals bleibt der Host
+(eigenes HOST_CHECK-Urteil: SWAPPING) - der Pi Zero swappt 132MB; wer den RAM entlastet (siehe
+HOST_CHECK-Empfehlungen), macht ALLES schneller, nicht nur die Datei-Infos.
