@@ -3658,8 +3658,8 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         _v66 = _l66.split(':', 1)[1].strip()
         break
 # NOTE: bump this expectation together with the version on every release!
-tests.append(('R66/R77 version is .77 in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-09-07.77'", repr(_v66)))
+tests.append(('R66/R78 version is .78 in 01_state.cfg (bump together with release!)',
+    _v66 == "'R2-2026-09-07.78'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -8338,6 +8338,59 @@ tests.append(('R99 source: mode wiring (watcher reads label_mode, CLI MODE, menu
     and "_sv_line('label_min_w'" in _src99
     and 'label_mode' in _mnu99 and 'label_min_w' in _mnu99
     and 'label_mode' in _lab99, ''))
+
+# ---------- R100 (field log .77): plain uploads convert ONCE --------------------------
+# The .77 field log: AxtBunny.png (a plain image in the gcodes folder) was
+# re-converted to pen-plotter g-code on EVERY watcher (re)start - '1
+# processed' at every boot, the .gcode rewritten, its preview push racing
+# the Klipper restart after an update (HTTP 404). The 'already converted'
+# check looked at the SOURCE file (a .png never carries the R2-PLOT header).
+import zlib as _zlib100
+import struct as _struct100
+import subprocess as _sub100
+import sys as _sys100
+
+def _png100(w, h, gray):
+    def _chunk(t, d):
+        return _struct100.pack('>I', len(d)) + t + d + _struct100.pack(
+            '>I', _zlib100.crc32(t + d) & 0xffffffff)
+    rows = b''
+    for _y100 in range(h):
+        rows += b'\x00' + bytes(gray(_x100, _y100) for _x100 in range(w))
+    return (b'\x89PNG\r\n\x1a\n'
+            + _chunk(b'IHDR', _struct100.pack('>IIBBBBB', w, h, 8, 0, 0, 0, 0))
+            + _chunk(b'IDAT', _zlib100.compress(rows))
+            + _chunk(b'IEND', b''))
+
+_d100 = tempfile.mkdtemp()
+_g100 = _os99.path.join(_d100, 'gcodes')
+_os99.makedirs(_g100)
+open(_os99.path.join(_g100, 'AxtBunny.png'), 'wb').write(
+    _png100(32, 32, lambda x, y: 40 if abs(x - y) < 6 else 220))
+_r100a = _sub100.run([_sys100.executable, 'tools/r2_postproc.py',
+                      '--watch', _g100, '--once'], capture_output=True, text=True)
+_m100 = _os99.path.getmtime(_os99.path.join(_g100, 'AxtBunny.png.gcode')) \
+    if _os99.path.isfile(_os99.path.join(_g100, 'AxtBunny.png.gcode')) else -1
+import time as _time100
+_time100.sleep(0.05)
+_r100b = _sub100.run([_sys100.executable, 'tools/r2_postproc.py',
+                      '--watch', _g100, '--once'], capture_output=True, text=True)
+_m100b = _os99.path.getmtime(_os99.path.join(_g100, 'AxtBunny.png.gcode')) \
+    if _os99.path.isfile(_os99.path.join(_g100, 'AxtBunny.png.gcode')) else -1
+tests.append(('R100 plot: a plain image converts ONCE - never again on the next scan '
+              '(was: re-converted on every watcher start)',
+    _m100 > 0 and '[plot]' in _r100a.stdout and 'AxtBunny.png.gcode' in _r100a.stdout
+    and '[plot]' not in _r100b.stdout and ', 0 processed,' in _r100b.stdout
+    and abs(_m100b - _m100) < 0.001,
+    'run1 %s / run2 %s' % (_r100a.stdout.strip().splitlines()[-1][:60],
+                           _r100b.stdout.strip().splitlines()[-1][:60])))
+_src100 = open('tools/r2_postproc.py').read()
+tests.append(('R100 source: conversion check reads the OUTPUT file + 404 push hint',
+    _src100.count('R100 (field log .77)') >= 2
+    and 'os.path.isfile(out_p)' in _src100
+    and 'data_head_if_text(out_p)' in _src100
+    and "b'R2-PLOT' in head or" not in _src100
+    and 'Klipper still restarting?' in _src100, ''))
 
 fails = 0
 for name, ok, info in tests:

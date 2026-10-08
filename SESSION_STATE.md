@@ -1512,3 +1512,44 @@ auf .77 springen (enthaelt den .76-Watcher-Fix). Danach: frisch generierte Datei
 Kabelbinder, Winkel) zeigen jetzt volle Datei-Infos + Feature-Schalter im Pre-Print; alte
 generierte Dateien haben weiterhin keine (nur Neu-Generierung hilft). Labels: Mode GROW/FIXED im
 Settings-Menue, "Calc fit" setzt im GROW-Modus die W/H-Untergrenzen auf die benoetigte Groesse.
+
+R100 (Feld-Log .77) — Plain-Uploads wurden bei JEDEM Watcher-Start neu konvertiert
+USER-LOGS vom Pi (nach .77-Install, 15:36): '[preview:upload] AxtBunny.png.gcode:
+<HTTPError 404>' + 'initial scan done: 71 found, 1 processed, 14 already tagged,
+55 deferred'. Zwei Erkenntnisse: (a) R98-Chunking arbeitet im Feld genau wie
+gewuenscht (55 deferred, Loop reagiert). (b) AxtBunny.png war SCHON im .75-Boot
+'1 processed' - und wieder jetzt: ROOT CAUSE im scan(): already-Check pruefte die
+QUELL-Datei auf den R2-PLOT-Header (p = AxtBunny.png - ein PNG enthaelt ihn NIE)
+-> jede frische Abbild/Text-Datei im gcodes-Ordner wurde bei jedem Watcher-
+(Re)start neu konvertiert, das .gcode neu geschrieben (mtime-Bump), ein preview-
+Push gefeuert - der nach dem .77-Update in das Klipper-Restart-Fenster fiel
+(Moonraker lief, Klipper war noch nicht hoch: 404; um 15:36:59 war Klipper da,
+ litholist-Push ging durch).
+
+FIXES (r2_postproc.py, Marker 'R100 (field log .77)' 2x):
+1. scan(): out_p wird VOR dem already-Check berechnet (p + '.gcode' bei Plain-
+   Uploads), already = os.path.isfile(out_p) and R2-PLOT in data_head(out_p) -
+   der Check liest jetzt die AUSGABE-Datei (deckt Bilder UND .txt, text_convert
+   nutzt dieselbe Pfad-Konvention). Fehlt die Ausgabe (oder ohne Header) ->
+   konvertiert wie bisher.
+2. push_preview(): 404 bekommt den Hinweis 'Klipper still restarting? the values
+   arrive with the next file selection' statt kryptischem Fehlerbild.
+
+VERIFIKATION (Sandbox): 32x32-Test-PNG -> Lauf 1 konvertiert ('[plot] ... 1
+processed'), Lauf 2: '[plot]' weg, ', 0 processed,', mtime der .gcode unveraendert;
+Kontrolle: frisches Neu.png konvertiert normal. Genau das Pi-Bild: kuenftige
+Boots zeigen '0 processed' (ausser wirklich neue Dateien).
+
+TESTS: 1213 -> 1215/1215 (2 neue R100: Funktions-Test zweimal --once mit
+mtime-Vergleich, Source-Anker out_p-Check + 404-Hinweis). GOLDEN: 23/23.
+Bump .77->.78 nach Schema (01_state, make_manual_pdf 4x + Build-Msg, INSTALL 3x,
+Test-Name + Erwartung, Changelog .78 in MD + PDF).
+
+RELEASE .78: klipper-e3-r2d2-UPDATE-R2-2026-09-07.78.zip, 43 Dateien (Liste identisch),
+zipfile -t OK, Frisch-Entpackung byte-identisch 43/43. ZIP MD5 a48058df9b036c69a1469435853c8f81
+(1103536 B). MANUAL.pdf im ZIP == Workspace (MD5 d366df76..., 90 S.). FELD-SIMULATION .77->.78:
+'installed: R2-2026-09-07.77' -> 'package version: R2-2026-09-07.78' -> '== done. Happy
+printing! =='; R100-Marker (2x) im Sim-Paket verifiziert.
+USER-HINWEIS: Nach dem .78-Update sollte der naechste Boot im Journal '0 processed' zeigen
+(AxtBunny.png & Co. werden nicht mehr angefasst). Der 404 beim preview:upload war das
+Update-Restart-Fenster + der Dauer-Reconvert - beides adresseiert.

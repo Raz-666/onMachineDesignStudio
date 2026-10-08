@@ -9810,7 +9810,12 @@ def watch(directory, interval=5.0, once=False):
                   f'{nvals} values pushed' + ('' if ok else ' (moonraker unreachable)'),
                   flush=True)
         except Exception as e:                              # noqa: BLE001
-            print(f'[preview:{label}] {ppath}: {e!r}', flush=True)
+            # R100 (field log .77): a 404 right after an update is the
+            # Klipper-restart race - not an error worth alarming anyone
+            print(f'[preview:{label}] {ppath}: {e!r}'
+                  + (' - Klipper still restarting? the values arrive with '
+                     'the next file selection' if '404' in str(e) else ''),
+                  flush=True)
 
     def file_fix(kind, name):
         """R85: fix a file IN PLACE - no re-upload (LCD: Pre-Print > File >
@@ -9948,13 +9953,21 @@ def watch(directory, interval=5.0, once=False):
                     # R73: a plain 'photo.png' / 'notes.txt' (no .gcode tail)
                     # converts INTO '<name>.png.gcode' - the original stays
                     plain_upload = not fn.lower().endswith('.gcode')
-                    already = b'R2-PLOT' in head or b'R2-PLOT' in data_head_if_text(p)
+                    out_p = p + '.gcode' if plain_upload else p
+                    # R100 (field log .77): the 'already converted' check must
+                    # look at the OUTPUT file - a plain upload (photo.png,
+                    # notes.txt) never carries the R2-PLOT header, so every
+                    # watcher (re)start re-converted it (field log: AxtBunny.png
+                    # re-converted on EVERY boot, '1 processed' each time, its
+                    # .gcode rewritten + a preview push that also raced the
+                    # Klipper restart -> HTTP 404 right after an update)
+                    already = (os.path.isfile(out_p)
+                               and b'R2-PLOT' in data_head_if_text(out_p))
                     if already:
                         stats['tagged_before'] += 1   # converted earlier (R2-PLOT header)
                         continue
                     if is_img:
                         try:
-                            out_p = p + '.gcode' if plain_upload else p
                             npens, nlines = plot_convert(p, var_path=VAR_PATH, out=out_p)
                             stats['processed'] += 1
                             NEW_PREVIEW.append(out_p)
