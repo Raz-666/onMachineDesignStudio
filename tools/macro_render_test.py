@@ -361,7 +361,7 @@ tests.append(('LAYER_MARK pause@7', 'PAUSE REASON="layer 7' in out, out.strip()[
 state_vars['layer']=2
 
 # 9) _PARK_HEAD corner choice - R92: corners from the REAL bed (default
-# Ender-3 0..220 / -3..217 when [r2_postproc] is absent), never beyond it
+# Ender-3 0..220 / -3..217 when [gcode_macro _R2_CONFIG] is absent), never beyond it
 body = get_body('macros/09_pause_filament.cfg', '_PARK_HEAD')
 out = render(body, {})
 _pc92 = [l for l in out.split('\n') if 'G1 X' in l and ' Y' in l and 'F6000' in l]
@@ -3118,12 +3118,22 @@ tests.append(('R80 labels: long text GROWS the label (was: error) + stays readab
 _p63 = _os63.path.join(_d63, 'printer.cfg')
 open(_p63, 'w').write('[stepper_x]\nposition_min: 0\nposition_max: 244\n[stepper_y]\nposition_min: -1 #comment\nposition_max: 238\n')
 # R92: the steppers are lifted on this machine (meshing rides beyond the
-# plate) - [r2_postproc] is the truth, the fallback is the Ender-3 220x220
-open(_p63, 'a').write('\n[r2_postproc]\nbed_min_x: 0\nbed_max_x: 220\nbed_min_y: -1\nbed_max_y: 216\n')
-tests.append(('R63/R92 _bed_limits: [r2_postproc] section wins over the lifted steppers',
+# plate) - the config is the truth, the fallback is the Ender-3 220x220.
+# R104.2: the config carrier is [gcode_macro _R2_CONFIG] (KAMP-style) - a raw
+# [r2_postproc] section HALTS Klipper ('not a valid config section', field
+# log .81) and is only read as a legacy courtesy by the watcher.
+open(_p63, 'a').write('\n[gcode_macro _R2_CONFIG]\nvariable_bed_min_x: 0\n'
+                     'variable_bed_max_x: 220\nvariable_bed_min_y: -1\n'
+                     'variable_bed_max_y: 216\n')
+tests.append(('R63/R92/R104.2 _bed_limits: [gcode_macro _R2_CONFIG] wins over the lifted steppers',
     _pp61._bed_limits(_p63) == (0.0, -1.0, 220.0, 216.0), str(_pp61._bed_limits(_p63))))
 tests.append(('R63/R92 _bed_limits: no section / no file -> Ender-3 default 220x220',
     _pp61._bed_limits(_os63.path.join(_d63, 'other.cfg')) == (0.0, -3.0, 220.0, 217.0), ''))
+_p63l = _os63.path.join(_d63, 'legacy.cfg')
+open(_p63l, 'w').write('[stepper_x]\nposition_max: 244\n\n[r2_postproc]\n'
+                       'bed_min_x: 5\nbed_max_x: 215\nbed_min_y: 0\nbed_max_y: 210\n')
+tests.append(('R104.2 _bed_limits: legacy [r2_postproc] still read (courtesy) although it halts Klipper',
+    _pp61._bed_limits(_p63l) == (5.0, 0.0, 215.0, 210.0), str(_pp61._bed_limits(_p63l))))
 
 # --- watcher: label nonce hook reads variables.cfg end-to-end ---
 _d63w = _tf63.mkdtemp(prefix='r63w_')
@@ -3658,8 +3668,8 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         _v66 = _l66.split(':', 1)[1].strip()
         break
 # NOTE: bump this expectation together with the version on every release!
-tests.append(('R66/R80 version is .81 in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-09-07.81'", repr(_v66)))
+tests.append(('R66/R80 version is .82 in 01_state.cfg (bump together with release!)',
+    _v66 == "'R2-2026-09-07.82'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -8570,9 +8580,9 @@ tests.append(('R104 PRINT_END: small bed clamps the presentation (Y228 -> 176, n
     'G0 X10 Y176 F6000' in _out104 and 'Y228' not in _out104,
     [l for l in _out104.split('\n') if 'F6000' in l][:3]))
 _gd104b = dict(build_printer())
-_gd104b['configfile'] = M({'settings': M({'r2_postproc': M({'present_x': '40', 'present_y': '100'})})})
+_gd104b['gcode_macro _R2_CONFIG'] = {'present_x': 40, 'present_y': 100}
 _out104b = render(_pe104, {}, {'printer': MP(_gd104b)})
-tests.append(('R104 PRINT_END: [r2_postproc] present_x/present_y override (clamped to axes)',
+tests.append(('R104/R104.2 PRINT_END: _R2_CONFIG variable_present_x/y override (clamped to axes)',
     'G0 X40 Y100 F6000' in _out104b, [l for l in _out104b.split('\n') if 'F6000' in l][:3]))
 
 # _NOZZLE_WIPE: default anchor unchanged, [r2_postproc] wipe_x/wipe_y moves it
@@ -8582,9 +8592,9 @@ tests.append(('R104 wipe: default anchor stays the axis-minimum corner (unchange
     'G0 X0.0 Y0.0 F8000' in _out104c and 'G1 X13.0' in _out104c,
     [l for l in _out104c.split('\n') if l.startswith('G0 X')][:2]))
 _gd104c = dict(build_printer())
-_gd104c['configfile'] = M({'settings': M({'r2_postproc': M({'wipe_x': '60', 'wipe_y': '120'})})})
+_gd104c['gcode_macro _R2_CONFIG'] = {'wipe_x': 60, 'wipe_y': 120}
 _out104d = render(_nw104, {}, {'printer': MP(_gd104c)})
-tests.append(('R104 wipe: [r2_postproc] wipe_x/wipe_y moves the pad (60/120 -> 60..73)',
+tests.append(('R104/R104.2 wipe: _R2_CONFIG variable_wipe_x/y moves the pad (60/120 -> 60..73)',
     'G0 X60.0 Y120.0 F8000' in _out104d and 'G1 X73.0' in _out104d,
     [l for l in _out104d.split('\n') if l.startswith('G0 X') or l.startswith('G1 X')][:3]))
 
@@ -8598,6 +8608,48 @@ tests.append(('R104 sources: PLT_FRAME parks inside the PLOT bed (not X5 Y190)',
 tests.append(('R104 megatest: --bed/--cfg adapt the sweep, small-bed ValueErrors count as SKIP',
     '--bed=' in open('tools/megatest.py').read()
     and 'SKIP (bed too small' in open('tools/megatest.py').read(), ''))
+
+
+# ============================= R104.2 TESTS (.82) =============================
+# Field log .81: the R92-onward config carrier was a RAW [r2_postproc] section
+# in printer.cfg - Klipper REFUSES unknown sections ('Section r2_postproc is
+# not a valid config section') -> halt loop. The carrier is now a KAMP-style
+# [gcode_macro _R2_CONFIG] with variable_* entries: valid for Klipper, native
+# for the macros, parsed by the watcher (_bed_limits).
+_src082a = open('macros/08_print_start_stop.cfg', encoding='utf-8').read()
+_src092a = open('macros/09_pause_filament.cfg', encoding='utf-8').read()
+_src122a = open('macros/12_maintenance.cfg', encoding='utf-8').read()
+_allmac2a = _src082a + _src092a + _src122a
+tests.append(('R104.2 sources: no macro reads the old settings.get(r2_postproc) anymore',
+    "settings.get('r2_postproc'" not in _allmac2a, ''))
+tests.append(('R104.2 sources: 5 spots read [gcode_macro _R2_CONFIG] (prime, present, parks x2, wipe)',
+    _allmac2a.count("'gcode_macro _R2_CONFIG' in printer") == 5,
+    str(_allmac2a.count("'gcode_macro _R2_CONFIG' in printer"))))
+_ship2a = _src082a + _src092a + _src122a \
+    + open('menus/lcd_menues.cfg', encoding='utf-8').read() \
+    + open('printer.cfg.example', encoding='utf-8').read()
+tests.append(('R104.2 guard: NO shipped cfg carries a live [r2_postproc] header (halts Klipper!)',
+    '\n[r2_postproc]\n' not in _ship2a, ''))
+tests.append(('R104.2 example: printer.cfg.example shows the valid _R2_CONFIG carrier (commented)',
+    '[gcode_macro _R2_CONFIG]' in open('printer.cfg.example', encoding='utf-8').read()
+    and 'variable_bed_min_x' in open('printer.cfg.example', encoding='utf-8').read(), ''))
+
+# _PRIME_LINE end-to-end with a custom _R2_CONFIG bed (10..200 / 5..195):
+# probe-safe window -> xmin 15, xmax 195, line start xs = min(195, 125) = 125,
+# y = ymin+3 = 13 - the line lives INSIDE the configured bed
+_pl2a = get_body('macros/08_print_start_stop.cfg', '_PRIME_LINE')
+_gd2a = dict(build_printer())
+_gd2a['gcode_macro _R2_CONFIG'] = {'bed_min_x': 10, 'bed_max_x': 200,
+                                   'bed_min_y': 5, 'bed_max_y': 195}
+_out2a = render(_pl2a, {}, {'printer': MP(_gd2a)})
+# (the suite's default demo object at 60..140 makes the R49 placement pick the
+#  front strip below it: y = 50 in both cases - the X values prove the bed flows in)
+tests.append(('R104.2 _PRIME_LINE: probe-safe window from the _R2_CONFIG bed (10..200 -> X15..125)',
+    'G0 X125.0 Y50 F6000' in _out2a and 'G1 X15.0 E' in _out2a,
+    [l for l in _out2a.split('\n') if l.startswith('G0 X') or l.startswith('G1 X')][:3]))
+tests.append(('R104.2 _PRIME_LINE: without _R2_CONFIG the Ender-3 default window is used (unchanged)',
+    'G0 X115.0 Y50 F6000' in render(_pl2a, {}),
+    [l for l in render(_pl2a, {}).split('\n') if l.startswith('G0 X')][:2]))
 
 fails = 0
 for name, ok, info in tests:

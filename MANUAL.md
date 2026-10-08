@@ -1227,7 +1227,7 @@ cross open holes (keyhole, stud holes, cable slot) — and those retract.
 | Top layers | auto / 1–15 | solid layers of the FRONT face (auto = the classic ~1 mm band) — independent of the front effect and the orientation |
 | Bottom layers | 0–15 | solid skin at the BACK face (default 2; 0 = infill from layer 1) |
 
-**Bed-fit logic (automatic, real bed 220×220 from `[r2_postproc]`):**
+**Bed-fit logic (automatic, real bed 220×220 from `[gcode_macro _R2_CONFIG]`):**
 
 1. frame + backplate side by side fit → **one file** (small formats).
 2. they don't, but the frame alone fits → **two plates** (R90.1a): Part A =
@@ -2259,23 +2259,33 @@ Diagnostics: SHOW_STATUS · SELF_TEST · KAMP_STATUS · HOST_CHECK (Pi health) �
 - a2d/accel_to_decel no longer exists — minimum_cruise_ratio replaced it everywhere
 - **the real bed is NOT position_max (R92):** the steppers' position_max is
   lifted on this machine (micro probe + mesh rides beyond the plate). All
-  generators, the prime line and the park corners use the **[r2_postproc]**
-  section in printer.cfg instead — without it everything falls back to the
-  Ender-3 default 220×220 (x 0…220, y −3…217) and the console says so:
+  generators, the prime line and the park corners use the
+  **[gcode_macro _R2_CONFIG]** settings macro in printer.cfg instead — without
+  it everything falls back to the Ender-3 default 220×220 (x 0…220, y −3…217)
+  and the console says so:
 
   ```
-  [r2_postproc]
-  bed_min_x: 0
-  bed_max_x: 220
-  bed_min_y: -3
-  bed_max_y: 217
+  [gcode_macro _R2_CONFIG]
+  variable_bed_min_x: 0.0
+  variable_bed_max_x: 220.0
+  variable_bed_min_y: -3.0
+  variable_bed_max_y: 217.0
+  gcode:
+      # config carrier only - never runs
   ```
 
   **Position options (R104, all optional — defaults = the classic behavior):**
-  `present_x: 10` / `present_y: 228` — where PRINT_END presents the finished
-  part (always clamped to your axes); `wipe_x` / `wipe_y` — the anchor of the
-  nozzle-wipe pad (default: the axis-minimum corner). On another printer or
-  with the pad somewhere else, set them once — no macro editing needed.
+  `variable_present_x: 10.0` / `variable_present_y: 228.0` — where PRINT_END
+  presents the finished part (always clamped to your axes);
+  `variable_wipe_x` / `variable_wipe_y` — the anchor of the nozzle-wipe pad
+  (default −1 = the axis-minimum corner). On another printer or with the pad
+  somewhere else, set them once — no macro editing needed.
+
+  ⚠ **Never use a raw `[r2_postproc]` section** (the pre-.82 form, R92…R81):
+  Klipper refuses unknown sections outright — „Section 'r2_postproc' is not a
+  valid config section", the printer ends up in a halt loop. A settings macro
+  (like KAMP's `_KAMP_Settings`) is the only valid carrier; `setup.sh`
+  migrates an old section automatically (backup included).
 
 ## 24. Cheat sheet: LCD paths & Mainsail commands
 
@@ -2736,24 +2746,27 @@ own supply (common GND!), keep only DATA from the EBB — and keep the cap.
 -- at the END of printer.cfg; macros first, menus last
 ```
 
-**A.2.1 The real bed — [r2_postproc] (R92, required once):**
+**A.2.1 The real bed — [gcode_macro _R2_CONFIG] (R92, R104.2 — required once):**
 this machine's `position_max` is lifted on purpose (micro probe + bed mesh
 rides beyond the plate). So the generators, the prime line and the park
 corners read the REAL printable bed from this section — add it once:
 
 ```
-[r2_postproc]
-bed_min_x: 0
-bed_max_x: 220
-bed_min_y: -3
-bed_max_y: 217
+[gcode_macro _R2_CONFIG]
+variable_bed_min_x: 0.0
+variable_bed_max_x: 220.0
+variable_bed_min_y: -3.0
+variable_bed_max_y: 217.0
+gcode:
+    # config carrier only - never runs
 ```
 
 Without it everything falls back to the Ender-3 default 220×220 and the
 console notes that on every watcher start. Optional positions (R104):
-`present_x`/`present_y` (PRINT_END part presentation, default 10/228) and
-`wipe_x`/`wipe_y` (nozzle-wipe pad anchor, default = axis-minimum corner)
-— all clamped to the axes, see chapter 23.
+`variable_present_x`/`variable_present_y` (PRINT_END part presentation,
+default 10/228) and `variable_wipe_x`/`variable_wipe_y` (nozzle-wipe pad
+anchor, −1 = axis-minimum corner) — all clamped to the axes, see chapter 23.
+A raw `[r2_postproc]` section (pre-.82) HALTS Klipper — `setup.sh` migrates it.
 
 ### A.3 Z-probe variants
 
@@ -2918,6 +2931,7 @@ Only the milestones — the full reasoning lives in SESSION_STATE.md.
 
 | Version | Core changes |
 |---|---|
+| .82 | critical config fix (field log .81): the R92-onward bed/position carrier was a raw `[r2_postproc]` section in printer.cfg — **Klipper refuses unknown sections** („Section 'r2_postproc' is not a valid config section"), so the printer ended up in a halt loop the first time the section was really written (setup.sh offer). The carrier is now a KAMP-style **`[gcode_macro _R2_CONFIG]`** settings macro (`variable_bed_min_x` … , `variable_present_x/y`, `variable_wipe_x/y`) — valid for Klipper, native for the macros, parsed by the watcher; `setup.sh` migrates legacy sections automatically (backup + values kept); the same field log also uncovered the first-halt mechanism: appending after the `#*# <save_config>` block made the autosave unreadable („modifications after header" → „Option 'control' in section 'heater_bed' must be specified") — inserts now always go before that block |
 | .81 | honest host verdict + portability hardening (field log .80): HOST_CHECK's swap verdict now measures swap **activity** (vmstat in/out) — 109 MB of quietly parked pages after boot were flagged „SWAPPING!" with an error sound on every check although the Pi was healthy (stable swap, no load, no throttle); quiet pages now read as OK with a calm explanation, only real swap traffic stays loud. Compatibility fixes from the portability audit: PRINT_END's part presentation had a fixed Y228 (a crash on any bed under ~232 mm) — now clamped to the axes and configurable (`[r2_postproc] present_x/present_y`), both calibration-tower end parks (fixed Y190) and the PLT_FRAME park are clamped, the nozzle-wipe pad anchor is configurable (`wipe_x/wipe_y`), and `megatest.py` accepts `--bed=x0,y0,x1,y1` / `--cfg=printer.cfg` to sweep another printer's bed (too-big combos count as SKIP — the generators correctly reject them); `setup.sh` (environment wizard: service, KAMP, LED effects, RAM hogs, swap tuning) and `COMPATIBILITY.md` (portability report) join the package |
 | .80 | megatest hardening (field log .79): a 101-run sweep over every generator at its parameter extremes found and fixed two real bugs — the plotter DRAW mode scaled small images past the bed (48px drawing → y up to +1500 mm; big photos silently squashed to ~72 mm) and every frame file tags the shelf bands as BRIDGE but TYPES never listed it on normal frames; plot output now carries a final bed guard too; `tools/megatest.py` joins the package (rerun any time: `python3 tools/megatest.py`) |
 | .79 | frame shells, sparse infill & travel order (field log .78): Top/Bottom solid layers settable (independent of front effect and orientation; default bottom skin 2) · body infill down to 5 % (was 20) with its own INFILL-SPARSE feature tag · ring fill travels stay INSIDE the band now — the scanline order used to cross the photo opening on every line (139 long retracted travels per body layer → ~5, layer 1: 146 travels → 6), faster and no fuzz at the edges · TYPES lists only features the file really tags (SURFACE-TOP only for structured fronts / FLIP skin) |

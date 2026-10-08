@@ -14,38 +14,44 @@ over unchanged, what needs ONE config section, and what is still hardcoded (with
 
 | Layer | Where it lives | Portable? |
 |---|---|---|
-| **A. Dynamic** - read from YOUR printer.cfg at runtime | `[r2_postproc]` bed limits, `[extruder] nozzle_diameter`, `[probe] x/y_offset`, `printer.toolhead.axis_*`, `printer.configfile.settings` | yes - nothing to do |
+| **A. Dynamic** - read from YOUR printer.cfg at runtime | `[gcode_macro _R2_CONFIG]` variables, `[extruder] nozzle_diameter`, `[probe] x/y_offset`, `printer.toolhead.axis_*`, `printer.configfile.settings` | yes - nothing to do |
 | **B. Defaults** - variables with Ender-3 fallback values | plot bed/offsets/scale (save_variables, LCD *Tools > Plotter*), wipe area | works, but SET the values once |
 | **C. Hardware** - sections that must exist in YOUR printer.cfg | `[neopixel]`, buzzer pin (`M300`), filament sensor, `[tmc2209 ...]` for gantry sync | optional per feature; system degrades gracefully |
 
 The single most important line for any non-Ender-3 machine (layer A):
 
 ```ini
-[r2_postproc]
-bed_min_x: 0        # left edge of the PRINTABLE area (NOT the stepper range!)
-bed_max_x: 220
-bed_min_y: 0
-bed_max_y: 220
+[gcode_macro _R2_CONFIG]        # KAMP-style settings macro - R104.2
+variable_bed_min_x: 0.0         # left edge of the PRINTABLE area (NOT the stepper range!)
+variable_bed_max_x: 220.0
+variable_bed_min_y: 0.0
+variable_bed_max_y: 220.0
+gcode:
+    # config carrier only - never runs
 ```
+
+⚠ A raw custom section (the pre-.82 `[r2_postproc]`) makes Klipper REFUSE to
+boot — unknown config section, halt loop (field log .81). A settings macro is
+the only valid carrier; `setup.sh` migrates legacy sections automatically.
 
 This is the ONE truth for all generators (frame, labels, ties, angles, bridge, seal, litho,
 range, resonance) AND the LCD park/purge corner math. `setup.sh` checks for it and can
-append a template. The watcher prints a one-line hint to its journal when it is missing
+add a template. The watcher prints a one-line hint to its journal when it is missing
 and falls back to the Ender-3 default (0, -3, 220, 217).
 
 **Important subtlety (by design, R92):** on the reference machine the stepper `position_max`
 is deliberately LIFTED beyond the plate (X axis reaches past the bed so the probe can mesh
 more of it). That is exactly why the system never uses axis limits for placement - it uses
-the `[r2_postproc]` bed. Your lifted axes (if any) never distort generated plates.
+the `_R2_CONFIG` bed. Your lifted axes (if any) never distort generated plates.
 
 ## 2. What is already dynamic (verified in code)
 
 | What | Source | Where used |
 |---|---|---|
-| Generator bed + margins | `[r2_postproc]` in printer.cfg → `_bed_limits()` (r2_postproc.py) | every generator call in the watcher (labels, ties, angles, litho, seal, frame, bridge, range, resonance) |
+| Generator bed + margins | `[gcode_macro _R2_CONFIG]` in printer.cfg → `_bed_limits()` (r2_postproc.py) | every generator call in the watcher (labels, ties, angles, litho, seal, frame, bridge, range, resonance) |
 | Nozzle diameter (line widths, E/mm, hatch) | `[extruder] nozzle_diameter` → `_gen_nozzle()` | all generators; logs when it differs from 0.6 |
-| Prime/purge line placement | bed corners from `[r2_postproc]` + `[probe] x_offset/y_offset` (08_print_start_stop.cfg `_PRIME_LINE`) | nozzle AND probe stay inside the bed with 5 mm margin; line runs right-to-left, Y only increases |
-| Pause / filament-change park | computed at runtime (collision-aware, bed corners from `[r2_postproc]`, 09_pause_filament.cfg) | `variable_park_x/y` are CHOSEN values, not fixed |
+| Prime/purge line placement | bed corners from `_R2_CONFIG` + `[probe] x_offset/y_offset` (08_print_start_stop.cfg `_PRIME_LINE`) | nozzle AND probe stay inside the bed with 5 mm margin; line runs right-to-left, Y only increases |
+| Pause / filament-change park | computed at runtime (collision-aware, bed corners from `_R2_CONFIG`, 09_pause_filament.cfg) | `variable_park_x/y` are CHOSEN values, not fixed |
 | PRINT_END lift | `min(current Z + 15, axis_maximum.z - 2)` | clamped to any Z height |
 | Purge/park Y clamps | `min(axis_maximum.y - 7, 228)` (08: two spots) | follows smaller axes |
 | KAMP | auto-detection via printer objects (`_KAMP_Settings` present? override active? object data?) | mesh dispatch, purge dispatch, smart park - works without KAMP at all |
@@ -64,11 +70,11 @@ Status after the R104 hardening (release .81) — items 1, 2, 3, 5, 6, 8 are FIX
 
 | # | Where | What | Status (.81) |
 |---|---|---|---|
-| 1 | 08_print_start_stop.cfg `PRINT_END` part presentation | was fixed `G0 X10 Y228` | **FIXED (.81)** — clamped to the axes + `[r2_postproc] present_x/present_y` (defaults 10/228 = unchanged reference behavior) |
+| 1 | 08_print_start_stop.cfg `PRINT_END` part presentation | was fixed `G0 X10 Y228` | **FIXED (.81)** — clamped to the axes + `_R2_CONFIG` variable_present_x/y (defaults 10/228 = unchanged reference behavior) |
 | 2 | 12_maintenance.cfg `TEMP_TOWER_GEN` / retract tower end park | was fixed `Y190` | **FIXED (.81)** — clamped to `axis_maximum.y - 4` |
 | 3 | 12_maintenance.cfg `PLT_FRAME` end park | was fixed `X5 Y190` | **FIXED (.81)** — parks inside the plot-bed variables |
 | 4 | 12_maintenance.cfg calibrator prime lines (`X15 Y10` → `X75`) | front-left anchor | OK as-is (fits any bed ≥ 80 mm; the towers themselves place from bed data) |
-| 5 | 12_maintenance.cfg `_NOZZLE_WIPE` | pad anchored at axis minimum, fixed 13×13 mm | **FIXED (.81)** — `[r2_postproc] wipe_x/wipe_y` anchor (default = axis-minimum corner, clamped so the pad stays on the axes) |
+| 5 | 12_maintenance.cfg `_NOZZLE_WIPE` | pad anchored at axis minimum, fixed 13×13 mm | **FIXED (.81)** — _R2_CONFIG variable_wipe_x/y anchor (default = axis-minimum corner, clamped so the pad stays on the axes) |
 | 6 | tools/r2-postproc.service | `User=pi`, `/home/pi` hardcoded | **FIXED (.80/setup.sh)** — setup.sh templates the unit to your user + paths |
 | 7 | 11_gantry_sync.cfg `SYNC_GANTRY` | parallel-wired dual-Z + `SET_TMC_CURRENT` (TMC UART) | by design, documented — Ender-3-class gantry only; CoreXY/independent-Z users have Z_TILT/QGL |
 | 8 | megatest.py `BED` | was fixed (0,-3,220,217) | **FIXED (.81)** — `--bed=x0,y0,x1,y1` or `--cfg=printer.cfg`; dimension-ValueErrors on a smaller bed count as SKIP (the generators correctly reject what does not fit — verified on 180×180 and a 10..200 bed: 101 runs, 0 FAIL) |
@@ -90,13 +96,13 @@ showed 109 MB of cold swap on a perfectly healthy Pi flagged as „SWAPPING").
 
 - **Cartesian (bedslinger, Ender/Prusa-style):** full support - that is the home turf.
 - **CoreXY:** full support. The macros only emit X/Y/Z moves, never kinematic assumptions;
-  bed limits come from `[r2_postproc]`, speeds are clamped by Klipper. Skip `SYNC_GANTRY`
+  bed limits come from `_R2_CONFIG`, speeds are clamped by Klipper. Skip `SYNC_GANTRY`
   (use Z_TILT_ADJUST/QGL). Input shaper resonance plates work (x/y generic).
 - **Delta:** NOT recommended - generators and the plotter assume a rectangular bed.
 
 ## 6. Hardening plan
 
-**R104 (release .81) - APPLIED:** P1 PRINT_END presentation clamp + `present_x/present_y`,
+**R104/.82 - APPLIED:** P1 PRINT_END presentation clamp + `present_x/present_y`,
 P1 Y190 calibrator parks + PLT_FRAME park, P2 wipe pad anchor (`wipe_x`/`wipe_y`),
 P2 `megatest --bed/--cfg` with small-bed SKIP handling. All guarded by the test
 suites (suite 1240/1240, golden 23/23, megatest 101/0 on three different beds).
@@ -108,7 +114,7 @@ Remaining (P3, cosmetic): calibrator prime-line X75 clamp on ultra-small beds.
 1. Unzip the package into the config folder, run `update.sh` (file level: includes check).
 2. Run `bash klipper-e3-r2d2/setup.sh` - environment wizard: Python, watcher service
    (templated unit), KAMP, LED effects, RAM hogs, swap tuning. `--check` = report only.
-3. Set `[r2_postproc]` bed limits to your REAL printable area.
+3. Set `[gcode_macro _R2_CONFIG]` bed variables to your REAL printable area.
 4. Check `[probe] x_offset/y_offset` are correct (the prime line safety depends on them).
 5. *Tools > Plotter*: set plot bed + pen offsets, run the `PLT_FRAME` corners test.
 6. `SYNC_GANTRY`: only for parallel-wired dual-Z - skip otherwise.

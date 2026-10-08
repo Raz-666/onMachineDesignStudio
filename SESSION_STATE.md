@@ -1903,3 +1903,67 @@ RELEASE .81 NEU GEBAUT (setup.sh-Update, Version unveraendert .81 da nie im
 Feld installiert - User ist auf .80): 46 Dateien, MD5 88e07f2ad22ea35984ecc04b3a924df0
 (1145659 B), ersetzt die erste .81 (MD5 f6267d92...). PDF/Code unveraendert
 (9697f234...). Suite unberuehrt (setup.sh nicht Teil der Suite; bash -n ok).
+
+# Round 104.2: KRITISCH - [r2_postproc] war UNBOOTBAR (.82) - Klipper-Konfigtraeger auf KAMP-Muster umgebaut
+
+FELDLOG .81 (User, abends): nach setup.sh + update.sh (.81) Klipper-HALT im
+5-Sekunden-Loop: "Section 'r2_postproc' is not a valid config section".
+
+ROOT CAUSE 1 (erster Halt, 'heater_bed control must be specified'):
+klippy.log-Zeile 'Can't read autosave from config file - modifications after
+header' - die ALTEN setup.sh haengte [r2_postproc] HINTER den #*# <save_config>-
+Block; Klipper duldet nichts danach -> Autosave unlesbar -> PID/control-Werte
+der heater_bed fehlen -> Halt. (Users [heater_bed] hat #control: pid
+auskommentiert - Werte leben nur im Autosave-Block.)
+
+ROOT CAUSE 2 (zweiter Halt, 'not a valid config section'): Klipper verweigert
+UNBEKANNTE Sektionen prinzipiell. Ein raw [r2_postproc] kann NIEMALS booten -
+das R92-Design war von Anfang an unbootbar. Warum nie aufgefallen: Die
+Referenzmaschine HATTE die Sektion nie (darum lief alles), die Suite rendert
+mit gemockten configfile-Settings (keine Sektions-Validierung), der Watcher
+liest printer.cfg als reinen Text (funktioniert). Erst setup.sh schrieb die
+Sektion erstmals wirklich in eine printer.cfg -> FIRMWARE_RESTART -> Halt-Loop.
+WIEDERHERSTELLUNG (an User gegeben): sed-Loeschung der Sektion (Loop pickt die
+Config binnen ~5s selbst auf) oder Backup-Restore; .81-setup.sh-Frage nach der
+Sektion bis .82 mit N beantworten.
+
+FIX (R104.2): Konfigtraeger ist jetzt [gcode_macro _R2_CONFIG] (KAMP-Muster,
+wie _KAMP_Settings) mit variable_bed_min_x/max_x/min_y/max_y + optional
+variable_present_x/y + variable_wipe_x/y (-1 = Achs-Minimum-Ecke) + leerem
+gcode-Block. Fuer Klipper vollstaendig gueltig, fuer Makros nativ lesbar
+(printer['gcode_macro _R2_CONFIG'], Abwesenheit via 'in printer' geprueft =
+KAMP-Detektionsmuster), fuer den Watcher simpel parsebar.
+
+GEAENDERT: _bed_limits liest [gcode_macro _r2_config] variable_* (Legacy-
+[r2_postproc] wird als Courtesy weitergelesen + LAUTE Warnung 'halts Klipper');
+Makros 08 (_PRIME_LINE-Fenster, PRINT_END-present), 09 (2x Park-Corners),
+12 (_NOZZLE_WIPE-Anker) auf rc-Muster umgestellt - 5 Stellen, Defaults
+(kein _R2_CONFIG) = Ender-3 wie bisher; setup.sh Sektion 2: erkennt
+_R2_CONFIG / migriert Legacy (Werte erhalten, Backup, vor #*#, RESTART-Hinweis)
+/ bietet Neuanlage an; printer.cfg.example zeigt den auskommentierten Block.
+
+TESTS: Suite 1240 -> 1247/1247 (+7 R104.2: _bed_limits neue Form gewinnt,
+Legacy-Courtesy, kein settings.get('r2_postproc' mehr, 5 _R2_CONFIG-Spots,
+GUARD kein live [r2_postproc] in Shipping-cfgs, Example-Block, _PRIME_LINE
+mit/ohne _R2_CONFIG - X115->125/Y-Frontstreifen; R63/R92-Bett-Tests + R104-
+Injektionen umgestellt; 1 Erkenntnis: Suite-Default injiziert Demo-Objekt
+60..140 -> R49-Frontstreifen y=50). GOLDEN 23/23, AUDIT 59/0, R91 ok,
+MEGATEST 101/91/0 + --cfg auf NEUE Form (10..200): 101/86/0. setup.sh-
+Szenario: Legacy+/#*# -> Migration sauber (Werte 0/220/-3/217 erhalten,
+Legacy weg, vor #*#), Run 2 idempotent.
+
+RELEASE .82: klipper-e3-r2d2-UPDATE-R2-2026-09-07.82.zip, 46 Dateien (Liste wie
+.81), zipfile -t OK, Frisch-Entpackung byte-identisch 46/46. ZIP MD5
+145f6299cd9712223cb85e22c7930426 (1152224 B). MANUAL.pdf (91 S., MD5
+1ce289a1...) == Workspace. FELD-SIM .81->.82 sauber ('package version:
+R2-2026-09-07.82'); Migrations-Szenario im Sim-Paket verifiziert (Legacy ->
+_R2_CONFIG, Werte erhalten, Legacy-Zeile weg). PDF/Changelog/COMPATIBILITY/
+Example auf _R2_CONFIG umgestellt (nur Warnungen erwaehnen [r2_postproc] noch).
+USER-HINWEIS .82: (1) Zuerst wie besprochen die haltende [r2_postproc]-Sektion
+entfernen (sed-Zeile oder Backup-Restore) - der Loop bootet dann selbst.
+(2) Dann .82-ZIP hochladen + update.sh. (3) setup.sh: die Frage nach
+[gcode_macro _R2_CONFIG] kann jetzt BEDENKENLOS mit y beantwortet werden
+(KAMP-Muster, Klipper-valide) - oder n fuer reine Ender-3-Defaults, identisches
+Verhalten. (4) HINWEIS fuer kuenftige Config-Edits: nichts HINTER den
+#*# <save_config>-Block schreiben (Klipper: 'modifications after header' ->
+Autosave unlesbar -> heater_bed/control-Fehler).

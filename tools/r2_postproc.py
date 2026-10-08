@@ -3882,15 +3882,21 @@ def _emit_serp(pen, segs, e_per_mm, feed, max_conn=3.0):
 
 
 def _bed_limits(cfg_path):
-    """R92: the REAL printable bed, not the stepper range.
+    """R92/R104.2: the REAL printable bed, not the stepper range.
 
     This machine's position_max values are deliberately lifted (micro probe +
     bed mesh rides beyond the plate), so they must NEVER size generator
     placements. Source chain:
-      1. [r2_postproc] section in printer.cfg: bed_min_x / bed_max_x /
-         bed_min_y / bed_max_y  (also read by the LCD macros - ONE truth)
+      1. [gcode_macro _R2_CONFIG] in printer.cfg (KAMP-style settings macro -
+         the ONLY valid way to ship custom values: Klipper REFUSES unknown
+         sections with 'not a valid config section' - the raw [r2_postproc]
+         section of R92..R81 halted the printer on the first real use,
+         field log .81): variable_bed_min_x / variable_bed_max_x /
+         variable_bed_min_y / variable_bed_max_y
+         (also read by the LCD macros - ONE truth)
       2. Ender-3 default: x 0..220, y -3..217 (confirmed by the user, R92)
-    A one-line hint is printed when the section is missing.
+    A one-line hint is printed when the macro is missing, and a LOUD warning
+    when a legacy [r2_postproc] section is present (it halts Klipper!).
     """
     dflt = (0.0, -3.0, 220.0, 217.0)
     secs = {}
@@ -3910,26 +3916,32 @@ def _bed_limits(cfg_path):
     except OSError:
         return dflt
 
-    def val(sec, key, d):
+    if 'r2_postproc' in secs:
+        print('[bed] [!] [r2_postproc] in printer.cfg HALTS KLIPPER (unknown '
+              'config section) - remove it / let setup.sh migrate it to '
+              '[gcode_macro _R2_CONFIG] (values still read here as a '
+              'courtesy)', flush=True)
+    r2 = secs.get('gcode_macro _r2_config', {})
+    if r2:
+        keys = ('variable_bed_min_x', 'variable_bed_max_x',
+                'variable_bed_min_y', 'variable_bed_max_y')
+    else:
+        r2 = secs.get('r2_postproc', {})
+        keys = ('bed_min_x', 'bed_max_x', 'bed_min_y', 'bed_max_y')
+    if r2 and all(k in r2 for k in keys):
         try:
-            return float(secs.get(sec, {}).get(key, d))
+            x0, x1 = float(r2[keys[0]]), float(r2[keys[1]])
+            y0, y1 = float(r2[keys[2]]), float(r2[keys[3]])
         except (TypeError, ValueError):
-            return float(d)
-    r2 = secs.get('r2_postproc', {})
-    if ('bed_min_x' in r2 and 'bed_max_x' in r2
-            and 'bed_min_y' in r2 and 'bed_max_y' in r2):
-        x0 = val('r2_postproc', 'bed_min_x', 0.0)
-        x1 = val('r2_postproc', 'bed_max_x', 220.0)
-        y0 = val('r2_postproc', 'bed_min_y', -3.0)
-        y1 = val('r2_postproc', 'bed_max_y', 217.0)
+            x0 = x1 = y0 = y1 = 0.0
         if x1 > x0 and y1 > y0:
             return (x0, y0, x1, y1)
-        print('[bed] [r2_postproc] bed values are not sane - using the '
+        print('[bed] _R2_CONFIG bed values are not sane - using the '
               'Ender-3 default 220x220', flush=True)
     else:
-        print('[bed] no [r2_postproc] section in printer.cfg - using the '
-              'Ender-3 default 220x220 (add bed_min_x/bed_max_x/bed_min_y/'
-              'bed_max_y to configure)', flush=True)
+        print('[bed] no [gcode_macro _R2_CONFIG] in printer.cfg - using the '
+              'Ender-3 default 220x220 (add variable_bed_min_x/... to '
+              'configure)', flush=True)
     return dflt
 
 

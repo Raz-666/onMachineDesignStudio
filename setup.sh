@@ -167,43 +167,75 @@ if [ -n "${CFG_DIR}" ]; then
         info "   (or run: bash ${DIR}/update.sh  - it checks the same list)"
     fi
 
-    # the ONE bed truth for generators + LCD macros (non-Ender-3 printers MUST set it)
-    if grep -qE '^\[r2_postproc\]' "${CFG}"; then
-        if grep -qE '^\s*bed_(min|max)_[xy]:' "${CFG}"; then
-            ok "[r2_postproc] bed limits present (generators + park corners use them)"
+    # the ONE bed truth for generators + LCD macros. R104.2: the carrier is a
+    # KAMP-style settings macro - a RAW [r2_postproc] section makes Klipper
+    # REFUSE TO BOOT ('not a valid config section', field log .81)!
+    if grep -qE '^\[gcode_macro _R2_CONFIG\]' "${CFG}"; then
+        if grep -qE '^\s*variable_bed_min_x:' "${CFG}"; then
+            ok "[gcode_macro _R2_CONFIG] bed limits present (generators + park corners use them)"
         else
-            warn "[r2_postproc] exists but has no bed_min_x/... limits"
+            warn "[gcode_macro _R2_CONFIG] exists but has no variable_bed_min_x/... entries"
         fi
-    else
-        warn "no [r2_postproc] section in printer.cfg"
-        info "   generators currently fall back to the Ender-3 default bed (0 -3 .. 220 217)."
-        info "   On ANY other printer add:"
-        info "       [r2_postproc]"
-        info "       bed_min_x: 0        # left edge of the printable area"
-        info "       bed_max_x: 220      # right edge"
-        info "       bed_min_y: 0"
-        info "       bed_max_y: 220"
-        ask_yn "Add this section now with Ender-3 default values? (your machine ran fine without it - the fallback is identical; only useful to tune or on ANOTHER printer)" n
+    elif grep -qE '^\[r2_postproc\]' "${CFG}"; then
+        warn "LEGACY [r2_postproc] section found - Klipper CANNOT BOOT with it"
+        info "   ('Section r2_postproc is not a valid config section' - halt loop!)"
+        ask_yn "Migrate it to [gcode_macro _R2_CONFIG] now (values kept, backup made)?" y
         if [ "${ASK_ANSWER}" = "y" ]; then
             backup_file "${CFG}" >/dev/null
-            # R104.1: insert BEFORE a '#*#' SAVE_CONFIG block if present (that
-            # block belongs at the very end of the file) - plain append before
-            python3 - "${CFG}" << 'PYEOF'
+            python3 - "${CFG}" << 'R2PY'
+import re, sys
+p = sys.argv[1]
+s = open(p, encoding='utf-8', errors='surrogateescape').read()
+vals = {}
+for k in ('bed_min_x', 'bed_max_x', 'bed_min_y', 'bed_max_y'):
+    m = re.search(r'^%s:\s*(-?[\d.]+)\s*$' % k, s, re.M)
+    if m:
+        vals[k] = m.group(1)
+s = re.sub(r'\n?\[r2_postproc\]\n(?:[^\n[\n]*\n?)*', '', s, count=1)
+block = ('\n[gcode_macro _R2_CONFIG]\n'
+         'description: R2 portability config (bed limits + positions) - macros AND watcher read this\n'
+         'variable_bed_min_x: %s\nvariable_bed_max_x: %s\n'
+         'variable_bed_min_y: %s\nvariable_bed_max_y: %s\n'
+         '# optional: variable_present_x/y (PRINT_END presentation), variable_wipe_x/y (wipe pad; -1 = corner)\n'
+         'gcode:\n    # config carrier only - never runs\n'
+         % (vals.get('bed_min_x', '0.0'), vals.get('bed_max_x', '220.0'),
+            vals.get('bed_min_y', '-3.0'), vals.get('bed_max_y', '217.0')))
+i = s.find('\n#*#')
+if i >= 0:
+    s = s[:i].rstrip('\n') + '\n' + block + s[i:]
+else:
+    s = s.rstrip('\n') + '\n' + block
+open(p, 'w', encoding='utf-8', errors='surrogateescape').write(s)
+R2PY
+            fix "migrated: [r2_postproc] -> [gcode_macro _R2_CONFIG] (Klipper-valid, values kept)"
+            info "RESTART klipper to confirm it boots now"
+        fi
+    else
+        info "no [gcode_macro _R2_CONFIG] in printer.cfg - generators fall back to the"
+        info "   Ender-3 default bed (0 -3 .. 220 217). Your machine ran fine without it;"
+        info "   only useful to tune or on ANOTHER printer."
+        ask_yn "Add [gcode_macro _R2_CONFIG] with Ender-3 default values?" n
+        if [ "${ASK_ANSWER}" = "y" ]; then
+            backup_file "${CFG}" >/dev/null
+            python3 - "${CFG}" << 'R2PY'
 import sys
 p = sys.argv[1]
 s = open(p, encoding='utf-8', errors='surrogateescape').read()
-block = ('\n[r2_postproc]\n'
-         '# printable bed area (mm) - ONE truth for generators + park corners\n'
-         'bed_min_x: 0\nbed_max_x: 220\nbed_min_y: -3\nbed_max_y: 217\n')
-if '[r2_postproc]' not in s:
+block = ('\n[gcode_macro _R2_CONFIG]\n'
+         'description: R2 portability config (bed limits + positions) - macros AND watcher read this\n'
+         'variable_bed_min_x: 0.0\nvariable_bed_max_x: 220.0\n'
+         'variable_bed_min_y: -3.0\nvariable_bed_max_y: 217.0\n'
+         '# optional: variable_present_x/y (PRINT_END presentation), variable_wipe_x/y (wipe pad; -1 = corner)\n'
+         'gcode:\n    # config carrier only - never runs\n')
+if '_R2_CONFIG' not in s:
     i = s.find('\n#*#')
     if i >= 0:
         s = s[:i].rstrip('\n') + '\n' + block + s[i:]
     else:
         s = s.rstrip('\n') + '\n' + block
     open(p, 'w', encoding='utf-8', errors='surrogateescape').write(s)
-PYEOF
-            fix "[r2_postproc] bed defaults written into printer.cfg (ADJUST the values!)"
+R2PY
+            fix "[gcode_macro _R2_CONFIG] written into printer.cfg (defaults - ADJUST to tune!)"
         fi
     fi
 fi

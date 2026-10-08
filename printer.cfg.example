@@ -465,4 +465,23 @@ enable_force_move: True
 ## power ON after a relay-off: press the button on the relay module (or wire
 ## your own), then FIRMWARE_RESTART (the boards were completely off).
 
+# ---- R2 portability config (OPTIONAL - the defaults fit the Ender-3 reference) --------
+# R104.2: the config carrier is a SETTINGS MACRO (KAMP-style, like _KAMP_Settings).
+# A raw custom section (the old [r2_postproc] of R92..R81) makes Klipper REFUSE
+# to boot: 'Section ... is not a valid config section'! Uncomment + adjust on
+# another printer, or to tune positions (all values mm):
+#[gcode_macro _R2_CONFIG]
+#description: R2 portability config (bed limits + positions) - macros AND watcher read this
+#variable_bed_min_x: 0.0         # printable bed, ONE truth for generators + parks
+#variable_bed_max_x: 220.0
+#variable_bed_min_y: -3.0
+#variable_bed_max_y: 217.0
+## optional positions (defaults shown = the reference machine):
+#variable_present_x: 10.0        # PRINT_END part presentation (always axis-clamped)
+#variable_present_y: 228.0
+#variable_wipe_x: -1.0           # nozzle-wipe pad anchor; -1 = axis-minimum corner
+#variable_wipe_y: -1.0
+#gcode:
+#    # config carrier only - never runs
+
 #[include klipper-e3-r2d2/menus/lcd_menues.cfg]
