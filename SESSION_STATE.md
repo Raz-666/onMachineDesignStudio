@@ -1851,3 +1851,55 @@ echtes Swapping (Traffic JETZT) bleibt laut. Neue Optionen in [r2_postproc]
 fremde Betten: --bed=0,0,220,220 oder --cfg=printer.cfg. setup.sh (Assistent:
 Service/KAMP/LED/RAM/Swap) liegt jetzt im Paket - ein Aufruf nach dem Update
 empfohlen (findet z.B. ModemManager).
+
+# R104.1 HOTFIX setup.sh (Feldlog .81-Installation, 8. Okt. abends) + KLIPPER-HALT UNKLAER
+
+FELDSITUATION: User lief setup.sh auf dem echten Pi (Paket .80 + einzeln kopierte
+setup.sh). Danach Klipper-HALT: "Option 'control' in section 'heater_bed' must be
+specified" (config-parse-Fehler, RESTART verlangt). EINZIGE Klipper-Konfig-
+Aenderung von setup.sh: [r2_postproc]-Block appended (mit .r2bak-Backup).
+'control' ist eine SAVE_CONFIG-Option (#*# [heater_bed] + '#*# control = pid' -
+User-printer.cfg duerfte einen #*#-Block am Ende haben). WIEDERHERSTELLUNG
+angeleitet: Backup zurueckkopieren + RESTART; Datenbitte an User (diff
+Backup-vs-aktuell, klippy.log-Auszug, heater_bed-Sektion, Frage: Editor parallel
+offen?). AUSSTEHEND: User-Rueckmeldung. Neue Erkenntnis eingebaut: [r2_postproc]
+wird jetzt VOR einem #*#-Block eingefuegt (python3-Helper), nicht mehr blind
+hinten angehaengt.
+
+FELDLOG setup.sh-BEFUNDE (User zu Recht veraergert, 3 echte Bugs + 2 Polituren):
+(1) SKIP-BUG (schlimmster): Kandidaten-Liste lief per 'echo | while read' - die
+Bestaetigungs-read las selbst von der Pipe = frass die naechste Kandidatenzeile
+als 'Antwort'. Folge (Users Log): ModemManager + triggerhappy 'Abfrage
+uebersprungen ohne Tastendruck', jedes zweite Kandidat still ignoriert. FIX:
+Array-Iteration + read von /dev/tty (2>/dev/null VOR < /dev/tty wegen
+Redirections-Reihenfolge; kein TTY -> sicherer Default n).
+(2) KAMP-FUSS: 'Install KAMP?' erschien, obwohl KAMP KOMPLETT installiert war
+(4 Features aktiv!) - nur weil enable_object_processing: False (BEWUSST, unser
+Handbuch empfiehlt das auf dem Pi Zero 2 W). Clone lief gegen existierendes Repo
+('fatal: destination path ... already exists') und danach trotzdsm '[fix] KAMP
+installed'. FIX: KAMP_OK prueft nur Core-Stuecke (Repo/Link/Settings/Include/
+exclude_object); object processing = eigene Policy-Stelle (True=ok,
+False=Info 'deliberate on a Pi Zero 2 W - no action needed', abwesend=Frage mit
+RAM-Warnung, niemals stilles Enable); Clone nur wenn Repo fehlt ('[fix] KAMP
+repaired' vs 'installed').
+(3) MAINSAIL-FALSE-ALARM: Mainsail hat auf Standard-Installationen KEINEN
+eigenen systemd-Service (statische Dateien hinter nginx) - '[!] mainsail
+service not found' auf jedem gesunden Mainsail-OS-Pi. FIX: mainsail-Service
+ODER nginx aktiv ODER ~/mainsail -> ok-Zeile.
+(4) UNIT-REFRESH ohne Anlass: 'Re-install/refresh?' fragte sudo-Passwort, obwohl
+die Unit byte-identisch aktuell war. FIX: Unit einmal templaten + cmp; identisch
+-> '[ok] service unit already current - nothing to do', keine Frage.
+(5) RAM-Topliste leer auf dem Pi (MemoryAccounting aus) -> ehrlicher Hinweis
+auf HOST_CHECK (ps-basiert) statt stiller Leerzeile.
+
+VERIFIKATION R104.1 (Sandbox): Szenario-Replay (KAMP komplett, object processing
+False, #*#-Block am printer.cfg-Ende): Run 1 'KAMP fully set up' + Policy-Info,
+kein Install-Angebot; Run 2 'service unit already current' + 0 sudo-Passwort-
+Prompts; [r2_postproc] landet VOR dem #*#-Block (Zeile 21 vs 28); Kandidaten-
+Mechanik: BEIDE Testdienste (envd+jupyter) prompten (alter Bug haette jeden
+zweiten geskippt), keine /dev/tty-Fehlerlecks; --check-Modus: 0 Aenderungen.
+
+RELEASE .81 NEU GEBAUT (setup.sh-Update, Version unveraendert .81 da nie im
+Feld installiert - User ist auf .80): 46 Dateien, MD5 88e07f2ad22ea35984ecc04b3a924df0
+(1145659 B), ersetzt die erste .81 (MD5 f6267d92...). PDF/Code unveraendert
+(9697f234...). Suite unberuehrt (setup.sh nicht Teil der Suite; bash -n ok).

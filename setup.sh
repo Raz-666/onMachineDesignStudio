@@ -183,11 +183,27 @@ if [ -n "${CFG_DIR}" ]; then
         info "       bed_max_x: 220      # right edge"
         info "       bed_min_y: 0"
         info "       bed_max_y: 220"
-        ask_yn "Add this section now with Ender-3 default values (edit later)?" n
+        ask_yn "Add this section now with Ender-3 default values? (your machine ran fine without it - the fallback is identical; only useful to tune or on ANOTHER printer)" n
         if [ "${ASK_ANSWER}" = "y" ]; then
             backup_file "${CFG}" >/dev/null
-            printf '\n[r2_postproc]\n# printable bed area (mm) - ONE truth for generators + park corners\nbed_min_x: 0\nbed_max_x: 220\nbed_min_y: -3\nbed_max_y: 217\n' >> "${CFG}"
-            fix "[r2_postproc] bed defaults appended to printer.cfg (ADJUST the values!)"
+            # R104.1: insert BEFORE a '#*#' SAVE_CONFIG block if present (that
+            # block belongs at the very end of the file) - plain append before
+            python3 - "${CFG}" << 'PYEOF'
+import sys
+p = sys.argv[1]
+s = open(p, encoding='utf-8', errors='surrogateescape').read()
+block = ('\n[r2_postproc]\n'
+         '# printable bed area (mm) - ONE truth for generators + park corners\n'
+         'bed_min_x: 0\nbed_max_x: 220\nbed_min_y: -3\nbed_max_y: 217\n')
+if '[r2_postproc]' not in s:
+    i = s.find('\n#*#')
+    if i >= 0:
+        s = s[:i].rstrip('\n') + '\n' + block + s[i:]
+    else:
+        s = s.rstrip('\n') + '\n' + block
+    open(p, 'w', encoding='utf-8', errors='surrogateescape').write(s)
+PYEOF
+            fix "[r2_postproc] bed defaults written into printer.cfg (ADJUST the values!)"
         fi
     fi
 fi
@@ -197,7 +213,7 @@ fi
 # =====================================================================================
 echo
 echo "--- 3) Klipper / Moonraker / Mainsail --------------------------------------------"
-for s in klipper moonraker mainsail; do
+for s in klipper moonraker; do
     if svc_active "${s}"; then
         ok "${s} running"
     elif svc_exists "${s}"; then
@@ -206,6 +222,16 @@ for s in klipper moonraker mainsail; do
         warn "${s} service not found"
     fi
 done
+# R104.1: Mainsail is static files behind nginx on standard installs - it has
+# NO own systemd service there (the old check cried 'not found' on every
+# healthy Mainsail box - field log .81)
+if svc_active mainsail; then
+    ok "mainsail running"
+elif svc_active nginx || [ -d "${HOME_DIR}/mainsail" ]; then
+    ok "Mainsail present (static files served by nginx - no own service, normal)"
+elif [ "${HAVE_SYSTEMD}" -eq 1 ]; then
+    info "no mainsail service and no ~/mainsail found - where does the web UI come from?"
+fi
 if INFO_JSON="$(curl -s -m 5 "${MOONRAKER}/server/info" 2>/dev/null)"; then
     KLIP_STATE="$(printf '%s' "${INFO_JSON}" | sed -n 's/.*"klipper_state": *"\([^"]*\)".*/\1/p')"
     [ -n "${KLIP_STATE}" ] && ok "moonraker API answers (klipper state: ${KLIP_STATE})" \
@@ -257,23 +283,32 @@ else
             info "   -> two installations? update.sh unpacked here, service still points there."
         fi
     fi
+    # R104.1: build the templated unit ONCE - if the installed one is already
+    # byte-identical there is NOTHING to do (the old flow asked for sudo and
+    # rewrote an unchanged file - field log .81)
+    _tmpl_unit="$(mktemp)"
+    sed -e "s|^User=.*|User=${USER_NAME}|" \
+        -e "s|/home/pi/|${HOME_DIR}/|g" \
+        "${DIR}/tools/r2-postproc.service" > "${_tmpl_unit}"
+    _unit_current=0
+    if [ "${INSTALLED}" -eq 1 ] && cmp -s "${_tmpl_unit}" /etc/systemd/system/r2-postproc.service 2>/dev/null; then
+        _unit_current=1
+        ok "service unit already current (this package, user ${USER_NAME}) - nothing to do"
+    fi
     if [ "${INSTALLED}" -eq 0 ]; then
         warn "r2-postproc service not installed (layer markers / file info / generators need it)"
     fi
     if [ "${INSTALLED}" -eq 0 ]; then
         ask_yn "Install the service now (templated to user '${USER_NAME}', gcodes '${GC_DIR}')?" y
-    else
+    elif [ "${_unit_current}" -eq 0 ]; then
         ask_yn "Re-install / refresh the service unit from this package?" n
+    else
+        ASK_ANSWER="n"
     fi
     if [ "${ASK_ANSWER}" = "y" ]; then
         if [ -d "${GC_DIR}" ] || [ -d "${CFG_DIR}" ]; then
             if [ -n "${SUDO}" ] || [ "$(id -u)" -eq 0 ]; then
-                TMP_UNIT="$(mktemp)"
-                sed -e "s|^User=.*|User=${USER_NAME}|" \
-                    -e "s|/home/pi/|${HOME_DIR}/|g" \
-                    "${DIR}/tools/r2-postproc.service" > "${TMP_UNIT}"
-                ${SUDO} install -m 644 "${TMP_UNIT}" /etc/systemd/system/r2-postproc.service \
-                    && rm -f "${TMP_UNIT}" \
+                ${SUDO} install -m 644 "${_tmpl_unit}" /etc/systemd/system/r2-postproc.service \
                     && ${SUDO} systemctl daemon-reload \
                     && ${SUDO} systemctl enable --now r2-postproc \
                     && fix "r2-postproc installed + enabled + started (user ${USER_NAME})" \
@@ -288,6 +323,7 @@ else
             warn "neither ${GC_DIR} nor a config dir found - looked like a wrong machine, skipped"
         fi
     fi
+    rm -f "${_tmpl_unit}"
     if svc_active r2-postproc; then
         info "recent watcher log:  journalctl -u r2-postproc -n 20 --no-pager"
     fi
@@ -326,37 +362,70 @@ if [ -n "${CFG_DIR}" ]; then
     grep -q '^\[include KAMP_Settings.cfg\]' "${CFG}" && ok "KAMP include in printer.cfg" \
         || { [ "${KAMP_OK}" -eq 1 ] && { warn "[include KAMP_Settings.cfg] missing in printer.cfg"; KAMP_OK=0; }; }
 fi
-MOONRAKER_CONF="${KAMP_CFG_DIR}/moonraker.conf"
-if [ -f "${MOONRAKER_CONF}" ]; then
-    if grep -qE '^\s*enable_object_processing:\s*[Tt]rue' "${MOONRAKER_CONF}"; then
-        ok "moonraker object processing enabled"
-    else
-        warn "moonraker.conf: enable_object_processing not True (adaptive needs it)"
-        KAMP_OK=0
-    fi
-else
-    info "moonraker.conf not found at ${MOONRAKER_CONF} - cannot check object processing"
-fi
-
-if [ "${KAMP_OK}" -eq 0 ]; then
-    info "without KAMP the system works fine (native ADAPTIVE=1 + own prime line)"
-    if [ "${NET}" -eq 1 ] && command -v git >/dev/null 2>&1; then
-        ask_yn "Install KAMP now (clone + config patches, backups made)?" n
-        if [ "${ASK_ANSWER}" = "y" ]; then
-            (
-                cd "${HOME_DIR}" \
-                && git clone --quiet "${KAMP_REPO_URL}" \
-                && ln -sfn "${KAMP_REPO}/Configuration" "${KAMP_CFG_DIR}/KAMP" \
-                && cp "${KAMP_REPO}/Configuration/KAMP_Settings.cfg" "${KAMP_CFG_DIR}/KAMP_Settings.cfg"
-            ) || warn "KAMP clone/link failed"
-            if [ -f "${KAMP_CFG_DIR}/KAMP_Settings.cfg" ]; then
-                # enable the features we use by default: adaptive mesh + line purge
-                sed -i 's|^#\s*\[include \./KAMP/Adaptive_Meshing.cfg\]|[include ./KAMP/Adaptive_Meshing.cfg]|' \
-                       "${KAMP_CFG_DIR}/KAMP_Settings.cfg"
-                sed -i 's|^#\s*\[include \./KAMP/Line_Purge.cfg\]|[include ./KAMP/Line_Purge.cfg]|' \
-                       "${KAMP_CFG_DIR}/KAMP_Settings.cfg"
-                fix "KAMP installed: repo + config/KAMP + KAMP_Settings.cfg (mesh + line purge on)"
+    MOONRAKER_CONF="${KAMP_CFG_DIR}/moonraker.conf"
+    # R104.1: object processing is POLICY, not correctness - False is a
+    # DELIBERATE choice on small Pis (our own manual recommends it on the
+    # Pi Zero 2 W: object processing costs RAM on every upload). Never nag,
+    # only explain. It no longer makes the wizard offer a KAMP install.
+    if [ -f "${MOONRAKER_CONF}" ]; then
+        if grep -qE '^\s*enable_object_processing:\s*[Tt]rue' "${MOONRAKER_CONF}"; then
+            ok "moonraker object processing enabled (KAMP meshes/purges adaptively)"
+        elif grep -qE '^\s*enable_object_processing:' "${MOONRAKER_CONF}"; then
+            info "moonraker object processing is OFF (deliberate on a Pi Zero 2 W -"
+            info "   recommended there! KAMP then meshes full-bed and the purge falls"
+            info "   back to our own line - both fine, no action needed)"
+        else
+            ask_yn "Enable moonraker object processing (needed for adaptive; costs RAM on every upload)?" n
+            if [ "${ASK_ANSWER}" = "y" ]; then
+                backup_file "${MOONRAKER_CONF}" >/dev/null
+                if grep -q '^\[file_manager\]' "${MOONRAKER_CONF}"; then
+                    awk -v ins=0 'ins==0 && /^\[file_manager\]/ {print; print "enable_object_processing: True"; ins=1; next} {print}' \
+                        "${MOONRAKER_CONF}" > "${MOONRAKER_CONF}.new" \
+                        && mv "${MOONRAKER_CONF}.new" "${MOONRAKER_CONF}"
+                else
+                    printf '\n[file_manager]\nenable_object_processing: True\n' >> "${MOONRAKER_CONF}"
+                fi
+                fix "moonraker.conf: object processing enabled"
+                info "restart moonraker to activate:  ${SUDO} systemctl restart moonraker"
             fi
+        fi
+    else
+        info "moonraker.conf not found at ${MOONRAKER_CONF} - cannot check object processing"
+    fi
+
+    if [ "${KAMP_OK}" -eq 0 ]; then
+        info "without KAMP the system works fine (native ADAPTIVE=1 + own prime line)"
+        if [ "${NET}" -eq 1 ] && command -v git >/dev/null 2>&1; then
+            ask_yn "Install KAMP now (clone + config patches, backups made)?" n
+            if [ "${ASK_ANSWER}" = "y" ]; then
+                # R104.1: guarded steps - an existing repo is KEPT (the old
+                # blind 'git clone' died with 'destination path already
+                # exists' and the flow printed a fix line anyway)
+                _kamp_new=0
+                if [ ! -d "${KAMP_REPO}" ]; then
+                    if (cd "${HOME_DIR}" && git clone --quiet "${KAMP_REPO_URL}"); then
+                        _kamp_new=1
+                    else
+                        warn "KAMP clone failed (network?)"
+                    fi
+                fi
+                ln -sfn "${KAMP_REPO}/Configuration" "${KAMP_CFG_DIR}/KAMP" 2>/dev/null
+                if [ ! -f "${KAMP_CFG_DIR}/KAMP_Settings.cfg" ] && [ -f "${KAMP_REPO}/Configuration/KAMP_Settings.cfg" ]; then
+                    cp "${KAMP_REPO}/Configuration/KAMP_Settings.cfg" "${KAMP_CFG_DIR}/KAMP_Settings.cfg"
+                    _kamp_new=1
+                fi
+                if [ -f "${KAMP_CFG_DIR}/KAMP_Settings.cfg" ]; then
+                    # enable the features we use by default: adaptive mesh + line purge
+                    sed -i 's|^#\s*\[include \./KAMP/Adaptive_Meshing.cfg\]|[include ./KAMP/Adaptive_Meshing.cfg]|' \
+                           "${KAMP_CFG_DIR}/KAMP_Settings.cfg"
+                    sed -i 's|^#\s*\[include \./KAMP/Line_Purge.cfg\]|[include ./KAMP/Line_Purge.cfg]|' \
+                           "${KAMP_CFG_DIR}/KAMP_Settings.cfg"
+                    if [ "${_kamp_new}" -eq 1 ]; then
+                        fix "KAMP installed: repo + config/KAMP + KAMP_Settings.cfg (mesh + line purge on)"
+                    else
+                        fix "KAMP repaired: link/settings refreshed, mesh + line purge on"
+                    fi
+                fi
             # printer.cfg: include + exclude_object
             if [ -n "${CFG_DIR}" ] && [ -f "${CFG}" ]; then
                 if ! grep -q '^\[include KAMP_Settings.cfg\]' "${CFG}"; then
@@ -370,19 +439,10 @@ if [ "${KAMP_OK}" -eq 0 ]; then
                     fix "printer.cfg: [exclude_object] added"
                 fi
             fi
-            # moonraker.conf: object processing (+ optional update manager)
+            # moonraker.conf: optional update manager entry
+            # (object processing has its own dedicated prompt above - never
+            # enabled silently, R104.1)
             if [ -f "${MOONRAKER_CONF}" ]; then
-                if ! grep -qE '^\s*enable_object_processing:' "${MOONRAKER_CONF}"; then
-                    backup_file "${MOONRAKER_CONF}" >/dev/null
-                    if grep -q '^\[file_manager\]' "${MOONRAKER_CONF}"; then
-                        awk -v ins=0 'ins==0 && /^\[file_manager\]/ {print; print "enable_object_processing: True"; ins=1; next} {print}' \
-                            "${MOONRAKER_CONF}" > "${MOONRAKER_CONF}.new" \
-                            && mv "${MOONRAKER_CONF}.new" "${MOONRAKER_CONF}"
-                    else
-                        printf '\n[file_manager]\nenable_object_processing: True\n' >> "${MOONRAKER_CONF}"
-                    fi
-                    fix "moonraker.conf: object processing enabled"
-                fi
                 if ! grep -q 'Klipper-Adaptive-Meshing-Purging' "${MOONRAKER_CONF}"; then
                     ask_yn "Add the moonraker update-manager entry for KAMP?" n
                     if [ "${ASK_ANSWER}" = "y" ]; then
@@ -469,53 +529,70 @@ fi
 if [ "${HAVE_SYSTEMD}" -eq 1 ]; then
     echo
     info "top services by RAM:"
-    systemctl list-units --type=service --state=running --no-legend --no-pager 2>/dev/null \
+    _ram_list="$(systemctl list-units --type=service --state=running --no-legend --no-pager 2>/dev/null \
       | awk '{print $1}' \
       | while read -r s; do
             m="$(systemctl show "$s" -p MemoryCurrent --value 2>/dev/null)"
             case "$m" in ''|'[not set]'|'0') continue ;; esac
             echo "$m $s"
         done | sort -rn | head -12 \
-      | while read -r b s; do printf '     %9s  %s\n' "$(hsize "$b")" "$s"; done
+      | while read -r b s; do printf '%9s  %s\n' "$(hsize "$b")" "$s"; done)"
+    if [ -n "${_ram_list}" ]; then
+        echo "${_ram_list}" | sed 's/^/     /'
+    else
+        info "   service memory accounting is off on this OS (normal on Raspberry Pi OS)"
+        info "   -> HOST_CHECK on the LCD/console shows the per-process RAM instead (ps-based)"
+    fi
     echo
     info "known-optional services on a print server (nothing is touched without your OK):"
+    # R104.1: iterate an ARRAY, never 'echo | while read' - the old pipe loop fed
+    # the confirmation read from the CANDIDATE LIST itself, so the prompts
+    # answered themselves and every second candidate was silently skipped
+    # (field log .81: ModemManager + triggerhappy 'skipped without a keypress')
     #           unit                what it is                                    why optional
-    CANDIDATES="ModemManager|mobile-broadband modem manager|no LTE modem on a printer
-crowsnest|webcam stack (Mainsail camera)|only if you never use the camera
-webcamd|webcam stream (older setups)|only if you never use the camera
-octoprint|OctoPrint server|you are using Mainsail instead
-KlipperScreen|touchscreen UI|only without a touchscreen
-cups|paper printing system|not needed on a 3D printer
-triggerhappy|GPIO hotkey daemon|rarely used
-moonraker-obico|Obico cloud monitoring|only if you do not use Obico
-bluetooth|bluetooth daemon|no BT devices on a print server
-hciuart|bluetooth UART helper|same"
-    echo "${CANDIDATES}" | while IFS='|' read -r unit what why; do
-        [ -n "${unit}" ] || continue
+    _CANDS=(
+        "ModemManager|mobile-broadband modem manager|no LTE modem on a printer"
+        "crowsnest|webcam stack (Mainsail camera)|only if you never use the camera"
+        "webcamd|webcam stream (older setups)|only if you never use the camera"
+        "octoprint|OctoPrint server|you are using Mainsail instead"
+        "KlipperScreen|touchscreen UI|only without a touchscreen"
+        "cups|paper printing system|not needed on a 3D printer"
+        "triggerhappy|GPIO hotkey daemon|rarely used"
+        "moonraker-obico|Obico cloud monitoring|only if you do not use Obico"
+        "bluetooth|bluetooth daemon|no BT devices on a print server"
+        "hciuart|bluetooth UART helper|same"
+    )
+    for _cand in "${_CANDS[@]}"; do
+        IFS='|' read -r unit what why <<< "${_cand}"
         if svc_active "${unit}"; then
             MEM="$(systemctl show "${unit}" -p MemoryCurrent --value 2>/dev/null)"
-            case "${MEM}" in ''|'[not set]') MEM="?" ;; *) MEM="$(hsize "${MEM}")" ;; esac
+            _mem_txt=""
+            case "${MEM}" in ''|'[not set]') ;; *) _mem_txt=" ($(hsize "${MEM}"))" ;; esac
             echo
-            warn "${unit} is RUNNING (${MEM}) - ${what} (${why})"
-            # ask in a subshell-safe way: re-read the answer from a temp file
-            ansfile="$(mktemp)"
+            warn "${unit} is RUNNING${_mem_txt} - ${what} (${why})"
             if [ "${CHECK_ONLY}" -eq 1 ]; then
-                echo "n" > "${ansfile}"
                 echo "[i] (check mode) would offer to disable ${unit}"
             else
                 printf '     disable it now? [y/N]: '
-                if ! read -r a; then a=""; echo; fi
-                printf '%s' "${a:-n}" | tr '[:upper:]' '[:lower:]' > "${ansfile}"
-            fi
-            if grep -qE '^(y|yes|j|ja)$' "${ansfile}"; then
-                if ${SUDO} systemctl disable --now "${unit}" 2>/dev/null; then
-                    echo "[fix]  ${unit} disabled + stopped"
-                else
-                    echo "[!]    could not disable ${unit} (sudo?) - manual:"
-                    echo "       sudo systemctl disable --now ${unit}"
+                # read from the TERMINAL (/dev/tty), never from a pipe: this
+                # loop must not steal stdin - that was the skip bug. The
+                # 2>/dev/null comes FIRST so a missing tty fails silently.
+                _ans=""
+                if ! read -r _ans 2>/dev/null < /dev/tty; then
+                    _ans=""
+                    echo
                 fi
+                case "$(printf '%s' "${_ans}" | tr '[:upper:]' '[:lower:]')" in
+                    y|yes|j|ja)
+                        if ${SUDO} systemctl disable --now "${unit}" 2>/dev/null; then
+                            echo "[fix]  ${unit} disabled + stopped"
+                        else
+                            echo "[!]    could not disable ${unit} (sudo?) - manual:"
+                            echo "       sudo systemctl disable --now ${unit}"
+                        fi
+                        ;;
+                esac
             fi
-            rm -f "${ansfile}"
         fi
     done
     echo
