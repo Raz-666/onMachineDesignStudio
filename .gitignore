@@ -6,3 +6,5 @@ __pycache__/
 !slicer/*.py
 # local working material (kept in the workspace, not in the repo history)
 tools/manual_work/
+# private engineering journal (ships in the update ZIP, not in the public repo)
+SESSION_STATE.md

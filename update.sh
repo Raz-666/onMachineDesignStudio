@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 the klipper-e3-r2d2 authors
 # =====================================================================================
 #  update.sh - R2 macro system update helper (.50+)
 #

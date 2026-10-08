@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 the klipper-e3-r2d2 authors
 """R2 G-code post-processor + folder watcher (R56 / .40) - the LAYER READER.
 
 WHY: Klipper macros cannot read files - comments like ';LAYER_CHANGE' never

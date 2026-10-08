@@ -130,3 +130,13 @@ German version!).
 | **.49 (R65)** | **HOTFIX**: `#` in `variable_charset` halts Klipper at boot (config comment strip) — charset fixed, `#` still pickable on the LCD (last entry), validator now emulates Klipper's strip + literal_eval and scans all cfg lines for `#` inside quotes. |
 | **.48 (R64)** | **Resonance diagram**: the shaper CSVs become a printed (or pen-plotted) plate — PSD curve, all 5 shaper curves, shaper table with the winner boxed; pick it in `Vibration Cal. > Apply result` (frequency from the table, live + boot override, faithful port of Klipper's fit math). **Bridging test**: two towers diagonally + a short span (10–50 %) clearly below on its own lower tower, everything live-tunable. **Plotter**: text files (`PLOT_TEXT`) + status report (`PLOT_STATUS`) on one auto-fitted page, dark writing boards auto-inverted (border heuristic), start overrides + live plotter menu. **Simplified update** (`update.sh`, no new includes since .47). |
 | **.47 (R63)** | Label generator (golden-ratio plates, 3 fonts, holes, 2 colors, purge tower), guarded Save config, config review. |
+
+## License
+
+GPL-3.0-or-later — see [LICENSE](LICENSE). Built field-log driven and test
+gated: [DEVELOPMENT.md](DEVELOPMENT.md) tells the story,
+[COMPATIBILITY.md](COMPATIBILITY.md) what it takes to run on your printer.
+
+<!-- when publishing: add the CI badge with your account name
+[![tests](https://github.com/<user>/klipper-e3-r2d2/actions/workflows/tests.yml/badge.svg)](https://github.com/<user>/klipper-e3-r2d2/actions/workflows/tests.yml)
+-->
