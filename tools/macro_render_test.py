@@ -3658,8 +3658,8 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         _v66 = _l66.split(':', 1)[1].strip()
         break
 # NOTE: bump this expectation together with the version on every release!
-tests.append(('R66/R76 version is .76 in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-09-07.76'", repr(_v66)))
+tests.append(('R66/R77 version is .77 in 01_state.cfg (bump together with release!)',
+    _v66 == "'R2-2026-09-07.77'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -5647,10 +5647,10 @@ tests.append(('R83 label_preview: grown size, honest cap, min size, merge warnin
     str({k: _pv83[k] for k in ('w', 'h', 'cap_mm', 'min_w', 'stroke_eff')})))
 
 # (6) LCD gates: Version + Preview items, L4/L5 pickers, Range shares the version
-tests.append(('R83 LCD: Labels Settings = Version + Preview fit? + L4/L5 pickers',
+tests.append(('R83 LCD: Labels Settings = Version + Calc fit + L4/L5 pickers',
     all(x in _lcd80 for x in ['__set __vers]', '__set __fitp]', '__txt __ln4]',
                                '__txt __ln5]', 'gen_version'])
-    and 'Preview fit?' in _lcd80, ''))
+    and 'Calc fit' in _lcd80, ''))
 tests.append(('R83 LCD: Range menu shares the generator Version item',
     '__preprint __rng __vers]' in _lcd80, ''))
 
@@ -6796,7 +6796,7 @@ for _fr90, _kw90 in (('LINES', {}), ('WAVES', {}), ('HEX', {})):
     tests.append(('R90.1b %s: pattern layer replaces the solid face, no ironing'
                   % _fr90,
         _i90s['front'] == _fr90 and _thin90
-        and ';TYPE:Top surface infill' in _g90s
+        and ';TYPE:Top surface' in _g90s
         and ';TYPE:Ironing' not in _g90s
         and any('no ironing pass' in _n90 for _n90 in _i90s['notes']),
         _info90))
@@ -8267,6 +8267,77 @@ tests.append(('R98 source: backlog push re-checks the preview nonce (never overw
 tests.append(('R98 source: catch-up messages (initial deferral + background done)',
     'deferred to the next pass(es)' in _src98
     and 'background catch-up done' in _src98, ''))
+
+# ---------- R99 (field log .75): generator _FILE_INFO/TYPES + label modes ----------
+# The .75 field log: generated files (frame/ties/angles) carry TAG, so the
+# scan never adds _FILE_INFO - the Pre-Print file info and the feature
+# activators stayed EMPTY for them. Labels get two clear modes now: GROW
+# (label grows to the text, W/H = minimums + dynamic lower limits) and
+# FIXED (label stays W/H, the font scales into it).
+import os as _os99
+_d99 = tempfile.mkdtemp()
+
+def _fi99(path):
+    for _l99 in open(path, errors='replace').read(8000).splitlines():
+        if _l99.startswith('_FILE_INFO'):
+            return _l99
+    return ''
+
+def _ty99(path):
+    _l99 = _fi99(path)
+    return _l99.split('TYPES=')[1].split()[0] if 'TYPES=' in _l99 else ''
+
+def _p99(r):
+    _p = r[0] if isinstance(r, tuple) else r
+    if isinstance(_p, (list, tuple)):
+        _p = _p[0]
+    return _p
+
+_r99 = _pp.make_frame(preset='9x13', out_dir=_d99)
+_fa99 = _p99(_r99)
+_fb99 = _os99.path.join(_os99.path.dirname(_fa99), _os99.path.basename(_fa99).replace('_A_', '_B_'))
+tests.append(('R99 frame: _FILE_INFO + TYPES on every plate (brim/bottom/ironing on A)',
+    'TYPES=' in _fi99(_fa99) and _os99.path.isfile(_fb99) and 'TYPES=' in _fi99(_fb99)
+    and _ty99(_fa99).split(',')[0] == 'BRIM' and 'SURFACE-BOTTOM' in _ty99(_fa99)
+    and 'IRONING' in _ty99(_fa99) and 'IRONING' not in _ty99(_fb99),
+    'A=%s B=%s' % (_ty99(_fa99), _ty99(_fb99))))
+_fl99 = _p99(_pp.make_frame(preset='9x13', out_dir=tempfile.mkdtemp(), front='LINES'))
+tests.append(('R99 frame: structured fronts tag SURFACE-TOP (was CUSTOM via "Top surface infill")',
+    'Top surface infill' not in open(_fl99, errors='replace').read()
+    and ';TYPE:Top surface' in open(_fl99, errors='replace').read(), ''))
+_t99a = _pp.make_cable_ties(out_dir=_d99, count=2, length=60)
+_t99b = _pp.make_cable_ties(out_dir=tempfile.mkdtemp(), count=2, length=60, brim=False)
+tests.append(('R99 ties: _FILE_INFO + TYPES, BRIM only when the brim is on',
+    _ty99(_p99(_t99a)).startswith('BRIM,') and 'BRIM' not in _ty99(_p99(_t99b))
+    and 'INFILL-SOLID' in _ty99(_p99(_t99a)), '%s / %s' % (_ty99(_p99(_t99a)), _ty99(_p99(_t99b)))))
+_a99a = _pp.make_angles(out_dir=_d99)
+_a99b = _pp.make_angles(out_dir=tempfile.mkdtemp(), ironing=True)
+tests.append(('R99 angles: _FILE_INFO + TYPES (no brim feature, IRONING only when on)',
+    'BRIM' not in _ty99(_p99(_a99a)) and 'IRONING' in _ty99(_p99(_a99b))
+    and 'WALL-OUTER' in _ty99(_p99(_a99a)), '%s / %s' % (_ty99(_p99(_a99a)), _ty99(_p99(_a99b)))))
+_o99g, _i99g = _pp.make_labels(['R99GROW'], w=60, h=30, font_size=8, out_dir=_d99)
+_o99f, _i99f = _pp.make_labels(['R99GROW'], w=60, h=30, font_size=8, out_dir=_d99, mode='fixed')
+tests.append(('R99 labels: GROW grows the label to the font size, FIXED keeps W/H and scales',
+    _i99g['w'] > 60 and _i99g.get('grown') and abs(_i99f['w'] - 60) < 0.05
+    and abs(_i99f['h'] - 30) < 0.05 and not _i99f.get('grown')
+    and _i99f['cap_mm'] < _i99g['cap_mm'],
+    'grow %.0fx%.0f cap %.1f / fixed %.0fx%.0f cap %.1f'
+    % (_i99g['w'], _i99g['h'], _i99g['cap_mm'], _i99f['w'], _i99f['h'], _i99f['cap_mm'])))
+_pv99g = _pp.label_preview(['R99GROW'], w=60, h=30, font_size=8)
+_pv99f = _pp.label_preview(['R99GROW'], w=60, h=30, font_size=8, mode='fixed')
+tests.append(('R99 labels: preview min sizes only in GROW mode (LCD W/H lower limits)',
+    _pv99g['min_w'] and _pv99g['min_h'] and not _pv99f['min_w'] and not _pv99f['min_h'],
+    'grow %s/%s fixed %s/%s' % (_pv99g['min_w'], _pv99g['min_h'], _pv99f['min_w'], _pv99f['min_h'])))
+_src99 = open('tools/r2_postproc.py').read()
+_mnu99 = open('menus/lcd_menues.cfg').read()
+_lab99 = open('macros/16_labels.cfg').read()
+tests.append(('R99 source: mode wiring (watcher reads label_mode, CLI MODE, menu + macro)',
+    _src99.count('R99 (field log .75)') >= 6
+    and "mode='fixed' if _vf('label_mode', 0) >= 1 else 'grow'" in _src99
+    and "mode='fixed' if _vf_f('label_mode', 0) >= 1 else 'grow'" in _src99
+    and "_sv_line('label_min_w'" in _src99
+    and 'label_mode' in _mnu99 and 'label_min_w' in _mnu99
+    and 'label_mode' in _lab99, ''))
 
 fails = 0
 for name, ok, info in tests:

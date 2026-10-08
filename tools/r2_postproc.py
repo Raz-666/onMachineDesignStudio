@@ -3973,12 +3973,16 @@ def _safe_label_name(t):
 def label_preview(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4,
                    text_layers=2, layer_h=0.2, first_h=0.28, hole_side=0,
                    hole_d=5.0, gap=6.0, color2=True, stroke=0.0, font_size=0.0,
-                   spacing=0.0, bed=None, bed_margin=6.0, nozzle=0.6):
+                   spacing=0.0, bed=None, bed_margin=6.0, nozzle=0.6,
+                   mode='grow'):
     """R83: project the label outcome WITHOUT writing a file. The LCD 'Fit'
     item bumps label_fit_nonce and this answers with the same numbers the
     generator will print: final label size (incl. growth), cap height,
     effective stroke, characters per line, the minimum label size a fixed
-    font size needs, and whether the purge tower still fits the bed."""
+    font size needs, and whether the purge tower still fits the bed.
+    R99 (field log .75): mode='fixed' = the label stays W/H and the FONT
+    scales (the LCD W/H limits unlock); 'grow' = the label grows until the
+    text fits (W/H are minimums)."""
     font = str(font or 'SMOOTH').upper()
     if font == 'PIXEL':
         font = 'SMOOTH'
@@ -4006,8 +4010,13 @@ def label_preview(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4,
     ux1, uy1 = bx1 - bed_margin, by1 - bed_margin
     uw, uh = ux1 - ux0, uy1 - uy0
 
-    w2, h2, grown, mcache = _label_grow_fit(
-        all_lines, font, w, h, font_size, spacing, stroke_w, hole_side, hole_d)
+    fixed99 = str(mode).strip().lower() in ('fixed', 'fix', '1')
+    if fixed99:
+        w2, h2, grown = w, h, False
+        mcache = [_label_metrics(ls, font, spacing) for ls in all_lines]
+    else:
+        w2, h2, grown, mcache = _label_grow_fit(
+            all_lines, font, w, h, font_size, spacing, stroke_w, hole_side, hole_d)
     _c, box, _d = _label_layout(w2, h2, hole_side, hole_d)
     bw, bh = box[2] - box[0], box[3] - box[1]
     g, parsed = mcache[0]
@@ -4024,9 +4033,10 @@ def label_preview(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4,
     chars_fit = max(1, int((bw * 0.94 + spacing) / max(per_char, 0.01)))
 
     # minimum label size for a FIXED font size (width first, then height -
-    # the same strategy the generator grows)
+    # the same strategy the generator grows). R99: only in grow mode - in
+    # fixed mode the font scales into the label, there is no minimum
     min_w = min_h = None
-    if font_size and float(font_size) > 0:
+    if font_size and float(font_size) > 0 and not fixed99:
         nbw, nbh = _label_need_size(g, parsed, float(font_size), spacing, stroke_w)
         min_w, min_h = w2, h2
         for cand in [c * 0.5 for c in range(24, 481)]:        # 12..240mm
@@ -4089,14 +4099,18 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
                 layer_h=0.2, first_h=0.28, ironing=True, hole_side=0, hole_d=5.0,
                 brim=True, gap=6.0, color2=True, material='PLA', bed=None,
                 bed_margin=6.0, nozzle=0.6, stroke=0.0, font_size=0.0, spacing=0.0,
-                out_dir='.', version=1):
+                out_dir='.', version=1, mode='grow'):
     """Generate a printable label plate file. Returns (path, info).
 
     R74: every entry may carry up to 3 lines separated by '~' (LCD: Labels >
     Text > Line). font_size = cap height in mm (0 = auto), spacing = extra
     millimeters between characters. The text block is one UNIFORM scale -
     letters never stretch; lines that do not fit raise an error that names
-    the character maximum for this label size."""
+    the character maximum for this label size.
+    R99 (field log .75): mode - 'grow' (default): the LABEL adapts to the
+    text (grows until the font size fits; W/H are minimums) - 'fixed': the
+    label stays at W/H and the FONT scales into it (font_size is the upper
+    bound then; 0 = as large as the label allows)."""
     texts = [t.strip() for t in texts if t and t.strip()]
     if not texts:
         raise ValueError('no label text - add one first (LCD: Labels > Text)')
@@ -4152,8 +4166,15 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
     #      and if the letters would get unreadable (<2.8mm caps) or an explicit
     #      font size does not fit, the LABEL GROWS (width first, then height,
     #      +75% max) instead of erroring. The text is never shortened.
-    w, h, grown79, mcache = _label_grow_fit(
-        all_lines, font, w, h, font_size, spacing, stroke_w, hole_side, hole_d)
+    #      R99 (field log .75): mode='fixed' turns the growth OFF - the label
+    #      stays at W/H, the font scales into it (user spec: either the label
+    #      fits the text or the text fits the label).
+    if str(mode).strip().lower() in ('fixed', 'fix', '1'):
+        grown79 = False
+        mcache = [_label_metrics(ls, font, spacing) for ls in all_lines]
+    else:
+        w, h, grown79, mcache = _label_grow_fit(
+            all_lines, font, w, h, font_size, spacing, stroke_w, hole_side, hole_d)
 
     # ---- fit the grid: labels read left->right, so use the MOST columns that
     #      still fit the bed (rows fill naturally); max = cols*rows per batch ----
@@ -6667,6 +6688,16 @@ def make_cable_ties(count=6, length=120.0, width=8.0, layers=3, variant='CLASSIC
     # header: exclude objects + PRINT_START (labels pattern: TAG first, the
     # first COMMAND is PRINT_START - that is where a legacy _FILE_INFO would go)
     hdr = []
+    # R99 (field log .75): _FILE_INFO + TYPES - generated files carry TAG, so
+    # the watcher scan never adds them; without TYPES the Pre-Print file info
+    # and the feature activators stay empty for generated files
+    types_t99 = (['BRIM'] if brim else []) + ['WALL-OUTER', 'WALL-INNER', 'INFILL-SOLID']
+    hdr.append('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d LINE_WIDTH=%.2g '
+               'LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g FLOW_RATIO=1 NOZZLE=%.1f '
+               'WALL_LOOPS=2 SPEED_OUTER=40 SPEED_INNER=30 SPEED_SOLID=45 SPEED_FIRST=25 '
+               'SPEED_TRAVEL=75 TYPES=%s BY_OBJECT=0'
+               % (material, layer_h, total_layers, wid, first_h, wid, nozzle,
+                  ','.join(types_t99)))
     for idx, (x0, y0) in enumerate(positions):
         # R87.2 FIELD FIX (.71 log): Klipper json-parses POLYGON - no whitespace
         poly = '[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]' % (
@@ -7449,7 +7480,10 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
 
             def emit_pattern(li):
                 ew = e_w(li)
-                a(';TYPE:Top surface infill')
+                # R99 (field log .75): was ';TYPE:Top surface infill' - not in
+                # the TYPE map, so the structured fronts ran as APPLY_TYPE
+                # TYPE=CUSTOM instead of SURFACE-TOP
+                a(';TYPE:Top surface')
                 if front == 'LINES':
                     hs = _ring_hatch(outer_c, lip_c if lip else view_c,
                                      float(s_space), float(s_angle))
@@ -7884,6 +7918,25 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                 a('G4 P300')
 
         # ---- header assembly (angles pattern) ---------------------------------
+        # R99 (field log .75): _FILE_INFO + TYPES - generated files carry TAG,
+        # the watcher scan never adds them; the Pre-Print file info and the
+        # feature activators need TYPES. Ring plate: brim -> walls -> bottom
+        # -> solid -> top (+ SIDE-closure bridge lips, + ironing on IRON front)
+        if want_frame:
+            types_f99 = (['BRIM', 'WALL-INNER', 'WALL-OUTER', 'SURFACE-BOTTOM',
+                          'INFILL-SOLID', 'SURFACE-TOP']
+                         + (['BRIDGE'] if closure == 'SIDE' else [])
+                         + (['IRONING'] if (ironing and front == 'IRON') else []))
+        else:
+            types_f99 = ['BRIM', 'WALL-INNER', 'WALL-OUTER', 'SURFACE-BOTTOM',
+                         'INFILL-SOLID', 'SURFACE-TOP']
+        hdr.append('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d LINE_WIDTH=%.2g '
+                   'LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g FLOW_RATIO=1 NOZZLE=%.1f '
+                   'WALL_LOOPS=2 SPEED_OUTER=40 SPEED_INNER=40 SPEED_SOLID=45 SPEED_FIRST=25 '
+                   'SPEED_TRAVEL=75%s TYPES=%s BY_OBJECT=0'
+                   % (material, layer_h, pl_total, wid, first_h, wid, nozzle,
+                      ' IRONING_SPEED=10' if (ironing and front == 'IRON') else '',
+                      ','.join(types_f99)))
         ps = 'PRINT_START MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d OUTER_WALL_SPEED=15' % (
             material, layer_h, pl_total)
         i0 = next(i for i, l in enumerate(L) if l.startswith(';LAYER_CHANGE'))
@@ -8198,6 +8251,15 @@ def make_angles(count=2, angle_deg=90, leg_a=60.0, leg_b=60.0, width=25.0,
                    % (idx + 1, ox + (minx + maxx) / 2.0, oy + (miny + maxy) / 2.0, pts))
     ps = 'PRINT_START MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d OUTER_WALL_SPEED=40' % (
         material, layer_h, total_layers)
+    # R99 (field log .75): _FILE_INFO + TYPES (generated files carry TAG - the
+    # scan never adds them; Pre-Print info + feature activators need TYPES)
+    types_a99 = ['WALL-OUTER', 'WALL-INNER', 'INFILL-SOLID'] + (['IRONING'] if ironing else [])
+    hdr.append('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d LINE_WIDTH=%.2g '
+               'LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g FLOW_RATIO=1 NOZZLE=%.1f '
+               'WALL_LOOPS=2 SPEED_OUTER=40 SPEED_INNER=40 SPEED_SOLID=45 SPEED_FIRST=25 '
+               'SPEED_TRAVEL=75%s TYPES=%s BY_OBJECT=0'
+               % (material, layer_h, total_layers, wid, first_h, wid, nozzle,
+                  ' IRONING_SPEED=30' if ironing else '', ','.join(types_a99)))
     # R83 header order (labels pattern): TAG + comments, exclude defines,
     # PRINT_START, G90/M83, fan off for the first layer
     i0 = next(i for i, l in enumerate(L) if l.startswith(';LAYER_CHANGE'))
@@ -10148,17 +10210,30 @@ def watch(directory, interval=5.0, once=False):
                     hole_d=_vf_f('label_hole_d', 5),
                     gap=_vf_f('label_gap', 6),
                     color2=_vb_f('label_color2', True),
-                    bed=cfg_bed_f)
+                    bed=cfg_bed_f,
+                    mode='fixed' if _vf_f('label_mode', 0) >= 1 else 'grow')
+                # R99 (field log .75): push the size the text needs at this
+                # font size as the LCD W/H lower limits (grow mode + explicit
+                # size only - fixed mode and auto size scale the font, the
+                # inputs unlock to their defaults)
+                if pv['min_w'] and pv['min_h']:
+                    _mn_w99 = max(20, min(int(round(pv['min_w'])), 220))
+                    _mn_h99 = max(15, min(int(round(pv['min_h'])), 220))
+                else:
+                    _mn_w99, _mn_h99 = 20, 15
                 short_f = '%.0fx%.0f%s %.1f' % (
                     pv['w'], pv['h'], '+' if pv['grown'] else '', pv['cap_mm'])
+                _mode_f99 = 'FIXED' if _vf_f('label_mode', 0) >= 1 else 'GROW'
                 msg_f = ('Label preview: %s on %.0fx%.0fmm -> %s%.0fx%.0fmm, '
-                         'font %.1fmm caps, stroke %.1fmm%s, ~%d chars/line'
+                         'font %.1fmm caps, stroke %.1fmm%s, ~%d chars/line, %s'
                          % (texts_f[0][:20], _vf_f('label_w', 60), _vf_f('label_h', 30),
                             'GROWN ' if pv['grown'] else '', pv['w'], pv['h'],
                             pv['cap_mm'], pv['stroke_eff'],
                             ' (capped)' if (pv['stroke_eff'] < _vf_f('label_stroke', 0) - 0.01
                                             and _vf_f('label_stroke', 0) > 0) else '',
-                            pv['chars_fit']))
+                            pv['chars_fit'],
+                            'FIXED - the text scales into W/H' if _mode_f99 == 'FIXED'
+                            else 'GROW - the label grows to the text'))
                 extra_f = []
                 if pv['cap_capped']:
                     extra_f.append(
@@ -10174,6 +10249,8 @@ def watch(directory, interval=5.0, once=False):
                     extra_f.append('Label preview: %s' % w_f)
                 _moonraker_gcode(
                     _sv_line('label_fit', short_f) + '\n'
+                    + _sv_line('label_min_w', _mn_w99) + '\n'
+                    + _sv_line('label_min_h', _mn_h99) + '\n'
                     + 'RESPOND MSG="%s"\n' % msg_f
                     + ''.join('RESPOND MSG="%s"\n' % x for x in extra_f)
                     + 'M117 %s' % short_f)
@@ -10249,7 +10326,8 @@ def watch(directory, interval=5.0, once=False):
                         color2=_vb('label_color2', True),
                         material=str(rv.get('material', 'PLA') or 'PLA'),
                         bed=cfg_bed, nozzle=_gen_nozzle(directory), out_dir=directory,
-                        version=max(1, min(int(_vf('gen_version', 1)), 99)))
+                        version=max(1, min(int(_vf('gen_version', 1)), 99)),
+                        mode='fixed' if _vf('label_mode', 0) >= 1 else 'grow')
                     fitmsg = '%d fit (%dx%d), using %d' % (
                         info_l['fit'], info_l['cols'], info_l['rows'], info_l['count'])
                     try:
@@ -11109,7 +11187,8 @@ def main():
             gap=float(kw.get('GAP', 6)),
             color2=_cb('COLOR2', '1'),
             material=kw.get('MATERIAL', 'PLA'),
-            bed=bed, out_dir=kw.get('OUT', '.'))
+            bed=bed, out_dir=kw.get('OUT', '.'),
+            mode=kw.get('MODE', 'grow'))
         print('[ok] %s: %d label(s) %dx%d grid, %d layers, tower %s'
               % (info['file'], info['count'], info['cols'], info['rows'],
                  info['layers'], 'on' if info['tower'] else 'off'))

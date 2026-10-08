@@ -1453,3 +1453,62 @@ beim naechsten Boot/Watcher-Restart: Datei-Infos erscheinen jetzt auch waehrend 
 laeuft (statt erst Minuten danach). HINWEIS LANGFRISTIG: Der echte Flaschenhals bleibt der Host
 (eigenes HOST_CHECK-Urteil: SWAPPING) - der Pi Zero swappt 132MB; wer den RAM entlastet (siehe
 HOST_CHECK-Empfehlungen), macht ALLES schneller, nicht nur die Datei-Infos.
+
+R99 (Feld-Log .75) — Generator-Dateiinfos + Label-Modi (User-Wunsch nach .75-Tests)
+USER-AUFTRAG (4 Teile): (1) Label-Groesse: entweder Label passt sich an Text an (Schriftgroesse
+bestimmt minimale Label-Breite/-Hoehe als unterstes Limit in den Groessen-Einstellungen; in die
+Auto-Breite gehoeren Loch + Zeichenabstaende + Loch-Text-Abstand + Raender) ODER Text passt sich
+an fixe Labelgroesse an (skaliert auf korrekte Breite/Hoehe). (2) Menuepunkte "Preview fit" /
+"Fit" unverstaendlich. (3) Immer mit dem Brim BEGINNEN, wenn Brim gewaehlt (sonst zwecklos).
+(4) Alle verwendeten Features korrekt taggen (TYPES).
+
+BEFUNDE: (a) Labels/Litho/Siegel schreiben eigene _FILE_INFO+TYPES, Bridge ruft process() auf
+sich selbst auf - aber FRAME/KABELBINDER/WINKEL tragen nur TAG: der Watcher-Scan ueberspringt
+sie, _FILE_INFO/TYPES fehlten komplett -> Pre-Print-Dateiinfo + Feature-Aktivatoren LEER fuer
+generierte Dateien. (b) Rahmen-Strukturfronten taggten ';TYPE:Top surface infill' - nicht in der
+TYPE-Map -> APPLY_TYPE TYPE=CUSTOM statt SURFACE-TOP. (c) Brim-zuerst war bereits ueberall
+ordnungsgemass (Labels/Ties/Bridge/Resonanz/Litho drucken Brim als Erstes im ersten Layer;
+Frames seit R97; Range seit R94; Winkel/Siegel haben keinen Brim). (d) Label-Fit existierte
+(R80/R83: Auto-Grow + Fit-Preview), war aber nicht als klarer Zwei-Modi-Schalter erkennbar.
+
+FIXES (r2_postproc.py, Marker 'R99 (field log .75)'):
+1. _FILE_INFO+TYPES fuer make_cable_ties / make_frame / make_angles (Labels-Muster, in hdr vor
+   PRINT_START): MATERIAL, LAYER_HEIGHT, TOTAL_LAYERS, LINE_WIDTH(+FIRST/WALL), NOZZLE,
+   WALL_LOOPS, SPEED_* (real gemessen: Frame A 40/40/45/25 + IRONING 10; Ties 40/30/45/25;
+   Angles 40/40/45/25), TYPES (BRIM nur wenn Brim an; Frame-Platte A: BRIM,WALL-INNER,
+   WALL-OUTER,SURFACE-BOTTOM,INFILL-SOLID,SURFACE-TOP,+BRIDGE bei SIDE,+IRONING bei IRON-Front;
+   Platte B ohne IRONING; Winkel: keine BRIM-Zeile, IRONING nur wenn an).
+2. Frame ';TYPE:Top surface infill' -> ';TYPE:Top surface' (mappt jetzt auf SURFACE-TOP).
+3. Label-Modi: make_labels/label_preview mode='grow'/'fixed' - GROW (Default) wie bisher
+   (Label waechst bis die Schriftgroesse passt, W/H sind Minima), FIXED = Label bleibt W/H,
+   Schrift skaliert (font_size wird Obergrenze, 0 = maximal). Watcher liest label_mode bei Gen
+   UND Fit; CLI --label MODE=, GEN_LABELS MODE=GROW|FIXED.
+4. LCD: neues Settings-Item "Mode: GROW/FIXED" (mit Erklaerungs-RESPOND), W/H-Eingaben mit
+   DYNAMISCHER Untergrenze (label_min_w/label_min_h - wird vom Fit-Handler gepusht: benoetigte
+   Groesse bei gesetzter Schriftgroesse im GROW-Modus, sonst 20/15 Standard), "Preview fit?"
+   heisst jetzt "Calc fit" (Trockenlauf-Erklaerung), Job-"Fit" re-calculiert statt nur anzuzeigen,
+   Stroke-Erklaerung wanderte zum Stroke-Item, How-it-works-Texte auf Zwei-Modi-Modell.
+
+VERIFIKATION (empirisch): Frame A TYPES=BRIM,...,IRONING / B ohne IRONING; Ties BRIM nur mit
+brim=True; Angles IRONING nur mit ironing=True; LINES-Front 4x ';TYPE:Top surface', 0 Reste.
+GROW: 60x30@cap8 -> 86x30 grown; FIXED: bleibt 60x30, cap 5.4; preview min_w/min_h nur im
+GROW-Modus (86/30), im FIXED None.
+
+TESTS: 1206 -> 1213/1213 (7 neue R99: Frame-_FILE_INFO je Plate, Strukturfront-SURFACE-TOP,
+Ties-BRIM-Bedingung, Angles-TYPES, GROW-vs-FIXED, Preview-min-nur-GROW, Mode-Wiring
+Watcher/CLI/Menu/Makro). 5 alte Tests angepasst: R83 Preview fit?->Calc fit, 3x R90.1b
+Top-surface-infill->Top-surface, R82 Stroke-Erklaerung jetzt im Stroke-Item. GOLDEN: 23/23.
+Bump .76->.77 nach Schema (01_state, make_manual_pdf 4x+Build-Msg, INSTALL 3x, Test-Name+
+Erwartung, Changelog .77 in MD+PDF). PDF: 90 Seiten, MD5 911442c7d3591055cd292990faa3a5b4.
+
+RELEASE .77: klipper-e3-r2d2-UPDATE-R2-2026-09-07.77.zip, 43 Dateien (Liste identisch zu .74-.76),
+zipfile -t OK, Frisch-Entpackung byte-identisch 43/43. ZIP MD5 9fed2feb0f1eae32eb0b5cb7a9afc31b
+(1100699 B). MANUAL.pdf im ZIP == Workspace-PDF (MD5 911442c7..., 90 S.). FELD-SIMULATION
+.76->.77 (eigenes HOME, 17 Includes): 'installed: R2-2026-09-07.76' -> 'package version:
+R2-2026-09-07.77' -> '== done. Happy printing! =='; R99-Marker + label_mode-Menue im Sim-Paket
+verifiziert. Alte ZIPs unangetastet.
+MIGRATION FUER USER: .77-ZIP hochladen, update.sh - wenn .76 NOCH NICHT installiert wurde, direkt
+auf .77 springen (enthaelt den .76-Watcher-Fix). Danach: frisch generierte Dateien (Rahmen,
+Kabelbinder, Winkel) zeigen jetzt volle Datei-Infos + Feature-Schalter im Pre-Print; alte
+generierte Dateien haben weiterhin keine (nur Neu-Generierung hilft). Labels: Mode GROW/FIXED im
+Settings-Menue, "Calc fit" setzt im GROW-Modus die W/H-Untergrenzen auf die benoetigte Groesse.
