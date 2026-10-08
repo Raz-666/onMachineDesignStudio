@@ -1744,3 +1744,44 @@ TESTS: Suite 1226/1226, Golden 23/23 (unveraendert - dieses Round aenderte
 kein .py/.cfg ausser Doku + die beiden Shell-Scripts). KEIN neues Release:
 .80 wartet auf Feldtest; setup.sh + COMPATIBILITY.md reiten mit .81 (setup.sh
 ist standalone: scp/Mainsail-Upload in den Paketordner genuegt).
+
+# FELDLOG .80 (erster Eindruck, 8. Okt. abends) - Pi GESUND, HOST_CHECK-Verdict feuert zu laut
+
+KONTEXT: User testet .80 im Feld ("bisher lief der Pi ohne Probleme"). Erster Log
+per Mainsail-Konsole, ca. 06:51-07:02, inkl. FIRMWARE_RESTART.
+
+STAND .80: Build 2x bestaetigt (17 Module, auch nach Restart sauber). FILE_CHECK:
+70 Dateien - 66 current, 0 old, 0 untouched, 4 plotter (der neue Watcher hat beim
+Boot alles auf .80-Stand gebracht, keine Altdaten). Litho-Liste (AxtBunny.png)
+beim Boot gepusht. KEIN Fehler im ganzen Log.
+
+HOST_CHECK 4x (Pi Zero 2 W-Klasse: 4 Kerne, 354MB sichtbarer RAM, 767MB Swap):
+- RAM 107-123MB frei; swap 93MB(1min) -> 109(4min) -> 109(6min) -> 109(10min)
+  = Boot-Druck, dann STEIN-STABIL, kein Wachstum
+- Throttle: NONE; load 0.26-0.85; CPU 38-40'C; kswapd0 nur 1-2%
+- Top RAM: python 47+39 (klipper+moonraker), python3 10+10, systemd 5
+- Top SWAP: python3 66MB, python 22MB, nginx 7, polkitd 1, ModemManager 1
+- Services: nur klipper+moonraker an (avahi/crowsnest/sonar/octoeverywhere/
+  pigpiod aus) - ModemManager laeuft noch (setup.sh wuerde ihn anbieten)
+
+INTERPRETATION: Die 109MB sind KALT geparkte Seiten (Boot: klipper-Start 49% CPU
++ Watcher-Scan ueber 70 Dateien; Sandbox-Messung R103: Watcher-Peak 54.7MB -
+das python3 66MB im Swap ist mit hoher Wahrscheinlichkeit genau der Boot-Scan-
+Rest, RAM-Footprint danach 10MB). Kein Throttle, keine Last, kein kswapd-Sturm,
+kein einziges 'Timer too close' -> kein aktives Swapping, der Pi ist gesund.
+
+BEFUND (echt, R104-Saat): _host_verdict (r2_postproc.py ~5746, gebaut R78 nach
+dem .61-Log mit 187MB WACHSENDEM Swap) schlaegt ab 30MB Swap-NUTZUNG Alarm
+('Verdict: SWAPPING ... Timer too close' + M117 + r2_error), ohne die AKTIVITAET
+zu pruefen. Auf dem gesunden Feld-Pi feuert das bei jedem Check falsch ->
+Alarm-Fatigue. R104-Fix: Aktivitaet messen (/proc/vmstat pswpin/pswpout-Delta
+oder vmstat si/so) und unterscheiden: 'OK - XMB ruhig im Swap geparkt (kalt,
+harmlos)' vs. 'SWAPPING (aktiv!)' nur bei echtem Umschichten.
+
+NOTIZ: User fuehrte 06:58 _INIT_DEFAULTS aus (alle Variablen auf Defaults) -
+Rueckfrage an ihn, ob Absicht (falls Versehen: Label-/Plotter-Einstellungen etc.
+sind zurueckgesetzt).
+
+OFFEN: R104-Entscheidung (HOST_CHECK-Aktivitaetsverdict + P1/P2 aus
+COMPATIBILITY.md: PRINT_END Y228 klemmen, Y190-Parks, optional wipe_x/y,
+megatest --bed). setup.sh im Feld noch nicht gelaufen (User testet erst .80).
