@@ -3658,8 +3658,8 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         _v66 = _l66.split(':', 1)[1].strip()
         break
 # NOTE: bump this expectation together with the version on every release!
-tests.append(('R66/R79 version is .79 in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-09-07.79'", repr(_v66)))
+tests.append(('R66/R80 version is .80 in 01_state.cfg (bump together with release!)',
+    _v66 == "'R2-2026-09-07.80'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -8468,6 +8468,37 @@ tests.append(('R101 source: top/bottom wiring (params, watcher, macro, menu) + b
     and 'frame_top_l' in _mnu101 and 'frame_bot_l' in _mnu101
     and 'input_min: 5' in _mnu101
     and 'frame_top_l' in _gen101, ''))
+
+# ---------- R102 (megatest): plot DRAW y-scaling + frame BRIDGE tag ----------
+# The megatest sweep (tools/megatest.py - 101 runs, 91 files, every generator
+# at its parameter extremes) found two real bugs:
+#  (a) plot_convert DRAW mode scaled the scanline y by the PIXEL height -
+#      small images exploded past the bed (48px -> y up to +1500mm), big
+#      photos silently squashed to ~72mm. Stipple mode was correct.
+#  (b) every frame file tags ;TYPE:Bridge (the photo shelf bands) but TYPES=
+#      only listed BRIDGE for SIDE closure - the activator for BRIDGE was
+#      never offered on normal frames.
+_pl102 = _os99.path.join(tempfile.mkdtemp(), 'r102.png.gcode')
+# build a small 48x48 test image (the case that exploded) and convert it
+_img102 = _os99.path.join(tempfile.mkdtemp(), 'r102.png')
+open(_img102, 'wb').write(_png100(48, 48, lambda x, y: 40 if abs(x - y) < 6 else 220))
+_n102 = _pp.plot_convert(_img102, var_path=None, out=_pl102)
+_ys102 = [float(m.group(1)) for m in _re862.finditer(
+    r'G[01] X[-\d.]+ Y([-.\d]+)', open(_pl102, encoding='utf-8').read())]
+tests.append(('R102 plot: small image DRAW conversion stays inside the plot bed '
+              '(was: y up to +1500mm past the bed)',
+    _n102[0] >= 1 and _ys102 and 4.5 <= min(_ys102) and max(_ys102) <= 233.5,
+    'y range %.1f..%.1f' % (min(_ys102) if _ys102 else -1,
+                            max(_ys102) if _ys102 else -1)))
+_fi102 = _pp.make_frame(preset='9x13', out_dir=tempfile.mkdtemp())
+_ft102 = _fi102[0] if isinstance(_fi102[0], str) else _fi102[0][0]
+_fh102 = open(_ft102, encoding='utf-8').read()
+tests.append(('R102 frame: TYPES lists BRIDGE (the shelf bands tag it in every file)',
+    'BRIDGE' in _fh102.split('TYPES=')[1].split()[0], ''))
+_src102 = open('tools/r2_postproc.py').read()
+tests.append(('R102 source: yv scales by line count + plot bed guard',
+    'yv = k * bh / nlines' in _src102
+    and 'plot geometry %.0fx%.0fmm exceeds the plot bed' in _src102, ''))
 
 fails = 0
 for name, ok, info in tests:

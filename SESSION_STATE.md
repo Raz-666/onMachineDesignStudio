@@ -1599,3 +1599,70 @@ frame_bot_l-Menue (2x) im Sim-Paket.
 USER-HINWEIS: Alte FRAME-Dateien neu generieren. Neue LCD-Settings: Frames > Settings > Infill
 jetzt ab 5%, "Top" (auto/1-15) und "Bottom" (Default 2, 0=wie bisher). Konsolen-Parameter:
 GEN_FRAME ... INFILL=5 TOP_L=3 BOT_L=2. Duennere Fuellung = deutlich schnellere Rahmendoerfe.
+
+
+# Round 102 (.79-Gesamttest): HARDCORE-SYSTEMTEST - Megatest-Sweep, Live-Watcher-
+Haertetest, 2 echte Bugs gefunden und gefixt (plot-Skalierung, frame-TYPES)
+
+USER-AUFTRAG: intensiver Gesamttest des kompletten Systems (alle Funktionen,
+Einstellmoeglichkeiten, Parameter, Tools, Makros - "richtig hardcore", soweit
+als Python-Tools testbar). Der Sweep schreibt ~100 MB G-Code in ein Temp-Dir
+und raeumt es in JEDEM Exit-Pfad weg (atexit/rmtree - der erste Sandbox-Lauf
+fuellte /tmp; auf einem Pi mit Ramdisk-/tmp waere das nach wenigen Laeufen
+voll gewesen).
+
+BAUSTEIN 1 - BASELINE: macro_render_test 1223/1223, r81_golden 23/23,
+r91_simulate alle, audit_sweep 59 Dateien 0 FAIL.
+
+BAUSTEIN 2 - MEGATEST (neu, dauerhaft tools/megatest.py, standalone, Exit 0=ok):
+~100 Extremkombinationen aller Generatoren - frame (alle Presets/OVAL/disc/
+cable/KIT/stand/FLIP/Fronten), labels (5 Fonts, GROW/FIXED, Loch, 24er-Queue),
+ties, angles, bridge, seal, litho, resonance, range, texture (FUZZY/BUMPS x4),
+plot - mit Invarianten-Checker je Datei (Bett, z-monoton, EXCLUDE-/G10-G11-
+Balance, E/F-Plausibilitaet, kein NaN, TYPES-Ehrlichkeit, APPLY_TYPE-Abdeckung,
+PRINT_START/END, M83) plus Idempotenz-Rerun und 17 expect_error-Faellen
+(ungueltige Extremwerte, bewusst abgewiesen). PEN-Plot-Dateien im eigenen Modus
+(Plot-Bett 5,5,239,233). Ergebnis: 101 Runs, 91 Dateien, 0 FAIL.
+
+BAUSTEIN 3 - LIVE-WATCHER-HAERTETEST (eigenes Dir, 18 ueble Dateien: 12
+Slicer-Mixe inkl. CRLF, Binaermuell, 0-Byte, Zukunftsmtime, Unicode-Name,
+40x40-PNG, txt): alles sauber verarbeitet; Nonces waehrend des Catch-up
+(preview/label/fit/frame) alle bedient; Nachtrag.gcode im Betrieb verarbeitet;
+Restart-Beweis: "0 processed, 24 already tagged, 0 errors" (kein Re-Convert).
+Live-Invariantencheck aller erzeugten Dateien gruen.
+
+BUG 1 (echt, gefixt): plot_convert DRAW skalierte Scanlines mit der PIXELHOEHE
+(yv = k*bh/h) statt der Zeilenanzahl - kleine Bilder explodierten uebers Bett
+(48px -> Y -631..+870 mm), grosse Fotos wurden still auf ~72 mm gestaucht.
+Fix: yv = k*bh/nlines + finaler Bett-Guard nach der Transformation (ValueError
+'plot geometry ... exceeds the plot bed'). Stipple war korrekt.
+
+BUG 2 (echt, gefixt): frame TYPES - die Shelf-Baender taggen ;TYPE:Bridge in
+JEDER Rahmen-Datei, gelistet wurde BRIDGE aber nur bei closure=SIDE. Fix:
+['BRIDGE'] if (want_frame and not kit) - KIT-Strips haben kein Shelf.
+
+TESTS: 1223 -> 1226/1226 (+3 R102: plot 48px-Bild im Plot-Bett, frame TYPES
+enthaelt BRIDGE, Source-Strings yv-Fix+Guard). GOLDEN 23/23 (unberuehrt - die
+Fixes betreffen nur plot/frame, keine Golden-Dateien). AUDIT 59/0 FAIL, R91-SIM
+ok, MEGATEST aus dem Repo 101 Runs/91 Dateien/0 FAIL. Bump .79->.80 nach
+Schema (01_state, INSTALL 3x, make_manual_pdf 4x, MANUAL.md Changelog .80:
+zwei Bugs + tools/megatest.py als neues Werkzeug).
+
+RELEASE .80: klipper-e3-r2d2-UPDATE-R2-2026-09-07.80.zip, 44 Dateien (.79-Liste +
+tools/megatest.py), zipfile -t OK, Frisch-Entpackung byte-identisch 44/44. ZIP MD5
+d6864aa1a956eeb34a42abf31f7938bf (1118963 B). MANUAL.pdf (91 S., MD5 180d1094...)
+== Workspace. FELD-SIM .79->.80 sauber ('installed: R2-2026-09-07.79' ->
+'package version: R2-2026-09-07.80' -> '== done. Happy printing! =='); R102-Marker
+im Sim-Paket verifiziert (megatest.py inkl. atexit-Cleanup, yv-Fix, BRIDGE-TYPES);
+MEGATEST IM SIM-PAKET: 101 Runs, 91 Dateien, 0 FAIL. SESSION_STATE im ZIP endet
+wie ueblich beim Bump-Satz (RELEASE-Block wie immer erst nach dem Zippen im
+Workspace nachgetragen).
+USER-HINWEIS: Update wie immer (ZIP in den Config-Ordner, bash
+klipper-e3-r2d2/update.sh) - kein neuer Include, Null-Touch. Neu im Paket:
+tools/megatest.py (optionaler Hardcore-Selbsttest, ~35 s, Exit 0 = ok, raeumt
+sein ~100-MB-Tempdir in jedem Exit-Pfad weg - gerade wichtig, wenn /tmp auf
+dem Pi eine Ramdisk ist). Verhalten aendert sich nur fuer (1) Pen-Plotter-
+Konvertierungen (kleine Bilder skalierten falsch: <100 px Pixelhoehe
+explodierten uebers Bett, grosse Fotos wurden still gestaucht - jetzt korrekt
+plus Bett-Guard) und (2) Rahmen-Dateiinfos listen BRIDGE ehrlich. Betroffene
+alte Plot-Dateien ggf. neu wandeln lassen.

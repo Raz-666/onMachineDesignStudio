@@ -1,0 +1,389 @@
+#!/usr/bin/env python3
+"""R102 MEGATEST: hardcore sweep over EVERY generator, tool and parameter.
+
+Levels beyond audit_sweep.py:
+  - ~100 extreme parameter combinations (all generators, all modes)
+  - every emitted file: bed bounds, z monotonic, EXCLUDE balance,
+    G10/G11 retract balance, E/F plausibility, no NaN/inf,
+    _FILE_INFO + TYPES present, ;TYPE: honesty (every tagged feature
+    must appear in TYPES=), APPLY_TYPE coverage, PRINT_START/END, M83
+  - multi-plate generators: EVERY plate checked
+  - idempotency: a second process() run must skip (TAG guard)
+  - expect-error runs: invalid parameters MUST raise ValueError
+  - range excerpts + texture outputs + plot conversions checked too
+Exit 0 = everything held.
+"""
+import atexit
+import math
+import os
+import re
+import shutil
+import struct
+import sys
+import tempfile
+import time
+import zlib
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import r2_postproc as pp  # noqa: E402
+
+BED = (0.0, -3.0, 220.0, 217.0)
+CANON = {k.strip().lower(): v for k, v in pp.TYPE_MAP.items()}
+D = tempfile.mkdtemp(prefix='megatest_')
+# a full sweep writes ~100 MB of g-code - NEVER leave that behind (a Pi
+# often runs /tmp as a ramdisk; leftover dirs filled it up on the first
+# sandbox run). rmtree on every exit path, failures included.
+atexit.register(lambda: shutil.rmtree(D, ignore_errors=True))
+runs = 0
+files_checked = 0
+fails = []
+info = []
+
+
+def check_gcode(name, path, bed=BED, skip_idem=False, extra_types=(), plot=False):
+    """all invariants; returns list of problems."""
+    global files_checked
+    files_checked += 1
+    probs = []
+    try:
+        txt = open(path, encoding='utf-8', errors='replace').read()
+    except OSError as e:
+        return ['unreadable: %r' % e]
+    lines = txt.split('\n')
+    # -- bed bounds (G0+G1 with X/Y)
+    for m in re.finditer(r'^G[01] X([-\d.]+) Y([-\d.]+)', txt, re.M):
+        x, y = float(m.group(1)), float(m.group(2))
+        if not (bed[0] - 0.5 <= x <= bed[2] + 0.5
+                and bed[1] - 0.5 <= y <= bed[3] + 0.5):
+            probs.append('out of bed: X%.1f Y%.1f' % (x, y))
+            break
+    # -- z monotonic
+    zs = [float(m.group(1)) for m in re.finditer(r'^;Z:([-\d.]+)', txt, re.M)]
+    if any(b < a - 1e-9 for a, b in zip(zs, zs[1:])):
+        probs.append('z not monotonic (%d steps)' % len(zs))
+    # -- EXCLUDE balance
+    starts = re.findall(r'^EXCLUDE_OBJECT_START NAME=(\S+)', txt, re.M)
+    ends = re.findall(r'^EXCLUDE_OBJECT_END NAME=(\S+)', txt, re.M)
+    if sorted(starts) != sorted(ends):
+        probs.append('EXCLUDE unbalanced (%d/%d)' % (len(starts), len(ends)))
+    for nm in set(starts):
+        if ('EXCLUDE_OBJECT_DEFINE NAME=%s' % nm) not in txt:
+            probs.append('EXCLUDE %s never defined' % nm)
+            break
+    # -- retract balance
+    n_g10 = len(re.findall(r'^G10\b', txt, re.M))
+    n_g11 = len(re.findall(r'^G11\b', txt, re.M))
+    if n_g10 != n_g11:
+        probs.append('retract unbalanced: %d G10 vs %d G11' % (n_g10, n_g11))
+    # -- E / F plausibility + NaN/inf
+    e_max = 0.0
+    for m in re.finditer(r'^G1 X[^\n]*? E([-\d.]+)', txt, re.M):
+        e = float(m.group(1))
+        if e < -0.001 or e > 20.0:
+            probs.append('E out of range: %.2f' % e)
+            break
+        e_max = max(e_max, e)
+    for m in re.finditer(r'F(\d+)', txt):
+        f = float(m.group(1))
+        if not (0 < f <= 12000):
+            probs.append('F out of range: %.0f' % f)
+            break
+    if re.search(r'\b(nan|inf)\b', txt, re.I):
+        probs.append('nan/inf in file')
+    # -- _FILE_INFO + TYPES honesty (print files only)
+    fi = None
+    if plot:
+        fi = 'plot'
+    for l in lines[:200]:
+        if l.startswith('_FILE_INFO'):
+            fi = l
+            break
+    types_hdr = set()
+    if not plot:
+        for l in lines[:200]:
+            if l.startswith('_FILE_INFO'):
+                fi = l
+                break
+        if not fi:
+            probs.append('no _FILE_INFO')
+        else:
+            m = re.search(r'TYPES=(\S+)', fi)
+            if m:
+                types_hdr = set(m.group(1).split(','))
+            else:
+                probs.append('_FILE_INFO without TYPES=')
+    types_hdr |= set(extra_types)
+    seen_types = set()
+    for l in lines:
+        if l.startswith(';TYPE:'):
+            key = l[6:].strip().lower()
+            seen_types.add(CANON.get(key, 'CUSTOM'))
+    if not plot and seen_types and not seen_types <= types_hdr:
+        probs.append('TYPES dishonest: tagged %s not in header %s'
+                     % (sorted(seen_types - types_hdr), sorted(types_hdr)))
+    n_ty = len(re.findall(r'^;TYPE:', txt, re.M))
+    n_ap = len(re.findall(r'^APPLY_TYPE ', txt, re.M))
+    if n_ty and n_ap < n_ty:
+        probs.append('APPLY_TYPE coverage: %d TYPE vs %d APPLY_TYPE' % (n_ty, n_ap))
+    # -- frame of the file (plotter files are PEN files - no print frame)
+    if not plot:
+        if 'PRINT_START' not in '\n'.join(lines[:80]):
+            probs.append('no PRINT_START in head')
+        if 'PRINT_END' not in '\n'.join(lines[-40:]):
+            probs.append('no PRINT_END in tail')
+        if not re.search(r'^M83\b', txt, re.M):
+            probs.append('no M83 (relative E)')
+    else:
+        if '; R2-PLOT' not in txt:
+            probs.append('no R2-PLOT header')
+        if '_PLOT_START' not in txt:
+            probs.append('no _PLOT_START')
+    # -- idempotency: second process() must skip
+    if not skip_idem:
+        try:
+            s = pp.process(path)
+            if not s.get('skipped'):
+                probs.append('NOT idempotent (2nd process() did not skip)')
+        except Exception as e:                     # noqa: BLE001
+            probs.append('2nd process() raised %r' % e)
+    for p in probs:
+        fails.append((name, p))
+    return probs
+
+
+def run(name, fn, **kw):
+    global runs
+    runs += 1
+    t0 = time.time()
+    try:
+        ret = fn()
+    except Exception as e:                          # noqa: BLE001
+        fails.append((name, 'GENERATOR RAISED %r' % e))
+        return None
+    paths = ret[0] if isinstance(ret, tuple) else ret
+    if isinstance(paths, str):
+        paths = [paths]
+    if paths is None:
+        fails.append((name, 'no output path'))
+        return None
+    for p in paths:
+        check_gcode('%s [%s]' % (name, os.path.basename(p)), p, **kw)
+    info.append('%-58s %2d file(s) %5.1fs' % (name, len(paths), time.time() - t0))
+    return paths
+
+
+def expect_error(name, fn):
+    global runs
+    runs += 1
+    try:
+        fn()
+        fails.append((name, 'expected ValueError, got NONE'))
+    except ValueError:
+        pass
+    except Exception as e:                          # noqa: BLE001
+        fails.append((name, 'expected ValueError, got %r' % e))
+
+
+def png(w, h, gray):
+    def chunk(t, d):
+        return struct.pack('>I', len(d)) + t + d + struct.pack(
+            '>I', zlib.crc32(t + d) & 0xffffffff)
+    rows = b''
+    for y in range(h):
+        rows += b'\x00' + bytes(int(round(gray(x, y))) & 0xff for x in range(w))
+    return (b'\x89PNG\r\n\x1a\n'
+            + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 0, 0, 0, 0))
+            + chunk(b'IDAT', zlib.compress(rows))
+            + chunk(b'IEND', b''))
+
+
+# ============================================================ FRAMES ======
+F = lambda **kw: pp.make_frame(bed=BED, out_dir=tempfile.mkdtemp(dir=D), **kw)
+run('frame 9x13 default', lambda: F(preset='9x13'))
+run('frame 9x13 depth3 minimal', lambda: F(preset='9x13', depth=3))
+run('frame 9x13 depth60 CASE', lambda: F(preset='9x13', depth=60))
+run('frame 9x13 border4 corner30', lambda: F(preset='9x13', frame_w=4, corner=30))
+run('frame 9x13 border30 corner0', lambda: F(preset='9x13', frame_w=30, corner=0))
+run('frame 10x15 (multi)', lambda: F(preset='10x15'))
+run('frame 13x18 stand', lambda: F(preset='13x18', stand=True))
+run('frame A6 OVAL', lambda: F(preset='A6', shape='OVAL'))
+run('frame A6 OVAL depth18 CASE', lambda: F(preset='A6', shape='OVAL', depth=18))
+run('frame SIDE closure', lambda: F(preset='9x13', closure='SIDE'))
+run('frame hang all 4', lambda: [F(preset='9x13', hang=h)[0] for h in
+                                 ('TOP', 'BOTTOM', 'LEFT', 'RIGHT')])
+run('frame FLIP front', lambda: F(preset='9x13', front='FLIP'))
+run('frame LINES IN', lambda: F(preset='9x13', front='LINES', s_dir='IN'))
+run('frame WAVES OUT amp2', lambda: F(preset='9x13', front='WAVES', s_amp=2.0))
+run('frame HEX', lambda: F(preset='9x13', front='HEX'))
+run('frame infill5 top1 bot0', lambda: F(preset='9x13', infill=5.0, top_layers=1,
+                                         bottom_layers=0))
+run('frame infill100 top15 bot15', lambda: F(preset='9x13', infill=100.0,
+                                             top_layers=15, bottom_layers=15))
+run('frame disc GLASS front', lambda: F(preset='9x13', disc='GLASS', disc_t=2.0))
+run('frame disc PLEXI back', lambda: F(preset='9x13', disc='PLEXI',
+                                       disc_side='BACK'))
+run('frame disc FOIL', lambda: F(preset='9x13', disc='FOIL', disc_t=0.4))
+run('frame disc LITHO back case', lambda: F(preset='9x13', depth=18, disc='LITHO',
+                                            disc_side='BACK'))
+run('frame cable CASE', lambda: F(preset='9x13', depth=20, frame_w=6, cable=True))
+run('frame KIT (40x200)', lambda: F(width=40, height=200, depth=6, frame_w=6))
+run('frame KIT stand vers99', lambda: F(width=40, height=200, depth=6, frame_w=6,
+                                        stand=True, version=99))
+expect_error('frame 230x230 rejected (even strips exceed bed)',
+             lambda: F(width=230, height=230, frame_w=8))
+expect_error('frame OVAL oversized rejected', lambda: F(shape='OVAL', width=210,
+                                                        height=210))
+run('frame no ironing', lambda: F(preset='9x13', ironing=False))
+run('frame layer_h 0.12 first 0.08', lambda: F(preset='9x13', layer_h=0.12,
+                                               first_h=0.08))
+expect_error('frame infill 2 rejected', lambda: F(preset='9x13', infill=2.0))
+expect_error('frame depth 61 rejected', lambda: F(preset='9x13', depth=61))
+expect_error('frame border 3 rejected', lambda: F(preset='9x13', frame_w=3))
+expect_error('frame custom 300 rejected', lambda: F(width=300, height=200))
+
+# ============================================================ LABELS ======
+L = lambda **kw: pp.make_labels(bed=BED, out_dir=tempfile.mkdtemp(dir=D), **kw)
+for font in ('SMOOTH', 'MONO', 'COND', 'NARROW', 'CAPS'):
+    run('label %s grow auto' % font, lambda f=font: L(texts=['R2-D2'], font=f))
+run('label 5 lines', lambda: L(texts=['A~B~C~D~E']))
+run('label fixed 60x30', lambda: L(texts=['WERKSTATT'], w=60, h=30, mode='fixed'))
+run('label fixed size40', lambda: L(texts=['X'], w=120, h=90, font_size=40,
+                                    mode='fixed'))
+run('label grow size2 (floor)', lambda: L(texts=[' klein '], font_size=2))
+run('label spacing10 stroke4', lambda: L(texts=['B R E I T'], spacing=10,
+                                         stroke=4))
+run('label stroke nozzle single-line', lambda: L(texts=['dünn'], stroke=0.42))
+for side in (1, 2, 3, 4):
+    run('label hole side %d' % side, lambda s=side: L(texts=['LOCH'],
+                                                      hole_side=s))
+run('label hole_d 2.5 / 16', lambda: [L(texts=['D2.5'], hole_d=2.5)[0],
+                                      L(texts=['D16'], hole_d=16)[0]])
+run('label 24 queue (max)', lambda: L(texts=['N%d' % i for i in range(24)],
+                                    w=30, h=15))
+expect_error('label 24x 80x40 5-line rejected (bed)', lambda: L(
+    texts=['L%d~ZEILE~MIT~F~ZEILEN' % i for i in range(24)], w=80, h=40))
+run('label 24x 30x15 5-line fits', lambda: L(
+    texts=['%d~A~B~C~D' % i for i in range(24)], w=30, h=15))
+run('label 2-line multi unknown chars', lambda: L(
+    texts=['ÄÖÜ~ß?!', 'MI~XED'], hole_side=1))
+run('label no color2 no ironing no brim', lambda: L(
+    texts=['SOLO'], color2=False, ironing=False, brim=False))
+run('label tiny 12x10', lambda: L(texts=['X'], w=12, h=10, mode='fixed'))
+expect_error('label 240x220 rejected (bed)', lambda: L(texts=['GROSS'], w=240,
+                                                        h=220, font_size=40))
+run('label layer 0.06/0.42', lambda: L(texts=['FLAT'], layer_h=0.06, first_h=0.42))
+expect_error('label empty text', lambda: L(texts=['   ']))
+expect_error('label only spaces line', lambda: L(texts=['~ ~ ~']))
+expect_error('label 25 queue', lambda: L(texts=['N%d' % i for i in range(25)]))
+
+# ======================================================== CABLE TIES ======
+T = lambda **kw: pp.make_cable_ties(bed=BED, out_dir=tempfile.mkdtemp(dir=D), **kw)
+run('ties CLASSIC default', lambda: T())
+run('ties LOOP default', lambda: T(variant='LOOP'))
+run('ties CLASSIC no brim', lambda: T(brim=False))
+run('ties LOOP 6x long180', lambda: T(variant='LOOP', count=6, length=180))
+expect_error('ties 12x300 rejected', lambda: T(variant='LOOP', count=12, length=300))
+expect_error('ties 30mm rejected', lambda: T(count=2, length=30))
+run('ties 1 layer / 8 layers', lambda: [T(count=2, layers=1)[0],
+                                        T(count=2, layers=8)[0]])
+run('ties narrow 3mm short 50', lambda: T(count=3, width=3.0, length=50))
+
+# ========================================================== ANGLES ========
+A = lambda **kw: pp.make_angles(bed=BED, out_dir=tempfile.mkdtemp(dir=D), **kw)
+run('angle 90 default', lambda: A())
+run('angle 30 / 170', lambda: [A(angle_deg=30)[0], A(angle_deg=170)[0]])
+run('angle flat connector', lambda: A(flat=True))
+run('angle walls1 holes0', lambda: A(walls=1, holes=0))
+run('angle walls6 holes6 rib2', lambda: A(walls=6, holes=6, stiffener=2))
+run('angle ironing 4x', lambda: A(ironing=True, count=4))
+expect_error('angle 12x rejected (bed)', lambda: A(ironing=True, count=12))
+run('angle short legs 20mm', lambda: A(leg_a=20, leg_b=20, width=8, holes=1))
+
+# ========================================================== BRIDGE ========
+B = lambda **kw: pp.make_bridge(bed=BED, out_dir=tempfile.mkdtemp(dir=D), **kw)
+run('bridge default', lambda: B())
+run('bridge 40mm 60pct', lambda: B(length=40, short_pct=60))
+run('bridge 3 layers slow', lambda: B(bridge_layers=3, speed=10))
+run('bridge tall towers', lambda: B(h_long=45, h_short=30))
+expect_error('bridge 500mm', lambda: B(length=500))
+
+# ============================================================ SEAL ========
+S = lambda **kw: pp.make_seal(bed=BED, out_dir=tempfile.mkdtemp(dir=D), **kw)
+run('seal FLAT default', lambda: S())
+run('seal GROOVE', lambda: S(profile='GROOVE'))
+expect_error('seal 8mm rejected', lambda: S(od=8.0, id_=3.0))
+run('seal 120x90 ironing', lambda: S(od=120.0, id_=90.0, ironing=True))
+
+# ======================================================= LITHOPHANE =======
+img = os.path.join(D, 'test.png')
+open(img, 'wb').write(png(48, 48, lambda x, y:
+                           30 + 190 * (math.sin(x / 5.0) * math.cos(y / 7.0) + 1) / 2))
+LI = lambda **kw: pp.make_lithophane(img, bed=BED,
+                                     out_dir=tempfile.mkdtemp(dir=D), **kw)
+run('litho default', lambda: LI())
+run('litho levels8 no frame', lambda: LI(levels=8, frame=False))
+run('litho small 40mm no brim', lambda: LI(height_mm=40.0, brim_loops=0))
+run('litho ironing 0.12', lambda: LI(layer_h=0.12, ironing=True))
+
+# ======================================================= RESONANCE ========
+for ax in ('x', 'y'):
+    csv = os.path.join(D, 'resonances_%s_20261008.csv' % ax)
+    rows = ['freq,psd_hz,psd_nm']
+    for i in range(80):
+        f = 5.0 + i * 0.6
+        rows.append('%.2f,%.6f,%.6f' % (f, 1.0 / (1 + (f - 35) ** 2) * 10, 0.5))
+    open(os.path.join(D, csv), 'w').write('\n'.join(rows))
+R = lambda **kw: pp.make_resonance(bed=BED, out_dir=D, csv_dirs=[D], **kw)
+run('resonance both axes', lambda: R())
+run('resonance x only shaper', lambda: R(axes=('x',), mode='shaper'))
+
+# ====================================================== RANGE (excerpt) ===
+src = run('range source (vase-like)', lambda: F(preset='9x13'))
+src_path = [p for p in src if isinstance(p, str)][0] if src else None
+if src_path:
+    import shutil as _sh102
+    _rdir = tempfile.mkdtemp(dir=D)
+    _rsrc = os.path.join(_rdir, os.path.basename(src_path))
+    _sh102.copy(src_path, _rsrc)
+
+    def RG(a, b, **kw):
+        out = pp.make_range(_rsrc, a, b, **kw)
+        return out if isinstance(out, str) else out[0]
+    run('range mid 5-20', lambda: RG(5, 20))
+    run('range floor+top+brim', lambda: RG(2, 30, floor=4, top=4, brim=3))
+    run('range top-only 30-38', lambda: RG(30, 38, top=6))
+
+# ========================================================= TEXTURE ========
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import r2_texture as tx  # noqa: E402
+lbl = pp.make_labels(['TEXTUR'], bed=BED, out_dir=D)[0]
+run('texture FUZZY on label', lambda: tx.apply_texture(
+    lbl, mode='FUZZY', fuzzy_thick=0.3, fuzzy_density=55, out_dir=D), skip_idem=True)
+frm = pp.make_frame(preset='9x13', bed=BED, out_dir=D)[0]
+for pat in ('GRID', 'WAVES', 'HEX', 'MANDELBROT'):
+    run('texture BUMPS %s on frame' % pat, lambda p=pat: tx.apply_texture(
+        frm, mode='BUMPS', bump_pattern=p, bump_scale=6.0, bump_amp=0.5,
+        out_dir=D), skip_idem=True)
+
+# =========================================================== PLOT =========
+run('plot png convert', lambda: (pp.plot_convert(
+    img, var_path=None, out=os.path.join(D, 'plot_out.png.gcode')),
+    [os.path.join(D, 'plot_out.png.gcode')])[1],
+    bed=(5, 5, 239, 233), skip_idem=True, plot=True)
+txtf = os.path.join(D, 'notes.txt')
+open(txtf, 'w', encoding='utf-8').write('ÄÖÜ Test 123\nzweite Zeile\n~?!\n')
+run('plot txt convert', lambda: [pp.text_convert(txtf, var_path=None,
+    out=os.path.join(D, 'notes.txt.gcode'))[0]], bed=(5, 5, 239, 233),
+    skip_idem=True, plot=True)
+
+# ============================================================ RESULT ======
+print()
+for i in info:
+    print('  ', i)
+print()
+print('=' * 70)
+print('MEGATEST: %d runs, %d files checked, %d FAIL' % (runs, files_checked,
+                                                         len(fails)))
+for name, prob in fails:
+    print('  FAIL %-58s %s' % (name[:58], prob[:100]))
+sys.exit(1 if fails else 0)

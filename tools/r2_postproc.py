@@ -2408,7 +2408,12 @@ def plot_convert(path, var_path=None, out=None):
                     for r0, r1 in runs:
                         xa = r0 * bw / w
                         xb = r1 * bw / w
-                        yv = k * bh / h
+                        # R102 (megatest): was 'k * bh / h' - k counts SCAN
+                        # LINES (bh/spacing, e.g. 425) but divided by the
+                        # PIXEL height h. Small images exploded past the bed
+                        # (48px -> y up to 1500mm), big photos silently
+                        # squashed to ~72mm. Scale by the line count instead.
+                        yv = k * bh / nlines
                         pts = [(xa, yv), (xb, yv)]
                         if k % 2:
                             pts.reverse()
@@ -2490,6 +2495,19 @@ def plot_convert(path, var_path=None, out=None):
 
     def tr(p):
         return (cx_bed + (p[0] - cx_img) * sx, cy_bed + (p[1] - cy_img) * sy)
+
+    # R102 (megatest): final bed guard - the transformed drawing must live
+    # inside the plot bed, no matter what the input geometry produced
+    _gx0 = cx_bed + (min(gx) - cx_img) * sx
+    _gx1 = cx_bed + (max(gx) - cx_img) * sx
+    _gy0 = cy_bed + (min(gy) - cy_img) * sy
+    _gy1 = cy_bed + (max(gy) - cy_img) * sy
+    if (not (bmin_x - 0.5 <= _gx0 and _gx1 <= bmax_x + 0.5)
+            or not (bmin_y - 0.5 <= _gy0 and _gy1 <= bmax_y + 0.5)):
+        raise ValueError('plot geometry %.0fx%.0fmm exceeds the plot bed '
+                         '%g..%g x %g..%g - lower the size/scale'
+                         % (_gx1 - _gx0, _gy1 - _gy0, bmin_x, bmax_x,
+                            bmin_y, bmax_y))
 
     # ---------------- g-code output ----------------
     # R73: FILAMENT mode draws at a real layer height (plot_z_down/0 was a PEN
@@ -7989,7 +8007,7 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                             if (front in ('LINES', 'WAVES', 'HEX')
                                 or (front == 'FLIP' and bot_sol > 0 and not kit))
                             else [])
-                         + (['BRIDGE'] if closure == 'SIDE' else [])
+                         + (['BRIDGE'] if (want_frame and not kit) else [])
                          + (['IRONING'] if (ironing and front == 'IRON') else []))
         else:
             types_f99 = ['BRIM', 'WALL-INNER', 'WALL-OUTER', 'SURFACE-BOTTOM',
