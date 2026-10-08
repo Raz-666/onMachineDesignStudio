@@ -6818,8 +6818,15 @@ def _ring_hatch(outer, inner, spacing, angle_deg, notch=None, min_len=0.35):
     notch_poly = None
     if notch:
         notch_poly = _rect_loop(notch[0], notch[1], notch[2], notch[3])
-    segs = []
-    flip = False
+    # R101 (field log .78): the scanline chunks are grouped BY SIDE of the
+    # opening (bucket = how many gaps the chunk lies after) and each bucket
+    # runs its own boustrophedon. Before, the pure scanline order hopped to
+    # the far side of the opening on EVERY scanline - one long travel across
+    # the whole frame per line (slow, and the retracted crossings left fuzz
+    # at the edges). Now the travels stay INSIDE the band; exactly ONE
+    # crossing travel remains between the sides.
+    buckets = ([], [], [], [])
+    b_scan = [0, 0, 0, 0]
     t = -tmax
     while t <= tmax:
         ox, oy = mx + nx * t, my + ny * t
@@ -6847,18 +6854,23 @@ def _ring_hatch(outer, inner, spacing, angle_deg, notch=None, min_len=0.35):
         if cur < ov[1]:
             spans.append((cur, ov[1]))
         row = []
+        contributed = set()
         for s0, s1 in spans:
             if s1 - s0 < min_len:
                 continue
+            b_idx = sum(1 for g0, g1 in gaps if g1 <= s0 + 1e-9)
+            b_idx = min(b_idx, 3)
             p = (ox + dx * s0, oy + dy * s0)
             q = (ox + dx * s1, oy + dy * s1)
-            row.append((p, q) if not flip else (q, p))
-        if row:
-            if flip:
-                row.reverse()
-            segs.extend(row)
-            flip = not flip
+            if b_scan[b_idx] % 2:
+                buckets[b_idx].append((q, p))
+            else:
+                buckets[b_idx].append((p, q))
+            contributed.add(b_idx)
+        for b_idx in contributed:
+            b_scan[b_idx] += 1
         t += spacing
+    segs = buckets[0] + buckets[1] + buckets[2] + buckets[3]
     return segs
 
 
@@ -6905,7 +6917,13 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                material='PLA', bed=None, bed_margin=6.0, nozzle=0.6,
                out_dir='.', version=1, front='IRON', disc='NONE', disc_t=1.0,
                disc_side='FRONT', cable=False, s_deep=0.8, s_space=6.0,
-               s_angle=45.0, s_amp=1.2, s_size=8.0, s_dir='OUT'):
+               s_angle=45.0, s_amp=1.2, s_size=8.0, s_dir='OUT',
+               top_layers=0, bottom_layers=2):
+    # R101 (field log .78): top_layers = solid layers of the FRONT face
+    # (0 = auto, the classic ~1mm band) and bottom_layers = solid skin at
+    # the BACK face (0 = infill from layer 1 as before, default 2) - both
+    # independent of the front effect and of the print orientation (FLIP
+    # mirrors the band order, the solid skins stay on the geometric faces).
     # R90.1b: front = IRON (ironed, classic) / FLIP (bed texture as the visible
     # face - prints front-down) / LINES / WAVES / HEX (structured front band)
     # disc = disc insert (GLASS/PLEXI/FOIL/LITHO), disc_t thickness, FRONT
@@ -6960,8 +6978,11 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
         raise ValueError('frame border %.1fmm out of range (4..30)' % frame_w)
     if not (0.8 <= float(wall) <= 3.0):
         raise ValueError('wall thickness %.1fmm out of range (0.8..3)' % wall)
-    if not (20.0 <= float(infill) <= 100.0):
-        raise ValueError('infill %.0f%% out of range (20..100)' % infill)
+    if not (5.0 <= float(infill) <= 100.0):
+        raise ValueError('infill %.0f%% out of range (5..100)' % infill)
+    # R101 (field log .78): top/bottom solid layers, 0 = auto/none
+    top_layers = max(0, min(int(round(float(top_layers or 0))), 15))
+    bottom_layers = max(0, min(int(round(float(bottom_layers or 0))), 15))
     front = str(front).upper()
     if front not in ('IRON', 'FLIP', 'LINES', 'WAVES', 'HEX'):
         raise ValueError('front %r must be IRON, FLIP, LINES, WAVES or HEX'
@@ -7032,7 +7053,9 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                  if lip else view_c)
 
     # ---- vertical profile (layer bands, bed = frame BACK) ---------------------
-    ft = max(2 * layer_h, 1.0)              # front band (visible face)
+    # R101 (field log .78): top_layers overrides the classic ~1mm front band
+    ft = (top_layers * layer_h if top_layers
+          else max(2 * layer_h, 1.0))      # front band (visible face)
     shelf_th = max(layer_h, 0.4)            # photo shelf (bridges the groove)
     # groove = photo + 0.8mm backplate + play; plate locks 0.2mm under the
     # nubs - the photo lies flat between back band and plate
@@ -7064,9 +7087,17 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
         if s_dir == 'OUT':
             ft += struct_l * layer_h     # ridges proud of the face
     n_ft = max(1, int(round(ft / layer_h)))
+    if top_layers and struct_l and n_ft < struct_l + 1:
+        # structured fronts need a solid base under the pattern
+        n_ft = struct_l + 1
+        notes.append('front band raised to %d layers - %.1fmm deep grooves '
+                     'need one solid layer underneath' % (n_ft, s_deep))
     n_sh = max(1, int(round(shelf_th / layer_h)))
     n_gr = max(1, int(round(groove / layer_h)))
     n_bb = max(1, int(round(bb / layer_h)))
+    # R101 (field log .78): solid skin at the back face (the geometric bottom
+    # in normal orientation, the top when front=FLIP) - sparse body above it
+    bot_sol = min(bottom_layers, n_bb)
     frame_layers = n_bb + n_gr + n_sh + n_ft
     # front-band layers that stay solid hatch; the top struct_l layers carry
     # ONLY the pattern (IN: grooves cut in / OUT: ridges added on top)
@@ -7386,7 +7417,11 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
             if want_rest:
                 pen.holes = list(plate_keeps(bx, by))
 
-            def emit_ring(li, inner, notch=None, hatch=True, wtype='Outer wall'):
+            def emit_ring(li, inner, notch=None, hatch=True, wtype='Outer wall',
+                          skin=None):
+                # R101 (field log .78): skin='bottom'/'top' = solid skin layer
+                # of that face (solid hatch + SURFACE tag); None = body (solid
+                # at 100% infill, sparse below - tagged accordingly)
                 ew = e_w(li)
                 f1 = 1500 if li == 1 else 2400
 
@@ -7431,8 +7466,10 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                     _emit_loop(pen, [(x + cx, y + cy) for (x, y) in outer_c], ew, f1)
                 if hatch:
                     # view/lip band = the solid face, photo band = body infill
-                    spacing = (wid * 100.0 / max(20.0, infill)
-                               if inner is photo_c else wid)
+                    # R101 (field log .78): the skin prints SOLID; the body
+                    # follows infill% (5% floor now, was 20)
+                    spacing = (wid * 100.0 / max(5.0, infill)
+                               if inner is photo_c and skin is None else wid)
                     hs = _ring_hatch(outer_c, inner, spacing,
                                      45.0 if li % 2 else 135.0, notch=notch)
                     segs = [((p[0] + cx, p[1] + cy), (q[0] + cx, q[1] + cy))
@@ -7442,6 +7479,17 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                         # singly printed lines curled up at their ends
                         a(';TYPE:Bottom surface')
                         _emit_serp(pen, segs, ew, 1500, spacing * 2.5)
+                    elif skin == 'bottom':
+                        a(';TYPE:Bottom surface')
+                        _emit_hatch(pen, segs, ew, 2700)
+                    elif skin == 'top':
+                        a(';TYPE:Top surface')
+                        _emit_hatch(pen, segs, ew, 2700)
+                    elif inner is photo_c and infill < 100.0:
+                        # R101: sparse body - its own feature tag so the
+                        # activators/speeds can address it
+                        a(';TYPE:Sparse infill')
+                        _emit_hatch(pen, segs, ew, 2700)
                     else:
                         a(';TYPE:Internal solid infill')
                         _emit_hatch(pen, segs, ew, 2700)
@@ -7567,9 +7615,13 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                     # the geometry of layer frame_layers+1-li (front on bed)
                     eli = frame_layers + 1 - li if front == 'FLIP' else li
                     if eli <= n_bb:
+                        # R101 (field log .78): solid skin at the back face
+                        # (bottom in normal orientation, top when FLIP)
+                        _sk101 = (('bottom' if front != 'FLIP' else 'top')
+                                  if eli <= bot_sol else None)
                         emit_ring(eli, photo_c,
                                   notch=(cable_box if eli <= n_cable_l
-                                         else None))
+                                         else None), skin=_sk101)
                     elif eli <= n_bb + n_gr:
                         # groove band: the SIDE slot opens the left wall HERE
                         emit_ring(eli, photo_c, notch=side_slot)
@@ -7753,12 +7805,16 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                                    ew, 1500)
                 a(';TYPE:Outer wall')
                 _emit_loop(pen, _rect_loop(x0, y0, x1, y1), ew, 1500 if li == 1 else 2400)
-                _spc97 = wid * 100.0 / max(20.0, infill)
+                _spc97 = wid * 100.0 / max(5.0, infill)
                 _segs97 = _hatch(x0 + wid, y0 + wid, x1 - wid, y1 - wid, [],
                                  _spc97, 45.0 if li % 2 else 135.0)
                 if li == 1:
                     a(';TYPE:Bottom surface')
                     _emit_serp(pen, _segs97, ew, 1500, _spc97 * 2.5)
+                elif infill < 100.0:
+                    # R101 (field log .78): sparse kit strips - own feature tag
+                    a(';TYPE:Sparse infill')
+                    _emit_hatch(pen, _segs97, ew, 2700)
                 else:
                     a(';TYPE:Internal solid infill')
                     _emit_hatch(pen, _segs97, ew, 1500 if li == 1 else 2700)
@@ -7923,13 +7979,21 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
         # feature activators need TYPES. Ring plate: brim -> walls -> bottom
         # -> solid -> top (+ SIDE-closure bridge lips, + ironing on IRON front)
         if want_frame:
-            types_f99 = (['BRIM', 'WALL-INNER', 'WALL-OUTER', 'SURFACE-BOTTOM',
-                          'INFILL-SOLID', 'SURFACE-TOP']
+            # R101 (field log .78): honest feature list - INFILL-SPARSE below
+            # 100%, SURFACE-TOP only where the file really tags it (structured
+            # fronts; FLIP closes with the back-face skin on top)
+            types_f99 = (['BRIM', 'WALL-INNER', 'WALL-OUTER', 'SURFACE-BOTTOM']
+                         + (['INFILL-SPARSE'] if infill < 100.0 else [])
+                         + ['INFILL-SOLID']
+                         + (['SURFACE-TOP']
+                            if (front in ('LINES', 'WAVES', 'HEX')
+                                or (front == 'FLIP' and bot_sol > 0 and not kit))
+                            else [])
                          + (['BRIDGE'] if closure == 'SIDE' else [])
                          + (['IRONING'] if (ironing and front == 'IRON') else []))
         else:
             types_f99 = ['BRIM', 'WALL-INNER', 'WALL-OUTER', 'SURFACE-BOTTOM',
-                         'INFILL-SOLID', 'SURFACE-TOP']
+                         'INFILL-SOLID']
         hdr.append('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d LINE_WIDTH=%.2g '
                    'LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g FLOW_RATIO=1 NOZZLE=%.1f '
                    'WALL_LOOPS=2 SPEED_OUTER=40 SPEED_INNER=40 SPEED_SOLID=45 SPEED_FIRST=25 '
@@ -7959,6 +8023,9 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
             'cable': bool(cable and cable_box),
             'layers': total_layers, 'outer': '%.0fx%.0fmm' % (ow, oh),
             'photo_open': '%.1fx%.1fmm' % (pw, ph),
+            # R101 (field log .78): band breakdown for FRAME_INFO / tests
+            'front_layers': n_ft, 'back_layers': n_bb,
+            'bottom_skin': bot_sol, 'infill': float(infill),
             'notes': notes + (['stand: easel-leg studs plug into the 2 backplate '
                                'holes (D2.7, 24mm apart)'] if stand_ok else [])}
     return os.path.join(out_dir, files[0]), info
@@ -10842,6 +10909,8 @@ def watch(directory, interval=5.0, once=False):
                         stand=_vb90('frame_stand', False),
                         ironing=_vb90('frame_ironing', True),
                         infill=_vf90('frame_infill', 60.0),
+                        top_layers=int(_vf90('frame_top_l', 0)),
+                        bottom_layers=int(_vf90('frame_bot_l', 2)),
                         layer_h=_vf90('frame_layer_h', 0.2),
                         front=_vs90('frame_front', 'IRON',
                                     ('IRON', 'FLIP', 'LINES', 'WAVES', 'HEX')),

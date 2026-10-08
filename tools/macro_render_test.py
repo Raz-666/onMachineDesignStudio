@@ -3658,8 +3658,8 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         _v66 = _l66.split(':', 1)[1].strip()
         break
 # NOTE: bump this expectation together with the version on every release!
-tests.append(('R66/R78 version is .78 in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-09-07.78'", repr(_v66)))
+tests.append(('R66/R79 version is .79 in 01_state.cfg (bump together with release!)',
+    _v66 == "'R2-2026-09-07.79'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -6883,7 +6883,7 @@ for _kw90, _frag90 in ((dict(width=300, height=200), 'out of range'),
                        (dict(preset='10x15', depth=61), 'out of range'),
                        (dict(preset='10x15', frame_w=3), 'out of range'),
                        (dict(preset='A5', shape='OVAL'), 'oval frame'),
-                       (dict(preset='10x15', infill=10), 'out of range'),
+                       (dict(preset='10x15', infill=2), 'out of range'),
                        (dict(width=40, height=208, frame_w=6), 'backplate')):
     try:
         _pp.make_frame(out_dir=_d90, **_kw90)
@@ -8148,15 +8148,12 @@ def _bottom_block97(lines, start_idx):
     return lines[_ib97:_ie97]
 
 _bt97 = _bottom_block97(_ln97, _i97f)
-tests.append(('R97 frame ring L1: serpentine fill - one bead chain, photo '
-    'crossings retract',
-    len([_l97 for _l97 in _bt97 if _re862.match(r'G0 X', _l97)]) >= 50
-    and _bt97.count('G10') >= 50
-    and len([_l97 for _l97 in _bt97 if _re862.match(r'G1 X', _l97)]) > 200,
-    'G0 %d G10 %d G1 %d' % (
-        len([_l97 for _l97 in _bt97 if _re862.match(r'G0 X', _l97)]),
-        _bt97.count('G10'),
-        len([_l97 for _l97 in _bt97 if _re862.match(r'G1 X', _l97)]))))
+_nG0_97 = len([_l97 for _l97 in _bt97 if _re862.match(r'G0 X', _l97)])
+_nG1_97 = len([_l97 for _l97 in _bt97 if _re862.match(r'G1 X', _l97)])
+tests.append(('R97/R101 frame ring L1: serpentine = long bead chains (R101 '
+    'side grouping), travels few and retracted',
+    _nG0_97 <= 10 and _bt97.count('G10') >= _nG0_97 - 1 and _nG1_97 > 200,
+    'G0 %d G10 %d G1 %d' % (_nG0_97, _bt97.count('G10'), _nG1_97)))
 
 _i97bp = next(_i97 for _i97, _l97 in enumerate(_ln97)
               if _l97.startswith('EXCLUDE_OBJECT_START NAME=BACKPLATE'))
@@ -8391,6 +8388,86 @@ tests.append(('R100 source: conversion check reads the OUTPUT file + 404 push hi
     and 'data_head_if_text(out_p)' in _src100
     and "b'R2-PLOT' in head or" not in _src100
     and 'Klipper still restarting?' in _src100, ''))
+
+# ---------- R101 (field log .78): frame top/bottom layers, sparse infill, travels ----------
+# User spec: set the number of solid TOP and BOTTOM layers (independent of the
+# front effect and the orientation), infill down to 5% (was 20), travels stay
+# INSIDE the model instead of crossing the photo opening on every scanline,
+# and every used feature tagged (INFILL-SPARSE below 100%).
+import time as _time101
+
+_d101 = tempfile.mkdtemp()
+_p101a, _i101a = _pp.make_frame(preset='9x13', out_dir=_d101)
+_t101a = open(_p101a, encoding='utf-8').read()
+tests.append(('R101 frame: default = 2 solid bottom skin layers, sparse body, honest TYPES',
+    _t101a.count(';TYPE:Bottom surface') == 2
+    and _t101a.count(';TYPE:Sparse infill') >= 20
+    and 'INFILL-SPARSE' in _t101a.split('TYPES=')[1].split()[0]
+    and 'SURFACE-TOP' not in _t101a.split('TYPES=')[1].split()[0],
+    'bottom %d sparse %d' % (_t101a.count(';TYPE:Bottom surface'),
+                             _t101a.count(';TYPE:Sparse infill'))))
+_p101b, _i101b = _pp.make_frame(preset='9x13', out_dir=tempfile.mkdtemp(),
+                                top_layers=2)
+tests.append(('R101 frame: top_layers=2 thins the front band (5 -> 2 layers, '
+              'depth constant -> back band grows)',
+    _i101a['front_layers'] == 5 and _i101b['front_layers'] == 2
+    and _i101b['layers'] == _i101a['layers']
+    and _i101b['back_layers'] == _i101a['back_layers'] + 3,
+    'front %d->%d back %d->%d' % (_i101a['front_layers'], _i101b['front_layers'],
+                                  _i101a['back_layers'], _i101b['back_layers'])))
+_p101c, _i101c = _pp.make_frame(preset='9x13', out_dir=tempfile.mkdtemp(),
+                                bottom_layers=0)
+_t101c = open(_p101c, encoding='utf-8').read()
+tests.append(('R101 frame: bottom_layers=0 = sparse from layer 1 (old behavior)',
+    _t101c.count(';TYPE:Bottom surface') == 1
+    and _t101c.count(';TYPE:Sparse infill') >= 30, ''))
+_p101d, _i101d = _pp.make_frame(preset='9x13', out_dir=tempfile.mkdtemp(),
+                                infill=5.0)
+tests.append(('R101 frame: infill=5% is valid now (was rejected below 20)',
+    _i101d['layers'] == 40 and 'INFILL-SPARSE' in open(_p101d, encoding='utf-8'
+    ).read().split('TYPES=')[1].split()[0], ''))
+_p101e, _i101e = _pp.make_frame(preset='9x13', out_dir=tempfile.mkdtemp(),
+                                front='LINES', top_layers=1, s_dir='IN')
+tests.append(('R101 frame: structured front auto-raises a too-thin top band',
+    any('raised to' in _n101 for _n101 in _i101e['notes']), str(_i101e['notes'])[:80]))
+_p101f, _i101f = _pp.make_frame(preset='9x13', out_dir=tempfile.mkdtemp(),
+                                front='FLIP')
+_t101f = open(_p101f, encoding='utf-8').read()
+tests.append(('R101 frame: FLIP closes with the back skin on top (SURFACE-TOP tags + TYPES)',
+    _t101f.count(';TYPE:Top surface') >= 1
+    and 'SURFACE-TOP' in _t101f.split('TYPES=')[1].split()[0], ''))
+
+# travels: the ring body layers cross the photo opening only a few times now
+def _long_travels101(path, layer):
+    _res101 = 0
+    _cur101 = 0
+    _pos101 = None
+    for _l101 in open(path, errors='replace'):
+        if _l101.startswith(';LAYER_CHANGE'):
+            _cur101 += 1
+        elif _cur101 == layer and _re862.match(r'G0 X([\d.-]+) Y([\d.-]+)', _l101):
+            _m101 = _re862.match(r'G0 X([\d.-]+) Y([\d.-]+)', _l101)
+            _pnt101 = (float(_m101.group(1)), float(_m101.group(2)))
+            if _pos101 and (abs(_pnt101[0] - _pos101[0])
+                            + abs(_pnt101[1] - _pos101[1])) >= 40:
+                _res101 += 1
+            _pos101 = _pnt101
+    return _res101
+
+tests.append(('R101 frame: mid-body layer crosses the opening only a few times '
+              '(was ~139 long travels per layer)',
+    _long_travels101(_p101a, 5) <= 8, 'long travels L5: %d' % _long_travels101(_p101a, 5)))
+_src101 = open('tools/r2_postproc.py').read()
+_mnu101 = open('menus/lcd_menues.cfg').read()
+_gen101 = open('macros/17_generator.cfg').read()
+tests.append(('R101 source: top/bottom wiring (params, watcher, macro, menu) + buckets',
+    _src101.count('R101 (field log .78)') >= 8
+    and 'buckets = ([], [], [], [])' in _src101
+    and "top_layers=int(_vf90('frame_top_l', 0))" in _src101
+    and "bottom_layers=int(_vf90('frame_bot_l', 2))" in _src101
+    and 'frame_top_l' in _mnu101 and 'frame_bot_l' in _mnu101
+    and 'input_min: 5' in _mnu101
+    and 'frame_top_l' in _gen101, ''))
 
 fails = 0
 for name, ok, info in tests:

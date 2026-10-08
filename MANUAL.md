@@ -1223,7 +1223,9 @@ cross open holes (keyhole, stud holes, cable slot) — and those retract.
 | Disc | NONE / GLASS / PLEXI / FOIL / LITHO · Side FRONT/BACK · Thick 0.4–6 mm | optional disc insert: FRONT = in front of the photo, captured by a 1.2 mm lip; BACK = behind the photo on the back band (backlit litho) — the groove grows by the disc thickness |
 | Cable | ON/OFF | hidden 6 mm cable duct through the bottom bar (display CASE only, depth 15+) — opens 2.5 mm behind the back face straight into the interior, invisible from the front |
 | Ironing | ON/OFF | the smooth shiny front pass (only with Front = Ironed) |
-| Infill | 20–100 % | frame body infill (front/back bands stay solid) |
+| Infill | 5–100 % | frame body infill (the solid faces stay solid; below 100 % the body prints as SPARSE infill — its own feature tag) |
+| Top layers | auto / 1–15 | solid layers of the FRONT face (auto = the classic ~1 mm band) — independent of the front effect and the orientation |
+| Bottom layers | 0–15 | solid skin at the BACK face (default 2; 0 = infill from layer 1) |
 
 **Bed-fit logic (automatic, real bed 220×220 from `[r2_postproc]`):**
 
@@ -2907,6 +2909,7 @@ Only the milestones — the full reasoning lives in SESSION_STATE.md.
 
 | Version | Core changes |
 |---|---|
+| .79 | frame shells, sparse infill & travel order (field log .78): Top/Bottom solid layers settable (independent of front effect and orientation; default bottom skin 2) · body infill down to 5 % (was 20) with its own INFILL-SPARSE feature tag · ring fill travels stay INSIDE the band now — the scanline order used to cross the photo opening on every line (139 long retracted travels per body layer → ~5, layer 1: 146 travels → 6), faster and no fuzz at the edges · TYPES lists only features the file really tags (SURFACE-TOP only for structured fronts / FLIP skin) |
 | .78 | plain uploads convert ONCE (field log .77): a plain image/text in the gcodes folder (AxtBunny.png) was re-converted to pen-plotter g-code on EVERY watcher (re)start — “1 processed” at every boot, the .gcode rewritten, its preview push racing the Klipper restart after an update (HTTP 404); the “already converted” check now reads the OUTPUT file, and a 404 preview push says Klipper is probably still restarting |
 | .77 | generator file info + label modes (field log .75): frame / cable-tie / angle files carry _FILE_INFO with TYPES now — the Pre-Print file info and the feature activators work for EVERY generated file (they were empty: generated files are TAGged, the scan never adds them); structured frame fronts tag SURFACE-TOP instead of CUSTOM; labels get two clear modes — GROW (the label grows to the text, W/H are minimums and Calc fit sets the needed size as the W/H lower limits) and FIXED (the label stays W/H, the font scales into it) — and the confusing "Preview fit?" item is now "Calc fit" with a plain explanation |
 | .76 | watcher start-up (field log .75): the first scan after a boot/restart runs in time-boxed chunks now — it used to block the watch loop as ONE pass (12+ minutes on a swapping Pi Zero right after a reboot) and every file selected in that window showed an empty file info; selections are serviced within seconds while the start backlog drains in the background · a backlog preview push can never overwrite a fresher file selection anymore (preview nonce re-check before the push) |

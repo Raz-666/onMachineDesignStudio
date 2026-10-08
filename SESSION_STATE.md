@@ -1553,3 +1553,49 @@ printing! =='; R100-Marker (2x) im Sim-Paket verifiziert.
 USER-HINWEIS: Nach dem .78-Update sollte der naechste Boot im Journal '0 processed' zeigen
 (AxtBunny.png & Co. werden nicht mehr angefasst). Der 404 beim preview:upload war das
 Update-Restart-Fenster + der Dauer-Reconvert - beides adresseiert.
+
+R101 (Feld-Log .78) — Rahmen: Top/Bottom-Layer, Sparse-Fuellung, Fahrwege im Modell, ehrliche Tags
+USER-AUFTRAG (4 Teile, Bilderrahmen): (1) Anzahl Top-/Bottom-Layer einstellbar, unabhaengig vom
+Oberflaechen-Effekt und der Lage auf der Buildplate. (2) Fuellung unter 20% (weiter reduzierbar).
+(3) Fahrwege: heute immer quer ueber den ganzen Rahmen, freie Mitte ausgelassen - praktisch
+Linien zeichnen, dauert zu lang; Fahrten sollen INNERHALB des Modells laufen; unschoene Fetzen/
+Fransen durch nicht retractete Fahrten. (4) Alle verwendeten Features korrekt taggen.
+
+FIXES (r2_postproc.py, Marker 'R101 (field log .78)' 10x + menus + 17_generator):
+1. top_layers/bottom_layers-Parameter (make_frame, 0-15): top_layers ueberschreibt das klassische
+   ~1mm-Frontband (n_ft), Strukturfronten heben zu duenne Boender automatisch an (Note);
+   bottom_layers = solide Haut an der RUECKSEITE (Default 2, 0 = Sparse ab Layer 1 wie bisher),
+   gekeyed auf eli -> FLIP-sicher (Rueckhaut liegt oben -> ;TYPE:Top surface). info[] um
+   front_layers/back_layers/bottom_skin/infill erweitert.
+2. Infill-Range 5..100 (war 20..100): Code-Clamp + max(5,...) in emit_ring + Kit-Strips; LCD
+   input_min 20 -> 5. Body unter 100% taggt ';TYPE:Sparse infill' (APPLY_TYPE INFILL-SPARSE via
+   _gen_markers - 'sparse infill' war schon in der TYPE-Map), Haut/Frontband bleiben solide.
+3. Fahrwege: _ring_hatch gruppiert die Scanline-Chunks nach SEITE der Oeffnung (Bucket = Anzahl
+   der Loecher, hinter denen der Chunk liegt), jeder Bucket eigene Boustrophedon. Zuvor: reine
+   Scanline-Ordnung => pro Scanline ein Travel ueber die Photo-Oeffnung (lang + retract).
+   Messung 9x13: Body-Layer 5 lange Travels (>=40mm Manhattan) 139 -> 5; Layer 1 gesamt
+   146 -> 6 (Serpentine = 2 lange Perlenketten); Summe L1-10 leicht hoeher (3069 vs 2999: solide
+   Haut L1-2 = dichtere Scanlines, kurze Hops < 6mm ohne Retract).
+4. Tags ehrlich: TYPES= enthaelt INFILL-SPARSE bei infill<100, SURFACE-TOP nur bei strukturierten
+   Fronten (LINES/WAVES/HEX) oder FLIP+Rueckhaut (Plate B ohne SURFACE-TOP - war unehrlich);
+   Sparse/Skin-Tags auch in Kit-Strips.
+
+VERIFIKATION (empirisch): Default 9x13: Bottom surface x2 (L1-Serp + L2 Haut), Sparse infill x31,
+TYPES=BRIM,...,SURFACE-BOTTOM,INFILL-SPARSE,INFILL-SOLID,IRONING (SURFACE-TOP korrekt weg bei
+IRON); top=2: front_layers 5->2, back_layers +3, Tiefe konstant; bottom=0: Sparse ab L1; infill=5
+gueltig; LINES+top=1+IN: Note 'raised to'; FLIP: Top surface + SURFACE-TOP in TYPES.
+
+TESTS: 1215 -> 1223/1223 (8 neue R101: Default-Skin+Sparse+TYPES, top_layers, bottom=0, infill=5,
+Struktur-Anhebung, FLIP-Top, Lange-Travels-L5<=8, Source-Wiring). 2 alte angepasst: R90-Guard
+infill=2 (Grenze 5), R97-Ring-Serpentinen-Test auf neue Realitaet (G0<=10, G10>=G0-1, G1>200).
+GOLDEN: 23/23. Bump .78->.79 nach Schema. MANUAL 5.8 (Infill-Zeile + Top/Bottom-Zeilen + PDF-
+Prosa) + Changelog .79.
+
+RELEASE .79: klipper-e3-r2d2-UPDATE-R2-2026-09-07.79.zip, 43 Dateien, zipfile -t OK,
+Frisch-Entpackung byte-identisch 43/43. ZIP MD5 aaddd6fa18288f9ccb0d4bd690cab989 (1109307 B).
+MANUAL.pdf (91 S.!, MD5 77fdb9da...) == Workspace. FELD-SIM .78->.79 sauber ('installed:
+R2-2026-09-07.78' -> 'package version: R2-2026-09-07.79' -> done); R101-Marker (11x) +
+frame_bot_l-Menue (2x) im Sim-Paket.
+USER-HINWEIS: Alte FRAME-Dateien neu generieren. Neue LCD-Settings: Frames > Settings > Infill
+jetzt ab 5%, "Top" (auto/1-15) und "Bottom" (Default 2, 0=wie bisher). Konsolen-Parameter:
+GEN_FRAME ... INFILL=5 TOP_L=3 BOT_L=2. Duennere Fuellung = deutlich schnellere Rahmendoerfe.
