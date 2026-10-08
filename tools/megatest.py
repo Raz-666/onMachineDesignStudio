@@ -28,6 +28,26 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import r2_postproc as pp  # noqa: E402
 
 BED = (0.0, -3.0, 220.0, 217.0)
+# R104: adapt the sweep to another printer:
+#   python3 tools/megatest.py --bed=0,0,220,220          explicit limits
+#   python3 tools/megatest.py --cfg=~/printer_data/config/printer.cfg
+#                                                          reads [r2_postproc]
+# default = the Ender-3 reference bed (keeps the 101 runs deterministic)
+for _arg in sys.argv[1:]:
+    if _arg.startswith('--bed='):
+        _vals = [t.strip() for t in _arg[6:].split(',') if t.strip()]
+        if len(_vals) != 4:
+            print('usage: --bed=X0,Y0,X1,Y1 (e.g. --bed=0,0,220,220)')
+            sys.exit(2)
+        BED = tuple(float(t) for t in _vals)
+        print('megatest: bed override -> %s' % (BED,))
+    elif _arg.startswith('--cfg='):
+        BED = tuple(pp._bed_limits(os.path.expanduser(_arg[6:])))
+        print('megatest: bed from %s -> %s' % (_arg[6:], BED))
+    elif _arg in ('-h', '--help'):
+        print(__doc__.split('Levels beyond')[0])
+        print('options: --bed=X0,Y0,X1,Y1 | --cfg=PATH/to/printer.cfg')
+        sys.exit(0)
 CANON = {k.strip().lower(): v for k, v in pp.TYPE_MAP.items()}
 D = tempfile.mkdtemp(prefix='megatest_')
 # a full sweep writes ~100 MB of g-code - NEVER leave that behind (a Pi
@@ -151,12 +171,29 @@ def check_gcode(name, path, bed=BED, skip_idem=False, extra_types=(), plot=False
     return probs
 
 
+# R104: on a SMALLER --bed/--cfg bed the fixed extreme combos may simply not
+# fit - the generators then correctly raise ValueError ('do not fit the bed',
+# 'split kit needs 200x239mm', ...). That is PRODUCTION behavior (a clear
+# error instead of printing outside the bed), not a test failure: count it
+# as SKIP when the bed differs from the reference and the message is about
+# dimensions. Everything else still fails loudly.
+_REF_BED = (0.0, -3.0, 220.0, 217.0)
+_DIMS_RE = re.compile(r'fit|needs \d|too (?:large|big|tall|long|wide)|exceeds', re.I)
+
+
 def run(name, fn, **kw):
     global runs
     runs += 1
     t0 = time.time()
     try:
         ret = fn()
+    except ValueError as e:
+        if BED != _REF_BED and _DIMS_RE.search(str(e)):
+            info.append('%-58s SKIP (bed too small - correct ValueError: %s)'
+                        % (name, str(e).split(' - ')[0][:60]))
+            return None
+        fails.append((name, 'GENERATOR RAISED %r' % e))
+        return None
     except Exception as e:                          # noqa: BLE001
         fails.append((name, 'GENERATOR RAISED %r' % e))
         return None

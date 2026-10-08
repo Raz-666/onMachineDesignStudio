@@ -2074,7 +2074,7 @@ Print running (legacy file) - live tuning and overrides ACTIVE
 | SYS_HOST_RESTART CONFIRM=1 | host service restart — 2× |
 | SYS_SHUTDOWN CONFIRM=1 | heaters/fans/LEDs off → Pi shutdown via moonraker |
 | SYS_SAVE_CONFIG | guarded SAVE_CONFIG: refuses during a print, skips when nothing is pending, warns that the LCD goes DARK for up to 2 min before restarting (2×) |
-| HOST_CHECK | **Pi health report**: throttle/undervoltage flags (now + since boot), CPU temp, load **vs. core count**, **RAM + swap**, disk, **iowait**, **TOP CPU/RAM processes (top 5)** and **who sits IN the swap** (VmSwap per process — names the RAM eater even when the top-RAM list looks innocent) + **service states** (klipper/moonraker/avahi/crowsnest/sonar/OctoEverywhere/pigpiod, with warnings: double webcam stack, avahi still on, cloud relay) — honest verdict: THROTTLED / SWAPPING / OVERLOADED / OK. LCD: System > Host check |
+| HOST_CHECK | **Pi health report**: throttle/undervoltage flags (now + since boot), CPU temp, load **vs. core count**, **RAM + swap**, disk, **iowait**, **TOP CPU/RAM processes (top 5)** and **who sits IN the swap** (VmSwap per process — names the RAM eater even when the top-RAM list looks innocent) + **service states** (klipper/moonraker/avahi/crowsnest/sonar/OctoEverywhere/pigpiod, with warnings: double webcam stack, avahi still on, cloud relay) — honest verdict: THROTTLED / SWAPPING / OVERLOADED / OK. The swap verdict measures **activity** (vmstat swap-in/out): quietly parked pages after boot are **OK** (normal on a small Pi), only real swap traffic counts as SWAPPING. LCD: System > Host check |
 | EMERGENCY_STOP | immediate halt |
 | FILE_CHECK | **g-code inventory**: scans every file's tag version — how many are current, old (upgradeable), untouched (never processed) or plotter files — each file listed on the console with age + size. `FILE_CHECK RETAG=1` (2×/CONFIRM=1) additionally upgrades old + untouched files to the current markers: **.r2bak backup first**, never while printing, max 20 per run. LCD: System > File check |
 
@@ -2234,7 +2234,7 @@ is a switch you can turn off.
 | 'switch_sensor' is not valid for SENSOR | SET_FILAMENT_SENSOR takes the SECTION name (filament_sensor / encoder_sensor) — the BTT example was copied 1:1 although your section is named differently; corrected block: ch. 7 |
 | "Save config froze the printer" (LCD dark after Save config) | NOT a crash by design: SAVE_CONFIG restarts Klipper and the LCD keeps its last image until the MCU reconnects — on the Pi Zero 2 W that can take up to ~2 min (big config).: System > Save config warns first ("LCD goes dark"), refuses during prints, restarts anyway when nothing is pending (your R2 settings save instantly), and the boot beep + "R2 ready" confirm a SUCCESSFUL restart. Still dark + Mainsail error after 2 min → FIRMWARE_RESTART from Mainsail or `sudo service klipper restart`, then send ~/printer_data/logs/klippy.log (never power-cycle the Pi!) |
 | Question came only after the bed heated | M190/M109 do not block while the decision is pending — bed preheats in background, question within seconds |
-| **MCU 'Timer too close' shutdown** (host cannot feed the MCU) | ALWAYS a HOST problem — NEVER stepper current, never the electronics fan, never a safety trigger, and never a zip lying in the config folder (nothing scans it). **System > Host check** names it: THROTTLED = undervoltage (PSU/USB cable!) or heat · OVERLOADED = load >= core count, the Top-CPU list shows who — typical eaters on a Pi Zero 2: **webcam (crowsnest), sonar, OctoEverywhere, moonraker's object processing (enable_object_processing: True — your own moonraker.conf comment warns against it on a Pi Zero!)**, update manager, a fan/temp script with software PWM (RPi.GPIO) · SWAPPING = RAM full, SD-card swap stalls in bursts — **the verdict names the processes sitting in the swap („Top SWAP") directly** · also: after boot/update give the Pi ~2 min before starting a print (moonraker + watcher both re-scan the whole gcode folder while klippy parses the big config). Software side already hardened: mesh travels capped, preview pushes cost zero disk writes, meshes run adaptive |
+| **MCU 'Timer too close' shutdown** (host cannot feed the MCU) | ALWAYS a HOST problem — NEVER stepper current, never the electronics fan, never a safety trigger, and never a zip lying in the config folder (nothing scans it). **System > Host check** names it: THROTTLED = undervoltage (PSU/USB cable!) or heat · OVERLOADED = load >= core count, the Top-CPU list shows who — typical eaters on a Pi Zero 2: **webcam (crowsnest), sonar, OctoEverywhere, moonraker's object processing (enable_object_processing: True — your own moonraker.conf comment warns against it on a Pi Zero!)**, update manager, a fan/temp script with software PWM (RPi.GPIO) · SWAPPING = swap traffic RIGHT NOW (the check measures in/out — quietly parked pages after boot are OK and no reason to panic) — **the verdict names the processes sitting in the swap („Top SWAP") directly** · also: after boot/update give the Pi ~2 min before starting a print (moonraker + watcher both re-scan the whole gcode folder while klippy parses the big config). Software side already hardened: mesh travels capped, preview pushes cost zero disk writes, meshes run adaptive |
 | Mesh is full bed although 'adaptive' |: honest wording — 'full bed (file has no object data)' now SAYS so. The mesh before a held file runs adaptive (the watcher replays the file's EXCLUDE_OBJECT_DEFINE at selection); Orca files carry them when 'Label objects' is enabled. Plot/label/bridge files bring their own object polygon |
 | KAMP meshes the whole bed | check KAMP_Settings.cfg margin — AND the file needs object data (see row above) |
 
@@ -2270,6 +2270,12 @@ Diagnostics: SHOW_STATUS · SELF_TEST · KAMP_STATUS · HOST_CHECK (Pi health) �
   bed_min_y: -3
   bed_max_y: 217
   ```
+
+  **Position options (R104, all optional — defaults = the classic behavior):**
+  `present_x: 10` / `present_y: 228` — where PRINT_END presents the finished
+  part (always clamped to your axes); `wipe_x` / `wipe_y` — the anchor of the
+  nozzle-wipe pad (default: the axis-minimum corner). On another printer or
+  with the pad somewhere else, set them once — no macro editing needed.
 
 ## 24. Cheat sheet: LCD paths & Mainsail commands
 
@@ -2744,7 +2750,10 @@ bed_max_y: 217
 ```
 
 Without it everything falls back to the Ender-3 default 220×220 and the
-console notes that on every watcher start.
+console notes that on every watcher start. Optional positions (R104):
+`present_x`/`present_y` (PRINT_END part presentation, default 10/228) and
+`wipe_x`/`wipe_y` (nozzle-wipe pad anchor, default = axis-minimum corner)
+— all clamped to the axes, see chapter 23.
 
 ### A.3 Z-probe variants
 
@@ -2909,6 +2918,7 @@ Only the milestones — the full reasoning lives in SESSION_STATE.md.
 
 | Version | Core changes |
 |---|---|
+| .81 | honest host verdict + portability hardening (field log .80): HOST_CHECK's swap verdict now measures swap **activity** (vmstat in/out) — 109 MB of quietly parked pages after boot were flagged „SWAPPING!" with an error sound on every check although the Pi was healthy (stable swap, no load, no throttle); quiet pages now read as OK with a calm explanation, only real swap traffic stays loud. Compatibility fixes from the portability audit: PRINT_END's part presentation had a fixed Y228 (a crash on any bed under ~232 mm) — now clamped to the axes and configurable (`[r2_postproc] present_x/present_y`), both calibration-tower end parks (fixed Y190) and the PLT_FRAME park are clamped, the nozzle-wipe pad anchor is configurable (`wipe_x/wipe_y`), and `megatest.py` accepts `--bed=x0,y0,x1,y1` / `--cfg=printer.cfg` to sweep another printer's bed (too-big combos count as SKIP — the generators correctly reject them); `setup.sh` (environment wizard: service, KAMP, LED effects, RAM hogs, swap tuning) and `COMPATIBILITY.md` (portability report) join the package |
 | .80 | megatest hardening (field log .79): a 101-run sweep over every generator at its parameter extremes found and fixed two real bugs — the plotter DRAW mode scaled small images past the bed (48px drawing → y up to +1500 mm; big photos silently squashed to ~72 mm) and every frame file tags the shelf bands as BRIDGE but TYPES never listed it on normal frames; plot output now carries a final bed guard too; `tools/megatest.py` joins the package (rerun any time: `python3 tools/megatest.py`) |
 | .79 | frame shells, sparse infill & travel order (field log .78): Top/Bottom solid layers settable (independent of front effect and orientation; default bottom skin 2) · body infill down to 5 % (was 20) with its own INFILL-SPARSE feature tag · ring fill travels stay INSIDE the band now — the scanline order used to cross the photo opening on every line (139 long retracted travels per body layer → ~5, layer 1: 146 travels → 6), faster and no fuzz at the edges · TYPES lists only features the file really tags (SURFACE-TOP only for structured fronts / FLIP skin) |
 | .78 | plain uploads convert ONCE (field log .77): a plain image/text in the gcodes folder (AxtBunny.png) was re-converted to pen-plotter g-code on EVERY watcher (re)start — “1 processed” at every boot, the .gcode rewritten, its preview push racing the Klipper restart after an update (HTTP 404); the “already converted” check now reads the OUTPUT file, and a 404 preview push says Klipper is probably still restarting |

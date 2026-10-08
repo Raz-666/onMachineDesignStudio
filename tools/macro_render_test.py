@@ -3658,8 +3658,8 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         _v66 = _l66.split(':', 1)[1].strip()
         break
 # NOTE: bump this expectation together with the version on every release!
-tests.append(('R66/R80 version is .80 in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-09-07.80'", repr(_v66)))
+tests.append(('R66/R80 version is .81 in 01_state.cfg (bump together with release!)',
+    _v66 == "'R2-2026-09-07.81'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -5186,7 +5186,7 @@ _fake78 = {'vcgencmd get_throttled': 'throttled=0x0',
            ' %CPU %MEM   RSS COMMAND\n 99.0  1.0   1024 ps\n 20.0  8.0 184320 python\n'
            ' 12.0  4.0  65536 sonar\n  6.0  3.0  49152 octoeverywhere\n  2.0  1.0  32768 nginx\n'
            '  1.0  1.0   3072 crowsnest\n',
-           'vmstat 1 2 | tail -1': '1 0 0 100000 0 200000 0 0 400 0 900 300 20 10 60 1 0',
+           'vmstat 1 2 | tail -1': '1 0 0 100000 0 200000 60 80 400 0 900 300 20 10 60 1 0',
            'systemctl is-active klipper moonraker avahi-daemon crowsnest sonar octoeverywhere pigpiod':
            'active\nactive\ninactive\nactive\nactive\nactive\ninactive'}
 class _R78:
@@ -5212,6 +5212,7 @@ finally:
 tests.append(('R78 host_check v3: Top SWAP names the eaters + verdict quotes them',
     any(l.startswith('Top SWAP: python 120MB') and 'crowsnest 61MB' in l for l in _hl78)
     and any(l.startswith('Verdict: SWAPPING') and 'python 120MB' in l and 'crowsnest 61MB' in l for l in _hl78)
+    and any(l.startswith('Verdict: SWAPPING') and '140KB/s' in l for l in _hl78)
     and any('M117 Host SWAPPING!' in s for s in _cap78), str([l for l in _hl78 if 'SWAP' in l])[:200]))
 tests.append(('R78 host_check v3: services line + double-webcam + OE warnings',
     any(l.startswith('Services: klipper=ON moonraker=ON avahi-daemon=off crowsnest=ON '
@@ -8499,6 +8500,104 @@ _src102 = open('tools/r2_postproc.py').read()
 tests.append(('R102 source: yv scales by line count + plot bed guard',
     'yv = k * bh / nlines' in _src102
     and 'plot geometry %.0fx%.0fmm exceeds the plot bed' in _src102, ''))
+
+
+# ============================= R104 TESTS (.81) =============================
+# Field log .80: 109MB swap STONE-COLD parked (stable from minute 4, load 0.26,
+# Throttle NONE, no stutter) yet HOST_CHECK cried 'SWAPPING' + error sound on
+# every check - the R78 verdict keyed on usage >= 30MB alone. R104: vmstat
+# si/so decides - quiet pages = calm OK verdict, real in/out traffic = loud.
+# Plus the COMPATIBILITY.md hardening: PRINT_END presentation (fixed Y228
+# crashes on beds < 232mm!), the two Y190 calibrator end parks, PLT_FRAME
+# park, and the wipe pad anchor are dynamic/clamped now.
+tests.append(('R104 verdict: parked swap (109MB, quiet) = OK with explanation (.80 field case)',
+    _mod73._host_verdict(0, 0.39, 4, 109, [(66.0, 'python3')], 0.0)[0] is True
+    and 'QUIET' in _mod73._host_verdict(0, 0.39, 4, 109, [(66.0, 'python3')], 0.0)[1]
+    and '109MB' in _mod73._host_verdict(0, 0.39, 4, 109, [(66.0, 'python3')], 0.0)[1], ''))
+tests.append(('R104 verdict: ACTIVE swapping (850KB/s) stays loud + names the eaters',
+    _mod73._host_verdict(0, 0.5, 4, 109, [(66.0, 'python3'), (22.0, 'python')], 850.0)[0] is False
+    and 'SWAPPING' in _mod73._host_verdict(0, 0.5, 4, 109, [(66.0, 'python3'), (22.0, 'python')], 850.0)[1]
+    and '850KB/s' in _mod73._host_verdict(0, 0.5, 4, 109, [(66.0, 'python3'), (22.0, 'python')], 850.0)[1]
+    and 'python3 66MB' in _mod73._host_verdict(0, 0.5, 4, 109, [(66.0, 'python3'), (22.0, 'python')], 850.0)[1], ''))
+tests.append(('R104 verdict: unmeasurable activity stays conservative-loud (R78 case)',
+    _mod73._host_verdict(0, 0.5, 4, 187)[0] is False
+    and 'could not be measured' in _mod73._host_verdict(0, 0.5, 4, 187)[1], ''))
+tests.append(('R104 verdict: overload outranks parked swap',
+    _mod73._host_verdict(0, 3.9, 4, 109, None, 0.0)[0] is False
+    and 'OVERLOADED' in _mod73._host_verdict(0, 3.9, 4, 109, None, 0.0)[1], ''))
+tests.append(('R104 vmstat si/so parser: cols 7/8 on 16- and 17-col lines, garbage -> None',
+    _mod73._parse_vmstat_swapio('1 0 109000 123000 24000 380000 40 8 12 24 900 1200 4 2 93 1 0') == (40.0, 8.0)
+    and _mod73._parse_vmstat_swapio('1 0 109000 123000 24000 380000 0 0 12 24 900 1200 4 2 93 1') == (0.0, 0.0)
+    and _mod73._parse_vmstat_swapio('r b swpd free') is None, ''))
+
+# host_check end-to-end with QUIET swap (the exact .80 field picture)
+_cap104 = []
+_fake104 = dict(_fake78)
+_fake104['vmstat 1 2 | tail -1'] = '1 0 0 100000 0 200000 0 0 400 0 900 300 20 10 60 1 0'
+def _run104(cmd, shell=True, capture_output=True, text=True, timeout=12):
+    return _R78(_fake104.get(cmd, ''))
+_orig_mg104 = _mod73._moonraker_gcode
+_orig_mi104 = _mod73._read_meminfo
+_orig_se104 = _mod73._swap_eaters
+_mod73._moonraker_gcode = lambda s, *a, **k: _cap104.append(s)
+_mod73._read_meminfo = lambda: {'MemTotal': 354, 'MemAvailable': 121, 'SwapTotal': 767, 'SwapFree': 658}
+_mod73._swap_eaters = lambda *a, **k: [(66.0, 'python3'), (22.0, 'python')]
+try:
+    _sub78.run = _run104
+    _hl104 = _mod73.host_check(cores=4)
+finally:
+    _sub78.run = _orig_run78
+    _mod73._moonraker_gcode = _orig_mg104
+    _mod73._read_meminfo = _orig_mi104
+    _mod73._swap_eaters = _orig_se104
+tests.append(('R104 host_check v4: parked swap -> calm verdict, Top SWAP says COLD, no error sound',
+    any(l.startswith('Verdict: OK') and 'QUIET' in l and '109MB' in l for l in _hl104)
+    and any('parked COLD' in l for l in _hl104)
+    and any('M117 Host OK' in s and 'r2_done' in s for s in _cap104)
+    and not any('Host SWAPPING' in s or 'r2_error' in s for s in _cap104),
+    str([l for l in _hl104 if 'SWAP' in l or l.startswith('Verdict')])[:220]))
+
+# PRINT_END presentation: reference unchanged, small beds clamp, override works
+_pe104 = get_body('macros/08_print_start_stop.cfg', 'PRINT_END')
+tests.append(('R104 PRINT_END: reference axes keep X10 Y228 (nothing changes here)',
+    'G0 X10 Y228 F6000' in render(_pe104, {}), ''))
+_gd104 = dict(build_printer())
+_gd104['toolhead'] = M({'axis_maximum': M({'x': 180.0, 'y': 180.0, 'z': 200.0}),
+                        'axis_minimum': M({'x': 0.0, 'y': 0.0, 'z': 0.0}),
+                        'homed_axes': 'xyz', 'max_accel': 4000, 'max_velocity': 250.0})
+_out104 = render(_pe104, {}, {'printer': MP(_gd104)})
+tests.append(('R104 PRINT_END: small bed clamps the presentation (Y228 -> 176, no crash)',
+    'G0 X10 Y176 F6000' in _out104 and 'Y228' not in _out104,
+    [l for l in _out104.split('\n') if 'F6000' in l][:3]))
+_gd104b = dict(build_printer())
+_gd104b['configfile'] = M({'settings': M({'r2_postproc': M({'present_x': '40', 'present_y': '100'})})})
+_out104b = render(_pe104, {}, {'printer': MP(_gd104b)})
+tests.append(('R104 PRINT_END: [r2_postproc] present_x/present_y override (clamped to axes)',
+    'G0 X40 Y100 F6000' in _out104b, [l for l in _out104b.split('\n') if 'F6000' in l][:3]))
+
+# _NOZZLE_WIPE: default anchor unchanged, [r2_postproc] wipe_x/wipe_y moves it
+_nw104 = get_body('macros/12_maintenance.cfg', '_NOZZLE_WIPE')
+_out104c = render(_nw104, {})
+tests.append(('R104 wipe: default anchor stays the axis-minimum corner (unchanged)',
+    'G0 X0.0 Y0.0 F8000' in _out104c and 'G1 X13.0' in _out104c,
+    [l for l in _out104c.split('\n') if l.startswith('G0 X')][:2]))
+_gd104c = dict(build_printer())
+_gd104c['configfile'] = M({'settings': M({'r2_postproc': M({'wipe_x': '60', 'wipe_y': '120'})})})
+_out104d = render(_nw104, {}, {'printer': MP(_gd104c)})
+tests.append(('R104 wipe: [r2_postproc] wipe_x/wipe_y moves the pad (60/120 -> 60..73)',
+    'G0 X60.0 Y120.0 F8000' in _out104d and 'G1 X73.0' in _out104d,
+    [l for l in _out104d.split('\n') if l.startswith('G0 X') or l.startswith('G1 X')][:3]))
+
+# sources: no naked fixed parks left + megatest adaptability
+_m12_104 = open('macros/12_maintenance.cfg', encoding='utf-8').read()
+tests.append(('R104 sources: no naked Y190 calibrator parks left, both clamped to the axes',
+    'G0 X10 Y190 F6000' not in _m12_104
+    and _m12_104.count('axis_maximum.y - 4') >= 2, ''))
+tests.append(('R104 sources: PLT_FRAME parks inside the PLOT bed (not X5 Y190)',
+    'G0 X5 Y190 F6000' not in _m12_104 and 'y1 - 43' in _m12_104, ''))
+tests.append(('R104 megatest: --bed/--cfg adapt the sweep, small-bed ValueErrors count as SKIP',
+    '--bed=' in open('tools/megatest.py').read()
+    and 'SKIP (bed too small' in open('tools/megatest.py').read(), ''))
 
 fails = 0
 for name, ok, info in tests:

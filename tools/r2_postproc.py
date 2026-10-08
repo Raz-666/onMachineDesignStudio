@@ -5724,8 +5724,33 @@ def _parse_vmstat_wa(line):
     return None
 
 
-def _host_verdict(throttle_bits, load1, cores, swap_used_mb, swap_eaters=None):
-    """R76/R78: the honest overall verdict - priority throttle > swap > overload > OK.
+def _parse_vmstat_swapio(line):
+    """R104: the swap-in/out rate (KB/s) from a vmstat output line.
+
+    Columns: r b swpd free buff cache SI SO bi bo in cs us sy id wa [st]
+    -> (si, so) of that sample, or None if unparsable. This is the number
+    that separates a HEALTHY host from a swapping one: the .80 field log
+    showed 109MB of swap usage that was stone-cold parked pages (stable
+    from minute 4 on, no load, no throttle) while the old verdict cried
+    'SWAPPING!' on every check. Usage alone says nothing - ACTIVITY does.
+    """
+    f = line.split()
+    if len(f) >= 16:
+        try:
+            return float(f[6]), float(f[7])
+        except ValueError:
+            pass
+    return None
+
+
+# R104: si+so at or above this (KB/s, measured over vmstat's 1s sample)
+# counts as ACTIVE swapping. Below it the pages are just parked (cold).
+_SWAP_ACTIVE_KB = 100.0
+
+
+def _host_verdict(throttle_bits, load1, cores, swap_used_mb, swap_eaters=None,
+                  swap_io_kb=None):
+    """R76/R78/R104: the honest overall verdict - priority throttle > swap > overload > OK.
 
     The .59 field log showed why this is needed: 'Throttle: NONE ... Host is
     healthy' while the load average (4.2) SATURATED the Pi Zero 2's four
@@ -5735,19 +5760,42 @@ def _host_verdict(throttle_bits, load1, cores, swap_used_mb, swap_eaters=None):
     Throttle NONE, but 187MB of swap after only 25 minutes uptime. The swap
     verdict now NAMES the processes sitting in the swap (swap_eaters from
     _swap_eaters()) - the top-RAM list alone could not explain them.
+    R104: the .80 field log was the THIRD picture - 109MB swap, stable from
+    minute 4 on, load 0.26, Throttle NONE, no stuttering: cold pages parked
+    after the boot pressure, yet the verdict screamed 'SWAPPING' + error
+    sound on every check. Usage >= 30MB alone is NOT a problem anymore -
+    swap_io_kb (si+so from _parse_vmstat_swapio, None = unmeasurable)
+    decides: quiet pages = OK (calm explanation), real in/out traffic =
+    the loud verdict (that one does stall the host in bursts).
     """
     if throttle_bits:
         return False, 'Verdict: THROTTLED - see the flags above. Undervoltage = PSU/USB power, temperature = cooling.'
+    parked_msg = None
     if swap_used_mb >= 30:
         who = ''
         if swap_eaters:
             who = (' Swap residents: ' + ', '.join('%s %dMB' % (n, m) for m, n in swap_eaters[:3])
                    + ' - THAT is the RAM eater to switch off.')
-        return False, ('Verdict: SWAPPING - %dMB swap in use (SD-card swap is ~100x slower than RAM, '
-                       'the host stalls in bursts -> Timer too close).%s' % (swap_used_mb, who))
+        if swap_io_kb is not None and swap_io_kb < _SWAP_ACTIVE_KB:
+            # quiet pages: NOT a verdict stopper - but an overloaded host
+            # (checked below) outranks the all-clear
+            parked_msg = ('Verdict: OK - %dMB swap in use, but QUIET (measured %.0fKB/s '
+                          'in/out): cold pages parked after boot pressure, no active '
+                          'swapping. Normal on a small Pi - only a problem if the printer '
+                          'stutters.' % (swap_used_mb, swap_io_kb))
+        elif swap_io_kb is not None:
+            return False, ('Verdict: SWAPPING - %dMB swap in use AND %.0fKB/s moving right '
+                           'now (SD-card swap is ~100x slower than RAM, the host stalls in '
+                           'bursts -> Timer too close).%s' % (swap_used_mb, swap_io_kb, who))
+        else:
+            return False, ('Verdict: SWAPPING - %dMB swap in use (SD-card swap is ~100x slower than RAM, '
+                           'the host stalls in bursts -> Timer too close; swap activity could not be '
+                           'measured - no vmstat?).%s' % (swap_used_mb, who))
     if cores and load1 >= cores * 0.9:
         return False, ('Verdict: OVERLOADED - load %.1f on %d core(s) = saturated. The host cannot reliably '
                        'feed Klipper -> Timer too close. Top CPU below shows who.' % (load1, cores))
+    if parked_msg:
+        return True, parked_msg
     return True, 'Verdict: OK - no throttle, load %.1f on %d core(s), no swap. The host can feed Klipper.' % (load1, cores or 1)
 
 
@@ -5907,13 +5955,23 @@ def host_check(host='127.0.0.1', port=7125, cores=None):
         _byram = sorted(top, key=lambda t: -t[2])
         lines.append('Top RAM: ' + ' | '.join('%s %dMB' % (n, r) for _c, _m, r, n in _byram[:5]))
 
+    # ---- R104: swap ACTIVITY first (vmstat 1s sample: si/so + iowait). Usage
+    #      alone says nothing - the .80 field log had 109MB of stone-cold parked
+    #      pages with a healthy printer (see _host_verdict) ----
+    _vm_line = sh('vmstat 1 2 | tail -1')
+    wa = _parse_vmstat_wa(_vm_line)
+    _swap_io = _parse_vmstat_swapio(_vm_line)
+    swap_io_kb = (_swap_io[0] + _swap_io[1]) if _swap_io else None
+
     # ---- R78: who SITS in the swap (the .61 field log: 187MB swap, top RAM ~91MB) ----
     swap_eaters = []
     if swap_used >= 30:
         swap_eaters = _swap_eaters()
+        _parked = swap_io_kb is not None and swap_io_kb < _SWAP_ACTIVE_KB
         if swap_eaters:
             lines.append('Top SWAP: ' + ' | '.join('%s %dMB' % (n, m) for m, n in swap_eaters[:5])
-                         + '  <- THESE live in the slow swap = your RAM eaters')
+                         + ('  <- parked COLD (no in/out traffic) - memory the kernel freed up, harmless'
+                            if _parked else '  <- THESE live in the slow swap = your RAM eaters'))
         else:
             lines.append('Top SWAP: no process residents found (kernel memory swapped out)')
 
@@ -5938,12 +5996,12 @@ def host_check(host='127.0.0.1', port=7125, cores=None):
         if 'octoeverywhere' in act:
             lines.append('  -> OctoEverywhere ON - the cloud relay costs RAM+CPU on every print; off if you do not use it')
 
-    wa = _parse_vmstat_wa(sh('vmstat 1 2 | tail -1'))
     if wa is not None and wa >= 5.0:
         lines.append('IO: %.0f%% iowait - processes are WAITING on the SD card (dying card or heavy I/O)' % wa)
 
-    # ---- verdict (throttle > swap > overload > ok) --------------------------------------
-    ok, verdict = _host_verdict(throttle_bits, load1, cores, swap_used, swap_eaters)
+    # ---- verdict (throttle > active swap > overload > ok; parked swap = ok) -------------
+    ok, verdict = _host_verdict(throttle_bits, load1, cores, swap_used, swap_eaters,
+                                swap_io_kb)
     lines.append(verdict)
     if not ok and not throttle_bits:
         lines.append("  typical eaters on a Pi Zero: webcam (crowsnest), sonar, OctoEverywhere,")

@@ -1,6 +1,6 @@
 # Running the R2 macro system on OTHER printers
 
-Compatibility report & portability model (R103, status of release .80 / commit after `007523d`).
+Compatibility report & portability model (R103/R104, status of release .81).
 Scope: **cartesian and CoreXY FDM printers** with Klipper + Moonraker/Mainsail. Not in scope:
 delta robots (round bed - the generators place rectangular plates), belt printers, resin.
 
@@ -60,16 +60,22 @@ no duplication.
 
 ## 3. Hardcoded spots found (the honest list)
 
-| # | Where | What | Risk on other printers | Severity |
-|---|---|---|---|---|
-| 1 | 08_print_start_stop.cfg:1656 (`PRINT_END` part presentation) | `G0 X10 Y228` | **Y228 crashes** on machines with Y axis < ~232 mm | **must fix** |
-| 2 | 12_maintenance.cfg:1170 (`TEMP_TOWER_GEN` end park) | `Y190` | out of bounds on beds < ~195 mm | should fix |
-| 3 | 12_maintenance.cfg:1746 (`PLT_FRAME` end park) | `X5 Y190` | fine here (plot area 233) - should clamp to plot bed vars | should fix |
-| 4 | 12_maintenance.cfg:1148/1420/1547 (cold pull / atomic pull) | `X15 Y10`, `X75` | near axis-min anchor - OK on cartesian/CoreXY, clamp advisable | minor |
-| 5 | 12_maintenance.cfg `_NOZZLE_WIPE` | wipe pad anchored at `axis_minimum` + fixed 13x13 mm | works, but the pad position is NOT selectable (front-left assumed) | improvement |
-| 6 | tools/r2-postproc.service | `User=pi`, `/home/pi` hardcoded | wrong user/paths on other installs | **fixed by setup.sh** (templates the unit) |
-| 7 | 11_gantry_sync.cfg `SYNC_GANTRY` | parallel-wired dual-Z + `SET_TMC_CURRENT` (TMC UART) | Ender-3-class gantry only; CoreXY/independent-Z users have Z_TILT/QGL | by design, documented |
-| 8 | megatest.py `BED` | fixed (0,-3,220,217) for the invariant checks | test tool only - should accept the bed as arg | minor |
+Status after the R104 hardening (release .81) — items 1, 2, 3, 5, 6, 8 are FIXED:
+
+| # | Where | What | Status (.81) |
+|---|---|---|---|
+| 1 | 08_print_start_stop.cfg `PRINT_END` part presentation | was fixed `G0 X10 Y228` | **FIXED (.81)** — clamped to the axes + `[r2_postproc] present_x/present_y` (defaults 10/228 = unchanged reference behavior) |
+| 2 | 12_maintenance.cfg `TEMP_TOWER_GEN` / retract tower end park | was fixed `Y190` | **FIXED (.81)** — clamped to `axis_maximum.y - 4` |
+| 3 | 12_maintenance.cfg `PLT_FRAME` end park | was fixed `X5 Y190` | **FIXED (.81)** — parks inside the plot-bed variables |
+| 4 | 12_maintenance.cfg calibrator prime lines (`X15 Y10` → `X75`) | front-left anchor | OK as-is (fits any bed ≥ 80 mm; the towers themselves place from bed data) |
+| 5 | 12_maintenance.cfg `_NOZZLE_WIPE` | pad anchored at axis minimum, fixed 13×13 mm | **FIXED (.81)** — `[r2_postproc] wipe_x/wipe_y` anchor (default = axis-minimum corner, clamped so the pad stays on the axes) |
+| 6 | tools/r2-postproc.service | `User=pi`, `/home/pi` hardcoded | **FIXED (.80/setup.sh)** — setup.sh templates the unit to your user + paths |
+| 7 | 11_gantry_sync.cfg `SYNC_GANTRY` | parallel-wired dual-Z + `SET_TMC_CURRENT` (TMC UART) | by design, documented — Ender-3-class gantry only; CoreXY/independent-Z users have Z_TILT/QGL |
+| 8 | megatest.py `BED` | was fixed (0,-3,220,217) | **FIXED (.81)** — `--bed=x0,y0,x1,y1` or `--cfg=printer.cfg`; dimension-ValueErrors on a smaller bed count as SKIP (the generators correctly reject what does not fit — verified on 180×180 and a 10..200 bed: 101 runs, 0 FAIL) |
+
+HOST_CHECK's swap verdict also got honest in .81: it now measures swap ACTIVITY
+(vmstat si/so) — quietly parked pages after boot are OK (the .80 field log
+showed 109 MB of cold swap on a perfectly healthy Pi flagged as „SWAPPING").
 
 ## 4. Hardware-dependent components (layer C)
 
@@ -88,18 +94,14 @@ no duplication.
   (use Z_TILT_ADJUST/QGL). Input shaper resonance plates work (x/y generic).
 - **Delta:** NOT recommended - generators and the plotter assume a rectangular bed.
 
-## 6. Recommended hardening plan (R104 proposal - not yet applied)
+## 6. Hardening plan
 
-1. **P1 - PRINT_END presentation position (#1):** clamp to `min(Y228, axis_maximum.y - 4)`
-   and optionally read `present_x`/`present_y` from `[r2_postproc]` (defaults = today's values,
-   so the reference machine does not change behavior).
-2. **P1 - Y190 parks (#2, #3):** clamp to the plot bed variables (they describe the real
-   travel area on the pen-plotter machines) / axis limits.
-3. **P2 - wipe area (#5):** `wipe_x`/`wipe_y` (anchor override) in `[r2_postproc]`,
-   default = axis-minimum corner (unchanged behavior).
-4. **P2 - megatest (#8):** `--bed` argument, default from printer.cfg.
-5. **P3 - cold-pull clamps (#4).**
-6. All of it guarded by the existing test suites (1226/1226, golden 23/23, megatest 101/0).
+**R104 (release .81) - APPLIED:** P1 PRINT_END presentation clamp + `present_x/present_y`,
+P1 Y190 calibrator parks + PLT_FRAME park, P2 wipe pad anchor (`wipe_x`/`wipe_y`),
+P2 `megatest --bed/--cfg` with small-bed SKIP handling. All guarded by the test
+suites (suite 1240/1240, golden 23/23, megatest 101/0 on three different beds).
+
+Remaining (P3, cosmetic): calibrator prime-line X75 clamp on ultra-small beds.
 
 ## 7. Bring-up checklist for a new printer (fresh install)
 
@@ -120,4 +122,4 @@ no duplication.
   update paths) - tested in a full simulation including KAMP installation.
 - This file documents the portability contract; the hardening plan above is the road to
   "no Ender-3 coordinate left in a movement command".
-- Still open before publishing: license file, screenshot assets, and the R104 hardening.
+- Still open before publishing: license file + screenshot assets (the R104 hardening is done).

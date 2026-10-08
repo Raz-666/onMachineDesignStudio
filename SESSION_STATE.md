@@ -1785,3 +1785,69 @@ sind zurueckgesetzt).
 OFFEN: R104-Entscheidung (HOST_CHECK-Aktivitaetsverdict + P1/P2 aus
 COMPATIBILITY.md: PRINT_END Y228 klemmen, Y190-Parks, optional wipe_x/y,
 megatest --bed). setup.sh im Feld noch nicht gelaufen (User testet erst .80).
+
+# Round 104: EHRLICHER HOST-CHECK + PORTABILITAETS-HAERTUNG (.81)
+
+USER-AUFTRAG: _INIT_DEFAULTS war Absicht (User-Rueckmeldung). R104 bauen (aus
+Feldlog .80-Befund + COMPATIBILITY.md-Plan).
+
+HOST_CHECK R104 (Feldlog .80: 109MB STEIN-KALTER Swap, stabil ab Minute 4,
+load 0.26, Throttle NONE - aber 'Verdict: SWAPPING' + M117 + r2_error bei
+jedem Check, R78-Schwelle = Nutzung >= 30MB ohne Aktivitaetspruefung):
+- NEU _parse_vmstat_swapio (vmstat-Spalten 7/8 = si/so KB/s, 16- und 17-Spalten-
+  Zeilen, Muell -> None); Schwelle _SWAP_ACTIVE_KB = 100 KB/s.
+- _host_verdict(throttle, load, cores, swap_used, eaters, swap_io_kb=None):
+  geparkt (< 100 KB/s) -> OK-Verdict 'QUIET ... cold pages parked after boot
+  pressure' (kein M117-Alarm, r2_done statt r2_error); aktiv -> lautes
+  SWAPPING mit '...KB/s moving right now' + Eater-Nennung; nicht messbar ->
+  konservativ laut ('could not be measured - no vmstat?'); overload rangiert
+  UEBER geparktem Swap (parked_msg wird erst nach dem Load-Check ausgegeben).
+- host_check: vmstat 1x vor dem Top-SWAP-Block (same line: wa + si/so); Top
+  SWAP-Pfeiltext aktivitaetsabhaengig ('parked COLD ... harmless' vs. alte
+  Eater-Warnung).
+
+PORTABILITAET R104 (COMPATIBILITY.md P1/P2):
+- PRINT_END Teil-Uebergabe: war fest 'G0 X10 Y228' (Crash auf Y-Achse < 232) ->
+  geklemmt an Achsen + [r2_postproc] present_x/present_y (Defaults 10/228,
+  Referenzverhalten byte-identisch dank |round(0)|int).
+- TEMP_TOWER/Retract-Tower-Endpark 'G0 X10 Y190' (2x) -> an Achsen geklemmt.
+- PLT_FRAME-Endpark 'G0 X5 Y190' -> innerhalb der Plot-Bett-Variablen
+  (x0+ox, max(y1-43, y0+oy+5); Default = exakt 5/190 wie vorher).
+- _NOZZLE_WIPE-Pad: Anker [r2_postproc] wipe_x/wipe_y (Default Achs-Minimum,
+  geklemmt dass das 13x13-Pad auf den Achsen bleibt) - Pad woanders = eine
+  Zeile Config, kein Makro-Edit mehr.
+- megatest.py: --bed=X0,Y0,X1,Y1 und --cfg=printer.cfg (liest [r2_postproc]);
+  auf kleinerem Bett korrekt abgewiesene Dimension-ValueErrors zaehlen als
+  SKIP statt FAIL (Regex fit/needs/too/exceeds, nur wenn Bett != Referenz).
+  BEWEIS: --bed=0,0,180,180 -> 101 Runs, 84 Dateien, 0 FAIL (7 SKIP);
+  --cfg 10..200 -> 101/86/0; Default -> 101/91/0.
+
+DOKU: MANUAL.md (HOST_CHECK-Zeile + Troubleshooting + Kap.23-Positionsoptionen
++ A.2 + Changelog .81), make_manual_pdf 4x + Buildmsg + .81-Changelog,
+INSTALL 3x .81, COMPATIBILITY.md auf .81-Stand (1/2/3/5/6/8 FIXED).
+
+TESTS: Suite 1226 -> 1240/1240 (+14 R104: Verdict geparkt/aktiv/unmessbar/
+ overload-Rang, vmstat-Parser, host_check v4 End-to-End mit .80-Feldbild =
+ ruhiges Verdict + 'parked COLD' + M117 Host OK + r2_done, PRINT_END 3x
+ Render (Referenz unverändert X10 Y228 / klein 180er -> Y176 / Override 40/100),
+ Wipe 2x (Default X0.0/13.0, Override 60/120->73), 3 Quelltests). 1 alter
+angepasst: R78 host_check v3 nutzt jetzt aktive si/so (60/80) + prueft
+'140KB/s' im Verdict. GOLDEN 23/23, AUDIT 59/0, R91 ok, MEGATEST 0 FAIL
+(3 Betten). PDF .81: 91 S., MD5 9697f234459caa183f55a5cb464f43d0.
+
+RELEASE .81: klipper-e3-r2d2-UPDATE-R2-2026-09-07.81.zip, 46 Dateien (.80-Liste +
+setup.sh + COMPATIBILITY.md), zipfile -t OK, Frisch-Entpackung byte-identisch
+46/46. ZIP MD5 f6267d924423cc167a3ada81e357caa4 (1143769 B). MANUAL.pdf (91 S.,
+MD5 9697f234...) == Workspace. FELD-SIM .80->.81 sauber ('installed: .80' ->
+'package version: R2-2026-09-07.81' -> done); R104-Marker verifiziert
+(present_x 2x, wipe_x 2x, _parse_vmstat_swapio 3x, setup.sh + COMPATIBILITY.md
+im Paket); Suite 1240/1240 + Megatest 101/91/0 AUS DEM SIM-PAKET heraus.
+USER-HINWEIS: Update wie immer (ZIP in den Config-Ordner, update.sh). Was sich
+merklich aendert: HOST_CHECK hoert auf, bei ruhig geparktem Swap falsch Alarm
+zu schlagen ('Verdict: OK ... QUIET' + Host OK statt SWAPPING + Fehlton) -
+echtes Swapping (Traffic JETZT) bleibt laut. Neue Optionen in [r2_postproc]
+(alles optional, Defaults = bisheriges Verhalten): present_x/present_y
+(Teil-Uebergabe PRINT_END), wipe_x/wipe_y (Wipe-Pad-Anker). megatest.py kann
+fremde Betten: --bed=0,0,220,220 oder --cfg=printer.cfg. setup.sh (Assistent:
+Service/KAMP/LED/RAM/Swap) liegt jetzt im Paket - ein Aufruf nach dem Update
+empfohlen (findet z.B. ModemManager).
