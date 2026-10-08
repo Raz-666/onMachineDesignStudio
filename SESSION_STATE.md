@@ -1967,3 +1967,27 @@ entfernen (sed-Zeile oder Backup-Restore) - der Loop bootet dann selbst.
 Verhalten. (4) HINWEIS fuer kuenftige Config-Edits: nichts HINTER den
 #*# <save_config>-Block schreiben (Klipper: 'modifications after header' ->
 Autosave unlesbar -> heater_bed/control-Fehler).
+
+# Round 105 (VORBEREITUNG, kein Release): GITHUB-READINESS - fresh-clone Beweis + CI
+
+KONTEXT: Drucker bootet wieder (User-Bestaetigung nach Sektions-Entfernung);
+weiter im Community-Plan (GitHub-Publikation), wie vor dem Notfall geplant.
+
+BEWEIS SELBSTTRAGEND: frischer git-clone in ein leeres Dir -> ALLE fuenf
+Suiten gruen (1247/1247, golden 23/23, audit 59/0, r91 ok, megatest 101/91/0)
+mit nichts als python3 + jinja2 (einzige externe Dep der Suite; make_label_fonts
+braucht PIL, ist aber Build-time-only und nicht Teil der CI). Wer klont, kann
+testen - die wichtigste Voraussetzung fuer die Community.
+
+NEU .github/workflows/tests.yml: CI auf jeden push/PR - bash -n beider Shell-
+Scripts, dann exakt die fuenf Checks des Fresh-clone-Beweises. YAML validiert,
+nicht von .gitignore erfasst. Reitet mit .83 ins ZIP (fuer die Repo-Nutzer
+relevant, nicht fuer den Pi).
+
+OFFEN FUER DIE PUBLIKATION (User-Entscheidungen angefragt): (1) Lizenz
+(MIT vs GPL-3.0 vs CC BY-NC 4.0 non-kommerziell), (2) SESSION_STATE.md -
+das deutsche Entwicklungs-Tagebuch (377 KB, Feldlogs seit R1) - oeffentlich
+im Repo oder nur privat im ZIP, (3) Screenshots fuer die README (User muss
+liefern: LCD-Menues, Mainsail-Konsole, Druckergebnisse Rahmen/Labels/Litho),
+(4) Erinnerung an User: Resonance-CSV fuer das offene _FILE_INFO-Feature +
+HOST_CHECK-Verdict 'OK - quiet' Bestaetigung auf .82.

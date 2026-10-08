@@ -1,0 +1,42 @@
+name: tests
+
+# R105: the whole quality net runs on every push and pull request - the exact
+# same five checks a fresh clone can run locally (verified: a clean clone of
+# this repository passes all of them with nothing but python3 + jinja2).
+# External dependencies: jinja2 (macro render suite). Everything else is
+# stdlib - by design, so the Pi never needs pip.
+
+on: [push, pull_request]
+
+jobs:
+  suite:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install the one external dependency
+        run: pip install jinja2
+
+      - name: Shell syntax (setup.sh + update.sh)
+        run: |
+          bash -n setup.sh
+          bash -n update.sh
+
+      - name: Macro render suite (full Klipper-template simulation)
+        run: python3 tools/macro_render_test.py
+
+      - name: Golden byte-identity (generator regression net)
+        run: python3 tools/r81_golden_check.py
+
+      - name: Audit sweep (gcode invariant checker)
+        run: python3 tools/audit_sweep.py
+
+      - name: Streaming simulations (watcher RSS stays flat)
+        run: python3 tools/r91_simulate.py
+
+      - name: Megatest (101 generator runs at parameter extremes)
+        run: python3 tools/megatest.py
