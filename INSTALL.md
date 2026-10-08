@@ -45,6 +45,34 @@ say `build R2-2026-09-07.80`
 
 ---
 
+# The environment wizard: setup.sh (fresh installs AND after updates)
+
+`update.sh` only swaps the package files. `setup.sh` (same folder) checks and
+brings up **everything around the package** that the macro system needs to run
+stable - for a fresh install and as a health check after updates:
+
+- **Python** + watcher compile check (stdlib only - no pip dependencies)
+- **r2-postproc service**: installed? running? pointing at THIS package? The
+  unit file gets templated to your user + paths automatically (no `pi` needed)
+- **KAMP**: detected; offered for installation (clone + config patches)
+- **klipper-led_effect** (the LED effect library `03_leds.cfg` uses)
+- **RAM + services**: top consumers, known-optional services (camera stack,
+  OctoPrint, ModemManager, ...) - nothing is disabled without your OK
+- **swap**: honest usage display + `vm.swappiness` tuning offer
+- **`[r2_postproc]` bed limits**: present? (the ONE truth for generators -
+  a must on any non-Ender-3 printer, see COMPATIBILITY.md)
+
+```bash
+bash ~/printer_data/config/klipper-e3-r2d2/setup.sh            # interactive
+bash ~/printer_data/config/klipper-e3-r2d2/setup.sh --check    # report only
+```
+
+Every edited config file gets a `.r2bak.<timestamp>` backup first; questions
+without input (non-interactive SSH) always take the safe default. Porting to
+another printer: read `COMPATIBILITY.md` (what is dynamic, what to set once).
+
+---
+
 # Installation in ~10 minutes (ENGLISH rewrite)
 
 ## 0) Requirements (you already have these)

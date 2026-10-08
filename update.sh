@@ -170,4 +170,10 @@ else
     echo "    check it is alive:   systemctl status r2-postproc --no-pager"
 fi
 
+# --- 7) hint: the environment wizard --------------------------------------------------
+if [ -f "${DIR}/setup.sh" ]; then
+    echo "[i] environment wizard available (service, KAMP, LED effects, RAM, swap):"
+    echo "        bash ${DIR}/setup.sh        (--check = report only)"
+fi
+
 echo "== done. Happy printing! =="

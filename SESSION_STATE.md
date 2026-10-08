@@ -1666,3 +1666,81 @@ Konvertierungen (kleine Bilder skalierten falsch: <100 px Pixelhoehe
 explodierten uebers Bett, grosse Fotos wurden still gestaucht - jetzt korrekt
 plus Bett-Guard) und (2) Rahmen-Dateiinfos listen BRIDGE ehrlich. Betroffene
 alte Plot-Dateien ggf. neu wandeln lassen.
+
+# Round 103: PI-SWAP (gemessen), SETUP-WIZARD setup.sh, KOMPATIBILITAETS-ANALYSE
+
+USER-AUFTRAG (3 Teile): (1) Pi-Swap-Thema - optimierbar ueber unseren Code?
+(2) Setup-/Pruef-Script: die frueher gegebenen SSH-Deaktivier-Befehle als
+Abfrage; checken, welche Dienste aktiv sind und RAM belegen; komplette
+Abfrage fuer Neuinstallation UND Update inkl. Installation fehlender
+Komponenten (KAMP, NeoPixel-Effekt-Library klipper-led_effect) mit Feedback;
+Motivation: Community-Freigabe via GitHub mit frischer Neuinstallation.
+(3) Kompatibilitaets-Analyse des kompletten Systems fuer andere FDM-/CoreXY-
+Drucker (Bauraum/Positionen/Offsets/Plotter-Skalierung dynamisch?).
+
+SWAP-ANTWORT (gemessen, kein Ratewerk): Watcher Peak-RSS 54,7 MB bei 25,6-MB-
+Gcode (4,6 s Laufzeit), Idle ~20-30 MB -> der Watcher ist NICHT der Swap-Treiber.
+165 MB Swap = der Kernel parkt unbenutzte Seiten aus; kritisch nur bei Stottern
+unter Last. Ehrliche Hebel: unbenutzte Dienste deaktivieren + vm.swappiness 10
+(beides jetzt per setup.sh abfragbar). Kein Code-Eingriff in das freigegebene
+.80 ohne Evidenz.
+
+NEU setup.sh (Paket-Root): Umgebungs-Assistent, 10 Abschnitte - Umgebung
+(git/netz/systemd/sudo), Config (17 Includes, [r2_postproc]-Bett mit
+Angebot zum Anlegen), Klipper-Stack, Python-Compile-Check (Watcher ist
+stdlib-only), r2-postproc-Service (Unit wird auf User+Pfade TEMPLATERT -
+die User=pi//home/pi-Falle im Paket-Unitfile ist damit beseitigt; Erkennung
+per LoadState; Doppel-Install-Warnung per ExecStart-Vergleich), KAMP
+(Erkennung + Komplett-Installation: git clone, config/KAMP-Link,
+KAMP_Settings.cfg mit Adaptive_Meshing+Line_Purge enabled, printer.cfg
+[include]+[exclude_object], moonraker file_manager+update_manager - jede
+Datei mit .r2bak-Zeitstempel-Backup), klipper-led_effect (Erkennung +
+clone+Installer + update_manager), RAM-Topliste + bekannte optionale Dienste
+(crowsnest/webcamd/octoprint/KlipperScreen/ModemManager/cups/triggerhappy/
+bluetooth/hciuart/obico; NIE klipper/moonraker/mainsail/r2-postproc/
+wpa_supplicant/ssh/swap; Deaktivierung nur nach Rueckfrage), Swap-Block mit
+Praevention gegen Panik ("Swap in use is NOT an error") + swappiness=10-
+Angebot (/etc/sysctl.d/99-r2-printserver.conf), Summary (ok/fix/warn).
+Modi: interaktiv, --check (nur Bericht), positionales printer.cfg-Argument.
+EOF auf Frage = sicherer Default (nicht-interaktiver SSH).
+
+TEST setup.sh (Sandbox hat ueberraschend echtes systemd + sudo + Netz):
+(1) Erster --check-Lauf fand 2 Script-Bugs: Check-Modus installierte den
+Service TROTZDEM (Default-y wurde durchgereicht) -> Check-Modus setzt
+ASK_ANSWER jetzt immer n; Summary druckte literal \n -> %b-Format.
+(2) Unit-Erkennung: mktemp-0600 + sudo cp machte die Unit root-only-lesbar,
+systemctl cat schlug fehl -> Erkennung auf 'systemctl show -p LoadState'
+umgestellt + Installation per 'install -m 644'.
+(3) Voll-Install-Lauf (gepipte y-Antworten): KAMP KOMPLETT installiert
+(Repo geklont, KAMP-Link, Settings 2 Features on, printer.cfg + moonraker
+gepatcht, Backups angelegt), LED-Installer kontrolliert gescheitert (kein
+klipper-Service in der Sandbox, Meldung klar), Service aktiv (43 MB, der
+echte .80-Watcher unter systemd), swappiness=10 aktiv.
+(4) Idempotenz-Beweis: 3. Lauf sieht alles [ok] (KAMP fully set up), beide
+Rest-Fragen defaulten auf n, keine neuen Backups.
+update.sh hintet seitdem auf setup.sh; INSTALL.md hat Wizard-Sektion.
+
+KOMPATIBILITAET (COMPATIBILITY.md, neu im Paket, English fuer die Community):
+Layer-Modell - A dynamisch: Generator-Bett an ALLEN Watcher-Call-Sites aus
+[r2_postproc] in printer.cfg (_bed_limits(); genau deshalb verzerrt der
+ueberdas-Bett-gehobene X-Stepper der Referenzmaschine die Platzierung nie),
+Duese aus [extruder] nozzle_diameter, Prime-Line probe-aware aus [probe]-
+Offsets, Pause-Parks zur Laufzeit gewaehlt, Y-Klemmen ueber axis_maximum,
+KAMP-Autodetect, Plot-Bett/Offsets/Scale aus save_variables (LCD Tools >
+Plotter); B Defaults mit Ender-3-Fallback (Bett 0,-3,220,217; Plot 5,5,239,
+233); C Hardware (neopixel/led_effect, Buzzer M300, Filament-Sensor,
+SYNC_GANTRY parallel-Dual-Z+TMC - CoreXY nimmt Z_TILT/QGL). Gefundene
+Luecken (mit Fundstellen): PRINT_END 'G0 X10 Y228' (08:1656) - MUSS geklemmt
+werden (Y-Achse < 232 wuerde anfahren), TEMP_TOWER-Park Y190 (12:1170),
+PLT_FRAME-Park X5 Y190 (12:1746), Cold-Pull X15 Y10/X75 (12:1148/1420/1547),
+Wipe-Pad 13x13 an axis_minimum nicht verschiebbar, megatest-Bett fix.
+Kinematik-Urteil: kartesisch + CoreXY voll unterstuetzt (Makros emittieren
+nur X/Y/Z, Geschwindigkeiten klemmt Klipper), Delta nein (rechteckige
+Platten). R104-Vorschlag: P1 End-Presentation klemmen + optional
+[r2_postproc] present_x/y, P1 Y190-Parks an Plot-/Achsgrenzen, P2 wipe_x/y,
+P2 megatest --bed, P3 Cold-Pull-Klemmen. GitHub-offen: Lizenz, R104, Assets.
+
+TESTS: Suite 1226/1226, Golden 23/23 (unveraendert - dieses Round aenderte
+kein .py/.cfg ausser Doku + die beiden Shell-Scripts). KEIN neues Release:
+.80 wartet auf Feldtest; setup.sh + COMPATIBILITY.md reiten mit .81 (setup.sh
+ist standalone: scp/Mainsail-Upload in den Paketordner genuegt).
