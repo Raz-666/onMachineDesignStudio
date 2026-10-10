@@ -8962,6 +8962,17 @@ _ls106, _lsi106 = _pp.make_lithophane(_img106, bed=_BED106e, out_dir=_d106e,
                                       height_mm=40.0)
 tests.append(('R106 litho STANDING: untouched default (kind, vertical)',
     _lsi106['kind'] == 'lithophane', ''))
+_lst106 = open(_ls106, encoding='utf-8').read()
+tests.append(('R106 litho SIZE SEMANTICS: FLAT header = picture in XY + Z relief'
+              ' = layers; STANDING = width X + print height Z',
+    'in XY (the bed plane)' in _lt106 and 'Z relief =' in _lt106
+    and 'tall (Z = one image row per layer)' in _lst106, ''))
+_lcdsem106 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R106 litho SIZE SEMANTICS: LCD RESPOND names XY (FLAT) vs Z height'
+              ' (STANDING)',
+    'Picture size in the bed plane (XY)' in _lcdsem106
+    and 'the height in Z is the relief (layer count x layer height)' in _lcdsem106
+    and 'print height in Z (one image row per layer)' in _lcdsem106, ''))
 try:
     _pp.make_lithophane(_img106, bed=_BED106e, out_dir=_d106e, orient='X')
     _og106 = False

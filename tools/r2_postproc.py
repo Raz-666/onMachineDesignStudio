@@ -9007,8 +9007,11 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
         a(TAG)
         a('; source %s (%dx%d px) -> %dx%d cells, FLAT print: back on the bed,'
           ' top = terraced image' % (os.path.basename(src), w, h, cols, rows))
-        a('; plate %.1f x %.1f mm, thickness %.1f..%.1f mm, %d layers @%.2gmm'
-          % (width_mm, height_real, t_min, t_max, n_l, layer_h))
+        # R106 (user semantics): the SIZE input is the picture in XY (the bed
+        # plane); the height in Z is the relief = layer count x layer height
+        a('; picture %.1f x %.1f mm in XY (the bed plane), Z relief = %d'
+          ' layers @%.2gmm = %.1f..%.1f mm thick'
+          % (width_mm, height_real, n_l, layer_h, t_min, t_max))
         a('; %s' % rep)
         a('; frame %s, brim %d loop(s), ironing %s'
           % ('ON (solid border at full thickness)' if frame else 'OFF',
@@ -9256,8 +9259,11 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
         a(TAG)
         a('; source %s (%dx%d px) -> %dx%d cells, standing print, dark = thick'
           % (os.path.basename(src), w, h, cols, rows))
-        a('; plate %.1f x %.1f mm, thickness %.1f..%.1f mm, %d layers @%.2gmm'
-          % (width_mm, height_real, t_min, t_max, rows, layer_h))
+        # R106: same clarity standing - the size input is the picture height
+        # = the print height in Z; the width follows the aspect in X
+        a('; picture %.1fmm wide (X), %.1fmm tall (Z = one image row per'
+          ' layer), thickness %.1f..%.1f mm, %d layers'
+          % (width_mm, height_real, t_min, t_max, rows))
         a('; %s' % rep)
         a('; frame %s, brim %d loop(s), ironing %s'
           % ('ON (solid border at full thickness)' if frame else 'OFF',
@@ -11368,11 +11374,22 @@ def watch(directory, interval=5.0, once=False):
                         out_l, info_l = make_lithophane(p, **params)
                         _rel89 = os.path.relpath(
                             os.path.join(directory, info_l['file']), directory)
-                        _msg89 = ('Litho: %s - from %s, %.0fx%.0fmm plate, '
-                                  '%d layers, thickness %smm%s - selected '
-                                  'for printing'
-                                  % (info_l['file'], src, info_l['width'],
-                                     info_l['height'], info_l['layers'],
+                        # R106 (user semantics): FLAT names the picture size
+                        # in XY + the Z relief as layers; STANDING names the
+                        # classic plate (width x Z print height)
+                        if info_l.get('kind') == 'lithophane-flat':
+                            _geo89 = ('picture %.0fx%.0fmm in XY, Z relief '
+                                      '%d layers'
+                                      % (info_l['width'], info_l['height'],
+                                         info_l['layers']))
+                        else:
+                            _geo89 = ('%.0fmm wide, %.0fmm tall (Z), %d '
+                                      'layers'
+                                      % (info_l['width'], info_l['height'],
+                                         info_l['layers']))
+                        _msg89 = ('Litho: %s - from %s, %s, thickness %smm%s'
+                                  ' - selected for printing'
+                                  % (info_l['file'], src, _geo89,
                                      info_l['thickness'],
                                      ', %d levels' % info_l['levels'] if info_l['levels'] else ''))
                         for _n89 in info_l.get('notes', [])[:2]:

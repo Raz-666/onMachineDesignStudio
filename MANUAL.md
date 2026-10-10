@@ -1108,7 +1108,7 @@ correct viewing side).
 | Setting | Range | Meaning |
 |---|---|---|
 | Orient | STANDING / FLAT | STANDING (default): on edge, the classic recipe — most detail, layer lines run with the image. FLAT (.83): the plate lies on the bed — back glass-flat, the top carries the image as a fine terraced relief (small layers + Ironing smooth it). Ideal as a frame Disc: set Size to the photo size |
-| Height / Size | 30–200 mm | picture height (STANDING: print height; FLAT: plate long side — the label flips with the orient). The other dimension follows the aspect ratio |
+| Height / Size | 30–200 mm | **the picture, in the bed plane (FLAT: XY)** — the value is the picture's Y side in mm, X follows the image's aspect ratio (both clamp to the bed). STANDING: the value is the picture height = the print height in Z (one image row per layer). The height in Z is never a size input: **it is the relief — layer count × layer height** (0.7–3.0 mm) |
 | Layer | 0.08–0.2 mm | 0.12 = default; 0.08 = maximum detail, roughly double the print time |
 | Levels | 0–12 | 0 = continuous grey shades (photo look). 2–12 = posterized: the picture is reduced to N brightness steps — chunky retro look at 2–4, subtle terraces at 8–12 |
 | Colors | 1–4 | FLAT only: color bands from the bed up — PAUSE + prime line at every boundary, you swap filament and RESUME. Classic: white base layers under a colored body glow especially even |
@@ -1128,8 +1128,11 @@ plate is one **exclude object**.
 every layer covers exactly the cells whose thickness reach it (each higher
 layer is a subset of the one below — nothing prints over air, ever). The
 image sits on top as a terraced relief; the file is `00_LithoF_<name>…`.
-Both modes hard-clamp the plate to the bed (aspect kept) — a value can
-never produce an oversized plate.
+**Sizes:** the Size input sets the picture in **XY** (the bed plane) —
+X follows the image aspect, both clamp to the bed. The height in **Z is
+not a size**: it is the relief — the layer count × layer height (the
+thickness range dark→light). Both modes hard-clamp to the bed (aspect
+kept) — a value can never produce an oversized plate.
 
 **Material & light:** white or natural PLA glows best. The effect unfolds
 with back-light 20–50 mm behind the plate (window, LED, tea light with a
