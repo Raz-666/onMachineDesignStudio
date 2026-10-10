@@ -1094,7 +1094,8 @@ correct viewing side).
    folder (Mainsail drag & drop). The **Images** list refreshes on its own
    (newest first, 10 slots). Pictures you uploaded for **pen plotting are in
    the same list** — the original is never touched, plotting keeps working.
-2. **Settings** — Height, Layer, Levels, Frame, Brim, Ironing (see table).
+2. **Settings** — Orient, Height/Size, Layer, Levels, Colors, Frame, Brim,
+   Ironing (see table).
 3. **Slot press = Create** — a confirm blip, the watcher generates in its own
    background thread (big pictures ~a minute, the printer keeps serving
    previews meanwhile), the happy tune plays and the file **auto-selects**:
@@ -1106,19 +1107,29 @@ correct viewing side).
 
 | Setting | Range | Meaning |
 |---|---|---|
-| Height | 30–200 mm | picture height. Width follows the aspect ratio (auto-clamped to the bed) |
+| Orient | STANDING / FLAT | STANDING (default): on edge, the classic recipe — most detail, layer lines run with the image. FLAT (.83): the plate lies on the bed — back glass-flat, the top carries the image as a fine terraced relief (small layers + Ironing smooth it). Ideal as a frame Disc: set Size to the photo size |
+| Height / Size | 30–200 mm | picture height (STANDING: print height; FLAT: plate long side — the label flips with the orient). The other dimension follows the aspect ratio |
 | Layer | 0.08–0.2 mm | 0.12 = default; 0.08 = maximum detail, roughly double the print time |
 | Levels | 0–12 | 0 = continuous grey shades (photo look). 2–12 = posterized: the picture is reduced to N brightness steps — chunky retro look at 2–4, subtle terraces at 8–12 |
+| Colors | 1–4 | FLAT only: color bands from the bed up — PAUSE + prime line at every boundary, you swap filament and RESUME. Classic: white base layers under a colored body glow especially even |
+| ColL | 1–30 | layers per color band (only shown when Colors > 1) |
 | Frame | ON/OFF | border frame that holds the thin plate straight (recommended) |
-| Brim | 0–10 loops | the plate prints STANDING — the brim anchors it to the bed |
-| Ironing | ON/OFF | slow smoothing pass over the light side (front) |
+| Brim | 0–10 loops | anchors the plate — STANDING to the bed, FLAT against warping |
+| Ironing | ON/OFF | slow smoothing pass over the light side (STANDING: front; FLAT: top face) |
 | Vers | V01–V09 | same picture + same version = replaces itself; bump to keep an iteration |
 
-**How it prints** — standing upright, one picture row per layer (the layer
+**How it prints (STANDING)** — upright, one picture row per layer (the layer
 lines run WITH the image, that is what keeps the detail). Thickness runs
 from 0.7 mm (brightest, glows first) to 3.0 mm (shadows), 100 % solid —
 the file sets everything itself: slow walls, fan curve, PRINT_START. The
 plate is one **exclude object**.
+
+**How it prints (FLAT, .83)** — lying on the bed: the back is glass-flat,
+every layer covers exactly the cells whose thickness reach it (each higher
+layer is a subset of the one below — nothing prints over air, ever). The
+image sits on top as a terraced relief; the file is `00_LithoF_<name>…`.
+Both modes hard-clamp the plate to the bed (aspect kept) — a value can
+never produce an oversized plate.
 
 **Material & light:** white or natural PLA glows best. The effect unfolds
 with back-light 20–50 mm behind the plate (window, LED, tea light with a
@@ -1177,7 +1188,10 @@ back, the visible face points up and gets the ironing pass.
 
 **Placement & first layer (field log .74):** every plate — one-piece, multi
 Part A/B, split kit — sits **centered on the usable bed**, never crammed
-into the x0/y0 corner. The first layer of every part prints in a fixed
+into the x0/y0 corner. If the frame alone would not fit, the border
+hard-clamps to what the bed offers (.83, minimum 6 mm) before the
+generator ever thinks about splitting — and the W/H inputs never accept
+values above the build volume. The first layer of every part prints in a fixed
 discipline: **brim → inner wall → outer wall → one continuous zigzag fill**
 (back-and-forth with extruded connectors — singly printed lines curled up at
 their starts/ends and frayed the borders). The only travels inside that fill
@@ -1187,7 +1201,9 @@ cross open holes (keyhole, stud holes, cable slot) — and those retract.
 
 1. **Settings** — Preset (9x13 · 10x15 · 13x18 · A6) or custom W/H, Depth,
    Border, Corner r, Shape, Closure, Hang, Stand, Surface (Front), Disc,
-   Cable, Infill, Vers — each topic is its own submenu.
+   Cable, Infill, Walls, Vers — each topic is its own submenu, plus
+   **Presets** (save/load/delete your own complete frame configurations,
+   8 slots).
 2. **Create (beeps)** — the watcher checks the bed fit while generating
    (≈ 1 s), the happy tune plays and the file **auto-selects**:
    `00_Frame_<preset>_FLATx8_V01.gcode` (Part A when the bed needs two
@@ -1352,8 +1368,11 @@ Feature: SET_OVERRIDE_VALUE NAME=feat_spd_<code> VALUE= · NAME=feat_acc_<code> 
          (16 feature codes) · SET_IRONING_FLOW PERCENT=
 Accel:   SET_GLOBAL_ACCEL ACCEL= — the global accel; a feature with its own accel
          keeps it (feature beats the global)
-Limits:  SET_LIVE_VELOCITY VELOCITY= · SET_LIVE_MINIMUM_CRUISE_RATIO VALUE= (each confirms "[OK] … -> Klipper") ·
+Limits:  SET_LIVE_VELOCITY VELOCITY= (caps the FASTEST moves = travels) · SET_LIVE_ACCEL ACCEL= (global cap,
+         travels included) · SET_LIVE_MINIMUM_CRUISE_RATIO VALUE= (each confirms "[OK] … -> Klipper") ·
          SET_LIVE_SQUARE_CORNER VALUE=
+Z-Hop:   SET_Z_HOP ENABLE=1|0 HEIGHT=0.1..3 — lifts Z on every firmware retract (G10/G11), lowers
+         before the unretract: nozzle-crash protection for towers, text, small parts
 Extrusion: SET_FLOW_RATE PERCENT=1..300 · SET_LIVE_PRESSURE_ADVANCE VALUE= ·
          SET_LIVE_PA_SMOOTH TIME= · SET_LIVE_RETRACTION LENGTH= SPEED= UNRETRACT_SPEED= EXTRA=
 Temps:   SET_LIVE_HOTEND_TEMP T= · SET_LIVE_BED_TEMP T=
@@ -1857,8 +1876,8 @@ retraction reads the firmware values — what you see is what runs.
 | Accels | Global mm/s² + FeatAcc: the currently printing feature's accel |
 | Features | 16 submenus = same as Pre-Print > Features, but live: edits re-apply immediately when that feature is printing |
 | File (G-code) | FULL mirror of the Pre-Print file info: measured originals (speed/accel per feature), 16 click-activators, temps, PA, retraction, fan, flow — everything during the print |
-| Extrusion | Flow % (1–300), PA, PA smooth, RetLen / RetSpd / Unret, Ironing flow — every input shows what Klipper REALLY runs right now, Src info shows file/overwrite/live |
-| Velocity | max velocity · minimum cruise ratio · square corner — live, like Mainsail |
+| Extrusion | Flow % (1–300), PA, PA smooth, RetLen / RetSpd / Unret, UnretExt, Ironing flow, **Z-Hop ON/OFF + height** (lifts over every retract — nozzle-crash protection) — every input shows what Klipper REALLY runs right now, Src info shows file/overwrite/live |
+| Velocity | Velcap (max velocity — caps the fastest moves = travels) · Acccap (global accel cap, travels included) · MCR · corner — live, like Mainsail |
 | Plotter | while plotting: pen speed %, pen Z ±0.05, X/Y ±0.5 shifts |
 | Pause & Control | pause now / next layer / at layer / Stop@ (planned NORMAL end) / M600 / Filament (Load/Unload/Change while paused) / cancel (2×) |
 | Objects | skip single objects (2× confirm) |
@@ -1871,8 +1890,8 @@ retraction reads the firmware values — what you see is what runs.
 | File (G-code) | full slicer summary of the selected file (type, material, layer height × layers, line widths, flow ratio, by-object, nozzle × wall loops, ALL speeds, accels, L1/L2 temps, PA, retraction) + **sliced by <slicer> for <firmware>** (volumetric files get a loud warning) — shown from the MOMENT you select the file; the per-feature values are MEASURED from the g-code — PLUS 16 activator rows (OW…BM + OH/IB/PT/CU): each shows the file's REAL speed + o:ON state; CLICK toggles that feature's override; features NOT in the file show 'n/a' and refuse |
 | Material | LOAD NOW + all material values + Save as preset — editing a value of the ACTIVE material applies LIVE too |
 | Temperatures | Bed L1/L2, Hotend L1/L2, Fan L2 (ON/OFF each) + File H:/File B: = the file's own values |
-| Motion | PA (+smooth), retraction len/spd/unretract, Accel + Vel + MCR + Corner (ON/OFF each) + File R: |
-| Features | 16 submenus: outer/inner wall, overhang wall, sparse/solid infill, top/bottom surface, bridge, internal bridge, gap fill, support, ironing (+flow), skirt, brim, prime tower, custom code — each shows the file's ORIGINAL (File:) + own ON switch + speed % (× global) + accel; only features the file really contains are editable; switching OFF resets the stored values to the file original — never touches the global values |
+| Motion | PA (+smooth), retraction len/spd/unretract, Accel + Vel + MCR + Corner (ON/OFF each; Accel/Vel are GLOBAL caps — travels included) + Z-Hop ON/OFF + height + File R: |
+| Features | 16 submenus: outer/inner wall, overhang wall, sparse/solid infill, top/bottom surface, bridge, internal bridge, gap fill, support, ironing (+flow), skirt, brim, prime tower, custom code — each shows the file's ORIGINAL (File:) + own ON switch + speed % (× global) + accel; only features the file really contains are editable — **a feature the file does not contain disappears from the menu entirely, an available-but-inactive one stays visible for live activation** (.83); switching OFF resets the stored values to the file original — never touches the global values |
 | Flow / 1st layer | global flow (1–300 %) · first-layer speed % (0 = off, default 75) |
 | Bed Mesh | Level old files · Mesh ON/AUTO/OFF · Save after · Adaptive · Travel cap · Calibrate now · Load…/Delete… |
 | Range/Stop | Stop@ layer + From/To (capped to the selected file's layer count!) + Floor/Top (each FOOTPRINT or OUTLINE, each GRID or SOLID fill) + Brim + Create excerpt (ch. C.1) |
@@ -1921,7 +1940,7 @@ while plotting (ch. C.3).
 | Info | every setting + how many images are ready |
 | Images (Create) | the gcodes folder's `.png/.jpg` list (newest first, 10 slots; plotter uploads included) — slot press = Create |
 | Delete image | same slots, **2-press confirm** (press, press again) — only the image goes away, its plotter `.gcode` stays |
-| Settings | Height 30–200 mm · Layer 0.08–0.2 (0.12 default) · Levels 0–12 (0 = photo, 2–12 posterized) · Frame ON/OFF · Brim 0–10 · Ironing ON/OFF · Vers V01–V09 |
+| Settings | Orient STANDING/FLAT · Height (Size in FLAT) 30–200 mm · Layer 0.08–0.2 (0.12 default) · Levels 0–12 (0 = photo, 2–12 posterized) · Colors 1–4 + ColL 1–30 (FLAT color bands) · Frame ON/OFF · Brim 0–10 · Ironing ON/OFF · Vers V01–V09 |
 | How it works | upload, slot press, standing print, white PLA tip, Mainsail one-liner |
 
 **Gaskets** (in Tools — ch. 5.7)
@@ -1938,7 +1957,7 @@ while plotting (ch. C.3).
 | Entry | Contents |
 |---|---|
 | Info | every setting in one console listing + closure explanation |
-| Settings | Preset: Custom/9x13/10x15/13x18/A6 (`*` marks active) · W + H 40–230 (custom) · Depth 3–60 mm · Border 4–30 mm · Corner r 0–30 mm · Shape RECT/OVAL · Closure BACK/SIDE · Hang TOP/BOTTOM/LEFT/RIGHT/OFF · Stand ON/OFF · Surf: Ironed/Bed texture/Lines/Waves/Honeycomb (+ Depth/Spacing/Angle/Wave amp/Cell/Dir) · Disc: None/Glass/Plexi/Foil/Litho (+ Side/Thick) · Cable ON/OFF · Infill 20–100 % · Vers V01–V09 |
+| Settings | Preset: Custom/9x13/10x15/13x18/A6 (`*` marks active; picking one fills W/H as editable values) · W + H 40–230 (custom, max follows the build volume) · Depth 3–60 mm · Border 4–30 mm · Corner r 0–30 mm · Walls 1–4 (loops per side) · Shape RECT/OVAL · Closure BACK/SIDE · Hang TOP/BOTTOM/LEFT/RIGHT/OFF · Stand ON/OFF · Surf: Ironed/Bed texture/Lines/Waves/Honeycomb (+ Depth/Spacing/Angle/Wave amp/Cell/Dir) · Disc: None/Glass/Plexi/Foil/Litho (+ Side/Thick) · Cable ON/OFF · Infill 20–100 % · **Presets: Save current / Load 1–8 / Delete 1–8** (your complete frame configs) · Vers V01–V09 |
 | Create (beeps) | validates, bumps the job counter — the watcher checks the bed fit and builds the file, it beeps + auto-selects |
 | How it works | workflow, kit logic, bayonet/slide assembly, Mainsail one-liner |
 
@@ -2931,6 +2950,7 @@ Only the milestones — the full reasoning lives in SESSION_STATE.md.
 
 | Version | Core changes |
 |---|---|
+| .83 | field-log .82 issue list — the whole R106 round: **fan wake-up** (0 % → higher now applies the scaled file value immediately, layer-1 hold keeps precedence), honest **velocity/corner hints** (they are CAPS — the visible lever is the cruise ratio), the **user TYPE map** everywhere (visible top layer = Top surface, between = Internal solid, only true airwork = Bridge — the frame front used to tag as Internal solid, so top-surface overrides never reached the visible face; siblings fixed in labels/ties/seal/angles/bridge/Cura-SKIN), **rule ll** (nothing prints unanchored: shelf + disc lips got radial anchor stubs, the kit lips too, the SIDE closure redesigned around the T/B wall anchors), **feature filter** (feature menus hide what the file does not contain — 80 items), presets fill W/H, **frame user presets** (8 slots, save/load/delete at the LCD), **wall loops 1–4**, **Z-hop** on firmware retracts (live + pre-print, absolute Z, layer-change-aware), **travel controls** (SET_LIVE_ACCEL + Velcap relabeled — global caps govern travels too), **lithophane FLAT mode** (bed-clamped, terraced relief, 1–4 color bands with pause/swap), **hard bed clamps** (frame border clamps before splitting; W/H inputs never exceed the build volume) |
 | .82 | critical config fix (field log .81): the R92-onward bed/position carrier was a raw `[r2_postproc]` section in printer.cfg — **Klipper refuses unknown sections** („Section 'r2_postproc' is not a valid config section"), so the printer ended up in a halt loop the first time the section was really written (setup.sh offer). The carrier is now a KAMP-style **`[gcode_macro _R2_CONFIG]`** settings macro (`variable_bed_min_x` … , `variable_present_x/y`, `variable_wipe_x/y`) — valid for Klipper, native for the macros, parsed by the watcher; `setup.sh` migrates legacy sections automatically (backup + values kept); the same field log also uncovered the first-halt mechanism: appending after the `#*# <save_config>` block made the autosave unreadable („modifications after header" → „Option 'control' in section 'heater_bed' must be specified") — inserts now always go before that block |
 | .81 | honest host verdict + portability hardening (field log .80): HOST_CHECK's swap verdict now measures swap **activity** (vmstat in/out) — 109 MB of quietly parked pages after boot were flagged „SWAPPING!" with an error sound on every check although the Pi was healthy (stable swap, no load, no throttle); quiet pages now read as OK with a calm explanation, only real swap traffic stays loud. Compatibility fixes from the portability audit: PRINT_END's part presentation had a fixed Y228 (a crash on any bed under ~232 mm) — now clamped to the axes and configurable (`[r2_postproc] present_x/present_y`), both calibration-tower end parks (fixed Y190) and the PLT_FRAME park are clamped, the nozzle-wipe pad anchor is configurable (`wipe_x/wipe_y`), and `megatest.py` accepts `--bed=x0,y0,x1,y1` / `--cfg=printer.cfg` to sweep another printer's bed (too-big combos count as SKIP — the generators correctly reject them); `setup.sh` (environment wizard: service, KAMP, LED effects, RAM hogs, swap tuning) and `COMPATIBILITY.md` (portability report) join the package |
 | .80 | megatest hardening (field log .79): a 101-run sweep over every generator at its parameter extremes found and fixed two real bugs — the plotter DRAW mode scaled small images past the bed (48px drawing → y up to +1500 mm; big photos silently squashed to ~72 mm) and every frame file tags the shelf bands as BRIDGE but TYPES never listed it on normal frames; plot output now carries a final bed guard too; `tools/megatest.py` joins the package (rerun any time: `python3 tools/megatest.py`) |
