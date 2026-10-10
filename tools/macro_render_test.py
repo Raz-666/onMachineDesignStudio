@@ -8711,6 +8711,103 @@ tests.append(('R106 preset: picking a preset fills W/H as editable values',
         and ('VARIABLE=frame_h VALUE=%d' % h) in _lcd106
         for w, h in ((90, 130), (102, 152), (130, 180), (105, 148))), ''))
 
+# ============== R106 (f)+(g): frame user presets + wall loops ==============
+save_vars.update({'frame_preset': '9x13', 'frame_w': 90.0, 'frame_h': 130.0,
+                  'frame_depth': 8.0, 'frame_border': 12.0, 'frame_corner': 6.0,
+                  'frame_shape': 'RECT', 'frame_closure': 'BACK',
+                  'frame_hang': 'TOP', 'frame_stand': False,
+                  'frame_ironing': True, 'frame_infill': 60.0,
+                  'frame_top_l': 0, 'frame_bot_l': 2, 'frame_front': 'IRON',
+                  'frame_cable': False, 'frame_disc': 'NONE',
+                  'frame_disc_t': 1.0, 'frame_disc_side': 'FRONT',
+                  'frame_s_deep': 0.8, 'frame_s_space': 6.0,
+                  'frame_s_angle': 45.0, 'frame_s_amp': 1.2,
+                  'frame_s_size': 8.0, 'frame_s_dir': 'OUT',
+                  'frame_walls': 3, 'frame_nonce': 3})
+_fs106f = get_body('macros/17_generator.cfg', 'FRAME_SAVE_PRESET')
+_outf = render(_fs106f, {})
+tests.append(('R106 frame preset: SAVE fills slot 1 with the FULL config (26 keys, naked dict)',
+    'SAVE_VARIABLE VARIABLE=frame_user_preset_1 VALUE="' in _outf
+    and "'walls': 3" in _outf and "'s_dir': 'OUT'" in _outf
+    and "'front': 'IRON'" in _outf and "'cable': False" in _outf,
+    _outf.split(chr(10))[1][:110] if len(_outf.split(chr(10))) > 1 else _outf[:110]))
+# slot 1 full -> save goes to slot 2
+save_vars.update({'frame_user_preset_1':
+                  {'preset': 'A6', 'w': 105.0, 'h': 148.0, 'depth': 10.0,
+                   'border': 8.0, 'corner': 6.0, 'walls': 2, 'shape': 'OVAL',
+                   'closure': 'BACK', 'hang': 'OFF', 'stand': True,
+                   'ironing': False, 'infill': 40.0, 'top_l': 4, 'bot_l': 3,
+                   'front': 'FLIP', 'cable': True, 'disc': 'LITHO',
+                   'disc_t': 3.0, 'disc_side': 'BACK', 's_deep': 1.0,
+                   's_space': 5.0, 's_angle': 30.0, 's_amp': 1.5,
+                   's_size': 6.0, 's_dir': 'IN'}})
+_outf2 = render(_fs106f, {})
+tests.append(('R106 frame preset: SAVE skips the full slot -> slot 2',
+    'frame_user_preset_2 VALUE="' in _outf2
+    and 'frame_user_preset_1 VALUE="' not in _outf2, ''))
+_fl106f = get_body('macros/17_generator.cfg', 'FRAME_LOAD_PRESET')
+_outl = render(_fl106f, {'N': '1'})
+tests.append(('R106 frame preset: LOAD writes all 26 vars incl. walls + escaped strings',
+    _outl.count('SAVE_VARIABLE') >= 26
+    and 'VARIABLE=frame_walls VALUE=2' in _outl
+    and 'VARIABLE=frame_front VALUE=' + chr(34) + chr(92) + chr(34)
+        + 'FLIP' + chr(92) + chr(34) + chr(34) in _outl
+    and 'VARIABLE=frame_preset VALUE=' in _outl
+    and 'VARIABLE=frame_s_dir VALUE=' in _outl,
+    [l for l in _outl.split(chr(10)) if 'frame_walls' in l or 'frame_preset ' in l][:2]))
+_fd106f = get_body('macros/17_generator.cfg', 'FRAME_DELETE_PRESET')
+tests.append(('R106 frame preset: DELETE frees the slot, touches nothing else',
+    'VARIABLE=frame_user_preset_1 VALUE=0' in render(_fd106f, {'N': '1'})
+    and render(_fd106f, {'N': '1'}).count('SAVE_VARIABLE') == 1, ''))
+tests.append(('R106 frame preset: INFO lists all 8 slots',
+    render(get_body('macros/17_generator.cfg', 'FRAME_PRESETS_INFO'), {})
+    .count('RESPOND') == 9, ''))
+_gf106 = get_body('macros/17_generator.cfg', 'GEN_FRAME')
+tests.append(('R106 GEN_FRAME: WALLS=3 lands in frame_walls, WALLS=9 is rejected',
+    'VARIABLE=frame_walls VALUE=3' in render(_gf106, {'WALLS': '3'})
+    and 'WALLS must be 1..4' in render(_gf106, {'WALLS': '9'}), ''))
+_lcd106f = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R106 LCD: walls input + preset menu (8 load, 8 delete, guards)',
+    'VARIABLE=frame_walls VALUE={menu.input' in _lcd106f
+    and _lcd106f.count('FRAME_LOAD_PRESET N=') == 8
+    and _lcd106f.count('FRAME_DELETE_PRESET N=') == 8
+    and _lcd106f.count('frame_user_preset_') >= 40, ''))
+# wall loops in the generator itself
+_w106a, _i106a = _pp.make_frame(preset='9x13', wall_loops=3, out_dir=_d90)
+_g106a = open(_w106a, encoding='utf-8').read()
+_w106b2, _i106b2 = _pp.make_frame(preset='9x13', wall_loops=1, out_dir=_d90)
+_g106b2 = open(_w106b2, encoding='utf-8').read()
+
+def _elen106(txt, typ):
+    import math as _m106, re as _r106
+    tot = 0.0
+    cx = cy = None
+    cur = None
+    for l in txt.split(chr(10)):
+        if l.startswith(';TYPE:'):
+            cur = l[6:]
+            continue
+        m = _r106.match(r'G1 X([\d.-]+) Y([\d.-]+) E([\d.]+)', l)
+        if m and cur == typ and cx is not None:
+            tot += _m106.hypot(float(m.group(1)) - cx, float(m.group(2)) - cy)
+        m2 = _r106.match(r'G[01] X([\d.-]+) Y([\d.-]+)', l)
+        if m2:
+            cx, cy = float(m2.group(1)), float(m2.group(2))
+    return tot
+
+tests.append(('R106 walls: wall_loops=3 -> ~3x wall length (3 loops/side), info walls=3',
+    _i106a['walls'] == 3
+    and 2.6 < _elen106(_g106a, 'Inner wall') / max(1.0, _elen106(_g106b2, 'Inner wall')) < 3.4
+    and 2.6 < _elen106(_g106a, 'Outer wall') / max(1.0, _elen106(_g106b2, 'Outer wall')) < 3.4,
+    'ratio IW %.2f' % (_elen106(_g106a, 'Inner wall')
+                       / max(1.0, _elen106(_g106b2, 'Inner wall')))))
+_w106b, _i106b = _pp.make_frame(preset='9x13', wall_loops=1, out_dir=_d90)
+tests.append(('R106 walls: wall_loops=1 stays the classic geometry (default)',
+    _i106b['walls'] == 1, ''))
+_src106 = open('tools/r2_postproc.py').read()
+tests.append(('R106 walls: watcher passes frame_walls into make_frame',
+    "wall_loops=int(_vf90('frame_walls', 1))" in _src106, ''))
+
 fails = 0
 for name, ok, info in tests:
     print(('PASS ' if ok else 'FAIL '), name)
