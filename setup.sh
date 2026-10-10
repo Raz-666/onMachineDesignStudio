@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Copyright (C) 2026 the klipper-e3-r2d2 authors
+# Copyright (C) 2026 Raz-666 and contributors
 # =====================================================================================
 #  setup.sh - R2 macro system ENVIRONMENT WIZARD (R103)
 #

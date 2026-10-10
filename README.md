@@ -137,6 +137,4 @@ GPL-3.0-or-later — see [LICENSE](LICENSE). Built field-log driven and test
 gated: [DEVELOPMENT.md](DEVELOPMENT.md) tells the story,
 [COMPATIBILITY.md](COMPATIBILITY.md) what it takes to run on your printer.
 
-<!-- when publishing: add the CI badge with your account name
-[![tests](https://github.com/<user>/klipper-e3-r2d2/actions/workflows/tests.yml/badge.svg)](https://github.com/<user>/klipper-e3-r2d2/actions/workflows/tests.yml)
--->
+[![tests](https://github.com/Raz-666/klipper-e3-r2d2/actions/workflows/tests.yml/badge.svg)](https://github.com/Raz-666/klipper-e3-r2d2/actions/workflows/tests.yml)
