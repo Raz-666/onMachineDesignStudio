@@ -8670,6 +8670,47 @@ tests.append(('R104.2 _PRIME_LINE: without _R2_CONFIG the Ender-3 default window
     'G0 X115.0 Y50 F6000' in render(_pl2a, {}),
     [l for l in render(_pl2a, {}).split('\n') if l.startswith('G0 X')][:2]))
 
+# ============== R106 (field log .82): fan wake-up, hints, menu filter ========
+_fs106 = get_body('macros/10_live_tuning.cfg', 'SET_FAN_SCALE')
+_sv106 = dict(state_vars)
+_sv106.update({'mode': 'printing', 'layer': 5, 'file_fan': 178,
+               'ignore_overrides': False})
+_g106 = dict(build_printer())
+_g106['gcode_macro _STATE'] = M(_sv106)
+_g106['fan'] = M({'speed': 0.0})          # fan currently OFF = the bug case
+_out106 = render(_fs106, {'PERCENT': '80'}, {'printer': MP(_g106)})
+tests.append(('R106 fan: scale wakes a 0% fan from the FILE value '
+              '(printing L5, file S178, 80% -> M99106 S142)',
+    'M99106 S142' in _out106, [l for l in _out106.split('\n') if 'M99106' in l][:2]))
+_sv106b = dict(_sv106)
+_sv106b['layer'] = 1
+_g106b = dict(_g106)
+_g106b['gcode_macro _STATE'] = M(_sv106b)
+_out106b = render(_fs106, {'PERCENT': '80'}, {'printer': MP(_g106b)})
+tests.append(('R106 fan: layer-1 hold still wins (stored, no forced M99106)',
+    'M99106 S' not in _out106b and 'layer 1 stays fan OFF' in _out106b,
+    [l for l in _out106b.split('\n') if 'RESPOND' in l or 'M99106' in l][:2]))
+_lv106 = get_body('macros/10_live_tuning.cfg', 'SET_LIVE_VELOCITY')
+tests.append(('R106 velocity: RESPOND explains the CAP semantics',
+    'this is a CAP' in render(_lv106, {'VELOCITY': '120'}), ''))
+_sc106 = get_body('macros/10_live_tuning.cfg', 'SET_LIVE_SQUARE_CORNER')
+tests.append(('R106 corner: RESPOND names the visible lever (cruise ratio)',
+    'cruise ratio' in render(_sc106, {'VALUE': '8'}), ''))
+_mcr106 = get_body('macros/10_live_tuning.cfg', 'SET_LIVE_MINIMUM_CRUISE_RATIO')
+_outmcr = render(_mcr106, {'VALUE': '0.95'})
+tests.append(('R106 MCR: echo rounds (0.95, never 0.9500000000000004)',
+    '0.95' in _outmcr and '0.9500' not in _outmcr,
+    [l for l in _outmcr.split('\n') if 'OK' in l][:1]))
+_lcd106 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+_n106 = _lcd106.count("enable: {printer['gcode_macro _STATE'].file_types|default('') == '' or '")
+tests.append(('R106 menus: 80 feature items (pre-print + live) hide when the '
+              'file lacks them; available-but-off stay visible',
+    _n106 == 80, 'count %d' % _n106))
+tests.append(('R106 preset: picking a preset fills W/H as editable values',
+    all(('VARIABLE=frame_w VALUE=%d' % w) in _lcd106
+        and ('VARIABLE=frame_h VALUE=%d' % h) in _lcd106
+        for w, h in ((90, 130), (102, 152), (130, 180), (105, 148))), ''))
+
 fails = 0
 for name, ok, info in tests:
     print(('PASS ' if ok else 'FAIL '), name)
