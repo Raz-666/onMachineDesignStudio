@@ -98,7 +98,9 @@ tunes = {'r2_start': '1568:40,1245:30', 'r2_confirm': '2093:25,2637:35', 'r2_cli
          'r2_question': '784:70,0:30,988:60', 'r2_heating': '1046:60,0:40,1318:60', 'r2_hot': '1568:40'}
 mats = {'PLA':  {'bed1':60,'bed2':60,'hot1':210,'hot2':210,'pa':0.05, 'pa_smooth':0.04, 'unret_spd':35,'flow':100,'ret_len':0.75,'ret_spd':35,'fan2':100},
         'PETG': {'bed1':75,'bed2':75,'hot1':240,'hot2':240,'pa':0.06, 'pa_smooth':0.04, 'unret_spd':35,'flow':100,'ret_len':0.9,'ret_spd':35,'fan2':60},
-        'TPU':  {'bed1':35,'bed2':35,'hot1':215,'hot2':215,'pa':0.09, 'pa_smooth':0.04, 'unret_spd':35,'flow':105,'ret_len':1.2,'ret_spd':20,'fan2':70}}
+        'TPU':  {'bed1':35,'bed2':35,'hot1':215,'hot2':215,'pa':0.09, 'pa_smooth':0.04, 'unret_spd':35,'flow':105,'ret_len':1.2,'ret_spd':20,'fan2':70},
+        'ABS':  {'bed1':100,'bed2':100,'hot1':250,'hot2':250,'pa':0.05, 'pa_smooth':0.04, 'unret_spd':35,'flow':100,'ret_len':0.75,'ret_spd':35,'fan2':30},
+        'ASA':  {'bed1':100,'bed2':100,'hot1':260,'hot2':260,'pa':0.05, 'pa_smooth':0.04, 'unret_spd':35,'flow':100,'ret_len':0.75,'ret_spd':35,'fan2':30}}
 objects = [{'name':'obj1','center':[100,100],'polygon':[[60,60],[140,60],[140,140],[60,140]]}]
 preview_vars = {   # R75: the in-memory preview card (gcode_macro _PREVIEW)
     'name':'', 'type':'?', 'material':'?', 'layer_height':0, 'total_layers':0,
@@ -2927,7 +2929,7 @@ save_vars.update({'preheat_on':True,'preheat_hotend':220.0,'preheat_bed':65.0})
 out = render(_ph62, {})
 tests.append(('R62 _PREHEAT_SELECTED: heats beyond the current targets (anti-ooze levels)',
     'HEATER=extruder TARGET=220' in out and 'HEATER=heater_bed TARGET=65' in out
-    and 'anti-ooze' in out, out[:150]))
+    and 'filament-swap level' in out, out[:150]))
 
 # --- postproc: _read_vars prefix + both separators ---
 import tempfile as _tf62, os as _os62
@@ -9008,6 +9010,183 @@ _g106i = open('macros/17_generator.cfg', encoding='utf-8').read()
 tests.append(('R106 macros: _LITHO_SELECT + info name the orient and colors',
     'FLAT (back on the bed)' in _g106i and 'STANDING (on edge)' in _g106i
     and 'colors %d x %dL' in _g106i, ''))
+
+# ============== R106: Z-TILT vs SYNC_GANTRY + preheat 182 + COMPAT SWEEP ==============
+def _min_printer106():
+    # 'any Klipper printer': single Z stepper, no bed_mesh / input_shaper /
+    # exclude_object / probe / TMC / force_move / runout sensor / LEDs
+    _p = build_printer(ps_state='idle')
+    _d = dict(_p)
+    for _k in ('input_shaper', 'bed_mesh', 'exclude_object',
+               'filament_switch_sensor filament_sensor',
+               'led_effect r2_idle', 'neopixel printer_leds',
+               'neopixel nozzle_led', 'led_effect r2_nozzle_on_split'):
+        _d.pop(_k, None)
+    _cfg = dict(_d['configfile'])
+    _st = dict(_cfg['settings'])
+    for _k in ('probe', 'tmc2209 stepper_z', 'force_move', 'bed_mesh r2'):
+        _st.pop(_k, None)
+    _cfg['settings'] = M(_st)
+    _d['configfile'] = M(_cfg)
+    return M(_d)
+
+class _MM106(dict):
+    def __getattr__(self, k):
+        try:
+            return self[k]
+        except KeyError:
+            raise AttributeError(k)
+
+# --- dual-Z printer: settings get stepper_z1 + z_tilt ---
+def _dualz106():
+    _p = dict(build_printer(ps_state='idle'))
+    _cfg = dict(_p['configfile'])
+    _st = dict(_cfg['settings'])
+    _st['stepper_z1'] = M({'step_distance': 0.0025})
+    _st['z_tilt'] = M({'z_positions': [[45, 45], [215, 45]], 'horizontal_move_z': 6.0})
+    _cfg['settings'] = M(_st)
+    _p['configfile'] = M(_cfg)
+    return M(_p)
+
+state_vars['mode'] = 'idle'
+_sg106 = get_body('macros/11_gantry_sync.cfg', 'SYNC_GANTRY')
+_zt106 = get_body('macros/11_gantry_sync.cfg', 'Z_TILT')
+tests.append(('R106 z: SYNC_GANTRY refuses on 2+ Z steppers (points to Z_TILT)',
+    'use Z_TILT' in render(_sg106, {}, {'printer': MP(_dualz106())})
+    and 'G28' not in render(_sg106, {}, {'printer': MP(_dualz106())}),
+    ''))
+def _notmc106():
+    _p = dict(build_printer(ps_state='idle'))
+    _cfg = dict(_p['configfile'])
+    _st = dict(_cfg['settings'])
+    _st.pop('tmc2209 stepper_z', None)
+    _cfg['settings'] = M(_st)
+    _p['configfile'] = M(_cfg)
+    return M(_p)
+
+tests.append(('R106 z: SYNC_GANTRY refuses without a TMC driver (compat)',
+    'needs a TMC driver' in render(_sg106, {}, {'printer': MP(_notmc106())}),
+    ''))
+tests.append(('R106 z: SYNC_GANTRY runs normally on the reference (single Z + TMC)',
+    'SET_TMC_CURRENT' in render(_sg106, {}, {'printer': MP(build_printer(ps_state='idle'))}),
+    ''))
+tests.append(('R106 z: Z_TILT runs Z_TILT_ADJUST with retries+tolerance (dual Z + [z_tilt])',
+    'Z_TILT_ADJUST RETRIES=3 RETRY_TOLERANCE=0.08' in
+    render(_zt106, {'RETRIES': '3', 'RETRY_TOLERANCE': '0.08'},
+           {'printer': MP(_dualz106())}), ''))
+tests.append(('R106 z: Z_TILT saves-variables defaults (retries 2, tol 0.05)',
+    'Z_TILT_ADJUST RETRIES=2 RETRY_TOLERANCE=0.05' in
+    render(_zt106, {}, {'printer': MP(_dualz106())}), ''))
+tests.append(('R106 z: Z_TILT refuses on ONE Z stepper (points to SYNC_GANTRY)',
+    'use SYNC_GANTRY' in render(_zt106, {}, {'printer': MP(build_printer(ps_state='idle'))})
+    and 'Z_TILT_ADJUST' not in render(_zt106, {},
+                                      {'printer': MP(build_printer(ps_state='idle'))}), ''))
+def _nozt106():
+    _p = dict(_dualz106())
+    _cfg = dict(_p['configfile'])
+    _st = dict(_cfg['settings'])
+    _st.pop('z_tilt', None)
+    _cfg['settings'] = M(_st)
+    _p['configfile'] = M(_cfg)
+    return M(_p)
+
+tests.append(('R106 z: Z_TILT refuses without a [z_tilt] section (setup hint)',
+    'z_positions' in render(_zt106, {}, {'printer': MP(_nozt106())}),
+    ''))
+_zti106 = get_body('macros/11_gantry_sync.cfg', 'Z_TILT_INFO')
+_outzi = render(_zti106, {}, {'printer': MP(_dualz106())})
+tests.append(('R106 z: Z_TILT_INFO lists the probe points + settings',
+    'probe point(s) configured' in _outzi and 'X45.0 Y45.0' in _outzi
+    and 'X215.0 Y45.0' in _outzi and 'retries 2' in _outzi
+    and '%d' not in _outzi and '%.' not in _outzi, _outzi[:200]))
+tests.append(('R106 z: toggles save zt_boot / zt_print',
+    'VARIABLE=zt_boot VALUE=True' in render(get_body(
+        'macros/11_gantry_sync.cfg', 'TOGGLE_Z_TILT_BOOT'), {})
+    and 'VARIABLE=zt_print VALUE=True' in render(get_body(
+        'macros/11_gantry_sync.cfg', 'TOGGLE_Z_TILT_PRINT'), {}), ''))
+_ps106z = open('macros/08_print_start_stop.cfg', encoding='utf-8').read()
+tests.append(('R106 z: PRINT_START homing is 3-way (gantry single-Z / Z_TILT dual / G28)',
+    _ps106z.count("'stepper_z1' not in printer.configfile.settings") >= 3
+    and _ps106z.count("'stepper_z1' in printer.configfile.settings") >= 3
+    and 'Z_TILT QUIET=1' in _ps106z and '_BOOT_ZTILT' in _ps106z, ''))
+_lcd106z2 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R106 z: LCD swaps gantry->z-tilt at every position (guards both ways)',
+    _lcd106z2.count("'stepper_z1' not in printer.configfile.settings") >= 2
+    and _lcd106z2.count("'stepper_z1' in printer.configfile.settings") >= 2
+    and 'name: Z Tilt' in _lcd106z2 and 'Z_TILT_INFO' in _lcd106z2
+    and 'VARIABLE=zt_retries' in _lcd106z2 and 'VARIABLE=zt_tolerance' in _lcd106z2
+    and 'TOGGLE_Z_TILT_BOOT' in _lcd106z2 and 'TOGGLE_Z_TILT_PRINT' in _lcd106z2, ''))
+save_vars.pop('preheat_hotend', None)
+_ph106 = get_body('macros/08_print_start_stop.cfg', '_PREHEAT_SELECTED')
+_outph106 = render(_ph106, {}, {'printer': MP(build_printer(etgt=100))})
+tests.append(('R106 preheat: 182C default (filament swap during the start dialog)',
+    'TARGET=182' in _outph106 and 'filament-swap level' in _outph106
+    and 'preheat_hotend|default(182)' in _lcd106z2, _outph106[:150]))
+tests.append(('R106 preheat: cap logic takes 182 as the floor (06_cap macro)',
+    'preheat_hotend|default(182)' in open('macros/06_temp_controls.cfg',
+    encoding='utf-8').read(), ''))
+state_vars['mode'] = 'printing'
+
+# --- COMPAT SWEEP: every menu expression + every macro body renders on the
+# --- reference printer AND on a minimal single-Z/no-options printer
+import re as _re106c, glob as _glob106c
+_expr106 = _re106c.compile(r'\{([^{}%]+)\}')
+_menu_ctx106 = {'menu': _MM106({'input': 100.0})}
+_prns106 = [('reference', build_printer()), ('minimal', _min_printer106())]
+_fails106 = []
+_n106e = 0
+_lcd106x = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+for _b in _re106c.split(r'\n(?=\[menu )', _lcd106x):
+    if not _b.startswith('[menu'):
+        continue
+    _gb, _ing = [], False
+    for _ln in _b.split('\n'):
+        _ls = _ln.strip()
+        if _ls.startswith('gcode:'):
+            _ing = True
+            continue
+        if _ing:
+            if _ls.startswith('[') or _re106c.match(r'(name|type|enable|input|index|input_)', _ls):
+                _ing = False
+            else:
+                _gb.append(_ln)
+        if _re106c.match(r'(name|enable|input|index):', _ls) and '{' in _ls:
+            for _e in _expr106.findall(_ls):
+                _n106e += 1
+                for _tag, _prn in _prns106:
+                    try:
+                        env.from_string('X{' + _e + '}X').render(printer=_prn,
+                                                                **_menu_ctx106,
+                                                                params=M({}))
+                    except Exception as _ex:
+                        _fails106.append((_b.split(']')[0][1:40], _e[:50], _tag))
+    if _gb:
+        for _tag, _prn in _prns106:
+            try:
+                env.from_string('\n'.join(_gb)).render(printer=_prn,
+                                                        **_menu_ctx106, params=M({}))
+            except Exception as _ex:
+                _fails106.append((_b.split(']')[0][1:40], '<body>', _tag))
+_n106m = 0
+for _f in _glob106c.glob('macros/*.cfg'):
+    _txt = open(_f, encoding='utf-8').read()
+    for _m in _re106c.finditer(r'\[gcode_macro ([^\]]+)\]', _txt):
+        try:
+            _body = get_body(_f, _m.group(1))
+        except Exception:
+            continue
+        if not _body.strip():
+            continue
+        _n106m += 1
+        for _tag, _prn in _prns106:
+            try:
+                env.from_string(_body).render(printer=_prn, params=M({}))
+            except Exception as _ex:
+                _fails106.append((_m.group(1), '<body>', _tag))
+tests.append(('R106 COMPAT SWEEP: %d menu exprs + %d macro bodies render on reference'
+              ' AND minimal (1 Z, no mesh/shaper/objects/probe/TMC/LEDs) printer'
+              % (_n106e, _n106m),
+    not _fails106, _fails106[:4]))
 
 fails = 0
 for name, ok, info in tests:

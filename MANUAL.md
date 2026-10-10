@@ -194,6 +194,13 @@ Live > File panel):
 | Sliced by | R84: the slicer + version and the firmware flavor the file was made for (OrcaSlicer, PrusaSlicer, Cura, Elegoo, Kiri:Moto, AstroPrint, SliceBeam, … for Klipper / Marlin) — works for fresh uploads AND foreign downloads |
 | Material, layer height × count, line width, flow ratio | straight from the slicer header |
 | By-object | sequential printing detected (several objects, Z falls) |
+
+**Preheat on select (R62, 182 °C since R106):** the moment a file is
+selected the nozzle preheats to **182 °C** and the bed to 60 °C — the
+nozzle value is the **filament-swap level**: hot enough to change filament
+(the extruder needs ≥180 °C) while the start dialog still asks AS SLICED /
+AS LEGACY, still below serious ooze. Editable: Pre-Print > Preheat; OFF
+there → nothing heats. The start sequence only heats the last few degrees.
 | TYPES= | which features the file really contains (walls, infill, supports …) |
 
 **Two file quirks the system flags and FIXES for you — in place, no
@@ -1836,9 +1843,15 @@ the nozzle — the classic fix for partial clogs and stringing after a material
 change. Sequence: heat to the material's pull temp, advance fresh filament,
 cool below the softening point, pull.
 
-**Z Gantry Sync** — re-syncs both Z motors to a common zero (SET_KINEMATIC
-POSITION via [force_move]); toggles for boot and print start. Run it after
-mechanical work on the gantry or when the X gantry visibly tilts.
+**Z Gantry Sync / Z Tilt** — the menu shows exactly what THIS printer has:
+ONE Z stepper (or parallel-wired motors on one driver) → **Z Gantry Sync**
+re-syncs both Z motors to a common zero (SET_KINEMATIC POSITION via
+[force_move]); 2+ Z steppers → **Z Tilt** runs Klipper's Z_TILT_ADJUST over
+the [z_tilt] probe points instead. Both have toggles for boot and print
+start, Z Tilt additionally retries (0–5) and retry tolerance (0.005–0.2 mm)
+— Maintenance > Z Tilt. Run either after mechanical work on the gantry or
+when the X gantry visibly tilts. Z_TILT refuses politely (with a setup hint)
+when [z_tilt] is missing from printer.cfg.
 
 **KAMP** — mesh/purge/smart-park settings (ch. 6).
 
@@ -1978,9 +1991,10 @@ never error out — the generator clamps and reports.
 **PA Smooth Cal.**) → **Flow Cal.** (generated cube + calculator) →
 **Retract Tower** (generated) → **Bridging** (generated) → **Ironing Cal.**
 (cards) → **Clean Nozzle** → **Filament** (load/unload/cold pull) →
-**Z Gantry Sync** → **KAMP** → **Tests** (LED/sound/self test/status).
+**Z Gantry Sync / Z Tilt** (whichever this printer has) → **KAMP** →
+**Tests** (LED/sound/self test/status).
 
-**Macros (Quick Macros):** load/unload, gantry sync, status, sounds on/off,
+**Macros (Quick Macros):** load/unload, gantry sync / z tilt, status, sounds on/off,
 LEDs on/off, Nozzle LED — mode AUTO/ON/OFF + live brightness + live color
 R/G/B + presets.
 
@@ -2161,7 +2175,7 @@ inline comments in gcode · SAVE_VARIABLE names lowercase · True/False capitali
 | 08 dialog | AS LEGACY uses your selected material · AS SLICED takes the material from the file |
 | 09 pause | idle timeout = infinite during a pause — Klipper must never turn heaters off mid-pause |
 | 10 PA | with the PA override ON, a sliced-in SET_PRESSURE_ADVANCE cannot override your value |
-| 11 gantry | Z motors wired in parallel on ONE driver — SYNC_GANTRY does the mechanical sync; watch the first run |
+| 11 gantry | Z motors wired in parallel on ONE driver — SYNC_GANTRY does the mechanical sync; watch the first run. A printer with 2+ Z steppers + [z_tilt] gets Z_TILT everywhere instead (LCD swaps automatically) |
 | 12 screws | screw positions live in [screws_tilt_adjust] in printer.cfg → ADJUST TO YOUR PRINTER |
 | 15 objects | console users can always use Klipper's native EXCLUDE_OBJECT as well |
 
@@ -2256,6 +2270,8 @@ is a switch you can turn off.
 | 'switch_sensor' is not valid for SENSOR | SET_FILAMENT_SENSOR takes the SECTION name (filament_sensor / encoder_sensor) — the BTT example was copied 1:1 although your section is named differently; corrected block: ch. 7 |
 | "Save config froze the printer" (LCD dark after Save config) | NOT a crash by design: SAVE_CONFIG restarts Klipper and the LCD keeps its last image until the MCU reconnects — on the Pi Zero 2 W that can take up to ~2 min (big config).: System > Save config warns first ("LCD goes dark"), refuses during prints, restarts anyway when nothing is pending (your R2 settings save instantly), and the boot beep + "R2 ready" confirm a SUCCESSFUL restart. Still dark + Mainsail error after 2 min → FIRMWARE_RESTART from Mainsail or `sudo service klipper restart`, then send ~/printer_data/logs/klippy.log (never power-cycle the Pi!) |
 | Question came only after the bed heated | M190/M109 do not block while the decision is pending — bed preheats in background, question within seconds |
+| Z_TILT refuses: no [z_tilt] section | add it to printer.cfg — one X,Y pair per Z stepper, e.g. `z_positions: 45,45` + `215,45`; single-driver printers don't need it (SYNC_GANTRY) |
+| Nozzle preheats to 182 on select | that is the filament-swap level — change filament while the start dialog waits; Pre-Print > Preheat changes or disables it |
 | **MCU 'Timer too close' shutdown** (host cannot feed the MCU) | ALWAYS a HOST problem — NEVER stepper current, never the electronics fan, never a safety trigger, and never a zip lying in the config folder (nothing scans it). **System > Host check** names it: THROTTLED = undervoltage (PSU/USB cable!) or heat · OVERLOADED = load >= core count, the Top-CPU list shows who — typical eaters on a Pi Zero 2: **webcam (crowsnest), sonar, OctoEverywhere, moonraker's object processing (enable_object_processing: True — your own moonraker.conf comment warns against it on a Pi Zero!)**, update manager, a fan/temp script with software PWM (RPi.GPIO) · SWAPPING = swap traffic RIGHT NOW (the check measures in/out — quietly parked pages after boot are OK and no reason to panic) — **the verdict names the processes sitting in the swap („Top SWAP") directly** · also: after boot/update give the Pi ~2 min before starting a print (moonraker + watcher both re-scan the whole gcode folder while klippy parses the big config). Software side already hardened: mesh travels capped, preview pushes cost zero disk writes, meshes run adaptive |
 | Mesh is full bed although 'adaptive' |: honest wording — 'full bed (file has no object data)' now SAYS so. The mesh before a held file runs adaptive (the watcher replays the file's EXCLUDE_OBJECT_DEFINE at selection); Orca files carry them when 'Label objects' is enabled. Plot/label/bridge files bring their own object polygon |
 | KAMP meshes the whole bed | check KAMP_Settings.cfg margin — AND the file needs object data (see row above) |
@@ -2493,12 +2509,16 @@ All 145 public macros with parameters (defaults in parentheses; blank = no param
 | **BABYSTEP_UP_FINE** | — | Z +0.12 mm — quick rescue step |
 | **BABYSTEP_DOWN_FINE** | — | Z --0.12 mm — quick rescue step |
 
-### Gantry — 11_gantry_sync.cfg (3)
+### Gantry — 11_gantry_sync.cfg (7)
 | Macro | Parameters | Purpose |
 |---|---|---|
-| **SYNC_GANTRY** | FORCE=0, QUIET=0 | mechanical Z gantry sync (needs [force_move]) |
+| **SYNC_GANTRY** | FORCE=0, QUIET=0 | mechanical Z gantry sync — ONE Z stepper/driver only (needs [force_move] + a TMC driver); 2+ Z steppers → use Z_TILT |
 | **TOGGLE_GANTRY_SYNC_BOOT** | — | sync at every boot on/off |
 | **TOGGLE_GANTRY_SYNC_PRINT** | — | sync at every print start on/off |
+| **Z_TILT** | RETRIES, RETRY_TOLERANCE, QUIET=0 | Z_TILT_ADJUST over the [z_tilt] points — 2+ Z steppers only; defaults from the LCD settings, homes first |
+| **Z_TILT_INFO** | — | lists the probe points, horizontal move Z, retries + tolerance (console) |
+| **TOGGLE_Z_TILT_BOOT** | — | z-tilt at every boot on/off (single-Z printers keep SYNC_GANTRY's switch) |
+| **TOGGLE_Z_TILT_PRINT** | — | z-tilt at every print start on/off |
 
 ### Maintenance & calibration — 12_maintenance.cfg (35)
 | Macro | Parameters | Purpose |
@@ -2953,7 +2973,7 @@ Only the milestones — the full reasoning lives in SESSION_STATE.md.
 
 | Version | Core changes |
 |---|---|
-| .83 | field-log .82 issue list — the whole R106 round: **fan wake-up** (0 % → higher now applies the scaled file value immediately, layer-1 hold keeps precedence), honest **velocity/corner hints** (they are CAPS — the visible lever is the cruise ratio), the **user TYPE map** everywhere (visible top layer = Top surface, between = Internal solid, only true airwork = Bridge — the frame front used to tag as Internal solid, so top-surface overrides never reached the visible face; siblings fixed in labels/ties/seal/angles/bridge/Cura-SKIN), **rule ll** (nothing prints unanchored: shelf + disc lips got radial anchor stubs, the kit lips too, the SIDE closure redesigned around the T/B wall anchors), **feature filter** (feature menus hide what the file does not contain — 80 items), presets fill W/H, **frame user presets** (8 slots, save/load/delete at the LCD), **wall loops 1–4**, **Z-hop** on firmware retracts (live + pre-print, absolute Z, layer-change-aware), **travel controls** (SET_LIVE_ACCEL + Velcap relabeled — global caps govern travels too), **lithophane FLAT mode** (bed-clamped, terraced relief, 1–4 color bands with pause/swap), **hard bed clamps** (frame border clamps before splitting; W/H inputs never exceed the build volume) |
+| .83 | field-log .82 issue list — the whole R106 round: **fan wake-up** (0 % → higher now applies the scaled file value immediately, layer-1 hold keeps precedence), honest **velocity/corner hints** (they are CAPS — the visible lever is the cruise ratio), the **user TYPE map** everywhere (visible top layer = Top surface, between = Internal solid, only true airwork = Bridge — the frame front used to tag as Internal solid, so top-surface overrides never reached the visible face; siblings fixed in labels/ties/seal/angles/bridge/Cura-SKIN), **rule ll** (nothing prints unanchored: shelf + disc lips got radial anchor stubs, the kit lips too, the SIDE closure redesigned around the T/B wall anchors), **feature filter** (feature menus hide what the file does not contain — 80 items), presets fill W/H, **frame user presets** (8 slots, save/load/delete at the LCD), **wall loops 1–4**, **Z-hop** on firmware retracts (live + pre-print, absolute Z, layer-change-aware), **travel controls** (SET_LIVE_ACCEL + Velcap relabeled — global caps govern travels too), **lithophane FLAT mode** (bed-clamped, terraced relief, 1–4 color bands with pause/swap), **hard bed clamps** (frame border clamps before splitting; W/H inputs never exceed the build volume), **Z tilt instead of gantry sync** (2+ Z steppers configured → every LCD spot swaps SYNC_GANTRY for a full Z-Tilt submenu: run, probe points, retries 0–5, tolerance 0.005–0.2, boot/print switches), **preheat 182 °C** (filament-swap level — hot enough to change filament while the start dialog waits, still below ooze), **any-Klipper render audit** (bed mesh / vibration / objects / sensor menu items guard themselves on printers without those sections — a permanent test sweeps 993 LCD expressions + 242 macro bodies against a minimal single-Z printer) |
 | .82 | critical config fix (field log .81): the R92-onward bed/position carrier was a raw `[r2_postproc]` section in printer.cfg — **Klipper refuses unknown sections** („Section 'r2_postproc' is not a valid config section"), so the printer ended up in a halt loop the first time the section was really written (setup.sh offer). The carrier is now a KAMP-style **`[gcode_macro _R2_CONFIG]`** settings macro (`variable_bed_min_x` … , `variable_present_x/y`, `variable_wipe_x/y`) — valid for Klipper, native for the macros, parsed by the watcher; `setup.sh` migrates legacy sections automatically (backup + values kept); the same field log also uncovered the first-halt mechanism: appending after the `#*# <save_config>` block made the autosave unreadable („modifications after header" → „Option 'control' in section 'heater_bed' must be specified") — inserts now always go before that block |
 | .81 | honest host verdict + portability hardening (field log .80): HOST_CHECK's swap verdict now measures swap **activity** (vmstat in/out) — 109 MB of quietly parked pages after boot were flagged „SWAPPING!" with an error sound on every check although the Pi was healthy (stable swap, no load, no throttle); quiet pages now read as OK with a calm explanation, only real swap traffic stays loud. Compatibility fixes from the portability audit: PRINT_END's part presentation had a fixed Y228 (a crash on any bed under ~232 mm) — now clamped to the axes and configurable (`[r2_postproc] present_x/present_y`), both calibration-tower end parks (fixed Y190) and the PLT_FRAME park are clamped, the nozzle-wipe pad anchor is configurable (`wipe_x/wipe_y`), and `megatest.py` accepts `--bed=x0,y0,x1,y1` / `--cfg=printer.cfg` to sweep another printer's bed (too-big combos count as SKIP — the generators correctly reject them); `setup.sh` (environment wizard: service, KAMP, LED effects, RAM hogs, swap tuning) and `COMPATIBILITY.md` (portability report) join the package |
 | .80 | megatest hardening (field log .79): a 101-run sweep over every generator at its parameter extremes found and fixed two real bugs — the plotter DRAW mode scaled small images past the bed (48px drawing → y up to +1500 mm; big photos silently squashed to ~72 mm) and every frame file tags the shelf bands as BRIDGE but TYPES never listed it on normal frames; plot output now carries a final bed guard too; `tools/megatest.py` joins the package (rerun any time: `python3 tools/megatest.py`) |
