@@ -8808,6 +8808,112 @@ _src106 = open('tools/r2_postproc.py').read()
 tests.append(('R106 walls: watcher passes frame_walls into make_frame',
     "wall_loops=int(_vf90('frame_walls', 1))" in _src106, ''))
 
+# ============== R106: Z-HOP interceptor + travel/accel caps ==============
+_g10 = get_body('macros/10_live_tuning.cfg', 'G10')
+_g11 = get_body('macros/10_live_tuning.cfg', 'G11')
+save_vars.update({'zh_on': True, 'zh_height': 0.4})
+tests.append(('R106 z-hop: G10 retracts (G10.1) then lifts Z (z 12.5 + 0.4 -> 12.9)',
+    render(_g10, {}).startswith('G10.1') and 'G1 Z12.9 F6000' in render(_g10, {})
+    and 'VARIABLE=zh_lifted VALUE=True' in render(_g10, {})
+    and 'VARIABLE=zh_base_z VALUE=12.5' in render(_g10, {}), ''))
+save_vars.update({'zh_on': False})
+tests.append(('R106 z-hop: OFF = pure passthrough G10.1',
+    render(_g10, {}).strip() == 'G10.1', repr(render(_g10, {})[:60])))
+save_vars.update({'zh_on': True})
+_sv106z = dict(state_vars)
+_sv106z.update({'zh_lifted': True, 'zh_base_z': 12.5})
+_g106z = dict(build_printer(gz=12.9))                  # z = 12.9 = base 12.5 + hop
+_g106z['gcode_macro _STATE'] = M(_sv106z)
+_outz = render(_g11, {}, {'printer': MP(_g106z)})
+tests.append(('R106 z-hop: G11 lowers back to the base z, then unretracts (G11.1)',
+    'G1 Z12.5 F6000' in _outz and 'G11.1' in _outz
+    and 'VARIABLE=zh_lifted VALUE=False' in _outz, ''))
+_g106z2 = dict(_g106z)
+_g106z2['gcode_move'] = M({'gcode_position': M({'x': 100.0, 'y': 100.0, 'z': 33.5, 'e': 5.0}),
+                           'speed_factor': 1.0, 'extrude_factor': 1.0,
+                           'homing_origin': M({'z': 0.0})})
+_outz2 = render(_g11, {}, {'printer': MP(_g106z2)})
+tests.append(('R106 z-hop: file moved Z itself (layer change) -> lower SKIPPED',
+    'G1 Z' not in _outz2 and 'lower skipped' in _outz2 and 'G11.1' in _outz2,
+    [l for l in _outz2.split(chr(10)) if 'RESPOND' in l][:1]))
+_sv106z3 = dict(state_vars)
+_sv106z3.update({'zh_lifted': False})
+_g106z3 = dict(build_printer())
+_g106z3['gcode_macro _STATE'] = M(_sv106z3)
+tests.append(('R106 z-hop: G11 without a lift = pure passthrough G11.1',
+    render(_g11, {}, {'printer': MP(_g106z3)}).strip() == 'G11.1', ''))
+tests.append(('R106 z-hop: G10 with lift already active does not stack lifts',
+    render(_g10, {}, {'printer': MP(dict(build_printer(),
+        **{'gcode_macro _STATE': M(dict(state_vars, zh_lifted=True))}))})
+    .strip() == 'G10.1', ''))
+_szh = get_body('macros/10_live_tuning.cfg', 'SET_Z_HOP')
+_outzh = render(_szh, {'ENABLE': '1', 'HEIGHT': '0.6'})
+tests.append(('R106 z-hop: SET_Z_HOP stores on+height, hint names G10/G11 + RetFix',
+    'VARIABLE=zh_on VALUE=True' in _outzh and 'VARIABLE=zh_height VALUE=0.6' in _outzh
+    and 'RetFix' in _outzh, ''))
+_outzh2 = render(_szh, {'HEIGHT': '9'})
+tests.append(('R106 z-hop: height guard 0.1..3mm',
+    'must be 0.1..3mm' in _outzh2 and 'VARIABLE=' not in _outzh2, ''))
+tests.append(('R106 z-hop: SET_LIVE_ACCEL caps globally, travels named',
+    'SET_VELOCITY_LIMIT ACCEL=8000' in
+    render(get_body('macros/10_live_tuning.cfg', 'SET_LIVE_ACCEL'), {'ACCEL': '8000'})
+    and 'including travels' in render(get_body('macros/10_live_tuning.cfg',
+                                               'SET_LIVE_ACCEL'), {'ACCEL': '8000'}), ''))
+_lcd106z = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R106 menus: Z-Hop in live AND pre-print, Velcap + Acccap live',
+    _lcd106z.count('SET_Z_HOP ') >= 4
+    and 'Acccap:' in _lcd106z and 'Velcap:' in _lcd106z
+    and _lcd106z.count('SET_LIVE_ACCEL ACCEL=') == 1, ''))
+_ps106 = open('macros/08_print_start_stop.cfg', encoding='utf-8').read()
+tests.append(('R106 print start: machine-limits line says travels included',
+    _ps106.count('(global caps - travels included)') == 2, ''))
+
+# ============== R106 (E): TYPE-tagging audit across ALL generators ==============
+import os as _os106e
+_BED106e = (0.0, -3.0, 220.0, 217.0)
+_d106e = tempfile.mkdtemp()
+_seal106 = _pp.make_seal(bed=_BED106e, out_dir=_d106e)[0]
+_sealt = open(_seal106, encoding='utf-8').read()
+tests.append(('R106 tag audit SEAL: layer 1 = Bottom, last = Top, TYPES honest',
+    re.search(r';LAYER_CHANGE\n;Z:[\d.]+\nLAYER_MARK\n;TYPE:Bottom surface', _sealt)
+    and ';TYPE:Top surface' in _sealt
+    and 'SURFACE-BOTTOM' in _sealt.split('TYPES=')[1].split()[0], ''))
+_lbl106 = _pp.make_labels(['AUDIT'], bed=_BED106e, out_dir=_d106e)[0]
+_lblt = open(_lbl106, encoding='utf-8').read()
+tests.append(('R106 tag audit LABELS: base L1 = Bottom, text = Outer wall (visible)',
+    ';TYPE:Bottom surface' in _lblt and ';TYPE:Top surface' in _lblt
+    and 'SURFACE-BOTTOM' in _lblt.split('TYPES=')[1].split()[0]
+    and _lblt.count(';TYPE:Outer wall') >= _lblt.count(';TYPE:Inner wall') + 2, ''))
+_ties106 = _pp.make_cable_ties(bed=_BED106e, out_dir=_d106e)[0]
+_tiest = open(_ties106, encoding='utf-8').read()
+tests.append(('R106 tag audit TIES: strap L1 = Bottom, strap top + head roof = Top',
+    ';TYPE:Bottom surface' in _tiest and ';TYPE:Top surface' in _tiest
+    and 'SURFACE-BOTTOM' in _tiest.split('TYPES=')[1].split()[0]
+    and 'SURFACE-TOP' in _tiest.split('TYPES=')[1].split()[0], ''))
+_ang106 = _pp.make_angles(bed=_BED106e, out_dir=_d106e)[0]
+_angt = open(_ang106, encoding='utf-8').read()
+tests.append(('R106 tag audit ANGLES: plate L1 = Bottom, top-2 layers = Top',
+    ';TYPE:Bottom surface' in _angt and ';TYPE:Top surface' in _angt
+    and 'SURFACE-BOTTOM' in _angt.split('TYPES=')[1].split()[0], ''))
+_brg106 = _pp.make_bridge(bed=_BED106e, out_dir=_d106e)[0]
+_brgt = open(_brg106, encoding='utf-8').read()
+tests.append(('R106 tag audit BRIDGE: tower L1 = Bottom surface, deck stays Bridge',
+    ';TYPE:Bottom surface' in _brgt and ';TYPE:Bridge' in _brgt
+    and 'SURFACE-BOTTOM' in _brgt.split('TYPES=')[1].split()[0]
+    and 'BRIDGE' in _brgt.split('TYPES=')[1].split()[0], ''))
+# Cura SKIN: layer 1 -> SURFACE-BOTTOM (user TYPE map), layer 2+ stays TOP
+_skin106 = _os106e.path.join(_d106e, 'skin106.gcode')
+open(_skin106, 'w', encoding='utf-8').write(
+    'M83\nPRINT_START MATERIAL=PLA LAYER_HEIGHT=0.2 TOTAL_LAYERS=3\n'
+    ';LAYER_CHANGE\n;Z:0.2\n;TYPE:SKIN\nG1 X10 Y10 E1 F1200\nG1 X20 Y10 E1 F1200\n'
+    ';LAYER_CHANGE\n;Z:0.4\n;TYPE:SKIN\nG1 X10 Y10 E1 F1200\n'
+    ';LAYER_CHANGE\n;Z:0.6\n;TYPE:WALL-OUTER\nG1 X10 Y10 E1 F1200\nPRINT_END\n')
+_pp.process(_skin106)
+_skint = open(_skin106, encoding='utf-8').read()
+tests.append(('R106 tag audit CURA: SKIN on layer 1 maps SURFACE-BOTTOM, layer 2 SURFACE-TOP',
+    _skint.count('APPLY_TYPE TYPE=SURFACE-BOTTOM') == 1
+    and _skint.count('APPLY_TYPE TYPE=SURFACE-TOP') == 1, ''))
+
 fails = 0
 for name, ok, info in tests:
     print(('PASS ' if ok else 'FAIL '), name)

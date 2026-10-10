@@ -4313,7 +4313,7 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
     a('; wall_loops = 2')
     # R73: the file info line goes in DIRECTLY (no re-parse through process()
     # - half the generation time on slow hosts; the TAG above makes the scan skip)
-    types = ['WALL-OUTER', 'WALL-INNER', 'INFILL-SOLID']
+    types = ['WALL-OUTER', 'WALL-INNER', 'INFILL-SOLID', 'SURFACE-BOTTOM']
     if brim:
         types.insert(0, 'BRIM')
     if ironing:
@@ -4382,7 +4382,11 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
         keep = None
         if lb['circ']:
             keep = (lb['circ'][0] + lx, lb['circ'][1] + ly, lb['circ'][2] + 2.0 * wid)
-        L.append(';TYPE:%s' % ('Top surface' if top else 'Internal solid infill'))
+        # R106 (user TYPE map): first fill on the bed = Bottom surface,
+        # the visible top = Top surface, between = Internal solid
+        L.append(';TYPE:%s' % ('Bottom surface' if first else
+                               'Top surface' if top else
+                               'Internal solid infill'))
         segs = _hatch(ix0, iy0, ix1, iy1, keep, wid, 45.0 if layer_idx % 2 else 135.0)
         _emit_hatch(pen, segs, e_wall, 1500 if first else 2700)
         if top and ironing:
@@ -4443,7 +4447,9 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
         # 3.4mm caps printed letters grown together (field log .65)
         half = min(stroke_eff, max(2.0 * twid, 2.1 * lb['sx'])) / 2.0
         L.append('EXCLUDE_OBJECT_START NAME=%s' % lb['name'])
-        L.append(';TYPE:Inner wall')
+        # R106 (user TYPE map): the raised text IS the visible surface -
+        # its strokes print as Outer wall (outer-wall speed/overrides apply)
+        L.append(';TYPE:Outer wall')
         bundles = []
         for pts in lb['paths']:
             pts = _decimate([(lb['x'] + px, lb['y'] + py) for (px, py) in pts], 0.10)
@@ -6271,7 +6277,8 @@ def make_bridge(length=160.0, short_pct=30, h_long=35.0, h_short=18.0, version=1
         L.append(';TYPE:Inner wall')
         _emit_loop(pen, _rect_loop(ix0 + wid, iy0 + wid, ix1 - wid, iy1 - wid), e_wall,
                    1500 if li == 1 else 2700)
-        L.append(';TYPE:Internal solid infill')
+        L.append(';TYPE:%s' % ('Bottom surface' if li == 1
+                               else 'Internal solid infill'))
         segs = _hatch(ix0 + wid + 0.05, iy0 + wid + 0.05, ix1 - wid - 0.05, iy1 - wid - 0.05,
                       None, wid, 45.0 if li % 2 else 135.0)
         _emit_hatch(pen, segs, e_wall, 1500 if li == 1 else 3300)
@@ -6635,7 +6642,9 @@ def make_cable_ties(count=6, length=120.0, width=8.0, layers=3, variant='CLASSIC
                          (sx1, cy + width / 2.0 - width * 0.25),
                          (sx1 - 4.0, cy + width / 2.0), (sx0, cy + width / 2.0)]
                 _emit_loop(pen, strap, e_wall, 1500 if first else 2400)
-                L.append(';TYPE:Internal solid infill')
+                L.append(';TYPE:%s' % ('Bottom surface' if li == 1 else
+                                       'Top surface' if li == layers else
+                                       'Internal solid infill'))
                 _emit_hatch(pen, _hatch(sx0 + wid, cy - width / 2.0 + wid,
                                         sx1 - wid, cy + width / 2.0 - wid,
                                         None, wid, 45.0 if li % 2 else 135.0), e_wall,
@@ -6659,7 +6668,8 @@ def make_cable_ties(count=6, length=120.0, width=8.0, layers=3, variant='CLASSIC
                 # solid bottom plate (the channel floor)
                 L.append(';TYPE:Outer wall')
                 _emit_loop(pen, _rect_loop(hx0, y0, hx1, y0 + HW), e_wall, 1500 if first else 2400)
-                L.append(';TYPE:Internal solid infill')
+                L.append(';TYPE:%s' % ('Bottom surface' if li == 1 else
+                                       'Internal solid infill'))
                 _emit_hatch(pen, _hatch(hx0 + wid, y0 + wid, hx1 - wid, y0 + HW - wid,
                                         None, wid, 45.0 if li % 2 else 135.0), e_wall,
                             1500 if first else 2700)
@@ -6687,7 +6697,8 @@ def make_cable_ties(count=6, length=120.0, width=8.0, layers=3, variant='CLASSIC
                            1500 if first else 2400)
                 _emit_loop(pen, _rect_loop(hx0, cy + slotw / 2.0 + wid, hx1, y0 + HW), e_wall,
                            1500 if first else 2400)
-                L.append(';TYPE:Internal solid infill')
+                L.append(';TYPE:%s' % ('Top surface' if cl == 2 else
+                                       'Internal solid infill'))
                 _emit_hatch(pen, _hatch(hx0 + wid, y0 + wid, hx1 - wid,
                                         cy - slotw / 2.0 - wid - wid,
                                         None, wid, 45.0 if li % 2 else 135.0), e_wall,
@@ -6781,7 +6792,8 @@ def make_cable_ties(count=6, length=120.0, width=8.0, layers=3, variant='CLASSIC
     # R99 (field log .75): _FILE_INFO + TYPES - generated files carry TAG, so
     # the watcher scan never adds them; without TYPES the Pre-Print file info
     # and the feature activators stay empty for generated files
-    types_t99 = (['BRIM'] if brim else []) + ['WALL-OUTER', 'WALL-INNER', 'INFILL-SOLID']
+    types_t99 = (['BRIM'] if brim else []) + ['WALL-OUTER', 'WALL-INNER',
+                  'INFILL-SOLID', 'SURFACE-BOTTOM', 'SURFACE-TOP']
     hdr.append('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d LINE_WIDTH=%.2g '
                'LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g FLOW_RATIO=1 NOZZLE=%.1f '
                'WALL_LOOPS=2 SPEED_OUTER=40 SPEED_INNER=30 SPEED_SOLID=45 SPEED_FIRST=25 '
@@ -8623,7 +8635,8 @@ def make_angles(count=2, angle_deg=90, leg_a=60.0, leg_b=60.0, width=25.0,
             L.append(';TYPE:Outer wall')
             _emit_loop(pen, [(ox + px, oy + py) for px, py in poly], e_wall,
                        1500 if first else 2400)
-            L.append(';TYPE:Internal solid infill')
+            L.append(';TYPE:%s' % ('Top surface' if li == total_layers else
+                                   'Internal solid infill'))
             _emit_hatch(pen, _poly_hatch([(ox + px, oy + py) for px, py in poly],
                                           wid, 45.0 if li % 2 else 135.0), e_wall,
                         1500 if first else 2700)
@@ -8651,7 +8664,11 @@ def make_angles(count=2, angle_deg=90, leg_a=60.0, leg_b=60.0, width=25.0,
                 L.append(';TYPE:Inner wall')
                 _emit_loop(pen, _circle(ox + hx, oy + hy, d / 2.0), e_wall,
                            1500 if first else 2400)
-            L.append(';TYPE:Internal solid infill')
+            # R106 (user TYPE map): first fill = Bottom surface, the top 2
+            # plate layers (countersink/ironing zone) = Top surface
+            L.append(';TYPE:%s' % ('Bottom surface' if first else
+                                   'Top surface' if top else
+                                   'Internal solid infill'))
             # R86.2: INFILL % - line spacing wid at 100 (solid), wider below;
             # the hatch runs INSIDE the walls (no overlap with the loops)
             _sp = wid * (100.0 / infill)
@@ -8698,7 +8715,9 @@ def make_angles(count=2, angle_deg=90, leg_a=60.0, leg_b=60.0, width=25.0,
         material, layer_h, total_layers)
     # R99 (field log .75): _FILE_INFO + TYPES (generated files carry TAG - the
     # scan never adds them; Pre-Print info + feature activators need TYPES)
-    types_a99 = ['WALL-OUTER', 'WALL-INNER', 'INFILL-SOLID'] + (['IRONING'] if ironing else [])
+    types_a99 = (['WALL-OUTER', 'WALL-INNER', 'INFILL-SOLID',
+                 'SURFACE-BOTTOM', 'SURFACE-TOP']
+                + (['IRONING'] if ironing else []))
     hdr.append('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d LINE_WIDTH=%.2g '
                'LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g FLOW_RATIO=1 NOZZLE=%.1f '
                'WALL_LOOPS=2 SPEED_OUTER=40 SPEED_INNER=40 SPEED_SOLID=45 SPEED_FIRST=25 '
@@ -9164,7 +9183,7 @@ def make_seal(od=40.0, id_=20.0, height=1.2, profile='FLAT', ironing=False,
     if ironing:
         a('; ironing_speed = 25')
         a('; ironing_flow = 0.15')
-    types = ['INFILL-SOLID', 'SURFACE-TOP'] + (['IRONING'] if ironing else [])
+    types = ['INFILL-SOLID', 'SURFACE-BOTTOM', 'SURFACE-TOP'] + (['IRONING'] if ironing else [])
     a('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d LINE_WIDTH=%.2g '
       'LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g FLOW_RATIO=1 NOZZLE=%.1f '
       'WALL_LOOPS=2 SPEED_SOLID=15 SPEED_FIRST=10 SPEED_TRAVEL=120%s TYPES=%s BY_OBJECT=0'
@@ -9194,8 +9213,12 @@ def make_seal(od=40.0, id_=20.0, height=1.2, profile='FLAT', ironing=False,
         a(';LAYER_CHANGE')
         a(';Z:%.3f' % z)
         a('LAYER_MARK')
-        a(';TYPE:Internal solid infill')
-        a('APPLY_TYPE TYPE=INFILL-SOLID')
+        a(';TYPE:%s' % ('Bottom surface' if li == 1 else
+                         'Top surface' if li == layers else
+                         'Internal solid infill'))
+        a('APPLY_TYPE TYPE=%s' % ('SURFACE-BOTTOM' if li == 1 else
+                                  'SURFACE-TOP' if li == layers else
+                                  'INFILL-SOLID'))
         if li == 2:
             a('M106 S178   ; R2-SEAL: part fan from layer 2')
         a('EXCLUDE_OBJECT_START NAME=SEAL')
@@ -9670,6 +9693,14 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
             m = TYPE_RE.match(line)
             feat_here = TYPE_MAP.get(m.group(1).strip().lower()) if m else None
             if feat_here:
+                # R106 (user TYPE map): Cura's combined 'SKIN' covers top AND
+                # bottom fills; on layer 1 it is unambiguously the BOTTOM fill
+                # -> SURFACE-BOTTOM. Higher bottom skins stay SURFACE-TOP
+                # (layer count unknown - documented approximation).
+                if (feat_here == 'SURFACE-TOP'
+                        and m.group(1).strip().lower() in ('skin', 'top-skin')
+                        and len(comment_matches) <= 1):
+                    feat_here = 'SURFACE-BOTTOM'
                 type_at[(i, j)] = feat_here
             # ---- 4c) per-feature measurement (.44) -----------------------------------
             if feat_here:
