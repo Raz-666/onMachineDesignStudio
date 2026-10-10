@@ -6752,10 +6752,13 @@ for _l90 in _g90fl.split(chr(10)):
         _z90 = float(_l90[3:])
     elif _l90.startswith(';TYPE:Bridge'):
         _bz90f.append(_z90)
-tests.append(('R90.1b FLIP: front band on the bed (bridge at the bottom), no ironing',
+tests.append(('R90.1b FLIP: front band on the bed, NOTHING bridges (rule ll), no ironing',
     _i90fl['front'] == 'FLIP' and ';TYPE:Ironing' not in _g90fl
     and any('bed texture IS the visible face' in _n90 for _n90 in _i90fl['notes'])
-    and max(_bz90f) < min(_bz90n) and len(_bz90f) == len(_bz90n),
+    # R106: the FLIP shelf rides fully on the front band below - the file
+    # carries no Bridge at all, while the normal frame bridges its shelf
+    # stubs near the top
+    and not _bz90f and _bz90n and max(_bz90n) > 5.0,
     'flip=%s normal=%s' % (_bz90f, _bz90n)))
 
 # disc FRONT: capture lip shrinks the front band opening by 1.2mm
@@ -6857,13 +6860,17 @@ tests.append(('R90.1b kit: structure + cable skipped with honest notes',
     and any('cable duct skipped in kit mode' in _n90 for _n90 in _i90ks['notes']),
     ''))
 
-# OVAL one piece + SIDE slot
+# R106 (rule ll): OVAL + SIDE raises now (the oval wall curves into the
+# slot window - the cap lines cannot anchor); RECT SIDE carries the tests
 _p90o, _i90o = _pp.make_frame(width=90, height=130, depth=6, frame_w=10,
-                              shape='OVAL', closure='SIDE', out_dir=_d90)
+                              closure='SIDE', out_dir=_d90)
 _g90o = open(_p90o, encoding='utf-8').read()
-tests.append(('R90 oval SIDE: 2 objects, slide-in note, slot in the left wall',
+tests.append(('R90 SIDE: 2 objects, slide-in note, slot in the left wall',
     _g90o.count('EXCLUDE_OBJECT_DEFINE') == 2
     and any('slide' in _n90 for _n90 in _i90o['notes']), ''))
+tests.append(('R106 SIDE: Y-bridge cap note + narrowed window note present',
+    any('anchored on the top/bottom walls' in _n90 for _n90 in _i90o['notes']),
+    str(_i90o['notes'])[:120]))
 # left of the photo opening nothing extrudes in the groove band (full slit)
 _q90o = None
 for _l90 in _g90o.split(chr(10)):
@@ -6871,19 +6878,24 @@ for _l90 in _g90o.split(chr(10)):
         _q90o = _json90.loads(_l90[_l90.index('POLYGON=') + 8:])
         break
 _cx90o = (min(p[0] for p in _q90o) + max(p[0] for p in _q90o)) / 2.0
+_cy90o = (min(p[1] for p in _q90o) + max(p[1] for p in _q90o)) / 2.0
 _slit90, _z90, _xp90, _yp90 = 0, None, None, None
 for _l90 in _g90o.split(chr(10)):
     if _l90.startswith(';Z:'):
         _z90 = float(_l90[3:])
     _m90 = _re90.match(r'G1 X([\d.-]+) Y([\d.-]+).* E([\d.]+)', _l90)
     if _m90 and float(_m90.group(3)) > 0 and _xp90 is not None and 3.15 < _z90 <= 4.65:
-        if max(_xp90, float(_m90.group(1))) < _cx90o - 44.5:
+        # R106: the T/B walls beyond +-ph/2 stay SOLID by design (they anchor
+        # the shelf cap) - the slit check applies INSIDE the window only
+        if (max(_xp90, float(_m90.group(1))) < _cx90o - 44.5
+                and abs(_yp90 - _cy90o) < 64.0
+                and abs(float(_m90.group(2)) - _cy90o) < 64.0):
             _slit90 += 1
     _m291 = _re90.match(r'G[01] X([\d.-]+) Y([\d.-]+)', _l90)
     if _m291:
         _xp90, _yp90 = float(_m291.group(1)), float(_m291.group(2))
-tests.append(('R90 oval SIDE: groove-band layers have NOTHING left of the slot edge',
-    _slit90 == 0, 'count %d' % _slit90))
+tests.append(('R90 SIDE: groove-band layers have NOTHING left of the slot edge '
+              'inside the window', _slit90 == 0, 'count %d' % _slit90))
 
 # CASE + guards
 _p90c, _i90c = _pp.make_frame(preset='13x18', depth=20, frame_w=6,
@@ -6894,6 +6906,8 @@ for _kw90, _frag90 in ((dict(width=300, height=200), 'out of range'),
                        (dict(preset='10x15', depth=61), 'out of range'),
                        (dict(preset='10x15', frame_w=3), 'out of range'),
                        (dict(preset='A5', shape='OVAL'), 'oval frame'),
+                       (dict(preset='A6', shape='OVAL', closure='SIDE'),
+                        'SIDE closure needs a RECT'),
                        (dict(preset='10x15', infill=2), 'out of range'),
                        (dict(width=40, height=208, frame_w=6), 'backplate')):
     try:
@@ -8410,13 +8424,18 @@ import time as _time101
 _d101 = tempfile.mkdtemp()
 _p101a, _i101a = _pp.make_frame(preset='9x13', out_dir=_d101)
 _t101a = open(_p101a, encoding='utf-8').read()
-tests.append(('R101 frame: default = 2 solid bottom skin layers, sparse body, honest TYPES',
+tests.append(('R101/R106 frame: 2 solid bottom skin layers, sparse body, '
+              'front band = the top skin',
     _t101a.count(';TYPE:Bottom surface') == 2
     and _t101a.count(';TYPE:Sparse infill') >= 20
     and 'INFILL-SPARSE' in _t101a.split('TYPES=')[1].split()[0]
-    and 'SURFACE-TOP' not in _t101a.split('TYPES=')[1].split()[0],
-    'bottom %d sparse %d' % (_t101a.count(';TYPE:Bottom surface'),
-                             _t101a.count(';TYPE:Sparse infill'))))
+    # R106 (field log .82, user TYPE map): the solid front band is the
+    # frame's TOP skin - SURFACE-TOP belongs in TYPES and the file tags it
+    and 'SURFACE-TOP' in _t101a.split('TYPES=')[1].split()[0]
+    and _t101a.count(';TYPE:Top surface') == 5,
+    'bottom %d sparse %d top %d' % (_t101a.count(';TYPE:Bottom surface'),
+                                    _t101a.count(';TYPE:Sparse infill'),
+                                    _t101a.count(';TYPE:Top surface'))))
 _p101b, _i101b = _pp.make_frame(preset='9x13', out_dir=tempfile.mkdtemp(),
                                 top_layers=2)
 tests.append(('R101 frame: top_layers=2 thins the front band (5 -> 2 layers, '

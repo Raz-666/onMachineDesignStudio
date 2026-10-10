@@ -60,7 +60,8 @@ fails = []
 info = []
 
 
-def check_gcode(name, path, bed=BED, skip_idem=False, extra_types=(), plot=False):
+def check_gcode(name, path, bed=BED, skip_idem=False, extra_types=(), plot=False,
+                r2_gen=False):
     """all invariants; returns list of problems."""
     global files_checked
     files_checked += 1
@@ -145,6 +146,58 @@ def check_gcode(name, path, bed=BED, skip_idem=False, extra_types=(), plot=False
     n_ap = len(re.findall(r'^APPLY_TYPE ', txt, re.M))
     if n_ty and n_ap < n_ty:
         probs.append('APPLY_TYPE coverage: %d TYPE vs %d APPLY_TYPE' % (n_ty, n_ap))
+    # -- R106 rule ll (field log .82): R2-GENERATED geometry never prints
+    # an unanchored bridge. Every ;TYPE:Bridge segment must be a short stub
+    # AND have an endpoint on material of the layer below. Slicer files
+    # passing through process() are exempt - their bridges are the slicer's
+    # business, the rule governs what WE generate.
+    if r2_gen and not plot:
+        layers_all, layers_br = [], []
+        cur = x = y = None
+        for ln in lines:
+            if ln == 'LAYER_MARK':
+                layers_all.append([])
+                layers_br.append([])
+                continue
+            m = re.match(r';TYPE:(.+)', ln)
+            if m:
+                cur = m.group(1)
+                continue
+            m = re.match(r'G0 X([-\d.]+) Y([-\d.]+)', ln)
+            if m:
+                x, y = float(m.group(1)), float(m.group(2))
+                continue
+            m = re.match(r'G1 X([-\d.]+) Y([-\d.]+) E', ln)
+            if m and layers_all and x is not None:
+                nx, ny = float(m.group(1)), float(m.group(2))
+                layers_all[-1].append((x, y, nx, ny))
+                if cur == 'Bridge':
+                    layers_br[-1].append((x, y, nx, ny))
+                x, y = nx, ny
+
+        def _sd(px, py, seg):
+            ax, ay, bx, by = seg
+            dx, dy = bx - ax, by - ay
+            dd = dx * dx + dy * dy
+            if dd < 1e-12:
+                return math.hypot(px - ax, py - ay)
+            t = max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / dd))
+            return math.hypot(px - ax - dx * t, py - ay - dy * t)
+
+        for li, brs in enumerate(layers_br):
+            for (ax, ay, bx, by) in brs:
+                d = math.hypot(bx - ax, by - ay)
+                if li == 0 or not layers_all[li - 1]:
+                    continue
+                da = min(_sd(ax, ay, sg) for sg in layers_all[li - 1])
+                db = min(_sd(bx, by, sg) for sg in layers_all[li - 1])
+                # rule ll, two classes: a short stub/cantilever anchors at
+                # ONE end; a long bridge line must anchor at BOTH ends -
+                # nothing may float free either way
+                bad = (min(da, db) > 0.6 if d <= 4.0 else max(da, db) > 0.6)
+                if bad:
+                    probs.append('L%d bridge %.1fmm unanchored at %.1f,%.1f '
+                                 '(rule ll)' % (li + 1, d, ax, ay))
     # -- frame of the file (plotter files are PEN files - no print frame)
     if not plot:
         if 'PRINT_START' not in '\n'.join(lines[:80]):
@@ -235,44 +288,49 @@ def png(w, h, gray):
 
 
 # ============================================================ FRAMES ======
-F = lambda **kw: pp.make_frame(bed=BED, out_dir=tempfile.mkdtemp(dir=D), **kw)
-run('frame 9x13 default', lambda: F(preset='9x13'))
-run('frame 9x13 depth3 minimal', lambda: F(preset='9x13', depth=3))
-run('frame 9x13 depth60 CASE', lambda: F(preset='9x13', depth=60))
-run('frame 9x13 border4 corner30', lambda: F(preset='9x13', frame_w=4, corner=30))
-run('frame 9x13 border30 corner0', lambda: F(preset='9x13', frame_w=30, corner=0))
-run('frame 10x15 (multi)', lambda: F(preset='10x15'))
-run('frame 13x18 stand', lambda: F(preset='13x18', stand=True))
-run('frame A6 OVAL', lambda: F(preset='A6', shape='OVAL'))
-run('frame A6 OVAL depth18 CASE', lambda: F(preset='A6', shape='OVAL', depth=18))
-run('frame SIDE closure', lambda: F(preset='9x13', closure='SIDE'))
+# R106: F returns EVERY plate (A + B) - plate B files used to slip through
+# untested - and all frame output obeys rule ll (no unanchored bridges)
+def F(**kw):
+    out, i = pp.make_frame(bed=BED, out_dir=tempfile.mkdtemp(dir=D), **kw)
+    return i.get('all_files') or [out]
+
+run('frame 9x13 default', lambda: F(preset='9x13'), r2_gen=True)
+run('frame 9x13 depth3 minimal', lambda: F(preset='9x13', depth=3), r2_gen=True)
+run('frame 9x13 depth60 CASE', lambda: F(preset='9x13', depth=60), r2_gen=True)
+run('frame 9x13 border4 corner30', lambda: F(preset='9x13', frame_w=4, corner=30), r2_gen=True)
+run('frame 9x13 border30 corner0', lambda: F(preset='9x13', frame_w=30, corner=0), r2_gen=True)
+run('frame 10x15 (multi)', lambda: F(preset='10x15'), r2_gen=True)
+run('frame 13x18 stand', lambda: F(preset='13x18', stand=True), r2_gen=True)
+run('frame A6 OVAL', lambda: F(preset='A6', shape='OVAL'), r2_gen=True)
+run('frame A6 OVAL depth18 CASE', lambda: F(preset='A6', shape='OVAL', depth=18), r2_gen=True)
+run('frame SIDE closure', lambda: F(preset='9x13', closure='SIDE'), r2_gen=True)
 run('frame hang all 4', lambda: [F(preset='9x13', hang=h)[0] for h in
-                                 ('TOP', 'BOTTOM', 'LEFT', 'RIGHT')])
-run('frame FLIP front', lambda: F(preset='9x13', front='FLIP'))
-run('frame LINES IN', lambda: F(preset='9x13', front='LINES', s_dir='IN'))
-run('frame WAVES OUT amp2', lambda: F(preset='9x13', front='WAVES', s_amp=2.0))
-run('frame HEX', lambda: F(preset='9x13', front='HEX'))
+                                 ('TOP', 'BOTTOM', 'LEFT', 'RIGHT')], r2_gen=True)
+run('frame FLIP front', lambda: F(preset='9x13', front='FLIP'), r2_gen=True)
+run('frame LINES IN', lambda: F(preset='9x13', front='LINES', s_dir='IN'), r2_gen=True)
+run('frame WAVES OUT amp2', lambda: F(preset='9x13', front='WAVES', s_amp=2.0), r2_gen=True)
+run('frame HEX', lambda: F(preset='9x13', front='HEX'), r2_gen=True)
 run('frame infill5 top1 bot0', lambda: F(preset='9x13', infill=5.0, top_layers=1,
-                                         bottom_layers=0))
+                                         bottom_layers=0), r2_gen=True)
 run('frame infill100 top15 bot15', lambda: F(preset='9x13', infill=100.0,
-                                             top_layers=15, bottom_layers=15))
-run('frame disc GLASS front', lambda: F(preset='9x13', disc='GLASS', disc_t=2.0))
+                                             top_layers=15, bottom_layers=15), r2_gen=True)
+run('frame disc GLASS front', lambda: F(preset='9x13', disc='GLASS', disc_t=2.0), r2_gen=True)
 run('frame disc PLEXI back', lambda: F(preset='9x13', disc='PLEXI',
-                                       disc_side='BACK'))
-run('frame disc FOIL', lambda: F(preset='9x13', disc='FOIL', disc_t=0.4))
+                                       disc_side='BACK'), r2_gen=True)
+run('frame disc FOIL', lambda: F(preset='9x13', disc='FOIL', disc_t=0.4), r2_gen=True)
 run('frame disc LITHO back case', lambda: F(preset='9x13', depth=18, disc='LITHO',
-                                            disc_side='BACK'))
-run('frame cable CASE', lambda: F(preset='9x13', depth=20, frame_w=6, cable=True))
-run('frame KIT (40x200)', lambda: F(width=40, height=200, depth=6, frame_w=6))
+                                            disc_side='BACK'), r2_gen=True)
+run('frame cable CASE', lambda: F(preset='9x13', depth=20, frame_w=6, cable=True), r2_gen=True)
+run('frame KIT (40x200)', lambda: F(width=40, height=200, depth=6, frame_w=6), r2_gen=True)
 run('frame KIT stand vers99', lambda: F(width=40, height=200, depth=6, frame_w=6,
-                                        stand=True, version=99))
+                                        stand=True, version=99), r2_gen=True)
 expect_error('frame 230x230 rejected (even strips exceed bed)',
              lambda: F(width=230, height=230, frame_w=8))
 expect_error('frame OVAL oversized rejected', lambda: F(shape='OVAL', width=210,
                                                         height=210))
-run('frame no ironing', lambda: F(preset='9x13', ironing=False))
+run('frame no ironing', lambda: F(preset='9x13', ironing=False), r2_gen=True)
 run('frame layer_h 0.12 first 0.08', lambda: F(preset='9x13', layer_h=0.12,
-                                               first_h=0.08))
+                                               first_h=0.08), r2_gen=True)
 expect_error('frame infill 2 rejected', lambda: F(preset='9x13', infill=2.0))
 expect_error('frame depth 61 rejected', lambda: F(preset='9x13', depth=61))
 expect_error('frame border 3 rejected', lambda: F(preset='9x13', frame_w=3))
@@ -400,7 +458,7 @@ frm = pp.make_frame(preset='9x13', bed=BED, out_dir=D)[0]
 for pat in ('GRID', 'WAVES', 'HEX', 'MANDELBROT'):
     run('texture BUMPS %s on frame' % pat, lambda p=pat: tx.apply_texture(
         frm, mode='BUMPS', bump_pattern=p, bump_scale=6.0, bump_amp=0.5,
-        out_dir=D), skip_idem=True)
+        out_dir=D), skip_idem=True, r2_gen=True)
 
 # =========================================================== PLOT =========
 run('plot png convert', lambda: (pp.plot_convert(

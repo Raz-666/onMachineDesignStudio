@@ -6891,6 +6891,66 @@ def _convex_intervals(poly, ox, oy, dx, dy):
     return (cuts[0], cuts[-1])
 
 
+def _resample_poly(poly, step):
+    """evenly resample a closed polygon at ~step mm (R106)."""
+    out = [poly[0]]
+    total, target, n = 0.0, step, len(poly)
+    for i in range(n):
+        a, b = poly[i], poly[(i + 1) % n]
+        d = math.hypot(b[0] - a[0], b[1] - a[1])
+        while target <= total + d - 1e-9:
+            t = (target - total) / d if d > 1e-12 else 0.0
+            out.append((a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t))
+            target += step
+        total += d
+    return out
+
+
+def _nearest_on_poly(p, poly):
+    """closest point on a closed polygon + its distance (R106)."""
+    best, bd = None, 1e18
+    n = len(poly)
+    for i in range(n):
+        a, b = poly[i], poly[(i + 1) % n]
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        dd = dx * dx + dy * dy
+        t = (0.0 if dd < 1e-12 else
+             max(0.0, min(1.0, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / dd)))
+        q = (a[0] + dx * t, a[1] + dy * t)
+        d2 = (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2
+        if d2 < bd:
+            best, bd = q, d2
+    return best, bd ** 0.5
+
+
+def _radial_stubs(outer, inner, step, ext):
+    """R106 (field log .82, rule ll): radial anchor stubs between two
+    nested contours. Every stub STARTS on the outer contour - extended by
+    `ext` outward so it bonds onto the wall printed below - and ends at
+    its nearest point on the inner contour. Radial = shortest possible
+    overhang, perpendicular to the edge: nothing runs diagonally around
+    corners, no closed loop ever floats. Gaps narrower than 0.8mm are
+    already covered by the wall below and stay empty."""
+    segs = []
+    last_q = None
+    for p in _resample_poly(outer, step):
+        q, d = _nearest_on_poly(p, inner)
+        if d < 0.8:
+            continue
+        # R106: at (rounded) corners many outer points project onto the
+        # SAME inner point - one stub per spot is enough. Without the
+        # dedupe the stub ends pile up as a blob and fire the MCU
+        # tiny-segment guard (consecutive G1 targets 0.02mm apart).
+        if (last_q is not None
+                and (q[0] - last_q[0]) ** 2 + (q[1] - last_q[1]) ** 2
+                < (0.75 * step) ** 2):
+            continue
+        u = ((p[0] - q[0]) / d, (p[1] - q[1]) / d)
+        segs.append(((p[0] + u[0] * ext, p[1] + u[1] * ext), q))
+        last_q = q
+    return segs
+
+
 def _ring_hatch(outer, inner, spacing, angle_deg, notch=None, min_len=0.35):
     """R90: scanline hatch over the RING between two convex contours (outer,
     inner), optionally minus a rectangular notch (the SIDE-closure slot).
@@ -7084,6 +7144,11 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
     disc_side = str(disc_side).upper()
     if disc_side not in ('FRONT', 'BACK'):
         raise ValueError('disc_side %r must be FRONT or BACK' % disc_side)
+    if closure == 'SIDE' and shape == 'OVAL':
+        # R106 (rule ll): the slot cap anchors on the straight T/B walls -
+        # the oval wall curves into the window and starves them
+        raise ValueError('SIDE closure needs a RECT frame - the oval wall '
+                         'curves into the slot (use BACK closure)')
     if disc != 'NONE' and not (0.4 <= float(disc_t) <= 6.0):
         raise ValueError('disc thickness %.1fmm out of range (0.4..6)' % disc_t)
     if front in ('LINES', 'WAVES', 'HEX'):
@@ -7247,10 +7312,14 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                      'straight into the case interior (LED wiring)')
     side_slot = None
     if closure == 'SIDE':
-        # full-height slit: everything left of the photo opening edge goes
-        # (wall incl. corner stubs) - the T/B groove layers then simply
-        # start 1.5mm further right, still sitting on the back band
-        side_slot = (-ow / 2 - 1.0, -oh / 2 - 1.0, -pw / 2 + 0.5, oh / 2 + 1.0)
+        # slit through the LEFT wall, open across the groove band and the
+        # full wall length (photo + cover plate slide in sideways)
+        # R106 (field log .82, rule ll): the window is bounded by the shaft
+        # (Y = +-ph/2) so the T/B walls + corners stay SOLID - they are the
+        # only anchors the shelf cap over the slot can hook onto. The old
+        # +-oh/2 window sawed the corners off too and left the shelf above
+        # the slot floating with zero support in ANY direction.
+        side_slot = (-ow / 2 - 1.0, -ph / 2, -pw / 2 + 0.5, ph / 2)
 
     # ---- bed layout ------------------------------------------------------------
     # frame left; right column = backplate (top) + stand (below). 4mm gaps,
@@ -7260,8 +7329,10 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
         # bayonet plate: 1.2mm rim rests on the ring back, L/R edge notches
         bw, bh = pw + 2.4, ph + 2.4
     else:
-        # SIDE: the cover plate slides through the wall slot - photo size
-        bw, bh = pw + 0.4, ph + 0.4
+        # SIDE: the cover plate slides through the wall slot - photo width,
+        # but R106 keeps it just UNDER the slot height so it clears the
+        # narrowed window with play
+        bw, bh = pw + 0.4, ph - 0.8
     sw, sh = (26.0, 62.0) if stand else (0.0, 0.0)
     bx0, by0, bx1, by1 = bed
     ux0, uy0 = bx0 + bed_margin, by0 + bed_margin
@@ -7507,32 +7578,33 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
             if want_rest:
                 pen.holes = list(plate_keeps(bx, by))
 
-            def emit_ring(li, inner, notch=None, hatch=True, wtype='Outer wall',
-                          skin=None):
+            def _split_emit(loop_pts, box, ew, f1):
+                # R97 (rule dd): emit a closed contour as OPEN polylines,
+                # split wherever it passes through the notch box. R106: moved
+                # out of emit_ring - the shelf emitter needs it too.
+                polylines = []
+                cur = []
+                for (x, y) in list(loop_pts) + [loop_pts[0]]:
+                    if box[0] <= x <= box[2] and box[1] <= y <= box[3]:
+                        if len(cur) > 1:
+                            polylines.append(cur)
+                        cur = []
+                    else:
+                        cur.append((x + cx, y + cy))
+                if len(cur) > 1:
+                    polylines.append(cur)
+                for pl in polylines:
+                    _emit_loop(pen, pl, ew, f1, close=False)
+
+            def emit_ring(li, inner, notch=None, hatch=True, skin=None):
                 # R101 (field log .78): skin='bottom'/'top' = solid skin layer
                 # of that face (solid hatch + SURFACE tag); None = body (solid
                 # at 100% infill, sparse below - tagged accordingly)
                 ew = e_w(li)
                 f1 = 1500 if li == 1 else 2400
 
-                def _split_emit(loop_pts, box):
-                    polylines = []
-                    cur = []
-                    for (x, y) in list(loop_pts) + [loop_pts[0]]:
-                        if box[0] <= x <= box[2] and box[1] <= y <= box[3]:
-                            if len(cur) > 1:
-                                polylines.append(cur)
-                            cur = []
-                        else:
-                            cur.append((x + cx, y + cy))
-                    if len(cur) > 1:
-                        polylines.append(cur)
-                    for pl in polylines:
-                        _emit_loop(pen, pl, ew, f1, close=False)
-
                 # R97 (field log .74): the INNER contour prints first, the
                 # outer wall bonds onto it - first-layer edges stop fraying.
-                # A bridge band (the shelf) keeps ONE type for both loops.
                 _keep97 = None
                 if notch is not None:
                     # R97 (rule dd): the notch (cable duct / side slot) is an
@@ -7543,15 +7615,14 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                                (notch[2] + cx, notch[3] + cy),
                                (notch[0] + cx, notch[3] + cy)]
                     pen.hole_polys.append(_keep97)
-                a(';TYPE:' + ('Bridge' if wtype == 'Bridge' else 'Inner wall'))
+                a(';TYPE:Inner wall')
                 if notch and inner is photo_c:
-                    _split_emit(photo_c, notch)
+                    _split_emit(photo_c, notch, ew, f1)
                 else:
                     _emit_loop(pen, [(x + cx, y + cy) for (x, y) in inner], ew, f1)
-                if wtype != 'Bridge':
-                    a(';TYPE:Outer wall')
+                a(';TYPE:Outer wall')
                 if notch:
-                    _split_emit(outer_c, notch)
+                    _split_emit(outer_c, notch, ew, f1)
                 else:
                     _emit_loop(pen, [(x + cx, y + cy) for (x, y) in outer_c], ew, f1)
                 if hatch:
@@ -7585,6 +7656,86 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                         _emit_hatch(pen, segs, ew, 2700)
                 if _keep97 is not None:
                     pen.hole_polys.remove(_keep97)
+
+            def emit_side_cap(li):
+                # R106 (field log .82, rule ll): over the SIDE slot window
+                # the shelf has NO support from below anywhere inside the
+                # window - left is past the frame edge, right is the photo
+                # shaft, below is the open slot. The only anchors are the
+                # solid T/B walls beyond the window ends, so the cap prints
+                # as Y-direction bridge lines spanning the annulus: each
+                # line is anchored at BOTH ends (and side-bonds to the
+                # T/B hatch of its own layer). Mid-span droop stays inside
+                # the wall cavity; snip any wisp that catches the plate.
+                ew = e_w(li)
+                a(';TYPE:Bridge')
+                for (p, q) in _ring_hatch(outer_c, view_c, wid, 90.0):
+                    mx, my = (p[0] + q[0]) / 2.0, (p[1] + q[1]) / 2.0
+                    if (mx <= side_slot[2] + wid
+                            and abs(my) <= side_slot[3] + wid * 2):
+                        _emit_hatch(pen, [((p[0] + cx, p[1] + cy),
+                                           (q[0] + cx, q[1] + cy))], ew, 2400)
+
+            def emit_shelf(li, notch=None):
+                # R106 (field log .82, rule ll): the shelf lip used to print
+                # as a CLOSED loop floating over the photo shaft - 4m+ of
+                # unanchored extrusion, dragged around the corners too. New:
+                # no loop ever starts in the air, every line anchors.
+                #   walls: photo-edge + outer ring, both sit on the groove
+                #     band's walls below (fully supported; split around the
+                #     SIDE window while it is open)
+                #   first band layer: Bridge stubs photo_c -> view_c, each
+                #     STARTING on the photo-edge wall top (short free end),
+                #     then solid hatch between the walls
+                #   layers above: full-area hatch incl. the lip - every line
+                #     crosses the stub comb printed below it
+                #   top band layer with a front disc: extra stubs
+                #     view_c -> lip_c so the capture lip above never floats
+                #   SIDE closure: the first layer caps the slot window with
+                #     anchored Y-bridge lines instead of hatch
+                ew = e_w(li)
+                f1 = 1500 if li == 1 else 2400
+                a(';TYPE:Inner wall')
+                if notch:
+                    _split_emit(photo_c, notch, ew, f1)
+                else:
+                    _emit_loop(pen, [(x + cx, y + cy) for (x, y) in photo_c],
+                               ew, f1)
+                a(';TYPE:Outer wall')
+                if notch:
+                    _split_emit(outer_c, notch, ew, f1)
+                else:
+                    _emit_loop(pen, [(x + cx, y + cy) for (x, y) in outer_c],
+                               ew, f1)
+                if notch:
+                    emit_side_cap(li)
+                if li == n_bb + n_gr + 1:
+                    a(';TYPE:Bridge')
+                    hs = _radial_stubs(photo_c, view_c, wid, wid / 2)
+                    if notch:
+                        # stubs whose anchor lies in the window have no
+                        # wall below - the cap lines cover that stretch
+                        def _in_win(p):
+                            return (notch[0] - 0.6 <= p[0] <= notch[2] + 0.6
+                                    and notch[1] - 0.6 <= p[1] <= notch[3] + 0.6)
+                        hs = [(p, q) for (p, q) in hs if not _in_win(p)]
+                    _emit_hatch(pen, [((p[0] + cx, p[1] + cy),
+                                       (q[0] + cx, q[1] + cy))
+                                      for (p, q) in hs], ew, 2400)
+                    inner = photo_c
+                else:
+                    inner = view_c
+                if lip and li == n_bb + n_gr + n_sh:
+                    a(';TYPE:Bridge')
+                    hs = _radial_stubs(view_c, lip_c, wid, wid / 2)
+                    _emit_hatch(pen, [((p[0] + cx, p[1] + cy),
+                                       (q[0] + cx, q[1] + cy))
+                                      for (p, q) in hs], ew, 2400)
+                a(';TYPE:Internal solid infill')
+                hs = _ring_hatch(outer_c, inner, wid, 45.0 if li % 2 else 135.0,
+                                 notch=notch)
+                _emit_hatch(pen, [((p[0] + cx, p[1] + cy), (q[0] + cx, q[1] + cy))
+                                  for (p, q) in hs], ew, 2700)
 
             def emit_nubs(li):
                 # bayonet: exactly TWO nubs on the left/right wall centers,
@@ -7709,9 +7860,15 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                         # (bottom in normal orientation, top when FLIP)
                         _sk101 = (('bottom' if front != 'FLIP' else 'top')
                                   if eli <= bot_sol else None)
-                        emit_ring(eli, photo_c,
-                                  notch=(cable_box if eli <= n_cable_l
-                                         else None), skin=_sk101)
+                        _notch = (cable_box if eli <= n_cable_l else None)
+                        if front == 'FLIP' and side_slot and eli == n_bb:
+                            # R106: in FLIP the back band prints ABOVE the
+                            # slot - its first layer caps the window with
+                            # anchored Y-bridge lines (rule ll)
+                            _notch = side_slot
+                        emit_ring(eli, photo_c, notch=_notch, skin=_sk101)
+                        if front == 'FLIP' and side_slot and eli == n_bb:
+                            emit_side_cap(eli)
                     elif eli <= n_bb + n_gr:
                         # groove band: the SIDE slot opens the left wall HERE
                         emit_ring(eli, photo_c, notch=side_slot)
@@ -7719,13 +7876,29 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                             a(';TYPE:Inner wall')
                             emit_nubs(eli)
                     elif eli <= n_bb + n_gr + n_sh:
-                        # shelf band = the bridge from the view edge to the photo
-                        # edge (the photo's front stop) - same contour as the front
-                        emit_ring(eli, view_c, wtype='Bridge')
+                        # shelf band = the photo's front stop. FLIP: the front
+                        # band below already carries the full area - plain
+                        # rings + hatch, nothing floats. NORMAL: the lip
+                        # overhangs the photo shaft - anchored stubs instead
+                        # of the old floating loop (rule ll, field log .82)
+                        if front == 'FLIP':
+                            emit_ring(eli, view_c)
+                        else:
+                            emit_shelf(eli,
+                                       notch=(side_slot
+                                              if (side_slot
+                                                  and eli == n_bb + n_gr + 1)
+                                              else None))
                     else:
                         _fin = lip_c if lip else view_c
                         if eli <= n_bb + n_gr + n_sh + solid_ft:
-                            emit_ring(eli, _fin)
+                            # R106 (field log .82): the front band IS the
+                            # frame's top skin - was mistagged Internal solid
+                            # infill, so SURFACE-TOP overrides never reached
+                            # the visible face (user TYPE map)
+                            emit_ring(eli, _fin,
+                                      skin=('top' if front != 'FLIP'
+                                            else 'bottom'))
                         else:
                             # R90.1b structure layer: walls only + pattern
                             emit_ring(eli, _fin, hatch=False)
@@ -7759,7 +7932,9 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                         a(';TYPE:Bottom surface')
                         _emit_serp(pen, segs, e_w(1), 1500, wid * 2.5)
                     else:
-                        a(';TYPE:Internal solid infill')
+                        # R106: the plate's last layer = its visible top
+                        a(';TYPE:' + ('Top surface' if li == bp_layers
+                                      else 'Internal solid infill'))
                         _emit_hatch(pen, segs, e_w(li), 2700)
                     a('EXCLUDE_OBJECT_END NAME=BACKPLATE')
                 # ---- stand ----
@@ -7781,7 +7956,9 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                                                     45.0 if li % 2 else 135.0),
                                    e_w(1), 1500, wid * 2.5)
                     else:
-                        a(';TYPE:Internal solid infill')
+                        # R106: the stand's last layer = its visible top
+                        a(';TYPE:' + ('Top surface' if li == st_layers
+                                      else 'Internal solid infill'))
                         _emit_hatch(pen, _poly_hatch(tri, wid,
                                                      45.0 if li % 2 else 135.0),
                                     e_w(li), 2700)
@@ -7817,6 +7994,10 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                 else:
                     notes.append('assembly: photo + cover plate slide together into '
                                  'the slot in the left wall')
+                    notes.append('side slot (R106): the shelf caps the slot '
+                                 'with bridge lines anchored on the top/bottom '
+                                 'walls - slight sag inside the wall cavity is '
+                                 'normal, snip any wisp that catches the plate')
 
     # ===================  SPLIT KIT (oversized RECT, corner 0) ==================
         else:
@@ -8070,20 +8251,25 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
         # -> solid -> top (+ SIDE-closure bridge lips, + ironing on IRON front)
         if want_frame:
             # R101 (field log .78): honest feature list - INFILL-SPARSE below
-            # 100%, SURFACE-TOP only where the file really tags it (structured
-            # fronts; FLIP closes with the back-face skin on top)
+            # 100%, SURFACE-TOP only where the file really tags it.
+            # R106 (field log .82): the front band is the frame's TOP skin
+            # (user TYPE map) - one-piece frames in normal orientation tag
+            # Top surface on every solid front-band layer; FLIP closes with
+            # the back-face skin on top instead
             types_f99 = (['BRIM', 'WALL-INNER', 'WALL-OUTER', 'SURFACE-BOTTOM']
                          + (['INFILL-SPARSE'] if infill < 100.0 else [])
                          + ['INFILL-SOLID']
                          + (['SURFACE-TOP']
                             if (front in ('LINES', 'WAVES', 'HEX')
+                                or (front != 'FLIP' and not kit)
                                 or (front == 'FLIP' and bot_sol > 0 and not kit))
                             else [])
                          + (['BRIDGE'] if (want_frame and not kit) else [])
                          + (['IRONING'] if (ironing and front == 'IRON') else []))
         else:
+            # R106: the backplate/stand plate closes with a real top skin
             types_f99 = ['BRIM', 'WALL-INNER', 'WALL-OUTER', 'SURFACE-BOTTOM',
-                         'INFILL-SOLID']
+                         'INFILL-SOLID', 'SURFACE-TOP']
         hdr.append('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d LINE_WIDTH=%.2g '
                    'LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g FLOW_RATIO=1 NOZZLE=%.1f '
                    'WALL_LOOPS=2 SPEED_OUTER=40 SPEED_INNER=40 SPEED_SOLID=45 SPEED_FIRST=25 '
@@ -8118,6 +8304,9 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
             'bottom_skin': bot_sol, 'infill': float(infill),
             'notes': notes + (['stand: easel-leg studs plug into the 2 backplate '
                                'holes (D2.7, 24mm apart)'] if stand_ok else [])}
+    # R106: expose every plate (A *and* B) - the megatest coverage relied
+    # on the single return path and never checked plate B files
+    info['all_files'] = [os.path.join(out_dir, f) for f in files]
     return os.path.join(out_dir, files[0]), info
 
 

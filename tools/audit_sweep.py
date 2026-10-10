@@ -181,7 +181,12 @@ matrix.append(dict(width=40, height=200, depth=6, frame_w=6, front='HEX',
 matrix.append(dict(width=150, height=60, depth=8, frame_w=12, hang='OFF'))
 for i, kw in enumerate(matrix):
     kw.setdefault('bed', BED)
-    run(pp.make_frame, 'frame-%02d' % i, **kw)
+    # R106 (rule ll): OVAL + SIDE raises - the curved wall starves the
+    # slot cap's anchors; the guard IS the expected outcome there
+    _g106 = ('SIDE closure needs a RECT'
+             if kw.get('closure') == 'SIDE' and kw.get('shape') == 'OVAL'
+             else None)
+    run(pp.make_frame, 'frame-%02d' % i, expect_guard=_g106, **kw)
 
 # ---- other generators ----
 run(pp.make_cable_ties, 'ties-CLASSIC', variant='CLASSIC', bed=BED)
