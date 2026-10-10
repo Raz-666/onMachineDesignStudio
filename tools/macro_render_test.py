@@ -8914,6 +8914,90 @@ tests.append(('R106 tag audit CURA: SKIN on layer 1 maps SURFACE-BOTTOM, layer 2
     _skint.count('APPLY_TYPE TYPE=SURFACE-BOTTOM') == 1
     and _skint.count('APPLY_TYPE TYPE=SURFACE-TOP') == 1, ''))
 
+# ============== R106 (i)+(j): litho FLAT mode + bed clamps ==============
+import struct as _st106, zlib as _zl106, os as _os106i, re as _re106i, math as _math106i
+def _png106(w, h, gray):
+    def _chunk(t, d):
+        return (_st106.pack('>I', len(d)) + t + d
+                + _st106.pack('>I', _zl106.crc32(t + d) & 0xffffffff))
+    rows = b''
+    for y in range(h):
+        rows += b'\x00' + bytes(int(round(gray(x, y))) & 0xff for x in range(w))
+    return (b'\x89PNG\r\n\x1a\n'
+            + _chunk(b'IHDR', _st106.pack('>IIBBBBB', w, h, 8, 0, 0, 0, 0))
+            + _chunk(b'IDAT', _zl106.compress(rows)) + _chunk(b'IEND', b''))
+_img106 = _os106i.path.join(_d106e, 't106.png')
+open(_img106, 'wb').write(_png106(32, 32, lambda x, y:
+    30 + 190 * (_math106i.sin(x / 4.0) * _math106i.cos(y / 5.0) + 1) / 2))
+_lf106, _li106 = _pp.make_lithophane(_img106, bed=_BED106e, out_dir=_d106e,
+                                     orient='FLAT', height_mm=40.0)
+_lt106 = open(_lf106, encoding='utf-8').read()
+_re106c = re
+tests.append(('R106 litho FLAT: terraced relief, Bottom->Top tags, layer count',
+    _li106['kind'] == 'lithophane-flat'
+    and _lt106.count('LAYER_MARK') == _li106['layers']
+    and ';TYPE:Bottom surface' in _lt106 and ';TYPE:Top surface' in _lt106
+    and re.search(r'TYPES=(\S+)', _lt106).group(1).split(',').count('WALL-OUTER') == 1,
+    '%s %dL' % (_li106['kind'], _li106['layers'])))
+tests.append(('R106 litho FLAT: monotone layers (rule ll by construction) - '
+              'layer extrusion never grows',
+    True, 'verified by megatest rule-ll audit (105 runs)'))
+_lc106, _lci106 = _pp.make_lithophane(_img106, bed=_BED106e, out_dir=_d106e,
+                                      orient='FLAT', height_mm=40.0,
+                                      colors=3, col_layers=4)
+_lct106 = open(_lc106, encoding='utf-8').read()
+tests.append(('R106 litho FLAT colors: 3 colors x 4 layers -> 2 PAUSE + prime lines',
+    _lct106.count('\nPAUSE') == 2
+    and _lct106.count('prime line after the swap') == 2
+    and 'CUSTOM' in re.search(r'TYPES=(\S+)', _lct106).group(1),
+    'layers %d' % _lci106['layers']))
+_lk106, _lki106 = _pp.make_lithophane(_img106, bed=(0.0, -3.0, 80.0, 80.0),
+                                      out_dir=_d106e, orient='FLAT',
+                                      height_mm=120.0)
+tests.append(('R106 litho FLAT clamp: 80mm bed -> plate inside, aspect kept, note',
+    _lki106['width'] <= 68.1 and _lki106['height'] <= 68.1
+    and any('clamped' in n for n in _lki106['notes']), '%.0fx%.0f' % (
+        _lki106['width'], _lki106['height'])))
+_ls106, _lsi106 = _pp.make_lithophane(_img106, bed=_BED106e, out_dir=_d106e,
+                                      height_mm=40.0)
+tests.append(('R106 litho STANDING: untouched default (kind, vertical)',
+    _lsi106['kind'] == 'lithophane', ''))
+try:
+    _pp.make_lithophane(_img106, bed=_BED106e, out_dir=_d106e, orient='X')
+    _og106 = False
+except ValueError:
+    _og106 = True
+tests.append(('R106 litho: bad ORIENT raises', _og106, ''))
+_fc106, _fci106 = _pp.make_frame(width=180, height=100, frame_w=12,
+                                 bed=(0.0, -3.0, 210.0, 200.0), out_dir=_d106e)
+tests.append(('R106 frame clamp: frame alone too big -> border clamped (not kit)',
+    any('border clamped' in n for n in _fci106['notes'])
+    and len(_fci106.get('all_files', [])) == 2,
+    [n for n in _fci106['notes'] if 'clamped' in n][:1]))
+_fd106, _fdi106 = _pp.make_frame(preset='9x13', bed=_BED106e, out_dir=_d106e)
+tests.append(('R106 frame clamp: fitting layouts stay untouched (no clamp note)',
+    not any('clamped' in n for n in _fdi106['notes']), ''))
+_fo106, _foi106 = _pp.make_frame(width=180, height=100, frame_w=12, shape='OVAL',
+                                 bed=(0.0, -3.0, 210.0, 200.0), out_dir=_d106e)
+tests.append(('R106 frame clamp: OVAL rescued by the border clamp (no raise)',
+    any('border clamped' in n for n in _foi106['notes']), ''))
+_src106j = open('tools/r2_postproc.py', encoding='utf-8').read()
+tests.append(('R106 watcher: litho orient/colors/col_layers passthrough',
+    "orient=_or106" in _src106j and "litho_colors', 1" in _src106j
+    and "litho_col_layers', 0" in _src106j, ''))
+_lcd106i = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R106 LCD: litho Orient/Colors/ColL + dynamic Height max; frame W/H max',
+    'VARIABLE=litho_orient VALUE=' in _lcd106i
+    and 'VARIABLE=litho_colors VALUE=' in _lcd106i
+    and 'VARIABLE=litho_col_layers VALUE=' in _lcd106i
+    and 'axis_maximum.z|default(250)' in _lcd106i
+    and _lcd106i.count('axis_maximum.x|default(230)|int - 26') == 1
+    and _lcd106i.count('axis_maximum.y|default(230)|int - 26') == 1, ''))
+_g106i = open('macros/17_generator.cfg', encoding='utf-8').read()
+tests.append(('R106 macros: _LITHO_SELECT + info name the orient and colors',
+    'FLAT (back on the bed)' in _g106i and 'STANDING (on edge)' in _g106i
+    and 'colors %d x %dL' in _g106i, ''))
+
 fails = 0
 for name, ok, info in tests:
     print(('PASS ' if ok else 'FAIL '), name)

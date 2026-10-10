@@ -7210,6 +7210,25 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
     # ---- contours (centered on 0,0) ------------------------------------------
     ow, oh = width + 2 * frame_w, height + 2 * frame_w          # outer
     pw, ph = width + 0.6, height + 0.6                          # photo opening
+    # R106 (rule nn, wish j): hard-clamp the border when the FRAME ALONE
+    # would not fit the bed - the rescue before kit strips (RECT) or the
+    # error (OVAL). 6mm border minimum keeps the groove sound; layouts that
+    # already fit (incl. multi-plate) stay untouched.
+    _bx0j, _by0j, _bx1j, _by1j = bed
+    _uwj = (_bx1j - bed_margin) - (_bx0j + bed_margin)
+    _uhj = (_by1j - bed_margin) - (_by0j + bed_margin)
+    _dxj = ow - _uwj
+    _dyj = oh - _uhj
+    if max(_dxj, _dyj) > 0.3:
+        _fwj = round(frame_w - (max(_dxj, _dyj) / 2.0 + 0.25), 1)
+        if _fwj < 6.0:
+            _fwj = 6.0
+        if _fwj < frame_w - 0.05:
+            notes.append('border clamped %.1f -> %.1fmm so the frame fits '
+                         'the bed (rule nn)'
+                         % (frame_w, _fwj))
+            frame_w = _fwj
+            ow, oh = width + 2 * frame_w, height + 2 * frame_w
     vw, vh = width - 3.0, height - 3.0                          # view opening
     # R90.1b: FRONT disc capture lip - the front band opening shrinks so the
     # disc cannot fall out of the front (the lip covers its edge by 1.2mm)
@@ -7385,9 +7404,10 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
             multi = True
         elif shape != 'RECT':
             raise ValueError('oval frame %.0fx%.0fmm does not fit the bed '
-                             'together with its backplate (needs %.0fx%.0fmm) - '
-                             'smaller photo/preset or less border'
-                             % (ow, oh, ow + gap + bw, max(oh, bh)))
+                             'together with its backplate (needs %.0fx%.0fmm, '
+                             'border already clamped to %.1fmm) - smaller '
+                             'photo/preset or print it as RECT'
+                             % (ow, oh, ow + gap + bw, max(oh, bh), frame_w))
         else:
             kit = True
             if corner > 0.5:
@@ -8864,10 +8884,266 @@ class _Sink:
             self.buf = []
 
 
+def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
+                     brim_loops=6, ironing=False, base=0.7, dyn=2.3,
+                     gamma=1.0, colors=1, col_layers=0, material='PLA',
+                     bed=None, bed_margin=6.0, nozzle=0.6, out_dir='.',
+                     version=1):
+    """R106 (field log .82, wish i): photo -> lithophane printed FLAT.
+
+    The back lies on the bed (glass-flat), the top carries the image as a
+    terraced relief: layer k prints exactly the cells whose thickness
+    reaches z_k - so layer k+1 is always a SUBSET of layer k and nothing
+    ever prints over air (rule ll by construction). Terracing is the flat
+    tradeoff (standing keeps the classic recipe); small layer heights and
+    optional ironing smooth it. Frame = solid border at full thickness,
+    brim on layer 1. Colors: 1..4 bands from the bed up - PAUSE + prime
+    line at every boundary (swap filament, purge, RESUME); e.g. white
+    base layers under a colored body glow especially even.
+    Rule nn: the plate is hard-clamped to the bed, aspect kept.
+    """
+    height_mm = max(30.0, min(float(height_mm or 100.0), 200.0))
+    layer_h = max(0.08, min(float(layer_h or 0.12), 0.2))
+    levels = max(0, min(int(levels or 0), 16))
+    base = max(0.4, min(float(base or 0.7), 1.5))
+    dyn = max(1.2, min(float(dyn or 2.3), 3.5))
+    brim_loops = max(0, min(int(brim_loops or 0), 10))
+    colors = max(1, min(int(colors or 1), 4))
+    col_layers = max(0, min(int(col_layers or 0), 30))
+    if bed is None:
+        bed = (0.0, -3.0, 244.0, 238.0)
+    ext = os.path.splitext(src)[1].lower().lstrip('.')
+    kind = {'png': 'png', 'jpg': 'jpg', 'jpeg': 'jpg'}.get(ext)
+    if kind is None:
+        raise ValueError('lithophane source must be .png/.jpg/.jpeg (got %r)' % ext)
+    if not os.path.isfile(src):
+        raise ValueError('image not found: %s' % src)
+    with open(src, 'rb') as f:
+        data = f.read()
+    w, h, lum = _img_luma(data, kind)
+
+    wid = max(0.4, nozzle * 1.08)
+    fil = FIL_AREA
+    notes = []
+
+    # ---- geometry: cells at LINE WIDTH in XY, layers = thickness slices ----
+    rows = max(4, int(round(height_mm / wid)))          # plate Y in beads
+    cols = max(4, int(round(rows * (w / float(h)))))    # aspect -> X beads
+    bx0, by0, bx1, by1 = bed
+    ux0, uy0 = bx0 + bed_margin, by0 + bed_margin
+    ux1, uy1 = bx1 - bed_margin, by1 - bed_margin
+    # R106 (rule nn): hard clamp to the bed, aspect kept
+    _sc106 = min(1.0, (ux1 - ux0) / (cols * wid), (uy1 - uy0) / (rows * wid))
+    if _sc106 < 0.999:
+        cols = max(4, int(cols * _sc106))
+        rows = max(4, int(rows * _sc106))
+        notes.append('plate clamped to the bed - %.0f%% of the requested size'
+                     % (_sc106 * 100.0))
+    height_real = rows * wid
+    width_mm = cols * wid
+    t_min = max(base, wid)
+    t_max = t_min + dyn
+    n_l = max(2, int(math.ceil((t_max - 1e-9) / layer_h)))
+    if colors >= 2 and col_layers < 1:
+        col_layers = 1
+    col_layers = min(col_layers or (1 if colors >= 2 else 0), n_l - 1)
+
+    grid, rep = _litho_grid(lum, w, h, cols, rows, gamma=gamma, levels=levels)
+    notes.append(rep)
+
+    # ---- thickness map (dark = thick) + solid frame border -----------------
+    fw_c = max(2, int(round(2.4 / wid))) if frame else 0
+    fw_r = max(2, int(round(2.4 / wid))) if frame else 0
+    T = []
+    for r in range(rows):
+        tr = []
+        for c in range(cols):
+            if frame and (r < fw_r or r >= rows - fw_r or c < fw_c or c >= cols - fw_c):
+                tr.append(t_max)
+            else:
+                tr.append(t_min + dyn * grid[r][c])
+        T.append(tr)
+
+    # ---- color bands: after these layer counts a PAUSE + swap happens ------
+    bands = []
+    if colors >= 2 and col_layers >= 1:
+        _b106 = col_layers
+        while len(bands) < colors - 1 and _b106 < n_l:
+            bands.append(_b106)
+            _b106 += col_layers
+
+    cx = (ux0 + ux1) / 2.0
+    cy = (uy0 + uy1) / 2.0
+    x0 = cx - width_mm / 2.0
+    y0 = cy - height_real / 2.0
+
+    stem = re.sub(r'[^A-Za-z0-9]', '', os.path.splitext(os.path.basename(src))[0])[:8] or 'IMG'
+    fname = '00_LithoF_%s_V%02d.gcode' % (stem, max(1, min(int(version), 99)))
+    out = os.path.join(out_dir, fname)
+
+    e_wall = layer_h * wid / fil
+    e_iron = 0.15 * layer_h * wid / fil
+    fpoly = '[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]' % (
+        x0, y0, x0 + width_mm, y0, x0 + width_mm, y0 + height_real,
+        x0, y0 + height_real)
+
+    def _runs106(row):
+        runs = []
+        c = 0
+        while c < cols:
+            if row[c]:
+                c0 = c
+                while c < cols and row[c]:
+                    c += 1
+                runs.append((c0, c - 1))
+            else:
+                c += 1
+        return tuple(runs)
+
+    with open(out, 'w') as f:
+        sk = _Sink(f)
+        a = sk.append
+        a('; R2-LITHO generated lithophane, FLAT mode (R106) - start it like any other file')
+        a(TAG)
+        a('; source %s (%dx%d px) -> %dx%d cells, FLAT print: back on the bed,'
+          ' top = terraced image' % (os.path.basename(src), w, h, cols, rows))
+        a('; plate %.1f x %.1f mm, thickness %.1f..%.1f mm, %d layers @%.2gmm'
+          % (width_mm, height_real, t_min, t_max, n_l, layer_h))
+        a('; %s' % rep)
+        a('; frame %s, brim %d loop(s), ironing %s'
+          % ('ON (solid border at full thickness)' if frame else 'OFF',
+             brim_loops, 'ON (top face)' if ironing else 'OFF'))
+        if colors >= 2:
+            a('; colors %d: %d layer(s) per band - PAUSE + filament swap at'
+              ' every boundary (purge at the nozzle, then RESUME)'
+              % (colors, col_layers))
+        a('; print tips: WHITE or natural PLA glows best; the file prints'
+          ' slow; for a frame disc set the plate size to the photo size')
+        a('; filament_type = %s' % material)
+        a('; layer_height = %.2g' % layer_h)
+        a('; nozzle_diameter = %.1f' % nozzle)
+        a('; line_width = %.2g' % wid)
+        a('; inner_wall_speed = 18')
+        a('; initial_layer_speed = 10')
+        a('; travel_speed = 120')
+        if ironing:
+            a('; ironing_speed = 25')
+            a('; ironing_flow = 0.15')
+        types = ['WALL-OUTER', 'SURFACE-BOTTOM', 'INFILL-SOLID', 'SURFACE-TOP']
+        if brim_loops:
+            types.insert(0, 'BRIM')
+        if ironing:
+            types += ['IRONING']
+        if colors >= 2:
+            types += ['CUSTOM']
+        a('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d LINE_WIDTH=%.2g '
+          'LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g FLOW_RATIO=1 NOZZLE=%.1f '
+          'WALL_LOOPS=2 SPEED_INNER=18 SPEED_FIRST=10 SPEED_TRAVEL=120%s TYPES=%s BY_OBJECT=0'
+          % (material, layer_h, n_l, wid, layer_h, wid, nozzle,
+             ' IRONING_SPEED=25' if ironing else '', ','.join(types)))
+        a('EXCLUDE_OBJECT_DEFINE NAME=LITHO CENTER=%.1f,%.1f POLYGON=%s'
+          % (cx, cy, fpoly))
+        a('PRINT_START MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d OUTER_WALL_SPEED=18'
+          % (material, layer_h, n_l))
+        a('G90')
+        a('M83')
+        a('M107   ; R2-LITHO: first layer = fan off')
+
+        pen = _Pen(sk, jump_d=6.0)
+
+        for li in range(1, n_l + 1):
+            z = round(li * layer_h, 3)
+            if (li - 1) in bands:
+                a('RESPOND MSG="Litho: COLOR CHANGE - swap filament, purge at'
+                  ' the nozzle until it runs clean, then RESUME"')
+                a('PAUSE')
+                a(';TYPE:Custom')
+                a('APPLY_TYPE TYPE=CUSTOM   ; R2-LITHO: prime line after the swap')
+                pen.travel(x0 + 2.0, y0 - 4.0)
+                pen.extrude(x0 + 26.0, y0 - 4.0, e_wall * 24.0, 1500)
+            a(';LAYER_CHANGE')
+            a(';Z:%.3f' % z)
+            a('LAYER_MARK')
+            pen.set_z(z)
+            if li == 2:
+                a('M106 S178   ; R2-LITHO: part fan from layer 2')
+            a('EXCLUDE_OBJECT_START NAME=LITHO')
+            if li == 1 and brim_loops:
+                a(';TYPE:Brim')
+                a('APPLY_TYPE TYPE=BRIM')
+                for k in range(brim_loops):
+                    off = wid * (k + 0.5)
+                    _emit_loop(pen, _rect_loop(x0 - off, y0 - off,
+                                               x0 + width_mm + off,
+                                               y0 + height_real + off),
+                               e_wall, 900)
+            # cells whose thickness reaches this layer; consecutive rows with
+            # identical runs merge into one rectangle block
+            row_runs = [_runs106([T[r][c] >= z - 1e-9 for c in range(cols)])
+                        for r in range(rows)]
+            blocks = []
+            r_i = 0
+            while r_i < rows:
+                rr = row_runs[r_i]
+                r_j = r_i
+                while r_j + 1 < rows and row_runs[r_j + 1] == rr:
+                    r_j += 1
+                if rr:
+                    blocks.append((r_i, r_j, rr))
+                r_i = r_j + 1
+            _ty106 = ('Bottom surface' if li == 1 else
+                      'Top surface' if li == n_l else 'Internal solid infill')
+            _tk106 = ('SURFACE-BOTTOM' if li == 1 else
+                      'SURFACE-TOP' if li == n_l else 'INFILL-SOLID')
+            a(';TYPE:Outer wall')
+            a('APPLY_TYPE TYPE=WALL-OUTER')
+            for (r_a, r_b, rr) in blocks:
+                for (c_a, c_b) in rr:
+                    _emit_loop(pen, _rect_loop(x0 + c_a * wid, y0 + r_a * wid,
+                                               x0 + (c_b + 1) * wid,
+                                               y0 + (r_b + 1) * wid),
+                               e_wall, 900 if li == 1 else 1800)
+            a(';TYPE:%s' % _ty106)
+            a('APPLY_TYPE TYPE=%s' % _tk106)
+            for (r_a, r_b, rr) in blocks:
+                for (c_a, c_b) in rr:
+                    segs = _hatch(x0 + c_a * wid + wid * 0.5,
+                                  y0 + r_a * wid + wid * 0.5,
+                                  x0 + (c_b + 1) * wid - wid * 0.5,
+                                  y0 + (r_b + 1) * wid - wid * 0.5,
+                                  None, wid, 45.0 if li % 2 else 135.0)
+                    _emit_hatch(pen, segs, e_wall, 1200 if li == 1 else 2400)
+            if ironing and li == n_l:
+                a(';TYPE:Ironing')
+                a('APPLY_TYPE TYPE=IRONING')
+                for (r_a, r_b, rr) in blocks:
+                    for (c_a, c_b) in rr:
+                        isegs = _hatch(x0 + c_a * wid + 1.0,
+                                       y0 + r_a * wid + 1.0,
+                                       x0 + (c_b + 1) * wid - 1.0,
+                                       y0 + (r_b + 1) * wid - 1.0,
+                                       None, 0.45, 90.0, min_len=0.3)
+                        _emit_hatch(pen, isegs, e_iron, 1500)
+            a('EXCLUDE_OBJECT_END NAME=LITHO')
+        a('M107')
+        a('PRINT_END')
+        sk.flush()
+
+    info = {'file': fname, 'source': os.path.basename(src),
+            'kind': 'lithophane-flat', 'width': round(width_mm, 1),
+            'height': round(height_real, 1),
+            'thickness': '%.1f..%.1f' % (t_min, t_max), 'layers': n_l,
+            'cols': cols, 'rows': rows, 'levels': levels, 'frame': bool(frame),
+            'ironing': bool(ironing), 'colors': colors,
+            'col_layers': col_layers if colors >= 2 else 0, 'notes': notes}
+    return out, info
+
+
 def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                     brim_loops=6, ironing=False, base=0.7, dyn=2.3, gamma=1.0,
                     material='PLA', bed=None, bed_margin=6.0, nozzle=0.6,
-                    out_dir='.', version=1):
+                    out_dir='.', version=1, orient='STANDING', colors=1,
+                    col_layers=0):
     """R89: photo -> lithophane g-code, printed STANDING (vertical).
 
     Why standing (the field recipe from itslitho/3dp.rocks research): the
@@ -8880,6 +9156,17 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
     + hides edge artifacts), brim holds the narrow base down.
     Dark = thick: brightest highlight = base, deepest shadow = base + dyn.
     """
+    _or106 = str(orient or 'STANDING').upper()
+    if _or106 not in ('STANDING', 'FLAT'):
+        raise ValueError('litho ORIENT must be STANDING or FLAT')
+    if _or106 == 'FLAT':
+        return _make_litho_flat(src, height_mm=height_mm, layer_h=layer_h,
+                                levels=levels, frame=frame,
+                                brim_loops=brim_loops, ironing=ironing,
+                                base=base, dyn=dyn, gamma=gamma, colors=colors,
+                                col_layers=col_layers, material=material,
+                                bed=bed, bed_margin=bed_margin, nozzle=nozzle,
+                                out_dir=out_dir, version=version)
     height_mm = max(30.0, min(float(height_mm or 100.0), 200.0))
     layer_h = max(0.08, min(float(layer_h or 0.12), 0.2))
     levels = max(0, min(int(levels or 0), 16))
@@ -11059,6 +11346,9 @@ def watch(directory, interval=5.0, once=False):
                 _bed89 = _bed_limits(os.path.join(
                     os.path.dirname(os.path.abspath(directory).rstrip('/')),
                     'config', 'printer.cfg'))
+                _or106 = str(rv.get('litho_orient', 'STANDING') or 'STANDING').upper()
+                if _or106 not in ('STANDING', 'FLAT'):
+                    _or106 = 'STANDING'
                 _params89 = dict(
                     height_mm=_vfl89('litho_height', 100.0),
                     layer_h=_vfl89('litho_layer_h', 0.12),
@@ -11066,6 +11356,9 @@ def watch(directory, interval=5.0, once=False):
                     frame=_vbl89('litho_frame', True),
                     brim_loops=max(0, min(int(_vfl89('litho_brim', 6)), 10)),
                     ironing=_vbl89('litho_ironing', False),
+                    orient=_or106,
+                    colors=max(1, min(int(_vfl89('litho_colors', 1)), 4)),
+                    col_layers=max(0, min(int(_vfl89('litho_col_layers', 0)), 30)),
                     material=str(rv.get('material', 'PLA') or 'PLA'),
                     bed=_bed89, nozzle=_gen_nozzle(directory), out_dir=directory,
                     version=max(1, min(int(_vfl89('gen_version', 1)), 99)))

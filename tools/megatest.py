@@ -419,6 +419,15 @@ run('litho default', lambda: LI())
 run('litho levels8 no frame', lambda: LI(levels=8, frame=False))
 run('litho small 40mm no brim', lambda: LI(height_mm=40.0, brim_loops=0))
 run('litho ironing 0.12', lambda: LI(layer_h=0.12, ironing=True))
+# R106 (wish i): FLAT mode - terraced relief, colors via PAUSE, bed clamp
+run('litho FLAT default', lambda: LI(orient='FLAT'), r2_gen=True)
+run('litho FLAT colors3x4 ironing', lambda: LI(orient='FLAT', colors=3,
+                                              col_layers=4, ironing=True),
+    r2_gen=True)
+run('litho FLAT 160mm', lambda: LI(orient='FLAT', height_mm=160.0),
+    r2_gen=True)
+run('litho FLAT no frame no brim', lambda: LI(orient='FLAT', frame=False,
+                                              brim_loops=0), r2_gen=True)
 
 # ======================================================= RESONANCE ========
 for ax in ('x', 'y'):
