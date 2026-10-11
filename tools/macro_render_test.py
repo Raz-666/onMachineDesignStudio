@@ -58,6 +58,8 @@ save_vars = {
     'label_layer_h': 0.2, 'label_first_h': 0.28, 'label_ironing': True,
     'label_hole_side': 1, 'label_hole_d': 5.0, 'label_brim': True, 'label_gap': 6,
     'label_color2': True, 'label_gen_nonce': 0, 'label_fit': '?',
+    'label_height': 0, 'label_shape': 0, 'label_corner': 2.0,
+    'label_border_walls': 0, 'label_border_gap': 0.0,
     'tie_count': 6, 'tie_length': 120, 'tie_width': 8, 'tie_layers': 3,
     'tie_variant': 'RATCHET', 'tie_layer_h': 0.2, 'tie_brim': True, 'cable_tie_nonce': 0,
     'angle_count': 2, 'angle_deg': 90, 'angle_leg_a': 60, 'angle_leg_b': 60,
@@ -10133,6 +10135,191 @@ tests.append(('R117 source: _emit_hatch only for single-line patterns (7 left) +
     and '_serp_g(g, segs, eph, 1200, spacing)' in _sr117
     and '_serp_g(gt, segs, eph, 1200, spacing)' in _sr117,
     'left %d' % _sr117.count('_emit_hatch(pen, [')))
+
+# ================= R119: label shapes, raised border, mm height =================
+# User spec (.89 follow-up): W/H in 1mm steps, labels up to 2cm tall (>6 base
+# layers = 4 bottom + 4 top solid + sparse between, like the frames), an
+# optional raised border ON THE TEXT LAYERS (same start, same color - the
+# M600 swap sits right before them), and RECT/OVAL/ROUND shapes like frames.
+import hashlib as _hl119
+import math as _math119
+import re as _re119
+_D119 = tempfile.mkdtemp(prefix='r119_')
+_MD5_119 = '4dc663df490b2d85a5f1be95cc669ce1'   # frozen from R118 (verified equal)
+
+def _labpts119(path, li):
+    _t = open(path).read()
+    _lay = _re119.split(r'(?m)^;LAYER_CHANGE', _t)[li]
+    _blk = _lay.split('EXCLUDE_OBJECT_START NAME=LABEL_1')[1].split('EXCLUDE_OBJECT_END')[0]
+    _pts, _px, _py = [], None, None
+    for _l in _blk.split('\n'):
+        _m = _re119.match(r'G0 X([\d.-]+) Y([\d.-]+)', _l)
+        if _m:
+            _px, _py = float(_m.group(1)), float(_m.group(2))
+            continue
+        _m = _re119.match(r'G1 X([\d.-]+) Y([\d.-]+) E([\d.]+)', _l)
+        if _m and float(_m.group(3)) > 0:
+            if _px is not None:
+                _pts.append((_px, _py))
+            _pts.append((float(_m.group(1)), float(_m.group(2))))
+            _px, _py = float(_m.group(1)), float(_m.group(2))
+    _c = _re119.search(r'EXCLUDE_OBJECT_DEFINE NAME=LABEL_1 '
+                       r'CENTER=([\d.]+),([\d.]+)', _t)
+    return _pts, (float(_c.group(1)), float(_c.group(2))), _t
+
+_o119, _i119 = _pp61.make_labels(['WERKSTATT'], w=60, h=30, out_dir=_D119)
+tests.append(('R119 default path byte-identical to R118 (frozen md5)',
+    _hl119.md5(open(_o119, 'rb').read()).hexdigest() == _MD5_119, 'md5 changed'))
+_o119, _i119 = _pp61.make_labels(['WERKSTATT'], w=60, h=30, out_dir=_D119,
+                                 shape='RECT', corner=0.0, border_walls=0,
+                                 border_gap=0.0, height=0.0)
+tests.append(('R119 explicit defaults == implicit (no hidden coupling)',
+    _hl119.md5(open(_o119, 'rb').read()).hexdigest() == _MD5_119, 'md5 differs'))
+
+# --- OVAL: walls/fill/ironing stay inside the ellipse, polygon IS the outline
+_o119, _i119 = _pp61.make_labels(['OVAL'], shape='OVAL', w=60, h=30, out_dir=_D119)
+_w119, _h119 = _i119['w'], _i119['h']
+_bad119 = 0
+for _li119 in (2, 4):
+    _pts, (_cx, _cy), _ = _labpts119(_o119, _li119)
+    _bad119 += sum(1 for (_x, _y) in _pts
+                   if ((_x - _cx) / (_w119 / 2)) ** 2
+                   + ((_y - _cy) / (_h119 / 2)) ** 2 > 1.01)
+tests.append(('R119 OVAL: walls+fill+ironing inside the ellipse (layers 2+4)',
+    _bad119 == 0, '%d outside' % _bad119))
+_pol119 = _re119.search(r'EXCLUDE_OBJECT_DEFINE NAME=LABEL_1[^\n]*POLYGON=(\[[^\n]*\])',
+                       _labpts119(_o119, 2)[2])
+tests.append(('R119 OVAL: EXCLUDE polygon is the outline (not the 4-pt rect)',
+    _pol119 is not None and _pol119.group(1).count(',') >= 40, 'polygon pts'))
+
+# --- ROUND: inside the rounded rect
+_o119, _i119 = _pp61.make_labels(['RUND'], shape='ROUND', corner=6, w=60, h=30, out_dir=_D119)
+_w119, _h119 = _i119['w'], _i119['h']
+def _inrr119(x, y, cx, cy, W, H, C, tol=0.06):
+    dx = abs(x - cx) - (W / 2 - C)
+    dy = abs(y - cy) - (H / 2 - C)
+    return dx <= tol or dy <= tol or dx * dx + dy * dy <= (C + tol) ** 2
+_bad119 = 0
+for _li119 in (2, 4):
+    _pts, (_cx, _cy), _ = _labpts119(_o119, _li119)
+    _bad119 += sum(1 for (_x, _y) in _pts if not _inrr119(_x, _y, _cx, _cy, _w119, _h119, 6.0))
+tests.append(('R119 ROUND: everything inside the rounded rect (corner 6mm)',
+    _bad119 == 0, '%d outside' % _bad119))
+
+# --- BORDER: raised ring on the TEXT layers only, correct insets, breaks at the hole
+_o119, _i119 = _pp61.make_labels(['RAND'], border_walls=3, border_gap=1.0,
+                                 hole_side=1, w=70, h=30, out_dir=_D119)
+_wid119 = 0.648
+_hd119 = _i119.get('hole_d', 5.0) or 5.0
+_pts, (_cx, _cy), _t119 = _labpts119(_o119, 6)          # first TEXT layer
+_lx119 = _cx - _i119['w'] / 2
+_insets119 = sorted(set(round(_x - _lx119, 2) for (_x, _y) in _pts if _x < _lx119 + 4.5))
+tests.append(('R119 border: text layer carries the ring at wid/2+gap (+k*wid)',
+    all(any(abs(_v - (_wid119 / 2 + 1.0 + _k * _wid119)) < 0.08 for _v in _insets119)
+        for _k in range(3)), str(_insets119[:6])))
+_pts2, _, _ = _labpts119(_o119, 2)                       # BASE layer
+_xmin2 = min(_x for (_x, _y) in _pts2)
+_hz119 = _lx119 + 2.0 + _hd119 + 1.0     # hole zone (x < this = hole rings)
+tests.append(('R119 border: base layers stay at the classic outer wall (no ring)',
+    abs(_xmin2 - (_lx119 + _wid119 / 2)) < 0.05 and not any(
+        abs(_v - (_wid119 / 2 + 1.0)) < 0.06 for (_x, _y) in _pts2
+        for _v in [round(_x - _lx119, 2)] if _y > _cy - 8 and _y < _cy + 8
+        and _x > _hz119),
+    'xmin %.3f' % _xmin2))
+# hole: no horizontal border extrusion bridges the open hole band
+_lay6 = _re119.split(r'(?m)^;LAYER_CHANGE', _t119)[6]
+_lab6 = _lay6.split('EXCLUDE_OBJECT_START NAME=LABEL_1')[1].split('EXCLUDE_OBJECT_END')[0]
+_bridge119 = 0
+_px = _py = None
+for _l in _lab6.split('\n'):
+    _m = _re119.match(r'G0 X([\d.-]+) Y([\d.-]+)', _l)
+    if _m:
+        _px, _py = float(_m.group(1)), float(_m.group(2))
+        continue
+    _m = _re119.match(r'G1 X([\d.-]+) Y([\d.-]+) E([\d.]+)', _l)
+    if _m and float(_m.group(3)) > 0:
+        _x0, _y0, _x1, _y1 = _px, _py, float(_m.group(1)), float(_m.group(2))
+        if (_px is not None and abs(_y1 - _y0) < 0.05 and _cy - _hd119 / 2 - 0.3 < _y0 < _cy + _hd119 / 2 + 0.3
+                and min(_x0, _x1) < _lx119 + 2.0 + _hd119 - 0.2
+                and max(_x0, _x1) > _lx119 + 2.0 + _hd119 - 0.15):
+            _bridge119 += 1
+        _px, _py = _x1, _y1
+tests.append(('R119 border: ring BREAKS at the hole (no bridge over the opening)',
+    _bridge119 == 0, '%d bridges' % _bridge119))
+tests.append(('R119 border: hole rings present in the raised layer',
+    _lab6.count('G1 X') > 10 and _re119.search(r';TYPE:Outer wall', _lab6) is not None, 'rings'))
+
+# --- HEIGHT: mm -> layers, 4+4+sparse, angle alternation, _FILE_INFO
+_o119, _i119 = _pp61.make_labels(['HOCH'], height=12, w=50, h=25, out_dir=_D119)
+_t119 = open(_o119).read()
+tests.append(('R119 height 12mm -> 60 base layers, 52 sparse between 4+4 solid',
+    _i119['base_layers'] == 60 and _i119['sparse_mid'] == 52
+    and _t119.count(';TYPE:Sparse infill') == 52, 'base %d sparse %d' % (
+        _i119['base_layers'], _i119['sparse_mid'])))
+_ang119 = []
+for _li119 in (5, 6):
+    _blk = _re119.split(r';TYPE:Sparse infill', _re119.split(r'(?m)^;LAYER_CHANGE', _t119)[_li119])[1]
+    _blk = _blk.split('EXCLUDE_OBJECT_END')[0]
+    _angs = set()
+    _px = _py = None
+    for _l in _blk.split('\n'):
+        _m = _re119.match(r'G0 X([\d.-]+) Y([\d.-]+)', _l)
+        if _m:
+            _px, _py = float(_m.group(1)), float(_m.group(2))
+            continue
+        _m = _re119.match(r'G1 X([\d.-]+) Y([\d.-]+) E([\d.]+)', _l)
+        if _m and float(_m.group(3)) > 0 and _px is not None:
+            _d = _math119.hypot(float(_m.group(1)) - _px, float(_m.group(2)) - _py)
+            if _d > 2:
+                _angs.add(round(_math119.degrees(_math119.atan2(
+                    float(_m.group(2)) - _py, float(_m.group(1)) - _px)) % 180))
+            _px, _py = float(_m.group(1)), float(_m.group(2))
+    _ang119.append(_angs)
+tests.append(('R119 sparse band: 45/135 alternating per layer, ~8.1mm spacing',
+    _ang119[0] == {45.0} and _ang119[1] == {135.0}, str(_ang119)))
+tests.append(('R119 _FILE_INFO carries SPARSE-INFILL only for tall bases',
+    'SPARSE-INFILL' in _t119.split('\n')[0] or 'SPARSE-INFILL' in [
+        _l for _l in _t119.split('\n') if _l.startswith('_FILE_INFO')][0],
+    'types'))
+_o119b, _i119b = _pp61.make_labels(['FLACH'], height=1.0, w=50, h=25, out_dir=_D119)
+tests.append(('R119 height 1mm stays solid (5 layers, no sparse type)',
+    _i119b['base_layers'] == 5 and _i119b['sparse_mid'] == 0
+    and 'SPARSE-INFILL' not in open(_o119b).read(), 'base %d' % _i119b['base_layers']))
+
+# --- preview honors the border margin (Fit numbers = what prints)
+_pv0 = _pp61.label_preview(['RAND'], w=70, h=30)
+_pv1 = _pp61.label_preview(['RAND'], w=70, h=30, border_walls=3, border_gap=1.0)
+tests.append(('R119 label_preview: border shrinks the projected caps (same as print)',
+    _pv1['cap_mm'] < _pv0['cap_mm'], '%s vs %s' % (_pv1['cap_mm'], _pv0['cap_mm'])))
+
+# --- plumbing: LCD 1mm steps + the five new inputs, GEN_LABELS params, watcher
+_lcd119 = open('menus/lcd_menues.cfg').read()
+_wblk = _lcd119[_lcd119.index('[menu __main __gen __labels __set __w]'):_lcd119.index('[menu __main __gen __labels __set __h]')]
+_hblk = _lcd119[_lcd119.index('[menu __main __gen __labels __set __h]'):_lcd119.index('[menu __main __gen __labels __set __fnt]')]
+tests.append(('R119 LCD: W/H inputs step 1mm (was 5)',
+    'input_step: 1' in _wblk and 'input_step: 1' in _hblk
+    and 'input_step: 5' not in _wblk and 'input_step: 5' not in _hblk, 'steps'))
+tests.append(('R119 LCD: Height/Shape/Corner/Border/B.Gap inputs exist, layer-count input retired',
+    all(k in _lcd119 for k in ('__set __ht]', '__set __shape]', '__set __corner]',
+                               '__set __bw]', '__set __bgap]'))
+    and "name: Base: {'%2d layers'" not in _lcd119, 'inputs'))
+_g119 = get_body('macros/16_labels.cfg', 'GEN_LABELS')
+out = render(_g119, {'TEXT': 'X', 'HEIGHT': 12, 'SHAPE': 'OVAL', 'CORNER': 4,
+                     'BORDER': 2, 'BORDER_GAP': 1})
+tests.append(('R119 GEN_LABELS: HEIGHT/SHAPE/CORNER/BORDER/BORDER_GAP params wired',
+    'VARIABLE=label_height VALUE=12.0' in out
+    and 'VARIABLE=label_shape VALUE=1' in out
+    and 'VARIABLE=label_corner VALUE=4.0' in out
+    and 'VARIABLE=label_border_walls VALUE=2' in out
+    and 'VARIABLE=label_border_gap VALUE=1.0' in out, out[:140]))
+out = render(_g119, {'TEXT': 'X', 'SHAPE': 'ROUND'})
+tests.append(('R119 GEN_LABELS: SHAPE=ROUND maps to 2 (RECT stays 0)',
+    'VARIABLE=label_shape VALUE=2' in out, out[:80]))
+_wt119 = open('tools/r2_postproc.py').read()
+tests.append(('R119 watcher: make_labels call carries height/shape/corner/border',
+    "height=_vf('label_height', 0)" in _wt119
+    and "shape=str(rv.get('label_shape', 'RECT') or 'RECT')" in _wt119
+    and "border_walls=int(_vf('label_border_walls', 0))" in _wt119, 'watcher'))
 
 # ================= R114: ';' never inside a console string =================
 # .87 field log: 'Malformed command RESPOND MSG="... DERIVED ... - no' -

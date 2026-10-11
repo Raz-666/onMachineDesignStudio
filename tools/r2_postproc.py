@@ -3613,6 +3613,77 @@ def _label_text(text, font):
     return x, glyphs['height'], strokes
 
 
+def _shape_hatch(contour, spacing, angle_deg, keep=None, min_len=0.35):
+    """R119: scanline hatch INSIDE a convex contour (ellipse / rounded rect),
+    optionally minus a circular keep-out (the label hole). Same boustrophedon
+    neighbor rule as _hatch/_ring_hatch (R77: neighbors stay adjacent, the
+    pen never zigzags across the shape)."""
+    ang = math.radians(angle_deg)
+    dx, dy = math.cos(ang), math.sin(ang)
+    nx, ny = -dy, dx
+    xs = [q[0] for q in contour]
+    ys = [q[1] for q in contour]
+    mx, my = (min(xs) + max(xs)) / 2.0, (min(ys) + max(ys)) / 2.0
+    tmax = max(abs((qx - mx) * nx + (qy - my) * ny) for qx, qy in contour) + spacing
+    segs = []
+    row = 0
+    t = -tmax
+    while t <= tmax:
+        ox, oy = mx + nx * t, my + ny * t
+        ov = _convex_intervals(contour, ox, oy, dx, dy)
+        if ov is None:
+            t += spacing
+            continue
+        gaps = []
+        if keep:
+            vx, vy = keep[0] - ox, keep[1] - oy
+            along = vx * dx + vy * dy
+            perp = abs(-vx * dy + vy * dx)
+            if perp < keep[2]:
+                half = math.sqrt(keep[2] * keep[2] - perp * perp)
+                gaps.append((along - half, along + half))
+        gaps.sort()
+        spans = []
+        cur = ov[0]
+        for g0, g1 in gaps:
+            if g1 <= cur or g0 >= ov[1]:
+                continue
+            if g0 > cur:
+                spans.append((cur, g0))
+            cur = max(cur, g1)
+        if cur < ov[1]:
+            spans.append((cur, ov[1]))
+        for s0, s1 in spans:
+            if s1 - s0 < min_len:
+                continue
+            pp = (ox + dx * s0, oy + dy * s0)
+            qq = (ox + dx * s1, oy + dy * s1)
+            segs.append((qq, pp) if row % 2 else (pp, qq))
+        if spans:
+            row += 1
+        t += spacing
+    return segs
+
+
+def _label_outline(w, h, shape, corner, inset):
+    """R119: label wall contour CENTERED on (0,0), the path centerline
+    `inset` mm inside the label edge. OVAL = ellipse, ROUND = rounded rect
+    (corner shrinks with the inset), RECT = None (the classic rect loops
+    stay - byte-identical output for the default path)."""
+    if shape == 'OVAL':
+        a, b = w / 2.0 - inset, h / 2.0 - inset
+        if a < 0.3 or b < 0.3:
+            return None
+        return _el_pts(a, b)
+    if shape == 'ROUND':
+        c = max(0.0, corner - inset)
+        ww, hh = w - 2.0 * inset, h - 2.0 * inset
+        if ww < 0.6 or hh < 0.6:
+            return None
+        return _rr_pts(ww, hh, c)
+    return None
+
+
 def _stroke_offsets(pts, half, step):
     """R72: stroke skeleton -> parallel offset paths covering [-half, +half]
     SOLIDLY (line spacing = step = one extrusion width). The outermost paths
@@ -3678,7 +3749,43 @@ def _stroke_offsets(pts, half, step):
     return [[(x + nx * (edge2 - k * step), y + ny * (edge2 - k * step))
              for (x, y), (nx, ny) in zip(pts, nrm)] for k in range(n)]
 
-def _label_layout(w, h, hole_side, hole_d):
+def _label_box_shape(box, w, h, shape, corner, hole_side, band):
+    """R119: shrink the text box for OVAL / ROUND labels so no letter ever
+    leaves the base outline. OVAL: the largest centered rectangle with the
+    box's own aspect that fits the ellipse (the hole side keeps its band -
+    max() against the inscribed edge). ROUND: half the corner overshoot
+    beyond the margin intrudes at the box corners."""
+    if shape == 'OVAL':
+        bw, bh = box[2] - box[0], box[3] - box[1]
+        if bw <= 0.5 or bh <= 0.5:
+            return box
+        s = 1.0 / math.sqrt((bw / w) ** 2 + (bh / h) ** 2)
+        if s >= 1.0:
+            return box
+        cx, cy = w / 2.0, h / 2.0
+        ib = (cx - s * bw / 2.0, cy - s * bh / 2.0,
+              cx + s * bw / 2.0, cy + s * bh / 2.0)
+        if hole_side == 1:
+            return (max(ib[0], band), ib[1], ib[2], ib[3])
+        if hole_side == 2:
+            return (ib[0], ib[1], min(ib[2], w - band), ib[3])
+        if hole_side == 3:
+            return (ib[0], ib[1], ib[2], min(ib[3], h - band))
+        if hole_side == 4:
+            return (ib[0], max(ib[1], band), ib[2], ib[3])
+        return ib
+    if shape == 'ROUND':
+        c = float(corner or 0.0)
+        m0 = box[0]
+        sh = max(0.0, c - m0) * 0.5
+        if sh <= 0.01:
+            return box
+        return (box[0] + sh, box[1] + sh, box[2] - sh, box[3] - sh)
+    return box
+
+
+def _label_layout(w, h, hole_side, hole_d, shape='RECT', corner=0.0,
+                  margin_extra=0.0):
     """R73: hole + text box.
 
     The hole now sits CLOSE TO THE EDGE (2mm rim - key rings clip through
@@ -3689,7 +3796,9 @@ def _label_layout(w, h, hole_side, hole_d):
     """
     # R80: proportional margins (~7% - user spec: 5-10% air to the border
     # AND to the hole), at least 1.5mm
-    m = max(1.5, 0.07 * min(w, h))
+    # R119: margin_extra = the raised BORDER zone (gap + walls + clearance)
+    # - the text must never grow into it
+    m = max(1.5, 0.07 * min(w, h), float(margin_extra or 0.0))
     edge = 2.0                      # rim between label edge and hole edge
     if hole_side in (1, 2) and hole_d > 0:      # left / right
         d = max(2.5, min(float(hole_d), h - 2 * edge - 2.0, 16.0))
@@ -3700,6 +3809,7 @@ def _label_layout(w, h, hole_side, hole_d):
             box = (band, m, w - m, h - m)
         else:
             box = (m, m, w - band, h - m)
+        box = _label_box_shape(box, w, h, shape, corner, hole_side, band)
         return (cx, cy, d / 2.0), box, d
     if hole_side in (3, 4) and hole_d > 0:      # top / bottom
         d = max(2.5, min(float(hole_d), w - 2 * edge - 2.0, 16.0))
@@ -3710,8 +3820,10 @@ def _label_layout(w, h, hole_side, hole_d):
             box = (m, m, w - m, h - band)
         else:
             box = (m, band, w - m, h - m)
+        box = _label_box_shape(box, w, h, shape, corner, hole_side, 0.0)
         return (cx, cy, d / 2.0), box, d
-    return None, (m, m, w - m, h - m), 0.0
+    box = _label_box_shape((m, m, w - m, h - m), w, h, shape, corner, 0, 0.0)
+    return None, box, 0.0
 
 
 def _label_metrics(lines, font, spacing=0.0):
@@ -3788,7 +3900,8 @@ def _label_need_size(g, parsed, cap, spacing=0.0, stroke_w=0.0, fill=0.94):
 
 
 def _label_grow_fit(all_lines, font, w, h, font_size, spacing, stroke_w,
-                    hole_side, hole_d, floor_cap=2.8):
+                    hole_side, hole_d, floor_cap=2.8, shape='RECT',
+                    corner=0.0, margin_extra=0.0):
     """R83: the AUTO-FIT + AUTO-GROW pass, shared by make_labels and
     label_preview (the LCD 'Fit' item shows the SAME numbers the generator
     will print). Caps raised for big signs: width up to 240mm, height to
@@ -3799,7 +3912,9 @@ def _label_grow_fit(all_lines, font, w, h, font_size, spacing, stroke_w,
     w0, h0 = w, h
     for _it79 in range(4):
         grew = False
-        _c79, box79, _d79 = _label_layout(w, h, hole_side, hole_d)
+        _c79, box79, _d79 = _label_layout(w, h, hole_side, hole_d,
+                                           shape, corner,
+                                           margin_extra)
         bw79 = box79[2] - box79[0]
         bh79 = box79[3] - box79[1]
         for g79, parsed79 in mcache:
@@ -4369,7 +4484,8 @@ def label_preview(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4,
                    text_layers=2, layer_h=0.2, first_h=0.28, hole_side=0,
                    hole_d=5.0, gap=6.0, color2=True, stroke=0.0, font_size=0.0,
                    spacing=0.0, bed=None, bed_margin=6.0, nozzle=0.6,
-                   mode='grow'):
+                   mode='grow', shape='RECT', corner=0.0, border_walls=0,
+                   border_gap=0.0):
     """R83: project the label outcome WITHOUT writing a file. The LCD 'Fit'
     item bumps label_fit_nonce and this answers with the same numbers the
     generator will print: final label size (incl. growth), cap height,
@@ -4410,9 +4526,18 @@ def label_preview(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4,
         w2, h2, grown = w, h, False
         mcache = [_label_metrics(ls, font, spacing) for ls in all_lines]
     else:
+        # R119: the SAME shape/border margins the generator uses - the Fit
+        # numbers must match what prints
+        _wid119 = max(0.4, nozzle * 1.08)
+        _bm119 = ((border_gap + border_walls * _wid119 + 1.2)
+                  if border_walls > 0 else 0.0)
         w2, h2, grown, mcache = _label_grow_fit(
-            all_lines, font, w, h, font_size, spacing, stroke_w, hole_side, hole_d)
-    _c, box, _d = _label_layout(w2, h2, hole_side, hole_d)
+            all_lines, font, w, h, font_size, spacing, stroke_w, hole_side,
+            hole_d, shape=shape, corner=corner, margin_extra=_bm119)
+    _c, box, _d = _label_layout(w2, h2, hole_side, hole_d, shape, corner,
+                                (border_gap + border_walls
+                                 * max(0.4, nozzle * 1.08) + 1.2)
+                                if border_walls > 0 else 0.0)
     bw, bh = box[2] - box[0], box[3] - box[1]
     g, parsed = mcache[0]
     cap_auto = _label_autocap(g, parsed, bw, bh, spacing, stroke_w)
@@ -4494,7 +4619,9 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
                 layer_h=0.2, first_h=0.28, ironing=True, hole_side=0, hole_d=5.0,
                 brim=True, gap=6.0, color2=True, material='PLA', bed=None,
                 bed_margin=6.0, nozzle=0.6, stroke=0.0, font_size=0.0, spacing=0.0,
-                out_dir='.', version=1, mode='grow', job_cfgs=None):
+                out_dir='.', version=1, mode='grow', job_cfgs=None,
+                height=0.0, shape='RECT', corner=0.0, border_walls=0,
+                border_gap=0.0, sparse_pct=8.0):
     """Generate a printable label plate file. Returns (path, info).
 
     R74: every entry may carry up to 3 lines separated by '~' (LCD: Labels >
@@ -4533,12 +4660,45 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
     h = float(h)
     if not (12.0 <= w <= 320.0) or not (10.0 <= h <= 320.0):
         raise ValueError('label size %.1fx%.1fmm out of range (12..320 / 10..320)' % (w, h))
-    base_layers = max(2, min(int(base_layers), 60))
+    # ---- R119: shape / border / height (mm) ---------------------------------
+    # shape: RECT (classic, byte-identical default), OVAL, ROUND (corner
+    # radius in mm). The border is a raised ring ON THE TEXT LAYERS - same
+    # start, same color as the text (the M600 swap sits right before them).
+    _sh119 = str(shape or 'RECT').strip().upper()
+    if _sh119 in ('OVAL', 'ELLIPSE', 'O', '1'):
+        shape = 'OVAL'
+    elif _sh119 in ('ROUND', 'ROUNDED', 'RUND', 'R', '2'):
+        shape = 'ROUND'
+    else:
+        shape = 'RECT'
+    corner = max(0.0, min(float(corner or 0.0), 12.0))
+    if shape != 'ROUND':
+        corner = 0.0
+    border_walls = max(0, min(int(border_walls), 4))
+    border_gap = max(0.0, min(float(border_gap or 0.0), 10.0))
+    # height in mm (0 = the classic base_layers count rules). Up to 20mm:
+    # >6 base layers print as 4 bottom + 4 top solid with sparse infill
+    # between (like the frames) - solid bases that tall waste filament and
+    # print stop-and-go.
+    height = float(height or 0.0)
+    if height > 0.0:
+        height = max(0.4, min(height, 20.0))
+        base_layers = max(2, min(int(math.ceil((height - first_h) / layer_h)) + 1, 110))
+    base_layers = max(2, min(int(base_layers), 110))
+    if base_layers > 6:
+        bot_solid = 4
+        top_solid = min(4, base_layers - 4)
+        sparse_mid = base_layers - bot_solid - top_solid
+    else:
+        bot_solid, top_solid, sparse_mid = base_layers, 0, 0
     text_layers = max(1, min(int(text_layers), 6))
     layer_h = max(0.06, min(float(layer_h), 0.34))
     first_h = max(0.08, min(float(first_h), 0.42))
     hole_side = int(hole_side) % 5
     gap = max(2.0, min(float(gap), 30.0))
+    wid = max(0.4, nozzle * 1.08)          # perimeter / infill line width
+    # the text box must clear the raised border (gap + walls + 1.2mm air)
+    border_m = (border_gap + border_walls * wid + 1.2) if border_walls > 0 else 0.0
     # ---- stroke width - 'Stroke' IS the extrusion line width (R80 field Q) ---
     # 0 = auto: 3 extrusion lines (solid, chunky letters). Explicit value =
     # line width in mm - set it to your NOZZLE diameter (0.6 -> single-line
@@ -4626,7 +4786,8 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
             _w116, _h116, _g116, _mc116 = _label_grow_fit(
                 [all_lines[_ji]], _jb['font'], _jb['w'], _jb['h'],
                 _jb['size'], _jb['spacing'], _jb['stroke'],
-                _jb['hole_side'], _jb['hole_d'])
+                _jb['hole_side'], _jb['hole_d'], shape=shape,
+                corner=corner, margin_extra=border_m)
             _jb['w'], _jb['h'] = _w116, _h116
             _jb['grown'] = _g116
             grown79 = grown79 or _g116
@@ -4662,7 +4823,8 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
             mcache = [_label_metrics(ls, font, spacing) for ls in all_lines]
         else:
             w, h, grown79, mcache = _label_grow_fit(
-                all_lines, font, w, h, font_size, spacing, stroke_w, hole_side, hole_d)
+                all_lines, font, w, h, font_size, spacing, stroke_w, hole_side,
+                hole_d, shape=shape, corner=corner, margin_extra=border_m)
 
         # ---- fit the grid: labels read left->right, so use the MOST columns that
         #      still fit the bed (rows fill naturally); max = cols*rows per batch ----
@@ -4719,7 +4881,8 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
             lw, lh, lfont = w, h, font
             lsize, lspacing, lstroke = font_size, spacing, stroke_w
             lhs, lhd = hole_side, hole_d
-        circ, box, hd = _label_layout(lw, lh, lhs, lhd)
+        circ, box, hd = _label_layout(lw, lh, lhs, lhd, shape, corner,
+                                   border_m)
         paths, geo = _label_text_lines(ls, lfont, box, lw, lh, lsize, lspacing,
                                        stroke_w=lstroke)
         labels.append({'name': 'LABEL_%d' % (i + 1), 'text': ' / '.join(ls),
@@ -4729,8 +4892,18 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
                        'circ': circ, 'box': box, 'paths': paths, 'hole_d': hd,
                        'cap_h': geo['cap_h'], 's': geo['s'], 'sx': geo['s']})
 
+    def _lb_contour(lb, inset):
+        """R119: this label's wall contour in ABSOLUTE coords, the path
+        centerline `inset` mm inside the label edge. RECT -> None: the
+        classic rect loops stay (byte-identical default output)."""
+        pts = _label_outline(lb['w'], lb['h'], shape, corner, inset)
+        if pts is None:
+            return None
+        # the outline helpers center on (0,0) - shift to the LABEL CENTER
+        return [(lb['x'] + lb['w'] / 2.0 + px, lb['y'] + lb['h'] / 2.0 + py)
+                for (px, py) in pts]
+
     # ---- extrusion constants ------------------------------------------------
-    wid = max(0.4, nozzle * 1.08)          # perimeter / infill line width
     twid = max(0.4, nozzle * 1.02)         # one text extrusion line
     # R83 anti-merge: the effective stroke never exceeds cap/5 (>= 1 line)
     _capmax79 = max(lb['cap_h'] for lb in labels)
@@ -4769,6 +4942,16 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
       % (hs, (' d=%.1fmm' % labels[0]['hole_d']) if labels[0]['hole_d'] else '',
          'ON' if ironing else 'OFF', 'ON' if brim else 'OFF',
          'ON' if tower else 'OFF', 'ON' if color2 else 'OFF'))
+    if shape != 'RECT' or border_walls > 0 or sparse_mid > 0 or height > 0:
+        # R119: shape / height / border summary (one line, only when used)
+        a('; R119: shape %s%s, base %d layers (%.1fmm)%s, border %d wall(s)%s'
+          % (shape, (' corner %.1fmm' % corner) if shape == 'ROUND' else '',
+             base_layers, first_h + (base_layers - 1) * layer_h,
+             (' = 4 bottom + 4 top solid + %d sparse (%.0f%%)'
+              % (sparse_mid, min(max(float(sparse_pct or 8.0), 5.0), 15.0)))
+             if sparse_mid else '',
+             border_walls, (', %.1fmm off the edge' % border_gap)
+             if border_gap else ''))
     if jobs:
         a('; layout: %d labels shelf-packed %0.0fx%0.0fmm (mixed sizes, reading order)'
           % (n, gw, gh))
@@ -4794,7 +4977,11 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
     a('; wall_loops = 2')
     # R73: the file info line goes in DIRECTLY (no re-parse through process()
     # - half the generation time on slow hosts; the TAG above makes the scan skip)
-    types = ['WALL-OUTER', 'WALL-INNER', 'INFILL-SOLID', 'SURFACE-BOTTOM']
+    types = ['WALL-OUTER', 'WALL-INNER', 'INFILL-SOLID']
+    if sparse_mid > 0:
+        # R119: the tall-base sparse band is its own feature
+        types.append('SPARSE-INFILL')
+    types.append('SURFACE-BOTTOM')
     if brim:
         types.insert(0, 'BRIM')
     if ironing:
@@ -4809,9 +4996,15 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
 
     # object definitions (polygons without whitespace - Klipper requirement)
     for lb in labels:
-        poly = '[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]' % (
-            lb['x'], lb['y'], lb['x'] + lb['w'], lb['y'],
-            lb['x'] + lb['w'], lb['y'] + lb['h'], lb['x'], lb['y'] + lb['h'])
+        _oc119 = _lb_contour(lb, 0.0)
+        if _oc119 is not None:
+            # R119: OVAL/ROUND - the exclude polygon IS the outline
+            poly = '[' + ','.join('[%.1f,%.1f]' % (px, py)
+                                  for (px, py) in _oc119) + ']'
+        else:
+            poly = '[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]' % (
+                lb['x'], lb['y'], lb['x'] + lb['w'], lb['y'],
+                lb['x'] + lb['w'], lb['y'] + lb['h'], lb['x'], lb['y'] + lb['h'])
         a('EXCLUDE_OBJECT_DEFINE NAME=%s CENTER=%.1f,%.1f POLYGON=%s'
           % (lb['name'], lb['x'] + lb['w'] / 2.0, lb['y'] + lb['h'] / 2.0, poly))
     if tower:
@@ -4834,24 +5027,44 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
     # layer - travels across them retract at ANY length now
     pen.holes = [(lb['circ'][0] + lb['x'], lb['circ'][1] + lb['y'], lb['circ'][2])
                  for lb in labels if lb['circ']]
+    # R119 sparse band spacing (frames style, 8% default)
+    _spc_lab = wid * 100.0 / max(5.0, min(float(sparse_pct or 8.0), 15.0))
 
     def base_block(lb, z, layer_idx, first, top):
-        """one label's base layer: brim + perimeters + hole + solid infill (+ironing)"""
+        """one label's base layer: brim + perimeters + hole + fill (+ironing).
+        R119: OVAL/ROUND contours replace the rect loops (brim via polygon
+        offset, fills via convex-contour hatch); bases thicker than 6 layers
+        print 4 bottom + 4 top SOLID with sparse infill between (frames)."""
         lx, ly, w, h = lb['x'], lb['y'], lb['w'], lb['h']
         x0, y0 = lx + wid / 2.0, ly + wid / 2.0
         x1, y1 = lx + w - wid / 2.0, ly + h - wid / 2.0
         e_wall = layer_h_eff(layer_idx) * wid / fil
+        sparse_l = (sparse_mid > 0 and bot_solid < layer_idx
+                    <= base_layers - top_solid)
         L.append('EXCLUDE_OBJECT_START NAME=%s' % lb['name'])
         if first and brim:
             L.append(';TYPE:Brim')
+            edge_c = _lb_contour(lb, 0.0)
             for off in (wid * 0.35, wid * 0.35 + wid, wid * 0.35 + 2 * wid):
-                b = (lx - off, ly - off, lx + w + off, ly + h + off)
-                _emit_loop(pen, _rect_loop(*b), e_wall, 1500 if first else 2400)
+                if edge_c is None:
+                    b = (lx - off, ly - off, lx + w + off, ly + h + off)
+                    _emit_loop(pen, _rect_loop(*b), e_wall, 1500 if first else 2400)
+                else:
+                    _emit_loop(pen, _poly_offset(edge_c, off), e_wall,
+                               1500 if first else 2400)
         L.append(';TYPE:Outer wall')
-        _emit_loop(pen, _rect_loop(x0, y0, x1, y1), e_wall, 1500 if first else 2400)
+        oc = _lb_contour(lb, wid / 2.0)
+        if oc is None:
+            _emit_loop(pen, _rect_loop(x0, y0, x1, y1), e_wall, 1500 if first else 2400)
+        else:
+            _emit_loop(pen, oc, e_wall, 1500 if first else 2400)
         L.append(';TYPE:Inner wall')
-        _emit_loop(pen, _rect_loop(x0 + wid, y0 + wid, x1 - wid, y1 - wid), e_wall,
-                   1500 if first else 2700)
+        ic = _lb_contour(lb, 1.5 * wid)
+        if ic is None:
+            _emit_loop(pen, _rect_loop(x0 + wid, y0 + wid, x1 - wid, y1 - wid), e_wall,
+                       1500 if first else 2700)
+        else:
+            _emit_loop(pen, ic, e_wall, 1500 if first else 2700)
         if lb['circ']:
             cx, cy, r = lb['circ']
             cx += lx
@@ -4865,12 +5078,25 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
         if lb['circ']:
             keep = (lb['circ'][0] + lx, lb['circ'][1] + ly, lb['circ'][2] + 2.0 * wid)
         # R106 (user TYPE map): first fill on the bed = Bottom surface,
-        # the visible top = Top surface, between = Internal solid
-        L.append(';TYPE:%s' % ('Bottom surface' if first else
-                               'Top surface' if top else
-                               'Internal solid infill'))
-        segs = _hatch(ix0, iy0, ix1, iy1, keep, wid, 45.0 if layer_idx % 2 else 135.0)
-        _emit_fill(pen, segs, e_wall, 1500 if first else 2700, wid)
+        # the visible top = Top surface, between = Internal solid;
+        # R119: the sparse band between the solid skins = Sparse infill
+        if first:
+            ftype = 'Bottom surface'
+        elif top:
+            ftype = 'Top surface'
+        elif sparse_l:
+            ftype = 'Sparse infill'
+        else:
+            ftype = 'Internal solid infill'
+        L.append(';TYPE:%s' % ftype)
+        fspc = _spc_lab if sparse_l else wid
+        fc = _lb_contour(lb, 2.0 * wid + 0.1)
+        if fc is None:
+            segs = _hatch(ix0, iy0, ix1, iy1, keep, fspc,
+                          45.0 if layer_idx % 2 else 135.0)
+        else:
+            segs = _shape_hatch(fc, fspc, 45.0 if layer_idx % 2 else 135.0, keep)
+        _emit_fill(pen, segs, e_wall, 1500 if first else 2700, fspc)
         if top and ironing:
             L.append(';TYPE:Ironing')
             ikeep = None
@@ -4878,8 +5104,13 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
                 ikeep = (lb['circ'][0] + lx, lb['circ'][1] + ly, lb['circ'][2] + 0.4)
             # R117: ironing follows the TOP fill angle (same direction =
             # flattens the same ridges it just printed) and chains its lines
-            isegs = _hatch(lx + 1.0, ly + 1.0, lx + w - 1.0, ly + h - 1.0, ikeep, 0.45,
-                           45.0 if layer_idx % 2 else 135.0, min_len=0.3)
+            ic2 = _lb_contour(lb, 1.0)
+            if ic2 is None:
+                isegs = _hatch(lx + 1.0, ly + 1.0, lx + w - 1.0, ly + h - 1.0, ikeep,
+                               0.45, 45.0 if layer_idx % 2 else 135.0, min_len=0.3)
+            else:
+                isegs = _shape_hatch(ic2, 0.45, 45.0 if layer_idx % 2 else 135.0,
+                                     ikeep, min_len=0.3)
             ei = layer_h_eff(layer_idx) * wid * 0.15 / fil
             _emit_fill(pen, isegs, ei, 1800, 0.45)
         L.append('EXCLUDE_OBJECT_END NAME=%s' % lb['name'])
@@ -4964,6 +5195,60 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
                     px, py = x, y
         L.append('EXCLUDE_OBJECT_END NAME=%s' % lb['name'])
 
+    def border_block(lb, layer_idx):
+        """R119: the raised border ring - prints ON THE TEXT LAYERS (same
+        start as the text, same color: the M600 swap sits right before the
+        first text layer). Flush with the base edge by default (loop 0 runs
+        exactly on the base outer wall); border_gap moves the whole ring
+        inward. The loops BREAK at the label hole - nothing bridges over the
+        open hole, the hole rings wall it in the raised layer too."""
+        if border_walls <= 0:
+            return
+        e_wall = layer_h_eff(layer_idx) * wid / fil
+        L.append('EXCLUDE_OBJECT_START NAME=%s' % lb['name'])
+        hole = None
+        if lb['circ']:
+            hole = (lb['circ'][0] + lb['x'], lb['circ'][1] + lb['y'], lb['circ'][2])
+        for k in range(border_walls):
+            inset = wid / 2.0 + border_gap + k * wid
+            L.append(';TYPE:%s' % ('Outer wall' if k == 0 else 'Inner wall'))
+            pts = _lb_contour(lb, inset)
+            if pts is None:
+                pts = _rect_loop(lb['x'] + inset, lb['y'] + inset,
+                                 lb['x'] + lb['w'] - inset,
+                                 lb['y'] + lb['h'] - inset)
+            if hole:
+                rk = hole[2] + wid / 2.0
+                pieces = []
+                for i in range(len(pts)):
+                    pieces.extend(_seg_outside_circle(
+                        pts[i], pts[(i + 1) % len(pts)], hole[0], hole[1], rk))
+                runs = []
+                for (a, b) in pieces:
+                    if runs and abs(runs[-1][-1][0] - a[0]) < 0.02 \
+                            and abs(runs[-1][-1][1] - a[1]) < 0.02:
+                        runs[-1].append(b)
+                    else:
+                        runs.append([a, b])
+                for run in runs:
+                    pen.travel(run[0][0], run[0][1], hop=False)
+                    px, py = run[0]
+                    for (x, y) in run[1:]:
+                        d = math.hypot(x - px, y - py)
+                        if d < 0.05:
+                            continue
+                        pen.extrude(x, y, d * e_wall, 1200)
+                        px, py = x, y
+            else:
+                _emit_loop(pen, pts, e_wall, 1200)
+        if hole:
+            L.append(';TYPE:Outer wall')
+            _emit_loop(pen, _circle(hole[0], hole[1], hole[2] + wid / 2.0),
+                       e_wall, 1200)
+            _emit_loop(pen, _circle(hole[0], hole[1], hole[2] + 1.5 * wid),
+                       e_wall, 1200)
+        L.append('EXCLUDE_OBJECT_END NAME=%s' % lb['name'])
+
     # ---- base layers --------------------------------------------------------
     # R74: label order alternates per layer (serpentine) - layer N ends at the
     # last label, layer N+1 starts right there instead of travelling back
@@ -4998,6 +5283,7 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
             tower_block(z, li, False, prime=(ti == 1))
         order = labels if li % 2 else list(reversed(labels))
         for lb in order:
+            border_block(lb, li)
             text_block(lb, z, li)
 
     a('M107')
@@ -5038,7 +5324,11 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
             'max_lines': max(len(t['lines']) for t in labels),
             'cap_mm': round(max(lb['cap_h'] for lb in labels), 1),
             'grown': grown79, 'w': round(w, 1), 'h': round(h, 1),
-            'height': round(ztop + text_layers * layer_h, 2)}
+            'height': round(ztop + text_layers * layer_h, 2),
+            # R119
+            'shape': shape, 'corner': round(corner, 1) if shape == 'ROUND' else 0.0,
+            'border': border_walls, 'border_gap': round(border_gap, 1),
+            'base_layers': base_layers, 'sparse_mid': sparse_mid}
     return out, info
 
 
@@ -12180,6 +12470,11 @@ def watch(directory, interval=5.0, once=False):
                         w=_vf('label_w', 60), h=_vf('label_h', 30),
                         font=str(rv.get('label_font', 'SMOOTH') or 'SMOOTH'),
                         base_layers=int(_vf('label_base_layers', 4)),
+                        height=_vf('label_height', 0),
+                        shape=str(rv.get('label_shape', 'RECT') or 'RECT'),
+                        corner=_vf('label_corner', 0),
+                        border_walls=int(_vf('label_border_walls', 0)),
+                        border_gap=_vf('label_border_gap', 0),
                         text_layers=int(_vf('label_text_layers', 2)),
                         layer_h=_vf('label_layer_h', 0.2),
                         first_h=_vf('label_first_h', 0.28),

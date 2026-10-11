@@ -199,6 +199,12 @@ run(pp.make_seal, 'seal-NUT', profile='NUT', ironing=True, bed=BED)
 run(pp.make_bridge, 'bridge', bed=BED)
 run(pp.make_labels, 'labels-1', texts=['AUDIT'], bed=BED)
 run(pp.make_labels, 'labels-5', texts=['R2', 'AUDIT', 'SWEEP', '123', 'OK'], bed=BED)
+# R119: the new label paths at their worst - tall sparse base, oval contours,
+# raised border with hole crossings (all must stay under the move-rate guard)
+run(pp.make_labels, 'labels-tall', texts=['HOCH'], height=20, bed=BED)
+run(pp.make_labels, 'labels-oval-rand', texts=['OVAL'], shape='OVAL', bed=BED)
+run(pp.make_labels, 'labels-round-rand', texts=['RUND'], shape='ROUND', corner=6,
+    border_walls=3, border_gap=1.0, hole_side=1, bed=BED)
 
 # labels -> range chain (range needs a generated source)
 _d = tempfile.mkdtemp(prefix='audit_')
