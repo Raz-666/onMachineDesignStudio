@@ -3016,13 +3016,90 @@ for _f82 in ('COND', 'NARROW', 'CAPS'):
         _t82.count('LAYER_MARK') > 5 and 'APPLY_TYPE' in _t82,
         _i82.get('font', _f82)))
 _o82a, _i82a = _pp61.make_labels(['X'], w=30, h=10, font='PIXEL')
+_t82a = open(_o82a).read()    # read NOW - the SMOOTH call below writes the SAME filename
 _o82b, _i82b = _pp61.make_labels(['X'], w=30, h=10, font='SMOOTH')
-tests.append(('R82 PIXEL selection still falls back to SMOOTH',
-    open(_o82a).read() == open(_o82b).read(), ''))
+_t82b = open(_o82b).read()
+tests.append(('R116 PIXEL is a REAL font again (Press Start 2P strokes, not the R80 bitmap)',
+    _t82a != _t82b and 'font PIXEL' in _t82a, _t82a[:60]))
 _sr82 = open('tools/r2_postproc.py').read()
-tests.append(('R82 plot-text validator accepts the new fonts',
-    _sr82.count("('SMOOTH', 'MONO', 'COND', 'NARROW', 'CAPS')") >= 3,
-    _sr82.count("('SMOOTH', 'MONO', 'COND', 'NARROW', 'CAPS')")))
+tests.append(('R116 plot-text validators accept all 9 fonts',
+    _sr82.count("('SMOOTH', 'MONO', 'COND', 'NARROW', 'CAPS', 'SCRIPT', 'HAND', 'PLATE', 'PIXEL')") >= 3,
+    _sr82.count("('SMOOTH', 'MONO', 'COND', 'NARROW', 'CAPS', 'SCRIPT', 'HAND', 'PLATE', 'PIXEL')")))
+
+# ============================== R116 tests: label job snapshots + new fonts ================
+# .88 field log: (a) the label queue stored ONLY the text - font/size were read
+# globally at Create time, so 10 labels x 5 fonts all printed the LAST font.
+# (b) wishes: script + handwriting + license-plate + readable pixel fonts.
+tests.append(('R116 fonts: SCRIPT/HAND/PLATE/PIXEL cover the whole charset',
+    all(ch in _pp61.FONT_SCRIPT for ch in _cs63)
+    and all(ch in _pp61.FONT_HAND for ch in _cs63)
+    and all(ch in _pp61.FONT_PLATE for ch in _cs63)
+    and all(ch in _pp61.FONT_PIXEL for ch in _cs63),
+    [ch for ch in _cs63 if ch not in _pp61.FONT_SCRIPT][:6]))
+tests.append(('R116 fonts: DISTINCT data (no silent SMOOTH fallback)',
+    _pp61.FONT_SCRIPT['A'][1] != _pp61.FONT_SMOOTH['A'][1]
+    and _pp61.FONT_HAND['A'][1] != _pp61.FONT_SMOOTH['A'][1]
+    and _pp61.FONT_PLATE['A'][1] != _pp61.FONT_SMOOTH['A'][1]
+    and _pp61.FONT_PIXEL['A'][1] != _pp61.FONT_SMOOTH['A'][1], ''))
+tests.append(('R116 make_labels builds with SCRIPT/HAND/PLATE/PIXEL',
+    all(open(_pp61.make_labels(['X'], w=30, h=12, font=_f116)[0]).read().count('LAYER_MARK') > 5
+        for _f116 in ('SCRIPT', 'HAND', 'PLATE', 'PIXEL')), ''))
+_o116, _i116 = _pp61.make_labels(
+    ['GARAGE', 'WERKZEUG'], w=60, h=30, font='SMOOTH',
+    job_cfgs=[{'font': 'CAPS', 'w': 80, 'h': 40, 'size': 0, 'spacing': 0,
+               'stroke': 0, 'mode': 'grow', 'hole_side': 0, 'hole_d': 5},
+              {'font': 'SCRIPT', 'w': 60, 'h': 30}])
+_t116 = open(_o116).read()
+tests.append(('R116 job_cfgs: per-job header + both fonts in info (the .88 font bug)',
+    '; R116 per-job settings' in _t116 and 'CAPS' in _t116 and 'SCRIPT' in _t116
+    and _i116['jobs'] and _i116['jobs'][0]['font'] == 'CAPS'
+    and _i116['jobs'][1]['font'] == 'SCRIPT', str(_i116.get('jobs'))[:90]))
+_polys116 = [l.split('POLYGON=')[1] for l in _t116.split(chr(10))
+             if l.startswith('EXCLUDE_OBJECT_DEFINE NAME=LABEL')]
+def _pw116(poly):
+    import ast as _ast116
+    _pts116 = _ast116.literal_eval(poly)
+    return round(max(q[0] for q in _pts116) - min(q[0] for q in _pts116), 1)
+tests.append(('R116 job_cfgs: label cells keep their OWN size (80x40 vs 60x30)',
+    len(_polys116) == 2 and _pw116(_polys116[0]) == 80.0 and _pw116(_polys116[1]) == 60.0,
+    [_pw116(q) for q in _polys116]))
+_o116u, _ = _pp61.make_labels(['A', 'B'], w=60, h=30, font='SMOOTH')
+_o116v, _ = _pp61.make_labels(['A', 'B'], w=60, h=30, font='SMOOTH', job_cfgs=None)
+tests.append(('R116 job_cfgs=None stays byte-identical (golden safety)',
+    open(_o116u).read() == open(_o116v).read(), ''))
+_sr116 = open('tools/r2_postproc.py').read()
+tests.append(('R116 watcher reads label_cfgs and passes job_cfgs',
+    "rv.get('label_cfgs'" in _sr116 and 'job_cfgs=job_cfgs' in _sr116, ''))
+
+_body116 = get_body('macros/16_labels.cfg', 'LABEL_ADD')
+save_vars.update({'label_l1': 'GARAGE', 'label_lines': 1, 'label_font': 'CAPS',
+                  'label_w': 80.0, 'label_h': 40.0, 'label_size': 0.0,
+                  'label_spacing': 0.0, 'label_stroke': 0.0, 'label_mode': 0,
+                  'label_hole_side': 0, 'label_hole_d': 5.0, 'label_texts': 'ALT',
+                  'label_cfgs': 'SMOOTH~60.0~30.0~0.0~0.0~0.0~0~0~5.0~1~4~2~0.2~0.28~1~1~6.0~1',
+                  'label_base_layers': 4, 'label_text_layers': 2,
+                  'label_layer_h': 0.2, 'label_first_h': 0.28,
+                  'label_ironing': True, 'label_brim': True, 'label_gap': 6.0,
+                  'label_color2': True})
+_out116 = render(_body116, {})
+tests.append(('R116 LABEL_ADD snapshots the COMPLETE settings per job',
+    'CAPS~80.0~40.0' in _out116 and 'GARAGE' in _out116
+    and 'ALT|GARAGE' in _out116, [l for l in _out116.split(chr(10)) if 'label_cfgs' in l][:1]))
+_body116 = get_body('macros/16_labels.cfg', 'LABEL_DEL_LAST')
+save_vars.update({'label_texts': 'A|B',
+                  'label_cfgs': 'SMOOTH~60.0~30.0~0.0~0.0~0.0~0~0~5.0~1~4~2~0.2~0.28~1~1~6.0~1|CAPS~80.0~40.0~0.0~0.0~0.0~0~0~5.0~1~4~2~0.2~0.28~1~1~6.0~1'})
+_out116 = render(_body116, {})
+tests.append(('R116 LABEL_DEL_LAST trims texts AND cfgs in parallel',
+    'CAPS~80.0' not in _out116 and 'SMOOTH~60.0' in _out116, [l for l in _out116.split(chr(10)) if 'label_cfgs' in l][:1]))
+
+_sr116m = open('macros/10_live_tuning.cfg').read()
+tests.append(('R116 shaper-off: no-[input_shaper] case NOTIFYs on the LCD',
+    'needs [input_shaper] in printer.cfg' in _sr116m and 'M117 ShaperOff: n/a' in _sr116m, ''))
+_body116 = get_body('macros/10_live_tuning.cfg', 'SET_FEAT_SHAPER_OFF')
+_out116 = render(_body116, {'STATE': '1'})
+tests.append(('R116 shaper-off: STATE=1 arms the feature shaper-off',
+    'VARIABLE=ovf_shaper_off_on VALUE=True' in _out116, _out116[:80]))
+
 
 # --- make_labels: structure of the generated file ---
 _d63 = _tf63.mkdtemp(prefix='r63_')
@@ -3679,7 +3756,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.86) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-12.87'", repr(_v66)))
+    _v66 == "'R2-2026-10-12.89'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -5052,8 +5129,9 @@ for _i77b in range(1, len(_parts77), 2):
                    round(sum(float(m) for m in _re74.findall(r'(?m)^G1 .*?E([\d.]+)', _b77)), 1)))
 tests.append(('R77 label: base layers nearly retract-free (storm 108 -> <=3)',
     _lay77[0][0] <= 3 and _lay77[1][0] <= 3 and _lay77[2][0] <= 3, str(_lay77[:3])))
-tests.append(('R77 label: extrusion VOLUME unchanged by the travel fix (E 273/159/159)',
-    [_lay77[i][1] for i in range(3)] == [273.0, 159.1, 159.1], str(_lay77[:3])))
+tests.append(('R77 label: base-layer E stable (R117: +3% from the serpentine '
+               'connector beads, E 280.6/164.6/164.7)',
+    [_lay77[i][1] for i in range(3)] == [280.6, 164.6, 164.7], str(_lay77[:3])))
 tests.append(('R77/R83 label: total G10 <= 160 (storm was 636; R83 adds discrete '
                'glyph-to-glyph retracts, base layers stay retract-free)',
     _t77l.count('\nG10') <= 160, str(_t77l.count('\nG10'))))
@@ -5121,12 +5199,29 @@ for _i77c, _l77 in enumerate(_hl77):
             _pairs77.append((_math77.hypot(float(_mm77.group(1)) - float(_m0.group(1)),
                                            float(_mm77.group(2)) - float(_m0.group(2))),
                              float(_mm77.group(3))))
-_h77 = [l for l in _hl77 if _re74.match(r'^G1 X[\d.-]+ Y[\d.-]+ E[\d.]+ F1200$', l)]
-_e77d = [e for _d, e in _pairs77]
-tests.append(('R77 range solid: per-line E scaled by 0.92 (overlap compensated)',
-    _pairs77 and all(abs((e / (0.054 * d)) - 0.92) < 0.06
-                     for d, e in _pairs77[1:8] if e > 0.01),
-    str([round(e / (0.054 * d), 3) for d, e in _pairs77[1:5]])))
+# R117: the raft hatch chains into a serpentine - line E can no longer be
+# paired with a preceding G0 (there is none). The compensation check now runs
+# over ALL raft-layer moves: the 0.92-compensated hatch + connector beads
+# must dominate the median, nothing may over-extrude (border loop is 1.0).
+import statistics as _stat77
+_bl77 = _ts77.split('LAYER_MARK')[1] if 'LAYER_MARK' in _ts77 else ''
+_rt77, _px77, _py77 = [], None, None
+for _l77 in _bl77.split('\n'):
+    _m77 = _re74.match(r'G0 X([\d.-]+) Y([\d.-]+)', _l77)
+    if _m77:
+        _px77, _py77 = float(_m77.group(1)), float(_m77.group(2))
+        continue
+    _m77 = _re74.match(r'G1 X([\d.-]+) Y([\d.-]+) E([\d.]+)', _l77)
+    if _m77 and _px77 is not None:
+        _dd77 = _math77.hypot(float(_m77.group(1)) - _px77, float(_m77.group(2)) - _py77)
+        _ee77 = float(_m77.group(3))
+        if _dd77 >= 0.5 and _ee77 > 0.01:
+            _rt77.append(_ee77 / (0.054 * _dd77))
+        _px77, _py77 = float(_m77.group(1)), float(_m77.group(2))
+tests.append(('R77 range solid: hatch E compensated 0.92 (serpentine median, no over-extrusion)',
+    len(_rt77) >= 10 and 0.88 <= _stat77.median(_rt77) <= 0.96 and max(_rt77) <= 1.06,
+    'n %d median %.3f max %.3f' % (len(_rt77), _stat77.median(_rt77) if _rt77 else -1,
+                                    max(_rt77) if _rt77 else -1)))
 
 # --- (2) cold pull v2 ----------------------------------------------------------
 _cp77 = get_body('macros/12_maintenance.cfg', 'COLD_PULL')
@@ -5265,8 +5360,8 @@ import importlib.util as _ilu79
 _sf79 = get_body('macros/08_print_start_stop.cfg', '_SELECT_FILE')
 state_vars['mode'] = 'waiting'
 out = render(_sf79, {'FILE': 'part_L3-5.gcode'})
-tests.append(('R79 _SELECT_FILE: waiting -> releases old selection + selects new',
-    'CANCEL_PRINT_BASE' in out and 'TURN_OFF_HEATERS' in out
+tests.append(('R79 _SELECT_FILE: waiting -> releases old selection + selects new (R115: preheat stays!)',
+    'CANCEL_PRINT_BASE' in out and 'TURN_OFF_HEATERS' not in out
     and 'SDCARD_PRINT_FILE FILENAME="part_L3-5.gcode"' in out
     and 'takes over' in out, out[:150]))
 state_vars['mode'] = 'idle'
@@ -5537,10 +5632,10 @@ tests.append(('R80/R83 LABEL_FIT_CALC: rough estimate + nonce for the exact numb
     and 'VARIABLE=label_max_chars' in out
     and 'VARIABLE=label_fit_nonce' in out, out[:150]))
 _lcd80 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
-tests.append(('R82 LCD: font menu = five-font list (PIXEL gone) + stroke explains',
-    all(x in _lcd80 for x in ['__fnt __sm]', '__fnt __mo]', '__fnt __co]', '__fnt __na]', '__fnt __ca]'])
-    and _lcd80.count('SAVE_VARIABLE VARIABLE=label_font VALUE=') >= 5
-    and 'PIXEL' not in _lcd80[_lcd80.index('__fnt'):_lcd80.index('__fnt') + 2500]
+tests.append(('R116 LCD: font menu = nine-font list (PIXEL back as a real font)',
+    all(x in _lcd80 for x in ['__fnt __sm]', '__fnt __mo]', '__fnt __co]', '__fnt __na]', '__fnt __ca]',
+                               '__fnt __sc]', '__fnt __hd]', '__fnt __pl]', '__fnt __px]'])
+    and _lcd80.count('SAVE_VARIABLE VARIABLE=label_font VALUE=') >= 9
     and 'letter LINE WIDTH' in _lcd80, ''))
 tests.append(('R80 LCD: label defaults 50x15 (keychain-friendly)',
     'variables.label_w|default(50)' in _lcd80 and 'variables.label_h|default(15)' in _lcd80, ''))
@@ -9574,8 +9669,9 @@ tests.append(('R111 SET_FEAT_PA: PA=0.05 routes through feat_pa_wallouter',
 body = get_body('macros/10_live_tuning.cfg', 'SET_FEAT_SHAPER_OFF')
 gd = dict(build_printer()); del gd['input_shaper']
 out = env.from_string(body).render(printer=MP(gd), params={'FEATURE': 'wallouter', 'STATE': '1'})
-tests.append(('R111 SET_FEAT_SHAPER_OFF: no [input_shaper] -> honest message',
-    'No [input_shaper]' in out, out.strip()[:90]))
+tests.append(('R116 SET_FEAT_SHAPER_OFF: no [input_shaper] -> NOTIFY on the LCD too',
+    'needs [input_shaper] in printer.cfg' in out and 'M117 ShaperOff: n/a' in out,
+    out.strip()[:90]))
 out = render(body, {'FEATURE': 'wallouter', 'STATE': '1'})
 tests.append(('R111 SET_FEAT_SHAPER_OFF: STATE=1 arms the switch',
     'VARIABLE=ovf_shaper_off_on VALUE=True' in out and "VARIABLE=ovf_shaper_off_feat VALUE='wallouter'" in out,
@@ -9846,6 +9942,181 @@ for _f112 in ['macros/07_start_confirm.cfg', 'macros/10_live_tuning.cfg',
             _fcodes_mismatch.append('%s: %s' % (_f112, _got112[:4]))
 tests.append(('R112 cross-check: the 16 feature codes are identical in 07/10/05',
     not _fcodes_mismatch, _fcodes_mismatch))
+
+# ================= R115: fan HOLD + start-dialog idle guard + feature PA =================
+# .87 field log round 2: (a) live fan only SCALED the file's M106 - dynamic
+# slicer fan curves always won; HOLD replaces the value. (b) idle_timeout
+# counts from the last TOOLHEAD move - TURN_OFF_HEATERS fired mid-start-dialog.
+# (c) feature PA was live-only and showed 0 although the global ruled.
+_body115 = get_body('macros/06_temp_controls.cfg', 'M106')
+state_vars.update({'mode': 'printing', 'layer': 3, 'ignore_overrides': False})
+state_vars['f_fan_hold'] = 40
+_out115 = render(_body115, {'S': '255'})
+tests.append(('R115 M106 HOLD: file S255 -> hold 40% -> S102 (file ignored)',
+    'S102' in _out115 and 'hold 40%' in _out115, _out115.strip()[:120]))
+state_vars['f_fan_hold'] = 0
+_out115b = render(_body115, {'S': '255'})
+tests.append(('R115 M106 HOLD off (0): file rules again (S255 passthrough)',
+    'S255' in _out115b and 'hold' not in _out115b, _out115b.strip()[:80]))
+
+_body115 = get_body('macros/10_live_tuning.cfg', 'SET_FAN_HOLD')
+_out115 = render(_body115, {'PERCENT': '40'})
+tests.append(('R115 SET_FAN_HOLD 40%: applies immediately + speaks it',
+    'VARIABLE=f_fan_hold VALUE=40.0' in _out115 and 'M99106 S102' in _out115 and 'Fan hold 40%' in _out115, _out115.strip()[:140]))
+_out115 = render(_body115, {'PERCENT': '0'})
+tests.append(('R115 SET_FAN_HOLD 0: back to the file values',
+    'Fan hold OFF' in _out115 and "VALUE=0.0" in _out115, _out115.strip()[:140]))
+
+_body115 = get_body('macros/10_live_tuning.cfg', 'APPLY_TYPE')
+save_vars.update({'ov_pa_on': True, 'ov_pa': 0.055,
+                  'ovf_wallouter_on': True, 'ovf_wallouter_spd': 100,
+                  'ovf_wallouter_acc': 0, 'ovf_wallouter_pa': 0})
+_out115 = render(_body115, {'TYPE': 'WALL-OUTER'})
+tests.append(('R115 APPLY_TYPE: no own PA but global 0.055 ON -> boundary states it',
+    'ADVANCE=0.055' in _out115 and 'PA 0.055 (your global' in _out115, [l for l in _out115.split(chr(10)) if 'PA ' in l][:2]))
+save_vars.update({'ov_pa_on': False, 'ovf_wallouter_on': False})
+
+_body115 = get_body('macros/08_print_start_stop.cfg', '_WAIT_IDLE_RESTORE')
+state_vars['idle_timeout_saved'] = 3600
+_out115 = render(_body115, {})
+tests.append(('R115 _WAIT_IDLE_RESTORE: config idle_timeout back',
+    'SET_IDLE_TIMEOUT TIMEOUT=3600' in _out115, _out115.strip()[:60]))
+
+_body115 = get_body('macros/08_print_start_stop.cfg', '_SELECT_FILE')
+state_vars['mode'] = 'waiting'
+_out115 = render(_body115, {'FILE': '00_x.gcode'})
+tests.append(('R115 _SELECT_FILE: generator takeover does NOT kill the preheat',
+    'TURN_OFF_HEATERS' not in _out115 and 'CANCEL_PRINT_BASE' in _out115 and 'SDCARD_PRINT_FILE FILENAME="00_x.gcode"' in _out115, _out115.strip()[:160]))
+state_vars['mode'] = 'printing'
+
+_fl115 = get_body('macros/17_generator.cfg', 'FRAME_LOAD_PRESET')
+save_vars.update({'frame_user_preset_1':
+                  {'preset': 'OLD', 'w': 105.0, 'h': 148.0, 'depth': 10.0,
+                   'border': 8.0, 'corner': 6.0, 'walls': 1, 'shape': 'RECT',
+                   'closure': 'BACK', 'hang': 'TOP', 'stand': False,
+                   'ironing': True, 'infill': 60.0,
+                   'front': 'IRON', 'cable': False, 'disc': 'NONE',
+                   'disc_t': 1.0, 'disc_side': 'FRONT', 's_deep': 0.8,
+                   's_space': 6.0, 's_angle': 45.0, 's_amp': 1.2,
+                   's_size': 8.0, 's_dir': 'OUT'}})   # pre-R101: NO top_l/bot_l!
+_out115 = render(_fl115, {'N': '1'})
+tests.append(('R115 frame preset load: old preset without bot_l -> bottom solid 2 (not 0 = see-through!)',
+    'frame_bot_l VALUE=2' in _out115 and 'frame_bot_l VALUE=0' not in _out115 and 'frame_top_l VALUE=0' in _out115,
+    [l for l in _out115.split(chr(10)) if 'bot_l' in l or 'top_l' in l]))
+save_vars['frame_user_preset_1'] = 0
+
+_lcd115 = open('menus/lcd_menues.cfg').read()
+_pp_pa115 = [l for l in _lcd115.split(chr(10))
+             if l.startswith('[menu __main __preprint __feat __') and l.endswith('__pa]')]
+tests.append(('R115 LCD: 16 feature-PA inputs in Pre-Print > Features',
+    len(_pp_pa115) == 16, 'counted %d' % len(_pp_pa115)))
+_pause115 = _lcd115[_lcd115.index('[menu __main __live __pause]'):_lcd115.index('[menu __main __live __objects]')]
+_first115 = _pause115.split('[menu ')[2]
+tests.append(('R115 LCD: PAUSE NOW no longer the FIRST entry + two-press',
+    '__next]' in _first115 and 'pause_now_arm' in _pause115 and 'AGAIN' in _pause115 and 'QUICK_PAUSE' in _pause115,
+    _first115.split(chr(10))[0]))
+
+# ================= R117: continuous fills + ironing follows the top angle ================
+# .88 field log order: first layer / bottom / infill must NOT print as single
+# scanlines - they chain into ONE continuous zigzag that fuses with the walls;
+# ironing runs at the SAME angle as the top surface it flattens.
+import math as _math117
+import re as _re117
+import statistics as _stat117
+
+def _an117(path):
+    typ, z = None, None
+    blocks = {}
+    px = py = None
+    for _raw117 in open(path):
+        _st117 = _raw117.strip()
+        if _st117.startswith(';TYPE:'):
+            typ = _st117[6:]
+            continue
+        if _st117.startswith(';Z:'):
+            z = _st117[3:]
+            continue
+        _l117 = _raw117.split(';')[0].strip()
+        if not _l117:
+            continue
+        _m117 = _re117.match(r'G0 X([-\d.]+) Y([-\d.]+)', _l117)
+        if _m117:
+            if typ:
+                blocks.setdefault((typ, z), {'g0': 0, 'segs': []})['g0'] += 1
+            px, py = float(_m117.group(1)), float(_m117.group(2))
+            continue
+        _m117 = _re117.match(r'G1 X([-\d.]+) Y([-\d.]+) E([-\d.]+)', _l117)
+        if _m117 and typ:
+            _x117, _y117, _e117 = (float(_m117.group(i)) for i in (1, 2, 3))
+            if px is not None and _e117 > 0 and _math117.hypot(_x117 - px, _y117 - py) > 0.3:
+                blocks.setdefault((typ, z), {'g0': 0, 'segs': []})['segs'].append((_x117 - px, _y117 - py))
+            px, py = _x117, _y117
+            continue
+        _m117 = _re117.match(r'G1 X([-\d.]+) Y([-\d.]+)', _l117)
+        if _m117:
+            px, py = float(_m117.group(1)), float(_m117.group(2))
+    return blocks
+
+def _ratio117(blocks):
+    _f117 = [v for k, v in blocks.items()
+             if k[0] in ('Bottom surface', 'Top surface', 'Internal solid infill', 'Sparse infill')]
+    _g1 = sum(len(v['segs']) for v in _f117)
+    _g0 = sum(v['g0'] for v in _f117)
+    return _g1 / max(1, _g0), _g1, _g0
+
+def _adiff117(blocks):
+    _tops = {k: v for k, v in blocks.items() if k[0] == 'Top surface' and v['segs']}
+    _irs = {k: v for k, v in blocks.items() if k[0] == 'Ironing' and v['segs']}
+    if not _tops or not _irs:
+        return None
+    _at = _stat117.median(_math117.degrees(_math117.atan2(dy, dx)) % 180.0
+                          for (dx, dy) in _tops[sorted(_tops, key=lambda k: float(k[1] or 0))[-1]]['segs'])
+    _ai = _stat117.median(_math117.degrees(_math117.atan2(dy, dx)) % 180.0
+                          for (dx, dy) in _irs[sorted(_irs, key=lambda k: float(k[1] or 0))[-1]]['segs'])
+    return abs((_at - _ai + 90) % 180 - 90)
+
+_BED117 = (0.0, -3.0, 244.0, 238.0)
+_D117 = tempfile.mkdtemp(prefix='r117')
+_o117, _ = _pp61.make_labels(['WERKSTATT', 'R2'], w=60, h=30, hole_side=1, bed=_BED117, out_dir=_D117)
+_b117 = _an117(_o117)
+_r117 = _ratio117(_b117)[0]
+tests.append(('R117 LABELS: fills chain continuously (>=8 extrusions per travel, was ~1)',
+    _r117 >= 8.0, 'ratio %.1f' % _r117))
+tests.append(('R117 LABELS: ironing angle == top angle (<=8 deg, was 90)',
+    _adiff117(_b117) is not None and _adiff117(_b117) <= 8.0, 'diff %s' % _adiff117(_b117)))
+
+_o117, _ = _pp61.make_bridge(length=100, bed=_BED117, out_dir=_D117)
+_r117 = _ratio117(_an117(_o117))[0]
+tests.append(('R117 BRIDGE: deck fills chain continuously (>=20:1)',
+    _r117 >= 20.0, 'ratio %.1f' % _r117))
+
+_o117, _ = _pp61.make_cable_ties(count=3, length=80, bed=_BED117, out_dir=_D117)
+_r117 = _ratio117(_an117(_o117))[0]
+tests.append(('R117 TIES: strap fills chain continuously (>=20:1)',
+    _r117 >= 20.0, 'ratio %.1f' % _r117))
+
+_o117, _ = _pp61.make_angles(count=2, angle_deg=90, bed=_BED117, out_dir=_D117, ironing=True)
+_b117 = _an117(_o117)
+_r117 = _ratio117(_b117)[0]
+tests.append(('R117 ANGLES: plate fills chain (>=4:1 - hole crossings stay travels)',
+    _r117 >= 4.0, 'ratio %.1f' % _r117))
+tests.append(('R117 ANGLES: ironing angle == top angle (<=8 deg)',
+    _adiff117(_b117) is not None and _adiff117(_b117) <= 8.0, 'diff %s' % _adiff117(_b117)))
+
+_o117, _ = _pp61.make_frame(depth=8, bed=_BED117, out_dir=_D117)
+_b117 = _an117(_o117)
+_r117 = _ratio117(_b117)[0]
+tests.append(('R117 FRAME: ring fills chain continuously (>=10:1)',
+    _r117 >= 10.0, 'ratio %.1f' % _r117))
+tests.append(('R117 FRAME: ironing angle == top angle (<=8 deg, was 45)',
+    _adiff117(_b117) is not None and _adiff117(_b117) <= 8.0, 'diff %s' % _adiff117(_b117)))
+
+_sr117 = open('tools/r2_postproc.py').read()
+tests.append(('R117 source: _emit_hatch only for single-line patterns (7 left) + range uses _serp_g',
+    _sr117.count('_emit_hatch(pen, [') == 7
+    and '_serp_g(g, segs, eph, 1200, spacing)' in _sr117
+    and '_serp_g(gt, segs, eph, 1200, spacing)' in _sr117,
+    'left %d' % _sr117.count('_emit_hatch(pen, [')))
 
 # ================= R114: ';' never inside a console string =================
 # .87 field log: 'Malformed command RESPOND MSG="... DERIVED ... - no' -

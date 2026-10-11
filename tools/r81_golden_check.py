@@ -38,23 +38,27 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 # frozen from the .64 builder (R81), re-frozen from R87.2 - 23 cases
+# R117 re-freeze: range floor/cap hatch chains into a serpentine (field
+# log .89 - continuous fills that fuse with the walls) - mr02-mr06,
+# mr09-mr11, mr13 grew by the connector beads; pr01-pr10 and the plain
+# mr01/mr07/mr08/mr12 extracts stay byte-identical to R112/R116.
 # R112 re-freeze: tag v4 -> v5 (STALE/retag round) - every fixture's tag
 # line changed, summaries gained retract_status/retract_max. R112 reference
 # superseded.
 REF_MD5 = {
  "mr01": "dcbf4e221aa27a5dd8e63808711f9d46",
- "mr02": "7c88ba2e145ede7988113d829e1d8d70",
- "mr03": "02ba94742f4ab76461b6dd702559275a",
- "mr04": "903b178b117264490127acba7760687c",
- "mr05": "34159d81b8067d59da87a7e23a86dac1",
- "mr06": "3016de2a74afb6e2bcd7a6627dcf5f9a",
+ "mr02": "248f766b88c7d83041d2ffc5058b62b7",
+ "mr03": "7c272e9f2a836b65df1e3483358577c9",
+ "mr04": "a8c29919ff3f062b11f41e67c4a79e17",
+ "mr05": "536cc7a1f3670d01a6414b75e0ef31d7",
+ "mr06": "8fa1da9e44096ed04024d20a3ec3bce7",
  "mr07": "d38634c5b50d57bd95704faa8e24b42e",
  "mr08": "acdb7fc6fb5c3cff5a0b5e689e16f495",
- "mr09": "fed9a8c441a4259261af62198230be69",
- "mr10": "d610079ef58d8c1e653121fd0a99d2c8",
- "mr11": "ab60c6fef6a696120dcf56d09f7e9650",
+ "mr09": "5369e33bb92f71e4ff2aa67479b4a065",
+ "mr10": "49e623de74839b85b5ba3a04a6bde5e9",
+ "mr11": "dbcca61e25daefb6bfb9facc68030236",
  "mr12": "951a839391bbeac752c4610b1a1d4889",
- "mr13": "f5bd946ed81ae15502c3ad149391007b",
+ "mr13": "bb2bef13fba1a5c324e848ed54f77bb6",
  "pr01": "c56b7af9749c110308aa564d29c148da",
  "pr02": "3cbd4210a9d7c572cbeea81a114e9f0b",
  "pr03": "5afdb141d0ca4766ae6cbbc13fcb076a",
@@ -66,7 +70,6 @@ REF_MD5 = {
  "pr09": "fe44385bfcda7fcac1660a166a647a32",
  "pr10": "831df0884dcd33cd02400a5808dcfcb7"
 }
-
 REF_SUMMARY = {
  "mr01": {
   "nl": 8,
@@ -74,23 +77,23 @@ REF_SUMMARY = {
  },
  "mr02": {
   "nl": 10,
-  "size": 10639
+  "size": 11476
  },
  "mr03": {
   "nl": 10,
-  "size": 10373
+  "size": 11210
  },
  "mr04": {
   "nl": 9,
-  "size": 10599
+  "size": 11508
  },
  "mr05": {
   "nl": 10,
-  "size": 16794
+  "size": 18621
  },
  "mr06": {
   "nl": 10,
-  "size": 14246
+  "size": 15569
  },
  "mr07": {
   "nl": 7,
@@ -102,15 +105,15 @@ REF_SUMMARY = {
  },
  "mr09": {
   "nl": 8,
-  "size": 7425
+  "size": 7895
  },
  "mr10": {
   "nl": 8,
-  "size": 10401
+  "size": 11453
  },
  "mr11": {
   "nl": 8,
-  "size": 6951
+  "size": 7374
  },
  "mr12": {
   "nl": 2,
@@ -118,7 +121,7 @@ REF_SUMMARY = {
  },
  "mr13": {
   "nl": 30,
-  "size": 18295
+  "size": 19204
  },
  "pr01": {
   "by_object": False,
@@ -508,7 +511,7 @@ def main():
             print('FAIL %s: summary differs: %r != %r' % (name, _summ_cmp, _ref_summ))
             fails += 1
     if not fails:
-        print('R81 golden check: %d/%d cases byte-identical to the R112 reference' % (len(res), len(res)))
+        print('R81 golden check: %d/%d cases byte-identical to the R117 reference' % (len(res), len(res)))
     return 1 if fails else 0
 
 

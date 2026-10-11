@@ -6,7 +6,9 @@ FONT_PIXEL / FONT_MONO / FONT_SMOOTH. Re-run this script only to regenerate
 (requires Pillow + DejaVu fonts).
 
 Fonts:
-  PIXEL  7x9 dot-matrix (horizontal-run strokes per lit pixel), advance 8
+  PIXEL  R116: Press Start 2P (Google Fonts, SIL OFL) as a STROKE font - the
+         old 7x9 bitmap dot-matrix was unreadable (removed R80). Blocky
+         arcade-pixel letterforms, skeleton = clean single lines
   MONO   single-line stroke font from DejaVuSansMono skeleton, advance 7
   SMOOTH single-line stroke font from DejaVuSans skeleton, proportional
   COND   Oswald (Google Fonts, SIL OFL - tools/fonts_src/) - condensed, tall
@@ -14,6 +16,11 @@ Fonts:
   NARROW Roboto Condensed (Google Fonts, SIL OFL) - clean + narrow (R82)
   CAPS   Bebas Neue (Google Fonts, SIL OFL) - caps-only display font; the
          lowercase slots are cloned from the capitals at import (R82)
+  SCRIPT R116: Dancing Script (Google Fonts, SIL OFL) - connected
+         calligraphy / Schreibschrift
+  HAND   R116: Caveat (Google Fonts, SIL OFL) - casual handwriting
+  PLATE  R116: D-DIN (Datto, SIL OFL) - DIN 1451, the German license-plate
+         and engineering-lettering look; THE font for small clean labels too
 
 Stroke-font coordinates: x right, y DOWN, every glyph in a box of height
 10 units (cap height ~8, descender ~2), ink starts at x=0.
@@ -618,7 +625,7 @@ def main():
             g['ö'] = (round(g['Ö'][0] * 0.92, 1), g['Ö'][1])
             g['ü'] = (round(g['Ü'][0] * 0.92, 1), g['Ü'][1])
         print('== %s == metrics %r' % (name, m))
-        for ch in 'AMOamg':
+        for ch in 'AMOamgÄ':
             dump_strokes_ascii(g[ch][1], width=30, height=12, label='%s %r' % (name, ch))
         with open('/tmp/font_%s.py' % name.lower(), 'w') as f:
             f.write('FONT_META_%s = %r\n' % (name, m))
@@ -629,8 +636,48 @@ def main():
                     f.write('    %r: (%r, %r),\n' % (ch, round(adv, 1), fmt_strokes(strokes)))
             f.write("    ' ': (%.1f, ''),\n}\n" % (2.6 if mode == 'caps' else 3.0))
 
+    # ---- R116: new fonts (script / handwriting / DIN plate / arcade pixel).
+    #      Empty glyphs (a char the TTF does not really draw) fall back to
+    #      the SMOOTH glyph so the charset is ALWAYS complete.
+    r116 = [
+        ('SCRIPT', 'DancingScript[wght].ttf', False),
+        ('HAND', 'Caveat[wght].ttf', False),
+        ('PLATE', 'D-DIN.ttf', False),
+        ('PIXEL', 'PressStart2P-Regular.ttf', False),
+    ]
+    for name, fname, _unused in r116:
+        path = os.path.join(src_dir, fname)
+        if not os.path.isfile(path):
+            print('!! %s missing (%s) - skipped' % (fname, path))
+            continue
+        g, m = build_stroke_font(path, mono=False)
+        fixed = 0
+        for ch in CHARSET:
+            if ch == ' ':
+                continue
+            adv, strokes = g[ch]
+            if not strokes:
+                g[ch] = sm[ch]          # SMOOTH fallback - charset stays complete
+                fixed += 1
+        if name == 'PIXEL':
+            # the old bitmap FONT_PIXEL/FONT_META_PIXEL blocks in
+            # r2_postproc.py are REPLACED by this stroke data (same names)
+            pass
+        print('== %s == metrics %r (SMOOTH-fallback glyphs: %d)' % (name, m, fixed))
+        for ch in 'AMOamgÄ':
+            dump_strokes_ascii(g[ch][1], width=30, height=12, label='%s %r' % (name, ch))
+        with open('/tmp/font_%s.py' % name.lower(), 'w') as f:
+            f.write('FONT_META_%s = %r\n' % (name, m))
+            f.write('FONT_%s = {\n' % name)
+            for ch in CHARSET:
+                if ch != ' ':
+                    adv, strokes = g[ch]
+                    f.write('    %r: (%r, %r),\n' % (ch, round(adv, 1), fmt_strokes(strokes)))
+            f.write("    ' ': (3.0, ''),\n}\n")
+
     print('\nwritten: /tmp/font_pixel.py /tmp/font_mono.py /tmp/font_smooth.py'
-          ' /tmp/font_cond.py /tmp/font_narrow.py /tmp/font_caps.py')
+          ' /tmp/font_cond.py /tmp/font_narrow.py /tmp/font_caps.py'
+          ' /tmp/font_script.py /tmp/font_hand.py /tmp/font_plate.py')
 
 
 if __name__ == '__main__':
