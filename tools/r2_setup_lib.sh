@@ -571,11 +571,18 @@ import re, sys
 p = sys.argv[1]
 s = open(p, encoding='utf-8', errors='surrogateescape').read()
 def comment(m):
-    return '\n'.join('# [R2-off] ' + l if l.strip() else l for l in m.group(0).rstrip().split('\n'))
+    # R113 field-log .86 fix: NEVER rstrip() the match - it ate the trailing
+    # newline and glued the next section header onto the last comment line
+    # ('# [R2-off] gcode:[extruder]' - the section VANISHED into the comment)
+    return '\n'.join('# [R2-off] ' + l if l.strip() else l for l in m.group(0).split('\n'))
 # consume ONLY macro-block lines: variable_/description:/gcode: headers,
-# indented body lines and blanks - a following comment (like our own
-# '# --- R2' insert header) must NOT be swallowed
-s2 = re.sub(r'\n?\[gcode_macro _R2_CONFIG\]\n(?:[ \t]*(?:variable_|description:|gcode:)[^\n]*\n|[ \t]+[^\n]*\n|[ \t]*\n)*', comment, s, count=1)
+# indented body lines, blanks AND column-0 comments that are FOLLOWED by
+# more block lines (the .82 writer emitted '# optional: ...' inside the
+# block - leaving it active glued 'gcode:' onto the previous section =
+# 'Option gcode is not valid in section board_pins' boot halt, field
+# log .86). A comment AFTER the block (like our own '# --- R2' insert
+# header) is still NOT swallowed - the lookahead requires a block line.
+s2 = re.sub(r'\n?\[gcode_macro _R2_CONFIG\]\n(?:[ \t]*(?:variable_|description:|gcode:)[^\n]*\n|[ \t]+[^\n]*\n|[ \t]*\n|(?:[ \t]*#[^\n]*\n)+(?=[ \t]*(?:variable_|description:|gcode:)))*', comment, s, count=1)
 inc = '[include r2_hardware.cfg]'
 if inc not in s2:
     i = s2.find('\n#*#')

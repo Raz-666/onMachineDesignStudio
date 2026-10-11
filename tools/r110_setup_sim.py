@@ -168,6 +168,33 @@ pin: ^PD10
 [extruder]
 [heater_bed]
 """ + SAVECFG,
+ 'r92-config-block': """# Ender-3 with the .82-era carrier: [gcode_macro _R2_CONFIG] sits
+# right after [board_pins] and carries the '# optional:' column-0 comment -
+# the EXACT field-log .86 boot-halt layout ('Option gcode is not valid in
+# section board_pins')
+[printer]
+kinematics: cartesian
+max_velocity: 300
+[stepper_x]
+[stepper_y]
+[stepper_z]
+[board_pins]
+aliases:
+    EXP1_1: PC5
+[bltouch]
+[bed_mesh]
+[gcode_macro _R2_CONFIG]
+description: R2 portability config (bed limits + positions) - macros AND watcher read this
+variable_bed_min_x: 5.0
+variable_bed_max_x: 230.0
+variable_bed_min_y: 5.0
+variable_bed_max_y: 225.0
+# optional: variable_present_x/y (PRINT_END presentation), variable_wipe_x/y (wipe pad; -1 = corner)
+gcode:
+    # config carrier only - never runs
+[extruder]
+[heater_bed]
+""" + SAVECFG,
  'sv06-dualz': """# Sovol SV06: cartesian, 2 COUPLED Z steppers (no z_tilt!),
 # CR-Touch probe - the z-tilt menu must NOT appear without [z_tilt]
 [printer]
@@ -266,6 +293,11 @@ SCEN_SETUP = {
  'sv06-dualz': (['y'] + HW_WIZARD + ['1', '']
                 + ['y'] + LED_NEOPIXEL_MAIN + COLOR_ORDER + AREAS + WRITE_Y
                 + TAIL),
+ 'r92-config-block': (['y'] + HW_WIZARD
+                      + ['1', 'n']       # include r2_hardware.cfg: mode 1, do NOT remember
+                      + ['1', 'y']       # move _R2_CONFIG block: mode 1, remember
+                      + ['']             # no LEDs on this sim machine
+                      + TAIL),
  'corexz-sw': (['y'] + HW_WIZARD + ['1', '']
                + ['']                        # no LEDs
                + TAIL),
@@ -460,6 +492,32 @@ def simulate(name):
         # 2 Z steppers WITHOUT [z_tilt]: the profile must not claim z-tilt
         check('%s: no z-tilt keys without [z_tilt]' % name,
               'variable_ztilt' not in hw and 'z_tilt' not in hw)
+    if name == 'r92-config-block':
+        # R113 field-log .86: the migration must comment the WHOLE .82 block
+        # (a column-0 '# optional:' line used to stop the pattern - 'gcode:'
+        # stayed active and landed in [board_pins] = boot halt) and must not
+        # glue the next section header onto the last comment line (rstrip bug)
+        _b = pc_now.find('# [R2-off] [gcode_macro _R2_CONFIG]')
+        check('%s: old block commented (header line found)' % name, _b >= 0)
+        _tail = pc_now[_b:]
+        _nl = _tail.find('\n[')
+        _seg = _tail[:_nl] if _nl >= 0 else _tail
+        _orphan = [l for l in _seg.split('\n')[1:]
+                   if l.strip() and not l.lstrip().startswith('#')]
+        check('%s: NO active orphan lines in the commented block (the .86 halt)' % name,
+              not _orphan, _orphan[:3])
+        check('%s: the gcode: line is commented out' % name,
+              '# [R2-off] gcode:' in _seg)
+        for sec in ('[board_pins]', '[extruder]', '[heater_bed]'):
+            check('%s: %s survives as an active section (no glue)' % (name, sec),
+                  ('\n' + sec) in pc_now
+                  and ('\n# [R2-off] ' + sec) not in pc_now)
+        check('%s: no line glued onto the last R2-off comment' % name,
+              not [l for l in pc_now.split('\n')
+                   if l.startswith('# [R2-off]') and l.rstrip().endswith(']')
+                   and '[R2-off] ' not in l[len('# [R2-off] '):]][:1] == []
+              or all(not (l.startswith('# [R2-off]') and l.count('[') > 1)
+                     for l in pc_now.split('\n')))
 
     # ---- 4) second setup run is IDEMPOTENT (profile exists -> wizard skipped)
     snap2 = tree_state(cfg_dir)

@@ -222,8 +222,11 @@ import re, sys
 p = sys.argv[1]
 s = open(p, encoding='utf-8', errors='surrogateescape').read()
 def comment(m):
-    return '\n'.join('# [R2-off] ' + l if l.strip() else l for l in m.group(0).rstrip().split('\n'))
-s = re.sub(r'\n?\[r2_postproc\]\n(?:[ \t]*[A-Za-z_][A-Za-z0-9_]*:[^\n]*\n|[ \t]*\n)*', comment, s, count=1)
+    # R113: no rstrip() - it glued the next line onto the last comment line
+    return '\n'.join('# [R2-off] ' + l if l.strip() else l for l in m.group(0).split('\n'))
+# R113: column-0 comments INSIDE the section are consumed when another
+# section line follows (field-log .86 boot halt), trailing comments stay
+s = re.sub(r'\n?\[r2_postproc\]\n(?:[ \t]*[A-Za-z_][A-Za-z0-9_]*:[^\n]*\n|[ \t]*\n|(?:[ \t]*#[^\n]*\n)+(?=[ \t]*[A-Za-z_][A-Za-z0-9_]*:))*', comment, s, count=1)
 open(p, 'w', encoding='utf-8', errors='surrogateescape').write(s)
 R2PY_RAW
                     r2_hw_read
