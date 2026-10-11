@@ -18,7 +18,7 @@ they land in the gcodes folder (Mainsail upload, USB copy, scp - every path):
      by-object) end up in Pre-Print > File (G-code) for EVERY file, even
      foreign downloads without our slicer script.
 
-Idempotent: a processed file gets the tag '; R2-POSTPROC v4' and is skipped;
+Idempotent: a processed file gets the tag '; R2-POSTPROC v5' and is skipped;
 files tagged v1 (up to .41) are UPGRADED in place (marks stay, APPLY_TYPE +
 extended _FILE_INFO added) - see OLD_TAG below.
 Files that already carry LAYER_MARK (sliced with the R2 script) only get the
@@ -55,7 +55,7 @@ import zlib
 import struct
 import json
 
-TAG = '; R2-POSTPROC v4'
+TAG = '; R2-POSTPROC v5'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
 # and no speed/accel/nozzle parameters. Files carrying an OLD tag are UPGRADED
@@ -68,7 +68,12 @@ VAR_PATH = None    # set by watch(): save_variables file (plotter + range reques
 # (mm/s2, the M204 in effect there) measured from the g-code itself. The
 # slicer's config header often only has percentages (bridge_acceleration=50%)
 # or nothing at all (support) - the measured values are the honest originals.
-OLD_TAGS = ('; R2-POSTPROC v1', '; R2-POSTPROC v2', '; R2-POSTPROC v3')
+# R112 (.86): v4 files (everything tagged before .86) are 'STALE' - fully
+# functional markers, but the _FILE_INFO line predates the .85/.86 keys
+# (MAXRATE/SEAM/CFG replay/retract status). RETAG upgrades them in place.
+V4_TAG = '; R2-POSTPROC v4'
+OLD_TAGS = ('; R2-POSTPROC v1', '; R2-POSTPROC v2', '; R2-POSTPROC v3',
+            '; R2-POSTPROC v4')
 
 # ---- layer-change comments (slicer dialects) -------------------------------------
 # NOTE: ;BEFORE_LAYER_CHANGE is deliberately NOT matched - Orca/PrusaSlicer emit
@@ -10073,6 +10078,7 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
     fw_ret = 0              # bare G10/G11 = firmware retraction in effect
     slicer_ret = 0          # E-only G1 retracts = slicer moves (fix target)
     fixed_mark = False      # '; R2-RETRACTFIX' = already rewritten by us
+    max_ret_len = 0.0       # R112: longest explicit slicer retract (mm)
     e_rel = False           # M83 seen?
     e_run = 0.0             # running absolute E (M82 world)
     eret_re = re.compile(r'G1\s+E(-?\d+(?:\.\d+)?)(?:\s+F\d+(?:\.\d+)?)?\s*$')
@@ -10154,8 +10160,10 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
                     if e_rel:
                         if ev < -0.05:
                             slicer_ret += 1
+                            max_ret_len = max(max_ret_len, -ev)
                     elif ev < e_run - 0.05:
                         slicer_ret += 1
+                        max_ret_len = max(max_ret_len, e_run - ev)
                 if not e_rel:
                     m = re.match(r'G9?[12]\b[^;]*?\bE(-?\d+(?:\.\d+)?)', ls)
                     if m:
@@ -10338,6 +10346,24 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
         retract_style = ''
     if retract_style:
         info.append('RETRACT=' + retract_style)
+    # R112: an UNAMBIGUOUS retract verdict for Pre-Print > File:
+    #   fixed = already rewritten to G10/G11 by the R84 rescue - nothing to do
+    #   fw    = the slicer itself uses G10/G11 - perfect, nothing to do
+    #   fix   = explicit slicer retracts, longest >= 1.5 mm (Bowden era!) -
+    #           SHOULD be fixed, they override your tuned direct-drive values
+    #   can   = explicit slicer retracts, moderate length - fix OPTIONAL
+    #           (only if you WANT firmware retraction to rule them live)
+    if retract_style in ('fixed', 'fw'):
+        ret_status = retract_style
+    elif retract_style == 'slicer':
+        ret_status = 'fix' if max_ret_len >= 1.5 else 'can'
+    else:
+        ret_status = ''
+    if ret_status:
+        info.append('RETRACT_STATUS=' + ret_status)
+        info.append('RETRACT_MAX=%.1f' % max_ret_len)
+    summary['retract_status'] = ret_status
+    summary['retract_max'] = max_ret_len
     summary['retract_style'] = retract_style
     summary['retract_slicer_moves'] = slicer_ret
     summary['slicer'] = det84['slicer']
@@ -11007,10 +11033,11 @@ def file_check_scan(directory):
     Streams only each file's header (~120 lines) - the tag line, plotter
     marker and _FILE_INFO all live at the top. Returns (rows, totals):
     every row is {'name', 'status', 'age', 'size', 'gen', 'tex'} with
-    status CURRENT (tag v4) / OLD (v1-v3, upgradeable in place) /
-    PLOT (pen-plotter file - never tagged, fine) / UNTOUCHED (never
-    processed: fresh upload from before the system existed or a foreign
-    file). Pure read - nothing is modified.
+    status CURRENT (tag v5) / STALE (tag v4: markers fully functional, the
+    info line predates .85/.86 - RETAG adds MAXRATE/SEAM/CFG/retract status) /
+    OLD (v1-v3, upgradeable in place) / PLOT (pen-plotter file - never
+    tagged, fine) / UNTOUCHED (never processed: fresh upload from before the
+    system existed or a foreign file). Pure read - nothing is modified.
     """
     rows = []
     now = time.time()
@@ -11035,6 +11062,8 @@ def file_check_scan(directory):
             status = 'PLOT'
         elif TAG in h:
             status = 'CURRENT'
+        elif V4_TAG in h:
+            status = 'STALE'
         elif any(t in h for t in OLD_TAGS):
             status = 'OLD'
         else:
@@ -11047,6 +11076,7 @@ def file_check_scan(directory):
     totals = {'files': len(rows),
               'current': sum(1 for r in rows if r['status'] == 'CURRENT'),
               'old': sum(1 for r in rows if r['status'] == 'OLD'),
+              'stale': sum(1 for r in rows if r['status'] == 'STALE'),
               'untouched': sum(1 for r in rows if r['status'] == 'UNTOUCHED'),
               'plot': sum(1 for r in rows if r['status'] == 'PLOT')}
     return rows, totals
@@ -12111,7 +12141,7 @@ def watch(directory, interval=5.0, once=False):
                           % (_r93['name'][:46], _r93['status'], _r93['age'],
                              _r93['size'],
                              ' [texture]' if _r93['tex'] else ''), flush=True)
-                _up93 = [r for r in rows93 if r['status'] in ('OLD', 'UNTOUCHED')]
+                _up93 = [r for r in rows93 if r['status'] in ('OLD', 'STALE', 'UNTOUCHED')]
                 _extra93 = ''
                 if _retag93:
                     _st93 = {}
@@ -12141,10 +12171,11 @@ def watch(directory, interval=5.0, once=False):
                                     % (_n93, len(_up93)))
                         if len(_up93) > 20:
                             _extra93 += ' - run again for the rest'
-                _msg93 = ('File check: %d files - %d current, %d old, %d '
+                _msg93 = ('File check: %d files - %d current, %d stale '
+                          '(v4: RETAG=1 adds the .86 info), %d old, %d '
                           'untouched, %d plotter'
-                          % (tot93['files'], tot93['current'], tot93['old'],
-                             tot93['untouched'], tot93['plot']))
+                          % (tot93['files'], tot93['current'], tot93['stale'],
+                             tot93['old'], tot93['untouched'], tot93['plot']))
                 try:
                     _moonraker_gcode(
                         'RESPOND MSG="%s%s"\nM117 Files: %dcur %dold %dnew\n'
@@ -12668,8 +12699,10 @@ def main():
             print('[file-check] %-46s %-9s age=%4dd %7.1f MB%s'
                   % (_r93['name'][:46], _r93['status'], _r93['age'],
                      _r93['size'], ' [texture]' if _r93['tex'] else ''))
-        print('[file-check] %d files: %d current, %d old, %d untouched, '
-              '%d plotter' % (tot93['files'], tot93['current'], tot93['old'],
+        print('[file-check] %d files: %d current, %d stale (v4: RETAG=1 '
+              'adds the .86 info), %d old, %d untouched, '
+              '%d plotter' % (tot93['files'], tot93['current'],
+                              tot93['stale'], tot93['old'],
                               tot93['untouched'], tot93['plot']))
         return
     dry = '--dry-run' in args

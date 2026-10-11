@@ -2435,7 +2435,7 @@ if _os58.path.isdir('/home/user/uploads'):
         tests.append(('R58b v1->v2 upgrade: marks stay, TYPE added, info replaced',
             'upgraded from v1' in _r58b.stdout and _t58b.count('\nLAYER_MARK') == 242
             and _t58b.count('\nAPPLY_TYPE TYPE=') == 36 and _t58b.count('\n_FILE_INFO') == 1
-            and 'SPEED_OUTER=60' in _t58b and 'BY_OBJECT=1' in _t58b and '; R2-POSTPROC v4' in _t58b
+            and 'SPEED_OUTER=60' in _t58b and 'BY_OBJECT=1' in _t58b and '; R2-POSTPROC v5' in _t58b
             and 'TYPES=' in _t58b and 'FS_WALL_OUTER=42.1' in _t58b and 'FS_IRONING=40' in _t58b,
             _r58b.stdout.strip()[:100]))
         _r58c = _sp58.run([_sys58.executable, 'tools/r2_postproc.py', _f58b], capture_output=True, text=True)
@@ -2589,7 +2589,7 @@ tests.append(('R60 LCD Live > File: full mirror (measured spd/acc + 12 activator
 
 # --- 6) postproc v4: TYPES + measured values in the Rose file ---
 tests.append(('R60 postproc v4: tag + TYPES (7 real features, NO support/sparse) + measured speeds',
-    '; R2-POSTPROC v4' in _t58 and 'TYPES=CUSTOM,BRIM,WALL-OUTER,SURFACE-BOTTOM,SURFACE-TOP,INFILL-SOLID,IRONING' in _t58
+    '; R2-POSTPROC v5' in _t58 and 'TYPES=CUSTOM,BRIM,WALL-OUTER,SURFACE-BOTTOM,SURFACE-TOP,INFILL-SOLID,IRONING' in _t58
     and 'FS_WALL_OUTER=42.1' in _t58 and 'FS_BRIM=20' in _t58 and 'FS_IRONING=40' in _t58
     and 'FS_SURFACE_TOP=60' in _t58
     and 'FS_SUPPORT=' not in _t58, _fi58[:120]))
@@ -3034,7 +3034,7 @@ tests.append(('R63 make_labels: file + info (2 labels, tower, 6 layers)',
     _info63['count'] == 2 and _info63['layers'] == 6 and _info63['tower']
     and _os63.path.isfile(_out63), str(_info63)))
 tests.append(('R63 make_labels: tagged by process() (TAG + _FILE_INFO + LAYER_MARK)',
-    '; R2-POSTPROC v4' in _t63 and '_FILE_INFO' in _t63 and 'MATERIAL=PLA' in _t63
+    '; R2-POSTPROC v5' in _t63 and '_FILE_INFO' in _t63 and 'MATERIAL=PLA' in _t63
     and _t63.count('\nLAYER_MARK\n') == 6, ''))
 tests.append(('R63 make_labels: PRINT_START head + slicer config comments',
     _t63.index('PRINT_START MATERIAL=PLA') > _t63.index('; filament_type = PLA')
@@ -3345,7 +3345,7 @@ tests.append(('R64 resonance print: EXCLUDE_OBJECT_DEFINE before PRINT_START',
     and _g.count('EXCLUDE_OBJECT_DEFINE') == 2, ''))
 tests.append(('R64 resonance print: 5 layers, marks + types via process()',
     _g.count(';LAYER_CHANGE') == 5 and 'LAYER_MARK' in _g and 'APPLY_TYPE' in _g
-    and '; R2-POSTPROC v4' in _g, ''))
+    and '; R2-POSTPROC v5' in _g, ''))
 _xs64 = [float(m.group(1)) for m in _re64.finditer(r'^G[01] X([\d.]+)', _g, _re64.M)]
 _ys64 = [float(m.group(1)) for m in _re64.finditer(r' Y(-?[\d.]+)', _g, _re64.M)]
 tests.append(('R64 resonance print: both plates inside the bed',
@@ -3678,8 +3678,8 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         _v66 = _l66.split(':', 1)[1].strip()
         break
 # NOTE: bump this expectation together with the version on every release!
-tests.append(('R66/R80 version is .84 in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-12.85'", repr(_v66)))
+tests.append(('R66/R80 version is current (.86) in 01_state.cfg (bump together with release!)',
+    _v66 == "'R2-2026-10-12.86'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -3773,7 +3773,7 @@ _r68 = _sp68.run([_sys68.executable, 'tools/r2_postproc.py', _f68],
 _t68 = open(_f68).read()
 tests.append(('R68 hyphen comments + bare E- + ";Z:-" process cleanly (no float crash), tag + marks',
     _r68.returncode == 0 and 'ValueError' not in (_r68.stderr + _r68.stdout)
-    and '; R2-POSTPROC v4' in _t68 and _t68.count('LAYER_MARK') >= 2,
+    and '; R2-POSTPROC v5' in _t68 and _t68.count('LAYER_MARK') >= 2,
     (_r68.returncode, (_r68.stderr or _r68.stdout)[-200:])))
 _r68b = _sp68.run([_sys68.executable, '-c',
     "import importlib.util as u; s = u.spec_from_file_location('r2p', 'tools/r2_postproc.py');"
@@ -3784,7 +3784,7 @@ _r68b = _sp68.run([_sys68.executable, '-c',
 tests.append(('R68 parse_params: comments stripped, X-/hyphen names ignored, real negatives kept',
     _r68b.returncode == 0 and 'ok' in _r68b.stdout, _r68b.stderr[-200:]))
 tests.append(('R68 postproc docstring names the real tag (v4, not the stale v2)',
-    "the tag '; R2-POSTPROC v4' and is skipped" in open('tools/r2_postproc.py', encoding='utf-8').read(), ''))
+    "the tag '; R2-POSTPROC v5' and is skipped" in open('tools/r2_postproc.py', encoding='utf-8').read(), ''))
 
 # ---------- R69: SAVE_VARIABLE must survive Klipper's shlex + literal_eval ----------
 # Klipper cuts each command line at ';' and parses non-traditional commands
@@ -4289,7 +4289,7 @@ _lp73, _li73 = _mod73.make_labels(['Axg@'], w=60, h=30, hole_side=1, hole_d=5.0,
                                   bed=(0, -3, 244, 238), out_dir=_d73)
 _lt73 = open(_lp73).read()
 tests.append(('R73 label file: TAG + _FILE_INFO + markers DIRECT (no process re-parse)',
-    '; R2-POSTPROC v4' in _lt73 and _lt73.count('_FILE_INFO ') == 1
+    '; R2-POSTPROC v5' in _lt73 and _lt73.count('_FILE_INFO ') == 1
     and 'APPLY_TYPE TYPE=WALL-INNER' in _lt73 and _lt73.count('LAYER_MARK') == 3
     and _mod73.process(_lp73)['skipped'] is True, ''))
 _fed73 = [int(_m73.group(1)) for _m73 in _re73.finditer(r'F(\d+)', _lt73)]
@@ -4782,10 +4782,10 @@ tests.append(('R75 _PREVIEW_SET macro: junk numeric value falls back to 0 (never
 _0875 = open('macros/08_print_start_stop.cfg').read()
 _sec75 = _0875[_0875.index('[gcode_macro _PREVIEW]'):_0875.index('[gcode_macro _PREVIEW_SET]')]
 _pvars75 = _re74.findall(r'^variable_(\w+):', _sec75, _re74.M)
-tests.append(('R75/R84/R89 _PREVIEW card: 27 in-memory variables (name..pens + slicer/fw/vol/retract)',
-    len(_pvars75) == 27 and all(v in _pvars75 for v in
+tests.append(('R75/R84/R89 _PREVIEW card: 29 in-memory variables (name..pens + slicer/fw/vol/retract+status)',
+    len(_pvars75) == 29 and all(v in _pvars75 for v in
     ('name', 'type', 'material', 'layer_height', 'hotend', 'bed', 'fan', 'plot', 'pens', 'types',
-     'slicer', 'firmware', 'volumetric', 'retract_style')),
+     'slicer', 'firmware', 'volumetric', 'retract_style', 'retract_status', 'retract_max')),
     str(_pvars75)))
 tests.append(('R75 nobody reads save_variables.preview_* anymore (in-memory card)',
     'variables.preview_' not in _lcd74
@@ -5061,7 +5061,7 @@ tests.append(('R77/R83 label: total G10 <= 160 (storm was 636; R83 adds discrete
 # --- (1d) range raft parity with .57 (the user wants THAT look) ---------------
 def _src77(d):
     _p77 = _os74.path.join(d, 'part77.gcode')
-    _L77 = ['; R2-POSTPROC v4',
+    _L77 = ['; R2-POSTPROC v5',
             '_FILE_INFO MATERIAL=PLA LAYER_HEIGHT=0.2 TOTAL_LAYERS=8 LINE_WIDTH=0.65',
             'M83', 'G92 E0']
     _e77 = 0.0
@@ -5614,7 +5614,7 @@ tests.append(('R83 PRINT_END: filament stat in meters (Klipper reports mm)',
 # (3) range overwrite semantics: same name replaces, version bumps, source safe
 _d83 = _tf74.mkdtemp()
 _src83 = _os74.path.join(_d83, 'teil.gcode')
-_L83 = ['; R2-POSTPROC v4', 'G28', 'G90', 'M83', 'G92 E0']
+_L83 = ['; R2-POSTPROC v5', 'G28', 'G90', 'M83', 'G92 E0']
 for _i83 in range(1, 7):
     _L83 += ['LAYER_MARK', 'G1 Z%.2f F600' % (_i83 * 0.2), 'G1 X10 Y10 E0.5 F1200',
              ';TYPE:WALL-OUTER', 'G1 X20 Y10 E0.5 F1200']
@@ -5838,20 +5838,20 @@ tests.append(('R85 volumetric fix: idempotent (second run = no-op)',
     and open(_v85).read() == _t85, ''))
 _v85b = _os85.path.join(_d85, 'marked_vol.gcode')
 open(_v85b, 'w').write(
-    ';FLAVOR:Marlin (Volumetric)\n; R2-POSTPROC v4\n'
+    ';FLAVOR:Marlin (Volumetric)\n; R2-POSTPROC v5\n'
     '_FILE_INFO MATERIAL=PLA TOTAL_LAYERS=5 VOLUMETRIC=1\n'
     'M83\nLAYER_MARK\nG1 X10 Y10 E2.405 F1800\n')
 _n85b, _ = _mod73._volumetric_convert_file(_v85b)
 _t85b = open(_v85b).read()
 tests.append(('R85 volumetric fix: R2 TAG + _FILE_INFO survive, VOLUMETRIC=0',
-    _n85b == 1 and '; R2-POSTPROC v4' in _t85b
+    _n85b == 1 and '; R2-POSTPROC v5' in _t85b
     and '_FILE_INFO MATERIAL=PLA TOTAL_LAYERS=5 VOLUMETRIC=0' in _t85b, _t85b[:120]))
 tests.append(('R85 volumetric fix: detection drops the flag after conversion',
     not _mod73._detect_slicer(_v85)['volumetric'], ''))
 
 # (2) retract rewrite on a TAGGED file: markers survive (the no-re-upload proof)
 _r85 = _os85.path.join(_d85, 'marked_old.gcode')
-_L85 = ['; R2-POSTPROC v4', 'M83', 'G28', 'G92 E0']
+_L85 = ['; R2-POSTPROC v5', 'M83', 'G28', 'G92 E0']
 for _i85 in range(1, 5):
     _L85 += ['LAYER_MARK', 'G1 Z%.2f F600' % (_i85 * 0.2), ';TYPE:WALL-OUTER',
              'G1 X10 Y10 E0.5 F1200', 'G1 F4800 E-5.0', 'G0 X40 Y40 F9000',
@@ -5861,13 +5861,13 @@ open(_r85, 'w').write('\n'.join(_L85) + '\n')
 _p85, _ = _mod73._retract_rewrite_file(_r85)
 _t85r = open(_r85).read()
 tests.append(('R85 retract fix on a TAGGED file: no re-upload, markers intact',
-    _p85 == 4 and _t85r.startswith('; R2-POSTPROC v4')
+    _p85 == 4 and _t85r.startswith('; R2-POSTPROC v5')
     and _t85r.count('LAYER_MARK') == 4 and _t85r.count('\nG10\n') == 4
     and 'APPLY_TYPE' in _t85r or True, 'pairs %d marks %d' % (
         _p85, _t85r.count('LAYER_MARK'))))
 # honest re-check (the or-True above guards a missing APPLY_TYPE in the fixture)
 tests.append(('R85 retract fix tagged: TAG + 4 marks + 4 G10 (exact)',
-    _p85 == 4 and _t85r.startswith('; R2-POSTPROC v4')
+    _p85 == 4 and _t85r.startswith('; R2-POSTPROC v5')
     and _t85r.count('LAYER_MARK') == 4 and _t85r.count('\nG10\n') == 4,
     'pairs %d' % _p85))
 
@@ -6281,7 +6281,7 @@ tests.append(('R86.2 LCD: hole input names <=16 incl. worst-case value',
 
 # --- (4) postproc geometry: range holes ---
 _d862 = tempfile.mkdtemp(prefix='r862_')
-_ln862 = ['; R2-POSTPROC v4', '_FILE_INFO MATERIAL=PLA TOTAL_LAYERS=8 BED=60 HOTEND=210',
+_ln862 = ['; R2-POSTPROC v5', '_FILE_INFO MATERIAL=PLA TOTAL_LAYERS=8 BED=60 HOTEND=210',
           'G90', 'M82', 'G28', 'G1 Z0.2 F600']
 _e862 = 0.0
 for _ly in range(8):
@@ -7287,20 +7287,21 @@ import sys as _sys93
 _d93 = _tf91.mkdtemp(prefix='r93_')
 def _w93(n, c):
     open(_os91.path.join(_d93, n), 'w').write(c)
-_w93('a_current.gcode', '; R2-POSTPROC v4\n_FILE_INFO x\nG28\n')
+_w93('a_current.gcode', '; R2-POSTPROC v5\n_FILE_INFO x\nG28\n')
+_w93('f_stale.gcode', '; R2-POSTPROC v4\n_FILE_INFO x\nG28\n')   # R112: v4 = STALE
 _w93('b_old.gcode', '; R2-POSTPROC v2\nG28\n')
 _w93('c_untouched.gcode', ';FLAVOR:Marvin\nG28\n')
 _w93('d_plot.gcode', '; R2-PLOT v3 (pen)\nG28\n')
 _w93('e_tex.gcode', '; R2-TEXTURE v1 (R91) applied to x.gcode\n'
-                    '; R2-POSTPROC v4\nG28\n')
+                    '; R2-POSTPROC v5\nG28\n')
 _rows93, _tot93 = _mod73.file_check_scan(_d93)
 _st93 = {r['name']: r['status'] for r in _rows93}
 tests.append(('R93 scan: current / old / untouched / plotter + texture flag',
     _st93 == {'a_current.gcode': 'CURRENT', 'b_old.gcode': 'OLD',
               'c_untouched.gcode': 'UNTOUCHED', 'd_plot.gcode': 'PLOT',
-              'e_tex.gcode': 'CURRENT'}
-    and _tot93 == {'files': 5, 'current': 2, 'old': 1, 'untouched': 1,
-                   'plot': 1}
+              'e_tex.gcode': 'CURRENT', 'f_stale.gcode': 'STALE'}
+    and _tot93 == {'files': 6, 'current': 2, 'old': 1, 'stale': 1,
+                   'untouched': 1, 'plot': 1}
     and [r for r in _rows93 if r['name'] == 'e_tex.gcode'][0]['tex'],
     str(_tot93)))
 tests.append(('R93 scan: age 0 days, sorted by name, .txt ignored',
@@ -7313,7 +7314,7 @@ _p93 = _sp93.run([_sys93.executable, 'r2_postproc.py', '--file-check', _d93],
                  capture_output=True, text=True, cwd='tools')
 tests.append(('R93 CLI: --file-check lists every file + summary line',
     _p93.returncode == 0 and 'a_current.gcode' in _p93.stdout
-    and 'CURRENT' in _p93.stdout and '5 files: 2 current, 1 old' in _p93.stdout,
+    and 'CURRENT' in _p93.stdout and '6 files: 2 current, 1 stale' in _p93.stdout and '1 old' in _p93.stdout and 'f_stale' in _p93.stdout,
     _p93.stdout.strip().splitlines()[-1] if _p93.stdout else _p93.stderr[:80]))
 
 # FILE_CHECK macro: scan branch / arm branch / confirmed branch
@@ -7828,7 +7829,7 @@ state_vars['mode'] = 'printing'
 import math as _m95
 _d95t = _tf91.mkdtemp(prefix='r95tex_')
 _p95v = _os91.path.join(_d95t, 'vase95.gcode')
-_L95v = ['; R2-POSTPROC v4', 'M83', 'G90', 'G28',
+_L95v = ['; R2-POSTPROC v5', 'M83', 'G90', 'G28',
          'G0 X120.000 Y100.000', 'G1 Z0.2 F600']
 for _ly95 in range(1, 4):
     _L95v += ['LAYER_MARK', 'G1 Z%.2f F600' % (0.2 * _ly95), ';TYPE:Outer wall']
@@ -9662,6 +9663,189 @@ tests.append(('R111 FIX_FILE WHAT=TRAVELACC: arms the watcher nonce (6000 mm/s2)
     'VARIABLE=travelacc_fix_nonce VALUE=1' in out and 'VARIABLE=travelaccel_value VALUE=6000' in out,
     [l for l in out.split('\n') if 'travelac' in l][:3]))
 state_vars['mode'] = 'printing'
+
+# ============================= R112 (.86) - retag + retract verdict =============================
+# v4 files become STALE and RETAG upgrades them in place (no double markers,
+# same LAYER_MARK count, the new info keys); the retract verdict is unambiguous
+
+import tempfile as _tf112, os as _os112, subprocess as _sp112, sys as _sys112
+import importlib.util as _ilu112
+_spec112 = _ilu112.spec_from_file_location('pp112', 'tools/r2_postproc.py')
+_pp112 = _ilu112.module_from_spec(_spec112); _spec112.loader.exec_module(_pp112)
+_d112 = _tf112.mkdtemp(prefix='r112_rt_')
+
+# --- 1) a REAL v4 file (tagged by the pre-.86 code): markers stay, info refreshes ---
+_body112 = ('; generated by OrcaSlicer 2.2.0\nM82\nG28\nG90\n'
+            ';LAYER_CHANGE\nG1 X10 Y10 Z0.2 F1200 E1.0\n'
+            ';LAYER_CHANGE\nG1 X10 Y10 Z0.4 F1200 E2.0\n'
+            ';TYPE:Outer wall\nG1 X20 Y10 F2400 E3.0\nG1 X30 Y10 F2400 E4.0\n'
+            ';TYPE:Sparse infill\nG1 X40 Y10 F4800 E5.0\nM104 S0\n')
+_p112 = _os112.path.join(_d112, 'v4file.gcode')
+open(_p112, 'w').write(_body112)
+_pp112.process(_p112)                    # tag with the CURRENT code
+_t112 = open(_p112).read()
+_m112 = _t112.count('\nLAYER_MARK'); _a112 = _t112.count('\nAPPLY_TYPE TYPE=')
+# simulate the pre-.86 tag: v5 -> v4 (everything tagged before .86 looks like this)
+open(_p112, 'w').write(_t112.replace('; R2-POSTPROC v5', '; R2-POSTPROC v4'))
+_rows112, _tot112 = _pp112.file_check_scan(_d112)
+tests.append(('R112 a pre-.86 (v4-tagged) file counts as STALE, not CURRENT',
+    _tot112['stale'] == 1 and _tot112['current'] == 0, str(_tot112)))
+_s112 = _pp112.process(_p112)            # RETAG (the upgrade path)
+_t112b = open(_p112).read()
+tests.append(('R112 RETAG upgrades v4 -> v5 with NO double markers',
+    '; R2-POSTPROC v5' in _t112b and '; R2-POSTPROC v4' not in _t112b
+    and _t112b.count('\nLAYER_MARK') == _m112
+    and _t112b.count('\nAPPLY_TYPE TYPE=') == _a112
+    and _t112b.count('\n_FILE_INFO') == 1,
+    (len(_t112b), len(_t112))))
+tests.append(('R112 RETAG result is CURRENT again and carries the new keys',
+    _pp112.file_check_scan(_d112)[1]['current'] == 1
+    and 'MAXRATE=' in _t112b and 'SEAM=' in _t112b,
+    ''))
+_s112b = _pp112.process(_p112)
+tests.append(('R112 RETAG is idempotent (second run skips)',
+    _s112b.get('skipped') is True, ''))
+
+# --- 2) the retract verdict across the four cases ---
+def _rv112(name, body):
+    p = _os112.path.join(_d112, name)
+    open(p, 'w').write(body)
+    _pp112.process(p)
+    t = open(p).read()
+    import re as _re112
+    st = _re112.search(r'RETRACT_STATUS=(\w+)', t)
+    mx = _re112.search(r'RETRACT_MAX=([\d.]+)', t)
+    return st.group(1) if st else '', float(mx.group(1)) if mx else 0.0
+
+tests.append(('R112 Bowden file (4.5 mm retracts): verdict FIX, not optional',
+    _rv112('bowden.gcode',
+           '; generated by Cura_SteamEngine 5.7.0\nM82\nG28\nG90\n;LAYER_CHANGE\n'
+           'G1 X10 Y10 Z0.2 F1200 E1.0\nG1 E-3.4 F2400\nG1 X20 Y10 F1200 E4.4\n'
+           'G1 E-0.1 F2400\nG1 X30 Y10 F1200 E10.0\nM104 S0\n') == ('fix', 4.5),
+    ''))
+tests.append(('R112 moderate retracts (0.8 mm): verdict CAN (optional)',
+    _rv112('moderate.gcode',
+           '; generated by Cura_SteamEngine 5.7.0\nM82\nG28\nG90\n;LAYER_CHANGE\n'
+           'G1 X10 Y10 Z0.2 F1200 E1.0\nG1 E0.2 F2400\nG1 X20 Y10 F1200 E1.8\n'
+           'G1 E1.0 F2400\nG1 X30 Y10 F1200 E2.8\nM104 S0\n') == ('can', 0.8),
+    ''))
+tests.append(('R112 G10/G11 file: verdict FW (nothing to do)',
+    _rv112('fw.gcode',
+           '; generated by OrcaSlicer 2.2.0\nM82\nG28\nG90\n;LAYER_CHANGE\n'
+           'G1 X10 Y10 Z0.2 F1200 E1.0\nG10\nG0 X20 Y10 F9000\nG11\n'
+           'G1 X30 Y10 F1200 E2.0\nM104 S0\n')[0] == 'fw', ''))
+tests.append(('R112 already-rewritten file: verdict FIXED',
+    _rv112('fixed.gcode',
+           '; generated by Cura_SteamEngine 5.7.0\n; R2-RETRACTFIX: 2 pair(s)\n'
+           'M82\nG28\nG90\n;LAYER_CHANGE\nG1 X10 Y10 Z0.2 F1200 E1.0\nG10\n'
+           'G0 X20 Y10 F9000\nG11\nG1 X30 Y10 F1200 E2.0\nM104 S0\n')[0] == 'fixed', ''))
+
+# --- 3) _FILE_INFO macro parses the verdict into _STATE ---
+body = get_body('macros/08_print_start_stop.cfg', '_FILE_INFO')
+out = render(body, {'RETRACT_STATUS': 'fix', 'RETRACT_MAX': '6.5'})
+tests.append(('R112 _FILE_INFO: RETRACT_STATUS/MAX land in _STATE',
+    'VARIABLE=file_retract_status VALUE=\'"fix"\'' in out
+    and 'VARIABLE=file_retract_max VALUE=6.5' in out
+    and 'FIX - explicit slicer retracts up to 6.5 mm - FIX! they override' in out,
+    [l for l in out.split('\n') if 'retract' in l.lower()][:3]))
+out = render(body, {'RETRACT_STATUS': 'fw'})
+tests.append(('R112 _FILE_INFO: fw verdict explains itself (nothing to do)',
+    'slicer-native G10/G11' in out, out.strip()[:90]))
+
+body = get_body('macros/08_print_start_stop.cfg', '_FILE_INFO_RESET')
+out = render(body, {})
+tests.append(('R112 _FILE_INFO_RESET clears the verdict',
+    'VARIABLE=file_retract_status VALUE=\'""\'' in out
+    and 'VARIABLE=file_retract_max VALUE=0.0' in out, ''))
+
+# --- 4) _PREVIEW_SET: the verdict can never go stale between selections ---
+body = get_body('macros/08_print_start_stop.cfg', '_PREVIEW_SET')
+out = render(body, {'NAME': 'old.gcode', 'RETRACT_STATUS': 'fix', 'RETRACT_MAX': '6.5'})
+out2 = render(body, {'NAME': 'stale_v4.gcode'})      # no verdict keys at all
+tests.append(('R112 _PREVIEW_SET resets the verdict (STALE files show -- not the old one)',
+    'VARIABLE=retract_status VALUE=\'"fix"\'' in out
+    and 'VARIABLE=retract_status VALUE=\'""\'' in out2
+    and 'VARIABLE=retract_max VALUE=0.0' in out2,
+    [l for l in out2.split('\n') if 'retract' in l][:2]))
+
+# --- 5) the LCD RetFix offer only appears for fix/can ---
+_lcd112 = open('menus/lcd_menues.cfg').read()
+tests.append(('R112 LCD: RetFix file gated on the verdict (fix/can), not just style',
+    "__fixr]" in _lcd112 and "retract_status|default('') in ['fix', 'can']" in _lcd112
+    and "__retst]" in _lcd112, ''))
+tests.append(('R112 LCD: the Ret: status line names all four verdicts + fallback',
+    all(k in _lcd112 for k in ("'FIX!'", "'can '", "'fixed'", "'fw'", "'--'")),
+    ''))
+
+# --- 6) LED_INFO: empty bed-light span reads as none, not 5-4 ---
+body = get_body('macros/03_leds.cfg', 'LED_INFO')
+_gd112 = dict(build_printer())
+_gd112['gcode_macro _R2_CONFIG'] = M({'led_section': 'printer_leds', 'led_type': 'neopixel',
+                                       'led_status_n': 4, 'led_bed_n': 0, 'led_bed_on': 1,
+                                       'led_bed_bright': 0.4, 'led_nozzle_split': 0})
+_gd112['configfile'] = M({'settings': M({'neopixel printer_leds': M({'pin': 'PA8', 'chain_count': 5})})})
+out = env.from_string(body).render(printer=MP(_gd112), params={})
+tests.append(('R112 LED_INFO: bn=0 -> no bed light LEDs (main chain), not 5-4',
+    'no bed light LEDs on the main chain' in out and '5-4' not in out,
+    [l for l in out.split('\n') if 'areas' in l][:1]))
+
+# --- 7) FILE_CHECK console summary names STALE ---
+import re as _re112b
+_ppsrc112 = open('tools/r2_postproc.py').read()
+tests.append(('R112 file-check summary teaches the RETAG path for stale files',
+    'stale (v4: RETAG=1' in _ppsrc112 or 'stale (v4)' in _ppsrc112, ''))
+
+# ================= R112: parameter wiring cross-check =================
+# every _FILE_INFO (KEY, var) pair: the _STATE variable exists AND is in the
+# reset list; every CFG replay key of the post-processor reaches the parser
+import re as _re112c
+_08112 = open('macros/08_print_start_stop.cfg').read()
+_01112 = open('macros/01_state.cfg').read()
+_pairs112 = _re112c.findall(r"\('([A-Z][A-Z0-9_]+)','(\w+)'\)", _08112)
+_decl112 = set(_re112c.findall(r'^variable_(\w+):', _01112, _re112c.M))
+_resetm112 = _re112c.search(r'_FILE_INFO_RESET.*?\n(.*?)\n\n\[', _08112, _re112c.S)
+_reset112 = _re112c.findall(r"'(\w+)'", _resetm112.group(1)) if _resetm112 else []
+_missing_decl = [v for (_, v) in _pairs112 if v not in _decl112]
+_missing_reset = [v for (_, v) in _pairs112 if v not in _reset112 and not v.startswith('total_')]
+tests.append(('R112 cross-check: all %d _FILE_INFO keys map to DECLARED _STATE vars'
+              % len(_pairs112),
+    not _missing_decl, _missing_decl[:6]))
+tests.append(('R112 cross-check: every mapped var is in _FILE_INFO_RESET',
+    not _missing_reset, _missing_reset[:6]))
+
+# the 14 new CFG replay keys (LW_*, ACCEL_*, FIL_DIA, ...) reach the parser
+_ppsrc112 = open('tools/r2_postproc.py').read()
+_cfgkeys112 = _re112c.search(r'CFG_KEYS\s*=\s*\{(.*?)\n\}', _ppsrc112, _re112c.S)
+_cfg112 = sorted(set(_re112c.findall(r":\s*'([A-Z][A-Z0-9_]+)'", _cfgkeys112.group(1)))) if _cfgkeys112 else []
+assert _cfg112, 'CFG_KEYS regex broke - fix the crosscheck, not the assert'
+_not_parsed = [k for k in _cfg112
+               if ('%s' % k) not in _08112]
+tests.append(('R112 cross-check: all %d post-processor CFG_KEYS reach the _FILE_INFO parser'
+              % len(_cfg112),
+    not _not_parsed, _not_parsed[:8]))
+
+# the parser's RESET loop and the declarations stay in sync (no orphan var)
+_orphans112 = [v for v in _reset112 if v not in _decl112 and not v.startswith('total_')]
+tests.append(('R112 cross-check: reset list has no undeclared variables',
+    not _orphans112, _orphans112[:6]))
+
+# the 16 feature codes are spelled identically everywhere they are listed
+_codes112 = ('wallouter','wallinner','infillsparse','infillsolid','surfacetop',
+             'surfacebottom','bridge','gaps','support','ironing','skirt','brim',
+             'overhangperim','internalbridge','primetower','custom')
+_fcodes_mismatch = []
+for _f112 in ['macros/07_start_confirm.cfg', 'macros/10_live_tuning.cfg',
+              'macros/05_materials.cfg']:
+    _src112 = open(_f112).read()
+    _found112 = _re112c.search(r"\[('wallouter'.*?'custom')\]", _src112, _re112c.S)
+    if not _found112:
+        _fcodes_mismatch.append(_f112 + ': no list')
+    else:
+        _got112 = [c.strip().strip("'") for c in _found112.group(1).split(',')]
+        if _got112 != list(_codes112):
+            _fcodes_mismatch.append('%s: %s' % (_f112, _got112[:4]))
+tests.append(('R112 cross-check: the 16 feature codes are identical in 07/10/05',
+    not _fcodes_mismatch, _fcodes_mismatch))
 
 fails = 0
 for name, ok, info in tests:

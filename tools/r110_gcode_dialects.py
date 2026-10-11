@@ -207,7 +207,7 @@ for dialect in DIALECTS:
     fi = info_block(path)
 
     check('%s: processed, not skipped' % name,
-          summ and not summ.get('skipped') and '; R2-POSTPROC v4' in body)
+          summ and not summ.get('skipped') and '; R2-POSTPROC v5' in body)
     check('%s: _FILE_INFO present' % name, '_FILE_INFO ' in body)
 
     # layer marks. Z-scan dialects: the scan counts layer CHANGES (the mark

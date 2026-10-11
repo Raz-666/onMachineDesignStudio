@@ -480,6 +480,106 @@ run('plot txt convert', lambda: [pp.text_convert(txtf, var_path=None,
     out=os.path.join(D, 'notes.txt.gcode'))[0]], bed=(5, 5, 239, 233),
     skip_idem=True, plot=True)
 
+# ================================================= R112 HARDCORE MATRIX ===
+# .86: the user-ordered deep sweep - UNTESTED parameter corners of every
+# generator + the new .86 invariants (every generated file: v5 tag, a sane
+# retract verdict, never a stale marker)
+T = lambda **kw: pp.make_cable_ties(bed=BED, out_dir=tempfile.mkdtemp(dir=D), **kw)
+A = lambda **kw: pp.make_angles(bed=BED, out_dir=tempfile.mkdtemp(dir=D), **kw)
+S = lambda **kw: pp.make_seal(bed=BED, out_dir=tempfile.mkdtemp(dir=D), **kw)
+L = lambda **kw: pp.make_labels(bed=BED, out_dir=tempfile.mkdtemp(dir=D), **kw)
+
+run('hc ties CLASSIC max 12mm x150', lambda: T(count=2, width=12.0, length=150.0), r2_gen=True)
+run('hc ties LOOP min 2mm', lambda: T(count=4, width=2.0, variant='LOOP', length=50), r2_gen=True)
+run('hc ties 8x layers5', lambda: T(count=8, layers=5), r2_gen=True)
+run('hc ties LOOP layers8 single', lambda: T(count=1, layers=8, variant='LOOP'), r2_gen=True)
+run('hc ties layer_h 0.08/0.32', lambda: T(count=2, layer_h=0.08, first_h=0.32), r2_gen=True)
+run('hc angle 45 flat cs off', lambda: A(angle_deg=45, flat=True, countersink=False), r2_gen=True)
+run('hc angle 120 holes3 d8', lambda: A(angle_deg=120, holes=3, hole_d=8.0), r2_gen=True)
+run('hc angle unequal legs 80/30', lambda: A(leg_a=80, leg_b=30), r2_gen=True)
+run('hc angle w40 walls3 holes4', lambda: A(width=40, walls=3, holes=4, stiffener=2), r2_gen=True)
+run('hc angle layer 0.28 no rib', lambda: A(angle_deg=60, stiffener=0, layer_h=0.28), r2_gen=True)
+run('hc angle 20 sharp', lambda: A(angle_deg=20), r2_gen=True)
+run('hc seal thin ring od40 id34', lambda: S(od=40, id_=34), r2_gen=True)
+run('hc seal 0.4mm 2 layers', lambda: S(od=30, id_=15, height=0.4), r2_gen=True)
+run('hc seal tall 6mm GROOVE', lambda: S(od=50, id_=25, height=6.0, profile='GROOVE'), r2_gen=True)
+run('hc seal tiny 20x6', lambda: S(od=20.0, id_=6.0), r2_gen=True)
+run('hc label base1 text4', lambda: L(texts=['TIEF'], base_layers=1, text_layers=4), r2_gen=True)
+run('hc label stroke 0.8 fat', lambda: L(texts=['FETT'], stroke=0.8), r2_gen=True)
+run('hc label fixed 200x100', lambda: L(texts=['BREIT'], w=200, h=100, mode='fixed'), r2_gen=True)
+run('hc label specials+2lines', lambda: L(texts=['ÄÖÜ&%$§!', 'zeile 2']), r2_gen=True)
+run('hc label color2 layers6', lambda: L(texts=['2FARB'], base_layers=6), r2_gen=True)
+run('hc frame depth4 corner0 flat', lambda: F(preset='9x13', depth=4, corner=0), r2_gen=True)
+run('hc frame corner12 wall0.8 loops3', lambda: F(preset='9x13', corner=12, wall=0.8,
+    wall_loops=3), r2_gen=True)
+expect_error('hc frame WAVES IN too deep rejected', lambda: F(preset='9x13',
+    frame_w=20, front='WAVES', s_dir='IN', s_amp=3.0, s_deep=1.0))
+run('hc frame WAVES OUT amp3 angle15', lambda: F(preset='9x13', frame_w=20,
+    front='WAVES', s_dir='OUT', s_amp=3.0, s_deep=1.0, s_size=4.0,
+    s_angle=15.0), r2_gen=True)
+run('hc frame LINES angle75 space2', lambda: F(preset='9x13', front='LINES',
+    s_angle=75.0, s_space=2.0), r2_gen=True)
+run('hc frame FOIL front captured', lambda: F(preset='9x13', disc='FOIL',
+    disc_t=0.4, disc_side='FRONT'), r2_gen=True)
+run('hc frame A6 stand+case+cable', lambda: F(preset='A6', depth=22, stand=True,
+    cable=True), r2_gen=True)
+run('hc frame 13x18 FLIP ironing off', lambda: F(preset='13x18', front='FLIP',
+    ironing=False), r2_gen=True)
+run('hc frame KIT wall2 infill25', lambda: F(width=180, height=120, depth=8,
+    frame_w=8, wall=2.0, infill=25.0), r2_gen=True)
+run('hc frame HEX size4.5 top3 bot4', lambda: F(preset='9x13', front='HEX',
+    s_size=4.5, top_layers=3, bottom_layers=4), r2_gen=True)
+if src_path:
+    run('hc range outline+solid floor', lambda: RG(3, 15, floor=3,
+        floor_shape='outline', floor_fill='solid'))
+    run('hc range top outline grid brim5', lambda: RG(8, 24, top=3,
+        top_shape='outline', top_fill='grid', brim=5))
+    run('hc range holes E14+E27', lambda: RG(2, 20, floor=3, floor_hole=14.0,
+        top=3, top_hole=27.0))
+    run('hc range from layer 1', lambda: RG(1, 12))
+try:
+    _lith_src = run('hc litho source', lambda: LI(height_mm=60.0, levels=2))
+except Exception as _e:   # noqa: BLE001
+    _lith_src = None
+if _lith_src:
+    run('hc litho 2-band FLAT on litho', lambda: tx.apply_texture(
+        _lith_src[0] if isinstance(_lith_src, list) else _lith_src,
+        mode='BUMPS', bump_pattern='WAVES', bump_scale=4.0, bump_amp=0.3,
+        out_dir=D), skip_idem=True)
+run('hc texture FUZZY on frame', lambda: tx.apply_texture(
+    F(preset='9x13')[0], mode='FUZZY', fuzzy_thick=0.5, fuzzy_density=25,
+    out_dir=D), skip_idem=True, r2_gen=True)
+run('hc texture BUMPS mandelbrot micro', lambda: tx.apply_texture(
+    S(od=40, id_=20)[0], mode='BUMPS', bump_pattern='MANDELBROT',
+    bump_scale=12.0, bump_amp=0.15, out_dir=D), skip_idem=True, r2_gen=True)
+
+# ---- .86 invariants over EVERYTHING this sweep produced --------------------
+_hc_stale = _hc_old = _hc_untouched = 0
+_hc_badret = []
+for _root, _dirs, _fs in os.walk(D):
+    for _f in _fs:
+        if not _f.endswith('.gcode') or _f.endswith('.r2bak'):
+            continue
+        _p = os.path.join(_root, _f)
+        try:
+            _head = open(_p, errors='replace').read(6000)
+        except OSError:
+            continue
+        if 'R2-PLOT' in _head:
+            continue                      # plotter files are never tagged
+        if '; R2-POSTPROC v4' in _head:
+            _hc_stale += 1
+        if any(t in _head for t in pp.OLD_TAGS):
+            _hc_old += 1
+        if 'RETRACT_STATUS=fix' in _head:
+            _hc_badret.append(_f)
+if _hc_stale or _hc_old or _hc_badret:
+    fails.append(('.86 invariants', 'stale=%d old=%d bad-retract-fix=%s'
+                  % (_hc_stale, _hc_old, _hc_badret[:3])))
+else:
+    info.append('.86 invariants: every swept file carries the v5 tag + a sane '
+                'retract verdict')
+
 # ============================================================ RESULT ======
 print()
 for i in info:

@@ -34,8 +34,8 @@ import tempfile
 import zipfile
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-VERSION = 'R2-2026-10-12.85'
-ZIP_NAME = 'klipper-e3-r2d2-UPDATE-R2-2026-10-12.85.zip'
+VERSION = 'R2-2026-10-12.86'
+ZIP_NAME = 'klipper-e3-r2d2-UPDATE-R2-2026-10-12.86.zip'
 
 INCLUDES = ''.join(
     '[include klipper-e3-r2d2/macros/%s.cfg]\n' % m for m in
@@ -168,6 +168,54 @@ pin: ^PD10
 [extruder]
 [heater_bed]
 """ + SAVECFG,
+ 'sv06-dualz': """# Sovol SV06: cartesian, 2 COUPLED Z steppers (no z_tilt!),
+# CR-Touch probe - the z-tilt menu must NOT appear without [z_tilt]
+[printer]
+kinematics: cartesian
+max_velocity: 300
+[stepper_x]
+[stepper_y]
+[stepper_z]
+[stepper_z1]
+[probe]
+pin: ^PC4
+[bed_mesh]
+[extruder]
+[heater_bed]
+""" + SAVECFG,
+ 'corexz-sw': """# Voron Switchwire style: CoreXZ bedsligner, single Z,
+# klicky-style probe, NO LEDs (wizard must skip clean)
+[printer]
+kinematics: corexz
+max_velocity: 350
+[stepper_x]
+[stepper_y]
+[stepper_z]
+[probe]
+pin: ^PA7
+[bed_mesh]
+[extruder]
+[heater_bed]
+""" + SAVECFG,
+ 'hybrid-corexy': """# Prusa-MK4-style hybrid coreXY, single Z, superpinda
+# probe + dotstar backlight
+[printer]
+kinematics: hybrid_corexy
+max_velocity: 400
+[stepper_x]
+[stepper_y]
+[stepper_z]
+[probe]
+pin: ^PC13
+[bed_mesh]
+[extruder]
+[heater_bed]
+[dotstar backlight]
+data_pin: PB5
+clock_pin: PB6
+chain_count: 4
+color_order: RGB
+""" + SAVECFG,
 }
 
 # ---- answer streams -----------------------------------------------------------------
@@ -215,6 +263,16 @@ SCEN_SETUP = {
  'voron-v2': (['y'] + HW_WIZARD + ['1', '']
               + ['']                          # "use LEDs on this printer?" -> NO
               + TAIL),
+ 'sv06-dualz': (['y'] + HW_WIZARD + ['1', '']
+                + ['y'] + LED_NEOPIXEL_MAIN + COLOR_ORDER + AREAS + WRITE_Y
+                + TAIL),
+ 'corexz-sw': (['y'] + HW_WIZARD + ['1', '']
+               + ['']                        # no LEDs
+               + TAIL),
+ 'hybrid-corexy': (['y'] + HW_WIZARD + ['1', '']
+                   + ['y'] + ['2', '']        # dotstar
+                   + LED_DOTSTAR_MAIN + ['4', '']   # BGR (like corexy-2z)
+                   + AREAS + WRITE_Y + TAIL),
 }
 
 fails = []
@@ -388,16 +446,20 @@ def simulate(name):
                       orig in open(pc).read())
                 check('%s: no LED section in OUR profile' % name,
                       '[neopixel ' not in hw and '[dotstar ' not in hw)
-    if name in ('ender3-stock', 'corexy-2z'):
+    if name in ('ender3-stock', 'corexy-2z', 'sv06-dualz', 'hybrid-corexy'):
         # wizard WROTE the chain into r2_hardware.cfg - with the R110 color order
         check('%s: LED section in profile' % name,
               ('[neopixel printer_leds]' in hw) or ('[dotstar printer_leds]' in hw))
-        co = 'BGR' if name == 'corexy-2z' else 'GRB'
+        co = 'BGR' if name in ('corexy-2z', 'hybrid-corexy') else 'GRB'
         check('%s: color_order %s asked + written' % (name, co),
               'color_order: %s' % co in hw and ('variable_led_color_order: %s' % co) in hw)
-    if name == 'voron-v2':
+    if name in ('voron-v2', 'corexz-sw'):
         check('%s: LED skip = no LED keys' % name,
               'variable_led_type' not in hw)
+    if name == 'sv06-dualz':
+        # 2 Z steppers WITHOUT [z_tilt]: the profile must not claim z-tilt
+        check('%s: no z-tilt keys without [z_tilt]' % name,
+              'variable_ztilt' not in hw and 'z_tilt' not in hw)
 
     # ---- 4) second setup run is IDEMPOTENT (profile exists -> wizard skipped)
     snap2 = tree_state(cfg_dir)
