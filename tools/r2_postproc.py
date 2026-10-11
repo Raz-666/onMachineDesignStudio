@@ -11208,24 +11208,38 @@ def _flowcap_fix_file(path, cap=12.0, diameter=0.0):
     return n, max_rate
 
 
-def _travelaccel_fix_file(path, accel=8000):
-    """R111: separate TRAVEL acceleration - inserted into the file IN PLACE.
+def _travel_fix_file(path, accel=0, speed=0.0, markers=True):
+    """R111/R121: TRAVEL speed + acceleration + live markers, in place.
 
-    Wraps every travel block (consecutive G0/G1 with X/Y but no E) in
-    'M204 S<accel> ; R2-TA' ... 'M204 S<print-accel> ; R2-TA'. The print
-    accel restored after the block is the modal M204 the file itself set
-    before it (no M204 seen yet -> no restore line, the firmware default
-    applies). Streamed, '.tax' tmp swap, idempotent: re-running first drops
-    all previous ' ; R2-TA' lines, then re-inserts with the new value.
+    Wraps every travel block (consecutive G0/G1 with X/Y but no E):
+      speed > 0 - 'G1 F<speed*60> ; R2-TV' opens the block, F tokens ON the
+                  travel lines are rewritten to the same value (an F left
+                  behind would override the opener), 'G1 F<modal print F>
+                  ; R2-TV' closes it again (modal F is global - without the
+                  restore the next F-less print move would inherit the
+                  travel speed).
+      accel > 0 - 'M204 S<accel> ; R2-TV' opens, the modal print M204 the
+                  file itself set is restored after the block (R111 rules;
+                  a slicer M204 INSIDE the block closes it, its value rules).
+      markers   - 'APPLY_TYPE TYPE=Travel ; R2-TV' opens (raw restores
+                  first, the marker LAST so live accel is not overridden),
+                  'APPLY_TYPE TYPE=<feature> ; R2-TV' closes -> Live >
+                  Features > Travel works on this file (the percent rides
+                  on top of the file's - or the fixed - travel speed).
+    Streamed, '.tvx' tmp swap, idempotent: every insert ends in ' ; R2-TV'
+    (or the old R111 ' ; R2-TA') and is dropped again on the next run.
     Returns (n_blocks).
     """
-    marker = ' ; R2-TA'
-    # pass 1 + 2 fused via a temp: strip old inserts while scanning
+    marks = (' ; R2-TA', ' ; R2-TV')
     n = 0
     m204_run = None
+    f_print = None          # modal F of the PRINT moves (mm/min)
+    cur_feat = None         # canonical feature while scanning
     in_block = False
-    tmp = path + '.tax'
+    tmp = path + '.tvx'
     mv = re.compile(r'^\s*M204\s+S(\d+(?:\.\d+)?)')
+    fvx = re.compile(r'\bF(\d+(?:\.\d+)?)')
+    typ_re = re.compile(r'^\s*;\s*TYPE\s*:\s*(.+?)\s*$', re.IGNORECASE)
 
     def _is_travel(ls):
         if not (ls.startswith('G0') or ls.startswith('G1')):
@@ -11234,37 +11248,82 @@ def _travelaccel_fix_file(path, accel=8000):
             return False
         return bool(re.search(r' [XY]-?[\d.]', ls))
 
+    def _close(fo, restore_accel):
+        # raw restores first, the APPLY_TYPE marker LAST (a raw M204 after
+        # the marker would override the live accel the macro just set)
+        if speed > 0 and f_print is not None:
+            fo.write('G1 F%d ; R2-TV\n' % int(round(f_print)))
+        if restore_accel and accel > 0 and m204_run is not None:
+            fo.write('M204 S%d ; R2-TV\n' % int(round(m204_run)))
+        if markers:
+            fo.write('APPLY_TYPE TYPE=%s ; R2-TV\n' % (cur_feat or 'CUSTOM'))
+
     with open(path, 'r', errors='replace') as fi, open(tmp, 'w') as fo:
         for raw in fi:
             line = raw[:-1] if raw.endswith('\n') else raw
             ls = line.strip()
-            # drop previous inserts (idempotency)
-            if line.endswith(marker):
-                ls = ls[:-len(marker)].strip()
-                line = line[:-len(marker)]
+            # drop previous inserts + trailers ENTIRELY (idempotency). R111
+            # only stripped the suffix - the orphan 'M204 S6000' then read
+            # as a slicer M204 and became the (wrong) restore value, and
+            # every re-run grew the file. Our namespace, our drop.
+            if ls.endswith(marks):
+                continue
+            if ls.startswith('; R2-TRAVELACC:') or ls.startswith('; R2-TRAVEL:'):
+                continue
+            mt = typ_re.match(line)
+            if mt:
+                cf = TYPE_MAP.get(mt.group(1).strip().lower())
+                if cf:
+                    cur_feat = cf
             mm = mv.match(ls)
             if mm:
-                m204_run = float(mm.group(1))
                 if in_block:
                     # the slicer set its own accel inside the travel block:
-                    # our block ends here, the slicer value rules after it
+                    # our block ends here (speed + marker restore, but the
+                    # slicer's M204 rules the accel after it)
+                    _close(fo, restore_accel=False)
                     in_block = False
+                m204_run = float(mm.group(1))
                 fo.write(line + '\n')
                 continue
             trav = _is_travel(ls)
             if trav and not in_block:
-                fo.write('M204 S%d%s\n' % (int(accel), marker))
+                if speed > 0:
+                    fo.write('G1 F%d ; R2-TV\n' % int(round(speed * 60.0)))
+                if accel > 0:
+                    fo.write('M204 S%d ; R2-TV\n' % int(accel))
+                if markers:
+                    fo.write('APPLY_TYPE TYPE=Travel ; R2-TV\n')
                 in_block = True
                 n += 1
             elif not trav and in_block:
-                if m204_run is not None:
-                    fo.write('M204 S%d%s\n' % (int(round(m204_run)), marker))
+                _close(fo, restore_accel=True)
                 in_block = False
+            if speed > 0 and trav:
+                # rewrite F tokens ON the travel lines (left-behind F values
+                # would override the block opener)
+                line = fvx.sub('F%d' % int(round(speed * 60.0)), line)
+                ls = line.strip()
+            if not trav and ls[:2] in ('G0', 'G1'):
+                # modal PRINT feedrate: extruding moves + standalone F lines
+                # (a travel F must never become the restore value)
+                mf = fvx.search(ls)
+                if mf and (re.search(r' E\d', ls)
+                           or not re.search(r' [XY]-?[\d.]', ls)):
+                    f_print = float(mf.group(1))
             fo.write(line + '\n')
-        if in_block and m204_run is not None:
-            fo.write('M204 S%d%s\n' % (int(round(m204_run)), marker))
+        if in_block:
+            _close(fo, restore_accel=True)
     if n:
-        fo_marker = '; R2-TRAVELACC: %d mm/s2 travel accel (%d travel block(s) wrapped)\n' % (accel, n)
+        bits = []
+        if speed > 0:
+            bits.append('%g mm/s travel speed' % speed)
+        if accel > 0:
+            bits.append('%d mm/s2 travel accel' % int(accel))
+        if markers:
+            bits.append('live markers (Live > Features > Travel)')
+        fo_marker = ('; R2-TRAVEL: %s (%d travel block(s) wrapped)\n'
+                     % (', '.join(bits), n))
         with open(tmp, 'a') as fo:
             fo.write(fo_marker)
         os.replace(tmp, path)
@@ -11273,6 +11332,12 @@ def _travelaccel_fix_file(path, accel=8000):
             os.remove(tmp)
         except OSError:
             pass
+    return n
+
+
+def _travelaccel_fix_file(path, accel=8000):
+    """R111 compat wrapper: accel-only travel fix (no speed, no markers)."""
+    return _travel_fix_file(path, accel=accel, speed=0.0, markers=False)
     return n
 
 
@@ -11318,6 +11383,7 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
     # (old tags / _FILE_INFO / APPLY_TYPE) never match a feature or move, so
     # the running values are identical to the old filtered-list walk.
     feat_stats = {}          # canonical type -> {'f': {mm/s: count}, 'acc': float|None}
+    tv_hist = {}             # R121: travel speeds (mm/s -> move count)
     fseg = {}                # F counter of the CURRENT segment
     cur_type = None
     acc_running = None       # last M204 seen anywhere in the file
@@ -11463,6 +11529,12 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
                     m = fv_re.search(ls)
                     if m:
                         f_running = float(m.group(1))
+                    # R121: travel speed histogram (XY present, no E) - the
+                    # dominant value becomes FTRAVEL in _FILE_INFO
+                    if re.search(r' [XY]-?[\d.]', ls) and not re.search(r' E', ls):
+                        _tvs = round((f_running or 0) / 60.0, 1)
+                        if _tvs > 0:
+                            tv_hist[_tvs] = tv_hist.get(_tvs, 0) + 1
                     # only real PRINT moves count: X or Y present, extruding
                     # (E >= 0). Pure retract/prime lines (E only) and travels
                     # (no E) are skipped - otherwise the retract speed
@@ -11563,6 +11635,8 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
             info.append(f'FA_{suf}={d["acc"]:g}')
     if feat_stats:
         info.append('TYPES=' + ','.join(feat_stats))
+    if tv_hist:
+        info.append('FTRAVEL=%g' % max(tv_hist, key=tv_hist.get))
     # R111: honest confidence + coverage for derived features, measured rate
     # and the dominant seam position
     if summary.get('derived'):
@@ -12467,7 +12541,14 @@ def watch(directory, interval=5.0, once=False):
                 print(f'[flowcap] {rel}: {msg}', flush=True)
             elif kind == 'travelacc':
                 acc = int(rv.get('travelaccel_value', 8000) or 8000)
-                n = _travelaccel_fix_file(p, accel=acc)
+                try:
+                    tspd = float(rv.get('travel_speed', 0) or 0)
+                except (TypeError, ValueError):
+                    tspd = 0.0
+                # R121: travel_speed > 0 = the full fix (speed + accel +
+                # live markers); 0 = the R111 accel-only wrap
+                n = _travel_fix_file(p, accel=acc, speed=tspd,
+                                     markers=tspd > 0)
                 if n:
                     msg = ('Travel accel DONE: %d travel block(s) in %s now run '
                            'at %d mm/s2 (print accels untouched)'

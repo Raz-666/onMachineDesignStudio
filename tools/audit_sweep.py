@@ -14,6 +14,16 @@ import struct
 import sys
 import tempfile
 import zlib
+import atexit
+import glob
+import shutil
+
+# R121: never fill the tmpfs with audit dirs again (see macro_render_test)
+def _cleanup():
+    for d in glob.glob(tempfile.gettempdir() + '/audit_*'):
+        shutil.rmtree(d, ignore_errors=True)
+
+atexit.register(_cleanup)
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import r2_postproc as pp  # noqa: E402

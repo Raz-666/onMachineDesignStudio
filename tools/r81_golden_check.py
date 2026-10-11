@@ -42,6 +42,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # log .89 - continuous fills that fuse with the walls) - mr02-mr06,
 # mr09-mr11, mr13 grew by the connector beads; pr01-pr10 and the plain
 # mr01/mr07/mr08/mr12 extracts stay byte-identical to R112/R116.
+# R121 re-freeze: FTRAVEL=<mm/s> (dominant travel speed) added to every
+# _FILE_INFO of files whose travels carry F - pr01/pr02/pr04/pr05/pr06/
+# pr09/pr10 info lines changed, everything else byte-identical.
 # R112 re-freeze: tag v4 -> v5 (STALE/retag round) - every fixture's tag
 # line changed, summaries gained retract_status/retract_max. R112 reference
 # superseded.
@@ -59,265 +62,41 @@ REF_MD5 = {
  "mr11": "dbcca61e25daefb6bfb9facc68030236",
  "mr12": "951a839391bbeac752c4610b1a1d4889",
  "mr13": "bb2bef13fba1a5c324e848ed54f77bb6",
- "pr01": "c56b7af9749c110308aa564d29c148da",
- "pr02": "3cbd4210a9d7c572cbeea81a114e9f0b",
+ "pr01": "1d1ab0272f0bc426feb7466ab380aaa6",
+ "pr02": "7eb628f9ce7cab5e0215962484ccbe51",
  "pr03": "5afdb141d0ca4766ae6cbbc13fcb076a",
- "pr04": "c56b7af9749c110308aa564d29c148da",
- "pr05": "c56b7af9749c110308aa564d29c148da",
- "pr06": "e7f5a3bbd638282bc181d356a294f856",
+ "pr04": "1d1ab0272f0bc426feb7466ab380aaa6",
+ "pr05": "1d1ab0272f0bc426feb7466ab380aaa6",
+ "pr06": "ca974385569e09445b8dc716e223916b",
  "pr07": "17fdc789395c2d6f83efc279bb751f21",
  "pr08": "5afdb141d0ca4766ae6cbbc13fcb076a",
- "pr09": "fe44385bfcda7fcac1660a166a647a32",
- "pr10": "831df0884dcd33cd02400a5808dcfcb7"
+ "pr09": "15ac2ca730f8539220567650c8098fc9",
+ "pr10": "04c2c316b1b51da33d03426c902611a5",
 }
 REF_SUMMARY = {
- "mr01": {
-  "nl": 8,
-  "size": 4174
- },
- "mr02": {
-  "nl": 10,
-  "size": 11476
- },
- "mr03": {
-  "nl": 10,
-  "size": 11210
- },
- "mr04": {
-  "nl": 9,
-  "size": 11508
- },
- "mr05": {
-  "nl": 10,
-  "size": 18621
- },
- "mr06": {
-  "nl": 10,
-  "size": 15569
- },
- "mr07": {
-  "nl": 7,
-  "size": 3806
- },
- "mr08": {
-  "nl": 6,
-  "size": 3461
- },
- "mr09": {
-  "nl": 8,
-  "size": 7895
- },
- "mr10": {
-  "nl": 8,
-  "size": 11453
- },
- "mr11": {
-  "nl": 8,
-  "size": 7374
- },
- "mr12": {
-  "nl": 2,
-  "size": 1978
- },
- "mr13": {
-  "nl": 30,
-  "size": 19204
- },
- "pr01": {
-  "by_object": False,
-  "fw": "",
-  "info_added": True,
-  "layers": 9,
-  "marks_added": 9,
-  "method": "layer comments",
-  "retract_max": 0.0,
-  "retract_pairs": 0,
-  "retract_slicer_moves": 0,
-  "retract_status": "",
-  "retract_style": "",
-  "skipped": False,
-  "slicer": "",
-  "tagged": True,
-  "types": 18,
-  "upgraded": False,
-  "upgraded_from": "v1",
-  "volumetric": False
- },
- "pr02": {
-  "by_object": False,
-  "fw": "",
-  "info_added": True,
-  "layers": 9,
-  "marks_added": 9,
-  "method": "layer comments",
-  "retract_max": 0.0,
-  "retract_pairs": 0,
-  "retract_slicer_moves": 0,
-  "retract_status": "",
-  "retract_style": "",
-  "skipped": False,
-  "slicer": "",
-  "tagged": True,
-  "types": 18,
-  "upgraded": False,
-  "upgraded_from": "v1",
-  "volumetric": False
- },
- "pr03": {
-  "by_object": False,
-  "derived": True,
-  "fw": "",
-  "info_added": True,
-  "layers": 8,
-  "marks_added": 8,
-  "method": "Z scan",
-  "retract_max": 0.0,
-  "retract_pairs": 0,
-  "retract_slicer_moves": 0,
-  "retract_status": "",
-  "retract_style": "",
-  "skipped": False,
-  "slicer": "",
-  "tagged": True,
-  "types": 8,
-  "upgraded": False,
-  "upgraded_from": "v1",
-  "volumetric": False
- },
- "pr04": {
-  "by_object": False,
-  "fw": "",
-  "info_added": True,
-  "layers": 9,
-  "marks_added": 9,
-  "method": "layer comments",
-  "retract_max": 0.0,
-  "retract_pairs": 0,
-  "retract_slicer_moves": 0,
-  "retract_status": "",
-  "retract_style": "",
-  "skipped": False,
-  "slicer": "",
-  "tagged": True,
-  "types": 18,
-  "upgraded": True,
-  "upgraded_from": "v4",
-  "volumetric": False
- },
- "pr05": {
-  "by_object": False,
-  "fw": "",
-  "info_added": True,
-  "layers": 9,
-  "marks_added": 9,
-  "method": "layer comments",
-  "retract_max": 0.0,
-  "retract_pairs": 0,
-  "retract_slicer_moves": 0,
-  "retract_status": "",
-  "retract_style": "",
-  "skipped": False,
-  "slicer": "",
-  "tagged": True,
-  "types": 18,
-  "upgraded": True,
-  "upgraded_from": "v1",
-  "volumetric": False
- },
- "pr06": {
-  "by_object": False,
-  "fw": "",
-  "info_added": True,
-  "layers": 9,
-  "marks_added": 9,
-  "method": "layer comments",
-  "retract_max": 0.0,
-  "retract_pairs": 0,
-  "retract_slicer_moves": 0,
-  "retract_status": "",
-  "retract_style": "",
-  "skipped": False,
-  "slicer": "",
-  "tagged": True,
-  "types": 18,
-  "upgraded": False,
-  "upgraded_from": "v1",
-  "volumetric": False
- },
- "pr07": {
-  "by_object": False,
-  "info_added": False,
-  "layers": 0,
-  "marks_added": 0,
-  "method": None,
-  "retract_pairs": 0,
-  "skipped": True,
-  "tagged": False,
-  "types": 0,
-  "upgraded": False,
-  "upgraded_from": "v1"
- },
- "pr08": {
-  "by_object": False,
-  "derived": True,
-  "fw": "",
-  "info_added": True,
-  "layers": 8,
-  "marks_added": 8,
-  "method": "Z scan",
-  "retract_max": 0.0,
-  "retract_pairs": 0,
-  "retract_slicer_moves": 0,
-  "retract_status": "",
-  "retract_style": "",
-  "skipped": False,
-  "slicer": "",
-  "tagged": True,
-  "types": 8,
-  "upgraded": False,
-  "upgraded_from": "v1",
-  "volumetric": False
- },
- "pr09": {
-  "by_object": False,
-  "fw": "",
-  "info_added": True,
-  "layers": 9,
-  "marks_added": 9,
-  "method": "layer comments",
-  "retract_max": 0.0,
-  "retract_pairs": 0,
-  "retract_slicer_moves": 0,
-  "retract_status": "",
-  "retract_style": "",
-  "skipped": False,
-  "slicer": "",
-  "tagged": True,
-  "types": 18,
-  "upgraded": False,
-  "upgraded_from": "v1",
-  "volumetric": False
- },
- "pr10": {
-  "by_object": False,
-  "fw": "",
-  "info_added": True,
-  "layers": 9,
-  "marks_added": 9,
-  "method": "layer comments",
-  "retract_max": 0.0,
-  "retract_pairs": 0,
-  "retract_slicer_moves": 0,
-  "retract_status": "",
-  "retract_style": "",
-  "skipped": False,
-  "slicer": "",
-  "tagged": True,
-  "types": 18,
-  "upgraded": False,
-  "upgraded_from": "v1",
-  "volumetric": False
- }
+ "mr01": {"nl": 8, "size": 4174},
+ "mr02": {"nl": 10, "size": 11476},
+ "mr03": {"nl": 10, "size": 11210},
+ "mr04": {"nl": 9, "size": 11508},
+ "mr05": {"nl": 10, "size": 18621},
+ "mr06": {"nl": 10, "size": 15569},
+ "mr07": {"nl": 7, "size": 3806},
+ "mr08": {"nl": 6, "size": 3461},
+ "mr09": {"nl": 8, "size": 7895},
+ "mr10": {"nl": 8, "size": 11453},
+ "mr11": {"nl": 8, "size": 7374},
+ "mr12": {"nl": 2, "size": 1978},
+ "mr13": {"nl": 30, "size": 19204},
+ "pr01": {"by_object": False, "fw": '', "info_added": True, "layers": 9, "marks_added": 9, "method": 'layer comments', "retract_max": 0.0, "retract_pairs": 0, "retract_slicer_moves": 0, "retract_status": '', "retract_style": '', "skipped": False, "slicer": '', "tagged": True, "types": 18, "upgraded": False, "upgraded_from": 'v1', "volumetric": False},
+ "pr02": {"by_object": False, "fw": '', "info_added": True, "layers": 9, "marks_added": 9, "method": 'layer comments', "retract_max": 0.0, "retract_pairs": 0, "retract_slicer_moves": 0, "retract_status": '', "retract_style": '', "skipped": False, "slicer": '', "tagged": True, "types": 18, "upgraded": False, "upgraded_from": 'v1', "volumetric": False},
+ "pr03": {"by_object": False, "derived": True, "fw": '', "info_added": True, "layers": 8, "marks_added": 8, "method": 'Z scan', "retract_max": 0.0, "retract_pairs": 0, "retract_slicer_moves": 0, "retract_status": '', "retract_style": '', "skipped": False, "slicer": '', "tagged": True, "types": 8, "upgraded": False, "upgraded_from": 'v1', "volumetric": False},
+ "pr04": {"by_object": False, "fw": '', "info_added": True, "layers": 9, "marks_added": 9, "method": 'layer comments', "retract_max": 0.0, "retract_pairs": 0, "retract_slicer_moves": 0, "retract_status": '', "retract_style": '', "skipped": False, "slicer": '', "tagged": True, "types": 18, "upgraded": True, "upgraded_from": 'v4', "volumetric": False},
+ "pr05": {"by_object": False, "fw": '', "info_added": True, "layers": 9, "marks_added": 9, "method": 'layer comments', "retract_max": 0.0, "retract_pairs": 0, "retract_slicer_moves": 0, "retract_status": '', "retract_style": '', "skipped": False, "slicer": '', "tagged": True, "types": 18, "upgraded": True, "upgraded_from": 'v1', "volumetric": False},
+ "pr06": {"by_object": False, "fw": '', "info_added": True, "layers": 9, "marks_added": 9, "method": 'layer comments', "retract_max": 0.0, "retract_pairs": 0, "retract_slicer_moves": 0, "retract_status": '', "retract_style": '', "skipped": False, "slicer": '', "tagged": True, "types": 18, "upgraded": False, "upgraded_from": 'v1', "volumetric": False},
+ "pr07": {"by_object": False, "info_added": False, "layers": 0, "marks_added": 0, "method": None, "retract_pairs": 0, "skipped": True, "tagged": False, "types": 0, "upgraded": False, "upgraded_from": 'v1'},
+ "pr08": {"by_object": False, "derived": True, "fw": '', "info_added": True, "layers": 8, "marks_added": 8, "method": 'Z scan', "retract_max": 0.0, "retract_pairs": 0, "retract_slicer_moves": 0, "retract_status": '', "retract_style": '', "skipped": False, "slicer": '', "tagged": True, "types": 8, "upgraded": False, "upgraded_from": 'v1', "volumetric": False},
+ "pr09": {"by_object": False, "fw": '', "info_added": True, "layers": 9, "marks_added": 9, "method": 'layer comments', "retract_max": 0.0, "retract_pairs": 0, "retract_slicer_moves": 0, "retract_status": '', "retract_style": '', "skipped": False, "slicer": '', "tagged": True, "types": 18, "upgraded": False, "upgraded_from": 'v1', "volumetric": False},
+ "pr10": {"by_object": False, "fw": '', "info_added": True, "layers": 9, "marks_added": 9, "method": 'layer comments', "retract_max": 0.0, "retract_pairs": 0, "retract_slicer_moves": 0, "retract_status": '', "retract_style": '', "skipped": False, "slicer": '', "tagged": True, "types": 18, "upgraded": False, "upgraded_from": 'v1', "volumetric": False},
 }
 
 CASES = [

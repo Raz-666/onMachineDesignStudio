@@ -2,6 +2,21 @@
 # Render test: executes the critical macro templates with mocked printer data
 # (emulates Klipper's jinja dialect: {expr} single braces, {% blocks %}).
 from jinja2 import Environment, BaseLoader
+import atexit as _atexit, glob as _globcl, shutil as _shutilcl, tempfile as _tfcl, os as _oscl
+
+def _cleanup_tmpdirs():
+    # R121: the battery leaves mkdtemp dirs behind - six full runs filled the
+    # 992MB tmpfs and froze the sandbox. Remove OUR prefixes only.
+    import re as _recl
+    pat = _recl.compile(r'^(r\d{2,3}_|audit_|megatest_|r120_|r86_|colorpic)')
+    for d in _globcl.glob(_tfcl.gettempdir() + '/*'):
+        try:
+            if _oscl.path.isdir(d) and pat.match(_oscl.path.basename(d)):
+                _shutilcl.rmtree(d, ignore_errors=True)
+        except OSError:
+            pass
+
+_atexit.register(_cleanup_tmpdirs)
 env = Environment(
     loader=BaseLoader(),
     variable_start_string='{', variable_end_string='}',
@@ -68,7 +83,7 @@ save_vars = {
     'angle_layer_h': 0.2, 'angle_nonce': 0,
 }
 state_vars = {
-    'file_maxrate': 0.0, 'file_derived': False,   # R111/R120: flow-cap LCD reads these
+    'file_maxrate': 0.0, 'file_derived': False, 'file_travel': 0.0,   # R111/R121: flow-cap + travel LCD read these
     'mode': 'printing', 'layer': 2, 'total_layers': 100, 'current_type': 'WALL-OUTER', 'file_type': 'marked',
     'file_material': 'PLA', 'file_bed': 60, 'file_bed_after': 60,
     'file_hotend_first': 210, 'file_hotend_after': 215, 'file_layer_height': 0.2,
@@ -9949,22 +9964,22 @@ _orphans112 = [v for v in _reset112 if v not in _decl112 and not v.startswith('t
 tests.append(('R112 cross-check: reset list has no undeclared variables',
     not _orphans112, _orphans112[:6]))
 
-# the 16 feature codes are spelled identically everywhere they are listed
+# the 17 feature codes are spelled identically everywhere they are listed
 _codes112 = ('wallouter','wallinner','infillsparse','infillsolid','surfacetop',
              'surfacebottom','bridge','gaps','support','ironing','skirt','brim',
-             'overhangperim','internalbridge','primetower','custom')
+             'overhangperim','internalbridge','primetower','custom','travel')
 _fcodes_mismatch = []
 for _f112 in ['macros/07_start_confirm.cfg', 'macros/10_live_tuning.cfg',
               'macros/05_materials.cfg']:
     _src112 = open(_f112).read()
-    _found112 = _re112c.search(r"\[('wallouter'.*?'custom')\]", _src112, _re112c.S)
+    _found112 = _re112c.search(r"\[('wallouter'.*?'travel')\]", _src112, _re112c.S)
     if not _found112:
         _fcodes_mismatch.append(_f112 + ': no list')
     else:
         _got112 = [c.strip().strip("'") for c in _found112.group(1).split(',')]
         if _got112 != list(_codes112):
             _fcodes_mismatch.append('%s: %s' % (_f112, _got112[:4]))
-tests.append(('R112 cross-check: the 16 feature codes are identical in 07/10/05',
+tests.append(('R112 cross-check: the 17 feature codes are identical in 07/10/05',
     not _fcodes_mismatch, _fcodes_mismatch))
 
 # ================= R115: fan HOLD + start-dialog idle guard + feature PA =================
@@ -10558,6 +10573,133 @@ _n120 = [l.strip()[6:].strip("'") for l in _blk120.split(chr(10)) if l.strip().s
 _n120 = [l.split('{')[0].strip() if '{' in l else l for l in _n120]
 _long120 = [l for l in _n120 if len(l) > 16]
 tests.append(('R120 LCD: menu names stay short (R29)', len(_long120) == 0, str(_long120[:6])))
+
+
+# ===== R121: direct travel control (speed + accel + live markers) ===================
+import re as _re121
+
+# --- postproc: _travel_fix_file (rewrite, restore, markers, idempotent) ---
+_d121 = _tf61.mkdtemp(prefix='r121_')
+_SRC121 = """;FLAVOR:Marlin
+;TYPE:WALL-OUTER
+M204 S1500
+G1 F1800
+G1 X10 Y10 E1.0
+G1 X20 Y10 E2.0
+G0 X30 Y10 F9000
+G0 X40 Y10 F9000
+G1 X50 Y10 E3.0
+G0 X5 Y5 F9000
+;TYPE:INFILL-SPARSE
+G1 X8 Y8 E5.0 F2400
+"""
+_g121 = _os61.path.join(_d121, 't.gcode')
+open(_g121, 'w').write(_SRC121)
+_n121 = _pp._travel_fix_file(_g121, accel=6000, speed=220.0, markers=True)
+_t121 = open(_g121).read()
+tests.append(('R121 travel fix: wraps blocks, rewrites F, restores modal F',
+    _n121 == 2 and 'G0 X30 Y10 F13200' in _t121 and 'F9000' not in _t121
+    and 'G1 F13200 ; R2-TV' in _t121 and 'G1 F1800 ; R2-TV' in _t121
+    and 'M204 S6000 ; R2-TV' in _t121 and 'M204 S1500 ; R2-TV' in _t121, ''))
+tests.append(('R121 travel fix: live markers around every block (feature restored)',
+    _t121.count('APPLY_TYPE TYPE=Travel ; R2-TV') == 2
+    and _t121.count('APPLY_TYPE TYPE=WALL-OUTER ; R2-TV') == 2
+    and _t121.index('APPLY_TYPE TYPE=Travel') < _t121.index('G0 X30'), ''))
+tests.append(('R121 travel fix: header line + block count',
+    _t121.count('; R2-TRAVEL: 220 mm/s travel speed, 6000 mm/s2 travel accel, '
+                'live markers (Live > Features > Travel) (2 travel block(s) wrapped)') == 1, ''))
+_pp._travel_fix_file(_g121, accel=6000, speed=220.0, markers=True)
+tests.append(('R121 travel fix: IDEMPOTENT (re-run = byte-identical)',
+    open(_g121).read() == _t121, ''))
+_g121b = _os61.path.join(_d121, 'tb.gcode')
+open(_g121b, 'w').write(_SRC121)
+_pp._travelaccel_fix_file(_g121b, accel=5000)
+_t121b = open(_g121b).read()
+tests.append(('R121 compat: _travelaccel_fix_file = accel only, no markers',
+    _t121b.count('M204 S5000 ; R2-TV') == 2 and 'APPLY_TYPE TYPE=Travel' not in _t121b
+    and 'F13200' not in _t121b, ''))
+_g121c = _os61.path.join(_d121, 'tc.gcode')
+open(_g121c, 'w').write("M204 S1500\nG1 F1800\nG1 X10 Y10 E1.0\nG0 X30 Y10 F9000\nM204 S999\nG0 X40 Y10\nG1 X50 Y10 E3.0\n")
+_pp._travel_fix_file(_g121c, accel=6000, speed=100.0, markers=True)
+tests.append(('R121 travel fix: slicer M204 inside the block closes it (its value rules)',
+    'M204 S999\n' in open(_g121c).read(), ''))
+
+# --- postproc: process() measures FTRAVEL ---
+_g121d = _os61.path.join(_d121, 'info.gcode')
+open(_g121d, 'w').write(_SRC121)
+_sum121 = _pp.process(_g121d)
+_i121 = [l for l in open(_g121d).read().split('\n') if l.startswith('_FILE_INFO')]
+tests.append(('R121 process(): FTRAVEL in _FILE_INFO (dominant travel speed)',
+    _sum121['tagged'] and any('FTRAVEL=150' in l for l in _i121), str(_i121)[:120]))
+
+# --- FIX_FILE WHAT=TRAVEL (valid + guards) ---
+state_vars['mode'] = 'idle'          # the R120 blink tests left 'printing'
+_body121f = get_body('macros/08_print_start_stop.cfg', 'FIX_FILE')
+out = render(_body121f, {'WHAT': 'TRAVEL', 'SPEED': '220', 'ACCEL': '6000'})
+tests.append(('R121 FIX_FILE TRAVEL: saves speed+accel+nonce, explains live markers',
+    'VARIABLE=travel_speed VALUE=220.0' in out and 'VARIABLE=travelaccel_value VALUE=6000' in out
+    and 'VARIABLE=travelacc_fix_nonce VALUE=1' in out and 'live % ready' in out, out[:150]))
+out = render(_body121f, {'WHAT': 'TRAVEL', 'SPEED': '5'})
+tests.append(('R121 FIX_FILE TRAVEL: speed 5 rejected (0 or 20..300)',
+    'must be 0' in out and 'VARIABLE=travelacc_fix_nonce' not in out, out[:110]))
+out = render(_body121f, {'WHAT': 'TRAVEL', 'SPEED': '200', 'ACCEL': '5'})
+tests.append(('R121 FIX_FILE TRAVEL: accel 5 rejected (0 or 100..100000)',
+    'accel must be 0' in out and 'VARIABLE=travelacc_fix_nonce' not in out, out[:110]))
+out = render(_body121f, {'WHAT': 'TRAVEL', 'SPEED': '0', 'ACCEL': '0'})
+tests.append(('R121 FIX_FILE TRAVEL: 0/0 = pure live markers, no rewrite',
+    'VARIABLE=travel_speed VALUE=0.0' in out and 'file' in out
+    and 'VARIABLE=travelacc_fix_nonce VALUE=1' in out, out[:130]))
+
+# --- APPLY_TYPE TYPE=Travel (live segment) ---
+save_vars['ovf_travel_on'] = True
+save_vars['ovf_travel_spd'] = 130
+save_vars['ovf_travel_acc'] = 5000
+state_vars['mode'] = 'printing'
+state_vars['g_speed_clean'] = 100.0
+state_vars['ignore_overrides'] = False
+out = render(get_body('macros/10_live_tuning.cfg', 'APPLY_TYPE'), {'TYPE': 'Travel'})
+tests.append(('R121 APPLY_TYPE Travel: ON -> M99220 130% + M99204 5000, NO respond spam',
+    'M99220 S130' in out and 'M99204 S5000' in out and 'RESPOND' not in out, out[:130]))
+save_vars['ovf_travel_on'] = False
+out = render(get_body('macros/10_live_tuning.cfg', 'APPLY_TYPE'), {'TYPE': 'Travel'})
+tests.append(('R121 APPLY_TYPE Travel: OFF -> clean global factor only',
+    'M99220 S100' in out and 'M99204' not in out, out[:110]))
+save_vars['ovf_travel_on'] = True
+state_vars['g_speed_clean'] = 50.0
+out = render(get_body('macros/10_live_tuning.cfg', 'APPLY_TYPE'), {'TYPE': 'Travel'})
+tests.append(('R121 APPLY_TYPE Travel: percent rides ON TOP of the global (50 x 1.3)',
+    'M99220 S65' in out, out[:110]))
+state_vars['g_speed_clean'] = 100.0
+save_vars['ovf_travel_on'] = False
+save_vars['ovf_travel_spd'] = 100
+save_vars['ovf_travel_acc'] = 0
+
+# --- SET_OVERRIDE_VALUE accepts travel ---
+out = render(get_body('macros/07_start_confirm.cfg', 'SET_OVERRIDE_VALUE'),
+             {'NAME': 'feat_spd_travel', 'VALUE': '140'})
+tests.append(('R121 SET_OVERRIDE_VALUE: feat_spd_travel saves ovf_travel_spd',
+    'VARIABLE=ovf_travel_spd VALUE=140' in out and 'VARIABLE=ovf_travel_on VALUE=True' in out, out[:120]))
+
+# --- _FILE_INFO TRAVEL param -> _STATE.file_travel ---
+out = render(get_body('macros/08_print_start_stop.cfg', '_FILE_INFO'), {'TRAVEL': '150'})
+tests.append(('R121 _FILE_INFO: TRAVEL=150 -> file_travel + hint RESPOND',
+    'VARIABLE=file_travel VALUE=150.0' in out and 'File travels: 150 mm/s' in out, out[:120]))
+
+# --- LCD wiring ---
+_lcd121 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R121 LCD Pre-Print: Travel speed input + Fix travel + file speed shown',
+    all(k in _lcd121 for k in ['[menu __main __preprint __file __tvsp]',
+        '[menu __main __preprint __file __tvf]', '[menu __main __preprint __file __fixav]',
+        'name: Fix travel', 'FIX_FILE WHAT=TRAVEL SPEED=',
+        'VARIABLE=travel_speed VALUE={menu.input|round|int}']), 'ids'))
+tests.append(('R121 LCD Live: Features > Travel (On/File/Spd/Acc, no file-types gate)',
+    all(k in _lcd121 for k in ['[menu __main __live __feat __tv]',
+        '__tv __on]', '__tv __fs]', '__tv __spd]', '__tv __acc]',
+        'SET_OVERRIDE_VALUE NAME=feat_on_travel', 'SET_OVERRIDE_VALUE NAME=feat_spd_travel'])
+    and 'TRAVEL' not in str(_re121.findall(r"enable: \{[^}]*file_types[^}]*\}", _lcd121)).upper().replace('INTERNAL-BRIDGE', ''), ''))
+tests.append(('R121 LCD: flow cap fix ALWAYS visible again (R120 gate removed)',
+    "printer['gcode_macro _STATE'].file_maxrate|default(0)|float > printer['save_variables'].variables.flowcap_limit"
+    not in _lcd121, 'gate still there'))
 
 fails = 0
 for name, ok, info in tests:
