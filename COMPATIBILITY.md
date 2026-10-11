@@ -88,6 +88,9 @@ showed 109 MB of cold swap on a perfectly healthy Pi flagged as „SWAPPING").
 | Feature | Needs | Without it |
 |---|---|---|
 | LED effects (03_leds.cfg) | `klipper-led_effect` + `[neopixel printer_leds]` (+ optional `[neopixel nozzle_led]`) | Klipper refuses `[led_effect]` sections - comment them out or install the module (`setup.sh` can) |
+| LED areas (R108) | hardware profile `r2_hardware.cfg` (setup wizard generates + includes it) - `[neopixel]` OR `[dotstar]`, any section name, mainboard pin or EBB CAN split chain | defaults: 4 status + 0 bed + nozzle as last LED of `printer_leds` (the R2 reference layout - pre-R108 behaviour) |
+| LED persistence from the LCD | `gcode_shell_command` extension (KIAUH) + `[gcode_shell_command R2_PERSIST]` (setup.sh writes it into r2_hardware.cfg when the module exists) | System > LED Setup edits apply to the running session only |
+| Hardware profile (R108) | `r2_hardware.cfg` next to printer.cfg: build volume, probe offsets, clean/present positions, LED layout - the SECOND variables file (survives deleting variables.cfg) | Ender-3 reference defaults; `[gcode_macro _R2_CONFIG]` in printer.cfg keeps working (the wizard migrates it - old block only commented out) |
 | Sounds (02_sounds.cfg) | buzzer on a pin (`M300`) | silent, everything else works |
 | Filament sensor (09_) | `[filament_switch_sensor]` | runout protection inactive |
 | LCD menus | a display in Klipper + `menus/lcd_menues.cfg` include | Mainsail console commands work regardless (all GEN_* macros are console-callable with parameters) |

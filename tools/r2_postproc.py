@@ -3902,21 +3902,33 @@ def _bed_limits(cfg_path):
     """
     dflt = (0.0, -3.0, 220.0, 217.0)
     secs = {}
-    try:
-        with open(cfg_path, errors='replace') as f:
-            cur = None
-            for l in f:
-                ls = l.strip()
-                if ls.startswith('[') and ls.endswith(']'):
-                    cur = ls[1:-1].strip().lower()
-                    secs.setdefault(cur, {})
-                elif cur and ':' in ls and not ls.startswith(('#', ';')):
-                    k, v = ls.split(':', 1)
-                    v = v.split('#')[0].split(';')[0].strip()
-                    if k.strip() and v:
-                        secs[cur][k.strip().lower()] = v
-    except OSError:
-        return dflt
+
+    def _parse(path):
+        try:
+            with open(path, errors='replace') as f:
+                cur = None
+                for l in f:
+                    ls = l.strip()
+                    if ls.startswith('[') and ls.endswith(']'):
+                        cur = ls[1:-1].strip().lower()
+                        secs.setdefault(cur, {})
+                    elif cur and ':' in ls and not ls.startswith(('#', ';')):
+                        k, v = ls.split(':', 1)
+                        v = v.split('#')[0].split(';')[0].strip()
+                        if k.strip() and v:
+                            secs[cur][k.strip().lower()] = v
+        except OSError:
+            pass
+
+    _parse(cfg_path)
+    # R108: the dedicated hardware profile (same folder) is the NEW home of
+    # [gcode_macro _R2_CONFIG] - its values WIN over a legacy block inside
+    # printer.cfg (which is only commented out there anyway after migration)
+    import os as _os
+    _hw = _os.path.join(_os.path.dirname(_os.path.abspath(cfg_path)),
+                        'r2_hardware.cfg')
+    if _os.path.abspath(cfg_path) != _os.path.abspath(_hw):
+        _parse(_hw)
 
     if 'r2_postproc' in secs:
         print('[bed] [!] [r2_postproc] in printer.cfg HALTS KLIPPER (unknown '

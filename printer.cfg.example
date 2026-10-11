@@ -257,11 +257,16 @@ unretract_speed: 35
 # -------------------------------------------------------------------------------------
 # NEOPIXEL - 5 LEDs: index 1-4 = frame, index 5 = nozzle LED (print lighting)
 # All effects are capped at 50% brightness to protect the board - keep it that way!
+# The setup LED wizard (bash klipper-e3-r2d2/setup.sh) writes this section for
+# you - including the areas (status / bed light / nozzle) in r2_hardware.cfg.
+# NOTE: the option is chain_count (chain_cnt was the pre-2021 name and HALTS
+# current Klipper), and color_order takes ONE order per LED - a plain GRB
+# applies to the whole chain.
 # -------------------------------------------------------------------------------------
 [neopixel printer_leds]
 pin: PA8
-chain_cnt: 5
-color_order: GRBGR          # ADJUST: GRB or RGB per your strip (last = nozzle LED)
+chain_count: 5
+color_order: GRB            # ADJUST: GRB or RGB per your strip
 
 # -------------------------------------------------------------------------------------
 # PIEZO/BEEPER on the Creality 12864 LCD (EXP1) - for the R2-D2 sounds (M300)
@@ -437,7 +442,8 @@ enable_force_move: True
 #chain_count: 2                 # max ~15 at full white (5V/1A) - we cap at 0.5
 #color_order: GRB
 ## then: uncomment [led_effect r2_nozzle_on_split] in 03_leds.cfg and run
-##       SET_NOZZLE_SPLIT STATE=1   (once - persisted)
+##       SET_NOZZLE_SPLIT STATE=1   (once - persisted in r2_hardware.cfg)
+## (the setup LED wizard does all three steps for you)
 
 # ---- BTT Relay V1.2 (230V side!) - printer off while the Pi stays on ----------------
 # Relay control input (5V_IN + GND on the relay) from a free SKR pin. While
@@ -465,22 +471,39 @@ enable_force_move: True
 ## power ON after a relay-off: press the button on the relay module (or wire
 ## your own), then FIRMWARE_RESTART (the boards were completely off).
 
-# ---- R2 portability config (OPTIONAL - the defaults fit the Ender-3 reference) --------
-# R104.2: the config carrier is a SETTINGS MACRO (KAMP-style, like _KAMP_Settings).
-# A raw custom section (the old [r2_postproc] of R92..R81) makes Klipper REFUSE
-# to boot: 'Section ... is not a valid config section'! Uncomment + adjust on
-# another printer, or to tune positions (all values mm):
+# ---- R2 hardware profile (OPTIONAL - the defaults fit the Ender-3 reference) ---------
+# R108: the preferred form is the DEDICATED FILE r2_hardware.cfg in this folder
+# (setup-generate it with: bash klipper-e3-r2d2/setup.sh - the hardware wizard
+# asks every value). It is the SECOND variables file: printer-specific hardware
+# values that SURVIVE deleting variables.cfg (the normal settings file).
+# Include it once (setup does that for you, with your choice of apply mode):
+#[include r2_hardware.cfg]
+#
+# You can also keep the block right here instead (KAMP-style settings macro -
+# a raw custom section like the old [r2_postproc] of R92..R81 makes Klipper
+# REFUSE to boot: 'Section ... is not a valid config section'!). Values (mm):
 #[gcode_macro _R2_CONFIG]
-#description: R2 portability config (bed limits + positions) - macros AND watcher read this
+#description: R2 hardware profile (bed limits + positions + LED layout) - macros AND watcher read this
 #variable_bed_min_x: 0.0         # printable bed, ONE truth for generators + parks
 #variable_bed_max_x: 220.0
 #variable_bed_min_y: -3.0
 #variable_bed_max_y: 217.0
+#variable_bed_max_z: 250.0       # build height
+#variable_probe_x: 0.0           # probe offset (informational - [probe] stays the truth)
+#variable_probe_y: 0.0
 ## optional positions (defaults shown = the reference machine):
 #variable_present_x: 10.0        # PRINT_END part presentation (always axis-clamped)
 #variable_present_y: 228.0
 #variable_wipe_x: -1.0           # nozzle-wipe pad anchor; -1 = axis-minimum corner
 #variable_wipe_y: -1.0
+## LED areas (the LED wizard fills these - see 03_leds.cfg header):
+#variable_led_type: 'neopixel'   # or 'dotstar'
+#variable_led_section: 'printer_leds'
+#variable_led_status_n: 4        # LEDs 1..n = animated status effects
+#variable_led_bed_n: 0           # LEDs after them = bed work light
+#variable_led_bed_bright: 0.4    # 0-0.5 (the power cap)
+#variable_led_nozzle_split: 0    # 1 = nozzle LEDs on their own chain (EBB42)
+#variable_led_nozzle_section: 'nozzle_led'
 #gcode:
 #    # config carrier only - never runs
 

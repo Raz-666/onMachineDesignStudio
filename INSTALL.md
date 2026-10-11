@@ -59,13 +59,38 @@ stable - for a fresh install and as a health check after updates:
 - **RAM + services**: top consumers, known-optional services (camera stack,
   OctoPrint, ModemManager, ...) - nothing is disabled without your OK
 - **swap**: honest usage display + `vm.swappiness` tuning offer
-- **`[r2_postproc]` bed limits**: present? (the ONE truth for generators -
-  a must on any non-Ender-3 printer, see COMPATIBILITY.md)
+- **hardware wizard (R108)**: every printer-specific value asked in English,
+  each one validated + confirmed twice - build volume (bed min/max X/Y, Z
+  height), probe offsets, nozzle-clean + part-presentation positions, LED
+  layout (neopixel/dotstar, pin, chain, status/bed-light/nozzle areas, EBB
+  CAN split chain). Result: **`r2_hardware.cfg`** - the SECOND variables file
+  that survives deleting `variables.cfg` (your normal settings). Included
+  from printer.cfg by one line the wizard adds for you.
+- **LED wizard (R108)**: writes the `[neopixel]`/`[dotstar]` section (into
+  r2_hardware.cfg - printer.cfg stays yours) and the effect index ranges;
+  LCD: System > LED Setup tunes everything live afterwards
+- **object processing** (moonraker): current state shown + explained, offered
+  in BOTH directions - off is the deliberate recommendation on a Pi Zero 2 W
+- **BACKUP FIRST + verified**: every file this run might change is copied and
+  the copy verified byte-identical (cmp) BEFORE anything happens - a failed
+  verify aborts the whole run
+- **every change is shown first**: apply automatically (your lines only get
+  commented out - NEVER deleted) / commented-only / separate txt file
+  (safest - nothing is touched) / skip - your choice, asked once per run
 
 ```bash
 bash ~/printer_data/config/klipper-e3-r2d2/setup.sh            # interactive
 bash ~/printer_data/config/klipper-e3-r2d2/setup.sh --check    # report only
 ```
+
+`update.sh` (R108) additionally asks whether to KEEP or CHANGE the current LED
++ hardware settings before it restarts anything (default: keep - the LED
+layout is re-applied to the freshly unpacked 03_leds.cfg either way), shows
+the object-processing state with an offer to change it, and runs the same
+verified-backup-first routine. LCD persistence for the LED Setup menu needs
+the `gcode_shell_command` extension (KIAUH installs it; setup.sh adds the
+`[gcode_shell_command R2_PERSIST]` section into r2_hardware.cfg when it is
+present - without it, LCD LED edits simply hold for the running session).
 
 Every edited config file gets a `.r2bak.<timestamp>` backup first; questions
 without input (non-interactive SSH) always take the safe default. Porting to
@@ -112,7 +137,10 @@ Open `printer.cfg.example` as a **checklist** and compare with your printer.cfg:
    - `[screws_tilt_adjust]` (ADJUST positions to your bed screw centers)
    - `[bed_mesh]` + `adaptive_margin: 5`
    - `[idle_timeout]` timeout: 3600
-   - `[neopixel printer_leds]` (pin PA8, chain 5) - exact name!
+   - `[neopixel printer_leds]` (pin PA8, chain_count 5) - exact name! (the
+     option is `chain_count` - the old `chain_cnt` spelling HALTS current
+     Klipper; the setup LED wizard writes the section correctly for you,
+     including dotstar chains and EBB CAN nozzle splits)
    - `[force_move]` with `enable_force_move: True` - REQUIRED for SYNC_GANTRY (registers `SET_KINEMATIC_POSITION`)
 2. **Do not rename** these (macros use them): `filament_sensor` (sensor),
    `printer_leds` (neopixel), `beeper`, `_STATE`, `_MATERIALS`, `_SOUND_LIB`.

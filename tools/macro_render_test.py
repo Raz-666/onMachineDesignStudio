@@ -6416,7 +6416,7 @@ tests.append(('R86.2 SET_LED_STATE split: work light via _split effect',
     'EFFECT=r2_nozzle_on_split' in out, out[:160]))
 out = render(get_body('macros/03_leds.cfg', 'SET_NOZZLE_SPLIT'), {'STATE': '1'})
 tests.append(('R86.2 SET_NOZZLE_SPLIT STATE=1 persisted',
-    'SAVE_VARIABLE VARIABLE=nozzle_split VALUE=1' in out and 'EBB42 PD3' in out, out[:140]))
+    'SAVE_VARIABLE VARIABLE=nozzle_split VALUE=1' in out and 'own chain' in out, out[:140]))
 out = render(get_body('macros/03_leds.cfg', 'SET_NOZZLE_SPLIT'), {'STATE': '7'})
 tests.append(('R86.2 SET_NOZZLE_SPLIT bad value -> usage hint',
     'SET_NOZZLE_SPLIT STATE=1' in out and 'SAVE_VARIABLE' not in out, out[:140]))
@@ -9132,7 +9132,27 @@ state_vars['mode'] = 'printing'
 import re as _re106c, glob as _glob106c
 _expr106 = _re106c.compile(r'\{([^{}%]+)\}')
 _menu_ctx106 = {'menu': _MM106({'input': 100.0})}
-_prns106 = [('reference', build_printer()), ('minimal', _min_printer106())]
+def _ledp108(split=0, persist=True, **over):
+    # R108: printer with a hardware profile (r2_hardware.cfg included) -
+    # LED areas 3 status + 4 bed light + nozzle, optional EBB split chain
+    _p = dict(build_printer(ps_state='idle'))
+    _cfg = dict(_p['configfile'])
+    _st = dict(_cfg['settings'])
+    _st['neopixel printer_leds'] = M({'pin': 'PA8', 'chain_count': '8'})
+    if persist:
+        _st['gcode_shell_command R2_PERSIST'] = M({'command': 'bash r2_persist.sh'})
+    _cfg['settings'] = M(_st)
+    _p['configfile'] = M(_cfg)
+    _led = {'led_type': 'neopixel', 'led_section': 'printer_leds',
+            'led_status_n': 3, 'led_bed_n': 4, 'led_bed_on': 1,
+            'led_bed_bright': 0.4, 'led_nozzle_split': split,
+            'led_nozzle_section': 'nozzle_led'}
+    _led.update(over)
+    _p['gcode_macro _R2_CONFIG'] = M(_led)
+    return M(_p)
+
+_prns106 = [('reference', build_printer()), ('minimal', _min_printer106()),
+            ('ledprofile', _ledp108())]
 _fails106 = []
 _n106e = 0
 _lcd106x = open('menus/lcd_menues.cfg', encoding='utf-8').read()
@@ -9187,6 +9207,93 @@ tests.append(('R106 COMPAT SWEEP: %d menu exprs + %d macro bodies render on refe
               ' AND minimal (1 Z, no mesh/shaper/objects/probe/TMC/LEDs) printer'
               % (_n106e, _n106m),
     not _fails106, _fails106[:4]))
+
+# ============== R108: LED areas (hardware profile) ==============
+_nz108 = get_body('macros/03_leds.cfg', '_NOZZLE_SET')
+_bl108 = get_body('macros/03_leds.cfg', '_BEDLIGHT_SET')
+tests.append(('R108 LED: _NOZZLE_SET index follows the layout (3+4 -> INDEX=8)',
+    'INDEX=8' in render(_nz108, {'ON': 1}, {'printer': MP(_ledp108())}), ''))
+tests.append(('R108 LED: _NOZZLE_SET stays INDEX=5 without a profile (compat)',
+    'INDEX=5' in render(_nz108, {'ON': 1},
+                        {'printer': MP(build_printer(ps_state='idle'))}), ''))
+tests.append(('R108 LED: _BEDLIGHT_SET lights LED 4-7 white at 0.4 (power cap)',
+    'INDEX=4' in render(_bl108, {'ON': 1}, {'printer': MP(_ledp108())})
+    and 'INDEX=7' in render(_bl108, {'ON': 1}, {'printer': MP(_ledp108())})
+    and 'RED=0.4' in render(_bl108, {'ON': 1}, {'printer': MP(_ledp108())}), ''))
+tests.append(('R108 LED: _BEDLIGHT_SET BRIGHT clamps at the 0.5 power cap',
+    'RED=0.5' in render(_bl108, {'ON': 1, 'BRIGHT': '0.9'},
+                        {'printer': MP(_ledp108())}), ''))
+tests.append(('R108 LED: _BEDLIGHT_SET OFF darkens every bed LED',
+    render(_bl108, {'ON': 0}, {'printer': MP(_ledp108())}).count('RED=0 GREEN=0 BLUE=0') == 4
+    and 'RED=0.4' not in render(_bl108, {'ON': 0}, {'printer': MP(_ledp108())}), ''))
+_sls108 = get_body('macros/03_leds.cfg', 'SET_LED_STATE')
+tests.append(('R108 LED: SET_LED_STATE re-applies the bed light after effects',
+    'EFFECT=r2_idle' in render(_sls108, {}, {'printer': MP(_ledp108())})
+    and '_BEDLIGHT_SET ON=1' in render(_sls108, {}, {'printer': MP(_ledp108())}), ''))
+tests.append(('R108 LED: SET_LED_STATE keeps bn=0 installs unchanged (compat)',
+    '_BEDLIGHT_SET' not in render(_sls108, {},
+                                  {'printer': MP(build_printer(ps_state='idle'))}), ''))
+_sbl108 = get_body('macros/03_leds.cfg', 'SET_BED_LIGHT')
+_out108 = render(_sbl108, {'TOGGLE': '1'}, {'printer': MP(_ledp108())})
+tests.append(('R108 LED: SET_BED_LIGHT TOGGLE flips + persists into the profile',
+    'VARIABLE=led_bed_on VALUE=0' in _out108
+    and 'PARAMS="led_bed_on 0"' in _out108 and '_BEDLIGHT_SET ON=0' in _out108, _out108[:150]))
+_out108 = render(_sbl108, {'BRIGHT': '0.25'}, {'printer': MP(_ledp108())})
+tests.append(('R108 LED: SET_BED_LIGHT BRIGHT persists (0-0.5)',
+    'VARIABLE=led_bed_bright VALUE=0.25' in _out108
+    and 'PARAMS="led_bed_bright 0.25"' in _out108, _out108[:150]))
+_sll108 = get_body('macros/03_leds.cfg', 'SET_LED_LAYOUT')
+_out108 = render(_sll108, {'STATUS': '3', 'BED': '4'}, {'printer': MP(_ledp108())})
+tests.append(('R108 LED: SET_LED_LAYOUT 3+4 on an 8-LED chain (no clamp)',
+    'VARIABLE=led_status_n VALUE=3' in _out108 and 'VARIABLE=led_bed_n VALUE=4' in _out108
+    and 'PARAMS="led_status_n 3"' in _out108 and 'PARAMS="led_bed_n 4"' in _out108
+    and 'clamped' not in _out108, _out108[:150]))
+_out108 = render(_sll108, {'STATUS': '10'}, {'printer': MP(_ledp108())})
+tests.append(('R108 LED: SET_LED_LAYOUT hard-clamps to the chain (rule nn)',
+    'VARIABLE=led_status_n VALUE=7' in _out108 and 'clamped' in _out108, _out108[:150]))
+tests.append(('R108 LED: SET_LED_LAYOUT without a profile -> clear refusal',
+    'hardware profile' in render(_sll108, {},
+                                 {'printer': MP(build_printer(ps_state='idle'))}), ''))
+_li108 = get_body('macros/03_leds.cfg', 'LED_INFO')
+_out108 = render(_li108, {}, {'printer': MP(_ledp108())})
+tests.append(('R108 LED: LED_INFO lists pin, chain, areas, switches',
+    'pin PA8' in _out108 and '8 LEDs' in _out108 and '1-3 status' in _out108
+    and '4-7 bed light (on, bright 0.4)' in _out108 and 'nozzle LED 8' in _out108
+    and 'master on' in _out108, _out108[:200]))
+tests.append(('R108 LED: LED_INFO without any LED section -> friendly',
+    'no [neopixel printer_leds] section' in render(_li108, {},
+        {'printer': MP(build_printer(ps_state='idle'))}), ''))
+_sns108 = get_body('macros/03_leds.cfg', 'SET_NOZZLE_SPLIT')
+_out108 = render(_sns108, {'STATE': '1'}, {'printer': MP(_ledp108())})
+tests.append(('R108 LED: SET_NOZZLE_SPLIT persists into profile AND variables',
+    'VARIABLE=nozzle_split VALUE=1' in _out108
+    and 'VARIABLE=led_nozzle_split VALUE=1' in _out108
+    and 'PARAMS="led_nozzle_split 1"' in _out108, _out108[:150]))
+_hw108 = get_body('macros/13_system.cfg', 'HW_INFO')
+_out108 = render(_hw108, {}, {'printer': MP(_ledp108())})
+tests.append(('R108 hw: HW_INFO reports profile + persister',
+    'bed X 0.0 .. 220.0' in _out108 and 'probe offset' in _out108
+    and 'R2_PERSIST available' in _out108 and 'LEDs: [neopixel printer_leds]' in _out108, _out108[:200]))
+_out108 = render(_hw108, {}, {'printer': MP(build_printer(ps_state='idle'))})
+tests.append(('R108 hw: HW_INFO without a profile -> wizard hint',
+    'no [gcode_macro _R2_CONFIG]' in _out108, ''))
+_lcd108 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R108 LCD: System > LED Setup submenu complete + guarded',
+    'menu __main __system __ledcfg]' in _lcd108
+    and 'LED Setup' in _lcd108 and 'SET_LED_LAYOUT STATUS={menu.input}' in _lcd108
+    and 'SET_LED_LAYOUT BED={menu.input}' in _lcd108
+    and 'SET_BED_LIGHT TOGGLE=1' in _lcd108 and 'LED_INFO' in _lcd108
+    and "'neopixel ' in (printer.configfile.settings|list|join(' '))" in _lcd108
+    and "'gcode_macro _R2_CONFIG' in printer and printer['gcode_macro _R2_CONFIG'].led_bed_n" in _lcd108, ''))
+tests.append(('R108 files: wizard library + persister + backup shipped',
+    all(__import__('os').path.exists(f) for f in
+        ('tools/r2_setup_lib.sh', 'tools/r2_persist.sh'))
+    and 'r2_backup_candidates' in open('tools/r2_setup_lib.sh', encoding='utf-8').read()
+    and 'cmp -s' in open('tools/r2_setup_lib.sh', encoding='utf-8').read()
+    and 'r2_backup_candidates' in open('update.sh', encoding='utf-8').read()
+    and 'r2_backup_candidates' in open('setup.sh', encoding='utf-8').read(), ''))
+tests.append(('R108 watcher: _bed_limits reads r2_hardware.cfg too',
+    'r2_hardware.cfg' in open('tools/r2_postproc.py', encoding='utf-8').read(), ''))
 
 fails = 0
 for name, ok, info in tests:

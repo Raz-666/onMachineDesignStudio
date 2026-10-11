@@ -8,8 +8,16 @@
 #  machine up to spec - everything AROUND the package that the macro system
 #  needs (or benefits from) to run stable:
 #
+#    0. backup FIRST    every file this run might change gets a VERIFIED 1:1
+#                       copy (cmp) BEFORE anything else - a failed verify
+#                       aborts the run, nothing is ever modified unbacked
 #    1. environment     Pi / user / systemd / sudo / git / network
 #    2. config location printer.cfg, the 17 include lines, [r2_postproc] bed
+#    2b. hardware        r2_hardware.cfg - the SECOND variables file (build
+#        profile +      volume, probe offsets, clean/present positions, LED
+#        LED wizard    layout). Every value asked + confirmed; survives a
+#                       variables.cfg reset. LED chains: neopixel/dotstar,
+#                       mainboard pin or EBB CAN split chain
 #    3. Klipper stack   klipper / moonraker / mainsail services + API check
 #    4. Python          the watcher is stdlib-only -> compile + smoke check
 #    5. r2-postproc     systemd unit installed / enabled / running / CURRENT
@@ -118,6 +126,32 @@ echo "       user    : ${USER_NAME}  (home ${HOME_DIR})"
 [ "${CHECK_ONLY}" -eq 1 ] && echo "       MODE    : CHECK ONLY (no changes, no questions)"
 
 # =====================================================================================
+#  0) BACKUP FIRST (R108) - before anything else: every file this run might
+#     change gets a copy that is VERIFIED 1:1 against the original (cmp).
+#     A failed verify ABORTS the whole run - nothing is modified unbacked.
+# =====================================================================================
+R2_LIB_LOADED=0
+if [ -f "${CFG}" ]; then
+    CFG_DIR="$(cd "$(dirname "${CFG}")" && pwd)"
+fi
+if [ -f "${DIR}/tools/r2_setup_lib.sh" ] && [ -n "${CFG_DIR}" ]; then
+    . "${DIR}/tools/r2_setup_lib.sh"
+    r2_lib_init "${CFG_DIR}" "${DIR}" "${TS}" "${CHECK_ONLY}" "${SUDO}"
+    if ! r2_backup_candidates "${CFG_DIR}/r2_backups/${TS}-setup"; then
+        echo "[!] setup ABORTED by the backup rule - no file was modified"
+        exit 1
+    fi
+    R2_LIB_LOADED=1
+else
+    echo "[i] backup step skipped (no printer.cfg found / wizard library missing)"
+    if [ -f "${DIR}/tools/r2_setup_lib.sh" ]; then
+        . "${DIR}/tools/r2_setup_lib.sh"
+        r2_lib_init "${CFG_DIR_DEFAULT}" "${DIR}" "${TS}" "${CHECK_ONLY}" "${SUDO}"
+        R2_LIB_LOADED=1
+    fi
+fi
+
+# =====================================================================================
 #  1) environment
 # =====================================================================================
 echo
@@ -169,76 +203,62 @@ if [ -n "${CFG_DIR}" ]; then
         info "   (or run: bash ${DIR}/update.sh  - it checks the same list)"
     fi
 
-    # the ONE bed truth for generators + LCD macros. R104.2: the carrier is a
-    # KAMP-style settings macro - a RAW [r2_postproc] section makes Klipper
-    # REFUSE TO BOOT ('not a valid config section', field log .81)!
-    if grep -qE '^\[gcode_macro _R2_CONFIG\]' "${CFG}"; then
-        if grep -qE '^\s*variable_bed_min_x:' "${CFG}"; then
-            ok "[gcode_macro _R2_CONFIG] bed limits present (generators + park corners use them)"
-        else
-            warn "[gcode_macro _R2_CONFIG] exists but has no variable_bed_min_x/... entries"
-        fi
-    elif grep -qE '^\[r2_postproc\]' "${CFG}"; then
-        warn "LEGACY [r2_postproc] section found - Klipper CANNOT BOOT with it"
-        info "   ('Section r2_postproc is not a valid config section' - halt loop!)"
-        ask_yn "Migrate it to [gcode_macro _R2_CONFIG] now (values kept, backup made)?" y
-        if [ "${ASK_ANSWER}" = "y" ]; then
-            backup_file "${CFG}" >/dev/null
-            python3 - "${CFG}" << 'R2PY'
+    # ---- R2 hardware profile (R108): the SECOND variables file --------------
+    # r2_hardware.cfg holds the printer-specific values (bed limits, probe
+    # offsets, clean/present positions, LED layout). It is INCLUDED from
+    # printer.cfg and survives deleting variables.cfg - resetting the normal
+    # settings file can never lose machine compatibility. LCD-editable
+    # hardware values (LED areas) persist into it too (R2_PERSIST).
+    if [ "${R2_LIB_LOADED}" = "1" ]; then
+        if grep -qE '^\[r2_postproc\]' "${CFG}"; then
+            warn "LEGACY [r2_postproc] section found - Klipper CANNOT BOOT with it"
+            info "   ('Section r2_postproc is not a valid config section' - halt loop!)"
+            ask_yn "Migrate it into r2_hardware.cfg now (values kept, backup made, old section only commented out)?" y
+            if [ "${ASK_ANSWER}" = "y" ]; then
+                if r2_sidecar "${CFG}"; then
+                    _raw_vals="$(grep -A6 -E '^\[r2_postproc\]' "${CFG}" | grep -E '^(bed_min_x|bed_max_x|bed_min_y|bed_max_y):' || true)"
+                    python3 - "${CFG}" << 'R2PY_RAW'
 import re, sys
 p = sys.argv[1]
 s = open(p, encoding='utf-8', errors='surrogateescape').read()
-vals = {}
-for k in ('bed_min_x', 'bed_max_x', 'bed_min_y', 'bed_max_y'):
-    m = re.search(r'^%s:\s*(-?[\d.]+)\s*$' % k, s, re.M)
-    if m:
-        vals[k] = m.group(1)
-s = re.sub(r'\n?\[r2_postproc\]\n(?:[^\n[\n]*\n?)*', '', s, count=1)
-block = ('\n[gcode_macro _R2_CONFIG]\n'
-         'description: R2 portability config (bed limits + positions) - macros AND watcher read this\n'
-         'variable_bed_min_x: %s\nvariable_bed_max_x: %s\n'
-         'variable_bed_min_y: %s\nvariable_bed_max_y: %s\n'
-         '# optional: variable_present_x/y (PRINT_END presentation), variable_wipe_x/y (wipe pad; -1 = corner)\n'
-         'gcode:\n    # config carrier only - never runs\n'
-         % (vals.get('bed_min_x', '0.0'), vals.get('bed_max_x', '220.0'),
-            vals.get('bed_min_y', '-3.0'), vals.get('bed_max_y', '217.0')))
-i = s.find('\n#*#')
-if i >= 0:
-    s = s[:i].rstrip('\n') + '\n' + block + s[i:]
-else:
-    s = s.rstrip('\n') + '\n' + block
+def comment(m):
+    return '\n'.join('# [R2-off] ' + l if l.strip() else l for l in m.group(0).rstrip().split('\n'))
+s = re.sub(r'\n?\[r2_postproc\]\n(?:[ \t]*[A-Za-z_][A-Za-z0-9_]*:[^\n]*\n|[ \t]*\n)*', comment, s, count=1)
 open(p, 'w', encoding='utf-8', errors='surrogateescape').write(s)
-R2PY
-            fix "migrated: [r2_postproc] -> [gcode_macro _R2_CONFIG] (Klipper-valid, values kept)"
-            info "RESTART klipper to confirm it boots now"
+R2PY_RAW
+                    r2_hw_read
+                    while IFS= read -r _rv; do
+                        [ -z "${_rv}" ] && continue
+                        _rk="${_rv%%:*}"; _rk="${_rk//[[:space:]]/}"
+                        _rvv="${_rv#*:}"; _rvv="${_rvv//[[:space:]]/}"
+                        R2_HW["${_rk}"]="${_rvv}"
+                    done <<< "${_raw_vals}"
+                    r2_hw_write
+                    r2_ensure_include
+                    fix "migrated: [r2_postproc] -> r2_hardware.cfg (old section commented out, values kept)"
+                    info "RESTART klipper to confirm it boots now"
+                else
+                    warn "backup verify failed - migration skipped"
+                fi
+            fi
+        fi
+        if [ -f "$(r2_hwfile)" ]; then
+            ok "hardware profile present: $(r2_hwfile) (survives variables.cfg resets)"
+            r2_ensure_include
+            r2_apply_led_layout
+            r2_ask "Open the hardware + LED wizard anyway (check / change values)?" n
+        else
+            info "no r2_hardware.cfg yet - the wizard asks every printer-specific value"
+            info "   (build volume, probe offsets, clean/present positions, LED layout)."
+            info "   On the Ender-3 reference the defaults are fine - Enter-through takes them."
+            r2_ask "Run the hardware + LED wizard now?" n
+        fi
+        if [ "${R2_YN}" = "y" ]; then
+            r2_hw_wizard
+            r2_led_wizard
         fi
     else
-        info "no [gcode_macro _R2_CONFIG] in printer.cfg - generators fall back to the"
-        info "   Ender-3 default bed (0 -3 .. 220 217). Your machine ran fine without it;"
-        info "   only useful to tune or on ANOTHER printer."
-        ask_yn "Add [gcode_macro _R2_CONFIG] with Ender-3 default values?" n
-        if [ "${ASK_ANSWER}" = "y" ]; then
-            backup_file "${CFG}" >/dev/null
-            python3 - "${CFG}" << 'R2PY'
-import sys
-p = sys.argv[1]
-s = open(p, encoding='utf-8', errors='surrogateescape').read()
-block = ('\n[gcode_macro _R2_CONFIG]\n'
-         'description: R2 portability config (bed limits + positions) - macros AND watcher read this\n'
-         'variable_bed_min_x: 0.0\nvariable_bed_max_x: 220.0\n'
-         'variable_bed_min_y: -3.0\nvariable_bed_max_y: 217.0\n'
-         '# optional: variable_present_x/y (PRINT_END presentation), variable_wipe_x/y (wipe pad; -1 = corner)\n'
-         'gcode:\n    # config carrier only - never runs\n')
-if '_R2_CONFIG' not in s:
-    i = s.find('\n#*#')
-    if i >= 0:
-        s = s[:i].rstrip('\n') + '\n' + block + s[i:]
-    else:
-        s = s.rstrip('\n') + '\n' + block
-    open(p, 'w', encoding='utf-8', errors='surrogateescape').write(s)
-R2PY
-            fix "[gcode_macro _R2_CONFIG] written into printer.cfg (defaults - ADJUST to tune!)"
-        fi
+        info "wizard library not loaded - hardware profile not offered (see step 0)"
     fi
 fi
 
@@ -396,35 +416,16 @@ if [ -n "${CFG_DIR}" ]; then
     grep -q '^\[include KAMP_Settings.cfg\]' "${CFG}" && ok "KAMP include in printer.cfg" \
         || { [ "${KAMP_OK}" -eq 1 ] && { warn "[include KAMP_Settings.cfg] missing in printer.cfg"; KAMP_OK=0; }; }
 fi
-    MOONRAKER_CONF="${KAMP_CFG_DIR}/moonraker.conf"
-    # R104.1: object processing is POLICY, not correctness - False is a
-    # DELIBERATE choice on small Pis (our own manual recommends it on the
-    # Pi Zero 2 W: object processing costs RAM on every upload). Never nag,
-    # only explain. It no longer makes the wizard offer a KAMP install.
-    if [ -f "${MOONRAKER_CONF}" ]; then
-        if grep -qE '^\s*enable_object_processing:\s*[Tt]rue' "${MOONRAKER_CONF}"; then
-            ok "moonraker object processing enabled (KAMP meshes/purges adaptively)"
-        elif grep -qE '^\s*enable_object_processing:' "${MOONRAKER_CONF}"; then
-            info "moonraker object processing is OFF (deliberate on a Pi Zero 2 W -"
-            info "   recommended there! KAMP then meshes full-bed and the purge falls"
-            info "   back to our own line - both fine, no action needed)"
-        else
-            ask_yn "Enable moonraker object processing (needed for adaptive; costs RAM on every upload)?" n
-            if [ "${ASK_ANSWER}" = "y" ]; then
-                backup_file "${MOONRAKER_CONF}" >/dev/null
-                if grep -q '^\[file_manager\]' "${MOONRAKER_CONF}"; then
-                    awk -v ins=0 'ins==0 && /^\[file_manager\]/ {print; print "enable_object_processing: True"; ins=1; next} {print}' \
-                        "${MOONRAKER_CONF}" > "${MOONRAKER_CONF}.new" \
-                        && mv "${MOONRAKER_CONF}.new" "${MOONRAKER_CONF}"
-                else
-                    printf '\n[file_manager]\nenable_object_processing: True\n' >> "${MOONRAKER_CONF}"
-                fi
-                fix "moonraker.conf: object processing enabled"
-                info "restart moonraker to activate:  ${SUDO} systemctl restart moonraker"
-            fi
-        fi
+    # R108: object processing through the wizard library - ALWAYS shows the
+    # current state + the full what/why/why-not explanation, offers BOTH
+    # directions and applies the change in one of the 4 modes (auto /
+    # commented-only / separate txt = safest / skip).
+    if [ "${R2_LIB_LOADED}" = "1" ]; then
+        r2_object_processing
+    elif [ -f "${KAMP_CFG_DIR}/moonraker.conf" ]; then
+        info "wizard library not loaded - object processing not offered here"
     else
-        info "moonraker.conf not found at ${MOONRAKER_CONF} - cannot check object processing"
+        info "moonraker.conf not found at ${KAMP_CFG_DIR}/moonraker.conf - cannot check object processing"
     fi
 
     if [ "${KAMP_OK}" -eq 0 ]; then
@@ -461,25 +462,30 @@ fi
                     fi
                 fi
             # printer.cfg: include + exclude_object
-            if [ -n "${CFG_DIR}" ] && [ -f "${CFG}" ]; then
+            if [ -n "${CFG_DIR}" ] && [ -f "${CFG}" ] && [ "${R2_LIB_LOADED}" = "1" ]; then
                 if ! grep -q '^\[include KAMP_Settings.cfg\]' "${CFG}"; then
-                    backup_file "${CFG}" >/dev/null
-                    printf '\n# KAMP (added by setup.sh %s)\n[include KAMP_Settings.cfg]\n' "${TS}" >> "${CFG}"
-                    fix "printer.cfg: [include KAMP_Settings.cfg] added"
+                    r2_change_block "${CFG}" "KAMP include" "[include KAMP_Settings.cfg]"
                 fi
                 if ! grep -q '^\[exclude_object\]' "${CFG}"; then
-                    backup_file "${CFG}" >/dev/null
-                    printf '\n[exclude_object]\n' >> "${CFG}"
-                    fix "printer.cfg: [exclude_object] added"
+                    r2_change_block "${CFG}" "exclude_object (KAMP adaptive needs it)" "[exclude_object]"
                 fi
             fi
             # moonraker.conf: optional update manager entry
             # (object processing has its own dedicated prompt above - never
             # enabled silently, R104.1)
-            if [ -f "${MOONRAKER_CONF}" ]; then
-                if ! grep -q 'Klipper-Adaptive-Meshing-Purging' "${MOONRAKER_CONF}"; then
-                    ask_yn "Add the moonraker update-manager entry for KAMP?" n
-                    if [ "${ASK_ANSWER}" = "y" ]; then
+            if [ -f "${MOONRAKER_CONF}" ] && ! grep -q 'Klipper-Adaptive-Meshing-Purging' "${MOONRAKER_CONF}"; then
+                ask_yn "Add the moonraker update-manager entry for KAMP?" n
+                if [ "${ASK_ANSWER}" = "y" ]; then
+                    if [ "${R2_LIB_LOADED}" = "1" ]; then
+                        r2_change_block "${MOONRAKER_CONF}" "KAMP update-manager entry" \
+"[update_manager Klipper-Adaptive-Meshing-Purging]
+type: git_repo
+channel: dev
+path: ${KAMP_REPO}
+origin: ${KAMP_REPO_URL}
+managed_services: klipper
+primary_branch: main"
+                    else
                         backup_file "${MOONRAKER_CONF}" >/dev/null
                         printf '\n[update_manager Klipper-Adaptive-Meshing-Purging]\ntype: git_repo\nchannel: dev\npath: %s\norigin: %s\nmanaged_services: klipper\nprimary_branch: main\n' \
                             "${KAMP_REPO}" "${KAMP_REPO_URL}" >> "${MOONRAKER_CONF}"
@@ -527,10 +533,19 @@ if [ "${LED_OK}" -eq 0 ]; then
             if [ -f "${MOONRAKER_CONF}" ] && ! grep -q 'update_manager led_effect' "${MOONRAKER_CONF}"; then
                 ask_yn "Add the moonraker update-manager entry for led_effect?" n
                 if [ "${ASK_ANSWER}" = "y" ]; then
-                    backup_file "${MOONRAKER_CONF}" >/dev/null
-                    printf '\n[update_manager led_effect]\ntype: git_repo\npath: %s/klipper-led_effect\norigin: %s\nis_system_service: False\n' \
-                        "${HOME_DIR}" "${LED_REPO_URL}" >> "${MOONRAKER_CONF}"
-                    fix "moonraker.conf: led_effect update-manager entry added"
+                    if [ "${R2_LIB_LOADED}" = "1" ]; then
+                        r2_change_block "${MOONRAKER_CONF}" "led_effect update-manager entry" \
+"[update_manager led_effect]
+type: git_repo
+path: ${HOME_DIR}/klipper-led_effect
+origin: ${LED_REPO_URL}
+is_system_service: False"
+                    else
+                        backup_file "${MOONRAKER_CONF}" >/dev/null
+                        printf '\n[update_manager led_effect]\ntype: git_repo\npath: %s/klipper-led_effect\norigin: %s\nis_system_service: False\n' \
+                            "${HOME_DIR}" "${LED_REPO_URL}" >> "${MOONRAKER_CONF}"
+                        fix "moonraker.conf: led_effect update-manager entry added"
+                    fi
                 fi
             fi
         fi
@@ -671,6 +686,12 @@ echo "== summary ===============================================================
 [ -n "${RESULT_OK}" ]   && printf 'OK / healthy:%b\n' "${RESULT_OK}"
 [ -n "${RESULT_FIX}" ]  && printf 'Fixed just now:%b\n' "${RESULT_FIX}"
 [ -n "${RESULT_WARN}" ] && printf 'Needs your attention (state at start - see what was fixed just now):\n%b\n' "${RESULT_WARN}"
+if [ "${R2_LIB_LOADED}" = "1" ] && [ -f "${R2_MODE_FILE}" ]; then
+    echo
+    echo "[i] manual changes collected in: ${R2_MODE_FILE}"
+    echo "    (mode 3 = the SAFEST way: your files were not touched at all -"
+    echo "     copy the noted lines to the marked places by hand)"
+fi
 echo
 echo "package version: $(sed -n "s/^[[:space:]]*variable_version: *'\(R2-[0-9-]*\.[0-9]*\)'.*/\1/p" "${DIR}/macros/01_state.cfg" 2>/dev/null | head -1)"
 echo "== setup done - happy printing! =="

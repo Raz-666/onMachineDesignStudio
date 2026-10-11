@@ -21,6 +21,12 @@
 #
 #  Options:  --force      also unpack an OLDER zip (downgrade)
 #            --unpacked   internal flag (do not search for zips again)
+#
+#  R108: the update ALSO asks whether to KEEP or CHANGE the LED settings and
+#  the hardware profile (r2_hardware.cfg), shows the moonraker object-
+#  processing state with an offer to change it, and re-applies the LED
+#  layout to the freshly unpacked 03_leds.cfg. Backup FIRST + verified
+#  (cmp) before anything is touched - a failed verify aborts.
 # =====================================================================================
 set -u
 DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -60,6 +66,22 @@ else
         echo "[i] no '[include ${PKG_REL}/macros/01_state.cfg]' found in ${CFG} yet"
         echo "    (first install? the include check below tells you what to add)"
     fi
+fi
+
+# --- 0.5) BACKUP FIRST (R108) - before the zip overwrites anything: every
+#     file this run might change gets a copy VERIFIED 1:1 (cmp). Runs on the
+#     first invocation only (--unpacked re-runs skip it - by then the files
+#     are the NEW ones and the backup of the old ones is already made).
+R2_LIB_LOADED=0
+if [ "${1:-}" != "--unpacked" ] && [ -n "${CFG_DIR}" ] \
+   && [ -f "${DIR}/tools/r2_setup_lib.sh" ]; then
+    . "${DIR}/tools/r2_setup_lib.sh"
+    r2_lib_init "${CFG_DIR}" "${DIR}" "$(date +%Y%m%d-%H%M%S)" 0 "sudo"
+    if ! r2_backup_candidates "${CFG_DIR}/r2_backups/$(date +%Y%m%d-%H%M%S)-update"; then
+        echo "[!] update ABORTED by the backup rule - nothing was unpacked or modified"
+        exit 1
+    fi
+    R2_LIB_LOADED=1
 fi
 
 # --- 1) unzip an uploaded UPDATE zip over the old folder (NEW in .50) ----------------
@@ -142,6 +164,37 @@ if grep -q 'variable_charset:.*#' "${DIR}/macros/16_labels.cfg" 2>/dev/null; the
     exit 1
 fi
 echo "[ok] no '#' in variable_charset (the .47/.48 boot-blocker is fixed here)"
+
+# --- 4b) R108: LED settings + hardware profile - keep or change? -----------------------
+#     The unpack just replaced macros/03_leds.cfg (effect index ranges back
+#     to the 1-4 default) - the profile values are re-applied right after.
+if [ -f "${DIR}/tools/r2_setup_lib.sh" ]; then
+    [ "${R2_LIB_LOADED}" = "0" ] && {
+        . "${DIR}/tools/r2_setup_lib.sh"
+        r2_lib_init "${CFG_DIR:-${HOME}/printer_data/config}" "${DIR}" "$(date +%Y%m%d-%H%M%S)" 0 "sudo"
+        R2_LIB_LOADED=1
+    }
+    if [ -f "$(r2_hwfile)" ]; then
+        echo "[i] hardware profile: $(r2_hwfile)"
+        r2_hw_read
+        for _k in bed_min_x bed_max_x bed_min_y bed_max_y led_type led_section led_status_n led_bed_n led_nozzle_split; do
+            [ -n "${R2_HW[${_k}]:-}" ] && printf '      %-16s %s\n' "${_k}:" "${R2_HW[${_k}]}"
+        done
+        r2_ask "Keep the current LED + hardware settings?" y
+        if [ "${R2_YN}" = "y" ]; then
+            r2_apply_led_layout
+            echo "[ok] LED layout re-applied to the freshly unpacked 03_leds.cfg"
+        else
+            r2_hw_wizard
+            r2_led_wizard
+        fi
+    else
+        echo "[i] no r2_hardware.cfg yet (pre-R108 install or Ender-3 defaults)"
+        r2_ask "Run the hardware + LED wizard now?" n
+        [ "${R2_YN}" = "y" ] && { r2_hw_wizard; r2_led_wizard; }
+    fi
+    r2_object_processing
+fi
 
 # --- 5) restart Klipper via Moonraker (works in the red config-error state too) --------
 echo "[i] sending FIRMWARE_RESTART via Moonraker..."

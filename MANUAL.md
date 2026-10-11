@@ -1999,7 +1999,8 @@ LEDs on/off, Nozzle LED — mode AUTO/ON/OFF + live brightness + live color
 R/G/B + presets.
 
 **System:** File check (+ Retag old 2×), restarts (2×), Pi shutdown (2×), **Force end print**, save config
-(2×, warns that the LCD goes dark), status.
+(2×, warns that the LCD goes dark), status, **LED Setup** (areas, bed light,
+nozzle chain/mode — ch. 17, only shown when LED hardware exists).
 
 ## 15. Overrides reference
 
@@ -2086,6 +2087,35 @@ returns to idle breathing BY ITSELF — it used to twinkle forever.
 - POWER RULE: your color × brightness is hard-capped at 0.5 per channel — the
   board's neopixel port stays safe no matter what you dial in.
 
+### LED areas — status / bed light / nozzle (R108)
+
+One chain, three jobs — and the split is YOUR choice (the example from the
+field: 3 status + 4 bed lighting + 1 nozzle). It lives in the **hardware
+profile** `r2_hardware.cfg` (see ch. 19b) — the second variables file that
+survives deleting `variables.cfg`:
+
+| Area | LEDs | What it does |
+|---|---|---|
+| Status | 1 … `led_status_n` | the animated effects above (frame lighting) |
+| Bed light | next `led_bed_n` | steady WHITE work light, own ON/OFF + brightness (0–0.5) |
+| Nozzle | last of the chain — or its own chain (`led_nozzle_split=1`, e.g. EBB42 over CAN) | work light at the toolhead (see above) |
+
+- **LCD: System > LED Setup** — info (LED_INFO: pin, chain, areas), master
+  on/off, `Status LEDs` / `Bed LEDs` count inputs (hard-clamped to the real
+  `chain_count`), bed light on/off + brightness %, nozzle main-chain/own-chain
+  switch, nozzle mode cycle, hardware info.
+- Console/Mainsail: `LED_INFO` · `SET_LED_LAYOUT STATUS=3 BED=4` ·
+  `SET_BED_LIGHT STATE=1|0 TOGGLE=1 BRIGHT=0..0.5`.
+- LCD edits apply **immediately** and persist into `r2_hardware.cfg` (via
+  `[gcode_shell_command R2_PERSIST]` — setup.sh adds it when the shell-command
+  extension is installed; without it the edit holds for the session).
+- The animated `[led_effect]` ranges are static Klipper config — changing the
+  status count regenerates them (`tools/r2_persist.sh`), one FIRMWARE_RESTART
+  applies. Bed light + nozzle index are live right away.
+- Other SET_LED-compatible chains work too: the wizard writes `[neopixel]` or
+  `[dotstar]` (data + clock pin) sections — `led_type` + `led_section` tell the
+  macros which one is yours.
+
 ## 18. Console messages
 
 `[OK]` success · `[i]` info · `[!]` warning · `!!` error. M117 mirrors the
@@ -2127,6 +2157,51 @@ direct SSH variant (no Klipper needed):
 python3 tools/r2_postproc.py --file-check ~/printer_data/gcodes
 ```
 
+### 19b. setup.sh / update.sh — wizards, backups, change modes (R108)
+
+**The hardware profile — a second variables file.** `r2_hardware.cfg` (next to
+printer.cfg, included by one line) carries everything that makes THIS printer
+tick: build volume (bed min/max X/Y, Z height), probe offsets, nozzle-clean
+(wipe) + part-presentation positions, and the LED layout (ch. 17). It is
+deliberately separate from `variables.cfg`: resetting your print settings
+(deleting the normal variables file) can never lose machine compatibility —
+and the LCD-editable hardware values (LED areas) persist into it. `HW_INFO`
+(console / System > LED Setup > Hardware info) shows it at any time.
+
+**The wizards.** `bash klipper-e3-r2d2/setup.sh` asks every hardware value in
+English — each entry validated AND confirmed a second time (mistakes can be
+corrected before anything is taken over), a summary + final confirmation
+before the profile is written. The LED wizard asks: LEDs at all? neopixel or
+dotstar, section name, pin (SKR mini E3: PA8 · EBB42 CAN: EBB:PD3), chain
+length, color order, status/bed-light/nozzle areas, EBB split chain, bed
+brightness. `update.sh` asks FIRST whether to **keep** the current LED +
+hardware settings (default) or re-run the wizards — and re-applies the LED
+layout to the freshly unpacked `03_leds.cfg` either way.
+
+**Backup before anything.** Both scripts start by copying every file the run
+might change (printer.cfg, moonraker.conf, KAMP_Settings.cfg,
+r2_hardware.cfg, macros/03_leds.cfg, the service unit) into
+`r2_backups/<timestamp>-setup|-update/` — and VERIFY each copy byte-identical
+(`cmp`) before a single modification happens. A failed verify aborts the run.
+
+**Every change is shown first — four ways to apply.** Nothing is ever silently
+written into your printer.cfg / moonraker.conf:
+
+| Mode | What happens |
+|---|---|
+| 1 — automatic | the lines are inserted (in printer.cfg always BEFORE the `#*#` block); your own conflicting lines are only COMMENTED OUT — never deleted |
+| 2 — commented only | the lines go in commented (`# R2> `) — you remove the marker yourself when you want them |
+| 3 — separate txt (default) | the lines land in `r2_manual_changes.txt` with target file + position — SAFEST: your files are not touched at all |
+| 4 — skip | nothing |
+
+**Object processing (moonraker).** Both wizards show the CURRENT state of
+`enable_object_processing` and explain it: ON = moonraker analyses every
+upload itself — files without slicer object data still get adaptive KAMP
+meshes + the LCD Skip-Objects menu (fine on a strong host); OFF = recommended
+on a Pi Zero 2 W / Pi 3 (the analysis costs RAM on every upload — with it off,
+KAMP meshes full-bed on such files and the purge falls back to our own line).
+Keep / turn on / turn off — the change goes through the four modes above.
+
 ## 20. Variables & editing the .cfg files
 
 Persistent settings live in ~/printer_data/variables.cfg — change via LCD/console;
@@ -2143,6 +2218,7 @@ never edit the file while Klipper runs. Runtime state lives in _STATE (not persi
 | Cold pull / misc | cold_pull_hot, cold_pull_pull, cooldown_fan_time, heaters_off_at_end, motors_off_at_end |
 | System | sound_on, leds_on, start_confirm, gantry_sync_*, kamp_*, ishaper_* |
 | Nozzle LED | nozzle_mode (auto) · nozzle_bright (1.0) · nozzle_r/g/b (0.9/0.9/0.85) · led_finish_time (10 s finished celebration) |
+| Hardware profile (r2_hardware.cfg — survives a variables.cfg reset!) | bed limits + Z height · probe_x/y · present_x/y · wipe_x/y · led_type/section/status_n/bed_n/bed_on/bed_bright/nozzle_split/nozzle_section |
 | Generators / texture | *_nonce job counters · texture_mode/thick/density/pattern/scale/amp/dir · file_check_retag |
 
 Nice edit spots per file:
@@ -2411,15 +2487,18 @@ All 145 public macros with parameters (defaults in parentheses; blank = no param
 | **TOGGLE_SOUNDS** | — | sounds on/off (persisted: sound_on) |
 | **TEST_SOUNDS** | — | play all 20 tunes in sequence |
 
-### LEDs — 03_leds.cfg (5)
+### LEDs — 03_leds.cfg (9)
 | Macro | Parameters | Purpose |
 |---|---|---|
-| **SET_LED_STATE** | STATE='idle' | switch the LED pattern (12 states, ch. 17) — applies the nozzle mode too |
+| **SET_LED_STATE** | STATE='idle' | switch the LED pattern (12 states, ch. 17) — applies the nozzle mode + bed light too |
 | **NOZZLE_LED** | MODE, BRIGHT, R, G, B | nozzle light: on/off/auto + live dimming + live color (ch. 17) |
-| **SET_NOZZLE_SPLIT** | STATE=0/1 | nozzle LEDs on their own EBB42 chain (1) or LED 5 of the main chain (0) — persisted (ch. 26) |
+| **SET_NOZZLE_SPLIT** | STATE=0/1 | nozzle LEDs on their own EBB42 chain (1) or last LED of the main chain (0) — persisted (ch. 26) |
+| **SET_LED_LAYOUT** | STATUS, BED | LED area split — hard-clamped to the chain, persisted in r2_hardware.cfg (ch. 17) |
+| **SET_BED_LIGHT** | STATE, TOGGLE, BRIGHT | bed work light on/off + brightness 0–0.5 (ch. 17) |
+| **LED_INFO** | — | report chain + pin + areas + switches (console) |
 | **TOGGLE_LEDS** | — | frame LEDs off/on (persisted: leds_on) |
 | **TEST_LEDS** | — | LED test animation |
-| _NOZZLE_SET | ON | internal: writes LED 5 (color × brightness, capped 0.5) |
+| _NOZZLE_SET / _BEDLIGHT_SET | ON, BRIGHT | internal: writes the nozzle / bed-light LEDs (capped 0.5) |
 
 ### Notifications — 04_notify.cfg (2)
 | Macro | Parameters | Purpose |
@@ -2973,7 +3052,7 @@ Only the milestones — the full reasoning lives in SESSION_STATE.md.
 
 | Version | Core changes |
 |---|---|
-| .83 | field-log .82 issue list — the whole R106 round: **fan wake-up** (0 % → higher now applies the scaled file value immediately, layer-1 hold keeps precedence), honest **velocity/corner hints** (they are CAPS — the visible lever is the cruise ratio), the **user TYPE map** everywhere (visible top layer = Top surface, between = Internal solid, only true airwork = Bridge — the frame front used to tag as Internal solid, so top-surface overrides never reached the visible face; siblings fixed in labels/ties/seal/angles/bridge/Cura-SKIN), **rule ll** (nothing prints unanchored: shelf + disc lips got radial anchor stubs, the kit lips too, the SIDE closure redesigned around the T/B wall anchors), **feature filter** (feature menus hide what the file does not contain — 80 items), presets fill W/H, **frame user presets** (8 slots, save/load/delete at the LCD), **wall loops 1–4**, **Z-hop** on firmware retracts (live + pre-print, absolute Z, layer-change-aware), **travel controls** (SET_LIVE_ACCEL + Velcap relabeled — global caps govern travels too), **lithophane FLAT mode** (bed-clamped, terraced relief, 1–4 color bands with pause/swap), **hard bed clamps** (frame border clamps before splitting; W/H inputs never exceed the build volume), **Z tilt instead of gantry sync** (2+ Z steppers configured → every LCD spot swaps SYNC_GANTRY for a full Z-Tilt submenu: run, probe points, retries 0–5, tolerance 0.005–0.2, boot/print switches), **preheat 182 °C** (filament-swap level — hot enough to change filament while the start dialog waits, still below ooze), **any-Klipper render audit** (bed mesh / vibration / objects / sensor menu items guard themselves on printers without those sections — a permanent test sweeps 993 LCD expressions + 242 macro bodies against a minimal single-Z printer) |
+| .83 | field-log .82 issue list — the whole R106 round: **fan wake-up** (0 % → higher now applies the scaled file value immediately, layer-1 hold keeps precedence), honest **velocity/corner hints** (they are CAPS — the visible lever is the cruise ratio), the **user TYPE map** everywhere (visible top layer = Top surface, between = Internal solid, only true airwork = Bridge — the frame front used to tag as Internal solid, so top-surface overrides never reached the visible face; siblings fixed in labels/ties/seal/angles/bridge/Cura-SKIN), **rule ll** (nothing prints unanchored: shelf + disc lips got radial anchor stubs, the kit lips too, the SIDE closure redesigned around the T/B wall anchors), **feature filter** (feature menus hide what the file does not contain — 80 items), presets fill W/H, **frame user presets** (8 slots, save/load/delete at the LCD), **wall loops 1–4**, **Z-hop** on firmware retracts (live + pre-print, absolute Z, layer-change-aware), **travel controls** (SET_LIVE_ACCEL + Velcap relabeled — global caps govern travels too), **lithophane FLAT mode** (bed-clamped, terraced relief, 1–4 color bands with pause/swap), **hard bed clamps** (frame border clamps before splitting; W/H inputs never exceed the build volume), **Z tilt instead of gantry sync** (2+ Z steppers configured → every LCD spot swaps SYNC_GANTRY for a full Z-Tilt submenu: run, probe points, retries 0–5, tolerance 0.005–0.2, boot/print switches), **preheat 182 °C** (filament-swap level — hot enough to change filament while the start dialog waits, still below ooze), **any-Klipper render audit** (bed mesh / vibration / objects / sensor menu items guard themselves on printers without those sections — a permanent test sweeps 993 LCD expressions + 242 macro bodies against a minimal single-Z printer), **LED areas + System > LED Setup** (status / bed work light / nozzle split freely configurable — neopixel or dotstar, mainboard pin or EBB CAN chain, hard-clamped to chain_count, persisted in the new **hardware profile r2_hardware.cfg** — a second variables file that survives deleting variables.cfg), **setup/update wizards** (every hardware value asked in English + double-confirmed: build volume, probe offsets, clean/present positions, LED layout; update asks keep-or-change first), **verified backups + 4 change modes** (backup of every file first, cmp-verified, abort on mismatch; every printer.cfg/moonraker.conf change shown first: automatic with user lines only commented / commented-only / separate txt = safest / skip), **object processing** shown + explained + offered in BOTH directions, **printer.cfg.example fixes** (chain_cnt→chain_count, GRBGR color_order — both halted current Klipper) |
 | .82 | critical config fix (field log .81): the R92-onward bed/position carrier was a raw `[r2_postproc]` section in printer.cfg — **Klipper refuses unknown sections** („Section 'r2_postproc' is not a valid config section"), so the printer ended up in a halt loop the first time the section was really written (setup.sh offer). The carrier is now a KAMP-style **`[gcode_macro _R2_CONFIG]`** settings macro (`variable_bed_min_x` … , `variable_present_x/y`, `variable_wipe_x/y`) — valid for Klipper, native for the macros, parsed by the watcher; `setup.sh` migrates legacy sections automatically (backup + values kept); the same field log also uncovered the first-halt mechanism: appending after the `#*# <save_config>` block made the autosave unreadable („modifications after header" → „Option 'control' in section 'heater_bed' must be specified") — inserts now always go before that block |
 | .81 | honest host verdict + portability hardening (field log .80): HOST_CHECK's swap verdict now measures swap **activity** (vmstat in/out) — 109 MB of quietly parked pages after boot were flagged „SWAPPING!" with an error sound on every check although the Pi was healthy (stable swap, no load, no throttle); quiet pages now read as OK with a calm explanation, only real swap traffic stays loud. Compatibility fixes from the portability audit: PRINT_END's part presentation had a fixed Y228 (a crash on any bed under ~232 mm) — now clamped to the axes and configurable (`[r2_postproc] present_x/present_y`), both calibration-tower end parks (fixed Y190) and the PLT_FRAME park are clamped, the nozzle-wipe pad anchor is configurable (`wipe_x/wipe_y`), and `megatest.py` accepts `--bed=x0,y0,x1,y1` / `--cfg=printer.cfg` to sweep another printer's bed (too-big combos count as SKIP — the generators correctly reject them); `setup.sh` (environment wizard: service, KAMP, LED effects, RAM hogs, swap tuning) and `COMPATIBILITY.md` (portability report) join the package |
 | .80 | megatest hardening (field log .79): a 101-run sweep over every generator at its parameter extremes found and fixed two real bugs — the plotter DRAW mode scaled small images past the bed (48px drawing → y up to +1500 mm; big photos silently squashed to ~72 mm) and every frame file tags the shelf bands as BRIDGE but TYPES never listed it on normal frames; plot output now carries a final bed guard too; `tools/megatest.py` joins the package (rerun any time: `python3 tools/megatest.py`) |
