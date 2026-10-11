@@ -2554,8 +2554,8 @@ _acids = _re59.findall(r'\[menu __main __preprint __file __(ac\w+)\]', _lcd58)
 tests.append(('R59 LCD file __ac* ids: 17 unique activators',
     len(_acids) == 17 and len(set(_acids)) == 17, str(_acids)))
 _acnames = _re59.findall(r'name: (OW|IW|SP|SO|TP|BT|BR|GP|SU|IR|SK|BM|OH|IB|PT|CU):', _lcd58)
-tests.append(('R95/R123 LCD: 16 feature prefixes x4 (file activators x2 + PA quick lists x2)',
-    sorted(_acnames) == sorted(['OW','IW','SP','SO','TP','BT','BR','GP','SU','IR','SK','BM','OH','IB','PT','CU'] * 4), str(_acnames)))
+tests.append(('R95/R123/R124 LCD: 16 feature prefixes x10 (activators + PA/Spd/Flw/Acc quick lists)',
+    sorted(_acnames) == sorted(['OW','IW','SP','SO','TP','BT','BR','GP','SU','IR','SK','BM','OH','IB','PT','CU'] * 10), str(_acnames)))
 tests.append(('R59 LCD file __ac*: every click toggles feat_on_<code> + shows o:ON',
     all('SET_OVERRIDE_VALUE NAME=feat_on_' + c in _lcd58 for c in
         ['wallouter','wallinner','infillsparse','infillsolid','surfacetop','surfacebottom','bridge','gaps','support','ironing','skirt','brim'])
@@ -8852,9 +8852,9 @@ tests.append(('R106 MCR: echo rounds (0.95, never 0.9500000000000004)',
     [l for l in _outmcr.split('\n') if 'OK' in l][:1]))
 _lcd106 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 _n106 = _lcd106.count("enable: {printer['gcode_macro _STATE'].file_types|default('') == '' or '")
-tests.append(('R106/R123 menus: 112 feature items (80 + the 32 PA quick entries) hide '
-              'when the file lacks them; available-but-off stay visible',
-    _n106 == 112, 'count %d' % _n106))
+tests.append(('R106/R123/R124 menus: 208 feature items (80 + 32 PA + 96 spd/flw/acc '
+              'quick entries) hide when the file lacks them; available-but-off stay visible',
+    _n106 == 208, 'count %d' % _n106))
 tests.append(('R106 preset: picking a preset fills W/H as editable values',
     all(('VARIABLE=frame_w VALUE=%d' % w) in _lcd106
         and ('VARIABLE=frame_h VALUE=%d' % h) in _lcd106
@@ -10896,6 +10896,35 @@ _n123 = [l.split('{')[0].strip() if '{' in l else l for l in _n123]
 _long123 = [l for l in _n123 if len(l) > 16]
 tests.append(('R123 LCD: PA quick list names stay short (R29)', len(_long123) == 0,
     str(_long123[:6])))
+
+
+# ===== R124: Spd/Flw/Acc per-feature quick lists ====================
+_lcd124 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R124 LCD: Spd/Flw/Acc quick lists in Live AND Pre-Print (17/16/17 entries)',
+    _lcd124.count('[menu __main __live __spfe __') == 17
+    and _lcd124.count('[menu __main __preprint __spfe __') == 17
+    and _lcd124.count('[menu __main __live __flfe __') == 16
+    and _lcd124.count('[menu __main __preprint __flfe __') == 16
+    and _lcd124.count('[menu __main __live __acfe __') == 17
+    and _lcd124.count('[menu __main __preprint __acfe __') == 17
+    and '[menu __main __live __spfe]' in _lcd124
+    and '[menu __main __preprint __acfe]' in _lcd124, 'counts'))
+tests.append(('R124 LCD: travel in Spd+Acc lists (the travel levers), NOT in Flw/PA',
+    'feat_spd_travel' in _lcd124 and 'feat_acc_travel' in _lcd124
+    and 'feat_flw_travel' not in _lcd124 and 'feat_pa_travel' not in _lcd124
+    and '[menu __main __live __spfe __tv]' in _lcd124
+    and '[menu __main __live __flfe __tv]' not in _lcd124, ''))
+tests.append(('R124 LCD: quick values switch the feature ON (spd != 100, acc > 0)',
+    _lcd124.count('        SET_OVERRIDE_VALUE NAME=feat_on_wallouter VALUE=1') == 8
+    and "menu.input|round|int != 100" in _lcd124
+    and "menu.input|round|int > 0" in _lcd124, ''))
+tests.append(('R124 LCD: single % in the value names (no 120%% display bug)',
+    'menu.input}%%' not in _lcd124 and "{'%3d' % menu.input}%" in _lcd124, ''))
+_blkl124 = _lcd124[_lcd124.index('[menu __main __live __spfe]'):_lcd124.index('[menu __main __live __flfe]')]
+_nl124 = [l.strip()[6:].strip("'") for l in _blkl124.split(chr(10)) if l.strip().startswith('name: ')]
+_nl124 = [l.split('{')[0].strip() if '{' in l else l for l in _nl124]
+tests.append(('R124 LCD: quick list names stay short (R29)',
+    all(len(l) <= 16 for l in _nl124), str(_nl124[:6])))
 
 fails = 0
 for name, ok, info in tests:
