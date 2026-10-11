@@ -94,6 +94,45 @@ def scan_hash_in_quotes(pfad):
             fehler.append(f"{pfad}:{nr}: '#' inside a single-quoted template string - Klipper "
                           f"cuts the line at '#': {st[:70]}")
 
+def scan_semicolon_in_quotes(pfad):
+    """R114 (.87 field log): ein ';' INNERHALB eines Strings - Klipper schneidet
+    JEDE Zeile am ersten ';' ab (auch mitten in Anfuehrungszeichen!) -> die
+    RESPOND-Zeile endet ohne schliessendes Quote = 'Malformed command'. Im
+    Feld: 'File features: DERIVED by geometry ... - no' (abgeschnitten bei
+    ';TYPE:'). Analog zur R65-'#'-Regel, gleiche Heuristik."""
+    for nr, roh in enumerate(open(pfad, encoding='utf-8'), 1):
+        zeile = roh.rstrip('\n')
+        st = zeile.lstrip()
+        if st.startswith(('#', ';')):
+            continue
+        sm = st.find(';')
+        if sm <= 0:
+            continue
+        # Jinja-Block-Tags ({% ... %}) erzeugen KEINE Ausgabezeile - ein ';'
+        # darin ist Jinja-Code (z.B. |replace(';', '')), kein G-code-String
+        _in_tag = False
+        _pos = 0
+        while True:
+            a = st.find('{%', _pos)
+            if a < 0:
+                break
+            b = st.find('%}', a)
+            if b < 0:
+                b = len(st)
+            if a < sm < b + 2:
+                _in_tag = True
+                break
+            _pos = b + 2
+        if _in_tag:
+            continue
+        davor = st[:sm]
+        if davor.count('"') % 2 == 1:
+            fehler.append(f"{pfad}:{nr}: ';' inside a double-quoted string - Klipper cuts "
+                          f"every line at the first ';' (Malformed command, .87 field log): {st[:70]}")
+        if davor.count("'") % 2 == 1 and ('{' in davor or st.startswith('variable_')):
+            fehler.append(f"{pfad}:{nr}: ';' inside a single-quoted template string - Klipper "
+                          f"cuts the line at ';': {st[:70]}")
+
 def main():
     dateien = sorted(glob.glob('macros/*.cfg') + glob.glob('menus/*.cfg') + glob.glob('*.example'))
     deklariert = set()   # _STATE variables
@@ -103,6 +142,7 @@ def main():
 
     for pfad in dateien:
         scan_hash_in_quotes(pfad)
+        scan_semicolon_in_quotes(pfad)
         # ---- R44: verklebte Menu-Header (Header in Kommentarzeile = Sektion unsichtbar!) ----
         if pfad.startswith('menus/'):
             for _i, _l in enumerate(open(pfad, encoding='utf-8').read().splitlines(), 1):

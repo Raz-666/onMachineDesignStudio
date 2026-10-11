@@ -9847,6 +9847,33 @@ for _f112 in ['macros/07_start_confirm.cfg', 'macros/10_live_tuning.cfg',
 tests.append(('R112 cross-check: the 16 feature codes are identical in 07/10/05',
     not _fcodes_mismatch, _fcodes_mismatch))
 
+# ================= R114: ';' never inside a console string =================
+# .87 field log: 'Malformed command RESPOND MSG="... DERIVED ... - no' -
+# Klipper cuts EVERY line at the first ';' (inside quotes too). All 22
+# occurrences fixed; the validator now guards the class, this pins the
+# user-visible one (the DERIVED message + its confidence math 0.7 -> 70%)
+body = get_body('macros/08_print_start_stop.cfg', '_FILE_INFO')
+out = render(body, {'DERIVED': '1', 'CONF': '0.7', 'COVER': '23'})
+tests.append(('R114 DERIVED message: 70% confidence (0.7 was shown as 0%!)',
+    '70% confidence' in out and '23% of moves covered' in out, out[:100]))
+tests.append(('R114 DERIVED message: no ; anywhere in the message (the cut)',
+    ';TYPE:' not in out and 'no TYPE: tags' in out, ''))
+_static114 = []
+import glob as _glob114
+for _f114 in _glob114.glob('macros/*.cfg') + _glob114.glob('menus/*.cfg'):
+    for _i114, _l114 in enumerate(open(_f114, encoding='utf-8'), 1):
+        _st114 = _l114.lstrip()
+        if _st114.startswith(('#', ';', '{%')):
+            continue
+        _sm114 = _st114.find(';')
+        if _sm114 <= 0:
+            continue
+        _d114 = _st114[:_sm114]
+        if _d114.count('"') % 2 == 1:
+            _static114.append('%s:%d' % (_f114, _i114))
+tests.append(('R114 codebase: no ; inside any double-quoted string (22 fixed)',
+    not _static114, _static114[:5]))
+
 fails = 0
 for name, ok, info in tests:
     print(('PASS ' if ok else 'FAIL '), name)
