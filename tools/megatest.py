@@ -357,8 +357,12 @@ run('label 24 queue (max)', lambda: L(texts=['N%d' % i for i in range(24)],
                                     w=30, h=15))
 expect_error('label 24x 80x40 5-line rejected (bed)', lambda: L(
     texts=['L%d~ZEILE~MIT~F~ZEILEN' % i for i in range(24)], w=80, h=40))
-run('label 24x 30x15 5-line fits', lambda: L(
-    texts=['%d~A~B~C~D' % i for i in range(24)], w=30, h=15))
+# R127: default label gap doubled 6 -> 12 (user wish) - 24 small labels only
+# fit with the old explicit gap; 16 fit at the new default spacing
+run('label 24x 30x15 5-line fits (gap 6)', lambda: L(
+    texts=['%d~A~B~C~D' % i for i in range(24)], w=30, h=15, gap=6.0))
+run('label 16x 30x15 5-line fits (gap 12 default)', lambda: L(
+    texts=['%d~A~B~C~D' % i for i in range(16)], w=30, h=15))
 run('label 2-line multi unknown chars', lambda: L(
     texts=['ÄÖÜ~ß?!', 'MI~XED'], hole_side=1))
 run('label no color2 no ironing no brim', lambda: L(

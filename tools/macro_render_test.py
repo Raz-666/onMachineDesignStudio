@@ -3158,7 +3158,7 @@ tests.append(('R63 make_labels: PRINT_START head + slicer config comments',
     and 'TOTAL_LAYERS=6' in _t63 and '; layer_height = 0.2' in _t63, ''))
 tests.append(('R63 make_labels: exclude objects per label + tower + KAMP polygons',
     _t63.count('EXCLUDE_OBJECT_DEFINE') == 3 and 'NAME=LABEL_1' in _t63
-    and 'NAME=PURGE_TOWER' in _t63 and 'POLYGON=[[59.0,103.5]' in _t63
+    and 'NAME=PURGE_TOWER' in _t63 and 'POLYGON=[[56.0,103.5]' in _t63
     and 'EXCLUDE_OBJECT_START NAME=LABEL_1' in _t63, ''))
 tests.append(('R63 make_labels: print-by-layer - M600 after the bases, text after M600',
     _t63.index('\nM600\n') < _t63.rindex('EXCLUDE_OBJECT_START NAME=LABEL_1')
@@ -6806,8 +6806,8 @@ for _l90 in _g90a.split(chr(10)):
     elif _l90.startswith(';TYPE:Inner wall'):
         _seen90[round(_z90, 2)] = _seen90.get(round(_z90, 2), 0) + 1
 _nubz90 = sorted(_z90x for _z90x, _c90x in _seen90.items() if _c90x >= 2)
-tests.append(('R90 frame bayonet: nub band = 2 layers just above the back band',
-    _nubz90 == [5.68, 5.88], str(_nubz90)))
+tests.append(('R90 frame closure: snap band = 2 layers at the plate top (R127)',
+    _nubz90 == [5.88, 6.08], str(_nubz90)))
 
 # --- R90.1a: multi-plate mechanics (Part B, trailer, no auto-start) -----------
 _g90b = open(_os90.path.join(_d90, _i90a['plates'][1]), encoding='utf-8').read()
@@ -7342,8 +7342,10 @@ def _disp_profile(path):
 _p91f, _ = _at91(_p91, out_dir=_d91b, mode='BUMPS', bump_pattern='GRID',
                  bump_scale=8, bump_amp=0.4, version=3)
 _pr91 = _disp_profile(_p91f)
+# R127: the snap-in backplate has a plain contour (no bite notches) - fewer
+# distinct wall positions; the seam check itself is unchanged
 tests.append(('R91 bumps GRID: seamless - identical positions, identical shift',
-    len(_pr91) > 100 and len(set(_pr91.values())) > 10, ''))
+    len(_pr91) > 40 and len(set(_pr91.values())) > 10, str(len(_pr91))))
 
 # special cases: version bump when _TX exists, file without outer walls
 _d91v = _tf91.mkdtemp(prefix='r91v_')
@@ -8469,12 +8471,22 @@ def _p99(r):
 
 _r99 = _pp.make_frame(preset='9x13', out_dir=_d99)
 _fa99 = _p99(_r99)
-_fb99 = _os99.path.join(_os99.path.dirname(_fa99), _os99.path.basename(_fa99).replace('_A_', '_B_'))
-tests.append(('R99 frame: _FILE_INFO + TYPES on every plate (brim/bottom/ironing on A)',
-    'TYPES=' in _fi99(_fa99) and _os99.path.isfile(_fb99) and 'TYPES=' in _fi99(_fb99)
+tests.append(('R99 frame: _FILE_INFO + TYPES (brim/bottom/ironing; R127 one-piece'
+              ' 9x13 = frame + plate on ONE bed)',
+    'TYPES=' in _fi99(_fa99) and '_A_' not in _os99.path.basename(_fa99)
     and _ty99(_fa99).split(',')[0] == 'BRIM' and 'SURFACE-BOTTOM' in _ty99(_fa99)
-    and 'IRONING' in _ty99(_fa99) and 'IRONING' not in _ty99(_fb99),
-    'A=%s B=%s' % (_ty99(_fa99), _ty99(_fb99))))
+    and 'IRONING' in _ty99(_fa99)
+    and 'EXCLUDE_OBJECT_DEFINE NAME=BACKPLATE' in open(_fa99, errors='replace').read(),
+    _ty99(_fa99)))
+_r99b = _pp.make_frame(preset='13x18', out_dir=_d99)
+_fa99b = _p99(_r99b)
+_fb99b = _os99.path.join(_os99.path.dirname(_fa99b),
+                         _os99.path.basename(_fa99b).replace('_A_', '_B_'))
+tests.append(('R99 frame: oversized still splits A/B, TYPES on both, ironing only on A',
+    _os99.path.isfile(_fb99b) and 'TYPES=' in _fi99(_fa99b)
+    and 'TYPES=' in _fi99(_fb99b) and 'IRONING' in _ty99(_fa99b)
+    and 'IRONING' not in _ty99(_fb99b),
+    'A=%s B=%s' % (_ty99(_fa99b), _ty99(_fb99b))))
 _fl99 = _p99(_pp.make_frame(preset='9x13', out_dir=tempfile.mkdtemp(), front='LINES'))
 tests.append(('R99 frame: structured fronts tag SURFACE-TOP (was CUSTOM via "Top surface infill")',
     'Top surface infill' not in open(_fl99, errors='replace').read()
@@ -8576,6 +8588,11 @@ import time as _time101
 _d101 = tempfile.mkdtemp()
 _p101a, _i101a = _pp.make_frame(preset='9x13', out_dir=_d101)
 _t101a = open(_p101a, encoding='utf-8').read()
+# R127: the smaller backplate shares file A with the frame - count the FRAME
+import re as _re101
+_t101a = _re101.sub(
+    r'EXCLUDE_OBJECT_START NAME=(BACKPLATE|STAND)[^\n]*\n.*?EXCLUDE_OBJECT_END[^\n]*\n',
+    '', _t101a, flags=_re101.S)
 tests.append(('R101/R106 frame: 2 solid bottom skin layers, sparse body, '
               'front band = the top skin',
     _t101a.count(';TYPE:Bottom surface') == 2
@@ -8599,7 +8616,9 @@ tests.append(('R101 frame: top_layers=2 thins the front band (5 -> 2 layers, '
                                   _i101a['back_layers'], _i101b['back_layers'])))
 _p101c, _i101c = _pp.make_frame(preset='9x13', out_dir=tempfile.mkdtemp(),
                                 bottom_layers=0)
-_t101c = open(_p101c, encoding='utf-8').read()
+_t101c = _re101.sub(
+    r'EXCLUDE_OBJECT_START NAME=(BACKPLATE|STAND)[^\n]*\n.*?EXCLUDE_OBJECT_END[^\n]*\n',
+    '', open(_p101c, encoding='utf-8').read(), flags=_re101.S)
 tests.append(('R101 frame: bottom_layers=0 = sparse from layer 1 (old behavior)',
     _t101c.count(';TYPE:Bottom surface') == 1
     and _t101c.count(';TYPE:Sparse infill') >= 30, ''))

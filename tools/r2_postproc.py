@@ -4620,7 +4620,7 @@ def label_preview(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4,
 
 def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers=2,
                 layer_h=0.2, first_h=0.28, ironing=True, hole_side=0, hole_d=5.0,
-                brim=True, gap=6.0, color2=True, material='PLA', bed=None,
+                brim=True, gap=12.0, color2=True, material='PLA', bed=None,
                 bed_margin=6.0, nozzle=0.6, stroke=0.0, font_size=0.0, spacing=0.0,
                 out_dir='.', version=1, mode='grow', job_cfgs=None,
                 height=0.0, shape='RECT', corner=0.0, border_walls=0,
@@ -8017,8 +8017,8 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
 
     depth < 15 mm  -> FLAT photo frame (groove = photo + backplate)
     depth >= 15 mm -> display CASE: same profile on a deep hollow body
-    Closure BACK: photo from behind; bayonet backplate (edge notches clear
-    the 2 side-wall nubs, slide 2.5mm to lock - zero flex needed)
+    Closure BACK: photo from behind; snap-in backplate (0.3mm play per
+    side through the photo shaft, 4 wall nubs click over its top - R127)
     Closure SIDE: slot through the left wall - photo + card slide in sideways
     Backplate always included: hidden hang keyhole (hang TOP/BOTTOM/LEFT/
     RIGHT/OFF) + 2 stud holes when stand=ON (easel leg plugs in).
@@ -8131,7 +8131,10 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
 
     # ---- contours (centered on 0,0) ------------------------------------------
     ow, oh = width + 2 * frame_w, height + 2 * frame_w          # outer
-    pw, ph = width + 0.6, height + 0.6                          # photo opening
+    # R127 (field report): real photos run up to ~1mm over the nominal cut
+    # (industrial guillotine tolerance) - 0.3mm/side play forced the user to
+    # trim the photo. 0.8mm/side play now: a 10x15 from any maker drops in.
+    pw, ph = width + 1.6, height + 1.6                          # photo opening
     # R106 (rule nn, wish j): hard-clamp the border when the FRAME ALONE
     # would not fit the bed - the rescue before kit strips (RECT) or the
     # error (OVAL). 6mm border minimum keeps the groove sound; layouts that
@@ -8174,8 +8177,8 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
     ft = (top_layers * layer_h if top_layers
           else max(2 * layer_h, 1.0))      # front band (visible face)
     shelf_th = max(layer_h, 0.4)            # photo shelf (bridges the groove)
-    # groove = photo + 0.8mm backplate + play; plate locks 0.2mm under the
-    # nubs - the photo lies flat between back band and plate
+    # groove = photo + 0.8mm backplate + play; the plate snaps under the
+    # wall nubs (0.2mm overlap) - the photo lies flat on the shelf
     groove = 1.6 if mode == 'FLAT' else 2.8
     bb = depth - ft - shelf_th - groove     # back band (the rest)
     if bb < 2 * layer_h:
@@ -8241,14 +8244,18 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
     if stand and st_layers + stud_layers > total_layers:
         total_layers = st_layers + stud_layers
 
-    # ---- closure nubs (BACK only): mini-bridges 1mm over the backplate -----
-    # plate = 4 layers on the back band; nub band = layers n_bb+3..n_bb+4
-    # (0.2mm overlap with the plate top). The plate's left/right edge
-    # notches clear the nubs on the straight insert; sliding 2mm locks it.
-    nub_d, nub_l = 1.0, 6.0
+    # ---- closure nubs (BACK only): 4 wall nubs snap over the backplate ----
+    # R127 (field report): the plate now sits INSIDE the photo shaft (0.3mm
+    # play per side) and the nubs click over its top edge with a light
+    # 0.2mm overlap - press the plate in, it dishes past the nubs and pops
+    # flat behind them (light snap, no sanding, no slide-in bites needed).
+    # nub band = the plate's top layer + one more (clamped into the groove).
+    nub_d, nub_l = 1.2, 8.0
     # BACK disc: the plate rests on the disc rim - the nubs move up with it
     _nub_off = disc_l if (disc != 'NONE' and disc_side == 'BACK') else 0
-    nub_zn = (set(range(n_bb + _nub_off + 3, n_bb + _nub_off + 5))
+    nub_zn = (set(range(n_bb + _nub_off + bp_layers,
+                        min(n_bb + _nub_off + bp_layers + 2,
+                            n_bb + n_gr + _nub_off + 1)))
               if closure == 'BACK' else set())
 
     # SIDE closure: slot through the LEFT wall, open across the groove band
@@ -8298,8 +8305,11 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
     # 2mm plate rim - a 10x15 frame with border 10 still fits beside its plate
     gap = 3.0
     if closure == 'BACK':
-        # bayonet plate: 1.2mm rim rests on the ring back, L/R edge notches
-        bw, bh = pw + 2.4, ph + 2.4
+        # R127 (field report): the plate must pass through the photo shaft
+        # (photo opening pw x ph) - the old +2.4mm rim never fit and had to
+        # be sanded down by 1-2mm. Now 0.3mm play per side; 4 wall nubs
+        # click lightly over its top edge (see nub_zn below).
+        bw, bh = pw - 0.6, ph - 0.6
     else:
         # SIDE: the cover plate slides through the wall slot - photo width,
         # but R106 keeps it just UNDER the slot height so it clears the
@@ -8406,27 +8416,14 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
         raise ValueError('cable duct needs a display CASE (DEPTH >= 15) - a '
                          'flat frame has no interior to reach')
     # ---- backplate contour (shared by one-piece + kit) -------------------------
-    # the bites clear the nubs on the straight insert; their ASYMMETRIC
-    # y-ranges lock the plate against sliding both ways after a 2.5mm drop
+    # R127: snap-in plate - 0.3mm play per side through the photo shaft,
+    # 4 wall nubs (L/R/T/B) click over its top edge with 0.2mm overlap
     if shape == 'OVAL':
         plate_pts = _el_pts(bw / 2, bh / 2)
     else:
         plate_pts = _rr_pts(bw, bh, max(0.0, corner - frame_w * 0.6))
-    if closure == 'BACK':
-        # densify: a plain rect contour has no vertices inside the bite
-        # zone, so _bite_contour would find nothing to cut
-        dens = []
-        for i, (x0, y0) in enumerate(plate_pts):
-            dens.append((x0, y0))
-            x1, y1 = plate_pts[(i + 1) % len(plate_pts)]
-            seg = ((x1 - x0) ** 2 + (y1 - y0) ** 2) ** 0.5
-            if seg > 1.5:
-                k = int(seg / 1.5) + 1
-                for t in range(1, k):
-                    dens.append((x0 + (x1 - x0) * t / k, y0 + (y1 - y0) * t / k))
-        plate_pts = dens
-        plate_pts = _bite_contour(plate_pts, 'L', -5.0, 4.0, 2.5)
-        plate_pts = _bite_contour(plate_pts, 'R', -4.0, 5.0, 2.5)
+    # R127: no bite notches anymore - the plate is smaller than the shaft
+    # and simply snaps in under the 4 wall nubs (nothing to align).
 
     def plate_keeps(px, py):
         keep = []
@@ -8773,14 +8770,19 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                                   for (p, q) in hs], ew, 2700)
 
             def emit_nubs(li):
-                # bayonet: exactly TWO nubs on the left/right wall centers,
-                # reaching 1.0mm into the photo opening
+                # R127: four nubs (L/R/T/B wall centers) reaching 1.2mm into
+                # the photo opening - the plate snaps in under all of them
                 ew = e_w(li)
                 for nx in (-pw / 2, pw / 2):
                     x0 = nx - nub_d if nx > 0 else nx
                     x1 = nx if nx > 0 else nx + nub_d
                     _emit_loop(pen, _rect_loop(x0 + cx, cy - nub_l / 2,
                                                x1 + cx, cy + nub_l / 2), ew, 1800)
+                for ny in (-ph / 2, ph / 2):
+                    y0 = ny - nub_d if ny > 0 else ny
+                    y1 = ny if ny > 0 else ny + nub_d
+                    _emit_loop(pen, _rect_loop(cx - nub_l / 2, y0 + cy,
+                                               cx + nub_l / 2, y1 + cy), ew, 1800)
 
             # ---- R90.1b: structured front (LINES / WAVES / HEX) -----------
             def _pt_in_rr(x, y, hw, hh, r):
@@ -14333,7 +14335,7 @@ def watch(directory, interval=5.0, once=False):
                     spacing=_vf_f('label_spacing', 0),
                     hole_side=int(_vf_f('label_hole_side', 0)),
                     hole_d=_vf_f('label_hole_d', 5),
-                    gap=_vf_f('label_gap', 6),
+                    gap=_vf_f('label_gap', 12),
                     color2=_vb_f('label_color2', True),
                     bed=cfg_bed_f,
                     mode='fixed' if _vf_f('label_mode', 0) >= 1 else 'grow')
@@ -14478,7 +14480,7 @@ def watch(directory, interval=5.0, once=False):
                         hole_side=int(_vf('label_hole_side', 0)),
                         hole_d=_vf('label_hole_d', 5),
                         brim=_vb('label_brim', True),
-                        gap=_vf('label_gap', 6),
+                        gap=_vf('label_gap', 12),
                         color2=_vb('label_color2', True),
                         material=str(rv.get('material', 'PLA') or 'PLA'),
                         bed=cfg_bed, nozzle=_gen_nozzle(directory), out_dir=directory,
