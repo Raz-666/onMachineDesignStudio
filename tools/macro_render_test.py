@@ -2326,8 +2326,24 @@ state_vars['layer'] = 2
 # Post-Processor: die echten Testdateien des Users
 import subprocess, tempfile, shutil as _sh
 import os as _os56, sys as _sys56
-_updir = '/home/user/uploads'
-if _os56.path.isdir(_updir):
+# Workspace-Cleanup (2026-10-11): uploads/ ist aufgeruemt - die drei echten
+# Slicer-Dateien der Batterie liegen als deterministische Gzips in
+# /home/user/testfixtures/ und werden hier in ein gemeinsames Temp-Dir
+# entpackt (wiederverwendet, kein Muell pro Lauf). Ohne das Fixture-Verz.
+# ueberspringen diese Tests genau wie frueher ohne uploads/ (CI unberuehrt).
+import gzip as _gzfix
+_FIXDIR = '/home/user/testfixtures'
+_FIXMAP = {'Rose_215C_PLA_40m56s.gcode.png': 'rose_215c_pla.gcode.gz',
+           'stringart3d_generic-gcode_medium.gcode.png': 'stringart3d_generic.gcode.gz',
+           'BigRose_020mm@Ender3_PLA_1h9m.gcode.png': 'bigrose_020mm.gcode.gz'}
+_updir = '/tmp/r2_testfixtures'
+if not all(_os56.path.exists(_os56.path.join(_updir, _s56)) for _s56 in _FIXMAP):
+    if all(_os56.path.exists(_os56.path.join(_FIXDIR, _g56)) for _g56 in _FIXMAP.values()):
+        _os56.makedirs(_updir, exist_ok=True)
+        for _src56, _g56 in _FIXMAP.items():
+            with _gzfix.open(_os56.path.join(_FIXDIR, _g56), 'rt') as _in56:
+                open(_os56.path.join(_updir, _src56), 'w').write(_in56.read())
+if _os56.path.isdir(_updir) and all(_os56.path.exists(_os56.path.join(_updir, _s56)) for _s56 in _FIXMAP):
     _tmp56 = tempfile.mkdtemp(prefix='r56_')
     # marks = TOTAL LAYER_MARK count AFTER processing (rose/stringart: freshly
     # injected; bigrose: the R2 slicer script's own markers stay, only info added)
@@ -2395,10 +2411,10 @@ tests.append(('R59 CLEAR_OVERRIDES generic feature loop',
     and 'ov_ironing_flow_on VALUE=False' in _b58c and 'ov_pa_smooth_on VALUE=False' in _b58c, 'keys'))
 # Postproc: TYPE-Injektion + erweiterte _FILE_INFO auf echter User-Datei
 import subprocess as _sp58, tempfile as _tf58, shutil as _sh58, os as _os58, sys as _sys58
-if _os58.path.isdir('/home/user/uploads'):
+if _updir and _os58.path.isdir(_updir):
     _d58 = _tf58.mkdtemp(prefix='r58_')
     _f58 = _os58.path.join(_d58, 'rose.gcode')
-    _sh58.copy('/home/user/uploads/Rose_215C_PLA_40m56s.gcode.png', _f58)
+    _sh58.copy(_os58.path.join(_updir, 'Rose_215C_PLA_40m56s.gcode.png'), _f58)
     _r58 = _sp58.run([_sys58.executable, 'tools/r2_postproc.py', _f58], capture_output=True, text=True)
     _t58 = open(_f58).read()
     tests.append(('R59 postproc injects APPLY_TYPE (rose: 36 blocks incl. Custom/Brim)',
@@ -2416,10 +2432,10 @@ if _os58.path.isdir('/home/user/uploads'):
         'SPEED_OUTER=60' in _fi58 and 'SPEED_FIRST=20' in _fi58 and 'ACCEL_OUTER=500' in _fi58 and 'NOZZLE=0.6' in _fi58 and 'FLOW_RATIO=1 ' in _fi58, _fi58[:130]))
     _sh58.rmtree(_d58, ignore_errors=True)
     # v1 -> v2 upgrade: existing files keep their marks, get APPLY_TYPE + new info
-    if _os58.path.isdir('/home/user/uploads'):
+    if _updir and _os58.path.isdir(_updir):
         _d58b = _tf58.mkdtemp(prefix='r58up_')
         _f58b = _os58.path.join(_d58b, 'rose_v1.gcode')
-        _src58 = open('/home/user/uploads/Rose_215C_PLA_40m56s.gcode.png').read().split('\n')
+        _src58 = open(_os58.path.join(_updir, 'Rose_215C_PLA_40m56s.gcode.png')).read().split('\n')
         _out58 = ['; R2-POSTPROC v1']
         import re as _re58
         _lc58 = _re58.compile(r'^\s*;\s*LAYER_CHANGE\s*$', _re58.I)
