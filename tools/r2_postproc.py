@@ -6622,7 +6622,8 @@ NONCE_KEYS = ('preview_nonce', 'range_nonce', 'label_gen_nonce', 'reso_nonce',
               'label_fit_nonce', 'retract_fix_nonce', 'vol_fix_nonce',
               'cable_tie_nonce', 'angle_nonce', 'litho_nonce', 'seal_nonce',
               'litho_del_nonce', 'frame_nonce', 'texture_nonce',
-              'file_check_nonce', 'colorpic_nonce')
+              'file_check_nonce', 'colorpic_nonce', 'bricks_nonce',
+              'plot_cal_nonce')
 
 
 def _prime_nonces(rv):
@@ -10410,6 +10411,69 @@ COLORPIC_DEFAULTS = {
 }
 
 
+def make_plot_cal(out_dir='.', version=1, var_path=None):
+    """R122: pen-plotter calibration test plot - offset, dot raster, lines.
+
+    One page, three tests (pen OR filament mode - _plot_write decides):
+      1. OFFSET: border + corner ticks + a center cross. The border shows
+         where the machine THINKS the paper is; if it sits shifted on the
+         sheet, adjust Plotter > X/Y shift.
+      2. DOT RASTER: 10mm grid of stipple dots (single pen dips) - dot
+         placement accuracy + pen bleed/roundness.
+      3. LINE TEST: horizontal / vertical / 45 deg lines, two parallel
+         pairs 0.5mm apart (line width / bleed) and concentric circles
+         (curve smoothness - servo/pen lag shows as wobble).
+    """
+    W, H = 100.0, 140.0
+    polys = []
+    # ---- offset: border + corner ticks + center cross ----
+    polys.append([(0, 0), (W, 0), (W, H), (0, H), (0, 0)])
+    for cx, cy, dx, dy in ((0, 0, 1, 1), (W, 0, -1, 1), (W, H, -1, -1),
+                           (0, H, 1, -1)):
+        polys.append([(cx, cy), (cx + dx * 6, cy)])
+        polys.append([(cx, cy), (cx, cy + dy * 6)])
+    polys.append([(W / 2 - 5, H / 2), (W / 2 + 5, H / 2)])
+    polys.append([(W / 2, H / 2 - 5), (W / 2, H / 2 + 5)])
+    # ---- line test (top band) ----
+    for i in range(4):                       # horizontals, 50mm
+        y = H - 12 - i * 6
+        polys.append([(6, y), (56, y)])
+    for i in range(4):                       # verticals, 24mm
+        x = 62 + i * 6
+        polys.append([(x, H - 34), (x, H - 10)])
+    polys.append([(86, H - 34), (98, H - 22)])   # 45 deg both ways (a V)
+    polys.append([(86, H - 10), (98, H - 22)])
+    # parallel pairs 0.5mm apart (bleed / line width check)
+    polys.append([(10, H - 44), (90, H - 44)])
+    polys.append([(10, H - 44.5), (90, H - 44.5)])
+    polys.append([(10, H - 50), (90, H - 50)])
+    polys.append([(10, H - 50.5), (90, H - 50.5)])
+    # concentric circles (curve smoothness)
+    polys.append(_circle(W / 2, 88, 12, 48) + [_circle(W / 2, 88, 12, 48)[0]])
+    polys.append(_circle(W / 2, 88, 7, 32) + [_circle(W / 2, 88, 7, 32)[0]])
+    # ---- dot raster (bottom half), 10mm pitch ----
+    n_dots = 0
+    for gx in range(10, 100, 10):
+        for gy in range(10, 71, 10):
+            polys.append([(gx, gy)])
+            n_dots += 1
+    notes = ['; plot calibration test (R122): offset + dot raster + lines',
+             '; 1) border/ticks/center cross = OFFSET (shift the paper or'
+             ' Plotter > X/Y shift until the border sits where you want it)',
+             '; 2) %d stipple dots on a 10mm grid = dot placement + bleed'
+             % n_dots,
+             '; 3) H/V/45deg lines, 0.5mm pairs, circles = line quality;'
+               ' wobble on the circles = pen play or speed too high',
+             '; pen Z / speed / mode come from the Plotter menu settings'
+               ' (live: speed %, babystepping = pen pressure)']
+    fname = '00_PlotCal_V%02d.gcode' % (max(1, min(int(version), 99)))
+    out = os.path.join(out_dir, fname)
+    n = _plot_write(out, polys, notes, var_path=var_path)
+    info = {'file': fname, 'kind': 'plotcal', 'dots': n_dots,
+            'strokes': len(polys) - n_dots, 'area': (W, H), 'lines': n}
+    return out, info
+
+
 # ---- R121: BRICKS - the stud-and-tube building block system -------------------
 # Exact geometry (cross-checked, sources: LDraw article 218 / cailliau.org
 # measurements / orionrobots tables - documented in the MANUAL):
@@ -13072,6 +13136,8 @@ def watch(directory, interval=5.0, once=False):
     last_reso_nonce = None
     last_bridge_nonce = None
     last_plottext_nonce = None
+    last_plotcal_nonce = None       # R122: plot calibration test
+    last_bricks_nonce = None         # R121: building bricks
     last_plotstatus_nonce = None
     last_host_nonce = None
     first = True
@@ -13782,6 +13848,77 @@ def watch(directory, interval=5.0, once=False):
         except Exception as e:                              # noqa: BLE001
             print(f'[colorpic] poll error: {e!r}', flush=True)
 
+        # R121: building bricks request (bricks_nonce) - runs THREADED like
+        # the lithophane (a full plate of bricks is a lot of gcode).
+        try:
+            _bn121 = rv.get('bricks_nonce', '')
+            if _bn121 and _bn121 != last_bricks_nonce:
+                last_bricks_nonce = _bn121
+
+                def _vfbr121(key, dflt):
+                    try:
+                        return float(rv.get(key, dflt) or dflt)
+                    except (TypeError, ValueError):
+                        return float(dflt)
+
+                _jobs121 = []
+                for _seg121 in str(rv.get('brick_jobs', '') or '').split('|'):
+                    _seg121 = _seg121.strip()
+                    if not _seg121:
+                        continue
+                    if ':' not in _seg121:
+                        continue
+                    _code121, _cnt121 = _seg121.rsplit(':', 1)
+                    try:
+                        _jobs121.append((_code121.strip(), int(_cnt121)))
+                    except ValueError:
+                        continue
+                _bparams121 = dict(
+                    jobs=_jobs121,
+                    layer_h=_vfbr121('bricks_layer_h', 0.2),
+                    material=str(rv.get('material', 'PLA') or 'PLA'),
+                    bed=_bed_limits(os.path.join(
+                        os.path.dirname(os.path.abspath(directory).rstrip('/')),
+                        'config', 'printer.cfg')),
+                    nozzle=_gen_nozzle(directory), out_dir=directory,
+                    version=max(1, min(int(str(rv.get('gen_version', 1)
+                                                  or 1)), 99)))
+
+                def _bricks_job121(params=_bparams121):
+                    try:
+                        out_b, info_b = make_bricks(**params)
+                        _brel121 = os.path.relpath(
+                            os.path.join(directory, info_b['file']), directory)
+                        _bmsg121 = ('Bricks: %s - %d part(s) (%d brick(s), '
+                                    '%d plate(s), %d tile(s)), %d layers, '
+                                    '%.1fmm tall - selected for printing'
+                                    % (info_b['file'], info_b['count'],
+                                       info_b['bricks'], info_b['plates'],
+                                       info_b['tiles'], info_b['layers'],
+                                       info_b['thickness']))
+                        for _n121 in info_b.get('notes', [])[:3]:
+                            _bmsg121 += ' | ' + _n121
+                        _bmsg121 += (' | every part its own object - a failed '
+                                     'brick can be excluded and reprinted')
+                        _moonraker_gcode(
+                            'RESPOND MSG="%s"\nM117 Bricks ready\n'
+                            '_SOUND_LIB NAME=r2_done' % _bmsg121
+                            + _sel_line(rv, _brel121))
+                    except Exception as e:                      # noqa: BLE001
+                        print(f'[bricks] error: {e!r}', flush=True)
+                        try:
+                            _moonraker_gcode(
+                                'RESPOND MSG="Bricks ERROR: %s"\n'
+                                'M117 Bricks error\n'
+                                '_SOUND_LIB NAME=r2_error' % e)
+                        except Exception:                       # noqa: BLE001
+                            pass
+
+                import threading
+                threading.Thread(target=_bricks_job121, daemon=True).start()
+        except Exception as e:                              # noqa: BLE001
+            print(f'[bricks] poll error: {e!r}', flush=True)
+
         # R89: gasket/seal generator request (seal_nonce) - small file, inline
         try:
             _sn89 = rv.get('seal_nonce', '')
@@ -14253,6 +14390,34 @@ def watch(directory, interval=5.0, once=False):
                         pass
         except Exception as e:                          # noqa: BLE001
             print(f'[plottext] poll error: {e!r}', flush=True)
+        # R122: plot calibration test (plot_cal_nonce, set by PLOT_CAL)
+        try:
+            pcn = rv.get('plot_cal_nonce', '')
+            if pcn and pcn != last_plotcal_nonce:
+                last_plotcal_nonce = pcn
+                try:
+                    out_c, info_c = make_plot_cal(
+                        out_dir=directory, var_path=VAR_PATH,
+                        version=max(1, min(int(str(rv.get('gen_version', 1)
+                                                      or 1)), 99)))
+                    _moonraker_gcode(
+                        'RESPOND MSG="Plot cal: %s - border/offset test, %d '
+                        'dots on a 10mm grid, H/V/45deg lines + circles - '
+                        'check the sheet, then adjust Plotter > X/Y shift or '
+                        'pen Z"\nM117 PlotCal ready\n'
+                        '_SOUND_LIB NAME=r2_done' % (info_c['file'], info_c['dots'])
+                        + _sel_line(rv, os.path.relpath(out_c, directory)))
+                except Exception as e:                      # noqa: BLE001
+                    print(f'[plotcal] error: {e!r}', flush=True)
+                    try:
+                        _moonraker_gcode(
+                            'RESPOND MSG="PlotCal ERROR: %s"\nM117 PlotCal error\n'
+                            '_SOUND_LIB NAME=r2_error' % e)
+                    except Exception:                       # noqa: BLE001
+                        pass
+        except Exception as e:                              # noqa: BLE001
+            print(f'[plotcal] poll error: {e!r}', flush=True)
+
         # R64: plot the SHOW_STATUS report (plot_status_nonce, set by PLOT_STATUS)
         try:
             psn = rv.get('plot_status_nonce', '')

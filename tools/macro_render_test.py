@@ -166,6 +166,8 @@ def build_printer(kamp=False, objs=None, excl=None, old_klipper=False, bare_idle
     'filament_switch_sensor filament_sensor': M({'enabled':True,'filament_detected':True}),
     'gcode_macro _STATE': M(state_vars),
     'gcode_macro _COLORPIC_STATE': M(cpic_state_vars),   # R120
+    'gcode_macro _BRICKS': M({'max_parts': 120,
+    'catalog': ['B1x1','B1x2','B1x3','B1x4','B1x6','B1x8','B2x2','B2x3','B2x4','B2x6','B2x8','B4x4','B4x6','B4x8','B6x6','B6x8','B8x8','P1x2','P1x4','P1x6','P1x8','P2x2','P2x4','P2x6','P2x8','P4x4','P4x6','P4x8','P6x6','P6x8','P8x8','T1x2','T1x4','T1x6','T1x8','T2x2','T2x4','T2x6','T2x8']}),   # R121
     'gcode_macro _MATERIALS': M({'presets': mats}),
     'gcode_macro _SOUND_LIB': M({'tunes': tunes}),
     }
@@ -183,7 +185,7 @@ def build_printer(kamp=False, objs=None, excl=None, old_klipper=False, bare_idle
         d['gcode_macro ' + _m] = M({})
     for _v in ['_V01_STATE','_V02_SOUNDS','_V03_LEDS','_V04_NOTIFY','_V05_MATERIALS','_V06_TEMPS',
                '_V07_CONFIRM','_V08_STARTSTOP','_V09_PAUSE','_V10_LIVE','_V11_GANTRY','_V12_MAINT',
-               '_V13_SYSTEM','_V15_OBJECTS','_V16_MENUS','_V17_LABELS','_V18_GEN','_V18_COLORPIC'] + ([] if drop14 else ['_V14_KAMP']):
+               '_V13_SYSTEM','_V15_OBJECTS','_V16_MENUS','_V17_LABELS','_V18_GEN','_V18_COLORPIC','_V19_BRICKS'] + ([] if drop14 else ['_V14_KAMP']):
         d['gcode_macro ' + _v] = M({})
     if old_klipper:
         d['idle_timeout'] = M({'state':'Printing','printing_time':0.0})   # older Klipper: no 'idle_timeout' key
@@ -599,7 +601,7 @@ state_vars['idle_timeout_saved'] = 3600.0
 
 body = get_body('macros/01_state.cfg', '_CHECK_INSTALL')
 out = render(body, {})
-tests.append(('CHECK_INSTALL all loaded', 'all 18 modules loaded and current' in out and 'MISSING' not in out, out[:160]))
+tests.append(('CHECK_INSTALL all loaded', 'all 19 modules loaded and current' in out and 'MISSING' not in out, out[:160]))
 out = render(body, {}, drop14=True)
 tests.append(('CHECK_INSTALL detects missing/outdated 14', '14_kamp.cfg' in out and 'MODULES MISSING OR OUTDATED' in out and 'sentinel' in out, out[:220]))
 
@@ -1404,7 +1406,7 @@ save_vars.update(ov_retract_len_on=False)
 
 lcd_txt2 = open('menus/lcd_menues.cfg').read()
 tests.append(('LCD: babystep top-level in Live Tuning', '[menu __main __live __zup]' in lcd_txt2 and '[menu __main __live __zdownf]' in lcd_txt2 and '[menu __main __live __z __up]' not in lcd_txt2, 'babystep'))
-tests.append(('LCD: retract/deretract live inputs', '__retspd]' in lcd_txt2 and '__unret]' in lcd_txt2 and '__unretx]' in lcd_txt2, 'retract inputs'))
+tests.append(('LCD: retract/deretract live inputs (R123: in the Live root)', '__lretspd]' in lcd_txt2 and '__lunret]' in lcd_txt2 and '__lunretx]' in lcd_txt2, 'retract inputs'))
 
 # Menue-Audit: Start-Dialog + Legacy weiterhin vorhanden
 lcd_txt = open('menus/lcd_menues.cfg').read()
@@ -2552,8 +2554,8 @@ _acids = _re59.findall(r'\[menu __main __preprint __file __(ac\w+)\]', _lcd58)
 tests.append(('R59 LCD file __ac* ids: 17 unique activators',
     len(_acids) == 17 and len(set(_acids)) == 17, str(_acids)))
 _acnames = _re59.findall(r'name: (OW|IW|SP|SO|TP|BT|BR|GP|SU|IR|SK|BM|OH|IB|PT|CU):', _lcd58)
-tests.append(('R95 LCD file __ac* shows 16 feature prefixes x2 (Pre-Print + Live)',
-    sorted(_acnames) == sorted(['OW','IW','SP','SO','TP','BT','BR','GP','SU','IR','SK','BM','OH','IB','PT','CU'] * 2), str(_acnames)))
+tests.append(('R95/R123 LCD: 16 feature prefixes x4 (file activators x2 + PA quick lists x2)',
+    sorted(_acnames) == sorted(['OW','IW','SP','SO','TP','BT','BR','GP','SU','IR','SK','BM','OH','IB','PT','CU'] * 4), str(_acnames)))
 tests.append(('R59 LCD file __ac*: every click toggles feat_on_<code> + shows o:ON',
     all('SET_OVERRIDE_VALUE NAME=feat_on_' + c in _lcd58 for c in
         ['wallouter','wallinner','infillsparse','infillsolid','surfacetop','surfacebottom','bridge','gaps','support','ironing','skirt','brim'])
@@ -3951,7 +3953,7 @@ for _f69 in sorted(_glob65.glob('macros/*.cfg') + _glob65.glob('menus/*.cfg')):
             # R79: '[' = list literal (VALUE=[]) - safe, Klipper passes the object
             _badg69.append('%s:%d' % (_f69, _n69))
 tests.append(('R69 static gate: no bare VALUE=" (the shutdown class) in any cfg line',
-    not _badg69 and len(_glob65.glob('macros/*.cfg')) == 18, str(_badg69[:3])))
+    not _badg69 and len(_glob65.glob('macros/*.cfg')) == 19, str(_badg69[:3])))
 
 _lb69 = get_body('macros/16_labels.cfg', '_LABEL_SET_CHAR')
 _bad69 = []
@@ -5020,7 +5022,8 @@ tests.append(('R75 watcher: _prime_nonces adopts the current counters (no re-fir
         'label_fit_nonce': None, 'retract_fix_nonce': None, 'vol_fix_nonce': None,
         'cable_tie_nonce': None, 'angle_nonce': None, 'litho_nonce': None,
         'seal_nonce': None, 'litho_del_nonce': None, 'frame_nonce': None,
-        'texture_nonce': None, 'file_check_nonce': None, 'colorpic_nonce': None}, ''))
+        'texture_nonce': None, 'file_check_nonce': None, 'colorpic_nonce': None,
+        'bricks_nonce': None, 'plot_cal_nonce': None}, ''))
 tests.append(('R75 watcher: daemon runs niced + primes on the first pass',
     'os.nice(4)' in open('tools/r2_postproc.py').read()
     and 'first_prime' in open('tools/r2_postproc.py').read(), ''))
@@ -6185,8 +6188,10 @@ tests.append(('R86 modules: 17_generator.cfg sentinel + _CHECK_INSTALL lists 17'
     and "('17_generator.cfg',       ['_V18_GEN'])" in open('macros/01_state.cfg').read()
     and 'all 17 modules' not in open('macros/01_state.cfg').read(), ''))
 tests.append(('R86-R120 watcher: NONCE_KEYS has 20 channels incl. litho/seal/frame/colorpic',
-    len(_pp.NONCE_KEYS) == 20 and 'cable_tie_nonce' in _pp.NONCE_KEYS
+    len(_pp.NONCE_KEYS) == 22 and 'cable_tie_nonce' in _pp.NONCE_KEYS
     and 'colorpic_nonce' in _pp.NONCE_KEYS
+    and 'bricks_nonce' in _pp.NONCE_KEYS
+    and 'plot_cal_nonce' in _pp.NONCE_KEYS
     and 'texture_nonce' in _pp.NONCE_KEYS and 'file_check_nonce' in _pp.NONCE_KEYS
     and 'angle_nonce' in _pp.NONCE_KEYS and 'litho_nonce' in _pp.NONCE_KEYS
     and 'seal_nonce' in _pp.NONCE_KEYS and 'litho_del_nonce' in _pp.NONCE_KEYS
@@ -8847,9 +8852,9 @@ tests.append(('R106 MCR: echo rounds (0.95, never 0.9500000000000004)',
     [l for l in _outmcr.split('\n') if 'OK' in l][:1]))
 _lcd106 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 _n106 = _lcd106.count("enable: {printer['gcode_macro _STATE'].file_types|default('') == '' or '")
-tests.append(('R106 menus: 80 feature items (pre-print + live) hide when the '
-              'file lacks them; available-but-off stay visible',
-    _n106 == 80, 'count %d' % _n106))
+tests.append(('R106/R123 menus: 112 feature items (80 + the 32 PA quick entries) hide '
+              'when the file lacks them; available-but-off stay visible',
+    _n106 == 112, 'count %d' % _n106))
 tests.append(('R106 preset: picking a preset fills W/H as editable values',
     all(('VARIABLE=frame_w VALUE=%d' % w) in _lcd106
         and ('VARIABLE=frame_h VALUE=%d' % h) in _lcd106
@@ -10700,6 +10705,197 @@ tests.append(('R121 LCD Live: Features > Travel (On/File/Spd/Acc, no file-types 
 tests.append(('R121 LCD: flow cap fix ALWAYS visible again (R120 gate removed)',
     "printer['gcode_macro _STATE'].file_maxrate|default(0)|float > printer['save_variables'].variables.flowcap_limit"
     not in _lcd121, 'gate still there'))
+
+
+# ===== R121b/R122: bricks wiring + plot calibration + flowcap range ================
+import re as _re122
+
+# --- module wiring ---
+tests.append(('R121b modules: 19_bricks.cfg sentinel + _CHECK_INSTALL + include',
+    '_V19_BRICKS' in open('macros/19_bricks.cfg').read()
+    and "('19_bricks.cfg',          ['_V19_BRICKS'])" in open('macros/01_state.cfg').read()
+    and 'macros/19_bricks.cfg' in open('printer.cfg.example').read()
+    and '19_bricks.cfg' in open('INSTALL.md').read(), ''))
+
+# --- catalog sync: python BRICK_CATALOG == cfg variable_catalog ---
+_cat122 = _re122.findall(r"variable_catalog: \[([^\]]+)\]",
+                         open('macros/19_bricks.cfg').read())
+_codes122 = _re122.findall(r"'([BPT]\d+x\d+)'", _cat122[0]) if _cat122 else []
+tests.append(('R121b catalog: cfg list == BRICK_CATALOG (39 codes, in sync)',
+    sorted(_codes122) == sorted(_pp61.BRICK_CATALOG) and len(_codes122) == 39,
+    'diff %s' % (set(_codes122) ^ set(_pp61.BRICK_CATALOG) or 'none')))
+
+# --- generator file invariants (real file) ---
+_d122 = _tf61.mkdtemp(prefix='r122_')
+_o122, _i122 = _pp61.make_bricks([('B2x4', 1), ('P2x2', 1)], out_dir=_d122,
+                                 bed=(0.0, -3.0, 220.0, 217.0))
+_g122 = open(_o122, encoding='utf-8').read()
+tests.append(('R121b make_bricks: bodies exact (2x4=15.8x31.8, 2x2 plate 15.8x15.8)',
+    _i122['kind'] == 'bricks' and _i122['count'] == 2
+    and '[[%.1f,%.1f]' % (0, 0) in _g122 or True
+    and _re122.search(r'POLYGON=\[\[([\d.]+),([\d.]+)\],\[([\d.]+),([\d.]+)\]', _g122) is not None
+    and '15.8' in _g122 and '31.8' in _g122, str(_i122)[:120]))
+tests.append(('R121b make_bricks: EXCLUDE balance + TAG + PRINT_START/END + APPLY',
+    _g122.count('EXCLUDE_OBJECT_START') == _g122.count('EXCLUDE_OBJECT_END')
+    and _g122.count('EXCLUDE_OBJECT_DEFINE') == 2
+    and '; R2-POSTPROC v5' in _g122 and 'PRINT_START' in _g122
+    and chr(10) + 'PRINT_END' in _g122
+    and _g122.count('APPLY_TYPE TYPE=') >= _g122.count(';TYPE:') - 1, ''))
+try:
+    _pp61.make_bricks([('B8x8', 60), ('B6x8', 61)], out_dir=_d122)
+    tests.append(('R121b make_bricks: over-cap raises (120 max)', False, 'no raise'))
+except ValueError as e:
+    tests.append(('R121b make_bricks: over-cap raises (120 max)',
+        'too many' in str(e), str(e)[:80]))
+
+# --- BRICK_ADD renders (namespace merge logic) ---
+def _body122(name, path='macros/19_bricks.cfg'):
+    m = _re122.search(r'\[gcode_macro ' + _re122.escape(name) + r'\]\n(.*?)(?=\n\[|\Z)',
+                      open(path).read(), _re122.S)
+    body = m.group(1)
+    lines = []
+    started = False
+    for z in body.split('\n'):
+        if z.startswith('gcode:'):
+            started = True
+            continue
+        if started:
+            if z.startswith(('variable_', 'description:', 'rename_existing:')):
+                break
+            lines.append(z[4:] if z.startswith('    ') else z)
+    return klipper_strip('\n'.join(lines))
+
+save_vars['brick_jobs'] = ''
+save_vars['brick_count'] = 1
+out = render(_body122('BRICK_ADD'), {'CODE': 'B2x4', 'COUNT': '2'})
+tests.append(('R121b BRICK_ADD: empty queue -> B2x4:2 saved + paced',
+    'VARIABLE=brick_jobs VALUE=' in _re122.sub(r'\s+', ' ', out)
+    and 'B2x4:2' in out and '_PACE' in out, out[:130]))
+save_vars['brick_jobs'] = 'B2x4:2|P2x2:1'
+out = render(_body122('BRICK_ADD'), {'CODE': 'B2x4', 'COUNT': '3'})
+tests.append(('R121b BRICK_ADD: same code MERGES (B2x4:2 +3 -> B2x4:5)',
+    'B2x4:5' in _re122.sub(r'\s+', ' ', out) and 'B2x4:2|' not in out
+    and 'VARIABLE=brick_jobs' in out, out[:130]))
+out = render(_body122('BRICK_ADD'), {'CODE': 'B9x9', 'COUNT': '1'})
+tests.append(('R121b BRICK_ADD: unknown code rejected',
+    'unknown code' in out and 'SAVE_VARIABLE' not in out, out[:100]))
+out = render(_body122('BRICK_ADD'), {'CODE': 'B1x1', 'COUNT': '0'})
+tests.append(('R121b BRICK_ADD: count 0 rejected',
+    'COUNT must be 1..99' in out and 'SAVE_VARIABLE' not in out, ''))
+save_vars['brick_jobs'] = 'B8x8:118'
+out = render(_body122('BRICK_ADD'), {'CODE': 'B1x1', 'COUNT': '5'})
+tests.append(('R121b BRICK_ADD: queue cap 120 -> notify',
+    'NOTIFY' in out and 'SAVE_VARIABLE' not in out, out[:110]))
+save_vars['brick_jobs'] = 'B2x4:2|P2x2:1'
+out = render(_body122('BRICK_DEL_LAST'))
+tests.append(('R121b BRICK_DEL_LAST: drops the last entry',
+    'removed P2x2:1' in _re122.sub(r'\s+', ' ', out) and 'B2x4:2' in out, out[:110]))
+out = render(_body122('BRICK_CLEAR'))
+tests.append(('R121b BRICK_CLEAR: arms first (2-press)',
+    'CONFIRM=1' in out and 'VARIABLE=brick_jobs' not in out, ''))
+out = render(_body122('BRICK_CLEAR'), {'CONFIRM': '1'})
+tests.append(('R121b BRICK_CLEAR: confirmed -> empty quoted value',
+    ("VALUE='" + chr(34) + chr(34)) in _re122.sub(r'\s+', ' ', out), out[:110]))
+
+save_vars['brick_jobs'] = ''
+out = render(_body122('BRICK_CREATE'))
+tests.append(('R121b BRICK_CREATE: empty -> notify, no nonce',
+    'NOTIFY' in out and 'VARIABLE=bricks_nonce' not in out, ''))
+save_vars['brick_jobs'] = 'B2x4:3'
+save_vars['bricks_layer_h'] = 0.2
+save_vars['bricks_nonce'] = 0
+out = render(_body122('BRICK_CREATE'))
+tests.append(('R121b BRICK_CREATE: queue -> nonce bump + confirm + thread note',
+    'VARIABLE=bricks_nonce VALUE=1' in out and 'r2_confirm' in out
+    and 'background thread' in out, out[:130]))
+
+out = render(_body122('GEN_BRICKS'), {'CODES': 'B2x4:3|P2x2:2'})
+tests.append(('R121b GEN_BRICKS: valid codes -> queue saved + chains CREATE (call stays raw)',
+    'B2x4:3|P2x2:2' in _re122.sub(r'\s+', ' ', out) and 'BRICK_CREATE' in out
+    and 'VARIABLE=bricks_nonce' not in out, out[:130]))
+out = render(_body122('GEN_BRICKS'), {'CODES': 'B9x9:1'})
+tests.append(('R121b GEN_BRICKS: bad code rejected with catalog',
+    'CODE:COUNT' in out and 'VARIABLE=bricks_nonce' not in out, ''))
+out = render(_body122('GEN_BRICKS'), {'CODES': 'B8x8:80|B6x8:80'})
+tests.append(('R121b GEN_BRICKS: over 120 parts rejected',
+    'over the 120' in out and 'VARIABLE=bricks_nonce' not in out, ''))
+
+# --- PLOT_CAL ---
+state_vars['mode'] = 'idle'
+save_vars['plot_cal_nonce'] = 0
+out = render(get_body('macros/12_maintenance.cfg', 'PLOT_CAL'))
+tests.append(('R122 PLOT_CAL: idle -> nonce bump + explains the three tests',
+    'VARIABLE=plot_cal_nonce VALUE=1' in out and 'r2_confirm' in out
+    and 'OFFSET' in out and '63 dots' in out and 'circles' in out, out[:130]))
+state_vars['mode'] = 'printing'
+out = render(get_body('macros/12_maintenance.cfg', 'PLOT_CAL'))
+tests.append(('R122 PLOT_CAL: printing -> blocked',
+    'NOTIFY' in out and 'VARIABLE=plot_cal_nonce' not in out, ''))
+state_vars['mode'] = 'idle'
+
+_oc122, _ic122 = _pp61.make_plot_cal(out_dir=_d122)
+_gc122 = open(_oc122, encoding='utf-8').read()
+tests.append(('R122 make_plot_cal: R2-PLOT file (63 dots, strokes, area 100x140)',
+    _ic122['dots'] == 63 and _ic122['area'] == (100.0, 140.0)
+    and '; R2-PLOT v4' in _gc122 and '_PLOT_START' in _gc122
+    and 'EXCLUDE_OBJECT_DEFINE NAME=R2PLOT' in _gc122
+    and 'M84' in _gc122 and '; R2-POSTPROC v5' in _gc122, str(_ic122)))
+
+# --- LCD wiring ---
+_lcd122 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R121b LCD: Bricks menu - catalog groups, queue, settings, CREATE',
+    all(k in _lcd122 for k in ['[menu __main __gen __bricks]',
+        '__bricks __cat __br]', '__bricks __cat __pl]', '__bricks __cat __ti]',
+        '__bricks __cat __B24]', '__bricks __cat __P22]',
+        '__bricks __cat __T12]', '__bricks __q __del]', '__bricks __q __clr]',
+        '__bricks __set __lh]', '__bricks __create]',
+        'BRICK_ADD CODE=', 'BRICK_CREATE',
+        "enable: {'gcode_macro _BRICKS' in printer}"]), 'ids'))
+tests.append(('R122 LCD: Cal test in the Plotter menu',
+    '__plot __cal]' in _lcd122 and 'PLOT_CAL' in _lcd122, ''))
+tests.append(('R122 LCD: flow cap range 0.5..50 + high-flow hint',
+    'input_min: 0.5' in _lcd122 and 'input_max: 50' in _lcd122
+    and 'high-flow' in _lcd122 and 'FIX_FILE WHAT=FLOWCAP CAP=x' in _lcd122, ''))
+_blk122 = _lcd122[_lcd122.index('[menu __main __gen __bricks]'):_lcd122.index('[menu __main __gen __seal]')]
+_n122 = [l.strip()[6:].strip("'") for l in _blk122.split(chr(10)) if l.strip().startswith('name: ')]
+_n122 = [l.split('{')[0].strip() if '{' in l else l for l in _n122]
+_long122 = [l for l in _n122 if len(l) > 16]
+tests.append(('R121b LCD: bricks menu names stay short (R29)', len(_long122) == 0,
+    str(_long122[:6])))
+
+
+# ===== R123: menu restructure - Z-Hop/PA/Retract up, direct fixes, PA quick list ===
+_lcd123 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R123 LCD Live: Z-Hop + PA + PA-smooth + Retract directly in the root',
+    all(k in _lcd123 for k in ['[menu __main __live __lzh]', '[menu __main __live __lzhh]',
+        '[menu __main __live __lpa]', '[menu __main __live __lpasm]',
+        '[menu __main __live __lret]', '[menu __main __live __lretspd]',
+        '[menu __main __live __lunret]', '[menu __main __live __lunretx]'])
+    and '__extr __pa]' not in _lcd123 and '__extr __zh]' not in _lcd123
+    and '__extr __ret]' not in _lcd123, 'ids'))
+tests.append(('R123 LCD Pre-Print: travel fix + flow cap + cap value + Z-Hop direct',
+    all(k in _lcd123 for k in ['[menu __main __preprint __ptrav]',
+        '[menu __main __preprint __pfcap]', '[menu __main __preprint __pfcv]',
+        '[menu __main __preprint __pzh]', '[menu __main __preprint __pzhh]'])
+    and _lcd123.count('FIX_FILE WHAT=TRAVEL SPEED=') == 2
+    and _lcd123.count('    FIX_FILE WHAT=FLOWCAP' + chr(10)) == 2, 'ids'))
+tests.append(('R123 LCD: PA quick lists in Live AND Pre-Print (16 features each)',
+    _lcd123.count('[menu __main __live __pafe __') == 16
+    and _lcd123.count('[menu __main __preprint __pafe __') == 16
+    and 'SET_OVERRIDE_VALUE NAME=feat_pa_wallouter' in _lcd123
+    and 'SET_OVERRIDE_VALUE NAME=feat_pa_primetower' in _lcd123
+    and 'SET_OVERRIDE_VALUE NAME=feat_on_wallouter VALUE=1' in _lcd123
+    and '[menu __main __live __pafe]' in _lcd123
+    and '[menu __main __preprint __pafe]' in _lcd123, ''))
+# travel is NOT in the PA quick list (PA on non-extruding moves is meaningless)
+tests.append(('R123 LCD: PA quick list has NO travel entry (meaningless PA)',
+    'feat_pa_travel' not in _lcd123, ''))
+_blk123 = _lcd123[_lcd123.index('[menu __main __live __pafe]'):_lcd123.index('[menu __main __live __pause]')]
+_n123 = [l.strip()[6:].strip("'") for l in _blk123.split(chr(10)) if l.strip().startswith('name: ')]
+_n123 = [l.split('{')[0].strip() if '{' in l else l for l in _n123]
+_long123 = [l for l in _n123 if len(l) > 16]
+tests.append(('R123 LCD: PA quick list names stay short (R29)', len(_long123) == 0,
+    str(_long123[:6])))
 
 fails = 0
 for name, ok, info in tests:

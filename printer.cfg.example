@@ -376,6 +376,7 @@ enable_force_move: True
 #[include klipper-e3-r2d2/macros/16_labels.cfg]   # R63 label generator (LCD 'Labels' menu)
 #[include klipper-e3-r2d2/macros/17_generator.cfg]  # R86 part generators (Kabelbinder + Winkel)
 #[include klipper-e3-r2d2/macros/18_colorpic.cfg]  # R120 color picture generator (ColorPic, M600 + LED blink)
+#[include klipper-e3-r2d2/macros/19_bricks.cfg]  # R121 building bricks generator (Tools > Bricks)
 
 # =====================================================================================
 # R86.2 ELECTRONICS EXPANSION (OPTIONAL, everything commented) - see MANUAL ch. 26

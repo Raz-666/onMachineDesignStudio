@@ -228,6 +228,15 @@ _img = os.path.join(tempfile.mkdtemp(prefix='audit_'), 'grad.png')
 synth_png(_img)
 run(pp.make_lithophane, 'litho', src=_img, bed=BED)
 
+# ---- R121: building bricks (mixed plate + the guards must raise) ----
+run(pp.make_bricks, 'bricks-mix', jobs=[('B2x4', 2), ('B1x1', 1),
+                                        ('P2x2', 2), ('T1x2', 1)], bed=BED)
+run(pp.make_bricks, 'bricks-plate', jobs=[('P2x8', 4)], bed=BED)
+run(pp.make_bricks, 'bricks-bad', jobs=[('B9x9', 1)], bed=BED,
+    expect_guard='unknown brick')
+run(pp.make_bricks, 'bricks-empty', jobs=[], bed=BED,
+    expect_guard='no bricks')
+
 # ---- R120: color picture (same synthetic image, 4 + 8 bands, custom
 # palette, and the unknown-color guard must raise) ----
 run(pp.make_colorpic, 'colorpic-4', src=_img, bed=BED)
