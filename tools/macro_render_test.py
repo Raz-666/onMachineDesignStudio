@@ -167,7 +167,7 @@ def build_printer(kamp=False, objs=None, excl=None, old_klipper=False, bare_idle
     'gcode_macro _STATE': M(state_vars),
     'gcode_macro _COLORPIC_STATE': M(cpic_state_vars),   # R120
     'gcode_macro _BRICKS': M({'max_parts': 120,
-    'catalog': ['B1x1','B1x2','B1x3','B1x4','B1x6','B1x8','B2x2','B2x3','B2x4','B2x6','B2x8','B4x4','B4x6','B4x8','B6x6','B6x8','B8x8','P1x2','P1x4','P1x6','P1x8','P2x2','P2x4','P2x6','P2x8','P4x4','P4x6','P4x8','P6x6','P6x8','P8x8','T1x2','T1x4','T1x6','T1x8','T2x2','T2x4','T2x6','T2x8']}),   # R121
+    'catalog': ['B1x1','B1x2','B1x3','B1x4','B1x6','B1x8','B2x2','B2x3','B2x4','B2x6','B2x8','B4x4','B4x6','B4x8','B6x6','B6x8','B8x8','P1x2','P1x4','P1x6','P1x8','P2x2','P2x4','P2x6','P2x8','P4x4','P4x6','P4x8','P6x6','P6x8','P8x8','T1x1','T1x2','T1x3','T1x4','T1x6','T1x8','T2x2','T2x3','T2x4','T2x6','T2x8']}),   # R121
     'gcode_macro _MATERIALS': M({'presets': mats}),
     'gcode_macro _SOUND_LIB': M({'tunes': tunes}),
     }
@@ -5023,7 +5023,8 @@ tests.append(('R75 watcher: _prime_nonces adopts the current counters (no re-fir
         'cable_tie_nonce': None, 'angle_nonce': None, 'litho_nonce': None,
         'seal_nonce': None, 'litho_del_nonce': None, 'frame_nonce': None,
         'texture_nonce': None, 'file_check_nonce': None, 'colorpic_nonce': None,
-        'bricks_nonce': None, 'plot_cal_nonce': None}, ''))
+        'bricks_nonce': None, 'brickkit_nonce': None,
+        'plot_cal_nonce': None}, ''))
 tests.append(('R75 watcher: daemon runs niced + primes on the first pass',
     'os.nice(4)' in open('tools/r2_postproc.py').read()
     and 'first_prime' in open('tools/r2_postproc.py').read(), ''))
@@ -6188,7 +6189,8 @@ tests.append(('R86 modules: 17_generator.cfg sentinel + _CHECK_INSTALL lists 17'
     and "('17_generator.cfg',       ['_V18_GEN'])" in open('macros/01_state.cfg').read()
     and 'all 17 modules' not in open('macros/01_state.cfg').read(), ''))
 tests.append(('R86-R120 watcher: NONCE_KEYS has 20 channels incl. litho/seal/frame/colorpic',
-    len(_pp.NONCE_KEYS) == 22 and 'cable_tie_nonce' in _pp.NONCE_KEYS
+    len(_pp.NONCE_KEYS) == 23 and 'cable_tie_nonce' in _pp.NONCE_KEYS
+    and 'brickkit_nonce' in _pp.NONCE_KEYS
     and 'colorpic_nonce' in _pp.NONCE_KEYS
     and 'bricks_nonce' in _pp.NONCE_KEYS
     and 'plot_cal_nonce' in _pp.NONCE_KEYS
@@ -10721,8 +10723,8 @@ tests.append(('R121b modules: 19_bricks.cfg sentinel + _CHECK_INSTALL + include'
 _cat122 = _re122.findall(r"variable_catalog: \[([^\]]+)\]",
                          open('macros/19_bricks.cfg').read())
 _codes122 = _re122.findall(r"'([BPT]\d+x\d+)'", _cat122[0]) if _cat122 else []
-tests.append(('R121b catalog: cfg list == BRICK_CATALOG (39 codes, in sync)',
-    sorted(_codes122) == sorted(_pp61.BRICK_CATALOG) and len(_codes122) == 39,
+tests.append(('R121b catalog: cfg list == BRICK_CATALOG (45 codes, in sync)',
+    sorted(_codes122) == sorted(_pp61.BRICK_CATALOG) and len(_codes122) == 45,
     'diff %s' % (set(_codes122) ^ set(_pp61.BRICK_CATALOG) or 'none')))
 
 # --- generator file invariants (real file) ---
@@ -10925,6 +10927,204 @@ _nl124 = [l.strip()[6:].strip("'") for l in _blkl124.split(chr(10)) if l.strip()
 _nl124 = [l.split('{')[0].strip() if '{' in l else l for l in _nl124]
 tests.append(('R124 LCD: quick list names stay short (R29)',
     all(len(l) <= 16 for l in _nl124), str(_nl124[:6])))
+
+
+# ===== R125: brick kit generator (G-code -> stylized kit) ==========================
+import math as _m125t
+
+def _kit_box125(path, support=False):
+    L = [';FLAVOR:Marlin', 'M82', 'G90', 'G21']
+    e = 0.0
+    z = 0.0
+    while z < 9.6 - 1e-9:
+        z = round(z + 0.2, 3)
+        L += [';LAYER_CHANGE', ';Z:%.3f' % z, 'G0 Z%.3f F600' % z,
+              ';TYPE:WALL-OUTER']
+        x0, y0, x1, y1 = 60, 60, 92, 84
+        L.append('G0 X60.000 Y60.000 F9000')
+        for (ax, ay, bx, by) in ((x0, y0, x1, y0), (x1, y0, x1, y1),
+                                 (x1, y1, x0, y1), (x0, y1, x0, y0)):
+            e += 10.0
+            L.append('G1 X%.3f Y%.3f E%.4f F1800' % (bx, by, e))
+            e += 2.0
+            L.append('G1 X%.3f Y%.3f E%.4f F1800' % (ax, ay, e))
+        L.append(';TYPE:Internal solid infill')
+        yy = y0 + 1.0
+        while yy < y1 - 0.5:
+            e += 15.0
+            L.append('G1 X%.3f Y%.3f E%.4f F2400' % (x0 + 1, yy, e))
+            e += 15.0
+            L.append('G1 X%.3f Y%.3f E%.4f F2400' % (x1 - 1, yy, e))
+            yy += 1.6
+        if support and z > 2.0:
+            L.append(';TYPE:Support')
+            e += 20.0
+            L.append('G1 X45.000 Y60.000 E%.4f F2400' % e)
+            e += 20.0
+            L.append('G1 X45.000 Y84.000 E%.4f F2400' % e)
+            L.append(';TYPE:WALL-OUTER')
+    open(path, 'w').write('\n'.join(L) + '\n')
+
+_d125 = _tf61.mkdtemp(prefix='r125_')
+_kb125 = _os61.path.join(_d125, 'box.gcode')
+_kit_box125(_kb125, support=True)
+_kb125b = _os61.path.join(_d125, 'box2.gcode')
+_kit_box125(_kb125b, support=False)
+_c1, _st1, _bb1 = _pp61._kit_voxelize(_kb125)
+_c2, _st2, _bb2 = _pp61._kit_voxelize(_kb125b)
+tests.append(('R125 voxelizer: SUPPORT never reaches the kit (cells identical)',
+    _c1 == _c2 and len(_c1) > 0, '%d vs %d cells' % (len(_c1), len(_c2))))
+tests.append(('R125 voxelizer: solid box -> infill share high (no shell verdict)',
+    _st1['infill'] > _st1['wall'], str(_st1)))
+
+_o125, _i125 = _pp61.make_brick_kit(_kb125, detail='SMALL', mode='BY_LAYER',
+                                    colors=2, out_dir=_d125,
+                                    bed=(0.0, -3.0, 220.0, 217.0))
+_t125 = open(_o125, encoding='utf-8').read()
+tests.append(('R125 kit SMALL BY_LAYER: 1 brick band, solid fill, zero M600',
+    _i125['kind'] == 'brickkit' and _i125['bands'] == 1
+    and _i125['band_mm'] == 9.6 and _i125['shell'] is False
+    and _t125.count(chr(10) + 'M600') == 0, str(_i125)[:120]))
+tests.append(('R125 kit: EXCLUDE balance (parts x layers) + TAG + START/END',
+    _t125.count('EXCLUDE_OBJECT_START') == _t125.count('EXCLUDE_OBJECT_END')
+    == _i125['parts'] * _i125['layers']
+    and '; R2-POSTPROC v5' in _t125 and 'PRINT_START' in _t125
+    and chr(10) + 'PRINT_END' in _t125, ''))
+tests.append(('R125 kit: greedy decomposition uses 2-wide bricks (kit look)',
+    'KIT_A_001_B2x4' in _t125 and _t125.count('_B1x1_') == 0,
+    str(sorted(set(_re122.findall(r'KIT_A_\d+_(\S+)', _t125))))))
+_o125, _i125 = _pp61.make_brick_kit(_kb125, detail='BIG', mode='BY_LAYER',
+                                    colors=3, out_dir=_d125,
+                                    bed=(0.0, -3.0, 220.0, 217.0))
+tests.append(('R125 kit BIG 3 colors: 3 plates, ONE color each (plate change ='
+              ' color change)',
+    _i125['band_mm'] == 3.2 and _i125['bands'] == 3
+    and len(_i125['plates']) == 3
+    and all(open(_os61.path.join(_d125, pl)).read().count(chr(10) + 'M600') == 0
+            for pl in _i125['plates']), str(_i125['plates'])))
+_o125, _i125 = _pp61.make_brick_kit(_kb125, detail='BIG', mode='BY_OBJECT',
+                                    colors=2, out_dir=_d125,
+                                    bed=(0.0, -3.0, 220.0, 217.0))
+_t125 = open(_o125, encoding='utf-8').read()
+_zs125 = [float(m.group(1)) for m in _re122.finditer(r'^;Z:([\d.]+)', _t125, _re122.M)]
+tests.append(('R125 kit BY_OBJECT: sequential objects, M600 only at the color'
+              ' boundary, BY_OBJECT=1',
+    _t125.count(chr(10) + 'M600') == 1 and 'BY_OBJECT=1' in _t125
+    and any(b < a for a, b in zip(_zs125, _zs125[1:])), ''))
+_kv125 = _os61.path.join(_d125, 'vase.gcode')
+Lv = [';FLAVOR:Marlin', 'M82', 'G90', 'G21']
+_e125 = 0.0
+_z125 = 0.0
+while _z125 < 12.0 - 1e-9:
+    _z125 = round(_z125 + 0.2, 3)
+    Lv += [';LAYER_CHANGE', ';Z:%.3f' % _z125, 'G0 Z%.3f F600' % _z125,
+           ';TYPE:WALL-OUTER', 'G0 X120.000 Y100.000 F9000']
+    for _i125v in range(33):
+        _a125 = 2 * _m125t.pi * _i125v / 32
+        _e125 += 2.0
+        Lv.append('G1 X%.3f Y%.3f E%.4f F1200'
+                  % (100 + 20 * _m125t.cos(_a125), 100 + 20 * _m125t.sin(_a125), _e125))
+open(_kv125, 'w').write('\n'.join(Lv) + '\n')
+_o125, _i125 = _pp61.make_brick_kit(_kv125, detail='SMALL', mode='BY_LAYER',
+                                    colors=1, out_dir=_d125,
+                                    bed=(0.0, -3.0, 220.0, 217.0))
+tests.append(('R125 kit VASE: shell detected -> the kit builds ring walls',
+    _i125['shell'] is True and _i125['parts'] > 0
+    and any('shell' in n for n in _i125['notes']), str(_i125['notes'])))
+try:
+    _pp61.make_brick_kit(_kb125, colors=9, out_dir=_d125)
+    tests.append(('R125 kit: colors 9 rejected (1..8)', False, 'no raise'))
+except ValueError as e:
+    tests.append(('R125 kit: colors 9 rejected (1..8)', 'colors must be 1..8' in str(e), ''))
+try:
+    _pp61.make_brick_kit(_kb125, mode='SIDeways', out_dir=_d125)
+    tests.append(('R125 kit: bad mode rejected', False, 'no raise'))
+except ValueError as e:
+    tests.append(('R125 kit: bad mode rejected', 'BY_LAYER or BY_OBJECT' in str(e), ''))
+try:
+    _pp61.make_brick_kit(_os61.path.join(_d125, 'nope.gcode'), out_dir=_d125)
+    tests.append(('R125 kit: missing source rejected', False, 'no raise'))
+except ValueError as e:
+    tests.append(('R125 kit: missing source rejected', 'not found' in str(e), ''))
+
+
+# ===== R125b: kit wiring (macro + watcher + LCD) ====================================
+tests.append(('R125b wiring: brickkit_nonce is a primed nonce channel',
+    'brickkit_nonce' in _pp61.NONCE_KEYS, str(len(_pp61.NONCE_KEYS)) + ' channels'))
+_ppsrc125 = open('tools/r2_postproc.py').read()
+tests.append(('R125b wiring: watcher resolves newest job, skips own 00_ output,'
+              ' threads + errors to the LCD',
+    all(_x in _ppsrc125 for _x in (
+        "last_brickkit_nonce", "make_brick_kit(**params)",
+        "startswith('00_')", "threading.Thread(target=_kit_job125",
+        '[brickkit] poll error')) and 'Kit ERROR' in _ppsrc125, ''))
+
+save_vars['brickkit_src'] = ''
+save_vars['brickkit_index'] = 0
+save_vars['brickkit_detail'] = 'AUTO'
+save_vars['brickkit_mode'] = 'BY_LAYER'
+save_vars['brickkit_colors'] = 3
+save_vars['brickkit_nonce'] = 0
+out = render(_body122('GEN_BRICKKIT'), {})
+tests.append(('R125b GEN_BRICKKIT: no params -> saved vars win, nonce bumps',
+    'VARIABLE=brickkit_nonce VALUE=1' in _re122.sub(r'\s+', ' ', out)
+    and 'VARIABLE=brickkit_src' in out and 'VARIABLE=brickkit_colors VALUE=3' in out
+    and 'background thread' in out and 'r2_confirm' in out, out[:130]))
+out = render(_body122('GEN_BRICKKIT'), {'SRC': 'sub/box.gcode'})
+tests.append(('R125b GEN_BRICKKIT: path in SRC rejected (no nonce)',
+    'no paths' in out and 'VARIABLE=brickkit_nonce' not in out, out[:100]))
+out = render(_body122('GEN_BRICKKIT'), {'DETAIL': 'HUGE'})
+tests.append(('R125b GEN_BRICKKIT: bad DETAIL rejected',
+    'DETAIL: AUTO, MICRO, SMALL or BIG' in out
+    and 'VARIABLE=brickkit_nonce' not in out, ''))
+out = render(_body122('GEN_BRICKKIT'), {'MODE': 'SIDEWAYS'})
+tests.append(('R125b GEN_BRICKKIT: bad MODE rejected',
+    'MODE: BY_LAYER or BY_OBJECT' in out
+    and 'VARIABLE=brickkit_nonce' not in out, ''))
+out = render(_body122('GEN_BRICKKIT'), {'COLORS': '9'})
+tests.append(('R125b GEN_BRICKKIT: colors 9 rejected',
+    'COLORS must be 1..8' in out and 'VARIABLE=brickkit_nonce' not in out, ''))
+out = render(_body122('GEN_BRICKKIT'), {'INDEX': '9'})
+tests.append(('R125b GEN_BRICKKIT: index 9 rejected (0..4)',
+    'INDEX must be 0..4' in out and 'VARIABLE=brickkit_nonce' not in out, ''))
+out = render(_body122('GEN_BRICKKIT'),
+             {'SRC': 'mybox.gcode', 'DETAIL': 'BIG', 'MODE': 'BY_OBJECT',
+              'COLORS': '5'})
+_q125 = chr(92) + chr(34)
+tests.append(('R125b GEN_BRICKKIT: full params -> all five saved + paced',
+    all(_x in _re122.sub(r'\s+', ' ', out) for _x in (
+        'VARIABLE=brickkit_src VALUE=' + chr(34) + _q125 + 'mybox.gcode'
+        + _q125 + chr(34),
+        'VARIABLE=brickkit_index VALUE=0', 'VARIABLE=brickkit_detail VALUE='
+        + chr(34) + _q125 + 'BIG' + _q125 + chr(34),
+        'VARIABLE=brickkit_mode VALUE=' + chr(34) + _q125 + 'BY_OBJECT'
+        + _q125 + chr(34), 'VARIABLE=brickkit_colors VALUE=5',
+        'VARIABLE=brickkit_nonce VALUE=1', '_PACE'))
+    and 'r2_done' not in out, out[:130]))
+
+_lcd125 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R125b LCD: Tools > Bricks > Kit menu complete (source slots,'
+              ' detail, mode, colors 1-8, CREATE)',
+    all(_x in _lcd125 for _x in (
+        '[menu __main __gen __bricks __kit]', '[menu __main __gen __bricks __kit __src __j1]',
+        '[menu __main __gen __bricks __kit __src __j5]',
+        '[menu __main __gen __bricks __kit __det __auto]',
+        '[menu __main __gen __bricks __kit __det __micro]',
+        '[menu __main __gen __bricks __kit __det __small]',
+        '[menu __main __gen __bricks __kit __det __big]',
+        '[menu __main __gen __bricks __kit __mod __layer]',
+        '[menu __main __gen __bricks __kit __mod __obj]',
+        '[menu __main __gen __bricks __kit __col]',
+        '[menu __main __gen __bricks __kit __go]'))
+    and 'input_min: 1\ninput_max: 8\ninput_step: 1\n' in _lcd125, ''))
+_i125k = _lcd125.index('[menu __main __gen __bricks __kit __go]')
+_s125k = _lcd125[_i125k:_lcd125.index('gcode:', _i125k)]
+tests.append(('R125b LCD: CREATE chains GEN_BRICKKIT, kit sits INSIDE Bricks',
+    'GEN_BRICKKIT' in _lcd125[_i125k:_lcd125.index('[menu', _i125k + 10)]
+    and _lcd125.index('[menu __main __gen __bricks __kit]')
+    > _lcd125.index('[menu __main __gen __bricks __how]')
+    and _lcd125.index('[menu __main __gen __bricks __kit]')
+    < _lcd125.index('#  GASKETS'), ''))
 
 fails = 0
 for name, ok, info in tests:

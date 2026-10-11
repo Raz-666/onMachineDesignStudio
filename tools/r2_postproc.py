@@ -6623,7 +6623,7 @@ NONCE_KEYS = ('preview_nonce', 'range_nonce', 'label_gen_nonce', 'reso_nonce',
               'cable_tie_nonce', 'angle_nonce', 'litho_nonce', 'seal_nonce',
               'litho_del_nonce', 'frame_nonce', 'texture_nonce',
               'file_check_nonce', 'colorpic_nonce', 'bricks_nonce',
-              'plot_cal_nonce')
+              'brickkit_nonce', 'plot_cal_nonce')
 
 
 def _prime_nonces(rv):
@@ -10501,7 +10501,7 @@ for _bw121 in (1, 2, 4, 6, 8):
             continue
         BRICK_CATALOG['B%dx%d' % (_bw121, _bl121)] = ('brick', _bw121, _bl121)
 for _pw121 in (1, 2, 4, 6, 8):
-    for _pl121 in (2, 4, 6, 8):
+    for _pl121 in (1, 2, 3, 4, 6, 8):
         if _pl121 < _pw121:
             continue
         BRICK_CATALOG['P%dx%d' % (_pw121, _pl121)] = ('plate', _pw121, _pl121)
@@ -10799,6 +10799,553 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
             'codes': [c['code'] for c in cells],
             'notes': notes}
     return out, info
+
+
+# ---- R125: BRICK KITS - turn a print file into a stylized brick kit -------------
+# The voxelizer reads ANY sliced g-code (ours with APPLY_TYPE markers or a
+# foreign ;TYPE: file) and rasterizes ONLY the object into the stud grid:
+# SUPPORT / SUPPORT-INTERFACE, BRIM, SKIRT and PRIME-TOWER moves never flow
+# into the kit (user rule: the kit is built from the CLEAN object).
+# Closed/solid bodies become filled brick bodies; shell-dominant prints
+# (vases, cylinders, hollow bodies - almost no infill) become ring walls.
+KIT_EXCLUDE_TYPES = {'SUPPORT', 'BRIM', 'SKIRT', 'PRIME-TOWER'}
+KIT_PALETTE = ['GRY', 'BLK', 'RED', 'BLU', 'YEL', 'GRN', 'ORG', 'PUR']
+KIT_MAX_PARTS = 800
+KIT_PLATE_PARTS = 110          # soft cap per plate (row packing decides the fit)
+
+
+def _kit_moves(path):
+    """stream (x0,y0,z0, x1,y1,z1, canon_type) for every EXTRUDING move.
+
+    Modal X/Y/Z/E tracking like process(); ;TYPE: comments AND APPLY_TYPE
+    markers both set the type; excluded types (support/brim/skirt/tower)
+    are filtered OUT here so they can never reach the kit geometry.
+    """
+    x = y = z = None
+    e_abs = 0.0
+    e_rel = False
+    canon = None
+    num = re.compile(r'([XYZE])(-?\d+(?:\.\d+)?)')
+    with open(path, 'r', errors='replace') as f:
+        for raw in f:
+            ls = raw.strip()
+            if not ls or ls[0] == ';':
+                m = re.match(r'^;\s*TYPE\s*:\s*(.+?)\s*$', ls, re.IGNORECASE)
+                if m:
+                    k125 = m.group(1).strip().lower()
+                    if k125 in TYPE_MAP:
+                        canon = TYPE_MAP[k125]
+                    elif 'support' in k125:
+                        canon = 'SUPPORT'     # tree/normal variants: never kit
+                    else:
+                        canon = m.group(1).strip().upper()   # canonical/unknown
+                continue
+            if ls.startswith('APPLY_TYPE TYPE='):
+                canon = ls.split('=', 1)[1].strip()
+                continue
+            if ls == 'M82':
+                e_rel = False
+                continue
+            if ls == 'M83':
+                e_rel = True
+                continue
+            if ls.startswith('G92'):
+                m = re.search(r'\bE(-?\d+(?:\.\d+)?)', ls)
+                if m:
+                    e_abs = float(m.group(1))
+                continue
+            if ls[:2] not in ('G0', 'G1'):
+                continue
+            if ls.startswith('G0'):
+                # pure travel: update position, never extrudes
+                m = dict(num.findall(ls))
+                if 'X' in m:
+                    x = float(m['X'])
+                if 'Y' in m:
+                    y = float(m['Y'])
+                if 'Z' in m:
+                    z = float(m['Z'])
+                continue
+            m = dict(num.findall(ls))
+            nx = float(m['X']) if 'X' in m else x
+            ny = float(m['Y']) if 'Y' in m else y
+            nz = float(m['Z']) if 'Z' in m else z
+            extruding = False
+            if 'E' in m:
+                ev = float(m['E'])
+                if e_rel:
+                    extruding = ev > 0.0
+                else:
+                    extruding = ev > e_abs + 1e-6
+                    e_abs = ev
+            if (extruding and nx is not None and ny is not None
+                    and nz is not None and canon not in KIT_EXCLUDE_TYPES):
+                yield (x if x is not None else nx, y if y is not None else ny,
+                       z if z is not None else nz, nx, ny, nz, canon)
+            x, y, z = nx, ny, nz
+
+
+def _kit_voxelize(path):
+    """two-pass streaming rasterization onto the 8 x 8 x 3.2mm grid.
+
+    Returns (cells, stats, bbox): cells = {(gx, gy, bz)} with bz at PLATE
+    resolution (3.2mm); stats = {'wall': mm, 'infill': mm, 'other': mm}
+    (the shell/solid verdict); bbox = (min_x, min_y, max_x, max_y, max_z).
+    """
+    # pass A: bbox + category lengths
+    x0 = y0 = x1 = y1 = z1 = None
+    wall = infill = other = 0.0
+    for (ax, ay, az, bx, by, bz, canon) in _kit_moves(path):
+        for cx, cy in ((ax, ay), (bx, by)):
+            x0 = cx if x0 is None else min(x0, cx)
+            y0 = cy if y0 is None else min(y0, cy)
+            x1 = cx if x1 is None else max(x1, cx)
+            y1 = cy if y1 is None else max(y1, cy)
+        z1 = max(z1 if z1 is not None else bz, az, bz)
+        d = math.hypot(bx - ax, by - ay)
+        if canon and 'INFILL' in canon:
+            infill += d
+        elif canon and ('WALL' in canon or canon == 'GAPS'):
+            wall += d
+        else:
+            other += d
+    if x0 is None:
+        return set(), {'wall': 0.0, 'infill': 0.0, 'other': 0.0}, None
+    # pass B: mark cells (grid origin snapped to the 8mm pitch)
+    gx0 = math.floor(x0 / BRICK_PITCH) * BRICK_PITCH
+    gy0 = math.floor(y0 / BRICK_PITCH) * BRICK_PITCH
+    cells = set()
+    step = 0.8
+    for (ax, ay, az, bx, by, bz, canon) in _kit_moves(path):
+        n = max(1, int(math.ceil(math.hypot(bx - ax, by - ay) / step)))
+        for i in range(n + 1):
+            t = i / float(n)
+            px = ax + (bx - ax) * t
+            py = ay + (by - ay) * t
+            pz = az + (bz - az) * t
+            # a layer printed AT a band boundary deposits into the band
+            # BELOW it (material spans z-lh..z) - keeps 9.6-tall objects
+            # at 3 plate bands, no epsilon sliver band on top
+            cells.add((int((px - gx0) / BRICK_PITCH),
+                       int((py - gy0) / BRICK_PITCH),
+                       max(0, int((pz - 1e-4) / BRICK_PH))))
+    return cells, {'wall': wall, 'infill': infill, 'other': other}, \
+        (x0, y0, x1, y1, z1)
+
+
+def _kit_band_cells(cells, merge3, shell):
+    """cells at plate resolution -> list of band cell-sets, bottom-up.
+
+    merge3: group 3 plate-bands into one brick band (9.6mm, OR-merged).
+    shell: keep only boundary cells (>= 1 empty 4-neighbor) per band -
+    vases/hollow bodies become ring walls, solid bodies stay filled.
+    """
+    if not cells:
+        return []
+    nb = max(c[2] for c in cells) + 1
+    bands = []
+    if merge3:
+        for b9 in range((nb + 2) // 3):
+            s = {(gx, gy) for (gx, gy, bz) in cells if b9 * 3 <= bz < b9 * 3 + 3}
+            bands.append(s)
+    else:
+        for bz in range(nb):
+            bands.append({(gx, gy) for (gx, gy, z) in cells if z == bz})
+    if shell:
+        rings = []
+        for s in bands:
+            r = set()
+            for (gx, gy) in s:
+                if ((gx - 1, gy) not in s or (gx + 1, gy) not in s
+                        or (gx, gy - 1) not in s or (gx, gy + 1) not in s):
+                    r.add((gx, gy))
+            rings.append(r)
+        bands = rings
+    return bands
+
+
+_KIT_SIZES = ((2, 8), (2, 6), (2, 4), (2, 3), (2, 2),
+              (1, 8), (1, 6), (1, 4), (1, 3), (1, 2), (1, 1))
+
+
+def _kit_decompose(cells, kind):
+    """greedy: cut a band's cell set into catalog parts, largest first.
+
+    Classic kit look: 2-wide bricks dominate, 1-wide fill the rests.
+    Returns [(code, gx, gy, w, l)] - w/l in CELLS (studs), already
+    orientation-resolved (a 2x4 placed sideways stays code 'B2x4').
+    """
+    remaining = set(cells)
+    parts = []
+    prefix = 'B' if kind == 'brick' else 'P'
+    while remaining:
+        gx, gy = min(remaining)
+        placed = False
+        for (w, l) in _KIT_SIZES:
+            code = '%s%dx%d' % (prefix, w, l)
+            if code not in BRICK_CATALOG:
+                continue
+            for (dw, dl) in ((w, l), (l, w)):
+                if all((gx + dx, gy + dy) in remaining
+                       for dx in range(dl) for dy in range(dw)):
+                    for dx in range(dl):
+                        for dy in range(dw):
+                            remaining.discard((gx + dx, gy + dy))
+                    parts.append((code, gx, gy, dw, dl))
+                    placed = True
+                    break
+            if placed:
+                break
+        if not placed:
+            remaining.discard((gx, gy))      # unreachable: (1,1) always fits
+    return parts
+
+
+def make_brick_kit(src, detail='AUTO', mode='BY_LAYER', colors=3,
+                   layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
+                   nozzle=0.6, out_dir='.', version=1):
+    """R125: turn a sliced print file into a stylized brick kit.
+
+    detail: AUTO (by model size) / MICRO (heavy reduction, brick bands,
+    denoise - the smallest sets) / SMALL (brick bands, light denoise) /
+    BIG (plate bands = finest, for large statues). mode: BY_LAYER = one
+    color per plate, ZERO filament changes (the plate change IS the color
+    change); BY_OBJECT = mixed colors per plate, objects sequential in
+    color order, M600 only at the color boundaries. colors: 1..8, bands
+    are colored bottom-up in sensible stripes. Supports/brim/skirt/tower
+    never reach the kit; closed bodies fill, vases/hollow bodies ring.
+    Returns (first_plate_path, info) - info['plates'] lists every plate.
+    """
+    detail = str(detail or 'AUTO').strip().upper()
+    mode = str(mode or 'BY_LAYER').strip().upper().replace('-', '_')
+    if detail not in ('AUTO', 'MICRO', 'SMALL', 'BIG'):
+        raise ValueError("detail must be AUTO / MICRO / SMALL / BIG")
+    if mode not in ('BY_LAYER', 'BY_OBJECT'):
+        raise ValueError("mode must be BY_LAYER or BY_OBJECT")
+    colors = int(colors)
+    if not (1 <= colors <= 8):
+        raise ValueError('colors must be 1..8')
+    layer_h = max(0.08, min(float(layer_h or 0.2), 0.32))
+    if not os.path.isfile(src):
+        raise ValueError('source file not found: %s' % os.path.basename(src))
+
+    cells, stats, bbox = _kit_voxelize(src)
+    if not cells or bbox is None:
+        raise ValueError('no object geometry found in %s (support-only, a '
+                         'plot file or not a print file?)'
+                         % os.path.basename(src))
+    nx = max(c[0] for c in cells) + 1
+    ny = max(c[1] for c in cells) + 1
+    notes = []
+    if detail == 'AUTO':
+        max_studs = max(nx, ny)
+        detail = 'MICRO' if max_studs <= 10 else ('SMALL' if max_studs <= 26
+                                                  else 'BIG')
+    merge3 = detail in ('MICRO', 'SMALL')
+    # denoise: MICRO drops cells with <= 1 neighbor, SMALL isolated cells
+    if detail in ('MICRO', 'SMALL'):
+        need = 1 if detail == 'MICRO' else 0
+        drop = set()
+        by_band = {}
+        for (gx, gy, bz) in cells:
+            by_band.setdefault(bz, set()).add((gx, gy))
+        for bz, s in by_band.items():
+            for (gx, gy) in s:
+                n = ((gx - 1, gy) in s) + ((gx + 1, gy) in s) \
+                    + ((gx, gy - 1) in s) + ((gx, gy + 1) in s)
+                if n <= need:
+                    drop.add((gx, gy, bz))
+        if drop:
+            notes.append('reduction: %d stray cell(s) dropped' % len(drop))
+            cells -= drop
+    total_len = stats['wall'] + stats['infill'] + stats['other']
+    shell = total_len > 0 and stats['infill'] / total_len < 0.15
+    if shell:
+        notes.append('shell print detected (almost no infill) - the kit '
+                     'builds the walls as rings, like the original')
+    bands = _kit_band_cells(cells, merge3, shell)
+    bands = [b for b in bands if b]
+    if not bands:
+        raise ValueError('nothing left after reduction - try detail=SMALL/BIG')
+    band_mm = BRICK_BH if merge3 else BRICK_PH
+    kind = 'brick' if merge3 else 'plate'
+    # coloring: sensible stripes bottom-up with the chosen count
+    col_of_band = [min(colors - 1, int(i * colors / len(bands)))
+                   for i in range(len(bands))]
+    kit_cols = KIT_PALETTE[:colors]
+
+    # decompose every band -> parts
+    parts = []
+    for bi, s in enumerate(bands):
+        for (code, gx, gy, w, l) in _kit_decompose(s, kind):
+            parts.append({'code': code, 'kind': kind, 'w': w, 'l': l,
+                          'gx': gx, 'gy': gy, 'band': bi,
+                          'ci': col_of_band[bi]})
+    if len(parts) > KIT_MAX_PARTS:
+        raise ValueError('%d parts is over the %d kit limit - use a smaller '
+                         'model or more reduction (detail=MICRO/SMALL)'
+                         % (len(parts), KIT_MAX_PARTS))
+
+    # ---- plates ----
+    bed = bed or (0.0, 0.0, 220.0, 220.0)
+    bx0, by0, bx1, by1 = bed
+    ux0, uy0 = bx0 + bed_margin, by0 + bed_margin
+    ux1, uy1 = bx1 - bed_margin, by1 - bed_margin
+    wid = max(0.4, nozzle * 1.08)
+    fil = FIL_AREA
+
+    def _snap(total, what):
+        nl = max(1, int(round(total / layer_h)))
+        if abs(nl * layer_h - total) > 0.01:
+            notes.append('%s snaps to %d layers = %.2fmm'
+                         % (what, nl, nl * layer_h))
+        return nl
+
+    nl = _snap(BRICK_BH if kind == 'brick' else BRICK_PH, 'body')
+    sl = _snap(BRICK_STUD_H, 'studs')
+    total_layers = nl + sl
+
+    def _pack(group):
+        """row-pack one part group -> list of plates (lists of placed parts)"""
+        placed = []
+        x, y = ux0, uy0
+        row_h = 0.0
+        for p in group:
+            bw = p['w'] * BRICK_PITCH - BRICK_PLAY
+            bl = p['l'] * BRICK_PITCH - BRICK_PLAY
+            if x + bw > ux1 and x > ux0:
+                x = ux0
+                y += row_h + BRICK_GAP
+                row_h = 0.0
+            if y + bl > uy1:
+                return None
+            p = dict(p, x=x, y=y, bw=bw, bl=bl)
+            placed.append(p)
+            x += bw + BRICK_GAP
+            row_h = max(row_h, bl)
+        return placed
+
+    plates = []               # [(label, color_idx or None, [parts])]
+    if mode == 'BY_LAYER':
+        for ci in range(colors):
+            group = [p for p in parts if p['ci'] == ci]
+            while group:
+                for chunk_n in range(len(group), 0, -1):
+                    # try the biggest chunk that fits ONE plate
+                    packed = _pack(group[:chunk_n])
+                    if packed is not None:
+                        plates.append((chr(ord('A') + len(plates)), ci, packed))
+                        group = group[chunk_n:]
+                        break
+                else:
+                    raise ValueError('a single part does not fit the bed')
+    else:
+        group = sorted(parts, key=lambda p: (p['ci'], p['band'], -p['w'] * p['l']))
+        while group:
+            packed = _pack(group[:KIT_PLATE_PARTS])
+            if packed is None:
+                packed = _pack(group[:len(group) // 2] or group[:1])
+            take = len(packed)
+            plates.append((chr(ord('A') + len(plates)), None, packed))
+            group = group[take:]
+
+    stem = re.sub(r'[^A-Za-z0-9]', '', os.path.splitext(
+        os.path.basename(src))[0])[:8] or 'MODEL'
+    v = max(1, min(int(version), 99))
+    e_wall = layer_h * wid / fil
+    first_h = layer_h
+    out_files = []
+    for (label, plate_ci, plist) in plates:
+        fname = '00_BrickKit_%s_%s_V%02d.gcode' % (stem, label, v)
+        outp = os.path.join(out_dir, fname)
+        out_files.append(fname)
+        with open(outp, 'w') as f:
+            sk = _Sink(f)
+            a = sk.append
+            pen = _Pen(sk, jump_d=6.0)
+            a('; R2-BRICKKIT generated building-brick kit (R125) - start it like any other file')
+            a(TAG)
+            a('; source %s -> %d band(s) of %.1fmm (%s), %d part(s) on this'
+              ' plate' % (os.path.basename(src), len(bands), band_mm,
+                          'bricks' if kind == 'brick' else 'plates',
+                          len(plist)))
+            if mode == 'BY_LAYER':
+                a('; plate %s = color %s (%s) - ONE color per plate: the'
+                  ' plate change IS the color change, zero M600'
+                  % (label, kit_cols[plate_ci], COLORPIC_PALETTE[kit_cols[plate_ci]][0]))
+            else:
+                a('; plate %s = %d color(s) mixed, objects sequential in'
+                  ' color order - M600 only at the color boundaries'
+                  % (label, len({p['ci'] for p in plist})))
+            a('; supports/brim/skirt/purge tower are NOT part of the kit -'
+              ' the kit is built from the clean object')
+            for _n125 in notes:
+                a('; note: %s' % _n125)
+            a('; filament_type = %s' % material)
+            a('; layer_height = %.2g' % layer_h)
+            a('; nozzle_diameter = %.1f' % nozzle)
+            a('; line_width = %.2g' % wid)
+            a('; outer_wall_line_width = %.2g' % wid)
+            a('; outer_wall_speed = 35')
+            a('; inner_wall_speed = 40')
+            a('; top_surface_speed = 35')
+            a('; internal_solid_infill_speed = 50')
+            a('; initial_layer_speed = 20')
+            a('; travel_speed = 150')
+            a('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d '
+              'LINE_WIDTH=%.2g LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g '
+              'FLOW_RATIO=1 NOZZLE=%.1f WALL_LOOPS=2 SPEED_OUTER=35 '
+              'SPEED_FIRST=20 SPEED_TRAVEL=150 BY_OBJECT=%d '
+              'TYPES=WALL-OUTER,WALL-INNER,INFILL-SOLID,SURFACE-BOTTOM,'
+              'SURFACE-TOP,BRIM'
+              % (material, layer_h, total_layers, wid, wid, wid, nozzle,
+                 1 if mode == 'BY_OBJECT' else 0))
+            for i, p in enumerate(plist):
+                cx = p['x'] + p['bw'] / 2.0
+                cy = p['y'] + p['bl'] / 2.0
+                p['name'] = 'KIT_%s_%03d_%s' % (label, i + 1, p['code'])
+                p['studs'] = [(cx + (j - (p['w'] - 1) / 2.0) * BRICK_PITCH,
+                               cy + (k - (p['l'] - 1) / 2.0) * BRICK_PITCH)
+                              for j in range(p['w']) for k in range(p['l'])]
+                p['tubes'] = [(cx + (j - (p['w'] - 1) / 2.0) * BRICK_PITCH,
+                               cy + (k - (p['l'] - 1) / 2.0) * BRICK_PITCH)
+                              for j in range(p['w'] - 1)
+                              for k in range(p['l'] - 1)]
+                _xs = [p['x'], p['x'] + p['bw']]
+                _ys = [p['y'], p['y'] + p['bl']]
+                _poly = ('[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]'
+                         % (_xs[0], _ys[0], _xs[1], _ys[0], _xs[1], _ys[1],
+                            _xs[0], _ys[1]))
+                a('EXCLUDE_OBJECT_DEFINE NAME=%s CENTER=%.1f,%.1f POLYGON=%s'
+                  % (p['name'], (_xs[0] + _xs[1]) / 2.0,
+                     (_ys[0] + _ys[1]) / 2.0, _poly))
+            a('PRINT_START')
+
+            def _ty125(t):
+                a(';TYPE:%s' % t)
+                a('APPLY_TYPE TYPE=%s' % t)
+
+            def _emit125(p, li):
+                a('EXCLUDE_OBJECT_START NAME=%s' % p['name'])
+                x0, y0 = p['x'] + wid / 2.0, p['y'] + wid / 2.0
+                x1, y1 = (p['x'] + p['bw'] - wid / 2.0,
+                          p['y'] + p['bl'] - wid / 2.0)
+                keeps = [(tx, ty, BRICK_TUBE_OD / 2.0)
+                         for tx, ty in p['tubes']]
+                if li == 1:
+                    _ty125('Brim')
+                    for off in (wid * 0.35, wid * 0.35 + wid):
+                        _emit_loop(pen, _rect_loop(p['x'] - off, p['y'] - off,
+                                                   p['x'] + p['bw'] + off,
+                                                   p['y'] + p['bl'] + off),
+                                   e_wall, 1500)
+                    _ty125('Bottom surface')
+                    _emit_loop(pen, _rect_loop(x0, y0, x1, y1), e_wall, 1400)
+                    _emit_loop(pen, _rect_loop(x0 + wid, y0 + wid,
+                                               x1 - wid, y1 - wid),
+                               e_wall, 1600)
+                    for q, r in _brick_hatch(x0 + 2 * wid, y0 + 2 * wid,
+                                             x1 - 2 * wid, y1 - 2 * wid, [],
+                                             wid, 45, 0.35):
+                        pen.travel(q[0], q[1])
+                        pen.extrude(r[0], r[1],
+                                    math.hypot(r[0] - q[0], r[1] - q[1]) * e_wall, 1600)
+                elif li <= nl:
+                    _ty125('Outer wall')
+                    _emit_loop(pen, _rect_loop(x0, y0, x1, y1), e_wall, 2200)
+                    _emit_loop(pen, _rect_loop(x0 + wid, y0 + wid,
+                                               x1 - wid, y1 - wid),
+                               e_wall, 2400)
+                    if p['tubes']:
+                        _ty125('Wall-Inner')
+                        for tx, ty in p['tubes']:
+                            _emit_loop(pen, _circle(tx, ty,
+                                                    BRICK_TUBE_OD / 2.0
+                                                    - wid / 2.0, 24),
+                                       e_wall, 2200)
+                            _emit_loop(pen, _circle(tx, ty,
+                                                    BRICK_TUBE_OD / 2.0
+                                                    - BRICK_TUBE_WALL
+                                                    + wid / 2.0, 20),
+                                       e_wall, 2200)
+                    if li == nl:
+                        _ty125('Top surface')
+                        for q, r in _brick_hatch(x0 + 2 * wid, y0 + 2 * wid,
+                                                 x1 - 2 * wid, y1 - 2 * wid,
+                                                 [], wid,
+                                                 45 if li % 2 else 135, 0.35):
+                            pen.travel(q[0], q[1])
+                            pen.extrude(r[0], r[1],
+                                        math.hypot(r[0] - q[0],
+                                                   r[1] - q[1]) * e_wall, 1700)
+                    else:
+                        _ty125('Internal solid infill')
+                        for q, r in _brick_hatch(x0 + 2 * wid, y0 + 2 * wid,
+                                                 x1 - 2 * wid, y1 - 2 * wid,
+                                                 keeps, wid,
+                                                 45 if li % 2 else 135, 0.35):
+                            pen.travel(q[0], q[1])
+                            pen.extrude(r[0], r[1],
+                                        math.hypot(r[0] - q[0],
+                                                   r[1] - q[1]) * e_wall, 1900)
+                else:
+                    _ty125('Outer wall')
+                    for sx, sy in p['studs']:
+                        _emit_loop(pen, _circle(sx, sy, BRICK_STUD_D / 2.0
+                                                - wid / 2.0, 20), e_wall, 2200)
+                        _emit_loop(pen, _circle(sx, sy, BRICK_STUD_D / 2.0
+                                                - BRICK_STUD_WALL + wid / 2.0,
+                                                16), e_wall, 2200)
+                a('EXCLUDE_OBJECT_END NAME=%s' % p['name'])
+
+            if mode == 'BY_LAYER':
+                for li in range(1, total_layers + 1):
+                    z = round(first_h + (li - 1) * layer_h, 3)
+                    a(';LAYER_CHANGE')
+                    a(';Z:%.3f' % z)
+                    pen.set_z(z)
+                    if li == 2:
+                        a('M106 S178   ; R2-BRICKKIT: part fan from layer 2')
+                    for p in plist:
+                        pen.holes = [(tx, ty, BRICK_TUBE_OD / 2.0 - 0.6)
+                                     for tx, ty in p['tubes']] \
+                            if 1 < li <= nl else []
+                        _emit125(p, li)
+            else:
+                a('M106 S178   ; R2-BRICKKIT: part fan')
+                prev_ci = None
+                for p in plist:
+                    if prev_ci is not None and p['ci'] != prev_ci:
+                        a('M117 Kit: next color %s'
+                          % COLORPIC_PALETTE[kit_cols[p['ci']]][0])
+                        a('M600')
+                    prev_ci = p['ci']
+                    pen.holes = []
+                    for li in range(1, total_layers + 1):
+                        z = round(first_h + (li - 1) * layer_h, 3)
+                        a(';LAYER_CHANGE')
+                        a(';Z:%.3f' % z)
+                        pen.set_z(z)
+                        pen.holes = [(tx, ty, BRICK_TUBE_OD / 2.0 - 0.6)
+                                     for tx, ty in p['tubes']] \
+                            if 1 < li <= nl else []
+                        _emit125(p, li)
+            a(';TYPE:Custom')
+            a('APPLY_TYPE TYPE=Custom')
+            a('M107')
+            a('PRINT_END')
+            sk.flush()
+
+    info = {'file': out_files[0] if out_files else '', 'plates': out_files,
+            'kind': 'brickkit', 'source': os.path.basename(src),
+            'mode': mode, 'detail': detail, 'bands': len(bands),
+            'band_mm': band_mm, 'parts': len(parts),
+            'parts_per_plate': [len(pl) for (_, _, pl) in plates],
+            'colors': [COLORPIC_PALETTE[c][0] for c in kit_cols],
+            'color_codes': kit_cols, 'shell': shell,
+            'layers': total_layers, 'thickness': round(total_layers * layer_h, 2),
+            'notes': notes}
+    return os.path.join(out_dir, out_files[0]) if out_files else None, info
 
 
 def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
@@ -13138,6 +13685,7 @@ def watch(directory, interval=5.0, once=False):
     last_plottext_nonce = None
     last_plotcal_nonce = None       # R122: plot calibration test
     last_bricks_nonce = None         # R121: building bricks
+    last_brickkit_nonce = None       # R125: brick kit from a sliced file
     last_plotstatus_nonce = None
     last_host_nonce = None
     first = True
@@ -13918,6 +14466,113 @@ def watch(directory, interval=5.0, once=False):
                 threading.Thread(target=_bricks_job121, daemon=True).start()
         except Exception as e:                              # noqa: BLE001
             print(f'[bricks] poll error: {e!r}', flush=True)
+
+        # R125: brick kit request (brickkit_nonce) - a sliced file becomes a
+        # stylized kit (support/brim/skirt never make it in). THREADED like
+        # bricks - a kit is a lot of gcode.
+        try:
+            _kn125 = rv.get('brickkit_nonce', '')
+            if _kn125 and _kn125 != last_brickkit_nonce:
+                last_brickkit_nonce = _kn125
+
+                def _vfk125(key, dflt):
+                    try:
+                        return float(rv.get(key, dflt) or dflt)
+                    except (TypeError, ValueError):
+                        return float(dflt)
+
+                _ksrc125 = str(rv.get('brickkit_src', '') or '').strip()
+                try:
+                    _kidx125 = max(0, min(int(str(rv.get('brickkit_index', 0)
+                                                     or 0)), 4))
+                except ValueError:
+                    _kidx125 = 0
+                if _ksrc125 and _ksrc125.upper() != 'LAST':
+                    _kf125 = os.path.join(directory, _ksrc125)
+                    _kfrom125 = 'file ' + _ksrc125
+                else:
+                    _kc125 = []
+                    for _fn125 in sorted(os.listdir(directory)):
+                        if not _fn125.lower().endswith('.gcode'):
+                            continue
+                        if _fn125.startswith('00_'):
+                            continue          # our own generated output
+                        _p125 = os.path.join(directory, _fn125)
+                        if os.path.isfile(_p125):
+                            _kc125.append((os.path.getmtime(_p125), _fn125))
+                    _kc125.sort(reverse=True)
+                    if not _kc125:
+                        raise RuntimeError('no sliced .gcode found in the '
+                                           'folder - upload one or set '
+                                           'SRC=filename')
+                    _kidx125 = min(_kidx125, len(_kc125) - 1)
+                    _kf125 = os.path.join(directory, _kc125[_kidx125][1])
+                    _kfrom125 = ('job #%d = %s'
+                                 % (_kidx125 + 1, _kc125[_kidx125][1]))
+                if not os.path.isfile(_kf125):
+                    raise RuntimeError('source %s not found' % _ksrc125)
+                _kp125 = dict(
+                    src=_kf125,
+                    detail=str(rv.get('brickkit_detail', 'AUTO') or 'AUTO'),
+                    mode=str(rv.get('brickkit_mode', 'BY_LAYER')
+                             or 'BY_LAYER'),
+                    colors=max(1, min(int(str(rv.get('brickkit_colors', 3)
+                                                    or 3)), 8)),
+                    layer_h=_vfk125('bricks_layer_h', 0.2),
+                    material=str(rv.get('material', 'PLA') or 'PLA'),
+                    bed=_bed_limits(os.path.join(
+                        os.path.dirname(os.path.abspath(
+                            directory).rstrip('/')),
+                        'config', 'printer.cfg')),
+                    nozzle=_gen_nozzle(directory), out_dir=directory,
+                    version=max(1, min(int(str(rv.get('gen_version', 1)
+                                                  or 1)), 99)))
+
+                def _kit_job125(params=_kp125, kfrom=_kfrom125):
+                    try:
+                        _ok125, _ik125 = make_brick_kit(**params)
+                        _krel125 = os.path.relpath(_ok125, directory)
+                        _kmsg125 = ('Brick kit: %s - %d plate(s), %d parts '
+                                    '(~%d per plate), %d band(s) of %.1fmm, '
+                                    '%d color(s), %d layers - plate A '
+                                    'selected (%s)'
+                                    % (_ik125['file'],
+                                       len(_ik125['plates']),
+                                       _ik125['parts'],
+                                       _ik125['parts_per_plate'],
+                                       _ik125['bands'], _ik125['band_mm'],
+                                       _ik125['colors'], _ik125['layers'],
+                                       kfrom))
+                        if _ik125.get('shell'):
+                            _kmsg125 += ' | hollow body -> ring walls'
+                        for _n125 in _ik125.get('notes', [])[:3]:
+                            _kmsg125 += ' | ' + _n125
+                        _kmsg125 += (' | every part its own object - a failed '
+                                     'part can be excluded and reprinted')
+                        _moonraker_gcode(
+                            'RESPOND MSG="%s"\nM117 Kit ready\n'
+                            '_SOUND_LIB NAME=r2_done' % _kmsg125
+                            + _sel_line(rv, _krel125))
+                    except Exception as e:                      # noqa: BLE001
+                        print(f'[brickkit] error: {e!r}', flush=True)
+                        try:
+                            _moonraker_gcode(
+                                'RESPOND MSG="Kit ERROR: %s"\n'
+                                'M117 Kit error\n'
+                                '_SOUND_LIB NAME=r2_error' % e)
+                        except Exception:                       # noqa: BLE001
+                            pass
+
+                import threading
+                threading.Thread(target=_kit_job125, daemon=True).start()
+        except Exception as e:                              # noqa: BLE001
+            try:
+                _moonraker_gcode(
+                    'RESPOND MSG="Kit ERROR: %s"\nM117 Kit error\n'
+                    '_SOUND_LIB NAME=r2_error' % e)
+            except Exception:                               # noqa: BLE001
+                pass
+            print(f'[brickkit] poll error: {e!r}', flush=True)
 
         # R89: gasket/seal generator request (seal_nonce) - small file, inline
         try:

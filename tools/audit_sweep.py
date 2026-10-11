@@ -65,9 +65,11 @@ def check_file(name, path, total_layers=None):
         if not (bed[0] - 0.5 <= x <= bed[2] + 0.5 and bed[1] - 0.5 <= y <= bed[3] + 0.5):
             prob.append('out of bed: X%.1f Y%.1f' % (x, y))
             break
-    # --- z monotonic ---
+    # --- z monotonic (BY_OBJECT=1 files print objects sequentially: z falls
+    #     between parts are legal - the file says so in _FILE_INFO) ---
     zs = [float(m.group(1)) for m in re.finditer(r'^;Z:([\d.-]+)', txt, re.M)]
-    if any(b < a for a, b in zip(zs, zs[1:])):
+    _by_obj125 = re.search(r'^_FILE_INFO.*BY_OBJECT=1', txt, re.M)
+    if not _by_obj125 and any(b < a for a, b in zip(zs, zs[1:])):
         prob.append('z not monotonic')
     # --- EXCLUDE balance + DEFINE before START ---
     starts = re.findall(r'^EXCLUDE_OBJECT_START NAME=(\S+)', txt, re.M)
@@ -236,6 +238,58 @@ run(pp.make_bricks, 'bricks-bad', jobs=[('B9x9', 1)], bed=BED,
     expect_guard='unknown brick')
 run(pp.make_bricks, 'bricks-empty', jobs=[], bed=BED,
     expect_guard='no bricks')
+
+# ---- R125: brick kits from a synthetic solid box + vase (shell) ----
+def _kit_src125(path, vase=False):
+    import math as _m125
+    L = [';FLAVOR:Marlin', 'M82', 'G90', 'G21']
+    e = 0.0
+    z = 0.0
+    while z < (12.0 if vase else 9.6) - 1e-9:
+        z = round(z + 0.2, 3)
+        L += [';LAYER_CHANGE', ';Z:%.3f' % z, 'G0 Z%.3f F600' % z,
+              ';TYPE:WALL-OUTER']
+        if vase:
+            L.append('G0 X120.000 Y100.000 F9000')
+            for i in range(33):
+                a = 2 * _m125.pi * i / 32
+                e += 2.0
+                L.append('G1 X%.3f Y%.3f E%.4f F1200'
+                         % (100 + 20 * _m125.cos(a), 100 + 20 * _m125.sin(a), e))
+        else:
+            x0, y0, x1, y1 = 60, 60, 92, 84
+            L.append('G0 X60.000 Y60.000 F9000')
+            for (ax, ay, bx, by) in ((x0, y0, x1, y0), (x1, y0, x1, y1),
+                                     (x1, y1, x0, y1), (x0, y1, x0, y0)):
+                e += 10.0
+                L.append('G1 X%.3f Y%.3f E%.4f F1800' % (bx, by, e))
+                e += 2.0
+                L.append('G1 X%.3f Y%.3f E%.4f F1800' % (ax, ay, e))
+            L.append(';TYPE:Internal solid infill')
+            yy = y0 + 1.0
+            while yy < y1 - 0.5:
+                e += 15.0
+                L.append('G1 X%.3f Y%.3f E%.4f F2400' % (x0 + 1, yy, e))
+                e += 15.0
+                L.append('G1 X%.3f Y%.3f E%.4f F2400' % (x1 - 1, yy, e))
+                yy += 1.6
+    open(path, 'w').write('\n'.join(L) + '\n')
+
+_kd125 = tempfile.mkdtemp(prefix='audit_')
+_box125 = os.path.join(_kd125, 'box.gcode')
+_kit_src125(_box125)
+run(pp.make_brick_kit, 'kit-SMALL-LAYER', src=_box125, detail='SMALL',
+    mode='BY_LAYER', colors=2, bed=BED)
+run(pp.make_brick_kit, 'kit-BIG-LAYER-3c', src=_box125, detail='BIG',
+    mode='BY_LAYER', colors=3, bed=BED)
+run(pp.make_brick_kit, 'kit-BIG-OBJECT-2c', src=_box125, detail='BIG',
+    mode='BY_OBJECT', colors=2, bed=BED)
+_vase125 = os.path.join(_kd125, 'vase.gcode')
+_kit_src125(_vase125, vase=True)
+run(pp.make_brick_kit, 'kit-vase-shell', src=_vase125, detail='SMALL',
+    mode='BY_LAYER', colors=1, bed=BED)
+run(pp.make_brick_kit, 'kit-badcolors', src=_box125, colors=9, bed=BED,
+    expect_guard='colors must be 1..8')
 
 # ---- R120: color picture (same synthetic image, 4 + 8 bands, custom
 # palette, and the unknown-color guard must raise) ----
