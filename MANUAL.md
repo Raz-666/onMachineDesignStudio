@@ -300,11 +300,11 @@ Everything here is saved and reused; nothing is lost on restart.
 
 | Entry | Contents |
 |---|---|
-| File (G-code) | full slicer summary of the SELECTED file (type, material, layers, speeds, accels, temps, PA, retraction) + 16 feature activator rows: each shows the file's real speed and an ON switch — features the file does not contain show 'n/a' and refuse |
+| File (G-code) | full slicer summary of the SELECTED file (type, material, layers, speeds, accels, temps, PA, retraction) + 16 feature activator rows: each shows the file's real speed and an ON switch — features the file does not contain show 'n/a' and refuse · Flow line: MAXRATE mm³/s (+ seam position, + *derived* marker when the geometry classifier tagged this file) · Cap / Fix flow cap + TAcc / Fix travel accel (.85) |
 | Material | LOAD NOW + all material values (Bed/Hotend L1/L2, PA + smooth, flow, retract, fan L2) + Save as preset — edits of the ACTIVE material apply live |
 | Temperatures | Bed/Hotend L1/L2 + Fan L2 (ON/OFF each) + the file's own values for comparison |
 | Motion | PA (+smooth), retraction length/speed/unretract, acceleration, velocity, minimum cruise ratio, square corner (ON/OFF each) |
-| Features | 16 submenus, one per feature (outer/inner wall, overhang wall, sparse/solid infill, top/bottom surface, bridge, internal bridge, gap fill, support, ironing, skirt, brim, prime tower, custom code): file original + ON switch + speed % + accel each |
+| Features | 16 submenus, one per feature (outer/inner wall, overhang wall, sparse/solid infill, top/bottom surface, bridge, internal bridge, gap fill, support, ironing, skirt, brim, prime tower, custom code): file original + ON switch + speed % + accel + PA each (.85) |
 | Flow / 1st layer | global flow (1–300 %) and first-layer speed (0 = off, default 75 %) |
 | Bed Mesh | Level old files · Mesh ON/AUTO/OFF · Save after · Adaptive · Travel cap while meshing · Calibrate now · Load…/Delete… |
 | Profiles | per-file profiles (pre/post) + default profiles + material presets — see 3.4a (.84) |
@@ -464,6 +464,24 @@ their own `M204`). They now arrive as **CU Custom code** and are editable
 like any other feature — including an accel limit that keeps their own M204
 in check.
 
+**A.2) The geometry classifier — feature control for files WITHOUT `;TYPE:` tags** *(.85)*
+
+ideaMaker, old Simplify3D profiles or hand-written G-code carry no `;TYPE:`
+comments at all — no feature marker, no live tuning. For those files (and
+ONLY those) the post-processor now **derives the features from the geometry
+itself**: closed loops with nesting → outer/inner walls, parallel straight
+lines with regular spacing → sparse or solid infill (spacing ≥ 3 mm = sparse),
+solid fill on layer 1 → bottom surface, solid fill on the last layer → top
+surface. Z-changes on travel moves count too (modal-Z: Z-hops never fake a
+layer change).
+
+**The system stays honest about it:** the file info says `DERIVED=1 CONF=0.7
+COVER=…%` — *detected, not assumed*. Curved open paths stay UNCLASSIFIED
+(they simply print 1:1), bridges are never guessed (needs the layer below —
+documented limit), and a file WITH tags is never classified: the first
+`;TYPE:` wins, tagged data always beats the guess. Derived features carry
+the fixed confidence 0.7 and the console line explains it in plain words.
+
 **B) Files sliced for Marlin (other firmware) — two real differences**
 
 Klipper-flavored files and Marlin-flavored files share nearly all commands,
@@ -493,11 +511,28 @@ The reverse (direct-drive file on a Bowden machine) is simply the same
 setting tuned the other way — no file fix needed, just your retraction
 values.
 
+**D) Two more file fixes — hotend protection & travel accel** *(.85)*
+
+The file info shows the **maximum volumetric flow** the file really uses
+(`MAXRATE`, mm³/s — measured from F × E-per-mm, travels excluded). A hotend
+does ~8–15 mm³/s; a file that asks for 25 silently skips and under-extrudes
+on small nozzles.
+
+| Fix | What it does | You click… |
+|---|---|---|
+| **Flow cap** | every extruding move over the cap gets its F lowered so the volumetric rate stays under it (travels and retracts untouched; marker `; R2-FLOWCAP:` in the header, idempotent — a higher cap later simply re-fixes) | Pre-Print > File > `Cap:` (value) + `Fix flow cap` |
+| **Travel accel** | travel blocks get their own `M204 S…` (saved/restored around each travel run, the file's print accels stay) — separate travel tuning WITHOUT touching your global accel | Pre-Print > File > `TAcc:` (value) + `Fix travel accel` |
+
+Both run through the same background watcher as RetFix/Vol — the console
+confirms, the LCD shows "working", the file is fixed in place (no re-upload).
+
 **Decision table — what happens when**
 
 | You have… | The system… | You click… |
 |---|---|---|
 | a normal Klipper file from any of the 13 slicers | tags it, previews it, offers the start dialog | PRINT |
+| a file with NO `;TYPE:` tags at all | geometry classifier derives walls/infill/surfaces (marked DERIVED, 0.7 confidence) — live tuning works on it | PRINT |
+| a file asking more flow than your hotend does | file info shows MAXRATE + a hint | `Fix flow cap` with a sane cap |
 | a Marlin-flavor file, no volumetric, normal retracts | same — LEGACY flow (mesh, purge, L1/L2) | AS LEGACY |
 | a Marlin-volumetric file | flags it loudly (file info + alarm at start) | `Vol->mm fix`, then PRINT |
 | an old Bowden-era file | tags it; long retracts stay as-is until you say so | `RetFix file` (or RetFix ON for all future uploads) |
@@ -1442,7 +1477,18 @@ Limits:  SET_LIVE_VELOCITY VELOCITY= (caps the FASTEST moves = travels) · SET_L
          travels included) · SET_LIVE_MINIMUM_CRUISE_RATIO VALUE= (each confirms "[OK] … -> Klipper") ·
          SET_LIVE_SQUARE_CORNER VALUE=
 Z-Hop:   SET_Z_HOP ENABLE=1|0 HEIGHT=0.1..3 — lifts Z on every firmware retract (G10/G11), lowers
-         before the unretract: nozzle-crash protection for towers, text, small parts
+         before the unretract: nozzle-crash protection for towers, text, small parts (.83)
+Feature PA (.85): SET_FEAT_PA FEATURE=<code> PA=<0..0.3> — pressure advance for ONE feature
+         (e.g. wallouter 0.055, infillsparse 0.08); applied at every boundary of that
+         feature, the global PA returns when it ends. 0 = off. LCD: Live > Features > <feature> > PA
+Shaper (.85): SET_FEAT_SHAPER_OFF FEATURE=<code> STATE=1|0 — input shaper OFF while that one
+         feature prints (sharp corners on slow outer walls), frequencies restored when it
+         ends and at PRINT_END/cancel (safety net _FEAT_TUNING_RESTORE). Needs [input_shaper]
+Fan curve (.85): SET_FAN_CLAMP ON=1|0 MIN=0..100 MAX=0..100 BRIDGE=0..100 — every M106 of the
+         file runs clamped between MIN/MAX percent (a file that wants 100 % gives 90 %), BRIDGE
+         lifts the fan while a bridge section prints (0 = off). LCD: Live > Temps > Clamp/FMin/FMax/FBrdg
+Unretract (.85): SET_UNRETRACT_EXTRA EXTRA=-1..3 — every unretract adds EXTRA mm of filament
+         (seals the dot after a travel; 0 = off). Firmware retraction only
 Extrusion: SET_FLOW_RATE PERCENT=1..300 · SET_LIVE_PRESSURE_ADVANCE VALUE= ·
          SET_LIVE_PA_SMOOTH TIME= · SET_LIVE_RETRACTION LENGTH= SPEED= UNRETRACT_SPEED= EXTRA=
 Temps:   SET_LIVE_HOTEND_TEMP T= · SET_LIVE_BED_TEMP T=
@@ -1948,11 +1994,11 @@ retraction reads the firmware values — what you see is what runs.
 | Entry | Contents |
 |---|---|
 | Z +0.04 / +0.12 / −0.04 / −0.12 | babystepping right at the top |
-| Hot / Bed / Fan / Zoff | cockpit: temperatures, fan %, Z-offset display |
+| Hot / Bed / Fan / Zoff | cockpit: temperatures, fan %, Z-offset display · fan clamp: Clamp ON/OFF, FMin, FMax, FBrdg (bridge boost %, 0 = off) — every M106 of the file runs inside the curve (.85) |
 | Speeds | Global % (THE overall regulator) + FeatSpd: the currently printing feature's % + FeatOn: its ON switch + Src info (file/overwrite/live) + "Now:" which feature is printing |
 | Accels | Global mm/s² + FeatAcc: the currently printing feature's accel |
-| Features | 16 submenus = same as Pre-Print > Features, but live: edits re-apply immediately when that feature is printing |
-| File (G-code) | FULL mirror of the Pre-Print file info: measured originals (speed/accel per feature), 16 click-activators, temps, PA, retraction, fan, flow — everything during the print |
+| Features | 16 submenus = same as Pre-Print > Features, but live: edits re-apply immediately when that feature is printing · ShpOff: input shaper OFF for one feature (toggle, .85) — each feature submenu has its own PA input (feature pressure advance, .85) |
+| File (G-code) | FULL mirror of the Pre-Print file info: measured originals (speed/accel per feature), 16 click-activators, temps, PA, retraction, fan, flow, MAXRATE (mm³/s) + seam position + DERIVED flag (.85) — everything during the print |
 | Extrusion | Flow % (1–300), PA, PA smooth, RetLen / RetSpd / Unret, UnretExt, Ironing flow, **Z-Hop ON/OFF + height** (lifts over every retract — nozzle-crash protection) — every input shows what Klipper REALLY runs right now, Src info shows file/overwrite/live |
 | Velocity | Velcap (max velocity — caps the fastest moves = travels) · Acccap (global accel cap, travels included) · MCR · corner — live, like Mainsail |
 | Plotter | while plotting: pen speed %, pen Z ±0.05, X/Y ±0.5 shifts |
@@ -1964,18 +2010,18 @@ retraction reads the firmware values — what you see is what runs.
 
 | Entry | Contents |
 |---|---|
-| File (G-code) | full slicer summary of the selected file (type, material, layer height × layers, line widths, flow ratio, by-object, nozzle × wall loops, ALL speeds, accels, L1/L2 temps, PA, retraction) + **sliced by <slicer> for <firmware>** (volumetric files get a loud warning) — shown from the MOMENT you select the file; the per-feature values are MEASURED from the g-code — PLUS 16 activator rows (OW…BM + OH/IB/PT/CU): each shows the file's REAL speed + o:ON state; CLICK toggles that feature's override; features NOT in the file show 'n/a' and refuse |
+| File (G-code) | full slicer summary of the selected file (type, material, layer height × layers, line widths, flow ratio, by-object, nozzle × wall loops, ALL speeds, accels, L1/L2 temps, PA, retraction) + **sliced by <slicer> for <firmware>** (volumetric files get a loud warning) — shown from the MOMENT you select the file; the per-feature values are MEASURED from the g-code — PLUS 16 activator rows (OW…BM + OH/IB/PT/CU): each shows the file's REAL speed + o:ON state; CLICK toggles that feature's override; features NOT in the file show 'n/a' and refuse · Flow line: MAXRATE + seam + *derived* marker (.85) · Cap (mm³/s) + Fix flow cap · TAcc + Fix travel accel (.85) |
 | Material | LOAD NOW + all material values + Save as preset — editing a value of the ACTIVE material applies LIVE too |
 | Profiles | Material (Load/Save/Reset PLA/PETG/TPU + ABS/ASA) · Defaults (Save/Info/Load 1–8/Delete 1–8) · This file (Save pre/Load pre/Load post/Del pre/Del post — only existing slots appear) + Auto-load & Auto-save post toggles (.84) |
 | Temperatures | Bed L1/L2, Hotend L1/L2, Fan L2 (ON/OFF each) + File H:/File B: = the file's own values |
 | Motion | PA (+smooth), retraction len/spd/unretract, Accel + Vel + MCR + Corner (ON/OFF each; Accel/Vel are GLOBAL caps — travels included) + Z-Hop ON/OFF + height + File R: |
-| Features | 16 submenus: outer/inner wall, overhang wall, sparse/solid infill, top/bottom surface, bridge, internal bridge, gap fill, support, ironing (+flow), skirt, brim, prime tower, custom code — each shows the file's ORIGINAL (File:) + own ON switch + speed % (× global) + accel; only features the file really contains are editable — **a feature the file does not contain disappears from the menu entirely, an available-but-inactive one stays visible for live activation** (.83); switching OFF resets the stored values to the file original — never touches the global values |
+| Features | 16 submenus: outer/inner wall, overhang wall, sparse/solid infill, top/bottom surface, bridge, internal bridge, gap fill, support, ironing (+flow), skirt, brim, prime tower, custom code — each shows the file's ORIGINAL (File:) + own ON switch + speed % (× global) + accel; only features the file really contains are editable — **a feature the file does not contain disappears from the menu entirely, an available-but-inactive one stays visible for live activation** (.83); switching OFF resets the stored values to the file original — never touches the global values · PA input per feature + ShpOff toggle at the top (.85) |
 | Flow / 1st layer | global flow (1–300 %) · first-layer speed % (0 = off, default 75) |
 | Bed Mesh | Level old files · Mesh ON/AUTO/OFF · Save after · Adaptive · Travel cap · Calibrate now · Load…/Delete… |
 | Range/Stop | Stop@ layer + From/To (capped to the selected file's layer count!) + Floor/Top (each FOOTPRINT or OUTLINE, each GRID or SOLID fill) + Brim + Create excerpt (ch. C.1) |
 | Filament | Load / Load length / Unload / Unload length / Change (M600) — available BEFORE the print too |
 | RetFix | ON/OFF — auto-treats every NEW upload's clean retract pairs into G10/G11 (old Bowden-era files); for the SELECTED file use Pre-Print > File > RetFix file instead (in place, no re-upload) |
-| File fixes (in File menu) | RetFix file + Vol->mm fix — repair the SELECTED file directly on disk (start beep + done beep, markers survive) |
+| File fixes (in File menu) | RetFix file + Vol->mm fix + Fix flow cap (F rewritten to stay under a mm³/s cap) + Fix travel accel (M204 wraps around travel blocks) — repair the SELECTED file directly on disk (start beep + done beep, markers survive) (.85) |
 | Texture | acts on the SELECTED file: File (shows the target) · Mode OFF/Fuzzy/Bumps · Fuz thick (0.05–1.5) · Fuz dens · **Presets (ORCA/Hide layers/Subtle/Grip)** · Pattern Grid/Waves/Honeycomb/Mandelbrot · Scale · Amp · Dir IN/OUT · > Apply (beeps) · How it works — writes a NEW `_TX` file (ch. 5.9), never auto-starts |
 
 **Labels** (in Tools)
@@ -2548,7 +2594,7 @@ usage line and the valid values instead of doing something.
 | **MCR** | minimum cruise ratio | **SCV** | square corner velocity |
 
 ## 25. Complete macro index
-All 145 public macros with parameters (defaults in parentheses; blank = no parameters). Internal helpers (leading `_`) are not user-facing. Grouped by module file — the same file you would edit.
+All 150 public macros with parameters (defaults in parentheses; blank = no parameters). Internal helpers (leading `_`) are not user-facing. Grouped by module file — the same file you would edit.
 
 ### Sounds — 02_sounds.cfg (4)
 | Macro | Parameters | Purpose |
@@ -2632,6 +2678,7 @@ All 145 public macros with parameters (defaults in parentheses; blank = no param
 | **START_PRINT** | — | old macro name: marked = no-op · legacy = real legacy start (dialog or auto-prep) |
 | **PRINT_END** | — | end choreography: heaters/fans per settings, stats, sound, LED celebration → idle after led_finish_time s, full _PRINT_CLEANUP |
 | **SET_LAYER_RANGE** | FROM, TO, FLOOR, FLOOR_SHAPE, FLOOR_FILL, TOP, TOP_SHAPE, TOP_FILL, FLOOR_HOLE, TOP_HOLE, BRIM | layer-range excerpt with raft/cap, centered floor+top holes (E14/E27 presets: ch. 5.1) |
+| **FIX_FILE** | WHAT=RETRACT/VOL/FLOWCAP/TRAVELACC, CAP=(12), ACCEL=(8000) | repair the SELECTED file in place: retract pairs → G10/G11 · volumetric E → mm · flow cap mm³/s (.85) · travel accel (.85) |
 
 ### Pause & filament — 09_pause_filament.cfg (11)
 | Macro | Parameters | Purpose |
@@ -2648,7 +2695,7 @@ All 145 public macros with parameters (defaults in parentheses; blank = no param
 | **M1** | — | slicer pause — mapped to PAUSE |
 | _PRINT_CLEANUP | — | internal: resets ALL per-print state (called by PRINT_END/CANCEL/watcher — settings + mesh stay) |
 
-### Live tuning — 10_live_tuning.cfg (31)
+### Live tuning — 10_live_tuning.cfg (35)
 | Macro | Parameters | Purpose |
 |---|---|---|
 | **APPLY_TYPE** | TYPE='' | feature switch: sets current_type + applies the active overrides for THIS feature (speed % x clean global via M99220, absolute accel via M99204, ironing flow via M99221) — injected after every ;TYPE: by the post-processor |
@@ -2666,6 +2713,10 @@ All 145 public macros with parameters (defaults in parentheses; blank = no param
 | **SET_RETRACTION** | RETRACT_LENGTH=0.75, RETRACT_SPEED=35, UNRETRACT_SPEED | firmware retraction — interceptor, override-aware |
 | **SET_PRESSURE_ADVANCE** | ADVANCE, SMOOTH_TIME | interceptor — with the PA override ON your value wins |
 | **SET_FAN_SCALE** | PERCENT=100 | fan scaling % |
+| **SET_FAN_CLAMP** | ON=-1, MIN=-1, MAX=-1, BRIDGE=-1 | fan curve clamp (.85): every M106 runs between MIN/MAX %, BRIDGE lifts the fan on bridge sections (0 = off); -1 = leave unchanged |
+| **SET_FEAT_PA** | FEATURE, PA=-1 | pressure advance for ONE feature (.85), 0 = off — applied at its boundaries, global PA returns after |
+| **SET_FEAT_SHAPER_OFF** | FEATURE, STATE=-1 | input shaper OFF while one feature prints (.85) — freqs saved/restored, safety net at PRINT_END/cancel |
+| **SET_UNRETRACT_EXTRA** | EXTRA=-1 | every unretract adds EXTRA mm (.85) — seals the dot after a travel; 0 = off |
 | **SET_OUTER_WALL_SPEED/ACCEL · SET_SUPPORT_SPEED/ACCEL · SET_IRONING_SPEED** | PERCENT= / ACCEL= | legacy-friendly per-feature setters: forward to feat_spd/feat_acc + ON — % sits on top of the CLEAN global |
 | **SET_IRONING_FLOW** | PERCENT=100 | ironing-only flow override |
 | **BABYSTEP_DOWN** | — | Z --0.04 mm live |
@@ -3137,7 +3188,7 @@ Only the milestones — the full reasoning lives in SESSION_STATE.md.
 
 | Version | Core changes |
 |---|---|
-| .84 | generator output + per-file profiles (R109): **every generator asks what to do with its file** — Tools > After gen QUEUE (select for printing, replaces the selection when built ON a file: range/texture) or PREVIEW ONLY (just the 3-D preview, nothing queued); sticky + `OUT=` per run; the five generators that never selected (texture, bridge test, resonance plots, plot text/status) now queue properly too · **per-file profiles**: every legacy-printed file remembers its pre-print + live-tuning state — 'post' saved automatically at a successful PRINT_END (cancelled = nothing), 'pre' only manually, auto-load on selection picks the NEWER slot, auto-save never overwrites a manual 'pre' · Pre-Print > Profiles: Material (save without loading first) / Defaults (the 8 standalone profiles) / This file (pre/post, auto toggles) · one apply path (_PROFILE_APPLY) writes values AND ON switches — fixes the old "LOAD_DEFAULT_PRESET set no switches" bug · **R110 hardening round:** setup LED wizard asks the **color order** per chain (GRB/RGB/BGR/RGBW/… with chip table + validation; dotstar + EBB nozzle chain too; GRBG typo removed from printer.cfg.example) · **EOF safety** (legacy [r2_postproc] migration + service install now default NO — an unattended run changes nothing) · **wizard infinite-loop fix** (a stored value outside min/max could dead-end the prompt, setup.sh hung on EOF) · default-profile deletes + file-profile deletes **at the LCD with two-press confirm** (nothing profile-related needs the console) · **setup/update simulation** (tools/r110_setup_sim.py: Ender3 stock/reference, legacy migration, CoreXY 2Z + dotstar, Voron Trident, Voron V2 — install + update + check-mode + EOF + idempotence, sudo-free sandbox) · **slicer/firmware dialect corpus** (tools/r110_gcode_dialects.py: 12 families, 43/43 tagged features = 100 %, layer/marks/FS/FA/idempotency, volumetric detection; fixed Simplify3D "(R)" + "G-Code generated by" detection) · feature-tagging research + roadmap (docs/FEATURE_TAGGING.md) || .83 | field-log .82 issue list — the whole R106 round: **fan wake-up** (0 % → higher now applies the scaled file value immediately, layer-1 hold keeps precedence), honest **velocity/corner hints** (they are CAPS — the visible lever is the cruise ratio), the **user TYPE map** everywhere (visible top layer = Top surface, between = Internal solid, only true airwork = Bridge — the frame front used to tag as Internal solid, so top-surface overrides never reached the visible face; siblings fixed in labels/ties/seal/angles/bridge/Cura-SKIN), **rule ll** (nothing prints unanchored: shelf + disc lips got radial anchor stubs, the kit lips too, the SIDE closure redesigned around the T/B wall anchors), **feature filter** (feature menus hide what the file does not contain — 80 items), presets fill W/H, **frame user presets** (8 slots, save/load/delete at the LCD), **wall loops 1–4**, **Z-hop** on firmware retracts (live + pre-print, absolute Z, layer-change-aware), **travel controls** (SET_LIVE_ACCEL + Velcap relabeled — global caps govern travels too), **lithophane FLAT mode** (bed-clamped, terraced relief, 1–4 color bands with pause/swap), **hard bed clamps** (frame border clamps before splitting; W/H inputs never exceed the build volume), **Z tilt instead of gantry sync** (2+ Z steppers configured → every LCD spot swaps SYNC_GANTRY for a full Z-Tilt submenu: run, probe points, retries 0–5, tolerance 0.005–0.2, boot/print switches), **preheat 182 °C** (filament-swap level — hot enough to change filament while the start dialog waits, still below ooze), **any-Klipper render audit** (bed mesh / vibration / objects / sensor menu items guard themselves on printers without those sections — a permanent test sweeps 993 LCD expressions + 242 macro bodies against a minimal single-Z printer), **LED areas + System > LED Setup** (status / bed work light / nozzle split freely configurable — neopixel or dotstar, mainboard pin or EBB CAN chain, hard-clamped to chain_count, persisted in the new **hardware profile r2_hardware.cfg** — a second variables file that survives deleting variables.cfg), **setup/update wizards** (every hardware value asked in English + double-confirmed: build volume, probe offsets, clean/present positions, LED layout; update asks keep-or-change first), **verified backups + 4 change modes** (backup of every file first, cmp-verified, abort on mismatch; every printer.cfg/moonraker.conf change shown first: automatic with user lines only commented / commented-only / separate txt = safest / skip), **object processing** shown + explained + offered in BOTH directions, **printer.cfg.example fixes** (chain_cnt→chain_count, GRBGR color_order — both halted current Klipper) |
+| .85 | the feature-tagging roadmap §5+§6 (R111): **geometry classifier** for files with NO `;TYPE:` tags — walls per closed-loop nesting, infill per hatch spacing (≥ 3 mm = sparse), bottom/top per layer position; curved paths stay unclassified, bridges are never guessed, tagged files are never classified (the first `;TYPE:` wins) — the file info says so honestly: `DERIVED=1 CONF=0.7 COVER=…` · **modal-Z** layer scan (Z on travel moves counts; Z-hops never fake a layer change) · new measured file keys: **MAXRATE** (max volumetric flow mm³/s), **SEAM/SEAMN** (outer-wall seam position, 5 mm grid, display only) + 14 slicer-config keys replayed (LW_*, ACCEL_SOLID/FIRST/TRAVEL, FIL_DIA, TIME_SLOW, SLOW_MIN, FAN_MIN/MAX) · **two new file fixes**: Fix flow cap (every move over a mm³/s cap gets its F lowered, travels/retracts untouched, idempotent) + Fix travel accel (M204 wraps around travel blocks, print accels stay) — LCD: Pre-Print > File · **feature pressure advance** (SET_FEAT_PA / Live > Features > PA: applied at the feature boundary, global PA returns after; profiled with pre/post) · **fan clamp** (SET_FAN_CLAMP MIN/MAX/BRIDGE + ON: every M106 runs inside the curve, bridge boost while BRIDGE prints — Live > Temps) · **input shaper off per feature** (SET_FEAT_SHAPER_OFF: sharp corners on slow outer walls, freqs saved/restored, PRINT_END + cancel safety net `_FEAT_TUNING_RESTORE`) · **unretract extra** (SET_UNRETRACT_EXTRA: seals the dot after a travel) · profiles carry the new keys (5th element PA, fan clamp, shaper-off — old profiles load with PA=0) · new test: tools/r111_geom_test.py (classifier unit + E2E, hatch-direction bug found & fixed: zigzag lines mapped to one offset now) · dialect corpus +1 family (Simplify3D travel-Z) = 13/13 · renders 1388/1388 || .84 | generator output + per-file profiles (R109): **every generator asks what to do with its file** — Tools > After gen QUEUE (select for printing, replaces the selection when built ON a file: range/texture) or PREVIEW ONLY (just the 3-D preview, nothing queued); sticky + `OUT=` per run; the five generators that never selected (texture, bridge test, resonance plots, plot text/status) now queue properly too · **per-file profiles**: every legacy-printed file remembers its pre-print + live-tuning state — 'post' saved automatically at a successful PRINT_END (cancelled = nothing), 'pre' only manually, auto-load on selection picks the NEWER slot, auto-save never overwrites a manual 'pre' · Pre-Print > Profiles: Material (save without loading first) / Defaults (the 8 standalone profiles) / This file (pre/post, auto toggles) · one apply path (_PROFILE_APPLY) writes values AND ON switches — fixes the old "LOAD_DEFAULT_PRESET set no switches" bug · **R110 hardening round:** setup LED wizard asks the **color order** per chain (GRB/RGB/BGR/RGBW/… with chip table + validation; dotstar + EBB nozzle chain too; GRBG typo removed from printer.cfg.example) · **EOF safety** (legacy [r2_postproc] migration + service install now default NO — an unattended run changes nothing) · **wizard infinite-loop fix** (a stored value outside min/max could dead-end the prompt, setup.sh hung on EOF) · default-profile deletes + file-profile deletes **at the LCD with two-press confirm** (nothing profile-related needs the console) · **setup/update simulation** (tools/r110_setup_sim.py: Ender3 stock/reference, legacy migration, CoreXY 2Z + dotstar, Voron Trident, Voron V2 — install + update + check-mode + EOF + idempotence, sudo-free sandbox) · **slicer/firmware dialect corpus** (tools/r110_gcode_dialects.py: 12 families, 43/43 tagged features = 100 %, layer/marks/FS/FA/idempotency, volumetric detection; fixed Simplify3D "(R)" + "G-Code generated by" detection) · feature-tagging research + roadmap (docs/FEATURE_TAGGING.md) || .83 | field-log .82 issue list — the whole R106 round: **fan wake-up** (0 % → higher now applies the scaled file value immediately, layer-1 hold keeps precedence), honest **velocity/corner hints** (they are CAPS — the visible lever is the cruise ratio), the **user TYPE map** everywhere (visible top layer = Top surface, between = Internal solid, only true airwork = Bridge — the frame front used to tag as Internal solid, so top-surface overrides never reached the visible face; siblings fixed in labels/ties/seal/angles/bridge/Cura-SKIN), **rule ll** (nothing prints unanchored: shelf + disc lips got radial anchor stubs, the kit lips too, the SIDE closure redesigned around the T/B wall anchors), **feature filter** (feature menus hide what the file does not contain — 80 items), presets fill W/H, **frame user presets** (8 slots, save/load/delete at the LCD), **wall loops 1–4**, **Z-hop** on firmware retracts (live + pre-print, absolute Z, layer-change-aware), **travel controls** (SET_LIVE_ACCEL + Velcap relabeled — global caps govern travels too), **lithophane FLAT mode** (bed-clamped, terraced relief, 1–4 color bands with pause/swap), **hard bed clamps** (frame border clamps before splitting; W/H inputs never exceed the build volume), **Z tilt instead of gantry sync** (2+ Z steppers configured → every LCD spot swaps SYNC_GANTRY for a full Z-Tilt submenu: run, probe points, retries 0–5, tolerance 0.005–0.2, boot/print switches), **preheat 182 °C** (filament-swap level — hot enough to change filament while the start dialog waits, still below ooze), **any-Klipper render audit** (bed mesh / vibration / objects / sensor menu items guard themselves on printers without those sections — a permanent test sweeps 993 LCD expressions + 242 macro bodies against a minimal single-Z printer), **LED areas + System > LED Setup** (status / bed work light / nozzle split freely configurable — neopixel or dotstar, mainboard pin or EBB CAN chain, hard-clamped to chain_count, persisted in the new **hardware profile r2_hardware.cfg** — a second variables file that survives deleting variables.cfg), **setup/update wizards** (every hardware value asked in English + double-confirmed: build volume, probe offsets, clean/present positions, LED layout; update asks keep-or-change first), **verified backups + 4 change modes** (backup of every file first, cmp-verified, abort on mismatch; every printer.cfg/moonraker.conf change shown first: automatic with user lines only commented / commented-only / separate txt = safest / skip), **object processing** shown + explained + offered in BOTH directions, **printer.cfg.example fixes** (chain_cnt→chain_count, GRBGR color_order — both halted current Klipper) |
 | .82 | critical config fix (field log .81): the R92-onward bed/position carrier was a raw `[r2_postproc]` section in printer.cfg — **Klipper refuses unknown sections** („Section 'r2_postproc' is not a valid config section"), so the printer ended up in a halt loop the first time the section was really written (setup.sh offer). The carrier is now a KAMP-style **`[gcode_macro _R2_CONFIG]`** settings macro (`variable_bed_min_x` … , `variable_present_x/y`, `variable_wipe_x/y`) — valid for Klipper, native for the macros, parsed by the watcher; `setup.sh` migrates legacy sections automatically (backup + values kept); the same field log also uncovered the first-halt mechanism: appending after the `#*# <save_config>` block made the autosave unreadable („modifications after header" → „Option 'control' in section 'heater_bed' must be specified") — inserts now always go before that block |
 | .81 | honest host verdict + portability hardening (field log .80): HOST_CHECK's swap verdict now measures swap **activity** (vmstat in/out) — 109 MB of quietly parked pages after boot were flagged „SWAPPING!" with an error sound on every check although the Pi was healthy (stable swap, no load, no throttle); quiet pages now read as OK with a calm explanation, only real swap traffic stays loud. Compatibility fixes from the portability audit: PRINT_END's part presentation had a fixed Y228 (a crash on any bed under ~232 mm) — now clamped to the axes and configurable (`[r2_postproc] present_x/present_y`), both calibration-tower end parks (fixed Y190) and the PLT_FRAME park are clamped, the nozzle-wipe pad anchor is configurable (`wipe_x/wipe_y`), and `megatest.py` accepts `--bed=x0,y0,x1,y1` / `--cfg=printer.cfg` to sweep another printer's bed (too-big combos count as SKIP — the generators correctly reject them); `setup.sh` (environment wizard: service, KAMP, LED effects, RAM hogs, swap tuning) and `COMPATIBILITY.md` (portability report) join the package |
 | .80 | megatest hardening (field log .79): a 101-run sweep over every generator at its parameter extremes found and fixed two real bugs — the plotter DRAW mode scaled small images past the bed (48px drawing → y up to +1500 mm; big photos silently squashed to ~72 mm) and every frame file tags the shelf bands as BRIDGE but TYPES never listed it on normal frames; plot output now carries a final bed guard too; `tools/megatest.py` joins the package (rerun any time: `python3 tools/megatest.py`) |

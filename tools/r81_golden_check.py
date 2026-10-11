@@ -10,7 +10,11 @@ keeps that guarantee alive: it rebuilds the 23 fixture cases, runs them
 through the CURRENT module and compares MD5s + change summaries against the
 frozen references.
 
-RE-FREEZE HISTORY: the references were originally frozen from the .64 code
+RE-FREEZE HISTORY: R111 re-froze pr01-pr10 (roadmap round: MAXRATE/SEAM
+measured keys in every _FILE_INFO; the new geometry classifier derives
+WALL-OUTER for untagged Z-scan files -> APPLY_TYPE + DERIVED/CONF/COVER keys,
+pr03/pr08 types 0 -> 8). mr01-mr13 (range extracts) are UNCHANGED. The
+references were originally frozen from the .64 code
 (R81). R87.2 re-froze them (APPLY_TYPE re-derivation). R94 re-froze them
 again (field log .73: cut-feature marker + brim on layer 1 + honest TYPES):
 APPLY_TYPE markers from ;TYPE: comments when the source carries none (field
@@ -35,56 +39,56 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 # frozen from the .64 builder (R81), re-frozen from R87.2 - 23 cases
 REF_MD5 = {
- 'mr01': '54cfa47de19d6cdf1818c0d6849a4848',
- 'mr02': '37dcfd1c7b09d2fba774ef9387c57b6f',
- 'mr03': 'a4b826c4cc261a52ba3ef26dd22eb488',
- 'mr04': 'cdcd68dd801e5d9d951439957f70bced',
- 'mr05': '0faccbac810279e29a575a92ccdcc552',
- 'mr06': '25ef2cd6d0f97e50bf9cad12cff98183',
- 'mr07': '4cd968c708b64b4028ea6e6d0232dafb',
- 'mr08': '4ac642f229e138c885b30a3cb25dec46',
- 'mr09': 'd27ed1921c47107045981f2525c59f70',
- 'mr10': 'dbdd2e282c28d7ace6f61a94c24608c4',
- 'mr11': '47f51c958d4ba3979d59c28a25f13e9b',
- 'mr12': '3c4ec0875edc0829774caaa421cf64c6',
- 'mr13': 'cc8311cbf978284e825be5c36d886053',
- 'pr01': '79e28c82893f77486883839b30499edb',
- 'pr02': 'c5ca9a4bc68a3f96c5ec661b862af0b6',
- 'pr03': '0d14ef2caebcd00e7d5af20d9f710a79',
- 'pr04': '0f8936af469f0f7fc4643fe053df0505',
- 'pr05': '79e28c82893f77486883839b30499edb',
- 'pr06': 'b5824d90a2dc7022df18bee5303afd81',
- 'pr07': '17fdc789395c2d6f83efc279bb751f21',
- 'pr08': '0d14ef2caebcd00e7d5af20d9f710a79',
- 'pr09': 'd38293831fb7ef6f1d31c7056ec2745e',
- 'pr10': 'c4caae4ffb28c45721fd09dbe50a066d',
- }
+    'mr01': '54cfa47de19d6cdf1818c0d6849a4848',
+    'mr02': '37dcfd1c7b09d2fba774ef9387c57b6f',
+    'mr03': 'a4b826c4cc261a52ba3ef26dd22eb488',
+    'mr04': 'cdcd68dd801e5d9d951439957f70bced',
+    'mr05': '0faccbac810279e29a575a92ccdcc552',
+    'mr06': '25ef2cd6d0f97e50bf9cad12cff98183',
+    'mr07': '4cd968c708b64b4028ea6e6d0232dafb',
+    'mr08': '4ac642f229e138c885b30a3cb25dec46',
+    'mr09': 'd27ed1921c47107045981f2525c59f70',
+    'mr10': 'dbdd2e282c28d7ace6f61a94c24608c4',
+    'mr11': '47f51c958d4ba3979d59c28a25f13e9b',
+    'mr12': '3c4ec0875edc0829774caaa421cf64c6',
+    'mr13': 'cc8311cbf978284e825be5c36d886053',
+    'pr01': '611b958abf8ae222fdf441a2b9e50544',
+    'pr02': '756b55ecc8f3ad81d31ee3e332b40364',
+    'pr03': 'edcafef5315acf03a75232171df33964',
+    'pr04': '0f8936af469f0f7fc4643fe053df0505',
+    'pr05': '611b958abf8ae222fdf441a2b9e50544',
+    'pr06': '7caa4d8870ff7f4c4f890e025edde62c',
+    'pr07': '17fdc789395c2d6f83efc279bb751f21',
+    'pr08': 'edcafef5315acf03a75232171df33964',
+    'pr09': '29f195a01decd29bd39ca42fbf98cbf8',
+    'pr10': '3e7e1b2c85d67b29b069ed2b8e304fb4',
+}
 
 REF_SUMMARY = {
- 'mr01': {'nl': 8, 'size': 4174},
- 'mr02': {'nl': 10, 'size': 10639},
- 'mr03': {'nl': 10, 'size': 10373},
- 'mr04': {'nl': 9, 'size': 10599},
- 'mr05': {'nl': 10, 'size': 16794},
- 'mr06': {'nl': 10, 'size': 14246},
- 'mr07': {'nl': 7, 'size': 3806},
- 'mr08': {'nl': 6, 'size': 3461},
- 'mr09': {'nl': 8, 'size': 7425},
- 'mr10': {'nl': 8, 'size': 10401},
- 'mr11': {'nl': 8, 'size': 6951},
- 'mr12': {'nl': 2, 'size': 1978},
- 'mr13': {'nl': 30, 'size': 18295},
- 'pr01': {'by_object': False, 'fw': '', 'info_added': True, 'layers': 9, 'marks_added': 9, 'method': 'layer comments', 'retract_pairs': 0, 'skipped': False, 'slicer': '', 'tagged': True, 'types': 18, 'upgraded': False, 'upgraded_from': 'v1', 'volumetric': False},
- 'pr02': {'by_object': False, 'fw': '', 'info_added': True, 'layers': 9, 'marks_added': 9, 'method': 'layer comments', 'retract_pairs': 0, 'skipped': False, 'slicer': '', 'tagged': True, 'types': 18, 'upgraded': False, 'upgraded_from': 'v1', 'volumetric': False},
- 'pr03': {'by_object': False, 'fw': '', 'info_added': True, 'layers': 8, 'marks_added': 8, 'method': 'Z scan', 'retract_pairs': 0, 'skipped': False, 'slicer': '', 'tagged': True, 'types': 0, 'upgraded': False, 'upgraded_from': 'v1', 'volumetric': False},
- 'pr04': {'by_object': False, 'info_added': False, 'layers': 0, 'marks_added': 0, 'method': None, 'retract_pairs': 0, 'skipped': True, 'tagged': False, 'types': 0, 'upgraded': False, 'upgraded_from': 'v1'},
- 'pr05': {'by_object': False, 'fw': '', 'info_added': True, 'layers': 9, 'marks_added': 9, 'method': 'layer comments', 'retract_pairs': 0, 'skipped': False, 'slicer': '', 'tagged': True, 'types': 18, 'upgraded': True, 'upgraded_from': 'v1', 'volumetric': False},
- 'pr06': {'by_object': False, 'fw': '', 'info_added': True, 'layers': 9, 'marks_added': 9, 'method': 'layer comments', 'retract_pairs': 0, 'skipped': False, 'slicer': '', 'tagged': True, 'types': 18, 'upgraded': False, 'upgraded_from': 'v1', 'volumetric': False},
- 'pr07': {'by_object': False, 'info_added': False, 'layers': 0, 'marks_added': 0, 'method': None, 'retract_pairs': 0, 'skipped': True, 'tagged': False, 'types': 0, 'upgraded': False, 'upgraded_from': 'v1'},
- 'pr08': {'by_object': False, 'fw': '', 'info_added': True, 'layers': 8, 'marks_added': 8, 'method': 'Z scan', 'retract_pairs': 0, 'skipped': False, 'slicer': '', 'tagged': True, 'types': 0, 'upgraded': False, 'upgraded_from': 'v1', 'volumetric': False},
- 'pr09': {'by_object': False, 'fw': '', 'info_added': True, 'layers': 9, 'marks_added': 9, 'method': 'layer comments', 'retract_pairs': 0, 'skipped': False, 'slicer': '', 'tagged': True, 'types': 18, 'upgraded': False, 'upgraded_from': 'v1', 'volumetric': False},
- 'pr10': {'by_object': False, 'fw': '', 'info_added': True, 'layers': 9, 'marks_added': 9, 'method': 'layer comments', 'retract_pairs': 0, 'skipped': False, 'slicer': '', 'tagged': True, 'types': 18, 'upgraded': False, 'upgraded_from': 'v1', 'volumetric': False},
- }
+    'mr01': {'nl': 8, 'size': 4174},
+    'mr02': {'nl': 10, 'size': 10639},
+    'mr03': {'nl': 10, 'size': 10373},
+    'mr04': {'nl': 9, 'size': 10599},
+    'mr05': {'nl': 10, 'size': 16794},
+    'mr06': {'nl': 10, 'size': 14246},
+    'mr07': {'nl': 7, 'size': 3806},
+    'mr08': {'nl': 6, 'size': 3461},
+    'mr09': {'nl': 8, 'size': 7425},
+    'mr10': {'nl': 8, 'size': 10401},
+    'mr11': {'nl': 8, 'size': 6951},
+    'mr12': {'nl': 2, 'size': 1978},
+    'mr13': {'nl': 30, 'size': 18295},
+    'pr01': {'by_object': False, 'fw': '', 'info_added': True, 'layers': 9, 'marks_added': 9, 'method': 'layer comments', 'retract_pairs': 0, 'retract_slicer_moves': 0, 'retract_style': '', 'skipped': False, 'slicer': '', 'tagged': True, 'types': 18, 'upgraded': False, 'upgraded_from': 'v1', 'volumetric': False},
+    'pr02': {'by_object': False, 'fw': '', 'info_added': True, 'layers': 9, 'marks_added': 9, 'method': 'layer comments', 'retract_pairs': 0, 'retract_slicer_moves': 0, 'retract_style': '', 'skipped': False, 'slicer': '', 'tagged': True, 'types': 18, 'upgraded': False, 'upgraded_from': 'v1', 'volumetric': False},
+    'pr03': {'by_object': False, 'derived': True, 'fw': '', 'info_added': True, 'layers': 8, 'marks_added': 8, 'method': 'Z scan', 'retract_pairs': 0, 'retract_slicer_moves': 0, 'retract_style': '', 'skipped': False, 'slicer': '', 'tagged': True, 'types': 8, 'upgraded': False, 'upgraded_from': 'v1', 'volumetric': False},
+    'pr04': {'by_object': False, 'info_added': False, 'layers': 0, 'marks_added': 0, 'method': None, 'retract_pairs': 0, 'skipped': True, 'tagged': False, 'types': 0, 'upgraded': False, 'upgraded_from': 'v1'},
+    'pr05': {'by_object': False, 'fw': '', 'info_added': True, 'layers': 9, 'marks_added': 9, 'method': 'layer comments', 'retract_pairs': 0, 'retract_slicer_moves': 0, 'retract_style': '', 'skipped': False, 'slicer': '', 'tagged': True, 'types': 18, 'upgraded': True, 'upgraded_from': 'v1', 'volumetric': False},
+    'pr06': {'by_object': False, 'fw': '', 'info_added': True, 'layers': 9, 'marks_added': 9, 'method': 'layer comments', 'retract_pairs': 0, 'retract_slicer_moves': 0, 'retract_style': '', 'skipped': False, 'slicer': '', 'tagged': True, 'types': 18, 'upgraded': False, 'upgraded_from': 'v1', 'volumetric': False},
+    'pr07': {'by_object': False, 'info_added': False, 'layers': 0, 'marks_added': 0, 'method': None, 'retract_pairs': 0, 'skipped': True, 'tagged': False, 'types': 0, 'upgraded': False, 'upgraded_from': 'v1'},
+    'pr08': {'by_object': False, 'derived': True, 'fw': '', 'info_added': True, 'layers': 8, 'marks_added': 8, 'method': 'Z scan', 'retract_pairs': 0, 'retract_slicer_moves': 0, 'retract_style': '', 'skipped': False, 'slicer': '', 'tagged': True, 'types': 8, 'upgraded': False, 'upgraded_from': 'v1', 'volumetric': False},
+    'pr09': {'by_object': False, 'fw': '', 'info_added': True, 'layers': 9, 'marks_added': 9, 'method': 'layer comments', 'retract_pairs': 0, 'retract_slicer_moves': 0, 'retract_style': '', 'skipped': False, 'slicer': '', 'tagged': True, 'types': 18, 'upgraded': False, 'upgraded_from': 'v1', 'volumetric': False},
+    'pr10': {'by_object': False, 'fw': '', 'info_added': True, 'layers': 9, 'marks_added': 9, 'method': 'layer comments', 'retract_pairs': 0, 'retract_slicer_moves': 0, 'retract_style': '', 'skipped': False, 'slicer': '', 'tagged': True, 'types': 18, 'upgraded': False, 'upgraded_from': 'v1', 'volumetric': False},
+}
 
 CASES = [
     ('mr01', dict(src='vase_m83.gcode', start=5, end=12)),
@@ -277,7 +281,7 @@ def main():
             print('FAIL %s: summary differs: %r != %r' % (name, _summ_cmp, _ref_summ))
             fails += 1
     if not fails:
-        print('R81 golden check: %d/%d cases byte-identical to the R94 reference' % (len(res), len(res)))
+        print('R81 golden check: %d/%d cases byte-identical to the R111 reference' % (len(res), len(res)))
     return 1 if fails else 0
 
 

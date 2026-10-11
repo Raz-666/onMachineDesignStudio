@@ -175,6 +175,22 @@ CFG_KEYS = {
     # separate ;TYPE: exists) - shown in the file info instead
     'small_perimeter_speed': 'SPEED_SMALL',
     'small_perimeter_acceleration': 'ACCEL_SMALL',
+    # R111 (roadmap: slicer-config replay as ground truth): line widths per
+    # feature, the remaining accelerations, filament diameter (feeds the
+    # volumetric-rate math) and the cooling block
+    'inner_wall_line_width': 'LW_INNER',
+    'sparse_infill_line_width': 'LW_SPARSE',
+    'solid_infill_line_width': 'LW_SOLID',
+    'top_surface_line_width': 'LW_TOP',
+    'small_perimeter_line_width': 'LW_SMALL',
+    'internal_solid_infill_acceleration': 'ACCEL_SOLID',
+    'initial_layer_acceleration': 'ACCEL_FIRST',
+    'travel_acceleration': 'ACCEL_TRAVEL',
+    'filament_diameter': 'FIL_DIA',
+    'slow_down_layer_time': 'TIME_SLOW',
+    'slow_down_min_speed': 'SLOW_MIN',
+    'fan_min_speed': 'FAN_MIN',
+    'fan_max_speed': 'FAN_MAX',
 }
 CFG_RE = re.compile(r'^\s*;\s*([A-Za-z0-9_]+)\s*=\s*(.+?)\s*$')
 
@@ -9855,6 +9871,154 @@ def _volumetric_convert_file(path, diameter=0.0):
     return n, area
 
 
+def _flowcap_fix_file(path, cap=12.0, diameter=0.0):
+    """R111: cap the volumetric extrusion rate (mm3/s) of a file IN PLACE.
+
+    Hotend protection: rewrites F on extruding G0/G1 moves whose rate
+    (F/60 * dE/dist * filament area) exceeds the cap. Travels, retracts and
+    arcs (G2/G3) stay untouched. Streamed (O(1) memory), '.fcx' tmp swap,
+    idempotent: the '; R2-FLOWCAP: <cap>' marker stores the tightest cap
+    applied - re-running with the same or a higher cap is a no-op, a LOWER
+    cap re-fixes (the current F values are the baseline).
+    Returns (n_capped, max_rate_before).
+    """
+    if diameter <= 0:
+        diameter = 1.75
+    area = math.pi * (diameter / 2.0) ** 2
+    marker_re = re.compile(r'^\s*;\s*R2-FLOWCAP:\s*([0-9.]+)')
+    old_cap = None
+    x = y = 0.0
+    f = None
+    e_run = 0.0
+    e_rel = False
+    ge = re.compile(r'^(\s*G[01]\b[^;]*?)\bF(\d+(?:\.\d+)?)(.*)$')
+    n = 0
+    max_rate = 0.0
+    tmp = path + '.fcx'
+    with open(path, 'r', errors='replace') as fi, open(tmp, 'w') as fo:
+        for raw in fi:
+            line = raw[:-1] if raw.endswith('\n') else raw
+            ls = line.strip()
+            m = marker_re.match(ls)
+            if m:
+                old_cap = float(m.group(1))
+                continue                    # dropped - a fresh one is appended
+            if ls.startswith('M82'):
+                e_rel = False
+            elif ls.startswith('M83'):
+                e_rel = True
+            mm = MOVE_RE.match(ls)
+            if not mm:
+                fo.write(line + '\n')
+                continue
+            p = parse_params(mm.group(2))
+            if 'F' in p:
+                f = p['F']
+            x1 = p.get('X', x)
+            y1 = p.get('Y', y)
+            e = p.get('E')
+            dist = math.hypot(x1 - x, y1 - y)
+            de = 0.0
+            if e is not None:
+                de = e if e_rel else e - e_run
+                e_run = e if not e_rel else e_run + e
+            rate = 0.0
+            if e is not None and de > 0 and dist > 1e-6 and f:
+                rate = (f / 60.0) * (de / dist) * area
+                if rate > max_rate:
+                    max_rate = rate
+            if rate > cap and cap > 0:
+                # scale the feed down to exactly the cap
+                nf = f * cap / rate
+                m2 = ge.match(line)
+                if m2:
+                    line = '%sF%d%s' % (m2.group(1), int(round(nf)), m2.group(3))
+                    n += 1
+            fo.write(line + '\n')
+            x, y = x1, y1
+        if n:
+            fo.write('\n; R2-FLOWCAP: %g mm3/s (%d move(s) capped, was %.1f mm3/s max)\n'
+                     % (cap, n, max_rate))
+    if n and (old_cap is None or cap < old_cap):
+        os.replace(tmp, path)
+    else:
+        # nothing capped or the stored cap is already tighter: no-op
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        n = 0
+    return n, max_rate
+
+
+def _travelaccel_fix_file(path, accel=8000):
+    """R111: separate TRAVEL acceleration - inserted into the file IN PLACE.
+
+    Wraps every travel block (consecutive G0/G1 with X/Y but no E) in
+    'M204 S<accel> ; R2-TA' ... 'M204 S<print-accel> ; R2-TA'. The print
+    accel restored after the block is the modal M204 the file itself set
+    before it (no M204 seen yet -> no restore line, the firmware default
+    applies). Streamed, '.tax' tmp swap, idempotent: re-running first drops
+    all previous ' ; R2-TA' lines, then re-inserts with the new value.
+    Returns (n_blocks).
+    """
+    marker = ' ; R2-TA'
+    # pass 1 + 2 fused via a temp: strip old inserts while scanning
+    n = 0
+    m204_run = None
+    in_block = False
+    tmp = path + '.tax'
+    mv = re.compile(r'^\s*M204\s+S(\d+(?:\.\d+)?)')
+
+    def _is_travel(ls):
+        if not (ls.startswith('G0') or ls.startswith('G1')):
+            return False
+        if ' E' in ls or '\tE' in ls:
+            return False
+        return bool(re.search(r' [XY]-?[\d.]', ls))
+
+    with open(path, 'r', errors='replace') as fi, open(tmp, 'w') as fo:
+        for raw in fi:
+            line = raw[:-1] if raw.endswith('\n') else raw
+            ls = line.strip()
+            # drop previous inserts (idempotency)
+            if line.endswith(marker):
+                ls = ls[:-len(marker)].strip()
+                line = line[:-len(marker)]
+            mm = mv.match(ls)
+            if mm:
+                m204_run = float(mm.group(1))
+                if in_block:
+                    # the slicer set its own accel inside the travel block:
+                    # our block ends here, the slicer value rules after it
+                    in_block = False
+                fo.write(line + '\n')
+                continue
+            trav = _is_travel(ls)
+            if trav and not in_block:
+                fo.write('M204 S%d%s\n' % (int(accel), marker))
+                in_block = True
+                n += 1
+            elif not trav and in_block:
+                if m204_run is not None:
+                    fo.write('M204 S%d%s\n' % (int(round(m204_run)), marker))
+                in_block = False
+            fo.write(line + '\n')
+        if in_block and m204_run is not None:
+            fo.write('M204 S%d%s\n' % (int(round(m204_run)), marker))
+    if n:
+        fo_marker = '; R2-TRAVELACC: %d mm/s2 travel accel (%d travel block(s) wrapped)\n' % (accel, n)
+        with open(tmp, 'a') as fo:
+            fo.write(fo_marker)
+        os.replace(tmp, path)
+    else:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+    return n
+
+
 def process(path, dry=False, verbose=False, retract_rewrite=False):
     """Inject _FILE_INFO + LAYER_MARK. Returns a change summary dict.
 
@@ -9892,6 +10056,7 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
     first_cmd_raw = None     # first command line - unfiltered world
     type_at = {}             # (raw idx, filtered idx) -> canonical feature
     scan = _ZScan()
+    geom = _GeomScan()       # R111: rate/seam (always) + untagged classifier
     # feat_stats machine (R44): runs inline over the stream - filtered lines
     # (old tags / _FILE_INFO / APPLY_TYPE) never match a feature or move, so
     # the running values are identical to the old filtered-list walk.
@@ -9957,12 +10122,19 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
                 m = CFG_RE.match(line)
                 if m and m.group(1) in CFG_KEYS and m.group(1) not in cfg:
                     cfg[m.group(1)] = first_value(m.group(2))
+                    if m.group(1) == 'filament_diameter':
+                        try:
+                            geom.set_dia(float(cfg['filament_diameter']))
+                        except ValueError:
+                            pass
             # ---- 2) layer positions -------------------------------------------------
             # has_marks is only known at EOF - collect BOTH detectors and
             # decide afterwards, exactly like the old two-branch code.
             if LAYER_COMMENT.match(line):
                 comment_matches.append((i, j))
+                geom.mark_comment()
             scan.step(i, j, ls)
+            geom.step(i, j, ls)
             m = zre.match(line)
             if m:
                 zs_fall.append(float(m.group(1)))
@@ -10009,6 +10181,7 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
                         and len(comment_matches) <= 1):
                     feat_here = 'SURFACE-BOTTOM'
                 type_at[(i, j)] = feat_here
+                geom.mark_type(feat_here)
             # ---- 4c) per-feature measurement (.44) -----------------------------------
             if feat_here:
                 _close_seg()
@@ -10104,6 +10277,18 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
     # ---- 4) first command line = _FILE_INFO insertion point -------------------------
     first_cmd = first_cmd_idx if had_v1 else first_cmd_raw
 
+    geom.finish()
+    # R111: untagged file + classifier results -> DERIVED features (conf 0.7).
+    # Tagged data always wins (mark_type disarms the classifier), derived
+    # and tagged are never mixed in one file.
+    if not type_at and geom.ranges:
+        for (gi, gj, gfeat) in geom.ranges:
+            type_at[(gi, gj)] = gfeat
+        for gfeat, gd in geom.fstat.items():
+            if gfeat not in feat_stats:
+                feat_stats[gfeat] = {'f': dict(gd), 'acc': None}
+        summary['derived'] = True
+
     type_at = {_aw(p): feat for p, feat in type_at.items()}   # -> apply world
     summary['types'] = len(type_at)
 
@@ -10118,6 +10303,19 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
             info.append(f'FA_{suf}={d["acc"]:g}')
     if feat_stats:
         info.append('TYPES=' + ','.join(feat_stats))
+    # R111: honest confidence + coverage for derived features, measured rate
+    # and the dominant seam position
+    if summary.get('derived'):
+        info.append('DERIVED=1')
+        info.append('CONF=%g' % _GeomScan.CONF)
+        if geom.tot_len > 0:
+            info.append('COVER=%d' % round(100.0 * geom.cls_len / geom.tot_len))
+    if geom.max_rate > 0:
+        info.append('MAXRATE=%.1f' % geom.max_rate)
+    _seam111 = geom.seam()
+    if _seam111:
+        info.append('SEAM=%.0f,%.0f' % (_seam111[0], _seam111[1]))
+        info.append('SEAMN=%d' % _seam111[2])
     # R84: who sliced this, for which firmware (from the file's own comments)
     det84 = _detect_slicer(path)
     if det84['slicer']:
@@ -10224,9 +10422,10 @@ class _ZScan:
     def __init__(self):
         self.inserts = []
         self.obj_changes = 0
-        self.prev_z = None      # Z of the last EXTRUDING move
+        self.prev_z = None      # effective Z of the last EXTRUDING move
         self.acc = 0.0          # vase-mode accumulator
         self.absolute = True
+        self.modal_z = None     # R111: last Z seen on ANY move (travel too)
 
     def step(self, i, j, ls):
         if ls.startswith('G90'):
@@ -10239,12 +10438,24 @@ class _ZScan:
         if not m:
             return
         p = parse_params(m.group(2))
-        if 'Z' not in p:
+        # R111 (roadmap L3+): Z set on a SEPARATE travel line now counts as
+        # the layer Z (modal) - files that never repeat Z on the extruding
+        # moves get their layer marks too. Hop safety comes free from the
+        # modal semantics: a hop is 'up, travel, DOWN, extrude' - the last Z
+        # before the extrusion is the LOWER one again, so a hop never looks
+        # like a raise. Only a Z that STAYS up while extruding counts.
+        if 'Z' in p and self.absolute:
+            self.modal_z = p['Z']
+        if 'Z' in p:
+            z_eff = p['Z']
+        elif self.modal_z is not None:
+            z_eff = self.modal_z
+        else:
             return
-        z = p['Z']
         extruding = 'E' in p and ('X' in p or 'Y' in p)
         if not extruding or not self.absolute:
             return
+        z = z_eff
         if self.prev_z is None:
             self.prev_z = z
             return
@@ -10277,6 +10488,276 @@ def z_scan(lines):
 
 def count_existing_marks(lines):
     return sum(1 for l in lines if l.strip().startswith('LAYER_MARK'))
+
+
+class _GeomScan:
+    """R111 (roadmap L3+/L4): geometry + rate tracker, and - for files with
+    NO ;TYPE: comment at all - a per-layer feature classifier.
+
+    LIGHT part (every file, O(1) memory): modal X/Y/Z + F, per-move
+    volumetric rate -> MAXRATE (mm3/s), outer-wall seam starts -> SEAM.
+
+    HEAVY part (only while the file looks untagged - the FIRST ;TYPE:
+    disarms it, tagged data always wins, never mixed): buffers the current
+    layer's extruding polylines (capped) and classifies them at the layer
+    boundary:
+      - closed loops, outermost per island (point-in-polygon nesting)
+        -> WALL-OUTER, nested loops -> WALL-INNER
+      - straight open lines, parallel with regular spacing -> hatch:
+        mean gap >= 3 mm -> INFILL-SPARSE, denser -> INFILL-SOLID
+      - layer 1 solid fills -> SURFACE-BOTTOM; the LAST layer's -> SURFACE-TOP
+      - curved/open non-hatch paths stay UNCLASSIFIED (no silent guessing)
+    Derived features carry a fixed confidence of 0.7 (DERIVED=1 CONF=0.7 in
+    _FILE_INFO, COVER=% of extrusion length classified). Bridges are NOT
+    guessed (needs the layer below - documented limit).
+    """
+
+    CONF = 0.7
+    MAX_PTS = 300000          # per-layer point cap (~4.8 MB worst case)
+
+    def __init__(self, fil_dia=1.75):
+        self.x = 0.0
+        self.y = 0.0
+        self.z = None             # modal Z (any move)
+        self.f = None             # modal F (mm/min)
+        self.e_run = 0.0
+        self.e_rel = False
+        self.set_dia(fil_dia)
+        self.max_rate = 0.0
+        self.cur_type = None      # from ;TYPE: (caller feeds mark_type)
+        self.seam_cands = []      # outer-wall polyline starts [(x, y)]
+        self._seam_layer = False
+        # heavy part
+        self.armed = True
+        self.layer_z = None
+        self._comment_pending = False
+        self.polys = []           # [( (i, j), speed_mm_s, [(x, y), ...]) ]
+        self._p = None            # current polyline points
+        self._p_ij = None
+        self._p_f = None
+        self._p_len = 0
+        self.ranges = []          # [(i, j, feature)] - polyline starts
+        self.fstat = {}           # feature -> {speed_mm_s: move count}
+        self.cls_len = 0.0
+        self.tot_len = 0.0
+        self.layers_classified = 0
+        self._pts_budget = self.MAX_PTS
+
+    def set_dia(self, d):
+        if d and d > 0.5:
+            self.area = math.pi * (d / 2.0) ** 2
+
+    def mark_type(self, feat):
+        """a ;TYPE: comment appeared - the file is tagged: heavy part OFF"""
+        self.cur_type = feat
+        if self.armed:
+            self.armed = False
+            self.polys = []
+            self._p = None
+            self._p_ij = None
+
+    def mark_comment(self):
+        """a layer-change comment appeared - classify what came before it"""
+        self._comment_pending = True
+
+    # ---- streaming -----------------------------------------------------------------
+    def step(self, i, j, ls):
+        if ls.startswith('M82'):
+            self.e_rel = False
+        elif ls.startswith('M83'):
+            self.e_rel = True
+        m = MOVE_RE.match(ls)
+        if not m:
+            return
+        p = parse_params(m.group(2))
+        if 'F' in p:
+            self.f = p['F']
+        x0, y0 = self.x, self.y
+        x1 = p.get('X', x0)
+        y1 = p.get('Y', y0)
+        if 'Z' in p:
+            self.z = p['Z']
+        e = p.get('E')
+        de = 0.0
+        if e is not None:
+            de = e if self.e_rel else e - self.e_run
+            self.e_run = e if not self.e_rel else self.e_run + e
+        dist = math.hypot(x1 - x0, y1 - y0)
+        extruding = e is not None and de > 0 and dist > 1e-6
+        # light: volumetric rate (mm3/s) of this move
+        if extruding and self.f:
+            rate = (self.f / 60.0) * (de / dist) * self.area
+            if rate > self.max_rate:
+                self.max_rate = rate
+        self.x, self.y = x1, y1
+        if not self.armed:
+            # tagged file: only the seam bookkeeping stays (light)
+            if extruding and self.cur_type == 'WALL-OUTER' and not self._seam_layer:
+                if self._p is None:
+                    self.seam_cands.append((x0, y0))
+                self._seam_layer = True
+            if not extruding:
+                self._p = None
+                self._seam_layer = False
+            elif self._p is not None and abs(x0 - self._p[0]) < 0.01 \
+                    and abs(y0 - self._p[1]) < 0.01:
+                self._p = (x1, y1)
+            elif self._p is None:
+                self._p = (x1, y1)
+            return
+        # ---- heavy: untagged so far ------------------------------------------------
+        if extruding:
+            if (self._comment_pending
+                    or (self.z is not None and self.layer_z is not None
+                        and self.z > self.layer_z + 0.05)):
+                self._close_poly()
+                self._classify()
+                self.polys = []
+                self.layer_idx = getattr(self, 'layer_idx', 0) + 1
+                self.layer_z = self.z
+                self._comment_pending = False
+                self._seam_layer = False
+            if self.layer_z is None and self.z is not None:
+                self.layer_z = self.z
+                self.layer_idx = 1
+            if self._p is not None and abs(x0 - self._p[-1][0]) < 0.01 \
+                    and abs(y0 - self._p[-1][1]) < 0.01:
+                self._p.append((x1, y1))
+                self._p_len += dist
+            else:
+                self._close_poly()
+                if self._pts_budget > 0:
+                    self._p = [(x0, y0), (x1, y1)]
+                    self._p_ij = (i, j)
+                    self._p_f = (self.f or 0) / 60.0
+                    self._p_len = dist
+                    self._pts_budget -= 2
+                # over the cap: the rest of this layer stays unclassified
+        else:
+            self._close_poly()
+
+    def _close_poly(self):
+        if self._p and len(self._p) >= 2 and self._p_len > 0:
+            self.polys.append((self._p_ij, self._p_f or 0.0, self._p, self._p_len))
+        self._p = None
+        self._p_ij = None
+        self._p_len = 0.0
+
+    # ---- classification ------------------------------------------------------------
+    @staticmethod
+    def _area_bbox(pts):
+        a = 0.0
+        minx = miny = 1e30
+        maxx = maxy = -1e30
+        for k in range(len(pts) - 1):
+            (x0, y0), (x1, y1) = pts[k], pts[k + 1]
+            a += x0 * y1 - x1 * y0
+            minx = min(minx, x0, x1)
+            maxx = max(maxx, x0, x1)
+            miny = min(miny, y0, y1)
+            maxy = max(maxy, y0, y1)
+        return abs(a) * 0.5, (minx, miny, maxx, maxy)
+
+    def _classify(self, is_last=False):
+        polys = self.polys
+        self.polys = []
+        if not polys:
+            return
+        first_layer = (self.layers_classified == 0)
+        self.layers_classified += 1
+        loops = []           # (bbox_area, bbox, pts, plen, ij, speed)
+        hatches = []         # (angle_bucket, offset, ij, speed, plen)
+        for (ij, speed, pts, plen) in polys:
+            self.tot_len += plen
+            chord = math.hypot(pts[-1][0] - pts[0][0], pts[-1][1] - pts[0][1])
+            if chord < 1.0 and plen > 3.0:
+                a, bb = self._area_bbox(pts)
+                loops.append((a, bb, pts, plen, ij, speed))
+            elif chord / plen > 0.92:
+                (x0, y0), (x1, y1) = pts[0], pts[-1]
+                # R111 fix: a hatch zigzags - the SAME line traveled in both
+                # directions must map to ONE angle+offset, or the offsets
+                # alternate sign and the mean gap explodes (everything looked
+                # 'sparse'). Normalize the direction first.
+                if (x1, y1) < (x0, y0):
+                    (x0, y0), (x1, y1) = (x1, y1), (x0, y0)
+                ang = math.degrees(math.atan2(y1 - y0, x1 - x0)) % 180.0
+                buck = int(round(ang / 5.0)) % 36
+                # perpendicular offset of the line's midpoint
+                nx, ny = -(y1 - y0), (x1 - x0)
+                ln = math.hypot(nx, ny) or 1.0
+                mx, my = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+                off = (mx * nx + my * ny) / ln
+                hatches.append((buck, off, ij, speed, plen))
+            # curved / irregular open paths: UNCLASSIFIED (no guess)
+
+        # ---- walls: outermost loop per island wins, nested = inner ---------------
+        loops.sort(key=lambda t: -t[0])
+        outers = []
+        for (a, bb, pts, plen, ij, speed) in loops:
+            feat = 'WALL-OUTER'
+            for (obb, opts) in outers:
+                (ox0, oy0, ox1, oy1) = obb
+                if not (bb[0] >= ox0 and bb[1] >= oy0
+                        and bb[2] <= ox1 and bb[3] <= oy1):
+                    continue
+                if _pt_in_poly(pts[0], opts):
+                    feat = 'WALL-INNER'
+                    break
+            if feat == 'WALL-OUTER':
+                outers.append((bb, pts))
+                if not self._seam_layer:
+                    self.seam_cands.append((pts[0][0], pts[0][1]))
+                    self._seam_layer = True
+            self.ranges.append((ij[0], ij[1], feat))
+            self.fstat.setdefault(feat, {})
+            self.fstat[feat][round(speed, 1)] = \
+                self.fstat[feat].get(round(speed, 1), 0) + len(pts) - 1
+            self.cls_len += plen
+
+        # ---- hatch: >= 3 parallel straight lines with regular spacing -----------
+        if hatches:
+            groups = {}
+            for h in hatches:
+                groups.setdefault(h[0], []).append(h)
+            for buck, items in groups.items():
+                items.sort(key=lambda t: t[1])
+                offs = [t[1] for t in items]
+                gaps = [b - a for a, b in zip(offs, offs[1:])]
+                if len(items) < 3 or not gaps:
+                    continue
+                mean_gap = sum(gaps) / len(gaps)
+                if min(gaps) <= 0.05:
+                    continue          # overlapping lines - not a hatch
+                feat = 'INFILL-SPARSE' if mean_gap >= 3.0 else 'INFILL-SOLID'
+                if first_layer and feat == 'INFILL-SOLID':
+                    feat = 'SURFACE-BOTTOM'
+                elif is_last and feat == 'INFILL-SOLID':
+                    feat = 'SURFACE-TOP'
+                for (_, _, ij, speed, plen) in items:
+                    self.ranges.append((ij[0], ij[1], feat))
+                    self.fstat.setdefault(feat, {})
+                    self.fstat[feat][round(speed, 1)] = \
+                        self.fstat[feat].get(round(speed, 1), 0) + 1
+                    self.cls_len += plen
+
+    def finish(self):
+        self._close_poly()
+        if self.armed:
+            self._classify(is_last=True)
+            self.armed = False
+
+    def seam(self):
+        """modal 5 mm grid over the outer-wall start points"""
+        if not self.seam_cands:
+            return None
+        cells = {}
+        for (x, y) in self.seam_cands:
+            k = (int(x // 5), int(y // 5))
+            cells.setdefault(k, []).append((x, y))
+        best = max(cells.values(), key=len)
+        return (sum(p[0] for p in best) / len(best),
+                sum(p[1] for p in best) / len(best), len(best))
 
 
 def _peek_file_info(path):
@@ -10680,6 +11161,42 @@ def watch(directory, interval=5.0, once=False):
                 _moonraker_gcode('RESPOND MSG="%s"\nM117 RetFix done\n'
                                  '_SOUND_LIB NAME=%s' % (msg, snd))
                 print(f'[retractfix] {rel}: {msg}', flush=True)
+            elif kind == 'flowcap':
+                cap = float(rv.get('flowcap_limit', 12.0) or 12.0)
+                n, mr = _flowcap_fix_file(p, cap=cap)
+                if n:
+                    msg = ('Flow cap DONE: %d move(s) capped to %g mm3/s in %s '
+                           '(was %.1f mm3/s max) - the hotend is protected'
+                           % (n, cap, os.path.basename(rel), mr))
+                    snd = 'r2_done'
+                else:
+                    msg = ('Flow cap: nothing over %g mm3/s in %s (or an even '
+                           'tighter cap is already applied) - nothing changed'
+                           % (cap, os.path.basename(rel)))
+                    snd = 'r2_notice'
+                _moonraker_gcode('RESPOND MSG="%s"\nM117 FlowCap done\n'
+                                 '_SOUND_LIB NAME=%s' % (msg, snd))
+                if n:
+                    try:
+                        _patch_info_kv(p, 'MAXRATE', '%.1f' % cap)
+                        _moonraker_gcode('\n'.join(_preview_script(p)))
+                    except Exception:                           # noqa: BLE001
+                        pass
+                print(f'[flowcap] {rel}: {msg}', flush=True)
+            elif kind == 'travelacc':
+                acc = int(rv.get('travelaccel_value', 8000) or 8000)
+                n = _travelaccel_fix_file(p, accel=acc)
+                if n:
+                    msg = ('Travel accel DONE: %d travel block(s) in %s now run '
+                           'at %d mm/s2 (print accels untouched)'
+                           % (n, os.path.basename(rel), acc))
+                    snd = 'r2_done'
+                else:
+                    msg = ('Travel accel: no travel blocks found in %s' % os.path.basename(rel))
+                    snd = 'r2_notice'
+                _moonraker_gcode('RESPOND MSG="%s"\nM117 TravAcc done\n'
+                                 '_SOUND_LIB NAME=%s' % (msg, snd))
+                print(f'[travelacc] {rel}: {msg}', flush=True)
             else:
                 n, area = _volumetric_convert_file(p)
                 if n:
@@ -10859,6 +11376,8 @@ def watch(directory, interval=5.0, once=False):
     last_fit_nonce = None
     last_retract_fix_nonce = None
     last_vol_fix_nonce = None
+    last_flowcap_nonce = None
+    last_travelacc_nonce = None
     last_reso_nonce = None
     last_bridge_nonce = None
     last_plottext_nonce = None
@@ -10888,6 +11407,8 @@ def watch(directory, interval=5.0, once=False):
                 last_fit_nonce = _np.get('label_fit_nonce')
                 last_retract_fix_nonce = _np.get('retract_fix_nonce')
                 last_vol_fix_nonce = _np.get('vol_fix_nonce')
+                last_flowcap_nonce = _np.get('flowcap_fix_nonce')
+                last_travelacc_nonce = _np.get('travelacc_fix_nonce')
                 last_reso_nonce = _np['reso_nonce']
                 last_bridge_nonce = _np['bridge_nonce']
                 last_plottext_nonce = _np['plot_text_nonce']

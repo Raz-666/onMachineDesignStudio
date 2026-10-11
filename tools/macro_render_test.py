@@ -3679,7 +3679,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is .84 in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-11.84'", repr(_v66)))
+    _v66 == "'R2-2026-10-12.85'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -5902,7 +5902,7 @@ tests.append(('R85 FIX_FILE: no-file branch exists (fallback chain FILE>preview>
     and 'printer.print_stats.filename' in _ff85, ''))
 out = render(_ff85, {})
 tests.append(('R85 FIX_FILE: WHAT usage line',
-    'WHAT=RETRACT' in out and 'WHAT=VOL' in out, out[:100]))
+    'WHAT=RETRACT' in out and 'VOL (volumetric' in out and 'FLOWCAP' in out, out[:100]))
 save_vars['preview_file'] = 'x~y (1).gcode'      # shlex-hostile name
 out = render(_ff85, {'WHAT': 'RETRACT'})
 _sweep85 = [l for l in out.split('\n')
@@ -7614,7 +7614,7 @@ save_vars.update({'ovf_primetower_on': True, 'ovf_primetower_spd': 60.0,
                   'ovf_primetower_acc': 500.0, 'ovf_primetower_flw': 110.0})
 out = render(get_body('macros/05_materials.cfg', 'SAVE_DEFAULT_PRESET'), {})
 tests.append(('R95 preset SAVE: all 16 feats in the snapshot',
-    "'primetower': [True, 60.0, 500.0, 110.0]" in out
+    "'primetower': [True, 60.0, 500.0, 110.0, 0.0]" in out
     and "'custom':" in out and "'internalbridge':" in out, out[:200]))
 save_vars.update({'ovf_primetower_on': False, 'ovf_primetower_spd': 100.0,
                   'ovf_primetower_acc': 0.0, 'ovf_primetower_flw': 100.0})
@@ -9484,6 +9484,184 @@ tests.append(('R110 LCD: the two auto-toggles are switchable at the display',
 tests.append(('R110 LCD: material save does NOT load the material first',
     'SAVE_MATERIAL_TEMPS MATERIAL=' in _raw110
     and 'LOAD_MATERIAL' not in _raw110, ''))
+
+# ============================= R111 (.85) - roadmap §5+§6 =============================
+# fan clamp, bridge boost, feature PA, per-feature shaper-off, file fixes,
+# geometry classifier keys in _FILE_INFO, profile replay with the new keys
+
+state_vars.update({'mode': 'printing', 'layer': 2, 'ignore_overrides': False,
+                   'current_type': 'WALL-OUTER'})
+save_vars.update({'ov_fan_clamp_on': True, 'ov_fan_min': 10.0, 'ov_fan_max': 90.0,
+                  'ov_fan_bridge': 0.0, 'flowcap_limit': 12.0, 'travelaccel_value': 8000,
+                  'ovf_shaper_off_on': False, 'ovf_shaper_off_feat': 'wallouter',
+                  'ovf_wallouter_on': True, 'ovf_wallouter_spd': 100.0,
+                  'ovf_wallouter_acc': 0.0, 'ovf_wallouter_flw': 100.0, 'ovf_wallouter_pa': 0.0})
+state_vars.update({'pa_feat_active': False, 'shaper_off_active': False,
+                   'shaper_saved_fx': 0.0, 'shaper_saved_fy': 0.0, 'file_pa': 0.0})
+
+body = get_body('macros/06_temp_controls.cfg', 'M106')
+out = render(body, {'S': '255'})
+tests.append(('R111 M106: clamp ON caps S255 -> S230 (max 90%)',
+    'M99106 S230' in out and 'clamp 10-90%' in out, [l for l in out.split('\n') if 'clamp' in l][:1]))
+out = render(body, {'S': '10'})
+tests.append(('R111 M106: clamp lifts S10 -> S26 (min 10%)',
+    'M99106 S26' in out, [l for l in out.split('\n') if 'M99106' in l][:1]))
+save_vars['ov_fan_clamp_on'] = False
+out = render(body, {'S': '255'})
+tests.append(('R111 M106: clamp OFF -> S255 untouched',
+    'M99106 S255' in out and 'clamp' not in out, out.strip()[:80]))
+save_vars['ov_fan_clamp_on'] = True
+save_vars['ov_fan_bridge'] = 100.0
+state_vars['current_type'] = 'BRIDGE'
+out = render(body, {'S': '128'})
+tests.append(('R111 M106: bridge boost 100% lifts S128 -> S255 (clamped file!)',
+    'M99106 S255' in out and 'bridge 100%' in out, [l for l in out.split('\n') if 'M99106' in l][:1]))
+state_vars['current_type'] = 'WALL-OUTER'
+save_vars['ov_fan_bridge'] = 0.0
+
+body = get_body('macros/10_live_tuning.cfg', 'APPLY_TYPE')
+save_vars['ovf_wallouter_pa'] = 0.06
+out = render(body, {'TYPE': 'WALL-OUTER'})
+tests.append(('R111 APPLY_TYPE: feature PA 0.06 applied at the boundary',
+    'SET_PRESSURE_ADVANCE_BASE ADVANCE=0.06' in out and 'pa_feat_active VALUE=True' in out,
+    [l for l in out.split('\n') if 'PA' in l][:2]))
+# next feature without PA -> global returns
+save_vars['ov_pa_on'] = True; save_vars['ov_pa'] = 0.05
+state_vars['pa_feat_active'] = True
+save_vars['ovf_infillsparse_on'] = False
+out = render(body, {'TYPE': 'INFILL-SPARSE'})
+tests.append(('R111 APPLY_TYPE: leaving the feature restores the global PA 0.05',
+    'SET_PRESSURE_ADVANCE_BASE ADVANCE=0.05' in out and 'pa_feat_active VALUE=False' in out,
+    [l for l in out.split('\n') if 'PA' in l][:2]))
+save_vars['ov_pa_on'] = False
+state_vars['pa_feat_active'] = False
+
+# shaper off for wallouter
+save_vars['ovf_shaper_off_on'] = True
+out = render(body, {'TYPE': 'WALL-OUTER'})
+tests.append(('R111 APPLY_TYPE: shaper OFF while wallouter prints (freqs saved 52.3/41.7)',
+    'SET_INPUT_SHAPER SHAPER_FREQ_X=0 SHAPER_FREQ_Y=0' in out
+    and 'shaper_saved_fx VALUE=52.3' in out and 'shaper_off_active VALUE=True' in out,
+    [l for l in out.split('\n') if 'SHAPER' in l][:3]))
+state_vars['shaper_off_active'] = True
+state_vars['shaper_saved_fx'] = 52.3
+state_vars['shaper_saved_fy'] = 41.7
+save_vars['ovf_shaper_off_on'] = False
+out = render(body, {'TYPE': 'INFILL-SPARSE'})
+tests.append(('R111 APPLY_TYPE: shaper back ON with the saved freqs after the feature',
+    'SHAPER_FREQ_X=52.3 SHAPER_FREQ_Y=41.7' in out and 'shaper_off_active VALUE=False' in out,
+    [l for l in out.split('\n') if 'SHAPER' in l][:2]))
+state_vars['shaper_off_active'] = False
+save_vars['ovf_wallouter_pa'] = 0.0
+
+body = get_body('macros/10_live_tuning.cfg', 'SET_FAN_CLAMP')
+out = render(body, {'MIN': '80', 'MAX': '20'})
+tests.append(('R111 SET_FAN_CLAMP: MIN>MAX rejected',
+    'MIN must be <= MAX' in out, out.strip()[:90]))
+out = render(body, {'ON': '1', 'MIN': '10', 'MAX': '90'})
+tests.append(('R111 SET_FAN_CLAMP: ON=1 stores the curve',
+    'VARIABLE=ov_fan_clamp_on VALUE=True' in out and 'VARIABLE=ov_fan_min VALUE=10.0' in out, out.strip()[:90]))
+
+body = get_body('macros/10_live_tuning.cfg', 'SET_FEAT_PA')
+out = render(body, {'FEATURE': 'wallouter', 'PA': '0.5'})
+tests.append(('R111 SET_FEAT_PA: PA over 0.3 rejected',
+    'must be 0 (off) .. 0.3' in out, out.strip()[:90]))
+out = render(body, {'FEATURE': 'wallouter', 'PA': '0.05'})
+tests.append(('R111 SET_FEAT_PA: PA=0.05 routes through feat_pa_wallouter',
+    'SET_OVERRIDE_VALUE NAME=feat_pa_wallouter VALUE=0.05' in out, out.strip()[:90]))
+
+body = get_body('macros/10_live_tuning.cfg', 'SET_FEAT_SHAPER_OFF')
+gd = dict(build_printer()); del gd['input_shaper']
+out = env.from_string(body).render(printer=MP(gd), params={'FEATURE': 'wallouter', 'STATE': '1'})
+tests.append(('R111 SET_FEAT_SHAPER_OFF: no [input_shaper] -> honest message',
+    'No [input_shaper]' in out, out.strip()[:90]))
+out = render(body, {'FEATURE': 'wallouter', 'STATE': '1'})
+tests.append(('R111 SET_FEAT_SHAPER_OFF: STATE=1 arms the switch',
+    'VARIABLE=ovf_shaper_off_on VALUE=True' in out and "VARIABLE=ovf_shaper_off_feat VALUE='wallouter'" in out,
+    out.strip()[:120]))
+save_vars['ovf_shaper_off_on'] = False
+
+body = get_body('macros/10_live_tuning.cfg', 'SET_UNRETRACT_EXTRA')
+out = render(body, {'EXTRA': '0.05'})
+tests.append(('R111 SET_UNRETRACT_EXTRA: 0.05 -> SET_RETRACTION_BASE',
+    'SET_RETRACTION_BASE UNDO_EXTRA_RETRACT_LENGTH=0.05' in out, out.strip()[:90]))
+
+body = get_body('macros/10_live_tuning.cfg', '_FEAT_TUNING_RESTORE')
+state_vars['pa_feat_active'] = True
+state_vars['shaper_off_active'] = True
+state_vars['shaper_saved_fx'] = 52.3
+state_vars['shaper_saved_fy'] = 41.7
+save_vars['ov_pa_on'] = True; save_vars['ov_pa'] = 0.05
+out = render(body, {})
+tests.append(('R111 _FEAT_TUNING_RESTORE: PRINT_END/CANCEL safety net restores PA + shaper',
+    'SET_PRESSURE_ADVANCE_BASE ADVANCE=0.05' in out
+    and 'SET_INPUT_SHAPER SHAPER_FREQ_X=52.3 SHAPER_FREQ_Y=41.7' in out
+    and 'pa_feat_active VALUE=False' in out and 'shaper_off_active VALUE=False' in out,
+    [l for l in out.split('\n') if 'RESTORE' not in l and l.strip()][:4]))
+state_vars.update({'pa_feat_active': False, 'shaper_off_active': False, 'shaper_saved_fx': 0.0, 'shaper_saved_fy': 0.0})
+save_vars['ov_pa_on'] = False
+
+body = get_body('macros/08_print_start_stop.cfg', '_FILE_INFO')
+out = render(body, {'DERIVED': '1', 'CONF': '0.7', 'COVER': '89', 'MAXRATE': '4.3',
+                    'SEAM': '80,80', 'SEAMN': '8', 'TOTAL_LAYERS': '100'})
+tests.append(('R111 _FILE_INFO: geometry keys land in _STATE (derived/conf/cover/maxrate/seam)',
+    'VARIABLE=file_derived VALUE=True' in out and 'VARIABLE=file_conf VALUE=0.7' in out
+    and 'VARIABLE=file_cover VALUE=89' in out and 'VARIABLE=file_maxrate VALUE=4.3' in out
+    and 'VARIABLE=file_seam VALUE=\'"80,80"\'' in out and 'VARIABLE=file_seamn VALUE=8' in out,
+    [l for l in out.split('\n') if 'R111' not in l and l.strip() and 'SET_GCODE' in l][:6]))
+tests.append(('R111 _FILE_INFO: honest wording - "DERIVED by geometry ... classifier guessed"',
+    'DERIVED by geometry' in out and 'classifier guessed' in out, ''))
+tests.append(('R111 _FILE_INFO: flow + seam line for the console',
+    'max 4.3 mm3/s' in out and 'seam at 80,80' in out, ''))
+
+body = get_body('macros/08_print_start_stop.cfg', '_FILE_INFO_RESET')
+out = render(body, {})
+tests.append(('R111 _FILE_INFO_RESET: the new state clears with the rest',
+    'VARIABLE=file_derived VALUE=False' in out and 'VARIABLE=file_maxrate VALUE=0.0' in out
+    and 'VARIABLE=file_seam VALUE=\'"-"\'' in out and "VARIABLE=file_seamn VALUE=0" in out,
+    [l for l in out.split('\n') if 'file_derived' in l or 'file_maxrate' in l or 'file_seam' in l]))
+
+body = get_body('macros/05_materials.cfg', '_PROFILE_APPLY')
+save_vars['default_preset_1'] = {
+    'material': 'PLA', 'bed': 60.0, 'bed_on': True, 'fan_min': 10.0, 'fan_max': 90.0,
+    'shaper_off_feat': 'wallouter', 'shaper_off_on': True,
+    'feats': {'wallouter': [True, 100.0, 0.0, 100.0],       # OLD 4-element profile
+              'infillsparse': [False, 100.0, 0.0, 100.0, 0.04]}}  # NEW 5-element
+out = render(body, {'SRC': 'default', 'N': '1'})
+tests.append(('R111 _PROFILE_APPLY: 5-element feats load feature PA 0.04',
+    'VARIABLE=ovf_infillsparse_pa VALUE=0.04' in out, [l for l in out.split('\n') if '_pa' in l][:2]))
+tests.append(('R111 _PROFILE_APPLY: old 4-element profile -> PA 0 (no crash)',
+    'VARIABLE=ovf_wallouter_pa VALUE=0.0' in out, ''))
+tests.append(('R111 _PROFILE_APPLY: fan clamp + shaper-off replay from the preset',
+    'VARIABLE=ov_fan_min VALUE=10.0' in out and 'VARIABLE=ov_fan_max VALUE=90.0' in out
+    and 'VARIABLE=ovf_shaper_off_feat VALUE=\'"wallouter"\'' in out
+    and 'VARIABLE=ovf_shaper_off_on VALUE=True' in out,
+    [l for l in out.split('\n') if 'fan_min' in l or 'shaper_off' in l][:4]))
+del save_vars['default_preset_1']
+
+body = get_body('macros/05_materials.cfg', '_PROFILE_SAVE')
+save_vars['ovf_wallouter_pa'] = 0.06
+out = render(body, {})
+tests.append(('R111 _PROFILE_SAVE: snapshot carries the 5th element (feature PA)',
+    "'wallouter': [True, 100.0, 0.0, 100.0, 0.06]" in out, [l for l in out.split('\n') if 'pending_snap' in l][:1]))
+save_vars['ovf_wallouter_pa'] = 0.0
+
+body = get_body('macros/08_print_start_stop.cfg', 'FIX_FILE')
+state_vars['mode'] = 'idle'          # file fixes are blocked during a print
+save_vars['flowcap_fix_nonce'] = 3
+out = render(body, {'WHAT': 'FLOWCAP', 'CAP': '5.5'})
+tests.append(('R111 FIX_FILE WHAT=FLOWCAP: arms the watcher nonce (cap 5.5)',
+    'VARIABLE=flowcap_fix_nonce VALUE=4' in out and 'VARIABLE=flowcap_limit VALUE=5.5' in out,
+    [l for l in out.split('\n') if 'flowcap' in l][:3]))
+out = render(body, {'WHAT': 'FLOWCAP', 'CAP': '99'})
+tests.append(('R111 FIX_FILE WHAT=FLOWCAP: silly caps rejected honestly',
+    'must be 0.5..50' in out, out.strip()[:90]))
+save_vars['travelacc_fix_nonce'] = 0
+out = render(body, {'WHAT': 'TRAVELACC', 'ACCEL': '6000'})
+tests.append(('R111 FIX_FILE WHAT=TRAVELACC: arms the watcher nonce (6000 mm/s2)',
+    'VARIABLE=travelacc_fix_nonce VALUE=1' in out and 'VARIABLE=travelaccel_value VALUE=6000' in out,
+    [l for l in out.split('\n') if 'travelac' in l][:3]))
+state_vars['mode'] = 'printing'
 
 fails = 0
 for name, ok, info in tests:
