@@ -2864,10 +2864,18 @@ save_vars['default_preset_2'] = {'material':'PETG','bed':70.0,'bed_on':True,'bed
     'fan':80.0,'fan_on':False,'ironing_flow':15.0,'ironing_flow_on':False,
     'first_layer_speed':75.0,'overrides':3,
     'feats': {c: [False,100.0,0.0,100.0] for c in _codes62}}
+_pa109 = get_body('macros/05_materials.cfg', '_PROFILE_APPLY')
 out = render(_ldp62, {'N':'2'})
-tests.append(('R62 LOAD_DEFAULT_PRESET: restores values + switches (feat flow included)',
+tests.append(('R62 LOAD_DEFAULT_PRESET: chains the shared apply + reports',
+    '_PROFILE_APPLY SRC=default N=2' in out and 'Default preset 2 LOADED: PETG' in out, out[:130]))
+out = render(_pa109, {'SRC':'default', 'N':'2'})
+tests.append(('R62 _PROFILE_APPLY (default src): restores values + feat flow',
     'VARIABLE=ov_hotend_first VALUE=240.0' in out and 'VARIABLE=ovf_wallouter_flw VALUE=100.0' in out
     and "VARIABLE=material VALUE='\"PETG\"'" in out and 'VARIABLE=first_layer_speed VALUE=75.0' in out, out[:130]))
+tests.append(('R109 load FIX: the _on switches REALLY come back (old ";"-comment bug)',
+    'VARIABLE=ov_hotend_first_on VALUE=True' in out
+    and 'VARIABLE=ov_flow_on VALUE=False' in out
+    and 'VARIABLE=ov_bed_on VALUE=True' in out, out[:130]))
 _ddp62 = get_body('macros/05_materials.cfg', 'DELETE_DEFAULT_PRESET')
 out = render(_ddp62, {'N':'2'})
 tests.append(('R62 DELETE_DEFAULT_PRESET frees the slot',
@@ -3670,8 +3678,8 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         _v66 = _l66.split(':', 1)[1].strip()
         break
 # NOTE: bump this expectation together with the version on every release!
-tests.append(('R66/R80 version is .83 in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-10.83'", repr(_v66)))
+tests.append(('R66/R80 version is .84 in 01_state.cfg (bump together with release!)',
+    _v66 == "'R2-2026-10-11.84'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -5274,10 +5282,9 @@ state_vars['mode'] = 'printing'
 
 # --- (2) watcher: range + label generation select-swap + range hint in preview ---
 _pp79 = open('tools/r2_postproc.py', encoding='utf-8').read()
-tests.append(('R79 watcher: range + label generation push _SELECT_FILE (swap)',
-    _pp79.count("_SELECT_FILE FILE=") >= 2
-    and 'Range ready: %s - selected for printing' in _pp79
-    and 'selected for printing' in _pp79, ''))
+tests.append(('R79 watcher: generator output follows gen_out (R109: _sel_line everywhere)',
+    _pp79.count('_sel_line(rv,') >= 11 and 'def _sel_line' in _pp79
+    and 'def _gen_out' in _pp79 and 'selected for printing' in _pp79, ''))
 tests.append(('R79 preview: RANGE excerpts get the AS LEGACY/AS SLICED hint',
     'RANGE excerpt: AS LEGACY = your settings' in _pp79, ''))
 
@@ -7629,7 +7636,7 @@ save_vars['default_preset_1'] = {
                'primetower','custom']}}
 save_vars['default_preset_1']['feats']['primetower'] = [True, 60.0, 500.0, 110.0]
 save_vars['default_preset_1']['feats']['custom'] = [True, 100.0, 700.0, 100.0]
-out = render(get_body('macros/05_materials.cfg', 'LOAD_DEFAULT_PRESET'), {'N': '1'})
+out = render(get_body('macros/05_materials.cfg', '_PROFILE_APPLY'), {'SRC': 'default', 'N': '1'})
 tests.append(('R95 preset LOAD (16 feats): primetower + custom restored',
     'VARIABLE=ovf_primetower_spd VALUE=60.0' in out
     and 'VARIABLE=ovf_custom_acc VALUE=700.0' in out
@@ -7640,7 +7647,7 @@ save_vars['default_preset_2'] = dict(save_vars['default_preset_1'])
 save_vars['default_preset_2']['feats'] = {c: v for c, v in
     save_vars['default_preset_1']['feats'].items()
     if c not in ('overhangperim', 'internalbridge', 'primetower', 'custom')}
-out = render(get_body('macros/05_materials.cfg', 'LOAD_DEFAULT_PRESET'), {'N': '2'})
+out = render(get_body('macros/05_materials.cfg', '_PROFILE_APPLY'), {'SRC': 'default', 'N': '2'})
 tests.append(('R95 preset LOAD (old 12 feats): new 4 fall back to OFF/100',
     'VARIABLE=ovf_overhangperim_on VALUE=False' in out
     and 'VARIABLE=ovf_custom_spd VALUE=100.0' in out
@@ -9294,6 +9301,139 @@ tests.append(('R108 files: wizard library + persister + backup shipped',
     and 'r2_backup_candidates' in open('setup.sh', encoding='utf-8').read(), ''))
 tests.append(('R108 watcher: _bed_limits reads r2_hardware.cfg too',
     'r2_hardware.cfg' in open('tools/r2_postproc.py', encoding='utf-8').read(), ''))
+
+# ============== R109: file profiles + generator output action ==============
+_pfsnap109 = {'material': 'PETG', 'bed': 70.0, 'bed_on': True, 'bed_after': 70.0,
+    'bed_after_on': True, 'hotend_first': 240.0, 'hotend_first_on': True,
+    'hotend_after': 235.0, 'hotend_after_on': False, 'pa': 0.06, 'pa_on': True,
+    'pa_smooth': 0.04, 'pa_smooth_on': False, 'retract_len': 0.8, 'retract_len_on': False,
+    'retract_speed': 35.0, 'retract_speed_on': False, 'unretract_speed': 35.0,
+    'unretract_speed_on': False, 'accel': 4000.0, 'accel_on': False, 'velocity': 0.0,
+    'velocity_on': False, 'min_cruise': 0.0, 'min_cruise_on': False,
+    'square_corner': 0.0, 'square_corner_on': False, 'flow': 98.0, 'flow_on': False,
+    'fan': 80.0, 'fan_on': False, 'ironing_flow': 15.0, 'ironing_flow_on': False,
+    'first_layer_speed': 75.0, 'overrides': 3,
+    'feats': {c: [False, 100.0, 0.0, 100.0] for c in
+              ['wallouter','wallinner','infillsparse','infillsolid','surfacetop','surfacebottom',
+               'bridge','gaps','support','ironing','skirt','brim','overhangperim','internalbridge',
+               'primetower','custom']}}
+save_vars['file_profiles'] = {'vase.gcode': {'pre': _pfsnap109, 'pre_ep': 5,
+                                             'post': dict(_pfsnap109, hotend_first=250.0),
+                                             'post_ep': 3}}
+save_vars['fp_epoch'] = 5
+_out109 = render(_pa109, {'SRC': 'file', 'WHICH': 'pre', 'FILE': 'vase.gcode'})
+tests.append(('R109 _PROFILE_APPLY (file src): restores the pre profile',
+    'VARIABLE=ov_hotend_first VALUE=240.0' in _out109
+    and 'VARIABLE=ov_hotend_first_on VALUE=True' in _out109
+    and "VARIABLE=material VALUE='\"PETG\"'" in _out109, _out109[:130]))
+save_vars.pop('preview_file', None)
+_sfp109 = get_body('macros/05_materials.cfg', 'SAVE_FILE_PROFILE')
+_out109 = render(_sfp109, {})
+tests.append(('R109 SAVE_FILE_PROFILE: no file selected -> clear refusal',
+    'no file selected' in _out109 and '_PROFILE_SAVE' not in _out109, _out109[:100]))
+save_vars['preview_file'] = 'vase.gcode'
+_out109 = render(_sfp109, {})
+tests.append(('R109 SAVE_FILE_PROFILE: chains the snapshot save for the selected file',
+    '_PROFILE_SAVE WHICH=pre FILE="vase.gcode"' in _out109, _out109[:100]))
+_psv109 = get_body('macros/05_materials.cfg', '_PROFILE_SAVE')
+save_vars.update({'ov_hotend_first': 225.0, 'ov_hotend_first_on': True,
+                  'ov_pa': 0.045, 'ov_pa_on': True, 'material': 'PLA'})
+_out109 = render(_psv109, {'WHICH': 'pre', 'FILE': 'vase.gcode'})
+tests.append(('R109 _PROFILE_SAVE: snapshots the live state + hands it to the writer',
+    'VARIABLE=pending_snap VALUE=' in _out109 and "'hotend_first': 225.0" in _out109
+    and "'pa': 0.045" in _out109 and "'feats':" in _out109
+    and '_PROFILE_WRITE WHICH=pre FILE="vase.gcode"' in _out109, _out109[:150]))
+_pw109 = get_body('macros/05_materials.cfg', '_PROFILE_WRITE')
+save_vars['pending_snap'] = dict(_pfsnap109, material='PLA', hotend_first=225.0)
+_out109 = render(_pw109, {'WHICH': 'pre', 'FILE': 'vase.gcode'})
+tests.append(('R109 _PROFILE_WRITE: pre saved, post + other files PRESERVED, epoch bumped',
+    'VARIABLE=file_profiles VALUE=' in _out109 and "'vase.gcode':" in _out109
+    and "'pre':" in _out109 and "'post':" in _out109
+    and 'VARIABLE=fp_epoch VALUE=6' in _out109
+    and 'File profile \'pre\' saved for vase.gcode' in _out109, _out109[:200]))
+_fpd109 = get_body('macros/05_materials.cfg', 'FILE_PROFILE_DELETE')
+_out109 = render(_fpd109, {'WHICH': 'pre'})
+tests.append(('R109 FILE_PROFILE_DELETE pre: post survives',
+    'VARIABLE=file_profiles VALUE=' in _out109 and "'post':" in _out109
+    and "'pre':" not in _out109.split('VALUE=', 1)[1].split('RESPOND')[0], _out109[:150]))
+_fpa109 = get_body('macros/05_materials.cfg', 'FILE_PROFILE_AUTO')
+_out109 = render(_fpa109, {'FILE': 'vase.gcode'})
+tests.append(('R109 FILE_PROFILE_AUTO: flags set + NEWER profile (pre, ep 5>3) applied',
+    'VARIABLE=fp_pre VALUE=1' in _out109 and 'VARIABLE=fp_post VALUE=1' in _out109
+    and "VARIABLE=fp_file VALUE='\"vase.gcode\"'" in _out109
+    and '_PROFILE_APPLY SRC=file WHICH=pre FILE="vase.gcode"' in _out109, _out109[:200]))
+save_vars['file_profiles']['vase.gcode']['post_ep'] = 9
+_out109 = render(_fpa109, {'FILE': 'vase.gcode'})
+tests.append(('R109 FILE_PROFILE_AUTO: post newer now -> post applied',
+    '_PROFILE_APPLY SRC=file WHICH=post FILE="vase.gcode"' in _out109, _out109[:120]))
+save_vars['file_profiles_on'] = False
+_out109 = render(_fpa109, {'FILE': 'vase.gcode'})
+tests.append(('R109 FILE_PROFILE_AUTO: auto-load OFF -> flags only, no apply',
+    'VARIABLE=fp_pre VALUE=1' in _out109 and '_PROFILE_APPLY' not in _out109, _out109[:120]))
+save_vars['file_profiles_on'] = True
+_fas109 = get_body('macros/05_materials.cfg', '_FILE_PROFILE_AUTOSAVE')
+_out109 = render(_fas109, {})
+tests.append(('R109 _FILE_PROFILE_AUTOSAVE: PRINT_END chains the post save (test.gcode)',
+    '_PROFILE_SAVE WHICH=post FILE="test.gcode"' in _out109, _out109[:100]))
+save_vars['file_profiles_autosave'] = False
+_out109 = render(_fas109, {})
+tests.append(('R109 _FILE_PROFILE_AUTOSAVE: toggle off -> nothing',
+    '_PROFILE_SAVE' not in _out109, _out109[:80]))
+save_vars['file_profiles_autosave'] = True
+_fpi109 = get_body('macros/05_materials.cfg', 'FILE_PROFILES_INFO')
+_out109 = render(_fpi109, {})
+tests.append(('R109 FILE_PROFILES_INFO: pre + post + newer verdict',
+    'File profiles for vase.gcode' in _out109 and 'pre  : saved' in _out109
+    and 'post : saved' in _out109 and 'auto-load picks the NEWER one' in _out109, _out109[:200]))
+_fpl109 = get_body('macros/05_materials.cfg', 'FILE_PROFILE_LOAD')
+_out109 = render(_fpl109, {'WHICH': 'post'})
+tests.append(('R109 FILE_PROFILE_LOAD post: chains the apply',
+    '_PROFILE_APPLY SRC=file WHICH=post FILE="vase.gcode"' in _out109, _out109[:100]))
+_out109 = render(_fpl109, {'WHICH': 'bogus'})
+tests.append(('R109 FILE_PROFILE_LOAD: bogus WHICH refused',
+    'WHICH must be pre or post' in _out109, _out109[:80]))
+_gos109 = get_body('macros/17_generator.cfg', '_GEN_OUT_SET')
+_out109 = render(_gos109, {'OUT': 'PREVIEW'})
+tests.append(('R109 _GEN_OUT_SET OUT=PREVIEW: sticky switch to preview-only',
+    'VARIABLE=gen_out VALUE=0' in _out109 and 'PREVIEW ONLY' in _out109, _out109[:100]))
+_out109 = render(_gos109, {'OUT': 'QUEUE'})
+tests.append(('R109 _GEN_OUT_SET OUT=QUEUE: sticky switch to queue',
+    'VARIABLE=gen_out VALUE=1' in _out109, _out109[:80]))
+_out109 = render(get_body('macros/17_generator.cfg', 'CABLE_TIE_GENERATE'), {'OUT': 'PREVIEW'})
+tests.append(('R109 generators accept OUT= (per-run override, here: cable ties)',
+    '_GEN_OUT_SET OUT=PREVIEW' in _out109, _out109[:80]))
+_ctg109 = open('macros/08_print_start_stop.cfg', encoding='utf-8').read()
+tests.append(('R109 PRINT_END writes the post profile (after the capture)',
+    '_CAPTURE_PRINT_SETTINGS' in _ctg109
+    and _ctg109.index('_CAPTURE_PRINT_SETTINGS') < _ctg109.index('_FILE_PROFILE_AUTOSAVE'), ''))
+_w109 = open('tools/r2_postproc.py', encoding='utf-8').read()
+tests.append(('R109 watcher: selection pushes FILE_PROFILE_AUTO + gen_out gates every generator',
+    '_FILE_PROFILE_AUTO FILE=' in _w109 and 'def _gen_out' in _w109
+    and _w109.count('_sel_line(rv') >= 12
+    and _w109.count('_sel_note(rv') >= 7, ''))
+_lcd109 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R109 LCD: Profiles menu with Material/Defaults/This-file submenus',
+    'menu __main __preprint __profs]' in _lcd109
+    and 'menu __main __preprint __profs __mat]' in _lcd109
+    and 'menu __main __preprint __profs __def]' in _lcd109
+    and 'menu __main __preprint __profs __file]' in _lcd109
+    and 'SAVE_FILE_PROFILE' in _lcd109 and 'FILE_PROFILE_LOAD WHICH=pre' in _lcd109
+    and 'FILE_PROFILE_DELETE WHICH=post' in _lcd109
+    and "printer['gcode_macro _STATE'].fp_pre|default(False)" in _lcd109
+    and 'SAVE_MATERIAL_TEMPS MATERIAL=PLA' in _lcd109
+    and 'Auto-load:' in _lcd109 and 'Auto-save post:' in _lcd109, ''))
+tests.append(('R109 LCD: Tools > After gen (queue/preview) + explanation',
+    'After gen:' in _lcd109 and '_GEN_OUT_SET OUT={0 if cur == 1 else 1}' in _lcd109
+    and 'What does that mean?' in _lcd109, ''))
+_01109 = open('macros/01_state.cfg', encoding='utf-8').read()
+tests.append(('R109 _STATE: fp flags declared + boot inits for the three switches',
+    'variable_fp_pre:' in _01109 and 'variable_fp_post:' in _01109
+    and 'variable_fp_file:' in _01109
+    and 'VARIABLE=gen_out VALUE=1' in _01109
+    and 'VARIABLE=file_profiles_on VALUE=True' in _01109
+    and 'VARIABLE=file_profiles_autosave VALUE=True' in _01109, ''))
+del save_vars['file_profiles'], save_vars['fp_epoch'], save_vars['preview_file']
+del save_vars['pending_snap']
 
 fails = 0
 for name, ok, info in tests:

@@ -307,12 +307,50 @@ Everything here is saved and reused; nothing is lost on restart.
 | Features | 16 submenus, one per feature (outer/inner wall, overhang wall, sparse/solid infill, top/bottom surface, bridge, internal bridge, gap fill, support, ironing, skirt, brim, prime tower, custom code): file original + ON switch + speed % + accel each |
 | Flow / 1st layer | global flow (1–300 %) and first-layer speed (0 = off, default 75 %) |
 | Bed Mesh | Level old files · Mesh ON/AUTO/OFF · Save after · Adaptive · Travel cap while meshing · Calibrate now · Load…/Delete… |
+| Profiles | per-file profiles (pre/post) + default profiles + material presets — see 3.4a (.84) |
 | Range/Stop | planned end at layer N + the range generator with floor/top holes (ch. 5.1) |
 | Filament | Load / Unload / Change (M600) before the print, load & unload lengths |
 
 **The golden rule:** overrides only apply when they are ON. A stored value
 without ON never touches the print; the file rules until you switch something
 on.
+
+### 3.4a Per-file profiles — the memory of every print (.84)
+
+Every legacy-printed file can carry its OWN profile: all pre-print settings
+(temps L1/L2, PA + smooth, retraction, motion, flow, fan, ironing flow,
+first-layer speed, material, all 16 feature switches with their speed/accel
+values) plus everything you tuned LIVE during the print. Two slots per file:
+
+| Slot | Written | Read |
+|---|---|---|
+| **pre** | MANUALLY: Pre-Print > Profiles > This file > Save as pre | Load button — and at every file selection when Auto-load is ON |
+| **post** | AUTOMATICALLY at PRINT_END of a successful print (your live tuning at the end of the print = how it finished) | Load button — and at every file selection when Auto-load is ON |
+
+Rules of the game:
+
+- **Auto-load picks the NEWER one** (pre vs post, save counter decides) —
+  the file starts with the settings that matched it last.
+- The auto-save NEVER overwrites a manually saved **pre** slot —
+  your deliberate snapshot stays.
+- Cancelled prints write nothing (only a clean PRINT_END saves).
+- The key is the file path below the gcodes root, so `Petg/vase.gcode` and
+  `vase.gcode` are two different files — exactly like the selection list.
+- Pre-Print settings beat material presets: applying a profile writes the
+  values AND their ON switches (the old "load default preset never switched
+  anything on" bug is fixed with the same code path).
+
+**Pre-Print > Profiles** has three sub-menus:
+
+| Sub-menu | Contents |
+|---|---|
+| Material | LOAD / SAVE / RESET for PLA, PETG, TPU (save writes the material values WITHOUT loading anything first) + LOAD/SAVE for ABS/ASA — the same presets as Pre-Print > Material |
+| Defaults | the 8 standalone default profiles: Save (current state) · Info (list all) · Load 1–8 · Delete 1–8 |
+| This file | Save as pre / Load pre / Load post / Delete pre / Delete post + Auto-load ON/OFF + Auto-save post ON/OFF — load/delete items appear only when that slot exists |
+
+`SAVE_MATERIAL_TEMPS`/`SAVE_DEFAULT_PRESET`/`SAVE_FILE_PROFILE` console
+commands do the same as their menu items; `FILE_PROFILES_INFO` lists what is
+stored for the selected file.
 
 ### 3.5 The start dialog — AS LEGACY or AS SLICED
 
@@ -664,6 +702,23 @@ holes, the cable-tie head channel and the loop slot, the gasket groove, the
 backplate keyhole and stud holes, the frame view opening and the
 bridge-test spans. FLAT gaskets and lithophanes have no openings at all —
 one continuous bead per layer, nothing to cross.
+
+### 5.0 After generating: QUEUE or PREVIEW only (.84)
+
+Every generator (range, labels, plotter, cable ties, angles, lithophane,
+gasket, frame, texture, bridging test, resonance plots) finishes by asking
+one question: what should happen with the new file? **Tools > After gen**
+sets the sticky answer — and every generator takes a per-run `OUT=` to
+override it once:
+
+| Mode | What happens |
+|---|---|
+| **QUEUE** (default) | the new file lands in the print queue: it is selected for printing right away — the LCD start selection jumps to it, you press Print and the start dialog opens. If the generator worked ON a selected file (range excerpt, texture), the new file REPLACES the selection |
+| **PREVIEW** | the file is only written and selected for the 3-D preview on the Pi (Mainsail/Fluidd) — nothing is queued, the current selection stays untouched |
+
+Console/Mainsail: `_GEN_OUT_SET OUT=QUEUE` (or `OUT=PREVIEW`,
+`OUT=SELECT`, `OUT=1/0`), per run e.g. `GEN_CABLE_TIES COUNT=8 OUT=PREVIEW`.
+The setting survives a reboot (default QUEUE — the pre-.84 behavior).
 
 ### 5.1 Range — print a section of an existing file
 
@@ -1328,6 +1383,11 @@ outer skin moves.
 5. **check it in the 3D viewer** — nothing auto-starts, by design,
 6. print the `_TX` file like any other (AS SLICED keeps the texture).
 
+(.84) Steps 5–6 follow **After gen** (ch. 5.0): QUEUE selects the `_TX`
+result for printing and REPLACES the source file's selection (the source
+itself stays on disk, untouched); PREVIEW ONLY leaves the selection alone.
+In both modes nothing ever starts printing by itself.
+
 | Parameter | Range | Meaning |
 |---|---|---|
 | Mode | OFF / FUZZY / BUMPS | OFF = the menu is inert (Apply refuses with a hint) |
@@ -1874,7 +1934,8 @@ Seven top groups — in LCD order: **Start Print?** (appears in the waiting
 state, position 1), **Live Tuning** (during a print, position 2), then
 Pre-Print, Quick Macros, **Tools** (the six part generators:
 Cable ties · Angles+Flat · Lithophane · Gaskets · Labels · Plotter, each
-with its own sub-menu),
+with its own sub-menu — plus **After gen** (QUEUE/PREVIEW, .84): what
+happens to every generated file, see 5.0),
 Maintenance, System. Start dialog and live tuning sit right at the top. Every line fits the 16 characters
 of the 12864 display — the value you edit is always visible (test-enforced).
 Pattern: first line = ON/OFF toggle (value stays stored), then the values.
@@ -1905,6 +1966,7 @@ retraction reads the firmware values — what you see is what runs.
 |---|---|
 | File (G-code) | full slicer summary of the selected file (type, material, layer height × layers, line widths, flow ratio, by-object, nozzle × wall loops, ALL speeds, accels, L1/L2 temps, PA, retraction) + **sliced by <slicer> for <firmware>** (volumetric files get a loud warning) — shown from the MOMENT you select the file; the per-feature values are MEASURED from the g-code — PLUS 16 activator rows (OW…BM + OH/IB/PT/CU): each shows the file's REAL speed + o:ON state; CLICK toggles that feature's override; features NOT in the file show 'n/a' and refuse |
 | Material | LOAD NOW + all material values + Save as preset — editing a value of the ACTIVE material applies LIVE too |
+| Profiles | Material (Load/Save/Reset PLA/PETG/TPU + ABS/ASA) · Defaults (Save/Info/Load 1–8/Delete 1–8) · This file (Save pre/Load pre/Load post/Del pre/Del post — only existing slots appear) + Auto-load & Auto-save post toggles (.84) |
 | Temperatures | Bed L1/L2, Hotend L1/L2, Fan L2 (ON/OFF each) + File H:/File B: = the file's own values |
 | Motion | PA (+smooth), retraction len/spd/unretract, Accel + Vel + MCR + Corner (ON/OFF each; Accel/Vel are GLOBAL caps — travels included) + Z-Hop ON/OFF + height + File R: |
 | Features | 16 submenus: outer/inner wall, overhang wall, sparse/solid infill, top/bottom surface, bridge, internal bridge, gap fill, support, ironing (+flow), skirt, brim, prime tower, custom code — each shows the file's ORIGINAL (File:) + own ON switch + speed % (× global) + accel; only features the file really contains are editable — **a feature the file does not contain disappears from the menu entirely, an available-but-inactive one stays visible for live activation** (.83); switching OFF resets the stored values to the file original — never touches the global values |
@@ -2506,12 +2568,25 @@ All 145 public macros with parameters (defaults in parentheses; blank = no param
 | **NOTIFY** | TEXT, LEVEL='info', LED, SOUND | notification helper: text + sound + LED in one call |
 | **SHOW_STATUS** | — | full status: mode, material, overrides, live values |
 
-### Materials — 05_materials.cfg (3)
+### Materials & profiles — 05_materials.cfg (18)
 | Macro | Parameters | Purpose |
 |---|---|---|
 | **SET_MATERIAL** | MATERIAL=<current>, APPLY_PRESET=1 | select material; APPLY_PRESET=1 also loads its preset |
-| **SAVE_MATERIAL_TEMPS** | MATERIAL=<current> | save current values as this material's preset |
+| **SAVE_MATERIAL_TEMPS** | MATERIAL=<current> | save current values as this material's preset — works WITHOUT loading it first (.84) |
 | **SHOW_MATERIAL** | — | show the current material + its stored preset |
+| **LOAD_DEFAULT_PRESET** | N=1..8 | load standalone default profile N (values + ON switches via _PROFILE_APPLY) |
+| **SAVE_DEFAULT_PRESET** | N=1..8 | save the current override state as default profile N |
+| **DELETE_DEFAULT_PRESET** | N=1..8 | delete default profile N |
+| **DEFAULT_PRESETS_INFO** | — | list all default profiles (slot, material, marker, epoch) |
+| **SAVE_FILE_PROFILE** | WHICH=pre | save the selected file's CURRENT pre-print state as its 'pre' profile (.84) |
+| **FILE_PROFILE_LOAD** | WHICH=pre/post | load the selected file's profile slot |
+| **FILE_PROFILE_DELETE** | WHICH=pre/post | delete the selected file's profile slot (other slot stays) |
+| **FILE_PROFILES_INFO** | — | what is stored for the selected file: pre/post, epochs, which one auto-load picks |
+| **FILE_PROFILE_AUTO** | FILE=<relpath> (int.) | watcher hook on every file selection: sets the menu flags + applies the newer profile when Auto-load is ON |
+| **_PROFILE_APPLY** | SRC=default N= · SRC=file WHICH= FILE= (int.) | the ONE apply path: values + ON switches + feature values + material |
+| **_PROFILE_SAVE** | WHICH= FILE= (int.) | snapshot the live state and hand it to the writer |
+| **_PROFILE_WRITE** | WHICH= FILE= (int.) | merge the snapshot into file_profiles (other slot + other files preserved), bump the epoch |
+| **_FILE_PROFILE_AUTOSAVE** | — (int.) | PRINT_END hook: saves the end-of-print state as 'post' (skips cancelled prints) |
 
 ### Temperatures & marks — 06_temp_controls.cfg (12)
 | Macro | Parameters | Purpose |
@@ -2683,7 +2758,8 @@ All 145 public macros with parameters (defaults in parentheses; blank = no param
 | **GEN_ANGLES** | COUNT=2, ANGLE=90, LEG_A=60, LEG_B=60, WIDTH=25, LAYERS=6, HOLES=2, HOLE_D=4, CS=1, STIFFENER=1, WALLS=2, INFILL=100, IRONING=0, FLAT=0, LAYER_H=0.2 | console/Mainsail angle/flat job: `GEN_ANGLES ANGLE=45 LEG_A=80 LEG_B=50 STIFFENER=2` — CS=1 countersunk · FLAT=1 flat connector |
 | **ANGLE_GENERATE** | — | create the plate file from the stored settings (bumps angle_nonce) |
 | **ANGLE_INFO** | — | every angle/flat setting + the auto-hole rules |
-| **TEXTURE_APPLY** | FILE='', MODE='OFF', THICK, DENSITY, PATTERN, SCALE, AMP, DIR='OUT' | fuzzy skin / shaped bumps for the SELECTED (or FILE) g-code: `TEXTURE_APPLY MODE=FUZZY THICK=0.3 DENSITY=100` — new `_TX_V01` file in the background, never auto-started (ch. 5.9) |
+| **TEXTURE_APPLY** | FILE='', MODE='OFF', THICK, DENSITY, PATTERN, SCALE, AMP, DIR='OUT', OUT= | fuzzy skin / shaped bumps for the SELECTED (or FILE) g-code: `TEXTURE_APPLY MODE=FUZZY THICK=0.3 DENSITY=100` — new `_TX_V01` file in the background — selected under QUEUE, but never auto-STARTED (ch. 5.9) |
+| **_GEN_OUT_SET** | OUT=QUEUE/PREVIEW (SELECT/ONLY/1/0) (int.) | the sticky generator output switch (.84, ch. 5.0) — every `*_GENERATE` macro also takes a per-run `OUT=` |
 
 ### KAMP — 14_kamp.cfg (5)
 | Macro | Parameters | Purpose |
@@ -3052,7 +3128,7 @@ Only the milestones — the full reasoning lives in SESSION_STATE.md.
 
 | Version | Core changes |
 |---|---|
-| .83 | field-log .82 issue list — the whole R106 round: **fan wake-up** (0 % → higher now applies the scaled file value immediately, layer-1 hold keeps precedence), honest **velocity/corner hints** (they are CAPS — the visible lever is the cruise ratio), the **user TYPE map** everywhere (visible top layer = Top surface, between = Internal solid, only true airwork = Bridge — the frame front used to tag as Internal solid, so top-surface overrides never reached the visible face; siblings fixed in labels/ties/seal/angles/bridge/Cura-SKIN), **rule ll** (nothing prints unanchored: shelf + disc lips got radial anchor stubs, the kit lips too, the SIDE closure redesigned around the T/B wall anchors), **feature filter** (feature menus hide what the file does not contain — 80 items), presets fill W/H, **frame user presets** (8 slots, save/load/delete at the LCD), **wall loops 1–4**, **Z-hop** on firmware retracts (live + pre-print, absolute Z, layer-change-aware), **travel controls** (SET_LIVE_ACCEL + Velcap relabeled — global caps govern travels too), **lithophane FLAT mode** (bed-clamped, terraced relief, 1–4 color bands with pause/swap), **hard bed clamps** (frame border clamps before splitting; W/H inputs never exceed the build volume), **Z tilt instead of gantry sync** (2+ Z steppers configured → every LCD spot swaps SYNC_GANTRY for a full Z-Tilt submenu: run, probe points, retries 0–5, tolerance 0.005–0.2, boot/print switches), **preheat 182 °C** (filament-swap level — hot enough to change filament while the start dialog waits, still below ooze), **any-Klipper render audit** (bed mesh / vibration / objects / sensor menu items guard themselves on printers without those sections — a permanent test sweeps 993 LCD expressions + 242 macro bodies against a minimal single-Z printer), **LED areas + System > LED Setup** (status / bed work light / nozzle split freely configurable — neopixel or dotstar, mainboard pin or EBB CAN chain, hard-clamped to chain_count, persisted in the new **hardware profile r2_hardware.cfg** — a second variables file that survives deleting variables.cfg), **setup/update wizards** (every hardware value asked in English + double-confirmed: build volume, probe offsets, clean/present positions, LED layout; update asks keep-or-change first), **verified backups + 4 change modes** (backup of every file first, cmp-verified, abort on mismatch; every printer.cfg/moonraker.conf change shown first: automatic with user lines only commented / commented-only / separate txt = safest / skip), **object processing** shown + explained + offered in BOTH directions, **printer.cfg.example fixes** (chain_cnt→chain_count, GRBGR color_order — both halted current Klipper) |
+| .84 | generator output + per-file profiles (R109): **every generator asks what to do with its file** — Tools > After gen QUEUE (select for printing, replaces the selection when built ON a file: range/texture) or PREVIEW ONLY (just the 3-D preview, nothing queued); sticky + `OUT=` per run; the five generators that never selected (texture, bridge test, resonance plots, plot text/status) now queue properly too · **per-file profiles**: every legacy-printed file remembers its pre-print + live-tuning state — 'post' saved automatically at a successful PRINT_END (cancelled = nothing), 'pre' only manually, auto-load on selection picks the NEWER slot, auto-save never overwrites a manual 'pre' · Pre-Print > Profiles: Material (save without loading first) / Defaults (the 8 standalone profiles) / This file (pre/post, auto toggles) · one apply path (_PROFILE_APPLY) writes values AND ON switches — fixes the old "LOAD_DEFAULT_PRESET set no switches" bug || .83 | field-log .82 issue list — the whole R106 round: **fan wake-up** (0 % → higher now applies the scaled file value immediately, layer-1 hold keeps precedence), honest **velocity/corner hints** (they are CAPS — the visible lever is the cruise ratio), the **user TYPE map** everywhere (visible top layer = Top surface, between = Internal solid, only true airwork = Bridge — the frame front used to tag as Internal solid, so top-surface overrides never reached the visible face; siblings fixed in labels/ties/seal/angles/bridge/Cura-SKIN), **rule ll** (nothing prints unanchored: shelf + disc lips got radial anchor stubs, the kit lips too, the SIDE closure redesigned around the T/B wall anchors), **feature filter** (feature menus hide what the file does not contain — 80 items), presets fill W/H, **frame user presets** (8 slots, save/load/delete at the LCD), **wall loops 1–4**, **Z-hop** on firmware retracts (live + pre-print, absolute Z, layer-change-aware), **travel controls** (SET_LIVE_ACCEL + Velcap relabeled — global caps govern travels too), **lithophane FLAT mode** (bed-clamped, terraced relief, 1–4 color bands with pause/swap), **hard bed clamps** (frame border clamps before splitting; W/H inputs never exceed the build volume), **Z tilt instead of gantry sync** (2+ Z steppers configured → every LCD spot swaps SYNC_GANTRY for a full Z-Tilt submenu: run, probe points, retries 0–5, tolerance 0.005–0.2, boot/print switches), **preheat 182 °C** (filament-swap level — hot enough to change filament while the start dialog waits, still below ooze), **any-Klipper render audit** (bed mesh / vibration / objects / sensor menu items guard themselves on printers without those sections — a permanent test sweeps 993 LCD expressions + 242 macro bodies against a minimal single-Z printer), **LED areas + System > LED Setup** (status / bed work light / nozzle split freely configurable — neopixel or dotstar, mainboard pin or EBB CAN chain, hard-clamped to chain_count, persisted in the new **hardware profile r2_hardware.cfg** — a second variables file that survives deleting variables.cfg), **setup/update wizards** (every hardware value asked in English + double-confirmed: build volume, probe offsets, clean/present positions, LED layout; update asks keep-or-change first), **verified backups + 4 change modes** (backup of every file first, cmp-verified, abort on mismatch; every printer.cfg/moonraker.conf change shown first: automatic with user lines only commented / commented-only / separate txt = safest / skip), **object processing** shown + explained + offered in BOTH directions, **printer.cfg.example fixes** (chain_cnt→chain_count, GRBGR color_order — both halted current Klipper) |
 | .82 | critical config fix (field log .81): the R92-onward bed/position carrier was a raw `[r2_postproc]` section in printer.cfg — **Klipper refuses unknown sections** („Section 'r2_postproc' is not a valid config section"), so the printer ended up in a halt loop the first time the section was really written (setup.sh offer). The carrier is now a KAMP-style **`[gcode_macro _R2_CONFIG]`** settings macro (`variable_bed_min_x` … , `variable_present_x/y`, `variable_wipe_x/y`) — valid for Klipper, native for the macros, parsed by the watcher; `setup.sh` migrates legacy sections automatically (backup + values kept); the same field log also uncovered the first-halt mechanism: appending after the `#*# <save_config>` block made the autosave unreadable („modifications after header" → „Option 'control' in section 'heater_bed' must be specified") — inserts now always go before that block |
 | .81 | honest host verdict + portability hardening (field log .80): HOST_CHECK's swap verdict now measures swap **activity** (vmstat in/out) — 109 MB of quietly parked pages after boot were flagged „SWAPPING!" with an error sound on every check although the Pi was healthy (stable swap, no load, no throttle); quiet pages now read as OK with a calm explanation, only real swap traffic stays loud. Compatibility fixes from the portability audit: PRINT_END's part presentation had a fixed Y228 (a crash on any bed under ~232 mm) — now clamped to the axes and configurable (`[r2_postproc] present_x/present_y`), both calibration-tower end parks (fixed Y190) and the PLT_FRAME park are clamped, the nozzle-wipe pad anchor is configurable (`wipe_x/wipe_y`), and `megatest.py` accepts `--bed=x0,y0,x1,y1` / `--cfg=printer.cfg` to sweep another printer's bed (too-big combos count as SKIP — the generators correctly reject them); `setup.sh` (environment wizard: service, KAMP, LED effects, RAM hogs, swap tuning) and `COMPATIBILITY.md` (portability report) join the package |
 | .80 | megatest hardening (field log .79): a 101-run sweep over every generator at its parameter extremes found and fixed two real bugs — the plotter DRAW mode scaled small images past the bed (48px drawing → y up to +1500 mm; big photos silently squashed to ~72 mm) and every frame file tags the shelf bands as BRIDGE but TYPES never listed it on normal frames; plot output now carries a final bed guard too; `tools/megatest.py` joins the package (rerun any time: `python3 tools/megatest.py`) |

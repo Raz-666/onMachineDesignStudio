@@ -10424,6 +10424,32 @@ def _moonraker_gcode(script, host='127.0.0.1', port=7125):
         return r.status == 200
 
 
+def _gen_out(rv):
+    """R109: what generators do with a finished file.
+    1 (default) = QUEUE: fresh files get selected, files derived from the
+    pending selection (range excerpt, texture) REPLACE it - the start dialog
+    asks AS SLICED / AS LEGACY as usual. 0 = PREVIEW ONLY: the file just
+    appears in the file list (check it in the 3D viewer first)."""
+    try:
+        v = int(float(rv.get('gen_out', 1) or 1))
+    except (TypeError, ValueError):
+        v = 1
+    return 0 if v == 0 else 1
+
+
+def _sel_line(rv, rel):
+    """The '_SELECT_FILE' tail line for a finished generator file (or '')."""
+    if not _gen_out(rv):
+        return ''
+    _r = str(rel).replace('"', '').replace(';', '').replace("'", '')
+    return '\n_SELECT_FILE FILE="%s"' % _r
+
+
+def _sel_note(rv, queued_txt, preview_txt=None):
+    """Message suffix: queued or preview, whatever the user picked."""
+    return queued_txt if _gen_out(rv) else (preview_txt or ' - in the file list (preview it first)')
+
+
 def _preview_script(ppath):
     """R74/R75: the moonraker script that makes the LCD show THIS file the moment
     it is selected - not the values of the last print (the .57 field log:
@@ -10883,6 +10909,14 @@ def watch(directory, interval=5.0, once=False):
                 if pfn and os.path.isfile(ppath):
                     try:
                         script_lines, nvals = _preview_script(ppath)
+                        # R109: file profiles - the moment THIS file is selected,
+                        # its stored settings (pre/post, whichever is newer)
+                        # apply to Pre-Print. The macro no-ops without a
+                        # profile or when auto-load is off.
+                        script_lines.append(
+                            '_FILE_PROFILE_AUTO FILE="%s"'
+                            % str(pfn).replace('"', '').replace(';', '')
+                                     .replace("'", ''))
                         try:
                             ok = _moonraker_gcode('\n'.join(script_lines))
                             print(f'[preview] {pfn}: {nvals} values pushed to Klipper'
@@ -10955,10 +10989,11 @@ def watch(directory, interval=5.0, once=False):
                             try:
                                 _rel79 = os.path.relpath(out, directory)
                                 _moonraker_gcode(
-                                    'RESPOND MSG="[OK] Range ready: %s - selected for printing '
-                                    '(the source selection is released)"\n'
-                                    '_SELECT_FILE FILE="%s"'
-                                    % (os.path.basename(out), _rel79))
+                                    'RESPOND MSG="[OK] Range ready: %s%s"'
+                                    % (os.path.basename(out),
+                                       _sel_note(rv, ' - selected for printing '
+                                                   '(the source selection is released)'))
+                                    + _sel_line(rv, _rel79))
                             except Exception as se79:              # noqa: BLE001
                                 print(f'[range] select-swap unreachable: {se79.__class__.__name__}', flush=True)
                     except Exception as e:              # noqa: BLE001
@@ -11135,15 +11170,15 @@ def watch(directory, interval=5.0, once=False):
                         _moonraker_gcode(
                             _sv_line('label_fit', fitmsg) + '\n'
                             'RESPOND MSG="Labels: %s - %d label(s), %s, font %.1fmm caps, '
-                            'stroke %.1fmm%s, %d layers, tower %s - selected for printing"'
+                            'stroke %.1fmm%s, %d layers, tower %s%s"'
                             '\nM117 Labels ready\n'
-                            '_SOUND_LIB NAME=r2_done\n'
-                            '_SELECT_FILE FILE="%s"'
+                            '_SOUND_LIB NAME=r2_done'
                             % (info_l['file'], info_l['count'], _sz79, info_l['cap_mm'],
                                info_l.get('stroke_eff', 0.0),
                                ' (capped)' if info_l.get('stroke_capped') else '',
                                info_l['layers'], 'on' if info_l['tower'] else 'off',
-                               _lab_rel79))
+                               _sel_note(rv, ' - selected for printing'))
+                            + _sel_line(rv, _lab_rel79))
                     except Exception as me:                  # noqa: BLE001
                         print(f'[labels] moonraker unreachable ({me.__class__.__name__})',
                               flush=True)
@@ -11200,20 +11235,21 @@ def watch(directory, interval=5.0, once=False):
                     _rel86t = os.path.relpath(
                         os.path.join(directory, info_t['file']), directory)
                     _msg86t = ('Ties: %s - %d tie(s), %s, strap %.0fx%.0fmm, '
-                               '%d layers, head %s (auto), %s - selected for printing'
+                               '%d layers, head %s (auto), %s%s'
                                % (info_t['file'], info_t['count'], info_t['variant'],
                                   info_t['length'], info_t['width'], info_t['layers'],
                                   info_t['head'],
                                   'reusable ball-loop (beads)' if info_t['variant'] == 'LOOP'
-                                  else 'classic one-way pawl'))
+                                  else 'classic one-way pawl',
+                                  _sel_note(rv, ' - selected for printing')))
                     for _note86t in info_t.get('notes', []):
                         _msg86t += ' | ' + _note86t
                     try:
                         _moonraker_gcode(
                             'RESPOND MSG="%s"\n'
                             'M117 Ties ready\n'
-                            '_SOUND_LIB NAME=r2_done\n'
-                            '_SELECT_FILE FILE="%s"' % (_msg86t, _rel86t))
+                            '_SOUND_LIB NAME=r2_done' % _msg86t
+                            + _sel_line(rv, _rel86t))
                     except Exception as me:                      # noqa: BLE001
                         print(f'[ties] moonraker unreachable ({me.__class__.__name__})',
                               flush=True)
@@ -11287,10 +11323,9 @@ def watch(directory, interval=5.0, once=False):
                         _moonraker_gcode(
                             'RESPOND MSG="%s"\n'
                             'M117 %s ready\n'
-                            '_SOUND_LIB NAME=r2_done\n'
-                            '_SELECT_FILE FILE="%s"'
-                            % (_msg86a, 'Flat' if info_a['kind'] == 'FLAT' else 'Angle',
-                               _rel86a))
+                            '_SOUND_LIB NAME=r2_done'
+                            % (_msg86a, 'Flat' if info_a['kind'] == 'FLAT' else 'Angle')
+                            + _sel_line(rv, _rel86a))
                     except Exception as me:                      # noqa: BLE001
                         print(f'[angles] moonraker unreachable ({me.__class__.__name__})',
                               flush=True)
@@ -11408,8 +11443,8 @@ def watch(directory, interval=5.0, once=False):
                             _msg89 += ' | ' + _n89
                         _moonraker_gcode(
                             'RESPOND MSG="%s"\nM117 Litho ready\n'
-                            '_SOUND_LIB NAME=r2_done\n_SELECT_FILE FILE="%s"'
-                            % (_msg89, _rel89))
+                            '_SOUND_LIB NAME=r2_done' % _msg89
+                            + _sel_line(rv, _rel89))
                     except Exception as e:                      # noqa: BLE001
                         print(f'[litho] error: {e!r}', flush=True)
                         try:
@@ -11469,8 +11504,8 @@ def watch(directory, interval=5.0, once=False):
                 try:
                     _moonraker_gcode(
                         'RESPOND MSG="%s"\nM117 Seal ready\n'
-                        '_SOUND_LIB NAME=r2_done\n_SELECT_FILE FILE="%s"'
-                        % (_msg89s, _rel89s))
+                        '_SOUND_LIB NAME=r2_done' % _msg89s
+                        + _sel_line(rv, _rel89s))
                 except Exception as me:                      # noqa: BLE001
                     print(f'[seal] moonraker unreachable ({me.__class__.__name__})',
                           flush=True)
@@ -11509,15 +11544,19 @@ def watch(directory, interval=5.0, once=False):
                     version=max(1, min(int(float(
                         rv.get('gen_version', 1) or 1)), 99)))
                 _msg91 = ('Texture: %s -> %s (%s, %d outer-wall points '
-                          'shifted, %d layers) - CHECK IT IN THE 3D VIEWER, '
-                          'nothing auto-starts'
+                          'shifted, %d layers)%s'
                           % (info_t91['src'], info_t91['file'],
                              info_t91['mode'], info_t91['shifted'],
-                             info_t91['layers']))
+                             info_t91['layers'],
+                             _sel_note(rv, ' - selected for printing (replaces '
+                                           'the source selection)',
+                                      ' - check it in the 3D viewer, nothing '
+                                      'auto-starts')))
                 try:
                     _moonraker_gcode(
                         'RESPOND MSG="%s"\nM117 Texture ready\n'
-                        '_SOUND_LIB NAME=r2_done' % _msg91)
+                        '_SOUND_LIB NAME=r2_done' % _msg91
+                        + _sel_line(rv, info_t91['file']))
                 except Exception as me:                      # noqa: BLE001
                     print(f'[texture] moonraker unreachable '
                           f'({me.__class__.__name__})', flush=True)
@@ -11692,7 +11731,7 @@ def watch(directory, interval=5.0, once=False):
                         _gc90 += ('\nM117 Frame: %d plates' % len(_plates90)
                                   + '\nM300 P150 S880\nG4 P300'
                                   * len(_plates90))
-                    _gc90 += '\n_SELECT_FILE FILE="%s"' % _rel90
+                    _gc90 += _sel_line(rv, _rel90)
                     try:
                         _moonraker_gcode(_gc90)
                     except Exception as me:                  # noqa: BLE001
@@ -11776,6 +11815,9 @@ def watch(directory, interval=5.0, once=False):
                                        'plot' if mode_r == 'plot' else 'print'))
                     script_r.append('M117 Resonance ready')
                     script_r.append('_SOUND_LIB NAME=r2_done')
+                    _sel91r = _sel_line(rv, info_r['file'])
+                    if _sel91r:
+                        script_r.append(_sel91r.lstrip('\n'))
                     try:
                         _moonraker_gcode('\n'.join(script_r))
                     except Exception as me:                  # noqa: BLE001
@@ -11825,10 +11867,13 @@ def watch(directory, interval=5.0, once=False):
                     try:
                         _moonraker_gcode(
                             'RESPOND MSG="Bridging test: %s - long %.0fmm, short %.0fmm '
-                            '(%d%%) %.0fmm lower - start it like any file"\n'
+                            '(%d%%) %.0fmm lower%s"\n'
                             'M117 Bridge ready\n_SOUND_LIB NAME=r2_done'
                             % (info_b['file'], info_b['length'], info_b['short_len'],
-                               info_b['short_pct'], info_b['h_long'] - info_b['h_short']))
+                               info_b['short_pct'], info_b['h_long'] - info_b['h_short'],
+                               _sel_note(rv, ' - selected for printing',
+                                         ' - start it like any file'))
+                            + _sel_line(rv, info_b['file']))
                     except Exception as me:                  # noqa: BLE001
                         print(f'[bridge] moonraker unreachable ({me.__class__.__name__})', flush=True)
                     print(f'[bridge] {info_b["file"]}: long {info_b["length"]}mm, short '
@@ -11865,9 +11910,12 @@ def watch(directory, interval=5.0, once=False):
                         var_path=VAR_PATH)
                     try:
                         _moonraker_gcode(
-                            'RESPOND MSG="Text plot: %s - %d line(s), %.1fmm letters, one page - '
-                            'start it (pen mode)"\nM117 Text ready\n_SOUND_LIB NAME=r2_done'
-                            % (os.path.basename(out_t), nlines, size))
+                            'RESPOND MSG="Text plot: %s - %d line(s), %.1fmm letters, one page%s"\n'
+                            'M117 Text ready\n_SOUND_LIB NAME=r2_done'
+                            % (os.path.basename(out_t), nlines, size,
+                               _sel_note(rv, ' - selected (pen mode)',
+                                         ' - start it (pen mode)'))
+                            + _sel_line(rv, os.path.relpath(out_t, directory)))
                     except Exception as me:                  # noqa: BLE001
                         print(f'[plottext] moonraker unreachable ({me.__class__.__name__})', flush=True)
                     print(f'[plottext] {os.path.basename(out_t)}: {nlines} line(s) at {size:g}mm', flush=True)
@@ -11893,6 +11941,7 @@ def watch(directory, interval=5.0, once=False):
                         _moonraker_gcode(
                             'RESPOND MSG="Status plot: 00_R2_Status_V01.gcode - %d line(s), %.1fmm - '
                             'start it (pen mode)"\nM117 Status ready\n_SOUND_LIB NAME=r2_done'
+                            + _sel_line(rv, '00_R2_Status_V01.gcode')
                             % (nlines, size))
                     except Exception as me:                  # noqa: BLE001
                         print(f'[plotstatus] moonraker unreachable ({me.__class__.__name__})', flush=True)
