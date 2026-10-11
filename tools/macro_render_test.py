@@ -5024,7 +5024,7 @@ tests.append(('R75 watcher: _prime_nonces adopts the current counters (no re-fir
         'seal_nonce': None, 'litho_del_nonce': None, 'frame_nonce': None,
         'texture_nonce': None, 'file_check_nonce': None, 'colorpic_nonce': None,
         'bricks_nonce': None, 'brickkit_nonce': None,
-        'plot_cal_nonce': None}, ''))
+        'figures_nonce': None, 'plot_cal_nonce': None}, ''))
 tests.append(('R75 watcher: daemon runs niced + primes on the first pass',
     'os.nice(4)' in open('tools/r2_postproc.py').read()
     and 'first_prime' in open('tools/r2_postproc.py').read(), ''))
@@ -6189,8 +6189,9 @@ tests.append(('R86 modules: 17_generator.cfg sentinel + _CHECK_INSTALL lists 17'
     and "('17_generator.cfg',       ['_V18_GEN'])" in open('macros/01_state.cfg').read()
     and 'all 17 modules' not in open('macros/01_state.cfg').read(), ''))
 tests.append(('R86-R120 watcher: NONCE_KEYS has 20 channels incl. litho/seal/frame/colorpic',
-    len(_pp.NONCE_KEYS) == 23 and 'cable_tie_nonce' in _pp.NONCE_KEYS
+    len(_pp.NONCE_KEYS) == 24 and 'cable_tie_nonce' in _pp.NONCE_KEYS
     and 'brickkit_nonce' in _pp.NONCE_KEYS
+    and 'figures_nonce' in _pp.NONCE_KEYS
     and 'colorpic_nonce' in _pp.NONCE_KEYS
     and 'bricks_nonce' in _pp.NONCE_KEYS
     and 'plot_cal_nonce' in _pp.NONCE_KEYS
@@ -11125,6 +11126,100 @@ tests.append(('R125b LCD: CREATE chains GEN_BRICKKIT, kit sits INSIDE Bricks',
     > _lcd125.index('[menu __main __gen __bricks __how]')
     and _lcd125.index('[menu __main __gen __bricks __kit]')
     < _lcd125.index('#  GASKETS'), ''))
+
+
+# ===== R126: figures (stylized system figures, original size + % scaling) ==========
+_df126 = _tf61.mkdtemp(prefix='r126_')
+_of126, _if126 = _pp61.make_figures(count=2, scale=100, out_dir=_df126,
+                                    bed=(0.0, -3.0, 220.0, 217.0))
+_tf126 = open(_of126, encoding='utf-8').read()
+tests.append(('R126 figures 100%: 2 figures = 10 parts, ~40mm, one color,'
+              ' zero M600',
+    _if126['kind'] == 'figures' and _if126['parts'] == 10
+    and 38.0 <= _if126['height_mm'] <= 40.5
+    and _tf126.count(chr(10) + 'M600') == 0
+    and _tf126.count('EXCLUDE_OBJECT_START')
+    == _tf126.count('EXCLUDE_OBJECT_END')
+    and len(_re122.findall(r'EXCLUDE_OBJECT_DEFINE NAME=(FIG_\S+)', _tf126)) == 10
+    and 'FIG_01_LEGS' in _tf126 and 'FIG_02_HEAD' in _tf126,
+    str({k: _if126[k] for k in ('parts', 'layers', 'height_mm')})))
+tests.append(('R126 figures 100%: system mating documented (hands/hats/feet)',
+    'ORIGINAL SIZE' in _tf126 and 'hands grip' in _tf126
+    and 'hats sit on the head stud' in _tf126
+    and 'feet click onto studs' in _tf126 and '; R2-POSTPROC v5' in _tf126
+    and 'PRINT_START' in _tf126 and chr(10) + 'PRINT_END' in _tf126, ''))
+_zs126 = [float(m.group(1)) for m in _re122.finditer(r'^;Z:([\d.]+)', _tf126,
+                                                     _re122.M)]
+tests.append(('R126 figures: z monotonic (parts interleave per layer)',
+    all(b >= a for a, b in zip(_zs126, _zs126[1:])), ''))
+tests.append(('R126 figures: layer snap noted (head 8.5 -> whole layers)',
+    any('snaps to' in n for n in _if126['notes']), str(_if126['notes'][:2])))
+_of126b, _if126b = _pp61.make_figures(count=1, scale=50, out_dir=_df126,
+                                      bed=(0.0, -3.0, 220.0, 217.0))
+_tf126b = open(_of126b, encoding='utf-8').read()
+tests.append(('R126 figures 50%: half height, display-only note, 5 parts',
+    _if126b['parts'] == 5
+    and abs(_if126b['height_mm'] - _if126['height_mm'] / 2.0) < 0.35
+    and 'mate only' in _tf126b
+    and _tf126b.count('EXCLUDE_OBJECT_START')
+    == _tf126b.count('EXCLUDE_OBJECT_END'), str(_if126b['height_mm'])))
+for _kw126, _msg126 in (({'scale': 10}, 'scale must be 25..300'),
+                        ({'scale': 400}, 'scale must be 25..300'),
+                        ({'count': 0}, 'count must be 1..24'),
+                        ({'count': 30}, 'count must be 1..24')):
+    try:
+        _pp61.make_figures(out_dir=_df126, **_kw126)
+        tests.append(('R126 figures: %s rejected (%s)'
+                      % (_msg126.split(' must ')[0], _kw126), False, 'no raise'))
+    except ValueError as e:
+        tests.append(('R126 figures: %s rejected (%s)'
+                      % (_msg126.split(' must ')[0], _kw126),
+                      _msg126 in str(e), str(e)[:60]))
+
+_ppsrc126 = open('tools/r2_postproc.py').read()
+tests.append(('R126 wiring: figures_nonce primed + threaded watcher',
+    'figures_nonce' in _pp61.NONCE_KEYS
+    and 'make_figures(**params)' in _ppsrc126
+    and 'threading.Thread(target=_fig_job126' in _ppsrc126
+    and 'Figures ERROR' in _ppsrc126, ''))
+
+save_vars['figures_scale'] = 100
+save_vars['figures_count'] = 1
+save_vars['figures_nonce'] = 0
+out = render(_body122('GEN_FIGURES'), {})
+tests.append(('R126 GEN_FIGURES: no params -> saved vars win, nonce bumps',
+    'VARIABLE=figures_nonce VALUE=1' in _re122.sub(r'\s+', ' ', out)
+    and 'VARIABLE=figures_scale VALUE=100' in out
+    and 'VARIABLE=figures_count VALUE=1' in out
+    and 'r2_confirm' in out and 'background thread' in out, out[:130]))
+out = render(_body122('GEN_FIGURES'), {'SCALE': '400'})
+tests.append(('R126 GEN_FIGURES: scale 400 rejected',
+    'SCALE must be 25..300' in out and 'VARIABLE=figures_nonce' not in out, ''))
+out = render(_body122('GEN_FIGURES'), {'COUNT': '30'})
+tests.append(('R126 GEN_FIGURES: count 30 rejected',
+    'COUNT must be 1..24' in out and 'VARIABLE=figures_nonce' not in out, ''))
+out = render(_body122('GEN_FIGURES'), {'SCALE': '150', 'COUNT': '3'})
+tests.append(('R126 GEN_FIGURES: params saved + paced',
+    'VARIABLE=figures_scale VALUE=150' in out
+    and 'VARIABLE=figures_count VALUE=3' in out
+    and 'VARIABLE=figures_nonce VALUE=1' in out and '_PACE' in out, ''))
+
+_lcd126 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R126 LCD: Tools > Bricks > Figures (scale 25-300, count 1-24,'
+              ' CREATE)',
+    all(_x in _lcd126 for _x in (
+        '[menu __main __gen __bricks __fig]',
+        '[menu __main __gen __bricks __fig __scl]',
+        '[menu __main __gen __bricks __fig __cnt]',
+        '[menu __main __gen __bricks __fig __go]',
+        '[menu __main __gen __bricks __fig __how]'))
+    and 'input_min: 25\ninput_max: 300\ninput_step: 5\n' in _lcd126
+    and 'GEN_FIGURES' in _lcd126[_lcd126.index('[menu __main __gen __bricks __fig __go]'):_lcd126.index('[menu', _lcd126.index('[menu __main __gen __bricks __fig __go]') + 10)], ''))
+_blk126 = _lcd126[_lcd126.index('[menu __main __gen __bricks __fig]'):_lcd126.index('[menu __main __gen __bricks __kit]')]
+_n126 = [l.strip()[6:].strip("'") for l in _blk126.split(chr(10)) if l.strip().startswith('name: ')]
+_n126 = [l.split('{')[0].strip() if '{' in l else l for l in _n126]
+tests.append(('R126 LCD: figures menu names stay short (R29)',
+    all(len(l) <= 16 for l in _n126), str(_n126)))
 
 fails = 0
 for name, ok, info in tests:

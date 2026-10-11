@@ -6623,7 +6623,7 @@ NONCE_KEYS = ('preview_nonce', 'range_nonce', 'label_gen_nonce', 'reso_nonce',
               'cable_tie_nonce', 'angle_nonce', 'litho_nonce', 'seal_nonce',
               'litho_del_nonce', 'frame_nonce', 'texture_nonce',
               'file_check_nonce', 'colorpic_nonce', 'bricks_nonce',
-              'brickkit_nonce', 'plot_cal_nonce')
+              'brickkit_nonce', 'figures_nonce', 'plot_cal_nonce')
 
 
 def _prime_nonces(rv):
@@ -11348,6 +11348,473 @@ def make_brick_kit(src, detail='AUTO', mode='BY_LAYER', colors=3,
     return os.path.join(out_dir, out_files[0]) if out_files else None, info
 
 
+# ---- R126: FIGURES - stylized system figures (original size + % scaling) --------
+# Classic-figure proportions from caliper measurements (head 10.2 wide,
+# torso 12.82 tall x 7.84 deep, legs ~15, feet 15.4 across, neck post ~4.9)
+# mapped onto the building system: at 100% the hands grip studs/axes O4.8,
+# hats sit on the head stud, feet click onto studs. Round joints everywhere
+# (they print like the brick tubes). Generic naming only - figures, no brands.
+
+FIG_PARTS = ('LEGS', 'TORSO', 'ARM1', 'ARM2', 'HEAD')
+
+
+def _rings126(pen, cx, cy, r_out, r_in, e, feed, wid):
+    """concentric ring fill of a disc / annulus (ring spacing = line width)."""
+    r = r_out
+    while r > wid / 2.0 and r > r_in:
+        _emit_loop(pen, _circle(cx, cy, r, 24 if r < 3 else 28), e, feed)
+        r -= wid
+    if r_in <= 0.0 and r > 0.0:
+        _emit_loop(pen, _circle(cx, cy, max(r, wid / 2.0), 16), e, feed)
+
+
+def make_figures(count=1, scale=100.0, layer_h=0.2, material='PLA',
+                 bed=None, bed_margin=6.0, nozzle=0.6, out_dir='.',
+                 version=1):
+    """R126: stylized figures in the building system, original size or scaled.
+
+    count 1..24 (5 parts each: legs, torso, 2 arms, head - assembly needs no
+    glue: round tenons everywhere, arms swing, head turns). scale = percent;
+    only 100% mates with bricks/plates/hats (hands grip O4.8 studs+axes,
+    feet click onto studs) - other scales are display figures.
+    """
+    layer_h = max(0.08, min(float(layer_h or 0.2), 0.32))
+    notes = []
+    count = int(count)
+    scale = float(scale)
+    if not (1 <= count <= 24):
+        raise ValueError('count must be 1..24 figures (5 parts each)')
+    if not (25.0 <= scale <= 300.0):
+        raise ValueError('scale must be 25..300 percent (100 = original size,'
+                         ' mates with the bricks)')
+
+    bed = bed or (0.0, 0.0, 220.0, 220.0)
+    bx0, by0, bx1, by1 = bed
+    ux0, uy0 = bx0 + bed_margin, by0 + bed_margin
+    ux1, uy1 = bx1 - bed_margin, by1 - bed_margin
+    wid = max(0.4, nozzle * 1.08)
+    fil = FIL_AREA
+    s = scale / 100.0
+
+    def _mm(v):
+        return v * s
+
+    def _snap(total, what):
+        nl = max(1, int(round(total / layer_h)))
+        if abs(nl * layer_h - total) > 0.01:
+            notes.append('%s snaps to %d layers = %.2fmm (asked %.2f)'
+                         % (what, nl, nl * layer_h, total))
+        return nl
+
+    # ---- zone layer counts (100% geometry: legs 12.8 + hip 3.2 + tenon 4.0,
+    #      torso 12.8 (socket 4.2), head 8.5 + stud 1.8, arm 12.8) ----
+    nl_leg = _snap(_mm(12.8), 'legs')
+    nl_hip = _snap(_mm(3.2), 'hip')
+    nl_ten = _snap(_mm(4.0), 'hip tenon')
+    nl_tso = _snap(_mm(4.2), 'torso socket')
+    nl_tor = _snap(_mm(12.8), 'torso')
+    nl_nck = _snap(_mm(4.0), 'neck post')
+    nl_hso = _snap(_mm(4.0), 'head socket')
+    nl_hed = _snap(_mm(8.5), 'head')
+    nl_stu = _snap(_mm(1.8), 'head stud')
+    nl_grip = _snap(_mm(6.4), 'hand grip')
+    nl_arm = _snap(_mm(12.8), 'arm')
+
+    leg_w = _mm(7.2)                 # one leg (real foot: 7.2)
+    leg_gap = max(_mm(1.4), wid * 2.2)
+    leg_d = _mm(15.8)
+    tor_w = _mm(15.8)
+    tor_d = _mm(7.8)
+    arm_w = _mm(7.8)
+    head_d = _mm(10.2)
+    hip_ten_r = _mm(4.0)
+    tor_so_r = _mm(4.1)              # 0.1/side clearance over the tenon
+    neck_r = _mm(2.4)
+    head_so_r = _mm(2.55)            # 0.15/side clearance over the post
+    sh_ten_r = _mm(2.4)              # shoulder tenon O4.8
+    sh_hole_r = _mm(2.55)            # arm hole O5.1
+    sh_out = _mm(3.6)                # tenon protrusion beyond the torso wall
+    sh_z = _mm(9.6)                  # tenon/hole center above the part base
+    grip_r = _mm(2.45)               # hand grip O4.9 - takes O4.8 studs/axes
+    foot_tube_r = _mm(2.75)          # foot anti-stud O5.5
+    stud_r = _mm(2.4)
+    stud_wall = max(_mm(1.2), wid)
+
+    # ---- layout: one figure = legs + torso + 2 arms + head in a row ----
+    cells = []
+    for fi in range(count):
+        for pname, bw, bl in (('LEGS', leg_w * 2 + leg_gap, leg_d),
+                              ('TORSO', tor_w, tor_d),
+                              ('ARM1', arm_w, arm_w),
+                              ('ARM2', arm_w, arm_w),
+                              ('HEAD', head_d, head_d)):
+            cells.append({'fig': fi + 1, 'name': 'FIG_%02d_%s' % (fi + 1, pname),
+                          'part': pname, 'bw': bw, 'bl': bl})
+    x, y = ux0, uy0
+    row_h = 0.0
+    for c in cells:
+        if x + c['bw'] > ux1 and x > ux0:
+            x = ux0
+            y += row_h + BRICK_GAP
+            row_h = 0.0
+        if y + c['bl'] > uy1:
+            raise ValueError('%d figure(s) do not fit the bed - lower the'
+                             ' count or the scale' % count)
+        c['x'] = x
+        c['y'] = y
+        x += c['bw'] + BRICK_GAP
+        row_h = max(row_h, c['bl'])
+
+    total_layers = 0
+    for c in cells:
+        if c['part'] == 'LEGS':
+            c['nl'] = nl_leg + nl_hip + nl_ten
+        elif c['part'] == 'TORSO':
+            c['nl'] = nl_tor + nl_nck
+        elif c['part'] == 'ARM1' or c['part'] == 'ARM2':
+            c['nl'] = nl_arm
+        else:
+            c['nl'] = nl_hso + nl_hed + nl_stu
+        total_layers = max(total_layers, c['nl'])
+
+    fname = '00_Figures_s%03d_V%02d.gcode' % (max(25, min(int(round(scale)),
+                                                          300)),
+                                              max(1, min(int(version), 99)))
+    out = os.path.join(out_dir, fname)
+    e_wall = layer_h * wid / fil
+    first_h = layer_h
+    assembled = ((nl_leg + nl_hip) * layer_h + nl_tor * layer_h
+                 + nl_hed * layer_h + nl_stu * layer_h)
+
+    with open(out, 'w') as f:
+        sk = _Sink(f)
+        a = sk.append
+        pen = _Pen(sk, jump_d=6.0)
+        a('; R2-FIGURES stylized system figures (R126) - start it like any'
+          ' other file')
+        a(TAG)
+        a('; %d figure(s) at %g%% - %d parts (legs, torso, 2 arms, head per'
+          ' figure), ONE color, every part its own EXCLUDE_OBJECT'
+          % (count, scale, len(cells)))
+        a('; classic proportions by caliper: head O%.1f x %.1f, torso %.1f x'
+          ' %.1f x %.1f - assembled height %.1fmm (original ~40)'
+          % (head_d, (nl_hso + nl_hed) * layer_h, tor_w, tor_d,
+             nl_tor * layer_h, assembled))
+        a('; assembly without glue: torso presses onto the hip tenon, arms'
+          ' slide onto the shoulder pins (they swing), head presses onto the'
+          ' neck post (it turns)')
+        if abs(scale - 100.0) < 0.5:
+            a('; 100% = ORIGINAL SIZE and system-true: hands grip O4.8'
+              ' studs and axes, hats sit on the head stud, feet click onto'
+              ' studs (anti-studs underneath)')
+        else:
+            a('; %g%% = scaled display figure - it only mates with the'
+              ' system at 100%%' % scale)
+            notes.append('scaled %g%% - hands/hats/feet mate only at 100%%'
+                         % scale)
+        for _n126 in notes:
+            a('; note: %s' % _n126)
+        a('; filament_type = %s' % material)
+        a('; layer_height = %.2g' % layer_h)
+        a('; nozzle_diameter = %.1f' % nozzle)
+        a('; line_width = %.2g' % wid)
+        a('; outer_wall_line_width = %.2g' % wid)
+        a('; outer_wall_speed = 35')
+        a('; inner_wall_speed = 40')
+        a('; top_surface_speed = 35')
+        a('; internal_solid_infill_speed = 50')
+        a('; initial_layer_speed = 20')
+        a('; travel_speed = 150')
+        a('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d LINE_WIDTH=%.2g '
+          'LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g FLOW_RATIO=1 NOZZLE=%.1f '
+          'WALL_LOOPS=2 SPEED_OUTER=35 SPEED_FIRST=20 SPEED_TRAVEL=150 '
+          'TYPES=WALL-OUTER,WALL-INNER,INFILL-SOLID,SURFACE-BOTTOM,SURFACE-TOP'
+          ',BRIM BY_OBJECT=0'
+          % (material, layer_h, total_layers, wid, wid, wid, nozzle))
+        _last126 = [None]
+
+        def _ty126(t):
+            if _last126[0] != t:
+                a(';TYPE:%s' % t)
+                a('APPLY_TYPE TYPE=%s' % t)
+                _last126[0] = t
+
+        for c in cells:
+            _xs = [c['x'], c['x'] + c['bw']]
+            _ys = [c['y'], c['y'] + c['bl']]
+            _poly = ('[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]'
+                     % (_xs[0], _ys[0], _xs[1], _ys[0], _xs[1], _ys[1],
+                        _xs[0], _ys[1]))
+            a('EXCLUDE_OBJECT_DEFINE NAME=%s CENTER=%.1f,%.1f POLYGON=%s'
+              % (c['name'], (_xs[0] + _xs[1]) / 2.0, (_ys[0] + _ys[1]) / 2.0,
+                 _poly))
+        a('PRINT_START')
+
+        def _loops(cx0, cy0, cx1, cy1, e, feed):
+            _emit_loop(pen, _rect_loop(cx0, cy0, cx1, cy1), e, feed)
+
+        def _wall_rect(x0, y0, x1, y1, feed_in=2400):
+            _ty126('Outer wall')
+            _loops(x0, y0, x1, y1, e_wall, 2200)
+            _ty126('Wall-Inner')
+            _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid, e_wall, feed_in)
+
+        def _hatch_rect(x0, y0, x1, y1, keeps, feed=1900):
+            _ty126('Internal solid infill')
+            for p, q in _brick_hatch(x0 + 2 * wid, y0 + 2 * wid,
+                                     x1 - 2 * wid, y1 - 2 * wid, keeps,
+                                     wid, 45, 0.35):
+                pen.travel(p[0], p[1])
+                pen.extrude(q[0], q[1],
+                            math.hypot(q[0] - p[0], q[1] - p[1]) * e_wall,
+                            feed)
+
+        def _seg(y0, y1, x0, x1, p, q):
+            pen.travel(p[0], p[1])
+            pen.extrude(q[0], q[1],
+                        math.hypot(q[0] - p[0], q[1] - p[1]) * e_wall, 2200)
+
+        def _part_legs(c, li, z):
+            cx = c['x'] + c['bw'] / 2.0
+            cy = c['y'] + c['bl'] / 2.0
+            lx0 = c['x'] + wid / 2.0
+            lx1 = c['x'] + c['bw'] - wid / 2.0
+            ly0 = c['y'] + wid / 2.0
+            ly1 = c['y'] + c['bl'] - wid / 2.0
+            legA = (lx0, ly0, lx0 + leg_w - wid, ly1)
+            legB = (lx1 - leg_w + wid, ly0, lx1, ly1)
+            if li == 1:
+                _ty126('Brim')
+                for off in (wid * 0.35, wid * 0.35 + wid):
+                    _loops(c['x'] - off, c['y'] - off,
+                           c['x'] + c['bw'] + off, c['y'] + c['bl'] + off,
+                           e_wall, 1500)
+                _ty126('Bottom surface')
+                for (bx0, by0, bx1, by1) in (legA, legB):
+                    _loops(bx0, by0, bx1, by1, e_wall, 1400)
+                    _loops(bx0 + wid, by0 + wid, bx1 - wid, by1 - wid,
+                           e_wall, 1600)
+                    _hatch_rect(bx0, by0, bx1, by1, [], 1600)
+                return
+            if li <= nl_leg:
+                keeps = [(cx - leg_w / 2.0 - leg_gap / 2.0, cy,
+                          foot_tube_r),
+                         (cx + leg_w / 2.0 + leg_gap / 2.0, cy,
+                          foot_tube_r)] if li > 1 else []
+                pen.holes = [(kx, ky, foot_tube_r - 0.6)
+                             for (kx, ky, _) in keeps]
+                for (bx0, by0, bx1, by1) in (legA, legB):
+                    _wall_rect(bx0, by0, bx1, by1)
+                    tcx = (bx0 + bx1) / 2.0
+                    if li > 1:
+                        _ty126('Wall-Inner')
+                        _emit_loop(pen, _circle(tcx, cy,
+                                                foot_tube_r - wid / 2.0, 20),
+                                   e_wall, 2200)
+                        _emit_loop(pen, _circle(tcx, cy,
+                                                foot_tube_r - _mm(0.65)
+                                                + wid / 2.0, 16), e_wall, 2200)
+                    _hatch_rect(bx0, by0, bx1, by1,
+                                [(tcx, cy, foot_tube_r)] if li > 1 else [])
+                return
+            pen.holes = []
+            if li <= nl_leg + nl_hip:
+                _wall_rect(lx0, ly0, lx1, ly1)
+                _hatch_rect(lx0, ly0, lx1, ly1, [])
+                return
+            # hip tenon: solid disc
+            _ty126('Outer wall')
+            _rings126(pen, cx, cy, hip_ten_r - wid / 2.0, 0.0, e_wall, 2200,
+                      wid)
+
+        def _part_torso(c, li, z):
+            x0 = c['x'] + wid / 2.0
+            x1 = c['x'] + c['bw'] - wid / 2.0
+            y0 = c['y'] + wid / 2.0
+            y1 = c['y'] + c['bl'] - wid / 2.0
+            cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+            if li == 1:
+                _ty126('Brim')
+                for off in (wid * 0.35, wid * 0.35 + wid):
+                    _loops(c['x'] - off, c['y'] - off,
+                           c['x'] + c['bw'] + off, c['y'] + c['bl'] + off,
+                           e_wall, 1500)
+                _ty126('Bottom surface')
+                _loops(x0, y0, x1, y1, e_wall, 1400)
+                _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid, e_wall, 1600)
+                _hatch_rect(x0, y0, x1, y1, [], 1600)
+                return
+            dz = z - sh_z
+            if abs(dz) < sh_ten_r - wid / 4.0:
+                h = math.sqrt(max(0.0, sh_ten_r * sh_ten_r - dz * dz))
+                if h >= wid / 2.0:
+                    _ty126('Outer wall')
+                    for xe, xs in ((x0 - sh_out, x0 + wid),
+                                   (x1 + sh_out, x1 - wid)):
+                        _loops(min(xe, xs), cy - h, max(xe, xs), cy + h,
+                               e_wall, 2200)
+            if li <= nl_tso:
+                pen.holes = [(cx, cy, tor_so_r - 0.6)]
+                _wall_rect(x0, y0, x1, y1)
+                _ty126('Wall-Inner')
+                _emit_loop(pen, _circle(cx, cy, tor_so_r - wid / 2.0, 24),
+                           e_wall, 2200)
+                _hatch_rect(x0, y0, x1, y1, [(cx, cy, tor_so_r)])
+                return
+            pen.holes = []
+            if li <= nl_tor:
+                _wall_rect(x0, y0, x1, y1)
+                _hatch_rect(x0, y0, x1, y1, [])
+                return
+            # neck post: hollow like a stud
+            _ty126('Outer wall')
+            _emit_loop(pen, _circle(cx, cy, neck_r - wid / 2.0, 20),
+                       e_wall, 2200)
+            _emit_loop(pen, _circle(cx, cy, neck_r - stud_wall + wid / 2.0,
+                                    16), e_wall, 2200)
+
+        def _part_arm(c, li, z):
+            x0 = c['x'] + wid / 2.0
+            x1 = c['x'] + c['bw'] - wid / 2.0
+            y0 = c['y'] + wid / 2.0
+            y1 = c['y'] + c['bl'] - wid / 2.0
+            cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+            if li == 1:
+                _ty126('Brim')
+                for off in (wid * 0.35, wid * 0.35 + wid):
+                    _loops(c['x'] - off, c['y'] - off,
+                           c['x'] + c['bw'] + off, c['y'] + c['bl'] + off,
+                           e_wall, 1500)
+                _ty126('Bottom surface')
+                _loops(x0, y0, x1, y1, e_wall, 1400)
+                _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid, e_wall, 1600)
+                _hatch_rect(x0, y0, x1, y1, [(cx, cy, grip_r)], 1600)
+                return
+            dz = z - sh_z
+            in_shoulder = abs(dz) < sh_hole_r
+            if in_shoulder and li > nl_arm - 2:
+                # top cap over the shoulder slot: close it
+                pen.holes = []
+                _wall_rect(x0, y0, x1, y1)
+                _ty126('Top surface')
+                _hatch_rect(x0, y0, x1, y1, [], 1700)
+                return
+            if in_shoulder:
+                h = math.sqrt(max(0.0, sh_hole_r * sh_hole_r - dz * dz))
+                pen.holes = [(cx, cy, sh_hole_r - 0.6)]
+                _ty126('Outer wall')
+                _loops(x0, y0, x1, y1, e_wall, 2200)
+                _ty126('Wall-Inner')
+                for yy in (cy - h + wid / 2.0, cy + h - wid / 2.0):
+                    pen.travel(x0 + wid, yy)
+                    pen.extrude(x1 - wid, yy, (x1 - x0 - 2 * wid) * e_wall,
+                                2400)
+                return
+            pen.holes = []
+            if li <= nl_grip:
+                pen.holes = [(cx, cy, grip_r - 0.6)]
+                _wall_rect(x0, y0, x1, y1)
+                _ty126('Wall-Inner')
+                _emit_loop(pen, _circle(cx, cy, grip_r - wid / 2.0, 20),
+                           e_wall, 2200)
+                _emit_loop(pen, _circle(cx, cy, grip_r - _mm(0.65) + wid / 2.0,
+                                        16), e_wall, 2200)
+                _hatch_rect(x0, y0, x1, y1, [(cx, cy, grip_r)])
+                return
+            if li == nl_arm:
+                _wall_rect(x0, y0, x1, y1)
+                _ty126('Top surface')
+                _hatch_rect(x0, y0, x1, y1, [], 1700)
+                return
+            _wall_rect(x0, y0, x1, y1)
+            _hatch_rect(x0, y0, x1, y1, [])
+
+        def _part_head(c, li, z):
+            cx = c['x'] + c['bw'] / 2.0
+            cy = c['y'] + c['bl'] / 2.0
+            if li == 1:
+                _ty126('Brim')
+                for off in (wid * 0.35, wid * 0.35 + wid):
+                    _emit_loop(pen, _circle(cx, cy, head_d / 2.0 + off, 28),
+                               e_wall, 1500)
+                _ty126('Bottom surface')
+                _emit_loop(pen, _circle(cx, cy, head_d / 2.0 - wid / 2.0, 28),
+                           e_wall, 1400)
+                _rings126(pen, cx, cy, head_d / 2.0 - wid, 0.0, e_wall, 1600,
+                          wid)
+                return
+            if li <= nl_hso:
+                pen.holes = [(cx, cy, head_so_r - 0.6)]
+                _ty126('Outer wall')
+                _emit_loop(pen, _circle(cx, cy, head_d / 2.0 - wid / 2.0, 28),
+                           e_wall, 2200)
+                _ty126('Wall-Inner')
+                _emit_loop(pen, _circle(cx, cy, head_d / 2.0 - wid, 26),
+                           e_wall, 2400)
+                _emit_loop(pen, _circle(cx, cy, head_so_r - wid / 2.0, 20),
+                           e_wall, 2200)
+                _ty126('Internal solid infill')
+                _rings126(pen, cx, cy, head_d / 2.0 - 2 * wid, head_so_r,
+                          e_wall, 1900, wid)
+                return
+            pen.holes = []
+            if li <= nl_hso + nl_hed:
+                _ty126('Outer wall')
+                _emit_loop(pen, _circle(cx, cy, head_d / 2.0 - wid / 2.0, 28),
+                           e_wall, 2200)
+                _ty126('Wall-Inner')
+                _emit_loop(pen, _circle(cx, cy, head_d / 2.0 - wid, 26),
+                           e_wall, 2400)
+                if li == nl_hso + nl_hed:
+                    _ty126('Top surface')
+                else:
+                    _ty126('Internal solid infill')
+                _rings126(pen, cx, cy, head_d / 2.0 - 2 * wid, 0.0, e_wall,
+                          1700 if li == nl_hso + nl_hed else 1900, wid)
+                return
+            # head stud: hollow, takes hats at 100%
+            _ty126('Outer wall')
+            _emit_loop(pen, _circle(cx, cy, stud_r - wid / 2.0, 20),
+                       e_wall, 2200)
+            _emit_loop(pen, _circle(cx, cy, stud_r - stud_wall + wid / 2.0,
+                                    16), e_wall, 2200)
+
+        for li in range(1, total_layers + 1):
+            z = round(first_h + (li - 1) * layer_h, 3)
+            a(';LAYER_CHANGE')
+            a(';Z:%.3f' % z)
+            pen.set_z(z)
+            if li == 2:
+                a('M106 S178   ; R2-FIGURES: part fan from layer 2')
+            for c in cells:
+                pen.holes = []
+                if li > c['nl']:
+                    continue
+                a('EXCLUDE_OBJECT_START NAME=%s' % c['name'])
+                if c['part'] == 'LEGS':
+                    _part_legs(c, li, z)
+                elif c['part'] == 'TORSO':
+                    _part_torso(c, li, z)
+                elif c['part'] == 'HEAD':
+                    _part_head(c, li, z)
+                else:
+                    _part_arm(c, li, z)
+                a('EXCLUDE_OBJECT_END NAME=%s' % c['name'])
+        a(';TYPE:Custom')
+        a('APPLY_TYPE TYPE=Custom')
+        a('M107')
+        a('PRINT_END')
+        sk.flush()
+
+    info = {'file': fname, 'kind': 'figures', 'count': count,
+            'scale': round(scale, 1), 'parts': len(cells),
+            'layers': total_layers,
+            'thickness': round(total_layers * layer_h, 2),
+            'height_mm': round(assembled, 2),
+            'notes': notes}
+    return out, info
+
+
 def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
                   band_h=0.8, ironing=True, brim_loops=3, gamma=1.0,
                   material='PLA', bed=None, bed_margin=6.0, nozzle=0.6,
@@ -13686,6 +14153,7 @@ def watch(directory, interval=5.0, once=False):
     last_plotcal_nonce = None       # R122: plot calibration test
     last_bricks_nonce = None         # R121: building bricks
     last_brickkit_nonce = None       # R125: brick kit from a sliced file
+    last_figures_nonce = None        # R126: stylized system figures
     last_plotstatus_nonce = None
     last_host_nonce = None
     first = True
@@ -14573,6 +15041,72 @@ def watch(directory, interval=5.0, once=False):
             except Exception:                               # noqa: BLE001
                 pass
             print(f'[brickkit] poll error: {e!r}', flush=True)
+
+        # R126: figures request (figures_nonce) - stylized system figures,
+        # original size or % scaled. THREADED like bricks.
+        try:
+            _gn126 = rv.get('figures_nonce', '')
+            if _gn126 and _gn126 != last_figures_nonce:
+                last_figures_nonce = _gn126
+
+                def _vff126(key, dflt):
+                    try:
+                        return float(rv.get(key, dflt) or dflt)
+                    except (TypeError, ValueError):
+                        return float(dflt)
+
+                _fparams126 = dict(
+                    count=max(1, min(int(str(rv.get('figures_count', 1)
+                                                  or 1)), 24)),
+                    scale=max(25.0, min(_vff126('figures_scale', 100.0),
+                                        300.0)),
+                    layer_h=_vff126('bricks_layer_h', 0.2),
+                    material=str(rv.get('material', 'PLA') or 'PLA'),
+                    bed=_bed_limits(os.path.join(
+                        os.path.dirname(os.path.abspath(directory).rstrip('/')),
+                        'config', 'printer.cfg')),
+                    nozzle=_gen_nozzle(directory), out_dir=directory,
+                    version=max(1, min(int(str(rv.get('gen_version', 1)
+                                                  or 1)), 99)))
+
+                def _fig_job126(params=_fparams126):
+                    try:
+                        _of126, _if126 = make_figures(**params)
+                        _frel126 = os.path.relpath(_of126, directory)
+                        _fmsg126 = ('Figures: %s - %d figure(s) at %g%%, %d '
+                                    'parts, %d layers, %.1fmm tall - '
+                                    'selected for printing'
+                                    % (_if126['file'], _if126['count'],
+                                       _if126['scale'], _if126['parts'],
+                                       _if126['layers'], _if126['height_mm']))
+                        if abs(_if126['scale'] - 100.0) < 0.5:
+                            _fmsg126 += (' | 100%: hands grip studs and axes,'
+                                         ' hats sit on heads, feet click onto'
+                                         ' studs')
+                        else:
+                            _fmsg126 += ' | scaled - mates only at 100%'
+                        _fmsg126 += (' | assembly without glue: arms swing,'
+                                     ' the head turns')
+                        for _n126 in _if126.get('notes', [])[:3]:
+                            _fmsg126 += ' | ' + _n126
+                        _moonraker_gcode(
+                            'RESPOND MSG="%s"\nM117 Figures ready\n'
+                            '_SOUND_LIB NAME=r2_done' % _fmsg126
+                            + _sel_line(rv, _frel126))
+                    except Exception as e:                      # noqa: BLE001
+                        print(f'[figures] error: {e!r}', flush=True)
+                        try:
+                            _moonraker_gcode(
+                                'RESPOND MSG="Figures ERROR: %s"\n'
+                                'M117 Figures error\n'
+                                '_SOUND_LIB NAME=r2_error' % e)
+                        except Exception:                       # noqa: BLE001
+                            pass
+
+                import threading
+                threading.Thread(target=_fig_job126, daemon=True).start()
+        except Exception as e:                              # noqa: BLE001
+            print(f'[figures] poll error: {e!r}', flush=True)
 
         # R89: gasket/seal generator request (seal_nonce) - small file, inline
         try:

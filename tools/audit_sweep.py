@@ -291,6 +291,12 @@ run(pp.make_brick_kit, 'kit-vase-shell', src=_vase125, detail='SMALL',
 run(pp.make_brick_kit, 'kit-badcolors', src=_box125, colors=9, bed=BED,
     expect_guard='colors must be 1..8')
 
+# ---- R126: stylized system figures (original size + % scaling) ----
+run(pp.make_figures, 'figures-100', count=2, scale=100, bed=BED)
+run(pp.make_figures, 'figures-50', count=1, scale=50, bed=BED)
+run(pp.make_figures, 'figures-badscale', count=1, scale=400, bed=BED,
+    expect_guard='scale must be 25..300')
+
 # ---- R120: color picture (same synthetic image, 4 + 8 bands, custom
 # palette, and the unknown-color guard must raise) ----
 run(pp.make_colorpic, 'colorpic-4', src=_img, bed=BED)
