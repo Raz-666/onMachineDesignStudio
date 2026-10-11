@@ -3785,7 +3785,7 @@ def _label_box_shape(box, w, h, shape, corner, hole_side, band):
 
 
 def _label_layout(w, h, hole_side, hole_d, shape='RECT', corner=0.0,
-                  margin_extra=0.0):
+                  margin_extra=0.0, hole_edge=2.0):
     """R73: hole + text box.
 
     The hole now sits CLOSE TO THE EDGE (2mm rim - key rings clip through
@@ -3799,7 +3799,10 @@ def _label_layout(w, h, hole_side, hole_d, shape='RECT', corner=0.0,
     # R119: margin_extra = the raised BORDER zone (gap + walls + clearance)
     # - the text must never grow into it
     m = max(1.5, 0.07 * min(w, h), float(margin_extra or 0.0))
-    edge = 2.0                      # rim between label edge and hole edge
+    # R120: hole_edge = rim between label edge and hole edge. Default 2mm;
+    # with a raised border it moves INSIDE the border ring (the border must
+    # never break for the hole - user spec)
+    edge = max(2.0, float(hole_edge or 2.0))
     if hole_side in (1, 2) and hole_d > 0:      # left / right
         d = max(2.5, min(float(hole_d), h - 2 * edge - 2.0, 16.0))
         cx = edge + d / 2.0 if hole_side == 1 else w - edge - d / 2.0
@@ -3901,7 +3904,7 @@ def _label_need_size(g, parsed, cap, spacing=0.0, stroke_w=0.0, fill=0.94):
 
 def _label_grow_fit(all_lines, font, w, h, font_size, spacing, stroke_w,
                     hole_side, hole_d, floor_cap=2.8, shape='RECT',
-                    corner=0.0, margin_extra=0.0):
+                    corner=0.0, margin_extra=0.0, hole_edge=2.0):
     """R83: the AUTO-FIT + AUTO-GROW pass, shared by make_labels and
     label_preview (the LCD 'Fit' item shows the SAME numbers the generator
     will print). Caps raised for big signs: width up to 240mm, height to
@@ -3914,7 +3917,7 @@ def _label_grow_fit(all_lines, font, w, h, font_size, spacing, stroke_w,
         grew = False
         _c79, box79, _d79 = _label_layout(w, h, hole_side, hole_d,
                                            shape, corner,
-                                           margin_extra)
+                                           margin_extra, hole_edge)
         bw79 = box79[2] - box79[0]
         bh79 = box79[3] - box79[1]
         for g79, parsed79 in mcache:
@@ -4621,7 +4624,8 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
                 bed_margin=6.0, nozzle=0.6, stroke=0.0, font_size=0.0, spacing=0.0,
                 out_dir='.', version=1, mode='grow', job_cfgs=None,
                 height=0.0, shape='RECT', corner=0.0, border_walls=0,
-                border_gap=0.0, sparse_pct=8.0):
+                border_gap=0.0, sparse_pct=8.0, ring=False, ring_d=6.0,
+                ring_h=0.0):
     """Generate a printable label plate file. Returns (path, info).
 
     R74: every entry may carry up to 3 lines separated by '~' (LCD: Labels >
@@ -4676,6 +4680,14 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
         corner = 0.0
     border_walls = max(0, min(int(border_walls), 4))
     border_gap = max(0.0, min(float(border_gap or 0.0), 10.0))
+    # R120: external hanging ring instead of the in-label hole (position =
+    # hole_side). Prints from LAYER 1 flush against the label edge; its
+    # height never exceeds the label's total height.
+    ring = bool(ring) and hole_side in (1, 2, 3, 4)
+    ring_d = max(3.0, min(float(ring_d or 6.0), 20.0))
+    ring_wt = 3.0 * max(0.4, nozzle * 1.08)   # ring band = three wall lines
+    ring_ri = ring_d / 2.0
+    ring_ro = ring_ri + ring_wt
     # height in mm (0 = the classic base_layers count rules). Up to 20mm:
     # >6 base layers print as 4 bottom + 4 top solid with sparse infill
     # between (like the frames) - solid bases that tall waste filament and
@@ -4699,6 +4711,15 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
     wid = max(0.4, nozzle * 1.08)          # perimeter / infill line width
     # the text box must clear the raised border (gap + walls + 1.2mm air)
     border_m = (border_gap + border_walls * wid + 1.2) if border_walls > 0 else 0.0
+    # R120: with a border the hole sits INSIDE the border ring (the border
+    # never breaks); with a ring there is no in-label hole at all
+    if ring:
+        _eff_hole_side = 0
+        hole_edge120 = 2.0
+    else:
+        _eff_hole_side = hole_side
+        hole_edge120 = (wid / 2.0 + border_gap + border_walls * wid + 1.2 \
+                        if border_walls > 0 else 2.0)
     # ---- stroke width - 'Stroke' IS the extrusion line width (R80 field Q) ---
     # 0 = auto: 3 extrusion lines (solid, chunky letters). Explicit value =
     # line width in mm - set it to your NOZZLE diameter (0.6 -> single-line
@@ -4783,11 +4804,12 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
         for _ji, _jb in enumerate(jobs):
             if _jb['mode']:
                 continue
+            _hs120 = 0 if ring else _jb['hole_side']
             _w116, _h116, _g116, _mc116 = _label_grow_fit(
                 [all_lines[_ji]], _jb['font'], _jb['w'], _jb['h'],
                 _jb['size'], _jb['spacing'], _jb['stroke'],
-                _jb['hole_side'], _jb['hole_d'], shape=shape,
-                corner=corner, margin_extra=border_m)
+                _hs120, _jb['hole_d'], shape=shape,
+                corner=corner, margin_extra=border_m, hole_edge=hole_edge120)
             _jb['w'], _jb['h'] = _w116, _h116
             _jb['grown'] = _g116
             grown79 = grown79 or _g116
@@ -4795,6 +4817,11 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
         _x116, _y116 = ux0, uy0
         _rowh116 = 0.0
         for _jb in jobs:
+            if ring:
+                if hole_side in (1, 2):
+                    _jb['w'] += 2.0 * ring_ro + 1.0
+                else:
+                    _jb['h'] += 2.0 * ring_ro + 1.0
             if _x116 > ux0 + 0.01 and _x116 + _jb['w'] > ux1:
                 _x116 = ux0
                 _y116 += _rowh116 + gap
@@ -4823,8 +4850,19 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
             mcache = [_label_metrics(ls, font, spacing) for ls in all_lines]
         else:
             w, h, grown79, mcache = _label_grow_fit(
-                all_lines, font, w, h, font_size, spacing, stroke_w, hole_side,
-                hole_d, shape=shape, corner=corner, margin_extra=border_m)
+                all_lines, font, w, h, font_size, spacing, stroke_w,
+                _eff_hole_side, hole_d, shape=shape, corner=corner,
+                margin_extra=border_m, hole_edge=hole_edge120)
+
+        # R120: the external ring reserves its side of the cell
+        _w_g120 = _h_g120 = 0.0
+        if ring:
+            if hole_side in (1, 2):
+                _w_g120 = 2.0 * ring_ro + 1.0
+                w += _w_g120
+            else:
+                _h_g120 = 2.0 * ring_ro + 1.0
+                h += _h_g120
 
         # ---- fit the grid: labels read left->right, so use the MOST columns that
         #      still fit the bed (rows fill naturally); max = cols*rows per batch ----
@@ -4845,9 +4883,12 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
     gx0 = ux0 + (uw - gw) / 2.0
     gy0 = uy0 + (uh - gh) / 2.0
     positions = []
+    _sh120x = (2.0 * ring_ro + 1.0) if (ring and hole_side == 1) else 0.0
+    _sh120y = (2.0 * ring_ro + 1.0) if (ring and hole_side == 3) else 0.0
     for i in range(n):
         r, c = divmod(i, cols)
-        positions.append((gx0 + c * (w + gap), gy0 + r * (h + gap)))
+        positions.append((gx0 + c * (w + gap) + _sh120x,
+                          gy0 + r * (h + gap) + _sh120y))
 
     # ---- purge tower (only for 2-color jobs): beside / in front of the grid
     tw = 12.0
@@ -4872,25 +4913,55 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
     labels = []
     for i, ls in enumerate(all_lines):
         lx, ly = positions[i]
+        _rw120 = _rh120 = 0.0     # R120 ring reservation on this label's cell
         if jobs:
             jb = jobs[i]
             lw, lh, lfont = jb['w'], jb['h'], jb['font']
             lsize, lspacing, lstroke = jb['size'], jb['spacing'], jb['stroke']
             lhs, lhd = jb['hole_side'], jb['hole_d']
+            if ring:
+                if hole_side in (1, 2):
+                    _rw120 = 2.0 * ring_ro + 1.0
+                else:
+                    _rh120 = 2.0 * ring_ro + 1.0
         else:
             lw, lh, lfont = w, h, font
             lsize, lspacing, lstroke = font_size, spacing, stroke_w
             lhs, lhd = hole_side, hole_d
+            _rw120, _rh120 = _w_g120, _h_g120
+        if ring:
+            # the ring replaces the in-label hole; the cell carries the
+            # reservation - the LABEL itself keeps its true size
+            lw -= _rw120
+            lh -= _rh120
+            if hole_side == 1:
+                lx += _rw120
+            elif hole_side == 3:
+                ly += _rh120
+            lhs = 0
         circ, box, hd = _label_layout(lw, lh, lhs, lhd, shape, corner,
-                                   border_m)
+                                   border_m, hole_edge120)
         paths, geo = _label_text_lines(ls, lfont, box, lw, lh, lsize, lspacing,
                                        stroke_w=lstroke)
+        _rc120 = None
+        if ring:
+            _ov120 = wid * 1.2   # weld: ring outer line reaches between
+                                   # the label's outer and inner wall
+            if hole_side == 1:
+                _rc120 = (lx - ring_ro + _ov120, ly + lh / 2.0)
+            elif hole_side == 2:
+                _rc120 = (lx + lw + ring_ro - _ov120, ly + lh / 2.0)
+            elif hole_side == 3:
+                _rc120 = (lx + lw / 2.0, ly + lh + ring_ro - _ov120)
+            else:
+                _rc120 = (lx + lw / 2.0, ly - ring_ro + _ov120)
         labels.append({'name': 'LABEL_%d' % (i + 1), 'text': ' / '.join(ls),
                        'lines': ls, 'x': lx, 'y': ly, 'w': lw, 'h': lh,
                        'font': lfont,
                        'stroke_eff': round(min(lstroke, max(twid, 0.2 * geo['cap_h'])), 2),
                        'circ': circ, 'box': box, 'paths': paths, 'hole_d': hd,
-                       'cap_h': geo['cap_h'], 's': geo['s'], 'sx': geo['s']})
+                       'cap_h': geo['cap_h'], 's': geo['s'], 'sx': geo['s'],
+                       'ring_c': _rc120, 'ring_ro': ring_ro, 'ring_ri': ring_ri})
 
     def _lb_contour(lb, inset):
         """R119: this label's wall contour in ABSOLUTE coords, the path
@@ -4914,6 +4985,14 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
     fil = FIL_AREA
     total_layers = base_layers + text_layers
     ztop = first_h + (base_layers - 1) * layer_h
+    # R120 ring layers: height capped at the label's TOTAL height (never
+    # above it); default = flush with the base top (never touches the text)
+    _ztot120 = ztop + text_layers * layer_h
+    _rhm120 = (ztop if ring_h <= 0
+               else min(float(ring_h), _ztot120 - layer_h))
+    _rl120 = max(1, int(math.floor((_rhm120 - first_h) / layer_h)) + 1) \
+        if _rhm120 >= first_h else 1
+    _rl120 = min(_rl120, base_layers + text_layers)
 
     L = []
     a = L.append
@@ -4938,10 +5017,23 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
         a('; R83 stroke %.2fmm (capped from %.2fmm: cap/5 anti-merge limit)'
           % (stroke_eff, stroke_w))
     hs = ('NONE', 'LEFT', 'RIGHT', 'TOP', 'BOTTOM')[hole_side]
-    a('; hole: %s%s at 2mm from the edge, ironing %s, brim %s, purge tower %s, 2nd color (M600) %s'
-      % (hs, (' d=%.1fmm' % labels[0]['hole_d']) if labels[0]['hole_d'] else '',
-         'ON' if ironing else 'OFF', 'ON' if brim else 'OFF',
-         'ON' if tower else 'OFF', 'ON' if color2 else 'OFF'))
+    if ring:
+        a('; hole: external RING on the %s side (no in-label hole), ironing %s,'
+          ' brim %s, purge tower %s, 2nd color (M600) %s'
+          % (hs, 'ON' if ironing else 'OFF', 'ON' if brim else 'OFF',
+             'ON' if tower else 'OFF', 'ON' if color2 else 'OFF'))
+    else:
+        a('; hole: %s%s at 2mm from the edge%s, ironing %s, brim %s, purge tower %s, 2nd color (M600) %s'
+          % (hs, (' d=%.1fmm' % labels[0]['hole_d']) if labels[0]['hole_d'] else '',
+             '' if not border_walls else ' - INSIDE the border (the border stays closed)',
+             'ON' if ironing else 'OFF', 'ON' if brim else 'OFF',
+             'ON' if tower else 'OFF', 'ON' if color2 else 'OFF'))
+    if ring:
+        a('; R120: external hanging RING on the %s side - d=%.1fmm hole, %.1fmm'
+          ' band, %d layer(s) (%.1fmm, capped below the label height), from'
+          ' layer 1 in the BASE color'
+          % (('NONE', 'LEFT', 'RIGHT', 'TOP', 'BOTTOM')[hole_side],
+             2.0 * ring_ri, ring_wt, _rl120, _rhm120))
     if shape != 'RECT' or border_walls > 0 or sparse_mid > 0 or height > 0:
         # R119: shape / height / border summary (one line, only when used)
         a('; R119: shape %s%s, base %d layers (%.1fmm)%s, border %d wall(s)%s'
@@ -4996,6 +5088,17 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
 
     # object definitions (polygons without whitespace - Klipper requirement)
     for lb in labels:
+        if lb.get('ring_c'):
+            # R120: rect bbox over label + ring (exclude keeps working)
+            _ex0 = min(lb['x'], lb['ring_c'][0] - lb['ring_ro'])
+            _ey0 = min(lb['y'], lb['ring_c'][1] - lb['ring_ro'])
+            _ex1 = max(lb['x'] + lb['w'], lb['ring_c'][0] + lb['ring_ro'])
+            _ey1 = max(lb['y'] + lb['h'], lb['ring_c'][1] + lb['ring_ro'])
+            poly = ('[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]'
+                    % (_ex0, _ey0, _ex1, _ey0, _ex1, _ey1, _ex0, _ey1))
+            a('EXCLUDE_OBJECT_DEFINE NAME=%s CENTER=%.1f,%.1f POLYGON=%s'
+              % (lb['name'], (_ex0 + _ex1) / 2.0, (_ey0 + _ey1) / 2.0, poly))
+            continue
         _oc119 = _lb_contour(lb, 0.0)
         if _oc119 is not None:
             # R119: OVAL/ROUND - the exclude polygon IS the outline
@@ -5027,6 +5130,9 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
     # layer - travels across them retract at ANY length now
     pen.holes = [(lb['circ'][0] + lb['x'], lb['circ'][1] + lb['y'], lb['circ'][2])
                  for lb in labels if lb['circ']]
+    # R120: the ring hole is a travel keep-out too (retract when crossed)
+    pen.holes += [(lb['ring_c'][0], lb['ring_c'][1], lb['ring_ri'])
+                  for lb in labels if lb.get('ring_c')]
     # R119 sparse band spacing (frames style, 8% default)
     _spc_lab = wid * 100.0 / max(5.0, min(float(sparse_pct or 8.0), 15.0))
 
@@ -5249,6 +5355,30 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
                        e_wall, 1200)
         L.append('EXCLUDE_OBJECT_END NAME=%s' % lb['name'])
 
+    def ring_block(lb, layer_idx, first):
+        """R120: the external hanging ring - an annulus flush against the
+        label edge, from LAYER 1 (printed with the base color), height capped
+        below the label's total height. Three adjacent wall lines = a solid
+        3-perimeter band; brim on layer 1 like the label itself."""
+        if not lb.get('ring_c'):
+            return
+        cx, cy = lb['ring_c']
+        e_wall = layer_h_eff(layer_idx) * wid / fil
+        L.append('EXCLUDE_OBJECT_START NAME=%s' % lb['name'])
+        if first and brim:
+            L.append(';TYPE:Brim')
+            for off in (wid * 0.35, wid * 0.35 + wid):
+                _emit_loop(pen, _circle(cx, cy, lb['ring_ro'] + off), e_wall, 1500)
+        L.append(';TYPE:Outer wall')
+        _emit_loop(pen, _circle(cx, cy, lb['ring_ro'] - wid / 2.0), e_wall,
+                   1500 if first else 2400)
+        L.append(';TYPE:Inner wall')
+        _emit_loop(pen, _circle(cx, cy, lb['ring_ro'] - 1.5 * wid), e_wall,
+                   1500 if first else 2700)
+        _emit_loop(pen, _circle(cx, cy, lb['ring_ri'] + wid / 2.0), e_wall,
+                   1500 if first else 2700)
+        L.append('EXCLUDE_OBJECT_END NAME=%s' % lb['name'])
+
     # ---- base layers --------------------------------------------------------
     # R74: label order alternates per layer (serpentine) - layer N ends at the
     # last label, layer N+1 starts right there instead of travelling back
@@ -5263,6 +5393,8 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
         order = labels if li % 2 else list(reversed(labels))
         for lb in order:
             base_block(lb, z, li, li == 1, top)
+            if li <= _rl120:
+                ring_block(lb, li, li == 1)
         if tower:
             tower_block(z, li, li == 1)
 
@@ -5328,7 +5460,9 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
             # R119
             'shape': shape, 'corner': round(corner, 1) if shape == 'ROUND' else 0.0,
             'border': border_walls, 'border_gap': round(border_gap, 1),
-            'base_layers': base_layers, 'sparse_mid': sparse_mid}
+            'base_layers': base_layers, 'sparse_mid': sparse_mid,
+            'ring': bool(ring), 'ring_h': round(_rhm120, 2),
+            'ring_layers': _rl120}
     return out, info
 
 
@@ -6488,7 +6622,7 @@ NONCE_KEYS = ('preview_nonce', 'range_nonce', 'label_gen_nonce', 'reso_nonce',
               'label_fit_nonce', 'retract_fix_nonce', 'vol_fix_nonce',
               'cable_tie_nonce', 'angle_nonce', 'litho_nonce', 'seal_nonce',
               'litho_del_nonce', 'frame_nonce', 'texture_nonce',
-              'file_check_nonce')
+              'file_check_nonce', 'colorpic_nonce')
 
 
 def _prime_nonces(rv):
@@ -7624,6 +7758,9 @@ FRAME_PRESETS = {   # photo inner size mm (W x H), R90.1a: sized for the REAL
     # B = backplate+stand). 15x21/A5/A4/20x30 overflow the bed even split
     # into strips - not offered (custom W/H caps at 230 and says why).
     '9x13': (90, 130), '10x15': (102, 152), '13x18': (130, 180), 'A6': (105, 148),
+    # R120 (user): passport photo + pendant sizes - small frames, border 4-6,
+    # hung as a pendant via the external RING (HANG=RING) on a chain
+    'PASS': (35, 45), 'MINI': (30, 40), '4x5': (40, 50),
 }
 
 
@@ -7852,6 +7989,7 @@ def _bite_contour(pts, side, y0, y1, nd):
 
 def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                corner=6.0, shape='RECT', closure='BACK', hang='TOP', stand=False,
+               hang_ring=False, ring_d=6.0, ring_h=0.0,
                wall=1.6, infill=60.0, ironing=True, layer_h=0.2, first_h=0.28,
                material='PLA', bed=None, bed_margin=6.0, nozzle=0.6,
                out_dir='.', version=1, front='IRON', disc='NONE', disc_t=1.0,
@@ -7908,8 +8046,14 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
     hang = str(hang or 'OFF').upper()
     if hang not in ('TOP', 'BOTTOM', 'LEFT', 'RIGHT', 'OFF'):
         hang = 'TOP'
-    if not (40.0 <= width <= 230.0 and 40.0 <= height <= 230.0):
-        raise ValueError('photo size %.0fx%.0fmm out of range (40..230 each)' % (width, height))
+    # R120: external hanging RING instead of the hidden backplate keyhole -
+    # position = the hang side, printed from LAYER 1 flush against the frame
+    # edge, height capped at the frame's total height (never above it).
+    _hr120 = bool(hang_ring) and hang != 'OFF'
+    _kitring120 = False
+    # R120: 25mm minimum - the pendant presets (PASS 35x45, MINI 30x40)
+    if not (25.0 <= width <= 230.0 and 25.0 <= height <= 230.0):
+        raise ValueError('photo size %.0fx%.0fmm out of range (25..230 each)' % (width, height))
     if not (3.0 <= depth <= 60.0):
         raise ValueError('frame depth %.1fmm out of range (3..60; <15 = photo '
                          'frame, >=15 = display case)' % depth)
@@ -8071,6 +8215,16 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
     # in normal orientation, the top when front=FLIP) - sparse body above it
     bot_sol = min(bottom_layers, n_bb)
     frame_layers = n_bb + n_gr + n_sh + n_ft
+    # R120 ring geometry
+    _rd120 = max(3.0, min(float(ring_d or 6.0), 20.0))
+    _rri120 = _rd120 / 2.0
+    _rwt120 = 3.0 * wid
+    _rro120 = _rri120 + _rwt120
+    _rz120 = first_h + (frame_layers - 1) * layer_h
+    _rhm120 = (_rz120 if not ring_h or float(ring_h) <= 0
+               else min(float(ring_h), _rz120))
+    _rl120 = max(1, min(int(math.floor((_rhm120 - first_h) / layer_h)) + 1
+                        if _rhm120 >= first_h else 1, frame_layers))
     # front-band layers that stay solid hatch; the top struct_l layers carry
     # ONLY the pattern (IN: grooves cut in / OUT: ridges added on top)
     solid_ft = n_ft - struct_l if struct_l else n_ft
@@ -8187,6 +8341,11 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                              % (ow, oh, ow + gap + bw, max(oh, bh), frame_w))
         else:
             kit = True
+            if _hr120:
+                # strips cannot carry an external ring - the hidden backplate
+                # keyhole takes over (small frames never split anyway)
+                _hr120 = False
+                _kitring120 = True
             if corner > 0.5:
                 corner = 0.0
                 notes.append('corner radius dropped to 0 - the split kit uses '
@@ -8270,7 +8429,7 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
 
     def plate_keeps(px, py):
         keep = []
-        if hang != 'OFF':
+        if hang != 'OFF' and not _hr120:
             if hang in ('TOP', 'BOTTOM'):
                 hx, hy = 0.0, (bh / 2 - 6.0) * (1 if hang == 'TOP' else -1)
                 keep.append((px + hx, py + hy, 2.6))
@@ -8334,7 +8493,9 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
               % (' + stand' if stand_ok else '')))
         a('; %s %s: photo %.0fx%.0fmm, border %.0fmm, depth %.1fmm, closure %s%s'
           % (mode, shape, width, height, frame_w, depth, closure,
-             ', hidden hang keyhole %s' % hang if hang != 'OFF' else ''))
+             ((', external hang RING %s (d=%.0fmm, %.1fmm tall, from layer 1)'
+               % (hang, _rd120, _rhm120)) if _hr120
+              else (', hidden hang keyhole %s' % hang if hang != 'OFF' else ''))))
         a('; front prints UP (ironing pass on the visible face); %s' % (
             'deep hollow body, backplate closes the back' if mode == 'CASE' else
             'photo lies on the shelf behind the view opening'))
@@ -8395,6 +8556,27 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
             # crossings retract at ANY travel length.
             if want_rest:
                 pen.holes = list(plate_keeps(bx, by))
+            if _hr120 and want_frame:
+                # R120 ring center: tangent outside the frame contour on the
+                # hang side, welded into the outer wall band (label-ring tech)
+                _ov120 = wid * 1.2
+                if hang == 'TOP':
+                    _rc120 = (cx, cy + oh / 2 + _rro120 - _ov120)
+                elif hang == 'BOTTOM':
+                    _rc120 = (cx, cy - oh / 2 - _rro120 + _ov120)
+                elif hang == 'RIGHT':
+                    _rc120 = (cx + ow / 2 + _rro120 - _ov120, cy)
+                else:
+                    _rc120 = (cx - ow / 2 - _rro120 + _ov120, cy)
+                if not (ux0 <= _rc120[0] - _rro120
+                        and _rc120[0] + _rro120 <= ux1
+                        and uy0 <= _rc120[1] - _rro120
+                        and _rc120[1] + _rro120 <= uy1):
+                    raise ValueError('hang ring (d=%.0fmm + band) does not fit '
+                                     'the bed on the %s side - smaller ring_d, '
+                                     'smaller frame or hang=OFF'
+                                     % (_rd120, hang))
+                pen.holes = pen.holes + [(_rc120[0], _rc120[1], _rri120)]
 
             def _split_emit(loop_pts, box, ew, f1):
                 # R97 (rule dd): emit a closed contour as OPEN polylines,
@@ -8764,6 +8946,28 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                                               (q[0] + cx, q[1] + cy))
                                              for (p, q) in iw],
                                        0.15 * layer_h * wid / fil, 600, 2.4)
+                    if _hr120 and li <= _rl120:
+                        # R120: the external hanging ring - layer 1 upward,
+                        # flush against the frame edge, three adjacent wall
+                        # lines = a solid band; brim on layer 1 like the frame
+                        _ew120 = e_w(li)
+                        if li == 1:
+                            a(';TYPE:Brim')
+                            for _off120 in (wid * 0.35, wid * 0.35 + wid):
+                                _emit_loop(pen, _circle(_rc120[0], _rc120[1],
+                                                        _rro120 + _off120),
+                                           _ew120, 1500)
+                        a(';TYPE:Outer wall')
+                        _emit_loop(pen, _circle(_rc120[0], _rc120[1],
+                                                _rro120 - wid / 2.0), _ew120,
+                                   1500 if li == 1 else 2400)
+                        a(';TYPE:Inner wall')
+                        _emit_loop(pen, _circle(_rc120[0], _rc120[1],
+                                                _rro120 - 1.5 * wid), _ew120,
+                                   1500 if li == 1 else 2700)
+                        _emit_loop(pen, _circle(_rc120[0], _rc120[1],
+                                                _rri120 + wid / 2.0), _ew120,
+                                   1500 if li == 1 else 2700)
                     a('EXCLUDE_OBJECT_END NAME=FRAME')
                 # ---- backplate ----
                 if want_rest and li <= bp_layers:
@@ -8828,7 +9032,21 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
 
             defs = []
             if want_frame:
-                defs.append(('FRAME', cx, cy, ow, oh))
+                if _hr120:
+                    _dx120 = (_rro120 * 2 + 1.0 if hang in ('LEFT', 'RIGHT')
+                              else 0.0)
+                    _dy120 = (_rro120 * 2 + 1.0 if hang in ('TOP', 'BOTTOM')
+                              else 0.0)
+                    _fx0, _fy0 = cx - (ow + _dx120) / 2, cy - (oh + _dy120) / 2
+                    if hang == 'LEFT':
+                        _fx0 -= _dx120
+                    if hang == 'BOTTOM':
+                        _fy0 -= _dy120
+                    defs.append(('FRAME', _fx0 + (ow + _dx120) / 2,
+                                 _fy0 + (oh + _dy120) / 2,
+                                 ow + _dx120, oh + _dy120))
+                else:
+                    defs.append(('FRAME', cx, cy, ow, oh))
             if want_rest:
                 defs.append(('BACKPLATE', bx, by, bw, bh))
                 if stand_ok:
@@ -9202,6 +9420,8 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
     info = {'file': files[0], 'mode': mode, 'shape': shape, 'preset': preset,
             'width': width, 'height': height, 'depth': depth, 'border': frame_w,
             'closure': closure, 'hang': hang, 'stand': bool(stand_ok), 'kit': kit,
+            'hang_ring': bool(_hr120), 'ring_h': round(_rhm120, 2),
+            'ring_fallback_kit': _kitring120,
             'multi': multi, 'plates': files, 'front': front,
             'disc': disc if disc != 'NONE' else '', 'disc_side': disc_side,
             'disc_t': float(disc_t) if disc != 'NONE' else 0.0,
@@ -10161,6 +10381,288 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
             'width': round(width_mm, 1), 'height': round(height_real, 1),
             'thickness': '%.1f..%.1f' % (t_min, t_max), 'layers': rows,
             'cols': cols, 'levels': levels, 'frame': bool(frame),
+            'ironing': bool(ironing), 'notes': notes}
+    return out, info
+
+
+# =====================================================================================
+#  R120: COLOR PICTURE (Farbbild) - a photo as a multi-color print, NO backlight
+#  needed (unlike a lithophane). The image is quantized into 2..8 luminance
+#  bands; each band prints as a flat plateau of its own filament color,
+#  lightest first, bottom to top - every band is a SUBSET of the one below
+#  (nothing ever prints over air, rule ll by construction). The visible top
+#  surface at each XY shows exactly its band's color: a color poster.
+# =====================================================================================
+COLORPIC_PALETTE = {
+    'WHT': ('White', 1.0, 1.0, 1.0), 'GRY': ('Grey', 0.55, 0.55, 0.55),
+    'BLK': ('Black', 0.10, 0.10, 0.10), 'RED': ('Red', 1.0, 0.10, 0.05),
+    'ORG': ('Orange', 1.0, 0.45, 0.0), 'YEL': ('Yellow', 1.0, 0.85, 0.0),
+    'GRN': ('Green', 0.10, 0.80, 0.20), 'BLU': ('Blue', 0.10, 0.35, 1.0),
+    'PUR': ('Purple', 0.55, 0.15, 0.90), 'BRN': ('Brown', 0.50, 0.30, 0.12),
+    'PNK': ('Pink', 1.0, 0.50, 0.70), 'CYA': ('Cyan', 0.10, 0.85, 0.90),
+    'GLD': ('Gold', 0.95, 0.75, 0.20), 'SIL': ('Silver', 0.80, 0.82, 0.85),
+}
+COLORPIC_DEFAULTS = {
+    2: 'WHT,BLK', 3: 'WHT,GRY,BLK', 4: 'WHT,CYA,BLU,BLK',
+    5: 'WHT,YEL,ORG,RED,BLK', 6: 'WHT,YEL,ORG,GRN,BLU,BLK',
+    7: 'WHT,YEL,GRN,CYA,BLU,PUR,BLK',
+    8: 'WHT,PNK,RED,ORG,YEL,GRN,CYA,BLK',
+}
+
+
+def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
+                  band_h=0.8, ironing=True, brim_loops=3, gamma=1.0,
+                  material='PLA', bed=None, bed_margin=6.0, nozzle=0.6,
+                  out_dir='.', version=1):
+    """R120: photo -> COLOR picture (settings mirror the lithophane generator).
+
+    width_mm = the picture size in XY on the bed (Y follows the aspect).
+    bands = 2..8 luminance levels, LIGHT FIRST: band 0 = the lightest color
+    and covers the whole area (the base), every darker band prints its
+    (nested) region on top. colors = comma palette codes, light->dark
+    (default ramps per band count, see COLORPIC_DEFAULTS). band_h = each
+    band's thickness in mm (the total height = bands * band_h).
+    Filament change at every band boundary: the nozzle LED BLINKS from the
+    current color to the next one while you swap (the file calls
+    _COLORPIC_SWAP / M600 / _COLORPIC_DONE - the system purge strip cleans
+    the nozzle before the new band starts).
+    """
+    width_mm = max(25.0, min(float(width_mm or 120.0), 230.0))
+    layer_h = max(0.08, min(float(layer_h or 0.2), 0.3))
+    bands = max(2, min(int(bands or 4), 8))
+    band_h = max(0.4, min(float(band_h or 0.8), 3.0))
+    brim_loops = max(0, min(int(brim_loops or 0), 10))
+    gamma = max(0.3, min(float(gamma or 1.0), 3.0))
+    n_band = max(1, int(round(band_h / layer_h)))
+    if bed is None:
+        bed = (0.0, -3.0, 244.0, 238.0)
+    ext = os.path.splitext(src)[1].lower().lstrip('.')
+    kind = {'png': 'png', 'jpg': 'jpg', 'jpeg': 'jpg'}.get(ext)
+    if kind is None:
+        raise ValueError('color picture source must be .png/.jpg/.jpeg (got %r)' % ext)
+    if not os.path.isfile(src):
+        raise ValueError('image not found: %s' % src)
+    with open(src, 'rb') as f:
+        data = f.read()
+    w, h, lum = _img_luma(data, kind)
+
+    # ---- colors: palette codes, light -> dark --------------------------------
+    _dflt120 = COLORPIC_DEFAULTS[bands].split(',')
+    _cols120 = []
+    for _i120, _c120 in enumerate(str(colors or '').replace(' ', '').split(',')):
+        if not _c120:
+            continue
+        _c120 = _c120.upper()[:3]
+        if _c120 not in COLORPIC_PALETTE:
+            raise ValueError('color %r unknown - palette: %s'
+                             % (_c120, ', '.join(COLORPIC_PALETTE)))
+        _cols120.append(_c120)
+    while len(_cols120) < bands:
+        _nx120 = _dflt120[len(_cols120) % len(_dflt120)]
+        if _nx120 in _cols120 and len(_cols120) < len(COLORPIC_PALETTE):
+            _nx120 = next(_k120 for _k120 in COLORPIC_PALETTE
+                          if _k120 not in _cols120)
+        _cols120.append(_nx120)
+    _cols120 = _cols120[:bands]
+
+    wid = max(0.4, nozzle * 1.08)
+    fil = FIL_AREA
+    notes = []
+    cols = max(4, int(round(width_mm / wid)))
+    rows = max(4, int(round(cols * (h / float(w)))))
+    bx0, by0, bx1, by1 = bed
+    ux0, uy0 = bx0 + bed_margin, by0 + bed_margin
+    ux1, uy1 = bx1 - bed_margin, by1 - bed_margin
+    _sc120 = min(1.0, (ux1 - ux0) / (cols * wid), (uy1 - uy0) / (rows * wid))
+    if _sc120 < 0.999:
+        cols = max(4, int(cols * _sc120))
+        rows = max(4, int(rows * _sc120))
+        notes.append('picture clamped to the bed - %.0f%% of the requested size'
+                     % (_sc120 * 100.0))
+    width_real = cols * wid
+    height_real = rows * wid
+
+    grid, rep = _litho_grid(lum, w, h, cols, rows, gamma=gamma, levels=0)
+    # quantize into band levels: 0 = lightest ... bands-1 = darkest
+    LV = [[min(bands - 1, int(grid[r][c] * bands))
+           for c in range(cols)] for r in range(rows)]
+    total_layers = bands * n_band
+    cx = (ux0 + ux1) / 2.0
+    cy = (uy0 + uy1) / 2.0
+    x0 = cx - width_real / 2.0
+    y0 = cy - height_real / 2.0
+
+    stem = re.sub(r'[^A-Za-z0-9]', '', os.path.splitext(os.path.basename(src))[0])[:8] or 'IMG'
+    fname = '00_ColorPic_%s_V%02d.gcode' % (stem, max(1, min(int(version), 99)))
+    out = os.path.join(out_dir, fname)
+
+    e_wall = layer_h * wid / fil
+    e_iron = 0.15 * layer_h * wid / fil
+
+    def _runs120(row):
+        runs = []
+        c = 0
+        while c < cols:
+            if row[c]:
+                c0 = c
+                while c < cols and row[c]:
+                    c += 1
+                runs.append((c0, c - 1))
+            else:
+                c += 1
+        return tuple(runs)
+
+    def _blocks120(k):
+        """merged row-runs of band k's region (level >= k) -> rect blocks"""
+        row_runs = [_runs120([1 if LV[r][c] >= k else 0 for c in range(cols)])
+                    for r in range(rows)]
+        blocks = []
+        r_i = 0
+        while r_i < rows:
+            rr = row_runs[r_i]
+            r_j = r_i
+            while r_j + 1 < rows and row_runs[r_j + 1] == rr:
+                r_j += 1
+            if rr:
+                blocks.append((r_i, r_j, rr))
+            r_i = r_j + 1
+        return blocks
+
+    _bcache120 = {k: _blocks120(k) for k in range(bands)}
+
+    with open(out, 'w') as f:
+        sk = _Sink(f)
+        a = sk.append
+        pen = _Pen(sk, jump_d=6.0)
+        a('; R2-COLORPIC generated color picture (R120) - start it like any other file')
+        a(TAG)
+        a('; source %s (%dx%d px) -> %dx%d cells, %d bands x %d layer(s) @%.2gmm'
+          ' = %.1fmm tall' % (os.path.basename(src), w, h, cols, rows, bands,
+                              n_band, layer_h, total_layers * layer_h))
+        a('; picture %.1f x %.1f mm in XY - NO backlight needed, the visible'
+          ' top surface IS the picture' % (width_real, height_real))
+        a('; colors light->dark: %s - M600 at every boundary, the nozzle LED'
+          ' blinks old->new while you swap filament'
+          % ', '.join('%s (%s)' % (c120, COLORPIC_PALETTE[c120][0])
+                      for c120 in _cols120))
+        a('; %s' % rep)
+        a('; ironing %s, brim %d loop(s) - a purge strip cleans the nozzle'
+          ' at every filament change (the system does it on RESUME)'
+          % ('ON (every band cap)' if ironing else 'OFF', brim_loops))
+        for _n120 in notes:
+            a('; note: %s' % _n120)
+        a('; filament_type = %s' % material)
+        a('; layer_height = %.2g' % layer_h)
+        a('; nozzle_diameter = %.1f' % nozzle)
+        a('; line_width = %.2g' % wid)
+        a('; outer_wall_line_width = %.2g' % wid)
+        a('; outer_wall_speed = 40')
+        a('; inner_wall_speed = 45')
+        a('; top_surface_speed = 40')
+        a('; internal_solid_infill_speed = 55')
+        a('; initial_layer_speed = 25')
+        a('; travel_speed = 150')
+        if ironing:
+            a('; ironing_speed = 30')
+            a('; ironing_flow = 0.15')
+            a('; ironing_spacing = 0.45')
+        a('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d LINE_WIDTH=%.2g '
+          'LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g FLOW_RATIO=1 NOZZLE=%.1f '
+          'WALL_LOOPS=1 SPEED_OUTER=40 SPEED_FIRST=25 SPEED_TRAVEL=150%s '
+          'TYPES=WALL-OUTER,WALL-INNER,INFILL-SOLID,SURFACE-BOTTOM,SURFACE-TOP%s '
+          'BY_OBJECT=0'
+          % (material, layer_h, total_layers, wid, wid, wid, nozzle,
+             ' IRONING_SPEED=30' if ironing else '',
+             ',IRONING' if ironing else ''))
+        fpoly = '[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]' % (
+            x0, y0, x0 + width_real, y0, x0 + width_real, y0 + height_real,
+            x0, y0 + height_real)
+        a('EXCLUDE_OBJECT_DEFINE NAME=COLORPIC CENTER=%.1f,%.1f POLYGON=%s'
+          % (cx, cy, fpoly))
+        a('PRINT_START MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d '
+          'OUTER_WALL_SPEED=40%s' % (material, layer_h, total_layers,
+                                     ' IRONING_SPEED=30' if ironing else ''))
+        a('G90')
+        a('M83')
+        a('M107   ; R2-COLORPIC: first layer = fan off')
+
+        for li in range(1, total_layers + 1):
+            z = round(li * layer_h, 3)
+            k = (li - 1) // n_band
+            j = (li - 1) % n_band
+            cap = (j == n_band - 1)
+            a(';LAYER_CHANGE')
+            a(';Z:%.3f' % z)
+            a('LAYER_MARK')
+            if li > 1 and j == 0:
+                # ---- band boundary: LED announcement + filament change ----
+                _pv120 = COLORPIC_PALETTE[_cols120[k - 1]]
+                _nx120 = COLORPIC_PALETTE[_cols120[k]]
+                a('_COLORPIC_SWAP IDX=%d TOTAL=%d NAME="%s" R=%.2f G=%.2f '
+                  'B=%.2f PREV_R=%.2f PREV_G=%.2f PREV_B=%.2f'
+                  % (k + 1, bands, _nx120[0], _nx120[1], _nx120[2],
+                     _nx120[3], _pv120[1], _pv120[2], _pv120[3]))
+                a('M600')
+                a('_COLORPIC_DONE R=%.2f G=%.2f B=%.2f'
+                  % (_nx120[1], _nx120[2], _nx120[3]))
+            if li == 2:
+                a('M106 S178   ; R2-COLORPIC: part fan from layer 2')
+            _ty120 = ('Bottom surface' if li == 1 else
+                      'Top surface' if cap else 'Internal solid infill')
+            _tk120 = ('SURFACE-BOTTOM' if li == 1 else
+                      'SURFACE-TOP' if cap else 'INFILL-SOLID')
+            a('EXCLUDE_OBJECT_START NAME=COLORPIC')
+            if li == 1 and brim_loops:
+                a(';TYPE:Brim')
+                a('APPLY_TYPE TYPE=BRIM')
+                for _b120 in range(brim_loops):
+                    off = wid * (_b120 + 0.5)
+                    _emit_loop(pen, _rect_loop(x0 - off, y0 - off,
+                                               x0 + width_real + off,
+                                               y0 + height_real + off),
+                               e_wall, 900)
+            a(';TYPE:Outer wall')
+            a('APPLY_TYPE TYPE=WALL-OUTER')
+            for (r_a, r_b, rr) in _bcache120[k]:
+                for (c_a, c_b) in rr:
+                    _emit_loop(pen, _rect_loop(x0 + c_a * wid, y0 + r_a * wid,
+                                               x0 + (c_b + 1) * wid,
+                                               y0 + (r_b + 1) * wid),
+                               e_wall, 900 if li == 1 else 1800)
+            a(';TYPE:%s' % _ty120)
+            a('APPLY_TYPE TYPE=%s' % _tk120)
+            for (r_a, r_b, rr) in _bcache120[k]:
+                for (c_a, c_b) in rr:
+                    segs = _hatch(x0 + c_a * wid + wid * 0.5,
+                                  y0 + r_a * wid + wid * 0.5,
+                                  x0 + (c_b + 1) * wid - wid * 0.5,
+                                  y0 + (r_b + 1) * wid - wid * 0.5,
+                                  None, wid, 45.0 if li % 2 else 135.0)
+                    _emit_fill(pen, segs, e_wall, 1200 if li == 1 else 2400, wid)
+            if ironing and cap:
+                a(';TYPE:Ironing')
+                a('APPLY_TYPE TYPE=IRONING')
+                for (r_a, r_b, rr) in _bcache120[k]:
+                    for (c_a, c_b) in rr:
+                        isegs = _hatch(x0 + c_a * wid + wid * 0.5,
+                                       y0 + r_a * wid + wid * 0.5,
+                                       x0 + (c_b + 1) * wid - wid * 0.5,
+                                       y0 + (r_b + 1) * wid - wid * 0.5,
+                                       None, 0.45,
+                                       45.0 if li % 2 else 135.0, min_len=0.3)
+                        _emit_fill(pen, isegs, e_iron, 1800, 0.45)
+            a('EXCLUDE_OBJECT_END NAME=COLORPIC')
+        a('M107')
+        a('PRINT_END')
+        sk.flush()
+
+    info = {'file': fname, 'source': os.path.basename(src),
+            'kind': 'colorpic', 'width': round(width_real, 1),
+            'height': round(height_real, 1), 'layers': total_layers,
+            'bands': bands, 'band_layers': n_band, 'band_mm': round(band_h, 2),
+            'thickness': round(total_layers * layer_h, 2),
+            'colors': [_cols120[i] for i in range(bands)],
+            'color_names': [COLORPIC_PALETTE[c][0] for c in _cols120],
             'ironing': bool(ironing), 'notes': notes}
     return out, info
 
@@ -12147,6 +12649,7 @@ def watch(directory, interval=5.0, once=False):
     last_cable_tie_nonce = None
     last_angle_nonce = None
     last_litho_nonce = None          # R89: lithophane / seal / image-delete
+    last_colorpic_nonce = None        # R120: color picture generator
     last_seal_nonce = None
     last_frame_nonce = None         # R90: picture frame / display case
     last_texture_nonce = None       # R91: fuzzy skin / bumps on an existing file
@@ -12792,6 +13295,84 @@ def watch(directory, interval=5.0, once=False):
                 threading.Thread(target=_litho_job89, daemon=True).start()
         except Exception as e:                              # noqa: BLE001
             print(f'[litho] poll error: {e!r}', flush=True)
+
+        # R120: color picture generator request (colorpic_nonce) - runs
+        # THREADED like the lithophane (a big picture is a lot of gcode).
+        try:
+            _cpn120 = rv.get('colorpic_nonce', '')
+            if _cpn120 and _cpn120 != last_colorpic_nonce:
+                last_colorpic_nonce = _cpn120
+
+                def _vbc120(key, dflt):
+                    v = str(rv.get(key, dflt)).strip().lower()
+                    if v == '':
+                        return dflt
+                    return v in ('true', '1', 'on', 'yes')
+
+                def _vfc120(key, dflt):
+                    try:
+                        return float(rv.get(key, dflt) or dflt)
+                    except (TypeError, ValueError):
+                        return float(dflt)
+
+                _csrc120 = os.path.basename(str(rv.get('litho_file', '') or ''))
+                if not _csrc120.lower().endswith(('.png', '.jpg', '.jpeg')):
+                    raise ValueError('not an image: %r' % _csrc120)
+                _cp120 = os.path.join(directory, _csrc120)
+                if not os.path.isfile(_cp120):
+                    raise ValueError('image not found: %s' % _csrc120)
+                _cbed120 = _bed_limits(os.path.join(
+                    os.path.dirname(os.path.abspath(directory).rstrip('/')),
+                    'config', 'printer.cfg'))
+                _ccols120 = str(rv.get('colorpic_colors', '') or '')
+                if any(c in _ccols120 for c in '"\\'):
+                    _ccols120 = ''
+                _cparams120 = dict(
+                    width_mm=_vfc120('colorpic_width', 120.0),
+                    layer_h=_vfc120('colorpic_layer_h', 0.2),
+                    bands=max(2, min(int(_vfc120('colorpic_bands', 4)), 8)),
+                    colors=_ccols120,
+                    band_h=_vfc120('colorpic_bandh', 0.8),
+                    ironing=_vbc120('colorpic_ironing', True),
+                    brim_loops=max(0, min(int(_vfc120('colorpic_brim', 3)), 8)),
+                    material=str(rv.get('material', 'PLA') or 'PLA'),
+                    bed=_cbed120, nozzle=_gen_nozzle(directory), out_dir=directory,
+                    version=max(1, min(int(_vfc120('gen_version', 1)), 99)))
+
+                def _colorpic_job120(p=_cp120, params=_cparams120, src=_csrc120):
+                    try:
+                        out_c, info_c = make_colorpic(p, **params)
+                        _crel120 = os.path.relpath(
+                            os.path.join(directory, info_c['file']), directory)
+                        _cmsg120 = ('ColorPic: %s - from %s, %.0fx%.0fmm, %d '
+                                    'color(s) x %.1fmm = %.1fmm thick, %d layers'
+                                    ' - selected for printing'
+                                    % (info_c['file'], src, info_c['width'],
+                                       info_c['height'], info_c['bands'],
+                                       info_c['band_mm'], info_c['thickness'],
+                                       info_c['layers']))
+                        _cmsg120 += ' | colors: ' + ','.join(
+                            info_c.get('color_names', info_c['colors']))
+                        _cmsg120 += (' | M600 at every color change - the nozzle '
+                                     'LED blinks to the next color while you swap')
+                        _moonraker_gcode(
+                            'RESPOND MSG="%s"\nM117 ColorPic ready\n'
+                            '_SOUND_LIB NAME=r2_done' % _cmsg120
+                            + _sel_line(rv, _crel120))
+                    except Exception as e:                      # noqa: BLE001
+                        print(f'[colorpic] error: {e!r}', flush=True)
+                        try:
+                            _moonraker_gcode(
+                                'RESPOND MSG="ColorPic ERROR: %s"\n'
+                                'M117 ColorPic error\n'
+                                '_SOUND_LIB NAME=r2_error' % e)
+                        except Exception:                       # noqa: BLE001
+                            pass
+
+                import threading
+                threading.Thread(target=_colorpic_job120, daemon=True).start()
+        except Exception as e:                              # noqa: BLE001
+            print(f'[colorpic] poll error: {e!r}', flush=True)
 
         # R89: gasket/seal generator request (seal_nonce) - small file, inline
         try:

@@ -68,6 +68,7 @@ save_vars = {
     'angle_layer_h': 0.2, 'angle_nonce': 0,
 }
 state_vars = {
+    'file_maxrate': 0.0, 'file_derived': False,   # R111/R120: flow-cap LCD reads these
     'mode': 'printing', 'layer': 2, 'total_layers': 100, 'current_type': 'WALL-OUTER', 'file_type': 'marked',
     'file_material': 'PLA', 'file_bed': 60, 'file_bed_after': 60,
     'file_hotend_first': 210, 'file_hotend_after': 215, 'file_layer_height': 0.2,
@@ -96,6 +97,9 @@ state_vars = {
     'pause_next_armed_runout': False,
     'legacy_armed': False, 'decided_file': '', 'decided_mode': '',
 }
+cpic_state_vars = {'blink': 0, 'phase': 0, 'pr': 1.0, 'pg': 1.0, 'pb': 1.0,
+                   'nr': 0.1, 'ng': 0.85, 'nb': 0.9, 'cidx': 2, 'ctotal': 4,
+                   'cname': 'Cyan'}   # R120: the blink state macro
 tunes = {'r2_start': '1568:40,1245:30', 'r2_confirm': '2093:25,2637:35', 'r2_click': '1568:15',
          'r2_question': '784:70,0:30,988:60', 'r2_heating': '1046:60,0:40,1318:60', 'r2_hot': '1568:40'}
 mats = {'PLA':  {'bed1':60,'bed2':60,'hot1':210,'hot2':210,'pa':0.05, 'pa_smooth':0.04, 'unret_spd':35,'flow':100,'ret_len':0.75,'ret_spd':35,'fan2':100},
@@ -146,6 +150,7 @@ def build_printer(kamp=False, objs=None, excl=None, old_klipper=False, bare_idle
     'input_shaper': M({'shaper_type_x':'zv','shaper_freq_x':52.3,'shaper_type_y':'mzv','shaper_freq_y':41.7}),
     'filament_switch_sensor filament_sensor': M({'enabled':True,'filament_detected':True}),
     'gcode_macro _STATE': M(state_vars),
+    'gcode_macro _COLORPIC_STATE': M(cpic_state_vars),   # R120
     'gcode_macro _MATERIALS': M({'presets': mats}),
     'gcode_macro _SOUND_LIB': M({'tunes': tunes}),
     }
@@ -163,7 +168,7 @@ def build_printer(kamp=False, objs=None, excl=None, old_klipper=False, bare_idle
         d['gcode_macro ' + _m] = M({})
     for _v in ['_V01_STATE','_V02_SOUNDS','_V03_LEDS','_V04_NOTIFY','_V05_MATERIALS','_V06_TEMPS',
                '_V07_CONFIRM','_V08_STARTSTOP','_V09_PAUSE','_V10_LIVE','_V11_GANTRY','_V12_MAINT',
-               '_V13_SYSTEM','_V15_OBJECTS','_V16_MENUS','_V17_LABELS','_V18_GEN'] + ([] if drop14 else ['_V14_KAMP']):
+               '_V13_SYSTEM','_V15_OBJECTS','_V16_MENUS','_V17_LABELS','_V18_GEN','_V18_COLORPIC'] + ([] if drop14 else ['_V14_KAMP']):
         d['gcode_macro ' + _v] = M({})
     if old_klipper:
         d['idle_timeout'] = M({'state':'Printing','printing_time':0.0})   # older Klipper: no 'idle_timeout' key
@@ -579,7 +584,7 @@ state_vars['idle_timeout_saved'] = 3600.0
 
 body = get_body('macros/01_state.cfg', '_CHECK_INSTALL')
 out = render(body, {})
-tests.append(('CHECK_INSTALL all loaded', 'all 17 modules loaded and current' in out and 'MISSING' not in out, out[:160]))
+tests.append(('CHECK_INSTALL all loaded', 'all 18 modules loaded and current' in out and 'MISSING' not in out, out[:160]))
 out = render(body, {}, drop14=True)
 tests.append(('CHECK_INSTALL detects missing/outdated 14', '14_kamp.cfg' in out and 'MODULES MISSING OR OUTDATED' in out and 'sentinel' in out, out[:220]))
 
@@ -3931,7 +3936,7 @@ for _f69 in sorted(_glob65.glob('macros/*.cfg') + _glob65.glob('menus/*.cfg')):
             # R79: '[' = list literal (VALUE=[]) - safe, Klipper passes the object
             _badg69.append('%s:%d' % (_f69, _n69))
 tests.append(('R69 static gate: no bare VALUE=" (the shutdown class) in any cfg line',
-    not _badg69 and len(_glob65.glob('macros/*.cfg')) == 17, str(_badg69[:3])))
+    not _badg69 and len(_glob65.glob('macros/*.cfg')) == 18, str(_badg69[:3])))
 
 _lb69 = get_body('macros/16_labels.cfg', '_LABEL_SET_CHAR')
 _bad69 = []
@@ -5000,7 +5005,7 @@ tests.append(('R75 watcher: _prime_nonces adopts the current counters (no re-fir
         'label_fit_nonce': None, 'retract_fix_nonce': None, 'vol_fix_nonce': None,
         'cable_tie_nonce': None, 'angle_nonce': None, 'litho_nonce': None,
         'seal_nonce': None, 'litho_del_nonce': None, 'frame_nonce': None,
-        'texture_nonce': None, 'file_check_nonce': None}, ''))
+        'texture_nonce': None, 'file_check_nonce': None, 'colorpic_nonce': None}, ''))
 tests.append(('R75 watcher: daemon runs niced + primes on the first pass',
     'os.nice(4)' in open('tools/r2_postproc.py').read()
     and 'first_prime' in open('tools/r2_postproc.py').read(), ''))
@@ -6164,8 +6169,9 @@ tests.append(('R86 modules: 17_generator.cfg sentinel + _CHECK_INSTALL lists 17'
     '_V18_GEN' in open(_gen86).read()
     and "('17_generator.cfg',       ['_V18_GEN'])" in open('macros/01_state.cfg').read()
     and 'all 17 modules' not in open('macros/01_state.cfg').read(), ''))
-tests.append(('R86-R93 watcher: NONCE_KEYS has 19 channels incl. litho/seal/frame/texture',
-    len(_pp.NONCE_KEYS) == 19 and 'cable_tie_nonce' in _pp.NONCE_KEYS
+tests.append(('R86-R120 watcher: NONCE_KEYS has 20 channels incl. litho/seal/frame/colorpic',
+    len(_pp.NONCE_KEYS) == 20 and 'cable_tie_nonce' in _pp.NONCE_KEYS
+    and 'colorpic_nonce' in _pp.NONCE_KEYS
     and 'texture_nonce' in _pp.NONCE_KEYS and 'file_check_nonce' in _pp.NONCE_KEYS
     and 'angle_nonce' in _pp.NONCE_KEYS and 'litho_nonce' in _pp.NONCE_KEYS
     and 'seal_nonce' in _pp.NONCE_KEYS and 'litho_del_nonce' in _pp.NONCE_KEYS
@@ -10347,6 +10353,211 @@ for _f114 in _glob114.glob('macros/*.cfg') + _glob114.glob('menus/*.cfg'):
             _static114.append('%s:%d' % (_f114, _i114))
 tests.append(('R114 codebase: no ; inside any double-quoted string (22 fixed)',
     not _static114, _static114[:5]))
+
+
+
+
+# ===== R120: color picture (ColorPic) ==============================================
+import re as _re120
+import struct as _st120, zlib as _zl120
+_Q120 = chr(34)                     # double quote without heredoc escape hell
+_cp120 = 'macros/18_colorpic.cfg'
+_cp120txt = open(_cp120, encoding='utf-8').read()
+
+# --- module wiring ---
+tests.append(('R120 modules: 18_colorpic.cfg sentinel + _CHECK_INSTALL + include',
+    '_V18_COLORPIC' in _cp120txt
+    and "('18_colorpic.cfg',        ['_V18_COLORPIC'])" in open('macros/01_state.cfg').read()
+    and 'macros/18_colorpic.cfg' in open('printer.cfg.example').read()
+    and '{% while %}' not in _cp120txt, ''))
+
+tests.append(('R120 pause compat: 3x guarded SET_LED_STATE STATE=filament (blink owns the nozzle)',
+    open('macros/09_pause_filament.cfg', encoding='utf-8').read().count(
+        "printer['gcode_macro _COLORPIC_STATE'].blink|default(0)|int == 1") == 3, ''))
+
+# --- generator: synthetic gradient image ---
+_d120 = _tf61.mkdtemp(prefix='r120_')
+def _png120(path, w=64, h=96):
+    def chunk(tag, data):
+        c = tag + data
+        return _st120.pack('>I', len(data)) + c + _st120.pack('>I', _zl120.crc32(c))
+    raw = b''
+    for y in range(h):
+        raw += b'\x00'
+        for x in range(w):
+            v = int(255 * (1.0 - y / h))
+            raw += bytes((v, v, v))
+    open(path, 'wb').write(b'\x89PNG\r\n\x1a\n'
+        + chunk(b'IHDR', _st120.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0))
+        + chunk(b'IDAT', _zl120.compress(raw))
+        + chunk(b'IEND', b''))
+_img120 = _os61.path.join(_d120, 'grad.png')
+_png120(_img120)
+
+_o120, _i120 = _pp.make_colorpic(_img120, width_mm=80, bands=4, out_dir=_d120,
+                                 bed=(0.0, -3.0, 220.0, 217.0))
+_g120 = open(_o120, encoding='utf-8').read()
+tests.append(('R120 make_colorpic: file + info (4 bands x 4 layers, nested light->dark)',
+    _i120['kind'] == 'colorpic' and _i120['bands'] == 4 and _i120['layers'] == 16
+    and _i120['colors'] == ['WHT', 'CYA', 'BLU', 'BLK']
+    and _i120['color_names'] == ['White', 'Cyan', 'Blue', 'Black']
+    and _g120.count('\nM600') == 3, str(_i120)[:130]))
+tests.append(('R120 make_colorpic: SWAP before M600 + DONE after, at every boundary',
+    _g120.count('_COLORPIC_SWAP IDX=') == 3 and _g120.count('_COLORPIC_DONE') == 3
+    and 'PREV_R=' in _g120 and 'NAME=' in _g120
+    and all(a < b for a, b in zip(
+        [m.start() for m in _re120.finditer(r'_COLORPIC_SWAP', _g120)],
+        [m.start() for m in _re120.finditer(r'\nM600', _g120)])), ''))
+tests.append(('R120 make_colorpic: types + layers + start/end (feature tagging)',
+    all(t in _g120 for t in [';TYPE:Outer wall', ';TYPE:Top surface',
+        ';TYPE:Internal solid infill', ';TYPE:Bottom surface'])
+    and _g120.count('\nLAYER_MARK') == 16
+    and _g120.count('APPLY_TYPE TYPE=') >= _g120.count(';TYPE:') - 1
+    and 'PRINT_START' in _g120 and '\nPRINT_END' in _g120, ''))
+tests.append(('R120 make_colorpic: swap line format (off-by-one guard)',
+    _re120.search(r'_COLORPIC_SWAP IDX=2 TOTAL=4 NAME=' + _Q120 + r'Cyan' + _Q120
+                  + r' R=0\.10 G=0\.85 B=0\.90 '
+                  r'PREV_R=1\.00 PREV_G=1\.00 PREV_B=1\.00', _g120) is not None, ''))
+try:
+    _pp.make_colorpic(_img120, bands=3, colors='WHT,FOO,BLK', out_dir=_d120)
+    tests.append(('R120 make_colorpic: unknown color raises with palette list', False, 'no raise'))
+except ValueError as e:
+    tests.append(('R120 make_colorpic: unknown color raises with palette list',
+        'unknown - palette' in str(e) and 'GLD' in str(e), str(e)[:80]))
+
+# --- macro renders ---
+def _body120(name):
+    m = _re120.search(r'\[gcode_macro ' + _re120.escape(name) + r'\]\n(.*?)(?=\n\[|\Z)',
+                      _cp120txt, _re120.S)
+    body = m.group(1)
+    lines = []
+    started = False
+    for z in body.split('\n'):
+        if z.startswith('gcode:'):
+            started = True
+            continue
+        if started:
+            if z.startswith(('variable_', 'description:', 'rename_existing:')):
+                break
+            lines.append(z[4:] if z.startswith('    ') else z)
+    return klipper_strip('\n'.join(lines))
+
+out = render(_body120('_COLORPIC_LED_APPLY'), {'R': '0.2', 'G': '0.9', 'B': '1.0'})
+tests.append(('R120 _COLORPIC_LED_APPLY: SET_LED with brightness cap (leds_on)',
+    'SET_LED' in out and 'RED=0.1' in out and 'BLUE=0.5' in out, out[:120]))
+
+out = render(_body120('_COLORPIC_SWAP'),
+             {'IDX': '2', 'TOTAL': '4', 'NAME': 'Cyan', 'R': '0.1', 'G': '0.85',
+              'B': '0.9', 'PREV_R': '1', 'PREV_G': '1', 'PREV_B': '1'})
+tests.append(('R120 _COLORPIC_SWAP: 10 state vars + M117 + notify + LED + blink armed',
+    out.count('SET_GCODE_VARIABLE MACRO=_COLORPIC_STATE') == 11
+    and 'M117 Color 2/4: Cyan' in out and 'NOTIFY' in out
+    and '_COLORPIC_LED_APPLY R=0.1 G=0.85 B=0.9' in out
+    and 'UPDATE_DELAYED_GCODE ID=_COLORPIC_BLINK DURATION=0.9' in out, out[:150]))
+
+def _dbody120(name):
+    m = _re120.search(r'\[delayed_gcode ' + _re120.escape(name) + r'\]\n(.*?)(?=\n\[|\Z)',
+                      _cp120txt, _re120.S)
+    return klipper_strip('\n'.join(l[4:] if l.startswith('    ') else l
+                                    for l in m.group(1).split('\n')[1:]))
+
+# blink phase 0 -> prev color, phase flips
+state_vars['mode'] = 'filament'
+cpic_state_vars.update(blink=1, phase=0, pr=1.0, pg=1.0, pb=1.0,
+                       nr=0.1, ng=0.85, nb=0.9, cidx=2, ctotal=4, cname='Cyan')
+out = render(_dbody120('_COLORPIC_BLINK'))
+tests.append(('R120 _COLORPIC_BLINK: phase 0 shows PREV color + re-arms',
+    '_COLORPIC_LED_APPLY R=1.0 G=1.0 B=1.0' in out
+    and 'VARIABLE=phase VALUE=1' in out and 'DURATION=0.9' in out, out[:130]))
+# blink phase 1 -> next color + LCD re-assert
+state_vars['mode'] = 'filament'
+cpic_state_vars.update(blink=1, phase=1)
+out = render(_dbody120('_COLORPIC_BLINK'))
+tests.append(('R120 _COLORPIC_BLINK: phase 1 shows NEW color + M117 name + re-arms',
+    '_COLORPIC_LED_APPLY R=0.1 G=0.85 B=0.9' in out
+    and 'M117 Color 2/4: Cyan' in out and 'VARIABLE=phase VALUE=0' in out, out[:130]))
+# blink off (printing again) -> stop, no LED fight
+state_vars['mode'] = 'printing'
+cpic_state_vars.update(blink=1, phase=0)
+out = render(_dbody120('_COLORPIC_BLINK'))
+tests.append(('R120 _COLORPIC_BLINK: print resumed -> blink stops by itself',
+    'VARIABLE=blink VALUE=0' in out and 'UPDATE_DELAYED_GCODE' not in out, out[:110]))
+
+out = render(_body120('_COLORPIC_DONE'), {'R': '0.1', 'G': '0.85', 'B': '0.9'})
+tests.append(('R120 _COLORPIC_DONE: blink off + steady new color',
+    'VARIABLE=blink VALUE=0' in out and '_COLORPIC_LED_APPLY R=0.1 G=0.85 B=0.9' in out, ''))
+
+# COLORPIC_SET_COLOR: band 3 of empty list -> GRY,GRY,col | bad color | bad band
+save_vars['colorpic_colors'] = ''
+out = render(_body120('COLORPIC_SET_COLOR'), {'BAND': '3', 'COLOR': 'RED'})
+tests.append(('R120 COLORPIC_SET_COLOR: pads unset bands with GRY (no while loop)',
+    'GRY,GRY,RED' in _re120.sub(r'\s+', ' ', out)
+    and 'VARIABLE=colorpic_colors' in out and '{% while %}' not in _cp120txt, out[:130]))
+save_vars['colorpic_colors'] = 'WHT,GRY,RED'
+out = render(_body120('COLORPIC_SET_COLOR'), {'BAND': '2', 'COLOR': 'BLU'})
+tests.append(('R120 COLORPIC_SET_COLOR: replaces band 2, trims beyond',
+    'WHT,BLU' in _re120.sub(r'\s+', ' ', out) and 'RED' not in
+    _re120.sub(r'\s+', ' ', out).split('RESPOND')[0], out[:130]))
+out = render(_body120('COLORPIC_SET_COLOR'), {'BAND': '2', 'COLOR': 'FOO'})
+tests.append(('R120 COLORPIC_SET_COLOR: bad color rejected (palette listed)',
+    'COLOR must be one of' in out and 'SAVE_VARIABLE' not in out, out[:110]))
+out = render(_body120('COLORPIC_SET_COLOR'), {'BAND': '9', 'COLOR': 'RED'})
+tests.append(('R120 COLORPIC_SET_COLOR: band 9 rejected (1..8)',
+    'BAND must be 1..8' in out and 'SAVE_VARIABLE' not in out, ''))
+
+# COLORPIC_CREATE: empty -> notice; slot 0 -> nonce bump
+save_vars['litho_files'] = []
+save_vars['litho_file'] = ''
+save_vars['colorpic_nonce'] = 0
+save_vars['colorpic_bands'] = 4
+save_vars['colorpic_width'] = 120
+save_vars['colorpic_bandh'] = 0.8
+save_vars['colorpic_colors'] = ''
+out = render(_body120('COLORPIC_CREATE'))
+tests.append(('R120 COLORPIC_CREATE: no image -> notify, no nonce',
+    'NOTIFY' in out and 'VARIABLE=colorpic_nonce' not in out, out[:110]))
+save_vars['litho_files'] = ['photo.png', 'cat.jpg']
+out = render(_body120('COLORPIC_CREATE'), {'INDEX': '1'})
+tests.append(('R120 COLORPIC_CREATE: slot 1 -> litho_file saved + nonce bump',
+    ('VALUE=' + chr(39) + _Q120 + 'cat.jpg' + _Q120 + chr(39)) in _re120.sub(r'\s+', ' ', out)
+    and 'VARIABLE=colorpic_nonce VALUE=1' in out and 'r2_confirm' in out, out[:130]))
+
+# GEN_COLORPIC: all params saved + paced + chains into COLORPIC_CREATE
+out = render(_body120('GEN_COLORPIC'),
+             {'SRC': 'photo.png', 'WIDTH': '100', 'BANDS': '5', 'BANDH': '1.2',
+              'COLORS': 'WHT,RED,BLK', 'LAYER_H': '0.16', 'IRONING': '0', 'BRIM': '4'})
+_sv120 = [l.strip() for l in out.split(chr(10))
+          if l.strip().startswith('SAVE_VARIABLE') or l.strip() == '_PACE']
+_adj120 = sum(1 for i in range(len(_sv120) - 1)
+              if _sv120[i].startswith('SAVE_VARIABLE') and _sv120[i + 1].startswith('SAVE_VARIABLE'))
+tests.append(('R120 GEN_COLORPIC: 8 params saved, paced, chains CREATE',
+    'VARIABLE=colorpic_width VALUE=100.0' in out and 'VARIABLE=colorpic_bands VALUE=5' in out
+    and 'VARIABLE=colorpic_bandh VALUE=1.2' in out
+    and 'WHT,RED,BLK' in _re120.sub(r'\s+', ' ', out)
+    and 'VARIABLE=colorpic_ironing VALUE=False' in out
+    and 'VARIABLE=colorpic_brim VALUE=4' in out and 'COLORPIC_CREATE' in out
+    and _adj120 == 0 and _sv120.count('_PACE') >= 8,
+    'adjacent %d pace %d' % (_adj120, _sv120.count('_PACE'))))
+out = render(_body120('GEN_COLORPIC'), {'SRC': 'has"quote.png'})
+tests.append(('R120 GEN_COLORPIC: quoted SRC rejected',
+    'needs SRC' in out and 'SAVE_VARIABLE' not in out, out[:100]))
+
+# --- LCD menus ---
+_lcd120 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R120 LCD: ColorPic in Tools menu (guarded) with all settings',
+    all(k in _lcd120 for k in ['[menu __main __gen __cpic]',
+        '__cpic __img __s0]', '__cpic __img __s9]', '__cpic __set __wid]',
+        '__cpic __set __bnd]', '__cpic __set __bh]', '__cpic __set __lh]',
+        '__cpic __set __clrs]', '__cpic __set __clrs __band]',
+        '__cpic __set __clrs __red]', '__cpic __set __clrs __rst]',
+        '__cpic __set __iro]', '__cpic __set __brm]', '__cpic __set __vers]',
+        'COLORPIC_CREATE INDEX=0', 'COLORPIC_SET_COLOR',
+        "enable: {'gcode_macro _COLORPIC_SWAP' in printer}"]), 'ids'))
+_blk120 = _lcd120[_lcd120.index('[menu __main __gen __cpic]'):_lcd120.index('[menu __main __gen __seal]')]
+_n120 = [l.strip()[6:].strip("'") for l in _blk120.split(chr(10)) if l.strip().startswith('name: ')]
+_n120 = [l.split('{')[0].strip() if '{' in l else l for l in _n120]
+_long120 = [l for l in _n120 if len(l) > 16]
+tests.append(('R120 LCD: menu names stay short (R29)', len(_long120) == 0, str(_long120[:6])))
 
 fails = 0
 for name, ok, info in tests:

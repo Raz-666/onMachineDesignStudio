@@ -167,13 +167,14 @@ Open `printer.cfg.example` as a **checklist** and compare with your printer.cfg:
 [include klipper-e3-r2d2/macros/15_objects.cfg]
 [include klipper-e3-r2d2/macros/16_labels.cfg]  <- NEW .47 (Labels menu + GEN_LABELS)
 [include klipper-e3-r2d2/macros/17_generator.cfg]  <- NEW .70 (Kabelbinder + Winkel menus)
+[include klipper-e3-r2d2/macros/18_colorpic.cfg]  <- NEW (R120: color pictures - Tools > ColorPic)
 [include klipper-e3-r2d2/menus/lcd_menues.cfg]
 ```
 
 (Paths relative to printer.cfg. Remove any OLD include lines pointing to the
 deleted German files!)
 
-**IMPORTANT - ALL 18 includes are required** (`16_labels.cfg` since .47, `17_generator.cfg` since .70),
+**IMPORTANT - ALL 19 includes are required** (`16_labels.cfg` since .47, `17_generator.cfg` since .70, `18_colorpic.cfg` since R120),
 including `14_kamp.cfg` even
 if you do NOT use KAMP: that file contains the mesh & purge dispatch
 (`_CALIBRATE_MESH_PROFILE`, `_PURGE_SMART`) that EVERY print start calls - with

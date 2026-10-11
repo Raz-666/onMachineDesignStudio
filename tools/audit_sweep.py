@@ -218,6 +218,15 @@ _img = os.path.join(tempfile.mkdtemp(prefix='audit_'), 'grad.png')
 synth_png(_img)
 run(pp.make_lithophane, 'litho', src=_img, bed=BED)
 
+# ---- R120: color picture (same synthetic image, 4 + 8 bands, custom
+# palette, and the unknown-color guard must raise) ----
+run(pp.make_colorpic, 'colorpic-4', src=_img, bed=BED)
+run(pp.make_colorpic, 'colorpic-8', src=_img, bands=8, band_h=0.4, bed=BED)
+run(pp.make_colorpic, 'colorpic-pal', src=_img, bands=3, colors='WHT,RED,BLK',
+    bed=BED)
+run(pp.make_colorpic, 'colorpic-badcolor', src=_img, colors='WHT,FOO',
+    expect_guard='unknown - palette')
+
 print('==== %d files checked, %d FAIL ====' % (runs, len(fails)))
 for name, prob in fails:
     print('  %s: %s' % (name, '; '.join(prob)))
