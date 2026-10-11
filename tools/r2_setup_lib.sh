@@ -21,7 +21,8 @@
 #    r2_hw_wizard                ask every hardware parameter (build volume,
 #                                probe offsets, clean/present positions)
 #    r2_led_wizard               LED chain + areas (status / bed light / nozzle,
-#                                neopixel or dotstar, mainboard or EBB CAN)
+#                                neopixel or dotstar, mainboard or EBB CAN;
+#                                COLOR ORDER asked per chain - R110)
 #    r2_apply_led_layout         regenerate the [led_effect] index ranges
 #    r2_object_processing        show + explain + offer the moonraker toggle
 #
@@ -94,6 +95,16 @@ r2_ask_string() {   # r2_ask_string "prompt" "default" -> R2_VALUE
 
 r2_confirm_value() {   # r2_confirm_value "prompt" default min max  -> R2_VALUE
     local prompt="$1" def="$2" min="$3" max="$4" a=""
+    # R110 (found by the setup simulation): a DEFAULT outside min..max would
+    # loop FOREVER - Enter keeps serving the invalid default, and on EOF
+    # (non-interactive run) the loop never ends at all (setup.sh hung).
+    # Clamp the default into range first and SAY so.
+    if ! awk -v v="${def}" -v lo="${min}" -v hi="${max}" \
+            'BEGIN{ exit !(v >= lo && v <= hi) }'; then
+        def="$(awk -v v="${def}" -v lo="${min}" -v hi="${max}" \
+            'BEGIN{ if (v < lo) printf "%s", lo; else if (v > hi) printf "%s", hi; else printf "%s", v }')"
+        echo "       [i] the stored value is outside ${min}..${max} - continuing with ${def}"
+    fi
     while :; do
         if [ "${R2_CHECK}" = "1" ]; then
             echo "[i] (check mode) ${prompt} -> would ask (default: ${def})"
@@ -146,6 +157,65 @@ r2_choice() {   # r2_choice "prompt" default "opt1" "opt2" ... -> R2_VALUE=index
         fi
         r2_ask "       you picked '${a}' (${opts[$((a - 1))]}) - take it over?" y
         [ "${R2_YN}" = "y" ] && { R2_VALUE="${a}"; return 0; }
+    done
+}
+
+r2_ask_color_order() {   # r2_ask_color_order "which LEDs" "GRB" -> R2_VALUE (validated)
+    # The BYTE ORDER the LED chip expects - asked EXPLICITLY because a wrong
+    # order swaps colors (red glows green). The .83 field log had exactly that
+    # class of bug (GRBGR in printer.cfg.example halted Klipper). Menu of the
+    # common chips + free input, both validated against what Klipper accepts.
+    local which="$1" def="$2" a="" elem ndistinct
+    local defidx=8
+    case "${def}" in
+        GRB)  defidx=1 ;;  RGB)  defidx=2 ;;  BRG)  defidx=3 ;;
+        BGR)  defidx=4 ;;  RGBW) defidx=5 ;;  RBG)  defidx=6 ;;  GBR)  defidx=7 ;;
+    esac
+    while :; do
+        if [ "${R2_CHECK}" = "1" ]; then
+            echo "[i] (check mode) color order of the ${which} -> would ask (default: ${def})"
+            R2_VALUE="${def}"
+            return 0
+        fi
+        echo
+        echo "     COLOR ORDER of the ${which} = the byte order the LED CHIP expects."
+        echo "     It is NOT a color choice - it is the wiring inside the chip. A wrong"
+        echo "     order swaps colors: a RED status then glows GREEN or BLUE."
+        echo "     Where to find it: the LED datasheet or the shop page of the strip."
+        echo "     Unsure? Take the default - after setup run the LED test (LCD: System >"
+        echo "     LED Setup) and if red and green come out swapped, re-run setup.sh and"
+        echo "     pick the other order. A wrong order breaks NOTHING - colors just swap."
+        r2_choice "color order (Farbreihenfolge) of the ${which}?" "${defidx}" \
+            "GRB  - WS2812 / WS2815 / SK6812 ('Neopixel' - the common case)" \
+            "RGB  - WS2811 12 V strips, many older 12 V strips" \
+            "BRG  - some WS2812 batches and LED panels" \
+            "BGR  - APA102 / SK9822 ('dotstar' chips)" \
+            "RGBW - SK6812-RGBW with a REAL white 4th chip" \
+            "RBG  - rare (clone strips)" \
+            "GBR  - rare (clone strips)" \
+            "type it myself (or a comma list per LED, e.g. GRB,GRB,RGB)"
+        a="${R2_VALUE}"
+        case "${a}" in
+            1) R2_VALUE="GRB";  return 0 ;;
+            2) R2_VALUE="RGB";  return 0 ;;
+            3) R2_VALUE="BRG";  return 0 ;;
+            4) R2_VALUE="BGR";  return 0 ;;
+            5) R2_VALUE="RGBW"; return 0 ;;
+            6) R2_VALUE="RBG";  return 0 ;;
+            7) R2_VALUE="GBR";  return 0 ;;
+        esac
+        # --- custom input: validate what Klipper accepts (3/4 letters R/G/B/W,
+        #     optional comma list per LED, no duplicated letters in an element)
+        r2_ask_string "color_order (letters R/G/B/W only, e.g. GRB; comma list = per LED)" "${def}"
+        elem="${R2_VALUE%%,*}"
+        ndistinct="$(printf '%s' "${elem}" | fold -w1 | sort -u | wc -l)"
+        if printf '%s' "${R2_VALUE}" | grep -qE '^([RGBW]{3}|[RGBW]{4})(,([RGBW]{3}|[RGBW]{4}))*$' \
+           && [ "${ndistinct}" -eq "${#elem}" ]; then
+            return 0          # R2_VALUE already holds the validated order
+        fi
+        echo "       [!] '${R2_VALUE}' is not a color order Klipper understands -"
+        echo "           3 or 4 DIFFERENT letters out of R/G/B/W (GRB, RGB, RGBW, ...),"
+        echo "           optionally comma-separated per LED (GRB,GRB,RGB). Try again."
     done
 }
 
@@ -437,8 +507,10 @@ r2_hw_write() {   # regenerates r2_hardware.cfg from R2_HW (keeping unknown keys
         echo "description: R2 hardware profile (bed limits + positions + LED layout) - macros AND watcher read this"
         for k in bed_min_x bed_max_x bed_min_y bed_max_y bed_max_z \
                  probe_x probe_y present_x present_y wipe_x wipe_y \
-                 led_type led_section led_status_n led_bed_n led_bed_on led_bed_bright \
-                 led_nozzle_split led_nozzle_section; do
+                 led_type led_section led_pin led_clk_pin led_chain led_color_order \
+                 led_status_n led_bed_n led_bed_on led_bed_bright \
+                 led_nozzle_split led_nozzle_section led_nozzle_pin led_nozzle_chain \
+                 led_nozzle_color_order; do
             [ -n "${R2_HW[${k}]:-}" ] && printf 'variable_%s: %s\n' "${k}" "${R2_HW[${k}]}"
         done
         # keep keys we do not know (future versions / hand edits)
@@ -446,8 +518,10 @@ r2_hw_write() {   # regenerates r2_hardware.cfg from R2_HW (keeping unknown keys
         for kk in "${!R2_HW[@]}"; do
             case "${kk}" in
                 bed_min_x|bed_max_x|bed_min_y|bed_max_y|bed_max_z|probe_x|probe_y|\
-                present_x|present_y|wipe_x|wipe_y|led_type|led_section|led_status_n|\
-                led_bed_n|led_bed_on|led_bed_bright|led_nozzle_split|led_nozzle_section) ;;
+                present_x|present_y|wipe_x|wipe_y|led_type|led_section|led_pin|\
+                led_clk_pin|led_chain|led_color_order|led_status_n|led_bed_n|\
+                led_bed_on|led_bed_bright|led_nozzle_split|led_nozzle_section|\
+                led_nozzle_pin|led_nozzle_chain|led_nozzle_color_order) ;;
                 *) printf 'variable_%s: %s\n' "${kk}" "${R2_HW[${kk}]}" ;;
             esac
         done
@@ -540,6 +614,9 @@ r2_apply_led_layout() {   # regenerate [led_effect] ranges from the hw profile
     local hw; hw="$(r2_hwfile)"
     [ -f "${hw}" ] || return 0
     r2_hw_read
+    # no LED chain configured (wizard answered 'no LEDs')? nothing to regenerate
+    # - and NO phantom led_status_n key may appear in the profile (R110 sim)
+    [ -n "${R2_HW[led_type]:-}" ] || return 0
     local sn="${R2_HW[led_status_n]:-4}"
     # r2_persist.sh rewrites the value (same value = no-op edit) AND regenerates
     # the effect ranges + the split-effect comment state - one code path for all
@@ -564,8 +641,9 @@ r2_led_wizard() {
     echo
     echo "--- LED wizard (chain + areas) ----------------------------------------------------"
     if [ "${R2_CHECK}" = "1" ]; then
-        echo "[i] (check mode) would run the LED wizard (used? type, pin, chain_count,"
-        echo "    status / bed-light / nozzle areas, EBB split chain, brightness)"
+        echo "[i] (check mode) would run the LED wizard (used? type, pins, chain_count,"
+        echo "    COLOR ORDER per chain, status / bed-light / nozzle areas, EBB split,"
+        echo "    brightness)"
         return 0
     fi
     r2_hw_read
@@ -592,7 +670,10 @@ r2_led_wizard() {
     pin="${R2_HW[led_pin]:-PA8}"
     clk="${R2_HW[led_clk_pin]:-PB0}"
     cc="${R2_HW[led_chain]:-5}"
-    co="${R2_HW[led_color_order]:-GRB}"
+    co="${R2_HW[led_color_order]:-}"
+    if [ -z "${co}" ]; then
+        if [ "${ltype}" = "dotstar" ]; then co="BGR"; else co="GRB"; fi
+    fi
     if [ "${ltype}" = "neopixel" ]; then
         r2_ask_string "data pin (SKR mini E3 v3: PA8 / EBB42 RGB port: EBB:PD3)" "${pin}"
         pin="${R2_VALUE}"
@@ -604,10 +685,10 @@ r2_led_wizard() {
     fi
     r2_confirm_value "total LEDs in the main chain" "${cc}" 1 60
     cc="${R2_VALUE}"
-    if [ "${ltype}" = "neopixel" ]; then
-        r2_ask_string "color_order (GRB, RGB, RGBW or a comma list per LED)" "${co}"
-        co="${R2_VALUE}"
-    fi
+    # color order: asked for BOTH types - a dotstar wired as BGR shows the same
+    # swapped-color mess as a wrong neopixel order (.83 field log)
+    r2_ask_color_order "main-chain LEDs" "${co}"
+    co="${R2_VALUE}"
 
     # --- areas (status / bed light / nozzle)
     r2_confirm_value "status LEDs (animated R2 effects) - first LEDs of the chain" "${R2_HW[led_status_n]:-4}" 0 "${cc}"
@@ -641,6 +722,8 @@ r2_led_wizard() {
         npin="${R2_VALUE}"
         r2_confirm_value "nozzle LEDs in the own chain (max ~15 at full white on the EBB port)" "${ncc}" 1 15
         ncc="${R2_VALUE}"
+        r2_ask_color_order "nozzle-chain LEDs" "${R2_HW[led_nozzle_color_order]:-GRB}"
+        R2_HW[led_nozzle_color_order]="${R2_VALUE}"
     fi
     r2_confirm_value "bed work-light brightness (0.0-0.5 - the power cap!)" "${R2_HW[led_bed_bright]:-0.4}" 0 0.5
     local bbr="${R2_VALUE}"
@@ -648,12 +731,12 @@ r2_led_wizard() {
     # --- summary + final confirmation
     echo
     echo "     LED setup summary:"
-    echo "       main chain : ${ltype} '${lsec}' on pin ${pin}, ${cc} LEDs$( [ "${ltype}" = "neopixel" ] && printf ', color_order %s' "${co}")"
+    echo "       main chain : ${ltype} '${lsec}' on pin ${pin}, ${cc} LEDs, color_order ${co}"
     echo "       areas      : LED 1-${sn} status (animated) | LED $((sn + 1))-$((sn + bn)) bed light$( [ "${bn}" = "0" ] && printf ' (off)')"
     if [ "${noz}" = "1" ]; then
         echo "       nozzle     : LED $((sn + bn + 1)) of the main chain"
     elif [ "${noz}" = "2" ]; then
-        echo "       nozzle     : OWN chain '${nsec}' on pin ${npin}, ${ncc} LEDs"
+        echo "       nozzle     : OWN chain '${nsec}' on pin ${npin}, ${ncc} LEDs, color_order ${R2_HW[led_nozzle_color_order]:-GRB}"
     else
         echo "       nozzle     : none"
     fi
@@ -671,7 +754,7 @@ r2_led_wizard() {
     R2_HW[led_pin]="${pin}"
     R2_HW[led_clk_pin]="${clk}"
     R2_HW[led_chain]="${cc}"
-    [ "${ltype}" = "neopixel" ] && R2_HW[led_color_order]="${co}"
+    R2_HW[led_color_order]="${co}"
     [ "${split}" = "1" ] && { R2_HW[led_nozzle_pin]="${npin}"; R2_HW[led_nozzle_chain]="${ncc}"; }
 
     # [neopixel]/[dotstar] section: an existing one in printer.cfg is KEPT as is;
@@ -683,6 +766,15 @@ r2_led_wizard() {
         echo "[ok] [${ltype} ${lsec}] already lives in printer.cfg - kept untouched"
         if ! grep -A3 -E "^\[${ltype} ${lsec}\]" "${pc}" | grep -qE '^\s*chain_count:'; then
             echo "[!] that section has no chain_count line - please check it by hand"
+        fi
+        local _eco
+        _eco="$(grep -A8 -E "^\[${ltype} ${lsec}\]" "${pc}" | sed -n 's/^[[:space:]]*color_order:[[:space:]]*//p' | head -1)"
+        if [ -n "${_eco}" ]; then
+            echo "[i] your section sets color_order ${_eco} (you picked ${co} - the wizard"
+            echo "    never edits an existing user section; align them by hand if needed)"
+        else
+            echo "[i] your section sets NO color_order - Klipper then defaults to GRB"
+            echo "    (you picked ${co} - add the line by hand if that is wrong)"
         fi
     fi
     r2_hw_write
@@ -701,13 +793,13 @@ r2_led_wizard() {
                 echo "clock_pin: ${clk}"
             fi
             echo "chain_count: ${cc}"
-            [ "${ltype}" = "neopixel" ] && echo "color_order: ${co}"
+            echo "color_order: ${co}"
             if [ "${split}" = "1" ]; then
                 echo ""
                 echo "[${ltype} ${nsec}]"
                 echo "pin: ${npin}"
                 echo "chain_count: ${ncc}"
-                echo "color_order: GRB"
+                echo "color_order: ${R2_HW[led_nozzle_color_order]:-GRB}"
             fi
         } >> "${hw}"
         echo "[fix] [${ltype} ${lsec}] written into ${hw} (active via the profile include)"

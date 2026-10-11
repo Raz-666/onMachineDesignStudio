@@ -436,7 +436,10 @@ enable_force_move: True
 #[neopixel printer_leds]        # ADJUST: now only the FRAME LEDs
 #pin: PA8
 #chain_count: 4                 # was 5
-#color_order: GRBG
+#color_order: GRB               # the BYTE ORDER of your LED chip (WS2812=GRB,
+##                               WS2811 12V=RGB, APA102 dotstar=BGR, SK6812-RGBW=RGBW)
+##                               wrong order = colors swap (red glows green). The
+##                               setup LED wizard asks + explains this (R110)
 #[neopixel nozzle_led]
 #pin: EBB:PD3                   # RGB port of the EBB42
 #chain_count: 2                 # max ~15 at full white (5V/1A) - we cap at 0.5

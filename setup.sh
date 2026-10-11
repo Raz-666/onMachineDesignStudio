@@ -213,7 +213,7 @@ if [ -n "${CFG_DIR}" ]; then
         if grep -qE '^\[r2_postproc\]' "${CFG}"; then
             warn "LEGACY [r2_postproc] section found - Klipper CANNOT BOOT with it"
             info "   ('Section r2_postproc is not a valid config section' - halt loop!)"
-            ask_yn "Migrate it into r2_hardware.cfg now (values kept, backup made, old section only commented out)?" y
+            ask_yn "Migrate it into r2_hardware.cfg now (values kept, backup made, old section only commented out)?" n
             if [ "${ASK_ANSWER}" = "y" ]; then
                 if r2_sidecar "${CFG}"; then
                     _raw_vals="$(grep -A6 -E '^\[r2_postproc\]' "${CFG}" | grep -E '^(bed_min_x|bed_max_x|bed_min_y|bed_max_y):' || true)"
@@ -353,7 +353,7 @@ else
         warn "r2-postproc service not installed (layer markers / file info / generators need it)"
     fi
     if [ "${INSTALLED}" -eq 0 ]; then
-        ask_yn "Install the service now (templated to user '${USER_NAME}', gcodes '${GC_DIR}')?" y
+        ask_yn "Install the service now (templated to user '${USER_NAME}', gcodes '${GC_DIR}')?" n
     elif [ "${_unit_current}" -eq 0 ]; then
         ask_yn "Re-install / refresh the service unit from this package?" n
     else

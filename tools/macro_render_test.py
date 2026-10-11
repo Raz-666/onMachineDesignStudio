@@ -9435,6 +9435,56 @@ tests.append(('R109 _STATE: fp flags declared + boot inits for the three switche
 del save_vars['file_profiles'], save_vars['fp_epoch'], save_vars['preview_file']
 del save_vars['pending_snap']
 
+# ============== R110: profiles + gen-out LIVE from the LCD (no console, no restart) ==============
+# every item of Pre-Print > Profiles and Tools > After gen must RENDER and do
+# its work with SET_GCODE_VARIABLE/SAVE_VARIABLE alone - no RESTART, no
+# FIRMWARE_RESTART anywhere in the profile menus (that is the whole point:
+# the user never leaves the LCD).
+_lcd110 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+_items110 = []
+for _sec110, _opt110, _lines110 in _cfg_opts67('menus/lcd_menues.cfg'):
+    _name110 = _sec110[5:] if _sec110.startswith('menu ') else ''
+    if _name110.startswith('__main __preprint __profs') or _name110.startswith('__main __gen __out'):
+        _items110.append((_name110, _opt110, '\n'.join(_lines110).strip('\n')))
+_rendered110 = []
+_bad110 = []
+for _nm110, _op110, _t110 in _items110:
+    if _op110 not in ('name', 'enable', 'gcode') or not _t110:
+        continue
+    try:
+        _r110 = render(_t110, extra={'menu': M({'input': 1, 'ns': _nm110, 'event': 'click'})})
+        if _op110 == 'gcode':
+            _rendered110.append((_nm110, _r110))
+    except Exception as _e110:
+        _bad110.append('%s [%s]: %s' % (_nm110, _op110, _e110))
+tests.append(('R110 LCD: all %d profile/gen-out menu templates render' % len(_items110),
+    not _bad110 and len(_items110) > 60, str(_bad110[:3])))
+_gcodes110 = '\n'.join(_g110 for _n110, _g110 in _rendered110)
+# raw templates too: the 2-press delete branches only render ONE side at a
+# time, so the DELETE calls are checked against the raw menu text
+_raw110 = '\n'.join(_t110 for _nm110, _op110, _t110 in _items110)
+tests.append(('R110 LCD: NO restart anywhere in the profile menus',
+    'RESTART' not in _gcodes110.upper() and 'RESTART' not in _raw110.upper(), ''))
+tests.append(('R110 LCD: full profile lifecycle reachable from the display',
+    all(_cmd110 in _raw110 for _cmd110 in (
+        'SAVE_FILE_PROFILE', 'FILE_PROFILE_LOAD WHICH=pre', 'FILE_PROFILE_LOAD WHICH=post',
+        'FILE_PROFILE_DELETE WHICH=pre', 'FILE_PROFILE_DELETE WHICH=post',
+        'FILE_PROFILES_INFO', 'SAVE_MATERIAL_TEMPS MATERIAL=PLA',
+        'SAVE_MATERIAL_TEMPS MATERIAL=PETG', 'SAVE_MATERIAL_TEMPS MATERIAL=TPU',
+        'SET_MATERIAL MATERIAL=', 'LOAD_DEFAULT_PRESET N=', 'SAVE_DEFAULT_PRESET',
+        'DELETE_DEFAULT_PRESET N=', 'DEFAULT_PRESETS_INFO', '_GEN_OUT_SET OUT=')),
+    ''))
+tests.append(('R110 LCD: default + file deletes are TWO-PRESS (arm + confirm)',
+    _raw110.count('DELETE_DEFAULT_PRESET N=') >= 8
+    and _raw110.count('def_del_arm') >= 16 and _raw110.count('fp_del_arm') >= 4
+    and 'AGAIN' in _raw110, ''))
+tests.append(('R110 LCD: the two auto-toggles are switchable at the display',
+    'VARIABLE=file_profiles_on' in _gcodes110 and 'VARIABLE=file_profiles_autosave' in _gcodes110,
+    ''))
+tests.append(('R110 LCD: material save does NOT load the material first',
+    'SAVE_MATERIAL_TEMPS MATERIAL=' in _raw110
+    and 'LOAD_MATERIAL' not in _raw110, ''))
+
 fails = 0
 for name, ok, info in tests:
     print(('PASS ' if ok else 'FAIL '), name)
