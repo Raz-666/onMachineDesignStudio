@@ -10410,6 +10410,333 @@ COLORPIC_DEFAULTS = {
 }
 
 
+# ---- R121: BRICKS - the stud-and-tube building block system -------------------
+# Exact geometry (cross-checked, sources: LDraw article 218 / cailliau.org
+# measurements / orionrobots tables - documented in the MANUAL):
+#   pitch 8.0, brick 9.6, plate 3.2, stud O4.8 x 1.8 high (hollow),
+#   body = n*8 - 0.2 (0.1 clearance per side so bricks CLAMP), wall 1.5,
+#   underside tube O6.31 with a 0.657 wall (= ONE line of the 0.6 nozzle).
+# Naming stays generic on purpose: bricks / plates / tiles, smooth studs,
+# no logos, no brand names anywhere (copyright distance).
+BRICK_PITCH = 8.0
+BRICK_BH = 9.6
+BRICK_PH = 3.2
+BRICK_STUD_D = 4.8
+BRICK_STUD_H = 1.8
+BRICK_STUD_WALL = 1.2
+BRICK_PLAY = 0.2
+BRICK_WALL = 1.5
+BRICK_TUBE_OD = 6.31
+BRICK_TUBE_WALL = 0.657
+BRICK_GAP = 3.0            # grid gap between bricks on the plate
+
+BRICK_CATALOG = {}         # code -> (kind, w, l): B=brick, P=plate, T=tile
+for _bw121 in (1, 2, 4, 6, 8):
+    for _bl121 in (1, 2, 3, 4, 6, 8):
+        if _bl121 < _bw121:
+            continue
+        BRICK_CATALOG['B%dx%d' % (_bw121, _bl121)] = ('brick', _bw121, _bl121)
+for _pw121 in (1, 2, 4, 6, 8):
+    for _pl121 in (2, 4, 6, 8):
+        if _pl121 < _pw121:
+            continue
+        BRICK_CATALOG['P%dx%d' % (_pw121, _pl121)] = ('plate', _pw121, _pl121)
+        if _pw121 <= 2:
+            # tiles = plates with a smooth top (no studs), the small sizes
+            BRICK_CATALOG['T%dx%d' % (_pw121, _pl121)] = ('tile', _pw121, _pl121)
+
+
+def _brick_hatch(x0, y0, x1, y1, keeps, spacing, angle_deg, min_len=0.35):
+    """R121: scanline hatch over a rect minus SEVERAL circular keep-outs
+    (the underside tubes). Same boustrophedon sweep rule as _hatch/_shape_hatch
+    (R77: neighboring lines stay adjacent, no retract storms)."""
+    contour = _rect_loop(x0, y0, x1, y1)
+    ang = math.radians(angle_deg)
+    dx, dy = math.cos(ang), math.sin(ang)
+    nx, ny = -dy, dx
+    mx, my = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+    tmax = max(abs((px - mx) * nx + (py - my) * ny)
+               for px, py in contour) + spacing
+    segs = []
+    row = 0
+    t = -tmax
+    while t <= tmax:
+        ox, oy = mx + nx * t, my + ny * t
+        iv = _convex_intervals(contour, ox, oy, dx, dy)
+        if iv is not None:
+            a, b = iv
+            gaps = []
+            for (cx, cy, r) in keeps:
+                vx, vy = cx - ox, cy - oy
+                along = vx * dx + vy * dy
+                perp = abs(vx * nx + vy * ny)
+                if perp < r:
+                    h = math.sqrt(r * r - perp * perp)
+                    gaps.append((along - h, along + h))
+            cuts = sorted(g for g in gaps if g[1] > a and g[0] < b)
+            cur = a
+            for (ga, gb) in cuts + [(b, b)]:
+                stop = min(ga, b)
+                if stop - cur >= min_len:
+                    p = (ox + dx * cur, oy + dy * cur)
+                    q = (ox + dx * stop, oy + dy * stop)
+                    segs.append((p, q) if row % 2 == 0 else (q, p))
+                cur = max(cur, gb)
+                if cur >= b:
+                    break
+        t += spacing
+        row += 1
+    return segs
+
+
+def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
+                nozzle=0.6, out_dir='.', version=1):
+    """R121: print exact stud-and-tube building bricks (single color).
+
+    jobs = [('B2x4', 3), ('P2x2', 2), ...] - catalog codes, counts 1..99.
+    One file, one color: every brick is its own EXCLUDE_OBJECT (a failed
+    brick can be skipped / reprinted later). Body = n*8-0.2mm so the bricks
+    clamp to each other AND to original ones; hollow studs, underside tubes
+    at every inner grid crossing. Plates = 1/3 height, tiles = smooth plates.
+    Layer heights that do not divide 9.6/3.2/1.8 exactly snap to the nearest
+    whole layer count (noted in the header + info).
+    """
+    layer_h = max(0.08, min(float(layer_h or 0.2), 0.32))
+    notes = []
+    if not jobs:
+        raise ValueError('no bricks - add some first (LCD: Bricks > Catalog)')
+    parts = []
+    for code, count in jobs:
+        code = str(code).strip().upper().replace('X', 'x')
+        if code not in BRICK_CATALOG:
+            raise ValueError("unknown brick %r - catalog: %s"
+                             % (code, ', '.join(sorted(BRICK_CATALOG))))
+        count = int(count)
+        if not (1 <= count <= 99):
+            raise ValueError('count for %s must be 1..99' % code)
+        parts.extend([code] * count)
+    if len(parts) > 120:
+        raise ValueError('%d bricks is too many for one plate (max 120)' % len(parts))
+
+    bed = bed or (0.0, 0.0, 220.0, 220.0)
+    bx0, by0, bx1, by1 = bed
+    ux0, uy0 = bx0 + bed_margin, by0 + bed_margin
+    ux1, uy1 = bx1 - bed_margin, by1 - bed_margin
+
+    wid = max(0.4, nozzle * 1.08)
+    fil = FIL_AREA
+    # layer snap: 9.6 / 3.2 / 1.8 must become WHOLE layer counts
+    def _snap(total, what):
+        nl = max(1, int(round(total / layer_h)))
+        if abs(nl * layer_h - total) > 0.01:
+            notes.append('%s snaps to %d layers = %.2fmm (asked %.2f)'
+                         % (what, nl, nl * layer_h, total))
+        return nl
+
+    # ---- layout: row packing, tallest body first (bricks before plates) ----
+    cells = []
+    for code in parts:
+        kind, w, l = BRICK_CATALOG[code]
+        cells.append({'code': code, 'kind': kind, 'w': w, 'l': l,
+                      'bw': w * BRICK_PITCH - BRICK_PLAY,
+                      'bl': l * BRICK_PITCH - BRICK_PLAY,
+                      'nl': _snap(BRICK_BH if kind == 'brick' else BRICK_PH,
+                                  code),
+                      'sl': 0 if kind == 'tile' else _snap(BRICK_STUD_H,
+                                                           code + ' studs')})
+    total_layers = max(c['nl'] + c['sl'] for c in cells)
+    cells.sort(key=lambda c: (-(c['nl'] + c['sl']), -c['bw'] * c['bl']))
+    x, y = ux0, uy0
+    row_h = 0.0
+    for i, c in enumerate(cells):
+        if x + c['bw'] > ux1 and x > ux0:
+            x = ux0
+            y += row_h + BRICK_GAP
+            row_h = 0.0
+        if y + c['bl'] > uy1:
+            raise ValueError('%d bricks do not fit the bed - split the job'
+                             % len(cells))
+        c['x'] = x
+        c['y'] = y
+        c['name'] = 'BRICK_%02d_%s' % (i + 1, c['code'])
+        x += c['bw'] + BRICK_GAP
+        row_h = max(row_h, c['bl'])
+    for c in cells:
+        cx = c['x'] + c['bw'] / 2.0
+        cy = c['y'] + c['bl'] / 2.0
+        # stud centers: first at 3.9 (= 4 - play/2), then every 8mm
+        c['studs'] = [(cx + (i - (c['w'] - 1) / 2.0) * BRICK_PITCH,
+                       cy + (j - (c['l'] - 1) / 2.0) * BRICK_PITCH)
+                      for i in range(c['w']) for j in range(c['l'])]
+        # tubes: at every INNER grid crossing (between 4 studs)
+        c['tubes'] = [(cx + (i - (c['w'] - 1) / 2.0) * BRICK_PITCH,
+                       cy + (j - (c['l'] - 1) / 2.0) * BRICK_PITCH)
+                      for i in range(c['w'] - 1) for j in range(c['l'] - 1)]
+
+    n_bricks = sum(1 for c in cells if c['kind'] == 'brick')
+    n_plates = sum(1 for c in cells if c['kind'] == 'plate')
+    n_tiles = sum(1 for c in cells if c['kind'] == 'tile')
+    fname = '00_Bricks_V%02d.gcode' % (max(1, min(int(version), 99)))
+    out = os.path.join(out_dir, fname)
+    e_wall = layer_h * wid / fil
+    first_h = layer_h
+    studs_on = any(c['sl'] for c in cells)
+
+    with open(out, 'w') as f:
+        sk = _Sink(f)
+        a = sk.append
+        pen = _Pen(sk, jump_d=6.0)
+        a('; R2-BRICKS generated building bricks (R121) - start it like any other file')
+        a(TAG)
+        a('; %d part(s): %d brick(s), %d plate(s), %d tile(s) - ONE color,'
+          ' every part its own EXCLUDE_OBJECT' % (len(cells), n_bricks,
+                                                  n_plates, n_tiles))
+        a('; exact system geometry: pitch %.1f, brick %.1f, plate %.1f,'
+          ' stud O%.1f x %.1f (hollow), body n*%.1f-%.1f so they CLAMP,'
+          ' wall %.1f, tube O%.2f / %.3f wall'
+          % (BRICK_PITCH, BRICK_BH, BRICK_PH, BRICK_STUD_D, BRICK_STUD_H,
+             BRICK_PITCH, BRICK_PLAY, BRICK_WALL, BRICK_TUBE_OD,
+             BRICK_TUBE_WALL))
+        a('; layer %.2g -> body %d layer(s), studs %d - layer 1 prints'
+          ' SOLID (bed adhesion), the tubes open from layer 2 up'
+          % (layer_h, max(c['nl'] for c in cells),
+             max(c['sl'] for c in cells)))
+        a('; jobs: %s' % ', '.join('%s x%d' % (code, cnt)
+                                   for code, cnt in jobs))
+        for _n121 in notes:
+            a('; note: %s' % _n121)
+        a('; filament_type = %s' % material)
+        a('; layer_height = %.2g' % layer_h)
+        a('; nozzle_diameter = %.1f' % nozzle)
+        a('; line_width = %.2g' % wid)
+        a('; outer_wall_line_width = %.2g' % wid)
+        a('; outer_wall_speed = 35')
+        a('; inner_wall_speed = 40')
+        a('; top_surface_speed = 35')
+        a('; internal_solid_infill_speed = 50')
+        a('; initial_layer_speed = 20')
+        a('; travel_speed = 150')
+        a('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d LINE_WIDTH=%.2g '
+          'LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g FLOW_RATIO=1 NOZZLE=%.1f '
+          'WALL_LOOPS=2 SPEED_OUTER=35 SPEED_FIRST=20 SPEED_TRAVEL=150 '
+          'TYPES=WALL-OUTER,WALL-INNER,INFILL-SOLID,SURFACE-BOTTOM,SURFACE-TOP'
+          '%s BY_OBJECT=0'
+          % (material, layer_h, total_layers, wid, wid, wid, nozzle,
+             ',BRIM' if True else ''))
+        _last121 = [None]
+
+        def _ty121(t):
+            if _last121[0] != t:
+                a(';TYPE:%s' % t)
+                a('APPLY_TYPE TYPE=%s' % t)
+                _last121[0] = t
+
+        for c in cells:
+            _xs = [c['x'], c['x'] + c['bw']]
+            _ys = [c['y'], c['y'] + c['bl']]
+            _poly = ('[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]'
+                     % (_xs[0], _ys[0], _xs[1], _ys[0], _xs[1], _ys[1],
+                        _xs[0], _ys[1]))
+            a('EXCLUDE_OBJECT_DEFINE NAME=%s CENTER=%.1f,%.1f POLYGON=%s'
+              % (c['name'], (_xs[0] + _xs[1]) / 2.0, (_ys[0] + _ys[1]) / 2.0,
+                 _poly))
+        a('PRINT_START')
+
+        def _loops(cx0, cy0, cx1, cy1, e, feed):
+            _emit_loop(pen, _rect_loop(cx0, cy0, cx1, cy1), e, feed)
+
+        def _seg_out(x0, y0, x1, y1, p, q, e, feed):
+            pen.travel(p[0], p[1])
+            pen.extrude(q[0], q[1], math.hypot(q[0] - p[0], q[1] - p[1]) * e,
+                        feed)
+
+        def brick_block(c, li):
+            if li > c['nl'] + c['sl']:
+                return
+            a('EXCLUDE_OBJECT_START NAME=%s' % c['name'])
+            x0, y0 = c['x'] + wid / 2.0, c['y'] + wid / 2.0
+            x1, y1 = c['x'] + c['bw'] - wid / 2.0, c['y'] + c['bl'] - wid / 2.0
+            keeps = [(tx, ty, BRICK_TUBE_OD / 2.0) for tx, ty in c['tubes']]
+            if li == 1:
+                # ---- layer 1: brim + solid bottom (tubes open from layer 2)
+                _ty121('Brim')
+                for off in (wid * 0.35, wid * 0.35 + wid):
+                    _loops(c['x'] - off, c['y'] - off,
+                           c['x'] + c['bw'] + off, c['y'] + c['bl'] + off,
+                           e_wall, 1500)
+                _ty121('Bottom surface')
+                _loops(x0, y0, x1, y1, e_wall, 1400)
+                _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid, e_wall, 1600)
+                for p, q in _brick_hatch(x0 + 2 * wid, y0 + 2 * wid,
+                                         x1 - 2 * wid, y1 - 2 * wid, [],
+                                         wid, 45, 0.35):
+                    _seg_out(x0, y0, x1, y1, p, q, e_wall, 1600)
+            elif li <= c['nl']:
+                # ---- body: 2-line wall + tube rings + hatch between
+                _ty121('Outer wall')
+                _loops(x0, y0, x1, y1, e_wall, 2200)
+                _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid, e_wall, 2400)
+                if c['tubes']:
+                    _ty121('Wall-Inner')
+                    for tx, ty in c['tubes']:
+                        _emit_loop(pen, _circle(tx, ty, BRICK_TUBE_OD / 2.0
+                                                - wid / 2.0, 24), e_wall, 2200)
+                        _emit_loop(pen, _circle(tx, ty, BRICK_TUBE_OD / 2.0
+                                                - BRICK_TUBE_WALL + wid / 2.0,
+                                                20), e_wall, 2200)
+                if li == c['nl'] and (c['sl'] or c['kind'] != 'brick'):
+                    # top of a plate/tile: closed surface (studs come on top)
+                    _ty121('Top surface')
+                    for p, q in _brick_hatch(x0 + 2 * wid, y0 + 2 * wid,
+                                             x1 - 2 * wid, y1 - 2 * wid,
+                                             keeps if False else [],
+                                             wid, 45 if li % 2 else 135, 0.35):
+                        _seg_out(x0, y0, x1, y1, p, q, e_wall, 1700)
+                else:
+                    _ty121('Internal solid infill')
+                    for p, q in _brick_hatch(x0 + 2 * wid, y0 + 2 * wid,
+                                             x1 - 2 * wid, y1 - 2 * wid,
+                                             keeps, wid,
+                                             45 if li % 2 else 135, 0.35):
+                        _seg_out(x0, y0, x1, y1, p, q, e_wall, 1900)
+            else:
+                # ---- stud layers: hollow stud rings only
+                _ty121('Outer wall')
+                pen.holes = []
+                for sx, sy in c['studs']:
+                    _emit_loop(pen, _circle(sx, sy, BRICK_STUD_D / 2.0
+                                            - wid / 2.0, 20), e_wall, 2200)
+                    _emit_loop(pen, _circle(sx, sy, BRICK_STUD_D / 2.0
+                                            - BRICK_STUD_WALL + wid / 2.0,
+                                            16), e_wall, 2200)
+            a('EXCLUDE_OBJECT_END NAME=%s' % c['name'])
+
+        for li in range(1, total_layers + 1):
+            z = round(first_h + (li - 1) * layer_h, 3)
+            a(';LAYER_CHANGE')
+            a(';Z:%.3f' % z)
+            pen.set_z(z)
+            if li == 2:
+                a('M106 S178   ; R2-BRICKS: part fan from layer 2')
+            for c in cells:
+                pen.holes = [(tx, ty, BRICK_TUBE_OD / 2.0 - 0.6)
+                             for tx, ty in c['tubes']] if 1 < li <= c['nl'] else []
+                brick_block(c, li)
+        a(';TYPE:Custom')
+        a('APPLY_TYPE TYPE=Custom')
+        a('M107')
+        a('PRINT_END')
+        sk.flush()
+
+    info = {'file': fname, 'kind': 'bricks', 'count': len(cells),
+            'bricks': n_bricks, 'plates': n_plates, 'tiles': n_tiles,
+            'layers': total_layers,
+            'thickness': round(total_layers * layer_h, 2),
+            'codes': [c['code'] for c in cells],
+            'notes': notes}
+    return out, info
+
+
 def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
                   band_h=0.8, ironing=True, brim_loops=3, gamma=1.0,
                   material='PLA', bed=None, bed_margin=6.0, nozzle=0.6,
