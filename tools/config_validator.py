@@ -68,9 +68,32 @@ def pruefe_template(txt, wo):
     # So wie Klipper die Datei wirklich liest: erst Kommentar-Strip, dann Jinja
     gelesen = klipper_strip(roh)
     try:
-        env.parse(gelesen)
+        _ast_v = env.parse(gelesen)
     except Exception as e:
         fehler.append(f"{wo}: Jinja error (after Klipper comment strip): {e}\n    >>> {gelesen[:160]}")
+
+    # R130 (Boot-Blocker-Klasse .47/.90): unbekannte Filter/Tests. Jinja >= 3.1
+    # kompiliert sie STILL (der Fehler erscheint erst beim Laden auf dem
+    # Printer = 'Internal error during connect') - daher statischer AST-Walk:
+    # jeder Filter-/Test-Name muss in den realen Jinja-Tabellen existieren.
+    import jinja2.nodes as _jnodes
+    _bad_v = []
+
+    def _walk_v(n):
+        if isinstance(n, _jnodes.Filter):
+            if n.name not in env.filters:
+                _bad_v.append('filter ' + n.name)
+        elif isinstance(n, _jnodes.Test):
+            if n.name not in env.tests:
+                _bad_v.append('test ' + n.name)
+        for c in n.iter_child_nodes():
+            _walk_v(c)
+
+    _walk_v(_ast_v)
+    if _bad_v:
+        fehler.append(f"{wo}: unknown Jinja {', '.join(sorted(set(_bad_v)))} - "
+                      f"Klipper fails loading this template AT BOOT")
+
 
 import re as _reM
 

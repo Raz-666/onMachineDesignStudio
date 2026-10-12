@@ -3795,8 +3795,8 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         _v66 = _l66.split(':', 1)[1].strip()
         break
 # NOTE: bump this expectation together with the version on every release!
-tests.append(('R66/R80 version is current (.90) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-12.90'", repr(_v66)))
+tests.append(('R66/R80 version is current (.91) in 01_state.cfg (bump together with release!)',
+    _v66 == "'R2-2026-10-12.91'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -3840,6 +3840,33 @@ for _p67 in sorted(_glob65.glob('macros/*.cfg') + _glob65.glob('menus/*.cfg')):
             env.from_string(_t67)
         except Exception as _e67:
             _bad67.append('%s [%s] %s: %s' % (_p67, _sec67, _opt67, _e67))
+            continue
+        # R130 hotfix: Jinja >= 3.1 COMPILES unknown filters silently and a
+        # render pass short-circuits ('params.X is defined and ...') - but
+        # the printer's Klipper load_template FAILS on them AT BOOT
+        # ('Error loading template'). The airtight check is STATIC: walk the
+        # Jinja AST and verify every filter/test name against the real
+        # environment tables - exactly the .47/'|string.split'/endswith class.
+        import jinja2.nodes as _jn67
+        _known_f67 = set(env.filters)
+        _known_t67 = set(env.tests)
+        _badnodes67 = []
+
+        def _walk67(_nd67):
+            if isinstance(_nd67, _jn67.Filter):
+                if _nd67.name not in _known_f67:
+                    _badnodes67.append('filter %s' % _nd67.name)
+            elif isinstance(_nd67, _jn67.Test):
+                if _nd67.name not in _known_t67:
+                    _badnodes67.append('test %s' % _nd67.name)
+            for _ch67 in _nd67.iter_child_nodes():
+                _walk67(_ch67)
+
+        _walk67(env.parse(_t67))
+        if _badnodes67:
+            _bad67.append('%s [%s] %s: unknown %s'
+                          % (_p67, _sec67, _opt67,
+                             ', '.join(sorted(set(_badnodes67)))))
 tests.append(('R67 all %d boot-compiled templates compile (macro gcode + menu name/enable/gcode)' % _n67,
     not _bad67 and _n67 > 1500, str(_bad67[:3])))
 
@@ -11372,6 +11399,47 @@ _cp128 = open('macros/18_colorpic.cfg', encoding='utf-8').read()
 tests.append(('R128 GEN_COLORPIC: SWAP/CONTRAST params saved + paced',
     'VARIABLE=colorpic_swap VALUE={params.SWAP|int == 1}' in _cp128
     and 'VARIABLE=colorpic_contrast VALUE={params.CONTRAST|int == 1}' in _cp128, ''))
+
+
+# ===== R130 HOTFIX: boot blocker (unknown Jinja filter) + hardened gates =======
+import jinja2.nodes as _jn130
+_bad130 = []
+
+def _w130(_n130):
+    if isinstance(_n130, _jn130.Filter) and _n130.name not in env.filters:
+        _bad130.append(_n130.name)
+    for _c130 in _n130.iter_child_nodes():
+        _w130(_c130)
+
+_w130(env.parse("{% set _cpsrc = params.SRC|string|lower|endswith('.png') %}"))
+tests.append(('R130 gate: AST walk flags unknown filters (the .90 boot blocker'
+              ' class - endswith)',
+    _bad130 == ['endswith'], str(_bad130)))
+_bad130 = []
+_w130(env.parse("{% set _cpsrc = params.SRC|string|lower %}"
+                "{% if params.SRC is defined and (_cpsrc[-4:] in ('.png', '.jpg')"
+                " or _cpsrc[-5:] == '.jpeg') %}Y{% endif %}"))
+tests.append(('R130 gate: the FIXED colorpic pattern passes the walk',
+    _bad130 == [], str(_bad130)))
+tests.append(('R130 validator: unknown-filter AST rule built in (boot blockers'
+              ' die before the printer sees them)',
+    'unknown Jinja' in open('tools/config_validator.py').read()
+    and 'iter_child_nodes' in open('tools/config_validator.py').read(), ''))
+
+save_vars['litho_files'] = []
+save_vars['litho_file'] = ''
+save_vars['colorpic_nonce'] = 0
+out = render(_body122('COLORPIC_CREATE', path='macros/18_colorpic.cfg'),
+             {'SRC': 'photo.png'})
+tests.append(('R130 COLORPIC_CREATE: .png SRC accepted -> litho_file saved +'
+              ' nonce bump',
+    'VARIABLE=colorpic_nonce VALUE=1' in _re122.sub(r'\s+', ' ', out)
+    and 'VARIABLE=litho_file' in out and 'r2_confirm' in out, out[:130]))
+out = render(_body122('COLORPIC_CREATE', path='macros/18_colorpic.cfg'),
+             {'SRC': 'notes.txt'})
+tests.append(('R130 COLORPIC_CREATE: non-image SRC falls back -> pick hint,'
+              ' no nonce',
+    'NOTIFY' in out and 'VARIABLE=colorpic_nonce' not in out, out[:130]))
 
 fails = 0
 for name, ok, info in tests:

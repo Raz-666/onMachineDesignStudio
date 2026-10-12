@@ -34,8 +34,8 @@ import tempfile
 import zipfile
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-VERSION = 'R2-2026-10-12.90'
-ZIP_NAME = 'klipper-e3-r2d2-UPDATE-R2-2026-10-12.90.zip'
+VERSION = 'R2-2026-10-12.91'
+ZIP_NAME = 'klipper-e3-r2d2-UPDATE-R2-2026-10-12.91.zip'
 
 INCLUDES = ''.join(
     '[include klipper-e3-r2d2/macros/%s.cfg]\n' % m for m in
