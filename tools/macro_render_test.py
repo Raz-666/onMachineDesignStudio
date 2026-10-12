@@ -9117,10 +9117,11 @@ _lc106, _lci106 = _pp.make_lithophane(_img106, bed=_BED106e, out_dir=_d106e,
                                       orient='FLAT', height_mm=40.0,
                                       colors=3, col_layers=4)
 _lct106 = open(_lc106, encoding='utf-8').read()
-tests.append(('R106 litho FLAT colors: 3 colors x 4 layers -> 2 PAUSE + prime lines',
-    _lct106.count('\nPAUSE') == 2
-    and _lct106.count('prime line after the swap') == 2
-    and 'CUSTOM' in re.search(r'TYPES=(\S+)', _lct106).group(1),
+tests.append(('R106/R128 litho FLAT colors: 3 colors -> legacy EACH = M600 per'
+              ' step + purge tower (was: 2 PAUSE + prime lines)',
+    _lct106.count('\nM600') == 3
+    and _lct106.count('EXCLUDE_OBJECT_START NAME=PURGE_TOWER') == _lci106['layers']
+    and _lci106['layers'] == 16 and _lci106['col_mode'] == 'EACH',
     'layers %d' % _lci106['layers']))
 _lk106, _lki106 = _pp.make_lithophane(_img106, bed=(0.0, -3.0, 80.0, 80.0),
                                       out_dir=_d106e, orient='FLAT',
@@ -11239,6 +11240,138 @@ _n126 = [l.strip()[6:].strip("'") for l in _blk126.split(chr(10)) if l.strip().s
 _n126 = [l.split('{')[0].strip() if '{' in l else l for l in _n126]
 tests.append(('R126 LCD: figures menu names stay short (R29)',
     all(len(l) <= 16 for l in _n126), str(_n126)))
+
+
+# ===== R128: litho FLAT step print + colorpic swap/contrast + purge towers ====
+import zlib as _zl128, struct as _st128
+
+def _png128(path, w, h, fn):
+    rows = b''
+    for y in range(h):
+        rows += b'\x00'
+        for x in range(w):
+            rows += bytes(fn(x, y))
+    def chunk(t, d):
+        c = t + d
+        return _st128.pack('>I', len(d)) + c + _st128.pack('>I',
+                                                           _zl128.crc32(c) & 0xffffffff)
+    open(path, 'wb').write(b'\x89PNG\r\n\x1a\n'
+                           + chunk(b'IHDR', _st128.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0))
+                           + chunk(b'IDAT', _zl128.compress(rows))
+                           + chunk(b'IEND', b''))
+
+_d128 = _tf61.mkdtemp(prefix='r128_')
+_src128 = _os61.path.join(_d128, 'sketch.png')
+_png128(_src128, 96, 96, lambda x, y: (255, 255, 255)
+        if not (20 < x < 76 and 20 < y < 76)
+        else ((0, 0, 0) if (30 <= x < 34 or 50 <= y < 54)
+              else (160, 160, 160)))
+
+tests.append(('R128 boost: contrast push is clamped and symmetric',
+    [round(v, 3) for v in
+     _pp61._img_boost128([[0.0, 0.5, 1.0, 0.4, 0.6]], 1.35)[0]]
+    == [0.0, 0.5, 1.0, 0.365, 0.635], ''))
+
+_o128, _i128 = _pp61.make_lithophane(_src128, orient='FLAT', height_mm=60.0,
+                                     layer_h=0.2, levels=3, col_layers=2,
+                                     ironing=True, out_dir=_d128,
+                                     bed=(0.0, -3.0, 220.0, 217.0))
+_t128 = open(_o128, encoding='utf-8').read()
+tests.append(('R128 litho FLAT: step print - 3 steps x 2 layers, step 0 = the'
+              ' whole area, zero M600, no tower',
+    _i128['kind'] == 'lithophane-flat' and _i128['steps'] == 3
+    and _i128['step_layers'] == 2 and _i128['layers'] == 6
+    and _t128.count(chr(10) + 'M600') == 0 and 'PURGE_TOWER' not in _t128
+    and 'NO wavy relief' in _t128
+    and _t128.count(';TYPE:Ironing') == 3, str(_i128['steps'])))
+_o128b, _i128b = _pp61.make_lithophane(_src128, orient='FLAT', height_mm=60.0,
+                                       layer_h=0.2, levels=3, col_layers=2,
+                                       col_mode='LAST', out_dir=_d128,
+                                       bed=(0.0, -3.0, 220.0, 217.0))
+_t128b = open(_o128b, encoding='utf-8').read()
+tests.append(('R128 litho FLAT LAST: one M600 before the darkest step +'
+              ' purge tower on every layer',
+    _t128b.count(chr(10) + 'M600') == 1
+    and _t128b.count('EXCLUDE_OBJECT_START NAME=PURGE_TOWER') == _i128b['layers']
+    and 'PRIME-TOWER' in _t128b and _i128b['tower'] is True, ''))
+_o128c, _i128c = _pp61.make_lithophane(_src128, orient='FLAT', height_mm=60.0,
+                                       layer_h=0.2, levels=4, col_layers=1,
+                                       col_mode='EACH', border=4.0,
+                                       corner_r=6.0, out_dir=_d128,
+                                       bed=(0.0, -3.0, 220.0, 217.0))
+_t128c = open(_o128c, encoding='utf-8').read()
+tests.append(('R128 litho FLAT EACH + frame: M600 per step, border + rounded'
+              ' corners (rounded outer wall)',
+    _t128c.count(chr(10) + 'M600') == 3 and _i128c['border'] == 4.0
+    and _i128c['corner'] == 6.0
+    and len(_re122.findall(r'X[\d.]+ Y[\d.]+',
+                           _t128c[:_t128c.index(';TYPE:Bottom surface')])) > 20,
+    ''))
+_o128d, _i128d = _pp61.make_lithophane(_src128, orient='FLAT', height_mm=60.0,
+                                       layer_h=0.2, levels=3, contrast=False,
+                                       out_dir=_d128, bed=(0.0, -3.0, 220.0, 217.0))
+tests.append(('R128 litho FLAT: contrast boost noted, off = no note',
+    any('contrast boost' in n for n in _i128['notes'])
+    and not any('contrast boost' in n for n in _i128d['notes']), ''))
+try:
+    _pp61.make_lithophane(_src128, orient='FLAT', col_mode='SIDEWAYS',
+                          out_dir=_d128)
+    tests.append(('R128 litho FLAT: bad col_mode rejected', False, 'no raise'))
+except ValueError as e:
+    tests.append(('R128 litho FLAT: bad col_mode rejected',
+                  'OFF, LAST or EACH' in str(e), ''))
+_o128e, _i128e = _pp61.make_lithophane(_src128, height_mm=60.0, out_dir=_d128,
+                                       bed=(0.0, -3.0, 220.0, 217.0))
+tests.append(('R128 litho STANDING: untouched by the FLAT rebuild',
+    _i128e['kind'] == 'lithophane', ''))
+
+_src128b = _os61.path.join(_d128, 'grad.png')
+_png128(_src128b, 64, 64, lambda x, y: (int(255 * (x / 63.0)),) * 3
+        if y < 32 else (int(255 * (1 - x / 63.0)),) * 3)
+_o128f, _i128f = _pp61.make_colorpic(_src128b, width_mm=80.0, bands=4,
+                                     band_h=0.8, swap=False, out_dir=_d128,
+                                     bed=(0.0, -3.0, 220.0, 217.0))
+_t128f = open(_o128f, encoding='utf-8').read()
+tests.append(('R128 colorpic swap OFF: bands print without M600, no tower',
+    _t128f.count(chr(10) + 'M600') == 0 and 'PURGE_TOWER' not in _t128f
+    and '_COLORPIC_SWAP' not in _t128f and _i128f['layers'] == 16
+    and _i128f['swap'] is False, ''))
+_o128g, _i128g = _pp61.make_colorpic(_src128b, width_mm=80.0, bands=4,
+                                     band_h=0.8, out_dir=_d128,
+                                     bed=(0.0, -3.0, 220.0, 217.0))
+_t128g = open(_o128g, encoding='utf-8').read()
+tests.append(('R128 colorpic swap ON: M600 per band + purge tower on every'
+              ' layer + PRIME-TOWER tagged',
+    _t128g.count(chr(10) + 'M600') == 3 and _i128g['tower'] is True
+    and _t128g.count('EXCLUDE_OBJECT_START NAME=PURGE_TOWER') == _i128g['layers']
+    and 'PRIME-TOWER' in _t128g
+    and any('contrast boost' in n for n in _i128g['notes']), ''))
+
+_ppsrc128 = open('tools/r2_postproc.py').read()
+tests.append(('R128 wiring: watcher reads the new litho + colorpic variables',
+    all(_x in _ppsrc128 for _x in (
+        "litho_border', 0.0", "litho_corner', 0.0", "litho_colmode",
+        "litho_contrast", "colorpic_swap", "colorpic_contrast")), ''))
+_lcd128 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R128 LCD: litho StepL + Color swap + Border + Corner + Contrast',
+    all(_x in _lcd128 for _x in (
+        '[menu __main __gen __litho __set __cll]',
+        '[menu __main __gen __litho __set __ccm __off]',
+        '[menu __main __gen __litho __set __ccm __last]',
+        '[menu __main __gen __litho __set __ccm __each]',
+        '[menu __main __gen __litho __set __bord]',
+        '[menu __main __gen __litho __set __corn]',
+        '[menu __main __gen __litho __set __con]',
+        'VARIABLE=litho_colmode VALUE=')), ''))
+tests.append(('R128 LCD: colorpic Swap + Contrast toggles',
+    '[menu __main __gen __cpic __set __swp]' in _lcd128
+    and 'VARIABLE=colorpic_swap VALUE=' in _lcd128
+    and 'VARIABLE=colorpic_contrast VALUE=' in _lcd128, ''))
+
+_cp128 = open('macros/18_colorpic.cfg', encoding='utf-8').read()
+tests.append(('R128 GEN_COLORPIC: SWAP/CONTRAST params saved + paced',
+    'VARIABLE=colorpic_swap VALUE={params.SWAP|int == 1}' in _cp128
+    and 'VARIABLE=colorpic_contrast VALUE={params.CONTRAST|int == 1}' in _cp128, ''))
 
 fails = 0
 for name, ok, info in tests:

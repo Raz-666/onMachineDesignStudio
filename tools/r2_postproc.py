@@ -9889,32 +9889,59 @@ class _Sink:
             self.buf = []
 
 
+def _img_boost128(grid, factor):
+    """R128: contrast boost on a 0..1 grid - pushes midtones apart so level
+    edges stand out (sketch lines, logos, text contours)."""
+    if abs(factor - 1.0) < 1e-9:
+        return grid
+    out = []
+    for row in grid:
+        out.append([min(1.0, max(0.0, (v - 0.5) * factor + 0.5)) for v in row])
+    return out
+
+
 def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                      brim_loops=6, ironing=False, base=0.7, dyn=2.3,
                      gamma=1.0, colors=1, col_layers=0, material='PLA',
                      bed=None, bed_margin=6.0, nozzle=0.6, out_dir='.',
-                     version=1):
-    """R106 (field log .82, wish i): photo -> lithophane printed FLAT.
+                     version=1, border=0.0, corner_r=0.0, col_mode='OFF',
+                     contrast=True):
+    """R128 (field report): photo -> lithophane printed FLAT as clean STEPS.
 
-    The back lies on the bed (glass-flat), the top carries the image as a
-    terraced relief: layer k prints exactly the cells whose thickness
-    reaches z_k - so layer k+1 is always a SUBSET of layer k and nothing
-    ever prints over air (rule ll by construction). Terracing is the flat
-    tradeoff (standing keeps the classic recipe); small layer heights and
-    optional ironing smooth it. Frame = solid border at full thickness,
-    brim on layer 1. Colors: 1..4 bands from the bed up - PAUSE + prime
-    line at every boundary (swap filament, purge, RESUME); e.g. white
-    base layers under a colored body glow especially even.
-    Rule nn: the plate is hard-clamped to the bed, aspect kept.
+    The old terraced thickness map printed wavy Z relief - the nozzle dove
+    into the picture and the probe caught on it. NEW model, exactly like
+    the user's sketch recipe and the color picture generator: the image is
+    contrast-stretched, quantized into `levels` grayscale steps (0 = auto 4)
+    and printed STEP BY STEP as full layers. Step 0 = the lightest gray =
+    the WHOLE area (the white background as one clean surface, ironed if
+    ironing is on), every darker step prints its (nested) region on top,
+    the darkest step = the black contour lines. col_layers = layers per
+    step (0 = auto 2).
+    col_mode: OFF = one filament for everything; LAST = M600 before the
+    darkest step only (all steps white, contours black); EACH = M600 at
+    every step boundary. A purge tower prints alongside whenever swaps are
+    on (12x12mm, 15mm clearance - the probe never sweeps it, prime + wipe
+    after every change).
+    border = a picture frame around the plate in mm (0 = off; frame=True
+    legacy maps to 2.4mm), corner_r = rounded frame corners (0 = square).
+    contrast = extra contrast boost after the percentile stretch (sharpens
+    level edges - sketches, logos, text).
     """
     height_mm = max(30.0, min(float(height_mm or 100.0), 200.0))
     layer_h = max(0.08, min(float(layer_h or 0.12), 0.2))
-    levels = max(0, min(int(levels or 0), 16))
-    base = max(0.4, min(float(base or 0.7), 1.5))
-    dyn = max(1.2, min(float(dyn or 2.3), 3.5))
+    L = max(2, min(int(levels or 4), 16))
+    n_band = max(1, min(int(col_layers or 2), 30))
     brim_loops = max(0, min(int(brim_loops or 0), 10))
-    colors = max(1, min(int(colors or 1), 4))
-    col_layers = max(0, min(int(col_layers or 0), 30))
+    _cm128 = str(col_mode or 'OFF').upper()
+    if _cm128 not in ('OFF', 'LAST', 'EACH'):
+        raise ValueError('litho FLAT col_mode must be OFF, LAST or EACH')
+    if _cm128 == 'OFF' and int(colors or 1) >= 2:
+        _cm128 = 'EACH'           # legacy: colors>=2 meant per-band swaps
+    eff_border = float(border or 0.0)
+    if eff_border <= 0.0 and frame:
+        eff_border = 2.4
+    eff_border = max(0.0, min(eff_border, 12.0))
+    corner_r = max(0.0, min(float(corner_r or 0.0), 20.0))
     if bed is None:
         bed = (0.0, -3.0, 244.0, 238.0)
     ext = os.path.splitext(src)[1].lower().lstrip('.')
@@ -9931,56 +9958,57 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
     fil = FIL_AREA
     notes = []
 
-    # ---- geometry: cells at LINE WIDTH in XY, layers = thickness slices ----
-    rows = max(4, int(round(height_mm / wid)))          # plate Y in beads
+    rows = max(4, int(round(height_mm / wid)))          # picture Y in beads
     cols = max(4, int(round(rows * (w / float(h)))))    # aspect -> X beads
     bx0, by0, bx1, by1 = bed
     ux0, uy0 = bx0 + bed_margin, by0 + bed_margin
     ux1, uy1 = bx1 - bed_margin, by1 - bed_margin
-    # R106 (rule nn): hard clamp to the bed, aspect kept
-    _sc106 = min(1.0, (ux1 - ux0) / (cols * wid), (uy1 - uy0) / (rows * wid))
-    if _sc106 < 0.999:
-        cols = max(4, int(cols * _sc106))
-        rows = max(4, int(rows * _sc106))
-        notes.append('plate clamped to the bed - %.0f%% of the requested size'
-                     % (_sc106 * 100.0))
+    _sc128 = min(1.0, (ux1 - ux0 - 2 * eff_border) / (cols * wid),
+                 (uy1 - uy0 - 2 * eff_border) / (rows * wid))
+    if _sc128 < 0.999:
+        cols = max(4, int(cols * _sc128))
+        rows = max(4, int(rows * _sc128))
+        notes.append('picture clamped to the bed - %.0f%% of the requested'
+                     ' size' % (_sc128 * 100.0))
+    width_real = cols * wid
     height_real = rows * wid
-    width_mm = cols * wid
-    t_min = max(base, wid)
-    t_max = t_min + dyn
-    n_l = max(2, int(math.ceil((t_max - 1e-9) / layer_h)))
-    if colors >= 2 and col_layers < 1:
-        col_layers = 1
-    col_layers = min(col_layers or (1 if colors >= 2 else 0), n_l - 1)
+    W = width_real + 2 * eff_border
+    H = height_real + 2 * eff_border
 
-    grid, rep = _litho_grid(lum, w, h, cols, rows, gamma=gamma, levels=levels)
+    grid, rep = _litho_grid(lum, w, h, cols, rows, gamma=gamma, levels=0)
+    if contrast:
+        grid = _img_boost128(grid, 1.35)
+        rep += ' + contrast boost'
     notes.append(rep)
+    # quantize into steps: 0 = lightest (the base) ... L-1 = darkest
+    LV = [[min(L - 1, int(grid[r][c] * L)) for c in range(cols)]
+          for r in range(rows)]
 
-    # ---- thickness map (dark = thick) + solid frame border -----------------
-    fw_c = max(2, int(round(2.4 / wid))) if frame else 0
-    fw_r = max(2, int(round(2.4 / wid))) if frame else 0
-    T = []
-    for r in range(rows):
-        tr = []
-        for c in range(cols):
-            if frame and (r < fw_r or r >= rows - fw_r or c < fw_c or c >= cols - fw_c):
-                tr.append(t_max)
-            else:
-                tr.append(t_min + dyn * grid[r][c])
-        T.append(tr)
-
-    # ---- color bands: after these layer counts a PAUSE + swap happens ------
-    bands = []
-    if colors >= 2 and col_layers >= 1:
-        _b106 = col_layers
-        while len(bands) < colors - 1 and _b106 < n_l:
-            bands.append(_b106)
-            _b106 += col_layers
-
+    total_layers = L * n_band
     cx = (ux0 + ux1) / 2.0
     cy = (uy0 + uy1) / 2.0
-    x0 = cx - width_mm / 2.0
-    y0 = cy - height_real / 2.0
+    x0 = cx - W / 2.0
+    y0 = cy - H / 2.0
+    px0, py0 = x0 + eff_border, y0 + eff_border
+    cr128 = (min(corner_r, W / 2.0 - 1.0, H / 2.0 - 1.0)
+             if eff_border > 0 else 0.0)
+    outer_c = [(qx + cx, qy + cy) for (qx, qy)
+               in _rr_pts(W, H, max(0.0, cr128))]   # ABSOLUTE (bed) coords
+    pic_c = _rect_loop(px0, py0, px0 + width_real, py0 + height_real)
+
+    # ---- purge tower (only when filament swaps happen) ----------------------
+    tw = 12.0
+    tower = None
+    if _cm128 != 'OFF':
+        tg = 15.0
+        for (tx, ty) in ((x0 + W + tg, y0), (x0, y0 + H + tg),
+                         (x0, y0 - tw - tg), (x0 - tw - tg, y0)):
+            if tx >= ux0 and ty >= uy0 and tx + tw <= ux1 and ty + tw <= uy1:
+                tower = (tx, ty)
+                break
+        if tower is None:
+            notes.append('no room for the purge tower at 15mm clearance - '
+                         'purge at the park position after every swap')
 
     stem = re.sub(r'[^A-Za-z0-9]', '', os.path.splitext(os.path.basename(src))[0])[:8] or 'IMG'
     fname = '00_LithoF_%s_V%02d.gcode' % (stem, max(1, min(int(version), 99)))
@@ -9988,11 +10016,8 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
 
     e_wall = layer_h * wid / fil
     e_iron = 0.15 * layer_h * wid / fil
-    fpoly = '[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]' % (
-        x0, y0, x0 + width_mm, y0, x0 + width_mm, y0 + height_real,
-        x0, y0 + height_real)
 
-    def _runs106(row):
+    def _runs128(row):
         runs = []
         c = 0
         while c < cols:
@@ -10005,28 +10030,55 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                 c += 1
         return tuple(runs)
 
+    def _blocks128(k):
+        """merged row-runs of step k's region (level >= k) -> rect blocks"""
+        row_runs = [_runs128([1 if LV[r][c] >= k else 0 for c in range(cols)])
+                    for r in range(rows)]
+        blocks = []
+        r_i = 0
+        while r_i < rows:
+            rr = row_runs[r_i]
+            r_j = r_i
+            while r_j + 1 < rows and row_runs[r_j + 1] == rr:
+                r_j += 1
+            if rr:
+                blocks.append((r_i, r_j, rr))
+            r_i = r_j + 1
+        return blocks
+
+    _bcache128 = {k: _blocks128(k) for k in range(L)}
+
     with open(out, 'w') as f:
         sk = _Sink(f)
         a = sk.append
-        a('; R2-LITHO generated lithophane, FLAT mode (R106) - start it like any other file')
+        a('; R2-LITHO generated lithophane, FLAT mode (R128 step print) -'
+          ' start it like any other file')
         a(TAG)
-        a('; source %s (%dx%d px) -> %dx%d cells, FLAT print: back on the bed,'
-          ' top = terraced image' % (os.path.basename(src), w, h, cols, rows))
-        # R106 (user semantics): the SIZE input is the picture in XY (the bed
-        # plane); the height in Z is the relief = layer count x layer height
-        a('; picture %.1f x %.1f mm in XY (the bed plane), Z relief = %d'
-          ' layers @%.2gmm = %.1f..%.1f mm thick'
-          % (width_mm, height_real, n_l, layer_h, t_min, t_max))
+        a('; source %s (%dx%d px) -> %dx%d cells, %d gray step(s) x %d'
+          ' layer(s) @%.2gmm = %.1fmm tall'
+          % (os.path.basename(src), w, h, cols, rows, L, n_band,
+             layer_h, total_layers * layer_h))
+        a('; %s in XY (the bed plane), Z relief = %d layers @%.2gmm'
+          % ('picture %.1f x %.1f mm' % (width_real, height_real),
+             total_layers, layer_h))
+        a('; step print: step 0 = the WHOLE area (the light background),'
+          ' every darker step its region on top, step %d = the darkest'
+          ' contours - full layers, NO wavy relief' % (L - 1))
         a('; %s' % rep)
-        a('; frame %s, brim %d loop(s), ironing %s'
-          % ('ON (solid border at full thickness)' if frame else 'OFF',
-             brim_loops, 'ON (top face)' if ironing else 'OFF'))
-        if colors >= 2:
-            a('; colors %d: %d layer(s) per band - PAUSE + filament swap at'
-              ' every boundary (purge at the nozzle, then RESUME)'
-              % (colors, col_layers))
+        a('; picture %.1f x %.1f mm + %s frame %.1fmm%s, brim %d loop(s),'
+          ' ironing %s'
+          % (width_real, height_real, 'border' if eff_border else 'NO',
+             eff_border, ' (corner r=%.1f)' % cr128 if cr128 else '',
+             brim_loops, 'ON (every step cap)' if ironing else 'OFF'))
+        if _cm128 == 'OFF':
+            a('; one filament for every step')
+        elif _cm128 == 'LAST':
+            a('; color change before the DARKEST step only - e.g. white'
+              ' body + black contours (M600 + purge tower)')
+        else:
+            a('; color change at EVERY step boundary (M600 + purge tower)')
         a('; print tips: WHITE or natural PLA glows best; the file prints'
-          ' slow; for a frame disc set the plate size to the photo size')
+          ' slow; light it from BEHIND')
         a('; filament_type = %s' % material)
         a('; layer_height = %.2g' % layer_h)
         a('; nozzle_diameter = %.1f' % nozzle)
@@ -10037,122 +10089,163 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
         if ironing:
             a('; ironing_speed = 25')
             a('; ironing_flow = 0.15')
-        types = ['WALL-OUTER', 'SURFACE-BOTTOM', 'INFILL-SOLID', 'SURFACE-TOP']
+        types = ['WALL-OUTER', 'WALL-INNER', 'SURFACE-BOTTOM', 'INFILL-SOLID',
+                 'SURFACE-TOP']
         if brim_loops:
             types.insert(0, 'BRIM')
         if ironing:
             types += ['IRONING']
-        if colors >= 2:
-            types += ['CUSTOM']
+        if tower:
+            types += ['PRIME-TOWER']
         a('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d LINE_WIDTH=%.2g '
           'LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g FLOW_RATIO=1 NOZZLE=%.1f '
-          'WALL_LOOPS=2 SPEED_INNER=18 SPEED_FIRST=10 SPEED_TRAVEL=120%s TYPES=%s BY_OBJECT=0'
-          % (material, layer_h, n_l, wid, layer_h, wid, nozzle,
+          'WALL_LOOPS=2 SPEED_INNER=18 SPEED_FIRST=10 SPEED_TRAVEL=120%s TYPES=%s '
+          'BY_OBJECT=0'
+          % (material, layer_h, total_layers, wid, layer_h, wid, nozzle,
              ' IRONING_SPEED=25' if ironing else '', ','.join(types)))
+        fpoly = '[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]' % (
+            x0, y0, x0 + W, y0, x0 + W, y0 + H, x0, y0 + H)
         a('EXCLUDE_OBJECT_DEFINE NAME=LITHO CENTER=%.1f,%.1f POLYGON=%s'
           % (cx, cy, fpoly))
-        a('PRINT_START MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d OUTER_WALL_SPEED=18'
-          % (material, layer_h, n_l))
+        if tower:
+            tpoly = ('[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]'
+                     % (tower[0], tower[1], tower[0] + tw, tower[1],
+                        tower[0] + tw, tower[1] + tw, tower[0], tower[1] + tw))
+            a('EXCLUDE_OBJECT_DEFINE NAME=PURGE_TOWER CENTER=%.1f,%.1f'
+              ' POLYGON=%s'
+              % (tower[0] + tw / 2.0, tower[1] + tw / 2.0, tpoly))
+        a('PRINT_START MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d'
+          ' OUTER_WALL_SPEED=18' % (material, layer_h, total_layers))
         a('G90')
         a('M83')
         a('M107   ; R2-LITHO: first layer = fan off')
 
         pen = _Pen(sk, jump_d=6.0)
 
-        for li in range(1, n_l + 1):
+        def _tower128(li, prime=False):
+            tx0, ty0 = tower[0] + wid / 2.0, tower[1] + wid / 2.0
+            tx1, ty1 = tower[0] + tw - wid / 2.0, tower[1] + tw - wid / 2.0
+            a('EXCLUDE_OBJECT_START NAME=PURGE_TOWER')
+            if prime:
+                # push the new color and wipe on the tower
+                pen.travel(tower[0] + 1.5, tower[1] + tw - 1.5)
+                pen.push(4.0, 180)
+                pen.extrude(tower[0] + tw - 1.5, tower[1] + tw - 1.5,
+                            3.0 * 0.1, 1320)
+                pen.extrude(tower[0] + 1.5, tower[1] + tw - 1.5,
+                            (tw - 3.0) * 0.1, 1320)
+            if li == 1:
+                a(';TYPE:Brim')
+                a('APPLY_TYPE TYPE=BRIM')
+                for off in (wid * 0.35, wid * 0.35 + wid):
+                    _emit_loop(pen, _rect_loop(tower[0] - off, tower[1] - off,
+                                               tower[0] + tw + off,
+                                               tower[1] + tw + off),
+                               e_wall, 900)
+            a(';TYPE:Outer wall')
+            a('APPLY_TYPE TYPE=WALL-OUTER')
+            _emit_loop(pen, _rect_loop(tx0, ty0, tx1, ty1), e_wall,
+                       900 if li == 1 else 1800)
+            a(';TYPE:Internal solid infill')
+            a('APPLY_TYPE TYPE=INFILL-SOLID')
+            segs = _hatch(tx0 + wid + 0.1, ty0 + wid + 0.1,
+                          tx1 - wid - 0.1, ty1 - wid - 0.1,
+                          None, wid, 45.0 if li % 2 else 135.0)
+            _emit_fill(pen, segs, e_wall, 1200 if li == 1 else 2400, wid)
+            a('EXCLUDE_OBJECT_END NAME=PURGE_TOWER')
+
+        for li in range(1, total_layers + 1):
             z = round(li * layer_h, 3)
-            if (li - 1) in bands:
-                a('RESPOND MSG="Litho: COLOR CHANGE - swap filament, purge at'
-                  ' the nozzle until it runs clean, then RESUME"')
-                a('PAUSE')
-                a(';TYPE:Custom')
-                a('APPLY_TYPE TYPE=CUSTOM   ; R2-LITHO: prime line after the swap')
-                pen.travel(x0 + 2.0, y0 - 4.0)
-                pen.extrude(x0 + 26.0, y0 - 4.0, e_wall * 24.0, 1500)
+            k = (li - 1) // n_band
+            j = (li - 1) % n_band
+            cap = (j == n_band - 1)
             a(';LAYER_CHANGE')
             a(';Z:%.3f' % z)
             a('LAYER_MARK')
             pen.set_z(z)
             if li == 2:
                 a('M106 S178   ; R2-LITHO: part fan from layer 2')
+            if k > 0 and j == 0 and (_cm128 == 'EACH'
+                                     or (_cm128 == 'LAST' and k == L - 1)):
+                a('RESPOND MSG="Litho: COLOR CHANGE - swap filament, the'
+                  ' purge tower cleans, then it resumes"')
+                a('M600')
+            if tower:
+                _tower128(li, prime=(k > 0 and j == 0
+                                     and (_cm128 == 'EACH'
+                                          or (_cm128 == 'LAST'
+                                              and k == L - 1))))
             a('EXCLUDE_OBJECT_START NAME=LITHO')
             if li == 1 and brim_loops:
                 a(';TYPE:Brim')
                 a('APPLY_TYPE TYPE=BRIM')
-                for k in range(brim_loops):
-                    off = wid * (k + 0.5)
-                    _emit_loop(pen, _rect_loop(x0 - off, y0 - off,
-                                               x0 + width_mm + off,
-                                               y0 + height_real + off),
-                               e_wall, 900)
-            # cells whose thickness reaches this layer; consecutive rows with
-            # identical runs merge into one rectangle block
-            row_runs = [_runs106([T[r][c] >= z - 1e-9 for c in range(cols)])
-                        for r in range(rows)]
-            blocks = []
-            r_i = 0
-            while r_i < rows:
-                rr = row_runs[r_i]
-                r_j = r_i
-                while r_j + 1 < rows and row_runs[r_j + 1] == rr:
-                    r_j += 1
-                if rr:
-                    blocks.append((r_i, r_j, rr))
-                r_i = r_j + 1
-            _ty106 = ('Bottom surface' if li == 1 else
-                      'Top surface' if li == n_l else 'Internal solid infill')
-            _tk106 = ('SURFACE-BOTTOM' if li == 1 else
-                      'SURFACE-TOP' if li == n_l else 'INFILL-SOLID')
+                for _b128 in range(brim_loops):
+                    off = wid * (_b128 + 0.5)
+                    _emit_loop(pen, _poly_offset(outer_c, off), e_wall, 900)
             a(';TYPE:Outer wall')
             a('APPLY_TYPE TYPE=WALL-OUTER')
-            for (r_a, r_b, rr) in blocks:
+            _emit_loop(pen, outer_c, e_wall, 900 if li == 1 else 1800)
+            _ty128 = ('Bottom surface' if li == 1 else
+                      'Top surface' if li == total_layers else
+                      'Internal solid infill')
+            _tk128 = ('SURFACE-BOTTOM' if li == 1 else
+                      'SURFACE-TOP' if li == total_layers else 'INFILL-SOLID')
+            a(';TYPE:%s' % _ty128)
+            a('APPLY_TYPE TYPE=%s' % _tk128)
+            for (r_a, r_b, rr) in _bcache128[k]:
                 for (c_a, c_b) in rr:
-                    _emit_loop(pen, _rect_loop(x0 + c_a * wid, y0 + r_a * wid,
-                                               x0 + (c_b + 1) * wid,
-                                               y0 + (r_b + 1) * wid),
-                               e_wall, 900 if li == 1 else 1800)
-            a(';TYPE:%s' % _ty106)
-            a('APPLY_TYPE TYPE=%s' % _tk106)
-            for (r_a, r_b, rr) in blocks:
-                for (c_a, c_b) in rr:
-                    segs = _hatch(x0 + c_a * wid + wid * 0.5,
-                                  y0 + r_a * wid + wid * 0.5,
-                                  x0 + (c_b + 1) * wid - wid * 0.5,
-                                  y0 + (r_b + 1) * wid - wid * 0.5,
+                    segs = _hatch(px0 + c_a * wid + wid * 0.5,
+                                  py0 + r_a * wid + wid * 0.5,
+                                  px0 + (c_b + 1) * wid - wid * 0.5,
+                                  py0 + (r_b + 1) * wid - wid * 0.5,
                                   None, wid, 45.0 if li % 2 else 135.0)
-                    _emit_fill(pen, segs, e_wall, 1200 if li == 1 else 2400, wid)
-            if ironing and li == n_l:
+                    _emit_fill(pen, segs, e_wall, 1200 if li == 1 else 2400,
+                               wid)
+            if eff_border > 0:
+                # frame ring = full height, hatched between outer contour
+                # and the picture rect (rounded corners live here)
+                hs = _ring_hatch(outer_c, pic_c, wid,
+                                 45.0 if li % 2 else 135.0)
+                _emit_hatch(pen, hs, e_wall, 1200 if li == 1 else 2400)
+            if ironing and cap:
                 a(';TYPE:Ironing')
                 a('APPLY_TYPE TYPE=IRONING')
-                for (r_a, r_b, rr) in blocks:
+                for (r_a, r_b, rr) in _bcache128[k]:
                     for (c_a, c_b) in rr:
-                        isegs = _hatch(x0 + c_a * wid + 1.0,
-                                       y0 + r_a * wid + 1.0,
-                                       x0 + (c_b + 1) * wid - 1.0,
-                                       y0 + (r_b + 1) * wid - 1.0,
+                        isegs = _hatch(px0 + c_a * wid + wid * 0.5,
+                                       py0 + r_a * wid + wid * 0.5,
+                                       px0 + (c_b + 1) * wid - wid * 0.5,
+                                       py0 + (r_b + 1) * wid - wid * 0.5,
                                        None, 0.45,
                                        45.0 if li % 2 else 135.0, min_len=0.3)
                         _emit_fill(pen, isegs, e_iron, 1500, 0.45)
+                if eff_border > 0:
+                    ihs = _ring_hatch(outer_c, pic_c, 0.45,
+                                      45.0 if li % 2 else 135.0)
+                    _emit_fill(pen, ihs, e_iron, 1500, 0.45)
             a('EXCLUDE_OBJECT_END NAME=LITHO')
         a('M107')
         a('PRINT_END')
         sk.flush()
 
     info = {'file': fname, 'source': os.path.basename(src),
-            'kind': 'lithophane-flat', 'width': round(width_mm, 1),
+            'kind': 'lithophane-flat', 'width': round(width_real, 1),
             'height': round(height_real, 1),
-            'thickness': '%.1f..%.1f' % (t_min, t_max), 'layers': n_l,
-            'cols': cols, 'rows': rows, 'levels': levels, 'frame': bool(frame),
-            'ironing': bool(ironing), 'colors': colors,
-            'col_layers': col_layers if colors >= 2 else 0, 'notes': notes}
+            'thickness': round(total_layers * layer_h, 2),
+            'layers': total_layers, 'steps': L, 'step_layers': n_band,
+            'levels': L, 'cols': cols, 'rows': rows,
+            'border': round(eff_border, 1), 'corner': round(cr128, 1),
+            'ironing': bool(ironing), 'col_mode': _cm128,
+            'contrast': bool(contrast), 'tower': tower is not None,
+            'notes': notes}
     return out, info
-
 
 def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                     brim_loops=6, ironing=False, base=0.7, dyn=2.3, gamma=1.0,
                     material='PLA', bed=None, bed_margin=6.0, nozzle=0.6,
                     out_dir='.', version=1, orient='STANDING', colors=1,
-                    col_layers=0):
+                    col_layers=0, border=0.0, corner_r=0.0, col_mode='OFF',
+                    contrast=True):
     """R89: photo -> lithophane g-code, printed STANDING (vertical).
 
     Why standing (the field recipe from itslitho/3dp.rocks research): the
@@ -10175,7 +10268,9 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                                 base=base, dyn=dyn, gamma=gamma, colors=colors,
                                 col_layers=col_layers, material=material,
                                 bed=bed, bed_margin=bed_margin, nozzle=nozzle,
-                                out_dir=out_dir, version=version)
+                                out_dir=out_dir, version=version,
+                                border=border, corner_r=corner_r,
+                                col_mode=col_mode, contrast=contrast)
     height_mm = max(30.0, min(float(height_mm or 100.0), 200.0))
     layer_h = max(0.08, min(float(layer_h or 0.12), 0.2))
     levels = max(0, min(int(levels or 0), 16))
@@ -11820,7 +11915,7 @@ def make_figures(count=1, scale=100.0, layer_h=0.2, material='PLA',
 def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
                   band_h=0.8, ironing=True, brim_loops=3, gamma=1.0,
                   material='PLA', bed=None, bed_margin=6.0, nozzle=0.6,
-                  out_dir='.', version=1):
+                  out_dir='.', version=1, contrast=True, swap=True):
     """R120: photo -> COLOR picture (settings mirror the lithophane generator).
 
     width_mm = the picture size in XY on the bed (Y follows the aspect).
@@ -11890,6 +11985,10 @@ def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
     height_real = rows * wid
 
     grid, rep = _litho_grid(lum, w, h, cols, rows, gamma=gamma, levels=0)
+    if contrast:
+        grid = _img_boost128(grid, 1.35)
+        rep += ' + contrast boost'
+    notes.append(rep)
     # quantize into band levels: 0 = lightest ... bands-1 = darkest
     LV = [[min(bands - 1, int(grid[r][c] * bands))
            for c in range(cols)] for r in range(rows)]
@@ -11898,6 +11997,20 @@ def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
     cy = (uy0 + uy1) / 2.0
     x0 = cx - width_real / 2.0
     y0 = cy - height_real / 2.0
+
+    # ---- purge tower when swaps are on (R128) -------------------------------
+    tw = 12.0
+    tower = None
+    if swap:
+        tg = 15.0
+        for (tx, ty) in ((x0 + width_real + tg, y0), (x0, y0 + height_real + tg),
+                         (x0, y0 - tw - tg), (x0 - tw - tg, y0)):
+            if tx >= ux0 and ty >= uy0 and tx + tw <= ux1 and ty + tw <= uy1:
+                tower = (tx, ty)
+                break
+        if tower is None:
+            notes.append('no room for the purge tower at 15mm clearance - '
+                         'purge at the park position after every swap')
 
     stem = re.sub(r'[^A-Za-z0-9]', '', os.path.splitext(os.path.basename(src))[0])[:8] or 'IMG'
     fname = '00_ColorPic_%s_V%02d.gcode' % (stem, max(1, min(int(version), 99)))
@@ -11980,12 +12093,19 @@ def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
           'BY_OBJECT=0'
           % (material, layer_h, total_layers, wid, wid, wid, nozzle,
              ' IRONING_SPEED=30' if ironing else '',
-             ',IRONING' if ironing else ''))
+             (',IRONING' if ironing else '')
+             + (',PRIME-TOWER' if tower else '')))
         fpoly = '[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]' % (
             x0, y0, x0 + width_real, y0, x0 + width_real, y0 + height_real,
             x0, y0 + height_real)
         a('EXCLUDE_OBJECT_DEFINE NAME=COLORPIC CENTER=%.1f,%.1f POLYGON=%s'
           % (cx, cy, fpoly))
+        if tower:
+            tpoly = ('[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]'
+                     % (tower[0], tower[1], tower[0] + tw, tower[1],
+                        tower[0] + tw, tower[1] + tw, tower[0], tower[1] + tw))
+            a('EXCLUDE_OBJECT_DEFINE NAME=PURGE_TOWER CENTER=%.1f,%.1f'
+              ' POLYGON=%s' % (tower[0] + tw / 2.0, tower[1] + tw / 2.0, tpoly))
         a('PRINT_START MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d '
           'OUTER_WALL_SPEED=40%s' % (material, layer_h, total_layers,
                                      ' IRONING_SPEED=30' if ironing else ''))
@@ -12001,7 +12121,8 @@ def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
             a(';LAYER_CHANGE')
             a(';Z:%.3f' % z)
             a('LAYER_MARK')
-            if li > 1 and j == 0:
+            _swap120 = (swap and li > 1 and j == 0)
+            if _swap120:
                 # ---- band boundary: LED announcement + filament change ----
                 _pv120 = COLORPIC_PALETTE[_cols120[k - 1]]
                 _nx120 = COLORPIC_PALETTE[_cols120[k]]
@@ -12012,6 +12133,41 @@ def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
                 a('M600')
                 a('_COLORPIC_DONE R=%.2f G=%.2f B=%.2f'
                   % (_nx120[1], _nx120[2], _nx120[3]))
+            if tower:
+                # R128: the tower prints on every layer and takes the prime
+                # + wipe right after every filament change
+                a('EXCLUDE_OBJECT_START NAME=PURGE_TOWER')
+                if _swap120:
+                    pen.travel(tower[0] + 1.5, tower[1] + tw - 1.5)
+                    pen.push(4.0, 180)
+                    pen.extrude(tower[0] + tw - 1.5, tower[1] + tw - 1.5,
+                                3.0 * 0.1, 1320)
+                    pen.extrude(tower[0] + 1.5, tower[1] + tw - 1.5,
+                                (tw - 3.0) * 0.1, 1320)
+                if li == 1:
+                    a(';TYPE:Brim')
+                    a('APPLY_TYPE TYPE=BRIM')
+                    for off in (wid * 0.35, wid * 0.35 + wid):
+                        _emit_loop(pen, _rect_loop(tower[0] - off,
+                                                   tower[1] - off,
+                                                   tower[0] + tw + off,
+                                                   tower[1] + tw + off),
+                                   e_wall, 900)
+                a(';TYPE:Outer wall')
+                a('APPLY_TYPE TYPE=WALL-OUTER')
+                _emit_loop(pen, _rect_loop(tower[0] + wid / 2.0,
+                                           tower[1] + wid / 2.0,
+                                           tower[0] + tw - wid / 2.0,
+                                           tower[1] + tw - wid / 2.0),
+                           e_wall, 900 if li == 1 else 1800)
+                a(';TYPE:Internal solid infill')
+                a('APPLY_TYPE TYPE=INFILL-SOLID')
+                tsegs = _hatch(tower[0] + wid + 0.1, tower[1] + wid + 0.1,
+                               tower[0] + tw - wid - 0.1,
+                               tower[1] + tw - wid - 0.1,
+                               None, wid, 45.0 if li % 2 else 135.0)
+                _emit_fill(pen, tsegs, e_wall, 1200 if li == 1 else 2400, wid)
+                a('EXCLUDE_OBJECT_END NAME=PURGE_TOWER')
             if li == 2:
                 a('M106 S178   ; R2-COLORPIC: part fan from layer 2')
             _ty120 = ('Bottom surface' if li == 1 else
@@ -12070,7 +12226,9 @@ def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
             'thickness': round(total_layers * layer_h, 2),
             'colors': [_cols120[i] for i in range(bands)],
             'color_names': [COLORPIC_PALETTE[c][0] for c in _cols120],
-            'ironing': bool(ironing), 'notes': notes}
+            'ironing': bool(ironing), 'swap': bool(swap),
+            'contrast': bool(contrast), 'tower': tower is not None,
+            'notes': notes}
     return out, info
 
 
@@ -14741,6 +14899,12 @@ def watch(directory, interval=5.0, once=False):
                     orient=_or106,
                     colors=max(1, min(int(_vfl89('litho_colors', 1)), 4)),
                     col_layers=max(0, min(int(_vfl89('litho_col_layers', 0)), 30)),
+                    border=max(0.0, min(_vfl89('litho_border', 0.0), 12.0)),
+                    corner_r=max(0.0, min(_vfl89('litho_corner', 0.0), 20.0)),
+                    col_mode=str(rv.get('litho_colmode', 'OFF') or 'OFF').upper()
+                    if str(rv.get('litho_colmode', 'OFF') or 'OFF').upper()
+                    in ('OFF', 'LAST', 'EACH') else 'OFF',
+                    contrast=_vbl89('litho_contrast', True),
                     material=str(rv.get('material', 'PLA') or 'PLA'),
                     bed=_bed89, nozzle=_gen_nozzle(directory), out_dir=directory,
                     version=max(1, min(int(_vfl89('gen_version', 1)), 99)))
@@ -14827,6 +14991,8 @@ def watch(directory, interval=5.0, once=False):
                     band_h=_vfc120('colorpic_bandh', 0.8),
                     ironing=_vbc120('colorpic_ironing', True),
                     brim_loops=max(0, min(int(_vfc120('colorpic_brim', 3)), 8)),
+                    swap=_vbc120('colorpic_swap', True),
+                    contrast=_vbc120('colorpic_contrast', True),
                     material=str(rv.get('material', 'PLA') or 'PLA'),
                     bed=_cbed120, nozzle=_gen_nozzle(directory), out_dir=directory,
                     version=max(1, min(int(_vfc120('gen_version', 1)), 99)))

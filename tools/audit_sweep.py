@@ -291,6 +291,41 @@ run(pp.make_brick_kit, 'kit-vase-shell', src=_vase125, detail='SMALL',
 run(pp.make_brick_kit, 'kit-badcolors', src=_box125, colors=9, bed=BED,
     expect_guard='colors must be 1..8')
 
+# ---- R128: litho FLAT step variants + colorpic swap ----
+_LSRC128 = os.path.join(tempfile.mkdtemp(prefix='audit128_'), 'sk.png')
+import zlib as _zl128a, struct as _st128a
+
+def _png128a(path, w, h, fn):
+    rows = b''
+    for y in range(h):
+        rows += b'\x00' + b''.join(bytes(fn(x, y)) for x in range(w))
+    def chunk(t, d):
+        c = t + d
+        return _st128a.pack('>I', len(d)) + c + _st128a.pack(
+            '>I', _zl128a.crc32(c) & 0xffffffff)
+    open(path, 'wb').write(b'\x89PNG\r\n\x1a\n'
+                           + chunk(b'IHDR', _st128a.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0))
+                           + chunk(b'IDAT', _zl128a.compress(rows))
+                           + chunk(b'IEND', b''))
+
+_png128a(_LSRC128, 96, 96, lambda x, y: (255, 255, 255)
+         if not (20 < x < 76 and 20 < y < 76)
+         else ((0, 0, 0) if (30 <= x < 34 or 50 <= y < 54)
+               else (160, 160, 160)))
+run(pp.make_lithophane, 'lithoF-steps-iron', src=_LSRC128, orient='FLAT',
+    height_mm=60.0, layer_h=0.2, levels=3, col_layers=2, ironing=True, bed=BED)
+run(pp.make_lithophane, 'lithoF-last-swap', src=_LSRC128, orient='FLAT',
+    height_mm=60.0, layer_h=0.2, levels=3, col_layers=2, col_mode='LAST',
+    bed=BED)
+run(pp.make_lithophane, 'lithoF-each-frame', src=_LSRC128, orient='FLAT',
+    height_mm=60.0, layer_h=0.2, levels=4, col_layers=1, col_mode='EACH',
+    border=4.0, corner_r=6.0, bed=BED)
+_CSRC128 = _LSRC128.replace('sk.png', 'grad.png')
+_png128a(_CSRC128, 64, 64, lambda x, y: (int(255 * (x / 63.0)),) * 3
+         if y < 32 else (int(255 * (1 - x / 63.0)),) * 3)
+run(pp.make_colorpic, 'colorpic-noswap', src=_CSRC128, width_mm=80.0,
+    bands=4, band_h=0.8, swap=False, bed=BED)
+
 # ---- R126: stylized system figures (original size + % scaling) ----
 run(pp.make_figures, 'figures-100', count=2, scale=100, bed=BED)
 run(pp.make_figures, 'figures-50', count=1, scale=50, bed=BED)
