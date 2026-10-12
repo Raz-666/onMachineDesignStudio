@@ -423,7 +423,7 @@ run('litho default', lambda: LI())
 run('litho levels8 no frame', lambda: LI(levels=8, frame=False))
 run('litho small 40mm no brim', lambda: LI(height_mm=40.0, brim_loops=0))
 run('litho ironing 0.12', lambda: LI(layer_h=0.12, ironing=True))
-# R106 (wish i): FLAT mode - terraced relief, colors via PAUSE, bed clamp
+# R106/R128: FLAT mode - gray step print, colors via M600, bed clamp
 run('litho FLAT default', lambda: LI(orient='FLAT'), r2_gen=True)
 run('litho FLAT colors3x4 ironing', lambda: LI(orient='FLAT', colors=3,
                                               col_layers=4, ironing=True),

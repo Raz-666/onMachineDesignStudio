@@ -3795,8 +3795,8 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         _v66 = _l66.split(':', 1)[1].strip()
         break
 # NOTE: bump this expectation together with the version on every release!
-tests.append(('R66/R80 version is current (.91) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-12.91'", repr(_v66)))
+tests.append(('R66/R80 version is current (.92) in 01_state.cfg (bump together with release!)',
+    _v66 == "'R2-2026-10-12.92'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -7105,8 +7105,8 @@ save_vars.update({'frame_preset': '10x15', 'frame_w': 102.0, 'frame_h': 152.0,
                   'frame_hang': 'TOP', 'frame_stand': False, 'frame_ironing': True,
                   'frame_infill': 60.0, 'frame_nonce': 3, 'gen_version': 1})
 out = render(get_body('macros/17_generator.cfg', 'FRAME_INFO'), {})
-tests.append(('R90 FRAME_INFO: settings echo incl. closure + bayonet hint',
-    '10x15 photo' in out and 'closure BACK' in out and 'slide 2.5mm' in out, out[:160]))
+tests.append(('R90 FRAME_INFO: settings echo incl. closure + snap-in hint',
+    '10x15 photo' in out and 'closure BACK' in out and 'snap' in out, out[:160]))
 out = render(get_body('macros/17_generator.cfg', 'FRAME_GENERATE'), {})
 tests.append(('R90 FRAME_GENERATE: valid settings bump frame_nonce 3 -> 4',
     'frame_nonce VALUE=4' in out and 'r2_confirm' in out, out[:160]))
@@ -9131,7 +9131,7 @@ _lf106, _li106 = _pp.make_lithophane(_img106, bed=_BED106e, out_dir=_d106e,
                                      orient='FLAT', height_mm=40.0)
 _lt106 = open(_lf106, encoding='utf-8').read()
 _re106c = re
-tests.append(('R106 litho FLAT: terraced relief, Bottom->Top tags, layer count',
+tests.append(('R106 litho FLAT: step print, Bottom->Top tags, layer count',
     _li106['kind'] == 'lithophane-flat'
     and _lt106.count('LAYER_MARK') == _li106['layers']
     and ';TYPE:Bottom surface' in _lt106 and ';TYPE:Top surface' in _lt106

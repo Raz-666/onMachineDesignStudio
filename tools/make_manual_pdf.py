@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MANUAL.pdf — the illustrated user handbook (R2-2026-10-12.91).
+"""MANUAL.pdf — the illustrated user handbook (R2-2026-10-12.92).
 Mirrors MANUAL.md: daily workflow first, generators next, calibration ladder,
 reference tables. 21 vector diagrams (font specimens + range variants drawn
 from the REAL generator glyph data), full parameter tables."""
@@ -476,7 +476,7 @@ class Doc(BaseDocTemplate):
         c.drawRightString(A4[0]-17*mm,A4[1]-10*mm,self.ch); c.restoreState()
     def footer(self,c,doc):
         c.saveState(); c.setFont('DVS',7.5); c.setFillColor(GRAY)
-        c.drawString(17*mm,9*mm,'R2-D2 Macro System · R2-2026-10-12.91 · user handbook')
+        c.drawString(17*mm,9*mm,'R2-D2 Macro System · R2-2026-10-12.92 · user handbook')
         c.drawRightString(A4[0]-17*mm,9*mm,f'Page {doc.page}')
         c.setStrokeColor(colors.HexColor('#c9d4e4')); c.setLineWidth(0.6); c.line(17*mm,12*mm,A4[0]-17*mm,12*mm)
         c.restoreState()
@@ -1251,7 +1251,7 @@ def d_wiring():
 # ---- cover ----
 E+= [Spacer(1,10*mm),Paragraph('R2-D2 Macro System',S['title']),Spacer(1,2*mm),
      Paragraph('The Complete User Handbook — illustrated edition',S['sub']),Spacer(1,3*mm),
-     Paragraph('Version R2-2026-10-12.91 · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail)',S['sub']),
+     Paragraph('Version R2-2026-10-12.92 · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail)',S['sub']),
      Spacer(1,6*mm),CENT(d_robot()),Spacer(1,6*mm),
      Paragraph('The USER HANDBOOK: from file to print in one read — every file type (by layer / by object / vase /<br/>'
                'legacy / movement data), the start dialog, pre-print settings, live tuning, pauses, object skip ·<br/>'
@@ -1551,7 +1551,7 @@ chapter('4','Scenario library — every file type walked through',
        'CANCEL_PRINT                                    # twice within 60 s'))
 
 
-chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes, Gaskets &amp; Frames',
+chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes, ColorPic, Gaskets, Frames, Bricks, Kits &amp; Figures',
   P("One quality rule applies to every generator (field-log rule): the nozzle never travels over an "
     "open hole or slot without retracting, no matter how short the hop. Every opening is a registered "
     "keep-out: label and screw holes, the cable-tie head channel and loop slot, the gasket groove, the "
@@ -1712,14 +1712,28 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
   CENT(d_litho_anatomy()),CAP("How brightness becomes thickness (0.7 mm light - 3.0 mm dark, standing plate "
     "with brim) and what Levels does: 0 = continuous photo grey, 4 = chunky posterized, 12 = subtle terraces"),
   TBL(['Setting','Range','Meaning'],[
-   ['Height','30-200 mm','picture height — width follows the aspect ratio (auto-clamped to the bed)'],
+   ['Orient','STANDING / FLAT','STANDING (default): on edge, the classic recipe - most detail. FLAT (.83, step print since .90): lying on the bed - back glass-flat, the top carries the image as clean gray STEPS (full layers, no wavy relief)'],
+   ['Height / Size','30-200 mm','STANDING: picture height = print height in Z. FLAT: the picture size in XY (the bed plane) - Z is only the relief = layer count x layer height'],
    ['Layer','0.08-0.2 mm','0.12 default; 0.08 = maximum detail (double the print time)'],
-   ['Levels','0-12','0 = continuous grey (photo). 2-12 = posterized brightness steps — retro at 2-4, subtle at 8-12'],
+   ['Levels','0-12','STANDING: 0 = continuous grey (photo), 2-12 posterized. FLAT: the gray STEP count (0 = auto 4)'],
+   ['StepL','1-30','FLAT: layers per gray step - step 0 = the whole light background as full layers, every darker step its region on top, the darkest = the contour lines'],
+   ['Color swap','OFF / LAST / EACH','FLAT only: OFF = one filament. LAST = M600 right before the darkest step (white body + black contours). EACH = M600 at every step. A purge tower (12x12, 15mm probe clearance) prints along whenever swaps are on'],
+   ['Border / Corner','0-10 / 0-20 mm','FLAT: picture frame at full height around the plate; Corner = rounded corners (0 = square)'],
+   ['Contrast','ON/OFF','extra boost after the stretch - level edges stand out (sketches, logos, text)'],
    ['Frame','ON/OFF','border frame that holds the thin plate straight (recommended)'],
    ['Brim','0-10 loops','the plate prints STANDING — the brim anchors it'],
-   ['Ironing','ON/OFF','slow smoothing pass over the light side'],
+   ['Ironing','ON/OFF','slow smoothing pass over the light side (FLAT: every step cap)'],
    ['Vers','V01-V09','same settings + same version = the file replaces itself'],
   ],[26*mm,32*mm,102*mm]),
+  P("How FLAT prints (step print, rebuilt after the .90 field log - the old terraced "
+    "relief printed wavy, the nozzle dove into the picture and the probe caught on it): "
+    "the picture is contrast-stretched (percentiles) + optionally boosted, quantized "
+    "into Levels gray steps and printed ONE STEP AFTER ANOTHER as full layers. Step 0 = "
+    "the whole light background (one clean surface - iron it), every darker step its "
+    "nested region on top, the darkest = the black contour lines. Nothing ever prints "
+    "over air, the nozzle never dives, the probe never catches. The classic sketch "
+    "recipe: white background image + Levels 3 + Color swap LAST = white body with "
+    "black lines. File: 00_LithoF_name_Vxx.gcode."),
   H2('5.7 Gaskets — the built-in seal maker'),
   P("Sealing rings straight from the LCD (menu Tools > Gaskets): outer/inner diameter and height, flat face "
     "or groove. One continuous spiral per band — no seam, no start-stop blob where a seal would leak, and no "
@@ -1755,10 +1769,11 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
     "and the end of Part A says on console + LCD which file is next; even the frame alone too big and "
     "RECT = 4-strip glue kit (strips on plate A, plate on B, every part an exclude object, glue the "
     "butt joints with wood glue); still too big or OVAL = a clear message with the border limit — the "
-    "guard beeps and shows on the LCD, nothing is written. Assembly BACK: photo onto the back band, "
-    "backplate in with its edge notches "
-    "at the left/right nubs, slide 2.5mm — locked, no flex. SIDE: photo + cover plate slide together "
-    "through the slot in the left wall. The hang keyhole hides in the plate (invisible from the front); "
+    "guard beeps and shows on the LCD, nothing is written. Assembly BACK (.91 field fix): the photo "
+    "drops onto the shelf with 0.8mm play per side (real photos run up to ~1mm over the nominal cut - "
+    "no trimming), the backplate is 0.3mm smaller than the photo shaft per side - press it in, the 4 "
+    "wall nubs (left/right/top/bottom) click over its edge with a 0.2mm overlap. No sanding, no "
+    "sliding. SIDE: photo + cover plate slide together through the slot in the left wall. The hang keyhole hides in the plate (invisible from the front); "
     "the easel stand plugs into two D2.7 plate holes. Console: GEN_FRAME PRESET=10x15 DEPTH=8 BORDER=12 "
     "SHAPE=RECT CLOSURE=BACK HANG=TOP STAND=1."),
   P("R90.1b surface & extras (each its own submenu): SURF picks the visible face — Ironed (classic), "
@@ -1771,8 +1786,55 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
     "behind the back face straight into the interior — LED wiring without a visible hole. Console: "
     "GEN_FRAME PRESET=10x15 DEPTH=20 CABLE=1 DISC=PLEXI DISC_T=1 DISC_SIDE=BACK."),
   CENT(d_frame_anatomy()),CAP("Cross-section through the wall (front up: ironed front band, bridge "
-    "shelf, groove with photo + plate + nubs, back band) and the two closures: BACK = bayonet plate "
-    "with edge notches (slide 2.5mm), SIDE = slide-in slot in the left wall"),
+    "shelf, groove with photo + plate + nubs, back band) and the two closures: BACK = snap-in plate "
+    "(press in - 4 wall nubs click over it), SIDE = slide-in slot in the left wall"),
+
+  H2('5.10 Building bricks — the exact system geometry (R121)'),
+  P("The printer becomes a brick factory: bricks, plates and tiles with the EXACT geometry of the "
+    "building-block system - printed parts clamp to each other AND to original bricks. The three "
+    "numbers that matter: body = n*8-0.2mm (the 0.2mm play IS the clamp), stud = O4.8x1.8mm hollow "
+    "(1.2mm wall - prints without a solid blob), underside tube = O6.31 at every inner grid crossing "
+    "(the tubes spread over the stud below - the clutch comes out right). Brick 9.6 / plate 3.2mm, "
+    "tiles = smooth plates; layer heights that do not divide evenly snap to whole layers (noted in "
+    "the header). Layer 1 prints solid + brim, the tubes open from layer 2 up. Catalog: 45 codes - "
+    "B=brick, P=plate, T=tile, each 1x1..8x8 (width x length in studs). LCD: Tools > Bricks > "
+    "Catalog bumps the count per code (same codes merge, max 120 parts), CREATE builds "
+    "00_Bricks_V01.gcode - one color, every part its own exclude object. Console: "
+    "GEN_BRICKS CODES=\"B2x4:3|P2x2:2\"."),
+  H2('5.11 Brick kit — a sliced file becomes a building kit (R125)'),
+  P("The kit generator reads ANY sliced print file and rebuilds it as a stylized brick kit: the "
+    "object is rasterized onto the stud grid (0.8mm sampling) and decomposed into 2-wide bricks - "
+    "the kit look. ONLY the object flows in: support, brim, skirt and prime-tower moves are filtered "
+    "out before the geometry is built (foreign slicer files work too). Closed bodies fill solid; "
+    "hollow bodies (vases, sparse infill under 15%) become RING WALLS - the silhouette stays, print "
+    "time drops. Detail AUTO picks the band size by model size (up to 10 studs MICRO, up to 26 "
+    "SMALL, else BIG - brick bands 9.6mm vs plate bands 3.2mm). Colors 1-8 with two strategies: "
+    "BY_LAYER = one color per plate, the plate change IS the color change (zero M600); BY_OBJECT = "
+    "parts print sequentially, M600 only at color boundaries. Up to 800 parts, ~110 per plate "
+    "(A, B, C...), every part its own exclude object. LCD: Tools > Bricks > Kit from file (Source "
+    "picks the 5 newest sliced jobs, Detail, Mode, Colors). Console: GEN_BRICKKIT SRC=box.gcode "
+    "DETAIL=AUTO MODE=BY_LAYER COLORS=3."),
+  H2('5.12 Figures — assemble-it-yourself (R126)'),
+  P("Stylized figures in the classic caliper proportions mapped onto the building system: 5 parts "
+    "per figure - legs, torso, two arms, head. Assembly without glue: the torso presses onto the "
+    "hip tenon, the arms slide onto the shoulder pins (they swing), the head presses onto the neck "
+    "post (it turns). 100% = original size AND system-true: the hands grip O4.8 studs and axes, "
+    "hats sit on the head stud, the feet click onto studs (anti-studs underneath). Other scales "
+    "(25-300%) are display figures. Count 1-24, one color, every part its own exclude object, "
+    "~39mm tall at 100%. LCD: Tools > Bricks > Figures (Scale, Count, CREATE). Console: "
+    "GEN_FIGURES SCALE=100 COUNT=2."),
+  H2('5.13 ColorPic — photos in full color, no backlight (R120)'),
+  P("The color sibling of the lithophane: the photo prints FLAT as stacked color bands, lightest "
+    "first - every darker band prints only its (nested) region on top, so the picture needs NO "
+    "backlight and works from every angle. Same image list as the lithophane; the pipeline "
+    "stretches the contrast (percentiles + optional boost) and quantizes into 2-8 luminance bands. "
+    "At every band boundary the file calls M600 - the nozzle LED BLINKS from the old to the new "
+    "color while you swap, and a purge tower (12x12mm, 15mm probe clearance) takes prime + wipe "
+    "after every change. Swap can be switched OFF (every band prints in one color) and Contrast "
+    "toggles the boost. Settings: Width 25-230, Bands 2-8, Band height 0.4-3mm (total height = "
+    "bands x band height), Colors = per-band palette light->dark (14 codes, auto ramps when "
+    "empty), Ironing per band cap. LCD: Tools > ColorPic. Console: GEN_COLORPIC SRC=photo.png "
+    "WIDTH=120 BANDS=4 COLORS=WHT,GRY,BLK BANDH=0.8 SWAP=1."),
   )
 
 chapter('5.9','Texture: fuzzy skin & shaped bumps (any g-code file)',
@@ -2048,7 +2110,7 @@ chapter('13','Maintenance &amp; care',
 
 
 chapter('14','LCD menu reference',
-  CENT(d_menu()),CAP('Seven top groups in LCD order — Start Print? (waiting), Live Tuning (printing), then Pre-Print, Quick Macros, Tools (the seven part generators: Cable ties · Angles+Flat · Lithophane · Gaskets · Frames · Labels · Plotter), Maintenance, System'),
+  CENT(d_menu()),CAP('Seven top groups in LCD order — Start Print? (waiting), Live Tuning (printing), then Pre-Print, Quick Macros, Tools (the part generators: Cable ties · Angles+Flat · Lithophane · ColorPic · Gaskets · Frames · Labels · Bricks (catalog, kit, figures) · Plotter), Maintenance, System'),
   P('Every line fits the 16 characters of the 12864 display — the value you edit is always visible '
     '(test-enforced). Pattern: first line = ON/OFF toggle (value stays stored), then the values.'),
   TBL(['Live Tuning (during print)','Contents'],[
@@ -2372,7 +2434,11 @@ chapter('24','Cheat sheet: LCD paths &amp; Mainsail commands',
    ['change material preset','Pre-Print &gt; Material &gt; LOAD NOW'],['see ALL file parameters','Pre-Print / Live Tuning &gt; File (G-code)'],['compare with the file values','Pre-Print &gt; Temps &gt; File H:/File B:'],
    ['first layer slower/faster','Pre-Print &gt; 1st layer %'],['calibrate flow','Maintenance &gt; Flow Cal.'],
    ['run a temperature tower','Maintenance &gt; Temp Tower'],['test ironing','Maintenance &gt; Ironing Cal.'],
-   ['print cable ties','Tools &gt; Cable ties &gt; Create (beeps)'],['cable/lamp hole in a range part','Pre-Print &gt; Range/Stop &gt; Fl.hole / Top hole'],
+   ['print cable ties','Tools &gt; Cable ties &gt; Create (beeps)'],
+   ['print building bricks','Tools &gt; Bricks &gt; Catalog (count parts) &gt; Create'],
+   ['sliced file -> brick kit','Tools &gt; Bricks &gt; Kit from file &gt; CREATE kit'],
+   ['print figures','Tools &gt; Bricks &gt; Figures &gt; Scale/Count &gt; CREATE figure'],
+   ['print a color picture','Tools &gt; ColorPic &gt; Images - slot press, swap at every beep'],['cable/lamp hole in a range part','Pre-Print &gt; Range/Stop &gt; Fl.hole / Top hole'],
    ['printer off, Pi stays on','PRINTER_POWER_OFF (console — relay, ch. 26)'],
    ['print an angle bracket','Tools &gt; Angles+Flat &gt; Mode &gt; Angle, Settings, Create'],
    ['join two boards flush','Tools &gt; Angles+Flat &gt; Mode &gt; Flat splice, Left/Right, Create'],
@@ -2405,7 +2471,7 @@ chapter('24','Cheat sheet: LCD paths &amp; Mainsail commands',
    ['MCR','minimum cruise ratio','SCV','square corner velocity'],
   ],[30*mm,54*mm,26*mm,54*mm]),
   Spacer(1,12*mm),Paragraph('Built and tested for one purpose: printing happily — with R2-D2 keeping watch. Have fun!',S['end']),
-  Spacer(1,4*mm),Paragraph('R2-D2 Macro System · R2-2026-10-12.91',S['cap']))
+  Spacer(1,4*mm),Paragraph('R2-D2 Macro System · R2-2026-10-12.92',S['cap']))
 
 import json as _json
 _MIDX=_json.loads(r'''[["Sounds \u2014 02_sounds.cfg", [["M300", "P=100, S=1000", "single beep \u2014 wrapper; the real beep lives on as M99300"], ["PLAY_SOUND", "NAME='r2_click'", "play a tune by name (ch. 16)"], ["TOGGLE_SOUNDS", "\u2014", "sounds on/off (persisted: sound_on)"], ["TEST_SOUNDS", "\u2014", "play all 20 tunes in sequence"]]], ["LEDs \u2014 03_leds.cfg", [["SET_LED_STATE", "STATE='idle'", "switch the LED pattern (12 states, ch. 17) - applies the nozzle mode too"], ["NOZZLE_LED", "MODE, BRIGHT, R, G, B", "nozzle light: on/off/auto + live dimming + live color (ch. 17)"], ["TOGGLE_LEDS", "\u2014", "frame LEDs off/on (persisted: leds_on)"], ["TEST_LEDS", "\u2014", "LED test animation"], ["_NOZZLE_SET", "ON", "internal: writes LED 5 (color x brightness, capped 0.5)"]]], ["Notifications \u2014 04_notify.cfg", [["NOTIFY", "TEXT, LEVEL='info', LED, SOUND", "notification helper: text + sound + LED in one call"], ["SHOW_STATUS", "\u2014", "full status: mode, material, overrides, live values"]]], ["Materials \u2014 05_materials.cfg", [["SET_MATERIAL", "MATERIAL=&lt;current>, APPLY_PRESET=1", "select material; APPLY_PRESET=1 also loads its preset"], ["SAVE_MATERIAL_TEMPS", "MATERIAL=&lt;current>", "save current values as this material's preset"], ["SHOW_MATERIAL", "\u2014", "show the current material + its stored preset"]]], ["Temperatures & marks \u2014 06_temp_controls.cfg", [["M104", "S=-1, T", "hotend temp \u2014 interceptor, redirects by layer (real: M99104)"], ["M109", "S=-1, T", "like M104, but waits"], ["M140", "S=-1", "bed temp \u2014 interceptor (real: M99140)"], ["M190", "S=-1", "like M140, but waits"], ["M106", "S=255", "part fan \u2014 scaling + from-layer-2 rule"], ["M204", "P, S, T", "acceleration \u2014 interceptor (M99204): feature accel , else global overwrite ON \u2192 your accel, else file 1:1"], ["LAYER_MARK", "\u2014", "layer marker (inserted by the post-processor)"], ["M220", "S=100", "speed \u2014 interceptor (M99220): L1 cap + stores the clean global % as g_speed_clean "], ["PAUSE_NEXT_LAYER", "REASON='next layer'", "one-shot pause at the next layer boundary"], ["PAUSE_AT_LAYER", "LAYER=0", "one-shot pause at layer n (n greater than 1)"], ["SET_LIVE_HOTEND_TEMP", "T=-1", "change the hotend target live"], ["SET_LIVE_BED_TEMP", "T=-1", "change the bed target live"]]], ["Start dialog & overrides \u2014 07_start_confirm.cfg", [["PRINT_AS_SLICED", "\u2014", "start dialog: answer AS SLICED"], ["PRINT_WITH_OVERRIDES", "\u2014", "alias for AS LEGACY since then (merged mode)"], ["PRINT_AS_LEGACY", "\u2014", "start dialog: AS LEGACY"], ["CANCEL_PENDING_PRINT", "\u2014", "start dialog: cancel (nothing is hot yet)"], ["SET_OVERRIDE_VALUE", "NAME, VALUE", "set one override + switch it ON; feat_on=0 resets the values to the file original "], ["TOGGLE_OVERRIDE", "NAME=''", "flip one override switch"], ["CLEAR_OVERRIDES", "\u2014", "all switches OFF (values stay stored)"], ["TOGGLE_START_CONFIRMATION", "\u2014", "start dialog on/off (persisted: start_confirm)"]]], ["Print start & end \u2014 08_print_start_stop.cfg", [["PRINT_START", "BED, HOTEND_FIRST, HOTEND_AFTER, BED_AFTER, MATERIAL='PLA', LAYER_HEIGHT=0.2, TOTAL_LAYERS=0, OUTER_WALL_SPEED=0, SUPPORT_SPEED=0, IRONING_SPEED=0", "start choreography \u2014 called by the sliced file"], ["START_PRINT", "\u2014", "old macro name: marked = no-op / legacy = real legacy start (dialog or auto-prep,)"], ["PRINT_END", "\u2014", "end choreography: heaters/fans, stats, sound, LED -> idle, _PRINT_CLEANUP"]]], ["Pause & filament \u2014 09_pause_filament.cfg", [["PAUSE", "REASON='User'", "pause + park (mode-aware)"], ["QUICK_PAUSE", "\u2014", "alias for PAUSE"], ["RESUME", "\u2014", "the full resume sequence (ch. 6)"], ["CANCEL_PRINT", "\u2014", "1st press arms (expires 60 s, also while paused), 2nd press cancels + cleanup"], ["M600", "\u2014", "filament change (park, unload, wait for load)"], ["CHANGE_FILAMENT", "\u2014", "M600 for humans \u2014 works from idle too (heats)"], ["CHANGE_FILAMENT_RESUME", "\u2014", "internal continuation after the load"], ["PURGE_MORE", "\u2014", "purge 15 mm more (after change/resume)"], ["M0", "\u2014", "slicer pause \u2014 mapped to PAUSE"], ["M1", "\u2014", "slicer pause \u2014 mapped to PAUSE"], ["_PRINT_CLEANUP", "\u2014", "resets ALL per-print state (PRINT_END/CANCEL/watcher - settings + mesh stay)"]]], ["Live tuning \u2014 10_live_tuning.cfg", [["APPLY_TYPE", "TYPE=''", "feature switch : sets current_type + applies THIS feature\u2019s overrides (speed % × clean global, absolute accel, ironing flow)"], ["SET_OUTER_WALL_SPEED + 11 more per-feature macros", "\u2014", "per-feature setters : forward to feat_spd/feat_acc + ON \u2014 % on top of the CLEAN global"], ["SET_GLOBAL_SPEED", "PERCENT=100", "global speed % (M220 style, never capped); the running feature stays on top — re-applied immediately"], ["SET_GLOBAL_ACCEL", "ACCEL=4000", "global acceleration, mm/s\u00b2; a feature with its own accel keeps it"],
@@ -2459,6 +2525,26 @@ _MIDX.append(["Part generators — 17_generator.cfg", [
     ["ANGLE_INFO", "—", "every angle/flat setting + the auto-hole rules"],
     ["TEXTURE_APPLY", "FILE='', MODE='OFF', THICK, DENSITY, PATTERN, SCALE, AMP, DIR='OUT'",
      "fuzzy skin / shaped bumps for the SELECTED (or FILE) g-code - new _TX_V01 file in the background, never auto-started (ch. 5.9)"]]])
+# R131: building bricks / kits / figures + colorpic in the index
+_MIDX.append(["Building bricks & figures — 19_bricks.cfg", [
+    ["GEN_BRICKS", "CODES='B2x4:3|P2x2:2'",
+     "console/Mainsail brick job: sets the queue (code:count, | separated, max 120 parts) and creates 00_Bricks_V01.gcode"],
+    ["BRICK_ADD", "CODE='B2x4', COUNT=2",
+     "add COUNT x CODE to the queue (same codes merge; unknown code or count outside 1-99 rejected)"],
+    ["BRICK_DEL_LAST", "—", "drop the last queue entry"],
+    ["BRICK_CLEAR", "CONFIRM=1", "empty the queue (2-press: first call arms)"],
+    ["BRICK_SHOW", "—", "list the queue"],
+    ["BRICK_INFO", "—", "settings + geometry summary"],
+    ["BRICK_CREATE", "OUT=QUEUE/PREVIEW", "build the file from the queue (bumps bricks_nonce; the watcher builds, beeps + selects)"],
+    ["GEN_BRICKKIT", "SRC='box.gcode', INDEX=0-4, DETAIL=AUTO/MICRO/SMALL/BIG, MODE=BY_LAYER/BY_OBJECT, COLORS=1-8",
+     "sliced file -> stylized kit (SRC=LAST or empty + INDEX pick the newest jobs; without params the saved menu values win)"],
+    ["GEN_FIGURES", "SCALE=25-300, COUNT=1-24",
+     "figures at % scale - 5 parts each, assembly without glue; only 100% mates with the system"]]])
+_MIDX.append(["Color picture — 18_colorpic.cfg", [
+    ["GEN_COLORPIC", "SRC='photo.png', WIDTH=25-230, BANDS=2-8, BANDH=0.4-3, COLORS='WHT,GRY,BLK', LAYER_H, IRONING=0/1, BRIM=0-8, SWAP=0/1, CONTRAST=0/1",
+     "console/Mainsail color picture: sets everything + creates (SWAP=0 prints every band without a filament change)"],
+    ["COLORPIC_CREATE", "INDEX=0-9, SRC='photo.png', OUT=",
+     "create from image slot INDEX / explicit SRC / the last picked lithophane image (bumps colorpic_nonce; the watcher builds, beeps + selects)"]]])
 # R64: resonance diagram + bridging + plotter text/status in the index
 for _g in _MIDX:
     if _g[0].startswith('Maintenance'):
@@ -2673,6 +2759,7 @@ chapter('D','Appendix D: Version history',
   P("Only the milestones — the full reasoning lives in SESSION_STATE.md. The manual itself describes the CURRENT "
     "system; this table is just the record."),
   TBL(['Version','Core changes'],[
+      ('.92','DOCUMENTATION OVERHAUL (R131) - the handbook (MD + PDF) brought up to .91/.92: OUTDATED PASSAGES REPLACED - litho FLAT (old terraced-relief text -> the step print with StepL/color swap/border/corner/contrast/purge tower), frame closure (old bayonet slide-2.5mm -> snap-in backplate + photo play; the printer-side LCD texts too), the 5.0 generator list, the chapter-5 title (13 generators). NEW: four detailed generator chapters - 5.10 bricks (geometry table, 45-code catalog), 5.11 brick kits (voxelizer, support filter, detail bands, ring walls, BY_LAYER/BY_OBJECT), 5.12 figures (5 parts, no glue, 100% system mating), 5.13 ColorPic (band principle, M600 + LED blink, purge tower, swap/contrast); menu reference, cheat sheet (+5 paths), macro index (+11 entries) - mirrored in the PDF. Battery: render 1595/1595, validator clean, systemtest 221/0.'),
       ('.91','HOTFIX (.90 boot blocker): COLORPIC_CREATE checked the image extension with the NON-EXISTENT Jinja filter endswith (a Python method, not a filter - in the package since .82, only reached the printer with the .90 update). Fixed with slicing: _cpsrc[-4:] in (png, jpg) / _cpsrc[-5:] == jpeg. Why the tests missed it: Jinja >= 3.1 compiles unknown filters silently and a render pass short-circuits on params.X is defined and ... - the R67 gate was false green. Hardened: the gate now walks the Jinja AST of all 3663 boot templates checking every filter/test name against the real tables, and the config validator got the same static rule. Proof: an injected endswith is caught by both, the fixed pattern passes, a full package sweep finds no other zombie filter. Battery: render 1595/1595 (+5 R130), validator clean, systemtest 221/0.'),
       ('.90','R118-R129: BRICKS, KITS + FIGURES + FIELD LOG: LITHO FLAT STEP PRINT - (1) BUILDING BRICKS with the exact system geometry (45-part catalog, bodies n*8-0.2 so they clamp to each other AND to originals, hollow studs, underside tubes), queue like the labels, GEN_BRICKS. (2) KIT GENERATOR: a sliced print file becomes a stylized kit - support/brim/skirt never flow in, closed bodies fill, hollow bodies become ring walls, detail AUTO/MICRO/SMALL/BIG, BY_LAYER = one color per plate = zero M600, BY_OBJECT = M600 only at color boundaries. (3) FIGURES: 5 parts, assembly without glue (arms swing, head turns) - 100% = original size AND system-true (hands grip O4.8 studs, hats sit, feet click), 25-300%. (4) FIELD LOG LITHO FLAT: the terraced relief printed wavy (nozzle dove into the picture, probe caught) - rebuilt as a STEP print: percentile stretch + contrast boost, gray levels, step 0 = the whole light area as clean layers (ironed), darkest = the contours; StepL, color change OFF/LAST/EACH, optional picture frame (square/rounded). (5) PURGE TOWER 12x12 with 15mm probe clearance prints along EVERY filament change (litho + colorpic, swap now optional) - PRIME-TOWER tagged. (6) FIELD LOG FRAME: the backplate was 2.4mm OVER the photo opening (never insertable) - snap-in now (0.3mm play + 4 wall nubs), photo opening +1.6mm play; label gap 6 -> 12mm. (7) QUICK LISTS speed/flow/accel per feature in pre-print AND live; flow cap 0.5-50 mm3/s. (8) NEW tools/systemtest.py release gate: every generator x parameter combos x shared invariants + wiring sweep. Battery: render 1590/1590, audit 77/0, megatest 144/145/0, goldens 23/23, dialects 13/13, setup-sim 10/10, systemtest 221/0.'),
       ('.89','FIELD LOG .88 ROUND 2 (R116+R117): (1) CONTINUOUS FILLS - every '
@@ -2728,4 +2815,4 @@ chapter('D','Appendix D: Version history',
 
 doc=Doc(os.path.join(os.path.dirname(__file__),'..','MANUAL.pdf'))
 doc.build(E)
-print('MANUAL.pdf built (illustrated user handbook, .91)')
+print('MANUAL.pdf built (illustrated user handbook, .92)')

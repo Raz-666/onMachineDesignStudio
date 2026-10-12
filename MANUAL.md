@@ -26,7 +26,7 @@ reference tables at the end. Installation and wiring live in the appendices.
 2. [The system in five minutes](#2-the-system-in-five-minutes)
 3. [From file to print — the daily workflow](#3-from-file-to-print--the-daily-workflow)
 4. [Scenario library — every file type walked through](#4-scenario-library--every-file-type-walked-through)
-5. [The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes, Gaskets & Frames](#5-the-generators-range-labels-plotter-cable-ties-angles-lithophanes-gaskets--frames)
+5. [The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes, ColorPic, Gaskets, Frames, Bricks, Kits & Figures](#5-the-generators-range-labels-plotter-cable-ties-angles-lithophanes-colorpic-gaskets-frames-bricks-kits--figures)
 6. [During the print: tuning, pauses, objects](#6-during-the-print-tuning-pauses-objects)
 7. [Filament: load / unload / change / runout / cold pull](#7-filament-load--unload--change--runout--cold-pull)
 8. [Temperature system L1/L2](#8-temperature-system-l1l2)
@@ -733,12 +733,14 @@ PAUSE_AT_LAYER LAYER=17
 CANCEL_PRINT                                    # twice within 60 s
 ```
 
-## 5. The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes, Gaskets & Frames
+## 5. The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes, ColorPic, Gaskets, Frames, Bricks, Kits & Figures
 
-Eight generators turn the printer into a manufacturing tool of its own: partial
-prints from any G-code, label plates from typed text, pen plots from images,
-cable ties, angle plates / flat connectors, lithophanes from photos,
-sealing gaskets and picture frames / display cases. All of them write
+Thirteen generators turn the printer into a manufacturing tool of its own:
+partial prints from any G-code, label plates from typed text, pen plots from
+images, cable ties, angle plates / flat connectors, lithophanes and color
+pictures from photos, sealing gaskets, picture frames / display cases,
+building bricks with the exact system geometry, brick KITS from any sliced
+file and assemble-it-yourself figures. All of them write
 normal G-code files into the gcodes folder (the watcher builds them in the
 background — niced, single-pass, a few seconds), all of them run through the
 NORMAL start flow, and all generated objects are exclude-objects (skippable
@@ -755,7 +757,8 @@ one continuous bead per layer, nothing to cross.
 ### 5.0 After generating: QUEUE or PREVIEW only (.84)
 
 Every generator (range, labels, plotter, cable ties, angles, lithophane,
-gasket, frame, texture, bridging test, resonance plots) finishes by asking
+colorpic, gasket, frame, bricks, brick kit, figures, texture, bridging test,
+resonance plots) finishes by asking
 one question: what should happen with the new file? **Tools > After gen**
 sets the sticky answer — and every generator takes a per-run `OUT=` to
 override it once:
@@ -1218,15 +1221,18 @@ correct viewing side).
 
 | Setting | Range | Meaning |
 |---|---|---|
-| Orient | STANDING / FLAT | STANDING (default): on edge, the classic recipe — most detail, layer lines run with the image. FLAT (.83): the plate lies on the bed — back glass-flat, the top carries the image as a fine terraced relief (small layers + Ironing smooth it). Ideal as a frame Disc: set Size to the photo size |
+| Orient | STANDING / FLAT | STANDING (default): on edge, the classic recipe — most detail, layer lines run with the image. FLAT (.83, step print since .90): the plate lies on the bed — back glass-flat, the top carries the image as clean gray STEPS (full layers, no wavy relief; optional Ironing smooths each step). Ideal as a frame Disc: set Size to the photo size |
 | Height / Size | 30–200 mm | **the picture, in the bed plane (FLAT: XY)** — the value is the picture's Y side in mm, X follows the image's aspect ratio (both clamp to the bed). STANDING: the value is the picture height = the print height in Z (one image row per layer). The height in Z is never a size input: **it is the relief — layer count × layer height** (0.7–3.0 mm) |
 | Layer | 0.08–0.2 mm | 0.12 = default; 0.08 = maximum detail, roughly double the print time |
 | Levels | 0–12 | 0 = continuous grey shades (photo look). 2–12 = posterized: the picture is reduced to N brightness steps — chunky retro look at 2–4, subtle terraces at 8–12 |
-| Colors | 1–4 | FLAT only: color bands from the bed up — PAUSE + prime line at every boundary, you swap filament and RESUME. Classic: white base layers under a colored body glow especially even |
-| ColL | 1–30 | layers per color band (only shown when Colors > 1) |
+| Color swap | OFF / LAST / EACH | FLAT only: OFF = one filament for every step. LAST = M600 right before the DARKEST step — the classic: white body, black contour lines. EACH = M600 at every step boundary. Whenever swaps are on, a purge tower (12×12 mm, 15 mm probe clearance) prints alongside and takes prime + wipe after every change |
+| StepL | 1–30 | layers per gray step (FLAT): step 0 = the whole light background as full layers, every darker step prints its region on top, the darkest = the contour lines |
 | Frame | ON/OFF | border frame that holds the thin plate straight (recommended) |
 | Brim | 0–10 loops | anchors the plate — STANDING to the bed, FLAT against warping |
-| Ironing | ON/OFF | slow smoothing pass over the light side (STANDING: front; FLAT: top face) |
+| Ironing | ON/OFF | slow smoothing pass over the light side (STANDING: front; FLAT: every step cap) |
+| Border | 0–10 mm | FLAT: a picture frame around the plate at full height — 0 = off (the old Frame switch maps to 2.4 mm) |
+| Corner | 0–20 mm | FLAT: rounded frame corners (0 = square; only with a border) |
+| Contrast | ON/OFF | extra contrast boost after the stretch — pushes midtones apart so level edges stand out (sketches, logos, text). OFF = the raw gray values |
 | Vers | V01–V09 | same picture + same version = replaces itself; bump to keep an iteration |
 
 **How it prints (STANDING)** — upright, one picture row per layer (the layer
@@ -1235,10 +1241,15 @@ from 0.7 mm (brightest, glows first) to 3.0 mm (shadows), 100 % solid —
 the file sets everything itself: slow walls, fan curve, PRINT_START. The
 plate is one **exclude object**.
 
-**How it prints (FLAT, .83)** — lying on the bed: the back is glass-flat,
-every layer covers exactly the cells whose thickness reach it (each higher
-layer is a subset of the one below — nothing prints over air, ever). The
-image sits on top as a terraced relief; the file is `00_LithoF_<name>…`.
+**How it prints (FLAT, step print since .90)** — lying on the bed: the
+back is glass-flat, and the picture is quantized into `Levels` gray steps
+that print ONE AFTER ANOTHER as full layers: step 0 = the whole light
+background (one clean surface — iron it), every darker step its (nested)
+region on top, the darkest step = the black contour lines. Nothing ever
+prints over air (each region lies completely on the step below), the nozzle
+never dives into a wavy relief and the probe never catches on steps. The
+file is `00_LithoF_<name>…`. The classic sketch recipe: white background
+image + Levels 3 + Color swap LAST = white body with black lines.
 **Sizes:** the Size input sets the picture in **XY** (the bed plane) —
 X follows the image aspect, both clamp to the bed. The height in **Z is
 not a size**: it is the relief — the layer count × layer height (the
@@ -1331,7 +1342,7 @@ cross open holes (keyhole, stud holes, cable slot) — and those retract.
 | Part | Job |
 |---|---|
 | FRAME | the ring: solid back band → photo groove (with the closure nubs) → bridge shelf → front face with the view opening; the front's last layer is ironed |
-| BACKPLATE | 0.8 mm cover plate, 1.2 mm rim — hidden keyhole (TOP/BOTTOM/LEFT/RIGHT) and, with Stand, two D2.7 stud holes |
+| BACKPLATE | 0.8 mm cover plate — 0.3 mm play per side through the photo shaft, snaps under the 4 wall nubs; hidden keyhole (TOP/BOTTOM/LEFT/RIGHT) and, with Stand, two D2.7 stud holes |
 | STAND | easel leg with two studs that plug into the backplate holes (24 mm apart) |
 | STRIP_T/B/L/R | only in the split KIT: the four frame walls as glue strips |
 | Part A / B | multi-plate: when frame + backplate do not fit side by side, the generator writes two files — `.._A_V01.gcode` (frame) and `.._B_V01.gcode` (backplate + stand). Part A auto-selects, the end-of-plate hint (console + LCD + beeps) names Part B, no auto-start |
@@ -1345,7 +1356,7 @@ cross open holes (keyhole, stud holes, cable slot) — and those retract.
 | Border | 4–30 mm | frame width around the photo |
 | Corner r | 0–30 mm | corner radius (RECT only; a split kit drops it to 0 with a note) |
 | Shape | RECT / OVAL | OVAL = ellipse from W×H (two diameters); no kit split for ovals |
-| Closure | BACK / SIDE | BACK = bayonet backplate: drop it in straight, slide 2.5 mm to lock (zero flex). SIDE = photo + plate slide together through the slot in the left wall |
+| Closure | BACK / SIDE | BACK = snap-in backplate (.91): the plate is 0.3 mm smaller than the photo shaft per side — press it in, the 4 wall nubs (left/right/top/bottom) click over its edge with a 0.2 mm overlap, done. SIDE = photo + plate slide together through the slot in the left wall |
 | Hang | TOP/BOTTOM/LEFT/RIGHT/OFF | keyhole position in the backplate — **invisible from the front** |
 | Stand | ON/OFF | easel leg; auto-dropped with a note if the bed has no room |
 | Front (Surface) | Ironed / Bed texture / Lines / Waves / Honeycomb | the visible face: classic ironing pass, the flipped print (bed texture = the face, no ironing) or a structured border band |
@@ -1472,6 +1483,121 @@ FILE may be omitted — then the **selected** file is the target (same as
 the LCD). The result beeps when done (`r2_done`) and shows a console
 summary; on error the alarm sounds and the LCD says what to fix.
 
+
+### 5.10 Building bricks — the exact system geometry (R121)
+
+The printer becomes a brick factory: bricks, plates and tiles with the
+**exact geometry of the building-block system** — printed parts clamp to
+each other AND to original bricks. No modeling, no slicer: pick parts from
+the catalog, CREATE, print.
+
+**Why the parts fit (the three numbers that matter)**
+
+| Element | Measure | Effect |
+|---|---|---|
+| body | n·8 − 0.2 mm | the 0.2 mm play is the clamp: two parts side by side grip each other, printed next to original parts they clamp the same |
+| stud | Ø4.8 × 1.8 mm, hollow (1.2 mm wall) | stacks like the original, prints without a solid blob on top |
+| underside tube | Ø6.31 at every inner grid crossing | the tube walls spread over the stud below — the clutch comes out exactly right |
+| brick / plate / tile | 9.6 / 3.2 mm heights, tile = smooth plate | layer heights that do not divide evenly snap to whole layers (noted in the file header) |
+| layer 1 | solid + brim | bed adhesion; the tubes open from layer 2 up |
+
+**The catalog (45 codes)** — `B`=brick 9.6 mm, `P`=plate 3.2 mm, `T`=tile
+(smooth plate): 1x1, 1x2, 1x3, 1x4, 1x6, 1x8, 2x2, 2x3, 2x4, 2x6, 2x8, 4x4,
+4x6, 4x8, 6x6, 6x8, 8x8 — first the width in studs, then the length.
+
+**The workflow (LCD: `Tools > Bricks`)**
+
+1. **Catalog** — every code is an entry; the press bumps its count
+   (same codes merge, max 120 parts per plate).
+2. **Settings** — Layer (0.08–0.32) and Vers, shared with the other
+   generators.
+3. **CREATE** — the watcher builds the file in its background thread
+   (beeps + auto-select): `00_Bricks_V01.gcode`.
+
+One file = **one color**, every part its own **exclude object** — a failed
+brick can be skipped live and reprinted later. Console/Mainsail:
+`GEN_BRICKS CODES="B2x4:3|P2x2:2"` (sets the queue and creates in one go).
+
+### 5.11 Brick kit — a sliced file becomes a building kit (R125)
+
+The kit generator reads **any sliced print file** and rebuilds it as a
+stylized brick kit: the object is rasterized onto the stud grid and
+decomposed into 2-wide bricks (the kit look), printed as plates A, B, C…
+
+**What flows in — and what never does:** ONLY the object. Support,
+support interface, brim, skirt and prime-tower moves are filtered out
+before the geometry is even built (field rule: the kit is the CLEAN
+object). Foreign slicer files work — `;TYPE:` comments and our
+`APPLY_TYPE` markers are both understood.
+
+**How the object becomes bricks**
+
+| Step | What happens |
+|---|---|
+| Voxelizing | the object moves are sampled at 0.8 mm — the system's base unit |
+| Bands | MICRO/SMALL: brick bands of 9.6 mm (merged 3 plate layers); BIG: plate bands of 3.2 mm (fine steps) |
+| Solid or shell | closed bodies fill solid; hollow bodies (vases, sparse infill < 15 %) become **ring walls** — the silhouette stays, print time drops |
+| Decomposition | greedy 2-wide bricks first (2x8 down to 1x1), orientation-resolved |
+| Detail AUTO | ≤ 10 studs → MICRO, ≤ 26 → SMALL, else BIG |
+
+**Colors 1–8** (grey, black, red, blue, yellow, green, orange, purple) and
+two print strategies:
+
+- **BY_LAYER (plates)** — one color per plate, the plate change IS the
+  color change: **zero M600**. Print plate A in grey, plate B in black…
+- **BY_OBJECT** — parts print one after another (the file says
+  `BY_OBJECT=1`), sorted so that all parts of one color run together:
+  M600 only at the color boundaries.
+
+Up to **800 parts**, ~110 per plate; every part its own exclude object.
+**The workflow (LCD: `Tools > Bricks > Kit from file`)** — Source (the 5
+newest sliced jobs, `00_` files skipped; SRC=filename via Mainsail),
+Detail, Mode, Colors, CREATE. Console:
+`GEN_BRICKKIT SRC=box.gcode DETAIL=AUTO MODE=BY_LAYER COLORS=3`.
+
+### 5.12 Figures — assemble-it-yourself (R126)
+
+Stylized figures in the classic proportions (caliper-measured head, torso,
+legs) mapped onto the building system: **5 parts per figure** — legs, torso,
+two arms, head. Assembly without glue: the torso presses onto the hip tenon,
+the arms slide onto the shoulder pins (**they swing**), the head presses
+onto the neck post (**it turns**).
+
+**100 % = original size AND system-true:** the hands grip Ø4.8 studs and
+axes, hats sit on the head stud, the feet click onto studs (anti-studs
+underneath). Other scales (25–300 %) are display figures — only 100 %
+mates with the system. Count 1–24, one color, every part its own exclude
+object, ~39 mm tall at 100 %.
+
+**The workflow (LCD: `Tools > Bricks > Figures`)** — Scale (25–300 %,
+5 % steps), Count, CREATE → `00_Figures_s100_V01.gcode`. Console:
+`GEN_FIGURES SCALE=100 COUNT=2`.
+
+### 5.13 ColorPic — photos in full color, no backlight (R120)
+
+The color sibling of the lithophane: the photo prints **flat** as stacked
+color bands, lightest first — every darker band prints only its (nested)
+region on top, so the picture needs NO backlight and works from every
+angle. The image pipeline is the proven one (percentile contrast stretch +
+optional boost), then the picture is quantized into 2–8 luminance bands.
+
+**The workflow (LCD: `Tools > ColorPic`)** — same image list as the
+lithophane (upload a `.png`/`.jpg` into the gcodes folder), Width, Bands,
+Band height, Colors (per-band palette, light→dark; auto ramps when empty),
+Layer, Ironing, Brim, **Swap**, **Contrast**, Vers → CREATE →
+`00_ColorPic_<name>_V01.gcode`.
+
+| Setting | Meaning |
+|---|---|
+| Bands | 2–8 luminance levels — band 0 = the lightest color and covers the whole area (the base) |
+| Band height | each band's thickness in mm (total height = bands × band height) |
+| Colors | comma palette codes light→dark (WHT GRY BLK RED ORG YEL GRN BLU PUR BRN PNK CYA GLD SIL); fewer codes than bands = auto-filled |
+| Swap | ON (default): M600 at every band boundary — the nozzle LED **blinks from the old to the new color** while you swap, the **purge tower** (12×12 mm, 15 mm probe clearance) takes prime + wipe after every change. OFF: every band prints without a filament change (one color) |
+| Contrast | extra boost after the stretch — band edges stand out (sketches, logos, text) |
+| Ironing | smoothing pass over every band cap |
+
+Console/Mainsail: `GEN_COLORPIC SRC=photo.png WIDTH=120 BANDS=4
+COLORS=WHT,GRY,BLK BANDH=0.8 SWAP=1 CONTRAST=1`.
 
 ## 6. During the print: tuning, pauses, objects
 
@@ -1993,8 +2119,8 @@ wiring changes without heating anything.
 Seven top groups — in LCD order: **Start Print?** (appears in the waiting
 state, position 1), **Live Tuning** (during a print, position 2), then
 Pre-Print, Quick Macros, **Tools** (the six part generators:
-Cable ties · Angles+Flat · Lithophane · Gaskets · Labels · Plotter, each
-with its own sub-menu — plus **After gen** (QUEUE/PREVIEW, .84): what
+Cable ties · Angles+Flat · Lithophane · ColorPic · Gaskets · Labels ·
+Bricks (catalog, kit, figures) · Plotter, each with its own sub-menu — plus **After gen** (QUEUE/PREVIEW, .84): what
 happens to every generated file, see 5.0),
 Maintenance, System. Start dialog and live tuning sit right at the top. Every line fits the 16 characters
 of the 12864 display — the value you edit is always visible (test-enforced).
@@ -2097,7 +2223,26 @@ while plotting (ch. C.3).
 | Info | every setting in one console listing + closure explanation |
 | Settings | Preset: Custom/9x13/10x15/13x18/A6 (`*` marks active; picking one fills W/H as editable values) · W + H 40–230 (custom, max follows the build volume) · Depth 3–60 mm · Border 4–30 mm · Corner r 0–30 mm · Walls 1–4 (loops per side) · Shape RECT/OVAL · Closure BACK/SIDE · Hang TOP/BOTTOM/LEFT/RIGHT/OFF · Stand ON/OFF · Surf: Ironed/Bed texture/Lines/Waves/Honeycomb (+ Depth/Spacing/Angle/Wave amp/Cell/Dir) · Disc: None/Glass/Plexi/Foil/Litho (+ Side/Thick) · Cable ON/OFF · Infill 20–100 % · **Presets: Save current / Load 1–8 / Delete 1–8** (your complete frame configs) · Vers V01–V09 |
 | Create (beeps) | validates, bumps the job counter — the watcher checks the bed fit and builds the file, it beeps + auto-selects |
-| How it works | workflow, kit logic, bayonet/slide assembly, Mainsail one-liner |
+| How it works | workflow, kit logic, snap-in/side assembly, Mainsail one-liner |
+
+**Bricks** (building bricks / kits / figures, in Tools — ch. 5.10–5.12)
+
+| Entry | Contents |
+|---|---|
+| Info | queue + settings + geometry summary |
+| Catalog | all 45 codes (B/P/T × 1x1…8x8) — press bumps the count, same codes merge, max 120 parts |
+| Settings | Layer 0.08–0.32 · Vers V01–V09 |
+| Create | builds `00_Bricks_V01.gcode` from the queue (beeps + selects) |
+| Kit from file | Source: 1st…5th newest job (or SRC= via Mainsail) · Detail: AUTO/MICRO 4.8/SMALL 9.6/BIG 3.2 · Mode: By plate (1 color/plate, zero M600) / By object (M600 at color boundaries) · Colors 1–8 · CREATE kit |
+| Figures | Scale 25–300 % (5 % steps) · Count 1–24 · CREATE figure |
+
+**ColorPic** (color pictures, in Tools — ch. 5.13)
+
+| Entry | Contents |
+|---|---|
+| Images | the shared image list (newest first, 10 slots) — slot press = Create |
+| Settings | Width 25–230 mm · Bands 2–8 · Band height 0.4–3 mm · Band colors (per-band palette picker, light→dark, auto ramp) · Layer 0.08–0.3 · Ironing ON/OFF · Brim 0–8 · Swap ON/OFF · Contrast ON/OFF · Vers |
+| How it works | the band principle, M600 + LED blink, purge tower, Mainsail one-liner |
 
 Dependency rules the menu enforces itself: Flat mode hides the Angle input
 and the Rib submenu (a straight splice has neither), and the leg entries
@@ -2557,6 +2702,10 @@ Diagnostics: SHOW_STATUS · SELF_TEST · KAMP_STATUS · HOST_CHECK (Pi health) �
 | print an angle bracket | Tools > Angles+Flat > Mode > Angle, Settings, Create |
 | join two boards flush | Tools > Angles+Flat > Mode > Flat splice, Left/Right, Create |
 | print a lithophane | Tools > Lithophane > Images (Create) — slot press, then start |
+| print a color picture | Tools > ColorPic > Images — slot press, swap filament at every beep |
+| print building bricks | Tools > Bricks > Catalog (count parts) > Create |
+| turn a sliced file into a kit | Tools > Bricks > Kit from file > CREATE kit |
+| print figures | Tools > Bricks > Figures > Scale/Count > CREATE figure |
 | print a gasket | Tools > Gaskets > Settings, Create (beeps) |
 | print a picture frame | Tools > Frames > Settings, Create (beeps) |
 | frame as glue kit | Tools > Frames > Preset 13x18, Border 16+, Create — strips + plate, glue the joints |
@@ -2834,6 +2983,25 @@ All 150 public macros with parameters (defaults in parentheses; blank = no param
 | **ANGLE_INFO** | — | every angle/flat setting + the auto-hole rules |
 | **TEXTURE_APPLY** | FILE='', MODE='OFF', THICK, DENSITY, PATTERN, SCALE, AMP, DIR='OUT', OUT= | fuzzy skin / shaped bumps for the SELECTED (or FILE) g-code: `TEXTURE_APPLY MODE=FUZZY THICK=0.3 DENSITY=100` — new `_TX_V01` file in the background — selected under QUEUE, but never auto-STARTED (ch. 5.9) |
 | **_GEN_OUT_SET** | OUT=QUEUE/PREVIEW (SELECT/ONLY/1/0) (int.) | the sticky generator output switch (.84, ch. 5.0) — every `*_GENERATE` macro also takes a per-run `OUT=` |
+
+### Building bricks & figures — 19_bricks.cfg
+| Macro | Parameters | Purpose |
+|---|---|---|
+| **GEN_BRICKS** | CODES='B2x4:3\|P2x2:2' | console/Mainsail brick job: sets the queue (code:count, `\|` separated, max 120) and creates `00_Bricks_V01.gcode` |
+| **BRICK_ADD** | CODE='B2x4', COUNT=2 | add COUNT × CODE to the queue (same codes merge; unknown code or count outside 1–99 rejected) |
+| **BRICK_DEL_LAST** | — | drop the last queue entry |
+| **BRICK_CLEAR** | CONFIRM=1 | empty the queue (2-press: first call arms) |
+| **BRICK_SHOW** | — | list the queue |
+| **BRICK_INFO** | — | settings + geometry summary |
+| **BRICK_CREATE** | OUT=QUEUE/PREVIEW | build the file from the queue (bumps bricks_nonce; the watcher builds, beeps + selects) |
+| **GEN_BRICKKIT** | SRC='box.gcode', INDEX=0–4, DETAIL=AUTO/MICRO/SMALL/BIG, MODE=BY_LAYER/BY_OBJECT, COLORS=1–8 | sliced file → stylized kit (SRC=LAST or empty + INDEX pick the newest jobs; without params the saved menu values win) |
+| **GEN_FIGURES** | SCALE=25–300, COUNT=1–24 | figures at % scale — 5 parts each, assembly without glue; only 100 % mates with the system |
+
+### Color picture — 18_colorpic.cfg
+| Macro | Parameters | Purpose |
+|---|---|---|
+| **GEN_COLORPIC** | SRC='photo.png', WIDTH=25–230, BANDS=2–8, BANDH=0.4–3, COLORS='WHT,GRY,BLK', LAYER_H, IRONING=0/1, BRIM=0–8, SWAP=0/1, CONTRAST=0/1 | console/Mainsail color picture: sets everything + creates (SWAP=0 prints every band without a filament change) |
+| **COLORPIC_CREATE** | INDEX=0–9, SRC='photo.png', OUT= | create from image slot INDEX / explicit SRC / the last picked lithophane image (bumps colorpic_nonce; the watcher builds, beeps + selects) |
 
 ### KAMP — 14_kamp.cfg (5)
 | Macro | Parameters | Purpose |
@@ -3202,6 +3370,7 @@ Only the milestones — the full reasoning lives in SESSION_STATE.md.
 
 | Version | Core changes |
 |---|---|
+| .92 | **Dokumentation komplett überholt (R131)** — das Handbuch (MD + PDF) auf den Stand von .91/.92 gebracht: **veraltete Passagen entfernt/ersetzt** — Lithophane FLAT (alte „Terrassen-Relief“-Beschreibung → Stufen-Druck mit StepL/Farbwechsel AUS-LETZTE-JEDE/Rahmen/Kontrast/Purge-Turm), Rahmen-Verschluss (altes „Bajonett, 2,5mm schieben“ → Snap-In-Rückseite mit 4 Wand-Nubs + 0,8mm/Side Foto-Spiel; auch die LCD-How-it-works-Texte am Drucker selbst), 5.0-Generatorliste, Kapitel-5-Titel (13 Generatoren) · **NEU: vier ausführliche Generator-Kapitel** — 5.10 Bausteine (Geometrie-Tabelle: n·8−0,2 Klemm-Maß, hohle Noppen, Unterseiten-Tubes, 45er-Katalog, Workflow), 5.11 Bausatz-Generator (Voxelizer, Support-Filter, Detail-Stufen, Ringwände, BY_LAYER/BY_OBJECT, 800 Teile), 5.12 Figuren (5 Teile, Montage ohne Kleber, 100%-System-Kupplung), 5.13 ColorPic (Band-Prinzip, M600 + LED-Blink, Purge-Turm, Swap/Contrast) · Menü-Referenz (Bricks + ColorPic), Cheat-Sheet (+5 Wege), Makro-Index (+11 Einträge: GEN_BRICKS/BRICK_*/GEN_BRICKKIT/GEN_FIGURES/GEN_COLORPIC/COLORPIC_CREATE) — im PDF gespiegelt inkl. neuer Settings-Zeilen. Batterie: render 1595/1595, Validator sauber, Systemtest 221/0. ||
 | .91 | **HOTFIX (.90-Boot-Blocker): `Internal error during connect: Error loading template 'gcode_macro COLORPIC_CREATE:gcode' — no filter named 'endswith'`** — COLORPIC_CREATE prüfte die Bild-Endung mit dem Jinja-Filter `endswith`, den es NICHT gibt (Python-Methode, kein Filter; seit .82 im Paket, aber erst mit dem .90-Update auf dem Drucker angekommen). Fix: Slicing statt Filter — `_cpsrc[-4:] in ('.png', '.jpg') or _cpsrc[-5:] == '.jpeg')`. **Warum die Tests es nicht fingen:** Jinja ≥ 3.1 kompiliert unbekannte Filter STILL (der Fehler kommt erst zur Laufzeit) und ein Render-Durchlauf short-circuited bei `params.X is defined and …` — der R67-Gate lieferte also falsch grün. ** Gehärtet:** (1) der R67-Gate walkt jetzt den Jinja-AST aller 3663 Boot-Templates und prüft jeden Filter-/Test-Namen gegen die realen Jinja-Tabellen — kontextunabhängig, keine Short-Circuit-Lücke; (2) der Config-Validator bekam dieselbe statische Regel (`unknown Jinja filter …`). Beweis: injizierter `endswith` wird von beiden gestellt, das gefixte Muster läuft durch; Sweep über das ganze Paket: kein weiterer Zombie-Filter. Batterie: render 1595/1595 (+5 R130), Validator sauber, Systemtest 221/0. ||
 | .90 | **R118–R129: Bricks, Kits & Figuren + Feldlog: Lithophane FLAT druckt in Stufen** — **Bausteine** (Tools > Bricks): Katalog 45 Teile mit exakter Systemgeometrie (Körper n·8−0,2mm — sie klemmen aneinander UND an Originalen, hohle Noppen, Unterseiten-Tubes), Queue wie die Labels, GEN_BRICKS mit CODES wie B2x4:3 und P2x2:2 · **Kit-Generator**: eine geslicte Druckdatei wird zum stilisierten Bausatz — Support/Brim/Skirt/Tower fließen NIE hinein, geschlossene Körper füllen sich, Hohlkörper (Vasen, dünner Infill) werden Ringwände, Detail AUTO/MICRO/SMALL/BIG nach Modellgröße, BY_LAYER = 1 Farbe/Platte = null M600 (der Plattenwechsel IST der Farbwechsel), BY_OBJECT = M600 nur an Farb-Grenzen, max. 800 Teile, jedes Teil eigenes EXCLUDE_OBJECT · **Figuren**: 5 Teile pro Figur, Montage ohne Kleber (Arme schwingen, Kopf dreht, Torso klickt auf den Hüft-Zapfen) — 100% = Originalgröße UND system-echt (Hände greifen Ø4,8-Noppen und Achsen, Hüte sitzen auf der Kopf-Noppe, Füße rasten auf Noppen ein), 25–300% skalierbar · **Feldlog Lithophane**: FLAT druckte ein wellenförmiges Relief (Düse tauchte ins Bild, die Probe verhakte sich) — jetzt Stufen-Druck wie beim Farbbild: Perzentil-Stretch + zuschaltbarer Kontrast-Boost (Skizzen/Logos/Text), levels Graustufen, Stufe 0 = die GESAMTE helle Fläche als saubere Layer (ironbar), jede dunklere Stufe ihre Region, dunkelste = die Konturen; StepL = Layer je Stufe; Farbwechsel AUS / NUR LETZTE Stufe (weißer Körper + schwarze Konturen) / JEDE Stufe; optionaler Bilderrahmen (eckig oder abgerundet) · **Purge-Tower** (12×12mm, 15mm Probe-Freiraum) druckt ab jetzt bei JEDEM Farbwechsel mit (Litho + Farbbild) und nimmt Prime+Wipe nach jedem M600 — PRIME-TOWER getaggt · **Farbbild ColorPic**: Foto flach als Farbbänder hell→dunkel, M600 + LED-Blink am Wechsel, Swap jetzt abschaltbar (Bänder einfarbig), Kontrast-Boost · **Feldlog Rahmen**: Rückseite war 2,4mm GRÖSSER als die Foto-Öffnung (physikalisch nie einführbar) — jetzt Snap-In: Platte mit 0,3mm Spiel durch die Foto-Welle, 4 Wand-Nubs rasten mit 0,2mm Überlappung ein; Foto-Ausschnitt +1,6mm Spiel (echte Fotos laufen ~1mm über Nennmaß); Label-Abstand 6→12mm · **Schnellzugriffe**: Speed/Flow/Accel JE Feature als Listen in Pre-Print UND Live (wie PA per Feature); Z-Hop/PA/PA-smooth/Retract direkt im Live-Root; Fix travel + Fix flow cap + Cap-Wert direkt im Pre-Print-Root; FlowCap-Range 0,5–50mm³/s (High-Flow-Hotends); Travel-Speed direkt einstellbar · **NEU tools/systemtest.py** (Release-Gate): ruft jeden Generator mit mehreren Parameterkombinationen und prüft die gemeinsamen Invarianten aller Ausgaben (TAG, PRINT_START/END, EXCLUDE-Balance, z-monoton außer BY_OBJECT, bekannte TYPES, Bett-Box, keine Sliver-Flut, M600/Turm-Kohärenz) + Verdrahtungs-Sweep (Nonce-Kanäle, GEN-Makros am LCD erreichbar, Modul-Sentinele, Validator) · **Batterie**: render 1590/1590, Audit 77/0, Megatest 144/145/0, Goldens 23/23, Dialekte 13/13, Geometrie- und Textur-Sim grün, Setup-Sim 10/10, Systemtest 221 Checks/27 Dateien/0 FAIL ||
 | .89 | **Feldlog .88 Runde 2: Fills drucken zusammenhängend + Ironing folgt dem Top-Winkel** — Einzelscanlines fransen aus, verschmelzen nicht mit den Wänden und drucken Stop-and-Go: **jeder Generator-Fill (First Layer, Bottom, Infill, Top, Ironing) druckt jetzt als EINE durchgehende Zigzag-Kette** — benachbarte Hatch-Linien verbindet eine extrudierte Konnektor-Perle entlang der Border (verschmilzt mit der Wand), Loch-Überquerungen und lange Gaps bleiben rückende Travels (keine Fäden über offene Löcher); Sliver-Linien und degenerierte Links < 0,15 mm werden übersprungen (sonst 400+ Moves/s = MCU-Flut, Audit-Guard) · **Ironing im Top-Winkel**: bügelte früher 90° quer zum Top-Fill, läuft jetzt im selben Winkel (45°/135°, lagenweise alternierend) — glättet MIT der Maserung statt quer · **Label-Queue-Snapshot**: der Font des ersten Jobs färbte auf spätere Jobs derselben Queue ab (globaler Bias) — jeder Job trägt jetzt seinen vollständigen 18-Feld-Snapshot · **4 neue Fonts**: SCRIPT (Dancing Script), HAND (Caveat), PLATE (D-DIN), PIXEL (Press Start 2P) — jetzt 9 Stroke-Fonts · **Shaper-off ehrlich**: ohne `[input_shaper]`-Sektion zeigt das LCD `ShaperOff: n/a` + NOTIFY-Hinweis statt Stille · **Testbatterie**: render 1442/1442 (+9 R117: Ketten-Kontinuität + Winkelgleichheit je Generator), golden re-gefroren (9 Range-Fälle durch Konnektor-Perlen gewachsen, Prozess-Fälle byte-identisch), Audit 57/0, Megatest 143/164/0, Dialects 13/13, Setup-Sim 10/10 ||
