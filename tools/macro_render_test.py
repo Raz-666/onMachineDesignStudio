@@ -11209,7 +11209,7 @@ _tf126 = open(_of126, encoding='utf-8').read()
 tests.append(('R126 figures 100%: 2 figures = 10 parts, ~40mm, one color,'
               ' zero M600',
     _if126['kind'] == 'figures' and _if126['parts'] == 10
-    and 38.0 <= _if126['height_mm'] <= 40.5
+    and 33.5 <= _if126['height_mm'] <= 36.0   # R133 true proportions
     and _tf126.count(chr(10) + 'M600') == 0
     and _tf126.count('EXCLUDE_OBJECT_START')
     == _tf126.count('EXCLUDE_OBJECT_END')
