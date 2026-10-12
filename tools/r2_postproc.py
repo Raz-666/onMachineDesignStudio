@@ -10591,20 +10591,56 @@ BRICK_TUBE_OD = 6.31
 BRICK_TUBE_WALL = 0.657
 BRICK_GAP = 3.0            # grid gap between bricks on the plate
 
-BRICK_CATALOG = {}         # code -> (kind, w, l): B=brick, P=plate, T=tile
+BRICK_CATALOG = {}         # code -> (kind, w, l) - R132: ALL common families
 for _bw121 in (1, 2, 4, 6, 8):
     for _bl121 in (1, 2, 3, 4, 6, 8):
         if _bl121 < _bw121:
             continue
         BRICK_CATALOG['B%dx%d' % (_bw121, _bl121)] = ('brick', _bw121, _bl121)
-for _pw121 in (1, 2, 4, 6, 8):
-    for _pl121 in (1, 2, 3, 4, 6, 8):
-        if _pl121 < _pw121:
+        BRICK_CATALOG['P%dx%d' % (_bw121, _bl121)] = ('plate', _bw121, _bl121)
+        # R132: tiles in EVERY plate size (they were capped at 2 studs wide)
+        BRICK_CATALOG['T%dx%d' % (_bw121, _bl121)] = ('tile', _bw121, _bl121)
+# R132 catalog extension (user rule: catalog the common part FAMILIES)
+BRICK_CATALOG['J1x2'] = ('jumper', 1, 2)      # plate 1x2, ONE centered stud
+BRICK_CATALOG['R1x1'] = ('round', 1, 1)       # round brick  O7.8, 9.6 tall
+BRICK_CATALOG['RP1x1'] = ('rplate', 1, 1)     # round plate  3.2 tall + stud
+BRICK_CATALOG['RT1x1'] = ('rtile', 1, 1)      # round tile   3.2, smooth
+BRICK_CATALOG['C1x1'] = ('cone', 1, 1)        # cone O7.8 -> O4.4 + stud
+for _sw132 in (1, 2):
+    for _sl132 in (2, 3, 4):
+        if _sw132 == 2 and _sl132 == 4:
             continue
-        BRICK_CATALOG['P%dx%d' % (_pw121, _pl121)] = ('plate', _pw121, _pl121)
-        if _pw121 <= 2:
-            # tiles = plates with a smooth top (no studs), the small sizes
-            BRICK_CATALOG['T%dx%d' % (_pw121, _pl121)] = ('tile', _pw121, _pl121)
+        BRICK_CATALOG['S%dx%d' % (_sw132, _sl132)] = ('slope', _sw132, _sl132)
+BRICK_CATALOG['S2x4'] = ('slope', 2, 4)
+BRICK_CATALOG['S2x6'] = ('slope', 2, 6)
+for _iw132 in (1, 2):
+    for _il132 in (2, 3):
+        BRICK_CATALOG['I%dx%d' % (_iw132, _il132)] = ('islope', _iw132, _il132)
+for _al132 in (3, 4, 5, 6):
+    BRICK_CATALOG['A1x%d' % _al132] = ('arch', 1, _al132)
+for _hl132 in (2, 3, 4, 6, 8):
+    BRICK_CATALOG['H1x%d' % _hl132] = ('tech', 1, _hl132)
+# slope rule: 2 long = steep face, 3+ = shallow face (run (l-1) studs);
+# the shallow ones carry studs on the flat back row, the steep ones are smooth.
+BRICK_TALL = ('brick', 'slope', 'islope', 'arch', 'tech', 'round', 'cone')
+BRICK_FLAT = ('plate', 'tile', 'jumper', 'rplate', 'rtile')
+
+
+def _center_cells(cells, bed):
+    """R132 (user rule): every generator CENTERS its packed layout on the
+    bed - no more corner clusters on a 220mm plate. Shifts in place."""
+    if not cells:
+        return
+    xs0 = min(c['x'] for c in cells)
+    xs1 = max(c['x'] + c['bw'] for c in cells)
+    ys0 = min(c['y'] for c in cells)
+    ys1 = max(c['y'] + c['bl'] for c in cells)
+    dx = (bed[0] + bed[2]) / 2.0 - (xs0 + xs1) / 2.0
+    dy = (bed[1] + bed[3]) / 2.0 - (ys0 + ys1) / 2.0
+    for c in cells:
+        c['x'] = round(c['x'] + dx, 3)
+        c['y'] = round(c['y'] + dy, 3)
+
 
 
 def _brick_hatch(x0, y0, x1, y1, keeps, spacing, angle_deg, min_len=0.35):
@@ -10651,22 +10687,34 @@ def _brick_hatch(x0, y0, x1, y1, keeps, spacing, angle_deg, min_len=0.35):
 
 
 def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
-                nozzle=0.6, out_dir='.', version=1):
-    """R121: print exact stud-and-tube building bricks (single color).
+                nozzle=0.6, out_dir='.', version=1, brim=2, colors=1,
+                mode='BY_LAYER'):
+    """R121/R132: print exact stud-and-tube building bricks.
 
-    jobs = [('B2x4', 3), ('P2x2', 2), ...] - catalog codes, counts 1..99.
-    One file, one color: every brick is its own EXCLUDE_OBJECT (a failed
-    brick can be skipped / reprinted later). Body = n*8-0.2mm so the bricks
-    clamp to each other AND to original ones; hollow studs, underside tubes
-    at every inner grid crossing. Plates = 1/3 height, tiles = smooth plates.
-    Layer heights that do not divide 9.6/3.2/1.8 exactly snap to the nearest
-    whole layer count (noted in the header + info).
+    jobs = [('B2x4', 3), ...] - catalog codes, counts 1..99.
+    brim = 0..8 loops around every part (0 = off, 2 = the classic anchor).
+    colors 1..8 + mode (R132):
+      BY_LAYER  = one PLATE per color - the plate change IS the color
+                  change, zero M600 (files 00_Bricks_A/B/C...)
+      BY_OBJECT = all parts on ONE plate, printed one after another in
+                  color order - M600 only at the color boundaries.
+    Catalog (R132): bricks, plates, tiles (all sizes), slopes (steep 2-long,
+    shallow 3+ with studs on the back row), inverted slopes, arches (bridged
+    underside opening), technic bricks with O4.9 side holes, round
+    brick/plate/tile, cone, jumper. Every part its own EXCLUDE_OBJECT; the
+    layout is CENTERED on the bed (R132 user rule).
     """
     layer_h = max(0.08, min(float(layer_h or 0.2), 0.32))
+    brim = max(0, min(int(brim or 0), 8))
+    colors = max(1, min(int(colors or 1), 8))
+    mode = str(mode or 'BY_LAYER').strip().upper().replace('-', '_')
+    if mode not in ('BY_LAYER', 'BY_OBJECT'):
+        raise ValueError("mode must be BY_LAYER or BY_OBJECT")
     notes = []
     if not jobs:
         raise ValueError('no bricks - add some first (LCD: Bricks > Catalog)')
     parts = []
+    codes_seen = []
     for code, count in jobs:
         code = str(code).strip().upper().replace('X', 'x')
         if code not in BRICK_CATALOG:
@@ -10675,9 +10723,18 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
         count = int(count)
         if not (1 <= count <= 99):
             raise ValueError('count for %s must be 1..99' % code)
+        if code not in codes_seen:
+            codes_seen.append(code)
         parts.extend([code] * count)
     if len(parts) > 120:
-        raise ValueError('%d bricks is too many for one plate (max 120)' % len(parts))
+        raise ValueError('%d bricks is too many for one plate (max 120)'
+                         % len(parts))
+    ci_of = dict((code, i % colors) for i, code in enumerate(codes_seen))
+    if colors > 1:
+        notes.append('colors %d, %s - codes: %s'
+                     % (colors, mode,
+                        ', '.join('%s=%s' % (c, 'ABCDEFGH'[ci_of[c]])
+                                  for c in codes_seen)))
 
     bed = bed or (0.0, 0.0, 220.0, 220.0)
     bx0, by0, bx1, by1 = bed
@@ -10686,7 +10743,7 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
 
     wid = max(0.4, nozzle * 1.08)
     fil = FIL_AREA
-    # layer snap: 9.6 / 3.2 / 1.8 must become WHOLE layer counts
+
     def _snap(total, what):
         nl = max(1, int(round(total / layer_h)))
         if abs(nl * layer_h - total) > 0.01:
@@ -10694,208 +10751,502 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                          % (what, nl, nl * layer_h, total))
         return nl
 
-    # ---- layout: row packing, tallest body first (bricks before plates) ----
+    # ---- cells: one per part, with kind-specific heights -----------------
     cells = []
     for code in parts:
         kind, w, l = BRICK_CATALOG[code]
+        tall = kind in BRICK_TALL
+        studs_on = (kind in ('brick', 'plate', 'tech', 'arch', 'islope',
+                             'round', 'rplate', 'cone', 'jumper')
+                    or (kind == 'slope' and l >= 3))
         cells.append({'code': code, 'kind': kind, 'w': w, 'l': l,
+                      'ci': ci_of[code],
                       'bw': w * BRICK_PITCH - BRICK_PLAY,
                       'bl': l * BRICK_PITCH - BRICK_PLAY,
-                      'nl': _snap(BRICK_BH if kind == 'brick' else BRICK_PH,
-                                  code),
-                      'sl': 0 if kind == 'tile' else _snap(BRICK_STUD_H,
-                                                           code + ' studs')})
-    total_layers = max(c['nl'] + c['sl'] for c in cells)
-    cells.sort(key=lambda c: (-(c['nl'] + c['sl']), -c['bw'] * c['bl']))
-    x, y = ux0, uy0
-    row_h = 0.0
-    for i, c in enumerate(cells):
-        if x + c['bw'] > ux1 and x > ux0:
-            x = ux0
-            y += row_h + BRICK_GAP
-            row_h = 0.0
-        if y + c['bl'] > uy1:
-            raise ValueError('%d bricks do not fit the bed - split the job'
-                             % len(cells))
-        c['x'] = x
-        c['y'] = y
-        c['name'] = 'BRICK_%02d_%s' % (i + 1, c['code'])
-        x += c['bw'] + BRICK_GAP
-        row_h = max(row_h, c['bl'])
-    for c in cells:
+                      'nl': _snap(BRICK_BH if tall else BRICK_PH, code),
+                      'sl': _snap(BRICK_STUD_H, code + ' studs')
+                            if studs_on else 0})
+
+    def _prep(c):
         cx = c['x'] + c['bw'] / 2.0
         cy = c['y'] + c['bl'] / 2.0
-        # stud centers: first at 3.9 (= 4 - play/2), then every 8mm
-        c['studs'] = [(cx + (i - (c['w'] - 1) / 2.0) * BRICK_PITCH,
-                       cy + (j - (c['l'] - 1) / 2.0) * BRICK_PITCH)
-                      for i in range(c['w']) for j in range(c['l'])]
-        # tubes: at every INNER grid crossing (between 4 studs)
-        c['tubes'] = [(cx + (i - (c['w'] - 1) / 2.0) * BRICK_PITCH,
-                       cy + (j - (c['l'] - 1) / 2.0) * BRICK_PITCH)
-                      for i in range(c['w'] - 1) for j in range(c['l'] - 1)]
+        grid = [(cx + (i - (c['w'] - 1) / 2.0) * BRICK_PITCH,
+                 cy + (j - (c['l'] - 1) / 2.0) * BRICK_PITCH)
+                for i in range(c['w']) for j in range(c['l'])]
+        if c['kind'] == 'slope':
+            # studs only on the flat back row (shallow slopes)
+            c['studs'] = [(sx, sy) for (sx, sy) in grid
+                          if abs(sy - (c['y'] + c['bl'] - BRICK_PITCH / 2.0
+                                       - BRICK_PLAY / 2.0)) < 0.5]
+        elif c['kind'] in ('round', 'rplate', 'cone', 'jumper'):
+            c['studs'] = [(cx, cy)]
+        else:
+            c['studs'] = grid
+        if c['kind'] in ('brick', 'plate', 'tile', 'slope'):
+            c['tubes'] = [(cx + (i - (c['w'] - 1) / 2.0) * BRICK_PITCH,
+                           cy + (j - (c['l'] - 1) / 2.0) * BRICK_PITCH)
+                          for i in range(c['w'] - 1)
+                          for j in range(c['l'] - 1)]
+        else:
+            c['tubes'] = []
+        if c['kind'] == 'tech':
+            c['holes_y'] = [cy + (i - (c['l'] - 2) / 2.0) * BRICK_PITCH
+                            for i in range(c['l'] - 1)]
 
-    n_bricks = sum(1 for c in cells if c['kind'] == 'brick')
-    n_plates = sum(1 for c in cells if c['kind'] == 'plate')
-    n_tiles = sum(1 for c in cells if c['kind'] == 'tile')
-    fname = '00_Bricks_V%02d.gcode' % (max(1, min(int(version), 99)))
-    out = os.path.join(out_dir, fname)
-    e_wall = layer_h * wid / fil
-    first_h = layer_h
-    studs_on = any(c['sl'] for c in cells)
+    # ---- plates: BY_LAYER = one plate per color --------------------------
+    if colors > 1 and mode == 'BY_LAYER':
+        plates = []
+        for ci in sorted(set(c['ci'] for c in cells)):
+            plates.append((chr(ord('A') + len(plates)), ci,
+                           [c for c in cells if c['ci'] == ci]))
+    else:
+        plates = [('', None, list(cells))]
+        if colors > 1 and mode == 'BY_OBJECT':
+            plates[0][2].sort(key=lambda c: c['ci'])
 
-    with open(out, 'w') as f:
-        sk = _Sink(f)
-        a = sk.append
-        pen = _Pen(sk, jump_d=6.0)
-        a('; R2-BRICKS generated building bricks (R121) - start it like any other file')
-        a(TAG)
-        a('; %d part(s): %d brick(s), %d plate(s), %d tile(s) - ONE color,'
-          ' every part its own EXCLUDE_OBJECT' % (len(cells), n_bricks,
-                                                  n_plates, n_tiles))
-        a('; exact system geometry: pitch %.1f, brick %.1f, plate %.1f,'
-          ' stud O%.1f x %.1f (hollow), body n*%.1f-%.1f so they CLAMP,'
-          ' wall %.1f, tube O%.2f / %.3f wall'
-          % (BRICK_PITCH, BRICK_BH, BRICK_PH, BRICK_STUD_D, BRICK_STUD_H,
-             BRICK_PITCH, BRICK_PLAY, BRICK_WALL, BRICK_TUBE_OD,
-             BRICK_TUBE_WALL))
-        a('; layer %.2g -> body %d layer(s), studs %d - layer 1 prints'
-          ' SOLID (bed adhesion), the tubes open from layer 2 up'
-          % (layer_h, max(c['nl'] for c in cells),
-             max(c['sl'] for c in cells)))
-        a('; jobs: %s' % ', '.join('%s x%d' % (code, cnt)
-                                   for code, cnt in jobs))
-        for _n121 in notes:
-            a('; note: %s' % _n121)
-        a('; filament_type = %s' % material)
-        a('; layer_height = %.2g' % layer_h)
-        a('; nozzle_diameter = %.1f' % nozzle)
-        a('; line_width = %.2g' % wid)
-        a('; outer_wall_line_width = %.2g' % wid)
-        a('; outer_wall_speed = 35')
-        a('; inner_wall_speed = 40')
-        a('; top_surface_speed = 35')
-        a('; internal_solid_infill_speed = 50')
-        a('; initial_layer_speed = 20')
-        a('; travel_speed = 150')
-        a('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d LINE_WIDTH=%.2g '
-          'LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g FLOW_RATIO=1 NOZZLE=%.1f '
-          'WALL_LOOPS=2 SPEED_OUTER=35 SPEED_FIRST=20 SPEED_TRAVEL=150 '
-          'TYPES=WALL-OUTER,WALL-INNER,INFILL-SOLID,SURFACE-BOTTOM,SURFACE-TOP'
-          '%s BY_OBJECT=0'
-          % (material, layer_h, total_layers, wid, wid, wid, nozzle,
-             ',BRIM' if True else ''))
-        _last121 = [None]
+    out_files = []
+    first_out = None
+    total_layers = 0
+    for (label, plate_ci, plist) in plates:
+        # ---- layout: row packing, tallest first --------------------------
+        plist.sort(key=lambda c: (-(c['nl'] + c['sl']), -c['bw'] * c['bl']))
+        x, y = ux0, uy0
+        row_h = 0.0
+        for i, c in enumerate(plist):
+            if x + c['bw'] > ux1 and x > ux0:
+                x = ux0
+                y += row_h + BRICK_GAP
+                row_h = 0.0
+            if y + c['bl'] > uy1:
+                raise ValueError('%d bricks do not fit the bed - split the'
+                                 ' job' % len(plist))
+            c['x'] = x
+            c['y'] = y
+            c['name'] = 'BRICK_%02d_%s' % (i + 1, c['code'])
+            x += c['bw'] + BRICK_GAP
+            row_h = max(row_h, c['bl'])
+        _center_cells(plist, bed)
+        for c in plist:
+            _prep(c)
 
-        def _ty121(t):
-            if _last121[0] != t:
-                a(';TYPE:%s' % t)
-                a('APPLY_TYPE TYPE=%s' % t)
-                _last121[0] = t
+        pl_layers = max(c['nl'] + c['sl'] for c in plist)
+        total_layers = max(total_layers, pl_layers)
+        has_bridge = any(c['kind'] in ('arch', 'tech') for c in plist)
+        n_by = dict((k, sum(1 for c in plist if c['kind'] == k))
+                    for k in sorted(set(c['kind'] for c in plist)))
+        if label:
+            fname = '00_Bricks_%s_V%02d.gcode' % (
+                label, max(1, min(int(version), 99)))
+        else:
+            fname = '00_Bricks_V%02d.gcode' % (max(1, min(int(version), 99)))
+        out = os.path.join(out_dir, fname)
+        out_files.append(fname)
+        if first_out is None:
+            first_out = out
+        e_wall = layer_h * wid / fil
+        first_h = layer_h
+        seq_obj = (colors > 1 and mode == 'BY_OBJECT')
 
-        for c in cells:
-            _xs = [c['x'], c['x'] + c['bw']]
-            _ys = [c['y'], c['y'] + c['bl']]
-            _poly = ('[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]'
-                     % (_xs[0], _ys[0], _xs[1], _ys[0], _xs[1], _ys[1],
-                        _xs[0], _ys[1]))
-            a('EXCLUDE_OBJECT_DEFINE NAME=%s CENTER=%.1f,%.1f POLYGON=%s'
-              % (c['name'], (_xs[0] + _xs[1]) / 2.0, (_ys[0] + _ys[1]) / 2.0,
-                 _poly))
-        a('PRINT_START')
+        with open(out, 'w') as f:
+            sk = _Sink(f)
+            a = sk.append
+            pen = _Pen(sk, jump_d=6.0)
+            a('; R2-BRICKS generated building bricks (R121/R132) - start it'
+              ' like any other file')
+            a(TAG)
+            a('; %d part(s): %s - %s, every part its own EXCLUDE_OBJECT'
+              % (len(plist),
+                 ', '.join('%d %s(s)' % (n, k) for k, n in n_by.items()),
+                 'ONE color' if plate_ci is None
+                 else 'color %s (plate %s - the plate change IS the color'
+                      ' change)' % ('ABCDEFGH'[plate_ci], label)))
+            if seq_obj:
+                a('; BY_OBJECT: parts print one after another in color'
+                  ' order, M600 only at the color boundaries')
+            a('; exact system geometry: pitch %.1f, brick %.1f, plate %.1f,'
+              ' stud O%.1f x %.1f (hollow), body n*%.1f-%.1f so they CLAMP,'
+              ' wall %.1f, tube O%.2f / %.3f wall'
+              % (BRICK_PITCH, BRICK_BH, BRICK_PH, BRICK_STUD_D,
+                 BRICK_STUD_H, BRICK_PITCH, BRICK_PLAY, BRICK_WALL,
+                 BRICK_TUBE_OD, BRICK_TUBE_WALL))
+            a('; R132 catalog: slopes (S) face -Y, shallow ones carry studs'
+              ' on the back row; inverted slopes (I) chamfer the underside;'
+              ' arches (A) bridge their underside opening; technic (H)'
+              ' drills O4.9 holes along X; round family + cone + jumper')
+            a('; layer %.2g -> body up to %d layer(s), studs up to %d -'
+              ' layer 1 prints SOLID%s, the tubes open from layer 2 up'
+              % (layer_h, max(c['nl'] for c in plist),
+                 max(c['sl'] for c in plist),
+                 ' + %d-loop brim' % brim if brim else ' (no brim)'))
+            a('; jobs: %s' % ', '.join('%s x%d' % (code, cnt)
+                                       for code, cnt in jobs))
+            for _n121 in notes:
+                a('; note: %s' % _n121)
+            a('; filament_type = %s' % material)
+            a('; layer_height = %.2g' % layer_h)
+            a('; nozzle_diameter = %.1f' % nozzle)
+            a('; line_width = %.2g' % wid)
+            a('; outer_wall_line_width = %.2g' % wid)
+            a('; outer_wall_speed = 35')
+            a('; inner_wall_speed = 40')
+            a('; top_surface_speed = 35')
+            a('; internal_solid_infill_speed = 50')
+            a('; initial_layer_speed = 20')
+            a('; travel_speed = 150')
+            a('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d'
+              ' LINE_WIDTH=%.2g LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g'
+              ' FLOW_RATIO=1 NOZZLE=%.1f WALL_LOOPS=2 SPEED_OUTER=35'
+              ' SPEED_FIRST=20 SPEED_TRAVEL=150'
+              ' TYPES=WALL-OUTER,WALL-INNER,INFILL-SOLID,SURFACE-BOTTOM,'
+              'SURFACE-TOP%s%s BY_OBJECT=%d'
+              % (material, layer_h, pl_layers, wid, wid, wid, nozzle,
+                 ',BRIDGE' if has_bridge else '',
+                 ',BRIM' if brim else '', 1 if seq_obj else 0))
+            _last121 = [None]
 
-        def _loops(cx0, cy0, cx1, cy1, e, feed):
-            _emit_loop(pen, _rect_loop(cx0, cy0, cx1, cy1), e, feed)
+            def _ty121(t):
+                # R132 field log .92: APPLY_TYPE must carry the CANONICAL
+                # code - a pretty name with a space is a Malformed command
+                # and kills the print. ;TYPE: keeps the slicer-style name.
+                if _last121[0] != t:
+                    a(';TYPE:%s' % t)
+                    a('APPLY_TYPE TYPE=%s'
+                      % TYPE_MAP.get(t.strip().lower(), 'CUSTOM'))
+                    _last121[0] = t
 
-        def _seg_out(x0, y0, x1, y1, p, q, e, feed):
-            pen.travel(p[0], p[1])
-            pen.extrude(q[0], q[1], math.hypot(q[0] - p[0], q[1] - p[1]) * e,
-                        feed)
+            for c in plist:
+                _xs = [c['x'], c['x'] + c['bw']]
+                _ys = [c['y'], c['y'] + c['bl']]
+                _poly = ('[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]'
+                         % (_xs[0], _ys[0], _xs[1], _ys[0], _xs[1], _ys[1],
+                            _xs[0], _ys[1]))
+                a('EXCLUDE_OBJECT_DEFINE NAME=%s CENTER=%.1f,%.1f POLYGON=%s'
+                  % (c['name'], (_xs[0] + _xs[1]) / 2.0,
+                     (_ys[0] + _ys[1]) / 2.0, _poly))
+            a('PRINT_START MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d'
+              ' OUTER_WALL_SPEED=35' % (material, layer_h, pl_layers))
+            a('G90')
+            a('M83')
+            a('M107   ; R2-BRICKS: first layer = fan off')
 
-        def brick_block(c, li):
-            if li > c['nl'] + c['sl']:
-                return
-            a('EXCLUDE_OBJECT_START NAME=%s' % c['name'])
-            x0, y0 = c['x'] + wid / 2.0, c['y'] + wid / 2.0
-            x1, y1 = c['x'] + c['bw'] - wid / 2.0, c['y'] + c['bl'] - wid / 2.0
-            keeps = [(tx, ty, BRICK_TUBE_OD / 2.0) for tx, ty in c['tubes']]
-            if li == 1:
-                # ---- layer 1: brim + solid bottom (tubes open from layer 2)
-                _ty121('Brim')
-                for off in (wid * 0.35, wid * 0.35 + wid):
-                    _loops(c['x'] - off, c['y'] - off,
-                           c['x'] + c['bw'] + off, c['y'] + c['bl'] + off,
-                           e_wall, 1500)
-                _ty121('Bottom surface')
-                _loops(x0, y0, x1, y1, e_wall, 1400)
-                _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid, e_wall, 1600)
-                for p, q in _brick_hatch(x0 + 2 * wid, y0 + 2 * wid,
-                                         x1 - 2 * wid, y1 - 2 * wid, [],
-                                         wid, 45, 0.35):
-                    _seg_out(x0, y0, x1, y1, p, q, e_wall, 1600)
-            elif li <= c['nl']:
-                # ---- body: 2-line wall + tube rings + hatch between
-                _ty121('Outer wall')
-                _loops(x0, y0, x1, y1, e_wall, 2200)
-                _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid, e_wall, 2400)
-                if c['tubes']:
-                    _ty121('Wall-Inner')
-                    for tx, ty in c['tubes']:
-                        _emit_loop(pen, _circle(tx, ty, BRICK_TUBE_OD / 2.0
-                                                - wid / 2.0, 24), e_wall, 2200)
-                        _emit_loop(pen, _circle(tx, ty, BRICK_TUBE_OD / 2.0
-                                                - BRICK_TUBE_WALL + wid / 2.0,
-                                                20), e_wall, 2200)
-                if li == c['nl'] and (c['sl'] or c['kind'] != 'brick'):
-                    # top of a plate/tile: closed surface (studs come on top)
-                    _ty121('Top surface')
-                    for p, q in _brick_hatch(x0 + 2 * wid, y0 + 2 * wid,
-                                             x1 - 2 * wid, y1 - 2 * wid,
-                                             keeps if False else [],
-                                             wid, 45 if li % 2 else 135, 0.35):
-                        _seg_out(x0, y0, x1, y1, p, q, e_wall, 1700)
+            def _loops(cx0, cy0, cx1, cy1, e, feed):
+                _emit_loop(pen, _rect_loop(cx0, cy0, cx1, cy1), e, feed)
+
+            def _seg_out(x0, y0, x1, y1, p, q, e, feed):
+                pen.travel(p[0], p[1])
+                pen.extrude(q[0], q[1],
+                            math.hypot(q[0] - p[0], q[1] - p[1]) * e, feed)
+
+            def _hatch_rect(x0, y0, x1, y1, keeps, li, feed=1900):
+                for p, q in _brick_hatch(x0, y0, x1, y1, keeps, wid,
+                                         45 if li % 2 else 135, 0.35):
+                    _seg_out(x0, y0, x1, y1, p, q, e_wall, feed)
+
+            def _brim_rect(c):
+                if brim:
+                    _ty121('Brim')
+                    for bi in range(brim):
+                        off = wid * 0.35 + bi * wid
+                        _loops(c['x'] - off, c['y'] - off,
+                               c['x'] + c['bw'] + off, c['y'] + c['bl'] + off,
+                               e_wall, 1500)
+
+            def _brim_round(c, cx, cy, r):
+                if brim:
+                    _ty121('Brim')
+                    for bi in range(brim):
+                        _emit_loop(pen, _circle(cx, cy, r + wid * 0.35
+                                                + bi * wid, 28), e_wall, 1500)
+
+            def brick_block(c, li):
+                if li > c['nl'] + c['sl']:
+                    return
+                a('EXCLUDE_OBJECT_START NAME=%s' % c['name'])
+                x0, y0 = c['x'] + wid / 2.0, c['y'] + wid / 2.0
+                x1, y1 = (c['x'] + c['bw'] - wid / 2.0,
+                          c['y'] + c['bl'] - wid / 2.0)
+                cx, cy = (c['x'] + c['bw'] / 2.0, c['y'] + c['bl'] / 2.0)
+                keeps = [(tx, ty, BRICK_TUBE_OD / 2.0)
+                         for tx, ty in c['tubes']]
+                hm = (li - 0.5) * layer_h
+
+                if c['kind'] in ('round', 'rplate', 'rtile', 'cone'):
+                    # ---- round family: circles instead of rects ----------
+                    rb = c['bw'] / 2.0
+                    r_now = rb
+                    if c['kind'] == 'cone':
+                        r_now = rb - (rb - 2.2) * max(
+                            0.0, min(1.0, hm / BRICK_BH))
+                    if li == 1:
+                        _brim_round(c, cx, cy, rb)
+                        _ty121('Bottom surface')
+                        _emit_loop(pen, _circle(cx, cy, r_now - wid / 2.0, 24),
+                                   e_wall, 1400)
+                        _ty121('Internal solid infill')
+                        _rings126(pen, cx, cy, r_now - wid, 0.0, e_wall, 1600,
+                                  wid)
+                    elif li <= c['nl']:
+                        _ty121('Outer wall')
+                        _emit_loop(pen, _circle(cx, cy, r_now - wid / 2.0, 24),
+                                   e_wall, 2200)
+                        _ty121('Wall-Inner')
+                        _emit_loop(pen, _circle(cx, cy, r_now - BRICK_WALL
+                                                + wid / 2.0, 20), e_wall, 2400)
+                        _ty121('Top surface' if li == c['nl']
+                               else 'Internal solid infill')
+                        _rings126(pen, cx, cy, r_now - BRICK_WALL - wid / 2.0,
+                                  0.0, e_wall,
+                                  1700 if li == c['nl'] else 1900, wid)
+                elif c['kind'] == 'slope':
+                    # ---- top slope: the front edge recedes with height ----
+                    run = (c['l'] - 1) * BRICK_PITCH
+                    frac = max(0.0, min(1.0, hm / BRICK_BH))
+                    fy = max(y0, c['y'] + run * frac)
+                    if li == 1:
+                        _brim_rect(c)
+                        _ty121('Bottom surface')
+                        _loops(x0, y0, x1, y1, e_wall, 1400)
+                        _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid,
+                               e_wall, 1600)
+                        _hatch_rect(x0 + 2 * wid, y0 + 2 * wid,
+                                    x1 - 2 * wid, y1 - 2 * wid, [], li, 1600)
+                    elif li <= c['nl']:
+                        kact = [(tx, ty, r) for (tx, ty, r) in keeps
+                                if ty < fy - wid]
+                        _ty121('Outer wall')
+                        _loops(x0, fy, x1, y1, e_wall, 2200)
+                        _loops(x0 + wid, fy + wid, x1 - wid, y1 - wid,
+                               e_wall, 2400)
+                        if li == c['nl']:
+                            _ty121('Top surface')
+                            _hatch_rect(x0 + 2 * wid, fy + 2 * wid,
+                                        x1 - 2 * wid, y1 - 2 * wid, [], li,
+                                        1700)
+                        else:
+                            _ty121('Internal solid infill')
+                            _hatch_rect(x0 + 2 * wid, fy + 2 * wid,
+                                        x1 - 2 * wid, y1 - 2 * wid, kact, li)
+                elif c['kind'] == 'islope':
+                    # ---- inverted slope: chamfer on the UNDERSIDE ---------
+                    run = (c['l'] - 1) * BRICK_PITCH
+                    frac = max(0.0, min(1.0, hm / BRICK_BH))
+                    fy = max(y0, c['y'] + run * (1.0 - frac))
+                    if li == 1:
+                        _brim_rect(c)
+                        _ty121('Bottom surface')
+                        _loops(x0, fy, x1, y1, e_wall, 1400)
+                        _loops(x0 + wid, fy + wid, x1 - wid, y1 - wid,
+                               e_wall, 1600)
+                        _hatch_rect(x0 + 2 * wid, fy + 2 * wid,
+                                    x1 - 2 * wid, y1 - 2 * wid, [], li, 1600)
+                    elif li <= c['nl']:
+                        _ty121('Outer wall')
+                        _loops(x0, fy, x1, y1, e_wall, 2200)
+                        _loops(x0 + wid, fy + wid, x1 - wid, y1 - wid,
+                               e_wall, 2400)
+                        if li == c['nl']:
+                            _ty121('Top surface')
+                            _hatch_rect(x0 + 2 * wid, fy + 2 * wid,
+                                        x1 - 2 * wid, y1 - 2 * wid, [], li,
+                                        1700)
+                        else:
+                            _ty121('Internal solid infill')
+                            _hatch_rect(x0 + 2 * wid, fy + 2 * wid,
+                                        x1 - 2 * wid, y1 - 2 * wid, [], li)
+                elif c['kind'] == 'arch':
+                    # ---- underside opening, 45deg shoulders, bridged -------
+                    oy0 = c['y'] + BRICK_PITCH
+                    oy1 = c['y'] + c['bl'] - BRICK_PITCH
+                    inset = min(1.6, max(0.0, hm - 4.8))
+                    a0 = min(oy0 + inset, (oy0 + oy1) / 2.0)
+                    a1 = max(oy1 - inset, (oy0 + oy1) / 2.0)
+                    closed = (a1 - a0) < wid * 2.0
+                    just_closed = False
+                    if closed and li > 1:
+                        pm = (li - 1 - 0.5) * layer_h
+                        pin = min(1.6, max(0.0, pm - 4.8))
+                        pa0 = min(oy0 + pin, (oy0 + oy1) / 2.0)
+                        pa1 = max(oy1 - pin, (oy0 + oy1) / 2.0)
+                        just_closed = (pa1 - pa0) >= wid * 2.0
+                    if li == 1:
+                        _brim_rect(c)
+                    if closed:
+                        if just_closed:
+                            _ty121('Bridge')
+                        _ty121('Outer wall')
+                        _loops(x0, y0, x1, y1, e_wall, 2200)
+                        _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid,
+                               e_wall, 2400)
+                        _ty121('Top surface' if li == c['nl']
+                               else 'Internal solid infill')
+                        _hatch_rect(x0 + 2 * wid, y0 + 2 * wid,
+                                    x1 - 2 * wid, y1 - 2 * wid, [], li,
+                                    1700 if li == c['nl'] else 1900)
+                    else:
+                        legA = (x0, y0, x1, max(y0 + 2 * wid, a0 - 0.05))
+                        legB = (x0, min(y1 - 2 * wid, a1 + 0.05), x1, y1)
+                        for (lx0, ly0, lx1, ly1) in (legA, legB):
+                            if ly1 - ly0 < wid:
+                                continue
+                            _ty121('Outer wall')
+                            _loops(lx0, ly0, lx1, ly1, e_wall, 2200)
+                            _loops(lx0 + wid, ly0 + wid, lx1 - wid, ly1 - wid,
+                                   e_wall, 2400)
+                            _ty121('Internal solid infill')
+                            _hatch_rect(lx0 + 2 * wid, ly0 + 2 * wid,
+                                        lx1 - 2 * wid, ly1 - 2 * wid,
+                                        [(tx, ty, r) for (tx, ty, r) in keeps
+                                         if ly0 < ty < ly1], li)
+                        if li == 1:
+                            _ty121('Bottom surface')
+                elif c['kind'] == 'tech':
+                    # ---- O4.9 holes along X at height 5.8 ------------------
+                    hc, hr = 5.8, 2.45
+                    dz = hm - hc
+                    h = math.sqrt(max(0.0, hr * hr - dz * dz)) \
+                        if abs(dz) < hr else 0.0
+                    if li == 1:
+                        _brim_rect(c)
+                        _ty121('Bottom surface')
+                        _loops(x0, y0, x1, y1, e_wall, 1400)
+                        _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid,
+                               e_wall, 1600)
+                        _hatch_rect(x0 + 2 * wid, y0 + 2 * wid,
+                                    x1 - 2 * wid, y1 - 2 * wid, [], li, 1600)
+                    elif h <= wid * 0.45:
+                        # above (or between) the holes - the layer that just
+                        # left the slot BRIDGES over every hole
+                        pm = (li - 1 - 0.5) * layer_h
+                        pdz = pm - hc
+                        ph = math.sqrt(max(0.0, hr * hr - pdz * pdz)) \
+                            if abs(pdz) < hr else 0.0
+                        if ph > wid * 0.45:
+                            _ty121('Bridge')
+                        _ty121('Outer wall')
+                        _loops(x0, y0, x1, y1, e_wall, 2200)
+                        _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid,
+                               e_wall, 2400)
+                        _ty121('Top surface' if li == c['nl']
+                               else 'Internal solid infill')
+                        _hatch_rect(x0 + 2 * wid, y0 + 2 * wid,
+                                    x1 - 2 * wid, y1 - 2 * wid, [], li,
+                                    1700 if li == c['nl'] else 1900)
+                    else:
+                        _ty121('Outer wall')
+                        _loops(x0, y0, x1, y1, e_wall, 2200)
+                        _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid,
+                               e_wall, 2400)
+                        _ty121('Wall-Inner')
+                        for yk in c['holes_y']:
+                            for yy in (yk - h, yk + h):
+                                pen.travel(x0, yy)
+                                pen.extrude(x1, yy, (x1 - x0) * e_wall, 2400)
+                        _ty121('Internal solid infill')
+                        edges = [y0]
+                        for yk in sorted(c['holes_y']):
+                            edges += [yk - h, yk + h]
+                        edges.append(y1)
+                        for bi in range(0, len(edges) - 1, 2):
+                            if edges[bi + 1] - edges[bi] >= wid * 0.9:
+                                _hatch_rect(x0 + 2 * wid, edges[bi] + wid,
+                                            x1 - 2 * wid, edges[bi + 1] - wid,
+                                            [], li)
+                elif li == 1:
+                    # ---- brick / plate / tile / jumper: layer 1 ------------
+                    _brim_rect(c)
+                    _ty121('Bottom surface')
+                    _loops(x0, y0, x1, y1, e_wall, 1400)
+                    _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid, e_wall, 1600)
+                    _hatch_rect(x0 + 2 * wid, y0 + 2 * wid,
+                                x1 - 2 * wid, y1 - 2 * wid, [], li, 1600)
+                elif li <= c['nl']:
+                    # ---- brick / plate / tile / jumper: body ---------------
+                    _ty121('Outer wall')
+                    _loops(x0, y0, x1, y1, e_wall, 2200)
+                    _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid, e_wall, 2400)
+                    if c['tubes']:
+                        _ty121('Wall-Inner')
+                        for tx, ty in c['tubes']:
+                            _emit_loop(pen, _circle(tx, ty,
+                                                    BRICK_TUBE_OD / 2.0
+                                                    - wid / 2.0, 24),
+                                       e_wall, 2200)
+                            _emit_loop(pen, _circle(tx, ty,
+                                                    BRICK_TUBE_OD / 2.0
+                                                    - BRICK_TUBE_WALL
+                                                    + wid / 2.0, 20),
+                                       e_wall, 2200)
+                    if li == c['nl']:
+                        _ty121('Top surface')
+                        _hatch_rect(x0 + 2 * wid, y0 + 2 * wid,
+                                    x1 - 2 * wid, y1 - 2 * wid, [], li, 1700)
+                    else:
+                        _ty121('Internal solid infill')
+                        _hatch_rect(x0 + 2 * wid, y0 + 2 * wid,
+                                    x1 - 2 * wid, y1 - 2 * wid, keeps, li)
                 else:
-                    _ty121('Internal solid infill')
-                    for p, q in _brick_hatch(x0 + 2 * wid, y0 + 2 * wid,
-                                             x1 - 2 * wid, y1 - 2 * wid,
-                                             keeps, wid,
-                                             45 if li % 2 else 135, 0.35):
-                        _seg_out(x0, y0, x1, y1, p, q, e_wall, 1900)
+                    # ---- stud layers: hollow stud rings --------------------
+                    _ty121('Outer wall')
+                    pen.holes = []
+                    for sx, sy in c['studs']:
+                        _emit_loop(pen, _circle(sx, sy, BRICK_STUD_D / 2.0
+                                                - wid / 2.0, 20), e_wall, 2200)
+                        _emit_loop(pen, _circle(sx, sy, BRICK_STUD_D / 2.0
+                                                - BRICK_STUD_WALL + wid / 2.0,
+                                                16), e_wall, 2200)
+                a('EXCLUDE_OBJECT_END NAME=%s' % c['name'])
+
+            def _layer_head(li, z):
+                a(';LAYER_CHANGE')
+                a(';Z:%.3f' % z)
+                a('LAYER_MARK')
+                pen.set_z(z)
+                if li == 2:
+                    a('M106 S178   ; R2-BRICKS: part fan from layer 2')
+
+            if seq_obj:
+                prev_ci = None
+                for c in plist:
+                    if prev_ci is not None and c['ci'] != prev_ci:
+                        a('M117 Bricks: next color %s' % 'ABCDEFGH'[c['ci']])
+                        a('M600')
+                    prev_ci = c['ci']
+                    pen.holes = []
+                    for li in range(1, c['nl'] + c['sl'] + 1):
+                        z = round(first_h + (li - 1) * layer_h, 3)
+                        _layer_head(li, z)
+                        pen.holes = [(tx, ty, BRICK_TUBE_OD / 2.0 - 0.6)
+                                     for tx, ty in c['tubes']] \
+                            if 1 < li <= c['nl'] else []
+                        brick_block(c, li)
             else:
-                # ---- stud layers: hollow stud rings only
-                _ty121('Outer wall')
-                pen.holes = []
-                for sx, sy in c['studs']:
-                    _emit_loop(pen, _circle(sx, sy, BRICK_STUD_D / 2.0
-                                            - wid / 2.0, 20), e_wall, 2200)
-                    _emit_loop(pen, _circle(sx, sy, BRICK_STUD_D / 2.0
-                                            - BRICK_STUD_WALL + wid / 2.0,
-                                            16), e_wall, 2200)
-            a('EXCLUDE_OBJECT_END NAME=%s' % c['name'])
+                for li in range(1, pl_layers + 1):
+                    z = round(first_h + (li - 1) * layer_h, 3)
+                    _layer_head(li, z)
+                    for c in plist:
+                        pen.holes = [(tx, ty, BRICK_TUBE_OD / 2.0 - 0.6)
+                                     for tx, ty in c['tubes']] \
+                            if 1 < li <= c['nl'] else []
+                        brick_block(c, li)
+            a('M107')
+            a('PRINT_END')
+            sk.flush()
 
-        for li in range(1, total_layers + 1):
-            z = round(first_h + (li - 1) * layer_h, 3)
-            a(';LAYER_CHANGE')
-            a(';Z:%.3f' % z)
-            pen.set_z(z)
-            if li == 2:
-                a('M106 S178   ; R2-BRICKS: part fan from layer 2')
-            for c in cells:
-                pen.holes = [(tx, ty, BRICK_TUBE_OD / 2.0 - 0.6)
-                             for tx, ty in c['tubes']] if 1 < li <= c['nl'] else []
-                brick_block(c, li)
-        a(';TYPE:Custom')
-        a('APPLY_TYPE TYPE=Custom')
-        a('M107')
-        a('PRINT_END')
-        sk.flush()
-
-    info = {'file': fname, 'kind': 'bricks', 'count': len(cells),
-            'bricks': n_bricks, 'plates': n_plates, 'tiles': n_tiles,
+    n_by_all = dict((k, sum(1 for c in cells if c['kind'] == k))
+                    for k in sorted(set(c['kind'] for c in cells)))
+    info = {'file': out_files[0] if out_files else '',
+            'plate_files': out_files, 'kind': 'bricks',
+            'count': len(cells), 'kinds': n_by_all,
+            'bricks': n_by_all.get('brick', 0),
+            'plates': n_by_all.get('plate', 0),
+            'tiles': n_by_all.get('tile', 0),
+            'slopes': n_by_all.get('slope', 0),
             'layers': total_layers,
             'thickness': round(total_layers * layer_h, 2),
+            'mode': mode, 'colors': colors, 'brim': brim,
             'codes': [c['code'] for c in cells],
             'notes': notes}
-    return out, info
+    return first_out, info
 
 
 # ---- R125: BRICK KITS - turn a print file into a stylized brick kit -------------
@@ -11246,6 +11597,10 @@ def make_brick_kit(src, detail='AUTO', mode='BY_LAYER', colors=3,
             plates.append((chr(ord('A') + len(plates)), None, packed))
             group = group[take:]
 
+    # R132 user rule: every generator centers its layout on the bed
+    for (_lbl132, _ci132, _pl132) in plates:
+        _center_cells(_pl132, bed)
+
     stem = re.sub(r'[^A-Za-z0-9]', '', os.path.splitext(
         os.path.basename(src))[0])[:8] or 'MODEL'
     v = max(1, min(int(version), 99))
@@ -11316,11 +11671,17 @@ def make_brick_kit(src, detail='AUTO', mode='BY_LAYER', colors=3,
                 a('EXCLUDE_OBJECT_DEFINE NAME=%s CENTER=%.1f,%.1f POLYGON=%s'
                   % (p['name'], (_xs[0] + _xs[1]) / 2.0,
                      (_ys[0] + _ys[1]) / 2.0, _poly))
-            a('PRINT_START')
+            a('PRINT_START MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d'
+              ' OUTER_WALL_SPEED=35' % (material, layer_h, total_layers))
+            a('G90')
+            a('M83')
+            a('M107   ; R2-BRICKKIT: first layer = fan off')
 
             def _ty125(t):
+                # R132: canonical code, not the pretty name (field log .92)
                 a(';TYPE:%s' % t)
-                a('APPLY_TYPE TYPE=%s' % t)
+                a('APPLY_TYPE TYPE=%s'
+                  % TYPE_MAP.get(t.strip().lower(), 'CUSTOM'))
 
             def _emit125(p, li):
                 a('EXCLUDE_OBJECT_START NAME=%s' % p['name'])
@@ -11400,6 +11761,7 @@ def make_brick_kit(src, detail='AUTO', mode='BY_LAYER', colors=3,
                     z = round(first_h + (li - 1) * layer_h, 3)
                     a(';LAYER_CHANGE')
                     a(';Z:%.3f' % z)
+                    a('LAYER_MARK')
                     pen.set_z(z)
                     if li == 2:
                         a('M106 S178   ; R2-BRICKKIT: part fan from layer 2')
@@ -11422,13 +11784,12 @@ def make_brick_kit(src, detail='AUTO', mode='BY_LAYER', colors=3,
                         z = round(first_h + (li - 1) * layer_h, 3)
                         a(';LAYER_CHANGE')
                         a(';Z:%.3f' % z)
+                        a('LAYER_MARK')
                         pen.set_z(z)
                         pen.holes = [(tx, ty, BRICK_TUBE_OD / 2.0 - 0.6)
                                      for tx, ty in p['tubes']] \
                             if 1 < li <= nl else []
                         _emit125(p, li)
-            a(';TYPE:Custom')
-            a('APPLY_TYPE TYPE=Custom')
             a('M107')
             a('PRINT_END')
             sk.flush()
@@ -11466,24 +11827,49 @@ def _rings126(pen, cx, cy, r_out, r_in, e, feed, wid):
 
 
 def make_figures(count=1, scale=100.0, layer_h=0.2, material='PLA',
-                 bed=None, bed_margin=6.0, nozzle=0.6, out_dir='.',
-                 version=1):
-    """R126: stylized figures in the building system, original size or scaled.
+                 bed=None, bed_margin=6.0, nozzle=0.6, out_dir='.', version=1,
+                 brim=2, mode='PARTS', colors=1, colormode='BY_LAYER'):
+    """R126/R132: stylized figures in the building system.
 
-    count 1..24 (5 parts each: legs, torso, 2 arms, head - assembly needs no
-    glue: round tenons everywhere, arms swing, head turns). scale = percent;
-    only 100% mates with bricks/plates/hats (hands grip O4.8 studs+axes,
-    feet click onto studs) - other scales are display figures.
+    count 1..24. scale 25..300 percent; only 100% mates with the system
+    (hands grip O4.8 studs/axes, hats sit on the head stud, feet click
+    onto studs). brim = 0..8 loops (0 = off).
+
+    mode (R132):
+      PARTS = 5 parts per figure (legs, torso, 2 arms, head) - assembly
+              without glue. The ARM prints LYING (R132 field fix): both
+              the shoulder pivot hole and the hand grip print as clean
+              vertical THROUGH-tubes - the old upright arm sealed both
+              holes inside the part, nothing could be gripped.
+      SINGLE = one fused figure - no clutch elements at all (it never
+              comes apart), arms and head grown in place, still stands
+              on click-feet and wears hats at 100%.
+
+    colors 1..4 (PARTS only: legs/torso/arms/head) + colormode:
+      BY_LAYER = one plate per color (plate change = color change),
+      BY_OBJECT = one file, parts in color order, M600 at the boundaries.
+    The layout is CENTERED on the bed (R132 user rule).
     """
     layer_h = max(0.08, min(float(layer_h or 0.2), 0.32))
-    notes = []
-    count = int(count)
-    scale = float(scale)
+    brim = max(0, min(int(brim or 0), 8))
+    mode = str(mode or 'PARTS').strip().upper()
+    colormode = str(colormode or 'BY_LAYER').strip().upper().replace('-', '_')
+    colors = int(colors)
     if not (1 <= count <= 24):
-        raise ValueError('count must be 1..24 figures (5 parts each)')
+        raise ValueError('count must be 1..24 figures')
     if not (25.0 <= scale <= 300.0):
         raise ValueError('scale must be 25..300 percent (100 = original size,'
                          ' mates with the bricks)')
+    if mode not in ('PARTS', 'SINGLE'):
+        raise ValueError("mode must be PARTS or SINGLE")
+    if colormode not in ('BY_LAYER', 'BY_OBJECT'):
+        raise ValueError("colormode must be BY_LAYER or BY_OBJECT")
+    if not (1 <= colors <= 4):
+        raise ValueError('colors must be 1..4 (legs, torso, arms, head)')
+    notes = []
+    if mode == 'SINGLE' and colors > 1:
+        colors = 1
+        notes.append('SINGLE = one piece, one color (colors reset to 1)')
 
     bed = bed or (0.0, 0.0, 220.0, 220.0)
     bx0, by0, bx1, by1 = bed
@@ -11491,10 +11877,10 @@ def make_figures(count=1, scale=100.0, layer_h=0.2, material='PLA',
     ux1, uy1 = bx1 - bed_margin, by1 - bed_margin
     wid = max(0.4, nozzle * 1.08)
     fil = FIL_AREA
-    s = scale / 100.0
+    s_ = scale / 100.0
 
     def _mm(v):
-        return v * s
+        return v * s_
 
     def _snap(total, what):
         nl = max(1, int(round(total / layer_h)))
@@ -11503,8 +11889,7 @@ def make_figures(count=1, scale=100.0, layer_h=0.2, material='PLA',
                          % (what, nl, nl * layer_h, total))
         return nl
 
-    # ---- zone layer counts (100% geometry: legs 12.8 + hip 3.2 + tenon 4.0,
-    #      torso 12.8 (socket 4.2), head 8.5 + stud 1.8, arm 12.8) ----
+    # ---- zone layer counts (100% geometry) --------------------------------
     nl_leg = _snap(_mm(12.8), 'legs')
     nl_hip = _snap(_mm(3.2), 'hip')
     nl_ten = _snap(_mm(4.0), 'hip tenon')
@@ -11514,402 +11899,590 @@ def make_figures(count=1, scale=100.0, layer_h=0.2, material='PLA',
     nl_hso = _snap(_mm(4.0), 'head socket')
     nl_hed = _snap(_mm(8.5), 'head')
     nl_stu = _snap(_mm(1.8), 'head stud')
-    nl_grip = _snap(_mm(6.4), 'hand grip')
-    nl_arm = _snap(_mm(12.8), 'arm')
+    nl_arm = _snap(_mm(7.8), 'arm thickness')
+    nl_sho = _snap(_mm(3.2), 'shoulder slab')
+    nl_grh = _snap(_mm(4.9), 'hand grip hole')
 
-    leg_w = _mm(7.2)                 # one leg (real foot: 7.2)
+    leg_w = _mm(7.2)
     leg_gap = max(_mm(1.4), wid * 2.2)
     leg_d = _mm(15.8)
     tor_w = _mm(15.8)
     tor_d = _mm(7.8)
+    arm_len = _mm(12.8)
     arm_w = _mm(7.8)
+    arm_gap = _mm(1.6)
     head_d = _mm(10.2)
     hip_ten_r = _mm(4.0)
-    tor_so_r = _mm(4.1)              # 0.1/side clearance over the tenon
+    tor_so_r = _mm(4.1)
     neck_r = _mm(2.4)
-    head_so_r = _mm(2.55)            # 0.15/side clearance over the post
-    sh_ten_r = _mm(2.4)              # shoulder tenon O4.8
-    sh_hole_r = _mm(2.55)            # arm hole O5.1
-    sh_out = _mm(3.6)                # tenon protrusion beyond the torso wall
-    sh_z = _mm(9.6)                  # tenon/hole center above the part base
-    grip_r = _mm(2.45)               # hand grip O4.9 - takes O4.8 studs/axes
-    foot_tube_r = _mm(2.75)          # foot anti-stud O5.5
+    head_so_r = _mm(2.55)
+    sh_hole_r = _mm(2.55)
+    grip_r = _mm(2.45)
+    foot_tube_r = _mm(2.75)
     stud_r = _mm(2.4)
     stud_wall = max(_mm(1.2), wid)
 
-    # ---- layout: one figure = legs + torso + 2 arms + head in a row ----
-    cells = []
-    for fi in range(count):
-        for pname, bw, bl in (('LEGS', leg_w * 2 + leg_gap, leg_d),
-                              ('TORSO', tor_w, tor_d),
-                              ('ARM1', arm_w, arm_w),
-                              ('ARM2', arm_w, arm_w),
-                              ('HEAD', head_d, head_d)):
-            cells.append({'fig': fi + 1, 'name': 'FIG_%02d_%s' % (fi + 1, pname),
-                          'part': pname, 'bw': bw, 'bl': bl})
-    x, y = ux0, uy0
-    row_h = 0.0
-    for c in cells:
-        if x + c['bw'] > ux1 and x > ux0:
-            x = ux0
-            y += row_h + BRICK_GAP
-            row_h = 0.0
-        if y + c['bl'] > uy1:
-            raise ValueError('%d figure(s) do not fit the bed - lower the'
-                             ' count or the scale' % count)
-        c['x'] = x
-        c['y'] = y
-        x += c['bw'] + BRICK_GAP
-        row_h = max(row_h, c['bl'])
+    # role colors (PARTS): legs 0, torso 1, arms 2, head 3
+    def _role(pname):
+        if pname.startswith('LEG'):
+            return 0
+        if pname.startswith('TORSO'):
+            return 1
+        if pname.startswith('ARM'):
+            return 2
+        return 3
 
+    if mode == 'SINGLE':
+        cells = []
+        for fi in range(count):
+            cells.append({'fig': fi + 1, 'part': 'SINGLE',
+                         'name': 'FIG_%02d_SINGLE' % (fi + 1),
+                         'bw': tor_w + 2 * (arm_gap + arm_w) + 2 * wid,
+                         'bl': leg_d, 'ci': 0})
+        single_nl = (nl_leg + nl_hip + nl_tor + nl_sho + 2 + nl_hed + nl_stu)
+        for c in cells:
+            c['nl'] = single_nl
+        fname = '00_Figure_s%03d_V%02d.gcode' % (
+            max(25, min(int(round(scale)), 300)), max(1, min(int(version), 99)))
+    else:
+        cells = []
+        for fi in range(count):
+            for pname, bw, bl in (
+                    ('LEGS', leg_w * 2 + leg_gap, leg_d),
+                    ('TORSO', tor_w, tor_d),
+                    ('ARM1', arm_len, arm_w),
+                    ('ARM2', arm_len, arm_w),
+                    ('HEAD', head_d, head_d)):
+                cells.append({'fig': fi + 1,
+                              'name': 'FIG_%02d_%s' % (fi + 1, pname),
+                              'part': pname, 'bw': bw, 'bl': bl,
+                              'ci': min(_role(pname), colors - 1)})
+        for c in cells:
+            if c['part'] == 'LEGS':
+                c['nl'] = nl_leg + nl_hip + nl_ten
+            elif c['part'] == 'TORSO':
+                c['nl'] = nl_tso + nl_tor + nl_nck
+            elif c['part'] in ('ARM1', 'ARM2'):
+                c['nl'] = nl_arm
+            else:
+                c['nl'] = nl_hso + nl_hed + nl_stu
+        fname = '00_Figures_s%03d_V%02d.gcode' % (
+            max(25, min(int(round(scale)), 300)), max(1, min(int(version), 99)))
+
+    # ---- plates ------------------------------------------------------------
+    if mode == 'PARTS' and colors > 1 and colormode == 'BY_LAYER':
+        plates = []
+        for ci in sorted(set(c['ci'] for c in cells)):
+            plates.append((chr(ord('A') + len(plates)), ci,
+                           [c for c in cells if c['ci'] == ci]))
+        fname = fname.replace('_s%03d' % max(25, min(int(round(scale)), 300)),
+                              '_s%03d_%%s' % max(25, min(int(round(scale)),
+                                                        300)))
+    else:
+        plates = [('', None, list(cells))]
+        if mode == 'PARTS' and colors > 1 and colormode == 'BY_OBJECT':
+            plates[0][2].sort(key=lambda c: c['ci'])
+
+    out_files = []
+    first_out = None
     total_layers = 0
-    for c in cells:
-        if c['part'] == 'LEGS':
-            c['nl'] = nl_leg + nl_hip + nl_ten
-        elif c['part'] == 'TORSO':
-            c['nl'] = nl_tor + nl_nck
-        elif c['part'] == 'ARM1' or c['part'] == 'ARM2':
-            c['nl'] = nl_arm
-        else:
-            c['nl'] = nl_hso + nl_hed + nl_stu
-        total_layers = max(total_layers, c['nl'])
-
-    fname = '00_Figures_s%03d_V%02d.gcode' % (max(25, min(int(round(scale)),
-                                                          300)),
-                                              max(1, min(int(version), 99)))
-    out = os.path.join(out_dir, fname)
-    e_wall = layer_h * wid / fil
-    first_h = layer_h
     assembled = ((nl_leg + nl_hip) * layer_h + nl_tor * layer_h
                  + nl_hed * layer_h + nl_stu * layer_h)
 
-    with open(out, 'w') as f:
-        sk = _Sink(f)
-        a = sk.append
-        pen = _Pen(sk, jump_d=6.0)
-        a('; R2-FIGURES stylized system figures (R126) - start it like any'
-          ' other file')
-        a(TAG)
-        a('; %d figure(s) at %g%% - %d parts (legs, torso, 2 arms, head per'
-          ' figure), ONE color, every part its own EXCLUDE_OBJECT'
-          % (count, scale, len(cells)))
-        a('; classic proportions by caliper: head O%.1f x %.1f, torso %.1f x'
-          ' %.1f x %.1f - assembled height %.1fmm (original ~40)'
-          % (head_d, (nl_hso + nl_hed) * layer_h, tor_w, tor_d,
-             nl_tor * layer_h, assembled))
-        a('; assembly without glue: torso presses onto the hip tenon, arms'
-          ' slide onto the shoulder pins (they swing), head presses onto the'
-          ' neck post (it turns)')
-        if abs(scale - 100.0) < 0.5:
-            a('; 100% = ORIGINAL SIZE and system-true: hands grip O4.8'
-              ' studs and axes, hats sit on the head stud, feet click onto'
-              ' studs (anti-studs underneath)')
+    for (label, plate_ci, plist) in plates:
+        x, y = ux0, uy0
+        row_h = 0.0
+        for c in plist:
+            if x + c['bw'] > ux1 and x > ux0:
+                x = ux0
+                y += row_h + BRICK_GAP
+                row_h = 0.0
+            if y + c['bl'] > uy1:
+                raise ValueError('%d figure(s) do not fit the bed - lower'
+                                 ' the count or the scale' % count)
+            c['x'] = x
+            c['y'] = y
+            x += c['bw'] + BRICK_GAP
+            row_h = max(row_h, c['bl'])
+        _center_cells(plist, bed)
+        pl_layers = max(c['nl'] for c in plist)
+        total_layers = max(total_layers, pl_layers)
+        if label:
+            pfn = fname % label
         else:
-            a('; %g%% = scaled display figure - it only mates with the'
-              ' system at 100%%' % scale)
-            notes.append('scaled %g%% - hands/hats/feet mate only at 100%%'
-                         % scale)
-        for _n126 in notes:
-            a('; note: %s' % _n126)
-        a('; filament_type = %s' % material)
-        a('; layer_height = %.2g' % layer_h)
-        a('; nozzle_diameter = %.1f' % nozzle)
-        a('; line_width = %.2g' % wid)
-        a('; outer_wall_line_width = %.2g' % wid)
-        a('; outer_wall_speed = 35')
-        a('; inner_wall_speed = 40')
-        a('; top_surface_speed = 35')
-        a('; internal_solid_infill_speed = 50')
-        a('; initial_layer_speed = 20')
-        a('; travel_speed = 150')
-        a('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d LINE_WIDTH=%.2g '
-          'LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g FLOW_RATIO=1 NOZZLE=%.1f '
-          'WALL_LOOPS=2 SPEED_OUTER=35 SPEED_FIRST=20 SPEED_TRAVEL=150 '
-          'TYPES=WALL-OUTER,WALL-INNER,INFILL-SOLID,SURFACE-BOTTOM,SURFACE-TOP'
-          ',BRIM BY_OBJECT=0'
-          % (material, layer_h, total_layers, wid, wid, wid, nozzle))
-        _last126 = [None]
+            pfn = fname
+        out = os.path.join(out_dir, pfn)
+        out_files.append(pfn)
+        if first_out is None:
+            first_out = out
+        e_wall = layer_h * wid / fil
+        first_h = layer_h
+        seq_obj = (mode == 'PARTS' and colors > 1
+                   and colormode == 'BY_OBJECT')
 
-        def _ty126(t):
-            if _last126[0] != t:
-                a(';TYPE:%s' % t)
-                a('APPLY_TYPE TYPE=%s' % t)
-                _last126[0] = t
+        with open(out, 'w') as f:
+            sk = _Sink(f)
+            a = sk.append
+            pen = _Pen(sk, jump_d=6.0)
+            a('; R2-FIGURES stylized system figures (R126/R132) - start it'
+              ' like any other file')
+            a(TAG)
+            a('; %d figure(s) at %g%% - %s, %s, every part its own'
+              ' EXCLUDE_OBJECT'
+              % (count, scale,
+                 'ONE PIECE (fused - no clutch elements, never comes'
+                 ' apart)' if mode == 'SINGLE' else
+                 '%d parts (legs, torso, 2 arms, head per figure)' % len(plist),
+                 'ONE color' if plate_ci is None else
+                 'color %s (plate %s)' % ('ABCD'[plate_ci], label)))
+            if seq_obj:
+                a('; BY_OBJECT: parts print one after another in color'
+                  ' order, M600 only at the color boundaries')
+            a('; classic proportions by caliper: head O%.1f x %.1f, torso'
+              ' %.1f x %.1f x %.1f - assembled height %.1fmm (original ~40)'
+              % (head_d, (nl_hso + nl_hed) * layer_h, tor_w, tor_d,
+                 nl_tor * layer_h, assembled))
+            if mode == 'PARTS':
+                a('; assembly without glue: torso presses onto the hip'
+                  ' tenon, arms slide onto the shoulder pins (they swing),'
+                  ' head presses onto the neck post (it turns)')
+                a('; R132: the ARM prints LYING - shoulder pivot O%.1f and'
+                  ' hand grip O%.1f are clean vertical through-tubes'
+                  % (2 * sh_hole_r, 2 * grip_r))
+            else:
+                a('; SINGLE: arms + head grown in place, feet still click'
+                  ' onto studs, the head still takes hats at 100%')
+            if abs(scale - 100.0) < 0.5:
+                a('; 100% = ORIGINAL SIZE and system-true: hands grip O4.8'
+                  ' studs and axes, hats sit on the head stud, feet click'
+                  ' onto studs (anti-studs underneath)')
+            else:
+                a('; %g%% = scaled display figure - it only mates with the'
+                  ' system at 100%%' % scale)
+                notes.append('scaled %g%% - hands/hats/feet mate only at'
+                             ' 100%%' % scale)
+            for _n126 in notes:
+                a('; note: %s' % _n126)
+            a('; filament_type = %s' % material)
+            a('; layer_height = %.2g' % layer_h)
+            a('; nozzle_diameter = %.1f' % nozzle)
+            a('; line_width = %.2g' % wid)
+            a('; outer_wall_line_width = %.2g' % wid)
+            a('; outer_wall_speed = 35')
+            a('; inner_wall_speed = 40')
+            a('; top_surface_speed = 35')
+            a('; internal_solid_infill_speed = 50')
+            a('; initial_layer_speed = 20')
+            a('; travel_speed = 150')
+            a('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d'
+              ' LINE_WIDTH=%.2g LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g'
+              ' FLOW_RATIO=1 NOZZLE=%.1f WALL_LOOPS=2 SPEED_OUTER=35'
+              ' SPEED_FIRST=20 SPEED_TRAVEL=150'
+              ' TYPES=WALL-OUTER,WALL-INNER,INFILL-SOLID,SURFACE-BOTTOM,'
+              'SURFACE-TOP%s%s BY_OBJECT=%d'
+              % (material, layer_h, pl_layers, wid, wid, wid, nozzle,
+                 ',BRIDGE' if mode == 'SINGLE' else '',
+                 ',BRIM' if brim else '', 1 if seq_obj else 0))
+            _last126 = [None]
 
-        for c in cells:
-            _xs = [c['x'], c['x'] + c['bw']]
-            _ys = [c['y'], c['y'] + c['bl']]
-            _poly = ('[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]'
-                     % (_xs[0], _ys[0], _xs[1], _ys[0], _xs[1], _ys[1],
-                        _xs[0], _ys[1]))
-            a('EXCLUDE_OBJECT_DEFINE NAME=%s CENTER=%.1f,%.1f POLYGON=%s'
-              % (c['name'], (_xs[0] + _xs[1]) / 2.0, (_ys[0] + _ys[1]) / 2.0,
-                 _poly))
-        a('PRINT_START')
+            def _ty126(t):
+                # R132: canonical code, not the pretty name (field log .92)
+                if _last126[0] != t:
+                    a(';TYPE:%s' % t)
+                    a('APPLY_TYPE TYPE=%s'
+                      % TYPE_MAP.get(t.strip().lower(), 'CUSTOM'))
+                    _last126[0] = t
 
-        def _loops(cx0, cy0, cx1, cy1, e, feed):
-            _emit_loop(pen, _rect_loop(cx0, cy0, cx1, cy1), e, feed)
+            for c in plist:
+                _xs = [c['x'], c['x'] + c['bw']]
+                _ys = [c['y'], c['y'] + c['bl']]
+                _poly = ('[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]'
+                         % (_xs[0], _ys[0], _xs[1], _ys[0], _xs[1], _ys[1],
+                            _xs[0], _ys[1]))
+                a('EXCLUDE_OBJECT_DEFINE NAME=%s CENTER=%.1f,%.1f POLYGON=%s'
+                  % (c['name'], (_xs[0] + _xs[1]) / 2.0,
+                     (_ys[0] + _ys[1]) / 2.0, _poly))
+            a('PRINT_START MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d'
+              ' OUTER_WALL_SPEED=35' % (material, layer_h, pl_layers))
+            a('G90')
+            a('M83')
+            a('M107   ; R2-FIGURES: first layer = fan off')
 
-        def _wall_rect(x0, y0, x1, y1, feed_in=2400):
-            _ty126('Outer wall')
-            _loops(x0, y0, x1, y1, e_wall, 2200)
-            _ty126('Wall-Inner')
-            _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid, e_wall, feed_in)
+            def _loops(cx0, cy0, cx1, cy1, e, feed):
+                _emit_loop(pen, _rect_loop(cx0, cy0, cx1, cy1), e, feed)
 
-        def _hatch_rect(x0, y0, x1, y1, keeps, feed=1900):
-            _ty126('Internal solid infill')
-            for p, q in _brick_hatch(x0 + 2 * wid, y0 + 2 * wid,
-                                     x1 - 2 * wid, y1 - 2 * wid, keeps,
-                                     wid, 45, 0.35):
-                pen.travel(p[0], p[1])
-                pen.extrude(q[0], q[1],
-                            math.hypot(q[0] - p[0], q[1] - p[1]) * e_wall,
-                            feed)
-
-        def _seg(y0, y1, x0, x1, p, q):
-            pen.travel(p[0], p[1])
-            pen.extrude(q[0], q[1],
-                        math.hypot(q[0] - p[0], q[1] - p[1]) * e_wall, 2200)
-
-        def _part_legs(c, li, z):
-            cx = c['x'] + c['bw'] / 2.0
-            cy = c['y'] + c['bl'] / 2.0
-            lx0 = c['x'] + wid / 2.0
-            lx1 = c['x'] + c['bw'] - wid / 2.0
-            ly0 = c['y'] + wid / 2.0
-            ly1 = c['y'] + c['bl'] - wid / 2.0
-            legA = (lx0, ly0, lx0 + leg_w - wid, ly1)
-            legB = (lx1 - leg_w + wid, ly0, lx1, ly1)
-            if li == 1:
-                _ty126('Brim')
-                for off in (wid * 0.35, wid * 0.35 + wid):
-                    _loops(c['x'] - off, c['y'] - off,
-                           c['x'] + c['bw'] + off, c['y'] + c['bl'] + off,
-                           e_wall, 1500)
-                _ty126('Bottom surface')
-                for (bx0, by0, bx1, by1) in (legA, legB):
-                    _loops(bx0, by0, bx1, by1, e_wall, 1400)
-                    _loops(bx0 + wid, by0 + wid, bx1 - wid, by1 - wid,
-                           e_wall, 1600)
-                    _hatch_rect(bx0, by0, bx1, by1, [], 1600)
-                return
-            if li <= nl_leg:
-                keeps = [(cx - leg_w / 2.0 - leg_gap / 2.0, cy,
-                          foot_tube_r),
-                         (cx + leg_w / 2.0 + leg_gap / 2.0, cy,
-                          foot_tube_r)] if li > 1 else []
-                pen.holes = [(kx, ky, foot_tube_r - 0.6)
-                             for (kx, ky, _) in keeps]
-                for (bx0, by0, bx1, by1) in (legA, legB):
-                    _wall_rect(bx0, by0, bx1, by1)
-                    tcx = (bx0 + bx1) / 2.0
-                    if li > 1:
-                        _ty126('Wall-Inner')
-                        _emit_loop(pen, _circle(tcx, cy,
-                                                foot_tube_r - wid / 2.0, 20),
-                                   e_wall, 2200)
-                        _emit_loop(pen, _circle(tcx, cy,
-                                                foot_tube_r - _mm(0.65)
-                                                + wid / 2.0, 16), e_wall, 2200)
-                    _hatch_rect(bx0, by0, bx1, by1,
-                                [(tcx, cy, foot_tube_r)] if li > 1 else [])
-                return
-            pen.holes = []
-            if li <= nl_leg + nl_hip:
-                _wall_rect(lx0, ly0, lx1, ly1)
-                _hatch_rect(lx0, ly0, lx1, ly1, [])
-                return
-            # hip tenon: solid disc
-            _ty126('Outer wall')
-            _rings126(pen, cx, cy, hip_ten_r - wid / 2.0, 0.0, e_wall, 2200,
-                      wid)
-
-        def _part_torso(c, li, z):
-            x0 = c['x'] + wid / 2.0
-            x1 = c['x'] + c['bw'] - wid / 2.0
-            y0 = c['y'] + wid / 2.0
-            y1 = c['y'] + c['bl'] - wid / 2.0
-            cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
-            if li == 1:
-                _ty126('Brim')
-                for off in (wid * 0.35, wid * 0.35 + wid):
-                    _loops(c['x'] - off, c['y'] - off,
-                           c['x'] + c['bw'] + off, c['y'] + c['bl'] + off,
-                           e_wall, 1500)
-                _ty126('Bottom surface')
-                _loops(x0, y0, x1, y1, e_wall, 1400)
-                _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid, e_wall, 1600)
-                _hatch_rect(x0, y0, x1, y1, [], 1600)
-                return
-            dz = z - sh_z
-            if abs(dz) < sh_ten_r - wid / 4.0:
-                h = math.sqrt(max(0.0, sh_ten_r * sh_ten_r - dz * dz))
-                if h >= wid / 2.0:
-                    _ty126('Outer wall')
-                    for xe, xs in ((x0 - sh_out, x0 + wid),
-                                   (x1 + sh_out, x1 - wid)):
-                        _loops(min(xe, xs), cy - h, max(xe, xs), cy + h,
-                               e_wall, 2200)
-            if li <= nl_tso:
-                pen.holes = [(cx, cy, tor_so_r - 0.6)]
-                _wall_rect(x0, y0, x1, y1)
-                _ty126('Wall-Inner')
-                _emit_loop(pen, _circle(cx, cy, tor_so_r - wid / 2.0, 24),
-                           e_wall, 2200)
-                _hatch_rect(x0, y0, x1, y1, [(cx, cy, tor_so_r)])
-                return
-            pen.holes = []
-            if li <= nl_tor:
-                _wall_rect(x0, y0, x1, y1)
-                _hatch_rect(x0, y0, x1, y1, [])
-                return
-            # neck post: hollow like a stud
-            _ty126('Outer wall')
-            _emit_loop(pen, _circle(cx, cy, neck_r - wid / 2.0, 20),
-                       e_wall, 2200)
-            _emit_loop(pen, _circle(cx, cy, neck_r - stud_wall + wid / 2.0,
-                                    16), e_wall, 2200)
-
-        def _part_arm(c, li, z):
-            x0 = c['x'] + wid / 2.0
-            x1 = c['x'] + c['bw'] - wid / 2.0
-            y0 = c['y'] + wid / 2.0
-            y1 = c['y'] + c['bl'] - wid / 2.0
-            cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
-            if li == 1:
-                _ty126('Brim')
-                for off in (wid * 0.35, wid * 0.35 + wid):
-                    _loops(c['x'] - off, c['y'] - off,
-                           c['x'] + c['bw'] + off, c['y'] + c['bl'] + off,
-                           e_wall, 1500)
-                _ty126('Bottom surface')
-                _loops(x0, y0, x1, y1, e_wall, 1400)
-                _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid, e_wall, 1600)
-                _hatch_rect(x0, y0, x1, y1, [(cx, cy, grip_r)], 1600)
-                return
-            dz = z - sh_z
-            in_shoulder = abs(dz) < sh_hole_r
-            if in_shoulder and li > nl_arm - 2:
-                # top cap over the shoulder slot: close it
-                pen.holes = []
-                _wall_rect(x0, y0, x1, y1)
-                _ty126('Top surface')
-                _hatch_rect(x0, y0, x1, y1, [], 1700)
-                return
-            if in_shoulder:
-                h = math.sqrt(max(0.0, sh_hole_r * sh_hole_r - dz * dz))
-                pen.holes = [(cx, cy, sh_hole_r - 0.6)]
+            def _wall_rect(x0, y0, x1, y1, feed_in=2400):
                 _ty126('Outer wall')
                 _loops(x0, y0, x1, y1, e_wall, 2200)
                 _ty126('Wall-Inner')
-                for yy in (cy - h + wid / 2.0, cy + h - wid / 2.0):
-                    pen.travel(x0 + wid, yy)
-                    pen.extrude(x1 - wid, yy, (x1 - x0 - 2 * wid) * e_wall,
-                                2400)
-                return
-            pen.holes = []
-            if li <= nl_grip:
-                pen.holes = [(cx, cy, grip_r - 0.6)]
-                _wall_rect(x0, y0, x1, y1)
-                _ty126('Wall-Inner')
-                _emit_loop(pen, _circle(cx, cy, grip_r - wid / 2.0, 20),
-                           e_wall, 2200)
-                _emit_loop(pen, _circle(cx, cy, grip_r - _mm(0.65) + wid / 2.0,
-                                        16), e_wall, 2200)
-                _hatch_rect(x0, y0, x1, y1, [(cx, cy, grip_r)])
-                return
-            if li == nl_arm:
-                _wall_rect(x0, y0, x1, y1)
-                _ty126('Top surface')
-                _hatch_rect(x0, y0, x1, y1, [], 1700)
-                return
-            _wall_rect(x0, y0, x1, y1)
-            _hatch_rect(x0, y0, x1, y1, [])
+                _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid, e_wall, feed_in)
 
-        def _part_head(c, li, z):
-            cx = c['x'] + c['bw'] / 2.0
-            cy = c['y'] + c['bl'] / 2.0
-            if li == 1:
-                _ty126('Brim')
-                for off in (wid * 0.35, wid * 0.35 + wid):
-                    _emit_loop(pen, _circle(cx, cy, head_d / 2.0 + off, 28),
-                               e_wall, 1500)
-                _ty126('Bottom surface')
-                _emit_loop(pen, _circle(cx, cy, head_d / 2.0 - wid / 2.0, 28),
-                           e_wall, 1400)
-                _rings126(pen, cx, cy, head_d / 2.0 - wid, 0.0, e_wall, 1600,
-                          wid)
-                return
-            if li <= nl_hso:
-                pen.holes = [(cx, cy, head_so_r - 0.6)]
-                _ty126('Outer wall')
-                _emit_loop(pen, _circle(cx, cy, head_d / 2.0 - wid / 2.0, 28),
-                           e_wall, 2200)
-                _ty126('Wall-Inner')
-                _emit_loop(pen, _circle(cx, cy, head_d / 2.0 - wid, 26),
-                           e_wall, 2400)
-                _emit_loop(pen, _circle(cx, cy, head_so_r - wid / 2.0, 20),
-                           e_wall, 2200)
+            def _hatch_rect(x0, y0, x1, y1, keeps, feed=1900):
                 _ty126('Internal solid infill')
-                _rings126(pen, cx, cy, head_d / 2.0 - 2 * wid, head_so_r,
-                          e_wall, 1900, wid)
-                return
-            pen.holes = []
-            if li <= nl_hso + nl_hed:
-                _ty126('Outer wall')
-                _emit_loop(pen, _circle(cx, cy, head_d / 2.0 - wid / 2.0, 28),
-                           e_wall, 2200)
-                _ty126('Wall-Inner')
-                _emit_loop(pen, _circle(cx, cy, head_d / 2.0 - wid, 26),
-                           e_wall, 2400)
-                if li == nl_hso + nl_hed:
-                    _ty126('Top surface')
-                else:
-                    _ty126('Internal solid infill')
-                _rings126(pen, cx, cy, head_d / 2.0 - 2 * wid, 0.0, e_wall,
-                          1700 if li == nl_hso + nl_hed else 1900, wid)
-                return
-            # head stud: hollow, takes hats at 100%
-            _ty126('Outer wall')
-            _emit_loop(pen, _circle(cx, cy, stud_r - wid / 2.0, 20),
-                       e_wall, 2200)
-            _emit_loop(pen, _circle(cx, cy, stud_r - stud_wall + wid / 2.0,
-                                    16), e_wall, 2200)
+                for p, q in _brick_hatch(x0 + 2 * wid, y0 + 2 * wid,
+                                         x1 - 2 * wid, y1 - 2 * wid, keeps,
+                                         wid, 45, 0.35):
+                    pen.travel(p[0], p[1])
+                    pen.extrude(q[0], q[1],
+                                math.hypot(q[0] - p[0], q[1] - p[1]) * e_wall,
+                                feed)
 
-        for li in range(1, total_layers + 1):
-            z = round(first_h + (li - 1) * layer_h, 3)
-            a(';LAYER_CHANGE')
-            a(';Z:%.3f' % z)
-            pen.set_z(z)
-            if li == 2:
-                a('M106 S178   ; R2-FIGURES: part fan from layer 2')
-            for c in cells:
+            def _brim_rect(c):
+                if brim:
+                    _ty126('Brim')
+                    for bi in range(brim):
+                        off = wid * 0.35 + bi * wid
+                        _loops(c['x'] - off, c['y'] - off,
+                               c['x'] + c['bw'] + off, c['y'] + c['bl'] + off,
+                               e_wall, 1500)
+
+            def _brim_round(c, cx, cy, r):
+                if brim:
+                    _ty126('Brim')
+                    for bi in range(brim):
+                        _emit_loop(pen, _circle(cx, cy, r + wid * 0.35
+                                                + bi * wid, 28), e_wall, 1500)
+
+            def _tube_hole(cx, cy, r_out, wall):
+                # vertical through-tube: outer ring + inner ring (open top
+                # and bottom - a real hole, not a sealed cavity)
+                _ty126('Wall-Inner')
+                _emit_loop(pen, _circle(cx, cy, r_out - wid / 2.0, 20),
+                           e_wall, 2200)
+                _emit_loop(pen, _circle(cx, cy, r_out - wall + wid / 2.0, 16),
+                           e_wall, 2200)
+
+            def _part_legs(c, li, z):
+                cx = c['x'] + c['bw'] / 2.0
+                cy = c['y'] + c['bl'] / 2.0
+                lx0 = c['x'] + wid / 2.0
+                lx1 = c['x'] + c['bw'] - wid / 2.0
+                ly0 = c['y'] + wid / 2.0
+                ly1 = c['y'] + c['bl'] - wid / 2.0
+                legA = (lx0, ly0, lx0 + leg_w - wid, ly1)
+                legB = (lx1 - leg_w + wid, ly0, lx1, ly1)
+                if li == 1:
+                    _brim_rect(c)
+                    _ty126('Bottom surface')
+                    for (bx0, by0, bx1, by1) in (legA, legB):
+                        _loops(bx0, by0, bx1, by1, e_wall, 1400)
+                        _loops(bx0 + wid, by0 + wid, bx1 - wid, by1 - wid,
+                               e_wall, 1600)
+                        _hatch_rect(bx0, by0, bx1, by1, [], 1600)
+                    return
+                if li <= nl_leg:
+                    keeps = [(cx - leg_w / 2.0 - leg_gap / 2.0, cy,
+                              foot_tube_r),
+                             (cx + leg_w / 2.0 + leg_gap / 2.0, cy,
+                              foot_tube_r)] if li > 1 else []
+                    pen.holes = [(kx, ky, foot_tube_r - 0.6)
+                                 for (kx, ky, _) in keeps]
+                    for (bx0, by0, bx1, by1) in (legA, legB):
+                        _wall_rect(bx0, by0, bx1, by1)
+                        tcx = (bx0 + bx1) / 2.0
+                        if li > 1:
+                            _tube_hole(tcx, cy, foot_tube_r, _mm(0.65))
+                        _hatch_rect(bx0, by0, bx1, by1,
+                                    [(tcx, cy, foot_tube_r)] if li > 1
+                                    else [])
+                    return
                 pen.holes = []
-                if li > c['nl']:
-                    continue
-                a('EXCLUDE_OBJECT_START NAME=%s' % c['name'])
+                if li <= nl_leg + nl_hip:
+                    _wall_rect(lx0, ly0, lx1, ly1)
+                    _hatch_rect(lx0, ly0, lx1, ly1, [])
+                    return
+                # hip tenon: solid disc
+                _ty126('Outer wall')
+                _rings126(pen, cx, cy, hip_ten_r - wid / 2.0, 0.0, e_wall,
+                          2200, wid)
+
+            def _part_torso(c, li, z):
+                x0 = c['x'] + wid / 2.0
+                x1 = c['x'] + c['bw'] - wid / 2.0
+                y0 = c['y'] + wid / 2.0
+                y1 = c['y'] + c['bl'] - wid / 2.0
+                cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+                if li == 1:
+                    _brim_rect(c)
+                    _ty126('Bottom surface')
+                    _loops(x0, y0, x1, y1, e_wall, 1400)
+                    _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid, e_wall, 1600)
+                    _hatch_rect(x0, y0, x1, y1, [], 1600)
+                    return
+                if li <= nl_tso:
+                    pen.holes = [(cx, cy, tor_so_r - 0.6)]
+                    _wall_rect(x0, y0, x1, y1)
+                    _tube_hole(cx, cy, tor_so_r, _mm(1.2))
+                    _hatch_rect(x0, y0, x1, y1, [(cx, cy, tor_so_r)])
+                    return
+                pen.holes = []
+                if li <= nl_tso + nl_tor:
+                    _wall_rect(x0, y0, x1, y1)
+                    _hatch_rect(x0, y0, x1, y1, [])
+                    return
+                # neck post: hollow like a stud
+                _ty126('Outer wall')
+                _emit_loop(pen, _circle(cx, cy, neck_r - wid / 2.0, 20),
+                           e_wall, 2200)
+                _emit_loop(pen, _circle(cx, cy, neck_r - stud_wall + wid / 2.0,
+                                        16), e_wall, 2200)
+
+            def _part_arm(c, li, z):
+                # R132: the arm LIES on the plate (shoulder end at -X, hand
+                # at +X). Shoulder pivot + hand grip = vertical THROUGH-tubes
+                # (open top and bottom) - the assembled arm swings and the
+                # hand really grips O4.8 studs and axes.
+                x0 = c['x'] + wid / 2.0
+                x1 = c['x'] + c['bw'] - wid / 2.0
+                y0 = c['y'] + wid / 2.0
+                y1 = c['y'] + c['bl'] - wid / 2.0
+                cy = (y0 + y1) / 2.0
+                px = c['x'] + _mm(4.0)            # shoulder pivot center
+                gx = c['x'] + c['bw'] - _mm(3.2)  # hand grip center
+                if li == 1:
+                    _brim_rect(c)
+                    _ty126('Bottom surface')
+                    _loops(x0, y0, x1, y1, e_wall, 1400)
+                    _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid, e_wall, 1600)
+                    _hatch_rect(x0, y0, x1, y1,
+                                [(px, cy, sh_hole_r), (gx, cy, grip_r)], 1600)
+                    return
+                _wall_rect(x0, y0, x1, y1)
+                _tube_hole(px, cy, sh_hole_r, _mm(1.2))
+                _tube_hole(gx, cy, grip_r, _mm(0.65))
+                if li == c['nl']:
+                    _ty126('Top surface')
+                    _hatch_rect(x0, y0, x1, y1,
+                                [(px, cy, sh_hole_r), (gx, cy, grip_r)], 1700)
+                else:
+                    _hatch_rect(x0, y0, x1, y1,
+                                [(px, cy, sh_hole_r), (gx, cy, grip_r)])
+
+            def _part_head(c, li, z):
+                cx = c['x'] + c['bw'] / 2.0
+                cy = c['y'] + c['bl'] / 2.0
+                if li == 1:
+                    _brim_round(c, cx, cy, head_d / 2.0)
+                    _ty126('Bottom surface')
+                    _emit_loop(pen, _circle(cx, cy, head_d / 2.0 - wid / 2.0,
+                                            28), e_wall, 1400)
+                    _rings126(pen, cx, cy, head_d / 2.0 - wid, 0.0, e_wall,
+                              1600, wid)
+                    return
+                if li <= nl_hso:
+                    pen.holes = [(cx, cy, head_so_r - 0.6)]
+                    _ty126('Outer wall')
+                    _emit_loop(pen, _circle(cx, cy, head_d / 2.0 - wid / 2.0,
+                                            28), e_wall, 2200)
+                    _ty126('Wall-Inner')
+                    _emit_loop(pen, _circle(cx, cy, head_d / 2.0 - wid, 26),
+                               e_wall, 2400)
+                    _emit_loop(pen, _circle(cx, cy, head_so_r - wid / 2.0, 20),
+                               e_wall, 2200)
+                    _ty126('Internal solid infill')
+                    _rings126(pen, cx, cy, head_d / 2.0 - 2 * wid, head_so_r,
+                              e_wall, 1900, wid)
+                    return
+                pen.holes = []
+                if li <= nl_hso + nl_hed:
+                    _ty126('Outer wall')
+                    _emit_loop(pen, _circle(cx, cy, head_d / 2.0 - wid / 2.0,
+                                            28), e_wall, 2200)
+                    _ty126('Wall-Inner')
+                    _emit_loop(pen, _circle(cx, cy, head_d / 2.0 - wid, 26),
+                               e_wall, 2400)
+                    if li == nl_hso + nl_hed:
+                        _ty126('Top surface')
+                    else:
+                        _ty126('Internal solid infill')
+                    _rings126(pen, cx, cy, head_d / 2.0 - 2 * wid, 0.0,
+                              e_wall,
+                              1700 if li == nl_hso + nl_hed else 1900, wid)
+                    return
+                # head stud: hollow, takes hats at 100%
+                _ty126('Outer wall')
+                _emit_loop(pen, _circle(cx, cy, stud_r - wid / 2.0, 20),
+                           e_wall, 2200)
+                _emit_loop(pen, _circle(cx, cy, stud_r - stud_wall + wid / 2.0,
+                                        16), e_wall, 2200)
+
+            def _part_single(c, li, z):
+                # R132 SINGLE: one fused standing figure - feet click onto
+                # studs, arms grown to the torso (bridge web at the
+                # shoulders), head with chamfered neck, stud on top.
+                cx = c['x'] + c['bw'] / 2.0
+                cy = c['y'] + c['bl'] / 2.0
+                lx0 = c['x'] + (c['bw'] - (leg_w * 2 + leg_gap)) / 2.0
+                lx1 = lx0 + leg_w * 2 + leg_gap
+                ly0 = c['y'] + wid / 2.0
+                ly1 = c['y'] + c['bl'] - wid / 2.0
+                legA = (lx0 + wid / 2.0, ly0, lx0 + leg_w - wid / 2.0, ly1)
+                legB = (lx1 - leg_w + wid / 2.0, ly0, lx1 - wid / 2.0, ly1)
+                tx0 = c['x'] + (c['bw'] - tor_w) / 2.0 + wid / 2.0
+                tx1 = c['x'] + (c['bw'] + tor_w) / 2.0 - wid / 2.0
+                ty0 = c['y'] + (c['bl'] - tor_d) / 2.0 + wid / 2.0
+                ty1 = c['y'] + (c['bl'] + tor_d) / 2.0 - wid / 2.0
+                axL0 = c['x'] + wid / 2.0
+                axL1 = axL0 + arm_w - wid
+                axR1 = c['x'] + c['bw'] - wid / 2.0
+                axR0 = axR1 - arm_w + wid
+                z1 = nl_leg
+                z2 = z1 + nl_hip
+                z3 = z2 + nl_tor
+                z4 = z3 + nl_sho
+                if li == 1:
+                    _brim_rect(c)
+                    _ty126('Bottom surface')
+                    for (bx0, by0, bx1, by1) in (legA, legB):
+                        _loops(bx0, by0, bx1, by1, e_wall, 1400)
+                        _loops(bx0 + wid, by0 + wid, bx1 - wid, by1 - wid,
+                               e_wall, 1600)
+                        _hatch_rect(bx0, by0, bx1, by1, [], 1600)
+                    return
+                if li <= z1:
+                    pen.holes = [(cx - leg_w / 2.0 - leg_gap / 2.0, cy,
+                                  foot_tube_r - 0.6),
+                                 (cx + leg_w / 2.0 + leg_gap / 2.0, cy,
+                                  foot_tube_r - 0.6)]
+                    for (bx0, by0, bx1, by1) in (legA, legB):
+                        _wall_rect(bx0, by0, bx1, by1)
+                        _tube_hole((bx0 + bx1) / 2.0, cy, foot_tube_r,
+                                   _mm(0.65))
+                        _hatch_rect(bx0, by0, bx1, by1,
+                                    [((bx0 + bx1) / 2.0, cy, foot_tube_r)])
+                    return
+                pen.holes = []
+                if li <= z2:
+                    _wall_rect(lx0 + wid / 2.0, ly0, lx1 - wid / 2.0, ly1)
+                    _hatch_rect(lx0 + wid / 2.0, ly0, lx1 - wid / 2.0, ly1, [])
+                    return
+                if li <= z3:
+                    # torso + free-hanging arm columns; the hand grip is a
+                    # HORIZONTAL hole (tech-brick style) so a bar/axis goes
+                    # through the fist front-to-back
+                    hc = _mm(2.45)
+                    hz0 = z2 + 2
+                    hz1 = z2 + 2 + nl_grh
+                    _wall_rect(tx0, ty0, tx1, ty1)
+                    _hatch_rect(tx0, ty0, tx1, ty1, [])
+                    for (ax0, ax1) in ((axL0, axL1), (axR0, axR1)):
+                        acx = (ax0 + ax1) / 2.0
+                        _wall_rect(ax0, ty0, ax1, ty1)
+                        if hz0 < li <= hz1:
+                            dz = (li - hz0 + 0.5) * layer_h - _mm(2.45)
+                            h = math.sqrt(max(0.0, hc * hc - dz * dz)) \
+                                if abs(dz) < hc else 0.0
+                            if h > wid * 0.45:
+                                pen.holes = []
+                                _ty126('Wall-Inner')
+                                for xx in (acx - h, acx + h):
+                                    pen.travel(xx, ty0 + wid)
+                                    pen.extrude(xx, ty1 - wid,
+                                                (ty1 - ty0 - 2 * wid)
+                                                * e_wall, 2400)
+                                _hatch_rect(ax0, ty0, acx - h, ty1, [])
+                                _hatch_rect(acx + h, ty0, ax1, ty1, [])
+                            else:
+                                _hatch_rect(ax0, ty0, ax1, ty1, [])
+                        else:
+                            _hatch_rect(ax0, ty0, ax1, ty1, [])
+                    return
+                if li <= z4:
+                    # shoulder slab: bridges the arm gaps ONCE, then solid
+                    if li == z3 + 1:
+                        _ty126('Bridge')
+                    _wall_rect(axL0 - wid / 2.0, ty0, axR1 + wid / 2.0, ty1)
+                    _ty126('Top surface' if li == z4 else
+                           'Internal solid infill')
+                    _hatch_rect(axL0 - wid / 2.0, ty0, axR1 + wid / 2.0, ty1,
+                                [], 1700 if li == z4 else 1900)
+                    return
+                if li <= z4 + 2:
+                    # chamfered neck (the head overhangs ~2.7mm - 45deg)
+                    _ty126('Outer wall')
+                    nr = neck_r + (li - z4) * _mm(1.35)
+                    _emit_loop(pen, _circle(cx, cy, min(nr, head_d / 2.0
+                                                        - wid / 2.0), 20),
+                               e_wall, 2200)
+                    return
+                if li <= z4 + 2 + nl_hed:
+                    _ty126('Outer wall')
+                    _emit_loop(pen, _circle(cx, cy, head_d / 2.0 - wid / 2.0,
+                                            28), e_wall, 2200)
+                    _ty126('Wall-Inner')
+                    _emit_loop(pen, _circle(cx, cy, head_d / 2.0 - wid, 26),
+                               e_wall, 2400)
+                    if li == z4 + 2 + nl_hed:
+                        _ty126('Top surface')
+                    else:
+                        _ty126('Internal solid infill')
+                    _rings126(pen, cx, cy, head_d / 2.0 - 2 * wid, 0.0,
+                              e_wall,
+                              1700 if li == z4 + 2 + nl_hed else 1900, wid)
+                    return
+                # head stud (hats at 100%)
+                _ty126('Outer wall')
+                _emit_loop(pen, _circle(cx, cy, stud_r - wid / 2.0, 20),
+                           e_wall, 2200)
+                _emit_loop(pen, _circle(cx, cy, stud_r - stud_wall + wid / 2.0,
+                                        16), e_wall, 2200)
+
+            def _emit_part(c, li, z):
                 if c['part'] == 'LEGS':
                     _part_legs(c, li, z)
                 elif c['part'] == 'TORSO':
                     _part_torso(c, li, z)
                 elif c['part'] == 'HEAD':
                     _part_head(c, li, z)
+                elif c['part'] == 'SINGLE':
+                    _part_single(c, li, z)
                 else:
                     _part_arm(c, li, z)
-                a('EXCLUDE_OBJECT_END NAME=%s' % c['name'])
-        a(';TYPE:Custom')
-        a('APPLY_TYPE TYPE=Custom')
-        a('M107')
-        a('PRINT_END')
-        sk.flush()
 
-    info = {'file': fname, 'kind': 'figures', 'count': count,
-            'scale': round(scale, 1), 'parts': len(cells),
+            def _layer_head(li, z):
+                a(';LAYER_CHANGE')
+                a(';Z:%.3f' % z)
+                a('LAYER_MARK')
+                pen.set_z(z)
+                if li == 2:
+                    a('M106 S178   ; R2-FIGURES: part fan from layer 2')
+
+            if seq_obj:
+                prev_ci = None
+                for c in plist:
+                    if prev_ci is not None and c['ci'] != prev_ci:
+                        a('M117 Figures: next color %s' % 'ABCD'[c['ci']])
+                        a('M600')
+                    prev_ci = c['ci']
+                    pen.holes = []
+                    for li in range(1, c['nl'] + 1):
+                        z = round(first_h + (li - 1) * layer_h, 3)
+                        _layer_head(li, z)
+                        _emit_part(c, li, z)
+            else:
+                for li in range(1, pl_layers + 1):
+                    z = round(first_h + (li - 1) * layer_h, 3)
+                    _layer_head(li, z)
+                    for c in plist:
+                        pen.holes = []
+                        if li > c['nl']:
+                            continue
+                        _emit_part(c, li, z)
+            a('M107')
+            a('PRINT_END')
+            sk.flush()
+
+    info = {'file': out_files[0] if out_files else '',
+            'plate_files': out_files, 'kind': 'figures',
+            'count': count, 'mode': mode,
+            'scale': round(scale, 1),
+            'parts': (count if mode == 'SINGLE' else len(cells)),
             'layers': total_layers,
             'thickness': round(total_layers * layer_h, 2),
             'height_mm': round(assembled, 2),
+            'colors': colors, 'colormode': colormode, 'brim': brim,
             'notes': notes}
-    return out, info
+    return first_out, info
 
 
 def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
@@ -13814,14 +14387,26 @@ def _sv_line(var, val):
     return 'SAVE_VARIABLE VARIABLE=%s VALUE=%r' % (var, val)
 
 
-def _moonraker_gcode(script, host='127.0.0.1', port=7125):
-    """Send a g-code script to Klipper via moonraker's local HTTP API (best effort)."""
+def _moonraker_gcode(script, host='127.0.0.1', port=7125, timeout=8.0,
+                      retries=2):
+    """Send a g-code script to Klipper via moonraker's local HTTP API (best
+    effort). R132 field log .92: a busy Pi Zero (watcher thread + klippy)
+    missed the old 3s timeout - done-reports read as 'ERROR: timed out'
+    although the job itself was fine. 8s + 1 retry, then give up quietly."""
     import urllib.request
     body = json.dumps({'script': script}).encode()
-    req = urllib.request.Request(f'http://{host}:{port}/printer/gcode/script',
-                                 data=body, headers={'Content-Type': 'application/json'})
-    with urllib.request.urlopen(req, timeout=3) as r:
-        return r.status == 200
+    last = None
+    for _try in range(max(1, int(retries))):
+        try:
+            req = urllib.request.Request(
+                f'http://{host}:{port}/printer/gcode/script',
+                data=body, headers={'Content-Type': 'application/json'})
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return r.status == 200
+        except Exception as e:                  # noqa: BLE001
+            last = e
+    print('[moonraker] gcode send failed: %r' % last, flush=True)
+    return False
 
 
 def _gen_out(rv):
@@ -14028,6 +14613,8 @@ def watch(directory, interval=5.0, once=False):
                      'the next file selection' if '404' in str(e) else ''),
                   flush=True)
 
+    FIX_DONE = []          # R132: files fixed this pass (auto re-select)
+
     def file_fix(kind, name):
         """R85: fix a file IN PLACE - no re-upload (LCD: Pre-Print > File >
         RetFix file / Vol->mm fix queues itself via a save_variables nonce).
@@ -14148,6 +14735,10 @@ def watch(directory, interval=5.0, once=False):
             _moonraker_gcode('RESPOND MSG="File fix ERROR: %s"\n'
                              'M117 Fix error\n_SOUND_LIB NAME=r2_error' % e)
             print(f'[filefix] {rel}: {e!r}', flush=True)
+        else:
+            # R132: completed without error -> eligible for the auto
+            # re-select (the start dialog was released before the fix)
+            FIX_DONE.append(rel)
 
     def data_head_if_text(p):
         try:
@@ -14369,8 +14960,11 @@ def watch(directory, interval=5.0, once=False):
                         # its stored settings (pre/post, whichever is newer)
                         # apply to Pre-Print. The macro no-ops without a
                         # profile or when auto-load is off.
+                        # R132 field log .92: the macro is FILE_PROFILE_AUTO
+                        # (05_materials.cfg) - the underscore variant spams
+                        # 'Unknown command' on every file selection.
                         script_lines.append(
-                            '_FILE_PROFILE_AUTO FILE="%s"'
+                            'FILE_PROFILE_AUTO FILE="%s"'
                             % str(pfn).replace('"', '').replace(';', '')
                                      .replace("'", ''))
                         try:
@@ -14565,6 +15159,30 @@ def watch(directory, interval=5.0, once=False):
                 file_fix('vol', str(rv.get('vol_fix_file', '')).strip())
         except Exception as e:                              # noqa: BLE001
             print(f'[volfix] poll error: {e!r}', flush=True)
+
+        # R132 field log .92: a fix during the start dialog released the
+        # dialog (the file changes on disk) - after fixing, the file comes
+        # BACK ON ITS OWN: re-select it so only the confirmation is left.
+        try:
+            frs = str(rv.get('fix_reselect', '') or '').strip()
+            if frs:
+                if frs in FIX_DONE:
+                    _moonraker_gcode(
+                        'SAVE_VARIABLE VARIABLE=fix_reselect VALUE=\'""\'\n'
+                        'RESPOND MSG="[OK] {0} fixed - re-loaded, just '
+                        'confirm the start"\n'
+                        'M117 Fixed - confirm?\n'
+                        '_SOUND_LIB NAME=r2_done\n'
+                        'SDCARD_PRINT_FILE FILENAME="{1}"'.format(frs, frs))
+                    print(f'[fixreselect] {frs} re-selected after fix',
+                          flush=True)
+                else:
+                    # stale or failed - clear so it never fires later
+                    _moonraker_gcode(
+                        'SAVE_VARIABLE VARIABLE=fix_reselect VALUE=\'""\'')
+        except Exception as e:                              # noqa: BLE001
+            print(f'[fixreselect] error: {e!r}', flush=True)
+        FIX_DONE.clear()
 
         # R63: label generator request from the LCD (label_gen_nonce bumps per job)
         try:
@@ -15060,6 +15678,10 @@ def watch(directory, interval=5.0, once=False):
                 _bparams121 = dict(
                     jobs=_jobs121,
                     layer_h=_vfbr121('bricks_layer_h', 0.2),
+                    brim=int(str(rv.get('brick_brim', 2) or 2)),
+                    colors=int(str(rv.get('brick_colors', 1) or 1)),
+                    mode=str(rv.get('brick_mode', 'BY_LAYER')
+                             or 'BY_LAYER'),
                     material=str(rv.get('material', 'PLA') or 'PLA'),
                     bed=_bed_limits(os.path.join(
                         os.path.dirname(os.path.abspath(directory).rstrip('/')),
@@ -15073,13 +15695,18 @@ def watch(directory, interval=5.0, once=False):
                         out_b, info_b = make_bricks(**params)
                         _brel121 = os.path.relpath(
                             os.path.join(directory, info_b['file']), directory)
-                        _bmsg121 = ('Bricks: %s - %d part(s) (%d brick(s), '
-                                    '%d plate(s), %d tile(s)), %d layers, '
-                                    '%.1fmm tall - selected for printing'
+                        _kinds132 = ', '.join(
+                            '%d %s(s)' % (n, k)
+                            for k, n in (info_b.get('kinds') or {}).items())
+                        _plates132 = info_b.get('plate_files') or []
+                        _bmsg121 = ('Bricks: %s - %d part(s) (%s), %d layers,'
+                                    ' %.1fmm tall%s - selected for printing'
                                     % (info_b['file'], info_b['count'],
-                                       info_b['bricks'], info_b['plates'],
-                                       info_b['tiles'], info_b['layers'],
-                                       info_b['thickness']))
+                                       _kinds132 or 'none', info_b['layers'],
+                                       info_b['thickness'],
+                                       ' - %d plate(s), one color each'
+                                       % len(_plates132)
+                                       if len(_plates132) > 1 else ''))
                         for _n121 in info_b.get('notes', [])[:3]:
                             _bmsg121 += ' | ' + _n121
                         _bmsg121 += (' | every part its own object - a failed '
@@ -15229,6 +15856,11 @@ def watch(directory, interval=5.0, once=False):
                     scale=max(25.0, min(_vff126('figures_scale', 100.0),
                                         300.0)),
                     layer_h=_vff126('bricks_layer_h', 0.2),
+                    brim=int(str(rv.get('figures_brim', 2) or 2)),
+                    mode=str(rv.get('figures_mode', 'PARTS') or 'PARTS'),
+                    colors=int(str(rv.get('figures_colors', 1) or 1)),
+                    colormode=str(rv.get('figures_colormode', 'BY_LAYER')
+                                  or 'BY_LAYER'),
                     material=str(rv.get('material', 'PLA') or 'PLA'),
                     bed=_bed_limits(os.path.join(
                         os.path.dirname(os.path.abspath(directory).rstrip('/')),
@@ -15241,20 +15873,37 @@ def watch(directory, interval=5.0, once=False):
                     try:
                         _of126, _if126 = make_figures(**params)
                         _frel126 = os.path.relpath(_of126, directory)
-                        _fmsg126 = ('Figures: %s - %d figure(s) at %g%%, %d '
-                                    'parts, %d layers, %.1fmm tall - '
-                                    'selected for printing'
-                                    % (_if126['file'], _if126['count'],
-                                       _if126['scale'], _if126['parts'],
-                                       _if126['layers'], _if126['height_mm']))
-                        if abs(_if126['scale'] - 100.0) < 0.5:
+                        _sing132 = _if126.get('mode') == 'SINGLE'
+                        _pfiles132 = _if126.get('plate_files') or []
+                        _fmsg126 = ('Figure%s: %s - %d figure(s) at %g%%, %s, '
+                                    '%d layers, %.1fmm tall%s - selected for'
+                                    ' printing'
+                                    % ('' if _if126['count'] == 1 else 's',
+                                       _if126['file'], _if126['count'],
+                                       _if126['scale'],
+                                       'ONE PIECE (fused)' if _sing132
+                                       else '%d parts' % _if126['parts'],
+                                       _if126['layers'],
+                                       _if126['height_mm'],
+                                       ' - %d plate(s), one color each'
+                                       % len(_pfiles132)
+                                       if len(_pfiles132) > 1 else ''))
+                        if not _sing132 and abs(_if126['scale'] - 100.0) < 0.5:
                             _fmsg126 += (' | 100%: hands grip studs and axes,'
                                          ' hats sit on heads, feet click onto'
                                          ' studs')
                         else:
                             _fmsg126 += ' | scaled - mates only at 100%'
-                        _fmsg126 += (' | assembly without glue: arms swing,'
-                                     ' the head turns')
+                        if _sing132:
+                            _fmsg126 += (' | fused single piece - no assembly,'
+                                         ' no clutch elements (feet still'
+                                         ' click onto studs, hats still fit'
+                                         ' at 100%)')
+                        else:
+                            _fmsg126 += (' | assembly without glue: arms'
+                                         ' swing, the head turns - the arm'
+                                         ' prints lying, both holes are real'
+                                         ' through-tubes (R132)')
                         for _n126 in _if126.get('notes', [])[:3]:
                             _fmsg126 += ' | ' + _n126
                         _moonraker_gcode(

@@ -69,7 +69,10 @@ def check_gcode(name, path, bed=BED, skip_idem=False, extra_types=(), plot=False
     try:
         txt = open(path, encoding='utf-8', errors='replace').read()
     except OSError as e:
-        return ['unreadable: %r' % e]
+        probs = ['unreadable: %r' % e]
+        for pr in probs:
+            fails.append((name, pr))
+        return probs
     lines = txt.split('\n')
     # -- bed bounds (G0+G1 with X/Y)
     for m in re.finditer(r'^G[01] X([-\d.]+) Y([-\d.]+)', txt, re.M):
@@ -80,7 +83,8 @@ def check_gcode(name, path, bed=BED, skip_idem=False, extra_types=(), plot=False
             break
     # -- z monotonic
     zs = [float(m.group(1)) for m in re.finditer(r'^;Z:([-\d.]+)', txt, re.M)]
-    if any(b < a - 1e-9 for a, b in zip(zs, zs[1:])):
+    if ('BY_OBJECT=1' not in txt
+            and any(b < a - 1e-9 for a, b in zip(zs, zs[1:]))):
         probs.append('z not monotonic (%d steps)' % len(zs))
     # -- EXCLUDE balance
     starts = re.findall(r'^EXCLUDE_OBJECT_START NAME=(\S+)', txt, re.M)
@@ -460,6 +464,56 @@ if src_path:
     run('range mid 5-20', lambda: RG(5, 20))
     run('range floor+top+brim', lambda: RG(2, 30, floor=4, top=4, brim=3))
     run('range top-only 30-38', lambda: RG(30, 38, top=6))
+
+# ========================================================= BRICKS R132 ===
+# R132: bricks / figures / kit were COMPLETELY absent here - the field-log
+# .92 APPLY_TYPE bug (pretty names with spaces -> 'Malformed command')
+# slipped through exactly because of that. The stress suite covers the
+# full matrix; this is the standing smoke net.
+def _pl(out, names):
+    # info lists plate BASENAMES - resolve against the writer's out_dir
+    return [os.path.join(os.path.dirname(out), f) for f in (names or [])] or [out]
+
+
+def BR(**kw):
+    out, i = pp.make_bricks(bed=BED, out_dir=tempfile.mkdtemp(dir=D), **kw)
+    return _pl(out, i.get('plate_files'))
+
+run('bricks mixed queue', lambda: BR(jobs=[('B2x4', 2), ('P2x2', 1),
+                                           ('T1x2', 2)]), r2_gen=True)
+run('bricks slopes+arch', lambda: BR(jobs=[('S1x3', 1), ('S2x6', 1),
+                                           ('A1x4', 1)]), r2_gen=True)
+run('bricks tech+round', lambda: BR(jobs=[('H1x6', 1), ('R1x1', 2),
+                                          ('C1x1', 1), ('J1x2', 1),
+                                          ('RT1x1', 2)]), r2_gen=True)
+run('bricks inverted slope', lambda: BR(jobs=[('I2x3', 2)]), r2_gen=True)
+run('bricks colors BY_LAYER', lambda: BR(jobs=[('B2x4', 2), ('P2x2', 2)],
+                                         colors=3, mode='BY_LAYER'),
+    r2_gen=True)
+run('bricks colors BY_OBJECT', lambda: BR(jobs=[('B2x4', 2), ('T1x2', 2)],
+                                          colors=2, mode='BY_OBJECT'),
+    r2_gen=True)
+run('bricks nobrim', lambda: BR(jobs=[('B1x1', 1)], brim=0), r2_gen=True)
+
+def FG(**kw):
+    out, i = pp.make_figures(bed=BED, out_dir=tempfile.mkdtemp(dir=D), **kw)
+    return _pl(out, i.get('plate_files'))
+
+run('figures parts 100', lambda: FG(count=1, scale=100), r2_gen=True)
+run('figures single 100', lambda: FG(count=1, scale=100, mode='SINGLE'),
+    r2_gen=True)
+run('figures parts colors', lambda: FG(count=1, scale=100, colors=4,
+                                       colormode='BY_LAYER'), r2_gen=True)
+run('figures 50 display', lambda: FG(count=1, scale=50), r2_gen=True)
+
+_bsrc = pp.make_bricks(jobs=[('B2x2', 2)], bed=BED,
+                       out_dir=tempfile.mkdtemp(dir=D))[0]
+run('brickkit BY_LAYER', lambda: (lambda r: _pl(r[0], r[1]['plates']))(
+    pp.make_brick_kit(_bsrc, bed=BED, mode='BY_LAYER', colors=2,
+                      out_dir=tempfile.mkdtemp(dir=D))), r2_gen=True)
+run('brickkit BY_OBJECT', lambda: (lambda r: _pl(r[0], r[1]['plates']))(
+    pp.make_brick_kit(_bsrc, bed=BED, mode='BY_OBJECT', colors=2,
+                      out_dir=tempfile.mkdtemp(dir=D))), r2_gen=True)
 
 # ========================================================= TEXTURE ========
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))

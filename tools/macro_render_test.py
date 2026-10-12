@@ -3796,7 +3796,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.92) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-12.92'", repr(_v66)))
+    _v66 == "'R2-2026-10-12.93'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -6053,8 +6053,11 @@ tests.append(('R85 FIX_FILE VOL: queues the volumetric conversion',
 state_vars['mode'] = 'waiting'
 out = render(_ff85, {'WHAT': 'RETRACT'})
 tests.append(('R85 FIX_FILE: held start dialog is RELEASED first (file changes on disk)',
-    'VARIABLE=start_decision VALUE=\'"cancel"\'' in out
-    and 'VARIABLE=retract_fix_file' in out, out[:150]))
+    'VARIABLE=start_decision VALUE=\'""\'' in out
+    and 'VARIABLE=mode VALUE=\'"idle"\'' in out
+    and 'CANCEL_PRINT_BASE' in out and '_WAIT_IDLE_RESTORE' in out
+    and 'VARIABLE=retract_fix_file' in out
+    and 'VARIABLE=fix_reselect' in out, out[:150]))
 state_vars['mode'] = 'printing'
 out = render(_ff85, {'WHAT': 'RETRACT'})
 tests.append(('R85 FIX_FILE: blocked during a print',
@@ -9598,7 +9601,8 @@ tests.append(('R109 PRINT_END writes the post profile (after the capture)',
     and _ctg109.index('_CAPTURE_PRINT_SETTINGS') < _ctg109.index('_FILE_PROFILE_AUTOSAVE'), ''))
 _w109 = open('tools/r2_postproc.py', encoding='utf-8').read()
 tests.append(('R109 watcher: selection pushes FILE_PROFILE_AUTO + gen_out gates every generator',
-    '_FILE_PROFILE_AUTO FILE=' in _w109 and 'def _gen_out' in _w109
+    'FILE_PROFILE_AUTO FILE=' in _w109 and 'def _gen_out' in _w109
+    and '_FILE_PROFILE_AUTO FILE=' not in _w109
     and _w109.count('_sel_line(rv') >= 12
     and _w109.count('_sel_note(rv') >= 7, ''))
 _lcd109 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
@@ -10770,9 +10774,9 @@ tests.append(('R121b modules: 19_bricks.cfg sentinel + _CHECK_INSTALL + include'
 # --- catalog sync: python BRICK_CATALOG == cfg variable_catalog ---
 _cat122 = _re122.findall(r"variable_catalog: \[([^\]]+)\]",
                          open('macros/19_bricks.cfg').read())
-_codes122 = _re122.findall(r"'([BPT]\d+x\d+)'", _cat122[0]) if _cat122 else []
-tests.append(('R121b catalog: cfg list == BRICK_CATALOG (45 codes, in sync)',
-    sorted(_codes122) == sorted(_pp61.BRICK_CATALOG) and len(_codes122) == 45,
+_codes122 = _re122.findall(r"'([A-Z]+\d+x\d+)'", _cat122[0]) if _cat122 else []
+tests.append(('R121b catalog: cfg list == BRICK_CATALOG (76 codes, ALL families, in sync)',
+    sorted(_codes122) == sorted(_pp61.BRICK_CATALOG) and len(_codes122) == 76,
     'diff %s' % (set(_codes122) ^ set(_pp61.BRICK_CATALOG) or 'none')))
 
 # --- generator file invariants (real file) ---
@@ -10780,11 +10784,24 @@ _d122 = _tf61.mkdtemp(prefix='r122_')
 _o122, _i122 = _pp61.make_bricks([('B2x4', 1), ('P2x2', 1)], out_dir=_d122,
                                  bed=(0.0, -3.0, 220.0, 217.0))
 _g122 = open(_o122, encoding='utf-8').read()
-tests.append(('R121b make_bricks: bodies exact (2x4=15.8x31.8, 2x2 plate 15.8x15.8)',
-    _i122['kind'] == 'bricks' and _i122['count'] == 2
-    and '[[%.1f,%.1f]' % (0, 0) in _g122 or True
-    and _re122.search(r'POLYGON=\[\[([\d.]+),([\d.]+)\],\[([\d.]+),([\d.]+)\]', _g122) is not None
-    and '15.8' in _g122 and '31.8' in _g122, str(_i122)[:120]))
+_sp122 = []
+for _pm in _re122.finditer(
+        r'POLYGON=\[\[([\d.]+),([\d.]+)\],\[([\d.]+),([\d.]+)\],'
+        r'\[([\d.]+),([\d.]+)\],\[([\d.]+),([\d.]+)\]\]', _g122):
+    _xs = [float(_pm.group(i)) for i in (1, 3, 5, 7)]
+    _ys = [float(_pm.group(i)) for i in (2, 4, 6, 8)]
+    _sp122.append((round(max(_xs) - min(_xs), 2), round(max(_ys) - min(_ys), 2),
+                   round((max(_xs) + min(_xs)) / 2.0, 1),
+                   round((max(_ys) + min(_ys)) / 2.0, 1)))
+# R132 (wwww): centered on the bed as a general rule - bed (0,-3,220,217)
+# has its center at (110, 107)
+tests.append(('R121b make_bricks: bodies exact (2x4=15.8x31.8, 2x2 plate 15.8x15.8)'
+              ' + centered (R132)',
+    _i122['kind'] == 'bricks' and _i122['count'] == 2 and len(_sp122) == 2
+    and (15.8, 31.8) in [(a, b) for a, b, _, _ in _sp122]
+    and (15.8, 15.8) in [(a, b) for a, b, _, _ in _sp122]
+    and all(abs(c - 110) <= 15 and abs(d - 107) <= 15 for _, _, c, d in _sp122),
+    'spans %s' % ([(a, b, c, d) for a, b, c, d in _sp122],)))
 tests.append(('R121b make_bricks: EXCLUDE balance + TAG + PRINT_START/END + APPLY',
     _g122.count('EXCLUDE_OBJECT_START') == _g122.count('EXCLUDE_OBJECT_END')
     and _g122.count('EXCLUDE_OBJECT_DEFINE') == 2
@@ -10893,14 +10910,23 @@ tests.append(('R122 make_plot_cal: R2-PLOT file (63 dots, strokes, area 100x140)
 
 # --- LCD wiring ---
 _lcd122 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
-tests.append(('R121b LCD: Bricks menu - catalog groups, queue, settings, CREATE',
+tests.append(('R121b LCD: Bricks menu - 9 catalog groups, queue, settings, CREATE',
     all(k in _lcd122 for k in ['[menu __main __gen __bricks]',
         '__bricks __cat __br]', '__bricks __cat __pl]', '__bricks __cat __ti]',
-        '__bricks __cat __B24]', '__bricks __cat __P22]',
-        '__bricks __cat __T12]', '__bricks __q __del]', '__bricks __q __clr]',
-        '__bricks __set __lh]', '__bricks __create]',
+        '__bricks __cat __sl]', '__bricks __cat __iv]', '__bricks __cat __ar]',
+        '__bricks __cat __te]', '__bricks __cat __ro]',
+        '__bricks __cat __br __B2x4]', '__bricks __cat __pl __P2x2]',
+        '__bricks __cat __ti __T1x2]', '__bricks __cat __sl __S2x6]',
+        '__bricks __cat __iv __I2x3]', '__bricks __cat __ar __A1x6]',
+        '__bricks __cat __te __H1x8]', '__bricks __cat __ro __C1x1]',
+        '__bricks __cat __ro __RT1x1]',
+        '__bricks __q __del]', '__bricks __q __clr]',
+        '__bricks __set __lh]', '__bricks __set __brim]', '__bricks __set __col]',
+        '__bricks __set __mod __layer]', '__bricks __set __mod __obj]',
+        '__bricks __create]',
         'BRICK_ADD CODE=', 'BRICK_CREATE',
-        "enable: {'gcode_macro _BRICKS' in printer}"]), 'ids'))
+        "enable: {'gcode_macro _BRICKS' in printer}"])
+    and _lcd122.count('BRICK_ADD CODE=') == 76, 'ids'))
 tests.append(('R122 LCD: Cal test in the Plotter menu',
     '__plot __cal]' in _lcd122 and 'PLOT_CAL' in _lcd122, ''))
 tests.append(('R122 LCD: flow cap range 0.5..50 + high-flow hint',
@@ -11238,7 +11264,33 @@ tests.append(('R126 GEN_FIGURES: no params -> saved vars win, nonce bumps',
     'VARIABLE=figures_nonce VALUE=1' in _re122.sub(r'\s+', ' ', out)
     and 'VARIABLE=figures_scale VALUE=100' in out
     and 'VARIABLE=figures_count VALUE=1' in out
-    and 'r2_confirm' in out and 'background thread' in out, out[:130]))
+    and 'VARIABLE=figures_mode VALUE=\"\\\"PARTS\\\"\"' in _re122.sub(r'\s+', ' ', out)
+    and 'r2_confirm' in out and 'LYING' in out, out[:130]))
+out = render(_body122('GEN_FIGURES'), {'MODE': 'SINGLE'})
+tests.append(('R132 GEN_FIGURES: SINGLE mode saved + fused-piece note',
+    'VARIABLE=figures_mode VALUE=\"\\\"SINGLE\\\"\"' in _re122.sub(r'\s+', ' ', out)
+    and 'background thread' in out and 'no clutch elements' in out, out[:130]))
+out = render(_body122('GEN_FIGURES'), {'MODE': 'WEIRD'})
+tests.append(('R132 GEN_FIGURES: bad MODE rejected',
+    'MODE: PARTS' in out and 'VARIABLE=figures_nonce' not in out, ''))
+out = render(_body122('GEN_FIGURES'), {'COLORS': '9'})
+tests.append(('R132 GEN_FIGURES: COLORS 9 rejected (1..4 zone colors)',
+    'COLORS must be 1..4' in out and 'VARIABLE=figures_nonce' not in out, ''))
+out = render(_body122('GEN_FIGURES'), {'BRIM': '12'})
+tests.append(('R132 GEN_FIGURES: BRIM 12 rejected (0..8)',
+    'BRIM must be 0..8' in out and 'VARIABLE=figures_nonce' not in out, ''))
+out = render(_body122('GEN_FIGURES'), {'COLORMODE': 'NOPE'})
+tests.append(('R132 GEN_FIGURES: bad COLORMODE rejected',
+    'COLORMODE: BY_LAYER' in out and 'VARIABLE=figures_nonce' not in out, ''))
+out = render(_body122('GEN_FIGURES'), {'SCALE': '150', 'COUNT': '3', 'MODE': 'SINGLE',
+                                       'COLORS': '4', 'BRIM': '0', 'COLORMODE': 'BY_OBJECT'})
+tests.append(('R132 GEN_FIGURES: full param set saved + paced',
+    'VARIABLE=figures_scale VALUE=150' in out
+    and 'VARIABLE=figures_count VALUE=3' in out
+    and 'VARIABLE=figures_colors VALUE=4' in out
+    and 'VARIABLE=figures_brim VALUE=0' in out
+    and 'VARIABLE=figures_colormode VALUE=\"\\\"BY_OBJECT\\\"\"' in _re122.sub(r'\s+', ' ', out)
+    and 'VARIABLE=figures_nonce VALUE=1' in out and '_PACE' in out, out[:130]))
 out = render(_body122('GEN_FIGURES'), {'SCALE': '400'})
 tests.append(('R126 GEN_FIGURES: scale 400 rejected',
     'SCALE must be 25..300' in out and 'VARIABLE=figures_nonce' not in out, ''))
