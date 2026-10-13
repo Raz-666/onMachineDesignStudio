@@ -3795,8 +3795,8 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         _v66 = _l66.split(':', 1)[1].strip()
         break
 # NOTE: bump this expectation together with the version on every release!
-tests.append(('R66/R80 version is current (.97) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-13.97'", repr(_v66)))
+tests.append(('R66/R80 version is current (.98) in 01_state.cfg (bump together with release!)',
+    _v66 == "'R2-2026-10-13.98'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -11141,11 +11141,21 @@ save_vars['brickkit_detail'] = 'AUTO'
 save_vars['brickkit_mode'] = 'BY_LAYER'
 save_vars['brickkit_colors'] = 3
 save_vars['brickkit_nonce'] = 0
+preview_vars['name'] = 'castle.gcode'   # R133d: the selection lives in the
+# in-memory _PREVIEW card (R75) - save_variables.preview_* is only a fallback
 out = render(_body122('GEN_BRICKKIT'), {})
-tests.append(('R125b GEN_BRICKKIT: no params -> saved vars win, nonce bumps',
+tests.append(('R125b GEN_BRICKKIT (R133d): no params -> the SELECTED file wins,'
+              ' nonce bumps (never a guessed newest job)',
     'VARIABLE=brickkit_nonce VALUE=1' in _re122.sub(r'\s+', ' ', out)
-    and 'VARIABLE=brickkit_src' in out and 'VARIABLE=brickkit_colors VALUE=3' in out
+    and 'castle.gcode' in out and 'VARIABLE=brickkit_colors VALUE=3' in out
     and 'background thread' in out and 'r2_confirm' in out, out[:130]))
+preview_vars['name'] = ''
+out = render(_body122('GEN_BRICKKIT'), {})
+tests.append(('R125b GEN_BRICKKIT (R133d): nothing selected -> clear error,'
+              ' no nonce',
+    'no file selected' in out and 'M117 Pick a file' in out
+    and 'VARIABLE=brickkit_nonce' not in out, out[:130]))
+preview_vars['name'] = 'castle.gcode'
 out = render(_body122('GEN_BRICKKIT'), {'SRC': 'sub/box.gcode'})
 tests.append(('R125b GEN_BRICKKIT: path in SRC rejected (no nonce)',
     'no paths' in out and 'VARIABLE=brickkit_nonce' not in out, out[:100]))
@@ -11171,19 +11181,21 @@ tests.append(('R125b GEN_BRICKKIT: full params -> all five saved + paced',
     all(_x in _re122.sub(r'\s+', ' ', out) for _x in (
         'VARIABLE=brickkit_src VALUE=' + chr(34) + _q125 + 'mybox.gcode'
         + _q125 + chr(34),
-        'VARIABLE=brickkit_index VALUE=0', 'VARIABLE=brickkit_detail VALUE='
+        'VARIABLE=brickkit_index VALUE=-1', 'VARIABLE=brickkit_detail VALUE='
         + chr(34) + _q125 + 'BIG' + _q125 + chr(34),
         'VARIABLE=brickkit_mode VALUE=' + chr(34) + _q125 + 'BY_OBJECT'
         + _q125 + chr(34), 'VARIABLE=brickkit_colors VALUE=5',
         'VARIABLE=brickkit_nonce VALUE=1', '_PACE'))
     and 'r2_done' not in out, out[:130]))
+preview_vars['name'] = ''
 
 _lcd125 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
-tests.append(('R125b LCD: Tools > Bricks > Kit menu complete (source slots,'
-              ' detail, mode, colors 1-8, CREATE)',
+tests.append(('R125b LCD: Tools > Bricks > Kit menu complete (source = the'
+              ' SELECTED file, detail, mode, colors 1-8, CREATE)',
     all(_x in _lcd125 for _x in (
-        '[menu __main __gen __bricks __kit]', '[menu __main __gen __bricks __kit __src __j1]',
-        '[menu __main __gen __bricks __kit __src __j5]',
+        '[menu __main __gen __bricks __kit]',
+        '[menu __main __gen __bricks __kit __src]',
+        "gcode_macro _PREVIEW'].name",
         '[menu __main __gen __bricks __kit __det __auto]',
         '[menu __main __gen __bricks __kit __det __micro]',
         '[menu __main __gen __bricks __kit __det __small]',

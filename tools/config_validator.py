@@ -71,6 +71,7 @@ def pruefe_template(txt, wo):
         _ast_v = env.parse(gelesen)
     except Exception as e:
         fehler.append(f"{wo}: Jinja error (after Klipper comment strip): {e}\n    >>> {gelesen[:160]}")
+        return
 
     # R130 (Boot-Blocker-Klasse .47/.90): unbekannte Filter/Tests. Jinja >= 3.1
     # kompiliert sie STILL (der Fehler erscheint erst beim Laden auf dem

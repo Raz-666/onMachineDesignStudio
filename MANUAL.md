@@ -2233,7 +2233,7 @@ while plotting (ch. C.3).
 | Catalog | all 45 codes (B/P/T × 1x1…8x8) — press bumps the count, same codes merge, max 120 parts |
 | Settings | Layer 0.08–0.32 · Vers V01–V09 |
 | Create | builds `00_Bricks_V01.gcode` from the queue (beeps + selects) |
-| Kit from file | Source: 1st…5th newest job (or SRC= via Mainsail) · Detail: AUTO/MICRO 4.8/SMALL 9.6/BIG 3.2 · Mode: By plate (1 color/plate, zero M600) / By object (M600 at color boundaries) · Colors 1–8 · CREATE kit |
+| Kit from file | Source: the file SELECTED in the file list (or SRC=/INDEX= via Mainsail; nothing selected = clear error) · Detail: AUTO/MICRO 4.8/SMALL 9.6/BIG 3.2 · Mode: By plate (1 color/plate, zero M600) / By object (M600 at color boundaries) · Colors 1–8 · CREATE kit |
 | Figures | Scale 25–300 % (5 % steps) · Count 1–24 · CREATE figure |
 
 **ColorPic** (color pictures, in Tools — ch. 5.13)
@@ -2994,7 +2994,7 @@ All 150 public macros with parameters (defaults in parentheses; blank = no param
 | **BRICK_SHOW** | — | list the queue |
 | **BRICK_INFO** | — | settings + geometry summary |
 | **BRICK_CREATE** | OUT=QUEUE/PREVIEW | build the file from the queue (bumps bricks_nonce; the watcher builds, beeps + selects) |
-| **GEN_BRICKKIT** | SRC='box.gcode', INDEX=0–4, DETAIL=AUTO/MICRO/SMALL/BIG, MODE=BY_LAYER/BY_OBJECT, COLORS=1–8 | sliced file → stylized kit (SRC=LAST or empty + INDEX pick the newest jobs; without params the saved menu values win) |
+| **GEN_BRICKKIT** | SRC='box.gcode', INDEX=0–4, DETAIL=AUTO/MICRO/SMALL/BIG, MODE=BY_LAYER/BY_OBJECT, COLORS=1–8 | sliced file → stylized kit (source = the file selected in the file list, like Texture; Mainsail: SRC=name or INDEX=0–4 = recent jobs; no silent newest-job fallback) |
 | **GEN_FIGURES** | SCALE=25–300, COUNT=1–24 | figures at % scale — 5 parts each, assembly without glue; only 100 % mates with the system |
 
 ### Color picture — 18_colorpic.cfg

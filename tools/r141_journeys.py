@@ -513,6 +513,9 @@ GEN_CALLS = [
 def journey_power():
     s = Sim()
     s.sv['preview_file'] = 'chain.gcode'
+    # R133d: the kit source reads the in-memory _PREVIEW card - a file is
+    # SELECTED in the list before GEN_BRICKKIT (never a newest-job guess)
+    s.macro_vars['_PREVIEW']['name'] = 'chain.gcode'
     for what, extra in [('RETRACT', {}), ('VOL', {}),
                         ('FLOWCAP', {'CAP': '15'}),
                         ('TRAVEL', {'SPEED': '250', 'ACCEL': '9000'}),

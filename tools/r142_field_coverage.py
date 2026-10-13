@@ -332,13 +332,27 @@ ck('queue: GEN_QUEUE_CANCEL macro + watcher dispatch',
 ck('LCD: Cancel job queue entry (Tools root)',
    'Cancel job queue' in open(os.path.join(
        ROOT, 'menus', 'lcd_menues.cfg'), encoding='utf-8').read(), '')
-ck('kit: watcher pushes kit_sources (filenames for the picker)',
-   'VARIABLE=kit_sources' in src, '')
-_men = open(os.path.join(ROOT, 'menus', 'lcd_menues.cfg'),
-            encoding='utf-8').read()
-ck('kit menu: source entries show real filenames',
-   _men.count('kit_sources') >= 10, '')
-
+ck('queue-clear RESPOND: quotes balanced (field log .97: Malformed '
+   'command - closing quote sat after a semicolon)',
+   'it is mid-file) -' in src and 'mid-file);' not in src, '')
+_mac19 = open(os.path.join(ROOT, 'macros', '19_bricks.cfg'),
+              encoding='utf-8').read()
+ck('kit source = the file SELECTED in the file list (in-memory _PREVIEW '
+   'card, like Texture), never a guessed newest job, no stale fallback',
+   "gcode_macro _PREVIEW'].name" in _mac19 and 'default(-1)|int' in _mac19
+   and 'sv.preview_file' not in _mac19, '')
+ck('kit: no selection -> clear error (Pick a file), no silent fallback',
+   'M117 Pick a file' in _mac19, '')
+ck('watcher: brickkit index -1 = no newest-job guessing, clear error',
+   '_kidx125 = (-1' in src or "_kidx125 = -1 if _raw125" in src, '')
+ck('kit: NO pushed file list (user: selection happens in the file list)',
+   'kit_sources' not in src and 'kit_sources' not in open(os.path.join(
+       ROOT, 'menus', 'lcd_menues.cfg'), encoding='utf-8').read(), '')
+ck('kit menu: Source shows the selected file, Job-1..5 entries gone',
+   'pick a file' in open(os.path.join(
+       ROOT, 'menus', 'lcd_menues.cfg'), encoding='utf-8').read()
+   and 'newest job' not in open(os.path.join(
+       ROOT, 'menus', 'lcd_menues.cfg'), encoding='utf-8').read(), '')
 print()
 print('R142 FIELD COVERAGE: %d checks, %d FAIL' % (n_ck[0], len(fails)))
 sys.exit(1 if fails else 0)

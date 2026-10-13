@@ -15494,7 +15494,6 @@ def watch(directory, interval=5.0, once=False):
     last_brickkit_nonce = None       # R125: brick kit from a sliced file
     last_segments_nonce = None       # R133b: segment fix (see bootstrap)
     last_qcancel_nonce = None        # R133c: GEN_QUEUE_CANCEL
-    kit_sources_pushed = ['']        # R133c: kit picker filename list
 
     # R133b: ONE generator job at a time, deduplicated, and never while a
     # print runs (the job goes back to the queue until the printer idles).
@@ -15879,7 +15878,7 @@ def watch(directory, interval=5.0, once=False):
                     _JOB_STATE['keys'].clear()
                 _moonraker_gcode(
                     'RESPOND MSG="Job queue cleared - %d pending job(s)'
-                    ' dropped. A RUNNING job finishes (it is mid-file);"'
+                    ' dropped. A running job finishes (it is mid-file) -'
                     ' delete its file afterwards if you do not want it"'
                     '\nM117 Queue clear\n_SOUND_LIB NAME=r2_done' % nq)
                 print(f'[queue] cancelled, {nq} job(s) dropped', flush=True)
@@ -16492,15 +16491,23 @@ def watch(directory, interval=5.0, once=False):
                         return float(dflt)
 
                 _ksrc125 = str(rv.get('brickkit_src', '') or '').strip()
+                # R133d: index -1 = no newest-job guessing. The LCD path
+                # always hands a concrete file (the one selected in the
+                # file list); INDEX stays a Mainsail power feature.
                 try:
-                    _kidx125 = max(0, min(int(str(rv.get('brickkit_index', 0)
-                                                     or 0)), 4))
+                    _raw125 = str(rv.get('brickkit_index', '')).strip()
+                    _kidx125 = (-1 if _raw125 == '' else
+                                max(-1, min(int(_raw125), 4)))
                 except ValueError:
-                    _kidx125 = 0
+                    _kidx125 = -1
                 if _ksrc125 and _ksrc125.upper() != 'LAST':
                     _kf125 = os.path.join(directory, _ksrc125)
                     _kfrom125 = 'file ' + _ksrc125
                 else:
+                    if _kidx125 < 0:
+                        raise RuntimeError(
+                            'no source set - select a file in the file '
+                            'list first (or use SRC=/INDEX= from Mainsail)')
                     _kc125 = []
                     for _fn125 in sorted(os.listdir(directory)):
                         if not _fn125.lower().endswith('.gcode'):
@@ -17236,28 +17243,6 @@ def watch(directory, interval=5.0, once=False):
                 scan(rrw)
             except Exception as e:                  # noqa: BLE001
                 print(f'[!] scan error: {e!r}', flush=True)
-            # R133c: show the kit source picker REAL filenames (the field
-            # log: 'job #2' tells nobody which file that is). Pushed only
-            # when the list changes - one SAVE_VARIABLE, not one per pass.
-            try:
-                _cand = []
-                for _fn in sorted(os.listdir(directory)):
-                    if not _fn.lower().endswith('.gcode'):
-                        continue
-                    if _fn.startswith('00_'):
-                        continue          # our own generated output
-                    _cand.append((os.path.getmtime(
-                        os.path.join(directory, _fn)), _fn))
-                _cand.sort(reverse=True)
-                _ks = '|'.join(_f for _, _f in _cand[:5])
-                if _ks != kit_sources_pushed[0]:
-                    kit_sources_pushed[0] = _ks
-                    _moonraker_gcode(
-                        'SAVE_VARIABLE VARIABLE=kit_sources VALUE='"%s"''
-                        % _ks.replace('"', '').replace(';', '')
-                             .replace("'", ''))
-            except Exception as e:                      # noqa: BLE001
-                print(f'[kitsrc] push error: {e!r}', flush=True)
         # R73: freshly uploaded/converted files -> push their parameters to the
         # LCD right away (Pre-Print > File + the plotter group for plot files)
         # R98 (field log .75): a selection that arrived while this pass was
