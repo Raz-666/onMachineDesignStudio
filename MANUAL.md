@@ -248,8 +248,9 @@ upload / copy / scp ──►  gcodes folder
                               │  r2_postproc.py (service, 1 s)
                               ├─ G-code ──► tagged in place: LAYER_MARK,
                               │             APPLY_TYPE, _FILE_INFO, TYPES/FS/FA
-                              ├─ name.png.gcode / .jpg / .svg / .pdf / .txt
-                              │        ──► converted in place to a pen-plot file
+                              ├─ photo.png / .jpg / .svg / .pdf / .txt
+                              │        ──► untouched: select it in the file
+                              │            list → 00_Plot_* generated on demand
                               └─ generated later on demand (00_ = top of
                                   the list, _V = your version number):
                                   Range 00_<src>_L<a>-<b>_V<xx>.gcode
@@ -699,11 +700,14 @@ Details: ch. 5.2.
 
 **Scenario I — plotting an image (pen instead of nozzle)**
 1. Mount a pen (Tools > Plotter > Pen offset X/Y/Z tells the system where it sits).
-2. Upload `bild.png.gcode` (or .jpg/.svg/.pdf/.txt) — the converter replaces
-   the file in place with pen G-code; auto-contrast finds the ink on any paper
-   tint, dark boards invert automatically.
-3. Select the file → start dialog (a plot file: AS SLICED = pure pen run,
-   AS LEGACY heats only if the extruder is ON).
+2. Upload `bild.png` (or .jpg/.svg/.pdf/.txt) — plain, **no `.gcode` tail**
+   anymore (.103). Select it in the file list → the watcher generates
+   `00_Plot_bild_V01.gcode` on demand (settings: Tools > Plotter;
+   auto-contrast finds the ink on any paper tint, dark boards invert
+   automatically; Maintenance > gen-out decides selected-for-start vs
+   preview only).
+3. Start dialog for the generated file (a plot file: AS SLICED = pure pen
+   run, AS LEGACY heats only if the extruder is ON).
 4. Multi-color plots pause (M0) at every pen change — swap pens, RESUME.
 5. Live Tuning > Plotter while plotting: pen speed %, pen Z ±0.05, X/Y shifts.
 Details: ch. 5.3.
@@ -1000,14 +1004,14 @@ vector graphics or text — no slicer involved.
 
 **Files — the name is the switch**
 
-| Upload as | What happens |
+| Select in the file list | What the watcher generates |
 |---|---|
-| `name.png.gcode` | PNG → pen lines in place |
-| `foto.jpg.gcode` | JPEG (baseline; progressive photos refuse — export as PNG) |
-| `drawing.svg.gcode` | SVG vector graphics |
-| `plan.pdf.gcode` | vector PDF |
-| `notes.txt` (or `name.txt.gcode`) | text → auto-wrapping, auto-shrinking page |
-| options in the name | `bild.c3.s035.png.gcode` = 3 shades, 0.35 mm hatch (defaults c2 / s040) |
+| `photo.png` | PNG → `00_Plot_photo_V01.gcode` (pen lines) |
+| `foto.jpg` | JPEG (baseline; progressive photos refuse — export as PNG) |
+| `drawing.svg` | SVG vector graphics |
+| `plan.pdf` | vector PDF |
+| `notes.txt` | text → auto-wrapping, auto-shrinking page |
+| options in the name | `bild.c3.s035.png` = 3 shades, 0.35 mm hatch (defaults c2 / s040) |
 
 **What the converter does for you**
 
@@ -2582,7 +2586,8 @@ flagged.
 `APPLY_TYPE` switches the live overrides to whatever feature is printing
 right now, `PRINT_START`/`PRINT_END` (or their absence in a legacy file!)
 trigger the start/end choreography. The file NAME is a trigger too:
-`photo.png.gcode` converts to a pen-plot file, `notes.txt` to a text plot —
+`photo.png` selected in the file list switches to plot mode (the watcher
+generates `00_Plot_*` on demand), `notes.txt` to a text plot —
 and a saved variable bumping (the "nonce" counters) triggers the five
 generators of chapter 5 in the background.
 

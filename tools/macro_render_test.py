@@ -3796,7 +3796,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.100) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-13.102'", repr(_v66)))
+    _v66 == "'R2-2026-10-13.103'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -4548,9 +4548,12 @@ tests.append(('R73 text plot: CAP-height letters (>=6mm), solid in FILAMENT mode
 
 # --- watcher: preview push on upload + plot detection ------------------------
 _wsrc73 = open('tools/r2_postproc.py').read()
-tests.append(('R73 watcher pushes a preview for every fresh file (Mainsail starts too)',
+tests.append(('R73 watcher pushes a preview for every fresh G-CODE file (Mainsail '
+    'starts too) - R134: a plot source is NOT pushed (it is no g-code; it '
+    'waits for a selection in the file list)',
     'def push_preview(' in _wsrc73 and 'NEW_PREVIEW.append(p)' in _wsrc73
-    and "NEW_PREVIEW.append(out_p)" in _wsrc73 and "NEW_PREVIEW.append(out_t)" in _wsrc73, ''))
+    and "NEW_PREVIEW.append(out_p)" not in _wsrc73
+    and "NEW_PREVIEW.append(out_t)" not in _wsrc73, ''))
 
 # --- menus: float-index fix, file info submenu, feature flows, plotter items --
 _lcd73 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
@@ -5052,7 +5055,8 @@ tests.append(('R75 watcher: _prime_nonces adopts the current counters (no re-fir
         'texture_nonce': None, 'file_check_nonce': None, 'colorpic_nonce': None,
         'bricks_nonce': None, 'brickkit_nonce': None,
         'figures_nonce': None, 'plot_cal_nonce': None,
-        'queue_cancel_nonce': None, 'gen_del_nonce': None}, ''))
+        'queue_cancel_nonce': None, 'gen_del_nonce': None,
+        'plot_nonce': None}, ''))
 tests.append(('R75 watcher: daemon runs niced + primes on the first pass',
     'os.nice(4)' in open('tools/r2_postproc.py').read()
     and 'first_prime' in open('tools/r2_postproc.py').read(), ''))
@@ -6221,7 +6225,8 @@ tests.append(('R86 modules: 17_generator.cfg sentinel + _CHECK_INSTALL lists 17'
     and "('17_generator.cfg',       ['_V18_GEN'])" in open('macros/01_state.cfg').read()
     and 'all 17 modules' not in open('macros/01_state.cfg').read(), ''))
 tests.append(('R86-R120 watcher: NONCE_KEYS has 20 channels incl. litho/seal/frame/colorpic',
-    len(_pp.NONCE_KEYS) == 26 and 'cable_tie_nonce' in _pp.NONCE_KEYS
+    len(_pp.NONCE_KEYS) == 27 and 'cable_tie_nonce' in _pp.NONCE_KEYS
+    and 'plot_nonce' in _pp.NONCE_KEYS
     and 'queue_cancel_nonce' in _pp.NONCE_KEYS
     and 'gen_del_nonce' in _pp.NONCE_KEYS
     and 'brickkit_nonce' in _pp.NONCE_KEYS
@@ -8589,26 +8594,26 @@ open(_os99.path.join(_g100, 'AxtBunny.png'), 'wb').write(
     _png100(32, 32, lambda x, y: 40 if abs(x - y) < 6 else 220))
 _r100a = _sub100.run([_sys100.executable, 'tools/r2_postproc.py',
                       '--watch', _g100, '--once'], capture_output=True, text=True)
-_m100 = _os99.path.getmtime(_os99.path.join(_g100, 'AxtBunny.png.gcode')) \
-    if _os99.path.isfile(_os99.path.join(_g100, 'AxtBunny.png.gcode')) else -1
 import time as _time100
 _time100.sleep(0.05)
 _r100b = _sub100.run([_sys100.executable, 'tools/r2_postproc.py',
                       '--watch', _g100, '--once'], capture_output=True, text=True)
-_m100b = _os99.path.getmtime(_os99.path.join(_g100, 'AxtBunny.png.gcode')) \
-    if _os99.path.isfile(_os99.path.join(_g100, 'AxtBunny.png.gcode')) else -1
-tests.append(('R100 plot: a plain image converts ONCE - never again on the next scan '
-              '(was: re-converted on every watcher start)',
-    _m100 > 0 and '[plot]' in _r100a.stdout and 'AxtBunny.png.gcode' in _r100a.stdout
-    and '[plot]' not in _r100b.stdout and ', 0 processed,' in _r100b.stdout
-    and abs(_m100b - _m100) < 0.001,
+tests.append(('R100/R134 plot: a plain image is NEVER converted by the scan - '
+              'no .gcode twin on the first or any later pass, the source '
+              'stays (plotting = selecting the file; was: AxtBunny.png '
+              're-converted on every watcher start)',
+    not _os99.path.isfile(_os99.path.join(_g100, 'AxtBunny.png.gcode'))
+    and '[plot]' not in _r100a.stdout and '[plot]' not in _r100b.stdout
+    and _os99.path.isfile(_os99.path.join(_g100, 'AxtBunny.png')),
     'run1 %s / run2 %s' % (_r100a.stdout.strip().splitlines()[-1][:60],
                            _r100b.stdout.strip().splitlines()[-1][:60])))
 _src100 = open('tools/r2_postproc.py').read()
-tests.append(('R100 source: conversion check reads the OUTPUT file + 404 push hint',
-    _src100.count('R100 (field log .77)') >= 2
-    and 'os.path.isfile(out_p)' in _src100
-    and 'data_head_if_text(out_p)' in _src100
+tests.append(('R100/R134 source: the scan conversion branch is GONE (no out_p, '
+    'no plain_upload, no in-place rewrite) - sources skip, converted plot '
+    'files stay recognized, the 404 push hint lives on',
+    'plain_upload' not in _src100
+    and 'os.path.isfile(out_p)' not in _src100
+    and 'data_head_if_text(out_p)' not in _src100
     and "b'R2-PLOT' in head or" not in _src100
     and 'Klipper still restarting?' in _src100, ''))
 
@@ -11691,6 +11696,81 @@ finally:
         with open(_lock133i, 'w') as _f133i:
             _f133i.write(_saved133i)
     _shut133i.rmtree(_td133i, ignore_errors=True)
+
+# R134: PLOT-ON-SELECTION - a plot source picked in the file list never
+# starts a print and never auto-converts: it bumps plot_nonce and the
+# watcher generates 00_Plot_*_Vnn.gcode on demand (gen_out decides start
+# vs preview). The old .gcode-tail upload trick is dead.
+_body134 = get_body('macros/08_print_start_stop.cfg', 'SDCARD_PRINT_FILE')
+state_vars['mode'] = 'idle'
+save_vars['start_confirm'] = True
+out = render(_body134, {'FILENAME': 'Bun2.jpg'})
+tests.append(('R134 PLOT SELECTION: image in the file list -> plot mode '
+              '(plot_src + plot_nonce bump), NO print start, NO preheat',
+              'VARIABLE=plot_src VALUE=\'"Bun2.jpg"\'' in out
+              and 'VARIABLE=plot_nonce' in out
+              and 'BASE_SDCARD_PRINT_FILE' not in out
+              and '_PREHEAT_SELECTED' not in out, out[:200]))
+out = render(_body134, {'FILENAME': 'notes.txt'})
+tests.append(('R134 PLOT SELECTION: text source -> plot mode too',
+              'VARIABLE=plot_src VALUE=\'"notes.txt"\'' in out
+              and 'VARIABLE=plot_nonce' in out
+              and 'BASE_SDCARD_PRINT_FILE' not in out, out[:200]))
+out = render(_body134, {'FILENAME': 'photo.png.gcode'})
+tests.append(('R134 PLOT SELECTION: converted plot g-code (.gcode tail) '
+              'prints the NORMAL way (dialog + hold), not the source flow',
+              'VARIABLE=plot_src' not in out
+              and 'BASE_SDCARD_PRINT_FILE FILENAME="photo.png.gcode"' in out
+              and 'M25' in out, out[:200]))
+state_vars['mode'] = 'waiting'
+out = render(_body134, {'FILENAME': 'Bun2.jpg'})
+tests.append(('R134 PLOT SELECTION while waiting: refused like any print',
+              'Start dialog active' in out and 'VARIABLE=plot_nonce' not in out,
+              out[:160]))
+state_vars['mode'] = 'printing'
+out = render(_body134, {'FILENAME': 'Bun2.jpg'})
+tests.append(('R134 PLOT SELECTION while busy: refused, never BASE-starts '
+              'an image as g-code',
+              'busy' in out and 'BASE_SDCARD_PRINT_FILE' not in out
+              and 'VARIABLE=plot_nonce' not in out, out[:160]))
+state_vars['mode'] = 'idle'
+
+# behavioral: the watcher scan does NOT convert plot sources anymore (no
+# .gcode twins), and a raw .gcode-tailed upload gets a rename hint, its
+# bytes untouched
+_td134 = _tf133i.mkdtemp(prefix='r134_')
+try:
+    from PIL import Image
+    import io as _io134
+    Image.new('RGB', (8, 8), (0, 128, 255)).save(
+        _os133i.path.join(_td134, 'photo.png'))
+    _raw134 = _os133i.path.join(_td134, 'raw.png.gcode')
+    _buf134 = _io134.BytesIO()
+    Image.new('RGB', (8, 8), (255, 0, 0)).save(_buf134, format='PNG')
+    with open(_raw134, 'wb') as _f134:
+        _f134.write(_buf134.getvalue())
+    with open(_os133i.path.join(_td134, 'notes.txt'), 'w') as _f134:
+        _f134.write('hello plot\n' * 5)
+    _raw_b134 = open(_raw134, 'rb').read()
+    _r134 = _sp133i.run(
+        [_sys133i.executable,
+         _os133i.path.abspath('tools/r2_postproc.py'),
+         '--watch', _td134, '--once'],
+        capture_output=True, text=True, timeout=240)
+    tests.append(('R134 NO AUTO-CONVERT: a plain image/text in the gcodes '
+                  'folder gets NO .gcode twin; a raw .gcode-tailed upload is '
+                  'left byte-identical with a rename hint (plotting = a '
+                  'selection, never background work)',
+                  not _os133i.path.exists(
+                      _os133i.path.join(_td134, 'photo.png.gcode'))
+                  and not _os133i.path.exists(
+                      _os133i.path.join(_td134, 'notes.txt.gcode'))
+                  and open(_raw134, 'rb').read() == _raw_b134
+                  and 'old .gcode tail' in (_r134.stdout + _r134.stderr),
+                  'rc=%s out=%r' % (_r134.returncode,
+                                    (_r134.stdout + _r134.stderr)[:180])))
+finally:
+    _shut133i.rmtree(_td134, ignore_errors=True)
 
 fails = 0
 for name, ok, info in tests:

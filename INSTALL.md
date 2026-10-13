@@ -20,12 +20,12 @@ just unpack once by hand:
 
 ```bash
 cd ~/printer_data/config
-unzip -o klipper-e3-r2d2-UPDATE-R2-2026-10-13.102.zip
+unzip -o klipper-e3-r2d2-UPDATE-R2-2026-10-13.103.zip
 bash klipper-e3-r2d2/update.sh
 ```
 
 No `unzip` on the Pi?
-`python3 -m zipfile -e klipper-e3-r2d2-UPDATE-R2-2026-10-13.102.zip .` does the
+`python3 -m zipfile -e klipper-e3-r2d2-UPDATE-R2-2026-10-13.103.zip .` does the
 same — update.sh uses that fallback automatically.
 
 **What update.sh does:** it finds the newest `klipper-e3-r2d2-UPDATE-R2-*.zip`
@@ -41,7 +41,7 @@ again). The uploaded ZIP can stay in the config folder (harmless) or be
 deleted in Mainsail.
 
 Boot sound + `M117 R2 ready` ~10 s later confirm success; the console line must
-say `build R2-2026-10-13.102`
+say `build R2-2026-10-13.103`
 
 ---
 
@@ -296,11 +296,14 @@ parameters). After replacing the script: `systemctl restart r2-postproc`.
 **Since .45 the same service does two more jobs** (no extra install step,
 just restart it after the update):
 
-- **Plotter conversions (.46: PNG, JPEG, SVG + vector PDF):** files named
-  `name.png.gcode`, `foto.jpg.gcode`, `drawing.svg.gcode` or `plan.pdf.gcode`
-  are converted IN PLACE into pen g-code (see MANUAL ch. 17) instead of being
-  tagged. Auto-contrast (Otsu) makes the paper white, whatever its tint.
-  Log lines: `[plot] foto.jpg.gcode: converted to pen-plotter g-code (2 pen(s), 953 lines)`.
+- **Plotter on selection (.46 → .103: PNG, JPEG, SVG + vector PDF):** upload
+  the PLAIN file (`photo.png`, `foto.jpg`, `drawing.svg`, `plan.pdf`,
+  `notes.txt` — no `.gcode` tail anymore) and SELECT it in the file list: the
+  service generates `00_Plot_<name>_V01.gcode` on demand (one job at a time;
+  Maintenance > gen-out decides start vs preview). Auto-contrast (Otsu) makes
+  the paper white, whatever its tint. Old `name.png.gcode` uploads are no
+  longer converted — the log tells you to rename; already-converted plot
+  files keep printing as ever.
 - **Layer excerpts (.46: Z0.2 on the bed + floor/top/brim):** every 5 s it
   polls `range_nonce` in `~/printer_data/variables.cfg`; when Pre-Print >
   Range/Stop > Create changes the nonce, it builds `<name>_L<from>-<to>.gcode`

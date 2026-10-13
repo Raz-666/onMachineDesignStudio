@@ -6704,7 +6704,7 @@ NONCE_KEYS = ('preview_nonce', 'range_nonce', 'label_gen_nonce', 'reso_nonce',
               'litho_del_nonce', 'frame_nonce', 'texture_nonce',
               'file_check_nonce', 'colorpic_nonce', 'bricks_nonce',
               'brickkit_nonce', 'figures_nonce', 'plot_cal_nonce',
-              'queue_cancel_nonce', 'gen_del_nonce')
+              'queue_cancel_nonce', 'gen_del_nonce', 'plot_nonce')
 
 
 def _prime_nonces(rv):
@@ -15604,55 +15604,32 @@ def watch(directory, interval=5.0, once=False):
                     continue
                 seen[p] = key
                 _done98 += 1
-                # R61 plotter: image smuggled in as *.png.gcode / *.svg.gcode
-                # R64: + plain text files (*.txt.gcode) drawn with the stroke fonts
+                # R134 (.103 field redesign): plot sources are NEVER touched
+                # in the scan. The old flow auto-converted every upload
+                # (*.png, *.jpg.gcode, *.txt ...) into plotter g-code in the
+                # background - including every plain image uploaded as a
+                # litho/colorpic source (field log .101: AxtBunny.png grew an
+                # unrequested AxtBunny.png.gcode twin). Plotting is now a
+                # DECISION: select the image/text/pdf/svg in the file list -
+                # SDCARD_PRINT_FILE switches to plot mode and bumps plot_nonce,
+                # the watcher generates 00_Plot_*_Vnn.gcode on demand (one
+                # job at a time, gen_out decides start vs preview).
                 if PLOT_PAT.search(fn):
-                    with open(p, 'rb') as f2:
-                        head = f2.read(16)
-                    is_img = (head[:4] == b'\x89PNG'          # PNG
-                              or head[:3] == b'\xff\xd8\xff'    # JPEG
-                              or head[:4] == b'%PDF'            # PDF
-                              or b'<svg' in data_head_if_text(p))
-                    # R73: a plain 'photo.png' / 'notes.txt' (no .gcode tail)
-                    # converts INTO '<name>.png.gcode' - the original stays
-                    plain_upload = not fn.lower().endswith('.gcode')
-                    out_p = p + '.gcode' if plain_upload else p
-                    # R100 (field log .77): the 'already converted' check must
-                    # look at the OUTPUT file - a plain upload (photo.png,
-                    # notes.txt) never carries the R2-PLOT header, so every
-                    # watcher (re)start re-converted it (field log: AxtBunny.png
-                    # re-converted on EVERY boot, '1 processed' each time, its
-                    # .gcode rewritten + a preview push that also raced the
-                    # Klipper restart -> HTTP 404 right after an update)
-                    already = (os.path.isfile(out_p)
-                               and b'R2-PLOT' in data_head_if_text(out_p))
-                    if already:
-                        stats['tagged_before'] += 1   # converted earlier (R2-PLOT header)
-                        continue
-                    if is_img:
-                        try:
-                            npens, nlines = plot_convert(p, var_path=VAR_PATH, out=out_p)
-                            stats['processed'] += 1
-                            NEW_PREVIEW.append(out_p)
-                            print(f'[plot] {fn}: converted to pen-plotter g-code '
-                                  f'({npens} pen(s), {nlines} lines)'
-                                  + (f' -> {os.path.basename(out_p)}' if plain_upload else ''),
-                                  flush=True)
-                        except Exception as e:              # noqa: BLE001
-                            stats['errors'] += 1
-                            print(f'[plot] {fn}: {e!r}', flush=True)
-                    elif fn.lower().endswith(('.txt.gcode', '.txt')):
-                        try:                                  # R64 text plot
-                            out_t, nlines, size = text_convert(p, var_path=VAR_PATH)
-                            stats['processed'] += 1
-                            NEW_PREVIEW.append(out_t)
-                            print(f'[plot] {fn}: text -> pen-plotter g-code '
-                                  f'({nlines} line(s), {size:g}mm caps)', flush=True)
-                        except Exception as e:              # noqa: BLE001
-                            stats['errors'] += 1
-                            print(f'[plot] {fn}: {e!r}', flush=True)
+                    if fn.lower().endswith(('.gcode', '.gco', '.g')):
+                        if b'R2-PLOT' in data_head_if_text(p):
+                            stats['tagged_before'] += 1   # plotter g-code, ready
+                        else:
+                            # raw image smuggled with the OLD .gcode-tail
+                            # trick - tell the user, convert nothing
+                            print('[plot] %s: raw upload with the old .gcode '
+                                  'tail - plotting needs the plain name now: '
+                                  'rename (drop the .gcode), then select it '
+                                  'in the file list' % fn, flush=True)
+                            stats['tagged_before'] += 1
                     else:
-                        stats['tagged_before'] += 1   # already converted (R2-PLOT header)
+                        # plain source (.png/.jpg/.svg/.pdf/.txt): stays as
+                        # is - select it in the file list to plot it
+                        stats['tagged_before'] += 1
                     continue
                 # R64: generated plotter files without .png/... endings
                 # (Resonance_*_plot.gcode, 00_R2_Status_V01.gcode) carry the R2-PLOT header
@@ -15720,6 +15697,7 @@ def watch(directory, interval=5.0, once=False):
     last_reso_nonce = None
     last_bridge_nonce = None
     last_plottext_nonce = None
+    last_plot_nonce = None        # R134: plot-on-selection
     last_plotcal_nonce = None       # R122: plot calibration test
     last_bricks_nonce = None         # R121: building bricks
     reselect_wait = {}               # R133: fix_reselect patience counter
@@ -15813,7 +15791,7 @@ def watch(directory, interval=5.0, once=False):
                 'figures_nonce', 'reso_nonce', 'bridge_nonce',
                 'plot_text_nonce', 'plot_status_nonce', 'plotcal_nonce',
                 'file_check_nonce', 'litho_del_nonce',
-                'gen_del_nonce')
+                'gen_del_nonce', 'plot_nonce')
         # R61: layer-range excerpt request from the LCD (nonce changes on every request)
         try:
             rv = _read_vars(VAR_PATH)
@@ -15858,6 +15836,7 @@ def watch(directory, interval=5.0, once=False):
                 last_reso_nonce = _np['reso_nonce']
                 last_bridge_nonce = _np['bridge_nonce']
                 last_plottext_nonce = _np['plot_text_nonce']
+                last_plot_nonce = _np.get('plot_nonce')    # R134
                 last_plotstatus_nonce = _np['plot_status_nonce']
                 last_host_nonce = _np['host_nonce']
                 last_litho_nonce = _np.get('litho_nonce')       # R89
@@ -17438,6 +17417,94 @@ def watch(directory, interval=5.0, once=False):
                         pass
         except Exception as e:                          # noqa: BLE001
             print(f'[plottext] poll error: {e!r}', flush=True)
+        # R134: plot a SELECTED source (plot_nonce + plot_src, set by
+        # SDCARD_PRINT_FILE the moment an image/text/pdf/svg was picked in
+        # the file list). No auto-conversion on upload anymore - the g-code
+        # is generated on demand, like every other generator (threaded job:
+        # image hatching is CPU-heavy on the Zero 2 W).
+        try:
+            _pnn134 = rv.get('plot_nonce', '')
+            if _pnn134 and _pnn134 != last_plot_nonce:
+                last_plot_nonce = _pnn134
+                _src134 = os.path.basename(
+                    str(rv.get('plot_src', '') or '').strip().lstrip('/'))
+                if not PLOT_PAT.search(_src134):
+                    raise ValueError('not a plot source: %r' % _src134)
+                _p134 = os.path.join(directory, _src134)
+                if not os.path.isfile(_p134):
+                    _alt134 = (_p134 + '.gcode'
+                               if not _src134.lower().endswith('.gcode')
+                               else _p134)
+                    if os.path.isfile(_alt134):
+                        _p134 = _alt134       # tolerate the old .gcode tail
+                if not os.path.isfile(_p134):
+                    raise ValueError('file not found: %s' % _src134)
+                _done134 = False
+                if _p134.lower().endswith(('.gcode', '.gco', '.g')):
+                    with open(_p134, 'rb') as _f134:
+                        if b'R2-PLOT' in _f134.read(4096):
+                            # already-converted plotter g-code selected:
+                            # no regeneration - just (re)select the file
+                            _moonraker_gcode(
+                                'RESPOND MSG="Plot: %s is already plotter '
+                                'g-code - selecting it"\nM117 Plot ready'
+                                % _src134 + _sel_line(rv, _src134))
+                            _done134 = True
+                if not _done134:
+                    _pm134 = PLOT_PAT.search(_src134)
+                    _stem134 = re.sub(
+                        r'[^\w\-.+ ]', '_', PLOT_OPTS.sub(
+                            '', _src134[:_pm134.start()])).strip() or 'src'
+                    _out134 = os.path.join(
+                        directory, '00_Plot_%s_V%02d.gcode'
+                        % (_stem134, _next_gen_version(
+                            directory, '00_Plot_' + _stem134)))
+                    _istxt134 = _src134.lower().endswith(('.txt', '.txt.gcode'))
+
+                    def _plot_job134(p=_p134, out=_out134, src=_src134,
+                                     istxt=_istxt134):
+                        try:
+                            if istxt:
+                                _out_t, _nl, _sz = text_convert(
+                                    p, out=out, var_path=VAR_PATH)
+                                _msg = ('Plot: %s - text, %d line(s), %.1fmm '
+                                        'letters%s'
+                                        % (os.path.basename(_out_t), _nl, _sz,
+                                           _sel_note(
+                                               rv, ' - selected (pen mode)',
+                                               ' - start it (pen mode)')))
+                            else:
+                                _npens, _nl = plot_convert(
+                                    p, var_path=VAR_PATH, out=out)
+                                _mode = ('FILAMENT (heated)' if str(
+                                    rv.get('plot_extrude', 0)).strip().lower()
+                                    in ('1', 'true', 'on', 'yes') else 'pen')
+                                _msg = ('Plot: %s - %d pen(s), %d line(s), %s '
+                                        'mode%s'
+                                        % (os.path.basename(out), _npens, _nl,
+                                           _mode,
+                                           _sel_note(
+                                               rv, ' - selected',
+                                               ' - start it from the file '
+                                               'list')))
+                            _moonraker_gcode(
+                                'RESPOND MSG="%s"\nM117 Plot ready\n'
+                                '_SOUND_LIB NAME=r2_done' % _msg
+                                + _sel_line(rv, os.path.relpath(out, directory)))
+                            return [out]
+                        except Exception as e:                  # noqa: BLE001
+                            print(f'[plot] error: {e!r}', flush=True)
+                            try:
+                                _moonraker_gcode(
+                                    'RESPOND MSG="Plot ERROR: %s"\nM117 '
+                                    'Plot error\n'
+                                    '_SOUND_LIB NAME=r2_error' % e)
+                            except Exception:                   # noqa: BLE001
+                                pass
+
+                    _spawn_job('Plot', 'plot:%s' % _src134, _plot_job134)
+        except Exception as e:                                  # noqa: BLE001
+            print(f'[plot] poll error: {e!r}', flush=True)
         # R122: plot calibration test (plot_cal_nonce, set by PLOT_CAL)
         try:
             pcn = rv.get('plot_cal_nonce', '')

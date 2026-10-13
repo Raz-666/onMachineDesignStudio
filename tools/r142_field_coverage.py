@@ -525,6 +525,34 @@ ck('file-check reports the watcher state - a dead watcher (offline '
    'generators) is no longer silent',
    'NO r2_postproc watcher is running' in src, '')
 
+# ---- 15) R134: plot-on-selection (no auto-conversion, ever) ----------------
+_m08_134 = open(os.path.join(ROOT, 'macros', '08_print_start_stop.cfg'),
+                encoding='utf-8').read()
+ck('plot: the watch scan NEVER converts a source (field log .101: every '
+   'plain litho/colorpic upload grew an unrequested .gcode plot twin)',
+   'plain_upload' not in src
+   and 'plot_convert(p, var_path=VAR_PATH, out=out_p)' not in src, '')
+ck('plot: sources are selected in the file list - SDCARD_PRINT_FILE '
+   'switches to plot mode (plot_src + plot_nonce), never BASE-starts an '
+   'image, busy = clear refuse',
+   'VARIABLE=plot_src' in _m08_134 and 'VARIABLE=plot_nonce' in _m08_134
+   and 'never BASE-start an image' in _m08_134, '')
+ck('plot: generation on demand - plot_nonce handler spawns a job with '
+   '00_Plot_ naming, gen_out honored (start vs preview)',
+   "_spawn_job('Plot'" in src and "'00_Plot_%s_V%02d.gcode'" in src
+   and 'plot_nonce' in src, '')
+ck('plot: the nonce channel is primed at watcher start + frozen while '
+   'printing (the .90 regeneration-loop lesson)',
+   "last_plot_nonce = _np.get('plot_nonce')" in src
+   and 'plot_nonce' in src[src.index('_freeze133 = ('):
+                            src.index('_freeze133 = (') + 700], '')
+ck('plot: an already-converted plot g-code selected again is re-selected, '
+   'never regenerated',
+   'is already plotter' in src, '')
+ck('plot: the old .gcode-tail upload gets a rename hint, its bytes never '
+   'rewritten',
+   'old .gcode tail' in src, '')
+
 print()
 print('R142 FIELD COVERAGE: %d checks, %d FAIL' % (n_ck[0], len(fails)))
 sys.exit(1 if fails else 0)
