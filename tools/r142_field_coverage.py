@@ -214,16 +214,25 @@ _e = sum(float(l.split(' E')[1]) for l in open(hot, encoding='utf-8')
          if l.startswith('G1 X') and ' E' in l)
 ck('segments: extrusion preserved (300 x 0.001)', abs(_e - 0.3) < 0.0005,
    'E=%.4f' % _e)
-# fresh UNFIXED bomb for the selection warning (the fixed one is silent
-# on purpose - its MOVERATE is now 250)
+# R133b: selection NEVER measures (the full-file scan blocked the LCD on
+# the field Pi) - it warns from the stamped MOVERATE only. The job worker
+# stamps it; here we stamp like the worker does.
 hot2 = os.path.join(d, 'r142hot2.gcode')
 open(hot2, 'w', encoding='utf-8').write('\n'.join(_hl) + '\n')
+_rb2 = pp._worst_move_rate(hot2)
+pp._patch_info_kv(hot2, 'MOVERATE', '%.0f' % _rb2)
 _hs, _ = pp._preview_script(hot2)
 ck('segments: selection warns about hot files (Timer too close risk)',
    any('Timer too close' in l for l in _hs), _hs[-2:])
-_hs2, _ = pp._preview_script(hot)     # the healed file stays silent
+_hs0, _ = pp._preview_script(hot)     # the healed file stays silent
 ck('segments: healed file selected -> no warning',
-   not any('SegFix' in l for l in _hs2), '')
+   not any('SegFix' in l for l in _hs0), '')
+# a hot file WITHOUT MOVERATE: selection stays quiet AND fast (no scan)
+hot3 = os.path.join(d, 'r142hot3.gcode')
+open(hot3, 'w', encoding='utf-8').write('\n'.join(_hl) + '\n')
+_hs3, _ = pp._preview_script(hot3)
+ck('segments: unstamped file -> no scan on selection (no warning, fast)',
+   not any('SegFix' in l for l in _hs3), '')
 ck('watch: segments nonce dispatched in the poll loop',
    "rv.get('segments_fix_nonce'" in src and 'file_fix(\'segments\'' in src,
    '')
@@ -235,6 +244,46 @@ _men = open(os.path.join(ROOT, 'menus', 'lcd_menues.cfg'),
             encoding='utf-8').read()
 ck('LCD: Segment fix entry in Pre-Print > File',
    'FIX_FILE WHAT=SEGMENTS' in _men, '')
+
+# ---- 10) R133b: one job at a time, kit crash, plot-source hygiene --------
+ck('queue: _job_tick only sleeps while a worker owns the call',
+   hasattr(pp, '_job_tick') and hasattr(pp, '_JOB_YIELD')
+   and hasattr(pp, '_JOB_STATE'), '')
+import time as _t142
+_t0 = _t142.time()
+for _ in range(200):
+    pp._job_tick()                 # flag off -> must NOT sleep
+ck('queue: 200 ticks with flag off run instantly (<0.2s)',
+   _t142.time() - _t0 < 0.2, '%.2fs' % (_t142.time() - _t0))
+pp._JOB_YIELD['on'] = True
+_t0 = _t142.time()
+for _ in range(200):
+    pp._job_tick()                 # 200 ticks / every 25 = 8 x 20ms
+_el = _t142.time() - _t0
+pp._JOB_YIELD['on'] = False
+ck('queue: ticks with flag on DO pause (8 x 20ms ~ %.2fs)' % _el,
+   0.1 <= _el < 1.0, '%.2fs' % _el)
+ck('watch: the 5 generator spawns go through _spawn_job (no bare threads)',
+   src.count('_spawn_job(') >= 5
+   and src.count('threading.Thread(target=_') == 1,   # only the worker
+   'spawn=%d bare=%d' % (src.count('_spawn_job('),
+                         src.count('threading.Thread(target=_')))
+ck('watch: scan skips while a job runs or is queued',
+   "if busy or _JOB_STATE['busy'] or _JOB_STATE['queue']:" in src, '')
+ck('watch: jobs requeue while the printer is busy (print has priority)',
+   'if _printer_busy():' in src and 'insert(0, item)' in src, '')
+ck('watch: R75 niceness kept, exactly ONE os.nice (no double lower)',
+   src.count('os.nice(4)') == 1, 'count=%d' % src.count('os.nice(4)'))
+ck('kit: parts_per_plate formatted via max() (was a list -> %d crash '
+   'since R125, killed every successful kit message)',
+   "max(_ik125['parts_per_plate'])" in src, '')
+ck('kit: source picker skips R2-PLOT files',
+   "'R2-PLOT' in _fh.read(4096)" in src, '')
+_men = open(os.path.join(ROOT, 'menus', 'lcd_menues.cfg'),
+            encoding='utf-8').read()
+ck('kit menu: AUTO text matches the R133b mapping (BIG for small models)',
+   'up to 10 studs BIG (fine plates), up to 26 SMALL, else MICRO' in _men,
+   '')
 
 print()
 print('R142 FIELD COVERAGE: %d checks, %d FAIL' % (n_ck[0], len(fails)))

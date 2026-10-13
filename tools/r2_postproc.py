@@ -6624,6 +6624,28 @@ def _printer_busy(host='127.0.0.1', port=7125):
         return False
 
 
+# R133b (field log .95): generator jobs run ONE AT A TIME through a queue -
+# the field Pi had ELEVEN litho threads at once (every Create press spawned
+# another) and drowned in swap until klipper starved ('Timer too close'
+# while homing). One worker, dedup on the job key, micro-pauses in the hot
+# loops, klipper always wins the CPU (os.nice on the watcher).
+_JOB_YIELD = {'on': False, 'n': 0}
+import threading as _threading133
+_JOB_STATE = {'queue': [], 'keys': set(), 'busy': False,
+              'lock': _threading133.Lock()}
+
+
+def _job_tick(step=1, every=25, pause=0.02):
+    """Micro-pause inside generator hot loops - only while a job worker
+    owns the call (tests call the generators directly and stay fast)."""
+    if not _JOB_YIELD['on']:
+        return
+    _JOB_YIELD['n'] += step
+    if _JOB_YIELD['n'] >= every:
+        _JOB_YIELD['n'] = 0
+        time.sleep(pause)
+
+
 def _moonraker_status(host='127.0.0.1', port=7125):
     """query the live printer status via moonraker (best effort)."""
     import urllib.request
@@ -10192,6 +10214,7 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
             a('EXCLUDE_OBJECT_END NAME=PURGE_TOWER')
 
         for li in range(1, total_layers + 1):
+            _job_tick()                        # R133b: yield to the host
             z = round(li * layer_h, 3)
             k = (li - 1) // n_band
             j = (li - 1) % n_band
@@ -10473,6 +10496,7 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                 pen_t = t
 
         for li in range(1, rows + 1):
+            _job_tick()                        # R133b: yield to the host
             z = round(li * layer_h, 3)         # uniform layers: image stays true
             row = rows - li                    # image row 0 = top = highest layer
             a(';LAYER_CHANGE')
@@ -14998,23 +15022,17 @@ def _preview_script(ppath):
                                  '+ purge (recommended) | AS SLICED = 1:1 with the source values"')
         except OSError:
             pass
-    # R133 (field log .94, MCU 'Timer too close'): warn about micro-
-    # segment bombs AT SELECTION TIME. The worst move rate lands in the
-    # file's _FILE_INFO once (then this check is free); above 400/s the
-    # MCU serial budget is at risk - the Segment fix heals the file.
+    # R133b (field log .95): warn about micro-segment bombs AT SELECTION
+    # TIME - but NEVER measure here. The full-file scan blocked the LCD
+    # for minutes on the field Pi; the job worker stamps MOVERATE into
+    # the file info when it generates a file, the segment fix does the
+    # same when it heals one. Selection only READS.
     mr = None
     _mrs = pv.get('MOVERATE', '')
     if _mrs:
         try:
             mr = float(_mrs)
         except ValueError:
-            mr = None
-    if mr is None and not busy and raw:
-        try:
-            mr = _worst_move_rate(ppath)
-            if mr and mr > 1.0:
-                _patch_info_kv(ppath, 'MOVERATE', '%.0f' % mr)
-        except Exception:                                 # noqa: BLE001
             mr = None
     if mr is not None and mr > 400.0:
         lines.append('RESPOND MSG="[!] %s: up to %.0f moves/s - '
@@ -15421,6 +15439,7 @@ def watch(directory, interval=5.0, once=False):
 
     # R61: plotter settings + layer-range requests live in the save_variables file
     global VAR_PATH
+    import threading                             # R133b: local for the WHOLE watch()
     VAR_PATH = os.path.join(os.path.dirname(os.path.abspath(directory).rstrip('/')), 'variables.cfg')
     # R75: the watcher shares the CPU (and the SD card) with klippy - on weak
     # hosts (Pi Zero class) heavy jobs (label/plot generation) must never
@@ -15455,11 +15474,75 @@ def watch(directory, interval=5.0, once=False):
     last_bricks_nonce = None         # R121: building bricks
     reselect_wait = {}               # R133: fix_reselect patience counter
     last_brickkit_nonce = None       # R125: brick kit from a sliced file
+    last_segments_nonce = None       # R133b: segment fix (see bootstrap)
+
+    # R133b: ONE generator job at a time, deduplicated, and never while a
+    # print runs (the job goes back to the queue until the printer idles).
+    def _job_worker():
+        while True:
+            item = None
+            with _JOB_STATE['lock']:
+                if _JOB_STATE['queue']:
+                    item = _JOB_STATE['queue'].pop(0)
+            if item is None:
+                time.sleep(0.4)
+                continue
+            name, key, fn, outs = item
+            if _printer_busy():
+                # print has priority - requeue and let it finish first
+                with _JOB_STATE['lock']:
+                    _JOB_STATE['queue'].insert(0, item)
+                time.sleep(5.0)
+                continue
+            _JOB_STATE['busy'] = True
+            _JOB_YIELD['on'] = True
+            try:
+                try:
+                    outs = fn() or []
+                except Exception as e:                          # noqa: BLE001
+                    print(f'[job:{name}] error: {e!r}', flush=True)
+                    outs = []
+                # R133b: the worker stamps the worst move rate into the
+                # file info (the selection path never measures files -
+                # that full-file scan blocked the LCD for minutes on the
+                # field Pi)
+                for _o in (outs or []):
+                    try:
+                        if _o and os.path.isfile(_o):
+                            _mr = _worst_move_rate(_o)
+                            if _mr and _mr > 1.0:
+                                _patch_info_kv(_o, 'MOVERATE', '%.0f' % _mr)
+                    except Exception:                           # noqa: BLE001
+                        pass
+            finally:
+                _JOB_YIELD['on'] = False
+                _JOB_STATE['busy'] = False
+                with _JOB_STATE['lock']:
+                    _JOB_STATE['keys'].discard(key)
+
+    def _spawn_job(name, key, fn, outs=None):
+        with _JOB_STATE['lock']:
+            if key in _JOB_STATE['keys']:
+                try:
+                    _moonraker_gcode(
+                        'RESPOND MSG="%s: already running or queued - your'
+                        ' press was a duplicate, the first one is still'
+                        ' working (one job at a time now)"\nM117 %s: busy'
+                        % (name, name))
+                except Exception:                               # noqa: BLE001
+                    pass
+                return False
+            _JOB_STATE['keys'].add(key)
+            _JOB_STATE['queue'].append((name, key, fn, outs))
+        return True
     last_figures_nonce = None        # R126: stylized system figures
     last_plotstatus_nonce = None
     last_host_nonce = None
     first = True
     first_prime = True
+    # R133b: the single generator worker (daemon - dies with the watcher)
+    threading.Thread(target=_job_worker, daemon=True).start()
+
     while True:
         stats['files'] = 0
         del NEW_PREVIEW[:]
@@ -16163,6 +16246,7 @@ def watch(directory, interval=5.0, once=False):
                             'RESPOND MSG="%s"\nM117 Litho ready\n'
                             '_SOUND_LIB NAME=r2_done' % _msg89
                             + _sel_line(rv, _rel89))
+                        return [os.path.join(directory, info_l['file'])]
                     except Exception as e:                      # noqa: BLE001
                         print(f'[litho] error: {e!r}', flush=True)
                         try:
@@ -16173,7 +16257,9 @@ def watch(directory, interval=5.0, once=False):
                             pass
 
                 import threading
-                threading.Thread(target=_litho_job89, daemon=True).start()
+                _spawn_job('Litho',
+                           'litho:%s:%r' % (_src89, sorted(_params89.items())),
+                           _litho_job89)
         except Exception as e:                              # noqa: BLE001
             print(f'[litho] poll error: {e!r}', flush=True)
 
@@ -16242,6 +16328,7 @@ def watch(directory, interval=5.0, once=False):
                             'RESPOND MSG="%s"\nM117 ColorPic ready\n'
                             '_SOUND_LIB NAME=r2_done' % _cmsg120
                             + _sel_line(rv, _crel120))
+                        return [os.path.join(directory, info_c['file'])]
                     except Exception as e:                      # noqa: BLE001
                         print(f'[colorpic] error: {e!r}', flush=True)
                         try:
@@ -16253,7 +16340,9 @@ def watch(directory, interval=5.0, once=False):
                             pass
 
                 import threading
-                threading.Thread(target=_colorpic_job120, daemon=True).start()
+                _spawn_job('ColorPic',
+                           'colorpic:%s:%r' % (_csrc120, sorted(_cparams120.items())),
+                           _colorpic_job120)
         except Exception as e:                              # noqa: BLE001
             print(f'[colorpic] poll error: {e!r}', flush=True)
 
@@ -16322,6 +16411,10 @@ def watch(directory, interval=5.0, once=False):
                             'RESPOND MSG="%s"\nM117 Bricks ready\n'
                             '_SOUND_LIB NAME=r2_done' % _bmsg121
                             + _sel_line(rv, _brel121))
+                        _ret133 = [os.path.join(directory, f)
+                                   for f in (info_b.get('plate_files')
+                                             or [info_b['file']])]
+                        return _ret133
                     except Exception as e:                      # noqa: BLE001
                         print(f'[bricks] error: {e!r}', flush=True)
                         try:
@@ -16333,7 +16426,8 @@ def watch(directory, interval=5.0, once=False):
                             pass
 
                 import threading
-                threading.Thread(target=_bricks_job121, daemon=True).start()
+                _spawn_job('Bricks', 'bricks:%r' % (sorted(_bparams121.items()),),
+                           _bricks_job121)
         except Exception as e:                              # noqa: BLE001
             print(f'[bricks] poll error: {e!r}', flush=True)
 
@@ -16368,8 +16462,18 @@ def watch(directory, interval=5.0, once=False):
                         if _fn125.startswith('00_'):
                             continue          # our own generated output
                         _p125 = os.path.join(directory, _fn125)
-                        if os.path.isfile(_p125):
-                            _kc125.append((os.path.getmtime(_p125), _fn125))
+                        if not os.path.isfile(_p125):
+                            continue
+                        # R133b: plot conversions are not sliced models -
+                        # the field log kit ran into 'no object geometry'
+                        # four times because these were picked
+                        try:
+                            with open(_p125, 'r', errors='replace') as _fh:
+                                if 'R2-PLOT' in _fh.read(4096):
+                                    continue
+                        except OSError:
+                            pass
+                        _kc125.append((os.path.getmtime(_p125), _fn125))
                     _kc125.sort(reverse=True)
                     if not _kc125:
                         raise RuntimeError('no sliced .gcode found in the '
@@ -16409,7 +16513,7 @@ def watch(directory, interval=5.0, once=False):
                                     % (_ik125['file'],
                                        len(_ik125['plates']),
                                        _ik125['parts'],
-                                       _ik125['parts_per_plate'],
+                                       max(_ik125['parts_per_plate']),
                                        _ik125['bands'], _ik125['band_mm'],
                                        _ik125['colors'], _ik125['layers'],
                                        kfrom))
@@ -16423,6 +16527,7 @@ def watch(directory, interval=5.0, once=False):
                             'RESPOND MSG="%s"\nM117 Kit ready\n'
                             '_SOUND_LIB NAME=r2_done' % _kmsg125
                             + _sel_line(rv, _krel125))
+                        return [_ok125]
                     except Exception as e:                      # noqa: BLE001
                         print(f'[brickkit] error: {e!r}', flush=True)
                         try:
@@ -16434,7 +16539,8 @@ def watch(directory, interval=5.0, once=False):
                             pass
 
                 import threading
-                threading.Thread(target=_kit_job125, daemon=True).start()
+                _spawn_job('Kit', 'kit:%s:%r' % (_kf125, sorted(_kp125.items())),
+                           _kit_job125)
         except Exception as e:                              # noqa: BLE001
             try:
                 _moonraker_gcode(
@@ -16517,6 +16623,9 @@ def watch(directory, interval=5.0, once=False):
                             'RESPOND MSG="%s"\nM117 Figures ready\n'
                             '_SOUND_LIB NAME=r2_done' % _fmsg126
                             + _sel_line(rv, _frel126))
+                        return [os.path.join(directory, f)
+                                for f in (_if126.get('plate_files')
+                                          or [_if126['file']])]
                     except Exception as e:                      # noqa: BLE001
                         print(f'[figures] error: {e!r}', flush=True)
                         try:
@@ -16528,7 +16637,8 @@ def watch(directory, interval=5.0, once=False):
                             pass
 
                 import threading
-                threading.Thread(target=_fig_job126, daemon=True).start()
+                _spawn_job('Figures', 'figures:%r' % (sorted(_fparams126.items()),),
+                           _fig_job126)
         except Exception as e:                              # noqa: BLE001
             print(f'[figures] poll error: {e!r}', flush=True)
 
@@ -17069,9 +17179,11 @@ def watch(directory, interval=5.0, once=False):
                     print(f'[host] check error: {e!r}', flush=True)
         except Exception as e:                              # noqa: BLE001
             print(f'[host] poll error: {e!r}', flush=True)
-        if busy:
+        if busy or _JOB_STATE['busy'] or _JOB_STATE['queue']:
             # R133: while klippy streams g-code the SD card and the CPU
-            # belong to the print - defer the walk/stat/process pass
+            # belong to the print - defer the walk/stat/process pass.
+            # R133b: same while a generator job works through its queue -
+            # the field Pi (11 parallel lithos) taught us the lesson
             pass
         else:
             try:

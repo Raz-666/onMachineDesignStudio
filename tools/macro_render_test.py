@@ -3795,8 +3795,8 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         _v66 = _l66.split(':', 1)[1].strip()
         break
 # NOTE: bump this expectation together with the version on every release!
-tests.append(('R66/R80 version is current (.95) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-13.95'", repr(_v66)))
+tests.append(('R66/R80 version is current (.96) in 01_state.cfg (bump together with release!)',
+    _v66 == "'R2-2026-10-13.96'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -11130,7 +11130,7 @@ tests.append(('R125b wiring: watcher resolves newest job, skips own 00_ output,'
               ' threads + errors to the LCD',
     all(_x in _ppsrc125 for _x in (
         "last_brickkit_nonce", "make_brick_kit(**params)",
-        "startswith('00_')", "threading.Thread(target=_kit_job125",
+        "startswith('00_')", "_spawn_job('Kit',",
         '[brickkit] poll error')) and 'Kit ERROR' in _ppsrc125, ''))
 
 save_vars['brickkit_src'] = ''
@@ -11253,7 +11253,7 @@ _ppsrc126 = open('tools/r2_postproc.py').read()
 tests.append(('R126 wiring: figures_nonce primed + threaded watcher',
     'figures_nonce' in _pp61.NONCE_KEYS
     and 'make_figures(**params)' in _ppsrc126
-    and 'threading.Thread(target=_fig_job126' in _ppsrc126
+    and "_spawn_job('Figures'," in _ppsrc126
     and 'Figures ERROR' in _ppsrc126, ''))
 
 save_vars['figures_scale'] = 100
