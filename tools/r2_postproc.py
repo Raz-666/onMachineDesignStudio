@@ -15002,6 +15002,45 @@ def _sv_line(var, val):
     return 'SAVE_VARIABLE VARIABLE=%s VALUE=%r' % (var, val)
 
 
+def _stop_duplicate_watcher(pid):
+    """R133i: shared kill sequence for duplicate watchers - RESPOND +
+    SIGTERM, 5 s grace, then SIGKILL. A duplicate running as ROOT (a
+    root-cron / rc.local relic) cannot be signalled from user pi: that
+    case gets a LOUD respond with the exact command instead of silently
+    claiming 'found and stopped' on the display."""
+    import signal
+    try:
+        _moonraker_gcode(
+            'RESPOND MSG="R2 watcher: stale duplicate (PID %d) found and '
+            'stopped - one watcher from now on"' % pid)
+    except Exception:                                       # noqa: BLE001
+        pass
+    try:
+        os.kill(pid, signal.SIGTERM)
+        for _ in range(10):
+            time.sleep(0.5)
+            try:
+                os.kill(pid, 0)
+            except OSError:
+                break
+        else:
+            os.kill(pid, signal.SIGKILL)
+            time.sleep(0.5)
+    except PermissionError:
+        print('[lock] PID %d runs as ROOT - a user-pi watcher cannot '
+              'stop it. Run: sudo pkill -f r2_postproc.py' % pid,
+              flush=True)
+        try:
+            _moonraker_gcode(
+                'RESPOND MSG="R2 watcher: duplicate PID %d runs as ROOT - '
+                'cannot stop it. Run on the Pi: sudo pkill -f '
+                'r2_postproc.py"' % pid)
+        except Exception:                                   # noqa: BLE001
+            pass
+    except OSError:
+        pass
+
+
 def _watch_lock_takeover():
     """R133h (field log .100 - the SHUTDOWN killer): ONE watcher, ever.
 
@@ -15015,7 +15054,6 @@ def _watch_lock_takeover():
     r2_postproc process (loud log + RESPOND, SIGTERM, then SIGKILL) and
     writes its own PID. update.sh additionally pkills everything."""
     import atexit
-    import signal
     lock = '/tmp/r2_postproc.watch.lock'
     try:
         with open(lock) as f:
@@ -15030,28 +15068,15 @@ def _watch_lock_takeover():
         except OSError:
             alive = False
         if alive:
+            if _svc_watcher(old_pid) and not _svc_watcher(os.getpid()):
+                print('[lock] the SUPERVISED systemd watcher already runs '
+                      'as PID %d - this manual start exits (use: sudo '
+                      'systemctl restart r2-postproc for a fresh one)'
+                      % old_pid, flush=True)
+                sys.exit(0)
             print('[lock] another watcher runs as PID %d - taking over '
-                  '(stale duplicate code from an older release)' % old_pid,
-                  flush=True)
-            try:
-                _moonraker_gcode(
-                    'RESPOND MSG="R2 watcher: stale duplicate (PID %d) '
-                    'found and stopped - one watcher from now on"' % old_pid)
-            except Exception:                               # noqa: BLE001
-                pass
-            try:
-                os.kill(old_pid, signal.SIGTERM)
-                for _ in range(10):
-                    time.sleep(0.5)
-                    try:
-                        os.kill(old_pid, 0)
-                    except OSError:
-                        break
-                else:
-                    os.kill(old_pid, signal.SIGKILL)
-                    time.sleep(0.5)
-            except OSError:
-                pass
+                  '(one watcher from now on)' % old_pid, flush=True)
+            _stop_duplicate_watcher(old_pid)
             print('[lock] takeover done', flush=True)
     try:
         with open(lock, 'w') as f:
@@ -15074,6 +15099,68 @@ def _rm_watch_lock():
         os.remove(lock)
     except OSError:
         pass
+
+
+def _svc_watcher(pid):
+    """R133i: True if pid belongs to the SUPERVISED systemd service."""
+    try:
+        with open('/proc/%d/cgroup' % pid) as f:
+            return 'r2-postproc.service' in f.read()
+    except OSError:
+        return False
+
+
+def _find_other_watchers():
+    """R133i: ANY other r2_postproc process (any version, lock or not).
+
+    Direct /proc scan - no subprocess, cheap on the Zero 2 W."""
+    me = os.getpid()
+    found = []
+    try:
+        names = os.listdir('/proc')
+    except OSError:
+        return found
+    for entry in names:
+        if not entry.isdigit():
+            continue
+        pid = int(entry)
+        if pid == me:
+            continue
+        try:
+            with open('/proc/%d/cmdline' % pid, 'rb') as f:
+                if b'r2_postproc.py' in f.read():
+                    found.append(pid)
+        except OSError:
+            continue        # gone again, or not ours to read
+    return found
+
+
+def _watch_duplicate_sweep():
+    """R133i (field log .101): the STARTUP takeover alone is not enough.
+
+    Pre-.98 zombie watchers never write the lock file - a stale watcher
+    that starts AFTER this one (root cron, rc.local, a second manual
+    start) stayed invisible forever, and the .100 killer class would have
+    survived it. This runtime sweep runs once a minute, finds ANY other
+    r2_postproc process - any version, lock or not - and stops it via
+    _stop_duplicate_watcher. The SUPERVISED systemd instance always wins:
+    a manual watcher that meets it exits politely instead of killing it.
+    One watcher, ever: at startup AND while running."""
+    for pid in _find_other_watchers():
+        if _svc_watcher(pid) and not _svc_watcher(os.getpid()):
+            print('[lock] the systemd watcher (PID %d) is already running '
+                  '- this manual watcher exits (one watcher, the '
+                  'supervised one)' % pid, flush=True)
+            try:
+                _moonraker_gcode(
+                    'RESPOND MSG="R2 watcher: systemd watcher PID %d '
+                    'already runs - manual start exits"' % pid)
+            except Exception:                               # noqa: BLE001
+                pass
+            sys.exit(0)
+        print('[lock] runtime sweep: duplicate watcher PID %d - stopping'
+              % pid, flush=True)
+        _stop_duplicate_watcher(pid)
 
 
 def _moonraker_gcode(script, host='127.0.0.1', port=7125, timeout=8.0,
@@ -15297,6 +15384,7 @@ def watch(directory, interval=5.0, once=False):
     stats = {'processed': 0, 'tagged_before': 0, 'errors': 0, 'files': 0,
              'deferred': 0}
     last_beat = time.time()
+    last_dup_sweep = 0.0     # R133i: runtime duplicate sweep (1st pass now)
     NEW_PREVIEW = []          # R73: freshly processed files -> LCD preview push
 
     def push_preview(ppath, label='upload'):
@@ -17480,6 +17568,13 @@ def watch(directory, interval=5.0, once=False):
             print(f'[i] still watching {directory} ({stats["files"]} files, '
                   f'{stats["processed"]} processed this run)', flush=True)
             last_beat = time.time()
+        if time.time() - last_dup_sweep >= 60:
+            # R133i: one watcher, ever - ALSO while running. The startup
+            # takeover only sees lock-WRITERS (.101+); a zombie that
+            # starts later (cron / rc.local / manual) never writes the
+            # lock. Cheap /proc scan, catches ANY r2_postproc duplicate.
+            _watch_duplicate_sweep()
+            last_dup_sweep = time.time()
         time.sleep(12.0 if busy else interval)
 
 
@@ -17628,6 +17723,17 @@ def main():
               '%d plotter' % (tot93['files'], tot93['current'],
                               tot93['stale'], tot93['old'],
                               tot93['untouched'], tot93['plot']))
+        # R133i: the census is fine - but is anyone actually WATCHING?
+        # (field log .101: the watcher was dead and nothing said so -
+        # generators and LCD pushes silently did nothing)
+        _watchers133i = _find_other_watchers()
+        if _watchers133i:
+            print('[i] watcher: PID %s running'
+                  % ', '.join(str(p) for p in _watchers133i))
+        else:
+            print('[!] NO r2_postproc watcher is running - generators, '
+                  'LCD file lists and preview pushes are OFFLINE.\n'
+                  '    fix: sudo systemctl restart r2-postproc')
         return
     dry = '--dry-run' in args
     verbose = '-v' in args or '--verbose' in args
@@ -17643,5 +17749,9 @@ def main():
 
 
 if __name__ == '__main__':
-    _watch_lock_takeover()   # R133h: one watcher, ever (zombie guard)
+    # R133i (field log .101): daemon mode ONLY. Unconditional, a
+    # --file-check one-shot ran the takeover too and KILLED the live
+    # systemd watcher - every generator fell silent until the next boot.
+    if '--watch' in sys.argv[1:]:
+        _watch_lock_takeover()
     main()

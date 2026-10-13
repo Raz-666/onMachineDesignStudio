@@ -221,7 +221,9 @@ echo "[i] restarting r2-postproc..."
 # older release (manually started once) survives a service restart and
 # keeps pushing its OLD variables (field log .100: unquoted kit_sources
 # push = 'Internal error on command:SAVE_VARIABLE' = shutdown mid-print)
-pkill -f 'r2_postproc.py' 2>/dev/null && sleep 1
+# R133i: sudo FIRST - a root-cron / rc.local zombie runs as root and a
+# plain user pkill cannot touch it (falls through silently)
+(sudo -n pkill -f 'r2_postproc.py' 2>/dev/null || pkill -f 'r2_postproc.py' 2>/dev/null) && sleep 1
 if sudo systemctl restart r2-postproc 2>/dev/null; then
     echo "[ok] r2-postproc restarted"
 else

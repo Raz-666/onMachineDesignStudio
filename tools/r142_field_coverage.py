@@ -487,6 +487,44 @@ ck('grid scale: dark = 1.0 = thickest (the docstring contract)',
    _g133g[0][0] >= 0.99 and _g133g[11][11] <= 0.01,
    '%.2f / %.2f' % (_g133g[0][0], _g133g[11][11]))
 
+# ---- 14) R133i: ONE watcher at RUNTIME too + float echo (field log .101) ----
+ck('watcher: runtime duplicate sweep exists - the startup takeover only '
+   'sees lock-WRITERS (.101+); a pre-.98 zombie starting LATER was '
+   'invisible forever',
+   'def _watch_duplicate_sweep' in src, '')
+ck('watcher: sweep scans /proc directly (no subprocess) and never kills '
+   'itself',
+   "os.listdir('/proc')" in src and 'pid == me' in src, '')
+ck('watcher: sweep wired into the watch loop, once a minute',
+   'last_dup_sweep' in src
+   and 'time.time() - last_dup_sweep >= 60' in src, '')
+ck('watcher: a ROOT duplicate (root cron / rc.local) gets a LOUD '
+   'how-to-stop respond instead of a silent fake "found and stopped" - '
+   'user pi cannot signal root processes',
+   'runs as ROOT' in src and 'sudo pkill -f' in src, '')
+_upsh133i = open(os.path.join(ROOT, 'update.sh'), encoding='utf-8').read()
+ck('update.sh: pkill tries sudo FIRST - a root-cron zombie survives a '
+   'plain user pkill untouched',
+   'sudo -n pkill' in _upsh133i, '')
+_msrc133i = open(os.path.join(ROOT, 'menus', 'lcd_menues.cfg'),
+                 encoding='utf-8').read()
+ck('menu float echo: the whole product is rounded - a trailing |round '
+   "binds to the right operand only (field log .101: '3 x 0.6 = "
+   "1.7999999999999998mm')",
+   ' * (menu.input|float|round(1))|round' not in _msrc133i
+   and '* (menu.input|float|round(1)))|round' in _msrc133i, '')
+ck('watcher: takeover is --watch-gated - a --file-check one-shot must '
+   'NEVER kill the live watcher (field log .101: the diagnostic run '
+   'killed the systemd watcher, all generators fell silent)',
+   "if '--watch' in sys.argv[1:]:" in src
+   and '        _watch_lock_takeover()' in src, '')
+ck('watcher: a manual --watch never kills the SUPERVISED systemd '
+   'instance - it exits politely instead (cgroup check)',
+   'def _svc_watcher' in src and 'r2-postproc.service' in src, '')
+ck('file-check reports the watcher state - a dead watcher (offline '
+   'generators) is no longer silent',
+   'NO r2_postproc watcher is running' in src, '')
+
 print()
 print('R142 FIELD COVERAGE: %d checks, %d FAIL' % (n_ck[0], len(fails)))
 sys.exit(1 if fails else 0)

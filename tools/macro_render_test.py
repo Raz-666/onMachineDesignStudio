@@ -3796,7 +3796,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.100) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-13.101'", repr(_v66)))
+    _v66 == "'R2-2026-10-13.102'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -11623,6 +11623,74 @@ _sv_push = [
 _bad_push = [c for c in _sv_push if not _sv_ok_133h(c)[0]]
 tests.append(('R133h watcher pushes: _save_var + list forms survive the'
               ' pipeline', not _bad_push, str(_bad_push)))
+
+# R133i: Jinja filter precedence - in {a * (b)|round(1)} the filter binds
+# to the right operand ONLY, so the raw float product reached the display
+# (field log .101: '3 x 0.6 = 1.7999999999999998mm'). The whole product
+# must be parenthesized: {((a) * (b))|round(1)}.
+_ln133i = [l.strip() for l in open('menus/lcd_menues.cfg',
+                                   encoding='utf-8').read().split('\n')
+           if 'total thickness' in l]
+_out133i = render(
+    _ln133i[0], extra={'menu': {'input': 0.6},
+                       'printer': {'save_variables': {'variables': {
+                           'colorpic_bands': 3}}}}) if _ln133i else ''
+tests.append(('R133i float echo: ColorPic total thickness (3 x 0.6) '
+              'renders as 1.8mm - no raw 1.7999999999999998 tail from an '
+              'unparenthesized product before |round',
+              bool(_ln133i) and '9999' not in _out133i
+              and '1.8mm' in _out133i, _out133i[:100]))
+
+# R133i: a --file-check one-shot must NEVER take over the watch lock.
+# Field log .101: the diagnostic run executed the takeover, killed the
+# LIVE systemd watcher (PID 574) and every generator fell silent until
+# the next boot. Behavioral proof: a fake watcher process + lock must
+# survive an ordinary --file-check untouched.
+import subprocess as _sp133i
+import tempfile as _tf133i
+import shutil as _shut133i
+import os as _os133i, sys as _sys133i
+_td133i = _tf133i.mkdtemp(prefix='r133i_')
+_fake133i = _os133i.path.join(_td133i, 'fake_r2_postproc.py')
+with open(_fake133i, 'w') as _f133i:
+    _f133i.write('import time\nprint("ready", flush=True)\ntime.sleep(180)\n')
+_sl133i = _sp133i.Popen([_sys133i.executable, _fake133i],
+                        stdout=_sp133i.PIPE)
+_sl133i.stdout.readline()
+_lock133i = '/tmp/r2_postproc.watch.lock'
+_saved133i = open(_lock133i).read() if _os133i.path.exists(_lock133i) else None
+try:
+    with open(_lock133i, 'w') as _f133i:
+        _f133i.write(str(_sl133i.pid))
+    _r133i = _sp133i.run(
+        [_sys133i.executable, _os133i.path.abspath('tools/r2_postproc.py'),
+         '--file-check', _td133i],
+        capture_output=True, text=True, timeout=180)
+    _lock_now133i = ''
+    if _os133i.path.exists(_lock133i):
+        with open(_lock133i) as _f133i:
+            _lock_now133i = _f133i.read().strip()
+    tests.append(('R133i one-shot safety: --file-check leaves a live '
+                  'watcher alone (no takeover, lock untouched, watcher '
+                  'still alive afterwards)',
+                  _sl133i.poll() is None
+                  and 'taking over' not in (_r133i.stdout + _r133i.stderr)
+                  and _lock_now133i == str(_sl133i.pid),
+                  'rc=%s sleeper=%s lock=%r out=%r'
+                  % (_r133i.returncode, _sl133i.poll(), _lock_now133i,
+                     (_r133i.stdout + _r133i.stderr)[:120])))
+finally:
+    _sl133i.kill()
+    _sl133i.wait()
+    if _saved133i is None:
+        try:
+            _os133i.remove(_lock133i)
+        except OSError:
+            pass
+    else:
+        with open(_lock133i, 'w') as _f133i:
+            _f133i.write(_saved133i)
+    _shut133i.rmtree(_td133i, ignore_errors=True)
 
 fails = 0
 for name, ok, info in tests:
