@@ -217,6 +217,11 @@ fi
 
 # --- 6) restart the post-processor ------------------------------------------------------
 echo "[i] restarting r2-postproc..."
+# R133h: kill EVERY r2_postproc process first - a stale watcher from an
+# older release (manually started once) survives a service restart and
+# keeps pushing its OLD variables (field log .100: unquoted kit_sources
+# push = 'Internal error on command:SAVE_VARIABLE' = shutdown mid-print)
+pkill -f 'r2_postproc.py' 2>/dev/null && sleep 1
 if sudo systemctl restart r2-postproc 2>/dev/null; then
     echo "[ok] r2-postproc restarted"
 else

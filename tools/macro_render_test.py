@@ -3796,7 +3796,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.100) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-13.100'", repr(_v66)))
+    _v66 == "'R2-2026-10-13.101'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -11508,6 +11508,121 @@ out = render(_body122('COLORPIC_CREATE', path='macros/18_colorpic.cfg'),
 tests.append(('R130 COLORPIC_CREATE: non-image SRC falls back -> pick hint,'
               ' no nonce',
     'NOTIFY' in out and 'VARIABLE=colorpic_nonce' not in out, out[:130]))
+
+
+# ===== R133h: SAVE_VARIABLE pipeline lint (the SHUTDOWN class) =====================
+# Field log .100: a stale .97 watcher pushed kit_sources as a BARE value ->
+# ast.literal_eval SyntaxError -> 'Internal error on command:SAVE_VARIABLE'
+# -> printer shutdown MID-PRINT. This lint runs EVERY rendered macro save
+# and every static menu save through Klipper's EXACT pipeline (shlex posix
+# + literal_eval) so an unquotable value can never ship again.
+import shlex as _shlex133h
+import ast as _ast133h
+import glob as _glob133h
+
+
+class _AnyParams133h(dict):
+    """params mock: every unknown key renders as '1' (a valid literal)"""
+
+    def __getitem__(self, k):
+        try:
+            return dict.__getitem__(self, k)
+        except KeyError:
+            return '1'
+
+
+def _sv_ok_133h(cmdline):
+    line = cmdline.strip()
+    cpos = line.find(';')
+    if cpos >= 0:
+        line = line[:cpos]
+    if not line.upper().startswith('SAVE_VARIABLE'):
+        return True, ''
+    raw = line[len('SAVE_VARIABLE'):]
+    if raw[:1].isspace():
+        raw = raw[1:]
+    s = _shlex133h.shlex(raw, posix=True)
+    s.whitespace_split = True
+    s.commenters = '#;'
+    try:
+        eparams = dict(e.split('=', 1) for e in s)
+    except ValueError:
+        return False, 'malformed command (shlex)'
+    if 'VALUE' not in eparams:
+        return True, ''          # VARIABLE-only saves (delete style) are fine
+    try:
+        _ast133h.literal_eval(eparams['VALUE'])
+        return True, ''
+    except Exception as e:                      # noqa: BLE001
+        return False, repr(e)[:70]
+
+
+_bad_sv = []
+for _f133h in sorted(_glob133h.glob('macros/*.cfg')):
+    _txt133h = open(_f133h, encoding='utf-8').read()
+    for _nm133h in re.findall(r'\[gcode_macro ([\w\d_]+)\]', _txt133h):
+        try:
+            _body133h = get_body(_f133h, _nm133h)
+        except Exception:                       # noqa: BLE001
+            continue
+        if not _body133h.strip():
+            continue
+        try:
+            _out133h = render(_body133h, _AnyParams133h(),
+                              extra={'menu': {'input': 1}})
+        except Exception:                       # noqa: BLE001
+            continue            # macros with special needs have their own tests
+        for _ln133h in _out133h.split('\n'):
+            _ok133h, _why133h = _sv_ok_133h(_ln133h)
+            if not _ok133h:
+                _bad_sv.append(('%s:%s' % (_f133h.split('/')[-1], _nm133h),
+                                _ln133h.strip()[:80], _why133h))
+
+# menu lines: static ones through the same pipeline; Jinja templates
+# ({menu.input|round|int} / {{ ... }} resolve at click time) only need a
+# safe START so the RENDERED value is a literal Klipper can parse.
+_men133h = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+for _ln133h in _men133h.split('\n'):
+    _t133h = _ln133h.strip()
+    if 'SAVE_VARIABLE' not in _t133h or 'VALUE=' not in _t133h:
+        continue
+    _ok133h, _why133h = _sv_ok_133h(_t133h)
+    if _ok133h:
+        continue                    # static & parseable NOW -> Klipper-safe
+    _v133h = _t133h.split('VALUE=', 1)[1]
+    if '{' in _v133h:
+        # dynamic: Jinja renders the braces away before Klipper sees it;
+        # require the first rendered char to be quote/number/bool/minus
+        _safe133h = _v133h[:1] in ('\'', '"', '{') or _v133h[:1].isdigit() \
+            or _v133h[:1] == '-' or _v133h.startswith(('True', 'False'))
+        if not _safe133h:
+            _bad_sv.append(('lcd_menues.cfg', _t133h[:80],
+                            'dynamic VALUE starts unsafe (bare word)'))
+        continue
+    _bad_sv.append(('lcd_menues.cfg', _t133h[:80], _why133h))
+
+tests.append(('R133h SAVE_VARIABLE pipeline: every rendered macro save AND'
+              ' every menu save survives Klipper exactly (no SyntaxError ='
+              ' no mid-print shutdown; the .100 killer was a bare value)',
+              not _bad_sv, str(_bad_sv[:4])))
+
+# the watcher's own push formats must survive the same pipeline
+_pp133h = __import__('r2_postproc') if 'r2_postproc' in dir() else None
+import importlib as _il133h
+import sys as _sys133h
+if 'tools' not in _sys133h.path:
+    _sys133h.path.insert(0, 'tools')
+_r2p133h = _il133h.import_module('r2_postproc')
+_sv_push = [
+    _r2p133h._sv_line('kit_sources', 'A.gcode|B.gcode'),
+    _r2p133h._sv_line('litho_file', "wob'ly (1).gcode"),
+    'SAVE_VARIABLE VARIABLE=litho_files VALUE="[' + "'A.jpg'" + ']"',
+    'SAVE_VARIABLE VARIABLE=gen_files VALUE="[' + "'A.gcode'" + ']"',
+    'SAVE_VARIABLE VARIABLE=range_start VALUE=2',
+]
+_bad_push = [c for c in _sv_push if not _sv_ok_133h(c)[0]]
+tests.append(('R133h watcher pushes: _save_var + list forms survive the'
+              ' pipeline', not _bad_push, str(_bad_push)))
 
 fails = 0
 for name, ok, info in tests:

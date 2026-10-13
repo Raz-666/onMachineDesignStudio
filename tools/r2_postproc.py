@@ -15002,6 +15002,80 @@ def _sv_line(var, val):
     return 'SAVE_VARIABLE VARIABLE=%s VALUE=%r' % (var, val)
 
 
+def _watch_lock_takeover():
+    """R133h (field log .100 - the SHUTDOWN killer): ONE watcher, ever.
+
+    A .97 watcher process survived every update (manually started once,
+    outside systemd) and kept pushing its stale kit-source list - as a
+    BARE unquoted value, which ast.literal_eval rejects with a
+    SyntaxError = Internal error on command:SAVE_VARIABLE = printer
+    shutdown (field log .100 struck in idle; a bare value would strike
+    mid-print just the same). It also doubled every console message. This
+    lock makes the class impossible: a new watcher TAKES OVER from any live
+    r2_postproc process (loud log + RESPOND, SIGTERM, then SIGKILL) and
+    writes its own PID. update.sh additionally pkills everything."""
+    import atexit
+    import signal
+    lock = '/tmp/r2_postproc.watch.lock'
+    try:
+        with open(lock) as f:
+            old_pid = int(f.read().strip() or '0')
+    except (OSError, ValueError):
+        old_pid = 0
+    if old_pid and old_pid != os.getpid():
+        alive = False
+        try:
+            with open('/proc/%d/cmdline' % old_pid, 'rb') as f:
+                alive = b'r2_postproc' in f.read()
+        except OSError:
+            alive = False
+        if alive:
+            print('[lock] another watcher runs as PID %d - taking over '
+                  '(stale duplicate code from an older release)' % old_pid,
+                  flush=True)
+            try:
+                _moonraker_gcode(
+                    'RESPOND MSG="R2 watcher: stale duplicate (PID %d) '
+                    'found and stopped - one watcher from now on"' % old_pid)
+            except Exception:                               # noqa: BLE001
+                pass
+            try:
+                os.kill(old_pid, signal.SIGTERM)
+                for _ in range(10):
+                    time.sleep(0.5)
+                    try:
+                        os.kill(old_pid, 0)
+                    except OSError:
+                        break
+                else:
+                    os.kill(old_pid, signal.SIGKILL)
+                    time.sleep(0.5)
+            except OSError:
+                pass
+            print('[lock] takeover done', flush=True)
+    try:
+        with open(lock, 'w') as f:
+            f.write(str(os.getpid()))
+        atexit.register(_rm_watch_lock)
+    except OSError as e:
+        print('[lock] cannot write %s: %r - running WITHOUT lock'
+              % (lock, e), flush=True)
+
+
+def _rm_watch_lock():
+    lock = '/tmp/r2_postproc.watch.lock'
+    try:
+        with open(lock) as f:
+            if int(f.read().strip() or '0') != os.getpid():
+                return
+    except (OSError, ValueError):
+        pass
+    try:
+        os.remove(lock)
+    except OSError:
+        pass
+
+
 def _moonraker_gcode(script, host='127.0.0.1', port=7125, timeout=8.0,
                       retries=2):
     """Send a g-code script to Klipper via moonraker's local HTTP API (best
@@ -17364,9 +17438,15 @@ def watch(directory, interval=5.0, once=False):
                 _gfl = [f for _, f in _gf]
                 if _gfl != gen_files_pushed[0]:
                     gen_files_pushed[0] = _gfl
+                    # R133h: a REAL list (the litho_files form) - the old
+                    # push stored a STRING, the LCD slots would have shown
+                    # single characters
+                    _gv133h = ('[' + ','.join("'" + _f + "'" for _f in _gfl
+                                              if '"' not in _f
+                                              and "'" not in _f) + ']')
                     _moonraker_gcode(
-                        'SAVE_VARIABLE VARIABLE=gen_files VALUE=\"%s\"'
-                        % str(_gfl).replace(';', '').replace("'", ''))
+                        'SAVE_VARIABLE VARIABLE=gen_files VALUE="%s"'
+                        % _gv133h)
             except Exception as e:                      # noqa: BLE001
                 print(f'[genfiles] push error: {e!r}', flush=True)
         # R73: freshly uploaded/converted files -> push their parameters to the
@@ -17563,4 +17643,5 @@ def main():
 
 
 if __name__ == '__main__':
+    _watch_lock_takeover()   # R133h: one watcher, ever (zombie guard)
     main()
