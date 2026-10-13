@@ -13533,6 +13533,162 @@ def _patch_info_retract(path, style):
     return hit
 
 
+def _patch_info_kv(path, key, value):
+    """R133: set/replace KEY=VALUE in a file's _FILE_INFO line (streamed
+    in place). The flowcap fix has called this since R111 - it never
+    existed, the NameError was swallowed by a bare except (MAXRATE never
+    reached the file info)."""
+    tmp = path + '.ikq'
+    hit = False
+    with open(path, 'r', errors='replace') as fi, open(tmp, 'w') as fo:
+        for raw in fi:
+            if not hit and raw.startswith('_FILE_INFO'):
+                line = raw.rstrip('\n')
+                if re.search(r'\b%s=' % re.escape(key), line):
+                    line = re.sub(r'%s=[\w.,+-]+' % re.escape(key),
+                                  '%s=%s' % (key, value), line)
+                else:
+                    line = line + ' %s=%s' % (key, value)
+                fo.write(line + '\n')
+                hit = True
+            else:
+                fo.write(raw)
+    if hit:
+        os.replace(tmp, path)
+    else:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+    return hit
+
+
+_XY_G1_RE = re.compile(r'^G1 X(?P<X>[-\d.]+) Y(?P<Y>[-\d.]+)'
+                       r'(?: E(?P<E>[-\d.]+))?(?:\s+F(?P<F>\d+))?')
+_XY_RE = re.compile(r'(?:^|\s)X([-\d.]+)')
+_Y_RE = re.compile(r'(?:^|\s)Y([-\d.]+)')
+_F_RE = re.compile(r'(?:^|\s)F(\d+)')
+
+
+def _worst_move_rate(path):
+    """R133 (field log .94, MCU 'Timer too close'): worst-case moves per
+    second of a gcode file. The MCU serial budget is roughly 450 moves/s
+    - bursts above that can shut a print down ('Timer too close', host
+    overload class). Only extruding G1 XY moves count; F is tracked
+    modally (slicers write it only on change)."""
+    worst = 0.0
+    px = py = None
+    cur_f = 0.0
+    try:
+        with open(path, 'r', errors='replace') as f:
+            for raw in f:
+                if not raw.startswith('G1 '):
+                    continue
+                m = _XY_G1_RE.match(raw)
+                if m is None:
+                    mf = _F_RE.search(raw)
+                    if mf:
+                        cur_f = float(mf.group(1))
+                    continue
+                if m.group('F'):
+                    cur_f = float(m.group('F'))
+                x, y = float(m.group('X')), float(m.group('Y'))
+                if m.group('E') is None:
+                    px, py = x, y           # G1 travel - position only
+                    continue
+                if px is not None and cur_f > 0:
+                    d = math.hypot(x - px, y - py)
+                    if d > 0.01:
+                        r_ = cur_f / 60.0 / d
+                        if r_ > worst:
+                            worst = r_
+                px, py = x, y
+    except OSError:
+        return 0.0
+    return worst
+
+
+def _segments_fix_file(path):
+    """R133 (field log .94, MCU 'Timer too close'): merge micro G1
+    segments in place - hops under 0.1mm (the scaled-down circle-arc
+    flood, up to 3600 moves/s) merge while the straight-line total stays
+    <= 0.35mm, so geometry never deviates more than a line width. Only
+    CONSECUTIVE G1 XY extrusions merge - feature boundaries, travels and
+    retracts stay untouched. E keeps its meaning (relative: summed,
+    absolute: last wins), F = the chain's first feed. Returns
+    (merged_hops, rate_before, rate_after)."""
+    rate_before = _worst_move_rate(path)
+    tmp = path + '.sgm'
+    merged = 0
+    pend = None            # buffered chain start/end/E/F/original text
+    lx = ly = 0.0
+    e_rel = True
+
+    def _flush(fo_, pd_):
+        if pd_['hops'] == 0:
+            fo_.write(pd_['text'] + '\n')
+        else:
+            ftxt = ' F%s' % pd_['f'] if pd_['f'] else ''
+            fo_.write('G1 X%.3f Y%.3f E%.5f%s\n'
+                      % (pd_['xe'], pd_['ye'], pd_['e'], ftxt))
+
+    with open(path, 'r', errors='replace') as fi, open(tmp, 'w') as fo:
+        for raw in fi:
+            line = raw.rstrip('\n')
+            m = _XY_G1_RE.match(line) if line.startswith('G1 ') else None
+            if m is not None and m.group('E') is not None:
+                x, y = float(m.group('X')), float(m.group('Y'))
+                e = float(m.group('E'))
+                f = m.group('F')
+                if pend is not None:
+                    de = math.hypot(x - pend['xe'], y - pend['ye'])
+                    tot = math.hypot(x - pend['x0'], y - pend['y0'])
+                    if de < 0.1 and tot <= 0.35:
+                        pend['xe'], pend['ye'] = x, y
+                        pend['e'] = (pend['e'] + e) if e_rel else e
+                        pend['hops'] += 1
+                        merged += 1
+                        lx, ly = x, y
+                        continue
+                    _flush(fo, pend)
+                    pend = None
+                pend = {'text': line, 'x0': lx, 'y0': ly, 'xe': x, 'ye': y,
+                        'e': e, 'f': f, 'hops': 0}
+                lx, ly = x, y
+                continue
+            if pend is not None:
+                _flush(fo, pend)
+                pend = None
+            fo.write(raw)
+            if line.startswith('G0 ') or line.startswith('G1 '):
+                mx = _XY_RE.search(line)
+                my = _Y_RE.search(line)
+                if mx and my:
+                    lx, ly = float(mx.group(1)), float(my.group(1))
+                mf = _F_RE.search(line)
+                if mf:
+                    pass            # modal F of travels - not needed here
+            elif line.startswith('M82'):
+                e_rel = False
+            elif line.startswith('M83'):
+                e_rel = True
+        if pend is not None:
+            _flush(fo, pend)
+        if merged:
+            fo.write('\n; R2-SEGMENTFIX: %d micro move(s) merged (<0.1mm '
+                     'hops) - worst rate %.0f -> %.0f moves/s (MCU serial '
+                     'budget ~450/s)\n'
+                     % (merged, rate_before, _worst_move_rate(tmp)))
+    if merged:
+        os.replace(tmp, path)
+        return merged, rate_before, _worst_move_rate(path)
+    try:
+        os.remove(tmp)
+    except OSError:
+        pass
+    return 0, rate_before, rate_before
+
+
 def _retract_rewrite_file(path):
     """R84: stream-rewrite a file's retract pairs to G10/G11 in place.
     Returns (pairs, aborted). Memory stays O(1) - safe for 30MB+ files."""
@@ -14842,6 +14998,30 @@ def _preview_script(ppath):
                                  '+ purge (recommended) | AS SLICED = 1:1 with the source values"')
         except OSError:
             pass
+    # R133 (field log .94, MCU 'Timer too close'): warn about micro-
+    # segment bombs AT SELECTION TIME. The worst move rate lands in the
+    # file's _FILE_INFO once (then this check is free); above 400/s the
+    # MCU serial budget is at risk - the Segment fix heals the file.
+    mr = None
+    _mrs = pv.get('MOVERATE', '')
+    if _mrs:
+        try:
+            mr = float(_mrs)
+        except ValueError:
+            mr = None
+    if mr is None and not busy and raw:
+        try:
+            mr = _worst_move_rate(ppath)
+            if mr and mr > 1.0:
+                _patch_info_kv(ppath, 'MOVERATE', '%.0f' % mr)
+        except Exception:                                 # noqa: BLE001
+            mr = None
+    if mr is not None and mr > 400.0:
+        lines.append('RESPOND MSG="[!] %s: up to %.0f moves/s - '
+                     '\'Timer too close\' risk! Pre-Print > File > '
+                     'Segment fix merges the micro moves (MCU budget '
+                     '~450/s)"' % (esc(os.path.basename(ppath)), mr))
+        lines.append('M117 MCU risk - SegFix!')
     return lines, len(pv) + 1
 
 
@@ -15059,6 +15239,29 @@ def watch(directory, interval=5.0, once=False):
                 _moonraker_gcode('RESPOND MSG="%s"\nM117 TravAcc done\n'
                                  '_SOUND_LIB NAME=%s' % (msg, snd))
                 print(f'[travelacc] {rel}: {msg}', flush=True)
+            elif kind == 'segments':
+                # R133 (field log .94, MCU 'Timer too close'): heal a
+                # micro-segment flood in ANY selected file (old .93
+                # figures/scaled files included) - no re-upload
+                n, rb, ra = _segments_fix_file(p)
+                if n:
+                    msg = ('Segment fix DONE: %d micro move(s) merged in %s -'
+                           ' worst move rate %.0f -> %.0f/s (MCU budget ~450)'
+                           % (n, base, rb, ra))
+                    snd = 'r2_done'
+                else:
+                    msg = ('Segment fix: %s is already smooth (%.0f moves/s '
+                           'worst) - nothing changed' % (base, rb))
+                    snd = 'r2_notice'
+                _moonraker_gcode('RESPOND MSG="%s"\nM117 SegFix done\n'
+                                 '_SOUND_LIB NAME=%s' % (msg, snd))
+                if n:
+                    try:
+                        _patch_info_kv(p, 'MOVERATE', '%.0f' % ra)
+                        _moonraker_gcode('\n'.join(_preview_script(p)))
+                    except Exception:                       # noqa: BLE001
+                        pass
+                print(f'[segfix] {rel}: {msg}', flush=True)
             else:
                 n, area = _volumetric_convert_file(p)
                 if n:
@@ -15299,6 +15502,7 @@ def watch(directory, interval=5.0, once=False):
                 last_vol_fix_nonce = _np.get('vol_fix_nonce')
                 last_flowcap_nonce = _np.get('flowcap_fix_nonce')
                 last_travelacc_nonce = _np.get('travelacc_fix_nonce')
+                last_segments_nonce = _np.get('segments_fix_nonce')
                 last_reso_nonce = _np['reso_nonce']
                 last_bridge_nonce = _np['bridge_nonce']
                 last_plottext_nonce = _np['plot_text_nonce']
@@ -15544,6 +15748,14 @@ def watch(directory, interval=5.0, once=False):
                 file_fix('travelacc', str(rv.get('travelacc_fix_file', '')).strip())
         except Exception as e:                              # noqa: BLE001
             print(f'[travelacc] poll error: {e!r}', flush=True)
+        try:
+            sgn85 = rv.get('segments_fix_nonce', '')
+            if sgn85 and sgn85 != last_segments_nonce:
+                last_segments_nonce = sgn85
+                file_fix('segments',
+                         str(rv.get('segments_fix_file', '')).strip())
+        except Exception as e:                              # noqa: BLE001
+            print(f'[segfix] poll error: {e!r}', flush=True)
 
         # R132 field log .92: a fix during the start dialog released the
         # dialog (the file changes on disk) - after fixing, the file comes

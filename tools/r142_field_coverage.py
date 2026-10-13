@@ -187,6 +187,55 @@ ck('kit: slope parts printed without studs on the chamfer '
    kg.count('EXCLUDE_OBJECT_START') == kg.count('EXCLUDE_OBJECT_END'),
    'start/end balance')
 
+# ---- 9) micro-segment bombs (MCU 'Timer too close' class) -----------------
+ck('postproc: _patch_info_kv exists (was called-but-missing since R111)',
+   hasattr(pp, '_patch_info_kv'), '')
+ck('postproc: _worst_move_rate + _segments_fix_file exist',
+   hasattr(pp, '_worst_move_rate') and hasattr(pp, '_segments_fix_file'),
+   '')
+hot = os.path.join(d, 'r142hot.gcode')
+_x = 50.0
+_hl = ['; R2-POSTPROC v5',
+       '_FILE_INFO MATERIAL=PLA LAYER_HEIGHT=0.2 TOTAL_LAYERS=10',
+       'PRINT_START MATERIAL=PLA LAYER_HEIGHT=0.2 TOTAL_LAYERS=10',
+       'G90', 'M83', 'G1 F3000']
+for _i in range(300):
+    _x += 0.02
+    _hl.append('G1 X%.3f Y50.000 E0.001' % _x)
+_hl.append('PRINT_END')
+open(hot, 'w', encoding='utf-8').write('\n'.join(_hl) + '\n')
+_rb = pp._worst_move_rate(hot)
+ck('segments: the bomb is measured (>1500 moves/s)', _rb > 1500,
+   '%.0f/s' % _rb)
+_n, _rb2, _ra = pp._segments_fix_file(hot)
+ck('segments: fix merges the flood and lands under 400 moves/s',
+   _n >= 250 and _ra < 400, 'merged=%d %.0f->%.0f/s' % (_n, _rb2, _ra))
+_e = sum(float(l.split(' E')[1]) for l in open(hot, encoding='utf-8')
+         if l.startswith('G1 X') and ' E' in l)
+ck('segments: extrusion preserved (300 x 0.001)', abs(_e - 0.3) < 0.0005,
+   'E=%.4f' % _e)
+# fresh UNFIXED bomb for the selection warning (the fixed one is silent
+# on purpose - its MOVERATE is now 250)
+hot2 = os.path.join(d, 'r142hot2.gcode')
+open(hot2, 'w', encoding='utf-8').write('\n'.join(_hl) + '\n')
+_hs, _ = pp._preview_script(hot2)
+ck('segments: selection warns about hot files (Timer too close risk)',
+   any('Timer too close' in l for l in _hs), _hs[-2:])
+_hs2, _ = pp._preview_script(hot)     # the healed file stays silent
+ck('segments: healed file selected -> no warning',
+   not any('SegFix' in l for l in _hs2), '')
+ck('watch: segments nonce dispatched in the poll loop',
+   "rv.get('segments_fix_nonce'" in src and 'file_fix(\'segments\'' in src,
+   '')
+_fixcfg = open(MAC.replace('12_maintenance', '08_print_start_stop'),
+               encoding='utf-8').read()
+ck('macros: FIX_FILE accepts WHAT=SEGMENTS', "'SEGMENTS'" in _fixcfg
+   and 'segments_fix_nonce VALUE=' in _fixcfg, '')
+_men = open(os.path.join(ROOT, 'menus', 'lcd_menues.cfg'),
+            encoding='utf-8').read()
+ck('LCD: Segment fix entry in Pre-Print > File',
+   'FIX_FILE WHAT=SEGMENTS' in _men, '')
+
 print()
 print('R142 FIELD COVERAGE: %d checks, %d FAIL' % (n_ck[0], len(fails)))
 sys.exit(1 if fails else 0)
