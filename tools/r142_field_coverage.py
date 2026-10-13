@@ -353,6 +353,49 @@ ck('kit menu: Source shows the selected file, Job-1..5 entries gone',
        ROOT, 'menus', 'lcd_menues.cfg'), encoding='utf-8').read()
    and 'newest job' not in open(os.path.join(
        ROOT, 'menus', 'lcd_menues.cfg'), encoding='utf-8').read(), '')
+# ---- 12) R133f: the regeneration loop is DEAD - and stays dead ---------------
+_prime_blk = src[src.index('if first_prime:'):src.index('first_prime = False')]
+_missing = [k for k in pp.NONCE_KEYS
+            if ("_np.get('%s')" % k) not in _prime_blk
+            and ("_np['%s']" % k) not in _prime_blk]
+ck('LOOP FIX: EVERY nonce channel is primed after a watcher start '
+   '(colorpic/bricks/brickkit/figures/plot_cal were forgotten since '
+   '.90 - every reboot re-fired old jobs and recreated deleted files)',
+   not _missing, 'unprimed: %s' % _missing)
+ck('helper _next_gen_version: next free number, NEVER overwrite',
+   hasattr(pp, '_next_gen_version') and hasattr(pp, '_gen_stem'), '')
+ck('names: FULL source stem (the [:8] cut is gone everywhere)',
+   ":8] or 'IMG'" not in src and ":8] or 'MODEL'" not in src
+   and pp._gen_stem('/x/AxtBunny.png.gcode') == 'AxtBunny.png'
+   and pp._gen_stem('/x/Mein Langes Bild!#.jpg') == 'Mein_Langes_Bild'
+   and len(pp._gen_stem('/x/' + 'L' * 40 + '.gcode')) == 40, '')
+ck('no version clamp left - gen_version is fully retired',
+   'max(1, min(int(version), 99))' not in src
+   and 'gen_version' not in open(os.path.join(
+       ROOT, 'menus', 'lcd_menues.cfg'), encoding='utf-8').read(), '')
+_lcd133f = open(os.path.join(ROOT, 'menus', 'lcd_menues.cfg'),
+                encoding='utf-8').read()
+ck('LCD: Gen files browser (select + 2-press delete, 12 slots each)',
+   _lcd133f.count('__gfiles __s') == 12
+   and _lcd133f.count('__gfiles __del __d') == 12
+   and 'GEN_FILE_DEL_SLOT INDEX=5' in _lcd133f, '')
+_ld0 = _lcd133f.index('[menu __main __gen __litho __del]')
+_ld1 = _lcd133f.index('[menu __main __gen __litho __set]')
+_litho_del_blk = _lcd133f[_ld0:_ld1]
+ck('LCD: litho Delete-image slots call DEL_SLOT (were wired to CREATE!)',
+   'LITHO_DEL_SLOT INDEX=0' in _litho_del_blk
+   and 'LITHO_CREATE' not in _litho_del_blk, '')
+_mac17 = open(os.path.join(ROOT, 'macros', '17_generator.cfg'),
+              encoding='utf-8').read()
+ck('macro GEN_FILE_DEL_SLOT: 2-press arm + only-00_ promise',
+   'GEN_FILE_DEL_SLOT' in _mac17 and 'gen_del_arm' in _mac17, '')
+ck('watcher: gen_files push + gen_del handler (00_-only guard)',
+   'VARIABLE=gen_files' in src and "rv.get('gen_del_nonce'" in src
+   and "startswith('00_')" in src, '')
+ck('_STATE declares gen_del_arm (2-press state survives)',
+   'variable_gen_del_arm' in open(os.path.join(
+       ROOT, 'macros', '01_state.cfg'), encoding='utf-8').read(), '')
+
 print()
 print('R142 FIELD COVERAGE: %d checks, %d FAIL' % (n_ck[0], len(fails)))
 sys.exit(1 if fails else 0)

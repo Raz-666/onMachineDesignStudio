@@ -754,6 +754,21 @@ backplate keyhole and stud holes, the frame view opening and the
 bridge-test spans. FLAT gaskets and lithophanes have no openings at all —
 one continuous bead per layer, nothing to cross.
 
+### 5.0b Generated files: names, versions, select + delete (R133f)
+
+**Names & versions.** Every generated file carries the FULL source name
+(no shortening) plus the important generator info and a running version:
+`00_BrickKit_AxtBunny.png_AUTO_A_V03.gcode`, `00_Litho_Bun2_V02.gcode`,
+`00_Figure_s100_SINGLE_V01.gcode`. The version bumps ITSELF — regenerating
+never overwrites an older file (the old Vers setting is retired; a deleted
+highest version number gets reused).
+
+**Tools > Gen files.** Every `00_` output, newest first, right on the
+display: press a slot to SELECT that file (the start dialog catches it —
+nothing prints unasked), or open **Delete file** and press a slot TWICE
+(first press arms, second deletes). Only `00_` generator outputs can ever
+be deleted this way — your own sliced files are untouchable.
+
 ### 5.0 After generating: QUEUE or PREVIEW only (.84)
 
 Every generator (range, labels, plotter, cable ties, angles, lithophane,
@@ -933,7 +948,7 @@ entirely from the LCD (or one console line).
 | Size | 0 = auto, or a cap height in mm | 0: the font fills the label (~94 %). An explicit cap height is a TARGET — the label GROWS so it fits |
 | Spc | letter spacing in mm | extra spacing between letters |
 | Stroke | 0 = auto, or mm | the letter LINE WIDTH. 0 = auto (three extrusion lines, solid letters) or your nozzle diameter (0.6 = single-line letters). Capped automatically at ⅕ of the cap height — thicker strokes would merge the letters |
-| Vers | V01–V09 | the version in every generated file name. Same text + same version = the file replaces itself; bump the version to keep an iteration |
+| ~ | auto | the version in the file name bumps ITSELF (V01, V02, ...) - regenerating never overwrites an older file; the old Vers setting is retired (R133f) |
 | Base / Text layers | e.g. 4 + 2 | plate thickness and text relief |
 | LH / 1st | layer heights | base layer height / first layer |
 | Ironing | ON/OFF | smooths the text surface |
@@ -1073,7 +1088,7 @@ auto-scale with the strap width — you never tune the mechanism itself.
 | LH | 0.12–0.32 mm | layer height. 0.12–0.16 = smoother teeth (finer ratchet steps) |
 | Closure | CLASSIC / LOOP | one-way pawl vs adjustable bead loop (see table above) |
 | Brim | ON/OFF | loops around each head on layer 1 — the thin head sticks better |
-| Vers | V01–V09 | same settings + same version = the file replaces itself; bump to keep an iteration. The upload area is never touched |
+| ~ | auto | the version in the file name bumps ITSELF (V01, V02, ...) - regenerating never overwrites an older file; the old Vers setting is retired (R133f) |
 
 **What prints** — CLASSIC: each tie gets a small box head (solid floor, two
 channel walls, a ceiling) with a pawl strip at the channel entry, plus the
@@ -1165,7 +1180,7 @@ fully automatic hole layout. LCD: `Tools > Angles+Flat`.
 | Infill | 20–100 % | 100 = solid hatch, lower = wider line spacing (the walls carry the load) |
 | Ironing | ON / off | one slow, low-flow pass over the top face — smooth finish |
 | Count | 1–12 | plates in ONE project file |
-| Vers | V01–V09 | version in the file name (same convention as Labels) |
+| ~ | auto | the version in the file name bumps ITSELF (V01, V02, ...) - regenerating never overwrites an older file; the old Vers setting is retired (R133f) |
 
 **The workflow**
 
@@ -1233,7 +1248,7 @@ correct viewing side).
 | Border | 0–10 mm | FLAT: a picture frame around the plate at full height — 0 = off (the old Frame switch maps to 2.4 mm) |
 | Corner | 0–20 mm | FLAT: rounded frame corners (0 = square; only with a border) |
 | Contrast | ON/OFF | extra contrast boost after the stretch — pushes midtones apart so level edges stand out (sketches, logos, text). OFF = the raw gray values |
-| Vers | V01–V09 | same picture + same version = replaces itself; bump to keep an iteration |
+| ~ | auto | the version in the file name bumps ITSELF (V01, V02, ...) - regenerating never overwrites an older file; the old Vers setting is retired (R133f) |
 
 **How it prints (STANDING)** — upright, one picture row per layer (the layer
 lines run WITH the image, that is what keeps the detail). Thickness runs
@@ -1291,7 +1306,7 @@ short band-to-band hop between the lips).
 | Face | FLAT / NUT | FLAT = full contact face. NUT = a groove in the face leaves two raised sealing lips — higher pressure, seals better on uneven/flanged surfaces (falls back to FLAT with a note if the band is too narrow) |
 | Ironing | ON/OFF | slow smoothing pass over the sealing face |
 | LH | 0.12–0.32 mm | layer height; 0.12–0.16 = smoother face |
-| Vers | V01–V09 | same settings + same version = replaces itself |
+| ~ | auto | the version in the file name bumps ITSELF (V01, V02, ...) - regenerating never overwrites an older file; the old Vers setting is retired (R133f) |
 
 **Material:** TPU seals best (the file already prints at 15 mm/s), PETG
 works, PLA only for dry, low-pressure lids. Dry the filament — moisture
@@ -2171,7 +2186,7 @@ retraction reads the firmware values — what you see is what runs.
 | Text | L1–L5 pickers · Show text · Pos 1–12 (cursor) · Chr (rotates A–Z a–z 0–9 space ÄÖÜäöüß and symbols) · Delete char · Clear text — the current text appears on the LCD with the cursor position; Fit gives a rough estimate, the exact preview follows ~2 s later |
 | Settings | W/H (label size, default 50×15) · Font: SMOOTH / MONO / COND / NARROW / CAPS (the * marks the active one) · Lines 1–3 · Size (0 = auto) · Spc letter spacing · Stroke = letter line width (0 = auto, 0.6 = nozzle) · Base/Text layers · LH / 1st · Ironing · Hole NONE/LEFT/RIGHT/TOP/BOTTOM · Hole D · Brim · 2 colors · Gap (grid spacing) |
 | Job | Queue n/24 · Add label · Del last · Clear all (2×) · Create (beeps) · Fit (how many fit the bed) · How it works |
-| Settings | W/H · Lines 1–5 · Size (auto or cap mm) · Spc · Base/Text layers · LH/1st · Ironing · Hole · Stroke · **Vers V01–V09** · **Preview fit?** (real numbers incl. growth + minimum size for a fixed font) |
+| Settings | W/H · Lines 1–5 · Size (auto or cap mm) · Spc · Base/Text layers · LH/1st · Ironing · Hole · Stroke · **Preview fit?** (real numbers incl. growth + minimum size for a fixed font) |
 
 **Plotter** (in Tools) — DRAW/DOTS, dot gap, pen offset X/Y/Z, scale X/Y %,
 bed corner limits, extruder ON/OFF, Z up/down, speeds, max size, auto-
@@ -2184,7 +2199,7 @@ while plotting (ch. C.3).
 | Entry | Contents |
 |---|---|
 | Info | every setting in one console listing + material tip |
-| Settings | Count 1–24 · Len 50–300 mm · Width 2–12 mm · Layers 3–6 (strap thickness) · LH 0.12–0.32 (finer = smoother teeth) · Closure: CLASSIC (one-way pawl, `*` marks active) / LOOP (adjustable bead loop, reusable) · Brim ON/OFF · Vers V01–V09 |
+| Settings | Count 1–24 · Len 50–300 mm · Width 2–12 mm · Layers 3–6 (strap thickness) · LH 0.12–0.32 (finer = smoother teeth) · Closure: CLASSIC (one-way pawl, `*` marks active) / LOOP (adjustable bead loop, reusable) · Brim ON/OFF |
 | Create (beeps) | validates, bumps the job counter — the watcher builds the file in the background, it beeps + auto-selects |
 | How it works | the flow + PETG/TPU tip + the Mainsail one-liner, right on the LCD |
 
@@ -2194,7 +2209,7 @@ while plotting (ch. C.3).
 |---|---|
 | Info | every setting in one console listing + the auto-hole rules |
 | Mode | Angle (L) / Flat splice — the `*` marks the active mode |
-| Settings | Angle 30–170° (**hidden in Flat mode**) · Leg A/B 20–150 mm (renamed Left/Right in Flat mode) · Width 8–60 · Layers 4–12 · LH · Holes 0–6 per leg · Hole D 2–10 mm (auto-clamped to the leg width) · Holes: Countersunk/Normal · Rib None/Gusset/Stepped (**hidden in Flat mode**) · Count 1–12 · Vers V01–V09  Walls 1-6 · Infill 20-100% · Ironing on/off |
+| Settings | Angle 30–170° (**hidden in Flat mode**) · Leg A/B 20–150 mm (renamed Left/Right in Flat mode) · Width 8–60 · Layers 4–12 · LH · Holes 0–6 per leg · Hole D 2–10 mm (auto-clamped to the leg width) · Holes: Countersunk/Normal · Rib None/Gusset/Stepped (**hidden in Flat mode**) · Count 1–12  Walls 1-6 · Infill 20-100% · Ironing on/off |
 | Create (beeps) | validates, bumps the job counter — ready in ~1–2 s with the full adjustment report |
 
 **Lithophane** (picture → back-lit relief, in Tools — ch. 5.6)
@@ -2204,7 +2219,7 @@ while plotting (ch. C.3).
 | Info | every setting + how many images are ready |
 | Images (Create) | the gcodes folder's `.png/.jpg` list (newest first, 10 slots; plotter uploads included) — slot press = Create |
 | Delete image | same slots, **2-press confirm** (press, press again) — only the image goes away, its plotter `.gcode` stays |
-| Settings | Orient STANDING/FLAT · Height (Size in FLAT) 30–200 mm · Layer 0.08–0.2 (0.12 default) · Levels 0–12 (0 = photo, 2–12 posterized) · Colors 1–4 + ColL 1–30 (FLAT color bands) · Frame ON/OFF · Brim 0–10 · Ironing ON/OFF · Vers V01–V09 |
+| Settings | Orient STANDING/FLAT · Height (Size in FLAT) 30–200 mm · Layer 0.08–0.2 (0.12 default) · Levels 0–12 (0 = photo, 2–12 posterized) · Colors 1–4 + ColL 1–30 (FLAT color bands) · Frame ON/OFF · Brim 0–10 · Ironing ON/OFF |
 | How it works | upload, slot press, standing print, white PLA tip, Mainsail one-liner |
 
 **Gaskets** (in Tools — ch. 5.7)
@@ -2212,7 +2227,7 @@ while plotting (ch. C.3).
 | Entry | Contents |
 |---|---|
 | Info | every setting + material tips |
-| Settings | OD 12–200 mm · ID 6–190 mm · Height 0.4–6 mm · Face: FLAT / NUT (groove + two sealing lips, `*` marks active) · Ironing ON/OFF · LH 0.12–0.32 · Vers V01–V09 |
+| Settings | OD 12–200 mm · ID 6–190 mm · Height 0.4–6 mm · Face: FLAT / NUT (groove + two sealing lips, `*` marks active) · Ironing ON/OFF · LH 0.12–0.32 |
 | Create (beeps) | validates, bumps the job counter — the watcher builds the file, it beeps + auto-selects |
 | How it works | spiral-per-band, NUT fallback rule, TPU/PETG tip, Mainsail one-liner |
 
@@ -2221,7 +2236,7 @@ while plotting (ch. C.3).
 | Entry | Contents |
 |---|---|
 | Info | every setting in one console listing + closure explanation |
-| Settings | Preset: Custom/9x13/10x15/13x18/A6 (`*` marks active; picking one fills W/H as editable values) · W + H 40–230 (custom, max follows the build volume) · Depth 3–60 mm · Border 4–30 mm · Corner r 0–30 mm · Walls 1–4 (loops per side) · Shape RECT/OVAL · Closure BACK/SIDE · Hang TOP/BOTTOM/LEFT/RIGHT/OFF · Stand ON/OFF · Surf: Ironed/Bed texture/Lines/Waves/Honeycomb (+ Depth/Spacing/Angle/Wave amp/Cell/Dir) · Disc: None/Glass/Plexi/Foil/Litho (+ Side/Thick) · Cable ON/OFF · Infill 20–100 % · **Presets: Save current / Load 1–8 / Delete 1–8** (your complete frame configs) · Vers V01–V09 |
+| Settings | Preset: Custom/9x13/10x15/13x18/A6 (`*` marks active; picking one fills W/H as editable values) · W + H 40–230 (custom, max follows the build volume) · Depth 3–60 mm · Border 4–30 mm · Corner r 0–30 mm · Walls 1–4 (loops per side) · Shape RECT/OVAL · Closure BACK/SIDE · Hang TOP/BOTTOM/LEFT/RIGHT/OFF · Stand ON/OFF · Surf: Ironed/Bed texture/Lines/Waves/Honeycomb (+ Depth/Spacing/Angle/Wave amp/Cell/Dir) · Disc: None/Glass/Plexi/Foil/Litho (+ Side/Thick) · Cable ON/OFF · Infill 20–100 % · **Presets: Save current / Load 1–8 / Delete 1–8** (your complete frame configs) |
 | Create (beeps) | validates, bumps the job counter — the watcher checks the bed fit and builds the file, it beeps + auto-selects |
 | How it works | workflow, kit logic, snap-in/side assembly, Mainsail one-liner |
 
@@ -2231,7 +2246,7 @@ while plotting (ch. C.3).
 |---|---|
 | Info | queue + settings + geometry summary |
 | Catalog | all 45 codes (B/P/T × 1x1…8x8) — press bumps the count, same codes merge, max 120 parts |
-| Settings | Layer 0.08–0.32 · Vers V01–V09 |
+| Settings | Layer 0.08–0.32 |
 | Create | builds `00_Bricks_V01.gcode` from the queue (beeps + selects) |
 | Kit from file | Source: the file SELECTED in the file list (or SRC=/INDEX= via Mainsail; nothing selected = clear error) · Detail: AUTO/MICRO 4.8/SMALL 9.6/BIG 3.2 · Mode: By plate (1 color/plate, zero M600) / By object (M600 at color boundaries) · Colors 1–8 · CREATE kit |
 | Figures | Scale 25–300 % (5 % steps) · Count 1–24 · CREATE figure |

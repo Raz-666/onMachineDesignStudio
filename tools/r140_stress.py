@@ -184,20 +184,22 @@ _d1 = tempfile.mkdtemp(dir=D)
 _d2 = tempfile.mkdtemp(dir=D)
 atexit.register(lambda d1=_d1, d2=_d2: (shutil.rmtree(d1, ignore_errors=True),
                                          shutil.rmtree(d2, ignore_errors=True)))
-pp.make_bricks([('S1x3', 2), ('A1x4', 1), ('H1x4', 2)], out_dir=_d1, bed=BED,
-               brim=3, colors=2, mode='BY_OBJECT', version=7)
-pp.make_bricks([('S1x3', 2), ('A1x4', 1), ('H1x4', 2)], out_dir=_d2, bed=BED,
-               brim=3, colors=2, mode='BY_OBJECT', version=7)
-ck('idempotence bricks',
-   open(os.path.join(_d1, '00_Bricks_V07.gcode')).read()
-   == open(os.path.join(_d2, '00_Bricks_V07.gcode')).read())
-pp.make_figures(count=1, scale=100, out_dir=_d1, bed=BED, mode='SINGLE',
-                version=7)
-pp.make_figures(count=1, scale=100, out_dir=_d2, bed=BED, mode='SINGLE',
-                version=7)
-ck('idempotence figures single',
-   open(os.path.join(_d1, '00_Figure_s100_V07.gcode')).read()
-   == open(os.path.join(_d2, '00_Figure_s100_V07.gcode')).read())
+# R133f: versions auto-bump (fresh dir -> V01 on both sides; the returned
+# paths carry the real names - SINGLE/PARTS is part of the figure name now)
+_oi1, _ = pp.make_bricks([('S1x3', 2), ('A1x4', 1), ('H1x4', 2)], out_dir=_d1,
+                         bed=BED, brim=3, colors=2, mode='BY_OBJECT')
+_oi2, _ = pp.make_bricks([('S1x3', 2), ('A1x4', 1), ('H1x4', 2)], out_dir=_d2,
+                         bed=BED, brim=3, colors=2, mode='BY_OBJECT')
+ck('idempotence bricks', open(_oi1).read() == open(_oi2).read(),
+   '%s vs %s' % (os.path.basename(_oi1), os.path.basename(_oi2)))
+_oi3, _ = pp.make_figures(count=1, scale=100, out_dir=_d1, bed=BED,
+                          mode='SINGLE')
+_oi4, _ = pp.make_figures(count=1, scale=100, out_dir=_d2, bed=BED,
+                          mode='SINGLE')
+ck('idempotence figures single (name carries SINGLE + auto V01)',
+   open(_oi3).read() == open(_oi4).read()
+   and os.path.basename(_oi3) == '00_Figure_s100_SINGLE_V01.gcode',
+   os.path.basename(_oi3))
 
 # ============================================================ PART C ======
 CANON = set(pp.TYPE_MAP.values()) | {'CUSTOM'}

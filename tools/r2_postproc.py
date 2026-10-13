@@ -1509,12 +1509,13 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
         return l
 
     stem, ext = os.path.splitext(src)
-    # R83: 00_ prefix (top of the file list) + 3 source letters + the range
-    # + a version suffix. Same name = overwrite (the user's tweaks must not
-    # pile up files); the SOURCE itself is never written to.
+    # R83/R133f: 00_ prefix (top of the file list) + 3 source letters + the
+    # range + a RUNNING version (never overwrite - field log .98 killed the
+    # old same-name-overwrite spec); the SOURCE itself is never written to.
     _src3 = re.sub(r'[^A-Za-z0-9]', '', os.path.basename(stem))[:3] or 'RNG'
+    _rng83 = '00_%s_L%s-%s' % (_src3, start, end)
     out = os.path.join(os.path.dirname(stem) or '.',
-                       f'00_{_src3}_L{start}-{end}_V{max(1, min(int(version), 99)):02d}{ext or ".gcode"}')
+                       f'{_rng83}_V{_next_gen_version(os.path.dirname(stem) or ".", _rng83):02d}{ext or ".gcode"}')
     if os.path.abspath(out) == os.path.abspath(src):
         raise ValueError('range output name collides with the source - refusing')
     # body (E rebased to start at 0) + EXCLUDE_OBJECT cleanup, streamed
@@ -5449,14 +5450,14 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
             outl.append('LAYER_MARK')
 
     # R83: 00_ prefix (generated files sort to the TOP of the file list) and
-    # a _V version suffix. The size is deliberately NOT in the name: the same
-    # text regenerated with other settings OVERWRITES its own file instead of
-    # piling up near-duplicates (user spec). Version bumps (LCD 'Version')
-    # keep an iteration as a new file.
+    # R133f (field log .98): running version, NEVER overwrite - the old
+    # 'same text overwrites its file' spec and the gen_version LCD option
+    # are gone. Size stays out of the name on purpose (near-duplicates
+    # still group); every regeneration gets the next free number.
     first_name = _safe_label_name(texts[0])
     extra = '+%d' % (n - 1) if n > 1 else ''
     fname = '00_%s%s_V%02d.gcode' % (first_name, extra,
-                                     max(1, min(int(version), 99)))
+        _next_gen_version(out_dir, '00_%s%s' % (first_name, extra)))
     out = os.path.join(out_dir, fname)
     with open(out, 'w') as f:
         f.write('\n'.join(outl) + '\n')
@@ -6195,7 +6196,9 @@ def make_resonance(axes=('x', 'y'), mode='print', out_dir='.', bed=None, version
             for pl in polys:
                 lays.append([(bx + (px / RESO_PLATE_W) * pw * sx,
                               oy + (py / RESO_PLATE_H) * ph * sy) for px, py in pl])
-        fname = '00_Resonance_%s_plot_V%02d.gcode' % (suffix, max(1, min(int(version), 99)))
+        fname = '00_Resonance_%s_plot_V%02d.gcode' % (
+            suffix, _next_gen_version(out_dir,
+                                      '00_Resonance_%s_plot' % suffix))
         out = os.path.join(out_dir, fname)
         notes = ['; R2-RESONANCE diagram (pen plot) from %s'
                  % ', '.join(data[ax]['file'] for ax in axes),
@@ -6328,7 +6331,8 @@ def make_resonance(axes=('x', 'y'), mode='print', out_dir='.', bed=None, version
     a('M107')
     a('PRINT_END')
 
-    fname = '00_Resonance_%s_V%02d.gcode' % (suffix, max(1, min(int(version), 99)))
+    fname = '00_Resonance_%s_V%02d.gcode' % (
+        suffix, _next_gen_version(out_dir, '00_Resonance_%s' % suffix))
     out = os.path.join(out_dir, fname)
     with open(out, 'w') as f:
         f.write('\n'.join(L) + '\n')
@@ -6700,12 +6704,41 @@ NONCE_KEYS = ('preview_nonce', 'range_nonce', 'label_gen_nonce', 'reso_nonce',
               'litho_del_nonce', 'frame_nonce', 'texture_nonce',
               'file_check_nonce', 'colorpic_nonce', 'bricks_nonce',
               'brickkit_nonce', 'figures_nonce', 'plot_cal_nonce',
-              'queue_cancel_nonce')
+              'queue_cancel_nonce', 'gen_del_nonce')
 
 
 def _prime_nonces(rv):
     """first loop pass: adopt the CURRENT counters, fire nothing."""
     return {k: (rv.get(k, '') or None) for k in NONCE_KEYS}
+
+
+def _gen_stem(src, dflt='MODEL'):
+    """R133f (field log .98): file names use the FULL source name - the
+    old [:8] cut turned 'AxtBunny.png' into 'AxtBunny' and different
+    sources into the same prefix. Sanitized (safe chars only), never
+    shortened."""
+    _st = re.sub(r'[^A-Za-z0-9._-]+', '_',
+                 os.path.splitext(os.path.basename(src))[0]).strip('_')
+    return _st or dflt
+
+
+def _next_gen_version(out_dir, prefix):
+    """R133f (field log .98): running version number, NEVER overwrite.
+    The gen_version menu option is gone (it only caused confusion) -
+    a generator simply takes the highest existing <prefix>*_V<n>.gcode
+    and writes n+1. A deleted HIGHEST number is reused; existing files
+    are never touched."""
+    _hi = 0
+    try:
+        for _p in os.listdir(out_dir or '.'):
+            if not (_p.startswith(prefix) and _p.endswith('.gcode')):
+                continue
+            _m = re.search(r'_V(\d+)\.gcode$', _p)
+            if _m:
+                _hi = max(_hi, int(_m.group(1)))
+    except OSError:
+        pass
+    return _hi + 1
 
 
 def _parse_ps(out):
@@ -7338,8 +7371,9 @@ def make_bridge(length=160.0, short_pct=30, h_long=35.0, h_short=18.0, version=1
     a('RESPOND MSG="[bridge] done - inspect sag + stringing; better bridges: higher speed, more fan, less flow"')
     a('PRINT_END')
 
-    fname = '00_Bridge_%dmm_%dpct_V%02d.gcode' % (round(length), short_pct,
-                                               max(1, min(int(version), 99)))
+    fname = '00_Bridge_%dmm_%dpct_V%02d.gcode' % (
+        round(length), short_pct,
+        _next_gen_version(out_dir, '00_Bridge_%dmm' % round(length)))
     out = os.path.join(out_dir, fname)
     with open(out, 'w') as f:
         f.write('\n'.join(L) + '\n')
@@ -7804,7 +7838,9 @@ def make_cable_ties(count=6, length=120.0, width=8.0, layers=3, variant='CLASSIC
             + _gen_markers(L[i0:]))
 
     fname = '00_Ties_%.0fx%.0f_%s_V%02d.gcode' % (
-        length, width, variant[:3], max(1, min(int(version), 99)))
+        length, width, variant[:3],
+        _next_gen_version(out_dir, '00_Ties_%.0fx%.0f_%s'
+                          % (length, width, variant[:3])))
     out = os.path.join(out_dir, fname)
     with open(out, 'w') as f:
         f.write('\n'.join(outl) + '\n')
@@ -8547,10 +8583,11 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
         plates = [('', True, True)]
 
     def frame_fname(sfx):
-        return '00_Frame_%s_%sx%.0f%s%s_V%02d.gcode' % (
+        _pfx = '00_Frame_%s_%sx%.0f%s%s' % (
             preset if preset else '%.0fx%.0f' % (width, height),
-            mode, depth, '_KIT' if kit else '', '_' + sfx if sfx else '',
-            max(1, min(int(version), 99)))
+            mode, depth, '_KIT' if kit else '', '_' + sfx if sfx else '')
+        return '%s_V%02d.gcode' % (
+            _pfx, _next_gen_version(out_dir, _pfx))
 
     files = []
     for sfx, want_frame, want_rest in plates:
@@ -9834,10 +9871,15 @@ def make_angles(count=2, angle_deg=90, leg_a=60.0, leg_b=60.0, width=25.0,
             + _gen_markers(L[i0:]))
 
     if flat:
-        fname = '00_Flat_%.0fx%.0f_V%02d.gcode' % (la + lb, width, max(1, min(int(version), 99)))
+        fname = '00_Flat_%.0fx%.0f_V%02d.gcode' % (
+            la + lb, width,
+            _next_gen_version(out_dir, '00_Flat_%.0fx%.0f'
+                              % (la + lb, width)))
     else:
         fname = '00_Angle_%ddeg_%.0fx%.0f_V%02d.gcode' % (
-            round(theta), la, lb, max(1, min(int(version), 99)))
+            round(theta), la, lb,
+            _next_gen_version(out_dir, '00_Angle_%ddeg_%.0fx%.0f'
+                              % (round(theta), la, lb)))
     out = os.path.join(out_dir, fname)
     with open(out, 'w') as f:
         f.write('\n'.join(outl) + '\n')
@@ -10087,8 +10129,9 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
             notes.append('no room for the purge tower at 15mm clearance - '
                          'purge at the park position after every swap')
 
-    stem = re.sub(r'[^A-Za-z0-9]', '', os.path.splitext(os.path.basename(src))[0])[:8] or 'IMG'
-    fname = '00_LithoF_%s_V%02d.gcode' % (stem, max(1, min(int(version), 99)))
+    stem = _gen_stem(src, 'IMG')
+    fname = '00_LithoF_%s_V%02d.gcode' % (
+        stem, _next_gen_version(out_dir, '00_LithoF_'))
     out = os.path.join(out_dir, fname)
 
     e_wall = layer_h * wid / fil
@@ -10422,8 +10465,9 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
     x0 = cx - width_mm / 2.0
     yF = (uy0 + uy1) / 2.0 - t_max / 2.0
 
-    stem = re.sub(r'[^A-Za-z0-9]', '', os.path.splitext(os.path.basename(src))[0])[:8] or 'IMG'
-    fname = '00_Litho_%s_V%02d.gcode' % (stem, max(1, min(int(version), 99)))
+    stem = _gen_stem(src, 'IMG')
+    fname = '00_Litho_%s_V%02d.gcode' % (
+        stem, _next_gen_version(out_dir, '00_Litho_'))
     out = os.path.join(out_dir, fname)
 
     e_wall = layer_h * wid / fil
@@ -10642,7 +10686,8 @@ def make_plot_cal(out_dir='.', version=1, var_path=None):
                ' wobble on the circles = pen play or speed too high',
              '; pen Z / speed / mode come from the Plotter menu settings'
                ' (live: speed %, babystepping = pen pressure)']
-    fname = '00_PlotCal_V%02d.gcode' % (max(1, min(int(version), 99)))
+    fname = '00_PlotCal_V%02d.gcode' % (
+        _next_gen_version(out_dir, '00_PlotCal'),)
     out = os.path.join(out_dir, fname)
     n = _plot_write(out, polys, notes, var_path=var_path)
     info = {'file': fname, 'kind': 'plotcal', 'dots': n_dots,
@@ -10886,6 +10931,7 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
     out_files = []
     first_out = None
     total_layers = 0
+    v = _next_gen_version(out_dir, '00_Bricks')   # one number, ALL plates
     for (label, plate_ci, plist) in plates:
         # ---- layout: row packing, tallest first --------------------------
         plist.sort(key=lambda c: (-(c['nl'] + c['sl']), -c['bw'] * c['bl']))
@@ -10914,10 +10960,9 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
         n_by = dict((k, sum(1 for c in plist if c['kind'] == k))
                     for k in sorted(set(c['kind'] for c in plist)))
         if label:
-            fname = '00_Bricks_%s_V%02d.gcode' % (
-                label, max(1, min(int(version), 99)))
+            fname = '00_Bricks_%s_V%02d.gcode' % (label, v)
         else:
-            fname = '00_Bricks_V%02d.gcode' % (max(1, min(int(version), 99)))
+            fname = '00_Bricks_V%02d.gcode' % (v,)
         out = os.path.join(out_dir, fname)
         out_files.append(fname)
         if first_out is None:
@@ -11707,9 +11752,8 @@ def make_brick_kit(src, detail='AUTO', mode='BY_LAYER', colors=3,
     for (_lbl132, _ci132, _pl132) in plates:
         _center_cells(_pl132, bed)
 
-    stem = re.sub(r'[^A-Za-z0-9]', '', os.path.splitext(
-        os.path.basename(src))[0])[:8] or 'MODEL'
-    v = max(1, min(int(version), 99))
+    stem = _gen_stem(src, 'MODEL')
+    v = _next_gen_version(out_dir, '00_BrickKit_')
     e_wall = layer_h * wid / fil
     first_h = layer_h
     out_files = []
@@ -12115,6 +12159,7 @@ def make_figures(count=1, scale=100.0, layer_h=0.2, material='PLA',
             return 2
         return 3
 
+    v = _next_gen_version(out_dir, '00_Figure')   # SINGLE + PARTS: one counter
     if mode == 'SINGLE':
         cells = []
         for fi in range(count):
@@ -12126,8 +12171,8 @@ def make_figures(count=1, scale=100.0, layer_h=0.2, material='PLA',
                      + nl_stud)
         for c in cells:
             c['nl'] = single_nl
-        fname = '00_Figure_s%03d_V%02d.gcode' % (
-            max(25, min(int(round(scale)), 300)), max(1, min(int(version), 99)))
+        fname = '00_Figure_s%03d_SINGLE_V%02d.gcode' % (
+            max(25, min(int(round(scale)), 300)), v)
     else:
         cells = []
         for fi in range(count):
@@ -12150,8 +12195,8 @@ def make_figures(count=1, scale=100.0, layer_h=0.2, material='PLA',
                 c['nl'] = nl_arm
             else:
                 c['nl'] = nl_sock + nl_hed + nl_stud
-        fname = '00_Figures_s%03d_V%02d.gcode' % (
-            max(25, min(int(round(scale)), 300)), max(1, min(int(version), 99)))
+        fname = '00_Figures_s%03d_PARTS_V%02d.gcode' % (
+            max(25, min(int(round(scale)), 300)), v)
 
     # ---- plates ------------------------------------------------------------
     if mode == 'PARTS' and colors > 1 and colormode == 'BY_LAYER':
@@ -12974,8 +13019,9 @@ def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
             notes.append('no room for the purge tower at 15mm clearance - '
                          'purge at the park position after every swap')
 
-    stem = re.sub(r'[^A-Za-z0-9]', '', os.path.splitext(os.path.basename(src))[0])[:8] or 'IMG'
-    fname = '00_ColorPic_%s_V%02d.gcode' % (stem, max(1, min(int(version), 99)))
+    stem = _gen_stem(src, 'IMG')
+    fname = '00_ColorPic_%s_V%02d.gcode' % (
+        stem, _next_gen_version(out_dir, '00_ColorPic_'))
     out = os.path.join(out_dir, fname)
 
     e_wall = layer_h * wid / fil
@@ -13360,7 +13406,9 @@ def make_seal(od=40.0, id_=20.0, height=1.2, profile='FLAT', ironing=False,
     a('PRINT_END')
 
     fname = '00_Seal_%.0fx%.0fx%.2g_V%02d.gcode' % (
-        od, id_, height_real, max(1, min(int(version), 99)))
+        od, id_, height_real,
+        _next_gen_version(out_dir, '00_Seal_%.0fx%.0fx%.2g'
+                          % (od, id_, height_real)))
     out = os.path.join(out_dir, fname)
     with open(out, 'w') as f:
         f.write('\n'.join(L) + '\n')
@@ -15494,6 +15542,8 @@ def watch(directory, interval=5.0, once=False):
     last_brickkit_nonce = None       # R125: brick kit from a sliced file
     last_segments_nonce = None       # R133b: segment fix (see bootstrap)
     last_qcancel_nonce = None        # R133c: GEN_QUEUE_CANCEL
+    last_gen_del_nonce = None        # R133f: gen file delete
+    gen_files_pushed = ['']          # R133f: 00_ outputs for the LCD browser
 
     # R133b: ONE generator job at a time, deduplicated, and never while a
     # print runs (the job goes back to the queue until the printer idles).
@@ -15578,7 +15628,8 @@ def watch(directory, interval=5.0, once=False):
                 'colorpic_nonce', 'bricks_nonce', 'brickkit_nonce',
                 'figures_nonce', 'reso_nonce', 'bridge_nonce',
                 'plot_text_nonce', 'plot_status_nonce', 'plotcal_nonce',
-                'file_check_nonce', 'litho_del_nonce')
+                'file_check_nonce', 'litho_del_nonce',
+                'gen_del_nonce')
         # R61: layer-range excerpt request from the LCD (nonce changes on every request)
         try:
             rv = _read_vars(VAR_PATH)
@@ -15608,6 +15659,18 @@ def watch(directory, interval=5.0, once=False):
                 last_travelacc_nonce = _np.get('travelacc_fix_nonce')
                 last_segments_nonce = _np.get('segments_fix_nonce')
                 last_qcancel_nonce = _np.get('queue_cancel_nonce')
+                # R133f (field log .98 - THE regeneration loop): the four
+                # newer generator channels + plot_cal were NEVER primed -
+                # every watcher start (reboot, update, service restart) saw
+                # their stored nonces as 'new' and re-fired the user's old
+                # jobs, recreating deleted files with beeps + boot load,
+                # ever since bricks shipped (.90).
+                last_colorpic_nonce = _np.get('colorpic_nonce')   # R120
+                last_bricks_nonce = _np.get('bricks_nonce')       # R121
+                last_brickkit_nonce = _np.get('brickkit_nonce')   # R125
+                last_figures_nonce = _np.get('figures_nonce')     # R126
+                last_plotcal_nonce = _np.get('plot_cal_nonce')    # R122
+                last_gen_del_nonce = _np.get('gen_del_nonce')    # R133f
                 last_reso_nonce = _np['reso_nonce']
                 last_bridge_nonce = _np['bridge_nonce']
                 last_plottext_nonce = _np['plot_text_nonce']
@@ -15884,6 +15947,31 @@ def watch(directory, interval=5.0, once=False):
                 print(f'[queue] cancelled, {nq} job(s) dropped', flush=True)
         except Exception as e:                              # noqa: BLE001
             print(f'[queue] cancel error: {e!r}', flush=True)
+        # R133f: delete a generated file (LCD Gen files > Delete, 2-press)
+        try:
+            _gdn = rv.get('gen_del_nonce', '')
+            if _gdn and _gdn != last_gen_del_nonce:
+                last_gen_del_nonce = _gdn
+                _gfn = os.path.basename(str(rv.get('gen_del_file', '') or ''))
+                if not (_gfn.startswith('00_') and _gfn.endswith('.gcode')):
+                    _moonraker_gcode(
+                        'RESPOND MSG=\"File delete refused: %s is not a 00_ '
+                        'generator output\"\nM117 Delete refused\n'
+                        '_SOUND_LIB NAME=r2_error' % _gfn)
+                else:
+                    _gp = os.path.join(directory, _gfn)
+                    if os.path.isfile(_gp):
+                        os.remove(_gp)
+                        gen_files_pushed[0] = ''      # refresh the LCD list
+                        _msg, _snd = ('Generated file deleted: %s' % _gfn,
+                                      'r2_done')
+                    else:
+                        _msg, _snd = ('File not found: %s' % _gfn, 'r2_notice')
+                    _moonraker_gcode(
+                        'RESPOND MSG=\"%s\"\nM117 File deleted\n'
+                        '_SOUND_LIB NAME=%s' % (_msg, _snd))
+        except Exception as e:                              # noqa: BLE001
+            print(f'[gendl] error: {e!r}', flush=True)
 
         # R132 field log .92: a fix during the start dialog released the
         # dialog (the file changes on disk) - after fixing, the file comes
@@ -17243,6 +17331,22 @@ def watch(directory, interval=5.0, once=False):
                 scan(rrw)
             except Exception as e:                  # noqa: BLE001
                 print(f'[!] scan error: {e!r}', flush=True)
+            # R133f: the Gen files browser - every 00_ output, newest first
+            # (max 12). Pushed ONLY when the list changes. This is output
+            # MANAGEMENT (select/delete), not a source picker.
+            try:
+                _gf = sorted(((os.path.getmtime(os.path.join(directory, f)), f)
+                              for f in os.listdir(directory)
+                              if f.startswith('00_') and f.endswith('.gcode')),
+                             reverse=True)[:12]
+                _gfl = [f for _, f in _gf]
+                if _gfl != gen_files_pushed[0]:
+                    gen_files_pushed[0] = _gfl
+                    _moonraker_gcode(
+                        'SAVE_VARIABLE VARIABLE=gen_files VALUE=\"%s\"'
+                        % str(_gfl).replace(';', '').replace("'", ''))
+            except Exception as e:                      # noqa: BLE001
+                print(f'[genfiles] push error: {e!r}', flush=True)
         # R73: freshly uploaded/converted files -> push their parameters to the
         # LCD right away (Pre-Print > File + the plotter group for plot files)
         # R98 (field log .75): a selection that arrived while this pass was

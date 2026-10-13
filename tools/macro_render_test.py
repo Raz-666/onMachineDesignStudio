@@ -3795,8 +3795,8 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         _v66 = _l66.split(':', 1)[1].strip()
         break
 # NOTE: bump this expectation together with the version on every release!
-tests.append(('R66/R80 version is current (.98) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-13.98'", repr(_v66)))
+tests.append(('R66/R80 version is current (.99) in 01_state.cfg (bump together with release!)',
+    _v66 == "'R2-2026-10-13.99'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -5052,7 +5052,7 @@ tests.append(('R75 watcher: _prime_nonces adopts the current counters (no re-fir
         'texture_nonce': None, 'file_check_nonce': None, 'colorpic_nonce': None,
         'bricks_nonce': None, 'brickkit_nonce': None,
         'figures_nonce': None, 'plot_cal_nonce': None,
-        'queue_cancel_nonce': None}, ''))
+        'queue_cancel_nonce': None, 'gen_del_nonce': None}, ''))
 tests.append(('R75 watcher: daemon runs niced + primes on the first pass',
     'os.nice(4)' in open('tools/r2_postproc.py').read()
     and 'first_prime' in open('tools/r2_postproc.py').read(), ''))
@@ -5786,15 +5786,16 @@ for _i83 in range(1, 7):
 _L83 += ['M107', 'PRINT_END']
 open(_src83, 'w').write('\n'.join(_L83) + '\n')
 _before83 = open(_src83).read()
-_or83a, _ = _mod73.make_range(_src83, 2, 4, version=1)
-_or83b, _ = _mod73.make_range(_src83, 2, 4, version=1)
-_or83c, _ = _mod73.make_range(_src83, 2, 4, version=2)
-tests.append(('R83 make_range: 00_+V name, same name overwrites, version bumps, '
-              'source never touched',
-    _os74.path.basename(_or83a) == '00_tei_L2-4_V01.gcode' and _or83a == _or83b
-    and _os74.path.basename(_or83c) == '00_tei_L2-4_V02.gcode'
+_or83a, _ = _mod73.make_range(_src83, 2, 4)
+_or83b, _ = _mod73.make_range(_src83, 2, 4)
+_or83c, _ = _mod73.make_range(_src83, 2, 4, version=7)   # ignored: auto only
+tests.append(('R83 make_range (R133f): 00_+V name, NEVER overwrites - every '
+              'run bumps, version param retired, source never touched',
+    _os74.path.basename(_or83a) == '00_tei_L2-4_V01.gcode'
+    and _os74.path.basename(_or83b) == '00_tei_L2-4_V02.gcode'
+    and _os74.path.basename(_or83c) == '00_tei_L2-4_V03.gcode'
     and open(_src83).read() == _before83,
-    _os74.path.basename(_or83a)))
+    _os74.path.basename(_or83c)))
 
 # (4) label quality (field log .65): discrete glyph retracts, stroke clamp,
 #     tower 15mm clear and RIGHT of the label (probe hangs x-43mm)
@@ -5832,12 +5833,12 @@ tests.append(('R83 label_preview: grown size, honest cap, min size, merge warnin
     str({k: _pv83[k] for k in ('w', 'h', 'cap_mm', 'min_w', 'stroke_eff')})))
 
 # (6) LCD gates: Version + Preview items, L4/L5 pickers, Range shares the version
-tests.append(('R83 LCD: Labels Settings = Version + Calc fit + L4/L5 pickers',
-    all(x in _lcd80 for x in ['__set __vers]', '__set __fitp]', '__txt __ln4]',
-                               '__txt __ln5]', 'gen_version'])
-    and 'Calc fit' in _lcd80, ''))
-tests.append(('R83 LCD: Range menu shares the generator Version item',
-    '__preprint __rng __vers]' in _lcd80, ''))
+tests.append(('R83 LCD (R133f): Labels Settings = Calc fit + L4/L5 pickers, '
+              'Version item GONE (auto-bump retired it)',
+    all(x in _lcd80 for x in ['__set __fitp]', '__txt __ln4]',
+                               '__txt __ln5]'])
+    and 'Calc fit' in _lcd80 and '__vers]' not in _lcd80
+    and 'gen_version' not in _lcd80, ''))
 
 
 # ===================== R84: slicer info + retract rescue =====================
@@ -6196,13 +6197,13 @@ tests.append(('R86/R89 LCD: Cable ties + Angles+Flat in the Tools menu, guarded,
     all(k in _lcd86 for k in ['[menu __main __gen __cable]', '[menu __main __gen __angle]',
         '__cable __set __cnt]', '__cable __set __len]', '__cable __set __wid]',
         '__cable __set __lay]', '__cable __set __lh]', '__cable __set __var __cla]',
-        '__cable __set __var __loo]', '__cable __set __brim]', '__cable __set __vers]',
+        '__cable __set __var __loo]', '__cable __set __brim]',
         '__angle __mode __ang]', '__angle __mode __flt]', '__angle __set __deg]',
         '__angle __set __la]', '__angle __set __lb]', '__angle __set __wid]',
         '__angle __set __lay]', '__angle __set __lh]', '__angle __set __hol]',
         '__angle __set __hd]', '__angle __set __cs __on]', '__angle __set __cs __off]',
         '__angle __set __stf __s1]', '__angle __set __stf __s2]', '__angle __set __stf __s0]',
-        '__angle __set __cnt]', '__angle __set __vers]',
+        '__angle __set __cnt]',
         'CABLE_TIE_GENERATE', 'ANGLE_GENERATE',
         "enable: {'gcode_macro _GENERATORS' in printer}"]), 'ids'))
 tests.append(('R86 LCD: angle + rib hidden in FLAT mode (enable gates)',
@@ -6220,8 +6221,9 @@ tests.append(('R86 modules: 17_generator.cfg sentinel + _CHECK_INSTALL lists 17'
     and "('17_generator.cfg',       ['_V18_GEN'])" in open('macros/01_state.cfg').read()
     and 'all 17 modules' not in open('macros/01_state.cfg').read(), ''))
 tests.append(('R86-R120 watcher: NONCE_KEYS has 20 channels incl. litho/seal/frame/colorpic',
-    len(_pp.NONCE_KEYS) == 25 and 'cable_tie_nonce' in _pp.NONCE_KEYS
+    len(_pp.NONCE_KEYS) == 26 and 'cable_tie_nonce' in _pp.NONCE_KEYS
     and 'queue_cancel_nonce' in _pp.NONCE_KEYS
+    and 'gen_del_nonce' in _pp.NONCE_KEYS
     and 'brickkit_nonce' in _pp.NONCE_KEYS
     and 'figures_nonce' in _pp.NONCE_KEYS
     and 'colorpic_nonce' in _pp.NONCE_KEYS
@@ -10626,7 +10628,7 @@ tests.append(('R120 LCD: ColorPic in Tools menu (guarded) with all settings',
         '__cpic __set __bnd]', '__cpic __set __bh]', '__cpic __set __lh]',
         '__cpic __set __clrs]', '__cpic __set __clrs __band]',
         '__cpic __set __clrs __red]', '__cpic __set __clrs __rst]',
-        '__cpic __set __iro]', '__cpic __set __brm]', '__cpic __set __vers]',
+        '__cpic __set __iro]', '__cpic __set __brm]',
         'COLORPIC_CREATE INDEX=0', 'COLORPIC_SET_COLOR',
         "enable: {'gcode_macro _COLORPIC_SWAP' in printer}"]), 'ids'))
 _blk120 = _lcd120[_lcd120.index('[menu __main __gen __cpic]'):_lcd120.index('[menu __main __gen __seal]')]
