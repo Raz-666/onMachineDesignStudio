@@ -396,6 +396,97 @@ ck('_STATE declares gen_del_arm (2-press state survives)',
    'variable_gen_del_arm' in open(os.path.join(
        ROOT, 'macros', '01_state.cfg'), encoding='utf-8').read(), '')
 
+# ---- 13) R133g: litho family POLARITY + ORIENTATION (the big inversion) ----
+# Field log .99: every lithophane since R89 printed as a NEGATIVE (white =
+# thickest / last band) and FLAT/ColorPic mirrored the image. Marker image:
+# black square TOP-RIGHT, gray circle BOTTOM-LEFT, white elsewhere.
+import re as _re133g
+import tempfile as _tf133g
+from PIL import Image as _Im133g, ImageDraw as _Dr133g
+
+_d133g = _tf133g.mkdtemp(prefix='r133g_')
+_im = _Im133g.new('L', (400, 300), 255)
+_dr = _Dr133g.Draw(_im)
+_dr.rectangle([280, 20, 380, 90], fill=0)
+_dr.ellipse([30, 190, 150, 290], fill=160)
+_p133g = os.path.join(_d133g, 'marker.png')
+_im.save(_p133g)
+
+def _layer_pts133g(path):
+    secs = open(path).read().split(';LAYER_CHANGE')[1:]
+    out = []
+    for sec in secs:
+        pts = _re133g.findall(r'G1 X([-\d.]+) Y([-\d.]+) E([-\d.]+)', sec)
+        out.append([(float(a), float(b)) for a, b, c in pts
+                    if float(c) > 0])
+    return out
+
+def _quadrant_share(pts, frame=None):
+    # frame = reference bbox (default: the points' own bbox). Bands are
+    # measured against the PICTURE frame (band 0 = the whole area), so a
+    # correctly confined band does not dilute its own reference.
+    if frame is None:
+        xs = [q[0] for q in pts]; ys = [q[1] for q in pts]
+    else:
+        xs = [frame[0], frame[2]]; ys = [frame[1], frame[3]]
+    cx, cy = (min(xs) + max(xs)) / 2.0, (min(ys) + max(ys)) / 2.0
+    n = len(pts)
+    return (sum(1 for q in pts if q[0] > cx and q[1] > cy) / n,
+            sum(1 for q in pts if q[0] < cx and q[1] < cy) / n)
+
+# Litho FLAT: 3 Stufen x 3 Layer @0.2 = 9 Layer, nur Weiss, Kontrast ON
+_o133g, _i133g = pp.make_lithophane(
+    _p133g, orient='FLAT', height_mm=45, layer_h=0.2, levels=3,
+    col_layers=3, frame=False, border=0.0, col_mode='OFF', ironing=False,
+    out_dir=_d133g)
+_L133g = _layer_pts133g(_o133g)
+ck('litho FLAT: 3 levels x 3 layers @0.2 = 9 layers (1.8mm)',
+   len(_L133g) == 9, str(len(_L133g)))
+_all133g = [q for s in _L133g for q in s]
+_fr133g = (min(q[0] for q in _all133g), min(q[1] for q in _all133g),
+           max(q[0] for q in _all133g), max(q[1] for q in _all133g))
+_br_share, _bl_share = _quadrant_share(
+    [q for s in _L133g[6:9] for q in s], _fr133g)
+_wr_share, _wl_share = _quadrant_share(
+    [q for s in _L133g[0:3] for q in s], _fr133g)
+_gr_share, _gl_share = _quadrant_share(
+    [q for s in _L133g[3:6] for q in s], _fr133g)
+ck('litho FLAT polarity: darkest step = the BLACK marker (back-right),'
+   ' NOT the white area (was inverted since R89)',
+   _br_share >= 0.75 and _wr_share <= 0.45, 'black %.2f white %.2f'
+   % (_br_share, _wr_share))
+ck('litho FLAT quantization: the GRAY circle keeps its own step even with'
+   ' the contrast boost on (nearest-level fix)',
+   _gl_share >= 0.5 and len(_L133g[4]) > 0, 'gray front-left %.2f'
+   % _gl_share)
+ck('litho FLAT orientation: image top -> BACK, no mirror (reads correct'
+   ' from the front)',
+   _br_share >= 0.75 and _gl_share >= 0.5, '')
+
+# ColorPic: 3 Baender x 0.6mm, WHT/GRY/BLK, ohne Swap (kein Turm)
+_o133c, _i133c = pp.make_colorpic(
+    _p133g, width_mm=60, layer_h=0.2, bands=3, band_h=0.6,
+    colors='WHT,GRY,BLK', swap=False, ironing=False, out_dir=_d133g)
+_C133g = _layer_pts133g(_o133c)
+ck('colorpic: 3 bands x 3 layers @0.2 = 9 layers (1.8mm)',
+   len(_C133g) == 9, str(len(_C133g)))
+_all133c = [q for s in _C133g for q in s]
+_fr133c = (min(q[0] for q in _all133c), min(q[1] for q in _all133c),
+           max(q[0] for q in _all133c), max(q[1] for q in _all133c))
+_cb_share, _cbl_share = _quadrant_share(
+    [q for s in _C133g[6:9] for q in s], _fr133c)
+_cg_share, _cgl_share = _quadrant_share(
+    [q for s in _C133g[3:6] for q in s], _fr133c)
+ck('colorpic polarity: last band = BLACK marker (back-right), band 1 ='
+   ' gray circle (front-left) - light first, dark on top',
+   _cb_share >= 0.75 and _cgl_share >= 0.5,
+   'black %.2f gray %.2f' % (_cb_share, _cgl_share))
+_lum133g = [[0.0] * 12 for _ in range(12)] + [[1.0] * 12 for _ in range(12)]
+_g133g, _ = pp._litho_grid(_lum133g, 12, 24, 12, 12)
+ck('grid scale: dark = 1.0 = thickest (the docstring contract)',
+   _g133g[0][0] >= 0.99 and _g133g[11][11] <= 0.01,
+   '%.2f / %.2f' % (_g133g[0][0], _g133g[11][11]))
+
 print()
 print('R142 FIELD COVERAGE: %d checks, %d FAIL' % (n_ck[0], len(fails)))
 sys.exit(1 if fails else 0)

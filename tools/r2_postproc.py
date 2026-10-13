@@ -9915,7 +9915,7 @@ def _img_luma(data, kind):
     return w, h, lum
 
 
-def _litho_grid(lum, w, h, cols, rows, gamma=1.0, levels=0):
+def _litho_grid(lum, w, h, cols, rows, gamma=1.0, levels=0, mirror=True):
     """R89: the 'always beautiful without visual feedback' image pipeline.
 
     1. robust contrast stretch (2..98 percentiles - a dark photo or a washed
@@ -9927,9 +9927,17 @@ def _litho_grid(lum, w, h, cols, rows, gamma=1.0, levels=0):
        resolution
     5. optional quantization to N brightness levels (posterized look + the
        thickness changes come in clean steps = smoother walls)
-    6. horizontal mirror (a lithophane is viewed against the light from the
-       front face - unmirrored it would read backwards)
-    Returns (grid, report) with grid[row][col] in 0..1 (0 = brightest).
+    6. scale inversion: DARK = 1.0 - the consumers map grid straight to
+       thickness/step, and the litho rule is dark = thick. R133g (field
+       log .99): the old bright = 1.0 scale INVERTED every lithophane -
+       the white sky printed thickest, the drawing became the base
+       ('not even remotely recognizable', straight valleys where the
+       dark lines were).
+    7. horizontal mirror, STANDING only (mirror=True): a standing
+       lithophane is viewed against the light through the front face -
+       unmirrored it would read backwards. FLAT/ColorPic pass
+       mirror=False (top view must read straight).
+    Returns (grid, report) with grid[row][col] in 0..1 (1 = darkest).
     """
     ys = range(0, h, max(1, h // 90))
     xs = range(0, w, max(1, w // 90))
@@ -9979,7 +9987,10 @@ def _litho_grid(lum, w, h, cols, rows, gamma=1.0, levels=0):
     if levels >= 2:
         n1 = float(levels - 1)
         grid = [[round(v * n1) / n1 for v in row] for row in grid]
-    grid = [list(reversed(r)) for r in grid]     # mirror: front view reads right
+    # R133g: dark = 1.0 = thickest (see docstring) - was bright = 1.0
+    grid = [[1.0 - v for v in row] for row in grid]
+    if mirror:
+        grid = [list(reversed(r)) for r in grid]  # STANDING: front view reads
     rep = ('auto-optimize: contrast %d..%d%% stretched, smoothed, mirrored'
            % (round(lo * 100), round(hi * 100)))
     if levels >= 2:
@@ -10094,13 +10105,19 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
     W = width_real + 2 * eff_border
     H = height_real + 2 * eff_border
 
-    grid, rep = _litho_grid(lum, w, h, cols, rows, gamma=gamma, levels=0)
+    # R133g: no mirror (top view reads straight) + image top at the BACK
+    # of the bed, so the picture reads correct from the printer's front.
+    grid, rep = _litho_grid(lum, w, h, cols, rows, gamma=gamma, levels=0,
+                            mirror=False)
+    grid = grid[::-1]
     if contrast:
         grid = _img_boost128(grid, 1.35)
         rep += ' + contrast boost'
     notes.append(rep)
-    # quantize into steps: 0 = lightest (the base) ... L-1 = darkest
-    LV = [[min(L - 1, int(grid[r][c] * L)) for c in range(cols)]
+    # quantize into steps: 0 = lightest (the base) ... L-1 = darkest.
+    # R133g: NEAREST level (not floor) - a clean 3-tone image keeps its
+    # middle tone even with the contrast boost on.
+    LV = [[min(L - 1, int(grid[r][c] * L + 0.5)) for c in range(cols)]
           for r in range(rows)]
 
     total_layers = L * n_band
@@ -12991,13 +13008,18 @@ def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
     width_real = cols * wid
     height_real = rows * wid
 
-    grid, rep = _litho_grid(lum, w, h, cols, rows, gamma=gamma, levels=0)
+    # R133g: no mirror + image top at the back (reads correct from front)
+    grid, rep = _litho_grid(lum, w, h, cols, rows, gamma=gamma, levels=0,
+                            mirror=False)
+    grid = grid[::-1]
     if contrast:
         grid = _img_boost128(grid, 1.35)
         rep += ' + contrast boost'
     notes.append(rep)
     # quantize into band levels: 0 = lightest ... bands-1 = darkest
-    LV = [[min(bands - 1, int(grid[r][c] * bands))
+    # R133g: NEAREST level (not floor) - clean multi-tone images keep
+    # their middle tones even with the contrast boost on
+    LV = [[min(bands - 1, int(grid[r][c] * bands + 0.5))
            for c in range(cols)] for r in range(rows)]
     total_layers = bands * n_band
     cx = (ux0 + ux1) / 2.0
