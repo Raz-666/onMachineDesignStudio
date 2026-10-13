@@ -285,6 +285,60 @@ ck('kit menu: AUTO text matches the R133b mapping (BIG for small models)',
    'up to 10 studs BIG (fine plates), up to 26 SMALL, else MICRO' in _men,
    '')
 
+# ---- 11) R133c: start-phase busy, priming order, queue cancel, kit UX ----
+import urllib.request as _ur142, json as _json142
+
+class _R142:
+    def __init__(self, payload): self._p = payload
+    def read(self): return _json142.dumps(self._p).encode()
+    def __enter__(self): return self
+    def __exit__(self, *a): return False
+
+def _stub142(state, mode):
+    def _u(url, timeout=1.5):
+        return _R142({'result': {'status': {
+            'print_stats': {'state': state},
+            'gcode_macro _STATE': {'mode': mode}}}})
+    return _u
+
+_orig142 = _ur142.urlopen
+try:
+    for _st, _md, _exp in (('standby', 'starting', True),
+                           ('standby', 'waiting', True),
+                           ('standby', 'idle', False),
+                           ('printing', 'idle', True),
+                           ('standby', 'filament', True)):
+        _ur142.urlopen = _stub142(_st, _md)
+        ck('busy: %s/%s -> %s' % (_st, _md, _exp),
+           pp._printer_busy() is _exp, '')
+finally:
+    _ur142.urlopen = _orig142
+
+ck('busy probe: covers the START phase via _STATE mode '
+   '(homing/heating while print_stats still standby)',
+   "'gcode_macro _STATE'" in pp._printer_busy.__doc__ or
+   'gcode_macro%20_STATE' in src or "'gcode_macro _STATE'" in src, '')
+ck('tick: a RUNNING job holds 2s while busy (start-phase protection)',
+   'while _printer_busy():' in src and 'time.sleep(2.0)' in src, '')
+ck('priming: full variables, freeze AFTER (no refire after a '
+   'watcher restart mid-print)',
+   src.index('_prime_nonces(rv)') < src.index(
+       "rv = {k: v for k, v in rv.items() if k not in _freeze133}"), '')
+ck('queue: GEN_QUEUE_CANCEL macro + watcher dispatch',
+   'GEN_QUEUE_CANCEL' in open(os.path.join(
+       ROOT, 'macros', '19_bricks.cfg'), encoding='utf-8').read()
+   and "rv.get('queue_cancel_nonce'" in src
+   and "_JOB_STATE['queue'][:] = []" in src, '')
+ck('LCD: Cancel job queue entry (Tools root)',
+   'Cancel job queue' in open(os.path.join(
+       ROOT, 'menus', 'lcd_menues.cfg'), encoding='utf-8').read(), '')
+ck('kit: watcher pushes kit_sources (filenames for the picker)',
+   'VARIABLE=kit_sources' in src, '')
+_men = open(os.path.join(ROOT, 'menus', 'lcd_menues.cfg'),
+            encoding='utf-8').read()
+ck('kit menu: source entries show real filenames',
+   _men.count('kit_sources') >= 10, '')
+
 print()
 print('R142 FIELD COVERAGE: %d checks, %d FAIL' % (n_ck[0], len(fails)))
 sys.exit(1 if fails else 0)

@@ -6603,23 +6603,31 @@ def text_convert(path, out=None, var_path=None):
 
 
 def _printer_busy(host='127.0.0.1', port=7125):
-    """R133 (field log .93, MCU 'Timer too close'): lean print-state probe.
+    """R133c (field logs .95/.96): lean busy probe - start phase INCLUDED.
 
-    While klippy streams a print, NOTHING heavy may run on the host - the
-    watcher used to walk+stat the whole gcodes tree and process changed
-    files every 5s, and generator jobs fired mid-print. One tiny localhost
-    query per pass; unreachable moonraker = 'not busy' (never block).
+    print_stats only says 'printing' once the SD card job streams - but
+    homing, heating, mesh and purge run BEFORE that, with the state still
+    'standby' (the .96 field log: 'Missed scheduling of next digital out
+    event' while the bed heated and a litho job churned). The R2 _STATE
+    mode covers that window: waiting (start dialog + its homing),
+    starting, printing, paused, filament. Unreachable moonraker = 'not
+    busy' (never block the watcher).
     """
     try:
         import urllib.parse
         import urllib.request
         url = ('http://%s:%d/printer/objects/query?%s'
-               % (host, port, urllib.parse.quote('print_stats')))
+               % (host, port,
+                  urllib.parse.quote('print_stats gcode_macro _STATE')))
         with urllib.request.urlopen(url, timeout=1.5) as r:
             js = json.loads(r.read().decode())
-        st = (((js.get('result') or {}).get('status') or {})
-              .get('print_stats') or {}).get('state', '')
-        return st in ('printing', 'paused')
+        _st = ((js.get('result') or {}).get('status') or {})
+        if (_st.get('print_stats') or {}).get('state', '') \
+                in ('printing', 'paused'):
+            return True
+        _mode = (_st.get('gcode_macro _STATE') or {}).get('mode', '')
+        return _mode in ('waiting', 'starting', 'printing', 'paused',
+                         'filament')
     except Exception:                                   # noqa: BLE001
         return False
 
@@ -6637,12 +6645,21 @@ _JOB_STATE = {'queue': [], 'keys': set(), 'busy': False,
 
 def _job_tick(step=1, every=25, pause=0.02):
     """Micro-pause inside generator hot loops - only while a job worker
-    owns the call (tests call the generators directly and stay fast)."""
+    owns the call (tests call the generators directly and stay fast).
+
+    R133c: when the printer turns busy MID-JOB (start dialog, homing,
+    heating), the tick switches to a 2s hold - a running job freezes
+    cooperatively instead of starving the start phase, and resumes on
+    its own when the machine idles."""
     if not _JOB_YIELD['on']:
         return
     _JOB_YIELD['n'] += step
     if _JOB_YIELD['n'] >= every:
         _JOB_YIELD['n'] = 0
+        if _JOB_YIELD.get('busy_aware', True) and _printer_busy():
+            # hold (not abort): the print start has absolute priority
+            while _printer_busy():
+                time.sleep(2.0)
         time.sleep(pause)
 
 
@@ -6682,7 +6699,8 @@ NONCE_KEYS = ('preview_nonce', 'range_nonce', 'label_gen_nonce', 'reso_nonce',
               'cable_tie_nonce', 'angle_nonce', 'litho_nonce', 'seal_nonce',
               'litho_del_nonce', 'frame_nonce', 'texture_nonce',
               'file_check_nonce', 'colorpic_nonce', 'bricks_nonce',
-              'brickkit_nonce', 'figures_nonce', 'plot_cal_nonce')
+              'brickkit_nonce', 'figures_nonce', 'plot_cal_nonce',
+              'queue_cancel_nonce')
 
 
 def _prime_nonces(rv):
@@ -15475,6 +15493,8 @@ def watch(directory, interval=5.0, once=False):
     reselect_wait = {}               # R133: fix_reselect patience counter
     last_brickkit_nonce = None       # R125: brick kit from a sliced file
     last_segments_nonce = None       # R133b: segment fix (see bootstrap)
+    last_qcancel_nonce = None        # R133c: GEN_QUEUE_CANCEL
+    kit_sources_pushed = ['']        # R133c: kit picker filename list
 
     # R133b: ONE generator job at a time, deduplicated, and never while a
     # print runs (the job goes back to the queue until the printer idles).
@@ -15563,17 +15583,19 @@ def watch(directory, interval=5.0, once=False):
         # R61: layer-range excerpt request from the LCD (nonce changes on every request)
         try:
             rv = _read_vars(VAR_PATH)
-            if busy:
-                # generator nonces stay at their last value -> the jobs run
-                # on the first IDLE pass, nothing is lost, nothing races
-                rv = {k: v for k, v in rv.items() if k not in _freeze133}
-            rrw = str(rv.get('retract_rewrite', '')).strip().lower() in ('true', '1', 'on', 'yes')
+            # R133c: PRIME FROM THE FULL SET, ALWAYS. Priming with the
+            # frozen subset (watcher restart while a print ran - update.sh,
+            # a crash after an MCU shutdown) left every generator nonce
+            # 'unseen' -> the first idle pass re-fired ALL old jobs and
+            # recreated files the user had deleted (field log .96).
             if first_prime:
                 # R75 FIX (field log .58): after a watcher (re)start every
                 # stored nonce looked 'new' and re-fired ALL jobs at once -
                 # the .58 update restarted the service and label gen + reso +
                 # bridge + status plot all ran in one burst right at boot.
                 # The first pass only ADOPTS the current counters.
+                # R133c: from the FULL set (see above) - never the frozen
+                # subset, or a restart mid-print re-fires everything.
                 _np = _prime_nonces(rv)
                 last_preview_nonce = _np['preview_nonce']
                 last_nonce = _np['range_nonce']
@@ -15586,6 +15608,7 @@ def watch(directory, interval=5.0, once=False):
                 last_flowcap_nonce = _np.get('flowcap_fix_nonce')
                 last_travelacc_nonce = _np.get('travelacc_fix_nonce')
                 last_segments_nonce = _np.get('segments_fix_nonce')
+                last_qcancel_nonce = _np.get('queue_cancel_nonce')
                 last_reso_nonce = _np['reso_nonce']
                 last_bridge_nonce = _np['bridge_nonce']
                 last_plottext_nonce = _np['plot_text_nonce']
@@ -15598,6 +15621,11 @@ def watch(directory, interval=5.0, once=False):
                 last_file_check_nonce = _np.get('file_check_nonce')  # R93
                 last_litho_del_nonce = _np.get('litho_del_nonce')
                 first_prime = False
+            if busy:
+                # generator nonces stay at their last value -> the jobs run
+                # on the first IDLE pass, nothing is lost, nothing races
+                rv = {k: v for k, v in rv.items() if k not in _freeze133}
+            rrw = str(rv.get('retract_rewrite', '')).strip().lower() in ('true', '1', 'on', 'yes')
             # R62: file preview request - SDCARD_PRINT_FILE stored the selected
             # name; we read the file's parameters NOW and push them to Klipper
             # via moonraker so Pre-Print > File shows them BEFORE the print.
@@ -15839,6 +15867,24 @@ def watch(directory, interval=5.0, once=False):
                          str(rv.get('segments_fix_file', '')).strip())
         except Exception as e:                              # noqa: BLE001
             print(f'[segfix] poll error: {e!r}', flush=True)
+        # R133c: GEN_QUEUE_CANCEL - drop everything still waiting (the
+        # field log had a stale queue silently recreating deleted files)
+        try:
+            qcn = rv.get('queue_cancel_nonce', '')
+            if qcn and qcn != last_qcancel_nonce:
+                last_qcancel_nonce = qcn
+                with _JOB_STATE['lock']:
+                    nq = len(_JOB_STATE['queue'])
+                    _JOB_STATE['queue'][:] = []
+                    _JOB_STATE['keys'].clear()
+                _moonraker_gcode(
+                    'RESPOND MSG="Job queue cleared - %d pending job(s)'
+                    ' dropped. A RUNNING job finishes (it is mid-file);"'
+                    ' delete its file afterwards if you do not want it"'
+                    '\nM117 Queue clear\n_SOUND_LIB NAME=r2_done' % nq)
+                print(f'[queue] cancelled, {nq} job(s) dropped', flush=True)
+        except Exception as e:                              # noqa: BLE001
+            print(f'[queue] cancel error: {e!r}', flush=True)
 
         # R132 field log .92: a fix during the start dialog released the
         # dialog (the file changes on disk) - after fixing, the file comes
@@ -17190,6 +17236,28 @@ def watch(directory, interval=5.0, once=False):
                 scan(rrw)
             except Exception as e:                  # noqa: BLE001
                 print(f'[!] scan error: {e!r}', flush=True)
+            # R133c: show the kit source picker REAL filenames (the field
+            # log: 'job #2' tells nobody which file that is). Pushed only
+            # when the list changes - one SAVE_VARIABLE, not one per pass.
+            try:
+                _cand = []
+                for _fn in sorted(os.listdir(directory)):
+                    if not _fn.lower().endswith('.gcode'):
+                        continue
+                    if _fn.startswith('00_'):
+                        continue          # our own generated output
+                    _cand.append((os.path.getmtime(
+                        os.path.join(directory, _fn)), _fn))
+                _cand.sort(reverse=True)
+                _ks = '|'.join(_f for _, _f in _cand[:5])
+                if _ks != kit_sources_pushed[0]:
+                    kit_sources_pushed[0] = _ks
+                    _moonraker_gcode(
+                        'SAVE_VARIABLE VARIABLE=kit_sources VALUE='"%s"''
+                        % _ks.replace('"', '').replace(';', '')
+                             .replace("'", ''))
+            except Exception as e:                      # noqa: BLE001
+                print(f'[kitsrc] push error: {e!r}', flush=True)
         # R73: freshly uploaded/converted files -> push their parameters to the
         # LCD right away (Pre-Print > File + the plotter group for plot files)
         # R98 (field log .75): a selection that arrived while this pass was

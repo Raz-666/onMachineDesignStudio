@@ -3795,8 +3795,8 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         _v66 = _l66.split(':', 1)[1].strip()
         break
 # NOTE: bump this expectation together with the version on every release!
-tests.append(('R66/R80 version is current (.96) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-13.96'", repr(_v66)))
+tests.append(('R66/R80 version is current (.97) in 01_state.cfg (bump together with release!)',
+    _v66 == "'R2-2026-10-13.97'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -5051,7 +5051,8 @@ tests.append(('R75 watcher: _prime_nonces adopts the current counters (no re-fir
         'seal_nonce': None, 'litho_del_nonce': None, 'frame_nonce': None,
         'texture_nonce': None, 'file_check_nonce': None, 'colorpic_nonce': None,
         'bricks_nonce': None, 'brickkit_nonce': None,
-        'figures_nonce': None, 'plot_cal_nonce': None}, ''))
+        'figures_nonce': None, 'plot_cal_nonce': None,
+        'queue_cancel_nonce': None}, ''))
 tests.append(('R75 watcher: daemon runs niced + primes on the first pass',
     'os.nice(4)' in open('tools/r2_postproc.py').read()
     and 'first_prime' in open('tools/r2_postproc.py').read(), ''))
@@ -6219,7 +6220,8 @@ tests.append(('R86 modules: 17_generator.cfg sentinel + _CHECK_INSTALL lists 17'
     and "('17_generator.cfg',       ['_V18_GEN'])" in open('macros/01_state.cfg').read()
     and 'all 17 modules' not in open('macros/01_state.cfg').read(), ''))
 tests.append(('R86-R120 watcher: NONCE_KEYS has 20 channels incl. litho/seal/frame/colorpic',
-    len(_pp.NONCE_KEYS) == 24 and 'cable_tie_nonce' in _pp.NONCE_KEYS
+    len(_pp.NONCE_KEYS) == 25 and 'cable_tie_nonce' in _pp.NONCE_KEYS
+    and 'queue_cancel_nonce' in _pp.NONCE_KEYS
     and 'brickkit_nonce' in _pp.NONCE_KEYS
     and 'figures_nonce' in _pp.NONCE_KEYS
     and 'colorpic_nonce' in _pp.NONCE_KEYS
