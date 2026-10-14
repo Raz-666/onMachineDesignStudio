@@ -553,6 +553,52 @@ ck('plot: the old .gcode-tail upload gets a rename hint, its bytes never '
    'rewritten',
    'old .gcode tail' in src, '')
 
+# ---- 16) R135 (.104): the menu restructure - nothing gets lost -------------
+_lcd135 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+ck('R135: golden inventory file exists and the render suite proves no menu '
+   'entry is ever lost (old vs new paths against the documented mapping)',
+   os.path.exists('tools/r135_menu_golden.txt')
+   and 'r135_menu_golden.txt' in open('tools/macro_render_test.py',
+                                      encoding='utf-8').read()
+   and 'R135 menu inventory: NOTHING lost' in open('tools/macro_render_test.py',
+                                                   encoding='utf-8').read(), '')
+ck('R135: Pre-Print starts with Offset X/Y/Z (half-step fine rows) and File '
+   'info now carries the fix toggles (travel/flow cap/retract) as submenu',
+   '[menu __main __preprint __poff __zf]' in _lcd135
+   and _lcd135[_lcd135.index('[menu __main __preprint __poff]'):
+               _lcd135.index('[menu __main __preprint __file]')].count(
+       'input_step: 0.05') == 3
+   and '[menu __main __preprint __file __rt]' in _lcd135
+   and '[menu __main __preprint __file __tv2]' in _lcd135
+   and '[menu __main __preprint __file __fc]' in _lcd135
+   and '[menu __main __preprint __file __fcv]' in _lcd135, '')
+ck('R135: Profiles directly under File info, Velocity (ex-Speed) carries the '
+   'global PA/accel rows, quick access (Spd/Acc/PA/Flw) carries globals + '
+   'Now, the old top-level speed/accel/flow menus are GONE',
+   _lcd135.index('[menu __main __preprint __profs]')
+   < _lcd135.index('[menu __main __preprint __motion]')
+   and 'name: Velocity' in _lcd135
+   and '[menu __main __preprint __pafe __gval]' in _lcd135
+   and '[menu __main __preprint __acfe __gacc]' in _lcd135
+   and '[menu __main __preprint __spfe __g1st]' in _lcd135
+   and '[menu __main __live __speeds]' not in _lcd135
+   and '[menu __main __live __accels]' not in _lcd135
+   and '[menu __main __preprint __flow]' not in _lcd135, '')
+ck('R135: plot sections moved to the END (Live + Pre-Print) and only for '
+   'plot files - the LCD stays clean on normal prints',
+   _lcd135.index('[menu __main __live __plot]')
+   > _lcd135.index('[menu __main __live __file]')
+   and _lcd135.index('[menu __main __preprint __plot]')
+   > _lcd135.index('[menu __main __preprint __confirm]')
+   and _lcd135.count("printer['gcode_macro _PREVIEW'].plot|default(0)"
+                     "|int == 1 or printer['gcode_macro _STATE']"
+                     ".file_type|default('') == 'plot'}") == 2, '')
+ck('R135: stock OctoPrint/Temperature/Setup hidden via enable {False} '
+   'overrides, SD Card/Control/Tune untouched',
+   _lcd135.count('\nenable: {False}') == 3
+   and '[menu __main __sdcard]' not in _lcd135
+   and '[menu __main __control]' not in _lcd135, '')
+
 print()
 print('R142 FIELD COVERAGE: %d checks, %d FAIL' % (n_ck[0], len(fails)))
 sys.exit(1 if fails else 0)

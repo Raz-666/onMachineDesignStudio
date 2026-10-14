@@ -223,7 +223,7 @@ re-upload (R84/R85):**
   survive (no re-processing needed), wipes and folded retracts stay
   untouched, start beep + done beep, and the console reports the pair count.
   If a start dialog holds the file it is released automatically first. For
-  future uploads you can instead leave **Pre-Print > RetFix ON** — every new
+  future uploads you can instead leave **Pre-Print > File > RetFix ON** — every new
   upload gets the treatment automatically.
 - **The offer only shows when it applies:** files that use **firmware
   retraction (G10/G11)** — e.g. OrcaSlicer with firmware retraction enabled —
@@ -301,16 +301,18 @@ Everything here is saved and reused; nothing is lost on restart.
 
 | Entry | Contents |
 |---|---|
+| Offset X/Y/Z (.104) | SET_GCODE_OFFSET for X/Y/Z at the very top: ±0.1 mm steps + fine rows with ±0.05 mm (halved steps for the last bit of baby-sitting), applied live (MOVE=1) |
 | File (G-code) | full slicer summary of the SELECTED file (type, material, layers, speeds, accels, temps, PA, retraction) + 16 feature activator rows: each shows the file's real speed and an ON switch — features the file does not contain show 'n/a' and refuse · Flow line: MAXRATE mm³/s (+ seam position, + *derived* marker when the geometry classifier tagged this file) · Cap / Fix flow cap + TAcc / Fix travel accel (.85) |
 | Material | LOAD NOW + all material values (Bed/Hotend L1/L2, PA + smooth, flow, retract, fan L2) + Save as preset — edits of the ACTIVE material apply live |
 | Temperatures | Bed/Hotend L1/L2 + Fan L2 (ON/OFF each) + the file's own values for comparison |
-| Motion | PA (+smooth), retraction length/speed/unretract, acceleration, velocity, minimum cruise ratio, square corner (ON/OFF each) |
+| Velocity (.104) | retraction length/speed/unretract + File R: display, acceleration, velocity, minimum cruise ratio, square corner (ON/OFF each) + Z-Hop ON/OFF + height — the global PA moved to PA per feat |
+| Spd/Acc/PA/Flw per feat (.104) | four quick lists (also in Live Tuning): per-feature speed / accel / PA / flow, each led by its GLOBAL — 1st-layer speed (Spd), global accel + ON (Acc), global PA + smooth + File PA (PA), global flow + ON (Flw) — plus Now: the feature currently printing. The old top-level Speeds/Accels/Flow menus were merged here |
 | Features | 16 submenus, one per feature (outer/inner wall, overhang wall, sparse/solid infill, top/bottom surface, bridge, internal bridge, gap fill, support, ironing, skirt, brim, prime tower, custom code): file original + ON switch + speed % + accel + PA each (.85) |
-| Flow / 1st layer | global flow (1–300 %) and first-layer speed (0 = off, default 75 %) |
 | Bed Mesh | Level old files · Mesh ON/AUTO/OFF · Save after · Adaptive · Travel cap while meshing · Calibrate now · Load…/Delete… |
 | Profiles | per-file profiles (pre/post) + default profiles + material presets — see 3.4a (.84) |
 | Range/Stop | planned end at layer N + the range generator with floor/top holes (ch. 5.1) |
 | Filament | Load / Unload / Change (M600) before the print, load & unload lengths |
+| Plotter (.104) | only for plot files: PEN FILE picker, pen speed %, Pen Z, Shift X/Y, Reset overrides — at the very END of Pre-Print |
 
 **The golden rule:** overrides only apply when they are ON. A stored value
 without ON never touches the print; the file rules until you switch something
@@ -382,8 +384,9 @@ feature speeds, temperatures, Z offset (babystepping), plus pauses, object
 skips and the planned end. Chapter 6 is the complete reference; the short
 version:
 
-- **Live Tuning > Speeds** — global % and the CURRENT feature's % (the display
-  names the feature that is printing right now)
+- **Live Tuning > Spd per feat** — global % and the CURRENT feature's % (the
+  display names the feature that is printing right now); the four quick lists
+  Spd/Acc/PA/Flw per feat carry the globals and the active feature at the top
 - **Live Tuning > Extrusion** — flow, PA, retraction — every input shows what
   Klipper really runs at this moment
 - **Live Tuning > Pause & Control** — pause now / next layer / at layer N /
@@ -492,7 +495,7 @@ and fixed in place:
 | Marlin habit | Symptom on Klipper | The fix |
 |---|---|---|
 | **Volumetric E** (`;FLAVOR:Marlin (Volumetric)`, common from Cura profiles with volumetric mode on) | E counts mm³ instead of mm → the print starves, barely extrudes at all | **Pre-Print > File > `Vol->mm fix`**: every E value (G0/G1 and G92) is divided by the filament cross-section (1.75 mm → 2.405 mm²), the volumetric markers are neutralized, a note lands in the header. Idempotent — never converts twice. |
-| **Long retraction moves** (E-only retract/unretract pairs, typical 5–6 mm from Bowden-era profiles) | they work, but they OVERRIDE your tuned ~0.8 mm direct-drive retraction and cannot be live-tuned | **Pre-Print > File > `RetFix file`** (or Pre-Print > RetFix ON for every FUTURE upload): clean pairs become `G10/G11` firmware retraction — your current retraction applies and stays live-tunable. Wipes and folded retracts stay untouched. |
+| **Long retraction moves** (E-only retract/unretract pairs, typical 5–6 mm from Bowden-era profiles) | they work, but they OVERRIDE your tuned ~0.8 mm direct-drive retraction and cannot be live-tuned | **Pre-Print > File > `RetFix file`** **(or Pre-Print > File > RetFix ON for every FUTURE upload)**: clean pairs become `G10/G11` firmware retraction — your current retraction applies and stays live-tunable. Wipes and folded retracts stay untouched. |
 
 The file info line **"sliced by <slicer> for <firmware>"** (Pre-Print > File)
 tells you upfront what you are holding — fresh uploads and foreign downloads
@@ -504,7 +507,7 @@ just run: the LEGACY start flow (dialog, mesh, purge, L1/L2) takes over.
 An old file from your Bowden days (or a friend's Bowden machine) contains
 retraction distances tuned for a 400 mm filament path. Your direct extruder
 wants ~0.8 mm. `RetFix file` rewrites exactly those pairs to G10/G11 — the
-DISTANCE then comes from your saved retraction setting (Pre-Print > Motion,
+DISTANCE then comes from your saved retraction setting (Pre-Print > Velocity,
 live-tunable during the print via Live Tuning > Extrusion). Nothing else in
 the file changes; the R2 markers survive, so no re-processing happens.
 
@@ -550,7 +553,7 @@ also explains itself in the console when clicked.
 | a v4-tagged file (tagged before .86) | fully functional — but the info line predates MAXRATE/SEAM/CFG replay/retract verdict (file check lists it as STALE) | System > File check > `RETAG` (2×) — 20 files per run, `.r2bak` backup each, never during a print |
 | a Marlin-flavor file, no volumetric, normal retracts | same — LEGACY flow (mesh, purge, L1/L2) | AS LEGACY |
 | a Marlin-volumetric file | flags it loudly (file info + alarm at start) | `Vol->mm fix`, then PRINT |
-| an old Bowden-era file | tags it; long retracts stay as-is until you say so | `RetFix file` (or RetFix ON for all future uploads) |
+| an old Bowden-era file | tags it; long retracts stay as-is until you say so | `RetFix file` (or File > RetFix ON for all future uploads) |
 | a file calling its own `START_PRINT` | real legacy start: homing, heat, purge — then your rules | decision in the dialog |
 | pure movement data (no heaters, no macros) | net probe catches it: home + heat + purge first | nothing — it just works |
 
@@ -1677,7 +1680,7 @@ parked for this print — the console lists them ("Not in this file (overrides
 parked for this print): …"). Your switches stay intact for the next file that
 really contains those features.
 
-**One global factor.** LCD > Live Tuning > Speeds/Accels has exactly one
+**One global factor.** LCD > Live Tuning > Spd/Acc per feat has exactly one
 global entry each (Glob % / Acc) — works on EVERY file, in both takeover
 modes and AS SLICED alike. Switch features off individually (never as a
 burst — the safe way on a small Pi).
@@ -1877,7 +1880,7 @@ without TYPES data stay fully editable as before).
 
 **Machine limits**
 
-| Parameter | Override (Pre-Print > Motion) | Live command | Klipper setting |
+| Parameter | Override (Pre-Print > Velocity) | Live command | Klipper setting |
 |---|---|---|---|
 | Max acceleration | accel (ON + value) | SET_GLOBAL_ACCEL | max_accel |
 | Max velocity | velocity (ON + value) | SET_LIVE_VELOCITY | max_velocity |
@@ -2141,7 +2144,9 @@ Pre-Print, Quick Macros, **Tools** (the six part generators:
 Cable ties · Angles+Flat · Lithophane · ColorPic · Gaskets · Labels ·
 Bricks (catalog, kit, figures) · Plotter, each with its own sub-menu — plus **After gen** (QUEUE/PREVIEW, .84): what
 happens to every generated file, see 5.0),
-Maintenance, System. Start dialog and live tuning sit right at the top. Every line fits the 16 characters
+Maintenance, System. Klipper's own stock menus OctoPrint, Temperature and
+Setup are hidden (.104) — everything they do exists in the R2 menus; the
+SD Card browser, Control and Tune stay. Start dialog and live tuning sit right at the top. Every line fits the 16 characters
 of the 12864 display — the value you edit is always visible (test-enforced).
 Pattern: first line = ON/OFF toggle (value stays stored), then the values.
 
@@ -2154,13 +2159,15 @@ retraction reads the firmware values — what you see is what runs.
 |---|---|
 | Z +0.04 / +0.12 / −0.04 / −0.12 | babystepping right at the top |
 | Hot / Bed / Fan / Zoff | cockpit: temperatures, fan %, Z-offset display · fan clamp: Clamp ON/OFF, FMin, FMax, FBrdg (bridge boost %, 0 = off) — every M106 of the file runs inside the curve (.85) |
-| Speeds | Global % (THE overall regulator) + FeatSpd: the currently printing feature's % + FeatOn: its ON switch + Src info (file/overwrite/live) + "Now:" which feature is printing |
-| Accels | Global mm/s² + FeatAcc: the currently printing feature's accel |
+| Spd per feat (.104) | Glob % (THE overall regulator) + FeatSpd: the currently printing feature's % + FeatOn: its ON switch + Src info (file/overwrite/live) + "Now:" which feature is printing + all 16 feature % rows (TRV = travels) |
+| Acc per feat (.104) | global mm/s² + Feat x: scales every feature accel by % + the effective accel + FeatAcc: the currently printing feature's accel + all 16 feature accel rows |
+| PA per feat (.104) | Glob: the global PA + all 16 feature PA rows (input shaper PA lives per feature) |
+| Flw per feat (.104) | Glob: the global flow % + all 16 feature flow rows (ironing flow in its own feature menu) |
 | Features | 16 submenus = same as Pre-Print > Features, but live: edits re-apply immediately when that feature is printing · ShpOff: input shaper OFF for one feature (toggle, .85) — each feature submenu has its own PA input (feature pressure advance, .85) |
 | File (G-code) | FULL mirror of the Pre-Print file info: measured originals (speed/accel per feature), 16 click-activators, temps, PA, retraction, fan, flow, MAXRATE (mm³/s) + seam position + DERIVED flag (.85) — everything during the print |
 | Extrusion | Flow % (1–300), PA, PA smooth, RetLen / RetSpd / Unret, UnretExt, Ironing flow, **Z-Hop ON/OFF + height** (lifts over every retract — nozzle-crash protection) — every input shows what Klipper REALLY runs right now, Src info shows file/overwrite/live |
 | Velocity | Velcap (max velocity — caps the fastest moves = travels) · Acccap (global accel cap, travels included) · MCR · corner — live, like Mainsail |
-| Plotter | while plotting: pen speed %, pen Z ±0.05, X/Y ±0.5 shifts |
+| Plotter | while plotting: pen speed %, pen Z ±0.05, X/Y ±0.5 shifts — appears ONLY while a plot file runs (.104) |
 | Pause & Control | pause now / next layer / at layer / Stop@ (planned NORMAL end) / M600 / Filament (Load/Unload/Change while paused) / cancel (2×) |
 | Objects | skip single objects (2× confirm) |
 | Sources | PARAM_SOURCES: provenance of every parameter (ch. 14.1) |
@@ -2169,18 +2176,18 @@ retraction reads the firmware values — what you see is what runs.
 
 | Entry | Contents |
 |---|---|
-| File (G-code) | full slicer summary of the selected file (type, material, layer height × layers, line widths, flow ratio, by-object, nozzle × wall loops, ALL speeds, accels, L1/L2 temps, PA, retraction) + **sliced by <slicer> for <firmware>** (volumetric files get a loud warning) — shown from the MOMENT you select the file; the per-feature values are MEASURED from the g-code — PLUS 16 activator rows (OW…BM + OH/IB/PT/CU): each shows the file's REAL speed + o:ON state; CLICK toggles that feature's override; features NOT in the file show 'n/a' and refuse · Flow line: MAXRATE + seam + *derived* marker (.85) · Cap (mm³/s) + Fix flow cap · TAcc + Fix travel accel (.85) |
+| Offset X/Y/Z (.104) | X / Y / Z ±0.1 mm + each a fine row ±0.05 mm (halved steps, realtime MOVE=1) — SET_GCODE_OFFSET, the first thing you reach | (type, material, layer height × layers, line widths, flow ratio, by-object, nozzle × wall loops, ALL speeds, accels, L1/L2 temps, PA, retraction) + **sliced by <slicer> for <firmware>** (volumetric files get a loud warning) — shown from the MOMENT you select the file; the per-feature values are MEASURED from the g-code — PLUS 16 activator rows (OW…BM + OH/IB/PT/CU): each shows the file's REAL speed + o:ON state; CLICK toggles that feature's override; features NOT in the file show 'n/a' and refuse · Flow line: MAXRATE + seam + *derived* marker (.85) · Cap (mm³/s) + Fix flow cap · TAcc + Fix travel accel (.85) |
 | Material | LOAD NOW + all material values + Save as preset — editing a value of the ACTIVE material applies LIVE too |
 | Profiles | Material (Load/Save/Reset PLA/PETG/TPU + ABS/ASA) · Defaults (Save/Info/Load 1–8/Delete 1–8) · This file (Save pre/Load pre/Load post/Del pre/Del post — only existing slots appear) + Auto-load & Auto-save post toggles (.84) |
 | Temperatures | Bed L1/L2, Hotend L1/L2, Fan L2 (ON/OFF each) + File H:/File B: = the file's own values |
-| Motion | PA (+smooth), retraction len/spd/unretract, Accel + Vel + MCR + Corner (ON/OFF each; Accel/Vel are GLOBAL caps — travels included) + Z-Hop ON/OFF + height + File R: |
+| Velocity (.104) | retraction len/spd/unretract + File R: · Accel + Vel + MCR + Corner (ON/OFF each; Accel/Vel are GLOBAL caps — travels included) · Z-Hop ON/OFF + height — global PA moved to PA per feat |
 | Features | 16 submenus: outer/inner wall, overhang wall, sparse/solid infill, top/bottom surface, bridge, internal bridge, gap fill, support, ironing (+flow), skirt, brim, prime tower, custom code — each shows the file's ORIGINAL (File:) + own ON switch + speed % (× global) + accel; only features the file really contains are editable — **a feature the file does not contain disappears from the menu entirely, an available-but-inactive one stays visible for live activation** (.83); switching OFF resets the stored values to the file original — never touches the global values · PA input per feature + ShpOff toggle at the top (.85) |
-| Flow / 1st layer | global flow (1–300 %) · first-layer speed % (0 = off, default 75) |
+| Spd/Acc/PA/Flw per feat (.104) | four quick lists with the globals merged in: 1st-layer speed % (0 = off, default 75) · global accel + ON · global PA + smooth + File PA · global flow + ON · Now: the active feature — the former top-level Speeds/Accels/Flow menus, one level deeper but with everything in ONE place each |
 | Bed Mesh | Level old files · Mesh ON/AUTO/OFF · Save after · Adaptive · Travel cap · Calibrate now · Load…/Delete… |
 | Range/Stop | Stop@ layer + From/To (capped to the selected file's layer count!) + Floor/Top (each FOOTPRINT or OUTLINE, each GRID or SOLID fill) + Brim + Create excerpt (ch. C.1) |
 | Filament | Load / Load length / Unload / Unload length / Change (M600) — available BEFORE the print too |
-| RetFix | ON/OFF — auto-treats every NEW upload's clean retract pairs into G10/G11 (old Bowden-era files); for the SELECTED file use Pre-Print > File > RetFix file instead (in place, no re-upload) |
-| File fixes (in File menu) | **Ret:** verdict line (FIX!/can/fixed/fw, .86) · RetFix file (offered only for fix/can, .86) + Vol->mm fix + Fix flow cap + Fix travel accel — repair the SELECTED file directly on disk (start beep + done beep, markers survive) |
+| File fixes (in File menu) | **Ret:** verdict line (FIX!/can/fixed/fw, .86) · RetFix ON/OFF (.104: now here) — auto-treats every NEW upload's clean retract pairs into G10/G11 (old Bowden-era files) · RetFix file (offered only for fix/can) + Vol->mm fix + Fix flow cap (Cap value) + Fix travel accel (TAcc value) — repair the SELECTED file directly on disk (start beep + done beep, markers survive) |
+| Plotter (.104) | only when a plot file is selected: PEN FILE · pen speed % · Pen Z · Shift X/Y · Reset overrides — at the very END of Pre-Print |
 | Texture | acts on the SELECTED file: File (shows the target) · Mode OFF/Fuzzy/Bumps · Fuz thick (0.05–1.5) · Fuz dens · **Presets (ORCA/Hide layers/Subtle/Grip)** · Pattern Grid/Waves/Honeycomb/Mandelbrot · Scale · Amp · Dir IN/OUT · > Apply (beeps) · How it works — writes a NEW `_TX` file (ch. 5.9), never auto-starts |
 
 **Labels** (in Tools)
@@ -2708,7 +2715,7 @@ Diagnostics: SHOW_STATUS · SELF_TEST · KAMP_STATUS · HOST_CHECK (Pi health) �
 | system takeover of a sliced file | Start Print? > PRINT AS LEGACY |
 | adjust Z live | Live Tuning > Z +0.04/−0.04 |
 | hotend/bed/fan/Z-offset fast | Live Tuning > Hot / Bed / Fan / Zoff |
-| slow everything down | Live Tuning > Speeds > Global |
+| slow everything down | Live Tuning > Spd per feat > Glob |
 | machine limits live | Live Tuning > Velocity |
 | flow/PA/retraction live | Live Tuning > Extrusion |
 | pause at layer 17 | Live Tuning > Pause & Control > Pause@: 17 |

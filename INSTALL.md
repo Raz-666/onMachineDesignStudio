@@ -20,12 +20,12 @@ just unpack once by hand:
 
 ```bash
 cd ~/printer_data/config
-unzip -o klipper-e3-r2d2-UPDATE-R2-2026-10-13.103.zip
+unzip -o klipper-e3-r2d2-UPDATE-R2-2026-10-13.104.zip
 bash klipper-e3-r2d2/update.sh
 ```
 
 No `unzip` on the Pi?
-`python3 -m zipfile -e klipper-e3-r2d2-UPDATE-R2-2026-10-13.103.zip .` does the
+`python3 -m zipfile -e klipper-e3-r2d2-UPDATE-R2-2026-10-13.104.zip .` does the
 same — update.sh uses that fallback automatically.
 
 **What update.sh does:** it finds the newest `klipper-e3-r2d2-UPDATE-R2-*.zip`
@@ -41,7 +41,7 @@ again). The uploaded ZIP can stay in the config folder (harmless) or be
 deleted in Mainsail.
 
 Boot sound + `M117 R2 ready` ~10 s later confirm success; the console line must
-say `build R2-2026-10-13.103`
+say `build R2-2026-10-13.104`
 
 ---
 
@@ -398,7 +398,7 @@ update your slicer start gcode accordingly (copy from ORCA.md/CURA.md).
 - **Per-feature speed/accel/ironing** needs the post-processing script
   (`slicer/ORCA.md` / `CURA.md`) - it writes TYPE markers into the gcode. Files
   WITHOUT markers (old files) can only be tuned GLOBALLY - the LCD shows
-  'GLOBAL (old file)' in Live Tuning > Speeds as a reminder.
+  'GLOBAL (old file)' in Live Tuning > Spd per feat as a reminder.
 - **Bed mesh temperature**: meshing happens at print temperature (material preset
   or your manual value, Pre-Print > Bed Mesh > 'Mesh @ temp'). A cold bed is a
   different shape - that is why CALIBRATE_MESH heats first.

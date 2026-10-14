@@ -1321,7 +1321,7 @@ tests.append(('SHOW_STATUS hides zero values', 'IronTemp' not in out and 'Bed(60
 
 # ------- Runde 21: Speed/Accel-Vollstaendigkeit -----------------------------------------------
 _lcd21 = open('menus/lcd_menues.cfg').read()
-for m, lcdkey in [('SET_GLOBAL_SPEED', '__speeds __gs'), ('SET_GLOBAL_ACCEL', '__accels __ga')]:
+for m, lcdkey in [('SET_GLOBAL_SPEED', '__spfe __gs'), ('SET_GLOBAL_ACCEL', '__acfe __ga')]:
     tests.append((f'Speed/Accel {m} exists+LCD', f'gcode_macro {m}]' in open('macros/10_live_tuning.cfg').read() and lcdkey in _lcd21, m))
 tests.append(('R54 feature macros are stubs (compat, no error)',
     all(f'gcode_macro {m}]' in open('macros/10_live_tuning.cfg').read() for m in
@@ -2511,10 +2511,10 @@ tests.append(('R59 LCD: PA cal inputs + smooth submenu + generic features + cur 
     all(k in _lcd58 for k in ['__maint __pa __vel', '__maint __pa __mcr', '__maint __pa __scv', '__maint __pa __rlen',
                               '__maint __pa __rspd', '__maint __pa __runr', '__maint __pa __fl',
                               '__maint __pa __sm]', '__maint __pa __sm __go', '__maint __pa __sm __res',
-                              '__live __speeds __cur]', '__live __speeds __curon]', '__live __accels __cur]',
-                              '__live __speeds __src]', '__live __extr __src]', '__live __vel __mv]',
+                              '__live __spfe __cur]', '__live __spfe __curon]', '__live __acfe __cur]',
+                              '__live __spfe __src]', '__live __extr __src]', '__live __vel __mv]',
                               '__preprint __feat]', '__preprint __feat __ow]', '__preprint __feat __ir __fl]',
-                              '__preprint __motion __pa __val]',
+                              '__preprint __pafe __gval]',
                               '__preprint __file __spd]', '__preprint __file __acc]', '__preprint __file __noz]',
                               '__preprint __file __acwall]', '__preprint __file __acwalli]', '__preprint __file __acsolid]',
                               '__preprint __file __acsurfb]', '__preprint __file __acgaps]',
@@ -2540,11 +2540,11 @@ tests.append(('R59 M220 S100: g_speed_clean = 100 (APPLY_TYPE else-branch base)'
 # --- 2) live __cur inputs are DYNAMIC on current_type ---
 _cur = [l for l in _lcd58.split('\n')]
 import re as _re59
-_curblk = _re59.search(r'\[menu __main __live __speeds __cur\]\ntype: input\nname: [^\n]+\ninput: ([^\n]+)', _lcd58)
+_curblk = _re59.search(r'\[menu __main __live __spfe __cur\]\ntype: input\nname: [^\n]+\ninput: ([^\n]+)', _lcd58)
 tests.append(('R59 LCD live __cur input: reads ovf_<current_type>_spd dynamically',
     _curblk is not None and "ovf_' ~ printer['gcode_macro _STATE'].current_type" in _curblk.group(1)
     and '_spd' in _curblk.group(1), _curblk.group(1)[:90] if _curblk else 'missing'))
-_curon = _re59.search(r'\[menu __main __live __speeds __curon\]\ntype: command\nname: ([^\n]+)', _lcd58)
+_curon = _re59.search(r'\[menu __main __live __spfe __curon\]\ntype: command\nname: ([^\n]+)', _lcd58)
 tests.append(('R59 LCD live __curon: toggles ovf_<current_type>_on',
     _curon is not None and "SET_OVERRIDE_VALUE NAME=feat_on_{c}" in _lcd58 and "ovf_' ~ c ~ '_on" in _lcd58,
     _curon.group(1)[:90] if _curon else 'missing'))
@@ -2572,7 +2572,7 @@ tests.append(('R59 postproc _FILE_INFO: solid/gaps/bridge/skirt/suppint speeds',
     and 'SPEED_SKIRT=25' in _fi59 and 'SPEED_SUPPINT=60' in _fi59, _fi59[:150]))
 
 # --- 5) live __src shows the CLEAN global + active features (no legacy keys) ---
-_srcs = _re59.search(r'\[menu __main __live __speeds __src\].*?(?=\n\[menu )', _lcd58, _re59.S)
+_srcs = _re59.search(r'\[menu __main __live __spfe __src\].*?(?=\n\[menu )', _lcd58, _re59.S)
 tests.append(('R59 LCD __speeds __src: g_speed_clean + 12er loop, no legacy ov_ keys',
     _srcs is not None and 'g_speed_clean' in _srcs.group(0) and "ovf_' ~ c ~ '_on'" in _srcs.group(0)
     and 'ov_outer_wall' not in _srcs.group(0) and 'speed_factor' not in _srcs.group(0),
@@ -3720,8 +3720,9 @@ tests.append(('R64 LCD: bridging menu with all live-relevant settings',
                                 '__maint __bridge __spd]', '__maint __bridge __fan]',
                                 '__maint __bridge __run]']), 'ids'))
 tests.append(('R64 LCD: plotter live group gated on plot jobs + pre-print plot group on preview',
-    "enable: {printer['gcode_macro _STATE'].file_type|default('') == 'plot'}" in _lcd64
-    and "__preprint __file __pl0]" in _lcd64
+    "enable: {printer['gcode_macro _PREVIEW'].plot|default(0)|int == 1 "
+    "or printer['gcode_macro _STATE'].file_type|default('') == 'plot'}" in _lcd64
+    and "__preprint __plot __pl0]" in _lcd64
     and "printer['gcode_macro _PREVIEW'].plot|default(0)|int == 1" in _lcd64, ''))
 tests.append(('R64 LCD: plot text editor guarded on the labels charset',
     _re64.search(r'__plot __txt\]..type: list..name: Plot text file..enable: .\'gcode_macro _LABELS\' in printer', _lcd64.replace('\n', '..')) is not None, ''))
@@ -3796,7 +3797,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.100) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-13.103'", repr(_v66)))
+    _v66 == "'R2-2026-10-13.104'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -5577,8 +5578,8 @@ _lcd79 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 tests.append(('R79 LCD: Live > Sources + Now items (All-OFF removed in R80)',
     '[menu __main __live __psrc]' in _lcd79 and 'PARAM_SOURCES' in _lcd79
     and '[menu __main __live __feat __reset]' not in _lcd79
-    and '[menu __main __live __speeds __now]' in _lcd79
-    and '[menu __main __live __accels __now]' in _lcd79
+    and '[menu __main __live __spfe __now]' in _lcd79
+    and '[menu __main __live __acfe __now]' in _lcd79
     and '[menu __main __live __feat __now]' in _lcd79, ''))
 tests.append(('R79 LCD: curr renamed to FeatSpd/FeatOn/FeatAcc (clear naming)',
     "name: FeatSpd:" in _lcd79 and "name: FeatOn:" in _lcd79 and "name: FeatAcc:" in _lcd79
@@ -5977,7 +5978,7 @@ tests.append(('R84 RETRACT_FIX OFF', 'VARIABLE=retract_rewrite VALUE=False' in o
 # (8) LCD gates
 _lcd84 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 tests.append(('R84 LCD: RetFix in Pre-Print + slicer in File info + preview card',
-    all(x in _lcd84 for x in ['__preprint __retfix]', '__start __info __slicer]',
+    all(x in _lcd84 for x in ['__preprint __file __rt]', '__start __info __slicer]',
                                '__preprint __file __pv4]', 'RETRACT_FIX STATE=']),
     ''))
 
@@ -6623,8 +6624,10 @@ tests.append(('R86.2 example cfg: EBB/U2C/relay/nozzle-LED templates present',
 import re as _re87
 _lcd87 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 _top87 = sorted(_re87.findall(r'^\[menu __main ([a-z_0-9]+)\]$', _lcd87, _re87.M))
-tests.append(('R87 LCD: exactly 7 top-level menus (4 generators moved into one container)',
-    _top87 == ['__gen', '__live', '__macros', '__maint', '__preprint', '__start', '__system'],
+tests.append(('R87 LCD: 7 top-level R2 menus + the 3 hidden stock overrides '
+              '(OctoPrint/Temperature/Setup, R135)',
+    _top87 == ['__gen', '__live', '__macros', '__maint', '__octoprint',
+               '__preprint', '__setup', '__start', '__system', '__temp'],
     str(_top87)))
 tests.append(('R87 LCD: container Tools + all four trees re-parented, old roots gone',
     '[menu __main __gen]\ntype: list\nname: Tools' in _lcd87
@@ -7717,9 +7720,9 @@ tests.append(('R92.1 SET_FLOW_RATE: global = the ONE regulator, features on top'
 # --- LCD: percent regulator + effective displays ---
 _lcd921 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 tests.append(('R92.1 LCD: Feat x%% input + effective accel + flow Src in Live Tuning',
-    '[menu __main __live __accels __pct]' in _lcd921
+    '[menu __main __live __acfe __pct]' in _lcd921
     and 'name: Feat x:' in _lcd921
-    and '[menu __main __live __accels __eff]' in _lcd921
+    and '[menu __main __live __acfe __eff]' in _lcd921
     and '[menu __main __live __extr __fsrc]' in _lcd921
     and 'SET_GLOBAL_ACCEL_PERCENT PERCENT=' in _lcd921, ''))
 
@@ -10959,14 +10962,14 @@ tests.append(('R123 LCD Live: Z-Hop + PA + PA-smooth + Retract directly in the r
     and '__extr __pa]' not in _lcd123 and '__extr __zh]' not in _lcd123
     and '__extr __ret]' not in _lcd123, 'ids'))
 tests.append(('R123 LCD Pre-Print: travel fix + flow cap + cap value + Z-Hop direct',
-    all(k in _lcd123 for k in ['[menu __main __preprint __ptrav]',
-        '[menu __main __preprint __pfcap]', '[menu __main __preprint __pfcv]',
-        '[menu __main __preprint __pzh]', '[menu __main __preprint __pzhh]'])
+    all(k in _lcd123 for k in ['[menu __main __preprint __file __tv2]',
+        '[menu __main __preprint __file __fc]', '[menu __main __preprint __file __fcv]',
+        '[menu __main __preprint __motion __zh1]', '[menu __main __preprint __motion __zh2]'])
     and _lcd123.count('FIX_FILE WHAT=TRAVEL SPEED=') == 2
     and _lcd123.count('    FIX_FILE WHAT=FLOWCAP' + chr(10)) == 2, 'ids'))
 tests.append(('R123 LCD: PA quick lists in Live AND Pre-Print (16 features each)',
-    _lcd123.count('[menu __main __live __pafe __') == 16
-    and _lcd123.count('[menu __main __preprint __pafe __') == 16
+    _lcd123.count('[menu __main __live __pafe __') == 18
+    and _lcd123.count('[menu __main __preprint __pafe __') == 22
     and 'SET_OVERRIDE_VALUE NAME=feat_pa_wallouter' in _lcd123
     and 'SET_OVERRIDE_VALUE NAME=feat_pa_primetower' in _lcd123
     and 'SET_OVERRIDE_VALUE NAME=feat_on_wallouter VALUE=1' in _lcd123
@@ -10986,12 +10989,12 @@ tests.append(('R123 LCD: PA quick list names stay short (R29)', len(_long123) ==
 # ===== R124: Spd/Flw/Acc per-feature quick lists ====================
 _lcd124 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 tests.append(('R124 LCD: Spd/Flw/Acc quick lists in Live AND Pre-Print (17/16/17 entries)',
-    _lcd124.count('[menu __main __live __spfe __') == 17
-    and _lcd124.count('[menu __main __preprint __spfe __') == 17
-    and _lcd124.count('[menu __main __live __flfe __') == 16
-    and _lcd124.count('[menu __main __preprint __flfe __') == 16
-    and _lcd124.count('[menu __main __live __acfe __') == 17
-    and _lcd124.count('[menu __main __preprint __acfe __') == 17
+    _lcd124.count('[menu __main __live __spfe __') == 22
+    and _lcd124.count('[menu __main __preprint __spfe __') == 19
+    and _lcd124.count('[menu __main __live __flfe __') == 18
+    and _lcd124.count('[menu __main __preprint __flfe __') == 20
+    and _lcd124.count('[menu __main __live __acfe __') == 22
+    and _lcd124.count('[menu __main __preprint __acfe __') == 20
     and '[menu __main __live __spfe]' in _lcd124
     and '[menu __main __preprint __acfe]' in _lcd124, 'counts'))
 tests.append(('R124 LCD: travel in Spd+Acc lists (the travel levers), NOT in Flw/PA',
@@ -11771,6 +11774,154 @@ try:
                                     (_r134.stdout + _r134.stderr)[:180])))
 finally:
     _shut133i.rmtree(_td134, ignore_errors=True)
+
+# ===== R135 (.104): THE MENU RESTRUCTURE - nothing may ever get lost =====
+import re as _re135
+_lcd135 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+_gold135 = [l for l in open('tools/r135_menu_golden.txt',
+                            encoding='utf-8').read().split('\n') if l]
+_now135 = _re135.findall(r'^\[menu ([\w ]+)\]$', _lcd135, _re135.M)
+_REMOVED135 = ['__main __live __accels', '__main __live __accels __cur',
+ '__main __live __accels __eff', '__main __live __accels __ga',
+ '__main __live __accels __now', '__main __live __accels __pct',
+ '__main __live __speeds', '__main __live __speeds __cur',
+ '__main __live __speeds __curon', '__main __live __speeds __gs',
+ '__main __live __speeds __now', '__main __live __speeds __src',
+ '__main __preprint __file __pl0', '__main __preprint __file __plr',
+ '__main __preprint __file __pls', '__main __preprint __file __plx',
+ '__main __preprint __file __ply', '__main __preprint __file __plz',
+ '__main __preprint __flow', '__main __preprint __flow __hint',
+ '__main __preprint __flow __on', '__main __preprint __flow __val',
+ '__main __preprint __flspd', '__main __preprint __motion __ac1',
+ '__main __preprint __motion __ac2', '__main __preprint __motion __pa',
+ '__main __preprint __motion __pa __file', '__main __preprint __motion __pa __on',
+ '__main __preprint __motion __pa __smon', '__main __preprint __motion __pa __smv',
+ '__main __preprint __motion __pa __val', '__main __preprint __pfcap',
+ '__main __preprint __pfcv', '__main __preprint __ptrav',
+ '__main __preprint __pzh', '__main __preprint __pzhh', '__main __preprint __retfix']
+_ADDED135 = ['__main __live __acfe __cur', '__main __live __acfe __eff',
+ '__main __live __acfe __ga', '__main __live __acfe __now',
+ '__main __live __acfe __pct', '__main __live __flfe __gfl',
+ '__main __live __flfe __now', '__main __live __pafe __gpa',
+ '__main __live __pafe __now', '__main __live __spfe __cur',
+ '__main __live __spfe __curon', '__main __live __spfe __gs',
+ '__main __live __spfe __now', '__main __live __spfe __src',
+ '__main __maint __tt __gen', '__main __octoprint',
+ '__main __preprint __acfe __gacc', '__main __preprint __acfe __gon',
+ '__main __preprint __acfe __now', '__main __preprint __file __fc',
+ '__main __preprint __file __fcv', '__main __preprint __file __rt',
+ '__main __preprint __file __tv2', '__main __preprint __flfe __ghint',
+ '__main __preprint __flfe __gon', '__main __preprint __flfe __gval',
+ '__main __preprint __flfe __now', '__main __preprint __pafe __gfile',
+ '__main __preprint __pafe __gon', '__main __preprint __pafe __gsmon',
+ '__main __preprint __pafe __gsmv', '__main __preprint __pafe __gval',
+ '__main __preprint __pafe __now', '__main __preprint __plot',
+ '__main __preprint __plot __pl0', '__main __preprint __plot __plr',
+ '__main __preprint __plot __pls', '__main __preprint __plot __plx',
+ '__main __preprint __plot __ply', '__main __preprint __plot __plz',
+ '__main __preprint __poff', '__main __preprint __poff __x',
+ '__main __preprint __poff __xf', '__main __preprint __poff __y',
+ '__main __preprint __poff __yf', '__main __preprint __poff __z',
+ '__main __preprint __poff __zf', '__main __preprint __spfe __g1st',
+ '__main __preprint __spfe __now', '__main __setup', '__main __temp']
+_gone135 = sorted(set(_gold135) - set(_now135))
+_new135 = sorted(set(_now135) - set(_gold135))
+tests.append(('R135 menu inventory: NOTHING lost - every vanished path is a '
+              'documented merge/rename, every new one planned (golden = '
+              'pre-.104, %d paths)' % len(_gold135),
+              _gone135 == sorted(_REMOVED135) and _new135 == sorted(_ADDED135),
+              'gone=%r new=%r' % (_gone135[:5], _new135[:5])))
+
+def _kids135(region):
+    return _re135.findall(r'^\[menu __main %s (\w+)\]$' % region, _lcd135,
+                          _re135.M)
+_live135 = _kids135('__live')
+tests.append(('R135 Live Tuning order: babysteps + offset display -> params '
+              '-> Velocity -> quick access (Spd/Acc/PA/Flw, globals merged in) '
+              '-> Features -> Extrusion -> temps -> Pause/Objects/Sources/'
+              'File -> Plotter at the END',
+              _live135 == ['__zup', '__zupf', '__zdown', '__zdownf', '__zoff',
+                           '__lzh', '__lzhh', '__lpa', '__lret', '__lretspd',
+                           '__lunret', '__lunretx', '__lpasm', '__vel',
+                           '__spfe', '__acfe', '__pafe', '__flfe', '__feat',
+                           '__extr', '__chot', '__cbed', '__cfan', '__temp',
+                           '__pause', '__objects', '__psrc', '__file',
+                           '__plot'], str(_live135)))
+_pre135 = _kids135('__preprint')
+tests.append(('R135 Pre-Print order: Offset (new, top) -> File (info+fixes) '
+              '-> Profiles -> Velocity -> quick access -> Features -> the '
+              'rest -> Plotter at the END',
+              _pre135 == ['__poff', '__file', '__profs', '__motion', '__spfe',
+                          '__acfe', '__pafe', '__flfe', '__feat', '__pre',
+                          '__defs', '__tex', '__material', '__temps', '__rng',
+                          '__fil', '__mesh', '__confirm', '__alloff',
+                          '__plot'], str(_pre135)))
+
+_poffblk135 = _lcd135[_lcd135.index('[menu __main __preprint __poff]'):
+                      _lcd135.index('[menu __main __preprint __file]')]
+tests.append(('R135 Offset X/Y/Z: 6 inputs, 0.1mm steps + HALF-step 0.05 fine '
+              'rows, realtime, MOVE=1 - the fine-tuning pairs',
+              _poffblk135.count('type: input') == 6
+              and _poffblk135.count('input_step: 0.1') == 3
+              and _poffblk135.count('input_step: 0.05') == 3
+              and _poffblk135.count('realtime: True') == 6
+              and _poffblk135.count('MOVE=1') == 6
+              and _poffblk135.count('SET_GCODE_OFFSET Z=') == 2
+              and _poffblk135.count('SET_GCODE_OFFSET X=') == 2
+              and _poffblk135.count('SET_GCODE_OFFSET Y=') == 2, ''))
+tests.append(('R135 stock menus hidden: OctoPrint + Temperature + Setup '
+              'overridden with enable {False} (the documented menu.cfg merge), '
+              'SD Card (the LCD file browser) untouched',
+              '[menu __main __octoprint]\nenable: {False}' in _lcd135
+              and '[menu __main __temp]\nenable: {False}' in _lcd135
+              and '[menu __main __setup]\nenable: {False}' in _lcd135
+              and '[menu __main __sdcard]' not in _lcd135, ''))
+tests.append(('R135 quick access carries the GLOBALS: PA (toggle+value+smooth) '
+              'and flow (toggle+value) and accel (toggle+value) and 1st-layer '
+              'speed in Pre-Print; live global speed (M220) + live accel in '
+              'Live Tuning',
+              all(p in _now135 for p in (
+                  '__main __preprint __pafe __gon',
+                  '__main __preprint __pafe __gval',
+                  '__main __preprint __pafe __gsmv',
+                  '__main __preprint __flfe __gon',
+                  '__main __preprint __flfe __gval',
+                  '__main __preprint __acfe __gon',
+                  '__main __preprint __acfe __gacc',
+                  '__main __preprint __spfe __g1st',
+                  '__main __live __spfe __gs',
+                  '__main __live __acfe __ga'))
+              and 'SET_GLOBAL_SPEED PERCENT=' in _lcd135[_lcd135.index(
+                  '[menu __main __live __spfe __gs]'):_lcd135.index(
+                  '[menu __main __live __spfe __src]')], ''))
+tests.append(('R135 Now rows: all 8 quick menus show the ACTIVE feature '
+              '(current_type) - the Speed/Accel live-display pattern',
+              all(('[menu %s __now]' % p) in _lcd135 for p in (
+                  '__main __live __spfe', '__main __live __acfe',
+                  '__main __live __pafe', '__main __live __flfe',
+                  '__main __preprint __spfe', '__main __preprint __acfe',
+                  '__main __preprint __pafe', '__main __preprint __flfe'))
+              and _lcd135.count('current_type') >= 8, ''))
+tests.append(('R135 plot sections gated: Pre-Print __plot (pl* moved out of '
+              'File) and Live __plot only appear for plot files '
+              '(_PREVIEW.plot or file_type plot)',
+              _lcd135.count("printer['gcode_macro _PREVIEW'].plot|default(0)"
+                            "|int == 1 or printer['gcode_macro _STATE']"
+                            ".file_type|default('') == 'plot'}") == 2
+              and '[menu __main __preprint __plot __pl0]' in _lcd135
+              and '[menu __main __preprint __file __pl0]' not in _lcd135, ''))
+tests.append(('R135 Z-Hop dedupe: Velocity carries exactly ONE toggle + ONE '
+              'input (was duplicated: top-level + Motion)',
+              '[menu __main __preprint __motion __zh1]' in _lcd135
+              and '[menu __main __preprint __motion __zh2]' in _lcd135
+              and '[menu __main __preprint __pzh]' not in _lcd135
+              and _lcd135.count('TOGGLE_OVERRIDE NAME=zh_on') <= 1, ''))
+tests.append(('R135 temp tower: the dead duplicate __go is now __gen - '
+              'Start tower AND Print tower both reachable',
+              _lcd135.count('[menu __main __maint __tt __go]') == 1
+              and '[menu __main __maint __tt __gen]' in _lcd135
+              and 'TEMP_TOWER_GEN' in _lcd135
+              and 'TEMP_TOWER_START' in _lcd135, ''))
 
 fails = 0
 for name, ok, info in tests:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MANUAL.pdf — the illustrated user handbook (R2-2026-10-13.103).
+"""MANUAL.pdf — the illustrated user handbook (R2-2026-10-13.104).
 Mirrors MANUAL.md: daily workflow first, generators next, calibration ladder,
 reference tables. 21 vector diagrams (font specimens + range variants drawn
 from the REAL generator glyph data), full parameter tables."""
@@ -476,7 +476,7 @@ class Doc(BaseDocTemplate):
         c.drawRightString(A4[0]-17*mm,A4[1]-10*mm,self.ch); c.restoreState()
     def footer(self,c,doc):
         c.saveState(); c.setFont('DVS',7.5); c.setFillColor(GRAY)
-        c.drawString(17*mm,9*mm,'R2-D2 Macro System · R2-2026-10-13.103 · user handbook')
+        c.drawString(17*mm,9*mm,'R2-D2 Macro System · R2-2026-10-13.104 · user handbook')
         c.drawRightString(A4[0]-17*mm,9*mm,f'Page {doc.page}')
         c.setStrokeColor(colors.HexColor('#c9d4e4')); c.setLineWidth(0.6); c.line(17*mm,12*mm,A4[0]-17*mm,12*mm)
         c.restoreState()
@@ -1251,7 +1251,7 @@ def d_wiring():
 # ---- cover ----
 E+= [Spacer(1,10*mm),Paragraph('R2-D2 Macro System',S['title']),Spacer(1,2*mm),
      Paragraph('The Complete User Handbook — illustrated edition',S['sub']),Spacer(1,3*mm),
-     Paragraph('Version R2-2026-10-13.103 · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail)',S['sub']),
+     Paragraph('Version R2-2026-10-13.104 · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail)',S['sub']),
      Spacer(1,6*mm),CENT(d_robot()),Spacer(1,6*mm),
      Paragraph('The USER HANDBOOK: from file to print in one read — every file type (by layer / by object / vase /<br/>'
                'legacy / movement data), the start dialog, pre-print settings, live tuning, pauses, object skip ·<br/>'
@@ -1386,16 +1386,17 @@ chapter('3','From file to print — the daily workflow',
   ],[40*mm,52*mm,66*mm]),
   H2('3.3 Pre-Print — the settings before you start'),
   TBL(['Entry','Contents'],[
-   ['File (G-code)','full slicer summary + slicer/firmware of the file + 16 feature activator rows (file value + ON switch, n/a guard)'],
+   ['Offset X/Y/Z (.104)','SET_GCODE_OFFSET X/Y/Z at the very top: 0.1 mm steps + fine rows 0.05 mm (halved), realtime (MOVE=1)'],
+   ['File (G-code)','full slicer summary + slicer/firmware of the file + 16 feature activator rows (file value + ON switch, n/a guard) + the FIXES as submenu (.104): RetFix ON / RetFix file / Vol->mm / flow cap + Cap / travel accel + TAcc'],
    ['Material','LOAD NOW + all values + Save as preset — active-material edits apply live'],
-   ['Temperatures / Motion','L1/L2 bed+hotend, fan L2, PA + smooth, retraction, accel, velocity, MCR, corner'],
+   ['Temperatures / Velocity','L1/L2 bed+hotend, fan L2 · Velocity: retraction, accel, velocity, MCR, corner, Z-Hop (global PA moved to PA per feat, .104)'],
    ['Features','16 submenus: file original + ON + speed percent + accel per feature'],
-   ['Flow / 1st layer','global flow 1–300 percent, first-layer speed (default 75 percent)'],
+   ['Spd/Acc/PA/Flw per feat (.104)','four quick lists (also in Live Tuning): per-feature values + the GLOBALS — 1st-layer speed (Spd), global accel + ON (Acc), global PA + smooth + File PA (PA), global flow + ON (Flw) + Now: the active feature'],
    ['Bed Mesh','ON/AUTO/OFF, adaptive, travel cap, profiles'],
    ['Profiles','per-file profiles (pre/post), the 8 default profiles, material presets - see 3.3a (.84)'],
    ['Range/Stop','planned end at layer N + the range generator: From/To, Floor/Top shapes+fills, Fl.hole + Top hole 0-80 mm centered, Brim, Create (ch. 5.1)'],
    ['Filament','load / unload / change before the print'],
-   ['RetFix','ON/OFF - auto-treats every NEW upload (retract pairs -> G10/G11). For the SELECTED file use File > RetFix file / Vol->mm fix: repaired ON DISK, no re-upload (beeps at start + done, markers survive); Marlin-volumetric files get a loud warning'],
+   ['Plotter (.104)','only for plot files, at the END: PEN FILE, pen speed %, Pen Z, Shift X/Y, Reset overrides'],
    ['Ret verdict (.86)','Pre-Print > File > Ret: line - FIX! (Bowden-era retracts override yours, SHOULD fix) / can X.Xmm (optional) / fixed (already rewritten) / fw (slicer G10/G11) - the RetFix offer appears only for fix/can; STALE (v4) files show -- until retagged'],
    ['RETAG (.86)','System > File check (2x): upgrades STALE v4 files in place - same markers, new info line (MAXRATE/SEAM/CFG keys/retract verdict), .r2bak backup, 20 per run'],
    ['Click pacing','multi-value actions (material, presets, range, fixes) insert ~100ms pauses between disk writes - Pi Zero burst protection; no-ops while printing'],
@@ -1993,7 +1994,7 @@ chapter('9','Speed, acceleration &amp; machine limits',
      'file really contains are editable (TYPES= guard; unprocessed files stay fully editable)',
      'SET_GLOBAL_SPEED is never capped; without overrides the file rules 1:1'),
   H2('Machine limits (Klipper toolhead limits)'),
-  TBL(['Parameter','Override (Pre-Print &gt; Motion)','Live command (Live &gt; Velocity)','Klipper setting'],[
+  TBL(['Parameter','Override (Pre-Print &gt; Velocity)','Live command (Live &gt; Velocity)','Klipper setting'],[
    ['Max acceleration','accel (ON + value)','SET_GLOBAL_ACCEL','max_accel'],
    ['Max velocity','velocity (ON + value)','SET_LIVE_VELOCITY','max_velocity'],
    ['Minimum cruise ratio','min_cruise (ON + value)','SET_LIVE_MINIMUM_CRUISE_RATIO','minimum_cruise_ratio (replaced accel_to_decel/a2d)'],
@@ -2112,14 +2113,15 @@ chapter('13','Maintenance &amp; care',
 
 
 chapter('14','LCD menu reference',
-  CENT(d_menu()),CAP('Seven top groups in LCD order — Start Print? (waiting), Live Tuning (printing), then Pre-Print, Quick Macros, Tools (the part generators: Cable ties · Angles+Flat · Lithophane · ColorPic · Gaskets · Frames · Labels · Bricks (catalog, kit, figures) · Plotter), Maintenance, System'),
+  CENT(d_menu()),CAP('Seven top groups in LCD order — Start Print? (waiting), Live Tuning (printing), then Pre-Print, Quick Macros, Tools (the part generators: Cable ties · Angles+Flat · Lithophane · ColorPic · Gaskets · Frames · Labels · Bricks (catalog, kit, figures) · Plotter), Maintenance, System. Klipper\'s stock menus OctoPrint / Temperature / Setup are HIDDEN (.104) — everything lives in the R2 menus; the SD Card browser, Control and Tune stay'),
   P('Every line fits the 16 characters of the 12864 display — the value you edit is always visible '
     '(test-enforced). Pattern: first line = ON/OFF toggle (value stays stored), then the values.'),
   TBL(['Live Tuning (during print)','Contents'],[
    ['Z +0.04 / +0.12 / −0.04 / −0.12','babystepping right at the top'],
    ['Hot / Bed / Fan / Zoff','cockpit: temperatures, fan %, Z-offset display — one click deep'],
-   ['Speeds','Global % (THE overall regulator,) + Cur: currently printing feature % + CurOv: its ON switch + Src info'],
-   ['Accels','Global mm/s² + CurAcc: the currently printing feature\'s accel '],
+   ['Spd per feat (.104)','Glob % (THE overall regulator) + FeatSpd + FeatOn + Src + Now + all 16 feature % rows (TRV = travels)'],
+   ['Acc per feat (.104)','global mm/s² + Feat x % + effective accel + FeatAcc + all 16 feature accel rows'],
+   ['PA / Flw per feat (.104)','Glob PA / Glob flow % + all 16 feature rows each'],
    ['Features','16 submenus = Pre-Print > Features LIVE: edits re-apply immediately when that feature prints'],
    ['File (G-code)','FULL mirror of the Pre-Print file info : measured originals per feature, 16 activators, temps, PA, retraction, fan, flow'],
    ['Extrusion','Flow 1–300, PA, PA smooth, RetLen/RetSpd/Unret, Ironing flow — every input shows what Klipper REALLY runs + Src info '],
@@ -2129,12 +2131,14 @@ chapter('14','LCD menu reference',
    ['Objects','skip single objects (2× confirm)'],
   ],[56*mm,108*mm]),
   TBL(['Pre-Print','Contents'],[
+   ['Offset X/Y/Z (.104)','X/Y/Z 0.1 mm + each a fine row 0.05 mm (halved steps, realtime MOVE=1) — SET_GCODE_OFFSET, the first thing you reach'],
    ['File (G-code)','full slicer summary + MEASURED per-feature originals (post-processor v4): speeds/accels straight from the g-code, temps, PA, retraction, sliced-by slicer + firmware flavor (volumetric warning) — PLUS 16 activator rows (OW..BM + OH/IB/PT/CU): real file speed + o:ON; CLICK toggles (absent features: n/a, refuse)'],
    ['Material','LOAD NOW + 11 values + Save as preset — edits of the ACTIVE material apply LIVE too '],
    ['Features','16 submenus : each shows the file\'s ORIGINAL (File:) + own ON switch + speed % (× global) + accel; only features in the file are editable (n/a guard); OFF resets to the original — never touches the global values'],
    ['Temperatures','Bed L1/L2, Hotend L1/L2, Fan L2 (ON/OFF each) + File H:215/210C / File B:60/55C = the file\'s own values'],
-   ['Motion','PA (+smooth), retraction len/spd/unretract, Accel + Vel + MCR + Corner (ON/OFF each) + File R:len/speed'],
-   ['Flow / 1st layer','global flow (1–300 %) · first-layer speed % (0 = off, default 75)'],
+   ['Velocity (.104)','retraction len/spd/unretract + File R: · Accel + Vel + MCR + Corner (ON/OFF each) · Z-Hop ON/OFF + height — global PA moved to PA per feat'],
+   ['Spd/Acc/PA/Flw per feat (.104)','the four quick lists with the globals merged in: 1st-layer speed % (0 = off, default 75) · global accel + ON · global PA + smooth + File PA · global flow + ON · Now: the active feature'],
+   ['Plotter (.104)','plot files only, at the END: PEN FILE · pen speed % · Pen Z · Shift X/Y · Reset'],
    ['Bed Mesh','Level old files ON/OFF · Mesh ON/AUTO/OFF · Save after · Adaptive · Travel cap (mm/s while meshing, 0 = off) · Calibrate now · Load… / Delete… (2×)'],
    ['Range/Stop','Stop@ + From/To (capped to the file) + Floor/Top (FOOTPRINT or OUTLINE, GRID or SOLID) + Brim + Vers (shared V01-V09) + Create - builds 00_src_La-b_V01.gcode, same name overwrites, ends with a proper PRINT_END '],
    ['Defaults','Save the current settings as Default 1-8 (lowest free slot, never overwrites) + Load + Delete '],
@@ -2430,7 +2434,7 @@ chapter('24','Cheat sheet: LCD paths &amp; Mainsail commands',
   TBL(['I want to…','LCD path'],[
    ['print with my overrides','Start Print? &gt; AS LEGACY'],['print exactly as sliced','Start Print? &gt; PRINT AS SLICED'],
    ['system takeover of a sliced file','Start Print? &gt; PRINT AS LEGACY'],['adjust Z live','Live Tuning &gt; Z +0.04/−0.04'],
-   ['hotend/bed/fan/Z-offset fast','Live Tuning &gt; Hot / Bed / Fan / Zoff'],['slow everything down','Live Tuning &gt; Speeds &gt; Global'],
+   ['hotend/bed/fan/Z-offset fast','Live Tuning &gt; Hot / Bed / Fan / Zoff'],['slow everything down','Live Tuning &gt; Spd per feat &gt; Glob'],
    ['machine limits live','Live Tuning &gt; Velocity'],['change flow/PA/retraction live','Live Tuning &gt; Extrusion'],
    ['pause at layer 17','Live Tuning &gt; Pause &amp; Control &gt; Pause@: 17'],['skip an object','Live Tuning &gt; Objects (2× confirm)'],
    ['change material preset','Pre-Print &gt; Material &gt; LOAD NOW'],['see ALL file parameters','Pre-Print / Live Tuning &gt; File (G-code)'],['compare with the file values','Pre-Print &gt; Temps &gt; File H:/File B:'],
@@ -2473,7 +2477,7 @@ chapter('24','Cheat sheet: LCD paths &amp; Mainsail commands',
    ['MCR','minimum cruise ratio','SCV','square corner velocity'],
   ],[30*mm,54*mm,26*mm,54*mm]),
   Spacer(1,12*mm),Paragraph('Built and tested for one purpose: printing happily — with R2-D2 keeping watch. Have fun!',S['end']),
-  Spacer(1,4*mm),Paragraph('R2-D2 Macro System · R2-2026-10-13.103',S['cap']))
+  Spacer(1,4*mm),Paragraph('R2-D2 Macro System · R2-2026-10-13.104',S['cap']))
 
 import json as _json
 _MIDX=_json.loads(r'''[["Sounds \u2014 02_sounds.cfg", [["M300", "P=100, S=1000", "single beep \u2014 wrapper; the real beep lives on as M99300"], ["PLAY_SOUND", "NAME='r2_click'", "play a tune by name (ch. 16)"], ["TOGGLE_SOUNDS", "\u2014", "sounds on/off (persisted: sound_on)"], ["TEST_SOUNDS", "\u2014", "play all 20 tunes in sequence"]]], ["LEDs \u2014 03_leds.cfg", [["SET_LED_STATE", "STATE='idle'", "switch the LED pattern (12 states, ch. 17) - applies the nozzle mode too"], ["NOZZLE_LED", "MODE, BRIGHT, R, G, B", "nozzle light: on/off/auto + live dimming + live color (ch. 17)"], ["TOGGLE_LEDS", "\u2014", "frame LEDs off/on (persisted: leds_on)"], ["TEST_LEDS", "\u2014", "LED test animation"], ["_NOZZLE_SET", "ON", "internal: writes LED 5 (color x brightness, capped 0.5)"]]], ["Notifications \u2014 04_notify.cfg", [["NOTIFY", "TEXT, LEVEL='info', LED, SOUND", "notification helper: text + sound + LED in one call"], ["SHOW_STATUS", "\u2014", "full status: mode, material, overrides, live values"]]], ["Materials \u2014 05_materials.cfg", [["SET_MATERIAL", "MATERIAL=&lt;current>, APPLY_PRESET=1", "select material; APPLY_PRESET=1 also loads its preset"], ["SAVE_MATERIAL_TEMPS", "MATERIAL=&lt;current>", "save current values as this material's preset"], ["SHOW_MATERIAL", "\u2014", "show the current material + its stored preset"]]], ["Temperatures & marks \u2014 06_temp_controls.cfg", [["M104", "S=-1, T", "hotend temp \u2014 interceptor, redirects by layer (real: M99104)"], ["M109", "S=-1, T", "like M104, but waits"], ["M140", "S=-1", "bed temp \u2014 interceptor (real: M99140)"], ["M190", "S=-1", "like M140, but waits"], ["M106", "S=255", "part fan \u2014 scaling + from-layer-2 rule"], ["M204", "P, S, T", "acceleration \u2014 interceptor (M99204): feature accel , else global overwrite ON \u2192 your accel, else file 1:1"], ["LAYER_MARK", "\u2014", "layer marker (inserted by the post-processor)"], ["M220", "S=100", "speed \u2014 interceptor (M99220): L1 cap + stores the clean global % as g_speed_clean "], ["PAUSE_NEXT_LAYER", "REASON='next layer'", "one-shot pause at the next layer boundary"], ["PAUSE_AT_LAYER", "LAYER=0", "one-shot pause at layer n (n greater than 1)"], ["SET_LIVE_HOTEND_TEMP", "T=-1", "change the hotend target live"], ["SET_LIVE_BED_TEMP", "T=-1", "change the bed target live"]]], ["Start dialog & overrides \u2014 07_start_confirm.cfg", [["PRINT_AS_SLICED", "\u2014", "start dialog: answer AS SLICED"], ["PRINT_WITH_OVERRIDES", "\u2014", "alias for AS LEGACY since then (merged mode)"], ["PRINT_AS_LEGACY", "\u2014", "start dialog: AS LEGACY"], ["CANCEL_PENDING_PRINT", "\u2014", "start dialog: cancel (nothing is hot yet)"], ["SET_OVERRIDE_VALUE", "NAME, VALUE", "set one override + switch it ON; feat_on=0 resets the values to the file original "], ["TOGGLE_OVERRIDE", "NAME=''", "flip one override switch"], ["CLEAR_OVERRIDES", "\u2014", "all switches OFF (values stay stored)"], ["TOGGLE_START_CONFIRMATION", "\u2014", "start dialog on/off (persisted: start_confirm)"]]], ["Print start & end \u2014 08_print_start_stop.cfg", [["PRINT_START", "BED, HOTEND_FIRST, HOTEND_AFTER, BED_AFTER, MATERIAL='PLA', LAYER_HEIGHT=0.2, TOTAL_LAYERS=0, OUTER_WALL_SPEED=0, SUPPORT_SPEED=0, IRONING_SPEED=0", "start choreography \u2014 called by the sliced file"], ["START_PRINT", "\u2014", "old macro name: marked = no-op / legacy = real legacy start (dialog or auto-prep,)"], ["PRINT_END", "\u2014", "end choreography: heaters/fans, stats, sound, LED -> idle, _PRINT_CLEANUP"]]], ["Pause & filament \u2014 09_pause_filament.cfg", [["PAUSE", "REASON='User'", "pause + park (mode-aware)"], ["QUICK_PAUSE", "\u2014", "alias for PAUSE"], ["RESUME", "\u2014", "the full resume sequence (ch. 6)"], ["CANCEL_PRINT", "\u2014", "1st press arms (expires 60 s, also while paused), 2nd press cancels + cleanup"], ["M600", "\u2014", "filament change (park, unload, wait for load)"], ["CHANGE_FILAMENT", "\u2014", "M600 for humans \u2014 works from idle too (heats)"], ["CHANGE_FILAMENT_RESUME", "\u2014", "internal continuation after the load"], ["PURGE_MORE", "\u2014", "purge 15 mm more (after change/resume)"], ["M0", "\u2014", "slicer pause \u2014 mapped to PAUSE"], ["M1", "\u2014", "slicer pause \u2014 mapped to PAUSE"], ["_PRINT_CLEANUP", "\u2014", "resets ALL per-print state (PRINT_END/CANCEL/watcher - settings + mesh stay)"]]], ["Live tuning \u2014 10_live_tuning.cfg", [["APPLY_TYPE", "TYPE=''", "feature switch : sets current_type + applies THIS feature\u2019s overrides (speed % × clean global, absolute accel, ironing flow)"], ["SET_OUTER_WALL_SPEED + 11 more per-feature macros", "\u2014", "per-feature setters : forward to feat_spd/feat_acc + ON \u2014 % on top of the CLEAN global"], ["SET_GLOBAL_SPEED", "PERCENT=100", "global speed % (M220 style, never capped); the running feature stays on top — re-applied immediately"], ["SET_GLOBAL_ACCEL", "ACCEL=4000", "global acceleration, mm/s\u00b2; a feature with its own accel keeps it"],
@@ -2818,4 +2822,4 @@ chapter('D','Appendix D: Version history',
 
 doc=Doc(os.path.join(os.path.dirname(__file__),'..','MANUAL.pdf'))
 doc.build(E)
-print('MANUAL.pdf built (illustrated user handbook, .103)')
+print('MANUAL.pdf built (illustrated user handbook, .104)')

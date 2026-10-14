@@ -218,6 +218,19 @@ def main():
                         w = k['wert'].strip()
                         if w.startswith("'") and not w.endswith("'"):
                             fehler.append(f"{pfad}:{k['zeile']}: unbalanced quotes in name: {w[:80]}")
+                # R135: overrides of Klipper's STOCK menus (menu.cfg) set only
+                # 'enable' - type/name merge in from the built-in definition
+                # (the override mechanism menu.cfg itself documents). They are
+                # not sections of their own -> no type/name required.
+                _stock135 = name in (
+                    'menu __main __octoprint', 'menu __main __temp',
+                    'menu __main __setup', 'menu __main __sdcard',
+                    'menu __main __control', 'menu __main __tune',
+                    'menu __main __filament')
+                _mk = [k['key'] for k in sek['keys']]
+                if _stock135 and _mk == ['enable']:
+                    menu_paths[name[5:] if name.startswith('menu ') else name] = (pfad, sek['zeile'])
+                    continue
                 if typ is None and name != 'menu':
                     fehler.append(f"{pfad}:{sek['zeile']} [{name}]: type missing")
                 # ---- R44: Klipper-Halt-Schutz (name fehlt = 'Printer is halted') ----
