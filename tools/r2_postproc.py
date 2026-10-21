@@ -90,7 +90,9 @@ PARAM_RE = re.compile(r'([A-Za-z])\s*([-+]?\d*\.?\d+)')
 # ---- feature type comments (;TYPE: ...) -> APPLY_TYPE -----------------------------
 # R58: the per-feature overrides (outer wall / support / ironing ...) work on
 # EVERY file now - the marker does not need the R2 slicer script anymore.
-TYPE_RE = re.compile(r'^\s*;\s*TYPE:\s*(.+?)\s*$', re.IGNORECASE)
+# R143 (audit F3): '\s*' before the colon too - the travel-acc pass (typ_re)
+# already tolerated ';TYPE : X'; now both regexes share one truth.
+TYPE_RE = re.compile(r'^\s*;\s*TYPE\s*:\s*(.+?)\s*$', re.IGNORECASE)
 TYPE_MAP = {
     'outer wall': 'WALL-OUTER',
     'inner wall': 'WALL-INNER',
@@ -143,6 +145,31 @@ TYPE_MAP = {
     'raft': 'SURFACE-BOTTOM',
     'infill': 'INFILL-SPARSE',
 }
+
+
+_CANON_VALUES = frozenset(TYPE_MAP.values()) | {'SUPPORT', 'TRAVEL'}
+
+
+def _canon_type(raw):
+    """R143 (audit F1/F2): the ONE truth for ';TYPE:' spellings - exact map
+    first, then the support substring (tree/organic/normal variants, like the
+    kit voxelizer), then CUSTOM passthrough: an unknown vocabulary (a future
+    slicer) still gets its own APPLY_TYPE boundary instead of silently
+    inheriting the PREVIOUS feature's override. At runtime CUSTOM is one of
+    the 16 codes and its override defaults OFF - the section prints 1:1."""
+    k = raw.strip().lower()
+    if k in TYPE_MAP:
+        return TYPE_MAP[k]
+    # canonical values pass through unchanged - our own APPLY_TYPE markers
+    # and already-processed files spell features this way (';TYPE:INFILL-SPARSE'
+    # from a travel-fix restore); without this they would fall to CUSTOM and
+    # a live marker would report the wrong feature (found by the R121 test)
+    if k.upper() in _CANON_VALUES:
+        return k.upper()
+    if 'support' in k:
+        return 'SUPPORT'
+    return 'CUSTOM'
+
 
 # ---- slicer config header keys (OrcaSlicer / PrusaSlicer '; key = value') ---------
 CFG_KEYS = {
@@ -1014,9 +1041,7 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                 # string for APPLY_TYPE.
                 _mty94 = TYPE_RE.match(line)
                 if _mty94:
-                    _mk94 = TYPE_MAP.get(_mty94.group(1).strip().lower())
-                    if _mk94:
-                        cut_key = _mk94
+                    cut_key = _canon_type(_mty94.group(1))
                 if c:
                     if c.startswith('APPLY_TYPE'):
                         _ma94 = re.match(r'APPLY_TYPE\s+TYPE=(\S+)', c)
@@ -1109,9 +1134,9 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                 _ls = raw.strip()
                 if _i >= a_idx and _i < _b:
                     _mty = TYPE_RE.match(raw)
-                    if _mty and TYPE_MAP.get(_mty.group(1).strip().lower()):
+                    if _mty:
                         body_types += 1
-                        _frun = TYPE_MAP[_mty.group(1).strip().lower()]
+                        _frun = _canon_type(_mty.group(1))
                     elif _ls.startswith('APPLY_TYPE'):
                         body_applies += 1
                         _ma94 = re.match(r'APPLY_TYPE\s+TYPE=(\S+)', _ls)
@@ -1563,10 +1588,9 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                                 fo.write(f'M106 S{fan}   ; R2-RANGE: fan state carried over from the source layers (layer 2+)' + '\n')
                         else:
                             mty = TYPE_RE.match(l)
-                            key = TYPE_MAP.get(mty.group(1).strip().lower()) if mty else None
-                            if key:
+                            if mty:
                                 held_type = l
-                                held_key = key
+                                held_key = _canon_type(mty.group(1))
                             else:
                                 fo.write(l + '\n')
                         if not body_open:
@@ -14025,9 +14049,7 @@ def _travel_fix_file(path, accel=0, speed=0.0, markers=True):
                 continue
             mt = typ_re.match(line)
             if mt:
-                cf = TYPE_MAP.get(mt.group(1).strip().lower())
-                if cf:
-                    cur_feat = cf
+                cur_feat = _canon_type(mt.group(1))
             mm = mv.match(ls)
             if mm:
                 if in_block:
@@ -14249,7 +14271,7 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
             # ---- 4b) APPLY_TYPE positions (every ;TYPE: comment with a feature) ----
             # both worlds: pass B counts j (upgrade-filtered) when had_v1, else i
             m = TYPE_RE.match(line)
-            feat_here = TYPE_MAP.get(m.group(1).strip().lower()) if m else None
+            feat_here = _canon_type(m.group(1)) if m else None
             if feat_here:
                 # R106 (user TYPE map): Cura's combined 'SKIN' covers top AND
                 # bottom fills; on layer 1 it is unambiguously the BOTTOM fill
@@ -14467,17 +14489,20 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
         # including a trailing '' cell for files that end in '\n'.
         fo.write(TAG)
         j = 0
-        shift = 0              # loop-1 inserts already written -> out-index shift
 
-        def _pre(cell):
-            # loop-2 inserts BEFORE an out-cell - the old code checked
-            # before_set/first_cmd against the INDEX OF EVERY out cell, insert
-            # cells included (a ;TYPE: block before the first command shifts
-            # first_cmd onto an APPLY_TYPE cell - kept byte-exact)
+        def _pre(jq):
+            # R143 (audit F4): inserts BEFORE a line are anchored on the
+            # SOURCE index of the line about to be written (the apply world),
+            # never on the out index: with the old out-index comparison every
+            # insert before an anchor shifted the comparison past its target,
+            # so Z-scan LAYER_MARKs drifted cumulatively (4..28 lines over 6
+            # layers) and a first_cmd behind leading ;TYPE: blocks could be
+            # missed entirely. Source-anchored: the mark/info always lands
+            # directly before ITS line, whatever was inserted above it.
             if first_cmd is not None:
-                if cell in before_set:
+                if jq in before_set:
                     fo.write('\nLAYER_MARK')
-                if cell == first_cmd:
+                if jq == first_cmd:
                     fo.write('\n' + info_line)
 
         with open(path, 'r', errors='replace') as f:
@@ -14492,17 +14517,12 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
                     if (ls in old_tags or ls.startswith('_FILE_INFO')
                             or ls.startswith('APPLY_TYPE')):
                         continue
-                o = j + shift
-                _pre(o)
+                _pre(j)
                 fo.write('\n' + line)
                 if j in mark_set:
-                    _pre(o + 1)
                     fo.write('\nLAYER_MARK')
-                    shift += 1
                 if j in type_at:
-                    _pre(o + 2 if j in mark_set else o + 1)
                     fo.write(f'\nAPPLY_TYPE TYPE={type_at[j]}')
-                    shift += 1
                 j += 1
         # text.split('\n') appends a final '' cell when the file ends in '\n'
         # (or is empty) - it becomes the trailing newline of the output
@@ -15789,9 +15809,16 @@ def watch(directory, interval=5.0, once=False):
                 'litho_nonce', 'seal_nonce', 'frame_nonce', 'texture_nonce',
                 'colorpic_nonce', 'bricks_nonce', 'brickkit_nonce',
                 'figures_nonce', 'reso_nonce', 'bridge_nonce',
-                'plot_text_nonce', 'plot_status_nonce', 'plotcal_nonce',
+                'plot_text_nonce', 'plot_status_nonce', 'plot_cal_nonce',
                 'file_check_nonce', 'litho_del_nonce',
-                'gen_del_nonce', 'plot_nonce')
+                'gen_del_nonce', 'plot_nonce',
+                # R143 audit: two gaps closed - the plot calibration
+                # channel was frozen under a MISSPELLED name - plotcal_
+                # instead of plot_cal_ - and the layer range channel was
+                # missing entirely. No parentheses in here on purpose:
+                # the r143 audit greps this tuple with a regex that stops
+                # at the first closing bracket.
+                'range_nonce')
         # R61: layer-range excerpt request from the LCD (nonce changes on every request)
         try:
             rv = _read_vars(VAR_PATH)

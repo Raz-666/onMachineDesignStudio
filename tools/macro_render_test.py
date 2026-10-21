@@ -2731,15 +2731,21 @@ tests.append(('R61 Z-tracker hooks the stop too', 'stop_at_layer' in _sta and _s
 # --- SET_LAYER_RANGE ---
 _sr61 = get_body('macros/08_print_start_stop.cfg', 'SET_LAYER_RANGE')
 save_vars.update({'range_nonce':3})
+# R143 (F6): the range macro refuses while printing - happy path from idle
+state_vars.update({'mode':'idle'})
 out = render(_sr61, {'START':'23','END':'56','FLOOR':'4','TOP':'3','BRIM':'2'})
 tests.append(('R62 SET_LAYER_RANGE: start/end/floor/top/brim + nonce + beep',
     'VARIABLE=range_start VALUE=23' in out and 'VARIABLE=range_end VALUE=56' in out
     and 'VARIABLE=range_floor VALUE=4' in out and 'VARIABLE=range_top VALUE=3' in out
     and 'VARIABLE=range_brim VALUE=2' in out
     and 'VARIABLE=range_src VALUE=\'"test.gcode"\'' in out and 'VARIABLE=range_nonce VALUE=4' in out
-    and '_SOUND_LIB NAME=r2_confirm' in out and 'FIRST layer at Z0.2' in out, out[:240]))
+    and '_UI_SOUND NAME=r2_confirm' in out and 'FIRST layer at Z0.2' in out, out[:240]))
 out = render(_sr61, {'START':'5','END':'2'})
 tests.append(('R61 SET_LAYER_RANGE: invalid refused', 'END above START' in out, out[:140]))
+state_vars.update({'mode':'printing'})
+out = render(_sr61, {'START':'23','END':'56'})
+tests.append(('R143 SET_LAYER_RANGE: refuses while printing (audit F6) - no nonce bump, a clear notice instead',
+    'only when idle' in out and 'VARIABLE=range_nonce' not in out, out[:140]))
 
 # --- postproc make_range ---
 import tempfile as _tf61, os as _os61
@@ -3797,7 +3803,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.100) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-13.104'", repr(_v66)))
+    _v66 == "'R2-2026-10-21.105'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -10672,9 +10678,10 @@ tests.append(('R121 travel fix: wraps blocks, rewrites F, restores modal F',
     _n121 == 2 and 'G0 X30 Y10 F13200' in _t121 and 'F9000' not in _t121
     and 'G1 F13200 ; R2-TV' in _t121 and 'G1 F1800 ; R2-TV' in _t121
     and 'M204 S6000 ; R2-TV' in _t121 and 'M204 S1500 ; R2-TV' in _t121, ''))
-tests.append(('R121 travel fix: live markers around every block (feature restored)',
+tests.append(('R121 travel fix: live markers around every block (feature restored - R143: the 2nd restore reports the CORRECT feature, the canonical ;TYPE:INFILL-SPARSE is recognized)',
     _t121.count('APPLY_TYPE TYPE=Travel ; R2-TV') == 2
-    and _t121.count('APPLY_TYPE TYPE=WALL-OUTER ; R2-TV') == 2
+    and _t121.count('APPLY_TYPE TYPE=WALL-OUTER ; R2-TV') == 1
+    and _t121.count('APPLY_TYPE TYPE=INFILL-SPARSE ; R2-TV') == 1
     and _t121.index('APPLY_TYPE TYPE=Travel') < _t121.index('G0 X30'), ''))
 tests.append(('R121 travel fix: header line + block count',
     _t121.count('; R2-TRAVEL: 220 mm/s travel speed, 6000 mm/s2 travel accel, '

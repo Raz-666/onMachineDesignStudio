@@ -20,12 +20,12 @@ just unpack once by hand:
 
 ```bash
 cd ~/printer_data/config
-unzip -o klipper-e3-r2d2-UPDATE-R2-2026-10-13.104.zip
+unzip -o klipper-e3-r2d2-UPDATE-R2-2026-10-21.105.zip
 bash klipper-e3-r2d2/update.sh
 ```
 
 No `unzip` on the Pi?
-`python3 -m zipfile -e klipper-e3-r2d2-UPDATE-R2-2026-10-13.104.zip .` does the
+`python3 -m zipfile -e klipper-e3-r2d2-UPDATE-R2-2026-10-21.105.zip .` does the
 same — update.sh uses that fallback automatically.
 
 **What update.sh does:** it finds the newest `klipper-e3-r2d2-UPDATE-R2-*.zip`
@@ -41,7 +41,7 @@ again). The uploaded ZIP can stay in the config folder (harmless) or be
 deleted in Mainsail.
 
 Boot sound + `M117 R2 ready` ~10 s later confirm success; the console line must
-say `build R2-2026-10-13.104`
+say `build R2-2026-10-21.105`
 
 ---
 
@@ -143,7 +143,7 @@ Open `printer.cfg.example` as a **checklist** and compare with your printer.cfg:
      including dotstar chains and EBB CAN nozzle splits)
    - `[force_move]` with `enable_force_move: True` - REQUIRED for SYNC_GANTRY (registers `SET_KINEMATIC_POSITION`)
 2. **Do not rename** these (macros use them): `filament_sensor` (sensor),
-   `printer_leds` (neopixel), `beeper`, `_STATE`, `_MATERIALS`, `_SOUND_LIB`.
+   `printer_leds` (neopixel), `beeper`, `_STATE`, `_MATERIALS`, `_SOUND_LIB`, `_UI_SOUND`.
 3. **MicroProbe**: `[probe]` with `pin: ^PC14`; adjust x/y/z_offset
    (PROBE_CALIBRATE via the Maintenance menu).
 
