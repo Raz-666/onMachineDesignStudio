@@ -99,8 +99,8 @@ ck('watch: _printer_busy probe exists and gates the scan',
 ck('watch: generator nonces freeze while printing (label/figures/kit...)',
    "'figures_nonce'" in src and "'brickkit_nonce'" in src
    and '_freeze133' in src, '')
-ck('watch: poll sleep stretches to 12s while printing',
-   'time.sleep(12.0 if busy else interval)' in src, '')
+ck('watch: poll sleep stretches to 12s while printing, 60s under RAM pressure (.109)',
+   'time.sleep(60.0 if _ram_low148 else (12.0 if busy else interval))' in src, '')
 
 # ---- 5) Label FIXED mode via job_cfgs (KeyError 'grown' class) ------------
 d = tempfile.mkdtemp(prefix='r142_')
@@ -268,8 +268,8 @@ ck('watch: the 5 generator spawns go through _spawn_job (no bare threads)',
    and src.count('threading.Thread(target=_') == 1,   # only the worker
    'spawn=%d bare=%d' % (src.count('_spawn_job('),
                          src.count('threading.Thread(target=_')))
-ck('watch: scan skips while a job runs or is queued',
-   "if busy or _JOB_STATE['busy'] or _JOB_STATE['queue']:" in src, '')
+ck('watch: scan skips while a job runs, is queued or RAM is low (.109)',
+   "if busy or _JOB_STATE['busy'] or _JOB_STATE['queue'] or _ram_low148:" in src, '')
 ck('watch: jobs requeue while the printer is busy (print has priority)',
    'if _printer_busy():' in src and 'insert(0, item)' in src, '')
 ck('watch: R75 niceness kept, exactly ONE os.nice (no double lower)',

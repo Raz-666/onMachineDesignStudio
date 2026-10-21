@@ -15248,7 +15248,7 @@ def _watch_duplicate_sweep():
                         'the stop attempt - it doubles every push and can '
                         'shut the printer down. Run on the Pi: sudo pkill '
                         '-f r2_postproc.py && sudo systemctl restart '
-                        'r2-postproc"')
+                        'r2-postproc"' % pid)
                 except Exception:                           # noqa: BLE001
                     pass
 
@@ -15451,6 +15451,29 @@ def file_check_scan(directory):
 # the start backlog drains in background chunks. once-mode (catch-up runs
 # via --once) is exempt and scans everything in one go as before.
 _SCAN_CHUNK_S = 2.0
+
+
+def _self_cpu():
+    """R148: this process's own CPU seconds (user+sys) from /proc/self/stat."""
+    try:
+        with open('/proc/self/stat') as f:
+            parts = f.read().rsplit(') ', 1)[1].split()
+        ticks = int(parts[11]) + int(parts[12])   # utime, stime
+        return ticks / os.sysconf('SC_CLK_TCK')
+    except (OSError, ValueError, IndexError):
+        return 0.0
+
+
+def _mem_available_mb():
+    """R148: MemAvailable from /proc/meminfo (-1 = unknown)."""
+    try:
+        with open('/proc/meminfo') as f:
+            for l in f:
+                if l.startswith('MemAvailable:'):
+                    return int(l.split()[1]) // 1024
+    except OSError:
+        pass
+    return -1
 
 
 def watch(directory, interval=5.0, once=False):
@@ -15876,6 +15899,18 @@ def watch(directory, interval=5.0, once=False):
     last_host_nonce = None
     first = True
     first_prime = True
+    # R148 (.109 field log: the watcher pinned a full core on the Pi while
+    # idle - not reproducible in the sandbox): field-serviceable diagnosis.
+    # SIGUSR1 dumps EVERY thread's stack to the journal at any time:
+    #   sudo kill -USR1 <watcher-pid> && journalctl -u r2-postproc -n 60
+    try:
+        import faulthandler
+        import signal
+        faulthandler.register(signal.SIGUSR1)
+    except (ImportError, ValueError, OSError):
+        pass
+    _spin148 = {'t': time.monotonic(), 'cpu': _self_cpu(), 'loud': 0.0}
+    _ram148 = {'loud': 0.0}
     # R133b: the single generator worker (daemon - dies with the watcher)
     threading.Thread(target=_job_worker, daemon=True).start()
 
@@ -17693,7 +17728,24 @@ def watch(directory, interval=5.0, once=False):
                     print(f'[host] check error: {e!r}', flush=True)
         except Exception as e:                              # noqa: BLE001
             print(f'[host] poll error: {e!r}', flush=True)
-        if busy or _JOB_STATE['busy'] or _JOB_STATE['queue']:
+        # R148: RAM guard - a Pi Zero 2 W under memory pressure swaps klippy
+        # out and the MCU dies with 'Timer too close'. Below 50MB available
+        # the watcher suspends its directory work entirely (nonce channels
+        # stay live - they are cheap and user-triggered) and sleeps long.
+        _ram148v = _mem_available_mb()
+        _ram_low148 = 0 < _ram148v < 50
+        if _ram_low148 and time.time() - _ram148['loud'] >= 3600:
+            _ram148['loud'] = time.time()
+            print('[ram] only %dMB available - scans paused, klippy gets '
+                  'the host' % _ram148v, flush=True)
+            try:
+                _moonraker_gcode(
+                    'RESPOND MSG="R2 watcher: host memory low (%dMB free) - '
+                    'directory scans paused so klippy keeps the CPU. A '
+                    'restart of the Pi frees swap."' % _ram148v)
+            except Exception:                               # noqa: BLE001
+                pass
+        if busy or _JOB_STATE['busy'] or _JOB_STATE['queue'] or _ram_low148:
             # R133: while klippy streams g-code the SD card and the CPU
             # belong to the print - defer the walk/stat/process pass.
             # R133b: same while a generator job works through its queue -
@@ -17778,7 +17830,37 @@ def watch(directory, interval=5.0, once=False):
             # lock. Cheap /proc scan, catches ANY r2_postproc duplicate.
             _watch_duplicate_sweep()
             last_dup_sweep = time.time()
-        time.sleep(12.0 if busy else interval)
+        # R148: spin self-check - every 5 minutes, idle (no job, no print).
+        # More than 55% of a core while idle is a spin: dump EVERY thread
+        # stack into the journal (the .109 field case: 99.7% CPU, cause
+        # invisible from outside). One loud respond, rate-limited.
+        if time.monotonic() - _spin148['t'] >= 300:
+            _wall148 = time.monotonic() - _spin148['t']
+            _cpu148 = _self_cpu() - _spin148['cpu']
+            if (_cpu148 / max(_wall148, 1.0) > 0.55
+                    and not _JOB_STATE['busy'] and not _JOB_STATE['queue']
+                    and not busy):
+                print('[spin] WATCHER SPIN DETECTED: %.0f%% of a core while '
+                      'idle over the last %.0fs - thread stacks follow'
+                      % (100.0 * _cpu148 / max(_wall148, 1.0), _wall148),
+                      flush=True)
+                try:
+                    import faulthandler
+                    faulthandler.dump_traceback()
+                except Exception:                           # noqa: BLE001
+                    pass
+                if time.time() - _spin148['loud'] >= 3600:
+                    _spin148['loud'] = time.time()
+                    try:
+                        _moonraker_gcode(
+                            'RESPOND MSG="R2 watcher: IDLE SPIN detected - '
+                            'stacks in the journal (journalctl -u '
+                            'r2-postproc -n 80). Please report them"')
+                    except Exception:                       # noqa: BLE001
+                        pass
+            _spin148['t'] = time.monotonic()
+            _spin148['cpu'] = _self_cpu()
+        time.sleep(60.0 if _ram_low148 else (12.0 if busy else interval))
 
 
 def main():

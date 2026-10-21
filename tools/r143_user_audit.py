@@ -505,6 +505,26 @@ check('5 duplicate watcher that SURVIVES the stop gets a LOUD console '
       and '>= 3600' in _pp147, 'source wiring')
 
 
+check('5 R148 field diagnosis: SIGUSR1 dumps all thread stacks on demand '
+      '(sudo kill -USR1 pid) + the idle spin self-check dumps them into '
+      'the journal automatically (the .109 field case: 99.7%% core, cause '
+      'invisible from outside)',
+      'faulthandler.register(signal.SIGUSR1)' in _pp147
+      and 'WATCHER SPIN DETECTED' in _pp147
+      and '_self_cpu' in _pp147
+      and '>= 300' in _pp147, 'source wiring')
+check('5 R148 RAM guard: below 50MB MemAvailable the watcher pauses its '
+      'directory work (nonce channels stay live) and sleeps 60s - klippy '
+      'keeps the host on a swapping Pi Zero',
+      '_mem_available_mb' in _pp147
+      and '< 50' in _pp147
+      and 'time.sleep(60.0 if _ram_low148' in _pp147, 'source wiring')
+check('5 R148 the SURVIVED-duplicate respond actually formats its PID '
+      '(the .108 text had a placeholder without argument - TypeError was '
+      'swallowed, the message never reached the field user)',
+      ('r2-postproc"' + "' % pid)") in _pp147, 'format wiring')
+
+
 print()
 print('R143 USER AUDIT: %d checks, %d FAIL, %d findings'
       % (n_chk[0], len(fails), len(findings)))
