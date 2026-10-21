@@ -3803,7 +3803,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.100) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-21.110'", repr(_v66)))
+    _v66 == "'R2-2026-10-21.111'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -10249,7 +10249,7 @@ import hashlib as _hl119
 import math as _math119
 import re as _re119
 _D119 = tempfile.mkdtemp(prefix='r119_')
-_MD5_119 = '4dc663df490b2d85a5f1be95cc669ce1'   # frozen from R118 (verified equal)
+_MD5_119 = '893cc319d89420eabe54388da1183d77'   # frozen from R118 (verified equal)
 
 def _labpts119(path, li):
     _t = open(path).read()

@@ -1266,7 +1266,7 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
             gen.append('; R2-RANGE brim: %d loop(s) on the FIRST layer, '
                        'zero gap to the outline' % brim)
             gen.append('APPLY_TYPE TYPE=BRIM')
-            for k in range(brim):
+            for k in range(brim - 1, -1, -1):
                 hull_off = _offset_hull(anchor, wid + k * wid)
                 g.loop(hull_off, first_h * wid / FIL_AREA, 1200)
         # RAFT: 'floor' solid layers under the section footprint - the hull is
@@ -1667,7 +1667,14 @@ def _read_vars(var_path):
                         key = m.group(1)
                         if key.startswith('variable_'):
                             key = key[len('variable_'):]
-                        vals[key] = m.group(2).strip().strip('\'"')
+                        _v150 = m.group(2).strip().strip('\'"')
+                        # R150: Klipper also saves Python bools ('True'/
+                        # 'False') - normalize so float() readers work
+                        if _v150.lower() == 'true':
+                            _v150 = '1'
+                        elif _v150.lower() == 'false':
+                            _v150 = '0'
+                        vals[key] = _v150
     except OSError:
         pass
     return vals
@@ -2563,10 +2570,14 @@ def plot_convert(path, var_path=None, out=None):
     # hatch runs (<= 1.6mm gap) into one stroke - far fewer dots and hops.
     mode_txt = 'DOTS' if mode else 'DRAW'
     e_per_mm = 0.0
+    _note150 = []
     if extrude:
-        fil_z = min(0.4, max(0.1, _v('plot_fil_z', 0.25)))
+        # R149 field report ('just hairs'): draw Z down to 0.20mm default
+        fil_z = min(0.4, max(0.1, _v('plot_fil_z', 0.20)))
         z_dn = _v('plot_off_z', 0.0) + fil_z
         e_per_mm = fil_z * 0.65 / FIL_AREA
+        _note150.append('; R149: FILAMENT mode - the bed heats + a purge line '
+                        'runs before the drawing (thin lines need a warm bed)')
     trv = min(trv, 4800.0)
     L = [f'; R2-PLOT v4 - generated from {base} ({len(pens)} pen(s), {mode_txt}, hatch {spacing_mm:g}mm',
          f';         dot gap {dot_gap:g}mm, scale {sx * 100:.0f}/{sy * 100:.0f}% of {size:g}mm, pen offset X{off_x:g} Y{off_y:g} Z{z_dn:g})',
@@ -2575,7 +2586,7 @@ def plot_convert(path, var_path=None, out=None):
          '; pen Z/speeds/mode/offsets: Plotter menu (baked in at conversion time)',
          '; live tuning (speed/accel/babystepping) works while plotting - Z-babystep sets the pen pressure',
          TAG,]
-    L = note_lines + L
+    L = note_lines + L + _note150
     L += [
          f'_PLOT_START EXTRUDE={1 if extrude else 0}',
          'G21',
@@ -4742,7 +4753,7 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
         sparse_mid = base_layers - bot_solid - top_solid
     else:
         bot_solid, top_solid, sparse_mid = base_layers, 0, 0
-    text_layers = max(1, min(int(text_layers), 6))
+    text_layers = max(1, min(int(text_layers), 50))   # R149: up to 10mm raised text
     layer_h = max(0.06, min(float(layer_h), 0.34))
     first_h = max(0.08, min(float(first_h), 0.42))
     hole_side = int(hole_side) % 5
@@ -5194,7 +5205,7 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
         if first and brim:
             L.append(';TYPE:Brim')
             edge_c = _lb_contour(lb, 0.0)
-            for off in (wid * 0.35, wid * 0.35 + wid, wid * 0.35 + 2 * wid):
+            for off in (wid * 0.35 + 2 * wid, wid * 0.35 + wid, wid * 0.35):
                 if edge_c is None:
                     b = (lx - off, ly - off, lx + w + off, ly + h + off)
                     _emit_loop(pen, _rect_loop(*b), e_wall, 1500 if first else 2400)
@@ -5280,7 +5291,7 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
             pen.extrude(tower[0] + 1.5, tower[1] + tw - 1.5, (tw - 3.0) * 0.1, 1320)
         if first and brim:
             L.append(';TYPE:Brim')
-            for off in (wid * 0.35, wid * 0.35 + wid):
+            for off in (wid * 0.35 + wid, wid * 0.35):
                 b = (tower[0] - off, tower[1] - off, tower[0] + tw + off, tower[1] + tw + off)
                 _emit_loop(pen, _rect_loop(*b), e_wall, 1500)
         L.append(';TYPE:Outer wall')
@@ -5410,7 +5421,7 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
         L.append('EXCLUDE_OBJECT_START NAME=%s' % lb['name'])
         if first and brim:
             L.append(';TYPE:Brim')
-            for off in (wid * 0.35, wid * 0.35 + wid):
+            for off in (wid * 0.35 + wid, wid * 0.35):
                 _emit_loop(pen, _circle(cx, cy, lb['ring_ro'] + off), e_wall, 1500)
         L.append(';TYPE:Outer wall')
         _emit_loop(pen, _circle(cx, cy, lb['ring_ro'] - wid / 2.0), e_wall,
@@ -6296,7 +6307,7 @@ def make_resonance(axes=('x', 'y'), mode='print', out_dir='.', bed=None, version
         L.append('EXCLUDE_OBJECT_START NAME=RESONANCE_%s' % ax.upper())
         if li == 1:
             L.append(';TYPE:Brim')
-            for off in (wid * 0.35, wid * 0.35 + wid):
+            for off in (wid * 0.35 + wid, wid * 0.35):
                 b = (gx - off, gy - off, gx + RESO_PLATE_W + off, gy + RESO_PLATE_H + off)
                 _emit_loop(pen, _rect_loop(*b), e_wall, 1500)
         L.append(';TYPE:Outer wall')
@@ -6500,11 +6511,14 @@ def _plot_write(path, polys, notes, var_path=None, extrude=False):
     e_per_mm = 0.0
     z_dn = _vf('plot_z_down', 0.0) + _vf('plot_off_z', 0.0)
     if extrude:
-        fil_z = min(0.4, max(0.1, _vf('plot_fil_z', 0.25)))
+        fil_z = min(0.4, max(0.1, _vf('plot_fil_z', 0.20)))
         z_dn = _vf('plot_off_z', 0.0) + fil_z
         e_per_mm = fil_z * 0.65 / FIL_AREA
     L = ['; R2-PLOT v4 - %s' % (notes[0][2:] if notes and notes[0].startswith('; ') else 'pen plot')]
     L += notes[1:]
+    if extrude:
+        L.append('; R149: FILAMENT mode - the bed heats + a purge line runs '
+                 'before the drawing (thin lines need a warm bed)')
     L += ['; mode: %s | draw Z %.2f | travel capped 80mm/s' % ('FILAMENT' if extrude else 'PEN', z_dn),
           '; pen Z/speeds/mode/offsets: Plotter menu | live: speed %, babystepping = pen pressure',
           '; start overrides (speed/Z/XY) apply at plot start: Plotter > Start',
@@ -7360,7 +7374,7 @@ def make_bridge(length=160.0, short_pct=30, h_long=35.0, h_short=18.0, version=1
         L.append('EXCLUDE_OBJECT_START NAME=%s' % name)
         if li == 1:
             L.append(';TYPE:Brim')
-            for off in (wid * 0.35, wid * 0.35 + wid):
+            for off in (wid * 0.35 + wid, wid * 0.35):
                 b = (x0 - off, y0 - off, x1 + off, y1 + off)
                 _emit_loop(pen, _rect_loop(*b), e_wall, 1500)
         L.append(';TYPE:Outer wall')
@@ -7856,7 +7870,7 @@ def make_cable_ties(count=6, length=120.0, width=8.0, layers=3, variant='CLASSIC
     # brim (first layer): loops around the head only (the strap needs none)
     def tie_brim(x0, y0):
         e_wall = first_h * wid / fil
-        for off in (wid * 0.35, wid * 0.35 + wid):
+        for off in (wid * 0.35 + wid, wid * 0.35):
             b = (x0 - off, y0 - off, x0 + HL + off, y0 + HW + off)
             L.append(';TYPE:Brim')
             _emit_loop(pen, _rect_loop(*b), e_wall, 1500)
@@ -9068,7 +9082,7 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                         # zigzag. Long frame bands lifted without it.
                         a(';TYPE:Brim')
                         _eb97 = e_w(1)
-                        for _off97 in (wid * 0.35, wid * 0.35 + wid):
+                        for _off97 in (wid * 0.35 + wid, wid * 0.35):
                             _emit_loop(pen, [(x + cx, y + cy) for (x, y)
                                              in _poly_offset(outer_c, _off97)],
                                        _eb97, 1500)
@@ -9139,7 +9153,7 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                         _ew120 = e_w(li)
                         if li == 1:
                             a(';TYPE:Brim')
-                            for _off120 in (wid * 0.35, wid * 0.35 + wid):
+                            for _off120 in (wid * 0.35 + wid, wid * 0.35):
                                 _emit_loop(pen, _circle(_rc120[0], _rc120[1],
                                                         _rro120 + _off120),
                                            _ew120, 1500)
@@ -9160,7 +9174,7 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                     a('EXCLUDE_OBJECT_START NAME=BACKPLATE')
                     if li == 1:
                         a(';TYPE:Brim')
-                        for _off97 in (wid * 0.35, wid * 0.35 + wid):
+                        for _off97 in (wid * 0.35 + wid, wid * 0.35):
                             _emit_loop(pen, [(x + bx, y + by) for (x, y)
                                              in _poly_offset(plate_pts, _off97)],
                                        e_w(1), 1500)
@@ -9189,7 +9203,7 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                            (sx - sw / 2, sy - sh / 2 + leg_h)]
                     if li == 1:
                         a(';TYPE:Brim')
-                        for _off97 in (wid * 0.35, wid * 0.35 + wid):
+                        for _off97 in (wid * 0.35 + wid, wid * 0.35):
                             _emit_loop(pen, _poly_offset(tri, _off97),
                                        e_w(1), 1500)
                     a(';TYPE:Outer wall')
@@ -9328,7 +9342,7 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                     # R97 (field log .74): brim first - long thin strips
                     # lifted without it, then one continuous zigzag fill
                     a(';TYPE:Brim')
-                    for _off97 in (wid * 0.35, wid * 0.35 + wid):
+                    for _off97 in (wid * 0.35 + wid, wid * 0.35):
                         _emit_loop(pen, _rect_loop(x0 - _off97, y0 - _off97,
                                                    x1 + _off97, y1 + _off97),
                                    ew, 1500)
@@ -9470,7 +9484,7 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                     a('EXCLUDE_OBJECT_START NAME=BACKPLATE')
                     if li == 1:
                         a(';TYPE:Brim')
-                        for _off97 in (wid * 0.35, wid * 0.35 + wid):
+                        for _off97 in (wid * 0.35 + wid, wid * 0.35):
                             _emit_loop(pen, [(x + bpx, y + bpy) for (x, y)
                                              in _poly_offset(plate_pts, _off97)],
                                        e_w(1), 1500)
@@ -9495,7 +9509,7 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                            (sxk - sw / 2, syk - sh / 2 + leg_h)]
                     if li == 1:
                         a(';TYPE:Brim')
-                        for _off97 in (wid * 0.35, wid * 0.35 + wid):
+                        for _off97 in (wid * 0.35 + wid, wid * 0.35):
                             _emit_loop(pen, _poly_offset(tri, _off97),
                                        e_w(1), 1500)
                     a(';TYPE:Outer wall')
@@ -10189,6 +10203,50 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
     LV = [[min(L - 1, int(grid[r][c] * L + 0.5)) for c in range(cols)]
           for r in range(rows)]
 
+    # R149 field report: with some images the linear 1/L cuts leave every
+    # darker step EMPTY - the file is a base plate + frame, no picture.
+    # Guard: any empty step above the base -> re-cut the thresholds at
+    # pixel-mass percentiles so every step carries image mass.
+    def _cnt149f():
+        cc = [0] * L
+        for _r in range(rows):
+            for _c in range(cols):
+                cc[LV[_r][_c]] += 1
+        return cc
+    _cnt149 = _cnt149f()
+    _vals149 = None
+    if L > 1 and any(_cnt149[k] == 0 for k in range(1, L)):
+        _vals149 = sorted(grid[_r][_c] for _r in range(rows)
+                          for _c in range(cols))
+        if len(set(_vals149)) < L:
+            # no spread at all (a single-tone image) - percentiles cannot
+            # help, keep the linear mapping and say so in the header
+            notes.append('image has (almost) one tone - the step relief '
+                         'cannot form: ' + ', '.join(
+                             'step %d=%d' % (k, _cnt149[k])
+                             for k in range(L)))
+            _vals149 = None
+    if _vals149 is not None:
+        _cut149 = []
+        for _k in range(1, L):
+            _pos = min(len(_vals149) - 1,
+                       max(0, int(round(_k * len(_vals149) / float(L)))))
+            _cut149.append(_vals149[_pos])
+        def _lvl149(v):
+            for _k, _cv in enumerate(_cut149):
+                if v < _cv:
+                    return _k
+            return len(_cut149)
+        LV = [[max(0, min(L - 1, _lvl149(grid[r][c])))
+               for c in range(cols)] for r in range(rows)]
+        _cnt149 = _cnt149f()
+        notes.append('step recut at pixel percentiles (linear cuts left a '
+                     'step empty): ' + ', '.join(
+                         'step %d=%d cells' % (k, _cnt149[k])
+                         for k in range(L)))
+    notes.append('step cells: ' + ', '.join(
+        'step %d=%d' % (k, _cnt149[k]) for k in range(L)))
+
     total_layers = L * n_band
     cx = (ux0 + ux1) / 2.0
     cy = (uy0 + uy1) / 2.0
@@ -10285,6 +10343,10 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
             a('; color change at EVERY step boundary (M600 + purge tower)')
         a('; print tips: WHITE or natural PLA glows best; the file prints'
           ' slow; light it from BEHIND')
+        # R149: notes never reached the file header (the tower-space note
+        # was silently dropped) - flush them like the other generators
+        for _n in notes:
+            a('; note: %s' % _n)
         a('; filament_type = %s' % material)
         a('; layer_height = %.2g' % layer_h)
         a('; nozzle_diameter = %.1f' % nozzle)
@@ -10343,7 +10405,7 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
             if li == 1:
                 a(';TYPE:Brim')
                 a('APPLY_TYPE TYPE=BRIM')
-                for off in (wid * 0.35, wid * 0.35 + wid):
+                for off in (wid * 0.35 + wid, wid * 0.35):
                     _emit_loop(pen, _rect_loop(tower[0] - off, tower[1] - off,
                                                tower[0] + tw + off,
                                                tower[1] + tw + off),
@@ -10386,7 +10448,7 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
             if li == 1 and brim_loops:
                 a(';TYPE:Brim')
                 a('APPLY_TYPE TYPE=BRIM')
-                for _b128 in range(brim_loops):
+                for _b128 in range(brim_loops - 1, -1, -1):
                     off = wid * (_b128 + 0.5)
                     _emit_loop(pen, _poly_offset(outer_c, off), e_wall, 900)
             a(';TYPE:Outer wall')
@@ -10650,6 +10712,7 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
             a(';LAYER_CHANGE')
             a(';Z:%.3f' % z)
             a('LAYER_MARK')
+            pen.set_z(z)   # R149: explicit Z per row - the file had none
             # R92 feature tags: bottom layers / solid ribbon core / top layers
             if li <= 2:
                 a(';TYPE:Bottom surface')
@@ -10666,7 +10729,7 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
             if li == 1 and brim_loops:
                 a(';TYPE:Brim')
                 a('APPLY_TYPE TYPE=BRIM')
-                for k in range(brim_loops):
+                for k in range(brim_loops - 1, -1, -1):
                     off = wid * (k + 0.5)
                     b = (x0 - off, yF - off, x0 + width_mm + off, yF + t_max + off)
                     _emit_loop(pen, _rect_loop(*b), e_wall, 900)
@@ -11155,7 +11218,7 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
             def _brim_rect(c):
                 if brim:
                     _ty121('Brim')
-                    for bi in range(brim):
+                    for bi in range(brim - 1, -1, -1):
                         off = wid * 0.35 + bi * wid
                         _loops(c['x'] - off, c['y'] - off,
                                c['x'] + c['bw'] + off, c['y'] + c['bl'] + off,
@@ -11164,7 +11227,7 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
             def _brim_round(c, cx, cy, r):
                 if brim:
                     _ty121('Brim')
-                    for bi in range(brim):
+                    for bi in range(brim - 1, -1, -1):
                         _emit_loop(pen, _circle(cx, cy, r + wid * 0.35
                                                 + bi * wid, 28), e_wall, 1500)
 
@@ -11986,7 +12049,7 @@ def make_brick_kit(src, detail='AUTO', mode='BY_LAYER', colors=3,
                             return
                 if li == 1:
                     _ty125('Brim')
-                    for off in (wid * 0.35, wid * 0.35 + wid):
+                    for off in (wid * 0.35 + wid, wid * 0.35):
                         _emit_loop(pen, _rect_loop(p['x'] - off, p['y'] - off,
                                                    p['x'] + p['bw'] + off,
                                                    p['y'] + p['bl'] + off),
@@ -12453,7 +12516,7 @@ def make_figures(count=1, scale=100.0, layer_h=0.2, material='PLA',
             def _brim_rect(c):
                 if brim:
                     _ty126('Brim')
-                    for bi in range(brim):
+                    for bi in range(brim - 1, -1, -1):
                         off = wid * 0.35 + bi * wid
                         _loops(c['x'] - off, c['y'] - off,
                                c['x'] + c['bw'] + off, c['y'] + c['bl'] + off,
@@ -12462,7 +12525,7 @@ def make_figures(count=1, scale=100.0, layer_h=0.2, material='PLA',
             def _brim_round(c, cx, cy, r):
                 if brim:
                     _ty126('Brim')
-                    for bi in range(brim):
+                    for bi in range(brim - 1, -1, -1):
                         _emit_loop(pen, _circle(cx, cy, r + wid * 0.35
                                                 + bi * wid, 28), e_wall, 1500)
 
@@ -13232,6 +13295,12 @@ def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
                 a('M600')
                 a('_COLORPIC_DONE R=%.2f G=%.2f B=%.2f'
                   % (_nx120[1], _nx120[2], _nx120[3]))
+            # R149 field report: the file carried NO Z move at all - the
+            # bands printed at whatever Z the start/swap purge park left
+            # (about 1cm in the air). set_z re-asserts the layer height at
+            # EVERY layer start, right after the M600 chain (the resume
+            # purge moves Z - the band after a swap needs the reset).
+            pen.set_z(z)
             if tower:
                 # R128: the tower prints on every layer and takes the prime
                 # + wipe right after every filament change
@@ -13246,7 +13315,7 @@ def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
                 if li == 1:
                     a(';TYPE:Brim')
                     a('APPLY_TYPE TYPE=BRIM')
-                    for off in (wid * 0.35, wid * 0.35 + wid):
+                    for off in (wid * 0.35 + wid, wid * 0.35):
                         _emit_loop(pen, _rect_loop(tower[0] - off,
                                                    tower[1] - off,
                                                    tower[0] + tw + off,
@@ -13277,7 +13346,7 @@ def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
             if li == 1 and brim_loops:
                 a(';TYPE:Brim')
                 a('APPLY_TYPE TYPE=BRIM')
-                for _b120 in range(brim_loops):
+                for _b120 in range(brim_loops - 1, -1, -1):
                     off = wid * (_b120 + 0.5)
                     _emit_loop(pen, _rect_loop(x0 - off, y0 - off,
                                                x0 + width_real + off,

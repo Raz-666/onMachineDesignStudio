@@ -99,6 +99,37 @@ ck('watch: _printer_busy probe exists and gates the scan',
 ck('watch: generator nonces freeze while printing (label/figures/kit...)',
    "'figures_nonce'" in src and "'brickkit_nonce'" in src
    and '_freeze133' in src, '')
+ck('colorpic: explicit Z per layer AFTER the M600 chain (.110 field: '
+   'the bands printed ~1cm in the air - the file had NO Z move at all)',
+   'pen.set_z(z)' in src
+   and 'purge moves Z - the band after a swap needs the reset' in src, '')
+ck('litho STANDING: explicit Z per row (same in-air class of bug)',
+   'pen.set_z(z)   # R149: explicit Z per row' in src, '')
+ck('brim order: EVERY brim loop prints outermost first (user rule)',
+   src.count('(wid * 0.35 + wid, wid * 0.35)') == 15
+   and 'range(brim - 1, -1, -1)' in src
+   and 'range(brim_loops - 1, -1, -1)' in src, '')
+_m150 = open('macros/12_maintenance.cfg').read()
+ck('plot FILAMENT: bed heats + purge line before the drawing (.110 field: '
+   "'just hairs' - cold bed, no prime)",
+   _m150.count('SET_HEATER_TEMPERATURE HEATER=heater_bed') >= 1
+   and '_PURGE_SMART LAYER_HEIGHT={filz}' in _m150
+   and "sv.plot_fil_z|default(0.2)|float" in _m150, '')
+ck('plot: draw Z default 0.20 + FILAMENT note in both writers '
+   '(_plot_write + plot_convert)',
+   src.count("_vf('plot_fil_z', 0.20)") == 1
+   and src.count("_v('plot_fil_z', 0.20)") == 1
+   and src.count('thin lines need a warm bed') == 2, '')
+ck('litho FLAT: step-cell stats in every header + empty-step re-cut guard '
+   '+ single-tone note (the "flat plate only" field report)',
+   'step cells: ' in src and 'step recut at pixel percentiles' in src
+   and 'one tone - the step relief' in src
+   and src.count('for _n in notes:') == 1, '')
+ck('labels: raised text up to 10mm (50 layers, was 6) + menu range',
+   'min(int(text_layers), 50)' in src
+   and 'input_max: 50' in open('menus/lcd_menues.cfg').read(), '')
+ck('vars: Klipper True/False bools normalize to 1/0 (float readers)',
+   "_v150.lower() == 'true'" in src, '')
 ck('watch: seen-cache persists across restarts (.110 - the 12-CPU-minute '
    'restart rescan of the whole gcodes folder was the field spin)',
    '_seen_state_path' in src and '_seen_load' in src and '_seen_save' in src
