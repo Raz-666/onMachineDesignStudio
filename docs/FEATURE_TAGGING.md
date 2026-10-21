@@ -24,6 +24,19 @@ cap + travel accel as file fixes, MAXRATE/SEAM display, 14 config keys
 replayed. Not shipped (honest): seam control (display only — re-slicing moves
 it), per-feature line width (display via LW_* replay), ML.
 
+Update (.105 / R144): CFG_KEYS has grown to **45 keys** (every per-feature
+speed and accel incl. travel/first/solid/small, 8 line widths, the cooling
+block TIME_SLOW/SLOW_MIN/FAN_MIN/MAX, FIL_DIA, ironing flow/spacing).
+Per-feature **flow** and **accel** are now live + profiled for **all 16
+features** — the §6 "flow per feature for ironing only" limit is history.
+Unretract extra is live (`SET_UNRETRACT_EXTRA EXTRA=0.05`,
+`SET_LIVE_RETRACTION … EXTRA=`), Z-hop height is live (`SET_Z_HOP
+ENABLE=1 HEIGHT=0.4`). Still honest gaps: per-feature line width and seam
+control (display/replay only), layer-time levers (replay only),
+retract-on-layer-change-only (would be a file rewrite), travel accel as a
+*separate* live knob (covered by the global cap + file fix + per-feature
+accels), ML (L5) and movement fingerprints (roadmap 3) stay open on purpose.
+
 ## 1. What "feature tagging" means here
 
 Given an arbitrary `.gcode` from any slicer/firmware combination, decide for every
