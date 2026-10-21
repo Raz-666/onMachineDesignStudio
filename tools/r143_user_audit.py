@@ -470,6 +470,41 @@ for name, path in session_outputs + [('sliced orca', SRC)]:
               n_app)
 
 # ============================================================================
+# ============================================================================
+print('==== 5) R147 FIELD LOG: fix-channel priming + ghost requests ========')
+_pp147 = open('tools/r2_postproc.py').read()
+import re as _re147
+_nk147 = set(_re147.findall(r"'([a-z_0-9]+)'",
+                            _re147.search(r"NONCE_KEYS = \(([^)]+)\)",
+                                          _pp147, _re147.S).group(1)))
+_read147 = set(_re147.findall(r"rv\.get\('([a-z_0-9]+_nonce)'", _pp147))
+check('5 every nonce channel the watch loop READS is in NONCE_KEYS '
+      '(primed at start - the .108 field log: flowcap/travelacc/segments '
+      're-fired old fix requests on every watcher restart)',
+      not (_read147 - _nk147), str(sorted(_read147 - _nk147)))
+try:
+    _pv147 = pp._prime_nonces({'flowcap_fix_nonce': 7, 'travelacc_fix_nonce': 8,
+                                'segments_fix_nonce': 9, 'preview_nonce': 'x'})
+    check('5 _prime_nonces adopts the three fix channels (values survive '
+          'a restart as SEEN, nothing re-fires)',
+          _pv147.get('flowcap_fix_nonce') == 7
+          and _pv147.get('travelacc_fix_nonce') == 8
+          and _pv147.get('segments_fix_nonce') == 9, str(_pv147))
+except Exception as e147:                                  # noqa: BLE001
+    check('5 _prime_nonces adopts the three fix channels', False, repr(e147))
+check('5 ghost fix request DIES: the not-found branch clears the channel '
+      'variable (SAVE_VARIABLE chan_fix_file VALUE empty string) and says '
+      'so - no infinite not-found beep loop across restarts',
+      'dropped (the file no longer exists)' in _pp147
+      and "_chan147 = {'retract': 'retract_fix_file'" in _pp147
+      and '_drop147' in _pp147, 'source wiring')
+check('5 duplicate watcher that SURVIVES the stop gets a LOUD console '
+      'respond (rate-limited 1/h) - silent journal lines never reached '
+      'the field user',
+      'SURVIVED' in _pp147 and '_LOUD_DUP' in _pp147
+      and '>= 3600' in _pp147, 'source wiring')
+
+
 print()
 print('R143 USER AUDIT: %d checks, %d FAIL, %d findings'
       % (n_chk[0], len(fails), len(findings)))

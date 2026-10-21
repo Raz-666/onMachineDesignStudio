@@ -6731,7 +6731,16 @@ NONCE_KEYS = ('preview_nonce', 'range_nonce', 'label_gen_nonce', 'reso_nonce',
               'litho_del_nonce', 'frame_nonce', 'texture_nonce',
               'file_check_nonce', 'colorpic_nonce', 'bricks_nonce',
               'brickkit_nonce', 'figures_nonce', 'plot_cal_nonce',
-              'queue_cancel_nonce', 'gen_del_nonce', 'plot_nonce')
+              'queue_cancel_nonce', 'gen_del_nonce', 'plot_nonce',
+              # R147 - .108 field log - NO parentheses in this tuple - the
+              # r143 audit regex stops at the first closing bracket. The
+              # three NEWER fix channels were read in the watch loop but
+              # NEVER primed - every watcher restart saw their stored
+              # nonces as new and re-fired OLD fix requests - a Travel
+              # accel DONE burst at boot plus an endless not-found beep
+              # loop for a deleted file. Same bug class as .99 and .133c.
+              'flowcap_fix_nonce', 'travelacc_fix_nonce',
+              'segments_fix_nonce')
 
 
 def _prime_nonces(rv):
@@ -15191,6 +15200,9 @@ def _find_other_watchers():
     return found
 
 
+_LOUD_DUP = {}          # R147: pid -> last loud-console respond (1/h max)
+
+
 def _watch_duplicate_sweep():
     """R133i (field log .101): the STARTUP takeover alone is not enough.
 
@@ -15217,6 +15229,28 @@ def _watch_duplicate_sweep():
         print('[lock] runtime sweep: duplicate watcher PID %d - stopping'
               % pid, flush=True)
         _stop_duplicate_watcher(pid)
+        # R147 (.108 field log): a duplicate that SURVIVED the stop attempt
+        # (root, or a stubborn wrapper) keeps doubling every push and can
+        # drown the Pi Zero host ('Timer too close' shutdowns). Say it LOUD
+        # on the console - silent journal lines never reach the user.
+        try:
+            os.kill(pid, 0)
+        except OSError:
+            pass
+        else:
+            # R147: console respond at most once per hour per pid (the
+            # journal line above runs every sweep) - loud, not spammy
+            if time.time() - _LOUD_DUP.get(pid, 0) >= 3600:
+                _LOUD_DUP[pid] = time.time()
+                try:
+                    _moonraker_gcode(
+                        'RESPOND MSG="R2 watcher: duplicate PID %d SURVIVED '
+                        'the stop attempt - it doubles every push and can '
+                        'shut the printer down. Run on the Pi: sudo pkill '
+                        '-f r2_postproc.py && sudo systemctl restart '
+                        'r2-postproc"')
+                except Exception:                           # noqa: BLE001
+                    pass
 
 
 def _moonraker_gcode(script, host='127.0.0.1', port=7125, timeout=8.0,
@@ -15473,6 +15507,15 @@ def watch(directory, interval=5.0, once=False):
         RetFix file / Vol->mm fix queues itself via a save_variables nonce).
         Sound protocol: r2_confirm comes from the macro (start), this end
         reports with r2_done / r2_notice / r2_error."""
+        # R147 (.108 field log): a ghost request (file deleted since the
+        # request was queued - e.g. an old plot twin) must DIE here, not
+        # just beep: the channel's file variable is CLEARED so nothing
+        # points at the ghost again. With the nonce priming complete
+        # (R147) a restart can never re-fire it either.
+        _chan147 = {'retract': 'retract_fix_file', 'vol': 'vol_fix_file',
+                    'flowcap': 'flowcap_fix_file',
+                    'travelacc': 'travelacc_fix_file',
+                    'segments': 'segments_fix_file'}.get(kind)
         if not name:
             _moonraker_gcode('RESPOND MSG="File fix: no file selected"\n'
                              'M117 Fix: no file\n_SOUND_LIB NAME=r2_error')
@@ -15480,8 +15523,12 @@ def watch(directory, interval=5.0, once=False):
         rel = name.strip().lstrip('/')
         p = os.path.join(directory, rel)
         if not os.path.isfile(p):
-            _moonraker_gcode('RESPOND MSG="File fix: %s not found"\n'
-                             'M117 Fix: no file\n_SOUND_LIB NAME=r2_error' % rel)
+            _drop147 = ('\nSAVE_VARIABLE VARIABLE=%s VALUE=\'\"\"\''
+                        % _chan147) if _chan147 else ''
+            _moonraker_gcode('RESPOND MSG="File fix: %s not found - request '
+                             'dropped (the file no longer exists)"\n'
+                             'M117 Fix: no file\n_SOUND_LIB NAME=r2_error'
+                             % rel + _drop147)
             return
         # never touch a file while a print runs (the macro released the
         # start dialog before queueing - this catches console races)

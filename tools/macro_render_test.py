@@ -3803,7 +3803,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.100) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-21.107'", repr(_v66)))
+    _v66 == "'R2-2026-10-21.108'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -5061,6 +5061,8 @@ tests.append(('R75 watcher: _prime_nonces adopts the current counters (no re-fir
         'seal_nonce': None, 'litho_del_nonce': None, 'frame_nonce': None,
         'texture_nonce': None, 'file_check_nonce': None, 'colorpic_nonce': None,
         'bricks_nonce': None, 'brickkit_nonce': None,
+        'flowcap_fix_nonce': None, 'travelacc_fix_nonce': None,
+        'segments_fix_nonce': None,
         'figures_nonce': None, 'plot_cal_nonce': None,
         'queue_cancel_nonce': None, 'gen_del_nonce': None,
         'plot_nonce': None}, ''))
@@ -6231,8 +6233,12 @@ tests.append(('R86 modules: 17_generator.cfg sentinel + _CHECK_INSTALL lists 17'
     '_V18_GEN' in open(_gen86).read()
     and "('17_generator.cfg',       ['_V18_GEN'])" in open('macros/01_state.cfg').read()
     and 'all 17 modules' not in open('macros/01_state.cfg').read(), ''))
-tests.append(('R86-R120 watcher: NONCE_KEYS has 20 channels incl. litho/seal/frame/colorpic',
-    len(_pp.NONCE_KEYS) == 27 and 'cable_tie_nonce' in _pp.NONCE_KEYS
+tests.append(('R86-R120 watcher: NONCE_KEYS has 30 channels incl. litho/seal/frame/colorpic '
+    '+ the three fix channels (.108: priming complete - no fix re-fire on restart)',
+    len(_pp.NONCE_KEYS) == 30 and 'flowcap_fix_nonce' in _pp.NONCE_KEYS
+    and 'travelacc_fix_nonce' in _pp.NONCE_KEYS
+    and 'segments_fix_nonce' in _pp.NONCE_KEYS
+    and 'cable_tie_nonce' in _pp.NONCE_KEYS
     and 'plot_nonce' in _pp.NONCE_KEYS
     and 'queue_cancel_nonce' in _pp.NONCE_KEYS
     and 'gen_del_nonce' in _pp.NONCE_KEYS
