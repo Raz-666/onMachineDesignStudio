@@ -607,6 +607,9 @@ if [ "${HAVE_SYSTEMD}" -eq 1 ]; then
         "crowsnest|webcam stack (Mainsail camera)|only if you never use the camera"
         "webcamd|webcam stream (older setups)|only if you never use the camera"
         "octoprint|OctoPrint server|you are using Mainsail instead"
+        "octoeverywhere|OctoEverywhere cloud access|only if you do not use it"
+        "sonar|webcam presence stats (dw-sonar)|only with a camera you still use"
+        "go2rtc|camera streaming helper|only with a camera you still use"
         "KlipperScreen|touchscreen UI|only without a touchscreen"
         "cups|paper printing system|not needed on a 3D printer"
         "triggerhappy|GPIO hotkey daemon|rarely used"
@@ -614,6 +617,22 @@ if [ "${HAVE_SYSTEMD}" -eq 1 ]; then
         "bluetooth|bluetooth daemon|no BT devices on a print server"
         "hciuart|bluetooth UART helper|same"
     )
+    # R149 (.110 field request): anything ELSE running that smells like a
+    # second print-server stack (an Elegoo/OctoPrint companion box, a second
+    # klipper instance...) gets REPORTED even when it is not on the list -
+    # every unknown unit matching these patterns is shown with its RAM.
+    _EXTRA="$(systemctl list-units --type=service --state=running --no-legend --no-pager 2>/dev/null \
+      | awk '{print $1}' | grep -Ei 'elegoo|octoprint|obico|simplyprint|spaghetti|astroprint' \
+      | grep -vxF "$(printf '%s\n' "${_CANDS[@]}" | cut -d'|' -f1)" || true)"
+    for _unit in ${_EXTRA}; do
+        MEM="$(systemctl show "${_unit}" -p MemoryCurrent --value 2>/dev/null)"
+        _mem_txt=""
+        case "${MEM}" in ''|'[not set]') ;; *) _mem_txt=" ($(hsize "${MEM}"))" ;; esac
+        echo
+        warn "ALSO running: ${_unit}${_mem_txt} - not on the known list (looks like a second print-server stack)"
+        info "      same options as below apply: leave it, or stop + disable it yourself:"
+        info "      sudo systemctl disable --now ${_unit}"
+    done
     for _cand in "${_CANDS[@]}"; do
         IFS='|' read -r unit what why <<< "${_cand}"
         if svc_active "${unit}"; then
@@ -642,6 +661,25 @@ if [ "${HAVE_SYSTEMD}" -eq 1 ]; then
                             echo "[!]    could not disable ${unit} (sudo?) - manual:"
                             echo "       sudo systemctl disable --now ${unit}"
                         fi
+                        # R149 (.110 field request): removal instructions per
+                        # service - deliberately GUIDED, never automatic: an
+                        # uninstall must be a conscious act, the disable above
+                        # already frees the RAM.
+                        case "${unit}" in
+                            octoprint)
+                                echo "       want it GONE? that is a manual act:"
+                                echo "         systemctl disable --now octoprint"
+                                echo "         rm /etc/systemd/system/octoprint.service"
+                                echo "         rm -rf ~/oprint ~/.octoprint   (your OctoPrint data!)"
+                                echo "         sudo systemctl daemon-reload"
+                                ;;
+                            crowsnest|sonar|octoeverywhere|moonraker-obico|go2rtc)
+                                echo "       want it GONE? its installer ships the remover:"
+                                echo "         ~/crowsnest/tools/install -u   (crowsnest)"
+                                echo "         or: rm -rf <its folder> + remove its service file,"
+                                echo "             then: sudo systemctl daemon-reload"
+                                ;;
+                        esac
                         ;;
                 esac
             fi
@@ -660,6 +698,57 @@ fi
 # =====================================================================================
 echo
 echo "--- 9) swap tuning -----------------------------------------------------------------"
+# ---- 9a) zram: compressed swap IN RAM (.110 field request) --------------------------
+# The .109 field data: 254MB of swap IN USE on the SD card - every page klippy
+# needs back comes from slow SD I/O, the 'Timer too close' amplifier. zram
+# keeps a compressed copy in RAM: ~3x effective, no SD wear, no I/O latency.
+if swapon --show 2>/dev/null | grep -q '^/dev/zram'; then
+    _zram_txt="$(swapon --show 2>/dev/null | awk '$1 ~ /^\/dev\/zram/ {printf "%s %s prio %s\n", $1, $3, $4}' | head -1)"
+    fix "zram already active (${_zram_txt}) - compressed RAM swap is doing its job"
+else
+    info "zram = compressed swap inside RAM (~3x effective, no SD card wear, no"
+    info "read-back latency). On a 512MB Pi Zero 2 W this is the single best"
+    info "upgrade against 'Timer too close' shutdowns under memory pressure."
+    info "needs: internet + sudo (package: zram-tools, ~100KB). undo anytime:"
+    info "   sudo apt-get purge zram-tools"
+    if [ "${CHECK_ONLY}" -eq 1 ]; then
+        echo "[i] (check mode) would offer to install zram-tools + configure 50% RAM, zstd, prio 100"
+    else
+        ask_yn "Install zram (zram-tools) now?" n
+        if [ "${ASK_ANSWER}" = "y" ]; then
+            if ${SUDO} apt-get update -qq 2>/dev/null && ${SUDO} apt-get install -y -qq zram-tools >/dev/null 2>&1; then
+                printf '# R2 print server - set by setup.sh %s\nALGO=zstd\nPERCENT=50\nPRIORITY=100\n' "${TS}" \
+                    | ${SUDO} tee /etc/default/zramswap >/dev/null
+                ${SUDO} systemctl restart zramswap 2>/dev/null || ${SUDO} systemctl restart zramswap.service 2>/dev/null
+                if swapon --show 2>/dev/null | grep -q '^/dev/zram'; then
+                    fix "zram active: $(swapon --show 2>/dev/null | awk '$1 ~ /^\/dev\/zram/ {printf "%s (%s, prio %s)", $1, $3, $4; exit}') - the SD swap is now the overflow, not the workhorse"
+                    # the SD swap (dphys-swapfile) stays as the safety net, but it
+                    # should not carry the load: offer to shrink it to 200MB -
+                    # CONFIG ONLY, applies at the next reboot (a live swapoff on a
+                    # box with swap in use can wedge it)
+                    if [ -f /etc/dphys-swapfile ] && grep -qE '^CONF_SWAPSIZE=(7[5-9][0-9]|[1-9][0-9]{3,})' /etc/dphys-swapfile 2>/dev/null; then
+                        info "your SD swap is large (>=750MB) - with zram taking the load, 200MB"
+                        info "is plenty as overflow. Config-only change, applies at the NEXT REBOOT."
+                        ask_yn "Shrink the SD swap to 200MB (edit /etc/dphys-swapfile)?" n
+                        if [ "${ASK_ANSWER}" = "y" ]; then
+                            ${SUDO} sed -i 's/^CONF_SWAPSIZE=.*/CONF_SWAPSIZE=200/' /etc/dphys-swapfile \
+                                && fix "SD swap will be 200MB after the next reboot (was: $(grep '^CONF_SWAPSIZE' /etc/dphys-swapfile | cut -d= -f2)MB in the old line)"
+                        fi
+                    fi
+                else
+                    warn "zram-tools installed but zram0 did not come up - check:"
+                    warn "   systemctl status zramswap; cat /etc/default/zramswap"
+                fi
+            else
+                warn "apt install failed (offline? repo?) - manual:"
+                warn "   sudo apt-get install zram-tools"
+                warn "   echo -e 'ALGO=zstd\nPERCENT=50\nPRIORITY=100' | sudo tee /etc/default/zramswap"
+                warn "   sudo systemctl restart zramswap"
+            fi
+        fi
+    fi
+fi
+echo
 SWAPPINESS="$(cat /proc/sys/vm/swappiness 2>/dev/null || echo '?')"
 info "vm.swappiness = ${SWAPPINESS} (default 60 - the kernel swaps out READ-ONLY pages early)"
 if [ "${SWAPPINESS}" != "?" ] && [ "${SWAPPINESS}" -gt 10 ] 2>/dev/null; then

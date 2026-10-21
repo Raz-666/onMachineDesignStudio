@@ -99,6 +99,22 @@ ck('watch: _printer_busy probe exists and gates the scan',
 ck('watch: generator nonces freeze while printing (label/figures/kit...)',
    "'figures_nonce'" in src and "'brickkit_nonce'" in src
    and '_freeze133' in src, '')
+ck('watch: seen-cache persists across restarts (.110 - the 12-CPU-minute '
+   'restart rescan of the whole gcodes folder was the field spin)',
+   '_seen_state_path' in src and '_seen_load' in src and '_seen_save' in src
+   and 'watch_state.json' in src and 'no restart rescan' in src
+   and 'os.replace(tmp, path)' in src, '')
+ck('watch: seen-cache save is throttled (>=60s) + atexit + once-mode hook',
+   src.count('_seen_flush149') >= 3 and 'atexit.register' in src, '')
+_ck110 = open('setup.sh').read()
+ck('setup.sh: zram offer (zram-tools, zstd/50%/prio100, guided undo, '
+   'config-only SD-swap shrink at >=750MB)',
+   'zram-tools' in _ck110 and 'ALGO=zstd' in _ck110 and 'PRIORITY=100' in _ck110
+   and 'purge zram-tools' in _ck110 and 'CONF_SWAPSIZE=200' in _ck110, '')
+ck('setup.sh: optional-service list + extra print-server stack scan '
+   '(octoprint/octoeverywhere/sonar/go2rtc/elegoo pattern) + removal guides',
+   'octoeverywhere' in _ck110 and 'sonar' in _ck110 and 'go2rtc' in _ck110
+   and 'elegoo' in _ck110 and 'rm -rf ~/oprint' in _ck110, '')
 ck('watch: poll sleep stretches to 12s while printing, 60s under RAM pressure (.109)',
    'time.sleep(60.0 if _ram_low148 else (12.0 if busy else interval))' in src, '')
 

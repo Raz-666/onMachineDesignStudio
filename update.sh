@@ -234,8 +234,11 @@ fi
 
 # --- 7) hint: the environment wizard --------------------------------------------------
 if [ -f "${DIR}/setup.sh" ]; then
-    echo "[i] environment wizard available (service, KAMP, LED effects, RAM, swap):"
+    echo "[i] environment wizard available (zram vs SD-swap, optional services like"
+    echo "        OctoPrint + friends, KAMP, LED effects, RAM, swappiness):"
     echo "        bash ${DIR}/setup.sh        (--check = report only)"
+    echo "    (.110: with swap in use on the SD card, zram alone is the biggest"
+    echo "     Timer too close relief a Pi Zero 2 W can get - setup.sh section 9)"
 fi
 
 echo "== done. Happy printing! =="

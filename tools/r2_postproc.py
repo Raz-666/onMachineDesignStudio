@@ -15453,6 +15453,48 @@ def file_check_scan(directory):
 _SCAN_CHUNK_S = 2.0
 
 
+def _seen_state_path(directory):
+    """R149: where the persistent file-state cache lives - the PACKAGE folder
+    (survives updates: the zip never contains this file, unzip -o keeps it).
+    A watcher restart used to rescan EVERY g-code file from scratch (field
+    log .109: 12 CPU-minutes of backlog catch-up on the Pi Zero 2 W after
+    every update/reboot, pinned at 100% exactly while klippy also restarted
+    - the 'Timer too close' companion). Now the mtime+size knowledge of
+    every already-scanned file survives restarts."""
+    return os.path.join(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))), 'watch_state.json')
+
+
+def _seen_load(path):
+    """R149: load the persistent seen-cache (best effort, corrupt = fresh)."""
+    import json
+    try:
+        with open(path) as f:
+            raw = json.load(f)
+        if isinstance(raw, dict):
+            return {str(k): tuple(v) for k, v in raw.items()
+                    if isinstance(v, (list, tuple)) and len(v) == 2}
+    except (OSError, ValueError):
+        pass
+    return {}
+
+
+def _seen_save(path, seen):
+    """R149: atomic write of the seen-cache (tmp + rename, never a half
+    file). Entries of files that no longer exist are pruned when the cache
+    grows beyond 4096 entries (a deleted file's slot must not live forever)."""
+    import json
+    try:
+        if len(seen) > 4096:
+            seen = {k: v for k, v in seen.items() if os.path.isfile(k)}
+        tmp = path + '.tmp'
+        with open(tmp, 'w') as f:
+            json.dump({k: list(v) for k, v in seen.items()}, f)
+        os.replace(tmp, path)
+    except OSError:
+        pass
+
+
 def _self_cpu():
     """R148: this process's own CPU seconds (user+sys) from /proc/self/stat."""
     try:
@@ -15495,7 +15537,25 @@ def watch(directory, interval=5.0, once=False):
         sys.exit(1)
     mode = 'one-shot' if once else f'watching, every {interval:g}s'
     print(f'R2 post-processor {mode}: {directory}', flush=True)
-    seen = {}
+    # R149: adopt the persistent file state - a restart must NOT chew
+    # through the whole gcodes folder again (the .109 field case: 12 CPU
+    # minutes of 'catch-up' at 100% right after every update/reboot)
+    _seen_path149 = _seen_state_path(directory)
+    seen = _seen_load(_seen_path149)
+    if seen:
+        print(f'[i] watch state: {len(seen)} file(s) already known from the '
+              'last run - no restart rescan', flush=True)
+    _seen_dirty149 = [0]
+    _seen_saved149 = [time.time()]
+
+    def _seen_flush149():
+        if _seen_dirty149[0]:
+            _seen_save(_seen_path149, seen)
+            _seen_dirty149[0] = 0
+        _seen_saved149[0] = time.time()
+
+    import atexit
+    atexit.register(lambda: _seen_save(_seen_path149, seen))
     stats = {'processed': 0, 'tagged_before': 0, 'errors': 0, 'files': 0,
              'deferred': 0}
     last_beat = time.time()
@@ -15731,6 +15791,7 @@ def watch(directory, interval=5.0, once=False):
                     stats['deferred'] += 1
                     continue
                 seen[p] = key
+                _seen_dirty149[0] += 1     # R149: persist across restarts
                 _done98 += 1
                 # R134 (.103 field redesign): plot sources are NEVER touched
                 # in the scan. The old flow auto-converted every upload
@@ -17817,6 +17878,7 @@ def watch(directory, interval=5.0, once=False):
                   + (' - now watching for new files' if not once else ''), flush=True)
             first = False
             if once:
+                _seen_flush149()     # R149: one-shot catch-up persists too
                 return
         if time.time() - last_beat >= 900:
             # heartbeat every 15 min so it is obvious the daemon is alive
@@ -17860,6 +17922,14 @@ def watch(directory, interval=5.0, once=False):
                         pass
             _spin148['t'] = time.monotonic()
             _spin148['cpu'] = _self_cpu()
+        # R149: persist the seen-cache at most once a minute (and only when
+        # something new was scanned) - a SIGTERM kill loses at most 60s of
+        # scan progress instead of the whole backlog knowledge
+        if _seen_dirty149[0] and time.time() - _seen_saved149[0] >= 60:
+            try:
+                _seen_flush149()
+            except Exception:                               # noqa: BLE001
+                pass
         time.sleep(60.0 if _ram_low148 else (12.0 if busy else interval))
 
 
