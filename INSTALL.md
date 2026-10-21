@@ -20,12 +20,12 @@ just unpack once by hand:
 
 ```bash
 cd ~/printer_data/config
-unzip -o klipper-e3-r2d2-UPDATE-R2-2026-10-21.106.zip
+unzip -o klipper-e3-r2d2-UPDATE-R2-2026-10-21.107.zip
 bash klipper-e3-r2d2/update.sh
 ```
 
 No `unzip` on the Pi?
-`python3 -m zipfile -e klipper-e3-r2d2-UPDATE-R2-2026-10-21.106.zip .` does the
+`python3 -m zipfile -e klipper-e3-r2d2-UPDATE-R2-2026-10-21.107.zip .` does the
 same — update.sh uses that fallback automatically.
 
 **What update.sh does:** it finds the newest `klipper-e3-r2d2-UPDATE-R2-*.zip`
@@ -40,8 +40,13 @@ auto-unpack is gone with the old update.sh — unpack the newer ZIP once by hand
 again). The uploaded ZIP can stay in the config folder (harmless) or be
 deleted in Mainsail.
 
+**Generated files since .107:** every generator writes into its own
+subfolder of the gcodes directory (`Labels/`, `Frames/`, `Plot/`, …) —
+the folders appear automatically, nothing moves, existing outputs in the
+root keep working (version numbering continues across the move).
+
 Boot sound + `M117 R2 ready` ~10 s later confirm success; the console line must
-say `build R2-2026-10-21.106`
+say `build R2-2026-10-21.107`
 
 ---
 

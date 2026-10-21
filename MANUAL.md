@@ -305,7 +305,7 @@ Everything here is saved and reused; nothing is lost on restart.
 | File (G-code) | full slicer summary of the SELECTED file (type, material, layers, speeds, accels, temps, PA, retraction) + 16 feature activator rows: each shows the file's real speed and an ON switch — features the file does not contain show 'n/a' and refuse · Flow line: MAXRATE mm³/s (+ seam position, + *derived* marker when the geometry classifier tagged this file) · Cap / Fix flow cap + TAcc / Fix travel accel (.85) |
 | Material | LOAD NOW + all material values (Bed/Hotend L1/L2, PA + smooth, flow, retract, fan L2) + Save as preset — edits of the ACTIVE material apply live |
 | Temperatures | Bed/Hotend L1/L2 + Fan L2 (ON/OFF each) + the file's own values for comparison |
-| Velocity (.104) | retraction length/speed/unretract + File R: display, acceleration, velocity, minimum cruise ratio, square corner (ON/OFF each) + Z-Hop ON/OFF + height — the global PA moved to PA per feat |
+| Velocity (.104) | retraction length/speed/unretract + File R: display, acceleration, velocity, minimum cruise ratio, square corner (ON/OFF each) + Z-Hop ON/OFF + height — the global PA moved to PA per feat. (.107) **Drive** at the top of Retraction: DIRECT/BOWDEN starting-point profile (SET_EXTRUDER_DRIVE) — sets sane values, everything stays freely editable; ranges span both worlds (length 0–15 mm, speeds 5–100 mm/s) |
 | Spd/Acc/PA/Flw per feat (.104) | four quick lists (also in Live Tuning): per-feature speed / accel / PA / flow, each led by its GLOBAL — 1st-layer speed (Spd), global accel + ON (Acc), global PA + smooth + File PA (PA), global flow + ON (Flw) — plus Now: the feature currently printing. The old top-level Speeds/Accels/Flow menus were merged here |
 | Features | 16 submenus, one per feature (outer/inner wall, overhang wall, sparse/solid infill, top/bottom surface, bridge, internal bridge, gap fill, support, ironing, skirt, brim, prime tower, custom code): file original + ON switch + speed % + accel + PA each (.85) |
 | Bed Mesh | Level old files · Mesh ON/AUTO/OFF · Save after · Adaptive · Travel cap while meshing · Calibrate now · Load…/Delete… |
@@ -769,6 +769,17 @@ one continuous bead per layer, nothing to cross.
 `00_Figure_s100_SINGLE_V01.gcode`. The version bumps ITSELF — regenerating
 never overwrites an older file (the old Vers setting is retired; a deleted
 highest version number gets reused).
+
+**Output folders (.107).** Every generator writes into its OWN subfolder of
+the gcodes directory — `Labels/`, `CableTies/`, `Angles/`, `Gaskets/`,
+`Frames/`, `Litho/`, `ColorPic/`, `Bricks/`, `Kit/`, `Figures/`, `Plot/`,
+`Range/`, `Texture/`, `Towers/` (calibration/test prints). The root stays
+clean for your sliced files and sources. The LCD file browser and Mainsail
+navigate the folders natively; the Gen files list shows the file name and
+selects/deletes via the relative path. Nothing moves on the update: existing
+outputs stay in the root and keep working — and version numbering continues
+across the move (a legacy `00_X_V03` in the root still counts, the next
+regeneration writes `Labels/00_X_V04`).
 
 **Tools > Gen files.** Every `00_` output, newest first, right on the
 display: press a slot to SELECT that file (the start dialog catches it —
@@ -1649,6 +1660,11 @@ Shaper (.85): SET_FEAT_SHAPER_OFF FEATURE=<code> STATE=1|0 — input shaper OFF 
 Fan curve (.85): SET_FAN_CLAMP ON=1|0 MIN=0..100 MAX=0..100 BRIDGE=0..100 — every M106 of the
          file runs clamped between MIN/MAX percent (a file that wants 100 % gives 90 %), BRIDGE
          lifts the fan while a bridge section prints (0 = off). LCD: Live > Temps > Clamp/FMin/FMax/FBrdg
+Drive (.107): SET_EXTRUDER_DRIVE TYPE=DIRECT|BOWDEN — the retraction STARTING-POINT profile
+         (direct 0.6mm @ 40mm/s + z-hop off / bowden 4.5mm @ 30mm/s). Only a starting point:
+         length, speeds, unretract extra + z-hop stay freely editable in BOTH directions,
+         pre-print and mid-print. Independent from RetractFix (that repairs old FILES).
+         LCD: Pre-Print > Velocity > Retraction > Drive
 Unretract (.85): SET_UNRETRACT_EXTRA EXTRA=-1..3 — every unretract adds EXTRA mm of filament
          (seals the dot after a travel; 0 = off). Firmware retraction only
 Extrusion: SET_FLOW_RATE PERCENT=1..300 · SET_LIVE_PRESSURE_ADVANCE VALUE= ·
@@ -2176,11 +2192,11 @@ retraction reads the firmware values — what you see is what runs.
 
 | Entry | Contents |
 |---|---|
-| Offset X/Y/Z (.104) | X / Y / Z ±0.1 mm + each a fine row ±0.05 mm (halved steps, realtime MOVE=1) — SET_GCODE_OFFSET, the first thing you reach | (type, material, layer height × layers, line widths, flow ratio, by-object, nozzle × wall loops, ALL speeds, accels, L1/L2 temps, PA, retraction) + **sliced by <slicer> for <firmware>** (volumetric files get a loud warning) — shown from the MOMENT you select the file; the per-feature values are MEASURED from the g-code — PLUS 16 activator rows (OW…BM + OH/IB/PT/CU): each shows the file's REAL speed + o:ON state; CLICK toggles that feature's override; features NOT in the file show 'n/a' and refuse · Flow line: MAXRATE + seam + *derived* marker (.85) · Cap (mm³/s) + Fix flow cap · TAcc + Fix travel accel (.85) |
+| Offset X/Y/Z (.104) | X / Y / Z ±0.1 mm + each a fine row ±0.05 mm (halved steps, realtime MOVE=1) — SET_GCODE_OFFSET, the first thing you reach | (type, material, layer height × layers, line widths, flow ratio, by-object, nozzle × wall loops, ALL speeds, accels, L1/L2 temps, PA, retraction) + **sliced by <slicer> for <firmware>** (volumetric files get a loud warning) — shown from the MOMENT you select the file; the per-feature values are MEASURED from the g-code — PLUS 16 activator rows (OW…BM + OH/IB/PT/CU): each shows the file's REAL speed + o:ON state (.107: ON also lists the non-neutral parameters — S speed, A accel, F flow, P PA); CLICK toggles that feature's override; features NOT in the file show 'n/a' and refuse · Flow line: MAXRATE + seam + *derived* marker (.85) · Cap (mm³/s) + Fix flow cap · TAcc + Fix travel accel (.85) |
 | Material | LOAD NOW + all material values + Save as preset — editing a value of the ACTIVE material applies LIVE too |
 | Profiles | Material (Load/Save/Reset PLA/PETG/TPU + ABS/ASA) · Defaults (Save/Info/Load 1–8/Delete 1–8) · This file (Save pre/Load pre/Load post/Del pre/Del post — only existing slots appear) + Auto-load & Auto-save post toggles (.84) |
 | Temperatures | Bed L1/L2, Hotend L1/L2, Fan L2 (ON/OFF each) + File H:/File B: = the file's own values |
-| Velocity (.104) | retraction len/spd/unretract + File R: · Accel + Vel + MCR + Corner (ON/OFF each; Accel/Vel are GLOBAL caps — travels included) · Z-Hop ON/OFF + height — global PA moved to PA per feat |
+| Velocity (.104) | retraction len/spd/unretract + File R: · **Drive: DIRECT/BOWDEN (swap)** (.107 — the retraction starting-point profile, every value stays free) · Accel + Vel + MCR + Corner (ON/OFF each; Accel/Vel are GLOBAL caps — travels included) · Z-Hop ON/OFF + height — global PA moved to PA per feat |
 | Features | 16 submenus: outer/inner wall, overhang wall, sparse/solid infill, top/bottom surface, bridge, internal bridge, gap fill, support, ironing (+flow), skirt, brim, prime tower, custom code — each shows the file's ORIGINAL (File:) + own ON switch + speed % (× global) + accel; only features the file really contains are editable — **a feature the file does not contain disappears from the menu entirely, an available-but-inactive one stays visible for live activation** (.83); switching OFF resets the stored values to the file original — never touches the global values · PA input per feature + ShpOff toggle at the top (.85) |
 | Spd/Acc/PA/Flw per feat (.104) | four quick lists with the globals merged in: 1st-layer speed % (0 = off, default 75) · global accel + ON · global PA + smooth + File PA · global flow + ON · Now: the active feature — the former top-level Speeds/Accels/Flow menus, one level deeper but with everything in ONE place each |
 | Bed Mesh | Level old files · Mesh ON/AUTO/OFF · Save after · Adaptive · Travel cap · Calibrate now · Load…/Delete… |
@@ -2906,6 +2922,7 @@ All 150 public macros with parameters (defaults in parentheses; blank = no param
 | **SET_FAN_CLAMP** | ON=-1, MIN=-1, MAX=-1, BRIDGE=-1 | fan curve clamp (.85): every M106 runs between MIN/MAX %, BRIDGE lifts the fan on bridge sections (0 = off); -1 = leave unchanged |
 | **SET_FEAT_PA** | FEATURE, PA=-1 | pressure advance for ONE feature (.85), 0 = off — applied at its boundaries, global PA returns after |
 | **SET_FEAT_SHAPER_OFF** | FEATURE, STATE=-1 | input shaper OFF while one feature prints (.85) — freqs saved/restored, safety net at PRINT_END/cancel |
+| **SET_EXTRUDER_DRIVE** | TYPE=DIRECT\|BOWDEN | retraction starting-point profile (.107): direct 0.6mm @ 40mm/s + z-hop off / bowden 4.5mm @ 30mm/s — every value stays freely editable, both directions |
 | **SET_UNRETRACT_EXTRA** | EXTRA=-1 | every unretract adds EXTRA mm (.85) — seals the dot after a travel; 0 = off |
 | **SET_OUTER_WALL_SPEED/ACCEL · SET_SUPPORT_SPEED/ACCEL · SET_IRONING_SPEED** | PERCENT= / ACCEL= | legacy-friendly per-feature setters: forward to feat_spd/feat_acc + ON — % sits on top of the CLEAN global |
 | **SET_IRONING_FLOW** | PERCENT=100 | ironing-only flow override |

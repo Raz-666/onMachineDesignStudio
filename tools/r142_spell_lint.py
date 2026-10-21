@@ -36,6 +36,7 @@ lcd neopixel pwm neopixels leds cfg jinja
 plla pla abs petg asa tpu pc ppa
 pidfine tunez brim vase litho lithophane colorpic
 backslash retraction unretract deretraction retract retfix
+bowden bowden-era direct-drive
 e-step esteps e-steps z-offset zoffset
 hotend homing homed unhomed
 sdcard usbstick

@@ -917,7 +917,7 @@ def _anchor_bbox(anchor, mask, res):
 def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                floor_shape='hull', floor_fill='grid',
                top_shape='hull', top_fill='solid',
-               floor_hole=0.0, top_hole=0.0):
+               floor_hole=0.0, top_hole=0.0, out_dir=None):
     """R62/R73/R74: create <stem>_L<s>-<e>.gcode next to src.
 
     The excerpt starts ON THE BED: layer START prints as the FIRST layer at
@@ -1539,8 +1539,11 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
     # old same-name-overwrite spec); the SOURCE itself is never written to.
     _src3 = re.sub(r'[^A-Za-z0-9]', '', os.path.basename(stem))[:3] or 'RNG'
     _rng83 = '00_%s_L%s-%s' % (_src3, start, end)
-    out = os.path.join(os.path.dirname(stem) or '.',
-                       f'{_rng83}_V{_next_gen_version(os.path.dirname(stem) or ".", _rng83):02d}{ext or ".gcode"}')
+    _od146 = out_dir if out_dir else (os.path.dirname(stem) or '.')
+    # R146 (.107): the watcher routes excerpts into the Range/ subfolder;
+    # direct/legacy callers (no out_dir) still write next to the source
+    out = os.path.join(_od146,
+                       f'{_rng83}_V{_next_gen_version(_od146, _rng83):02d}{ext or ".gcode"}')
     if os.path.abspath(out) == os.path.abspath(src):
         raise ValueError('range output name collides with the source - refusing')
     # body (E rebased to start at 0) + EXCLUDE_OBJECT cleanup, streamed
@@ -6746,20 +6749,53 @@ def _gen_stem(src, dflt='MODEL'):
     return _st or dflt
 
 
+# R146 (.107): every generator writes into its OWN subfolder of the gcodes
+# dir - the root stays clean for source files. LCD file browser and Mainsail
+# navigate subfolders natively; the Gen files list carries RELATIVE paths.
+GEN_SUBDIRS = {
+    'labels': 'Labels', 'ties': 'CableTies', 'angles': 'Angles',
+    'gaskets': 'Gaskets', 'frames': 'Frames', 'litho': 'Litho',
+    'colorpic': 'ColorPic', 'bricks': 'Bricks', 'kit': 'Kit',
+    'figures': 'Figures', 'plot': 'Plot', 'plotcal': 'Plot',
+    'range': 'Range', 'texture': 'Texture', 'towers': 'Towers',
+}
+GEN_FOLDER_NAMES = sorted(set(GEN_SUBDIRS.values()))
+
+_WATCH_ROOT = None     # R146: set by watch() - version scan counts legacy files
+
+
+def _gensub(root, key):
+    """The output subfolder for a generator (created on demand)."""
+    d = os.path.join(root, GEN_SUBDIRS[key])
+    try:
+        os.makedirs(d, exist_ok=True)
+    except OSError:
+        return root            # no subfolder creatable -> root (legacy behavior)
+    return d
+
+
 def _next_gen_version(out_dir, prefix):
     """R133f (field log .98): running version number, NEVER overwrite.
     The gen_version menu option is gone (it only caused confusion) -
     a generator simply takes the highest existing <prefix>*_V<n>.gcode
     and writes n+1. A deleted HIGHEST number is reused; existing files
-    are never touched."""
+    are never touched.
+    R146 (.107): outputs live in per-generator subfolders now - the scan
+    also counts LEGACY files in the watch root so the numbering continues
+    across the folder move (a regeneration never collides with an old
+    V-number that stayed behind in the root)."""
     _hi = 0
+    _dirs146 = [out_dir or '.']
+    if _WATCH_ROOT and os.path.abspath(_WATCH_ROOT) != os.path.abspath(out_dir or '.'):
+        _dirs146.append(_WATCH_ROOT)
     try:
-        for _p in os.listdir(out_dir or '.'):
-            if not (_p.startswith(prefix) and _p.endswith('.gcode')):
-                continue
-            _m = re.search(r'_V(\d+)\.gcode$', _p)
-            if _m:
-                _hi = max(_hi, int(_m.group(1)))
+        for _d146 in _dirs146:
+            for _p in os.listdir(_d146):
+                if not (_p.startswith(prefix) and _p.endswith('.gcode')):
+                    continue
+                _m = re.search(r'_V(\d+)\.gcode$', _p)
+                if _m:
+                    _hi = max(_hi, int(_m.group(1)))
     except OSError:
         pass
     return _hi + 1
@@ -15391,6 +15427,8 @@ def watch(directory, interval=5.0, once=False):
     for testing.
     """
     directory = os.path.abspath(directory)
+    global _WATCH_ROOT                     # R146: legacy-root version scan
+    _WATCH_ROOT = directory
     if not os.path.isdir(directory):
         # R57: a wrong path used to idle SILENTLY forever ("active" but nothing
         # happens). Fail loudly instead - systemd shows the service as failed.
@@ -15947,11 +15985,16 @@ def watch(directory, interval=5.0, once=False):
                             _gv62 = max(1, min(int(float(rv.get('gen_version', 1) or 1)), 99))
                         except (TypeError, ValueError):
                             _gv62 = 1
-                        _guess62 = os.path.join(
-                            os.path.dirname(_stem62) or '.',
-                            f'00_{_src3_62}_L{int(float(rs))}-{int(float(re_))}'
-                            f'_V{_gv62:02d}{_ext62 or ".gcode"}')
-                        if os.path.isfile(_guess62) and os.path.getmtime(_guess62) > os.path.getmtime(src_path):
+                        _fresh62 = False
+                        for _d62 in (_gensub(directory, 'range'),
+                                     os.path.dirname(_stem62) or '.'):
+                            _guess62 = os.path.join(
+                                _d62,
+                                f'00_{_src3_62}_L{int(float(rs))}-{int(float(re_))}'
+                                f'_V{_gv62:02d}{_ext62 or ".gcode"}')
+                            if os.path.isfile(_guess62) and os.path.getmtime(_guess62) > os.path.getmtime(src_path):
+                                _fresh62 = True
+                        if _fresh62:
                             print(f'[range] {os.path.basename(_guess62)}: already up to date - skipped', flush=True)
                         else:
                             out, nl = make_range(src_path, int(float(rs)), int(float(re_)),
@@ -15960,7 +16003,8 @@ def watch(directory, interval=5.0, once=False):
                                                  floor_shape=rfs, floor_fill=rff,
                                                  top_shape=rts, top_fill=rtf,
                                                  floor_hole=rfh, top_hole=rth,
-                                                 version=_gv62)
+                                                 version=_gv62,
+                                                 out_dir=_gensub(directory, 'range'))
                             print(f'[range] {os.path.basename(out)}: layers {rs}..{re_} ({nl} layers, '
                                   f'floor {rflo} {rfs}/{rff}, top {rtop} {rts}/{rtf}, '
                                   f'brim {rbrim}, holes f{rfh:g}/t{rth:g}mm)', flush=True)
@@ -16142,14 +16186,17 @@ def watch(directory, interval=5.0, once=False):
             _gdn = rv.get('gen_del_nonce', '')
             if _gdn and _gdn != last_gen_del_nonce:
                 last_gen_del_nonce = _gdn
-                _gfn = os.path.basename(str(rv.get('gen_del_file', '') or ''))
-                if not (_gfn.startswith('00_') and _gfn.endswith('.gcode')):
+                # R146 (.107): entries can carry a subfolder (Labels/x.gcode)
+                _grel146 = str(rv.get('gen_del_file', '') or '').strip().lstrip('/')
+                _gfn = os.path.basename(_grel146)
+                if (not (_gfn.startswith('00_') and _gfn.endswith('.gcode'))
+                        or not _grel146 or '..' in _grel146.split('/')):
                     _moonraker_gcode(
                         'RESPOND MSG=\"File delete refused: %s is not a 00_ '
                         'generator output\"\nM117 Delete refused\n'
                         '_SOUND_LIB NAME=r2_error' % _gfn)
                 else:
-                    _gp = os.path.join(directory, _gfn)
+                    _gp = os.path.join(directory, _grel146)
                     if os.path.isfile(_gp):
                         os.remove(_gp)
                         gen_files_pushed[0] = ''      # refresh the LCD list
@@ -16272,7 +16319,7 @@ def watch(directory, interval=5.0, once=False):
                         gap=_vf('label_gap', 12),
                         color2=_vb('label_color2', True),
                         material=str(rv.get('material', 'PLA') or 'PLA'),
-                        bed=cfg_bed, nozzle=_gen_nozzle(directory), out_dir=directory,
+                        bed=cfg_bed, nozzle=_gen_nozzle(directory), out_dir=_gensub(directory, 'labels'),
                         version=max(1, min(int(_vf('gen_version', 1)), 99)),
                         mode='fixed' if _vf('label_mode', 0) >= 1 else 'grow')
                     fitmsg = '%d fit (%dx%d), using %d' % (
@@ -16348,7 +16395,7 @@ def watch(directory, interval=5.0, once=False):
                         layer_h=_vft('tie_layer_h', 0.2),
                         brim=_vbt('tie_brim', True),
                         material=str(rv.get('material', 'PLA') or 'PLA'),
-                        bed=cfg_bed, nozzle=_gen_nozzle(directory), out_dir=directory,
+                        bed=cfg_bed, nozzle=_gen_nozzle(directory), out_dir=_gensub(directory, 'ties'),
                         version=max(1, min(int(_vft('gen_version', 1)), 99)))
                     _rel86t = os.path.relpath(
                         os.path.join(directory, info_t['file']), directory)
@@ -16423,7 +16470,7 @@ def watch(directory, interval=5.0, once=False):
                         flat=_vba('angle_flat', False),
                         layer_h=_vfa('angle_layer_h', 0.2),
                         material=str(rv.get('material', 'PLA') or 'PLA'),
-                        bed=cfg_bed, nozzle=_gen_nozzle(directory), out_dir=directory,
+                        bed=cfg_bed, nozzle=_gen_nozzle(directory), out_dir=_gensub(directory, 'angles'),
                         version=max(1, min(int(_vfa('gen_version', 1)), 99)))
                     _rel86a = os.path.relpath(
                         os.path.join(directory, info_a['file']), directory)
@@ -16537,7 +16584,7 @@ def watch(directory, interval=5.0, once=False):
                     in ('OFF', 'LAST', 'EACH') else 'OFF',
                     contrast=_vbl89('litho_contrast', True),
                     material=str(rv.get('material', 'PLA') or 'PLA'),
-                    bed=_bed89, nozzle=_gen_nozzle(directory), out_dir=directory,
+                    bed=_bed89, nozzle=_gen_nozzle(directory), out_dir=_gensub(directory, 'litho'),
                     version=max(1, min(int(_vfl89('gen_version', 1)), 99)))
 
                 def _litho_job89(p=_p89, params=_params89, src=_src89):
@@ -16628,7 +16675,7 @@ def watch(directory, interval=5.0, once=False):
                     swap=_vbc120('colorpic_swap', True),
                     contrast=_vbc120('colorpic_contrast', True),
                     material=str(rv.get('material', 'PLA') or 'PLA'),
-                    bed=_cbed120, nozzle=_gen_nozzle(directory), out_dir=directory,
+                    bed=_cbed120, nozzle=_gen_nozzle(directory), out_dir=_gensub(directory, 'colorpic'),
                     version=max(1, min(int(_vfc120('gen_version', 1)), 99)))
 
                 def _colorpic_job120(p=_cp120, params=_cparams120, src=_csrc120):
@@ -16705,7 +16752,7 @@ def watch(directory, interval=5.0, once=False):
                     bed=_bed_limits(os.path.join(
                         os.path.dirname(os.path.abspath(directory).rstrip('/')),
                         'config', 'printer.cfg')),
-                    nozzle=_gen_nozzle(directory), out_dir=directory,
+                    nozzle=_gen_nozzle(directory), out_dir=_gensub(directory, 'bricks'),
                     version=max(1, min(int(str(rv.get('gen_version', 1)
                                                   or 1)), 99)))
 
@@ -16829,7 +16876,7 @@ def watch(directory, interval=5.0, once=False):
                         os.path.dirname(os.path.abspath(
                             directory).rstrip('/')),
                         'config', 'printer.cfg')),
-                    nozzle=_gen_nozzle(directory), out_dir=directory,
+                    nozzle=_gen_nozzle(directory), out_dir=_gensub(directory, 'kit'),
                     version=max(1, min(int(str(rv.get('gen_version', 1)
                                                   or 1)), 99)))
 
@@ -16909,7 +16956,7 @@ def watch(directory, interval=5.0, once=False):
                     bed=_bed_limits(os.path.join(
                         os.path.dirname(os.path.abspath(directory).rstrip('/')),
                         'config', 'printer.cfg')),
-                    nozzle=_gen_nozzle(directory), out_dir=directory,
+                    nozzle=_gen_nozzle(directory), out_dir=_gensub(directory, 'figures'),
                     version=max(1, min(int(str(rv.get('gen_version', 1)
                                                   or 1)), 99)))
 
@@ -17005,7 +17052,7 @@ def watch(directory, interval=5.0, once=False):
                     ironing=_vbs89('seal_ironing', False),
                     layer_h=_vfs89('seal_layer_h', 0.2),
                     material=str(rv.get('material', 'PLA') or 'PLA'),
-                    bed=_bed89s, nozzle=_gen_nozzle(directory), out_dir=directory,
+                    bed=_bed89s, nozzle=_gen_nozzle(directory), out_dir=_gensub(directory, 'gaskets'),
                     version=max(1, min(int(_vfs89('gen_version', 1)), 99)))
                 _rel89s = os.path.relpath(
                     os.path.join(directory, info_s['file']), directory)
@@ -17043,7 +17090,7 @@ def watch(directory, interval=5.0, once=False):
                 # (blind-safe parameter rule)
                 out_t91, info_t91 = apply_texture(
                     os.path.join(directory, _fn91),
-                    out_dir=directory,
+                    out_dir=_gensub(directory, 'texture'),
                     mode=str(rv.get('texture_mode', 'FUZZY') or 'FUZZY'),
                     fuzzy_thick=float(rv.get('texture_fuzzy_thick', 0.3)
                                       or 0.3),
@@ -17213,7 +17260,7 @@ def watch(directory, interval=5.0, once=False):
                         s_dir=_vs90('frame_s_dir', 'OUT', ('IN', 'OUT')),
                         wall_loops=int(_vf90('frame_walls', 1)),
                         material=str(rv.get('material', 'PLA') or 'PLA'),
-                        bed=_bed90, nozzle=_gen_nozzle(directory), out_dir=directory,
+                        bed=_bed90, nozzle=_gen_nozzle(directory), out_dir=_gensub(directory, 'frames'),
                         version=max(1, min(int(_vf90('gen_version', 1)), 99)))
                 except ValueError as ve:
                     print(f'[frame] guard: {ve}', flush=True)
@@ -17314,7 +17361,7 @@ def watch(directory, interval=5.0, once=False):
                                          % ', '.join(csv_dirs))
                     mode_r = str(rv.get('reso_mode', 'print') or 'print').lower()
                     files_r, info_r = make_resonance(
-                        axes=have, mode=mode_r, out_dir=directory, bed=cfg_bed,
+                        axes=have, mode=mode_r, out_dir=_gensub(directory, 'towers'), bed=cfg_bed,
                         material=str(rv.get('material', 'PLA') or 'PLA'),
                         var_path=VAR_PATH, csv_dirs=csv_dirs, scv=scv)
                     script_r = []
@@ -17378,7 +17425,7 @@ def watch(directory, interval=5.0, once=False):
                         first_h=_vf64('bridge_first_h', 0.28),
                         material=str(rv.get('material', 'PLA') or 'PLA'),
                         bed=cfg_bed, nozzle=_gen_nozzle(directory),
-                        out_dir=directory)
+                        out_dir=_gensub(directory, 'towers'))
                     try:
                         _moonraker_gcode(
                             'RESPOND MSG="Bridging test: %s - long %.0fmm, short %.0fmm '
@@ -17482,10 +17529,11 @@ def watch(directory, interval=5.0, once=False):
                     _stem134 = re.sub(
                         r'[^\w\-.+ ]', '_', PLOT_OPTS.sub(
                             '', _src134[:_pm134.start()])).strip() or 'src'
+                    _pdir146 = _gensub(directory, 'plot')
                     _out134 = os.path.join(
-                        directory, '00_Plot_%s_V%02d.gcode'
+                        _pdir146, '00_Plot_%s_V%02d.gcode'
                         % (_stem134, _next_gen_version(
-                            directory, '00_Plot_' + _stem134)))
+                            _pdir146, '00_Plot_' + _stem134)))
                     _istxt134 = _src134.lower().endswith(('.txt', '.txt.gcode'))
 
                     def _plot_job134(p=_p134, out=_out134, src=_src134,
@@ -17539,7 +17587,7 @@ def watch(directory, interval=5.0, once=False):
                 last_plotcal_nonce = pcn
                 try:
                     out_c, info_c = make_plot_cal(
-                        out_dir=directory, var_path=VAR_PATH,
+                        out_dir=_gensub(directory, 'plotcal'), var_path=VAR_PATH,
                         version=max(1, min(int(str(rv.get('gen_version', 1)
                                                       or 1)), 99)))
                     _moonraker_gcode(
@@ -17613,10 +17661,24 @@ def watch(directory, interval=5.0, once=False):
             # (max 12). Pushed ONLY when the list changes. This is output
             # MANAGEMENT (select/delete), not a source picker.
             try:
-                _gf = sorted(((os.path.getmtime(os.path.join(directory, f)), f)
-                              for f in os.listdir(directory)
-                              if f.startswith('00_') and f.endswith('.gcode')),
-                             reverse=True)[:12]
+                # R146 (.107): 00_ outputs live in per-generator SUBFOLDERS
+                # (Labels/, Frames/, ...) - the list carries RELATIVE paths so
+                # select + delete keep working; legacy files in the root stay
+                # listed. The LCD shows the basename (the template splits it).
+                _gfe146 = []
+                for _f146 in os.listdir(directory):
+                    if _f146.startswith('00_') and _f146.endswith('.gcode'):
+                        _gfe146.append((os.path.getmtime(
+                            os.path.join(directory, _f146)), _f146))
+                for _sub146 in GEN_FOLDER_NAMES:
+                    _sp146 = os.path.join(directory, _sub146)
+                    if os.path.isdir(_sp146):
+                        for _f146 in os.listdir(_sp146):
+                            if _f146.startswith('00_') and _f146.endswith('.gcode'):
+                                _gfe146.append((os.path.getmtime(
+                                    os.path.join(_sp146, _f146)),
+                                    _sub146 + '/' + _f146))
+                _gf = sorted(_gfe146, reverse=True)[:12]
                 _gfl = [f for _, f in _gf]
                 if _gfl != gen_files_pushed[0]:
                     gen_files_pushed[0] = _gfl

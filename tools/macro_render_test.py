@@ -3803,7 +3803,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.100) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-21.106'", repr(_v66)))
+    _v66 == "'R2-2026-10-21.107'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -11819,7 +11819,9 @@ _ADDED135 = ['__main __live __acfe __cur', '__main __live __acfe __eff',
  '__main __preprint __file __fcv', '__main __preprint __file __rt',
  '__main __preprint __file __tv2', '__main __preprint __flfe __ghint',
  '__main __preprint __flfe __gon', '__main __preprint __flfe __gval',
- '__main __preprint __flfe __now', '__main __preprint __pafe __gfile',
+ '__main __preprint __flfe __now',
+ '__main __preprint __motion __ret __drv',
+ '__main __preprint __pafe __gfile',
  '__main __preprint __pafe __gon', '__main __preprint __pafe __gsmon',
  '__main __preprint __pafe __gsmv', '__main __preprint __pafe __gval',
  '__main __preprint __pafe __now', '__main __preprint __plot',
@@ -11936,6 +11938,122 @@ tests.append(('R135 temp tower: the dead duplicate __go is now __gen - '
               and '[menu __main __maint __tt __gen]' in _lcd135
               and 'TEMP_TOWER_GEN' in _lcd135
               and 'TEMP_TOWER_START' in _lcd135, ''))
+
+
+# --- R146 (.107): extruder drive profile + wide retraction ranges + activator markers + generator folders ---
+_drv146 = get_body('macros/10_live_tuning.cfg', 'SET_EXTRUDER_DRIVE')
+_p146fr = build_printer()
+_p146fr['firmware_retraction'] = M({'retract_length': 0.75, 'retract_speed': 35.0})
+_r146a = render(_drv146, {'TYPE': 'BOWDEN'}, extra={'printer': _p146fr})
+_r146b = render(_drv146, {'TYPE': 'DIRECT'}, extra={'printer': _p146fr})
+_r146c = render(_drv146, {})
+_r146n = render(_drv146, {'TYPE': 'BOWDEN'})   # printer WITHOUT [firmware_retraction]
+tests.append(('R146 SET_EXTRUDER_DRIVE BOWDEN: starting point 4.5mm @ 30mm/s, '
+              'all three override keys ON, ov_drive saved, paced writes, '
+              'firmware retraction applied live, UI sound (never _SOUND_LIB)',
+              "SAVE_VARIABLE VARIABLE=ov_drive VALUE='\"BOWDEN\"'" in _r146a
+              and 'SAVE_VARIABLE VARIABLE=ov_retract_len VALUE=4.5' in _r146a
+              and 'SAVE_VARIABLE VARIABLE=ov_retract_speed VALUE=30' in _r146a
+              and 'SAVE_VARIABLE VARIABLE=ov_unretract_speed VALUE=30' in _r146a
+              and 'SAVE_VARIABLE VARIABLE=ov_retract_len_on VALUE=True' in _r146a
+              and 'SET_RETRACTION_BASE RETRACT_LENGTH=4.5 RETRACT_SPEED=30 UNRETRACT_SPEED=30' in _r146a
+              and '_UI_SOUND NAME=r2_confirm' in _r146a
+              and '_SOUND_LIB' not in _r146a
+              and _r146a.count('SAVE_VARIABLE') == 7
+              and _r146a.count('_PACE') == 6, _r146a[:200]))
+tests.append(('R146 SET_EXTRUDER_DRIVE DIRECT: 0.6mm @ 40mm/s + z-hop OFF '
+              '(a direct drive needs no hop), same pacing discipline',
+              'SAVE_VARIABLE VARIABLE=ov_retract_len VALUE=0.6' in _r146b
+              and 'SAVE_VARIABLE VARIABLE=ov_retract_speed VALUE=40' in _r146b
+              and 'SAVE_VARIABLE VARIABLE=zh_on VALUE=False' in _r146b
+              and _r146b.count('SAVE_VARIABLE') == 8
+              and _r146b.count('_PACE') == 7
+              and 'SET_RETRACTION_BASE RETRACT_LENGTH=0.6 RETRACT_SPEED=40 UNRETRACT_SPEED=40' in _r146b, _r146b[:200]))
+tests.append(('R146 SET_EXTRUDER_DRIVE guard: no/unknown TYPE -> usage '
+              'message only, nothing written',
+              'SET_EXTRUDER_DRIVE TYPE=DIRECT or TYPE=BOWDEN' in _r146c
+              and 'SAVE_VARIABLE' not in _r146c, _r146c[:160]))
+tests.append(('R146 SET_EXTRUDER_DRIVE without [firmware_retraction]: the '
+              'values still save + the live apply is SKIPPED cleanly (no '
+              'unknown-command crash on a bare printer)',
+              'SAVE_VARIABLE VARIABLE=ov_retract_len VALUE=4.5' in _r146n
+              and 'SET_RETRACTION_BASE' not in _r146n, _r146n[:160]))
+
+_lcd146 = open('menus/lcd_menues.cfg').read()
+tests.append(('R146 Velocity: Drive row at the top of Retraction (shows the '
+              'current profile + swaps DIRECT<->BOWDEN) and the ranges span '
+              'both worlds (length 0-15mm, speeds 5-100mm/s)',
+              '[menu __main __preprint __motion __ret __drv]' in _lcd146
+              and 'SET_EXTRUDER_DRIVE TYPE=' in _lcd146
+              and "input: {printer['save_variables'].variables.ov_retract_len|default(0.8)}\ninput_min: 0\ninput_max: 15" in _lcd146
+              and "input: {printer['save_variables'].variables.ov_retract_speed|default(35)}\ninput_min: 5\ninput_max: 100" in _lcd146
+              and "input: {printer['save_variables'].variables.ov_unretract_speed|default(35)}\ninput_min: 5\ninput_max: 100" in _lcd146, ''))
+tests.append(('R146 activator rows (Pre-Print File + Live, 2x16): the ON '
+              'state lists WHICH parameters are non-neutral - S=speed '
+              'A=accel F=flow P=PA - one glance shows what the feature demands',
+              _lcd146.count("(' S' if printer['save_variables'].variables.ovf_") == 32
+              and _lcd146.count("(' A' if printer['save_variables'].variables.ovf_") == 32
+              and _lcd146.count("(' F' if printer['save_variables'].variables.ovf_") == 32
+              and _lcd146.count("(' P' if printer['save_variables'].variables.ovf_") == 32
+              and _lcd146.count("else 'o:--'}") >= 32, ''))
+try:
+    import re as _re146n
+    _ow146 = _re146n.search(r"name: (OW:.*ovf_wallouter_on.*)", _lcd146).group(1)
+    # build_printer() shares the module-level save_vars dict - COPY it, never
+    # mutate (the OFF render below and every later test must stay clean)
+    _p146 = build_printer()
+    _p146['save_variables'] = M({'variables': M(dict(
+        save_vars, ovf_wallouter_on=True, ovf_wallouter_spd=80,
+        ovf_wallouter_acc=0, ovf_wallouter_flw=100, ovf_wallouter_pa=0.03))})
+    _r146d = render(_ow146, extra={'printer': _p146})
+    _r146e = render(_ow146)
+    _ok146d = ('o:ON S P' in _r146d and ' A' not in _r146d and ' F' not in _r146d
+               and _r146e.strip().endswith('o:--'))
+except Exception as _e146:                                            # noqa: BLE001
+    _ok146d = False
+    _r146d = repr(_e146)
+tests.append(('R146 activator marker RENDER: OW with spd 80% + PA 0.03 shows '
+              "'o:ON S P' (no A, no F); OFF shows plain o:--",
+              _ok146d, str(_r146d)[:160]))
+tests.append(('R146 Gen files slots: basename on the 20-char LCD (path split) '
+              'but the FULL relative path goes to SDCARD_PRINT_FILE - '
+              'subfolder outputs stay selectable',
+              _lcd146.count(").split('/')[-1]|truncate(13, True)}") == 24
+              and _lcd146.count("SDCARD_PRINT_FILE FILENAME=\"{(printer['save_variables'].variables.gen_files|default([]))") >= 12, ''))
+
+_r2p146 = open('tools/r2_postproc.py').read()
+tests.append(('R146 generator folders (source wiring): all 15 watcher call '
+              'sites route into _gensub subfolders (no flat out_dir=directory '
+              'left), gen_files lists RELATIVE paths incl. legacy root files, '
+              'delete joins the subpath',
+              _r2p146.count("out_dir=_gensub(directory, '") == 15
+              and 'out_dir=directory' not in _r2p146
+              and 'GEN_SUBDIRS = {' in _r2p146
+              and "_sub146 + '/' + _f146" in _r2p146
+              and 'os.path.join(directory, _grel146)' in _r2p146, ''))
+try:
+    import os as _os146, tempfile as _tf146, importlib as _il146, sys as _sys146
+    if 'tools' not in _sys146.path:
+        _sys146.path.insert(0, 'tools')
+    _r2m146 = _il146.import_module('r2_postproc')
+    _ok146f = False
+    with _tf146.TemporaryDirectory() as _td146:
+        _sub146 = _r2m146._gensub(_td146, 'labels')
+        open(_os146.path.join(_td146, '00_X_V03.gcode'), 'w').write(';')
+        _r2m146._WATCH_ROOT = _td146
+        try:
+            _v146 = _r2m146._next_gen_version(_sub146, '00_X')
+        finally:
+            _r2m146._WATCH_ROOT = None
+        _ok146f = (_sub146 == _os146.path.join(_td146, 'Labels')
+                   and _os146.path.isdir(_sub146) and _v146 == 4)
+except Exception as _e146f:                                           # noqa: BLE001
+    _ok146f = False
+    _v146 = repr(_e146f)
+tests.append(('R146 _gensub + version continuity: Labels/ created on demand; '
+              'a legacy 00_X_V03.gcode in the ROOT still counts - the next '
+              'write into Labels/ is V04 (no collision across the move)',
+              _ok146f, str(_v146)[:120]))
 
 fails = 0
 for name, ok, info in tests:
