@@ -3803,7 +3803,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.100) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-21.105'", repr(_v66)))
+    _v66 == "'R2-2026-10-21.106'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -11876,13 +11876,20 @@ tests.append(('R135 Offset X/Y/Z: 6 inputs, 0.1mm steps + HALF-step 0.05 fine '
               and _poffblk135.count('SET_GCODE_OFFSET Z=') == 2
               and _poffblk135.count('SET_GCODE_OFFSET X=') == 2
               and _poffblk135.count('SET_GCODE_OFFSET Y=') == 2, ''))
-tests.append(('R135 stock menus hidden: OctoPrint + Temperature + Setup '
-              'overridden with enable {False} (the documented menu.cfg merge), '
-              'SD Card (the LCD file browser) untouched',
-              '[menu __main __octoprint]\nenable: {False}' in _lcd135
-              and '[menu __main __temp]\nenable: {False}' in _lcd135
-              and '[menu __main __setup]\nenable: {False}' in _lcd135
-              and '[menu __main __sdcard]' not in _lcd135, ''))
+_menu_secs145 = re.findall(r'^\[menu ([^\]]+)\]([^\[]*)', _lcd135, re.M)
+_no_type145 = [m[0] for m in _menu_secs145
+               if 'type' not in [l.split(':')[0].strip() for l in m[1].splitlines()
+                                 if l.strip() and not l.strip().startswith('#')]]
+tests.append(('R145 stock menus hidden CORRECTLY: OctoPrint + Temperature + '
+              'Setup overridden with FULL definitions (type+name+enable False - '
+              'Klipper reads every [menu] section standalone, enable-only = boot '
+              'halt, field report .105), SD Card (the LCD file browser) untouched, '
+              'and NO menu section anywhere in lcd_menues.cfg lacks type',
+              '[menu __main __octoprint]\ntype: list\nname: OctoPrint\nenable: {False}' in _lcd135
+              and '[menu __main __temp]\ntype: list\nname: Temperature\nenable: {False}' in _lcd135
+              and '[menu __main __setup]\ntype: list\nname: Setup\nenable: {False}' in _lcd135
+              and '[menu __main __sdcard]' not in _lcd135
+              and not _no_type145, str(_no_type145[:3])))
 tests.append(('R135 quick access carries the GLOBALS: PA (toggle+value+smooth) '
               'and flow (toggle+value) and accel (toggle+value) and 1st-layer '
               'speed in Pre-Print; live global speed (M220) + live accel in '
