@@ -6838,8 +6838,8 @@ _p90a, _i90a = _pp.make_frame(preset='10x15', depth=8, frame_w=10, corner=4,
 _g90a = open(_p90a, encoding='utf-8').read()
 tests.append(('R90.1a multi: 10x15 -> Part A (frame alone), TAG + PRINT_START',
     _i90a['multi'] and not _i90a['kit'] and len(_i90a['plates']) == 2
-    and _os90.path.basename(_p90a) == 'V01_Frame_10x15_FLATx8_A.gcode'
-    and _i90a['plates'][1] == 'V02_Frame_10x15_FLATx8_B.gcode'
+    and _os90.path.basename(_p90a) == 'V01_A_Frame_10x15_FLATx8.gcode'
+    and _i90a['plates'][1] == 'V02_B_Frame_10x15_FLATx8.gcode'
     and _pp.TAG in _g90a and 'PRINT_START MATERIAL=PLA LAYER_HEIGHT=0.2' in _g90a
     and _g90a.count('EXCLUDE_OBJECT_DEFINE') == 1 and ';TYPE:Ironing' in _g90a
     and 'PLATE A of 2' in _g90a, _os90.path.basename(_p90a)))
@@ -6922,8 +6922,8 @@ _p90k, _i90k = _pp.make_frame(preset='13x18', depth=6, frame_w=8,
 _g90k = open(_p90k, encoding='utf-8').read()
 tests.append(('R90.1a: 13x18 border 8 = 2 plates (multi-plate BEFORE kit)',
     _i90k['multi'] and not _i90k['kit'] and len(_i90k['plates']) == 2
-    and _os90.path.basename(_p90k) == 'V04_Frame_13x18_FLATx6_A.gcode'
-    and _i90k['plates'][1] == 'V05_Frame_13x18_FLATx6_B.gcode'
+    and _os90.path.basename(_p90k) == 'V04_A_Frame_13x18_FLATx6.gcode'
+    and _i90k['plates'][1] == 'V05_B_Frame_13x18_FLATx6.gcode'
     and _g90k.count('EXCLUDE_OBJECT_DEFINE') == 1, _os90.path.basename(_p90k)))
 
 # real kit: custom 40x200 border 6 - even the frame alone is too tall
@@ -6934,8 +6934,8 @@ _g90kkb = open(_os90.path.join(_d90, _i90kk['plates'][1]),
                encoding='utf-8').read()
 tests.append(('R90.1a kit: frame alone too tall -> 4 strips on A + plate on B',
     _i90kk['kit'] and _i90kk['multi'] and len(_i90kk['plates']) == 2
-    and _os90.path.basename(_p90kk) == 'V06_Frame_40x200_FLATx6_KIT_A.gcode'
-    and _i90kk['plates'][1] == 'V07_Frame_40x200_FLATx6_KIT_B.gcode'
+    and _os90.path.basename(_p90kk) == 'V06_A_Frame_40x200_FLATx6_KIT.gcode'
+    and _i90kk['plates'][1] == 'V07_B_Frame_40x200_FLATx6_KIT.gcode'
     and _g90kk.count('EXCLUDE_OBJECT_DEFINE') == 4
     and 'EXCLUDE_OBJECT_DEFINE NAME=STRIP_T' in _g90kk
     and 'EXCLUDE_OBJECT_DEFINE NAME=STRIP_L' in _g90kk
@@ -12713,6 +12713,19 @@ tests.append(('R160b range tag: 10 chars of the SOURCE OBJECT (version '
     'source counts in the sequence), legacy 00_Garage_V05 -> V07_Garage_L2-3 '
     '(was a useless 00V)',
     _ok160c3, str(_n160c3)[:80]))
+
+# (11c) DISPLAY: multi-plate letters survive the 15-char cut (.120 field
+# question - the old tail suffix was invisible next to its sibling)
+def _cut15_160d(n):
+    return n[:-6][:15] if n.endswith('.gcode') else n[:15]
+tests.append(('R160d multi-plate display: the plate letter sits behind the '
+    'version (V01_A_Frame_... / V05_A_BrickKit_...) - BOTH plates stay '
+    'recognizable on the 15-character display (old tail suffix was cut)',
+    _cut15_160d('V01_A_Frame_10x15_FLATx8.gcode').startswith('V01_A')
+    and _cut15_160d('V02_B_Frame_10x15_FLATx8.gcode').startswith('V02_B')
+    and _cut15_160d('V05_A_BrickKit_MyBox.gcode').startswith('V05_A')
+    and _cut15_160d('V06_B_BrickKit_MyBox.gcode').startswith('V06_B')
+    and _cut15_160d('V03_Bricks_A.gcode') == 'V03_Bricks_A', 'cut'))
 
 # (11b) BOOT GUARD (.120 field log): [delayed_gcode] takes ONLY
 # gcode/initial_duration - a description: line HALTED Klipper at boot

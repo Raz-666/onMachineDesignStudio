@@ -1393,7 +1393,7 @@ cross open holes (keyhole, stud holes, cable slot) — and those retract.
 | BACKPLATE | 0.8 mm cover plate — 0.3 mm play per side through the photo shaft, snaps under the 4 wall nubs; hidden keyhole (TOP/BOTTOM/LEFT/RIGHT) and, with Stand, two D2.7 stud holes |
 | STAND | easel leg with two studs that plug into the backplate holes (24 mm apart) |
 | STRIP_T/B/L/R | only in the split KIT: the four frame walls as glue strips |
-| Part A / B | multi-plate: when frame + backplate do not fit side by side, the generator writes two files — `Vnn_.._A.gcode` (frame) and the next number `.._B.gcode` (backplate + stand) — consecutive numbers, the 15-character LCD tells them apart at a glance. Part A auto-selects, the end-of-plate hint (console + LCD + beeps) names Part B, no auto-start |
+| Part A / B | multi-plate: when frame + backplate do not fit side by side, the generator writes two files — `Vnn_A_Frame_….gcode` (frame) and the next number `Vnn_B_…` (backplate + stand) — the plate letter sits DIRECTLY behind the version, so the 15-character LCD shows the role (the old tail suffix was cut off); consecutive numbers tell any two files apart at a glance. Part A auto-selects, the end-of-plate hint (console + LCD + beeps) names Part B, no auto-start |
 
 **Settings**
 

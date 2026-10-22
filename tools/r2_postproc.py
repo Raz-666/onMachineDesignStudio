@@ -8779,12 +8779,17 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
     _hi158 = _next_gen_version(out_dir) - 1
     _fnames158 = {}
     for _psfx158, _wf158, _rf158 in plates:
-        _pfx158 = 'Frame_%s_%sx%.0f%s%s' % (
+        # R160d (.120 field question): multi-plate - the plate letter sits
+        # DIRECTLY behind the version (V01_A_Frame_...). The 15-char display
+        # cuts the tail, so the old '_A' suffix was invisible next to its
+        # '_B' sibling; now the role is the 4th character.
+        _pfx158 = 'Frame_%s_%sx%.0f%s' % (
             preset if preset else '%.0fx%.0f' % (width, height),
-            mode, depth, '_KIT' if kit else '',
-            '_' + _psfx158 if _psfx158 else '')
+            mode, depth, '_KIT' if kit else '')
         _hi158 += 1
-        _fnames158[_psfx158] = 'V%02d_%s.gcode' % (_hi158, _pfx158)
+        _fnames158[_psfx158] = (
+            'V%02d_%s_%s.gcode' % (_hi158, _psfx158, _pfx158)
+            if _psfx158 else 'V%02d_%s.gcode' % (_hi158, _pfx158))
 
     def frame_fname(sfx):
         return _fnames158[sfx]
@@ -12039,7 +12044,8 @@ def make_brick_kit(src, detail='AUTO', mode='BY_LAYER', colors=3,
     out_files = []
     for (label, plate_ci, plist) in plates:
         v += 1
-        fname = 'V%02d_BrickKit_%s_%s.gcode' % (v, stem, label)
+        # R160d: plate letter behind the version (V05_A_BrickKit_box)
+        fname = 'V%02d_%s_BrickKit_%s.gcode' % (v, label, stem)
         fname = _dedupe_gen_fname(out_dir, fname)
         outp = os.path.join(out_dir, fname)
         out_files.append(fname)
