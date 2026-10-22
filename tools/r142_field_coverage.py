@@ -99,6 +99,21 @@ ck('watch: _printer_busy probe exists and gates the scan',
 ck('watch: generator nonces freeze while printing (label/figures/kit...)',
    "'figures_nonce'" in src and "'brickkit_nonce'" in src
    and '_freeze133' in src, '')
+ck('geometry classifier (.114): vase rule - a run of extruding moves '
+   'with slowly rising Z (spiral) forces WALL-OUTER for the whole spiral '
+   '(field rule: after the bottom ONE feature remains, always)',
+   'self.vase = True' in src and '_vn153 >= 12' in src
+   and "'WALL-OUTER')" in src.split('R153: vase/spiral mode')[1][:800], '')
+ck('geometry classifier: brim rule - layer-1 wall loops WITHOUT a layer-2 '
+   'successor become BRIM, the largest continuing inner loop is promoted '
+   'back to WALL-OUTER (the real wall sat nested inside the brim ring)',
+   '_brim153' in src and '_has_succ153' in src
+   and "'BRIM')" in src.split('def _brim153')[1][:1800]
+   and 'promote the LARGEST' in src, '')
+ck('geometry classifier: derived APPLY_TYPE keyed by the WRITER index '
+   '(the raw index shifted against the output whenever comments got '
+   'filtered - derived tags landed next to the wrong lines)',
+   'type_at[(gj, gj)] = gfeat' in src, '')
 ck('sd_files/gen_files push: cache only set on a 200 answer + '
    'independent guards + retry message (.112 field regression: the push '
    'failed while klipper restarted after the update and was never retried '

@@ -14506,8 +14506,11 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
     # Tagged data always wins (mark_type disarms the classifier), derived
     # and tagged are never mixed in one file.
     if not type_at and geom.ranges:
+        # R153: key by the WRITER index (gj) - the raw index (gi) shifted
+        # against the output whenever comments got filtered, so the derived
+        # APPLY_TYPE lines landed next to the wrong lines (or nowhere)
         for (gi, gj, gfeat) in geom.ranges:
-            type_at[(gi, gj)] = gfeat
+            type_at[(gj, gj)] = gfeat
         for gfeat, gd in geom.fstat.items():
             if gfeat not in feat_stats:
                 feat_stats[gfeat] = {'f': dict(gd), 'acc': None}
@@ -14780,6 +14783,12 @@ class _GeomScan:
         self._p_len = 0
         self.ranges = []          # [(i, j, feature)] - polyline starts
         self.fstat = {}           # feature -> {speed_mm_s: move count}
+        self.vase = False         # R153: spiral detected -> one feature rules
+        self._vn153 = 0           # rising-Z extruding move run
+        self._vr153 = 0.0
+        self._vz153 = None
+        self._l1_outers = None    # R153: layer-1 wall loops (brim matching)
+        self._l1_inners = None    # R153: ...and inner loops (promotion)
         self.cls_len = 0.0
         self.tot_len = 0.0
         self.layers_classified = 0
@@ -14848,9 +14857,34 @@ class _GeomScan:
                 self._p = (x1, y1)
             return
         # ---- heavy: untagged so far ------------------------------------------------
+        # R153 (.114) vase rule (field report): in spiral/vase mode the ONE
+        # feature after the bottom is OUTER WALL - always. Detected by a run
+        # of extruding moves that CARRY a slowly rising Z (each +<=0.08mm,
+        # no travel/retract between): a real layer change hops Z in a travel.
+        if extruding:
+            dz153 = (p['Z'] - self._vz153) if ('Z' in p and
+                                               self._vz153 is not None) else None
+            if 'Z' in p and dz153 is not None and 0.0005 <= dz153 <= 0.08:
+                self._vn153 += 1
+                self._vr153 += dz153
+            elif 'Z' in p and dz153 is None:
+                self._vn153 = 1
+                self._vr153 = 0.0
+            else:
+                self._vn153 = 0
+                self._vr153 = 0.0
+            self._vz153 = p.get('Z', self._vz153)
+            if (not self.vase and self._vn153 >= 12
+                    and self._vr153 >= 0.06):
+                self.vase = True
+                self._close_poly()
+        if not extruding:
+            self._vn153 = 0
+            self._vr153 = 0.0
         if extruding:
             if (self._comment_pending
-                    or (self.z is not None and self.layer_z is not None
+                    or (not self.vase and self.z is not None
+                        and self.layer_z is not None
                         and self.z > self.layer_z + 0.05)):
                 self._close_poly()
                 self._classify()
@@ -14905,6 +14939,24 @@ class _GeomScan:
         self.polys = []
         if not polys:
             return
+        # R153: vase/spiral mode - after the bottom the spiral is ONE
+        # continuous outer wall (field rule). Everything here is outer wall,
+        # no loop/hatch guessing, no layer splitting.
+        if self.vase:
+            _vbbs = []
+            for (ij, speed, pts, plen) in polys:
+                self.tot_len += plen
+                self.ranges.append((ij[0], ij[1], 'WALL-OUTER'))
+                self.fstat.setdefault('WALL-OUTER', {})
+                self.fstat['WALL-OUTER'][round(speed, 1)] = \
+                    self.fstat['WALL-OUTER'].get(round(speed, 1), 0) + len(pts) - 1
+                self.cls_len += plen
+                _ch = math.hypot(pts[-1][0] - pts[0][0], pts[-1][1] - pts[0][1])
+                if _ch < 1.0 and plen > 3.0:
+                    _vbbs.append(self._area_bbox(pts)[1])
+            self._brim153(_vbbs)
+            self.layers_classified += 1
+            return
         first_layer = (self.layers_classified == 0)
         self.layers_classified += 1
         loops = []           # (bbox_area, bbox, pts, plen, ij, speed)
@@ -14956,6 +15008,22 @@ class _GeomScan:
             self.fstat[feat][round(speed, 1)] = \
                 self.fstat[feat].get(round(speed, 1), 0) + len(pts) - 1
             self.cls_len += plen
+            if first_layer and feat in ('WALL-OUTER', 'WALL-INNER'):
+                # R153: remember layer-1 wall loops - a BRIM is a layer-1
+                # WALL-OUTER loop with NO successor on layer 2 (walls
+                # continue, brim does not). Checked when the next layer
+                # arrives. Inner loops are kept for the promotion below.
+                if self._l1_outers is None:
+                    self._l1_outers = []
+                    self._l1_inners = []
+                if feat == 'WALL-OUTER':
+                    self._l1_outers.append((ij, bb))
+                else:
+                    self._l1_inners.append((ij, bb))
+
+        # ---- R153 brim: layer-1 wall loops without a layer-2 successor ----------
+        if not first_layer and self._l1_outers:
+            self._brim153([bb for (a, bb, pts, plen, ij, speed) in loops])
 
         # ---- hatch: >= 3 parallel straight lines with regular spacing -----------
         if hatches:
@@ -14982,6 +15050,51 @@ class _GeomScan:
                     self.fstat[feat][round(speed, 1)] = \
                         self.fstat[feat].get(round(speed, 1), 0) + 1
                     self.cls_len += plen
+
+    def _brim153(self, cur_bbs):
+        """R153: a BRIM is a layer-1 WALL-OUTER loop with no successor on
+        the next layer (walls continue upward, brim exists on layer 1 only).
+        Called from both classify paths (normal + vase fast-path - the vase
+        spiral IS the successor loop of the real outer wall)."""
+        if not self._l1_outers:
+            return
+        _conv153 = 0
+
+        def _has_succ153(bb):
+            for _cb in cur_bbs:
+                if (bb[0] >= _cb[0] - 0.4 and bb[1] >= _cb[1] - 0.4
+                        and bb[2] <= _cb[2] + 0.4 and bb[3] <= _cb[3] + 0.4):
+                    return True
+            return False
+
+        for (_ij153, _bb153) in self._l1_outers:
+            if _has_succ153(_bb153):
+                continue
+            for _ri in range(len(self.ranges)):
+                if (self.ranges[_ri][0] == _ij153[0]
+                        and self.ranges[_ri][1] == _ij153[1]
+                        and self.ranges[_ri][2] == 'WALL-OUTER'):
+                    self.ranges[_ri] = (_ij153[0], _ij153[1], 'BRIM')
+                    _conv153 += 1
+                    break
+        if _conv153 and self._l1_inners:
+            # the real outer wall sat NESTED inside the brim ring (it was
+            # classified WALL-INNER) - promote the LARGEST layer-1 inner
+            # loop that continues on layer 2 back to WALL-OUTER
+            _cand = [( (bb[2]-bb[0]) * (bb[3]-bb[1]), ij, bb)
+                     for (ij, bb) in self._l1_inners if _has_succ153(bb)]
+            if _cand:
+                _cand.sort(key=lambda t: -t[0])
+                _ijp = _cand[0][1]
+                for _ri in range(len(self.ranges)):
+                    if (self.ranges[_ri][0] == _ijp[0]
+                            and self.ranges[_ri][1] == _ijp[1]
+                            and self.ranges[_ri][2] == 'WALL-INNER'):
+                        self.ranges[_ri] = (_ijp[0], _ijp[1], 'WALL-OUTER')
+                        break
+        self._l1_outers = None
+        self._l1_inners = None
+
 
     def finish(self):
         self._close_poly()
