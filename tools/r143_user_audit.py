@@ -429,9 +429,10 @@ check('3 watcher pushes contain NO beep (auto-sounds during a print: none)',
 # UI feedback sounds go through _UI_SOUND (silent while printing, F7);
 # error/alarm sounds keep their sound (NOTIFY SOUND= stays loud by design)
 snd = open('macros/02_sounds.cfg').read()
-check('3 _UI_SOUND wrapper exists and is silent while printing',
+check('3 _UI_SOUND wrapper exists and is silent while printing '
+      '(R160b: gates on the REAL print state - a stuck mode cannot mute)',
       '[gcode_macro _UI_SOUND]' in snd
-      and "mode not in ['printing','paused','filament']" in snd)
+      and "printer.print_stats.state not in ['printing','paused']" in snd)
 for macro_file in ('macros/16_labels.cfg', 'macros/17_generator.cfg',
                    'macros/18_colorpic.cfg', 'macros/19_bricks.cfg'):
     t = open(macro_file).read()

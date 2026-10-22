@@ -21,7 +21,7 @@ What it does
 What it never touches
 - ;TYPE: tags, LAYER_MARK / APPLY_TYPE, EXCLUDE_OBJECT_*, temps, fans,
   retracts, speeds, E values, Z values - the feature system stays intact
-- the source file: the result is a NEW file 00_Vnn_name_TX.gcode (one
+- the source file: the result is a NEW file Vnn_name_TX.gcode (one
   folder-global running number, never reused) - never an overwrite, no
   auto-start (viewer hint instead)
 
@@ -209,10 +209,11 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
     # R158 (.118): version FIRST + ONE folder-global number, mirroring
     # r2_postproc._next_gen_version (kept local on purpose - this script
     # stays importable without the 18k-line post-processor). A new-format
-    # source (00_Vnn_Name.gcode) contributes just its Name part; a legacy
-    # source (00_Name_Vnn.gcode) loses its tail version AND its old 00_
-    # prefix - the output carries exactly one 00_Vnn_ head.
-    _m158 = re.match(r'^00_V\d+_(.+)$', stem)
+    # source (Vnn_Name.gcode, or R158's 00_Vnn_Name.gcode) contributes just
+    # its Name part; a legacy source (00_Name_Vnn.gcode) loses its tail
+    # version AND its old 00_ prefix - the output carries exactly one Vnn_
+    # head (R160 .120: the 00_ prefix is gone, 3 characters back).
+    _m158 = re.match(r'^(?:00_)?V\d+_(.+)$', stem)
     if _m158:
         stem = _m158.group(1)
     else:
@@ -221,7 +222,8 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
     _hi158 = 0
     try:
         for _p158 in os.listdir(out_dir):
-            _mm158 = re.match(r'^00_V(\d+)_', _p158)
+            # R160b: V05b_ counts as 05 (the collision letter from _dedupe)
+            _mm158 = re.match(r'^(?:00_)?V(\d+)[a-z]?_', _p158)
             if _mm158:
                 _hi158 = max(_hi158, int(_mm158.group(1)))
                 continue
@@ -231,10 +233,20 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
     except OSError:
         pass
     if _hi158 >= 99:
-        raise ValueError('all 00_V numbers 01..99 are used in this folder - '
+        raise ValueError('all V numbers 01..99 are used in this folder - '
                          'clean up first (a texture never silently '
                          'overwrites)')
-    fname = '00_V%02d_%s_TX.gcode' % (_hi158 + 1, stem)
+    fname = 'V%02d_%s_TX.gcode' % (_hi158 + 1, stem)
+    # R160b (.120 field): never overwrite - same number + a small letter if
+    # the exact name appeared meanwhile (mirrors r2_postproc._dedupe_gen_fname)
+    if os.path.exists(os.path.join(out_dir, fname)):
+        _m160 = re.match(r'^(V\d+)(_.*)$', fname)
+        if _m160:
+            for _c160 in 'bcdefghijklmnopqrstuvwxyz':
+                _cand160 = '%s%s%s' % (_m160.group(1), _c160, _m160.group(2))
+                if not os.path.exists(os.path.join(out_dir, _cand160)):
+                    fname = _cand160
+                    break
     out = os.path.join(out_dir, fname)
     if os.path.abspath(out) == os.path.abspath(src):
         raise ValueError('texture output name collides with the source - '

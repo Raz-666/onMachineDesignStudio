@@ -250,11 +250,11 @@ upload / copy / scp ──►  gcodes folder
                               │             APPLY_TYPE, _FILE_INFO, TYPES/FS/FA
                               ├─ photo.png / .jpg / .svg / .pdf / .txt
                               │        ──► untouched: select it in the file
-                              │            list → 00_Plot_* generated on demand
-                              └─ generated later on demand (00_ = top of
-                                  the list, _V = your version number):
-                                  Range 00_<src>_L<a>-<b>_V<xx>.gcode
-                                  Label 00_<text>_V<xx>.gcode
+                              │            list → Vnn_Plot_* generated on demand
+                              └─ generated later on demand (Vnn_ leads =
+                                  top of the list + your version number):
+                                  Range Vnn_<src>_L<a>-<b>.gcode
+                                  Label Vnn_<text>.gcode
                                   TempTower / RetractTower / FlowCube /
                                   Bridge / Resonance plates
                               ▼
@@ -695,7 +695,8 @@ Details and all parameters: ch. 5.1.
 2. Tools > Labels > Settings: size (default 50×15), font (SMOOTH / MONO / COND /
    NARROW / CAPS), hole side + diameter, stroke = letter line width.
 3. Job > Add label — repeat for several DIFFERENT labels (queue shows n/24).
-4. Job > Create — the watcher builds `00_<text>_V<xx>.gcode` and beeps.
+4. Job > Create (press 2× — arm, then start) — the watcher builds
+   `Vnn_<text>.gcode` and beeps.
 5. Start it like any file. Two colors: print pauses with M600 after all base
    plates — load color 2, RESUME purges into the purge tower, the text goes
    on top. Every label is an exclude object (skip single labels live).
@@ -705,7 +706,7 @@ Details: ch. 5.2.
 1. Mount a pen (Tools > Plotter > Pen offset X/Y/Z tells the system where it sits).
 2. Upload `bild.png` (or .jpg/.svg/.pdf/.txt) — plain, **no `.gcode` tail**
    anymore (.103). Select it in the file list → the watcher generates
-   `00_V01_Plot_bild.gcode` on demand (settings: Tools > Plotter;
+   `V01_Plot_bild.gcode` on demand (settings: Tools > Plotter;
    auto-contrast finds the ink on any paper tint, dark boards invert
    automatically; Maintenance > gen-out decides selected-for-start vs
    preview only).
@@ -763,16 +764,17 @@ one continuous bead per layer, nothing to cross.
 
 ### 5.0b Generated files: names, versions, select + delete (R133f)
 
-**Names & versions (.118).** Every generated file is named
-`00_V<number>_<name>.gcode` — the running number sits DIRECTLY behind the
-`00_` prefix: `00_V07_R2-D2.gcode`, `00_V03_Bridge_150mm_40pct.gcode`,
-`00_V01_Figure_s100_SINGLE.gcode`. Why: the LCD shows only the first ~15
+**Names & versions (.118/.120).** Every generated file is named
+`V<number>_<name>.gcode` — the running number LEADS, free of the old `00_`
+prefix (gone since .120 — three more name characters on the 15-character
+display): `V07_R2-D2.gcode`, `V03_Bridge_150mm_40pct.gcode`,
+`V01_Figure_s100_SINGLE.gcode`. Why: the LCD shows only the first ~15
 characters of a file name — with the number at the end (pre-.118) a
 regeneration looked exactly like its predecessor, and frame plates A/B were
 indistinguishable. Now the leading number alone tells any two files apart,
 and the number is ONE folder-wide counter: it never repeats inside a folder,
 regenerating never overwrites an older file (a deleted highest number gets
-reused), and it continues above every legacy `00_Name_Vnn` file that still
+reused), and it continues above every legacy file that still
 sits in the same folder. Both LCD browsers additionally hide the `.gcode`
 tail — 6 more characters of real name per line.
 
@@ -784,14 +786,14 @@ clean for your sliced files and sources. The LCD file browser and Mainsail
 navigate the folders natively; the Gen files list shows the file name and
 selects/deletes via the relative path. Nothing moves on the update: existing
 outputs stay in the root and keep working — numbering is folder-local since
-.118 (each folder counts its own `00_Vnn_` files plus the legacy
+.118 (each folder counts its own `Vnn_` files plus the legacy
 `00_Name_Vnn` files inside it and takes the next free number).
 
-**Tools > Gen files.** Every `00_` output, newest first, right on the
+**Tools > Gen files.** Every generator output, newest first, right on the
 display: press a slot to SELECT that file (the start dialog catches it —
 nothing prints unasked), or open **Delete file** and press a slot TWICE
-(first press arms, second deletes). Only `00_` generator outputs can ever
-be deleted this way — your own sliced files are untouchable.
+(first press arms, second deletes). Only generated files (`Vnn_`/`00_`
+names) can ever be deleted this way — your own sliced files are untouchable.
 
 ### 5.0 After generating: QUEUE or PREVIEW only (.84)
 
@@ -943,7 +945,7 @@ entirely from the LCD (or one console line).
 2. **Tools > Labels > Settings**: size, font, stroke, layers, hole … (table below).
 3. **Job > Add label** — repeat Text+Add for several DIFFERENT labels (same
    text twice = two identical plates). The queue shows n/24.
-4. **Job > Create** — the watcher generates `00_<text>_V<xx>.gcode` (beeps
+4. **Job > Create (press 2×)** — the watcher generates `Vnn_<text>.gcode` (beeps
    when ready) and the file auto-selects. Start it like any file: start
    dialog, adaptive mesh over the labels, purge, your overrides. The same
    text at the same version OVERWRITES its own generated file (settings
@@ -1026,7 +1028,7 @@ vector graphics or text — no slicer involved.
 
 | Select in the file list | What the watcher generates |
 |---|---|
-| `photo.png` | PNG → `00_V01_Plot_photo.gcode` (pen lines) |
+| `photo.png` | PNG → `V01_Plot_photo.gcode` (pen lines) |
 | `foto.jpg` | JPEG (baseline; progressive photos refuse — export as PNG) |
 | `drawing.svg` | SVG vector graphics |
 | `plan.pdf` | vector PDF |
@@ -1094,9 +1096,11 @@ auto-scale with the strap width — you never tune the mechanism itself.
 
 1. **Settings** — Count, Length, Width, Layers (strap thickness), LH (layer
    height), Closure, Brim, Vers (see table below).
-2. **Create (beeps)** — a confirm blip immediately, then the watcher builds
+2. **Create (press twice)** — the first press arms (`Again = start` on
+   the display, 10 s window), the second starts the build with a short
+   start chirp; then the watcher builds
    the file in the background (niced, ~1–3 s). The happy tune plays and the
-   file **auto-selects**: `00_Ties_<len>x<wid>_<CLA|LOO>_V<xx>.gcode` — it
+   file **auto-selects**: `Vnn_Ties_<len>x<wid>_<CLA|LOO>.gcode` — it
    sorts to the TOP of the file list.
 3. Start it like any file: start dialog → AS LEGACY or AS SLICED. The message
    lists everything that was auto-adapted (head size, slot, tooth pitch).
@@ -1208,7 +1212,9 @@ fully automatic hole layout. LCD: `Tools > Angles+Flat`.
 
 **The workflow**
 
-1. Mode → Settings → **Create (beeps)**. The file appears after ~1–2 s,
+1. Mode → Settings → **Create (press 2×)** — first press arms
+   (`Again = start`), second press starts (start chirp). The file appears
+   after ~1–2 s,
    auto-selected: `00_Angle_<deg>deg_<A>x<B>_V<xx>.gcode` or
    `00_Flat_<A+B>x<width>_V<xx>.gcode`.
 2. The ready-message summarizes the plate AND every automatic adjustment
@@ -1249,7 +1255,8 @@ correct viewing side).
    the same list** — the original is never touched, plotting keeps working.
 2. **Settings** — Orient, Height/Size, Layer, Levels, Colors, Frame, Brim,
    Ironing (see table).
-3. **Slot press = Create** — a confirm blip, the watcher generates in its own
+3. **Slot press = Create (press 2×)** — first press arms the slot, second
+   press starts it (start chirp); the watcher generates in its own
    background thread (big pictures ~a minute, the printer keeps serving
    previews meanwhile), the happy tune plays and the file **auto-selects**:
    `00_Litho_<name>_V<xx>.gcode`.
@@ -1315,7 +1322,8 @@ short band-to-band hop between the lips).
 **The workflow (LCD: `Tools > Gaskets`)**
 
 1. **Settings** — OD, ID, Height, Face (FLAT/NUT), Ironing, LH, Vers.
-2. **Create (beeps)** — the watcher builds the file in seconds, the happy
+2. **Create (press 2×)** — arm, then start; the watcher builds the file in
+   seconds, the happy
    tune plays and the file **auto-selects**:
    `00_Seal_<od>x<id>x<h>_V<xx>.gcode`.
 3. Start it like any file.
@@ -1368,9 +1376,10 @@ cross open holes (keyhole, stud holes, cable slot) — and those retract.
    Cable, Infill, Walls, Vers — each topic is its own submenu, plus
    **Presets** (save/load/delete your own complete frame configurations,
    8 slots).
-2. **Create (beeps)** — the watcher checks the bed fit while generating
+2. **Create (press 2×)** — arm, then start; the watcher checks the bed fit
+   while generating
    (≈ 1 s), the happy tune plays and the file **auto-selects**:
-   `00_V01_Frame_<preset>_FLATx8.gcode` (Part A when the bed needs two
+   `V01_Frame_<preset>_FLATx8.gcode` (Part A when the bed needs two
    plates — one beep per plate, the number of beeps = number of files).
 3. Start it like any file. Multi-plate: after the last layer of Part A the
    console + LCD say which file is next — **nothing auto-starts**, load and
@@ -1384,7 +1393,7 @@ cross open holes (keyhole, stud holes, cable slot) — and those retract.
 | BACKPLATE | 0.8 mm cover plate — 0.3 mm play per side through the photo shaft, snaps under the 4 wall nubs; hidden keyhole (TOP/BOTTOM/LEFT/RIGHT) and, with Stand, two D2.7 stud holes |
 | STAND | easel leg with two studs that plug into the backplate holes (24 mm apart) |
 | STRIP_T/B/L/R | only in the split KIT: the four frame walls as glue strips |
-| Part A / B | multi-plate: when frame + backplate do not fit side by side, the generator writes two files — `00_Vnn_.._A.gcode` (frame) and the next number `.._B.gcode` (backplate + stand) — consecutive numbers, the 15-character LCD tells them apart at a glance. Part A auto-selects, the end-of-plate hint (console + LCD + beeps) names Part B, no auto-start |
+| Part A / B | multi-plate: when frame + backplate do not fit side by side, the generator writes two files — `Vnn_.._A.gcode` (frame) and the next number `.._B.gcode` (backplate + stand) — consecutive numbers, the 15-character LCD tells them apart at a glance. Part A auto-selects, the end-of-plate hint (console + LCD + beeps) names Part B, no auto-start |
 
 **Settings**
 
@@ -1477,7 +1486,7 @@ outer skin moves.
    selection preview shows the target),
 2. **Pre-Print > Texture**, pick the mode + parameters,
 3. **> Apply (beeps)** — the watcher builds the result in the background,
-4. a **NEW file** `00_Vnn_<name>_TX.gcode` appears (the number counts up if you apply
+4. a **NEW file** `Vnn_<name>_TX.gcode` appears (the number counts up if you apply
    again — the source is never touched),
 5. **check it in the 3D viewer** — nothing auto-starts, by design,
 6. print the `_TX` file like any other (AS SLICED keeps the texture).
@@ -1551,7 +1560,7 @@ the catalog, CREATE, print.
 2. **Settings** — Layer (0.08–0.32) and Vers, shared with the other
    generators.
 3. **CREATE** — the watcher builds the file in its background thread
-   (beeps + auto-select): `00_V01_Bricks.gcode`.
+   (beeps + auto-select): `V01_Bricks.gcode`.
 
 One file = **one color**, every part its own **exclude object** — a failed
 brick can be skipped live and reprinted later. Console/Mainsail:
@@ -1590,7 +1599,8 @@ two print strategies:
 
 Up to **800 parts**, ~110 per plate; every part its own exclude object.
 **The workflow (LCD: `Tools > Bricks > Kit from file`)** — Source (the 5
-newest sliced jobs, `00_` files skipped; SRC=filename via Mainsail),
+newest sliced jobs, generator outputs (Vnn_/00_ names) skipped; SRC=filename
+via Mainsail),
 Detail, Mode, Colors, CREATE. Console:
 `GEN_BRICKKIT SRC=box.gcode DETAIL=AUTO MODE=BY_LAYER COLORS=3`.
 
@@ -1609,7 +1619,7 @@ mates with the system. Count 1–24, one color, every part its own exclude
 object, ~39 mm tall at 100 %.
 
 **The workflow (LCD: `Tools > Bricks > Figures`)** — Scale (25–300 %,
-5 % steps), Count, CREATE → `00_V01_Figures_s100.gcode`. Console:
+5 % steps), Count, CREATE → `V01_Figures_s100.gcode`. Console:
 `GEN_FIGURES SCALE=100 COUNT=2`.
 
 ### 5.13 ColorPic — photos in full color, no backlight (R120)
@@ -1624,7 +1634,7 @@ optional boost), then the picture is quantized into 2–8 luminance bands.
 lithophane (upload a `.png`/`.jpg` into the gcodes folder), Width, Bands,
 Band height, Colors (per-band palette, light→dark; auto ramps when empty),
 Layer, Ironing, Brim, **Swap**, **Contrast**, Vers → CREATE →
-`00_V01_ColorPic_<name>.gcode`.
+`V01_ColorPic_<name>.gcode`.
 
 | Setting | Meaning |
 |---|---|
@@ -2218,7 +2228,7 @@ retraction reads the firmware values — what you see is what runs.
 |---|---|
 | Text | L1–L5 pickers · Show text · Pos 1–12 (cursor) · Chr (rotates A–Z a–z 0–9 space ÄÖÜäöüß and symbols) · Delete char · Clear text — the current text appears on the LCD with the cursor position; Fit gives a rough estimate, the exact preview follows ~2 s later |
 | Settings | W/H (label size, default 50×15) · Font: SMOOTH / MONO / COND / NARROW / CAPS (the * marks the active one) · Lines 1–3 · Size (0 = auto) · Spc letter spacing · Stroke = letter line width (0 = auto, 0.6 = nozzle) · Base/Text layers · LH / 1st · Ironing · Hole NONE/LEFT/RIGHT/TOP/BOTTOM · Hole D · Brim · 2 colors · Gap (grid spacing) |
-| Job | Queue n/24 · Add label · Del last · Clear all (2×) · Create (beeps) · Fit (how many fit the bed) · How it works |
+| Job | Queue n/24 · Add label · Del last · Clear all (2×) · Create (press 2×) · Fit (how many fit the bed) · How it works |
 | Settings | W/H · Lines 1–5 · Size (auto or cap mm) · Spc · Base/Text layers · LH/1st · Ironing · Hole · Stroke · **Preview fit?** (real numbers incl. growth + minimum size for a fixed font) |
 
 **Plotter** (in Tools) — DRAW/DOTS, dot gap, pen offset X/Y/Z, scale X/Y %,
@@ -2233,7 +2243,7 @@ while plotting (ch. C.3).
 |---|---|
 | Info | every setting in one console listing + material tip |
 | Settings | Count 1–24 · Len 50–300 mm · Width 2–12 mm · Layers 3–6 (strap thickness) · LH 0.12–0.32 (finer = smoother teeth) · Closure: CLASSIC (one-way pawl, `*` marks active) / LOOP (adjustable bead loop, reusable) · Brim ON/OFF |
-| Create (beeps) | validates, bumps the job counter — the watcher builds the file in the background, it beeps + auto-selects |
+| Create (press 2×) | validates, bumps the job counter — the watcher builds the file in the background, it beeps + auto-selects |
 | How it works | the flow + PETG/TPU tip + the Mainsail one-liner, right on the LCD |
 
 **Angles+Flat** (angles + flat connectors, in Tools — ch. 5.5)
@@ -2243,7 +2253,7 @@ while plotting (ch. C.3).
 | Info | every setting in one console listing + the auto-hole rules |
 | Mode | Angle (L) / Flat splice — the `*` marks the active mode |
 | Settings | Angle 30–170° (**hidden in Flat mode**) · Leg A/B 20–150 mm (renamed Left/Right in Flat mode) · Width 8–60 · Layers 4–12 · LH · Holes 0–6 per leg · Hole D 2–10 mm (auto-clamped to the leg width) · Holes: Countersunk/Normal · Rib None/Gusset/Stepped (**hidden in Flat mode**) · Count 1–12  Walls 1-6 · Infill 20-100% · Ironing on/off |
-| Create (beeps) | validates, bumps the job counter — ready in ~1–2 s with the full adjustment report |
+| Create (press 2×) | validates, bumps the job counter — ready in ~1–2 s with the full adjustment report |
 
 **Lithophane** (picture → back-lit relief, in Tools — ch. 5.6)
 
@@ -2261,7 +2271,7 @@ while plotting (ch. C.3).
 |---|---|
 | Info | every setting + material tips |
 | Settings | OD 12–200 mm · ID 6–190 mm · Height 0.4–6 mm · Face: FLAT / NUT (groove + two sealing lips, `*` marks active) · Ironing ON/OFF · LH 0.12–0.32 |
-| Create (beeps) | validates, bumps the job counter — the watcher builds the file, it beeps + auto-selects |
+| Create (press 2×) | validates, bumps the job counter — the watcher builds the file, it beeps + auto-selects |
 | How it works | spiral-per-band, NUT fallback rule, TPU/PETG tip, Mainsail one-liner |
 
 **Frames** (picture frames / display cases, in Tools — ch. 5.8)
@@ -2270,7 +2280,7 @@ while plotting (ch. C.3).
 |---|---|
 | Info | every setting in one console listing + closure explanation |
 | Settings | Preset: Custom/9x13/10x15/13x18/A6 (`*` marks active; picking one fills W/H as editable values) · W + H 40–230 (custom, max follows the build volume) · Depth 3–60 mm · Border 4–30 mm · Corner r 0–30 mm · Walls 1–4 (loops per side) · Shape RECT/OVAL · Closure BACK/SIDE · Hang TOP/BOTTOM/LEFT/RIGHT/OFF · Stand ON/OFF · Surf: Ironed/Bed texture/Lines/Waves/Honeycomb (+ Depth/Spacing/Angle/Wave amp/Cell/Dir) · Disc: None/Glass/Plexi/Foil/Litho (+ Side/Thick) · Cable ON/OFF · Infill 20–100 % · **Presets: Save current / Load 1–8 / Delete 1–8** (your complete frame configs) |
-| Create (beeps) | validates, bumps the job counter — the watcher checks the bed fit and builds the file, it beeps + auto-selects |
+| Create (press 2×) | validates, bumps the job counter — the watcher checks the bed fit and builds the file, it beeps + auto-selects |
 | How it works | workflow, kit logic, snap-in/side assembly, Mainsail one-liner |
 
 **Bricks** (building bricks / kits / figures, in Tools — ch. 5.10–5.12)
@@ -2280,7 +2290,7 @@ while plotting (ch. C.3).
 | Info | queue + settings + geometry summary |
 | Catalog | all 45 codes (B/P/T × 1x1…8x8) — press bumps the count, same codes merge, max 120 parts |
 | Settings | Layer 0.08–0.32 |
-| Create | builds `00_V01_Bricks.gcode` from the queue (beeps + selects) |
+| Create | builds `V01_Bricks.gcode` from the queue (beeps + selects) |
 | Kit from file | Source: the file SELECTED in the file list (or SRC=/INDEX= via Mainsail; nothing selected = clear error) · Detail: AUTO/MICRO 4.8/SMALL 9.6/BIG 3.2 · Mode: By plate (1 color/plate, zero M600) / By object (M600 at color boundaries) · Colors 1–8 · CREATE kit |
 | Figures | Scale 25–300 % (5 % steps) · Count 1–24 · CREATE figure |
 
@@ -2747,7 +2757,7 @@ Diagnostics: SHOW_STATUS · SELF_TEST · KAMP_STATUS · HOST_CHECK (Pi health) �
 | first layer slower/faster | Pre-Print > 1st layer % |
 | calibrate flow | Maintenance > Flow Cal. |
 | run a temperature tower | Maintenance > Temp Tower |
-| print cable ties | Tools > Cable ties > Create (beeps) |
+| print cable ties | Tools > Cable ties > Create (press 2×) |
 | print an angle bracket | Tools > Angles+Flat > Mode > Angle, Settings, Create |
 | join two boards flush | Tools > Angles+Flat > Mode > Flat splice, Left/Right, Create |
 | print a lithophane | Tools > Lithophane > Images (Create) — slot press, then start |
@@ -2755,8 +2765,8 @@ Diagnostics: SHOW_STATUS · SELF_TEST · KAMP_STATUS · HOST_CHECK (Pi health) �
 | print building bricks | Tools > Bricks > Catalog (count parts) > Create |
 | turn a sliced file into a kit | Tools > Bricks > Kit from file > CREATE kit |
 | print figures | Tools > Bricks > Figures > Scale/Count > CREATE figure |
-| print a gasket | Tools > Gaskets > Settings, Create (beeps) |
-| print a picture frame | Tools > Frames > Settings, Create (beeps) |
+| print a gasket | Tools > Gaskets > Settings, Create (press 2×) |
+| print a picture frame | Tools > Frames > Settings, Create (press 2×) |
 | frame as glue kit | Tools > Frames > Preset 13x18, Border 16+, Create — strips + plate, glue the joints |
 | fuzzy skin / dimples on a part | Pre-Print > Texture — pick mode + values, > Apply, check the _TX file in the viewer |
 | delete a lithophane image | Tools > Lithophane > Delete image — press the slot twice |
@@ -3031,13 +3041,13 @@ All 150 public macros with parameters (defaults in parentheses; blank = no param
 | **GEN_ANGLES** | COUNT=2, ANGLE=90, LEG_A=60, LEG_B=60, WIDTH=25, LAYERS=6, HOLES=2, HOLE_D=4, CS=1, STIFFENER=1, WALLS=2, INFILL=100, IRONING=0, FLAT=0, LAYER_H=0.2 | console/Mainsail angle/flat job: `GEN_ANGLES ANGLE=45 LEG_A=80 LEG_B=50 STIFFENER=2` — CS=1 countersunk · FLAT=1 flat connector |
 | **ANGLE_GENERATE** | — | create the plate file from the stored settings (bumps angle_nonce) |
 | **ANGLE_INFO** | — | every angle/flat setting + the auto-hole rules |
-| **TEXTURE_APPLY** | FILE='', MODE='OFF', THICK, DENSITY, PATTERN, SCALE, AMP, DIR='OUT', OUT= | fuzzy skin / shaped bumps for the SELECTED (or FILE) g-code: `TEXTURE_APPLY MODE=FUZZY THICK=0.3 DENSITY=100` — new `00_Vnn_<name>_TX` file in the background — selected under QUEUE, but never auto-STARTED (ch. 5.9) |
+| **TEXTURE_APPLY** | FILE='', MODE='OFF', THICK, DENSITY, PATTERN, SCALE, AMP, DIR='OUT', OUT= | fuzzy skin / shaped bumps for the SELECTED (or FILE) g-code: `TEXTURE_APPLY MODE=FUZZY THICK=0.3 DENSITY=100` — new `Vnn_<name>_TX` file in the background — selected under QUEUE, but never auto-STARTED (ch. 5.9) |
 | **_GEN_OUT_SET** | OUT=QUEUE/PREVIEW (SELECT/ONLY/1/0) (int.) | the sticky generator output switch (.84, ch. 5.0) — every `*_GENERATE` macro also takes a per-run `OUT=` |
 
 ### Building bricks & figures — 19_bricks.cfg
 | Macro | Parameters | Purpose |
 |---|---|---|
-| **GEN_BRICKS** | CODES='B2x4:3\|P2x2:2' | console/Mainsail brick job: sets the queue (code:count, `\|` separated, max 120) and creates `00_V01_Bricks.gcode` |
+| **GEN_BRICKS** | CODES='B2x4:3\|P2x2:2' | console/Mainsail brick job: sets the queue (code:count, `\|` separated, max 120) and creates `V01_Bricks.gcode` |
 | **BRICK_ADD** | CODE='B2x4', COUNT=2 | add COUNT × CODE to the queue (same codes merge; unknown code or count outside 1–99 rejected) |
 | **BRICK_DEL_LAST** | — | drop the last queue entry |
 | **BRICK_CLEAR** | CONFIRM=1 | empty the queue (2-press: first call arms) |

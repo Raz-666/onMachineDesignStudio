@@ -78,7 +78,7 @@ check('vase: all but the first vertex scattered, E-line count identical',
       moved == info['shifted'] == len(src) - 1 and len(dst) == len(src),
       '%d/%d shifted (1st stays)' % (info['shifted'], len(src)))
 check('vase: source untouched, new _TX file', os.path.exists(vase)
-      and os.path.basename(tx) == '00_V01_vase_sim_TX.gcode')
+      and os.path.basename(tx) == 'V01_vase_sim_TX.gcode')
 
 # ---------------------------------------------------------------------------
 print('=== 2. other slicer spellings (OrcaSlicer / Bambu) ===')
@@ -167,7 +167,7 @@ base, _ = make_frame(preset='9x13', depth=4, frame_w=4, out_dir=D, bed=BED)
 t1, _ = apply_texture(base, out_dir=D, mode='FUZZY', fuzzy_thick=0.2)
 t2, i6 = apply_texture(t1, out_dir=D, mode='FUZZY', fuzzy_thick=0.2)
 check('chaining: _TX of _TX works, versions keep counting',
-      os.path.basename(t2) == '00_V12_Frame_9x13_FLATx4_TX_TX.gcode'
+      os.path.basename(t2) == 'V12_Frame_9x13_FLATx4_TX_TX.gcode'
       and i6['shifted'] > 0, os.path.basename(t2))
 
 # ---------------------------------------------------------------------------
@@ -189,7 +189,7 @@ for _ in range(120):
 check('folder-global numbers: all unique, up to V99, then a CLEAR guard '
       '(no silent overwrite)',
       overflow is not None and len(set(names)) == len(names)
-      and names[-1] == '00_V99_ver_TX.gcode'
+      and names[-1] == 'V99_ver_TX.gcode'
       and 'clean up first' in overflow,
       'n=%d last=%s, err=%r' % (len(names), names[-1] if names else '-', overflow))
 

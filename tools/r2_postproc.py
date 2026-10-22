@@ -1553,18 +1553,21 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
         return l
 
     stem, ext = os.path.splitext(src)
-    # R83/R133f: 00_ prefix (top of the file list) + 3 source letters + the
-    # range + a RUNNING version (never overwrite - field log .98 killed the
-    # old same-name-overwrite spec); the SOURCE itself is never written to.
-    # R158 (.118): the version moved to the FRONT (00_Vnn_...) - the LCD
-    # truncates at ~15 characters and the old tail version was invisible.
-    _src3 = re.sub(r'[^A-Za-z0-9]', '', os.path.basename(stem))[:3] or 'RNG'
+    # R83/R133f: 3 source letters + the range + a RUNNING version (never
+    # overwrite - field log .98 killed the old same-name-overwrite spec);
+    # the SOURCE itself is never written to.
+    # R158 (.118): the version moved to the FRONT - the LCD truncates at
+    # ~15 characters and the old tail version was invisible.
+    # R160 (.120): the 00_ prefix is gone (3 characters back for the name).
+    _src3 = re.sub(r'[^A-Za-z0-9]', '', os.path.basename(stem))[:10] or 'RNG'
+    # R160b (.120 field): 10 source chars instead of 3 - 'V07_Vaseklein_L7-355'
+    # still names the source on the display, the leading Vnn_ keeps it unique
     _rng83 = '%s_L%s-%s' % (_src3, start, end)
     _od146 = out_dir if out_dir else (os.path.dirname(stem) or '.')
     # R146 (.107): the watcher routes excerpts into the Range/ subfolder;
     # direct/legacy callers (no out_dir) still write next to the source
     out = os.path.join(_od146,
-                       f'00_V{_next_gen_version(_od146):02d}_{_rng83}'
+                       f'V{_next_gen_version(_od146):02d}_{_rng83}'
                        f'{ext or ".gcode"}')
     if os.path.abspath(out) == os.path.abspath(src):
         raise ValueError('range output name collides with the source - refusing')
@@ -5509,7 +5512,6 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
         elif LAYER_COMMENT.match(ls):
             outl.append('LAYER_MARK')
 
-    # R83: 00_ prefix (generated files sort to the TOP of the file list) and
     # R133f (field log .98): running version, NEVER overwrite - the old
     # 'same text overwrites its file' spec and the gen_version LCD option
     # are gone. Size stays out of the name on purpose (near-duplicates
@@ -5518,8 +5520,9 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
     # characters, a tail version made regenerations look identical.
     first_name = _safe_label_name(texts[0])
     extra = '+%d' % (n - 1) if n > 1 else ''
-    fname = '00_V%02d_%s%s.gcode' % (
+    fname = 'V%02d_%s%s.gcode' % (
         _next_gen_version(out_dir), first_name, extra)
+    fname = _dedupe_gen_fname(out_dir, fname)
     out = os.path.join(out_dir, fname)
     with open(out, 'w') as f:
         f.write('\n'.join(outl) + '\n')
@@ -6259,8 +6262,9 @@ def make_resonance(axes=('x', 'y'), mode='print', out_dir='.', bed=None, version
             for pl in polys:
                 lays.append([(bx + (px / RESO_PLATE_W) * pw * sx,
                               oy + (py / RESO_PLATE_H) * ph * sy) for px, py in pl])
-        fname = '00_V%02d_Resonance_%s_plot.gcode' % (
+        fname = 'V%02d_Resonance_%s_plot.gcode' % (
             _next_gen_version(out_dir), suffix)
+        fname = _dedupe_gen_fname(out_dir, fname)
         out = os.path.join(out_dir, fname)
         notes = ['; R2-RESONANCE diagram (pen plot) from %s'
                  % ', '.join(data[ax]['file'] for ax in axes),
@@ -6393,8 +6397,9 @@ def make_resonance(axes=('x', 'y'), mode='print', out_dir='.', bed=None, version
     a('M107')
     a('PRINT_END')
 
-    fname = '00_V%02d_Resonance_%s.gcode' % (
+    fname = 'V%02d_Resonance_%s.gcode' % (
         _next_gen_version(out_dir), suffix)
+    fname = _dedupe_gen_fname(out_dir, fname)
     out = os.path.join(out_dir, fname)
     with open(out, 'w') as f:
         f.write('\n'.join(L) + '\n')
@@ -6810,6 +6815,29 @@ GEN_FOLDER_NAMES = sorted(set(GEN_SUBDIRS.values()))
 _SD_EXT151 = ('.gcode', '.g', '.gco', '.png', '.jpg', '.jpeg',
               '.svg', '.pdf', '.txt')      # R151: LCD browser + plot sources
 
+# R160 (.120): the ONE place that recognizes a generated file BY NAME. The
+# 00_ prefix is GONE (user rule: 3 characters back for the display) - the
+# version number alone leads: Vnn_Name.gcode. Legacy R133f/R158 files
+# (00_Name_Vnn.gcode / 00_Vnn_Name.gcode) keep matching so old outputs stay
+# selectable, deletable and counted by the census.
+_GEN_NAME_RE = re.compile(r'^(?:V\d+_|00_)')
+
+
+def _is_gen_name(name):
+    """True if NAME looks like a generator output (Vnn_..., legacy 00_...)."""
+    return bool(_GEN_NAME_RE.match(name)) and str(name).endswith('.gcode')
+
+
+# R160 (.120): the feature types the _FILE_INFO macro can display (FS_/FA_
+# keys) - _gen_normalize_speeds writes exactly these for every TYPES entry.
+_FS_KEYS_R160 = frozenset(
+    'FS_' + t for t in (
+        'WALL_OUTER', 'WALL_INNER', 'INFILL_SPARSE', 'INFILL_SOLID',
+        'SURFACE_TOP', 'SURFACE_BOTTOM', 'BRIDGE', 'GAPS', 'SUPPORT',
+        'IRONING', 'SKIRT', 'BRIM', 'OVERHANG_PERIM', 'INTERNAL_BRIDGE',
+        'PRIME_TOWER', 'CUSTOM'))
+
+
 
 def _gensub(root, key):
     """The output subfolder for a generator (created on demand)."""
@@ -6822,17 +6850,19 @@ def _gensub(root, key):
 
 
 def _next_gen_version(out_dir):
-    """R158 (.118): ONE running number per output FOLDER, and it sits in
-    the file name RIGHT AFTER '00_' - the LCD shows only the first ~15
-    characters, so with the old suffix numbering (00_Name_Vnn.gcode) a
+    """R158 (.118)/R160 (.120): ONE running number per output FOLDER, and it
+    leads the file name - V<nn>_<name>.gcode (the 00_ prefix is gone since
+    .120, the number owns the front alone). The LCD shows only the first
+    ~15 characters, so with the old suffix numbering (00_Name_Vnn.gcode) a
     regeneration was invisible next to its predecessor (field report on
-    the SD browser: several files, one display). 00_V<nn>_ identifies a
-    file on the display by itself, whatever the descriptive tail does.
+    the SD browser: several files, one display). V<nn>_ identifies a file
+    on the display by itself, whatever the descriptive tail does.
 
-    The number NEVER repeats inside a folder: the scan counts BOTH name
-    formats - the new '00_V<n>_<name>.gcode' AND every legacy R133f/R146
-    '00_<name>_V<n>.gcode' that still sits there - and takes the next
-    free one. Still no overwriting, no reuse (field log .98 rule).
+    The number NEVER repeats inside a folder: the scan counts ALL name
+    formats - the current 'V<n>_<name>.gcode', R158's '00_V<n>_<name>' AND
+    every legacy R133f/R146 '00_<name>_V<n>.gcode' that still sits there -
+    and takes the next free one. Still no overwriting, no reuse (field
+    log .98 rule).
 
     Folder-local on purpose: numbers are the folder's chronology. The
     R146 cross-root scan is gone - legacy root files belong to the root
@@ -6841,7 +6871,11 @@ def _next_gen_version(out_dir):
     _hi = 0
     try:
         for _p in os.listdir(out_dir or '.'):
-            _m = re.match(r'^00_V(\d+)_', _p)
+            _m = re.match(r'^V(\d+)[a-z]?_', _p)   # R160b: V05b_ counts as 05
+            if _m:
+                _hi = max(_hi, int(_m.group(1)))
+                continue
+            _m = re.match(r'^00_V(\d+)[a-z]?_', _p)
             if _m:
                 _hi = max(_hi, int(_m.group(1)))
                 continue
@@ -6852,6 +6886,27 @@ def _next_gen_version(out_dir):
         pass
     return _hi + 1
 
+
+
+def _dedupe_gen_fname(out_dir, fname):
+    """R160b (.120 field): a generated file NEVER overwrites an existing one.
+
+    If the planned name already exists when the job writes (a second job
+    raced, or a user dropped that exact name into the folder mid-build),
+    the VERSION keeps its number and gets a small letter tail instead:
+    V05_Name.gcode taken -> V05b_Name.gcode -> V05c_... (user rule: same
+    number + 'b', the folder chronology stays readable). _next_gen_version
+    counts the letter variants too, so the sequence moves on afterwards."""
+    if not fname or not os.path.exists(os.path.join(out_dir or '.', fname)):
+        return fname
+    _m = re.match(r'^(V\d+)(_.*)$', fname)
+    if not _m:
+        return fname
+    for _c in 'bcdefghijklmnopqrstuvwxyz':
+        _cand = '%s%s%s' % (_m.group(1), _c, _m.group(2))
+        if not os.path.exists(os.path.join(out_dir or '.', _cand)):
+            return _cand
+    return fname           # b..z all taken (26 collisions) - keep the name
 
 def _parse_ps(out):
     """R76: parse 'ps -eo pcpu,pmem,rss,comm --sort=-pcpu' output -> rows."""
@@ -7269,7 +7324,10 @@ def make_status_plot(out=None, var_path=None, host='127.0.0.1', port=7125):
     polys = _text_page_polys(cols, page_w, page_h, size, font,
                              solid=extrude, line_w=0.65)
     polys = [[(px + bmin_x + 4.0, py + bmin_y + 4.0) for (px, py) in pl] for pl in polys]
-    out = out or '00_R2_Status_V01.gcode'
+    # R160 (.120): new name scheme (V leads, no 00_). FIXED V01 on purpose -
+    # a status snapshot is transient, regenerating overwrites it (the .98
+    # never-overwrite rule is for part generators, not reports).
+    out = out or 'V01_R2_Status.gcode'
     n_lines = sum(len(c) for c in cols)
     notes = ['; status plot: SHOW_STATUS (%d line(s) in %d column(s), %.1fmm caps)'
              % (n_lines, len(cols), size),
@@ -7483,8 +7541,9 @@ def make_bridge(length=160.0, short_pct=30, h_long=35.0, h_short=18.0, version=1
     a('RESPOND MSG="[bridge] done - inspect sag + stringing; better bridges: higher speed, more fan, less flow"')
     a('PRINT_END')
 
-    fname = '00_V%02d_Bridge_%dmm_%dpct.gcode' % (
+    fname = 'V%02d_Bridge_%dmm_%dpct.gcode' % (
         _next_gen_version(out_dir), round(length), short_pct)
+    fname = _dedupe_gen_fname(out_dir, fname)
     out = os.path.join(out_dir, fname)
     with open(out, 'w') as f:
         f.write('\n'.join(L) + '\n')
@@ -7948,8 +8007,9 @@ def make_cable_ties(count=6, length=120.0, width=8.0, layers=3, variant='CLASSIC
                             'M107   ; R2-TIES: first layer = fan off']
             + _gen_markers(L[i0:]))
 
-    fname = '00_V%02d_Ties_%.0fx%.0f_%s.gcode' % (
+    fname = 'V%02d_Ties_%.0fx%.0f_%s.gcode' % (
         _next_gen_version(out_dir), length, width, variant[:3])
+    fname = _dedupe_gen_fname(out_dir, fname)
     out = os.path.join(out_dir, fname)
     with open(out, 'w') as f:
         f.write('\n'.join(outl) + '\n')
@@ -8708,7 +8768,7 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
             mode, depth, '_KIT' if kit else '',
             '_' + _psfx158 if _psfx158 else '')
         _hi158 += 1
-        _fnames158[_psfx158] = '00_V%02d_%s.gcode' % (_hi158, _pfx158)
+        _fnames158[_psfx158] = 'V%02d_%s.gcode' % (_hi158, _pfx158)
 
     def frame_fname(sfx):
         return _fnames158[sfx]
@@ -9650,7 +9710,7 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                                 'M107   ; R2-FRAME: first layer = fan off']
                 + _gen_markers(L[i0:]))
 
-        fname = frame_fname(sfx)
+        fname = _dedupe_gen_fname(out_dir, frame_fname(sfx))  # R160b
         out = os.path.join(out_dir, fname)
         with open(out, 'w') as f:
             f.write('\n'.join(outl) + '\n')
@@ -9994,11 +10054,12 @@ def make_angles(count=2, angle_deg=90, leg_a=60.0, leg_b=60.0, width=25.0,
             + _gen_markers(L[i0:]))
 
     if flat:
-        fname = '00_V%02d_Flat_%.0fx%.0f.gcode' % (
+        fname = 'V%02d_Flat_%.0fx%.0f.gcode' % (
             _next_gen_version(out_dir), la + lb, width)
     else:
-        fname = '00_V%02d_Angle_%ddeg_%.0fx%.0f.gcode' % (
+        fname = 'V%02d_Angle_%ddeg_%.0fx%.0f.gcode' % (
             _next_gen_version(out_dir), round(theta), la, lb)
+    fname = _dedupe_gen_fname(out_dir, fname)   # R160b: never overwrite
     out = os.path.join(out_dir, fname)
     with open(out, 'w') as f:
         f.write('\n'.join(outl) + '\n')
@@ -10311,8 +10372,9 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                          'purge at the park position after every swap')
 
     stem = _gen_stem(src, 'IMG')
-    fname = '00_V%02d_LithoF_%s.gcode' % (
+    fname = 'V%02d_LithoF_%s.gcode' % (
         _next_gen_version(out_dir), stem)
+    fname = _dedupe_gen_fname(out_dir, fname)
     out = os.path.join(out_dir, fname)
 
     e_wall = layer_h * wid / fil
@@ -10653,8 +10715,9 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
     yF = (uy0 + uy1) / 2.0 - t_max / 2.0
 
     stem = _gen_stem(src, 'IMG')
-    fname = '00_V%02d_Litho_%s.gcode' % (
+    fname = 'V%02d_Litho_%s.gcode' % (
         _next_gen_version(out_dir), stem)
+    fname = _dedupe_gen_fname(out_dir, fname)
     out = os.path.join(out_dir, fname)
 
     e_wall = layer_h * wid / fil
@@ -10875,8 +10938,9 @@ def make_plot_cal(out_dir='.', version=1, var_path=None):
                ' wobble on the circles = pen play or speed too high',
              '; pen Z / speed / mode come from the Plotter menu settings'
                ' (live: speed %, babystepping = pen pressure)']
-    fname = '00_V%02d_PlotCal.gcode' % (
+    fname = 'V%02d_PlotCal.gcode' % (
         _next_gen_version(out_dir),)
+    fname = _dedupe_gen_fname(out_dir, fname)
     out = os.path.join(out_dir, fname)
     n = _plot_write(out, polys, notes, var_path=var_path)
     info = {'file': fname, 'kind': 'plotcal', 'dots': n_dots,
@@ -11008,7 +11072,7 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
     brim = 0..8 loops around every part (0 = off, 2 = the classic anchor).
     colors 1..8 + mode (R132):
       BY_LAYER  = one PLATE per color - the plate change IS the color
-                  change, zero M600 (files 00_Bricks_A/B/C...)
+                  change, zero M600 (files Vnn_Bricks_A/B/C...)
       BY_OBJECT = all parts on ONE plate, printed one after another in
                   color order - M600 only at the color boundaries.
     Catalog (R132): bricks, plates, tiles (all sizes), slopes (steep 2-long,
@@ -11154,9 +11218,11 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
         n_by = dict((k, sum(1 for c in plist if c['kind'] == k))
                     for k in sorted(set(c['kind'] for c in plist)))
         if label:
-            fname = '00_V%02d_Bricks_%s.gcode' % (v, label)
+            fname = 'V%02d_Bricks_%s.gcode' % (v, label)
+            fname = _dedupe_gen_fname(out_dir, fname)
         else:
-            fname = '00_V%02d_Bricks.gcode' % (v,)
+            fname = 'V%02d_Bricks.gcode' % (v,)
+            fname = _dedupe_gen_fname(out_dir, fname)
         out = os.path.join(out_dir, fname)
         out_files.append(fname)
         if first_out is None:
@@ -11957,7 +12023,8 @@ def make_brick_kit(src, detail='AUTO', mode='BY_LAYER', colors=3,
     out_files = []
     for (label, plate_ci, plist) in plates:
         v += 1
-        fname = '00_V%02d_BrickKit_%s_%s.gcode' % (v, stem, label)
+        fname = 'V%02d_BrickKit_%s_%s.gcode' % (v, stem, label)
+        fname = _dedupe_gen_fname(out_dir, fname)
         outp = os.path.join(out_dir, fname)
         out_files.append(fname)
         with open(outp, 'w') as f:
@@ -12374,7 +12441,7 @@ def make_figures(count=1, scale=100.0, layer_h=0.2, material='PLA',
                      + nl_stud)
         for c in cells:
             c['nl'] = single_nl
-        fname = '00_V%%02d_Figure_s%03d_SINGLE.gcode' % (
+        fname = 'V%%02d_Figure_s%03d_SINGLE.gcode' % (
             max(25, min(int(round(scale)), 300)),)
     else:
         cells = []
@@ -12398,7 +12465,7 @@ def make_figures(count=1, scale=100.0, layer_h=0.2, material='PLA',
                 c['nl'] = nl_arm
             else:
                 c['nl'] = nl_sock + nl_hed + nl_stud
-        fname = '00_V%%02d_Figures_s%03d_PARTS.gcode' % (
+        fname = 'V%%02d_Figures_s%03d_PARTS.gcode' % (
             max(25, min(int(round(scale)), 300)),)
 
     # ---- plates ------------------------------------------------------------
@@ -12445,6 +12512,7 @@ def make_figures(count=1, scale=100.0, layer_h=0.2, material='PLA',
             pfn = fname % (v, label)
         else:
             pfn = fname % (v,)
+        pfn = _dedupe_gen_fname(out_dir, pfn)   # R160b: never overwrite
         out = os.path.join(out_dir, pfn)
         out_files.append(pfn)
         if first_out is None:
@@ -13230,8 +13298,9 @@ def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
                          'purge at the park position after every swap')
 
     stem = _gen_stem(src, 'IMG')
-    fname = '00_V%02d_ColorPic_%s.gcode' % (
+    fname = 'V%02d_ColorPic_%s.gcode' % (
         _next_gen_version(out_dir), stem)
+    fname = _dedupe_gen_fname(out_dir, fname)
     out = os.path.join(out_dir, fname)
 
     e_wall = layer_h * wid / fil
@@ -13622,8 +13691,9 @@ def make_seal(od=40.0, id_=20.0, height=1.2, profile='FLAT', ironing=False,
     a('M107')
     a('PRINT_END')
 
-    fname = '00_V%02d_Seal_%.0fx%.0fx%.2g.gcode' % (
+    fname = 'V%02d_Seal_%.0fx%.0fx%.2g.gcode' % (
         _next_gen_version(out_dir), od, id_, height_real)
+    fname = _dedupe_gen_fname(out_dir, fname)
     out = os.path.join(out_dir, fname)
     with open(out, 'w') as f:
         f.write('\n'.join(L) + '\n')
@@ -14296,7 +14366,13 @@ def _gen_normalize_speeds(path, print_f=3600, travel_f=10800,
     XY move (E>0 -> print speed, no E -> travel), switches M204 at the
     boundaries, and rewrites the _FILE_INFO SPEED_*/ACCEL_* tokens so the
     Pre-Print display stays honest. E-only (retracts) and Z-only moves
-    keep their own F. Idempotent."""
+    keep their own F. Idempotent.
+
+    R160 (.120): the _FILE_INFO also gets FS_*/FA_* for every type in
+    TYPES (the Pre-Print 'Spd/Acc/feature' rows read exactly those keys -
+    generated files used to show '?' there) plus SLICER=R2_GEN,
+    FW=KLIPPER and RETRACT_STATUS=fw (generated files retract via G10/G11
+    firmware retraction)."""
     import re as _re159
     _mv159 = _re159.compile(r'^(G0|G1)\b')
     _xt159 = _re159.compile(r'(?:^|\s)X-?[\d.]')
@@ -14323,6 +14399,29 @@ def _gen_normalize_speeds(path, print_f=3600, travel_f=10800,
                 # R159 field rule: generated files start at 98% flow (their
                 # geometry does not inherit a slicer flow anyway)
                 ln = _re159.sub(r'(FLOW_RATIO=)[\d.]+', r'\g<1>0.98', ln)
+                # R160: per-feature keys for every type the file really has
+                _mt160 = _re159.search(r'TYPES=([A-Z,-]+)', ln)
+                if _mt160:
+                    for _t160 in _mt160.group(1).split(','):
+                        _fs160 = 'FS_' + _t160.strip().replace('-', '_')
+                        _fa160 = 'FA_' + _t160.strip().replace('-', '_')
+                        if _fs160 not in _FS_KEYS_R160:
+                            continue     # not a displayable feature type
+                        ln = _re159.sub(r'(%s=)[\d.]+' % _fs160,
+                                        r'\g<1>%g' % (print_f / 60.0), ln)
+                        if ('%s=' % _fs160) not in ln:
+                            ln = ln.rstrip() + ' %s=%g' % (_fs160,
+                                                            print_f / 60.0)
+                        ln = _re159.sub(r'(%s=)[\d.]+' % _fa160,
+                                        r'\g<1>%g' % accel, ln)
+                        if ('%s=' % _fa160) not in ln:
+                            ln = ln.rstrip() + ' %s=%g' % (_fa160, accel)
+                # R160: no '?' left on the Pre-Print card - the file says
+                # who made it and how it retracts
+                if 'SLICER=' not in ln:
+                    ln = ln.rstrip() + ' SLICER=R2_GEN FW=KLIPPER'
+                if 'RETRACT_STATUS=' not in ln:
+                    ln = ln.rstrip() + ' RETRACT_STATUS=fw'
                 _fi_done = True
                 fo.write(ln + '\n')
                 continue
@@ -15726,15 +15825,20 @@ def file_check_scan(directory):
     OLD (v1-v3, upgradeable in place) / PLOT (pen-plotter file - never
     tagged, fine) / UNTOUCHED (never processed: fresh upload from before the
     system existed or a foreign file). Pure read - nothing is modified.
+
+    R160 (.120): the census walks the generator SUBFOLDERS too (Labels/,
+    Frames/, ... since .107 the outputs live there - the old flat scan
+    never saw them, the count lied) and rows carry the relative name
+    ('Labels/x.gcode'). 'gen' recognizes the new Vnn_ names AND every
+    legacy 00_ format.
     """
     rows = []
     now = time.time()
-    for name in sorted(os.listdir(directory)):
-        if not name.lower().endswith('.gcode'):
-            continue
-        p = os.path.join(directory, name)
-        if not os.path.isfile(p):
-            continue
+
+    def _fc_one(sub, name):
+        p = os.path.join(directory, sub, name) if sub \
+            else os.path.join(directory, name)
+        rel = (sub + '/' + name) if sub else name
         st = os.stat(p)
         head = []
         try:
@@ -15744,7 +15848,7 @@ def file_check_scan(directory):
                     if i > 120:
                         break
         except OSError:
-            continue
+            return
         h = ''.join(head)
         if 'R2-PLOT' in h[:2048]:
             status = 'PLOT'
@@ -15756,11 +15860,30 @@ def file_check_scan(directory):
             status = 'OLD'
         else:
             status = 'UNTOUCHED'
-        rows.append({'name': name, 'status': status,
+        rows.append({'name': rel, 'status': status,
                      'age': int(max(0, (now - st.st_mtime)) // 86400),
                      'size': st.st_size / 1e6,
-                     'gen': name.startswith('00_'),
+                     'gen': _is_gen_name(name),
                      'tex': '; R2-TEXTURE' in h})
+
+    for name in sorted(os.listdir(directory)):
+        if not name.lower().endswith('.gcode'):
+            continue
+        if not os.path.isfile(os.path.join(directory, name)):
+            continue
+        _fc_one('', name)
+    for _sub in GEN_FOLDER_NAMES:
+        _sp = os.path.join(directory, _sub)
+        try:
+            _subnames = sorted(os.listdir(_sp))
+        except OSError:
+            continue
+        for name in _subnames:
+            if not name.lower().endswith('.gcode'):
+                continue
+            if not os.path.isfile(os.path.join(_sp, name)):
+                continue
+            _fc_one(_sub, name)
     totals = {'files': len(rows),
               'current': sum(1 for r in rows if r['status'] == 'CURRENT'),
               'old': sum(1 for r in rows if r['status'] == 'OLD'),
@@ -16158,7 +16281,7 @@ def watch(directory, interval=5.0, once=False):
                         stats['tagged_before'] += 1
                     continue
                 # R64: generated plotter files without .png/... endings
-                # (Resonance_*_plot.gcode, 00_R2_Status_V01.gcode) carry the R2-PLOT header
+                # (Resonance_*_plot.gcode, V01_R2_Status.gcode) carry the R2-PLOT header
                 if b'R2-PLOT' in data_head_if_text(p):
                     stats['tagged_before'] += 1
                     continue
@@ -16231,12 +16354,18 @@ def watch(directory, interval=5.0, once=False):
     last_segments_nonce = None       # R133b: segment fix (see bootstrap)
     last_qcancel_nonce = None        # R133c: GEN_QUEUE_CANCEL
     last_gen_del_nonce = None        # R133f: gen file delete
-    gen_files_pushed = ['']          # R133f: 00_ outputs for the LCD browser
+    gen_files_pushed = ['']          # R133f: generator outputs for the LCD
     sd_tree_pushed = [None]          # R154: folder tree for the LCD browser
 
     # R133b: ONE generator job at a time, deduplicated, and never while a
     # print runs (the job goes back to the queue until the printer idles).
     def _job_worker():
+        # R160b (.120 field): every job announces ITSELF - a start chirp when
+        # it actually begins building (queued jobs: the double-press chirp was
+        # seconds or minutes ago), and an abort sound when a job dies without
+        # its own error report. Plus: a stuck printer state (e.g. 'starting'
+        # after a failed homing - healed by the _STATE_WATCHER since .120)
+        # used to swallow jobs SILENTLY - now the queue says why it waits.
         while True:
             item = None
             with _JOB_STATE['lock']:
@@ -16245,13 +16374,36 @@ def watch(directory, interval=5.0, once=False):
             if item is None:
                 time.sleep(0.4)
                 continue
-            name, key, fn, outs = item
+            name, key, fn, outs, t_spawn, t_wait, noticed = item
             if _printer_busy():
                 # print has priority - requeue and let it finish first
+                _waited = time.monotonic() - (t_wait or t_spawn)
+                if not noticed and _waited > 90.0:
+                    try:
+                        _moonraker_gcode(
+                            'RESPOND MSG="[queue] %s waits: the printer is '
+                            'busy (a print, a start phase or the start '
+                            'dialog) - it builds the moment the printer '
+                            'idles"\nM117 %s: waiting'
+                            % (name, name))
+                    except Exception:                           # noqa: BLE001
+                        pass
+                    noticed = True
                 with _JOB_STATE['lock']:
-                    _JOB_STATE['queue'].insert(0, item)
+                    _JOB_STATE['queue'].insert(
+                        0, (name, key, fn, outs, t_spawn, t_wait, noticed))
                 time.sleep(5.0)
                 continue
+            if time.monotonic() - t_spawn > 3.0:
+                # queued behind another job / a busy phase: this build STARTS
+                # now - say so (the .120 field log: sounds got lost when
+                # several generations ran back to back)
+                try:
+                    _moonraker_gcode(
+                        'RESPOND MSG="[queue] %s: building now"\n'
+                        'M117 %s building\n_PLAY_JOB_START' % (name, name))
+                except Exception:                               # noqa: BLE001
+                    pass
             _JOB_STATE['busy'] = True
             _JOB_YIELD['on'] = True
             try:
@@ -16259,6 +16411,13 @@ def watch(directory, interval=5.0, once=False):
                     outs = fn() or []
                 except Exception as e:                          # noqa: BLE001
                     print(f'[job:{name}] error: {e!r}', flush=True)
+                    try:
+                        _moonraker_gcode(
+                            'RESPOND MSG="[queue] %s ABORTED: %s"\n'
+                            'M117 %s error\n_SOUND_LIB NAME=r2_error'
+                            % (name, e))
+                    except Exception:                           # noqa: BLE001
+                        pass
                     outs = []
                 # R133b: the worker stamps the worst move rate into the
                 # file info (the selection path never measures files -
@@ -16291,7 +16450,8 @@ def watch(directory, interval=5.0, once=False):
                     pass
                 return False
             _JOB_STATE['keys'].add(key)
-            _JOB_STATE['queue'].append((name, key, fn, outs))
+            _JOB_STATE['queue'].append(
+                (name, key, fn, outs, time.monotonic(), None, False))
         return True
     last_figures_nonce = None        # R126: stylized system figures
     last_plotstatus_nonce = None
@@ -16461,16 +16621,17 @@ def watch(directory, interval=5.0, once=False):
                         # (a --once catch-up must not rebuild an up-to-date excerpt)
                         _stem62, _ext62 = os.path.splitext(src_path)
                         _src3_62 = re.sub(r'[^A-Za-z0-9]', '',
-                                          os.path.basename(_stem62))[:3] or 'RNG'
+                                          os.path.basename(_stem62))[:10] or 'RNG'
                         # R158 (.118): the version lives in the file name
                         # FRONT now and is folder-global - the old single
                         # filename guess cannot know the number anymore.
-                        # Scan BOTH formats (new 00_Vnn_<src>_L<s>-<e>,
-                        # legacy 00_<src>_L<s>-<e>_Vnn) in both candidate
-                        # folders; any excerpt of this source+range that is
-                        # newer than the source makes the job fresh.
+                        # Scan ALL formats (current Vnn_<src>_L<s>-<e>,
+                        # R158 00_Vnn_<src>_L<s>-<e>, legacy
+                        # 00_<src>_L<s>-<e>_Vnn) in both candidate folders;
+                        # any excerpt of this source+range that is newer
+                        # than the source makes the job fresh.
                         _pat62 = re.compile(
-                            r'^00_(?:V\d+_)?%s_L%d-%d%s$'
+                            r'^(?:00_)?(?:V\d+_)?%s_L%d-%d(?:_V\d+)?%s$'
                             % (re.escape(_src3_62), int(float(rs)),
                                int(float(re_)), re.escape(_ext62 or '.gcode')))
                         _fresh62 = False
@@ -16491,32 +16652,41 @@ def watch(directory, interval=5.0, once=False):
                         if _fresh62:
                             print(f'[range] {_freshname62}: already up to date - skipped', flush=True)
                         else:
-                            out, nl = make_range(src_path, int(float(rs)), int(float(re_)),
-                                                 floor=int(float(rflo)), top=int(float(rtop)),
-                                                 brim=int(float(rbrim)),
-                                                 floor_shape=rfs, floor_fill=rff,
-                                                 top_shape=rts, top_fill=rtf,
-                                                 floor_hole=rfh, top_hole=rth,
-                                                 version=1,
-                                                 out_dir=_gensub(directory, 'range'))
-                            print(f'[range] {os.path.basename(out)}: layers {rs}..{re_} ({nl} layers, '
-                                  f'floor {rflo} {rfs}/{rff}, top {rtop} {rts}/{rtf}, '
-                                  f'brim {rbrim}, holes f{rfh:g}/t{rth:g}mm)', flush=True)
-                            # R79: the generated excerpt REPLACES the pending
-                            # selection (field log .62: confirming the dialog
-                            # after generating printed the SOURCE file). The
-                            # macro releases the old selection (nothing is
-                            # deleted) and holds the new file for the decision.
-                            try:
-                                _rel79 = os.path.relpath(out, directory)
-                                _moonraker_gcode(
-                                    'RESPOND MSG="[OK] Range ready: %s%s"'
-                                    % (os.path.basename(out),
-                                       _sel_note(rv, ' - selected for printing '
-                                                   '(the source selection is released)'))
-                                    + _sel_line(rv, _rel79))
-                            except Exception as se79:              # noqa: BLE001
-                                print(f'[range] select-swap unreachable: {se79.__class__.__name__}', flush=True)
+                            # R160b (.120 field): the build runs as a QUEUED JOB
+                            # (it froze the whole poller on big files) - one
+                            # worker, per-job sounds, and the selection swap
+                            # fires from the job when the file exists.
+                            _rargs62 = dict(
+                                floor=int(float(rflo)), top=int(float(rtop)),
+                                brim=int(float(rbrim)), floor_shape=rfs,
+                                floor_fill=rff, top_shape=rts, top_fill=rtf,
+                                floor_hole=rfh, top_hole=rth, version=1,
+                                out_dir=_gensub(directory, 'range'))
+                            _rs62, _re62 = int(float(rs)), int(float(re_))
+
+                            def _range_job62(sp=src_path, a=_rargs62,
+                                             s=_rs62, e=_re62, rvq=rv):
+                                out, nl = make_range(sp, s, e, **a)
+                                print(f'[range] {os.path.basename(out)}: '
+                                      f'layers {s}..{e} ({nl} layers)', flush=True)
+                                # R79: the generated excerpt REPLACES the pending
+                                # selection (field log .62: confirming the dialog
+                                # after generating printed the SOURCE file).
+                                try:
+                                    _rel = os.path.relpath(out, directory)
+                                    _moonraker_gcode(
+                                        'RESPOND MSG="[OK] Range ready: %s%s"'
+                                        % (os.path.basename(out),
+                                           _sel_note(rvq, ' - selected for printing '
+                                                       '(the source selection is released)'))
+                                        + _sel_line(rvq, _rel))
+                                except Exception as se:              # noqa: BLE001
+                                    print(f'[range] select-swap unreachable: '
+                                          f'{se.__class__.__name__}', flush=True)
+                                return [out]
+
+                            _spawn_job('Range', 'range:%s:%s-%s' % (rsrc, rs, re_),
+                                       _range_job62)
                     except Exception as e:              # noqa: BLE001
                         print(f'[range] {rsrc}: {e!r}', flush=True)
                 else:
@@ -16683,11 +16853,12 @@ def watch(directory, interval=5.0, once=False):
                 # R146 (.107): entries can carry a subfolder (Labels/x.gcode)
                 _grel146 = str(rv.get('gen_del_file', '') or '').strip().lstrip('/')
                 _gfn = os.path.basename(_grel146)
-                if (not (_gfn.startswith('00_') and _gfn.endswith('.gcode'))
+                if (not _is_gen_name(_gfn)
                         or not _grel146 or '..' in _grel146.split('/')):
                     _moonraker_gcode(
-                        'RESPOND MSG=\"File delete refused: %s is not a 00_ '
-                        'generator output\"\nM117 Delete refused\n'
+                        'RESPOND MSG=\"File delete refused: %s is not a '
+                        'generator output (Vnn_/00_ names only)\"'
+                        '\nM117 Delete refused\n'
                         '_SOUND_LIB NAME=r2_error' % _gfn)
                 else:
                     _gp = os.path.join(directory, _grel146)
@@ -17331,7 +17502,7 @@ def watch(directory, interval=5.0, once=False):
                     for _fn125 in sorted(os.listdir(directory)):
                         if not _fn125.lower().endswith('.gcode'):
                             continue
-                        if _fn125.startswith('00_'):
+                        if _is_gen_name(_fn125):
                             continue          # our own generated output
                         _p125 = os.path.join(directory, _fn125)
                         if not os.path.isfile(_p125):
@@ -17584,20 +17755,26 @@ def watch(directory, interval=5.0, once=False):
         # R91: TEXTURE tool (texture_nonce) - fuzzy skin / bumps on an EXISTING
         # file. Separate script, lazy import; writes a NEW _TX file - never an
         # overwrite, never auto-started (the user checks it in the 3D viewer).
+        # R160b (.120 field log): (1) the source keeps its SUBFOLDER path -
+        # the old basename strip broke every texture on a file from Texture/,
+        # Labels/ ... (the TX output auto-selects itself, so a follow-up
+        # texture always hit 'source file not found' = one error beep, no
+        # file). (2) The build runs as a QUEUED JOB (it used to freeze the
+        # whole poller) with the per-job start/done/abort sounds.
         try:
             _tx91 = rv.get('texture_nonce', '')
             if _tx91 and _tx91 != last_texture_nonce:
                 last_texture_nonce = _tx91
                 from r2_texture import apply_texture          # lazy (R91 rule)
-                _fn91 = os.path.basename(str(rv.get('texture_file', '') or ''))
+                _rel91 = str(rv.get('texture_file', '') or '').strip().lstrip('/')
+                if '..' in _rel91 or _rel91.startswith('/'):
+                    _rel91 = os.path.basename(_rel91)
                 _bed91 = _bed_limits(os.path.join(
                     os.path.dirname(os.path.abspath(directory.rstrip('/'))),
                     'config', 'printer.cfg'))
                 # NOTE: fuzzy/bump values are ABSOLUTE mm - no hidden scaling
                 # (blind-safe parameter rule)
-                out_t91, info_t91 = apply_texture(
-                    os.path.join(directory, _fn91),
-                    out_dir=_gensub(directory, 'texture'),
+                _tpar91 = dict(
                     mode=str(rv.get('texture_mode', 'FUZZY') or 'FUZZY'),
                     fuzzy_thick=float(rv.get('texture_fuzzy_thick', 0.3)
                                       or 0.3),
@@ -17611,26 +17788,36 @@ def watch(directory, interval=5.0, once=False):
                     bed=_bed91,
                     version=max(1, min(int(float(
                         rv.get('gen_version', 1) or 1)), 99)))
-                _msg91 = ('Texture: %s -> %s (%s, %d outer-wall points '
-                          'shifted, %d layers)%s'
-                          % (info_t91['src'], info_t91['file'],
-                             info_t91['mode'], info_t91['shifted'],
-                             info_t91['layers'],
-                             _sel_note(rv, ' - selected for printing (replaces '
-                                           'the source selection)',
-                                      ' - check it in the 3D viewer, nothing '
-                                      'auto-starts')))
-                try:
-                    _moonraker_gcode(
-                        'RESPOND MSG="%s"\nM117 Texture ready\n'
-                        '_SOUND_LIB NAME=r2_done' % _msg91
-                        + _sel_line(rv, info_t91['file']))
-                except Exception as me:                      # noqa: BLE001
-                    print(f'[texture] moonraker unreachable '
-                          f'({me.__class__.__name__})', flush=True)
-                print(f'[texture] {info_t91["file"]}: OK '
-                      f'({info_t91["shifted"]} pts, {info_t91["secs"]}s)',
-                      flush=True)
+
+                def _texture_job91(rel=_rel91, par=_tpar91, rvq=rv):
+                    out_t, info_t = apply_texture(
+                        os.path.join(directory, rel),
+                        out_dir=_gensub(directory, 'texture'), **par)
+                    _msg = ('Texture: %s -> %s (%s, %d outer-wall points '
+                            'shifted, %d layers)%s'
+                            % (info_t['src'], info_t['file'],
+                               info_t['mode'], info_t['shifted'],
+                               info_t['layers'],
+                               _sel_note(rvq, ' - selected for printing '
+                                             '(replaces the source selection)',
+                                         ' - check it in the 3D viewer, '
+                                         'nothing auto-starts')))
+                    try:
+                        _moonraker_gcode(
+                            'RESPOND MSG="%s"\nM117 Texture ready\n'
+                            '_SOUND_LIB NAME=r2_done' % _msg
+                            + _sel_line(rvq, os.path.relpath(out_t,
+                                                             directory)))
+                    except Exception as me:                   # noqa: BLE001
+                        print(f'[texture] moonraker unreachable '
+                              f'({me.__class__.__name__})', flush=True)
+                    print(f'[texture] {info_t["file"]}: OK '
+                          f'({info_t["shifted"]} pts, {info_t["secs"]}s)',
+                          flush=True)
+                    return [out_t]
+
+                _spawn_job('Texture', 'texture:%s:%s' % (
+                    _rel91, sorted(_tpar91.items())), _texture_job91)
         except ValueError as ve91:
             try:
                 _moonraker_gcode(
@@ -17686,7 +17873,8 @@ def watch(directory, interval=5.0, once=False):
                                     % (_n93, len(_up93)))
                         if len(_up93) > 20:
                             _extra93 += ' - run again for the rest'
-                _msg93 = ('File check: %d files - %d current, %d stale '
+                _msg93 = ('File check: %d files (root + generator folders) - '
+                          '%d current, %d stale '
                           '(v4: RETAG=1 adds the .86 info), %d old, %d '
                           'untouched, %d plotter'
                           % (tot93['files'], tot93['current'], tot93['stale'],
@@ -18007,9 +18195,12 @@ def watch(directory, interval=5.0, once=False):
             _pnn134 = rv.get('plot_nonce', '')
             if _pnn134 and _pnn134 != last_plot_nonce:
                 last_plot_nonce = _pnn134
-                _src134 = os.path.basename(
-                    str(rv.get('plot_src', '') or '').strip().lstrip('/'))
-                if not PLOT_PAT.search(_src134):
+                # R160b: keep the SUBFOLDER path (a plot source picked in a
+                # browser folder broke the same way as the texture source)
+                _src134 = str(rv.get('plot_src', '') or '').strip().lstrip('/')
+                if '..' in _src134:
+                    _src134 = os.path.basename(_src134)
+                if not PLOT_PAT.search(os.path.basename(_src134)):
                     raise ValueError('not a plot source: %r' % _src134)
                 _p134 = os.path.join(directory, _src134)
                 if not os.path.isfile(_p134):
@@ -18038,7 +18229,7 @@ def watch(directory, interval=5.0, once=False):
                             '', _src134[:_pm134.start()])).strip() or 'src'
                     _pdir146 = _gensub(directory, 'plot')
                     _out134 = os.path.join(
-                        _pdir146, '00_V%02d_Plot_%s.gcode'
+                        _pdir146, 'V%02d_Plot_%s.gcode'
                         % (_next_gen_version(_pdir146), _stem134))
                     _istxt134 = _src134.lower().endswith(('.txt', '.txt.gcode'))
 
@@ -18121,16 +18312,16 @@ def watch(directory, interval=5.0, once=False):
                 last_plotstatus_nonce = psn
                 try:
                     out_s, nlines, size = make_status_plot(
-                        out=os.path.join(directory, '00_R2_Status_V01.gcode'), var_path=VAR_PATH)
+                        out=os.path.join(directory, 'V01_R2_Status.gcode'), var_path=VAR_PATH)
                     try:
                         _moonraker_gcode(
-                            'RESPOND MSG="Status plot: 00_R2_Status_V01.gcode - %d line(s), %.1fmm - '
+                            'RESPOND MSG="Status plot: V01_R2_Status.gcode - %d line(s), %.1fmm - '
                             'start it (pen mode)"\nM117 Status ready\n_SOUND_LIB NAME=r2_done'
-                            + _sel_line(rv, '00_R2_Status_V01.gcode')
+                            + _sel_line(rv, 'V01_R2_Status.gcode')
                             % (nlines, size))
                     except Exception as me:                  # noqa: BLE001
                         print(f'[plotstatus] moonraker unreachable ({me.__class__.__name__})', flush=True)
-                    print(f'[plotstatus] 00_R2_Status_V01.gcode: {nlines} line(s) at {size:g}mm', flush=True)
+                    print(f'[plotstatus] V01_R2_Status.gcode: {nlines} line(s) at {size:g}mm', flush=True)
                 except Exception as e:                      # noqa: BLE001
                     print(f'[plotstatus] error: {e}', flush=True)
                     try:
@@ -18188,16 +18379,17 @@ def watch(directory, interval=5.0, once=False):
                 # (Labels/, Frames/, ...) - the list carries RELATIVE paths so
                 # select + delete keep working; legacy files in the root stay
                 # listed. The LCD shows the basename (the template splits it).
+                # R160 (.120): Vnn_ leads (no 00_), legacy names still listed.
                 _gfe146 = []
                 for _f146 in os.listdir(directory):
-                    if _f146.startswith('00_') and _f146.endswith('.gcode'):
+                    if _is_gen_name(_f146):
                         _gfe146.append((os.path.getmtime(
                             os.path.join(directory, _f146)), _f146))
                 for _sub146 in GEN_FOLDER_NAMES:
                     _sp146 = os.path.join(directory, _sub146)
                     if os.path.isdir(_sp146):
                         for _f146 in os.listdir(_sp146):
-                            if _f146.startswith('00_') and _f146.endswith('.gcode'):
+                            if _is_gen_name(_f146):
                                 _gfe146.append((os.path.getmtime(
                                     os.path.join(_sp146, _f146)),
                                     _sub146 + '/' + _f146))

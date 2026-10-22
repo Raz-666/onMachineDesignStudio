@@ -389,8 +389,10 @@ ck('watch: the 5 generator spawns go through _spawn_job (no bare threads)',
                          src.count('threading.Thread(target=_')))
 ck('watch: scan skips while a job runs, is queued or RAM is low (.109)',
    "if busy or _JOB_STATE['busy'] or _JOB_STATE['queue'] or _ram_low148:" in src, '')
-ck('watch: jobs requeue while the printer is busy (print has priority)',
-   'if _printer_busy():' in src and 'insert(0, item)' in src, '')
+ck('watch: jobs requeue while the printer is busy (print has priority; '
+   'R160b: the queue SAYS so after 90s instead of swallowing jobs silently)',
+   'if _printer_busy():' in src and 'insert(' in src
+   and 'waits: the printer is' in src, '')
 ck('watch: R75 niceness kept, exactly ONE os.nice (no double lower)',
    src.count('os.nice(4)') == 1, 'count=%d' % src.count('os.nice(4)'))
 ck('kit: parts_per_plate formatted via max() (was a list -> %d crash '
@@ -483,13 +485,15 @@ ck('LOOP FIX: EVERY nonce channel is primed after a watcher start '
    not _missing, 'unprimed: %s' % _missing)
 ck('helper _next_gen_version: next free number, NEVER overwrite',
    hasattr(pp, '_next_gen_version') and hasattr(pp, '_gen_stem'), '')
-ck('R158 naming: version FIRST (00_Vnn_Name) at every generator, '
-   'folder-global scan counts BOTH name formats, no _WATCH_ROOT left',
-   src.count("'00_V%02d_") + src.count("'00_V%%02d_") >= 18
+ck('R158/R160 naming: version FIRST (Vnn_Name since .120, no 00_ prefix) '
+   'at every generator, folder-global scan counts ALL THREE name formats, '
+   'no _WATCH_ROOT left',
+   src.count("'V%02d_") + src.count("'V%%02d_") >= 18
+   and "'00_V%02d_" not in src
    and 'def _next_gen_version(out_dir):' in src
    and '_next_gen_version(out_dir, ' not in src
    and '_WATCH_ROOT' not in src
-   and 'r\'^00_V(\\d+)_' in src, '')
+   and 'def _is_gen_name(name):' in src, '')
 ck('names: FULL source stem (the [:8] cut is gone everywhere)',
    ":8] or 'IMG'" not in src and ":8] or 'MODEL'" not in src
    and pp._gen_stem('/x/AxtBunny.png.gcode') == 'AxtBunny.png'
@@ -664,8 +668,8 @@ ck('plot: sources are selected in the file list - SDCARD_PRINT_FILE '
    'VARIABLE=plot_src' in _m08_134 and 'VARIABLE=plot_nonce' in _m08_134
    and 'never BASE-start an image' in _m08_134, '')
 ck('plot: generation on demand - plot_nonce handler spawns a job with '
-   '00_Plot_ naming, gen_out honored (start vs preview)',
-   "_spawn_job('Plot'" in src and "'00_V%02d_Plot_%s.gcode'" in src
+   'Vnn_Plot_ naming, gen_out honored (start vs preview)',
+   src.count("'V%02d_Plot_%s.gcode'") >= 1
    and 'plot_nonce' in src, '')
 ck('plot: the nonce channel is primed at watcher start + frozen while '
    'printing (the .90 regeneration-loop lesson)',
@@ -688,17 +692,17 @@ ck('R135: golden inventory file exists and the render suite proves no menu '
                                       encoding='utf-8').read()
    and 'R135 menu inventory: NOTHING lost' in open('tools/macro_render_test.py',
                                                    encoding='utf-8').read(), '')
-ck('R135/R151: Pre-Print starts with Offset X/Y/Z (ONE 0.05mm fine row '
-   'per axis - the coarse/fine duplicates showed the same value) and File '
-   'info now carries the fix toggles (travel/flow cap/retract) as submenu',
+ck('R135/R151/R160: Pre-Print starts with Offset X/Y/Z (ONE 0.05mm fine '
+   'row per axis - the coarse/fine duplicates showed the same value); the '
+   'fix toggles (retract/travel/flow cap) live in the FIXES menu since .120',
    '[menu __main __preprint __poff __what]' in _lcd135
    and _lcd135[_lcd135.index('[menu __main __preprint __poff]'):
                _lcd135.index('[menu __main __preprint __file]')].count(
        'input_step: 0.05') == 3
-   and '[menu __main __preprint __file __rt]' in _lcd135
-   and '[menu __main __preprint __file __tv2]' in _lcd135
-   and '[menu __main __preprint __file __fc]' in _lcd135
-   and '[menu __main __preprint __file __fcv]' in _lcd135, '')
+   and '[menu __main __preprint __fixes __rt]' in _lcd135
+   and '[menu __main __preprint __fixes __fixa]' in _lcd135
+   and '[menu __main __preprint __fixes __fixc]' in _lcd135
+   and '[menu __main __preprint __fixes __fixcv]' in _lcd135, '')
 ck('R135: Profiles directly under File info, Velocity (ex-Speed) carries the '
    'global PA/accel rows, quick access (Spd/Acc/PA/Flw) carries globals + '
    'Now, the old top-level speed/accel/flow menus are GONE',

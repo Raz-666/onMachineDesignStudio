@@ -161,7 +161,7 @@ gen('figures 24x s25',
                             version=49))
 
 # kit from a generated file (has APPLY_TYPE markers like a sliced job)
-_kit_src = os.path.join(D, '00_V01_Bricks.gcode')   # R158: version first
+_kit_src = os.path.join(D, 'V01_Bricks.gcode')   # R158/R160: version first, no 00_ prefix
 gen('kit BY_LAYER', lambda: pp.make_brick_kit(
     _kit_src, out_dir=D, bed=BED, mode='BY_LAYER', colors=3, version=51))
 gen('kit BY_OBJECT', lambda: pp.make_brick_kit(
@@ -198,7 +198,7 @@ _oi4, _ = pp.make_figures(count=1, scale=100, out_dir=_d2, bed=BED,
                           mode='SINGLE')
 ck('idempotence figures single (name carries SINGLE + auto version)',
    open(_oi3).read() == open(_oi4).read()
-   and os.path.basename(_oi3) == '00_V02_Figure_s100_SINGLE.gcode',
+   and os.path.basename(_oi3) == 'V02_Figure_s100_SINGLE.gcode',
    os.path.basename(_oi3))
 
 # ============================================================ PART C ======
