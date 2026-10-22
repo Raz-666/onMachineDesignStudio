@@ -1538,13 +1538,16 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
     # R83/R133f: 00_ prefix (top of the file list) + 3 source letters + the
     # range + a RUNNING version (never overwrite - field log .98 killed the
     # old same-name-overwrite spec); the SOURCE itself is never written to.
+    # R158 (.118): the version moved to the FRONT (00_Vnn_...) - the LCD
+    # truncates at ~15 characters and the old tail version was invisible.
     _src3 = re.sub(r'[^A-Za-z0-9]', '', os.path.basename(stem))[:3] or 'RNG'
-    _rng83 = '00_%s_L%s-%s' % (_src3, start, end)
+    _rng83 = '%s_L%s-%s' % (_src3, start, end)
     _od146 = out_dir if out_dir else (os.path.dirname(stem) or '.')
     # R146 (.107): the watcher routes excerpts into the Range/ subfolder;
     # direct/legacy callers (no out_dir) still write next to the source
     out = os.path.join(_od146,
-                       f'{_rng83}_V{_next_gen_version(_od146, _rng83):02d}{ext or ".gcode"}')
+                       f'00_V{_next_gen_version(_od146):02d}_{_rng83}'
+                       f'{ext or ".gcode"}')
     if os.path.abspath(out) == os.path.abspath(src):
         raise ValueError('range output name collides with the source - refusing')
     # body (E rebased to start at 0) + EXCLUDE_OBJECT cleanup, streamed
@@ -5493,10 +5496,12 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
     # 'same text overwrites its file' spec and the gen_version LCD option
     # are gone. Size stays out of the name on purpose (near-duplicates
     # still group); every regeneration gets the next free number.
+    # R158 (.118): version FIRST - the LCD cuts file names at ~15
+    # characters, a tail version made regenerations look identical.
     first_name = _safe_label_name(texts[0])
     extra = '+%d' % (n - 1) if n > 1 else ''
-    fname = '00_%s%s_V%02d.gcode' % (first_name, extra,
-        _next_gen_version(out_dir, '00_%s%s' % (first_name, extra)))
+    fname = '00_V%02d_%s%s.gcode' % (
+        _next_gen_version(out_dir), first_name, extra)
     out = os.path.join(out_dir, fname)
     with open(out, 'w') as f:
         f.write('\n'.join(outl) + '\n')
@@ -6235,9 +6240,8 @@ def make_resonance(axes=('x', 'y'), mode='print', out_dir='.', bed=None, version
             for pl in polys:
                 lays.append([(bx + (px / RESO_PLATE_W) * pw * sx,
                               oy + (py / RESO_PLATE_H) * ph * sy) for px, py in pl])
-        fname = '00_Resonance_%s_plot_V%02d.gcode' % (
-            suffix, _next_gen_version(out_dir,
-                                      '00_Resonance_%s_plot' % suffix))
+        fname = '00_V%02d_Resonance_%s_plot.gcode' % (
+            _next_gen_version(out_dir), suffix)
         out = os.path.join(out_dir, fname)
         notes = ['; R2-RESONANCE diagram (pen plot) from %s'
                  % ', '.join(data[ax]['file'] for ax in axes),
@@ -6370,8 +6374,8 @@ def make_resonance(axes=('x', 'y'), mode='print', out_dir='.', bed=None, version
     a('M107')
     a('PRINT_END')
 
-    fname = '00_Resonance_%s_V%02d.gcode' % (
-        suffix, _next_gen_version(out_dir, '00_Resonance_%s' % suffix))
+    fname = '00_V%02d_Resonance_%s.gcode' % (
+        _next_gen_version(out_dir), suffix)
     out = os.path.join(out_dir, fname)
     with open(out, 'w') as f:
         f.write('\n'.join(L) + '\n')
@@ -6787,8 +6791,6 @@ GEN_FOLDER_NAMES = sorted(set(GEN_SUBDIRS.values()))
 _SD_EXT151 = ('.gcode', '.g', '.gco', '.png', '.jpg', '.jpeg',
               '.svg', '.pdf', '.txt')      # R151: LCD browser + plot sources
 
-_WATCH_ROOT = None     # R146: set by watch() - version scan counts legacy files
-
 
 def _gensub(root, key):
     """The output subfolder for a generator (created on demand)."""
@@ -6800,28 +6802,33 @@ def _gensub(root, key):
     return d
 
 
-def _next_gen_version(out_dir, prefix):
-    """R133f (field log .98): running version number, NEVER overwrite.
-    The gen_version menu option is gone (it only caused confusion) -
-    a generator simply takes the highest existing <prefix>*_V<n>.gcode
-    and writes n+1. A deleted HIGHEST number is reused; existing files
-    are never touched.
-    R146 (.107): outputs live in per-generator subfolders now - the scan
-    also counts LEGACY files in the watch root so the numbering continues
-    across the folder move (a regeneration never collides with an old
-    V-number that stayed behind in the root)."""
+def _next_gen_version(out_dir):
+    """R158 (.118): ONE running number per output FOLDER, and it sits in
+    the file name RIGHT AFTER '00_' - the LCD shows only the first ~15
+    characters, so with the old suffix numbering (00_Name_Vnn.gcode) a
+    regeneration was invisible next to its predecessor (field report on
+    the SD browser: several files, one display). 00_V<nn>_ identifies a
+    file on the display by itself, whatever the descriptive tail does.
+
+    The number NEVER repeats inside a folder: the scan counts BOTH name
+    formats - the new '00_V<n>_<name>.gcode' AND every legacy R133f/R146
+    '00_<name>_V<n>.gcode' that still sits there - and takes the next
+    free one. Still no overwriting, no reuse (field log .98 rule).
+
+    Folder-local on purpose: numbers are the folder's chronology. The
+    R146 cross-root scan is gone - legacy root files belong to the root
+    sequence, and the root-fallback path (subfolder not creatable) scans
+    the root itself."""
     _hi = 0
-    _dirs146 = [out_dir or '.']
-    if _WATCH_ROOT and os.path.abspath(_WATCH_ROOT) != os.path.abspath(out_dir or '.'):
-        _dirs146.append(_WATCH_ROOT)
     try:
-        for _d146 in _dirs146:
-            for _p in os.listdir(_d146):
-                if not (_p.startswith(prefix) and _p.endswith('.gcode')):
-                    continue
-                _m = re.search(r'_V(\d+)\.gcode$', _p)
-                if _m:
-                    _hi = max(_hi, int(_m.group(1)))
+        for _p in os.listdir(out_dir or '.'):
+            _m = re.match(r'^00_V(\d+)_', _p)
+            if _m:
+                _hi = max(_hi, int(_m.group(1)))
+                continue
+            _m2 = re.search(r'_V(\d+)\.gcode$', _p)
+            if _m2 and _p.startswith('00_'):
+                _hi = max(_hi, int(_m2.group(1)))
     except OSError:
         pass
     return _hi + 1
@@ -7457,9 +7464,8 @@ def make_bridge(length=160.0, short_pct=30, h_long=35.0, h_short=18.0, version=1
     a('RESPOND MSG="[bridge] done - inspect sag + stringing; better bridges: higher speed, more fan, less flow"')
     a('PRINT_END')
 
-    fname = '00_Bridge_%dmm_%dpct_V%02d.gcode' % (
-        round(length), short_pct,
-        _next_gen_version(out_dir, '00_Bridge_%dmm' % round(length)))
+    fname = '00_V%02d_Bridge_%dmm_%dpct.gcode' % (
+        _next_gen_version(out_dir), round(length), short_pct)
     out = os.path.join(out_dir, fname)
     with open(out, 'w') as f:
         f.write('\n'.join(L) + '\n')
@@ -7923,10 +7929,8 @@ def make_cable_ties(count=6, length=120.0, width=8.0, layers=3, variant='CLASSIC
                             'M107   ; R2-TIES: first layer = fan off']
             + _gen_markers(L[i0:]))
 
-    fname = '00_Ties_%.0fx%.0f_%s_V%02d.gcode' % (
-        length, width, variant[:3],
-        _next_gen_version(out_dir, '00_Ties_%.0fx%.0f_%s'
-                          % (length, width, variant[:3])))
+    fname = '00_V%02d_Ties_%.0fx%.0f_%s.gcode' % (
+        _next_gen_version(out_dir), length, width, variant[:3])
     out = os.path.join(out_dir, fname)
     with open(out, 'w') as f:
         f.write('\n'.join(outl) + '\n')
@@ -8668,12 +8672,26 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
     else:
         plates = [('', True, True)]
 
-    def frame_fname(sfx):
-        _pfx = '00_Frame_%s_%sx%.0f%s%s' % (
+    # R158 (.118): version FIRST, one FOLDER-GLOBAL number per file -
+    # plate A and plate B of one build get consecutive numbers, so the
+    # 15-character LCD never shows two identical lines again (the A/B
+    # tail sits at the name end - invisible there). All names are
+    # computed UP FRONT with the numbers RESERVED in sequence: the
+    # 'next file' hint inside plate A must name the exact file plate B
+    # later writes (a lazy rescan would hand both plates the SAME
+    # number - the A file is not on disk yet when B's name is chosen).
+    _hi158 = _next_gen_version(out_dir) - 1
+    _fnames158 = {}
+    for _psfx158, _wf158, _rf158 in plates:
+        _pfx158 = 'Frame_%s_%sx%.0f%s%s' % (
             preset if preset else '%.0fx%.0f' % (width, height),
-            mode, depth, '_KIT' if kit else '', '_' + sfx if sfx else '')
-        return '%s_V%02d.gcode' % (
-            _pfx, _next_gen_version(out_dir, _pfx))
+            mode, depth, '_KIT' if kit else '',
+            '_' + _psfx158 if _psfx158 else '')
+        _hi158 += 1
+        _fnames158[_psfx158] = '00_V%02d_%s.gcode' % (_hi158, _pfx158)
+
+    def frame_fname(sfx):
+        return _fnames158[sfx]
 
     files = []
     for sfx, want_frame, want_rest in plates:
@@ -9955,15 +9973,11 @@ def make_angles(count=2, angle_deg=90, leg_a=60.0, leg_b=60.0, width=25.0,
             + _gen_markers(L[i0:]))
 
     if flat:
-        fname = '00_Flat_%.0fx%.0f_V%02d.gcode' % (
-            la + lb, width,
-            _next_gen_version(out_dir, '00_Flat_%.0fx%.0f'
-                              % (la + lb, width)))
+        fname = '00_V%02d_Flat_%.0fx%.0f.gcode' % (
+            _next_gen_version(out_dir), la + lb, width)
     else:
-        fname = '00_Angle_%ddeg_%.0fx%.0f_V%02d.gcode' % (
-            round(theta), la, lb,
-            _next_gen_version(out_dir, '00_Angle_%ddeg_%.0fx%.0f'
-                              % (round(theta), la, lb)))
+        fname = '00_V%02d_Angle_%ddeg_%.0fx%.0f.gcode' % (
+            _next_gen_version(out_dir), round(theta), la, lb)
     out = os.path.join(out_dir, fname)
     with open(out, 'w') as f:
         f.write('\n'.join(outl) + '\n')
@@ -10275,8 +10289,8 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                          'purge at the park position after every swap')
 
     stem = _gen_stem(src, 'IMG')
-    fname = '00_LithoF_%s_V%02d.gcode' % (
-        stem, _next_gen_version(out_dir, '00_LithoF_'))
+    fname = '00_V%02d_LithoF_%s.gcode' % (
+        _next_gen_version(out_dir), stem)
     out = os.path.join(out_dir, fname)
 
     e_wall = layer_h * wid / fil
@@ -10616,8 +10630,8 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
     yF = (uy0 + uy1) / 2.0 - t_max / 2.0
 
     stem = _gen_stem(src, 'IMG')
-    fname = '00_Litho_%s_V%02d.gcode' % (
-        stem, _next_gen_version(out_dir, '00_Litho_'))
+    fname = '00_V%02d_Litho_%s.gcode' % (
+        _next_gen_version(out_dir), stem)
     out = os.path.join(out_dir, fname)
 
     e_wall = layer_h * wid / fil
@@ -10837,8 +10851,8 @@ def make_plot_cal(out_dir='.', version=1, var_path=None):
                ' wobble on the circles = pen play or speed too high',
              '; pen Z / speed / mode come from the Plotter menu settings'
                ' (live: speed %, babystepping = pen pressure)']
-    fname = '00_PlotCal_V%02d.gcode' % (
-        _next_gen_version(out_dir, '00_PlotCal'),)
+    fname = '00_V%02d_PlotCal.gcode' % (
+        _next_gen_version(out_dir),)
     out = os.path.join(out_dir, fname)
     n = _plot_write(out, polys, notes, var_path=var_path)
     info = {'file': fname, 'kind': 'plotcal', 'dots': n_dots,
@@ -11082,8 +11096,13 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
     out_files = []
     first_out = None
     total_layers = 0
-    v = _next_gen_version(out_dir, '00_Bricks')   # one number, ALL plates
+    # R158 (.118): one folder-global number per FILE - multi-plate builds
+    # (BY_LAYER colors) get consecutive numbers; a shared number made the
+    # plates differ only in the trailing label, which the 15-character
+    # LCD cuts off.
+    v = _next_gen_version(out_dir) - 1
     for (label, plate_ci, plist) in plates:
+        v += 1
         # ---- layout: row packing, tallest first --------------------------
         plist.sort(key=lambda c: (-(c['nl'] + c['sl']), -c['bw'] * c['bl']))
         x, y = ux0, uy0
@@ -11111,9 +11130,9 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
         n_by = dict((k, sum(1 for c in plist if c['kind'] == k))
                     for k in sorted(set(c['kind'] for c in plist)))
         if label:
-            fname = '00_Bricks_%s_V%02d.gcode' % (label, v)
+            fname = '00_V%02d_Bricks_%s.gcode' % (v, label)
         else:
-            fname = '00_Bricks_V%02d.gcode' % (v,)
+            fname = '00_V%02d_Bricks.gcode' % (v,)
         out = os.path.join(out_dir, fname)
         out_files.append(fname)
         if first_out is None:
@@ -11904,12 +11923,16 @@ def make_brick_kit(src, detail='AUTO', mode='BY_LAYER', colors=3,
         _center_cells(_pl132, bed)
 
     stem = _gen_stem(src, 'MODEL')
-    v = _next_gen_version(out_dir, '00_BrickKit_')
+    # R158 (.118): one folder-global number per FILE - kit plates get
+    # consecutive numbers (a shared number left them distinguishable
+    # only by the trailing label, which the LCD cuts off)
+    v = _next_gen_version(out_dir) - 1
     e_wall = layer_h * wid / fil
     first_h = layer_h
     out_files = []
     for (label, plate_ci, plist) in plates:
-        fname = '00_BrickKit_%s_%s_V%02d.gcode' % (stem, label, v)
+        v += 1
+        fname = '00_V%02d_BrickKit_%s_%s.gcode' % (v, stem, label)
         outp = os.path.join(out_dir, fname)
         out_files.append(fname)
         with open(outp, 'w') as f:
@@ -12310,7 +12333,10 @@ def make_figures(count=1, scale=100.0, layer_h=0.2, material='PLA',
             return 2
         return 3
 
-    v = _next_gen_version(out_dir, '00_Figure')   # SINGLE + PARTS: one counter
+    # R158 (.118): one folder-global number per FILE - PARTS BY_LAYER
+    # plates get consecutive numbers (the A/B/C plate tail sits at the
+    # name end, invisible on the 15-character LCD)
+    v = _next_gen_version(out_dir) - 1
     if mode == 'SINGLE':
         cells = []
         for fi in range(count):
@@ -12322,8 +12348,8 @@ def make_figures(count=1, scale=100.0, layer_h=0.2, material='PLA',
                      + nl_stud)
         for c in cells:
             c['nl'] = single_nl
-        fname = '00_Figure_s%03d_SINGLE_V%02d.gcode' % (
-            max(25, min(int(round(scale)), 300)), v)
+        fname = '00_V%%02d_Figure_s%03d_SINGLE.gcode' % (
+            max(25, min(int(round(scale)), 300)),)
     else:
         cells = []
         for fi in range(count):
@@ -12346,8 +12372,8 @@ def make_figures(count=1, scale=100.0, layer_h=0.2, material='PLA',
                 c['nl'] = nl_arm
             else:
                 c['nl'] = nl_sock + nl_hed + nl_stud
-        fname = '00_Figures_s%03d_PARTS_V%02d.gcode' % (
-            max(25, min(int(round(scale)), 300)), v)
+        fname = '00_V%%02d_Figures_s%03d_PARTS.gcode' % (
+            max(25, min(int(round(scale)), 300)),)
 
     # ---- plates ------------------------------------------------------------
     if mode == 'PARTS' and colors > 1 and colormode == 'BY_LAYER':
@@ -12371,6 +12397,7 @@ def make_figures(count=1, scale=100.0, layer_h=0.2, material='PLA',
                  - nl_sock * layer_h)
 
     for (label, plate_ci, plist) in plates:
+        v += 1
         x, y = ux0, uy0
         row_h = 0.0
         for c in plist:
@@ -12389,9 +12416,9 @@ def make_figures(count=1, scale=100.0, layer_h=0.2, material='PLA',
         pl_layers = max(c['nl'] for c in plist)
         total_layers = max(total_layers, pl_layers)
         if label:
-            pfn = fname % label
+            pfn = fname % (v, label)
         else:
-            pfn = fname
+            pfn = fname % (v,)
         out = os.path.join(out_dir, pfn)
         out_files.append(pfn)
         if first_out is None:
@@ -13176,8 +13203,8 @@ def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
                          'purge at the park position after every swap')
 
     stem = _gen_stem(src, 'IMG')
-    fname = '00_ColorPic_%s_V%02d.gcode' % (
-        stem, _next_gen_version(out_dir, '00_ColorPic_'))
+    fname = '00_V%02d_ColorPic_%s.gcode' % (
+        _next_gen_version(out_dir), stem)
     out = os.path.join(out_dir, fname)
 
     e_wall = layer_h * wid / fil
@@ -13567,10 +13594,8 @@ def make_seal(od=40.0, id_=20.0, height=1.2, profile='FLAT', ironing=False,
     a('M107')
     a('PRINT_END')
 
-    fname = '00_Seal_%.0fx%.0fx%.2g_V%02d.gcode' % (
-        od, id_, height_real,
-        _next_gen_version(out_dir, '00_Seal_%.0fx%.0fx%.2g'
-                          % (od, id_, height_real)))
+    fname = '00_V%02d_Seal_%.0fx%.0fx%.2g.gcode' % (
+        _next_gen_version(out_dir), od, id_, height_real)
     out = os.path.join(out_dir, fname)
     with open(out, 'w') as f:
         f.write('\n'.join(L) + '\n')
@@ -15710,8 +15735,6 @@ def watch(directory, interval=5.0, once=False):
     for testing.
     """
     directory = os.path.abspath(directory)
-    global _WATCH_ROOT                     # R146: legacy-root version scan
-    _WATCH_ROOT = directory
     if not os.path.isdir(directory):
         # R57: a wrong path used to idle SILENTLY forever ("active" but nothing
         # happens). Fail loudly instead - systemd shows the service as failed.
@@ -16320,21 +16343,34 @@ def watch(directory, interval=5.0, once=False):
                         _stem62, _ext62 = os.path.splitext(src_path)
                         _src3_62 = re.sub(r'[^A-Za-z0-9]', '',
                                           os.path.basename(_stem62))[:3] or 'RNG'
-                        try:
-                            _gv62 = max(1, min(int(float(rv.get('gen_version', 1) or 1)), 99))
-                        except (TypeError, ValueError):
-                            _gv62 = 1
+                        # R158 (.118): the version lives in the file name
+                        # FRONT now and is folder-global - the old single
+                        # filename guess cannot know the number anymore.
+                        # Scan BOTH formats (new 00_Vnn_<src>_L<s>-<e>,
+                        # legacy 00_<src>_L<s>-<e>_Vnn) in both candidate
+                        # folders; any excerpt of this source+range that is
+                        # newer than the source makes the job fresh.
+                        _pat62 = re.compile(
+                            r'^00_(?:V\d+_)?%s_L%d-%d%s$'
+                            % (re.escape(_src3_62), int(float(rs)),
+                               int(float(re_)), re.escape(_ext62 or '.gcode')))
                         _fresh62 = False
+                        _freshname62 = ''
                         for _d62 in (_gensub(directory, 'range'),
                                      os.path.dirname(_stem62) or '.'):
-                            _guess62 = os.path.join(
-                                _d62,
-                                f'00_{_src3_62}_L{int(float(rs))}-{int(float(re_))}'
-                                f'_V{_gv62:02d}{_ext62 or ".gcode"}')
-                            if os.path.isfile(_guess62) and os.path.getmtime(_guess62) > os.path.getmtime(src_path):
-                                _fresh62 = True
+                            try:
+                                for _p62 in os.listdir(_d62):
+                                    if not _pat62.match(_p62):
+                                        continue
+                                    _gp62 = os.path.join(_d62, _p62)
+                                    if os.path.isfile(_gp62) and \
+                                            os.path.getmtime(_gp62) > os.path.getmtime(src_path):
+                                        _fresh62 = True
+                                        _freshname62 = _p62
+                            except OSError:
+                                pass
                         if _fresh62:
-                            print(f'[range] {os.path.basename(_guess62)}: already up to date - skipped', flush=True)
+                            print(f'[range] {_freshname62}: already up to date - skipped', flush=True)
                         else:
                             out, nl = make_range(src_path, int(float(rs)), int(float(re_)),
                                                  floor=int(float(rflo)), top=int(float(rtop)),
@@ -16342,7 +16378,7 @@ def watch(directory, interval=5.0, once=False):
                                                  floor_shape=rfs, floor_fill=rff,
                                                  top_shape=rts, top_fill=rtf,
                                                  floor_hole=rfh, top_hole=rth,
-                                                 version=_gv62,
+                                                 version=1,
                                                  out_dir=_gensub(directory, 'range'))
                             print(f'[range] {os.path.basename(out)}: layers {rs}..{re_} ({nl} layers, '
                                   f'floor {rflo} {rfs}/{rff}, top {rtop} {rts}/{rtf}, '
@@ -17870,9 +17906,8 @@ def watch(directory, interval=5.0, once=False):
                             '', _src134[:_pm134.start()])).strip() or 'src'
                     _pdir146 = _gensub(directory, 'plot')
                     _out134 = os.path.join(
-                        _pdir146, '00_Plot_%s_V%02d.gcode'
-                        % (_stem134, _next_gen_version(
-                            _pdir146, '00_Plot_' + _stem134)))
+                        _pdir146, '00_V%02d_Plot_%s.gcode'
+                        % (_next_gen_version(_pdir146), _stem134))
                     _istxt134 = _src134.lower().endswith(('.txt', '.txt.gcode'))
 
                     def _plot_job134(p=_p134, out=_out134, src=_src134,

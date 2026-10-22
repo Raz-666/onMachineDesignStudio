@@ -705,7 +705,7 @@ Details: ch. 5.2.
 1. Mount a pen (Tools > Plotter > Pen offset X/Y/Z tells the system where it sits).
 2. Upload `bild.png` (or .jpg/.svg/.pdf/.txt) — plain, **no `.gcode` tail**
    anymore (.103). Select it in the file list → the watcher generates
-   `00_Plot_bild_V01.gcode` on demand (settings: Tools > Plotter;
+   `00_V01_Plot_bild.gcode` on demand (settings: Tools > Plotter;
    auto-contrast finds the ink on any paper tint, dark boards invert
    automatically; Maintenance > gen-out decides selected-for-start vs
    preview only).
@@ -763,12 +763,18 @@ one continuous bead per layer, nothing to cross.
 
 ### 5.0b Generated files: names, versions, select + delete (R133f)
 
-**Names & versions.** Every generated file carries the FULL source name
-(no shortening) plus the important generator info and a running version:
-`00_BrickKit_AxtBunny.png_AUTO_A_V03.gcode`, `00_Litho_Bun2_V02.gcode`,
-`00_Figure_s100_SINGLE_V01.gcode`. The version bumps ITSELF — regenerating
-never overwrites an older file (the old Vers setting is retired; a deleted
-highest version number gets reused).
+**Names & versions (.118).** Every generated file is named
+`00_V<number>_<name>.gcode` — the running number sits DIRECTLY behind the
+`00_` prefix: `00_V07_R2-D2.gcode`, `00_V03_Bridge_150mm_40pct.gcode`,
+`00_V01_Figure_s100_SINGLE.gcode`. Why: the LCD shows only the first ~15
+characters of a file name — with the number at the end (pre-.118) a
+regeneration looked exactly like its predecessor, and frame plates A/B were
+indistinguishable. Now the leading number alone tells any two files apart,
+and the number is ONE folder-wide counter: it never repeats inside a folder,
+regenerating never overwrites an older file (a deleted highest number gets
+reused), and it continues above every legacy `00_Name_Vnn` file that still
+sits in the same folder. Both LCD browsers additionally hide the `.gcode`
+tail — 6 more characters of real name per line.
 
 **Output folders (.107).** Every generator writes into its OWN subfolder of
 the gcodes directory — `Labels/`, `CableTies/`, `Angles/`, `Gaskets/`,
@@ -777,9 +783,9 @@ the gcodes directory — `Labels/`, `CableTies/`, `Angles/`, `Gaskets/`,
 clean for your sliced files and sources. The LCD file browser and Mainsail
 navigate the folders natively; the Gen files list shows the file name and
 selects/deletes via the relative path. Nothing moves on the update: existing
-outputs stay in the root and keep working — and version numbering continues
-across the move (a legacy `00_X_V03` in the root still counts, the next
-regeneration writes `Labels/00_X_V04`).
+outputs stay in the root and keep working — numbering is folder-local since
+.118 (each folder counts its own `00_Vnn_` files plus the legacy
+`00_Name_Vnn` files inside it and takes the next free number).
 
 **Tools > Gen files.** Every `00_` output, newest first, right on the
 display: press a slot to SELECT that file (the start dialog catches it —
@@ -1020,7 +1026,7 @@ vector graphics or text — no slicer involved.
 
 | Select in the file list | What the watcher generates |
 |---|---|
-| `photo.png` | PNG → `00_Plot_photo_V01.gcode` (pen lines) |
+| `photo.png` | PNG → `00_V01_Plot_photo.gcode` (pen lines) |
 | `foto.jpg` | JPEG (baseline; progressive photos refuse — export as PNG) |
 | `drawing.svg` | SVG vector graphics |
 | `plan.pdf` | vector PDF |
@@ -1364,7 +1370,7 @@ cross open holes (keyhole, stud holes, cable slot) — and those retract.
    8 slots).
 2. **Create (beeps)** — the watcher checks the bed fit while generating
    (≈ 1 s), the happy tune plays and the file **auto-selects**:
-   `00_Frame_<preset>_FLATx8_V01.gcode` (Part A when the bed needs two
+   `00_V01_Frame_<preset>_FLATx8.gcode` (Part A when the bed needs two
    plates — one beep per plate, the number of beeps = number of files).
 3. Start it like any file. Multi-plate: after the last layer of Part A the
    console + LCD say which file is next — **nothing auto-starts**, load and
@@ -1378,7 +1384,7 @@ cross open holes (keyhole, stud holes, cable slot) — and those retract.
 | BACKPLATE | 0.8 mm cover plate — 0.3 mm play per side through the photo shaft, snaps under the 4 wall nubs; hidden keyhole (TOP/BOTTOM/LEFT/RIGHT) and, with Stand, two D2.7 stud holes |
 | STAND | easel leg with two studs that plug into the backplate holes (24 mm apart) |
 | STRIP_T/B/L/R | only in the split KIT: the four frame walls as glue strips |
-| Part A / B | multi-plate: when frame + backplate do not fit side by side, the generator writes two files — `.._A_V01.gcode` (frame) and `.._B_V01.gcode` (backplate + stand). Part A auto-selects, the end-of-plate hint (console + LCD + beeps) names Part B, no auto-start |
+| Part A / B | multi-plate: when frame + backplate do not fit side by side, the generator writes two files — `00_Vnn_.._A.gcode` (frame) and the next number `.._B.gcode` (backplate + stand) — consecutive numbers, the 15-character LCD tells them apart at a glance. Part A auto-selects, the end-of-plate hint (console + LCD + beeps) names Part B, no auto-start |
 
 **Settings**
 
@@ -1471,7 +1477,7 @@ outer skin moves.
    selection preview shows the target),
 2. **Pre-Print > Texture**, pick the mode + parameters,
 3. **> Apply (beeps)** — the watcher builds the result in the background,
-4. a **NEW file** `<name>_TX_V01.gcode` appears (V02, V03 … if you apply
+4. a **NEW file** `00_Vnn_<name>_TX.gcode` appears (the number counts up if you apply
    again — the source is never touched),
 5. **check it in the 3D viewer** — nothing auto-starts, by design,
 6. print the `_TX` file like any other (AS SLICED keeps the texture).
@@ -1545,7 +1551,7 @@ the catalog, CREATE, print.
 2. **Settings** — Layer (0.08–0.32) and Vers, shared with the other
    generators.
 3. **CREATE** — the watcher builds the file in its background thread
-   (beeps + auto-select): `00_Bricks_V01.gcode`.
+   (beeps + auto-select): `00_V01_Bricks.gcode`.
 
 One file = **one color**, every part its own **exclude object** — a failed
 brick can be skipped live and reprinted later. Console/Mainsail:
@@ -1603,7 +1609,7 @@ mates with the system. Count 1–24, one color, every part its own exclude
 object, ~39 mm tall at 100 %.
 
 **The workflow (LCD: `Tools > Bricks > Figures`)** — Scale (25–300 %,
-5 % steps), Count, CREATE → `00_Figures_s100_V01.gcode`. Console:
+5 % steps), Count, CREATE → `00_V01_Figures_s100.gcode`. Console:
 `GEN_FIGURES SCALE=100 COUNT=2`.
 
 ### 5.13 ColorPic — photos in full color, no backlight (R120)
@@ -1618,7 +1624,7 @@ optional boost), then the picture is quantized into 2–8 luminance bands.
 lithophane (upload a `.png`/`.jpg` into the gcodes folder), Width, Bands,
 Band height, Colors (per-band palette, light→dark; auto ramps when empty),
 Layer, Ironing, Brim, **Swap**, **Contrast**, Vers → CREATE →
-`00_ColorPic_<name>_V01.gcode`.
+`00_V01_ColorPic_<name>.gcode`.
 
 | Setting | Meaning |
 |---|---|
@@ -2274,7 +2280,7 @@ while plotting (ch. C.3).
 | Info | queue + settings + geometry summary |
 | Catalog | all 45 codes (B/P/T × 1x1…8x8) — press bumps the count, same codes merge, max 120 parts |
 | Settings | Layer 0.08–0.32 |
-| Create | builds `00_Bricks_V01.gcode` from the queue (beeps + selects) |
+| Create | builds `00_V01_Bricks.gcode` from the queue (beeps + selects) |
 | Kit from file | Source: the file SELECTED in the file list (or SRC=/INDEX= via Mainsail; nothing selected = clear error) · Detail: AUTO/MICRO 4.8/SMALL 9.6/BIG 3.2 · Mode: By plate (1 color/plate, zero M600) / By object (M600 at color boundaries) · Colors 1–8 · CREATE kit |
 | Figures | Scale 25–300 % (5 % steps) · Count 1–24 · CREATE figure |
 
@@ -3025,13 +3031,13 @@ All 150 public macros with parameters (defaults in parentheses; blank = no param
 | **GEN_ANGLES** | COUNT=2, ANGLE=90, LEG_A=60, LEG_B=60, WIDTH=25, LAYERS=6, HOLES=2, HOLE_D=4, CS=1, STIFFENER=1, WALLS=2, INFILL=100, IRONING=0, FLAT=0, LAYER_H=0.2 | console/Mainsail angle/flat job: `GEN_ANGLES ANGLE=45 LEG_A=80 LEG_B=50 STIFFENER=2` — CS=1 countersunk · FLAT=1 flat connector |
 | **ANGLE_GENERATE** | — | create the plate file from the stored settings (bumps angle_nonce) |
 | **ANGLE_INFO** | — | every angle/flat setting + the auto-hole rules |
-| **TEXTURE_APPLY** | FILE='', MODE='OFF', THICK, DENSITY, PATTERN, SCALE, AMP, DIR='OUT', OUT= | fuzzy skin / shaped bumps for the SELECTED (or FILE) g-code: `TEXTURE_APPLY MODE=FUZZY THICK=0.3 DENSITY=100` — new `_TX_V01` file in the background — selected under QUEUE, but never auto-STARTED (ch. 5.9) |
+| **TEXTURE_APPLY** | FILE='', MODE='OFF', THICK, DENSITY, PATTERN, SCALE, AMP, DIR='OUT', OUT= | fuzzy skin / shaped bumps for the SELECTED (or FILE) g-code: `TEXTURE_APPLY MODE=FUZZY THICK=0.3 DENSITY=100` — new `00_Vnn_<name>_TX` file in the background — selected under QUEUE, but never auto-STARTED (ch. 5.9) |
 | **_GEN_OUT_SET** | OUT=QUEUE/PREVIEW (SELECT/ONLY/1/0) (int.) | the sticky generator output switch (.84, ch. 5.0) — every `*_GENERATE` macro also takes a per-run `OUT=` |
 
 ### Building bricks & figures — 19_bricks.cfg
 | Macro | Parameters | Purpose |
 |---|---|---|
-| **GEN_BRICKS** | CODES='B2x4:3\|P2x2:2' | console/Mainsail brick job: sets the queue (code:count, `\|` separated, max 120) and creates `00_Bricks_V01.gcode` |
+| **GEN_BRICKS** | CODES='B2x4:3\|P2x2:2' | console/Mainsail brick job: sets the queue (code:count, `\|` separated, max 120) and creates `00_V01_Bricks.gcode` |
 | **BRICK_ADD** | CODE='B2x4', COUNT=2 | add COUNT × CODE to the queue (same codes merge; unknown code or count outside 1–99 rejected) |
 | **BRICK_DEL_LAST** | — | drop the last queue entry |
 | **BRICK_CLEAR** | CONFIRM=1 | empty the queue (2-press: first call arms) |

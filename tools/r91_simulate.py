@@ -78,7 +78,7 @@ check('vase: all but the first vertex scattered, E-line count identical',
       moved == info['shifted'] == len(src) - 1 and len(dst) == len(src),
       '%d/%d shifted (1st stays)' % (info['shifted'], len(src)))
 check('vase: source untouched, new _TX file', os.path.exists(vase)
-      and os.path.basename(tx) == '00_vase_sim_TX_V01.gcode')
+      and os.path.basename(tx) == '00_V01_vase_sim_TX.gcode')
 
 # ---------------------------------------------------------------------------
 print('=== 2. other slicer spellings (OrcaSlicer / Bambu) ===')
@@ -167,7 +167,7 @@ base, _ = make_frame(preset='9x13', depth=4, frame_w=4, out_dir=D, bed=BED)
 t1, _ = apply_texture(base, out_dir=D, mode='FUZZY', fuzzy_thick=0.2)
 t2, i6 = apply_texture(t1, out_dir=D, mode='FUZZY', fuzzy_thick=0.2)
 check('chaining: _TX of _TX works, versions keep counting',
-      os.path.basename(t2) == '00_Frame_9x13_FLATx4_TX_TX_V01.gcode'
+      os.path.basename(t2) == '00_V12_Frame_9x13_FLATx4_TX_TX.gcode'
       and i6['shifted'] > 0, os.path.basename(t2))
 
 # ---------------------------------------------------------------------------
@@ -178,18 +178,24 @@ with open(p, 'w', encoding='utf-8') as f:
     for i in range(8):
         f.write('G1 X%d Y60 E0.2\n' % (90 + i))
 names = []
-for _ in range(99):
-    t, _i = apply_texture(p, out_dir=D, mode='FUZZY', fuzzy_thick=0.1)
-    names.append(os.path.basename(t))
-try:
-    apply_texture(p, out_dir=D, mode='FUZZY', fuzzy_thick=0.1)
-    overflow = None
-except ValueError as e99:
-    overflow = str(e99)
-check('V01..V99 all unique, then a CLEAR guard (no silent overwrite)',
-      len(set(names)) == 99 and names[-1].endswith('_TX_V99.gcode')
-      and overflow == 'all _TX versions V01..V99 exist - clean up first',
-      'last=%s, err=%r' % (names[-1], overflow))
+overflow = None
+for _ in range(120):
+    try:
+        t, _i = apply_texture(p, out_dir=D, mode='FUZZY', fuzzy_thick=0.1)
+        names.append(os.path.basename(t))
+    except ValueError as e99:
+        overflow = str(e99)
+        break
+check('folder-global numbers: all unique, up to V99, then a CLEAR guard '
+      '(no silent overwrite)',
+      overflow is not None and len(set(names)) == len(names)
+      and names[-1] == '00_V99_ver_TX.gcode'
+      and 'clean up first' in overflow,
+      'n=%d last=%s, err=%r' % (len(names), names[-1] if names else '-', overflow))
+
+# folder-global numbers: D is FULL now (V99 guard) - the rest runs in a
+# fresh folder, exactly what the field does (one folder per generator)
+D = tempfile.mkdtemp(prefix='r91sim2_')
 
 # ---------------------------------------------------------------------------
 print('=== 8. degenerate files ===')

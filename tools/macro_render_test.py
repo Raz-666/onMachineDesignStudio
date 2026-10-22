@@ -2764,7 +2764,7 @@ open(_f61, 'w').write('\n'.join(_src61) + '\n')
 _out61, _nl61 = _pp61.make_range(_f61, 3, 5, floor=2, top=1, brim=1)
 _t61 = open(_out61).read()
 tests.append(('R62 make_range: PRINT_START head + Z0.2 on the bed (no mid-air!)',
-    _os61.path.basename(_out61) == '00_tei_L3-5_V01.gcode' and _nl61 == 6 and _t61.count('LAYER_MARK') == 6
+    _os61.path.basename(_out61) == '00_V01_tei_L3-5.gcode' and _nl61 == 6 and _t61.count('LAYER_MARK') == 6
     and _t61.startswith('; R2-RANGE excerpt') and _t61.count('LAYER_MARK') == 6
     and 'PRINT_START MATERIAL=PLA' in _t61 and 'HOTEND_FIRST=215' in _t61 and 'BED=60' in _t61
     and 'FIRST layer at Z0.6' in _t61 and 'MID-AIR' not in _t61, _t61[:150]))
@@ -3244,7 +3244,7 @@ _olg80, _ilg80 = _pp61.make_labels(['DIESE ZEICHENKETTE IST ZU LANG'], w=40, h=2
                                     out_dir=_d63, bed=_bed63)
 tests.append(('R80 labels: long text GROWS the label (was: error) + stays readable',
     _ilg80['grown'] and _ilg80['cap_mm'] >= 2.5 and _ilg80['w'] > 40.0
-    and _ilg80['file'].startswith('00_') and '_V01.gcode' in _ilg80['file'],
+    and _ilg80['file'].startswith('00_V') and _ilg80['file'].endswith('_DIESEZEICHENKETT.gcode'),
     'w=%s h=%s cap=%s' % (_ilg80['w'], _ilg80['h'], _ilg80['cap_mm'])))
 
 # --- bed limits parse (colon syntax, user-style printer.cfg) ---
@@ -3461,7 +3461,7 @@ _files64, _info64 = _pp.make_resonance(axes=['x', 'y'], mode='print', out_dir=_g
                                        bed=(0, -1, 244, 238), csv_dirs=[_d64])
 _g = open(_files64[0]).read()
 tests.append(('R64 resonance print: file name + info per axis',
-    _os64.path.basename(_files64[0]) == '00_Resonance_XY_V01.gcode'
+    _os64.path.basename(_files64[0]) == '00_V01_Resonance_XY.gcode'
     and set(_info64['axes']) == {'x', 'y'} and 'best_txt' in _info64['axes']['x'], ''))
 tests.append(('R64 resonance print: EXCLUDE_OBJECT_DEFINE before PRINT_START',
     _g.index('EXCLUDE_OBJECT_DEFINE NAME=RESONANCE_X') < _g.index('PRINT_START')
@@ -3480,12 +3480,12 @@ _files64p, _info64p = _pp.make_resonance(axes=['x', 'y'], mode='plot', out_dir=_
                                          bed=(0, -1, 244, 238), csv_dirs=[_d64])
 _gp = open(_files64p[0]).read()
 tests.append(('R64 resonance plot: R2-PLOT header, own file, no PRINT_START',
-    'R2-PLOT' in _gp[:200] and _os64.path.basename(_files64p[0]) == '00_Resonance_XY_plot_V01.gcode'
+    'R2-PLOT' in _gp[:200] and _os64.path.basename(_files64p[0]) == '00_V02_Resonance_XY_plot.gcode'
     and 'PRINT_START' not in _gp and '_PLOT_START EXTRUDE=0' in _gp, ''))
 tests.append(('R64 process() skips R2-PLOT files (no print tags)',
     _pp.process(_files64p[0])['skipped'] is True, ''))
 tests.append(('R64 single axis + missing axis -> one plate, no crash',
-    (lambda _f, _i: _os64.path.basename(_f[0]) == '00_Resonance_X_plot_V01.gcode')(*_pp.make_resonance(
+    (lambda _f, _i: _os64.path.basename(_f[0]) == '00_V03_Resonance_X_plot.gcode')(*_pp.make_resonance(
         axes=['x'], mode='plot', out_dir=_g64, bed=(0, -1, 244, 238), csv_dirs=[_d64])), ''))
 try:
     _pp.make_resonance(axes=['z'], mode='print', out_dir=_g64, csv_dirs=[_d64])
@@ -3499,7 +3499,7 @@ _ob64, _oi64 = _pp.make_bridge(length=150, short_pct=40, bed=(0, -1, 244, 238),
                                out_dir=_g64, bridge_layers=2, h_long=30, h_short=15, fan=200)
 _gb = open(_ob64).read()
 tests.append(('R64 bridge: file name + layer math (30mm top -> 152 layers)',
-    _oi64['file'] == '00_Bridge_150mm_40pct_V01.gcode' and _oi64['layers'] == 152
+    _oi64['file'] == '00_V04_Bridge_150mm_40pct.gcode' and _oi64['layers'] == 152
     and _oi64['short_len'] == 60.0, str(_oi64)))
 tests.append(('R64 bridge: 5 exclude objects, BRIDGE type, fan per deck',
     _re64.findall(r'EXCLUDE_OBJECT_DEFINE NAME=(\w+)', _gb) ==
@@ -3803,7 +3803,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.100) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-21.115'", repr(_v66)))
+    _v66 == "'R2-2026-10-22.118'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -5683,7 +5683,7 @@ _o80g, _i80g = _mod73.make_labels(['Garage!'], w=60, h=15, font='MONO', font_siz
                                   out_dir=_tf74.mkdtemp(), bed=(0, -3, 244, 238))
 tests.append(('R80 labels: Garage! @6.0mm caps on 60x15 builds (was: ERROR x4)',
     _i80g['cap_mm'] == 6.0 and _i80g['grown'] and _i80g['w'] > 60.0
-    and _i80g['file'] == '00_Garage_V01.gcode', str(_i80g)))
+    and _i80g['file'] == '00_V01_Garage.gcode', str(_i80g)))
 _o80h, _i80h = _mod73.make_labels(['Garage!'], w=50, h=15, font='SMOOTH', font_size=0,
                                   stroke=0, hole_side=1, hole_d=5,
                                   out_dir=_tf74.mkdtemp(), bed=(0, -3, 244, 238))
@@ -5804,9 +5804,9 @@ _or83b, _ = _mod73.make_range(_src83, 2, 4)
 _or83c, _ = _mod73.make_range(_src83, 2, 4, version=7)   # ignored: auto only
 tests.append(('R83 make_range (R133f): 00_+V name, NEVER overwrites - every '
               'run bumps, version param retired, source never touched',
-    _os74.path.basename(_or83a) == '00_tei_L2-4_V01.gcode'
-    and _os74.path.basename(_or83b) == '00_tei_L2-4_V02.gcode'
-    and _os74.path.basename(_or83c) == '00_tei_L2-4_V03.gcode'
+    _os74.path.basename(_or83a) == '00_V01_tei_L2-4.gcode'
+    and _os74.path.basename(_or83b) == '00_V02_tei_L2-4.gcode'
+    and _os74.path.basename(_or83c) == '00_V03_tei_L2-4.gcode'
     and open(_src83).read() == _before83,
     _os74.path.basename(_or83c)))
 
@@ -6260,7 +6260,7 @@ _p86t, _i86t = _pp.make_cable_ties(count=6, length=120, width=8, layers=3,
                                    bed=(0.0, -3.0, 244.0, 238.0))
 _g86t = open(_p86t).read()
 tests.append(('R89 ties: file name 00_+_V01, TAG, PRINT_START, 6 exclude objects',
-    _os86.path.basename(_p86t) == '00_Ties_120x8_CLA_V01.gcode'
+    _os86.path.basename(_p86t) == '00_V01_Ties_120x8_CLA.gcode'
     and _pp.TAG in _g86t and 'PRINT_START MATERIAL=PLA' in _g86t
     and _g86t.count('EXCLUDE_OBJECT_DEFINE') == 6, _os86.path.basename(_p86t)))
 tests.append(('R86 ties: 10 layer marks + header order TAG->defines->PRINT_START->G90',
@@ -6320,7 +6320,7 @@ _p86a, _i86a = _pp.make_angles(count=2, angle_deg=90, leg_a=60, leg_b=60, width=
                                stiffener=1, out_dir=_d86, bed=(0.0, -3.0, 244.0, 238.0))
 _g86a = open(_p86a).read()
 tests.append(('R86 angles: name + L-outline polygon (6 pts) + 2 plates + rib layers',
-    _os86.path.basename(_p86a) == '00_Angle_90deg_60x60_V01.gcode'
+    _os86.path.basename(_p86a) == '00_V02_Angle_90deg_60x60.gcode'
     and _i86a['layers'] == 9 and _g86a.count('EXCLUDE_OBJECT_DEFINE') == 2
     and _g86a.count('LAYER_MARK') == 9, _os86.path.basename(_p86a)))
 
@@ -6365,7 +6365,7 @@ _p86f, _i86f = _pp.make_angles(count=1, flat=True, leg_a=40, leg_b=40, width=25,
                                layers=6, holes=2, hole_d=4, countersink=False,
                                stiffener=0, out_dir=_d86, bed=(0.0, -3.0, 244.0, 238.0))
 tests.append(('R86 flat: own file name + both halves share the SAME hole pattern',
-    _os86.path.basename(_p86f) == '00_Flat_80x25_V01.gcode' and _i86f['holes'] == '2+2',
+    _os86.path.basename(_p86f) == '00_V03_Flat_80x25.gcode' and _i86f['holes'] == '2+2',
     _os86.path.basename(_p86f)))
 
 # hole clamp: 9mm on a 20mm leg -> clamped to 14? no: max_d = min(20-6, 10) = 10 -> stays 9? edge=3
@@ -6814,7 +6814,8 @@ _p90a, _i90a = _pp.make_frame(preset='10x15', depth=8, frame_w=10, corner=4,
 _g90a = open(_p90a, encoding='utf-8').read()
 tests.append(('R90.1a multi: 10x15 -> Part A (frame alone), TAG + PRINT_START',
     _i90a['multi'] and not _i90a['kit'] and len(_i90a['plates']) == 2
-    and _os90.path.basename(_p90a) == '00_Frame_10x15_FLATx8_A_V01.gcode'
+    and _os90.path.basename(_p90a) == '00_V01_Frame_10x15_FLATx8_A.gcode'
+    and _i90a['plates'][1] == '00_V02_Frame_10x15_FLATx8_B.gcode'
     and _pp.TAG in _g90a and 'PRINT_START MATERIAL=PLA LAYER_HEIGHT=0.2' in _g90a
     and _g90a.count('EXCLUDE_OBJECT_DEFINE') == 1 and ';TYPE:Ironing' in _g90a
     and 'PLATE A of 2' in _g90a, _os90.path.basename(_p90a)))
@@ -6887,7 +6888,7 @@ _p90s, _i90s = _pp.make_frame(preset='9x13', depth=6, frame_w=6, out_dir=_d90)
 _g90s = open(_p90s, encoding='utf-8').read()
 tests.append(('R90.1a single: 9x13 border 6 = ONE file frame+plate + PRINT_END',
     not _i90s['multi'] and not _i90s['kit'] and len(_i90s['plates']) == 1
-    and _os90.path.basename(_p90s) == '00_Frame_9x13_FLATx6_V01.gcode'
+    and _os90.path.basename(_p90s) == '00_V03_Frame_9x13_FLATx6.gcode'
     and _g90s.count('EXCLUDE_OBJECT_DEFINE') == 2 and 'PRINT_END' in _g90s
     and 'M300 P150 S880' not in _g90s, _os90.path.basename(_p90s)))
 
@@ -6897,7 +6898,8 @@ _p90k, _i90k = _pp.make_frame(preset='13x18', depth=6, frame_w=8,
 _g90k = open(_p90k, encoding='utf-8').read()
 tests.append(('R90.1a: 13x18 border 8 = 2 plates (multi-plate BEFORE kit)',
     _i90k['multi'] and not _i90k['kit'] and len(_i90k['plates']) == 2
-    and _os90.path.basename(_p90k) == '00_Frame_13x18_FLATx6_A_V01.gcode'
+    and _os90.path.basename(_p90k) == '00_V04_Frame_13x18_FLATx6_A.gcode'
+    and _i90k['plates'][1] == '00_V05_Frame_13x18_FLATx6_B.gcode'
     and _g90k.count('EXCLUDE_OBJECT_DEFINE') == 1, _os90.path.basename(_p90k)))
 
 # real kit: custom 40x200 border 6 - even the frame alone is too tall
@@ -6908,7 +6910,8 @@ _g90kkb = open(_os90.path.join(_d90, _i90kk['plates'][1]),
                encoding='utf-8').read()
 tests.append(('R90.1a kit: frame alone too tall -> 4 strips on A + plate on B',
     _i90kk['kit'] and _i90kk['multi'] and len(_i90kk['plates']) == 2
-    and _os90.path.basename(_p90kk) == '00_Frame_40x200_FLATx6_KIT_A_V01.gcode'
+    and _os90.path.basename(_p90kk) == '00_V06_Frame_40x200_FLATx6_KIT_A.gcode'
+    and _i90kk['plates'][1] == '00_V07_Frame_40x200_FLATx6_KIT_B.gcode'
     and _g90kk.count('EXCLUDE_OBJECT_DEFINE') == 4
     and 'EXCLUDE_OBJECT_DEFINE NAME=STRIP_T' in _g90kk
     and 'EXCLUDE_OBJECT_DEFINE NAME=STRIP_L' in _g90kk
@@ -7342,7 +7345,7 @@ _moved91 = sum(1 for _u, _v in zip(_o91, _a91)
                if abs(_u[0] - _v[0]) + abs(_u[1] - _v[1]) > 1e-6)
 tests.append(('R91 fuzzy: ALL outer vertices scattered, original untouched',
     _ti91a['shifted'] == len(_o91) and _moved91 == len(_o91)
-    and _os91.path.basename(_t91a) == '00_Frame_9x13_FLATx8_TX_V01.gcode'
+    and _os91.path.basename(_t91a) == '00_V02_Frame_9x13_FLATx8_TX.gcode'
     and _os91.path.exists(_p91) and _ti91a['layers'] > 30,
     'shifted=%d/%d' % (_ti91a['shifted'], len(_o91))))
 
@@ -7407,7 +7410,7 @@ _d91v = _tf91.mkdtemp(prefix='r91v_')
 _at91(_p91, out_dir=_d91v, mode='FUZZY')
 _t91g, _ti91g = _at91(_p91, out_dir=_d91v, mode='FUZZY')
 tests.append(('R91: existing _TX file -> next free version (never overwritten)',
-    _os91.path.basename(_t91g) == '00_Frame_9x13_FLATx8_TX_V02.gcode'
+    _os91.path.basename(_t91g) == '00_V02_Frame_9x13_FLATx8_TX.gcode'
     and _ti91g['version'] == 2, str(_ti91g)))
 # a slicer file that only has infill/fill + inner walls (no 'outer wall' type)
 _p91h = _os91.path.join(_d91v, '00_nowall.gcode')
@@ -8535,8 +8538,7 @@ tests.append(('R99 frame: _FILE_INFO + TYPES (brim/bottom/ironing; R127 one-piec
     _ty99(_fa99)))
 _r99b = _pp.make_frame(preset='13x18', out_dir=_d99)
 _fa99b = _p99(_r99b)
-_fb99b = _os99.path.join(_os99.path.dirname(_fa99b),
-                         _os99.path.basename(_fa99b).replace('_A_', '_B_'))
+_fb99b = _os99.path.join(_os99.path.dirname(_fa99b), _r99b[1]['plates'][1])
 tests.append(('R99 frame: oversized still splits A/B, TYPES on both, ironing only on A',
     _os99.path.isfile(_fb99b) and 'TYPES=' in _fi99(_fa99b)
     and 'TYPES=' in _fi99(_fb99b) and 'IRONING' in _ty99(_fa99b)
@@ -12031,7 +12033,7 @@ tests.append(('R146 activator marker RENDER: OW with spd 80% + PA 0.03 shows '
 tests.append(('R146 Gen files slots: basename on the 20-char LCD (path split) '
               'but the FULL relative path goes to SDCARD_PRINT_FILE - '
               'subfolder outputs stay selectable',
-              _lcd146.count(").split('/')[-1]|truncate(13, True)}") == 24
+              _lcd146.count(").split('/')[-1]|replace('.gcode', '')|truncate(13, True)}") == 24
               and _lcd146.count("SDCARD_PRINT_FILE FILENAME=\"{(printer['save_variables'].variables.gen_files|default([]))") >= 12
               and _lcd146.count('SDNAV_GO INDEX=') == 20, ''))
 
@@ -12054,6 +12056,83 @@ tests.append(('R155 SD Card browser: REAL folder navigation - watcher pushes '
                       for l in _sdnamelines155)
               and _lcd146.count('sd_view|default([])') >= 40, ''))
 
+# ===================== R158 (.118): display-unique file names ==================
+# Field report on the SD browser: the LCD shows ~15 characters of a file name
+# - with the version at the END (00_Name_Vnn.gcode) a regeneration looked
+# EXACTLY like its predecessor, frame plates A/B were indistinguishable.
+# R158: version FIRST (00_Vnn_Name) + folder-global numbers + the .gcode tail
+# hidden in both LCD browsers.
+_r2p158 = open('tools/r2_postproc.py', encoding='utf-8').read()
+_tx158 = open('tools/r2_texture.py', encoding='utf-8').read()
+_lcd158 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R158 naming source: version FIRST after 00_ at every generator '
+              '(18+ sites), _next_gen_version folder-global WITHOUT a prefix '
+              'argument, no _WATCH_ROOT left, the texture tool mirrors the '
+              'scheme (legacy stems lose their tail version AND their old '
+              '00_ prefix - exactly one 00_Vnn_ head per file)',
+              _r2p158.count("'00_V%02d_") + _r2p158.count("'00_V%%02d_") >= 18
+              and 'def _next_gen_version(out_dir):' in _r2p158
+              and '_next_gen_version(out_dir, ' not in _r2p158
+              and '_WATCH_ROOT' not in _r2p158
+              and "'00_V%02d_%s_TX.gcode'" in _tx158
+              and "stem[3:] if stem.startswith('00_')" in _tx158, ''))
+
+# functional: legacy files in the SAME folder keep the numbering honest
+try:
+    import os as _os158, tempfile as _tf158, importlib as _il158, sys as _sys158
+    if 'tools' not in _sys158.path:
+        _sys158.path.insert(0, 'tools')
+    _r2m158 = _il158.import_module('r2_postproc')
+    _ok158 = False
+    with _tf158.TemporaryDirectory() as _td158:
+        open(_os158.path.join(_td158, '00_Garage_V05.gcode'), 'w').write(';')
+        _oa158, _ia158 = _r2m158.make_labels(['R2-D2'], w=30, h=12,
+                                             font='SMOOTH', out_dir=_td158,
+                                             bed=(0, -3, 244, 238))
+        _ob158, _ib158 = _r2m158.make_labels(['R2-D2'], w=30, h=12,
+                                             font='SMOOTH', out_dir=_td158,
+                                             bed=(0, -3, 244, 238))
+        _ok158 = (_ia158['file'] == '00_V06_R2-D2.gcode'
+                  and _ib158['file'] == '00_V07_R2-D2.gcode')
+except Exception as _e158:                                            # noqa: BLE001
+    _ok158 = False
+    _ia158 = {'file': repr(_e158)}
+tests.append(('R158 labels E2E: a legacy 00_Garage_V05.gcode in the folder -> '
+              'the next file is 00_V06_R2-D2.gcode, the one after V07 - the '
+              'number never repeats (field log .98 rule, now folder-global)',
+              _ok158, str(_ia158.get('file', ''))[:80]))
+
+# display: both browsers hide the .gcode tail before truncating
+import re as _re158
+save_vars['sd_view'] = ['D:Labels', 'F:00_V06_R2-D2.gcode',
+                        'F:00_V07_R2-D2.gcode', 'F:Bun2.jpg']
+save_vars['gen_files'] = ['Labels/00_V06_R2-D2.gcode',
+                          'Labels/00_V07_R2-D2.gcode']
+def _name158(section):
+    _blk158 = _re158.search(r'\[menu %s\]\n(.*?)(?=\n\[|\Z)' % section.replace(' ', r'\ '),
+                            _lcd158, _re158.S).group(1)
+    return [l[5:].strip() for l in _blk158.split('\n') if l.startswith('name:')][0]
+_n158f1 = _n158s0 = ''
+try:
+    _n158f0 = render(_name158('__main __sdcard __f0'), {}).strip()
+    _n158f1 = render(_name158('__main __sdcard __f1'), {}).strip()
+    _n158f3 = render(_name158('__main __sdcard __f3'), {}).strip()
+    _n158s0 = render(_name158('__main __gen __gfiles __s0'), {}).strip()
+    _ok158d = (_n158f0 == '> Labels'
+               and _n158f1 == '00_V06_R2-D2'
+               and _n158f3 == 'Bun2.jpg'
+               and _n158s0 == '1 00_V06_R2-D2')
+except Exception as _e158d:                                           # noqa: BLE001
+    _ok158d = False
+    _n158f1 = repr(_e158d)
+del save_vars['sd_view'], save_vars['gen_files']
+tests.append(('R158 LCD display: the SD browser hides the .gcode tail (file '
+              'slot shows 00_V06_R2-D2 = version FIRST, 13 of 15 chars), '
+              'folders keep the > marker, a .jpg stays untouched, and the Gen '
+              'files list shows the same name - two generations are ALWAYS '
+              'told apart by the leading number',
+              _ok158d, 'f1=%r s0=%r' % (_n158f1 if isinstance(_n158f1, str) else '', _n158s0 if isinstance(_n158s0, str) else '')))
+
 _r2p146 = open('tools/r2_postproc.py').read()
 tests.append(('R146 generator folders (source wiring): all 15 watcher call '
               'sites route into _gensub subfolders (no flat out_dir=directory '
@@ -12073,20 +12152,24 @@ try:
     with _tf146.TemporaryDirectory() as _td146:
         _sub146 = _r2m146._gensub(_td146, 'labels')
         open(_os146.path.join(_td146, '00_X_V03.gcode'), 'w').write(';')
-        _r2m146._WATCH_ROOT = _td146
-        try:
-            _v146 = _r2m146._next_gen_version(_sub146, '00_X')
-        finally:
-            _r2m146._WATCH_ROOT = None
+        open(_os146.path.join(_sub146, '00_X_V07.gcode'), 'w').write(';')
+        open(_os146.path.join(_sub146, '00_V09_X.gcode'), 'w').write(';')
+        _v146 = _r2m146._next_gen_version(_sub146)   # counts BOTH formats
+        _v146r = _r2m146._next_gen_version(_td146)   # root keeps its own run
         _ok146f = (_sub146 == _os146.path.join(_td146, 'Labels')
-                   and _os146.path.isdir(_sub146) and _v146 == 4)
+                   and _os146.path.isdir(_sub146) and _v146 == 10
+                   and _v146r == 4)
 except Exception as _e146f:                                           # noqa: BLE001
     _ok146f = False
     _v146 = repr(_e146f)
-tests.append(('R146 _gensub + version continuity: Labels/ created on demand; '
-              'a legacy 00_X_V03.gcode in the ROOT still counts - the next '
-              'write into Labels/ is V04 (no collision across the move)',
-              _ok146f, str(_v146)[:120]))
+tests.append(('R146/R158 _gensub + version scan: Labels/ created on demand; '
+              'the scan counts BOTH name formats in the OUTPUT folder (legacy '
+              '00_X_V07 and new 00_V09_X -> next is V10, never a reuse); the '
+              'ROOT keeps its own sequence (folder-local since R158 - legacy '
+              'root files no longer shift subfolder numbers)',
+              _ok146f, 'sub=%s root=%s' % (
+                  _v146 if isinstance(_v146, int) else str(_v146)[:60],
+                  _v146r if isinstance(_v146r, int) else '-')))
 
 fails = 0
 for name, ok, info in tests:

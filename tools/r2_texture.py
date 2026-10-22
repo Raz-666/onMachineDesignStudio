@@ -21,8 +21,9 @@ What it does
 What it never touches
 - ;TYPE: tags, LAYER_MARK / APPLY_TYPE, EXCLUDE_OBJECT_*, temps, fans,
   retracts, speeds, E values, Z values - the feature system stays intact
-- the source file: the result is a NEW file <name>_TX_V01.gcode (version
-  bumped until free) - never an overwrite, no auto-start (viewer hint instead)
+- the source file: the result is a NEW file 00_Vnn_name_TX.gcode (one
+  folder-global running number, never reused) - never an overwrite, no
+  auto-start (viewer hint instead)
 
 Streaming, Pi-safe: one line in, one line out, no full-file buffers.
 """
@@ -141,7 +142,7 @@ def _bump_mandelbrot(x, y, z, scale, cx, cy):
 
 def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                   fuzzy_density=100.0, bump_pattern='GRID', bump_scale=10.0,
-                  bump_amp=0.35, direction='OUT', bed=None, version=1,
+                  bump_amp=0.35, direction='OUT', bed=None, version=1,  # version: retired (R158, folder-global auto)
                   seed=91):
     """Returns (new_path, info). Raises ValueError on bad parameters."""
     mode = str(mode).upper()
@@ -174,17 +175,39 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
 
     base = os.path.basename(src)
     stem = base[:-6] if base.lower().endswith('.gcode') else base
-    # R83 naming: keep a leading 00_, add _TX, version up until free
-    stem = re.sub(r'_V\d+$', '', stem)
-    ver = max(1, min(int(version), 99))
-    while True:
-        fname = '%s_TX_V%02d.gcode' % (stem, ver)
-        out = os.path.join(out_dir, fname)
-        if not os.path.exists(out) or os.path.abspath(out) == os.path.abspath(src):
-            break
-        ver += 1
-        if ver > 99:
-            raise ValueError('all _TX versions V01..V99 exist - clean up first')
+    # R158 (.118): version FIRST + ONE folder-global number, mirroring
+    # r2_postproc._next_gen_version (kept local on purpose - this script
+    # stays importable without the 18k-line post-processor). A new-format
+    # source (00_Vnn_Name.gcode) contributes just its Name part; a legacy
+    # source (00_Name_Vnn.gcode) loses its tail version AND its old 00_
+    # prefix - the output carries exactly one 00_Vnn_ head.
+    _m158 = re.match(r'^00_V\d+_(.+)$', stem)
+    if _m158:
+        stem = _m158.group(1)
+    else:
+        stem = re.sub(r'_V\d+$', '', stem)
+        stem = stem[3:] if stem.startswith('00_') else stem
+    _hi158 = 0
+    try:
+        for _p158 in os.listdir(out_dir):
+            _mm158 = re.match(r'^00_V(\d+)_', _p158)
+            if _mm158:
+                _hi158 = max(_hi158, int(_mm158.group(1)))
+                continue
+            _mm158 = re.search(r'_V(\d+)\.gcode$', _p158)
+            if _mm158 and _p158.startswith('00_'):
+                _hi158 = max(_hi158, int(_mm158.group(1)))
+    except OSError:
+        pass
+    if _hi158 >= 99:
+        raise ValueError('all 00_V numbers 01..99 are used in this folder - '
+                         'clean up first (a texture never silently '
+                         'overwrites)')
+    fname = '00_V%02d_%s_TX.gcode' % (_hi158 + 1, stem)
+    out = os.path.join(out_dir, fname)
+    if os.path.abspath(out) == os.path.abspath(src):
+        raise ValueError('texture output name collides with the source - '
+                         'refusing')
 
     rng = random.Random(seed)
     cx = (bed[0] + bed[2]) / 2.0
@@ -338,7 +361,7 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                     last_e = float(gm.group(5))
             fo.write(ls + '\n')
 
-    info = {'file': fname, 'src': base, 'mode': mode, 'version': ver,
+    info = {'file': fname, 'src': base, 'mode': mode, 'version': _hi158 + 1,
             'fuzzy_thick': float(fuzzy_thick) if mode == 'FUZZY' else 0.0,
             'fuzzy_density': float(fuzzy_density) if mode == 'FUZZY' else 0.0,
             'pattern': bump_pattern if mode == 'BUMPS' else '',

@@ -492,6 +492,13 @@ ck('LOOP FIX: EVERY nonce channel is primed after a watcher start '
    not _missing, 'unprimed: %s' % _missing)
 ck('helper _next_gen_version: next free number, NEVER overwrite',
    hasattr(pp, '_next_gen_version') and hasattr(pp, '_gen_stem'), '')
+ck('R158 naming: version FIRST (00_Vnn_Name) at every generator, '
+   'folder-global scan counts BOTH name formats, no _WATCH_ROOT left',
+   src.count("'00_V%02d_") + src.count("'00_V%%02d_") >= 18
+   and 'def _next_gen_version(out_dir):' in src
+   and '_next_gen_version(out_dir, ' not in src
+   and '_WATCH_ROOT' not in src
+   and 'r\'^00_V(\\d+)_' in src, '')
 ck('names: FULL source stem (the [:8] cut is gone everywhere)',
    ":8] or 'IMG'" not in src and ":8] or 'MODEL'" not in src
    and pp._gen_stem('/x/AxtBunny.png.gcode') == 'AxtBunny.png'
@@ -667,7 +674,7 @@ ck('plot: sources are selected in the file list - SDCARD_PRINT_FILE '
    and 'never BASE-start an image' in _m08_134, '')
 ck('plot: generation on demand - plot_nonce handler spawns a job with '
    '00_Plot_ naming, gen_out honored (start vs preview)',
-   "_spawn_job('Plot'" in src and "'00_Plot_%s_V%02d.gcode'" in src
+   "_spawn_job('Plot'" in src and "'00_V%02d_Plot_%s.gcode'" in src
    and 'plot_nonce' in src, '')
 ck('plot: the nonce channel is primed at watcher start + frozen while '
    'printing (the .90 regeneration-loop lesson)',

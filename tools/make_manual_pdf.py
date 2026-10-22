@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MANUAL.pdf — the illustrated user handbook (R2-2026-10-21.115).
+"""MANUAL.pdf — the illustrated user handbook (R2-2026-10-22.118).
 Mirrors MANUAL.md: daily workflow first, generators next, calibration ladder,
 reference tables. 21 vector diagrams (font specimens + range variants drawn
 from the REAL generator glyph data), full parameter tables."""
@@ -476,7 +476,7 @@ class Doc(BaseDocTemplate):
         c.drawRightString(A4[0]-17*mm,A4[1]-10*mm,self.ch); c.restoreState()
     def footer(self,c,doc):
         c.saveState(); c.setFont('DVS',7.5); c.setFillColor(GRAY)
-        c.drawString(17*mm,9*mm,'R2-D2 Macro System · R2-2026-10-21.115 · user handbook')
+        c.drawString(17*mm,9*mm,'R2-D2 Macro System · R2-2026-10-22.118 · user handbook')
         c.drawRightString(A4[0]-17*mm,9*mm,f'Page {doc.page}')
         c.setStrokeColor(colors.HexColor('#c9d4e4')); c.setLineWidth(0.6); c.line(17*mm,12*mm,A4[0]-17*mm,12*mm)
         c.restoreState()
@@ -1251,7 +1251,7 @@ def d_wiring():
 # ---- cover ----
 E+= [Spacer(1,10*mm),Paragraph('R2-D2 Macro System',S['title']),Spacer(1,2*mm),
      Paragraph('The Complete User Handbook — illustrated edition',S['sub']),Spacer(1,3*mm),
-     Paragraph('Version R2-2026-10-21.115 · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail)',S['sub']),
+     Paragraph('Version R2-2026-10-22.118 · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail)',S['sub']),
      Spacer(1,6*mm),CENT(d_robot()),Spacer(1,6*mm),
      Paragraph('The USER HANDBOOK: from file to print in one read — every file type (by layer / by object / vase /<br/>'
                'legacy / movement data), the start dialog, pre-print settings, live tuning, pauses, object skip ·<br/>'
@@ -1535,7 +1535,7 @@ chapter('4','Scenario library — every file type walked through',
      '<b>H — printing LABELS:</b> Tools > Labels > Text, Settings, Job > Add, Create — start like any file; M600 pause '
      'for color 2 (ch. 5.2)',
      '<b>I — plotting an image:</b> upload the plain photo.png (no .gcode tail), select it in the file list - '
-     'the watcher generates 00_Plot_*_V01.gcode, start it (AS SLICED = pure pen), M0 '
+     'the watcher generates 00_V01_Plot_*.gcode, start it (AS SLICED = pure pen), M0 '
      'pauses at pen changes (ch. 5.3)',
      '<b>J — test the critical middle:</b> range with Floor 0 / Top 2 — the section prints on the bed with a '
      'solid cap: the fastest overhang/clearance test'),
@@ -1609,7 +1609,7 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
   H2('5.2 Labels — the built-in label maker'),
   P("Name tags, key fobs, drawer labels — engraved text without a slicer, entirely from the LCD: Tools > Labels > Text "
     "(up to 5 lines, character editor), Settings, Job > Add (queue n/24), Create. The watcher builds "
-    "00_text_V01.gcode (00_ = top of the file list, V = your version number) and beeps. The same text at the same "
+    "00_V01_text.gcode and beeps (00_ + running number FIRST: sorts to the top of the list and stays unique on the 15-character LCD - two generations never look alike; the number counts up per folder and never repeats). The same text at the same "
     "version REPLACES its own generated file — tweaks never pile up, and the uploaded original is never touched. "
     "Printing by layer: all bases in color 1, M600 pause, RESUME purges into the purge tower (15 mm clear, on the "
     "side the probe does not sweep), text on top. Every label is an exclude object. Between glyphs the head "
@@ -1635,7 +1635,7 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
   H2('5.3 Plotter — images, photos and text with a pen'),
   P("Mount a pen instead of (or next to) the nozzle. Upload the PLAIN file - photo.png (PNG), "
     "foto.jpg (baseline JPEG), drawing.svg (SVG), plan.pdf (vector PDF), notes.txt (text page) - no .gcode "
-    "tail anymore: SELECT it in the file list and the watcher generates 00_Plot_name_V01.gcode on demand "
+    "tail anymore: SELECT it in the file list and the watcher generates 00_V01_Plot_name.gcode on demand "
     "(settings: Tools > Plotter; Maintenance > gen-out decides start vs preview). "
     "Options in the name: bild.c3.s035.png = 3 shades, 0.35 mm hatch (defaults c2/s040)."),
   *B('auto-contrast (Otsu) finds the ink on any paper tint — photos of hand sketches just work',
@@ -1656,7 +1656,7 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
     "at every tooth, cut to remove) and LOOP (a frame loop with an open slot plus beads along the strap — catches "
     "at every bead, lifts back out: adjustable and reusable). Settings: Count 1-24, Len 50-300 mm, Width 2-12 mm, "
     "Layers 3-6 (strap thickness), LH 0.12-0.32 (finer layers = smoother teeth), Closure, Brim, Vers. Create "
-    "(beeps) builds the file in the background (~1-3 s, niced), it auto-selects as 00_Ties_lenxwid_CLA|LOO_Vxx.gcode "
+    "(beeps) builds the file in the background (~1-3 s, niced), it auto-selects as 00_Vxx_Ties_lenxwid_CLA|LOO.gcode "
     "and the ready-message lists everything that was auto-adapted. Every tie is an exclude object (TIE_1..n)."),
   CENT(d_tie_anatomy()),CAP("Anatomy of a generated tie: top view with teeth and chamfered tip, the head "
     "cross-section (channel, pawl strip at the entry), the two closures CLASSIC vs LOOP — and how width 2/8/12 auto-scales the head"),
@@ -1682,7 +1682,7 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
     "auto-reduces if the leg is too short; in FLAT mode both halves share the SAME pattern. Countersink ON "
     "adds a two-step cone so flat-head screws sit flush. Stiffener: None / Gusset rib (triangle over the "
     "corner) / Stepped rib (gusset + smaller one on top — strongest). Create (beeps) -> "
-    "00_Angle_90deg_60x60_Vxx.gcode or 00_Flat_80x25_Vxx.gcode, auto-selected, each plate an exclude object."),
+    "00_Vxx_Angle_90deg_60x60.gcode or 00_Vxx_Flat_80x25.gcode, auto-selected, each plate an exclude object."),
   CENT(d_angle_anatomy()),CAP("The auto hole layout (corner zone shaded, holes on the centerline, clamped "
     "diameter), the countersink cross-section (flat-head screw flush), and what Angle 45/135 + Flat splice look like"),
   TBL(['Setting','Range','Meaning'],[
@@ -1707,7 +1707,7 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
     "the gcodes folder (drag + drop in Mainsail), the Images list of Tools > Lithophane refreshes on its own "
     "(newest first, 10 slots — pictures uploaded for PEN PLOTTING are in the same list, the original stays "
     "untouched). Slot press = Create: the watcher generates in its own background thread (big pictures ~a "
-    "minute), the file auto-selects as 00_Litho_name_Vxx.gcode. The picture prints STANDING (layer lines run "
+    "minute), the file auto-selects as 00_Vxx_Litho_name.gcode. The picture prints STANDING (layer lines run "
     "with the image — that is what keeps the detail), 100% solid, thickness 0.7-3.0 mm, the file sets speeds "
     "and fan itself. White or natural PLA glows best; the effect unfolds with back-light 20-50 mm behind the "
     "plate. Delete image = 2-press confirm — only the image goes away, its plotter .gcode stays. Console: "
@@ -1736,7 +1736,7 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
     "nested region on top, the darkest = the black contour lines. Nothing ever prints "
     "over air, the nozzle never dives, the probe never catches. The classic sketch "
     "recipe: white background image + Levels 3 + Color swap LAST = white body with "
-    "black lines. File: 00_LithoF_name_Vxx.gcode."),
+    "black lines. File: 00_Vxx_LithoF_name.gcode."),
   H2('5.7 Gaskets — the built-in seal maker'),
   P("Sealing rings straight from the LCD (menu Tools > Gaskets): outer/inner diameter and height, flat face "
     "or groove. One continuous spiral per band — no seam, no start-stop blob where a seal would leak, and no "
@@ -1745,7 +1745,7 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
     "OD 12-200, ID 6-190 (band >= 2.4 mm), Height 0.4-6 mm, Face FLAT/NUT, Ironing, LH, Vers. NUT mills a "
     "groove into the face: two raised sealing lips = higher contact pressure = seals better on uneven flanges "
     "(needs 2 mm+ height, falls back to FLAT with a note if the band is too narrow). Create (beeps) -> "
-    "00_Seal_odxidxh_Vxx.gcode, auto-selected. Measure the sealing surface of the flange, not the pipe. TPU "
+    "00_Vxx_Seal_odxidxh.gcode, auto-selected. Measure the sealing surface of the flange, not the pipe. TPU "
     "seals best (the file already prints at 15 mm/s), PETG works — and DRY the filament: moisture bubbles are "
     "the #1 seal killer. Console: GEN_SEAL OD=40 ID=20 HEIGHT=1.2 PROFILE=FLAT IRONING=0."),
   CENT(d_seal_anatomy()),CAP("The ring (OD/ID, one continuous spiral — no seam) and the two faces in "
@@ -1802,7 +1802,7 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
     "the header). Layer 1 prints solid + brim, the tubes open from layer 2 up. Catalog: 45 codes - "
     "B=brick, P=plate, T=tile, each 1x1..8x8 (width x length in studs). LCD: Tools > Bricks > "
     "Catalog bumps the count per code (same codes merge, max 120 parts), CREATE builds "
-    "00_Bricks_V01.gcode - one color, every part its own exclude object. Console: "
+    "00_V01_Bricks.gcode - one color, every part its own exclude object. Console: "
     "GEN_BRICKS CODES=\"B2x4:3|P2x2:2\"."),
   H2('5.11 Brick kit — a sliced file becomes a building kit (R125)'),
   P("The kit generator reads ANY sliced print file and rebuilds it as a stylized brick kit: the "
@@ -1858,7 +1858,7 @@ chapter('5.9','Texture: fuzzy skin & shaped bumps (any g-code file)',
    ['Dir','OUT / IN','grows away from / cuts into the part'],
   ],[34*mm,52*mm,78*mm]),
   P("Workflow: select the file as always, Pre-Print > Texture, pick mode + values, > Apply (beeps) - "
-    "the watcher writes a NEW <name>_TX_V01.gcode in the background (V02, V03 ... on repeat, the "
+    "the watcher writes a NEW 00_Vnn_name_TX.gcode in the background (the folder number counts up on repeat, the "
     "source is never touched), then CHECK IT IN THE 3D VIEWER - nothing auto-starts, by design. "
     "(.84) After gen applies (ch. 5.0): QUEUE selects the _TX result and replaces the source's "
     "selection (the source file itself stays untouched); PREVIEW leaves the selection alone. "
@@ -2140,7 +2140,7 @@ chapter('14','LCD menu reference',
    ['Spd/Acc/PA/Flw per feat (.104)','the four quick lists with the globals merged in: 1st-layer speed % (0 = off, default 75) · global accel + ON · global PA + smooth + File PA · global flow + ON · Now: the active feature'],
    ['Plotter (.104)','plot files only, at the END: PEN FILE · pen speed % · Pen Z · Shift X/Y · Reset'],
    ['Bed Mesh','Level old files ON/OFF · Mesh ON/AUTO/OFF · Save after · Adaptive · Travel cap (mm/s while meshing, 0 = off) · Calibrate now · Load… / Delete… (2×)'],
-   ['Range/Stop','Stop@ + From/To (capped to the file) + Floor/Top (FOOTPRINT or OUTLINE, GRID or SOLID) + Brim + Vers (shared V01-V09) + Create - builds 00_src_La-b_V01.gcode, same name overwrites, ends with a proper PRINT_END '],
+   ['Range/Stop','Stop@ + From/To (capped to the file) + Floor/Top (FOOTPRINT or OUTLINE, GRID or SOLID) + Brim + Create - builds 00_Vnn_src_La-b.gcode (running number first, never overwrites), ends with a proper PRINT_END '],
    ['Defaults','Save the current settings as Default 1-8 (lowest free slot, never overwrites) + Load + Delete '],
    ['Preheat','ON/OFF + nozzle/bed standby levels - preheats the moment you select a file '],
   ],[42*mm,122*mm]),
@@ -2477,7 +2477,7 @@ chapter('24','Cheat sheet: LCD paths &amp; Mainsail commands',
    ['MCR','minimum cruise ratio','SCV','square corner velocity'],
   ],[30*mm,54*mm,26*mm,54*mm]),
   Spacer(1,12*mm),Paragraph('Built and tested for one purpose: printing happily — with R2-D2 keeping watch. Have fun!',S['end']),
-  Spacer(1,4*mm),Paragraph('R2-D2 Macro System · R2-2026-10-21.115',S['cap']))
+  Spacer(1,4*mm),Paragraph('R2-D2 Macro System · R2-2026-10-22.118',S['cap']))
 
 import json as _json
 _MIDX=_json.loads(r'''[["Sounds \u2014 02_sounds.cfg", [["M300", "P=100, S=1000", "single beep \u2014 wrapper; the real beep lives on as M99300"], ["PLAY_SOUND", "NAME='r2_click'", "play a tune by name (ch. 16)"], ["TOGGLE_SOUNDS", "\u2014", "sounds on/off (persisted: sound_on)"], ["TEST_SOUNDS", "\u2014", "play all 20 tunes in sequence"]]], ["LEDs \u2014 03_leds.cfg", [["SET_LED_STATE", "STATE='idle'", "switch the LED pattern (12 states, ch. 17) - applies the nozzle mode too"], ["NOZZLE_LED", "MODE, BRIGHT, R, G, B", "nozzle light: on/off/auto + live dimming + live color (ch. 17)"], ["TOGGLE_LEDS", "\u2014", "frame LEDs off/on (persisted: leds_on)"], ["TEST_LEDS", "\u2014", "LED test animation"], ["_NOZZLE_SET", "ON", "internal: writes LED 5 (color x brightness, capped 0.5)"]]], ["Notifications \u2014 04_notify.cfg", [["NOTIFY", "TEXT, LEVEL='info', LED, SOUND", "notification helper: text + sound + LED in one call"], ["SHOW_STATUS", "\u2014", "full status: mode, material, overrides, live values"]]], ["Materials \u2014 05_materials.cfg", [["SET_MATERIAL", "MATERIAL=&lt;current>, APPLY_PRESET=1", "select material; APPLY_PRESET=1 also loads its preset"], ["SAVE_MATERIAL_TEMPS", "MATERIAL=&lt;current>", "save current values as this material's preset"], ["SHOW_MATERIAL", "\u2014", "show the current material + its stored preset"]]], ["Temperatures & marks \u2014 06_temp_controls.cfg", [["M104", "S=-1, T", "hotend temp \u2014 interceptor, redirects by layer (real: M99104)"], ["M109", "S=-1, T", "like M104, but waits"], ["M140", "S=-1", "bed temp \u2014 interceptor (real: M99140)"], ["M190", "S=-1", "like M140, but waits"], ["M106", "S=255", "part fan \u2014 scaling + from-layer-2 rule"], ["M204", "P, S, T", "acceleration \u2014 interceptor (M99204): feature accel , else global overwrite ON \u2192 your accel, else file 1:1"], ["LAYER_MARK", "\u2014", "layer marker (inserted by the post-processor)"], ["M220", "S=100", "speed \u2014 interceptor (M99220): L1 cap + stores the clean global % as g_speed_clean "], ["PAUSE_NEXT_LAYER", "REASON='next layer'", "one-shot pause at the next layer boundary"], ["PAUSE_AT_LAYER", "LAYER=0", "one-shot pause at layer n (n greater than 1)"], ["SET_LIVE_HOTEND_TEMP", "T=-1", "change the hotend target live"], ["SET_LIVE_BED_TEMP", "T=-1", "change the bed target live"]]], ["Start dialog & overrides \u2014 07_start_confirm.cfg", [["PRINT_AS_SLICED", "\u2014", "start dialog: answer AS SLICED"], ["PRINT_WITH_OVERRIDES", "\u2014", "alias for AS LEGACY since then (merged mode)"], ["PRINT_AS_LEGACY", "\u2014", "start dialog: AS LEGACY"], ["CANCEL_PENDING_PRINT", "\u2014", "start dialog: cancel (nothing is hot yet)"], ["SET_OVERRIDE_VALUE", "NAME, VALUE", "set one override + switch it ON; feat_on=0 resets the values to the file original "], ["TOGGLE_OVERRIDE", "NAME=''", "flip one override switch"], ["CLEAR_OVERRIDES", "\u2014", "all switches OFF (values stay stored)"], ["TOGGLE_START_CONFIRMATION", "\u2014", "start dialog on/off (persisted: start_confirm)"]]], ["Print start & end \u2014 08_print_start_stop.cfg", [["PRINT_START", "BED, HOTEND_FIRST, HOTEND_AFTER, BED_AFTER, MATERIAL='PLA', LAYER_HEIGHT=0.2, TOTAL_LAYERS=0, OUTER_WALL_SPEED=0, SUPPORT_SPEED=0, IRONING_SPEED=0", "start choreography \u2014 called by the sliced file"], ["START_PRINT", "\u2014", "old macro name: marked = no-op / legacy = real legacy start (dialog or auto-prep,)"], ["PRINT_END", "\u2014", "end choreography: heaters/fans, stats, sound, LED -> idle, _PRINT_CLEANUP"]]], ["Pause & filament \u2014 09_pause_filament.cfg", [["PAUSE", "REASON='User'", "pause + park (mode-aware)"], ["QUICK_PAUSE", "\u2014", "alias for PAUSE"], ["RESUME", "\u2014", "the full resume sequence (ch. 6)"], ["CANCEL_PRINT", "\u2014", "1st press arms (expires 60 s, also while paused), 2nd press cancels + cleanup"], ["M600", "\u2014", "filament change (park, unload, wait for load)"], ["CHANGE_FILAMENT", "\u2014", "M600 for humans \u2014 works from idle too (heats)"], ["CHANGE_FILAMENT_RESUME", "\u2014", "internal continuation after the load"], ["PURGE_MORE", "\u2014", "purge 15 mm more (after change/resume)"], ["M0", "\u2014", "slicer pause \u2014 mapped to PAUSE"], ["M1", "\u2014", "slicer pause \u2014 mapped to PAUSE"], ["_PRINT_CLEANUP", "\u2014", "resets ALL per-print state (PRINT_END/CANCEL/watcher - settings + mesh stay)"]]], ["Live tuning \u2014 10_live_tuning.cfg", [["APPLY_TYPE", "TYPE=''", "feature switch : sets current_type + applies THIS feature\u2019s overrides (speed % × clean global, absolute accel, ironing flow)"], ["SET_OUTER_WALL_SPEED + 11 more per-feature macros", "\u2014", "per-feature setters : forward to feat_spd/feat_acc + ON \u2014 % on top of the CLEAN global"], ["SET_GLOBAL_SPEED", "PERCENT=100", "global speed % (M220 style, never capped); the running feature stays on top — re-applied immediately"], ["SET_GLOBAL_ACCEL", "ACCEL=4000", "global acceleration, mm/s\u00b2; a feature with its own accel keeps it"],
@@ -2530,11 +2530,11 @@ _MIDX.append(["Part generators — 17_generator.cfg", [
     ["ANGLE_GENERATE", "—", "create the plate file from the stored settings (watcher builds it)"],
     ["ANGLE_INFO", "—", "every angle/flat setting + the auto-hole rules"],
     ["TEXTURE_APPLY", "FILE='', MODE='OFF', THICK, DENSITY, PATTERN, SCALE, AMP, DIR='OUT'",
-     "fuzzy skin / shaped bumps for the SELECTED (or FILE) g-code - new _TX_V01 file in the background, never auto-started (ch. 5.9)"]]])
+     "fuzzy skin / shaped bumps for the SELECTED (or FILE) g-code - new 00_Vnn_name_TX file in the background, never auto-started (ch. 5.9)"]]])
 # R131: building bricks / kits / figures + colorpic in the index
 _MIDX.append(["Building bricks & figures — 19_bricks.cfg", [
     ["GEN_BRICKS", "CODES='B2x4:3|P2x2:2'",
-     "console/Mainsail brick job: sets the queue (code:count, | separated, max 120 parts) and creates 00_Bricks_V01.gcode"],
+     "console/Mainsail brick job: sets the queue (code:count, | separated, max 120 parts) and creates 00_V01_Bricks.gcode"],
     ["BRICK_ADD", "CODE='B2x4', COUNT=2",
      "add COUNT x CODE to the queue (same codes merge; unknown code or count outside 1-99 rejected)"],
     ["BRICK_DEL_LAST", "—", "drop the last queue entry"],
@@ -2822,4 +2822,4 @@ chapter('D','Appendix D: Version history',
 
 doc=Doc(os.path.join(os.path.dirname(__file__),'..','MANUAL.pdf'))
 doc.build(E)
-print('MANUAL.pdf built (illustrated user handbook, .115)')
+print('MANUAL.pdf built (illustrated user handbook, .118)')
