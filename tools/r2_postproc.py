@@ -6783,6 +6783,8 @@ GEN_SUBDIRS = {
     'range': 'Range', 'texture': 'Texture', 'towers': 'Towers',
 }
 GEN_FOLDER_NAMES = sorted(set(GEN_SUBDIRS.values()))
+_SD_EXT151 = ('.gcode', '.g', '.gco', '.png', '.jpg', '.jpeg',
+              '.svg', '.pdf', '.txt')      # R151: LCD browser + plot sources
 
 _WATCH_ROOT = None     # R146: set by watch() - version scan counts legacy files
 
@@ -15606,6 +15608,17 @@ def watch(directory, interval=5.0, once=False):
         sys.exit(1)
     mode = 'one-shot' if once else f'watching, every {interval:g}s'
     print(f'R2 post-processor {mode}: {directory}', flush=True)
+    # R151 (.112): create every generator folder UP FRONT, all INSIDE the
+    # gcodes root - they are visible in Mainsail right after the install
+    # (not only after the first job) and the LCD SD Card browser lists
+    # them (the stock vsdlist shows the root only - see the sd_files push).
+    try:
+        for _f151 in sorted(set(GEN_SUBDIRS.values())):
+            os.makedirs(os.path.join(directory, _f151), exist_ok=True)
+        print('[i] gen folders (inside the gcodes root): %s'
+              % ', '.join(sorted(set(GEN_SUBDIRS.values()))), flush=True)
+    except OSError as _e151:
+        print('[!] gen folder setup: %s' % _e151, flush=True)
     # R149: adopt the persistent file state - a restart must NOT chew
     # through the whole gcodes folder again (the .109 field case: 12 CPU
     # minutes of 'catch-up' at 100% right after every update/reboot)
@@ -15964,6 +15977,7 @@ def watch(directory, interval=5.0, once=False):
     last_qcancel_nonce = None        # R133c: GEN_QUEUE_CANCEL
     last_gen_del_nonce = None        # R133f: gen file delete
     gen_files_pushed = ['']          # R133f: 00_ outputs for the LCD browser
+    sd_files_pushed = ['']           # R151: recursive list for SD Card menu
 
     # R133b: ONE generator job at a time, deduplicated, and never while a
     # print runs (the job goes back to the queue until the printer idles).
@@ -17911,6 +17925,48 @@ def watch(directory, interval=5.0, once=False):
                 _gfl = [f for _, f in _gf]
                 if _gfl != gen_files_pushed[0]:
                     gen_files_pushed[0] = _gfl
+                # R151 (.112): the LCD 'SD Card' browser list - Klipper's
+                # stock vsdlist calls get_file_list() WITHOUT subdirectories,
+                # so everything in Labels/, ColorPic/, ... was INVISIBLE on
+                # the display (field report .111: 'no access to the generated
+                # files'). We push the recursive list ourselves: every g-code
+                # + plot source in the root and ALL first-level subfolders,
+                # newest first, max 20. The menu slots run SDCARD_PRINT_FILE
+                # (the R2 wrapper: start dialog / plot flow).
+                _sde151 = []
+
+                def _walk151(sub):
+                    _d151 = os.path.join(directory, sub) if sub else directory
+                    try:
+                        for _f151 in os.listdir(_d151):
+                            _fp151 = os.path.join(_d151, _f151)
+                            if (_f151.startswith('.')
+                                    or not _f151.lower().endswith(_SD_EXT151)
+                                    or not os.path.isfile(_fp151)):
+                                continue
+                            _sde151.append((os.path.getmtime(_fp151),
+                                            (_f151 if not sub
+                                             else sub + '/' + _f151)))
+                    except OSError:
+                        pass
+
+                _walk151('')
+                try:
+                    for _sub151 in sorted(os.listdir(directory)):
+                        if (not _sub151.startswith('.')
+                                and os.path.isdir(
+                                    os.path.join(directory, _sub151))):
+                            _walk151(_sub151)
+                except OSError:
+                    pass
+                _sdl151 = [f for _, f in sorted(_sde151, reverse=True)][:20]
+                if _sdl151 != sd_files_pushed[0]:
+                    sd_files_pushed[0] = _sdl151
+                    _sv151 = ('[' + ','.join("'" + _f + "'" for _f in _sdl151
+                                             if '"' not in _f
+                                             and "'" not in _f) + ']')
+                    _moonraker_gcode(
+                        'SAVE_VARIABLE VARIABLE=sd_files VALUE="%s"' % _sv151)
                     # R133h: a REAL list (the litho_files form) - the old
                     # push stored a STRING, the LCD slots would have shown
                     # single characters

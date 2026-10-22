@@ -3803,7 +3803,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.100) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-21.111'", repr(_v66)))
+    _v66 == "'R2-2026-10-21.112'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -6636,10 +6636,11 @@ tests.append(('R86.2 example cfg: EBB/U2C/relay/nozzle-LED templates present',
 import re as _re87
 _lcd87 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 _top87 = sorted(_re87.findall(r'^\[menu __main ([a-z_0-9]+)\]$', _lcd87, _re87.M))
-tests.append(('R87 LCD: 7 top-level R2 menus + the 3 hidden stock overrides '
-              '(OctoPrint/Temperature/Setup, R135)',
+tests.append(('R87 LCD: 7 top-level R2 menus + the hidden stock overrides '
+              '(OctoPrint/Temperature/Setup R135 + the R151 SD Card browser)',
     _top87 == ['__gen', '__live', '__macros', '__maint', '__octoprint',
-               '__preprint', '__setup', '__start', '__system', '__temp'],
+               '__preprint', '__sdcard', '__setup', '__start', '__system',
+               '__temp'],
     str(_top87)))
 tests.append(('R87 LCD: container Tools + all four trees re-parented, old roots gone',
     '[menu __main __gen]\ntype: list\nname: Tools' in _lcd87
@@ -11835,10 +11836,12 @@ _ADDED135 = ['__main __live __acfe __cur', '__main __live __acfe __eff',
  '__main __preprint __plot __pls', '__main __preprint __plot __plx',
  '__main __preprint __plot __ply', '__main __preprint __plot __plz',
  '__main __preprint __poff', '__main __preprint __poff __x',
- '__main __preprint __poff __xf', '__main __preprint __poff __y',
- '__main __preprint __poff __yf', '__main __preprint __poff __z',
- '__main __preprint __poff __zf', '__main __preprint __spfe __g1st',
- '__main __preprint __spfe __now', '__main __setup', '__main __temp']
+ '__main __preprint __poff __y', '__main __preprint __poff __z',
+ '__main __preprint __spfe __g1st',
+ '__main __preprint __spfe __now', '__main __setup', '__main __temp',
+ '__main __preprint __poff __what', '__main __sdcard',
+ '__main __sdcard __where'] + ['__main __sdcard __f%d' % _i
+                               for _i in range(20)]
 _gone135 = sorted(set(_gold135) - set(_now135))
 _new135 = sorted(set(_now135) - set(_gold135))
 tests.append(('R135 menu inventory: NOTHING lost - every vanished path is a '
@@ -11874,16 +11877,18 @@ tests.append(('R135 Pre-Print order: Offset (new, top) -> File (info+fixes) '
 
 _poffblk135 = _lcd135[_lcd135.index('[menu __main __preprint __poff]'):
                       _lcd135.index('[menu __main __preprint __file]')]
-tests.append(('R135 Offset X/Y/Z: 6 inputs, 0.1mm steps + HALF-step 0.05 fine '
-              'rows, realtime, MOVE=1 - the fine-tuning pairs',
-              _poffblk135.count('type: input') == 6
-              and _poffblk135.count('input_step: 0.1') == 3
+tests.append(('R135/R151 Offset X/Y/Z: ONE fine input per axis (0.05mm '
+              'steps, fast turn 0.5mm) + a How-it-works row - the coarse/fine '
+              'duplicates showed the SAME value (field report .111)',
+              _poffblk135.count('type: input') == 3
               and _poffblk135.count('input_step: 0.05') == 3
-              and _poffblk135.count('realtime: True') == 6
-              and _poffblk135.count('MOVE=1') == 6
-              and _poffblk135.count('SET_GCODE_OFFSET Z=') == 2
-              and _poffblk135.count('SET_GCODE_OFFSET X=') == 2
-              and _poffblk135.count('SET_GCODE_OFFSET Y=') == 2, ''))
+              and _poffblk135.count('realtime: True') == 3
+              and _poffblk135.count('MOVE=1') == 3
+              and _poffblk135.count('SET_GCODE_OFFSET Z=') == 1
+              and _poffblk135.count('SET_GCODE_OFFSET X=') == 1
+              and _poffblk135.count('SET_GCODE_OFFSET Y=') == 1
+              and 'How it works' in _poffblk135
+              and 'input_step: 0.1' not in _poffblk135, ''))
 _menu_secs145 = re.findall(r'^\[menu ([^\]]+)\]([^\[]*)', _lcd135, re.M)
 _no_type145 = [m[0] for m in _menu_secs145
                if 'type' not in [l.split(':')[0].strip() for l in m[1].splitlines()
@@ -11891,12 +11896,13 @@ _no_type145 = [m[0] for m in _menu_secs145
 tests.append(('R145 stock menus hidden CORRECTLY: OctoPrint + Temperature + '
               'Setup overridden with FULL definitions (type+name+enable False - '
               'Klipper reads every [menu] section standalone, enable-only = boot '
-              'halt, field report .105), SD Card (the LCD file browser) untouched, '
+              'halt, field report .105), SD Card overridden R151 with a FULL '
+              'recursive browser definition (stock showed the root only), '
               'and NO menu section anywhere in lcd_menues.cfg lacks type',
               '[menu __main __octoprint]\ntype: list\nname: OctoPrint\nenable: {False}' in _lcd135
               and '[menu __main __temp]\ntype: list\nname: Temperature\nenable: {False}' in _lcd135
               and '[menu __main __setup]\ntype: list\nname: Setup\nenable: {False}' in _lcd135
-              and '[menu __main __sdcard]' not in _lcd135
+              and "[menu __main __sdcard]\ntype: list\nenable: {('virtual_sdcard' in printer)}\nname: SD Card" in _lcd135
               and not _no_type145, str(_no_type145[:3])))
 tests.append(('R135 quick access carries the GLOBALS: PA (toggle+value+smooth) '
               'and flow (toggle+value) and accel (toggle+value) and 1st-layer '
@@ -12024,8 +12030,9 @@ tests.append(('R146 activator marker RENDER: OW with spd 80% + PA 0.03 shows '
 tests.append(('R146 Gen files slots: basename on the 20-char LCD (path split) '
               'but the FULL relative path goes to SDCARD_PRINT_FILE - '
               'subfolder outputs stay selectable',
-              _lcd146.count(").split('/')[-1]|truncate(13, True)}") == 24
-              and _lcd146.count("SDCARD_PRINT_FILE FILENAME=\"{(printer['save_variables'].variables.gen_files|default([]))") >= 12, ''))
+              _lcd146.count(").split('/')[-1]|truncate(13, True)}") == 44
+              and _lcd146.count("SDCARD_PRINT_FILE FILENAME=\"{(printer['save_variables'].variables.gen_files|default([]))") >= 12
+              and _lcd146.count("SDCARD_PRINT_FILE FILENAME=\"{(printer['save_variables'].variables.sd_files|default([]))") == 20, ''))
 
 _r2p146 = open('tools/r2_postproc.py').read()
 tests.append(('R146 generator folders (source wiring): all 15 watcher call '

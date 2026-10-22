@@ -99,6 +99,22 @@ ck('watch: _printer_busy probe exists and gates the scan',
 ck('watch: generator nonces freeze while printing (label/figures/kit...)',
    "'figures_nonce'" in src and "'brickkit_nonce'" in src
    and '_freeze133' in src, '')
+ck('LCD SD Card browser: stock vsdlist showed the ROOT ONLY (Klipper '
+   'calls get_file_list() without subdirs) - R151 overrides it with the '
+   'recursive sd_files list (20 slots + folder info row)',
+   'menu __main __sdcard]' in open('menus/lcd_menues.cfg').read()
+   and "variables.sd_files|default([])" in open('menus/lcd_menues.cfg').read()
+   and src.count('SAVE_VARIABLE VARIABLE=sd_files') == 1
+   and "'%s'" not in src[:0] and '_SD_EXT151' in src
+   and 'sd_files_pushed' in src, '')
+ck('gen folders: created UP FRONT at watcher start (visible right after '
+   'the install, all inside the gcodes root)',
+   'gen folders (inside the gcodes root)' in src, '')
+ck('offset menu: the coarse/fine duplicates are gone - ONE 0.05mm input '
+   'per axis + a How-it-works row (field report: "values doubled")',
+   "input_step: 0.1" not in open('menus/lcd_menues.cfg').read()
+   .split('[menu __main __preprint __poff]')[1].split('[menu __main __preprint __file]')[0]
+   and 'How it works' in open('menus/lcd_menues.cfg').read(), '')
 ck('colorpic: explicit Z per layer AFTER the M600 chain (.110 field: '
    'the bands printed ~1cm in the air - the file had NO Z move at all)',
    'pen.set_z(z)' in src
@@ -609,9 +625,10 @@ ck('R135: golden inventory file exists and the render suite proves no menu '
                                       encoding='utf-8').read()
    and 'R135 menu inventory: NOTHING lost' in open('tools/macro_render_test.py',
                                                    encoding='utf-8').read(), '')
-ck('R135: Pre-Print starts with Offset X/Y/Z (half-step fine rows) and File '
+ck('R135/R151: Pre-Print starts with Offset X/Y/Z (ONE 0.05mm fine row '
+   'per axis - the coarse/fine duplicates showed the same value) and File '
    'info now carries the fix toggles (travel/flow cap/retract) as submenu',
-   '[menu __main __preprint __poff __zf]' in _lcd135
+   '[menu __main __preprint __poff __what]' in _lcd135
    and _lcd135[_lcd135.index('[menu __main __preprint __poff]'):
                _lcd135.index('[menu __main __preprint __file]')].count(
        'input_step: 0.05') == 3
@@ -641,9 +658,9 @@ ck('R135: plot sections moved to the END (Live + Pre-Print) and only for '
                      "|int == 1 or printer['gcode_macro _STATE']"
                      ".file_type|default('') == 'plot'}") == 2, '')
 ck('R135: stock OctoPrint/Temperature/Setup hidden via enable {False} '
-   'overrides, SD Card/Control/Tune untouched',
+   'overrides, Control/Tune untouched, SD Card = R151 recursive browser',
    _lcd135.count('\nenable: {False}') == 3
-   and '[menu __main __sdcard]' not in _lcd135
+   and '[menu __main __sdcard]\ntype: list' in _lcd135
    and '[menu __main __control]' not in _lcd135, '')
 
 print()
