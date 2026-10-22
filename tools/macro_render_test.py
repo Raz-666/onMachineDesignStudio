@@ -12681,6 +12681,56 @@ tests.append(('R160b naming E2E: V01 taken -> V01b -> V01c, and the next '
     'free version counts the letters (V01b -> next V02)',
     _ok160b, str(_d1)[:80]))
 
+# (12b) range tag: the source's version prefix is stripped (field log:
+# the 00_V06_00V_L7-355 excerpt - tag '00V' was the version, not the object)
+try:
+    _td160c3 = _tf160b.mkdtemp(prefix='r160c3')
+    _s160c3 = _os160b.path.join(_td160c3, 'V05_Vase_klein.gcode')
+    _L160c3 = ['; custom', 'M82', 'G28', 'G90', 'G1 F3600']
+    for _i160c3 in range(1, 5):
+        _L160c3.append('LAYER_MARK')
+        _L160c3.append('G1 Z%.2f F600' % (_i160c3 * 0.2))
+        _L160c3.append('G1 X%d.0 Y50.0 E1.0 F3600' % (20 + _i160c3))
+    open(_s160c3, 'w').write('\n'.join(_L160c3) + '\n')
+    _pp160b.process(_s160c3)   # make_range needs the R2 markers
+    _o160c3, _ = _pp160b.make_range(_s160c3, 2, 3)
+    _n160c3 = _os160b.path.basename(_o160c3)
+    # the source V05_ itself counts in the folder sequence -> excerpt = V06
+    _ok160c3 = (_n160c3 == 'V06_Vaseklein_L2-3.gcode')
+    open(_os160b.path.join(_td160c3, '00_Garage_V05.gcode'), 'w').write(
+        open(_s160c3).read().replace(
+            _os160b.path.basename(_s160c3), '00_Garage_V05'))
+    _pp160b.process(_os160b.path.join(_td160c3, '00_Garage_V05.gcode'))
+    _o160c4, _ = _pp160b.make_range(
+        _os160b.path.join(_td160c3, '00_Garage_V05.gcode'), 2, 3)
+    _ok160c3 = _ok160c3 and \
+        _os160b.path.basename(_o160c4) == 'V07_Garage_L2-3.gcode'
+except Exception as _e160c3:                                        # noqa: BLE001
+    _ok160c3 = False
+    _n160c3 = repr(_e160c3)
+tests.append(('R160b range tag: 10 chars of the SOURCE OBJECT (version '
+    'prefixes stripped) - source V05_Vase_klein -> V06_Vaseklein_L2-3 (the '
+    'source counts in the sequence), legacy 00_Garage_V05 -> V07_Garage_L2-3 '
+    '(was a useless 00V)',
+    _ok160c3, str(_n160c3)[:80]))
+
+# (11b) BOOT GUARD (.120 field log): [delayed_gcode] takes ONLY
+# gcode/initial_duration - a description: line HALTED Klipper at boot
+import glob as _glob160c
+_bad160c = []
+for _f160c in _glob160c.glob('macros/*.cfg') + _glob160c.glob('menus/*.cfg'):
+    _s160c = open(_f160c, encoding='utf-8').read()
+    for _m160c in _re160b.finditer(
+            r'\[delayed_gcode [^\]]+\]\n((?:(?!\[).*(?:\n|$))*)', _s160c):
+        for _opt160c in _re160b.findall(r'^([A-Za-z_0-9]+):', _m160c.group(1),
+                                         _re160b.M):
+            if _opt160c not in ('gcode', 'initial_duration'):
+                _bad160c.append('%s:%s' % (_f160c, _opt160c))
+tests.append(('R160c boot guard: no [delayed_gcode] section carries an '
+    'option Klipper rejects (description: halted the printer at boot on '
+    '.120 - the validator catches it statically now)',
+    not _bad160c, str(_bad160c[:3])))
+
 # (12) r2_texture mirrors the guard
 _tx160b = open('tools/r2_texture.py', encoding='utf-8').read()
 tests.append(('R160b texture tool: own letter guard + letter-aware scan',

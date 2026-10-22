@@ -1559,9 +1559,10 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
     # R158 (.118): the version moved to the FRONT - the LCD truncates at
     # ~15 characters and the old tail version was invisible.
     # R160 (.120): the 00_ prefix is gone (3 characters back for the name).
-    _src3 = re.sub(r'[^A-Za-z0-9]', '', os.path.basename(stem))[:10] or 'RNG'
-    # R160b (.120 field): 10 source chars instead of 3 - 'V07_Vaseklein_L7-355'
-    # still names the source on the display, the leading Vnn_ keeps it unique
+    # R160b (.120 field): 10 source chars instead of 3, the source's own
+    # version prefix stripped - 'V07_Vaseklein_L7-355' names the OBJECT, the
+    # leading Vnn_ keeps it unique
+    _src3 = _rng_src_tag(stem)
     _rng83 = '%s_L%s-%s' % (_src3, start, end)
     _od146 = out_dir if out_dir else (os.path.dirname(stem) or '.')
     # R146 (.107): the watcher routes excerpts into the Range/ subfolder;
@@ -6886,6 +6887,21 @@ def _next_gen_version(out_dir):
         pass
     return _hi + 1
 
+
+
+def _rng_src_tag(stem):
+    """R160b (.120 field): the 10-char source tag for RANGE names.
+
+    A generated source (Vnn_Name, R158's 00_Vnn_Name, legacy 00_Name_Vnn)
+    loses ITS version prefix first - the tag names the OBJECT
+    ('VasekleinTX', not '00V05Vase'). The field log's 00_V06_00V_L7-355
+    excerpt (tag '00V' = the 3-char rule eating a version prefix) is the
+    cautionary tale."""
+    s = re.sub(r'^(?:00_)?V\d+_', '', os.path.basename(stem))
+    if s.startswith('00_'):
+        s = s[3:]
+    s = re.sub(r'_V\d+$', '', s)          # legacy tail version
+    return re.sub(r'[^A-Za-z0-9]', '', s)[:10] or 'RNG'
 
 
 def _dedupe_gen_fname(out_dir, fname):
@@ -16620,8 +16636,7 @@ def watch(directory, interval=5.0, once=False):
                         # skip if the excerpt already exists and is NEWER than the source
                         # (a --once catch-up must not rebuild an up-to-date excerpt)
                         _stem62, _ext62 = os.path.splitext(src_path)
-                        _src3_62 = re.sub(r'[^A-Za-z0-9]', '',
-                                          os.path.basename(_stem62))[:10] or 'RNG'
+                        _src3_62 = _rng_src_tag(_stem62)   # same tag rule
                         # R158 (.118): the version lives in the file name
                         # FRONT now and is folder-global - the old single
                         # filename guess cannot know the number anymore.

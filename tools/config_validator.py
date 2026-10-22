@@ -177,6 +177,24 @@ def main():
         for sek in parse_cfg(pfad):
             name = sek['name']
             if name.startswith('gcode_macro') or name.startswith('delayed_gcode'):
+                # R160c (.120 field log - BOOT BLOCKER): Klipper halts at boot
+                # on ANY unknown option. [delayed_gcode] takes ONLY
+                # gcode/initial_duration (a description: line halted the
+                # printer); [gcode_macro] takes gcode/description/
+                # rename_existing/variable_*. Enforced statically here.
+                _allowed160c = (['gcode', 'initial_duration']
+                                if name.startswith('delayed_gcode')
+                                else ['gcode', 'description', 'rename_existing'])
+                for k in sek['keys']:
+                    if k['key'].startswith('variable_') and \
+                            name.startswith('gcode_macro'):
+                        pass          # valid in gcode_macro (checked below)
+                    elif k['key'] not in _allowed160c:
+                        fehler.append(
+                            f"{pfad}:{k['zeile']} [{name}]: option "
+                            f"'{k['key']}:' is not valid for "
+                            f"[{name.split()[0]}] - Klipper HALTS at boot "
+                            f"(allowed: {', '.join(_allowed160c)})")
                 for k in sek['keys']:
                     if k['key'].startswith('variable_'):
                         vname = k['key'][len('variable_'):]
