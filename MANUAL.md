@@ -361,7 +361,7 @@ Every print start (print button, LCD list, PRINT_START) stops at the dialog:
 
 | Mode | LCD / console | What rules |
 |---|---|---|
-| **AS SLICED** | > PRINT AS SLICED · `PRINT_AS_SLICED` | the FILE, truly 1:1 — no overrides, no first-layer brake beyond the L1/L2 rules, no sequential restarts. Live commands still apply. The first-layer rules (material L1/L2 temps, fan off on layer 1) stay on even here — toggle with Pre-Print > Temps > L1 rules |
+| **AS SLICED** | > PRINT AS SLICED · `PRINT_AS_SLICED` | the FILE, truly 1:1 — no overrides, no first-layer brake beyond the L1/L2 rules, no sequential restarts. Live commands still apply. The first-layer rules shape **layer 1** (material L1 temps, fan off); **from layer 2 the file runs 1:1** — its own M104/M140 stand, only YOUR armed L2 override still wins (.121). Toggle the rules with Pre-Print > Temps > L1 rules |
 | **AS LEGACY** | > PRINT AS LEGACY · `PRINT_AS_LEGACY` | takeover with YOUR parameters: overrides ON (L1/L2 temps, PA, retraction, machine limits, flow), mesh + purge, Z layer tracking, sequential object handling |
 | CANCEL | > CANCEL | aborts cleanly — nothing was heated |
 
@@ -628,8 +628,9 @@ their own placeholder names — the step-by-step for Orca and Cura lives in
 - Filament-runout logic of other firmwares (M600 variants) is replaced by the
   system's own filament handling.
 - Arcs (G2/G3) are supported; nothing to do.
-- AS SLICED means 1:1: overrides OFF, first-layer rules stay on (per your
-  switch), Live Tuning still works (live commands are not overrides).
+- AS SLICED means 1:1: overrides OFF, first-layer rules shape layer 1 (per your
+  switch), Live Tuning still works (live commands are not overrides). From
+  layer 2 the file's own temperatures stand — your armed L2 override wins.
 
 ## 4. Scenario library — every file type walked through
 
@@ -640,9 +641,10 @@ system does in the background.
 Slice with the R2 profile (the post-processing script is optional — the service
 tags the file anyway). Upload → select → start dialog → **AS LEGACY**.
 Homing, bed temp, adaptive mesh, nozzle wipe, purge, then layer 1 with L1
-temps, fan off and the first-layer brake; at layer 2: L2 temps, the file's fan
-value, 100 % speed. Feature overrides (speed/accel per feature) work because
-the file carries `APPLY_TYPE` markers.
+temps, fan off and the first-layer brake; at layer 2: L2 temps (your override
+if armed, else the file's value, else the material preset — .121), the file's
+fan value, 100 % speed. Feature overrides (speed/accel per feature) work
+because the file carries `APPLY_TYPE` markers.
 *LCD:* Start Print? > AS LEGACY. *Console:* `PRINT_AS_LEGACY`.
 
 **Scenario B — correctly sliced, print by object (sequential)**
@@ -656,9 +658,11 @@ The watcher detects the file without markers → pause + start dialog titled
 `Start? LEGACY`. **AS LEGACY** = system takeover: homing → bed temp → mesh
 ("Old files" ON) → hotend to L1 temp → purge → L1 speed → gapless continue
 (the pause position is restored after the purge — no park/return dance). The
-Z tracker counts layers — layer 2 brings L2 temps + fan + 100 %. File M104/M220
-are redirected layer-strictly. **AS SLICED** = the file rules 1:1 — its own
-start gcode runs, nothing is injected (live tuning stays available).
+Z tracker counts layers — layer 2 brings L2 temps + fan + 100 % (same ladder:
+your override > file value > material preset, .121 — works in both start
+modes). File M104/M220 are redirected layer-strictly. **AS SLICED** = the file
+rules 1:1 — its own start gcode runs, nothing is injected (live tuning stays
+available; your armed L2 override still wins from layer 2).
 
 **Scenario D — legacy file, print by object**
 C plus the sequential falling edge per object (choose AS LEGACY — AS SLICED
@@ -1834,12 +1838,29 @@ section From–To.
 ## 8. Temperature system L1/L2
 
 - **Two temperatures per heater:** Layer 1 (L1) and from-layer-2 (L2).
-  Priority: override ON > file > preset.
+  **One priority ladder for BOTH (.121): your override (ON) > file value >
+  material preset** — what stands at each layer:
+  - **L1**: the start paths heat to your L1 override if armed, else the file's
+    own first-layer value, else the material preset (when L1 rules are ON).
+  - **L2**: at the layer-2 boundary the system switches to your L2 override
+    if armed, else the file's own layer-2 value (from its M104/M140 or the
+    file info), else the material preset — **in BOTH start modes**, marked
+    files (LAYER_MARK) and unmarked ones (Z tracker) alike. Generated and
+    range files (no own M104/M140) switch through the material preset too —
+    the bed no longer stays at its layer-1 value (field fix .121).
 - purge + layer 1 = L1 (the start paths heat the hotend to the L1 value for the purge)
-- file M104/M109/M140/M190 redirected strictly BY LAYER — layer 1 → L1, ≥2 → L2
-  (both takeover modes; AS SLICED passes 1:1)
+- **Interceptors (.121):** file M104/M109/M140/M190 are handled BY LAYER —
+  - **AS LEGACY**: layer 1 → L1 value; layer ≥ 2 → your armed L2 override
+    rewrites the command, otherwise the file's own value passes unchanged.
+  - **AS SLICED**: layer 1 → the first-layer rules (material preset) shape it,
+    your armed override wins if set; layer ≥ 2 → truly 1:1 (the file's own
+    command stands) — except your armed L2 override, which still wins
+    (`M104: 215C -> YOUR L2 override -> 240C (AS SLICED, layer 2)`).
+  - Every rewrite is idempotent (only written when the target really moves
+    > 0.5 °C) and logged once on the console.
 - layer 2 = L2 — switched by LAYER_MARK (marked) or the Z tracker (legacy / AS
-  LEGACY), identical values
+  LEGACY), identical values; the held layer-1 fan comes back at the boundary
+  (`M106 S<file value>`) and your material fan scale re-applies
 - sequential: every object restarts with L1
 - live temps: `SET_LIVE_HOTEND_TEMP T=` / `SET_LIVE_BED_TEMP T=`
 - idle filament handling heats to ≥200 °C (or preset)
@@ -2457,9 +2478,11 @@ essence onto the LCD. Typical lines you will meet:
 
 ```
 M104: 215C -> OVERWRITE -> 225C (layer 1)
+M104: 215C -> YOUR L2 override -> 240C (AS SLICED, layer 2)
 M220 S100% capped to 65% (layer 1)
 Layer 1: speed brake re-applied (65% after resume)
-Layer 2: hotend -> 210.0C (override)
+Layer 2: hotend -> 205C (your override · file value · material PLA · Z-track)
+Layer 2: bed -> 55C (…) · Layer 2: fan back on (file value S200)
 Sequential print: next object (NAME) - back to LAYER-1 temperatures
 Temp tower: layer 21 -> 215C
 Print running (legacy file) - live tuning and overrides ACTIVE

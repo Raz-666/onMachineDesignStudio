@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MANUAL.pdf — the illustrated user handbook (R2-2026-10-22.120).
+"""MANUAL.pdf — the illustrated user handbook (R2-2026-10-22.121).
 Mirrors MANUAL.md: daily workflow first, generators next, calibration ladder,
 reference tables. 21 vector diagrams (font specimens + range variants drawn
 from the REAL generator glyph data), full parameter tables."""
@@ -476,7 +476,7 @@ class Doc(BaseDocTemplate):
         c.drawRightString(A4[0]-17*mm,A4[1]-10*mm,self.ch); c.restoreState()
     def footer(self,c,doc):
         c.saveState(); c.setFont('DVS',7.5); c.setFillColor(GRAY)
-        c.drawString(17*mm,9*mm,'R2-D2 Macro System · R2-2026-10-22.120 · user handbook')
+        c.drawString(17*mm,9*mm,'R2-D2 Macro System · R2-2026-10-22.121 · user handbook')
         c.drawRightString(A4[0]-17*mm,9*mm,f'Page {doc.page}')
         c.setStrokeColor(colors.HexColor('#c9d4e4')); c.setLineWidth(0.6); c.line(17*mm,12*mm,A4[0]-17*mm,12*mm)
         c.restoreState()
@@ -1251,7 +1251,7 @@ def d_wiring():
 # ---- cover ----
 E+= [Spacer(1,10*mm),Paragraph('R2-D2 Macro System',S['title']),Spacer(1,2*mm),
      Paragraph('The Complete User Handbook — illustrated edition',S['sub']),Spacer(1,3*mm),
-     Paragraph('Version R2-2026-10-22.120 · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail)',S['sub']),
+     Paragraph('Version R2-2026-10-22.121 · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail)',S['sub']),
      Spacer(1,6*mm),CENT(d_robot()),Spacer(1,6*mm),
      Paragraph('The USER HANDBOOK: from file to print in one read — every file type (by layer / by object / vase /<br/>'
                'legacy / movement data), the start dialog, pre-print settings, live tuning, pauses, object skip ·<br/>'
@@ -1420,7 +1420,7 @@ chapter('3','From file to print — the daily workflow',
   ],[34*mm,126*mm]),
   H2('3.4 The start dialog — AS LEGACY or AS SLICED'),
   TBL(['Mode','What rules'],[
-   ['AS SLICED','the FILE, truly 1:1 — no overrides, no first-layer brake beyond the L1/L2 rules (which stay on). Live commands still apply'],
+   ['AS SLICED','the FILE, truly 1:1 — no overrides, no first-layer brake beyond the L1/L2 rules. First-layer rules shape LAYER 1; from layer 2 the file runs 1:1 — only YOUR armed L2 override still wins (.121). Live commands still apply'],
    ['AS LEGACY','takeover with YOUR parameters: overrides ON, mesh + purge, Z layer tracking, sequential handling'],
    ['CANCEL','aborts cleanly — nothing was heated'],
   ],[30*mm,130*mm]),
@@ -1958,11 +1958,20 @@ chapter('7','Filament: load / unload / change / runout / cold pull',
 
 
 chapter('8','Temperature system L1/L2',
-  *B('<b>Two temperatures per heater:</b> Layer 1 (L1) and from-layer-2 (L2). Priority: override ON &gt; file &gt; preset.',
-     'purge + layer 1 = L1 (the start paths heat the hotend to the L1 value for the purge)',
-     'file M104/M109/M140/M190 redirected strictly BY LAYER — layer 1 → L1, ≥ 2 → L2 (both takeover modes; '
-     'AS SLICED passes 1:1)',
-     'layer 2 = L2 — switched by LAYER_MARK (marked files) or the Z tracker (legacy / AS LEGACY), identical values',
+  *B('<b>Two temperatures per heater:</b> Layer 1 (L1) and from-layer-2 (L2). '
+     '<b>One priority ladder for BOTH (.121): your override (ON) &gt; file value &gt; material preset.</b>',
+     'L1: the start paths heat to your armed L1 override, else the file&#39;s first-layer value, else the material preset (L1 rules ON)',
+     'L2: at the layer-2 boundary the system switches to your armed L2 override, else the file&#39;s own layer-2 value '
+     '(its M104/M140 or the file info), else the material preset — in BOTH start modes, marked (LAYER_MARK) and '
+     'unmarked (Z tracker) files alike; generated + range files (no own M104/M140) switch through the preset too '
+     '— the bed no longer stays at its layer-1 value (field fix .121)',
+     'interceptors BY LAYER (.121) — AS LEGACY: layer 1 → L1 value, layer ≥ 2 → your armed override rewrites the '
+     'command, else the file&#39;s value passes unchanged · AS SLICED: layer 1 → first-layer rule (material preset, '
+     'your armed override wins), layer ≥ 2 → truly 1:1 except your armed L2 override '
+     '(&quot;M104: 215C -&gt; YOUR L2 override -&gt; 240C (AS SLICED, layer 2)&quot;); every write idempotent '
+     '(target moves &gt; 0.5 °C) and logged once',
+     'layer 2 = L2 — switched by LAYER_MARK (marked files) or the Z tracker (legacy / AS LEGACY), identical values; '
+     'the held layer-1 fan returns at the boundary (M106 S&lt;file value&gt;) and your material fan scale re-applies',
      'sequential: every object restarts with L1','live temps: SET_LIVE_HOTEND_TEMP T= / SET_LIVE_BED_TEMP T=',
      'idle filament handling heats to ≥ 200 °C (or the preset value)'),
   H2('Temperature safety'),P('heaters off at print end + on shutdown/cancel paths; pauses keep targets ON purpose; '
@@ -2485,7 +2494,7 @@ chapter('24','Cheat sheet: LCD paths &amp; Mainsail commands',
    ['MCR','minimum cruise ratio','SCV','square corner velocity'],
   ],[30*mm,54*mm,26*mm,54*mm]),
   Spacer(1,12*mm),Paragraph('Built and tested for one purpose: printing happily — with R2-D2 keeping watch. Have fun!',S['end']),
-  Spacer(1,4*mm),Paragraph('R2-D2 Macro System · R2-2026-10-22.120',S['cap']))
+  Spacer(1,4*mm),Paragraph('R2-D2 Macro System · R2-2026-10-22.121',S['cap']))
 
 import json as _json
 _MIDX=_json.loads(r'''[["Sounds \u2014 02_sounds.cfg", [["M300", "P=100, S=1000", "single beep \u2014 wrapper; the real beep lives on as M99300"], ["PLAY_SOUND", "NAME='r2_click'", "play a tune by name (ch. 16)"], ["TOGGLE_SOUNDS", "\u2014", "sounds on/off (persisted: sound_on)"], ["TEST_SOUNDS", "\u2014", "play all 20 tunes in sequence"]]], ["LEDs \u2014 03_leds.cfg", [["SET_LED_STATE", "STATE='idle'", "switch the LED pattern (12 states, ch. 17) - applies the nozzle mode too"], ["NOZZLE_LED", "MODE, BRIGHT, R, G, B", "nozzle light: on/off/auto + live dimming + live color (ch. 17)"], ["TOGGLE_LEDS", "\u2014", "frame LEDs off/on (persisted: leds_on)"], ["TEST_LEDS", "\u2014", "LED test animation"], ["_NOZZLE_SET", "ON", "internal: writes LED 5 (color x brightness, capped 0.5)"]]], ["Notifications \u2014 04_notify.cfg", [["NOTIFY", "TEXT, LEVEL='info', LED, SOUND", "notification helper: text + sound + LED in one call"], ["SHOW_STATUS", "\u2014", "full status: mode, material, overrides, live values"]]], ["Materials \u2014 05_materials.cfg", [["SET_MATERIAL", "MATERIAL=&lt;current>, APPLY_PRESET=1", "select material; APPLY_PRESET=1 also loads its preset"], ["SAVE_MATERIAL_TEMPS", "MATERIAL=&lt;current>", "save current values as this material's preset"], ["SHOW_MATERIAL", "\u2014", "show the current material + its stored preset"]]], ["Temperatures & marks \u2014 06_temp_controls.cfg", [["M104", "S=-1, T", "hotend temp \u2014 interceptor, redirects by layer (real: M99104)"], ["M109", "S=-1, T", "like M104, but waits"], ["M140", "S=-1", "bed temp \u2014 interceptor (real: M99140)"], ["M190", "S=-1", "like M140, but waits"], ["M106", "S=255", "part fan \u2014 scaling + from-layer-2 rule"], ["M204", "P, S, T", "acceleration \u2014 interceptor (M99204): feature accel , else global overwrite ON \u2192 your accel, else file 1:1"], ["LAYER_MARK", "\u2014", "layer marker (inserted by the post-processor)"], ["M220", "S=100", "speed \u2014 interceptor (M99220): L1 cap + stores the clean global % as g_speed_clean "], ["PAUSE_NEXT_LAYER", "REASON='next layer'", "one-shot pause at the next layer boundary"], ["PAUSE_AT_LAYER", "LAYER=0", "one-shot pause at layer n (n greater than 1)"], ["SET_LIVE_HOTEND_TEMP", "T=-1", "change the hotend target live"], ["SET_LIVE_BED_TEMP", "T=-1", "change the bed target live"]]], ["Start dialog & overrides \u2014 07_start_confirm.cfg", [["PRINT_AS_SLICED", "\u2014", "start dialog: answer AS SLICED"], ["PRINT_WITH_OVERRIDES", "\u2014", "alias for AS LEGACY since then (merged mode)"], ["PRINT_AS_LEGACY", "\u2014", "start dialog: AS LEGACY"], ["CANCEL_PENDING_PRINT", "\u2014", "start dialog: cancel (nothing is hot yet)"], ["SET_OVERRIDE_VALUE", "NAME, VALUE", "set one override + switch it ON; feat_on=0 resets the values to the file original "], ["TOGGLE_OVERRIDE", "NAME=''", "flip one override switch"], ["CLEAR_OVERRIDES", "\u2014", "all switches OFF (values stay stored)"], ["TOGGLE_START_CONFIRMATION", "\u2014", "start dialog on/off (persisted: start_confirm)"]]], ["Print start & end \u2014 08_print_start_stop.cfg", [["PRINT_START", "BED, HOTEND_FIRST, HOTEND_AFTER, BED_AFTER, MATERIAL='PLA', LAYER_HEIGHT=0.2, TOTAL_LAYERS=0, OUTER_WALL_SPEED=0, SUPPORT_SPEED=0, IRONING_SPEED=0", "start choreography \u2014 called by the sliced file"], ["START_PRINT", "\u2014", "old macro name: marked = no-op / legacy = real legacy start (dialog or auto-prep,)"], ["PRINT_END", "\u2014", "end choreography: heaters/fans, stats, sound, LED -> idle, _PRINT_CLEANUP"]]], ["Pause & filament \u2014 09_pause_filament.cfg", [["PAUSE", "REASON='User'", "pause + park (mode-aware)"], ["QUICK_PAUSE", "\u2014", "alias for PAUSE"], ["RESUME", "\u2014", "the full resume sequence (ch. 6)"], ["CANCEL_PRINT", "\u2014", "1st press arms (expires 60 s, also while paused), 2nd press cancels + cleanup"], ["M600", "\u2014", "filament change (park, unload, wait for load)"], ["CHANGE_FILAMENT", "\u2014", "M600 for humans \u2014 works from idle too (heats)"], ["CHANGE_FILAMENT_RESUME", "\u2014", "internal continuation after the load"], ["PURGE_MORE", "\u2014", "purge 15 mm more (after change/resume)"], ["M0", "\u2014", "slicer pause \u2014 mapped to PAUSE"], ["M1", "\u2014", "slicer pause \u2014 mapped to PAUSE"], ["_PRINT_CLEANUP", "\u2014", "resets ALL per-print state (PRINT_END/CANCEL/watcher - settings + mesh stay)"]]], ["Live tuning \u2014 10_live_tuning.cfg", [["APPLY_TYPE", "TYPE=''", "feature switch : sets current_type + applies THIS feature\u2019s overrides (speed % × clean global, absolute accel, ironing flow)"], ["SET_OUTER_WALL_SPEED + 11 more per-feature macros", "\u2014", "per-feature setters : forward to feat_spd/feat_acc + ON \u2014 % on top of the CLEAN global"], ["SET_GLOBAL_SPEED", "PERCENT=100", "global speed % (M220 style, never capped); the running feature stays on top — re-applied immediately"], ["SET_GLOBAL_ACCEL", "ACCEL=4000", "global acceleration, mm/s\u00b2; a feature with its own accel keeps it"],
@@ -2773,6 +2782,7 @@ chapter('D','Appendix D: Version history',
   P("Only the milestones — the full reasoning lives in SESSION_STATE.md. The manual itself describes the CURRENT "
     "system; this table is just the record."),
   TBL(['Version','Core changes'],[
+      ('.121','LAYER-2 TAKEOVER MADE RELIABLE (R161, field report: bed/hotend/fan did not switch from layer 2): the boundary used to rewrite temps ONLY when a user override was armed - files without their own M104/M140 (generated, range excerpts) kept layer-1 values for the whole print; AS SLICED ignored your armed L2 override AND forced the material preset over the file\'s own M104/M140 from layer 2; M109/M190 carried the same rule. Unified semantics: LAYER 2 = your armed override > the file\'s value > the material preset (L1 rules ON), in BOTH start modes, marked (LAYER_MARK) and unmarked (Z tracker) files alike; interceptors consistent (AS SLICED: material L1 rule on layer 1, true 1:1 from layer 2 except your armed override - single \'YOUR L2 override\' log; AS LEGACY: layer-2 rewrite only when armed); every heater write idempotent (target diff > 0.5 C); the held layer-1 fan returns at the boundary + material fan scale re-applies. Manual ch. 8 rewritten to exactly this ladder. Battery: render 1691/1691 (+15 R161 matrix), journeys 1856/0, stress 46639/0, megatest 157/0, goldens 23/23, audit 77/0 + r143 68/0, systemtest 221/0, dialects 13/13, setup-sim 10/10, spell 0.'),
       ('.120','DISPLAY-NATIVE NAMES + DOUBLE-PRESS + REAL VALUES (R160): (1) generator outputs are Vnn_Name.gcode - the 00_ prefix is gone (3 more characters on the 15-char display), the version LEADS, one number per output folder, never reused; all three legacy formats keep counting. (2) EVERY Create row confirms by DOUBLE PRESS: arm (Again = start, 10 s window) -> start chirp (r2_gen), a waiting start dialog cancels itself quietly; console stays single-shot. (3) File info / Fixes SPLIT: information + feature ON/OFF in one menu (temps fall back to the material preset for generated files, PA to the printer global, retract shows the firmware values for G10/G11 files), every file-rewriting fix in its own self-explaining menu with > = run and * = edit markers. (4) generated files carry measured FS_/FA_ per feature + SLICER=R2_GEN + RETRACT_STATUS=fw in their _FILE_INFO - the Spd/Acc/activator rows show real numbers, not ?. (5) the file census walks the generator subfolders; temps on the preview card reset per selection (no stale previous-file values). (6) FIELD LOG .120: a texture/plot on a file from a SUBFOLDER died with one error beep (the source lost its folder path - the TX output auto-selects itself, so every follow-up texture hit it) - sources keep their relative path. (7) A start that died mid-flow (homing error) wedged the mode forever: generators silently requeued, LEDs kept blinking, UI sounds mute - the state watcher now heals stuck modes, PRINT_END cleans up BEFORE its moves (and only moves homed axes), _UI_SOUND gates on the real print state. (8) Every queued job chirps when it actually builds, says why it waits, and beeps on abort; range + texture builds moved into the job queue. (9) Name collisions get a letter tail (V05 taken -> V05b), the numbering counts letters; range names carry 10 source characters. Multi-plate outputs (frame/kit A, B, C...) carry the plate letter DIRECTLY behind the version - V01_A_Frame_..., V02_B_Frame_... - so the role survives the 15-character display cut.'),
       ('.93','BRICKS ROUND 2 + HARDCORE STRESS TEST (R132) - catalog 45 -> 76 codes: 9 LCD catalog groups (bricks/plates/tiles + NEW slopes S, inverted slopes I, arches A, technic/axle H+C+J+RT, round R+RP). Figures: MODE=SINGLE (one fused piece, no clutch elements) or classic PARTS, arms printed LYING (real through-tubes), COLORS 1-4 (zone colors), BRIM 0-8, COLORMODE. Bricks: COLORS 1-8, MODE, BRIM. Centered layout = general rule for ALL generators. Fix-then-reload: RetractFix/FlowCap/Travel/Vol reload the file automatically - only Start needs confirming. New tools/r140_stress.py (~41k checks) - 7 real bugs found and fixed (unbalanced Jinja in GEN_BRICKS, split TUNE_PID call, open RESPOND quote, missing M83 in bricks/figures/kit, trailing ;TYPE:Custom, kit without LAYER_MARK + non-canonical APPLY_TYPE, figures SINGLE without BRIDGE header). Analyses: sound/display portability, Web-UI on Moonraker, LCD menus on other displays (docs/). Battery: render 1601/1601, megatest 163 files, stress 41k, systemtest 221/0.'),
       ('.92','DOCUMENTATION OVERHAUL (R131) - the handbook (MD + PDF) brought up to .91/.92: OUTDATED PASSAGES REPLACED - litho FLAT (old terraced-relief text -> the step print with StepL/color swap/border/corner/contrast/purge tower), frame closure (old bayonet slide-2.5mm -> snap-in backplate + photo play; the printer-side LCD texts too), the 5.0 generator list, the chapter-5 title (13 generators). NEW: four detailed generator chapters - 5.10 bricks (geometry table, 45-code catalog), 5.11 brick kits (voxelizer, support filter, detail bands, ring walls, BY_LAYER/BY_OBJECT), 5.12 figures (5 parts, no glue, 100% system mating), 5.13 ColorPic (band principle, M600 + LED blink, purge tower, swap/contrast); menu reference, cheat sheet (+5 paths), macro index (+11 entries) - mirrored in the PDF. Battery: render 1595/1595, validator clean, systemtest 221/0.'),
@@ -2831,4 +2841,4 @@ chapter('D','Appendix D: Version history',
 
 doc=Doc(os.path.join(os.path.dirname(__file__),'..','MANUAL.pdf'))
 doc.build(E)
-print('MANUAL.pdf built (illustrated user handbook, .120)')
+print('MANUAL.pdf built (illustrated user handbook, .121)')

@@ -37,7 +37,7 @@ import r2_postproc as pp  # noqa: E402
 BED = (0.0, -3.0, 220.0, 217.0)      # the real Ender-3 plate (manual ch. 23)
 D = tempfile.mkdtemp(prefix='r143_audit_')
 atexit.register(lambda: [shutil.rmtree(g, ignore_errors=True)
-                         for g in glob.glob(tempfile.gettempdir() + '/r143_audit_*')])
+                         for g in glob.glob(tempfile.gettempdir() + '/r143_*')])  # R161: also fresh_/again_
 
 fails = []
 findings = []

@@ -267,6 +267,9 @@ def main():
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     d = tempfile.mkdtemp(prefix='g81run_')
+    # R161: remove the golden-run dir on every exit path (tmpfs diet, R121 class)
+    import atexit, shutil
+    atexit.register(lambda: shutil.rmtree(d, ignore_errors=True))
     build_fixtures(d)
     res = run_battery(mod, d)
     fails = 0

@@ -159,6 +159,10 @@ def invariants(tag, path, bed=BED, expect_m600=None, tower=None):
 
 def main():
     D = tempfile.mkdtemp(prefix='sys_')
+    # R161: clean the fixture dir on every exit path (25 MB per run filled
+    # the 992MB tmpfs after a few battery rounds - same class as R121).
+    import atexit, shutil
+    atexit.register(lambda: shutil.rmtree(D, ignore_errors=True))
 
     # ---------------- source fixtures ----------------
     box = os.path.join(D, 'box.gcode')

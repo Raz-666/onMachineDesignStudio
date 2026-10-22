@@ -7,8 +7,12 @@ import atexit as _atexit, glob as _globcl, shutil as _shutilcl, tempfile as _tfc
 def _cleanup_tmpdirs():
     # R121: the battery leaves mkdtemp dirs behind - six full runs filled the
     # 992MB tmpfs and froze the sandbox. Remove OUR prefixes only.
+    # R161: pattern widened to the prefixes the suites ACTUALLY create
+    # (r64csv/r68/r160c3 have no underscore, audit_sweep writes audit128_,
+    # the golden check g81run_) - the old regex missed them and /tmp filled
+    # up anyway (ENOSPC mid-battery, field fix .121).
     import re as _recl
-    pat = _recl.compile(r'^(r\d{2,3}_|audit_|megatest_|r120_|r86_|colorpic)')
+    pat = _recl.compile(r'^(r\d{2,3}|audit\d*_|megatest_|g81run_|colorpic|r2bat_)')
     for d in _globcl.glob(_tfcl.gettempdir() + '/*'):
         try:
             if _oscl.path.isdir(d) and pat.match(_oscl.path.basename(d)):
@@ -30,6 +34,21 @@ def _act_stub(*a, **k):
 env.globals['action_respond_info'] = _act_stub
 env.globals['action_raise_error'] = _act_stub
 env.globals['action_call_remote_method'] = _act_stub
+
+# R161: the battery has 32 bare tempfile.mkdtemp() calls (default 'tmp'
+# prefix) - invisible to the cleanup below and ~9 MB each, they filled the
+# 992MB tmpfs after a few rounds (ENOSPC mid-battery). Route every PREFIX-LESS
+# mkdtemp through our own prefix so the exit sweep catches them all.
+_orig_mkdtemp = _tfcl.mkdtemp
+def _prefixed_mkdtemp(suffix=None, prefix=None, dir=None, **kw):
+    # full stdlib signature - TemporaryDirectory() calls mkdtemp(suffix,
+    # prefix, dir) POSITIONALLY (py3.13), so *args-only wrappers crash.
+    if prefix is None:
+        prefix = 'r2bat_'
+    return _orig_mkdtemp(suffix=suffix, prefix=prefix, dir=dir, **kw)
+_tfcl.mkdtemp = _prefixed_mkdtemp
+import tempfile as _tmpmod_161  # same module object - patch it everywhere
+_tmpmod_161.mkdtemp = _prefixed_mkdtemp
 
 class M(dict):
     """dict with attribute access (like Klipper status objects)"""
@@ -260,12 +279,16 @@ state_vars['layer']=2
 state_vars['ignore_overrides']=True
 save_vars['first_layer_rules'] = True
 out = render(body, {'S': '215'})
-tests.append(('M104 as-sliced: L1/L2 rule applies (first_layer_rules ON)',
-    'S210' in out.replace('.0','') and 'L1/L2 rule PLA' in out and 'OVERWRITE' not in out, out.strip()[:110]))
+tests.append(('M104 as-sliced layer 2 (R161): an armed override wins in '
+    '1:1 mode too (the default 240 from the tests above)',
+    'S240' in out.replace('.0','') and 'YOUR L2 override' in out and 'OVERWRITE' not in out, out.strip()[:110]))
 save_vars['first_layer_rules'] = False
+save_vars['ov_hotend_after_on'] = False
 out = render(body, {'S': '215'})
-tests.append(('M104 as-sliced: rules OFF -> true 1:1 passthrough',
-    'S215' in out.replace('.0','') and 'L1/L2 rule' not in out and 'OVERWRITE' not in out, out.strip()[:90]))
+tests.append(('M104 as-sliced: rules OFF + no override -> true 1:1 '
+    'passthrough (its own 215 stands)',
+    'S215' in out.replace('.0','') and 'L1 rule' not in out and 'OVERWRITE' not in out, out.strip()[:90]))
+save_vars['ov_hotend_after_on'] = True
 save_vars['first_layer_rules'] = True
 state_vars['ignore_overrides']=False
 
@@ -3816,7 +3839,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.100) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-22.120'", repr(_v66)))
+    _v66 == "'R2-2026-10-22.121'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -5553,8 +5576,9 @@ tests.append(('R79 M104 as-sliced layer 1 -> material hot1 (L1 differs from L2)'
     out.strip()[:110]))
 state_vars['file_material'] = '?'
 out = render(get_body('macros/06_temp_controls.cfg', 'M140'), {'S': '70'})
-tests.append(('R79 M140 as-sliced: material bed rule (unknown material -> current)',
-    'L1/L2 rule' in out, out.strip()[:110]))
+tests.append(('R79/R161 M140 as-sliced: unknown FILE material falls back '
+    'to the SELECTED material (L1 rule, layer 1)',
+    'L1 rule' in out and 'M99140 S75' in out.replace('.0', ''), out.strip()[:110]))
 
 # --- (5) LAYER_MARK layer 2: AS SLICED temps + held fan back ---
 _lm79 = get_body('macros/06_temp_controls.cfg', 'LAYER_MARK')
@@ -5567,10 +5591,12 @@ save_vars.update({'first_layer_rules': True, 'ov_fan_on': False,
                   'tt_active': False, 'pause_next_layer': False, 'pause_at_layer': 0,
                   'first_layer_speed': 75})
 out = render(_lm79, {})
-tests.append(('R79 LAYER_MARK layer 2 (AS SLICED): material L2 temps + held fan back',
-    'material L1/L2 rule, AS SLICED' in out
-    and 'Layer 2: hotend -> 210' in out.replace('.0', '')
-    and 'fan back on (file value S{s.file_fan' in open('macros/06_temp_controls.cfg').read(),
+tests.append(('R79/R161 LAYER_MARK layer 2 (AS SLICED): unified L2 rule '
+    '(material preset here - no file values) + NO redundant bed write '
+    '(target already 60) + held-fan logic in the source',
+    'Layer 2: hotend -> 210' in out.replace('.0', '')
+    and 'HEATER=heater_bed' not in out
+    and 'M106 S{s.file_fan' in open('macros/06_temp_controls.cfg').read(),
     out[:170]))
 
 # --- (6) PARAM_SOURCES + TOGGLE_FIRST_LAYER_RULES render ---
@@ -5632,12 +5658,31 @@ tests.append(('R79 LCD: new item names stay <= 16 chars (R29)',
 state_vars.update({'ignore_overrides': True, 'layer': 1, 'file_material': 'PLA',
                    'file_hotend_first': 0.0, 'start_pending': ''})
 out = render(get_body('macros/06_temp_controls.cfg', 'M109'), {'S': '230'})
-tests.append(('R79 M109 as-sliced: L1/L2 rule, single message (no OVERWRITE double)',
-    ('L1/L2 rule PLA' in out) and out.count('RESPOND MSG="M109: 230C') == 1, out[:130]))
+tests.append(('R79/R161 M109 as-sliced layer 1: L1 rule, single message (no OVERWRITE double)',
+    ('L1 rule PLA' in out) and out.count('RESPOND MSG="M109: 230C') == 1, out[:130]))
 out = render(get_body('macros/06_temp_controls.cfg', 'M190'), {'S': '70'})
-tests.append(('R79 M190 as-sliced: bed L1/L2 rule applies',
-    'L1/L2 rule' in out, out[:130]))
-state_vars['ignore_overrides'] = False
+tests.append(('R79/R161 M190 as-sliced layer 1: bed L1 rule applies',
+    'L1 rule' in out, out[:130]))
+# R161: from layer 2 the file runs 1:1 - an armed user override wins
+state_vars['layer'] = 2
+save_vars.update({'ov_hotend_after_on': True, 'ov_hotend_after': 240,
+                  'ov_bed_after_on': True, 'ov_bed_after': 65})
+out = render(get_body('macros/06_temp_controls.cfg', 'M109'), {'S': '230'})
+tests.append(('R161 M109 as-sliced layer 2: armed override wins, no rule forcing',
+    'YOUR L2 override' in out and 'S240' in out.replace('.0', '') and 'L1 rule' not in out, out[:130]))
+out = render(get_body('macros/06_temp_controls.cfg', 'M190'), {'S': '70'})
+tests.append(('R161 M190 as-sliced layer 2: armed override wins, no rule forcing',
+    'YOUR L2 override' in out and 'S65' in out.replace('.0', '') and 'L1 rule' not in out, out[:130]))
+save_vars.update({'ov_hotend_after_on': False, 'ov_bed_after_on': False})
+out = render(get_body('macros/06_temp_controls.cfg', 'M109'), {'S': '230'})
+tests.append(('R161 M109 as-sliced layer 2: no override -> true 1:1',
+    'S230' in out.replace('.0', '') and 'L1 rule' not in out and 'YOUR L2 override' not in out, out[:110]))
+out = render(get_body('macros/06_temp_controls.cfg', 'M190'), {'S': '70'})
+tests.append(('R161 M190 as-sliced layer 2: no override -> true 1:1',
+    'S70' in out.replace('.0', '') and 'L1 rule' not in out and 'YOUR L2 override' not in out, out[:110]))
+save_vars.update({'ov_hotend_after_on': True, 'ov_hotend_after': 240,
+                  'ov_bed_after_on': False, 'ov_bed_after': 70})
+state_vars.update({'ignore_overrides': False, 'layer': 1})
 
 
 # ============================= R80 TESTS (.64) =============================
@@ -12308,6 +12353,7 @@ try:
         _sys146.path.insert(0, 'tools')
     _r2m146 = _il146.import_module('r2_postproc')
     _ok146f = False
+    _v146 = _v146r = '-'   # R161: the except path must not NameError the report
     with _tf146.TemporaryDirectory() as _td146:
         _sub146 = _r2m146._gensub(_td146, 'labels')
         open(_os146.path.join(_td146, '00_X_V03.gcode'), 'w').write(';')
@@ -12749,6 +12795,168 @@ _tx160b = open('tools/r2_texture.py', encoding='utf-8').read()
 tests.append(('R160b texture tool: own letter guard + letter-aware scan',
     "r'^(?:00_)?V(\\d+)[a-z]?_'" in _tx160b
     and 'bcdefghijklmnopqrstuvwxyz' in _tx160b, ''))
+
+
+
+# ================== R161 (.121 audit): L1 -> L2 handover matrix =============
+# Field report: bed/hotend (fan?) did not switch from layer 2 although the
+# Pre-Print L1/L2 scheme was discussed. Root causes found in the audit:
+#   (a) AS LEGACY without an ARMED override wrote NOTHING at layer 2 -
+#       generated/range files carry no M104/M140 of their own -> stuck at L1
+#   (b) AS SLICED ignored the user's L2 override entirely
+#   (c) AS SLICED forced the material preset OVER the file's own L2 command
+# R161: one unified rule - user override > file value > material preset,
+# applied at the layer-2 boundary in BOTH modes; interceptors agree.
+_lm161 = get_body('macros/06_temp_controls.cfg', 'LAYER_MARK')
+
+def _r161(state_over=None, sv_over=None, pr_over=None):
+    _p = build_printer()
+    _st = dict(state_vars, mode='printing', layer=1, layer_marks=False,
+               file_material='PLA', file_bed=60, file_bed_after=55,
+               file_hotend_first=210, file_hotend_after=205, file_fan=200)
+    if state_over:
+        _st.update(state_over)
+    _p['gcode_macro _STATE'] = M(_st)
+    _sv = dict(save_vars, ov_hotend_after_on=False, ov_bed_after_on=False)
+    if sv_over:
+        _sv.update(sv_over)
+    _p['save_variables'] = M({'variables': M(_sv)})
+    _p['extruder'] = M({'temperature': 209.0, 'target': 210.0})
+    _p['heater_bed'] = M({'temperature': 59.0, 'target': 60.0})
+    _p['fan'] = M({'speed': 0.0})
+    if pr_over:
+        for _k161, _v161 in pr_over.items():
+            _p[_k161] = M(_v161) if isinstance(_v161, dict) else _v161
+    return render(_lm161, {}, extra={'printer': _p})
+
+# (1) THE FIELD BUG: AS LEGACY, no override armed, file values present
+out = _r161()
+tests.append(('R161 L2 handover (FIELD BUG): AS LEGACY without an armed '
+    'override switches to the FILE L2 values at layer 2 (generated/range '
+    'files have no M104/M140 - the bed used to stay at the L1 value)',
+    'SET_HEATER_TEMPERATURE HEATER=extruder TARGET=205' in out
+    and 'SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET=55' in out
+    and 'file value' in out, out[:150]))
+
+# (2) idempotent: targets already at L2 -> no spam
+out = _r161(pr_over={'extruder': {'temperature': 205.0, 'target': 205.0},
+                     'heater_bed': {'temperature': 55.0, 'target': 55.0}})
+tests.append(('R161 L2 handover: idempotent - already at the L2 target, '
+    'no redundant heater writes',
+    'SET_HEATER_TEMPERATURE' not in out, out[:120]))
+
+# (3) AS LEGACY + armed override wins
+out = _r161(sv_over={'ov_hotend_after_on': True, 'ov_hotend_after': 200,
+                     'ov_bed_after_on': True, 'ov_bed_after': 50})
+tests.append(('R161 L2 handover: your ARMED override wins over the file '
+    'values (AS LEGACY)',
+    'SET_HEATER_TEMPERATURE HEATER=extruder TARGET=200' in out
+    and 'SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET=50' in out
+    and 'your override' in out, out[:150]))
+
+# (4) AS SLICED + armed override now applies too
+out = _r161(state_over={'ignore_overrides': True},
+            sv_over={'ov_hotend_after_on': True, 'ov_hotend_after': 200,
+                     'ov_bed_after_on': True, 'ov_bed_after': 50})
+tests.append(('R161 L2 handover: AS SLICED honors your L2 override as well '
+    '(silently ignored before the audit)',
+    'SET_HEATER_TEMPERATURE HEATER=extruder TARGET=200' in out
+    and 'SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET=50' in out, out[:150]))
+
+# (5) AS SLICED, no file values + no override + rules OFF = true 1:1
+out = _r161(state_over={'ignore_overrides': True, 'file_bed_after': 0,
+                        'file_hotend_after': 0},
+            sv_over={'first_layer_rules': False})
+tests.append(('R161 L2 handover: nothing armed + rules OFF -> 1:1, no '
+    'heater writes at all',
+    'SET_HEATER_TEMPERATURE' not in out, out[:120]))
+
+# (6) fan: material fan scale + the held file fan come back at layer 2
+out = _r161(sv_over={'ov_fan_on': True, 'ov_fan': 80})
+tests.append(('R161 L2 fan: material fan scale applies at layer 2 AND the '
+    'held layer-1 file fan comes back',
+    'SET_FAN_SCALE PERCENT=80' in out and 'M106 S200' in out, out[:150]))
+
+# (7) interceptors agree: AS SLICED layer 2 - the file's OWN M104 runs 1:1
+_p161 = build_printer()
+_p161['gcode_macro _STATE'] = M(dict(state_vars, mode='printing', layer=2,
+                                     ignore_overrides=True,
+                                     file_hotend_first=215,
+                                     file_hotend_after=0))
+_p161['save_variables'] = M({'variables': M(dict(
+    save_vars, ov_hotend_after_on=False))})
+out = render(get_body('macros/06_temp_controls.cfg', 'M104'), {'S': '200'},
+             extra={'printer': _p161})
+tests.append(('R161 M104 AS SLICED layer 2: the file\'s own command wins '
+    '(the material preset used to FORCE 210 over it)',
+    'M99104 S200' in out and 'L1 rule' not in out, out[:140]))
+
+# (8) AS SLICED layer 1: the first-layer rule keeps shaping layer 1
+out = render(get_body('macros/06_temp_controls.cfg', 'M104'), {'S': '205'},
+             extra={'printer': _p161})
+_p161b = build_printer()
+_p161b['gcode_macro _STATE'] = M(dict(state_vars, mode='printing', layer=1,
+                                      ignore_overrides=True,
+                                      file_hotend_first=215,
+                                      file_hotend_after=0))
+out = render(get_body('macros/06_temp_controls.cfg', 'M104'), {'S': '205'},
+             extra={'printer': _p161b})
+tests.append(('R161 M104 AS SLICED layer 1: first-layer rule still applies '
+    '(material hot1)',
+    'L1 rule' in out and 'M99104 S210' in out, out[:140]))
+
+# (9) AS SLICED layer 2 + armed override: the interceptor rewrites to it
+_p161c = build_printer()
+_p161c['gcode_macro _STATE'] = M(dict(state_vars, mode='printing', layer=2,
+                                      ignore_overrides=True,
+                                      file_hotend_first=215))
+_p161c['save_variables'] = M({'variables': M(dict(
+    save_vars, ov_hotend_after_on=True, ov_hotend_after=198))})
+out = render(get_body('macros/06_temp_controls.cfg', 'M104'), {'S': '200'},
+             extra={'printer': _p161c})
+tests.append(('R161 M104 AS SLICED layer 2 + your override: rewritten to '
+    'YOUR value (consistent with the LAYER_MARK rule)',
+    'M99104 S198' in out and 'YOUR L2 override' in out, out[:140]))
+
+# (10) Z-tracker twin: unmarked file, layer 2 via Z step -> same switch
+_w161 = open('macros/01_state.cfg', encoding='utf-8').read().split(
+    '[delayed_gcode _STATE_WATCHER]')[1]
+_p161d = build_printer()
+_p161d['gcode_macro _STATE'] = M(dict(state_vars, mode='printing', layer=1,
+                                      layer_marks=False, layer_z_max=0.2,
+                                      layer_z_acc=0.0,
+                                      file_material='PLA', file_bed=60,
+                                      file_bed_after=55,
+                                      file_hotend_first=210,
+                                      file_hotend_after=205, file_fan=0))
+_p161d['gcode_move'] = M({'gcode_position': M({'x': 100.0, 'y': 100.0,
+                                               'z': 0.4, 'e': 5.0}),
+                          'speed_factor': 1.0, 'extrude_factor': 1.0,
+                          'homing_origin': M({'z': 0.0})})
+_p161d['print_stats'] = M(dict(_p161d['print_stats'], state='printing'))
+_p161d['extruder'] = M({'temperature': 209.0, 'target': 210.0})
+_p161d['heater_bed'] = M({'temperature': 59.0, 'target': 60.0})
+_p161d['save_variables'] = M({'variables': M(dict(
+    save_vars, ov_hotend_after_on=False, ov_bed_after_on=False))})
+out = render(_w161, {}, extra={'printer': _p161d})
+tests.append(('R161 Z-track twin: an UNMARKED file switches at its Z-based '
+    'layer 2 with the same unified rule',
+    'VARIABLE=layer VALUE=2' in out
+    and 'SET_HEATER_TEMPERATURE HEATER=extruder TARGET=205' in out
+    and 'SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET=55' in out,
+    out[:150]))
+
+# (11) bed interceptor twin (M140)
+_p161e = build_printer()
+_p161e['gcode_macro _STATE'] = M(dict(state_vars, mode='printing', layer=2,
+                                      ignore_overrides=True, file_bed=60))
+_p161e['save_variables'] = M({'variables': M(dict(
+    save_vars, ov_bed_after_on=False))})
+out = render(get_body('macros/06_temp_controls.cfg', 'M140'), {'S': '55'},
+             extra={'printer': _p161e})
+tests.append(('R161 M140 AS SLICED layer 2: the file\'s own bed command '
+    'runs 1:1 (was forced to the material preset)',
+    'M99140 S55' in out and 'L1 rule' not in out, out[:140]))
 
 
 fails = 0

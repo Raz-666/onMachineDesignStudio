@@ -19,8 +19,10 @@ import glob
 import shutil
 
 # R121: never fill the tmpfs with audit dirs again (see macro_render_test)
+# R161: 'audit*' without the underscore - the sweep also creates audit128_
+# dirs which the old glob 'audit_*' never matched (tmpfs filled up anyway).
 def _cleanup():
-    for d in glob.glob(tempfile.gettempdir() + '/audit_*'):
+    for d in glob.glob(tempfile.gettempdir() + '/audit*'):
         shutil.rmtree(d, ignore_errors=True)
 
 atexit.register(_cleanup)
