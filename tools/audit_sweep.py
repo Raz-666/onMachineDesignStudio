@@ -123,18 +123,32 @@ def check_file(name, path, total_layers=None):
     worst = 0.0
     z = None
     px = py = pf = None
+    # R159: track EVERY G0/G1 XY move in ANY token order - the old walk only
+    # saw X-first G1s and jumped across G0 travels (phantom rates)
+    _xre = re.compile(r'(?:^|\s)X([\d.-]+)')
+    _yre = re.compile(r'(?:^|\s)Y([\d.-]+)')
+    _fre = re.compile(r'(?:^|\s)F(\d+(?:\.\d+)?)')
     for l in lines:
         if l.startswith(';Z:'):
             z = float(l[3:])
-        m = re.match(r'^G1 X([\d.-]+) Y([\d.-]+).* F(\d+)', l)
-        if m and z is not None:
-            x, y, f = float(m.group(1)), float(m.group(2)), float(m.group(3))
-            if px is not None and f > 0:
-                d = math.hypot(x - px, y - py)
-                if d > 0.01:
-                    rate = f / 60.0 / d          # moves per second for this hop
-                    worst = max(worst, rate)
-            px, py, pf = x, y, f
+        body = l.split(';', 1)[0].strip()
+        if not (body.startswith('G1 ') or body.startswith('G0 ')):
+            continue
+        mx, my = _xre.search(body), _yre.search(body)
+        if not (mx and my):
+            continue
+        mf = _fre.search(body)
+        if mf:
+            pf = float(mf.group(1))
+        x, y = float(mx.group(1)), float(my.group(1))
+        f = pf or 0.0
+        if z is not None and px is not None and f > 0:
+            d = math.hypot(x - px, y - py)
+            if d > 0.01:
+                rate = f / 60.0 / d      # moves per second for this hop
+                if rate > worst:
+                    worst = rate
+        px, py = x, y
     # sustained tiny-segment flood zone: the 8-bit MCU serial budget is
     # ~450 moves/s (250k baud, ~18 bytes/move) - bursts above that risk
     # 'Timer too close' shutdowns. Momentary arc micro-segments (<250/s)

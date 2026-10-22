@@ -980,6 +980,7 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
     e_rel = False
     e_abs = 0.0
     f_mod = None
+    acc_mod = None       # R159: last M204 before the cut (see scan 1)
     z_mod = None
     fan = None
     hot = 0.0
@@ -1079,6 +1080,14 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                         m = re.search(r'LINE_WIDTH=([\d.]+)', c)
                         if m:
                             lw = max(0.3, min(1.2, float(m.group(1))))
+                    elif c.startswith('M204'):
+                        # R159 (.119): accel in effect AT the cut - the body
+                        # feature scan must not lose it (vase spirals never
+                        # re-state their ;TYPE:, their feature + speed would
+                        # vanish from the excerpt's _FILE_INFO otherwise)
+                        m = re.search(r'[PS](\d+(?:\.\d+)?)', c)
+                        if m:
+                            acc_mod = float(m.group(1))
                     elif RMOVE_RE.match(c):
                         m = FWORD_RE.search(c)
                         if m:
@@ -1124,9 +1133,18 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                         # activatable but never printed)
     if a_idx is not None:
         _b = b_idx if b_idx is not None else n_stream
-        _frun = None    # canonical type of the current body segment
-        _fv = None      # modal F (mm/min)
-        _acc = None     # last M204 seen (mm/s2) - 'in effect there'
+        # R159 (.119) FIELD FIX: seed the scan with the state ACTIVE AT THE
+        # CUT. A spiral vase states its ';TYPE:Outer wall' ONCE near the top
+        # - layers 7+ carry no ;TYPE: at all, so WALL-OUTER never entered
+        # bstats and the excerpt's _FILE_INFO said TYPES=INFILL-SOLID,BRIM
+        # (raft + brim only). The pre-print menu then offered exactly those
+        # two WRONG features while Live Tuning showed the real one (field
+        # log .115: 'the features shown do not exist, the existing ones are
+        # missing'). The body opens by re-asserting the cut-active feature -
+        # the same feature must land in TYPES=/FS_/FA_.
+        _frun = cut_key  # canonical type of the current body segment
+        _fv = f_mod      # modal F (mm/min) at the cut
+        _acc = acc_mod   # last M204 (mm/s2) in effect there
         _fvre = re.compile(r'F(\d+(?:\.\d+)?)')
         _evre = re.compile(r'\bE(-?\d+(?:\.\d+)?)')
         with open(src, 'r', errors='replace') as f:
@@ -5506,6 +5524,7 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
     with open(out, 'w') as f:
         f.write('\n'.join(outl) + '\n')
 
+    _gen_normalize_speeds(out)   # R159: uniform 60/1500 + travel 180/8000
     info = {'file': fname, 'count': n, 'cols': cols, 'rows': rows,
             'jobs': ([{'font': jb['font'], 'w': round(jb['w'], 1),
                        'h': round(jb['h'], 1), 'grown': jb.get('grown', False)}
@@ -7934,6 +7953,7 @@ def make_cable_ties(count=6, length=120.0, width=8.0, layers=3, variant='CLASSIC
     out = os.path.join(out_dir, fname)
     with open(out, 'w') as f:
         f.write('\n'.join(outl) + '\n')
+    _gen_normalize_speeds(out)   # R159: uniform 60/1500 + travel 180/8000
     if variant == 'CLASSIC':
         notes = (['classic one-way pawl: head %.1fx%.1fmm, slot %.2fmm, '
                   'tooth pitch %.1fmm - pull tight, cut to remove'
@@ -9634,6 +9654,7 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
         out = os.path.join(out_dir, fname)
         with open(out, 'w') as f:
             f.write('\n'.join(outl) + '\n')
+        _gen_normalize_speeds(out)   # R159: 60/1500 + travel 180/8000, rate-capped
         files.append(fname)
 
     info = {'file': files[0], 'mode': mode, 'shape': shape, 'preset': preset,
@@ -9981,6 +10002,7 @@ def make_angles(count=2, angle_deg=90, leg_a=60.0, leg_b=60.0, width=25.0,
     out = os.path.join(out_dir, fname)
     with open(out, 'w') as f:
         f.write('\n'.join(outl) + '\n')
+    _gen_normalize_speeds(out)   # R159: uniform 60/1500 + travel 180/8000
     info = {'file': fname, 'count': count, 'kind': kind, 'angle': round(theta),
             'legs': (la, lb), 'width': width, 'layers': total_layers,
             'holes': '%d+%d' % (len(holes_a), len(holes_b)), 'hole_d': hole_d,
@@ -10513,6 +10535,7 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
         a('PRINT_END')
         sk.flush()
 
+    _gen_normalize_speeds(out)   # R159: uniform 60/1500 + travel 180/8000
     info = {'file': fname, 'source': os.path.basename(src),
             'kind': 'lithophane-flat', 'width': round(width_real, 1),
             'height': round(height_real, 1),
@@ -10763,6 +10786,7 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
         a('PRINT_END')
         sk.flush()
 
+    _gen_normalize_speeds(out)   # R159: uniform 60/1500 + travel 180/8000
     info = {'file': fname, 'source': os.path.basename(src), 'kind': 'lithophane',
             'width': round(width_mm, 1), 'height': round(height_real, 1),
             'thickness': '%.1f..%.1f' % (t_min, t_max), 'layers': rows,
@@ -11526,6 +11550,7 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
             a('PRINT_END')
             sk.flush()
 
+        _gen_normalize_speeds(out)   # R159: uniform 60/1500 + travel 180/8000
     n_by_all = dict((k, sum(1 for c in cells if c['kind'] == k))
                     for k in sorted(set(c['kind'] for c in cells)))
     info = {'file': out_files[0] if out_files else '',
@@ -12179,6 +12204,7 @@ def make_brick_kit(src, detail='AUTO', mode='BY_LAYER', colors=3,
             a('PRINT_END')
             sk.flush()
 
+        _gen_normalize_speeds(outp)   # R159: uniform 60/1500 + travel 180/8000
     info = {'file': out_files[0] if out_files else '', 'plates': out_files,
             'kind': 'brickkit', 'source': os.path.basename(src),
             'mode': mode, 'detail': detail, 'bands': len(bands),
@@ -13084,6 +13110,7 @@ def make_figures(count=1, scale=100.0, layer_h=0.2, material='PLA',
             a('PRINT_END')
             sk.flush()
 
+        _gen_normalize_speeds(out)   # R159: rate cap keeps the micro segments safe
     info = {'file': out_files[0] if out_files else '',
             'plate_files': out_files, 'kind': 'figures',
             'count': count, 'mode': mode,
@@ -13416,6 +13443,7 @@ def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
         a('PRINT_END')
         sk.flush()
 
+    _gen_normalize_speeds(out)   # R159: uniform 60/1500 + travel 180/8000
     info = {'file': fname, 'source': os.path.basename(src),
             'kind': 'colorpic', 'width': round(width_real, 1),
             'height': round(height_real, 1), 'layers': total_layers,
@@ -13599,6 +13627,7 @@ def make_seal(od=40.0, id_=20.0, height=1.2, profile='FLAT', ironing=False,
     out = os.path.join(out_dir, fname)
     with open(out, 'w') as f:
         f.write('\n'.join(L) + '\n')
+    _gen_normalize_speeds(out)   # R159: uniform 60/1500 + travel 180/8000
     info = {'file': fname, 'kind': 'seal', 'od': od, 'id': id_,
             'height': height_real, 'layers': layers,
             'profile': 'GROOVE' if groove else 'FLAT', 'ironing': bool(ironing),
@@ -13844,6 +13873,7 @@ _XY_G1_RE = re.compile(r'^G1 X(?P<X>[-\d.]+) Y(?P<Y>[-\d.]+)'
                        r'(?: E(?P<E>[-\d.]+))?(?:\s+F(?P<F>\d+))?')
 _XY_RE = re.compile(r'(?:^|\s)X([-\d.]+)')
 _Y_RE = re.compile(r'(?:^|\s)Y([-\d.]+)')
+_ETOK_RE = re.compile(r'(?:^|\s)E([-\d.]+)')
 _F_RE = re.compile(r'(?:^|\s)F(\d+)')
 
 
@@ -13852,26 +13882,32 @@ def _worst_move_rate(path):
     second of a gcode file. The MCU serial budget is roughly 450 moves/s
     - bursts above that can shut a print down ('Timer too close', host
     overload class). Only extruding G1 XY moves count; F is tracked
-    modally (slicers write it only on change)."""
+    modally (slicers write it only on change).
+    R159 (.119): G0 travels update the POSITION too (the old walk jumped
+    across them - the hop to the next wall point looked tiny and produced
+    phantom rates), and tokens parse in ANY order (Z-first spiral moves
+    were invisible, same regex class as the texture bug)."""
     worst = 0.0
     px = py = None
     cur_f = 0.0
     try:
         with open(path, 'r', errors='replace') as f:
             for raw in f:
-                if not raw.startswith('G1 '):
+                body = raw.split(';', 1)[0].strip()
+                if not (body.startswith('G1 ') or body.startswith('G0 ')
+                        or body in ('G1', 'G0')):
                     continue
-                m = _XY_G1_RE.match(raw)
-                if m is None:
-                    mf = _F_RE.search(raw)
-                    if mf:
-                        cur_f = float(mf.group(1))
+                mf = _F_RE.search(body)
+                if mf:
+                    cur_f = float(mf.group(1))
+                mx = _XY_RE.search(body)
+                my = _Y_RE.search(body)
+                me = _ETOK_RE.search(body)
+                if not (mx and my):
                     continue
-                if m.group('F'):
-                    cur_f = float(m.group('F'))
-                x, y = float(m.group('X')), float(m.group('Y'))
-                if m.group('E') is None:
-                    px, py = x, y           # G1 travel - position only
+                x, y = float(mx.group(1)), float(my.group(1))
+                if me is None or float(me.group(1)) <= 0:
+                    px, py = x, y           # travel - position only
                     continue
                 if px is not None and cur_f > 0:
                     d = math.hypot(x - px, y - py)
@@ -14249,6 +14285,89 @@ def _travel_fix_file(path, accel=0, speed=0.0, markers=True):
         except OSError:
             pass
     return n
+
+
+def _gen_normalize_speeds(path, print_f=3600, travel_f=10800,
+                          accel=1500, travel_accel=8000, max_rate=400.0):
+    """R159 (.119): ONE uniform speed image for a generated PRINT file -
+    field rule: every feature 60 mm/s + 1500 mm/s2, travels 180 mm/s +
+    8000 mm/s2 (layer 1 gets slowed by the Pre-Print first-layer brake
+    anyway, a hard-coded slow brim/raft buys nothing). Rewrites F on every
+    XY move (E>0 -> print speed, no E -> travel), switches M204 at the
+    boundaries, and rewrites the _FILE_INFO SPEED_*/ACCEL_* tokens so the
+    Pre-Print display stays honest. E-only (retracts) and Z-only moves
+    keep their own F. Idempotent."""
+    import re as _re159
+    _mv159 = _re159.compile(r'^(G0|G1)\b')
+    _xt159 = _re159.compile(r'(?:^|\s)X-?[\d.]')
+    _ft159 = _re159.compile(r'\bF(\d+(?:\.\d+)?)')
+    _et159 = _re159.compile(r'(?:^|\s)E(-?[\d.]+)')
+    _xy159 = _re159.compile(r'(?:^|\s)X(-?[\d.]+)')
+    _yy159 = _re159.compile(r'(?:^|\s)Y(-?[\d.]+)')
+    tmp = path + '.nsx'
+    _cls = None          # 'p'rint / 't'ravel currently in effect
+    _fi_done = False
+    _ps_done = False
+    _px159 = _py159 = None   # previous position - the rate cap needs it
+    with open(path, 'r', errors='replace') as fi, open(tmp, 'w') as fo:
+        for raw in fi:
+            ln = raw[:-1] if raw.endswith('\n') else raw
+            ls = ln.strip()
+            if ls.startswith('_FILE_INFO') and not _fi_done:
+                ln = _re159.sub(r'(SPEED_[A-Z]+=)[\d.]+',
+                                r'\g<1>%g' % (print_f / 60.0), ln)
+                ln = _re159.sub(r'(ACCEL_[A-Z]+=)[\d.]+',
+                                r'\g<1>%g' % accel, ln)
+                ln = _re159.sub(r'(SPEED_TRAVEL=)[\d.]+',
+                                r'\g<1>%g' % (travel_f / 60.0), ln)
+                # R159 field rule: generated files start at 98% flow (their
+                # geometry does not inherit a slicer flow anyway)
+                ln = _re159.sub(r'(FLOW_RATIO=)[\d.]+', r'\g<1>0.98', ln)
+                _fi_done = True
+                fo.write(ln + '\n')
+                continue
+            if ls.startswith('PRINT_START') and not _ps_done:
+                _ps_done = True
+                fo.write(ln + '\n')
+                fo.write('M221 S98   ; R2-GEN flow 98% default (Pre-Print '
+                         'override + live flow beat this)\n')
+                continue
+            if not _mv159.match(ls) or not _xt159.search(ls):
+                fo.write(ln + '\n')
+                continue
+            _me159 = _et159.search(ls)
+            _is_print = bool(_me159 and float(_me159.group(1)) > 0)
+            want = 'p' if _is_print else 't'
+            if want != _cls:
+                fo.write('M204 S%d   ; R2-GEN speed image\n'
+                         % (accel if _is_print else travel_accel))
+                _cls = want
+            _f159 = print_f if _is_print else travel_f
+            # R159 rate cap: the 8-bit MCU serial budget (~400 sustained
+            # moves/s) - a 0.05mm text stroke cannot run 60mm/s (would be
+            # 1200/s = 'Timer too close'). Every move runs as fast as the
+            # budget allows: F <= max_rate * seg_len. Long moves (brim,
+            # walls, travels) reach the full speed, micro segments slow
+            # down exactly as far as needed.
+            _mx159 = _xy159.search(ls)
+            _my159 = _yy159.search(ls)
+            if _mx159 and _my159:
+                _x159 = float(_mx159.group(1))
+                _y159 = float(_my159.group(1))
+                if _px159 is not None:
+                    _seg159 = ((_x159 - _px159) ** 2
+                               + (_y159 - _py159) ** 2) ** 0.5
+                    if _seg159 > 1e-9:
+                        _f159 = min(_f159, int(max_rate * _seg159 * 60.0))
+                _f159 = max(_f159, 240)     # never slower than 4mm/s
+                _px159, _py159 = _x159, _y159
+            if _ft159.search(ls):
+                ln = _ft159.sub('F%d' % _f159, ln, count=1)
+            else:
+                ln = ln + ' F%d' % _f159
+            fo.write(ln + '\n')
+    os.replace(tmp, path)
+    return True
 
 
 def _travelaccel_fix_file(path, accel=8000):
@@ -17276,10 +17395,23 @@ def watch(directory, interval=5.0, once=False):
                             _kmsg125 += ' | ' + _n125
                         _kmsg125 += (' | every part its own object - a failed '
                                      'part can be excluded and reprinted')
-                        _moonraker_gcode(
-                            'RESPOND MSG="%s"\nM117 Kit ready\n'
-                            '_SOUND_LIB NAME=r2_done' % _kmsg125
-                            + _sel_line(rv, _krel125))
+                        # R159 (.119) FIELD FIX: the notification push used
+                        # to sit in the SAME try as the generation - a busy
+                        # moonraker/klipper restart after the files were
+                        # written cried 'Kit ERROR' although the kit WAS
+                        # built (field log: 'kit error constantly, kits get
+                        # created anyway'). The push is separate now: a
+                        # notify failure logs and retries next cycle, it
+                        # never fakes a generation error.
+                        try:
+                            _moonraker_gcode(
+                                'RESPOND MSG="%s"\nM117 Kit ready\n'
+                                '_SOUND_LIB NAME=r2_done' % _kmsg125
+                                + _sel_line(rv, _krel125))
+                        except Exception as ne125:              # noqa: BLE001
+                            print(f'[brickkit] built {_krel125} but notify '
+                                  f'failed ({ne125!r}) - not an error, the '
+                                  'kit exists', flush=True)
                         return [_ok125]
                     except Exception as e:                      # noqa: BLE001
                         print(f'[brickkit] error: {e!r}', flush=True)
@@ -18111,8 +18243,10 @@ def watch(directory, interval=5.0, once=False):
                     except OSError:
                         pass
                     _ent154 = ['D:' + _d for _d in sorted(_dirs154)]
+                    # R159 (.119): files ALPHABETICAL - the field log wants
+                    # to FIND a name, not archaeology by mtime
                     _ent154 += ['F:' + _f
-                                for _, _f in sorted(_files154, reverse=True)]
+                                for _f in sorted(_f154 for _, _f154 in _files154)]
                     return _ent154, _dirs154
 
                 _root154, _subdirs154 = _scan154('')

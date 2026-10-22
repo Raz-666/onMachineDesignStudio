@@ -153,7 +153,8 @@ def build_printer(kamp=False, objs=None, excl=None, old_klipper=False, bare_idle
     'exclude_object': M({'objects': objects, 'excluded_objects': [], 'current_object': (objects[0]['name'] if objects else None)}),
     'bed_mesh': M({'profile_name': 'r2', 'profiles': {'r2': {}}}),
     'idle_timeout': M({'state':'Printing','printing_time':0.0,'idle_timeout':3600}),   # REAL keyset (get_status: state/printing_time/idle_timeout)
-    'configfile': M({'settings': M({'idle_timeout': M({'timeout':'3600'}),   # access_tracking stores RAW STRINGS
+    'configfile': M({'settings': M({'printer': M({'max_accel': 3000.0}),   # R159: _LIVE_RESET reads it
+                                    'idle_timeout': M({'timeout':'3600'}),   # access_tracking stores RAW STRINGS
                                     'extruder': M({'rotation_distance':7.71,'max_temp':260,'nozzle_diameter':0.6,'pressure_advance':0.004,'min_extrude_temp':170}),
                                     'firmware_retraction': M({'retract_length':0.75,'retract_speed':35}),
                                     'tmc2209 stepper_z': M({'run_current':0.7}), 'probe': M({'x_offset':0.0,'y_offset':0.0})})}),
@@ -2096,8 +2097,15 @@ state_vars['mode']='idle'
 out = render(body, {'S': '92'})
 tests.append(('R50 M221 pre-decision: capture file flow', 'file_flow VALUE=92.0' in out, out[:160]))
 state_vars['mode']='printing'; save_vars['ov_flow_on']=True; save_vars['ov_flow']=105
+state_vars['layer']=1
 out = render(body, {'S': '92'})
-tests.append(('R50 M221 overwrite ON -> 105', 'M99221 S105' in out and 'OVERWRITE' in out, out[:200]))
+tests.append(('R50 M221 overwrite ON -> 105 (layer 1: the FILE speaks)',
+    'M99221 S105' in out and 'OVERWRITE' in out, out[:200]))
+state_vars['layer']=4
+out = render(body, {'S': '92'})
+tests.append(('R159 M221 user wins from layer 2 (stock Tune / console)',
+    'M99221 S92' in out and 'YOUR live flow' in out and 'live_flow VALUE=92' in out, out[:200]))
+state_vars['layer']=2
 state_vars['ignore_overrides']=True
 out = render(body, {'S': '92'})
 tests.append(('R50 M221 as sliced: 1:1 pass', 'M99221 S92' in out, out[:160]))
@@ -2614,7 +2622,7 @@ tests.append(('R60 LCD Live > Features: 12 submenus with on/fs/spd/acc + ironing
         for s in ['ow','iw','sp','so','tp','bt','br','gp','su','ir','sk','bm'])
     and '__live __feat __ir __fl]' in _lcd58, 'ids'))
 tests.append(('R60 LCD Live > Features: guards + original rows + re-APPLY on the current type',
-    _lcd58.count('is not in this file') >= 74  # 2 menus x 12 features x (on+spd+acc) + 2 x 12 activators + spare
+    _lcd58.count('not seen in this file yet') >= 74  # R159: edits never blocked, just noted
     and _lcd58.count('APPLY_TYPE TYPE=') >= 24
     and '[File] WALL-OUTER ORIGINAL' in _lcd58, 'guards'))
 
@@ -3803,7 +3811,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.100) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-22.118'", repr(_v66)))
+    _v66 == "'R2-2026-10-22.119'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -4444,8 +4452,12 @@ tests.append(('R73 label file: TAG + _FILE_INFO + markers DIRECT (no process re-
     and 'APPLY_TYPE TYPE=WALL-INNER' in _lt73 and _lt73.count('LAYER_MARK') == 3
     and _mod73.process(_lp73)['skipped'] is True, ''))
 _fed73 = [int(_m73.group(1)) for _m73 in _re73.finditer(r'F(\d+)', _lt73)]
-tests.append(('R73 label file: feeds capped at 75mm/s (MCU overload fix)',
-    max(_fed73) <= 4500, 'max F%d' % max(_fed73)))
+tests.append(('R73/R159 label file: extruding feeds at 60mm/s, travels 180 '
+              '(uniform speed image; the MCU-overload cap keeps holding for '
+              'extruding moves)',
+    max(_fed73) <= 10800 and 'F3600' in _lt73 and 'F10800' in _lt73
+    and 'M204 S1500' in _lt73 and 'M204 S8000' in _lt73
+    and 'M221 S98' in _lt73, 'max F%d' % max(_fed73)))
 
 # --- live tuning: user value wins over re-applies (first-layer lock fix) ------
 _m22173 = get_body('macros/06_temp_controls.cfg', 'M221')
@@ -4454,10 +4466,14 @@ state_vars.update({'mode': 'printing', 'layer': 1, 'live_flow': 115, 'ignore_ove
 out = render(_m22173, {'S': 100})
 tests.append(('R73 M221: LIVE flow beats the pre-print flow override',
     'M99221 S115' in out, out[:110]))
-state_vars.update({'live_flow': 0, 'layer': 2})
+state_vars.update({'live_flow': 0, 'layer': 1})
 out = render(_m22173, {'S': 100})
-tests.append(('R73 M221: without a live value the override still rules',
+tests.append(('R73 M221: without a live value the override still rules (layer 1)',
     'M99221 S90' in out, out[:110]))
+state_vars.update({'layer': 5})
+out = render(_m22173, {'S': 100})
+tests.append(('R159 M221: from layer 2 the user value IS the flow (no redirect)',
+    'M99221 S100' in out and 'live_flow VALUE=100' in out, out[:110]))
 
 _m20473 = get_body('macros/06_temp_controls.cfg', 'M204')
 state_vars.update({'live_accel': 4200, 'current_type': 'WALL-OUTER'})
@@ -9082,11 +9098,14 @@ tests.append(('R106 z-hop: SET_Z_HOP stores on+height, hint names G10/G11 + RetF
 _outzh2 = render(_szh, {'HEIGHT': '9'})
 tests.append(('R106 z-hop: height guard 0.1..3mm',
     'must be 0.1..3mm' in _outzh2 and 'VARIABLE=' not in _outzh2, ''))
-tests.append(('R106 z-hop: SET_LIVE_ACCEL caps globally, travels named',
+tests.append(('R106/R159 SET_LIVE_ACCEL: caps globally AND arms live_accel '
+              '(the file M204 cannot push it back - field log .115)',
     'SET_VELOCITY_LIMIT ACCEL=8000' in
     render(get_body('macros/10_live_tuning.cfg', 'SET_LIVE_ACCEL'), {'ACCEL': '8000'})
-    and 'including travels' in render(get_body('macros/10_live_tuning.cfg',
-                                               'SET_LIVE_ACCEL'), {'ACCEL': '8000'}), ''))
+    and 'VARIABLE=live_accel VALUE=8000' in
+    render(get_body('macros/10_live_tuning.cfg', 'SET_LIVE_ACCEL'), {'ACCEL': '8000'})
+    and 'cannot push it back' in render(get_body('macros/10_live_tuning.cfg',
+                                                 'SET_LIVE_ACCEL'), {'ACCEL': '8000'}), ''))
 _lcd106z = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 tests.append(('R106 menus: Z-Hop in live AND pre-print, Velcap + Acccap live',
     _lcd106z.count('SET_Z_HOP ') >= 4
@@ -10252,7 +10271,7 @@ import hashlib as _hl119
 import math as _math119
 import re as _re119
 _D119 = tempfile.mkdtemp(prefix='r119_')
-_MD5_119 = '893cc319d89420eabe54388da1183d77'   # frozen from R118 (verified equal)
+_MD5_119 = 'f5855c1cffc8b19860c94b0610a9df6d'   # re-frozen R159 (.119): 60/1500 + travel 180/8000 + flow 98%, rate-capped (MCU budget)
 
 def _labpts119(path, li):
     _t = open(path).read()
@@ -10275,7 +10294,7 @@ def _labpts119(path, li):
     return _pts, (float(_c.group(1)), float(_c.group(2))), _t
 
 _o119, _i119 = _pp61.make_labels(['WERKSTATT'], w=60, h=30, out_dir=_D119)
-tests.append(('R119 default path byte-identical to R118 (frozen md5)',
+tests.append(('R119 default path byte-identical across builds (frozen md5, R159 speed image)',
     _hl119.md5(open(_o119, 'rb').read()).hexdigest() == _MD5_119, 'md5 changed'))
 _o119, _i119 = _pp61.make_labels(['WERKSTATT'], w=60, h=30, out_dir=_D119,
                                  shape='RECT', corner=0.0, border_walls=0,
@@ -12134,6 +12153,105 @@ tests.append(('R158 LCD display: the SD browser hides the .gcode tail (file '
               _ok158d, 'f1=%r s0=%r' % (_n158f1 if isinstance(_n158f1, str) else '', _n158s0 if isinstance(_n158s0, str) else '')))
 
 _r2p146 = open('tools/r2_postproc.py').read()
+# ===================== R159 (.119): field-log fixes ==================
+# 1) TEXTURE on Z-first spiral moves: 'G1 Z.. X.. Y.. E..' (real Orca spiral
+#    vase output) was NEVER touched by the old X-first regex - the vase came
+#    out smooth while the tool reported a plausible 'shifted' count.
+_moved159 = -1
+_rf159 = ''
+try:
+    import os as _os159, tempfile as _tf159, importlib as _il159, sys as _sys159
+    if 'tools' not in _sys159.path:
+        _sys159.path.insert(0, 'tools')
+    _tx159 = _il159.import_module('r2_texture')
+    _d159 = _tf159.mkdtemp(prefix='r159_')
+    _sp159 = _os159.path.join(_d159, 'spiral.gcode')
+    _L159 = [';FLAVOR:Marlin', 'M83', 'G90']
+    _z159 = 0.2
+    for _ly159 in range(6):
+        _L159 += [';LAYER_CHANGE', ';Z:%.2f' % _z159, ';TYPE:Outer wall']
+        for _k159 in range(12):
+            _a159 = _k159 / 12.0 * 6.283
+            # Z-FIRST spiral move - the field case
+            _L159.append('G1 Z%.3f X%.3f Y%.3f E0.03'
+                         % (_z159, 110 + 30 * __import__('math').cos(_a159),
+                            107 + 30 * __import__('math').sin(_a159)))
+        _z159 += 0.2
+    open(_sp159, 'w').write('\n'.join(_L159) + '\n')
+    _to159, _ti159 = _tx159.apply_texture(_sp159, out_dir=_d159, mode='FUZZY',
+                                          fuzzy_thick=0.35, fuzzy_density=100)
+    _g159 = open(_to159).read()
+    import re as _re159b
+    _bef159 = [l for l in open(_sp159).read().split('\n') if l.startswith('G1 Z')]
+    _aft159 = [l for l in _g159.split('\n') if l.startswith('G1 Z')]
+    _moved159 = sum(1 for a, b in zip(_bef159, _aft159) if a != b)
+    _ok159 = (_ti159['shifted'] >= 60 and _moved159 >= 60
+              and 'G1 Z' in _g159)
+except Exception as _e159:                                            # noqa: BLE001
+    _ok159 = False
+    _ti159 = {'shifted': repr(_e159)}
+tests.append(('R159 texture: Z-FIRST spiral moves scattered (the .115 field '
+              'vase came out smooth - the old regex demanded X right after '
+              'G1 and skipped the whole spiral; token order is free now, '
+              'Z + E stay untouched on the line)',
+              _ok159, 'shifted=%s moved=%s' % (
+                  _ti159.get('shifted', '?'), _moved159 if isinstance(_moved159, int) else '-')))
+
+# 2) RANGE excerpt of a spiral: the feature is stated ONCE above the window -
+#    TYPES must carry it (the .115 field file said TYPES=INFILL-SOLID,BRIM
+#    and the pre-print menu offered exactly those two WRONG features)
+try:
+    _rp159 = _os159.path.join(_d159, 'rsrc.gcode')
+    _L159b = ['; R2-POSTPROC v5',
+              '_FILE_INFO MATERIAL=PLA LAYER_HEIGHT=0.2 TOTAL_LAYERS=11 '
+              'FLOW_RATIO=0.98 SPEED_OUTER=20 ACCEL_OUTER=500 '
+              'TYPES=CUSTOM,BRIM,WALL-OUTER',
+              'G28', 'G90', 'M83', 'G92 E0']
+    for _ly159 in range(1, 12):
+        _z159b = round(_ly159 * 0.2, 2)
+        _L159b += ['LAYER_MARK', 'G1 Z%.2f F600' % _z159b]
+        if _ly159 == 1:
+            _L159b += [';TYPE:Outer wall', 'APPLY_TYPE TYPE=WALL-OUTER']
+        for _k159 in range(6):
+            _L159b.append('G1 X%d Y%d E0.05 F1200' % (90 + _k159, 90 + _k159))
+    _L159b += ['M107', 'PRINT_END']
+    open(_rp159, 'w').write('\n'.join(_L159b) + '\n')
+    _r2m159 = _il159.import_module('r2_postproc')
+    _ro159, _rn159 = _r2m159.make_range(_rp159, 5, 11, floor=2, brim=2,
+                                        out_dir=_d159)
+    _rf159 = next(l for l in open(_ro159, errors='replace')
+                  if l.startswith('_FILE_INFO'))
+    _ok159b = ('TYPES=WALL-OUTER' in _rf159 and 'INFILL-SOLID' in _rf159
+               and 'BRIM' in _rf159 and 'FS_WALL_OUTER=20' in _rf159)
+except Exception as _e159b:                                           # noqa: BLE001
+    _ok159b = False
+    _rf159 = repr(_e159b)
+tests.append(('R159 range: the cut-ACTIVE feature lands in TYPES=/FS_ (spiral '
+              'files state their ;TYPE: once, above the window - the excerpt '
+              'must still advertise WALL-OUTER, with its measured speed)',
+              _ok159b, str(_rf159)[:120]))
+
+# 3) feature values ARM the feature (the .115 field log: values stored but
+#    never applied - the second SAVE_VARIABLE was a comment!)
+_out159 = render(get_body('macros/07_start_confirm.cfg', 'SET_OVERRIDE_VALUE'),
+                 {'NAME': 'feat_spd_wallouter', 'VALUE': '130'})
+tests.append(('R159 SET_OVERRIDE_VALUE: a feature value ARMS the feature '
+              '(spd/acc/flw write ovf_*_spd AND ovf_*_on - the trailing '
+              'SAVE_VARIABLE used to sit behind a comment)',
+              'VARIABLE=ovf_wallouter_spd VALUE=130' in _out159
+              and 'VARIABLE=ovf_wallouter_on VALUE=True' in _out159, _out159[:160]))
+
+# 4) machine limits restored at print end (the vase left M204 S500 active -
+#    the nozzle wipe crawled after the print)
+_lr159 = get_body('macros/10_live_tuning.cfg', '_LIVE_RESET')
+_out159b = render(_lr159, {})
+tests.append(('R159 _LIVE_RESET: machine limits back (accel from the printer '
+              'config, M220/M221 100%, g_speed_clean 100) - runs at start, '
+              'end and cancel',
+              'SET_VELOCITY_LIMIT ACCEL=3000' in _out159b
+              and 'M220 S100' in _out159b and 'M221 S100' in _out159b
+              and 'VARIABLE=g_speed_clean VALUE=100' in _out159b, _out159b[:160]))
+
 tests.append(('R146 generator folders (source wiring): all 15 watcher call '
               'sites route into _gensub subfolders (no flat out_dir=directory '
               'left), gen_files lists RELATIVE paths incl. legacy root files, '

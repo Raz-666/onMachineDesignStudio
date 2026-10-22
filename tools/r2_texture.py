@@ -35,16 +35,47 @@ import time
 
 TAG = 'R2-TEXTURE v2 (R95)'
 
-_G1 = re.compile(r'^(G1|G0)\s+X([\d.\-]+)\s+Y([\d.\-]+)(?:\s+Z([\d.\-]+))?'
-                 r'(?:\s+E([\d.\-]+))?')
+# R159 (.119) FIELD FIX: the old _G1 demanded X DIRECTLY after the command
+# and Y right behind it. Real slicer output does not keep that order - a
+# spiral vase prints as 'G1 Z24.172 X83.376 Y103.03 E.05991' (Z first, and
+# an E without a leading digit) - so the texture silently skipped the WHOLE
+# spiral and reported a plausible-looking 'shifted' count from the few
+# X-first bottom moves (field log: vase came out smooth). Tokens are now
+# parsed in ANY order (comments cut before parsing, values rewritten in
+# place - the original token order and everything else on the line stays).
+_CMD_RE = re.compile(r'^(G1|G0)\b')
+_TOK_RE = {t: re.compile(r'(?:^|\s)' + t + r'(-?[\d.]+)')
+           for t in ('X', 'Y', 'Z', 'E', 'I', 'J', 'R', 'F')}
+
+
+def _tok(body, t):
+    m = _TOK_RE[t].search(body)
+    return float(m.group(1)) if m else None
+
+
+def _parse_move(ls):
+    """('G1'|'G0', x, y, z, e) for a G0/G1 line in ANY token order, else None."""
+    body = ls.split(';', 1)[0]
+    m = _CMD_RE.match(body)
+    if not m:
+        return None
+    return (m.group(1), _tok(body, 'X'), _tok(body, 'Y'),
+            _tok(body, 'Z'), _tok(body, 'E'))
+
+
+def _parse_arc(ls):
+    """('G2'|'G3', x, y, z, i, j, r, e, f) for a G2/G3 line in ANY token order."""
+    body = ls.split(';', 1)[0]
+    m = re.match(r'^(G[23])\b', body)
+    if not m:
+        return None
+    return (m.group(1), _tok(body, 'X'), _tok(body, 'Y'), _tok(body, 'Z'),
+            _tok(body, 'I'), _tok(body, 'J'), _tok(body, 'R'),
+            _tok(body, 'E'), _tok(body, 'F'))
 # R95: slicers with arc fitting emit the OUTER WALL as G2/G3 arcs - the R91
 # scatter only touched G1 vertices, so round parts (vases!) carried texture
 # only in the few straight bits between arcs ("only the corners"). Arcs are
 # flattened into short G1 chords first, then textured like any other vertex.
-_GARC = re.compile(r'^(G[23])\s+X([\d.\-]+)\s+Y([\d.\-]+)'
-                  r'(?:\s+Z([\d.\-]+))?'
-                  r'(?:\s+I([\d.\-]+)\s+J([\d.\-]+)|\s+R([\d.\-]+))?'
-                  r'(?:\s+E(-?[\d.]+))?(?:\s+F([\d.]+))?(?:\s*;.*)?$')
 
 
 def _arc_points(x0, y0, x1, y1, i=None, j=None, rr=None, cw=True,
@@ -309,35 +340,31 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                 me92 = re.match(r'^G92(?:\s+E(-?[\d.]+))?', ls)
                 if me92 and me92.group(1) is not None:
                     last_e = float(me92.group(1))
-            g = _G1.match(ls)
-            if (g and g.group(1) == 'G1' and cur_outer
-                    and g.group(5) is not None
-                    and float(g.group(5)) > _MIN_E and g.group(2) is not None):
-                x, y = float(g.group(2)), float(g.group(3))
-                z = float(g.group(4)) if g.group(4) is not None else None
+            g = _parse_move(ls)
+            if (g and g[0] == 'G1' and cur_outer
+                    and g[4] is not None and g[4] > _MIN_E and g[1] is not None):
+                x, y = g[1], g[2]
+                z = g[3]
                 fo.write(_shift_txt(ls, x, y, z) + '\n')
                 px, py = x, y
-                last_e = float(g.group(5))
+                last_e = g[4]
                 continue
             # ---- R95: outer-wall G2/G3 arcs -> short G1 chords, textured ---
-            ga = _GARC.match(ls)
-            if (ga and cur_outer and ga.group(8) is not None
-                    and float(ga.group(8)) > _MIN_E and px is not None):
-                x1, y1 = float(ga.group(2)), float(ga.group(3))
-                z1 = float(ga.group(4)) if ga.group(4) is not None else None
+            ga = _parse_arc(ls)
+            if (ga and cur_outer and ga[7] is not None
+                    and ga[7] > _MIN_E and px is not None):
+                x1, y1 = ga[1], ga[2]
+                z1 = ga[3]
                 pts = _arc_points(
-                    px, py, x1, y1,
-                    float(ga.group(5)) if ga.group(5) is not None else None,
-                    float(ga.group(6)) if ga.group(6) is not None else None,
-                    float(ga.group(7)) if ga.group(7) is not None else None,
-                    cw=(ga.group(1) == 'G2'))
+                    px, py, x1, y1, ga[4], ga[5], ga[6],
+                    cw=(ga[0] == 'G2'))
                 if pts:
                     stats['arcs'] += 1
-                    e_arc = float(ga.group(8))
+                    e_arc = ga[7]
                     _all = [(px, py)] + pts[:-1]
                     arc_len = sum(math.hypot(b[0] - a[0], b[1] - a[1])
                                   for a, b in zip(_all, pts))
-                    f_txt = (' F' + ga.group(9)) if ga.group(9) else ''
+                    f_txt = (' F%g' % ga[8]) if ga[8] else ''
                     for (ax, ay), (qx, qy) in zip(_all, pts):
                         cl = math.hypot(qx - ax, qy - ay)
                         frac = (cl / arc_len) if arc_len > 1e-9 else 0.0
@@ -354,11 +381,11 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                         last_e = e_arc
                     continue
                 # unresolvable arc geometry -> untouched passthrough (below)
-            gm = _G1.match(ls)
-            if gm and gm.group(2) is not None:
-                px, py = float(gm.group(2)), float(gm.group(3))
-                if gm.group(5) is not None:
-                    last_e = float(gm.group(5))
+            gm = _parse_move(ls)
+            if gm and gm[1] is not None:
+                px, py = gm[1], gm[2]
+                if gm[4] is not None:
+                    last_e = gm[4]
             fo.write(ls + '\n')
 
     info = {'file': fname, 'src': base, 'mode': mode, 'version': _hi158 + 1,

@@ -285,18 +285,9 @@ ck('figures: arm prints lying with shoulder pin + grip tube docs',
 # move-rate budget (MCU 'Timer too close' class)
 f50, _ = pp.make_figures(count=1, scale=50, out_dir=d)
 g50 = open(f50, encoding='utf-8').read().split('\n')
-worst, z, px, py = 0.0, None, None, None
-for l in g50:
-    if l.startswith(';Z:'):
-        z = float(l[3:])
-    m = re.match(r'^G1 X([\d.-]+) Y([\d.-]+).* F(\d+)', l)
-    if m and z is not None:
-        x, y, f = float(m.group(1)), float(m.group(2)), float(m.group(3))
-        if px is not None and f > 0:
-            dd = math.hypot(x - px, y - py)
-            if dd > 0.01:
-                worst = max(worst, f / 60.0 / dd)
-        px, py = x, y
+# R159: use the repaired pp._worst_move_rate (every G0/G1 in any token
+# order - the old inline walk jumped across G0 travels: phantom rates)
+worst = pp._worst_move_rate(f50)
 ck('figures 50%%: worst move rate %.0f/s < 400 (MCU serial budget)' % worst,
    worst < 400.0, '%.0f/s' % worst)
 
