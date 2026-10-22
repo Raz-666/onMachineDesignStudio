@@ -10145,7 +10145,7 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
     height_mm = max(30.0, min(float(height_mm or 100.0), 200.0))
     layer_h = max(0.08, min(float(layer_h or 0.12), 0.2))
     L = max(2, min(int(levels or 4), 16))
-    n_band = max(1, min(int(col_layers or 2), 30))
+    n_band = max(1, min(int(col_layers or 3), 30))   # R152: auto 3 - the .110 field report 'just a flat plate' was (also) the shallow 2-layer default (1.6mm total relief)
     brim_loops = max(0, min(int(brim_loops or 0), 10))
     _cm128 = str(col_mode or 'OFF').upper()
     if _cm128 not in ('OFF', 'LAST', 'EACH'):
@@ -10321,9 +10321,10 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
           ' start it like any other file')
         a(TAG)
         a('; source %s (%dx%d px) -> %dx%d cells, %d gray step(s) x %d'
-          ' layer(s) @%.2gmm = %.1fmm tall'
+          ' layer(s) @%.2gmm = %.1fmm total relief, %.2gmm per step'
+          ' (StepL in the menu - more = deeper)'
           % (os.path.basename(src), w, h, cols, rows, L, n_band,
-             layer_h, total_layers * layer_h))
+             layer_h, total_layers * layer_h, n_band * layer_h))
         a('; %s in XY (the bed plane), Z relief = %d layers @%.2gmm'
           % ('picture %.1f x %.1f mm' % (width_real, height_real),
              total_layers, layer_h))
@@ -17923,59 +17924,67 @@ def watch(directory, interval=5.0, once=False):
                                     _sub146 + '/' + _f146))
                 _gf = sorted(_gfe146, reverse=True)[:12]
                 _gfl = [f for _, f in _gf]
-                if _gfl != gen_files_pushed[0]:
-                    gen_files_pushed[0] = _gfl
-                # R151 (.112): the LCD 'SD Card' browser list - Klipper's
-                # stock vsdlist calls get_file_list() WITHOUT subdirectories,
-                # so everything in Labels/, ColorPic/, ... was INVISIBLE on
-                # the display (field report .111: 'no access to the generated
-                # files'). We push the recursive list ourselves: every g-code
-                # + plot source in the root and ALL first-level subfolders,
-                # newest first, max 20. The menu slots run SDCARD_PRINT_FILE
-                # (the R2 wrapper: start dialog / plot flow).
-                _sde151 = []
+                # R152 (.113): the R151 rewrite entangled the two pushes (the
+                # gen_files push only fired when sd_files changed) and both
+                # caches counted as 'pushed' BEFORE moonraker answered - a
+                # push that failed (klipper still restarting right after the
+                # update install) was never retried, so sd_files never
+                # reached the LCD: the SD Card menu showed nothing but
+                # 'Where are my files' (field report .112). Now: independent
+                # guards, and a cache is only set when the push returned 200 -
+                # otherwise the next cycle retries.
+                _sde152 = []
 
-                def _walk151(sub):
-                    _d151 = os.path.join(directory, sub) if sub else directory
+                def _walk152(sub):
+                    _d152 = os.path.join(directory, sub) if sub else directory
                     try:
-                        for _f151 in os.listdir(_d151):
-                            _fp151 = os.path.join(_d151, _f151)
-                            if (_f151.startswith('.')
-                                    or not _f151.lower().endswith(_SD_EXT151)
-                                    or not os.path.isfile(_fp151)):
+                        for _f152 in os.listdir(_d152):
+                            _fp152 = os.path.join(_d152, _f152)
+                            if (_f152.startswith('.')
+                                    or not _f152.lower().endswith(_SD_EXT151)
+                                    or not os.path.isfile(_fp152)):
                                 continue
-                            _sde151.append((os.path.getmtime(_fp151),
-                                            (_f151 if not sub
-                                             else sub + '/' + _f151)))
+                            _sde152.append((os.path.getmtime(_fp152),
+                                            (_f152 if not sub
+                                             else sub + '/' + _f152)))
                     except OSError:
                         pass
 
-                _walk151('')
+                _walk152('')
                 try:
-                    for _sub151 in sorted(os.listdir(directory)):
-                        if (not _sub151.startswith('.')
+                    for _sub152 in sorted(os.listdir(directory)):
+                        if (not _sub152.startswith('.')
                                 and os.path.isdir(
-                                    os.path.join(directory, _sub151))):
-                            _walk151(_sub151)
+                                    os.path.join(directory, _sub152))):
+                            _walk152(_sub152)
                 except OSError:
                     pass
-                _sdl151 = [f for _, f in sorted(_sde151, reverse=True)][:20]
-                if _sdl151 != sd_files_pushed[0]:
-                    sd_files_pushed[0] = _sdl151
-                    _sv151 = ('[' + ','.join("'" + _f + "'" for _f in _sdl151
+                _sdl152 = [f for _, f in sorted(_sde152, reverse=True)][:20]
+                if _sdl152 != sd_files_pushed[0]:
+                    _sv152 = ('[' + ','.join("'" + _f + "'" for _f in _sdl152
                                              if '"' not in _f
                                              and "'" not in _f) + ']')
-                    _moonraker_gcode(
-                        'SAVE_VARIABLE VARIABLE=sd_files VALUE="%s"' % _sv151)
-                    # R133h: a REAL list (the litho_files form) - the old
-                    # push stored a STRING, the LCD slots would have shown
-                    # single characters
+                    if _moonraker_gcode(
+                            'SAVE_VARIABLE VARIABLE=sd_files VALUE="%s"'
+                            % _sv152):
+                        sd_files_pushed[0] = _sdl152
+                    else:
+                        print('[sdfiles] push failed (klipper busy?) - '
+                              'retrying next cycle', flush=True)
+                # R133h: a REAL list (the litho_files form) - the old push
+                # stored a STRING, the LCD slots would have shown single
+                # characters
+                if _gfl != gen_files_pushed[0]:
                     _gv133h = ('[' + ','.join("'" + _f + "'" for _f in _gfl
                                               if '"' not in _f
                                               and "'" not in _f) + ']')
-                    _moonraker_gcode(
-                        'SAVE_VARIABLE VARIABLE=gen_files VALUE="%s"'
-                        % _gv133h)
+                    if _moonraker_gcode(
+                            'SAVE_VARIABLE VARIABLE=gen_files VALUE="%s"'
+                            % _gv133h):
+                        gen_files_pushed[0] = _gfl
+                    else:
+                        print('[genfiles] push failed (klipper busy?) - '
+                              'retrying next cycle', flush=True)
             except Exception as e:                      # noqa: BLE001
                 print(f'[genfiles] push error: {e!r}', flush=True)
         # R73: freshly uploaded/converted files -> push their parameters to the

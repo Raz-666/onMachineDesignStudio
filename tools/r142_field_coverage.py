@@ -99,6 +99,32 @@ ck('watch: _printer_busy probe exists and gates the scan',
 ck('watch: generator nonces freeze while printing (label/figures/kit...)',
    "'figures_nonce'" in src and "'brickkit_nonce'" in src
    and '_freeze133' in src, '')
+ck('sd_files/gen_files push: cache only set on a 200 answer + '
+   'independent guards + retry message (.112 field regression: the push '
+   'failed while klipper restarted after the update and was never retried '
+   '- the LCD SD Card menu stayed empty)',
+   src.count('push failed (klipper busy?) - ') == 2
+   and 'retrying next cycle' in src
+   and 'if _moonraker_gcode(' in src
+   and src.count('sd_files_pushed[0] = _sdl152') == 1
+   and src.count('gen_files_pushed[0] = _gfl') == 1, '')
+_tx152 = open('tools/r2_texture.py').read()
+_lcd152 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+ck('texture: vase mode textured along the WHOLE spiral (.112 field: '
+   'Orca spells the spiral wall as Wall-outer, only the first/last '
+   'normal layer carried the effect) - alias set + APPLY_TYPE parsing',
+   "'wall outer' in _tx152 and 'external perimeter' in _tx152"
+   " and '_is_outer_wall' in _tx152 and '_APPLY152' in _tx152"
+   " and '_OUTER_ALIASES' in _tx152"
+   " and _tx152.count('cur_outer') >= 5", '')
+ck('LCD: visible fallback while sd_files is empty (never a dead menu)',
+   '[menu __main __sdcard __none]' in _lcd152
+   and 'List empty - info' in _lcd152, '')
+ck('litho FLAT: deeper default relief (.110 field: "just a flat plate") - '
+   '3 layers per step auto + per-step mm in the header + menu mm math',
+   'col_layers or 3' in src and 'total relief, %.2gmm per step' in src
+   and 'litho_col_layers|default(3)' in _lcd152
+   and 'more = deeper' in src, '')
 ck('LCD SD Card browser: stock vsdlist showed the ROOT ONLY (Klipper '
    'calls get_file_list() without subdirs) - R151 overrides it with the '
    'recursive sd_files list (20 slots + folder info row)',

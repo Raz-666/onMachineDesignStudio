@@ -3803,7 +3803,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.100) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-21.112'", repr(_v66)))
+    _v66 == "'R2-2026-10-21.113'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -11840,8 +11840,8 @@ _ADDED135 = ['__main __live __acfe __cur', '__main __live __acfe __eff',
  '__main __preprint __spfe __g1st',
  '__main __preprint __spfe __now', '__main __setup', '__main __temp',
  '__main __preprint __poff __what', '__main __sdcard',
- '__main __sdcard __where'] + ['__main __sdcard __f%d' % _i
-                               for _i in range(20)]
+ '__main __sdcard __none', '__main __sdcard __where'] + [
+    '__main __sdcard __f%d' % _i for _i in range(20)]
 _gone135 = sorted(set(_gold135) - set(_now135))
 _new135 = sorted(set(_now135) - set(_gold135))
 tests.append(('R135 menu inventory: NOTHING lost - every vanished path is a '

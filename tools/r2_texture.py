@@ -89,7 +89,24 @@ def _arc_points(x0, y0, x1, y1, i=None, j=None, rr=None, cw=True,
         pts.append((cx + r * math.cos(a), cy + r * math.sin(a)))
     return pts
 _TYPE = re.compile(r'^;TYPE:(.+)')
+_APPLY152 = re.compile(r'^APPLY_TYPE TYPE=(\S+)')
 _MIN_E = 0.0001
+
+# R152 (.113) field report: ORCA spells the vase-mode (spiral) wall
+# ';TYPE:Wall outer' while normal walls say 'Outer wall' - the texture
+# matched only the latter, so a vase print carried the fuzzy skin on the
+# first (and the file's last) normal layer and NONE along the spiral.
+# Canonical set after normalization (lowercase, non-letters = spaces):
+_OUTER_ALIASES = {
+    'outer wall',      # Orca/Elegoo/Prusa normal, R2 canonical
+    'wall outer',      # Orca VASE mode (spiral), Cura WALL-OUTER
+    'external perimeter',   # PrusaSlicer
+}
+
+
+def _is_outer_wall(t):
+    t = re.sub(r'[^a-z]+', ' ', (t or '').strip().lower()).strip()
+    return t in _OUTER_ALIASES
 
 
 def _bump_grid(x, y, z, scale):
@@ -187,6 +204,7 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
 
     stats = {'moves': 0, 'shifted': 0, 'clamped': 0, 'layers': 0, 'arcs': 0}
     cur_type = ''
+    cur_outer = False       # R152: alias-normalized outer-wall check
     t0 = time.time()
     # px/py = None until the first move is seen: a vertex with no known
     # approach direction gets NO offset (same rule as zero-length moves -
@@ -248,8 +266,16 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
             m = _TYPE.match(ls)
             if m:
                 cur_type = m.group(1).strip().lower()
+                cur_outer = _is_outer_wall(cur_type)
                 fo.write(ls + '\n')
                 continue
+            # R152: the r2-postproc injects the CANONICAL type right after
+            # every ;TYPE: line (APPLY_TYPE TYPE=WALL-OUTER ...) - trust it
+            # too, it already normalized the slicer dialect
+            _ma152 = _APPLY152.match(ls)
+            if _ma152:
+                cur_type = _ma152.group(1).strip().lower()
+                cur_outer = _is_outer_wall(cur_type)
             if ls.startswith(';LAYER_CHANGE'):
                 stats['layers'] += 1
             elif ls == 'M83':
@@ -261,7 +287,7 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                 if me92 and me92.group(1) is not None:
                     last_e = float(me92.group(1))
             g = _G1.match(ls)
-            if (g and g.group(1) == 'G1' and cur_type == 'outer wall'
+            if (g and g.group(1) == 'G1' and cur_outer
                     and g.group(5) is not None
                     and float(g.group(5)) > _MIN_E and g.group(2) is not None):
                 x, y = float(g.group(2)), float(g.group(3))
@@ -272,7 +298,7 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                 continue
             # ---- R95: outer-wall G2/G3 arcs -> short G1 chords, textured ---
             ga = _GARC.match(ls)
-            if (ga and cur_type == 'outer wall' and ga.group(8) is not None
+            if (ga and cur_outer and ga.group(8) is not None
                     and float(ga.group(8)) > _MIN_E and px is not None):
                 x1, y1 = float(ga.group(2)), float(ga.group(3))
                 z1 = float(ga.group(4)) if ga.group(4) is not None else None
