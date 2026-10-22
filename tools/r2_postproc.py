@@ -54,6 +54,7 @@ import time
 import zlib
 import struct
 import json
+import ast
 
 TAG = '; R2-POSTPROC v5'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
@@ -9174,12 +9175,10 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                 # ---- backplate ----
                 if want_rest and li <= bp_layers:
                     a('EXCLUDE_OBJECT_START NAME=BACKPLATE')
-                    if li == 1:
-                        a(';TYPE:Brim')
-                        for _off97 in (wid * 0.35 + wid, wid * 0.35):
-                            _emit_loop(pen, [(x + bx, y + by) for (x, y)
-                                             in _poly_offset(plate_pts, _off97)],
-                                       e_w(1), 1500)
+                    # R155 (.115, user rule): the backplate prints WITHOUT a
+                    # brim - it is inserted/clicked into the frame later, a
+                    # brim would only have to be broken off again. The FRAME
+                    # (and the stand) keep theirs.
                     a(';TYPE:Outer wall')
                     _emit_loop(pen, [(x + bx, y + by) for (x, y) in plate_pts],
                                e_w(li), 1500 if li == 1 else 2400)
@@ -16091,7 +16090,7 @@ def watch(directory, interval=5.0, once=False):
     last_qcancel_nonce = None        # R133c: GEN_QUEUE_CANCEL
     last_gen_del_nonce = None        # R133f: gen file delete
     gen_files_pushed = ['']          # R133f: 00_ outputs for the LCD browser
-    sd_files_pushed = ['']           # R151: recursive list for SD Card menu
+    sd_tree_pushed = [None]          # R154: folder tree for the LCD browser
 
     # R133b: ONE generator job at a time, deduplicated, and never while a
     # print runs (the job goes back to the queue until the printer idles).
@@ -18046,44 +18045,89 @@ def watch(directory, interval=5.0, once=False):
                 # 'Where are my files' (field report .112). Now: independent
                 # guards, and a cache is only set when the push returned 200 -
                 # otherwise the next cycle retries.
-                _sde152 = []
+                # R154 (.115): the LCD browser state - ONE tree push:
+                # {path: ['D:subfolder', 'F:file.gcode', ...]} for the root
+                # ('') and EVERY first-level subfolder. D: = folder, F: =
+                # file; folders first (alphabetical), then files (newest
+                # first). The SD Card menu navigates this tree (SDNAV_GO /
+                # SDNAV_UP / SDNAV_PAGE) - the user sees ALL folders and
+                # ALL files, not a flat 20-slot list (.113 field report).
+                _tree154 = {}
 
-                def _walk152(sub):
-                    _d152 = os.path.join(directory, sub) if sub else directory
+                def _scan154(sub):
+                    # root: folders + files; a subfolder: FILES ONLY (the
+                    # tree indexes first-level folders - deeper nesting is
+                    # Mainsail territory, the LCD stays fast)
+                    _d154 = os.path.join(directory, sub) if sub else directory
+                    _dirs154, _files154 = [], []
                     try:
-                        for _f152 in os.listdir(_d152):
-                            _fp152 = os.path.join(_d152, _f152)
-                            if (_f152.startswith('.')
-                                    or not _f152.lower().endswith(_SD_EXT151)
-                                    or not os.path.isfile(_fp152)):
+                        for _f154 in os.listdir(_d154):
+                            if _f154.startswith('.') or "'" in _f154 \
+                                    or '"' in _f154:
                                 continue
-                            _sde152.append((os.path.getmtime(_fp152),
-                                            (_f152 if not sub
-                                             else sub + '/' + _f152)))
+                            _fp154 = os.path.join(_d154, _f154)
+                            if os.path.isdir(_fp154):
+                                if not sub:
+                                    _dirs154.append(_f154)
+                            elif (_f154.lower().endswith(_SD_EXT151)
+                                    and os.path.isfile(_fp154)):
+                                _files154.append(
+                                    (os.path.getmtime(_fp154), _f154))
                     except OSError:
                         pass
+                    _ent154 = ['D:' + _d for _d in sorted(_dirs154)]
+                    _ent154 += ['F:' + _f
+                                for _, _f in sorted(_files154, reverse=True)]
+                    return _ent154, _dirs154
 
-                _walk152('')
-                try:
-                    for _sub152 in sorted(os.listdir(directory)):
-                        if (not _sub152.startswith('.')
-                                and os.path.isdir(
-                                    os.path.join(directory, _sub152))):
-                            _walk152(_sub152)
-                except OSError:
-                    pass
-                _sdl152 = [f for _, f in sorted(_sde152, reverse=True)][:20]
-                if _sdl152 != sd_files_pushed[0]:
-                    _sv152 = ('[' + ','.join("'" + _f + "'" for _f in _sdl152
-                                             if '"' not in _f
-                                             and "'" not in _f) + ']')
+                _root154, _subdirs154 = _scan154('')
+                _tree154[''] = _root154
+                for _sub154 in _subdirs154:
+                    _tree154[_sub154] = _scan154(_sub154)[0]
+                if _tree154 != sd_tree_pushed[0]:
+                    _tv154 = '{' + ','.join(
+                        "'%s': [%s]" % (_k154, ','.join(
+                            "'" + _e154 + "'" for _e154 in _v154))
+                        for _k154, _v154 in _tree154.items()) + '}'
                     if _moonraker_gcode(
-                            'SAVE_VARIABLE VARIABLE=sd_files VALUE="%s"'
-                            % _sv152):
-                        sd_files_pushed[0] = _sdl152
+                            'SAVE_VARIABLE VARIABLE=sd_tree VALUE="%s"'
+                            % _tv154):
+                        sd_tree_pushed[0] = _tree154
                     else:
-                        print('[sdfiles] push failed (klipper busy?) - '
+                        print('[sdfiles] tree push failed (klipper busy?) - '
                               'retrying next cycle', flush=True)
+                # R154: keep the VIEW in sync too - the menu slots read
+                # sd_view (20 entries of the current path+page). Refreshed
+                # whenever the view differs (tree changed / never arrived /
+                # the user navigated while a push failed). Current path and
+                # page come from save_variables.cfg (best effort) so a tree
+                # change while the user browses a folder updates THAT view.
+                if sd_tree_pushed[0] is not None:
+                    _p154, _pg154, _vw154 = '', 0, None
+                    try:
+                        _rv154 = _read_vars(VAR_PATH) or {}
+                        _p154 = str(_rv154.get('sd_path', '') or
+                                    '').strip().strip('\'"')
+                        _pg154 = int(float(_rv154.get('sd_page', 0) or 0))
+                        _raw154 = str(_rv154.get('sd_view', '') or '').strip()
+                        if _raw154:
+                            _vw154 = ast.literal_eval(_raw154)
+                    except Exception:
+                        _p154, _pg154, _vw154 = '', 0, None
+                    if _p154 not in _tree154:
+                        _p154, _pg154 = '', 0
+                    _en154 = _tree154.get(_p154, [])
+                    _pg154 = min(_pg154,
+                                 max(0, (len(_en154) - 1) // 20))
+                    _new154 = _en154[_pg154 * 20:_pg154 * 20 + 20]
+                    if _new154 != _vw154:
+                        _vv154 = ('[' + ','.join("'" + _e154 + "'"
+                                                 for _e154 in _new154) + ']')
+                        if not _moonraker_gcode(
+                                'SAVE_VARIABLE VARIABLE=sd_view VALUE="%s"'
+                                % _vv154):
+                            print('[sdfiles] view push failed (klipper '
+                                  'busy?) - retrying next cycle', flush=True)
                 # R133h: a REAL list (the litho_files form) - the old push
                 # stored a STRING, the LCD slots would have shown single
                 # characters

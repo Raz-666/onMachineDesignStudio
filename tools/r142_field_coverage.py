@@ -114,17 +114,33 @@ ck('geometry classifier: derived APPLY_TYPE keyed by the WRITER index '
    '(the raw index shifted against the output whenever comments got '
    'filtered - derived tags landed next to the wrong lines)',
    'type_at[(gj, gj)] = gfeat' in src, '')
-ck('sd_files/gen_files push: cache only set on a 200 answer + '
-   'independent guards + retry message (.112 field regression: the push '
-   'failed while klipper restarted after the update and was never retried '
-   '- the LCD SD Card menu stayed empty)',
-   src.count('push failed (klipper busy?) - ') == 2
-   and 'retrying next cycle' in src
-   and 'if _moonraker_gcode(' in src
-   and src.count('sd_files_pushed[0] = _sdl152') == 1
-   and src.count('gen_files_pushed[0] = _gfl') == 1, '')
+ck('sd_tree/sd_view/gen_files push: a cache only counts on a 200 answer, '
+   'failed pushes retry next cycle, the VIEW refresh follows the current '
+   'path+page read from save_variables (.112 field regression + .115 '
+   'navigation sync)',
+   src.count('retrying next cycle') == 3
+   and src.count('if _moonraker_gcode(') >= 2
+   and src.count('if not _moonraker_gcode(') == 1
+   and src.count('gen_files_pushed[0] = _gfl') == 1
+   and 'ast.literal_eval(_raw154)' in src
+   and 'sd_tree_pushed[0] is not None' in src, '')
 _tx152 = open('tools/r2_texture.py').read()
 _lcd152 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+ck('frame: backplate WITHOUT brim (user rule .115 - it gets inserted '
+   'and clicked later, a brim would only break off again), the frame '
+   'keeps its brim',
+   'user rule): the backplate prints WITHOUT a' in src, '')
+_sdregion155 = _lcd152.split('[menu __main __sdcard]')[1].split(
+    '[menu __main __gen __gfiles __del]')[0]
+_sdlines155 = [l for l in _sdregion155.splitlines()
+               if l.startswith('name:') or l.startswith('enable:')]
+ck('menu templates: NO percent-blocks in SD Card names/enables '
+   "(Klipper's jinja env uses single braces - percent-blocks emit a "
+   'stray closing brace into menu names)',
+   bool(_sdlines155)
+   and all('{' + '%' not in l for l in _sdlines155)
+   and all('{{' not in l for l in _sdlines155), '')
+
 ck('texture: vase mode textured along the WHOLE spiral (.112 field: '
    'Orca spells the spiral wall as Wall-outer, only the first/last '
    'normal layer carried the effect) - alias set + APPLY_TYPE parsing',
@@ -132,22 +148,30 @@ ck('texture: vase mode textured along the WHOLE spiral (.112 field: '
    " and '_is_outer_wall' in _tx152 and '_APPLY152' in _tx152"
    " and '_OUTER_ALIASES' in _tx152"
    " and _tx152.count('cur_outer') >= 5", '')
-ck('LCD: visible fallback while sd_files is empty (never a dead menu)',
+ck('LCD: visible fallback while the view is empty (never a dead menu) '
+   '+ navigation rows (up/home/page) - pure single-brace slot templates',
    '[menu __main __sdcard __none]' in _lcd152
-   and 'List empty - info' in _lcd152, '')
+   and 'List empty - info' in _lcd152
+   and '[menu __main __sdcard __up]' in _lcd152
+   and '[menu __main __sdcard __home]' in _lcd152
+   and '[menu __main __sdcard __pgd]' in _lcd152
+   and 'How it works' in _lcd152, '')
 ck('litho FLAT: deeper default relief (.110 field: "just a flat plate") - '
    '3 layers per step auto + per-step mm in the header + menu mm math',
    'col_layers or 3' in src and 'total relief, %.2gmm per step' in src
    and 'litho_col_layers|default(3)' in _lcd152
    and 'more = deeper' in src, '')
-ck('LCD SD Card browser: stock vsdlist showed the ROOT ONLY (Klipper '
-   'calls get_file_list() without subdirs) - R151 overrides it with the '
-   'recursive sd_files list (20 slots + folder info row)',
-   'menu __main __sdcard]' in open('menus/lcd_menues.cfg').read()
-   and "variables.sd_files|default([])" in open('menus/lcd_menues.cfg').read()
-   and src.count('SAVE_VARIABLE VARIABLE=sd_files') == 1
-   and "'%s'" not in src[:0] and '_SD_EXT151' in src
-   and 'sd_files_pushed' in src, '')
+ck('LCD SD Card browser (.115): REAL folder navigation - the watcher '
+   'pushes the whole tree (sd_tree, folders marked D:) + the current view '
+   '(sd_view, 20 entries of path+page), the menu navigates via '
+   'SDNAV_GO/UP/PAGE/HOME macros that rebuild the view',
+   'menu __main __sdcard]' in _lcd152
+   and 'sd_view|default([])' in _lcd152
+   and src.count('SAVE_VARIABLE VARIABLE=sd_tree') == 1
+   and src.count('SAVE_VARIABLE VARIABLE=sd_view') == 1
+   and "'D:' + _d" in src and '_SD_EXT151' in src
+   and 'sd_tree_pushed' in src
+   and _lcd152.count('SDNAV_GO INDEX=') == 20, '')
 ck('gen folders: created UP FRONT at watcher start (visible right after '
    'the install, all inside the gcodes root)',
    'gen folders (inside the gcodes root)' in src, '')
@@ -163,7 +187,7 @@ ck('colorpic: explicit Z per layer AFTER the M600 chain (.110 field: '
 ck('litho STANDING: explicit Z per row (same in-air class of bug)',
    'pen.set_z(z)   # R149: explicit Z per row' in src, '')
 ck('brim order: EVERY brim loop prints outermost first (user rule)',
-   src.count('(wid * 0.35 + wid, wid * 0.35)') == 15
+   src.count('(wid * 0.35 + wid, wid * 0.35)') == 14
    and 'range(brim - 1, -1, -1)' in src
    and 'range(brim_loops - 1, -1, -1)' in src, '')
 _m150 = open('macros/12_maintenance.cfg').read()

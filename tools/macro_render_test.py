@@ -3803,7 +3803,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.100) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-21.114'", repr(_v66)))
+    _v66 == "'R2-2026-10-21.115'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -11840,7 +11840,8 @@ _ADDED135 = ['__main __live __acfe __cur', '__main __live __acfe __eff',
  '__main __preprint __spfe __g1st',
  '__main __preprint __spfe __now', '__main __setup', '__main __temp',
  '__main __preprint __poff __what', '__main __sdcard',
- '__main __sdcard __none', '__main __sdcard __where'] + [
+ '__main __sdcard __how', '__main __sdcard __home', '__main __sdcard __none',
+ '__main __sdcard __pgd', '__main __sdcard __pgu', '__main __sdcard __up'] + [
     '__main __sdcard __f%d' % _i for _i in range(20)]
 _gone135 = sorted(set(_gold135) - set(_now135))
 _new135 = sorted(set(_now135) - set(_gold135))
@@ -11902,7 +11903,7 @@ tests.append(('R145 stock menus hidden CORRECTLY: OctoPrint + Temperature + '
               '[menu __main __octoprint]\ntype: list\nname: OctoPrint\nenable: {False}' in _lcd135
               and '[menu __main __temp]\ntype: list\nname: Temperature\nenable: {False}' in _lcd135
               and '[menu __main __setup]\ntype: list\nname: Setup\nenable: {False}' in _lcd135
-              and "[menu __main __sdcard]\ntype: list\nenable: {('virtual_sdcard' in printer)}\nname: SD Card" in _lcd135
+              and "[menu __main __sdcard]\ntype: list\nenable: {('virtual_sdcard' in printer)}\nname: { 'SD: /'" in _lcd135
               and not _no_type145, str(_no_type145[:3])))
 tests.append(('R135 quick access carries the GLOBALS: PA (toggle+value+smooth) '
               'and flow (toggle+value) and accel (toggle+value) and 1st-layer '
@@ -12030,9 +12031,28 @@ tests.append(('R146 activator marker RENDER: OW with spd 80% + PA 0.03 shows '
 tests.append(('R146 Gen files slots: basename on the 20-char LCD (path split) '
               'but the FULL relative path goes to SDCARD_PRINT_FILE - '
               'subfolder outputs stay selectable',
-              _lcd146.count(").split('/')[-1]|truncate(13, True)}") == 44
+              _lcd146.count(").split('/')[-1]|truncate(13, True)}") == 24
               and _lcd146.count("SDCARD_PRINT_FILE FILENAME=\"{(printer['save_variables'].variables.gen_files|default([]))") >= 12
-              and _lcd146.count("SDCARD_PRINT_FILE FILENAME=\"{(printer['save_variables'].variables.sd_files|default([]))") == 20, ''))
+              and _lcd146.count('SDNAV_GO INDEX=') == 20, ''))
+
+_sdnav155 = open('macros/13_system.cfg', encoding='utf-8').read()
+_r2p155 = open('tools/r2_postproc.py', encoding='utf-8').read()
+_sdregion155 = _lcd146.split('[menu __main __sdcard]')[1].split(
+    '[menu __main __gen __gfiles __del]')[0]
+_sdnamelines155 = [l for l in _sdregion155.splitlines()
+                   if l.startswith('name:') or l.startswith('enable:')]
+tests.append(('R155 SD Card browser: REAL folder navigation - watcher pushes '
+              'the tree + the current view, pure single-brace menu templates '
+              '(no {% %} blocks and no {{ }} in names/enables - both break '
+              "with Klipper's single-brace jinja env), "
+              'SDNAV_GO/UP/PAGE/HOME rebuild the view',
+              'SAVE_VARIABLE VARIABLE=sd_tree' in _r2p155
+              and 'SAVE_VARIABLE VARIABLE=sd_view' in _r2p155
+              and _sdnav155.count('[gcode_macro SDNAV_') == 4
+              and _sdnamelines155
+              and all('{' + '%' not in l and '{{' not in l
+                      for l in _sdnamelines155)
+              and _lcd146.count('sd_view|default([])') >= 40, ''))
 
 _r2p146 = open('tools/r2_postproc.py').read()
 tests.append(('R146 generator folders (source wiring): all 15 watcher call '
