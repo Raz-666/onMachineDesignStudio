@@ -6688,7 +6688,7 @@ def _printer_busy(host='127.0.0.1', port=7125):
     starting, printing, paused, filament. Unreachable moonraker = 'not
     busy' (never block the watcher).
     """
-    try:
+    def _probe162():
         import urllib.parse
         import urllib.request
         url = ('http://%s:%d/printer/objects/query?%s'
@@ -6703,8 +6703,16 @@ def _printer_busy(host='127.0.0.1', port=7125):
         _mode = (_st.get('gcode_macro _STATE') or {}).get('mode', '')
         return _mode in ('waiting', 'starting', 'printing', 'paused',
                          'filament')
-    except Exception:                                   # noqa: BLE001
-        return False
+    # R162 (.121 field log): a probe TIMEOUT returned 'not busy' on the
+    # memory-pressured Pi - a litho build started DURING the print and the
+    # MCU died with 'Timer too close'. One retry closes the transient
+    # hole; a truly unreachable moonraker still reads as not busy.
+    for _try162 in (1, 2):
+        try:
+            return _probe162()
+        except Exception:                               # noqa: BLE001
+            if _try162 == 2:
+                return False
 
 
 # R133b (field log .95): generator jobs run ONE AT A TIME through a queue -
@@ -10584,10 +10592,10 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
             a('APPLY_TYPE TYPE=%s' % _tk128)
             for (r_a, r_b, rr) in _bcache128[k]:
                 for (c_a, c_b) in rr:
-                    segs = _hatch(px0 + c_a * wid + wid * 0.5,
-                                  py0 + r_a * wid + wid * 0.5,
-                                  px0 + (c_b + 1) * wid - wid * 0.5,
-                                  py0 + (r_b + 1) * wid - wid * 0.5,
+                    segs = _hatch(px0 + c_a * wid,
+                                  py0 + r_a * wid,
+                                  px0 + (c_b + 1) * wid,
+                                  py0 + (r_b + 1) * wid,
                                   None, wid, 45.0 if li % 2 else 135.0)
                     _emit_fill(pen, segs, e_wall, 1200 if li == 1 else 2400,
                                wid)
@@ -10602,10 +10610,10 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                 a('APPLY_TYPE TYPE=IRONING')
                 for (r_a, r_b, rr) in _bcache128[k]:
                     for (c_a, c_b) in rr:
-                        isegs = _hatch(px0 + c_a * wid + wid * 0.5,
-                                       py0 + r_a * wid + wid * 0.5,
-                                       px0 + (c_b + 1) * wid - wid * 0.5,
-                                       py0 + (r_b + 1) * wid - wid * 0.5,
+                        isegs = _hatch(px0 + c_a * wid,
+                                       py0 + r_a * wid,
+                                       px0 + (c_b + 1) * wid,
+                                       py0 + (r_b + 1) * wid,
                                        None, 0.45,
                                        45.0 if li % 2 else 135.0, min_len=0.3)
                         _emit_fill(pen, isegs, e_iron, 1500, 0.45)
@@ -13511,10 +13519,10 @@ def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
             a('APPLY_TYPE TYPE=%s' % _tk120)
             for (r_a, r_b, rr) in _bcache120[k]:
                 for (c_a, c_b) in rr:
-                    segs = _hatch(x0 + c_a * wid + wid * 0.5,
-                                  y0 + r_a * wid + wid * 0.5,
-                                  x0 + (c_b + 1) * wid - wid * 0.5,
-                                  y0 + (r_b + 1) * wid - wid * 0.5,
+                    segs = _hatch(x0 + c_a * wid,
+                                  y0 + r_a * wid,
+                                  x0 + (c_b + 1) * wid,
+                                  y0 + (r_b + 1) * wid,
                                   None, wid, 45.0 if li % 2 else 135.0)
                     _emit_fill(pen, segs, e_wall, 1200 if li == 1 else 2400, wid)
             if ironing and cap:
@@ -13522,10 +13530,10 @@ def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
                 a('APPLY_TYPE TYPE=IRONING')
                 for (r_a, r_b, rr) in _bcache120[k]:
                     for (c_a, c_b) in rr:
-                        isegs = _hatch(x0 + c_a * wid + wid * 0.5,
-                                       y0 + r_a * wid + wid * 0.5,
-                                       x0 + (c_b + 1) * wid - wid * 0.5,
-                                       y0 + (r_b + 1) * wid - wid * 0.5,
+                        isegs = _hatch(x0 + c_a * wid,
+                                       y0 + r_a * wid,
+                                       x0 + (c_b + 1) * wid,
+                                       y0 + (r_b + 1) * wid,
                                        None, 0.45,
                                        45.0 if li % 2 else 135.0, min_len=0.3)
                         _emit_fill(pen, isegs, e_iron, 1800, 0.45)
@@ -16096,15 +16104,36 @@ def watch(directory, interval=5.0, once=False):
                              % rel + _drop147)
             return
         # never touch a file while a print runs (the macro released the
-        # start dialog before queueing - this catches console races)
-        try:
-            st = _moonraker_status()
-            if (st.get('print_stats') or {}).get('state') in ('printing', 'paused'):
-                _moonraker_gcode('RESPOND MSG="File fix: blocked - a print is '
-                                 'running"\nM117 Fix: printing\n_SOUND_LIB NAME=r2_error')
-                return
-        except Exception:                                   # noqa: BLE001
-            pass          # status unknown - the macro side already guarded
+        # start dialog before queueing - this catches console races).
+        # R162 (.121 field log): the ONE-SHOT check killed the fix 3s after
+        # the macro had already released the dialog + CANCEL_PRINT_BASE -
+        # on the memory-pressured Pi the moonraker status lagged behind.
+        # Now: the R2 mode is the authority (mode idle = OUR system knows
+        # no print) and a contradicting print_stats gets re-checked for
+        # up to 10 s before the fix gives up.
+        def _fix_busy162():
+            try:
+                st = _moonraker_status()
+            except Exception:                               # noqa: BLE001
+                return None   # unknown - the macro side already guarded
+            if (st.get('print_stats') or {}).get('state') \
+                    not in ('printing', 'paused'):
+                return False
+            _m162 = (st.get('gcode_macro _STATE') or {}).get('mode', '')
+            if _m162 not in ('waiting', 'starting', 'printing', 'paused',
+                             'filament'):
+                return 'stale'   # R2 idle but print_stats busy -> winding down
+            return True
+        _busy162 = _fix_busy162()
+        _wait162 = 0.0
+        while _busy162 == 'stale' and _wait162 < 10.0:
+            time.sleep(1.0)
+            _wait162 += 1.0
+            _busy162 = _fix_busy162()
+        if _busy162 is True:
+            _moonraker_gcode('RESPOND MSG="File fix: blocked - a print is '
+                             'running"\nM117 Fix: printing\n_SOUND_LIB NAME=r2_error')
+            return
         try:
             base = os.path.basename(rel)
             if kind == 'retract':
@@ -16397,17 +16426,29 @@ def watch(directory, interval=5.0, once=False):
                 time.sleep(0.4)
                 continue
             name, key, fn, outs, t_spawn, t_wait, noticed = item
-            if _printer_busy():
-                # print has priority - requeue and let it finish first
+            _ram162 = _mem_available_mb()
+            if _printer_busy() or (0 < _ram162 < 60):
+                # print has priority - requeue and let it finish first.
+                # R162 (.121 field log): below 60MB available a generator
+                # build (PIL + gcode rewrite) starves klippy on the Pi
+                # Zero 2 W -> 'Timer too close' MCU shutdown mid-print.
+                # A build waits for RAM headroom like it waits for the
+                # printer.
                 _waited = time.monotonic() - (t_wait or t_spawn)
                 if not noticed and _waited > 90.0:
                     try:
+                        if _printer_busy():
+                            _why162 = ('the printer is busy (a print, a '
+                                       'start phase or the start dialog) '
+                                       '- it builds the moment the '
+                                       'printer idles')
+                        else:
+                            _why162 = ('only %dMB RAM free - it builds '
+                                       'when the host has headroom (a '
+                                       'print keeps the rest)' % _ram162)
                         _moonraker_gcode(
-                            'RESPOND MSG="[queue] %s waits: the printer is '
-                            'busy (a print, a start phase or the start '
-                            'dialog) - it builds the moment the printer '
-                            'idles"\nM117 %s: waiting'
-                            % (name, name))
+                            'RESPOND MSG="[queue] %s waits: %s"'
+                            '\\nM117 %s: waiting' % (name, _why162, name))
                     except Exception:                           # noqa: BLE001
                         pass
                     noticed = True

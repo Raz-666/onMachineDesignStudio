@@ -3839,7 +3839,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.100) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-22.121'", repr(_v66)))
+    _v66 == "'R2-2026-10-22.122'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -12697,12 +12697,37 @@ tests.append(('R160b range/plot: the range build runs as a QUEUED job (it '
         in _src160b, ''))
 
 # (10) worker: per-job start chirp + wait notice + generic abort sound
-tests.append(('R160b worker sounds: a queued job chirps when it ACTUALLY '
-    'builds, says WHY it waits (a stuck state used to swallow jobs '
-    'silently), and a crash beeps r2_error',
+tests.append(('R160b/R162 worker sounds: a queued job chirps when it ACTUALLY '
+    'builds, says WHY it waits - printer busy OR too little RAM (a stuck '
+    'state used to swallow jobs silently), and a crash beeps r2_error',
     '_PLAY_JOB_START' in _src160b
-    and '%s waits: the printer is ' in _src160b
+    and 'RESPOND MSG="[queue] %s waits: %s"' in _src160b
+    and 'the printer is busy (a print, a ' in _src160b
+    and 'MB RAM free - it builds ' in _src160b
     and 'ABORTED' in _src160b and '_SOUND_LIB NAME=r2_error' in _src160b, ''))
+
+tests.append(('R162 file-fix busy check: patient (stale status re-checked '
+    'up to 10s) + the R2 mode is the authority - the .121 field log: the '
+    'fix died on a lagging moonraker status right after the dialog release',
+    '_fix_busy162' in _src160b and "return 'stale'" in _src160b
+    and '_wait162 < 10.0' in _src160b
+    and 'not in (\'printing\', \'paused\')' in _src160b
+    and 'File fix: start dialog released' in open(
+        'macros/08_print_start_stop.cfg', encoding='utf-8').read(), ''))
+
+tests.append(('R162 generator job gates: busy-probe RETRY (a timeout must '
+    'not read as not-busy - the .121 Timer-too-close chain: litho built '
+    'during the print) + builds wait below 60MB RAM',
+    'for _try162 in (1, 2)' in _src160b and 'if _try162 == 2' in _src160b
+    and '0 < _ram162 < 60' in _src160b, ''))
+
+tests.append(('R162 litho/colorpic step FILL: the hatch rects use the FULL '
+    'cell extent - the old first-center-to-last-center rect was '
+    'zero-height for single-row blocks (photos!), the picture never printed',
+    '_hatch(px0 + c_a * wid + wid * 0.5' not in _src160b
+    and '_hatch(x0 + c_a * wid + wid * 0.5' not in _src160b
+    and _src160b.count('_hatch(px0 + c_a * wid,') == 2
+    and _src160b.count('_hatch(x0 + c_a * wid,') == 2, ''))
 
 # (11) naming: no overwrite - same number + small letter (user rule .120)
 tests.append(('R160b naming guard: _dedupe_gen_fname (V05 taken -> V05b) at '

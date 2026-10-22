@@ -357,6 +357,141 @@ run(pp.make_colorpic, 'colorpic-pal', src=_img, bands=3, colors='WHT,RED,BLK',
 run(pp.make_colorpic, 'colorpic-badcolor', src=_img, colors='WHT,FOO',
     expect_guard='unknown - palette')
 
+# ---- R162 (.121 field log): PHOTO-like litho FLAT - the step regions ----
+# ---- must actually FILL. The old hatch rects ran from the first to the ----
+# ---- last cell CENTER: single-row blocks (nearly ALL blocks of a photo -
+# every row differs) had a ZERO-height rect -> no segments -> the picture
+# never printed (base plate + frame only, the .110/.121 field logs).
+# Guard: per-step fill coverage inside the picture rect 70..135% of the
+# level>=k cell mass, and the picture terraces (step 2 < step 1).
+_d162 = tempfile.mkdtemp(prefix='audit162_')
+_src162 = os.path.join(_d162, 'photo.png')
+
+
+def _px162(x, y):
+    v = 128 + 90 * math.sin(x * 0.31 + 1.7) * math.cos(y * 0.23)
+    v += 60 * math.sin((x + 2 * y) * 0.11)
+    return (max(0, min(255, int(v))),) * 3
+
+
+_png128a(_src162, 96, 96, _px162)
+_out162, _info162 = pp.make_lithophane(
+    _src162, orient='FLAT', height_mm=60.0, layer_h=0.2, levels=3,
+    col_layers=2, bed=BED, out_dir=_d162)
+_p162 = os.path.join(_d162, _out162)
+_L162 = _info162['levels']
+_nb162 = _info162['step_layers']
+_lh162 = _info162['layers'] and 0.2          # layer_h as generated
+_wid162 = _info162['width'] / _info162['cols']
+_cols162, _rows162 = _info162['cols'], _info162['rows']
+_cells162 = {}
+for _l162 in open(_p162, encoding='utf-8'):
+    if 'step cells:' in _l162:
+        for _a, _b in re.findall(r'step (\d+)=(\d+)', _l162):
+            _cells162[int(_a)] = int(_b)
+        break
+_polyv162 = None
+for _l162 in open(_p162, encoding='utf-8'):
+    if _l162.startswith('EXCLUDE_OBJECT_DEFINE NAME=LITHO'):
+        _v162 = [float(_t) for _t in
+                 re.findall(r'-?\d+\.?\d*', _l162.split('POLYGON=')[1])]
+        _polyv162 = _v162
+        break
+_px0162 = min(_polyv162[0::2]) + _info162['border']
+_py0162 = min(_polyv162[1::2]) + _info162['border']
+_px1162 = _px0162 + _cols162 * _wid162
+_py1162 = _py0162 + _rows162 * _wid162
+
+
+def _cover162(k):
+    """rasterize step k's FIRST layer onto the cell grid."""
+    zpick = round((k * _nb162 + 1) * _lh162, 2)
+    z = None
+    prev = None
+    cov = set()
+    for line in open(_p162, encoding='utf-8'):
+        if line.startswith(';Z:'):
+            z = round(float(line.split(':')[1]), 2)
+            continue
+        g = re.match(r'G0 X(-?[\d.]+) Y(-?[\d.]+)', line)
+        m = re.match(r'G1 X(-?[\d.]+) Y(-?[\d.]+) E(-?[\d.]+)', line)
+        if g:
+            prev = (float(g.group(1)), float(g.group(2)))
+            continue
+        if m and z == zpick:
+            x, y = float(m.group(1)), float(m.group(2))
+            x0, y0 = prev or (x, y)
+            if _px0162 - 1 < x < _px1162 + 1:
+                n = max(1, int(math.hypot(x - x0, y - y0) / 0.1))
+                for i in range(n + 1):
+                    xi = x0 + (x - x0) * i / n
+                    yi = y0 + (y - y0) * i / n
+                    if _px0162 <= xi < _px1162 and _py0162 <= yi < _py1162:
+                        cov.add((int((yi - _py0162) / _wid162),
+                                 int((xi - _px0162) / _wid162)))
+            prev = (x, y)
+    return cov
+
+
+_exp162 = dict((k, sum(_cells162.get(q, 0) for q in range(k, _L162)))
+               for k in range(_L162))
+_probs162 = []
+for k in range(_L162):
+    cov = _cover162(k)
+    ratio = (len(cov) / float(_exp162[k])) if _exp162[k] else 1.0
+    ok = 0.70 <= ratio <= 1.35
+    if not ok:
+        _probs162.append('step %d covers %d cells (%.0f%% of %d expected)'
+                         % (k, len(cov), ratio * 100, _exp162[k]))
+    print('%s %-58s step %d covers %5d cells (%3.0f%% of %d)'
+          % ('OK  ' if ok else 'FAIL', 'lithoF-photo-fill', k, len(cov),
+             ratio * 100, _exp162[k]))
+    runs += 1
+if _L162 >= 2:
+    n1 = len(_cover162(1))
+    n2 = len(_cover162(2))
+    runs += 1
+    if not n2 < n1:
+        _probs162.append('step 2 not smaller than step 1 (no terracing)')
+    print('%s %-58s terracing %d -> %d cells'
+          % ('OK  ' if n2 < n1 else 'FAIL', 'lithoF-photo-fill', n1, n2))
+if _probs162:
+    fails.append(('lithoF-photo-fill (R162)', _probs162))
+
+# ---- R162: colorpic fill - the same hatch-rect fix must fill the bands ----
+_dcp162 = tempfile.mkdtemp(prefix='audit162_')
+_srccp162 = os.path.join(_dcp162, 'cp.png')
+_png128a(_srccp162, 64, 64, lambda x, y: (int(255 * (x / 63.0)),) * 3
+         if y < 32 else (int(255 * (1 - x / 63.0)),) * 3)
+_outcp162, _infocp162 = pp.make_colorpic(
+    _srccp162, width_mm=80.0, bands=4, band_h=0.8, swap=False,
+    bed=BED, out_dir=_dcp162)
+_pcp162 = os.path.join(_dcp162, _outcp162)
+_ecp162 = {}
+_z = None
+for _line in open(_pcp162, encoding='utf-8'):
+    if _line.startswith(';Z:'):
+        _z = round(float(_line.split(':')[1]), 2)
+        _ecp162[_z] = 0.0
+        continue
+    _m = re.match(r'G1 X(-?[\d.]+) Y(-?[\d.]+) E(-?[\d.]+)', _line)
+    if _m and _z is not None:
+        _ecp162[_z] += abs(float(_m.group(3)))
+_zs162 = sorted(_ecp162)
+_bl162 = _infocp162['band_layers']
+_base162 = min(_ecp162[_z] for _z in _zs162[:_bl162])
+_band2162 = _ecp162[_zs162[_bl162]] if len(_zs162) > _bl162 else 0.0
+runs += 1
+if _band2162 < 0.30 * _base162:
+    fails.append(('colorpic-band-fill (R162)',
+                  ['band 2 prints %.1fmm filament - the fill is missing '
+                   '(base band 1: %.1fmm)' % (_band2162, _base162)]))
+    print('FAIL %-58s band2 E=%.1fmm vs base E=%.1fmm'
+          % ('colorpic-band-fill', _band2162, _base162))
+else:
+    print('OK   %-58s band2 E=%.1fmm vs base E=%.1fmm'
+          % ('colorpic-band-fill', _band2162, _base162))
+
 print('==== %d files checked, %d FAIL ====' % (runs, len(fails)))
 for name, prob in fails:
     print('  %s: %s' % (name, '; '.join(prob)))
