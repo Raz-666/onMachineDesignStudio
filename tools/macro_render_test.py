@@ -3839,7 +3839,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.100) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-22.123'", repr(_v66)))
+    _v66 == "'R2-2026-10-22.124'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -12725,6 +12725,23 @@ try:
     _r164src = open('tools/r164_serial_budget.py', encoding='utf-8').read()
 except OSError:
     _r164src = ''
+try:
+    _r165src = open('tools/r165_doc_check.py', encoding='utf-8').read()
+    _r165lcd = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+except OSError:
+    _r165src = _r165lcd = ''
+tests.append(('R165 doc-reality audit: tool exists + the duplicate-label UX '
+    'renames (two identical Src rows in Live > Extrusion and two identical '
+    "How it works in Flow Cal. can't tell apart) + OUT= on every console "
+    'generator (the wrappers silently dropped it)',
+    'def path_candidates' in _r165src and 'Appendix D' in _r165src
+    and 'name: Flow sources' in _r165lcd
+    and 'name: Src: PA + flow' in _r165lcd
+    and 'name: How: 1-wall cube' in _r165lcd
+    and 'name: How: flow cube' in _r165lcd
+    and open('macros/17_generator.cfg', encoding='utf-8').read().count(
+        '{% if params.OUT is defined %}_GEN_OUT_SET') >= 4, ''))
+
 tests.append(('R164 serial-budget audit tool exists: worst move rate per '
     'file class vs the 450/s Timer-too-close budget at 100/125/150% live '
     'speed + the static-LED diet guard (two field shutdowns .121/.122)',

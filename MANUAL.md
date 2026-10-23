@@ -181,12 +181,12 @@ tag are skipped (nothing is double-processed).
 
 **Selecting on the LCD.** The printer's file list (M24 path) opens the start
 dialog before anything moves (see 3.5). At the moment you SELECT a file, its
-`_FILE_INFO` is replayed to the system: Pre-Print > File (G-code) immediately
+`_FILE_INFO` is replayed to the system: Pre-Print > File info + Live Tuning > File (G-code) immediately
 shows THAT file's values — material, layers, speeds, features — never
 leftovers from the previous print.
 
-**What the selection preview tells you** (Pre-Print > File, same data as the
-Live > File panel):
+**What the selection preview tells you** (Pre-Print > File info, same data as the
+Live Tuning > File (G-code) panel):
 
 | Field | Meaning |
 |---|---|
@@ -209,27 +209,27 @@ re-upload (R84/R85):**
 - **Marlin-volumetric files** (`;FLAVOR:Marlin (Volumetric)`, e.g. from Cura):
   they count E in mm³ — Klipper expects mm and would print them heavily
   under-extruded. The file info shows the warning and the print start says it
-  out loud (alarm + M117). **Pre-Print > File > `Vol->mm fix`** converts the
+  out loud (alarm + M117). **Pre-Print > File info > `Vol->mm fix`** converts the
   file directly: every E value (including G92) is divided by the filament
   cross-section (1.75 mm → 2.405 mm²), the volumetric markers are neutralized
   and a conversion note lands in the header. R2-D2 beeps at the start and
   plays the happy tune when the file is Klipper-ready (then simply select it
   anew). Idempotent — a converted file is never converted twice.
 - **Old Bowden-era files** with long baked-in retracts (5–6 mm where your
-  direct extruder wants ~0.8): select the file, then **Pre-Print > File >
+  direct extruder wants ~0.8): select the file, then **Pre-Print > File info >
   `RetFix file`** — the watcher rewrites the file ON DISK: clean
   retract/unretract pairs become **G10/G11** (firmware retraction), so your
   CURRENT retraction applies — live-tunable during the print. The R2 markers
   survive (no re-processing needed), wipes and folded retracts stay
   untouched, start beep + done beep, and the console reports the pair count.
   If a start dialog holds the file it is released automatically first. For
-  future uploads you can instead leave **Pre-Print > File > RetFix ON** — every new
+  future uploads you can instead leave **Pre-Print > File info > RetFix ON** — every new
   upload gets the treatment automatically.
 - **The offer only shows when it applies:** files that use **firmware
   retraction (G10/G11)** — e.g. OrcaSlicer with firmware retraction enabled —
   and files whose retracts are **already fixed** never show `RetFix file`
   again. The file info says which case you have: `retract … (firmware
-  G10/G11)` / `(FIXED -> G10/G11)` / `(slicer moves — Pre-Print > File:
+  G10/G11)` / `(FIXED -> G10/G11)` / `(slicer moves — Pre-Print > File info:
   RetFix!)` / nothing detected = offer stays hidden (field log .72).
 
 | FS_* / FA_* | the MEASURED original speed / acceleration of each feature |
@@ -361,7 +361,7 @@ Every print start (print button, LCD list, PRINT_START) stops at the dialog:
 
 | Mode | LCD / console | What rules |
 |---|---|---|
-| **AS SLICED** | > PRINT AS SLICED · `PRINT_AS_SLICED` | the FILE, truly 1:1 — no overrides, no first-layer brake beyond the L1/L2 rules, no sequential restarts. Live commands still apply. The first-layer rules shape **layer 1** (material L1 temps, fan off); **from layer 2 the file runs 1:1** — its own M104/M140 stand, only YOUR armed L2 override still wins (.121). Toggle the rules with Pre-Print > Temps > L1 rules |
+| **AS SLICED** | > PRINT AS SLICED · `PRINT_AS_SLICED` | the FILE, truly 1:1 — no overrides, no first-layer brake beyond the L1/L2 rules, no sequential restarts. Live commands still apply. The first-layer rules shape **layer 1** (material L1 temps, fan off); **from layer 2 the file runs 1:1** — its own M104/M140 stand, only YOUR armed L2 override still wins (.121). Toggle the rules with Pre-Print > Temperatures > L1 rules |
 | **AS LEGACY** | > PRINT AS LEGACY · `PRINT_AS_LEGACY` | takeover with YOUR parameters: overrides ON (L1/L2 temps, PA, retraction, machine limits, flow), mesh + purge, Z layer tracking, sequential object handling |
 | CANCEL | > CANCEL | aborts cleanly — nothing was heated |
 
@@ -494,10 +494,10 @@ and fixed in place:
 
 | Marlin habit | Symptom on Klipper | The fix |
 |---|---|---|
-| **Volumetric E** (`;FLAVOR:Marlin (Volumetric)`, common from Cura profiles with volumetric mode on) | E counts mm³ instead of mm → the print starves, barely extrudes at all | **Pre-Print > File > `Vol->mm fix`**: every E value (G0/G1 and G92) is divided by the filament cross-section (1.75 mm → 2.405 mm²), the volumetric markers are neutralized, a note lands in the header. Idempotent — never converts twice. |
-| **Long retraction moves** (E-only retract/unretract pairs, typical 5–6 mm from Bowden-era profiles) | they work, but they OVERRIDE your tuned ~0.8 mm direct-drive retraction and cannot be live-tuned | **Pre-Print > File > `RetFix file`** **(or Pre-Print > File > RetFix ON for every FUTURE upload)**: clean pairs become `G10/G11` firmware retraction — your current retraction applies and stays live-tunable. Wipes and folded retracts stay untouched. |
+| **Volumetric E** (`;FLAVOR:Marlin (Volumetric)`, common from Cura profiles with volumetric mode on) | E counts mm³ instead of mm → the print starves, barely extrudes at all | **Pre-Print > File info > `Vol->mm fix`**: every E value (G0/G1 and G92) is divided by the filament cross-section (1.75 mm → 2.405 mm²), the volumetric markers are neutralized, a note lands in the header. Idempotent — never converts twice. |
+| **Long retraction moves** (E-only retract/unretract pairs, typical 5–6 mm from Bowden-era profiles) | they work, but they OVERRIDE your tuned ~0.8 mm direct-drive retraction and cannot be live-tuned | **Pre-Print > File info > `RetFix file`** **(or Pre-Print > File info > RetFix ON for every FUTURE upload)**: clean pairs become `G10/G11` firmware retraction — your current retraction applies and stays live-tunable. Wipes and folded retracts stay untouched. |
 
-The file info line **"sliced by <slicer> for <firmware>"** (Pre-Print > File)
+The file info line **"sliced by <slicer> for <firmware>"** (Pre-Print > File info)
 tells you upfront what you are holding — fresh uploads and foreign downloads
 alike. Marlin files WITHOUT volumetric markers and without extreme retracts
 just run: the LEGACY start flow (dialog, mesh, purge, L1/L2) takes over.
@@ -524,13 +524,13 @@ on small nozzles.
 
 | Fix | What it does | You click… |
 |---|---|---|
-| **Flow cap** | every extruding move over the cap gets its F lowered so the volumetric rate stays under it (travels and retracts untouched; marker `; R2-FLOWCAP:` in the header, idempotent — a higher cap later simply re-fixes) | Pre-Print > File > `Cap:` (value) + `Fix flow cap` |
-| **Travel accel** | travel blocks get their own `M204 S…` (saved/restored around each travel run, the file's print accels stay) — separate travel tuning WITHOUT touching your global accel | Pre-Print > File > `TAcc:` (value) + `Fix travel accel` |
+| **Flow cap** | every extruding move over the cap gets its F lowered so the volumetric rate stays under it (travels and retracts untouched; marker `; R2-FLOWCAP:` in the header, idempotent — a higher cap later simply re-fixes) | Pre-Print > File info > `Cap:` (value) + `Fix flow cap` |
+| **Travel accel** | travel blocks get their own `M204 S…` (saved/restored around each travel run, the file's print accels stay) — separate travel tuning WITHOUT touching your global accel | Pre-Print > File info > `TAcc:` (value) + `Fix travel accel` |
 
 Both run through the same background watcher as RetFix/Vol — the console
 confirms, the LCD shows "working", the file is fixed in place (no re-upload).
 
-**The retract verdict (.86) — one line, no guessing:** Pre-Print > File shows
+**The retract verdict (.86) — one line, no guessing:** Pre-Print > File info shows
 `Ret:` with exactly one of four verdicts for the selected file:
 
 | Ret: | Meaning | Your move |
@@ -553,7 +553,7 @@ also explains itself in the console when clicked.
 | a v4-tagged file (tagged before .86) | fully functional — but the info line predates MAXRATE/SEAM/CFG replay/retract verdict (file check lists it as STALE) | System > File check > `RETAG` (2×) — 20 files per run, `.r2bak` backup each, never during a print |
 | a Marlin-flavor file, no volumetric, normal retracts | same — LEGACY flow (mesh, purge, L1/L2) | AS LEGACY |
 | a Marlin-volumetric file | flags it loudly (file info + alarm at start) | `Vol->mm fix`, then PRINT |
-| an old Bowden-era file | tags it; long retracts stay as-is until you say so | `RetFix file` (or File > RetFix ON for all future uploads) |
+| an old Bowden-era file | tags it; long retracts stay as-is until you say so | `RetFix file` (or Pre-Print > Fixes > RetFix ON for all future uploads) |
 | a file calling its own `START_PRINT` | real legacy start: homing, heat, purge — then your rules | decision in the dialog |
 | pure movement data (no heaters, no macros) | net probe catches it: home + heat + purge first | nothing — it just works |
 
@@ -579,7 +579,7 @@ translate it DETECTS and offers a fix for (volumetric E, Bowden-era retracts).
 | start gcode calls `PRINT_START` with the file's values (templates below) | the full start choreography: dialog, mesh, purge, first-layer rules |
 | end gcode calls `PRINT_END` | park, stats, fanfare, cooldown — never a parked hot nozzle |
 | "label objects" / per-object G-code enabled | KAMP adaptive mesh, object skip (2× confirm), smart park |
-| no M220/M221 spam from custom scripts | the clean-global system (Speeds > Global stays honest) |
+| no M220/M221 spam from custom scripts | the clean-global system (Live Tuning > Velocity keeps the global honest) |
 
 **Start/end g-code that fills everything in** (Orca / Prusa / SuperSlicer /
 Bambu / Elegoo — same placeholders):
@@ -822,7 +822,7 @@ The setting survives a reboot (default QUEUE — the pre-.84 behavior).
 Perfect for re-printing a broken section, testing the critical middle of a
 long print, or making a part from just a few layers. Find it in
 **Pre-Print > Range/Stop** (the planned stop-at-layer lives in the same menu;
-Live > Pause & Control has the Stop@ shortcut).
+Live Tuning > Pause & Control has the Stop@ shortcut).
 
 **Operation**
 
@@ -842,7 +842,7 @@ Live > Pause & Control has the Stop@ shortcut).
   whatever the source layer height is — global Z shift, original spacing kept)
 - a `PRINT_START` header with the source temperatures → the NORMAL start flow
   (dialog, mesh, purge, first-layer rules: fan off, L1 temps, speed brake)
-- its own `_FILE_INFO` at the TOP — Live > File shows the excerpt's values
+- its own `_FILE_INFO` at the TOP — Live Tuning > File (G-code) shows the excerpt's values
   from layer 1
 - the source fan returns from layer 2 — layer 1 prints without fan
 - a real `PRINT_END` at the end: park, stats, fanfare, cooldown — the nozzle
@@ -912,7 +912,7 @@ layer** (right at the start of raft layer 1, not after the raft).
 - The excerpt OPENS with the feature that was active at the cut (a
   vase-style source states its `;TYPE:` once in layer 1 — the excerpt
   re-asserts it, so the section never prints as the raft's solid infill).
-- The file info (Pre-Print > File) describes what the EXCERPT really
+- The file info (Pre-Print > File info) describes what the EXCERPT really
   contains: features from layers outside the range show as n/a, and the
   per-feature speeds are measured from the excerpt's own layers.
 - `;TYPE:` names from OrcaSlicer/Bambu (`gap fill`), PrusaSlicer
@@ -922,7 +922,9 @@ layer** (right at the start of raft layer 1, not after the raft).
 - The excerpt's layer 1 = always 0.2 mm high, whatever the source layer
   height; following layers keep the source spacing.
 - Every parameter is also available per console:
-  `SET_LAYER_RANGE FROM=125 TO=225 FLOOR=5 FLOOR_SHAPE=OUTLINE FLOOR_FILL=SOLID TOP=3 BRIM=4 FLOOR_HOLE=15 TOP_HOLE=28 CREATE=1`
+  `SET_LAYER_RANGE START=125 END=225 FLOOR=5 FLOOR_SHAPE=1 FLOOR_FILL=1 TOP=3 BRIM=4 FLOOR_HOLE=15 TOP_HOLE=28`
+  (shape 0 = FOOTPRINT / 1 = OUTLINE, fill 0 = GRID / 1 = SOLID — the same
+  numbers the Range/Stop menu shows as F.Shp/F.Fill)
 - E and Z of the body are shifted so the section prints as a standalone part
   in the file's own extrusion mode (relative or absolute E — both work).
 - Works with any tagged source file, including multi-object files (EXCLUDE
@@ -930,7 +932,7 @@ layer** (right at the start of raft layer 1, not after the raft).
 
 **Stop@ — the planned normal end**
 
-**Stop@ N** (Pre-Print > Range/Stop, or Live > Pause & Control) ends the print
+**Stop@ N** (Pre-Print > Range/Stop, or Live Tuning > Pause & Control) ends the print
 NORMALLY when layer N begins — stats, fanfare, cooldown, like a finished
 print, not a cancel. The natural partner for "print only the first 50 layers".
 
@@ -1673,13 +1675,13 @@ Z-Hop:   SET_Z_HOP ENABLE=1|0 HEIGHT=0.1..3 — lifts Z on every firmware retrac
          before the unretract: nozzle-crash protection for towers, text, small parts (.83)
 Feature PA (.85): SET_FEAT_PA FEATURE=<code> PA=<0..0.3> — pressure advance for ONE feature
          (e.g. wallouter 0.055, infillsparse 0.08); applied at every boundary of that
-         feature, the global PA returns when it ends. 0 = off. LCD: Live > Features > <feature> > PA
+         feature, the global PA returns when it ends. 0 = off. LCD: Live Tuning > Features > <feature> > PA
 Shaper (.85): SET_FEAT_SHAPER_OFF FEATURE=<code> STATE=1|0 — input shaper OFF while that one
          feature prints (sharp corners on slow outer walls), frequencies restored when it
          ends and at PRINT_END/cancel (safety net _FEAT_TUNING_RESTORE). Needs [input_shaper]
 Fan curve (.85): SET_FAN_CLAMP ON=1|0 MIN=0..100 MAX=0..100 BRIDGE=0..100 — every M106 of the
          file runs clamped between MIN/MAX percent (a file that wants 100 % gives 90 %), BRIDGE
-         lifts the fan while a bridge section prints (0 = off). LCD: Live > Temps > Clamp/FMin/FMax/FBrdg
+         lifts the fan while a bridge section prints (0 = off). LCD: Live Tuning > Temps & Fan > Clamp/FMin/FMax/FBrdg
 Drive (.107): SET_EXTRUDER_DRIVE TYPE=DIRECT|BOWDEN — the retraction STARTING-POINT profile
          (direct 0.6mm @ 40mm/s + z-hop off / bowden 4.5mm @ 30mm/s). Only a starting point:
          length, speeds, unretract extra + z-hop stay freely editable in BOTH directions,
@@ -1798,7 +1800,7 @@ print starts CLEAN.
 ### 6.5 Skipping objects & ending a print early
 
 **Skip a single object** (multi-object prints): Live Tuning > Objects (or
-`SKIP_OBJECT OBJECT=name`, 2× confirm — `SKIP_CURRENT_OBJECT` skips the one
+`SKIP_OBJECT NAME=name`, 2× confirm — `SKIP_CURRENT_OBJECT` skips the one
 printing right now, `SKIP_DISARM` cancels a pending skip, `SHOW_OBJECTS`
 lists all objects with their state). The rest of the print continues; KAMP's
 adaptive mesh and the smart parking already know the remaining objects. Works
@@ -1806,7 +1808,7 @@ for sliced multi-object files AND for generated files (labels, ranges,
 bridging towers — every generated part is an exclude object).
 
 **End the print normally at a planned layer:** Pre-Print > Range/Stop >
-**Stop@ N** (or Live > Pause & Control > Stop@) — when layer N begins, the
+**Stop@ N** (or Live Tuning > Pause & Control > Stop@) — when layer N begins, the
 print ends like a FINISHED print: park, stats, fanfare, cooldown — not a
 cancel. Combined with the range generator (ch. 5.1) this covers "print only
 part of it" in both directions: from the file start up to N, or a standalone
@@ -1896,8 +1898,8 @@ purpose; hotend fan cool-down (cooldown_fan_time, 30 s default).
   accel (travel/unknown). ON TOP of that there is ONE global percent scaler
   (`Feat x%`, `SET_GLOBAL_ACCEL_PERCENT PERCENT=150`) that scales ALL feature
   limits in the same ratio (1500 at 150%) without touching the global accel —
-  Live Tuning > Accel shows the current feature's effective value live
-  (`Eff: 1500mm/s2`), and Live > Extrusion > Src shows the flow model.
+  Live Tuning > Acc per feat shows the current feature's effective value live
+  (`Eff: 1500mm/s2`), and Live Tuning > Extrusion > Flow sources shows the flow model.
 
 Two rules keep it intuitive when BOTH are set: every global change re-applies
 the running feature on the spot (global 100 -> 150 with wall at 200% moves
@@ -1923,7 +1925,7 @@ perimeter, Internal bridge, Prime/Wipe tower and custom G-code sections.
 **Originals, availability & OFF-reset:** the post-processor MEASURES the
 real values from the g-code itself — the most frequent F value per feature
 segment (= its speed in mm/s) and the M204 in effect there (= its accel).
-They are shown everywhere (File > File: rows, each feature's "File:" line)
+They are shown everywhere (the "File:" rows in Spd/Acc/PA per feat)
 and they are what "OFF" returns to: switching a feature override OFF resets
 the stored speed to 100% (= 1:1 with the file × global) and the stored accel
 to the file's M204 (0 if the file sends none). Only features that really
@@ -1965,7 +1967,7 @@ ONCE PER PRINTER                     PER MATERIAL
 
 First — everything temperature-dependent needs stable heaters. Hotend at
 print temp WITH the part fan % it will actually run (own submenu), then bed.
-`PID_TUNE_HOTEND FAN=…` / `PID_TUNE_BED`.
+`TUNE_PID HEATER=extruder TARGET=215 FAN=100` / `TUNE_PID HEATER=heater_bed TARGET=60` (FAN = the % the part fan will run at).
 
 ### 10.2 Leveling (Maintenance > Leveling)
 
@@ -2487,11 +2489,11 @@ M104: 215C -> OVERWRITE -> 225C (layer 1)
 M104: 215C -> YOUR L2 override -> 240C (AS SLICED, layer 2)
 M220 S100% capped to 65% (layer 1)
 Layer 1: speed brake re-applied (65% after resume)
-Layer 2: hotend -> 205C (your override · file value · material PLA · Z-track)
+Layer 2: hotend -> 205C (your override · file value · material PLA · Z-track — whichever wins)
 Layer 2: bed -> 55C (…) · Layer 2: fan back on (file value S200)
 Sequential print: next object (NAME) - back to LAYER-1 temperatures
 Temp tower: layer 21 -> 215C
-Print running (legacy file) - live tuning and overrides ACTIVE
+Print running (legacy file) - live tuning and overwrites ACTIVE
 === PRINT RUNNING === / Print finished: NAME (duration)
 ```
 
@@ -2645,7 +2647,7 @@ APPLY_TYPE TYPE=WALL-OUTER  ← after every ;TYPE: comment
 **3. Feature recognition.** `_FILE_INFO` contains the MEASURED values per
 feature (which speeds really are in the file), the layer count, by-object
 mode, the slicer + firmware it was made for. The moment you SELECT the file,
-this block replays into the system — Pre-Print > File fills itself, the
+this block replays into the system — Pre-Print > File info fills itself, the
 start dialog knows what it is dealing with, volumetric Marlin files get
 flagged.
 
@@ -2782,7 +2784,7 @@ Diagnostics: SHOW_STATUS · SELF_TEST · KAMP_STATUS · HOST_CHECK (Pi health) �
 | pause at layer 17 | Live Tuning > Pause & Control > Pause@: 17 |
 | skip an object | Live Tuning > Objects (2×) |
 | change material preset | Pre-Print > Material > LOAD NOW |
-| compare with the file values | Pre-Print > Temps > File H:/File B: |
+| compare with the file values | Pre-Print > Temperatures > File H:/File B: |
 | first layer slower/faster | Pre-Print > 1st layer % |
 | calibrate flow | Maintenance > Flow Cal. |
 | run a temperature tower | Maintenance > Temp Tower |
@@ -2800,8 +2802,8 @@ Diagnostics: SHOW_STATUS · SELF_TEST · KAMP_STATUS · HOST_CHECK (Pi health) �
 | fuzzy skin / dimples on a part | Pre-Print > Texture — pick mode + values, > Apply, check the _TX file in the viewer |
 | delete a lithophane image | Tools > Lithophane > Delete image — press the slot twice |
 | test ironing | Maintenance > Ironing Cal. |
-| purge / cold pull | Macros > Purge · Maintenance > Filament |
-| shutdown the Pi | System > Shutdown (2×) |
+| purge / cold pull | console `PURGE_MORE` (15 mm) · Maintenance > Filament |
+| shutdown the Pi | System > Pi shutdown (2×) |
 | cable/lamp hole in a range part | Pre-Print > Range/Stop > Fl.hole / Top hole, then Create |
 | which g-code files are outdated | System > File check — console lists every file; Retag old (2×) upgrades them |
 | printer off, Pi stays on | PRINTER_POWER_OFF (console — needs the relay, ch. 26) |
@@ -2928,7 +2930,7 @@ All 150 public macros with parameters (defaults in parentheses; blank = no param
 | **PRINT_START** | BED, HOTEND_FIRST, HOTEND_AFTER, BED_AFTER, MATERIAL='PLA', LAYER_HEIGHT=0.2, TOTAL_LAYERS=0, OUTER_WALL_SPEED=0, SUPPORT_SPEED=0, IRONING_SPEED=0 | start choreography — called by the sliced file |
 | **START_PRINT** | — | old macro name: marked = no-op · legacy = real legacy start (dialog or auto-prep) |
 | **PRINT_END** | — | end choreography: heaters/fans per settings, stats, sound, LED celebration → idle after led_finish_time s, full _PRINT_CLEANUP |
-| **SET_LAYER_RANGE** | FROM, TO, FLOOR, FLOOR_SHAPE, FLOOR_FILL, TOP, TOP_SHAPE, TOP_FILL, FLOOR_HOLE, TOP_HOLE, BRIM | layer-range excerpt with raft/cap, centered floor+top holes (E14/E27 presets: ch. 5.1); refuses while a print runs (.105) |
+| **SET_LAYER_RANGE** | START, END, FLOOR, FLOOR_SHAPE (0/1), FLOOR_FILL (0/1), TOP, TOP_SHAPE, TOP_FILL, FLOOR_HOLE, TOP_HOLE, BRIM | layer-range excerpt with raft/cap, centered floor+top holes (E14/E27 presets: ch. 5.1); refuses while a print runs (.105) |
 | **FIX_FILE** | WHAT=RETRACT/VOL/FLOWCAP/TRAVELACC, CAP=(12), ACCEL=(8000) | repair the SELECTED file in place: retract pairs → G10/G11 · volumetric E → mm · flow cap mm³/s (.85) · travel accel (.85) |
 
 ### Pause & filament — 09_pause_filament.cfg (11)

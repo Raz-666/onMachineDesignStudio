@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MANUAL.pdf — the illustrated user handbook (R2-2026-10-22.123).
+"""MANUAL.pdf — the illustrated user handbook (R2-2026-10-22.124).
 Mirrors MANUAL.md: daily workflow first, generators next, calibration ladder,
 reference tables. 21 vector diagrams (font specimens + range variants drawn
 from the REAL generator glyph data), full parameter tables."""
@@ -476,7 +476,7 @@ class Doc(BaseDocTemplate):
         c.drawRightString(A4[0]-17*mm,A4[1]-10*mm,self.ch); c.restoreState()
     def footer(self,c,doc):
         c.saveState(); c.setFont('DVS',7.5); c.setFillColor(GRAY)
-        c.drawString(17*mm,9*mm,'R2-D2 Macro System · R2-2026-10-22.123 · user handbook')
+        c.drawString(17*mm,9*mm,'R2-D2 Macro System · R2-2026-10-22.124 · user handbook')
         c.drawRightString(A4[0]-17*mm,9*mm,f'Page {doc.page}')
         c.setStrokeColor(colors.HexColor('#c9d4e4')); c.setLineWidth(0.6); c.line(17*mm,12*mm,A4[0]-17*mm,12*mm)
         c.restoreState()
@@ -1251,7 +1251,7 @@ def d_wiring():
 # ---- cover ----
 E+= [Spacer(1,10*mm),Paragraph('R2-D2 Macro System',S['title']),Spacer(1,2*mm),
      Paragraph('The Complete User Handbook — illustrated edition',S['sub']),Spacer(1,3*mm),
-     Paragraph('Version R2-2026-10-22.123 · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail)',S['sub']),
+     Paragraph('Version R2-2026-10-22.124 · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail)',S['sub']),
      Spacer(1,6*mm),CENT(d_robot()),Spacer(1,6*mm),
      Paragraph('The USER HANDBOOK: from file to print in one read — every file type (by layer / by object / vase /<br/>'
                'legacy / movement data), the start dialog, pre-print settings, live tuning, pauses, object skip ·<br/>'
@@ -1584,7 +1584,7 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
     "(recommended) or AS SLICED (source temps 1:1)."),
   *B('layer FROM prints as the FIRST layer at Z 0.2 on the bed (global shift, original spacing kept)',
      'PRINT_START header means the NORMAL start flow: dialog, mesh, purge, first-layer rules',
-     'own _FILE_INFO at the top — Live > File shows the excerpt values from layer 1',
+     'own _FILE_INFO at the top — Live Tuning > File (G-code) shows the excerpt values from layer 1',
      'the source fan returns from layer 2 — layer 1 prints without fan',
      'real PRINT_END at the end: park, stats, fanfare — never parked ON the part',
      'EXCLUDE_OBJECT_DEFINE blocks carried over; E and Z shifted to the file extrusion mode'),
@@ -1612,7 +1612,7 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
     "describes what the EXCERPT really contains: features from layers outside the range show as n/a, per-feature "
     "speeds are measured from the excerpt's own layers. ;TYPE: names from Orca/Bambu (gap fill), PrusaSlicer "
     "(External perimeter, top solid infill, ...) and Cura (WALL-OUTER) all map. "
-    "Console: SET_LAYER_RANGE FROM=125 TO=225 FLOOR=5 FLOOR_SHAPE=OUTLINE TOP=3 BRIM=4 FLOOR_HOLE=15 TOP_HOLE=28 CREATE=1. <b>Stop@ N</b> "
+    "Console: SET_LAYER_RANGE START=125 END=225 FLOOR=5 FLOOR_SHAPE=1 TOP=3 BRIM=4 FLOOR_HOLE=15 TOP_HOLE=28 (shape 0 = footprint / 1 = outline, fill 0 = grid / 1 = solid). <b>Stop@ N</b> "
     "in the same menu ends a print NORMALLY at layer N (stats, fanfare — not a cancel)."),
   H2('5.2 Labels — the built-in label maker'),
   P("Name tags, key fobs, drawer labels — engraved text without a slicer, entirely from the LCD: Tools > Labels > Text "
@@ -1893,7 +1893,7 @@ chapter('6','During the print: tuning, pauses, objects',
        '          SET_LIVE_RETRACTION LENGTH= SPEED= UNRETRACT_SPEED= EXTRA=\n'
        'Temps:   SET_LIVE_HOTEND_TEMP T= · SET_LIVE_BED_TEMP T=\n'
        'Fan:     SET_FAN_SCALE PERCENT=        Babystep: BABYSTEP_UP/DOWN[_FINE]\n'
-       'Objects: SKIP_OBJECT OBJECT=name (2x) · SKIP_CURRENT_OBJECT · SHOW_OBJECTS\n'
+       'Objects: SKIP_OBJECT NAME=name (2x) · SKIP_CURRENT_OBJECT · SHOW_OBJECTS\n'
        'Z-Hop:   SET_Z_HOP ENABLE=1|0 HEIGHT=0.1..3 (lifts over every firmware retract)\n'
        'FeatPA:  SET_FEAT_PA FEATURE=<code> PA=0..0.3 — PA for ONE feature, global returns after (.85)\n'
        'Shaper:  SET_FEAT_SHAPER_OFF FEATURE=<code> STATE=1|0 — shaper off while that feature prints (.85)\n'
@@ -1932,7 +1932,7 @@ chapter('6','During the print: tuning, pauses, objects',
      'Z high-water re-anchored at PAUSE and every object start — parking can never fake an object change',
      'every start path homes first (G28); babystepping is runtime-only, the saved offset never changes'),
   H2('6.5 Skipping objects &amp; ending early'),
-  P("<b>Skip a single object</b> (multi-object prints): Live Tuning > Objects — SKIP_OBJECT OBJECT=name (2x "
+  P("<b>Skip a single object</b> (multi-object prints): Live Tuning > Objects — SKIP_OBJECT NAME=name (2x "
     "confirm), SKIP_CURRENT_OBJECT for the one printing now, SHOW_OBJECTS lists all. Works for sliced "
     "multi-object files AND generated files (labels, ranges, towers — every generated part is an exclude object). "
     "KAMP mesh and smart parking know the remaining objects."),
@@ -1994,7 +1994,7 @@ chapter('9','Speed, acceleration &amp; machine limits',
      'global 98% × feature 110% = 107.8% effective (it used to REPLACE the global — fixed)',
      'ACCEL — feature values are HARD LIMITS; the global accel never overrides them (it rules travel + features '
      'without their own). ON TOP: one global percent scaler (Feat x% / SET_GLOBAL_ACCEL_PERCENT) scales ALL '
-     'feature limits in the same ratio — Live > Accel shows the current value live (Eff: 1500mm/s2)',
+     'feature limits in the same ratio — Live Tuning > Acc per feat shows the current value live (Eff: 1500mm/s2)',
      'BOTH SET (field rule): every global speed change re-applies the running feature ON THE SPOT — global 100 -> 150 '
      'with wall at 200% moves the wall from 200 to 300%, not back to 150. And a feature with its own accel KEEPS it; '
      'the global accel rules everything that prints without one',
@@ -2004,7 +2004,7 @@ chapter('9','Speed, acceleration &amp; machine limits',
      '16 features: outer/inner wall, overhang wall, sparse/solid infill, top/bottom surface, bridge, internal '
      'bridge, gap fill, support, ironing (+flow), skirt, brim, prime tower, custom code — own ON switch each '
      '(Pre-Print > Features); Live Tuning shows the CURRENTLY printing feature as Cur:/CurOv:/CurAcc: and has '
-     'ALL 16 as Live > Features (edits re-apply on the spot)',
+     'ALL 16 as Live Tuning > Features (edits re-apply on the spot)',
      'ORIGINALS & OFF : post-processor v4 MEASURES the real speed (most frequent F per feature segment) and '
      'accel (M204 in effect) straight from the g-code — shown everywhere (File: rows) and used as the reset target: '
      'switching a feature OFF restores speed 100% / the file\'s accel / the slicer ironing flow. Only features the '
@@ -2028,7 +2028,7 @@ chapter('10','Calibration — the ladder to good prints',
     "walk it correctly."),
   H2('10.1 PID tuning (Maintenance > PID Tuning)'),
   P("First — everything temperature-dependent needs stable heaters. Hotend at print temp WITH the part fan "
-    "percent it will actually run (own submenu), then bed. PID_TUNE_HOTEND FAN=... / PID_TUNE_BED."),
+    "percent it will actually run (own submenu), then bed. TUNE_PID HEATER=extruder TARGET=215 FAN=100 / TUNE_PID HEATER=heater_bed TARGET=60."),
   H2('10.2 Leveling (Maintenance > Leveling)'),
   P("Probe Z offset by the paper method: TESTZ +-0.04/+-0.12, accept, SAVE_CONFIG. Bed screws: turn per the "
     "console report. This is what makes layer 1 look right — before any material calibration."),
@@ -2289,7 +2289,7 @@ chapter('18','Console messages',
      'Layer 1: speed brake re-applied (65% after resume) — the resume fix at work',
      'Sequential print: next object (NAME) - back to LAYER-1 temperatures',
      'Temp tower: layer 21 -&gt; 215C — band control at work',
-     'Print running (legacy file) - live tuning and overrides ACTIVE',
+     'Print running (legacy file) - live tuning and overwrites ACTIVE',
      'state changes, planned pauses, skips, runout — everything announces itself'))
 
 
@@ -2477,7 +2477,7 @@ chapter('24','Cheat sheet: LCD paths &amp; Mainsail commands',
        'CLEAR_OVERRIDES · PRINT_AS_SLICED / PRINT_WITH_OVERRIDES / PRINT_AS_LEGACY\n'
        'SET_GLOBAL_SPEED · SET_GLOBAL_ACCEL · SET_LIVE_VELOCITY · SET_LIVE_MINIMUM_CRUISE_RATIO\n'
        'SET_LIVE_PRESSURE_ADVANCE · SET_LIVE_RETRACTION · SET_FLOW_RATE · SET_GLOBAL_ACCEL_PERCENT PERCENT=150\n'
-       'PAUSE · RESUME · CANCEL_PRINT (2×) · PAUSE_AT_LAYER LAYER=n · SKIP_OBJECT OBJECT=name\n'
+       'PAUSE · RESUME · CANCEL_PRINT (2×) · PAUSE_AT_LAYER LAYER=n · SKIP_OBJECT NAME=name\n'
        'GEN_LABELS TEXT=\"A|B\" W=60 H=30 · GEN_CABLE_TIES COUNT=6 LENGTH=120 VARIANT=LOOP ·\n'
        'GEN_ANGLES ANGLE=90 WIDTH=25 WALLS=4 INFILL=60 IRONING=1 ·\n'
        'GEN_FRAME PRESET=10x15 DEPTH=8 CLOSURE=BACK HANG=TOP STAND=1 ·\n'
@@ -2499,7 +2499,7 @@ chapter('24','Cheat sheet: LCD paths &amp; Mainsail commands',
    ['MCR','minimum cruise ratio','SCV','square corner velocity'],
   ],[30*mm,54*mm,26*mm,54*mm]),
   Spacer(1,12*mm),Paragraph('Built and tested for one purpose: printing happily — with R2-D2 keeping watch. Have fun!',S['end']),
-  Spacer(1,4*mm),Paragraph('R2-D2 Macro System · R2-2026-10-22.123',S['cap']))
+  Spacer(1,4*mm),Paragraph('R2-D2 Macro System · R2-2026-10-22.124',S['cap']))
 
 import json as _json
 _MIDX=_json.loads(r'''[["Sounds \u2014 02_sounds.cfg", [["M300", "P=100, S=1000", "single beep \u2014 wrapper; the real beep lives on as M99300"], ["PLAY_SOUND", "NAME='r2_click'", "play a tune by name (ch. 16)"], ["TOGGLE_SOUNDS", "\u2014", "sounds on/off (persisted: sound_on)"], ["TEST_SOUNDS", "\u2014", "play all 20 tunes in sequence"]]], ["LEDs \u2014 03_leds.cfg", [["SET_LED_STATE", "STATE='idle'", "switch the LED pattern (12 states, ch. 17) - applies the nozzle mode too"], ["NOZZLE_LED", "MODE, BRIGHT, R, G, B", "nozzle light: on/off/auto + live dimming + live color (ch. 17)"], ["TOGGLE_LEDS", "\u2014", "frame LEDs off/on (persisted: leds_on)"], ["TEST_LEDS", "\u2014", "LED test animation"], ["_NOZZLE_SET", "ON", "internal: writes LED 5 (color x brightness, capped 0.5)"]]], ["Notifications \u2014 04_notify.cfg", [["NOTIFY", "TEXT, LEVEL='info', LED, SOUND", "notification helper: text + sound + LED in one call"], ["SHOW_STATUS", "\u2014", "full status: mode, material, overrides, live values"]]], ["Materials \u2014 05_materials.cfg", [["SET_MATERIAL", "MATERIAL=&lt;current>, APPLY_PRESET=1", "select material; APPLY_PRESET=1 also loads its preset"], ["SAVE_MATERIAL_TEMPS", "MATERIAL=&lt;current>", "save current values as this material's preset"], ["SHOW_MATERIAL", "\u2014", "show the current material + its stored preset"]]], ["Temperatures & marks \u2014 06_temp_controls.cfg", [["M104", "S=-1, T", "hotend temp \u2014 interceptor, redirects by layer (real: M99104)"], ["M109", "S=-1, T", "like M104, but waits"], ["M140", "S=-1", "bed temp \u2014 interceptor (real: M99140)"], ["M190", "S=-1", "like M140, but waits"], ["M106", "S=255", "part fan \u2014 scaling + from-layer-2 rule"], ["M204", "P, S, T", "acceleration \u2014 interceptor (M99204): feature accel , else global overwrite ON \u2192 your accel, else file 1:1"], ["LAYER_MARK", "\u2014", "layer marker (inserted by the post-processor)"], ["M220", "S=100", "speed \u2014 interceptor (M99220): L1 cap + stores the clean global % as g_speed_clean "], ["PAUSE_NEXT_LAYER", "REASON='next layer'", "one-shot pause at the next layer boundary"], ["PAUSE_AT_LAYER", "LAYER=0", "one-shot pause at layer n (n greater than 1)"], ["SET_LIVE_HOTEND_TEMP", "T=-1", "change the hotend target live"], ["SET_LIVE_BED_TEMP", "T=-1", "change the bed target live"]]], ["Start dialog & overrides \u2014 07_start_confirm.cfg", [["PRINT_AS_SLICED", "\u2014", "start dialog: answer AS SLICED"], ["PRINT_WITH_OVERRIDES", "\u2014", "alias for AS LEGACY since then (merged mode)"], ["PRINT_AS_LEGACY", "\u2014", "start dialog: AS LEGACY"], ["CANCEL_PENDING_PRINT", "\u2014", "start dialog: cancel (nothing is hot yet)"], ["SET_OVERRIDE_VALUE", "NAME, VALUE", "set one override + switch it ON; feat_on=0 resets the values to the file original "], ["TOGGLE_OVERRIDE", "NAME=''", "flip one override switch"], ["CLEAR_OVERRIDES", "\u2014", "all switches OFF (values stay stored)"], ["TOGGLE_START_CONFIRMATION", "\u2014", "start dialog on/off (persisted: start_confirm)"]]], ["Print start & end \u2014 08_print_start_stop.cfg", [["PRINT_START", "BED, HOTEND_FIRST, HOTEND_AFTER, BED_AFTER, MATERIAL='PLA', LAYER_HEIGHT=0.2, TOTAL_LAYERS=0, OUTER_WALL_SPEED=0, SUPPORT_SPEED=0, IRONING_SPEED=0", "start choreography \u2014 called by the sliced file"], ["START_PRINT", "\u2014", "old macro name: marked = no-op / legacy = real legacy start (dialog or auto-prep,)"], ["PRINT_END", "\u2014", "end choreography: heaters/fans, stats, sound, LED -> idle, _PRINT_CLEANUP"]]], ["Pause & filament \u2014 09_pause_filament.cfg", [["PAUSE", "REASON='User'", "pause + park (mode-aware)"], ["QUICK_PAUSE", "\u2014", "alias for PAUSE"], ["RESUME", "\u2014", "the full resume sequence (ch. 6)"], ["CANCEL_PRINT", "\u2014", "1st press arms (expires 60 s, also while paused), 2nd press cancels + cleanup"], ["M600", "\u2014", "filament change (park, unload, wait for load)"], ["CHANGE_FILAMENT", "\u2014", "M600 for humans \u2014 works from idle too (heats)"], ["CHANGE_FILAMENT_RESUME", "\u2014", "internal continuation after the load"], ["PURGE_MORE", "\u2014", "purge 15 mm more (after change/resume)"], ["M0", "\u2014", "slicer pause \u2014 mapped to PAUSE"], ["M1", "\u2014", "slicer pause \u2014 mapped to PAUSE"], ["_PRINT_CLEANUP", "\u2014", "resets ALL per-print state (PRINT_END/CANCEL/watcher - settings + mesh stay)"]]], ["Live tuning \u2014 10_live_tuning.cfg", [["APPLY_TYPE", "TYPE=''", "feature switch : sets current_type + applies THIS feature\u2019s overrides (speed % × clean global, absolute accel, ironing flow)"], ["SET_OUTER_WALL_SPEED + 11 more per-feature macros", "\u2014", "per-feature setters : forward to feat_spd/feat_acc + ON \u2014 % on top of the CLEAN global"], ["SET_GLOBAL_SPEED", "PERCENT=100", "global speed % (M220 style, never capped); the running feature stays on top — re-applied immediately"], ["SET_GLOBAL_ACCEL", "ACCEL=4000", "global acceleration, mm/s\u00b2; a feature with its own accel keeps it"],
@@ -2523,7 +2523,7 @@ _MIDX.append(["Labels — 16_labels.cfg ", [
 # R86.2: SET_LAYER_RANGE (08 group) + SET_NOZZLE_SPLIT (LEDs group)
 for _g in _MIDX:
     if _g[0].startswith('Print start & end'):
-        _g[1].append(["SET_LAYER_RANGE", "FROM, TO, FLOOR, FLOOR_SHAPE, FLOOR_FILL, TOP, TOP_SHAPE, TOP_FILL, FLOOR_HOLE, TOP_HOLE, BRIM",
+        _g[1].append(["SET_LAYER_RANGE", "START, END, FLOOR, FLOOR_SHAPE (0/1), FLOOR_FILL (0/1), TOP, TOP_SHAPE, TOP_FILL, FLOOR_HOLE, TOP_HOLE, BRIM",
                       "layer-range excerpt: raft + cap + centered floor/top holes (E14 15 / E27 28 mm presets, ch. 5.1)"])
     if _g[0].startswith('LEDs'):
         _g[1].append(["SET_NOZZLE_SPLIT", "STATE=0/1",
@@ -2787,6 +2787,7 @@ chapter('D','Appendix D: Version history',
   P("Only the milestones — the full reasoning lives in SESSION_STATE.md. The manual itself describes the CURRENT "
     "system; this table is just the record."),
   TBL(['Version','Core changes'],[
+      ('.124','DOCUMENTATION-REALITY AUDIT (R165): tools/r165_doc_check.py verifies the MANUAL against the source of truth - macro tokens, documented call params, LCD paths, label hygiene, ch.18 samples. First-run findings all fixed: PID_TUNE_HOTEND/PID_TUNE_BED never existed (TUNE_PID HEATER=... FAN=%), SKIP_OBJECT NAME= (not OBJECT=), SET_LAYER_RANGE START/END (not FROM/TO; shape/fill = 0/1), PURGE_MORE console (not Macros > Purge), System > Pi shutdown, ~30 stale LCD paths (File info / Live Tuning / Temps & Fan / Acc per feat), overwrites (not overrides). UX: duplicate labels renamed (Flow sources + Src: PA + flow; How: 1-wall cube + How: flow cube). Every console generator now honors the documented OUT= per run.'),
       ('.123','MCU SHUTDOWN ROOT CAUSE FIXED - THE LED ANIMATION FLOODED THE SERIAL BUS (R163): a second '
 'Timer too close ten minutes into the .121 litho test print, with RAM fine and a sparse file. The '
 'shutdown send-queue dump held 100 messages - 75 of them LED frames; 28503 failed neopixel readbacks '
@@ -2854,4 +2855,4 @@ chapter('D','Appendix D: Version history',
 
 doc=Doc(os.path.join(os.path.dirname(__file__),'..','MANUAL.pdf'))
 doc.build(E)
-print('MANUAL.pdf built (illustrated user handbook, .123)')
+print('MANUAL.pdf built (illustrated user handbook, .124)')
