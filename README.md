@@ -70,7 +70,10 @@ klipper-e3-r2d2/
 │   └── cura_KlipperFeatureTypes.py Cura script (APPLY_TYPE+LAYER_MARK+object box)
 └── tools/
     ├── config_validator.py     validates all templates/variables (python3 tools/config_validator.py)
-    └── macro_render_test.py    30+ logic tests with a mocked printer
+    ├── macro_render_test.py    30+ logic tests with a mocked printer
+    └── r164_serial_budget.py   MCU serial-budget audit: worst move rate of every
+                                file class vs the 450/s 'Timer too close' budget
+                                at 100/125/150% live speed + the LED diet guard
 ```
 
 See **INSTALL.md** for setup in ~10 minutes and **MANUAL.md** for the complete

@@ -12721,6 +12721,16 @@ tests.append(('R162 generator job gates: busy-probe RETRY (a timeout must '
     'for _try162 in (1, 2)' in _src160b and 'if _try162 == 2' in _src160b
     and '0 < _ram162 < 60' in _src160b, ''))
 
+try:
+    _r164src = open('tools/r164_serial_budget.py', encoding='utf-8').read()
+except OSError:
+    _r164src = ''
+tests.append(('R164 serial-budget audit tool exists: worst move rate per '
+    'file class vs the 450/s Timer-too-close budget at 100/125/150% live '
+    'speed + the static-LED diet guard (two field shutdowns .121/.122)',
+    'BUDGET = 450.0' in _r164src and 'static 1 0 top' in _r164src
+    and 'worst_window_rate' in _r164src, ''))
+
 tests.append(('R163 LED serial diet: the printing state is STATIC (klipper only '
     'transmits changed colors - an animated 24 fps gradient flooded the serial '
     'bus during prints; the .122 field log: Timer-too-close with 75/100 queued '
