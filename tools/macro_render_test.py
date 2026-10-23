@@ -2446,21 +2446,37 @@ tests.append(('R58 gapless: mode printing before M24 (all 5 sites)',
     _g58.count("VARIABLE=mode VALUE='\"printing\"'\n        M24") >= 1 and _g58.count('M99106 S0') >= 5, 'structure'))
 # M204 per-feature redirect
 _m204 = get_body('macros/06_temp_controls.cfg', 'M204')
-state_vars.update({'mode':'printing','ignore_overrides':False,'current_type':'WALL-OUTER'})
-save_vars.update({'ovf_wallouter_on':True,'ovf_wallouter_acc':1200,'ov_accel_on':True,'ov_accel':6000})
+# R167: the M204 hotpath reads ONLY _STATE mirrors (feat_acc_active from
+# APPLY_TYPE, ovl_acc from _SYNC_OV_ACCEL) - save_variables is never touched
+# (one deepcopy per M204 was the Timer-too-close chain of the .125 log)
+state_vars.update({'mode':'printing','ignore_overrides':False,'current_type':'WALL-OUTER',
+                   'feat_acc_active':1200,'ovl_acc':6000,'ovl_acc_on':True,'m204_last':-1})
 out = render(_m204, {'S':'500'})
 tests.append(('R59 M204 outer wall: file 500 -> YOUR 1200', 'M99204 S1200' in out and 'FEATURE' in out, out[:160]))
-state_vars['current_type'] = 'SURFACE-TOP'
-save_vars.update({'ovf_surfacetop_on':True,'ovf_surfacetop_acc':900})
+state_vars.update({'current_type':'SURFACE-TOP','feat_acc_active':900,'m204_last':-1})
 out = render(_m204, {'S':'500'})
 tests.append(('R59 M204 top surface feature accel 900', 'M99204 S900' in out, out[:160]))
-state_vars['current_type'] = 'WALL-INNER'
-save_vars.update({'ovf_wallouter_on':False,'ovf_surfacetop_on':False})
+state_vars.update({'current_type':'WALL-INNER','feat_acc_active':0,'m204_last':-1})
 out = render(_m204, {'S':'500'})
 tests.append(('R59 M204 inner wall (no feature ovr): global 6000', 'M99204 S6000' in out, out[:160]))
-save_vars.update({'ov_accel_on':False})
+state_vars.update({'ovl_acc_on':False,'m204_last':-1})
 out = render(_m204, {'S':'500'})
 tests.append(('R58 M204 no overrides: 1:1 pass-through', 'M99204 S500' in out and 'overwrite' not in out, out[:160]))
+# R167: a repeat of the SAME value is swallowed (no M99204, no echo) and a
+# live accel CAPS but never RAISES (S1500 stays, S8000 caps to 6000)
+state_vars.update({'live_accel':6000,'m204_last':1500})
+out = render(_m204, {'S':'1500'})
+tests.append(('R167 M204: repeat value swallowed (echo flood gone)',
+    'M99204' not in out and 'RESPOND' not in out, out[:120]))
+state_vars.update({'m204_last':-1})
+out = render(_m204, {'S':'8000'})
+tests.append(('R167 M204: live accel CAPS S8000 -> S6000, never raises S1500',
+    'M99204 S6000' in out and 'cap' in out, out[:120]))
+state_vars.update({'m204_last':-1})
+out = render(_m204, {'S':'1500'})
+tests.append(('R167 M204: file S1500 under the cap passes 1:1',
+    'M99204 S1500' in out and 'cap' not in out, out[:120]))
+state_vars['live_accel'] = 0
 # CLEAR_OVERRIDES schaltet Features aus
 _b58c = get_body('macros/07_start_confirm.cfg', 'CLEAR_OVERRIDES')
 tests.append(('R59 CLEAR_OVERRIDES generic feature loop',
@@ -3839,7 +3855,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.100) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-22.125'", repr(_v66)))
+    _v66 == "'R2-2026-10-22.126'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -4504,12 +4520,12 @@ tests.append(('R159 M221: from layer 2 the user value IS the flow (no redirect)'
     'M99221 S100' in out and 'live_flow VALUE=100' in out, out[:110]))
 
 _m20473 = get_body('macros/06_temp_controls.cfg', 'M204')
-state_vars.update({'live_accel': 4200, 'current_type': 'WALL-OUTER'})
-save_vars.update({'ovf_wallouter_on': True, 'ovf_wallouter_acc': 1500})
+state_vars.update({'live_accel': 4200, 'current_type': 'WALL-OUTER',
+                   'feat_acc_active': 1500, 'm204_last': -1})
 out = render(_m20473, {'S': 800})
 tests.append(('R73/R87.2 M204: FEATURE accel beats the live global (field log .71)',
     'M99204 S1500' in out, out[:110]))
-state_vars['live_accel'] = 0
+state_vars.update({'live_accel': 0, 'm204_last': -1})
 out = render(_m20473, {'S': 800})
 tests.append(('R73 M204: without a live value the feature accel rules',
     'M99204 S1500' in out, out[:110]))
@@ -6931,8 +6947,10 @@ for _l90 in _g90a.split(chr(10)):
     elif _l90.startswith(';TYPE:Inner wall'):
         _seen90[round(_z90, 2)] = _seen90.get(round(_z90, 2), 0) + 1
 _nubz90 = sorted(_z90x for _z90x, _c90x in _seen90.items() if _c90x >= 2)
-tests.append(('R90 frame closure: snap band = 2 layers at the plate top (R127)',
-    _nubz90 == [5.88, 6.08], str(_nubz90)))
+tests.append(('R90 frame closure: snap band = 2 ramp + 2 click layers at the '
+    'plate top (R127 + R167 45-deg ramp - the nubs used to print as '
+    'free-standing walls in the groove air)',
+    _nubz90 == [5.48, 5.68, 5.88, 6.08], str(_nubz90)))
 
 # --- R90.1a: multi-plate mechanics (Part B, trailer, no auto-start) -----------
 _g90b = open(_os90.path.join(_d90, _i90a['plates'][1]), encoding='utf-8').read()
@@ -7187,14 +7205,14 @@ for _kw90, _frag90 in ((dict(width=300, height=200), 'out of range'),
                        (dict(preset='A6', shape='OVAL', closure='SIDE'),
                         'SIDE closure needs a RECT'),
                        (dict(preset='10x15', infill=2), 'out of range'),
-                       (dict(width=40, height=208, frame_w=6), 'backplate')):
+                       (dict(width=40, height=210, frame_w=6), 'split kit')):
     try:
         _pp.make_frame(out_dir=_d90, **_kw90)
         _ok90 = False
     except ValueError as _e90:
         _ok90 = _frag90 in str(_e90)
-    _ok90 = _ok90 and (_frag90 != 'backplate'
-                       or not [f for f in _os90.listdir(_d90) if '40x208' in f])
+    _ok90 = _ok90 and (_frag90 != 'split kit'
+                       or not [f for f in _os90.listdir(_d90) if '40x210' in f])
     tests.append(('R90 guard: %s -> ValueError(%s)' % (list(_kw90.items())[0], _frag90),
         _ok90, ''))
 
@@ -10325,7 +10343,7 @@ import hashlib as _hl119
 import math as _math119
 import re as _re119
 _D119 = tempfile.mkdtemp(prefix='r119_')
-_MD5_120 = 'f90e7cf8d415ef09a7fa52fc73089cbe'   # re-frozen R160 (.120): Vnn_ name + FS_/FA_/SLICER/RETRACT_STATUS in _FILE_INFO, on top of the R159 speed image (60/1500 + travel 180/8000 + flow 98%, rate-capped)
+_MD5_120 = 'ab54c27d4b09b17085f27e727d11ba09'   # re-frozen R167 (.126): the M204 thrift mode (travel M204 only after 2mm of hops - the per-transition M204 storm ran the interceptor with a save_variables deepcopy thousands of times per print = the Timer-too-close chain). Geometry identical to the R160 freeze; only the M204 lines thinned out.
 
 def _labpts119(path, li):
     _t = open(path).read()
@@ -12774,8 +12792,13 @@ tests.append(('R162 litho/colorpic step FILL: the hatch rects use the FULL '
     'zero-height for single-row blocks (photos!), the picture never printed',
     '_hatch(px0 + c_a * wid + wid * 0.5' not in _src160b
     and '_hatch(x0 + c_a * wid + wid * 0.5' not in _src160b
-    and _src160b.count('_hatch(px0 + c_a * wid,') == 2
+    and _src160b.count('_hatch(px0 + c_a * wid + _in167,') == 1
     and _src160b.count('_hatch(x0 + c_a * wid,') == 2, ''))
+tests.append(('R167 litho step WALLS: every step region above the base gets '
+    'a wall loop around it before the fill (user request - clean step '
+    'edges instead of frayed hatch ends), hatch inset half a line',
+    "_src160b.count('_rect_loop(px0 + c_a * wid, py0 + r_a * wid,') >= 1"
+    " and '_in167 = wid * 0.5 if k > 0 else 0.0' in _src160b", ''))
 
 # (11) naming: no overwrite - same number + small letter (user rule .120)
 tests.append(('R160b naming guard: _dedupe_gen_fname (V05 taken -> V05b) at '

@@ -1410,7 +1410,7 @@ cross open holes (keyhole, stud holes, cable slot) — and those retract.
 | Border | 4–30 mm | frame width around the photo |
 | Corner r | 0–30 mm | corner radius (RECT only; a split kit drops it to 0 with a note) |
 | Shape | RECT / OVAL | OVAL = ellipse from W×H (two diameters); no kit split for ovals |
-| Closure | BACK / SIDE | BACK = snap-in backplate (.91): the plate is 0.3 mm smaller than the photo shaft per side — press it in, the 4 wall nubs (left/right/top/bottom) click over its edge with a 0.2 mm overlap, done. SIDE = photo + plate slide together through the slot in the left wall |
+| Closure | BACK / SIDE | BACK = snap-in backplate (.91, .126): the plate has **0.35 mm play per side** measured against the photo shaft's LIGHT size (wall lines print with their center on the contour — the shaft is one line width narrower than the photo contour, the plate half a line wider than its own; .125 and earlier ignored both and the plate was 0.7 mm OVERSIZE). Drop it in, the 4 wall nubs click over its edge with a 0.2 mm overlap — the nubs grow out of the wall at ≤45° over two layers (they used to print as free walls in the groove air). SIDE = photo + plate slide together through the slot in the left wall |
 | Hang | TOP/BOTTOM/LEFT/RIGHT/OFF | keyhole position in the backplate — **invisible from the front** |
 | Stand | ON/OFF | easel leg; auto-dropped with a note if the bed has no room |
 | Front (Surface) | Ironed / Bed texture / Lines / Waves / Honeycomb | the visible face: classic ironing pass, the flipped print (bed texture = the face, no ironing) or a structured border band |
@@ -1679,9 +1679,13 @@ Feature PA (.85): SET_FEAT_PA FEATURE=<code> PA=<0..0.3> — pressure advance fo
 Shaper (.85): SET_FEAT_SHAPER_OFF FEATURE=<code> STATE=1|0 — input shaper OFF while that one
          feature prints (sharp corners on slow outer walls), frequencies restored when it
          ends and at PRINT_END/cancel (safety net _FEAT_TUNING_RESTORE). Needs [input_shaper]
-Fan curve (.85): SET_FAN_CLAMP ON=1|0 MIN=0..100 MAX=0..100 BRIDGE=0..100 — every M106 of the
+Fan curve (.85, .126): SET_FAN_CLAMP ON=1|0 MIN=0..100 MAX=0..100 BRIDGE=0..100 — every M106 of the
          file runs clamped between MIN/MAX percent (a file that wants 100 % gives 90 %), BRIDGE
-         lifts the fan while a bridge section prints (0 = off). LCD: Live Tuning > Temps & Fan > Clamp/FMin/FMax/FBrdg
+         lifts the fan while a bridge section prints (0 = off). .126: clamp changes apply
+         IMMEDIATELY (they used to wait for the file's next M106 — generated files send ONE per
+         print, nothing ever visibly changed) and the BRIDGE boost fires at the feature boundary
+         itself (files send M106 at the layer start, never at the bridge), restoring the file
+         value when the bridge ends. LCD: Live Tuning > Temps & Fan > Clamp/FMin/FMax/FBrdg
 Drive (.107): SET_EXTRUDER_DRIVE TYPE=DIRECT|BOWDEN — the retraction STARTING-POINT profile
          (direct 0.6mm @ 40mm/s + z-hop off / bowden 4.5mm @ 30mm/s). Only a starting point:
          length, speeds, unretract extra + z-hop stay freely editable in BOTH directions,
@@ -2235,7 +2239,7 @@ retraction reads the firmware values — what you see is what runs.
 | Material | LOAD NOW + all material values + Save as preset — editing a value of the ACTIVE material applies LIVE too |
 | Profiles | Material (Load/Save/Reset PLA/PETG/TPU + ABS/ASA) · Defaults (Save/Info/Load 1–8/Delete 1–8) · This file (Save pre/Load pre/Load post/Del pre/Del post — only existing slots appear) + Auto-load & Auto-save post toggles (.84) |
 | Temperatures | Bed L1/L2, Hotend L1/L2, Fan L2 (ON/OFF each) + File H:/File B: = the file's own values |
-| Velocity (.104) | retraction len/spd/unretract + File R: · **Drive: DIRECT/BOWDEN (swap)** (.107 — the retraction starting-point profile, every value stays free) · Accel + Vel + MCR + Corner (ON/OFF each; Accel/Vel are GLOBAL caps — travels included) · Z-Hop ON/OFF + height — global PA moved to PA per feat |
+| Velocity (.104) | retraction len/spd/unretract + File R: · **Drive: DIRECT/BOWDEN (swap)** (.107 — the retraction starting-point profile, every value stays free) · Accel + Vel + MCR + Corner (ON/OFF each; Accel/Vel are GLOBAL caps — travels included; the LIVE accel caps but never RAISES a slower file value, .126) · Z-Hop ON/OFF + height — global PA moved to PA per feat. **.126: retraction overrides apply IMMEDIATELY and at every print start** — generated files retract via G10/G11 and never send a SET_RETRACTION the old redirect could catch |
 | Features | 16 submenus: outer/inner wall, overhang wall, sparse/solid infill, top/bottom surface, bridge, internal bridge, gap fill, support, ironing (+flow), skirt, brim, prime tower, custom code — each shows the file's ORIGINAL (File:) + own ON switch + speed % (× global) + accel; only features the file really contains are editable — **a feature the file does not contain disappears from the menu entirely, an available-but-inactive one stays visible for live activation** (.83); switching OFF resets the stored values to the file original — never touches the global values · PA input per feature + ShpOff toggle at the top (.85) |
 | Spd/Acc/PA/Flw per feat (.104) | four quick lists with the globals merged in: 1st-layer speed % (0 = off, default 75) · global accel + ON · global PA + smooth + File PA · global flow + ON · Now: the active feature — the former top-level Speeds/Accels/Flow menus, one level deeper but with everything in ONE place each |
 | Bed Mesh | Level old files · Mesh ON/AUTO/OFF · Save after · Adaptive · Travel cap · Calibrate now · Load…/Delete… |

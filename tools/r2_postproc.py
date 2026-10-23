@@ -64,7 +64,7 @@ TAG = '; R2-POSTPROC v5'
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-10-22.125'
+POSTPROC_RELEASE = 'R2-2026-10-22.126'
 POSTPROC_BUILD = 'R166'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
@@ -8561,18 +8561,37 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
         total_layers = st_layers + stud_layers
 
     # ---- closure nubs (BACK only): 4 wall nubs snap over the backplate ----
-    # R127 (field report): the plate now sits INSIDE the photo shaft (0.3mm
-    # play per side) and the nubs click over its top edge with a light
-    # 0.2mm overlap - press the plate in, it dishes past the nubs and pops
-    # flat behind them (light snap, no sanding, no slide-in bites needed).
-    # nub band = the plate's top layer + one more (clamped into the groove).
-    nub_d, nub_l = 1.2, 8.0
+    # R167 (field log .125 - THE fit round, measured, not guessed):
+    # wall lines print with their CENTER on the contour, so
+    #   shaft light size  = photo size (pw)  - wid        (one line width)
+    #   plate outer size  = plate size (bw)  + wid        (half line/side)
+    # play per side = (pw - bw)/2 - wid.  The old 'bw = pw - 0.6' gave
+    # -0.35mm/side: the plate was OVERSIZE by 0.7mm total plus elephant
+    # foot - a press fit no force could close ('never a single one fit').
+    # New: 0.35mm play per side - the plate drops in, the nubs click.
+    _play167 = 0.35
+    # nub reach measured from the wall's LIGHT edge: play + 0.2mm overlap
+    # (the old nub reached 1.2mm past the CONTOUR - deeper into the shaft
+    # than the comment's '0.2mm overlap' by 6x - nothing could click past)
+    _nubr167 = _play167 + 0.2
+    nub_l = 8.0
     # BACK disc: the plate rests on the disc rim - the nubs move up with it
     _nub_off = disc_l if (disc != 'NONE' and disc_side == 'BACK') else 0
     nub_zn = (set(range(n_bb + _nub_off + bp_layers,
                         min(n_bb + _nub_off + bp_layers + 2,
                             n_bb + n_gr + _nub_off + 1)))
               if closure == 'BACK' else set())
+    # R167 ramp layers: the two groove layers BELOW the click band grow
+    # the nub outward at <=45 deg (nub reach x0.34 -> x0.67 -> full) -
+    # the nubs used to print as free-standing walls in the middle of the
+    # groove air ('a wall in mid-air 1mm from the bridges, it just falls
+    # in') - now they ramp out of the wall like a proper overhang.
+    _nub_ramp167 = set()
+    for _nz167 in nub_zn:
+        for _dz167 in (1, 2):
+            _rz167 = _nz167 - _dz167
+            if _rz167 > n_bb:
+                _nub_ramp167.add(_rz167)
 
     # SIDE closure: slot through the LEFT wall, open across the groove band
     # and the FULL wall length (photo + cover plate are ph+0.4 tall)
@@ -8621,16 +8640,16 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
     # 2mm plate rim - a 10x15 frame with border 10 still fits beside its plate
     gap = 3.0
     if closure == 'BACK':
-        # R127 (field report): the plate must pass through the photo shaft
-        # (photo opening pw x ph) - the old +2.4mm rim never fit and had to
-        # be sanded down by 1-2mm. Now 0.3mm play per side; 4 wall nubs
-        # click lightly over its top edge (see nub_zn below).
-        bw, bh = pw - 0.6, ph - 0.6
+        # R127 -> R167: the plate must pass through the photo shaft with
+        # the line-width math above (see the nub section): 0.35mm play
+        # per side, both closures share it (SIDE slides through a wall
+        # slot with the same light-size math, the plate ends up in the
+        # shaft anyway).
+        bw, bh = (pw - 2 * wid - 2 * _play167,
+                  ph - 2 * wid - 2 * _play167)
     else:
-        # SIDE: the cover plate slides through the wall slot - photo width,
-        # but R106 keeps it just UNDER the slot height so it clears the
-        # narrowed window with play
-        bw, bh = pw + 0.4, ph - 0.8
+        bw, bh = (pw - 2 * wid - 2 * _play167,
+                  ph - 2 * wid - 2 * _play167)
     sw, sh = (26.0, 62.0) if stand else (0.0, 0.0)
     bx0, by0, bx1, by1 = bed
     ux0, uy0 = bx0 + bed_margin, by0 + bed_margin
@@ -9105,20 +9124,29 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                 _emit_hatch(pen, [((p[0] + cx, p[1] + cy), (q[0] + cx, q[1] + cy))
                                   for (p, q) in hs], ew, 2700)
 
-            def emit_nubs(li):
-                # R127: four nubs (L/R/T/B wall centers) reaching 1.2mm into
-                # the photo opening - the plate snaps in under all of them
+            def emit_nubs(li, reach):
+                # R167: `reach` = how far the nub extends from the wall's
+                # LIGHT edge into the shaft (the ramp call sites grow it
+                # 0.34x / 0.67x / full over three layers = a <=45 deg
+                # overhang out of the wall - see _nub_ramp167)
                 ew = e_w(li)
+                _fuse167 = wid / 2.0        # into the wall, to fuse with it
                 for nx in (-pw / 2, pw / 2):
-                    x0 = nx - nub_d if nx > 0 else nx
-                    x1 = nx if nx > 0 else nx + nub_d
-                    _emit_loop(pen, _rect_loop(x0 + cx, cy - nub_l / 2,
-                                               x1 + cx, cy + nub_l / 2), ew, 1800)
+                    if nx > 0:
+                        _x0, _x1 = nx - _fuse167 - reach, nx + _fuse167
+                    else:
+                        _x0, _x1 = nx - _fuse167, nx + _fuse167 + reach
+                    _emit_loop(pen, _rect_loop(_x0 + cx, cy - nub_l / 2,
+                                               _x1 + cx, cy + nub_l / 2),
+                               ew, 1800)
                 for ny in (-ph / 2, ph / 2):
-                    y0 = ny - nub_d if ny > 0 else ny
-                    y1 = ny if ny > 0 else ny + nub_d
-                    _emit_loop(pen, _rect_loop(cx - nub_l / 2, y0 + cy,
-                                               cx + nub_l / 2, y1 + cy), ew, 1800)
+                    if ny > 0:
+                        _y0, _y1 = ny - _fuse167 - reach, ny + _fuse167
+                    else:
+                        _y0, _y1 = ny - _fuse167, ny + _fuse167 + reach
+                    _emit_loop(pen, _rect_loop(cx - nub_l / 2, _y0 + cy,
+                                               cx + nub_l / 2, _y1 + cy),
+                               ew, 1800)
 
             # ---- R90.1b: structured front (LINES / WAVES / HEX) -----------
             def _pt_in_rr(x, y, hw, hh, r):
@@ -9247,7 +9275,15 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                         emit_ring(eli, photo_c, notch=side_slot)
                         if eli in nub_zn:
                             a(';TYPE:Inner wall')
-                            emit_nubs(eli)
+                            emit_nubs(eli, _nubr167)
+                        elif eli in _nub_ramp167:
+                            # R167: grow the nub out of the wall at <=45 deg
+                            # (2 layers below the click band: 1/3 and 2/3 of
+                            # the full reach, then the band clicks)
+                            _rz167 = min(_nz - eli for _nz in nub_zn
+                                         if _nz > eli)
+                            a(';TYPE:Inner wall')
+                            emit_nubs(eli, _nubr167 * (1.0 - _rz167 / 3.0))
                     elif eli <= n_bb + n_gr + n_sh:
                         # shelf band = the photo's front stop. FLIP: the front
                         # band below already carries the full area - plain
@@ -9397,9 +9433,10 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                            % (nm, px, py, poly))
             if not files:
                 if closure == 'BACK':
-                    notes.append('assembly: photo flat onto the back, then the '
-                                 'backplate with its edge notches at the left/right '
-                                 'nubs - drop it in and slide 2.5mm to lock')
+                    notes.append('assembly: photo flat onto the back, then '
+                                 'the backplate - 0.35mm play per side, drop '
+                                 'it in and it clicks behind the four wall '
+                                 'nubs (no sliding, no notches)')
                 else:
                     notes.append('assembly: photo + cover plate slide together into '
                                  'the slot in the left wall')
@@ -9599,16 +9636,19 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                                         _y106 += wid
                             if closure == 'BACK' and eli in nub_zn and                                 edir in ('xm', 'xp'):
                                 # bayonet nub at the strip's inner END, lengthwise
-                                # center - mini bridge, same as the one-piece frame
+                                # center - mini bridge, same as the one-piece frame.
+                                # R167: reach = _nubr167 (wall-light play + 0.2
+                                # overlap) - the old 1.2mm cantilevered twice
+                                # as far as the click needs
                                 a(';TYPE:Inner wall')
                                 yc = (rect[1] + rect[3]) / 2.0
                                 if edir == 'xm':
-                                    _emit_loop(pen, _rect_loop(rect[0] - nub_d, yc - nub_l / 2,
+                                    _emit_loop(pen, _rect_loop(rect[0] - _nubr167, yc - nub_l / 2,
                                                                rect[0], yc + nub_l / 2),
                                                e_w(li), 1800)
                                 else:
                                     _emit_loop(pen, _rect_loop(rect[2], yc - nub_l / 2,
-                                                               rect[2] + nub_d, yc + nub_l / 2),
+                                                               rect[2] + _nubr167, yc + nub_l / 2),
                                                e_w(li), 1800)
                             if front == 'IRON' and ironing                                 and eli == frame_layers:
                                 a(';TYPE:Ironing')
@@ -10597,14 +10637,33 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                       'Internal solid infill')
             _tk128 = ('SURFACE-BOTTOM' if li == 1 else
                       'SURFACE-TOP' if li == total_layers else 'INFILL-SOLID')
+            _blks167 = _bcache128[k]
+            if k > 0 and _blks167:
+                # R167 (user request): every step region gets a WALL LOOP
+                # around it before the fill - the steps print with clean
+                # crisp edges instead of frayed hatch ends. Supported by
+                # the step below (its region is a superset, the wall's
+                # outer half-line still stands on it).
+                a(';TYPE:Outer wall')
+                a('APPLY_TYPE TYPE=WALL-OUTER')
+                for (r_a, r_b, rr) in _blks167:
+                    for (c_a, c_b) in rr:
+                        _emit_loop(pen, _rect_loop(
+                            px0 + c_a * wid, py0 + r_a * wid,
+                            px0 + (c_b + 1) * wid, py0 + (r_b + 1) * wid),
+                            e_wall, 900 if li == 1 else 1800)
             a(';TYPE:%s' % _ty128)
             a('APPLY_TYPE TYPE=%s' % _tk128)
-            for (r_a, r_b, rr) in _bcache128[k]:
+            # R167: with a wall around it the hatch insets by half a line
+            # so wall + fill interlock like in any slicer (k=0 = the base
+            # area keeps the full hatch - the outer frame wall borders it)
+            _in167 = wid * 0.5 if k > 0 else 0.0
+            for (r_a, r_b, rr) in _blks167:
                 for (c_a, c_b) in rr:
-                    segs = _hatch(px0 + c_a * wid,
-                                  py0 + r_a * wid,
-                                  px0 + (c_b + 1) * wid,
-                                  py0 + (r_b + 1) * wid,
+                    segs = _hatch(px0 + c_a * wid + _in167,
+                                  py0 + r_a * wid + _in167,
+                                  px0 + (c_b + 1) * wid - _in167,
+                                  py0 + (r_b + 1) * wid - _in167,
                                   None, wid, 45.0 if li % 2 else 135.0)
                     _emit_fill(pen, segs, e_wall, 1200 if li == 1 else 2400,
                                wid)
@@ -14426,6 +14485,20 @@ def _gen_normalize_speeds(path, print_f=3600, travel_f=10800,
     _px159 = _py159 = None   # previous position - the rate cap needs it
     with open(path, 'r', errors='replace') as fi, open(tmp, 'w') as fo:
         _stamp166 = True
+        # R167: M204 thrift mode. The old code wrote an M204 at EVERY
+        # print/travel transition - a litho hatches thousands of short
+        # blocks, each with a connector travel: thousands of M204s per
+        # file, ~7/s over the whole print. Every one of them runs the
+        # live-tuning interceptor (a full jinja render + a deepcopy of
+        # save_variables incl. the huge sd_tree) - on the Pi Zero that is
+        # permanent GC pressure and ended in 'Timer too close' (.125 field
+        # log, litho + frame died, slicer-file excerpts did not).
+        # New rule: print-accel switches are written IMMEDIATELY (quality),
+        # but the travel-accel M204 is only written once the travels have
+        # actually accumulated >= 2mm - a hop between neighbouring hatch
+        # lines simply runs on with print accel (harmless at these
+        # lengths) and no M204 is spent on it.
+        _tacc167 = 0.0
         for raw in fi:
             ln = raw[:-1] if raw.endswith('\n') else raw
             ls = ln.strip()
@@ -14485,10 +14558,32 @@ def _gen_normalize_speeds(path, print_f=3600, travel_f=10800,
             _me159 = _et159.search(ls)
             _is_print = bool(_me159 and float(_me159.group(1)) > 0)
             want = 'p' if _is_print else 't'
-            if want != _cls:
-                fo.write('M204 S%d   ; R2-GEN speed image\n'
-                         % (accel if _is_print else travel_accel))
-                _cls = want
+            # R167 thrift mode (see the comment at the loop head):
+            #   print switch  -> written immediately
+            #   travel switch -> pending ('p?') until the hops sum to 2mm
+            if want == 'p':
+                if _cls == 'p?':
+                    _cls = 'p'          # pending travel never committed -
+                    _tacc167 = 0.0      # print accel was active all along
+                elif _cls != 'p':
+                    fo.write('M204 S%d   ; R2-GEN speed image\n' % accel)
+                    _cls = 'p'
+                    _tacc167 = 0.0
+            elif _cls != 't':
+                if _cls != 'p?':
+                    _cls = 'p?'
+                    _tacc167 = 0.0
+                _mx167 = _xy159.search(ls)
+                _my167 = _yy159.search(ls)
+                if _mx167 and _my167 and _px159 is not None:
+                    _tacc167 += math.hypot(
+                        float(_mx167.group(1)) - _px159,
+                        float(_my167.group(1)) - _py159)
+                    if _tacc167 >= 2.0:
+                        fo.write('M204 S%d   ; R2-GEN speed image\n'
+                                 % travel_accel)
+                        _cls = 't'
+                        _tacc167 = 0.0
             _f159 = print_f if _is_print else travel_f
             # R159 rate cap: the 8-bit MCU serial budget (~400 sustained
             # moves/s) - a 0.05mm text stroke cannot run 60mm/s (would be
@@ -16561,6 +16656,7 @@ def watch(directory, interval=5.0, once=False):
     # on the LCD, once at boot.
     _pb166 = '%s (%s)' % (POSTPROC_RELEASE, POSTPROC_BUILD)
     _pb166_t = {'t': 0.0}
+    _idle_since167 = None          # R167: busy->idle grace timer
     try:
         _mcfg166 = open(os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
@@ -16588,6 +16684,23 @@ def watch(directory, interval=5.0, once=False):
         # preview, label fit, file fixes, fix_reselect bookkeeping) stay
         # live; file_fix blocks itself while printing anyway.
         busy = _printer_busy()
+        # R167: after a print ends (busy -> idle) the watcher waits 8s
+        # before its first scan/push. The .125 field log: litho + frame
+        # prints died with 'Timer too close' EXACTLY at PRINT_END - the
+        # end choreography (stats, presentation move) ran while the
+        # watcher woke up and pushed its giant sd_tree SAVE_VARIABLE
+        # through moonraker into klippy. Slicer-file excerpts (Range)
+        # never hit it - they end on files the watcher has nothing new
+        # to say about. The delay lets the choreography finish clean.
+        if busy:
+            _idle_since167 = None
+        elif _idle_since167 is None:
+            _idle_since167 = time.monotonic()
+        if not busy and _idle_since167 is not None \
+                and time.monotonic() - _idle_since167 < 8.0:
+            time.sleep(1.0)
+            stats['files'] = 0
+            continue
         if busy:
             _freeze133 = (
                 'label_gen_nonce', 'cable_tie_nonce', 'angle_nonce',
