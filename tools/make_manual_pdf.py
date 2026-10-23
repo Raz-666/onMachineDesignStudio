@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MANUAL.pdf — the illustrated user handbook (R2-2026-10-22.122).
+"""MANUAL.pdf — the illustrated user handbook (R2-2026-10-22.123).
 Mirrors MANUAL.md: daily workflow first, generators next, calibration ladder,
 reference tables. 21 vector diagrams (font specimens + range variants drawn
 from the REAL generator glyph data), full parameter tables."""
@@ -85,7 +85,7 @@ def d_state_machine():
 def d_start_stages():
     stages=[('Homing','cyan scanner','r2_stage_home'),('Bed heats','red chase','r2_stage_heat'),
             ('Bed mesh','magenta scanner','r2_stage_mesh'),('Hotend heats','red chase','r2_stage_heat'),
-            ('Temp ok','-','r2_hot'),('Purge/Prime','leveling','r2_prime'),('PRINT','blue wave','r2_printing')]
+            ('Temp ok','-','r2_hot'),('Purge/Prime','leveling','r2_prime'),('PRINT','steady blue','r2_printing')]
     d=Drawing(480,120); x=8
     for i,(n,led,snd) in enumerate(stages):
         w=57
@@ -476,7 +476,7 @@ class Doc(BaseDocTemplate):
         c.drawRightString(A4[0]-17*mm,A4[1]-10*mm,self.ch); c.restoreState()
     def footer(self,c,doc):
         c.saveState(); c.setFont('DVS',7.5); c.setFillColor(GRAY)
-        c.drawString(17*mm,9*mm,'R2-D2 Macro System · R2-2026-10-22.122 · user handbook')
+        c.drawString(17*mm,9*mm,'R2-D2 Macro System · R2-2026-10-22.123 · user handbook')
         c.drawRightString(A4[0]-17*mm,9*mm,f'Page {doc.page}')
         c.setStrokeColor(colors.HexColor('#c9d4e4')); c.setLineWidth(0.6); c.line(17*mm,12*mm,A4[0]-17*mm,12*mm)
         c.restoreState()
@@ -1251,7 +1251,7 @@ def d_wiring():
 # ---- cover ----
 E+= [Spacer(1,10*mm),Paragraph('R2-D2 Macro System',S['title']),Spacer(1,2*mm),
      Paragraph('The Complete User Handbook — illustrated edition',S['sub']),Spacer(1,3*mm),
-     Paragraph('Version R2-2026-10-22.122 · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail)',S['sub']),
+     Paragraph('Version R2-2026-10-22.123 · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail)',S['sub']),
      Spacer(1,6*mm),CENT(d_robot()),Spacer(1,6*mm),
      Paragraph('The USER HANDBOOK: from file to print in one read — every file type (by layer / by object / vase /<br/>'
                'legacy / movement data), the start dialog, pre-print settings, live tuning, pauses, object skip ·<br/>'
@@ -2241,13 +2241,18 @@ chapter('17','LED reference',
    ['idle','calm blue breathing','ready, heaters cold'],['boot','blue/white scanner','system start'],
    ['waiting','blue/white blink','start dialog waits for you'],['heating','red/orange chase','heaters ramping'],
    ['homing','fast cyan scanner','G28 running'],['leveling','magenta scanner eye','mesh/screws/offset'],
-   ['pid','blue/white blink','PID tuning'],['printing','moving blue wave + nozzle light','file running'],
+   ['pid','blue/white blink','PID tuning'],['printing','steady blue + nozzle light (static: LED frames share the serial bus with the moves)','file running'],
    ['paused','yellow breathing','any pause'],['filament','cyan/white chase','load/change/runout'],
    ['alarm','red/white strobe','errors, cold pull PULL NOW'],['finished','green/white twinkle','print done'],
   ],[30*mm,66*mm,68*mm]),
   P('Effects come from the klipper-led_effect extension; frame chain = [neopixel printer_leds] 1-4, nozzle light = LED 5. '
     'TOGGLE_LEDS switches the FRAME off/on (sounds keep playing). After a finished print the celebration runs for '
     'led_finish_time seconds (default 10) and returns to idle BY ITSELF — it used to twinkle forever.'),
+  P('All effects run at 12 fps (.123, R163): every animated frame is a neopixel transmission on the same '
+    'serial wire the moves travel, and a failed LED readback is resent. The printing state is a steady '
+    'STATIC blue - klipper only transmits CHANGED colors, so a static effect costs zero LED traffic while '
+    'printing (the .122 field log: a Timer-too-close shutdown with 75 of 100 queued serial messages being '
+    'LED data, 28503 failed LED readbacks in one day).'),
   H2('Nozzle LED — its own switch'),
   TBL(['Mode','Meaning'],[
    ['AUTO (default)','work light while printing / filament change (r2_nozzle_on)'],
@@ -2494,7 +2499,7 @@ chapter('24','Cheat sheet: LCD paths &amp; Mainsail commands',
    ['MCR','minimum cruise ratio','SCV','square corner velocity'],
   ],[30*mm,54*mm,26*mm,54*mm]),
   Spacer(1,12*mm),Paragraph('Built and tested for one purpose: printing happily — with R2-D2 keeping watch. Have fun!',S['end']),
-  Spacer(1,4*mm),Paragraph('R2-D2 Macro System · R2-2026-10-22.122',S['cap']))
+  Spacer(1,4*mm),Paragraph('R2-D2 Macro System · R2-2026-10-22.123',S['cap']))
 
 import json as _json
 _MIDX=_json.loads(r'''[["Sounds \u2014 02_sounds.cfg", [["M300", "P=100, S=1000", "single beep \u2014 wrapper; the real beep lives on as M99300"], ["PLAY_SOUND", "NAME='r2_click'", "play a tune by name (ch. 16)"], ["TOGGLE_SOUNDS", "\u2014", "sounds on/off (persisted: sound_on)"], ["TEST_SOUNDS", "\u2014", "play all 20 tunes in sequence"]]], ["LEDs \u2014 03_leds.cfg", [["SET_LED_STATE", "STATE='idle'", "switch the LED pattern (12 states, ch. 17) - applies the nozzle mode too"], ["NOZZLE_LED", "MODE, BRIGHT, R, G, B", "nozzle light: on/off/auto + live dimming + live color (ch. 17)"], ["TOGGLE_LEDS", "\u2014", "frame LEDs off/on (persisted: leds_on)"], ["TEST_LEDS", "\u2014", "LED test animation"], ["_NOZZLE_SET", "ON", "internal: writes LED 5 (color x brightness, capped 0.5)"]]], ["Notifications \u2014 04_notify.cfg", [["NOTIFY", "TEXT, LEVEL='info', LED, SOUND", "notification helper: text + sound + LED in one call"], ["SHOW_STATUS", "\u2014", "full status: mode, material, overrides, live values"]]], ["Materials \u2014 05_materials.cfg", [["SET_MATERIAL", "MATERIAL=&lt;current>, APPLY_PRESET=1", "select material; APPLY_PRESET=1 also loads its preset"], ["SAVE_MATERIAL_TEMPS", "MATERIAL=&lt;current>", "save current values as this material's preset"], ["SHOW_MATERIAL", "\u2014", "show the current material + its stored preset"]]], ["Temperatures & marks \u2014 06_temp_controls.cfg", [["M104", "S=-1, T", "hotend temp \u2014 interceptor, redirects by layer (real: M99104)"], ["M109", "S=-1, T", "like M104, but waits"], ["M140", "S=-1", "bed temp \u2014 interceptor (real: M99140)"], ["M190", "S=-1", "like M140, but waits"], ["M106", "S=255", "part fan \u2014 scaling + from-layer-2 rule"], ["M204", "P, S, T", "acceleration \u2014 interceptor (M99204): feature accel , else global overwrite ON \u2192 your accel, else file 1:1"], ["LAYER_MARK", "\u2014", "layer marker (inserted by the post-processor)"], ["M220", "S=100", "speed \u2014 interceptor (M99220): L1 cap + stores the clean global % as g_speed_clean "], ["PAUSE_NEXT_LAYER", "REASON='next layer'", "one-shot pause at the next layer boundary"], ["PAUSE_AT_LAYER", "LAYER=0", "one-shot pause at layer n (n greater than 1)"], ["SET_LIVE_HOTEND_TEMP", "T=-1", "change the hotend target live"], ["SET_LIVE_BED_TEMP", "T=-1", "change the bed target live"]]], ["Start dialog & overrides \u2014 07_start_confirm.cfg", [["PRINT_AS_SLICED", "\u2014", "start dialog: answer AS SLICED"], ["PRINT_WITH_OVERRIDES", "\u2014", "alias for AS LEGACY since then (merged mode)"], ["PRINT_AS_LEGACY", "\u2014", "start dialog: AS LEGACY"], ["CANCEL_PENDING_PRINT", "\u2014", "start dialog: cancel (nothing is hot yet)"], ["SET_OVERRIDE_VALUE", "NAME, VALUE", "set one override + switch it ON; feat_on=0 resets the values to the file original "], ["TOGGLE_OVERRIDE", "NAME=''", "flip one override switch"], ["CLEAR_OVERRIDES", "\u2014", "all switches OFF (values stay stored)"], ["TOGGLE_START_CONFIRMATION", "\u2014", "start dialog on/off (persisted: start_confirm)"]]], ["Print start & end \u2014 08_print_start_stop.cfg", [["PRINT_START", "BED, HOTEND_FIRST, HOTEND_AFTER, BED_AFTER, MATERIAL='PLA', LAYER_HEIGHT=0.2, TOTAL_LAYERS=0, OUTER_WALL_SPEED=0, SUPPORT_SPEED=0, IRONING_SPEED=0", "start choreography \u2014 called by the sliced file"], ["START_PRINT", "\u2014", "old macro name: marked = no-op / legacy = real legacy start (dialog or auto-prep,)"], ["PRINT_END", "\u2014", "end choreography: heaters/fans, stats, sound, LED -> idle, _PRINT_CLEANUP"]]], ["Pause & filament \u2014 09_pause_filament.cfg", [["PAUSE", "REASON='User'", "pause + park (mode-aware)"], ["QUICK_PAUSE", "\u2014", "alias for PAUSE"], ["RESUME", "\u2014", "the full resume sequence (ch. 6)"], ["CANCEL_PRINT", "\u2014", "1st press arms (expires 60 s, also while paused), 2nd press cancels + cleanup"], ["M600", "\u2014", "filament change (park, unload, wait for load)"], ["CHANGE_FILAMENT", "\u2014", "M600 for humans \u2014 works from idle too (heats)"], ["CHANGE_FILAMENT_RESUME", "\u2014", "internal continuation after the load"], ["PURGE_MORE", "\u2014", "purge 15 mm more (after change/resume)"], ["M0", "\u2014", "slicer pause \u2014 mapped to PAUSE"], ["M1", "\u2014", "slicer pause \u2014 mapped to PAUSE"], ["_PRINT_CLEANUP", "\u2014", "resets ALL per-print state (PRINT_END/CANCEL/watcher - settings + mesh stay)"]]], ["Live tuning \u2014 10_live_tuning.cfg", [["APPLY_TYPE", "TYPE=''", "feature switch : sets current_type + applies THIS feature\u2019s overrides (speed % × clean global, absolute accel, ironing flow)"], ["SET_OUTER_WALL_SPEED + 11 more per-feature macros", "\u2014", "per-feature setters : forward to feat_spd/feat_acc + ON \u2014 % on top of the CLEAN global"], ["SET_GLOBAL_SPEED", "PERCENT=100", "global speed % (M220 style, never capped); the running feature stays on top — re-applied immediately"], ["SET_GLOBAL_ACCEL", "ACCEL=4000", "global acceleration, mm/s\u00b2; a feature with its own accel keeps it"],
@@ -2782,6 +2787,13 @@ chapter('D','Appendix D: Version history',
   P("Only the milestones — the full reasoning lives in SESSION_STATE.md. The manual itself describes the CURRENT "
     "system; this table is just the record."),
   TBL(['Version','Core changes'],[
+      ('.123','MCU SHUTDOWN ROOT CAUSE FIXED - THE LED ANIMATION FLOODED THE SERIAL BUS (R163): a second '
+'Timer too close ten minutes into the .121 litho test print, with RAM fine and a sparse file. The '
+'shutdown send-queue dump held 100 messages - 75 of them LED frames; 28503 failed neopixel readbacks '
+'(each resent) in one day; the 24 fps printing gradient streamed LED data all print while the motion '
+'buffer held ~1.2s - a 0.2-0.9s GC pause pushed a move past its deadline. The printing state is a '
+'STATIC blue now (klipper only transmits changed colors = zero LED traffic while printing), all other '
+'effects run at 12 fps.'),
       ('.122','LITHOPHANE FLAT PRINTS PHOTOS + HOST-OVERLOAD HARDENING (R162): (1) FIELD FIX - the step-region hatch rects ran from the first to the last cell CENTER: single-row blocks (nearly all blocks of a photo) had a ZERO-height rect, the picture never printed (base + frame only); multi-row blocks filled 52%. Full cell extent now - the user\'s Bun2.jpg measures 100% of the level cell mass per step with correct terracing; the color picture generator had the same bug (4 hatch sites) - fixed together, guarded by a new photo-like fill-coverage audit (sketch-based tests could not see it). (2) FIELD FIX - \'File fix: blocked - a print is running\' while nothing printed: the one-shot busy check died on a lagging moonraker status 3s after the dialog release; the R2 mode is the authority now and a stale print_stats gets re-checked up to 10s. (3) the \'Timer too close\' chain: a busy-probe timeout read as not-busy (a litho built during the print) - the probe retries; generator builds wait below 60MB RAM free like they wait for the printer. Battery: render 1694/1694, audit 82/0, journeys 1856/0, stress 46639/0, megatest 157/0, goldens 23/23, systemtest 221/0.'),
       ('.121','LAYER-2 TAKEOVER MADE RELIABLE (R161, field report: bed/hotend/fan did not switch from layer 2): the boundary used to rewrite temps ONLY when a user override was armed - files without their own M104/M140 (generated, range excerpts) kept layer-1 values for the whole print; AS SLICED ignored your armed L2 override AND forced the material preset over the file\'s own M104/M140 from layer 2; M109/M190 carried the same rule. Unified semantics: LAYER 2 = your armed override > the file\'s value > the material preset (L1 rules ON), in BOTH start modes, marked (LAYER_MARK) and unmarked (Z tracker) files alike; interceptors consistent (AS SLICED: material L1 rule on layer 1, true 1:1 from layer 2 except your armed override - single \'YOUR L2 override\' log; AS LEGACY: layer-2 rewrite only when armed); every heater write idempotent (target diff > 0.5 C); the held layer-1 fan returns at the boundary + material fan scale re-applies. Manual ch. 8 rewritten to exactly this ladder. Battery: render 1691/1691 (+15 R161 matrix), journeys 1856/0, stress 46639/0, megatest 157/0, goldens 23/23, audit 77/0 + r143 68/0, systemtest 221/0, dialects 13/13, setup-sim 10/10, spell 0.'),
       ('.120','DISPLAY-NATIVE NAMES + DOUBLE-PRESS + REAL VALUES (R160): (1) generator outputs are Vnn_Name.gcode - the 00_ prefix is gone (3 more characters on the 15-char display), the version LEADS, one number per output folder, never reused; all three legacy formats keep counting. (2) EVERY Create row confirms by DOUBLE PRESS: arm (Again = start, 10 s window) -> start chirp (r2_gen), a waiting start dialog cancels itself quietly; console stays single-shot. (3) File info / Fixes SPLIT: information + feature ON/OFF in one menu (temps fall back to the material preset for generated files, PA to the printer global, retract shows the firmware values for G10/G11 files), every file-rewriting fix in its own self-explaining menu with > = run and * = edit markers. (4) generated files carry measured FS_/FA_ per feature + SLICER=R2_GEN + RETRACT_STATUS=fw in their _FILE_INFO - the Spd/Acc/activator rows show real numbers, not ?. (5) the file census walks the generator subfolders; temps on the preview card reset per selection (no stale previous-file values). (6) FIELD LOG .120: a texture/plot on a file from a SUBFOLDER died with one error beep (the source lost its folder path - the TX output auto-selects itself, so every follow-up texture hit it) - sources keep their relative path. (7) A start that died mid-flow (homing error) wedged the mode forever: generators silently requeued, LEDs kept blinking, UI sounds mute - the state watcher now heals stuck modes, PRINT_END cleans up BEFORE its moves (and only moves homed axes), _UI_SOUND gates on the real print state. (8) Every queued job chirps when it actually builds, says why it waits, and beeps on abort; range + texture builds moved into the job queue. (9) Name collisions get a letter tail (V05 taken -> V05b), the numbering counts letters; range names carry 10 source characters. Multi-plate outputs (frame/kit A, B, C...) carry the plate letter DIRECTLY behind the version - V01_A_Frame_..., V02_B_Frame_... - so the role survives the 15-character display cut.'),
@@ -2842,4 +2854,4 @@ chapter('D','Appendix D: Version history',
 
 doc=Doc(os.path.join(os.path.dirname(__file__),'..','MANUAL.pdf'))
 doc.build(E)
-print('MANUAL.pdf built (illustrated user handbook, .122)')
+print('MANUAL.pdf built (illustrated user handbook, .123)')

@@ -3839,7 +3839,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.100) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-22.122'", repr(_v66)))
+    _v66 == "'R2-2026-10-22.123'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -12720,6 +12720,16 @@ tests.append(('R162 generator job gates: busy-probe RETRY (a timeout must '
     'during the print) + builds wait below 60MB RAM',
     'for _try162 in (1, 2)' in _src160b and 'if _try162 == 2' in _src160b
     and '0 < _ram162 < 60' in _src160b, ''))
+
+tests.append(('R163 LED serial diet: the printing state is STATIC (klipper only '
+    'transmits changed colors - an animated 24 fps gradient flooded the serial '
+    'bus during prints; the .122 field log: Timer-too-close with 75/100 queued '
+    'messages being LED frames, 28503 failed readbacks resent) + every effect '
+    'at 12 fps',
+    (lambda _l: ('[led_effect r2_printing]' in _l
+                 and 'static 1 0 top' in _l.split('[led_effect r2_printing]')[1]
+                 and 'frame_rate: 24' not in _l))(
+        open('macros/03_leds.cfg', encoding='utf-8').read()), ''))
 
 tests.append(('R162 litho/colorpic step FILL: the hatch rects use the FULL '
     'cell extent - the old first-center-to-last-center rect was '

@@ -2407,7 +2407,7 @@ Volume lives inside the tune triples (0.05-0.5 duty). Edit/add tunes in
 | homing | fast cyan scanner | G28 running |
 | leveling | magenta scanner eye | mesh/screws/offset |
 | pid | blue/white blink | PID tuning |
-| printing | moving blue wave + nozzle light | file running |
+| printing | steady blue + nozzle light | file running (static on purpose — an animated effect here streams LED frames over the serial bus all print long; the .122 field log ended in a 'Timer too close' MCU shutdown with 75 of 100 queued serial messages being LED data) |
 | paused | yellow breathing | any pause |
 | filament | cyan/white chase | load/change/runout |
 | alarm | red/white strobe | errors, cold pull |
@@ -2418,6 +2418,12 @@ chain is [neopixel printer_leds] 1-4, the nozzle light is LED 5. TOGGLE_LEDS
 switches the FRAME off/on (sounds keep playing). After a finished print the
 green/white celebration runs for `led_finish_time` seconds (default 10) and then
 returns to idle breathing BY ITSELF — it used to twinkle forever.
+
+All effects run at 12 fps (.123, R163): the LEDs are decoration, the serial bus
+is not — every animated frame is a neopixel transmission on the same wire the
+moves travel, and a failed LED readback is resent. The printing state is a
+steady static blue (zero LED traffic while printing — klipper only transmits
+CHANGED colors).
 
 ### Nozzle LED — its own switch | work light while printing / filament change (r2_nozzle_on) |
 | ON | always on with YOUR color + brightness — tool light, stays available even with the frame LEDs OFF |
