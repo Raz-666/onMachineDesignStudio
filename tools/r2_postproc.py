@@ -57,6 +57,15 @@ import json
 import ast
 
 TAG = '; R2-POSTPROC v5'
+# R166: identity of THIS RUNNING PROCESS, not of the files on disk. Bump
+# both with every release that changes this file (version-bump checklist).
+# The watcher stamps them into save_variables (postproc_build) at boot and
+# into the header of every generated file, and screams when the macros on
+# disk are newer than itself - a daemon that silently survived an update
+# restart keeps generating with OLD code (field log .123: lithophane V2
+# 'still an empty plate' while the fix had shipped releases earlier).
+POSTPROC_RELEASE = 'R2-2026-10-22.125'
+POSTPROC_BUILD = 'R166'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
 # and no speed/accel/nozzle parameters. Files carrying an OLD tag are UPGRADED
@@ -14416,9 +14425,18 @@ def _gen_normalize_speeds(path, print_f=3600, travel_f=10800,
     _ps_done = False
     _px159 = _py159 = None   # previous position - the rate cap needs it
     with open(path, 'r', errors='replace') as fi, open(tmp, 'w') as fo:
+        _stamp166 = True
         for raw in fi:
             ln = raw[:-1] if raw.endswith('\n') else raw
             ls = ln.strip()
+            # R166: the FIRST line carries the running core's stamp - a
+            # generated file always says which build made it (stale-daemon
+            # forensics, see POSTPROC_BUILD). Idempotent on re-runs.
+            if _stamp166:
+                _stamp166 = False
+                if not ls.startswith('; R2-GEN core '):
+                    fo.write('; R2-GEN core %s (%s)\n'
+                             % (POSTPROC_RELEASE, POSTPROC_BUILD))
             if ls.startswith('_FILE_INFO') and not _fi_done:
                 ln = _re159.sub(r'(SPEED_[A-Z]+=)[\d.]+',
                                 r'\g<1>%g' % (print_f / 60.0), ln)
@@ -16536,6 +16554,31 @@ def watch(directory, interval=5.0, once=False):
     # R133b: the single generator worker (daemon - dies with the watcher)
     threading.Thread(target=_job_worker, daemon=True).start()
 
+    # R166: stale-daemon siren. If the macros on disk are NEWER than this
+    # running process, an update restart failed silently and every
+    # generator is still old code - the .123 field log (lithophane V2
+    # 'still an empty plate') was exactly that. Loud in the journal AND
+    # on the LCD, once at boot.
+    _pb166 = '%s (%s)' % (POSTPROC_RELEASE, POSTPROC_BUILD)
+    _pb166_t = {'t': 0.0}
+    try:
+        _mcfg166 = open(os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            '..', 'macros', '01_state.cfg'), encoding='utf-8').read()
+        _mv166 = re.search(r"variable_version:\s*'([^']+)'", _mcfg166)
+        if _mv166 and _mv166.group(1) != POSTPROC_RELEASE:
+            print('[r166] STALE DAEMON: macros are %s but this watcher '
+                  'process runs %s - the update restart FAILED, every '
+                  'generator uses OLD code! Fix: sudo systemctl restart '
+                  'r2-postproc' % (_mv166.group(1), POSTPROC_RELEASE),
+                  flush=True)
+            _moonraker_gcode(
+                'RESPOND MSG="R2 WARNING: stale post-processor - macros '
+                '%s, running core %s. Restart r2-postproc!"\n'
+                'M117 Stale postproc' % (_mv166.group(1), POSTPROC_RELEASE))
+    except Exception as e:                              # noqa: BLE001
+        print('[r166] version probe failed: %r' % e, flush=True)
+
     while True:
         stats['files'] = 0
         del NEW_PREVIEW[:]
@@ -16564,6 +16607,16 @@ def watch(directory, interval=5.0, once=False):
         # R61: layer-range excerpt request from the LCD (nonce changes on every request)
         try:
             rv = _read_vars(VAR_PATH)
+            # R166: publish which core is running (postproc_build). The
+            # update script queries it to PROVE the restart took effect;
+            # rate-limited to 10s so a down klippy cannot stall the loop
+            # (the push is retried on a later pass until it sticks).
+            if str(rv.get('postproc_build', '')) != _pb166 and \
+                    time.monotonic() - _pb166_t['t'] >= 10.0:
+                _pb166_t['t'] = time.monotonic()
+                _moonraker_gcode(
+                    'SAVE_VARIABLE VARIABLE=postproc_build VALUE="\\"%s\\""'
+                    % _pb166)
             # R133c: PRIME FROM THE FULL SET, ALWAYS. Priming with the
             # frozen subset (watcher restart while a print ran - update.sh,
             # a crash after an MCU shutdown) left every generator nonce
@@ -17337,6 +17390,7 @@ def watch(directory, interval=5.0, once=False):
                                   % (info_l['file'], src, _geo89,
                                      info_l['thickness'],
                                      ', %d levels' % info_l['levels'] if info_l['levels'] else ''))
+                        _msg89 += ' | core %s' % POSTPROC_BUILD
                         for _n89 in info_l.get('notes', [])[:2]:
                             _msg89 += ' | ' + _n89
                         _moonraker_gcode(

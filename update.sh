@@ -223,13 +223,68 @@ echo "[i] restarting r2-postproc..."
 # push = 'Internal error on command:SAVE_VARIABLE' = shutdown mid-print)
 # R133i: sudo FIRST - a root-cron / rc.local zombie runs as root and a
 # plain user pkill cannot touch it (falls through silently)
+UPD_TS="$(date +%s)"
 (sudo -n pkill -f 'r2_postproc.py' 2>/dev/null || pkill -f 'r2_postproc.py' 2>/dev/null) && sleep 1
 if sudo systemctl restart r2-postproc 2>/dev/null; then
     echo "[ok] r2-postproc restarted"
 else
     echo "[!] could not restart r2-postproc (sudo?) - run:"
     echo "        sudo systemctl restart r2-postproc"
-    echo "    check it is alive:   systemctl status r2-postproc --no-pager"
+fi
+# R166: PROVE the new daemon is the one running. The .123 field log
+# (lithophane V2 'still an empty plate') was a watcher that silently kept
+# OLD code: pkill or the restart can fail without any error output.
+sleep 3
+STALE=0; RUNNING=0
+if command -v pgrep >/dev/null 2>&1; then
+    for PID in $(pgrep -f 'r2_postproc.py' 2>/dev/null); do
+        [ -z "${PID}" ] && continue
+        RUNNING=1
+        ET="$(ps -o etimes= -p "${PID}" 2>/dev/null | tr -d ' ')"
+        case "${ET}" in ''|*[!0-9]*) continue ;; esac
+        if [ $(( $(date +%s) - ET )) -lt "${UPD_TS}" ]; then
+            STALE=1
+            echo "[!] r2-postproc PID ${PID} (user $(ps -o user= -p "${PID}" 2>/dev/null | tr -d ' '))"
+            echo "    started BEFORE this update unpacked - it still runs the OLD"
+            echo "    generator code. Kill it:  sudo kill ${PID} ; sudo systemctl restart r2-postproc"
+        fi
+    done
+fi
+if [ "${RUNNING}" -eq 0 ]; then
+    echo "[!] NO r2-postproc process is running - generators will not answer!"
+    echo "    start it:  sudo systemctl restart r2-postproc"
+elif [ "${STALE}" -eq 0 ]; then
+    echo "[ok] the running post-processor started with this update (new code)"
+fi
+# gold check once klippy is back up: the daemon publishes its build stamp
+# (postproc_build save_variable). Klippy needs 10-60 s after the restart
+# above, so this waits patiently - but ONLY while moonraker answers at
+# all (503 = klippy still booting); with no moonraker on the box it
+# gives up after two fast tries instead of sleeping.
+BUILT=""
+TRY=0
+while [ "${TRY}" -lt 18 ]; do
+    TRY=$((TRY + 1))
+    CODE="$(curl -s -m 5 -o /tmp/r2_build_check.json -w '%{http_code}' \
+        "${MOONRAKER}/printer/objects/query?save_variables" 2>/dev/null)"
+    if [ "${CODE}" = "200" ]; then
+        BUILT="$(sed -n 's/.*"postproc_build": *"\([^"]*\)".*/\1/p' \
+            /tmp/r2_build_check.json 2>/dev/null)"
+        break
+    fi
+    case "${CODE}" in
+        000) [ "${TRY}" -ge 2 ] && break ;;
+    esac
+    sleep 5
+done
+rm -f /tmp/r2_build_check.json 2>/dev/null
+if [ -n "${BUILT}" ]; then
+    if echo "${BUILT}" | grep -q "${V}"; then
+        echo "[ok] post-processor reports build '${BUILT}' (matches this release)"
+    else
+        echo "[!] post-processor reports build '${BUILT}' - expected ${V}."
+        echo "    A STALE daemon is generating - restart it: sudo systemctl restart r2-postproc"
+    fi
 fi
 
 # --- 7) hint: the environment wizard --------------------------------------------------

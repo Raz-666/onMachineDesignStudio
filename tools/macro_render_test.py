@@ -3839,7 +3839,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.100) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-22.124'", repr(_v66)))
+    _v66 == "'R2-2026-10-22.125'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -10348,13 +10348,20 @@ def _labpts119(path, li):
     return _pts, (float(_c.group(1)), float(_c.group(2))), _t
 
 _o119, _i119 = _pp61.make_labels(['WERKSTATT'], w=60, h=30, out_dir=_D119)
+# R166: the '; R2-GEN core ...' identity stamp (line 1 of every generated
+# file) is stripped before hashing - it changes with every release BY
+# DESIGN, the frozen md5 pins the geometry/speed-image bytes instead
+def _md5nostamp119(_p):
+    return _hl119.md5(b'\n'.join(
+        _l for _l in open(_p, 'rb').read().split(b'\n')
+        if not _l.startswith(b'; R2-GEN core '))).hexdigest()
 tests.append(('R119/R160 default path byte-identical across builds (frozen md5, R159 speed image + R160 file info)',
-    _hl119.md5(open(_o119, 'rb').read()).hexdigest() == _MD5_120, 'md5 changed'))
+    _md5nostamp119(_o119) == _MD5_120, 'md5 changed'))
 _o119, _i119 = _pp61.make_labels(['WERKSTATT'], w=60, h=30, out_dir=_D119,
                                  shape='RECT', corner=0.0, border_walls=0,
                                  border_gap=0.0, height=0.0)
 tests.append(('R119/R160 explicit defaults == implicit (no hidden coupling)',
-    _hl119.md5(open(_o119, 'rb').read()).hexdigest() == _MD5_120, 'md5 differs'))
+    _md5nostamp119(_o119) == _MD5_120, 'md5 differs'))
 
 # --- OVAL: walls/fill/ironing stay inside the ellipse, polygon IS the outline
 _o119, _i119 = _pp61.make_labels(['OVAL'], shape='OVAL', w=60, h=30, out_dir=_D119)
@@ -12744,17 +12751,21 @@ tests.append(('R165 doc-reality audit: tool exists + the duplicate-label UX '
 
 tests.append(('R164 serial-budget audit tool exists: worst move rate per '
     'file class vs the 450/s Timer-too-close budget at 100/125/150% live '
-    'speed + the static-LED diet guard (two field shutdowns .121/.122)',
-    'BUDGET = 450.0' in _r164src and 'static 1 0 top' in _r164src
+    'speed + the LED diet guard now allowing gentle motion (R163 static '
+    '-> R166 breathing, rate-guarded)',
+    'BUDGET = 450.0' in _r164src and 'pr_fr <= 5' in _r164src
     and 'worst_window_rate' in _r164src, ''))
 
-tests.append(('R163 LED serial diet: the printing state is STATIC (klipper only '
-    'transmits changed colors - an animated 24 fps gradient flooded the serial '
-    'bus during prints; the .122 field log: Timer-too-close with 75/100 queued '
-    'messages being LED frames, 28503 failed readbacks resent) + every effect '
-    'at 12 fps',
+tests.append(('R163/R166 LED serial diet: the printing state BREATHES '
+    'slowly at <= 5 fps (~5 msg/s = ~1% of the 450/s serial budget - the '
+    '.122 field log shutdown was the old 24 fps flood, 75/100 queued '
+    'messages LED frames; static was the .123 emergency fix, R166 brings '
+    'motion back INSIDE the budget) + every other effect at 12 fps',
     (lambda _l: ('[led_effect r2_printing]' in _l
-                 and 'static 1 0 top' in _l.split('[led_effect r2_printing]')[1]
+                 and 'breathing ' in _l.split('[led_effect r2_printing]')[1]
+                 and int(__import__('re').search(
+                     r'frame_rate:\s*(\d+)',
+                     _l.split('[led_effect r2_printing]')[1]).group(1)) <= 5
                  and 'frame_rate: 24' not in _l))(
         open('macros/03_leds.cfg', encoding='utf-8').read()), ''))
 

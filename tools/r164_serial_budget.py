@@ -212,13 +212,24 @@ runs += 1
 led = open(os.path.join(os.path.dirname(HERE), 'macros', '03_leds.cfg'),
            encoding='utf-8').read()
 printing_block = led.split('[led_effect r2_printing]')[1].split('[led_effect')[0]
-led_ok = ('static 1 0 top' in printing_block
-          and 'frame_rate: 24' not in led)
+m_fr = re.search(r'frame_rate:\s*(\d+)', printing_block)
+pr_fr = int(m_fr.group(1)) if m_fr else 999
+# R163: static = 0 msg/s (the .122 shutdown fix). R166: back to gentle
+# motion - a slow breathing at <= 5 fps costs 5 msg/s = ~1% of the 450
+# msg/s budget (a 3 s host stall queues 15 of 100 messages, not 72 like
+# the old 24 fps). Anything faster than 5 fps while printing is a
+# regression against the field log.
+layer_line = [l.strip() for l in printing_block.splitlines()
+              if l.strip().startswith(('static', 'breathing'))]
+led_ok = ('frame_rate: 24' not in led and pr_fr <= 5
+          and len(layer_line) == 1
+          and layer_line[0].startswith(('static', 'breathing ')))
 if not led_ok:
-    fails.append(('LED diet (R163)', ['r2_printing is not static or a '
-                                      'frame_rate above 12 is back']))
-print('%s %-46s zero LED frames while printing'
-      % ('OK  ' if led_ok else 'FAIL', 'LED diet (static printing, 12 fps)'))
+    fails.append(('LED diet (R163/R166)', ['r2_printing frame_rate %d '
+                                           '(max 5) or its layer is not '
+                                           'static/breathing' % pr_fr]))
+print('%s %-46s <=%d LED msg/s while printing'
+      % ('OK  ' if led_ok else 'FAIL', 'LED diet (printing animation)', pr_fr))
 
 print('==== R164 SERIAL BUDGET: %d files measured, %d FAIL, %d warn ===='
       % (runs, len(fails), warns))
