@@ -9040,11 +9040,12 @@ tests.append(('R106 MCR: echo rounds (0.95, never 0.9500000000000004)',
     [l for l in _outmcr.split('\n') if 'OK' in l][:1]))
 _lcd106 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 _n106 = _lcd106.count("enable: {printer['gcode_macro _STATE'].file_types|default('') == '' or '")
-tests.append(('R106/R123/R124/R168 menus: 216 feature items (80 + 32 PA + 96 '
+tests.append(('R106/R123/R124/R168/R174b menus: 200 feature items (80 + 32 PA + 96 '
               'spd/flw/acc quick entries + R168 Custom/Overhang/IntBridge/'
-              'PrimeTower on+fs) hide when the file lacks them; '
+              'PrimeTower on+fs) hide when the file lacks them; the 16 feature '
+              'ON-toggles stay clickable with a (parked) name (R174b) - '
               'available-but-off stay visible',
-    _n106 == 216, 'count %d' % _n106))
+    _n106 == 200, 'count %d' % _n106))
 tests.append(('R106 preset: picking a preset fills W/H as editable values',
     all(('VARIABLE=frame_w VALUE=%d' % w) in _lcd106
         and ('VARIABLE=frame_h VALUE=%d' % h) in _lcd106
@@ -12590,6 +12591,7 @@ _REMOVED135 = ['__main __preprint __tex __pat __man',  # R173: Mandelbrot retire
  '__main __preprint __file __su', '__main __preprint __file __tvf',
  '__main __preprint __file __tvsp', '__main __preprint __file __w']
 _ADDED135 = ['__main __live __acfe __cur', '__main __live __acfe __eff',
+ '__main __live __feat __inf',
  '__main __endq', '__main __endq __info', '__main __endq __yes',
  '__main __endq __no',
  '__main __optprint', '__main __optprint __info',
@@ -13807,11 +13809,11 @@ tests.append(('R168 litho Handle input (R170 numbering): 2 = separate file, '
 # the filled CUSTOM submenu: enable follows file_types, the quick value
 # shows the file speed - the .126 field report 'custom stands empty'
 _cu168 = _m168('__main __live __feat __cu __on')
-_en168 = _cu168.split('enable: ', 1)[1].split('\n')[0]
-tests.append(('R168 Custom Code submenu FILLED (field report .126): the '
-              'enable literal gates on file_types like every feature',
-    "'CUSTOM' in" in _en168 and "file_types" in _en168,
-    _en168[:90]))
+tests.append(('R168/R174b Custom Code submenu FILLED: the toggle is ALWAYS '
+              'clickable - (parked) in the name + the honest not-in-file answer',
+    'enable:' not in _cu168 and "' (parked)'" in _cu168
+    and 'CUSTOM not seen in this file yet' in _cu168,
+    _cu168[:90]))
 _kids168 = sorted(k for k in _menus168
                   if k.startswith('__main __live __feat __cu '))
 tests.append(('R168 Custom Code submenu: all 6 children (on/fs/spd/flw/'
@@ -13869,6 +13871,38 @@ tests.append(('R174 SD browser: the image pick refuses non-image and traversal p
     "or '..' in _irel174.split('/')" in _pp174
     and "_iext174 not in ('.png', '.jpg', '.jpeg')" in _pp174,
     'path check missing'))
+
+# ================== R174b (.130): features parked UX (field log 2) =================
+_lcd174b = open('menus/lcd_menues.cfg').read()
+import re as _re174b
+_feat_on_blocks = _re174b.findall(
+    r"\[menu __main __live __feat __\w+ __on\]\n(.*?)(?=\n\[menu )",
+    _lcd174b, _re174b.S)
+tests.append(('R174b feature toggles: ALL %d always clickable - no enable gate left'
+    % len(_feat_on_blocks),
+    len(_feat_on_blocks) == 17
+    and all('enable:' not in _b for _b in _feat_on_blocks),
+    str(len(_feat_on_blocks))))
+tests.append(('R174b feature toggles: the 16 file-type features carry the '
+    '(parked) name marker',
+    sum(1 for _b in _feat_on_blocks if "' (parked)'" in _b) == 16,
+    str(sum(1 for _b in _feat_on_blocks if "' (parked)'" in _b))))
+tests.append(('R174b feature toggles: every (parked) toggle answers with the '
+    'honest not-in-file line',
+    sum(1 for _b in _feat_on_blocks
+        if 'not seen in this file yet' in _b) >= 16,
+    str(sum(1 for _b in _feat_on_blocks
+            if 'not seen in this file yet' in _b))))
+tests.append(('R174b features menu: the In-file line shows what THIS file has '
+    '(one glance instead of guessing why ironing does nothing)',
+    '[menu __main __live __feat __inf]' in _lcd174b
+    and 'In file: ' in _lcd174b
+    and 'THIS file has:' in _lcd174b,
+    'In-file line missing'))
+tests.append(('R174b ironing flow editor also answers honestly (the .129 log '
+    'showed a bare Overwrite line with no context)',
+    'IRONING not seen in this file yet' in _lcd174b,
+    'ironing flow editor lacks the parked answer'))
 
 fails = 0
 for name, ok, info in tests:

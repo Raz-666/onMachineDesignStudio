@@ -19,6 +19,16 @@ schst im Baum und wartet auf diese Runde.
   `img_pick_nonce`), Root-Bilder verweisen auf Tools > Lithophane. Der
   Litho-Bunny (Bun2.jpg) liegt im Root und war nie verloren — der Litho-Scan
   sieht nur Root-Bilder, Unterordner-Bilder sah er nicht.
+- **Feature-Parked-UX (2. Feldlog, Ironing-Verwirrung):** Die Enable-Toggles
+  im Features-Menü waren für nicht-in-der-Datei-Features ausgegraut, die
+  Wert-Editoren daneben aber klickbar (und schalteten still ON) — „ich kann
+  Werte stellen, aber nichts passiert". Jetzt: Toggles IMMER klickbar, Name
+  zeigt **(parked)**, jede Aktion antwortet ehrlich („not seen in this file
+  yet - value stored, it applies when the file reaches it"), und die neue
+  Kopfzeile **In file: WO,SO,TP,BR** zeigt auf einen Blick, welche Features
+  DIESE Datei wirklich hat. CUSTOM-Häufung: Altdateien aus dem .129er
+  Postproc (vor dem R172-Typ-Fix) — Re-fix types (System > File check) heilt
+  sie, künftig generiert der Postproc korrekte Tags.
 
 ## R174 — User-Presets für ALLE Generatoren (außer Range)
 
