@@ -13225,6 +13225,9 @@ _ADDED135 = [
  '__main __live __spfe __gs',
  '__main __live __spfe __now',
  '__main __live __spfe __src',
+ '__main __live __temp __fnow',
+ '__main __live __temp __fon',
+ '__main __live __temp __fscale',
  '__main __live __zhop',
  '__main __live __zhop __lzh',
  '__main __live __zhop __lzhh',
@@ -14920,6 +14923,68 @@ tests.append(('R175 optimized copies: printing the same file + YES twice '
     ''))
 import shutil as _sh175
 _sh175.rmtree(_d175, ignore_errors=True)
+
+
+# ================== R175c (.130): fan logic - one dial, clear chain =========
+# the .129 field log: 'full power only with hold 100% + clamp off + fan
+# 150%' - three interacting knobs, no priority. Now: LIVE % (absolute,
+# beats everything incl. layer 1) > layer-1 hold > HOLD > SCALE > CLAMP.
+_body175c = get_body('macros/06_temp_controls.cfg', 'M106')
+state_vars.update({'mode': 'printing', 'layer': 3, 'ignore_overrides': False,
+                   'f_fan_scale': 1.2, 'f_fan_hold': 50,
+                   'f_fan_live': 80, 'f_fan_live_on': True})
+_out175c = render(_body175c, {'S': '128'})
+tests.append(('R175c M106 LIVE: your absolute % beats hold+scale+clamp '
+    '(S128 with LIVE 80% -> S204, no scale/hold answers)',
+    'M99106 S204' in _out175c and 'LIVE 80%' in _out175c
+    and '-> scale' not in _out175c and 'hold 50' not in _out175c,
+    _out175c.strip()[:120]))
+state_vars['layer'] = 1
+_out175c = render(_body175c, {'S': '128'})
+tests.append(('R175c M106 LIVE beats the layer-1 rule too (you turned the '
+    'dial on purpose)',
+    'M99106 S204' in _out175c, _out175c.strip()[:100]))
+state_vars.update({'f_fan_live_on': False, 'layer': 3})
+_out175c = render(_body175c, {'S': '255'})
+tests.append(('R175c M106 LIVE off: the chain hold > scale > clamp rules '
+    'again (file S255 -> hold 50% -> S128)',
+    'M99106 S128' in _out175c and 'hold 50%' in _out175c,
+    _out175c.strip()[:120]))
+state_vars.update({'f_fan_hold': 0})
+_out175c = render(_body175c, {'S': '100'})
+tests.append(('R175c M106 scale path intact: S100 x 1.2 -> S120',
+    'M99106 S120' in _out175c, _out175c.strip()[:100]))
+state_vars.update({'f_fan_scale': 1.0})
+
+_body175c = get_body('macros/10_live_tuning.cfg', 'SET_FAN_LIVE')
+_out175c = render(_body175c, {'PERCENT': '80'})
+tests.append(('R175c SET_FAN_LIVE 80: the absolute dial, applies at once',
+    'VARIABLE=f_fan_live VALUE=80.0' in _out175c
+    and 'VARIABLE=f_fan_live_on VALUE=True' in _out175c
+    and 'M99106 S204' in _out175c, _out175c.strip()[:140]))
+_out175c = render(_body175c, {'ON': '0'})
+tests.append(('R175c SET_FAN_LIVE OFF: the file gets control back',
+    'VARIABLE=f_fan_live_on VALUE=False' in _out175c
+    and 'file rules again' in _out175c, _out175c.strip()[:120]))
+
+_lcd175c = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+_fscale175c = _lcd175c.split('[menu __main __live __temp __fscale]')[1]
+_fscale175c = _fscale175c.split('[menu')[0]
+tests.append(('R175c LCD fan menu: absolute Fan dial (0..100 -> LIVE) + '
+    "ON/off row + 'How?' shows the math + Scale renamed (25..150% x file)",
+    "name: Fan: {'%3d' % menu.input}% (LIVE)" in _lcd175c
+    and 'SET_FAN_LIVE PERCENT={menu.input|round|int}' in _lcd175c
+    and 'SET_FAN_LIVE ON=' in _lcd175c
+    and '_FAN_CHAIN_NOW' in _lcd175c
+    and "name: Scale: {'%d' % menu.input}% file" in _lcd175c
+    and 'input_max: 150' in _fscale175c
+    and 'SET_FAN_SCALE PERCENT={(menu.input*100)|round}' not in _lcd175c,
+    ''))
+tests.append(('R175c _STATE carries the LIVE variables + the chain explainer '
+    'exists',
+    'variable_f_fan_live:' in open('macros/01_state.cfg').read()
+    and 'variable_f_fan_live_on:' in open('macros/01_state.cfg').read()
+    and get_body('macros/10_live_tuning.cfg', '_FAN_CHAIN_NOW') != '', ''))
 
 fails = 0
 for name, ok, info in tests:
