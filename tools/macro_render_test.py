@@ -3855,7 +3855,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.100) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-22.127'", repr(_v66)))
+    _v66 == "'R2-2026-10-22.128'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -5125,7 +5125,8 @@ tests.append(('R75 watcher: _prime_nonces adopts the current counters (no re-fir
         'segments_fix_nonce': None,
         'figures_nonce': None, 'plot_cal_nonce': None,
         'queue_cancel_nonce': None, 'gen_del_nonce': None,
-        'plot_nonce': None}, ''))
+        'plot_nonce': None,
+        'opt_nonce': None, 'opt_load_nonce': None}, ''))
 tests.append(('R75 watcher: daemon runs niced + primes on the first pass',
     'os.nice(4)' in open('tools/r2_postproc.py').read()
     and 'first_prime' in open('tools/r2_postproc.py').read(), ''))
@@ -6318,9 +6319,10 @@ tests.append(('R86 modules: 17_generator.cfg sentinel + _CHECK_INSTALL lists 17'
     '_V18_GEN' in open(_gen86).read()
     and "('17_generator.cfg',       ['_V18_GEN'])" in open('macros/01_state.cfg').read()
     and 'all 17 modules' not in open('macros/01_state.cfg').read(), ''))
-tests.append(('R86-R120 watcher: NONCE_KEYS has 30 channels incl. litho/seal/frame/colorpic '
-    '+ the three fix channels (.108: priming complete - no fix re-fire on restart)',
-    len(_pp.NONCE_KEYS) == 30 and 'flowcap_fix_nonce' in _pp.NONCE_KEYS
+tests.append(('R86-R169 watcher: NONCE_KEYS has 32 channels incl. litho/seal/frame/colorpic '
+    '+ the three fix channels (.108) + the two optimized-file channels (.128)',
+    len(_pp.NONCE_KEYS) == 32 and 'flowcap_fix_nonce' in _pp.NONCE_KEYS
+    and 'opt_nonce' in _pp.NONCE_KEYS and 'opt_load_nonce' in _pp.NONCE_KEYS
     and 'travelacc_fix_nonce' in _pp.NONCE_KEYS
     and 'segments_fix_nonce' in _pp.NONCE_KEYS
     and 'cable_tie_nonce' in _pp.NONCE_KEYS
@@ -6721,11 +6723,12 @@ tests.append(('R86.2 example cfg: EBB/U2C/relay/nozzle-LED templates present',
 import re as _re87
 _lcd87 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 _top87 = sorted(_re87.findall(r'^\[menu __main ([a-z_0-9]+)\]$', _lcd87, _re87.M))
-tests.append(('R87 LCD: 7 top-level R2 menus + the hidden stock overrides '
+tests.append(('R87/R169 LCD: 13 top-level R2 menus (+ R169 Rate print? + Optimized) '
+              '+ the hidden stock overrides '
               '(OctoPrint/Temperature/Setup R135 + the R151 SD Card browser)',
-    _top87 == ['__gen', '__live', '__macros', '__maint', '__octoprint',
-               '__preprint', '__sdcard', '__setup', '__start', '__system',
-               '__temp'],
+    _top87 == ['__endq', '__gen', '__live', '__macros', '__maint', '__octoprint',
+               '__optprint', '__preprint', '__sdcard', '__setup', '__start',
+               '__system', '__temp'],
     str(_top87)))
 tests.append(('R87 LCD: container Tools + all four trees re-parented, old roots gone',
     '[menu __main __gen]\ntype: list\nname: Tools' in _lcd87
@@ -9677,27 +9680,36 @@ tests.append(('R109 FILE_PROFILE_AUTO: flags set + NEWER profile (pre, ep 5>3) a
     and '_PROFILE_APPLY SRC=file WHICH=pre FILE="vase.gcode"' in _out109, _out109[:200]))
 save_vars['file_profiles']['vase.gcode']['post_ep'] = 9
 _out109 = render(_fpa109, {'FILE': 'vase.gcode'})
-tests.append(('R109 FILE_PROFILE_AUTO: post newer now -> post applied',
-    '_PROFILE_APPLY SRC=file WHICH=post FILE="vase.gcode"' in _out109, _out109[:120]))
+tests.append(('R169 FILE_PROFILE_AUTO: post is LEGACY - a newer post never auto-applies (pre does)',
+    '_PROFILE_APPLY SRC=file WHICH=pre FILE="vase.gcode"' in _out109
+    and 'WHICH=post' not in _out109, _out109[:120]))
 save_vars['file_profiles_on'] = False
 _out109 = render(_fpa109, {'FILE': 'vase.gcode'})
 tests.append(('R109 FILE_PROFILE_AUTO: auto-load OFF -> flags only, no apply',
     'VARIABLE=fp_pre VALUE=1' in _out109 and '_PROFILE_APPLY' not in _out109, _out109[:120]))
 save_vars['file_profiles_on'] = True
-_fas109 = get_body('macros/05_materials.cfg', '_FILE_PROFILE_AUTOSAVE')
-_out109 = render(_fas109, {})
-tests.append(('R109 _FILE_PROFILE_AUTOSAVE: PRINT_END chains the post save (test.gcode)',
-    '_PROFILE_SAVE WHICH=post FILE="test.gcode"' in _out109, _out109[:100]))
-save_vars['file_profiles_autosave'] = False
-_out109 = render(_fas109, {})
-tests.append(('R109 _FILE_PROFILE_AUTOSAVE: toggle off -> nothing',
-    '_PROFILE_SAVE' not in _out109, _out109[:80]))
-save_vars['file_profiles_autosave'] = True
+_oec169 = get_body('macros/08_print_start_stop.cfg', '_OPT_END_CAPTURE')
+_out109 = render(_oec169, {})
+tests.append(('R169 _OPT_END_CAPTURE: successful end stores the file + chains the snapshot',
+    'VARIABLE=opt_file VALUE=' in _out109 and 'test.gcode' in _out109
+    and '_OPT_SNAP_WRITE DEST=snap' in _out109, _out109[:120]))
+state_vars['opt_baseline'] = {'pa': 0.045}
+_out109 = render(_oec169, {}, ps_state='cancelled')
+tests.append(('R169 _OPT_END_CAPTURE: cancelled -> baseline restore, never a question',
+    '_OPT_RESTORE_BASELINE QUIET=1' in _out109 and '_OPT_SNAP_WRITE' not in _out109, _out109[:120]))
+_pr169 = get_body('macros/05_materials.cfg', '_OPT_PROMPT_RESOLVE')
+state_vars['opt_pending'] = True
+_out169 = render(_pr169, {'MODE': 'timeout'})
+tests.append(('R169 _OPT_PROMPT_RESOLVE: quiet resolve + timers cancelled',
+    'VARIABLE=opt_pending VALUE=False' in _out169
+    and '_OPT_RESTORE_BASELINE QUIET=1' in _out169
+    and 'UPDATE_DELAYED_GCODE NAME=_OPT_PROMPT_HINT DURATION=0' in _out169, _out169[:100]))
+state_vars.pop('opt_pending', None)
 _fpi109 = get_body('macros/05_materials.cfg', 'FILE_PROFILES_INFO')
 _out109 = render(_fpi109, {})
 tests.append(('R109 FILE_PROFILES_INFO: pre + post + newer verdict',
     'File profiles for vase.gcode' in _out109 and 'pre  : saved' in _out109
-    and 'post : saved' in _out109 and 'auto-load picks the NEWER one' in _out109, _out109[:200]))
+    and 'post : saved' in _out109 and 'auto-load applies YOUR' in _out109, _out109[:200]))
 _fpl109 = get_body('macros/05_materials.cfg', 'FILE_PROFILE_LOAD')
 _out109 = render(_fpl109, {'WHICH': 'post'})
 tests.append(('R109 FILE_PROFILE_LOAD post: chains the apply',
@@ -9716,9 +9728,10 @@ _out109 = render(get_body('macros/17_generator.cfg', 'CABLE_TIE_GENERATE'), {'OU
 tests.append(('R109 generators accept OUT= (per-run override, here: cable ties)',
     '_GEN_OUT_SET OUT=PREVIEW' in _out109, _out109[:80]))
 _ctg109 = open('macros/08_print_start_stop.cfg', encoding='utf-8').read()
-tests.append(('R109 PRINT_END writes the post profile (after the capture)',
-    '_CAPTURE_PRINT_SETTINGS' in _ctg109
-    and _ctg109.index('_CAPTURE_PRINT_SETTINGS') < _ctg109.index('_FILE_PROFILE_AUTOSAVE'), ''))
+tests.append(('R169 PRINT_END: _OPT_END_CAPTURE hooked, silent takeover RETIRED',
+    '_OPT_END_CAPTURE' in _ctg109
+    and '_CAPTURE_PRINT_SETTINGS' not in _ctg109
+    and '_FILE_PROFILE_AUTOSAVE' not in _ctg109, ''))
 _w109 = open('tools/r2_postproc.py', encoding='utf-8').read()
 tests.append(('R109 watcher: selection pushes FILE_PROFILE_AUTO + gen_out gates every generator',
     'FILE_PROFILE_AUTO FILE=' in _w109 and 'def _gen_out' in _w109
@@ -9735,7 +9748,7 @@ tests.append(('R109 LCD: Profiles menu with Material/Defaults/This-file submenus
     and 'FILE_PROFILE_DELETE WHICH=post' in _lcd109
     and "printer['gcode_macro _STATE'].fp_pre|default(False)" in _lcd109
     and 'SAVE_MATERIAL_TEMPS MATERIAL=PLA' in _lcd109
-    and 'Auto-load:' in _lcd109 and 'Auto-save post:' in _lcd109, ''))
+    and 'Auto-load:' in _lcd109 and 'Auto-save post:' not in _lcd109, ''))
 tests.append(('R109 LCD: Tools > After gen (queue/preview) + explanation',
     'After gen:' in _lcd109 and '_GEN_OUT_SET OUT={0 if cur == 1 else 1}' in _lcd109
     and 'What does that mean?' in _lcd109, ''))
@@ -9744,10 +9757,165 @@ tests.append(('R109 _STATE: fp flags declared + boot inits for the three switche
     'variable_fp_pre:' in _01109 and 'variable_fp_post:' in _01109
     and 'variable_fp_file:' in _01109
     and 'VARIABLE=gen_out VALUE=1' in _01109
-    and 'VARIABLE=file_profiles_on VALUE=True' in _01109
-    and 'VARIABLE=file_profiles_autosave VALUE=True' in _01109, ''))
+    and 'VARIABLE=file_profiles_on VALUE=True' in _01109, ''))
 del save_vars['file_profiles'], save_vars['fp_epoch'], save_vars['preview_file']
 del save_vars['pending_snap']
+
+# ============== R169: OPTIMIZED FILES - rate-print question + tuned library ==============
+_m05169 = open('macros/05_materials.cfg', encoding='utf-8').read()
+_m08169 = open('macros/08_print_start_stop.cfg', encoding='utf-8').read()
+tests.append(('R169 retirement: no auto-post, no silent capture anywhere',
+    '[gcode_macro _FILE_PROFILE_AUTOSAVE]' not in _m05169
+    and '[gcode_macro _CAPTURE_PRINT_SETTINGS]' not in _m08169
+    and '[gcode_macro _FILE_PROFILE_AUTOSAVE]' not in _m08169
+    and 'file_profiles_autosave' not in _m05169, ''))
+# --- snapshot builder ------------------------------------------------------
+_osw169 = get_body('macros/05_materials.cfg', '_OPT_SNAP_WRITE')
+save_vars.update({'ov_pa': 0.045, 'ov_pa_on': True, 'ov_flow': 100.0, 'ov_flow_on': False,
+                  'ov_accel': 0.0, 'ov_accel_on': False, 'material': 'PLA',
+                  'first_layer_speed': 30.0, 'ov_fan_min': 10.0, 'ov_fan_max': 100.0,
+                  'ov_fan_bridge': 0.0, 'ov_fan_clamp_on': False,
+                  'ovf_shaper_off_feat': '', 'ovf_shaper_off_on': False,
+                  'ov_retract_len': 0.0, 'ov_retract_len_on': False,
+                  'ov_retract_speed': 0.0, 'ov_retract_speed_on': False,
+                  'ov_unretract_speed': 0.0, 'ov_unretract_speed_on': False,
+                  'ov_bed': 0.0, 'ov_bed_on': False, 'ov_bed_after': 0.0, 'ov_bed_after_on': False,
+                  'ov_hotend_first': 0.0, 'ov_hotend_first_on': False,
+                  'ov_hotend_after': 0.0, 'ov_hotend_after_on': False,
+                  'ov_velocity': 0.0, 'ov_velocity_on': False,
+                  'ov_min_cruise': 0.0, 'ov_min_cruise_on': False,
+                  'ov_square_corner': 0.0, 'ov_square_corner_on': False,
+                  'ov_fan': 100.0, 'ov_fan_on': False,
+                  'ov_ironing_flow': 100.0, 'ov_ironing_flow_on': False})
+_out169 = render(_osw169, {'DEST': 'snap'})
+tests.append(('R169 _OPT_SNAP_WRITE DEST=snap: compact dict stored + chained ask',
+    'VARIABLE=opt_snap VALUE=' in _out169
+    and "'material':'PLA'" in _out169 and "'pa':0.05,'pa_on':True" in _out169
+    and "'overrides'" in _out169 and ' ' not in _out169.split('VALUE=', 1)[1].split('\n')[0].strip('"')
+    and '_OPT_END_ASK' in _out169, _out169[:130]))
+_out169b = render(_osw169, {'DEST': 'baseline'})
+tests.append(('R169 _OPT_SNAP_WRITE DEST=baseline: _STATE copy only',
+    'MACRO=_STATE VARIABLE=opt_baseline VALUE=' in _out169b
+    and 'SAVE_VARIABLE VARIABLE=opt_snap' not in _out169b and '_OPT_END_ASK' not in _out169b,
+    _out169b[:100]))
+# --- the question ----------------------------------------------------------
+_oa169 = get_body('macros/05_materials.cfg', '_OPT_END_ASK')
+state_vars['opt_baseline'] = {'material': 'PLA', 'pa': 0.045, 'pa_on': True}
+save_vars['opt_snap'] = {'material': 'PLA', 'pa': 0.06, 'pa_on': True}
+_out169 = render(_oa169, {})
+tests.append(('R169 _OPT_END_ASK: changed -> pending + hint + 90s timeout',
+    'VARIABLE=opt_pending VALUE=True' in _out169
+    and '_OPT_PROMPT_HINT DURATION=12' in _out169
+    and '_OPT_PROMPT_TIMEOUT DURATION=90' in _out169, _out169[:120]))
+save_vars['opt_snap'] = {'material': 'PLA', 'pa': 0.045, 'pa_on': True}
+_out169 = render(_oa169, {})
+tests.append(('R169 _OPT_END_ASK: identical -> NO question at all',
+    'opt_pending VALUE=True' not in _out169 and 'nothing live-tuned' in _out169, _out169[:100]))
+# --- the answers -----------------------------------------------------------
+_yes169 = get_body('macros/05_materials.cfg', '_OPT_PROMPT_YES')
+state_vars['opt_pending'] = True
+_out169 = render(_yes169, {})
+tests.append(('R169 _OPT_PROMPT_YES: pending cleared + timers cancelled + job chained',
+    'VARIABLE=opt_pending VALUE=False' in _out169 and '_OPT_QUEUE_JOB' in _out169
+    and 'UPDATE_DELAYED_GCODE NAME=_OPT_PROMPT_HINT DURATION=0' in _out169
+    and 'UPDATE_DELAYED_GCODE NAME=_OPT_PROMPT_TIMEOUT DURATION=0' in _out169, _out169[:100]))
+state_vars['opt_pending'] = False
+_out169 = render(_yes169, {})
+tests.append(('R169 _OPT_PROMPT_YES: nothing pending -> clear refusal',
+    'No rate-print question pending' in _out169 and '_OPT_QUEUE_JOB' not in _out169, _out169[:100]))
+_no169 = get_body('macros/05_materials.cfg', '_OPT_PROMPT_NO')
+state_vars['opt_pending'] = True
+_out169 = render(_no169, {})
+tests.append(('R169 _OPT_PROMPT_NO: pending cleared + timers cancelled + baseline restored',
+    'VARIABLE=opt_pending VALUE=False' in _out169 and '_OPT_RESTORE_BASELINE QUIET=0' in _out169
+    and 'UPDATE_DELAYED_GCODE NAME=_OPT_PROMPT_TIMEOUT DURATION=0' in _out169, _out169[:100]))
+_qj169 = get_body('macros/05_materials.cfg', '_OPT_QUEUE_JOB')
+save_vars.update({'opt_file': 'vase.gcode', 'opt_snap': {'material': 'PLA', 'pa': 0.06, 'pa_on': True, 'overrides': 2}, 'opt_nonce': 3})
+_out169 = render(_qj169, {})
+tests.append(('R169 _OPT_QUEUE_JOB: nonce bump + honest message',
+    'VARIABLE=opt_nonce VALUE=4' in _out169 and 'optimized copy of vase.gcode' in _out169
+    and '_SOUND_LIB NAME=r2_confirm' in _out169, _out169[:120]))
+# --- baseline restore ------------------------------------------------------
+_rb169 = get_body('macros/05_materials.cfg', '_OPT_RESTORE_BASELINE')
+state_vars['opt_baseline'] = {'pa': 0.03, 'pa_on': True, 'flow': 95.0, 'flow_on': False,
+    'accel': 3000.0, 'accel_on': True, 'first_layer_speed': 25.0, 'fan_min': 5.0,
+    'fan_max': 90.0, 'fan_bridge': 0.0, 'fan_clamp_on': True, 'shaper_off_feat': '',
+    'shaper_off_on': False, 'material': 'PETG',
+    'feats': {'wallouter': [True, 80.0, 1500.0, 100.0, 0.02]}}
+_out169 = render(_rb169, {'QUIET': '1'})
+tests.append(('R169 _OPT_RESTORE_BASELINE: every override + feat back, material UNTOUCHED',
+    'VARIABLE=ov_pa VALUE=0.03' in _out169 and 'VARIABLE=ov_pa_on VALUE=True' in _out169
+    and 'VARIABLE=ov_flow VALUE=95.0' in _out169 and 'VARIABLE=ov_accel VALUE=3000.0' in _out169
+    and 'VARIABLE=ovf_wallouter_on VALUE=True' in _out169
+    and 'VARIABLE=ovf_wallouter_spd VALUE=80.0' in _out169
+    and 'VARIABLE=ovf_wallouter_pa VALUE=0.02' in _out169
+    and 'VARIABLE=first_layer_speed VALUE=25.0' in _out169
+    and 'VARIABLE=ov_fan_min VALUE=5.0' in _out169
+    and 'VARIABLE=ov_fan_clamp_on VALUE=True' in _out169
+    and 'VARIABLE=material' not in _out169, _out169[:150]))
+# --- in-file replay + E2 ----------------------------------------------------
+_ob169 = get_body('macros/05_materials.cfg', '_OPT_BAKED')
+_out169 = render(_ob169, {'SNAP': "{'pa':0.045,'pa_on':True}"})
+tests.append(('R169 _OPT_BAKED: dict stored + chained apply (overrides active)',
+    'VARIABLE=opt_baked VALUE="{\'pa\':0.045,\'pa_on\':True}"' in _out169
+    and '_PROFILE_APPLY SRC=opt' in _out169, _out169[:120]))
+state_vars['ignore_overrides'] = True
+_out169 = render(_ob169, {'SNAP': "{'pa':0.045}"})
+tests.append(('R169 _OPT_BAKED: AS SLICED -> stored but NOT applied',
+    'VARIABLE=opt_baked VALUE=' in _out169 and '_PROFILE_APPLY' not in _out169
+    and 'AS SLICED' in _out169, _out169[:100]))
+state_vars['ignore_overrides'] = False
+_pa169 = get_body('macros/05_materials.cfg', '_PROFILE_APPLY')
+save_vars['opt_baked'] = dict(_pfsnap109, pa=0.055,
+                              feats={'wallouter': [True, 80.0, 1500.0, 100.0, 0.02]})
+_out169 = render(_pa169, {'SRC': 'opt'})
+tests.append(('R169 _PROFILE_APPLY SRC=opt: the baked dict applies like a profile',
+    '_OPT_PROMPT_RESOLVE MODE=timeout' in _out169 and 'VARIABLE=ov_pa VALUE=0.055' in _out169
+    and 'VARIABLE=ovf_wallouter_spd VALUE=80.0' in _out169, _out169[:120]))
+_ap169 = get_body('macros/05_materials.cfg', '_OPT_APPLY_PICKED')
+save_vars['opt_list'] = 'vase_opt.gcode|bun2_opt.gcode'
+save_vars['opt_load_nonce'] = 7
+_out169 = render(_ap169, {'IDX': '2'})
+tests.append(('R169 _OPT_APPLY_PICKED: name + nonce for the watcher',
+    'VARIABLE=opt_load_name VALUE=' in _out169 and 'bun2_opt.gcode' in _out169
+    and 'VARIABLE=opt_load_nonce VALUE=8' in _out169, _out169[:120]))
+_out169 = render(_ap169, {'IDX': '9'})
+tests.append(('R169 _OPT_APPLY_PICKED: out of range -> refusal, no job',
+    'No optimized file no. 9' in _out169 and 'VARIABLE=opt_load_nonce' not in _out169, _out169[:100]))
+_sl169 = get_body('macros/05_materials.cfg', '_OPT_SAVE_LATER')
+state_vars['mode'] = 'idle'
+_out169 = render(_sl169, {})
+tests.append(('R169 _OPT_SAVE_LATER: idle + snapshot -> job chained',
+    '_OPT_QUEUE_JOB' in _out169, _out169[:80]))
+state_vars['mode'] = 'printing'
+_out169 = render(_sl169, {})
+tests.append(('R169 _OPT_SAVE_LATER: while printing -> refusal',
+    'No print snapshot yet' in _out169 and '_OPT_QUEUE_JOB' not in _out169, _out169[:80]))
+# --- display + watcher wiring ------------------------------------------------
+_fi169 = get_body('macros/08_print_start_stop.cfg', '_FILE_INFO')
+_out169 = render(_fi169, {'OPT': '1', 'MATERIAL': 'PLA'})
+tests.append(('R169 _FILE_INFO: OPT=1 flags the copy on the display',
+    'VARIABLE=file_optimized VALUE=True' in _out169, _out169[:80]))
+_lcd169 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R169 LCD: Rate print? + Optimized + From optimized + OPTIMIZED row',
+    'menu __main __endq]' in _lcd169 and 'menu __main __optprint]' in _lcd169
+    and 'menu __main __preprint __profs __opt]' in _lcd169
+    and 'menu __main __preprint __file __opt]' in _lcd169
+    and '_OPT_PROMPT_YES' in _lcd169 and '_OPT_PROMPT_NO' in _lcd169
+    and '_OPT_APPLY_PICKED IDX=' in _lcd169 and '_OPT_SAVE_LATER' in _lcd169
+    and 'SDCARD_PRINT_FILE FILENAME="optimized/' in _lcd169
+    and 'file_optimized|default(False)' in _lcd169, ''))
+_w169 = open('tools/r2_postproc.py', encoding='utf-8').read()
+tests.append(('R169 watcher: copy job + E2 apply + list channel wired',
+    'def _optimize_copy' in _w169 and 'def _opt_compact' in _w169
+    and 'compressed sources are not supported' in _w169
+    and 'def _opt_snap_from_file' in _w169 and "'opt_nonce'" in _w169
+    and "'opt_load_nonce'" in _w169 and "_sv_line('opt_list'" in _w169, ''))
+state_vars.pop('opt_pending', None)
+state_vars.pop('opt_baseline', None)
+for _k169 in ('opt_snap', 'opt_baked', 'opt_list', 'opt_file', 'opt_nonce',
+              'opt_load_nonce', 'opt_load_name'):
+    save_vars.pop(_k169, None)
 
 # ============== R110: profiles + gen-out LIVE from the LCD (no console, no restart) ==============
 # every item of Pre-Print > Profiles and Tools > After gen must RENDER and do
@@ -9792,8 +9960,8 @@ tests.append(('R110 LCD: default + file deletes are TWO-PRESS (arm + confirm)',
     _raw110.count('DELETE_DEFAULT_PRESET N=') >= 8
     and _raw110.count('def_del_arm') >= 16 and _raw110.count('fp_del_arm') >= 4
     and 'AGAIN' in _raw110, ''))
-tests.append(('R110 LCD: the two auto-toggles are switchable at the display',
-    'VARIABLE=file_profiles_on' in _gcodes110 and 'VARIABLE=file_profiles_autosave' in _gcodes110,
+tests.append(('R110/R169 LCD: the auto-load toggle is switchable at the display',
+    'VARIABLE=file_profiles_on' in _gcodes110 and 'VARIABLE=file_profiles_autosave' not in _gcodes110,
     ''))
 tests.append(('R110 LCD: material save does NOT load the material first',
     'SAVE_MATERIAL_TEMPS MATERIAL=' in _raw110
@@ -11905,6 +12073,7 @@ _gold135 = [l for l in open('tools/r135_menu_golden.txt',
                             encoding='utf-8').read().split('\n') if l]
 _now135 = _re135.findall(r'^\[menu ([\w ]+)\]$', _lcd135, _re135.M)
 _REMOVED135 = ['__main __live __accels', '__main __live __accels __cur',
+ '__main __preprint __profs __autosave',   # R169: auto-post retired
  '__main __live __accels __eff', '__main __live __accels __ga',
  '__main __live __accels __now', '__main __live __accels __pct',
  '__main __live __speeds', '__main __live __speeds __cur',
@@ -11932,6 +12101,15 @@ _REMOVED135 = ['__main __live __accels', '__main __live __accels __cur',
  '__main __preprint __file __su', '__main __preprint __file __tvf',
  '__main __preprint __file __tvsp', '__main __preprint __file __w']
 _ADDED135 = ['__main __live __acfe __cur', '__main __live __acfe __eff',
+ '__main __endq', '__main __endq __info', '__main __endq __yes',
+ '__main __endq __no',
+ '__main __optprint', '__main __optprint __info',
+ '__main __optprint __pick', '__main __optprint __start',
+ '__main __optprint __vals',
+ '__main __preprint __profs __opt', '__main __preprint __profs __opt __hint',
+ '__main __preprint __profs __opt __pick',
+ '__main __preprint __profs __optsave',
+ '__main __preprint __file __opt',
  '__main __live __acfe __ga', '__main __live __acfe __now',
  '__main __live __acfe __pct', '__main __live __flfe __gfl',
  '__main __live __flfe __now', '__main __live __pafe __gpa',

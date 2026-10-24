@@ -328,15 +328,13 @@ values) plus everything you tuned LIVE during the print. Two slots per file:
 | Slot | Written | Read |
 |---|---|---|
 | **pre** | MANUALLY: Pre-Print > Profiles > This file > Save as pre | Load button — and at every file selection when Auto-load is ON |
-| **post** | AUTOMATICALLY at PRINT_END of a successful print (your live tuning at the end of the print = how it finished) | Load button — and at every file selection when Auto-load is ON |
+| **post** | (.128) LEGACY: entries written by versions before .128 — load or delete them manually, nothing is ever written here anymore (the automatic after-print takeover became the **Rate print?** question, §3.7a) | Load / Delete button |
 
 Rules of the game:
 
-- **Auto-load picks the NEWER one** (pre vs post, save counter decides) —
-  the file starts with the settings that matched it last.
-- The auto-save NEVER overwrites a manually saved **pre** slot —
-  your deliberate snapshot stays.
-- Cancelled prints write nothing (only a clean PRINT_END saves).
+- (.128) **Auto-load applies YOUR `pre`** when one exists — a legacy `post`
+  slot never auto-applies (it stays manually loadable).
+- Cancelled prints write nothing.
 - The key is the file path below the gcodes root, so `Petg/vase.gcode` and
   `vase.gcode` are two different files — exactly like the selection list.
 - Pre-Print settings beat material presets: applying a profile writes the
@@ -349,7 +347,8 @@ Rules of the game:
 |---|---|
 | Material | LOAD / SAVE / RESET for PLA, PETG, TPU (save writes the material values WITHOUT loading anything first) + LOAD/SAVE for ABS/ASA — the same presets as Pre-Print > Material |
 | Defaults | the 8 standalone default profiles: Save (current state) · Info (list all) · Load 1–8 · Delete 1–8 |
-| This file | Save as pre / Load pre / Load post / Delete pre / Delete post + Auto-load ON/OFF + Auto-save post ON/OFF — load/delete items appear only when that slot exists |
+| This file | Save as pre / Load pre / Load post / Delete pre / Delete post + Auto-load ON/OFF — load/delete items appear only when that slot exists |
+| From optimized | (.128) the tuned library in `gcodes/optimized/`: pick a number and click — its values become the Pre-Print **starting point** for the next print (nothing is written to any file). Plus **Save last print > optimized**: the second chance if the Rate print? question was missed (idle only) |
 
 `SAVE_MATERIAL_TEMPS`/`SAVE_DEFAULT_PRESET`/`SAVE_FILE_PROFILE` console
 commands do the same as their menu items; `FILE_PROFILES_INFO` lists what is
@@ -401,6 +400,48 @@ cooldown with the part fan, heaters off. The LED celebration runs for
 `led_finish_time` seconds and returns to idle by itself. `_PRINT_CLEANUP`
 resets all per-print state — the next print starts clean, with your pre-print
 settings, the selected material and the loaded mesh deliberately KEPT.
+
+If — and only if — the print was successful AND you tuned something live, the
+**Rate print?** question appears at the top of the menu (§3.7a).
+
+### 3.7a Rate print? — optimized copies (.128)
+
+Live tuning during a print used to be silently taken over into Pre-Print (and
+into an automatic `post` profile). Since .128 it is a decision:
+
+| Answer | What happens |
+|---|---|
+| **YES — optimized copy** | the tuning STAYS and the watcher writes an **optimized copy** (below). Confirm sound, `Optimized: saved` on the display. |
+| **NO — discard** | the exact **pre-print baseline** (snapshotted at the print start, memory only) is restored — every override, feature switch, clamp and material — the tuning is gone without a trace. |
+| **90 s of silence** | counts as NO. Starting the next print or selecting another file also resolves it immediately — an unanswered question never blocks anything and never leaks into the next print. |
+
+The **optimized copy** lands in `gcodes/optimized/` under the SAME file name —
+the original file is only ever **read** (byte-identical, provable by md5/diff).
+The copy carries your print's tuning:
+
+- Values the file can display are **baked in as absolutes**: flow and speed
+  percents (flow, per-feature speed, global M220 speed) are scaled into the
+  file's own values, PA / accel / first-layer speed / fan limits are written
+  directly. Pre-Print > File info shows the OPTIMIZED row instead of raw
+  slicer values.
+- Percent values are **neutralized in the replay** — reprinting the copy can
+  never apply them a second time. Absolute values stay in the replay too
+  (applying them twice is a no-op).
+- Everything without a display key (temps, retraction, per-feature flow/PA)
+  rides in the `_OPT_BAKED` replay line — the copy prints with exactly the
+  values the successful print ended with, even from a cold start.
+- The header notes source file + date (`; R2-OPT`) and what was baked.
+- Re-optimizing the same source overwrites its copy — the newest round wins.
+
+**Printing a copy:** the stock LCD file list shows the gcodes root ONLY
+(Klipper never lists subfolders there), so the top-level **Optimized** menu is
+the LCD way in: pick a number, **START** (the start dialog asks as always) or
+**Values > Pre-Print**. Mainsail/Fluidd show the folder natively. Selecting a
+copy marks it OPTIMIZED everywhere.
+
+**Taking values without printing:** Pre-Print > Profiles > **From optimized**
+(see §3.4a) — the second chance **Save last print > optimized** sits in the
+same menu.
 
 ### 3.8 Foreign G-code — other slicers, other firmware, other hardware
 
@@ -2270,7 +2311,7 @@ retraction reads the firmware values — what you see is what runs.
 |---|---|
 | Offset X/Y/Z (.104) | X / Y / Z ±0.1 mm + each a fine row ±0.05 mm (halved steps, realtime MOVE=1) — SET_GCODE_OFFSET, the first thing you reach | (type, material, layer height × layers, line widths, flow ratio, by-object, nozzle × wall loops, ALL speeds, accels, L1/L2 temps, PA, retraction) + **sliced by <slicer> for <firmware>** (volumetric files get a loud warning) — shown from the MOMENT you select the file; the per-feature values are MEASURED from the g-code — PLUS 16 activator rows (OW…BM + OH/IB/PT/CU): each shows the file's REAL speed + o:ON state (.107: ON also lists the non-neutral parameters — S speed, A accel, F flow, P PA); CLICK toggles that feature's override; features NOT in the file show 'n/a' and refuse · Flow line: MAXRATE + seam + *derived* marker (.85) · Cap (mm³/s) + Fix flow cap · TAcc + Fix travel accel (.85) |
 | Material | LOAD NOW + all material values + Save as preset — editing a value of the ACTIVE material applies LIVE too |
-| Profiles | Material (Load/Save/Reset PLA/PETG/TPU + ABS/ASA) · Defaults (Save/Info/Load 1–8/Delete 1–8) · This file (Save pre/Load pre/Load post/Del pre/Del post — only existing slots appear) + Auto-load & Auto-save post toggles (.84) |
+| Profiles | Material (Load/Save/Reset PLA/PETG/TPU + ABS/ASA) · Defaults (Save/Info/Load 1–8/Delete 1–8) · This file (Save pre/Load pre/Load post/Del pre/Del post — only existing slots appear) + Auto-load toggle (.84) · From optimized (pick a copy → values become the Pre-Print starting point, .128) |
 | Temperatures | Bed L1/L2, Hotend L1/L2, Fan L2 (ON/OFF each) + File H:/File B: = the file's own values |
 | Velocity (.104) | retraction len/spd/unretract + File R: · **Drive: DIRECT/BOWDEN (swap)** (.107 — the retraction starting-point profile, every value stays free) · Accel + Vel + MCR + Corner (ON/OFF each; Accel/Vel are GLOBAL caps — travels included; the LIVE accel caps but never RAISES a slower file value, .126) · Z-Hop ON/OFF + height — global PA moved to PA per feat. **.126: retraction overrides apply IMMEDIATELY and at every print start** — generated files retract via G10/G11 and never send a SET_RETRACTION the old redirect could catch |
 | Features | 16 submenus: outer/inner wall, overhang wall, sparse/solid infill, top/bottom surface, bridge, internal bridge, gap fill, support, ironing (+flow), skirt, brim, prime tower, custom code — each shows the file's ORIGINAL (File:) + own ON switch + speed % (× global) + accel; only features the file really contains are editable — **a feature the file does not contain disappears from the menu entirely, an available-but-inactive one stays visible for live activation** (.83); switching OFF resets the stored values to the file original — never touches the global values · PA input per feature + ShpOff toggle at the top (.85) |

@@ -64,7 +64,7 @@ TAG = '; R2-POSTPROC v5'
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-10-22.127'
+POSTPROC_RELEASE = 'R2-2026-10-22.128'
 POSTPROC_BUILD = 'R166'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
@@ -7283,7 +7283,9 @@ NONCE_KEYS = ('preview_nonce', 'range_nonce', 'label_gen_nonce', 'reso_nonce',
               # accel DONE burst at boot plus an endless not-found beep
               # loop for a deleted file. Same bug class as .99 and .133c.
               'flowcap_fix_nonce', 'travelacc_fix_nonce',
-              'segments_fix_nonce')
+              'segments_fix_nonce',
+              # R169: optimized-file channels (copy request + E2 value load)
+              'opt_nonce', 'opt_load_nonce')
 
 
 def _prime_nonces(rv):
@@ -14797,6 +14799,276 @@ def _patch_info_kv(path, key, value):
     return hit
 
 
+# =====================================================================================
+#  R169 OPTIMIZED FILES - non-invasive tuned copies in gcodes/optimized/
+#  (the rate-print question's YES path). Baking rules:
+#    - PERCENT overrides (flow, per-feature speed, global M220 speed) are
+#      written into the file as ABSOLUTE values (scaled) and NEUTRALIZED in
+#      the replay set - a reprint can never apply them twice.
+#    - ABSOLUTE values (PA, accel, fan limits, first-layer speed) are baked
+#      for the display AND kept in the replay set - idempotent by nature.
+#    - Values with no _FILE_INFO key (temps, retraction, per-feature flow/PA,
+#      velocity, square corner, ...) ride ONLY in the replay set.
+# =====================================================================================
+
+_OPT_FEATMAP169 = {
+    'wallouter': 'WALL_OUTER', 'wallinner': 'WALL_INNER',
+    'infillsparse': 'INFILL_SPARSE', 'infillsolid': 'INFILL_SOLID',
+    'surfacetop': 'SURFACE_TOP', 'surfacebottom': 'SURFACE_BOTTOM',
+    'bridge': 'BRIDGE', 'gaps': 'GAPS', 'support': 'SUPPORT',
+    'ironing': 'IRONING', 'skirt': 'SKIRT', 'brim': 'BRIM',
+    'overhangperim': 'OVERHANG_PERIM', 'internalbridge': 'INTERNAL_BRIDGE',
+    'primetower': 'PRIME_TOWER', 'custom': 'CUSTOM', 'travel': 'TRAVEL',
+}
+
+
+def _opt_compact(d):
+    """R169: compact dict repr that survives Klipper's parser chain
+    (shlex posix + literal_eval): NO spaces, no double quotes, no
+    semicolons/hashtags (commenters!), no backslashes (escapes). The same
+    rules the .97/.100 shutdown class taught us - only the safe character
+    set ever reaches a SAVE_VARIABLE."""
+    def esc(v):
+        if isinstance(v, bool):
+            return 'True' if v else 'False'
+        if isinstance(v, (int, float)):
+            return repr(v)
+        s = str(v)
+        for bad in ('"', '\\', ';', '#', "'"):
+            s = s.replace(bad, '')
+        return "'" + s + "'"
+
+    def rec(x):
+        if isinstance(x, dict):
+            return '{' + ','.join('%s:%s' % (esc(k), rec(v))
+                                  for k, v in x.items()) + '}'
+        if isinstance(x, (list, tuple)):
+            return '[' + ','.join(rec(v) for v in x) + ']'
+        return esc(x)
+    return rec(d)
+
+
+def _opt_parse_snap(v):
+    """R169: the opt_snap value from _read_vars is the dict's repr STRING
+    (top-level bools untouched inside it) - literal_eval it back."""
+    if isinstance(v, dict):
+        return dict(v)
+    try:
+        d = ast.literal_eval(str(v))
+        return dict(d) if isinstance(d, dict) else None
+    except (ValueError, SyntaxError):
+        return None
+
+
+def _opt_source_of(path):
+    """R169: read the source file name from a copy's '; R2-OPT' tag."""
+    try:
+        with open(path, 'r', errors='replace') as f:
+            head = f.read(8192)
+        m = re.search(r"; R2-OPT optimized copy - source: (.+?) - ", head)
+        return m.group(1) if m else ''
+    except OSError:
+        return ''
+
+
+def _opt_snap_from_file(path):
+    """R169: the _OPT_BAKED replay line of an optimized copy -> dict."""
+    try:
+        with open(path, 'r', errors='replace') as f:
+            head = f.read(262144)
+        for l in head.split('\n'):
+            ls = l.strip()
+            if ls.startswith('_OPT_BAKED'):
+                m = re.search(r'SNAP=(.+)$', ls)
+                if m:
+                    return _opt_parse_snap(m.group(1).strip().strip('"'))
+    except OSError:
+        pass
+    return None
+
+
+def _optimize_copy(directory, rel, snap):
+    """R169: write the non-invasive optimized copy. The SOURCE file is only
+    READ (md5-proof: never written to); the copy lands in
+    <directory>/optimized/<basename>. Returns (rel_dest, baked_list)."""
+    import copy as _copy169
+    rel = str(rel).strip().strip('/').replace('\\', '/')
+    for bad in (';', '"', "'", '#', '\\'):
+        rel = rel.replace(bad, '')
+    if not rel.lower().endswith(('.gcode', '.gco', '.g')):
+        rel = rel + '.gcode' if '.' not in os.path.basename(rel) else rel
+    src = os.path.join(directory, rel)
+    if not os.path.isfile(src):
+        raise ValueError('source not found: %s' % rel)
+    if rel.lower().endswith('.gz') or rel.lower().endswith('.zip'):
+        # a gzipped source cannot be parsed as text here and a text copy
+        # under a .gz name would be unreadable garbage - refuse loudly
+        # (the original stays untouched either way)
+        raise ValueError('compressed sources are not supported: %s' % rel)
+    snap = _opt_parse_snap(snap) or {}
+    app = _copy169.deepcopy(snap)
+    base = os.path.basename(rel)
+    odir = os.path.join(directory, 'optimized')
+    os.makedirs(odir, exist_ok=True)
+    dest = os.path.join(odir, base)
+    # same basename from a DIFFERENT source file -> prefix the subfolder
+    if os.path.isfile(dest):
+        prev = _opt_source_of(dest)
+        if prev and prev != rel:
+            pre = os.path.dirname(rel).replace('/', '_').strip('_')
+            if pre:
+                dest = os.path.join(odir, '%s_%s' % (pre, base))
+    # ---- pass 1: find + parse the source _FILE_INFO ----------------------------
+    with open(src, 'r', errors='replace') as f:
+        head = f.read(524288)
+    fi_line = ''
+    for l in head.split('\n'):
+        if l.strip().startswith('_FILE_INFO'):
+            fi_line = l.strip()
+            break
+    fi = {}
+    if fi_line:
+        for m in re.finditer(r'([A-Z][A-Z0-9_]+)=([\w.,+-]+)', fi_line):
+            fi[m.group(1)] = m.group(2)
+    new = dict(fi)
+
+    def _fnum(key, dflt=0.0):
+        try:
+            return float(new.get(key, dflt) or dflt)
+        except (TypeError, ValueError):
+            return dflt
+
+    baked = []
+    # ---- globals: absolute values bake + stay (idempotent) ----------------------
+    if snap.get('pa_on') and _fnum('PA') > 0 and float(snap.get('pa', 0) or 0) > 0:
+        new['PA'] = '%.4g' % float(snap['pa'])
+        baked.append('PA')
+    if snap.get('accel_on') and float(snap.get('accel', 0) or 0) > 0 \
+            and _fnum('ACCEL_DEFAULT') > 0:
+        new['ACCEL_DEFAULT'] = '%.6g' % float(snap['accel'])
+        baked.append('accel')
+    if float(snap.get('first_layer_speed', 0) or 0) > 0 and _fnum('SPEED_FIRST') > 0:
+        new['SPEED_FIRST'] = '%.6g' % float(snap['first_layer_speed'])
+        baked.append('L1 speed')
+    for sk, fk in (('fan_min', 'FAN_MIN'), ('fan_max', 'FAN_MAX')):
+        v = float(snap.get(sk, 0) or 0)
+        if v > 0 and _fnum(fk) > 0:
+            new[fk] = '%.6g' % v
+            baked.append(sk)
+    # ---- flow (percent): bake scaled, NEUTRALIZE in the replay set --------------
+    if snap.get('flow_on') and _fnum('FLOW_RATIO') > 0 \
+            and abs(float(snap.get('flow', 100) or 100) - 100) > 0.5:
+        new['FLOW_RATIO'] = '%.4g' % (_fnum('FLOW_RATIO')
+                                      * float(snap['flow']) / 100.0)
+        app['flow_on'] = False
+        app['flow'] = 100.0
+        baked.append('flow')
+    # ---- global speed percent (M220): scale every speed key, drop from replay ----
+    scale = None
+    try:
+        sp = float(snap.get('speed_pct', 0) or 0)
+    except (TypeError, ValueError):
+        sp = 0.0
+    if sp and abs(sp - 100) > 0.5:
+        scale = sp / 100.0
+        app.pop('speed_pct', None)
+        baked.append('speed %g%%' % sp)
+    if scale:
+        for k in list(new):
+            if k.startswith('SPEED_') or k.startswith('FS_'):
+                try:
+                    new[k] = '%.6g' % (float(new[k]) * scale)
+                except (TypeError, ValueError):
+                    pass
+    # ---- per feature -------------------------------------------------------------
+    feats = snap.get('feats') if isinstance(snap.get('feats'), dict) else {}
+    appfeats = app.get('feats') if isinstance(app.get('feats'), dict) else {}
+    for code, suf in _OPT_FEATMAP169.items():
+        fv = feats.get(code)
+        if not fv:
+            continue
+        try:
+            fv = list(fv)
+        except TypeError:
+            continue
+        while len(fv) < 5:
+            fv = fv + [False, 100.0, 0.0, 100.0, 0.0][len(fv):]
+        if not fv[0]:
+            continue
+        fsk, fak = 'FS_' + suf, 'FA_' + suf
+        try:
+            spdv = float(fv[1] or 100)
+            accv = float(fv[2] or 0)
+        except (TypeError, ValueError):
+            continue
+        if fsk in new and abs(spdv - 100) > 0.5:
+            try:
+                new[fsk] = '%.6g' % (float(new[fsk]) * spdv / 100.0)
+                if code in appfeats:
+                    af = list(appfeats[code])
+                    while len(af) < 5:
+                        af = af + [False, 100.0, 0.0, 100.0, 0.0][len(af):]
+                    af[1] = 100.0
+                    appfeats[code] = af
+                baked.append('%s spd' % code)
+            except (TypeError, ValueError):
+                pass
+        if fak in new and accv > 0:
+            new[fak] = '%.6g' % accv
+    new['OPT'] = '1'
+    # ---- rebuild the _FILE_INFO line (order + unknown tokens preserved) ---------
+    out_fi = fi_line
+    for k, v in new.items():
+        pat = re.compile(r'\b%s=[\w.,+-]+' % re.escape(k))
+        if pat.search(out_fi):
+            out_fi = pat.sub('%s=%s' % (k, v), out_fi, count=1)
+        else:
+            out_fi = out_fi + ' %s=%s' % (k, v)
+    # ---- pass 2: stream the copy ---------------------------------------------------
+    stamp = time.strftime('%Y-%m-%d')
+    tag1 = ('; R2-OPT optimized copy - source: %s - %s - R2 %s'
+            % (rel, stamp, POSTPROC_RELEASE))
+    tag2 = '; R2-OPT baked: %s' % (', '.join(baked) if baked
+                                   else 'replay-only (no display keys in source)')
+    bakedline = '_OPT_BAKED SNAP="%s"' % _opt_compact(app)
+    tmp = dest + '.optmp'
+    fi_done = False
+    ins_pending = (fi_line == '')
+    with open(src, 'r', errors='replace') as fh, open(tmp, 'w') as fo:
+        for raw in fh:
+            ls = raw.strip()
+            if fi_line and ls == fi_line and not fi_done:
+                fo.write(out_fi + '\n')
+                fo.write(tag1 + '\n')
+                fo.write(tag2 + '\n')
+                fo.write(bakedline + '\n')
+                fi_done = True
+            elif ls.startswith('; R2-OPT ') or ls.startswith('_OPT_BAKED '):
+                continue                        # idempotent: drop the old block
+            else:
+                if ins_pending and ls and not ls.startswith(';') \
+                        and not ls.startswith('#'):
+                    # foreign file without _FILE_INFO: minimal one right here
+                    fo.write('_FILE_INFO OPT=1 %s\n' % ' '.join(
+                        '%s=%s' % kv for kv in new.items() if kv[0] != 'OPT'))
+                    fo.write(tag1 + '\n')
+                    fo.write(tag2 + '\n')
+                    fo.write(bakedline + '\n')
+                    ins_pending = False
+                    fi_done = True
+                fo.write(raw)
+        if not fi_done and ins_pending:
+            # file of pure comments / empty - append the block at the end
+            fo.write('_FILE_INFO OPT=1 %s\n' % ' '.join(
+                '%s=%s' % kv for kv in new.items() if kv[0] != 'OPT'))
+            fo.write(tag1 + '\n')
+            fo.write(tag2 + '\n')
+            fo.write(bakedline + '\n')
+    os.replace(tmp, dest)
+    nvals = len([k for k in snap if k not in ('overrides', 'feats', 'speed_pct')])
+    return os.path.relpath(dest, directory), baked, nvals
+
+
 _XY_G1_RE = re.compile(r'^G1 X(?P<X>[-\d.]+) Y(?P<Y>[-\d.]+)'
                        r'(?: E(?P<E>[-\d.]+))?(?:\s+F(?P<F>\d+))?')
 _XY_RE = re.compile(r'(?:^|\s)X([-\d.]+)')
@@ -17489,7 +17761,10 @@ def watch(directory, interval=5.0, once=False):
                 # missing entirely. No parentheses in here on purpose:
                 # the r143 audit greps this tuple with a regex that stops
                 # at the first closing bracket.
-                'range_nonce')
+                'range_nonce',
+                # R169: optimized-copy jobs wait for idle too (disk I/O
+                # during a print is the .125 shutdown lesson)
+                'opt_nonce', 'opt_load_nonce')
         # R61: layer-range excerpt request from the LCD (nonce changes on every request)
         try:
             rv = _read_vars(VAR_PATH)
@@ -17553,6 +17828,10 @@ def watch(directory, interval=5.0, once=False):
                 last_texture_nonce = _np.get('texture_nonce')   # R91
                 last_file_check_nonce = _np.get('file_check_nonce')  # R93
                 last_litho_del_nonce = _np.get('litho_del_nonce')
+                last_opt_nonce = _np.get('opt_nonce')              # R169
+                last_opt_load_nonce = _np.get('opt_load_nonce')    # R169
+                last_opt_list_pushed = None                         # R169 (no nonce)
+                last_opt_list_try = 0.0
                 first_prime = False
             if busy:
                 # generator nonces stay at their last value -> the jobs run
@@ -17590,6 +17869,99 @@ def watch(directory, interval=5.0, once=False):
                                   f'({pe.__class__.__name__}) - the LCD shows them from the print start instead', flush=True)
                     except Exception as e:              # noqa: BLE001
                         print(f'[preview] {pfn}: {e!r}', flush=True)
+
+            # ---- R169: optimized copy request (the rate-print YES answer) --------
+            try:
+                _on169 = rv.get('opt_nonce', '')
+                if _on169 and _on169 != last_opt_nonce:
+                    last_opt_nonce = _on169
+                    _of169 = str(rv.get('opt_file', '')).strip().strip('\'"')
+                    _osnap169 = rv.get('opt_snap', 0)
+
+                    def _job169(_rel169=_of169, _snap169=_osnap169):
+                        try:
+                            _dest169, _baked169, _nv169 = _optimize_copy(
+                                directory, _rel169, _snap169)
+                            _msg169 = ('[opt] optimized copy saved: %s '
+                                       '(%d values, baked: %s)'
+                                       % (_dest169, _nv169,
+                                          ', '.join(_baked169) or '-'))
+                            print(_msg169, flush=True)
+                            try:
+                                _moonraker_gcode(
+                                    'RESPOND MSG="%s"\nM117 Optimized: saved'
+                                    % _msg169.replace('"', ''))
+                            except Exception:                   # noqa: BLE001
+                                pass
+                        except Exception as _e169:             # noqa: BLE001
+                            print('[opt] copy FAILED: %r' % _e169, flush=True)
+                            try:
+                                _moonraker_gcode(
+                                    'RESPOND MSG="[opt] optimized copy '
+                                    'FAILED: %s"'
+                                    % str(_e169).replace('"', '')
+                                                 .replace(';', '')[:120])
+                            except Exception:                   # noqa: BLE001
+                                pass
+                    import threading
+                    threading.Thread(target=_job169, daemon=True).start()
+            except Exception as _e169o:                          # noqa: BLE001
+                print('[opt] dispatch error: %r' % _e169o, flush=True)
+
+            # ---- R169 (E2): load an optimized file's values into Pre-Print -------
+            try:
+                _oln169 = rv.get('opt_load_nonce', '')
+                if _oln169 and _oln169 != last_opt_load_nonce:
+                    last_opt_load_nonce = _oln169
+                    _nm169 = os.path.basename(
+                        str(rv.get('opt_load_name', '')).strip().strip('\'"'))
+                    _nm169 = re.sub(r'[^\w.,()+ -]', '', _nm169)
+                    _p169 = os.path.join(directory, 'optimized', _nm169)
+                    if _nm169 and os.path.isfile(_p169):
+                        _d169 = _opt_snap_from_file(_p169)
+                        if _d169:
+                            _moonraker_gcode(
+                                'SAVE_VARIABLE VARIABLE=opt_baked '
+                                'VALUE="%s"\n_PROFILE_APPLY SRC=opt\n'
+                                'RESPOND MSG="[opt] values of %s applied to '
+                                'Pre-Print"'
+                                % (_opt_compact(_d169), _nm169))
+                            print('[opt] E2: %s values applied' % _nm169,
+                                  flush=True)
+                        else:
+                            _moonraker_gcode(
+                                'RESPOND MSG="[opt] no replay block found '
+                                'in %s"' % _nm169)
+                    else:
+                        _moonraker_gcode(
+                            'RESPOND MSG="[opt] optimized file not found: %s"'
+                            % _nm169)
+            except Exception as _e169l:                          # noqa: BLE001
+                print('[opt] E2 dispatch error: %r' % _e169l, flush=True)
+
+            # ---- R169: keep the optimized file list fresh in save_variables -------
+            if not busy:
+                try:
+                    _odir169 = os.path.join(directory, 'optimized')
+                    _lst169 = []
+                    if os.path.isdir(_odir169):
+                        _lst169 = sorted(
+                            f for f in os.listdir(_odir169)
+                            if f.lower().endswith(('.gcode', '.gco', '.g'))
+                            and not f.startswith('.')
+                            and os.path.isfile(os.path.join(_odir169, f)))
+                    _joined169 = '|'.join(_lst169)
+                    if _joined169 != last_opt_list_pushed \
+                            and time.monotonic() - last_opt_list_try > 15:
+                        last_opt_list_try = time.monotonic()
+                        if _moonraker_gcode(_sv_line('opt_list', _joined169)):
+                            last_opt_list_pushed = _joined169
+                            if _lst169:
+                                print('[opt] list pushed: %d files'
+                                      % len(_lst169), flush=True)
+                except Exception as _e169i:                      # noqa: BLE001
+                    print('[opt] list refresh error: %r' % _e169i, flush=True)
+
             nonce = rv.get('range_nonce', '')
             if nonce and nonce != last_nonce:
                 last_nonce = nonce
