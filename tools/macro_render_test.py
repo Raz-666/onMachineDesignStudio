@@ -4048,6 +4048,7 @@ for _f69 in sorted(_glob65.glob('macros/*.cfg') + _glob65.glob('menus/*.cfg')):
             continue
         _v69 = _l69.split('VALUE=', 1)[1]
         if not (_v69[:2] == '"' + BKSL or _v69[:2] == '"{' or _v69[:2] == '"['
+                or _v69[:2] == '"' + "'"
                 or _v69[:1] == "'" or _v69[:1] in '-+.0123456789{['
                 or _v69.startswith('True') or _v69.startswith('False')):
             # R79: '[' = list literal (VALUE=[]) - safe, Klipper passes the object
@@ -9051,7 +9052,7 @@ tests.append(('R106 preset: picking a preset fills W/H as editable values',
         and ('VARIABLE=frame_h VALUE=%d' % h) in _lcd106
         for w, h in ((90, 130), (102, 152), (130, 180), (105, 148))), ''))
 
-# ============== R106 (f)+(g): frame user presets + wall loops ==============
+# ============== R106/R174c: frame user presets (engine, unlimited) =================
 save_vars.update({'frame_preset': '9x13', 'frame_w': 90.0, 'frame_h': 130.0,
                   'frame_depth': 8.0, 'frame_border': 12.0, 'frame_corner': 6.0,
                   'frame_shape': 'RECT', 'frame_closure': 'BACK',
@@ -9064,55 +9065,68 @@ save_vars.update({'frame_preset': '9x13', 'frame_w': 90.0, 'frame_h': 130.0,
                   'frame_s_angle': 45.0, 'frame_s_amp': 1.2,
                   'frame_s_size': 8.0, 'frame_s_dir': 'OUT',
                   'frame_walls': 3, 'frame_nonce': 3})
-_fs106f = get_body('macros/17_generator.cfg', 'FRAME_SAVE_PRESET')
-_outf = render(_fs106f, {})
-tests.append(('R106 frame preset: SAVE fills slot 1 with the FULL config (26 keys, naked dict)',
-    'SAVE_VARIABLE VARIABLE=frame_user_preset_1 VALUE="' in _outf
-    and "'walls': 3" in _outf and "'s_dir': 'OUT'" in _outf
-    and "'front': 'IRON'" in _outf and "'cable': False" in _outf,
-    _outf.split(chr(10))[1][:110] if len(_outf.split(chr(10))) > 1 else _outf[:110]))
-# slot 1 full -> save goes to slot 2
-save_vars.update({'frame_user_preset_1':
-                  {'preset': 'A6', 'w': 105.0, 'h': 148.0, 'depth': 10.0,
-                   'border': 8.0, 'corner': 6.0, 'walls': 2, 'shape': 'OVAL',
-                   'closure': 'BACK', 'hang': 'OFF', 'stand': True,
-                   'ironing': False, 'infill': 40.0, 'top_l': 4, 'bot_l': 3,
-                   'front': 'FLIP', 'cable': True, 'disc': 'LITHO',
-                   'disc_t': 3.0, 'disc_side': 'BACK', 's_deep': 1.0,
-                   's_space': 5.0, 's_angle': 30.0, 's_amp': 1.5,
-                   's_size': 6.0, 's_dir': 'IN'}})
-_outf2 = render(_fs106f, {})
-tests.append(('R106 frame preset: SAVE skips the full slot -> slot 2',
-    'frame_user_preset_2 VALUE="' in _outf2
-    and 'frame_user_preset_1 VALUE="' not in _outf2, ''))
-_fl106f = get_body('macros/17_generator.cfg', 'FRAME_LOAD_PRESET')
-_outl = render(_fl106f, {'N': '1'})
-tests.append(('R106 frame preset: LOAD writes all 26 vars incl. walls + escaped strings',
-    _outl.count('SAVE_VARIABLE') >= 26
-    and 'VARIABLE=frame_walls VALUE=2' in _outl
-    and 'VARIABLE=frame_front VALUE=' + chr(34) + chr(92) + chr(34)
-        + 'FLIP' + chr(92) + chr(34) + chr(34) in _outl
-    and 'VARIABLE=frame_preset VALUE=' in _outl
-    and 'VARIABLE=frame_s_dir VALUE=' in _outl,
-    [l for l in _outl.split(chr(10)) if 'frame_walls' in l or 'frame_preset ' in l][:2]))
-_fd106f = get_body('macros/17_generator.cfg', 'FRAME_DELETE_PRESET')
-tests.append(('R106 frame preset: DELETE frees the slot, touches nothing else',
-    'VARIABLE=frame_user_preset_1 VALUE=0' in render(_fd106f, {'N': '1'})
-    and render(_fd106f, {'N': '1'}).count('SAVE_VARIABLE') == 1, ''))
-tests.append(('R106 frame preset: INFO lists all 8 slots',
-    render(get_body('macros/17_generator.cfg', 'FRAME_PRESETS_INFO'), {})
-    .count('RESPOND') == 9, ''))
+_eng174c = get_body('macros/17_generator.cfg', '_GEN_PRESET')
+_save174c = render(_eng174c, {'ACTION': 'save', 'GEN': 'frame', 'NAME': '9x13'})
+tests.append(('R106/R174c frame preset: SAVE stores the FULL config as ONE real '
+    'dict (naked literal - no quotes, Klipper evaluates it to a dict)',
+    "SAVE_VARIABLE VARIABLE=frame_user_presets VALUE={'9x13':{" in _save174c
+    and "'frame_walls':3" in _save174c and "'frame_s_dir':'OUT'" in _save174c
+    and "'frame_front':'IRON'" in _save174c and "'frame_cable':False" in _save174c
+    and "'frame_nonce'" not in _save174c,
+    _save174c.split(chr(10))[0][:110] if chr(10) in _save174c else _save174c[:110]))
+# name collision -> 9x13_2 (never overwrites, no limit)
+save_vars.update({'frame_user_presets': {'9x13': {'frame_w': 90.0}}})
+_save174c2 = render(_eng174c, {'ACTION': 'save', 'GEN': 'frame', 'NAME': '9x13'})
+tests.append(('R106/R174c frame preset: SAVE on a taken name -> 9x13_2 (unlimited, '
+    'never overwrites)',
+    "'9x13_2':{" in _save174c2 and "VALUE={'9x13':{'frame_w':90.0},'9x13_2':{" in _save174c2,
+    _save174c2[:110]))
+# LOAD: full names from the dict, strings quoted, numbers bare
+save_vars.update({'frame_user_presets': {'A6': {
+    'frame_preset': 'A6', 'frame_walls': 2, 'frame_front': 'FLIP',
+    'frame_stand': True, 'frame_infill': 40.0}}})
+_load174c = render(_eng174c, {'ACTION': 'load', 'GEN': 'frame', 'SLOT': '0'})
+tests.append(('R106/R174c frame preset: LOAD writes the vars (strings quoted, '
+    'numbers bare, only keys the preset has)',
+    'VARIABLE=frame_walls VALUE=2' in _load174c
+    and "VARIABLE=frame_front VALUE=\"'FLIP'\"" in _load174c
+    and 'VARIABLE=frame_stand VALUE=True' in _load174c
+    and 'VARIABLE=frame_infill VALUE=40.0' in _load174c,
+    [l for l in _load174c.split(chr(10)) if 'frame_walls' in l][:1]))
+# DELETE: only the named one goes
+save_vars.update({'frame_user_presets': {
+    'A': {'frame_w': 1.0}, 'B': {'frame_w': 2.0}}})
+_del174c = render(_eng174c, {'ACTION': 'delete', 'GEN': 'frame', 'SLOT': '1'})
+tests.append(('R106/R174c frame preset: DELETE removes only the picked preset',
+    "VALUE={'A':{'frame_w':1.0}}" in _del174c
+    and "{'frame_w':2.0}" not in _del174c
+    and _del174c.count('SAVE_VARIABLE') == 1, _del174c[:90]))
+# PAGE: 20 presets -> 3 pages, forward clamps at the last
+save_vars.update({'frame_user_presets': {('P%d' % i): {'frame_w': 1.0}
+    for i in range(20)}})
+_pg174c = render(_eng174c, {'ACTION': 'page', 'GEN': 'frame', 'DELTA': '1'})
+_pg174c2 = render(_eng174c, {'ACTION': 'page', 'GEN': 'frame', 'DELTA': '9'})
+tests.append(('R106/R174c frame preset: PAGE flips and clamps (20 presets = 3 '
+    'pages, forward sticks at page 3)',
+    'VARIABLE=frame_preset_page VALUE=1' in _pg174c
+    and 'VARIABLE=frame_preset_page VALUE=2' in _pg174c2,
+    _pg174c2[:90]))
+tests.append(('R106/R174c frame preset: wrappers keep the old console commands',
+    '_GEN_PRESET ACTION=save GEN=frame' in render(
+        get_body('macros/17_generator.cfg', 'FRAME_SAVE_PRESET'), {})
+    and 'SLOT=0' in render(get_body('macros/17_generator.cfg',
+                                    'FRAME_LOAD_PRESET'), {'N': '1'}), ''))
 _gf106 = get_body('macros/17_generator.cfg', 'GEN_FRAME')
 tests.append(('R106 GEN_FRAME: WALLS=3 lands in frame_walls, WALLS=9 is rejected',
     'VARIABLE=frame_walls VALUE=3' in render(_gf106, {'WALLS': '3'})
     and 'WALLS must be 1..4' in render(_gf106, {'WALLS': '9'}), ''))
 _lcd106f = open('menus/lcd_menues.cfg', encoding='utf-8').read()
-tests.append(('R106 LCD: walls input + preset menu (8 load, 8 delete, guards)',
+tests.append(('R106/R174c LCD: walls input + the NEW preset menu (8 load slots, '
+    '8 delete slots, no 8-slot limit anymore)',
     'VARIABLE=frame_walls VALUE={menu.input' in _lcd106f
-    and _lcd106f.count('FRAME_LOAD_PRESET N=') == 8
-    and _lcd106f.count('FRAME_DELETE_PRESET N=') == 8
-    and _lcd106f.count('frame_user_preset_') >= 40, ''))
-# wall loops in the generator itself
+    and _lcd106f.count('_GEN_PRESET ACTION=load GEN=frame SLOT=') == 8
+    and _lcd106f.count('_GEN_PRESET ACTION=delete GEN=frame SLOT=') == 8
+    and 'frame_user_preset_1' not in _lcd106f, ''))
 _w106a, _i106a = _pp.make_frame(preset='9x13', wall_loops=3, out_dir=_d90)
 _g106a = open(_w106a, encoding='utf-8').read()
 _w106b2, _i106b2 = _pp.make_frame(preset='9x13', wall_loops=1, out_dir=_d90)
@@ -10865,20 +10879,23 @@ tests.append(('R115 _SELECT_FILE: generator takeover does NOT kill the preheat',
 state_vars['mode'] = 'printing'
 
 _fl115 = get_body('macros/17_generator.cfg', 'FRAME_LOAD_PRESET')
-save_vars.update({'frame_user_preset_1':
-                  {'preset': 'OLD', 'w': 105.0, 'h': 148.0, 'depth': 10.0,
-                   'border': 8.0, 'corner': 6.0, 'walls': 1, 'shape': 'RECT',
-                   'closure': 'BACK', 'hang': 'TOP', 'stand': False,
-                   'ironing': True, 'infill': 60.0,
-                   'front': 'IRON', 'cable': False, 'disc': 'NONE',
-                   'disc_t': 1.0, 'disc_side': 'FRONT', 's_deep': 0.8,
-                   's_space': 6.0, 's_angle': 45.0, 's_amp': 1.2,
-                   's_size': 8.0, 's_dir': 'OUT'}})   # pre-R101: NO top_l/bot_l!
-_out115 = render(_fl115, {'N': '1'})
-tests.append(('R115 frame preset load: old preset without bot_l -> bottom solid 2 (not 0 = see-through!)',
-    'frame_bot_l VALUE=2' in _out115 and 'frame_bot_l VALUE=0' not in _out115 and 'frame_top_l VALUE=0' in _out115,
-    [l for l in _out115.split(chr(10)) if 'bot_l' in l or 'top_l' in l]))
-save_vars['frame_user_preset_1'] = 0
+save_vars.update({'frame_user_presets': {'OLD': {
+    'frame_preset': 'OLD', 'frame_w': 105.0, 'frame_h': 148.0,
+    'frame_depth': 10.0, 'frame_border': 8.0, 'frame_corner': 6.0,
+    'frame_walls': 1, 'frame_shape': 'RECT', 'frame_closure': 'BACK',
+    'frame_hang': 'TOP', 'frame_stand': False, 'frame_ironing': True,
+    'frame_infill': 60.0, 'frame_front': 'IRON', 'frame_cable': False,
+    'frame_disc': 'NONE', 'frame_disc_t': 1.0, 'frame_disc_side': 'FRONT',
+    'frame_s_deep': 0.8, 'frame_s_space': 6.0, 'frame_s_angle': 45.0,
+    'frame_s_amp': 1.2, 'frame_s_size': 8.0,
+    'frame_s_dir': 'OUT'}}})   # pre-R101: NO top_l/bot_l!
+_out115 = render(get_body('macros/17_generator.cfg', '_GEN_PRESET'),
+                 {'ACTION': 'load', 'GEN': 'frame', 'SLOT': '0'})
+tests.append(('R115/R174c frame preset load: a preset without bot_l leaves the '
+    'setting untouched (never 0 = see-through!)',
+    'frame_bot_l' not in _out115 and 'frame_top_l' not in _out115
+    and 'frame_w VALUE=105.0' in _out115,
+    [l for l in _out115.split(chr(10)) if 'bot_l' in l or 'VALUE=105' in l][:2]))
 
 _lcd115 = open('menus/lcd_menues.cfg').read()
 _pp_pa115 = [l for l in _lcd115.split(chr(10))
@@ -12561,7 +12578,27 @@ _lcd135 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 _gold135 = [l for l in open('tools/r135_menu_golden.txt',
                             encoding='utf-8').read().split('\n') if l]
 _now135 = _re135.findall(r'^\[menu ([\w ]+)\]$', _lcd135, _re135.M)
-_REMOVED135 = ['__main __preprint __tex __pat __man',  # R173: Mandelbrot retired (user choice)
+_REMOVED135 = [
+ '__main __gen __frame __set __fpre',
+ '__main __gen __frame __set __fpre __save',
+ '__main __gen __frame __set __fpre __info',
+ '__main __gen __frame __set __fpre __del',
+ '__main __gen __frame __set __fpre __l1',
+ '__main __gen __frame __set __fpre __l2',
+ '__main __gen __frame __set __fpre __l3',
+ '__main __gen __frame __set __fpre __l4',
+ '__main __gen __frame __set __fpre __l5',
+ '__main __gen __frame __set __fpre __l6',
+ '__main __gen __frame __set __fpre __l7',
+ '__main __gen __frame __set __fpre __l8',
+ '__main __gen __frame __set __fpre __del __d1',
+ '__main __gen __frame __set __fpre __del __d2',
+ '__main __gen __frame __set __fpre __del __d3',
+ '__main __gen __frame __set __fpre __del __d4',
+ '__main __gen __frame __set __fpre __del __d5',
+ '__main __gen __frame __set __fpre __del __d6',
+ '__main __gen __frame __set __fpre __del __d7',
+ '__main __gen __frame __set __fpre __del __d8','__main __preprint __tex __pat __man',  # R173: Mandelbrot retired (user choice)
  '__main __live __accels', '__main __live __accels __cur',
  '__main __preprint __profs __autosave',   # R169: auto-post retired
  '__main __live __accels __eff', '__main __live __accels __ga',
@@ -12591,6 +12628,354 @@ _REMOVED135 = ['__main __preprint __tex __pat __man',  # R173: Mandelbrot retire
  '__main __preprint __file __su', '__main __preprint __file __tvf',
  '__main __preprint __file __tvsp', '__main __preprint __file __w']
 _ADDED135 = ['__main __live __acfe __cur', '__main __live __acfe __eff',
+ '__main __preprint __tex __usr',
+ '__main __preprint __tex __usr __info',
+ '__main __preprint __tex __usr __save',
+ '__main __preprint __tex __usr __pu',
+ '__main __preprint __tex __usr __pd',
+ '__main __preprint __tex __usr __p0',
+ '__main __preprint __tex __usr __p0 __ld',
+ '__main __preprint __tex __usr __p0 __del',
+ '__main __preprint __tex __usr __p1',
+ '__main __preprint __tex __usr __p1 __ld',
+ '__main __preprint __tex __usr __p1 __del',
+ '__main __preprint __tex __usr __p2',
+ '__main __preprint __tex __usr __p2 __ld',
+ '__main __preprint __tex __usr __p2 __del',
+ '__main __preprint __tex __usr __p3',
+ '__main __preprint __tex __usr __p3 __ld',
+ '__main __preprint __tex __usr __p3 __del',
+ '__main __preprint __tex __usr __p4',
+ '__main __preprint __tex __usr __p4 __ld',
+ '__main __preprint __tex __usr __p4 __del',
+ '__main __preprint __tex __usr __p5',
+ '__main __preprint __tex __usr __p5 __ld',
+ '__main __preprint __tex __usr __p5 __del',
+ '__main __preprint __tex __usr __p6',
+ '__main __preprint __tex __usr __p6 __ld',
+ '__main __preprint __tex __usr __p6 __del',
+ '__main __preprint __tex __usr __p7',
+ '__main __preprint __tex __usr __p7 __ld',
+ '__main __preprint __tex __usr __p7 __del',
+ '__main __gen __litho __usr',
+ '__main __gen __litho __usr __info',
+ '__main __gen __litho __usr __save',
+ '__main __gen __litho __usr __pu',
+ '__main __gen __litho __usr __pd',
+ '__main __gen __litho __usr __p0',
+ '__main __gen __litho __usr __p0 __ld',
+ '__main __gen __litho __usr __p0 __del',
+ '__main __gen __litho __usr __p1',
+ '__main __gen __litho __usr __p1 __ld',
+ '__main __gen __litho __usr __p1 __del',
+ '__main __gen __litho __usr __p2',
+ '__main __gen __litho __usr __p2 __ld',
+ '__main __gen __litho __usr __p2 __del',
+ '__main __gen __litho __usr __p3',
+ '__main __gen __litho __usr __p3 __ld',
+ '__main __gen __litho __usr __p3 __del',
+ '__main __gen __litho __usr __p4',
+ '__main __gen __litho __usr __p4 __ld',
+ '__main __gen __litho __usr __p4 __del',
+ '__main __gen __litho __usr __p5',
+ '__main __gen __litho __usr __p5 __ld',
+ '__main __gen __litho __usr __p5 __del',
+ '__main __gen __litho __usr __p6',
+ '__main __gen __litho __usr __p6 __ld',
+ '__main __gen __litho __usr __p6 __del',
+ '__main __gen __litho __usr __p7',
+ '__main __gen __litho __usr __p7 __ld',
+ '__main __gen __litho __usr __p7 __del',
+ '__main __gen __labels __usr',
+ '__main __gen __labels __usr __info',
+ '__main __gen __labels __usr __save',
+ '__main __gen __labels __usr __pu',
+ '__main __gen __labels __usr __pd',
+ '__main __gen __labels __usr __p0',
+ '__main __gen __labels __usr __p0 __ld',
+ '__main __gen __labels __usr __p0 __del',
+ '__main __gen __labels __usr __p1',
+ '__main __gen __labels __usr __p1 __ld',
+ '__main __gen __labels __usr __p1 __del',
+ '__main __gen __labels __usr __p2',
+ '__main __gen __labels __usr __p2 __ld',
+ '__main __gen __labels __usr __p2 __del',
+ '__main __gen __labels __usr __p3',
+ '__main __gen __labels __usr __p3 __ld',
+ '__main __gen __labels __usr __p3 __del',
+ '__main __gen __labels __usr __p4',
+ '__main __gen __labels __usr __p4 __ld',
+ '__main __gen __labels __usr __p4 __del',
+ '__main __gen __labels __usr __p5',
+ '__main __gen __labels __usr __p5 __ld',
+ '__main __gen __labels __usr __p5 __del',
+ '__main __gen __labels __usr __p6',
+ '__main __gen __labels __usr __p6 __ld',
+ '__main __gen __labels __usr __p6 __del',
+ '__main __gen __labels __usr __p7',
+ '__main __gen __labels __usr __p7 __ld',
+ '__main __gen __labels __usr __p7 __del',
+ '__main __gen __plot __usr',
+ '__main __gen __plot __usr __info',
+ '__main __gen __plot __usr __save',
+ '__main __gen __plot __usr __pu',
+ '__main __gen __plot __usr __pd',
+ '__main __gen __plot __usr __p0',
+ '__main __gen __plot __usr __p0 __ld',
+ '__main __gen __plot __usr __p0 __del',
+ '__main __gen __plot __usr __p1',
+ '__main __gen __plot __usr __p1 __ld',
+ '__main __gen __plot __usr __p1 __del',
+ '__main __gen __plot __usr __p2',
+ '__main __gen __plot __usr __p2 __ld',
+ '__main __gen __plot __usr __p2 __del',
+ '__main __gen __plot __usr __p3',
+ '__main __gen __plot __usr __p3 __ld',
+ '__main __gen __plot __usr __p3 __del',
+ '__main __gen __plot __usr __p4',
+ '__main __gen __plot __usr __p4 __ld',
+ '__main __gen __plot __usr __p4 __del',
+ '__main __gen __plot __usr __p5',
+ '__main __gen __plot __usr __p5 __ld',
+ '__main __gen __plot __usr __p5 __del',
+ '__main __gen __plot __usr __p6',
+ '__main __gen __plot __usr __p6 __ld',
+ '__main __gen __plot __usr __p6 __del',
+ '__main __gen __plot __usr __p7',
+ '__main __gen __plot __usr __p7 __ld',
+ '__main __gen __plot __usr __p7 __del',
+ '__main __gen __cable __usr',
+ '__main __gen __cable __usr __info',
+ '__main __gen __cable __usr __save',
+ '__main __gen __cable __usr __pu',
+ '__main __gen __cable __usr __pd',
+ '__main __gen __cable __usr __p0',
+ '__main __gen __cable __usr __p0 __ld',
+ '__main __gen __cable __usr __p0 __del',
+ '__main __gen __cable __usr __p1',
+ '__main __gen __cable __usr __p1 __ld',
+ '__main __gen __cable __usr __p1 __del',
+ '__main __gen __cable __usr __p2',
+ '__main __gen __cable __usr __p2 __ld',
+ '__main __gen __cable __usr __p2 __del',
+ '__main __gen __cable __usr __p3',
+ '__main __gen __cable __usr __p3 __ld',
+ '__main __gen __cable __usr __p3 __del',
+ '__main __gen __cable __usr __p4',
+ '__main __gen __cable __usr __p4 __ld',
+ '__main __gen __cable __usr __p4 __del',
+ '__main __gen __cable __usr __p5',
+ '__main __gen __cable __usr __p5 __ld',
+ '__main __gen __cable __usr __p5 __del',
+ '__main __gen __cable __usr __p6',
+ '__main __gen __cable __usr __p6 __ld',
+ '__main __gen __cable __usr __p6 __del',
+ '__main __gen __cable __usr __p7',
+ '__main __gen __cable __usr __p7 __ld',
+ '__main __gen __cable __usr __p7 __del',
+ '__main __gen __angle __usr',
+ '__main __gen __angle __usr __info',
+ '__main __gen __angle __usr __save',
+ '__main __gen __angle __usr __pu',
+ '__main __gen __angle __usr __pd',
+ '__main __gen __angle __usr __p0',
+ '__main __gen __angle __usr __p0 __ld',
+ '__main __gen __angle __usr __p0 __del',
+ '__main __gen __angle __usr __p1',
+ '__main __gen __angle __usr __p1 __ld',
+ '__main __gen __angle __usr __p1 __del',
+ '__main __gen __angle __usr __p2',
+ '__main __gen __angle __usr __p2 __ld',
+ '__main __gen __angle __usr __p2 __del',
+ '__main __gen __angle __usr __p3',
+ '__main __gen __angle __usr __p3 __ld',
+ '__main __gen __angle __usr __p3 __del',
+ '__main __gen __angle __usr __p4',
+ '__main __gen __angle __usr __p4 __ld',
+ '__main __gen __angle __usr __p4 __del',
+ '__main __gen __angle __usr __p5',
+ '__main __gen __angle __usr __p5 __ld',
+ '__main __gen __angle __usr __p5 __del',
+ '__main __gen __angle __usr __p6',
+ '__main __gen __angle __usr __p6 __ld',
+ '__main __gen __angle __usr __p6 __del',
+ '__main __gen __angle __usr __p7',
+ '__main __gen __angle __usr __p7 __ld',
+ '__main __gen __angle __usr __p7 __del',
+ '__main __gen __seal __usr',
+ '__main __gen __seal __usr __info',
+ '__main __gen __seal __usr __save',
+ '__main __gen __seal __usr __pu',
+ '__main __gen __seal __usr __pd',
+ '__main __gen __seal __usr __p0',
+ '__main __gen __seal __usr __p0 __ld',
+ '__main __gen __seal __usr __p0 __del',
+ '__main __gen __seal __usr __p1',
+ '__main __gen __seal __usr __p1 __ld',
+ '__main __gen __seal __usr __p1 __del',
+ '__main __gen __seal __usr __p2',
+ '__main __gen __seal __usr __p2 __ld',
+ '__main __gen __seal __usr __p2 __del',
+ '__main __gen __seal __usr __p3',
+ '__main __gen __seal __usr __p3 __ld',
+ '__main __gen __seal __usr __p3 __del',
+ '__main __gen __seal __usr __p4',
+ '__main __gen __seal __usr __p4 __ld',
+ '__main __gen __seal __usr __p4 __del',
+ '__main __gen __seal __usr __p5',
+ '__main __gen __seal __usr __p5 __ld',
+ '__main __gen __seal __usr __p5 __del',
+ '__main __gen __seal __usr __p6',
+ '__main __gen __seal __usr __p6 __ld',
+ '__main __gen __seal __usr __p6 __del',
+ '__main __gen __seal __usr __p7',
+ '__main __gen __seal __usr __p7 __ld',
+ '__main __gen __seal __usr __p7 __del',
+ '__main __gen __frame __usr',
+ '__main __gen __frame __usr __info',
+ '__main __gen __frame __usr __save',
+ '__main __gen __frame __usr __pu',
+ '__main __gen __frame __usr __pd',
+ '__main __gen __frame __usr __p0',
+ '__main __gen __frame __usr __p0 __ld',
+ '__main __gen __frame __usr __p0 __del',
+ '__main __gen __frame __usr __p1',
+ '__main __gen __frame __usr __p1 __ld',
+ '__main __gen __frame __usr __p1 __del',
+ '__main __gen __frame __usr __p2',
+ '__main __gen __frame __usr __p2 __ld',
+ '__main __gen __frame __usr __p2 __del',
+ '__main __gen __frame __usr __p3',
+ '__main __gen __frame __usr __p3 __ld',
+ '__main __gen __frame __usr __p3 __del',
+ '__main __gen __frame __usr __p4',
+ '__main __gen __frame __usr __p4 __ld',
+ '__main __gen __frame __usr __p4 __del',
+ '__main __gen __frame __usr __p5',
+ '__main __gen __frame __usr __p5 __ld',
+ '__main __gen __frame __usr __p5 __del',
+ '__main __gen __frame __usr __p6',
+ '__main __gen __frame __usr __p6 __ld',
+ '__main __gen __frame __usr __p6 __del',
+ '__main __gen __frame __usr __p7',
+ '__main __gen __frame __usr __p7 __ld',
+ '__main __gen __frame __usr __p7 __del',
+ '__main __gen __bricks __usr',
+ '__main __gen __bricks __usr __info',
+ '__main __gen __bricks __usr __save',
+ '__main __gen __bricks __usr __pu',
+ '__main __gen __bricks __usr __pd',
+ '__main __gen __bricks __usr __p0',
+ '__main __gen __bricks __usr __p0 __ld',
+ '__main __gen __bricks __usr __p0 __del',
+ '__main __gen __bricks __usr __p1',
+ '__main __gen __bricks __usr __p1 __ld',
+ '__main __gen __bricks __usr __p1 __del',
+ '__main __gen __bricks __usr __p2',
+ '__main __gen __bricks __usr __p2 __ld',
+ '__main __gen __bricks __usr __p2 __del',
+ '__main __gen __bricks __usr __p3',
+ '__main __gen __bricks __usr __p3 __ld',
+ '__main __gen __bricks __usr __p3 __del',
+ '__main __gen __bricks __usr __p4',
+ '__main __gen __bricks __usr __p4 __ld',
+ '__main __gen __bricks __usr __p4 __del',
+ '__main __gen __bricks __usr __p5',
+ '__main __gen __bricks __usr __p5 __ld',
+ '__main __gen __bricks __usr __p5 __del',
+ '__main __gen __bricks __usr __p6',
+ '__main __gen __bricks __usr __p6 __ld',
+ '__main __gen __bricks __usr __p6 __del',
+ '__main __gen __bricks __usr __p7',
+ '__main __gen __bricks __usr __p7 __ld',
+ '__main __gen __bricks __usr __p7 __del',
+ '__main __gen __bricks __kit __usr',
+ '__main __gen __bricks __kit __usr __info',
+ '__main __gen __bricks __kit __usr __save',
+ '__main __gen __bricks __kit __usr __pu',
+ '__main __gen __bricks __kit __usr __pd',
+ '__main __gen __bricks __kit __usr __p0',
+ '__main __gen __bricks __kit __usr __p0 __ld',
+ '__main __gen __bricks __kit __usr __p0 __del',
+ '__main __gen __bricks __kit __usr __p1',
+ '__main __gen __bricks __kit __usr __p1 __ld',
+ '__main __gen __bricks __kit __usr __p1 __del',
+ '__main __gen __bricks __kit __usr __p2',
+ '__main __gen __bricks __kit __usr __p2 __ld',
+ '__main __gen __bricks __kit __usr __p2 __del',
+ '__main __gen __bricks __kit __usr __p3',
+ '__main __gen __bricks __kit __usr __p3 __ld',
+ '__main __gen __bricks __kit __usr __p3 __del',
+ '__main __gen __bricks __kit __usr __p4',
+ '__main __gen __bricks __kit __usr __p4 __ld',
+ '__main __gen __bricks __kit __usr __p4 __del',
+ '__main __gen __bricks __kit __usr __p5',
+ '__main __gen __bricks __kit __usr __p5 __ld',
+ '__main __gen __bricks __kit __usr __p5 __del',
+ '__main __gen __bricks __kit __usr __p6',
+ '__main __gen __bricks __kit __usr __p6 __ld',
+ '__main __gen __bricks __kit __usr __p6 __del',
+ '__main __gen __bricks __kit __usr __p7',
+ '__main __gen __bricks __kit __usr __p7 __ld',
+ '__main __gen __bricks __kit __usr __p7 __del',
+ '__main __gen __bricks __fig __usr',
+ '__main __gen __bricks __fig __usr __info',
+ '__main __gen __bricks __fig __usr __save',
+ '__main __gen __bricks __fig __usr __pu',
+ '__main __gen __bricks __fig __usr __pd',
+ '__main __gen __bricks __fig __usr __p0',
+ '__main __gen __bricks __fig __usr __p0 __ld',
+ '__main __gen __bricks __fig __usr __p0 __del',
+ '__main __gen __bricks __fig __usr __p1',
+ '__main __gen __bricks __fig __usr __p1 __ld',
+ '__main __gen __bricks __fig __usr __p1 __del',
+ '__main __gen __bricks __fig __usr __p2',
+ '__main __gen __bricks __fig __usr __p2 __ld',
+ '__main __gen __bricks __fig __usr __p2 __del',
+ '__main __gen __bricks __fig __usr __p3',
+ '__main __gen __bricks __fig __usr __p3 __ld',
+ '__main __gen __bricks __fig __usr __p3 __del',
+ '__main __gen __bricks __fig __usr __p4',
+ '__main __gen __bricks __fig __usr __p4 __ld',
+ '__main __gen __bricks __fig __usr __p4 __del',
+ '__main __gen __bricks __fig __usr __p5',
+ '__main __gen __bricks __fig __usr __p5 __ld',
+ '__main __gen __bricks __fig __usr __p5 __del',
+ '__main __gen __bricks __fig __usr __p6',
+ '__main __gen __bricks __fig __usr __p6 __ld',
+ '__main __gen __bricks __fig __usr __p6 __del',
+ '__main __gen __bricks __fig __usr __p7',
+ '__main __gen __bricks __fig __usr __p7 __ld',
+ '__main __gen __bricks __fig __usr __p7 __del',
+ '__main __gen __cpic __usr',
+ '__main __gen __cpic __usr __info',
+ '__main __gen __cpic __usr __save',
+ '__main __gen __cpic __usr __pu',
+ '__main __gen __cpic __usr __pd',
+ '__main __gen __cpic __usr __p0',
+ '__main __gen __cpic __usr __p0 __ld',
+ '__main __gen __cpic __usr __p0 __del',
+ '__main __gen __cpic __usr __p1',
+ '__main __gen __cpic __usr __p1 __ld',
+ '__main __gen __cpic __usr __p1 __del',
+ '__main __gen __cpic __usr __p2',
+ '__main __gen __cpic __usr __p2 __ld',
+ '__main __gen __cpic __usr __p2 __del',
+ '__main __gen __cpic __usr __p3',
+ '__main __gen __cpic __usr __p3 __ld',
+ '__main __gen __cpic __usr __p3 __del',
+ '__main __gen __cpic __usr __p4',
+ '__main __gen __cpic __usr __p4 __ld',
+ '__main __gen __cpic __usr __p4 __del',
+ '__main __gen __cpic __usr __p5',
+ '__main __gen __cpic __usr __p5 __ld',
+ '__main __gen __cpic __usr __p5 __del',
+ '__main __gen __cpic __usr __p6',
+ '__main __gen __cpic __usr __p6 __ld',
+ '__main __gen __cpic __usr __p6 __del',
+ '__main __gen __cpic __usr __p7',
+ '__main __gen __cpic __usr __p7 __ld',
+ '__main __gen __cpic __usr __p7 __del',
  '__main __live __feat __inf',
  '__main __endq', '__main __endq __info', '__main __endq __yes',
  '__main __endq __no',
@@ -13903,6 +14288,48 @@ tests.append(('R174b ironing flow editor also answers honestly (the .129 log '
     'showed a bare Overwrite line with no context)',
     'IRONING not seen in this file yet' in _lcd174b,
     'ironing flow editor lacks the parked answer'))
+
+# ================== R174c (.130): user presets for every generator =================
+_gen174c = ['texture', 'litho', 'label', 'plot', 'tie', 'angle', 'seal', 'frame',
+            'bricks', 'brickkit', 'figures', 'colorpic']
+_lcd174c = _lcd174b
+tests.append(('R174c preset engine: live in the macros, NO combine filter '
+    '(Klipper ships stock Jinja2 - combine would halt the boot)',
+    '[gcode_macro _GEN_PRESET]' in open('macros/17_generator.cfg').read()
+    and 'combine' not in get_body('macros/17_generator.cfg', '_GEN_PRESET'),
+    'engine/combine problem'))
+tests.append(('R174c preset engine: every generator declares its settings '
+    '(12 generators, Range excluded by design)',
+    all(("'%s':" % g) in open('macros/17_generator.cfg').read()
+        for g in _gen174c),
+    'generator key table incomplete'))
+tests.append(('R174c LCD: a Presets submenu for all 12 generators '
+    '(Save + info + Page< + Page> + 8 slots with Load/Delete)',
+    all(('%s_user_presets|default({}))|sort)' % g) in _lcd174c
+        and ('_GEN_PRESET ACTION=save GEN=%s' % g) in _lcd174c
+        and (_lcd174c.count('_GEN_PRESET ACTION=load GEN=%s SLOT=' % g) == 8)
+        and ('_GEN_PRESET ACTION=page GEN=%s DELTA=-1' % g) in _lcd174c
+        for g in _gen174c),
+    'a generator lacks its preset menu'))
+tests.append(('R174c LCD: no artificial limit - 8 slots per page flip with '
+    'Page</>, the dict itself is unlimited',
+    _lcd174c.count('_preset_page|default(0)|int)*8+') == 12 * 8,
+    str(_lcd174c.count('_preset_page|default(0)|int)*8+'))))
+_save174c3 = render(_eng174c, {'ACTION': 'save', 'GEN': 'texture', 'NAME': 'GRID'})
+tests.append(('R174c texture preset: SAVE captures the texture settings '
+    '(mode/thick/density/pattern/scale/amp/dir)',
+    "SAVE_VARIABLE VARIABLE=texture_user_presets VALUE={'GRID':{" in _save174c3
+    and 'texture_mode' in _save174c3 and 'texture_nonce' not in _save174c3,
+    _save174c3[:100]))
+save_vars.update({'frame_user_presets': {'P0': {'frame_w': 1.0},
+                                        'P1': {'frame_w': 2.0}}})
+_info174c = render(_eng174c, {'ACTION': 'info', 'GEN': 'frame'})
+tests.append(('R174c preset engine: INFO lists the names (console check)',
+    'user presets (2): P0, P1' in _info174c,
+    _info174c[:100]))
+tests.append(('R174c preset engine: unknown generator refused honestly',
+    'unknown generator' in render(_eng174c, {'ACTION': 'save', 'GEN': 'nosuch'}),
+    ''))
 
 fails = 0
 for name, ok, info in tests:

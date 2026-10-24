@@ -30,7 +30,18 @@ schst im Baum und wartet auf diese Runde.
   Postproc (vor dem R172-Typ-Fix) — Re-fix types (System > File check) heilt
   sie, künftig generiert der Postproc korrekte Tags.
 
-## R174 — User-Presets für ALLE Generatoren (außer Range)
+## R174 — User-Presets für ALLE Generatoren (außer Range) — FERTIG (engine + LCD)
+
+**Umgesetzt als eine Engine** (`_GEN_PRESET` in 17_generator.cfg): ein echtes
+Dict pro Generator (`<gen>_user_presets`, Klipper evaluated das nackte
+Literal — die alten R106-Frame-Slots speicherten Strings und luden still
+nichts), Namen statt Nummern, Kollision -> `name_2`, `name_3` … unbegrenzt.
+LCD: „Presets"-Untermenü pro Generator (Save mit markantem Namen —
+Textur: Modus bzw. Pattern, Rahmen: Werksname 9x13, Litho: L100, Winkel:
+A45 …; Page< / Page>; 8 Slots/Seite, je Slot „Load this" + „Delete this").
+Range bleibt bewusst draußen (Exzerpt-Tool, keine Settings-Familie);
+String-Art bekommt Presets mit seinem .130-Menü. Console-Kompatibilität:
+FRAME_SAVE/LOAD/DELETE_PRESET bleiben als Wrapper.
 
 **Regeln (Nutzerwahl):**
 - Jeder Generator (Labels, Litho, Textur, Plotter, Kabelbinder, Winkel,
