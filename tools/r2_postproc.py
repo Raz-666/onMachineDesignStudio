@@ -64,7 +64,7 @@ TAG = '; R2-POSTPROC v5'
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-10-22.129'
+POSTPROC_RELEASE = 'R2-2026-10-24.129a (R170a)'
 POSTPROC_BUILD = 'R166'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
@@ -157,6 +157,27 @@ TYPE_MAP = {
 }
 
 
+# R172 (field report .129, the trash.gcode chain): separators are cosmetic.
+# A slicer writing ';TYPE:Wall outer' (space) fell through the EXACT map
+# lookup - only 'wall-outer' was listed - and every wall of the file became
+# CUSTOM. The texture tool always normalized this way (R152 _OUTER_ALIASES);
+# now the core does too: one lookup, every spelling.
+_TYPE_MAP_NORM = {}
+for _k172, _v172 in TYPE_MAP.items():
+    _TYPE_MAP_NORM.setdefault(re.sub(r'[^a-z0-9]+', ' ', _k172).strip(), _v172)
+
+
+def _lookup_type(raw):
+    """R172: TYPE_MAP lookup with separator tolerance - 'Wall outer',
+    'WALL-OUTER' and 'wall_outer' are the same feature. Returns None when
+    the vocabulary is unknown (the CALLER decides passthrough vs CUSTOM)."""
+    k = (raw or '').strip().lower()
+    if k in TYPE_MAP:
+        return TYPE_MAP[k]
+    kn = re.sub(r'[^a-z0-9]+', ' ', k).strip()
+    return _TYPE_MAP_NORM.get(kn)
+
+
 _CANON_VALUES = frozenset(TYPE_MAP.values()) | {'SUPPORT', 'TRAVEL'}
 
 
@@ -176,6 +197,10 @@ def _canon_type(raw):
     # a live marker would report the wrong feature (found by the R121 test)
     if k.upper() in _CANON_VALUES:
         return k.upper()
+    # R172: separator-tolerant retry ('Wall outer' == 'wall-outer')
+    kn = re.sub(r'[^a-z0-9]+', ' ', k).strip()
+    if kn in _TYPE_MAP_NORM:
+        return _TYPE_MAP_NORM[kn]
     if 'support' in k:
         return 'SUPPORT'
     return 'CUSTOM'
@@ -6255,7 +6280,7 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
         ls = l.strip()
         if ls.startswith(';TYPE:'):
             key = ls[6:].strip().lower()
-            outl.append('APPLY_TYPE TYPE=%s' % TYPE_MAP.get(key, 'CUSTOM'))
+            outl.append('APPLY_TYPE TYPE=%s' % (_lookup_type(key) or 'CUSTOM'))
         elif LAYER_COMMENT.match(ls):
             outl.append('LAYER_MARK')
 
@@ -8476,10 +8501,297 @@ def _gen_markers(L):
         ls = l.strip()
         if ls.startswith(';TYPE:'):
             key = ls[6:].strip().lower()
-            outl.append('APPLY_TYPE TYPE=%s' % TYPE_MAP.get(key, 'CUSTOM'))
+            outl.append('APPLY_TYPE TYPE=%s' % (_lookup_type(key) or 'CUSTOM'))
         elif LAYER_COMMENT.match(ls):
             outl.append('LAYER_MARK')
     return outl
+
+
+def _string_art_plan(iw, ih, lum, n_anchors, n_lines, grid=100, n_cand=240,
+                     thread_dark=0.10, min_chord=0.18, seed=170):
+    """R171: greedy string-art planner - a photo becomes anchor-to-anchor
+    chords. The image is center-cropped to a square, mapped onto a grid
+    inside the circle (dark cell = wants thread), then each round samples a
+    RANDOM subset of candidate chords and lays the one covering the most
+    residual darkness (full 180k-pair search would cook a Pi Zero - the
+    subset greedy converges just as nicely at ~40M simple ops for a
+    1700-line portrait). Returns [(anchor_i, anchor_j), ...] in print order.
+    """
+    import random as _rnd
+    rng = _rnd.Random(seed)
+    G = max(24, min(int(grid), 220))
+    side = min(iw, ih)
+    ox = (iw - side) / 2.0
+    oy = (ih - side) / 2.0
+    rg = G / 2.0 - 1.5
+    tgt = [0.0] * (G * G)
+    ins = [False] * (G * G)
+    for gy in range(G):
+        cy = gy - G / 2.0 + 0.5
+        for gx in range(G):
+            cx = gx - G / 2.0 + 0.5
+            if cx * cx + cy * cy > rg * rg:
+                continue
+            k = gy * G + gx
+            ins[k] = True
+            px = min(iw - 1, max(0, int(ox + (gx + 0.5) / G * side)))
+            py = min(ih - 1, max(0, int(oy + (gy + 0.5) / G * side)))
+            tgt[k] = max(0.0, 1.0 - lum[py][px])   # dark = wants threads
+    ax = [G / 2.0 + math.cos(2.0 * math.pi * k / n_anchors) * rg
+          for k in range(n_anchors)]
+    ay = [G / 2.0 + math.sin(2.0 * math.pi * k / n_anchors) * rg
+          for k in range(n_anchors)]
+    mind = max(3, int(n_anchors * min_chord))
+    chosen = set()
+    out = []
+    for _it in range(n_lines):
+        best, bs = None, 0.05
+        for _c in range(max(20, int(n_cand))):
+            i = rng.randrange(n_anchors)
+            j = (i + mind + rng.randrange(max(1, n_anchors - 2 * mind))) % n_anchors
+            if j < i:
+                i, j = j, i
+            if (i, j) in chosen:
+                continue
+            d = math.hypot(ax[j] - ax[i], ay[j] - ay[i])
+            nst = max(2, int(d / 0.9))
+            sc = 0.0
+            for k in range(nst + 1):
+                t = k / float(nst)
+                gx = int(ax[i] + (ax[j] - ax[i]) * t)
+                gy = int(ay[i] + (ay[j] - ay[i]) * t)
+                if 0 <= gx < G and 0 <= gy < G and ins[gy * G + gx]:
+                    sc += tgt[gy * G + gx]
+            if sc > bs:
+                bs, best = sc, (i, j)
+        if best is None:
+            break                        # converged: the residual is plain
+        i, j = best
+        chosen.add((i, j))
+        out.append((i, j))
+        d = math.hypot(ax[j] - ax[i], ay[j] - ay[i])
+        nst = max(2, int(d / 0.9))
+        for k in range(nst + 1):
+            t = k / float(nst)
+            gx = int(ax[i] + (ax[j] - ax[i]) * t)
+            gy = int(ay[i] + (ay[j] - ay[i]) * t)
+            if 0 <= gx < G and 0 <= gy < G:
+                c = gy * G + gx
+                if ins[c]:
+                    tgt[c] = max(0.0, tgt[c] - thread_dark)
+    return out
+
+
+def make_string_art(src=None, pattern='PHOTO', diameter=180.0, anchors=300,
+                    lines=1700, ring_w=5.0, ring_h=2.4, layer_h=0.2,
+                    first_h=0.28, line_w=0.0, brim=True, material='PLA',
+                    bed=None, bed_margin=6.0, nozzle=0.6, out_dir='.',
+                    version=1, seed=170, grid=100, n_cand=240):
+    """R171: STRING ART - the proven StringArt3D scheme as a native
+    generator (field print .128: a 180mm/600-anchor/1700-line portrait
+    printed beautifully - this reproduces its architecture exactly).
+
+    An anchor RING (two walls + solid infill, ~2.4mm tall, brim + first
+    layer fan-off) carries n anchor points on its top. The 'threads' are
+    thin extruded strands (0.5mm wide, ~0.07mm thick) shot straight
+    through the air from anchor to anchor in SIX Z bands above the ring
+    (+0.20/+0.40/+0.55/+0.60/+0.75/+0.95 - the proven ladder: bands
+    crossing each other fuse, later bands clear the earlier ones). Each
+    strand: z-hop travel (the _Pen does G10/hop/G11), a small wrap curl
+    around each anchor end (the 'wound around the nail' physics), ~5mm
+    chord segments, slow 25mm/s, fan ramping per band. Two finishing
+    loops + a cover ring on top tie the strand ends down.
+
+    pattern='PHOTO' needs src (.png/.jpg): dark areas get dense threads
+    (greedy planner, see _string_art_plan). pattern='SPIRAL' needs no
+    image - the classic i -> i+n/3 winding, ideal for a first test print.
+    Returns (path, info).
+    """
+    if bed is None:
+        bed = (0.0, -3.0, 244.0, 238.0)
+    bx0, by0, bx1, by1 = bed
+    uw, uh = bx1 - bx0 - 2 * bed_margin, by1 - by0 - 2 * bed_margin
+    diameter = max(60.0, min(float(diameter or 180.0), 400.0))
+    max_d = min(uw, uh) - 8.0            # brim needs ~4mm per side
+    notes = []
+    if diameter > max_d:
+        notes.append('diameter clamped to the bed: %.0fmm' % max_d)
+        diameter = max_d
+    n_anchors = max(24, min(int(anchors or 300), 720))
+    n_lines = max(50, min(int(lines or 1700), 4000))
+    ring_w = max(3.0, min(float(ring_w or 5.0), 10.0))
+    ring_h = max(1.2, min(float(ring_h or 2.4), 4.0))
+    layer_h = max(0.1, min(float(layer_h or 0.2), 0.34))
+    first_h = max(layer_h, min(float(first_h or 0.28), 0.4))
+    pattern = str(pattern or 'PHOTO').strip().upper()
+    wid = float(line_w or 0.0) or max(0.42, min(0.5, float(nozzle or 0.6) * 0.9))
+    stem = None
+    if pattern == 'PHOTO':
+        if not src:
+            raise ValueError('PHOTO string art needs an image first - '
+                             'upload one, then set it (as with Litho)')
+        ext = os.path.splitext(str(src))[1].lower().lstrip('.')
+        kind = {'png': 'png', 'jpg': 'jpg', 'jpeg': 'jpg'}.get(ext)
+        if kind is None:
+            raise ValueError('string art source must be .png/.jpg/.jpeg '
+                             '(got %r)' % ext)
+        if not os.path.isfile(src):
+            raise ValueError('image not found: %s' % src)
+        with open(src, 'rb') as f:
+            data = f.read()
+        iw, ih, lum = _img_luma(data, kind)
+        print('[stringart] planning %d chords (greedy, %dx%d grid)...'
+              % (n_lines, max(24, min(int(grid), 220)),
+                 max(24, min(int(grid), 220))), flush=True)
+        plan = _string_art_plan(iw, ih, lum, n_anchors, n_lines,
+                                grid=grid, n_cand=n_cand, seed=seed)
+        if len(plan) < n_lines:
+            notes.append('planner converged after %d chords - the image is '
+                         'saturated' % len(plan))
+        stem = _safe_label_name(
+            os.path.splitext(os.path.basename(str(src)))[0])
+    elif pattern == 'SPIRAL':
+        step = max(3, n_anchors // 3)
+        plan = [(k % n_anchors, (k + step) % n_anchors)
+                for k in range(n_lines)]
+        stem = 'Spiral'
+    else:
+        raise ValueError("pattern must be 'PHOTO' or 'SPIRAL' (got %r)"
+                         % pattern)
+
+    cx = (bx0 + bx1) / 2.0
+    cy = (by0 + by1) / 2.0
+    R = diameter / 2.0
+    ri = R - ring_w
+    anchor_r = R - ring_w / 2.0
+    nl = 1
+    while first_h + (nl - 1) * layer_h < ring_h - 1e-9:
+        nl += 1
+    ring_top = round(first_h + (nl - 1) * layer_h, 3)
+    L = []
+    pen = _Pen(L, jump_d=6.0)
+    types = ['BRIM', 'WALL-OUTER', 'WALL-INNER', 'INFILL-SOLID', 'BRIDGE']
+    LADDER = (0.20, 0.40, 0.55, 0.60, 0.75, 0.95)
+
+    def _loop(rr, e_mm, feed, tpe):
+        L.append(';TYPE:%s' % tpe)
+        _emit_loop(pen, _circle(cx, cy, rr, seg=220), e_mm, feed)
+
+    # ---- the anchor ring ------------------------------------------------
+    for li in range(1, nl + 1):
+        z = first_h if li == 1 else round(first_h + (li - 1) * layer_h, 3)
+        L.append(';LAYER_CHANGE')
+        L.append(';Z:%.3f' % z)
+        pen.set_z(z)
+        eff = first_h if li == 1 else layer_h
+        emm = wid * eff
+        fd = 900 if li == 1 else 1800
+        if li == 1:
+            if brim:
+                for k in (2.0, 1.4, 0.8):
+                    _loop(R + k, emm * 0.6, 900, 'Brim')
+            L.append('M107   ; R2-STRINGART: first layer = fan off')
+        _loop(R - wid / 2.0, emm, fd, 'Outer wall')
+        _loop(ri + wid / 2.0, emm, fd, 'Inner wall')
+        rr = R - wid
+        while rr > ri + wid * 0.9:
+            _loop(rr, emm, 2400 if li > 1 else 900, 'Internal solid infill')
+            rr -= wid
+        types.append('INFILL-SOLID')
+
+    # ---- the threads: six Z bands above the ring -------------------------
+    per_band = -(-len(plan) // len(LADDER))
+    Emm = wid * 0.068                  # strand cross-section ~0.07mm
+    for bi, off in enumerate(LADDER):
+        blk = plan[bi * per_band:(bi + 1) * per_band]
+        if not blk:
+            break
+        z = round(ring_top + off, 3)
+        L.append(';LAYER_CHANGE')
+        L.append(';Z:%.3f' % z)
+        L.append(';TYPE:Bridge')
+        pen.set_z(z)
+        L.append('M106 S%d   ; R2-STRINGART: band %d cooling ramp'
+                 % (min(255, 60 + bi * 40), bi + 1))
+        for (i, j) in blk:
+            a = (cx + math.cos(2.0 * math.pi * i / n_anchors) * anchor_r,
+                 cy + math.sin(2.0 * math.pi * i / n_anchors) * anchor_r)
+            b = (cx + math.cos(2.0 * math.pi * j / n_anchors) * anchor_r,
+                 cy + math.sin(2.0 * math.pi * j / n_anchors) * anchor_r)
+            pen.travel(a[0], a[1], feed=8000)   # G10 + hop + G11 built in
+            aa = math.atan2(a[1] - cy, a[0] - cx)
+            for k in range(6):                   # the start wrap curl
+                t = 2.0 * math.pi * (k + 1) / 6.0
+                px = a[0] + math.cos(aa + 2.6 + t) * 0.30
+                py = a[1] + math.sin(aa + 2.6 + t) * 0.30
+                pen.extrude(px, py, math.hypot(px - pen.x, py - pen.y) * Emm,
+                            1500)
+            nst = max(2, int(math.hypot(b[0] - a[0], b[1] - a[1]) / 5.0))
+            for k in range(1, nst + 1):          # the chord
+                t = k / float(nst)
+                px = a[0] + (b[0] - a[0]) * t
+                py = a[1] + (b[1] - a[1]) * t
+                pen.extrude(px, py,
+                            math.hypot(px - pen.x, py - pen.y) * Emm, 1500)
+            ab = math.atan2(b[1] - cy, b[0] - cx)
+            for k in range(6):                   # the end wrap curl
+                t = 2.0 * math.pi * (k + 1) / 6.0
+                px = b[0] + math.cos(ab - 2.6 - t) * 0.30
+                py = b[1] + math.sin(ab - 2.6 - t) * 0.30
+                pen.extrude(px, py, math.hypot(px - pen.x, py - pen.y) * Emm,
+                            1500)
+
+    # ---- finishing loops + cover ring -------------------------------------
+    for fz, fr, nm in ((ring_top + 1.05, anchor_r, 'Finishing Ring 1'),
+                       (ring_top + 1.25, anchor_r - wid, 'Finishing Ring 2'),
+                       (ring_top + 1.45, R - wid / 2.0, 'Cover Ring')):
+        L.append(';LAYER_CHANGE')
+        L.append(';Z:%.3f' % fz)
+        L.append('; %s - ties the strand ends down' % nm)
+        pen.set_z(round(fz, 3))
+        _loop(fr, wid * 0.12, 1200, 'Outer wall')
+    L.append('M107')
+
+    # ---- header / footer ---------------------------------------------------
+    hdr = []
+    a = hdr.append
+    a('; R2-STRINGART generated - pattern=%s anchors=%d strands=%d '
+      'diameter=%.0fmm ring %.1fmm tall' % (pattern, n_anchors, len(plan),
+                                            diameter, ring_h))
+    a('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d LINE_WIDTH=%.2g '
+      'LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g FLOW_RATIO=1 NOZZLE=%.1f '
+      'WALL_LOOPS=2 SPEED_OUTER=40 SPEED_FIRST=25 SPEED_TRAVEL=150 '
+      'TYPES=%s BY_OBJECT=0'
+      % (material, layer_h, nl + len(LADDER) + 3, wid, first_h, wid,
+         nozzle, ','.join(types)))
+    for nm, rr in (('RING', R), ('FADEN', R)):
+        poly = ','.join('[%.1f,%.1f]' % (cx + math.cos(2.0 * math.pi * k / 12) * rr,
+                                         cy + math.sin(2.0 * math.pi * k / 12) * rr)
+                        for k in range(12))
+        a('EXCLUDE_OBJECT_DEFINE NAME=%s CENTER=%.1f,%.1f POLYGON=[%s]'
+          % (nm, cx, cy, poly))
+    ps = 'PRINT_START MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d OUTER_WALL_SPEED=40' % (
+        material, layer_h, nl + len(LADDER) + 3)
+    i0 = next(i for i, l in enumerate(L) if l.startswith(';LAYER_CHANGE'))
+    outl = (L[:i0] + hdr + [ps, 'G90', 'M83',
+                            'M107   ; R2-STRINGART: first layer = fan off']
+            + _gen_markers(L[i0:]))
+    outl.append('PRINT_END')
+    fname = 'V%02d_StringArt_%s.gcode' % (_next_gen_version(out_dir),
+                                          stem or pattern)
+    fname = _dedupe_gen_fname(out_dir, fname)
+    out = os.path.join(out_dir, fname)
+    with open(out, 'w') as f:
+        f.write('\n'.join(outl) + '\n')
+    _gen_normalize_speeds(out)   # R159: uniform speeds + travel caps
+    info = {'file': fname, 'kind': 'string-art', 'pattern': pattern,
+            'source': os.path.basename(str(src)) if src else None,
+            'diameter': round(diameter, 1), 'anchors': n_anchors,
+            'lines': len(plan), 'bands': len(LADDER), 'ring_h': ring_h,
+            'ring_w': ring_w, 'ring_layers': nl,
+            'height': round(ring_top + 1.45, 2),
+            'converged': len(plan) < n_lines, 'notes': notes}
+    return out, info
 
 
 def make_cable_ties(count=6, length=120.0, width=8.0, layers=3, variant='CLASSIC',
@@ -12434,7 +12746,7 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                 if _last121[0] != t:
                     a(';TYPE:%s' % t)
                     a('APPLY_TYPE TYPE=%s'
-                      % TYPE_MAP.get(t.strip().lower(), 'CUSTOM'))
+                      % (_lookup_type(t) or 'CUSTOM'))
                     _last121[0] = t
 
             for c in plist:
@@ -12805,8 +13117,8 @@ def _kit_moves(path):
                 m = re.match(r'^;\s*TYPE\s*:\s*(.+?)\s*$', ls, re.IGNORECASE)
                 if m:
                     k125 = m.group(1).strip().lower()
-                    if k125 in TYPE_MAP:
-                        canon = TYPE_MAP[k125]
+                    if _lookup_type(k125):            # R172: separator-safe
+                        canon = _lookup_type(k125)
                     elif 'support' in k125:
                         canon = 'SUPPORT'     # tree/normal variants: never kit
                     else:
@@ -13237,7 +13549,7 @@ def make_brick_kit(src, detail='AUTO', mode='BY_LAYER', colors=3,
                 # R132: canonical code, not the pretty name (field log .92)
                 a(';TYPE:%s' % t)
                 a('APPLY_TYPE TYPE=%s'
-                  % TYPE_MAP.get(t.strip().lower(), 'CUSTOM'))
+                  % (_lookup_type(t) or 'CUSTOM'))
 
             _SLOPE_DIR125 = {'W': (-1, 0), 'E': (1, 0),
                              'S': (0, -1), 'N': (0, 1)}
@@ -13739,7 +14051,7 @@ def make_figures(count=1, scale=100.0, layer_h=0.2, material='PLA',
                 if _last126[0] != t:
                     a(';TYPE:%s' % t)
                     a('APPLY_TYPE TYPE=%s'
-                      % TYPE_MAP.get(t.strip().lower(), 'CUSTOM'))
+                      % (_lookup_type(t) or 'CUSTOM'))
                     _last126[0] = t
 
             for c in plist:
@@ -15941,6 +16253,36 @@ def _travelaccel_fix_file(path, accel=8000):
     """R111 compat wrapper: accel-only travel fix (no speed, no markers)."""
     return _travel_fix_file(path, accel=accel, speed=0.0, markers=False)
     return n
+
+
+def rederive_apply_types(path):
+    """R172 (field report .129, the trash.gcode chain): heal files tagged
+    BEFORE the separator-tolerant TYPE_MAP. Every APPLY_TYPE sitting DIRECTLY
+    behind a ';TYPE:' line is re-derived from the slicer's own comment -
+    ';TYPE:Wall outer' + 'APPLY_TYPE TYPE=CUSTOM' (the old exact-lookup miss)
+    becomes WALL-OUTER. Only these pairs change, everything else streams
+    through byte-identical. The CALLER makes the .r2bak backup. Returns the
+    number of corrected markers."""
+    tmp = path + '.r172tmp'
+    fixed = 0
+    with open(path, errors='replace') as fi, open(tmp, 'w') as fo:
+        prev_type = None          # ;TYPE: name - the next line may redeem it
+        for raw in fi:
+            l = raw[:-1] if raw.endswith('\n') else raw
+            outl = l
+            mty = TYPE_RE.match(l)
+            if prev_type is not None:
+                mt = re.match(r'APPLY_TYPE\s+TYPE=(\S+)', l.strip())
+                if mt and mt.group(1) != _canon_type(prev_type):
+                    outl = ('APPLY_TYPE TYPE=%s   ; R172 re-fix (was %s)'
+                            % (_canon_type(prev_type), mt.group(1)))
+                    fixed += 1
+                prev_type = None
+            elif mty:
+                prev_type = mty.group(1)
+            fo.write(outl + '\n')
+    shutil.move(tmp, path)
+    return fixed
 
 
 def process(path, dry=False, verbose=False, retract_rewrite=False):
@@ -19791,6 +20133,11 @@ def watch(directory, interval=5.0, once=False):
                 last_file_check_nonce = _fc93
                 _retag93 = str(rv.get('file_check_retag', '') or '').strip().lower() \
                     in ('1', 'true', 'yes', 'on')
+                # R172: RETAG=2 = RE-FIX the feature types of CURRENT files
+                # (files tagged before the separator-tolerant TYPE_MAP carry
+                # wrong CUSTOM markers - e.g. every 'Wall outer' wall)
+                _refix172 = str(rv.get('file_check_retag', '') or '').strip() \
+                    in ('2', 'refix', 're-fix')
                 rows93, tot93 = file_check_scan(directory)
                 for _r93 in rows93:
                     print('[file-check] %-46s %-9s age=%4dd %7.1f MB%s'
@@ -19808,8 +20155,30 @@ def watch(directory, interval=5.0, once=False):
                     if ((_st93.get('print_stats') or {}).get('state')
                             in ('printing', 'paused')):
                         _extra93 = ' | RETAG refused: printing'
-                    elif not _up93:
+                    elif not _up93 and not _refix172:
                         _extra93 = ' | RETAG: nothing to do'
+                    elif _refix172:
+                        _n93 = 0
+                        _fixes93 = 0
+                        for _r93 in rows93[:20]:
+                            _p93 = os.path.join(directory, _r93['name'])
+                            try:
+                                shutil.copy2(_p93, _p93 + '.r2bak')
+                                _f93 = rederive_apply_types(_p93)
+                                _n93 += 1
+                                _fixes93 += _f93
+                                if _f93:
+                                    print('[file-check] re-fix: %s (%d '
+                                          'markers healed)' % (_r93['name'],
+                                                               _f93),
+                                          flush=True)
+                            except OSError as _oe93:
+                                print('[file-check] re-fix failed: %s (%r)'
+                                      % (_r93['name'], _oe93), flush=True)
+                        _extra93 = (' | RE-FIX: %d files, %d markers healed '
+                                    '(backup .r2bak)' % (_n93, _fixes93))
+                        if len(rows93) > 20:
+                            _extra93 += ' - run again for the rest'
                     else:
                         _n93 = 0
                         for _r93 in _up93[:20]:
@@ -20359,18 +20728,17 @@ def watch(directory, interval=5.0, once=False):
                 # guards, and a cache is only set when the push returned 200 -
                 # otherwise the next cycle retries.
                 # R154 (.115): the LCD browser state - ONE tree push:
-                # {path: ['D:subfolder', 'F:file.gcode', ...]} for the root
-                # ('') and EVERY first-level subfolder. D: = folder, F: =
-                # file; folders first (alphabetical), then files (newest
-                # first). The SD Card menu navigates this tree (SDNAV_GO /
-                # SDNAV_UP / SDNAV_PAGE) - the user sees ALL folders and
-                # ALL files, not a flat 20-slot list (.113 field report).
+                # {path: ['D:subfolder', 'F:file.gcode', ...]}. D: = folder,
+                # F: = file; folders first (alphabetical), then files A-Z.
+                # R173 (.129 field report): the tree is FULLY RECURSIVE now -
+                # the old first-level-only index made nested folders
+                # unreachable from the LCD, and the page grew 20 -> 40
+                # entries (the 'weird list limits' are history).
                 _tree154 = {}
 
                 def _scan154(sub):
-                    # root: folders + files; a subfolder: FILES ONLY (the
-                    # tree indexes first-level folders - deeper nesting is
-                    # Mainsail territory, the LCD stays fast)
+                    # folders + files at EVERY depth (max 10 levels - real
+                    # g-code trees stay far below that)
                     _d154 = os.path.join(directory, sub) if sub else directory
                     _dirs154, _files154 = [], []
                     try:
@@ -20380,8 +20748,7 @@ def watch(directory, interval=5.0, once=False):
                                 continue
                             _fp154 = os.path.join(_d154, _f154)
                             if os.path.isdir(_fp154):
-                                if not sub:
-                                    _dirs154.append(_f154)
+                                _dirs154.append(_f154)
                             elif (_f154.lower().endswith(_SD_EXT151)
                                     and os.path.isfile(_fp154)):
                                 _files154.append(
@@ -20395,10 +20762,14 @@ def watch(directory, interval=5.0, once=False):
                                 for _f in sorted(_f154 for _, _f154 in _files154)]
                     return _ent154, _dirs154
 
-                _root154, _subdirs154 = _scan154('')
-                _tree154[''] = _root154
-                for _sub154 in _subdirs154:
-                    _tree154[_sub154] = _scan154(_sub154)[0]
+                def _walk154(sub, depth=0):
+                    _ent154, _dirs154 = _scan154(sub)
+                    _tree154[sub] = _ent154
+                    if depth < 10:
+                        for _d154 in _dirs154:
+                            _walk154((sub + '/' + _d154) if sub else _d154,
+                                     depth + 1)
+                _walk154('')
                 if _tree154 != sd_tree_pushed[0]:
                     _tv154 = '{' + ','.join(
                         "'%s': [%s]" % (_k154, ','.join(
@@ -20412,7 +20783,7 @@ def watch(directory, interval=5.0, once=False):
                         print('[sdfiles] tree push failed (klipper busy?) - '
                               'retrying next cycle', flush=True)
                 # R154: keep the VIEW in sync too - the menu slots read
-                # sd_view (20 entries of the current path+page). Refreshed
+                # sd_view (40 entries of the current path+page). Refreshed
                 # whenever the view differs (tree changed / never arrived /
                 # the user navigated while a push failed). Current path and
                 # page come from save_variables.cfg (best effort) so a tree
@@ -20433,8 +20804,8 @@ def watch(directory, interval=5.0, once=False):
                         _p154, _pg154 = '', 0
                     _en154 = _tree154.get(_p154, [])
                     _pg154 = min(_pg154,
-                                 max(0, (len(_en154) - 1) // 20))
-                    _new154 = _en154[_pg154 * 20:_pg154 * 20 + 20]
+                                 max(0, (len(_en154) - 1) // 40))
+                    _new154 = _en154[_pg154 * 40:_pg154 * 40 + 40]
                     if _new154 != _vw154:
                         _vv154 = ('[' + ','.join("'" + _e154 + "'"
                                                  for _e154 in _new154) + ']')

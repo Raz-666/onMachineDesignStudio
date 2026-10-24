@@ -1,5 +1,31 @@
 # FELDTEST .129 (R170) — Testanleitung
 
+> **⚠ HOTFIX .129a (24.10.) — zuerst lesen:**
+> Dein Bericht hat drei echte Bugs gefunden, alle gefixt:
+>
+> 1. **„Rate print?" — YES ging nicht:** Alle Antwort-Makros nutzten
+>    `UPDATE_DELAYED_GCODE NAME=` (Klipper verlangt `ID=`). Der YES-Druck
+>    brach nach dem Fehler-Piep ab, die Kopie wurde nie erzeugt — und
+>    weitere Presses trafen auf „No rate-print question pending", was wie
+>    „mit Nein beantwortet" aussieht. **Jetzt:** YES → Kopie landet in
+>    `optimized/`, taucht in Mainsail UND im LCD-Hauptmenü „Optimized" auf.
+>    (Generator-Dateien und LEGACY-Druck waren NICHT die Ursache.)
+> 2. **Die Frage bleibt jetzt stehen** (kein 90-s-Timeout mehr): Sie
+>    verschwindet erst durch YES/NO — oder automatisch mit NO, sobald du
+>    eine NEUE Datei auswählst/startest.
+> 3. **SD-Karten-Menü:** Die toden Stock-Einträge (Start printing / Resume /
+>    Pause / Cancel) sind komplett entfernt. **40 Einträge pro Seite**
+>    (statt 20), Ordnerbaum jetzt **vollständig rekursiv** (auch tiefe
+>    Unterordner). Das „in der Mitte landen" beim Ordner-Eintritt ist ein
+>    Klipper-Cursor-Verhalten (kein G-Code kann den Cursor setzen) — mit 40
+>    Einträgen pro Seite passiert es kaum noch.
+>
+> Außerdem dabei: **System > File check > Re-fix types** heilt deine
+> trash.gcode-Kette (falsche CUSTOM-Marker, R172), Mandelbrot-Textur ist
+> raus. Erneut flashen: ZIP `…-2026-10-24.129a.zip`, danach muss stehen:
+> `post-processor reports build 'R2-2026-10-24.129a (R170a)'` UND
+> `Macro system OK ... (build R2-2026-10-24.129a)`.
+
 Diese Runde ist die **Label/Stempel-Feldrunde** (Feldbericht .128): keine
 überdruckten Labels mehr, Live-Größenanzeige statt Fit-Button,
 Automatisch-Aufteilen bei Überlauf, Stempelgriff in 4 Modi, klare Fehler

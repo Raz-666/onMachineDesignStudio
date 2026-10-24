@@ -522,7 +522,7 @@ lbl = pp.make_labels(['TEXTUR'], bed=BED, out_dir=D)[0]
 run('texture FUZZY on label', lambda: tx.apply_texture(
     lbl, mode='FUZZY', fuzzy_thick=0.3, fuzzy_density=55, out_dir=D), skip_idem=True)
 frm = pp.make_frame(preset='9x13', bed=BED, out_dir=D)[0]
-for pat in ('GRID', 'WAVES', 'HEX', 'MANDELBROT'):
+for pat in ('GRID', 'WAVES', 'HEX'):
     run('texture BUMPS %s on frame' % pat, lambda p=pat: tx.apply_texture(
         frm, mode='BUMPS', bump_pattern=p, bump_scale=6.0, bump_amp=0.5,
         out_dir=D), skip_idem=True, r2_gen=True)
@@ -607,9 +607,6 @@ if _lith_src:
 run('hc texture FUZZY on frame', lambda: tx.apply_texture(
     F(preset='9x13')[0], mode='FUZZY', fuzzy_thick=0.5, fuzzy_density=25,
     out_dir=D), skip_idem=True, r2_gen=True)
-run('hc texture BUMPS mandelbrot micro', lambda: tx.apply_texture(
-    S(od=40, id_=20)[0], mode='BUMPS', bump_pattern='MANDELBROT',
-    bump_scale=12.0, bump_amp=0.15, out_dir=D), skip_idem=True, r2_gen=True)
 
 # ---- .86 invariants over EVERYTHING this sweep produced --------------------
 _hc_stale = _hc_old = _hc_untouched = 0

@@ -12,7 +12,6 @@ What it does
     GRID         sin(x)*sin(y) egg-crate
     WAVES        diagonal sinus with a z-phase (breaks the layer rhythm)
     HEX          3-fold sinus -> honeycomb
-    MANDELBROT   escape-time value of z->z^2+c, c scaled from the bed center
   direction OUT = away from the part shell, IN = into it (flip if the wall
   winding surprises you)
 - vertical z-phase everywhere: consecutive layers get a slightly shifted
@@ -159,18 +158,6 @@ def _bump_hex(x, y, z, scale):
             math.sin(b + math.cos(a) * 0.5 + z * 0.6) * 0.5)
 
 
-def _bump_mandelbrot(x, y, z, scale, cx, cy):
-    # c scaled from the bed center: deterministic + position-unique
-    c = complex((x - cx) / (scale * 10.0), (y - cy) / (scale * 10.0))
-    zn = complex(0.0, 0.0)
-    for _i in range(12):
-        zn = zn * zn + c
-        if abs(zn) > 4.0:
-            break
-    v = min(1.0, abs(zn) / 4.0)
-    return v * v * (0.7 + 0.3 * math.sin(z * 2 * math.pi / 1.2))
-
-
 def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                   fuzzy_density=100.0, bump_pattern='GRID', bump_scale=10.0,
                   bump_amp=0.35, direction='OUT', bed=None, version=1,  # version: retired (R158, folder-global auto)
@@ -189,9 +176,9 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
     if not (10.0 <= float(fuzzy_density) <= 100.0):
         raise ValueError('fuzzy density %.0f%% out of range (10..100)'
                          % float(fuzzy_density))
-    if bump_pattern not in ('GRID', 'WAVES', 'HEX', 'MANDELBROT'):
-        raise ValueError('bump pattern %r must be GRID, WAVES, HEX or '
-                         'MANDELBROT' % bump_pattern)
+    if bump_pattern not in ('GRID', 'WAVES', 'HEX'):
+        raise ValueError('bump_pattern must be GRID, WAVES or HEX (got %r)'
+                         % bump_pattern)
     if not (3.0 <= float(bump_scale) <= 60.0):
         raise ValueError('bump scale %.1fmm out of range (3..60)'
                          % float(bump_scale))
@@ -266,7 +253,6 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
             return _bump_waves(x, y, z, float(bump_scale))
         if bump_pattern == 'HEX':
             return _bump_hex(x, y, z, float(bump_scale))
-        return _bump_mandelbrot(x, y, z, float(bump_scale), cx, cy)
 
     stats = {'moves': 0, 'shifted': 0, 'clamped': 0, 'layers': 0, 'arcs': 0}
     cur_type = ''

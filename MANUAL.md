@@ -413,7 +413,7 @@ into an automatic `post` profile). Since .128 it is a decision:
 |---|---|
 | **YES — optimized copy** | the tuning STAYS and the watcher writes an **optimized copy** (below). Confirm sound, `Optimized: saved` on the display. |
 | **NO — discard** | the exact **pre-print baseline** (snapshotted at the print start, memory only) is restored — every override, feature switch, clamp and material — the tuning is gone without a trace. |
-| **90 s of silence** | counts as NO. Starting the next print or selecting another file also resolves it immediately — an unanswered question never blocks anything and never leaks into the next print. |
+| **no auto-timeout (.129a)** | the question STAYS in the menu until you answer. Only picking a new file (or starting a new print) answers it with NO — nothing is ever adopted automatically. |
 
 The **optimized copy** lands in `gcodes/optimized/` under the SAME file name —
 the original file is only ever **read** (byte-identical, provable by md5/diff).
@@ -2310,7 +2310,7 @@ Bricks (catalog, kit, figures) · Plotter, each with its own sub-menu — plus *
 happens to every generated file, see 5.0),
 Maintenance, System. Klipper's own stock menus OctoPrint, Temperature and
 Setup are hidden (.104) — everything they do exists in the R2 menus; the
-SD Card browser, Control and Tune stay. Start dialog and live tuning sit right at the top. Every line fits the 16 characters
+SD Card browser (40 entries per page, EVERY folder depth, .129a - the stock Start/Resume/Pause/Cancel dead entries are killed), Control and Tune stay. Start dialog and live tuning sit right at the top. Every line fits the 16 characters
 of the 12864 display — the value you edit is always visible (test-enforced).
 Pattern: first line = ON/OFF toggle (value stays stored), then the values.
 

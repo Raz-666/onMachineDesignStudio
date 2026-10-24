@@ -3864,7 +3864,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.100) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-22.129'", repr(_v66)))
+    _v66 == "'R2-2026-10-24.129a'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -7579,7 +7579,7 @@ tests.append(('R91 LCD: Pre-Print > Texture (mode/fuzzy/bumps params + apply)',
     all(k in _lcd91 for k in ('__preprint __tex]', '__tex __mode __fuz',
                               '__tex __mode __bum', '__tex __thk',
                               '__tex __den', '__tex __pat __gri',
-                              '__tex __pat __man', '__tex __scl',
+                              '__tex __scl',
                               '__tex __amp', '__tex __dir', '__tex __go'))
     and 'TEXTURE_APPLY' in _lcd91, ''))
 # watcher wires the nonce
@@ -9715,10 +9715,12 @@ tests.append(('R169 _OPT_END_CAPTURE: cancelled -> baseline restore, never a que
 _pr169 = get_body('macros/05_materials.cfg', '_OPT_PROMPT_RESOLVE')
 state_vars['opt_pending'] = True
 _out169 = render(_pr169, {'MODE': 'timeout'})
-tests.append(('R169 _OPT_PROMPT_RESOLVE: quiet resolve + timers cancelled',
+tests.append(('R169 _OPT_PROMPT_RESOLVE: quiet resolve + timers cancelled '
+              '(R173: ID= not NAME= - the field bug killed the YES press)',
     'VARIABLE=opt_pending VALUE=False' in _out169
     and '_OPT_RESTORE_BASELINE QUIET=1' in _out169
-    and 'UPDATE_DELAYED_GCODE NAME=_OPT_PROMPT_HINT DURATION=0' in _out169, _out169[:100]))
+    and 'UPDATE_DELAYED_GCODE ID=_OPT_PROMPT_HINT DURATION=0' in _out169
+    and 'UPDATE_DELAYED_GCODE NAME=' not in _out169, _out169[:100]))
 state_vars.pop('opt_pending', None)
 _fpi109 = get_body('macros/05_materials.cfg', 'FILE_PROFILES_INFO')
 _out109 = render(_fpi109, {})
@@ -9818,10 +9820,12 @@ _oa169 = get_body('macros/05_materials.cfg', '_OPT_END_ASK')
 state_vars['opt_baseline'] = {'material': 'PLA', 'pa': 0.045, 'pa_on': True}
 save_vars['opt_snap'] = {'material': 'PLA', 'pa': 0.06, 'pa_on': True}
 _out169 = render(_oa169, {})
-tests.append(('R169 _OPT_END_ASK: changed -> pending + hint + 90s timeout',
+tests.append(('R169 _OPT_END_ASK (R173): changed -> pending + hint, NO '
+              'auto-timeout - the question stays until answered',
     'VARIABLE=opt_pending VALUE=True' in _out169
     and '_OPT_PROMPT_HINT DURATION=12' in _out169
-    and '_OPT_PROMPT_TIMEOUT DURATION=90' in _out169, _out169[:120]))
+    and '_OPT_PROMPT_TIMEOUT' not in _out169
+    and 'stays until you answer' in _out169, _out169[:120]))
 save_vars['opt_snap'] = {'material': 'PLA', 'pa': 0.045, 'pa_on': True}
 _out169 = render(_oa169, {})
 tests.append(('R169 _OPT_END_ASK: identical -> NO question at all',
@@ -9830,10 +9834,11 @@ tests.append(('R169 _OPT_END_ASK: identical -> NO question at all',
 _yes169 = get_body('macros/05_materials.cfg', '_OPT_PROMPT_YES')
 state_vars['opt_pending'] = True
 _out169 = render(_yes169, {})
-tests.append(('R169 _OPT_PROMPT_YES: pending cleared + timers cancelled + job chained',
+tests.append(('R169 _OPT_PROMPT_YES (R173 fix): pending cleared + hint '
+              'cancelled via ID= + job chained - the copy finally happens',
     'VARIABLE=opt_pending VALUE=False' in _out169 and '_OPT_QUEUE_JOB' in _out169
-    and 'UPDATE_DELAYED_GCODE NAME=_OPT_PROMPT_HINT DURATION=0' in _out169
-    and 'UPDATE_DELAYED_GCODE NAME=_OPT_PROMPT_TIMEOUT DURATION=0' in _out169, _out169[:100]))
+    and 'UPDATE_DELAYED_GCODE ID=_OPT_PROMPT_HINT DURATION=0' in _out169
+    and '_OPT_PROMPT_TIMEOUT' not in _out169, _out169[:100]))
 state_vars['opt_pending'] = False
 _out169 = render(_yes169, {})
 tests.append(('R169 _OPT_PROMPT_YES: nothing pending -> clear refusal',
@@ -9841,9 +9846,11 @@ tests.append(('R169 _OPT_PROMPT_YES: nothing pending -> clear refusal',
 _no169 = get_body('macros/05_materials.cfg', '_OPT_PROMPT_NO')
 state_vars['opt_pending'] = True
 _out169 = render(_no169, {})
-tests.append(('R169 _OPT_PROMPT_NO: pending cleared + timers cancelled + baseline restored',
+tests.append(('R169 _OPT_PROMPT_NO: pending cleared + baseline restored '
+              '(ID= cancel, no timeout line)',
     'VARIABLE=opt_pending VALUE=False' in _out169 and '_OPT_RESTORE_BASELINE QUIET=0' in _out169
-    and 'UPDATE_DELAYED_GCODE NAME=_OPT_PROMPT_TIMEOUT DURATION=0' in _out169, _out169[:100]))
+    and 'UPDATE_DELAYED_GCODE ID=_OPT_PROMPT_HINT DURATION=0' in _out169
+    and '_OPT_PROMPT_TIMEOUT' not in _out169, _out169[:100]))
 _qj169 = get_body('macros/05_materials.cfg', '_OPT_QUEUE_JOB')
 save_vars.update({'opt_file': 'vase.gcode', 'opt_snap': {'material': 'PLA', 'pa': 0.06, 'pa_on': True, 'overrides': 2}, 'opt_nonce': 3})
 _out169 = render(_qj169, {})
@@ -9899,9 +9906,12 @@ tests.append(('R169 _OPT_APPLY_PICKED: out of range -> refusal, no job',
     'No optimized file no. 9' in _out169 and 'VARIABLE=opt_load_nonce' not in _out169, _out169[:100]))
 _sl169 = get_body('macros/05_materials.cfg', '_OPT_SAVE_LATER')
 state_vars['mode'] = 'idle'
+save_vars['opt_snap'] = "{'material': 'PLA', 'pa': 0.06, 'pa_on': True}"   # R173: save_variables stores a STRING
+save_vars['opt_file'] = 'vase.gcode'
 _out169 = render(_sl169, {})
-tests.append(('R169 _OPT_SAVE_LATER: idle + snapshot -> job chained',
-    '_OPT_QUEUE_JOB' in _out169, _out169[:80]))
+tests.append(('R169 _OPT_SAVE_LATER (R173 fix): idle + STRING snapshot -> '
+              'job chained (is-mapping always refused in the field)',
+    '_OPT_QUEUE_JOB' in _out169 and 'is mapping' not in _sl169, _out169[:80]))
 state_vars['mode'] = 'printing'
 _out169 = render(_sl169, {})
 tests.append(('R169 _OPT_SAVE_LATER: while printing -> refusal',
@@ -10142,6 +10152,255 @@ except ValueError as _e170l:
 tests.append(('R170 litho handle=1 (on the plate): refused with a pointer '
               'to the label stamps',
     _lref170, ''))
+
+# ============== R171: string art - the proven StringArt3D scheme, native ==
+import tempfile as _tf171, os as _os171, re as _re171
+import struct as _st171, zlib as _zl171
+_d171 = _tf171.mkdtemp(prefix='r171_')
+
+_o171, _i171 = _pp61.make_string_art(pattern='SPIRAL', diameter=120.0,
+                                     anchors=48, lines=60, out_dir=_d171,
+                                     bed=(0.0, -3.0, 244.0, 238.0))
+_g171 = open(_o171).read()
+_zs171 = sorted(set(float(m) for m in _re171.findall(r';Z:([\d.]+)', _g171)))
+tests.append(('R171 string art SPIRAL: 12-layer anchor ring + the 6 proven '
+              'thread bands + 3 finishing loops (the StringArt3D ladder)',
+    _i171['kind'] == 'string-art' and _i171['ring_layers'] == 12
+    and _i171['bands'] == 6 and _i171['lines'] == 60
+    and 2.68 in _zs171 and 3.08 in _zs171 and 3.43 in _zs171
+    and 3.93 in _zs171 and _i171['height'] == 3.93, str(_i171)))
+tests.append(('R171 string art: firmware retract per strand, Bridge feature, '
+              'RING + FADEN exclude objects, band fan ramp',
+    _g171.count('\nG10') >= 55 and _g171.count('\nG11') >= 55
+    and ';TYPE:Bridge' in _g171
+    and 'EXCLUDE_OBJECT_DEFINE NAME=RING' in _g171
+    and 'EXCLUDE_OBJECT_DEFINE NAME=FADEN' in _g171
+    and 'band 6 cooling ramp' in _g171
+    and 'first layer = fan off' in _g171, ''))
+tests.append(('R171 string art: PRINT_START + _FILE_INFO TYPES + 21 '
+              'LAYER_MARKs (the live feature system sees the file)',
+    'PRINT_START MATERIAL=' in _g171 and '_FILE_INFO' in _g171
+    and 'TYPES=' in _g171 and _g171.count('LAYER_MARK') == 21, ''))
+
+def _png171(w, h):
+    def _chunk(t, d):
+        return (_st171.pack('>I', len(d)) + t + d
+                + _st171.pack('>I', _zl171.crc32(t + d) & 0xffffffff))
+    rows = b''
+    for y in range(h):
+        rows += b'\x00' + bytes(
+            40 if (x - w // 2) ** 2 + (y - h // 2) ** 2 < (w // 4) ** 2
+            else 230 for x in range(w))
+    return (b'\x89PNG\r\n\x1a\n'
+            + _chunk(b'IHDR', _st171.pack('>IIBBBBB', w, h, 8, 0, 0, 0, 0))
+            + _chunk(b'IDAT', _zl171.compress(rows)) + _chunk(b'IEND', b''))
+_img171 = _os171.path.join(_d171, 'a171.png')
+open(_img171, 'wb').write(_png171(64, 64))
+_o171b, _i171b = _pp61.make_string_art(src=_img171, diameter=120.0,
+                                       anchors=48, lines=50, grid=48,
+                                       n_cand=60, out_dir=_d171,
+                                       bed=(0.0, -3.0, 244.0, 238.0))
+tests.append(('R171 string art PHOTO: greedy planner lays 50 chords from a '
+              'dark disc, stem without extension in the name',
+    _i171b['lines'] == 50 and _i171b['pattern'] == 'PHOTO'
+    and _i171b['source'] == 'a171.png'
+    and '.png' not in _i171b['file']
+    and _i171b['file'].startswith('V0')
+    and _i171b['converged'] is False, str(_i171b)))
+_o171c, _i171c = _pp61.make_string_art(src=_img171, diameter=120.0,
+                                       anchors=48, lines=50, grid=48,
+                                       n_cand=60, out_dir=_d171,
+                                       bed=(0.0, -3.0, 244.0, 238.0))
+tests.append(('R171 string art PHOTO: same seed -> byte-identical output '
+              '(reproducible, no hidden randomness)',
+    open(_o171b, 'rb').read() == open(_o171c, 'rb').read(), ''))
+_o171d, _i171d = _pp61.make_string_art(pattern='SPIRAL', diameter=400.0,
+                                      anchors=48, lines=60, out_dir=_d171,
+                                      bed=(0.0, -3.0, 244.0, 238.0))
+tests.append(('R171 string art: a 400mm circle clamps to the bed and SAYS '
+              'so (brim-safe)',
+    _i171d['diameter'] <= 221.0 and _i171d['diameter'] == 221.0
+    and any('clamped' in n for n in _i171d['notes']), str(_i171d['notes'])))
+try:
+    _pp61.make_string_art(pattern='PHOTO', out_dir=_d171)
+    _sa171e = False
+except ValueError as _e171e:
+    _sa171e = 'needs an image' in str(_e171e)
+tests.append(('R171 string art: PHOTO without an image refuses clearly',
+    _sa171e, ''))
+try:
+    _pp61.make_string_art(pattern='QUARK', out_dir=_d171)
+    _sa171f = False
+except ValueError as _e171f:
+    _sa171f = "must be 'PHOTO' or 'SPIRAL'" in str(_e171f)
+tests.append(('R171 string art: unknown patterns refuse with the choices',
+    _sa171f, ''))
+
+# ============== R172: ';TYPE:Wall outer' - the trash.gcode chain ==============
+# (field report .129: texture -> range left every feature as CUSTOM and
+# per-feature tuning did NOTHING. Root cause: the TYPE_MAP lookup was EXACT -
+# 'wall-outer' was listed, the slicer's 'Wall outer' (space) was not, so
+# every wall of the file became CUSTOM)
+tests.append(('R172 canon map: separators are cosmetic - Wall outer, '
+              'WALL-OUTER, wall_outer all map, unknown stays CUSTOM',
+    _pp61._canon_type('Wall outer') == 'WALL-OUTER'
+    and _pp61._canon_type('wall-outer') == 'WALL-OUTER'
+    and _pp61._canon_type('WALL-OUTER') == 'WALL-OUTER'
+    and _pp61._canon_type('wall_outer') == 'WALL-OUTER'
+    and _pp61._canon_type('Inner Wall') == 'WALL-INNER'
+    and _pp61._canon_type('Solid  infill') == 'INFILL-SOLID'
+    and _pp61._canon_type('Quark') == 'CUSTOM', ''))
+
+import tempfile as _tf172, os as _os172, re as _re172
+import importlib.util as _ilu172
+_d172 = _tf172.mkdtemp(prefix='r172_')
+
+def _build172(path):
+    L172 = ['M104 S210', 'M140 S60', 'M83', 'G28', 'G90']
+    for _ly172 in range(1, 7):
+        L172 += [';LAYER_CHANGE', ';Z:%.2f' % (0.2 * _ly172),
+                 ';TYPE:Wall outer',
+                 'G0 X70 Y70 F6000', 'G0 Z%.2f F600' % (0.2 * _ly172),
+                 'G1 X130 Y70 E1.2 F1200', 'G1 X130 Y130 E1.2 F1200',
+                 'G1 X70 Y130 E1.2 F1200', 'G1 X70 Y70 E1.2 F1200',
+                 ';TYPE:Inner wall',
+                 'G0 X71 Y71', 'G1 X129 Y71 E0.6 F1200',
+                 'G1 X129 Y129 E0.6 F1200',
+                 ';TYPE:Solid infill']
+        _yy172 = 73.0
+        while _yy172 < 128.0:
+            L172 += ['G0 X71 Y%.1f' % _yy172,
+                     'G1 X129 Y%.1f E2.0 F1800' % _yy172]
+            _yy172 += 2.0
+    L172 += ['M104 S0', 'M140 S0', 'G28 X Y']
+    open(path, 'w').write('\n'.join(L172) + '\n')
+
+_src172 = _os172.path.join(_d172, 'trash.gcode')
+_build172(_src172)
+_pp61.process(_src172)
+_spec172t = _ilu172.spec_from_file_location(
+    'r2t172', _os172.path.join('tools', 'r2_texture.py'))
+_r2t172 = _ilu172.module_from_spec(_spec172t)
+_spec172t.loader.exec_module(_r2t172)
+_out172t, _ = _r2t172.apply_texture(
+    _src172, out_dir=_d172, mode='FUZZY', fuzzy_thick=0.3, seed=91,
+    bed=(0.0, -3.0, 244.0, 238.0))
+_out172r, _ = _pp61.make_range(_out172t, 2, 5, floor=6,
+                               floor_shape='outline', floor_fill='grid',
+                               brim=2, out_dir=_d172)
+_g172r = open(_out172r).read()
+_fi172 = _re172.search(r'_FILE_INFO[^\n]*TYPES=(\S+)', _g172r)
+tests.append(('R172 the trash.gcode chain: texture -> range keeps the REAL '
+              'features (WALL-OUTER arrives, CUSTOM is gone - tuning works)',
+    _fi172 is not None and 'WALL-OUTER' in _fi172.group(1)
+    and 'CUSTOM' not in _fi172.group(1)
+    and 'INFILL-SOLID' in _fi172.group(1)
+    and _g172r.count('APPLY_TYPE TYPE=CUSTOM') == 0,
+    _fi172.group(1) if _fi172 else '?'))
+
+# the ALTFALL: a file tagged BEFORE the fix carries wrong CUSTOM markers -
+# rederive_apply_types heals them from the slicer's own ;TYPE: comments
+_old172 = _os172.path.join(_d172, 'old_tagged.gcode')
+open(_old172, 'w').write(
+    ';TYPE:Wall outer\nAPPLY_TYPE TYPE=CUSTOM\nG1 X1 Y1 E1 F1200\n'
+    ';TYPE:Bridge\nAPPLY_TYPE TYPE=BRIDGE\nG1 X2 Y2 E1 F1200\n'
+    'LAYER_MARK\n;TYPE:Solid infill\nAPPLY_TYPE TYPE=CUSTOM\n'
+    'G1 X3 Y3 E1 F1200\n')
+_n172 = _pp61.rederive_apply_types(_old172)
+_g172o = open(_old172).read()
+tests.append(('R172 RE-FIX heals pre-.129 files: wrong CUSTOM markers '
+              're-derived, correct ones and ;TYPE: untouched',
+    _n172 == 2 and 'APPLY_TYPE TYPE=CUSTOM' not in _g172o
+    and _g172o.count('APPLY_TYPE TYPE=WALL-OUTER') == 1
+    and _g172o.count('APPLY_TYPE TYPE=BRIDGE') == 1
+    and _g172o.count('APPLY_TYPE TYPE=INFILL-SOLID') == 1
+    and ';TYPE:Wall outer' in _g172o, 'fixed=%d' % _n172))
+
+_w172 = open('tools/r2_postproc.py', encoding='utf-8').read()
+tests.append(('R172 wiring: separator-tolerant lookup used by ALL map '
+              'consumers + watcher RETAG=2 branch (backup, max 20)',
+    s.count if False else
+    ('_lookup_type(key) or ' in _w172 and _w172.count('_lookup_type') >= 7
+     and '_refix172' in _w172 and 'rederive_apply_types(_p93)' in _w172), ''))
+_m172 = open('macros/13_system.cfg', encoding='utf-8').read()
+_l172b = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+_st172 = open('macros/01_state.cfg', encoding='utf-8').read()
+tests.append(('R172 LCD: Re-fix types arm/NOW (2-press, own armed flag) + '
+              'FILE_CHECK RETAG=2 renders without a semicolon in strings',
+    'Re-fix types? arm' in _l172b and 'RE-FIX TYPES NOW' in _l172b
+    and 'fc2_armed' in _l172b and 'fc2_armed' in _st172
+    and 'RETAG|default(0)|int == 2' in _m172
+    and 'RE-FIX: files tagged before .129' in _m172, ''))
+
+# ============== R173: the .129 field-report hotfix round =====================
+# (1) the rate-print YES press died on UPDATE_DELAYED_GCODE NAME= (ID= is the
+#     law) - the copy never ran, later presses hit 'No rate-print question
+#     pending' which READS like 'answered NO'. (2) the question now STAYS
+#     until answered; only a new file selection answers NO. (3) the SD card
+#     browser: stock Start/Resume/Pause/Cancel dead entries killed, 40 per
+#     page, fully recursive tree. (4) Mandelbrot pattern retired.
+_m173 = open('macros/05_materials.cfg', encoding='utf-8').read()
+_o173 = open('macros/08_print_start_stop.cfg', encoding='utf-8').read()
+tests.append(('R173 rate print: no NAME= misuse anywhere, no 90s auto-timeout '
+              'block, opt_cnt pushed for the LCD counter',
+    'UPDATE_DELAYED_GCODE NAME=' not in _m173
+    and 'UPDATE_DELAYED_GCODE NAME=' not in _o173
+    and '[delayed_gcode _OPT_PROMPT_TIMEOUT]' not in _o173
+    and 'VARIABLE=opt_cnt VALUE={ns169.cnt}' in _m173
+    and "opt_cnt|default(0)} tuned" in
+        open('menus/lcd_menues.cfg', encoding='utf-8').read(), ''))
+tests.append(('R173 rate print: new selection answers NO (both start paths '
+              'resolve the question before loading)',
+    _o173.count('_OPT_PROMPT_RESOLVE MODE=timeout') >= 3, ''))
+_l173 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R173 SD browser: the four stock items are killed for good '
+              '(same-name overrides, enable off - each stub self-contained)',
+    all(('[menu __main __sdcard __%s]\nenable: {False}' % _k) in _l173
+        or (re.search(r'\[menu __main __sdcard __%s\]\ntype: command\n'
+                      r'name: \.\nenable: \{False\}' % _k, _l173)
+            is not None)
+        for _k in ('start', 'resume', 'pause', 'cancel')), ''))
+tests.append(('R173 SD browser: 40 slots + page flip at 40 + recursive tree '
+              'walker in the watcher',
+    _l173.count('SDNAV_GO INDEX=') == 40
+    and 'sd_view|default([])|length >= 40' in _l173
+    and 'def _walk154' in open('tools/r2_postproc.py',
+                              encoding='utf-8').read()
+    and '(len(_en154) - 1) // 40' in open('tools/r2_postproc.py',
+                                          encoding='utf-8').read(), ''))
+_sdnav173 = open('macros/13_system.cfg', encoding='utf-8').read()
+tests.append(('R173 SD browser: the macros slice 40 and nest-friendly '
+              '(Mandelbrot pattern retired in the same sweep)',
+    'en[0:40]' in _sdnav173 and 'en[np * 40:np * 40 + 40]' in _sdnav173
+    and '(en|length - 1) // 40' in _sdnav173
+    and 'MANDELBROT' not in open('tools/r2_texture.py',
+                                 encoding='utf-8').read()
+    and 'MANDELBROT' not in _l173, ''))
+# the page math, rendered: 45 entries -> page 1 shows the last 5
+save_vars['sd_tree'] = {'': ['F:%02d.gcode' % _k173 for _k173 in range(45)]}
+save_vars['sd_path'] = ''
+save_vars['sd_page'] = 0
+save_vars['sd_view'] = ['F:%02d.gcode' % _k173 for _k173 in range(40)]
+_pg173 = get_body('macros/13_system.cfg', 'SDNAV_PAGE')
+_out173 = render(_pg173, {'DELTA': 1})
+tests.append(('R173 SDNAV_PAGE: 45 entries -> 2 pages of 40, page 2 holds '
+              'the last 5 (no dead zones, no 20-cap)',
+    'VARIABLE=sd_page VALUE=1' in _out173
+    and _out173.count("'F:4") >= 2, _out173[:120]))
+# nested folder enter: the tree carries EVERY depth
+save_vars['sd_tree'] = {'': ['D:Projekte'], 'Projekte': ['D:2026'],
+                        'Projekte/2026': ['F:teil.gcode']}
+save_vars['sd_path'] = 'Projekte'
+save_vars['sd_view'] = ['D:2026']
+save_vars['sd_page'] = 0
+_go173 = get_body('macros/13_system.cfg', 'SDNAV_GO')
+_out173 = render(_go173, {'INDEX': 0})
+tests.append(('R173 SDNAV_GO: nested folders open (the tree is recursive - '
+              'first-level-only is history)',
+    'Projekte/2026' in _out173 and "'F:teil.gcode'" in _out173,
+    _out173[:120]))
+save_vars.pop('sd_tree', None); save_vars.pop('sd_path', None)
+save_vars.pop('sd_view', None); save_vars.pop('sd_page', None)
 
 # ============== R110: profiles + gen-out LIVE from the LCD (no console, no restart) ==============
 # every item of Pre-Print > Profiles and Tools > After gen must RENDER and do
@@ -12298,7 +12557,8 @@ _lcd135 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 _gold135 = [l for l in open('tools/r135_menu_golden.txt',
                             encoding='utf-8').read().split('\n') if l]
 _now135 = _re135.findall(r'^\[menu ([\w ]+)\]$', _lcd135, _re135.M)
-_REMOVED135 = ['__main __live __accels', '__main __live __accels __cur',
+_REMOVED135 = ['__main __preprint __tex __pat __man',  # R173: Mandelbrot retired (user choice)
+ '__main __live __accels', '__main __live __accels __cur',
  '__main __preprint __profs __autosave',   # R169: auto-post retired
  '__main __live __accels __eff', '__main __live __accels __ga',
  '__main __live __accels __now', '__main __live __accels __pct',
@@ -12337,6 +12597,8 @@ _ADDED135 = ['__main __live __acfe __cur', '__main __live __acfe __eff',
  '__main __preprint __profs __optsave',
  '__main __preprint __file __opt',
  '__main __gen __labels __set __now',
+ '__main __system __fc4',
+ '__main __system __fc5',
  '__main __gen __labels __job __stguard',
  '__main __live __acfe __ga', '__main __live __acfe __now',
  '__main __live __acfe __pct', '__main __live __flfe __gfl',
@@ -12411,7 +12673,9 @@ _ADDED135 = ['__main __live __acfe __cur', '__main __live __acfe __eff',
  '__main __live __feat __pt __pa',
  '__main __live __feat __pt __spd',
 ] + [
-    '__main __sdcard __f%d' % _i for _i in range(20)]
+    '__main __sdcard __f%d' % _i for _i in range(40)] + [
+    '__main __sdcard __start', '__main __sdcard __resume',
+    '__main __sdcard __pause', '__main __sdcard __cancel']
 _gone135 = sorted(set(_gold135) - set(_now135))
 _new135 = sorted(set(_now135) - set(_gold135))
 tests.append(('R135 menu inventory: NOTHING lost - every vanished path is a '
@@ -12604,7 +12868,7 @@ tests.append(('R146 Gen files slots: basename on the 20-char LCD (path split) '
               'subfolder outputs stay selectable',
               _lcd146.count(").split('/')[-1]|replace('.gcode', '')|truncate(13, True)}") == 24
               and _lcd146.count("SDCARD_PRINT_FILE FILENAME=\"{(printer['save_variables'].variables.gen_files|default([]))") >= 12
-              and _lcd146.count('SDNAV_GO INDEX=') == 20, ''))
+              and _lcd146.count('SDNAV_GO INDEX=') == 40, ''))
 
 _sdnav155 = open('macros/13_system.cfg', encoding='utf-8').read()
 _r2p155 = open('tools/r2_postproc.py', encoding='utf-8').read()
