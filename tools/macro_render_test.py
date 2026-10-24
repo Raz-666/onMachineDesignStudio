@@ -3855,7 +3855,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.100) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-22.126'", repr(_v66)))
+    _v66 == "'R2-2026-10-22.127'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -9019,9 +9019,11 @@ tests.append(('R106 MCR: echo rounds (0.95, never 0.9500000000000004)',
     [l for l in _outmcr.split('\n') if 'OK' in l][:1]))
 _lcd106 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 _n106 = _lcd106.count("enable: {printer['gcode_macro _STATE'].file_types|default('') == '' or '")
-tests.append(('R106/R123/R124 menus: 208 feature items (80 + 32 PA + 96 spd/flw/acc '
-              'quick entries) hide when the file lacks them; available-but-off stay visible',
-    _n106 == 208, 'count %d' % _n106))
+tests.append(('R106/R123/R124/R168 menus: 216 feature items (80 + 32 PA + 96 '
+              'spd/flw/acc quick entries + R168 Custom/Overhang/IntBridge/'
+              'PrimeTower on+fs) hide when the file lacks them; '
+              'available-but-off stay visible',
+    _n106 == 216, 'count %d' % _n106))
 tests.append(('R106 preset: picking a preset fills W/H as editable values',
     all(('VARIABLE=frame_w VALUE=%d' % w) in _lcd106
         and ('VARIABLE=frame_h VALUE=%d' % h) in _lcd106
@@ -11964,7 +11966,45 @@ _ADDED135 = ['__main __live __acfe __cur', '__main __live __acfe __eff',
  '__main __preprint __spfe __now', '__main __setup', '__main __temp',
  '__main __preprint __poff __what', '__main __sdcard',
  '__main __sdcard __how', '__main __sdcard __home', '__main __sdcard __none',
- '__main __sdcard __pgd', '__main __sdcard __pgu', '__main __sdcard __up'] + [
+ '__main __sdcard __pgd', '__main __sdcard __pgu', '__main __sdcard __up',
+ '__main __gen __labels __set __gr',
+ '__main __gen __labels __set __mx',
+ '__main __gen __labels __set __my',
+ '__main __gen __labels __set __st',
+ '__main __gen __labels __set __stb',
+ '__main __gen __labels __set __stt',
+ '__main __gen __litho __set __ct',
+ '__main __gen __litho __set __gr',
+ '__main __gen __litho __set __mx',
+ '__main __gen __litho __set __my',
+ '__main __gen __litho __set __st',
+ '__main __gen __litho __set __stb',
+ '__main __gen __litho __set __stt',
+ '__main __live __feat __cu __acc',
+ '__main __live __feat __cu __flw',
+ '__main __live __feat __cu __fs',
+ '__main __live __feat __cu __on',
+ '__main __live __feat __cu __pa',
+ '__main __live __feat __cu __spd',
+ '__main __live __feat __ib __acc',
+ '__main __live __feat __ib __flw',
+ '__main __live __feat __ib __fs',
+ '__main __live __feat __ib __on',
+ '__main __live __feat __ib __pa',
+ '__main __live __feat __ib __spd',
+ '__main __live __feat __oh __acc',
+ '__main __live __feat __oh __flw',
+ '__main __live __feat __oh __fs',
+ '__main __live __feat __oh __on',
+ '__main __live __feat __oh __pa',
+ '__main __live __feat __oh __spd',
+ '__main __live __feat __pt __acc',
+ '__main __live __feat __pt __flw',
+ '__main __live __feat __pt __fs',
+ '__main __live __feat __pt __on',
+ '__main __live __feat __pt __pa',
+ '__main __live __feat __pt __spd',
+] + [
     '__main __sdcard __f%d' % _i for _i in range(20)]
 _gone135 = sorted(set(_gold135) - set(_now135))
 _new135 = sorted(set(_now135) - set(_gold135))
@@ -13053,6 +13093,66 @@ out = render(get_body('macros/06_temp_controls.cfg', 'M140'), {'S': '55'},
 tests.append(('R161 M140 AS SLICED layer 2: the file\'s own bed command '
     'runs 1:1 (was forced to the material preset)',
     'M99140 S55' in out and 'L1 rule' not in out, out[:140]))
+
+
+# ======================= R168: stamp / contour / mirror surface ==============
+_re168 = re.compile(r'\[menu (__main [\w ]+)\]\n((?:(?!\[menu ).*\n)*)')
+_menus168 = dict(_re168.findall(open('menus/lcd_menues.cfg',
+                                     encoding='utf-8').read()))
+
+def _m168(path):
+    return _menus168[path]
+
+# contour input: saves litho_contour, explains all 4 modes
+_ct168 = _m168('__main __gen __litho __set __ct')
+_ct168o = render(_ct168.split('gcode:', 1)[1], extra={'menu': M({'input': 2})})
+tests.append(('R168 litho Contour input: saves the value, the RESPOND '
+              'explains the RELIEF mode (topographic walls)',
+    'SAVE_VARIABLE VARIABLE=litho_contour VALUE=2' in _ct168o
+    and 'RELIEF' in _ct168o and 'topographic' in _ct168o,
+    _ct168o.split('\n')[0][:100]))
+
+# stamp toggle + handle input on BOTH generators
+for _seg168, _var168, _pre168 in (('__litho', 'litho', 'Litho'),
+                                   ('__labels', 'label', 'Label')):
+    _st168 = _m168('__main __gen %s __set __st' % _seg168)
+    _st168o = render(_st168.split('gcode:', 1)[1])
+    tests.append(('R168 %s Stamp toggle: ON names the snap socket + mirror '
+                  'hint' % _pre168,
+        'SAVE_VARIABLE VARIABLE=%s_stamp VALUE=True' % _var168 in _st168o
+        and ('snap socket' in _st168o or 'socket' in _st168o),
+        _st168o.split('\n')[0][:100]))
+
+_gr168 = _m168('__main __gen __litho __set __gr')
+_gr168o = render(_gr168.split('gcode:', 1)[1], extra={'menu': M({'input': 1})})
+tests.append(('R168 litho Handle input: 1 = extra handle file, own print',
+    'SAVE_VARIABLE VARIABLE=litho_handle VALUE=1' in _gr168o
+    and 'own file' in _gr168o, _gr168o.split('\n')[0][:100]))
+
+# the filled CUSTOM submenu: enable follows file_types, the quick value
+# shows the file speed - the .126 field report 'custom stands empty'
+_cu168 = _m168('__main __live __feat __cu __on')
+_en168 = _cu168.split('enable: ', 1)[1].split('\n')[0]
+tests.append(('R168 Custom Code submenu FILLED (field report .126): the '
+              'enable literal gates on file_types like every feature',
+    "'CUSTOM' in" in _en168 and "file_types" in _en168,
+    _en168[:90]))
+_kids168 = sorted(k for k in _menus168
+                  if k.startswith('__main __live __feat __cu '))
+tests.append(('R168 Custom Code submenu: all 6 children (on/fs/spd/flw/'
+              'acc/pa) - "nothing in it" is history',
+    _kids168 == ['__main __live __feat __cu __acc',
+                 '__main __live __feat __cu __flw',
+                 '__main __live __feat __cu __fs',
+                 '__main __live __feat __cu __on',
+                 '__main __live __feat __cu __pa',
+                 '__main __live __feat __cu __spd'], str(_kids168)))
+for _f168, _n168 in (('__oh', 'Overhang'), ('__ib', 'Internal Bridge'),
+                     ('__pt', 'Prime Tower')):
+    _k = sorted(k for k in _menus168
+                if k.startswith('__main __live __feat %s ' % _f168))
+    tests.append(('R168 %s submenu filled (was an empty list)' % _n168,
+        len(_k) == 6, str(len(_k))))
 
 
 fails = 0

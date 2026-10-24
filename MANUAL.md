@@ -919,6 +919,13 @@ layer** (right at the start of raft layer 1, not after the raft).
   (`External perimeter`, `top solid infill`, …) and Cura (`WALL-OUTER`) all
   map — since R95 also `Overhang perimeter`, `Internal bridge`,
   `Prime tower`/`Wipe tower` and `custom` sections to their features.
+- (.127) An UNKNOWN `;TYPE:` spelling maps to **CUSTOM** — the section
+  still prints 1:1 (override off), but it is not tunable as the feature
+  it really is, and Live > Features shows it under Custom Code. The
+  texture tool never touches tags (proven over the 13-dialect corpus):
+  if a textured+ranged file shows the outer wall as CUSTOM, the SOURCE
+  file's slicer uses a spelling we do not know yet — send the first
+  lines of the original and it becomes a mapped feature.
 - The excerpt's layer 1 = always 0.2 mm high, whatever the source layer
   height; following layers keep the source spacing.
 - Every parameter is also available per console:
@@ -937,6 +944,12 @@ NORMALLY when layer N begins — stats, fanfare, cooldown, like a finished
 print, not a cancel. The natural partner for "print only the first 50 layers".
 
 ### 5.2 Labels — the built-in label maker
+
+(.127) **Mirror X / Mirror Y** flip the text in its own label — mirrored
+text is what a **stamp** needs. **Stamp** prints a body with the snap
+socket under the text (exactly ONE label per job, the label hole is off —
+the socket is the mount), **Handle 1/2** adds/reprints the snap handle.
+Same fit system as the litho stamp (see 5.6).
 
 Name tags, key fobs, drawer labels, cable markers — engraved text, no slicer,
 entirely from the LCD (or one console line).
@@ -1253,6 +1266,14 @@ modeling, no manual image editing: the generator takes the picture as-is and
 does the optimization itself (contrast stretch, smoothing, mirror for the
 correct viewing side).
 
+**Stamp mode (.127)** — press photos into clay, wax or soap: set
+**Stamp ON + Mirror X ON** (FLAT). The generator prints a ~5 mm body with
+a snap socket in its underside under the mirrored relief; the optional
+**handle** (own file, `Handle 1`) snaps in and holds firm for stamping —
+push in until the tip rests on the socket ceiling and the lip clicks into
+the groove. Text stamps: **Labels** can do the same (`Labels > Settings >
+Stamp`, one label per job, mirrored text).
+
 **The workflow (LCD: `Tools > Lithophane`)**
 
 1. **Upload a picture** — drop any `.png`/`.jpg`/`.jpeg` into the gcodes
@@ -1285,6 +1306,13 @@ correct viewing side).
 | Border | 0–10 mm | FLAT: a picture frame around the plate at full height — 0 = off (the old Frame switch maps to 2.4 mm) |
 | Corner | 0–20 mm | FLAT: rounded frame corners (0 = square; only with a border) |
 | Contrast | ON/OFF | extra contrast boost after the stretch — pushes midtones apart so level edges stand out (sketches, logos, text). OFF = the raw gray values |
+| Mirror X | ON/OFF | (.127) flips the picture left-right — **a stamp prints MIRRORED**: the relief is pressed face-down, only a mirrored plate stamps a correct imprint |
+| Mirror Y | ON/OFF | (.127) flips the picture up-down |
+| Contour | 0–3 | (.127, FLAT only) 0 = walls + fill (default). 1 = the LAST layer prints only the top step's contours (outer AND holes), no fill. 2 = **CONTOUR RELIEF**: step 0 stays a clean solid plane, every darker step prints only its contour lines as raised walls on it — taller = darker, like a topographic map; holes get their own inner contour (a ring prints BOTH contours). 3 = fill as always, but the step walls become the true contours (holes walled too) |
+| Stamp | ON/OFF | (.127, FLAT only) a **stamp body** prints under the picture: ~5 mm tall (StampH), ~10 % infill, solid top skin — and a centered **snap socket** in the underside. Press the finished stamp into clay, wax, soap… The header notes it when the picture is UNMIRRORED (your choice, no hidden flip) |
+| StampH | 4–12 mm | (.127) the stamp body height (the socket sits inside it, auto-raised if too thin) |
+| StampFit | 0.10–0.50 mm | (.127) the socket's radial clearance per side — 0.25 = standard: looser = easier snap, tighter = firmer hold. The fit is MEASURED from the generated g-code (tools/r168_stampcheck.py), not believed |
+| Handle | 0/1/2 | (.127) 0 = none. 1 = an extra **handle file** (own g-code — print it when you want it, it never wastes filament with the stamp). 2 = handle ONLY (reprint a lost one). The handle snaps into the socket — no rotation, no thread: a hollow tipped spigot with a groove locks under the socket lip; every surface is vertical or 45° |
 | ~ | auto | the version in the file name bumps ITSELF (V01, V02, ...) - regenerating never overwrites an older file; the old Vers setting is retired (R133f) |
 
 **How it prints (STANDING)** — upright, one picture row per layer (the layer
@@ -1673,6 +1701,11 @@ Limits:  SET_LIVE_VELOCITY VELOCITY= (caps the FASTEST moves = travels) · SET_L
          SET_LIVE_SQUARE_CORNER VALUE=
 Z-Hop:   SET_Z_HOP ENABLE=1|0 HEIGHT=0.1..3 — lifts Z on every firmware retract (G10/G11), lowers
          before the unretract: nozzle-crash protection for towers, text, small parts (.83)
+(.127) Live > Features > Custom Code / Overhang Wall / Internal Bridge /
+Prime Tower carry the full set (On / File / Speed / Flow / Accel / PA)
+like every feature — they were empty lists before (.126 field report
+"custom stands empty in it").
+
 Feature PA (.85): SET_FEAT_PA FEATURE=<code> PA=<0..0.3> — pressure advance for ONE feature
          (e.g. wallouter 0.055, infillsparse 0.08); applied at every boundary of that
          feature, the global PA returns when it ends. 0 = off. LCD: Live Tuning > Features > <feature> > PA

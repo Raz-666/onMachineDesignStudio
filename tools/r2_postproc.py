@@ -64,7 +64,7 @@ TAG = '; R2-POSTPROC v5'
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-10-22.126'
+POSTPROC_RELEASE = 'R2-2026-10-22.127'
 POSTPROC_BUILD = 'R166'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
@@ -4703,6 +4703,389 @@ def label_preview(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4,
             'warns': warns}
 
 
+class _StampFit168:
+    """R168: stamp mount geometry - ONE truth for the base socket and the
+    handle spigot (litho FLAT + labels share it).
+
+    Mount = SNAP, not a thread (user allowed an alternative; the field
+    rules decided): a 3D-printed thread at ~9mm needs near-perfect fit on
+    an unknown printer, while a hollow-tipped spigot with a groove that
+    snaps past a lip ring in the socket holds firmly, needs no rotation,
+    and every surface is vertical or 45 deg (house air rule). The socket
+    ceiling is a DECLARED BRIDGE (R95 bridge-first spokes), the only
+    exception the aircheck honors anyway.
+
+    Seating: the spigot tip rests on the socket ceiling, the lip sits in
+    the groove. All radii below are SURFACE radii - the emitted loops run
+    at surface +/- wid/2 (material side) so the printed surface hits the
+    math. The fit report (fit[]) goes into BOTH files as
+    '; R168-STAMP FIT:' comments so tools/r168_stampcheck.py can re-measure
+    the printed geometry from the g-code and verify the promise.
+    """
+
+    R_P = 4.5          # spigot radius (fixed - the knob scales, this not)
+    SNAP = 0.20        # lip interference vs the spigot cylinder (mm/side)
+    LIP_BAND = 0.8     # axial width of the lip ring (mm)
+    GROOVE_M = 0.10    # axial margin of the groove around the lip (mm/side)
+    BORE = 2.90        # hollow spigot bore radius (compliant snap zone)
+    GRIP_R = 9.0       # knob radius
+    GRIP_H = 21.0      # knob cylinder height (above the cone)
+
+    def __init__(self, tol=0.25, layer_h=0.12):
+        self.tol = max(0.10, min(float(tol or 0.25), 0.50))
+        self.lh = max(0.08, min(float(layer_h or 0.12), 0.2))
+        R, s = self.R_P, self.SNAP
+        self.r_e = R + self.tol            # socket entry
+        self.r_lip = R - s                 # lip (narrowest socket point)
+        self.r_gr = R - 0.55               # groove floor (spigot)
+        self.r_ch = R + self.tol + 0.05    # chamber above the lip
+        # R168b (found by the stampcheck seating sweep): the ceiling is
+        # FLAT at the chamber radius - a 45deg ceiling chamfer caught the
+        # spigot tip BEFORE the lip reached the groove (the handle would
+        # have sat cocked on the chamfer edge). The flat ceiling is a
+        # declared bridge (R168 lines), the tip lands clean on it.
+        self.r_ce = self.r_ch
+        # socket depths (45 deg ramps: dz = dr). The ceiling depth is a
+        # FIXED TARGET (3.3mm - a firm seat, the user's ~3mm ask): the
+        # chamber fills d3..d5, the ceiling is flat on top of it
+        self.d1 = self.r_e - self.r_lip
+        self.d2 = self.d1 + self.LIP_BAND
+        self.d3 = self.d2 + (self.r_ch - self.r_lip)
+        self.d5 = 3.30                   # flat ceiling (declared bridge)
+        self.d4 = self.d5                # chamber runs up to the ceiling
+        # spigot heights (from the tip): groove covers the seated lip
+        self.zg0 = (self.d5 - self.d2) - self.GROOVE_M - (R - self.r_gr)
+        self.zg1 = (self.d5 - self.d1) + self.GROOVE_M
+        self.z_ramp_up = self.zg1 + (R - self.r_gr)
+        self.z_cone = self.z_ramp_up + 1.0 + 1.5  # cylinder stub -> cone
+        self.total_grip = self.z_cone + (self.GRIP_R - R) + self.GRIP_H + 1.2
+        self.fit = [
+            'spigot r=%.2f socket entry r=%.2f (clearance %.2fmm/side)'
+            % (R, self.r_e, self.tol),
+            'lip r=%.2f at depth %.2f..%.2f, snap interference %.2fmm/side'
+            % (self.r_lip, self.d1, self.d2, s),
+            'groove r=%.2f at spigot z %.2f..%.2f (lip clearance %.2fmm, '
+            'axial play +-%.2fmm)'
+            % (self.r_gr, self.zg0, self.zg1, self.r_lip - self.r_gr,
+               self.GROOVE_M),
+            'seated: tip on the ceiling at depth %.2f, lip locked in the '
+            'groove (alignment by construction, verified by '
+            'tools/r168_stampcheck.py)' % self.d5,
+            'ceiling = FLAT at the chamber r=%.2f, a DECLARED BRIDGE '
+            '(the tip lands clean - a 45deg chamfer here caught the tip '
+            'before the lip reached the groove, found by the seating '
+            'sweep)' % self.r_ch,
+        ]
+
+    # ---- socket hole surface radius at depth d (None = above ceiling) -----
+    def sock_r(self, d):
+        if d <= 0.0:
+            return self.r_e
+        if d < self.d1:                       # 45 deg entry ramp
+            return self.r_e - d
+        if d < self.d2:                       # lip band
+            return self.r_lip
+        if d < self.d3:                       # 45 deg ramp up to the chamber
+            return self.r_lip + (d - self.d2)
+        if d < self.d5:                       # chamber to the ceiling
+            return self.r_ch
+        return None                           # above the ceiling: solid
+
+    # ---- spigot surface radius at height z (None = knob, above the cone) --
+    def spig_r(self, z):
+        R = self.R_P
+        if z < 0.0:
+            return R
+        if z < 0.6:                           # 45 deg tip chamfer
+            return max(3.9, R - (0.6 - z))
+        if z < self.zg0:                      # cylinder
+            return R
+        if z < self.zg0 + (R - self.r_gr):    # 45 deg groove ramp down
+            return R - (z - self.zg0)
+        if z < self.zg1:                      # groove band
+            return self.r_gr
+        if z < self.z_ramp_up:                # 45 deg ramp back up
+            return self.r_gr + (z - self.zg1)
+        if z < self.z_cone:                   # cylinder to the knob
+            return R
+        if z < self.z_cone + (self.GRIP_R - R):   # 45 deg cone
+            return R + (z - self.z_cone)
+        return None                           # knob
+
+
+def _stamp_base_notes(fit):
+    return ['R168-STAMP FIT: %s' % x for x in fit]
+
+
+def _cell_contours(mask, ox, oy, cell):
+    """R168: closed contours of a boolean cell mask - OUTER boundaries AND
+    hole boundaries (the user's ring: the contour runs around the ring AND
+    around its open center). Loops follow the CELL EDGES (the same
+    convention the R167 region walls use), collinear points merged.
+    (ox, oy) = bed position of the mask origin, cell = edge length in mm.
+    Returns a list of [(x, y), ...] loops in bed coordinates.
+
+    Edge chaining with the filled cell kept on one consistent side; at
+    checkerboard corners (two diagonal filled cells touching) the turn
+    that hugs the incoming region wins - loops may touch at a point but
+    never cross. Unclassified corner cases stay closed loops.
+    """
+    rows = len(mask)
+    cols = len(mask[0]) if rows else 0
+    out_edges = {}    # start vertex -> [end vertices]
+    inc = {}
+
+    def _add(p, q):
+        out_edges.setdefault(p, []).append(q)
+        inc.setdefault(q, []).append(p)
+
+    for r in range(rows):
+        mr = mask[r]
+        up = mask[r - 1] if r > 0 else None
+        for c in range(cols):
+            if not mr[c]:
+                continue
+            if up is None or not up[c]:        # empty above: edge ->
+                _add((c, r), (c + 1, r))
+            if r + 1 >= rows or not mask[r + 1][c]:   # empty below: <-
+                _add((c + 1, r + 1), (c, r + 1))
+            if c == 0 or not mr[c - 1]:        # empty left: ^ (upwards)
+                _add((c, r + 1), (c, r))
+            if c + 1 >= cols or not mr[c + 1]:  # empty right: v (downwards)
+                _add((c + 1, r), (c + 1, r + 1))
+    loops = []
+    # pick starts deterministically; every edge is used exactly once
+    starts = sorted(out_edges.keys())
+    used = {}
+    for p0 in starts:
+        for i, q in enumerate(out_edges.get(p0, [])):
+            if used.get((p0, q)):
+                continue
+            loop = [p0]
+            p, nxt = p0, q
+            used[(p, nxt)] = True
+            loop.append(nxt)
+            prev_dir = (nxt[0] - p[0], nxt[1] - p[1])
+            p = nxt
+            while p != p0:
+                outs = [e for e in out_edges.get(p, []) if not used.get((p, e))]
+                if not outs:
+                    break
+                if len(outs) == 1:
+                    nxt = outs[0]
+                else:
+                    # checkerboard corner: sharpest right turn keeps the
+                    # loop on its own region
+                    def _turn(e):
+                        d = (e[0] - p[0], e[1] - p[1])
+                        cross = prev_dir[0] * d[1] - prev_dir[1] * d[0]
+                        return -cross      # right turns first
+                    outs.sort(key=_turn)
+                    nxt = outs[0]
+                used[(p, nxt)] = True
+                prev_dir = (nxt[0] - p[0], nxt[1] - p[1])
+                loop.append(nxt)
+                p = nxt
+            # drop the duplicated closing point, merge collinear runs
+            if len(loop) > 2 and loop[0] == loop[-1]:
+                loop = loop[:-1]
+            simp = [loop[0]]
+            for k in range(1, len(loop) - 1):
+                ax, ay = simp[-1]
+                bx, by = loop[k]
+                cx, cy = loop[k + 1]
+                if (bx - ax) * (cy - by) == (by - ay) * (cx - bx):
+                    continue          # b lies on the a->c line: not a corner
+                simp.append((bx, by))
+            simp.append(loop[-1])
+            # wrap-around: a 'corner' that sits on the closing line is none
+            if len(simp) >= 2:
+                ax, ay = simp[-2]
+                bx, by = simp[-1]
+                cx, cy = simp[0]
+                if (bx - ax) * (cy - by) == (by - ay) * (cx - bx):
+                    simp.pop()          # the tail point is mid-edge
+            while len(simp) > 3:
+                ax, ay = simp[-1]
+                bx, by = simp[0]
+                cx, cy = simp[1]
+                if (bx - ax) * (cy - by) == (by - ay) * (cx - bx):
+                    simp.pop(0)
+                else:
+                    break
+            if len(simp) >= 4:
+                loops.append([(ox + x * cell, oy + y * cell)
+                              for (x, y) in simp])
+    return loops
+
+
+def _make_stamp_handle(fit, out_dir='.', material='PLA', nozzle=0.6,
+                       wid=0.65, layer_h=0.12, src_stem='IMG', cx=122.0,
+                       cy=117.5):
+    """R168: the stamp handle - snap spigot + knob, ONE standalone file
+    (printed separately: 'optional' means it never wastes filament with
+    the stamp). Tip down: the hollow tip (bore) makes the snap compliant,
+    the groove locks under the socket lip, a 45deg cone widens to the
+    knob. All slopes <= 45deg, the bore ceiling is a declared bridge.
+    The fit comments mirror the stamp body's (same _StampFit168 truth) -
+    tools/r168_stampcheck.py re-measures BOTH files and verifies."""
+    total = max(6, int(math.ceil(fit.total_grip / layer_h)))
+    z_knob = fit.z_cone + (fit.GRIP_R - fit.R_P)   # knob cylinder start
+    bore_end = fit.z_ramp_up + 0.6                 # bore ceiling height
+    stem = _gen_stem(src_stem, 'IMG')
+    fname = 'V%02d_Griff_%s.gcode' % (_next_gen_version(out_dir), stem)
+    fname = _dedupe_gen_fname(out_dir, fname)
+    out = os.path.join(out_dir, fname)
+    fil = FIL_AREA
+    e_wall = layer_h * wid / fil
+
+    def _r_out(z):
+        r = fit.spig_r(z)
+        if r is not None:
+            return r
+        # knob cylinder + 45deg top chamfer (last 1.2mm)
+        _zk = z - z_knob
+        if _zk <= fit.GRIP_H:
+            return fit.GRIP_R
+        return max(fit.GRIP_R - 1.2, fit.GRIP_R - (_zk - fit.GRIP_H))
+
+    with open(out, 'w') as f:
+        sk = _Sink(f)
+        a = sk.append
+        a('; R2-LITHO stamp handle (R168) - snaps into the stamp socket,')
+        a('; holds firm for stamping. Prints TIP DOWN, %.1fmm tall,'
+          ' ~%.0f%% infill knob' % (total * layer_h, 12.0))
+        a(TAG)
+        a('; source %s - socket partner: the stamp file of the same run'
+          % src_stem)
+        for _n in _stamp_base_notes(fit.fit):
+            a('; %s' % _n)
+        a('; filament_type = %s' % material)
+        a('; layer_height = %.2g' % layer_h)
+        a('; nozzle_diameter = %.1f' % nozzle)
+        a('; line_width = %.2g' % wid)
+        a('; inner_wall_speed = 18')
+        a('; initial_layer_speed = 10')
+        a('; travel_speed = 120')
+        types = ['BRIM', 'WALL-OUTER', 'WALL-INNER', 'INFILL-SPARSE',
+                 'INFILL-SOLID', 'SURFACE-BOTTOM', 'SURFACE-TOP', 'BRIDGE',
+                 'INTERNAL-BRIDGE']
+        a('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d '
+          'LINE_WIDTH=%.2g LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g '
+          'FLOW_RATIO=1 NOZZLE=%.1f WALL_LOOPS=2 SPEED_INNER=18 '
+          'SPEED_FIRST=10 SPEED_TRAVEL=120 TYPES=%s BY_OBJECT=0'
+          % (material, layer_h, total, wid, layer_h, wid, nozzle,
+             ','.join(types)))
+        a('EXCLUDE_OBJECT_DEFINE NAME=GRIFF CENTER=%.1f,%.1f '
+          'POLYGON=[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]'
+          % (cx, cy, cx - fit.GRIP_R - 2.0, cy - fit.GRIP_R - 2.0,
+             cx + fit.GRIP_R + 2.0, cy - fit.GRIP_R - 2.0,
+             cx + fit.GRIP_R + 2.0, cy + fit.GRIP_R + 2.0,
+             cx - fit.GRIP_R - 2.0, cy + fit.GRIP_R + 2.0))
+        a('PRINT_START MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d '
+          'OUTER_WALL_SPEED=18' % (material, layer_h, total))
+        a('G90')
+        a('M83')
+        a('M107   ; R2-GRIFF: first layer = fan off')
+        pen = _Pen(sk, jump_d=6.0)
+        _spc_k = wid * 100.0 / 12.0
+        for li in range(1, total + 1):
+            _job_tick()                    # R133b: yield to the host
+            z = round(li * layer_h, 3)
+            z_top = li * layer_h
+            z_bot = (li - 1) * layer_h
+            a(';LAYER_CHANGE')
+            a(';Z:%.3f' % z)
+            a('LAYER_MARK')
+            pen.set_z(z)
+            if li == 2:
+                a('M106 S178   ; R2-GRIFF: part fan from layer 2')
+            a('EXCLUDE_OBJECT_START NAME=GRIFF')
+            if li == 1:
+                a(';TYPE:Brim')
+                a('APPLY_TYPE TYPE=BRIM')
+                for off in (wid * 0.35 + wid, wid * 0.35):
+                    _emit_loop(pen, _circle(cx, cy, _r_out(z_top) + off),
+                               e_wall, 900)
+            _tyb = ('SURFACE-BOTTOM' if li == 1 else
+                    'SURFACE-TOP' if li == total else None)
+            a(';TYPE:Outer wall')
+            a('APPLY_TYPE TYPE=%s   ; R168 spigot/knob wall'
+              % (_tyb or 'WALL-OUTER'))
+            _emit_loop(pen, _circle(cx, cy, _r_out(z_top) - wid / 2.0),
+                       e_wall, 900 if li == 1 else 1800)
+            _bore168 = z_bot < bore_end
+            if _bore168:
+                a(';TYPE:Inner wall')
+                a('APPLY_TYPE TYPE=WALL-INNER   ; R168 hollow tip')
+                _emit_loop(pen, _circle(cx, cy, fit.BORE + wid / 2.0),
+                           e_wall, 900 if li == 1 else 1800)
+                if z_bot < bore_end <= z_top:
+                    # R168 bore ceiling: parallel bridge lines across the
+                    # full bore, anchored on the spigot walls - closed by
+                    # the disc rings above
+                    a(';TYPE:Bridge')
+                    a('APPLY_TYPE TYPE=BRIDGE   ; R168 bore ceiling')
+                    _rb = fit.BORE + wid * 0.5
+                    _nb = max(6, int((2.0 * _rb) / max(wid, 0.4)))
+                    for _k in range(_nb + 1):
+                        _off = -_rb + (2.0 * _rb) * _k / _nb
+                        _hh = math.sqrt(max(0.0, _rb * _rb - _off * _off))
+                        pen.travel(cx - _hh, cy + _off, 4800)
+                        pen.extrude(cx + _hh, cy + _off,
+                                    2.0 * _hh * e_wall, 1300)
+                    a(';TYPE:Internal bridge')
+                    a('APPLY_TYPE TYPE=INTERNAL-BRIDGE')
+                    _emit_loop(pen, _circle(cx, cy, fit.BORE + wid / 2.0),
+                               e_wall, 1200)
+            if z_top > fit.z_cone:
+                # knob + the 45deg cone below it: walls + FIXED rim rings
+                # (the same radii every layer = stacked) + LINE HATCH in
+                # the core. Rings cannot bridge (they never cross the
+                # layer below), lines CAN - they weld at every crossing,
+                # exactly like a slicer fills a top surface over sparse
+                # infill. The last 4 layers switch the hatch to solid.
+                a(';TYPE:Inner wall')
+                a('APPLY_TYPE TYPE=WALL-INNER')
+                _emit_loop(pen, _circle(cx, cy,
+                                        _r_out(z_top) - 1.5 * wid),
+                           e_wall, 1800)
+                _rb168k = min(_r_out(z_top),
+                              _r_out(max(0.0, z_top - layer_h)))
+                _rr = _rb168k - 2.0 * wid
+                while _rr > _rb168k - 5.0 * wid and _rr > wid:
+                    _emit_loop(pen, _circle(cx, cy, _rr), e_wall, 2400)
+                    _rr -= wid
+                _cap_k = (li > total - 4)
+                a(';TYPE:%s' % ('Top surface' if _cap_k else
+                                'Sparse infill'))
+                a('APPLY_TYPE TYPE=%s' % ('SURFACE-TOP' if _cap_k
+                                          else 'INFILL-SPARSE'))
+                _sq168 = max(wid, (_rb168k - 5.0 * wid) / math.sqrt(2.0))
+                _sp168 = wid if _cap_k else _spc_k
+                _sg168 = _hatch(cx - _sq168, cy - _sq168, cx + _sq168,
+                                cy + _sq168, None, _sp168,
+                                45.0 if li % 2 else 135.0)
+                _emit_fill(pen, _sg168, e_wall, 2400, _sp168)
+            elif z_top > bore_end + layer_h:
+                # spigot above the bore: solid disc (small - rings fill it)
+                a(';TYPE:Internal solid infill')
+                a('APPLY_TYPE TYPE=INFILL-SOLID')
+                _rr = _r_out(z_top) - 1.5 * wid
+                while _rr > wid * 0.6:
+                    _emit_loop(pen, _circle(cx, cy, _rr), e_wall, 2400)
+                    _rr -= wid
+            a('EXCLUDE_OBJECT_END NAME=GRIFF')
+        a('M107')
+        a('PRINT_END')
+        sk.flush()
+    _gen_normalize_speeds(out)   # R159: uniform 60/1500 + travel 180/8000
+    info = {'file': fname, 'kind': 'stamp-handle',
+            'height': round(total * layer_h, 1), 'layers': total,
+            'fit': fit.fit, 'notes': []}
+    return out, info
+
+
 def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers=2,
                 layer_h=0.2, first_h=0.28, ironing=True, hole_side=0, hole_d=5.0,
                 brim=True, gap=12.0, color2=True, material='PLA', bed=None,
@@ -4710,7 +5093,9 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
                 out_dir='.', version=1, mode='grow', job_cfgs=None,
                 height=0.0, shape='RECT', corner=0.0, border_walls=0,
                 border_gap=0.0, sparse_pct=8.0, ring=False, ring_d=6.0,
-                ring_h=0.0):
+                ring_h=0.0, mirror_x=0, mirror_y=0, stamp=0,
+                stamp_base=5.0, stamp_tol=0.25, handle=0,
+                stamp_infill=10.0):
     """Generate a printable label plate file. Returns (path, info).
 
     R74: every entry may carry up to 3 lines separated by '~' (LCD: Labels >
@@ -5052,6 +5437,51 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
                        'cap_h': geo['cap_h'], 's': geo['s'], 'sx': geo['s'],
                        'ring_c': _rc120, 'ring_ro': ring_ro, 'ring_ri': ring_ri})
 
+    # ---- R168: mirror + stamp (user request) --------------------------
+    mirror_x = 1 if str(mirror_x).strip().lower() in ('1', 'true', 'on', 'yes') else 0
+    mirror_y = 1 if str(mirror_y).strip().lower() in ('1', 'true', 'on', 'yes') else 0
+    if mirror_x or mirror_y:
+        for lb in labels:
+            if mirror_x:
+                lb['paths'] = [[(lb['w'] - px, py) for (px, py) in path]
+                               for path in lb['paths']]
+            if mirror_y:
+                lb['paths'] = [[(px, lb['h'] - py) for (px, py) in path]
+                               for path in lb['paths']]
+    stamp = 1 if str(stamp).strip().lower() in ('1', 'true', 'on', 'yes') else 0
+    try:
+        handle = max(0, min(int(handle or 0), 2))
+    except (TypeError, ValueError):
+        handle = 0
+    stamp_base = max(3.5, min(float(stamp_base or 5.0), 15.0))
+    stamp_tol = max(0.10, min(float(stamp_tol or 0.25), 0.50))
+    fit168 = None
+    cx168 = cy168 = None
+    if stamp:
+        if len(labels) > 1:
+            raise ValueError('stamp labels: exactly ONE label per job '
+                             '(got %d) - the socket sits under the text'
+                             % len(labels))
+        if labels[0]['circ']:
+            raise ValueError('stamp labels print without the label hole '
+                             '(Hole=0) - the snap socket IS the mount')
+        fit168 = _StampFit168(tol=stamp_tol, layer_h=layer_h)
+        _need168 = max(stamp_base, fit168.d5 + 2.0 * layer_h + 0.4)
+        while first_h + (base_layers - 1) * layer_h < _need168:
+            base_layers += 1
+        lb0 = labels[0]
+        cx168 = lb0['x'] + lb0['w'] / 2.0
+        cy168 = lb0['y'] + lb0['h'] / 2.0
+        if min(lb0['w'], lb0['h']) < 2.0 * fit168.r_e + 6.0:
+            raise ValueError('stamp label too small: the socket '
+                             '(d%.1fmm) needs a label of at least '
+                             '%.0fx%.0fmm'
+                             % (2.0 * fit168.r_e,
+                                2.0 * fit168.r_e + 6.0,
+                                2.0 * fit168.r_e + 6.0))
+        if handle == 1 and not mirror_x:
+            pass    # noted in the job message; no hidden flips
+
     def _lb_contour(lb, inset):
         """R119: this label's wall contour in ABSOLUTE coords, the path
         centerline `inset` mm inside the label edge. RECT -> None: the
@@ -5162,6 +5592,9 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
     if sparse_mid > 0:
         # R119: the tall-base sparse band is its own feature
         types.append('SPARSE-INFILL')
+    if fit168 is not None:
+        # R168: the stamp socket ceiling is a declared bridge
+        types += ['BRIDGE', 'INTERNAL-BRIDGE']
     types.append('SURFACE-BOTTOM')
     if brim:
         types.insert(0, 'BRIM')
@@ -5272,6 +5705,42 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
         keep = None
         if lb['circ']:
             keep = (lb['circ'][0] + lx, lb['circ'][1] + ly, lb['circ'][2] + 2.0 * wid)
+        # ---- R168: the stamp socket under this label ------------------
+        if fit168 is not None:
+            _zb168 = z - layer_h_eff(layer_idx)
+            _r168 = (fit168.sock_r(min(z, fit168.d5 - 1e-9))
+                     if _zb168 < fit168.d5 else None)
+            _ceil168 = _zb168 < fit168.d5 <= z
+            if _r168 is not None:
+                L.append(';TYPE:Outer wall')
+                L.append('APPLY_TYPE TYPE=WALL-OUTER   ; R168 socket ring')
+                _emit_loop(pen, _circle(cx168, cy168,
+                                        _r168 + wid / 2.0),
+                           e_wall, 1500 if first else 2400)
+                keep = (cx168, cy168, _r168 + wid + 0.2)
+            if _ceil168:
+                L.append(';TYPE:Bridge')
+                L.append('APPLY_TYPE TYPE=BRIDGE   ; R168 socket ceiling')
+                _rb168 = fit168.r_ce + wid * 0.5
+                _n168 = max(6, int((2.0 * _rb168) / max(wid, 0.4)))
+                for _k168 in range(_n168 + 1):
+                    _off168 = -_rb168 + (2.0 * _rb168) * _k168 / _n168
+                    _hh168 = math.sqrt(max(0.0, _rb168 * _rb168
+                                           - _off168 * _off168))
+                    pen.travel(cx168 - _hh168, cy168 + _off168, 4800)
+                    pen.extrude(cx168 + _hh168, cy168 + _off168,
+                                2.0 * _hh168 * e_wall, 1300)
+                L.append(';TYPE:Internal bridge')
+                L.append('APPLY_TYPE TYPE=INTERNAL-BRIDGE')
+                _emit_loop(pen, _circle(cx168, cy168,
+                                        fit168.r_ce + wid / 2.0),
+                           e_wall, 1200)
+            if _zb168 >= fit168.d5:
+                sparse_l = False     # solid above the closed ceiling
+            if _r168 is not None:
+                pen.holes = [(cx168, cy168, _r168)]
+            else:
+                pen.holes = []
         # R106 (user TYPE map): first fill on the bed = Bottom surface,
         # the visible top = Top surface, between = Internal solid;
         # R119: the sparse band between the solid skins = Sparse infill
@@ -5292,6 +5761,8 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
         else:
             segs = _shape_hatch(fc, fspc, 45.0 if layer_idx % 2 else 135.0, keep)
         _emit_fill(pen, segs, e_wall, 1500 if first else 2700, fspc)
+        if fit168 is not None:
+            pen.holes = []
         if top and ironing:
             L.append(';TYPE:Ironing')
             ikeep = None
@@ -5530,15 +6001,26 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
     # characters, a tail version made regenerations look identical.
     first_name = _safe_label_name(texts[0])
     extra = '+%d' % (n - 1) if n > 1 else ''
-    fname = 'V%02d_%s%s.gcode' % (
-        _next_gen_version(out_dir), first_name, extra)
+    fname = 'V%02d_%s%s%s.gcode' % (
+        _next_gen_version(out_dir),
+        'StempelL_' if fit168 is not None else '', first_name, extra)
     fname = _dedupe_gen_fname(out_dir, fname)
     out = os.path.join(out_dir, fname)
     with open(out, 'w') as f:
         f.write('\n'.join(outl) + '\n')
 
     _gen_normalize_speeds(out)   # R159: uniform 60/1500 + travel 180/8000
+    out_handle168 = None
+    if fit168 is not None and handle:
+        out_handle168, _hi168 = _make_stamp_handle(
+            fit168, out_dir=out_dir, material=material, nozzle=nozzle,
+            wid=wid, layer_h=layer_h, src_stem=first_name,
+            cx=cx168, cy=cy168)
     info = {'file': fname, 'count': n, 'cols': cols, 'rows': rows,
+            'mirror_x': mirror_x, 'mirror_y': mirror_y,
+            'stamp': bool(fit168 is not None),
+            'handle_file': (os.path.basename(out_handle168)
+                            if out_handle168 else None),
             'jobs': ([{'font': jb['font'], 'w': round(jb['w'], 1),
                        'h': round(jb['h'], 1), 'grown': jb.get('grown', False)}
                       for jb in jobs] if jobs else None),
@@ -10294,7 +10776,9 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                      gamma=1.0, colors=1, col_layers=0, material='PLA',
                      bed=None, bed_margin=6.0, nozzle=0.6, out_dir='.',
                      version=1, border=0.0, corner_r=0.0, col_mode='OFF',
-                     contrast=True):
+                     contrast=True, mirror_x=0, mirror_y=0, contour=0,
+                     stamp=0, stamp_base=5.0, stamp_tol=0.25, handle=0,
+                     stamp_infill=10.0):
     """R128 (field report): photo -> lithophane printed FLAT as clean STEPS.
 
     The old terraced thickness map printed wavy Z relief - the nozzle dove
@@ -10315,9 +10799,45 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
     legacy maps to 2.4mm), corner_r = rounded frame corners (0 = square).
     contrast = extra contrast boost after the percentile stretch (sharpens
     level edges - sketches, logos, text).
+
+    R168 (user request):
+    mirror_x / mirror_y = 1 flips the final picture left-right / up-down
+    (0 = the default view, byte-identical to the old output). Stamps WANT
+    mirror_x=1: the relief is pressed face-down, the imprint reads correct
+    only from a mirrored plate.
+    contour: 0 = off (R167 walls+hatch). 1 = the LAST layer prints ONLY
+    the top step's true contours (outer AND holes) - no fill. 2 = CONTOUR
+    RELIEF: step 0 stays a clean solid plane, every darker step prints
+    ONLY its contour lines as free-standing walls on that plane (taller =
+    darker, like a topographic map; holes get their own inner contour -
+    the ring example). 3 = fill as always, but the step walls become the
+    TRUE contours (holes walled too) instead of the R167 block rectangles.
+    stamp = 1 prints a STAMP BODY under the picture: stamp_base mm tall
+    (default 5), ~10% infill, solid top skin, and a centered SNAP socket
+    in the underside (_StampFit168 - fit measured, see the file header).
+    The picture relief sits on the smoothed top skin, mirror_x stays the
+    user's choice (the header notes it when unmirrored).
+    handle: 0 = none. 1 = an extra handle file (Vnn_..._GRIFF.gcode -
+    printed separately, so 'not always printed with it' is literally
+    true). 2 = ONLY the handle (reprint a lost one). The handle snaps
+    into the socket and holds firm for stamping.
     """
     height_mm = max(30.0, min(float(height_mm or 100.0), 200.0))
     layer_h = max(0.08, min(float(layer_h or 0.12), 0.2))
+    mirror_x = 1 if str(mirror_x).strip().lower() in ('1', 'true', 'on', 'yes') else 0
+    mirror_y = 1 if str(mirror_y).strip().lower() in ('1', 'true', 'on', 'yes') else 0
+    try:
+        contour = max(0, min(int(contour or 0), 3))
+    except (TypeError, ValueError):
+        contour = 0
+    stamp = 1 if str(stamp).strip().lower() in ('1', 'true', 'on', 'yes') else 0
+    try:
+        handle = max(0, min(int(handle or 0), 2))
+    except (TypeError, ValueError):
+        handle = 0
+    stamp_base = max(3.5, min(float(stamp_base or 5.0), 15.0))
+    stamp_tol = max(0.10, min(float(stamp_tol or 0.25), 0.50))
+    stamp_infill = max(5.0, min(float(stamp_infill or 10.0), 30.0))
     L = max(2, min(int(levels or 4), 16))
     n_band = max(1, min(int(col_layers or 3), 30))   # R152: auto 3 - the .110 field report 'just a flat plate' was (also) the shallow 2-layer default (1.6mm total relief)
     brim_loops = max(0, min(int(brim_loops or 0), 10))
@@ -10372,6 +10892,15 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
     if contrast:
         grid = _img_boost128(grid, 1.35)
         rep += ' + contrast boost'
+    # R168: the user's mirror - applied AFTER the orientation logic, so
+    # mirror_x=1/mirror_y=1 flip exactly what the default view shows
+    if mirror_y:
+        grid = grid[::-1]
+    if mirror_x:
+        grid = [list(reversed(r)) for r in grid]
+    if mirror_x or mirror_y:
+        rep += (' + mirror %s%s' % ('X' if mirror_x else '',
+                                    'Y' if mirror_y else ''))
     notes.append(rep)
     # quantize into steps: 0 = lightest (the base) ... L-1 = darkest.
     # R133g: NEAREST level (not floor) - a clean 3-tone image keeps its
@@ -10424,6 +10953,43 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
         'step %d=%d' % (k, _cnt149[k]) for k in range(L)))
 
     total_layers = L * n_band
+    # ---- R168: stamp body + contour caches ---------------------------------
+    fit168 = None
+    base_n = 0
+    if stamp:
+        fit168 = _StampFit168(tol=stamp_tol, layer_h=layer_h)
+        # the socket needs fit168.d5 + 2 top skin layers + 0.4mm solid above
+        _min_base = fit168.d5 + 2.0 * layer_h + 0.4
+        if stamp_base < _min_base:
+            stamp_base = _min_base
+            notes.append('stamp base raised to %.1fmm - the socket ceiling '
+                         '(%.2fmm) needs solid material above it'
+                         % (stamp_base, fit168.d5))
+        base_n = max(3, int(round(stamp_base / layer_h)))
+        total_layers += base_n
+        notes.append('stamp body: %.1fmm (%d layers) under the picture, '
+                     '~%.0f%% infill, solid top skin, snap socket '
+                     'r=%.2f/%.2f (tol %.2fmm)'
+                     % (base_n * layer_h, base_n, stamp_infill,
+                        fit168.r_e, fit168.r_lip, fit168.tol))
+        notes += _stamp_base_notes(fit168.fit)
+        if not mirror_x:
+            notes.append('stamp with UNMIRRORED picture - the pressed '
+                         'imprint reads MIRRORED. Set Spiegel X=1 for a '
+                         'correct imprint (your choice, no hidden flip)')
+        if contour == 2 and _cm128 != 'OFF':
+            _cm128 = 'OFF'
+            notes.append('col_mode forced OFF - the contour relief has no '
+                         'step fills to color')
+    if contour:
+        notes.append('contour mode %d: %s' % (contour, {
+            1: 'the LAST layer prints only the top step contours '
+               '(outer + holes), no fill',
+            2: 'CONTOUR RELIEF - step 0 = solid plane, darker steps = '
+               'contour walls on it (taller = darker, holes contoured)',
+            3: 'true-contour step walls (holes walled too) instead of the '
+               'block rectangles, fill unchanged',
+        }[contour]))
     cx = (ux0 + ux1) / 2.0
     cy = (uy0 + uy1) / 2.0
     x0 = cx - W / 2.0
@@ -10450,8 +11016,8 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                          'purge at the park position after every swap')
 
     stem = _gen_stem(src, 'IMG')
-    fname = 'V%02d_LithoF_%s.gcode' % (
-        _next_gen_version(out_dir), stem)
+    fname = 'V%02d_%s_%s.gcode' % (
+        _next_gen_version(out_dir), 'Stempel' if stamp else 'LithoF', stem)
     fname = _dedupe_gen_fname(out_dir, fname)
     out = os.path.join(out_dir, fname)
 
@@ -10488,6 +11054,18 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
         return blocks
 
     _bcache128 = {k: _blocks128(k) for k in range(L)}
+    # R168: true contours per step (outer + hole boundaries, cell edges)
+    _ccache168 = {}
+    if contour:
+        for _k168 in range(1, L):
+            _ccache168[_k168] = _cell_contours(
+                [[1 if LV[r][c] >= _k168 else 0 for c in range(cols)]
+                 for r in range(rows)],
+                px0, py0, wid)
+        _ccnt168 = {k: len(v) for k, v in _ccache168.items()}
+        notes.append('contours per step (outer+holes): '
+                     + ', '.join('step %d=%d' % (k, n)
+                                 for k, n in sorted(_ccnt168.items())))
 
     with open(out, 'w') as f:
         sk = _Sink(f)
@@ -10543,6 +11121,10 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
             types += ['IRONING']
         if tower:
             types += ['PRIME-TOWER']
+        if stamp:
+            # R168: the stamp body contributes sparse infill + the socket
+            # ceiling (bridge spokes + ring, R95 tech)
+            types += ['INFILL-SPARSE', 'BRIDGE', 'INTERNAL-BRIDGE']
         a('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d LINE_WIDTH=%.2g '
           'LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g FLOW_RATIO=1 NOZZLE=%.1f '
           'WALL_LOOPS=2 SPEED_INNER=18 SPEED_FIRST=10 SPEED_TRAVEL=120%s TYPES=%s '
@@ -10603,22 +11185,28 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
         for li in range(1, total_layers + 1):
             _job_tick()                        # R133b: yield to the host
             z = round(li * layer_h, 3)
-            k = (li - 1) // n_band
-            j = (li - 1) % n_band
-            cap = (j == n_band - 1)
+            _in_base168 = bool(stamp and li <= base_n)
+            if _in_base168:
+                k, j = 0, 0
+            else:
+                _li168 = li - base_n
+                k = (_li168 - 1) // n_band
+                j = (_li168 - 1) % n_band
+            cap = (j == n_band - 1) and not _in_base168
             a(';LAYER_CHANGE')
             a(';Z:%.3f' % z)
             a('LAYER_MARK')
             pen.set_z(z)
             if li == 2:
                 a('M106 S178   ; R2-LITHO: part fan from layer 2')
-            if k > 0 and j == 0 and (_cm128 == 'EACH'
-                                     or (_cm128 == 'LAST' and k == L - 1)):
+            if (not _in_base168) and k > 0 and j == 0 \
+                    and (_cm128 == 'EACH'
+                         or (_cm128 == 'LAST' and k == L - 1)):
                 a('RESPOND MSG="Litho: COLOR CHANGE - swap filament, the'
                   ' purge tower cleans, then it resumes"')
                 a('M600')
             if tower:
-                _tower128(li, prime=(k > 0 and j == 0
+                _tower128(li, prime=(not _in_base168 and k > 0 and j == 0
                                      and (_cm128 == 'EACH'
                                           or (_cm128 == 'LAST'
                                               and k == L - 1))))
@@ -10632,48 +11220,157 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
             a(';TYPE:Outer wall')
             a('APPLY_TYPE TYPE=WALL-OUTER')
             _emit_loop(pen, outer_c, e_wall, 900 if li == 1 else 1800)
-            _ty128 = ('Bottom surface' if li == 1 else
+            if _in_base168:
+                # ---- R168: one stamp body layer --------------------------
+                # sandwich: 2 solid bottom skins, sparse ~10% core, the
+                # socket rings, a bridge-first ceiling, 2 solid top skins
+                _db168 = (li - 1) * layer_h      # depth of the layer bottom
+                _dt168 = li * layer_h            # depth of the layer top
+                _ceil168 = _db168 < fit168.d5 <= _dt168
+                _r168 = None
+                if _db168 < fit168.d5:
+                    _r168 = fit168.sock_r(min(_dt168, fit168.d5 - 1e-9))
+                _solid168 = (li <= 2 or li > base_n - 2
+                             or (_db168 >= fit168.d5))
+                if _r168 is not None:
+                    a(';TYPE:Outer wall')
+                    a('APPLY_TYPE TYPE=WALL-OUTER   ; R168 socket ring')
+                    # centerline r + wid/2: the ring's INNER face IS the
+                    # socket surface radius (fit by construction, the
+                    # stampcheck tool re-measures it from this file)
+                    _emit_loop(pen, _circle(cx, cy, _r168 + wid / 2.0),
+                               e_wall, 900 if li == 1 else 1800)
+                if _ceil168:
+                    # R168 bridge-first ceiling: parallel BRIDGE lines
+                    # across the FULL socket disc (each anchored on the
+                    # chamber wall) + the sealing ring - the layer above
+                    # hatches solid onto it, the ceiling CLOSES (unlike
+                    # the R95 cap hole which stays open on purpose)
+                    a(';TYPE:Bridge')
+                    a('APPLY_TYPE TYPE=BRIDGE   ; R168 socket ceiling')
+                    _rb168 = fit168.r_ce + wid * 0.5
+                    _n168 = max(6, int((2.0 * _rb168) / max(wid, 0.4)))
+                    for _k168 in range(_n168 + 1):
+                        _off168 = -_rb168 + (2.0 * _rb168) * _k168 / _n168
+                        _hh168 = math.sqrt(max(0.0, _rb168 * _rb168
+                                               - _off168 * _off168))
+                        pen.travel(cx - _hh168, cy + _off168, 4800)
+                        pen.extrude(cx + _hh168, cy + _off168,
+                                    2.0 * _hh168 * e_wall, 1300)
+                    a(';TYPE:Internal bridge')
+                    a('APPLY_TYPE TYPE=INTERNAL-BRIDGE')
+                    _emit_loop(pen, _circle(cx, cy, fit168.r_ce + wid / 2.0),
+                               e_wall, 1200)
+                _ty168b = ('SURFACE-BOTTOM' if li == 1 else
+                           'SURFACE-TOP' if li > base_n - 2 else
+                           'INFILL-SPARSE' if not _solid168 else 'INFILL-SOLID')
+                a(';TYPE:%s' % {'SURFACE-BOTTOM': 'Bottom surface',
+                                'SURFACE-TOP': 'Top surface',
+                                'INFILL-SPARSE': 'Sparse infill',
+                                'INFILL-SOLID': 'Internal solid infill',
+                                }[_ty168b])
+                a('APPLY_TYPE TYPE=%s   ; R168 stamp body' % _ty168b)
+                _keep168 = None
+                if _r168 is not None:
+                    _keep168 = (cx, cy, _r168 + wid + 0.2)
+                _spc168 = (wid if _solid168
+                           else wid * 100.0 / stamp_infill)
+                if pen.holes is not None and _keep168:
+                    pen.holes = [_keep168]
+                else:
+                    pen.holes = []
+                _segs168 = _hatch(px0 + wid, py0 + wid,
+                                  px0 + width_real - wid,
+                                  py0 + height_real - wid,
+                                  _keep168, _spc168,
+                                  45.0 if li % 2 else 135.0)
+                _emit_fill(pen, _segs168, e_wall,
+                           1200 if li == 1 else 2400, _spc168)
+                pen.holes = []
+                if eff_border > 0:
+                    hs = _ring_hatch(outer_c, pic_c, wid,
+                                     45.0 if li % 2 else 135.0)
+                    _emit_hatch(pen, hs, e_wall, 1200 if li == 1 else 2400)
+                a('EXCLUDE_OBJECT_END NAME=LITHO')
+                continue
+            _ty128 = ('Bottom surface' if (li == 1 and not stamp) else
                       'Top surface' if li == total_layers else
                       'Internal solid infill')
-            _tk128 = ('SURFACE-BOTTOM' if li == 1 else
+            _tk128 = ('SURFACE-BOTTOM' if (li == 1 and not stamp) else
                       'SURFACE-TOP' if li == total_layers else 'INFILL-SOLID')
             _blks167 = _bcache128[k]
-            if k > 0 and _blks167:
-                # R167 (user request): every step region gets a WALL LOOP
-                # around it before the fill - the steps print with clean
-                # crisp edges instead of frayed hatch ends. Supported by
-                # the step below (its region is a superset, the wall's
-                # outer half-line still stands on it).
+            _last168 = (li == total_layers)
+            _nofill168 = ((contour == 2 and k > 0)
+                          or (contour == 1 and _last168))
+            if contour == 2 and k > 0:
+                # R168 CONTOUR RELIEF: above the solid step-0 plane only
+                # contour walls print - one wall per level, taller = darker,
+                # every level boundary traced incl. holes (the ring). Each
+                # wall stands on the step-0 plane (anchored, never air);
+                # level k's wall spans relief layers n_band+1 .. n_band+k'.
+                _rel168 = li - base_n
                 a(';TYPE:Outer wall')
-                a('APPLY_TYPE TYPE=WALL-OUTER')
-                for (r_a, r_b, rr) in _blks167:
-                    for (c_a, c_b) in rr:
-                        _emit_loop(pen, _rect_loop(
-                            px0 + c_a * wid, py0 + r_a * wid,
-                            px0 + (c_b + 1) * wid, py0 + (r_b + 1) * wid),
-                            e_wall, 900 if li == 1 else 1800)
+                a('APPLY_TYPE TYPE=WALL-OUTER   ; R168 contour wall')
+                for _kk168 in range(1, L):
+                    if n_band < _rel168 <= n_band * (_kk168 + 1):
+                        for _lp168 in _ccache168.get(_kk168, ()):
+                            _emit_loop(pen, _lp168, e_wall,
+                                       900 if li == 1 else 1800)
+            elif contour == 1 and _last168:
+                # R168: the LAST layer drops the fill - only the top
+                # step's true contours (outer + holes) print on the full
+                # layer below (anchored everywhere)
+                a(';TYPE:Outer wall')
+                a('APPLY_TYPE TYPE=WALL-OUTER   ; R168 last-layer contour')
+                for _lp168 in _ccache168.get(L - 1, ()):
+                    _emit_loop(pen, _lp168, e_wall, 1800)
+            elif k > 0 and _blks167:
+                if contour == 3:
+                    # R168: TRUE contours as the step walls (holes get
+                    # their own wall) - the fill below stays as it is
+                    a(';TYPE:Outer wall')
+                    a('APPLY_TYPE TYPE=WALL-OUTER')
+                    for _lp168 in _ccache168.get(k, ()):
+                        _emit_loop(pen, _lp168, e_wall,
+                                   900 if li == 1 else 1800)
+                else:
+                    # R167 (user request): every step region gets a WALL LOOP
+                    # around it before the fill - the steps print with clean
+                    # crisp edges instead of frayed hatch ends. Supported by
+                    # the step below (its region is a superset, the wall's
+                    # outer half-line still stands on it).
+                    a(';TYPE:Outer wall')
+                    a('APPLY_TYPE TYPE=WALL-OUTER')
+                    for (r_a, r_b, rr) in _blks167:
+                        for (c_a, c_b) in rr:
+                            _emit_loop(pen, _rect_loop(
+                                px0 + c_a * wid, py0 + r_a * wid,
+                                px0 + (c_b + 1) * wid,
+                                py0 + (r_b + 1) * wid),
+                                e_wall, 900 if li == 1 else 1800)
             a(';TYPE:%s' % _ty128)
             a('APPLY_TYPE TYPE=%s' % _tk128)
             # R167: with a wall around it the hatch insets by half a line
             # so wall + fill interlock like in any slicer (k=0 = the base
             # area keeps the full hatch - the outer frame wall borders it)
             _in167 = wid * 0.5 if k > 0 else 0.0
-            for (r_a, r_b, rr) in _blks167:
-                for (c_a, c_b) in rr:
-                    segs = _hatch(px0 + c_a * wid + _in167,
-                                  py0 + r_a * wid + _in167,
-                                  px0 + (c_b + 1) * wid - _in167,
-                                  py0 + (r_b + 1) * wid - _in167,
-                                  None, wid, 45.0 if li % 2 else 135.0)
-                    _emit_fill(pen, segs, e_wall, 1200 if li == 1 else 2400,
-                               wid)
+            if not _nofill168:
+                for (r_a, r_b, rr) in _blks167:
+                    for (c_a, c_b) in rr:
+                        segs = _hatch(px0 + c_a * wid + _in167,
+                                      py0 + r_a * wid + _in167,
+                                      px0 + (c_b + 1) * wid - _in167,
+                                      py0 + (r_b + 1) * wid - _in167,
+                                      None, wid, 45.0 if li % 2 else 135.0)
+                        _emit_fill(pen, segs, e_wall,
+                                   1200 if li == 1 else 2400, wid)
             if eff_border > 0:
                 # frame ring = full height, hatched between outer contour
                 # and the picture rect (rounded corners live here)
                 hs = _ring_hatch(outer_c, pic_c, wid,
                                  45.0 if li % 2 else 135.0)
                 _emit_hatch(pen, hs, e_wall, 1200 if li == 1 else 2400)
-            if ironing and cap:
+            if ironing and cap and not _nofill168:
                 a(';TYPE:Ironing')
                 a('APPLY_TYPE TYPE=IRONING')
                 for (r_a, r_b, rr) in _bcache128[k]:
@@ -10695,8 +11392,22 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
         sk.flush()
 
     _gen_normalize_speeds(out)   # R159: uniform 60/1500 + travel 180/8000
+    # ---- R168: the optional handle - its own file, printed separately ----
+    out_handle = None
+    if handle == 1 and not stamp:
+        notes.append('handle without a stamp body = handle only')
+    if handle:
+        _hf168 = fit168 if fit168 is not None else \
+            _StampFit168(tol=stamp_tol, layer_h=layer_h)
+        out_handle, _hi168 = _make_stamp_handle(
+            _hf168, out_dir=out_dir, material=material, nozzle=nozzle,
+            wid=wid, layer_h=layer_h, src_stem=os.path.basename(src),
+            cx=cx, cy=cy)
+        notes.append('handle: %s (separate file - print it when wanted,'
+                     ' it snaps into the socket)' % _hi168['file'])
     info = {'file': fname, 'source': os.path.basename(src),
-            'kind': 'lithophane-flat', 'width': round(width_real, 1),
+            'kind': ('stamp-flat' if stamp else 'lithophane-flat'),
+            'width': round(width_real, 1),
             'height': round(height_real, 1),
             'thickness': round(total_layers * layer_h, 2),
             'layers': total_layers, 'steps': L, 'step_layers': n_band,
@@ -10704,6 +11415,11 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
             'border': round(eff_border, 1), 'corner': round(cr128, 1),
             'ironing': bool(ironing), 'col_mode': _cm128,
             'contrast': bool(contrast), 'tower': tower is not None,
+            'mirror_x': mirror_x, 'mirror_y': mirror_y, 'contour': contour,
+            'stamp': stamp, 'stamp_base': round(stamp_base, 1),
+            'stamp_tol': round(stamp_tol, 2), 'handle': handle,
+            'handle_file': os.path.basename(out_handle) if out_handle
+                           else None,
             'notes': notes}
     return out, info
 
@@ -10712,7 +11428,9 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                     material='PLA', bed=None, bed_margin=6.0, nozzle=0.6,
                     out_dir='.', version=1, orient='STANDING', colors=1,
                     col_layers=0, border=0.0, corner_r=0.0, col_mode='OFF',
-                    contrast=True):
+                    contrast=True, mirror_x=0, mirror_y=0, contour=0,
+                    stamp=0, stamp_base=5.0, stamp_tol=0.25, handle=0,
+                    stamp_infill=10.0):
     """R89: photo -> lithophane g-code, printed STANDING (vertical).
 
     Why standing (the field recipe from itslitho/3dp.rocks research): the
@@ -10724,10 +11442,41 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
     back face = the image). Frame = solid border at full thickness (stability
     + hides edge artifacts), brim holds the narrow base down.
     Dark = thick: brightest highlight = base, deepest shadow = base + dyn.
+
+    R168: mirror_x/mirror_y flip the final view in BOTH orientations;
+    contour/stamp/handle are FLAT-only (STANDING raises - blind-safe:
+    the error names the fix instead of silently ignoring).
     """
     _or106 = str(orient or 'STANDING').upper()
     if _or106 not in ('STANDING', 'FLAT'):
         raise ValueError('litho ORIENT must be STANDING or FLAT')
+    _mx168 = 1 if str(mirror_x).strip().lower() in ('1', 'true', 'on', 'yes') else 0
+    _my168 = 1 if str(mirror_y).strip().lower() in ('1', 'true', 'on', 'yes') else 0
+    try:
+        _ct168 = int(contour or 0)
+    except (TypeError, ValueError):
+        _ct168 = 0
+    _st168 = 1 if str(stamp).strip().lower() in ('1', 'true', 'on', 'yes') else 0
+    try:
+        _hd168 = int(handle or 0)
+    except (TypeError, ValueError):
+        _hd168 = 0
+    if _or106 == 'STANDING' and (_ct168 or _st168 or _hd168):
+        raise ValueError('contour/stamp/handle are FLAT-only - set '
+                         'Orient=FLAT first (LCD: Litho > Orient)')
+    if _or106 == 'FLAT' and _hd168 == 2:
+        # handle ONLY (reprint): no picture processing at all
+        _bed168 = bed if bed else (0.0, -3.0, 244.0, 238.0)
+        _fit168 = _StampFit168(tol=stamp_tol, layer_h=layer_h)
+        _wid168 = max(0.4, float(nozzle or 0.6) * 1.08)
+        out_h, info_h = _make_stamp_handle(
+            _fit168, out_dir=out_dir, material=material, nozzle=nozzle,
+            wid=_wid168, layer_h=layer_h, src_stem=os.path.basename(src),
+            cx=(_bed168[0] + _bed168[2]) / 2.0,
+            cy=(_bed168[1] + _bed168[3]) / 2.0)
+        info_h['handle'] = 2
+        info_h['stamp'] = 0
+        return out_h, info_h
     if _or106 == 'FLAT':
         return _make_litho_flat(src, height_mm=height_mm, layer_h=layer_h,
                                 levels=levels, frame=frame,
@@ -10737,7 +11486,11 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                                 bed=bed, bed_margin=bed_margin, nozzle=nozzle,
                                 out_dir=out_dir, version=version,
                                 border=border, corner_r=corner_r,
-                                col_mode=col_mode, contrast=contrast)
+                                col_mode=col_mode, contrast=contrast,
+                                mirror_x=_mx168, mirror_y=_my168,
+                                contour=_ct168, stamp=_st168,
+                                stamp_base=stamp_base, stamp_tol=stamp_tol,
+                                handle=_hd168, stamp_infill=stamp_infill)
     height_mm = max(30.0, min(float(height_mm or 100.0), 200.0))
     layer_h = max(0.08, min(float(layer_h or 0.12), 0.2))
     levels = max(0, min(int(levels or 0), 16))
@@ -10789,6 +11542,13 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
     width_mm = cols * wid
 
     grid, rep = _litho_grid(lum, w, h, cols, rows, gamma=gamma, levels=levels)
+    # R168: the user's mirror on the STANDING plate - applied after the
+    # built-in front-view mirror, so mirror_x/mirror_y flip exactly what
+    # the front view shows
+    if _my168:
+        grid = grid[::-1]
+    if _mx168:
+        grid = [list(reversed(r)) for r in grid]
     notes.append(rep)
 
     # ---- thickness map (dark = thick) + solid frame border ------------------
@@ -14357,6 +15117,15 @@ def _travel_fix_file(path, accel=0, speed=0.0, markers=True):
     m204_run = None
     f_print = None          # modal F of the PRINT moves (mm/min)
     cur_feat = None         # canonical feature while scanning
+    # R168 (field log .126, texture+range report): cur_feat ONLY tracked
+    # ;TYPE: comments - a file whose features ride on APPLY_TYPE alone
+    # (already-processed files, R2 generators) closed its first travel
+    # blocks with 'APPLY_TYPE TYPE=CUSTOM', and a range excerpt built on
+    # top counted that phantom CUSTOM as a real feature of the body.
+    # APPLY_TYPE now seeds cur_feat too (;TYPE: still wins - it is the
+    # slicer's own truth), and a close with NO feature known writes NO
+    # marker at all: nothing was active, so there is nothing to restore.
+    _ap168 = re.compile(r'^APPLY_TYPE\s+TYPE=(\S+)')
     in_block = False
     tmp = path + '.tvx'
     mv = re.compile(r'^\s*M204\s+S(\d+(?:\.\d+)?)')
@@ -14377,8 +15146,8 @@ def _travel_fix_file(path, accel=0, speed=0.0, markers=True):
             fo.write('G1 F%d ; R2-TV\n' % int(round(f_print)))
         if restore_accel and accel > 0 and m204_run is not None:
             fo.write('M204 S%d ; R2-TV\n' % int(round(m204_run)))
-        if markers:
-            fo.write('APPLY_TYPE TYPE=%s ; R2-TV\n' % (cur_feat or 'CUSTOM'))
+        if markers and cur_feat is not None:
+            fo.write('APPLY_TYPE TYPE=%s ; R2-TV\n' % cur_feat)
 
     with open(path, 'r', errors='replace') as fi, open(tmp, 'w') as fo:
         for raw in fi:
@@ -14395,6 +15164,10 @@ def _travel_fix_file(path, accel=0, speed=0.0, markers=True):
             mt = typ_re.match(line)
             if mt:
                 cur_feat = _canon_type(mt.group(1))
+            elif cur_feat is None:
+                ma168 = _ap168.match(ls)
+                if ma168:
+                    cur_feat = _canon_type(ma168.group(1))
             mm = mv.match(ls)
             if mm:
                 if in_block:
@@ -17214,7 +17987,15 @@ def watch(directory, interval=5.0, once=False):
                         material=str(rv.get('material', 'PLA') or 'PLA'),
                         bed=cfg_bed, nozzle=_gen_nozzle(directory), out_dir=_gensub(directory, 'labels'),
                         version=max(1, min(int(_vf('gen_version', 1)), 99)),
-                        mode='fixed' if _vf('label_mode', 0) >= 1 else 'grow')
+                        mode='fixed' if _vf('label_mode', 0) >= 1 else 'grow',
+                        mirror_x=_vb('label_mirror_x', False),
+                        mirror_y=_vb('label_mirror_y', False),
+                        stamp=_vb('label_stamp', False),
+                        stamp_base=max(3.5, min(
+                            _vf('label_stamp_base', 5.0), 15.0)),
+                        stamp_tol=max(0.10, min(
+                            _vf('label_stamp_tol', 0.25), 0.50)),
+                        handle=max(0, min(int(_vf('label_handle', 0)), 2)))
                     fitmsg = '%d fit (%dx%d), using %d' % (
                         info_l['fit'], info_l['cols'], info_l['rows'], info_l['count'])
                     try:
@@ -17225,16 +18006,26 @@ def watch(directory, interval=5.0, once=False):
                         _sz79 = '%.0fx%.0fmm%s' % (
                             info_l['w'], info_l['h'],
                             ' (grown)' if info_l.get('grown') else '')
+                        _msg168l = ''
+                        if info_l.get('stamp'):
+                            _msg168l = ' STAMP (socket underneath)'
+                            if info_l.get('handle_file'):
+                                _msg168l += (' + handle %s (own file)'
+                                             % info_l['handle_file'])
+                            if not info_l.get('mirror_x'):
+                                _msg168l += (' | UNMIRRORED - the imprint '
+                                             'reads mirrored (Spiegel X=1)')
                         _moonraker_gcode(
                             _sv_line('label_fit', fitmsg) + '\n'
                             'RESPOND MSG="Labels: %s - %d label(s), %s, font %.1fmm caps, '
-                            'stroke %.1fmm%s, %d layers, tower %s%s"'
+                            'stroke %.1fmm%s, %d layers, tower %s%s%s"'
                             '\nM117 Labels ready\n'
                             '_SOUND_LIB NAME=r2_done'
                             % (info_l['file'], info_l['count'], _sz79, info_l['cap_mm'],
                                info_l.get('stroke_eff', 0.0),
                                ' (capped)' if info_l.get('stroke_capped') else '',
                                info_l['layers'], 'on' if info_l['tower'] else 'off',
+                               _msg168l,
                                _sel_note(rv, ' - selected for printing'))
                             + _sel_line(rv, _lab_rel79))
                     except Exception as me:                  # noqa: BLE001
@@ -17476,6 +18267,18 @@ def watch(directory, interval=5.0, once=False):
                     if str(rv.get('litho_colmode', 'OFF') or 'OFF').upper()
                     in ('OFF', 'LAST', 'EACH') else 'OFF',
                     contrast=_vbl89('litho_contrast', True),
+                    # R168: mirror / contour / stamp / handle
+                    mirror_x=_vbl89('litho_mirror_x', False),
+                    mirror_y=_vbl89('litho_mirror_y', False),
+                    contour=max(0, min(int(_vfl89('litho_contour', 0)), 3)),
+                    stamp=_vbl89('litho_stamp', False),
+                    stamp_base=max(3.5, min(
+                        _vfl89('litho_stamp_base', 5.0), 15.0)),
+                    stamp_tol=max(0.10, min(
+                        _vfl89('litho_stamp_tol', 0.25), 0.50)),
+                    handle=max(0, min(int(_vfl89('litho_handle', 0)), 2)),
+                    stamp_infill=max(5.0, min(
+                        _vfl89('litho_stamp_infill', 10.0), 30.0)),
                     material=str(rv.get('material', 'PLA') or 'PLA'),
                     bed=_bed89, nozzle=_gen_nozzle(directory), out_dir=_gensub(directory, 'litho'),
                     version=max(1, min(int(_vfl89('gen_version', 1)), 99)))
@@ -17488,16 +18291,29 @@ def watch(directory, interval=5.0, once=False):
                         # R106 (user semantics): FLAT names the picture size
                         # in XY + the Z relief as layers; STANDING names the
                         # classic plate (width x Z print height)
-                        if info_l.get('kind') == 'lithophane-flat':
+                        if info_l.get('kind') == 'stamp-handle':
+                            _geo89 = ('handle only (reprint) - %.0fmm '
+                                      'tall, snaps into the stamp'
+                                      % info_l['height'])
+                        elif info_l.get('kind') == 'lithophane-flat':
                             _geo89 = ('picture %.0fx%.0fmm in XY, Z relief '
                                       '%d layers'
                                       % (info_l['width'], info_l['height'],
+                                         info_l['layers']))
+                        elif info_l.get('kind') == 'stamp-flat':
+                            _geo89 = ('stamp %.0fx%.0fmm, body %.1fmm + '
+                                      'relief, %d layers'
+                                      % (info_l['width'], info_l['height'],
+                                         info_l.get('stamp_base', 5.0),
                                          info_l['layers']))
                         else:
                             _geo89 = ('%.0fmm wide, %.0fmm tall (Z), %d '
                                       'layers'
                                       % (info_l['width'], info_l['height'],
                                          info_l['layers']))
+                        if info_l.get('handle_file'):
+                            _geo89 += (' | handle: %s (own file, print it'
+                                       ' when wanted)' % info_l['handle_file'])
                         _msg89 = ('Litho: %s - from %s, %s, thickness %smm%s'
                                   ' - selected for printing'
                                   % (info_l['file'], src, _geo89,
@@ -17510,7 +18326,11 @@ def watch(directory, interval=5.0, once=False):
                             'RESPOND MSG="%s"\nM117 Litho ready\n'
                             '_SOUND_LIB NAME=r2_done' % _msg89
                             + _sel_line(rv, _rel89))
-                        return [os.path.join(directory, info_l['file'])]
+                        _outs89 = [os.path.join(directory, info_l['file'])]
+                        if info_l.get('handle_file'):
+                            _outs89.append(os.path.join(
+                                directory, info_l['handle_file']))
+                        return _outs89
                     except Exception as e:                      # noqa: BLE001
                         print(f'[litho] error: {e!r}', flush=True)
                         try:
