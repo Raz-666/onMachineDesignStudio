@@ -3282,15 +3282,24 @@ tests.append(('R63 grid: reading order - most columns that fit (9 labels -> 5x2)
     _i63b is not None and True, ''))
 _o63c, _i63c = _pp61.make_labels(['L%d' % i for i in range(9)], w=40, h=20, gap=5,
                                  out_dir=_d63, bed=_bed63)
-tests.append(('R63 grid: 9 labels 40x20 -> 5 cols x 2 rows',
-    _i63c['cols'] == 5 and _i63c['rows'] == 2 and _i63c['fit'] == 10, str(_i63c)))
+tests.append(('R63 grid (R170 numbers): 9 labels 40x20 -> 4 cols x 3 rows '
+              '(the 10mm gap floor makes the cells 50mm wide)',
+    _i63c['cols'] == 4 and _i63c['rows'] == 3 and _i63c['fit'] == 12, str(_i63c)))
 
-# --- error cases ---
+# --- error cases (R170: overflow SPLITS, only impossible sizes raise) ---
+_o63d, _i63d = _pp61.make_labels(['A'] * 10, w=120, h=100, gap=8,
+                                 out_dir=_d63, bed=_bed63)
+tests.append(('R170 overflow: 10x 120x100 no longer refuses - 5 part files '
+              '(2 per plate, the old R63 raise is dead)',
+    _i63d.get('parts') == 5 and len(_i63d.get('files', [])) == 5,
+    str(_i63d.get('files'))))
 try:
-    _pp61.make_labels(['A'] * 10, w=120, h=100, gap=8, out_dir=_d63, bed=_bed63)
-    tests.append(('R63 fit guard: too many/large labels raise', False, 'no error'))
+    _pp61.make_labels(['RIESIG'], w=300, h=300, out_dir=_d63, bed=_bed63)
+    tests.append(('R63 fit guard: a single label larger than the bed still raises',
+        False, 'no error'))
 except ValueError as e:
-    tests.append(('R63 fit guard: too many/large labels raise', 'do not fit the bed' in str(e), str(e)[:80]))
+    tests.append(('R63 fit guard: a single label larger than the bed still raises',
+        'do not fit the bed' in str(e), str(e)[:80]))
 # R80: the error storm is GONE - a long text grows the label instead
 _olg80, _ilg80 = _pp61.make_labels(['DIESE ZEICHENKETTE IST ZU LANG'], w=40, h=20,
                                     out_dir=_d63, bed=_bed63)
@@ -3855,7 +3864,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.100) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-22.128'", repr(_v66)))
+    _v66 == "'R2-2026-10-22.129'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -3947,18 +3956,23 @@ tests.append(('R67 all %d menu templates render with mock printer (names+enable+
     not _rbad67 and _rn67 > 1300, str(_rbad67[:3])))
 
 _q67 = [l for l in open('menus/lcd_menues.cfg', encoding='utf-8').read().split('\n')
-        if l.startswith('name: Queue:')][0][len('name: '):]
+        if l.startswith("name: 'Queue:")][0][len("name: '"):]
+_q67 = _q67[:_q67.rfind("'")] if "'" in _q67 else _q67
+# R170: the queue row now ends with the live bed-fit word - strip it for
+# the classic 0/24 check (label_bed_fit defaults to '?' before the first
+# watcher pass, the mock renders it as-is)
+_q67c = _q67[:_q67.index(' {printer["save_variables"].variables.label_bed_fit')]
 tests.append(('R67 label queue name uses the fixed .split pattern (no |string.split)',
     'string.split' not in _q67 and ').split(' in _q67 and '|length' in _q67, _q67[:70]))
 _oldq67 = save_vars.get('label_texts', '')
 save_vars['label_texts'] = ''
 tests.append(('R67 label queue name renders 0/24 when queue empty',
-    render(_q67, extra={'menu': M({'input': 0})}).strip() == 'Queue: 0/24',
-    render(_q67, extra={'menu': M({'input': 0})}).strip()[:40]))
+    render(_q67c, extra={'menu': M({'input': 0})}).strip() == 'Queue: 0/24',
+    render(_q67c, extra={'menu': M({'input': 0})}).strip()[:40]))
 save_vars['label_texts'] = 'WERKSTATT|R2|'
 tests.append(('R67 label queue name renders 2/24 with two queued labels',
-    render(_q67, extra={'menu': M({'input': 0})}).strip() == 'Queue: 2/24',
-    render(_q67, extra={'menu': M({'input': 0})}).strip()[:40]))
+    render(_q67c, extra={'menu': M({'input': 0})}).strip() == 'Queue: 2/24',
+    render(_q67c, extra={'menu': M({'input': 0})}).strip()[:40]))
 save_vars['label_texts'] = _oldq67
 
 # ---------- R68: foreign files (hyphen names / bare '-' tokens) never crash the watcher ----------
@@ -5803,8 +5817,9 @@ tests.append(('R116 LCD: font menu = nine-font list (PIXEL back as a real font)'
                                '__fnt __sc]', '__fnt __hd]', '__fnt __pl]', '__fnt __px]'])
     and _lcd80.count('SAVE_VARIABLE VARIABLE=label_font VALUE=') >= 9
     and 'letter LINE WIDTH' in _lcd80, ''))
-tests.append(('R80 LCD: label defaults 50x15 (keychain-friendly)',
-    'variables.label_w|default(50)' in _lcd80 and 'variables.label_h|default(15)' in _lcd80, ''))
+tests.append(('R80 LCD: label defaults 50x10 (keychain-friendly, R170: '
+              'the 15mm floor is history)',
+    'variables.label_w|default(50)' in _lcd80 and 'variables.label_h|default(10)' in _lcd80, ''))
 
 
 # ===================== R83: field-log .65 fixes =====================
@@ -9917,6 +9932,217 @@ for _k169 in ('opt_snap', 'opt_baked', 'opt_list', 'opt_file', 'opt_nonce',
               'opt_load_nonce', 'opt_load_name'):
     save_vars.pop(_k169, None)
 
+# ============== R170: label layout + auto-split + plate handle + watchdog ==
+# (field report .128: labels printed ON TOP of each other, calc-fit silent,
+# stamp queue confusion, MCU shutdown with the bed seemingly staying on)
+import tempfile as _tf170, os as _os170, re as _re170
+_d170 = _tf170.mkdtemp(prefix='r170_')
+
+def _polys170(path):
+    rects = []
+    for _line170 in open(path).read().split('\n'):
+        if 'EXCLUDE_OBJECT_DEFINE' in _line170 and 'POLYGON=' in _line170:
+            _pts170 = _re170.findall(r'\[(-?[\d.]+),(-?[\d.]+)\]',
+                                     _line170.split('POLYGON=')[1])
+            _pts170 = [(float(a), float(b)) for a, b in _pts170]
+            _xs170 = [q[0] for q in _pts170]
+            _ys170 = [q[1] for q in _pts170]
+            rects.append((min(_xs170), min(_ys170), max(_xs170), max(_ys170)))
+    return rects
+
+def _overlaps170(rects):
+    _n170 = 0
+    for _i170 in range(len(rects)):
+        for _j170 in range(_i170 + 1, len(rects)):
+            _a170, _b170 = rects[_i170], rects[_j170]
+            if (min(_a170[2], _b170[2]) - max(_a170[0], _b170[0]) > 0.05
+                    and min(_a170[3], _b170[3]) - max(_a170[1], _b170[1]) > 0.05):
+                _n170 += 1
+    return _n170
+
+def _minsep170(rects):
+    _gaps170 = []
+    for _i170 in range(len(rects)):
+        for _j170 in range(_i170 + 1, len(rects)):
+            _a170, _b170 = rects[_i170], rects[_j170]
+            _gx170 = max(_a170[0] - _b170[2], _b170[0] - _a170[2])
+            _gy170 = max(_a170[1] - _b170[3], _b170[1] - _a170[3])
+            if _gx170 >= 0 and _gy170 >= 0:
+                _gaps170.append(min(_gx170, _gy170))
+    return min(_gaps170) if _gaps170 else 999.0
+
+# --- 1) the layout chaos is dead: mixed grown jobs never overlap -----------
+_texts170 = ['KUEHLSCHRANK', 'BUERO', 'Garage', 'Garten', 'Balkon', 'Werkstatt',
+             'Flur', 'Keller', 'Dach', 'Hof', 'Wohnen', 'Essen', 'Bad', 'Abstell']
+_jobs170 = [{'font': 'SMOOTH', 'w': 60, 'h': 30, 'size': 6 if _i170 == 0 else 0,
+             'spacing': 0, 'stroke': 0, 'mode': 'grow',
+             'hole_side': 1 if _i170 % 3 == 0 else 0, 'hole_d': 5}
+            for _i170 in range(len(_texts170))]
+_o170, _i170 = _pp61.make_labels(_texts170, job_cfgs=_jobs170, gap=12,
+                                 out_dir=_d170, bed=(0.0, -3.0, 244.0, 238.0))
+_rects170 = _polys170(_o170)
+tests.append(('R170 layout: 14 mixed jobs (one grown to 94mm) - ZERO overlaps '
+              '(the .128 field chaos: the uniform grid overwrote the shelf pack)',
+    _overlaps170(_rects170) == 0 and len(_rects170) == 14,
+    'overlaps=%d rects=%d' % (_overlaps170(_rects170), len(_rects170))))
+tests.append(('R170 layout: label-to-label clearance >= 10mm everywhere',
+    _minsep170(_rects170) >= 10.0, 'min %.1fmm' % _minsep170(_rects170)))
+
+# --- 2) gap floor: even gap=2 input is lifted to 10mm ----------------------
+_o170b, _ = _pp61.make_labels(['A', 'B', 'C'], gap=2, out_dir=_d170,
+                              bed=(0.0, -3.0, 244.0, 238.0))
+tests.append(('R170 gap floor: gap=2 requested -> the plates keep 10mm apart',
+    _minsep170(_polys170(_o170b)) >= 10.0,
+    'min %.1fmm' % _minsep170(_polys170(_o170b))))
+
+# --- 3) overflow auto-splits into parts (user choice) ----------------------
+_texts170c = ['L%02d' % _i170 for _i170 in range(1, 15)]
+_jobs170c = [{'font': 'SMOOTH', 'w': 90, 'h': 40, 'size': 0, 'spacing': 0,
+              'stroke': 0, 'mode': 'fixed', 'hole_side': 0, 'hole_d': 5}
+             for _ in _texts170c]
+_o170c, _i170c = _pp61.make_labels(_texts170c, job_cfgs=_jobs170c, gap=12,
+                                   out_dir=_d170, bed=(0.0, -3.0, 244.0, 238.0))
+tests.append(('R170 split: 14x 90x40mm overflow -> 2 part files, all named',
+    _i170c.get('parts') == 2 and len(_i170c.get('files', [])) == 2
+    and all(_os170.path.isfile(_os170.path.join(_d170, f))
+            for f in _i170c['files']),
+    str(_i170c.get('files'))))
+tests.append(('R170 split: every part is a complete plate (own PRINT_START '
+              '+ no overlaps inside)',
+    all(_overlaps170(_polys170(_os170.path.join(_d170, f))) == 0
+        for f in _i170c['files']), ''))
+_d170r = _tf170.mkdtemp(prefix='r170r_')
+_o170r, _i170r = _pp61.make_labels(
+    ['R%02d' % _k170 for _k170 in range(1, 15)], job_cfgs=_jobs170c, gap=12,
+    out_dir=_d170r, bed=(0.0, -3.0, 244.0, 238.0))
+tests.append(('R170 dry runs leave NO residue: a split job writes exactly '
+              'the part files (the .128-era dry probes leaked V0x leftovers)',
+    sorted(_os170.listdir(_d170r)) == sorted(_i170r['files']),
+    str(_os170.listdir(_d170r))))
+
+# --- 4) the handle ON THE PLATE (mode 1) ------------------------------------
+_o170d, _i170d = _pp61.make_labels(['HALLO'], stamp=True, stamp_base=5.0,
+                                   stamp_tol=0.25, handle=1, mirror_x=True,
+                                   hole_side=0, out_dir=_d170,
+                                   bed=(0.0, -3.0, 244.0, 238.0))
+_g170d = open(_o170d).read()
+_bad170d = 0
+_both170d = 0
+for _blk170 in _g170d.split(';LAYER_CHANGE')[1:]:
+    _il170 = _blk170.find('EXCLUDE_OBJECT_START NAME=LABEL_1')
+    _ig170 = _blk170.find('EXCLUDE_OBJECT_START NAME=GRIFF')
+    if _il170 >= 0 and _ig170 >= 0:
+        _both170d += 1
+        if _il170 > _ig170:
+            _bad170d += 1
+_gr170d = _polys170(_o170d)
+_hrect170 = [r for r in _gr170d]
+tests.append(('R170 plate handle: printed LAST on every shared layer '
+              '(the nozzle never finishes on a label)',
+    _i170d['handle_plate'] is True and _bad170d == 0 and _both170d >= 20
+    and _i170d['file_layers'] > _i170d['base_layers'] + 2,
+    'layers both=%d wrong=%d file_layers=%d' % (
+        _both170d, _bad170d, _i170d['file_layers'])))
+tests.append(('R170 plate handle: >= 12mm clear of the label, GRIFF exclude '
+              'object defined, bore bridge + top cap present',
+    'EXCLUDE_OBJECT_DEFINE NAME=GRIFF' in _g170d
+    and ';TYPE:Bridge' in _g170d and ';TYPE:Top surface' in _g170d
+    and (max(_hrect170[0][0] - _hrect170[1][2], _hrect170[1][0] - _hrect170[0][2]) >= 12.0
+         or max(_hrect170[0][1] - _hrect170[1][3], _hrect170[1][1] - _hrect170[0][3]) >= 12.0),
+    'rects=%r' % (_hrect170[:2],)))
+
+# --- 5) handle modes 2/3 + the no-stamp refusal -----------------------------
+_o170e, _i170e = _pp61.make_labels(['HALLO'], stamp=True, handle=2,
+                                   hole_side=0, out_dir=_d170,
+                                   bed=(0.0, -3.0, 244.0, 238.0))
+tests.append(('R170 handle=2: separate handle file beside the stamp (as .127)',
+    _i170e.get('handle_file') and _i170e.get('handle_plate') is False
+    and _os170.path.isfile(_os170.path.join(_d170, _i170e['handle_file'])),
+    str(_i170e.get('handle_file'))))
+_o170f, _i170f = _pp61.make_labels(['HALLO'], stamp=True, handle=3,
+                                   hole_side=0, out_dir=_d170,
+                                   bed=(0.0, -3.0, 244.0, 238.0))
+tests.append(('R170 handle=3: handle file ONLY (no label plate written)',
+    _i170f.get('kind') == 'stamp-handle', str(_i170f.get('kind'))))
+try:
+    _pp61.make_labels(['HALLO'], handle=1, out_dir=_d170)
+    _refused170 = False
+except ValueError:
+    _refused170 = True
+tests.append(('R170 handle without stamp -> clear refusal',
+    _refused170, ''))
+try:
+    _pp61.make_labels(['A', 'B'], stamp=True, out_dir=_d170)
+    _refused170b = False
+except ValueError as _e170r:
+    _refused170b = 'exactly ONE label' in str(_e170r)
+tests.append(('R170 stamp with 2 labels -> refusal names the reason',
+    _refused170b, ''))
+
+# --- 6) watcher-side helpers -------------------------------------------
+tests.append(('R170 watcher: cfg parser + kwargs builder + moonraker json '
+              '+ the shutdown watchdog wired',
+    callable(getattr(_pp61, '_parse_label_cfgs', None))
+    and callable(getattr(_pp61, '_label_job_kwargs', None))
+    and callable(getattr(_pp61, '_moonraker_json', None))
+    and _pp61._parse_label_cfgs('SMOOTH~60~30~0~0~0~grow~1~5|X~9~9') ==
+        [{'font': 'SMOOTH', 'w': 60.0, 'h': 30.0, 'size': 0.0, 'spacing': 0.0,
+          'stroke': 0.0, 'mode': 'grow', 'hole_side': 1.0, 'hole_d': 5.0}, {}],
+    ''))
+_w170 = open('tools/r2_postproc.py', encoding='utf-8').read()
+tests.append(('R170 watchdog: 10min evidence curve + FIRMWARE_RESTART after '
+              '5min + restart caps (max 2, 1h cooldown)',
+    'r2_shutdown_watchdog.log' in _w170
+    and "t+%.0fs bed %.1f/%.1fC hotend %.1f/%.1fC" in _w170
+    and "/printer/firmware_restart" in _w170
+    and ">= 300.0" in _w170 and ">= 600.0" in _w170
+    and "_sd170['events'] <= 2" in _w170, ''))
+tests.append(('R170 live fit: the loop pushes label_w_now/h_now/caps + '
+              'min W 12 / min H 10 (the 1cm labels)',
+    "label_w_now" in _w170 and "label_caps_now" in _w170
+    and "max(12, min(int(round(_pv170['min_w'])), 220))" in _w170
+    and "max(10, min(int(round(_pv170['min_h'])), 220))" in _w170
+    and "label_bed_fit" in _w170, ''))
+tests.append(('R170 dispatch: stamp queue refused loudly + split parts named '
+              '+ handle-only message + M117 carries the reason',
+    "Stamp = exactly ONE label" in _w170
+    and "M117 Err: %.18s" in _w170
+    and "PARTS: %s" in _w170, ''))
+_lcd170b = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R170 LCD: Now-row live size + Queue bed-fit + stamp guard + '
+              'Handle 0-3 + H min 10 + Gap min 10',
+    'label_w_now' in _lcd170b and 'label_bed_fit' in _lcd170b
+    and 'Stamp needs 1 label' in _lcd170b
+    and 'input_max: 3' in _lcd170b
+    and 'variables.label_min_h|default(10)|int' in _lcd170b
+    and _lcd170b.count('input_min: 10') >= 1, ''))
+
+# --- 7) litho handle: same numbering as the label stamp (R170) -------------
+_img170g = _os170.path.join(_d170, 'g170.png')
+open(_img170g, 'wb').write(_png106(48, 64, lambda x, y: 90))
+_o170g, _i170g = _pp61.make_lithophane(
+    _img170g, height_mm=20.0, orient='FLAT', handle=2, stamp=1,
+    out_dir=_d170, bed=(0.0, -3.0, 244.0, 238.0))
+tests.append(('R170 litho handle=2: separate handle file beside the '
+              'litho stamp (was: handle=1 before the renumbering)',
+    _i170g.get('handle_file') is not None, str(_i170g.get('handle_file'))))
+_o170h, _i170h = _pp61.make_lithophane(
+    _img170g, height_mm=20.0, orient='FLAT', handle=3, stamp=1,
+    out_dir=_d170, bed=(0.0, -3.0, 244.0, 238.0))
+tests.append(('R170 litho handle=3: handle file ONLY - no picture '
+              'processing at all',
+    _i170h.get('handle') == 3 and _i170h.get('stamp') == 0
+    and 'GRIFF' in open(_o170h).read(), ''))
+try:
+    _pp61.make_lithophane(_img170g, height_mm=20.0, orient='FLAT', handle=1,
+                          out_dir=_d170, bed=(0.0, -3.0, 244.0, 238.0))
+    _lref170 = False
+except ValueError as _e170l:
+    _lref170 = 'label stamps' in str(_e170l).lower()
+tests.append(('R170 litho handle=1 (on the plate): refused with a pointer '
+              'to the label stamps',
+    _lref170, ''))
+
 # ============== R110: profiles + gen-out LIVE from the LCD (no console, no restart) ==============
 # every item of Pre-Print > Profiles and Tools > After gen must RENDER and do
 # its work with SET_GCODE_VARIABLE/SAVE_VARIABLE alone - no RESTART, no
@@ -12110,6 +12336,8 @@ _ADDED135 = ['__main __live __acfe __cur', '__main __live __acfe __eff',
  '__main __preprint __profs __opt __pick',
  '__main __preprint __profs __optsave',
  '__main __preprint __file __opt',
+ '__main __gen __labels __set __now',
+ '__main __gen __labels __job __stguard',
  '__main __live __acfe __ga', '__main __live __acfe __now',
  '__main __live __acfe __pct', '__main __live __flfe __gfl',
  '__main __live __flfe __now', '__main __live __pafe __gpa',
@@ -13302,10 +13530,12 @@ for _seg168, _var168, _pre168 in (('__litho', 'litho', 'Litho'),
         _st168o.split('\n')[0][:100]))
 
 _gr168 = _m168('__main __gen __litho __set __gr')
-_gr168o = render(_gr168.split('gcode:', 1)[1], extra={'menu': M({'input': 1})})
-tests.append(('R168 litho Handle input: 1 = extra handle file, own print',
-    'SAVE_VARIABLE VARIABLE=litho_handle VALUE=1' in _gr168o
-    and 'own file' in _gr168o, _gr168o.split('\n')[0][:100]))
+_gr168o = render(_gr168.split('gcode:', 1)[1], extra={'menu': M({'input': 2})})
+tests.append(('R168 litho Handle input (R170 numbering): 2 = separate file, '
+              'own print - same numbering as the label stamp',
+    'SAVE_VARIABLE VARIABLE=litho_handle VALUE=2' in _gr168o
+    and 'separate handle file' in _gr168o
+    and 'same numbering' in _gr168o.lower(), _gr168o.split('\n')[0][:100]))
 
 # the filled CUSTOM submenu: enable follows file_types, the quick value
 # shows the file speed - the .126 field report 'custom stands empty'

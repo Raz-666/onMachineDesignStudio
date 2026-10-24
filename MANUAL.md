@@ -1079,6 +1079,37 @@ GEN_LABELS TEXT="WERKSTATT~KELLER|VASE" W=60 H=30 FONT=COND SIZE=8 SPACING=1 LIN
 
 (`~` = line break within a label; `|` separates several labels of one job)
 
+**The label round of .129 (R170) — layout, live fit, split, handles:**
+
+- **LIVE FIT (no button anymore):** Settings shows `Now: 80x17mm Caps 3.7`
+  at the very top — it updates ~2 s after EVERY text/font/size/shape/hole
+  change. GROW shows the size the print will really have (grown, INCLUDING
+  the hole); FIXED shows W/H with the auto-fitted cap height. The W/H input
+  minimums follow live (they never block the size your text needs).
+- **The 1 cm labels are real:** H goes down to **10 mm** (was locked at 15),
+  W down to 12 mm. `Gap` has a **10 mm floor** in every direction — your
+  rule from the field report, checked against the printer's bed.
+- **NO MORE OVERLAPS (field report .128):** grown and per-job labels kept
+  their shelf positions but the uniform grid overwrote them — labels
+  printed on TOP of each other (a 94 mm label ended 21.6 mm inside its
+  neighbor). Fixed + proven: 14 mixed jobs (one grown to 94 mm) → zero
+  overlaps, ≥ 12 mm clearance everywhere.
+- **OVERFLOW SPLITS (your choice):** too many/too big labels no longer
+  error — the job splits into part files in reading order (`..._T1`,
+  `..._T2`, every part a complete plate with its own purge tower). The job
+  message names every part, and the Queue row shows `14 -> 2 files` LIVE
+  while you build the queue.
+- **Handle 0–3 (your choice, Labels AND Litho use the same numbering):**
+  `0` none · `1` **ON THE PLATE** with the stamp — printed LAST on every
+  layer (the nozzle never finishes on a label it could rip off), z-hop
+  approach, 12 mm clearance, its own `GRIFF` exclude object, own brim,
+  bridged bore ceiling · `2` separate handle file (as before) · `3` handle
+  ONLY (reprint a lost one). Litho refuses `1` with a pointer (its plate is
+  FLAT — the handle lives in its own file there).
+- **Loud errors:** label refusals show their REASON on the display
+  (`M117 Err: Stamp = exactly ONE label …`), and the job menu carries a
+  `! Stamp needs 1 label` guard row while the queue breaks the rule.
+
 ### 5.3 Plotter — images, photos and text with a pen
 
 Mount a pen instead of (or next to) the nozzle and plot images, photos,
@@ -2600,6 +2631,27 @@ direct SSH variant (no Klipper needed):
 ```
 python3 tools/r2_postproc.py --file-check ~/printer_data/gcodes
 ```
+
+### 19a. The MCU-shutdown watchdog (.129 / R170)
+
+**What you saw (.128 field report):** after an MCU shutdown the display
+froze — and the heated bed seemed to stay ON until you pressed
+FIRMWARE_RESTART. That felt dangerous, and you asked for proof + safety.
+
+**How Klipper is built:** on an MCU shutdown klippy turns **every heater
+OFF by design** — the host must confirm each heater activation every 3 s,
+and the heater pins default to `shutdown_value: 0` with a max-duration
+watchdog. That holds even when the host itself crashes. Your bed is 24 V DC
+at the board — when klippy stops confirming, the MOSFET closes.
+
+**What the watcher does now (your choices):** it polls klippy's state every
+2 s. On `shutdown` it opens a **10-minute evidence window**: bed + hotend
+temperatures (target vs. actual) land in
+`logs/r2_shutdown_watchdog.log` every 5 s — if the bed curve DECAYS, power
+was cut (proof in writing); if it ever HOLDS at target, power is flowing
+and you have a wiring/SSR fault worth fixing. After **5 minutes** in
+shutdown it sends the **FIRMWARE_RESTART itself** (max 2 per boot of the
+watcher, at least 1 h apart — no restart loops). Every step is logged.
 
 ### 19b. setup.sh / update.sh — wizards, backups, change modes (R108)
 

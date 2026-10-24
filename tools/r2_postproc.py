@@ -64,7 +64,7 @@ TAG = '; R2-POSTPROC v5'
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-10-22.128'
+POSTPROC_RELEASE = 'R2-2026-10-22.129'
 POSTPROC_BUILD = 'R166'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
@@ -4570,7 +4570,7 @@ def _safe_label_name(t):
 
 def label_preview(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4,
                    text_layers=2, layer_h=0.2, first_h=0.28, hole_side=0,
-                   hole_d=5.0, gap=6.0, color2=True, stroke=0.0, font_size=0.0,
+                   hole_d=5.0, gap=12.0, color2=True, stroke=0.0, font_size=0.0,
                    spacing=0.0, bed=None, bed_margin=6.0, nozzle=0.6,
                    mode='grow', shape='RECT', corner=0.0, border_walls=0,
                    border_gap=0.0):
@@ -5096,7 +5096,99 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
                 ring_h=0.0, mirror_x=0, mirror_y=0, stamp=0,
                 stamp_base=5.0, stamp_tol=0.25, handle=0,
                 stamp_infill=10.0):
-    """Generate a printable label plate file. Returns (path, info).
+    """Generate printable label plate file(s). Returns (path, info).
+
+    R170 (field report .128): an overflow no longer ERRORS - the job splits
+    into several files (part 1, part 2, ... - every part a complete plate
+    with its own purge tower, reading order preserved). The wrapper peels
+    the largest fitting prefix via a dry layout run and calls the
+    single-plate builder per batch. info gains 'files' + 'parts'.
+
+    Handle modes (R170, user choice): 0 = none. 1 = ON THE PLATE with the
+    stamp, positioned last (printed after the labels every layer - nothing
+    gets ripped off). 2 = separate handle file (as before). 3 = handle
+    file ONLY (reprint a lost one)."""
+    stamp_b = str(stamp).strip().lower() in ('1', 'true', 'on', 'yes')
+    try:
+        handle_i = max(0, min(int(handle or 0), 3))
+    except (TypeError, ValueError):
+        handle_i = 0
+    if stamp_b and handle_i == 3:
+        # handle ONLY - no label plate, bed center (reprint a lost handle)
+        _lh170h = max(0.06, min(float(layer_h or 0.2), 0.34))
+        _fit170h = _StampFit168(
+            tol=max(0.10, min(float(stamp_tol or 0.25), 0.50)),
+            layer_h=_lh170h)
+        return _make_stamp_handle(
+            _fit170h, out_dir=out_dir, material=material, nozzle=nozzle,
+            wid=max(0.4, nozzle * 1.08), layer_h=_lh170h,
+            src_stem=_safe_label_name(str(texts[0]) if texts else 'IMG'))
+
+    def _one170(txts, cfgs, part=0, dry=False):
+        return _make_labels_one(
+            txts, w=w, h=h, font=font, base_layers=base_layers,
+            text_layers=text_layers, layer_h=layer_h, first_h=first_h,
+            ironing=ironing, hole_side=hole_side, hole_d=hole_d, brim=brim,
+            gap=gap, color2=color2, material=material, bed=bed,
+            bed_margin=bed_margin, nozzle=nozzle, stroke=stroke,
+            font_size=font_size, spacing=spacing, out_dir=out_dir,
+            version=version, mode=mode, job_cfgs=cfgs, height=height,
+            shape=shape, corner=corner, border_walls=border_walls,
+            border_gap=border_gap, sparse_pct=sparse_pct, ring=ring,
+            ring_d=ring_d, ring_h=ring_h, mirror_x=mirror_x,
+            mirror_y=mirror_y, stamp=stamp, stamp_base=stamp_base,
+            stamp_tol=stamp_tol, handle=handle, stamp_infill=stamp_infill,
+            part=part, dry_layout=dry)
+
+    try:
+        return _one170(texts, job_cfgs)
+    except ValueError as e170:
+        if 'do not fit the bed' not in str(e170):
+            raise
+    # ---- R170: split into parts (largest fitting prefix, reading order) ----
+    _rest170 = list(texts)
+    _cfgs170 = list(job_cfgs) if job_cfgs else None
+    _outs170, _infos170 = [], []
+    _part170 = 0
+    while _rest170:
+        _k170 = len(_rest170)
+        while _k170 > 1:
+            try:
+                _one170(_rest170[:_k170],
+                        (_cfgs170[:_k170] if _cfgs170 else None), dry=True)
+                break
+            except ValueError:
+                _k170 -= 1
+        if _k170 <= 0:
+            raise ValueError('label too large for the bed even alone')
+        _part170 += 1
+        _outp170, _infop170 = _one170(
+            _rest170[:_k170], (_cfgs170[:_k170] if _cfgs170 else None),
+            part=_part170)
+        _outs170.append(_outp170)
+        _infos170.append(_infop170)
+        _rest170 = _rest170[_k170:]
+        if _cfgs170:
+            _cfgs170 = _cfgs170[_k170:]
+    if not _infos170:
+        raise e170
+    _info170 = dict(_infos170[0])
+    _info170['files'] = [i['file'] for i in _infos170]
+    _info170['parts'] = len(_infos170)
+    return _outs170[0], _info170
+
+
+def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers=2,
+                     layer_h=0.2, first_h=0.28, ironing=True, hole_side=0, hole_d=5.0,
+                     brim=True, gap=12.0, color2=True, material='PLA', bed=None,
+                     bed_margin=6.0, nozzle=0.6, stroke=0.0, font_size=0.0, spacing=0.0,
+                     out_dir='.', version=1, mode='grow', job_cfgs=None,
+                     height=0.0, shape='RECT', corner=0.0, border_walls=0,
+                     border_gap=0.0, sparse_pct=8.0, ring=False, ring_d=6.0,
+                     ring_h=0.0, mirror_x=0, mirror_y=0, stamp=0,
+                     stamp_base=5.0, stamp_tol=0.25, handle=0,
+                     stamp_infill=10.0, part=0, dry_layout=False):
+    """Generate ONE printable label plate file. Returns (path, info).
 
     R74: every entry may carry up to 3 lines separated by '~' (LCD: Labels >
     Text > Line). font_size = cap height in mm (0 = auto), spacing = extra
@@ -5106,7 +5198,9 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
     R99 (field log .75): mode - 'grow' (default): the LABEL adapts to the
     text (grows until the font size fits; W/H are minimums) - 'fixed': the
     label stays at W/H and the FONT scales into it (font_size is the upper
-    bound then; 0 = as large as the label allows)."""
+    bound then; 0 = as large as the label allows).
+    R170: part>0 appends '_T<part>' to the file name (split jobs); a
+    dry_layout run stops after the packing stage and writes nothing."""
     texts = [t.strip() for t in texts if t and t.strip()]
     if not texts:
         raise ValueError('no label text - add one first (LCD: Labels > Text)')
@@ -5177,7 +5271,9 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
     layer_h = max(0.06, min(float(layer_h), 0.34))
     first_h = max(0.08, min(float(first_h), 0.42))
     hole_side = int(hole_side) % 5
-    gap = max(2.0, min(float(gap), 30.0))
+    # R170 (field report .128): at least 10mm between labels in every
+    # direction - the user explicitely asked for 1cm clearance
+    gap = max(10.0, min(float(gap), 30.0))
     wid = max(0.4, nozzle * 1.08)          # perimeter / infill line width
     # the text box must clear the raised border (gap + walls + 1.2mm air)
     border_m = (border_gap + border_walls * wid + 1.2) if border_walls > 0 else 0.0
@@ -5318,6 +5414,14 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
         _rws116 = 1 + sum(1 for _i in range(1, len(_pos116))
                           if _pos116[_i][1] > _pos116[_i - 1][1] + 0.01)
         cols, rows = n if _rws116 == 1 else -(-n // _rws116), _rws116
+        # R170 (field report .128 - the layout chaos): the shelf positions
+        # STAY. The old shared grid loop overwrote them with UNIFORM cells
+        # built from the global w/h - grown or per-job labels then printed
+        # ON TOP of their neighbors (repro: a 94mm label ended up 21.6mm
+        # inside the next 60mm cell). The uniform grid below is
+        # non-jobs-mode ONLY now.
+        gx0 = ux0 + (uw - gw) / 2.0
+        gy0 = uy0 + (uh - gh) / 2.0
     else:
         if str(mode).strip().lower() in ('fixed', 'fix', '1'):
             grown79 = False
@@ -5354,15 +5458,15 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
                              '(%.0fx%.0fmm usable) - fewer/smaller labels or a smaller gap'
                              % (n, w, h, gap, uw, uh))
         cols, rows, gw, gh = best
-    gx0 = ux0 + (uw - gw) / 2.0
-    gy0 = uy0 + (uh - gh) / 2.0
-    positions = []
-    _sh120x = (2.0 * ring_ro + 1.0) if (ring and hole_side == 1) else 0.0
-    _sh120y = (2.0 * ring_ro + 1.0) if (ring and hole_side == 3) else 0.0
-    for i in range(n):
-        r, c = divmod(i, cols)
-        positions.append((gx0 + c * (w + gap) + _sh120x,
-                          gy0 + r * (h + gap) + _sh120y))
+        gx0 = ux0 + (uw - gw) / 2.0
+        gy0 = uy0 + (uh - gh) / 2.0
+        positions = []
+        _sh120x = (2.0 * ring_ro + 1.0) if (ring and hole_side == 1) else 0.0
+        _sh120y = (2.0 * ring_ro + 1.0) if (ring and hole_side == 3) else 0.0
+        for i in range(n):
+            r, c = divmod(i, cols)
+            positions.append((gx0 + c * (w + gap) + _sh120x,
+                              gy0 + r * (h + gap) + _sh120y))
 
     # ---- purge tower (only for 2-color jobs): beside / in front of the grid
     tw = 12.0
@@ -5449,10 +5553,16 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
                 lb['paths'] = [[(px, lb['h'] - py) for (px, py) in path]
                                for path in lb['paths']]
     stamp = 1 if str(stamp).strip().lower() in ('1', 'true', 'on', 'yes') else 0
+    # R170 handle modes (user choice): 0 = none. 1 = ON THE PLATE with the
+    # stamp, printed LAST every layer. 2 = separate handle file (as .127).
+    # 3 = handle file ONLY (short-circuited in the make_labels wrapper).
     try:
-        handle = max(0, min(int(handle or 0), 2))
+        handle = max(0, min(int(handle or 0), 3))
     except (TypeError, ValueError):
         handle = 0
+    if handle and not stamp:
+        raise ValueError('Handle needs Stamp ON - it snaps into the stamp '
+                         'socket (Labels > Settings > Stamp)')
     stamp_base = max(3.5, min(float(stamp_base or 5.0), 15.0))
     stamp_tol = max(0.10, min(float(stamp_tol or 0.25), 0.50))
     fit168 = None
@@ -5482,6 +5592,131 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
         if handle == 1 and not mirror_x:
             pass    # noted in the job message; no hidden flips
 
+    # ---- R170: the handle ON THE PLATE (mode 1) ------------------------------
+    # Printed LAST on every layer (the nozzle never finishes on a label it
+    # could rip off), placed with 12mm clearance from every label, the
+    # purge tower and the bed edge. Same _StampFit168 truth as the socket -
+    # the on-plate handle snaps exactly like the standalone file's.
+    _hplate170 = bool(fit168 is not None and handle == 1)
+    _hl170 = 0
+    _hpos170 = None
+    if _hplate170:
+        _hl170 = max(6, int(math.ceil(fit168.total_grip / layer_h)))
+        _hr170 = fit168.GRIP_R + 2.5
+        _rects170 = [(lb['x'], lb['y'], lb['x'] + lb['w'], lb['y'] + lb['h'])
+                     for lb in labels]
+        if tower:
+            _rects170.append((tower[0], tower[1],
+                              tower[0] + tw, tower[1] + tw))
+        _cl170 = 12.0
+        _bx0h = min(r[0] for r in _rects170)
+        _bx1h = max(r[2] for r in _rects170)
+        _by0h = min(r[1] for r in _rects170)
+        _by1h = max(r[3] for r in _rects170)
+        _cxh = (_bx0h + _bx1h) / 2.0
+        _cyh = (_by0h + _by1h) / 2.0
+        for _hx, _hy in ((_bx1h + _cl170 + _hr170, _cyh),
+                         (_bx0h - _cl170 - _hr170, _cyh),
+                         (_cxh, _by0h - _cl170 - _hr170),
+                         (_cxh, _by1h + _cl170 + _hr170)):
+            if not (ux0 <= _hx - _hr170 and _hx + _hr170 <= ux1
+                    and uy0 <= _hy - _hr170 and _hy + _hr170 <= uy1):
+                continue
+            _ok170 = True
+            for (_rx0, _ry0, _rx1, _ry1) in _rects170:
+                if (min(_hx + _hr170, _rx1 + _cl170)
+                        - max(_hx - _hr170, _rx0 - _cl170) > 0.0
+                        and min(_hy + _hr170, _ry1 + _cl170)
+                        - max(_hy - _hr170, _ry0 - _cl170) > 0.0):
+                    _ok170 = False
+                    break
+            if _ok170:
+                _hpos170 = (_hx, _hy)
+                break
+        if _hpos170 is None:
+            raise ValueError('no room for the handle on the plate - '
+                             'fewer/smaller labels, a smaller gap, or '
+                             'Handle=2 (separate file)')
+    if dry_layout:
+        # R170: layout probe only - packing + handle placement decided,
+        # NOTHING is written (the split loop fires dozens of these per job;
+        # the .128-era dry runs left V0x residue files behind)
+        return None, None
+
+    def _handle_r170(z):
+        """R170: outer radius of the handle at height z (spigot -> cone ->
+        knob -> top chamfer) - the standalone file's _r_out, one truth."""
+        r = fit168.spig_r(z)
+        if r is not None:
+            return r
+        _zk = z - (fit168.z_cone + (fit168.GRIP_R - fit168.R_P))
+        if _zk <= fit168.GRIP_H:
+            return fit168.GRIP_R
+        return max(fit168.GRIP_R - 1.2,
+                   fit168.GRIP_R - (_zk - fit168.GRIP_H))
+
+    def handle_block(z, li):
+        """R170: one handle layer - LAST object of the layer, z-hop
+        approach (never skims a finished label), bore ceiling bridged."""
+        _hx, _hy = _hpos170
+        _ew170 = layer_h_eff(li) * wid / fil
+        _zbot170 = (first_h + (li - 2) * layer_h) if li > 1 else 0.0
+        _bore_end170 = fit168.z_ramp_up + 0.6
+        L.append('G0 Z%.3f F600   ; R170: hop over to the handle' % (z + 3.0))
+        pen.travel(_hx - _handle_r170(z) - wid, _hy, 4800)
+        L.append('G0 Z%.3f F600' % z)
+        L.append('EXCLUDE_OBJECT_START NAME=GRIFF')
+        if li == 1 and brim:
+            L.append(';TYPE:Brim')
+            for off in (wid * 0.35 + wid, wid * 0.35):
+                _emit_loop(pen, _circle(_hx, _hy, _handle_r170(z) + off),
+                           _ew170, 900)
+        L.append(';TYPE:Outer wall')
+        _emit_loop(pen, _circle(_hx, _hy, _handle_r170(z) - wid / 2.0),
+                   _ew170, 900 if li == 1 else 1800)
+        if _zbot170 < _bore_end170:
+            L.append(';TYPE:Inner wall')
+            _emit_loop(pen, _circle(_hx, _hy, fit168.BORE + wid / 2.0),
+                       _ew170, 900 if li == 1 else 1800)
+            if _zbot170 < _bore_end170 <= z:
+                L.append(';TYPE:Bridge')
+                _rb = fit168.BORE + wid * 0.5
+                _nb = max(6, int((2.0 * _rb) / max(wid, 0.4)))
+                for _k in range(_nb + 1):
+                    _off = -_rb + (2.0 * _rb) * _k / _nb
+                    _hh = math.sqrt(max(0.0, _rb * _rb - _off * _off))
+                    pen.travel(_hx - _hh, _hy + _off, 4800)
+                    pen.extrude(_hx + _hh, _hy + _off,
+                                2.0 * _hh * _ew170, 1300)
+                L.append(';TYPE:Internal bridge')
+                _emit_loop(pen, _circle(_hx, _hy, fit168.BORE + wid / 2.0),
+                           _ew170, 1200)
+        if z > fit168.z_cone:
+            L.append(';TYPE:Inner wall')
+            _emit_loop(pen, _circle(_hx, _hy, _handle_r170(z) - 1.5 * wid),
+                       _ew170, 1800)
+            _rbk = min(_handle_r170(z), _handle_r170(max(0.0, z - layer_h)))
+            _rr = _rbk - 2.0 * wid
+            while _rr > _rbk - 5.0 * wid and _rr > wid:
+                _emit_loop(pen, _circle(_hx, _hy, _rr), _ew170, 2400)
+                _rr -= wid
+            _capk = (li > _hl170 - 4)
+            L.append(';TYPE:%s' % ('Top surface' if _capk
+                                   else 'Sparse infill'))
+            _sq = max(wid, (_rbk - 5.0 * wid) / math.sqrt(2.0))
+            _sp = wid if _capk else wid * 100.0 / 12.0
+            _sg = _hatch(_hx - _sq, _hy - _sq, _hx + _sq, _hy + _sq, None,
+                         _sp, 45.0 if li % 2 else 135.0)
+            _emit_fill(pen, _sg, _ew170, 2400, _sp)
+        elif z > _bore_end170 + layer_h:
+            L.append(';TYPE:Internal solid infill')
+            _rr = _handle_r170(z) - 1.5 * wid
+            while _rr > wid * 0.6:
+                _emit_loop(pen, _circle(_hx, _hy, _rr), _ew170, 2400)
+                _rr -= wid
+        pen.holes = []
+        L.append('EXCLUDE_OBJECT_END NAME=GRIFF')
+
     def _lb_contour(lb, inset):
         """R119: this label's wall contour in ABSOLUTE coords, the path
         centerline `inset` mm inside the label edge. RECT -> None: the
@@ -5503,6 +5738,10 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
     stroke_eff = max(lb['stroke_eff'] for lb in labels)
     fil = FIL_AREA
     total_layers = base_layers + text_layers
+    # R170: with the handle ON THE PLATE the file grows to the handle's
+    # height - the labels finish earlier, the layers above hold only the
+    # handle (printed last, nothing to rip off)
+    _total170 = max(total_layers, _hl170) if _hplate170 else total_layers
     ztop = first_h + (base_layers - 1) * layer_h
     # R120 ring layers: height capped at the label's TOTAL height (never
     # above it); default = flush with the base top (never touches the text)
@@ -5602,10 +5841,14 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
         types += ['SURFACE-TOP', 'IRONING']
     else:
         types += ['SURFACE-TOP']
+    if _hplate170:
+        a('; R170: handle ON THE PLATE at (%.0f,%.0f) - printed LAST on'
+          ' every layer (%d layers, the file tops out at the handle)'
+          % (_hpos170[0], _hpos170[1], _hl170))
     a('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d LINE_WIDTH=%.2g '
       'LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g FLOW_RATIO=1 NOZZLE=%.1f '
       'WALL_LOOPS=2 SPEED_OUTER=40 SPEED_FIRST=25 SPEED_TRAVEL=150%s TYPES=%s BY_OBJECT=0'
-      % (material, layer_h, total_layers, wid, first_h, wid,
+      % (material, layer_h, _total170, wid, first_h, wid,
          nozzle, ' IRONING_SPEED=30' if ironing else '', ','.join(types)))
 
     # object definitions (polygons without whitespace - Klipper requirement)
@@ -5638,8 +5881,17 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
             tower[0] + tw, tower[1] + tw, tower[0], tower[1] + tw)
         a('EXCLUDE_OBJECT_DEFINE NAME=PURGE_TOWER CENTER=%.1f,%.1f POLYGON=%s'
           % (tower[0] + tw / 2.0, tower[1] + tw / 2.0, poly))
+    if _hplate170:
+        _hr170 = fit168.GRIP_R + 2.5
+        poly = '[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]' % (
+            _hpos170[0] - _hr170, _hpos170[1] - _hr170,
+            _hpos170[0] + _hr170, _hpos170[1] - _hr170,
+            _hpos170[0] + _hr170, _hpos170[1] + _hr170,
+            _hpos170[0] - _hr170, _hpos170[1] + _hr170)
+        a('EXCLUDE_OBJECT_DEFINE NAME=GRIFF CENTER=%.1f,%.1f POLYGON=%s'
+          % (_hpos170[0], _hpos170[1], poly))
     ps = 'PRINT_START MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d OUTER_WALL_SPEED=40' % (
-        material, layer_h, total_layers)
+        material, layer_h, _total170)
     if ironing:
         ps += ' IRONING_SPEED=30'
     a(ps)
@@ -5957,6 +6209,8 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
                 ring_block(lb, li, li == 1)
         if tower:
             tower_block(z, li, li == 1)
+        if _hplate170 and li <= _hl170:
+            handle_block(z, li)      # R170: the handle prints LAST
 
     # ---- filament change for the text color ---------------------------------
     if color2:
@@ -5977,6 +6231,18 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
         for lb in order:
             border_block(lb, li)
             text_block(lb, z, li)
+        if _hplate170 and li <= _hl170:
+            handle_block(z, li)      # R170: the handle prints LAST
+
+    # R170: handle-only layers above the label tops (nothing else lives up
+    # here - the travels are safely above the finished labels)
+    if _hplate170 and _hl170 > base_layers + text_layers:
+        for li in range(base_layers + text_layers + 1, _hl170 + 1):
+            z = round(first_h + (li - 1) * layer_h, 3)
+            L.append(';LAYER_CHANGE')
+            L.append(';Z:%.3f' % z)
+            pen.set_z(z)
+            handle_block(z, li)
 
     a('M107')
     a('PRINT_END')
@@ -6001,6 +6267,8 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
     # characters, a tail version made regenerations look identical.
     first_name = _safe_label_name(texts[0])
     extra = '+%d' % (n - 1) if n > 1 else ''
+    if part > 0:
+        extra = (extra or '') + '_T%d' % part      # R170: split job part
     fname = 'V%02d_%s%s%s.gcode' % (
         _next_gen_version(out_dir),
         'StempelL_' if fit168 is not None else '', first_name, extra)
@@ -6011,7 +6279,7 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
 
     _gen_normalize_speeds(out)   # R159: uniform 60/1500 + travel 180/8000
     out_handle168 = None
-    if fit168 is not None and handle:
+    if fit168 is not None and handle == 2:      # R170: 2 = own file
         out_handle168, _hi168 = _make_stamp_handle(
             fit168, out_dir=out_dir, material=material, nozzle=nozzle,
             wid=wid, layer_h=layer_h, src_stem=first_name,
@@ -6021,6 +6289,10 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
             'stamp': bool(fit168 is not None),
             'handle_file': (os.path.basename(out_handle168)
                             if out_handle168 else None),
+            'handle_plate': _hplate170,      # R170: handle on the plate
+            'handle_pos': (round(_hpos170[0], 1), round(_hpos170[1], 1))
+                          if _hpos170 else None,
+            'file_layers': _total170,
             'jobs': ([{'font': jb['font'], 'w': round(jb['w'], 1),
                        'h': round(jb['h'], 1), 'grown': jb.get('grown', False)}
                       for jb in jobs] if jobs else None),
@@ -11395,10 +11667,12 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
 
     _gen_normalize_speeds(out)   # R159: uniform 60/1500 + travel 180/8000
     # ---- R168: the optional handle - its own file, printed separately ----
+    # R170: 2 = separate file (1 is refused in make_lithophane - labels
+    # only, 3 never reaches here)
     out_handle = None
-    if handle == 1 and not stamp:
+    if handle == 2 and not stamp:
         notes.append('handle without a stamp body = handle only')
-    if handle:
+    if handle == 2:
         _hf168 = fit168 if fit168 is not None else \
             _StampFit168(tol=stamp_tol, layer_h=layer_h)
         out_handle, _hi168 = _make_stamp_handle(
@@ -11466,7 +11740,13 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
     if _or106 == 'STANDING' and (_ct168 or _st168 or _hd168):
         raise ValueError('contour/stamp/handle are FLAT-only - set '
                          'Orient=FLAT first (LCD: Litho > Orient)')
-    if _or106 == 'FLAT' and _hd168 == 2:
+    # R170: same handle numbering as the LABEL stamp - 1 = ON THE PLATE is a
+    # label-stamp feature (the litho plate is FLAT, its handle lives in its
+    # own file); 2 = separate file, 3 = handle only
+    if _hd168 == 1:
+        raise ValueError('Handle=1 (on the plate) works with LABEL stamps - '
+                         'Litho: 2 = separate handle file, 3 = handle only')
+    if _or106 == 'FLAT' and _hd168 == 3:
         # handle ONLY (reprint): no picture processing at all
         _bed168 = bed if bed else (0.0, -3.0, 244.0, 238.0)
         _fit168 = _StampFit168(tol=stamp_tol, layer_h=layer_h)
@@ -11476,7 +11756,7 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
             wid=_wid168, layer_h=layer_h, src_stem=os.path.basename(src),
             cx=(_bed168[0] + _bed168[2]) / 2.0,
             cy=(_bed168[1] + _bed168[3]) / 2.0)
-        info_h['handle'] = 2
+        info_h['handle'] = 3
         info_h['stamp'] = 0
         return out_h, info_h
     if _or106 == 'FLAT':
@@ -16890,6 +17170,102 @@ def _moonraker_gcode(script, host='127.0.0.1', port=7125, timeout=8.0,
     return False
 
 
+def _moonraker_json(ep, body=None, timeout=4.0):
+    """R170: GET (body None) or POST a moonraker API endpoint, return the
+    parsed 'result' dict - None on any failure. The shutdown watchdog needs
+    it: /server/info answers even while klippy sits in a shutdown state."""
+    import urllib.request
+    try:
+        if body is None:
+            req = urllib.request.Request('http://127.0.0.1:7125' + ep)
+        else:
+            req = urllib.request.Request(
+                'http://127.0.0.1:7125' + ep,
+                data=json.dumps(body).encode(),
+                headers={'Content-Type': 'application/json'})
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.loads(r.read().decode()).get('result')
+    except Exception:                               # noqa: BLE001
+        return None
+
+
+def _parse_label_cfgs(cfgs_s):
+    """R170: parse the LCD queue's per-job snapshots
+    (font~w~h~size~spacing~stroke~mode~hole_side~hole_d | ...) - one dict
+    per job, exactly the format the label dispatch reads."""
+    out = []
+    for _p in (x.strip() for x in str(cfgs_s or '').split('|')):
+        if not _p:
+            continue
+        _f = _p.split('~')
+        _d = {}
+        if len(_f) >= 9:
+            try:
+                _d = {'font': _f[0][:12], 'w': float(_f[1]),
+                      'h': float(_f[2]), 'size': float(_f[3]),
+                      'spacing': float(_f[4]), 'stroke': float(_f[5]),
+                      'mode': _f[6], 'hole_side': float(_f[7]),
+                      'hole_d': float(_f[8])}
+            except ValueError:
+                _d = {}
+        out.append(_d)
+    return out
+
+
+def _label_job_kwargs(rv, directory):
+    """R170: the label job's make_labels kwargs from save_variables - ONE
+    builder for the job dispatch AND the live queue bed-fit (same truth,
+    no drift between what runs and what the LCD shows)."""
+    cfg_bed = _bed_limits(os.path.join(
+        os.path.dirname(os.path.abspath(directory).rstrip('/')),
+        'config', 'printer.cfg'))
+
+    def _vb(key, dflt):
+        v = str(rv.get(key, dflt)).strip().lower()
+        if v == '':
+            return dflt
+        return v in ('true', '1', 'on', 'yes')
+
+    def _vf(key, dflt):
+        try:
+            return float(rv.get(key, dflt) or dflt)
+        except (TypeError, ValueError):
+            return float(dflt)
+
+    return dict(
+        w=_vf('label_w', 60), h=_vf('label_h', 30),
+        font=str(rv.get('label_font', 'SMOOTH') or 'SMOOTH'),
+        base_layers=int(_vf('label_base_layers', 4)),
+        height=_vf('label_height', 0),
+        shape=str(rv.get('label_shape', 'RECT') or 'RECT'),
+        corner=_vf('label_corner', 0),
+        border_walls=int(_vf('label_border_walls', 0)),
+        border_gap=_vf('label_border_gap', 0),
+        text_layers=int(_vf('label_text_layers', 2)),
+        layer_h=_vf('label_layer_h', 0.2),
+        first_h=_vf('label_first_h', 0.28),
+        stroke=_vf('label_stroke', 0),
+        font_size=_vf('label_size', 0),
+        spacing=_vf('label_spacing', 0),
+        ironing=_vb('label_ironing', True),
+        hole_side=int(_vf('label_hole_side', 0)),
+        hole_d=_vf('label_hole_d', 5),
+        brim=_vb('label_brim', True),
+        gap=_vf('label_gap', 12),
+        color2=_vb('label_color2', True),
+        material=str(rv.get('material', 'PLA') or 'PLA'),
+        bed=cfg_bed, nozzle=_gen_nozzle(directory),
+        out_dir=_gensub(directory, 'labels'),
+        version=max(1, min(int(_vf('gen_version', 1)), 99)),
+        mode='fixed' if _vf('label_mode', 0) >= 1 else 'grow',
+        mirror_x=_vb('label_mirror_x', False),
+        mirror_y=_vb('label_mirror_y', False),
+        stamp=_vb('label_stamp', False),
+        stamp_base=max(3.5, min(_vf('label_stamp_base', 5.0), 15.0)),
+        stamp_tol=max(0.10, min(_vf('label_stamp_tol', 0.25), 0.50)),
+        handle=max(0, min(int(_vf('label_handle', 0)), 3)))
+
+
 def _gen_out(rv):
     """R109: what generators do with a finished file.
     1 (default) = QUEUE: fresh files get selected, files derived from the
@@ -17832,6 +18208,18 @@ def watch(directory, interval=5.0, once=False):
                 last_opt_load_nonce = _np.get('opt_load_nonce')    # R169
                 last_opt_list_pushed = None                         # R169 (no nonce)
                 last_opt_list_try = 0.0
+                # R170: live label fit + queue bed-fit + shutdown watchdog
+                _last_labhash170 = None
+                _last_labfit_try170 = 0.0
+                _last_qhash170 = None
+                _last_qfit_try170 = 0.0
+                _sd170 = {'active': False, 't0': 0.0, 'restarted': False,
+                          'last_sample': 0.0, 'events': 0,
+                          'last_auto': -1e9, 'noted_ok': False,
+                          'last_poll': 0.0, 'state': ''}
+                _wdlog170 = os.path.join(
+                    os.path.dirname(os.path.abspath(directory).rstrip('/')),
+                    'logs', 'r2_shutdown_watchdog.log')
                 first_prime = False
             if busy:
                 # generator nonces stay at their last value -> the jobs run
@@ -17961,6 +18349,200 @@ def watch(directory, interval=5.0, once=False):
                                       % len(_lst169), flush=True)
                 except Exception as _e169i:                      # noqa: BLE001
                     print('[opt] list refresh error: %r' % _e169i, flush=True)
+
+            # ---- R170: LIVE label fit - no button, no guessing ------------------
+            # (field report .128: the Fit button beeped once and never again;
+            # the user wants the numbers to just APPEAR while typing). Every
+            # text/font/size/shape change re-runs the preview - the Settings
+            # menu row shows the label size the print will have (grow result
+            # INCLUDING the hole), fixed mode shows the auto-fitted caps.
+            try:
+                _lh170 = '|'.join(str(rv.get(k, '')) for k in (
+                    'label_l1', 'label_l2', 'label_l3', 'label_l4',
+                    'label_l5', 'label_font', 'label_size', 'label_spacing',
+                    'label_stroke', 'label_w', 'label_h', 'label_mode',
+                    'label_hole_side', 'label_hole_d', 'label_shape',
+                    'label_corner', 'label_border_walls', 'label_border_gap'))
+                if _lh170 != _last_labhash170 and \
+                        time.monotonic() - _last_labfit_try170 > 2.0:
+                    _last_labhash170 = _lh170
+                    _last_labfit_try170 = time.monotonic()
+                    _lines170 = [str(rv.get('label_l%d' % _i, '')).strip()
+                                 for _i in (1, 2, 3, 4, 5)]
+                    _lines170 = [_x for _x in _lines170 if _x]
+                    if _lines170:
+                        _pv170 = label_preview(
+                            ['~'.join(_lines170)],
+                            w=float(rv.get('label_w', 60) or 60),
+                            h=float(rv.get('label_h', 30) or 30),
+                            font=str(rv.get('label_font', 'SMOOTH') or 'SMOOTH'),
+                            layer_h=float(rv.get('label_layer_h', 0.2) or 0.2),
+                            stroke=float(rv.get('label_stroke', 0) or 0),
+                            font_size=float(rv.get('label_size', 0) or 0),
+                            spacing=float(rv.get('label_spacing', 0) or 0),
+                            hole_side=int(float(rv.get('label_hole_side', 0) or 0)),
+                            hole_d=float(rv.get('label_hole_d', 5) or 5),
+                            bed=_bed_limits(os.path.join(
+                                os.path.dirname(os.path.abspath(directory).rstrip('/')),
+                                'config', 'printer.cfg')),
+                            mode='fixed' if float(rv.get('label_mode', 0) or 0) >= 1 else 'grow',
+                            shape=str(rv.get('label_shape', 'RECT') or 'RECT'),
+                            corner=float(rv.get('label_corner', 0) or 0),
+                            border_walls=int(float(rv.get('label_border_walls', 0) or 0)),
+                            border_gap=float(rv.get('label_border_gap', 0) or 0))
+                        _mnw170 = (max(12, min(int(round(_pv170['min_w'])), 220))
+                                   if _pv170['min_w'] else 12)
+                        _mnh170 = (max(10, min(int(round(_pv170['min_h'])), 220))
+                                   if _pv170['min_h'] else 10)
+                        _moonraker_gcode(
+                            _sv_line('label_w_now', int(round(_pv170['w']))) + '\n'
+                            + _sv_line('label_h_now', int(round(_pv170['h']))) + '\n'
+                            + _sv_line('label_caps_now',
+                                       round(_pv170['cap_mm'], 1)) + '\n'
+                            + _sv_line('label_fit', '%.0fx%.0f%s %.1f'
+                                       % (_pv170['w'], _pv170['h'],
+                                          '+' if _pv170['grown'] else '',
+                                          _pv170['cap_mm'])) + '\n'
+                            + _sv_line('label_min_w', _mnw170) + '\n'
+                            + _sv_line('label_min_h', _mnh170))
+                    else:
+                        _moonraker_gcode(
+                            _sv_line('label_fit', 'type text') + '\n'
+                            + _sv_line('label_min_w', 12) + '\n'
+                            + _sv_line('label_min_h', 10))
+            except Exception as _e170f:                     # noqa: BLE001
+                print('[labfit] %r' % _e170f, flush=True)
+
+            # ---- R170: the QUEUE vs the bed - 'N fit' / 'N -> P files' ---------
+            # (field report .128: the user wants to SEE how many labels the
+            # bed holds BEFORE creating - it shrinks as bigger labels join)
+            try:
+                _qh170 = '|'.join(str(rv.get(k, '')) for k in (
+                    'label_texts', 'label_cfgs', 'label_gap', 'label_shape',
+                    'label_corner', 'label_border_walls', 'label_border_gap',
+                    'label_stroke', 'label_hole_d', 'label_mode',
+                    'label_w', 'label_h', 'label_font', 'label_size',
+                    'label_hole_side'))
+                if _qh170 != _last_qhash170 and \
+                        time.monotonic() - _last_qfit_try170 > 3.0:
+                    _last_qhash170 = _qh170
+                    _last_qfit_try170 = time.monotonic()
+                    _texts170 = [t for t in (x.strip() for x in str(
+                        rv.get('label_texts', '')).split('|')) if t]
+                    if _texts170:
+                        _kwq170 = _label_job_kwargs(rv, directory)
+                        if _kwq170['stamp'] and len(_texts170) > 1:
+                            _fitq170 = 'stamp: 1 label only'
+                        else:
+                            _cfgsq170 = _parse_label_cfgs(rv.get('label_cfgs', ''))
+                            _cfgsq170 = (_cfgsq170
+                                         + [{} for _ in range(len(_texts170))])[:len(_texts170)]
+                            _cfgsq170 = _cfgsq170 if any(_cfgsq170) else None
+                            _restq170 = list(range(len(_texts170)))
+                            _partsq170 = 0
+                            while _restq170:
+                                _kq170 = len(_restq170)
+                                while _kq170 > 1:
+                                    try:
+                                        _make_labels_one(
+                                            [_texts170[_i] for _i in _restq170[:_kq170]],
+                                            job_cfgs=(
+                                                [_cfgsq170[_i] for _i in _restq170[:_kq170]]
+                                                if _cfgsq170 else None),
+                                            dry_layout=True, **_kwq170)
+                                        break
+                                    except ValueError:
+                                        _kq170 -= 1
+                                if _kq170 <= 0:
+                                    break
+                                _partsq170 += 1
+                                _restq170 = _restq170[_kq170:]
+                            if _partsq170 <= 1:
+                                _fitq170 = '%d fit' % len(_texts170)
+                            elif _partsq170 > 1:
+                                _fitq170 = '%d -> %d files' % (
+                                    len(_texts170), _partsq170)
+                            else:
+                                _fitq170 = 'too big'
+                        _moonraker_gcode(_sv_line('label_bed_fit', _fitq170))
+            except Exception as _e170q:                     # noqa: BLE001
+                print('[labqueue] %r' % _e170q, flush=True)
+
+            # ---- R170: MCU-shutdown watchdog --------------------------------------
+            # (field report .128: the bed seemed to stay ON until a manual
+            # FIRMWARE_RESTART). Klipper turns heaters OFF by design on an
+            # MCU shutdown (3s-confirm watchdog in the firmware) - so this
+            # PROVES the real behavior with a 10-minute temperature curve
+            # and recovers the printer after 5 minutes (user choice).
+            # If the bed temp HOLDS at target -> power is flowing (danger,
+            # wiring/SSR fault). If it decays -> it was off all along.
+            try:
+                if time.monotonic() - _sd170['last_poll'] >= 2.0:
+                    _sd170['last_poll'] = time.monotonic()
+                    _si170 = _moonraker_json('/server/info')
+                    if _si170 is not None:
+                        _sd170['state'] = _si170.get('klippy_state', '')
+                _ks170 = _sd170['state']
+                _now170 = time.monotonic()
+                if _ks170 == 'shutdown' and not _sd170['active']:
+                    _sd170.update(active=True, t0=_now170, restarted=False,
+                                  last_sample=0.0, noted_ok=False)
+                    _sd170['events'] += 1
+                    with open(_wdlog170, 'a') as _f170:
+                        _f170.write(
+                            '[%s] SHUTDOWN no.%d detected - 10min evidence '
+                            'window (bed/hotend curve every 5s), auto '
+                            'FIRMWARE_RESTART after 5min\n'
+                            % (time.strftime('%Y-%m-%d %H:%M:%S'),
+                               _sd170['events']))
+                    print('[watchdog] MCU shutdown detected - evidence '
+                          'window open', flush=True)
+                if _sd170['active']:
+                    if _ks170 != 'shutdown' and not _sd170['noted_ok']:
+                        _sd170['noted_ok'] = True
+                        with open(_wdlog170, 'a') as _f170:
+                            _f170.write('[%s] klippy back to %r (t+%.0fs)\n'
+                                        % (time.strftime('%Y-%m-%d %H:%M:%S'),
+                                           _ks170, _now170 - _sd170['t0']))
+                    if _now170 - _sd170['last_sample'] >= 5.0:
+                        _sd170['last_sample'] = _now170
+                        _q170 = _moonraker_json(
+                            '/printer/objects/query',
+                            body={'objects': {'heater_bed': None,
+                                              'extruder': None}})
+                        _st170 = ((_q170 or {}).get('status') or {})
+                        _hb170 = _st170.get('heater_bed') or {}
+                        _he170 = _st170.get('extruder') or {}
+                        with open(_wdlog170, 'a') as _f170:
+                            _f170.write(
+                                '[%s] t+%.0fs bed %.1f/%.1fC hotend %.1f/%.1fC\n'
+                                % (time.strftime('%Y-%m-%d %H:%M:%S'),
+                                   _now170 - _sd170['t0'],
+                                   _hb170.get('temperature', -1.0),
+                                   _hb170.get('target', -1.0),
+                                   _he170.get('temperature', -1.0),
+                                   _he170.get('target', -1.0)))
+                    if (not _sd170['restarted'] and _ks170 == 'shutdown'
+                            and _now170 - _sd170['t0'] >= 300.0
+                            and _sd170['events'] <= 2
+                            and _now170 - _sd170['last_auto'] > 3600.0):
+                        _sd170['restarted'] = True
+                        _sd170['last_auto'] = _now170
+                        with open(_wdlog170, 'a') as _f170:
+                            _f170.write('[%s] auto FIRMWARE_RESTART after '
+                                        '5min in shutdown (user choice '
+                                        'R170)\n'
+                                        % time.strftime('%Y-%m-%d %H:%M:%S'))
+                        _moonraker_json('/printer/firmware_restart', body={})
+                        print('[watchdog] auto FIRMWARE_RESTART sent',
+                              flush=True)
+                    if _now170 - _sd170['t0'] >= 600.0:
+                        _sd170['active'] = False
+                        with open(_wdlog170, 'a') as _f170:
+                            _f170.write('[%s] evidence window closed\n'
+                                        % time.strftime('%Y-%m-%d %H:%M:%S'))
+            except Exception as _e170w:                     # noqa: BLE001
+                print('[watchdog] %r' % _e170w, flush=True)
 
             nonce = rv.get('range_nonce', '')
             if nonce and nonce != last_nonce:
@@ -18110,10 +18692,12 @@ def watch(directory, interval=5.0, once=False):
                 # size only - fixed mode and auto size scale the font, the
                 # inputs unlock to their defaults)
                 if pv['min_w'] and pv['min_h']:
-                    _mn_w99 = max(20, min(int(round(pv['min_w'])), 220))
-                    _mn_h99 = max(15, min(int(round(pv['min_h'])), 220))
+                    # R170: the generator takes W>=12 / H>=10 - the old
+                    # 20/15 floor blocked the 1cm labels the user asked for
+                    _mn_w99 = max(12, min(int(round(pv['min_w'])), 220))
+                    _mn_h99 = max(10, min(int(round(pv['min_h'])), 220))
                 else:
-                    _mn_w99, _mn_h99 = 20, 15
+                    _mn_w99, _mn_h99 = 12, 10
                 short_f = '%.0fx%.0f%s %.1f' % (
                     pv['w'], pv['h'], '+' if pv['grown'] else '', pv['cap_mm'])
                 _mode_f99 = 'FIXED' if _vf_f('label_mode', 0) >= 1 else 'GROW'
@@ -18292,84 +18876,32 @@ def watch(directory, interval=5.0, once=False):
                                          in str(rv.get('label_texts', '')).split('|')) if t]
                     if not texts:
                         raise ValueError('no label text set - add one first (LCD: Labels > Text)')
-                    cfg_bed = _bed_limits(os.path.join(
-                        os.path.dirname(os.path.abspath(directory).rstrip('/')),
-                        'config', 'printer.cfg'))
-
-                    def _vb(key, dflt):
-                        v = str(rv.get(key, dflt)).strip().lower()
-                        if v == '':
-                            return dflt
-                        return v in ('true', '1', 'on', 'yes')
-
-                    def _vf(key, dflt):
-                        try:
-                            return float(rv.get(key, dflt) or dflt)
-                        except (TypeError, ValueError):
-                            return float(dflt)
-
+                    # R170: ONE kwargs builder for the job AND the live
+                    # queue bed-fit (was an inline 30-line list - drifted
+                    # from the LCD display within one release)
+                    kw_l = _label_job_kwargs(rv, directory)
                     # R116: per-job snapshots from the LCD queue (LABEL_ADD
                     # stores font/size/holes with EVERY job; font bug .88)
-                    job_cfgs = []
-                    _cfgs116 = str(rv.get('label_cfgs', '') or '')
-                    if _cfgs116.strip():
-                        for _p116 in (x.strip() for x in _cfgs116.split('|')):
-                            if not _p116:
-                                continue
-                            _f116 = _p116.split('~')
-                            _jc116 = {}
-                            if len(_f116) >= 9:
-                                try:
-                                    _jc116 = {
-                                        'font': _f116[0][:12],
-                                        'w': float(_f116[1]), 'h': float(_f116[2]),
-                                        'size': float(_f116[3]),
-                                        'spacing': float(_f116[4]),
-                                        'stroke': float(_f116[5]),
-                                        'mode': _f116[6],
-                                        'hole_side': float(_f116[7]),
-                                        'hole_d': float(_f116[8])}
-                                except ValueError:
-                                    _jc116 = {}
-                            job_cfgs.append(_jc116)
+                    job_cfgs = _parse_label_cfgs(rv.get('label_cfgs', ''))
                     job_cfgs = (job_cfgs + [{} for _ in range(len(texts))])[:len(texts)]
                     job_cfgs = job_cfgs if any(job_cfgs) else None
-                    out_l, info_l = make_labels(
-                        texts, job_cfgs=job_cfgs,
-                        w=_vf('label_w', 60), h=_vf('label_h', 30),
-                        font=str(rv.get('label_font', 'SMOOTH') or 'SMOOTH'),
-                        base_layers=int(_vf('label_base_layers', 4)),
-                        height=_vf('label_height', 0),
-                        shape=str(rv.get('label_shape', 'RECT') or 'RECT'),
-                        corner=_vf('label_corner', 0),
-                        border_walls=int(_vf('label_border_walls', 0)),
-                        border_gap=_vf('label_border_gap', 0),
-                        text_layers=int(_vf('label_text_layers', 2)),
-                        layer_h=_vf('label_layer_h', 0.2),
-                        first_h=_vf('label_first_h', 0.28),
-                        stroke=_vf('label_stroke', 0),
-                        font_size=_vf('label_size', 0),
-                        spacing=_vf('label_spacing', 0),
-                        ironing=_vb('label_ironing', True),
-                        hole_side=int(_vf('label_hole_side', 0)),
-                        hole_d=_vf('label_hole_d', 5),
-                        brim=_vb('label_brim', True),
-                        gap=_vf('label_gap', 12),
-                        color2=_vb('label_color2', True),
-                        material=str(rv.get('material', 'PLA') or 'PLA'),
-                        bed=cfg_bed, nozzle=_gen_nozzle(directory), out_dir=_gensub(directory, 'labels'),
-                        version=max(1, min(int(_vf('gen_version', 1)), 99)),
-                        mode='fixed' if _vf('label_mode', 0) >= 1 else 'grow',
-                        mirror_x=_vb('label_mirror_x', False),
-                        mirror_y=_vb('label_mirror_y', False),
-                        stamp=_vb('label_stamp', False),
-                        stamp_base=max(3.5, min(
-                            _vf('label_stamp_base', 5.0), 15.0)),
-                        stamp_tol=max(0.10, min(
-                            _vf('label_stamp_tol', 0.25), 0.50)),
-                        handle=max(0, min(int(_vf('label_handle', 0)), 2)))
+                    # R170 (field report .128): label errors must be LOUD
+                    # and in plain words ON THE DISPLAY - the old 'Label
+                    # error' M117 buried every reason in the console
+                    if kw_l['stamp'] and len(texts) > 1:
+                        raise ValueError('Stamp = exactly ONE label (queue '
+                                         'has %d) - Del last or Stamp off'
+                                         % len(texts))
+                    out_l, info_l = make_labels(texts, job_cfgs=job_cfgs, **kw_l)
                     fitmsg = '%d fit (%dx%d), using %d' % (
                         info_l['fit'], info_l['cols'], info_l['rows'], info_l['count'])
+                    if info_l.get('parts', 1) > 1:
+                        # R170: the job split - every part named on the display
+                        fitmsg += ' - %d PARTS: %s' % (
+                            info_l['parts'], ', '.join(
+                                f.split('.gcode')[0] for f in info_l['files']))
+                    if info_l.get('kind') == 'stamp-handle':
+                        fitmsg = 'handle file only'
                     try:
                         _lab_rel79 = os.path.relpath(
                             os.path.join(directory, info_l['file']), directory)
@@ -18411,8 +18943,9 @@ def watch(directory, interval=5.0, once=False):
                     print(f'[labels] error: {e}', flush=True)
                     try:
                         _moonraker_gcode(
-                            'RESPOND MSG="Labels ERROR: %s"\nM117 Label error\n'
-                            '_SOUND_LIB NAME=r2_error' % e)
+                            'RESPOND MSG="Labels ERROR: %s"\n'
+                            'M117 Err: %.18s\n'
+                            '_SOUND_LIB NAME=r2_error' % (e, str(e).replace('\n', ' ')))
                     except Exception:                       # noqa: BLE001
                         pass
         except Exception as e:                          # noqa: BLE001
@@ -18648,7 +19181,7 @@ def watch(directory, interval=5.0, once=False):
                         _vfl89('litho_stamp_base', 5.0), 15.0)),
                     stamp_tol=max(0.10, min(
                         _vfl89('litho_stamp_tol', 0.25), 0.50)),
-                    handle=max(0, min(int(_vfl89('litho_handle', 0)), 2)),
+                    handle=max(0, min(int(_vfl89('litho_handle', 0)), 3)),
                     stamp_infill=max(5.0, min(
                         _vfl89('litho_stamp_infill', 10.0), 30.0)),
                     material=str(rv.get('material', 'PLA') or 'PLA'),
@@ -20048,7 +20581,7 @@ def main():
             hole_side=int(float(kw.get('HOLE_SIDE', 0))),
             hole_d=float(kw.get('HOLE_D', 5)),
             brim=_cb('BRIM', '1'),
-            gap=float(kw.get('GAP', 6)),
+            gap=float(kw.get('GAP', 12)),
             color2=_cb('COLOR2', '1'),
             material=kw.get('MATERIAL', 'PLA'),
             bed=bed, out_dir=kw.get('OUT', '.'),
