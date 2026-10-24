@@ -5142,7 +5142,7 @@ tests.append(('R75 watcher: _prime_nonces adopts the current counters (no re-fir
         'queue_cancel_nonce': None, 'gen_del_nonce': None,
         'plot_nonce': None,
         'opt_nonce': None, 'opt_load_nonce': None,
-        'img_pick_nonce': None}, ''))
+        'img_pick_nonce': None, 'del_nonce': None}, ''))
 tests.append(('R75 watcher: daemon runs niced + primes on the first pass',
     'os.nice(4)' in open('tools/r2_postproc.py').read()
     and 'first_prime' in open('tools/r2_postproc.py').read(), ''))
@@ -6336,10 +6336,10 @@ tests.append(('R86 modules: 17_generator.cfg sentinel + _CHECK_INSTALL lists 17'
     '_V18_GEN' in open(_gen86).read()
     and "('17_generator.cfg',       ['_V18_GEN'])" in open('macros/01_state.cfg').read()
     and 'all 17 modules' not in open('macros/01_state.cfg').read(), ''))
-tests.append(('R86-R174 watcher: NONCE_KEYS has 33 channels incl. litho/seal/frame/colorpic '
+tests.append(('R86-R174 watcher: NONCE_KEYS has 34 channels incl. litho/seal/frame/colorpic '
     '+ the three fix channels (.108) + the two optimized-file channels (.128) '
     '+ the SD-browser image channel (.130)',
-    len(_pp.NONCE_KEYS) == 33 and 'flowcap_fix_nonce' in _pp.NONCE_KEYS
+    len(_pp.NONCE_KEYS) == 34 and 'flowcap_fix_nonce' in _pp.NONCE_KEYS
     and 'opt_nonce' in _pp.NONCE_KEYS and 'opt_load_nonce' in _pp.NONCE_KEYS
     and 'img_pick_nonce' in _pp.NONCE_KEYS
     and 'travelacc_fix_nonce' in _pp.NONCE_KEYS
@@ -13465,6 +13465,7 @@ _ADDED135 = [
  '__main __preprint __profs __optsave',
  '__main __sdcard',
  '__main __sdcard __cancel',
+ '__main __sdcard __del',
  '__main __sdcard __f0',
  '__main __sdcard __f1',
  '__main __sdcard __f10',
@@ -14985,6 +14986,123 @@ tests.append(('R175c _STATE carries the LIVE variables + the chain explainer '
     'variable_f_fan_live:' in open('macros/01_state.cfg').read()
     and 'variable_f_fan_live_on:' in open('macros/01_state.cfg').read()
     and get_body('macros/10_live_tuning.cfg', '_FAN_CHAIN_NOW') != '', ''))
+
+
+# ================== R175d (.130): browser delete ==========================
+_pp175d = open('tools/r2_postproc.py', encoding='utf-8').read()
+# the wish list: clean up right in the SD browser - generators folder,
+# optimized/, anything on the card. Two presses per entry, folders take
+# everything inside, the watcher only deletes under the G-Codes root.
+_body175d = get_body('macros/13_system.cfg', 'SDNAV_GO')
+save_vars.update({'sd_path': 'optimized', 'sd_page': 0,
+                  'sd_view': ['F:teil_O2.gcode', 'F:teil_O3.gcode'],
+                  'browser_del_on': True, 'del_arm': '',
+                  'del_file': '', 'del_nonce': 4})
+_out175d = render(_body175d, {'INDEX': '0'}, ps_state='idle')
+tests.append(('R175d SDNAV_GO delete mode: first press ARMS (no delete yet)',
+    'VARIABLE=del_arm' in _out175d and 'AGAIN to really delete' in _out175d
+    and 'del_nonce' not in _out175d, _out175d.strip()[:120]))
+save_vars['del_arm'] = 'optimized/teil_O2.gcode'
+_out175d = render(_body175d, {'INDEX': '0'}, ps_state='idle')
+tests.append(('R175d SDNAV_GO delete mode: second press fires the channel '
+    '(del_file + nonce bump)',
+    'VARIABLE=del_file' in _out175d
+    and 'optimized/teil_O2.gcode' in _out175d
+    and 'VARIABLE=del_nonce VALUE=5' in _out175d
+    and 'gone in a moment' in _out175d, _out175d.strip()[:140]))
+_out175d = render(_body175d, {'INDEX': '0'}, ps_state='printing')
+tests.append(('R175d SDNAV_GO delete mode: refused while printing',
+    'not while a print runs' in _out175d
+    and 'del_nonce' not in _out175d, _out175d.strip()[:100]))
+save_vars['browser_del_on'] = False
+_out175d = render(_body175d, {'INDEX': '0'}, ps_state='idle')
+tests.append(('R175d SDNAV_GO normal mode untouched: a press still starts '
+    'the print dialog',
+    'SDCARD_PRINT_FILE FILENAME="optimized/teil_O2.gcode"' in _out175d,
+    _out175d.strip()[:100]))
+save_vars.update({'del_arm': '', 'del_file': '', 'browser_del_on': True,
+                  'sd_view': ['D:oldstuff', 'F:x.gcode']})
+_out175d = render(_body175d, {'INDEX': '0'}, ps_state='idle')
+tests.append(('R175d SDNAV_GO delete mode: FOLDERS delete too (the whole '
+    'tree goes)',
+    'VARIABLE=del_arm' in _out175d
+    and 'optimized/oldstuff' in _out175d
+    and 'folder takes everything inside' in _out175d,
+    _out175d.strip()[:120]))
+save_vars.update({'browser_del_on': False, 'sd_view': [], 'sd_path': ''})
+
+_lcd175d = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R175d LCD: the browser has the Del-mode toggle row',
+    '[menu __main __sdcard __del]' in _lcd175d
+    and 'DEL ON: 2x press' in _lcd175d
+    and 'SAVE_VARIABLE VARIABLE=browser_del_on VALUE=True' in _lcd175d,
+    ''))
+tests.append(('R175d watcher: the delete channel is a primed nonce (restart '
+    'safe) + refuses to leave the G-Codes root',
+    'del_nonce' in _pp.NONCE_KEYS
+    and "not a path under" in _pp175d
+    and "[del] file %s' % _drel175" in _pp175d
+    and 'rmtree(_dp175)' in _pp175d, ''))
+
+# live watcher run: a real delete through --watch --once
+import subprocess as _sp175d
+import shutil as _shut175d
+import os as _os175d
+import sys as _sys175d
+os = _os175d
+sys = _sys175d
+_td175d = _os175d = None
+import tempfile as _tf175d
+_base175d = _tf175d.mkdtemp(prefix='r175del_')
+try:
+    _gc175d = os.path.join(_base175d, 'gcodes')
+    os.makedirs(os.path.join(_gc175d, 'optimized'))
+    os.makedirs(os.path.join(_gc175d, 'oldstuff'))
+    open(os.path.join(_gc175d, 'optimized', 'teil_O2.gcode'), 'w').write(
+        ';TYPE:Outer wall\nG1 X1 Y1 E1\n')
+    open(os.path.join(_gc175d, 'oldstuff', 'a.gcode'), 'w').write('x\n')
+    open(os.path.join(_base175d, 'variables.cfg'), 'w').write(
+        '[variables]\nvariable_del_file: \'"optimized/teil_O2.gcode"\'\n'
+        'variable_del_nonce: 1\n')
+    _r175d = _sp175d.run(
+        [sys.executable, os.path.abspath('tools/r2_postproc.py'),
+         '--watch', _gc175d, '--once'], capture_output=True, text=True,
+        timeout=240)
+    tests.append(('R175d watcher live: optimized/teil_O2.gcode really '
+        'deleted (file gone, [del] log, done-sound path)',
+        not os.path.exists(os.path.join(_gc175d, 'optimized',
+                                        'teil_O2.gcode'))
+        and '[del] file optimized/teil_O2.gcode' in (_r175d.stdout),
+        (_r175d.stdout + _r175d.stderr)[:200].replace('\n', ' | ')))
+    open(os.path.join(_base175d, 'variables.cfg'), 'w').write(
+        '[variables]\nvariable_del_file: \'"oldstuff"\'\n'
+        'variable_del_nonce: 2\n')
+    _r175d = _sp175d.run(
+        [sys.executable, os.path.abspath('tools/r2_postproc.py'),
+         '--watch', _gc175d, '--once'], capture_output=True, text=True,
+        timeout=240)
+    tests.append(('R175d watcher live: a FOLDER goes with everything '
+        'inside + the tree re-push is forced',
+        not os.path.exists(os.path.join(_gc175d, 'oldstuff'))
+        and '[del] folder oldstuff' in _r175d.stdout
+        and 'sd_tree_pushed[0] = None' in _pp175d,
+        _r175d.stdout[:200].replace('\n', ' | ')))
+    open(os.path.join(_base175d, 'variables.cfg'), 'w').write(
+        '[variables]\nvariable_del_file: \'"../../etc/passwd"\'\n'
+        'variable_del_nonce: 3\n')
+    open(os.path.join(_gc175d, 'innocent.gcode'), 'w').write('keep me\n')
+    _r175d = _sp175d.run(
+        [sys.executable, os.path.abspath('tools/r2_postproc.py'),
+         '--watch', _gc175d, '--once'], capture_output=True, text=True,
+        timeout=240)
+    tests.append(('R175d watcher live: escape attempts outside the root are '
+        'refused',
+        '[del] refused (outside root)' in (_r175d.stdout + _r175d.stderr)
+        and os.path.exists(os.path.join(_gc175d, 'innocent.gcode'))
+        and '[del] file' not in _r175d.stdout,
+        (_r175d.stdout + _r175d.stderr)[:150].replace('\n', ' | ')))
+finally:
+    _shut175d.rmtree(_base175d, ignore_errors=True)
 
 fails = 0
 for name, ok, info in tests:

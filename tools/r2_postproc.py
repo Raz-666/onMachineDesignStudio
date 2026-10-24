@@ -7571,7 +7571,8 @@ NONCE_KEYS = ('preview_nonce', 'range_nonce', 'label_gen_nonce', 'reso_nonce',
               'litho_del_nonce', 'frame_nonce', 'texture_nonce',
               'file_check_nonce', 'colorpic_nonce', 'bricks_nonce',
               'brickkit_nonce', 'figures_nonce', 'plot_cal_nonce',
-              'queue_cancel_nonce', 'gen_del_nonce', 'plot_nonce',
+              'queue_cancel_nonce', 'gen_del_nonce', 'del_nonce',
+              'plot_nonce',
               # R147 - .108 field log - NO parentheses in this tuple - the
               # r143 audit regex stops at the first closing bracket. The
               # three NEWER fix channels were read in the watch loop but
@@ -18295,6 +18296,7 @@ def watch(directory, interval=5.0, once=False):
     last_qcancel_nonce = None        # R133c: GEN_QUEUE_CANCEL
     last_gen_del_nonce = None        # R133f: gen file delete
     last_img_pick_nonce = None       # R174: SD browser image -> root copy
+    last_del_nonce = None            # R175d: SD browser universal delete
     gen_files_pushed = ['']          # R133f: generator outputs for the LCD
     sd_tree_pushed = [None]          # R154: folder tree for the LCD browser
 
@@ -19226,6 +19228,61 @@ def watch(directory, interval=5.0, once=False):
                             '_SOUND_LIB NAME=r2_notice' % _irel174)
         except Exception as e:                              # noqa: BLE001
             print(f'[imgpick] error: {e!r}', flush=True)
+
+        # R175d (.130 field wish list): universal delete from the SD browser
+        # (generators folder, optimized/, anything on the card). The LCD
+        # arms an entry with TWO presses - here it must really live under
+        # the G-Codes root. Folders go with everything inside.
+        try:
+            _dn175 = rv.get('del_nonce', '')
+            if _dn175 and _dn175 != last_del_nonce:
+                last_del_nonce = _dn175
+                _drel175 = str(rv.get('del_file', '') or '').strip().lstrip('/')
+                _dp175 = (os.path.abspath(os.path.join(directory, _drel175))
+                          if _drel175 else '')
+                if (not _drel175 or '..' in _drel175.split('/')
+                        or not _dp175.startswith(
+                            os.path.abspath(directory).rstrip('/')
+                            + os.sep)
+                        or _dp175 == os.path.abspath(directory).rstrip('/')):
+                    _moonraker_gcode(
+                        'RESPOND MSG=\"Delete refused: not a path under '
+                        'the G-Codes root\"'
+                        '\nM117 Delete refused\n'
+                        '_SOUND_LIB NAME=r2_error')
+                    print('[del] refused (outside root): %s' % _drel175,
+                          flush=True)
+                elif os.path.isdir(_dp175):
+                    import shutil as _sh175d
+                    _sh175d.rmtree(_dp175)
+                    sd_tree_pushed[0] = None      # force the tree re-push
+                    gen_files_pushed[0] = ''
+                    _moonraker_gcode(
+                        'RESPOND MSG=\"[OK] folder %s deleted (with '
+                        'everything inside) - the browser updates in a '
+                        'moment\"'
+                        '\nM117 Folder deleted\n'
+                        '_SOUND_LIB NAME=r2_done' % _drel175)
+                    print('[del] folder %s' % _drel175, flush=True)
+                elif os.path.isfile(_dp175):
+                    os.remove(_dp175)
+                    sd_tree_pushed[0] = None
+                    gen_files_pushed[0] = ''
+                    _moonraker_gcode(
+                        'RESPOND MSG=\"[OK] %s deleted - the browser '
+                        'updates in a moment\"'
+                        '\nM117 File deleted\n'
+                        '_SOUND_LIB NAME=r2_done' % _drel175)
+                    print('[del] file %s' % _drel175, flush=True)
+                else:
+                    _moonraker_gcode(
+                        'RESPOND MSG=\"Delete: %s not found (already '
+                        'gone?)\"'
+                        '\nM117 Not found\n'
+                        '_SOUND_LIB NAME=r2_notice' % _drel175)
+                    print('[del] not found: %s' % _drel175, flush=True)
+        except Exception as e:                              # noqa: BLE001
+            print(f'[del] error: {e!r}', flush=True)
 
         # R132 field log .92: a fix during the start dialog released the
         # dialog (the file changes on disk) - after fixing, the file comes
