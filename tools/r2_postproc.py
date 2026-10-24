@@ -7582,7 +7582,10 @@ NONCE_KEYS = ('preview_nonce', 'range_nonce', 'label_gen_nonce', 'reso_nonce',
               'flowcap_fix_nonce', 'travelacc_fix_nonce',
               'segments_fix_nonce',
               # R169: optimized-file channels (copy request + E2 value load)
-              'opt_nonce', 'opt_load_nonce')
+              'opt_nonce', 'opt_load_nonce',
+              # R174 (.129 field log): SD browser image click - the copy of an
+              # image from a subfolder to the g-codes root (litho/plot sources)
+              'img_pick_nonce')
 
 
 def _prime_nonces(rv):
@@ -18281,6 +18284,7 @@ def watch(directory, interval=5.0, once=False):
     last_segments_nonce = None       # R133b: segment fix (see bootstrap)
     last_qcancel_nonce = None        # R133c: GEN_QUEUE_CANCEL
     last_gen_del_nonce = None        # R133f: gen file delete
+    last_img_pick_nonce = None       # R174: SD browser image -> root copy
     gen_files_pushed = ['']          # R133f: generator outputs for the LCD
     sd_tree_pushed = [None]          # R154: folder tree for the LCD browser
 
@@ -19173,6 +19177,43 @@ def watch(directory, interval=5.0, once=False):
                         '_SOUND_LIB NAME=%s' % (_msg, _snd))
         except Exception as e:                              # noqa: BLE001
             print(f'[gendl] error: {e!r}', flush=True)
+
+        # R174 (.129 field log): an image clicked in the SD browser (inside a
+        # subfolder) is COPIED to the g-codes root - lithophane/plotter
+        # sources live there. It used to be handed to SDCARD_PRINT_FILE
+        # (= 'print this .jpg'), the watcher never saw it.
+        try:
+            _ipn = rv.get('img_pick_nonce', '')
+            if _ipn and _ipn != last_img_pick_nonce:
+                last_img_pick_nonce = _ipn
+                _irel174 = str(rv.get('img_pick_file', '') or '').strip().lstrip('/')
+                _iext174 = os.path.splitext(_irel174)[1].lower()
+                if (not _irel174 or '..' in _irel174.split('/')
+                        or _iext174 not in ('.png', '.jpg', '.jpeg')):
+                    _moonraker_gcode(
+                        'RESPOND MSG=\"Image pick refused: not an image path\"'
+                        '\nM117 Pick refused\n'
+                        '_SOUND_LIB NAME=r2_error')
+                else:
+                    _isrc174 = os.path.join(directory, _irel174)
+                    _idst174 = os.path.join(directory, os.path.basename(_irel174))
+                    if os.path.isfile(_isrc174):
+                        import shutil as _sh174
+                        _sh174.copy2(_isrc174, _idst174)
+                        _moonraker_gcode(
+                            'RESPOND MSG=\"[OK] %s copied to the main folder '
+                            '- ready in Tools > Lithophane/Plotter\"'
+                            '\nM117 %s ready'
+                            % (os.path.basename(_irel174),
+                               os.path.basename(_irel174)))
+                        print(f'[imgpick] {_irel174} -> root', flush=True)
+                    else:
+                        _moonraker_gcode(
+                            'RESPOND MSG=\"Image not found: %s\"'
+                            '\nM117 Not found\n'
+                            '_SOUND_LIB NAME=r2_notice' % _irel174)
+        except Exception as e:                              # noqa: BLE001
+            print(f'[imgpick] error: {e!r}', flush=True)
 
         # R132 field log .92: a fix during the start dialog released the
         # dialog (the file changes on disk) - after fixing, the file comes

@@ -3,6 +3,23 @@
 Reihenfolge nach Nutzen/Aufwand. Alles Weitere (String-Art-Menü, R171) ist
 schst im Baum und wartet auf diese Runde.
 
+## R174-pre — Feld-Fixes aus dem 2. .129-Feldlog (EINGEBAUT, Teil von .130)
+
+- **update.sh konnte Hotfix-Buchstaben nicht:** `.129a.zip` matchte nicht in
+  den Nur-Ziffern-Parser → beim Update gewann das alte `.129.zip` aus dem
+  Ordner, der Hotfix kam nie an (Feldbeweis: `build R2-2026-10-22.129`).
+  Jetzt: Zahlen numerisch, Buchstaben lexikographisch (129a > 129, 130 >
+  129a). Das installierte ZIP wandert danach nach `r2_backups/` — kein
+  Alt-ZIP gewinnt jemals wieder ein Update-Rennen.
+- **Doppelter PRINT_END** nach jedem Range-Druck (2× Banner, 2× Rate-Print-
+  Frage, „layers: 0"): Re-Entry-Guard `end_guard` — eine End-Choreografie
+  pro Druck, Guard wird bei jedem Druckstart scharf zurückgesetzt.
+- **SD-Browser: Bild angeklickt = Druckversuch.** Bilder in Unterordnern
+  werden jetzt ins Hauptverzeichnis kopiert (neuer Nonce-Kanal
+  `img_pick_nonce`), Root-Bilder verweisen auf Tools > Lithophane. Der
+  Litho-Bunny (Bun2.jpg) liegt im Root und war nie verloren — der Litho-Scan
+  sieht nur Root-Bilder, Unterordner-Bilder sah er nicht.
+
 ## R174 — User-Presets für ALLE Generatoren (außer Range)
 
 **Regeln (Nutzerwahl):**

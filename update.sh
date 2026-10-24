@@ -86,23 +86,39 @@ fi
 
 # --- 1) unzip an uploaded UPDATE zip over the old folder (NEW in .50) ----------------
 if [ "${1:-}" != "--unpacked" ] && [ -n "${CFG_DIR}" ]; then
-    CUR="$(sed -n "s/^[[:space:]]*variable_version: *'\(R2-[0-9-]*\.[0-9]*\)'.*/\1/p" \
+    CUR="$(sed -n "s/^[[:space:]]*variable_version: *'\(R2-[0-9-]*\.[0-9]*[a-z]*\)'.*/\1/p" \
            "${DIR}/macros/01_state.cfg" 2>/dev/null | head -1)"
-    CUR_N="$(printf '%s' "${CUR:-}" | sed -n 's/.*\.\([0-9]*\)$/\1/p')"
+    CUR_N="$(printf '%s' "${CUR:-}" | sed -n 's/.*\.\([0-9]*\)[a-z]*$/\1/p')"
     CUR_N="${CUR_N:-0}"
-    BEST=""; BEST_N=0
+    CUR_S="$(printf '%s' "${CUR:-}" | sed -n 's/.*\.[0-9]*\([a-z]*\)$/\1/p')"
+    # R174 (.129 field log): hotfix versions carry a LETTER suffix (.129a).
+    # The old digits-only parser did not even see '129a.zip' - the update
+    # re-applied the stale '.129.zip' from the folder and the hotfix never
+    # arrived. Numbers compare numerically, letters lexicographically
+    # ('' < a < b), so 129a > 129 and 130 > 129a.
+    BEST=""; BEST_N=0; BEST_S=""
     for Z in "${CFG_DIR}"/klipper-e3-r2d2-UPDATE-R2-*.zip "${DIR}"/klipper-e3-r2d2-UPDATE-R2-*.zip; do
         [ -f "${Z}" ] || continue
-        ZN="$(basename "${Z}" | sed -n 's/.*\.\([0-9]*\)\.zip$/\1/p')"
-        [ -n "${ZN}" ] || continue
-        if [ "${ZN}" -gt "${BEST_N}" ]; then BEST="${Z}"; BEST_N="${ZN}"; fi
+        ZT="$(basename "${Z}" | sed -n 's/.*\.\([0-9]*\)\([a-z]*\)\.zip$/\1 \2/p')"
+        [ -n "${ZT}" ] || continue
+        ZN="${ZT%% *}"; ZS="${ZT##* }"
+        if [ "${ZN}" -gt "${BEST_N}" ] \
+           || { [ "${ZN}" -eq "${BEST_N}" ] && [[ "${ZS}" > "${BEST_S}" ]]; }; then
+            BEST="${Z}"; BEST_N="${ZN}"; BEST_S="${ZS}"
+        fi
     done
     if [ -n "${BEST}" ]; then
         echo "[i] uploaded update zip found: $(basename "${BEST}")  (installed: ${CUR:-unknown})"
-        if [ "${BEST_N}" -lt "${CUR_N}" ] && [ "${FORCE}" -eq 0 ]; then
+        OLDER=0
+        if [ "${BEST_N}" -lt "${CUR_N}" ] \
+           || { [ "${BEST_N}" -eq "${CUR_N}" ] && [[ "${BEST_S}" < "${CUR_S}" ]]; }; then
+            OLDER=1
+        fi
+        if [ "${OLDER}" -eq 1 ] && [ "${FORCE}" -eq 0 ]; then
             echo "[!] that zip is OLDER than the installed version - not unpacking it."
             echo "    to downgrade anyway:  bash \"${DIR}/update.sh\" --force"
         else
+            [ "${OLDER}" -eq 1 ] && echo "[i] --force: unpacking the OLDER zip anyway"
             echo "[i] unpacking over ${CFG_DIR}/${PKG_REL} ..."
             OK=0
             if command -v unzip >/dev/null 2>&1; then
@@ -116,6 +132,11 @@ if [ "${1:-}" != "--unpacked" ] && [ -n "${CFG_DIR}" ]; then
                 exit 1
             fi
             echo "[ok] package files replaced - continuing with the NEW update.sh"
+            # R174 (.129 field log): the applied zip moves to r2_backups -
+            # stale zips in the config folder kept winning the 'newest zip'
+            # race and re-installed old versions over new ones
+            mkdir -p "${CFG_DIR}/r2_backups" 2>/dev/null
+            mv "${BEST}" "${CFG_DIR}/r2_backups/" 2>/dev/null || true
             # the unpack just replaced THIS running script file -> switch to the
             # new one (bash would otherwise read garbage at the old byte offset)
             exec bash "${CFG_DIR}/${PKG_REL}/update.sh" --unpacked
@@ -153,7 +174,7 @@ else
 fi
 
 # --- 3) version check ------------------------------------------------------------------
-V="$(sed -n "s/^[[:space:]]*variable_version: *'\(R2-[0-9-]*\.[0-9]*\)'.*/\1/p" \
+V="$(sed -n "s/^[[:space:]]*variable_version: *'\(R2-[0-9-]*\.[0-9]*[a-z]*\)'.*/\1/p" \
        "${DIR}/macros/01_state.cfg" 2>/dev/null | head -1)"
 echo "[i] package version: ${V:-unknown}"
 

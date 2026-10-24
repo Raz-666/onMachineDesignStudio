@@ -5140,7 +5140,8 @@ tests.append(('R75 watcher: _prime_nonces adopts the current counters (no re-fir
         'figures_nonce': None, 'plot_cal_nonce': None,
         'queue_cancel_nonce': None, 'gen_del_nonce': None,
         'plot_nonce': None,
-        'opt_nonce': None, 'opt_load_nonce': None}, ''))
+        'opt_nonce': None, 'opt_load_nonce': None,
+        'img_pick_nonce': None}, ''))
 tests.append(('R75 watcher: daemon runs niced + primes on the first pass',
     'os.nice(4)' in open('tools/r2_postproc.py').read()
     and 'first_prime' in open('tools/r2_postproc.py').read(), ''))
@@ -6334,10 +6335,12 @@ tests.append(('R86 modules: 17_generator.cfg sentinel + _CHECK_INSTALL lists 17'
     '_V18_GEN' in open(_gen86).read()
     and "('17_generator.cfg',       ['_V18_GEN'])" in open('macros/01_state.cfg').read()
     and 'all 17 modules' not in open('macros/01_state.cfg').read(), ''))
-tests.append(('R86-R169 watcher: NONCE_KEYS has 32 channels incl. litho/seal/frame/colorpic '
-    '+ the three fix channels (.108) + the two optimized-file channels (.128)',
-    len(_pp.NONCE_KEYS) == 32 and 'flowcap_fix_nonce' in _pp.NONCE_KEYS
+tests.append(('R86-R174 watcher: NONCE_KEYS has 33 channels incl. litho/seal/frame/colorpic '
+    '+ the three fix channels (.108) + the two optimized-file channels (.128) '
+    '+ the SD-browser image channel (.130)',
+    len(_pp.NONCE_KEYS) == 33 and 'flowcap_fix_nonce' in _pp.NONCE_KEYS
     and 'opt_nonce' in _pp.NONCE_KEYS and 'opt_load_nonce' in _pp.NONCE_KEYS
+    and 'img_pick_nonce' in _pp.NONCE_KEYS
     and 'travelacc_fix_nonce' in _pp.NONCE_KEYS
     and 'segments_fix_nonce' in _pp.NONCE_KEYS
     and 'cable_tie_nonce' in _pp.NONCE_KEYS
@@ -13826,6 +13829,46 @@ for _f168, _n168 in (('__oh', 'Overhang'), ('__ib', 'Internal Bridge'),
     tests.append(('R168 %s submenu filled (was an empty list)' % _n168,
         len(_k) == 6, str(len(_k))))
 
+
+# ============================= R174 (.130): the .129 field-log round ================
+_pp174 = open('tools/r2_postproc.py').read()
+_08_174 = open('macros/08_print_start_stop.cfg').read()
+_01_174 = open('macros/01_state.cfg').read()
+_13_174 = open('macros/13_system.cfg').read()
+_upd174 = open('update.sh').read()
+
+tests.append(('R174 PRINT_END re-entry guard: variable + skip + arm + reset at PRINT RUNNING',
+    'variable_end_guard: False' in _01_174
+    and 'VARIABLE=end_guard VALUE=True' in _08_174
+    and 'PRINT_END skipped - the end sequence already ran' in _08_174
+    and 'VARIABLE=end_guard VALUE=False' in _08_174,
+    'guard pieces missing'))
+tests.append(('R174 PRINT_END re-entry guard: both watcher start paths clear it',
+    _01_174.count('VARIABLE=end_guard VALUE=False') == 2,
+    str(_01_174.count('VARIABLE=end_guard VALUE=False'))))
+tests.append(('R174 PRINT_END re-entry guard: exactly one guard if/endif around the body',
+    _08_174.count('{% if s.end_guard|default(False) %}') == 1,
+    str(_08_174.count('{% if s.end_guard|default(False) %}'))))
+tests.append(('R174 update.sh: letter hotfix zips parse (.129a beats .129, loses to .130)',
+    "[0-9]*\\)\\([a-z]*\\)\\.zip" in _upd174.replace('\\\\', '\\')
+    and "[0-9-]*\\.[0-9]*[a-z]*" in _upd174.replace('\\\\', '\\'),
+    'letter-suffix regex missing'))
+tests.append(('R174 update.sh: the applied zip is archived to r2_backups after install',
+    'mv "${BEST}" "${CFG_DIR}/r2_backups/"' in _upd174,
+    'zip archiving missing'))
+tests.append(('R174 SD browser: image clicks copy to the main folder instead of printing',
+    'img_pick_nonce' in _13_174
+    and 'is an image in the main folder' in _13_174
+    and _13_174.count('SDCARD_PRINT_FILE FILENAME="{ fn }"') == 1,
+    'image branch missing'))
+tests.append(('R174 SD browser: the watcher copies the image (nonce channel + job)',
+    'img_pick_nonce' in _pp174 and 'img_pick_file' in _pp174
+    and '[imgpick]' in _pp174 and 'copy2' in _pp174,
+    'watcher copy job missing'))
+tests.append(('R174 SD browser: the image pick refuses non-image and traversal paths',
+    "or '..' in _irel174.split('/')" in _pp174
+    and "_iext174 not in ('.png', '.jpg', '.jpeg')" in _pp174,
+    'path check missing'))
 
 fails = 0
 for name, ok, info in tests:
