@@ -64,7 +64,7 @@ TAG = '; R2-POSTPROC v5'
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-10-24.129a (R170a)'
+POSTPROC_RELEASE = 'R2-2026-10-24.130 (R175)'
 POSTPROC_BUILD = 'R166'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
@@ -15513,6 +15513,16 @@ def _optimize_copy(directory, rel, snap):
             pre = os.path.dirname(rel).replace('/', '_').strip('_')
             if pre:
                 dest = os.path.join(odir, '%s_%s' % (pre, base))
+    # R175 (.129 field log question): printing the SAME file again and
+    # answering YES again must never silently overwrite the earlier
+    # optimized copy - copies get a running number (name.gcode,
+    # name_O2.gcode, name_O3.gcode ...). Your tuning history stays.
+    if os.path.isfile(dest):
+        _stem175, _ext175 = os.path.splitext(dest)
+        _n175 = 2
+        while os.path.isfile('%s_O%d%s' % (_stem175, _n175, _ext175)):
+            _n175 += 1
+        dest = '%s_O%d%s' % (_stem175, _n175, _ext175)
     # ---- pass 1: find + parse the source _FILE_INFO ----------------------------
     with open(src, 'r', errors='replace') as f:
         head = f.read(524288)
@@ -18980,6 +18990,8 @@ def watch(directory, interval=5.0, once=False):
                                         % (os.path.basename(out),
                                            _sel_note(rvq, ' - selected for printing '
                                                        '(the source selection is released)'))
+                                        + '\nM117 Range ready'
+                                        + '\n_SOUND_LIB NAME=r2_done'
                                         + _sel_line(rvq, _rel))
                                 except Exception as se:              # noqa: BLE001
                                     print(f'[range] select-swap unreachable: '
@@ -20122,6 +20134,9 @@ def watch(directory, interval=5.0, once=False):
                     bump_scale=float(rv.get('texture_scale', 10.0) or 10.0),
                     bump_amp=float(rv.get('texture_amp', 0.35) or 0.35),
                     direction=str(rv.get('texture_dir', 'OUT') or 'OUT'),
+                    seed=int(float(rv.get('texture_seed', 91) or 91)),
+                    zsize=float(rv.get('texture_zsize', 0) or 0) or None,
+                    map_file=str(rv.get('texture_map', '') or '') or None,
                     bed=_bed91,
                     version=max(1, min(int(float(
                         rv.get('gen_version', 1) or 1)), 99)))
@@ -20130,10 +20145,19 @@ def watch(directory, interval=5.0, once=False):
                     out_t, info_t = apply_texture(
                         os.path.join(directory, rel),
                         out_dir=_gensub(directory, 'texture'), **par)
-                    _msg = ('Texture: %s -> %s (%s, %d outer-wall points '
+                    _snap175 = ''
+                    if info_t.get('mode') == 'BUMPS':
+                        _snap175 = (' [seamless: %d ridges x %d Z-repeats '
+                                    '(eff. %.1f / %.1f mm)]'
+                                    % (info_t.get('ridges', 0),
+                                       info_t.get('z_repeats', 0),
+                                       info_t.get('eff_size', 0.0),
+                                       info_t.get('eff_zsize', 0.0)))
+                    _msg = ('Texture: %s -> %s (%s%s, %d outer-wall points '
                             'shifted, %d layers)%s'
                             % (info_t['src'], info_t['file'],
-                               info_t['mode'], info_t['shifted'],
+                               info_t['mode'], _snap175,
+                               info_t['shifted'],
                                info_t['layers'],
                                _sel_note(rvq, ' - selected for printing '
                                              '(replaces the source selection)',

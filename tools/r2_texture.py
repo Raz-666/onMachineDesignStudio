@@ -1,21 +1,50 @@
 #!/usr/bin/env python3
-"""R91: texture tool - fuzzy skin + parametric bump meshing for EXISTING
-g-code files. A separate script (lazy-imported by the watcher), never part of
-the hot interceptor path.
+"""R175: texture tool v3 - the PATTERN LIBRARY engine for EXISTING g-code
+files. A separate script (lazy-imported by the watcher), never part of the
+hot interceptor path.
 
-What it does
-- FUZZY: random displacement of every OUTER WALL vertex within +- fuzzy_thick
-  (seeded RNG -> deterministic, reproducible), fuzzy_density = share of
-  vertices that scatter (100 % = full fuzzy, 20 % = sparse dents)
-- BUMPS: displacement along the wall normal proportional to a seamless
-  pattern function at (x, y, z):
-    GRID         sin(x)*sin(y) egg-crate
-    WAVES        diagonal sinus with a z-phase (breaks the layer rhythm)
-    HEX          3-fold sinus -> honeycomb
-  direction OUT = away from the part shell, IN = into it (flip if the wall
-  winding surprises you)
-- vertical z-phase everywhere: consecutive layers get a slightly shifted
-  pattern - ugly layer lines are camouflaged instead of carrying the bump
+THE R175 RULE (field wish, .130): the user's values are a GUIDELINE, the
+GEOMETRY decides. Every pattern is computed in CYLINDER coordinates around
+the OBJECT (theta from the object center, z from its base) and is SEAMLESS:
+- around: the pattern repeats an INTEGER number of ridges (k) around the
+  circumference - your 'size around' is snapped to the nearest whole count,
+  so the seam closes perfectly on ANY shape (vase, rose, bracket)
+- in Z: the pattern repeats an INTEGER number of times (n) over the object
+  height - your 'Z size' snaps to whole repeats, the texture ends flush at
+  the top and runs 'endless' (periodic) through the whole height
+The snapped values are reported back ('12 ridges x 24 repeats, effective
+9.8 x 10.2 mm') - presets stay honest.
+
+Modes
+- FUZZY: random displacement of every OUTER WALL vertex within +- thick
+  (seeded RNG -> deterministic), density = share of scattered vertices
+- BUMPS: displacement along the wall normal proportional to one of 21
+  seamless pattern functions (see PATTERNS below)
+- MAP: a grayscale picture wrapped around the object (cylinder projection,
+  ping-pong tiled -> seamless in both directions; white = out, dark = in)
+
+Patterns (all seamless, all seeded where random)
+  RIDGES      vertical flutes around the object
+  WAVES       diagonal waves (the classic)
+  GRID        crosshatch egg-crate
+  HEX         3-fold sinus honeycomb-ish
+  HONEYCOMB   true hex cells (distance field)
+  BASKET      woven over/under basket
+  ROPE        twisted strands
+  PLANKS      horizontal boards with seeded staggered joints
+  BRICKS      running-bond brick courses with mortar grooves
+  SANDSTONE   fine 2-octave noise (cast sandstone)
+  CONCRETE    coarse noise + seeded pores
+  CLAY        soft overlapping dents (thumb-printed clay)
+  CREPE       high-frequency crumple x a mid wave (paper)
+  FABRIC      pleats - sharp valleys, wide backs
+  PLUSH       dense short fine noise (velvet)
+  HILBERT     zig-zag space-filling bands (the curve look)
+  CHECKER     checkerboard, soft edges
+  SCRATCH     anisotropic scratches around the circumference
+  HATCH       hard diagonal hatching
+  GLITCH      seeded per-band steps (the melt / shifted-layer look)
+  MAP         grayscale image wrapped around (cylinder projection)
 
 What it never touches
 - ;TYPE: tags, LAYER_MARK / APPLY_TYPE, EXCLUDE_OBJECT_*, temps, fans,
@@ -32,7 +61,7 @@ import random
 import re
 import time
 
-TAG = 'R2-TEXTURE v2 (R95)'
+TAG = 'R2-TEXTURE v3 (R175)'
 
 # R159 (.119) FIELD FIX: the old _G1 demanded X DIRECTLY after the command
 # and Y right behind it. Real slicer output does not keep that order - a
@@ -86,8 +115,6 @@ def _arc_points(x0, y0, x1, y1, i=None, j=None, rr=None, cw=True,
     if i is not None and j is not None:
         cx, cy = x0 + i, y0 + j
     elif rr is not None and rr != 0:
-        # Marlin R form: center on the perpendicular bisector, h = side of
-        # the chord chosen so the sweep is <= 180 deg for +R, > 180 for -R
         mx, my = (x0 + x1) / 2.0, (y0 + y1) / 2.0
         d = math.hypot(x1 - x0, y1 - y0) / 2.0
         if d > abs(rr):
@@ -134,35 +161,275 @@ _OUTER_ALIASES = {
     'external perimeter',   # PrusaSlicer
 }
 
+# R175: EXCLUDE_OBJECT_DEFINE CENTER lines (marked files carry them right at
+# the top) are the BEST object center - otherwise the texture falls back to
+# the outer-wall vertex centroid.
+_EOD_CENTER = re.compile(
+    r'^EXCLUDE_OBJECT_DEFINE\s+NAME=\S+\s+CENTER=(-?[\d.]+)[, ]+(-?[\d.]+)')
+
 
 def _is_outer_wall(t):
     t = re.sub(r'[^a-z]+', ' ', (t or '').strip().lower()).strip()
     return t in _OUTER_ALIASES
 
 
-def _bump_grid(x, y, z, scale):
-    return (math.sin(x * 2 * math.pi / scale) *
-            math.sin(y * 2 * math.pi / scale))
+# =====================================================================================
+#  R175 PATTERN LIBRARY - every pattern is a function f(s, t, k, n, aux)
+#  with  s = theta/2pi in [0,1)   (seamless: integer k tiles around)
+#        t = z*n/H in [0,1)       (seamless: integer n repeats over the height)
+#        k = ridge count around, n = repeat count in Z (both INTEGER -> the
+#            user's size guideline snapped to the geometry)
+#        aux = (rng, img, noise)  seeded helpers
+#  Return: -1..+1 (normal displacement factor). Periodicity in s and t is
+#  guaranteed by construction (trig of 2*pi*integer*x or wrapped grids) -
+#  the texture is ENDLESS and closes flush at the seam and the top.
+# =====================================================================================
+
+def _tri(x):
+    """triangle wave -1..+1 (hard-edged hatching without aliases)."""
+    return 4.0 * abs(x - math.floor(x + 0.5)) - 1.0
 
 
-def _bump_waves(x, y, z, scale):
-    ph = z * 2 * math.pi / 1.2          # z-phase: camouflages layer lines
-    return (math.sin((x + y) * 2 * math.pi / scale + ph) *
-            (0.6 + 0.4 * math.sin(z * 2 * math.pi / 3.7)))
+def _smoothstep(e0, e1, x):
+    t = max(0.0, min(1.0, (x - e0) / (e1 - e0)))
+    return t * t * (3.0 - 2.0 * t)
 
 
-def _bump_hex(x, y, z, scale):
-    a = x * 2 * math.pi / scale
-    b = y * 2 * math.pi / scale
-    return (math.sin(a) * 0.5 +
-            math.sin(b + math.cos(a) * 0.5 + z * 0.6) * 0.5)
+def _make_noise(seed):
+    """R175: periodic VALUE NOISE - hash on an integer grid wrapped modulo
+    the period. Seeded, deterministic, seamless by construction."""
+
+    def _h(i, j, p, q):
+        # wrapped grid coords -> stable 0..1
+        i, j = i % p, j % q
+        v = (i * 374761393 + j * 668265263 + seed * 1274126177) & 0xFFFFFFFF
+        v = ((v ^ (v >> 13)) * 1274126177) & 0xFFFFFFFF
+        return ((v ^ (v >> 16)) & 0xFFFFFFFF) / float(0xFFFFFFFF)
+
+    def noise(s, t, p, q):
+        # s,t in [0,1); p x q cells -> value noise, periodic in both axes
+        x, y = s * p, t * q
+        i, j = int(math.floor(x)), int(math.floor(y))
+        fx, fy = x - i, y - j
+        fx = fx * fx * (3 - 2 * fx)
+        fy = fy * fy * (3 - 2 * fy)
+        a = _h(i, j, p, q)
+        b = _h(i + 1, j, p, q)
+        c = _h(i, j + 1, p, q)
+        d = _h(i + 1, j + 1, p, q)
+        return (a * (1 - fx) + b * fx) * (1 - fy) + (c * (1 - fx) + d * fx) * fy
+
+    return noise
+
+
+def _pp(x):
+    """ping-pong 0..1..0 - tiles ANY sample seamlessly (mirrored repeat)."""
+    x = x % 2.0
+    return x if x <= 1.0 else 2.0 - x
+
+
+def _build_patterns(k, n, seed, img):
+    """R175: returns {NAME: fn(s, t) -> -1..+1} with the geometry snapped."""
+    rng = random.Random(seed)
+    noise = _make_noise(seed)
+    two_pi = 2.0 * math.pi
+
+    # pre-rolled per-band randomness for GLITCH / PLANKS / BRICKS stagger
+    bands = max(1, n)
+    band_rnd = [rng.random() for _ in range(bands * 2 + 4)]
+    row_rnd = [rng.random() for _ in range(bands * 2 + 4)]
+
+    pats = {}
+
+    # ---- simple trig families ---------------------------------------------------
+    pats['RIDGES'] = (
+        lambda s, t: math.sin(two_pi * s * k) *
+        (0.72 + 0.28 * math.sin(two_pi * t * 2)))
+    pats['WAVES'] = (
+        lambda s, t: math.sin(two_pi * (s * k + t * n)) *
+        (0.6 + 0.4 * math.sin(two_pi * t * max(1, n // 3))))
+    pats['GRID'] = (
+        lambda s, t: math.sin(two_pi * s * k) * math.sin(two_pi * t * n))
+    pats['HATCH'] = (
+        lambda s, t: max(-1.0, min(1.0, 2.2 * _tri(s * k + t * n))) *
+        (0.9 + 0.1 * math.sin(two_pi * t)))
+    def _checker(s, t):
+        # soft-edged checkerboard: cell parity from INTEGER grids (2k x 2n
+        # cells -> the wrap lands exactly on a cell boundary), edges eased
+        # with smoothstep in BOTH axes (printable, no hard layer steps)
+        e_s = _smoothstep(0.30, 0.70,
+                          abs(((s * k) % 1.0) - 0.5) * 2)
+        e_t = _smoothstep(0.30, 0.70,
+                          abs(((t * n) % 1.0) - 0.5) * 2)
+        par = (int(s * k * 2) + int(t * n * 2)) % 2
+        return (e_s * e_t) * (1.0 if par else -1.0)
+    pats['CHECKER'] = _checker
+
+    def _hexcell(s, t):
+        # true hex grid on the unrolled (s*k, t*n) plane - seamless because
+        # k and the ROW COUNT are integers; rows offset by half a cell
+        cols = max(1, k)
+        rows = max(1, int(round(n * 2.0 / math.sqrt(3.0))))
+        x = s * cols
+        y = t * rows
+        row = math.floor(y)
+        x += 0.5 * (row % 2)
+        fx, fy = x - math.floor(x), y - row
+        # distance to the nearest hex cell edge (approx as 3 axes)
+        d = min(abs(fx - 0.5), abs(fy - 0.5),
+                abs((fx - 0.5) * 0.5 + (fy - 0.5) * 0.866))
+        return _smoothstep(0.08, 0.30, d) * 2.0 - 1.0
+    pats['HONEYCOMB'] = _hexcell
+    pats['HEX'] = (
+        lambda s, t: (math.sin(two_pi * s * k) * 0.5 +
+                      math.sin(two_pi * t * n +
+                               math.cos(two_pi * s * k) * 0.5) * 0.5))
+
+    # ---- woven / twisted --------------------------------------------------------
+    def _basket(s, t):
+        over = (int(math.floor(s * k)) + int(math.floor(t * n))) % 2
+        edge = (1.0 - _smoothstep(0.06, 0.16, abs(((s * k) % 1.0) - 0.5))
+                - _smoothstep(0.06, 0.16, abs(((t * n) % 1.0) - 0.5)))
+        base = 0.55 if over else -0.55
+        return max(-1.0, min(1.0, base - 0.45 * max(0.0, 1.0 - edge)))
+    pats['BASKET'] = _basket
+
+    def _rope(s, t):
+        strands = max(2, k // 2)
+        twist = max(1, n)
+        v = math.sin(two_pi * (s * strands + t * twist))
+        return (abs(v) ** 0.6 * (1 if v >= 0 else -1)) * \
+            (0.8 + 0.2 * math.sin(two_pi * t * twist * 2))
+    pats['ROPE'] = _rope
+
+    # ---- boards / bricks --------------------------------------------------------
+    def _planks(s, t):
+        row = int(math.floor(t * n))
+        jt = row_rnd[row % len(row_rnd)]        # seeded stagger per board
+        x = (s * k + jt) % 1.0
+        fy = (t * n) % 1.0
+        board = _smoothstep(0.0, 0.06, fy) * (1.0 - _smoothstep(0.94, 1.0, fy))
+        seam = 1.0 - _smoothstep(0.0, 0.05, min(x, 1.0 - x))
+        grain = (noise(s, t, k * 4, n * 4) - 0.5) * 0.5
+        return max(-1.0, min(1.0, 0.75 * board - 0.9 * seam + grain))
+    pats['PLANKS'] = _planks
+
+    def _bricks(s, t):
+        rows = max(2, n * 2)
+        row = int(math.floor(t * rows))
+        x = (s * k + (0.5 if row % 2 else 0.0)) % 1.0
+        fy = (t * rows) % 1.0
+        face = (_smoothstep(0.0, 0.10, fy) *
+                (1.0 - _smoothstep(0.90, 1.0, fy)) *
+                (1.0 - _smoothstep(0.0, 0.06, min(x, 1.0 - x))))
+        rough = (noise(s, t, k * 3, rows) - 0.5) * 0.35
+        return max(-1.0, min(1.0, face * 1.6 - 0.85 + rough))
+    pats['BRICKS'] = _bricks
+
+    # ---- noise families (all seeded + periodic) ---------------------------------
+    pats['SANDSTONE'] = (
+        lambda s, t: (noise(s, t, max(2, k * 2), max(2, n * 2)) - 0.5) * 1.6
+        + (noise(s, t, max(2, k * 5), max(2, n * 5)) - 0.5) * 0.6)
+
+    def _concrete(s, t):
+        base = (noise(s, t, max(2, k), max(2, n)) - 0.5) * 1.5
+        pore = noise(_pp(s * max(2, k // 2)), _pp(t * max(2, n // 2)),
+                     3, 3)
+        if pore > 0.86:
+            base -= (pore - 0.86) * 5.0
+        return max(-1.0, min(1.0, base))
+    pats['CONCRETE'] = _concrete
+
+    def _clay(s, t):
+        # a handful of wide soft dents, placed on the periodic grid
+        # (distances wrap in s AND t - the dents close over the seam)
+        v = 0.0
+        for i in range(3):
+            cx = noise(0.3 + i * 0.11, 0.7, 5, 5)
+            cy = noise(0.8, 0.2 + i * 0.17, 5, 5)
+            dx = min(abs(s - cx), 1.0 - abs(s - cx)) * 2.0
+            dy = min(abs(t - cy), 1.0 - abs(t - cy)) * 2.0
+            v -= math.exp(-(dx * dx + dy * dy) * 6.0) * 0.9
+        return max(-1.0, min(1.0, v + 0.35))
+    pats['CLAY'] = _clay
+
+    pats['CREPE'] = (
+        lambda s, t: (noise(s, t, max(4, k * 4), max(4, n * 4)) - 0.5) * 1.2
+        * (0.6 + 0.4 * math.sin(two_pi * (s * k + t * n))))
+
+    pats['FABRIC'] = (
+        lambda s, t: (math.sin(two_pi * s * k) ** 3) *
+        (0.85 + 0.15 * noise(s, t, 6, 6)))
+
+    pats['PLUSH'] = (
+        lambda s, t: (noise(s, t, max(6, k * 5), max(6, n * 5)) - 0.42) * 1.1)
+
+    def _hilbert(s, t):
+        # zig-zag space-filling bands: triangle in s, offset flips per band
+        row = int(math.floor(t * n))
+        off = 0.5 if row % 2 else 0.0
+        v = _tri((s + off) * max(2, k))
+        return v * (0.7 + 0.3 * (1.0 - abs(((t * n) % 1.0) - 0.5) * 2))
+    pats['HILBERT'] = _hilbert
+
+    def _scratch(s, t):
+        # anisotropic: stretched along s (around the object), seeded breaks
+        coarse = noise(s, t, max(2, k // 2), max(4, n * 4))
+        fine = noise(s, t, max(6, k * 2), max(8, n * 6))
+        v = (coarse * 0.65 + fine * 0.35 - 0.5) * 1.7
+        return max(-1.0, min(1.0, v))
+    pats['SCRATCH'] = _scratch
+
+    def _glitch(s, t):
+        # seeded CONSTANT offset per band = stepped 'melted' layers
+        band = int(math.floor(t * n))
+        r = band_rnd[band % len(band_rnd)]
+        r2 = band_rnd[(band + 7) % len(band_rnd)]
+        step = (r - 0.5) * 1.6 if r2 > 0.45 else 0.0
+        fy = (t * n) % 1.0
+        lip = _smoothstep(0.0, 0.08, fy) * (1 - _smoothstep(0.92, 1.0, fy))
+        return max(-1.0, min(1.0, step * lip))
+    pats['GLITCH'] = _glitch
+
+    # ---- the image wrap ---------------------------------------------------------
+    if img is not None:
+        iw, ih = img.size
+
+        def _map(s, t):
+            # hin + mirrored rueckweg over ONE circumference = seamless at
+            # the seam (pixel 0 meets pixel 0); same in Z -> flush at the top
+            u = _pp(2.0 * s)
+            v = _pp(2.0 * t)
+            px = min(iw - 1, int(u * iw))
+            py = min(ih - 1, int(v * ih))
+            lum = img.getpixel((px, py))
+            if isinstance(lum, tuple):
+                lum = (lum[0] * 299 + lum[1] * 587 + lum[2] * 114) / 1000.0
+            return (lum / 255.0) * 2.0 - 1.0
+        pats['MAP'] = _map
+
+    return pats
+
+
+PATTERN_NAMES = ('RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX',
+                 'HONEYCOMB', 'BASKET', 'ROPE', 'PLANKS', 'BRICKS',
+                 'SANDSTONE', 'CONCRETE', 'CLAY', 'CREPE', 'FABRIC',
+                 'PLUSH', 'HILBERT', 'SCRATCH', 'GLITCH', 'MAP')
 
 
 def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
-                  fuzzy_density=100.0, bump_pattern='GRID', bump_scale=10.0,
+                  fuzzy_density=100.0, bump_pattern='RIDGES', bump_scale=10.0,
                   bump_amp=0.35, direction='OUT', bed=None, version=1,  # version: retired (R158, folder-global auto)
-                  seed=91):
-    """Returns (new_path, info). Raises ValueError on bad parameters."""
+                  seed=91, zsize=None, map_file=None):
+    """Returns (new_path, info). Raises ValueError on bad parameters.
+
+    R175 parameter semantics (the LCD speaks these names):
+      bump_scale = 'size around' guideline in mm  -> snapped to k ridges
+      zsize      = 'Z size' guideline in mm       -> snapped to n repeats
+      bump_amp   = 'depth' in mm (0.05..1.0)
+      seed       = deterministic randomness (noise patterns, fuzzy)
+      map_file   = image for PATTERN=MAP (grayscale wrap)
+    """
     mode = str(mode).upper()
     direction = str(direction).upper()
     bump_pattern = str(bump_pattern).upper()
@@ -176,17 +443,39 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
     if not (10.0 <= float(fuzzy_density) <= 100.0):
         raise ValueError('fuzzy density %.0f%% out of range (10..100)'
                          % float(fuzzy_density))
-    if bump_pattern not in ('GRID', 'WAVES', 'HEX'):
-        raise ValueError('bump_pattern must be GRID, WAVES or HEX (got %r)'
-                         % bump_pattern)
-    if not (3.0 <= float(bump_scale) <= 60.0):
-        raise ValueError('bump scale %.1fmm out of range (3..60)'
+    if bump_pattern not in PATTERN_NAMES:
+        raise ValueError('pattern must be one of %s (got %r)'
+                         % (', '.join(PATTERN_NAMES), bump_pattern))
+    if not (3.0 <= float(bump_scale) <= 80.0):
+        raise ValueError('pattern size %.1fmm out of range (3..80)'
                          % float(bump_scale))
-    if not (0.1 <= float(bump_amp) <= 0.8):
-        raise ValueError('bump amplitude %.2fmm out of range (0.1..0.8)'
+    if zsize is None:
+        zsize = bump_scale
+    if not (0.5 <= float(zsize) <= 200.0):
+        raise ValueError('Z size %.1fmm out of range (0.5..200)' % float(zsize))
+    if not (0.05 <= float(bump_amp) <= 1.0):
+        raise ValueError('pattern depth %.2fmm out of range (0.05..1.0)'
                          % float(bump_amp))
     if not os.path.isfile(src):
         raise ValueError('source file not found: %s' % src)
+
+    img = None
+    if bump_pattern == 'MAP':
+        if not map_file:
+            raise ValueError('PATTERN=MAP needs an image '
+                             '(pick one in the SD browser, it copies to the '
+                             'main folder)')
+        try:
+            from PIL import Image                       # lazy (Pi-safe)
+        except ImportError:
+            raise ValueError('MAP needs Pillow (sudo apt install '
+                             'python3-pil) - or pick a different pattern')
+        _mp = map_file if os.path.isabs(map_file) else os.path.join(
+            os.path.dirname(os.path.abspath(src)), map_file)
+        if not os.path.isfile(_mp):
+            raise ValueError('map image not found: %s' % map_file)
+        img = Image.open(_mp).convert('L')
+
     out_dir = out_dir or os.path.dirname(os.path.abspath(src))
     if bed is None:
         bed = (0.0, -3.0, 220.0, 217.0)      # real Ender-3 plate (manual ch.23)
@@ -209,7 +498,6 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
     _hi158 = 0
     try:
         for _p158 in os.listdir(out_dir):
-            # R160b: V05b_ counts as 05 (the collision letter from _dedupe)
             _mm158 = re.match(r'^(?:00_)?V(\d+)[a-z]?_', _p158)
             if _mm158:
                 _hi158 = max(_hi158, int(_mm158.group(1)))
@@ -240,19 +528,162 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                          'refusing')
 
     rng = random.Random(seed)
-    cx = (bed[0] + bed[2]) / 2.0
-    cy = (bed[1] + bed[3]) / 2.0
     sign = 1.0 if direction == 'OUT' else -1.0
     sig = float(bump_amp)
     dens = float(fuzzy_density) / 100.0
 
+    # ---- R175 PASS 1: measure the geometry (streaming, no buffers) -----------
+    # center: EXCLUDE_OBJECT CENTER lines if the file has them, else the
+    # outer-wall vertex centroid. Circumference: mean chord sum per layer.
+    # Height: z span of the outer wall. From those: k ridges, n Z-repeats.
+    # SMOKE FIX: Z is tracked on EVERY move (slicers put the layer Z in a
+    # separate travel line - tracking it only on extruding moves measured
+    # 40x the circumference and a 0.2mm height on the vase test file).
+    centers = []
+    sx = sy = cnt = 0.0
+    chord = 0.0
+    # R175 litho fallback: files WITHOUT any wall marker (lithophanes are
+    # all SURFACE/INFILL) still deserve a real texture - every extrusion
+    # path counts as the geometry then. Twin statistics decide later.
+    ax = ay = acnt = 0.0
+    achord = 0.0
+    alast_z = None
+    alayers = 0
+    aminz = 1e9
+    amaxz = -1e9
+    any_outer = False       # the file ever claimed an outer wall
+    cur_z = None            # last Z seen on ANY move line
+    last_extrude_z = None   # last Z an EXTRUDING outer-wall move ran at
+    layers_seen = 0
+    minz = 1e9
+    maxz = -1e9
+    px2 = py2 = None
+    cur_type = ''
+    cur_outer = False
+    with open(src, errors='replace') as fi:
+        for line in fi:
+            ls = line.rstrip('\n')
+            me = _EOD_CENTER.match(ls)
+            if me:
+                centers.append((float(me.group(1)), float(me.group(2))))
+                continue
+            m = _TYPE.match(ls)
+            if m:
+                cur_type = m.group(1).strip().lower()
+                cur_outer = _is_outer_wall(cur_type)
+                if cur_outer:
+                    any_outer = True
+                continue
+            _ma152 = _APPLY152.match(ls)
+            if _ma152:
+                cur_type = _ma152.group(1).strip().lower()
+                cur_outer = _is_outer_wall(cur_type)
+                if cur_outer:
+                    any_outer = True
+                continue
+            # R175: geometry pass 1 must ALSO see G2/G3 outer-wall arcs -
+            # a vase sliced with arc fitting has no G1 wall vertex at all,
+            # so circumference/center/height came out empty and the whole
+            # library refused the file. Arcs are flattened into points here
+            # with the same _arc_points pass 2 uses (chord 0.35mm).
+            g = _parse_move(ls)
+            mpts = []           # [(x, y)] points this command moves to
+            extruding = False
+            if g is not None:
+                if g[3] is not None:
+                    cur_z = g[3]
+                # G0 too: a G0 X.. Y.. sets the position the first arc
+                # of the wall starts from (lost that in the first draft -
+                # arc-only vases measured zero circumference)
+                if g[0] in ('G0', 'G1') and g[1] is not None:
+                    mpts = [(g[1], g[2] if g[2] is not None else py2)]
+                    extruding = (g[4] is not None and g[4] > _MIN_E)
+            else:
+                ga = _parse_arc(ls)
+                if ga is not None:
+                    if ga[3] is not None:
+                        cur_z = ga[3]
+                    if ga[1] is not None:
+                        ay = ga[2] if ga[2] is not None else py2
+                        if ay is not None:
+                            if px2 is not None:
+                                apts = _arc_points(px2, py2, ga[1], ay,
+                                                   i=ga[4], j=ga[5], rr=ga[6],
+                                                   cw=(ga[0] == 'G2'))
+                                mpts = apts or [(ga[1], ay)]
+                            else:
+                                mpts = [(ga[1], ay)]
+                            extruding = (ga[7] is not None and ga[7] > _MIN_E)
+            for x, y in mpts:
+                if extruding:
+                    ax += x
+                    ay += y
+                    acnt += 1
+                    if cur_z is not None:
+                        if alast_z is None or \
+                                abs(cur_z - alast_z) > 1e-6:
+                            alayers += 1
+                            alast_z = cur_z
+                        aminz = min(aminz, cur_z)
+                        amaxz = max(amaxz, cur_z)
+                    if px2 is not None:
+                        achord += math.hypot(x - px2, y - py2)
+                if cur_outer and extruding:
+                    sx += x
+                    sy += y
+                    cnt += 1
+                    z_here = cur_z
+                    if z_here is not None:
+                        if last_extrude_z is None or \
+                                abs(z_here - last_extrude_z) > 1e-6:
+                            layers_seen += 1
+                            last_extrude_z = z_here
+                        minz = min(minz, z_here)
+                        maxz = max(maxz, z_here)
+                    if px2 is not None:
+                        chord += math.hypot(x - px2, y - py2)
+                px2, py2 = x, y
+    all_is_wall = False
+    if cnt < 8 and not any_outer and acnt >= 8:
+        # no wall marker ANYWHERE (lithophanes, raw extrusion art): the
+        # whole extrusion body becomes the texture surface
+        all_is_wall = True
+        sx, sy, cnt = ax, ay, acnt
+        chord = achord
+        layers_seen = alayers
+        minz, maxz = aminz, amaxz
+    if cnt < 8:
+        raise ValueError('no outer wall found in %s - the texture only '
+                         'works on files with outer walls (or files without '
+                         'any type markers at all)' % base)
+    if centers:
+        cx = sum(c[0] for c in centers) / len(centers)
+        cy = sum(c[1] for c in centers) / len(centers)
+        src_center = 'exclude-object center%s' % (
+            's' if len(centers) > 1 else '')
+    else:
+        cx, cy = sx / cnt, sy / cnt
+        src_center = 'wall centroid'
+    if layers_seen < 1:
+        layers_seen = 1
+    circum = chord / layers_seen
+    if circum < 1.0:
+        circum = 2.0 * math.pi * 8.0     # absurd fallback: 8mm radius
+    height = max(0.2, maxz - minz) if maxz > minz else 0.2
+    k = max(1, min(240, int(round(circum / float(bump_scale)))))
+    n = max(1, min(400, int(round(height / float(zsize)))))
+    eff_size = circum / k
+    eff_zsize = height / n
+
+    pats = _build_patterns(k, n, int(seed), img)
+    pattern_fn = pats[bump_pattern]
+
     def pattern(x, y, z):
-        if bump_pattern == 'GRID':
-            return _bump_grid(x, y, z, float(bump_scale))
-        if bump_pattern == 'WAVES':
-            return _bump_waves(x, y, z, float(bump_scale))
-        if bump_pattern == 'HEX':
-            return _bump_hex(x, y, z, float(bump_scale))
+        """R175: cylinder coordinates around the OBJECT -> seamless."""
+        th = math.atan2(y - cy, x - cx)
+        s = (th / (2.0 * math.pi)) % 1.0
+        t = (((z - minz) * n / height) % 1.0) if height > 0 else 0.0
+        return pattern_fn(s, t)
 
     stats = {'moves': 0, 'shifted': 0, 'clamped': 0, 'layers': 0, 'arcs': 0}
     cur_type = ''
@@ -307,12 +738,23 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
             ' thick %.2f density %.0f%%' % (float(fuzzy_thick),
                                             float(fuzzy_density))
             if mode == 'FUZZY' else
-            ' %s scale %.1f amp %.2f %s' % (bump_pattern, float(bump_scale),
-                                            float(bump_amp), direction)))
+            ' %s size %.1f z %.1f depth %.2f %s' % (
+                bump_pattern, float(bump_scale), float(zsize),
+                float(bump_amp), direction)))
+        fo.write('; R175 seamless: %d ridges around (effective %.1fmm) x '
+                 '%d repeats in Z (effective %.1fmm) - the seam closes, '
+                 'the texture runs endless and ends flush at the top\n'
+                 % (k, eff_size, n, eff_zsize))
+        fo.write('; center from %s at %.1f,%.1f - object height %.1fmm, '
+                 'mean circumference %.1fmm, seed %d\n'
+                 % (src_center, cx, cy, height, circum, int(seed)))
         fo.write('; fuzzy scatters / bumps displace ONLY outer-wall vertices '
                  '- tags, features, E and Z stay untouched\n')
         fo.write('; R95: G2/G3 outer-wall arcs are flattened into textured '
                  'chords (arc-fitted files get a seamless all-around texture)\n')
+        if all_is_wall:
+            fo.write('; R175 fallback: no wall markers in this file - the '
+                     'texture runs on ALL extrusion paths (lithophane mode)\n')
         for line in fi:
             ls = line.rstrip('\n')
             m = _TYPE.match(ls)
@@ -339,7 +781,7 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                 if me92 and me92.group(1) is not None:
                     last_e = float(me92.group(1))
             g = _parse_move(ls)
-            if (g and g[0] == 'G1' and cur_outer
+            if (g and g[0] == 'G1' and (cur_outer or all_is_wall)
                     and g[4] is not None and g[4] > _MIN_E and g[1] is not None):
                 x, y = g[1], g[2]
                 z = g[3]
@@ -349,7 +791,7 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                 continue
             # ---- R95: outer-wall G2/G3 arcs -> short G1 chords, textured ---
             ga = _parse_arc(ls)
-            if (ga and cur_outer and ga[7] is not None
+            if (ga and (cur_outer or all_is_wall) and ga[7] is not None
                     and ga[7] > _MIN_E and px is not None):
                 x1, y1 = ga[1], ga[2]
                 z1 = ga[3]
@@ -391,7 +833,13 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
             'fuzzy_density': float(fuzzy_density) if mode == 'FUZZY' else 0.0,
             'pattern': bump_pattern if mode == 'BUMPS' else '',
             'scale': float(bump_scale), 'amp': float(bump_amp),
-            'direction': direction, 'shifted': stats['shifted'],
+            'zsize': float(zsize), 'seed': int(seed),
+            'direction': direction,
+            'ridges': k, 'z_repeats': n, 'all_paths': all_is_wall,
+            'eff_size': round(eff_size, 2), 'eff_zsize': round(eff_zsize, 2),
+            'height': round(height, 1), 'circumference': round(circum, 1),
+            'center': (round(cx, 1), round(cy, 1)),
+            'shifted': stats['shifted'],
             'outer_moves': stats['moves'], 'clamped': stats['clamped'],
             'layers': stats['layers'], 'arcs_flattened': stats['arcs'],
             'secs': round(time.time() - t0, 2)}

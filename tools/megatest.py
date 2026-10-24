@@ -359,8 +359,17 @@ run('label hole_d 2.5 / 16', lambda: [L(texts=['D2.5'], hole_d=2.5)[0],
                                       L(texts=['D16'], hole_d=16)[0]])
 run('label 24 queue (max)', lambda: L(texts=['N%d' % i for i in range(24)],
                                     w=30, h=15))
-expect_error('label 24x 80x40 5-line rejected (bed)', lambda: L(
-    texts=['L%d~ZEILE~MIT~F~ZEILEN' % i for i in range(24)], w=80, h=40))
+# parts-splitting (R172): 24 fat 80x40 5-line labels no longer hit the
+# bed wall - they split into parts of what fits (fit <= 8 on 220mm)
+def _lbl24x():
+    _r24x = L(texts=['L%d~ZEILE~MIT~F~ZEILEN' % i for i in range(24)],
+              w=80, h=40)
+    _inf24x = _r24x[-1] if isinstance(_r24x, (list, tuple)) else {}
+    assert isinstance(_inf24x, dict) and 0 < _inf24x.get('fit', 0) <= 8, \
+        'info=%r' % (_inf24x,)
+    return _r24x
+run('label 24x 80x40 5-line -> split into parts (bed respected)',
+    _lbl24x, skip_idem=True)
 # R127: default label gap doubled 6 -> 12 (user wish) - 24 small labels only
 # fit with the old explicit gap; 16 fit at the new default spacing
 run('label 24x 30x15 5-line fits (gap 6)', lambda: L(
@@ -522,10 +531,32 @@ lbl = pp.make_labels(['TEXTUR'], bed=BED, out_dir=D)[0]
 run('texture FUZZY on label', lambda: tx.apply_texture(
     lbl, mode='FUZZY', fuzzy_thick=0.3, fuzzy_density=55, out_dir=D), skip_idem=True)
 frm = pp.make_frame(preset='9x13', bed=BED, out_dir=D)[0]
-for pat in ('GRID', 'WAVES', 'HEX'):
+# R175: the seamless pattern library - all 21 patterns, Z-size variants
+for pat in ('RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX',
+            'HONEYCOMB', 'BASKET', 'ROPE', 'PLANKS', 'BRICKS', 'SANDSTONE',
+            'CONCRETE', 'CLAY', 'CREPE', 'FABRIC', 'PLUSH', 'HILBERT',
+            'SCRATCH', 'GLITCH'):
     run('texture BUMPS %s on frame' % pat, lambda p=pat: tx.apply_texture(
         frm, mode='BUMPS', bump_pattern=p, bump_scale=6.0, bump_amp=0.5,
-        out_dir=D), skip_idem=True, r2_gen=True)
+        zsize=4.0, seed=11, out_dir=D), skip_idem=True, r2_gen=True)
+# MAP: grayscale wrap (test pattern image, 96x64)
+try:
+    from PIL import Image
+    _mapimg = Image.new('L', (96, 64))
+    _mpx = _mapimg.load()
+    import random as _mr
+    _mrr = _mr.Random(5)
+    for _yy in range(64):
+        for _xx in range(96):
+            _mpx[_xx, _yy] = int(127 + 120 * math.sin(_xx / 7.0) *
+                                 math.cos(_yy / 5.0)) & 255
+    _mapfile = os.path.join(D, 'texmap.png')
+    _mapimg.save(_mapfile)
+    run('texture BUMPS MAP on frame', lambda: tx.apply_texture(
+        frm, mode='BUMPS', bump_pattern='MAP', bump_scale=6.0, bump_amp=0.5,
+        map_file=_mapfile, out_dir=D), skip_idem=True, r2_gen=True)
+except ImportError:
+    print('MAP pattern skipped (no Pillow here)')
 
 # =========================================================== PLOT =========
 run('plot png convert', lambda: (pp.plot_convert(

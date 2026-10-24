@@ -3863,8 +3863,8 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         _v66 = _l66.split(':', 1)[1].strip()
         break
 # NOTE: bump this expectation together with the version on every release!
-tests.append(('R66/R80 version is current (.100) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-24.129a'", repr(_v66)))
+tests.append(('R66/R80 version is current (.130) in 01_state.cfg (bump together with release!)',
+    _v66 == "'R2-2026-10-24.130'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -7522,6 +7522,12 @@ _t91g, _ti91g = _at91(_p91, out_dir=_d91v, mode='FUZZY')
 tests.append(('R91: existing _TX file -> next free version (never overwritten)',
     _os91.path.basename(_t91g) == 'V02_Frame_9x13_FLATx8_TX.gcode'
     and _ti91g['version'] == 2, str(_ti91g)))
+def _guard91(fn):
+    try:
+        fn()
+        return None
+    except ValueError as _e91:
+        return str(_e91)
 # a slicer file that only has infill/fill + inner walls (no 'outer wall' type)
 _p91h = _os91.path.join(_d91v, '00_nowall.gcode')
 open(_p91h, 'w', encoding='utf-8').write(
@@ -7529,15 +7535,14 @@ open(_p91h, 'w', encoding='utf-8').write(
     'G4\n;TYPE:infill\nG1 X10 Y10 E0.5\nG1 X20 Y10 E0.6\n'
     ';TYPE:inner wall\nG1 X20 Y20 E0.7\nG1 X10 Y20 E0.8\n'
     ';LAYER_CHANGE\n;Z:0.4\n;TYPE:infill\nG1 X12 Y12 E0.9\n')
-_t91h, _ti91h = _at91(_p91h, out_dir=_d91v, mode='BUMPS', bump_pattern='GRID')
-tests.append(('R91: file without outer walls -> zero shifts, no crash',
-    _ti91h['shifted'] == 0 and _os91.path.exists(_t91h), str(_ti91h)))
-def _guard91(fn):
-    try:
-        fn()
-        return None
-    except ValueError as _e91:
-        return str(_e91)
+# R175: the library owns geometry pass 1 - a file with NO outer walls
+# can not get a texture, and v3 says so instead of silently writing an
+# untextured copy the user would print believing it is textured
+_e91h = _guard91(lambda: _at91(_p91h, out_dir=_d91v, mode='BUMPS',
+                               bump_pattern='GRID'))
+tests.append(('R91/R175: file without outer walls -> clear ValueError '
+    '(v3 refuses to silently fake a texture)',
+    _e91h is not None and 'no outer wall' in _e91h, _e91h or ''))
 for _gn91, _fn91, _fr91 in (
         ('mode FLAT', lambda: _at91(_p91, out_dir=_d91b, mode='FLAT'),
          'must be FUZZY'),
@@ -7582,9 +7587,10 @@ _lcd91 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 tests.append(('R91 LCD: Pre-Print > Texture (mode/fuzzy/bumps params + apply)',
     all(k in _lcd91 for k in ('__preprint __tex]', '__tex __mode __fuz',
                               '__tex __mode __bum', '__tex __thk',
-                              '__tex __den', '__tex __pat __gri',
-                              '__tex __scl',
-                              '__tex __amp', '__tex __dir', '__tex __go'))
+                              '__tex __den', '__tex __pat __p00',
+                              '__tex __scl', '__tex __zsz',
+                              '__tex __amp', '__tex __sd', '__tex __dir',
+                              '__tex __go'))
     and 'TEXTURE_APPLY' in _lcd91, ''))
 # watcher wires the nonce
 tests.append(('R91 watcher: texture_nonce handler + lazy r2_texture import',
@@ -12599,6 +12605,11 @@ _REMOVED135 = [
  '__main __gen __frame __set __fpre __del __d6',
  '__main __gen __frame __set __fpre __del __d7',
  '__main __gen __frame __set __fpre __del __d8','__main __preprint __tex __pat __man',  # R173: Mandelbrot retired (user choice)
+ # R175: the 3 hard-wired quick picks became the full 21-pattern library
+ # on pages (page <> keys walk the list, __pMN = page M slot N)
+ '__main __preprint __tex __pat __gri',
+ '__main __preprint __tex __pat __hex',
+ '__main __preprint __tex __pat __wav',
  '__main __live __accels', '__main __live __accels __cur',
  '__main __preprint __profs __autosave',   # R169: auto-post retired
  '__main __live __accels __eff', '__main __live __accels __ga',
@@ -12627,7 +12638,18 @@ _REMOVED135 = [
  '__main __preprint __file __pvt', '__main __preprint __file __retst',
  '__main __preprint __file __su', '__main __preprint __file __tvf',
  '__main __preprint __file __tvsp', '__main __preprint __file __w']
-_ADDED135 = ['__main __live __acfe __cur', '__main __live __acfe __eff',
+_ADDED135 = [
+ # R175: the seamless texture library on the LCD - pattern pages + the
+ # new self-explaining parameters
+ '__main __preprint __tex __map',
+ '__main __preprint __tex __pat __pd',
+ '__main __preprint __tex __pat __pu',
+ '__main __preprint __tex __sd',
+ '__main __preprint __tex __zsz',
+] + ['__main __preprint __tex __pat __p%d%d' % (_pg, _sl)
+     for _pg in range(3) for _sl in range(8)
+     if not (_pg == 2 and _sl > 4)] + [
+ '__main __live __acfe __cur', '__main __live __acfe __eff',
  '__main __preprint __tex __usr',
  '__main __preprint __tex __usr __info',
  '__main __preprint __tex __usr __save',
@@ -14330,6 +14352,125 @@ tests.append(('R174c preset engine: INFO lists the names (console check)',
 tests.append(('R174c preset engine: unknown generator refused honestly',
     'unknown generator' in render(_eng174c, {'ACTION': 'save', 'GEN': 'nosuch'}),
     ''))
+
+
+# ================== R175 (.130): the seamless texture library =================
+import sys as _sys175
+import re as _re175
+_sys175.path.insert(0, 'tools')
+import r2_texture as _tx175
+_tx175_src = open('tools/r2_texture.py').read()
+_ta175 = open('macros/17_generator.cfg').read()
+_lcd175 = open('menus/lcd_menues.cfg').read()
+_pp175 = open('tools/r2_postproc.py').read()
+
+tests.append(('R175 library: 21 seamless patterns + FUZZY + MAP image wrap',
+    len(_tx175.PATTERN_NAMES) == 21
+    and 'HONEYCOMB' in _tx175.PATTERN_NAMES and 'GLITCH' in _tx175.PATTERN_NAMES
+    and 'MAP' in _tx175.PATTERN_NAMES and 'MANDELBROT' not in _tx175.PATTERN_NAMES,
+    str(len(_tx175.PATTERN_NAMES))))
+# Seam-Beweis: der Sprung am Umfangs-Wrap ist nie groesser als im Feldinneren
+import math as _m175
+def _seamok175(pat, k=9, n=2, seed=7):
+    pats = _tx175._build_patterns(k, n, seed, None)
+    fn = pats[pat]
+    field = 0.0
+    for _i in range(400):
+        _s = _i / 400.0
+        field = max(field, abs(fn(_s, 0.3) - fn(_s + 0.0025, 0.3)))
+    for _j in range(400):
+        _t = _j / 400.0
+        field = max(field, abs(fn(0.3, _t) - fn(0.3, _t + 0.0025)))
+    seam = abs(fn(0.99875, 0.3) - fn(0.00125, 0.3))
+    ztop = abs(fn(0.3, 0.99875) - fn(0.3, 0.00125))
+    return seam <= field + 0.06 and ztop <= field + 0.06
+tests.append(('R175 seamless: pattern functions close at the seam AND the top '
+    '(wrap jump <= field jump, sampled)',
+    all(_seamok175(_p) for _p in _tx175.PATTERN_NAMES if _p != 'MAP'),
+    'a pattern jumps at the wrap'))
+tests.append(('R175 geometry snap: k ridges + n Z-repeats are INTEGER counts '
+    'derived from circumference/height (user size = guideline)',
+    'k = max(1, min(240, int(round(circum / float(bump_scale)))))'
+    in _tx175_src
+    and 'n = max(1, min(400, int(round(height / float(zsize)))))' in _tx175_src
+    and "'ridges': k, 'z_repeats': n" in _tx175_src,
+    'snap logic missing'))
+tests.append(('R175 center: EXCLUDE_OBJECT CENTER preferred, wall centroid '
+    'fallback (the texture belongs to the OBJECT, not the bed)',
+    '_EOD_CENTER' in _tx175_src and 'wall centroid' in _tx175_src,
+    ''))
+# realer Durchlauf: Nahtlos-Info + ganzzahlige Rillen
+import os as _os175, tempfile as _tf175
+_d175 = _tf175.mkdtemp()
+_src175 = _os175.path.join(_d175, 'seamtest.gcode')
+with open(_src175, 'w') as _f175:
+    _f175.write(';TYPE:Outer wall\nAPPLY_TYPE TYPE=WALL-OUTER\n')
+    _e175 = 0.0
+    for _l175 in range(30):
+        _f175.write(';LAYER_CHANGE\nG1 Z%.3f F600\n' % (0.2 + _l175 * 0.2))
+        for _i175 in range(60):
+            _a175 = 2 * _m175.pi * _i175 / 60
+            _e175 += 0.05
+            _f175.write('G1 X%.3f Y%.3f E%.5f F1800\n'
+                        % (110 + 12 * _m175.cos(_a175),
+                           110 + 12 * _m175.sin(_a175), _e175))
+    _f175.write('PRINT_END\n')
+_out175, _info175 = _tx175.apply_texture(
+    _src175, out_dir=_d175, mode='BUMPS', bump_pattern='BRICKS',
+    bump_scale=8.0, bump_amp=0.3, zsize=2.9, seed=5)
+tests.append(('R175 real run: BRICKS on a cylinder -> integer ridges/repeats '
+    'reported (U=75.4mm/8 -> 9 ridges, z-span 5.8mm/2.9 -> 2 repeats)',
+    _info175['ridges'] == 9 and _info175['z_repeats'] == 2
+    and abs(_info175['eff_size'] - 75.4 / 9) < 0.2
+    and abs(_info175['eff_zsize'] - 2.9) < 0.01
+    and _info175['shifted'] > 1000,
+    'k=%s n=%s eff_z=%s shifted=%s' % (
+        _info175['ridges'], _info175['z_repeats'],
+        _info175.get('eff_zsize'), _info175['shifted'])))
+tests.append(('R175 params: SIZE/ZSIZE/DEPTH/SEED/MAP stored (old names stay '
+    'aliases)', 
+    'VARIABLE=texture_scale VALUE={params.SIZE|float}' in _ta175
+    and 'VARIABLE=texture_zsize VALUE={params.ZSIZE|float}' in _ta175
+    and 'VARIABLE=texture_amp VALUE={params.DEPTH|float}' in _ta175
+    and 'VARIABLE=texture_seed VALUE={params.SEED|int}' in _ta175
+    and 'VARIABLE=texture_map VALUE' in _ta175,
+    ''))
+tests.append(('R175 macro: 21-pattern validation, MANDELBROT finally gone '
+    'everywhere',
+    'HONEYCOMB' in _ta175.split('unknown pattern')[0]
+    and 'MANDELBROT' not in _ta175,
+    ''))
+tests.append(('R175 watcher: zsize/seed/map flow into the job + the answer '
+    'reports the snapped counts',
+    "rv.get('texture_zsize'" in _pp175 and "rv.get('texture_seed'" in _pp175
+    and "rv.get('texture_map'" in _pp175
+    and 'seamless: %d ridges x %d Z-repeats' in _pp175,
+    ''))
+tests.append(('R175 LCD: self-explaining names (Around/Height/Depth/Seed) + '
+    '21 patterns on 3 pages + MAP image line',
+    'Around:' in _lcd175 and 'Height:' in _lcd175 and 'Depth:' in _lcd175
+    and 'Seed:' in _lcd175
+    and len(_re175.findall(
+        r'\[menu __main __preprint __tex __pat __p\d\d\]', _lcd175)) == 21
+    and 'Img:' in _lcd175,
+    ''))
+tests.append(('R175 presets: texture user presets carry zsize + seed (R174c '
+    'key list extended)',
+    "'texture_zsize'" in _ta175 and "'texture_seed'" in _ta175, ''))
+_rj175 = _pp175[_pp175.index('def _range_job62'):]
+_rj175 = _rj175[:_rj175.index('\ndef ') + 1]
+tests.append(('R175 sounds: the RANGE job finally confirms with r2_done '
+    '(the .129 field log: no sound when the excerpt was ready)',
+    'M117 Range ready' in _rj175
+    and '_SOUND_LIB NAME=r2_done' in _rj175,
+    'range done sound missing'))
+tests.append(('R175 optimized copies: printing the same file + YES twice '
+    'numbers instead of overwriting (name_O2, _O3 ...)',
+    "'%s_O%d%s' % (_stem175, _n175, _ext175)" in _pp175
+    and 'Your tuning history stays' in _pp175,
+    ''))
+import shutil as _sh175
+_sh175.rmtree(_d175, ignore_errors=True)
 
 fails = 0
 for name, ok, info in tests:

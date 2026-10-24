@@ -60,6 +60,39 @@ nonce wie immer). LCD: Settings-Menü jedes Generators erhält drei Zeilen
 (Preset: Save / Load > Nr / Del > Nr), Load/Del blättern durch alle.
 Werks-Presets bleiben wie sie sind.
 
+## Offene Wünsche aus dem 3. Feldbericht (Reihenfolge nach Bau)
+
+- **Menü-Reorg Pre-Print** (Vorgabe Live-Tuning als Sortiervorlage):
+  1. Dateiinformation ganz oben, 2. Fixes-Menü, 3. **Modifikationen**-
+  Untermenü (Textur, Range, **Skalierung X/Y**, Plotter — Plotter nur wenn
+  Plot-Modus aktiv), 4. Temperaturen+Lüfter, 5. Motion (Velocity/
+  Extrusion/Retraction als Untermenüs), 6. Features. **Profile** als
+  Untermenüs zusammengefasst ans Listenende; der einsame „Default"-Eintrag
+  unten raus (ist in Profil schon drin).
+- **Menü-Reorg Live-Tuning**: 1. Temps+Fan-Untermenü ganz oben, 2. Z-Hopping,
+  3. Z-Offset, 4. Babysteps + Schnellzugriffe, 5. Features (Ironing-Flow aus
+  Extrusion MIT hierher + in Flow-Schnellzugriff), …, Exclude+Pause ans
+  Ende.
+- **Fixes-Menü**: eindeutige Selbsterklärend-Texte + File-Check/Re-Fix
+  (Retagging) aus dem Systemmenü integrieren + Segment-Fix erklären
+  („vereint Mikro-Bewegungen: Dateien mit >450 Moves/s gefährden den MCU
+  (Timer too close) — der Fix verschmilzt winzige Segmente, Druckbild
+  bleibt gleich, nur die Steuerung kommt wieder hinterher").
+- **Fan-Logik entschaukeln** (Feldbericht: „nur voll Power wenn hold 100%
+  + clamp aus + fan 150%"): klare Priorität und klare Namen —
+  Live-Fan-% = absolute Drehzahl (überschreibt alles) > Hold (fester %)
+  > Scale (× Dateiwert) > Clamp (min/max in % vom Max). Im neuen
+  Temps+Fan-Menü mit Rechenanzeige pro M106.
+- **SD-Browser Löschen** (auch Generator-Ordner + optimized/): Del-Modus
+  im Browser (Klick 1 = bestätigen, Klick 2 = weg), Watcher-Kanal, nur
+  unter gcodes-Root.
+- **R176 Scale X/Y** im Modifikationen-Untermenü (E'=E·(L'/L)·(w'/w),
+  Kopie _SXXX-SYYY, neue 100%-Basis).
+- **R177 Kuchen-Schnitt**: Anforderung präzisiert — Schnittebene mit Winkel
+  in ALLEN Achsen in 0,5°-Schritten + Offset, teilen/splitten, optional neu
+  auf der Platte ausrichten. Flach-Variante (Winkel in XY + Z-Offset) zuerst,
+  Kipp/Nick danach.
+
 ## R175 — Textur-Bibliothek (Muster-Generator)
 
 Ersetzt die festen 3 Bump-Muster durch eine **Mustertextur-Engine**: jede
