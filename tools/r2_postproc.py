@@ -7572,7 +7572,7 @@ NONCE_KEYS = ('preview_nonce', 'range_nonce', 'label_gen_nonce', 'reso_nonce',
               'file_check_nonce', 'colorpic_nonce', 'bricks_nonce',
               'brickkit_nonce', 'figures_nonce', 'plot_cal_nonce',
               'queue_cancel_nonce', 'gen_del_nonce', 'del_nonce',
-              'plot_nonce',
+              'scale_nonce', 'plot_nonce',
               # R147 - .108 field log - NO parentheses in this tuple - the
               # r143 audit regex stops at the first closing bracket. The
               # three NEWER fix channels were read in the watch loop but
@@ -7613,6 +7613,7 @@ GEN_SUBDIRS = {
     'colorpic': 'ColorPic', 'bricks': 'Bricks', 'kit': 'Kit',
     'figures': 'Figures', 'plot': 'Plot', 'plotcal': 'Plot',
     'range': 'Range', 'texture': 'Texture', 'towers': 'Towers',
+    'scale': 'Scale',
 }
 GEN_FOLDER_NAMES = sorted(set(GEN_SUBDIRS.values()))
 _SD_EXT151 = ('.gcode', '.g', '.gco', '.png', '.jpg', '.jpeg',
@@ -17889,6 +17890,233 @@ def _mem_available_mb():
     return -1
 
 
+
+def apply_scale(src, sx=1.0, sy=1.0, out_dir=None, bed=None):
+    """R176 (.130 wish list): scale a file in X/Y with honest extrusion.
+
+    A print road is L x w x h; the layer height h stays, so every move's
+    E scales with (L'/L) * (w'/w): an X or Y move scales sx*sy, a 45-degree
+    move (sx^2+sy^2)/2, a uniform s gives s^2 everywhere - the flow stays
+    right WITHOUT touching the global flow %. The scaled object is
+    CENTERED on the bed (deterministic position - two runs, same spot),
+    G2/G3 arcs flatten to scaled chords, the output is name_SXXX-YYY.gcode
+    and never overwrites. Returns (new_path, info).
+    """
+    import math as _m176
+    from r2_texture import _arc_points as _ap176, _parse_move as _pm176, \
+        _parse_arc as _pa176
+
+    sx = float(sx)
+    sy = float(sy)
+    if not (0.25 <= sx <= 3.0 and 0.25 <= sy <= 3.0):
+        raise ValueError('scale %.0f%%/%.0f%% out of range (25..300%% '
+                         'per axis)' % (sx * 100, sy * 100))
+    if abs(sx - 1.0) < 1e-9 and abs(sy - 1.0) < 1e-9:
+        raise ValueError('100%%/100%% changes nothing - pick at least one '
+                         'axis')
+    if not os.path.isfile(src):
+        raise ValueError('source file not found: %s' % src)
+    base = os.path.basename(src)
+    stem = os.path.splitext(base)[0]
+    out_dir = out_dir or os.path.dirname(os.path.abspath(src))
+    if bed is None:
+        bed = (0.0, 0.0, 220.0, 220.0)
+    bx0, by0, bx1, by1 = [float(v) for v in bed]
+
+    # ---- pass 1: bounding box of every move (extruding + travel) ---------
+    minx = miny = 1e9
+    maxx = maxy = -1e9
+    px1 = py1 = None
+    with open(src, errors='replace') as fi:
+        for line in fi:
+            ls = line.split(';', 1)[0]
+            g = _pm176(ls)
+            mpts = []
+            if g is not None and g[1] is not None:
+                mpts = [(g[1], g[2] if g[2] is not None else py1)]
+            else:
+                ga = _pa176(ls)
+                if ga is not None and ga[1] is not None and px1 is not None:
+                    ay = ga[2] if ga[2] is not None else py1
+                    if ay is not None:
+                        mpts = _ap176(px1, py1, ga[1], ay, i=ga[4], j=ga[5],
+                                      rr=ga[6], cw=(ga[0] == 'G2')) or []
+            for x, y in mpts:
+                if x is None or y is None:
+                    continue
+                minx = min(minx, x)
+                maxx = max(maxx, x)
+                miny = min(miny, y)
+                maxy = max(maxy, y)
+            if mpts:
+                px1, py1 = mpts[-1]
+            elif g is not None and g[1] is not None:
+                px1, py1 = g[1], g[2]
+    if minx > maxx:
+        raise ValueError('no moves with X/Y in %s - nothing to scale' % base)
+    w0, h0 = maxx - minx, maxy - miny
+    w1, h1 = w0 * sx, h0 * sy
+    if w1 > (bx1 - bx0) + 0.5 or h1 > (by1 - by0) + 0.5:
+        raise ValueError('%.0f%%/%.0f%% needs %.0f x %.0f mm - the bed has '
+                         '%.0f x %.0f mm' % (sx * 100, sy * 100, w1, h1,
+                                             bx1 - bx0, by1 - by0))
+
+    cx = (minx + maxx) / 2.0
+    cy = (miny + maxy) / 2.0
+    tx = (bx0 + bx1) / 2.0
+    ty = (by0 + by1) / 2.0
+
+    def _f176(x0, y0, x1, y1):
+        """E factor of one move: (L'/L) * (w'/w)."""
+        dx, dy = x1 - x0, y1 - y0
+        ln = _m176.hypot(dx, dy)
+        if ln < 1e-9:
+            return 1.0
+        ux, uy = dx / ln, dy / ln
+        lp = _m176.hypot(sx * ux, sy * uy)        # L'/L for a unit move
+        wp = _m176.hypot(sx * uy, sy * ux)        # w'/w perpendicular
+        return lp * wp
+
+    fname = '%s_S%d-%d.gcode' % (stem, round(sx * 100), round(sy * 100))
+    _n176 = 2
+    while os.path.exists(os.path.join(out_dir, fname)):
+        fname = '%s_S%d-%d_%d.gcode' % (stem, round(sx * 100),
+                                        round(sy * 100), _n176)
+        _n176 += 1
+    out = os.path.join(out_dir, fname)
+
+    _excl176 = re.compile(r'^(EXCLUDE_OBJECT(?:_DEFINE\s+\S+)?\s+CENTER=)'
+                          r'(-?[\d.]+),(-?[\d.]+)')
+
+    e_rel = False
+    last_e = None
+    new_e = None
+    px = py = None
+    n_moves = 0
+    n_arcs = 0
+
+    def _fmt_move(cmd, x, y, z, e_val, f_val):
+        parts = [cmd]
+        if x is not None:
+            parts.append('X%.3f' % (tx + (x - cx) * sx))
+        if y is not None:
+            parts.append('Y%.3f' % (ty + (y - cy) * sy))
+        if z is not None:
+            parts.append('Z%.3f' % z)
+        if e_val is not None:
+            parts.append('E%.5f' % e_val)
+        if f_val:
+            parts.append('F%g' % f_val)
+        return ' '.join(parts)
+
+    with open(src, errors='replace') as fi, open(out, 'w') as fo:
+        fo.write('; R176 scale: X %.0f%% Y %.0f%% around the object center, '
+                 'centered on the bed (%.1f,%.1f)\n' % (sx * 100, sy * 100,
+                                                         tx, ty))
+        fo.write('; old %.1f x %.1f mm -> new %.1f x %.1f mm - E rescaled '
+                 'per move ((L\'/L) x (w\'/w), layer height untouched), '
+                 'arcs flattened\n' % (w0, h0, w1, h1))
+        fo.write('; the 100%% flow baseline is THIS file now - live flow % '
+                 'tuning starts fresh from it\n')
+        for line in fi:
+            ls = line.rstrip('\n')
+            _me = _excl176.match(ls)
+            if _me:
+                fo.write('%s%.3f,%.3f\n' % (_me.group(1),
+                                             tx + (float(_me.group(2)) - cx) * sx,
+                                             ty + (float(_me.group(3)) - cy) * sy))
+                continue
+            if ls == 'M83':
+                e_rel = True
+                fo.write(ls + '\n')
+                continue
+            if ls == 'M82':
+                e_rel = False
+                fo.write(ls + '\n')
+                continue
+            if ls.startswith('G92'):
+                _m92 = re.match(r'^G92(?:\s+E(-?[\d.]+))?', ls)
+                if _m92 and _m92.group(1) is not None:
+                    last_e = float(_m92.group(1))
+                    new_e = last_e
+                fo.write(ls + '\n')
+                continue
+            g = _pm176(ls)
+            if g is not None:
+                x, y = g[1], g[2]
+                ay = y if y is not None else py
+                e_val = None
+                if g[4] is not None:
+                    f176 = _f176(px, py, x if x is not None else px, ay) \
+                        if (px is not None and (x is not None or y is not None)) else 1.0
+                    if e_rel:
+                        e_val = g[4] * f176
+                    else:
+                        delta = (g[4] - last_e) if last_e is not None else 0.0
+                        base_e = new_e if new_e is not None else g[4]
+                        e_val = base_e + delta * f176
+                        last_e = g[4]
+                        new_e = e_val
+                fo.write(_fmt_move(g[0], x, y, g[3], e_val, None) + '\n')
+                if x is not None or y is not None:
+                    px = x if x is not None else px
+                    py = y if y is not None else py
+                n_moves += 1
+                continue
+            ga = _pa176(ls)
+            if ga is not None and ga[1] is not None and px is not None:
+                ay2 = ga[2] if ga[2] is not None else py
+                if ay2 is not None:
+                    pts = _ap176(px, py, ga[1], ay2, i=ga[4], j=ga[5],
+                                 rr=ga[6], cw=(ga[0] == 'G2'))
+                    if pts:
+                        n_arcs += 1
+                        chain = [(px, py)] + pts
+                        lens = [_m176.hypot(b[0] - a[0], b[1] - a[1])
+                                for a, b in zip(chain, chain[1:])]
+                        tot = sum(lens) or 1.0
+                        f_txt = (' F%g' % ga[8]) if ga[8] else ''
+                        if ga[7] is not None and ga[7] > 0 and not e_rel:
+                            d_total = ga[7] - (last_e if last_e is not None
+                                               else 0.0)
+                        elif ga[7] is not None and ga[7] > 0 and e_rel:
+                            d_total = ga[7]
+                        else:
+                            d_total = None
+                        done_e = 0.0
+                        for (ax, ayv), (bx, byv), ln in zip(chain, chain[1:],
+                                                            lens):
+                            frac = ln / tot
+                            if d_total is None:
+                                fo.write(_fmt_move('G1', bx, byv, ga[3],
+                                                   None, None) + f_txt + '\n')
+                            else:
+                                f_i = _f176(ax, ayv, bx, byv)
+                                if e_rel:
+                                    e_i = d_total * frac * f_i
+                                    done_e += e_i
+                                    fo.write(_fmt_move('G1', bx, byv, ga[3],
+                                                       e_i, None) + f_txt + '\n')
+                                else:
+                                    d_i = d_total * frac
+                                    e_i = (new_e if new_e is not None
+                                           else 0.0) + done_e + d_i * f_i
+                                    done_e += d_i * f_i
+                                    fo.write(_fmt_move('G1', bx, byv, ga[3],
+                                                       e_i, None) + f_txt + '\n')
+                        if d_total is not None and not e_rel:
+                            last_e = ga[7]
+                            new_e = (new_e if new_e is not None
+                                     else 0.0) + done_e
+                        px, py = ga[1], ay2
+                        continue
+            fo.write(ls + '\n')
+    info = {'file': fname, 'src': base, 'sx': sx, 'sy': sy,
+            'old_size': (w0, h0), 'new_size': (w1, h1),
+            'moves': n_moves, 'arcs_flattened': n_arcs,
+            'bed_center': (tx, ty)}
+    return out, info
+
 def watch(directory, interval=5.0, once=False):
     """Daemon: process every new/changed .gcode file under DIRECTORY.
 
@@ -18297,6 +18525,7 @@ def watch(directory, interval=5.0, once=False):
     last_gen_del_nonce = None        # R133f: gen file delete
     last_img_pick_nonce = None       # R174: SD browser image -> root copy
     last_del_nonce = None            # R175d: SD browser universal delete
+    last_scale_nonce = None          # R176: scale X/Y with flow recalc
     gen_files_pushed = ['']          # R133f: generator outputs for the LCD
     sd_tree_pushed = [None]          # R154: folder tree for the LCD browser
 
@@ -20244,6 +20473,68 @@ def watch(directory, interval=5.0, once=False):
             except Exception:                               # noqa: BLE001
                 pass
             print(f'[texture] guard: {ve91}', flush=True)
+
+        # R176 (.130 wish list): SCALE X/Y - the wish list wanted the flow
+        # recomputed with it. The engine rescales E per move (the 100%
+        # baseline is the new file), centers the result on the bed and
+        # flattens arcs.
+        try:
+            _scn176 = rv.get('scale_nonce', '')
+            if _scn176 and _scn176 != last_scale_nonce:
+                last_scale_nonce = _scn176
+                _srel176 = str(rv.get('scale_file', '') or '').strip().lstrip('/')
+                if '..' in _srel176 or _srel176.startswith('/'):
+                    _srel176 = os.path.basename(_srel176)
+                _sx176 = float(rv.get('scale_x', 100) or 100) / 100.0
+                _sy176 = float(rv.get('scale_y', 100) or 100) / 100.0
+                _sbed176 = _bed_limits(os.path.join(
+                    directory, _srel176) if _srel176 else directory)
+                if not _srel176:
+                    _moonraker_gcode(
+                        'RESPOND MSG=\"Scale: no file selected - pick one '
+                        'first (Pre-Print > File)\"\nM117 Scale: no file'
+                        '\n_SOUND_LIB NAME=r2_notice')
+                else:
+                    def _scale_job176(rel=_srel176, sx=_sx176, sy=_sy176,
+                                      bed=_sbed176, rvq=rv):
+                        out_s, info_s = apply_scale(
+                            os.path.join(directory, rel),
+                            sx=sx, sy=sy,
+                            out_dir=_gensub(directory, 'scale'), bed=bed)
+                        _msg = ('Scale: %s -> %s (X %.0f%% Y %.0f%%: '
+                                '%.1f x %.1f -> %.1f x %.1f mm, centered '
+                                'on the bed - E rescaled per move, the '
+                                '100%% flow baseline is the NEW file)'
+                                % (info_s['src'], info_s['file'],
+                                   sx * 100, sy * 100,
+                                   info_s['old_size'][0], info_s['old_size'][1],
+                                   info_s['new_size'][0], info_s['new_size'][1]))
+                        try:
+                            _moonraker_gcode(
+                                'RESPOND MSG=\"%s\"\nM117 Scale ready\n'
+                                '_SOUND_LIB NAME=r2_done' % _msg
+                                + _sel_line(rvq, os.path.relpath(out_s,
+                                                                 directory)))
+                        except Exception as me:                   # noqa: BLE001
+                            print(f'[scale] moonraker unreachable '
+                                  f'({me.__class__.__name__})', flush=True)
+                        print(f'[scale] {info_s["file"]}: OK '
+                              f'({info_s["moves"]} moves, '
+                              f'{info_s["arcs_flattened"]} arcs)', flush=True)
+                        return [out_s]
+
+                    _spawn_job('Scale', 'scale:%s:%s/%s' % (
+                        _srel176, _sx176, _sy176), _scale_job176)
+        except ValueError as ve176:
+            try:
+                _moonraker_gcode(
+                    'RESPOND MSG=\"Scale: %s\"\nM117 Scale error\n'
+                    '_SOUND_LIB NAME=r2_error' % ve176)
+            except Exception:                               # noqa: BLE001
+                pass
+            print(f'[scale] guard: {ve176}', flush=True)
+        except Exception as e:                              # noqa: BLE001
+            print(f'[scale] poll error: {e!r}', flush=True)
 
         # R93: FILE CHECK (file_check_nonce) - version census over every
         # g-code file. RETAG additionally upgrades old/untouched files:

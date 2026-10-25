@@ -5142,7 +5142,8 @@ tests.append(('R75 watcher: _prime_nonces adopts the current counters (no re-fir
         'queue_cancel_nonce': None, 'gen_del_nonce': None,
         'plot_nonce': None,
         'opt_nonce': None, 'opt_load_nonce': None,
-        'img_pick_nonce': None, 'del_nonce': None}, ''))
+        'img_pick_nonce': None, 'del_nonce': None,
+        'scale_nonce': None}, ''))
 tests.append(('R75 watcher: daemon runs niced + primes on the first pass',
     'os.nice(4)' in open('tools/r2_postproc.py').read()
     and 'first_prime' in open('tools/r2_postproc.py').read(), ''))
@@ -6336,10 +6337,10 @@ tests.append(('R86 modules: 17_generator.cfg sentinel + _CHECK_INSTALL lists 17'
     '_V18_GEN' in open(_gen86).read()
     and "('17_generator.cfg',       ['_V18_GEN'])" in open('macros/01_state.cfg').read()
     and 'all 17 modules' not in open('macros/01_state.cfg').read(), ''))
-tests.append(('R86-R174 watcher: NONCE_KEYS has 34 channels incl. litho/seal/frame/colorpic '
+tests.append(('R86-R174 watcher: NONCE_KEYS has 35 channels incl. litho/seal/frame/colorpic '
     '+ the three fix channels (.108) + the two optimized-file channels (.128) '
     '+ the SD-browser image channel (.130)',
-    len(_pp.NONCE_KEYS) == 34 and 'flowcap_fix_nonce' in _pp.NONCE_KEYS
+    len(_pp.NONCE_KEYS) == 35 and 'flowcap_fix_nonce' in _pp.NONCE_KEYS
     and 'opt_nonce' in _pp.NONCE_KEYS and 'opt_load_nonce' in _pp.NONCE_KEYS
     and 'img_pick_nonce' in _pp.NONCE_KEYS
     and 'travelacc_fix_nonce' in _pp.NONCE_KEYS
@@ -13289,6 +13290,11 @@ _ADDED135 = [
  '__main __preprint __mods __rng __to',
  '__main __preprint __mods __rng __top',
  '__main __preprint __mods __rng __tsh',
+ '__main __preprint __mods __scale',
+ '__main __preprint __mods __scale __go',
+ '__main __preprint __mods __scale __how',
+ '__main __preprint __mods __scale __x',
+ '__main __preprint __mods __scale __y',
  '__main __preprint __mods __tex',
  '__main __preprint __mods __tex __amp',
  '__main __preprint __mods __tex __den',
@@ -13562,7 +13568,7 @@ tests.append(('R175b Pre-Print order (.130 wish list): File info FIRST -> '
               str(_pre135)))
 tests.append(('R175b Pre-Print Tools submenu + Motion split',
               _kids135('__preprint __mods') == ['__poff', '__tex', '__rng',
-                                                '__plot']
+                                                '__scale', '__plot']
               and _kids135('__preprint __motion') == ['__vel', '__ext',
                                                       '__ret', '__zh1', '__zh2']
               and _kids135('__preprint __motion __vel')[-2:] == ['__spfe',
@@ -13940,7 +13946,7 @@ tests.append(('R146 generator folders (source wiring): all 15 watcher call '
               'sites route into _gensub subfolders (no flat out_dir=directory '
               'left), gen_files lists RELATIVE paths incl. legacy root files, '
               'delete joins the subpath',
-              _r2p146.count("out_dir=_gensub(directory, '") == 15
+              _r2p146.count("out_dir=_gensub(directory, '") == 16
               and 'out_dir=directory' not in _r2p146
               and 'GEN_SUBDIRS = {' in _r2p146
               and "_sub146 + '/' + _f146" in _r2p146
@@ -14046,11 +14052,11 @@ tests.append(('R160 CABLE_TIE_GENERATE CONFIRM=1 armed: second press = '
 
 import re as _re160
 _rows160 = _re160.findall(r'gcode:\n    ([A-Z_]+(?: INDEX=\d+| PRESET=\w+)? CONFIRM=1)', _lcd160)
-tests.append(('R160 LCD: 35 generation rows confirm by DOUBLE PRESS '
+tests.append(('R160 LCD: 37 generation rows confirm by DOUBLE PRESS '
     '(macro + CONFIRM=1), console stays single-shot',
-    len([r for r in _rows160 if not r.startswith(('LABEL_CLEAR_ALL', 'SYS_SAVE_CONFIG'))]) == 34
+    len([r for r in _rows160 if not r.startswith(('LABEL_CLEAR_ALL', 'SYS_SAVE_CONFIG'))]) == 35
     and 'PLOT_TEXT FILE="{nm}.txt" CONFIRM=1' in _lcd160
-    and _lcd160.count("gen_arm|default('') ==") >= 35
+    and _lcd160.count("gen_arm|default('') ==") >= 36
     and 'CABLE_TIE_GENERATE CONFIRM=1' in _lcd160
     and 'LITHO_CREATE INDEX=0 CONFIRM=1' in _lcd160
     and 'GEN_BRICKKIT CONFIRM=1' in _lcd160 and 'GEN_FIGURES CONFIRM=1' in _lcd160
@@ -15103,6 +15109,163 @@ try:
         (_r175d.stdout + _r175d.stderr)[:150].replace('\n', ' | ')))
 finally:
     _shut175d.rmtree(_base175d, ignore_errors=True)
+
+
+# ================== R176 (.130): scale X/Y with flow recalculation =========
+_pp176x = open('tools/r2_postproc.py', encoding='utf-8').read()
+import tempfile as _tf176
+_d176 = _tf176.mkdtemp(prefix='r176_')
+import math as _m176t
+_src176 = os.path.join(_d176, 'part.gcode')
+_L176 = ['M82', 'G90', 'G92 E0', 'G0 X60 Y60', ';TYPE:Outer wall']
+_e176 = 0.0
+for _t176 in range(2):
+    for (_x176, _y176) in ((160, 60), (160, 160), (60, 160), (60, 60)):
+        _e176 += 10.0
+        _L176.append('G1 X%d Y%d E%.4f F1800' % (_x176, _y176, _e176))
+_e176 += 5.0
+_L176.append('G1 X160 Y160 E%.4f' % _e176)      # the 45-degree diagonal
+_L176.append('PRINT_END')
+open(_src176, 'w').write('\n'.join(_L176) + '\n')
+_o176, _i176 = _pp.apply_scale(_src176, sx=1.5, sy=1.5,
+                               bed=(0, 0, 220, 220), out_dir=_d176)
+_lines176 = [l for l in open(_o176).read().split('\n')
+             if l.startswith('G1 X')]
+_prev176 = 0.0
+_deltas176 = []
+for _l176 in _lines176:
+    _ev176 = float(_l176.split('E')[1].split()[0])
+    _deltas176.append(_ev176 - _prev176)
+    _prev176 = _ev176
+tests.append(('R176 uniform 150%%: size 100->150mm, centered on the bed, '
+    'E x 2.25 on axis AND diagonal moves',
+    _i176['new_size'] == (150.0, 150.0)
+    and abs(_deltas176[0] - 22.5) < 1e-4
+    and abs(_deltas176[4] - 22.5) < 1e-4
+    and abs(_deltas176[-1] - 11.25) < 1e-4
+    and all(35.0 <= float(l.split('X')[1].split()[0]) <= 185.0
+            for l in _lines176),
+    str(_i176)))
+_o176b, _i176b = _pp.apply_scale(_src176, sx=2.0, sy=1.0,
+                                  bed=(0, 0, 220, 220), out_dir=_d176)
+_lines176b = [l for l in open(_o176b).read().split('\n')
+              if l.startswith('G1 X')]
+_prev176 = 0.0
+_deltas176b = []
+for _l176 in _lines176b:
+    _ev176 = float(_l176.split('E')[1].split()[0])
+    _deltas176b.append(_ev176 - _prev176)
+    _prev176 = _ev176
+tests.append(('R176 non-uniform 200/100: axis moves x 2.0 (sx*sy), the 45deg '
+    'diagonal x 2.5 ((sx^2+sy^2)/2)',
+    _i176b['new_size'] == (200.0, 100.0)
+    and abs(_deltas176b[0] - 20.0) < 1e-4
+    and abs(_deltas176b[1] - 20.0) < 1e-4
+    and abs(_deltas176b[-1] - 12.5) < 1e-4,
+    str(_deltas176b)))
+tests.append(('R176 name + never overwrite: _S200-100.gcode, second run '
+    'numbers (_2)',
+    os.path.basename(_o176b) == 'part_S200-100.gcode'
+    and os.path.basename(_pp.apply_scale(
+        _src176, sx=2.0, sy=1.0, bed=(0, 0, 220, 220), out_dir=_d176)[0])
+        == 'part_S200-100_2.gcode', ''))
+_arc176 = os.path.join(_d176, 'arc.gcode')
+_L176a = ['M83', 'G90', 'G0 X120 Y100', ';TYPE:Outer wall']
+for _q176 in range(4):
+    _a0176 = _q176 * _m176t.pi / 2
+    _a1176 = (_q176 + 1) * _m176t.pi / 2
+    _x0176 = 100 + 20 * _m176t.cos(_a0176)
+    _y0176 = 100 + 20 * _m176t.sin(_a0176)
+    _x1176 = 100 + 20 * _m176t.cos(_a1176)
+    _y1176 = 100 + 20 * _m176t.sin(_a1176)
+    _L176a.append('G3 X%.3f Y%.3f I%.3f J%.3f E%.4f F1500'
+                  % (_x1176, _y1176, 100 - _x0176, 100 - _y0176,
+                     (_m176t.pi * 20 / 2) * 0.05))
+_L176a.append('PRINT_END')
+open(_arc176, 'w').write('\n'.join(_L176a) + '\n')
+_o176c, _i176c = _pp.apply_scale(_arc176, sx=1.5, sy=1.5,
+                                 bed=(0, 0, 220, 220), out_dir=_d176)
+_cl176 = [l for l in open(_o176c).read().split('\n') if l.startswith('G1 X')]
+_es176 = sum(float(l.split('E')[1].split()[0]) for l in _cl176 if 'E' in l)
+_r176 = [_m176t.hypot(float(l.split('X')[1].split()[0]) - 110,
+                      float(l.split('Y')[1].split()[0]) - 110)
+         for l in _cl176]
+tests.append(('R176 arcs: flattened to scaled chords (r 20->30 around the '
+    'bed center), relative E keeps the volume (x 2.25)',
+    _i176c['arcs_flattened'] == 4 and len(_cl176) > 300
+    and not [l for l in open(_o176c).read().split('\n')
+             if l.startswith(('G2 ', 'G3 '))]
+    and abs(_es176 - 4 * _m176t.pi * 20 / 2 * 0.05 * 2.25) < 1e-3
+    and abs(min(_r176) - 30.0) < 0.01,
+    'arcs=%d esum=%.3f' % (_i176c['arcs_flattened'], _es176)))
+_big176 = os.path.join(_d176, 'big.gcode')
+open(_big176, 'w').write(
+    'M82\nG90\nG0 X10 Y10\nG1 X110 Y10 E50\nG1 X110 Y110 E100\n'
+    'G1 X10 Y110 E150\nG1 X10 Y10 E200\n')
+try:
+    _pp.apply_scale(_big176, sx=3.0, sy=3.0, bed=(0, 0, 220, 220),
+                    out_dir=_d176)
+    _refused176 = False
+except ValueError as _ve176:
+    _refused176 = 'the bed has' in str(_ve176)
+tests.append(('R176 guard: 300%% of a 100mm part (300mm) refuses with the '
+    'bed size in the message', _refused176, ''))
+_either176 = False
+try:
+    _pp.apply_scale(_src176, sx=1.0, sy=1.0, bed=(0, 0, 220, 220),
+                    out_dir=_d176)
+except ValueError as _ve176:
+    _either176 = 'changes nothing' in str(_ve176)
+tests.append(('R176 guard: 100/100 is refused (nothing to do)', _either176,
+              ''))
+# EXCLUDE_OBJECT centers move with the object
+_ex176 = os.path.join(_d176, 'excl.gcode')
+open(_ex176, 'w').write(
+    'EXCLUDE_OBJECT_DEFINE NAME=part CENTER=60.0,90.0\nM82\nG90\n'
+    'G0 X10 Y80\nG1 X110 Y80 E10\n')
+_o176d, _i176d = _pp.apply_scale(_ex176, sx=2.0, sy=1.0,
+                                 bed=(0, 0, 220, 220), out_dir=_d176)
+tests.append(('R176 EXCLUDE_OBJECT CENTER moves along (skip-object stays '
+    'honest after scaling)',
+    'CENTER=110.000,120.000' in open(_o176d).read(), _i176d['file']))
+
+# --- macro + LCD + watcher wiring ---
+_ga176 = open('macros/17_generator.cfg', encoding='utf-8').read()
+save_vars.update({'scale_x': 120, 'scale_y': 100, 'scale_file': '',
+                  'scale_nonce': 2})
+save_vars['preview_file'] = 'teil.gcode'
+_out176 = render(get_body('macros/17_generator.cfg', 'SCALE_APPLY'), {})
+tests.append(('R176 SCALE_APPLY: queued with the selected file + nonce bump',
+    'VARIABLE=scale_file' in _out176 and 'teil.gcode' in _out176
+    and 'VARIABLE=scale_x VALUE=120' in _out176
+    and 'VARIABLE=scale_nonce VALUE=3' in _out176
+    and 'E is recomputed' in _out176, _out176.strip()[:120]))
+save_vars['preview_file'] = ''
+_out176 = render(get_body('macros/17_generator.cfg', 'SCALE_APPLY'), {})
+tests.append(('R176 SCALE_APPLY: no file selected -> friendly error, nonce '
+    'untouched', 'no file selected' in _out176
+    and 'scale_nonce VALUE=' not in _out176, _out176.strip()[:100]))
+save_vars.update({'preview_file': 'teil.gcode'})
+_out176 = render(get_body('macros/17_generator.cfg', 'SCALE_APPLY'),
+                 {'X': '400'})
+tests.append(('R176 SCALE_APPLY: out-of-range X rejected (25..300)',
+    'out of range' in _out176 and 'scale_nonce VALUE=' not in _out176,
+    _out176.strip()[:100]))
+_lcd176 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R176 LCD: Scale X/Y lives in the Tools menu (X/Y inputs + '
+    'How? + Apply with the two-press arm)',
+    '[menu __main __preprint __mods __scale]' in _lcd176
+    and 'SCALE_APPLY CONFIRM=1' in _lcd176
+    and 'scale_x VALUE={menu.input|round|int}' in _lcd176
+    and 'scale_y VALUE={menu.input|round|int}' in _lcd176, ''))
+tests.append(('R176 watcher: scale channel primed + job speaks the new size '
+    'and the fresh 100%% flow baseline',
+    'scale_nonce' in _pp.NONCE_KEYS
+    and 'last_scale_nonce' in _pp176x
+    and 'M117 Scale ready' in _pp176x
+    and '100%% flow baseline is the NEW file' in _pp176x, ''))
+import shutil as _sh176
+_sh176.rmtree(_d176, ignore_errors=True)
 
 fails = 0
 for name, ok, info in tests:

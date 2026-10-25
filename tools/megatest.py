@@ -539,6 +539,14 @@ for pat in ('RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX',
     run('texture BUMPS %s on frame' % pat, lambda p=pat: tx.apply_texture(
         frm, mode='BUMPS', bump_pattern=p, bump_scale=6.0, bump_amp=0.5,
         zsize=4.0, seed=11, out_dir=D), skip_idem=True, r2_gen=True)
+# R176: X/Y scaling with per-move flow recalculation
+run('scale 150/150 on label', lambda: pp.apply_scale(
+    lbl, sx=1.5, sy=1.5, out_dir=D), skip_idem=True, r2_gen=True)
+run('scale 200/100 on label', lambda: pp.apply_scale(
+    lbl, sx=2.0, sy=1.0, out_dir=D), skip_idem=True, r2_gen=True)
+expect_error('scale 300/300 refused (bed)', lambda: pp.apply_scale(
+    lbl, sx=3.0, sy=3.0, out_dir=D))
+
 # MAP: grayscale wrap (test pattern image, 96x64)
 try:
     from PIL import Image
