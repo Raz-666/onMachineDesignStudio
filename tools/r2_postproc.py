@@ -64,7 +64,7 @@ TAG = '; R2-POSTPROC v5'
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-10-24.130 (R175)'
+POSTPROC_RELEASE = 'R2-2026-10-24.130'
 POSTPROC_BUILD = 'R166'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
@@ -7572,7 +7572,7 @@ NONCE_KEYS = ('preview_nonce', 'range_nonce', 'label_gen_nonce', 'reso_nonce',
               'file_check_nonce', 'colorpic_nonce', 'bricks_nonce',
               'brickkit_nonce', 'figures_nonce', 'plot_cal_nonce',
               'queue_cancel_nonce', 'gen_del_nonce', 'del_nonce',
-              'scale_nonce', 'plot_nonce',
+              'scale_nonce', 'cake_nonce', 'plot_nonce',
               # R147 - .108 field log - NO parentheses in this tuple - the
               # r143 audit regex stops at the first closing bracket. The
               # three NEWER fix channels were read in the watch loop but
@@ -7613,7 +7613,7 @@ GEN_SUBDIRS = {
     'colorpic': 'ColorPic', 'bricks': 'Bricks', 'kit': 'Kit',
     'figures': 'Figures', 'plot': 'Plot', 'plotcal': 'Plot',
     'range': 'Range', 'texture': 'Texture', 'towers': 'Towers',
-    'scale': 'Scale',
+    'scale': 'Scale', 'cake': 'Cake',
 }
 GEN_FOLDER_NAMES = sorted(set(GEN_SUBDIRS.values()))
 _SD_EXT151 = ('.gcode', '.g', '.gco', '.png', '.jpg', '.jpeg',
@@ -18526,6 +18526,7 @@ def watch(directory, interval=5.0, once=False):
     last_img_pick_nonce = None       # R174: SD browser image -> root copy
     last_del_nonce = None            # R175d: SD browser universal delete
     last_scale_nonce = None          # R176: scale X/Y with flow recalc
+    last_cake_nonce = None           # R177: cake cut (plane split)
     gen_files_pushed = ['']          # R133f: generator outputs for the LCD
     sd_tree_pushed = [None]          # R154: folder tree for the LCD browser
 
@@ -20533,6 +20534,81 @@ def watch(directory, interval=5.0, once=False):
             except Exception:                               # noqa: BLE001
                 pass
             print(f'[scale] guard: {ve176}', flush=True)
+
+        # R177 (.130 wish list): the CAKE CUT - split a print with a
+        # plane. Angles in all three axes (0.5 deg grid), the plane runs
+        # through the bed center X/Y at the Z offset. UPPER lands with
+        # its cut face on the bed (reorient) or keeps its stance; LOWER
+        # keeps its place. Both files are standalone.
+        try:
+            _ccn177 = rv.get('cake_nonce', '')
+            if _ccn177 and _ccn177 != last_cake_nonce:
+                last_cake_nonce = _ccn177
+                _crel177 = str(rv.get('cake_file', '') or '').strip().lstrip('/')
+                if '..' in _crel177 or _crel177.startswith('/'):
+                    _crel177 = os.path.basename(_crel177)
+                _cyaw177 = float(rv.get('cake_yaw', 0) or 0)
+                _cpit177 = float(rv.get('cake_pitch', 0) or 0)
+                _croll177 = float(rv.get('cake_roll', 0) or 0)
+                _czoff177 = float(rv.get('cake_zoff', 5) or 5)
+                _cpart177 = str(rv.get('cake_part', 'BOTH')
+                                or 'BOTH').upper()
+                _creo177 = str(rv.get('cake_reorient', 0) or '0') in ('1', 'True', 'true', 'on')
+                _cbed177 = _bed_limits(os.path.join(
+                    directory, _crel177) if _crel177 else directory)
+                if not _crel177:
+                    _moonraker_gcode(
+                        'RESPOND MSG=\"Cake cut: no file selected - pick '
+                        'one first (Pre-Print > File)\"\nM117 Cake: no '
+                        'file\n_SOUND_LIB NAME=r2_notice')
+                else:
+                    def _cake_job177(rel=_crel177, yaw=_cyaw177,
+                                     pitch=_cpit177, roll=_croll177,
+                                     zoff=_czoff177, part=_cpart177,
+                                     reo=_creo177, bed=_cbed177, rvq=rv):
+                        from r2_cake import cut_cake as _ck177
+                        outs, info_c = _ck177(
+                            os.path.join(directory, rel),
+                            yaw=yaw, pitch=pitch, roll=roll,
+                            z_offset=zoff, part=part, reorient=reo,
+                            out_dir=_gensub(directory, 'cake'), bed=bed)
+                        _msg = ('Cake cut: %s -> %s (plane yaw %.1f / '
+                                'pitch %.1f / roll %.1f at z %.1f, %s'
+                                '%d segments above / %d below - E splits '
+                                'at the plane)'
+                                % (info_c['src'], ' + '.join(info_c['file']),
+                                   info_c['yaw'], info_c['pitch'],
+                                   info_c['roll'], info_c['z_offset'],
+                                   'cut face flat on the bed, '
+                                   if info_c['reorient'] else '',
+                                   info_c['segments_upper'],
+                                   info_c['segments_lower']))
+                        try:
+                            _moonraker_gcode(
+                                'RESPOND MSG=\"%s\"\nM117 Cake ready\n'
+                                '_SOUND_LIB NAME=r2_done' % _msg
+                                + _sel_line(rvq, os.path.relpath(
+                                    outs[0], directory)))
+                        except Exception as me:                   # noqa: BLE001
+                            print(f'[cake] moonraker unreachable '
+                                  f'({me.__class__.__name__})', flush=True)
+                        print(f'[cake] {info_c["file"]}: OK '
+                              f'(upper {info_c["segments_upper"]} / '
+                              f'lower {info_c["segments_lower"]} segments)',
+                              flush=True)
+                        return outs
+
+                    _spawn_job('Cake', 'cake:%s:y%s/p%s/r%s@%s' % (
+                        _crel177, _cyaw177, _cpit177, _croll177,
+                        _czoff177), _cake_job177)
+        except ValueError as ve177:
+            try:
+                _moonraker_gcode(
+                    'RESPOND MSG=\"Cake cut: %s\"\nM117 Cake error\n'
+                    '_SOUND_LIB NAME=r2_error' % ve177)
+            except Exception:                               # noqa: BLE001
+                pass
+            print(f'[cake] guard: {ve177}', flush=True)
         except Exception as e:                              # noqa: BLE001
             print(f'[scale] poll error: {e!r}', flush=True)
 
@@ -21269,6 +21345,16 @@ def watch(directory, interval=5.0, once=False):
             first = False
             if once:
                 _seen_flush149()     # R149: one-shot catch-up persists too
+                # R177: a --once run must also FINISH its queued jobs -
+                # _spawn_job builds run in the worker thread; without this
+                # drain the one-shot exited before any generator ran
+                # (found by the cake live test: nonce fired, nothing built)
+                _t177 = time.monotonic()
+                while time.monotonic() - _t177 < 600:
+                    with _JOB_STATE['lock']:
+                        if not _JOB_STATE['queue'] and not _JOB_STATE['keys']:
+                            break
+                    time.sleep(0.5)
                 return
         if time.time() - last_beat >= 900:
             # heartbeat every 15 min so it is obvious the daemon is alive

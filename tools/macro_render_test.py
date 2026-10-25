@@ -5143,7 +5143,8 @@ tests.append(('R75 watcher: _prime_nonces adopts the current counters (no re-fir
         'plot_nonce': None,
         'opt_nonce': None, 'opt_load_nonce': None,
         'img_pick_nonce': None, 'del_nonce': None,
-        'scale_nonce': None}, ''))
+        'scale_nonce': None,
+        'cake_nonce': None}, ''))
 tests.append(('R75 watcher: daemon runs niced + primes on the first pass',
     'os.nice(4)' in open('tools/r2_postproc.py').read()
     and 'first_prime' in open('tools/r2_postproc.py').read(), ''))
@@ -6337,10 +6338,10 @@ tests.append(('R86 modules: 17_generator.cfg sentinel + _CHECK_INSTALL lists 17'
     '_V18_GEN' in open(_gen86).read()
     and "('17_generator.cfg',       ['_V18_GEN'])" in open('macros/01_state.cfg').read()
     and 'all 17 modules' not in open('macros/01_state.cfg').read(), ''))
-tests.append(('R86-R174 watcher: NONCE_KEYS has 35 channels incl. litho/seal/frame/colorpic '
+tests.append(('R86-R174 watcher: NONCE_KEYS has 36 channels incl. litho/seal/frame/colorpic '
     '+ the three fix channels (.108) + the two optimized-file channels (.128) '
     '+ the SD-browser image channel (.130)',
-    len(_pp.NONCE_KEYS) == 35 and 'flowcap_fix_nonce' in _pp.NONCE_KEYS
+    len(_pp.NONCE_KEYS) == 36 and 'flowcap_fix_nonce' in _pp.NONCE_KEYS
     and 'opt_nonce' in _pp.NONCE_KEYS and 'opt_load_nonce' in _pp.NONCE_KEYS
     and 'img_pick_nonce' in _pp.NONCE_KEYS
     and 'travelacc_fix_nonce' in _pp.NONCE_KEYS
@@ -13262,6 +13263,15 @@ _ADDED135 = [
  '__main __preprint __fixes __tvf',
  '__main __preprint __fixes __tvsp',
  '__main __preprint __mods',
+ '__main __preprint __mods __cake',
+ '__main __preprint __mods __cake __go',
+ '__main __preprint __mods __cake __how',
+ '__main __preprint __mods __cake __part',
+ '__main __preprint __mods __cake __pitch',
+ '__main __preprint __mods __cake __reo',
+ '__main __preprint __mods __cake __roll',
+ '__main __preprint __mods __cake __yaw',
+ '__main __preprint __mods __cake __z',
  '__main __preprint __mods __plot',
  '__main __preprint __mods __plot __pl0',
  '__main __preprint __mods __plot __plr',
@@ -13568,7 +13578,8 @@ tests.append(('R175b Pre-Print order (.130 wish list): File info FIRST -> '
               str(_pre135)))
 tests.append(('R175b Pre-Print Tools submenu + Motion split',
               _kids135('__preprint __mods') == ['__poff', '__tex', '__rng',
-                                                '__scale', '__plot']
+                                                '__scale', '__cake',
+                                                '__plot']
               and _kids135('__preprint __motion') == ['__vel', '__ext',
                                                       '__ret', '__zh1', '__zh2']
               and _kids135('__preprint __motion __vel')[-2:] == ['__spfe',
@@ -13946,7 +13957,7 @@ tests.append(('R146 generator folders (source wiring): all 15 watcher call '
               'sites route into _gensub subfolders (no flat out_dir=directory '
               'left), gen_files lists RELATIVE paths incl. legacy root files, '
               'delete joins the subpath',
-              _r2p146.count("out_dir=_gensub(directory, '") == 16
+              _r2p146.count("out_dir=_gensub(directory, '") == 17
               and 'out_dir=directory' not in _r2p146
               and 'GEN_SUBDIRS = {' in _r2p146
               and "_sub146 + '/' + _f146" in _r2p146
@@ -14054,9 +14065,9 @@ import re as _re160
 _rows160 = _re160.findall(r'gcode:\n    ([A-Z_]+(?: INDEX=\d+| PRESET=\w+)? CONFIRM=1)', _lcd160)
 tests.append(('R160 LCD: 37 generation rows confirm by DOUBLE PRESS '
     '(macro + CONFIRM=1), console stays single-shot',
-    len([r for r in _rows160 if not r.startswith(('LABEL_CLEAR_ALL', 'SYS_SAVE_CONFIG'))]) == 35
+    len([r for r in _rows160 if not r.startswith(('LABEL_CLEAR_ALL', 'SYS_SAVE_CONFIG'))]) == 36
     and 'PLOT_TEXT FILE="{nm}.txt" CONFIRM=1' in _lcd160
-    and _lcd160.count("gen_arm|default('') ==") >= 36
+    and _lcd160.count("gen_arm|default('') ==") >= 37
     and 'CABLE_TIE_GENERATE CONFIRM=1' in _lcd160
     and 'LITHO_CREATE INDEX=0 CONFIRM=1' in _lcd160
     and 'GEN_BRICKKIT CONFIRM=1' in _lcd160 and 'GEN_FIGURES CONFIRM=1' in _lcd160
@@ -15266,6 +15277,185 @@ tests.append(('R176 watcher: scale channel primed + job speaks the new size '
     and '100%% flow baseline is the NEW file' in _pp176x, ''))
 import shutil as _sh176
 _sh176.rmtree(_d176, ignore_errors=True)
+
+
+# ================== R177 (.130): the cake cut (plane split) ================
+_pp177x = open('tools/r2_postproc.py', encoding='utf-8').read()
+import tempfile as _tf177, math as _m177
+_d177 = _tf177.mkdtemp(prefix='r177_')
+_src177 = os.path.join(_d177, 'box.gcode')
+_L177 = ['M82', 'G90', 'G92 E0', 'G0 X50 Y50 Z0.2', ';TYPE:Outer wall']
+_e177 = 0.0
+for _lyr177 in range(50):
+    _L177.append('G1 Z%.2f F600' % (0.2 + _lyr177 * 0.2))
+    for (_x177, _y177) in ((70, 50), (70, 70), (50, 70), (50, 50)):
+        _e177 += 2.0
+        _L177.append('G1 X%d Y%d E%.4f F1800' % (_x177, _y177, _e177))
+_L177.append('PRINT_END')
+open(_src177, 'w').write('\n'.join(_L177) + '\n')
+sys.path.insert(0, os.path.abspath('tools'))
+import r2_cake as _ck177
+
+def _zr177(p):
+    zs = [float(m.group(1)) for l in open(p)
+          for m in [re.search(r'Z(-?[\d.]+)', l)] if m]
+    return (min(zs), max(zs))
+
+def _es177(p):
+    last = 0.0; tot = 0.0
+    for l in open(p):
+        m = re.match(r'G1 .*E(-?[\d.]+)', l)
+        if m:
+            v = float(m.group(1)); tot += v - last; last = v
+        if l.startswith('G92 E'):
+            last = float(l.split('E')[1])
+    return tot
+
+_paths177, _i177 = _ck177.cut_cake(_src177, z_offset=5.0, out_dir=_d177,
+                                   bed=(0, 0, 220, 220))
+tests.append(('R177 horizontal cut at z=5: UPPER moves down to the first '
+    'layer height (0.2..5.2), LOWER keeps its place, the E volume is '
+    'preserved across both files',
+    _zr177(_paths177[0]) == (0.2, 5.2) and _zr177(_paths177[1]) == (0.2, 5.0)
+    and abs(_es177(_paths177[0]) + _es177(_paths177[1]) - _e177) < 1e-3
+    and _i177['segments_upper'] > 0 and _i177['segments_lower'] > 0,
+    str(_i177['upper_size'])))
+_zo177 = -8.4    # 15 deg pitch: the plane hits z=5 at the object center
+_paths177b, _i177b = _ck177.cut_cake(_src177, pitch=15.0, z_offset=_zo177,
+                                     reorient=True, out_dir=_d177,
+                                     bed=(0, 0, 220, 220))
+_zs177b = _zr177(_paths177b[0])
+tests.append(('R177 tilted plane + reorient: the cut face lies flat - the '
+    'height above the plane (7.42mm) becomes the part height',
+    abs((_zs177b[1] - _zs177b[0]) - 7.42) < 0.06 and _zs177b[0] == 0.2,
+    'z %.2f..%.2f' % _zs177b))
+_srca177 = os.path.join(_d177, 'cyl.gcode')
+_La177 = ['M83', 'G90', 'G0 X80 Y100 Z0.2', ';TYPE:Outer wall']
+for _lyr177 in range(40):
+    _La177.append('G1 Z%.2f F600' % (0.2 + _lyr177 * 0.2))
+    _La177.append('G2 X80 Y100 I20 J0 E1.5 F1500')
+_La177.append('PRINT_END')
+open(_srca177, 'w').write('\n'.join(_La177) + '\n')
+_paths177c, _i177c = _ck177.cut_cake(_srca177, z_offset=4.0, out_dir=_d177,
+                                     bed=(0, 0, 220, 220))
+_erel177 = lambda p: sum(
+    float(m.group(1)) for l in open(p)
+    for m in [re.match(r'G1 .*?E(-?[\d.]+)', l)] if m)
+tests.append(('R177 arcs flatten and split: both halves together keep the '
+    'full relative E volume (60mm)',
+    abs(_erel177(_paths177c[0]) + _erel177(_paths177c[1]) - 60.0) < 0.2
+    and _i177c['segments_upper'] > 500, ''))
+_pL177, _iL177 = _ck177.cut_cake(_src177, z_offset=5.0, part='LOWER',
+                                 out_dir=_d177)
+_pU177, _iU177 = _ck177.cut_cake(_src177, z_offset=5.0, part='UPPER',
+                                 out_dir=_d177)
+_, _iR177 = _ck177.cut_cake(_src177, yaw=10.3, pitch=4.7, z_offset=5.0,
+                            out_dir=_d177, bed=(0, 0, 220, 220))
+tests.append(('R177 parts and naming: LOWER/UPPER alone, 0.5 deg grid is '
+    'enforced (10.3 -> 10.5), never overwrites (_2 suffix)',
+    len(_pL177) == 1 and len(_pU177) == 1
+    and _iR177['yaw'] == 10.5 and _iR177['pitch'] == 4.5
+    and (lambda _dn177: (
+        os.path.basename(_ck177.cut_cake(
+            _src177, z_offset=5.0, out_dir=_dn177)[0][0])
+        == 'box_CUT-U.gcode'
+        and os.path.basename(_ck177.cut_cake(
+            _src177, z_offset=5.0, out_dir=_dn177)[0][0])
+        == 'box_CUT-U_2.gcode'))(_tf177.mkdtemp(prefix='r177c_')),
+        _iR177['file']))
+_g177 = 0
+for _z177b, _w177 in ((99.0, 'no UPPER'), (-99.0, 'no LOWER')):
+    try:
+        _ck177.cut_cake(_src177, z_offset=_z177b, out_dir=_d177)
+    except ValueError as _v177:
+        if _w177 in str(_v177):
+            _g177 += 1
+try:
+    _ck177.cut_cake(_src177, yaw=0, pitch=0, roll=0, z_offset=0,
+                    out_dir=_d177)
+except ValueError as _v177:
+    if 'cuts nothing' in str(_v177):
+        _g177 += 1
+tests.append(('R177 guards: plane above/below the object and the zero '
+    'plane refuse with clear words', _g177 == 3, '%d/3' % _g177))
+save_vars.update({'cake_yaw': 15.0, 'cake_pitch': 0, 'cake_roll': 0,
+                  'cake_zoff': 5.0, 'cake_part': 'BOTH', 'cake_reorient': 0,
+                  'cake_file': '', 'cake_nonce': 2})
+save_vars['preview_file'] = 'teil.gcode'
+_out177 = render(get_body('macros/17_generator.cfg', 'CAKE_APPLY'),
+                 {'YAW': '15'})
+tests.append(('R177 CAKE_APPLY: queues with all plane values + nonce bump',
+    'VARIABLE=cake_yaw VALUE=15.0' in _out177
+    and 'VARIABLE=cake_zoff VALUE=5.0' in _out177
+    and 'VARIABLE=cake_file' in _out177 and 'teil.gcode' in _out177
+    and 'VARIABLE=cake_nonce VALUE=3' in _out177
+    and 'the halves land in the cake folder' in _out177, ''))
+save_vars['preview_file'] = ''
+_out177 = render(get_body('macros/17_generator.cfg', 'CAKE_APPLY'), {})
+tests.append(('R177 CAKE_APPLY: no file -> friendly error, nonce untouched',
+    'no file selected' in _out177
+    and 'cake_nonce VALUE=' not in _out177, ''))
+save_vars['preview_file'] = 'teil.gcode'
+_out177 = render(get_body('macros/17_generator.cfg', 'CAKE_APPLY'),
+                 {'PART': 'QUATSCH'})
+tests.append(('R177 CAKE_APPLY: bad PART rejected',
+    'PART must be' in _out177
+    and 'cake_nonce VALUE=' not in _out177, ''))
+_out177 = render(get_body('macros/17_generator.cfg', 'CAKE_APPLY'),
+                 {'YAW': '0', 'Z': '0'})
+tests.append(('R177 CAKE_APPLY: the zero plane refuses (cuts nothing)',
+    'cuts nothing' in _out177
+    and 'cake_nonce VALUE=' not in _out177, ''))
+_lcd177 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R177 LCD: cake submenu with yaw/pitch/roll/z inputs on the '
+    '0.5 grid, part toggle, reorient switch, How? and the double-press cut',
+    '[menu __main __preprint __mods __cake]' in _lcd177
+    and 'CAKE_APPLY CONFIRM=1' in _lcd177
+    and 'cake_yaw VALUE={menu.input|round(1)}' in _lcd177
+    and 'cake_pitch VALUE={menu.input|round(1)}' in _lcd177
+    and 'cake_roll VALUE={menu.input|round(1)}' in _lcd177
+    and 'cake_zoff VALUE={menu.input|round(1)}' in _lcd177, ''))
+tests.append(('R177 watcher: cake channel primed + job reports the segment '
+    'counts and lands in the Cake folder',
+    'cake_nonce' in _pp.NONCE_KEYS
+    and 'last_cake_nonce' in _pp177x
+    and 'M117 Cake ready' in _pp177x
+    and "[cake]" in _pp177x
+    and "from r2_cake import cut_cake" in _pp177x
+    and "'cake': 'Cake'" in _pp177x, ''))
+# live watcher run: a real cake cut through --watch --once
+import subprocess as _sp177
+_base177 = _tf177.mkdtemp(prefix='r177live_')
+_gc177 = os.path.join(_base177, 'gcodes')
+os.makedirs(_gc177)
+_Ll177 = ['M82', 'G90', 'G92 E0', 'G0 X50 Y50 Z0.2']
+_eL177 = 0.0
+for _lyr177 in range(20):
+    _Ll177.append('G1 Z%.2f F600' % (0.2 + _lyr177 * 0.2))
+    for (_x177, _y177) in ((70, 50), (70, 70), (50, 70), (50, 50)):
+        _eL177 += 2.0
+        _Ll177.append('G1 X%d Y%d E%.4f F1800' % (_x177, _y177, _eL177))
+_Ll177.append('PRINT_END')
+open(os.path.join(_gc177, 'kuchen.gcode'), 'w').write(
+    '\n'.join(_Ll177) + '\n')
+open(os.path.join(_base177, 'variables.cfg'), 'w').write(
+    '[variables]\nvariable_cake_file: \'"kuchen.gcode"\'\n'
+    'variable_cake_yaw: 0\nvariable_cake_pitch: 0\nvariable_cake_roll: 0\n'
+    'variable_cake_zoff: 2.2\nvariable_cake_part: \'BOTH\'\n'
+    'variable_cake_reorient: 0\nvariable_cake_nonce: 1\n')
+_r177 = _sp177.run(
+    [sys.executable, os.path.abspath('tools/r2_postproc.py'),
+     '--watch', _gc177, '--once'], capture_output=True, text=True,
+    timeout=240)
+tests.append(('R177 watcher live: the cake really cuts through --watch '
+    '--once (both halves land in the Cake folder, [cake] log)',
+    os.path.isfile(os.path.join(_gc177, 'Cake', 'kuchen_CUT-U.gcode'))
+    and os.path.isfile(os.path.join(_gc177, 'Cake', 'kuchen_CUT-L.gcode'))
+    and '[cake]' in _r177.stdout,
+    (_r177.stdout + _r177.stderr)[:200].replace('\n', ' | ')))
+import shutil as _sh177
+_sh177.rmtree(_d177, ignore_errors=True)
+_sh177.rmtree(_base177, ignore_errors=True)
 
 fails = 0
 for name, ok, info in tests:

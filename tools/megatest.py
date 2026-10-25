@@ -547,6 +547,19 @@ run('scale 200/100 on label', lambda: pp.apply_scale(
 expect_error('scale 300/300 refused (bed)', lambda: pp.apply_scale(
     lbl, sx=3.0, sy=3.0, out_dir=D))
 
+# R177: the cake cut - split a print with a plane
+import r2_cake
+run('cake cut horizontal on label', lambda: r2_cake.cut_cake(
+    lbl, z_offset=1.0, out_dir=D)[0], skip_idem=True, r2_gen=True)
+run('cake cut tilted + reorient on label', lambda: r2_cake.cut_cake(
+    lbl, yaw=20.0, pitch=10.0, z_offset=1.0, reorient=True,
+    out_dir=D)[0], skip_idem=True, r2_gen=True)
+run('cake cut LOWER only', lambda: r2_cake.cut_cake(
+    lbl, z_offset=1.0, part='LOWER', out_dir=D)[0], skip_idem=True,
+    r2_gen=True)
+expect_error('cake above everything refuses', lambda: r2_cake.cut_cake(
+    lbl, z_offset=99.0, out_dir=D))
+
 # MAP: grayscale wrap (test pattern image, 96x64)
 try:
     from PIL import Image
