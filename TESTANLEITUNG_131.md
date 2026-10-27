@@ -20,10 +20,20 @@ erkannt (Außenwand bleibt Außenwand), wirklich unbekanntes bleibt CUSTOM,
 wird aber gezählt und im File-info erklärt (Zeile CUSTOM? mit Retag-Hinweis).
 Generator-Ketten (Textur → Range usw.) geben das Tagging vollständig weiter.
 
+**Neu in .131b (wichtig nach deinem Label-Absturz):** R181 = das Schichtbild:
+Außenwand = eine Seite gegen das Nichts (auch Lochränder!), offene Bögen
+zählen wie geschlossene, Support wird über die Druckreihenfolge erkannt,
+Brim maximal drei Schichten. R182 = der MCU-Shutdown-Fix: Beim Label-Druck
+(51 Objekte) lasen die Feature-Makros bei JEDEM Marker die komplette
+Variablen-Datei und fluteten die Konsole - der Pi Zero 2 W kippte in
+„Timer too close". Jetzt: heiße Pfade lesen nur kleine Spiegel, identische
+Feature-Blöcke bleiben stumm (Konsole deutlich ruhiger - das ist gewollt!),
+PA-Wiederholungen werden nicht mehr gesendet.
+
 Vor dem Testen: .131a-ZIP wie immer hochladen, `bash klipper-e3-r2d2/update.sh`
 per SSH. Am Ende muss stehen:
-`post-processor reports build 'R2-2026-10-24.131a (R180)'` UND
-`Macro system OK ... (build R2-2026-10-24.131a)`.
+`post-processor reports build 'R2-2026-10-24.131b (R182)'` UND
+`Macro system OK ... (build R2-2026-10-24.131b)`.
 
 ---
 

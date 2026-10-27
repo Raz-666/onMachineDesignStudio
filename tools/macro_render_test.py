@@ -231,7 +231,42 @@ def build_printer(kamp=False, objs=None, excl=None, old_klipper=False, bare_idle
         d['gcode_macro SMART_PARK'] = M({})
     return M(d)
 
+_FC182B = ['wallouter','wallinner','infillsparse','infillsolid','surfacetop','surfacebottom','bridge','gaps','support','ironing','skirt','brim','overhangperim','internalbridge','primetower','custom','travel']
+
+def _mirror182():
+    """R182: production guarantees the _STATE mirrors match save_variables
+    before any hot path runs (_SYNC_OV_FEAT at print start, once per layer
+    and on every override change). Simulate exactly that here, so tests keep
+    setting save_vars like before. fecho_* stays test-controlled (echo gate)."""
+    for c in _FC182B:
+        state_vars['fov_' + c] = (
+            1 if save_vars.get('ovf_' + c + '_on', False) else 0,
+            float(save_vars.get('ovf_' + c + '_spd', 100.0)),
+            float(save_vars.get('ovf_' + c + '_acc', 0.0)),
+            float(save_vars.get('ovf_' + c + '_flw', 100.0)),
+            float(save_vars.get('ovf_' + c + '_pa', 0.0)))
+    state_vars.update({
+        'fova_acc_pct': float(save_vars.get('ovf_accel_pct', 100.0)),
+        'fova_acc': float(save_vars.get('ov_accel', 0.0)),
+        'fova_acc_on': save_vars.get('ov_accel_on', False),
+        'fova_pa': float(save_vars.get('ov_pa', 0.0)),
+        'fova_pa_on': save_vars.get('ov_pa_on', False),
+        'fova_flow': float(save_vars.get('ov_flow', 100.0)),
+        'fova_flow_on': save_vars.get('ov_flow_on', False),
+        'fova_iron_flow': float(save_vars.get('ov_ironing_flow', 100.0)),
+        'fova_iron_flow_on': save_vars.get('ov_ironing_flow_on', False),
+        'fova_fan_clamp_on': save_vars.get('ov_fan_clamp_on', False),
+        'fova_fan_bridge': float(save_vars.get('ov_fan_bridge', 0.0)),
+        'fova_fan_min': float(save_vars.get('ov_fan_min', 0.0)),
+        'fova_fan_max': float(save_vars.get('ov_fan_max', 100.0)),
+        'fova_flr': save_vars.get('first_layer_rules', True),
+        'fova_shp_on': save_vars.get('ovf_shaper_off_on', False),
+        'fova_shp_feat': save_vars.get('ovf_shaper_off_feat', 'wallouter'),
+    })
+
 def render(tpl, par=None, extra=None, kamp=False, objs=None, excl=None, old_klipper=False, bare_idle=False, drop14=False, poweroff=False, ps_state='printing', etemp=None, gz=None, scp=False, etgt=None):
+    if 'fov_' in tpl or 'fova_' in tpl:
+        _mirror182()
     t = env.from_string(tpl)
     g = {'printer': build_printer(kamp=kamp, objs=objs, excl=excl, old_klipper=old_klipper, bare_idle=bare_idle, drop14=drop14, poweroff=poweroff, ps_state=ps_state, etemp=etemp, gz=gz, scp=scp, etgt=etgt), 'params': par or {}}
     if extra: g.update(extra)
@@ -1186,11 +1221,11 @@ state_vars['layer']=2
 body = get_body('macros/10_live_tuning.cfg', 'SET_PRESSURE_ADVANCE')
 state_vars['mode']='printing'
 out = render(body, {'ADVANCE':'0.08', 'SMOOTH_TIME':'0.04'})
-tests.append(('PA file passthrough (override off)', 'SET_PRESSURE_ADVANCE_BASE ADVANCE=0.08 SMOOTH_TIME=0.04' in out and 'OVERRIDE' not in out, out[:140]))
+tests.append(('PA file passthrough (override off)', '_SET_PA ADVANCE=0.08 SMOOTH_TIME=0.04' in out and 'OVERRIDE' not in out, out[:140]))
 save_vars['ov_pa_on']=True; save_vars['ov_pa']=0.05
 out = render(body, {'ADVANCE':'0.08'})
 save_vars['ov_pa_on']=False
-tests.append(('PA file -> OVERRIDE when ON', 'YOUR: PA 0.05' in out and 'SET_PRESSURE_ADVANCE_BASE ADVANCE=0.05' in out and 'SMOOTH_TIME' not in out, out[:160]))
+tests.append(('PA file -> OVERRIDE when ON', 'YOUR: PA 0.05' in out and '_SET_PA ADVANCE=0.05' in out and 'SMOOTH_TIME' not in out, out[:160]))
 state_vars['pa_smooth']=0.04
 out = render(body, {'SMOOTH_TIME':'0.05'})
 save_vars['ov_pa_smooth_on']=True
@@ -3868,7 +3903,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.131) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-24.131a'", repr(_v66)))
+    _v66 == "'R2-2026-10-24.131b'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -10521,7 +10556,7 @@ body = get_body('macros/10_live_tuning.cfg', 'APPLY_TYPE')
 save_vars['ovf_wallouter_pa'] = 0.06
 out = render(body, {'TYPE': 'WALL-OUTER'})
 tests.append(('R111 APPLY_TYPE: feature PA 0.06 applied at the boundary',
-    'SET_PRESSURE_ADVANCE_BASE ADVANCE=0.06' in out and 'pa_feat_active VALUE=True' in out,
+    '_SET_PA ADVANCE=0.06' in out and 'pa_feat_active VALUE=True' in out,
     [l for l in out.split('\n') if 'PA' in l][:2]))
 # next feature without PA -> global returns
 save_vars['ov_pa_on'] = True; save_vars['ov_pa'] = 0.05
@@ -10529,7 +10564,7 @@ state_vars['pa_feat_active'] = True
 save_vars['ovf_infillsparse_on'] = False
 out = render(body, {'TYPE': 'INFILL-SPARSE'})
 tests.append(('R111 APPLY_TYPE: leaving the feature restores the global PA 0.05',
-    'SET_PRESSURE_ADVANCE_BASE ADVANCE=0.05' in out and 'pa_feat_active VALUE=False' in out,
+    '_SET_PA ADVANCE=0.05' in out and 'pa_feat_active VALUE=False' in out,
     [l for l in out.split('\n') if 'PA' in l][:2]))
 save_vars['ov_pa_on'] = False
 state_vars['pa_feat_active'] = False
@@ -15939,6 +15974,108 @@ tests.append(('R181 brim patience (taper guard): the same ring surviving '
 
 import shutil as _sh180
 _sh180.rmtree(_d180, ignore_errors=True)
+
+# ================== R182 (.131a field round): hot paths without save_variables ==
+# The .131a field log: a LABELS print (51 objects) ran 6 minutes, then the
+# second object skip tipped the Pi Zero 2 W into 'MCU shutdown: Timer too
+# close'. Root cause: APPLY_TYPE read printer['save_variables'].variables on
+# EVERY feature block (dozens per layer on labels files - a full read of the
+# huge variable set incl. sd_tree each time, the R167 M204 class again) and
+# echoed 3-5 identical RESPOND lines + a PA echo per block. Fixes: the _STATE
+# mirrors (fov_/fova_, refreshed by _SYNC_OV_FEAT), the per-feature echo
+# gate (identical blocks stay silent) and the _SET_PA funnel (repeats not
+# re-sent).
+_at182 = get_body('macros/10_live_tuning.cfg', 'APPLY_TYPE')
+_m106182 = get_body('macros/06_temp_controls.cfg', 'M106')
+tests.append(('R182 hotpath: APPLY_TYPE and M106 NEVER touch save_variables '
+    '(the labels Timer-too-close chain - mirrors only, refreshed by '
+    '_SYNC_OV_FEAT)',
+    'save_variables' not in _at182 and 'save_variables' not in _m106182,
+    ''))
+_sync182 = get_body('macros/10_live_tuning.cfg', '_SYNC_OV_FEAT')
+tests.append(('R182 _SYNC_OV_FEAT: renders the mirror TUPLES + scalars from '
+    'save_variables (no braces, no spaces - the # cut, the parameter '
+    'splitter and literal_eval all stay safe)',
+    'VARIABLE=fov_{c|lower} VALUE=' in _sync182
+    and 'VARIABLE=fova_pa_on VALUE=' in _sync182
+    and 'VARIABLE=fova_flr VALUE=' in _sync182
+    and '{% for c in _fc182 %}' in _sync182
+    and "'travel'" in _sync182, ''))
+_sv182bak = dict(save_vars)
+save_vars.update({'ovf_wallouter_on': True, 'ovf_wallouter_spd': 80,
+                  'ovf_wallouter_acc': 1200, 'ovf_wallouter_flw': 98,
+                  'ovf_wallouter_pa': 0.055})
+_out182 = render(_sync182, {})
+tests.append(('R182 _SYNC_OV_FEAT render: the tuple mirror carries on/spd/'
+    'acc/flw/pa of the feature',
+    'VARIABLE=fov_wallouter VALUE=1,80.0,1200.0,98.0,0.055' in _out182
+    and 'VARIABLE=fov_travel VALUE=0,100.0,0.0,100.0,0.0' in _out182, _out182[:120]))
+_st182bak = dict(state_vars)
+state_vars.update({'mode': 'printing', 'layer': 2, 'current_type': '',
+                   'g_speed_clean': 100.0, 'pa_feat_active': False,
+                   'live_accel': 0, 'live_flow': 0})
+_o182a = render(_at182, {'TYPE': 'WALL-OUTER'})
+_m182 = None
+for _l182 in _o182a.split('\n'):
+    _mm182 = __import__('re').search(r"VALUE='\"(.*)\"'", _l182)
+    if _mm182:
+        _m182 = _mm182.group(1)
+tests.append(('R182 echo gate: the FIRST block announces the feature (speed/'
+    'accel/flow/PA + the fecho signature store)',
+    '[Feature] wallouter: speed 80% x global 100% = 80%' in _o182a
+    and '[Feature] wallouter: accel 1200' in _o182a
+    and '[Feature] wallouter: flow 98% x global 100% = 98%' in _o182a
+    and '[Feature] wallouter: PA 0.055' in _o182a
+    and _m182 is not None and '|' in _m182,
+    [l for l in _o182a.split('\n') if 'Feature' in l][:2]))
+state_vars['fecho_wallouter'] = _m182
+_o182b = render(_at182, {'TYPE': 'WALL-OUTER'})
+tests.append(('R182 echo gate: the IDENTICAL block stays SILENT (the labels '
+    'flood dies) - but the commands still run (M99220/flow/PA bookkeeping)',
+    '[Feature]' not in _o182b and 'M99220 S80' in _o182b
+    and 'M99221 S98' in _o182b, ''))
+state_vars['g_speed_clean'] = 125.0
+_o182c = render(_at182, {'TYPE': 'WALL-OUTER'})
+tests.append(('R182 echo gate: a REAL change (global speed 100 -> 125) '
+    're-announces the feature with the new composition',
+    '[Feature] wallouter: speed 80% x global 125% = 100%' in _o182c, ''))
+state_vars['g_speed_clean'] = 100.0
+_setpa182 = get_body('macros/10_live_tuning.cfg', '_SET_PA')
+state_vars['pa_last'] = 0.055
+_o182d = render(_setpa182, {'ADVANCE': '0.055'})
+_o182e = render(_setpa182, {'ADVANCE': '0.095'})
+tests.append(('R182 _SET_PA funnel: a repeat value is NOT re-sent (the // '
+    'pressure_advance echo flood dies at the source), a new value goes out '
+    'and updates pa_last',
+    'SET_PRESSURE_ADVANCE_BASE' not in _o182d
+    and 'SET_PRESSURE_ADVANCE_BASE ADVANCE=0.095' in _o182e
+    and 'VARIABLE=pa_last VALUE=0.095' in _o182e, _o182d[:60]))
+_o182f = render(_setpa182, {'SMOOTH_TIME': '0.04'})
+tests.append(('R182 _SET_PA funnel: SMOOTH_TIME alone still passes through',
+    'SET_PRESSURE_ADVANCE_BASE SMOOTH_TIME=0.04' in _o182f, ''))
+del state_vars['pa_last']
+del state_vars['fecho_wallouter']
+for _k182 in ('mode', 'layer', 'current_type', 'g_speed_clean',
+              'pa_feat_active', 'live_accel', 'live_flow'):
+    state_vars.pop(_k182, None)
+    if _k182 in _st182bak:
+        state_vars[_k182] = _st182bak[_k182]
+save_vars.clear(); save_vars.update(_sv182bak)
+_syncs182 = {
+    'SET_OVERRIDE_VALUE': 'macros/07_start_confirm.cfg',
+    'TOGGLE_OVERRIDE': 'macros/07_start_confirm.cfg',
+    'CLEAR_OVERRIDES': 'macros/07_start_confirm.cfg',
+    'SET_MATERIAL': 'macros/05_materials.cfg',
+    'LAYER_MARK': 'macros/06_temp_controls.cfg',
+    '_FILE_INFO': 'macros/08_print_start_stop.cfg',
+}
+tests.append(('R182 sync sites: every override writer + print start + the '
+    'per-layer safety net refresh the mirrors (_SYNC_OV_FEAT), _FILE_INFO '
+    'also empties the echo cache per print',
+    all('_SYNC_OV_FEAT' in get_body(f, n) for n, f in _syncs182.items())
+    and "VARIABLE=fecho_{c|lower} VALUE='\"\"'" in get_body(
+        'macros/08_print_start_stop.cfg', '_FILE_INFO'), ''))
+
 
 fails = 0
 for name, ok, info in tests:

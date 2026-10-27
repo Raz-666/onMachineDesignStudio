@@ -285,7 +285,13 @@ def main():
     # SET_GCODE_VARIABLE gegen Deklaration
     for var, (pfad, zeile) in set_gcv.items():
         if var not in deklariert:
-            fehler.append(f"{pfad}:{zeile}: SET_GCODE_VARIABLE VARIABLE={var} not declared in _STATE!")
+            # R182: dynamic names ('VARIABLE=fov_{c|lower}' - the regex stops
+            # at '{') are valid when ANY declared variable starts with the
+            # captured prefix (fov_wallouter.. exists). A truly unknown name
+            # still fails: no declaration shares its prefix.
+            if not (var.endswith('_')
+                    and any(d.startswith(var) for d in deklariert)):
+                fehler.append(f"{pfad}:{zeile}: SET_GCODE_VARIABLE VARIABLE={var} not declared in _STATE!")
 
     # ---- rename-Typ-Kompatibilitaet (Klipper: 'different types' Check) --------------
     def is_traditional(cmd):
