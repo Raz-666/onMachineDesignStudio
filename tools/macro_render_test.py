@@ -3863,8 +3863,8 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         _v66 = _l66.split(':', 1)[1].strip()
         break
 # NOTE: bump this expectation together with the version on every release!
-tests.append(('R66/R80 version is current (.130) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-24.130'", repr(_v66)))
+tests.append(('R66/R80 version is current (.131) in 01_state.cfg (bump together with release!)',
+    _v66 == "'R2-2026-10-24.131'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
