@@ -65,7 +65,7 @@ TAG = '; R2-POSTPROC v5'
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
 POSTPROC_RELEASE = 'R2-2026-10-24.131a'
-POSTPROC_BUILD = 'R180'
+POSTPROC_BUILD = 'R181'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
 # and no speed/accel/nozzle parameters. Files carrying an OLD tag are UPGRADED
@@ -16447,7 +16447,10 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
     eret_re = re.compile(r'G1\s+E(-?\d+(?:\.\d+)?)(?:\s+F\d+(?:\.\d+)?)?\s*$')
 
     def _close_seg():
-        if cur_type is None:
+        if cur_type is None or cur_type == 'CUSTOM':
+            # R181: CUSTOM blocks carry their own per-block stats from the
+            # geometry watch - merging here would double-count when the
+            # block resolves to a real feature afterwards
             return
         d = feat_stats.setdefault(cur_type, {'f': {}, 'acc': None})
         for k, v in fseg.items():
@@ -16552,7 +16555,7 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
                         and len(comment_matches) <= 1):
                     feat_here = 'SURFACE-BOTTOM'
                 type_at[(i, j)] = feat_here
-                geom.mark_type(feat_here)
+                geom.mark_type(feat_here, (i, j))
                 if feat_here == 'CUSTOM':
                     custom_blocks += 1
             # ---- 4c) per-feature measurement (.44) -----------------------------------
@@ -16587,7 +16590,9 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
                     # (no E) are skipped - otherwise the retract speed
                     # outvotes short segments (field test: every feature
                     # measured 35 mm/s = the E-moves' F2100).
-                    if cur_type is not None and ls[:2] != 'G0':
+                    if (cur_type is not None
+                            and cur_type != 'CUSTOM'
+                            and ls[:2] != 'G0'):
                         if (re.search(r' [XY]-?[\d.]', ls) and re.search(r' E[\d.]', ls)
                                 and not re.search(r' E-', ls)):
                             spd = round((f_running or 0) / 60.0, 1)
@@ -16657,6 +16662,29 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
     first_cmd = first_cmd_idx if had_v1 else first_cmd_raw
 
     geom.finish()
+    # R181: resolve unknown vocabulary by the block's OWN geometry. The
+    # watch scanner buffered every CUSTOM block; wall-like blocks become
+    # WALL-OUTER (the safety default - the user's rule: never let a wall
+    # print at infill speed), hatch blocks become infill, and only blocks
+    # without any wall character stay CUSTOM. CUSTOMRES in _FILE_INFO is
+    # the before/after number for the LCD.
+    _cres181 = getattr(geom, 'custom_res', {})
+    _nres181 = 0
+    for _ij181, _f181 in _cres181.items():
+        if _f181 and type_at.get(_ij181) == 'CUSTOM':
+            type_at[_ij181] = _f181
+            _nres181 += 1
+    for _ij181, _fs181 in getattr(geom, 'custom_fstat', {}).items():
+        if _ij181 not in type_at:
+            continue
+        _tgt181 = type_at[_ij181]
+        _d181 = feat_stats.setdefault(_tgt181, {'f': {}, 'acc': None})
+        for _s181, _c181 in _fs181.items():
+            _d181['f'][_s181] = _d181['f'].get(_s181, 0) + _c181
+    if _cres181:
+        custom_blocks = sum(1 for v in type_at.values() if v == 'CUSTOM')
+    if _nres181:
+        summary['custom_resolved'] = _nres181
     # R111: untagged file + classifier results -> DERIVED features (conf 0.7).
     # Tagged data always wins (mark_type disarms the classifier), derived
     # and tagged are never mixed in one file.
@@ -16687,6 +16715,8 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
         info.append('TYPES=' + ','.join(feat_stats))
     # R180: honest CUSTOM bookkeeping - the count lands in _FILE_INFO so the
     # menus can explain it and File check > Retag has a before/after number
+    if summary.get('custom_resolved'):
+        info.append('CUSTOMRES=%d' % summary['custom_resolved'])
     if custom_blocks:
         info.append('CUSTOMBLOCKS=%d' % custom_blocks)
         summary['custom_blocks'] = custom_blocks
@@ -16895,6 +16925,171 @@ def count_existing_marks(lines):
     return sum(1 for l in lines if l.strip().startswith('LAYER_MARK'))
 
 
+class _LayerBitmap:
+    """R181 (.131a field round): the layer PICTURE. The user's definition
+    of an outer wall, drawn instead of guessed: rasterize every extruding
+    polyline of the layer into an occupancy grid (cell 0.3mm), then look
+    at BOTH SIDES of a wall.
+
+      - material on one side, NOTHING on the other  -> visible surface
+        -> WALL-OUTER. The nothing may be the outside of the model OR the
+        inside of a HOLE - the user sees both, so both are outer walls.
+      - material on BOTH sides                      -> WALL-INNER
+      - nothing on either side (a single thin wall) -> WALL-OUTER (it is
+        visible from both sides)
+
+    No closed-loop requirement anymore: OPEN walls (arcs, surface edges,
+    seam-gap spirals) classify exactly like closed ones - that is what
+    moves us forward. Deterministic geometry, no ML.
+    """
+
+    CELL = 0.3
+    MAX_CELLS = 3000000      # ~0.9m square at 0.3mm - far beyond any bed
+
+    def __init__(self, polys):
+        self.ok = False
+        self.g = b''
+        self.w = self.h = 0
+        self.ox = self.oy = 0.0
+        if not polys:
+            return
+        minx = miny = 1e30
+        maxx = maxy = -1e30
+        for (_ij, _s, pts, _pl) in polys:
+            for (x, y) in pts:
+                if x < minx:
+                    minx = x
+                if x > maxx:
+                    maxx = x
+                if y < miny:
+                    miny = y
+                if y > maxy:
+                    maxy = y
+        if maxx <= minx or maxy <= miny:
+            return
+        pad = 3.0
+        cell = self.CELL
+        w = int((maxx - minx + 2 * pad) / cell) + 1
+        h = int((maxy - miny + 2 * pad) / cell) + 1
+        if w * h > self.MAX_CELLS or w <= 4 or h <= 4:
+            return                  # absurd extents - caller falls back
+        self.w, self.h = w, h
+        self.ox, self.oy = minx - pad, miny - pad
+        g = bytearray(w * h)
+        for (_ij, _s, pts, _pl) in polys:
+            for k in range(1, len(pts)):
+                (x0, y0), (x1, y1) = pts[k - 1], pts[k]
+                sl = math.hypot(x1 - x0, y1 - y0)
+                if sl <= 1e-9:
+                    continue
+                n = int(sl / cell) + 1
+                for q in range(n + 1):
+                    cx = int((x0 + (x1 - x0) * q / n - self.ox) / cell)
+                    cy = int((y0 + (y1 - y0) * q / n - self.oy) / cell)
+                    if 0 <= cx < w and 0 <= cy < h:
+                        g[cy * w + cx] = 1
+        self.g = g
+        self.ok = True
+
+    def cell(self, pt):
+        return (int((pt[0] - self.ox) / self.CELL),
+                int((pt[1] - self.oy) / self.CELL))
+
+    def _ink_at(self, x, y):
+        cx = int((x - self.ox) / self.CELL)
+        cy = int((y - self.oy) / self.CELL)
+        return (0 <= cx < self.w and 0 <= cy < self.h
+                and self.g[cy * self.w + cx])
+
+    def side_ink(self, pts, d_lo=0.7, d_hi=1.2):
+        """Sample every segment at its MIDPOINT and compare the two sides.
+        A side is INK at this sample when a probe at d_lo OR d_hi sees
+        marked ink. Midpoints (never vertices) keep the probes away from
+        the path's OWN ink: at a corner the adjacent segment's cells come
+        as close as d*cos(turn) to a vertex probe, a midpoint probe keeps
+        ~d - seg/2 clearance (field check: a 36-gon ring measured 10%
+        phantom ink on its void side from vertex probes and flipped
+        WALL-OUTER to WALL-INNER). Returns (void_frac_a, void_frac_b, n)."""
+        n = 0
+        ia = 0
+        ib = 0
+        for k in range(1, len(pts)):
+            (x0, y0), (x1, y1) = pts[k - 1], pts[k]
+            sl = math.hypot(x1 - x0, y1 - y0)
+            if sl < 0.25:
+                continue          # too short to probe safely off the corner
+            tx, ty = (x1 - x0) / sl, (y1 - y0) / sl
+            lx, ly = -ty, tx
+            sx, sy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+            a = (self._ink_at(sx + lx * d_lo, sy + ly * d_lo)
+                 or self._ink_at(sx + lx * d_hi, sy + ly * d_hi))
+            b = (self._ink_at(sx - lx * d_lo, sy - ly * d_lo)
+                 or self._ink_at(sx - lx * d_hi, sy - ly * d_hi))
+            if not a:
+                ia += 1
+            if not b:
+                ib += 1
+            n += 1
+        return (ia / n if n else 1.0, ib / n if n else 1.0, n)
+
+    def components(self, polys):
+        """R181: connected ink components of the layer picture -> the
+        print ORDER rule. Slicers lay SUPPORT before the model on each
+        layer; a detached component that prints first, sits above the brim
+        layers and is mostly straight hatch is support - visible, but
+        sacrificial. Returns [{'plen', 'first', 'hatch', 'polys'}]."""
+        from collections import deque
+        w, h, g = self.w, self.h, self.g
+        comp_of = {}
+        comps = []
+        for start in range(w * h):
+            if not g[start] or start in comp_of:
+                continue
+            cid = len(comps)
+            comps.append({'plen': 0.0, 'first': 1 << 60, 'hatch': 0.0,
+                          'polys': set()})
+            comp_of[start] = cid
+            dq = deque((start,))
+            while dq:
+                c = dq.popleft()
+                x = c % w
+                y = c // w
+                # 8-connectivity: a mark step can land DIAGONALLY adjacent
+                # (cell 0.3, step 0.3 at 45 degrees) - 4-neighbors would
+                # shatter one wall into dozens of micro components
+                for _dy181 in (-1, 0, 1):
+                    _ny181 = y + _dy181
+                    if not (0 <= _ny181 < h):
+                        continue
+                    for _dx181 in (-1, 0, 1):
+                        if not _dx181 and not _dy181:
+                            continue
+                        _nx181 = x + _dx181
+                        if not (0 <= _nx181 < w):
+                            continue
+                        _nb181 = _ny181 * w + _nx181
+                        if g[_nb181] and _nb181 not in comp_of:
+                            comp_of[_nb181] = cid
+                            dq.append(_nb181)
+        for pi, (ij, speed, pts, plen) in enumerate(polys):
+            cx, cy = self.cell(pts[0])
+            if not (0 <= cx < w and 0 <= cy < h):
+                continue
+            cid = comp_of.get(cy * w + cx)
+            if cid is None:
+                continue
+            c = comps[cid]
+            c['plen'] += plen
+            if ij[0] < c['first']:
+                c['first'] = ij[0]
+            c['polys'].add(pi)
+            chord = math.hypot(pts[-1][0] - pts[0][0],
+                               pts[-1][1] - pts[0][1])
+            if plen > 0 and chord / plen > 0.92:
+                c['hatch'] += plen
+        return comps
+
+
 class _GeomScan:
     """R111 (roadmap L3+/L4): geometry + rate tracker, and - for files with
     NO ;TYPE: comment at all - a per-layer feature classifier.
@@ -16953,14 +17148,42 @@ class _GeomScan:
         self.tot_len = 0.0
         self.layers_classified = 0
         self._pts_budget = self.MAX_PTS
+        # R181: CUSTOM watch - unknown vocabulary gets its block
+        # geometry buffered and resolved afterwards (the .129 field
+        # case: a drifted spelling printed whole walls as CUSTOM)
+        self.watch = False
+        self._w_ij = None
+        self._w_budget = 60000
+        self._w_over = False
+        self.custom_res = {}     # comment (i, j) -> feature|None
+        self.custom_fstat = {}   # comment (i, j) -> {speed: moves}
 
     def set_dia(self, d):
         if d and d > 0.5:
             self.area = math.pi * (d / 2.0) ** 2
 
-    def mark_type(self, feat):
-        """a ;TYPE: comment appeared - the file is tagged: heavy part OFF"""
+    def mark_type(self, feat, ij=None):
+        """a ;TYPE: comment appeared - the file is tagged: heavy part OFF.
+
+        R181: UNKNOWN vocabulary (CUSTOM) does the opposite of disarming:
+        the scanner WATCHES this one block's geometry and resolves it
+        afterwards. A wall-like block becomes WALL-OUTER (the safety
+        default - a wall mislabeled as fast infill ruins the surface, the
+        reverse only costs time). A block without wall character stays
+        CUSTOM, honestly counted."""
+        if self.watch:
+            self._resolve_block()
         self.cur_type = feat
+        if feat == 'CUSTOM':
+            self.armed = False        # the file IS tagged - no file-wide
+            self.polys = []           # deriving, never mixed
+            self._p = None
+            self._p_ij = None
+            self._w_budget = 60000
+            self._w_over = False
+            self.watch = True
+            self._w_ij = ij
+            return
         if self.armed:
             self.armed = False
             self.polys = []
@@ -17001,7 +17224,7 @@ class _GeomScan:
             if rate > self.max_rate:
                 self.max_rate = rate
         self.x, self.y = x1, y1
-        if not self.armed:
+        if not (self.armed or self.watch):
             # tagged file: only the seam bookkeeping stays (light)
             if extruding and self.cur_type == 'WALL-OUTER' and not self._seam_layer:
                 if self._p is None:
@@ -17021,7 +17244,7 @@ class _GeomScan:
         # feature after the bottom is OUTER WALL - always. Detected by a run
         # of extruding moves that CARRY a slowly rising Z (each +<=0.08mm,
         # no travel/retract between): a real layer change hops Z in a travel.
-        if extruding:
+        if extruding and self.armed:
             dz153 = (p['Z'] - self._vz153) if ('Z' in p and
                                                self._vz153 is not None) else None
             if 'Z' in p and dz153 is not None and 0.0005 <= dz153 <= 0.08:
@@ -17042,7 +17265,7 @@ class _GeomScan:
             self._vn153 = 0
             self._vr153 = 0.0
         if extruding:
-            if (self._comment_pending
+            if self.armed and (self._comment_pending
                     or (not self.vase and self.z is not None
                         and self.layer_z is not None
                         and self.z > self.layer_z + 0.05)):
@@ -17062,12 +17285,16 @@ class _GeomScan:
                 self._p_len += dist
             else:
                 self._close_poly()
-                if self._pts_budget > 0:
+                _cap181 = self._w_budget if self.watch else self._pts_budget
+                if _cap181 > 0:
                     self._p = [(x0, y0), (x1, y1)]
                     self._p_ij = (i, j)
                     self._p_f = (self.f or 0) / 60.0
                     self._p_len = dist
-                    self._pts_budget -= 2
+                    if self.watch:
+                        self._w_budget -= 2
+                    else:
+                        self._pts_budget -= 2
                 # over the cap: the rest of this layer stays unclassified
         else:
             self._close_poly()
@@ -17075,6 +17302,10 @@ class _GeomScan:
     def _close_poly(self):
         if self._p and len(self._p) >= 2 and self._p_len > 0:
             self.polys.append((self._p_ij, self._p_f or 0.0, self._p, self._p_len))
+            if self.watch:
+                self._w_budget -= len(self._p)
+                if self._w_budget < 0:
+                    self._w_over = True
         self._p = None
         self._p_ij = None
         self._p_len = 0.0
@@ -17119,14 +17350,16 @@ class _GeomScan:
             return
         first_layer = (self.layers_classified == 0)
         self.layers_classified += 1
-        loops = []           # (bbox_area, bbox, pts, plen, ij, speed)
-        hatches = []         # (angle_bucket, offset, ij, speed, plen)
-        for (ij, speed, pts, plen) in polys:
+        layer_no = self.layers_classified
+        loops = []       # (bbox_area, bbox, pts, plen, ij, speed, pi)
+        hatches = []     # (angle_bucket, offset, ij, speed, plen, pi)
+        curved = []      # R181: (pts, plen, ij, speed, pi) - open walls
+        for _pi181, (ij, speed, pts, plen) in enumerate(polys):
             self.tot_len += plen
             chord = math.hypot(pts[-1][0] - pts[0][0], pts[-1][1] - pts[0][1])
             if chord < 1.0 and plen > 3.0:
                 a, bb = self._area_bbox(pts)
-                loops.append((a, bb, pts, plen, ij, speed))
+                loops.append((a, bb, pts, plen, ij, speed, _pi181))
             elif (chord / plen <= 0.92 and plen > 8.0
                   and chord < plen * 0.15):
                 # R180: a NEAR-CLOSED curve is a loop too - a spiral wall or
@@ -17134,26 +17367,9 @@ class _GeomScan:
                 # closes around. Proof: the SIGNED total turning of a loop is
                 # ~ +/-360 degrees; an open S-curve or a connected zigzag
                 # nets ~0 and stays out. Deterministic geometry, no ML.
-                turn = 0.0
-                for _k in range(1, len(pts) - 1):
-                    _ax = pts[_k][0] - pts[_k - 1][0]
-                    _ay = pts[_k][1] - pts[_k - 1][1]
-                    _bx = pts[_k + 1][0] - pts[_k][0]
-                    _by = pts[_k + 1][1] - pts[_k][1]
-                    _la = math.hypot(_ax, _ay)
-                    _lb = math.hypot(_bx, _by)
-                    if _la < 1e-9 or _lb < 1e-9:
-                        continue
-                    _cr = (_ax * _by - _ay * _bx) / (_la * _lb)
-                    _do = (_ax * _bx + _ay * _by) / (_la * _lb)
-                    turn += math.copysign(
-                        math.acos(max(-1.0, min(1.0, _do))), _cr
-                        if abs(_cr) > 1e-12 else 1.0)
-                if abs(turn) > 5.5:            # ~315 degrees of net turn
+                if self._turning(pts) > 5.5:
                     a, bb = self._area_bbox(pts)
-                    loops.append((a, bb, pts, plen, ij, speed))
-                else:
-                    pass                        # open curve: stays out
+                    loops.append((a, bb, pts, plen, ij, speed, _pi181))
             elif chord / plen > 0.92:
                 (x0, y0), (x1, y1) = pts[0], pts[-1]
                 # R111 fix: a hatch zigzags - the SAME line traveled in both
@@ -17169,25 +17385,66 @@ class _GeomScan:
                 ln = math.hypot(nx, ny) or 1.0
                 mx, my = (x0 + x1) / 2.0, (y0 + y1) / 2.0
                 off = (mx * nx + my * ny) / ln
-                hatches.append((buck, off, ij, speed, plen))
-            # curved / irregular open paths: UNCLASSIFIED (no guess)
+                hatches.append((buck, off, ij, speed, plen, _pi181))
+            else:
+                # R181: a curved OPEN path - no longer "unclassified": the
+                # layer picture decides below. An open arc with nothing on
+                # one side is a visible wall, exactly like a closed loop.
+                curved.append((pts, plen, ij, speed, _pi181))
 
-        # ---- walls: outermost loop per island wins, nested = inner ---------------
+        # ---- R181: the layer PICTURE - bitmap + ink components --------------
+        # The user's definition, drawn: rasterize the layer's ink, then look
+        # at BOTH SIDES of every wall. Material on one side and NOTHING on
+        # the other = a visible surface = WALL-OUTER - the nothing may be
+        # the outside of the model OR the inside of a hole (the user sees
+        # both). Material on both sides = WALL-INNER. Open arcs classify
+        # like closed loops - the closed-loop restriction is gone.
+        grid = _LayerBitmap(polys)
+        sup_set = set()
+        if grid.ok:
+            _comps181 = grid.components(polys)
+            if len(_comps181) > 1:
+                _body181 = max(_comps181, key=lambda c: c['plen'])
+                for _c181 in _comps181:
+                    # R181 SUPPORT order rule: a DETACHED component that
+                    # prints FIRST in the layer (slicers lay support before
+                    # the model), above the brim layers, and is mostly
+                    # straight hatch, is SUPPORT - visible, but sacrificial:
+                    # the user peels it off after the print.
+                    if (_c181 is not _body181
+                            and _c181['first'] < _body181['first']
+                            and layer_no > 3
+                            and _c181['hatch'] >= 0.6 * _c181['plen']):
+                        sup_set |= _c181['polys']
+
+        # ---- walls ---------------------------------------------------------------
         loops.sort(key=lambda t: -t[0])
         outers = []
-        for (a, bb, pts, plen, ij, speed) in loops:
-            feat = 'WALL-OUTER'
+        for (a, bb, pts, plen, ij, speed, pi) in loops:
+            nesting_inner = False
             for (obb, opts) in outers:
                 (ox0, oy0, ox1, oy1) = obb
                 if not (bb[0] >= ox0 and bb[1] >= oy0
                         and bb[2] <= ox1 and bb[3] <= oy1):
                     continue
                 if _pt_in_poly(pts[0], opts):
-                    feat = 'WALL-INNER'
+                    nesting_inner = True
                     break
-            if feat == 'WALL-OUTER':
+            if pi in sup_set:
+                feat = 'SUPPORT'
+            elif grid.ok:
+                va, vb, ns = grid.side_ink(pts)
+                if ns >= 3:
+                    feat = ('WALL-OUTER' if (va >= 0.95 or vb >= 0.95)
+                            else 'WALL-INNER')
+                else:
+                    feat = 'WALL-INNER' if nesting_inner else 'WALL-OUTER'
+            else:
+                # no usable bitmap - the R111 nesting fallback
+                feat = 'WALL-INNER' if nesting_inner else 'WALL-OUTER'
+            if not nesting_inner:
                 outers.append((bb, pts))
-                if not self._seam_layer:
+                if feat == 'WALL-OUTER' and not self._seam_layer:
                     self.seam_cands.append((pts[0][0], pts[0][1]))
                     self._seam_layer = True
             self.ranges.append((ij[0], ij[1], feat))
@@ -17197,26 +17454,48 @@ class _GeomScan:
             self.cls_len += plen
             if first_layer and feat in ('WALL-OUTER', 'WALL-INNER'):
                 # R153: remember layer-1 wall loops - a BRIM is a layer-1
-                # WALL-OUTER loop with NO successor on layer 2 (walls
-                # continue, brim does not). Checked when the next layer
-                # arrives. Inner loops are kept for the promotion below.
+                # WALL-OUTER loop with NO successor (walls continue, brim
+                # does not). R181: only the NESTING-OUTERMOST loops count -
+                # a layer-1 hole boundary is also 'WALL-OUTER' now, but it
+                # is no brim; and the ring is watched for at most three
+                # successor layers (see _brim153).
                 if self._l1_outers is None:
                     self._l1_outers = []
                     self._l1_inners = []
-                if feat == 'WALL-OUTER':
-                    self._l1_outers.append((ij, bb))
-                else:
+                if feat == 'WALL-OUTER' and not nesting_inner:
+                    self._l1_outers.append((ij, bb, 0))
+                elif feat == 'WALL-INNER':
                     self._l1_inners.append((ij, bb))
 
-        # ---- R153 brim: layer-1 wall loops without a layer-2 successor ----------
+        # ---- R153 brim: layer-1 wall loops without a successor -----------------
         if not first_layer and self._l1_outers:
-            self._brim153([bb for (a, bb, pts, plen, ij, speed) in loops])
+            self._brim153([t[1] for t in loops])
 
-        # ---- hatch: >= 3 parallel straight lines with regular spacing -----------
+        # ---- R181: open curved walls - the picture classifies them -------------
+        for (pts, plen, ij, speed, pi) in curved:
+            feat = None
+            if pi in sup_set:
+                feat = 'SUPPORT'
+            elif grid.ok:
+                va, vb, ns = grid.side_ink(pts)
+                if ns >= 3:
+                    feat = ('WALL-OUTER' if (va >= 0.95 or vb >= 0.95)
+                            else 'WALL-INNER')
+            if feat is not None:
+                self.ranges.append((ij[0], ij[1], feat))
+                self.fstat.setdefault(feat, {})
+                self.fstat[feat][round(speed, 1)] = \
+                    self.fstat[feat].get(round(speed, 1), 0) + len(pts) - 1
+                self.cls_len += plen
+
+        # ---- hatch: >= 3 parallel straight lines with regular spacing ----------
         if hatches:
             groups = {}
             for h in hatches:
-                groups.setdefault(h[0], []).append(h)
+                # R181: support hatch and model hatch must not share a
+                # group - the gap BETWEEN two structures poisoned the mean
+                # and body infill flipped SOLID->SPARSE (field chain test)
+                groups.setdefault((h[0], h[5] in sup_set), []).append(h)
             for buck, items in groups.items():
                 items.sort(key=lambda t: t[1])
                 offs = [t[1] for t in items]
@@ -17231,18 +17510,25 @@ class _GeomScan:
                     feat = 'SURFACE-BOTTOM'
                 elif is_last and feat == 'INFILL-SOLID':
                     feat = 'SURFACE-TOP'
-                for (_, _, ij, speed, plen) in items:
-                    self.ranges.append((ij[0], ij[1], feat))
-                    self.fstat.setdefault(feat, {})
-                    self.fstat[feat][round(speed, 1)] = \
-                        self.fstat[feat].get(round(speed, 1), 0) + 1
+                for (_b, _o, ij, speed, plen, pi) in items:
+                    f181 = 'SUPPORT' if pi in sup_set else feat
+                    self.ranges.append((ij[0], ij[1], f181))
+                    self.fstat.setdefault(f181, {})
+                    self.fstat[f181][round(speed, 1)] = \
+                        self.fstat[f181].get(round(speed, 1), 0) + 1
                     self.cls_len += plen
 
     def _brim153(self, cur_bbs):
-        """R153: a BRIM is a layer-1 WALL-OUTER loop with no successor on
-        the next layer (walls continue upward, brim exists on layer 1 only).
-        Called from both classify paths (normal + vase fast-path - the vase
-        spiral IS the successor loop of the real outer wall)."""
+        """R153: a BRIM is a layer-1 outer wall loop with no successor on
+        the next layer (walls continue upward, brim exists on the first
+        layers only). Called from both classify paths (normal + vase
+        fast-path - the vase spiral IS the successor loop of the real
+        outer wall).
+        R181 patience: the ring is checked for at most THREE successor
+        layers - the user's field rule 'brim lives on the first three
+        layers at most'. A ring that still exists three layers up is a
+        WALL: a tapering model no longer mislabels its own layer-1 walls
+        as brim at whatever layer its silhouette shrinks."""
         if not self._l1_outers:
             return
         _conv153 = 0
@@ -17254,8 +17540,11 @@ class _GeomScan:
                     return True
             return False
 
-        for (_ij153, _bb153) in self._l1_outers:
+        _keep153 = []
+        for (_ij153, _bb153, _chk153) in self._l1_outers:
             if _has_succ153(_bb153):
+                if _chk153 + 1 < 3:
+                    _keep153.append((_ij153, _bb153, _chk153 + 1))
                 continue
             for _ri in range(len(self.ranges)):
                 if (self.ranges[_ri][0] == _ij153[0]
@@ -17264,14 +17553,15 @@ class _GeomScan:
                     self.ranges[_ri] = (_ij153[0], _ij153[1], 'BRIM')
                     _conv153 += 1
                     break
+        self._l1_outers = _keep153
         if _conv153 and self._l1_inners:
             # the real outer wall sat NESTED inside the brim ring (it was
             # classified WALL-INNER) - promote the LARGEST layer-1 inner
             # loop that continues on layer 2 back to WALL-OUTER
-            _cand = [( (bb[2]-bb[0]) * (bb[3]-bb[1]), ij, bb)
+            _cand = [((bb[2] - bb[0]) * (bb[3] - bb[1]), ij, bb)
                      for (ij, bb) in self._l1_inners if _has_succ153(bb)]
             if _cand:
-                _cand.sort(key=lambda t: -t[0])
+                _cand.sort(key=lambda z: -z[0])
                 _ijp = _cand[0][1]
                 for _ri in range(len(self.ranges)):
                     if (self.ranges[_ri][0] == _ijp[0]
@@ -17279,15 +17569,127 @@ class _GeomScan:
                             and self.ranges[_ri][2] == 'WALL-INNER'):
                         self.ranges[_ri] = (_ijp[0], _ijp[1], 'WALL-OUTER')
                         break
-        self._l1_outers = None
-        self._l1_inners = None
+            self._l1_inners = None
 
 
     def finish(self):
+        if self.watch:
+            self._resolve_block()
         self._close_poly()
         if self.armed:
             self._classify(is_last=True)
             self.armed = False
+
+    def _resolve_block(self):
+        """R181: the CUSTOM block ended - decide by its own geometry."""
+        self._close_poly()
+        polys = self.polys
+        self.polys = []
+        ij = self._w_ij
+        over = self._w_over
+        self.watch = False
+        self._w_ij = None
+        self._w_over = False
+        if ij is None:
+            return
+        feat = None
+        fstat = {}
+        if polys:
+            for (_ij, s, pts, _pl) in polys:
+                fstat[round(s, 1)] = fstat.get(round(s, 1), 0) + len(pts) - 1
+            if not over:
+                feat = self._classify_block(polys)
+        self.custom_res[ij] = feat
+        self.custom_fstat[ij] = fstat
+
+    def _classify_block(self, polys):
+        """R181: what IS an unknown-vocabulary block, geometrically?
+        Wall-like (>= 30% of the ink, or >= 10mm, has a void side) ->
+        WALL-OUTER, the safety default. Hatch-dominant -> infill.
+        Only sandwiched walls -> WALL-INNER. No wall character, no hatch
+        -> None: CUSTOM stays (that is what 'truly unknown' means now -
+        non-geometric injections, not walls)."""
+        grid = _LayerBitmap(polys)
+        if not grid.ok:
+            return None
+        total = sum(p[3] for p in polys)
+        if total <= 0:
+            return None
+        loops = []
+        curved = []
+        straight = []
+        for (ij, speed, pts, plen) in polys:
+            chord = math.hypot(pts[-1][0] - pts[0][0],
+                               pts[-1][1] - pts[0][1])
+            if (chord < 1.0 and plen > 3.0) or (
+                    chord / plen <= 0.92 and plen > 8.0
+                    and chord < plen * 0.15
+                    and self._turning(pts) > 5.5):
+                loops.append((pts, plen))
+            elif chord / plen > 0.92:
+                (x0, y0), (x1, y1) = pts[0], pts[-1]
+                if (x1, y1) < (x0, y0):
+                    (x0, y0), (x1, y1) = (x1, y1), (x0, y0)
+                ang = math.degrees(math.atan2(y1 - y0, x1 - x0)) % 180.0
+                buck = int(round(ang / 5.0)) % 36
+                nx, ny = -(y1 - y0), (x1 - x0)
+                ln = math.hypot(nx, ny) or 1.0
+                mx, my = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+                straight.append((buck, (mx * nx + my * ny) / ln, plen))
+            else:
+                curved.append((pts, plen))
+        wall_out = 0.0
+        wall_in = 0.0
+        for (pts, plen) in loops + curved:
+            va, vb, ns = grid.side_ink(pts)
+            if ns < 3:
+                continue
+            if va >= 0.95 or vb >= 0.95:
+                wall_out += plen
+            else:
+                wall_in += plen
+        hatch_len = 0.0
+        gaps = []
+        groups = {}
+        for (buck, off, plen) in straight:
+            groups.setdefault(buck, []).append((off, plen))
+        for (_buck, items) in groups.items():
+            items.sort()
+            offs = [o for (o, _l) in items]
+            gg = [b - a for a, b in zip(offs, offs[1:])]
+            if len(items) < 3 or not gg or min(gg) <= 0.05:
+                continue
+            hatch_len += sum(l for (_o, l) in items)
+            gaps.extend(gg)
+        if wall_out >= max(0.3 * total, 10.0):
+            return 'WALL-OUTER'
+        if hatch_len >= 0.5 * total and gaps:
+            mg = sum(gaps) / len(gaps)
+            return 'INFILL-SPARSE' if mg >= 3.0 else 'INFILL-SOLID'
+        if wall_in >= 0.5 * total:
+            return 'WALL-INNER'
+        return None
+
+    @staticmethod
+    def _turning(pts):
+        """R180/R181: signed total turning of a path (radians). A loop
+        nets ~+/-2*pi, an open S-curve nets ~0."""
+        turn = 0.0
+        for _k in range(1, len(pts) - 1):
+            _ax = pts[_k][0] - pts[_k - 1][0]
+            _ay = pts[_k][1] - pts[_k - 1][1]
+            _bx = pts[_k + 1][0] - pts[_k][0]
+            _by = pts[_k + 1][1] - pts[_k][1]
+            _la = math.hypot(_ax, _ay)
+            _lb = math.hypot(_bx, _by)
+            if _la < 1e-9 or _lb < 1e-9:
+                continue
+            _cr = (_ax * _by - _ay * _bx) / (_la * _lb)
+            _do = (_ax * _bx + _ay * _by) / (_la * _lb)
+            turn += math.copysign(
+                math.acos(max(-1.0, min(1.0, _do))), _cr
+                if abs(_cr) > 1e-12 else 1.0)
+        return abs(turn)
 
     def seam(self):
         """modal 5 mm grid over the outer-wall start points"""

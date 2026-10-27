@@ -2681,7 +2681,11 @@ tests.append(('R60 LCD Live > File: full mirror (measured spd/acc + 12 activator
 
 # --- 6) postproc v4: TYPES + measured values in the Rose file ---
 tests.append(('R60 postproc v4: tag + TYPES (7 real features, NO support/sparse) + measured speeds',
-    '; R2-POSTPROC v5' in _t58 and 'TYPES=CUSTOM,BRIM,WALL-OUTER,SURFACE-BOTTOM,SURFACE-TOP,INFILL-SOLID,IRONING' in _t58
+    # R181: ideaMaker's two 'Custom' blocks (start heater block + end park
+    # block - NO wall geometry) honestly stay CUSTOM, counted CUSTOMBLOCKS=2;
+    # their stats now merge post-scan, so CUSTOM sits at the END of TYPES
+    '; R2-POSTPROC v5' in _t58 and 'TYPES=BRIM,WALL-OUTER,SURFACE-BOTTOM,SURFACE-TOP,INFILL-SOLID,IRONING,CUSTOM' in _t58
+    and 'CUSTOMBLOCKS=2' in _t58 and 'CUSTOMRES' not in _t58
     and 'FS_WALL_OUTER=42.1' in _t58 and 'FS_BRIM=20' in _t58 and 'FS_IRONING=40' in _t58
     and 'FS_SURFACE_TOP=60' in _t58
     and 'FS_SUPPORT=' not in _t58, _fi58[:120]))
@@ -15713,12 +15717,38 @@ for _l180 in _L180:
 open(_g180b, 'w').write('\n'.join(_L180b) + '\n')
 _s180b = _pp.process(_g180b)
 _h180b = open(_g180b).read()
-tests.append(('R180 E2E: truly unknown vocabulary is COUNTED and honest '
-    '(CUSTOMBLOCKS in _FILE_INFO + summary, the CUSTOM boundary keeps its '
-    '1:1 print)',
-    'CUSTOMBLOCKS=4' in _h180b
-    and _s180b.get('custom_blocks') == 4
-    and _h180b.count('APPLY_TYPE TYPE=CUSTOM') == 4, ''))
+tests.append(('R181: unknown vocabulary over WALL geometry resolves to '
+    'WALL-OUTER (CUSTOMRES in _FILE_INFO, summary.custom_resolved, no '
+    'CUSTOM markers left) - the safety default: never infill speed on a '
+    'wall',
+    'CUSTOMRES=4' in _h180b
+    and _s180b.get('custom_resolved') == 4
+    and _h180b.count('APPLY_TYPE TYPE=CUSTOM') == 0
+    and _h180b.count('APPLY_TYPE TYPE=WALL-OUTER') >= 6, ''))
+_g180x = os.path.join(_d180, 'xpurge180.gcode')
+_L180x = ['M82', 'G90', 'G92 E0']
+_e180x = 0.0
+for _lyr180x in range(4):
+    _z180x = 0.2 + _lyr180x * 0.2
+    _L180x += [';LAYER_CHANGE', ';Z:%.2f' % _z180x, ';TYPE:Nebelwand']
+    for (_xa180x, _ya180x, _xb180x, _yb180x) in ((10, 10, 30, 30),
+                                                  (30, 10, 10, 30)):
+        _L180x.append('G0 X%d Y%d Z%.2f F6000'
+                      % (_xa180x, _ya180x, _z180x))
+        _e180x += 2.0
+        _L180x.append('G1 X%d Y%d E%.4f F1800'
+                      % (_xb180x, _yb180x, _e180x))
+_L180x.append('PRINT_END')
+open(_g180x, 'w').write('\n'.join(_L180x) + '\n')
+_s180x = _pp.process(_g180x)
+_h180x = open(_g180x).read()
+tests.append(('R181: the TRUE remainder - unknown vocabulary with NO wall '
+    'character (a purge cross: no loop, no hatch, no side-void wall) stays '
+    'CUSTOM, counted honestly, no phantom resolution',
+    'CUSTOMBLOCKS=4' in _h180x
+    and _s180x.get('custom_blocks') == 4
+    and _h180x.count('APPLY_TYPE TYPE=CUSTOM') == 4
+    and 'CUSTOMRES' not in _h180x, ''))
 _g180c = os.path.join(_d180, 'kreis.gcode')
 _L180c = ['M82', 'G90', 'G92 E0']
 import math as _m180
@@ -15800,6 +15830,113 @@ tests.append(('R180 LCD: the File info explains CUSTOM when a file has it '
     '[menu __main __preprint __file __cust]' in _lcd180
     and "file_types|default('')}" in _lcd180.split('__cust')[1][:600]
     and 'RETAG' in _lcd180.split('__cust')[1][:900], ''))
+# ================== R181: the layer picture - walls by the void side ======
+# The user's definition, implemented: rasterize each layer's ink into an
+# occupancy bitmap, then look at BOTH SIDES of every wall. One side against
+# NOTHING = visible surface = WALL-OUTER (the nothing may be the outside
+# of the model OR the inside of a HOLE - the user sees both). Material on
+# both sides = WALL-INNER. OPEN arcs classify like loops now, and the
+# print-ORDER rule separates support: detached, prints FIRST in the layer,
+# hatch-dominant, above the brim layers.
+import math as _m181
+
+def _ring181(cx, cy, r, n=36):
+    return [(cx + r * _m181.cos(2 * _m181.pi * i / n),
+             cy + r * _m181.sin(2 * _m181.pi * i / n)) for i in range(n + 1)]
+
+def _mk181(path, layers):
+    _L181 = ['M82', 'G90', 'G92 E0']
+    _e181 = 0.0
+    for _li181, _polys181 in enumerate(layers):
+        _z181 = 0.2 + _li181 * 0.2
+        _L181 += [';LAYER_CHANGE', ';Z:%.2f' % _z181]
+        for _pts181 in _polys181:
+            _L181.append('G0 X%.2f Y%.2f Z%.2f F6000'
+                         % (_pts181[0][0], _pts181[0][1], _z181))
+            for (_x181, _y181) in _pts181[1:]:
+                _e181 += 0.5
+                _L181.append('G1 X%.2f Y%.2f E%.4f F1800'
+                             % (_x181, _y181, _e181))
+    _L181.append('PRINT_END')
+    open(path, 'w').write('\n'.join(_L181) + '\n')
+
+_g181a = os.path.join(_d180, 'loch181.gcode')
+_mk181(_g181a, [[_ring181(50, 50, 20), _ring181(50, 50, 6)]] * 3)
+_pp.process(_g181a)
+_h181a = open(_g181a).read()
+tests.append(('R181 hole rule: the boundary of a hole is a VISIBLE surface '
+    '- outer boundary AND hole ring derive WALL-OUTER (the old nesting '
+    'rule called the hole ring WALL-INNER)',
+    _h181a.count('APPLY_TYPE TYPE=WALL-OUTER') == 6
+    and _h181a.count('APPLY_TYPE TYPE=WALL-INNER') == 0, ''))
+
+def _arc181(cx, cy, r, a0, a1, n=40):
+    return [(cx + r * _m181.cos(_m181.radians(a0 + (a1 - a0) * i / n)),
+             cy + r * _m181.sin(_m181.radians(a0 + (a1 - a0) * i / n)))
+            for i in range(n + 1)]
+
+_g181b = os.path.join(_d180, 'boegen181.gcode')
+_mk181(_g181b, [[_arc181(50, 50, 15, -45, 225),
+                 _arc181(50, 50, 13.8, -45, 225),
+                 _arc181(50, 50, 12.6, -45, 225)]] * 3)
+_pp.process(_g181b)
+_h181b = open(_g181b).read()
+tests.append(('R181 open walls: three concentric 270-degree ARCS (open '
+    'paths - unclassifiable before R181) - the arcs with a void side '
+    'derive WALL-OUTER, the sandwiched middle arc WALL-INNER',
+    _h181b.count('APPLY_TYPE TYPE=WALL-OUTER') == 6
+    and _h181b.count('APPLY_TYPE TYPE=WALL-INNER') == 3, ''))
+
+def _chords181(cx, cy, r, xs):
+    _out181 = []
+    for _x181 in xs:
+        _d181c = (r ** 2 - (_x181 - cx) ** 2) ** 0.5
+        _out181.append([(_x181, cy - _d181c), (_x181, cy + _d181c)])
+    return _out181
+
+_g181c = os.path.join(_d180, 'support181.gcode')
+_body181 = _ring181(50, 50, 20)
+_bodyh181 = _chords181(50, 50, 20, [32 + i * 2.0 for i in range(9)])
+_sup181 = _ring181(110, 50, 4)
+_suph181 = _chords181(110, 50, 4, [107.2 + i * 0.8 for i in range(8)])
+_layers181 = []
+for _li181 in range(6):
+    _lay181 = [_body181] + _bodyh181
+    if _li181 >= 4:
+        _lay181 = [_sup181] + _suph181 + _lay181
+    _layers181.append(_lay181)
+_mk181(_g181c, _layers181)
+_pp.process(_g181c)
+_h181c = open(_g181c).read()
+tests.append(('R181 support order rule: a detached hatch-dominant structure '
+    'that prints FIRST in the layer (above the brim layers) derives '
+    'SUPPORT - its walls do not become tunable WALL-OUTER rows',
+    _h181c.count('APPLY_TYPE TYPE=SUPPORT') == 18
+    and _h181c.count('APPLY_TYPE TYPE=WALL-OUTER') == 6
+    and 'SUPPORT' in _h181c.split('TYPES=')[1].split()[0], ''))
+
+_g181d = os.path.join(_d180, 'brim181.gcode')
+_wall181 = _ring181(50, 50, 18)
+_brim181 = _ring181(50, 50, 21)
+_mk181(_g181d, [[_brim181, _wall181], [_brim181, _wall181],
+                [_wall181], [_wall181], [_wall181]])
+_pp.process(_g181d)
+_h181d = open(_g181d).read()
+tests.append(('R181 brim patience: a layer-1 ring that vanishes within the '
+    'first three layers is BRIM (the field rule: brim lives on the first '
+    'layers at most)',
+    _h181d.count('APPLY_TYPE TYPE=BRIM') == 1
+    and _h181d.count('APPLY_TYPE TYPE=WALL-OUTER') >= 5, ''))
+_g181e = os.path.join(_d180, 'taper181.gcode')
+_mk181(_g181e, [[_brim181, _wall181]] * 5 + [[_wall181]])
+_pp.process(_g181e)
+_h181e = open(_g181e).read()
+tests.append(('R181 brim patience (taper guard): the same ring surviving '
+    'five layers is a WALL - a tapering silhouette no longer mislabels '
+    'its own layer-1 walls as brim',
+    _h181e.count('APPLY_TYPE TYPE=BRIM') == 0
+    and _h181e.count('APPLY_TYPE TYPE=WALL-OUTER') == 11, ''))
+
 import shutil as _sh180
 _sh180.rmtree(_d180, ignore_errors=True)
 
