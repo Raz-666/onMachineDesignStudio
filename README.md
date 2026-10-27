@@ -37,6 +37,7 @@ sounds + LED effects (klipper-led_effect) + LCD + Mainsail console at once.
 | **Old files fully automatic**: pause at start -> bed to temp -> mesh -> prime line -> continue; falling temps in the file are detected as 'layer 2' | LCD Pre-Print > Bed Mesh > 'Level old files' |
 | **Power off from the LCD**: heaters safe + Pi shutdown (needs gcode-shell-command, 2-press) | `SYS_SHUTDOWN` |
 | **Manual PID tuning**: hotend (WITH part fan) + bed at any temperature, anytime - no material binding, no automatic tuning | LCD Maintenance > PID Tuning / `TUNE_PID` |
+| **Generators on the LCD**: Range, Labels, Plotter, Cable ties, Angles+Flat, Lithophanes, ColorPic, Gaskets, Frames, Bricks/Kits/Figures — and **String Art** (R178): a photo becomes strands woven over an anchor ring, SPIRAL needs no image | LCD "Tools" |
 | **Boot self-check**: console confirms `Macro system OK: all modules loaded`; a missing include OR an outdated file copy is reported loudly with the exact filename | `_CHECK_INSTALL` |
 | **R2-D2**: 19 sounds + 12 LED effects woven into every flow; LEDs capped at 50% brightness | automatic |
 

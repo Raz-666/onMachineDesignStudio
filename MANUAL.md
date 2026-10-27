@@ -26,7 +26,7 @@ reference tables at the end. Installation and wiring live in the appendices.
 2. [The system in five minutes](#2-the-system-in-five-minutes)
 3. [From file to print — the daily workflow](#3-from-file-to-print--the-daily-workflow)
 4. [Scenario library — every file type walked through](#4-scenario-library--every-file-type-walked-through)
-5. [The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes, ColorPic, Gaskets, Frames, Bricks, Kits & Figures](#5-the-generators-range-labels-plotter-cable-ties-angles-lithophanes-colorpic-gaskets-frames-bricks-kits--figures)
+5. [The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes, ColorPic, Gaskets, Frames, Bricks, Kits & Figures, String Art](#5-the-generators-range-labels-plotter-cable-ties-angles-lithophanes-colorpic-gaskets-frames-bricks-kits--figures-string-art)
 6. [During the print: tuning, pauses, objects](#6-during-the-print-tuning-pauses-objects)
 7. [Filament: load / unload / change / runout / cold pull](#7-filament-load--unload--change--runout--cold-pull)
 8. [Temperature system L1/L2](#8-temperature-system-l1l2)
@@ -786,7 +786,7 @@ PAUSE_AT_LAYER LAYER=17
 CANCEL_PRINT                                    # twice within 60 s
 ```
 
-## 5. The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes, ColorPic, Gaskets, Frames, Bricks, Kits & Figures
+## 5. The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes, ColorPic, Gaskets, Frames, Bricks, Kits & Figures, String Art
 
 Thirteen generators turn the printer into a manufacturing tool of its own:
 partial prints from any G-code, label plates from typed text, pen plots from
@@ -1754,6 +1754,33 @@ Layer, Ironing, Brim, **Swap**, **Contrast**, Vers → CREATE →
 Console/Mainsail: `GEN_COLORPIC SRC=photo.png WIDTH=120 BANDS=4
 COLORS=WHT,GRY,BLK BANDH=0.8 SWAP=1 CONTRAST=1`.
 
+### 5.14 String Art — a picture woven from strands
+
+The .128 field proof (a generic StringArt3D file, 180 mm ring / 600
+anchors / 1700 strands, printed beautifully) is now a native generator.
+An **anchor ring** (two walls + solid infill, ~2.4 mm tall, brim, first
+layer fan-off) prints first; then thin **strands** (0.5 mm wide,
+~0.07 mm thick) shoot from anchor to anchor in **six Z bands** above the
+ring — crossings in the same band fuse, later bands clear the earlier
+ones (the proven ladder +0.20/+0.40/+0.55/+0.60/+0.75/+0.95). Two
+finishing loops and a cover ring tie the strand ends down.
+
+**The workflow (LCD: `Tools > String art`)**
+
+1. **Pattern** — `SPIRAL` (the classic winding, no image needed — the
+   ideal first test) or `PHOTO` (a root image becomes the weave:
+   dark areas get dense threads, seeded = reproducible).
+2. **Ring / Anchors / Strands** — diameter 60–400 mm (clamped to the
+   bed), anchors 24–720 (field proof: 600 on 180 mm), strands 50–4000.
+3. **PHOTO only: `Img:`** — cycles the root image list (the same list
+   as the lithophane, newest first; upload or pick via the SD browser).
+4. **`> Weave it`** — press twice (arm + start). The file lands in the
+   **StringArt** folder as `V01_StringArt_…` and auto-selects.
+
+**Print notes:** slow by design (25 mm/s strands, the ring at normal
+speed), leave the fan to the file (first layer off, then a ramp per
+band), no ironing. My presets saves pattern/ring/anchors/strands.
+
 ## 6. During the print: tuning, pauses, objects
 
 Everything that happens between "print started" and "print finished". Live
@@ -2306,7 +2333,7 @@ Seven top groups — in LCD order: **Start Print?** (appears in the waiting
 state, position 1), **Live Tuning** (during a print, position 2), then
 Pre-Print, Quick Macros, **Tools** (the six part generators:
 Cable ties · Angles+Flat · Lithophane · ColorPic · Gaskets · Labels ·
-Bricks (catalog, kit, figures) · Plotter, each with its own sub-menu — plus **After gen** (QUEUE/PREVIEW, .84): what
+Bricks (catalog, kit, figures) · Plotter · String art, each with its own sub-menu — plus **After gen** (QUEUE/PREVIEW, .84): what
 happens to every generated file, see 5.0),
 Maintenance, System. Klipper's own stock menus OctoPrint, Temperature and
 Setup are hidden (.104) — everything they do exists in the R2 menus; the
@@ -3191,6 +3218,8 @@ All 150 public macros with parameters (defaults in parentheses; blank = no param
 | **GEN_CABLE_TIES** | COUNT=6, LENGTH=120, WIDTH=8, LAYERS=3, VARIANT='CLASSIC', LAYER_H=0.2, BRIM=1 | console/Mainsail cable-tie job: `GEN_CABLE_TIES COUNT=6 LENGTH=120 VARIANT=LOOP` — sets everything + creates the file (VARIANT: CLASSIC one-way pawl · LOOP adjustable bead loop, reusable) |
 | **LITHO_CREATE** | INDEX=0 | lithophane from image slot INDEX (0 = newest picture in Tools > Lithophane; big jobs run in a background thread) |
 | **LITHO_DEL_SLOT** | INDEX=0 | delete image slot INDEX — 2-press logic like the LCD: first call arms, the second deletes (plotter `.gcode` stays) |
+| **STRINGART_APPLY** | PATTERN=0, DIAMETER=180, ANCHORS=300, LINES=1700, FILE=bild.png | string art job: PATTERN 0=SPIRAL / 1=PHOTO — the anchor ring prints first, the strands ride on top in six Z bands; PHOTO weaves the FILE image (default: the picked one), output lands in the StringArt folder |
+| **STRINGART_IMG** | — | cycles the root image list (the lithophane list, newest first) for the PHOTO pattern |
 | **GEN_SEAL** | OD=40, ID=20, HEIGHT=1.2, PROFILE='FLAT', IRONING=0, LAYER_H=0.2 | console/Mainsail gasket job: `GEN_SEAL OD=30 ID=15 HEIGHT=2 PROFILE=NUT` — groove + two sealing lips |
 | **CABLE_TIE_GENERATE** | — | create the tie file from the stored settings (bumps cable_tie_nonce; the watcher builds it, beeps + selects) |
 | **CABLE_TIE_INFO** | — | every tie setting in one listing + material tip |

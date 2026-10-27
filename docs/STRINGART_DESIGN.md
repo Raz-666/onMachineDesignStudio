@@ -1,4 +1,4 @@
-# R171 — String-Art-Generator (Arbeitsstand, Ziel: .130 nach dem .129-Feldtest)
+# R171/R178 — String-Art-Generator (fertig in .130: Engine R171, Menü/Makro/Watcher R178)
 
 ## Woher das Design kommt
 
@@ -34,11 +34,14 @@ Normalisierung, V-Dateinamen, LCD/Mainsail-Anbindung).
 
 - [x] `make_string_art()` + `_string_art_plan()` in tools/r2_postproc.py
 - [x] R171-Batterietests (Architektur, PHOTO-Reproduzierbarkeit, Guards)
-- [ ] LCD-Menü (Tools > String Art): Muster, Durchmesser, Anker, Fäden,
-      Bild (wie Litho: letztes Upload), Create — nach Feldtest .129
-- [ ] `macros/17_stringart.cfg` (GEN_STRINGART) + Watcher-Dispatch
-- [ ] MANUAL §5.x + README-Zeile + PDF + TESTANLEITUNG_130
-- [ ] Version .130 / R171, Commit + ZIP
+- [x] LCD-Menü (R178, Tools > String art): Pattern/Ring/Anchors/Strands,
+      Img (Root-Bildliste wie Litho, Zyklus + Index), How?, My presets,
+      Doppelklick-Weave — in `menus/lcd_menues.cfg`
+- [x] `STRINGART_APPLY` + `STRINGART_IMG` (macros/17_generator.cfg,
+      kein eigenes 17_stringart.cfg nötig) + Watcher-Dispatch
+      (`stringart_nonce`, Ausgabe in StringArt/, Job-Queue R160b)
+- [x] MANUAL §5.14 + README-Zeile + PDF-Kapitel 5.14 + TESTANLEITUNG_130
+- [x] Version .130 / R178, Commit (ZIP baut der Nutzer wie immer)
 
 ## Offene Punkte für die Feldrunde
 

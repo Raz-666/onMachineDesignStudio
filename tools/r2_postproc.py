@@ -65,7 +65,7 @@ TAG = '; R2-POSTPROC v5'
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
 POSTPROC_RELEASE = 'R2-2026-10-24.130'
-POSTPROC_BUILD = 'R177'
+POSTPROC_BUILD = 'R178'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
 # and no speed/accel/nozzle parameters. Files carrying an OLD tag are UPGRADED
@@ -7572,7 +7572,8 @@ NONCE_KEYS = ('preview_nonce', 'range_nonce', 'label_gen_nonce', 'reso_nonce',
               'file_check_nonce', 'colorpic_nonce', 'bricks_nonce',
               'brickkit_nonce', 'figures_nonce', 'plot_cal_nonce',
               'queue_cancel_nonce', 'gen_del_nonce', 'del_nonce',
-              'scale_nonce', 'cake_nonce', 'plot_nonce',
+              'scale_nonce', 'cake_nonce', 'stringart_nonce',
+              'plot_nonce',
               # R147 - .108 field log - NO parentheses in this tuple - the
               # r143 audit regex stops at the first closing bracket. The
               # three NEWER fix channels were read in the watch loop but
@@ -7613,7 +7614,7 @@ GEN_SUBDIRS = {
     'colorpic': 'ColorPic', 'bricks': 'Bricks', 'kit': 'Kit',
     'figures': 'Figures', 'plot': 'Plot', 'plotcal': 'Plot',
     'range': 'Range', 'texture': 'Texture', 'towers': 'Towers',
-    'scale': 'Scale', 'cake': 'Cake',
+    'scale': 'Scale', 'cake': 'Cake', 'stringart': 'StringArt',
 }
 GEN_FOLDER_NAMES = sorted(set(GEN_SUBDIRS.values()))
 _SD_EXT151 = ('.gcode', '.g', '.gco', '.png', '.jpg', '.jpeg',
@@ -18527,6 +18528,7 @@ def watch(directory, interval=5.0, once=False):
     last_del_nonce = None            # R175d: SD browser universal delete
     last_scale_nonce = None          # R176: scale X/Y with flow recalc
     last_cake_nonce = None           # R177: cake cut (plane split)
+    last_stringart_nonce = None      # R178: string art (R171 live)
     gen_files_pushed = ['']          # R133f: generator outputs for the LCD
     sd_tree_pushed = [None]          # R154: folder tree for the LCD browser
 
@@ -20609,6 +20611,79 @@ def watch(directory, interval=5.0, once=False):
             except Exception:                               # noqa: BLE001
                 pass
             print(f'[cake] guard: {ve177}', flush=True)
+
+        # R178 (.130 final): STRING ART goes live - R171's engine (the
+        # .128 field proof, 180mm/600 anchors/1700 strands printed
+        # beautifully) finally gets its menu. SPIRAL needs nothing, PHOTO
+        # needs a root image (the lithophane image list, newest first).
+        try:
+            _san178 = rv.get('stringart_nonce', '')
+            if _san178 and _san178 != last_stringart_nonce:
+                last_stringart_nonce = _san178
+                _spat178 = str(rv.get('stringart_pattern', 0)
+                               or 0).strip().upper()
+                _spat178 = ('PHOTO' if _spat178 in ('1', 'PHOTO')
+                            else 'SPIRAL')
+                _sdia178 = float(rv.get('stringart_diameter', 180) or 180)
+                _sanc178 = int(float(rv.get('stringart_anchors', 300)
+                                     or 300))
+                _slin178 = int(float(rv.get('stringart_lines', 1700)
+                                     or 1700))
+                _ssrc178 = str(rv.get('stringart_src', '') or '').strip().lstrip('/')
+                if '..' in _ssrc178 or _ssrc178.startswith('/'):
+                    _ssrc178 = os.path.basename(_ssrc178)
+                _sbed178 = _bed_limits(directory)
+                if _spat178 == 'PHOTO' and not _ssrc178:
+                    _moonraker_gcode(
+                        'RESPOND MSG=\"String art: PHOTO needs an image '
+                        'first - pick one (String art > Img: row)\"\n'
+                        'M117 String art: no image\n'
+                        '_SOUND_LIB NAME=r2_notice')
+                else:
+                    def _stringart_job178(pat=_spat178, dia=_sdia178,
+                                          anc=_sanc178, lin=_slin178,
+                                          src=_ssrc178, bed=_sbed178,
+                                          rvq=rv):
+                        out_sa, info_sa = make_string_art(
+                            src=(os.path.join(directory, src)
+                                 if pat == 'PHOTO' else None),
+                            pattern=pat, diameter=dia, anchors=anc,
+                            lines=lin,
+                            out_dir=_gensub(directory, 'stringart'),
+                            bed=bed)
+                        _msg = ('String art: %s (%s, %.0fmm ring, %d '
+                                'anchors, %d strands in %d Z bands - the '
+                                'ring prints first, the strands ride on '
+                                'top)'
+                                % (info_sa['file'], info_sa['pattern'],
+                                   info_sa['diameter'], info_sa['anchors'],
+                                   info_sa['lines'], info_sa['bands']))
+                        try:
+                            _moonraker_gcode(
+                                'RESPOND MSG=\"%s\"\n'
+                                'M117 String art ready\n'
+                                '_SOUND_LIB NAME=r2_done' % _msg
+                                + _sel_line(rvq, os.path.relpath(
+                                    out_sa, directory)))
+                        except Exception as me:                   # noqa: BLE001
+                            print(f'[stringart] moonraker unreachable '
+                                  f'({me.__class__.__name__})', flush=True)
+                        print(f'[stringart] {info_sa["file"]}: OK',
+                              flush=True)
+                        return [out_sa]
+
+                    _spawn_job('StringArt', 'stringart:%s:%s/%s/%s' % (
+                        _spat178, _sdia178, _sanc178, _slin178),
+                        _stringart_job178)
+        except ValueError as ve178:
+            try:
+                _moonraker_gcode(
+                    'RESPOND MSG=\"String art: %s\"\n'
+                    'M117 String art error\n'
+                    '_SOUND_LIB NAME=r2_error' % ve178)
+            except Exception:                               # noqa: BLE001
+                pass
+            print(f'[stringart] guard: {ve178}', flush=True)
         except Exception as e:                              # noqa: BLE001
             print(f'[scale] poll error: {e!r}', flush=True)
 

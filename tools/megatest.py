@@ -560,6 +560,16 @@ run('cake cut LOWER only', lambda: r2_cake.cut_cake(
 expect_error('cake above everything refuses', lambda: r2_cake.cut_cake(
     lbl, z_offset=99.0, out_dir=D))
 
+# R178: string art - the anchor ring + strands
+run('string art SPIRAL 80mm', lambda: pp.make_string_art(
+    pattern='SPIRAL', diameter=80.0, anchors=60, lines=180, out_dir=D,
+    bed=BED)[0], skip_idem=True)
+run('string art PHOTO from image', lambda: pp.make_string_art(
+    src=img, pattern='PHOTO', diameter=80.0, anchors=60, lines=150,
+    out_dir=D, bed=BED)[0], skip_idem=True)
+expect_error('string art PHOTO without image refuses', lambda:
+    pp.make_string_art(pattern='PHOTO', out_dir=D))
+
 # MAP: grayscale wrap (test pattern image, 96x64)
 try:
     from PIL import Image

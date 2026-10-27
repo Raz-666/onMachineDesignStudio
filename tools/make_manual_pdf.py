@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MANUAL.pdf — the illustrated user handbook (R2-2026-10-24.129a).
+"""MANUAL.pdf — the illustrated user handbook (R2-2026-10-24.130).
 Mirrors MANUAL.md: daily workflow first, generators next, calibration ladder,
 reference tables. 21 vector diagrams (font specimens + range variants drawn
 from the REAL generator glyph data), full parameter tables."""
@@ -476,7 +476,7 @@ class Doc(BaseDocTemplate):
         c.drawRightString(A4[0]-17*mm,A4[1]-10*mm,self.ch); c.restoreState()
     def footer(self,c,doc):
         c.saveState(); c.setFont('DVS',7.5); c.setFillColor(GRAY)
-        c.drawString(17*mm,9*mm,'R2-D2 Macro System · R2-2026-10-24.129a · user handbook')
+        c.drawString(17*mm,9*mm,'R2-D2 Macro System · R2-2026-10-24.130 · user handbook')
         c.drawRightString(A4[0]-17*mm,9*mm,f'Page {doc.page}')
         c.setStrokeColor(colors.HexColor('#c9d4e4')); c.setLineWidth(0.6); c.line(17*mm,12*mm,A4[0]-17*mm,12*mm)
         c.restoreState()
@@ -1251,7 +1251,7 @@ def d_wiring():
 # ---- cover ----
 E+= [Spacer(1,10*mm),Paragraph('R2-D2 Macro System',S['title']),Spacer(1,2*mm),
      Paragraph('The Complete User Handbook — illustrated edition',S['sub']),Spacer(1,3*mm),
-     Paragraph('Version R2-2026-10-24.129a · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail)',S['sub']),
+     Paragraph('Version R2-2026-10-24.130 · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail)',S['sub']),
      Spacer(1,6*mm),CENT(d_robot()),Spacer(1,6*mm),
      Paragraph('The USER HANDBOOK: from file to print in one read — every file type (by layer / by object / vase /<br/>'
                'legacy / movement data), the start dialog, pre-print settings, live tuning, pauses, object skip ·<br/>'
@@ -1554,7 +1554,7 @@ chapter('4','Scenario library — every file type walked through',
        'CANCEL_PRINT                                    # twice within 60 s'))
 
 
-chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes, ColorPic, Gaskets, Frames, Bricks, Kits &amp; Figures',
+chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes, ColorPic, Gaskets, Frames, Bricks, Kits &amp; Figures, String Art',
   P("One quality rule applies to every generator (field-log rule): the nozzle never travels over an "
     "open hole or slot without retracting, no matter how short the hop. Every opening is a registered "
     "keep-out: label and screw holes, the cable-tie head channel and loop slot, the gasket groove, the "
@@ -1879,6 +1879,26 @@ chapter('5.9','Texture: fuzzy skin & shaped bumps (any g-code file)',
     "+ console summary; an error sounds the alarm and the LCD says what to fix."),
   )
 
+
+chapter('5.14','String Art: a picture woven from strands',
+  P("The .128 field proof (a generic StringArt3D file, 180 mm ring / 600 anchors / 1700 strands) is now a native "
+    "generator (R178). An ANCHOR RING (two walls + solid infill, ~2.4 mm tall, brim, first-layer fan off) prints "
+    "first; then thin strands (0.5 mm wide, ~0.07 mm thick) shoot from anchor to anchor in SIX Z bands above the "
+    "ring - crossings in the same band fuse, later bands clear the earlier ones. Two finishing loops and a cover "
+    "ring tie the strand ends down."),
+  TBL(['Setting','Range','Meaning'],[
+   ['Pattern','SPIRAL / PHOTO','SPIRAL = classic winding, no image; PHOTO weaves a picture (dark = dense, seeded = reproducible)'],
+   ['Ring','60-400 mm','anchor ring diameter (clamped to the bed)'],
+   ['Anchors','24-720','the nails on the ring (field proof: 600 on 180 mm)'],
+   ['Strands','50-4000','more strands = finer shading (PHOTO) / fuller spiral'],
+   ['Img','root images','PHOTO source - the lithophane image list, newest first'],
+  ],[30*mm,34*mm,100*mm]),
+  P("Workflow: Tools > String art, pattern + values, Img picks the PHOTO source, > Weave it (press 2x). The file "
+    "lands in the StringArt folder as V01_StringArt_... and auto-selects. Print notes: slow by design (25 mm/s "
+    "strands), leave the fan to the file (first layer off, then a ramp per band), no ironing. My presets saves "
+    "pattern/ring/anchors/strands (ch. 5.0)."),
+  CODE('STRINGART_APPLY PATTERN=1 DIAMETER=180 ANCHORS=300 LINES=1700 FILE=photo.png'),
+  )
 
 chapter('6','During the print: tuning, pauses, objects',
   H2('6.1 Live tuning reference'),
@@ -2499,7 +2519,7 @@ chapter('24','Cheat sheet: LCD paths &amp; Mainsail commands',
    ['MCR','minimum cruise ratio','SCV','square corner velocity'],
   ],[30*mm,54*mm,26*mm,54*mm]),
   Spacer(1,12*mm),Paragraph('Built and tested for one purpose: printing happily — with R2-D2 keeping watch. Have fun!',S['end']),
-  Spacer(1,4*mm),Paragraph('R2-D2 Macro System · R2-2026-10-24.129a',S['cap']))
+  Spacer(1,4*mm),Paragraph('R2-D2 Macro System · R2-2026-10-24.130',S['cap']))
 
 import json as _json
 _MIDX=_json.loads(r'''[["Sounds \u2014 02_sounds.cfg", [["M300", "P=100, S=1000", "single beep \u2014 wrapper; the real beep lives on as M99300"], ["PLAY_SOUND", "NAME='r2_click'", "play a tune by name (ch. 16)"], ["TOGGLE_SOUNDS", "\u2014", "sounds on/off (persisted: sound_on)"], ["TEST_SOUNDS", "\u2014", "play all 20 tunes in sequence"]]], ["LEDs \u2014 03_leds.cfg", [["SET_LED_STATE", "STATE='idle'", "switch the LED pattern (12 states, ch. 17) - applies the nozzle mode too"], ["NOZZLE_LED", "MODE, BRIGHT, R, G, B", "nozzle light: on/off/auto + live dimming + live color (ch. 17)"], ["TOGGLE_LEDS", "\u2014", "frame LEDs off/on (persisted: leds_on)"], ["TEST_LEDS", "\u2014", "LED test animation"], ["_NOZZLE_SET", "ON", "internal: writes LED 5 (color x brightness, capped 0.5)"]]], ["Notifications \u2014 04_notify.cfg", [["NOTIFY", "TEXT, LEVEL='info', LED, SOUND", "notification helper: text + sound + LED in one call"], ["SHOW_STATUS", "\u2014", "full status: mode, material, overrides, live values"]]], ["Materials \u2014 05_materials.cfg", [["SET_MATERIAL", "MATERIAL=&lt;current>, APPLY_PRESET=1", "select material; APPLY_PRESET=1 also loads its preset"], ["SAVE_MATERIAL_TEMPS", "MATERIAL=&lt;current>", "save current values as this material's preset"], ["SHOW_MATERIAL", "\u2014", "show the current material + its stored preset"]]], ["Temperatures & marks \u2014 06_temp_controls.cfg", [["M104", "S=-1, T", "hotend temp \u2014 interceptor, redirects by layer (real: M99104)"], ["M109", "S=-1, T", "like M104, but waits"], ["M140", "S=-1", "bed temp \u2014 interceptor (real: M99140)"], ["M190", "S=-1", "like M140, but waits"], ["M106", "S=255", "part fan \u2014 scaling + from-layer-2 rule"], ["M204", "P, S, T", "acceleration \u2014 interceptor (M99204): feature accel , else global overwrite ON \u2192 your accel, else file 1:1"], ["LAYER_MARK", "\u2014", "layer marker (inserted by the post-processor)"], ["M220", "S=100", "speed \u2014 interceptor (M99220): L1 cap + stores the clean global % as g_speed_clean "], ["PAUSE_NEXT_LAYER", "REASON='next layer'", "one-shot pause at the next layer boundary"], ["PAUSE_AT_LAYER", "LAYER=0", "one-shot pause at layer n (n greater than 1)"], ["SET_LIVE_HOTEND_TEMP", "T=-1", "change the hotend target live"], ["SET_LIVE_BED_TEMP", "T=-1", "change the bed target live"]]], ["Start dialog & overrides \u2014 07_start_confirm.cfg", [["PRINT_AS_SLICED", "\u2014", "start dialog: answer AS SLICED"], ["PRINT_WITH_OVERRIDES", "\u2014", "alias for AS LEGACY since then (merged mode)"], ["PRINT_AS_LEGACY", "\u2014", "start dialog: AS LEGACY"], ["CANCEL_PENDING_PRINT", "\u2014", "start dialog: cancel (nothing is hot yet)"], ["SET_OVERRIDE_VALUE", "NAME, VALUE", "set one override + switch it ON; feat_on=0 resets the values to the file original "], ["TOGGLE_OVERRIDE", "NAME=''", "flip one override switch"], ["CLEAR_OVERRIDES", "\u2014", "all switches OFF (values stay stored)"], ["TOGGLE_START_CONFIRMATION", "\u2014", "start dialog on/off (persisted: start_confirm)"]]], ["Print start & end \u2014 08_print_start_stop.cfg", [["PRINT_START", "BED, HOTEND_FIRST, HOTEND_AFTER, BED_AFTER, MATERIAL='PLA', LAYER_HEIGHT=0.2, TOTAL_LAYERS=0, OUTER_WALL_SPEED=0, SUPPORT_SPEED=0, IRONING_SPEED=0", "start choreography \u2014 called by the sliced file"], ["START_PRINT", "\u2014", "old macro name: marked = no-op / legacy = real legacy start (dialog or auto-prep,)"], ["PRINT_END", "\u2014", "end choreography: heaters/fans, stats, sound, LED -> idle, _PRINT_CLEANUP"]]], ["Pause & filament \u2014 09_pause_filament.cfg", [["PAUSE", "REASON='User'", "pause + park (mode-aware)"], ["QUICK_PAUSE", "\u2014", "alias for PAUSE"], ["RESUME", "\u2014", "the full resume sequence (ch. 6)"], ["CANCEL_PRINT", "\u2014", "1st press arms (expires 60 s, also while paused), 2nd press cancels + cleanup"], ["M600", "\u2014", "filament change (park, unload, wait for load)"], ["CHANGE_FILAMENT", "\u2014", "M600 for humans \u2014 works from idle too (heats)"], ["CHANGE_FILAMENT_RESUME", "\u2014", "internal continuation after the load"], ["PURGE_MORE", "\u2014", "purge 15 mm more (after change/resume)"], ["M0", "\u2014", "slicer pause \u2014 mapped to PAUSE"], ["M1", "\u2014", "slicer pause \u2014 mapped to PAUSE"], ["_PRINT_CLEANUP", "\u2014", "resets ALL per-print state (PRINT_END/CANCEL/watcher - settings + mesh stay)"]]], ["Live tuning \u2014 10_live_tuning.cfg", [["APPLY_TYPE", "TYPE=''", "feature switch : sets current_type + applies THIS feature\u2019s overrides (speed % × clean global, absolute accel, ironing flow)"], ["SET_OUTER_WALL_SPEED + 11 more per-feature macros", "\u2014", "per-feature setters : forward to feat_spd/feat_acc + ON \u2014 % on top of the CLEAN global"], ["SET_GLOBAL_SPEED", "PERCENT=100", "global speed % (M220 style, never capped); the running feature stays on top — re-applied immediately"], ["SET_GLOBAL_ACCEL", "ACCEL=4000", "global acceleration, mm/s\u00b2; a feature with its own accel keeps it"],
@@ -2787,6 +2807,7 @@ chapter('D','Appendix D: Version history',
   P("Only the milestones — the full reasoning lives in SESSION_STATE.md. The manual itself describes the CURRENT "
     "system; this table is just the record."),
   TBL(['Version','Core changes'],[
+      ('.130','THE WISH-LIST ROUND R174-R178: user presets for every generator (named, unlimited, 8 per LCD page) · the seamless texture library - 21 patterns on 3 pages, integer snap around AND in Z, MAP wraps your own image, lithophane fallback · the menu restructure (your order: File/Fixes/Tools/... Profiles last; Live Tuning: temps+fan first, Exclude/Pause last) · fan logic unschackled: LIVE % beats hold, scale, clamp and the layer-1 rule, How? prints the whole chain with live numbers · SD-browser delete (2-press, folders and all, G-Codes root only, never during a print) · Scale X/Y 25-300% with honest flow - E recomputed per move (L\'/L)x(w\'/w), arcs flatten, the 100% baseline restarts with the new file, output in Scale/ · the cake cut - a plane (yaw/pitch/roll 0.5 deg grid + Z offset) slices any file, every move splits exactly, E by length share, UPPER lands cut-face-down (reorient) or keeps its stance, both halves standalone in Cake/ · string art goes live (Tools > String art): SPIRAL/PHOTO, ring/anchors/strands, the .128 field-proof architecture as a native generator (StringArt/ folder). Found by the live tests: --once now drains the job queue before exiting (every queued generator was lost on one-shot runs), the stale-daemon siren no longer trips on a drifted build label.'),
       ('.129a','THE .129 FIELD-REPORT HOTFIX (R170a): (1) the rate-print YES press died on UPDATE_DELAYED_GCODE NAME= (Klipper wants ID=) - the copy never ran, later presses read No rate-print question pending like an answer of NO. Fixed + SAVE_LATER (is mapping on a string snapshot) + a real opt_cnt for the LCD counter. (2) The question STAYS until YES/NO - no 90s auto-timeout; picking a new file answers NO. (3) SD browser: the stock Start/Resume/Pause/Cancel dead entries killed, 40 entries per page, fully recursive folder tree. (4) Mandelbrot pattern retired. (5) Rides along: feature RE-FIX for pre-.129 CUSTOM markers (System > File check) + the dormant string-art generator core.'),
       ('.129','THE LABEL/STAMP FIELD ROUND (R170): (1) FIELD FIX - labels printed ON TOP of each other (grown/per-job shelf positions were overwritten by the uniform grid; a 94mm label ended 21.6mm inside its neighbor). Shelf positions stay, the grid is non-jobs-mode only - 14 mixed jobs proof: zero overlaps, >= 12mm clearance. (2) AUTO-SPLIT: overflow no longer errors - part files in reading order (_T1, _T2, each a complete plate with own purge tower); the job message names every part. (3) LIVE FIT: Settings shows Now: WxHmm Caps X ~2s after every change (the Calc button is retired); W minimums follow live - H down to 10mm, the 1cm labels are real. (4) GAP FLOOR 10mm in every direction (user rule). (5) HANDLE 0-3, same numbering for labels + litho: 1 = ON THE PLATE (printed LAST every layer, z-hop approach, 12mm clearance, own GRIFF exclude object), 2 = separate file, 3 = handle only. (6) Loud errors: M117 carries the reason, a stamp guard row in the job menu, the Queue row shows the live bed-fit (14 -> 2 files). (7) MCU-SHUTDOWN WATCHDOG: 10min bed/hotend evidence curve in logs/r2_shutdown_watchdog.log + auto FIRMWARE_RESTART after 5min (max 2, 1h apart) - a decaying bed curve proves the power was cut (Klipper turns heaters off by design).'),
       ('.128','THE OPTIMIZED-PRINT ROUND (R169): (1) RATE PRINT? - after a successful print that was live-tuned, ONE question on the LCD: YES saves the tuning as an optimized copy, NO (or 90 s of silence) restores the exact pre-print baseline - the silent takeover into Pre-Print and the automatic post profile are retired. (2) OPTIMIZED COPIES: the watcher writes gcodes/optimized/<same name> - the ORIGINAL is only read (md5-proof). Percents (flow, per-feature speed, global speed) are baked as absolutes AND neutralized in the replay (never applied twice); absolute values (PA, accel, first-layer speed, fan limits) bake and replay idempotently; temps/retraction/per-feature flow+PA ride in the _OPT_BAKED replay line. Header: source+date tag + baked list. Re-optimizing overwrites. (3) The stock LCD file list is ROOT-ONLY, so the new top-level Optimized menu lists the folder (pick, START, or Values > Pre-Print); Mainsail shows it natively; File info shows the OPTIMIZED row. (4) Pre-Print > Profiles > From optimized loads the values of a copy as the Pre-Print starting point; Save last print is the second chance. (5) Legacy post entries stay loadable/deletable.'),
@@ -2861,4 +2882,4 @@ chapter('D','Appendix D: Version history',
 
 doc=Doc(os.path.join(os.path.dirname(__file__),'..','MANUAL.pdf'))
 doc.build(E)
-print('MANUAL.pdf built (illustrated user handbook, .129a)')
+print('MANUAL.pdf built (illustrated user handbook, .130)')

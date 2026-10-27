@@ -1,16 +1,17 @@
 # FELDTEST .130 (R174 – R177) — Testanleitung
 
-Diese Runde bringt **sechs Pakete**: **R174 — Eigene Presets für JEDEN
+Diese Runde bringt **acht Pakete**: **R174 — Eigene Presets für JEDEN
 Generator**, **R175 — die nahtlose Textur-Bibliothek**, **R175b — der
 Menü-Umbau** (deine Reihenfolge), **R175c — die neue Fan-Logik** (ein
 Drehregler, eine Kette, angezeigt), **R175d — Löschen im SD-Browser**,
-**R176 — Skalieren X/Y mit ehrlichem Flow** und **R177 — der
-Kuchen-Schnitt**. Außerdem: der Range-Done-Sound (aus .129 nachgeliefert)
-und nummerierte Optimized-Kopien (nichts wird mehr still überschrieben).
+**R176 — Skalieren X/Y mit ehrlichem Flow**, **R177 — der Kuchen-Schnitt**
+und **R178 — String-Art geht live** (dein .128-Feldbeweis als natives
+Menü). Außerdem: der Range-Done-Sound (aus .129 nachgeliefert) und
+nummerierte Optimized-Kopien (nichts wird mehr still überschrieben).
 
 Vor dem Testen: .130-ZIP wie immer hochladen, `bash klipper-e3-r2d2/update.sh`
 per SSH. Am Ende muss stehen:
-`post-processor reports build 'R2-2026-10-24.130 (R177)'` UND
+`post-processor reports build 'R2-2026-10-24.130 (R178)'` UND
 `Macro system OK ... (build R2-2026-10-24.130)`.
 
 ---
@@ -172,12 +173,37 @@ Beide landen im Ordner **Cake/** als `name_CUT-U.gcode` / `name_CUT-L.gcode`.
 3. Part LOWER only → nur die Unterteil-Datei. Z plane über der Objekthöhe
    → klare Ablehnung („no UPPER part …").
 
-## 10) Was noch offen ist
+## 10) R178: String-Art geht live
 
-Die .130-Wunschliste ist damit **vollständig** (Menü-Umbau, Fan-Logik,
-Löschen, Skalieren, Kuchen-Schnitt — alles drin). Aus der Roadmap bleibt
-als einzige Nachzügler-Idee das **String-Art-Menü** (R171 aktivieren) —
-ob das diese Runde noch kommt, entscheidet dein Feedback zum Rest.
+**Wo:** Tools → **String art**. Dein .128-Feldbeweis (das generische
+StringArt3D-File, 180mm/600 Anker/1700 Fäden) ist jetzt ein nativer
+Generator: erst druckt ein **Ankerring** (~2,4mm, mit Brim), dann schießen
+dünne **Fäden** in sechs Z-Bändern über den Ring — Kreuzungen im selben
+Band verschmelzen, spätere Bänder fliegen über die früheren.
+
+**So testest du:**
+
+1. **SPIRAL zuerst** (der Klassiker, kein Bild nötig): Pattern SPIRAL,
+   Ring 120mm, Anchors 120, Strands 600 → `> Weave it` (2× drücken).
+   Im Chat kommt `String art: V01_StringArt_Spiral.gcode (SPIRAL, 120mm
+   ring, 120 anchors, 600 strands in 6 Z bands …)`, die Datei liegt im
+   Ordner **StringArt** und ist ausgewählt.
+2. **PHOTO**: ein .png/.jpg in den G-Codes-Ordner laden (oder im
+   SD-Browser antippen), Zeile **Img:** antippen (zählt durch die
+   Bildliste), Pattern PHOTO, gleiche Werte → Weben. Dunkle Stellen
+   bekommen dichte Fäden. Erneut weben mit gleichen Werten = **exakt
+   dasselbe Bild** (geseedet, reproduzierbar).
+3. **Druckhinweise** (stehen auch in `How does it work?`): langsam ist
+   Absicht (Fäden 25mm/s), Lüfter wie in der Datei (erste Lage aus,
+   dann Rampe pro Band), kein Ironing.
+4. **My presets**: speichert Pattern/Ring/Anchors/Strands wie bei allen
+   Generatoren (Name z. B. `PHOTO-180`).
+
+## 11) Ende der Runde — nichts mehr offen
+
+Die .130-Wunschliste ist **vollständig**: Menü-Umbau ✓, Fan-Logik ✓,
+Löschen ✓, Skalieren ✓, Kuchen-Schnitt ✓, String-Art ✓. Was nach dem
+Feldtest ansteht, entscheidet dein Feedback.
 
 ---
 

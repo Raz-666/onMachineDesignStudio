@@ -5144,7 +5144,8 @@ tests.append(('R75 watcher: _prime_nonces adopts the current counters (no re-fir
         'opt_nonce': None, 'opt_load_nonce': None,
         'img_pick_nonce': None, 'del_nonce': None,
         'scale_nonce': None,
-        'cake_nonce': None}, ''))
+        'cake_nonce': None,
+        'stringart_nonce': None}, ''))
 tests.append(('R75 watcher: daemon runs niced + primes on the first pass',
     'os.nice(4)' in open('tools/r2_postproc.py').read()
     and 'first_prime' in open('tools/r2_postproc.py').read(), ''))
@@ -6338,10 +6339,10 @@ tests.append(('R86 modules: 17_generator.cfg sentinel + _CHECK_INSTALL lists 17'
     '_V18_GEN' in open(_gen86).read()
     and "('17_generator.cfg',       ['_V18_GEN'])" in open('macros/01_state.cfg').read()
     and 'all 17 modules' not in open('macros/01_state.cfg').read(), ''))
-tests.append(('R86-R174 watcher: NONCE_KEYS has 36 channels incl. litho/seal/frame/colorpic '
+tests.append(('R86-R174 watcher: NONCE_KEYS has 37 channels incl. litho/seal/frame/colorpic '
     '+ the three fix channels (.108) + the two optimized-file channels (.128) '
     '+ the SD-browser image channel (.130)',
-    len(_pp.NONCE_KEYS) == 36 and 'flowcap_fix_nonce' in _pp.NONCE_KEYS
+    len(_pp.NONCE_KEYS) == 37 and 'flowcap_fix_nonce' in _pp.NONCE_KEYS
     and 'opt_nonce' in _pp.NONCE_KEYS and 'opt_load_nonce' in _pp.NONCE_KEYS
     and 'img_pick_nonce' in _pp.NONCE_KEYS
     and 'travelacc_fix_nonce' in _pp.NONCE_KEYS
@@ -6762,7 +6763,7 @@ tests.append(('R87 LCD: container sits between Quick Macros and Maintenance, liv
     and '[menu __main __live __plot __mode]' in _lcd87
     and '[menu __main __live __plot]' in _lcd87, ''))
 tests.append(('R87/R89/R90 LCD: guards preserved (cable/angle/litho/seal/frame need 17_generator, labels optional, plot+container free)',
-    _lcd87.count("enable: {'gcode_macro _GENERATORS' in printer}") == 5
+    _lcd87.count("enable: {'gcode_macro _GENERATORS' in printer}") == 6
     and "enable: {'gcode_macro _LABELS' in printer}" in _lcd87
     and '[menu __main __gen __plot]\ntype: list\nname: Plotter\n' in _lcd87, ''))
 tests.append(('R87 docs: cfg console paths say Tools (labels + plotter + generator header)',
@@ -13170,6 +13171,43 @@ _ADDED135 = [
  '__main __gen __seal __usr __pd',
  '__main __gen __seal __usr __pu',
  '__main __gen __seal __usr __save',
+ '__main __gen __stringart',
+ '__main __gen __stringart __anc',
+ '__main __gen __stringart __dia',
+ '__main __gen __stringart __go',
+ '__main __gen __stringart __how',
+ '__main __gen __stringart __img',
+ '__main __gen __stringart __lin',
+ '__main __gen __stringart __pat',
+ '__main __gen __stringart __usr',
+ '__main __gen __stringart __usr __info',
+ '__main __gen __stringart __usr __p0',
+ '__main __gen __stringart __usr __p0 __del',
+ '__main __gen __stringart __usr __p0 __ld',
+ '__main __gen __stringart __usr __p1',
+ '__main __gen __stringart __usr __p1 __del',
+ '__main __gen __stringart __usr __p1 __ld',
+ '__main __gen __stringart __usr __p2',
+ '__main __gen __stringart __usr __p2 __del',
+ '__main __gen __stringart __usr __p2 __ld',
+ '__main __gen __stringart __usr __p3',
+ '__main __gen __stringart __usr __p3 __del',
+ '__main __gen __stringart __usr __p3 __ld',
+ '__main __gen __stringart __usr __p4',
+ '__main __gen __stringart __usr __p4 __del',
+ '__main __gen __stringart __usr __p4 __ld',
+ '__main __gen __stringart __usr __p5',
+ '__main __gen __stringart __usr __p5 __del',
+ '__main __gen __stringart __usr __p5 __ld',
+ '__main __gen __stringart __usr __p6',
+ '__main __gen __stringart __usr __p6 __del',
+ '__main __gen __stringart __usr __p6 __ld',
+ '__main __gen __stringart __usr __p7',
+ '__main __gen __stringart __usr __p7 __del',
+ '__main __gen __stringart __usr __p7 __ld',
+ '__main __gen __stringart __usr __pd',
+ '__main __gen __stringart __usr __pu',
+ '__main __gen __stringart __usr __save',
  '__main __live __acfe __cur',
  '__main __live __acfe __eff',
  '__main __live __acfe __ga',
@@ -13957,7 +13995,7 @@ tests.append(('R146 generator folders (source wiring): all 15 watcher call '
               'sites route into _gensub subfolders (no flat out_dir=directory '
               'left), gen_files lists RELATIVE paths incl. legacy root files, '
               'delete joins the subpath',
-              _r2p146.count("out_dir=_gensub(directory, '") == 17
+              _r2p146.count("out_dir=_gensub(directory, '") == 18
               and 'out_dir=directory' not in _r2p146
               and 'GEN_SUBDIRS = {' in _r2p146
               and "_sub146 + '/' + _f146" in _r2p146
@@ -14065,9 +14103,9 @@ import re as _re160
 _rows160 = _re160.findall(r'gcode:\n    ([A-Z_]+(?: INDEX=\d+| PRESET=\w+)? CONFIRM=1)', _lcd160)
 tests.append(('R160 LCD: 37 generation rows confirm by DOUBLE PRESS '
     '(macro + CONFIRM=1), console stays single-shot',
-    len([r for r in _rows160 if not r.startswith(('LABEL_CLEAR_ALL', 'SYS_SAVE_CONFIG'))]) == 36
+    len([r for r in _rows160 if not r.startswith(('LABEL_CLEAR_ALL', 'SYS_SAVE_CONFIG'))]) == 37
     and 'PLOT_TEXT FILE="{nm}.txt" CONFIRM=1' in _lcd160
-    and _lcd160.count("gen_arm|default('') ==") >= 37
+    and _lcd160.count("gen_arm|default('') ==") >= 38
     and 'CABLE_TIE_GENERATE CONFIRM=1' in _lcd160
     and 'LITHO_CREATE INDEX=0 CONFIRM=1' in _lcd160
     and 'GEN_BRICKKIT CONFIRM=1' in _lcd160 and 'GEN_FIGURES CONFIRM=1' in _lcd160
@@ -14805,7 +14843,7 @@ tests.append(('R174c LCD: a Presets submenu for all 12 generators '
     'a generator lacks its preset menu'))
 tests.append(('R174c LCD: no artificial limit - 8 slots per page flip with '
     'Page</>, the dict itself is unlimited',
-    _lcd174c.count('_preset_page|default(0)|int)*8+') == 12 * 8,
+    _lcd174c.count('_preset_page|default(0)|int)*8+') == 13 * 8,
     str(_lcd174c.count('_preset_page|default(0)|int)*8+'))))
 _save174c3 = render(_eng174c, {'ACTION': 'save', 'GEN': 'texture', 'NAME': 'GRID'})
 tests.append(('R174c texture preset: SAVE captures the texture settings '
@@ -15456,6 +15494,134 @@ tests.append(('R177 watcher live: the cake really cuts through --watch '
 import shutil as _sh177
 _sh177.rmtree(_d177, ignore_errors=True)
 _sh177.rmtree(_base177, ignore_errors=True)
+
+
+# ================== R178 (.130 final): string art goes live =================
+_pp178x = open('tools/r2_postproc.py', encoding='utf-8').read()
+import tempfile as _tf178
+_d178 = _tf178.mkdtemp(prefix='r178_')
+sys.path.insert(0, os.path.abspath('tools'))
+_out178, _i178 = _pp.make_string_art(
+    pattern='SPIRAL', diameter=80.0, anchors=60, lines=180, out_dir=_d178,
+    bed=(0, 0, 220, 220))
+_h178 = open(_out178).read()
+tests.append(('R178 SPIRAL: ring + strands file with PRINT_START, exclude '
+    'objects and the six Z bands',
+    _i178['pattern'] == 'SPIRAL' and _i178['bands'] == 6
+    and _i178['anchors'] == 60 and _i178['lines'] == 180
+    and 'R2-STRINGART generated' in _h178
+    and 'PRINT_START' in _h178 and 'EXCLUDE_OBJECT_DEFINE' in _h178,
+    _i178['file']))
+from PIL import Image as _Im178
+_img178 = os.path.join(_d178, 'gesicht.png')
+_im178 = _Im178.new('L', (48, 48))
+_px178 = _im178.load()
+for _y178 in range(48):
+    for _x178 in range(48):
+        _px178[_x178, _y178] = 30 if (12 < _x178 < 36 and 12 < _y178 < 36) \
+            else 220
+_im178.save(_img178)
+_out178b, _i178b = _pp.make_string_art(
+    src=_img178, pattern='PHOTO', diameter=80.0, anchors=60, lines=150,
+    out_dir=_d178, bed=(0, 0, 220, 220))
+_out178c, _i178c = _pp.make_string_art(
+    src=_img178, pattern='PHOTO', diameter=80.0, anchors=60, lines=150,
+    out_dir=_d178, bed=(0, 0, 220, 220))
+tests.append(('R178 PHOTO: weaves the image, seeded = byte-identical on a '
+    're-run (same parameters, same picture)',
+    _i178b['source'] == 'gesicht.png' and _i178b['lines'] == 150
+    and open(_out178b, 'rb').read() == open(_out178c, 'rb').read(),
+    _i178b['file']))
+try:
+    _pp.make_string_art(pattern='PHOTO', out_dir=_d178)
+    _g178 = False
+except ValueError as _v178:
+    _g178 = 'needs an image' in str(_v178)
+tests.append(('R178 guard: PHOTO without an image refuses with clear words',
+    _g178, ''))
+save_vars.update({'stringart_pattern': 0, 'stringart_diameter': 180,
+                  'stringart_anchors': 300, 'stringart_lines': 1700,
+                  'stringart_src': '', 'stringart_nonce': 2})
+_out178 = render(get_body('macros/17_generator.cfg', 'STRINGART_APPLY'), {})
+tests.append(('R178 STRINGART_APPLY: queues SPIRAL with all values + nonce '
+    'bump',
+    'VARIABLE=stringart_pattern VALUE=0' in _out178
+    and 'VARIABLE=stringart_diameter VALUE=180' in _out178
+    and 'VARIABLE=stringart_anchors VALUE=300' in _out178
+    and 'VARIABLE=stringart_lines VALUE=1700' in _out178
+    and 'VARIABLE=stringart_nonce VALUE=3' in _out178
+    and 'strands ride on top' in _out178
+    and 'VARIABLE=stringart_src' not in _out178, _out178.strip()[:100]))
+save_vars.update({'stringart_pattern': 1, 'stringart_src': ''})
+_out178 = render(get_body('macros/17_generator.cfg', 'STRINGART_APPLY'), {})
+tests.append(('R178 STRINGART_APPLY: PHOTO without an image -> friendly '
+    'error, nonce untouched',
+    'needs an image' in _out178
+    and 'stringart_nonce VALUE=' not in _out178, ''))
+_out178 = render(get_body('macros/17_generator.cfg', 'STRINGART_APPLY'),
+                 {'DIAMETER': '500'})
+tests.append(('R178 STRINGART_APPLY: out-of-range values rejected',
+    'out of range' in _out178
+    and 'stringart_nonce VALUE=' not in _out178, ''))
+_out178 = render(get_body('macros/17_generator.cfg', 'STRINGART_APPLY'),
+                 {'PATTERN': '7'})
+tests.append(('R178 STRINGART_APPLY: bad pattern rejected',
+    'bad pattern' in _out178.upper() or 'PATTERN must be' in _out178,
+    _out178.strip()[:80]))
+_ga178 = open('macros/17_generator.cfg', encoding='utf-8').read()
+tests.append(('R178 STRINGART_IMG: cycles the root image list (litho list) '
+    'and stores name + index',
+    'stringart_src_idx' in _ga178
+    and 'litho_files' in _ga178
+    and 'VARIABLE=stringart_src VALUE=' in _ga178, ''))
+tests.append(('R178 presets: stringart joined the preset engine (pattern/'
+    'ring/anchors/strands)',
+    "'stringart': ['stringart_pattern', 'stringart_diameter', "
+    "'stringart_anchors', 'stringart_lines']" in _ga178, ''))
+_lcd178 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R178 LCD: String art menu in Tools (pattern/ring/anchors/'
+    'strands inputs + Img + How? + My presets + the double-press weave)',
+    '[menu __main __gen __stringart]' in _lcd178
+    and 'STRINGART_APPLY CONFIRM=1' in _lcd178
+    and 'VARIABLE=stringart_pattern VALUE={menu.input|round|int}' in _lcd178
+    and 'VARIABLE=stringart_diameter VALUE={menu.input|round|int}' in _lcd178
+    and 'VARIABLE=stringart_anchors VALUE={menu.input|round|int}' in _lcd178
+    and 'VARIABLE=stringart_lines VALUE={menu.input|round|int}' in _lcd178
+    and 'STRINGART_IMG' in _lcd178
+    and _lcd178.count('GEN=stringart') >= 19, ''))
+tests.append(('R178 watcher: stringart channel primed + job lands in the '
+    'StringArt folder and speaks ring/strands',
+    'stringart_nonce' in _pp.NONCE_KEYS
+    and 'last_stringart_nonce' in _pp178x
+    and 'M117 String art ready' in _pp178x
+    and '_stringart_job178' in _pp178x
+    and "'stringart': 'StringArt'" in _pp178x
+    and 'String art: PHOTO needs an image' in _pp178x, ''))
+# live watcher run: a real SPIRAL weave through --watch --once
+import subprocess as _sp178
+import shutil as _sh178
+_base178 = _tf178.mkdtemp(prefix='r178live_')
+_gc178 = os.path.join(_base178, 'gcodes')
+os.makedirs(_gc178)
+open(os.path.join(_base178, 'variables.cfg'), 'w').write(
+    '[variables]\nvariable_stringart_pattern: 0\n'
+    'variable_stringart_diameter: 80\nvariable_stringart_anchors: 60\n'
+    'variable_stringart_lines: 180\nvariable_stringart_nonce: 1\n')
+_r178 = _sp178.run(
+    [sys.executable, os.path.abspath('tools/r2_postproc.py'),
+     '--watch', _gc178, '--once'], capture_output=True, text=True,
+    timeout=240)
+_sa178 = [f for f in os.listdir(os.path.join(_gc178, 'StringArt'))
+          if f.endswith('.gcode')] if os.path.isdir(
+    os.path.join(_gc178, 'StringArt')) else []
+tests.append(('R178 watcher live: the SPIRAL really weaves through --watch '
+    '--once (file in the StringArt folder, [stringart] log)',
+    len(_sa178) == 1 and 'Spiral' in _sa178[0]
+    and '[stringart]' in _r178.stdout
+    and 'V01' in _sa178[0],
+    (_r178.stdout + _r178.stderr)[:200].replace('\n', ' | ')))
+_sh178.rmtree(_base178, ignore_errors=True)
+_sh178.rmtree(_d178, ignore_errors=True)
 
 fails = 0
 for name, ok, info in tests:
