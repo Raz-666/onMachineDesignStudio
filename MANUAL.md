@@ -415,8 +415,11 @@ into an automatic `post` profile). Since .128 it is a decision:
 | **NO — discard** | the exact **pre-print baseline** (snapshotted at the print start, memory only) is restored — every override, feature switch, clamp and material — the tuning is gone without a trace. |
 | **no auto-timeout (.129a)** | the question STAYS in the menu until you answer. Only picking a new file (or starting a new print) answers it with NO — nothing is ever adopted automatically. |
 
-The **optimized copy** lands in `gcodes/optimized/` under the SAME file name —
-the original file is only ever **read** (byte-identical, provable by md5/diff).
+The **optimized copy** lands in `gcodes/optimized/` with **numbered copies**
+(.130): the first save writes `name.gcode`, every further save of the same
+file becomes `name_O2.gcode`, `name_O3`, … — your tuning history is never
+silently overwritten. The original file is only ever **read**
+(byte-identical, provable by md5/diff).
 The copy carries your print's tuning:
 
 - Values the file can display are **baked in as absolutes**: flow and speed
@@ -858,6 +861,12 @@ Console/Mainsail: `_GEN_OUT_SET OUT=QUEUE` (or `OUT=PREVIEW`,
 `OUT=SELECT`, `OUT=1/0`), per run e.g. `GEN_CABLE_TIES COUNT=8 OUT=PREVIEW`.
 The setting survives a reboot (default QUEUE — the pre-.84 behavior).
 
+**My presets — every generator (.130, R174).** Texture, lithophane, labels,
+frames and plotter each carry a **My presets** submenu: Save stores ALL of
+that generator's settings under a name of your choice (PHOTO-180, fuzzy, A45 …), Load/Delete work per slot, 8 slots per page with Page</>, the
+list itself is unlimited — and the presets survive reboots. The frame's
+old numbered slots remain loadable as they were.
+
 ### 5.1 Range — print a section of an existing file
 
 Perfect for re-printing a broken section, testing the critical middle of a
@@ -1102,7 +1111,7 @@ GEN_LABELS TEXT="WERKSTATT~KELLER|VASE" W=60 H=30 FONT=COND SIZE=8 SPACING=1 LIN
 - **Handle 0–3 (your choice, Labels AND Litho use the same numbering):**
   `0` none · `1` **ON THE PLATE** with the stamp — printed LAST on every
   layer (the nozzle never finishes on a label it could rip off), z-hop
-  approach, 12 mm clearance, its own `GRIFF` exclude object, own brim,
+  approach, 12 mm clearance, its own GRIFF exclude object, own brim,
   bridged bore ceiling · `2` separate handle file (as before) · `3` handle
   ONLY (reprint a lost one). Litho refuses `1` with a pointer (its plate is
   FLAT — the handle lives in its own file there).
@@ -1573,13 +1582,21 @@ wall of a file you already have**. Two looks:
 | Subtle | 0.15 mm | 60 % | subtle matte surface (Orca: 0.1–0.2 mm) |
 | Grip | 0.50 mm | 100 % | aggressive grip (Orca: 0.5–0.8 mm) |
 
-LCD: Pre-Print > Texture > **Presets** — or `TEXTURE_APPLY PRESET=LAYERS`.
+LCD: Pre-Print > Texture > **Fixed presets** (Orca / Hide layers / Subtle /
+Grip, one press each) and **My presets** (.130, R174) — your own named
+presets, unlimited.
 The thickness range is 0.05–1.5 mm (Orca-sized).
-- **BUMPS** — the offset follows a **pattern**: Grid (egg-crate dimples),
-  Waves (diagonal ripples **with a z-phase** — the pattern crawls slightly
-  from layer to layer, which visually swallows layer lines), Honeycomb
-  (hex dimples) or Mandelbrot (a fractal landscape — every spot on the bed
-  gets its own bump height, unique per position).
+- **BUMPS** — the offset follows a **pattern from the library** (.130, R175):
+  **21 patterns on 3 pages** — Ridges, Waves, Grid, Hatch, Checker, Hex,
+  Honeycomb, Basket, Rope, Planks, Bricks, Sandstone, Concrete, Clay, Crepe,
+  Fabric, Plush, Hilbert, Scratch, Glitch — plus **MAP**: your own image,
+  wrapped around the part (dark = deep). **Seamless by design:** your mm
+  values are guidelines — the tool lays WHOLE grooves around the perimeter
+  and WHOLE repeats in Z (the top edge ends flush, no half brick) and
+  reports the effective size, e.g. `[seamless: 9 ridges x 2 Z-repeats
+  (eff. 8.4mm x 2.9mm)]`. Same **seed** = same look (matters for
+  Sandstone/Glitch). A lithophane (no wall markers) falls back to "every
+  path is the geometry" and says so in the file header.
 
 Everything else stays **byte-identical**: `;TYPE:` tags, EXCLUDE_OBJECT,
 APPLY_TYPE/LAYER_MARK markers, **E values, Z values, speeds (F)** — inner
@@ -1607,9 +1624,12 @@ In both modes nothing ever starts printing by itself.
 | Mode | OFF / FUZZY / BUMPS | OFF = the menu is inert (Apply refuses with a hint) |
 | Fuz thick | 0.1–0.6 mm | scatter radius (fuzzy) |
 | Fuz dens | 10–100 % | share of vertices that scatter (100 = all) |
-| Pattern | Grid / Waves / Honeycomb / Mandelbrot | bump shape (bumps) |
-| Scale | 3–60 mm | pattern cell size — small = fine orange peel, large = bold dimples |
-| Amp | 0.1–0.8 mm | bump depth |
+| Pattern | library: 21 + MAP | 3 pages (see above); MAP = own image, wrapped seamlessly |
+| Around | 3–60 mm | groove size around the perimeter (guideline — snapped to whole grooves) |
+| Height | 0.4–20 mm | pattern repeat in Z (guideline — snapped to whole repeats, ends flush) |
+| Depth | 0.05–1.5 mm | groove/bump depth |
+| Seed | 1–999 | same seed = same look (Sandstone/Glitch) |
+| Img | root image | MAP source — pick a picture in the SD browser |
 | Dir | OUT / IN | OUT = grows away from the part, IN = cuts into it |
 
 **What the tool will never do:** overwrite the source file · auto-start
@@ -1767,8 +1787,8 @@ finishing loops and a cover ring tie the strand ends down.
 
 **The workflow (LCD: `Tools > String art`)**
 
-1. **Pattern** — `SPIRAL` (the classic winding, no image needed — the
-   ideal first test) or `PHOTO` (a root image becomes the weave:
+1. **Pattern** — SPIRAL (the classic winding, no image needed — the
+   ideal first test) or PHOTO (a root image becomes the weave:
    dark areas get dense threads, seeded = reproducible).
 2. **Ring / Anchors / Strands** — diameter 60–400 mm (clamped to the
    bed), anchors 24–720 (field proof: 600 on 180 mm), strands 50–4000.
@@ -1780,6 +1800,33 @@ finishing loops and a cover ring tie the strand ends down.
 **Print notes:** slow by design (25 mm/s strands, the ring at normal
 speed), leave the fan to the file (first layer off, then a ramp per
 band), no ironing. My presets saves pattern/ring/anchors/strands.
+
+### 5.15 Scale X/Y — resize with honest flow
+
+Scale the SELECTED file per axis, **25–300 %** — and the flow stays honest:
+E is recomputed **per move** as (L′/L)·(w′/w) — axis moves scale with X·Y,
+45° moves with (X²+Y²)/2, uniform scaling gives X² everywhere. Layer
+height stays untouched, the result is centered on the bed, G2/G3 arcs
+flatten to scaled chords, and the **new 100 % flow baseline is the new
+file** (`name_SXXX-YYY.gcode` in the `Scale/` folder, numbered copies,
+never overwrites). The bed guard names the required size if it does not
+fit. LCD: Pre-Print > Tools > Scale X/Y — X/Y inputs, `How? (E/flow)`
+explains the math, `> Apply` (2×). Console:
+`SCALE_APPLY X=150 Y=150 FILE=myfile.gcode`.
+
+### 5.16 Cake cut — split a print with a plane
+
+Slice the SELECTED file with a plane: **yaw / pitch / roll** on the 0.5°
+grid (where the tilt points / front-back / left-right) and **Z plane** =
+the plane's height at the bed center. Every move splits exactly at the
+plane, E divides by length share, arcs flatten first. **LOWER** keeps its
+place; **UPPER** becomes its own file — dropped to the file's first layer
+height, or with **Reorient ON** rotated so the **cut face lies flat on the
+bed** (the natural way to print a top piece). Output:
+`name_CUT-U.gcode` / `name_CUT-L.gcode` in the `Cake/` folder; PART picks
+UPPER / LOWER / BOTH. Guards refuse planes above/below the object.
+LCD: Pre-Print > Tools > Cake cut. Console:
+`CAKE_APPLY PITCH=15 Z=5 PART=BOTH REORIENT=1`.
 
 ## 6. During the print: tuning, pauses, objects
 
@@ -1811,6 +1858,12 @@ Feature PA (.85): SET_FEAT_PA FEATURE=<code> PA=<0..0.3> — pressure advance fo
 Shaper (.85): SET_FEAT_SHAPER_OFF FEATURE=<code> STATE=1|0 — input shaper OFF while that one
          feature prints (sharp corners on slow outer walls), frequencies restored when it
          ends and at PRINT_END/cancel (safety net _FEAT_TUNING_RESTORE). Needs [input_shaper]
+Fan LIVE (.130, R175c): SET_FAN_LIVE PERCENT= — YOUR absolute fan %, it beats
+         everything: hold, scale, clamp AND the layer-1 fan-off rule (you turned
+         the dial). SET_FAN_LIVE ON=0 hands control back to the file. LCD:
+         Live Tuning > Temps & Fan > `Fan: NN% (LIVE)` + the LIVE on/off row;
+         `How? (fan math)` prints the whole chain with the live numbers.
+         Chain (strongest first): LIVE > layer-1 fan-off > HOLD > SCALE > CLAMP.
 Fan curve (.85, .126): SET_FAN_CLAMP ON=1|0 MIN=0..100 MAX=0..100 BRIDGE=0..100 — every M106 of the
          file runs clamped between MIN/MAX percent (a file that wants 100 % gives 90 %), BRIDGE
          lifts the fan while a bridge section prints (0 = off). .126: clamp changes apply
@@ -1828,7 +1881,8 @@ Unretract (.85): SET_UNRETRACT_EXTRA EXTRA=-1..3 — every unretract adds EXTRA 
 Extrusion: SET_FLOW_RATE PERCENT=1..300 · SET_LIVE_PRESSURE_ADVANCE VALUE= ·
          SET_LIVE_PA_SMOOTH TIME= · SET_LIVE_RETRACTION LENGTH= SPEED= UNRETRACT_SPEED= EXTRA=
 Temps:   SET_LIVE_HOTEND_TEMP T= · SET_LIVE_BED_TEMP T=
-Fan:     SET_FAN_SCALE PERCENT=      Babystep: BABYSTEP_UP/DOWN[_FINE]
+Fan:     SET_FAN_LIVE PERCENT=/ON= (your absolute %, beats all) ·
+         SET_FAN_SCALE (25–150 % × the file value)      Babystep: BABYSTEP_UP/DOWN[_FINE]
 Objects: SKIP_OBJECT OBJECT=name (2x) · SKIP_CURRENT_OBJECT · SHOW_OBJECTS
 Compat:  SET_INNER_WALL_SPEED / SET_INFILL_* remain feature-less (inner wall and
          infill print 1:1 - use the global factor)
@@ -2341,6 +2395,15 @@ SD Card browser (40 entries per page, EVERY folder depth, .129a - the stock Star
 of the 12864 display — the value you edit is always visible (test-enforced).
 Pattern: first line = ON/OFF toggle (value stays stored), then the values.
 
+**.130 menu order** — Pre-Print: File info · Fixes · Tools (Offset, Texture,
+Range, Scale X/Y, Cake cut, Plotter) · Temps · Motion · Features ·
+utilities (Preheat/Mesh/Confirm/Overwrites) · Profiles LAST. Live Tuning:
+Temps & Fan first, then Z-Hopping, Z-offset + babysteps, the quick-access
+rows, Features, Motion, Sources/File/Plotter — Exclude + Pause at the very
+end. The SD browser has a **Del** row (.130): one press switches the mode
+on, then every file and folder needs **two presses** (arm + delete) — only
+inside the G-Codes root, never during a print.
+
 **Live Tuning (during a print, every mode)** — shows Klipper's REAL values:
 the flow input reads the actual extrude factor (M221), PA reads
 `pressure_advance`, smooth reads `smooth_time`, accel reads `max_accel`,
@@ -2349,7 +2412,7 @@ retraction reads the firmware values — what you see is what runs.
 | Entry | Contents |
 |---|---|
 | Z +0.04 / +0.12 / −0.04 / −0.12 | babystepping right at the top |
-| Hot / Bed / Fan / Zoff | cockpit: temperatures, fan %, Z-offset display · fan clamp: Clamp ON/OFF, FMin, FMax, FBrdg (bridge boost %, 0 = off) — every M106 of the file runs inside the curve (.85) |
+| Hot / Bed / Fan / Zoff | cockpit: temperatures, fan %, Z-offset display · **Fan: NN% (LIVE)** (.130) — your absolute %, beats hold/scale/clamp AND the layer-1 rule · LIVE on/off · Hold · Scale (25–150 % × file) · Clamp (FMin/FMax/FBrdg) · How? (fan math) prints the chain |
 | Spd per feat (.104) | Glob % (THE overall regulator) + FeatSpd: the currently printing feature's % + FeatOn: its ON switch + Src info (file/overwrite/live) + "Now:" which feature is printing + all 16 feature % rows (TRV = travels) |
 | Acc per feat (.104) | global mm/s² + Feat x: scales every feature accel by % + the effective accel + FeatAcc: the currently printing feature's accel + all 16 feature accel rows |
 | PA per feat (.104) | Glob: the global PA + all 16 feature PA rows (input shaper PA lives per feature) |
@@ -2379,7 +2442,7 @@ retraction reads the firmware values — what you see is what runs.
 | Filament | Load / Load length / Unload / Unload length / Change (M600) — available BEFORE the print too |
 | File fixes (in File menu) | **Ret:** verdict line (FIX!/can/fixed/fw, .86) · RetFix ON/OFF (.104: now here) — auto-treats every NEW upload's clean retract pairs into G10/G11 (old Bowden-era files) · RetFix file (offered only for fix/can) + Vol->mm fix + Fix flow cap (Cap value) + Fix travel accel (TAcc value) — repair the SELECTED file directly on disk (start beep + done beep, markers survive) |
 | Plotter (.104) | only when a plot file is selected: PEN FILE · pen speed % · Pen Z · Shift X/Y · Reset overrides — at the very END of Pre-Print |
-| Texture | acts on the SELECTED file: File (shows the target) · Mode OFF/Fuzzy/Bumps · Fuz thick (0.05–1.5) · Fuz dens · **Presets (ORCA/Hide layers/Subtle/Grip)** · Pattern Grid/Waves/Honeycomb/Mandelbrot · Scale · Amp · Dir IN/OUT · > Apply (beeps) · How it works — writes a NEW `_TX` file (ch. 5.9), never auto-starts |
+| Texture | acts on the SELECTED file: File (shows the target) · Mode OFF/Fuzzy/Bumps · Fuz thick · Fuz dens · Pattern (**library of 21 + MAP**, 3 pages, seamless snap) · Around · Height · Depth · Seed · Img (MAP source) · **Fixed presets** (Orca/Hide/Subtle/Grip) + **My presets** · > Apply (2×) · How it works — writes a NEW `_TX` file (ch. 5.9), never auto-starts |
 
 **Labels** (in Tools)
 
@@ -3125,6 +3188,7 @@ All 150 public macros with parameters (defaults in parentheses; blank = no param
 | **SET_PRESSURE_ADVANCE** | ADVANCE, SMOOTH_TIME | interceptor — with the PA override ON your value wins |
 | **SET_FAN_SCALE** | PERCENT=100 | fan scaling % |
 | **SET_FAN_CLAMP** | ON=-1, MIN=-1, MAX=-1, BRIDGE=-1 | fan curve clamp (.85): every M106 runs between MIN/MAX %, BRIDGE lifts the fan on bridge sections (0 = off); -1 = leave unchanged |
+| **SET_FAN_LIVE** | PERCENT=, ON=1 | your ABSOLUTE fan % (.130) — beats hold, scale, clamp and the layer-1 rule; ON=0 hands control back to the file chain |
 | **SET_FEAT_PA** | FEATURE, PA=-1 | pressure advance for ONE feature (.85), 0 = off — applied at its boundaries, global PA returns after |
 | **SET_FEAT_SHAPER_OFF** | FEATURE, STATE=-1 | input shaper OFF while one feature prints (.85) — freqs saved/restored, safety net at PRINT_END/cancel |
 | **SET_EXTRUDER_DRIVE** | TYPE=DIRECT\|BOWDEN | retraction starting-point profile (.107): direct 0.6mm @ 40mm/s + z-hop off / bowden 4.5mm @ 30mm/s — every value stays freely editable, both directions |
@@ -3220,6 +3284,8 @@ All 150 public macros with parameters (defaults in parentheses; blank = no param
 | **LITHO_DEL_SLOT** | INDEX=0 | delete image slot INDEX — 2-press logic like the LCD: first call arms, the second deletes (plotter `.gcode` stays) |
 | **STRINGART_APPLY** | PATTERN=0, DIAMETER=180, ANCHORS=300, LINES=1700, FILE=bild.png | string art job: PATTERN 0=SPIRAL / 1=PHOTO — the anchor ring prints first, the strands ride on top in six Z bands; PHOTO weaves the FILE image (default: the picked one), output lands in the StringArt folder |
 | **STRINGART_IMG** | — | cycles the root image list (the lithophane list, newest first) for the PHOTO pattern |
+| **SCALE_APPLY** | X=100, Y=100, FILE= | scale the selected file 25–300 % per axis (.130) — E recomputed per move, output in Scale/ (ch. 5.15) |
+| **CAKE_APPLY** | YAW=0, PITCH=0, ROLL=0, Z=5, PART=BOTH, REORIENT=0, FILE= | cut the selected file with a plane (.130, 0.5° grid) — both halves become standalone files in Cake/ (ch. 5.16) |
 | **GEN_SEAL** | OD=40, ID=20, HEIGHT=1.2, PROFILE='FLAT', IRONING=0, LAYER_H=0.2 | console/Mainsail gasket job: `GEN_SEAL OD=30 ID=15 HEIGHT=2 PROFILE=NUT` — groove + two sealing lips |
 | **CABLE_TIE_GENERATE** | — | create the tie file from the stored settings (bumps cable_tie_nonce; the watcher builds it, beeps + selects) |
 | **CABLE_TIE_INFO** | — | every tie setting in one listing + material tip |
@@ -3621,6 +3687,7 @@ Only the milestones — the full reasoning lives in SESSION_STATE.md.
 
 | Version | Core changes |
 |---|---|
+| .130 | **THE WISH-LIST ROUND (R174–R178)** — **My presets** for every generator (named, unlimited) · the **seamless texture library** (21 patterns + MAP on 3 pages, whole grooves/repeats, litho fallback) · the **menu restructure** (your order: Pre-Print File/Fixes/Tools/…/Profiles last; Live Tuning temps+fan first, Exclude/Pause last) · **fan logic unschackled**: LIVE % beats hold, scale, clamp AND the layer-1 rule, `How?` prints the chain · **SD-browser delete** (2×, folders and all, G-Codes root only, never during a print) · **Scale X/Y** with per-move flow recalculation (Scale/ folder) · the **cake cut** (plane in all three axes, 0.5° grid, both halves standalone, reorient) · **string art goes live** (Tools > String art, SPIRAL/PHOTO, StringArt/ folder). Riders: numbered optimized copies, Range done-sound, `--once` drains its job queue (one-shot runs really build now — found by the live test), stale-daemon siren no longer trips on the build label. Battery 1861/1861, megatest 183 runs / 0 fail. |
 | .93 | **Bausteine Runde 2 + Hardcore-Stresstest (R132)** — Katalog 45 → **76 Codes**: **9 LCD-Kataloggruppen** (Bricks/Plates/Tiles + NEU Slopes · S, Inverted Slopes · I, Arches/Bögen · A, Technic/Axle · H+C+J+RT, Round · R+RP) · **Figuren**: MODE=SINGLE (**am Stück** — wirklich ohne Klemmelemente, nicht zerlegbar) oder klassisch PARTS (5 Teile), Arme LIEGEND gedruckt (echte Durchgangs-Röhrchen), COLORS 1–4 (Zonenfarben: Beine/Torso/Arme/Kopf), BRIM 0–8, COLORMODE BY_LAYER/BY_OBJECT · **Bricks**: COLORS 1–8, MODE BY_LAYER/BY_OBJECT, BRIM 0–8 · **Zentrierte Anordnung = Generelle Regel für ALLE Generatoren** (auch Bausatz-Platten) · **Fix-then-Reload**: RetractFix/FlowCap/Travel/Vol laden die Datei nach dem Fix automatisch neu — nur noch Start bestätigen (R132-Feldlog: Fixes unterbrachen die Warteschlange; Start-Dialog wird jetzt auf eigenem sauberen Pfad freigegeben) · **Hardcore-Stresstest** tools/r140_stress.py (~41.000 Checks: 76-Code-Generationsmatrix, Modi/Brim/Farben, Jinja-Balance + Render ALLER Makro-Bodies, Klipper-Command-Lint, statische Regressionen der Bug-Klassen) — **7 echte Bugs gefunden und gefixt**: unbalanciertes Jinja-if in GEN_BRICKS (Config wäre auf dem Drucker nicht ladefähig), TUNE_PID-Aufruf über zwei Zeilen (Parameter nie wirksam), offenes Anführungszeichen in CABLE_TIE_INFO, fehlendes M83/G90 in Bricks/Figuren/Bausatz, triviales ;TYPE:Custom am Dateiende, Bausatz ohne LAYER_MARK + APPLY_TYPE TYPE=Custom (pretty name = Malformed command), Figuren-SINGLE ohne BRIDGE im TYPES-Header · Analysen: **Portabilität ohne Beep/LCD**, **Web-UI auf dem Moonraker-Host** (Machbarkeit: ja — statisches SPA + vorhandener nginx), **LCD-Menüs auf anderen Displays** (docs/). Batterie: render 1601/1601 · Megatest 157 Läufe/163 Dateien · Stresstest 41.111 Checks · Systemtest 221/0 · Validator sauber. ||
 | .92 | **Dokumentation komplett überholt (R131)** — das Handbuch (MD + PDF) auf den Stand von .91/.92 gebracht: **veraltete Passagen entfernt/ersetzt** — Lithophane FLAT (alte „Terrassen-Relief“-Beschreibung → Stufen-Druck mit StepL/Farbwechsel AUS-LETZTE-JEDE/Rahmen/Kontrast/Purge-Turm), Rahmen-Verschluss (altes „Bajonett, 2,5mm schieben“ → Snap-In-Rückseite mit 4 Wand-Nubs + 0,8mm/Side Foto-Spiel; auch die LCD-How-it-works-Texte am Drucker selbst), 5.0-Generatorliste, Kapitel-5-Titel (13 Generatoren) · **NEU: vier ausführliche Generator-Kapitel** — 5.10 Bausteine (Geometrie-Tabelle: n·8−0,2 Klemm-Maß, hohle Noppen, Unterseiten-Tubes, 45er-Katalog, Workflow), 5.11 Bausatz-Generator (Voxelizer, Support-Filter, Detail-Stufen, Ringwände, BY_LAYER/BY_OBJECT, 800 Teile), 5.12 Figuren (5 Teile, Montage ohne Kleber, 100%-System-Kupplung), 5.13 ColorPic (Band-Prinzip, M600 + LED-Blink, Purge-Turm, Swap/Contrast) · Menü-Referenz (Bricks + ColorPic), Cheat-Sheet (+5 Wege), Makro-Index (+11 Einträge: GEN_BRICKS/BRICK_*/GEN_BRICKKIT/GEN_FIGURES/GEN_COLORPIC/COLORPIC_CREATE) — im PDF gespiegelt inkl. neuer Settings-Zeilen. Batterie: render 1595/1595, Validator sauber, Systemtest 221/0. ||
 | .91 | **HOTFIX (.90-Boot-Blocker): `Internal error during connect: Error loading template 'gcode_macro COLORPIC_CREATE:gcode' — no filter named 'endswith'`** — COLORPIC_CREATE prüfte die Bild-Endung mit dem Jinja-Filter `endswith`, den es NICHT gibt (Python-Methode, kein Filter; seit .82 im Paket, aber erst mit dem .90-Update auf dem Drucker angekommen). Fix: Slicing statt Filter — `_cpsrc[-4:] in ('.png', '.jpg') or _cpsrc[-5:] == '.jpeg')`. **Warum die Tests es nicht fingen:** Jinja ≥ 3.1 kompiliert unbekannte Filter STILL (der Fehler kommt erst zur Laufzeit) und ein Render-Durchlauf short-circuited bei `params.X is defined and …` — der R67-Gate lieferte also falsch grün. ** Gehärtet:** (1) der R67-Gate walkt jetzt den Jinja-AST aller 3663 Boot-Templates und prüft jeden Filter-/Test-Namen gegen die realen Jinja-Tabellen — kontextunabhängig, keine Short-Circuit-Lücke; (2) der Config-Validator bekam dieselbe statische Regel (`unknown Jinja filter …`). Beweis: injizierter `endswith` wird von beiden gestellt, das gefixte Muster läuft durch; Sweep über das ganze Paket: kein weiterer Zombie-Filter. Batterie: render 1595/1595 (+5 R130), Validator sauber, Systemtest 221/0. ||
