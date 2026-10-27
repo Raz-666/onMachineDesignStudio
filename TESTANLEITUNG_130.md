@@ -1,15 +1,16 @@
-# FELDTEST .130 (R174 + R175) — Testanleitung
+# FELDTEST .130 (R174 – R177) — Testanleitung
 
-Diese Runde bringt zwei Pakete: **R174 — Eigene Presets für JEDESEN
-Generator** und **R175 — die nahtlose Textur-Bibliothek** (dein
-.130-Wunsch: „User-Einstellungen sind Richtlinien, die Textur muss immer
-passen, auch in Z bündig"). Außerdem: der Range-Done-Sound (aus .129
-nachgeliefert) und nummerierte Optimized-Kopien (nichts wird mehr
-still überschrieben).
+Diese Runde bringt **sechs Pakete**: **R174 — Eigene Presets für JEDEN
+Generator**, **R175 — die nahtlose Textur-Bibliothek**, **R175b — der
+Menü-Umbau** (deine Reihenfolge), **R175c — die neue Fan-Logik** (ein
+Drehregler, eine Kette, angezeigt), **R175d — Löschen im SD-Browser**,
+**R176 — Skalieren X/Y mit ehrlichem Flow** und **R177 — der
+Kuchen-Schnitt**. Außerdem: der Range-Done-Sound (aus .129 nachgeliefert)
+und nummerierte Optimized-Kopien (nichts wird mehr still überschrieben).
 
 Vor dem Testen: .130-ZIP wie immer hochladen, `bash klipper-e3-r2d2/update.sh`
 per SSH. Am Ende muss stehen:
-`post-processor reports build 'R2-2026-10-24.130 (R175)'` UND
+`post-processor reports build 'R2-2026-10-24.130 (R177)'` UND
 `Macro system OK ... (build R2-2026-10-24.130)`.
 
 ---
@@ -74,17 +75,112 @@ aber nicht. Jetzt: Range fertig → **M117 „Range ready" + Bestätigungspiep**
 **Test:** einen Range-Ausschnitt bauen lassen — am Ende muss Piep + Display
 „Range ready" kommen (wie bei Textur).
 
-## 5) Was (noch) NICHT drin ist — nächste Runden
+## 5) R175b: Der Menü-Umbau — deine Reihenfolge
 
-- Menü-Umbau Pre-Print / Live-Tuning (Reihenfolge wie besprochen)
-- Fan-Logik (hold/clamp/150% entschaukeln)
-- SD-Browser Löschen-Funktion
-- X/Y-Skalier-Werkzeug inkl. Flow-Neurechnung
-- Kuchen-Schnitt mit 0,5°-Winkeln in allen Achsen
+**Pre-Print** heißt jetzt oben: **1.** Datei-Info, **2.** Fixes (inkl. File
+check/Retagging und „Why segments?"-Erklärzeile), **3.** Werkzeuge
+(Offset/Textur/Range/**Scale**/**Kuchen**/Plotter — der Plotter erscheint
+weiterhin nur im Plot-Modus), **4.** Temperaturen (Material/Filament),
+**5.** Motion (Velocity/Extrusion/Retraction als Untermenüs), **6.**
+Features, **7.** Utilities (Preheat/Mesh/Confirm/Overwrites), **8.**
+Profile. Die einzelne Defaults-Zeile ist weg — sie verdoppelte Profile >
+Defaults. **Live-Tuning:** Temps & Fan zuerst, Z-Hopping als Untermenü,
+Z-Offset + Babysteps als direkt bedienbare Zeilen, Exclude/Pause ganz hinten.
 
-Die Reihenfolge steht in `docs/ROADMAP_130.md`.
+**Test:** einmal komplett durchklicken (Pre-Print UND Live-Tuning) — jede
+Funktion muss erreichbar sein, keine Doppeltür mehr. Falls dir eine Tür
+fehlt: Menüpfad notieren (der Inventar-Check im Labor sagt „nichts verloren",
+aber das Auge auf dem echten Display zählt).
+
+## 6) R175c: Fan-Logik — ein Drehregler, eine Kette
+
+**Aus .129 bekannt:** für volle Power brauchte es DREI Knöpfe (Hold 100% +
+Clamp aus + Fan 150%), weil ein Skalierungsfaktor sich als Fan-Wert
+verkleidete. **Jetzt:** Live-Tuning → Temps & Fan → **`Fan: NN% (LIVE)`**.
+Der LIVE-Wert ist deine absolute Drehzahl und schlägt ALLES — Hold, Scale,
+Clamp und die Layer-1-Regel. Die Zeile darunter schaltet LIVE an/aus (aus =
+der Drucker steuert wieder selbst), und **`How? (fan math)`** druckt die
+ganze Kette mit den aktuellen Zahlen, z. B.
+`file 40% x scale 120% -> clamp 10-90% = 48%`.
+
+**Kette (stärkstes zuerst):** LIVE > Layer-1-aus > HOLD > SCALE > CLAMP.
+
+**Test:** während eines Drucks in Layer 1 den Regler auf 100% LIVE stellen —
+der Lüfter muss sofort voll drehen (vorher hätte die Layer-1-Regel ihn
+ausgehalten). Dann LIVE aus → ab dem nächsten Fan-Befehl gilt wieder die
+Datei. Jede Änderung quittiert M106 mit der Rechnung, die dazu führte.
+
+## 7) R175d: Löschen im SD-Browser
+
+**Wo:** SD Card → **Del**-Zeile. Erster Druck schaltet den Del-Modus ein
+(`DEL ON: 2x press`), dann gilt für JEDE Datei und JEDEM Ordner: erster
+Klick **armiert** (Zeile zeigt `> AGAIN = delete`), zweiter Klick **löscht**.
+Ordner gehen mit allem Inhalt. Gelöscht wird NUR unterhalb des G-Codes-Root
+— Fluchtversuche wie `../../` werden verweigert, und während eines Drucks
+ist grundsätzlich Feuerpause.
+
+**Test:** einen Testordner mit einer Datei anlegen, über den Browser
+löschen (2× drücken) — Ordner UND Datei müssen weg sein. Während eines
+Drucks probieren: muss verweigert werden (Meldung auf dem Display).
+
+## 8) R176: Skalieren X/Y mit ehrlichem Flow
+
+**Wo:** Pre-Print → Werkzeuge → **Scale X/Y**. X und Y je **25–300 %**
+(Step 5), `How? (E/flow)` erklärt die Mathematik, `> Apply` startet per
+Doppelklick (erster Druck armiert).
+
+**Was passiert:** die Datei wird verzerrungsfrei skaliert, auf die
+Bettmitte zentriert, Bögen werden zu Sehnen — und **E wird pro Zug
+nachgerechnet**: (L'/L)·(w'/w). Achszüge skalieren mit X·Y, 45°-Züge mit
+(X²+Y²)/2, uniform mit X². Damit bleibt dein Flow 100% UND stimmt — und
+die **neue 100 %-Basis ist die neue Datei** (Live-Tuning bezieht sich
+danach auf sie). Die Schichthöhe bleibt unberührt.
+
+**Test:**
+1. Kleines Teil wählen, X 150 / Y 150 → Apply. Im Chat kommt
+   `Scale: name -> name_S150-150.gcode (… 40.0 x 40.0 -> 60.0 x 60.0 mm,
+   centered on the bed …)`. Die Datei liegt im Ordner **Scale/**.
+2. Die skalierte Datei drucken und mit dem Original vergleichen —
+   Proportionen und Oberfläche müssen identisch wirken (kein Über-/Unter-
+   Extrudieren).
+3. Nochmal Apply auf dieselbe Datei → `name_S150-150_2.gcode` (nie
+   Überschreiben).
+4. X 300 auf einem Teil, das größer als ~73mm ist → klare Ablehnung mit
+   der benötigten Bettgröße in der Meldung.
+
+## 9) R177: Der Kuchen-Schnitt
+
+**Wo:** Pre-Print → Werkzeuge → **Cake cut**. Die Schnittebene hat
+**Yaw / Pitch / Roll** (je 0,5°-Raster; Yaw = wohin die Kippung zeigt,
+Pitch = vor/zurück, Roll = links/rechts) und **Z plane** (Höhe der Ebene
+über der Bettmitte). **Part** wählt UPPER / LOWER / BOTH, **Reorient**
+ON = die Schnittfläche des Oberteils wird flach aufs Bett gelegt (so
+druckt sich ein Deckel natürlich), OFF = das Oberteil behält seine
+Haltung und rückt nur auf Erstschichthöhe. `> Cut now` per Doppelklick.
+
+**Was passiert:** JEDER Zug wird exakt an der Ebene getrennt, E teilt sich
+nach Längenanteil, Bögen werden zu Sehnen. Das Unterteil behält seinen Ort
+(es steht ja schon), das Oberteil wird eine eigene, sofort druckbare Datei.
+Beide landen im Ordner **Cake/** als `name_CUT-U.gcode` / `name_CUT-L.gcode`.
+
+**Test:**
+1. Einen Würfel/eine Box bei halber Höhe schneiden (alle Winkel 0, Z plane
+   = halbe Höhe, BOTH) → zwei Dateien, beide drucken; zusammengehalten
+   muss wieder der Würfel entstehen.
+2. Gleiche Box mit Pitch 15° und Reorient ON → das Oberteil steht jetzt
+   AUF DER SCHNITTTFLÄCHE (die schräge Fläche liegt unten auf dem Bett).
+3. Part LOWER only → nur die Unterteil-Datei. Z plane über der Objekthöhe
+   → klare Ablehnung („no UPPER part …").
+
+## 10) Was noch offen ist
+
+Die .130-Wunschliste ist damit **vollständig** (Menü-Umbau, Fan-Logik,
+Löschen, Skalieren, Kuchen-Schnitt — alles drin). Aus der Roadmap bleibt
+als einzige Nachzügler-Idee das **String-Art-Menü** (R171 aktivieren) —
+ob das diese Runde noch kommt, entscheidet dein Feedback zum Rest.
 
 ---
 
 **Rückmeldung wie immer:** was auffällt, gerne mit Display-Foto. Bei
-Naht-Brüchen: Muster + Werte + Objekt (Vase/Würfel/Litho) notieren.
+Naht-Brüchen: Muster + Werte + Objekt (Vase/Würfel/Litho) notieren. Beim
+Kuchen-Schnitt: die gewählten Winkel + Z plane und was dabei rauskam.
