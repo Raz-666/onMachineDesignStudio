@@ -229,7 +229,8 @@ def main():
                     text = '\n'.join(k['block'])
                     if k['key'] == 'type':
                         typ = k['wert'].strip()
-                    if k['key'] in ('name', 'enable', 'input', 'gcode', 'index'):
+                    if k['key'] in ('name', 'enable', 'input', 'input_min',
+                                    'input_max', 'gcode', 'index'):
                         pruefe_template(text, f"{pfad}:{k['zeile']} [{name}] {k['key']}")
                     # unbalancierte EINFACHE quotes koennten Template-Strings sein -> nur Doppel-Quote-Balance
                     if k['key'] == 'name':
@@ -254,6 +255,24 @@ def main():
                 _dup = sorted({x for x in _mk if _mk.count(x) > 1})
                 if _dup:
                     fehler.append(f"{pfad}:{sek['zeile']} [{name}]: doppelte Option(en): {','.join(_dup)}")
+                # ---- R179 (.131a Feld-Halt): Klippers MenuInput fordert die
+                # Option 'input' (load_template OHNE Default -> "Option
+                # 'input' ... must be specified" = Printer is halted). Ein
+                # vertipptes input_initial passierte jede statische Pruefung
+                # und stoppte den echten Drucker beim .131-Update.
+                if typ == 'input':
+                    if 'input' not in _mk:
+                        fehler.append(f"{pfad}:{sek['zeile']} [{name}]: type input "
+                                      f"braucht die Option 'input' (Klipper-Halt, R179)")
+                    _erl179 = {'type', 'name', 'enable', 'index', 'input',
+                               'input_min', 'input_max', 'input_step',
+                               'realtime', 'gcode'}
+                    _fremd179 = set(_mk) - _erl179
+                    if _fremd179:
+                        fehler.append(f"{pfad}:{sek['zeile']} [{name}]: unbekannte "
+                                      f"input-Option(en): {','.join(sorted(_fremd179))} "
+                                      f"(Klipper kennt input/input_min/input_max/"
+                                      f"input_step/realtime)")
                 menu_paths[name[5:] if name.startswith('menu ') else name] = (pfad, sek['zeile'])
 
     # ---- R44: Parent-Sektion muss existieren (sonst LCD-Eintrag unerreichbar) ----

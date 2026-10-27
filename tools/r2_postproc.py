@@ -64,8 +64,8 @@ TAG = '; R2-POSTPROC v5'
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-10-24.131'
-POSTPROC_BUILD = 'R178'
+POSTPROC_RELEASE = 'R2-2026-10-24.131a'
+POSTPROC_BUILD = 'R180'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
 # and no speed/accel/nozzle parameters. Files carrying an OLD tag are UPGRADED
@@ -203,6 +203,63 @@ def _canon_type(raw):
         return _TYPE_MAP_NORM[kn]
     if 'support' in k:
         return 'SUPPORT'
+    # R180 (.131a field round): the CUSTOM ELIMINATION LADDER - deterministic
+    # keyword tokens, no ML, no guessing. A vocabulary the maps never listed
+    # is resolved by WHAT IT SAYS: 'outer shell' says outer+wall, 'solid'
+    # says dense fill, 'iron...' says ironing. The field driver (.129):
+    # ';TYPE:Wall outer' drifted past the exact map and whole walls became
+    # CUSTOM - rows with nothing to tune but PA. The ladder catches the NEXT
+    # vocabulary drift before it reaches the menus; whatever carries NO
+    # known token at all stays CUSTOM and is counted + explained
+    # (CUSTOMBLOCKS in _FILE_INFO, the File info menu says what to do).
+    kt = set(re.findall(r'[a-z0-9]+', kn))
+    _pl180 = ('walls', 'shells', 'perimeters', 'contours', 'outlines',
+              'loops', 'infills', 'fills', 'skins', 'surfaces', 'towers',
+              'bridges', 'brims', 'skirts', 'gaps', 'tops', 'bottoms')
+    kts = {(w[:-1] if w in _pl180 else w) for w in kt}
+    if 'iron' in kts:
+        return 'IRONING'
+    if 'tower' in kts:
+        return 'PRIME-TOWER'
+    if 'purge' in kts or 'prime' in kts:
+        return 'SKIRT'            # a purge/prime line is disposable, like ooze
+    if 'brim' in kts:
+        return 'BRIM'
+    if 'skirt' in kts or 'ooze' in kts or 'shield' in kts:
+        return 'SKIRT'
+    if 'raft' in kts:
+        return 'SURFACE-BOTTOM'   # map precedent
+    if 'bridge' in kts:
+        if 'internal' in kts:
+            return 'INTERNAL-BRIDGE'
+        return 'BRIDGE'
+    if 'overhang' in kts:
+        return 'OVERHANG-PERIM'
+    if ('wall' in kts or 'shell' in kts or 'perimeter' in kts
+            or 'contour' in kts or 'outline' in kts or 'loop' in kts):
+        if any(w in kts for w in ('outer', 'external', 'outside',
+                                  'single', 'alone', 'exposed')):
+            return 'WALL-OUTER'
+        return 'WALL-INNER'       # 'perimeter' / 'thin wall' precedent
+    if 'gap' in kts:
+        return 'GAPS'
+    if ('infill' in kts or 'fill' in kts or 'solid' in kts
+            or 'sparse' in kts):
+        if 'solid' in kts or 'dense' in kts:
+            return 'INFILL-SOLID'
+        if any(w in kts for w in ('top', 'surface', 'skin', 'roof')):
+            return 'SURFACE-TOP'
+        if 'bottom' in kts or 'base' in kts:
+            return 'SURFACE-BOTTOM'
+        return 'INFILL-SPARSE'
+    if 'skin' in kts or 'surface' in kts:
+        if 'bottom' in kts:
+            return 'SURFACE-BOTTOM'
+        return 'SURFACE-TOP'
+    if 'top' in kts:
+        return 'SURFACE-TOP'
+    if 'bottom' in kts:
+        return 'SURFACE-BOTTOM'
     return 'CUSTOM'
 
 
@@ -1154,11 +1211,11 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                         if mx and my:
                             fx, fy = float(mx.group(1)), float(my.group(1))
     last_layer = cur_layer
-
     # R87.2: body feature diagnostics (field log .71: the model printed as
     # 'solid infill' all the way - the body carried no APPLY_TYPE markers, so
     # the floor's type stayed active). Count what layers start..end carry.
     body_types = 0      # ;TYPE: comments with a known feature
+    _ink180 = 0         # R180: extruding moves in the body window
     body_applies = 0    # APPLY_TYPE commands
     bstats = {}         # R94: honest per-feature stats OF THE BODY - the
                         # excerpt's _FILE_INFO must describe what the excerpt
@@ -1204,6 +1261,8 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                         if _mf94:
                             _fv = float(_mf94.group(1))
                         _me94 = _evre.search(_ls)
+                        if _me94 and float(_me94.group(1)) > 0:
+                            _ink180 += 1
                         if _me94 and _frun and float(_me94.group(1)) > 0:
                             _sp94 = round(_fv / 60.0, 2) if _fv else 0.0
                             d = bstats.setdefault(_frun, {'f': {}, 'acc': None})
@@ -1211,6 +1270,15 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                             if _acc is not None:
                                 d['acc'] = _acc
                 _i += 1
+        if _ink180 == 0:
+            # R180: an excerpt that prints NOTHING is not a range. Field
+            # chain cake->range: a cake half with z_offset sits empty for
+            # its first layers, the excerpt copied markers but no ink -
+            # the menus advertised WALL-OUTER for a file that prints air.
+            raise ValueError(
+                'layers %d..%d contain no extrusion - pick a range where '
+                'the object actually prints (this half starts higher)' %
+                (start, end))
     else:
         body_types = body_applies = 0   # invalid range - the checks below raise
 
@@ -1624,6 +1692,22 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                 if idx >= a:
                     l = _shift_line(raw[:-1] if raw.endswith('\n') else raw)
                     c = _stripped(l)
+                    # R180: orphan markers stay OUT. A cake half carries every
+                    # ;TYPE: of the source in BOTH halves - its ink may lie
+                    # outside this window. Advertising a feature the excerpt
+                    # never prints is the .115 bug class (menus offer walls
+                    # that do not exist). bstats = the features with real ink
+                    # IN the window, so anything else is dropped here.
+                    _oty180 = TYPE_RE.match(l)
+                    if _oty180:
+                        if _canon_type(_oty180.group(1)) not in bstats:
+                            idx += 1
+                            continue
+                    elif c.startswith('APPLY_TYPE'):
+                        _oa180 = re.match(r'APPLY_TYPE\s+TYPE=(\S+)', c)
+                        if _oa180 and _oa180.group(1) not in bstats:
+                            idx += 1
+                            continue
                     drop = False
                     if c.startswith('EXCLUDE_OBJECT_END'):
                         if open_obj is None:
@@ -16337,6 +16421,7 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
     first_cmd_idx = None     # first command line - filtered world (upgrade case)
     first_cmd_raw = None     # first command line - unfiltered world
     type_at = {}             # (raw idx, filtered idx) -> canonical feature
+    custom_blocks = 0        # R180: ;TYPE: blocks that stayed CUSTOM
     scan = _ZScan()
     geom = _GeomScan()       # R111: rate/seam (always) + untagged classifier
     # feat_stats machine (R44): runs inline over the stream - filtered lines
@@ -16468,6 +16553,8 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
                     feat_here = 'SURFACE-BOTTOM'
                 type_at[(i, j)] = feat_here
                 geom.mark_type(feat_here)
+                if feat_here == 'CUSTOM':
+                    custom_blocks += 1
             # ---- 4c) per-feature measurement (.44) -----------------------------------
             if feat_here:
                 _close_seg()
@@ -16598,6 +16685,11 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
             info.append(f'FA_{suf}={d["acc"]:g}')
     if feat_stats:
         info.append('TYPES=' + ','.join(feat_stats))
+    # R180: honest CUSTOM bookkeeping - the count lands in _FILE_INFO so the
+    # menus can explain it and File check > Retag has a before/after number
+    if custom_blocks:
+        info.append('CUSTOMBLOCKS=%d' % custom_blocks)
+        summary['custom_blocks'] = custom_blocks
     if tv_hist:
         info.append('FTRAVEL=%g' % max(tv_hist, key=tv_hist.get))
     # R111: honest confidence + coverage for derived features, measured rate
@@ -17035,6 +17127,33 @@ class _GeomScan:
             if chord < 1.0 and plen > 3.0:
                 a, bb = self._area_bbox(pts)
                 loops.append((a, bb, pts, plen, ij, speed))
+            elif (chord / plen <= 0.92 and plen > 8.0
+                  and chord < plen * 0.15):
+                # R180: a NEAR-CLOSED curve is a loop too - a spiral wall or
+                # a seam gap leaves the ends a few mm apart, the shape still
+                # closes around. Proof: the SIGNED total turning of a loop is
+                # ~ +/-360 degrees; an open S-curve or a connected zigzag
+                # nets ~0 and stays out. Deterministic geometry, no ML.
+                turn = 0.0
+                for _k in range(1, len(pts) - 1):
+                    _ax = pts[_k][0] - pts[_k - 1][0]
+                    _ay = pts[_k][1] - pts[_k - 1][1]
+                    _bx = pts[_k + 1][0] - pts[_k][0]
+                    _by = pts[_k + 1][1] - pts[_k][1]
+                    _la = math.hypot(_ax, _ay)
+                    _lb = math.hypot(_bx, _by)
+                    if _la < 1e-9 or _lb < 1e-9:
+                        continue
+                    _cr = (_ax * _by - _ay * _bx) / (_la * _lb)
+                    _do = (_ax * _bx + _ay * _by) / (_la * _lb)
+                    turn += math.copysign(
+                        math.acos(max(-1.0, min(1.0, _do))), _cr
+                        if abs(_cr) > 1e-12 else 1.0)
+                if abs(turn) > 5.5:            # ~315 degrees of net turn
+                    a, bb = self._area_bbox(pts)
+                    loops.append((a, bb, pts, plen, ij, speed))
+                else:
+                    pass                        # open curve: stays out
             elif chord / plen > 0.92:
                 (x0, y0), (x1, y1) = pts[0], pts[-1]
                 # R111 fix: a hatch zigzags - the SAME line traveled in both

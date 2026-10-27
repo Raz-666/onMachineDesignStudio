@@ -570,6 +570,44 @@ run('string art PHOTO from image', lambda: pp.make_string_art(
 expect_error('string art PHOTO without image refuses', lambda:
     pp.make_string_art(pattern='PHOTO', out_dir=D))
 
+# R180: generator CHAINS - one tool's output feeds the next; the feature
+# tagging must survive every hop (the .129 field log: CUSTOM rows with
+# nothing to tune but PA, the outer wall gone from the menus)
+_txo180 = tx.apply_texture(lbl, mode='FUZZY', fuzzy_thick=0.2,
+                           fuzzy_density=100, out_dir=D)[0]
+_rg180 = run('chain: range excerpt of a TEXTURED file', lambda: pp.make_range(
+    _txo180, 3, 12, out_dir=D), skip_idem=True, r2_gen=True)
+_hr180 = open(_rg180[0]).read()
+if 'APPLY_TYPE TYPE=WALL-OUTER' not in _hr180 or 'TYPE=CUSTOM' in _hr180:
+    fails.append(('chain texture->range: the WALL-OUTER tagging must '
+                  'survive both hops, no CUSTOM', _rg180))
+_sc180 = pp.apply_scale(lbl, sx=1.3, sy=1.3, out_dir=D)[0]
+_sct180 = run('chain: texture on a SCALED file', lambda: tx.apply_texture(
+    _sc180, mode='BUMPS', bump_pattern='WAVES', bump_scale=8.0,
+    bump_amp=0.4, out_dir=D), skip_idem=True, r2_gen=True)
+_hsc180 = open(_sct180[0]).read()
+if 'APPLY_TYPE TYPE=WALL-OUTER' not in _hsc180 or 'TYPE=CUSTOM' in _hsc180:
+    fails.append(('chain scale->texture: WALL-OUTER must survive, no CUSTOM',
+                  _sct180))
+_ck180 = r2_cake.cut_cake(lbl, z_offset=1.0, out_dir=D)[0][0]
+# R180: a cake half with z_offset sits EMPTY for its first layers - the
+# honest make_range guard refuses a no-ink window (expect_error), the real
+# chain uses layers that actually print
+expect_error('chain: range of the cake half EMPTY layers refuses', lambda:
+    pp.make_range(_ck180, 1, 3, out_dir=D))
+_ckr180 = run('chain: range excerpt of a CAKE half', lambda: pp.make_range(
+    _ck180, 4, 5, out_dir=D), skip_idem=True, r2_gen=True)
+_hck180 = open(_ckr180[0]).read()
+if 'TYPE=CUSTOM' in _hck180:
+    fails.append(('chain cake->range: no CUSTOM in the excerpt', _ckr180))
+_sa180 = pp.make_string_art(pattern='SPIRAL', diameter=60.0, anchors=36,
+                            lines=60, out_dir=D, bed=BED)[0]
+_sar180 = run('chain: range excerpt of STRING ART', lambda: pp.make_range(
+    _sa180, 1, 4, out_dir=D), skip_idem=True, r2_gen=True)
+_hsar180 = open(_sar180[0]).read()
+if 'TYPE=CUSTOM' in _hsar180:
+    fails.append(('chain stringart->range: no CUSTOM in the excerpt', _sar180))
+
 # MAP: grayscale wrap (test pattern image, 96x64)
 try:
     from PIL import Image

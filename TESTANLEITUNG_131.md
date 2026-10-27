@@ -1,4 +1,4 @@
-# FELDTEST .131 (R174 – R178) — Testanleitung
+# FELDTEST .131a (R174 – R180) — Testanleitung
 
 Diese Runde bringt **acht Pakete**: **R174 — Eigene Presets für JEDEN
 Generator**, **R175 — die nahtlose Textur-Bibliothek**, **R175b — der
@@ -9,10 +9,21 @@ und **R178 — String-Art geht live** (dein .128-Feldbeweis als natives
 Menü). Außerdem: der Range-Done-Sound (aus .129 nachgeliefert) und
 nummerierte Optimized-Kopien (nichts wird mehr still überschrieben).
 
-Vor dem Testen: .131-ZIP wie immer hochladen, `bash klipper-e3-r2d2/update.sh`
+**WICHTIG — zuerst der Boot-Fix-Test (.131a):** Die .131 hielt den Drucker
+beim Start an (10 Menüs nutzten eine Option, die Klipper nicht kennt). .131a
+fixt das - **der Drucker muss ohne Fehlermeldung hochfahren**, alle Menüs
+(Werkzeuge → Kuchen-Schnitt, String-Art) müssen sich öffnen lassen.
+
+**Neu in .131a:** R179 = der Menü-Boot-Fix; R180 = das Ende der
+CUSTOM-Rätsel: unbekannte TYPE-Schreibweisen werden per festem Regelwerk
+erkannt (Außenwand bleibt Außenwand), wirklich unbekanntes bleibt CUSTOM,
+wird aber gezählt und im File-info erklärt (Zeile CUSTOM? mit Retag-Hinweis).
+Generator-Ketten (Textur → Range usw.) geben das Tagging vollständig weiter.
+
+Vor dem Testen: .131a-ZIP wie immer hochladen, `bash klipper-e3-r2d2/update.sh`
 per SSH. Am Ende muss stehen:
-`post-processor reports build 'R2-2026-10-24.131 (R178)'` UND
-`Macro system OK ... (build R2-2026-10-24.130)`.
+`post-processor reports build 'R2-2026-10-24.131a (R180)'` UND
+`Macro system OK ... (build R2-2026-10-24.131a)`.
 
 ---
 

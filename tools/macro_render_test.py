@@ -3864,7 +3864,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.131) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-24.131'", repr(_v66)))
+    _v66 == "'R2-2026-10-24.131a'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -13278,6 +13278,7 @@ _ADDED135 = [
  '__main __optprint __pick',
  '__main __optprint __start',
  '__main __optprint __vals',
+ '__main __preprint __file __cust',
  '__main __preprint __file __how',
  '__main __preprint __file __opt',
  '__main __preprint __fixes',
@@ -15622,6 +15623,185 @@ tests.append(('R178 watcher live: the SPIRAL really weaves through --watch '
     (_r178.stdout + _r178.stderr)[:200].replace('\n', ' | ')))
 _sh178.rmtree(_base178, ignore_errors=True)
 _sh178.rmtree(_d178, ignore_errors=True)
+
+# ================== R179 (.131a): input menus boot guard ====================
+# The .131 field halt: Klipper's MenuInput REQUIRES the 'input' option
+# (load_template without default). 10 cake/string-art rows shipped with a
+# typoed 'input_initial' instead - every static check passed, the printer
+# halted at boot. Never again.
+import re as _re179
+_lcd179 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+_t179 = len(_re179.findall(r'^type: input$', _lcd179, _re179.M))
+_i179 = len(_re179.findall(r'^input: ', _lcd179, _re179.M))
+tests.append(('R179 boot guard: every type: input menu carries its input '
+    'option (no input_initial typos - the exact .131 halt)',
+    _t179 == _i179 and _t179 > 500 and 'input_initial' not in _lcd179,
+    '%d input menus, %d input lines' % (_t179, _i179)))
+import subprocess as _sp179, tempfile as _tf179, shutil as _sh179
+_td179 = _tf179.mkdtemp(prefix='r179_')
+os.makedirs(os.path.join(_td179, 'macros'))
+os.makedirs(os.path.join(_td179, 'menus'))
+open(os.path.join(_td179, 'menus', 'broken.cfg'), 'w').write(
+    '[menu __main __test __inp]\ntype: input\nname: Test\ninput_step: 1\n'
+    'input_min: 0\ninput_max: 10\ninput_initial: {0}\ngcode:\n    M117 x\n')
+_r179 = _sp179.run(
+    [sys.executable, os.path.abspath('tools/config_validator.py')],
+    capture_output=True, text=True, cwd=_td179, timeout=120)
+tests.append(('R179 validator: a menu with input_initial instead of input '
+    'is rejected statically (boot halt caught before the printer sees it)',
+    _r179.returncode == 1 and 'input_initial' in _r179.stdout
+    and "braucht die Option 'input'" in _r179.stdout,
+    (_r179.stdout or _r179.stderr)[:150].replace('\n', ' | ')))
+_sh179.rmtree(_td179, ignore_errors=True)
+
+# ================== R180 (.131a): the CUSTOM elimination ladder =============
+# Field driver .129: ';TYPE:Wall outer' drifted past the exact map, whole
+# walls became CUSTOM - rows with nothing to tune but PA, the outer wall
+# gone from the menus. The ladder resolves unknown vocabulary by
+# deterministic keyword tokens (no ML); whatever carries no known token
+# stays CUSTOM but is COUNTED (CUSTOMBLOCKS) and explained in the menu.
+_lad180 = [
+    ('Outer Solid Infill', 'INFILL-SOLID'), ('Inner Solid Infill', 'INFILL-SOLID'),
+    ('outer shell', 'WALL-OUTER'), ('inner shell', 'WALL-INNER'),
+    ('Walls', 'WALL-INNER'), ('Solid', 'INFILL-SOLID'), ('Sparse', 'INFILL-SPARSE'),
+    ('purge tower', 'PRIME-TOWER'), ('Purge Line', 'SKIRT'), ('brim', 'BRIM'),
+    ('skirt loop', 'SKIRT'), ('Internal Bridge', 'INTERNAL-BRIDGE'),
+    ('overhang wall', 'OVERHANG-PERIM'), ('Top Skin', 'SURFACE-TOP'),
+    ('MagicFoamX', 'CUSTOM'), ('custom', 'CUSTOM'), ('Wall outer', 'WALL-OUTER'),
+    ('Outer wall', 'WALL-OUTER'), ('Internal Solid Infill', 'INFILL-SOLID'),
+    ('IRONING', 'IRONING'), ('wipe tower', 'PRIME-TOWER'),
+]
+tests.append(('R180 vocabulary ladder: unknown ;TYPE: spellings resolve by '
+    'deterministic keyword rules - only vocabulary without ANY known token '
+    'stays CUSTOM',
+    all(_pp._canon_type(a) == b for a, b in _lad180),
+    str([(_pp._canon_type(a), b) for a, b in _lad180
+         if _pp._canon_type(a) != b])))
+import tempfile as _tf180
+_d180 = _tf180.mkdtemp(prefix='r180_')
+_g180 = os.path.join(_d180, 'dialect.gcode')
+_L180 = ['M82', 'G90', 'G92 E0', 'G0 X50 Y50 Z0.2', 'G1 Z0.4 F600']
+_e180 = 0.0
+for _lyr180 in range(4):
+    _L180.append(';LAYER_CHANGE')
+    _L180.append(';Z:%.2f' % (0.2 + _lyr180 * 0.2))
+    _L180.append(';TYPE:Outer Solid Infill' if _lyr180 == 0
+                 else ';TYPE:outer shell')
+    for (_x180, _y180) in ((70, 50), (70, 70), (50, 70), (50, 50)):
+        _e180 += 1.0
+        _L180.append('G1 X%d Y%d E%.4f F1800' % (_x180, _y180, _e180))
+    _L180.append(';TYPE:Inner Solid Infill')
+    _e180 += 2.0
+    _L180.append('G1 X60 Y60 E%.4f' % _e180)
+_L180.append('PRINT_END')
+open(_g180, 'w').write('\n'.join(_L180) + '\n')
+_pp.process(_g180)
+_h180 = open(_g180).read()
+tests.append(('R180 E2E: a drifted-dialect file (Simplify3D solid infill, '
+    'ideaMaker shells) tags WITHOUT any CUSTOM - the outer wall stays '
+    'tunable',
+    'CUSTOMBLOCKS' not in _h180
+    and 'APPLY_TYPE TYPE=WALL-OUTER' in _h180
+    and 'APPLY_TYPE TYPE=INFILL-SOLID' in _h180
+    and 'APPLY_TYPE TYPE=CUSTOM' not in _h180, ''))
+_g180b = os.path.join(_d180, 'nebel.gcode')
+_L180b = []
+for _l180 in _L180:
+    _L180b.append(_l180.replace(';TYPE:Outer Solid Infill', ';TYPE:Nebelwand')
+                  .replace(';TYPE:outer shell', ';TYPE:Nebelwand')
+                  .replace(';TYPE:Inner Solid Infill', ';TYPE:outer shell'))
+open(_g180b, 'w').write('\n'.join(_L180b) + '\n')
+_s180b = _pp.process(_g180b)
+_h180b = open(_g180b).read()
+tests.append(('R180 E2E: truly unknown vocabulary is COUNTED and honest '
+    '(CUSTOMBLOCKS in _FILE_INFO + summary, the CUSTOM boundary keeps its '
+    '1:1 print)',
+    'CUSTOMBLOCKS=4' in _h180b
+    and _s180b.get('custom_blocks') == 4
+    and _h180b.count('APPLY_TYPE TYPE=CUSTOM') == 4, ''))
+_g180c = os.path.join(_d180, 'kreis.gcode')
+_L180c = ['M82', 'G90', 'G92 E0']
+import math as _m180
+for _lyr180 in range(3):
+    _z180 = 0.2 + _lyr180 * 0.2
+    _L180c.append(';LAYER_CHANGE')
+    _L180c.append(';Z:%.2f' % _z180)
+    for _ci180 in range(3):
+        _cx180 = 50 + _ci180 * 30
+        _L180c.append('G0 X%.2f Y50.00 Z%.2f F6000' % (_cx180 + 10, _z180))
+        _e180c = 0.0
+        for _k180 in range(1, 37):          # 350 degrees, then a 1.7mm gap
+            _a180 = _m180.radians(_k180 * 10.0)
+            _x180 = _cx180 + 10 * _m180.cos(_a180)
+            _y180 = 50 + 10 * _m180.sin(_a180)
+            _e180c += 0.05
+            _L180c.append('G1 X%.2f Y%.2f E%.4f F1800'
+                          % (_x180, _y180, _e180c))
+_L180c.append('PRINT_END')
+open(_g180c, 'w').write('\n'.join(_L180c) + '\n')
+_pp.process(_g180c)
+_h180c = open(_g180c).read()
+_fic180 = [l for l in _h180c.split('\n') if l.startswith('_FILE_INFO')]
+tests.append(('R180 classifier: near-closed curves (a spiral wall with a '
+    'seam gap, 350 degrees of signed turn) count as LOOPS - an untagged '
+    'file derives WALL-OUTER instead of leaving the walls unclassified',
+    'DERIVED=1' in _h180c and 'TYPES=WALL-OUTER' in _fic180[0]
+    and 'CUSTOM' not in _fic180[0], _fic180[0][:90]))
+import r2_texture as _tx180
+_lbl180 = os.path.join(_d180, 'lbl.gcode')
+_Ll180 = ['M82', 'G90', 'G92 E0', 'G0 X50 Y50 Z0.2']
+_e180l = 0.0
+for _lyr180 in range(12):
+    _Ll180.append(';LAYER_CHANGE')
+    _Ll180.append(';Z:%.2f' % (0.2 + _lyr180 * 0.2))
+    _Ll180.append(';TYPE:Outer wall')
+    for (_x180, _y180) in ((70, 50), (70, 70), (50, 70), (50, 50)):
+        _e180l += 2.0
+        _Ll180.append('G1 X%d Y%d E%.4f F1800' % (_x180, _y180, _e180l))
+open(_lbl180, 'w').write('\n'.join(_Ll180) + '\n')
+_pp.process(_lbl180)
+_txo180 = _tx180.apply_texture(_lbl180, mode='FUZZY', fuzzy_thick=0.2,
+                               fuzzy_density=100, out_dir=_d180)[0]
+_rg180 = _pp.make_range(_txo180, 3, 10, out_dir=_d180)[0]
+_hr180 = open(_rg180).read()
+tests.append(('R180 chain (the .129 field case): texture THEN range - the '
+    'WALL-OUTER tagging survives both hops, no CUSTOM, the excerpt says '
+    'what it is',
+    _hr180.count('APPLY_TYPE TYPE=WALL-OUTER') >= 8
+    and 'TYPE=CUSTOM' not in _hr180
+    and 'TYPES=WALL-OUTER' in _hr180, ''))
+import r2_cake as _ckmod180
+_lblt180 = _pp.make_labels(['TEXTUR'], bed=(0, -3, 220, 217),
+                           out_dir=_d180)[0]
+_ck180m = _ckmod180.cut_cake(_lblt180, z_offset=1.0, out_dir=_d180)[0][0]
+try:
+    _pp.make_range(_ck180m, 1, 3, out_dir=_d180)
+    _nk180 = False
+except ValueError:
+    _nk180 = True
+tests.append(('R180 guard: a range window with NO extrusion (a cake half '
+    'sits empty above its z_offset base) refuses honestly instead of '
+    'shipping a file that prints air',
+    _nk180, ''))
+_ckr180b = _pp.make_range(_ck180m, 4, 5, out_dir=_d180)[0]
+_hr180b = open(_ckr180b).read()
+_mk180b = set(__import__('re').findall(r'APPLY_TYPE TYPE=(\S+)', _hr180b))
+_fi180b = [l for l in _hr180b.split('\n') if l.startswith('_FILE_INFO')][0]
+_ty180b = set(_fi180b.split('TYPES=')[1].split()[0].split(','))
+tests.append(('R180 orphan markers: a range excerpt of a cake half '
+    'advertises ONLY what it prints (the half carries every source '
+    ';TYPE: - markers whose ink is outside the window are dropped, '
+    'markers == TYPES= in _FILE_INFO)',
+    _mk180b and _mk180b == _ty180b, str(sorted(_mk180b)) + ' vs '
+    + str(sorted(_ty180b))))
+_lcd180 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R180 LCD: the File info explains CUSTOM when a file has it '
+    '(row only enabled then, retag hint included)',
+    '[menu __main __preprint __file __cust]' in _lcd180
+    and "file_types|default('')}" in _lcd180.split('__cust')[1][:600]
+    and 'RETAG' in _lcd180.split('__cust')[1][:900], ''))
+import shutil as _sh180
+_sh180.rmtree(_d180, ignore_errors=True)
 
 fails = 0
 for name, ok, info in tests:
