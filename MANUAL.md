@@ -3,7 +3,7 @@
 **Package:** `klipper-e3-r2d2` · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail) ·
 12864 LCD (16 characters per line)
 
-**Version:** this manual describes the current release, `R2-2026-10-24.132` — and only it. Every chapter documents what the system
+**Version:** this manual describes the current release, `R2-2026-10-24.133` — and only it. Every chapter documents what the system
 does today; the version changelog lives in README.md.
 
 This is the operating manual for the complete macro system: what the printer can
@@ -834,13 +834,16 @@ the gcodes directory — `Labels/`, `CableTies/`, `Angles/`, `Gaskets/`,
 `Range/`, `Texture/`, `Towers/` (calibration/test prints). The root stays
 clean for your sliced files and sources. The LCD file browser and Mainsail
 navigate the folders natively; the Gen files list shows the file name and
-selects/deletes via the relative path. Nothing moves on the update: existing
+selects/deletes via the relative path. **Sort order:** the ROOT lists
+folders first, then files A–Z — inside a SUBFOLDER the NEWEST file sits on
+top (modification time, newest first), folders below it. Long folders page
+through 40 entries per page. Nothing moves on the update: existing
 outputs stay in the root and keep working — numbering is folder-local
 (each folder counts its own `Vnn_` files plus the legacy
 `00_Name_Vnn` files inside it and takes the next free number).
 
-**Tools > Gen files.** Every generator output, newest first, right on the
-display: press a slot to SELECT that file (the start dialog catches it —
+**Tools > Gen files.** Every generator output — the 24 newest —
+right on the display: press a slot to SELECT that file (the start dialog catches it —
 nothing prints unasked), or open **Delete file** and press a slot TWICE
 (first press arms, second deletes). Only generated files (`Vnn_`/`00_`
 names) can ever be deleted this way — your own sliced files are untouchable.
@@ -3663,7 +3666,7 @@ system). Better a quiet fan at full speed than a fast one slowed down.
 ## Appendix C: First start & updates
 
 - upload the folder → includes at the end of printer.cfg → RESTART
-- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-10-24.132)`
+- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-10-24.133)`
 - ~10 s later: boot sound + LED animation
 - SHOW_STATUS → mode, material, overrides · Maintenance > Tests > demos + self test
 

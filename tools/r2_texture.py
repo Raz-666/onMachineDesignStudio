@@ -670,6 +670,13 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
     if circum < 1.0:
         circum = 2.0 * math.pi * 8.0     # absurd fallback: 8mm radius
     height = max(0.2, maxz - minz) if maxz > minz else 0.2
+    # R186: honesty rule - a BUMP pattern is placed BY HEIGHT; a file with
+    # no Z information at all cannot carry one. The old code silently
+    # wrote an untextured copy (shifted=0). FUZZY needs no Z and stays.
+    if mode == 'BUMPS' and minz > maxz:
+        raise ValueError('no Z moves found in %s - a bump pattern needs '
+                         'the layer heights (FUZZY works without Z)'
+                         % base)
     k = max(1, min(240, int(round(circum / float(bump_scale)))))
     n = max(1, min(400, int(round(height / float(zsize)))))
     eff_size = circum / k
@@ -693,6 +700,9 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
     # approach direction gets NO offset (same rule as zero-length moves -
     # never invent a direction from the home position)
     px = py = None
+    # R186: live Z for the EMISSION pass (see _shift_txt) - updated by every
+    # move/arc line that carries Z, exactly like the stats pass does
+    cur_z_e = None
     # R95: E bookkeeping for arc flattening - chords must carry exactly the
     # arc's extrusion (relative: distributed by chord length; absolute:
     # interpolated from the last E to the arc's end value)
@@ -718,7 +728,13 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                 nx = ox * math.cos(ang) * rad - oy * math.sin(ang) * rad
                 ny = ox * math.sin(ang) * rad + oy * math.cos(ang) * rad
         else:
-            zz = z if z is not None else 0.0
+            # R186 FIX: fall back to the LAST Z SEEN IN THE EMISSION PASS -
+            # normal slicer files carry Z only on the layer-change move, so
+            # the old 'z if ... else 0.0' evaluated the whole pattern at
+            # height 0 (one fixed ring, Z variation lost) and Z-less files
+            # textured NOTHING at all (silent no-op)
+            zz = z if z is not None else (
+                cur_z_e if cur_z_e is not None else 0.0)
             nx = ox * pattern(x, y, zz) * sig * sign
             ny = oy * pattern(x, y, zz) * sig * sign
         if nx or ny:
@@ -781,6 +797,8 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                 if me92 and me92.group(1) is not None:
                     last_e = float(me92.group(1))
             g = _parse_move(ls)
+            if g is not None and g[3] is not None:
+                cur_z_e = g[3]           # R186: emission-pass Z tracking
             if (g and g[0] == 'G1' and (cur_outer or all_is_wall)
                     and g[4] is not None and g[4] > _MIN_E and g[1] is not None):
                 x, y = g[1], g[2]
@@ -791,6 +809,8 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                 continue
             # ---- R95: outer-wall G2/G3 arcs -> short G1 chords, textured ---
             ga = _parse_arc(ls)
+            if ga is not None and ga[3] is not None:
+                cur_z_e = ga[3]           # R186: emission-pass Z tracking
             if (ga and (cur_outer or all_is_wall) and ga[7] is not None
                     and ga[7] > _MIN_E and px is not None):
                 x1, y1 = ga[1], ga[2]

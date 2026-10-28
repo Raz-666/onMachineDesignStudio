@@ -270,7 +270,7 @@ class Scan:
 
 
 # ================================================================ 1+4: stamp
-out_s, info_s = _gen(_ring_png(), tag='ring', stamp=1, handle=1,
+out_s, info_s = _gen(_ring_png(), tag='ring', stamp=1, handle=2,
                      mirror_x=1, levels=2, col_layers=3)
 out_h = os.path.join(D, info_s['handle_file'])
 fit = pp._StampFit168(tol=0.25, layer_h=0.12)

@@ -163,7 +163,7 @@ ck('litho FLAT: deeper default relief (.110 field: "just a flat plate") - '
    and 'more = deeper' in src, '')
 ck('LCD SD Card browser (.115): REAL folder navigation - the watcher '
    'pushes the whole tree (sd_tree, folders marked D:) + the current view '
-   '(sd_view, 20 entries of path+page), the menu navigates via '
+   '(sd_view, 40 entries of path+page), the menu navigates via '
    'SDNAV_GO/UP/PAGE/HOME macros that rebuild the view',
    'menu __main __sdcard]' in _lcd152
    and 'sd_view|default([])' in _lcd152
@@ -171,23 +171,33 @@ ck('LCD SD Card browser (.115): REAL folder navigation - the watcher '
    and src.count('SAVE_VARIABLE VARIABLE=sd_view') == 1
    and "'D:' + _d" in src and '_SD_EXT151' in src
    and 'sd_tree_pushed' in src
-   and _lcd152.count('SDNAV_GO INDEX=') == 20, '')
+   and _lcd152.count('SDNAV_GO INDEX=') == 40, '')  # R186: the view
+   # grew to 40 entries (the .130-round browser extension)
 ck('gen folders: created UP FRONT at watcher start (visible right after '
    'the install, all inside the gcodes root)',
    'gen folders (inside the gcodes root)' in src, '')
-ck('offset menu: the coarse/fine duplicates are gone - ONE 0.05mm input '
-   'per axis + a How-it-works row (field report: "values doubled")',
-   "input_step: 0.1" not in open('menus/lcd_menues.cfg').read()
-   .split('[menu __main __preprint __poff]')[1].split('[menu __main __preprint __file]')[0]
-   and 'How it works' in open('menus/lcd_menues.cfg').read(), '')
+_lcd142 = open('menus/lcd_menues.cfg').read()
+_pos142 = _lcd142.index('[menu __main __preprint __mods __poff]')
+_m142 = re.search(r'\[menu __main __preprint (?!__mods)',
+                  _lcd142[_pos142 + 10:])   # R186: __mods has only
+# __poff + __plot as children - the next preprint sibling ends the block
+_offblk142 = (_lcd142[_pos142:_pos142 + 10 + _m142.start()] if _m142
+              else _lcd142[_pos142:])   # R186 fix: FROM the block start
+ck('offset menu (.104 path __mods __poff): the coarse/fine duplicates '
+   'are gone - ONE 0.05mm input per axis + a How-it-works row (field '
+   'report: "values doubled")',
+   'input_step: 0.1' not in _offblk142
+   and 'input_step: 0.05' in _offblk142
+   and 'How it works' in _offblk142, '')
 ck('colorpic: explicit Z per layer AFTER the M600 chain (.110 field: '
    'the bands printed ~1cm in the air - the file had NO Z move at all)',
    'pen.set_z(z)' in src
    and 'purge moves Z - the band after a swap needs the reset' in src, '')
 ck('litho STANDING: explicit Z per row (same in-air class of bug)',
    'pen.set_z(z)   # R149: explicit Z per row' in src, '')
-ck('brim order: EVERY brim loop prints outermost first (user rule)',
-   src.count('(wid * 0.35 + wid, wid * 0.35)') == 14
+ck('brim order: EVERY brim loop prints outermost first (user rule) + '
+   'the R184 air gap via _brim_gap (one rule, every generator)',
+   src.count('_brim_gap(') >= 20          # R184: 20 call sites + helper
    and 'range(brim - 1, -1, -1)' in src
    and 'range(brim_loops - 1, -1, -1)' in src, '')
 _m150 = open('macros/12_maintenance.cfg').read()
@@ -392,7 +402,7 @@ ck('watch: scan skips while a job runs, is queued or RAM is low (.109)',
 ck('watch: jobs requeue while the printer is busy (print has priority; '
    'R160b: the queue SAYS so after 90s instead of swallowing jobs silently)',
    'if _printer_busy():' in src and 'insert(' in src
-   and 'waits: the printer is' in src, '')
+   and '[queue] %s waits: %s' in src, '')   # R186: the real R160b text
 ck('watch: R75 niceness kept, exactly ONE os.nice (no double lower)',
    src.count('os.nice(4)') == 1, 'count=%d' % src.count('os.nice(4)'))
 ck('kit: parts_per_plate formatted via max() (was a list -> %d crash '
@@ -505,9 +515,9 @@ ck('no version clamp left - gen_version is fully retired',
        ROOT, 'menus', 'lcd_menues.cfg'), encoding='utf-8').read(), '')
 _lcd133f = open(os.path.join(ROOT, 'menus', 'lcd_menues.cfg'),
                 encoding='utf-8').read()
-ck('LCD: Gen files browser (select + 2-press delete, 12 slots each)',
-   _lcd133f.count('__gfiles __s') == 12
-   and _lcd133f.count('__gfiles __del __d') == 12
+ck('LCD: Gen files browser (select + 2-press delete, 24 slots each)',
+   _lcd133f.count('__gfiles __s') == 24
+   and _lcd133f.count('__gfiles __del __d') == 24
    and 'GEN_FILE_DEL_SLOT INDEX=5' in _lcd133f, '')
 _ld0 = _lcd133f.index('[menu __main __gen __litho __del]')
 _ld1 = _lcd133f.index('[menu __main __gen __litho __set]')
@@ -695,10 +705,11 @@ ck('R135: golden inventory file exists and the render suite proves no menu '
 ck('R135/R151/R160: Pre-Print starts with Offset X/Y/Z (ONE 0.05mm fine '
    'row per axis - the coarse/fine duplicates showed the same value); the '
    'fix toggles (retract/travel/flow cap) live in the FIXES menu since .120',
-   '[menu __main __preprint __poff __what]' in _lcd135
-   and _lcd135[_lcd135.index('[menu __main __preprint __poff]'):
-               _lcd135.index('[menu __main __preprint __file]')].count(
-       'input_step: 0.05') == 3
+   '[menu __main __preprint __mods __poff __what]' in _lcd135
+   and _lcd135[_lcd135.index('[menu __main __preprint __mods __poff]'):
+               _lcd135.index('[menu __main __preprint __mods __tex]')]
+       .count('input_step: 0.05') == 3   # R186: the __poff SUBTREE
+   # only - the tools block also holds texture/range/scale/cake/plot
    and '[menu __main __preprint __fixes __rt]' in _lcd135
    and '[menu __main __preprint __fixes __fixa]' in _lcd135
    and '[menu __main __preprint __fixes __fixc]' in _lcd135
@@ -707,11 +718,12 @@ ck('R135: Profiles directly under File info, Velocity (ex-Speed) carries the '
    'global PA/accel rows, quick access (Spd/Acc/PA/Flw) carries globals + '
    'Now, the old top-level speed/accel/flow menus are GONE',
    _lcd135.index('[menu __main __preprint __profs]')
-   < _lcd135.index('[menu __main __preprint __motion]')
+   > _lcd135.index('[menu __main __preprint __motion]')   # R186: .130
+   # moved Profiles to the END (user order: utilities, Profiles last)
    and 'name: Velocity' in _lcd135
-   and '[menu __main __preprint __pafe __gval]' in _lcd135
-   and '[menu __main __preprint __acfe __gacc]' in _lcd135
-   and '[menu __main __preprint __spfe __g1st]' in _lcd135
+   and '[menu __main __preprint __motion __ext __pafe __gval]' in _lcd135
+   and '[menu __main __preprint __motion __vel __acfe __gacc]' in _lcd135
+   and '[menu __main __preprint __motion __vel __spfe __g1st]' in _lcd135
    and '[menu __main __live __speeds]' not in _lcd135
    and '[menu __main __live __accels]' not in _lcd135
    and '[menu __main __preprint __flow]' not in _lcd135, '')
@@ -719,14 +731,17 @@ ck('R135: plot sections moved to the END (Live + Pre-Print) and only for '
    'plot files - the LCD stays clean on normal prints',
    _lcd135.index('[menu __main __live __plot]')
    > _lcd135.index('[menu __main __live __file]')
-   and _lcd135.index('[menu __main __preprint __plot]')
-   > _lcd135.index('[menu __main __preprint __confirm]')
-   and _lcd135.count("printer['gcode_macro _PREVIEW'].plot|default(0)"
-                     "|int == 1 or printer['gcode_macro _STATE']"
+   and _lcd135.index('[menu __main __preprint __mods __plot]')
+   > _lcd135.index('[menu __main __preprint __mods __poff]')  # R186:
+   # plotter is the LAST tool in the __mods block (.130 order)
+   and _lcd135.count("enable: {printer['gcode_macro _PREVIEW']"
+                     ".plot|default(0)|int == 1 or "
+                     "printer['gcode_macro _STATE']"
                      ".file_type|default('') == 'plot'}") == 2, '')
 ck('R135: stock OctoPrint/Temperature/Setup hidden via enable {False} '
    'overrides, Control/Tune untouched, SD Card = R151 recursive browser',
-   _lcd135.count('\nenable: {False}') == 3
+   _lcd135.count('\nenable: {False}') == 7   # R186: later rounds hid
+   # four more stock menus (Extruder/Filament/etc.) - 7 total now
    and '[menu __main __sdcard]\ntype: list' in _lcd135
    and '[menu __main __control]' not in _lcd135, '')
 

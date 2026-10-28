@@ -229,9 +229,12 @@ segs = _seg_feats(body)
 check('1d Z-scan: %d layers found' % LAYERS, len(segs) == LAYERS, len(segs))
 ok_bind = True
 for k, seg in enumerate(segs):
-    # expected order per layer: OW, IW, SP x4 - each apply followed by its
-    # own geometry (8 octagon sides / 1 hatch jump)
-    want = ['WALL-OUTER', 'WALL-INNER'] + ['INFILL-SPARSE'] * 4
+    # expected order per layer: OW, OW, SP x4 - each apply followed by
+    # its own geometry (8 octagon sides / 1 hatch jump). R181 void-side
+    # rule: this fixture's inner loop has an EMPTY interior, so it is a
+    # HOLE boundary = WALL-OUTER (visible surface), not WALL-INNER -
+    # the pre-R181 nesting expectation was retired with .131b.
+    want = ['WALL-OUTER', 'WALL-OUTER'] + ['INFILL-SPARSE'] * 4
     if seg['applies'] != want:
         ok_bind = False
         break
@@ -278,8 +281,10 @@ def gen_tag_check(name, path):
 
 # ---- 1f) runtime safety net (static) ---------------------------------------
 lt = open('macros/10_live_tuning.cfg').read()
-check('1f APPLY_TYPE runtime gate: unknown codes can never apply an override',
-      "code in codes and sv['ovf_' ~ code ~ '_on']" in lt
+check('1f APPLY_TYPE runtime gate: unknown codes can never apply an '
+      'override (R182 form: the whitelist gate + the _fon182 hot-path '
+      'mirror)',
+      'code in codes and _fon182' in lt
       and "'travel'" in lt)
 
 # ============================================================================
@@ -392,9 +397,42 @@ print('==== 3) CONCURRENCY + BEEPS =====================================')
 src = open('tools/r2_postproc.py').read()
 
 # every *_nonce channel is frozen while printing
+
+def _tuple_strs(src, marker):
+    """R186: extract the 'string' items of a paren tuple, COMMENT-SAFE.
+    The old [^)]* regexes truncated NONCE_KEYS / _freeze133 at the first
+    ')' inside a comment - R169/R174 comments carry parentheses, so the
+    audit silently saw phantom gaps and masked the real freeze gaps."""
+    i = src.index(marker)
+    i = src.index('(', i) + 1     # R186 fix: start AFTER the opener -
+    # the old code counted it again (depth 2), sailed past the real close
+    # and swallowed string literals from the rest of the file.
+    depth, in_str, items = 1, False, []
+    n = len(src)
+    while i < n:
+        c = src[i]
+        if in_str:
+            if c == "'":
+                in_str = False
+            else:
+                items[-1] += c
+        elif c == "'":
+            in_str = True
+            items.append('')
+        elif c == '#':
+            i = src.index('\n', i)
+            continue
+        elif c == '(':
+            depth += 1
+        elif c == ')':
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    return items
+
 nonce_names = set(re.findall(r"'(\w+_nonce)'", src)) | set(pp.NONCE_KEYS)
-m = re.search(r'_freeze133 = \(([^)]*)\)', src)
-frozen = set(re.findall(r"'(\w+)'", m.group(1))) if m else set()
+frozen = set(_tuple_strs(src, '_freeze133 ='))
 LIVE_OK = ('preview_nonce', 'host_nonce', 'label_fit_nonce',
            'queue_cancel_nonce',          # cancel a queued job: wanted live
            'retract_fix_nonce', 'vol_fix_nonce', 'flowcap_fix_nonce',
@@ -475,9 +513,7 @@ for name, path in session_outputs + [('sliced orca', SRC)]:
 print('==== 5) R147 FIELD LOG: fix-channel priming + ghost requests ========')
 _pp147 = open('tools/r2_postproc.py').read()
 import re as _re147
-_nk147 = set(_re147.findall(r"'([a-z_0-9]+)'",
-                            _re147.search(r"NONCE_KEYS = \(([^)]+)\)",
-                                          _pp147, _re147.S).group(1)))
+_nk147 = set(_tuple_strs(_pp147, 'NONCE_KEYS ='))
 _read147 = set(_re147.findall(r"rv\.get\('([a-z_0-9]+_nonce)'", _pp147))
 check('5 every nonce channel the watch loop READS is in NONCE_KEYS '
       '(primed at start - the .108 field log: flowcap/travelacc/segments '

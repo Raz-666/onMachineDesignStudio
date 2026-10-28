@@ -35,7 +35,17 @@ import zipfile
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 VERSION = 'R2-2026-10-12.92'
-ZIP_NAME = 'klipper-e3-r2d2-UPDATE-R2-2026-10-22.127.zip'
+# R186: the update zip name must be NEWER than the installed package -
+# the hardcoded .127 silently rotted (update.sh rightly refused the
+# downgrade once the repo passed .127) and all scenarios failed.
+# Derived from the repo's real version now: never rots again.
+import re as _rev110
+_mv110 = _rev110.search(
+    r"variable_version: 'R2-[\d-]+\.(\d+)[a-z]*'",
+    open(os.path.join(REPO, 'macros', '01_state.cfg'),
+         encoding='utf-8').read())
+ZIP_NAME = 'klipper-e3-r2d2-UPDATE-R2-2026-10-22.%03d.zip' \
+    % (int(_mv110.group(1)) + 1)
 
 INCLUDES = ''.join(
     '[include klipper-e3-r2d2/macros/%s.cfg]\n' % m for m in

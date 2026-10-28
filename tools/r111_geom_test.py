@@ -145,8 +145,29 @@ e = loop(lines, e, 100, 60, 20, 2400)     # separate island, no nesting
 feed(g, lines)
 g.finish()
 feats = [(f) for (_, _, f) in g.ranges]
-check('nested loops -> 2x WALL-OUTER + 1x WALL-INNER',
-      feats.count('WALL-OUTER') == 2 and feats.count('WALL-INNER') == 1, feats)
+# R181 (.131b) void-side rule: a wall with NOTHING on one side is a
+# visible surface = WALL-OUTER - the freestanding nested loop (no fill
+# around it) is ALL visible surface. The pre-R181 nesting-depth
+# expectation was retired with the layer-picture round.
+check('nested freestanding loops -> all WALL-OUTER (void-side rule)',
+      feats.count('WALL-OUTER') == 3 and feats.count('WALL-INNER') == 0, feats)
+
+# R186: the WALL-INNER case, pinned explicitly - the ring between the
+# two loops is DENSELY hatched: the inner wall has material on BOTH
+# sides -> WALL-INNER (the hatch itself = SURFACE-BOTTOM on layer 1).
+g = pp._GeomScan(1.75)
+lines = ['M82', 'G0 X5 Y5 Z0.2 F9000']
+e = 0.0
+e = loop(lines, e, 50, 50, 40, 2400)
+e = loop(lines, e, 55, 55, 30, 3000)
+e = hatch(lines, e, 53, 53, 34, 34, 1.0, 4800)
+feed(g, lines)
+g.finish()
+_feats186 = [f for (_, _, f) in g.ranges]
+check('filled ring -> WALL-OUTER + WALL-INNER (material both sides)',
+      _feats186.count('WALL-OUTER') == 1
+      and _feats186.count('WALL-INNER') == 1
+      and _feats186.count('SURFACE-BOTTOM') >= 10, _feats186[:5])
 
 # ------------------------------------------------- 5) curved -> unclassified -
 print('--- curved open path stays UNCLASSIFIED')
@@ -158,9 +179,12 @@ lines.append('G0 X5 Y5 Z0.4 F9000')
 e = loop(lines, e, 50, 50, 40, 2400)
 feed(g, lines)
 g.finish()
-check('arc -> only the loop classified, COVER < 100%',
-      [f for (_, _, f) in g.ranges] == ['WALL-OUTER']
-      and 0 < g.cls_len < g.tot_len, (g.cls_len, g.tot_len))
+# R181 (.131b): open arcs classify LIKE LOOPS - a curved wall is a
+# wall (the .131a near-closed rule generalized). The pre-R181
+# 'curved stays UNCLASSIFIED' expectation was retired.
+check('arc -> classified as WALL-OUTER (open arcs like loops, R181)',
+      [f for (_, _, f) in g.ranges] == ['WALL-OUTER', 'WALL-OUTER']
+      and g.cls_len == g.tot_len, (g.cls_len, g.tot_len, g.ranges))
 
 # ------------------------------------------------- 6) Z-hop never a layer ----
 print('--- Z-hop travels never fake a layer (modal-Z)')
@@ -219,8 +243,11 @@ open(p1, 'w').write('\n'.join(out) + '\n')
 summ = pp.process(p1)
 fi = info_line(p1)
 types = set(re.findall(r'APPLY_TYPE TYPE=(\S+)', open(p1).read()))
+# R186: WALL-INNER is pinned by the filled-ring unit above - this E2E
+# fixture hatches INSIDE the inner loop, so its 5mm ring stays void
+# and both walls are WALL-OUTER by the void-side rule.
 check('E2E TYPES: walls + sparse + bottom + top derived',
-      {'WALL-OUTER', 'WALL-INNER', 'INFILL-SPARSE', 'SURFACE-BOTTOM',
+      {'WALL-OUTER', 'INFILL-SPARSE', 'SURFACE-BOTTOM',
        'SURFACE-TOP'} <= types, sorted(types))
 check('E2E honesty keys: DERIVED=1 CONF=0.7 COVER>0',
       'DERIVED=1' in fi and 'CONF=0.7' in fi

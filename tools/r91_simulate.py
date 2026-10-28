@@ -86,20 +86,29 @@ for spelling in ('Outer wall', 'OUTER WALL', 'outer wall', 'Outer Wall'):
     p = os.path.join(D, '00_spell.gcode')
     with open(p, 'w', encoding='utf-8') as f:
         f.write(';TYPE:%s\n' % spelling)
-        for i in range(6):
+        # R186: 12 moves - the tool refuses wall fragments below its
+        # minimum vertex count (a clear error since R175), 6 was below it
+        for i in range(12):
             f.write('G1 X%d Y%d E0.1\n' % (20 + i, 20 + i))
     _, i2 = apply_texture(p, out_dir=D, mode='FUZZY', fuzzy_thick=0.3,
                           fuzzy_density=100)
     # the file's very first outer vertex has no approach direction -> stays
     # put by design; every following one must scatter
-    check('spelling %-10r recognized' % spelling, i2['shifted'] == 5,
+    check('spelling %-10r recognized' % spelling, i2['shifted'] == 11,
           'shifted=%d' % i2['shifted'])
 p = os.path.join(D, '00_spell.gcode')
 with open(p, 'w', encoding='utf-8') as f:
     f.write(';TYPE:Perimeter\n;TYPE:Wall-outer\nG1 X20 Y20 E0.1\n')
-_, i3 = apply_texture(p, out_dir=D, mode='FUZZY')
-check('unknown type names are NOT touched (no crash, 0 shifts)',
-      i3['shifted'] == 0, '')
+# R186: since R175 the tool REFUSES files without a recognized outer wall
+# (a clear error instead of a silent no-op - bare 'Perimeter' is not
+# unambiguously an OUTER wall and 'Wall-outer' is nobody's real spelling)
+try:
+    apply_texture(p, out_dir=D, mode='FUZZY')
+    check('unknown type names: clear refusal, no silent touch',
+          False, 'no exception raised')
+except ValueError as e:
+    check('unknown type names: clear refusal, no silent touch',
+          'no outer wall' in str(e), str(e)[:70])
 
 # ---------------------------------------------------------------------------
 print('=== 3. absolute E (M82) + retractions + E-only moves ===')
@@ -137,15 +146,29 @@ check('M82: travel lines stay travels at the exact same spot',
 
 # ---------------------------------------------------------------------------
 print('=== 4. CRLF line endings (Windows slicer) ===')
+# R186: real Windows-slicer shape - a closed loop AROUND a center (the old
+# fixture was a straight +X line whose vertices all sat exactly on the
+# GRID nodes: pattern 0 everywhere, shifted 0 - a degenerate fixture,
+# not a parser problem) and per-layer Z moves like every real slicer
 p = os.path.join(D, '00_crlf.gcode')
+import math as _m91
+_ang91 = [i * 2 * _m91.pi / 16 + 0.13 * _m91.sin(i * 1.7)
+          for i in range(16)]      # irregular: no vertex on a grid node
+_pts91 = [(60 + 15 * _m91.cos(a), 60 + 13 * _m91.sin(a)) for a in _ang91]
 with open(p, 'wb') as f:
     f.write(b';TYPE:outer wall\r\n')
-    for i in range(8):
-        f.write(b'G1 X%d Y40 E0.2\r\n' % (50 + i))
+    for _z91 in (0.2, 0.4, 0.6, 0.8):
+        f.write(b'G1 Z%.1f F600\r\n' % _z91)
+        for _px91, _py91 in _pts91:
+            f.write(b'G1 X%.2f Y%.2f E0.05\r\n' % (_px91, _py91))
     f.write(b';TYPE:infill\r\nG1 X50 Y50 E0.2\r\n')
 _, i4 = apply_texture(p, out_dir=D, mode='BUMPS', bump_pattern='GRID')
-check('CRLF: 8 outer moves found (parser tolerates \\r)',
-      i4['shifted'] == 7, 'shifted=%d (1st vertex stays)' % i4['shifted'])
+# 2 of the 4 layers sit on the pattern's flush band edges (t=0/1, by
+# design 'the texture ends flush at the top') -> 2 x 16 vertices carry
+# ink shifts, the CRLF parser sees every one of them
+check('CRLF: parser tolerates \\r, 32 of 64 vertices shifted (2 layers)',
+      i4['shifted'] == 32 and i4['outer_moves'] == 64,
+      'shifted=%d/%d' % (i4['shifted'], i4['outer_moves']))
 
 # ---------------------------------------------------------------------------
 print('=== 5. part at the bed edge (clamping) ===')
@@ -166,9 +189,12 @@ print('=== 6. texture on a texture (idempotent chaining) ===')
 base, _ = make_frame(preset='9x13', depth=4, frame_w=4, out_dir=D, bed=BED)
 t1, _ = apply_texture(base, out_dir=D, mode='FUZZY', fuzzy_thick=0.2)
 t2, i6 = apply_texture(t1, out_dir=D, mode='FUZZY', fuzzy_thick=0.2)
+_v1 = int(os.path.basename(t1).split('_')[0][1:])
+_v2 = int(os.path.basename(t2).split('_')[0][1:])
 check('chaining: _TX of _TX works, versions keep counting',
-      os.path.basename(t2) == 'V12_Frame_9x13_FLATx4_TX_TX.gcode'
-      and i6['shifted'] > 0, os.path.basename(t2))
+      os.path.basename(t2).endswith('_Frame_9x13_FLATx4_TX_TX.gcode')
+      and _v2 == _v1 + 1 and i6['shifted'] > 0,
+      '%s -> %s' % (os.path.basename(t1), os.path.basename(t2)))
 
 # ---------------------------------------------------------------------------
 print('=== 7. version overflow past V99 ===')
@@ -202,19 +228,26 @@ print('=== 8. degenerate files ===')
 p1 = os.path.join(D, '00_one.gcode')
 with open(p1, 'w', encoding='utf-8') as f:
     f.write(';TYPE:outer wall\nG1 X10 Y70 E0.1\n')     # single vertex
-_, i8 = apply_texture(p1, out_dir=D, mode='FUZZY')
-check('single outer vertex: no direction -> skipped safely',
-      i8['shifted'] == 0, '')
+# R186: since R175 degenerate inputs get ONE clear refusal instead of a
+# silent no-op return (single vertex, empty file, E-only - none of them
+# carries a wall the tool could texture)
+def _refuses186(path, mode):
+    try:
+        apply_texture(path, out_dir=D, mode=mode)
+        return False, ''
+    except ValueError as e:
+        return 'no outer wall' in str(e), str(e)[:60]
+_r1, _d1 = _refuses186(p1, 'FUZZY')
+check('single outer vertex: clear refusal (nothing to texture)', _r1, _d1)
 p2 = os.path.join(D, '00_empty.gcode')
 open(p2, 'w').write('')
-_, i82 = apply_texture(p2, out_dir=D, mode='BUMPS')
-check('completely empty file: no crash', i82['shifted'] == 0, '')
+_r2, _d2 = _refuses186(p2, 'BUMPS')
+check('completely empty file: clear refusal', _r2, _d2)
 p3 = os.path.join(D, '00_eonly.gcode')
 with open(p3, 'w', encoding='utf-8') as f:
     f.write(';TYPE:outer wall\nG1 E1.0\nG1 E1.0\nG1 E-0.5\n')
-_, i83 = apply_texture(p3, out_dir=D, mode='FUZZY')
-check('E-only file (no XY): nothing shifted, no crash',
-      i83['shifted'] == 0, '')
+_r3, _d3 = _refuses186(p3, 'FUZZY')
+check('E-only file (no XY): clear refusal', _r3, _d3)
 
 # ---------------------------------------------------------------------------
 print('=== 9. big file performance (Pi-class budget) ===')
@@ -252,7 +285,8 @@ check('streaming: peak RSS < 80 MB although the file is %.0f MB'
 
 # ---------------------------------------------------------------------------
 print('=== 10. output safety net ===')
-tx, _ = apply_texture(base, out_dir=D, mode='BUMPS', bump_pattern='MANDELBROT')
+tx, _ = apply_texture(base, out_dir=D, mode='BUMPS',
+                       bump_pattern='HONEYCOMB')   # R186: a REAL pattern
 head = open(tx, encoding='utf-8').read(400)
 check('header documents the run (mode + source)',
       'applied to' in head and 'BUMPS' in head, head.splitlines()[1][:60])

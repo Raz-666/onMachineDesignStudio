@@ -299,10 +299,12 @@ ck('D5 FILE_PROFILE_AUTO (no underscore)',
 ck('D5 fix reselect in watcher', 'fix_reselect' in WATCH
    and 'SDCARD_PRINT_FILE FILENAME=' in WATCH)
 # D6: canonical APPLY_TYPE emission in the generator helpers
+# R186: the R179 resolution ladder replaced the bare TYPE_MAP.get -
+# _lookup_type resolves unknown spellings by keyword rules first
 for helper in ('_ty121', '_ty125', '_ty126'):
-    ck('D6 ' + helper + ' maps via TYPE_MAP',
-       ('TYPE_MAP.get(t.strip().lower(), \'CUSTOM\')'
-        in WATCH) and WATCH.count(helper) >= 3)
+    ck('D6 ' + helper + ' maps via the canonical resolver (R179)',
+       ("_lookup_type(t) or 'CUSTOM'" in WATCH)
+       and WATCH.count(helper) >= 3)
 ck('D6 no bare TYPE=%s % t emitters',
    "a('APPLY_TYPE TYPE=%s' % t)" not in WATCH)
 # D7: 19_bricks catalog sync (cfg == python)

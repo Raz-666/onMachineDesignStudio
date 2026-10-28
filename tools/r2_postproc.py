@@ -57,6 +57,18 @@ import json
 import ast
 
 TAG = '; R2-POSTPROC v5'
+
+
+def _core_stamp():
+    """R186: the R166 core stamp as a comment line - every generated
+    file's first line says which build made it (stale-daemon forensics,
+    see POSTPROC_BUILD). _gen_normalize_speeds already stamps the printers
+    it post-processes (labels, bricks, litho, ...); bridge, resonance,
+    range excerpts and scale outputs deliberately bypass the speed
+    normalizer (their speeds ARE the point / come from the source file),
+    so they stamp themselves. Keep the format identical to the
+    normalize-pass stamp."""
+    return '; R2-GEN core %s (%s)' % (POSTPROC_RELEASE, POSTPROC_BUILD)
 # R166: identity of THIS RUNNING PROCESS, not of the files on disk. Bump
 # both with every release that changes this file (version-bump checklist).
 # The watcher stamps them into save_variables (postproc_build) at boot and
@@ -64,8 +76,8 @@ TAG = '; R2-POSTPROC v5'
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-10-24.132'
-POSTPROC_BUILD = 'R185'
+POSTPROC_RELEASE = 'R2-2026-10-24.133'
+POSTPROC_BUILD = 'R187'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
 # and no speed/accel/nozzle parameters. Files carrying an OLD tag are UPGRADED
@@ -1062,6 +1074,12 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
     n_stream = 0
     trailing_empty = False
     a_idx = None
+    pre_a = None       # R187: a Z-only move directly BEFORE the start mark -
+                       # Z-scan files put the layer's Z travel BEFORE the
+                       # LAYER_MARK (see process()), so the mark's own layer
+                       # Z sits at a_idx-1 and used to fall OUT of the body:
+                       # every body layer printed one layer too low and the
+                       # cap hung 0.4mm in the air (field report .133)
     lay1_done = False
     layn_on = False
     body_done = False
@@ -1093,6 +1111,11 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                          # single ;TYPE: in layer 1, so a range from layer >= 2
                          # had NO type in its body and printed as the raft's
                          # INFILL-SOLID all the way (field log .73)
+    _pre_z187 = [None, None]   # R187: [last Z-move idx before the start mark, its height]
+    _z_eff187 = None            # R187: Z currently in effect (body trackers)
+    _z_first_ext187 = None     # R187: Z at the body's first extruding move
+    _z_last_ext187 = None      # R187: Z at the body's last extruding move
+    _z_in_body_z187 = False    # R187: Z move inside the body before first ink
     with open(src, 'r', errors='replace') as f:
         for raw in f:
             trailing_empty = raw.endswith('\n')
@@ -1101,12 +1124,24 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
             n_stream += 1
             ls = line.strip()
             is_mark = (ls == 'LAYER_MARK')
+            # R187: running 'last Z move + height before the start mark'
+            if a_idx is None and not is_mark:
+                _c187 = _stripped(line)
+                if RMOVE_RE.match(_c187):
+                    _mz187 = ZWORD_RE.search(_c187)
+                    if _mz187:
+                        _pre_z187[0] = i
+                        _pre_z187[1] = float(_mz187.group(1))
             mc = 0
             if is_mark:
                 marks.append(i)
                 mc = len(marks)
                 if mc == start:
                     a_idx = i          # the LAYER_MARK of layer 'start'
+                    # R187: the Z in effect when the body starts comes from
+                    # before the mark (Z-scan order) until a body move says
+                    # otherwise
+                    _z_eff187 = _pre_z187[1]
             # running last-layer buffer (head lines before the first mark drop out)
             if is_mark:
                 cur_layer = [line]
@@ -1198,13 +1233,20 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
             if a_idx is not None and i >= a_idx and not body_done:
                 c = _stripped(line)
                 if RMOVE_RE.match(c):
-                    if z0 is None:
-                        m = ZWORD_RE.search(c)
-                        if m:
-                            z0 = float(m.group(1))
-                    m = ZWORD_RE.search(c)
-                    if m:
-                        z_end_body = float(m.group(1))
+                    _mz187 = ZWORD_RE.search(c)
+                    if _mz187:
+                        if _z_first_ext187 is None:
+                            _z_in_body_z187 = True   # Z before the first ink
+                        _z_eff187 = float(_mz187.group(1))
+                        if z0 is None:
+                            z0 = _z_eff187
+                        z_end_body = _z_eff187
+                    _me187 = EWORD_RE.search(c)
+                    if _me187 and float(_me187.group(1)) > 0.0 \
+                            and re.search(r'\bX', c):
+                        if _z_first_ext187 is None:
+                            _z_first_ext187 = _z_eff187
+                        _z_last_ext187 = _z_eff187
                     if fx is None:
                         mx = re.search(r'X(-?\d+(?:\.\d+)?)', c)
                         my = re.search(r'Y(-?\d+(?:\.\d+)?)', c)
@@ -1306,6 +1348,22 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
     cap_layer = layn if (end < total and layn) else last_layer
 
     # ---- the first Z inside the body = the source layer's print Z ----
+    # R187: z0/z_end from the Z IN EFFECT AT THE BODY'S INK - with Z-scan
+    # order (the layer Z travel sits BEFORE the mark) the first/last
+    # Z-carrying move in the window belongs to the NEIGHBOUR layer and
+    # both anchors drifted one layer off: every body layer printed one
+    # layer too low and the cap hung 0.4mm in the air (field report
+    # .133 - the 3D-viewer gap before the print end)
+    if _z_first_ext187 is not None:
+        z0 = _z_first_ext187
+    if _z_last_ext187 is not None:
+        z_end_body = _z_last_ext187
+    # the start layer's own Z travel sits right before the mark and must
+    # JOIN the body - but only when no Z move inside the body precedes
+    # the first ink (layer-comments order brings its own Z after the mark)
+    if _pre_z187[0] is not None and _z_first_ext187 is not None \
+            and not _z_in_body_z187:
+        pre_a = _pre_z187[0]
     if z0 is None:
         z0 = z_mod
     if z0 is None:
@@ -1590,6 +1648,7 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
             file_info_line = (file_info_line.rstrip() + ' '
                               + ' '.join(_own94)).rstrip()
     out_lines = [
+        _core_stamp(),    # R186: the R166 stamp for the normalize-bypassers
         f'; R2-RANGE excerpt of {os.path.basename(src)}: layers {start}..{end} of {total}',
         f'; layer {start} prints as the FIRST layer at Z{base_z:g} on the bed'
         + (f' (on a {floor}-layer raft)' if floor else '')
@@ -1669,9 +1728,15 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
     _od146 = out_dir if out_dir else (os.path.dirname(stem) or '.')
     # R146 (.107): the watcher routes excerpts into the Range/ subfolder;
     # direct/legacy callers (no out_dir) still write next to the source
-    out = os.path.join(_od146,
-                       f'V{_next_gen_version(_od146):02d}_{_rng83}'
-                       f'{ext or ".gcode"}')
+    # R187 (.133 collision audit): _dedupe_gen_fname as the last line of
+    # defense - every other generator has it, a race (two creates in one
+    # breath, or a user dropping the exact name mid-build) could not
+    # overwrite anything anymore.
+    out = os.path.join(
+        _od146,
+        _dedupe_gen_fname(
+            _od146,
+            f'V{_next_gen_version(_od146):02d}_{_rng83}{ext or ".gcode"}'))
     if os.path.abspath(out) == os.path.abspath(src):
         raise ValueError('range output name collides with the source - refusing')
     # body (E rebased to start at 0) + EXCLUDE_OBJECT cleanup, streamed
@@ -1686,10 +1751,14 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
             fo.write(l + '\n')
         with open(src, 'r', errors='replace') as f:
             idx = 0
+            # R187: when the start layer's own Z travel sits right before
+            # the mark (Z-scan files), the body begins THERE - the layer's
+            # Z survives the cut instead of printing at the park height
+            _a_eff187 = pre_a if pre_a is not None else a
             for raw in f:
                 if idx >= b:
                     break
-                if idx >= a:
+                if idx >= _a_eff187:
                     l = _shift_line(raw[:-1] if raw.endswith('\n') else raw)
                     c = _stripped(l)
                     # R180: orphan markers stay OUT. A cake half carries every
@@ -4259,6 +4328,12 @@ class _Pen:
         self.z = None
         self.ret = True
         self.retracts = retracts
+        # R186: live ink-bounds tracking (min/max X/Y over extrudes) - the
+        # figures round reads it to grow part cells to their TRUE ink
+        # extent before the brim is placed (see make_figures)
+        self._bx0 = self._by0 = 1e9
+        self._bx1 = self._by1 = -1e9
+        self._track = True
         # R95 (field log .74, rule dd): open holes [(cx, cy, r), ...] and
         # open slots [poly, ...] - a travel crossing one drags strings across
         # the opening no matter how SHORT it is, so crossings retract even
@@ -4271,6 +4346,17 @@ class _Pen:
         # files use 6mm - only real feature jumps (label->label, ->tower)
         # retract, neighboring infill lines just travel flat.
         self.jump_d = float(jump_d)
+
+    def breset(self):
+        self._bx0 = self._by0 = 1e9
+        self._bx1 = self._by1 = -1e9
+
+    def bget(self):
+        """R186: (x0, y0, x1, y1) ink extent since the last breset, or
+        None when nothing extruded."""
+        if self._bx0 > self._bx1 or self._by0 > self._by1:
+            return None
+        return (self._bx0, self._by0, self._bx1, self._by1)
 
     def set_z(self, z, feed=1200):
         self.L.append('G0 Z%.3f F%d' % (z, feed))
@@ -4323,6 +4409,15 @@ class _Pen:
         if e <= 0:
             return
         self.L.append('G1 X%.3f Y%.3f E%.5f F%d' % (x, y, e, feed))
+        if self._track:
+            if x < self._bx0:
+                self._bx0 = x
+            if y < self._by0:
+                self._by0 = y
+            if x > self._bx1:
+                self._bx1 = x
+            if y > self._by1:
+                self._by1 = y
         self.x, self.y = x, y
 
     def push(self, e, feed):
@@ -4354,6 +4449,23 @@ def _brim_gap(wid):
     BED, not the part. The RANGE brim stays welded ON PURPOSE - it must
     anchor small cut sections against warping (documented there)."""
     return wid + 0.35
+
+
+def _layout_gap(brim, wid):
+    """R186: cell-to-cell gap on a multi-part plate. Without a brim the
+    classic BRICK_GAP stands. With a brim the OUTERMOST loop reaches
+    _brim_gap(wid) + (brim-1)*wid + wid/2 of ink past the cell box - the
+    gap must reserve that reach plus the 0.35mm R184 air gap to the
+    NEIGHBOR's ink (brim ink touching brim ink is fine, both loops are
+    sacrificial). At nozzle 1.0 with brim=2 that is 3.45mm > BRICK_GAP -
+    the old fixed gap let the head's round brim weld onto the neighbor
+    arm's grip."""
+    if not brim:
+        return BRICK_GAP
+    # +0.40 (not +0.35): a round brim's 28-segment polygon chords sag up to
+    # ~0.05mm inside the ideal circle - the reserve must still guarantee
+    # the full 0.35mm air gap to the neighbor's ink
+    return max(BRICK_GAP, _brim_gap(wid) + (brim - 1) * wid + wid / 2.0 + 0.40)
 
 
 def _emit_loop(pen, pts, e_per_mm, feed, close=True):
@@ -7199,6 +7311,7 @@ def make_resonance(axes=('x', 'y'), mode='print', out_dir='.', bed=None, version
     total_layers = base_layers + feat_layers
     L = []
     a = L.append
+    a(_core_stamp())      # R186: the R166 stamp for the normalize-bypassers
     a('; R2-RESONANCE generated diagram (R64) - start it like any other file')
     a('; axes: %s | source: %s' % (', '.join(a2.upper() for a2 in axes),
                                    ', '.join(data[ax]['file'] for ax in axes)))
@@ -7701,8 +7814,8 @@ NONCE_KEYS = ('preview_nonce', 'range_nonce', 'label_gen_nonce', 'reso_nonce',
               'queue_cancel_nonce', 'gen_del_nonce', 'del_nonce',
               'scale_nonce', 'cake_nonce', 'stringart_nonce',
               'plot_nonce',
-              # R147 - .108 field log - NO parentheses in this tuple - the
-              # r143 audit regex stops at the first closing bracket. The
+              # R147 - .108 field log - the r143 audit parses this tuple
+              # comment-safe since R186, parentheses are fine. The
               # three NEWER fix channels were read in the watch loop but
               # NEVER primed - every watcher restart saw their stored
               # nonces as new and re-fired OLD fix requests - a Travel
@@ -7853,7 +7966,17 @@ def _dedupe_gen_fname(out_dir, fname):
         _cand = '%s%s%s' % (_m.group(1), _c, _m.group(2))
         if not os.path.exists(os.path.join(out_dir or '.', _cand)):
             return _cand
-    return fname           # b..z all taken (26 collisions) - keep the name
+    # R187 (.133 collision audit): b..z all taken (26 same-number collisions)
+    # - the old fallback returned the ORIGINAL name and silently overwrote.
+    # Never: walk the NEXT numbers instead (V06_, V07_, ...) until a free
+    # slot shows up. The grammar stays V<digits>[letter]_, so
+    # _next_gen_version still counts every variant.
+    _v187 = int(_m.group(1)[1:])
+    for _n187 in range(_v187 + 1, _v187 + 1000):
+        _cand = 'V%02d%s' % (_n187, _m.group(2))
+        if not os.path.exists(os.path.join(out_dir or '.', _cand)):
+            return _cand
+    return fname           # 1000+ collisions - unreachable in practice
 
 def _parse_ps(out):
     """R76: parse 'ps -eo pcpu,pmem,rss,comm --sort=-pcpu' output -> rows."""
@@ -8363,6 +8486,7 @@ def make_bridge(length=160.0, short_pct=30, h_long=35.0, h_short=18.0, version=1
 
     L = []
     a = L.append
+    a(_core_stamp())      # R186: the R166 stamp for the normalize-bypassers
     a('; R2-BRIDGE generated bridging test (R64) - start it like any other file')
     a('; long span %.0fmm (tower center to tower center, on the bed diagonal),' % length)
     a('; short span %.0fmm = %d%% of it, %.0fmm BELOW the long one on its own lower tower'
@@ -9548,11 +9672,20 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
     """
     preset = str(preset or '')
     _pk = preset.upper()
+    _preset_hit187 = False
     for _k, _v in FRAME_PRESETS.items():
         if _k.upper() == _pk:
             preset = _k
             width, height = _v
+            _preset_hit187 = True
             break
+    if preset and not _preset_hit187:
+        # R187 (.133 four-eyes): an unknown preset used to fall through to
+        # the 148x210 default SILENTLY - a typo built the wrong frame and
+        # the size refusal that eventually fired talked about split kits,
+        # never about the preset. Refuse at the source instead.
+        raise ValueError("unknown frame preset '%s' - %s or '' for custom W/H"
+                         % (preset, '/'.join(FRAME_PRESETS)))
     width, height = float(width), float(height)
     depth, frame_w = float(depth), float(frame_w)
     shape = str(shape).upper()
@@ -12777,12 +12910,13 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
         v += 1
         # ---- layout: row packing, tallest first --------------------------
         plist.sort(key=lambda c: (-(c['nl'] + c['sl']), -c['bw'] * c['bl']))
+        _gap187 = _layout_gap(brim, wid)   # R186: reserve the brim reach
         x, y = ux0, uy0
         row_h = 0.0
         for i, c in enumerate(plist):
             if x + c['bw'] > ux1 and x > ux0:
                 x = ux0
-                y += row_h + BRICK_GAP
+                y += row_h + _gap187
                 row_h = 0.0
             if y + c['bl'] > uy1:
                 raise ValueError('%d bricks do not fit the bed - split the'
@@ -12790,7 +12924,7 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
             c['x'] = x
             c['y'] = y
             c['name'] = 'BRICK_%02d_%s' % (i + 1, c['code'])
-            x += c['bw'] + BRICK_GAP
+            x += c['bw'] + _gap187
             row_h = max(row_h, c['bl'])
         _center_cells(plist, bed)
         for c in plist:
@@ -14076,21 +14210,30 @@ def make_figures(count=1, scale=100.0, layer_h=0.2, material='PLA',
 
     for (label, plate_ci, plist) in plates:
         v += 1
-        x, y = ux0, uy0
-        row_h = 0.0
-        for c in plist:
-            if x + c['bw'] > ux1 and x > ux0:
-                x = ux0
-                y += row_h + BRICK_GAP
-                row_h = 0.0
-            if y + c['bl'] > uy1:
-                raise ValueError('%d figure(s) do not fit the bed - lower'
-                                 ' the count or the scale' % count)
-            c['x'] = x
-            c['y'] = y
-            x += c['bw'] + BRICK_GAP
-            row_h = max(row_h, c['bl'])
-        _center_cells(plist, bed)
+
+        _gap187 = _layout_gap(brim, wid)   # R186: reserve the brim reach
+
+        def _layout186():
+            # R186: the plate layout as a callable - run once as before,
+            # and AGAIN after the cells grew to their true ink extent
+            # (brim runs only)
+            x, y = ux0, uy0
+            row_h = 0.0
+            for c in plist:
+                if x + c['bw'] > ux1 and x > ux0:
+                    x = ux0
+                    y += row_h + _gap187
+                    row_h = 0.0
+                if y + c['bl'] > uy1:
+                    raise ValueError('%d figure(s) do not fit the bed -'
+                                     ' lower the count or the scale' % count)
+                c['x'] = x
+                c['y'] = y
+                x += c['bw'] + _gap187
+                row_h = max(row_h, c['bl'])
+            _center_cells(plist, bed)
+
+        _layout186()
         pl_layers = max(c['nl'] for c in plist)
         total_layers = max(total_layers, pl_layers)
         if label:
@@ -14106,6 +14249,7 @@ def make_figures(count=1, scale=100.0, layer_h=0.2, material='PLA',
         first_h = layer_h
         seq_obj = (mode == 'PARTS' and colors > 1
                    and colormode == 'BY_OBJECT')
+        _ink187f = {}   # R186: true ink extent per part (see _emit_part)
 
         with open(out, 'w') as f:
             sk = _Sink(f)
@@ -14187,20 +14331,25 @@ def make_figures(count=1, scale=100.0, layer_h=0.2, material='PLA',
                       % (_lookup_type(t) or 'CUSTOM'))
                     _last126[0] = t
 
-            for c in plist:
-                _xs = [c['x'], c['x'] + c['bw']]
-                _ys = [c['y'], c['y'] + c['bl']]
-                _poly = ('[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]'
-                         % (_xs[0], _ys[0], _xs[1], _ys[0], _xs[1], _ys[1],
-                            _xs[0], _ys[1]))
-                a('EXCLUDE_OBJECT_DEFINE NAME=%s CENTER=%.1f,%.1f POLYGON=%s'
-                  % (c['name'], (_xs[0] + _xs[1]) / 2.0,
-                     (_ys[0] + _ys[1]) / 2.0, _poly))
-            a('PRINT_START MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d'
-              ' OUTER_WALL_SPEED=35' % (material, layer_h, pl_layers))
-            a('G90')
-            a('M83')
-            a('M107   ; R2-FIGURES: first layer = fan off')
+            def _emit_defines():
+                # R186: position-dependent header (EXCLUDE polygons from
+                # the CURRENT cell boxes) - emitted after the re-layout
+                for c in plist:
+                    _xs = [c['x'], c['x'] + c['bw']]
+                    _ys = [c['y'], c['y'] + c['bl']]
+                    _poly = ('[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],'
+                             '[%.1f,%.1f]]'
+                             % (_xs[0], _ys[0], _xs[1], _ys[0], _xs[1],
+                                _ys[1], _xs[0], _ys[1]))
+                    a('EXCLUDE_OBJECT_DEFINE NAME=%s CENTER=%.1f,%.1f'
+                      ' POLYGON=%s'
+                      % (c['name'], (_xs[0] + _xs[1]) / 2.0,
+                         (_ys[0] + _ys[1]) / 2.0, _poly))
+                a('PRINT_START MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d'
+                  ' OUTER_WALL_SPEED=35' % (material, layer_h, pl_layers))
+                a('G90')
+                a('M83')
+                a('M107   ; R2-FIGURES: first layer = fan off')
 
             def _loops(cx0, cy0, cx1, cy1, e, feed):
                 _emit_loop(pen, _rect_loop(cx0, cy0, cx1, cy1), e, feed)
@@ -14224,18 +14373,28 @@ def make_figures(count=1, scale=100.0, layer_h=0.2, material='PLA',
             def _brim_rect(c):
                 if brim:
                     _ty126('Brim')
-                    for bi in range(brim - 1, -1, -1):
-                        off = _brim_gap(wid) + bi * wid
-                        _loops(c['x'] - off, c['y'] - off,
-                               c['x'] + c['bw'] + off, c['y'] + c['bl'] + off,
-                               e_wall, 1500)
+                    pen._track = False   # R186: brim ink is not part ink
+                    try:
+                        for bi in range(brim - 1, -1, -1):
+                            off = _brim_gap(wid) + bi * wid
+                            _loops(c['x'] - off, c['y'] - off,
+                                   c['x'] + c['bw'] + off,
+                                   c['y'] + c['bl'] + off, e_wall, 1500)
+                    finally:
+                        pen._track = True
 
             def _brim_round(c, cx, cy, r):
                 if brim:
                     _ty126('Brim')
-                    for bi in range(brim - 1, -1, -1):
-                        _emit_loop(pen, _circle(cx, cy, r + _brim_gap(wid)
-                                                + bi * wid, 28), e_wall, 1500)
+                    pen._track = False   # R186: brim ink is not part ink
+                    try:
+                        for bi in range(brim - 1, -1, -1):
+                            _emit_loop(pen,
+                                       _circle(cx, cy, r + _brim_gap(wid)
+                                               + bi * wid, 28),
+                                       e_wall, 1500)
+                    finally:
+                        pen._track = True
 
             def _tube_hole(cx, cy, r_out, wall):
                 # vertical through-tube: outer ring + inner ring (open top
@@ -14719,6 +14878,7 @@ def make_figures(count=1, scale=100.0, layer_h=0.2, material='PLA',
                                         / 2.0, 16), e_wall, 2200)
 
             def _emit_part(c, li, z):
+                pen.breset()      # R186: ink bounds per part (dry pass)
                 if c['part'] == 'LEGS':
                     _part_legs(c, li, z)
                 elif c['part'] == 'TORSO':
@@ -14729,6 +14889,13 @@ def make_figures(count=1, scale=100.0, layer_h=0.2, material='PLA',
                     _part_single(c, li, z)
                 else:
                     _part_arm(c, li, z)
+                _b = pen.bget()
+                if _b is not None:
+                    _p = _ink187f.get(c['name'])
+                    _ink187f[c['name']] = (
+                        _b if _p is None else
+                        (min(_p[0], _b[0]), min(_p[1], _b[1]),
+                         max(_p[2], _b[2]), max(_p[3], _b[3])))
 
             def _layer_head(li, z):
                 a(';LAYER_CHANGE')
@@ -14738,30 +14905,83 @@ def make_figures(count=1, scale=100.0, layer_h=0.2, material='PLA',
                 if li == 2:
                     a('M106 S178   ; R2-FIGURES: part fan from layer 2')
 
-            if seq_obj:
-                prev_ci = None
-                for c in plist:
-                    if prev_ci is not None and c['ci'] != prev_ci:
-                        a('M117 Figures: next color %s' % 'ABCD'[c['ci']])
-                        a('M600')
-                    prev_ci = c['ci']
-                    pen.holes = []
-                    for li in range(1, c['nl'] + 1):
+            def _draw186():
+                if seq_obj:
+                    prev_ci = None
+                    for c in plist:
+                        if prev_ci is not None and c['ci'] != prev_ci:
+                            a('M117 Figures: next color %s' % 'ABCD'[c['ci']])
+                            a('M600')
+                        prev_ci = c['ci']
+                        pen.holes = []
+                        for li in range(1, c['nl'] + 1):
+                            z = round(first_h + (li - 1) * layer_h, 3)
+                            _layer_head(li, z)
+                            _emit_part(c, li, z)
+                else:
+                    for li in range(1, pl_layers + 1):
                         z = round(first_h + (li - 1) * layer_h, 3)
                         _layer_head(li, z)
-                        _emit_part(c, li, z)
-            else:
-                for li in range(1, pl_layers + 1):
-                    z = round(first_h + (li - 1) * layer_h, 3)
-                    _layer_head(li, z)
-                    for c in plist:
-                        pen.holes = []
-                        if li > c['nl']:
-                            continue
-                        _emit_part(c, li, z)
-            a('M107')
-            a('PRINT_END')
-            sk.flush()
+                        for c in plist:
+                            pen.holes = []
+                            if li > c['nl']:
+                                continue
+                            _emit_part(c, li, z)
+                a('M107')
+                a('PRINT_END')
+                sk.flush()
+
+            # --- R186 two-pass brim fix -------------------------------------
+            # Forensics: the figure anatomy (arm capsules, shoulder caps)
+            # extrudes up to ~1.3mm BEYOND its nominal cell box at wide
+            # nozzles, so a brim offset from the cell box ran onto the
+            # part ink (0.28mm at nozzle 1.0) and onto the neighbor's
+            # brim - the R184 air-gap rule was violated from nozzle 0.8
+            # up. Fix: with a brim requested, draw the whole plate once
+            # into the void with an ink-tracking pen, grow every cell to
+            # its TRUE ink extent (+ half the line width), re-run the
+            # layout on the grown cells (an honest refusal is possible
+            # here) and only then emit for real. Brim-less runs are
+            # byte-identical to before (no dry pass, no growth).
+            if brim:
+                _dh186 = open(os.devnull, 'w')
+                _dsk186 = _Sink(_dh186)
+                _rsk, _ra, _rpen = sk, a, pen
+                sk = _dsk186
+                a = _dsk186.append
+                pen = _Pen(_dsk186, jump_d=6.0)
+                try:
+                    _emit_defines()
+                    _draw186()
+                finally:
+                    _dh186.close()
+                    sk, a, pen = _rsk, _ra, _rpen
+                # grow every cell to its true ink extent
+                for c in plist:
+                    _b = _ink187f.get(c['name'])
+                    if _b is not None:
+                        _nx0 = min(c['x'], _b[0] - wid / 2.0)
+                        _ny0 = min(c['y'], _b[1] - wid / 2.0)
+                        c['bw'] = max(c['x'] + c['bw'],
+                                      _b[2] + wid / 2.0) - _nx0
+                        c['bl'] = max(c['y'] + c['bl'],
+                                      _b[3] + wid / 2.0) - _ny0
+                        c['x'] = _nx0
+                        c['y'] = _ny0
+                _ink187f.clear()
+                try:
+                    _layout186()      # may refuse honestly now
+                except ValueError:
+                    os.remove(out)    # no stub file with a bare header
+                    out_files.remove(pfn)
+                    if first_out == out:
+                        first_out = None
+                    raise
+
+            _emit_defines()
+            _draw186()
+
+        _gen_normalize_speeds(out)
 
         _gen_normalize_speeds(out)   # R159: rate cap keeps the micro segments safe
     info = {'file': out_files[0] if out_files else '',
@@ -18542,6 +18762,13 @@ def apply_scale(src, sx=1.0, sy=1.0, out_dir=None, bed=None):
         wp = _m176.hypot(sx * uy, sy * ux)        # w'/w perpendicular
         return lp * wp
 
+    # R187 (.133 collision audit): the scale output sits NEXT to its source
+    # and shares its stem - but the stem must be BROWSER-SAFE. A source
+    # named "Dad's vase.gcode" wrote "Dad's vase_S120-100.gcode": stored
+    # fine, yet the LCD browser skips names with quotes and the file was
+    # unreachable from the display (exactly the 'files I know are there
+    # but cannot see' class).
+    stem = re.sub(r'[^A-Za-z0-9._-]+', '_', stem).strip('_') or 'MODEL'
     fname = '%s_S%d-%d.gcode' % (stem, round(sx * 100), round(sy * 100))
     _n176 = 2
     while os.path.exists(os.path.join(out_dir, fname)):
@@ -18575,6 +18802,9 @@ def apply_scale(src, sx=1.0, sy=1.0, out_dir=None, bed=None):
         return ' '.join(parts)
 
     with open(src, errors='replace') as fi, open(out, 'w') as fo:
+        fo.write(_core_stamp() + '\n')   # R186: R166 stamp, always first -
+        # scaling a GENERATED file carries the source's own stamp line,
+        # we drop those while copying so the stamp never appears twice
         fo.write('; R176 scale: X %.0f%% Y %.0f%% around the object center, '
                  'centered on the bed (%.1f,%.1f)\n' % (sx * 100, sy * 100,
                                                          tx, ty))
@@ -18585,6 +18815,8 @@ def apply_scale(src, sx=1.0, sy=1.0, out_dir=None, bed=None):
                  'tuning starts fresh from it\n')
         for line in fi:
             ls = line.rstrip('\n')
+            if ls.startswith('; R2-GEN core '):
+                continue     # R186: re-stamped fresh at the top above
             _me = _excl176.match(ls)
             if _me:
                 fo.write('%s%.3f,%.3f\n' % (_me.group(1),
@@ -19288,13 +19520,19 @@ def watch(directory, interval=5.0, once=False):
                 # R143 audit: two gaps closed - the plot calibration
                 # channel was frozen under a MISSPELLED name - plotcal_
                 # instead of plot_cal_ - and the layer range channel was
-                # missing entirely. No parentheses in here on purpose:
-                # the r143 audit greps this tuple with a regex that stops
-                # at the first closing bracket.
+                # missing entirely. The r143 audit parses this tuple
+                # comment-safe since R186, parentheses are fine.
                 'range_nonce',
                 # R169: optimized-copy jobs wait for idle too (disk I/O
                 # during a print is the .125 shutdown lesson)
-                'opt_nonce', 'opt_load_nonce')
+                'opt_nonce', 'opt_load_nonce',
+                # R186 audit round: five channels from the .130 rounds
+                # never froze - SD browser delete, image pick, scale
+                # X/Y, cake cut, string art. All write files or mutate
+                # the browser: disk I/O during a print waits for idle,
+                # same lesson as .125 above.
+                'del_nonce', 'img_pick_nonce', 'scale_nonce',
+                'cake_nonce', 'stringart_nonce')
         # R61: layer-range excerpt request from the LCD (nonce changes on every request)
         try:
             rv = _read_vars(VAR_PATH)
@@ -19374,6 +19612,17 @@ def watch(directory, interval=5.0, once=False):
                 _wdlog170 = os.path.join(
                     os.path.dirname(os.path.abspath(directory).rstrip('/')),
                     'logs', 'r2_shutdown_watchdog.log')
+                # R186 audit round: the five .130-round channels were
+                # NEVER primed - the same class as R133f (.98 field
+                # log): every watcher start re-fired the user's last
+                # SD delete / image pick / scale / cake / string-art
+                # request; the delete re-fire could even remove a
+                # file re-created under the same name since.
+                last_del_nonce = _np.get('del_nonce')        # R175
+                last_img_pick_nonce = _np.get('img_pick_nonce')  # R174
+                last_scale_nonce = _np.get('scale_nonce')    # R176
+                last_cake_nonce = _np.get('cake_nonce')      # R177
+                last_stringart_nonce = _np.get('stringart_nonce')  # R178
                 first_prime = False
             if busy:
                 # generator nonces stay at their last value -> the jobs run
@@ -19445,8 +19694,10 @@ def watch(directory, interval=5.0, once=False):
                                                  .replace(';', '')[:120])
                             except Exception:                   # noqa: BLE001
                                 pass
-                    import threading
-                    threading.Thread(target=_job169, daemon=True).start()
+                    # R186 audit round: through _spawn_job like every
+                    # generator - the bare thread bypassed the one-job-
+                    # at-a-time queue and the duplicate-press guard.
+                    _spawn_job('Optimized copy', 'opt_copy169', _job169)
             except Exception as _e169o:                          # noqa: BLE001
                 print('[opt] dispatch error: %r' % _e169o, flush=True)
 
@@ -19727,40 +19978,19 @@ def watch(directory, interval=5.0, once=False):
                 src_path = os.path.join(directory, rsrc.strip())
                 if rsrc and os.path.isfile(src_path):
                     try:
-                        # skip if the excerpt already exists and is NEWER than the source
-                        # (a --once catch-up must not rebuild an up-to-date excerpt)
-                        _stem62, _ext62 = os.path.splitext(src_path)
-                        _src3_62 = _rng_src_tag(_stem62)   # same tag rule
-                        # R158 (.118): the version lives in the file name
-                        # FRONT now and is folder-global - the old single
-                        # filename guess cannot know the number anymore.
-                        # Scan ALL formats (current Vnn_<src>_L<s>-<e>,
-                        # R158 00_Vnn_<src>_L<s>-<e>, legacy
-                        # 00_<src>_L<s>-<e>_Vnn) in both candidate folders;
-                        # any excerpt of this source+range that is newer
-                        # than the source makes the job fresh.
-                        _pat62 = re.compile(
-                            r'^(?:00_)?(?:V\d+_)?%s_L%d-%d(?:_V\d+)?%s$'
-                            % (re.escape(_src3_62), int(float(rs)),
-                               int(float(re_)), re.escape(_ext62 or '.gcode')))
-                        _fresh62 = False
-                        _freshname62 = ''
-                        for _d62 in (_gensub(directory, 'range'),
-                                     os.path.dirname(_stem62) or '.'):
-                            try:
-                                for _p62 in os.listdir(_d62):
-                                    if not _pat62.match(_p62):
-                                        continue
-                                    _gp62 = os.path.join(_d62, _p62)
-                                    if os.path.isfile(_gp62) and \
-                                            os.path.getmtime(_gp62) > os.path.getmtime(src_path):
-                                        _fresh62 = True
-                                        _freshname62 = _p62
-                            except OSError:
-                                pass
-                        if _fresh62:
-                            print(f'[range] {_freshname62}: already up to date - skipped', flush=True)
-                        else:
+                        # R186: the 'already up to date - skipped' check is
+                        # GONE. It matched only source+range in the file
+                        # name, NOT the parameters: cutting layers 5..10
+                        # once without a top and then adding top=2 (or a
+                        # hole, or brim, or switching outline/footprint)
+                        # was answered with 'already up to date' and the
+                        # user's new top never printed (field report
+                        # .133). A nonce fire is an EXPLICIT user press
+                        # since R186 primes every stored nonce at start -
+                        # the boot re-fire this check once guarded can no
+                        # longer happen. Always rebuild; the R160b naming
+                        # gives the new settings their own file.
+                        if True:
                             # R160b (.120 field): the build runs as a QUEUED JOB
                             # (it froze the whole poller on big files) - one
                             # worker, per-job sounds, and the selection swap
@@ -21865,7 +22095,7 @@ def watch(directory, interval=5.0, once=False):
                                 _gfe146.append((os.path.getmtime(
                                     os.path.join(_sp146, _f146)),
                                     _sub146 + '/' + _f146))
-                _gf = sorted(_gfe146, reverse=True)[:12]
+                _gf = sorted(_gfe146, reverse=True)[:24]
                 _gfl = [f for _, f in _gf]
                 # R152 (.113): the R151 rewrite entangled the two pushes (the
                 # gen_files push only fired when sd_files changed) and both
@@ -21904,11 +22134,21 @@ def watch(directory, interval=5.0, once=False):
                                     (os.path.getmtime(_fp154), _f154))
                     except OSError:
                         pass
+                    # R187 (.133): root stays A-Z (folders, then files -
+                    # the field log wants to FIND a name), but SUBFOLDERS
+                    # list their files NEWEST-FIRST: the freshest print
+                    # sits on top, folders A-Z below the files.
                     _ent154 = ['D:' + _d for _d in sorted(_dirs154)]
-                    # R159 (.119): files ALPHABETICAL - the field log wants
-                    # to FIND a name, not archaeology by mtime
-                    _ent154 += ['F:' + _f
-                                for _f in sorted(_f154 for _, _f154 in _files154)]
+                    if not sub:
+                        _ent154 += ['F:' + _f
+                                    for _f in sorted(_f154
+                                                     for _, _f154 in _files154)]
+                    else:
+                        _ent154 = [
+                            'F:' + _f154
+                            for _m154, _f154 in sorted(
+                                _files154, key=lambda _t: (-_t[0], _t[1]))]
+                        _ent154 += ['D:' + _d for _d in sorted(_dirs154)]
                     return _ent154, _dirs154
 
                 def _walk154(sub, depth=0):

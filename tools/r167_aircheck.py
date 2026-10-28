@@ -207,6 +207,31 @@ try:
     src = os.path.join(ROOT, '..', 'uploads', 'Bun2.jpg')
     if not os.path.isfile(src):
         src = '/home/user/uploads/Bun2.jpg'
+    if not os.path.isfile(src):
+        # R187: the field upload is gone (workspace cleanup) - a synthetic
+        # reference photo keeps this audit runnable anywhere. Same class of
+        # content: a centered subject with a smooth gray background.
+        import struct as _st167, zlib as _zl167
+        _w167, _h167 = 96, 128
+
+        def _chunk167(tag, data):
+            c = tag + data
+            return (_st167.pack('>I', len(data)) + c
+                    + _st167.pack('>I', _zl167.crc32(c) & 0xffffffff))
+        _raw167 = b''
+        for _y167 in range(_h167):
+            _raw167 += b'\x00'
+            for _x167 in range(_w167):
+                _dx167, _dy167 = _x167 - _w167 / 2, _y167 - _h167 / 2
+                _r167 = math.hypot(_dx167, _dy167) / (_w167 / 2)
+                _v167 = int(255 * min(1.0, 0.25 + 0.75 * max(0.0, 1 - _r167)))
+                _raw167 += bytes((_v167, _v167, _v167))
+        src = os.path.join(d, 'ref167.png')
+        open(src, 'wb').write(
+            b'\x89PNG\r\n\x1a\n'
+            + _chunk167(b'IHDR', _st167.pack('>IIBBBBB', _w167, _h167, 8, 2, 0, 0, 0))
+            + _chunk167(b'IDAT', _zl167.compress(_raw167))
+            + _chunk167(b'IEND', b''))
     out, info = pp.make_lithophane(
         src, height_mm=50.0, layer_h=0.12, levels=0, frame=True,
         brim_loops=6, ironing=False, orient='FLAT', colors=1, col_layers=0,

@@ -2856,7 +2856,8 @@ _out61, _nl61 = _pp61.make_range(_f61, 3, 5, floor=2, top=1, brim=1)
 _t61 = open(_out61).read()
 tests.append(('R62 make_range: PRINT_START head + Z0.2 on the bed (no mid-air!)',
     _os61.path.basename(_out61) == 'V01_teil_L3-5.gcode' and _nl61 == 6 and _t61.count('LAYER_MARK') == 6
-    and _t61.startswith('; R2-RANGE excerpt') and _t61.count('LAYER_MARK') == 6
+    and _t61.startswith('; R2-GEN core')          # R186 stamp first
+    and '; R2-RANGE excerpt' in _t61[:200] and _t61.count('LAYER_MARK') == 6
     and 'PRINT_START MATERIAL=PLA' in _t61 and 'HOTEND_FIRST=215' in _t61 and 'BED=60' in _t61
     and 'FIRST layer at Z0.6' in _t61 and 'MID-AIR' not in _t61, _t61[:150]))
 tests.append(('R62 make_range: first layer Z=0.6 (2 raft layers) + real layer Z0.6, fan at body layer 2 only',
@@ -3902,8 +3903,8 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         _v66 = _l66.split(':', 1)[1].strip()
         break
 # NOTE: bump this expectation together with the version on every release!
-tests.append(('R66/R80 version is current (.131) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-24.132'", repr(_v66)))
+tests.append(('R66/R80 version is current (.133) in 01_state.cfg (bump together with release!)',
+    _v66 == "'R2-2026-10-24.133'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -7266,7 +7267,12 @@ tests.append(('R90 CASE 20mm: mode CASE, 100 layers, stand included',
 for _kw90, _frag90 in ((dict(width=300, height=200), 'out of range'),
                        (dict(preset='10x15', depth=61), 'out of range'),
                        (dict(preset='10x15', frame_w=3), 'out of range'),
-                       (dict(preset='A5', shape='OVAL'), 'oval frame'),
+                       (dict(width=148, height=210, shape='OVAL'), 'oval frame'),
+                       # R187: 'A5' is no preset (bed overflow, not
+                       # offered) - the old guard silently rode its
+                       # 148x210 fallthrough; custom W/H now carries
+                       # the same geometry and unknown presets refuse
+                       # at the source
                        (dict(preset='A6', shape='OVAL', closure='SIDE'),
                         'SIDE closure needs a RECT'),
                        (dict(preset='10x15', infill=2), 'out of range'),
@@ -7521,8 +7527,12 @@ tests.append(('R91 fuzzy: density 20% shifts ~1/5 of the vertices',
 _t91d, _ti91d = _at91(_p91, out_dir=_d91b, mode='BUMPS', bump_pattern='WAVES',
                       bump_scale=10, bump_amp=0.35, direction='OUT')
 _d91 = _outer91(_t91d)
-_dmax91 = max((abs(_u[0] - _v[0]) + abs(_u[1] - _v[1])
-               for _u, _v in zip(_o91, _d91)), default=0)
+# R186 note: euclidean, not manhattan - with the Z-tracking fixed the WAVES
+# pattern reaches its full amp (0.35) in the NORMAL direction, and manhattan
+# overestimates a diagonal shift by sqrt(2) (0.35 -> 0.495). The bound
+# itself is unchanged: the displacement may never exceed amp.
+_dmax91 = max(((_u[0] - _v[0]) ** 2 + (_u[1] - _v[1]) ** 2) ** 0.5
+               for _u, _v in zip(_o91, _d91))
 _t91e, _ = _at91(_p91, out_dir=_d91b, mode='BUMPS', bump_pattern='WAVES',
                  bump_scale=10, bump_amp=0.35, direction='IN', version=2)
 _e91 = _outer91(_t91e)
@@ -12873,6 +12883,30 @@ _REMOVED135 = [
  '__main __system __fc3',
 ]
 _ADDED135 = [
+ '__main __gen __gfiles __del __d12',
+ '__main __gen __gfiles __del __d13',
+ '__main __gen __gfiles __del __d14',
+ '__main __gen __gfiles __del __d15',
+ '__main __gen __gfiles __del __d16',
+ '__main __gen __gfiles __del __d17',
+ '__main __gen __gfiles __del __d18',
+ '__main __gen __gfiles __del __d19',
+ '__main __gen __gfiles __del __d20',
+ '__main __gen __gfiles __del __d21',
+ '__main __gen __gfiles __del __d22',
+ '__main __gen __gfiles __del __d23',
+ '__main __gen __gfiles __s12',
+ '__main __gen __gfiles __s13',
+ '__main __gen __gfiles __s14',
+ '__main __gen __gfiles __s15',
+ '__main __gen __gfiles __s16',
+ '__main __gen __gfiles __s17',
+ '__main __gen __gfiles __s18',
+ '__main __gen __gfiles __s19',
+ '__main __gen __gfiles __s20',
+ '__main __gen __gfiles __s21',
+ '__main __gen __gfiles __s22',
+ '__main __gen __gfiles __s23',
  '__main __endq',
  '__main __endq __info',
  '__main __endq __no',
@@ -13824,8 +13858,9 @@ tests.append(('R146 activator marker RENDER: OW with spd 80% + PA 0.03 shows '
               _ok146d, str(_r146d)[:160]))
 tests.append(('R146 Gen files slots: basename on the 20-char LCD (path split) '
               'but the FULL relative path goes to SDCARD_PRINT_FILE - '
-              'subfolder outputs stay selectable',
-              _lcd146.count(").split('/')[-1]|replace('.gcode', '')|truncate(13, True)}") == 24
+              'subfolder outputs stay selectable (24 select + 24 delete '
+              'slots since R187)',
+              _lcd146.count(").split('/')[-1]|replace('.gcode', '')|truncate(13, True)}") == 48
               and _lcd146.count("SDCARD_PRINT_FILE FILENAME=\"{(printer['save_variables'].variables.gen_files|default([]))") >= 12
               and _lcd146.count('SDNAV_GO INDEX=') == 40, ''))
 
@@ -15140,15 +15175,115 @@ tests.append(('R175d watcher: the delete channel is a primed nonce (restart '
     and "[del] file %s' % _drel175" in _pp175d
     and 'rmtree(_dp175)' in _pp175d, ''))
 
-# live watcher run: a real delete through --watch --once
+# live watcher runs - R186 semantics: a nonce that predates the watcher
+# start is PRIMED, not fired (the .130 channels used to re-fire the user's
+# last SD delete / cake cut / string art on every boot - audit find of the
+# R186 round). The live tests therefore run in two phases:
+#   1. a --once PRIME run with the nonce already set - nothing may fire
+#   2. a long-running watcher; the nonce gets bumped WHILE it runs,
+#      exactly like the LCD does it through SAVE_VARIABLE
 import subprocess as _sp175d
 import shutil as _shut175d
 import os as _os175d
 import sys as _sys175d
+import time as _time175d
 os = _os175d
 sys = _sys175d
 _td175d = _os175d = None
 import tempfile as _tf175d
+
+
+def _wvars186(base, txt):
+    """write variables.cfg atomically (the SAVE_VARIABLE stand-in)"""
+    _vf = os.path.join(base, 'variables.cfg')
+    _tmp = _vf + '.tmp'
+    open(_tmp, 'w').write(txt)
+    os.replace(_tmp, _vf)
+
+
+def _wprime186(gc, base, vtxt):
+    """phase 1: --once with the nonce already set - primes, fires nothing"""
+    _wvars186(base, vtxt)
+    return _sp175d.run(
+        [sys.executable, os.path.abspath('tools/r2_postproc.py'),
+         '--watch', gc, '--once'], capture_output=True, text=True,
+        timeout=240)
+
+
+def _wlive186(gc, base, vtxt, tmo=200):
+    """phase 2: long-running watcher - returns (logpath, proc, logtext).
+    The caller bumps the nonce via _wvars186() once _wready186() says the
+    first pass is through."""
+    _wvars186(base, vtxt)
+    _logf = os.path.join(base, 'watch_out.txt')
+    _lf = open(_logf, 'w')
+    _p = _sp175d.Popen(
+        [sys.executable, os.path.abspath('tools/r2_postproc.py'),
+         '--watch', gc], stdout=_lf, stderr=_sp175d.STDOUT, text=True)
+    _lf.close()
+    return _logf, _p
+
+
+def _wready186(base, proc, quiet=6.0, tmo=60):
+    """wait for the startup header + the first (priming) pass"""
+    _logf = os.path.join(base, 'watch_out.txt')
+    _t0 = _time175d.time()
+    while _time175d.time() - _t0 < tmo:
+        if proc.poll() is not None:
+            break
+        try:
+            _out = open(_logf, errors='replace').read()
+        except OSError:
+            _out = ''
+        if 'gen folders (inside the gcodes root)' in _out:
+            _time175d.sleep(quiet)      # first pass + prime settles
+            return True
+        _time175d.sleep(0.5)
+    return False
+
+
+def _wwait186(base, marker, tmo=200):
+    """poll the watcher log until the marker line shows up"""
+    _logf = os.path.join(base, 'watch_out.txt')
+    _t0 = _time175d.time()
+    while _time175d.time() - _t0 < tmo:
+        try:
+            if marker in open(_logf, errors='replace').read():
+                return True
+        except OSError:
+            pass
+        _time175d.sleep(0.7)
+    return False
+
+
+def _wstop186(proc):
+    proc.terminate()
+    try:
+        proc.wait(timeout=30)
+    except Exception:
+        proc.kill()
+
+
+def _wfire186(base, vfmt, marker, tmo=240, start=3):
+    """R186: bump the nonce every 3s with FRESH values until the marker
+    fires. The first bump may still land inside the priming pass (a slow
+    first scan) - it gets adopted as current; the next bump lands in
+    steady state and fires, exactly the LCD's SAVE_VARIABLE rhythm."""
+    _logf = os.path.join(base, 'watch_out.txt')
+    _t0 = _time175d.time()
+    _n = start
+    while _time175d.time() - _t0 < tmo:
+        _wvars186(base, vfmt % _n)
+        _time175d.sleep(3.0)
+        try:
+            if marker in open(_logf, errors='replace').read():
+                return True
+        except OSError:
+            pass
+        _n += 1
+    return False
+
+
 _base175d = _tf175d.mkdtemp(prefix='r175del_')
 try:
     _gc175d = os.path.join(_base175d, 'gcodes')
@@ -15157,47 +15292,55 @@ try:
     open(os.path.join(_gc175d, 'optimized', 'teil_O2.gcode'), 'w').write(
         ';TYPE:Outer wall\nG1 X1 Y1 E1\n')
     open(os.path.join(_gc175d, 'oldstuff', 'a.gcode'), 'w').write('x\n')
-    open(os.path.join(_base175d, 'variables.cfg'), 'w').write(
+    open(os.path.join(_gc175d, 'innocent.gcode'), 'w').write('keep me\n')
+    # -- phase 1: the nonce predates the start - primed, NOT fired
+    _r175d = _wprime186(_gc175d, _base175d,
         '[variables]\nvariable_del_file: \'"optimized/teil_O2.gcode"\'\n'
         'variable_del_nonce: 1\n')
-    _r175d = _sp175d.run(
-        [sys.executable, os.path.abspath('tools/r2_postproc.py'),
-         '--watch', _gc175d, '--once'], capture_output=True, text=True,
-        timeout=240)
-    tests.append(('R175d watcher live: optimized/teil_O2.gcode really '
-        'deleted (file gone, [del] log, done-sound path)',
-        not os.path.exists(os.path.join(_gc175d, 'optimized',
-                                        'teil_O2.gcode'))
-        and '[del] file optimized/teil_O2.gcode' in (_r175d.stdout),
-        (_r175d.stdout + _r175d.stderr)[:200].replace('\n', ' | ')))
-    open(os.path.join(_base175d, 'variables.cfg'), 'w').write(
-        '[variables]\nvariable_del_file: \'"oldstuff"\'\n'
+    tests.append(('R175d watcher live (R186): a nonce from BEFORE the start '
+        'is primed, the old delete is NOT re-fired',
+        os.path.exists(os.path.join(_gc175d, 'optimized', 'teil_O2.gcode'))
+        and '[del]' not in _r175d.stdout,
+        (_r175d.stdout + _r175d.stderr)[:150].replace('\n', ' | ')))
+    # -- phase 2: the watcher runs, the nonce bumps while it does
+    _logf175d, _p175d = _wlive186(_gc175d, _base175d,
+        '[variables]\nvariable_del_file: \'"optimized/teil_O2.gcode"\'\n'
         'variable_del_nonce: 2\n')
-    _r175d = _sp175d.run(
-        [sys.executable, os.path.abspath('tools/r2_postproc.py'),
-         '--watch', _gc175d, '--once'], capture_output=True, text=True,
-        timeout=240)
+    _ok175d = _wfire186(_base175d,
+        '[variables]\nvariable_del_file: \'"optimized/teil_O2.gcode"\'\n'
+        'variable_del_nonce: %d\n',
+        '[del] file optimized/teil_O2.gcode')
+    tests.append(('R175d watcher live: optimized/teil_O2.gcode really '
+        'deleted after the LIVE nonce bump (file gone, [del] log)',
+        _ok175d
+        and not os.path.exists(os.path.join(_gc175d, 'optimized',
+                                            'teil_O2.gcode')),
+        open(_logf175d, errors='replace').read()[:200].replace('\n', ' | ')))
+    _ok175d = _wfire186(_base175d,
+        '[variables]\nvariable_del_file: \'"oldstuff"\'\n'
+        'variable_del_nonce: %d\n',
+        '[del] folder oldstuff', start=20)
     tests.append(('R175d watcher live: a FOLDER goes with everything '
         'inside + the tree re-push is forced',
-        not os.path.exists(os.path.join(_gc175d, 'oldstuff'))
-        and '[del] folder oldstuff' in _r175d.stdout
+        _ok175d
+        and not os.path.exists(os.path.join(_gc175d, 'oldstuff'))
         and 'sd_tree_pushed[0] = None' in _pp175d,
-        _r175d.stdout[:200].replace('\n', ' | ')))
-    open(os.path.join(_base175d, 'variables.cfg'), 'w').write(
+        open(_logf175d, errors='replace').read()[:200].replace('\n', ' | ')))
+    _ok175d = _wfire186(_base175d,
         '[variables]\nvariable_del_file: \'"../../etc/passwd"\'\n'
-        'variable_del_nonce: 3\n')
-    open(os.path.join(_gc175d, 'innocent.gcode'), 'w').write('keep me\n')
-    _r175d = _sp175d.run(
-        [sys.executable, os.path.abspath('tools/r2_postproc.py'),
-         '--watch', _gc175d, '--once'], capture_output=True, text=True,
-        timeout=240)
+        'variable_del_nonce: %d\n',
+        '[del] refused (outside root)', start=40)
+    _wstop186(_p175d)
     tests.append(('R175d watcher live: escape attempts outside the root are '
         'refused',
-        '[del] refused (outside root)' in (_r175d.stdout + _r175d.stderr)
-        and os.path.exists(os.path.join(_gc175d, 'innocent.gcode'))
-        and '[del] file' not in _r175d.stdout,
-        (_r175d.stdout + _r175d.stderr)[:150].replace('\n', ' | ')))
+        _ok175d
+        and os.path.exists(os.path.join(_gc175d, 'innocent.gcode')),
+        open(_logf175d, errors='replace').read()[:200].replace('\n', ' | ')))
 finally:
+    try:
+        _wstop186(_p175d)
+    except Exception:
+        pass
     _shut175d.rmtree(_base175d, ignore_errors=True)
 
 
@@ -15502,7 +15645,8 @@ tests.append(('R177 watcher: cake channel primed + job reports the segment '
     and "[cake]" in _pp177x
     and "from r2_cake import cut_cake" in _pp177x
     and "'cake': 'Cake'" in _pp177x, ''))
-# live watcher run: a real cake cut through --watch --once
+# live watcher run - R186 two-phase (see the R175d section): the nonce
+# from before the start is primed (no re-fire), the LIVE bump cuts
 import subprocess as _sp177
 _base177 = _tf177.mkdtemp(prefix='r177live_')
 _gc177 = os.path.join(_base177, 'gcodes')
@@ -15517,21 +15661,27 @@ for _lyr177 in range(20):
 _Ll177.append('PRINT_END')
 open(os.path.join(_gc177, 'kuchen.gcode'), 'w').write(
     '\n'.join(_Ll177) + '\n')
-open(os.path.join(_base177, 'variables.cfg'), 'w').write(
-    '[variables]\nvariable_cake_file: \'"kuchen.gcode"\'\n'
+_CV177 = ('[variables]\nvariable_cake_file: \'"kuchen.gcode"\'\n'
     'variable_cake_yaw: 0\nvariable_cake_pitch: 0\nvariable_cake_roll: 0\n'
     'variable_cake_zoff: 2.2\nvariable_cake_part: \'BOTH\'\n'
-    'variable_cake_reorient: 0\nvariable_cake_nonce: 1\n')
-_r177 = _sp177.run(
-    [sys.executable, os.path.abspath('tools/r2_postproc.py'),
-     '--watch', _gc177, '--once'], capture_output=True, text=True,
-    timeout=240)
-tests.append(('R177 watcher live: the cake really cuts through --watch '
-    '--once (both halves land in the Cake folder, [cake] log)',
-    os.path.isfile(os.path.join(_gc177, 'Cake', 'kuchen_CUT-U.gcode'))
-    and os.path.isfile(os.path.join(_gc177, 'Cake', 'kuchen_CUT-L.gcode'))
-    and '[cake]' in _r177.stdout,
-    (_r177.stdout + _r177.stderr)[:200].replace('\n', ' | ')))
+    'variable_cake_reorient: 0\nvariable_cake_nonce: %d\n')
+# -- phase 1: primed, not fired
+_r177 = _wprime186(_gc177, _base177, _CV177 % 1)
+tests.append(('R177 watcher live (R186): a cake nonce from BEFORE the start '
+    'is primed, nothing re-cuts on boot',
+    not os.path.exists(os.path.join(_gc177, 'Cake', 'kuchen_CUT-U.gcode'))
+    and '[cake]' not in _r177.stdout,
+    (_r177.stdout + _r177.stderr)[:150].replace('\n', ' | ')))
+# -- phase 2: live bump cuts
+_logf177, _p177 = _wlive186(_gc177, _base177, _CV177 % 2)
+_ok177 = _wfire186(_base177, _CV177, '[cake]')
+_wstop186(_p177)
+tests.append(('R177 watcher live: the cake really cuts after the LIVE nonce '
+    'bump (both halves land in the Cake folder, [cake] log)',
+    _ok177
+    and os.path.isfile(os.path.join(_gc177, 'Cake', 'kuchen_CUT-U.gcode'))
+    and os.path.isfile(os.path.join(_gc177, 'Cake', 'kuchen_CUT-L.gcode')),
+    open(_logf177, errors='replace').read()[:200].replace('\n', ' | ')))
 import shutil as _sh177
 _sh177.rmtree(_d177, ignore_errors=True)
 _sh177.rmtree(_base177, ignore_errors=True)
@@ -15638,29 +15788,36 @@ tests.append(('R178 watcher: stringart channel primed + job lands in the '
     and '_stringart_job178' in _pp178x
     and "'stringart': 'StringArt'" in _pp178x
     and 'String art: PHOTO needs an image' in _pp178x, ''))
-# live watcher run: a real SPIRAL weave through --watch --once
+# live watcher run - R186 two-phase (see the R175d section)
 import subprocess as _sp178
 import shutil as _sh178
 _base178 = _tf178.mkdtemp(prefix='r178live_')
 _gc178 = os.path.join(_base178, 'gcodes')
 os.makedirs(_gc178)
-open(os.path.join(_base178, 'variables.cfg'), 'w').write(
-    '[variables]\nvariable_stringart_pattern: 0\n'
+_SV178 = ('[variables]\nvariable_stringart_pattern: 0\n'
     'variable_stringart_diameter: 80\nvariable_stringart_anchors: 60\n'
-    'variable_stringart_lines: 180\nvariable_stringart_nonce: 1\n')
-_r178 = _sp178.run(
-    [sys.executable, os.path.abspath('tools/r2_postproc.py'),
-     '--watch', _gc178, '--once'], capture_output=True, text=True,
-    timeout=240)
+    'variable_stringart_lines: 180\nvariable_stringart_nonce: %d\n')
+# -- phase 1: primed, not fired
+_r178 = _wprime186(_gc178, _base178, _SV178 % 1)
 _sa178 = [f for f in os.listdir(os.path.join(_gc178, 'StringArt'))
           if f.endswith('.gcode')] if os.path.isdir(
     os.path.join(_gc178, 'StringArt')) else []
-tests.append(('R178 watcher live: the SPIRAL really weaves through --watch '
-    '--once (file in the StringArt folder, [stringart] log)',
-    len(_sa178) == 1 and 'Spiral' in _sa178[0]
-    and '[stringart]' in _r178.stdout
+tests.append(('R178 watcher live (R186): a string-art nonce from BEFORE the '
+    'start is primed, nothing re-weaves on boot',
+    not _sa178 and '[stringart]' not in _r178.stdout,
+    (_r178.stdout + _r178.stderr)[:150].replace('\n', ' | ')))
+# -- phase 2: live bump weaves
+_logf178, _p178 = _wlive186(_gc178, _base178, _SV178 % 2)
+_ok178 = _wfire186(_base178, _SV178, '[stringart]')
+_wstop186(_p178)
+_sa178 = [f for f in os.listdir(os.path.join(_gc178, 'StringArt'))
+          if f.endswith('.gcode')] if os.path.isdir(
+    os.path.join(_gc178, 'StringArt')) else []
+tests.append(('R178 watcher live: the SPIRAL really weaves after the LIVE '
+    'nonce bump (file in the StringArt folder, [stringart] log)',
+    _ok178 and len(_sa178) == 1 and 'Spiral' in _sa178[0]
     and 'V01' in _sa178[0],
-    (_r178.stdout + _r178.stderr)[:200].replace('\n', ' | ')))
+    open(_logf178, errors='replace').read()[:200].replace('\n', ' | ')))
 _sh178.rmtree(_base178, ignore_errors=True)
 _sh178.rmtree(_d178, ignore_errors=True)
 
@@ -16208,16 +16365,16 @@ import os as _os185b
 _m185 = open(_os185b.path.join(_os185b.path.dirname(_os185b.path.abspath(__file__)),
                                '..', 'MANUAL.md'), encoding='utf-8').read()
 tests.append(('R185 current-only manual: no version-history appendix, no era '
-    'annotations, nine fonts + .132 version line documented (changelog = README)',
+    'annotations, nine fonts + .133 version line documented (changelog = README)',
     '## Appendix D' not in _m185 and 'Version history' not in _m185
     and _re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185) is None
     and _re2.search(r'\bR1[0-9][0-9]\b', _m185) is None
-    and 'The nine fonts' in _m185 and 'R2-2026-10-24.132' in _m185,
+    and 'The nine fonts' in _m185 and 'R2-2026-10-24.133' in _m185,
     'appendixD=%s eratags=%s rtags=%s nine=%s v132=%s' % (
         '## Appendix D' in _m185,
         bool(_re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185)),
         bool(_re2.search(r'\bR1[0-9][0-9]\b', _m185)),
-        'The nine fonts' in _m185, 'R2-2026-10-24.132' in _m185)))
+        'The nine fonts' in _m185, 'R2-2026-10-24.133' in _m185)))
 
 # ================== R184 (.131c field round): the brim air gap EVERYWHERE ==
 # The user asked: does the brim fusing hit our OTHER generators too? Measured
