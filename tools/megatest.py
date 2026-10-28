@@ -604,6 +604,19 @@ _sa180 = pp.make_string_art(pattern='SPIRAL', diameter=60.0, anchors=36,
                             lines=60, out_dir=D, bed=BED)[0]
 _sar180 = run('chain: range excerpt of STRING ART', lambda: pp.make_range(
     _sa180, 1, 4, out_dir=D), skip_idem=True, r2_gen=True)
+# R183 (.131b field round): mixed label jobs - 4 fonts x 4 sizes on ONE
+# plate (per-job shelf pack) + a SCRIPT swash line (the collision guard
+# widened its advances - 'fj' no longer prints as mud)
+run('labels MIXED jobs: 4 fonts x sizes on one plate', lambda: pp.make_labels(
+    ['ALPHA 1', 'BETA~22', 'GAMMA 3', 'DREHEN'],
+    job_cfgs=[{'font': 'SMOOTH', 'w': 60, 'h': 20, 'size': 0, 'spacing': 0.5},
+              {'font': 'MONO', 'w': 40, 'h': 15, 'size': 4, 'mode': 'fixed'},
+              {'font': 'COND', 'w': 80, 'h': 25, 'size': 0},
+              {'font': 'CAPS', 'w': 30, 'h': 12, 'size': 0}],
+    bed=BED, out_dir=D), r2_gen=True)
+run('labels SCRIPT swash line (collision guard)', lambda: pp.make_labels(
+    ['fj mix~Script 12'], font='SCRIPT', w=50, h=20, bed=BED, out_dir=D),
+    r2_gen=True)
 _hsar180 = open(_sar180[0]).read()
 if 'TYPE=CUSTOM' in _hsar180:
     fails.append(('chain stringart->range: no CUSTOM in the excerpt', _sar180))

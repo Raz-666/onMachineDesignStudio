@@ -64,8 +64,8 @@ TAG = '; R2-POSTPROC v5'
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-10-24.131b'
-POSTPROC_BUILD = 'R182'
+POSTPROC_RELEASE = 'R2-2026-10-24.131d'
+POSTPROC_BUILD = 'R184'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
 # and no speed/accel/nozzle parameters. Files carrying an OLD tag are UPGRADED
@@ -3767,6 +3767,24 @@ def _label_glyphs(font):
     glyphs['cap_units'] = max(1.0, base - cap_top)
     glyphs['x_units'] = max(0.5, base - x_top)
     glyphs['height'] = desc_bot
+    # R183 (.131b field round): COLLISION GUARD. SCRIPT and HAND carry
+    # swash overhangs - ink reaching up to 1.7 units PAST the advance box
+    # ('j' 3.5 ink on 1.8 advance), the next letter starts at its own left
+    # bearing (~0.1) and the two INKS PRINT ON TOP OF EACH OTHER ('fj',
+    # 'ji' -> mud). The advance now always covers the ink + 0.15 units of
+    # air: script letters still VISUALLY touch, they just never collide.
+    # Text gets slightly wider - the auto-fit answers with slightly
+    # smaller caps, which is the honest trade.
+    for _cg183 in list(glyphs.keys()):
+        _cv183 = glyphs[_cg183]
+        if not isinstance(_cv183, tuple) or not _cv183[1]:
+            continue
+        _xs183 = [p[0] for _s183 in _cv183[1] for p in _s183]
+        # the advance must cover the ink END (its rightmost point), not
+        # just its width - the ink often starts right of x=0
+        _need183 = max(_xs183) + 0.15
+        if _need183 > _cv183[0]:
+            glyphs[_cg183] = (_need183, _cv183[1])
     _LABEL_FONT_CACHE[font] = glyphs
     return glyphs
 
@@ -4321,6 +4339,21 @@ def _circle(cx, cy, r, seg=28):
 
 def _rect_loop(x0, y0, x1, y1):
     return [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+
+
+def _brim_gap(wid):
+    """R184 (.131c field round): the BRIM AIR GAP rule, one place for every
+    generator. A brim is a REMOVAL part - it must grip the bed but never
+    weld to the object. The old loops started at wid*0.35 from the object
+    contour; the wall ink reaches right to (or past) that line, so frames,
+    cable ties, litho FLAT plates, label rings, purge towers, stamp handles
+    and resonance plates all printed their brims FUSED to the part (the
+    user had to fight them off even at 92% flow). Every brim's innermost
+    loop now runs wid + 0.35mm outside the reference contour: a real air
+    gap of ~0.35mm between the wall ink and the brim ink. It grips the
+    BED, not the part. The RANGE brim stays welded ON PURPOSE - it must
+    anchor small cut sections against warping (documented there)."""
+    return wid + 0.35
 
 
 def _emit_loop(pen, pts, e_per_mm, feed, close=True):
@@ -5113,7 +5146,7 @@ def _make_stamp_handle(fit, out_dir='.', material='PLA', nozzle=0.6,
             if li == 1:
                 a(';TYPE:Brim')
                 a('APPLY_TYPE TYPE=BRIM')
-                for off in (wid * 0.35 + wid, wid * 0.35):
+                for off in (_brim_gap(wid) + wid, _brim_gap(wid)):
                     _emit_loop(pen, _circle(cx, cy, _r_out(z_top) + off),
                                e_wall, 900)
             _tyb = ('SURFACE-BOTTOM' if li == 1 else
@@ -5777,7 +5810,10 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
         L.append('EXCLUDE_OBJECT_START NAME=GRIFF')
         if li == 1 and brim:
             L.append(';TYPE:Brim')
-            for off in (wid * 0.35 + wid, wid * 0.35):
+            # R183: same air-gap fix as the label base brim - the handle
+            # wall ink reaches its radius, the first brim line keeps clear
+            _bgap183 = wid + 0.35
+            for off in (_bgap183 + wid, _bgap183):
                 _emit_loop(pen, _circle(_hx, _hy, _handle_r170(z) + off),
                            _ew170, 900)
         L.append(';TYPE:Outer wall')
@@ -6033,8 +6069,15 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
         L.append('EXCLUDE_OBJECT_START NAME=%s' % lb['name'])
         if first and brim:
             L.append(';TYPE:Brim')
+            # R183 (.131b field log): the old innermost loop sat at
+            # wid*0.35 from the label edge - the wall centerline runs at
+            # wid/2 and its ink reaches right TO the edge, so the brim
+            # printed fused with the object (the user had to fight it off
+            # even at 92% flow). The first brim line now keeps a real AIR
+            # GAP to the wall ink - the brim grips, but breaks off clean.
+            _bgap183 = wid + 0.35
             edge_c = _lb_contour(lb, 0.0)
-            for off in (wid * 0.35 + 2 * wid, wid * 0.35 + wid, wid * 0.35):
+            for off in (_bgap183 + 2 * wid, _bgap183 + wid, _bgap183):
                 if edge_c is None:
                     b = (lx - off, ly - off, lx + w + off, ly + h + off)
                     _emit_loop(pen, _rect_loop(*b), e_wall, 1500 if first else 2400)
@@ -6158,7 +6201,7 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
             pen.extrude(tower[0] + 1.5, tower[1] + tw - 1.5, (tw - 3.0) * 0.1, 1320)
         if first and brim:
             L.append(';TYPE:Brim')
-            for off in (wid * 0.35 + wid, wid * 0.35):
+            for off in (_brim_gap(wid) + wid, _brim_gap(wid)):
                 b = (tower[0] - off, tower[1] - off, tower[0] + tw + off, tower[1] + tw + off)
                 _emit_loop(pen, _rect_loop(*b), e_wall, 1500)
         L.append(';TYPE:Outer wall')
@@ -6288,7 +6331,7 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
         L.append('EXCLUDE_OBJECT_START NAME=%s' % lb['name'])
         if first and brim:
             L.append(';TYPE:Brim')
-            for off in (wid * 0.35 + wid, wid * 0.35):
+            for off in (_brim_gap(wid) + wid, _brim_gap(wid)):
                 _emit_loop(pen, _circle(cx, cy, lb['ring_ro'] + off), e_wall, 1500)
         L.append(';TYPE:Outer wall')
         _emit_loop(pen, _circle(cx, cy, lb['ring_ro'] - wid / 2.0), e_wall,
@@ -7208,7 +7251,7 @@ def make_resonance(axes=('x', 'y'), mode='print', out_dir='.', bed=None, version
         L.append('EXCLUDE_OBJECT_START NAME=RESONANCE_%s' % ax.upper())
         if li == 1:
             L.append(';TYPE:Brim')
-            for off in (wid * 0.35 + wid, wid * 0.35):
+            for off in (_brim_gap(wid) + wid, _brim_gap(wid)):
                 b = (gx - off, gy - off, gx + RESO_PLATE_W + off, gy + RESO_PLATE_H + off)
                 _emit_loop(pen, _rect_loop(*b), e_wall, 1500)
         L.append(';TYPE:Outer wall')
@@ -8365,7 +8408,7 @@ def make_bridge(length=160.0, short_pct=30, h_long=35.0, h_short=18.0, version=1
         L.append('EXCLUDE_OBJECT_START NAME=%s' % name)
         if li == 1:
             L.append(';TYPE:Brim')
-            for off in (wid * 0.35 + wid, wid * 0.35):
+            for off in (_brim_gap(wid) + wid, _brim_gap(wid)):
                 b = (x0 - off, y0 - off, x1 + off, y1 + off)
                 _emit_loop(pen, _rect_loop(*b), e_wall, 1500)
         L.append(';TYPE:Outer wall')
@@ -9148,7 +9191,7 @@ def make_cable_ties(count=6, length=120.0, width=8.0, layers=3, variant='CLASSIC
     # brim (first layer): loops around the head only (the strap needs none)
     def tie_brim(x0, y0):
         e_wall = first_h * wid / fil
-        for off in (wid * 0.35 + wid, wid * 0.35):
+        for off in (_brim_gap(wid) + wid, _brim_gap(wid)):
             b = (x0 - off, y0 - off, x0 + HL + off, y0 + HW + off)
             L.append(';TYPE:Brim')
             _emit_loop(pen, _rect_loop(*b), e_wall, 1500)
@@ -10407,7 +10450,7 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                         # zigzag. Long frame bands lifted without it.
                         a(';TYPE:Brim')
                         _eb97 = e_w(1)
-                        for _off97 in (wid * 0.35 + wid, wid * 0.35):
+                        for _off97 in (_brim_gap(wid) + wid, _brim_gap(wid)):
                             _emit_loop(pen, [(x + cx, y + cy) for (x, y)
                                              in _poly_offset(outer_c, _off97)],
                                        _eb97, 1500)
@@ -10486,7 +10529,7 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                         _ew120 = e_w(li)
                         if li == 1:
                             a(';TYPE:Brim')
-                            for _off120 in (wid * 0.35 + wid, wid * 0.35):
+                            for _off120 in (_brim_gap(wid) + wid, _brim_gap(wid)):
                                 _emit_loop(pen, _circle(_rc120[0], _rc120[1],
                                                         _rro120 + _off120),
                                            _ew120, 1500)
@@ -10534,7 +10577,7 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                            (sx - sw / 2, sy - sh / 2 + leg_h)]
                     if li == 1:
                         a(';TYPE:Brim')
-                        for _off97 in (wid * 0.35 + wid, wid * 0.35):
+                        for _off97 in (_brim_gap(wid) + wid, _brim_gap(wid)):
                             _emit_loop(pen, _poly_offset(tri, _off97),
                                        e_w(1), 1500)
                     a(';TYPE:Outer wall')
@@ -10674,7 +10717,7 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                     # R97 (field log .74): brim first - long thin strips
                     # lifted without it, then one continuous zigzag fill
                     a(';TYPE:Brim')
-                    for _off97 in (wid * 0.35 + wid, wid * 0.35):
+                    for _off97 in (_brim_gap(wid) + wid, _brim_gap(wid)):
                         _emit_loop(pen, _rect_loop(x0 - _off97, y0 - _off97,
                                                    x1 + _off97, y1 + _off97),
                                    ew, 1500)
@@ -10819,7 +10862,7 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                     a('EXCLUDE_OBJECT_START NAME=BACKPLATE')
                     if li == 1:
                         a(';TYPE:Brim')
-                        for _off97 in (wid * 0.35 + wid, wid * 0.35):
+                        for _off97 in (_brim_gap(wid) + wid, _brim_gap(wid)):
                             _emit_loop(pen, [(x + bpx, y + bpy) for (x, y)
                                              in _poly_offset(plate_pts, _off97)],
                                        e_w(1), 1500)
@@ -10844,7 +10887,7 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                            (sxk - sw / 2, syk - sh / 2 + leg_h)]
                     if li == 1:
                         a(';TYPE:Brim')
-                        for _off97 in (wid * 0.35 + wid, wid * 0.35):
+                        for _off97 in (_brim_gap(wid) + wid, _brim_gap(wid)):
                             _emit_loop(pen, _poly_offset(tri, _off97),
                                        e_w(1), 1500)
                     a(';TYPE:Outer wall')
@@ -11841,7 +11884,7 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
             if li == 1:
                 a(';TYPE:Brim')
                 a('APPLY_TYPE TYPE=BRIM')
-                for off in (wid * 0.35 + wid, wid * 0.35):
+                for off in (_brim_gap(wid) + wid, _brim_gap(wid)):
                     _emit_loop(pen, _rect_loop(tower[0] - off, tower[1] - off,
                                                tower[0] + tw + off,
                                                tower[1] + tw + off),
@@ -11891,7 +11934,7 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                 a(';TYPE:Brim')
                 a('APPLY_TYPE TYPE=BRIM')
                 for _b128 in range(brim_loops - 1, -1, -1):
-                    off = wid * (_b128 + 0.5)
+                    off = _brim_gap(wid) + _b128 * wid
                     _emit_loop(pen, _poly_offset(outer_c, off), e_wall, 900)
             a(';TYPE:Outer wall')
             a('APPLY_TYPE TYPE=WALL-OUTER')
@@ -12373,7 +12416,7 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                 a(';TYPE:Brim')
                 a('APPLY_TYPE TYPE=BRIM')
                 for k in range(brim_loops - 1, -1, -1):
-                    off = wid * (k + 0.5)
+                    off = _brim_gap(wid) + k * wid
                     b = (x0 - off, yF - off, x0 + width_mm + off, yF + t_max + off)
                     _emit_loop(pen, _rect_loop(*b), e_wall, 900)
                 # R92 fix: re-assert the layer's main type - the ribbon used
@@ -12871,7 +12914,7 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                 if brim:
                     _ty121('Brim')
                     for bi in range(brim - 1, -1, -1):
-                        off = wid * 0.35 + bi * wid
+                        off = _brim_gap(wid) + bi * wid
                         _loops(c['x'] - off, c['y'] - off,
                                c['x'] + c['bw'] + off, c['y'] + c['bl'] + off,
                                e_wall, 1500)
@@ -12880,7 +12923,7 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                 if brim:
                     _ty121('Brim')
                     for bi in range(brim - 1, -1, -1):
-                        _emit_loop(pen, _circle(cx, cy, r + wid * 0.35
+                        _emit_loop(pen, _circle(cx, cy, r + _brim_gap(wid)
                                                 + bi * wid, 28), e_wall, 1500)
 
             def brick_block(c, li):
@@ -13708,7 +13751,7 @@ def make_brick_kit(src, detail='AUTO', mode='BY_LAYER', colors=3,
                             return
                 if li == 1:
                     _ty125('Brim')
-                    for off in (wid * 0.35 + wid, wid * 0.35):
+                    for off in (_brim_gap(wid) + wid, _brim_gap(wid)):
                         _emit_loop(pen, _rect_loop(p['x'] - off, p['y'] - off,
                                                    p['x'] + p['bw'] + off,
                                                    p['y'] + p['bl'] + off),
@@ -14182,7 +14225,7 @@ def make_figures(count=1, scale=100.0, layer_h=0.2, material='PLA',
                 if brim:
                     _ty126('Brim')
                     for bi in range(brim - 1, -1, -1):
-                        off = wid * 0.35 + bi * wid
+                        off = _brim_gap(wid) + bi * wid
                         _loops(c['x'] - off, c['y'] - off,
                                c['x'] + c['bw'] + off, c['y'] + c['bl'] + off,
                                e_wall, 1500)
@@ -14191,7 +14234,7 @@ def make_figures(count=1, scale=100.0, layer_h=0.2, material='PLA',
                 if brim:
                     _ty126('Brim')
                     for bi in range(brim - 1, -1, -1):
-                        _emit_loop(pen, _circle(cx, cy, r + wid * 0.35
+                        _emit_loop(pen, _circle(cx, cy, r + _brim_gap(wid)
                                                 + bi * wid, 28), e_wall, 1500)
 
             def _tube_hole(cx, cy, r_out, wall):
@@ -14982,7 +15025,7 @@ def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
                 if li == 1:
                     a(';TYPE:Brim')
                     a('APPLY_TYPE TYPE=BRIM')
-                    for off in (wid * 0.35 + wid, wid * 0.35):
+                    for off in (_brim_gap(wid) + wid, _brim_gap(wid)):
                         _emit_loop(pen, _rect_loop(tower[0] - off,
                                                    tower[1] - off,
                                                    tower[0] + tw + off,
@@ -15014,7 +15057,7 @@ def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
                 a(';TYPE:Brim')
                 a('APPLY_TYPE TYPE=BRIM')
                 for _b120 in range(brim_loops - 1, -1, -1):
-                    off = wid * (_b120 + 0.5)
+                    off = _brim_gap(wid) + _b120 * wid
                     _emit_loop(pen, _rect_loop(x0 - off, y0 - off,
                                                x0 + width_real + off,
                                                y0 + height_real + off),
@@ -19772,6 +19815,23 @@ def watch(directory, interval=5.0, once=False):
                 texts_f = [t for t in (x.strip() for x
                                        in str(rv.get('label_texts', '')).split('|')) if t]
                 if not texts_f:
+                    # R183 (.131b field log): the FIRST job is being
+                    # configured - the queue is still empty, but the Text
+                    # editor holds the lines. Preview THOSE (joined exactly
+                    # like LABEL_ADD would join them) instead of erroring.
+                    # The old empty-queue error was the ONLY beep in this
+                    # chain: the user heard it as 'fit confirmed', then lost
+                    # every beep after the first ADD (the success path was
+                    # silent). Both paths speak now: success = r2_confirm,
+                    # real errors stay r2_error.
+                    _ed183 = []
+                    for _i183 in (1, 2, 3, 4, 5):
+                        _l183 = str(rv.get('label_l%d' % _i183, '')).strip()
+                        if _l183 and _l183.lower() != 'none':
+                            _ed183.append(_l183)
+                    if _ed183:
+                        texts_f = ['~'.join(_ed183)]
+                if not texts_f:
                     raise ValueError('type a text first (Labels > Text)')
                 cfg_bed_f = _bed_limits(os.path.join(
                     os.path.dirname(os.path.abspath(directory).rstrip('/')),
@@ -19843,7 +19903,11 @@ def watch(directory, interval=5.0, once=False):
                     + _sv_line('label_min_h', _mn_h99) + '\n'
                     + 'RESPOND MSG="%s"\n' % msg_f
                     + ''.join('RESPOND MSG="%s"\n' % x for x in extra_f)
-                    + 'M117 %s' % short_f)
+                    + 'M117 %s' % short_f
+                    # R183: the audible fit confirmation - the user WANTS the
+                    # beep after every settings change (field log: 'confirmed
+                    # with beep, as I wanted it - but only for the first job')
+                    + '\n_SOUND_LIB NAME=r2_confirm')
                 print(f'[fit] {texts_f[0][:20]}: {msg_f}', flush=True)
         except Exception as e:              # noqa: BLE001
             print(f'[fit] error: {e}', flush=True)

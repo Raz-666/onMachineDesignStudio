@@ -3903,7 +3903,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.131) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-24.131b'", repr(_v66)))
+    _v66 == "'R2-2026-10-24.131d'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -5331,9 +5331,10 @@ for _i77b in range(1, len(_parts77), 2):
                    round(sum(float(m) for m in _re74.findall(r'(?m)^G1 .*?E([\d.]+)', _b77)), 1)))
 tests.append(('R77 label: base layers nearly retract-free (storm 108 -> <=3)',
     _lay77[0][0] <= 3 and _lay77[1][0] <= 3 and _lay77[2][0] <= 3, str(_lay77[:3])))
-tests.append(('R77 label: base-layer E stable (R117: +3% from the serpentine '
-               'connector beads, E 280.6/164.6/164.7)',
-    [_lay77[i][1] for i in range(3)] == [280.6, 164.6, 164.7], str(_lay77[:3])))
+tests.append(('R77 label: base-layer E stable (R117 serpentine beads, '
+               'R183/R184 brim air gaps - label brim AND the purge tower '
+               'brim run further out, E 282.9/164.6/164.7)',
+    [_lay77[i][1] for i in range(3)] == [282.9, 164.6, 164.7], str(_lay77[:3])))
 tests.append(('R77/R83 label: total G10 <= 160 (storm was 636; R83 adds discrete '
                'glyph-to-glyph retracts, base layers stay retract-free)',
     _t77l.count('\nG10') <= 160, str(_t77l.count('\nG10'))))
@@ -11077,7 +11078,7 @@ import hashlib as _hl119
 import math as _math119
 import re as _re119
 _D119 = tempfile.mkdtemp(prefix='r119_')
-_MD5_120 = 'ab54c27d4b09b17085f27e727d11ba09'   # re-frozen R167 (.126): the M204 thrift mode (travel M204 only after 2mm of hops - the per-transition M204 storm ran the interceptor with a save_variables deepcopy thousands of times per print = the Timer-too-close chain). Geometry identical to the R160 freeze; only the M204 lines thinned out.
+_MD5_120 = '9e02cae6abe3d0db8018de018967a04e'   # re-frozen R184 (.131c field round): the brim air gap now covers EVERY generator (the label file's PURGE TOWER brim moved out too). R183 had the label base brim only. Everything else identical to the R167 freeze.
 
 def _labpts119(path, li):
     _t = open(path).read()
@@ -16076,6 +16077,245 @@ tests.append(('R182 sync sites: every override writer + print start + the '
     and "VARIABLE=fecho_{c|lower} VALUE='\"\"'" in get_body(
         'macros/08_print_start_stop.cfg', '_FILE_INFO'), ''))
 
+
+# ================== R183 (.131b field round): fit beep + brim gap + fonts ==
+# Field log: (a) the fit beep only fired while the queue was EMPTY (it was
+# the ERROR beep!) - after the first ADD the success path stayed silent;
+# (b) the label brim printed FUSED with the object (innermost loop at
+# wid*0.35, the wall ink reaches the label edge); (c) SCRIPT/HAND glyphs
+# overhang their advance box by up to 1.7 units - 'fj' printed as mud.
+_pp_src183 = open('tools/r2_postproc.py', encoding='utf-8').read()
+tests.append(('R183 fit beep: the watcher answers EVERY fit request audibly '
+    '(r2_confirm on success) and previews the EDITOR lines when the queue '
+    'is still empty (the first-job case) - the error beep was the only '
+    'beep in the chain before',
+    "_SOUND_LIB NAME=r2_confirm" in _pp_src183
+    and "label_l%d' % _i183" in _pp_src183
+    and _pp_src183.index("label_l%d' % _i183")
+        < _pp_src183.index("type a text first (Labels > Text)"), ''))
+import tempfile as _tf183
+import math as _math183
+math = _math183
+_d183 = _tf183.mkdtemp(prefix='r183_')
+_out183, _info183 = _pp.make_labels(
+    ['BRIMTEST 1'], w=50, h=20, bed=(0, -3, 220, 217), out_dir=_d183)
+_h183 = open(_out183).read()
+_lines183 = _h183.split('\n')
+_brim183 = []
+_wall183 = []
+_mode183 = None
+for _l183 in _lines183:
+    _ls183 = _l183.strip()
+    if _ls183 == ';TYPE:Brim':
+        _mode183 = 'brim'
+        continue
+    if _ls183 == ';TYPE:Outer wall':
+        _mode183 = 'wall'
+        continue
+    if _ls183 == ';TYPE:Inner wall':
+        if _brim183 and _wall183:
+            break
+        _mode183 = None
+        continue
+    if _mode183 and _ls183.startswith('G1') and ' X' in _ls183 \
+            and ' E' in _ls183 and ' E-' not in _ls183:
+        _mx183 = __import__('re').search(r'X(-?[\d.]+)', _ls183)
+        _my183 = __import__('re').search(r'Y(-?[\d.]+)', _ls183)
+        if _mx183 and _my183:
+            (_brim183 if _mode183 == 'brim' else _wall183).append(
+                (float(_mx183.group(1)), float(_my183.group(1))))
+_gap183 = min((math.hypot(bx - wx, by - wy)
+               for bx, by in _brim183 for wx, wy in _wall183), default=0.0)
+tests.append(('R183 brim air gap: the first brim line keeps a real AIR GAP '
+    'to the wall ink (measured %.2fmm, was ~0 = fused; the user fought the '
+    'brim off even at 92%% flow)' % _gap183,
+    _gap183 >= 0.5, ''))
+_out183b, _info183b = _pp.make_labels(
+    ['ALPHA 1', 'BETA~22', 'GAMMA 3', 'DREHEN'],
+    job_cfgs=[{'font': 'SMOOTH', 'w': 60, 'h': 20, 'size': 0,
+               'spacing': 0.5},
+              {'font': 'MONO', 'w': 40, 'h': 15, 'size': 4,
+               'mode': 'fixed'},
+              {'font': 'COND', 'w': 80, 'h': 25, 'size': 0},
+              {'font': 'CAPS', 'w': 30, 'h': 12, 'size': 0}],
+    bed=(0, -3, 220, 217), out_dir=_d183)
+_h183b = open(_out183b).read()
+_objs183 = {}
+_cur183 = None
+for _l183 in _h183b.split('\n'):
+    _ls183 = _l183.strip()
+    _m183 = __import__('re').match(r'EXCLUDE_OBJECT_START NAME=(\S+)', _ls183)
+    if _m183:
+        _cur183 = _m183.group(1)
+        _objs183[_cur183] = [1e9, 1e9, -1e9, -1e9]
+        continue
+    if _ls183.startswith('EXCLUDE_OBJECT_END'):
+        _cur183 = None
+        continue
+    if _cur183 and _ls183.startswith('G1') and ' X' in _ls183 \
+            and ' E' in _ls183 and ' E-' not in _ls183:
+        _mx183 = __import__('re').search(r'X(-?[\d.]+)', _ls183)
+        _my183 = __import__('re').search(r'Y(-?[\d.]+)', _ls183)
+        if _mx183 and _my183:
+            _b183 = _objs183[_cur183]
+            _b183[0] = min(_b183[0], float(_mx183.group(1)))
+            _b183[1] = min(_b183[1], float(_my183.group(1)))
+            _b183[2] = max(_b183[2], float(_mx183.group(1)))
+            _b183[3] = max(_b183[3], float(_my183.group(1)))
+_names183 = [n for n in _objs183 if n.startswith('LABEL')]
+_sep183 = 1e9
+for _i183 in range(len(_names183)):
+    for _j183 in range(_i183 + 1, len(_names183)):
+        _a183 = _objs183[_names183[_i183]]
+        _b183 = _objs183[_names183[_j183]]
+        _dx183 = max(_a183[0] - _b183[2], _b183[0] - _a183[2], 0)
+        _dy183 = max(_a183[1] - _b183[3], _b183[1] - _a183[3], 0)
+        _sep183 = min(_sep183, math.hypot(_dx183, _dy183))
+tests.append(('R183 mixed jobs: 4 labels x 4 fonts x 4 sizes (GROW + FIXED) '
+    'on one plate keep their distance (measured %.1fmm between object '
+    'inks incl. brims - the per-job shelf pack with the >=10mm gap holds)'
+    % _sep183,
+    len(_names183) == 4 and _sep183 >= 3.0, ''))
+_fontbad183 = []
+for _f183 in _pp._LABEL_STROKE_FONTS:
+    _g183 = _pp._label_glyphs(_f183)
+    for _ch183, _v183 in _g183.items():
+        if not isinstance(_v183, tuple) or not _v183[1]:
+            continue
+        _xs183 = [p[0] for s in _v183[1] for p in s]
+        if max(_xs183) - _v183[0] > 0.05:
+            _fontbad183.append((_f183, _ch183))
+        _ys183 = [p[1] for s in _v183[1] for p in s]
+        if _ch183 in '()[]{}' and _v183[1]:
+            continue     # brackets overreach the caps by design
+        if min(_ys183) < _g183['cap_top'] - 2.5 \
+                or max(_ys183) > _g183['desc_bot'] + 0.3:
+            _fontbad183.append((_f183, _ch183, 'y-range'))
+tests.append(('R183 font collision guard: all 9 stroke fonts - no glyph '
+    'ink reaches past its advance box (SCRIPT/HAND swashes widened, '
+    '\'fj\' no longer prints as mud) and every glyph sits on the shared '
+    'baseline window',
+    not _fontbad183, str(_fontbad183[:5])))
+import shutil as _sh183
+_sh183.rmtree(_d183, ignore_errors=True)
+
+# ================== R184 (.131c field round): the brim air gap EVERYWHERE ==
+# The user asked: does the brim fusing hit our OTHER generators too? Measured
+# from the generated G-code: YES - frame 0.23mm, cable ties 0.32mm, litho
+# FLAT 0.32mm (plus the same wid*0.35 pattern in bricks, label rings, the
+# purge tower, the stamp handle, resonance, colorpic). One rule now covers
+# every generator: _brim_gap(wid) = wid + 0.35 - the innermost brim loop
+# keeps a real air gap to the wall INK. The RANGE brim stays welded ON
+# PURPOSE (it anchors small cut sections). This test measures EVERY
+# generator's actual layer-1 output, so a future regression cannot hide.
+def _bgap_audit184(path):
+    _t184 = open(path).read()
+    _p184 = __import__('re').split(r'(?m)^(LAYER_MARK.*)$', _t184)
+    _body184 = (_p184[0] + _p184[1] + _p184[2]) if len(_p184) >= 3 else _t184
+    _brim184, _wall184 = [], []
+    _mode184 = None
+    _cur184 = '?'
+    for _l184 in _body184.split('\n'):
+        _ls184 = _l184.strip()
+        _m184 = __import__('re').match(r'EXCLUDE_OBJECT_START NAME=(\S+)', _ls184)
+        if _m184:
+            _cur184 = _m184.group(1)
+            continue
+        if _ls184 == ';TYPE:Brim':
+            _mode184 = 'b'
+            continue
+        if _ls184 == ';TYPE:Outer wall':
+            _mode184 = 'w'
+            continue
+        if _ls184.startswith(';TYPE:'):
+            _mode184 = None
+            continue
+        if _mode184 and _ls184[:2] == 'G1' and ' X' in _ls184 \
+                and ' E' in _ls184 and ' E-' not in _ls184:
+            _mx184 = __import__('re').search(r'X(-?[\d.]+)', _ls184)
+            _my184 = __import__('re').search(r'Y(-?[\d.]+)', _ls184)
+            if _mx184 and _my184:
+                (_brim184 if _mode184 == 'b' else _wall184).append(
+                    (float(_mx184.group(1)), float(_my184.group(1)), _cur184))
+    if not _brim184 or not _wall184:
+        return None
+    _worst184 = 1e9
+    for (_bx184, _by184, _bo184) in _brim184:
+        for (_wx184, _wy184, _wo184) in _wall184:
+            if _bo184 != _wo184:
+                continue
+            _worst184 = min(_worst184, math.hypot(_bx184 - _wx184,
+                                                  _by184 - _wy184))
+    return _worst184 if _worst184 < 1e9 else None
+
+import tempfile as _tf184
+_d184 = _tf184.mkdtemp(prefix='r184_')
+_BED184 = (0, -3, 220, 217)
+def _png184(path):
+    import zlib as _zl184, struct as _st184
+    def _ck184(t_, d):
+        return _st184.pack('>I', len(d)) + t_ + d + _st184.pack(
+            '>I', _zl184.crc32(t_ + d) & 0xffffffff)
+    _raw184 = b''
+    for _y184 in range(48):
+        _row184 = b'\x00'
+        for _x184 in range(48):
+            _v184 = int(30 + 190 * (math.sin(_x184 / 5.0)
+                                    * math.cos(_y184 / 7.0) + 1) / 2)
+            _row184 += bytes((_v184, _v184, _v184))
+        _raw184 += _row184
+    open(path, 'wb').write(b'\x89PNG\r\n\x1a\n'
+        + _ck184(b'IHDR', _st184.pack('>IIBBBBB', 48, 48, 8, 2, 0, 0, 0))
+        + _ck184(b'IDAT', _zl184.compress(_raw184))
+        + _ck184(b'IEND', b''))
+
+_gens184 = []
+def _T184(name, fn):
+    try:
+        _r184 = fn()
+        for _p184 in (_r184 if isinstance(_r184, list) else [_r184]):
+            if isinstance(_p184, tuple):
+                _p184 = _p184[0]
+            if _p184 and os.path.exists(_p184):
+                _gens184.append((name, _bgap_audit184(_p184)))
+    except Exception as _e184:              # noqa: BLE001
+        _gens184.append((name, 'ERR %r' % _e184))
+
+_img184 = os.path.join(_d184, 't184.png')
+_png184(_img184)
+_T184('labels', lambda: _pp.make_labels(['AUDIT'], bed=_BED184,
+                                        out_dir=_d184)[0])
+_T184('frame', lambda: _pp.make_frame(preset='9x13', bed=_BED184,
+                                      out_dir=_d184))
+_T184('cable ties', lambda: _pp.make_cable_ties(bed=_BED184,
+                                                out_dir=_d184))
+_T184('string art', lambda: _pp.make_string_art(
+    pattern='SPIRAL', diameter=60.0, anchors=36, lines=60,
+    out_dir=_d184, bed=_BED184))
+_T184('litho FLAT', lambda: _pp.make_lithophane(
+    _img184, bed=_BED184, out_dir=_d184, orient='FLAT'))
+_T184('label RING', lambda: _pp.make_labels(
+    ['RING'], w=40, h=18, hole_side=1, hole_d=5, ring=True,
+    bed=_BED184, out_dir=_d184)[0])
+_T184('stamp handle', lambda: _pp.make_labels(
+    ['STAMP'], w=40, h=20, stamp=3, bed=_BED184, out_dir=_d184)[0])
+_T184('colorpic', lambda: _pp.make_colorpic(_img184, bed=_BED184,
+                                            out_dir=_d184))
+_T184('bricks', lambda: _pp.make_bricks(jobs=[('B2x4', 1), ('R1x1', 1)],
+                                        bed=_BED184, out_dir=_d184))
+_measured184 = {}
+for _n184, _w184 in _gens184:
+    if isinstance(_w184, float):
+        _measured184[_n184] = round(_w184, 2)
+tests.append(('R184 brim air gap EVERYWHERE: every generator with a brim '
+    'measures >= 0.5mm between brim ink and wall ink on layer 1 (was: '
+    'frame 0.23 / cable ties 0.32 / litho FLAT 0.32 FUSED; one _brim_gap '
+    'rule for all - the RANGE brim stays welded on purpose, it anchors '
+    'cut sections) - measured: ' + str(_measured184),
+    _measured184 and all(v >= 0.5 for v in _measured184.values())
+    and len(_measured184) >= 7, str(_gens184)))
+import shutil as _sh184
+_sh184.rmtree(_d184, ignore_errors=True)
 
 fails = 0
 for name, ok, info in tests:

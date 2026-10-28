@@ -20,6 +20,19 @@ erkannt (Außenwand bleibt Außenwand), wirklich unbekanntes bleibt CUSTOM,
 wird aber gezählt und im File-info erklärt (Zeile CUSTOM? mit Retag-Hinweis).
 Generator-Ketten (Textur → Range usw.) geben das Tagging vollständig weiter.
 
+**Neu in .131d (Brim überall):** Der Brim-Luftspalt gilt jetzt für ALLE
+Generatoren (deine Rückfrage): Rahmen, Kabelbinder, Litho-FLAT, Bricks,
+Label-Ringe, Purge-Turm, Stempel-Griff, Resonanz und ColorPic hatten
+denselben Verschmelzungs-Bug — alle mit echtem Luftspalt (~0,35 mm zur
+Wand-Tinte, gemessen). Der Range-Brim bleibt bewusst angeschweißt
+(Haltefunktion für Schnitt-Teile).
+
+**Neu in .131c (Label-Runde):** Fit-Beep bei JEDER Settings-Änderung
+(auch nach dem ersten Hinzufügen — vorher war der Beep versehentlich der
+Fehler-Beep bei leerer Queue); Brim mit echtem Luftspalt (nicht mehr mit
+dem Label verschmolzen — sauber abbrechbar); SCRIPT/HAND-Schriften:
+Schriftzug-Kollisionen behoben („fj" druckte als Brei).
+
 **Neu in .131b (wichtig nach deinem Label-Absturz):** R181 = das Schichtbild:
 Außenwand = eine Seite gegen das Nichts (auch Lochränder!), offene Bögen
 zählen wie geschlossene, Support wird über die Druckreihenfolge erkannt,
@@ -32,8 +45,8 @@ PA-Wiederholungen werden nicht mehr gesendet.
 
 Vor dem Testen: .131a-ZIP wie immer hochladen, `bash klipper-e3-r2d2/update.sh`
 per SSH. Am Ende muss stehen:
-`post-processor reports build 'R2-2026-10-24.131b (R182)'` UND
-`Macro system OK ... (build R2-2026-10-24.131b)`.
+`post-processor reports build 'R2-2026-10-24.131d (R184)'` UND
+`Macro system OK ... (build R2-2026-10-24.131d)`.
 
 ---
 
