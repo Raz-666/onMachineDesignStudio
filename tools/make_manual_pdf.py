@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MANUAL.pdf — the illustrated user handbook (R2-2026-10-24.131d).
+"""MANUAL.pdf — the illustrated user handbook (R2-2026-10-24.132).
 Mirrors MANUAL.md: daily workflow first, generators next, calibration ladder,
 reference tables. 21 vector diagrams (font specimens + range variants drawn
 from the REAL generator glyph data), full parameter tables."""
@@ -476,7 +476,7 @@ class Doc(BaseDocTemplate):
         c.drawRightString(A4[0]-17*mm,A4[1]-10*mm,self.ch); c.restoreState()
     def footer(self,c,doc):
         c.saveState(); c.setFont('DVS',7.5); c.setFillColor(GRAY)
-        c.drawString(17*mm,9*mm,'R2-D2 Macro System · R2-2026-10-24.131d · user handbook')
+        c.drawString(17*mm,9*mm,'R2-D2 Macro System · R2-2026-10-24.132 · user handbook')
         c.drawRightString(A4[0]-17*mm,9*mm,f'Page {doc.page}')
         c.setStrokeColor(colors.HexColor('#c9d4e4')); c.setLineWidth(0.6); c.line(17*mm,12*mm,A4[0]-17*mm,12*mm)
         c.restoreState()
@@ -566,14 +566,18 @@ def d_font_specimen():
     _p = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'r2_postproc.py')
     _sp = _ilu.spec_from_file_location('r2p_fonts', _p)
     _m = _ilu.module_from_spec(_sp); _sp.loader.exec_module(_m)
-    d = Drawing(480, 208)
-    d.add(String(240, 199, 'The five label fonts — same cap height, real glyph data from the generator', fontName='DVSB', fontSize=9.5, textAnchor='middle', fillColor=BLUE))
+    d = Drawing(480, 320)
+    d.add(String(240, 311, 'The nine label fonts — same cap height, real glyph data from the generator', fontName='DVSB', fontSize=9.5, textAnchor='middle', fillColor=BLUE))
     rows = [('SMOOTH', 'proportional, handwriting-like — the all-rounder'),
             ('MONO', 'even letter widths — technical, numbers'),
             ('COND', 'Oswald: condensed + tall x-height — the small-text workhorse'),
             ('NARROW', 'Roboto Condensed: clean + narrow'),
-            ('CAPS', 'Bebas: everything prints as capitals — key fobs')]
-    y = 168
+            ('CAPS', 'Bebas: everything prints as capitals — key fobs'),
+            ('SCRIPT', 'Dancing Script: flowing handwriting with swashes'),
+            ('HAND', 'Caveat: casual marker handwriting'),
+            ('PLATE', 'D-DIN: clean technical plate lettering'),
+            ('PIXEL', 'Press Start 2P: 8-bit pixel blocks')]
+    y = 280
     for fname, desc in rows:
         lines, xe = _font_lines(_m, 'Garage 0815', fname, 96, y, 15.5)
         for ln in lines:
@@ -581,7 +585,7 @@ def d_font_specimen():
         d.add(String(8, y - 4, fname, fontName='DVSB', fontSize=7.6, fillColor=BLUE))
         d.add(String(96, y - 22, desc, fontName='DVS', fontSize=6.2, fillColor=GRAY))
         d.add(Line(96, y - 15.5, min(xe, 470), y - 15.5, strokeColor=colors.HexColor('#dfe6f0'), strokeWidth=0.5))
-        y -= 32.5
+        y -= 30
     d.add(String(240, 6, 'stroke = letter line width (0.6 mm = one line per stroke) · letters never get shorter — the label grows', fontName='DVS', fontSize=6.6, textAnchor='middle', fillColor=GRAY))
     return d
 
@@ -1251,14 +1255,14 @@ def d_wiring():
 # ---- cover ----
 E+= [Spacer(1,10*mm),Paragraph('R2-D2 Macro System',S['title']),Spacer(1,2*mm),
      Paragraph('The Complete User Handbook — illustrated edition',S['sub']),Spacer(1,3*mm),
-     Paragraph('Version R2-2026-10-24.131d · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail)',S['sub']),
+     Paragraph('Version R2-2026-10-24.132 · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail)',S['sub']),
      Spacer(1,6*mm),CENT(d_robot()),Spacer(1,6*mm),
      Paragraph('The USER HANDBOOK: from file to print in one read — every file type (by layer / by object / vase /<br/>'
                'legacy / movement data), the start dialog, pre-print settings, live tuning, pauses, object skip ·<br/>'
-               'the generators: RANGE (partial prints), LABELS (five fonts, auto-grow), PLOTTER (images, text) ·<br/>'
+               'the generators: RANGE (partial prints), LABELS (nine fonts, auto-grow), PLOTTER (images, text) ·<br/>'
                'the calibration ladder in the right order · maintenance &amp; care · full reference: menus,<br/>'
                '140+ macros, overrides, sounds, LEDs, troubleshooting, cheat sheet · appendices: installation,<br/>'
-               'power &amp; electrics, first start, version history',
+               'power &amp; electrics, first start',
                S['sub']),Spacer(1,22*mm),
      Paragraph('Companions: INSTALL.md · ISHAPER.md · slicer/ORCA.md + slicer/CURA.md · MANUAL.md (plain text)',S['sub']),
      PageBreak()]
@@ -1276,7 +1280,7 @@ TBL(['Ch.','Topic'],[
  ['18','Console messages'],['19','System: Klipper &amp; Pi'],['20','Variables &amp; editing'],
  ['21','What happens when a macro executes'],['22','Troubleshooting'],['23','Limits &amp; known behavior'],
  ['24','Cheat sheet: LCD paths &amp; Mainsail commands'],['25','Complete macro index — all macros with parameters'],
- ['A–D','Appendices: Installation · Power &amp; electrics · First start · Version history'],
+ ['A–C','Appendices: Installation · Power &amp; electrics · First start'],
 ],[14*mm,150*mm],pad=2),
 P('<b>21 diagrams:</b> file flow (3) · state machine + override stack (2) · start choreography (4) · range '
   'variants, font specimens, label anatomy (5) · L1/L2 curves, sequential detection, park anatomy (6) · runout '
@@ -1386,25 +1390,25 @@ chapter('3','From file to print — the daily workflow',
   ],[40*mm,52*mm,66*mm]),
   H2('3.3 Pre-Print — the settings before you start'),
   TBL(['Entry','Contents'],[
-   ['Offset X/Y/Z (.104)','SET_GCODE_OFFSET X/Y/Z at the very top: 0.1 mm steps + fine rows 0.05 mm (halved), realtime (MOVE=1)'],
-   ['File info (.120)','pure information: full slicer summary + measured values + temps (material preset fallback for generated files) + 16 feature activator rows - OW [on] 60mm/s SAPF style, the markers >/* say what a press does'],
-   ['Fixes (.120)','everything that REWRITES the file, one self-explaining menu: retract verdict + Retract fix + RetFix ON/OFF + Vol->mm + Segment fix + flow cap (Cap + Fix) + travel (speed/TAcc/Fix)'],
+   ['Offset X/Y/Z','SET_GCODE_OFFSET X/Y/Z at the very top: 0.1 mm steps + fine rows 0.05 mm (halved), realtime (MOVE=1)'],
+   ['File info','pure information: full slicer summary + measured values + temps (material preset fallback for generated files) + 16 feature activator rows - OW [on] 60mm/s SAPF style, the markers >/* say what a press does'],
+   ['Fixes','everything that REWRITES the file, one self-explaining menu: retract verdict + Retract fix + RetFix ON/OFF + Vol->mm + Segment fix + flow cap (Cap + Fix) + travel (speed/TAcc/Fix)'],
    ['Material','LOAD NOW + all values + Save as preset — active-material edits apply live'],
    ['Temperatures / Velocity','L1/L2 bed+hotend, fan L2 · Velocity: retraction, accel, velocity, MCR, corner, Z-Hop (global PA moved to PA per feat, .104)'],
    ['Features','16 submenus: file original + ON + speed percent + accel per feature'],
-   ['Spd/Acc/PA/Flw per feat (.104)','four quick lists (also in Live Tuning): per-feature values + the GLOBALS — 1st-layer speed (Spd), global accel + ON (Acc), global PA + smooth + File PA (PA), global flow + ON (Flw) + Now: the active feature'],
+   ['Spd/Acc/PA/Flw per feat','four quick lists (also in Live Tuning): per-feature values + the GLOBALS — 1st-layer speed (Spd), global accel + ON (Acc), global PA + smooth + File PA (PA), global flow + ON (Flw) + Now: the active feature'],
    ['Bed Mesh','ON/AUTO/OFF, adaptive, travel cap, profiles'],
-   ['Profiles','per-file profiles (pre/post), the 8 default profiles, material presets - see 3.3a (.84)'],
+   ['Profiles','per-file profiles (pre/post), the 8 default profiles, material presets - see 3.3a'],
    ['Range/Stop','planned end at layer N + the range generator: From/To, Floor/Top shapes+fills, Fl.hole + Top hole 0-80 mm centered, Brim, Create (ch. 5.1, press 2x)'],
    ['Filament','load / unload / change before the print'],
-   ['Plotter (.104)','only for plot files, at the END: PEN FILE, pen speed %, Pen Z, Shift X/Y, Reset overrides'],
-   ['Ret verdict (.86)','Pre-Print > Fixes > Ret: line - FIX! (Bowden-era retracts override yours, SHOULD fix) / can X.Xmm (optional) / fixed (already rewritten) / fw (slicer G10/G11, generated files too) - the RetFix offer appears only for fix/can; STALE (v4) files show -- until retagged'],
-   ['RETAG (.86)','System > File check (2x): upgrades STALE v4 files in place - same markers, new info line (MAXRATE/SEAM/CFG keys/retract verdict), .r2bak backup, 20 per run'],
+   ['Plotter','only for plot files, at the END: PEN FILE, pen speed %, Pen Z, Shift X/Y, Reset overrides'],
+   ['Ret verdict','Pre-Print > Fixes > Ret: line - FIX! (Bowden-era retracts override yours, SHOULD fix) / can X.Xmm (optional) / fixed (already rewritten) / fw (slicer G10/G11, generated files too) - the RetFix offer appears only for fix/can; STALE (v4) files show -- until retagged'],
+   ['RETAG','System > File check (2x): upgrades STALE v4 files in place - same markers, new info line (MAXRATE/SEAM/CFG keys/retract verdict), .r2bak backup, 20 per run'],
    ['Click pacing','multi-value actions (material, presets, range, fixes) insert ~100ms pauses between disk writes - Pi Zero burst protection; no-ops while printing'],
   ],[34*mm,126*mm]),
   P("<b>The golden rule:</b> overrides only apply when they are ON. A stored value without ON never touches the "
     "print; the file rules until you switch something on."),
-  H2('3.3a Per-file profiles — the memory of every print (.84)'),
+  H2('3.3a Per-file profiles — the memory of every print'),
   P("Every legacy-printed file can carry its OWN profile: all pre-print settings (temps, PA, retraction, "
     "motion, flow, fan, ironing, first-layer speed, material, all 16 feature switches + values) plus everything "
     "tuned LIVE during the print. Two slots: <b>pre</b> (saved MANUALLY from Pre-Print > Profiles > This file) "
@@ -1420,7 +1424,7 @@ chapter('3','From file to print — the daily workflow',
   ],[34*mm,126*mm]),
   H2('3.4 The start dialog — AS LEGACY or AS SLICED'),
   TBL(['Mode','What rules'],[
-   ['AS SLICED','the FILE, truly 1:1 — no overrides, no first-layer brake beyond the L1/L2 rules. First-layer rules shape LAYER 1; from layer 2 the file runs 1:1 — only YOUR armed L2 override still wins (.121). Live commands still apply'],
+   ['AS SLICED','the FILE, truly 1:1 — no overrides, no first-layer brake beyond the L1/L2 rules. First-layer rules shape LAYER 1; from layer 2 the file runs 1:1 — only YOUR armed L2 override still wins. Live commands still apply'],
    ['AS LEGACY','takeover with YOUR parameters: overrides ON, mesh + purge, Z layer tracking, sequential handling'],
    ['CANCEL','aborts cleanly — nothing was heated'],
   ],[30*mm,130*mm]),
@@ -1445,7 +1449,7 @@ chapter('3','From file to print — the daily workflow',
      'Pre-Print &gt; File &gt; Vol-&gt;mm fix: every E divided by 2.405 mm², markers neutralized, idempotent'],
    ['Old Bowden-era file (5–6 mm retracts baked in)','overrides your tuned ~0.8 mm direct-drive retraction',
      'Pre-Print &gt; Fixes &gt; Retract fix (or RetFix ON for future uploads): pairs become G10/G11 — your retraction applies, live-tunable. '
-     'The offer only shows when it applies: firmware-retraction files (G10/G11) and already-fixed files never show it; the file info names the case (field log .72)'],
+     'The offer only shows when it applies: firmware-retraction files (G10/G11) and already-fixed files never show it; the file info names the case'],
    ['Marlin file without those quirks','nothing breaks','LEGACY start flow takes over: dialog, mesh, purge, L1/L2 — just press PRINT'],
    ['File calling its own START_PRINT','double start risk','real legacy start: homing, heat, purge — then your decision rules'],
    ['Pure movement data (no heaters, no macros)','would run cold','net probe: home + heat + purge first, then 1:1'],
@@ -1471,7 +1475,7 @@ chapter('3','From file to print — the daily workflow',
   P("Every modern slicer writes ;TYPE: comments into the G-code. The post-processor maps each spelling to one "
     "internal code, MEASURES speeds/accels per feature and injects an APPLY_TYPE marker after every ;TYPE: — that "
     "is what makes features live-tunable. Values without an own marker (e.g. small perimeters) come from the "
-    "config header into the file info instead (R95, field log .74):"),
+    "config header into the file info instead:"),
   TBL(['Feature (menu)','OrcaSlicer / Bambu','PrusaSlicer / SuperSlicer','Cura'],[
    ['OW Outer wall','Outer wall','External perimeter','WALL-OUTER'],
    ['IW Inner wall','Inner wall','Perimeter (Thin wall too)','WALL-INNER'],
@@ -1494,7 +1498,7 @@ chapter('3','From file to print — the daily workflow',
     "which wall counts as small, there is no own ;TYPE: marker: small_perimeter_speed/acceleration is read from "
     "the config header and shown in the file info (Speed/Accel small) so you can see why short loops run slower. "
     "Types without an own menu entry map honestly: Raft to BT, Support interface/transition to SU, Ooze shield to "
-    "SK, plain Infill to SP. The 'mystery feature' from the field log (low accel values, no menu owned it) were "
+    "SK, plain Infill to SP. The 'mystery feature' (low accel values, no menu owned it) were "
     "custom G-code sections with their own M204 — they are now the editable feature CU Custom code."),
   CODE('PRINT_START MATERIAL=[filament_type] BED=[first_layer_bed_temperature]\n'
        'HOTEND_FIRST=[first_layer_temperature] HOTEND_AFTER=[temperature]\n'
@@ -1561,12 +1565,12 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
     "backplate keyhole and stud holes, the frame view opening and the bridge-test spans. FLAT gaskets "
     "and lithophanes have no openings at all — one continuous bead per layer, nothing to cross."),
   H2('5.0 Two presses + QUEUE or PREVIEW (.84/.120)'),
-  P("<b>Since .120 every Create row on the LCD confirms with a DOUBLE PRESS</b>: the first press "
+  P("<b>Every Create row on the LCD confirms with a DOUBLE PRESS</b>: the first press "
     "arms ('Again = start' on the display, a soft click), the second press within 10 s starts the "
     "build - a short start chirp plays, and a start dialog that was still waiting closes quietly "
     "by itself (nothing prints unasked). No second press within 10 s disarms safely. Console and "
     "Mainsail stay single-shot: a typed command IS the confirmation."),
-  P("My presets (.130 R174): texture, lithophane, labels, frames and plotter each carry a "
+  P("My presets: texture, lithophane, labels, frames and plotter each carry a "
     "My presets submenu - Save stores ALL of that generator's settings under a name you choose, "
     "Load/Delete per slot, 8 slots per page, the list unlimited, everything survives reboots. "
     "The frame's old numbered slots remain loadable."),
@@ -1626,7 +1630,7 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
     "Printing by layer: all bases in color 1, M600 pause, RESUME purges into the purge tower (15 mm clear, on the "
     "side the probe does not sweep), text on top. Every label is an exclude object. Between glyphs the head "
     "retracts — discrete letters, no ghost lines; the stroke never exceeds 1/5 of the cap height (anti-merge)."),
-  CENT(d_font_specimen()),CAP("The five fonts at the same cap height — COND, NARROW and CAPS are the small-text specialists (narrow glyphs, tall x-height)"),
+  CENT(d_font_specimen()),CAP("The nine fonts at the same cap height — COND, NARROW and CAPS are the small-text specialists (narrow glyphs, tall x-height)"),
   CENT(d_label_anatomy()),CAP("Hole positions, the ~94 percent auto-fit with safe margins — and the grown fallback: text is NEVER shortened"),
   TBL(['Setting','Values','Meaning'],[
    ['W x H','default 50 x 15 mm','the plate — keychain tags up to near-bed signs (220 x 220)'],
@@ -1727,7 +1731,7 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
   CENT(d_litho_anatomy()),CAP("How brightness becomes thickness (0.7 mm light - 3.0 mm dark, standing plate "
     "with brim) and what Levels does: 0 = continuous photo grey, 4 = chunky posterized, 12 = subtle terraces"),
   TBL(['Setting','Range','Meaning'],[
-   ['Orient','STANDING / FLAT','STANDING (default): on edge, the classic recipe - most detail. FLAT (.83, step print since .90): lying on the bed - back glass-flat, the top carries the image as clean gray STEPS (full layers, no wavy relief)'],
+   ['Orient','STANDING / FLAT','STANDING (default): on edge, the classic recipe - most detail. FLAT (step print): lying on the bed - back glass-flat, the top carries the image as clean gray STEPS (full layers, no wavy relief)'],
    ['Height / Size','30-200 mm','STANDING: picture height = print height in Z. FLAT: the picture size in XY (the bed plane) - Z is only the relief = layer count x layer height'],
    ['Layer','0.08-0.2 mm','0.12 default; 0.08 = maximum detail (double the print time)'],
    ['Levels','0-12','STANDING: 0 = continuous grey (photo), 2-12 posterized. FLAT: the gray STEP count (0 = auto 4)'],
@@ -1740,8 +1744,7 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
    ['Ironing','ON/OFF','slow smoothing pass over the light side (FLAT: every step cap)'],
    ['Vers','V01-V09','same settings + same version = the file replaces itself'],
   ],[26*mm,32*mm,102*mm]),
-  P("How FLAT prints (step print, rebuilt after the .90 field log - the old terraced "
-    "relief printed wavy, the nozzle dove into the picture and the probe caught on it): "
+  P("How FLAT prints (step print): "
     "the picture is contrast-stretched (percentiles) + optionally boosted, quantized "
     "into Levels gray steps and printed ONE STEP AFTER ANOTHER as full layers. Step 0 = "
     "the whole light background (one clean surface - iron it), every darker step its "
@@ -1772,7 +1775,7 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
     "100 - its own feature tag), Top layers (front face, auto/1-15), Bottom layers (back skin, "
     "default 2), Vers. The profile is "
     "zero-overhang: solid back band, photo groove with the closure nubs, bridge shelf, ironed front."),
-  P("Placement & first layer (field log .74): every plate — one-piece, multi Part A/B, split kit — "
+  P("Placement & first layer: every plate — one-piece, multi Part A/B, split kit — "
     "sits centered on the usable bed, never crammed into the x0/y0 corner. The first layer of every "
     "part prints in a fixed discipline: brim → inner wall → outer wall → ONE continuous zigzag fill "
     "(back-and-forth with extruded connectors — singly printed lines curled up at their starts/ends "
@@ -1804,7 +1807,7 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
     "shelf, groove with photo + plate + nubs, back band) and the two closures: BACK = snap-in plate "
     "(press in - 4 wall nubs click over it), SIDE = slide-in slot in the left wall"),
 
-  H2('5.10 Building bricks — the exact system geometry (R121)'),
+  H2('5.10 Building bricks — the exact system geometry'),
   P("The printer becomes a brick factory: bricks, plates and tiles with the EXACT geometry of the "
     "building-block system - printed parts clamp to each other AND to original bricks. The three "
     "numbers that matter: body = n*8-0.2mm (the 0.2mm play IS the clamp), stud = O4.8x1.8mm hollow "
@@ -1816,7 +1819,7 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
     "Catalog bumps the count per code (same codes merge, max 120 parts), CREATE builds "
     "V01_Bricks.gcode - one color, every part its own exclude object. Console: "
     "GEN_BRICKS CODES=\"B2x4:3|P2x2:2\"."),
-  H2('5.11 Brick kit — a sliced file becomes a building kit (R125)'),
+  H2('5.11 Brick kit — a sliced file becomes a building kit'),
   P("The kit generator reads ANY sliced print file and rebuilds it as a stylized brick kit: the "
     "object is rasterized onto the stud grid (0.8mm sampling) and decomposed into 2-wide bricks - "
     "the kit look. ONLY the object flows in: support, brim, skirt and prime-tower moves are filtered "
@@ -1829,7 +1832,7 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
     "(A, B, C...), every part its own exclude object. LCD: Tools > Bricks > Kit from file (Source "
     "picks the 5 newest sliced jobs, Detail, Mode, Colors). Console: GEN_BRICKKIT SRC=box.gcode "
     "DETAIL=AUTO MODE=BY_LAYER COLORS=3."),
-  H2('5.12 Figures — assemble-it-yourself (R126)'),
+  H2('5.12 Figures — assemble-it-yourself'),
   P("Stylized figures in the classic caliper proportions mapped onto the building system: 5 parts "
     "per figure - legs, torso, two arms, head. Assembly without glue: the torso presses onto the "
     "hip tenon, the arms slide onto the shoulder pins (they swing), the head presses onto the neck "
@@ -1838,7 +1841,7 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
     "(25-300%) are display figures. Count 1-24, one color, every part its own exclude object, "
     "~39mm tall at 100%. LCD: Tools > Bricks > Figures (Scale, Count, CREATE). Console: "
     "GEN_FIGURES SCALE=100 COUNT=2."),
-  H2('5.13 ColorPic — photos in full color, no backlight (R120)'),
+  H2('5.13 ColorPic — photos in full color, no backlight'),
   P("The color sibling of the lithophane: the photo prints FLAT as stacked color bands, lightest "
     "first - every darker band prints only its (nested) region on top, so the picture needs NO "
     "backlight and works from every angle. Same image list as the lithophane; the pipeline "
@@ -1855,8 +1858,8 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
 chapter('5.9','Texture: fuzzy skin & shaped bumps (any g-code file)',
   P("The only generator that does not create a part - it rewrites the OUTER WALL of a file you "
     "already have. FUZZY scatters every outer-wall vertex (seeded - same file + same settings = same "
-    "result): matte, grippy, the classic fuzzy skin. BUMPS follows a pattern from the LIBRARY "
-    "(.130 R175): 21 patterns on 3 pages - Ridges, Waves, Grid, Hatch, Checker, Hex, Honeycomb, "
+    "result): matte, grippy, the classic fuzzy skin. BUMPS follows a pattern from the LIBRARY: "
+    "21 patterns on 3 pages - Ridges, Waves, Grid, Hatch, Checker, Hex, Honeycomb, "
     "Basket, Rope, Planks, Bricks, Sandstone, Concrete, Clay, Crepe, Fabric, Plush, Hilbert, "
     "Scratch, Glitch - plus MAP (your own image wrapped around the part, dark = deep). "
     "SEAMLESS BY DESIGN: your mm values are guidelines - the tool lays WHOLE grooves around the "
@@ -1878,7 +1881,7 @@ chapter('5.9','Texture: fuzzy skin & shaped bumps (any g-code file)',
   P("Workflow: select the file as always, Pre-Print > Texture, pick mode + values, > Apply (beeps) - "
     "the watcher writes a NEW Vnn_name_TX.gcode in the background (the folder number counts up on repeat, the "
     "source is never touched), then CHECK IT IN THE 3D VIEWER - nothing auto-starts, by design. "
-    "(.84) After gen applies (ch. 5.0): QUEUE selects the _TX result and replaces the source's "
+    "After gen applies (ch. 5.0): QUEUE selects the _TX result and replaces the source's "
     "selection (the source file itself stays untouched); PREVIEW leaves the selection alone. "
     "Special cases (tested): files without outer walls get zero shifts, no crash; the first outer "
     "vertex and zero-length restarts stay untextured (no approach direction); M82 absolute E, E-only "
@@ -1891,8 +1894,8 @@ chapter('5.9','Texture: fuzzy skin & shaped bumps (any g-code file)',
 
 
 chapter('5.14','String Art: a picture woven from strands',
-  P("The .128 field proof (a generic StringArt3D file, 180 mm ring / 600 anchors / 1700 strands) is now a native "
-    "generator (R178). An ANCHOR RING (two walls + solid infill, ~2.4 mm tall, brim, first-layer fan off) prints "
+  P("The field proof (a generic StringArt3D file, 180 mm ring / 600 anchors / 1700 strands) is a native "
+    "generator. An ANCHOR RING (two walls + solid infill, ~2.4 mm tall, brim, first-layer fan off) prints "
     "first; then thin strands (0.5 mm wide, ~0.07 mm thick) shoot from anchor to anchor in SIX Z bands above the "
     "ring - crossings in the same band fuse, later bands clear the earlier ones. Two finishing loops and a cover "
     "ring tie the strand ends down."),
@@ -1911,7 +1914,7 @@ chapter('5.14','String Art: a picture woven from strands',
   )
 
 chapter('5.15','Scale X/Y: resize with honest flow',
-  P("Scale the SELECTED file per axis, 25-300% (.130) - and the flow stays honest: E is recomputed "
+  P("Scale the SELECTED file per axis, 25-300% - and the flow stays honest: E is recomputed "
     "PER MOVE as (L'/L)x(w'/w) - axis moves scale with X*Y, 45-degree moves with (X^2+Y^2)/2, "
     "uniform scaling gives X^2 everywhere. The layer height stays untouched, the result is "
     "centered on the bed, G2/G3 arcs flatten to scaled chords, and the NEW 100% flow baseline is "
@@ -1926,7 +1929,7 @@ chapter('5.15','Scale X/Y: resize with honest flow',
   )
 
 chapter('5.16','Cake cut: split a print with a plane',
-  P("Slice the SELECTED file with a plane (.130): yaw / pitch / roll on the 0.5-degree grid "
+  P("Slice the SELECTED file with a plane: yaw / pitch / roll on the 0.5-degree grid "
     "(where the tilt points / front-back / left-right) and Z plane = the plane's height at the "
     "bed center. Every move splits exactly at the plane, E divides by length share, arcs flatten "
     "first. LOWER keeps its place; UPPER becomes its own file - dropped to the file's first "
@@ -1958,9 +1961,9 @@ chapter('6','During the print: tuning, pauses, objects',
        '         SET_FAN_SCALE (25-150% x the file value)   Babystep: BABYSTEP_UP/DOWN[_FINE]\n'
        'Objects: SKIP_OBJECT NAME=name (2x) · SKIP_CURRENT_OBJECT · SHOW_OBJECTS\n'
        'Z-Hop:   SET_Z_HOP ENABLE=1|0 HEIGHT=0.1..3 (lifts over every firmware retract)\n'
-       'FeatPA:  SET_FEAT_PA FEATURE=<code> PA=0..0.3 — PA for ONE feature, global returns after (.85)\n'
-       'Shaper:  SET_FEAT_SHAPER_OFF FEATURE=<code> STATE=1|0 — shaper off while that feature prints (.85)\n'
-       'FanClmp: SET_FAN_CLAMP ON= MIN= MAX= BRIDGE= — every M106 runs inside the curve (.85)\n'
+       'FeatPA:  SET_FEAT_PA FEATURE=<code> PA=0..0.3 — PA for ONE feature, global returns after\n'
+       'Shaper:  SET_FEAT_SHAPER_OFF FEATURE=<code> STATE=1|0 — shaper off while that feature prints\n'
+       'FanClmp: SET_FAN_CLAMP ON= MIN= MAX= BRIDGE= — every M106 runs inside the curve\n'
        'UnretX:  SET_UNRETRACT_EXTRA EXTRA=-1..3 — seals the dot after a travel (0 = off)'),
   P("<b>Where does a value come from?</b> PARAM_SOURCES (Live Tuning > Sources) prints the provenance of every "
     "parameter: file, your pre-print override, or LIVE in Klipper now. FeatSpd/FeatOn/FeatAcc edit the feature "
@@ -2013,8 +2016,8 @@ chapter('7','Filament: load / unload / change / runout / cold pull',
      'probe-safe window) - never a blob at the park corner where the micro probe would catch it while meshing',
      'repeat runout events while armed are ignored (no spam)',
      '<b>BTT SFS V2.0:</b> switch part = filament end (planned pause at the boundary); encoder part = clog '
-     '(immediate safe pause). SET_FILAMENT_SENSOR takes the SECTION name - the BTT example\'s switch_sensor '
-     'was invalid (field log). Since then pause/resume/cancel switch the encoder too (guarded)',
+     'takes the SECTION name (the BTT switch_sensor section). '
+     'Pause/resume/cancel switch the encoder too (guarded)',
      '<b>Cold pull</b> (Maintenance &gt; Filament): Heat-to (PLA ~240) / Pull-at (PLA ~100, PETG/ABS 120-140) → '
      '"1) Prep + PULL" heats, extrudes 25 mm, fan-cools → ALARM → pull in ONE firm motion → "2) Finish" verifies. Idle only.',
      '<b>Retraction test:</b> retract/unretract pairs at temperature to compare stringing live'))
@@ -2022,13 +2025,13 @@ chapter('7','Filament: load / unload / change / runout / cold pull',
 
 chapter('8','Temperature system L1/L2',
   *B('<b>Two temperatures per heater:</b> Layer 1 (L1) and from-layer-2 (L2). '
-     '<b>One priority ladder for BOTH (.121): your override (ON) &gt; file value &gt; material preset.</b>',
+     '<b>One priority ladder for BOTH: your override (ON) &gt; file value &gt; material preset.</b>',
      'L1: the start paths heat to your armed L1 override, else the file&#39;s first-layer value, else the material preset (L1 rules ON)',
      'L2: at the layer-2 boundary the system switches to your armed L2 override, else the file&#39;s own layer-2 value '
      '(its M104/M140 or the file info), else the material preset — in BOTH start modes, marked (LAYER_MARK) and '
      'unmarked (Z tracker) files alike; generated + range files (no own M104/M140) switch through the preset too '
      '— the bed no longer stays at its layer-1 value (field fix .121)',
-     'interceptors BY LAYER (.121) — AS LEGACY: layer 1 → L1 value, layer ≥ 2 → your armed override rewrites the '
+     'interceptors BY LAYER — AS LEGACY: layer 1 → L1 value, layer ≥ 2 → your armed override rewrites the '
      'command, else the file&#39;s value passes unchanged · AS SLICED: layer 1 → first-layer rule (material preset, '
      'your armed override wins), layer ≥ 2 → truly 1:1 except your armed L2 override '
      '(&quot;M104: 215C -&gt; YOUR L2 override -&gt; 240C (AS SLICED, layer 2)&quot;); every write idempotent '
@@ -2061,9 +2064,8 @@ chapter('9','Speed, acceleration &amp; machine limits',
      'BOTH SET (field rule): every global speed change re-applies the running feature ON THE SPOT — global 100 -> 150 '
      'with wall at 200% moves the wall from 200 to 300%, not back to 150. And a feature with its own accel KEEPS it; '
      'the global accel rules everything that prints without one',
-     'WHY (field log: "19% although 75% was set"): the old APPLY_TYPE ran through the M220 interceptor and '
-     'multiplied on the ALREADY scaled factor, feature by feature (75×80 = 60 = 48 = ... = 19%). Now features '
-     'talk to Klipper directly via the BASE commands M99220/M99221/M99204 — the global value is never touched',
+     'WHY: features talk to Klipper directly via the BASE commands M99220/M99221/M99204 — a feature '
+     'factor never multiplies onto an already-scaled one, the global value is never touched',
      '16 features: outer/inner wall, overhang wall, sparse/solid infill, top/bottom surface, bridge, internal '
      'bridge, gap fill, support, ironing (+flow), skirt, brim, prime tower, custom code — own ON switch each '
      '(Pre-Print > Features); Live Tuning shows the CURRENTLY printing feature as Cur:/CurOv:/CurAcc: and has '
@@ -2193,15 +2195,15 @@ chapter('13','Maintenance &amp; care',
 
 
 chapter('14','LCD menu reference',
-  CENT(d_menu()),CAP('Seven top groups in LCD order — Start Print? (waiting), Live Tuning (printing), then Pre-Print, Quick Macros, Tools (the part generators: Cable ties · Angles+Flat · Lithophane · ColorPic · Gaskets · Frames · Labels · Bricks (catalog, kit, figures) · Plotter · String art), Maintenance, System. Klipper\'s stock menus OctoPrint / Temperature / Setup are HIDDEN (.104) — everything lives in the R2 menus; the SD Card browser, Control and Tune stay. The .130 order inside: Pre-Print = File info, Fixes, Tools (Offset/Texture/Range/Scale X/Y/Cake cut/Plotter), Temps, Motion, Features, utilities, Profiles last; Live Tuning = Temps & Fan first, Exclude/Pause last. The SD browser\'s Del row deletes with two presses (G-Codes root only, never during a print).'),
+  CENT(d_menu()),CAP('Seven top groups in LCD order — Start Print? (waiting), Live Tuning (printing), then Pre-Print, Quick Macros, Tools (the part generators: Cable ties · Angles+Flat · Lithophane · ColorPic · Gaskets · Frames · Labels · Bricks (catalog, kit, figures) · Plotter · String art), Maintenance, System. Klipper\'s stock menus OctoPrint / Temperature / Setup are HIDDEN — everything lives in the R2 menus; the SD Card browser, Control and Tune stay. The menu order inside: Pre-Print = File info, Fixes, Tools (Offset/Texture/Range/Scale X/Y/Cake cut/Plotter), Temps, Motion, Features, utilities, Profiles last; Live Tuning = Temps & Fan first, Exclude/Pause last. The SD browser\'s Del row deletes with two presses (G-Codes root only, never during a print).'),
   P('Every line fits the 16 characters of the 12864 display — the value you edit is always visible '
     '(test-enforced). Pattern: first line = ON/OFF toggle (value stays stored), then the values.'),
   TBL(['Live Tuning (during print)','Contents'],[
    ['Z +0.04 / +0.12 / −0.04 / −0.12','babystepping right at the top'],
-   ['Hot / Bed / Fan / Zoff','cockpit: temperatures, fan %, Z-offset display — one click deep. The fan row is the LIVE dial (.130): your absolute % beats hold, scale, clamp AND the layer-1 rule; How? prints the chain'],
-   ['Spd per feat (.104)','Glob % (THE overall regulator) + FeatSpd + FeatOn + Src + Now + all 16 feature % rows (TRV = travels)'],
-   ['Acc per feat (.104)','global mm/s² + Feat x % + effective accel + FeatAcc + all 16 feature accel rows'],
-   ['PA / Flw per feat (.104)','Glob PA / Glob flow % + all 16 feature rows each'],
+   ['Hot / Bed / Fan / Zoff','cockpit: temperatures, fan %, Z-offset display — one click deep. The fan row is the LIVE dial: your absolute % beats hold, scale, clamp AND the layer-1 rule; How? prints the chain'],
+   ['Spd per feat','Glob % (THE overall regulator) + FeatSpd + FeatOn + Src + Now + all 16 feature % rows (TRV = travels)'],
+   ['Acc per feat','global mm/s² + Feat x % + effective accel + FeatAcc + all 16 feature accel rows'],
+   ['PA / Flw per feat','Glob PA / Glob flow % + all 16 feature rows each'],
    ['Features','16 submenus = Pre-Print > Features LIVE: edits re-apply immediately when that feature prints'],
    ['File (G-code)','FULL mirror of the Pre-Print file info : measured originals per feature, 16 activators, temps, PA, retraction, fan, flow'],
    ['Extrusion','Flow 1–300, PA, PA smooth, RetLen/RetSpd/Unret, Ironing flow — every input shows what Klipper REALLY runs + Src info '],
@@ -2211,14 +2213,14 @@ chapter('14','LCD menu reference',
    ['Objects','skip single objects (2× confirm)'],
   ],[56*mm,108*mm]),
   TBL(['Pre-Print','Contents'],[
-   ['Offset X/Y/Z (.104)','X/Y/Z 0.1 mm + each a fine row 0.05 mm (halved steps, realtime MOVE=1) — SET_GCODE_OFFSET, the first thing you reach'],
+   ['Offset X/Y/Z','X/Y/Z 0.1 mm + each a fine row 0.05 mm (halved steps, realtime MOVE=1) — SET_GCODE_OFFSET, the first thing you reach'],
    ['File (G-code)','full slicer summary + MEASURED per-feature originals (post-processor v4): speeds/accels straight from the g-code, temps, PA, retraction, sliced-by slicer + firmware flavor (volumetric warning) — PLUS 16 activator rows (OW..BM + OH/IB/PT/CU): real file speed + o:ON; CLICK toggles (absent features: n/a, refuse)'],
    ['Material','LOAD NOW + 11 values + Save as preset — edits of the ACTIVE material apply LIVE too '],
    ['Features','16 submenus : each shows the file\'s ORIGINAL (File:) + own ON switch + speed % (× global) + accel; only features in the file are editable (n/a guard); OFF resets to the original — never touches the global values'],
    ['Temperatures','Bed L1/L2, Hotend L1/L2, Fan L2 (ON/OFF each) + File H:215/210C / File B:60/55C = the file\'s own values'],
-   ['Velocity (.104)','retraction len/spd/unretract + File R: · Accel + Vel + MCR + Corner (ON/OFF each) · Z-Hop ON/OFF + height — global PA moved to PA per feat'],
-   ['Spd/Acc/PA/Flw per feat (.104)','the four quick lists with the globals merged in: 1st-layer speed % (0 = off, default 75) · global accel + ON · global PA + smooth + File PA · global flow + ON · Now: the active feature'],
-   ['Plotter (.104)','plot files only, at the END: PEN FILE · pen speed % · Pen Z · Shift X/Y · Reset'],
+   ['Velocity','retraction len/spd/unretract + File R: · Accel + Vel + MCR + Corner (ON/OFF each) · Z-Hop ON/OFF + height — global PA moved to PA per feat'],
+   ['Spd/Acc/PA/Flw per feat','the four quick lists with the globals merged in: 1st-layer speed % (0 = off, default 75) · global accel + ON · global PA + smooth + File PA · global flow + ON · Now: the active feature'],
+   ['Plotter','plot files only, at the END: PEN FILE · pen speed % · Pen Z · Shift X/Y · Reset'],
    ['Bed Mesh','Level old files ON/OFF · Mesh ON/AUTO/OFF · Save after · Adaptive · Travel cap (mm/s while meshing, 0 = off) · Calibrate now · Load… / Delete… (2×)'],
    ['Range/Stop','Stop@ + From/To (capped to the file) + Floor/Top (FOOTPRINT or OUTLINE, GRID or SOLID) + Brim + Create - builds Vnn_src_La-b.gcode (running number first, never overwrites), ends with a proper PRINT_END '],
    ['Defaults','Save the current settings as Default 1-8 (lowest free slot, never overwrites) + Load + Delete '],
@@ -2311,7 +2313,7 @@ chapter('17','LED reference',
   P('Effects come from the klipper-led_effect extension; frame chain = [neopixel printer_leds] 1-4, nozzle light = LED 5. '
     'TOGGLE_LEDS switches the FRAME off/on (sounds keep playing). After a finished print the celebration runs for '
     'led_finish_time seconds (default 10) and returns to idle BY ITSELF — it used to twinkle forever.'),
-  P('All effects run at 12 fps (.123, R163): every animated frame is a neopixel transmission on the same '
+  P('All effects run at 12 fps: every animated frame is a neopixel transmission on the same '
     'serial wire the moves travel, and a failed LED readback is resent. The printing state is a steady '
     'STATIC blue - klipper only transmits CHANGED colors, so a static effect costs zero LED traffic while '
     'printing (the .122 field log: a Timer-too-close shutdown with 75 of 100 queued serial messages being '
@@ -2326,7 +2328,7 @@ chapter('17','LED reference',
      'live inputs Bright 5-100% · Red/Green/Blue 0-100% · presets White + Warm — applies IMMEDIATELY, mid-print too',
      'Console/Mainsail: NOZZLE_LED (status) · MODE=on|off|auto · BRIGHT=0.4 · R=1 G=0.85 B=0.6 · SHOW_STATUS lists all',
      'POWER RULE: color × brightness is hard-capped at 0.5 per channel — the neopixel port stays safe'),
-  H2('LED areas — status / bed light / nozzle (R108)'),
+  H2('LED areas — status / bed light / nozzle'),
   P('One chain, three jobs — the split is YOUR choice (e.g. 3 status + 4 bed lighting + 1 nozzle). It lives in the '
     'hardware profile r2_hardware.cfg (ch. 19b) — the second variables file that survives deleting variables.cfg.'),
   TBL(['Area','LEDs','What it does'],[
@@ -2373,7 +2375,7 @@ chapter('19','System: Klipper &amp; Pi',
     "originals) stay blind to it. FILE_CHECK shows exactly which files those are, RETAG brings them up to date "
     "without a re-upload. Direct SSH variant (no Klipper needed): "
     "python3 tools/r2_postproc.py --file-check ~/printer_data/gcodes"),
-  H2('19b. setup.sh / update.sh — wizards, backups, change modes (R108)'),
+  H2('19b. setup.sh / update.sh — wizards, backups, change modes'),
   P('<b>The hardware profile — a second variables file.</b> r2_hardware.cfg (next to printer.cfg, included by one line) '
     'carries everything that makes THIS printer tick: build volume (bed min/max X/Y, Z height), probe offsets, '
     'nozzle-clean (wipe) + part-presentation positions and the LED layout (ch. 17). Deliberately separate from '
@@ -2562,11 +2564,11 @@ chapter('24','Cheat sheet: LCD paths &amp; Mainsail commands',
    ['MCR','minimum cruise ratio','SCV','square corner velocity'],
   ],[30*mm,54*mm,26*mm,54*mm]),
   Spacer(1,12*mm),Paragraph('Built and tested for one purpose: printing happily — with R2-D2 keeping watch. Have fun!',S['end']),
-  Spacer(1,4*mm),Paragraph('R2-D2 Macro System · R2-2026-10-24.131d',S['cap']))
+  Spacer(1,4*mm),Paragraph('R2-D2 Macro System · R2-2026-10-24.132',S['cap']))
 
 import json as _json
 _MIDX=_json.loads(r'''[["Sounds \u2014 02_sounds.cfg", [["M300", "P=100, S=1000", "single beep \u2014 wrapper; the real beep lives on as M99300"], ["PLAY_SOUND", "NAME='r2_click'", "play a tune by name (ch. 16)"], ["TOGGLE_SOUNDS", "\u2014", "sounds on/off (persisted: sound_on)"], ["TEST_SOUNDS", "\u2014", "play all 20 tunes in sequence"]]], ["LEDs \u2014 03_leds.cfg", [["SET_LED_STATE", "STATE='idle'", "switch the LED pattern (12 states, ch. 17) - applies the nozzle mode too"], ["NOZZLE_LED", "MODE, BRIGHT, R, G, B", "nozzle light: on/off/auto + live dimming + live color (ch. 17)"], ["TOGGLE_LEDS", "\u2014", "frame LEDs off/on (persisted: leds_on)"], ["TEST_LEDS", "\u2014", "LED test animation"], ["_NOZZLE_SET", "ON", "internal: writes LED 5 (color x brightness, capped 0.5)"]]], ["Notifications \u2014 04_notify.cfg", [["NOTIFY", "TEXT, LEVEL='info', LED, SOUND", "notification helper: text + sound + LED in one call"], ["SHOW_STATUS", "\u2014", "full status: mode, material, overrides, live values"]]], ["Materials \u2014 05_materials.cfg", [["SET_MATERIAL", "MATERIAL=&lt;current>, APPLY_PRESET=1", "select material; APPLY_PRESET=1 also loads its preset"], ["SAVE_MATERIAL_TEMPS", "MATERIAL=&lt;current>", "save current values as this material's preset"], ["SHOW_MATERIAL", "\u2014", "show the current material + its stored preset"]]], ["Temperatures & marks \u2014 06_temp_controls.cfg", [["M104", "S=-1, T", "hotend temp \u2014 interceptor, redirects by layer (real: M99104)"], ["M109", "S=-1, T", "like M104, but waits"], ["M140", "S=-1", "bed temp \u2014 interceptor (real: M99140)"], ["M190", "S=-1", "like M140, but waits"], ["M106", "S=255", "part fan \u2014 scaling + from-layer-2 rule"], ["M204", "P, S, T", "acceleration \u2014 interceptor (M99204): feature accel , else global overwrite ON \u2192 your accel, else file 1:1"], ["LAYER_MARK", "\u2014", "layer marker (inserted by the post-processor)"], ["M220", "S=100", "speed \u2014 interceptor (M99220): L1 cap + stores the clean global % as g_speed_clean "], ["PAUSE_NEXT_LAYER", "REASON='next layer'", "one-shot pause at the next layer boundary"], ["PAUSE_AT_LAYER", "LAYER=0", "one-shot pause at layer n (n greater than 1)"], ["SET_LIVE_HOTEND_TEMP", "T=-1", "change the hotend target live"], ["SET_LIVE_BED_TEMP", "T=-1", "change the bed target live"]]], ["Start dialog & overrides \u2014 07_start_confirm.cfg", [["PRINT_AS_SLICED", "\u2014", "start dialog: answer AS SLICED"], ["PRINT_WITH_OVERRIDES", "\u2014", "alias for AS LEGACY since then (merged mode)"], ["PRINT_AS_LEGACY", "\u2014", "start dialog: AS LEGACY"], ["CANCEL_PENDING_PRINT", "\u2014", "start dialog: cancel (nothing is hot yet)"], ["SET_OVERRIDE_VALUE", "NAME, VALUE", "set one override + switch it ON; feat_on=0 resets the values to the file original "], ["TOGGLE_OVERRIDE", "NAME=''", "flip one override switch"], ["CLEAR_OVERRIDES", "\u2014", "all switches OFF (values stay stored)"], ["TOGGLE_START_CONFIRMATION", "\u2014", "start dialog on/off (persisted: start_confirm)"]]], ["Print start & end \u2014 08_print_start_stop.cfg", [["PRINT_START", "BED, HOTEND_FIRST, HOTEND_AFTER, BED_AFTER, MATERIAL='PLA', LAYER_HEIGHT=0.2, TOTAL_LAYERS=0, OUTER_WALL_SPEED=0, SUPPORT_SPEED=0, IRONING_SPEED=0", "start choreography \u2014 called by the sliced file"], ["START_PRINT", "\u2014", "old macro name: marked = no-op / legacy = real legacy start (dialog or auto-prep,)"], ["PRINT_END", "\u2014", "end choreography: heaters/fans, stats, sound, LED -> idle, _PRINT_CLEANUP"]]], ["Pause & filament \u2014 09_pause_filament.cfg", [["PAUSE", "REASON='User'", "pause + park (mode-aware)"], ["QUICK_PAUSE", "\u2014", "alias for PAUSE"], ["RESUME", "\u2014", "the full resume sequence (ch. 6)"], ["CANCEL_PRINT", "\u2014", "1st press arms (expires 60 s, also while paused), 2nd press cancels + cleanup"], ["M600", "\u2014", "filament change (park, unload, wait for load)"], ["CHANGE_FILAMENT", "\u2014", "M600 for humans \u2014 works from idle too (heats)"], ["CHANGE_FILAMENT_RESUME", "\u2014", "internal continuation after the load"], ["PURGE_MORE", "\u2014", "purge 15 mm more (after change/resume)"], ["M0", "\u2014", "slicer pause \u2014 mapped to PAUSE"], ["M1", "\u2014", "slicer pause \u2014 mapped to PAUSE"], ["_PRINT_CLEANUP", "\u2014", "resets ALL per-print state (PRINT_END/CANCEL/watcher - settings + mesh stay)"]]], ["Live tuning \u2014 10_live_tuning.cfg", [["APPLY_TYPE", "TYPE=''", "feature switch : sets current_type + applies THIS feature\u2019s overrides (speed % × clean global, absolute accel, ironing flow)"], ["SET_OUTER_WALL_SPEED + 11 more per-feature macros", "\u2014", "per-feature setters : forward to feat_spd/feat_acc + ON \u2014 % on top of the CLEAN global"], ["SET_GLOBAL_SPEED", "PERCENT=100", "global speed % (M220 style, never capped); the running feature stays on top — re-applied immediately"], ["SET_GLOBAL_ACCEL", "ACCEL=4000", "global acceleration, mm/s\u00b2; a feature with its own accel keeps it"],
-    ["SET_GLOBAL_ACCEL_PERCENT", "PERCENT=100", "scales ALL per-feature accel limits by % (10-300) in the same ratio - the global accel stays absolute"], ["SET_LIVE_VELOCITY", "VELOCITY=300", "max velocity, live"], ["SET_LIVE_MINIMUM_CRUISE_RATIO", "VALUE=0.5", "minimum cruise ratio, live"], ["SET_LIVE_SQUARE_CORNER", "VALUE=5", "square corner velocity, live"], ["SET_FLOW_RATE", "PERCENT=100", "global flow % (M221)"], ["SET_LIVE_PRESSURE_ADVANCE", "VALUE=0.045", "pressure advance, live"], ["SET_LIVE_PA_SMOOTH", "TIME=0", "PA smooth time, live"], ["SET_LIVE_RETRACTION", "LENGTH, SPEED, UNRETRACT_SPEED, EXTRA", "live retraction \u2014 one parameter, the others stay"], ["SET_RETRACTION", "RETRACT_LENGTH=0, RETRACT_SPEED=35, UNRETRACT_SPEED", "firmware retraction \u2014 interceptor, override-aware"], ["SET_PRESSURE_ADVANCE", "ADVANCE, SMOOTH_TIME", "interceptor \u2014 with the PA override ON your value wins"], ["SET_FAN_SCALE", "PERCENT=100", "fan scaling % (25-150 x the file value)"], ["SET_FAN_LIVE", "PERCENT=, ON=1", "your ABSOLUTE fan % (.130) - beats hold, scale, clamp and the layer-1 rule; ON=0 hands control back to the file chain"], ["SET_FAN_CLAMP", "ON=-1, MIN=-1, MAX=-1, BRIDGE=-1", "fan curve clamp (.85): every M106 between MIN/MAX %, BRIDGE lifts on bridges (0=off)"], ["SET_FEAT_PA", "FEATURE, PA=-1", "pressure advance for ONE feature (.85), 0=off - global PA returns after"], ["SET_FEAT_SHAPER_OFF", "FEATURE, STATE=-1", "input shaper OFF while one feature prints (.85) - freqs restored, safety net at end/cancel"], ["SET_UNRETRACT_EXTRA", "EXTRA=-1", "every unretract adds EXTRA mm (.85) - seals the dot after a travel"], ["SET_IRONING_FLOW", "PERCENT=100", "ironing-only flow override \u2014 separate from the global flow"], ["PARAM_SOURCES", "\u2014", "value provenance : file | your override | LIVE now, for every parameter \u2014 LCD: Live > Sources"], ["TOGGLE_FIRST_LAYER_RULES", "\u2014", "first-layer rules (L1/L2 temps + fan off) also in AS SLICED on/off "], ["SET_IRONING_TEMP", "T=0", "compat stub \u2014 use the temp overrides"], ["BABYSTEP_UP", "\u2014", "Z +0.04 mm live (SET_GCODE_OFFSET MOVE=1)"], ["BABYSTEP_DOWN", "\u2014", "Z --0.04 mm live"], ["BABYSTEP_UP_FINE", "\u2014", "Z +0.12 mm \u2014 quick rescue step"], ["BABYSTEP_DOWN_FINE", "\u2014", "Z --0.12 mm \u2014 quick rescue step"]]], ["Gantry \u2014 11_gantry_sync.cfg", [["SYNC_GANTRY", "FORCE=0, QUIET=0", "mechanical Z gantry sync (needs [force_move])"], ["TOGGLE_GANTRY_SYNC_BOOT", "\u2014", "sync at every boot on/off"], ["TOGGLE_GANTRY_SYNC_PRINT", "\u2014", "sync at every print start on/off"]]], ["Maintenance & calibration \u2014 12_maintenance.cfg", [["TUNE_PID", "HEATER='extruder', TARGET=210, FAN=-1, AUTOSAVE=1", "PID tune; FAN=% runs with the fan on (like printing)"], ["CALIBRATE_MESH", "\u2014", "full bed mesh now (at bed temperature)"], ["SET_MESH_TRAVEL", "SPEED=120", "cap the mesh travel speed, 0 = off "], ["HOST_CHECK", "\u2014", "Pi health report: throttle, temp, load, RAM/swap, top processes, swap residents + services "], ["LOAD_BED_MESH", "PROFILE=''", "load a mesh profile (menu list)"], ["DELETE_MESH", "PROFILE=''", "delete a profile (2x confirm)"], ["LEVEL_BED_SCREWS", "\u2014", "screw leveling with console report"], ["CALIBRATE_PROBE_OFFSET", "\u2014", "probe Z offset \u2014 paper method, TESTZ, SAVE_CONFIG"], ["CALIBRATE_EXTRUDER", "TEMP=210, MEASURED=0, STEP=''", "extruder steps: mark 120 mm, extrude 100, enter the rest"], ["TEST_RETRACTION", "\u2014", "retract/unretract pairs at temperature"], ["LOAD_FILAMENT", "LENGTH via load_length", "heat if cold + feed load_length mm (default 60, LCD 20-150;)"], ["UNLOAD_FILAMENT", "\u2014", "heat + reverse (unload_length, LCD 40-150)"], ["CALIBRATE_PA", "TEMP, BED, START, STEP, LINES, LEN, SLOW, FAST, ACCEL, LAYER, SPACING, WIDTH \u2014 all from menu/preset", "PA pattern print"], ["PA_RESULT", "SEG=0, VALUE=-1", "SEG=best line: PA computed + set live \u00b7 VALUE=... skips the math"], ["CALIBRATE_PA_SMOOTH", "START=0.004, STEP=0.001, LINES", "smooth-time pattern with YOUR PA fixed ; mesh + prime first; babystepping works"], ["PA_SMOOTH_RESULT", "SEG=n", "line n \u2192 smooth = start+(n-1)\u00b7step, set live + override ON"], ["COLD_PULL", "MATERIAL, CYCLES, HOT, PULL, RLEN, RSPD, BEEP, STEP=finish", "cold pull WIZARD : material presets, flush+mold, beep countdown, assisted pull, verify"], ["SET_COLD_PULL_MATERIAL", "MATERIAL=PLA|PETG|ABS|TPU", "cold pull preset temperatures"], ["CALIBRATE_SHAPER", "AXIS='BOTH', FREQ_START, FREQ_END, MAX_SMOOTHING, AUTOSAVE", "input shaper measurement (ADXL; ISHAPER.md)"], ["DUMP_RESONANCES", "AXIS='BOTH'", "export raw shaper data"], ["SAVE_MESH_AT_TEMP", "\u2014", "save the mesh as a bed-temp profile (e.g. r2_60C)"], ["MESH_BY_INDEX", "INDEX=-1", "load a mesh by menu index"], ["UNLOAD_MESH", "\u2014", "clear the mesh + level again next time"], ["SELF_TEST", "\u2014", "system self test \u2014 run before long prints"], ["FLOW_CAL", "MEASURE=&lt;menu>, TARGET", "wall measurement -> suggested flow %"], ["FLOW_CAL_APPLY", "\u2014", "apply the suggested flow (override ON, 50-150 % guard)"], ["TEMP_TOWER_START", "START=200, END=230, STEP=5, BAND=10", "temperature tower (marker + legacy files)"], ["TEMP_TOWER_STOP", "\u2014", "stop early (otherwise the last temperature holds)"], ["IRONING_CAL", "F1=10, F2=15, F3=20, S1=20, S2=30, S3=40, TEMP=200, BED=60, LAYER=0.2, LEN=40, WID=24, ACCEL=3000", "3-zone ironing test card"]]], ["System \u2014 13_system.cfg", [["SYS_FIRMWARE_RESTART", "CONFIRM=0", "Klipper restart (2x)"], ["SYS_HOST_RESTART", "CONFIRM=0", "host services restart (2x)"], ["SYS_SHUTDOWN", "CONFIRM=0", "heaters/fans/LEDs off, then Pi shutdown (2x)"], ["HOST_RESTART_INFO", "\u2014", "explains what a host restart does"], ["EMERGENCY_STOP", "\u2014", "immediate full halt"],
+    ["SET_GLOBAL_ACCEL_PERCENT", "PERCENT=100", "scales ALL per-feature accel limits by % (10-300) in the same ratio - the global accel stays absolute"], ["SET_LIVE_VELOCITY", "VELOCITY=300", "max velocity, live"], ["SET_LIVE_MINIMUM_CRUISE_RATIO", "VALUE=0.5", "minimum cruise ratio, live"], ["SET_LIVE_SQUARE_CORNER", "VALUE=5", "square corner velocity, live"], ["SET_FLOW_RATE", "PERCENT=100", "global flow % (M221)"], ["SET_LIVE_PRESSURE_ADVANCE", "VALUE=0.045", "pressure advance, live"], ["SET_LIVE_PA_SMOOTH", "TIME=0", "PA smooth time, live"], ["SET_LIVE_RETRACTION", "LENGTH, SPEED, UNRETRACT_SPEED, EXTRA", "live retraction \u2014 one parameter, the others stay"], ["SET_RETRACTION", "RETRACT_LENGTH=0, RETRACT_SPEED=35, UNRETRACT_SPEED", "firmware retraction \u2014 interceptor, override-aware"], ["SET_PRESSURE_ADVANCE", "ADVANCE, SMOOTH_TIME", "interceptor \u2014 with the PA override ON your value wins"], ["SET_FAN_SCALE", "PERCENT=100", "fan scaling % (25-150 x the file value)"], ["SET_FAN_LIVE", "PERCENT=, ON=1", "your ABSOLUTE fan % - beats hold, scale, clamp and the layer-1 rule; ON=0 hands control back to the file chain"], ["SET_FAN_CLAMP", "ON=-1, MIN=-1, MAX=-1, BRIDGE=-1", "fan curve clamp: every M106 between MIN/MAX %, BRIDGE lifts on bridges (0=off)"], ["SET_FEAT_PA", "FEATURE, PA=-1", "pressure advance for ONE feature, 0=off - global PA returns after"], ["SET_FEAT_SHAPER_OFF", "FEATURE, STATE=-1", "input shaper OFF while one feature prints - freqs restored, safety net at end/cancel"], ["SET_UNRETRACT_EXTRA", "EXTRA=-1", "every unretract adds EXTRA mm - seals the dot after a travel"], ["SET_IRONING_FLOW", "PERCENT=100", "ironing-only flow override \u2014 separate from the global flow"], ["PARAM_SOURCES", "\u2014", "value provenance : file | your override | LIVE now, for every parameter \u2014 LCD: Live > Sources"], ["TOGGLE_FIRST_LAYER_RULES", "\u2014", "first-layer rules (L1/L2 temps + fan off) also in AS SLICED on/off "], ["SET_IRONING_TEMP", "T=0", "compat stub \u2014 use the temp overrides"], ["BABYSTEP_UP", "\u2014", "Z +0.04 mm live (SET_GCODE_OFFSET MOVE=1)"], ["BABYSTEP_DOWN", "\u2014", "Z --0.04 mm live"], ["BABYSTEP_UP_FINE", "\u2014", "Z +0.12 mm \u2014 quick rescue step"], ["BABYSTEP_DOWN_FINE", "\u2014", "Z --0.12 mm \u2014 quick rescue step"]]], ["Gantry \u2014 11_gantry_sync.cfg", [["SYNC_GANTRY", "FORCE=0, QUIET=0", "mechanical Z gantry sync (needs [force_move])"], ["TOGGLE_GANTRY_SYNC_BOOT", "\u2014", "sync at every boot on/off"], ["TOGGLE_GANTRY_SYNC_PRINT", "\u2014", "sync at every print start on/off"]]], ["Maintenance & calibration \u2014 12_maintenance.cfg", [["TUNE_PID", "HEATER='extruder', TARGET=210, FAN=-1, AUTOSAVE=1", "PID tune; FAN=% runs with the fan on (like printing)"], ["CALIBRATE_MESH", "\u2014", "full bed mesh now (at bed temperature)"], ["SET_MESH_TRAVEL", "SPEED=120", "cap the mesh travel speed, 0 = off "], ["HOST_CHECK", "\u2014", "Pi health report: throttle, temp, load, RAM/swap, top processes, swap residents + services "], ["LOAD_BED_MESH", "PROFILE=''", "load a mesh profile (menu list)"], ["DELETE_MESH", "PROFILE=''", "delete a profile (2x confirm)"], ["LEVEL_BED_SCREWS", "\u2014", "screw leveling with console report"], ["CALIBRATE_PROBE_OFFSET", "\u2014", "probe Z offset \u2014 paper method, TESTZ, SAVE_CONFIG"], ["CALIBRATE_EXTRUDER", "TEMP=210, MEASURED=0, STEP=''", "extruder steps: mark 120 mm, extrude 100, enter the rest"], ["TEST_RETRACTION", "\u2014", "retract/unretract pairs at temperature"], ["LOAD_FILAMENT", "LENGTH via load_length", "heat if cold + feed load_length mm (default 60, LCD 20-150;)"], ["UNLOAD_FILAMENT", "\u2014", "heat + reverse (unload_length, LCD 40-150)"], ["CALIBRATE_PA", "TEMP, BED, START, STEP, LINES, LEN, SLOW, FAST, ACCEL, LAYER, SPACING, WIDTH \u2014 all from menu/preset", "PA pattern print"], ["PA_RESULT", "SEG=0, VALUE=-1", "SEG=best line: PA computed + set live \u00b7 VALUE=... skips the math"], ["CALIBRATE_PA_SMOOTH", "START=0.004, STEP=0.001, LINES", "smooth-time pattern with YOUR PA fixed ; mesh + prime first; babystepping works"], ["PA_SMOOTH_RESULT", "SEG=n", "line n \u2192 smooth = start+(n-1)\u00b7step, set live + override ON"], ["COLD_PULL", "MATERIAL, CYCLES, HOT, PULL, RLEN, RSPD, BEEP, STEP=finish", "cold pull WIZARD : material presets, flush+mold, beep countdown, assisted pull, verify"], ["SET_COLD_PULL_MATERIAL", "MATERIAL=PLA|PETG|ABS|TPU", "cold pull preset temperatures"], ["CALIBRATE_SHAPER", "AXIS='BOTH', FREQ_START, FREQ_END, MAX_SMOOTHING, AUTOSAVE", "input shaper measurement (ADXL; ISHAPER.md)"], ["DUMP_RESONANCES", "AXIS='BOTH'", "export raw shaper data"], ["SAVE_MESH_AT_TEMP", "\u2014", "save the mesh as a bed-temp profile (e.g. r2_60C)"], ["MESH_BY_INDEX", "INDEX=-1", "load a mesh by menu index"], ["UNLOAD_MESH", "\u2014", "clear the mesh + level again next time"], ["SELF_TEST", "\u2014", "system self test \u2014 run before long prints"], ["FLOW_CAL", "MEASURE=&lt;menu>, TARGET", "wall measurement -> suggested flow %"], ["FLOW_CAL_APPLY", "\u2014", "apply the suggested flow (override ON, 50-150 % guard)"], ["TEMP_TOWER_START", "START=200, END=230, STEP=5, BAND=10", "temperature tower (marker + legacy files)"], ["TEMP_TOWER_STOP", "\u2014", "stop early (otherwise the last temperature holds)"], ["IRONING_CAL", "F1=10, F2=15, F3=20, S1=20, S2=30, S3=40, TEMP=200, BED=60, LAYER=0.2, LEN=40, WID=24, ACCEL=3000", "3-zone ironing test card"]]], ["System \u2014 13_system.cfg", [["SYS_FIRMWARE_RESTART", "CONFIRM=0", "Klipper restart (2x)"], ["SYS_HOST_RESTART", "CONFIRM=0", "host services restart (2x)"], ["SYS_SHUTDOWN", "CONFIRM=0", "heaters/fans/LEDs off, then Pi shutdown (2x)"], ["HOST_RESTART_INFO", "\u2014", "explains what a host restart does"], ["EMERGENCY_STOP", "\u2014", "immediate full halt"],
     ["FILE_CHECK", "RETAG=0, CONFIRM=0", "g-code inventory: tag version census (current/old/untouched/plotter) on console + LCD; RETAG=1 CONFIRM=1 upgrades old files (.r2bak backup, never while printing)"]]], ["KAMP \u2014 14_kamp.cfg", [["TOGGLE_KAMP_MESH", "\u2014", "KAMP adaptive mesh on/off"], ["TOGGLE_KAMP_PURGE", "\u2014", "KAMP purge on/off"], ["SET_KAMP_PURGE_TYPE", "TYPE='LINE'", "KAMP purge style: LINE or VORON"], ["TOGGLE_KAMP_SMART_PARK", "\u2014", "KAMP smart parking on/off"], ["KAMP_STATUS", "\u2014", "KAMP configuration report"]]], ["Objects \u2014 15_objects.cfg", [["SKIP_OBJECT", "NAME=''", "arm a skip for one object (2x confirm)"], ["SKIP_CURRENT_OBJECT", "\u2014", "skip the object currently printing (2x)"], ["SKIP_DISARM", "\u2014", "disarm a pending skip"], ["SHOW_OBJECTS", "\u2014", "list objects + skip state"]]]]''')
 # R63: extend the index programmatically (no JSON escaping games)
 for _g in _MIDX:
@@ -2595,10 +2597,10 @@ for _g in _MIDX:
 _MIDX.append(["Part generators — 17_generator.cfg", [
     ["GEN_CABLE_TIES", "COUNT=6, LENGTH=120, WIDTH=8, LAYERS=3, VARIANT='CLASSIC', LAYER_H=0.2, BRIM=1",
      "console/Mainsail cable-tie job: COUNT=6 LENGTH=120 VARIANT=LOOP - sets everything + creates the file (CLASSIC one-way pawl, LOOP adjustable bead loop)"],
-    ["STRINGART_APPLY", "PATTERN=0, DIAMETER=180, ANCHORS=300, LINES=1700, FILE=photo.png", "string art job (R178): 0=SPIRAL, 1=PHOTO - the anchor ring prints first, the strands ride on top in six Z bands (ch. 5.14)"],
+    ["STRINGART_APPLY", "PATTERN=0, DIAMETER=180, ANCHORS=300, LINES=1700, FILE=photo.png", "string art job: 0=SPIRAL, 1=PHOTO - the anchor ring prints first, the strands ride on top in six Z bands (ch. 5.14)"],
     ["STRINGART_IMG", "—", "cycle the root image list (lithophane list) for the PHOTO pattern"],
-    ["SCALE_APPLY", "X=100, Y=100, FILE=", "scale the selected file 25-300% per axis (.130) - E recomputed per move, output in Scale/ (ch. 5.15)"],
-    ["CAKE_APPLY", "YAW=0, PITCH=0, ROLL=0, Z=5, PART=BOTH, REORIENT=0, FILE=", "cut the selected file with a plane (.130, 0.5 deg grid) - both halves standalone in Cake/ (ch. 5.16)"],
+    ["SCALE_APPLY", "X=100, Y=100, FILE=", "scale the selected file 25-300% per axis - E recomputed per move, output in Scale/ (ch. 5.15)"],
+    ["CAKE_APPLY", "YAW=0, PITCH=0, ROLL=0, Z=5, PART=BOTH, REORIENT=0, FILE=", "cut the selected file with a plane (0.5 deg grid) - both halves standalone in Cake/ (ch. 5.16)"],
     ["LITHO_CREATE", "INDEX=0",
      "lithophane from image slot INDEX (0 = newest picture in Tools > Lithophane; big jobs run in a background thread)"],
     ["LITHO_DEL_SLOT", "INDEX=0",
@@ -2838,7 +2840,7 @@ chapter('B','Appendix B: Power &amp; electrics (SKR mini E3 v3.0, Pi, LEDs)',
 
 chapter('C','Appendix C: First start &amp; updates',
   *B('upload the folder → includes at the end of printer.cfg → RESTART',
-     'console: "Macro system OK: all 17 modules loaded and current (build R2-2026-09-07)"',
+     'console: "Macro system OK: all 19 modules loaded and current (build R2-2026-10-24.132)"',
      '~10 s later: boot sound + LED animation','SHOW_STATUS → mode, material, overrides',
      'Maintenance &gt; Tests &gt; Sound demo / LED demo / Self test'),
   H2('Updating to a new build'),
@@ -2850,88 +2852,6 @@ chapter('C','Appendix C: First start &amp; updates',
   H2('Daily health check'),P('SELF_TEST (LEDs, sound, sensor, probe) + SHOW_STATUS before long prints.'))
 
 
-chapter('D','Appendix D: Version history',
-  P("Only the milestones — the full reasoning lives in SESSION_STATE.md. The manual itself describes the CURRENT "
-    "system; this table is just the record."),
-  TBL(['Version','Core changes'],[
-      ('.131d','BRIM AIR GAP EVERYWHERE (R184): the user asked whether the label brim fusing hit the other generators too - measured from the generated G-code: YES. Frame 0.23mm, cable ties 0.32mm, litho FLAT 0.32mm brim-to-wall ink (FUSED), plus the same wid*0.35 pattern in bricks, label rings, the purge tower, the stamp handle, resonance plates and colorpic towers. ONE rule now: _brim_gap(wid) = wid + 0.35 - every generator innermost brim loop keeps a real ~0.35mm air gap to the wall ink. The RANGE brim stays welded ON PURPOSE (it anchors small cut sections). A battery test measures EVERY generator layer-1 brim distance live, so a regression cannot hide. Battery 1891/1891, megatest 190/0.'),
-      ('.131c','LABEL FIELD ROUND (R183): fit beep fixed - the beep after every settings change was the ERROR beep (empty job queue), the success path stayed silent after the first ADD; the watcher now previews the editor lines while the queue is empty and confirms every fit answer with r2_confirm. Brim air gap - the label brim first loop sat at wid*0.35 from the edge, right on the wall ink: it printed FUSED with the object (field log: still fused at 92% flow); the three brim loops keep a real air gap (line width + 0.35mm) to the wall now, the label handle brim too. Font collision guard - SCRIPT (37 glyphs) and HAND (23) carried swash overhangs up to 1.7 units past their advance box, fj printed as mud; every advance covers its ink + 0.15 units (7 of 9 fonts were already clean, brackets keep their typographic overshoot). Battery 1890/1890, megatest 190/0.'),
-      ('.131b','THE LAYER PICTURE + THE SHUTDOWN FIX (R181-R182): outer walls by the void side - each layer is ink becomes an occupancy bitmap, one side against NOTHING = visible surface = WALL-OUTER (outside of the model OR inside of a hole), both sides material = WALL-INNER, open arcs classify like loops, single thin walls are WALL-OUTER. Support order rule: detached + hatch-dominant + prints first + above the brim layers = SUPPORT. Brim patience: a layer-1 ring survives at most 3 successor layers, then it is a wall (taper fix). Unknown TYPE vocabulary resolves by the block own geometry (wall-like becomes WALL-OUTER - the safety default: a wall at infill speed ruins the surface, the reverse costs time), CUSTOMRES in _FILE_INFO; the true remainder (start/end scripts, purge crosses) stays CUSTOM (CUSTOMBLOCKS). The labels MCU shutdown (.131a field log): APPLY_TYPE read the full save_variables set per feature block (51 labels = dozens per layer, Timer too close on the second object skip) - hot paths now read _STATE mirrors only (_SYNC_OV_FEAT on every override change + print start + per layer), identical feature blocks stay silent (echo gate), _SET_PA swallows repeat PA values. Battery 1886/1886, megatest 188/0.'),
-      ('.131a','BOOT FIX + CUSTOM ROUND (R179-R180): 10 menu inputs repaired - the cake/string-art value menus used a nonexistent option (input_initial:), Klipper halted at boot; all 598 input menus now carry the mandatory input:, the config validator + a battery guard catch the class statically. The CUSTOM elimination ladder: unknown TYPE spellings resolve via deterministic keyword rules (no ML) - outer shell becomes WALL-OUTER, solid becomes INFILL-SOLID, iron... IRONING, a purge line SKIRT, plural forms fold; truly unknown vocabulary stays CUSTOM, is counted (CUSTOMBLOCKS in _FILE_INFO) and explained: File info shows a CUSTOM? row (only when the file has it) with the retag hint. Chains stay tagged: texture-then-range, scale-then-texture, cake-then-range, stringart-then-range verified end to end - orphan markers dropped from excerpts (markers always match TYPES=), empty range windows refuse honestly, near-closed curves (seam-gap spirals) classify as loops so untagged files derive WALL-OUTER. Battery 1871/1871, megatest 188 runs / 0 fail.'),
-      ('.131','RELEASE PACKAGING: the complete .130 round in one zip - everything from the .130 row plus the documentation catch-up (MANUAL + PDF aligned to the R174-R178 system: chapters 5.15 Scale X/Y and 5.16 Cake cut, the fan LIVE chain, the .130 menu order, the texture library; Fixed presets / My presets label fix in the texture menu).'),
-      ('.130','THE WISH-LIST ROUND R174-R178: user presets for every generator (named, unlimited, 8 per LCD page) · the seamless texture library - 21 patterns on 3 pages, integer snap around AND in Z, MAP wraps your own image, lithophane fallback · the menu restructure (your order: File/Fixes/Tools/... Profiles last; Live Tuning: temps+fan first, Exclude/Pause last) · fan logic unschackled: LIVE % beats hold, scale, clamp and the layer-1 rule, How? prints the whole chain with live numbers · SD-browser delete (2-press, folders and all, G-Codes root only, never during a print) · Scale X/Y 25-300% with honest flow - E recomputed per move (L\'/L)x(w\'/w), arcs flatten, the 100% baseline restarts with the new file, output in Scale/ · the cake cut - a plane (yaw/pitch/roll 0.5 deg grid + Z offset) slices any file, every move splits exactly, E by length share, UPPER lands cut-face-down (reorient) or keeps its stance, both halves standalone in Cake/ · string art goes live (Tools > String art): SPIRAL/PHOTO, ring/anchors/strands, the .128 field-proof architecture as a native generator (StringArt/ folder). Found by the live tests: --once now drains the job queue before exiting (every queued generator was lost on one-shot runs), the stale-daemon siren no longer trips on a drifted build label.'),
-      ('.129a','THE .129 FIELD-REPORT HOTFIX (R170a): (1) the rate-print YES press died on UPDATE_DELAYED_GCODE NAME= (Klipper wants ID=) - the copy never ran, later presses read No rate-print question pending like an answer of NO. Fixed + SAVE_LATER (is mapping on a string snapshot) + a real opt_cnt for the LCD counter. (2) The question STAYS until YES/NO - no 90s auto-timeout; picking a new file answers NO. (3) SD browser: the stock Start/Resume/Pause/Cancel dead entries killed, 40 entries per page, fully recursive folder tree. (4) Mandelbrot pattern retired. (5) Rides along: feature RE-FIX for pre-.129 CUSTOM markers (System > File check) + the dormant string-art generator core.'),
-      ('.129','THE LABEL/STAMP FIELD ROUND (R170): (1) FIELD FIX - labels printed ON TOP of each other (grown/per-job shelf positions were overwritten by the uniform grid; a 94mm label ended 21.6mm inside its neighbor). Shelf positions stay, the grid is non-jobs-mode only - 14 mixed jobs proof: zero overlaps, >= 12mm clearance. (2) AUTO-SPLIT: overflow no longer errors - part files in reading order (_T1, _T2, each a complete plate with own purge tower); the job message names every part. (3) LIVE FIT: Settings shows Now: WxHmm Caps X ~2s after every change (the Calc button is retired); W minimums follow live - H down to 10mm, the 1cm labels are real. (4) GAP FLOOR 10mm in every direction (user rule). (5) HANDLE 0-3, same numbering for labels + litho: 1 = ON THE PLATE (printed LAST every layer, z-hop approach, 12mm clearance, own GRIFF exclude object), 2 = separate file, 3 = handle only. (6) Loud errors: M117 carries the reason, a stamp guard row in the job menu, the Queue row shows the live bed-fit (14 -> 2 files). (7) MCU-SHUTDOWN WATCHDOG: 10min bed/hotend evidence curve in logs/r2_shutdown_watchdog.log + auto FIRMWARE_RESTART after 5min (max 2, 1h apart) - a decaying bed curve proves the power was cut (Klipper turns heaters off by design).'),
-      ('.128','THE OPTIMIZED-PRINT ROUND (R169): (1) RATE PRINT? - after a successful print that was live-tuned, ONE question on the LCD: YES saves the tuning as an optimized copy, NO (or 90 s of silence) restores the exact pre-print baseline - the silent takeover into Pre-Print and the automatic post profile are retired. (2) OPTIMIZED COPIES: the watcher writes gcodes/optimized/<same name> - the ORIGINAL is only read (md5-proof). Percents (flow, per-feature speed, global speed) are baked as absolutes AND neutralized in the replay (never applied twice); absolute values (PA, accel, first-layer speed, fan limits) bake and replay idempotently; temps/retraction/per-feature flow+PA ride in the _OPT_BAKED replay line. Header: source+date tag + baked list. Re-optimizing overwrites. (3) The stock LCD file list is ROOT-ONLY, so the new top-level Optimized menu lists the folder (pick, START, or Values > Pre-Print); Mainsail shows it natively; File info shows the OPTIMIZED row. (4) Pre-Print > Profiles > From optimized loads the values of a copy as the Pre-Print starting point; Save last print is the second chance. (5) Legacy post entries stay loadable/deletable.'),
-      ('.127','THE STAMP + CONTOUR ROUND (R168): (1) lithophane STAMP MODE - a body with ~10% infill and a snap socket in the underside prints under the picture (FLAT only); the optional HANDLE is its own file (print it when wanted) and snaps in - no rotation, every surface 45 deg or vertical, the fit is measured from the gcode (tools/r168_stampcheck.py: socket/spigot profile, lip-in-groove seating, 0.2mm snap). (2) CONTOUR modes: last-layer-only, a topographic CONTOUR RELIEF (solid plane + raised contour walls per level, holes get their inner contour), or true-contour step walls. (3) MIRROR X/Y for litho + labels (stamps print mirrored so the imprint reads correct). (4) label STAMPS: one label per job, socket under the text. (5) Live > Features > Custom Code / Overhang Wall / Internal Bridge / Prime Tower were EMPTY lists (field report .126) - all four now carry the full on/file/speed/flow/accel/PA set. (6) the travel fix no longer writes phantom CUSTOM markers before the first ;TYPE: (a range excerpt over a travel-fixed file counted them as real features).'),
-      ('.126','THE FIT-AND-SHUTDOWN ROUND (R167): (1) the backplate never fit - wall lines print with their CENTER on the contour, so the shaft is one line width narrower and the plate half a line wider than the code assumed: the plate was 0.35mm/side OVERSIZE. Measured from the gcode (tools/r167_aircheck.py): 0.35mm play per side now, the nubs grow out of the wall at 45 deg (they used to print as free walls in the groove air). (2) Timer-too-close on litho/frame prints: the files M204-stormed (~7/s) and every M204 deepcopied save_variables incl. sd_tree - generator travel-M204s now need 2mm of hops, the interceptor reads only small _STATE mirrors and swallows repeat values (no echo flood), live accel is a real CAP (it used to RAISE S1500 to the cap). (3) shutdown at print end: the watcher waits 8s after busy->idle before scanning/pushing. (4) retraction overrides apply immediately + at print start (generated files retract via G10/G11, the old redirect never fired). (5) fan clamp applies immediately, the bridge boost fires at the feature boundary and restores after. (6) nozzle wipe sets its own crisp feed/accel. (7) litho steps get a wall loop around every region (clean edges).'),
-      ('.125','BOOT BLOCKER HOTFIX + LED MOTION BACK + STALE-DAEMON PROOF (R166): (1) HOTFIX - .124 halted at connect (Internal error loading gcode_macro GEN_BRICKKIT): the new OUT= dispatch lines in GEN_BRICKKIT/GEN_FIGURES sat at COLUMN 0 - klipper\'s configparser reads an unindented line as a NEW OPTION, so the gcode value was truncated inside an open if-block. Indented; new tools/r166_template_check.py replays klipper\'s EXACT pipeline (per-line #-strip, RawConfigParser with inline ; comments, single-brace jinja compile, option allowlist) over every template - it reproduces the .124 error word for word and runs in the battery (the old regex-based tests could not see this class). (2) THE PRINT LED BREATHES AGAIN (user request): a slow 4 s breathing at 5 fps = 5 serial msg/s, about 1% of the 450 msg/s budget (the .122 shutdown was the 24 fps flood - a 3 s host stall now queues 15 of 100 messages instead of 72); r164 guards the <= 5 fps rule. (3) STALE-DAEMON PROOF (the .123 lithophane V2 mystery): the litho code is proven correct (Bun2.jpg repro: all 4 steps carry image mass, per-layer extrusion, rendered height map = the photo) - the remaining field explanation is a watcher that silently survived an update restart. Every generated file\'s first line now carries the core stamp (; R2-GEN core ...), the watcher publishes postproc_build and screams at boot when the macros on disk are newer than itself, and update.sh PROVES the restart (process start vs update time + build-stamp query once klippy is back).'),
-      ('.124','DOCUMENTATION-REALITY AUDIT (R165): tools/r165_doc_check.py verifies the MANUAL against the source of truth - macro tokens, documented call params, LCD paths, label hygiene, ch.18 samples. First-run findings all fixed: PID_TUNE_HOTEND/PID_TUNE_BED never existed (TUNE_PID HEATER=... FAN=%), SKIP_OBJECT NAME= (not OBJECT=), SET_LAYER_RANGE START/END (not FROM/TO; shape/fill = 0/1), PURGE_MORE console (not Macros > Purge), System > Pi shutdown, ~30 stale LCD paths (File info / Live Tuning / Temps & Fan / Acc per feat), overwrites (not overrides). UX: duplicate labels renamed (Flow sources + Src: PA + flow; How: 1-wall cube + How: flow cube). Every console generator now honors the documented OUT= per run.'),
-      ('.123','MCU SHUTDOWN ROOT CAUSE FIXED - THE LED ANIMATION FLOODED THE SERIAL BUS (R163): a second '
-'Timer too close ten minutes into the .121 litho test print, with RAM fine and a sparse file. The '
-'shutdown send-queue dump held 100 messages - 75 of them LED frames; 28503 failed neopixel readbacks '
-'(each resent) in one day; the 24 fps printing gradient streamed LED data all print while the motion '
-'buffer held ~1.2s - a 0.2-0.9s GC pause pushed a move past its deadline. The printing state is a '
-'STATIC blue now (klipper only transmits changed colors = zero LED traffic while printing), all other '
-'effects run at 12 fps.'),
-      ('.122','LITHOPHANE FLAT PRINTS PHOTOS + HOST-OVERLOAD HARDENING (R162): (1) FIELD FIX - the step-region hatch rects ran from the first to the last cell CENTER: single-row blocks (nearly all blocks of a photo) had a ZERO-height rect, the picture never printed (base + frame only); multi-row blocks filled 52%. Full cell extent now - the user\'s Bun2.jpg measures 100% of the level cell mass per step with correct terracing; the color picture generator had the same bug (4 hatch sites) - fixed together, guarded by a new photo-like fill-coverage audit (sketch-based tests could not see it). (2) FIELD FIX - \'File fix: blocked - a print is running\' while nothing printed: the one-shot busy check died on a lagging moonraker status 3s after the dialog release; the R2 mode is the authority now and a stale print_stats gets re-checked up to 10s. (3) the \'Timer too close\' chain: a busy-probe timeout read as not-busy (a litho built during the print) - the probe retries; generator builds wait below 60MB RAM free like they wait for the printer. Battery: render 1694/1694, audit 82/0, journeys 1856/0, stress 46639/0, megatest 157/0, goldens 23/23, systemtest 221/0.'),
-      ('.121','LAYER-2 TAKEOVER MADE RELIABLE (R161, field report: bed/hotend/fan did not switch from layer 2): the boundary used to rewrite temps ONLY when a user override was armed - files without their own M104/M140 (generated, range excerpts) kept layer-1 values for the whole print; AS SLICED ignored your armed L2 override AND forced the material preset over the file\'s own M104/M140 from layer 2; M109/M190 carried the same rule. Unified semantics: LAYER 2 = your armed override > the file\'s value > the material preset (L1 rules ON), in BOTH start modes, marked (LAYER_MARK) and unmarked (Z tracker) files alike; interceptors consistent (AS SLICED: material L1 rule on layer 1, true 1:1 from layer 2 except your armed override - single \'YOUR L2 override\' log; AS LEGACY: layer-2 rewrite only when armed); every heater write idempotent (target diff > 0.5 C); the held layer-1 fan returns at the boundary + material fan scale re-applies. Manual ch. 8 rewritten to exactly this ladder. Battery: render 1691/1691 (+15 R161 matrix), journeys 1856/0, stress 46639/0, megatest 157/0, goldens 23/23, audit 77/0 + r143 68/0, systemtest 221/0, dialects 13/13, setup-sim 10/10, spell 0.'),
-      ('.120','DISPLAY-NATIVE NAMES + DOUBLE-PRESS + REAL VALUES (R160): (1) generator outputs are Vnn_Name.gcode - the 00_ prefix is gone (3 more characters on the 15-char display), the version LEADS, one number per output folder, never reused; all three legacy formats keep counting. (2) EVERY Create row confirms by DOUBLE PRESS: arm (Again = start, 10 s window) -> start chirp (r2_gen), a waiting start dialog cancels itself quietly; console stays single-shot. (3) File info / Fixes SPLIT: information + feature ON/OFF in one menu (temps fall back to the material preset for generated files, PA to the printer global, retract shows the firmware values for G10/G11 files), every file-rewriting fix in its own self-explaining menu with > = run and * = edit markers. (4) generated files carry measured FS_/FA_ per feature + SLICER=R2_GEN + RETRACT_STATUS=fw in their _FILE_INFO - the Spd/Acc/activator rows show real numbers, not ?. (5) the file census walks the generator subfolders; temps on the preview card reset per selection (no stale previous-file values). (6) FIELD LOG .120: a texture/plot on a file from a SUBFOLDER died with one error beep (the source lost its folder path - the TX output auto-selects itself, so every follow-up texture hit it) - sources keep their relative path. (7) A start that died mid-flow (homing error) wedged the mode forever: generators silently requeued, LEDs kept blinking, UI sounds mute - the state watcher now heals stuck modes, PRINT_END cleans up BEFORE its moves (and only moves homed axes), _UI_SOUND gates on the real print state. (8) Every queued job chirps when it actually builds, says why it waits, and beeps on abort; range + texture builds moved into the job queue. (9) Name collisions get a letter tail (V05 taken -> V05b), the numbering counts letters; range names carry 10 source characters. Multi-plate outputs (frame/kit A, B, C...) carry the plate letter DIRECTLY behind the version - V01_A_Frame_..., V02_B_Frame_... - so the role survives the 15-character display cut.'),
-      ('.93','BRICKS ROUND 2 + HARDCORE STRESS TEST (R132) - catalog 45 -> 76 codes: 9 LCD catalog groups (bricks/plates/tiles + NEW slopes S, inverted slopes I, arches A, technic/axle H+C+J+RT, round R+RP). Figures: MODE=SINGLE (one fused piece, no clutch elements) or classic PARTS, arms printed LYING (real through-tubes), COLORS 1-4 (zone colors), BRIM 0-8, COLORMODE. Bricks: COLORS 1-8, MODE, BRIM. Centered layout = general rule for ALL generators. Fix-then-reload: RetractFix/FlowCap/Travel/Vol reload the file automatically - only Start needs confirming. New tools/r140_stress.py (~41k checks) - 7 real bugs found and fixed (unbalanced Jinja in GEN_BRICKS, split TUNE_PID call, open RESPOND quote, missing M83 in bricks/figures/kit, trailing ;TYPE:Custom, kit without LAYER_MARK + non-canonical APPLY_TYPE, figures SINGLE without BRIDGE header). Analyses: sound/display portability, Web-UI on Moonraker, LCD menus on other displays (docs/). Battery: render 1601/1601, megatest 163 files, stress 41k, systemtest 221/0.'),
-      ('.92','DOCUMENTATION OVERHAUL (R131) - the handbook (MD + PDF) brought up to .91/.92: OUTDATED PASSAGES REPLACED - litho FLAT (old terraced-relief text -> the step print with StepL/color swap/border/corner/contrast/purge tower), frame closure (old bayonet slide-2.5mm -> snap-in backplate + photo play; the printer-side LCD texts too), the 5.0 generator list, the chapter-5 title (13 generators). NEW: four detailed generator chapters - 5.10 bricks (geometry table, 45-code catalog), 5.11 brick kits (voxelizer, support filter, detail bands, ring walls, BY_LAYER/BY_OBJECT), 5.12 figures (5 parts, no glue, 100% system mating), 5.13 ColorPic (band principle, M600 + LED blink, purge tower, swap/contrast); menu reference, cheat sheet (+5 paths), macro index (+11 entries) - mirrored in the PDF. Battery: render 1595/1595, validator clean, systemtest 221/0.'),
-      ('.91','HOTFIX (.90 boot blocker): COLORPIC_CREATE checked the image extension with the NON-EXISTENT Jinja filter endswith (a Python method, not a filter - in the package since .82, only reached the printer with the .90 update). Fixed with slicing: _cpsrc[-4:] in (png, jpg) / _cpsrc[-5:] == jpeg. Why the tests missed it: Jinja >= 3.1 compiles unknown filters silently and a render pass short-circuits on params.X is defined and ... - the R67 gate was false green. Hardened: the gate now walks the Jinja AST of all 3663 boot templates checking every filter/test name against the real tables, and the config validator got the same static rule. Proof: an injected endswith is caught by both, the fixed pattern passes, a full package sweep finds no other zombie filter. Battery: render 1595/1595 (+5 R130), validator clean, systemtest 221/0.'),
-      ('.90','R118-R129: BRICKS, KITS + FIGURES + FIELD LOG: LITHO FLAT STEP PRINT - (1) BUILDING BRICKS with the exact system geometry (45-part catalog, bodies n*8-0.2 so they clamp to each other AND to originals, hollow studs, underside tubes), queue like the labels, GEN_BRICKS. (2) KIT GENERATOR: a sliced print file becomes a stylized kit - support/brim/skirt never flow in, closed bodies fill, hollow bodies become ring walls, detail AUTO/MICRO/SMALL/BIG, BY_LAYER = one color per plate = zero M600, BY_OBJECT = M600 only at color boundaries. (3) FIGURES: 5 parts, assembly without glue (arms swing, head turns) - 100% = original size AND system-true (hands grip O4.8 studs, hats sit, feet click), 25-300%. (4) FIELD LOG LITHO FLAT: the terraced relief printed wavy (nozzle dove into the picture, probe caught) - rebuilt as a STEP print: percentile stretch + contrast boost, gray levels, step 0 = the whole light area as clean layers (ironed), darkest = the contours; StepL, color change OFF/LAST/EACH, optional picture frame (square/rounded). (5) PURGE TOWER 12x12 with 15mm probe clearance prints along EVERY filament change (litho + colorpic, swap now optional) - PRIME-TOWER tagged. (6) FIELD LOG FRAME: the backplate was 2.4mm OVER the photo opening (never insertable) - snap-in now (0.3mm play + 4 wall nubs), photo opening +1.6mm play; label gap 6 -> 12mm. (7) QUICK LISTS speed/flow/accel per feature in pre-print AND live; flow cap 0.5-50 mm3/s. (8) NEW tools/systemtest.py release gate: every generator x parameter combos x shared invariants + wiring sweep. Battery: render 1590/1590, audit 77/0, megatest 144/145/0, goldens 23/23, dialects 13/13, setup-sim 10/10, systemtest 221/0.'),
-      ('.89','FIELD LOG .88 ROUND 2 (R116+R117): (1) CONTINUOUS FILLS - every '
-      'generator fill (first layer, bottom, sparse/solid infill, top, ironing) '
-      'prints as ONE connected zigzag chain instead of single scanlines: adjacent '
-      'hatch lines link with an extruded connector bead along the border - the fill '
-      'fuses with the walls and prints wet-in-a-row; hole crossings and long gaps '
-      'keep their retracting travel (no strings over open holes). Sliver lines and '
-      'degenerate links under 0.15 mm are skipped (they would flood the MCU with '
-      '400+ moves/s). (2) IRONING ANGLE = TOP ANGLE: ironing ran 90 deg off the '
-      'top fill - it now follows the top surface angle (45/135, alternating per '
-      'layer), flattening WITH the grain. (3) LABEL QUEUE SNAPSHOT: the first job '
-      'font leaked into later jobs of the same queue (global bias) - every job now '
-      'carries its full 18-field snapshot. (4) FOUR NEW FONTS: SCRIPT (Dancing '
-      'Script), HAND (Caveat), PLATE (D-DIN), PIXEL (Press Start 2P) - 9 stroke '
-      'fonts total. (5) SHAPER-OFF LCD: without an [input_shaper] section the menu '
-      'now says ShaperOff: n/a + a NOTIFY hint instead of silence. Tests: render '
-      '1442/1442 (+9 R117 chain + angle), golden re-frozen (9 range cases), audit '
-      '57/0, megatest 143/164/0, dialects 13/13, setup sim 10/10.'),
-      ('.88','HOTFIX (.87 field log): (1) Malformed command - Klipper cuts every line at the first ; even inside quotes, 22 console strings rebuilt + the DERIVED confidence math 0.7 now shows 70 percent (validator rule R114 guards the class). (2) START DIALOG: idle_timeout counts from the last toolhead move only - TURN_OFF_HEATERS could fire MID-DIALOG while you made Pre-Print settings; the dialog re-arms the countdown (30min floor, config value restored on every exit) + a generator takeover no longer kills the preheat. (3) FAN HOLD (Live > Temps > Hold): the fan entry only SCALED the file M106 values - dynamic slicer fan curves always won; Hold replaces them at your percent (layer-1 fan-off still wins, resets per file). (4) FEATURE PA EVERYWHERE: 16 new PA inputs in Pre-Print > Features, the inputs show the effective value (own or your global), with a global PA active every boundary states the PA it runs at. (5) FRAME first layer see-through: loading a pre-R101 preset wrote bottom-layers 0 (sparse from layer 1); now defaults to 2 + FRAME_INFO shows it. (6) PAUSE NOW hardened: was the FIRST entry of Pause & Control (encoder double-click = instant pause) - harmless entries first + two-press confirm.'),
-      ('.87','HOTFIX (.86 field log): the _R2_CONFIG migration could HALT THE BOOT - column-0 comments inside the .82-era block (our own old writer emitted them) stopped the comment-out pattern, the leftover gcode: line landed in the previous section: Option gcode is not valid in section board_pins. Fixed in setup.sh + r2_setup_lib.sh: in-block comments are consumed (lookahead-guarded), the trailing newline survives (the rstrip glue bug is fixed too). New setup-sim scenario r92-config-block reproduces the EXACT field layout - proof: the old code fails its checks, the new code passes all 10 printer scenarios. Recovery for hit machines: restore printer.cfg from the verified r2_backups snapshot OR comment the orphan lines (the Weg-B snippet) - after either, update.sh is safe again'),
-      ('.86','RE-TAG THE STOCK + RETRACT VERDICT (R112): tag v5 - every file tagged before .86 counts as STALE (markers fully functional, info line predates the .85/.86 keys); System > File check > RETAG (2x) upgrades them in place: same LAYER_MARK/APPLY_TYPE counts, new _FILE_INFO with MAXRATE/SEAM/CFG replay/retract verdict, .r2bak backup, 20 files per run, never during a print - the proven v1-to-v4 upgrade machinery now armed for v4 · RETRACT VERDICT (fixed/fw/FIX!/can + longest retract mm): one Ret: line in Pre-Print > File, the RetFix offer appears only for fix/can, old files show -- honestly; _PREVIEW_SET resets the verdict per selection · IRONING_SPACING finally wired (cross-check find) · LED_INFO empty bed span reads no bed light LEDs (not 5-4) · tests: megatest 143 runs/164 files (+hardcore matrix + v5/retract invariants), setup sim 9 printers (+SV06 dual-Z, CoreXZ Switchwire, hybrid coreXY), render 1409/1409 (+parameter cross-checks), golden re-frozen'),
-      ('.85','FEATURE-TAGGING ROADMAP 5+6 (R111): GEOMETRY CLASSIFIER for files without ;TYPE: tags - walls per closed-loop nesting, infill per hatch spacing (3 mm threshold), bottom/top per layer position; curved paths unclassified, bridges never guessed, tagged files never classified; honest keys DERIVED=1 CONF=0.7 COVER=% · MODAL-Z layer scan (Z on travels counts, hops never fake a layer) · new measured file keys MAXRATE (mm3/s) + SEAM/SEAMN + 14 slicer-config keys replayed (LW_*, ACCEL_SOLID/FIRST/TRAVEL, FIL_DIA, TIME_SLOW, SLOW_MIN, FAN_MIN/MAX) · TWO NEW FILE FIXES: Fix flow cap (F rewritten to stay under a mm3/s cap, idempotent) + Fix travel accel (M204 wraps travel blocks) - LCD Pre-Print > File · FEATURE PRESSURE ADVANCE (per feature, profiled) · FAN CLAMP (min/max + bridge boost, Live > Temps) · INPUT SHAPER OFF per feature (freqs saved/restored, PRINT_END + cancel safety net) · UNRETRACT EXTRA · profiles carry the new keys (5th element PA; old profiles load with PA=0) · tests: tools/r111_geom_test.py (found+fixed the hatch zigzag offset bug), dialect corpus 13 families 46/46, renders 1388/1388'),
-      ('.84','GENERATOR OUTPUT + PER-FILE PROFILES (R109): every generator asks what to do with its file - Tools > After gen QUEUE (select for printing; built ON a file: range/texture = replaces the selection) or PREVIEW ONLY (3-D preview, nothing queued); sticky + OUT= per run; texture, bridge test, resonance plots, plot text/status now queue properly too · PER-FILE PROFILES: every legacy-printed file remembers its pre-print + live-tuning state - post saved automatically at a successful PRINT_END (cancelled = nothing), pre only manually, auto-load on selection picks the NEWER slot, auto-save never overwrites a manual pre · Pre-Print > Profiles: Material (save without loading first) / Defaults (8 slots) / This file (pre/post + auto toggles) · ONE apply path writes values AND ON switches (fixes the old LOAD_DEFAULT_PRESET bug) · R110: setup LED wizard asks the COLOR ORDER per chain (GRB/RGB/BGR/RGBW with chip table + validation, dotstar + EBB nozzle too; GRBG typo removed) · EOF safety (migration + service install default NO - unattended runs change nothing) · wizard infinite-loop fix (stored value outside min/max dead-ended the prompt) · default + file profile DELETES at the LCD with two-press confirm · setup/update SIMULATION across 6 printer types (tools/r110_setup_sim.py: Ender3 stock/reference, legacy migration, CoreXY 2Z dotstar, Voron Trident/V2 - install + update + check + EOF + idempotence, sudo-free) · slicer/firmware DIALECT CORPUS (tools/r110_gcode_dialects.py: 12 families, 43/43 tagged features = 100 percent, Simplify3D detection fixed) · feature-tagging research + roadmap (docs/FEATURE_TAGGING.md)'),
-      ('.83', 'FIELD-LOG .82 ISSUE LIST (the whole R106 round): fan wake-up (0%% -> higher applies the scaled file value immediately; layer-1 hold wins) - honest velocity/corner hints (they are CAPS, the visible lever is the cruise ratio) - the USER TYPE MAP everywhere (visible top = Top surface, between = Internal solid, only true airwork = Bridge; the frame front used to tag Internal solid so top overrides never reached the visible face; siblings fixed in labels/ties/seal/angles/bridge + Cura SKIN on layer 1) - RULE LL: nothing prints unanchored (shelf + disc lips got radial anchor stubs, kit lips too, SIDE closure redesigned around the T/B wall anchors) - FEATURE FILTER: feature menus hide what the file does not contain (80 items), available-but-inactive stays visible - presets fill W/H - FRAME USER PRESETS (8 slots, save/load/delete at the LCD) - WALL LOOPS 1-4 - Z-HOP on firmware retracts (live + pre-print, absolute Z, layer-change-aware) - TRAVEL controls (SET_LIVE_ACCEL + Velcap relabeled: global caps govern travels too) - LITHOPHANE FLAT MODE (bed-clamped terraced relief, 1-4 color bands with pause/swap) - HARD BED CLAMPS (frame border clamps before splitting; W/H inputs never exceed the build volume) - R108: LED AREAS + SYSTEM&gt;LED SETUP (status/bed-light/nozzle freely configurable, neopixel or dotstar, mainboard pin or EBB CAN chain, hard-clamped to chain_count, persisted in the new HARDWARE PROFILE r2_hardware.cfg - a second variables file that survives deleting variables.cfg) - SETUP/UPDATE WIZARDS (every hardware value asked in English + double-confirmed: build volume, probe offsets, clean/present positions, LED layout; update asks keep-or-change first) - VERIFIED BACKUPS + 4 CHANGE MODES (backup of every file first, cmp-verified, abort on mismatch; every printer.cfg/moonraker.conf change shown first: automatic with user lines only commented / commented-only / separate txt=safest / skip) - OBJECT PROCESSING shown+explained+offered both directions - printer.cfg.example fixes (chain_cnt to chain_count, GRBGR color_order - both halted current Klipper)'),
-      ('.82', 'CRITICAL CONFIG FIX (field log .81): the bed/position carrier was a raw [r2_postproc] section in printer.cfg - Klipper REFUSES unknown sections (halt loop: Section r2_postproc is not a valid config section) the first time the section was really written. The carrier is now a KAMP-style [gcode_macro _R2_CONFIG] settings macro (variable_bed_min_x ... + variable_present_x/y + variable_wipe_x/y) - valid for Klipper, native for macros, parsed by the watcher; setup.sh migrates legacy sections (backup + values kept). Also found: appending after the #*# save_config block made the autosave unreadable (modifications after header -> heater_bed control error) - inserts now always go before that block'),
-      ('.81', 'honest host verdict + portability hardening (field log .80): HOST_CHECK swap verdict now measures swap ACTIVITY (vmstat in/out) - 109MB of quietly parked pages after boot were flagged SWAPPING with an error sound on every check although the Pi was healthy; quiet pages now read as OK with a calm explanation, only real swap traffic stays loud. Compatibility: PRINT_END part presentation had a fixed Y228 (crash on any bed under ~232mm) - now clamped + configurable ([r2_postproc] present_x/present_y), calibration-tower end parks (Y190) and PLT_FRAME park clamped, nozzle-wipe pad anchor configurable (wipe_x/wipe_y), megatest.py accepts --bed/--cfg for other printers (too-big combos = SKIP); setup.sh (environment wizard) and COMPATIBILITY.md (portability report) join the package'),
-      ('.80', 'megatest hardening (field log .79): a 101-run sweep over every generator at its parameter extremes found and fixed two real bugs - the plotter DRAW mode scaled small images past the bed (48px drawing -> y up to +1500mm; big photos silently squashed to ~72mm) and every frame file tags the shelf bands as BRIDGE but TYPES never listed it on normal frames; plot output now carries a final bed guard too; tools/megatest.py joins the package (rerun any time: python3 tools/megatest.py)'),
-      ('.79', 'frame shells, sparse infill & travel order (field log .78): Top/Bottom solid layers settable (independent of front effect and orientation; default bottom skin 2) · body infill down to 5% (was 20) with its own INFILL-SPARSE feature tag · ring fill travels stay INSIDE the band now - the scanline order used to cross the photo opening on every line (139 long retracted travels per body layer -> ~5, layer 1: 146 travels -> 6) · TYPES lists only features the file really tags'),
-      ('.78', 'plain uploads convert ONCE (field log .77): a plain image/text in the gcodes folder (AxtBunny.png) was re-converted to pen-plotter g-code on EVERY watcher (re)start - 1 processed at every boot, the .gcode rewritten, its preview push racing the Klipper restart after an update (HTTP 404); the already-converted check now reads the OUTPUT file, and a 404 preview push says Klipper is probably still restarting'),
-      ('.77', 'generator file info + label modes (field log .75): frame / cable-tie / angle files carry _FILE_INFO with TYPES now - the Pre-Print file info and the feature activators work for EVERY generated file (they were empty: generated files are TAGged, the scan never adds them); structured frame fronts tag SURFACE-TOP instead of CUSTOM; labels get two clear modes - GROW (the label grows to the text, W/H are minimums and Calc fit sets the needed size as the W/H lower limits) and FIXED (the label stays W/H, the font scales into it) - and the confusing "Preview fit?" item is now "Calc fit" with a plain explanation'),
-      ('.76', 'watcher start-up (field log .75): the first scan after a boot/restart runs in time-boxed chunks now - it used to block the watch loop as ONE pass (12+ minutes on a swapping Pi Zero right after a reboot) and every file selected in that window showed an empty file info; selections are serviced within seconds while the start backlog drains in the background · a backlog preview push can never overwrite a fresher file selection anymore (preview nonce re-check before the push)'),
-      ('.75', 'frame placement & first layer (field log .74): every frame plate (one-piece / multi Part A/B / kit) sits centered on the usable bed, nothing at the x0/y0 corner anymore (the multi-plate stand sat at the raw bed origin half off the bed, the one-piece stand overlapped the ring - both placement bugs fixed); first layer of every frame part: brim -> inner wall -> outer wall -> ONE continuous zigzag fill with extruded connectors (single hatch lines curled up at their ends and frayed the borders), open holes crossed only with a retraction · retract keep-outs completed (field log .74): cable-tie head channel + loop slot, gasket groove, backplate keyhole + stud holes and bridge spans are retract keep-outs too - no travel crosses an open hole without retracting anymore (was 74+22+17+1 unretracted crossings; zero-length travels never retract; FLAT gaskets and lithophanes have no openings at all)'),
-      ('.74', 'range feature truth (vase opens with the cut feature, brim on the FIRST layer inside raft layer 1, TYPES/FS/FA describe the excerpt) · full slicer feature census 12 to 16: overhang wall, internal bridge, prime tower and custom G-code sections are editable features; small-perimeter speed/accel from the config header in the file info; every slicer family dialect mapped (census table ch. 3.7); old default presets keep loading (new features fall back to OFF) · range hole quality: cap holes print bridges around the opening first, ring on the bridges, hole stays open; all generators retract travels over open holes at any length · beep discipline while printing: confirmation/feedback beeps silent during an active print (no purge blobs from micro pauses), critical sounds always play · seamless texture on arc-fitted files (G2/G3 flattened into textured chords, E preserved; fuzzy presets sized after OrcaSlicer: ORCA/Hide layers/Subtle/Grip, thickness 0.05-1.5mm'),
-      ('.73', 'frame & display-case generator (real-bed fit: one file / multi-plate Part A+B / 4-strip glue kit, RECT/OVAL, BACK bayonet - SIDE slide-in, hang keyhole + easel stand, surface Lines/Waves/Honeycomb/FLIP, disc insert glass/plexi/foil/litho, hidden cable duct), texture tool for ANY g-code file (fuzzy skin + GRID/WAVES/HEX/MANDELBROT bumps on outer walls only - tags/E/Z/F untouched, _TX result never auto-started), file check (tag version census on LCD/console/SSH + safe retag with .r2bak backup), seal + lithophane generators with LCD image browser, cable-tie redesign CLASSIC/LOOP, real-bed truth via [r2_postproc], probe-safe color-change purge strip, global x feature parameter model (flow multiplies, accel percent scaler), Tools menu English, live-tuning menu regrouped (audit), nozzle diameter from printer.cfg for every generator, prime-line de-ooze + resume without object purge (field log .73)'),
-      ['.72','field-log .71 fixes: EXCLUDE_OBJECT POLYGON as valid json (cable ties + angles/plates start crash; all 5 generators verified), global speed/accel no longer eat feature overrides (feature rides ON TOP of the global, re-applied on every change; feature accel beats the global), range holes print as ONE spiral boss with retracting travels (no more strings over the hole), APPLY_TYPE re-derived from ;TYPE: when a source carries none (everything-printed-as-solid-infill mitigation), hole diameter clamps to the REAL section outline + 2mm margin (boss never sticks out of L/round sections)'],
-      ['.71','LCD declutter: the four part generators (Kabelbinder, Winkel+Flach, Labels, Plotter) now live in ONE \'Tools\' top-level menu - the root drops from 10 to 7 entries; guards unchanged, console paths + manual follow'],
-   ['.70','part generators (cable ties + angles/flat connectors, LCD top menus), centered layer-range holes: floor hole with boss ring (E14/E27 presets) + bridge-first top hole, angle walls/infill/ironing (+ inner-wall fix), nozzle LED split for the EBB42 (SET_NOZZLE_SPLIT), slicing guide for any slicer, electronics chapter: U2C V2.1 + EBB42 CAN + 230 V relay (wiring lists, firmware, safety)'],
-   ['.69','file fixes IN PLACE (no re-upload): RetFix file rewrites the selected file\'s retracts to G10/G11 on disk (markers survive), Vol->mm fix converts Marlin-volumetric E to mm (idempotent), start dialog auto-released, micro-pauses between multi-value writes'],
-   ['.68','file info: slicer + firmware flavor of every file (Orca/Prusa/Cura/Elegoo/Kiri:Moto/AstroPrint/SliceBeam for Klipper/Marlin), Marlin-volumetric warning (Klipper counts E in mm), RetFix rewrites old Bowden-era files\' retracts to G10/G11 on re-upload (current retraction applies, live-tunable)'],
-   ['.67','label/preview/generator overhaul from the .65 field log: print-start killer fixed (quoted feature lists survive Klipper\'s parser), material preset load fixed, generated files sort to the top (00_..._V version suffix, same name overwrites instead of piling up), label text with discrete glyph retracts + anti-merge stroke cap + purge tower 15mm clear on the probe-safe side, real fit preview on the LCD (final size, cap height, minimum size for a fixed font), labels up to 5 lines and near-bed size, filament stat in meters, SAVE+RESTART restarts even when nothing is pending'],
-   ['.66','user-handbook manual + PDF (scenarios, generators, calibration ladder); three small-text label fonts (COND/NARROW/CAPS); maintenance menu in calibration order'],
-   ['.65','postproc streaming: range generation + upload tagging no longer load whole files into RAM (Pi-safe), byte-identical outputs (golden test)'],
-   ['.64','start-killer fixed (list literals broke SET_GCODE_VARIABLE), labels auto-fit/auto-grow, All-OFF removed'],
-   ['.63','generator files auto-select, range OUTLINE floor fills the enclosed area, L1/L2 rules in every mode, PARAM_SOURCES'],
-   ['.58–.61','plotter top-level menu, 3 label lines, range clamping + PRINT_END, cold pull in Maintenance, filament before the print'],
-   ['.53–.57','KAMP object data kept, label maker (editor, fonts, holes, two colors), range floor/brim/top with OUTLINE'],
-   ['.45–.52','generated calibration files (temp tower, flow cube, retract tower), resonance diagram + shaper apply, dark-background plots, plot text/status, bridging test'],
-   ['.40–.44','live tuning reads REAL Klipper values, per-feature speeds/accels MEASURED from the g-code, 12-feature system, one global factor'],
-   ['.29–.39','universal print intercept, net probe, nozzle wipe, gapless legacy resume, probe-safe prime line, one takeover mode'],
-   ['.10–.28','foundation: state machine, watcher, start dialog, materials, sounds, LEDs, LCD menus, KAMP, mesh strategy'],
-  ],[24*mm,136*mm]))
-
 doc=Doc(os.path.join(os.path.dirname(__file__),'..','MANUAL.pdf'))
 doc.build(E)
-print('MANUAL.pdf built (illustrated user handbook, .131)')
+print('MANUAL.pdf built (illustrated user handbook, .132)')

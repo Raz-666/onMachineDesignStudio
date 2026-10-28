@@ -3903,7 +3903,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.131) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-24.131d'", repr(_v66)))
+    _v66 == "'R2-2026-10-24.132'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -16199,6 +16199,26 @@ tests.append(('R183 font collision guard: all 9 stroke fonts - no glyph '
 import shutil as _sh183
 _sh183.rmtree(_d183, ignore_errors=True)
 
+# ================== R185 (.132): the manual is current-version-only =======
+# User rule: MANUAL.md describes ONLY the current system - no version-history
+# appendix, no era annotations like "(.104)" / "(R170)" / "since .120" (the
+# changelog lives in README.md). This guard keeps it that way, and it pins
+# the NINE label fonts (the doc used to say five - the generator has nine).
+import os as _os185b
+_m185 = open(_os185b.path.join(_os185b.path.dirname(_os185b.path.abspath(__file__)),
+                               '..', 'MANUAL.md'), encoding='utf-8').read()
+tests.append(('R185 current-only manual: no version-history appendix, no era '
+    'annotations, nine fonts + .132 version line documented (changelog = README)',
+    '## Appendix D' not in _m185 and 'Version history' not in _m185
+    and _re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185) is None
+    and _re2.search(r'\bR1[0-9][0-9]\b', _m185) is None
+    and 'The nine fonts' in _m185 and 'R2-2026-10-24.132' in _m185,
+    'appendixD=%s eratags=%s rtags=%s nine=%s v132=%s' % (
+        '## Appendix D' in _m185,
+        bool(_re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185)),
+        bool(_re2.search(r'\bR1[0-9][0-9]\b', _m185)),
+        'The nine fonts' in _m185, 'R2-2026-10-24.132' in _m185)))
+
 # ================== R184 (.131c field round): the brim air gap EVERYWHERE ==
 # The user asked: does the brim fusing hit our OTHER generators too? Measured
 # from the generated G-code: YES - frame 0.23mm, cable ties 0.32mm, litho
@@ -16324,4 +16344,19 @@ for name, ok, info in tests:
         fails += 1
         print('      ->', str(info)[:220])
 print(f"\n{len(tests)-fails}/{len(tests)} passed")
+
+# ================== R185: workspace hygiene ==================
+# Generators called with their default out_dir='.' during the battery write
+# V*_-numbered gcode files into the repo root - gitignored test artifacts
+# ("never ship"). This sweep removes them after every run so the root stays
+# clean (900+ had piled up over the rounds before .132).
+import glob as _gl185
+_art185 = _gl185.glob('V[0-9]*_*.gcode')
+for _f185 in _art185:
+    try:
+        _os185b.remove(_f185)
+    except OSError:
+        pass
+print('[R185] workspace hygiene: %d generated test artifact(s) swept from the repo root'
+      % len(_art185))
 raise SystemExit(1 if fails else 0)

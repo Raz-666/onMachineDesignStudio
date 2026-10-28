@@ -84,6 +84,21 @@ if [ "${1:-}" != "--unpacked" ] && [ -n "${CFG_DIR}" ] \
     R2_LIB_LOADED=1
 fi
 
+# --- 0) R185 (.132): retire superseded files --------------------------------
+# unzip -o never DELETES files, so docs retired in .132 would survive every
+# update as orphans on the printer. One honest list, removed on every run
+# (idempotent - runs in the old script AND again in the re-exec'ed new one).
+RETIRE="TESTANLEITUNG_126.md TESTANLEITUNG_127.md TESTANLEITUNG_128.md \
+TESTANLEITUNG_129.md TESTANLEITUNG_130.md TESTANLEITUNG_131.md \
+AUDIT_REPORT.md docs/ROADMAP_130.md docs/FELDLOG_094_ANTWORT.md"
+[ -z "${CFG_DIR}" ] && RETIRE=""
+for _r in ${RETIRE}; do
+    if [ -e "${CFG_DIR}/${PKG_REL}/${_r}" ]; then
+        rm -f "${CFG_DIR}/${PKG_REL}/${_r}"
+        echo "[ok] retired: ${_r}"
+    fi
+done
+
 # --- 1) unzip an uploaded UPDATE zip over the old folder (NEW in .50) ----------------
 if [ "${1:-}" != "--unpacked" ] && [ -n "${CFG_DIR}" ]; then
     CUR="$(sed -n "s/^[[:space:]]*variable_version: *'\(R2-[0-9-]*\.[0-9]*[a-z]*\)'.*/\1/p" \
