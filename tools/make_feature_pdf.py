@@ -120,7 +120,7 @@ class Doc(BaseDocTemplate):
         canv.line(17*mm, 285*mm, 193*mm, 285*mm)
         canv.setFont('DVS', 8.2); canv.setFillColor(GRAY)
         canv.drawString(17*mm, 287.2*mm, 'R2-D2 Macro System · Feature-Tagging — der komplette Wahrheitspfad')
-        canv.drawRightString(193*mm, 287.2*mm, 'R2-2026-10-28.134')
+        canv.drawRightString(193*mm, 287.2*mm, 'R2-2026-10-29.135')
         canv.setFont('DVS', 8.6)
         canv.drawCentredString(105*mm, 9.5*mm, 'Seite %d' % doc.page)
         canv.restoreState()
@@ -195,7 +195,7 @@ A(Paragraph('Wie das R2-D2-System aus einer G-Code-Datei die Features liest —<
 A(Spacer(1, 10*mm))
 A(CENT_COVER())
 A(Spacer(1, 8*mm))
-A(Paragraph('Stand: R2-2026-10-28.134 · Code-Wahrheit: tools/r2_postproc.py (TYPE_RE, TYPE_MAP, '
+A(Paragraph('Stand: R2-2026-10-29.135 · Code-Wahrheit: tools/r2_postproc.py (TYPE_RE, TYPE_MAP, '
             '_canon_type, _GeomScan), macros/01_state.cfg + 08_print_start_stop.cfg · '
             'Slicer-Dokumentation: CuraEngine-Wiki »Generating Paths«, OrcaSlicer-Wiki '
             '»Walls printing order«', S['cap']))
@@ -248,11 +248,11 @@ A(TBL(['Slicer-Familie', 'Schreibweisen (Auswahl)', 'Kanon (R2)'], [
   'feature-lose Dateien (nur Layer-Kommentare oder gar nichts)',
   'Stufe 3: der Geometrie-Klassifikator leitet ab (DERIVED=1 CONF=0.7)'],
 ], [34*mm, 84*mm, 54*mm]))
-A(P('Zwei ehrliche Lücken stehen im Katalog: <b>Bambu Studio</b> schreibt in aktuellen '
-    'Versionen teils <b>;FEATURE:</b> statt ;TYPE: — das heutige TYPE_RE erkennt das '
-    '<b>nicht</b> ( .135-Kandidat: TYPE_RE um ;FEATURE: erweitern, die Eliminierungsleiter '
-    'verstünde den Inhalt sofort). Und Cura nennt seine Ober/Unter-Flächen gemeinsam SKIN — '
-    'die Kanonisierung mappt auf SURFACE-TOP und korrigiert per Schichtposition.'))
+A(P('Die frühere Bambu-Lücke ist <b>in .135 geschlossen</b>: TYPE_RE liest '
+    '<b>;FEATURE:</b> seit R191 wie ;TYPE: — dieselbe Karte, dieselbe Leiter, unbekannte '
+    'Bambu-Vokabeln fallen weiterhin ehrlich auf CUSTOM. Und Cura nennt seine Ober/Unter-'
+    'Flächen gemeinsam SKIN — die Kanonisierung mappt auf SURFACE-TOP und korrigiert per '
+    'Schichtposition.'))
 
 # ============================== Kap 3 =======================================
 flow += H1('3  Stufe 1 — Kanonisierung und die Eliminierungsleiter (_canon_type)')
@@ -359,33 +359,43 @@ A(P('Damit ist CUSTOM kein Fehlerzustand mehr, sondern der <b>gezahlte Rest</b> 
     'Auflösungs-Stufen — und der Anlass, mit File check &gt; Retag gegen zu steuern.'))
 
 # ============================== Kap 7 =======================================
-flow += H1('7  Stufe 5 (Design .135) — die Ausschluss-Logik als eigene Ebene')
-A(P('Dein Vorschlag — Features über <b>Unmöglichkeiten</b> einzugrenzen — ist die konsequente '
-    'nächste Stufe. Einiges davon lebt schon implizit im Klassifikator (Brim-ohne-Nachfolger, '
-    'Boden/Top über erste/letzte Schicht, Support-über-Druckreihenfolge). Die folgende Tabelle '
-    'macht die Regeln explizit und zeigt den Stand:'))
-A(TBL(['Logische Regel (Unmöglichkeit)', 'Status heute'], [
- ['Skirt/Brim existieren nur in den ersten Schichten (Skirt 1 Layer, Brim bis ~5)',
-  'implementiert: Brim = Layer-1-Loop ohne Nachfolger (R153)'],
- ['Ironing kommt nie auf Schicht 1 und nie vor der ersten Top-Fläche',
-  'implizit über Slicer-Tag; Ableitung fehlt — .135'],
+flow += H1('7  Stufe 5 — GEBAUT in .135: Ausschluss-Logik als eigene Ebene')
+A(P('Dein Vorschlag — Features über <b>Unmöglichkeiten</b> einzugrenzen — ist seit .135 '
+    'eine echte Ebene im Import (R193). Zwei Hälften: der <b>Quer-Schicht-Luftscan</b> '
+    'vergleicht jede dichte Hatch-Gruppe mit dem Schichtbild darunter (die Bitmap, die die '
+    'Wandklassifikation ohnehin zeichnet): fast keine Tinte darunter = Druck über Luft = '
+    'BRIDGE (Enden verankert, außerhalb jeder Loop) bzw. INTERNAL-BRIDGE (innerhalb des '
+    'Modells oder unverankert). Dichtes Hatch über SPARSE-Infill darunter bleibt Surface/'
+    'Solid — schon ~5% Tinte zählen als Material, schrittweise Infill kann also nie '
+    'falsch kippen. Und der <b>Sequenz-Audit</b> (S1–S4) liest den Feature-Strom beider '
+    'Welten — getaggt wie abgeleitet, nie gemischt — und zählt Verletzungen als '
+    'SEQWARN=n in _FILE_INFO plus Daemon-Logzeile.'))
+A(TBL(['Logische Regel (Unmöglichkeit)', 'Status .135'], [
+ ['Skirt/Brim existieren nur in den ersten Schichten (Brim-Fenster 3 Layer)',
+  'S3 — Audit + R153/Patiente (implizit seit R181)'],
+ ['Ironing nie auf Schicht 1 und nie vor der ersten Top-Fläche DER SCHICHT',
+  'S1+S2 — Audit; KORRIGIERT nach deinem Hinweis: Ironing darf auf '
+  '<b>jedes</b> Top folgen (auch mitten in der Schicht), nicht nur auf das letzte'],
  ['Solid/Top-Surface auf Schicht 1 ist per Definition BOTTOM',
-  'implementiert: first_layer -> SURFACE-BOTTOM'],
- ['Auf eine Top-Fläche folgt höchstens noch Ironing, nie wieder voller Solid-Infill',
-  'nicht implementiert — .135 (Sequenz-Sanity-Check beim Tagging)'],
- ['Support-Interface liegt über dem Support-Körper, nie darunter',
-  'nicht implementiert — .135 (Quer-Schicht-Abgleich)'],
- ['Prime-Tower druckt zuerst in der Schicht (bei Toolwechsel), nie zuletzt',
-  'Vokabular erkannt; Reihenfolge-Schluss fehlt — .135'],
- ['Bridge/Overhang: Punkt hat Tinte seitlich, aber Luft in der Schicht darunter',
-  'r167-AirScan prüft genau dieses Kriterium für GENERATOREN-Dateien; im Import-Klassifikator '
-  'fehlt es noch — .135-Kandidat Nr. 1 (der Layer-darunter-Vergleich ist der gleiche Code-Weg)'],
+  'S4 — Audit + first_layer-Regel im Klassifikator'],
+ ['Bridge: dichtes Hatch mit Tinte seitlich, aber Luft darunter',
+  'GEBAUT: _airscan193 — r167-Kegel-Prinzip jetzt im Import (R193)'],
+ ['Brim-Range wird re-taggt, aber die Buchung (TYPES=) zieht nicht mit',
+  'GEFIXT (R192): _fmove192 verschiebt die fstat-Buchung mit — TYPES= '
+  'verliert BRIM nie wieder (.134-Feldlücke)'],
+ ['Purge-Tower der Generatoren ist ein eigenes Feature',
+  'GEBAUT (R194): ;TYPE:Prime tower + APPLY_TYPE TYPE=PRIME-TOWER — '
+  'Labels/Litho/Colorpic, Turmkörper EIN Feature, Turm-Brim bleibt BRIM'],
+ ['Sequenz-Verstoß wird stillschweigend umgeschrieben',
+  'NEIN — Bewusst: getaggte Daten herrschen. SEQWARN nennt die Regel, '
+  'der Datei-Inhalt bleibt 1:1'],
 ], [88*mm, 54*mm]))
-A(P('Der Bauplan für .135 ist damit klar geschnitten: der Klassifikator behält seinen '
-    'Layer-Puffer bereits bis zur nächsten Schichtgrenze — es fehlt nur der zweite Blick auf '
-    'die <b>vorherige</b> Schicht (Luft-Scan im 45°-Kegel, wie es r167 für die Generatoren '
-    'schon tut) plus die Sequenz-Regeln der Tabelle. Alles deterministisch, alles testbar, '
-    'kein ML.'))
+A(P('Ehrliche Rest-Lücken nach .135: das Stemming ist eine Whitelist (nur '
+    '<b>ironing→iron</b>), kein blinder -ing-Schnitt — »missing« darf nie zu »miss« werden; '
+    'der BRIDGE/INTERNAL-BRIDGE-Schluss nutzt die Loop-Schachtelung als Näherung für '
+    'innen/außen; und der Audit prüft die vier harten Regeln S1–S4, weiche Ordnungen '
+    '(Wand-Reihenfolge, Infill-Position) bleiben bewusst ungeprüft, weil sie reine '
+    'Einstellungen sind. Alles deterministisch, alles testbar, kein ML.'))
 
 flow += H1('8  Die Slicer-Familien: dokumentierte Reihenfolge im Druck')
 A(P('Die Reihenfolge, in der Familien ihre Features abarbeiten, ist die zweite Quelle der '

@@ -568,15 +568,64 @@ def simulate(name):
     shutil.rmtree(tmp, ignore_errors=True)
     return len(fails)
 
+def flat_zip_scenario():
+    """R199 (.134 field bug): a FLAT update zip (no klipper-e3-r2d2/
+    top-level folder) must be REFUSED before unpacking. The .134 zip was
+    built that way: update.sh scattered macros/, tools/ ... next to
+    printer.cfg, the package stayed .133 and the user saw the OLD version
+    after updating. r110 always built correct zips - that is exactly why
+    no battery ever saw this class."""
+    global CURRENT_SCENARIO
+    CURRENT_SCENARIO = 'flatzip'
+    print('--- %s ' % 'flat update zip refused'.ljust(48, '-'))
+    tmp = tempfile.mkdtemp(prefix='r110_flatzip_')
+    try:
+        home = os.path.join(tmp, 'home')
+        cfg_dir = os.path.join(home, 'printer_data', 'config')
+        os.makedirs(cfg_dir)
+        copy_pkg(os.path.join(cfg_dir, 'klipper-e3-r2d2'))
+        open(os.path.join(cfg_dir, 'printer.cfg'), 'w').write(INCLUDES)
+        pkg = os.path.join(cfg_dir, 'klipper-e3-r2d2')
+        # the FLAT zip: package content WITHOUT the top-level folder,
+        # version NEWER than the installed one (so the BEST loop picks it)
+        zpath = os.path.join(cfg_dir, ZIP_NAME)
+        with zipfile.ZipFile(zpath, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for root, dirs, files in os.walk(pkg):
+                dirs[:] = [d for d in dirs
+                           if d not in ('.git', '__pycache__', 'r2_backups')]
+                for f in files:
+                    full = os.path.join(root, f)
+                    zf.write(full, os.path.relpath(full, pkg))   # <- FLAT
+        pre_state = open(os.path.join(pkg, 'macros', '01_state.cfg')).read()
+        pre_tree = tree_state(cfg_dir)
+        p = run_script(['bash', 'klipper-e3-r2d2/update.sh'], [],
+                       cfg_dir, home, 'flatzip')
+        out = p.stdout
+        check('flatzip: refused with exit 1', p.returncode == 1, out[-400:])
+        check('flatzip: refusal names the missing package folder',
+              'REFUSED' in out and 'top-level folder' in out)
+        check('flatzip: package version UNchanged',
+              open(os.path.join(pkg, 'macros', '01_state.cfg')).read()
+              == pre_state)
+        check('flatzip: nothing unpacked (no strays next to printer.cfg)',
+              tree_state(cfg_dir) == pre_tree)
+        check('flatzip: zip not consumed (still in the config folder)',
+              os.path.isfile(zpath))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 # =====================================================================================
 if __name__ == '__main__':
     os.chdir(REPO)
     make_sandbox_bin()
     for sc in (sys.argv[1:] or list(PRINTER)):
         simulate(sc)
+    flat_zip_scenario()
     print()
     if fails:
         print('R110 SETUP SIM: %d FAILURE(S)' % len(fails))
         sys.exit(1)
     print('R110 SETUP SIM: all %d printer scenarios passed'
-          ' (install + update + check + EOF + idempotence)' % len(PRINTER))
+          ' (install + update + check + EOF + idempotence)'
+          ' + flat-zip refusal (R199)' % len(PRINTER))

@@ -3,7 +3,7 @@
 **Package:** `klipper-e3-r2d2` · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail) ·
 12864 LCD (16 characters per line)
 
-**Version:** this manual describes the current release, `R2-2026-10-28.134` — and only it. Every chapter documents what the system
+**Version:** this manual describes the current release, `R2-2026-10-29.135` — and only it. Every chapter documents what the system
 does today; the version changelog lives in README.md.
 
 This is the operating manual for the complete macro system: what the printer can
@@ -183,7 +183,10 @@ tag are skipped (nothing is double-processed).
 
 **Selecting on the LCD.** The printer's file list (M24 path) opens the start
 dialog before anything moves (see 3.5). At the moment you SELECT a file, its
-`_FILE_INFO` is replayed to the system: Pre-Print > File info + Live Tuning > File (G-code) immediately
+`_FILE_INFO` is replayed to the system: Pre-Print > File info + Live Tuning > File (G-code) immediately.
+Since .135 it also carries `SEQWARN=n` — the sequence audit's count of impossible feature
+orders (ironing on layer 1 or before the layer's first top, brim outside the first layers,
+top surface on layer 1). It is a FLAG only: tagged data always wins, nothing is rewritten.
 shows THAT file's values — material, layers, speeds, features — never
 leftovers from the previous print.
 
@@ -500,7 +503,7 @@ config header (`; key = value` lines) into the file info instead.
 | IR Ironing | `Ironing` | `Ironing` | — | `;TYPE:` marker |
 | SK Skirt | `Skirt`, `Ooze shield` | `Skirt` | `SKIRT` | `;TYPE:` marker |
 | BM Brim | `Brim` | `Brim` | `BRIM` | `;TYPE:` marker |
-| PT Prime tower | `Prime tower` | `Wipe tower` | `PRIME-TOWER` | `;TYPE:` marker |
+| PT Prime tower | `Prime tower` | `Wipe tower` | `PRIME-TOWER` | `;TYPE:` marker — and the R2 generators (labels/litho/colorpic) tag their own prime tower as PRIME-TOWER since .135 |
 | CU Custom code | `custom` (custom G-code sections) | `custom` | — | `;TYPE:` marker |
 
 **Speed-only — visible in the file info, not live-tunable:**
@@ -2818,7 +2821,13 @@ dotstar, section name, pin (SKR mini E3: PA8 · EBB42 CAN: EBB:PD3), chain
 length, color order, status/bed-light/nozzle areas, EBB split chain, bed
 brightness. `update.sh` asks FIRST whether to **keep** the current LED +
 hardware settings (default) or re-run the wizards — and re-applies the LED
-layout to the freshly unpacked `03_leds.cfg` either way.
+layout to the freshly unpacked `03_leds.cfg` either way. Since .135 it also
+REFUSES an update zip without the `klipper-e3-r2d2/` top-level folder before
+unpacking anything (the .134 zip was accidentally built flat: it scattered
+`macros/`, `tools/` … next to printer.cfg while the package stayed .133 —
+which is why .134 kept showing as .133 after that update), and it warns with
+the exact cleanup list when it finds those flat-zip remains in your config
+folder.
 
 **Backup before anything.** Both scripts start by copying every file the run
 might change (printer.cfg, moonraker.conf, KAMP_Settings.cfg,
@@ -3106,6 +3115,19 @@ CALIBRATE_PA · FLOW_CAL MEASURE=0.46 · TEMP_TOWER_START START=200 END=230 STEP
 (the same text Mainsail shows under the macro name). Type the macro name in
 the console with a `?` and no parameters — most macros answer with their
 usage line and the valid values instead of doing something.
+
+**Web-LCD (new in .135):** `web/index.html` navigates the complete menu tree
+of the 12864 LCD in the browser — same structure, breadcrumb, type badges.
+On the printer's host it loads the live tree (`web/r2_menu.py` Moonraker
+extension, `GET /server/r2_menu/tree`); opened from anywhere else it falls
+back to the embedded JSON snapshot. Commands are sent through Moonraker's
+own `/printer/gcode/script` endpoint. Install: copy `web/r2_menu.py` into
+`~/moonraker/moonraker/components/`, add `[r2_menu]` with the path to
+`web/menu_structure.json` to moonraker.conf, restart Moonraker. After menu
+changes refresh the export: `python3 tools/menu_json_export.py` (plus
+`--embed web/index.html`). It is a second DISPLAY, not a second brain:
+values always come from the printer; file management and the G-code viewer
+stay with Mainsail.
 
 **Abbreviation decoder** — the short codes the console, M117 and the LCD use:
 
@@ -3715,7 +3737,7 @@ system). Better a quiet fan at full speed than a fast one slowed down.
 ## Appendix C: First start & updates
 
 - upload the folder → includes at the end of printer.cfg → RESTART
-- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-10-28.134)`
+- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-10-29.135)`
 - ~10 s later: boot sound + LED animation
 - SHOW_STATUS → mode, material, overrides · Maintenance > Tests > demos + self test
 

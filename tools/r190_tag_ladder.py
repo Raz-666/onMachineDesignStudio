@@ -86,9 +86,10 @@ ladder_ok = all(_canon_type(x) == exp for x, exp in [
     ('brim outline', 'BRIM'), ('gap filler', 'GAPS')])
 check('L1 elimination ladder: 14 unknown spellings resolve deterministically',
       ladder_ok)
-check('GAP ladder: the token check knows IRON but not IRONING - '
-      "'ironing pass' stays CUSTOM today (.135: stem the token, then FLIP)",
-      _canon_type('ironing pass') == 'CUSTOM')
+check('L1 stemming (.135): the -ing whitelist resolves IRONING spellings',
+      _canon_type('ironing pass') == 'IRONING'
+      and _canon_type('Ironing pass') == 'IRONING'
+      and _canon_type('missing token') == 'CUSTOM')   # no blind suffix cut
 
 check('L1 residue: a vocabulary without any known token stays CUSTOM',
       _canon_type('frobnicate quux') == 'CUSTOM')
@@ -153,7 +154,10 @@ L = _hdr()
 for i in range(1, 5):
     L += _layer(0.2 * i, [
         ('Outer wall', _square(40, 40, 80, 80)),
-        ('Top surface', _hatch(41, 41, 79, 79, 4)),
+        # .135: layer 1 solid is BOTTOM (a real slicer never tags a top
+        # there) - the fixture models the documented order honestly
+        ('Bottom surface' if i == 1 else 'Top surface',
+         _hatch(41, 41, 79, 79, 4)),
     ])
 L += ['M107', 'PRINT_END']
 summ, txt, fi = _run(D, 'tagged_prusa.gcode', L)
@@ -248,10 +252,13 @@ _, txt, fi = _run(D, 'untagged_brim.gcode', L)
 check('L3 brim rule: a layer-1 loop without a successor gets the BRIM marker '
       '(the live interceptor switches to BRIM)',
       'APPLY_TYPE TYPE=BRIM' in txt, '')
-check('GAP brim bookkeeping: _brim153 re-tags ranges but never fstat - '
-      'TYPES= misses BRIM, so the LCD feature rows do not enable for a '
-      'derived brim (.135: update fstat in _brim153, then FLIP this check)',
-      'BRIM' not in fi)
+check('L3 brim bookkeeping (.135): the re-tag MOVES the fstat booking - '
+      'TYPES= carries BRIM, the LCD feature rows enable for derived brims '
+      '(the .134 field gap, fixed by _fmove192)',
+      'BRIM' in fi, fi[:90])
+check('L3 brim bookkeeping: WALL-OUTER survives for the continuing wall '
+      '(the booking moved away, not the whole feature)',
+      'WALL-OUTER' in fi, fi[:90])
 
 # support: detached hatch component printing FIRST, above the brim layers
 L = _hdr()
@@ -288,9 +295,20 @@ from r2_postproc import make_labels  # noqa: E402
 
 DL = tempfile.mkdtemp(prefix='r190_gen_')
 out, info = make_labels(['R2'], w=50.0, h=15.0, base_layers=4, text_layers=2,
-                        layer_h=0.2, ironing=True, out_dir=DL)
+                        layer_h=0.2, ironing=True, color2=True, out_dir=DL)
 gtxt = open(out).read()
 lines = gtxt.split('\n')
+# ---- .135 (R194): the purge tower is TAGGED as what it is -------------------
+_tfi = [l for l in lines if l.startswith('_FILE_INFO')][0]
+check('L5 purge tower (.135): 2-color job -> the tower is PRIME-TOWER '
+      '(TYPES= + markers; the LCD prime-tower row enables)',
+      'PRIME-TOWER' in _tfi and ';TYPE:Prime tower' in gtxt
+      and 'APPLY_TYPE TYPE=PRIME-TOWER' in gtxt, _tfi[:100])
+check('L5 purge tower: the tower body is ONE feature (no WALL/INFILL '
+      'markers inside the PURGE_TOWER block)',
+      gtxt.count(';TYPE:Prime tower') == gtxt.count('APPLY_TYPE TYPE=PRIME-TOWER')
+      and 'EXCLUDE_OBJECT_START NAME=PURGE_TOWER' in gtxt, '')
+
 
 
 def _feature_sequence(text):
@@ -313,6 +331,10 @@ def _feature_sequence(text):
 
 
 seq = _feature_sequence(gtxt)
+check('L5 purge tower: PRIME-TOWER appears in the stream (with BRIM on '
+      'layer 1) and the whole file is SEQWARN-free',
+      any(f == 'PRIME-TOWER' for (_n, f) in seq)
+      and 'SEQWARN=' not in gtxt, '')
 brim_layers = [n for n, f in seq if f == 'BRIM']
 iron_first = min([n for n, f in seq if f == 'IRONING'], default=None)
 top_first = min([n for n, f in seq if f == 'SURFACE-TOP'], default=None)
@@ -328,6 +350,19 @@ _bad_top = [seq[i + 1] for i in range(len(seq) - 1)
 check('L5 labels: after a TOP surface solid infill never follows '
       '(at most ironing - the impossibility rule)',
       not _bad_top, 'violations %r' % _bad_top[:2])
+# .135 user correction: ironing may follow ANY top (mid-layer included) -
+# the generator file must be sequence-clean overall
+check('L5 labels: SEQWARN-free (ironing after mid-layer tops is LEGAL '
+      '- the corrected rule; layer-1 solid is BOTTOM, brim in the window)',
+      'SEQWARN=' not in gtxt, '')
+# ironing really appears AFTER tops in the labels file (not before any)
+_tops193 = [n for n, f in seq if f == 'SURFACE-TOP']
+_ions193 = [n for n, f in seq if f == 'IRONING']
+check('L5 labels: every ironing layer has a top surface before it in the '
+      'same layer (S2, corrected: ANY top, not only the last)',
+      all(any(n == t for t in _tops193) for n in _ions193)
+      and bool(_ions193), 'iron layers %r top layers %r'
+      % (sorted(set(_ions193))[:4], sorted(set(_tops193))[:4]))
 
 # =================== GAP: documented, conscious ===============================
 p_gap = os.path.join(D, 'bambu_feature.gcode')
@@ -341,16 +376,74 @@ for i in range(1, 4):
 L.insert(6, ';FEATURE:Wall outer')
 open(p_gap, 'w').write('\n'.join(L) + '\n')
 mod.process(p_gap)
-fi_gap = [l for l in open(p_gap).read().split('\n')
+txt_gap = open(p_gap).read()
+fi_gap = [l for l in txt_gap.split('\n')
           if l.startswith('_FILE_INFO')][0]
-check('GAP Bambu ;FEATURE: not read today - DERIVED path takes over '
-      '(.135: extend TYPE_RE, then FLIP this check)',
-      'DERIVED=1' in fi_gap and 'WALL-OUTER' in fi_gap, fi_gap[:90])
+check('Bambu ;FEATURE: read like ;TYPE: (.135 TYPE_RE extension) - tagged, '
+      'not derived, canon applied',
+      'DERIVED=1' not in fi_gap and 'WALL-OUTER' in fi_gap
+      and 'APPLY_TYPE TYPE=WALL-OUTER' in txt_gap, fi_gap[:90])
+check('Bambu ;FEATURE: an unknown vocabulary still falls to CUSTOM '
+      '(honesty preserved through the new regex)',
+      _canon_type('frobnicate zone') == 'CUSTOM')
 
-# bridges are never guessed on import (documented limit)
-check('GAP bridges: import classifier does not guess BRIDGE (needs the layer '
-      'below - .135 design, r167 covers the generators)',
-      'BRIDGE' not in fi_gap)
+# ---- .135 stage 5a: the cross-layer AIR SCAN finds the bridge deck ----------
+p_deck = os.path.join(D, 'deck_bridge.gcode')
+L = _hdr()
+for i in range(1, 7):
+    blocks = [(None, _square(30, 40, 44, 56)), (None, _square(66, 40, 80, 56))]
+    if i == 4:
+        blocks.append((None, _hatch(44, 42, 66, 54, 2)))   # deck over air
+    if i == 6:
+        blocks.append((None, _hatch(31, 41, 79, 55, 2)))   # last layer top
+    L += _layer(0.2 * i, blocks)
+L += ['M107', 'PRINT_END']
+summ, txt_d, fi_d = _run(D, 'deck_bridge.gcode', L)
+check('L3 air scan (.135): dense hatch over a void = BRIDGE '
+      '(anchored deck, outside any loop)',
+      'TYPES=' in fi_d and 'BRIDGE' in fi_d.split('TYPES=')[1].split()[0]
+      and 'APPLY_TYPE TYPE=BRIDGE' in txt_d, fi_d[:90])
+
+# solid over sparse below must NOT flip (the normal top-skin case)
+p_skin = os.path.join(D, 'skin_over_sparse.gcode')
+L = _hdr()
+for i in range(1, 6):
+    blocks = [(None, _square(30, 40, 80, 90))]
+    if i < 5:
+        blocks.append((None, _hatch(32, 42, 78, 88, 4)))   # sparse below
+    else:
+        blocks.append((None, _hatch(32, 42, 78, 88, 2)))   # dense top skin
+    L += _layer(0.2 * i, blocks)
+L += ['M107', 'PRINT_END']
+summ, txt_s, fi_s = _run(D, 'skin_over_sparse.gcode', L)
+check('L3 air scan: dense over SPARSE below stays SURFACE-TOP '
+      '(material below counts - no false bridge)',
+      'BRIDGE' not in fi_s.split('TYPES=')[1].split()[0]
+      and 'SURFACE-TOP' in fi_s, fi_s[:90])
+
+# ---- .135 stage 5b: the SEQUENCE audit (impossibility rules S1-S4) -----------
+p_seq = os.path.join(D, 'seq_violation.gcode')
+L = _hdr()
+L += _layer(0.2, [('Ironing', _hatch(40, 40, 80, 80, 2))])          # S1+S2
+L += _layer(0.4, [('Outer wall', _square(40, 40, 80, 80)),
+                  ('Top surface', _hatch(41, 41, 79, 79, 4)),
+                  ('Ironing', _hatch(42, 42, 78, 78, 4))])           # legal
+L += _layer(0.6, [('Brim', _square(35, 35, 85, 85)),
+                  ('Outer wall', _square(40, 40, 80, 80))])          # S3 (layer 3? nein: ok)
+L += _layer(2.0, [('Brim', _square(35, 35, 85, 85)),
+                  ('Outer wall', _square(40, 40, 80, 80))])          # S3
+L += ['M107', 'PRINT_END']
+summ, txt_q, fi_q = _run(D, 'seq_violation.gcode', L)
+check('L5 sequence audit (.135): impossible stream flags SEQWARN '
+      '(ironing on layer 1, without a top; brim beyond the window)',
+      'SEQWARN=' in fi_q and int(fi_q.split('SEQWARN=')[1].split()[0]) >= 2,
+      fi_q[:90])
+_w193 = summ.get('seq_warn') or []
+check('L5 sequence audit: the NAMED rules match the fixture '
+      '(S1+S2 from layer-1 ironing, S3 from the late brim)',
+      any(w.startswith('S1') for w in _w193)
+      and any(w.startswith('S2') for w in _w193)
+      and any(w.startswith('S3') for w in _w193), str(_w193)[:100])
 
 # =================== summary =================================================
 print()

@@ -3910,7 +3910,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.133) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-28.134'", repr(_v66)))
+    _v66 == "'R2-2026-10-29.135'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -4484,7 +4484,10 @@ _el72 = [l for l in _tx72.split('\n') if l.startswith('G1 X') and ' E' in l]
 _bad72 = [l for l in _el72 if float(l.split(' E')[1].split()[0]) <= 0]
 _ty72 = [l for l in _tx72.split('\n') if l.startswith(';TYPE:')]
 tests.append(('R72 label text: solid strokes (many E-lines, walls + fill types, E>0)',
-    len(_el72) > 60 and any('Internal solid infill' in _t for _t in _ty72)
+    # .135 (R194): the purge tower after the filament change is ONE
+    # PRIME-TOWER feature now (was Outer/Inner/Internal solid infill);
+    # the raised text itself stays Outer wall (R106)
+    len(_el72) > 60 and any('Prime tower' in _t for _t in _ty72)
     and any(_t.endswith('Outer wall') for _t in _ty72) and not _bad72,
     'lines=%d types=%d bad=%d' % (len(_el72), len(_ty72), len(_bad72))))
 
@@ -11142,7 +11145,7 @@ import hashlib as _hl119
 import math as _math119
 import re as _re119
 _D119 = tempfile.mkdtemp(prefix='r119_')
-_MD5_120 = '9e02cae6abe3d0db8018de018967a04e'   # re-frozen R184 (.131c field round): the brim air gap now covers EVERY generator (the label file's PURGE TOWER brim moved out too). R183 had the label base brim only. Everything else identical to the R167 freeze.
+_MD5_120 = 'c9ec8922c1543c7132c830f79b0c0d85'   # re-frozen .135 (R194): the purge tower is ONE PRIME-TOWER feature now (was Outer/Inner/Internal solid infill markers per tower layer) + the tower brim carries APPLY_TYPE TYPE=BRIM. Diff verified against the .134 module (commit 7014f69): ONLY tower marker lines and the _FILE_INFO TYPES= (+PRIME-TOWER) changed - geometry/speeds byte-identical. R184 before that: brim air gap everywhere.
 
 def _labpts119(path, li):
     _t = open(path).read()
@@ -16498,16 +16501,16 @@ import os as _os185b
 _m185 = open(_os185b.path.join(_os185b.path.dirname(_os185b.path.abspath(__file__)),
                                '..', 'MANUAL.md'), encoding='utf-8').read()
 tests.append(('R185 current-only manual: no version-history appendix, no era '
-    'annotations, nine fonts + .133 version line documented (changelog = README)',
+    'annotations, nine fonts + current version line documented (changelog = README)',
     '## Appendix D' not in _m185 and 'Version history' not in _m185
     and _re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185) is None
     and _re2.search(r'\bR1[0-9][0-9]\b', _m185) is None
-    and 'The nine fonts' in _m185 and 'R2-2026-10-28.134' in _m185,
+    and 'The nine fonts' in _m185 and 'R2-2026-10-29.135' in _m185,
     'appendixD=%s eratags=%s rtags=%s nine=%s v132=%s' % (
         '## Appendix D' in _m185,
         bool(_re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185)),
         bool(_re2.search(r'\bR1[0-9][0-9]\b', _m185)),
-        'The nine fonts' in _m185, 'R2-2026-10-28.134' in _m185)))
+        'The nine fonts' in _m185, 'R2-2026-10-29.135' in _m185)))
 
 # ================== R184 (.131c field round): the brim air gap EVERYWHERE ==
 # The user asked: does the brim fusing hit our OTHER generators too? Measured

@@ -76,8 +76,8 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-10-28.134'
-POSTPROC_BUILD = 'R187'
+POSTPROC_RELEASE = 'R2-2026-10-29.135'
+POSTPROC_BUILD = 'R197'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
 # and no speed/accel/nozzle parameters. Files carrying an OLD tag are UPGRADED
@@ -114,7 +114,13 @@ PARAM_RE = re.compile(r'([A-Za-z])\s*([-+]?\d*\.?\d+)')
 # EVERY file now - the marker does not need the R2 slicer script anymore.
 # R143 (audit F3): '\s*' before the colon too - the travel-acc pass (typ_re)
 # already tolerated ';TYPE : X'; now both regexes share one truth.
-TYPE_RE = re.compile(r'^\s*;\s*TYPE\s*:\s*(.+?)\s*$', re.IGNORECASE)
+# R191 (.135): Bambu Studio files carry ';FEATURE:' instead of ';TYPE:'
+# (field evidence: ';FEATURE: Sparse infill', ';FEATURE: Wall outer') -
+# same grammar, same map. Every consumer below reads both spellings now;
+# unknown Bambu vocab still falls through the ladder to CUSTOM (counted,
+# explained) instead of silently inheriting the previous feature.
+TYPE_RE = re.compile(r'^\s*;\s*(?:TYPE|FEATURE)\s*:\s*(.+?)\s*$',
+                     re.IGNORECASE)
 TYPE_MAP = {
     'outer wall': 'WALL-OUTER',
     'inner wall': 'WALL-INNER',
@@ -228,7 +234,13 @@ def _canon_type(raw):
     _pl180 = ('walls', 'shells', 'perimeters', 'contours', 'outlines',
               'loops', 'infills', 'fills', 'skins', 'surfaces', 'towers',
               'bridges', 'brims', 'skirts', 'gaps', 'tops', 'bottoms')
-    kts = {(w[:-1] if w in _pl180 else w) for w in kt}
+    _sing191 = {p: p[:-1] for p in _pl180}
+    # R191 (.135): light stemming for the -ing forms the field actually
+    # produced - 'ironing pass' carries the token 'ironing', the ladder
+    # only knows 'iron'. Whitelist, not a blind suffix cutter ('missing'
+    # must never become 'miss'); anything unknown stays CUSTOM by design.
+    _sing191['ironing'] = 'iron'
+    kts = {_sing191.get(w, w) for w in kt}
     if 'iron' in kts:
         return 'IRONING'
     if 'tower' in kts:
@@ -273,6 +285,53 @@ def _canon_type(raw):
     if 'bottom' in kts:
         return 'SURFACE-BOTTOM'
     return 'CUSTOM'
+
+
+# ---- R193 (.135) stage 5: the SEQUENCE rules (impossibility audit) ----------------
+# The user's derivation directive: derive the correct feature by elimination,
+# against documented slicer behavior. These are the HARD rules - a violation
+# is not re-tagged (tagged data rules, CUSTOM stays honest), it is COUNTED
+# and named so the file info says what is impossible about the stream:
+#   S1  IRONING never on layer 1 (nothing to iron, the ironing pass rides
+#       ON a top surface - and layer 1 has no top below it in the same file)
+#   S2  IRONING follows a SURFACE-TOP - ANY top, mid-layer included (user
+#       correction of the first draft: ironing may smooth EVERY deck
+#       surface, not just the last one of the layer) - so at least one
+#       SURFACE-TOP must precede it in the SAME layer
+#   S3  BRIM lives in the first layers only (the field rule: brim window
+#       of three layers - the same patience _brim153 grants)
+#   S4  layer-1 solid is BOTTOM, never a top surface (nothing is below
+#       layer 1 that could be topped)
+# Soft, NOT audited (pure settings, no rule): wall order (inner/outer),
+# infill before/after walls, support interface style, tower timing.
+_SEQ_WARN_MAX = 5
+
+
+def _sequence_audit193(events):
+    """events: ordered [(layer_no, feature)] - the feature stream of a file
+    (tagged stream from the ;TYPE:/;FEATURE: pass, or the derived stream of
+    the geometry classifier - never both, the worlds stay unmixed).
+    Returns a list of short violation strings (capped at _SEQ_WARN_MAX)."""
+    if not events:
+        return []
+    warns = []
+    top_seen = set()          # layers that already printed a SURFACE-TOP
+    for (ln, feat) in events:
+        if feat == 'SURFACE-TOP':
+            top_seen.add(ln)
+        elif feat == 'IRONING':
+            if ln <= 1 and 'S1 ironing on layer 1' not in warns:
+                warns.append('S1 ironing on layer 1')
+            if ln not in top_seen and 'S2 ironing without a top before it' \
+                    not in warns:
+                warns.append('S2 ironing without a top before it')
+        elif feat == 'BRIM':
+            if ln > 3 and 'S3 brim beyond the brim window' not in warns:
+                warns.append('S3 brim beyond the brim window')
+    # S4 separately - the event above already recorded the top
+    if any(ln <= 1 and f == 'SURFACE-TOP' for (ln, f) in events):
+        warns.append('S4 top surface on layer 1')
+    return warns[:_SEQ_WARN_MAX]
 
 
 # ---- slicer config header keys (OrcaSlicer / PrusaSlicer '; key = value') ---------
@@ -6084,13 +6143,23 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
     a('; wall_loops = 2')
     # R73: the file info line goes in DIRECTLY (no re-parse through process()
     # - half the generation time on slow hosts; the TAG above makes the scan skip)
-    types = ['WALL-OUTER', 'WALL-INNER', 'INFILL-SOLID']
+    # R197 (.135): TYPES= stays HONEST under clamping - base_layers < 3
+    # has no mid layers, so no INFILL-SOLID is ever printed (the sweep
+    # caught the clamped base_layers=-3 claiming a feature that never
+    # appears; same class as the .134 brim gap: a TYPES= entry with no
+    # material enables LCD rows that can do nothing)
+    types = ['WALL-OUTER', 'WALL-INNER']
+    if base_layers >= 3:
+        types.append('INFILL-SOLID')
     if sparse_mid > 0:
         # R119: the tall-base sparse band is its own feature
         types.append('SPARSE-INFILL')
     if fit168 is not None:
         # R168: the stamp socket ceiling is a declared bridge
         types += ['BRIDGE', 'INTERNAL-BRIDGE']
+    if tower:
+        # R194 (.135): the purge tower is tagged PRIME-TOWER now
+        types.append('PRIME-TOWER')
     types.append('SURFACE-BOTTOM')
     if brim:
         types.insert(0, 'BRIM')
@@ -6305,6 +6374,15 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
         x1, y1 = tower[0] + tw - wid / 2.0, tower[1] + tw - wid / 2.0
         e_wall = layer_h_eff(layer_idx) * wid / fil
         L.append('EXCLUDE_OBJECT_START NAME=PURGE_TOWER')
+        # R194 (.135, user request): the purge tower is TAGGED as what it
+        # is - PRIME-TOWER, one feature for the whole body (R73 lesson:
+        # few APPLY_TYPE boundaries, and per-feature speed tuning of a
+        # disposable tower is meaningless). The brim keeps its own BRIM
+        # tag (it IS a brim), so TYPES= gains PRIME-TOWER and the LCD
+        # prime-tower row enables. No manual APPLY_TYPE here - the R73
+        # pass below derives it from every ;TYPE: line (doubling it up
+        # would push two live markers per boundary).
+        L.append(';TYPE:Prime tower')
         if prime:
             # after the filament change: push the new color and wipe on the tower
             pen.travel(tower[0] + 1.5, tower[1] + tw - 1.5)
@@ -6313,15 +6391,14 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
             pen.extrude(tower[0] + 1.5, tower[1] + tw - 1.5, (tw - 3.0) * 0.1, 1320)
         if first and brim:
             L.append(';TYPE:Brim')
+            L.append('APPLY_TYPE TYPE=BRIM')
             for off in (_brim_gap(wid) + wid, _brim_gap(wid)):
                 b = (tower[0] - off, tower[1] - off, tower[0] + tw + off, tower[1] + tw + off)
                 _emit_loop(pen, _rect_loop(*b), e_wall, 1500)
-        L.append(';TYPE:Outer wall')
+            L.append(';TYPE:Prime tower')
         _emit_loop(pen, _rect_loop(x0, y0, x1, y1), e_wall, 1500 if first else 2400)
-        L.append(';TYPE:Inner wall')
         _emit_loop(pen, _rect_loop(x0 + wid, y0 + wid, x1 - wid, y1 - wid), e_wall,
                    1500 if first else 2700)
-        L.append(';TYPE:Internal solid infill')
         segs = _hatch(x0 + wid + 0.1, y0 + wid + 0.1, x1 - wid - 0.1, y1 - wid - 0.1,
                       None, wid, 45.0 if layer_idx % 2 else 135.0)
         _emit_fill(pen, segs, e_wall, 1500 if first else 2700, wid)
@@ -9343,8 +9420,13 @@ def make_cable_ties(count=6, length=120.0, width=8.0, layers=3, variant='CLASSIC
     # R99 (field log .75): _FILE_INFO + TYPES - generated files carry TAG, so
     # the watcher scan never adds them; without TYPES the Pre-Print file info
     # and the feature activators stay empty for generated files
+    # R197 (.135): TYPES= stays honest per VARIANT - LOOP prints walls +
+    # infill only, the horizontal surfaces exist in CLASSIC alone (the
+    # sweep caught the stale list: TYPES= entries without material enable
+    # LCD rows that can do nothing)
     types_t99 = (['BRIM'] if brim else []) + ['WALL-OUTER', 'WALL-INNER',
-                  'INFILL-SOLID', 'SURFACE-BOTTOM', 'SURFACE-TOP']
+                  'INFILL-SOLID'] + (
+        ['SURFACE-BOTTOM', 'SURFACE-TOP'] if variant == 'CLASSIC' else [])
     hdr.append('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d LINE_WIDTH=%.2g '
                'LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g FLOW_RATIO=1 NOZZLE=%.1f '
                'WALL_LOOPS=2 SPEED_OUTER=40 SPEED_INNER=30 SPEED_SOLID=45 SPEED_FIRST=25 '
@@ -11965,7 +12047,10 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
         if ironing:
             a('; ironing_speed = 25')
             a('; ironing_flow = 0.15')
-        types = ['WALL-OUTER', 'WALL-INNER', 'SURFACE-BOTTOM', 'INFILL-SOLID',
+        # R197 (.135): WALL-INNER removed - the flat litho prints outer
+        # walls + hatch, never an inner wall pair (TYPES= must not claim
+        # material that never appears)
+        types = ['WALL-OUTER', 'SURFACE-BOTTOM', 'INFILL-SOLID',
                  'SURFACE-TOP']
         if brim_loops:
             types.insert(0, 'BRIM')
@@ -12006,6 +12091,10 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
             tx0, ty0 = tower[0] + wid / 2.0, tower[1] + wid / 2.0
             tx1, ty1 = tower[0] + tw - wid / 2.0, tower[1] + tw - wid / 2.0
             a('EXCLUDE_OBJECT_START NAME=PURGE_TOWER')
+            # R194 (.135): the purge tower is its own feature - PRIME-TOWER
+            # for the whole body, BRIM keeps its own tag on layer 1
+            a(';TYPE:Prime tower')
+            a('APPLY_TYPE TYPE=PRIME-TOWER')
             if prime:
                 # push the new color and wipe on the tower
                 pen.travel(tower[0] + 1.5, tower[1] + tw - 1.5)
@@ -12022,12 +12111,10 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                                                tower[0] + tw + off,
                                                tower[1] + tw + off),
                                e_wall, 900)
-            a(';TYPE:Outer wall')
-            a('APPLY_TYPE TYPE=WALL-OUTER')
+                a(';TYPE:Prime tower')
+                a('APPLY_TYPE TYPE=PRIME-TOWER')
             _emit_loop(pen, _rect_loop(tx0, ty0, tx1, ty1), e_wall,
                        900 if li == 1 else 1800)
-            a(';TYPE:Internal solid infill')
-            a('APPLY_TYPE TYPE=INFILL-SOLID')
             segs = _hatch(tx0 + wid + 0.1, ty0 + wid + 0.1,
                           tx1 - wid - 0.1, ty1 - wid - 0.1,
                           None, wid, 45.0 if li % 2 else 135.0)
@@ -15181,7 +15268,7 @@ def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
         a('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d LINE_WIDTH=%.2g '
           'LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g FLOW_RATIO=1 NOZZLE=%.1f '
           'WALL_LOOPS=1 SPEED_OUTER=40 SPEED_FIRST=25 SPEED_TRAVEL=150%s '
-          'TYPES=WALL-OUTER,WALL-INNER,INFILL-SOLID,SURFACE-BOTTOM,SURFACE-TOP%s '
+          'TYPES=WALL-OUTER,INFILL-SOLID,SURFACE-BOTTOM,SURFACE-TOP%s '
           'BY_OBJECT=0'
           % (material, layer_h, total_layers, wid, wid, wid, nozzle,
              ' IRONING_SPEED=30' if ironing else '',
@@ -15233,8 +15320,12 @@ def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
             pen.set_z(z)
             if tower:
                 # R128: the tower prints on every layer and takes the prime
-                # + wipe right after every filament change
+                # + wipe right after every filament change.
+                # R194 (.135): tagged as PRIME-TOWER (user request) - one
+                # feature for the body, the brim keeps its own BRIM tag
                 a('EXCLUDE_OBJECT_START NAME=PURGE_TOWER')
+                a(';TYPE:Prime tower')
+                a('APPLY_TYPE TYPE=PRIME-TOWER')
                 if _swap120:
                     pen.travel(tower[0] + 1.5, tower[1] + tw - 1.5)
                     pen.push(4.0, 180)
@@ -15251,15 +15342,13 @@ def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
                                                    tower[0] + tw + off,
                                                    tower[1] + tw + off),
                                    e_wall, 900)
-                a(';TYPE:Outer wall')
-                a('APPLY_TYPE TYPE=WALL-OUTER')
+                    a(';TYPE:Prime tower')
+                    a('APPLY_TYPE TYPE=PRIME-TOWER')
                 _emit_loop(pen, _rect_loop(tower[0] + wid / 2.0,
                                            tower[1] + wid / 2.0,
                                            tower[0] + tw - wid / 2.0,
                                            tower[1] + tw - wid / 2.0),
                            e_wall, 900 if li == 1 else 1800)
-                a(';TYPE:Internal solid infill')
-                a('APPLY_TYPE TYPE=INFILL-SOLID')
                 tsegs = _hatch(tower[0] + wid + 0.1, tower[1] + wid + 0.1,
                                tower[0] + tw - wid - 0.1,
                                tower[1] + tw - wid - 0.1,
@@ -15425,7 +15514,8 @@ def make_seal(od=40.0, id_=20.0, height=1.2, profile='FLAT', ironing=False,
     if ironing:
         a('; ironing_speed = 25')
         a('; ironing_flow = 0.15')
-    types = ['INFILL-SOLID', 'SURFACE-BOTTOM', 'SURFACE-TOP'] + (['IRONING'] if ironing else [])
+    types = ['INFILL-SOLID', 'SURFACE-BOTTOM', 'SURFACE-TOP'] + (
+        ['IRONING'] if ironing else [])
     a('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d LINE_WIDTH=%.2g '
       'LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g FLOW_RATIO=1 NOZZLE=%.1f '
       'WALL_LOOPS=2 SPEED_SOLID=15 SPEED_FIRST=10 SPEED_TRAVEL=120%s TYPES=%s BY_OBJECT=0'
@@ -16679,6 +16769,7 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
     count_marks = 0
     cfg = {}
     comment_matches = []     # (idx, line) of LAYER_COMMENT hits - kept small
+    tagged_seq193 = []      # R193: (layer, feature) of the tagged stream
     zs_fall = []             # ;Z: comment values (by-object proof)
     zre = re.compile(r'^\s*;\s*Z\s*:\s*(-?\d*\.?\d+)', re.IGNORECASE)
     first_cmd_idx = None     # first command line - filtered world (upgrade case)
@@ -16821,6 +16912,10 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
                 geom.mark_type(feat_here, (i, j))
                 if feat_here == 'CUSTOM':
                     custom_blocks += 1
+                # R193 (.135) stage 5: the tagged feature stream, in order,
+                # for the sequence audit (impossibility rules S1-S4)
+                tagged_seq193.append((max(1, len(comment_matches)),
+                                      feat_here))
             # ---- 4c) per-feature measurement (.44) -----------------------------------
             if feat_here:
                 _close_seg()
@@ -16964,6 +17059,19 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
 
     type_at = {_aw(p): feat for p, feat in type_at.items()}   # -> apply world
     summary['types'] = len(type_at)
+
+    # R193 (.135) stage 5b: the SEQUENCE audit - impossibility rules S1-S4
+    # over the feature stream (tagged ;TYPE:/;FEATURE: stream first, else
+    # the derived classifier stream - the worlds are never mixed). A
+    # violation never re-tags (tagged data rules), it is counted and named.
+    _seq193 = _sequence_audit193(tagged_seq193 or geom.seq193)
+    if _seq193:
+        summary['seq_warn'] = _seq193
+        # single token (the _FILE_INFO/shlex parser rule) - the names live
+        # in the daemon log line below and in summary['seq_warn']
+        info.append('SEQWARN=%d' % len(_seq193))
+        print('[seqaudit] %s: %s' % (os.path.basename(path),
+                                     '; '.join(_seq193)), flush=True)
 
     # .44: the REAL originals (measured) + which features the file contains
     for canon in feat_stats:
@@ -17407,6 +17515,8 @@ class _GeomScan:
         self._vz153 = None
         self._l1_outers = None    # R153: layer-1 wall loops (brim matching)
         self._l1_inners = None    # R153: ...and inner loops (promotion)
+        self.seq193 = []          # R193: derived feature stream (audit)
+        self._prev_grid = None    # R193: previous layer bitmap (air scan)
         self.cls_len = 0.0
         self.tot_len = 0.0
         self.layers_classified = 0
@@ -17609,6 +17719,7 @@ class _GeomScan:
                 if _ch < 1.0 and plen > 3.0:
                     _vbbs.append(self._area_bbox(pts)[1])
             self._brim153(_vbbs)
+            self._seq_add(self.layers_classified + 1, 'WALL-OUTER')
             self.layers_classified += 1
             return
         first_layer = (self.layers_classified == 0)
@@ -17715,6 +17826,7 @@ class _GeomScan:
             self.fstat[feat][round(speed, 1)] = \
                 self.fstat[feat].get(round(speed, 1), 0) + len(pts) - 1
             self.cls_len += plen
+            self._seq_add(layer_no, feat)
             if first_layer and feat in ('WALL-OUTER', 'WALL-INNER'):
                 # R153: remember layer-1 wall loops - a BRIM is a layer-1
                 # WALL-OUTER loop with NO successor (walls continue, brim
@@ -17722,13 +17834,17 @@ class _GeomScan:
                 # a layer-1 hole boundary is also 'WALL-OUTER' now, but it
                 # is no brim; and the ring is watched for at most three
                 # successor layers (see _brim153).
+                # R192 (.135): the loop's fstat booking (speed, moves) rides
+                # along - _brim153 re-tags ranges AND moves the booking now
+                # (the .134 field gap: TYPES= lost BRIM because only ranges
+                # were re-tagged, the LCD brim row never enabled).
                 if self._l1_outers is None:
                     self._l1_outers = []
                     self._l1_inners = []
                 if feat == 'WALL-OUTER' and not nesting_inner:
-                    self._l1_outers.append((ij, bb, 0))
+                    self._l1_outers.append((ij, bb, 0, speed, len(pts) - 1))
                 elif feat == 'WALL-INNER':
-                    self._l1_inners.append((ij, bb))
+                    self._l1_inners.append((ij, bb, speed, len(pts) - 1))
 
         # ---- R153 brim: layer-1 wall loops without a successor -----------------
         if not first_layer and self._l1_outers:
@@ -17750,6 +17866,7 @@ class _GeomScan:
                 self.fstat[feat][round(speed, 1)] = \
                     self.fstat[feat].get(round(speed, 1), 0) + len(pts) - 1
                 self.cls_len += plen
+                self._seq_add(layer_no, feat)
 
         # ---- hatch: >= 3 parallel straight lines with regular spacing ----------
         if hatches:
@@ -17773,6 +17890,14 @@ class _GeomScan:
                     feat = 'SURFACE-BOTTOM'
                 elif is_last and feat == 'INFILL-SOLID':
                     feat = 'SURFACE-TOP'
+                elif feat == 'INFILL-SOLID' and not buck[1]:
+                    # R193 (.135) stage 5a: dense MODEL hatch over a void -
+                    # the cross-layer air scan. Only DENSE candidates (a
+                    # sparse group floats by design - gradual infill), and
+                    # never support hatch. _airscan193 itself tolerates a
+                    # missing previous picture (None -> keep).
+                    feat = (self._airscan193(items, polys, self._prev_grid,
+                                             loops, layer_no) or feat)
                 for (_b, _o, ij, speed, plen, pi) in items:
                     f181 = 'SUPPORT' if pi in sup_set else feat
                     self.ranges.append((ij[0], ij[1], f181))
@@ -17780,6 +17905,126 @@ class _GeomScan:
                     self.fstat[f181][round(speed, 1)] = \
                         self.fstat[f181].get(round(speed, 1), 0) + 1
                     self.cls_len += plen
+                    self._seq_add(layer_no, f181)
+        # R193 (.135): the layer picture becomes 'the layer below' for the
+        # next call - the air scan compares against it (kept only when
+        # usable; an unusable bitmap never poisons the scan)
+        if grid.ok:
+            self._prev_grid = grid
+
+    def _seq_add(self, layer_no, feat):
+        """R193 (.135): derived feature stream for the sequence audit -
+        consecutive duplicates collapse, the audit reads (layer, feature)
+        order like the tagged stream."""
+        if self.seq193 and self.seq193[-1] == (layer_no, feat):
+            return
+        self.seq193.append((layer_no, feat))
+
+    def _airscan193(self, items, polys, prev, loops, layer_no):
+        """R193 (.135) stage 5a: the CROSS-LAYER AIR SCAN - bridging by
+        comparison with the layer below (the r167 cone rule, import side).
+
+        A DENSE hatch group (solid-infill candidate, not support, not the
+        first or last layer) whose region has (almost) NO ink on the
+        previous layer prints over a VOID - no slicer lays plain solid
+        infill over air, that span IS a bridge:
+          - anchored ends (the deck sits on material at both sides)
+            and outside every closed loop of the layer  -> BRIDGE
+          - inside a closed loop (void enclosed by the model) or with no
+            anchors at all                              -> INTERNAL-BRIDGE
+        Solid over SPARSE below (the normal top-skin-over-infill case) is
+        safe: even 5% areal ink coverage counts as material - only a true
+        void (walls bleed at most a cell strip into the bbox, < 3%) trips
+        the scan. Sparse groups never trip it (gradual infill floats by
+        design). Returns the replacement feature or None (keep)."""
+        if len(items) < 3 or prev is None or not prev.ok:
+            return None
+        # region bbox from the straight hatch lines' endpoints
+        bx0 = by0 = 1e30
+        bx1 = by1 = -1e30
+        for (_b, _o, _ij, _sp, _pl, pi) in items:
+            pts = polys[pi][2]
+            for (x, y) in (pts[0], pts[-1]):
+                bx0 = min(bx0, x)
+                bx1 = max(bx1, x)
+                by0 = min(by0, y)
+                by1 = max(by1, y)
+        if bx1 <= bx0 or by1 <= by0:
+            return None
+        cx0 = max(0, int((bx0 - prev.ox) / prev.CELL))
+        cx1 = min(prev.w - 1, int((bx1 - prev.ox) / prev.CELL))
+        cy0 = max(0, int((by0 - prev.oy) / prev.CELL))
+        cy1 = min(prev.h - 1, int((by1 - prev.oy) / prev.CELL))
+        if cx1 <= cx0 or cy1 <= cy0:
+            return None
+        # coarse lattice - the coverage estimate stays cheap on any bed
+        stride = max(1, int(((cx1 - cx0 + 1) * (cy1 - cy0 + 1)) ** 0.5 / 250))
+        cells = ink = 0
+        for cy in range(cy0, cy1 + 1, stride):
+            row = cy * prev.w
+            for cx in range(cx0, cx1 + 1, stride):
+                cells += 1
+                if prev.g[row + cx]:
+                    ink += 1
+        if not cells or ink / cells >= 0.03:
+            return None               # material below (sparse infill counts)
+        # endpoints grounded on the previous layer + mid-air fraction
+        def _grounded(x, y):
+            cx = int((x - prev.ox) / prev.CELL)
+            cy = int((y - prev.oy) / prev.CELL)
+            for dy in (-1, 0, 1):
+                for dx in (-1, 0, 1):
+                    nx, ny = cx + dx, cy + dy
+                    if (0 <= nx < prev.w and 0 <= ny < prev.h
+                            and prev.g[ny * prev.w + nx]):
+                        return True
+            return False
+        tot = air = g_ends = 0
+        for (_b, _o, _ij, _sp, _pl, pi) in items:
+            pts = polys[pi][2]
+            (x0, y0), (x1, y1) = pts[0], pts[-1]
+            if _grounded(x0, y0):
+                g_ends += 1
+            if _grounded(x1, y1):
+                g_ends += 1
+            sl = math.hypot(x1 - x0, y1 - y0)
+            n = max(1, int(sl / 1.2))
+            for q in range(n + 1):
+                t = q / n
+                tot += 1
+                if not _grounded(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t):
+                    air += 1
+        if tot and air / tot < 0.5:
+            return None
+        mx, my = (bx0 + bx1) / 2.0, (by0 + by1) / 2.0
+        inside = any(_pt_in_poly((mx, my), l_pts)
+                     for (_a, _bb, l_pts, _pl, _ij, _sp, _pi) in loops)
+        if g_ends >= 2 and not inside:
+            return 'BRIDGE'
+        return 'INTERNAL-BRIDGE'
+
+    def _fmove192(self, src, dst, speed, cnt):
+        """R192 (.135): move a loop's fstat booking when its range is
+        re-tagged. TYPES= is built FROM fstat (feat_stats), so a re-tag
+        that only rewrites ranges loses the feature entirely - the .134
+        field gap: derived brims re-tagged to BRIM but TYPES= kept saying
+        WALL-OUTER, the LCD brim row never enabled for them. Same class
+        as the .133 pre-print mismatch. Defensive on drift: books what the
+        loop really had, never a negative count."""
+        if cnt <= 0:
+            return
+        k = round(speed, 1)
+        take = cnt
+        d = self.fstat.get(src)
+        if d and d.get(k):
+            take = min(d[k], cnt)
+            d[k] -= take
+            if d[k] <= 0:
+                del d[k]
+            if not d:
+                del self.fstat[src]
+        self.fstat.setdefault(dst, {})
+        self.fstat[dst][k] = self.fstat[dst].get(k, 0) + take
 
     def _brim153(self, cur_bbs):
         """R153: a BRIM is a layer-1 outer wall loop with no successor on
@@ -17791,7 +18036,9 @@ class _GeomScan:
         layers - the user's field rule 'brim lives on the first three
         layers at most'. A ring that still exists three layers up is a
         WALL: a tapering model no longer mislabels its own layer-1 walls
-        as brim at whatever layer its silhouette shrinks."""
+        as brim at whatever layer its silhouette shrinks.
+        R192 (.135): every re-tag now ALSO moves the fstat booking
+        (_fmove192) - ranges and TYPES= can no longer disagree."""
         if not self._l1_outers:
             return
         _conv153 = 0
@@ -17804,16 +18051,18 @@ class _GeomScan:
             return False
 
         _keep153 = []
-        for (_ij153, _bb153, _chk153) in self._l1_outers:
+        for (_ij153, _bb153, _chk153, _sp153, _ct153) in self._l1_outers:
             if _has_succ153(_bb153):
                 if _chk153 + 1 < 3:
-                    _keep153.append((_ij153, _bb153, _chk153 + 1))
+                    _keep153.append((_ij153, _bb153, _chk153 + 1,
+                                     _sp153, _ct153))
                 continue
             for _ri in range(len(self.ranges)):
                 if (self.ranges[_ri][0] == _ij153[0]
                         and self.ranges[_ri][1] == _ij153[1]
                         and self.ranges[_ri][2] == 'WALL-OUTER'):
                     self.ranges[_ri] = (_ij153[0], _ij153[1], 'BRIM')
+                    self._fmove192('WALL-OUTER', 'BRIM', _sp153, _ct153)
                     _conv153 += 1
                     break
         self._l1_outers = _keep153
@@ -17821,8 +18070,9 @@ class _GeomScan:
             # the real outer wall sat NESTED inside the brim ring (it was
             # classified WALL-INNER) - promote the LARGEST layer-1 inner
             # loop that continues on layer 2 back to WALL-OUTER
-            _cand = [((bb[2] - bb[0]) * (bb[3] - bb[1]), ij, bb)
-                     for (ij, bb) in self._l1_inners if _has_succ153(bb)]
+            _cand = [((bb[2] - bb[0]) * (bb[3] - bb[1]), ij, bb, sp, ct)
+                     for (ij, bb, sp, ct) in self._l1_inners
+                     if _has_succ153(bb)]
             if _cand:
                 _cand.sort(key=lambda z: -z[0])
                 _ijp = _cand[0][1]
@@ -17831,6 +18081,8 @@ class _GeomScan:
                             and self.ranges[_ri][1] == _ijp[1]
                             and self.ranges[_ri][2] == 'WALL-INNER'):
                         self.ranges[_ri] = (_ijp[0], _ijp[1], 'WALL-OUTER')
+                        self._fmove192('WALL-INNER', 'WALL-OUTER',
+                                       _cand[0][3], _cand[0][4])
                         break
             self._l1_inners = None
 

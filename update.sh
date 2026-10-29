@@ -22,6 +22,13 @@
 #  Options:  --force      also unpack an OLDER zip (downgrade)
 #            --unpacked   internal flag (do not search for zips again)
 #
+#  R199 (.134 field report): the .134 update zip was built FLAT (no
+#  klipper-e3-r2d2/ top-level folder) - unpacking scattered macros/, tools/
+#  ... next to printer.cfg and the package itself stayed .133 ("after the
+#  update it still shows the old version"). update.sh now REFUSES a zip
+#  without the package folder BEFORE unpacking anything, and warns when it
+#  finds the remains of the flat .134 zip in the config folder.
+#
 #  R108: the update ALSO asks whether to KEEP or CHANGE the LED settings and
 #  the hardware profile (r2_hardware.cfg), shows the moonraker object-
 #  processing state with an offer to change it, and re-applies the LED
@@ -37,6 +44,15 @@ FORCE=0
 [ "${1:-}" = "--force" ] && FORCE=1
 
 echo "== R2 update helper =="
+
+# R199: list the entries of a zip (unzip when present, python3 fallback)
+zip_list() {
+    if command -v unzip >/dev/null 2>&1; then
+        unzip -Z1 "$1" 2>/dev/null
+    else
+        python3 -m zipfile -l "$1" 2>/dev/null | awk 'NR>2 {print $1}'
+    fi
+}
 
 CFG_DIR=""
 if [ -f "${CFG}" ]; then
@@ -134,6 +150,22 @@ if [ "${1:-}" != "--unpacked" ] && [ -n "${CFG_DIR}" ]; then
             echo "    to downgrade anyway:  bash \"${DIR}/update.sh\" --force"
         else
             [ "${OLDER}" -eq 1 ] && echo "[i] --force: unpacking the OLDER zip anyway"
+            # R199 (.134 field report): refuse FLAT zips BEFORE unpacking.
+            # A zip without the klipper-e3-r2d2/ top-level folder scatters
+            # macros/, tools/ ... next to printer.cfg while the package
+            # itself is NOT updated (stays on the old version) - exactly
+            # the ".134 shows as .133" field report.
+            FLAT=0
+            zip_list "${BEST}" | grep -q "^${PKG_REL}/macros/01_state.cfg$" || FLAT=1
+            zip_list "${BEST}" | grep -qv "^${PKG_REL}/" && FLAT=1
+            if [ "${FLAT}" -eq 1 ]; then
+                echo "[!] REFUSED: $(basename "${BEST}") has no ${PKG_REL}/ top-level folder"
+                echo "    (a flat zip would unpack macros/, tools/ ... next to your"
+                echo "     printer.cfg and the package would NOT be updated -"
+                echo "     that is the .134 zip bug: the LCD kept showing .133)"
+                echo "    Get a fixed zip; NOTHING was unpacked, nothing restarted."
+                exit 1
+            fi
             echo "[i] unpacking over ${CFG_DIR}/${PKG_REL} ..."
             OK=0
             if command -v unzip >/dev/null 2>&1; then
@@ -186,6 +218,21 @@ else
         echo "    then re-run this script."
         exit 1
     fi
+fi
+
+# --- 2b) R199: remains of the FLAT .134 zip in the config folder? ----------------------
+if [ -n "${CFG_DIR}" ] && [ -f "${CFG_DIR}/macros/01_state.cfg" ] \
+   && [ -f "${CFG_DIR}/${PKG_REL}/macros/01_state.cfg" ]; then
+    echo "[!] found macros/ directly in ${CFG_DIR} - remains of the FLAT .134"
+    echo "    update zip (that update never reached the package - this is why"
+    echo "    .134 kept showing as .133). After THIS update ran clean ([ok]),"
+    echo "    remove the strays (check first that nothing of YOURS lives there):"
+    echo "        cd ${CFG_DIR} && ls macros tools web menus 2>/dev/null"
+    echo "        rm -rf .github docs macros menus slicer tools"
+    echo "        rm -f .gitignore COMPATIBILITY.md DEVELOPMENT.md INSTALL.md ISHAPER.md"
+    echo "        rm -f LICENSE MANUAL.md MANUAL.pdf README.md TESTANLEITUNG.md"
+    echo "        rm -f printer.cfg.example setup.sh update.sh"
+    echo "    printer.cfg and variables.cfg are never part of a zip and stay untouched."
 fi
 
 # --- 3) version check ------------------------------------------------------------------

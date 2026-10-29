@@ -1,8 +1,8 @@
 # R2-D2 rundum: Displays, Drucker, Nozzles — und die Test-Stufen
 
-Stand: R2-2026-10-28.134 (Produktivcode unverändert seit dem Release-Commit 6af95c;
-dieser Bericht gehört zur Feature-Tagging-Runde — siehe **FEATURE_TAGGING.pdf** und
-**tools/r190_tag_ladder.py**).
+Stand: R2-2026-10-29.135 — **alles aus Abschnitt E ist GEBAUT** (R191–R197). Die
+ausführliche, grafische Fassung dieser Übersicht ist jetzt **DISPLAYS_WEB_UI.pdf**
+(built by tools/make_displays_pdf.py); diese MD bleibt die Arbeits-Kurzfassung.
 
 ---
 
@@ -40,7 +40,11 @@ Makros tragen `description:` und erscheinen damit in den Makro-Listen), aber sie
    Live-Jinja nachzubauen ist kein Wochenendprojekt — und die Nutzenseite ist
    dünn: Am Drucker steht das LCD, von der Couch steuert Mainsail.
 
-**Was stattdessen Sinn macht (.135+-Ideen, sortiert nach Aufwand):**
+**Update .135: der Mittel-Weg ist GEBAUT (R196)** - menu_json_export.py +
+web/r2_menu.py + web/index.html. Die Empfehlung selbst gilt unverändert: kein eigener
+Web-UI-Stack neben Mainsail, sondern die Menuestruktur als JSON exponieren und mit
+einer duennen LCD-artigen Seite navigieren. Installation und Grenzen:
+DISPLAYS_WEB_UI.pdf Kap. 2. - Die Liste von damals:
 
 - **Jetzt gleich, kostenlos:** in Mainsail die Makro-Sidebar kuratieren — die
   wichtigsten R2-Befehle (alle Generatoren, RetFix, SHOW_STATUS, PLOT_CAL …)
@@ -133,9 +137,12 @@ Bett-/Düsen-Kombinationen.
 | **Generatoren & Tools, sämtliche Variationen** | jede Parameterecke | in r140/r141/r187/megatest enthalten (Vollgitter) + r190-Generator-Audit (Sequenz-Regeln) + r91 (Textur-Sonderfälle: Vase, CRLF, M82, E-only, Kanten) + r110 (10 Installations-Szenarien) | 0 FAIL |
 | **Geometrie-Realität** | misst statt glaubt | r167 aircheck (Bett-45°-Kegel, Frame-Passung) · r168 stampcheck (19) · r111 geom (Bögen/Hops/Vasen) | 0 FAIL |
 
-*(Die Werte stammen aus der .134-Freigabe-Batterie; der Produktivcode ist seit dem
-Release-Commit unverändert — `git status` belegt es. Neu in dieser Runde: r190 + die
-beiden Dokumente.)*
+*(.135-Update: die Stufen laufen jetzt gebündelt über **tools/r198_tier_report.py**
+— ein Befehl, eine Tabelle pro Stufe, Exit-Code ist das Verdikt. .135-Gesamtbild:
+macro_render 1.910/1.910 · r140 46.757/0 · r141 2.372/0 · r187 1.356/0 · r190 32/0 ·
+r197_gen_sweep 403/0 · r81 23/23 (re-frozen auf ehrlichen Fixtures, .134≡.135
+byte-identisch verifiziert) · systemtest 214/0 · megatest 190/194/0 · audit_sweep
+82/0 · validator clean · r197b Menü-Export: 2.272 Sektionen, 0 Duplikate, 0 Waisen.)*
 
 ---
 
@@ -162,17 +169,39 @@ sprachen immer perfekt Klipper-Deutsch).
 
 ---
 
-## E  Offene Punkte für .135 (aus dieser Runde mitgebracht)
+## E  Die .135-Liste — ERLEDIGT (R191–R197)
 
-1. **BRIM-fstat-Fix** — `_brim153` (r2_postproc.py, ~:17789): beim Re-Taggen auch
-   `fstat` pflegen (WALL-OUTER → BRIM; bei der Promotion WALL-INNER → WALL-OUTER
-   dito), sonst fehlt BRIM in TYPES= für abgeleitete Dateien. Goldens prüfen.
-2. **Bambu `;FEATURE:`** — TYPE_RE um `;FEATURE:` erweitern (Ort: r2_postproc.py
-   :116). Die Eliminierungsleiter versteht den Inhalt sofort.
-3. **Ladder-Stemming** — Token `ironing` → `iron` (r190-GAP-Check deckt es).
-4. **Stufe 5 bauen** — Quer-Schicht-Luftscan im Import-Klassifikator (der
-   r167-Kegel existiert schon für Generatoren) + Sequenz-Regeln (Ironing nie
-   Schicht 1, nach Top kein Solid, Interface über Support-Körper, Prime-Tower
-   zuerst bei Toolwechsel). Der Layer-Puffer ist bereits da.
-5. **Peek-Härtung** — Pre-Print-Push bei Dialog-Öffnung erzwingen (Feature-
-   Mismatch-Forensik, Kap. 12 der FEATURE_TAGGING.pdf).
+1. **BRIM-fstat-Fix** — GEBAUT (R192): `_fmove192` verschiebt die fstat-Buchung mit,
+   wenn `_brim153` re-taggt (WALL-OUTER → BRIM und die WALL-INNER → WALL-OUTER-
+   Promotion). r190-GAP-Check geflippt: TYPES= trägt BRIM, LCD-Zeilen aktivieren.
+2. **Bambu `;FEATURE:`** — GEBAUT (R191): TYPE_RE liest beide Schreibweisen; die
+   Leiter versteht den Inhalt sofort; unbekannte Vokabeln bleiben ehrlich CUSTOM.
+3. **Ladder-Stemming** — GEBAUT (R191): Whitelist `ironing` → `iron` (kein blinder
+   -ing-Schnitt: „missing" wird nie zu „miss").
+4. **Stufe 5** — GEBAUT (R193): Quer-Schicht-Luftscan `_airscan193` (dichtes Hatch
+   über Leertrum → BRIDGE/INTERNAL-BRIDGE; dicht über SPARSE bleibt Surface/Solid) +
+   Sequenz-Audit S1–S4 als SEQWARN (Flag-only — getaggte Daten herrschen). Ironing-
+   Regel nach Nutzerkorrektur: Ironing darf auf JEDES Top folgen, nicht nur das letzte.
+5. **Peek-Härtung** — GEBAUT (R195): `_DIALOG_PEEK` an allen 4 Dialog-Öffnern — der
+   Dialog selbst erzwingt den frischen Peek-Push (Nonce über den bestehenden Watcher).
+6. **Purge-Tower-Tagging** — GEBAUT (R194, Nutzerwunsch): Labels/Litho/Colorpic
+   drucken den Turm als EIN PRIME-TOWER-Feature (Turm-Brim bleibt BRIM), TYPES=
+   ehrlich mit/ohne PRIME-TOWER.
+7. **Web-UI** — GEBAUT (R196): tools/menu_json_export.py + web/r2_menu.py (Moonraker:
+   /server/r2_menu/tree|status|refresh) + web/index.html (LCD-Navigation, eingebettetes
+   JSON als Fallback). Details + Installation: DISPLAYS_WEB_UI.pdf Kap. 2.
+
+**R199 (Feldmeldung dieser Runde):** „die .134 wird nach dem Update nur als .133
+angezeigt" — das .134-Zip war flach gebaut (kein `klipper-e3-r2d2/`-Ordner),
+`update.sh` entpackte es neben die printer.cfg, das Paket blieb .133. update.sh
+lehnt flache Zips jetzt VOR dem Entpacken ab, warnt mit Aufräum-Liste vor den
+Leichen, das .134-Zip wurde korrekt neu gebaut, und **r199_zip_check** prüft
+das Release-Artefakt selbst (Layout + Versionen) — plus Ablehn-Szenario in r110.
+
+**Dazu aus dem Sweep gefallen (R197):** TYPES=-Ehrlichkeit unter Klemmung (Labels
+base_layers<3), Ties-LOOP ohne Surfaces, Litho-Flat/Colorpic ohne WALL-INNER — alle
+gefixt; **4 Menü-Zombies** `[menu __main __live __feat __ow]` entfernt (Kopierfehler:
+der Live-Punkt „Outer Wall" hieß im LCD „Custom Code"); r2_menu-Refresh-Deadlock
+(Lock im Lock) behoben. Neue Testwerkzeuge: **r197_gen_sweep.py** (403 Checks:
+alle Generatoren × Parameter + Tool-Oberfläche) und **r198_tier_report.py**
+(Stufen-Runner normal/power/developer/hardcore/stress/function).
