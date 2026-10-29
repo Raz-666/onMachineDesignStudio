@@ -1,4 +1,4 @@
-# r2_menu.py - Moonraker extension: the R2 menu tree as JSON (.136b, R203:
+# r2_menu.py - Moonraker extension: the R2 menu tree as JSON (.136c, R204:
 # adds /server/r2_menu/live - the pruned printer snapshot for live values)
 # ============================================================================
 #  INSTALL (one time):
@@ -13,13 +13,19 @@
 #    GET /server/r2_menu/tree      -> the exported menu tree + meta
 #    GET /server/r2_menu/status    -> {ok, sections, sha256, mtime}
 #    GET /server/r2_menu/live      -> R201: a minimal PRINTER SNAPSHOT for
-#                                     evaluating the menu templates live:
-#                                     every gcode_macro object + save_variables
-#                                     + the core objects, with fat values
-#                                     (sd_tree, opt_list, ...) pruned so the
-#                                     Pi Zero ships bytes, not kilobytes.
-#                                     {ok: false, reason} while klippy is
-#                                     down - the page keeps the raw view.
+#                                     evaluating the menu templates live.
+#                                     R204 (.136c): queries ONLY the objects
+#                                     the menu templates reference (the
+#                                     export's live_objects list - 12 on the
+#                                     field Pi, not every gcode_macro!). The
+#                                     .136 version queried ~300 macro objects
+#                                     and blocked klippy's reactor 0.7 s per
+#                                     poll ('Neopixel update did not
+#                                     succeed' - the Timer-too-close class).
+#                                     Fat values (sd_tree, ...) are pruned so
+#                                     the Pi Zero ships bytes, not kilobytes;
+#                                     2.5 s cache. {ok: false, reason} while
+#                                     klippy is down - raw view then.
 #    POST /server/r2_menu/refresh  -> re-run tools/menu_json_export.py
 #                                     (if the tool exists on this host)
 #
@@ -43,6 +49,10 @@ import subprocess
 
 MENU_PATH_DEFAULT = '~/klipper-e3-r2d2/web/menu_structure.json'
 EXPORT_TOOL_DEFAULT = '~/klipper-e3-r2d2/tools/menu_json_export.py'
+# R204: always served even if an old export lacks live_objects
+DEFAULT_LIVE_OBJECTS = ('gcode_macro _STATE', 'gcode_macro _PREVIEW',
+                        'save_variables', 'print_stats', 'gcode_move',
+                        'display_status')
 
 
 def load_doc(path):
@@ -61,7 +71,7 @@ class R2MenuComponent:
         self.lock = asyncio.Lock()
         self.doc = None
         self.last_mtime = 0.0
-        self._live_cache = None        # R201: 1 s printer-snapshot cache
+        self._live_cache = None        # R204: 2.5 s printer-snapshot cache
         self._live_t = 0.0
         self.server.register_endpoint(
             '/server/r2_menu/tree', ['GET'],
@@ -107,18 +117,22 @@ class R2MenuComponent:
                 'counts': self.doc.get('counts')}
 
     async def _handle_live(self, web_request):
-        """R201: a minimal printer snapshot for live template evaluation.
+        """R201/R204: a minimal printer snapshot for live evaluation.
 
         The page evaluates the menu name:/enable: jinja fragments against
-        this data (exactly the objects they read: printer['gcode_macro X'],
-        save_variables, print_stats, ...). PRUNING: save_variables carries
-        fat lists (sd_tree, opt_list, litho_files, gen_files) the menus
-        never display - anything whose repr exceeds ~1.2 kB is dropped and
-        NAMED in 'pruned', so a poll costs bytes on the Pi Zero, not
-        kilobytes per second. Cached for 1 s (several open tabs share one
-        klippy query)."""
+        this data. R204 (.136c field log): query ONLY the objects the
+        templates reference - the export's live_objects list, intersected
+        with the real object list. The .136 version queried EVERY
+        gcode_macro (~300 on the field Pi, each serializing all its
+        variables) and blocked klippy's reactor for 0.7 s per poll -
+        'Neopixel update did not succeed' right after, the Timer-too-close
+        class from .125. PRUNING stays: anything whose repr exceeds ~1.2 kB
+        (sd_tree, opt_list, ...) is dropped and NAMED in 'pruned'. Cached
+        2.5 s (the page polls every 3 s - at most ONE real klippy query
+        per poll, shared across tabs)."""
         import time as _t
-        if self._live_cache is not None and _t.monotonic() - self._live_t < 1.0:
+        await self._ensure_loaded()      # the doc carries live_objects
+        if self._live_cache is not None and _t.monotonic() - self._live_t < 2.5:
             return self._live_cache
         try:
             apis = self.server.lookup_object('klippy_apis')
@@ -127,12 +141,12 @@ class R2MenuComponent:
             raise
         except Exception as e:                                  # noqa: BLE001
             return {'ok': False, 'reason': 'klippy not available: %s' % e}
+        _lo204 = set((self.doc or {}).get('live_objects')
+                     or DEFAULT_LIVE_OBJECTS)
+        _lo204.update(DEFAULT_LIVE_OBJECTS)
         want = {}
         for o in objs:
-            if (o == 'save_variables' or o.startswith('gcode_macro ')
-                    or o in ('print_stats', 'gcode_move', 'toolhead',
-                             'extruder', 'heater_bed', 'display_status',
-                             'fan', 'idle_timeout')):
+            if o in _lo204:
                 want[o] = None
         try:
             status = await apis.query_objects(want, default={})

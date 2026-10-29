@@ -1,5 +1,5 @@
 {
- "generator": "menu_json_export.py (.136b R203)",
+ "generator": "menu_json_export.py (.136c R204)",
  "source": "lcd_menues.cfg",
  "sections": 2272,
  "counts": {
@@ -8,6 +8,20 @@
   "input": 596
  },
  "sha256": "479a83ec2fdff346",
+ "live_objects": [
+  "bed_mesh",
+  "configfile",
+  "exclude_object",
+  "gcode_macro _MATERIALS",
+  "gcode_macro _PREVIEW",
+  "gcode_macro _R2_CONFIG",
+  "gcode_macro _STATE",
+  "gcode_move",
+  "heater_bed",
+  "input_shaper",
+  "print_stats",
+  "save_variables"
+ ],
  "tree": {
   "id": "__main",
   "type": "list",

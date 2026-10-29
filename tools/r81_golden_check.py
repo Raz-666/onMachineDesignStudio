@@ -66,6 +66,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # R112 re-freeze: tag v4 -> v5 (STALE/retag round) - every fixture's tag
 # line changed, summaries gained retract_status/retract_max. R112 reference
 # superseded.
+# RE-FREEZE HISTORY (.136c version bump): stamp-only (R204 touched web/ +
+# docs + the live endpoint, not the generators; diff verified).
 # RE-FREEZE HISTORY (.136b version bump): stamp-only again (R203 - the
 # round touched web/ + docs, not the generators; diff verified).
 # RE-FREEZE HISTORY (.136a version bump): stamp-only again
@@ -82,19 +84,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # only touch real violations); the mr extracts differ ONLY in the core
 # stamp line (version bump, by design).
 REF_MD5 = {
- "mr01": "a2ad37ba8bc83a421957612d5a9d6442",
- "mr02": "4a5a03c90858e20362d756520f14d16f",
- "mr03": "4c55736871e4b5f80a5b9d7777706b11",
- "mr04": "1ce50f6d353ce4a82712415416e8c7d0",
- "mr05": "476d7559dbd455a8945bf90518cf7853",
- "mr06": "e592f95fafd090afa8875454d8be3cfb",
- "mr07": "b897c8231b7b6956af348275d9e3f57b",
- "mr08": "54dc74d02eca4af16354a69aa2915964",
- "mr09": "dadc193bcb9bde77b5ff3162a532c758",
- "mr10": "e3e464d579da366eb46466b4fecb828b",
- "mr11": "ca1b983d81e11363b1d36c399306b53d",
- "mr12": "3951b2ee4c0d87abf60285d224d46dc9",
- "mr13": "4d65f9adb7355835265aca71b04ab8e2",
+ "mr01": "938a05b37852c0d21b7325672eb4bdba",
+ "mr02": "c37d86aded469ad5a27a238dfc4e8cc3",
+ "mr03": "10471c2f7608d2c49664ff7525535453",
+ "mr04": "5cce9fca175e02d9ecec299c72cb48fd",
+ "mr05": "d55943be19644270a6dc68fa2814711e",
+ "mr06": "03b9bfb7da41085b19866eaf22e6ad72",
+ "mr07": "135ee8388b1a88459c5a1922d7fabcf2",
+ "mr08": "a6cdc9d3b8e6b14d1f67fbdc8021848c",
+ "mr09": "cb47a5524447a76c0b595a987bb04ff2",
+ "mr10": "c0c4087cc8fcc8acd0775fc1d2a5d8c6",
+ "mr11": "f61ab68d790b2090709018adfdb4728d",
+ "mr12": "1de1278ccd13fe6c7983c7a74f08344e",
+ "mr13": "8f549f29d2a7f80b67ea3c07ee5fe82f",
  "pr01": "aa5a6f27d5a7e6576f57eeea93af63a5",
  "pr02": "61457e9bcbd98996b6e7dc26efda23d8",
  "pr03": "923725a1d92fccc88241ed8a3ab8065b",

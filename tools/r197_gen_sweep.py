@@ -399,17 +399,23 @@ class FakeServer:
 
 
 class FakeKlippyAPI:
-    """R201: stand-in for moonraker's klippy_apis - a fixed object list
-    and status snapshot, with a FAT sd_tree to prove the pruning."""
+    """R201/R204: stand-in for moonraker's klippy_apis - a fixed object
+    list and status snapshot, with a FAT sd_tree to prove the pruning.
+    R204 records every query's want-set: the live endpoint must request
+    ONLY the objects the menu templates reference - the .136 version
+    queried EVERY gcode_macro (~300 on the field Pi) and blocked klippy's
+    reactor 0.7 s per poll ('Neopixel update did not succeed')."""
 
     def __init__(self, objs, status):
         self.objs = objs
         self.status = status
+        self.wants = []          # R204: history of want-sets
 
     async def get_object_list(self):
         return self.objs
 
     async def query_objects(self, want, default=None):
+        self.wants.append(set(want))
         return {k: v for k, v in self.status.items() if k in want}
 
 
@@ -446,9 +452,11 @@ check('T2 extension: refresh without the tool degrades gracefully',
       rf['ok'] and rf.get('reExported') in (False, None), str(rf)[:80])
 
 # ---- T2b (R201): the LIVE endpoint - a pruned printer snapshot ---------
+_junk204 = ['gcode_macro M%03d' % i for i in range(300)]   # R204
 cfg.server.objects['klippy_apis'] = FakeKlippyAPI(
     ['gcode_macro _STATE', 'gcode_macro _PREVIEW', 'save_variables',
-     'print_stats', 'toolhead', 'extruder'],
+     'print_stats', 'toolhead', 'extruder', 'bed_mesh', 'display_status']
+    + _junk204,
     {'gcode_macro _STATE': {'mode': 'printing', 'layer': 42,
                             'total_layers': 100, 'file_type': 'marked',
                             'file_material': 'PLA', 'file_bed': 60,
@@ -476,7 +484,17 @@ check('T2b live: FAT save_variables pruned (Pi Zero budget)',
       and 'sd_tree' not in lv['objects']['save_variables']['variables']
       and 'material' in lv['objects']['save_variables']['variables'])
 lv2 = loop.run_until_complete(eps['/server/r2_menu/live'](FakeReq()))
-check('T2b live: 1 s cache serves the same snapshot object', lv2 is lv)
+check('T2b live: 2.5 s cache serves the same snapshot object', lv2 is lv)
+_k204 = cfg.server.objects['klippy_apis']
+check('T2b live R204: queries ONLY the menu-referenced objects '
+      '(%d in want, none of the 300 unused macros) - the .136 version '
+      'blocked klippy 0.7 s per poll querying every macro'
+      % len(_k204.wants[-1]),
+      _k204.wants and not (_k204.wants[-1] & set(_junk204))
+      and len(_k204.wants[-1]) <= 20
+      and 'gcode_macro _STATE' in _k204.wants[-1]
+      and 'save_variables' in _k204.wants[-1],
+      str(sorted(_k204.wants[-1]))[:160])
 loop.close()
 
 # ---- T-live-eval (R201): the SHIPPED page evaluator vs the LCD truth ---
@@ -521,8 +539,13 @@ else:
                         'state': 'printing', 'print_duration': 1234.5},
         'gcode_move': {'speed': 1200, 'speed_factor': 1.0},
         'display_status': {'message': 'Layer 42/100'},
-        'extruder': {'temperature': 209.4, 'target': 210},
-        'heater_bed': {'temperature': 59.8, 'target': 60},
+        # R204: exactly the objects the menus reference (live_objects) +
+        # the extension's DEFAULT set - nothing the endpoint never ships
+        'bed_mesh': {'profile_name': 'r2'},
+        'configfile': {'config': {}, 'settings': {}},
+        'exclude_object': {'objects': [], 'current_object': None},
+        'input_shaper': {'shaper_type_x': 'mzv', 'shaper_freq_x': 38.2,
+                         'shaper_type_y': 'ei', 'shaper_freq_y': 32.0},
     }
     _doc201 = _json201.load(open(os.path.join(REPO, 'web',
                                               'menu_structure.json')))
@@ -545,6 +568,15 @@ else:
         if _extra201 not in _sample201:
             _sample201.append(_extra201)
 
+    _fx204 = set(FIX)
+    _lo205 = set(json.load(open(os.path.join(REPO, 'web',
+                                             'menu_structure.json')))
+                 .get('live_objects') or []) \
+        | set(getattr(r2m, 'DEFAULT_LIVE_OBJECTS', ()))
+    check('T-live-eval R204: the fixture represents what /live really '
+          'ships (every fixture object in live_objects + the DEFAULT set)',
+          not (_fx204 - _lo205),
+          str(sorted(_fx204 - _lo205)))
     from jinja2 import Environment as _Env201, BaseLoader as _BL201
     from jinja2 import ChainableUndefined as _CU201
     _env201 = _Env201(loader=_BL201(),
@@ -620,6 +652,16 @@ else:
 _html = open(os.path.join(REPO, 'web', 'index.html'), errors='replace').read()
 check('T3 page: embedded JSON present, no leftover placeholder',
       '/*EMBEDDED_MENU_JSON*/ null' not in _html and '"sections"' in _html)
+
+# T3b (R204): the export carries the menu-referenced object set
+_doc204 = json.load(open(os.path.join(REPO, 'web', 'menu_structure.json')))
+_lo204 = _doc204.get('live_objects') or []
+check('T3b export: live_objects present - exactly the menu references '
+      '(%d objects, incl. _STATE + save_variables, no generator macros)'
+      % len(_lo204),
+      'gcode_macro _STATE' in _lo204 and 'save_variables' in _lo204
+      and 'print_stats' in _lo204 and 'gcode_macro GEN_LABELS' not in _lo204
+      and len(_lo204) < 25)
 
 # T4: _DIALOG_PEEK wired at every dialog site
 _c08 = open(os.path.join(REPO, 'macros', '08_print_start_stop.cfg')).read()

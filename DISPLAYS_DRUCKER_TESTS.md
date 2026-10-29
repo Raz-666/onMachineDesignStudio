@@ -1,6 +1,6 @@
 # R2-D2 rundum: Displays, Drucker, Nozzles — und die Test-Stufen
 
-Stand: R2-2026-10-29.136b — **alles aus Abschnitt E ist GEBAUT** (R191–R197). Die
+Stand: R2-2026-10-29.136c — **alles aus Abschnitt E ist GEBAUT** (R191–R197). Die
 ausführliche, grafische Fassung dieser Übersicht ist jetzt **DISPLAYS_WEB_UI.pdf**
 (built by tools/make_displays_pdf.py); diese MD bleibt die Arbeits-Kurzfassung.
 
@@ -190,6 +190,12 @@ sprachen immer perfekt Klipper-Deutsch).
 7. **Web-UI** — GEBAUT (R196): tools/menu_json_export.py + web/r2_menu.py (Moonraker:
    /server/r2_menu/tree|status|refresh) + web/index.html (LCD-Navigation, eingebettetes
    JSON als Fallback). Details + Installation: DISPLAYS_WEB_UI.pdf Kap. 2.
+
+**R204 (.136c):** Feldlog-Analyse des Klippy-Logs: jeder Live-Poll des Web-LCD
+blockierte Klippy 0,7 s (QueryStatusHelper) → „Neopixel update did not succeed".
+Ursache: der Live-Endpoint fragte JEDES Makro-Objekt ab (~300). Fix: der Exporter
+extrahiert `live_objects` (die exakt referenzierten 12 Objekte), der Endpoint fragt nur
+diese ab (2,5 s Cache). Regressionstest mit 300 Junk-Makros in r197 (424 Checks).
 
 **R203 (.136b):** Web-LCD-Installation ist jetzt EIN Befehl
 (`web/install_web.sh`) — kopiert die Extension, setzt die moonraker.conf-Sektion

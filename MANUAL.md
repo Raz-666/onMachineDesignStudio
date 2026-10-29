@@ -3,7 +3,7 @@
 **Package:** `klipper-e3-r2d2` · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail) ·
 12864 LCD (16 characters per line)
 
-**Version:** this manual describes the current release, `R2-2026-10-29.136b` — and only it. Every chapter documents what the system
+**Version:** this manual describes the current release, `R2-2026-10-29.136c` — and only it. Every chapter documents what the system
 does today; the version changelog lives in README.md.
 
 This is the operating manual for the complete macro system: what the printer can
@@ -3124,6 +3124,9 @@ menu templates live**: every 3 s it fetches a pruned printer snapshot
 (`GET /server/r2_menu/live` — all gcode-macro objects + save_variables,
 fat lists like the SD tree pruned) and renders names exactly as the LCD
 does — same jinja dialect, cross-checked against the 1.910 render tests.
+The poll is CHEAP by design: the extension queries only the ~12 objects
+the menu templates actually reference (not every macro object), fat lists
+are pruned, and a 2.5 s cache shares one query across tabs.
 Rows whose enable condition is false are hidden, exactly like the LCD.
 Opened from anywhere else it falls back to the embedded JSON snapshot
 (raw template view). Commands are sent through Moonraker's own
@@ -3747,7 +3750,7 @@ system). Better a quiet fan at full speed than a fast one slowed down.
 ## Appendix C: First start & updates
 
 - upload the folder → includes at the end of printer.cfg → RESTART
-- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-10-29.136b)`
+- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-10-29.136c)`
 - ~10 s later: boot sound + LED animation
 - SHOW_STATUS → mode, material, overrides · Maintenance > Tests > demos + self test
 

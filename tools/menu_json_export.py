@@ -135,6 +135,28 @@ def build_tree(sections):
     return root, nodes
 
 
+def extract_live_objects(sections):
+    """R204 (.136c field log): the EXACT set of printer objects the menu
+    name:/enable: templates reference - the live endpoint queries ONLY
+    these. The .136 version queried every gcode_macro object (~300 on the
+    field Pi, each serializing ALL its variables) and blocked klippy's
+    reactor for 0.7 s per poll -> 'Neopixel update did not succeed' in the
+    console, the exact 'Timer too close' class from .125. Scanning the
+    templates keeps the set self-maintaining: a new menu object reference
+    lands in the export automatically."""
+    objs = set()
+    for sec in sections:
+        for k in ('name', 'enable'):
+            v = sec.get(k, '')
+            if not v or '{' not in v:
+                continue
+            for m in re.finditer(r"printer\[['\"]([^'\"]+)['\"]\]", v):
+                objs.add(m.group(1))
+            for m in re.finditer(r'printer\.([a-z_][a-z0-9_]*)', v):
+                objs.add(m.group(1))
+    return sorted(objs)
+
+
 def export(cfg_path, out_path=None, page=None):
     sections = parse_menu_cfg(cfg_path)
     root, nodes = build_tree(sections)
@@ -143,11 +165,12 @@ def export(cfg_path, out_path=None, page=None):
         counts[n.get('type', '?')] = counts.get(n.get('type', '?'), 0) + 1
     payload = json.dumps(root, ensure_ascii=False, separators=(',', ':'))
     doc = {
-        'generator': 'menu_json_export.py (.136b R203)',
+        'generator': 'menu_json_export.py (.136c R204)',
         'source': os.path.basename(cfg_path),
         'sections': len(sections),
         'counts': counts,
         'sha256': hashlib.sha256(payload.encode('utf-8')).hexdigest()[:16],
+        'live_objects': extract_live_objects(sections),   # R204
         'tree': root,
     }
     text = json.dumps(doc, ensure_ascii=False, indent=1)
