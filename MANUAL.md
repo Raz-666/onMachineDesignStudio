@@ -3,7 +3,7 @@
 **Package:** `klipper-e3-r2d2` · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail) ·
 12864 LCD (16 characters per line)
 
-**Version:** this manual describes the current release, `R2-2026-10-24.133` — and only it. Every chapter documents what the system
+**Version:** this manual describes the current release, `R2-2026-10-28.134` — and only it. Every chapter documents what the system
 does today; the version changelog lives in README.md.
 
 This is the operating manual for the complete macro system: what the printer can
@@ -201,8 +201,10 @@ Live Tuning > File (G-code) panel):
 selected the nozzle preheats to **182 °C** and the bed to 60 °C — the
 nozzle value is the **filament-swap level**: hot enough to change filament
 (the extruder needs ≥180 °C) while the start dialog still asks AS SLICED /
-AS LEGACY, still below serious ooze. Editable: Pre-Print > Preheat; OFF
-there → nothing heats. The start sequence only heats the last few degrees.
+AS LEGACY, still below serious ooze. Editable: Pre-Print > Preheat. OFF
+there → **the selection stays cold** (no preheat at selection); after you
+decide, the start sequence heats the usual way — home, mesh, target temps,
+purge — the "last few degrees" shortcut only applies to the standby preheat.
 | TYPES= | which features the file really contains (walls, infill, supports …) |
 
 **Two file quirks the system flags and FIXES for you — in place, no
@@ -227,10 +229,11 @@ re-upload:**
   If a start dialog holds the file it is released automatically first. For
   future uploads you can instead leave **Pre-Print > File info > RetFix ON** — every new
   upload gets the treatment automatically.
-- **The offer only shows when it applies:** files that use **firmware
-  retraction (G10/G11)** — e.g. OrcaSlicer with firmware retraction enabled —
-  and files whose retracts are **already fixed** never show `RetFix file`
-  again. The file info says which case you have: `retract … (firmware
+- **The offer only shows when it applies:** it appears for files with
+  **classic `G1 E-` retracts** (the convertible kind). Files that already
+  use **firmware retraction (G10/G11)** — e.g. OrcaSlicer with firmware
+  retraction enabled — and files whose retracts are **already fixed** never
+  show `RetFix file` again. The file info says which case you have: `retract … (firmware
   G10/G11)` / `(FIXED -> G10/G11)` / `(slicer moves — Pre-Print > File info:
   RetFix!)` / nothing detected = offer stays hidden (field log .72).
 
@@ -283,7 +286,7 @@ and which automatic rules apply:
 |---|---|---|
 | **Print by layer** (normal) | layer comments (`;LAYER_CHANGE`, `;LAYER:n`, `;CHANGE_LAYER`) or Z-scan; `BY_OBJECT=0` | the normal case: L1 rules on layer 1, L2 switch at layer 2, feature overrides per `APPLY_TYPE` |
 | **Print by object** (sequential) | several objects + Z falling edges (`BY_OBJECT=1`), or falling `;Z:` comments | at every object change: L1 temps + L1 speed again (pause only if a heater must actually move), next object's layer 2 switches back to L2 — the layer counter re-anchors at every object start |
-| **Multi-object with object data** | `EXCLUDE_OBJECT_DEFINE` lines in the file | adaptive KAMP mesh over the real objects, per-object skip (ch. 6.5), smart parking away from the remaining objects |
+| **Multi-object with object data** | `EXCLUDE_OBJECT_DEFINE` lines in the file | adaptive KAMP mesh over the real objects, per-object skip (ch. 6.5), smart parking away from the remaining objects — a documented compromise: on the Pi Zero 2 W object processing OFF is recommended, such files then mesh full-bed (ch. 19b) |
 | **Vase mode** (continuous Z) | Z-scan: slow continuous rise < 0.05 mm per move | layer marks accumulate until 0.18 mm — vase prints still get layer events; spiral files run like any other |
 | **Legacy file** (old slicer profile, foreign download, no markers) | no `; R2-POSTPROC` tag, no PRINT_START | watcher catches the start → LEGACY start dialog; AS LEGACY = full takeover (mesh, purge, L1/L2, Z layer counting) |
 | **Old mod file** (calls its own START_PRINT) | `START_PRINT` in the file | real legacy start: homing, heat, purge — then your decision rules |
@@ -362,7 +365,7 @@ Every print start (print button, LCD list, PRINT_START) stops at the dialog:
 
 | Mode | LCD / console | What rules |
 |---|---|---|
-| **AS SLICED** | > PRINT AS SLICED · `PRINT_AS_SLICED` | the FILE, truly 1:1 — no overrides, no first-layer brake beyond the L1/L2 rules, no sequential restarts. Live commands still apply. The first-layer rules shape **layer 1** (material L1 temps, fan off); **from layer 2 the file runs 1:1** — its own M104/M140 stand, only YOUR armed L2 override still wins. Toggle the rules with Pre-Print > Temperatures > L1 rules |
+| **AS SLICED** | > PRINT AS SLICED · `PRINT_AS_SLICED` | the FILE's VALUES, truly 1:1 — no overrides, no first-layer brake beyond the L1/L2 rules, no sequential restarts. Live commands still apply. "1:1" refers to temps/speeds/flow: the infrastructure (home, mesh, purge, park) still runs around the file. The first-layer rules shape **layer 1** (material L1 temps, fan off); **from layer 2 the file runs 1:1** — its own M104/M140 stand, only YOUR armed L2 override still wins. Toggle the rules with Pre-Print > Temperatures > L1 rules |
 | **AS LEGACY** | > PRINT AS LEGACY · `PRINT_AS_LEGACY` | takeover with YOUR parameters: overrides ON (L1/L2 temps, PA, retraction, machine limits, flow), mesh + purge, Z layer tracking, sequential object handling |
 | CANCEL | > CANCEL | aborts cleanly — nothing was heated |
 
@@ -436,13 +439,17 @@ The copy carries your print's tuning:
   rides in the `_OPT_BAKED` replay line — the copy prints with exactly the
   values the successful print ended with, even from a cold start.
 - The header notes source file + date (`; R2-OPT`) and what was baked.
-- Re-optimizing the same source overwrites its copy — the newest round wins.
+- Re-optimizing the same source writes a NEW numbered copy (name.gcode,
+  then name_O2, name_O3 …) — your tuning history stays, nothing is
+  overwritten.
 
 **Printing a copy:** the stock LCD file list shows the gcodes root ONLY
 (Klipper never lists subfolders there), so the top-level **Optimized** menu is
-the LCD way in: pick a number, **START** (the start dialog asks as always) or
-**Values > Pre-Print**. Mainsail/Fluidd show the folder natively. Selecting a
-copy marks it OPTIMIZED everywhere.
+the LCD way in: **40 live slots** (two pages — the list refreshes while the
+menu is open, empty slots show a dot), pick one, **START** (the start dialog
+asks as always) or **Values > Pre-Print** — the same 40 slots also sit in
+Pre-Print > Profiles > From optimized. Mainsail/Fluidd show the folder
+natively. Selecting a copy marks it OPTIMIZED everywhere.
 
 **Taking values without printing:** Pre-Print > Profiles > **From optimized**
 (see §3.4a) — the second chance **Save last print > optimized** sits in the
@@ -575,6 +582,12 @@ on small nozzles.
 
 Both run through the same background watcher as RetFix/Vol — the console
 confirms, the LCD shows "working", the file is fixed in place (no re-upload).
+
+**Fix feedback protocol:** a fix press plays the **start tune** and leaves the
+menu on its own (you are back where you decide); the display shows the
+progress, the fix runs **sequentially** with every other background job — and
+a print start **waits** for it ("Wait: generating" on the LCD) instead of
+racing the rewriter. The success tune plays when the file is done.
 
 **The retract verdict — one line, no guessing:** Pre-Print > File info shows
 `Ret:` with exactly one of four verdicts for the selected file:
@@ -825,7 +838,8 @@ indistinguishable. The leading number alone tells any two files apart,
 and the number is ONE folder-wide counter: it never repeats inside a folder,
 regenerating never overwrites an older file (a deleted highest number gets
 reused), and it continues above every legacy file that still
-sits in the same folder. Both LCD browsers additionally hide the `.gcode`
+sits in the same folder. The counter is two digits: from the 100th version
+(V99) the generator refuses with a cleanup hint instead of overwriting. Both LCD browsers additionally hide the `.gcode`
 tail — 6 more characters of real name per line.
 
 **Output folders.** Every generator writes into its OWN subfolder of
@@ -899,7 +913,8 @@ Live Tuning > Pause & Control has the Stop@ shortcut).
   (dialog, mesh, purge, first-layer rules: fan off, L1 temps, speed brake)
 - its own `_FILE_INFO` at the TOP — Live Tuning > File (G-code) shows the excerpt's values
   from layer 1
-- the source fan returns from layer 2 — layer 1 prints without fan
+- the source fan returns from layer 2 — layer 1 prints without fan (a Fan
+  LIVE override beats the layer-1 rule — chain in ch. 14)
 - a real `PRINT_END` at the end: park, stats, fanfare, cooldown — the nozzle
   never stays parked ON the finished print
 - the source file's `EXCLUDE_OBJECT_DEFINE` blocks are carried over
@@ -1022,9 +1037,9 @@ entirely from the LCD (or one console line).
 4. **Job > Create (press 2×)** — the watcher generates `Vnn_<text>.gcode` (beeps
    when ready) and the file auto-selects. Start it like any file: start
    dialog, adaptive mesh over the labels, purge, your overrides. The same
-   text at the same version OVERWRITES its own generated file (settings
-   changes replace, they never pile up); a new version number keeps the old
-   file for comparison. The uploaded original is never touched.
+   generation bumps the version (V01, V02, …) — an existing file is never
+   overwritten; a deleted highest number gets reused, so experiments never
+   pile up as duplicates. The uploaded original is never touched.
 5. Print sequence is **by layer**: all base plates in color 1 → **M600
    pause** (park, unload — you load color 2) → RESUME purges into the purge
    tower, the text goes on top. Every label is an exclude object, the tower
@@ -1043,7 +1058,7 @@ entirely from the LCD (or one console line).
 | Setting | Range / values | Meaning |
 |---|---|---|
 | W × H | label size, default **50×15** | the plate in mm — keychain tags up to near-bed signs (220×220) |
-| Font | **SMOOTH · MONO · COND · NARROW · CAPS** | see the font table below |
+| Font | **SMOOTH · MONO · COND · NARROW · CAPS · SCRIPT · HAND · PLATE · PIXEL** (nine) | see the font table below |
 | Lines | 1–5 | text lines per label |
 | Size | 0 = auto, or a cap height in mm | 0: the font fills the label (~94 %). An explicit cap height is a TARGET — the label GROWS so it fits |
 | Spc | letter spacing in mm | extra spacing between letters |
@@ -1324,8 +1339,8 @@ fully automatic hole layout. LCD: `Tools > Angles+Flat`.
 1. Mode → Settings → **Create (press 2×)** — first press arms
    (`Again = start`), second press starts (start chirp). The file appears
    after ~1–2 s,
-   auto-selected: `00_Angle_<deg>deg_<A>x<B>_V<xx>.gcode` or
-   `00_Flat_<A+B>x<width>_V<xx>.gcode`.
+   auto-selected: `V<nn>_Angle_<deg>deg_<A>x<B>.gcode` or
+   `V<nn>_Flat_<A+B>x<width>.gcode` (the running number leads, no 00 prefix).
 2. The ready-message summarizes the plate AND every automatic adjustment
    (clamped diameter, reduced hole count) — nothing adjusts silently.
 3. Start like any file; each plate is an **exclude object** (`PLATE_1..n`).
@@ -1402,7 +1417,7 @@ Stamp`, one label per job, mirrored text).
 | Stamp | ON/OFF | (FLAT only) a **stamp body** prints under the picture: ~5 mm tall (StampH), ~10 % infill, solid top skin — and a centered **snap socket** in the underside. Press the finished stamp into clay, wax, soap… The header notes it when the picture is UNMIRRORED (your choice, no hidden flip) |
 | StampH | 4–12 mm | the stamp body height (the socket sits inside it, auto-raised if too thin) |
 | StampFit | 0.10–0.50 mm | the socket's radial clearance per side — 0.25 = standard: looser = easier snap, tighter = firmer hold. The fit is MEASURED from the generated g-code (tools/r168_stampcheck.py), not believed |
-| Handle | 0/1/2 | 0 = none. 1 = an extra **handle file** (own g-code — print it when you want it, it never wastes filament with the stamp). 2 = handle ONLY (reprint a lost one). The handle snaps into the socket — no rotation, no thread: a hollow tipped spigot with a groove locks under the socket lip; every surface is vertical or 45° |
+| Handle | 0–3 | 0 = none. 1 = ON THE PLATE (label stamps only — refused for the litho stamp). 2 = an extra **handle file** (own g-code — print it when you want it, it never wastes filament with the stamp). 3 = handle ONLY (reprint a lost one). Same numbering as the label stamp. The handle snaps into the socket — no rotation, no thread: a hollow tipped spigot with a groove locks under the socket lip; every surface is vertical or 45° |
 | ~ | auto | the version in the file name bumps ITSELF (V01, V02, ...) - regenerating never overwrites an older file |
 
 **How it prints (STANDING)** — upright, one picture row per layer (the layer
@@ -1514,7 +1529,7 @@ cross open holes (keyhole, stud holes, cable slot) — and those retract.
 | Part | Job |
 |---|---|
 | FRAME | the ring: solid back band → photo groove (with the closure nubs) → bridge shelf → front face with the view opening; the front's last layer is ironed |
-| BACKPLATE | 0.8 mm cover plate — 0.3 mm play per side through the photo shaft, snaps under the 4 wall nubs; hidden keyhole (TOP/BOTTOM/LEFT/RIGHT) and, with Stand, two D2.7 stud holes |
+| BACKPLATE | 0.8 mm cover plate — 0.35 mm play per side through the photo shaft (measured fit round, field log .125), snaps under the 4 wall nubs; hidden keyhole (TOP/BOTTOM/LEFT/RIGHT) and, with Stand, two D2.7 stud holes |
 | STAND | easel leg with two studs that plug into the backplate holes (24 mm apart) |
 | STRIP_T/B/L/R | only in the split KIT: the four frame walls as glue strips |
 | Part A / B | multi-plate: when frame + backplate do not fit side by side, the generator writes two files — `Vnn_A_Frame_….gcode` (frame) and the next number `Vnn_B_…` (backplate + stand) — the plate letter sits DIRECTLY behind the version, so the 15-character LCD shows the role (the old tail suffix was cut off); consecutive numbers tell any two files apart at a glance. Part A auto-selects, the end-of-plate hint (console + LCD + beeps) names Part B, no auto-start |
@@ -1570,7 +1585,10 @@ GEN_FRAME PRESET=9x13 FRONT=HEX S_SIZE=9 S_DIR=IN
 ### 5.9 Texture: fuzzy skin & shaped bumps (any g-code file)
 
 The only generator that does not create a part — it rewrites the **outer
-wall of a file you already have**. Two looks:
+wall of a file you already have**. The source is **the file you selected in
+the file list** — with its subfolder path, taken the moment you press (works
+right after selecting, even while the display preview is still catching up).
+Two looks:
 
 - **FUZZY** — every outer-wall vertex gets a random offset (a seeded
   scatter, same file + same settings = same result). That is the classic
@@ -1596,10 +1614,10 @@ Grip, one press each) and **My presets** — your own named
 presets, unlimited.
 The thickness range is 0.05–1.5 mm (Orca-sized).
 - **BUMPS** — the offset follows a **pattern from the library**:
-  **21 patterns on 3 pages** — Ridges, Waves, Grid, Hatch, Checker, Hex,
-  Honeycomb, Basket, Rope, Planks, Bricks, Sandstone, Concrete, Clay, Crepe,
-  Fabric, Plush, Hilbert, Scratch, Glitch — plus **MAP**: your own image,
-  wrapped around the part (dark = deep). **Seamless by design:** your mm
+  **21 patterns on 3 pages — 20 shaped ones plus MAP** — Ridges, Waves,
+  Grid, Hatch, Checker, Hex, Honeycomb, Basket, Rope, Planks, Bricks,
+  Sandstone, Concrete, Clay, Crepe, Fabric, Plush, Hilbert, Scratch, Glitch
+  — and **MAP**: your own image, wrapped around the part (dark = deep). **Seamless by design:** your mm
   values are guidelines — the tool lays WHOLE grooves around the perimeter
   and WHOLE repeats in Z (the top edge ends flush, no half brick) and
   reports the effective size, e.g. `[seamless: 9 ridges x 2 Z-repeats
@@ -1608,9 +1626,11 @@ The thickness range is 0.05–1.5 mm (Orca-sized).
   path is the geometry" and says so in the file header.
 
 Everything else stays **byte-identical**: `;TYPE:` tags, EXCLUDE_OBJECT,
-APPLY_TYPE/LAYER_MARK markers, **E values, Z values, speeds (F)** — inner
-walls, infill, ironing and supports print exactly as sliced. Only the
-outer skin moves.
+APPLY_TYPE/LAYER_MARK markers, and the E/Z/F of every move the texture does
+not touch — inner walls, infill, ironing and supports print exactly as
+sliced. On arc-fitted files each flattened chord carries its exact share of
+the arc's E (the total per arc stays — the E is redistributed, not the
+inner geometry). Only the outer skin moves.
 
 **Workflow (LCD):**
 
@@ -1631,7 +1651,8 @@ In both modes nothing ever starts printing by itself.
 | Parameter | Range | Meaning |
 |---|---|---|
 | Mode | OFF / FUZZY / BUMPS | OFF = the menu is inert (Apply refuses with a hint) |
-| Fuz thick | 0.1–0.6 mm | scatter radius (fuzzy) |
+| Fuz thick | 0.05–1.5 mm | scatter radius (fuzzy; the Orca-sized window
+  is 0.15–0.5) |
 | Fuz dens | 10–100 % | share of vertices that scatter (100 = all) |
 | Pattern | library: 21 + MAP | 3 pages (see above); MAP = own image, wrapped seamlessly |
 | Around | 3–60 mm | groove size around the perimeter (guideline — snapped to whole grooves) |
@@ -1891,7 +1912,7 @@ Extrusion: SET_FLOW_RATE PERCENT=1..300 · SET_LIVE_PRESSURE_ADVANCE VALUE= ·
 Temps:   SET_LIVE_HOTEND_TEMP T= · SET_LIVE_BED_TEMP T=
 Fan:     SET_FAN_LIVE PERCENT=/ON= (your absolute %, beats all) ·
          SET_FAN_SCALE (25–150 % × the file value)      Babystep: BABYSTEP_UP/DOWN[_FINE]
-Objects: SKIP_OBJECT OBJECT=name (2x) · SKIP_CURRENT_OBJECT · SHOW_OBJECTS
+Objects: SKIP_OBJECT NAME=name (2x) · SKIP_CURRENT_OBJECT · SHOW_OBJECTS
 Compat:  SET_INNER_WALL_SPEED / SET_INFILL_* remain feature-less (inner wall and
          infill print 1:1 - use the global factor)
 ```
@@ -1931,6 +1952,10 @@ Every pause parks the same safe way (6.4). They differ in WHEN they fire:
 | Start dialog hold | file calls PRINT_START | AS SLICED / AS LEGACY / CANCEL |
 | Planned: next layer | PAUSE_NEXT_LAYER | fires at the next boundary; one-shot |
 | Planned: at layer N | PAUSE_AT_LAYER LAYER=n (n>1) | one-shot at layer n |
+
+Planned pauses are **cleared at every PRINT_START** — a leftover plan from an
+earlier print can never fire right after the purge line of the next one (the
+console notes it when something was cleared).
 | Runout | sensor empty → next layer boundary → filament mode | load → RESUME purges |
 | Filament change | M600 / CHANGE_FILAMENT (printing or idle, heats ≥200 °C) | filament mode; RESUME purges |
 | Legacy dialog | old file detected, start_confirm ON | asks AS SLICED / AS LEGACY / CANCEL within seconds (M190/M109 only preheat in the background while it waits) |
@@ -1951,8 +1976,9 @@ disagrees with Klipper, the watcher re-syncs after ~5 s.
 3. re-primes ooze compensation (E3 + E0.8 slow) if the hotend is hot
 4. re-enables sensor, restores idle timeout
 5. re-applies the current feature type (APPLY_TYPE)
-6. **re-applies the L1 speed brake while layer 1 runs** — the brake always has
-   the last word
+6. **re-applies the L1 speed brake while layer 1 runs** — in AS SLICED the
+   brake stays OFF (the file rules 1:1 there); it guards LEGACY prints whose
+   L1 speed override is armed
 7. sound + continue; held files continue via M24
 
 **CANCEL_PRINT (2×):** 1st press pauses + arms; 2nd press within 60 s: lift,
@@ -2174,8 +2200,10 @@ makes layer 1 look right — do it before any material calibration.
 
 ### 10.3 Bed mesh (Maintenance > Bed Mesh)
 
-A fresh adaptive mesh runs at EVERY print start (at bed temp, over the real
-objects). Here you set: Mesh ON/AUTO/OFF, adaptive, travel cap while meshing,
+A fresh mesh runs at EVERY print start (at bed temp). ADAPTIVE over the
+real objects needs the file's object data — and object processing ON
+(files without it get a full-bed mesh; on the Pi Zero 2 W OFF is the
+recommended compromise, ch. 19b). Here you set: Mesh ON/AUTO/OFF, adaptive, travel cap while meshing,
 save/load profiles. A mesh check print (Leveling) shows how the first layer
 sits — details in ch. 6.
 
@@ -2215,9 +2243,11 @@ retraction. Two ways:
   (calc)" shows the band plan, "Start tower" changes the hotend temp every
   BAND layers (works with marked AND legacy files), "Stop tower" ends it.
 - **Generated standalone tower ("Print tower"):** no sliced file needed —
-  blocks × BLOCK_HEIGHT, one temperature per block (SET_HEATER_TEMPERATURE, so
-  no interceptor interferes), fan %, mesh + prime included. "Best" → the
-  block's temperature becomes the hotend override (L1+L2, ON).
+  blocks × BLOCK_HEIGHT, one temperature per block. The TOWER steers the
+  hotend directly while it runs (SET_HEATER_TEMPERATURE — no interceptor
+  interferes, your overrides stay untouched); AFTER the tower, "Best"
+  optionally adopts the winning block as the hotend override (L1+L2, ON).
+  Fan %, mesh + prime included.
 
 ### 10.7 Pressure advance (Maintenance > PA Cal.)
 
@@ -2228,7 +2258,8 @@ Pre-Print/Live Tuning), mesh first. Read the best line → "Best line" sets the
 PA override. Babystepping stays available.
 
 **PA Smooth Cal.** (own submenu): PA prefilled + editable, smooth time
-0.020–0.200 s in 0.010 steps (19 lines) — "Best line" → smooth override ON.
+0.020–0.200 s in 0.010 steps (19 lines — the TOWER's test range; the
+running default is 0.04 s) — "Best line" → smooth override ON.
 Both calibrations run with YOUR motion parameters.
 
 ### 10.8 Flow (Maintenance > Flow Cal.)
@@ -2241,7 +2272,8 @@ suggested flow % → Apply flow (override ON).
 ### 10.9 Retraction (Maintenance > Retract Tower)
 
 GENERATED two-mast tower: the retract length rises block by block
-(slicer-style `G1 E-` retracts — exactly what the slicer sends). Params:
+(slicer-style `G1 E-` retracts — the deliberate exception to the G10/G11
+generator rule: a retract TEST must send real retract moves). Params:
 START/STEP/BLOCK/BLOCKS/DIST (mast distance)/TOWER (mast size)/
 RETRACT_SPEED/LAYER/SPEED/TRAVEL_SPEED + temps; mesh + prime included.
 "Best" → the block's retract length becomes the retract override (ON).
@@ -2402,6 +2434,14 @@ SD Card browser (40 entries per page, EVERY folder depth, .129a - the stock Star
 of the 12864 display — the value you edit is always visible (test-enforced).
 Pattern: first line = ON/OFF toggle (value stays stored), then the values.
 
+**Live rows everywhere:** file browser, generator outputs and optimized
+copies have **no on/off conditions** — their names refresh while the menu is
+open (~every 0.5 s), a free slot shows a single dot (nothing is hidden that
+exists). **Confirmed rows leave the menu:** every generator/fix row that
+confirms by double press (Create, Apply, Fix…) plays the start tune on the
+second press and returns you to where you decide — no zombie rows after the
+kick-off, no third press by accident.
+
 **Menu order** — Pre-Print: File info · Fixes · Tools (Offset, Texture,
 Range, Scale X/Y, Cake cut, Plotter) · Temps · Motion · Features ·
 utilities (Preheat/Mesh/Confirm/Overwrites) · Profiles LAST. Live Tuning:
@@ -2456,7 +2496,7 @@ retraction reads the firmware values — what you see is what runs.
 | Entry | Contents |
 |---|---|
 | Text | L1–L5 pickers · Show text · Pos 1–12 (cursor) · Chr (rotates A–Z a–z 0–9 space ÄÖÜäöüß and symbols) · Delete char · Clear text — the current text appears on the LCD with the cursor position; Fit gives a rough estimate, the exact preview follows ~2 s later |
-| Settings | W/H (label size, default 50×15) · Font: SMOOTH / MONO / COND / NARROW / CAPS (the * marks the active one) · Lines 1–3 · Size (0 = auto) · Spc letter spacing · Stroke = letter line width (0 = auto, 0.6 = nozzle) · Base/Text layers · LH / 1st · Ironing · Hole NONE/LEFT/RIGHT/TOP/BOTTOM · Hole D · Brim · 2 colors · Gap (grid spacing) |
+| Settings | W/H (label size, default 50×15) · Font: SMOOTH / MONO / COND / NARROW / CAPS / SCRIPT / HAND / PLATE / PIXEL — nine fonts, the * marks the active one · Lines 1–5 · Size (0 = auto) · Spc letter spacing · Stroke = letter line width (0 = auto, 0.6 = nozzle) · Base/Text layers · LH / 1st · Ironing · Hole NONE/LEFT/RIGHT/TOP/BOTTOM · Hole D · Brim · 2 colors · Gap (grid spacing) |
 | Job | Queue n/24 · Add label · Del last · Clear all (2×) · Create (press 2×) · Fit (how many fit the bed) · How it works |
 | Settings | W/H · Lines 1–5 · Size (auto or cap mm) · Spc · Base/Text layers · LH/1st · Ironing · Hole · Stroke · **Preview fit?** (real numbers incl. growth + minimum size for a fixed font) |
 
@@ -2592,11 +2632,18 @@ TOGGLE_SOUNDS · TEST_SOUNDS plays them all (Maintenance > Tests).
 | Filament | r2_filament (repeats) · r2_alarm |
 | Endings | r2_done · r2_sad · r2_error · r2_happy |
 
+**One melody set, one meaning** (project-wide): **r2_start** = work begins
+(every create/fix press), **r2_gen** = a queued job starts building,
+**r2_done** = success, **r2_confirm** = quick UI confirmations. Generator
+and fix tunes play whenever no print is ACTIVE — the same events stay
+silent during a print and the LEDs carry them.
+
 **Beep discipline during a print** **: every beep blocks the firmware
 for its whole duration — on an active print the standing filament oozes a
 purge blob into the part (micro pause → stutter). While the print is ACTIVE
 the confirmation and feedback tunes stay **silent**: r2_confirm, r2_click,
-r2_happy (generator success), r2_heating/r2_hot (live temperature changes) —
+r2_start / r2_gen / r2_done (work + queue + success), r2_happy,
+r2_heating/r2_hot (live temperature changes) —
 the NeoPixel effects carry the feedback instead. Critical tunes ALWAYS play:
 pause, filament change, dialogs/questions, alarms, errors — and after the
 print everything is back to normal.
@@ -2744,8 +2791,11 @@ at the board — when klippy stops confirming, the MOSFET closes.
 2 s. On `shutdown` it opens a **10-minute evidence window**: bed + hotend
 temperatures (target vs. actual) land in
 `logs/r2_shutdown_watchdog.log` every 5 s — if the bed curve DECAYS, power
-was cut (proof in writing); if it ever HOLDS at target, power is flowing
-and you have a wiring/SSR fault worth fixing. After **5 minutes** in
+was cut (evidence in writing); if it ever HOLDS at target, power is flowing
+and you have a wiring/SSR fault worth fixing. Note the limits of that
+evidence: it confirms the observed wiring behaved correctly during the
+logged window — it is never a hardware clearance or a substitute for
+measuring the actual installation. After **5 minutes** in
 shutdown it sends the **FIRMWARE_RESTART itself** (max 2 per boot of the
 watcher, at least 1 h apart — no restart loops). Every step is logged.
 
@@ -3074,7 +3124,7 @@ usage line and the valid values instead of doing something.
 | **MCR** | minimum cruise ratio | **SCV** | square corner velocity |
 
 ## 25. Complete macro index
-All 150 public macros with parameters (defaults in parentheses; blank = no parameters). Internal helpers (leading `_`) are not user-facing. Grouped by module file — the same file you would edit.
+194 entries: every public macro with parameters (defaults in parentheses; blank = no parameters) plus the internal hooks worth knowing. Internal helpers (leading `_`) are not user-facing — 239 public + 100 internal macros exist in total; this index lists what you can sensibly type or meet in the console. Grouped by module file — the same file you would edit.
 
 ### Sounds — 02_sounds.cfg (4)
 | Macro | Parameters | Purpose |
@@ -3121,7 +3171,6 @@ All 150 public macros with parameters (defaults in parentheses; blank = no param
 | **_PROFILE_APPLY** | SRC=default N= · SRC=file WHICH= FILE= (int.) | the ONE apply path: values + ON switches + feature values + material |
 | **_PROFILE_SAVE** | WHICH= FILE= (int.) | snapshot the live state and hand it to the writer |
 | **_PROFILE_WRITE** | WHICH= FILE= (int.) | merge the snapshot into file_profiles (other slot + other files preserved), bump the epoch |
-| **_FILE_PROFILE_AUTOSAVE** | — (int.) | PRINT_END hook: saves the end-of-print state as 'post' (skips cancelled prints) |
 
 ### Temperatures & marks — 06_temp_controls.cfg (12)
 | Macro | Parameters | Purpose |
@@ -3231,7 +3280,7 @@ All 150 public macros with parameters (defaults in parentheses; blank = no param
 | **UNLOAD_FILAMENT** | — | heat + reverse (unload_length, LCD 40-150) |
 | **CALIBRATE_PA** | TEMP, BED, START, STEP, LINES, LEN, SLOW, FAST, ACCEL, LAYER, SPACING, WIDTH — all from menu/preset | PA pattern print |
 | **PA_RESULT** | SEG=0, VALUE=-1 | SEG=best line: PA computed + set live · VALUE=... skips the math |
-| **CALIBRATE_PA_SMOOTH** | START, STEP, LINES (.004/.001 def.) | smooth-time pattern with YOUR PA fixed; mesh + prime first, babystepping works during the test |
+| **CALIBRATE_PA_SMOOTH** | START, STEP, LINES (0.02/0.01 def., 19 lines) | smooth-time pattern with YOUR PA fixed; mesh + prime first, babystepping works during the test |
 | **PA_SMOOTH_RESULT** | SEG=n | line n → smooth = start+(n-1)·step, set live + override ON |
 | **COLD_PULL** | STEP='run', HOT=240, PULL=100 | cold pull wizard (2 steps + alarm) |
 | **CALIBRATE_SHAPER** | AXIS='BOTH', FREQ_START, FREQ_END, MAX_SMOOTHING, AUTOSAVE | input shaper measurement (ADXL; ISHAPER.md) |
@@ -3666,7 +3715,7 @@ system). Better a quiet fan at full speed than a fast one slowed down.
 ## Appendix C: First start & updates
 
 - upload the folder → includes at the end of printer.cfg → RESTART
-- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-10-24.133)`
+- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-10-28.134)`
 - ~10 s later: boot sound + LED animation
 - SHOW_STATUS → mode, material, overrides · Maintenance > Tests > demos + self test
 

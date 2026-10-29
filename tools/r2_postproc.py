@@ -76,7 +76,7 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-10-24.133'
+POSTPROC_RELEASE = 'R2-2026-10-28.134'
 POSTPROC_BUILD = 'R187'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
@@ -19049,6 +19049,11 @@ def watch(directory, interval=5.0, once=False):
             _moonraker_gcode('RESPOND MSG="File fix: blocked - a print is '
                              'running"\nM117 Fix: printing\n_SOUND_LIB NAME=r2_error')
             return
+        # R188 (.134): the fix is LIVE work now - gen_busy=1 blocks every
+        # print start while the file is mid-rewrite (LCD sees 'Wait:
+        # generating'), gen_busy=0 at the end - on the error path too.
+        _moonraker_gcode('SAVE_VARIABLE VARIABLE=gen_busy VALUE=1\n'
+                         'M117 Fix running: %s' % kind)
         try:
             base = os.path.basename(rel)
             if kind == 'retract':
@@ -19171,6 +19176,10 @@ def watch(directory, interval=5.0, once=False):
             # R132: completed without error -> eligible for the auto
             # re-select (the start dialog was released before the fix)
             FIX_DONE.append(rel)
+        finally:
+            # R188: always release the busy flag - a stuck gen_busy would
+            # block every print start forever
+            _moonraker_gcode('SAVE_VARIABLE VARIABLE=gen_busy VALUE=0')
 
     def data_head_if_text(p):
         try:
@@ -19355,7 +19364,9 @@ def watch(directory, interval=5.0, once=False):
                 # A build waits for RAM headroom like it waits for the
                 # printer.
                 _waited = time.monotonic() - (t_wait or t_spawn)
-                if not noticed and _waited > 90.0:
+                # R188: 10s instead of 90 - the user must KNOW the job is
+                # parked (field report: 'did it start? did it not?')
+                if not noticed and _waited > 10.0:
                     try:
                         if _printer_busy():
                             _why162 = ('the printer is busy (a print, a '
@@ -19389,6 +19400,15 @@ def watch(directory, interval=5.0, once=False):
                     pass
             _JOB_STATE['busy'] = True
             _JOB_YIELD['on'] = True
+            # R188 (.134): LIVE work begins - gen_busy=1 blocks print
+            # starts (LCD: 'Wait: generating') until the post-job stamping
+            # is done too (the moverate scan is exactly the CPU spike that
+            # must not collide with a homing print start - field log .133)
+            try:
+                _moonraker_gcode(
+                    'SAVE_VARIABLE VARIABLE=gen_busy VALUE=1')
+            except Exception:                               # noqa: BLE001
+                pass
             try:
                 try:
                     outs = fn() or []
@@ -19417,6 +19437,15 @@ def watch(directory, interval=5.0, once=False):
             finally:
                 _JOB_YIELD['on'] = False
                 _JOB_STATE['busy'] = False
+                # R188: the flag drops only AFTER the stamping above - and
+                # only when nothing else is queued (a queued job re-raises
+                # it when its build begins). Best effort: an unreachable
+                # moonraker just means the flag stays until the next push.
+                try:
+                    _moonraker_gcode(
+                        'SAVE_VARIABLE VARIABLE=gen_busy VALUE=0')
+                except Exception:                           # noqa: BLE001
+                    pass
                 with _JOB_STATE['lock']:
                     _JOB_STATE['keys'].discard(key)
 

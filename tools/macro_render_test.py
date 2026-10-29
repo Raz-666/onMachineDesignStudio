@@ -294,6 +294,10 @@ def get_body(pfad, name):
 
 tests = []
 
+def _menu_noop188(*_a, **_k):
+    # R188: menu.exit()/menu.back() in item gcode - the mock renders it as ''
+    return ''
+
 class MP(M):
     """M without auto-attr (for overrides via plain dict access)"""
     pass
@@ -423,7 +427,9 @@ tests.append(('NOTIFY M117 no {{', 'M117 [i]  Heating bed to 60' in out, out[:16
 
 # 6) _SOUND_LIB plays r2_start
 body = get_body('macros/02_sounds.cfg', '_SOUND_LIB')
+state_vars['mode'] = 'idle'          # R188: r2_start is quiet WHILE printing
 out = render(body, {'NAME':'r2_start'}, extra={'tunes': tunes})
+state_vars['mode'] = 'printing'
 tests.append(('SOUND r2_start', 'M300 S1568 P40' in out, out.strip()[:80]))
 
 # 6b) M300 macro (Klipper has no built-in M300)
@@ -3904,7 +3910,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.133) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-24.133'", repr(_v66)))
+    _v66 == "'R2-2026-10-28.134'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -3988,7 +3994,7 @@ for _p67 in sorted(_glob65.glob('menus/*.cfg')):
         _rn67 += 1
         for _iv67 in (0, 3):
             try:
-                render(_t67, extra={'menu': M({'input': _iv67, 'ns': _sec67[5:], 'event': 'click'})})
+                render(_t67, extra={'menu': M({'input': _iv67, 'ns': _sec67[5:], 'event': 'click', 'exit': _menu_noop188, 'back': _menu_noop188})})
             except Exception as _e67:
                 _rbad67.append('%s [%s] %s (input=%s): %s' % (_p67, _sec67, _opt67, _iv67, _e67))
                 break
@@ -4007,12 +4013,12 @@ tests.append(('R67 label queue name uses the fixed .split pattern (no |string.sp
 _oldq67 = save_vars.get('label_texts', '')
 save_vars['label_texts'] = ''
 tests.append(('R67 label queue name renders 0/24 when queue empty',
-    render(_q67c, extra={'menu': M({'input': 0})}).strip() == 'Queue: 0/24',
-    render(_q67c, extra={'menu': M({'input': 0})}).strip()[:40]))
+    render(_q67c, extra={'menu': M({'input': 0, 'exit': _menu_noop188, 'back': _menu_noop188})}).strip() == 'Queue: 0/24',
+    render(_q67c, extra={'menu': M({'input': 0, 'exit': _menu_noop188, 'back': _menu_noop188})}).strip()[:40]))
 save_vars['label_texts'] = 'WERKSTATT|R2|'
 tests.append(('R67 label queue name renders 2/24 with two queued labels',
-    render(_q67c, extra={'menu': M({'input': 0})}).strip() == 'Queue: 2/24',
-    render(_q67c, extra={'menu': M({'input': 0})}).strip()[:40]))
+    render(_q67c, extra={'menu': M({'input': 0, 'exit': _menu_noop188, 'back': _menu_noop188})}).strip() == 'Queue: 2/24',
+    render(_q67c, extra={'menu': M({'input': 0, 'exit': _menu_noop188, 'back': _menu_noop188})}).strip()[:40]))
 save_vars['label_texts'] = _oldq67
 
 # ---------- R68: foreign files (hyphen names / bare '-' tokens) never crash the watcher ----------
@@ -6202,7 +6208,7 @@ out = render(_ff85, {'WHAT': 'RETRACT'})
 tests.append(('R85 FIX_FILE RETRACT: queues the selected file + nonce + start beep',
     'VARIABLE=retract_fix_file VALUE=\'"alter_bowden_kram.gcode"\'' in out
     and 'VARIABLE=retract_fix_nonce VALUE=1' in out
-    and '_SOUND_LIB NAME=r2_confirm' in out
+    and '_SOUND_LIB NAME=r2_start' in out
     and 'Retract fix started' in out, out[:150]))
 out = render(_ff85, {'WHAT': 'VOL'})
 tests.append(('R85 FIX_FILE VOL: queues the volumetric conversion',
@@ -7622,8 +7628,10 @@ tests.append(('R91 TEXTURE_APPLY: OFF mode -> pick-mode notice, no nonce',
 save_vars['texture_mode'] = 'BUMPS'
 preview_vars.update({'name': 'texcase.gcode'})
 out = render(get_body('macros/17_generator.cfg', 'TEXTURE_APPLY'), {})
-tests.append(('R91 TEXTURE_APPLY: queued - the SELECTED file becomes the target + nonce bump',
-    'VARIABLE=texture_file VALUE=' in out and 'texcase.gcode' in out
+tests.append(('R91 TEXTURE_APPLY: queued - the SELECTED file becomes the '
+    'target + nonce bump (R189: preview_file wins over _PREVIEW.name - it is '
+    'set synchronously WITH the subfolder path)',
+    'VARIABLE=texture_file VALUE=' in out and 'test.gcode' in out
     and 'texture_nonce VALUE=4' in out, out[:140]))
 # no selection anywhere -> friendly error, no nonce
 preview_vars.update({'name': ''})
@@ -8179,11 +8187,17 @@ tests.append(('R95 beep: r2_hot (live temp reached) SILENT while printing',
     'M300' not in out, out.strip()[:100]))
 _critical95 = []
 for _nm95 in ('r2_alarm', 'r2_question', 'r2_pause', 'r2_filament', 'r2_error',
-              'r2_notice', 'r2_resume', 'r2_done'):
+              'r2_notice', 'r2_resume'):
     out = render(_body95s, {'NAME': _nm95}, extra={'tunes': tunes})
     _critical95.append('%s:%s' % (_nm95, 'M300' in out))
 tests.append(('R95 beep: critical sounds ALWAYS audible while printing',
     all(x.endswith(':True') for x in _critical95), ' '.join(_critical95)))
+_q188 = []
+for _nm188 in ('r2_start', 'r2_gen', 'r2_done'):
+    out = render(_body95s, {'NAME': _nm188}, extra={'tunes': tunes})
+    _q188.append('%s:%s' % (_nm188, 'M300' not in out))
+tests.append(('R188 beep: start/gen/done feedback SILENT while printing (LED carries it)',
+    all(x.endswith(':True') for x in _q188), ' '.join(_q188)))
 state_vars['mode'] = 'idle'
 out = render(_body95s, {'NAME': 'r2_confirm'}, extra={'tunes': tunes})
 tests.append(('R95 beep: r2_confirm audible again when idle',
@@ -9128,7 +9142,8 @@ _eng174c = get_body('macros/17_generator.cfg', '_GEN_PRESET')
 _save174c = render(_eng174c, {'ACTION': 'save', 'GEN': 'frame', 'NAME': '9x13'})
 tests.append(('R106/R174c frame preset: SAVE stores the FULL config as ONE real '
     'dict (naked literal - no quotes, Klipper evaluates it to a dict)',
-    "SAVE_VARIABLE VARIABLE=frame_user_presets VALUE={'9x13':{" in _save174c
+    'SAVE_VARIABLE VARIABLE=frame_user_presets VALUE="' in _save174c
+    and "VALUE=\"{'9x13':{" in _save174c
     and "'frame_walls':3" in _save174c and "'frame_s_dir':'OUT'" in _save174c
     and "'frame_front':'IRON'" in _save174c and "'frame_cable':False" in _save174c
     and "'frame_nonce'" not in _save174c,
@@ -9138,7 +9153,8 @@ save_vars.update({'frame_user_presets': {'9x13': {'frame_w': 90.0}}})
 _save174c2 = render(_eng174c, {'ACTION': 'save', 'GEN': 'frame', 'NAME': '9x13'})
 tests.append(('R106/R174c frame preset: SAVE on a taken name -> 9x13_2 (unlimited, '
     'never overwrites)',
-    "'9x13_2':{" in _save174c2 and "VALUE={'9x13':{'frame_w':90.0},'9x13_2':{" in _save174c2,
+    "'9x13_2':{" in _save174c2
+    and "VALUE=\"{'9x13':{'frame_w':90.0},'9x13_2':{" in _save174c2,
     _save174c2[:110]))
 # LOAD: full names from the dict, strings quoted, numbers bare
 save_vars.update({'frame_user_presets': {'A6': {
@@ -9155,9 +9171,46 @@ tests.append(('R106/R174c frame preset: LOAD writes the vars (strings quoted, '
 # DELETE: only the named one goes
 save_vars.update({'frame_user_presets': {
     'A': {'frame_w': 1.0}, 'B': {'frame_w': 2.0}}})
+
+# ================= R188 (.134): shlex round-trip for dict pushes =================
+# Field report .133: saving a preset 'did nothing'. Root cause: Klipper parses
+# extended commands with POSIX shlex - a NAKED dict literal loses every single
+# quote, ast.literal_eval fails and the error surfaces only in the console.
+# This test runs the REAL parser chain (shlex + literal_eval) over every
+# SAVE_VARIABLE line the engine renders - save AND delete.
+import shlex as _shlex188
+import ast as _ast188
+def _roundtrip188(script188):
+    _ok188, _n188 = True, 0
+    for _l188 in script188.split('\n'):
+        _l188 = _l188.strip()
+        if not _l188.startswith('SAVE_VARIABLE VARIABLE='):
+            continue
+        _vi188 = _l188.find(' VALUE=')
+        if _vi188 < 0:
+            continue
+        _n188 += 1
+        _raw188 = _l188[_vi188 + 7:]
+        try:
+            _toks188 = list(_shlex188.shlex(_raw188, posix=True))
+            _val188 = ''.join(_toks188)
+            _ast188.literal_eval(_val188)
+        except Exception as _e188:                              # noqa: BLE001
+            _ok188 = False
+    return _ok188 and _n188 > 0
+_sv_bak188 = dict(save_vars.get('frame_user_presets', {}))
+save_vars.update({'frame_user_presets': {'A6': {'frame_w': 100.0,
+                                                'frame_front': 'IRON'}}})
+_save188 = render(_eng174c, {'ACTION': 'save', 'GEN': 'frame', 'NAME': 'A6'})
+_del188 = render(_eng174c, {'ACTION': 'delete', 'GEN': 'frame', 'SLOT': '0'})
+save_vars['frame_user_presets'] = _sv_bak188   # restore for the R174c DELETE test
+tests.append(('R188 preset engine: every SAVE_VARIABLE survives the REAL Klipper '
+    'parser chain (shlex posix + literal_eval) - the naked-dict bug is dead',
+    _roundtrip188(_save188) and _roundtrip188(_del188),
+    ''))
 _del174c = render(_eng174c, {'ACTION': 'delete', 'GEN': 'frame', 'SLOT': '1'})
 tests.append(('R106/R174c frame preset: DELETE removes only the picked preset',
-    "VALUE={'A':{'frame_w':1.0}}" in _del174c
+    'VALUE=' + chr(34) + "{'A':{'frame_w':1.0}}" + chr(34) in _del174c
     and "{'frame_w':2.0}" not in _del174c
     and _del174c.count('SAVE_VARIABLE') == 1, _del174c[:90]))
 # PAGE: 20 presets -> 3 pages, forward clamps at the last
@@ -9546,7 +9599,7 @@ state_vars['mode'] = 'printing'
 # --- reference printer AND on a minimal single-Z/no-options printer
 import re as _re106c, glob as _glob106c
 _expr106 = _re106c.compile(r'\{([^{}%]+)\}')
-_menu_ctx106 = {'menu': _MM106({'input': 100.0})}
+_menu_ctx106 = {'menu': _MM106({'input': 100.0, 'exit': _menu_noop188, 'back': _menu_noop188})}
 def _ledp108(split=0, persist=True, **over):
     # R108: printer with a hardware profile (r2_hardware.cfg included) -
     # LED areas 3 status + 4 bed light + nozzle, optional EBB split chain
@@ -9933,7 +9986,7 @@ save_vars.update({'opt_file': 'vase.gcode', 'opt_snap': {'material': 'PLA', 'pa'
 _out169 = render(_qj169, {})
 tests.append(('R169 _OPT_QUEUE_JOB: nonce bump + honest message',
     'VARIABLE=opt_nonce VALUE=4' in _out169 and 'optimized copy of vase.gcode' in _out169
-    and '_SOUND_LIB NAME=r2_confirm' in _out169, _out169[:120]))
+    and '_SOUND_LIB NAME=r2_start' in _out169, _out169[:120]))
 # --- baseline restore ------------------------------------------------------
 _rb169 = get_body('macros/05_materials.cfg', '_OPT_RESTORE_BASELINE')
 state_vars['opt_baseline'] = {'pa': 0.03, 'pa_on': True, 'flow': 95.0, 'flow_on': False,
@@ -10440,7 +10493,8 @@ tests.append(('R173 SD browser: the four stock items are killed for good '
 tests.append(('R173 SD browser: 40 slots + page flip at 40 + recursive tree '
               'walker in the watcher',
     _l173.count('SDNAV_GO INDEX=') == 40
-    and 'sd_view|default([])|length >= 40' in _l173
+    and 'sd_view|default([])|length >= 40' not in _l173   # R188: no frozen enable
+    and _l173.count('enable: { (printer[\'save_variables\'].variables.sd_view') == 0
     and 'def _walk154' in open('tools/r2_postproc.py',
                               encoding='utf-8').read()
     and '(len(_en154) - 1) // 40' in open('tools/r2_postproc.py',
@@ -10496,7 +10550,7 @@ for _nm110, _op110, _t110 in _items110:
     if _op110 not in ('name', 'enable', 'gcode') or not _t110:
         continue
     try:
-        _r110 = render(_t110, extra={'menu': M({'input': 1, 'ns': _nm110, 'event': 'click'})})
+        _r110 = render(_t110, extra={'menu': M({'input': 1, 'ns': _nm110, 'event': 'click', 'exit': _menu_noop188, 'back': _menu_noop188})})
         if _op110 == 'gcode':
             _rendered110.append((_nm110, _r110))
     except Exception as _e110:
@@ -11764,7 +11818,7 @@ state_vars['mode'] = 'idle'
 save_vars['plot_cal_nonce'] = 0
 out = render(get_body('macros/12_maintenance.cfg', 'PLOT_CAL'))
 tests.append(('R122 PLOT_CAL: idle -> nonce bump + explains the three tests',
-    'VARIABLE=plot_cal_nonce VALUE=1' in out and 'r2_confirm' in out
+    'VARIABLE=plot_cal_nonce VALUE=1' in out and 'r2_start' in out
     and 'OFFSET' in out and '63 dots' in out and 'circles' in out, out[:130]))
 state_vars['mode'] = 'printing'
 out = render(get_body('macros/12_maintenance.cfg', 'PLOT_CAL'))
@@ -12451,7 +12505,7 @@ for _f133h in sorted(_glob133h.glob('macros/*.cfg')):
             continue
         try:
             _out133h = render(_body133h, _AnyParams133h(),
-                              extra={'menu': {'input': 1}})
+                              extra={'menu': {'input': 1, 'exit': _menu_noop188, 'back': _menu_noop188}})
         except Exception:                       # noqa: BLE001
             continue            # macros with special needs have their own tests
         for _ln133h in _out133h.split('\n'):
@@ -12883,6 +12937,86 @@ _REMOVED135 = [
  '__main __system __fc3',
 ]
 _ADDED135 = [
+ '__main __optprint __p0',
+ '__main __optprint __p1',
+ '__main __optprint __p2',
+ '__main __optprint __p3',
+ '__main __optprint __p4',
+ '__main __optprint __p5',
+ '__main __optprint __p6',
+ '__main __optprint __p7',
+ '__main __optprint __p8',
+ '__main __optprint __p9',
+ '__main __optprint __p10',
+ '__main __optprint __p11',
+ '__main __optprint __p12',
+ '__main __optprint __p13',
+ '__main __optprint __p14',
+ '__main __optprint __p15',
+ '__main __optprint __p16',
+ '__main __optprint __p17',
+ '__main __optprint __p18',
+ '__main __optprint __p19',
+ '__main __optprint __p20',
+ '__main __optprint __p21',
+ '__main __optprint __p22',
+ '__main __optprint __p23',
+ '__main __optprint __p24',
+ '__main __optprint __p25',
+ '__main __optprint __p26',
+ '__main __optprint __p27',
+ '__main __optprint __p28',
+ '__main __optprint __p29',
+ '__main __optprint __p30',
+ '__main __optprint __p31',
+ '__main __optprint __p32',
+ '__main __optprint __p33',
+ '__main __optprint __p34',
+ '__main __optprint __p35',
+ '__main __optprint __p36',
+ '__main __optprint __p37',
+ '__main __optprint __p38',
+ '__main __optprint __p39',
+ '__main __preprint __profs __opt __p0',
+ '__main __preprint __profs __opt __p1',
+ '__main __preprint __profs __opt __p2',
+ '__main __preprint __profs __opt __p3',
+ '__main __preprint __profs __opt __p4',
+ '__main __preprint __profs __opt __p5',
+ '__main __preprint __profs __opt __p6',
+ '__main __preprint __profs __opt __p7',
+ '__main __preprint __profs __opt __p8',
+ '__main __preprint __profs __opt __p9',
+ '__main __preprint __profs __opt __p10',
+ '__main __preprint __profs __opt __p11',
+ '__main __preprint __profs __opt __p12',
+ '__main __preprint __profs __opt __p13',
+ '__main __preprint __profs __opt __p14',
+ '__main __preprint __profs __opt __p15',
+ '__main __preprint __profs __opt __p16',
+ '__main __preprint __profs __opt __p17',
+ '__main __preprint __profs __opt __p18',
+ '__main __preprint __profs __opt __p19',
+ '__main __preprint __profs __opt __p20',
+ '__main __preprint __profs __opt __p21',
+ '__main __preprint __profs __opt __p22',
+ '__main __preprint __profs __opt __p23',
+ '__main __preprint __profs __opt __p24',
+ '__main __preprint __profs __opt __p25',
+ '__main __preprint __profs __opt __p26',
+ '__main __preprint __profs __opt __p27',
+ '__main __preprint __profs __opt __p28',
+ '__main __preprint __profs __opt __p29',
+ '__main __preprint __profs __opt __p30',
+ '__main __preprint __profs __opt __p31',
+ '__main __preprint __profs __opt __p32',
+ '__main __preprint __profs __opt __p33',
+ '__main __preprint __profs __opt __p34',
+ '__main __preprint __profs __opt __p35',
+ '__main __preprint __profs __opt __p36',
+ '__main __preprint __profs __opt __p37',
+ '__main __preprint __profs __opt __p38',
+ '__main __preprint __profs __opt __p39',
  '__main __gen __gfiles __del __d12',
  '__main __gen __gfiles __del __d13',
  '__main __gen __gfiles __del __d14',
@@ -13349,7 +13483,6 @@ _ADDED135 = [
  '__main __octoprint',
  '__main __optprint',
  '__main __optprint __info',
- '__main __optprint __pick',
  '__main __optprint __start',
  '__main __optprint __vals',
  '__main __preprint __file __cust',
@@ -13590,8 +13723,7 @@ _ADDED135 = [
  '__main __preprint __profs __file __aspreset',
  '__main __preprint __profs __opt',
  '__main __preprint __profs __opt __hint',
- '__main __preprint __profs __opt __pick',
- '__main __preprint __profs __optsave',
+  '__main __preprint __profs __optsave',
  '__main __sdcard',
  '__main __sdcard __cancel',
  '__main __sdcard __del',
@@ -14133,7 +14265,7 @@ tests.append(('R160 _GEN_GO: second press = disarm + silent start-dialog '
     and 'UPDATE_DELAYED_GCODE ID=_GEN_ARM_CLEAR DURATION=0' in out
     and 'VARIABLE=start_quiet_cancel VALUE=1' in out
     and "VARIABLE=start_decision VALUE='\"cancel\"'" in out
-    and '_UI_SOUND NAME=r2_gen' in out and 'r2_sad' not in out, out[:130]))
+    and '_UI_SOUND NAME=r2_start' in out and 'r2_sad' not in out, out[:130]))
 
 # (3) no dialog waiting -> _GEN_GO must NOT touch the decision
 _p160i = build_printer()
@@ -14141,7 +14273,7 @@ _p160i['gcode_macro _STATE'] = M(dict(state_vars, mode='idle', gen_arm='ties'))
 out = render(get_body(_gen160, '_GEN_GO'), {}, extra={'printer': _p160i})
 tests.append(('R160 _GEN_GO: nothing waiting -> just disarm + chirp (no '
     'decision touched)',
-    'start_decision' not in out and '_UI_SOUND NAME=r2_gen' in out, out[:100]))
+    'start_decision' not in out and '_UI_SOUND NAME=r2_start' in out, out[:100]))
 
 # (4) the poller honors the quiet flag: cancel without the sad tune
 _stt160c = open(_stt160, encoding='utf-8').read()
@@ -14176,7 +14308,8 @@ tests.append(('R160 CABLE_TIE_GENERATE CONFIRM=1 armed: second press = '
 # (6) every LCD generation row carries CONFIRM=1 + shows the armed state
 
 import re as _re160
-_rows160 = _re160.findall(r'gcode:\n    ([A-Z_]+(?: INDEX=\d+| PRESET=\w+)? CONFIRM=1)', _lcd160)
+_rows160 = _re160.findall(r'gcode:\n    (?:[^\n]*menu\.exit[^\n]*\n    )?'
+                   r'([A-Z_]+(?: INDEX=\d+| PRESET=\w+)? CONFIRM=1)', _lcd160)
 tests.append(('R160 LCD: 37 generation rows confirm by DOUBLE PRESS '
     '(macro + CONFIRM=1), console stays single-shot',
     len([r for r in _rows160 if not r.startswith(('LABEL_CLEAR_ALL', 'SYS_SAVE_CONFIG'))]) == 37
@@ -14924,7 +15057,7 @@ tests.append(('R174c LCD: no artificial limit - 8 slots per page flip with '
 _save174c3 = render(_eng174c, {'ACTION': 'save', 'GEN': 'texture', 'NAME': 'GRID'})
 tests.append(('R174c texture preset: SAVE captures the texture settings '
     '(mode/thick/density/pattern/scale/amp/dir)',
-    "SAVE_VARIABLE VARIABLE=texture_user_presets VALUE={'GRID':{" in _save174c3
+    "SAVE_VARIABLE VARIABLE=texture_user_presets VALUE=\"{'GRID':{" in _save174c3
     and 'texture_mode' in _save174c3 and 'texture_nonce' not in _save174c3,
     _save174c3[:100]))
 save_vars.update({'frame_user_presets': {'P0': {'frame_w': 1.0},
@@ -16369,12 +16502,12 @@ tests.append(('R185 current-only manual: no version-history appendix, no era '
     '## Appendix D' not in _m185 and 'Version history' not in _m185
     and _re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185) is None
     and _re2.search(r'\bR1[0-9][0-9]\b', _m185) is None
-    and 'The nine fonts' in _m185 and 'R2-2026-10-24.133' in _m185,
+    and 'The nine fonts' in _m185 and 'R2-2026-10-28.134' in _m185,
     'appendixD=%s eratags=%s rtags=%s nine=%s v132=%s' % (
         '## Appendix D' in _m185,
         bool(_re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185)),
         bool(_re2.search(r'\bR1[0-9][0-9]\b', _m185)),
-        'The nine fonts' in _m185, 'R2-2026-10-24.133' in _m185)))
+        'The nine fonts' in _m185, 'R2-2026-10-28.134' in _m185)))
 
 # ================== R184 (.131c field round): the brim air gap EVERYWHERE ==
 # The user asked: does the brim fusing hit our OTHER generators too? Measured
@@ -16493,6 +16626,145 @@ tests.append(('R184 brim air gap EVERYWHERE: every generator with a brim '
     and len(_measured184) >= 7, str(_gens184)))
 import shutil as _sh184
 _sh184.rmtree(_d184, ignore_errors=True)
+
+
+# ================== R188 (.134): live-refresh browser + feedback protocol =========
+import re as _re188
+_lcd188 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+_mac188 = {f: open(f, encoding='utf-8').read() for f in
+           ('macros/07_start_confirm.cfg', 'macros/08_print_start_stop.cfg',
+            'macros/02_sounds.cfg', 'macros/17_generator.cfg')}
+_r2p188 = open('tools/r2_postproc.py', encoding='utf-8').read()
+
+# (1) Browser/Gen/Optimized slots: NO enable conditions left (Klipper freezes
+# the enable filter at menu entry - the names are the only live channel)
+tests.append(('R188 live slots: sdcard file slots + gen files + optimized have '
+    'NO enable line - names refresh live while the menu is open',
+    len(_re188.findall(r'(?m)^enable:.*(sd_view|gen_files|opt_list)', _lcd188)) == 1
+    and "enable: { printer['save_variables'].variables.sd_view|default([])|length == 0 }" in _lcd188,
+    'frozen enables left: %r' % _re188.findall(r'(?m)^enable:.*(sd_view|gen_files|opt_list)', _lcd188)[:3]))
+
+# (2) Optimized: slot lists instead of the one-at-a-time picker
+tests.append(('R188 optimized: 40 live slots in the main menu AND pre-print '
+    '(was a one-file picker - field report)',
+    _re188.findall(r'menu __main __optprint __p\d+', _lcd188).__len__() == 40
+    and _re188.findall(r'menu __main __preprint __profs __opt __p\d+', _lcd188).__len__() == 40,
+    '%d/%d' % (len(_re188.findall(r'menu __main __optprint __p\d+', _lcd188)),
+               len(_re188.findall(r'menu __main __preprint __profs __opt __p\d+', _lcd188)))))
+
+# (3) menu.exit() kick-out on every create/fix trigger (conditional on the
+# armed key for 2-press rows, unconditional for single-press starters)
+_n_exit188 = _lcd188.count('{menu.exit()}')
+_n_cond188 = _re188.findall(r"\{% if printer\['gcode_macro _STATE'\]\."
+                            r"gen_arm\|default\(''\) == '[a-z0-9]+' %\}\{menu\.exit\(\)\}\{% endif %\}",
+                            _lcd188)
+tests.append(('R188 kick-out: >=45 menu.exit() triggers, >=25 armed-key '
+    'conditional (the confirm press exits to the LCD, the arm press stays)',
+    _n_exit188 >= 45 and len(_n_cond188) >= 25,
+    'exit=%d cond=%d' % (_n_exit188, len(_n_cond188))))
+
+# (4) start paths guard on gen_busy (a fix/generation must block the start)
+tests.append(('R188 start guard: AS SLICED / AS LEGACY / WITH_OVERRIDES / '
+    'SDCARD_PRINT_FILE refuse while gen_busy (file mid-rewrite)',
+    _mac188['macros/07_start_confirm.cfg'].count('gen_busy|default(0)|int') == 3
+    and 'gen_busy|default(0)|int' in _mac188['macros/08_print_start_stop.cfg'],
+    ''))
+
+# (5) sounds: unified start + quiet during print
+tests.append(('R188 sounds: r2_start on every work press, quiet list covers '
+    'start/gen/done during prints (LED carries it)',
+    "'r2_start', 'r2_gen'," in _mac188['macros/02_sounds.cfg']
+    and "'r2_done'] %}" in _mac188['macros/02_sounds.cfg']
+    and _mac188['macros/17_generator.cfg'].count('NAME=r2_start') >= 1
+    and 'NAME=r2_start' in _mac188['macros/08_print_start_stop.cfg'],
+    ''))
+
+# (6) watcher: gen_busy flag around fixes AND jobs (incl. the stamping window)
+tests.append(('R188 watcher: gen_busy=1 around file_fix AND the job worker '
+    '(late release after stamping - the homing race dies)',
+    _r2p188.count("SAVE_VARIABLE VARIABLE=gen_busy VALUE=1") == 2
+    and _r2p188.count("SAVE_VARIABLE VARIABLE=gen_busy VALUE=0") == 2
+    and 'M117 Fix running:' in _r2p188,
+    ''))
+
+# (7) queue notice: 10s instead of 90 (the user must know it is parked)
+tests.append(('R188 queue: the first wait notice comes after 10s (was 90)',
+    '_waited > 10.0' in _r2p188 and '_waited > 90.0' not in _r2p188, ''))
+
+# (8) fresh-print hygiene: planned pauses die with the old print
+tests.append(('R188 PRINT_START clears planned pauses (next-layer/at-layer '
+    'from an earlier print could fire right after the purge line)',
+    'SAVE_VARIABLE VARIABLE=pause_next_layer VALUE=False' in
+    _mac188['macros/08_print_start_stop.cfg']
+    and 'SAVE_VARIABLE VARIABLE=pause_at_layer VALUE=0' in
+    _mac188['macros/08_print_start_stop.cfg'], ''))
+
+# ================== R189 (.134): texture source file chain ==================
+# Field report: 'the texture tool never builds a file'. Root cause (macro
+# level): tf fell back through _PREVIEW.name|default(preview_file) - but
+# jinja default() only fires on UNDEFINED, an EMPTY _PREVIEW.name (push
+# skipped while busy / not arrived yet) never reached preview_file, and the
+# _PREVIEW push carries the BARE basename (subfolder files = 'not found').
+# preview_file is set synchronously at selection WITH the subfolder path -
+# it is the primary source now.
+_tex189 = get_body('macros/17_generator.cfg', 'TEXTURE_APPLY')
+_sv189 = {'preview_file': 'Texture/vase.gcode', 'texture_mode': 'FUZZY',
+          'texture_nonce': 4}
+_p189 = build_printer()
+_p189['save_variables'] = M({'variables': M(dict(save_vars, **_sv189))})
+_p189['gcode_macro _STATE'] = M(dict(state_vars, mode='idle', gen_arm='texture'))
+_p189['gcode_macro _PREVIEW'] = M({'name': ''})
+_out189 = render(_tex189, {'PRESET': 'ORCA', 'CONFIRM': '1'},
+                 extra={'printer': _p189})
+tests.append(('R189 texture: empty _PREVIEW.name falls through to '
+    'preview_file WITH its subfolder path (the push only carries the basename)',
+    (('SAVE_VARIABLE VARIABLE=texture_file VALUE=' + chr(34)
+      + chr(92) + chr(34) + 'Texture/vase.gcode' + chr(92)
+      + chr(34) + chr(34)) in _out189)
+    and 'SAVE_VARIABLE VARIABLE=texture_nonce VALUE=5' in _out189
+    and 'no file selected' not in _out189,
+    [l.strip() for l in _out189.split(chr(10)) if 'texture_file' in l][:1]))
+# fallback chain end: nothing selected anywhere -> honest error, no nonce
+_p189b = build_printer()
+_p189b['save_variables'] = M({'variables': M(dict(save_vars, texture_nonce=2, preview_file=''))})
+_p189b['gcode_macro _STATE'] = M(dict(state_vars, mode='idle', gen_arm='texture'))
+_p189b['gcode_macro _PREVIEW'] = M({'name': ''})
+_out189b = render(_tex189, {'MODE': 'BUMPS', 'CONFIRM': '1'},
+                 extra={'printer': _p189b})
+tests.append(('R189 texture: nothing selected anywhere -> honest error '
+    '(nonce untouched)',
+    'TEXTURE: no file selected' in _out189b
+    and 'SAVE_VARIABLE VARIABLE=texture_nonce' not in _out189b,
+    [l.strip() for l in _out189b.split(chr(10)) if 'no file' in l][:1]))
+
+# R189b (.132 field report 'cake never generated'): the watcher chain is
+# PROVEN healthy (fake-moonraker end-to-end: press -> queue -> Cake folder +
+# 'Cake ready'), the field stall was the silent queue park on a stuck busy
+# mode (MCU shutdown / failed homing -> mode 'starting' heals only after
+# 3-20 min; .132/.133 told the user NOTHING). R188's 10s queue notice now
+# names the reason. Consistency gap closed with it: CAKE_APPLY and
+# SCALE_APPLY never called _GEN_GO (no disarm, no start-dialog cancel, no
+# start tune - texture had all three).
+for _nm189b, _key189b in (('CAKE_APPLY', 'cake'), ('SCALE_APPLY', 'scale')):
+    _b189b = get_body('macros/17_generator.cfg', _nm189b)
+    _p189b = build_printer()
+    _p189b['save_variables'] = M({'variables': M(dict(
+        save_vars, preview_file='vase.gcode', scale_x=120, scale_y=100,
+        cake_yaw=15.0, cake_pitch=-10.0, cake_roll=5.0, cake_zoff=8.0,
+        cake_part='BOTH', cake_reorient=1))})
+    _p189b['gcode_macro _STATE'] = M(dict(state_vars, mode='idle',
+                                          gen_arm=_key189b))
+    _o189b = render(_b189b, {'X': '120', 'Y': '100', 'CONFIRM': '1'},
+                    extra={'printer': _p189b})
+    tests.append(('R189b %s: second press runs _GEN_GO (disarm + dialog '
+        'cancel + start tune) like every generator' % _nm189b,
+        ('_GEN_GO KEY=%s' % _key189b) in _o189b, ''))
+# the queue notice is the 10s one (R188) - the silent-stall era is over
+_pp189 = open('tools/r2_postproc.py', encoding='utf-8').read()
+tests.append(('R189b queue stall: a parked job SPEAKS within 10s '
+    '(the .132 cake silence cannot happen again)',
+    '_waited > 10.0' in _pp189 and 'it builds the moment the' in _pp189,
+    ''))
 
 fails = 0
 for name, ok, info in tests:
