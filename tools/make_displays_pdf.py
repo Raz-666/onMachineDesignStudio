@@ -115,7 +115,7 @@ class Doc(BaseDocTemplate):
         canv.line(17*mm, 285*mm, 193*mm, 285*mm)
         canv.setFont('DVS', 8.2); canv.setFillColor(GRAY)
         canv.drawString(17*mm, 287.2*mm, 'R2-D2 Macro System · Displays · Web-UI · Drucker · Nozzles · Test-Stufen')
-        canv.drawRightString(193*mm, 287.2*mm, 'R2-2026-10-29.136c')
+        canv.drawRightString(193*mm, 287.2*mm, 'R2-2026-10-29.136d')
         canv.setFont('DVS', 8.6)
         canv.drawCentredString(105*mm, 9.5*mm, 'Seite %d' % doc.page)
         canv.restoreState()
@@ -136,7 +136,7 @@ A(Paragraph('die ausführliche Übersicht der .135-Runde —<br/>'
 A(Spacer(1, 8*mm))
 A(CENT_DUMMY if False else Spacer(1, 1))
 A(Spacer(1, 6*mm))
-A(Paragraph('Stand: R2-2026-10-29.136c · Grundlagen: menus/lcd_menues.cfg, web/ (r2_menu.py, '
+A(Paragraph('Stand: R2-2026-10-29.136d · Grundlagen: menus/lcd_menues.cfg, web/ (r2_menu.py, '
             'index.html, menu_structure.json), tools/menu_json_export.py · r197_gen_sweep.py · '
             'r198_tier_report.py', S['cap']))
 A(PageBreak())
@@ -274,7 +274,7 @@ A(P('.136-Gesamtergebnis: <b>22/22 Batterien grün im Tier-Lauf</b> (r197 wuchs 
     'audit_sweep 82, validator clean, r110 inkl. Flat-Zip-Ablehnung.'))
 
 # ================================ Kap 5 =====================================
-flow += H1('5  Feld-Bug-Klassen — und was .135 zusätzlich fand')
+flow += H1('5  Feld-Bug-Klassen (1)–(12) — was das Feld fand')
 A(TBL(['Klasse', 'Beispiel aus dem Feld', 'Abdeckung'], [
  ['(1) Parser-Ebenen unter dem Render', '.133 Preset-SAVE: shlex frisst die Quotes', 'R188-Roundtrip; r197 sweep-invalid'],
  ['(2) Zustands-Lebensdauer über Druckgrenzen', '.134 Pause-Register überlebte das Druckende', 'r141 + r187 Matrix'],
@@ -285,6 +285,9 @@ A(TBL(['Klasse', 'Beispiel aus dem Feld', 'Abdeckung'], [
  ['<b>NEU (7): Async-Reentranz</b>', 'r2_menu refresh: Lock im Lock = Deadlock am Endpunkt', 'Fake-Moonraker-Test im Sweep (gefixt)'],
  ['<b>NEU (8): Release-Artefakte</b>', 'das .134-Update-Zip war flach gebaut (kein klipper-e3-r2d2/-Ordner): update.sh streute macros/, tools/ ... neben die printer.cfg, das Paket blieb .133 — „nach dem Update noch .133"', 'r199_zip_check (Layout + Versionen) + r110-Ablehn-Szenario + update.sh-Verweigerung (R199, Feldmeldung dieser Runde)'],
  ['<b>NEU (9): Prozess-Duplizierung</b>', '.136-Feldlog: JEDER Watcher-Push lief doppelt (jede SAVE_VARIABLE 2×, Litho-RESPOND 2×, opt_list/sd_tree 3×) — ein alter Watcher lief neben dem neuen (PID-Datei in /tmp war gealtert/leer)', 'R200: Startup-/proc-Scan + Kernel-flock (watcher.lock im Paket-Root) + --once schont den Daemon + HOST_CHECK nennt Duplikat-PIDs mit Fix-Befehl; r197 T6 testet mit echten Daemon-Prozessen'],
+ ['<b>NEU (10): Watcher-Boot-Doppelung + stilles klippy-down</b>', '.136a-Feldlog: beim Boot startete ein echter zweiter Watcher mit („Twin“); und der Watcher versuchte den postproc_build-Push endlos still weiter, während das Display „host ok“ sagte', 'R202: breiterer Startup-Matcher (r2_postproc_old.py zählt, r2_menu.py nicht), cgroup-unit reader, Flat-Stray-Warnungen; der Watcher sagt laut, was zu tun ist (FIRMWARE_RESTART, sonst Power OFF 10 s); r197 T6d'],
+ ['<b>NEU (11): Live-Endpoint-Last</b>', '.136c-Feldlog: JEDER Web-LCD-Poll blockierte Klippy 0,7 s (QueryStatusHelper) → „Neopixel update did not succeed“; der Endpoint fragte ~300 Makro-Objekte ab statt der 12 referenzierten', 'R204: live_objects im Export (exakt die referenzierten Objekte), Slim-Query + 2,5-s-Cache, max. 1 echte Abfrage pro Poll; r197-Regression mit 300 Junk-Makros'],
+ ['<b>NEU (12): Messartefakte</b>', '.136d-Feldlog: der Watcher-Check unter sudo listete 2 zusätzliche „Prozesse“ — das sudo+pgrep-Pärchen selbst; gelesen als versteckte Watcher, obwohl genau einer lief', 'R205: [r]-Bracket-Form überall (Daemon-Hint, update.sh, Root-pkill), update.sh sagt den Census selbst („exactly 1 watcher (PID …)“), r142-Lint verbietet unklammerte Watcher-Muster repo-weit'],
 ], [40*mm, 66*mm, 60*mm]))
 A(P('Klassen 5–7 sind genau die Sorte, die du immer gemeldet hast und die in klassischen '
     'Tests nie auftaucht: sie brauchen entweder Parameter-Grenzlagen (Klemmung), '

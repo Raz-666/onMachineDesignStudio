@@ -740,9 +740,10 @@ try:
         _time.sleep(0.1)
     _d1 = _sp200.run([_sy200.executable, _R200, '--watch', _gc200],
                      capture_output=True, text=True, timeout=120)
-    check('T6a daemon REFUSES a held flock (exit 1 + reason)',
+    check('T6a daemon REFUSES a held flock (exit 1 + reason, [r] hint)',
           _d1.returncode == 1 and 'REFUSING TO START' in _d1.stdout
-          and 'pgrep' in _d1.stdout, _d1.stdout[-160:])
+          and 'pgrep' in _d1.stdout and '[r]2_postproc' in _d1.stdout,
+          _d1.stdout[-160:])
     _holder200.kill()
     _holder200.wait()
 

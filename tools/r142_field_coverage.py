@@ -745,6 +745,37 @@ ck('R135: stock OctoPrint/Temperature/Setup hidden via enable {False} '
    and '[menu __main __sdcard]\ntype: list' in _lcd135
    and '[menu __main __control]' not in _lcd135, '')
 
+# ---- R205: self-match-proof watcher checks ---------------------------------
+# .136d field log: the user ran the watcher check as 'sudo pgrep -af' with
+# the BARE watcher name - and sudo listed the sudo+pgrep pair ITSELF as
+# two extra processes, which read as hidden watchers (there was exactly
+# one). Every shipped pgrep/pkill on the watcher must use the [r] bracket
+# form so the checker can never match its own command line. README.md is
+# the changelog (history may quote old commands) - every live surface
+# must stay bracket-clean.
+_bad205 = []
+_pat205 = re.compile(r'(pgrep|pkill)\s+-[a-zA-Z]*f[a-zA-Z]*\s+[\'"]?r2_postproc')
+for _dp205, _dns205, _fns205 in os.walk(ROOT):
+    _dns205[:] = [d for d in _dns205 if d not in ('.git', '__pycache__',
+                                                  'manual_work')]
+    for _fn205 in _fns205:
+        if not _fn205.endswith(('.sh', '.py', '.md', '.cfg')):
+            continue
+        if _fn205 == 'README.md':
+            continue
+        _fp205 = os.path.join(_dp205, _fn205)
+        try:
+            with open(_fp205, encoding='utf-8', errors='replace') as _fh205:
+                _lines205 = _fh205.readlines()
+        except OSError:
+            continue
+        for _li205, _ln205 in enumerate(_lines205, 1):
+            if _pat205.search(_ln205):
+                _bad205.append('%s:%d' % (os.path.relpath(_fp205, ROOT),
+                                          _li205))
+ck('R205: shipped pgrep/pkill watcher patterns are [r]-bracket '
+   '(self-match-proof under sudo)', not _bad205, '; '.join(_bad205[:4]))
+
 print()
 print('R142 FIELD COVERAGE: %d checks, %d FAIL' % (n_ck[0], len(fails)))
 sys.exit(1 if fails else 0)

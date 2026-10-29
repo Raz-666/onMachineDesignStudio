@@ -1,6 +1,6 @@
 # R2-D2 rundum: Displays, Drucker, Nozzles — und die Test-Stufen
 
-Stand: R2-2026-10-29.136c — **alles aus Abschnitt E ist GEBAUT** (R191–R197). Die
+Stand: R2-2026-10-29.136d — **alles aus Abschnitt E ist GEBAUT** (R191–R197). Die
 ausführliche, grafische Fassung dieser Übersicht ist jetzt **DISPLAYS_WEB_UI.pdf**
 (built by tools/make_displays_pdf.py); diese MD bleibt die Arbeits-Kurzfassung.
 
@@ -190,6 +190,15 @@ sprachen immer perfekt Klipper-Deutsch).
 7. **Web-UI** — GEBAUT (R196): tools/menu_json_export.py + web/r2_menu.py (Moonraker:
    /server/r2_menu/tree|status|refresh) + web/index.html (LCD-Navigation, eingebettetes
    JSON als Fallback). Details + Installation: DISPLAYS_WEB_UI.pdf Kap. 2.
+
+**R205 (.136d):** Feldlog .136c: der Watcher-Check unter sudo zeigte zwei
+zusätzliche „Prozesse“ — das war das sudo+pgrep-Pärchen selbst (pgrep -f
+matcht die ganze Kommandozeile, und das sudo-Pärchen trägt das Muster mit).
+Es lief genau EIN Watcher. Fixes: [r]-Bracket-Form für jedes ausgelieferte
+pgrep/pkill auf den Watcher (Daemon-Hint + update.sh inkl. Root-pkill),
+update.sh sagt den Census jetzt laut („exactly 1 r2-postproc watcher
+(PID …)“), r142-Lint verbietet die unklammerte Form repo-weit.
+Feld-Bug-Klasse #12: Messartefakte.
 
 **R204 (.136c):** Feldlog-Analyse des Klippy-Logs: jeder Live-Poll des Web-LCD
 blockierte Klippy 0,7 s (QueryStatusHelper) → „Neopixel update did not succeed".

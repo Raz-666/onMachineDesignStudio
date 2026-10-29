@@ -3,7 +3,7 @@
 **Package:** `klipper-e3-r2d2` · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail) ·
 12864 LCD (16 characters per line)
 
-**Version:** this manual describes the current release, `R2-2026-10-29.136c` — and only it. Every chapter documents what the system
+**Version:** this manual describes the current release, `R2-2026-10-29.136d` — and only it. Every chapter documents what the system
 does today; the version changelog lives in README.md.
 
 This is the operating manual for the complete macro system: what the printer can
@@ -3003,6 +3003,7 @@ is a switch you can turn off.
 | **MCU 'Timer too close' shutdown** (host cannot feed the MCU) | ALWAYS a HOST problem — NEVER stepper current, never the electronics fan, never a safety trigger, and never a zip lying in the config folder (nothing scans it). **System > Host check** names it: THROTTLED = undervoltage (PSU/USB cable!) or heat · OVERLOADED = load >= core count, the Top-CPU list shows who — typical eaters on a Pi Zero 2: **webcam (crowsnest), sonar, OctoEverywhere, moonraker's object processing (enable_object_processing: True — your own moonraker.conf comment warns against it on a Pi Zero!)**, update manager, a fan/temp script with software PWM (RPi.GPIO) · SWAPPING = swap traffic RIGHT NOW (the check measures in/out — quietly parked pages after boot are OK and no reason to panic) — **the verdict names the processes sitting in the swap („Top SWAP") directly** · also: after boot/update give the Pi ~2 min before starting a print (moonraker + watcher both re-scan the whole gcode folder while klippy parses the big config). Software side already hardened: mesh travels capped, preview pushes cost zero disk writes, meshes run adaptive |
 | Mesh is full bed although 'adaptive' |: honest wording — 'full bed (file has no object data)' now SAYS so. The mesh before a held file runs adaptive (the watcher replays the file's EXCLUDE_OBJECT_DEFINE at selection); Orca files carry them when 'Label objects' is enabled. Plot/label/bridge files bring their own object polygon |
 | KAMP meshes the whole bed | check KAMP_Settings.cfg margin — AND the file needs object data (see row above) |
+| `sudo` + the watcher check lists 2–3 r2-postproc "processes" | measurement artifact, NOT hidden watchers (.136d field log): `pgrep -f` matches the full command line and the sudo+pgrep pair carries the pattern itself — pgrep excludes only its own PID. A real watcher line looks like `/usr/bin/python3 …/r2_postproc.py --watch …`. Self-match-proof check (with or without sudo): `pgrep -af '[r]2_postproc.py'` — exactly ONE line. Better: update.sh prints the watcher census after every update ("exactly 1 r2-postproc watcher (PID …)"), and a second .136+ watcher cannot even start (kernel flock — it refuses with the reason) |
 
 Diagnostics: SHOW_STATUS · SELF_TEST · KAMP_STATUS · HOST_CHECK (Pi health) · _CHECK_INSTALL at boot.
 
@@ -3750,7 +3751,7 @@ system). Better a quiet fan at full speed than a fast one slowed down.
 ## Appendix C: First start & updates
 
 - upload the folder → includes at the end of printer.cfg → RESTART
-- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-10-29.136c)`
+- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-10-29.136d)`
 - ~10 s later: boot sound + LED animation
 - SHOW_STATUS → mode, material, overrides · Maintenance > Tests > demos + self test
 

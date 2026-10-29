@@ -307,7 +307,10 @@ echo "[i] restarting r2-postproc..."
 # R133i: sudo FIRST - a root-cron / rc.local zombie runs as root and a
 # plain user pkill cannot touch it (falls through silently)
 UPD_TS="$(date +%s)"
-(sudo -n pkill -f 'r2_postproc.py' 2>/dev/null || pkill -f 'r2_postproc.py' 2>/dev/null) && sleep 1
+# R205: [r] bracket - an unbracketed root pkill matches its OWN sudo
+# wrapper (the pattern rides along in the sudo command line) and would
+# signal its own parent mid-run; the bracket keeps the checker out.
+(sudo -n pkill -f '[r]2_postproc.py' 2>/dev/null || pkill -f '[r]2_postproc.py' 2>/dev/null) && sleep 1
 if sudo systemctl restart r2-postproc 2>/dev/null; then
     echo "[ok] r2-postproc restarted"
 else
@@ -317,10 +320,16 @@ fi
 # R166: PROVE the new daemon is the one running. The .123 field log
 # (lithophane V2 'still an empty plate') was a watcher that silently kept
 # OLD code: pkill or the restart can fail without any error output.
+# R205 (.136d field log): the census now SAYS the number + PID. The old
+# silent ok sent the user to a hand-run watcher check, and under sudo
+# that check lists the sudo+pgrep pair ITSELF as extra processes - which
+# read as hidden watchers (there was exactly one). The [r] bracket keeps
+# every pattern below from matching the checker's own command line,
+# with or without sudo.
 sleep 3
-STALE=0; RUNNING=0
+STALE=0; RUNNING=0; WLIST=""
 if command -v pgrep >/dev/null 2>&1; then
-    for PID in $(pgrep -f 'r2_postproc.py' 2>/dev/null); do
+    for PID in $(pgrep -f '[r]2_postproc.py' 2>/dev/null); do
         [ -z "${PID}" ] && continue
         RUNNING=1
         ET="$(ps -o etimes= -p "${PID}" 2>/dev/null | tr -d ' ')"
@@ -332,12 +341,26 @@ if command -v pgrep >/dev/null 2>&1; then
             echo "    generator code. Kill it:  sudo kill ${PID} ; sudo systemctl restart r2-postproc"
         fi
     done
+    for PID in $(pgrep -f '[r]2_postproc.py .*--watch' 2>/dev/null); do
+        WLIST="${WLIST} ${PID}"
+    done
 fi
+WN=0; for PID in ${WLIST}; do WN=$((WN + 1)); done
 if [ "${RUNNING}" -eq 0 ]; then
     echo "[!] NO r2-postproc process is running - generators will not answer!"
     echo "    start it:  sudo systemctl restart r2-postproc"
-elif [ "${STALE}" -eq 0 ]; then
-    echo "[ok] the running post-processor started with this update (new code)"
+elif [ "${STALE}" -ne 0 ]; then
+    :   # the per-PID warnings above say it all
+elif [ "${WN}" -eq 1 ]; then
+    echo "[ok] watcher census: exactly 1 r2-postproc watcher (PID$(echo "${WLIST}"))"
+    echo "     - started with this update, running the new code"
+elif [ "${WN}" -gt 1 ]; then
+    echo "[!] watcher census: ${WN} watchers(${WLIST}) - a second watcher would"
+    echo "    double every state push. ONE command fixes it (root pkill + restart):"
+    echo "        sudo bash ${0}"
+else
+    echo "[!] no r2-postproc WATCHER is running (only one-shot processes)."
+    echo "    start it:  sudo systemctl restart r2-postproc"
 fi
 # gold check once klippy is back up: the daemon publishes its build stamp
 # (postproc_build save_variable). Klippy needs 10-60 s after the restart

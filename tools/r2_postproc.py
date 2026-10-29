@@ -76,7 +76,7 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-10-29.136c'
+POSTPROC_RELEASE = 'R2-2026-10-29.136d'
 POSTPROC_BUILD = 'R204'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
@@ -18403,8 +18403,8 @@ def _stop_duplicate_watcher(pid):
             time.sleep(0.5)
     except PermissionError:
         print('[lock] PID %d runs as ROOT - a user-pi watcher cannot '
-              'stop it. Run: sudo pkill -f r2_postproc.py' % pid,
-              flush=True)
+              'stop it. Run: sudo pkill -f \'[r]2_postproc.py\''
+              % pid, flush=True)
         try:
             _moonraker_gcode(
                 'RESPOND MSG="R2 watcher: duplicate PID %d runs as ROOT - '
@@ -18506,7 +18506,9 @@ def _watch_lock_takeover():
         print('[lock] REFUSING TO START: another watcher holds %s (flock) -'
               '\n    two instances would double every state push and race '
               'for generator jobs (field log .135).\n'
-              '    check:  pgrep -af r2_postproc.py\n'
+              '    check:  pgrep -af \'[r]2_postproc.py\'\n'
+              '    ([r] = self-match-proof: under sudo a bare pattern would\n'
+              '     list the sudo+pgrep pair itself - .136d field log)\n'
               '    fix:    sudo systemctl restart r2-postproc (or kill the '
               'stray PID)' % _flock_path200, flush=True)
         sys.exit(1)
