@@ -652,6 +652,7 @@ check('T5 anchors: SEQWARN in _FILE_INFO + daemon log line',
 # a held flock refuses, a live daemon shields --once, the startup /proc
 # scan takes over, and death releases the lock.
 import shutil as _sh200
+import shutil as _sh203_shutil
 import subprocess as _sp200
 import sys as _sy200
 import time as _time
@@ -767,6 +768,84 @@ check('T6d flat-stray warnings: name the second watcher copy (flat .134 '
       len(_w202) == 4 and 'SECOND r2_postproc.py' in _w202[0]
       and 'rm -rf' in _w202[3])
 _sh200.rmtree(_d202, ignore_errors=True)
+
+
+# ================================================================== T7 ==
+# R203 (.136b): the ONE-COMMAND web-LCD installer. The manual 3-step path
+# (component copy + moonraker.conf + nginx edit) was too fiddly for the
+# field - install_web.sh does all of it, idempotently, with its own nginx
+# site file (the mainsail config is never touched) and a full --uninstall.
+# This runs the REAL script against a fake home with shim binaries.
+def _sh203(name, body):
+    p = os.path.join(_bin203, name)
+    open(p, 'w').write(body)
+    os.chmod(p, 0o755)
+
+
+try:
+    _t203 = tempfile.mkdtemp(prefix='r203_')
+    _home203 = os.path.join(_t203, 'home')
+    _comp203 = os.path.join(_home203, 'moonraker', 'moonraker', 'components')
+    _cfg203 = os.path.join(_home203, 'printer_data', 'config', 'klipper-e3-r2d2')
+    os.makedirs(_comp203)
+    os.makedirs(_cfg203)
+    _sh203_shutil.copytree(os.path.join(REPO, 'web'),
+                           os.path.join(_cfg203, 'web'))
+    _conf203 = os.path.join(_home203, 'printer_data', 'moonraker.conf')
+    open(_conf203, 'w').write('[server]\nhost: 0.0.0.0\n')
+    _ngx203 = os.path.join(_t203, 'etc', 'nginx')
+    os.makedirs(os.path.join(_ngx203, 'sites-available'))
+    os.makedirs(os.path.join(_ngx203, 'sites-enabled'))
+    _bin203 = os.path.join(_t203, 'bin')
+    os.makedirs(_bin203)
+    _sh203('systemctl', '#!/bin/bash\necho systemctl "$@" >> %s\nexit 0\n'
+           % os.path.join(_t203, 'calls.log'))
+    _sh203('nginx', '#!/bin/bash\necho nginx "$@" >> %s\nexit 0\n'
+           % os.path.join(_t203, 'calls.log'))
+    _sh203('sudo', '#!/bin/bash\necho sudo "$@" >> %s\n"$@"\n'
+           % os.path.join(_t203, 'calls.log'))
+    _env203 = dict(os.environ)
+    _env203.update({
+        'HOME': _home203, 'PATH': _bin203 + os.pathsep + _env203['PATH'],
+        'R2_NGINX_SITES': os.path.join(_ngx203, 'sites-available'),
+        'R2_NGINX_EN': os.path.join(_ngx203, 'sites-enabled'),
+        'R2_NGINX_TESTING': '1'})
+
+    def _run203(args):
+        return _sp200.run(
+            ['bash', os.path.join(_cfg203, 'web', 'install_web.sh')] + args,
+            capture_output=True, text=True, timeout=120, env=_env203,
+            cwd=os.path.join(_cfg203, 'web'))
+
+    _r203 = _run203([])
+    _site203 = os.path.join(_ngx203, 'sites-available', 'r2lcd')
+    _conf_txt203 = open(_conf203).read()
+    check('T7 install: exit 0, component copied, section added, '
+          'site + symlink, URL printed',
+          _r203.returncode == 0
+          and os.path.isfile(os.path.join(_comp203, 'r2_menu.py'))
+          and _conf_txt203.count('[r2_menu]') == 1
+          and 'menu_structure.json' in _conf_txt203
+          and os.path.isfile(_site203)
+          and os.path.islink(os.path.join(_ngx203, 'sites-enabled', 'r2lcd'))
+          and '/r2lcd/' in _r203.stdout, _r203.stdout[-200:])
+    _r203b = _run203([])
+    check('T7 install: IDEMPOTENT (2nd run adds no second section)',
+          _r203b.returncode == 0
+          and open(_conf203).read().count('[r2_menu]') == 1
+          and 'already' in _r203b.stdout)
+    _r203s = _run203(['--status'])
+    check('T7 status: reports component + section + URL port',
+          _r203s.returncode == 0 and '[section ok]' in _r203s.stdout
+          and '7126' in _r203s.stdout)
+    _r203u = _run203(['--uninstall'])
+    check('T7 uninstall: site + section + component all removed',
+          _r203u.returncode == 0
+          and not os.path.exists(_site203)
+          and '[r2_menu]' not in open(_conf203).read()
+          and not os.path.exists(os.path.join(_comp203, 'r2_menu.py')))
+finally:
+    _sh203_shutil.rmtree(_t203, ignore_errors=True)
 
 
 # ================================================================== summary =

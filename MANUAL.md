@@ -3,7 +3,7 @@
 **Package:** `klipper-e3-r2d2` · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail) ·
 12864 LCD (16 characters per line)
 
-**Version:** this manual describes the current release, `R2-2026-10-29.136a` — and only it. Every chapter documents what the system
+**Version:** this manual describes the current release, `R2-2026-10-29.136b` — and only it. Every chapter documents what the system
 does today; the version changelog lives in README.md.
 
 This is the operating manual for the complete macro system: what the printer can
@@ -3127,11 +3127,15 @@ does — same jinja dialect, cross-checked against the 1.910 render tests.
 Rows whose enable condition is false are hidden, exactly like the LCD.
 Opened from anywhere else it falls back to the embedded JSON snapshot
 (raw template view). Commands are sent through Moonraker's own
-`/printer/gcode/script` endpoint. Install: copy `web/r2_menu.py` into
-`~/moonraker/moonraker/components/`, add `[r2_menu]` with the path to
-`web/menu_structure.json` to moonraker.conf, restart Moonraker. After menu
-changes refresh the export: `python3 tools/menu_json_export.py` (plus
-`--embed web/index.html`). It is a second DISPLAY, not a second brain:
+`/printer/gcode/script` endpoint. **Install is ONE command** (SSH on the Pi):
+`bash ~/printer_data/config/klipper-e3-r2d2/web/install_web.sh` — it copies
+the Moonraker extension, adds the `[r2_menu]` section (with a backup of
+moonraker.conf) and sets up its own small nginx site on a free port
+(7126/7186/7196 — your Mainsail nginx config is never touched;
+`--uninstall` removes everything again). Then open the URL the installer
+prints: `http://<pi-ip>:7126/r2lcd/` — bookmark it on your phone. After
+menu changes: press "Export neu laden" on the page, or
+`python3 tools/menu_json_export.py` (plus `--embed web/index.html`). It is a second DISPLAY, not a second brain:
 values always come from the printer; file management and the G-code viewer
 stay with Mainsail.
 
@@ -3743,7 +3747,7 @@ system). Better a quiet fan at full speed than a fast one slowed down.
 ## Appendix C: First start & updates
 
 - upload the folder → includes at the end of printer.cfg → RESTART
-- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-10-29.136a)`
+- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-10-29.136b)`
 - ~10 s later: boot sound + LED animation
 - SHOW_STATUS → mode, material, overrides · Maintenance > Tests > demos + self test
 

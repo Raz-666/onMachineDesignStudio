@@ -1,6 +1,6 @@
 # R2-D2 rundum: Displays, Drucker, Nozzles — und die Test-Stufen
 
-Stand: R2-2026-10-29.136a — **alles aus Abschnitt E ist GEBAUT** (R191–R197). Die
+Stand: R2-2026-10-29.136b — **alles aus Abschnitt E ist GEBAUT** (R191–R197). Die
 ausführliche, grafische Fassung dieser Übersicht ist jetzt **DISPLAYS_WEB_UI.pdf**
 (built by tools/make_displays_pdf.py); diese MD bleibt die Arbeits-Kurzfassung.
 
@@ -190,6 +190,12 @@ sprachen immer perfekt Klipper-Deutsch).
 7. **Web-UI** — GEBAUT (R196): tools/menu_json_export.py + web/r2_menu.py (Moonraker:
    /server/r2_menu/tree|status|refresh) + web/index.html (LCD-Navigation, eingebettetes
    JSON als Fallback). Details + Installation: DISPLAYS_WEB_UI.pdf Kap. 2.
+
+**R203 (.136b):** Web-LCD-Installation ist jetzt EIN Befehl
+(`web/install_web.sh`) — kopiert die Extension, setzt die moonraker.conf-Sektion
+(mit Backup) und legt einen eigenen nginx-Site auf freiem Port an (Mainsail-
+Config bleibt unberührt, `--uninstall` räumt alles weg; r197 T7 testet das
+echte Skript mit Shim-Binaries). Der manuelle 3-Schritte-Weg ist damit Geschichte.
 
 **R202 (.136a):** Feldlog des sauberen Neustarts: .136 gesund, aber beim Boot
 spawnt noch immer ein Zweit-Watcher (gleiche-Sekunde-Doppel-Pushes, dann single —
