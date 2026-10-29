@@ -76,8 +76,8 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-10-29.136'
-POSTPROC_BUILD = 'R201'
+POSTPROC_RELEASE = 'R2-2026-10-29.136a'
+POSTPROC_BUILD = 'R202'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
 # and no speed/accel/nozzle parameters. Files carrying an OLD tag are UPGRADED
@@ -8318,13 +8318,19 @@ def host_check(host='127.0.0.1', port=7125, cores=None):
     #      can remove it - so HOST_CHECK names the PIDs and the command.
     _dup200 = _find_other_watchers()
     if _dup200:
-        lines.append('[!] %d MORE r2_postproc watcher process(es) besides this '
-                     'one: PIDs %s' % (len(_dup200),
-                                       ', '.join(str(p) for p in sorted(_dup200))))
-        lines.append('    every state push runs MULTIPLE times (.135 field '
-                     'log) - fix: sudo systemctl restart r2-postproc, and if')
-        lines.append('    a PID survives that: sudo kill -9 <PID> (a root '
-                     'relic from cron / rc.local cannot be signalled by us)')
+        _who200 = ', '.join(
+            'PID %d (%s)' % (p, _cgroup_unit(p) or 'no unit - started by hand?')
+            for p in sorted(_dup200))
+        lines.append('[!] %d MORE r2_postproc watcher process(es) besides '
+                     'this one: %s' % (len(_dup200), _who200))
+        lines.append('    every state push runs MULTIPLE times (.135/.136 '
+                     'field logs) - fix: sudo systemctl restart r2-postproc')
+        lines.append('    if a PID RETURNS it is respawned by that unit - '
+                     'remove the hook: sudo systemctl disable --now <unit>')
+        lines.append('    (root relic that cannot be signalled: '
+                     'sudo kill -9 <PID>)')
+    for _w202 in _flat_stray_warnings():
+        lines.append(_w202)
 
     # ---- R104: swap ACTIVITY first (vmstat 1s sample: si/so + iowait). Usage
     #      alone says nothing - the .80 field log had 109MB of stone-cold parked
@@ -18476,8 +18482,9 @@ def _watch_lock_takeover():
                   '%d - this manual start exits (use: sudo systemctl restart '
                   'r2-postproc for a fresh one)' % _pid200, flush=True)
             sys.exit(0)
-        print('[lock] startup scan: duplicate watcher PID %d - taking over'
-              % _pid200, flush=True)
+        print('[lock] startup scan: duplicate watcher PID %d (unit %s) - '
+              'taking over' % (_pid200, _cgroup_unit(_pid200) or 'none'),
+              flush=True)
         _stop_duplicate_watcher(_pid200)
     # R200: the kernel guarantee. An flock on the PACKAGE root (survives
     # /tmp cleaning, unlike the PID file above) is held for the process
@@ -18540,6 +18547,57 @@ def _svc_watcher(pid):
         return False
 
 
+def _cgroup_unit(pid):
+    """R202 (.136 field log): the systemd unit that OWNS a pid - read from
+    /proc/<pid>/cgroup. This names the respawn hook of a duplicate watcher
+    ('system.slice/r2-postproc.service' vs 'rc-local.service' vs a cron
+    session vs 'started by hand') - the one fact the user needs to remove
+    the twin's source for good. '' when the cgroup is unreadable."""
+    try:
+        with open('/proc/%d/cgroup' % pid) as f:
+            cg = f.read()
+    except OSError:
+        return ''
+    best = ''
+    for seg in cg.replace(chr(10), '/').split('/'):
+        if '.service' in seg or '.scope' in seg:
+            best = seg           # last unit-like segment wins (v2: 0::...)
+    return best
+
+
+def _flat_stray_warnings(pkg_root=None):
+    """R202 (.136 field log): remains of the FLAT .134 update zip. A twin
+    watcher still appeared at boot - the flat zip left a full copy of
+    tools/ (incl. r2_postproc.py) NEXT TO the package, and any old start
+    hook pointing there re-launches a LOCK-FREE twin at every boot (the
+    .136 flock stops .136+ twins - a pre-.136 copy never takes the lock).
+    Name the files so the user can remove them (update.sh 2b prints the
+    same list)."""
+    if pkg_root is None:
+        pkg_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    cfg_root = os.path.dirname(pkg_root)
+    stray = os.path.join(cfg_root, 'tools', 'r2_postproc.py')
+    if not os.path.isfile(stray):
+        return []
+    return ['[!] found a SECOND r2_postproc.py at %s - remains of the flat'
+            % stray,
+            '    .134 zip. A start hook pointing there launches a lock-free'
+            ' twin watcher at every boot',
+            '    (.136 field log: pushes doubled at boot). Remove the'
+            ' strays - update.sh section 2b prints the list,',
+            '    or: cd %s && rm -rf .github docs macros menus slicer tools'
+            % cfg_root]
+
+
+def _cmdline_is_watcher(data):
+    """R202: does a /proc cmdline blob belong to a watcher? Broadened from
+    'r2_postproc.py' to 'r2_postproc' - the .136 field log showed a twin
+    watcher at boot, and a renamed/stray copy (r2_postproc_old.py, the
+    flat .134 zip's tools/ copy under a different name) must not slip
+    through the scan just because its filename has a suffix."""
+    return b'r2_postproc' in data
+
+
 def _find_other_watchers():
     """R133i: ANY other r2_postproc process (any version, lock or not).
 
@@ -18558,7 +18616,7 @@ def _find_other_watchers():
             continue
         try:
             with open('/proc/%d/cmdline' % pid, 'rb') as f:
-                if b'r2_postproc.py' in f.read():
+                if _cmdline_is_watcher(f.read()):
                     found.append(pid)
         except OSError:
             continue        # gone again, or not ours to read
@@ -18566,6 +18624,7 @@ def _find_other_watchers():
 
 
 _LOUD_DUP = {}          # R147: pid -> last loud-console respond (1/h max)
+_DUEL_UNITS = {}        # R202: systemd unit -> how often it respawned a twin watcher
 
 
 def _watch_duplicate_sweep():
@@ -18591,9 +18650,25 @@ def _watch_duplicate_sweep():
             except Exception:                               # noqa: BLE001
                 pass
             sys.exit(0)
-        print('[lock] runtime sweep: duplicate watcher PID %d - stopping'
-              % pid, flush=True)
+        print('[lock] runtime sweep: duplicate watcher PID %d (unit %s) - '
+              'stopping' % (pid, _cgroup_unit(pid) or 'none'), flush=True)
         _stop_duplicate_watcher(pid)
+        # R202 (.136 field log): a twin that RETURNS was respawned by its
+        # start hook (cron @reboot, rc-local, a second unit with
+        # Restart=always). Name the unit + the disable command - killing
+        # the same ghost every minute for eternity helps nobody.
+        _u202 = _cgroup_unit(pid)
+        if _u202:
+            _DUEL_UNITS[_u202] = _DUEL_UNITS.get(_u202, 0) + 1
+            if _DUEL_UNITS[_u202] >= 2:
+                try:
+                    _moonraker_gcode(
+                        'RESPOND MSG="R2 watcher: %s keeps respawning a '
+                        'duplicate watcher - remove its start hook: sudo '
+                        'systemctl disable --now %s (cron/rc.local: delete '
+                        'the r2_postproc line)"' % (_u202, _u202))
+                except Exception:
+                    pass
         # R147 (.108 field log): a duplicate that SURVIVED the stop attempt
         # (root, or a stubborn wrapper) keeps doubling every push and can
         # drown the Pi Zero host ('Timer too close' shutdowns). Say it LOUD
@@ -19820,6 +19895,7 @@ def watch(directory, interval=5.0, once=False):
     # on the LCD, once at boot.
     _pb166 = '%s (%s)' % (POSTPROC_RELEASE, POSTPROC_BUILD)
     _pb166_t = {'t': 0.0}
+    _pb_hint202 = {'t': 0.0}   # R202: klippy-down advice rate limiter
     _idle_since167 = None          # R167: busy->idle grace timer
     try:
         _mcfg166 = open(os.path.join(
@@ -19900,9 +19976,27 @@ def watch(directory, interval=5.0, once=False):
             if str(rv.get('postproc_build', '')) != _pb166 and \
                     time.monotonic() - _pb166_t['t'] >= 10.0:
                 _pb166_t['t'] = time.monotonic()
-                _moonraker_gcode(
+                _ok202 = _moonraker_gcode(
                     'SAVE_VARIABLE VARIABLE=postproc_build VALUE="\\"%s\\""'
                     % _pb166)
+                if not _ok202:
+                    # R202 (.136 field log): klippy refused the push - after
+                    # that update the MCU sat in a state FIRMWARE_RESTART
+                    # could not heal (only a full power cycle did), while
+                    # the display happily said 'host ok'. Say WHAT to do,
+                    # at most once per 2 min, instead of silently retrying.
+                    if time.monotonic() - _pb_hint202['t'] >= 120.0:
+                        _pb_hint202['t'] = time.monotonic()
+                        _st202 = ''
+                        _inf202 = _moonraker_json('/server/info')
+                        if _inf202:
+                            _st202 = str(_inf202.get('klippy_state', '?'))
+                        print('[moonraker] Klipper is not taking commands '
+                              '(state: %s) - the values arrive once it is '
+                              'back. If it stays in error: FIRMWARE_RESTART '
+                              'in the console; if THAT fails: full POWER '
+                              'OFF for 10 s.' % (_st202 or 'unknown'),
+                              flush=True)
             # R133c: PRIME FROM THE FULL SET, ALWAYS. Priming with the
             # frozen subset (watcher restart while a print ran - update.sh,
             # a crash after an MCU shutdown) left every generator nonce

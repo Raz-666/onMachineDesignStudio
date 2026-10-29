@@ -1,6 +1,6 @@
 # R2-D2 rundum: Displays, Drucker, Nozzles — und die Test-Stufen
 
-Stand: R2-2026-10-29.136 — **alles aus Abschnitt E ist GEBAUT** (R191–R197). Die
+Stand: R2-2026-10-29.136a — **alles aus Abschnitt E ist GEBAUT** (R191–R197). Die
 ausführliche, grafische Fassung dieser Übersicht ist jetzt **DISPLAYS_WEB_UI.pdf**
 (built by tools/make_displays_pdf.py); diese MD bleibt die Arbeits-Kurzfassung.
 
@@ -190,6 +190,13 @@ sprachen immer perfekt Klipper-Deutsch).
 7. **Web-UI** — GEBAUT (R196): tools/menu_json_export.py + web/r2_menu.py (Moonraker:
    /server/r2_menu/tree|status|refresh) + web/index.html (LCD-Navigation, eingebettetes
    JSON als Fallback). Details + Installation: DISPLAYS_WEB_UI.pdf Kap. 2.
+
+**R202 (.136a):** Feldlog des sauberen Neustarts: .136 gesund, aber beim Boot
+spawnt noch immer ein Zweit-Watcher (gleiche-Sekunde-Doppel-Pushes, dann single —
+der .136-Sweep tötet ihn). Diagnose-Ausbau: breiterer /proc-Scan, jede Meldung nennt
+das besitzende systemd-Unit (cgroup), Respawn-Duell-Erkennung mit disable-Befehl,
+HOST_CHECK flaggt die flach-.134-Stray-Kopie, und bei klippy-down sagt der Watcher
+jetzt was zu tun ist (FIRMWARE_RESTART → sonst Power-Cycle).
 
 **R200/R201 (.136):** Feldlog-Analyse „jeder Push doppelt" — Watcher-Single-Instance
 hart gemacht (/proc-Startup-Scan + Kernel-flock `watcher.lock`, HOST_CHECK zeigt

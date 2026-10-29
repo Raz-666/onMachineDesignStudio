@@ -1,4 +1,4 @@
-# r2_menu.py - Moonraker extension: the R2 menu tree as JSON (.136, R201:
+# r2_menu.py - Moonraker extension: the R2 menu tree as JSON (.136a, R202:
 # adds /server/r2_menu/live - the pruned printer snapshot for live values)
 # ============================================================================
 #  INSTALL (one time):

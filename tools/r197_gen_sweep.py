@@ -743,6 +743,31 @@ finally:
             pass
     _sh200.rmtree(_gc200, ignore_errors=True)
 
+# ---- T6d (R202): the duplicate-diagnosis helpers ------------------------
+check('T6d matcher: broadened to ANY r2_postproc name (stray copies '
+      'with suffixes count too)',
+      pp._cmdline_is_watcher(b'python3 /x/r2_postproc.py --watch')
+      and pp._cmdline_is_watcher(b'python3 /x/r2_postproc_old.py -w /g')
+      and not pp._cmdline_is_watcher(b'python3 /x/r2_menu.py')
+      and not pp._cmdline_is_watcher(b'nano printer.cfg'))
+check('T6d cgroup unit: str for a live pid, graceful empty for a dead one',
+      isinstance(pp._cgroup_unit(os.getpid()), str)
+      and pp._cgroup_unit(999999) == '')
+_d202 = tempfile.mkdtemp(prefix='r202_')
+_pkg202 = os.path.join(_d202, 'klipper-e3-r2d2')
+os.makedirs(os.path.join(_pkg202, 'tools'), exist_ok=True)
+open(os.path.join(_pkg202, 'tools', 'x.py'), 'w').write('')
+check('T6d flat-stray warnings: silent on a clean config folder',
+      pp._flat_stray_warnings(_pkg202) == [])
+os.makedirs(os.path.join(_d202, 'tools'), exist_ok=True)
+open(os.path.join(_d202, 'tools', 'r2_postproc.py'), 'w').write('')
+_w202 = pp._flat_stray_warnings(_pkg202)
+check('T6d flat-stray warnings: name the second watcher copy (flat .134 '
+      'remains) with the cleanup line',
+      len(_w202) == 4 and 'SECOND r2_postproc.py' in _w202[0]
+      and 'rm -rf' in _w202[3])
+_sh200.rmtree(_d202, ignore_errors=True)
+
 
 # ================================================================== summary =
 print()

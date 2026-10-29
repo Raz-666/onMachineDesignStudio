@@ -66,6 +66,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # R112 re-freeze: tag v4 -> v5 (STALE/retag round) - every fixture's tag
 # line changed, summaries gained retract_status/retract_max. R112 reference
 # superseded.
+# RE-FREEZE HISTORY (.136a version bump): stamp-only again
+# (; R2-GEN core R2-2026-10-29.136a (R202), diff verified vs .136).
 # RE-FREEZE HISTORY (.136 version bump): the mr extracts differ ONLY in
 # the core stamp line (; R2-GEN core R2-2026-10-29.136 (R201) - diff verified
 # against the .135 module, commit f42a78e, before freezing).
@@ -78,19 +80,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # only touch real violations); the mr extracts differ ONLY in the core
 # stamp line (version bump, by design).
 REF_MD5 = {
- "mr01": "dfb258704f1867ef5a167681f1ccfbfe",
- "mr02": "4c36629696168da56b98f8411c0f3410",
- "mr03": "b5bc406c7c73d99c5cbdc9ddb78934ce",
- "mr04": "c7bc0b240885fddf8b8938ef47c43d84",
- "mr05": "8e30cf479a0257cd1281d213543edbe5",
- "mr06": "d9cf57c606e601c6227d16ff650c7c83",
- "mr07": "36bb55374c4f2cea5ad3828a5e59af18",
- "mr08": "a72393e9c07d046eee301ec38a16d552",
- "mr09": "5bf322ff3dd82c32dcee26dc2cbae0ca",
- "mr10": "8e09e0b9aa6a8ac85e50602a1c523d92",
- "mr11": "5a977dec54e4c4129e2ec379a31779cf",
- "mr12": "515064a6f8011a030258257a69462747",
- "mr13": "7e4c5156eb036b8dbb0aef088be323a8",
+ "mr01": "7cc7aa63a381cdb1f7292f3a522870f6",
+ "mr02": "353c4ec4b232ed9e6f5db28d15aaa5e5",
+ "mr03": "5ad85d6dd1cb28c18a201f631464e41a",
+ "mr04": "ee5b5ba4cbf9d47780a63c792ebefec3",
+ "mr05": "0fcd7522951a36c7dad3006b61916e23",
+ "mr06": "9d24b4272947de8bf8c098710f235e30",
+ "mr07": "5987b8df2d3e92ef3dea16562299e60b",
+ "mr08": "b70f6be60fc5bc99957101d2f36b7b3e",
+ "mr09": "ba7c2fd83281a107c6329930590aee21",
+ "mr10": "0ba8b0e94fb2ee0c422f409779f52693",
+ "mr11": "2537dc36e72ff30a75402f4352e19a09",
+ "mr12": "2ac18da50373eb285162b57b1b705dc9",
+ "mr13": "e748567be31d690fb1e2dafa70ba7e1b",
  "pr01": "aa5a6f27d5a7e6576f57eeea93af63a5",
  "pr02": "61457e9bcbd98996b6e7dc26efda23d8",
  "pr03": "923725a1d92fccc88241ed8a3ab8065b",
@@ -106,55 +108,55 @@ REF_MD5 = {
 REF_SUMMARY = {
  "mr01": {
   "nl": 8,
-  "size": 4213
+  "size": 4214
  },
  "mr02": {
   "nl": 10,
-  "size": 11515
+  "size": 11516
  },
  "mr03": {
   "nl": 10,
-  "size": 11249
+  "size": 11250
  },
  "mr04": {
   "nl": 9,
-  "size": 11547
+  "size": 11548
  },
  "mr05": {
   "nl": 10,
-  "size": 18660
+  "size": 18661
  },
  "mr06": {
   "nl": 10,
-  "size": 15608
+  "size": 15609
  },
  "mr07": {
   "nl": 7,
-  "size": 3845
+  "size": 3846
  },
  "mr08": {
   "nl": 6,
-  "size": 3500
+  "size": 3501
  },
  "mr09": {
   "nl": 8,
-  "size": 7934
+  "size": 7935
  },
  "mr10": {
   "nl": 8,
-  "size": 11492
+  "size": 11493
  },
  "mr11": {
   "nl": 8,
-  "size": 7413
+  "size": 7414
  },
  "mr12": {
   "nl": 2,
-  "size": 2017
+  "size": 2018
  },
  "mr13": {
   "nl": 30,
-  "size": 19243
+  "size": 19244
  },
  "pr01": {
   "by_object": False,
