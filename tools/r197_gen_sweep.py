@@ -377,6 +377,7 @@ class FakeServer:
         self.endpoints = {}
         self.error = Exception
         self.event_loop = _FakeLoop()
+        self.objects = {}          # R201: name -> fake moonraker component
 
     def register_endpoint(self, ep, methods, handler):
         self.endpoints[ep] = handler
@@ -389,6 +390,27 @@ class FakeServer:
 
     def get_server(self):
         return self
+
+    def lookup_object(self, name):
+        # R201: the live endpoint resolves 'klippy_apis' like moonraker does
+        if name in self.objects:
+            return self.objects[name]
+        raise self.error('object %s not found' % name)
+
+
+class FakeKlippyAPI:
+    """R201: stand-in for moonraker's klippy_apis - a fixed object list
+    and status snapshot, with a FAT sd_tree to prove the pruning."""
+
+    def __init__(self, objs, status):
+        self.objs = objs
+        self.status = status
+
+    async def get_object_list(self):
+        return self.objs
+
+    async def query_objects(self, want, default=None):
+        return {k: v for k, v in self.status.items() if k in want}
 
 
 class FakeConfig:
@@ -406,8 +428,9 @@ class FakeConfig:
 cfg = FakeConfig(os.path.join(REPO, 'web', 'menu_structure.json'))
 comp = r2m.load_component(cfg)
 eps = cfg.server.endpoints
-check('T2 extension: 3 endpoints registered',
+check('T2 extension: 4 endpoints registered',
       set(eps) == {'/server/r2_menu/tree', '/server/r2_menu/status',
+                   '/server/r2_menu/live',
                    '/server/r2_menu/refresh'}, str(set(eps)))
 
 import asyncio                                            # noqa: E402
@@ -421,7 +444,177 @@ check('T2 extension: status handler reports ok + sha',
 rf = loop.run_until_complete(eps['/server/r2_menu/refresh'](FakeReq()))
 check('T2 extension: refresh without the tool degrades gracefully',
       rf['ok'] and rf.get('reExported') in (False, None), str(rf)[:80])
+
+# ---- T2b (R201): the LIVE endpoint - a pruned printer snapshot ---------
+cfg.server.objects['klippy_apis'] = FakeKlippyAPI(
+    ['gcode_macro _STATE', 'gcode_macro _PREVIEW', 'save_variables',
+     'print_stats', 'toolhead', 'extruder'],
+    {'gcode_macro _STATE': {'mode': 'printing', 'layer': 42,
+                            'total_layers': 100, 'file_type': 'marked',
+                            'file_material': 'PLA', 'file_bed': 60,
+                            'file_layer_height': 0.2,
+                            'file_hotend_first': 210, 'file_hotend_after': 215,
+                            'file_slicer': 'OrcaSlicer',
+                            'file_feat_spd_wallouter': 45, 'file_pa': 0.095,
+                            'file_wall_loops': 2, 'file_nozzle': 0.6},
+     'save_variables': {'variables': {
+         'opt_cnt': 3, 'sound_on': True, 'material': 'PLA',
+         'ov_bed': 65, 'ov_hotend_first': 225, 'ov_flow': 100,
+         'label_font': 'SMOOTH', 'tie_count': 6,
+         # FAT on purpose - must be pruned (Pi Zero poll budget)
+         'sd_tree': 'A' * 1500}},
+     'print_stats': {'filename': 'Vase_big_016.gcode',
+                     'state': 'printing'},
+     'toolhead': {'position': [10.0, 20.0, 30.0]}})
+lv = loop.run_until_complete(eps['/server/r2_menu/live'](FakeReq()))
+check('T2b live: snapshot ok, small values served',
+      lv.get('ok') and lv['objects']['gcode_macro _STATE']['mode'] == 'printing'
+      and lv['objects']['print_stats']['filename'] == 'Vase_big_016.gcode',
+      str(lv)[:120])
+check('T2b live: FAT save_variables pruned (Pi Zero budget)',
+      'sd_tree' in lv.get('pruned', [])
+      and 'sd_tree' not in lv['objects']['save_variables']['variables']
+      and 'material' in lv['objects']['save_variables']['variables'])
+lv2 = loop.run_until_complete(eps['/server/r2_menu/live'](FakeReq()))
+check('T2b live: 1 s cache serves the same snapshot object', lv2 is lv)
 loop.close()
+
+# ---- T-live-eval (R201): the SHIPPED page evaluator vs the LCD truth ---
+# The evaluator lives in web/index.html (single-brace jinja dialect, the
+# same one macro_render_test proves for the LCD). This check runs the REAL
+# shipped JavaScript through node against a fixture printer and compares
+# every rendered name with jinja2's own render of the same template - the
+# web mirror may never drift from the LCD truth.
+import json as _json201
+import subprocess as _sp201
+_html201 = open(os.path.join(REPO, 'web', 'index.html'),
+                errors='replace').read()
+_a201 = '// ==== R201 live evaluator'
+_b201 = '// ==== end R201 live evaluator ===='
+if _a201 not in _html201 or _b201 not in _html201:
+    check('T-live-eval: evaluator block present in the page', False,
+          'markers missing')
+else:
+    _eval_js = _html201[_html201.index(_a201):
+                        _html201.index(_b201) + len(_b201)]
+    FIX = {
+        'gcode_macro _STATE': {
+            'mode': 'printing', 'layer': 42, 'total_layers': 100,
+            'current_type': 'WALL-OUTER', 'file_type': 'marked',
+            'file_material': 'PLA', 'file_bed': 60, 'file_bed_after': 60,
+            'file_hotend_first': 210, 'file_hotend_after': 215,
+            'file_layer_height': 0.2, 'file_nozzle': 0.6,
+            'file_wall_loops': 2, 'file_slicer': 'OrcaSlicer',
+            'file_feat_spd_wallouter': 45, 'file_pa': 0.095,
+            'file_maxrate': 12.5, 'file_derived': False,
+            'opt_pending': True},
+        'gcode_macro _PREVIEW': {'type': 'range', 'name': 'TL_new.gcode'},
+        'save_variables': {'variables': {
+            'opt_cnt': 3, 'sound_on': True, 'leds_on': True,
+            'material': 'PETG', 'ov_bed': 65, 'ov_bed_after': 65,
+            'ov_hotend_first': 225, 'ov_hotend_after': 215,
+            'ov_flow': 100, 'ov_outer_wall': 100, 'ov_ironing_speed': 20,
+            'label_font': 'SMOOTH', 'label_w': 40, 'label_h': 13,
+            'tie_count': 6, 'tie_length': 120, 'angle_deg': 90,
+            'mesh_last_profile': 'r2', 'pa_test_step': 0.015}},
+        'print_stats': {'filename': 'Vase_big_016.gcode',
+                        'state': 'printing', 'print_duration': 1234.5},
+        'gcode_move': {'speed': 1200, 'speed_factor': 1.0},
+        'display_status': {'message': 'Layer 42/100'},
+        'extruder': {'temperature': 209.4, 'target': 210},
+        'heater_bed': {'temperature': 59.8, 'target': 60},
+    }
+    _doc201 = _json201.load(open(os.path.join(REPO, 'web',
+                                              'menu_structure.json')))
+    _items201 = []
+
+    def _walk201(node):
+        for c in node.get('children', []):
+            _items201.append(c)
+            _walk201(c)
+
+    _walk201(_doc201['tree'])
+    _dyn201 = [i for i in _items201
+               if '{' in (i.get('name') or '')
+               and '{%' not in i['name'] and '{#' not in i['name']]
+    _sample201 = _dyn201[::max(1, len(_dyn201) // 200)][:200]
+    for _extra201 in (_dyn201[:6]
+                      + [i for i in _dyn201 if 'replace(' in i['name']][:3]
+                      + [i for i in _dyn201 if 'truncate(' in i['name']][:3]
+                      + [i for i in _dyn201 if ' if ' in i['name']][:6]):
+        if _extra201 not in _sample201:
+            _sample201.append(_extra201)
+
+    from jinja2 import Environment as _Env201, BaseLoader as _BL201
+    from jinja2 import ChainableUndefined as _CU201
+    _env201 = _Env201(loader=_BL201(),
+                      variable_start_string='{', variable_end_string='}',
+                      block_start_string='{%', block_end_string='%}',
+                      trim_blocks=True, undefined=_CU201)
+    _exp201 = []
+    for _it201 in _sample201:
+        try:
+            _exp201.append(_env201.from_string(_it201['name']).render(
+                printer=FIX, params={}))
+        except Exception:                                      # noqa: BLE001
+            _exp201.append(None)     # jinja itself fails -> page shows raw
+
+    _harness201 = (_eval_js + '\nconst DATA = '
+                   + _json201.dumps(FIX) + ';\nconst TPL = '
+                   + _json201.dumps([i['name'] for i in _sample201])
+                   + ';\nconst OUT = TPL.map(t => evalName(t, DATA));\n'
+                     'console.log(JSON.stringify(OUT));\n')
+    open('/tmp/r201_eval_test.js', 'w').write(_harness201)
+    _r201 = _sp201.run(['node', '/tmp/r201_eval_test.js'],
+                       capture_output=True, text=True, timeout=120)
+    if _r201.returncode != 0:
+        check('T-live-eval: node runs the shipped evaluator', False,
+              _r201.stderr[-200:])
+    else:
+        _got201 = _json201.loads(_r201.stdout)
+        _pairs201 = [(e, g, _sample201[k]['name'])
+                     for k, (e, g) in enumerate(zip(_exp201, _got201))]
+        _mm201 = [(e, g, t) for e, g, t in _pairs201
+                  if e is not None and e != g]
+        check('T-live-eval: page evaluator == jinja LCD truth '
+              '(%d dynamic names, %d rendered by jinja, %d mismatch)'
+              % (len(_sample201),
+                 sum(1 for e, _, _ in _pairs201 if e is not None),
+                 len(_mm201)),
+              not _mm201, str(_mm201[:2])[:300])
+
+    # enables: strict where the page knows the answer
+    _ens201 = [i for i in _items201
+               if i.get('enable') and '{' in i['enable']
+               and '{%' not in i['enable'] and '{#' not in i['enable']]
+    _ensample201 = _ens201[::max(1, len(_ens201) // 120)][:120]
+    _expe201 = []
+    for _it201 in _ensample201:
+        try:
+            _o201 = _env201.from_string(_it201['enable']).render(
+                printer=FIX, params={})
+            _expe201.append(_o201 == 'True')
+        except Exception:                                      # noqa: BLE001
+            _expe201.append(None)
+    _harness201e = (_eval_js + '\nconst DATA = '
+                    + _json201.dumps(FIX) + ';\nconst TPL = '
+                    + _json201.dumps([i['enable'] for i in _ensample201])
+                    + ';\nconst OUT = TPL.map(t => evalEnable(t, DATA));\n'
+                      'console.log(JSON.stringify(OUT));\n')
+    open('/tmp/r201_eval_teste.js', 'w').write(_harness201e)
+    _r201e = _sp201.run(['node', '/tmp/r201_eval_teste.js'],
+                        capture_output=True, text=True, timeout=120)
+    if _r201e.returncode != 0:
+        check('T-live-eval: node runs the shipped evaluator (enables)', False,
+              _r201e.stderr[-200:])
+    else:
+        _gote201 = _json201.loads(_r201e.stdout)
+        _mme201 = [(e, g) for e, g in zip(_expe201, _gote201)
+                   if e is not None and g is not None and e != g]
+        check('T-live-eval: enable conditions match the LCD truth '
+              '(%d sampled, %d strict mismatches)'
+              % (len(_ensample201), len(_mme201)),
+              not _mme201, str(_mme201[:3])[:200])
 
 # T3: the shipped page carries the embedded export
 _html = open(os.path.join(REPO, 'web', 'index.html'), errors='replace').read()
@@ -449,6 +642,107 @@ check('T5 anchors: TYPE_RE reads ;FEATURE: (Bambu), stem whitelist, '
 check('T5 anchors: SEQWARN in _FILE_INFO + daemon log line',
       "info.append('SEQWARN=%d' % len(_seq193))" in _src
       and '[seqaudit]' in _src)
+
+# ================================================================== T6 ==
+# R200 (.135 field log): SINGLE-INSTANCE WATCHER. The field Pi ran two
+# (likely three) watcher processes side by side - every state push fired
+# twice, the litho notify macro RESPONDED twice, opt_list/sd_tree/gen_files
+# three times. No in-process battery can see a second PROCESS; these
+# checks spawn REAL daemons (subprocesses) and assert the lock semantics:
+# a held flock refuses, a live daemon shields --once, the startup /proc
+# scan takes over, and death releases the lock.
+import shutil as _sh200
+import subprocess as _sp200
+import sys as _sy200
+import time as _time
+
+
+def _wait_log200(path, needle, proc, tries=140):
+    for _ in range(tries):
+        if proc.poll() is not None:
+            return False
+        try:
+            if needle in open(path, errors='replace').read():
+                return True
+        except OSError:
+            pass
+        _time.sleep(0.5)
+    return False
+
+
+try:
+    _gc200 = tempfile.mkdtemp(prefix='r200t_')
+    _lock200 = os.path.join(REPO, 'watcher.lock')
+    for _p200 in (_lock200, '/tmp/r2_postproc.watch.lock'):
+        try:
+            os.remove(_p200)
+        except OSError:
+            pass
+    _R200 = os.path.join(REPO, 'tools', 'r2_postproc.py')
+    _procs200 = []
+
+    # T6a: a FOREIGN flock holder (SIGTERM-immune, invisible to the /proc
+    # scan - no r2_postproc in its cmdline) -> the daemon must refuse
+    _holder200 = _sp200.Popen([_sy200.executable, '-c',
+        'import fcntl,os,signal,time\n'
+        'signal.signal(signal.SIGTERM, signal.SIG_IGN)\n'
+        'fd=os.open(%r, os.O_RDWR|os.O_CREAT, 0o644)\n'
+        'fcntl.flock(fd, fcntl.LOCK_EX|fcntl.LOCK_NB)\n'
+        'open(%r,"w").write("x")\n'
+        'time.sleep(180)' % (_lock200, os.path.join(_gc200, 'ready'))])
+    _procs200.append(_holder200)
+    for _ in range(100):
+        if os.path.exists(os.path.join(_gc200, 'ready')):
+            break
+        _time.sleep(0.1)
+    _d1 = _sp200.run([_sy200.executable, _R200, '--watch', _gc200],
+                     capture_output=True, text=True, timeout=120)
+    check('T6a daemon REFUSES a held flock (exit 1 + reason)',
+          _d1.returncode == 1 and 'REFUSING TO START' in _d1.stdout
+          and 'pgrep' in _d1.stdout, _d1.stdout[-160:])
+    _holder200.kill()
+    _holder200.wait()
+
+    # T6b: daemon A runs free; --once beside it skips; daemon B TAKES OVER
+    _A = _sp200.Popen([_sy200.executable, _R200, '--watch', _gc200],
+                      stdout=open(os.path.join(_gc200, 'A.log'), 'w'),
+                      stderr=_sp200.STDOUT, text=True)
+    _procs200.append(_A)
+    check('T6b daemon A starts (watching)',
+          _wait_log200(os.path.join(_gc200, 'A.log'), 'watching', _A)
+          and _A.poll() is None)
+    _once = _sp200.run([_sy200.executable, _R200, '--watch', _gc200, '--once'],
+                       capture_output=True, text=True, timeout=120)
+    check('T6b --once beside the daemon: skipped, exit 0, daemon ALIVE',
+          _once.returncode == 0 and 'one-shot run skipped' in _once.stdout
+          and _A.poll() is None, _once.stdout[-160:])
+    _B = _sp200.Popen([_sy200.executable, _R200, '--watch', _gc200],
+                      stdout=open(os.path.join(_gc200, 'B.log'), 'w'),
+                      stderr=_sp200.STDOUT, text=True)
+    _procs200.append(_B)
+    _took = _wait_log200(os.path.join(_gc200, 'B.log'), 'taking over', _B)
+    _time.sleep(3.0)
+    check('T6b startup scan: B takes over A (A dead, B alive)',
+          _took and _A.poll() is not None and _B.poll() is None,
+          'took=%s A=%s B=%s' % (_took, _A.poll(), _B.poll()))
+    _B.kill()
+    _B.wait()
+
+    # T6c: B's death released the kernel lock - the next --once RUNS
+    _C = _sp200.run([_sy200.executable, _R200, '--watch', _gc200, '--once'],
+                    capture_output=True, text=True, timeout=120)
+    check('T6c flock released on death (next --once runs, not skipped)',
+          _C.returncode == 0 and 'one-shot run skipped' not in _C.stdout
+          and 'REFUSING' not in _C.stdout, _C.stdout[-160:])
+finally:
+    for _p200 in _procs200:
+        try:
+            _p200.kill()
+            _p200.wait(timeout=10)
+        except Exception:                                   # noqa: BLE001
+            pass
+    _sh200.rmtree(_gc200, ignore_errors=True)
+
 
 # ================================================================== summary =
 print()

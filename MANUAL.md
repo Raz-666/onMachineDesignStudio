@@ -3,7 +3,7 @@
 **Package:** `klipper-e3-r2d2` · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail) ·
 12864 LCD (16 characters per line)
 
-**Version:** this manual describes the current release, `R2-2026-10-29.135` — and only it. Every chapter documents what the system
+**Version:** this manual describes the current release, `R2-2026-10-29.136` — and only it. Every chapter documents what the system
 does today; the version changelog lives in README.md.
 
 This is the operating manual for the complete macro system: what the printer can
@@ -2761,7 +2761,7 @@ Print running (legacy file) - live tuning and overwrites ACTIVE
 | SYS_HOST_RESTART CONFIRM=1 | host service restart — 2× |
 | SYS_SHUTDOWN CONFIRM=1 | heaters/fans/LEDs off → Pi shutdown via moonraker |
 | SYS_SAVE_CONFIG | guarded SAVE_CONFIG: refuses during a print, skips when nothing is pending, warns that the LCD goes DARK for up to 2 min before restarting (2×) |
-| HOST_CHECK | **Pi health report**: throttle/undervoltage flags (now + since boot), CPU temp, load **vs. core count**, **RAM + swap**, disk, **iowait**, **TOP CPU/RAM processes (top 5)** and **who sits IN the swap** (VmSwap per process — names the RAM eater even when the top-RAM list looks innocent) + **service states** (klipper/moonraker/avahi/crowsnest/sonar/OctoEverywhere/pigpiod, with warnings: double webcam stack, avahi still on, cloud relay) — honest verdict: THROTTLED / SWAPPING / OVERLOADED / OK. The swap verdict measures **activity** (vmstat swap-in/out): quietly parked pages after boot are **OK** (normal on a small Pi), only real swap traffic counts as SWAPPING. LCD: System > Host check |
+| HOST_CHECK | **Pi health report**: throttle/undervoltage flags (now + since boot), CPU temp, load **vs. core count**, **RAM + swap**, disk, **iowait**, **TOP CPU/RAM processes (top 5)** and **who sits IN the swap** (VmSwap per process — names the RAM eater even when the top-RAM list looks innocent) + **service states** (klipper/moonraker/avahi/crowsnest/sonar/OctoEverywhere/pigpiod, with warnings: double webcam stack, avahi still on, cloud relay) — honest verdict: THROTTLED / SWAPPING / OVERLOADED / OK. The swap verdict measures **activity** (vmstat swap-in/out): quietly parked pages after boot are **OK** (normal on a small Pi), only real swap traffic counts as SWAPPING. LCD: System > Host check. Since .136 it also flags DUPLICATE r2-postproc watcher processes (they double every state push) with the fix command |
 | EMERGENCY_STOP | immediate halt |
 | FILE_CHECK | **g-code inventory**: scans every file's tag version — how many are current, old (upgradeable), untouched (never processed) or plotter files — each file listed on the console with age + size. `FILE_CHECK RETAG=1` (2×/CONFIRM=1) additionally upgrades old + untouched files to the current markers: **.r2bak backup first**, never while printing, max 20 per run. LCD: System > File check + STALE (v4: functional, pre-.86 info line — RETAG adds the new keys) |
 
@@ -3116,12 +3116,18 @@ CALIBRATE_PA · FLOW_CAL MEASURE=0.46 · TEMP_TOWER_START START=200 END=230 STEP
 the console with a `?` and no parameters — most macros answer with their
 usage line and the valid values instead of doing something.
 
-**Web-LCD (new in .135):** `web/index.html` navigates the complete menu tree
+**Web-LCD:** `web/index.html` navigates the complete menu tree
 of the 12864 LCD in the browser — same structure, breadcrumb, type badges.
 On the printer's host it loads the live tree (`web/r2_menu.py` Moonraker
-extension, `GET /server/r2_menu/tree`); opened from anywhere else it falls
-back to the embedded JSON snapshot. Commands are sent through Moonraker's
-own `/printer/gcode/script` endpoint. Install: copy `web/r2_menu.py` into
+extension, `GET /server/r2_menu/tree`) and, since .136, **evaluates the
+menu templates live**: every 3 s it fetches a pruned printer snapshot
+(`GET /server/r2_menu/live` — all gcode-macro objects + save_variables,
+fat lists like the SD tree pruned) and renders names exactly as the LCD
+does — same jinja dialect, cross-checked against the 1.910 render tests.
+Rows whose enable condition is false are hidden, exactly like the LCD.
+Opened from anywhere else it falls back to the embedded JSON snapshot
+(raw template view). Commands are sent through Moonraker's own
+`/printer/gcode/script` endpoint. Install: copy `web/r2_menu.py` into
 `~/moonraker/moonraker/components/`, add `[r2_menu]` with the path to
 `web/menu_structure.json` to moonraker.conf, restart Moonraker. After menu
 changes refresh the export: `python3 tools/menu_json_export.py` (plus
@@ -3737,7 +3743,7 @@ system). Better a quiet fan at full speed than a fast one slowed down.
 ## Appendix C: First start & updates
 
 - upload the folder → includes at the end of printer.cfg → RESTART
-- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-10-29.135)`
+- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-10-29.136)`
 - ~10 s later: boot sound + LED animation
 - SHOW_STATUS → mode, material, overrides · Maintenance > Tests > demos + self test
 

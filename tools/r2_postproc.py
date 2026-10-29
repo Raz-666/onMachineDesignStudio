@@ -76,8 +76,8 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-10-29.135'
-POSTPROC_BUILD = 'R197'
+POSTPROC_RELEASE = 'R2-2026-10-29.136'
+POSTPROC_BUILD = 'R201'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
 # and no speed/accel/nozzle parameters. Files carrying an OLD tag are UPGRADED
@@ -8310,6 +8310,21 @@ def host_check(host='127.0.0.1', port=7125, cores=None):
         lines.append('Top CPU: ' + ' | '.join('%s %.0f%%' % (n, c) for c, _m, _r, n in top[:5]))
         _byram = sorted(top, key=lambda t: -t[2])
         lines.append('Top RAM: ' + ' | '.join('%s %dMB' % (n, r) for _c, _m, r, n in _byram[:5]))
+
+    # ---- R200 (.135 field log): duplicate WATCHERS - the one health line
+    #      the user needs when pushes double. A survived old watcher (root
+    #      relic, aged-out lock file) runs alongside this one and every
+    #      state push fires twice; if it cannot be signalled, ONLY the user
+    #      can remove it - so HOST_CHECK names the PIDs and the command.
+    _dup200 = _find_other_watchers()
+    if _dup200:
+        lines.append('[!] %d MORE r2_postproc watcher process(es) besides this '
+                     'one: PIDs %s' % (len(_dup200),
+                                       ', '.join(str(p) for p in sorted(_dup200))))
+        lines.append('    every state push runs MULTIPLE times (.135 field '
+                     'log) - fix: sudo systemctl restart r2-postproc, and if')
+        lines.append('    a PID survives that: sudo kill -9 <PID> (a root '
+                     'relic from cron / rc.local cannot be signalled by us)')
 
     # ---- R104: swap ACTIVITY first (vmstat 1s sample: si/so + iowait). Usage
     #      alone says nothing - the .80 field log had 109MB of stone-cold parked
@@ -18395,6 +18410,9 @@ def _stop_duplicate_watcher(pid):
         pass
 
 
+_WATCH_FLOCK = None      # R200: fd of the held watcher.lock (kernel-held)
+
+
 def _watch_lock_takeover():
     """R133h (field log .100 - the SHUTDOWN killer): ONE watcher, ever.
 
@@ -18408,6 +18426,18 @@ def _watch_lock_takeover():
     r2_postproc process (loud log + RESPOND, SIGTERM, then SIGKILL) and
     writes its own PID. update.sh additionally pkills everything."""
     import atexit
+    # R200 (.101 lesson, now for --once too): a one-shot catch-up run NEVER
+    # kills a live watcher - the old PID-file takeover below ran for --once
+    # as well and murdered the daemon (found by the r197 T6b spawn test).
+    # Check FIRST, skip politely, exit 0.
+    _once200 = '--once' in sys.argv
+    if _once200:
+        for _pid200 in _find_other_watchers():
+            _sup200 = _svc_watcher(_pid200)
+            print('[lock] %s (PID %d) already watches the folder - one-shot '
+                  'run skipped' % ('the SUPERVISED systemd watcher' if _sup200
+                                   else 'a live watcher', _pid200), flush=True)
+            sys.exit(0)
     lock = '/tmp/r2_postproc.watch.lock'
     try:
         with open(lock) as f:
@@ -18432,12 +18462,58 @@ def _watch_lock_takeover():
                   '(one watcher from now on)' % old_pid, flush=True)
             _stop_duplicate_watcher(old_pid)
             print('[lock] takeover done', flush=True)
+    # R200 (.135 field log - 'every push ran twice'): the PID file above is
+    # best-effort only. /tmp ages files out (systemd-tmpfiles) while an old
+    # watcher keeps running, and pre-.98 zombies never wrote one - so the
+    # file can be EMPTY while a twin is alive, and the new watcher starts
+    # alongside it (two staggered boot sequences = every SAVE_VARIABLE 2x,
+    # the litho notify macro RESPONDING twice, double SD writes and a race
+    # for generator jobs). The /proc scan is the truth: take over from
+    # EVERY other live watcher at startup, not just the one the file knew.
+    for _pid200 in _find_other_watchers():
+        if _svc_watcher(_pid200) and not _svc_watcher(os.getpid()):
+            print('[lock] the SUPERVISED systemd watcher already runs as PID '
+                  '%d - this manual start exits (use: sudo systemctl restart '
+                  'r2-postproc for a fresh one)' % _pid200, flush=True)
+            sys.exit(0)
+        print('[lock] startup scan: duplicate watcher PID %d - taking over'
+              % _pid200, flush=True)
+        _stop_duplicate_watcher(_pid200)
+    # R200: the kernel guarantee. An flock on the PACKAGE root (survives
+    # /tmp cleaning, unlike the PID file above) is held for the process
+    # lifetime and released by the kernel on death - however we die. Two
+    # .136+ instances can never overlap, whatever started them (systemd,
+    # cron, rc.local, a stray script).
+    global _WATCH_FLOCK
+    import fcntl
+    _flock_path200 = os.path.join(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))), 'watcher.lock')
+    try:
+        _WATCH_FLOCK = os.open(_flock_path200, os.O_RDWR | os.O_CREAT, 0o644)
+        fcntl.flock(_WATCH_FLOCK, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        if _once200:
+            print('[lock] another process holds %s - one-shot run skipped'
+                  % _flock_path200, flush=True)
+            sys.exit(0)
+        print('[lock] REFUSING TO START: another watcher holds %s (flock) -'
+              '\n    two instances would double every state push and race '
+              'for generator jobs (field log .135).\n'
+              '    check:  pgrep -af r2_postproc.py\n'
+              '    fix:    sudo systemctl restart r2-postproc (or kill the '
+              'stray PID)' % _flock_path200, flush=True)
+        sys.exit(1)
+    try:
+        os.truncate(_WATCH_FLOCK, 0)
+        os.write(_WATCH_FLOCK, ('%d\n' % os.getpid()).encode())
+    except OSError:
+        pass
     try:
         with open(lock, 'w') as f:
             f.write(str(os.getpid()))
         atexit.register(_rm_watch_lock)
     except OSError as e:
-        print('[lock] cannot write %s: %r - running WITHOUT lock'
+        print('[lock] cannot write %s: %r - running WITHOUT pid file'
               % (lock, e), flush=True)
 
 

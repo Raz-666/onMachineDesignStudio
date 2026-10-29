@@ -10,3 +10,4 @@ tools/manual_work/
 SESSION_STATE.md
 r2d2-repo.bundle
 watch_state.json
+watcher.lock

@@ -78,6 +78,18 @@ def parse_menu_cfg(path):
     return sections
 
 
+def _stripq(v):
+    """R201: remove ONE layer of surrounding quotes. Klipper's menu parser
+    keeps the quotes in the raw option value (they matter for its own
+    parsing), but the JSON export carries VALUES - a web client should
+    not have to know that lcd_menues.cfg quotes its name:/enable: strings
+    (the .135 page showed '> PRINT AS SLICED' WITH quotes as the label).
+    Only a matching OUTER pair is stripped - quotes inside the text stay."""
+    if isinstance(v, str) and len(v) >= 2 and v[0] == v[-1] and v[0] in ('\"', "'"):
+        return v[1:-1]
+    return v
+
+
 def build_tree(sections):
     """-> nested {id, type, name, enable, gcode, input*, children[]}."""
     nodes = {}
@@ -90,6 +102,9 @@ def build_tree(sections):
         for k in FWD_KEYS:
             if k in sec and sec[k] != '':
                 node[k] = sec[k]
+        for k in ('name', 'enable'):
+            if k in node:
+                node[k] = _stripq(node[k])
         gcode = sec.get('gcode', '')
         if gcode:
             node['gcode'] = [l for l in gcode.split('\n') if l.strip()]
@@ -128,7 +143,7 @@ def export(cfg_path, out_path=None, page=None):
         counts[n.get('type', '?')] = counts.get(n.get('type', '?'), 0) + 1
     payload = json.dumps(root, ensure_ascii=False, separators=(',', ':'))
     doc = {
-        'generator': 'menu_json_export.py (.135 R196)',
+        'generator': 'menu_json_export.py (.136 R201)',
         'source': os.path.basename(cfg_path),
         'sections': len(sections),
         'counts': counts,

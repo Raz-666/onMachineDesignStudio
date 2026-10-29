@@ -1,4 +1,5 @@
-# r2_menu.py - Moonraker extension: the R2 menu tree as JSON (.135, R196)
+# r2_menu.py - Moonraker extension: the R2 menu tree as JSON (.136, R201:
+# adds /server/r2_menu/live - the pruned printer snapshot for live values)
 # ============================================================================
 #  INSTALL (one time):
 #    cp web/r2_menu.py ~/moonraker/moonraker/components/r2_menu.py
@@ -11,6 +12,14 @@
 #  any other client can fetch them without a second stack or auth dance):
 #    GET /server/r2_menu/tree      -> the exported menu tree + meta
 #    GET /server/r2_menu/status    -> {ok, sections, sha256, mtime}
+#    GET /server/r2_menu/live      -> R201: a minimal PRINTER SNAPSHOT for
+#                                     evaluating the menu templates live:
+#                                     every gcode_macro object + save_variables
+#                                     + the core objects, with fat values
+#                                     (sd_tree, opt_list, ...) pruned so the
+#                                     Pi Zero ships bytes, not kilobytes.
+#                                     {ok: false, reason} while klippy is
+#                                     down - the page keeps the raw view.
 #    POST /server/r2_menu/refresh  -> re-run tools/menu_json_export.py
 #                                     (if the tool exists on this host)
 #
@@ -29,6 +38,7 @@
 import argparse
 import asyncio
 import os
+import re
 import subprocess
 
 MENU_PATH_DEFAULT = '~/klipper-e3-r2d2/web/menu_structure.json'
@@ -51,12 +61,17 @@ class R2MenuComponent:
         self.lock = asyncio.Lock()
         self.doc = None
         self.last_mtime = 0.0
+        self._live_cache = None        # R201: 1 s printer-snapshot cache
+        self._live_t = 0.0
         self.server.register_endpoint(
             '/server/r2_menu/tree', ['GET'],
             self._handle_tree)
         self.server.register_endpoint(
             '/server/r2_menu/status', ['GET'],
             self._handle_status)
+        self.server.register_endpoint(
+            '/server/r2_menu/live', ['GET'],
+            self._handle_live)
         self.server.register_endpoint(
             '/server/r2_menu/refresh', ['POST'],
             self._handle_refresh)
@@ -90,6 +105,58 @@ class R2MenuComponent:
         return {'ok': True, 'sections': self.doc.get('sections'),
                 'sha256': self.doc.get('sha256'),
                 'counts': self.doc.get('counts')}
+
+    async def _handle_live(self, web_request):
+        """R201: a minimal printer snapshot for live template evaluation.
+
+        The page evaluates the menu name:/enable: jinja fragments against
+        this data (exactly the objects they read: printer['gcode_macro X'],
+        save_variables, print_stats, ...). PRUNING: save_variables carries
+        fat lists (sd_tree, opt_list, litho_files, gen_files) the menus
+        never display - anything whose repr exceeds ~1.2 kB is dropped and
+        NAMED in 'pruned', so a poll costs bytes on the Pi Zero, not
+        kilobytes per second. Cached for 1 s (several open tabs share one
+        klippy query)."""
+        import time as _t
+        if self._live_cache is not None and _t.monotonic() - self._live_t < 1.0:
+            return self._live_cache
+        try:
+            apis = self.server.lookup_object('klippy_apis')
+            objs = await apis.get_object_list()
+        except self.server.error:
+            raise
+        except Exception as e:                                  # noqa: BLE001
+            return {'ok': False, 'reason': 'klippy not available: %s' % e}
+        want = {}
+        for o in objs:
+            if (o == 'save_variables' or o.startswith('gcode_macro ')
+                    or o in ('print_stats', 'gcode_move', 'toolhead',
+                             'extruder', 'heater_bed', 'display_status',
+                             'fan', 'idle_timeout')):
+                want[o] = None
+        try:
+            status = await apis.query_objects(want, default={})
+        except self.server.error:
+            raise
+        except Exception as e:                                  # noqa: BLE001
+            return {'ok': False, 'reason': str(e)}
+        pruned = []
+        try:
+            sv = status.get('save_variables', {}).get('variables', {})
+            for k in list(sv):
+                try:
+                    fat = len(repr(sv[k])) > 1200
+                except Exception:                               # noqa: BLE001
+                    fat = True
+                if fat:
+                    pruned.append(k)
+                    del sv[k]
+        except Exception:                                       # noqa: BLE001
+            pass
+        out = {'ok': True, 'objects': status, 'pruned': pruned}
+        self._live_cache = out
+        self._live_t = _t.monotonic()
+        return out
 
     async def _handle_refresh(self, web_request):
         # the lock guards the SUBPROCESS alone - _ensure_loaded takes it

@@ -1,5 +1,5 @@
 {
- "generator": "menu_json_export.py (.135 R196)",
+ "generator": "menu_json_export.py (.136 R201)",
  "source": "lcd_menues.cfg",
  "sections": 2272,
  "counts": {
@@ -7,7 +7,7 @@
   "command": 1373,
   "input": 596
  },
- "sha256": "7ba46b97f0656acb",
+ "sha256": "479a83ec2fdff346",
  "tree": {
   "id": "__main",
   "type": "list",
@@ -16,13 +16,13 @@
    {
     "id": "__main __start",
     "type": "list",
-    "name": "'> Start? {(\"MARKED\" if printer['gcode_macro _STATE'].file_type|default(\"unknown\") == \"marked\" else \"LEGACY\" if printer['gcode_macro _STATE'].file_type|default(\"unknown\") == \"legacy\" else \"?\")} {printer['gcode_macro _STATE'].file_material|default(\"?\")} {printer['gcode_macro _STATE'].file_hotend_first|default(0)|round(0)|int}/{printer['gcode_macro _STATE'].file_bed|default(0)|round(0)|int}C'",
+    "name": "> Start? {(\"MARKED\" if printer['gcode_macro _STATE'].file_type|default(\"unknown\") == \"marked\" else \"LEGACY\" if printer['gcode_macro _STATE'].file_type|default(\"unknown\") == \"legacy\" else \"?\")} {printer['gcode_macro _STATE'].file_material|default(\"?\")} {printer['gcode_macro _STATE'].file_hotend_first|default(0)|round(0)|int}/{printer['gcode_macro _STATE'].file_bed|default(0)|round(0)|int}C",
     "enable": "{printer['gcode_macro _STATE'].mode == 'waiting'}",
     "children": [
      {
       "id": "__main __start __direct",
       "type": "command",
-      "name": "'> PRINT AS SLICED'",
+      "name": "> PRINT AS SLICED",
       "gcode": [
        "PRINT_AS_SLICED"
       ],
@@ -31,7 +31,7 @@
      {
       "id": "__main __start __asleg",
       "type": "command",
-      "name": "'> AS LEGACY'",
+      "name": "> AS LEGACY",
       "gcode": [
        "PRINT_AS_LEGACY"
       ],
@@ -40,7 +40,7 @@
      {
       "id": "__main __start __cancel",
       "type": "command",
-      "name": "'> CANCEL START'",
+      "name": "> CANCEL START",
       "gcode": [
        "CANCEL_PENDING_PRINT"
       ],
@@ -54,7 +54,7 @@
        {
         "id": "__main __start __info __type",
         "type": "command",
-        "name": "'{(printer[\"gcode_macro _STATE\"].file_type|default(\"?\")|upper if printer[\"gcode_macro _STATE\"].file_type|default(\"?\") != \"unknown\" else printer[\"gcode_macro _PREVIEW\"].type|default(\"?\")|upper)} | Ly {printer[\"gcode_macro _STATE\"].file_layer_height|default(0)|round(2)}x{printer[\"gcode_macro _STATE\"].total_layers|default(0)|int if printer[\"gcode_macro _STATE\"].total_layers|default(0) > 0 else \"?\"}'",
+        "name": "{(printer[\"gcode_macro _STATE\"].file_type|default(\"?\")|upper if printer[\"gcode_macro _STATE\"].file_type|default(\"?\") != \"unknown\" else printer[\"gcode_macro _PREVIEW\"].type|default(\"?\")|upper)} | Ly {printer[\"gcode_macro _STATE\"].file_layer_height|default(0)|round(2)}x{printer[\"gcode_macro _STATE\"].total_layers|default(0)|int if printer[\"gcode_macro _STATE\"].total_layers|default(0) > 0 else \"?\"}",
         "gcode": [
          "{% set s = printer['gcode_macro _STATE'] %}",
          "RESPOND MSG=\"File type: {s.file_type|default('unknown')|upper} - MARKED = R2 markers (all 3 modes), LEGACY = no PRINT_START (AS SLICED = 1:1, AS LEGACY = takeover + your overrides)\""
@@ -64,7 +64,7 @@
        {
         "id": "__main __start __info __mat",
         "type": "command",
-        "name": "'Mat {printer[\"gcode_macro _STATE\"].file_material|default(\"?\")} | Noz {printer[\"gcode_macro _STATE\"].file_nozzle|default(0)|round(1) if printer[\"gcode_macro _STATE\"].file_nozzle|default(0) > 0 else \"?\"} W{printer[\"gcode_macro _STATE\"].file_wall_loops|default(0)|int}'",
+        "name": "Mat {printer[\"gcode_macro _STATE\"].file_material|default(\"?\")} | Noz {printer[\"gcode_macro _STATE\"].file_nozzle|default(0)|round(1) if printer[\"gcode_macro _STATE\"].file_nozzle|default(0) > 0 else \"?\"} W{printer[\"gcode_macro _STATE\"].file_wall_loops|default(0)|int}",
         "gcode": [
          "RESPOND MSG=\"File: material {printer['gcode_macro _STATE'].file_material} | nozzle {printer['gcode_macro _STATE'].file_nozzle}mm | wall loops {printer['gcode_macro _STATE'].file_wall_loops} | your material: {printer['save_variables'].variables.material|default('PLA')}\""
         ],
@@ -73,7 +73,7 @@
        {
         "id": "__main __start __info __slicer",
         "type": "command",
-        "name": "'By {(printer['gcode_macro _STATE'].file_slicer|default('?')).replace('_', ' ')|truncate(13, True, '')}'",
+        "name": "By {(printer['gcode_macro _STATE'].file_slicer|default('?')).replace('_', ' ')|truncate(13, True, '')}",
         "gcode": [
          "{% set s = printer['gcode_macro _STATE'] %}",
          "RESPOND MSG=\"File: sliced by {s.file_slicer|default('?')|replace('_', ' ')} for {s.file_firmware|default('?')} firmware (foreign slicers print AS LEGACY)\"",
@@ -86,7 +86,7 @@
        {
         "id": "__main __start __info __temps",
         "type": "command",
-        "name": "'{printer[\"gcode_macro _STATE\"].file_hotend_first|default(0)|round(0)|int}/{printer[\"gcode_macro _STATE\"].file_hotend_after|default(0)|round(0)|int}C  Bed {printer[\"gcode_macro _STATE\"].file_bed|default(0)|round(0)|int}/{printer[\"gcode_macro _STATE\"].file_bed_after|default(0)|round(0)|int}C'",
+        "name": "{printer[\"gcode_macro _STATE\"].file_hotend_first|default(0)|round(0)|int}/{printer[\"gcode_macro _STATE\"].file_hotend_after|default(0)|round(0)|int}C  Bed {printer[\"gcode_macro _STATE\"].file_bed|default(0)|round(0)|int}/{printer[\"gcode_macro _STATE\"].file_bed_after|default(0)|round(0)|int}C",
         "gcode": [
          "RESPOND MSG=\"File temps: hotend {printer['gcode_macro _STATE'].file_hotend_first}/{printer['gcode_macro _STATE'].file_hotend_after}C | bed {printer['gcode_macro _STATE'].file_bed}/{printer['gcode_macro _STATE'].file_bed_after}C - YOUR overrides: Pre-Print > Temps\""
         ],
@@ -95,7 +95,7 @@
        {
         "id": "__main __start __info __speeds",
         "type": "command",
-        "name": "'Spd {printer[\"gcode_macro _STATE\"].file_feat_spd_wallouter|default(0)|round(0)|int if printer[\"gcode_macro _STATE\"].file_feat_spd_wallouter|default(0) > 0 else \"?\"}mm/s PA {printer[\"gcode_macro _STATE\"].file_pa|default(0)|round(3)}'",
+        "name": "Spd {printer[\"gcode_macro _STATE\"].file_feat_spd_wallouter|default(0)|round(0)|int if printer[\"gcode_macro _STATE\"].file_feat_spd_wallouter|default(0) > 0 else \"?\"}mm/s PA {printer[\"gcode_macro _STATE\"].file_pa|default(0)|round(3)}",
         "gcode": [
          "{% set s = printer['gcode_macro _STATE'] %}",
          "RESPOND MSG=\"File: outer wall {s.file_feat_spd_wallouter|default(0)|round(0)}mm/s | first layer {s.file_speed_first|default(0)|round(0)}mm/s | ironing {s.file_ironing_speed|default(0)|round(0)}mm/s | PA {s.file_pa} | retract {s.file_retract_len}@{s.file_retract_speed}\""
@@ -105,7 +105,7 @@
        {
         "id": "__main __start __info __width",
         "type": "command",
-        "name": "'Width {printer[\"gcode_macro _STATE\"].file_line_width|default(0)|round(2) if printer[\"gcode_macro _STATE\"].file_line_width|default(0) > 0 else \"?\"}mm Flow {printer[\"gcode_macro _STATE\"].file_flow_ratio|default(0)|round(2) if printer[\"gcode_macro _STATE\"].file_flow_ratio|default(0) > 0 else \"?\"}'",
+        "name": "Width {printer[\"gcode_macro _STATE\"].file_line_width|default(0)|round(2) if printer[\"gcode_macro _STATE\"].file_line_width|default(0) > 0 else \"?\"}mm Flow {printer[\"gcode_macro _STATE\"].file_flow_ratio|default(0)|round(2) if printer[\"gcode_macro _STATE\"].file_flow_ratio|default(0) > 0 else \"?\"}",
         "gcode": [
          "RESPOND MSG=\"File: line width {printer['gcode_macro _STATE'].file_line_width}mm (first {printer['gcode_macro _STATE'].file_line_width_first}, wall {printer['gcode_macro _STATE'].file_line_width_wall}) | flow ratio {printer['gcode_macro _STATE'].file_flow_ratio} | by object {printer['gcode_macro _STATE'].file_by_object}\""
         ],
@@ -118,13 +118,13 @@
    {
     "id": "__main __endq",
     "type": "list",
-    "name": "'> Rate print? {printer['save_variables'].variables.opt_cnt|default(0)} tuned'",
+    "name": "> Rate print? {printer['save_variables'].variables.opt_cnt|default(0)} tuned",
     "enable": "{printer['gcode_macro _STATE'].opt_pending|default(False)}",
     "children": [
      {
       "id": "__main __endq __info",
       "type": "command",
-      "name": "'{printer.print_stats.filename|default('?')|truncate(14, True, '')} - save tuning?'",
+      "name": "{printer.print_stats.filename|default('?')|truncate(14, True, '')} - save tuning?",
       "gcode": [
        "OPT_INFO"
       ],
@@ -133,7 +133,7 @@
      {
       "id": "__main __endq __yes",
       "type": "command",
-      "name": "'> YES - optimized copy'",
+      "name": "> YES - optimized copy",
       "gcode": [
        "_OPT_PROMPT_YES"
       ],
@@ -142,7 +142,7 @@
      {
       "id": "__main __endq __no",
       "type": "command",
-      "name": "'> NO - discard'",
+      "name": "> NO - discard",
       "gcode": [
        "_OPT_PROMPT_NO"
       ],
@@ -159,7 +159,7 @@
      {
       "id": "__main __optprint __info",
       "type": "command",
-      "name": "'Files: {((printer['save_variables'].variables.opt_list|default('')|string).split('|')|length if printer['save_variables'].variables.opt_list|default('') != '' else 0)}'",
+      "name": "Files: {((printer['save_variables'].variables.opt_list|default('')|string).split('|')|length if printer['save_variables'].variables.opt_list|default('') != '' else 0)}",
       "gcode": [
        "RESPOND MSG=\"Optimized copies live in gcodes/optimized/ - press a slot to SELECT it, then START prints it (start dialog asks as always) or 'Values' takes its tuning into Pre-Print. The list refreshes LIVE - rows with '(empty)' are free slots\""
       ],
@@ -568,7 +568,7 @@
      {
       "id": "__main __optprint __start",
       "type": "command",
-      "name": "'START {printer['save_variables'].variables.opt_print_name|default('')|truncate(12, True, '')}'",
+      "name": "START {printer['save_variables'].variables.opt_print_name|default('')|truncate(12, True, '')}",
       "enable": "{printer['save_variables'].variables.opt_print_name|default('') != ''}",
       "gcode": [
        "{% set nm = printer['save_variables'].variables.opt_print_name|default('')|replace('\"', '') %}",
@@ -583,7 +583,7 @@
      {
       "id": "__main __optprint __vals",
       "type": "command",
-      "name": "'Values > Pre-Print'",
+      "name": "Values > Pre-Print",
       "enable": "{printer['save_variables'].variables.opt_print_name|default('') != ''}",
       "gcode": [
        "{% set nm = printer['save_variables'].variables.opt_print_name|default('')|replace('\"', '') %}",
@@ -1705,7 +1705,7 @@
        {
         "id": "__main __live __pafe __gpa",
         "type": "command",
-        "name": "'Glob: {printer['save_variables'].variables.ov_pa|default(0)|round(3)}'",
+        "name": "Glob: {printer['save_variables'].variables.ov_pa|default(0)|round(3)}",
         "gcode": [
          "RESPOND MSG=\"Global PA override: {printer['save_variables'].variables.ov_pa|default(0)} - Pre-Print > PA per feat > Glob sets it, Live > PA (top) tunes it live\""
         ],
@@ -2071,7 +2071,7 @@
        {
         "id": "__main __live __flfe __gfl",
         "type": "command",
-        "name": "'Glob: {printer['save_variables'].variables.ov_flow|default(100)|round|int}%'",
+        "name": "Glob: {printer['save_variables'].variables.ov_flow|default(100)|round|int}%",
         "gcode": [
          "RESPOND MSG=\"Global flow override: {printer['save_variables'].variables.ov_flow|default(100)}% (ov_flow) - Pre-Print > Flw per feat > Glob sets it\""
         ],
@@ -5032,7 +5032,7 @@
        {
         "id": "__main __live __plot __mode",
         "type": "command",
-        "name": "'Mode: {(\"FILAMENT - draws hot\" if printer[\"gcode_macro _STATE\"].plot_extrude|default(False) else \"PEN only\")}'",
+        "name": "Mode: {(\"FILAMENT - draws hot\" if printer[\"gcode_macro _STATE\"].plot_extrude|default(False) else \"PEN only\")}",
         "gcode": [
          "RESPOND MSG=\"[plot] This file runs in {'FILAMENT mode: extruder on, draws at the set height' if printer['gcode_macro _STATE'].plot_extrude|default(False) else 'PEN mode: no extrusion - mount the pen before starting'} | settings were baked in at conversion time (Plotter menu)\""
         ],
@@ -5268,7 +5268,7 @@
        {
         "id": "__main __live __pause __now",
         "type": "command",
-        "name": "'Pause NOW{(printer[\"gcode_macro _STATE\"].pause_now_arm|default(0) == 1) and \" AGAIN!\" or \"\"}'",
+        "name": "Pause NOW{(printer[\"gcode_macro _STATE\"].pause_now_arm|default(0) == 1) and \" AGAIN!\" or \"\"}",
         "gcode": [
          "{% if printer['gcode_macro _STATE'].pause_now_arm|default(0) == 1 %}",
          "SET_GCODE_VARIABLE MACRO=_STATE VARIABLE=pause_now_arm VALUE=0",
@@ -5428,7 +5428,7 @@
        {
         "id": "__main __preprint __file __opt",
         "type": "command",
-        "name": "'OPTIMIZED - tuned values baked'",
+        "name": "OPTIMIZED - tuned values baked",
         "enable": "{printer['gcode_macro _STATE'].file_optimized|default(False)}",
         "gcode": [
          "RESPOND MSG=\"OPTIMIZED copy (.128+): the values shown are the ones the successful print ended with - baked into this file. Header carries the R2-OPT tag (source + date) and the _OPT_BAKED replay line\""
@@ -5438,7 +5438,7 @@
        {
         "id": "__main __preprint __file __pv1",
         "type": "command",
-        "name": "'{printer['gcode_macro _PREVIEW'].name|default(\"no file selected\")|truncate(16, True, \"\")}'",
+        "name": "{printer['gcode_macro _PREVIEW'].name|default(\"no file selected\")|truncate(16, True, \"\")}",
         "enable": "{printer['gcode_macro _PREVIEW'].name|default('') != ''}",
         "gcode": [
          "RESPOND MSG=\"File preview: {printer['gcode_macro _PREVIEW'].name}\""
@@ -5471,7 +5471,7 @@
        {
         "id": "__main __preprint __file __pv4",
         "type": "command",
-        "name": "'By {(printer['gcode_macro _PREVIEW'].slicer|default('?')).replace('_', ' ')|truncate(13, True, '')}'",
+        "name": "By {(printer['gcode_macro _PREVIEW'].slicer|default('?')).replace('_', ' ')|truncate(13, True, '')}",
         "enable": "{printer['gcode_macro _PREVIEW'].name|default('') != ''}",
         "gcode": [
          "{% set pv = printer['gcode_macro _PREVIEW'] %}",
@@ -5910,7 +5910,7 @@
          {
           "id": "__main __preprint __fixes __fc __fc2",
           "type": "command",
-          "name": "'>> RETAG OLD NOW'",
+          "name": ">> RETAG OLD NOW",
           "enable": "{printer['gcode_macro _STATE'].fc_armed}",
           "gcode": [
            "{% if printer['gcode_macro _STATE'].fc_armed|default(False) %}{menu.exit()}{% endif %}",
@@ -5939,7 +5939,7 @@
          {
           "id": "__main __preprint __fixes __fc __fc5",
           "type": "command",
-          "name": "'>> RE-FIX TYPES NOW'",
+          "name": ">> RE-FIX TYPES NOW",
           "enable": "{printer['gcode_macro _STATE'].fc2_armed}",
           "gcode": [
            "{% if printer['gcode_macro _STATE'].fc2_armed|default(False) %}{menu.exit()}{% endif %}",
@@ -5952,7 +5952,7 @@
        {
         "id": "__main __preprint __fixes __retst",
         "type": "command",
-        "name": "'Ret: {'FIX!' if printer['gcode_macro _PREVIEW'].retract_status|default('') == 'fix' else ('can ' ~ printer['gcode_macro _PREVIEW'].retract_max|default(0)|round(1) ~ 'mm' if printer['gcode_macro _PREVIEW'].retract_status|default('') == 'can' else ('fixed' if printer['gcode_macro _PREVIEW'].retract_status|default('') == 'fixed' else ('fw' if printer['gcode_macro _PREVIEW'].retract_status|default('') == 'fw' else '--')))}'",
+        "name": "Ret: {'FIX!' if printer['gcode_macro _PREVIEW'].retract_status|default('') == 'fix' else ('can ' ~ printer['gcode_macro _PREVIEW'].retract_max|default(0)|round(1) ~ 'mm' if printer['gcode_macro _PREVIEW'].retract_status|default('') == 'can' else ('fixed' if printer['gcode_macro _PREVIEW'].retract_status|default('') == 'fixed' else ('fw' if printer['gcode_macro _PREVIEW'].retract_status|default('') == 'fw' else '--')))}",
         "enable": "{printer['gcode_macro _PREVIEW'].name|default('') != ''}",
         "gcode": [
          "{% set pv = printer['gcode_macro _PREVIEW'] %}",
@@ -5973,7 +5973,7 @@
        {
         "id": "__main __preprint __fixes __fixr",
         "type": "command",
-        "name": "'Fix: Retraction'",
+        "name": "Fix: Retraction",
         "enable": "{printer['gcode_macro _PREVIEW'].name|default('') != '' and printer['gcode_macro _PREVIEW'].retract_status|default('') in ['fix', 'can']}",
         "gcode": [
          "{menu.exit()}",
@@ -5993,7 +5993,7 @@
        {
         "id": "__main __preprint __fixes __fixv",
         "type": "command",
-        "name": "'Fix: Volume to mm'",
+        "name": "Fix: Volume to mm",
         "enable": "{printer['gcode_macro _PREVIEW'].volumetric|default(0)|int > 0 or printer['gcode_macro _STATE'].file_volumetric|default(False)}",
         "gcode": [
          "{menu.exit()}",
@@ -6004,7 +6004,7 @@
        {
         "id": "__main __preprint __fixes __fixs",
         "type": "command",
-        "name": "'Fix: Segments (MCU)'",
+        "name": "Fix: Segments (MCU)",
         "enable": "{printer['gcode_macro _PREVIEW'].name|default('') != ''}",
         "gcode": [
          "{menu.exit()}",
@@ -6029,7 +6029,7 @@
        {
         "id": "__main __preprint __fixes __fixc",
         "type": "command",
-        "name": "'Fix: Flow cap'",
+        "name": "Fix: Flow cap",
         "enable": "{printer['gcode_macro _PREVIEW'].name|default('') != ''}",
         "gcode": [
          "{menu.exit()}",
@@ -6080,7 +6080,7 @@
        {
         "id": "__main __preprint __fixes __fixa",
         "type": "command",
-        "name": "'Fix: Travel moves'",
+        "name": "Fix: Travel moves",
         "enable": "{printer['gcode_macro _PREVIEW'].name|default('') != ''}",
         "gcode": [
          "{menu.exit()}",
@@ -6113,7 +6113,7 @@
          {
           "id": "__main __preprint __mods __poff __z",
           "type": "input",
-          "name": "'Z: {'%.2f'|format(menu.input)}'",
+          "name": "Z: {'%.2f'|format(menu.input)}",
           "input": "{printer.gcode_move.homing_origin.z|default(0)|float}",
           "input_min": "-5",
           "input_max": "5",
@@ -6127,7 +6127,7 @@
          {
           "id": "__main __preprint __mods __poff __x",
           "type": "input",
-          "name": "'X: {'%.2f'|format(menu.input)}'",
+          "name": "X: {'%.2f'|format(menu.input)}",
           "input": "{printer.gcode_move.homing_origin.x|default(0)|float}",
           "input_min": "-5",
           "input_max": "5",
@@ -6141,7 +6141,7 @@
          {
           "id": "__main __preprint __mods __poff __y",
           "type": "input",
-          "name": "'Y: {'%.2f'|format(menu.input)}'",
+          "name": "Y: {'%.2f'|format(menu.input)}",
           "input": "{printer.gcode_move.homing_origin.y|default(0)|float}",
           "input_min": "-5",
           "input_max": "5",
@@ -11745,7 +11745,7 @@
        {
         "id": "__main __preprint __profs __stat",
         "type": "command",
-        "name": "'File: {printer['gcode_macro _PREVIEW'].name|default('-')|truncate(12, True, '')}'",
+        "name": "File: {printer['gcode_macro _PREVIEW'].name|default('-')|truncate(12, True, '')}",
         "gcode": [
          "FILE_PROFILES_INFO"
         ],
@@ -11770,7 +11770,7 @@
          {
           "id": "__main __preprint __profs __opt __hint",
           "type": "command",
-          "name": "'Files: {((printer['save_variables'].variables.opt_list|default('')|string).split('|')|length if printer['save_variables'].variables.opt_list|default('') != '' else 0)}'",
+          "name": "Files: {((printer['save_variables'].variables.opt_list|default('')|string).split('|')|length if printer['save_variables'].variables.opt_list|default('') != '' else 0)}",
           "gcode": [
            "RESPOND MSG=\"Optimized files live in gcodes/optimized/ - press a slot: its tuned values become the Pre-Print STARTING POINT (nothing is written to any file). The list refreshes LIVE - '(empty)' rows are free slots\""
           ],
@@ -12141,7 +12141,7 @@
        {
         "id": "__main __preprint __profs __optsave",
         "type": "command",
-        "name": "'Save last print > optimized'",
+        "name": "Save last print > optimized",
         "enable": "{printer['save_variables'].variables.opt_snap|default(0) is mapping and printer['gcode_macro _STATE'].mode == 'idle'}",
         "gcode": [
          "{menu.exit()}",
@@ -12400,7 +12400,7 @@
          {
           "id": "__main __preprint __profs __def __d1",
           "type": "command",
-          "name": "'Del 1{(printer[\"gcode_macro _STATE\"].def_del_arm|default(0) == 1) and \" AGAIN!\" or \"\"}'",
+          "name": "Del 1{(printer[\"gcode_macro _STATE\"].def_del_arm|default(0) == 1) and \" AGAIN!\" or \"\"}",
           "enable": "{printer['save_variables'].variables.default_preset_1|default(0) != 0}",
           "gcode": [
            "{% if printer['gcode_macro _STATE'].def_del_arm|default(0) == 1 %}",
@@ -12416,7 +12416,7 @@
          {
           "id": "__main __preprint __profs __def __d2",
           "type": "command",
-          "name": "'Del 2{(printer[\"gcode_macro _STATE\"].def_del_arm|default(0) == 2) and \" AGAIN!\" or \"\"}'",
+          "name": "Del 2{(printer[\"gcode_macro _STATE\"].def_del_arm|default(0) == 2) and \" AGAIN!\" or \"\"}",
           "enable": "{printer['save_variables'].variables.default_preset_2|default(0) != 0}",
           "gcode": [
            "{% if printer['gcode_macro _STATE'].def_del_arm|default(0) == 2 %}",
@@ -12432,7 +12432,7 @@
          {
           "id": "__main __preprint __profs __def __d3",
           "type": "command",
-          "name": "'Del 3{(printer[\"gcode_macro _STATE\"].def_del_arm|default(0) == 3) and \" AGAIN!\" or \"\"}'",
+          "name": "Del 3{(printer[\"gcode_macro _STATE\"].def_del_arm|default(0) == 3) and \" AGAIN!\" or \"\"}",
           "enable": "{printer['save_variables'].variables.default_preset_3|default(0) != 0}",
           "gcode": [
            "{% if printer['gcode_macro _STATE'].def_del_arm|default(0) == 3 %}",
@@ -12448,7 +12448,7 @@
          {
           "id": "__main __preprint __profs __def __d4",
           "type": "command",
-          "name": "'Del 4{(printer[\"gcode_macro _STATE\"].def_del_arm|default(0) == 4) and \" AGAIN!\" or \"\"}'",
+          "name": "Del 4{(printer[\"gcode_macro _STATE\"].def_del_arm|default(0) == 4) and \" AGAIN!\" or \"\"}",
           "enable": "{printer['save_variables'].variables.default_preset_4|default(0) != 0}",
           "gcode": [
            "{% if printer['gcode_macro _STATE'].def_del_arm|default(0) == 4 %}",
@@ -12464,7 +12464,7 @@
          {
           "id": "__main __preprint __profs __def __d5",
           "type": "command",
-          "name": "'Del 5{(printer[\"gcode_macro _STATE\"].def_del_arm|default(0) == 5) and \" AGAIN!\" or \"\"}'",
+          "name": "Del 5{(printer[\"gcode_macro _STATE\"].def_del_arm|default(0) == 5) and \" AGAIN!\" or \"\"}",
           "enable": "{printer['save_variables'].variables.default_preset_5|default(0) != 0}",
           "gcode": [
            "{% if printer['gcode_macro _STATE'].def_del_arm|default(0) == 5 %}",
@@ -12480,7 +12480,7 @@
          {
           "id": "__main __preprint __profs __def __d6",
           "type": "command",
-          "name": "'Del 6{(printer[\"gcode_macro _STATE\"].def_del_arm|default(0) == 6) and \" AGAIN!\" or \"\"}'",
+          "name": "Del 6{(printer[\"gcode_macro _STATE\"].def_del_arm|default(0) == 6) and \" AGAIN!\" or \"\"}",
           "enable": "{printer['save_variables'].variables.default_preset_6|default(0) != 0}",
           "gcode": [
            "{% if printer['gcode_macro _STATE'].def_del_arm|default(0) == 6 %}",
@@ -12496,7 +12496,7 @@
          {
           "id": "__main __preprint __profs __def __d7",
           "type": "command",
-          "name": "'Del 7{(printer[\"gcode_macro _STATE\"].def_del_arm|default(0) == 7) and \" AGAIN!\" or \"\"}'",
+          "name": "Del 7{(printer[\"gcode_macro _STATE\"].def_del_arm|default(0) == 7) and \" AGAIN!\" or \"\"}",
           "enable": "{printer['save_variables'].variables.default_preset_7|default(0) != 0}",
           "gcode": [
            "{% if printer['gcode_macro _STATE'].def_del_arm|default(0) == 7 %}",
@@ -12512,7 +12512,7 @@
          {
           "id": "__main __preprint __profs __def __d8",
           "type": "command",
-          "name": "'Del 8{(printer[\"gcode_macro _STATE\"].def_del_arm|default(0) == 8) and \" AGAIN!\" or \"\"}'",
+          "name": "Del 8{(printer[\"gcode_macro _STATE\"].def_del_arm|default(0) == 8) and \" AGAIN!\" or \"\"}",
           "enable": "{printer['save_variables'].variables.default_preset_8|default(0) != 0}",
           "gcode": [
            "{% if printer['gcode_macro _STATE'].def_del_arm|default(0) == 8 %}",
@@ -12545,7 +12545,7 @@
          {
           "id": "__main __preprint __profs __file __aspreset",
           "type": "command",
-          "name": "'> File -> Pre-Print'",
+          "name": "> File -> Pre-Print",
           "enable": "{printer['gcode_macro _PREVIEW'].name|default('') != ''}",
           "gcode": [
            "FILE_AS_PRESET"
@@ -12584,7 +12584,7 @@
          {
           "id": "__main __preprint __profs __file __delpre",
           "type": "command",
-          "name": "'{(\"AGAIN?\" if printer[\"gcode_macro _STATE\"].fp_del_arm|default(\"\") == \"pre\" else \"Del pre\")}'",
+          "name": "{(\"AGAIN?\" if printer[\"gcode_macro _STATE\"].fp_del_arm|default(\"\") == \"pre\" else \"Del pre\")}",
           "enable": "{printer['gcode_macro _STATE'].fp_pre|default(False)}",
           "gcode": [
            "{% if printer['gcode_macro _STATE'].fp_del_arm|default('') == 'pre' %}",
@@ -12600,7 +12600,7 @@
          {
           "id": "__main __preprint __profs __file __delpost",
           "type": "command",
-          "name": "'{(\"AGAIN?\" if printer[\"gcode_macro _STATE\"].fp_del_arm|default(\"\") == \"post\" else \"Del post\")}'",
+          "name": "{(\"AGAIN?\" if printer[\"gcode_macro _STATE\"].fp_del_arm|default(\"\") == \"post\" else \"Del post\")}",
           "enable": "{printer['gcode_macro _STATE'].fp_post|default(False)}",
           "gcode": [
            "{% if printer['gcode_macro _STATE'].fp_del_arm|default('') == 'post' %}",
@@ -18875,12 +18875,12 @@
        {
         "id": "__main __gen __labels __txt",
         "type": "list",
-        "name": "'L{printer[\"save_variables\"].variables.label_edit_line|default(1)|int}: {(printer[\"save_variables\"].variables[\"label_l%d\" % (printer[\"save_variables\"].variables.label_edit_line|default(1)|int)]|default(\"\"))|trim|truncate(13, true, \"\")}'",
+        "name": "L{printer[\"save_variables\"].variables.label_edit_line|default(1)|int}: {(printer[\"save_variables\"].variables[\"label_l%d\" % (printer[\"save_variables\"].variables.label_edit_line|default(1)|int)]|default(\"\"))|trim|truncate(13, true, \"\")}",
         "children": [
          {
           "id": "__main __gen __labels __txt __ln1",
           "type": "command",
-          "name": "'>L1: {(printer[\"save_variables\"].variables.label_l1|default(\"\"))|trim|truncate(12, true, \"\")}'",
+          "name": ">L1: {(printer[\"save_variables\"].variables.label_l1|default(\"\"))|trim|truncate(12, true, \"\")}",
           "gcode": [
            "LABEL_SELECT_LINE L=1"
           ],
@@ -18889,7 +18889,7 @@
          {
           "id": "__main __gen __labels __txt __ln2",
           "type": "command",
-          "name": "'>L2: {(printer[\"save_variables\"].variables.label_l2|default(\"\"))|trim|truncate(12, true, \"\")}'",
+          "name": ">L2: {(printer[\"save_variables\"].variables.label_l2|default(\"\"))|trim|truncate(12, true, \"\")}",
           "gcode": [
            "LABEL_SELECT_LINE L=2"
           ],
@@ -18898,7 +18898,7 @@
          {
           "id": "__main __gen __labels __txt __ln3",
           "type": "command",
-          "name": "'>L3: {(printer[\"save_variables\"].variables.label_l3|default(\"\"))|trim|truncate(12, true, \"\")}'",
+          "name": ">L3: {(printer[\"save_variables\"].variables.label_l3|default(\"\"))|trim|truncate(12, true, \"\")}",
           "gcode": [
            "LABEL_SELECT_LINE L=3"
           ],
@@ -18907,7 +18907,7 @@
          {
           "id": "__main __gen __labels __txt __ln4",
           "type": "command",
-          "name": "'>L4: {(printer[\"save_variables\"].variables.label_l4|default(\"\"))|trim|truncate(12, true, \"\")}'",
+          "name": ">L4: {(printer[\"save_variables\"].variables.label_l4|default(\"\"))|trim|truncate(12, true, \"\")}",
           "gcode": [
            "LABEL_SELECT_LINE L=4"
           ],
@@ -18916,7 +18916,7 @@
          {
           "id": "__main __gen __labels __txt __ln5",
           "type": "command",
-          "name": "'>L5: {(printer[\"save_variables\"].variables.label_l5|default(\"\"))|trim|truncate(12, true, \"\")}'",
+          "name": ">L5: {(printer[\"save_variables\"].variables.label_l5|default(\"\"))|trim|truncate(12, true, \"\")}",
           "gcode": [
            "LABEL_SELECT_LINE L=5"
           ],
@@ -19816,7 +19816,7 @@
          {
           "id": "__main __gen __labels __set __now",
           "type": "command",
-          "name": "'Now: {printer[\"save_variables\"].variables.label_w_now|default(0)|int}x{printer[\"save_variables\"].variables.label_h_now|default(0)|int}mm Caps {printer[\"save_variables\"].variables.label_caps_now|default(0)}'",
+          "name": "Now: {printer[\"save_variables\"].variables.label_w_now|default(0)|int}x{printer[\"save_variables\"].variables.label_h_now|default(0)|int}mm Caps {printer[\"save_variables\"].variables.label_caps_now|default(0)}",
           "gcode": [
            "RESPOND MSG=\"Label NOW = the size the current text prints at (live: grow result incl. hole, fixed = W/H with the auto-fitted caps). The numbers refresh automatically while you type\""
           ],
@@ -20306,7 +20306,7 @@
          {
           "id": "__main __gen __labels __job __info",
           "type": "command",
-          "name": "'Queue: {((printer[\"save_variables\"].variables.label_texts|default(\"\")|string).split(\"|\")|select(\"ne\",\"\")|list)|length}/24 {printer[\"save_variables\"].variables.label_bed_fit|default(\"?\")}'",
+          "name": "Queue: {((printer[\"save_variables\"].variables.label_texts|default(\"\")|string).split(\"|\")|select(\"ne\",\"\")|list)|length}/24 {printer[\"save_variables\"].variables.label_bed_fit|default(\"?\")}",
           "gcode": [
            "LABEL_INFO"
           ],
@@ -20315,7 +20315,7 @@
          {
           "id": "__main __gen __labels __job __stguard",
           "type": "command",
-          "name": "'! Stamp needs 1 label'",
+          "name": "! Stamp needs 1 label",
           "enable": "{printer['save_variables'].variables.label_stamp|default(False) and ((printer[\"save_variables\"].variables.label_texts|default(\"\")|string).split(\"|\")|select(\"ne\",\"\")|list)|length > 1}",
           "gcode": [
            "RESPOND MSG=\"Stamp = exactly ONE label per job - Del last until one is left (or Labels > Settings > Stamp off)\""
@@ -25154,7 +25154,7 @@
      {
       "id": "__main __system __save2",
       "type": "command",
-      "name": "'>> SAVE+RESTART'",
+      "name": ">> SAVE+RESTART",
       "gcode": [
        "SYS_SAVE_CONFIG CONFIRM=1"
       ],

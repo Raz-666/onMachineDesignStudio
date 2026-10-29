@@ -1,6 +1,6 @@
 # R2-D2 rundum: Displays, Drucker, Nozzles — und die Test-Stufen
 
-Stand: R2-2026-10-29.135 — **alles aus Abschnitt E ist GEBAUT** (R191–R197). Die
+Stand: R2-2026-10-29.136 — **alles aus Abschnitt E ist GEBAUT** (R191–R197). Die
 ausführliche, grafische Fassung dieser Übersicht ist jetzt **DISPLAYS_WEB_UI.pdf**
 (built by tools/make_displays_pdf.py); diese MD bleibt die Arbeits-Kurzfassung.
 
@@ -190,6 +190,12 @@ sprachen immer perfekt Klipper-Deutsch).
 7. **Web-UI** — GEBAUT (R196): tools/menu_json_export.py + web/r2_menu.py (Moonraker:
    /server/r2_menu/tree|status|refresh) + web/index.html (LCD-Navigation, eingebettetes
    JSON als Fallback). Details + Installation: DISPLAYS_WEB_UI.pdf Kap. 2.
+
+**R200/R201 (.136):** Feldlog-Analyse „jeder Push doppelt" — Watcher-Single-Instance
+hart gemacht (/proc-Startup-Scan + Kernel-flock `watcher.lock`, HOST_CHECK zeigt
+Duplikat-PIDs), und das Web-LCD wertet die Menü-Templates jetzt **live** aus
+(`/server/r2_menu/live`, eigener Jinja-Evaluator, 209 Namen + 120 Enables ==
+LCD-Wahrheit; r197 T6 + T-live, jetzt 413 Checks).
 
 **R199 (Feldmeldung dieser Runde):** „die .134 wird nach dem Update nur als .133
 angezeigt" — das .134-Zip war flach gebaut (kein `klipper-e3-r2d2/`-Ordner),

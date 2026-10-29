@@ -88,7 +88,7 @@ def d_webui():
     box(20, 108, 120, 52, 'lcd_menues.cfg', ['2.272 Sektionen', 'EINE Wahrheit', '1.910 Render-Tests'], LGRAY, GRAY)
     box(170, 108, 120, 52, 'menu_json_export.py', ['parsen → Baum → JSON', '2272 Knoten, sha256', '--embed für die Seite'], LBLUE, BLUE)
     box(320, 108, 96, 52, 'menu_structure.json', ['Struktur + Meta', '(web/)'], LGRAY, GRAY)
-    box(320, 34, 96, 52, 'r2_menu.py', ['Moonraker-Extension', '/server/r2_menu/', 'tree · status · refresh'], LBLUE, TEAL)
+    box(320, 34, 96, 52, 'r2_menu.py', ['Moonraker-Extension', '/server/r2_menu/', 'tree · status · live'], LBLUE, TEAL)
     box(120, 34, 150, 52, 'web/index.html', ['LCD-artige Navigation', 'embedded JSON fallback', 'live: fetch() zum Host'], LBLUE, PURPLE)
     box(20, 34, 70, 52, 'Browser', ['Handy / PC /', 'Tablet'], LGRAY, GRAY)
     arr(140, 134, 170, 134)
@@ -115,7 +115,7 @@ class Doc(BaseDocTemplate):
         canv.line(17*mm, 285*mm, 193*mm, 285*mm)
         canv.setFont('DVS', 8.2); canv.setFillColor(GRAY)
         canv.drawString(17*mm, 287.2*mm, 'R2-D2 Macro System · Displays · Web-UI · Drucker · Nozzles · Test-Stufen')
-        canv.drawRightString(193*mm, 287.2*mm, 'R2-2026-10-29.135')
+        canv.drawRightString(193*mm, 287.2*mm, 'R2-2026-10-29.136')
         canv.setFont('DVS', 8.6)
         canv.drawCentredString(105*mm, 9.5*mm, 'Seite %d' % doc.page)
         canv.restoreState()
@@ -136,7 +136,7 @@ A(Paragraph('die ausführliche Übersicht der .135-Runde —<br/>'
 A(Spacer(1, 8*mm))
 A(CENT_DUMMY if False else Spacer(1, 1))
 A(Spacer(1, 6*mm))
-A(Paragraph('Stand: R2-2026-10-29.135 · Grundlagen: menus/lcd_menues.cfg, web/ (r2_menu.py, '
+A(Paragraph('Stand: R2-2026-10-29.136 · Grundlagen: menus/lcd_menues.cfg, web/ (r2_menu.py, '
             'index.html, menu_structure.json), tools/menu_json_export.py · r197_gen_sweep.py · '
             'r198_tier_report.py', S['cap']))
 A(PageBreak())
@@ -179,8 +179,8 @@ A(d_webui())
 A(CAP('Abb. 1 — die Web-UI-Architektur: eine Wahrheit (lcd_menues.cfg), ein Export, ein Endpunkt'))
 A(TBL(['Baustein', 'Datei', 'Was er tut'], [
  ['Exporter', 'tools/menu_json_export.py', 'lcd_menues.cfg → menu_structure.json (Baum, Typen, rohe Jinja-Templates, G-Codes, input-Bereiche, sha256); --embed injiziert das JSON in die Seite'],
- ['Extension', 'web/r2_menu.py', 'Moonraker-Komponente: GET /server/r2_menu/tree · /status · POST /refresh; ladefaul verdeckt mtime-frisch; Deadlock-frei (R197-Fix)'],
- ['Seite', 'web/index.html', 'LCD-artige Navigation (Breadcrumb, Untermenüs, Detail-Panel); versucht live fetch(), fällt auf das eingebettete JSON zurück; Befehle gehen an /printer/gcode/script'],
+ ['Extension', 'web/r2_menu.py', 'Moonraker-Komponente: GET /server/r2_menu/tree · /status · /live (gefilterter Drucker-Snapshot, 1 s Cache) · POST /refresh; mtime-frisch, Deadlock-frei (R197-Fix)'],
+ ['Seite', 'web/index.html', 'LCD-artige Navigation (Breadcrumb, Untermenüs, Detail-Panel); wertet seit .136 die Templates LIVE aus (eigener Jinja-Evaluator im Single-Brace-Dialekt, 3 s Poll gegen /live, Enable-Conditions blenden Zeilen aus wie das LCD); fällt auf das eingebettete JSON zurück; Befehle gehen an /printer/gcode/script'],
  ['Test', 'tools/r197_gen_sweep.py (T1-T5)', 'Baumvollständigkeit, Embed-Roundtrip, Fake-Moonraker-Endpoint-Tests, Dialog-Peek-Anker, .135-Code-Anker'],
 ], [22*mm, 44*mm, 100*mm]))
 flow += H2('2.1  Installation (einmalig)')
@@ -200,10 +200,16 @@ flow.extend(B(
  'eine Ebene, Breadcrumb, Typenkennung), Details je Eintrag (Name/Enable/G-Code/Input-'
  'Bereich als rohe Templates), und auf dem Drucker-Host Befehle direkt senden '
  '(Moonrakers eigene /printer/gcode/script-Schnittstelle).',
- '<b>Was sie bewusst NICHT tut (V1-Grenzen):</b> die Jinja-Templates live auswerten '
- '(Name/Enable zeigen die Rohform — Klipper selbst wertet sie aus; ein Client könnte sie '
- 'gegen /printer/objects-query auswerten, das ist .136+-Arbeit), und sie hat keinen '
- 'Websocket-Live-Strom. Sie ist ein Spiegel, kein zweiter Gehirn.',
+ '<b>Was seit .136 dazugekommen ist:</b> die Seite wertet die Jinja-Templates selbst '
+ 'aus — ein eigener Evaluator im exakten LCD-Dialekt (Single-Brace, Python-Semantik: '
+ 'and/or liefern Operanden, negative Indizes, Slices, Tupel, %-Format, Float-Darstellung '
+ '0.0), gespeist aus dem neuen /server/r2_menu/live-Snapshot (alle gcode_macro-Objekte + '
+ 'save_variables, fette Listen wie der SD-Baum werden abgeschnitten und benannt — Bytes '
+ 'statt Kilobytes pro Poll auf dem Pi Zero). Der Kreuzcheck: 209 dynamische Menünamen + '
+ '120 Enable-Bedingungen, gerendert vom ECHTEN ausgelieferten JavaScript (node) und von '
+ 'jinja2 — 100% Übereinstimmung mit der LCD-Wahrheit. Was bewusst fehlt: kein Websocket-'
+ 'Strom (3 s Poll reicht), keine Datei-Verwaltung (Mainsails Job). Sie ist ein Spiegel, '
+ 'kein zweites Gehirn.',
  '<b>Einordnung:</b> als Zweitdisplay neben dem LCD ist sie sofort nützlich (vom Tisch '
  'durch die Menüs, Befehle absetzen). Als Mainsail-Ersatz ist sie nicht gedacht — Datei-'
  'Verwaltung, Viewer und Heizungs-Kacheln bleiben Mainsails Job. Genau das war der Plan: '
@@ -252,11 +258,14 @@ A(TBL(['Stufe', 'Batterien', 'Ziel'], [
  ['<b>normal</b>', 'r141 journeys · systemtest · validator · r165 doc', 'was ein normaler Anwender anfasst'],
  ['<b>power</b>', 'megatest · r110 setup · r142 field · r143 audit · r166 templates · r168 stamps · r164 serial', 'Feld- und Setup-Sicherheit'],
  ['<b>developer</b>', 'macro_render (1.910) · r81 goldens · r111 geom · r167 air', 'Ausgabe-Stabilität'],
- ['<b>hardcore</b>', 'r190 tag ladder · r197 gen sweep (403) · r199 zip check · audit_sweep', 'Tiefentest Tagging + Generatoren/Tools + Release-Artefakt'],
+ ['<b>hardcore</b>', 'r190 tag ladder · r197 gen sweep (413) · r199 zip check · audit_sweep', 'Tiefentest Tagging + Generatoren/Tools + Release-Artefakt'],
  ['<b>stress</b>', 'r140 (46.757 Checks)', 'Ausdauer'],
  ['<b>function</b>', 'r187 matrix · systemtest', 'End-to-End-Verhalten'],
 ], [24*mm, 82*mm, 60*mm]))
-A(P('.135-Gesamtergebnis: <b>22/22 Batterien grün im Tier-Lauf</b> — zwei Re-Freezes '
+A(P('.136-Gesamtergebnis: <b>22/22 Batterien grün im Tier-Lauf</b> (r197 wuchs auf 413 ' 
+    'Checks: +5 Watcher-Single-Instance-Tests mit ECHTEN Daemon-Prozessen, +5 Live-Endpoint-'
+    'und Evaluator-Kreuzchecks). Zwei Re-Freezes waren nötig und wurden per Alt/Neu-Diff '
+    'verifiziert, bevor eingefroren wurde. '
     'waren nötig und wurden per Alt/Neu-Diff verifiziert, bevor eingefroren wurde (r81: '
     'Core-Stempel; macro_render: Labels-Goldens nach R194). Nebenbei fing der R185-Wächter '
     'eine Ära-Annotation, die ich selbst ins Manual geschrieben hatte — die Abdeckung '
@@ -275,6 +284,7 @@ A(TBL(['Klasse', 'Beispiel aus dem Feld', 'Abdeckung'], [
  ['<b>NEU (6): Copy-Paste-Sektions-Zombies</b>', '4× [menu … __feat __ow]-Zombies: der Live-Punkt „Outer Wall" hieß im LCD „Custom Code" (Klippers Merge: letzte Deklaration gewinnt)', 'r197 T1 (Baum/Duplikate) — Zombies entfernt (R197b)'],
  ['<b>NEU (7): Async-Reentranz</b>', 'r2_menu refresh: Lock im Lock = Deadlock am Endpunkt', 'Fake-Moonraker-Test im Sweep (gefixt)'],
  ['<b>NEU (8): Release-Artefakte</b>', 'das .134-Update-Zip war flach gebaut (kein klipper-e3-r2d2/-Ordner): update.sh streute macros/, tools/ ... neben die printer.cfg, das Paket blieb .133 — „nach dem Update noch .133"', 'r199_zip_check (Layout + Versionen) + r110-Ablehn-Szenario + update.sh-Verweigerung (R199, Feldmeldung dieser Runde)'],
+ ['<b>NEU (9): Prozess-Duplizierung</b>', '.136-Feldlog: JEDER Watcher-Push lief doppelt (jede SAVE_VARIABLE 2×, Litho-RESPOND 2×, opt_list/sd_tree 3×) — ein alter Watcher lief neben dem neuen (PID-Datei in /tmp war gealtert/leer)', 'R200: Startup-/proc-Scan + Kernel-flock (watcher.lock im Paket-Root) + --once schont den Daemon + HOST_CHECK nennt Duplikat-PIDs mit Fix-Befehl; r197 T6 testet mit echten Daemon-Prozessen'],
 ], [40*mm, 66*mm, 60*mm]))
 A(P('Klassen 5–7 sind genau die Sorte, die du immer gemeldet hast und die in klassischen '
     'Tests nie auftaucht: sie brauchen entweder Parameter-Grenzlagen (Klemmung), '
@@ -294,6 +304,8 @@ A(TBL(['Runde', 'Änderung'], [
  ['R196', 'Web-UI: menu_json_export + r2_menu-Extension + Demo-Seite (dieses Kapitel 2)'],
  ['R197', 'TYPES-Ehrlichkeit (Labels-Klemmung, Ties-LOOP, Litho-Flat, Colorpic) + 4 Menü-Zombies entfernt + r2_menu-Deadlock + Testwerkzeuge r197/r198 + Goldens re-gefriert (verifiziert: .134≡.135 auf ehrlichen Fixtures)'],
  ['R199', 'Feldfix „.134 zeigt nach dem Update noch .133": flache Update-Zips werden VOR dem Entpacken abgelehnt, Leichen-Warnung mit Aufräum-Liste, .134-Zip korrekt neu gebaut; r199_zip_check prüft das Release-Artefakt + Repo-Stempel; r110-Ablehn-Szenario'],
+ ['R200', 'Feldfix „.135: jeder Push doppelt" (.136-Log-Analyse): Watcher-Single-Instance hart gemacht — Startup-Scan über /proc nimmt von JEDEM lebenden Watcher über, Kernel-flock verhindert jede Überlappung, --once mordet nie den Daemon, HOST_CHECK zeigt Duplikate'],
+ ['R201', 'Web-LCD LIVE: /server/r2_menu/live (geschnittener Drucker-Snapshot), Seiten-Evaluator im LCD-Jinja-Dialekt (209 Namen + 120 Enables == jinja-Wahrheit), Exporter strippt die Quote-Ebene aus name/enable'],
 ], [18*mm, 132*mm]))
 A(Spacer(1, 4*mm))
 A(Paragraph('Ende der Übersicht — Code-Wahrheit: web/, tools/r2_postproc.py, '
