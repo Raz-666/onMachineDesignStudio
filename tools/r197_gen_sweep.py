@@ -882,11 +882,13 @@ try:
            % os.path.join(_t203, 'calls.log'))
     _sh203('sudo', '#!/bin/bash\necho sudo "$@" >> %s\n"$@"\n'
            % os.path.join(_t203, 'calls.log'))
+    _webroot203 = os.path.join(_home203, 'var_www', 'r2lcd')
     _env203 = dict(os.environ)
     _env203.update({
         'HOME': _home203, 'PATH': _bin203 + os.pathsep + _env203['PATH'],
         'R2_NGINX_SITES': os.path.join(_ngx203, 'sites-available'),
         'R2_NGINX_EN': os.path.join(_ngx203, 'sites-enabled'),
+        'R2_WEB_ROOT': _webroot203,
         'R2_NGINX_TESTING': '1'})
 
     def _run203(args):
@@ -904,8 +906,9 @@ try:
     _r203 = _run203([])
     _conf_txt203 = open(_conf203).read()
     check('T7 install: exit 0, component copied, section added, '
-          'site + symlink, URL printed',
+          'site + symlink, URL printed, PAGE at the serve root (R208)',
           _r203.returncode == 0
+          and os.path.isfile(os.path.join(_webroot203, 'index.html'))
           and os.path.isfile(os.path.join(_comp203, 'r2_menu.py'))
           and _conf_txt203.count('[r2_menu]') == 1
           and 'menu_structure.json' in _conf_txt203
@@ -918,6 +921,10 @@ try:
           and open(_conf203).read().count('[r2_menu]') == 1
           and 'already' in _r203b.stdout)
     _site_txt203 = open(_site203).read()
+    check('T7 site: R208 serves from the WEB_ROOT alias (not the package '
+          'dir - home-dir traverse perms can flip on any update)',
+          ('alias %s/' % _webroot203) in _site_txt203
+          and ('alias %s/' % os.path.join(_cfg203, 'web')) not in _site_txt203)
     check('T7 site: R207 CSRF guard (case-insensitive map) + Origin strip '
           'in BOTH proxy locations + Host without port (field-proven)',
           _site_txt203.count('proxy_set_header Origin "";') == 2
@@ -933,20 +940,30 @@ try:
           _r203s.returncode == 0 and '[section ok]' in _r203s.stdout
           and '7126' in _r203s.stdout)
     open(os.path.join(_comp203, 'r2_menu.py'), 'w').write('STALE\n')
+    open(os.path.join(_webroot203, 'index.html'), 'w').write('STALE PAGE\n')
     _r203uo = _run203(['--update-only'])
-    check('T7 update-only: refreshes an EXISTING install (component restored)',
+    check('T7 update-only: refreshes an EXISTING install (component AND '
+          'page restored)',
           _r203uo.returncode == 0 and 'refresh' in _r203uo.stdout
           and open(os.path.join(_comp203, 'r2_menu.py')).read()
-          == open(os.path.join(REPO, 'web', 'r2_menu.py')).read(),
+          == open(os.path.join(REPO, 'web', 'r2_menu.py')).read()
+          and open(os.path.join(_webroot203, 'index.html')).read()
+          == open(os.path.join(REPO, 'web', 'index.html')).read(),
           _r203uo.stdout[-160:])
     _r203u = _run203(['--uninstall'])
-    check('T7 uninstall: site + section + component all removed',
+    check('T7 uninstall: site + section + component + page root removed',
           _r203u.returncode == 0
           and not os.path.exists(_site203)
           and '[r2_menu]' not in open(_conf203).read()
-          and not os.path.exists(os.path.join(_comp203, 'r2_menu.py')))
+          and not os.path.exists(os.path.join(_comp203, 'r2_menu.py'))
+          and not os.path.exists(_webroot203))
     check('T7 update.sh syncs the web-LCD on every update (--update-only)',
           '--update-only' in open(os.path.join(REPO, 'update.sh')).read())
+    check('T7 self-test R208: the PAGE GET is part of the verdict (the '
+          '.136f field bug - 403 on open - was invisible to the API-only '
+          'self-test)',
+          '_page_test' in open(os.path.join(REPO, 'web',
+                                            'install_web.sh')).read())
 finally:
     _sh203_shutil.rmtree(_t203, ignore_errors=True)
 

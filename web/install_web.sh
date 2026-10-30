@@ -42,16 +42,30 @@
 #    guard after every reload (foreign origin must 403 at the proxy).
 #    Site file + symlink are written via sudo when /etc/nginx is not
 #    user-writable.
+#    R208 (.136f field log - "403 schon beim Oeffnen, auch inkognito"):
+#    nginx runs as www-data and could not READ the page under /home/pi -
+#    a home-dir serve path depends on traverse permissions that can flip
+#    on any update (nginx answers 403 for unreadable static files; the
+#    API proxy paths kept working - which is why every proxy test was
+#    green while the page would not even load). The page is now served
+#    from WEB_ROOT (/var/www/r2lcd, world-readable, outside every home
+#    dir), synced here and via --update-only on every package update -
+#    and the self-test also GETs the page itself now (a serve path that
+#    cannot be read can never pass silently again).
 #
 #  OVERRIDES (for tests / exotic setups):
 #             R2_MOONRAKER_DIR  R2_MOONRAKER_CONF  R2_NGINX_SITES
 #             R2_NGINX_EN  R2_NO_SERVICES (skip systemctl calls)
+#             R2_WEB_ROOT (serve path, default /var/www/r2lcd)
 # =====================================================================================
 set -u
 
 WEB_DIR="$(cd "$(dirname "$0")" && pwd)"          # .../klipper-e3-r2d2/web
 PKG_DIR="$(dirname "$WEB_DIR")"                   # .../klipper-e3-r2d2
 CFG_DIR="$(dirname "$PKG_DIR")"                   # .../printer_data/config
+# R208: the SERVE path - deliberately NOT the package dir (nginx/www-data
+# must never depend on home-dir traverse permissions)
+WEB_ROOT="${R2_WEB_ROOT:-/var/www/r2lcd}"
 USER_HOME="${HOME:-/home/pi}"
 
 MODE="install"
@@ -98,6 +112,7 @@ echo "== R2 web-LCD installer =="
 # ---------- status ----------
 if [ "${MODE}" = "status" ]; then
     echo "component : ${COMP_DIR}/r2_menu.py $([ -f "${COMP_DIR}/r2_menu.py" ] && echo '[ok]' || echo '[missing]')"
+    echo "page      : ${WEB_ROOT}/index.html $([ -f "${WEB_ROOT}/index.html" ] && echo '[ok]' || echo '[missing - re-run this installer]')"
     echo "config    : ${MR_CONF:-not found} $([ -f "${MR_CONF:-/nonexistent}" ] && grep -q '^\[r2_menu\]' "${MR_CONF}" 2>/dev/null && echo '[section ok]' || echo '[no section]')"
     echo "nginx     : ${SITE_FILE} $([ -f "${SITE_FILE}" ] && echo '[ok]' || echo '[missing]')"
     if [ -f "${SITE_FILE}" ]; then
@@ -134,6 +149,12 @@ if [ "${MODE}" = "uninstall" ]; then
     if [ -f "${COMP_DIR}/r2_menu.py" ]; then
         rm -f "${COMP_DIR}/r2_menu.py"
         echo "[ok] component removed (${COMP_DIR}/r2_menu.py)"
+        RM_ANY=1
+    fi
+    if [ -e "${WEB_ROOT}" ]; then
+        if [ -w "$(dirname "${WEB_ROOT}")" ]; then rm -rf "${WEB_ROOT}"
+        else sudo rm -rf "${WEB_ROOT}"; fi
+        echo "[ok] page removed (${WEB_ROOT})"
         RM_ANY=1
     fi
     [ "${RM_ANY}" = "1" ] || echo "[i] nothing installed - nothing to remove"
@@ -180,6 +201,27 @@ else
     cp "${WEB_DIR}/r2_menu.py" "${COMP_DIR}/r2_menu.py" \
         && echo "[ok] component copied -> ${COMP_DIR}/r2_menu.py"
 fi
+
+# 1b) R208: the page itself -> WEB_ROOT (world-readable, outside /home).
+# The old alias into the package dir died the moment ANY path component
+# lost its x-bit for others (nginx = www-data, 403 on unreadable static
+# files - .136f field log; the API paths kept working, which is why every
+# proxy test was green while the page would not even load).
+if [ ! -f "${WEB_DIR}/index.html" ]; then
+    echo "[!] ${WEB_DIR}/index.html not found - broken package?"
+    exit 1
+fi
+if [ -w "$(dirname "${WEB_ROOT}" 2>/dev/null || echo /nonexistent)" ]; then
+    mkdir -p "${WEB_ROOT}"; chmod 755 "${WEB_ROOT}"
+    cp -f "${WEB_DIR}/index.html" "${WEB_ROOT}/index.html"
+    chmod 644 "${WEB_ROOT}/index.html"
+else
+    sudo mkdir -p "${WEB_ROOT}"
+    sudo chmod 755 "${WEB_ROOT}"
+    sudo cp -f "${WEB_DIR}/index.html" "${WEB_ROOT}/index.html"
+    sudo chmod 644 "${WEB_ROOT}/index.html"
+fi
+echo "[ok] page installed -> ${WEB_ROOT}/index.html (served by nginx)"
 
 # 2) moonraker.conf section (marked block, backup, idempotent)
 if grep -q '^\[r2_menu\]' "${MR_CONF}"; then
@@ -241,7 +283,7 @@ map "\$http_origin|\$http_host" \$r2_csrf_bad {
 server {
     listen ${PORT};
     location /r2lcd/ {
-        alias ${WEB_DIR}/;
+        alias ${WEB_ROOT}/;
         index index.html;
     }
     location /server/ {
@@ -309,24 +351,41 @@ if [ "${R2_NO_SERVICES:-0}" != "1" ] && command -v curl >/dev/null 2>&1 \
              -H "Origin: http://127.0.0.1:${PORT}" --data "" \
              "http://127.0.0.1:${PORT}/server/r2_menu/status" 2>/dev/null
     }
+    _page_test() {
+        curl -s -o /dev/null -w '%{http_code}' -m 5 \
+             "http://127.0.0.1:${PORT}/r2lcd/" 2>/dev/null
+    }
+    # R208: the PAGE itself is part of the verdict - the .136f field bug
+    # (403 on open) was invisible to the old API-only self-test. ALL
+    # checks run, then ONE reload retry, then the verdict names WHAT
+    # failed (page vs guard).
+    _r2_ok() {
+        [ "${_PG}" = "200" ] && [ "${_EV}" = "403" ] \
+            && [ "${_SO}" != "403" ] && [ -n "${_SO}" ]
+    }
     sleep 1
-    _EV="$(_guard_test)"; _SO="$(_same_test)"
-    if [ "${_EV}" = "403" ] && [ "${_SO}" != "403" ] && [ -n "${_SO}" ]; then
-        echo "[ok] web-LCD guard self-test: foreign origin rejected at the"
-        echo "     proxy (403), same origin passes (${_SO}) - commands will work"
+    _EV="$(_guard_test)"; _SO="$(_same_test)"; _PG="$(_page_test)"
+    if _r2_ok; then
+        echo "[ok] web-LCD guard self-test: page 200, foreign origin rejected"
+        echo "     at the proxy (403), same origin passes (${_SO}) - the web-LCD works"
     else
-        echo "[i] web-LCD guard self-test: foreign=${_EV:-no answer} same-origin=${_SO:-no answer}"
-        echo "    retrying one nginx reload ..."
+        echo "[i] web-LCD self-test (page=${_PG:-none} foreign=${_EV:-none} same=${_SO:-none})"
+        echo "    - retrying one nginx reload ..."
         sudo nginx -s reload 2>/dev/null || sudo systemctl reload nginx 2>/dev/null
         sleep 1
-        _EV="$(_guard_test)"; _SO="$(_same_test)"
-        if [ "${_EV}" = "403" ] && [ "${_SO}" != "403" ] && [ -n "${_SO}" ]; then
+        _EV="$(_guard_test)"; _SO="$(_same_test)"; _PG="$(_page_test)"
+        if _r2_ok; then
             echo "[ok] web-LCD guard self-test PASSED after the reload retry"
+            echo "     (page 200, foreign origin 403 at the proxy)"
+        elif [ "${_PG}" != "200" ]; then
+            echo "[!] web-LCD self-test FAILED: the PAGE answers ${_PG:-nothing}"
+            echo "    (expected 200) - nginx cannot serve ${WEB_ROOT}/index.html."
+            echo "    Check:  ls -la ${WEB_ROOT}"
+            echo "            sudo -u www-data head -c 40 ${WEB_ROOT}/index.html"
         else
-            echo "[!] web-LCD guard self-test FAILED (foreign=${_EV:-none} same=${_SO:-none})"
-            echo "    the new site is not active. One command:"
+            echo "[!] web-LCD self-test FAILED (page 200 but foreign=${_EV:-none}"
+            echo "    same=${_SO:-none}) - the new site is not active. One command:"
             echo "        sudo systemctl restart nginx"
-            echo "    (page reachable + every command 403 = exactly this state)"
         fi
     fi
 fi

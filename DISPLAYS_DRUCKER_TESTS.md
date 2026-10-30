@@ -1,6 +1,6 @@
 # R2-D2 rundum: Displays, Drucker, Nozzles — und die Test-Stufen
 
-Stand: R2-2026-10-29.136f — **alles aus Abschnitt E ist GEBAUT** (R191–R197). Die
+Stand: R2-2026-10-29.136g — **alles aus Abschnitt E ist GEBAUT** (R191–R197). Die
 ausführliche, grafische Fassung dieser Übersicht ist jetzt **DISPLAYS_WEB_UI.pdf**
 (built by tools/make_displays_pdf.py); diese MD bleibt die Arbeits-Kurzfassung.
 
@@ -190,6 +190,19 @@ sprachen immer perfekt Klipper-Deutsch).
 7. **Web-UI** — GEBAUT (R196): tools/menu_json_export.py + web/r2_menu.py (Moonraker:
    /server/r2_menu/tree|status|refresh) + web/index.html (LCD-Navigation, eingebettetes
    JSON als Fallback). Details + Installation: DISPLAYS_WEB_UI.pdf Kap. 2.
+
+**R208 (.136g):** Feldlog .136f: „schon beim Öffnen der Seite" 403, auch
+Inkognito — nginx (www-data) konnte die Seite unter /home/pi NICHT LESEN
+(Serve-Path-Rechte kippen bei jedem Update; die API-Proxy-Pfade liefen
+weiter — deshalb waren alle Proxy-Tests grün, während die Seite nicht
+einmal lud). Diagnose per `sudo -u www-data head … index.html`. Fix: die
+Seite liegt jetzt in /var/www/r2lcd (welt-lesbar, außerhalb jedes
+Home-Verzeichnisses), wird bei jeder Paket-Aktualisierung synchronisiert
+(--update-only), und der Installer-Selbsttest prüft ab sofort auch die
+Seite selbst per GET (ein nicht lesbarer Serve-Pfad kann nie wieder
+still durchgehen). E2E mit echtem nginx + home=750 bewiesen.
+Feld-Bug-Klasse #15: Serve-Path-Dateirechte (statisch, außerhalb jeder
+Code-Test-Pyramide).
 
 **R207 (.136f):** Feldlog .136e: „jetzt kommt wieder 403" trotz R206-Fix.
 Zwei Erkenntnisse: (1) eine GESCHRIEBENE Site-Datei ist noch keine AKTIVE
