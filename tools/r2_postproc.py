@@ -76,7 +76,7 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-10-29.136j'
+POSTPROC_RELEASE = 'R2-2026-10-30.136k'
 POSTPROC_BUILD = 'R204'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
@@ -1902,6 +1902,11 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
         # runs the full choreography: stats, fanfare, park away from the part.
         fo.write('M107' + '\n')
         fo.write('PRINT_END   ; R2-RANGE: planned end after layer %d - park + cool down' % end + '\n')
+    # R212 (.136k): Mainsail meta for EVERY excerpt - the CLI one-command
+    # path, the daemon range job and tests all land here. force=True: we
+    # built this file ourselves, even when it sits next to a slicer source
+    # (the source thumbnail is copied, honest time from our own moves)
+    _meta_finalize(out, src=src, force=True)
     return out, n_layers
 
 
@@ -18869,6 +18874,34 @@ def _sel_line(rv, rel):
     return '\n_SELECT_FILE FILE="%s"' % _r
 
 
+def _meta_finalize(p, src=None, force=False):
+    """R212 (.136k): Mainsail metadata (thumbnail + time + filament) for
+    GENERATED/derived files - computed from the file's own moves, source
+    thumbnail copied for derived ones. Eligibility lives HERE: only files
+    we generated (R2-GEN stamp, a generator folder, optimized/) - slicer
+    uploads are never touched. force=True skips the check for callers
+    that JUST built the file themselves (make_range on a slicer source
+    writes next to it - no stamp, no gen folder, still ours). Prints
+    instead of raising (the watcher must survive a bad file), idempotent
+    (own R2-META block replaced)."""
+    try:
+        import gcode_meta
+        head = gcode_meta._read_head(p) if not force else ''
+        if not force and ('; R2-GEN' not in head
+                and '/optimized/' not in p.replace('\\', '/')
+                and not any(('/%s/' % d) in p.replace('\\', '/')
+                            for d in set(GEN_SUBDIRS.values()))):
+            return 'foreign'           # not one of ours - hands off
+        st = gcode_meta.finalize(p, src=src)
+        if st == 'meta':
+            print('[meta] %s: thumbnail + time + filament added'
+                  % os.path.basename(p), flush=True)
+        return st
+    except Exception as _e212:                               # noqa: BLE001
+        print('[meta] %s: %r' % (os.path.basename(p), _e212), flush=True)
+        return 'error'
+
+
 def _sel_note(rv, queued_txt, preview_txt=None):
     """Message suffix: queued or preview, whatever the user picked."""
     return queued_txt if _gen_out(rv) else (preview_txt or ' - in the file list (preview it first)')
@@ -19699,6 +19732,7 @@ def watch(directory, interval=5.0, once=False):
                 # (Resonance_*_plot.gcode, V01_R2_Status.gcode) carry the R2-PLOT header
                 if b'R2-PLOT' in data_head_if_text(p):
                     stats['tagged_before'] += 1
+                    _meta_finalize(p)     # R212: Mainsail meta for gen files
                     continue
                 try:
                     s = process(p, retract_rewrite=rrw)
@@ -19708,6 +19742,7 @@ def watch(directory, interval=5.0, once=False):
                     continue
                 if s['skipped']:
                     stats['tagged_before'] += 1
+                    _meta_finalize(p)     # R212: Mainsail meta for gen files
                 else:
                     stats['processed'] += 1
                     NEW_PREVIEW.append(p)
@@ -20161,6 +20196,9 @@ def watch(directory, interval=5.0, once=False):
                         try:
                             _dest169, _baked169, _nv169 = _optimize_copy(
                                 directory, _rel169, _snap169)
+                            _meta_finalize(               # R212: source
+                                os.path.join(directory, _dest169),
+                                src=os.path.join(directory, _rel169))
                             _msg169 = ('[opt] optimized copy saved: %s '
                                        '(%d values, baked: %s)'
                                        % (_dest169, _nv169,
@@ -21737,6 +21775,8 @@ def watch(directory, interval=5.0, once=False):
                     out_t, info_t = apply_texture(
                         os.path.join(directory, rel),
                         out_dir=_gensub(directory, 'texture'), **par)
+                    _meta_finalize(out_t,
+                                   src=os.path.join(directory, rel))  # R212
                     _snap175 = ''
                     if info_t.get('mode') == 'BUMPS':
                         _snap175 = (' [seamless: %d ridges x %d Z-repeats '

@@ -2863,7 +2863,7 @@ _t61 = open(_out61).read()
 tests.append(('R62 make_range: PRINT_START head + Z0.2 on the bed (no mid-air!)',
     _os61.path.basename(_out61) == 'V01_teil_L3-5.gcode' and _nl61 == 6 and _t61.count('LAYER_MARK') == 6
     and _t61.startswith('; R2-GEN core')          # R186 stamp first
-    and '; R2-RANGE excerpt' in _t61[:200] and _t61.count('LAYER_MARK') == 6
+    and '; R2-RANGE excerpt' in _t61 and _t61.count('LAYER_MARK') == 6
     and 'PRINT_START MATERIAL=PLA' in _t61 and 'HOTEND_FIRST=215' in _t61 and 'BED=60' in _t61
     and 'FIRST layer at Z0.6' in _t61 and 'MID-AIR' not in _t61, _t61[:150]))
 tests.append(('R62 make_range: first layer Z=0.6 (2 raft layers) + real layer Z0.6, fan at body layer 2 only',
@@ -3910,7 +3910,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.133) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-29.136j'", repr(_v66)))
+    _v66 == "'R2-2026-10-30.136k'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -7720,9 +7720,14 @@ save_vars.update({'file_check_nonce': 0})
 
 # LCD + watcher wiring
 _lcd93 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
-tests.append(('R93 LCD: System > File check (+ Retag 2-press, gated NOW)',
-    all(k in _lcd93 for k in ('__preprint __fixes __fc]', '__preprint __fixes __fc __fc1]',
-                              '__preprint __fixes __fc __fc2]', '__preprint __fixes __fc __fc3]'))
+tests.append(('R93 LCD: System > File check (R212: back from Pre-Print '
+              '> Fixes - a command-with-children was LCD-unreachable; '
+              'Retag 2-press, gated NOW)',
+    all(k in _lcd93 for k in ('__main __system __fc]', '__main __system __fc __fc1]',
+                              '__main __system __fc __fc2]', '__main __system __fc __fc3]',
+                              '__main __system __fc __fc4]', '__main __system __fc __fc5]',
+                              '__main __system __fc __scan]'))
+    and '__preprint __fixes __fc' not in _lcd93
     and 'FILE_CHECK RETAG=1 CONFIRM=1' in _lcd93
     and "fc_armed}" in _lcd93, ''))
 _pp93 = open('tools/r2_postproc.py', encoding='utf-8').read()
@@ -13492,12 +13497,6 @@ _ADDED135 = [
  '__main __preprint __file __how',
  '__main __preprint __file __opt',
  '__main __preprint __fixes',
- '__main __preprint __fixes __fc',
- '__main __preprint __fixes __fc __fc1',
- '__main __preprint __fixes __fc __fc2',
- '__main __preprint __fixes __fc __fc3',
- '__main __preprint __fixes __fc __fc4',
- '__main __preprint __fixes __fc __fc5',
  '__main __preprint __fixes __fixa',
  '__main __preprint __fixes __fixav',
  '__main __preprint __fixes __fixc',
@@ -13780,6 +13779,13 @@ _ADDED135 = [
  '__main __sdcard __start',
  '__main __sdcard __up',
  '__main __setup',
+ '__main __system __fc',
+ '__main __system __fc __fc1',
+ '__main __system __fc __fc2',
+ '__main __system __fc __fc3',
+ '__main __system __fc __fc4',
+ '__main __system __fc __fc5',
+ '__main __system __fc __scan',
  '__main __temp',
 ]
 _gone135 = sorted(set(_gold135) - set(_now135))
@@ -13834,7 +13840,7 @@ tests.append(('R175b Pre-Print Tools submenu + Motion split',
                                                                  '__acfe']
               and _kids135('__preprint __motion __ext') == ['__pafe', '__flfe']
               and _kids135('__preprint __fixes')[:3] == ['__how', '__seg',
-                                                         '__fc'],
+                                                         '__retst'],
               str(_kids135('__preprint __mods'))))
 
 _poffblk135 = _lcd135[_lcd135.index('[menu __main __preprint __mods __poff]'):
@@ -16505,12 +16511,12 @@ tests.append(('R185 current-only manual: no version-history appendix, no era '
     '## Appendix D' not in _m185 and 'Version history' not in _m185
     and _re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185) is None
     and _re2.search(r'\bR1[0-9][0-9]\b', _m185) is None
-    and 'The nine fonts' in _m185 and 'R2-2026-10-29.136j' in _m185,
+    and 'The nine fonts' in _m185 and 'R2-2026-10-30.136k' in _m185,
     'appendixD=%s eratags=%s rtags=%s nine=%s v132=%s' % (
         '## Appendix D' in _m185,
         bool(_re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185)),
         bool(_re2.search(r'\bR1[0-9][0-9]\b', _m185)),
-        'The nine fonts' in _m185, 'R2-2026-10-29.136j' in _m185)))
+        'The nine fonts' in _m185, 'R2-2026-10-30.136k' in _m185)))
 
 # ================== R184 (.131c field round): the brim air gap EVERYWHERE ==
 # The user asked: does the brim fusing hit our OTHER generators too? Measured

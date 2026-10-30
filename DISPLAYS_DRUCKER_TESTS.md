@@ -1,6 +1,6 @@
 # R2-D2 rundum: Displays, Drucker, Nozzles — und die Test-Stufen
 
-Stand: R2-2026-10-29.136j — **alles aus Abschnitt E ist GEBAUT** (R191–R197). Die
+Stand: R2-2026-10-30.136k — **alles aus Abschnitt E ist GEBAUT** (R191–R197). Die
 ausführliche, grafische Fassung dieser Übersicht ist jetzt **DISPLAYS_WEB_UI.pdf**
 (built by tools/make_displays_pdf.py); diese MD bleibt die Arbeits-Kurzfassung.
 
@@ -206,6 +206,39 @@ mit Fallback; der r197-Fake spiegelt fortan NUR die echte
 Moonraker-API-Oberflaeche (lookup_component, get_klippy_state), neuer T2d
 pinnt den Drift. Feld-Bug-Klasse #18: MOCK-DRIFT - der Mock weiss mehr
 als das System, das er nachbildet.
+
+**R212 (.136k):** Feldbericht 30.10. zu .136j - fuenf Punkte, alle drin:
+(1) Tools-Menue + SD-Liste leer, obwohl die Konsole live=ok sagte: der
+Status-Schnappschuss traegt Objekte OHNE ihre Werte, bis einer gesetzt
+wird - die Existenztests der Seite ('x' in printer.objects) antworteten
+Nein und blendeten Generatoren/SD-Zeilen aus. Die Live-Antwort traegt
+jetzt zusaetzlich 'available' (nur Namen), die Seite materialisiert sie
+als leere Objekte. Feld-Bug-Klasse #19: WERT-LOSE SCHNAPPSCHUESSE -
+Existenztests auf einem wert-losen Schnappschuss luegen. (2) FILE_CHECK
+im LCD unerreichbar: R175b hatte es als COMMAND mit Kindern unter
+Pre-Print > Fixes vergraben - Klippers Display-Menue oeffnet die Kinder
+eines Commands NIE (nur die WebUI zeigte sie). Zurueck als LISTE unter
+System > File check (Scan now, How it works, Retag old 2x, Re-fix types
+2x). (3) WebUI-Wuensche: Dashboard als Grid (auto-fit, 2-3 Zeilen),
+Schrift zwei Nummern groesser, die GESAMTE Seite inkl. Konsole passt
+ohne Scrollen; Konsole mit Toolbar (Leeren, Suchfeld, Autoscroll) wie
+Mainsail. (4) Mainsail-Metadaten: tools/gcode_meta.py (R2-META v1) -
+jede generierte/abgeleitete Datei erhaelt Thumbnail (128x128 PNG aus den
+eigenen Moves gerendert) + ehrliche Druckzeit + Filament; Range-Exzerpte
+kopieren das QUELLEN-Thumbnail; Slicer-Uploads bleiben unberuehrt
+(Eligibility: R2-GEN-Stempel/Gen-Ordner/optimized). Haken sitzt IN
+make_range (inkl. CLI-Ein-Befehl-Pfad, force), Daemon-Scan und
+optimize/texture-Jobs. (5) Der geforderte ULTIMATIVE Gesamtest:
+tools/r212_ultimate_sweep.py - 5 Schichten, 19 Checks: jede Zeile durch
+ihren echten Compiler (python/bash/node/json), String-Hygiene (utf-8,
+CRLF, Smart Quotes, Jinja-Klammerbilanz), DEAD-Befehls-Scan (alle 199
+Menue-Kommandowoerter muessen Makro oder Klipper-Builtin sein),
+Generator-Ketten (label/stringart/texture/ties -> range, mit Meta) und
+die feldbenannten Pre-Print-Klassen (Stuetzen, Multi-Objekt BY OBJECT,
+Vase, by-layer, Kitcard als EIN Objekt, Texture-Skip). r81 re-frozen mit
+Beweis (jeder mr-Fall = eingeschobener Meta-Block, sonst byte-identisch;
+pr unberuehrt). Batterie: r212 19/0, r197 446/0, r142 139/0, r81 23/23,
+macro_render 1910/1910, r110 13 Familien, r199, Tier 22/22.
 
 **R210 (.136i):** Feldlog .136h, zweite Schicht: die Seite LEBTE, war
 aber nicht BEDIENBAR - kein Zurueckklicken, viele Eintraege zeigten rohe

@@ -1,13 +1,13 @@
 {
- "generator": "menu_json_export.py (.136i R210)",
+ "generator": "menu_json_export.py (.136j R211)",
  "source": "lcd_menues.cfg",
- "sections": 2272,
+ "sections": 2273,
  "counts": {
-  "list": 303,
+  "list": 304,
   "command": 1373,
   "input": 596
  },
- "sha256": "479a83ec2fdff346",
+ "sha256": "c8197a0ce53bf4de",
  "live_objects": [
   "bed_mesh",
   "configfile",
@@ -5903,65 +5903,6 @@
          "RESPOND MSG=\"Segment fix: slicer files with thousands of tiny moves (>450/s) outrun the MCU - it cannot plan them fast enough and shuts down (Timer too close). The fix merges micro segments below ~0.1mm: smaller than the 0.4mm nozzle width, so the print result stays the same - only the controller keeps up again.\""
         ],
         "children": []
-       },
-       {
-        "id": "__main __preprint __fixes __fc",
-        "type": "command",
-        "name": "File check",
-        "gcode": [
-         "FILE_CHECK"
-        ],
-        "children": [
-         {
-          "id": "__main __preprint __fixes __fc __fc1",
-          "type": "command",
-          "name": "Retag old? arm",
-          "gcode": [
-           "FILE_CHECK RETAG=1"
-          ],
-          "children": []
-         },
-         {
-          "id": "__main __preprint __fixes __fc __fc2",
-          "type": "command",
-          "name": ">> RETAG OLD NOW",
-          "enable": "{printer['gcode_macro _STATE'].fc_armed}",
-          "gcode": [
-           "{% if printer['gcode_macro _STATE'].fc_armed|default(False) %}{menu.exit()}{% endif %}",
-           "FILE_CHECK RETAG=1 CONFIRM=1"
-          ],
-          "children": []
-         },
-         {
-          "id": "__main __preprint __fixes __fc __fc3",
-          "type": "command",
-          "name": "How it works",
-          "gcode": [
-           "RESPOND MSG=\"File check lists every g-code with its tag version: current (all markers), old (upgradeable), untouched (never processed), plotter (fine as is). RETAG upgrades old+untouched files - backup .r2bak first, never while printing, max 20 per run\""
-          ],
-          "children": []
-         },
-         {
-          "id": "__main __preprint __fixes __fc __fc4",
-          "type": "command",
-          "name": "Re-fix types? arm",
-          "gcode": [
-           "FILE_CHECK RETAG=2"
-          ],
-          "children": []
-         },
-         {
-          "id": "__main __preprint __fixes __fc __fc5",
-          "type": "command",
-          "name": ">> RE-FIX TYPES NOW",
-          "enable": "{printer['gcode_macro _STATE'].fc2_armed}",
-          "gcode": [
-           "{% if printer['gcode_macro _STATE'].fc2_armed|default(False) %}{menu.exit()}{% endif %}",
-           "FILE_CHECK RETAG=2 CONFIRM=1"
-          ],
-          "children": []
-         }
-        ]
        },
        {
         "id": "__main __preprint __fixes __retst",
@@ -25200,6 +25141,71 @@
        "HOST_CHECK"
       ],
       "children": []
+     },
+     {
+      "id": "__main __system __fc",
+      "type": "list",
+      "name": "File check",
+      "children": [
+       {
+        "id": "__main __system __fc __scan",
+        "type": "command",
+        "name": "> Scan now",
+        "gcode": [
+         "FILE_CHECK"
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __system __fc __fc3",
+        "type": "command",
+        "name": "How it works",
+        "gcode": [
+         "RESPOND MSG=\"File check lists every g-code with its tag version: current (all markers), old (upgradeable), untouched (never processed), plotter (fine as is). RETAG upgrades old+untouched files - backup .r2bak first, never while printing, max 20 per run\""
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __system __fc __fc1",
+        "type": "command",
+        "name": "Retag old? arm",
+        "gcode": [
+         "FILE_CHECK RETAG=1"
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __system __fc __fc2",
+        "type": "command",
+        "name": ">> RETAG OLD NOW",
+        "enable": "{printer['gcode_macro _STATE'].fc_armed}",
+        "gcode": [
+         "{% if printer['gcode_macro _STATE'].fc_armed|default(False) %}{menu.exit()}{% endif %}",
+         "FILE_CHECK RETAG=1 CONFIRM=1"
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __system __fc __fc4",
+        "type": "command",
+        "name": "Re-fix types? arm",
+        "gcode": [
+         "FILE_CHECK RETAG=2"
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __system __fc __fc5",
+        "type": "command",
+        "name": ">> RE-FIX TYPES NOW",
+        "enable": "{printer['gcode_macro _STATE'].fc2_armed}",
+        "gcode": [
+         "{% if printer['gcode_macro _STATE'].fc2_armed|default(False) %}{menu.exit()}{% endif %}",
+         "FILE_CHECK RETAG=2 CONFIRM=1"
+        ],
+        "children": []
+       }
+      ]
      },
      {
       "id": "__main __system __leds",

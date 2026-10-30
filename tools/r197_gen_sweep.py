@@ -322,8 +322,8 @@ sys.path.insert(0, os.path.join(REPO, 'tools'))
 import menu_json_export as mje                             # noqa: E402
 doc = mje.export(os.path.join(REPO, 'menus', 'lcd_menues.cfg'),
                  os.path.join(D, 'menu.json'))
-check('T1 export: all 2276 sections in one tree, no orphans',
-      doc['sections'] == 2272 and sum(doc['counts'].values()) == 2272,
+check('T1 export: all 2273 sections in one tree, no orphans',
+      doc['sections'] == 2273 and sum(doc['counts'].values()) == 2273,
       str(doc['counts']))
 
 
@@ -336,7 +336,7 @@ def _walk(n, acc):
 
 _all = _walk(doc['tree'], [])
 check('T1 export: tree node count == sections, depth sane, known ids',
-      len(_all) == 2272
+      len(_all) == 2273
       and any(n['id'] == '__main __start __direct' for n in _all)
       and any(n['id'] == '__main __live' for n in _all))
 
@@ -350,7 +350,7 @@ _emb = json.JSONDecoder().raw_decode(
     _ptxt.split('const EMBEDDED_MENU_JSON = ', 1)[1])[0]
 check('T1 embed: placeholder replaced with valid JSON',
       '/*EMBEDDED_MENU_JSON*/ null' not in _ptxt
-      and _emb['sections'] == 2272)
+      and _emb['sections'] == 2273)
 
 # T2: the moonraker extension with a fake app
 spec = importlib.util.spec_from_file_location(
@@ -451,7 +451,7 @@ import asyncio                                            # noqa: E402
 loop = asyncio.new_event_loop()
 tree_doc = loop.run_until_complete(eps['/server/r2_menu/tree'](FakeReq()))
 check('T2 extension: tree handler serves the export',
-      tree_doc['sections'] == 2272 and 'tree' in tree_doc)
+      tree_doc['sections'] == 2273 and 'tree' in tree_doc)
 st = loop.run_until_complete(eps['/server/r2_menu/status'](FakeReq()))
 check('T2 extension: status handler reports ok + sha',
       st['ok'] and st['sha256'] == tree_doc['sha256'])
@@ -1440,6 +1440,87 @@ catch (e) { console.log(JSON.stringify({error: 'load: ' + String(e)}));
           _D.get('error') is None
           and 'klippy state: shutdown' in (_D.get('badge') or ''),
           str(_D)[:220])
+finally:
+    pass
+
+
+# ================================================================== T-meta
+# R212 (.136k field log: 'wenn ich die Mainsail im gcodes ordner
+# anschau sehe ich keine Metadaten... dachte eigentlich dass bei neu
+# generiertem G-Code aus einer Slicer-Datei die Metadaten erhalten
+# bleiben'): generated files now get Mainsail metadata - thumbnail +
+# estimated time + filament, computed from the file's OWN moves (a range
+# excerpt keeps its honest time) with the SOURCE's thumbnail copied for
+# derived files. Slicer files are never touched.
+try:
+    import base64 as _b64212
+    import struct as _st212
+    import zlib as _zl212
+    import gcode_meta as _gm212
+    _md212 = tempfile.mkdtemp(prefix='r212meta_')
+    _mp212 = pp.make_labels(['R2', 'TEST'], bed=BED, out_dir=_md212)[0]
+    _stx212 = 'meta' if _gm212.finalize(_mp212) else ''
+    _txt212 = open(_mp212).read()
+    _blk212 = _txt212.split('; thumbnail begin 128x128\n')[1].split(
+        '; thumbnail end')[0]
+    _b64f212 = ''.join(_l212[2:] for _l212 in _blk212.split('\n')
+                       if _l212.startswith('; '))
+    _png212 = _b64212.b64decode(_b64f212)
+    _w212, _h212 = _st212.unpack('>II', _png212[16:24])
+    _i212 = _png212.find(b'IDAT')
+    _ln212 = _st212.unpack('>I', _png212[_i212 - 4:_i212])[0]
+    _rows212 = len(_zl212.decompress(
+        _png212[_i212 + 4:_i212 + 4 + _ln212])) == 128 * (128 * 3 + 1)
+    check('T-meta R212: a GENERATED file gets Mainsail metadata (valid '
+          '128x128 PNG thumbnail, time, filament; the R2-GEN stamp stays '
+          'the first line)',
+          _stx212 == 'meta' and _png212[:8] == b'\x89PNG\r\n\x1a\n'
+          and (_w212, _h212) == (128, 128) and _rows212
+          and '; estimated printing time (normal mode) = ' in _txt212
+          and '; filament used [mm] = ' in _txt212
+          and _txt212.startswith('; R2-GEN'),
+          '%dx%d' % (_w212, _h212))
+    _b212 = open(_mp212, 'rb').read()
+    _gm212.finalize(_mp212)
+    check('T-meta R212: idempotent - a second finalize changes nothing '
+          '(the watcher scan may see the file again)',
+          open(_mp212, 'rb').read() == _b212)
+    _src212 = pp.make_labels(['SRC'], bed=BED, out_dir=_md212)[0]
+    _gm212.finalize(_src212)
+    _rng212, _nl212 = pp.make_range(_src212, 2, 4)
+    _rt212 = open(_rng212).read()
+    _st212 = open(_src212).read()
+    _th212 = _st212[_st212.index('; thumbnail begin'):
+                    _st212.index('; thumbnail end')]
+    _tir212 = re.search(r'printing time \(normal mode\) = (.+)', _rt212)
+    _tis212 = re.search(r'printing time \(normal mode\) = (.+)', _st212)
+    _rb212 = open(_rng212, 'rb').read()
+    _gm212.finalize(_rng212, src=_src212)     # watcher may see it again
+    check('T-meta R212: a DERIVED file (range excerpt) copies the SOURCE '
+          'thumbnail but computes its OWN honest time from its own moves',
+          '; thumbnail begin' in _rt212            # hook ran in make_range
+          and 'estimated printing time' in _rt212
+          and _th212 in _rt212                    # THE source thumbnail
+          and bool(_tir212) and bool(_tis212)
+          and _tir212.group(1) != _tis212.group(1)   # own honest time
+          and open(_rng212, 'rb').read() == _rb212,  # idempotent
+          'thumb=%s time=%s'
+          % (_th212 in _rt212,
+             _tir212.group(1) if _tir212 else '-'))
+    _sl212 = os.path.join(_md212, 'slicer.gcode')
+    open(_sl212, 'w').write(
+        '; thumbnail begin 300x300\n; aaaa\n; thumbnail end\n'
+        '; estimated printing time (normal mode) = 9h 9m 9s\n'
+        'G28\nG1 X10 Y10 E1 F1200\nG1 X20 Y10 E2\n')
+    _sb212 = open(_sl212, 'rb').read()
+    check('T-meta R212: slicer files keep THEIR metadata (hands off) and '
+          'the postproc hook is eligibility-guarded (R2-GEN stamp / gen '
+          'folder / optimized only)',
+          _gm212.finalize(_sl212) == 'own'
+          and open(_sl212, 'rb').read() == _sb212
+          and callable(getattr(pp, '_meta_finalize', None)),
+          'slicer file modified')
+    _sh200.rmtree(_md212, ignore_errors=True)
 finally:
     pass
 

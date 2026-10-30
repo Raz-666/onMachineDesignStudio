@@ -3,7 +3,7 @@
 **Package:** `klipper-e3-r2d2` · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail) ·
 12864 LCD (16 characters per line)
 
-**Version:** this manual describes the current release, `R2-2026-10-29.136j` — and only it. Every chapter documents what the system
+**Version:** this manual describes the current release, `R2-2026-10-30.136k` — and only it. Every chapter documents what the system
 does today; the version changelog lives in README.md.
 
 This is the operating manual for the complete macro system: what the printer can
@@ -819,6 +819,17 @@ normal G-code files into the gcodes folder (the watcher builds them in the
 background — niced, single-pass, a few seconds), all of them run through the
 NORMAL start flow, and all generated objects are exclude-objects (skippable
 live).
+
+**Mainsail metadata (.136k):** every file the system generates or derives
+carries an `R2-META v1` block right behind the stamp — a 128×128 PNG
+**thumbnail** (rendered from the file's own moves), the **estimated
+printing time** and the **filament used**, so the Mainsail file browser
+shows generated files exactly like sliced ones. Range excerpts copy the
+**source's** thumbnail (a slicer original keeps its own picture) and
+compute their own honest time from their own moves. Slicer uploads are
+never touched: the hook is eligibility-guarded (R2-GEN stamp, generator
+folders, `optimized/` only) and files that already carry a slicer
+thumbnail stay hands-off.
 
 One quality rule applies to every one of them (field-log rule): **the nozzle
 never travels over an open hole or slot without retracting — no matter how
@@ -3004,6 +3015,8 @@ is a switch you can turn off.
 | Mesh is full bed although 'adaptive' |: honest wording — 'full bed (file has no object data)' now SAYS so. The mesh before a held file runs adaptive (the watcher replays the file's EXCLUDE_OBJECT_DEFINE at selection); Orca files carry them when 'Label objects' is enabled. Plot/label/bridge files bring their own object polygon |
 | KAMP meshes the whole bed | check KAMP_Settings.cfg margin — AND the file needs object data (see row above) |
 | `sudo` + the watcher check lists 2–3 r2-postproc "processes" | measurement artifact, NOT hidden watchers (.136d field log): `pgrep -f` matches the full command line and the sudo+pgrep pair carries the pattern itself — pgrep excludes only its own PID. A real watcher line looks like `/usr/bin/python3 …/r2_postproc.py --watch …`. Self-match-proof check (with or without sudo): `pgrep -af '[r]2_postproc.py'` — exactly ONE line. Better: update.sh prints the watcher census after every update ("exactly 1 r2-postproc watcher (PID …)"), and a second .136+ watcher cannot even start (kernel flock — it refuses with the reason) |
+| Web-LCD: Tools menu + SD list empty although the badge says live=ok | fixed in .136k: a status snapshot lists objects WITHOUT their values until one is set — the page's existence tests (`'x' in printer.objects`) answered no and hid the Generators/SD rows. The live answer now carries `available` (plain object names) next to `objects`; the page materializes them as empty objects. Field-bug class #19: VALUELESS SNAPSHOTS. |
+| LCD: FILE_CHECK / RETAG not reachable | R175b had buried File check as a COMMAND with children under Pre-Print > Fixes — klipper's display menu never opens a command's children (the web menu did, which is why it worked there). Back as a LIST under **System > File check**: Scan now, How it works, Retag old (2-press), Re-fix types (2-press). |
 | Web-LCD: „Moonraker lehnte ab (403)" | fixed in .136e: Moonraker rejects any request whose Origin header it does not know — and browsers send Origin on EVERY command POST (same-origin GETs carry none: live values worked, buttons died since .136b). The nginx site now strips Origin at the proxy and runs its own CSRF guard (foreign websites get 403 from nginx, never reaching the printer), and update.sh refreshes the web-LCD on every package update. .136f: case-insensitive same-origin check + live-guard self-test after every reload. **.136g: the page itself answered 403 (already on open, inkognito too)** — nginx runs as www-data and could not read the page under /home/pi (serve-path permissions can flip on any update; the API paths kept working, which is why every proxy test was green). The page is now served from `/var/www/r2lcd` (world-readable, outside every home dir), synced on every package update, and the self-test also GETs the page itself. **.136h: the page's JavaScript had never executed at all** — the JSON embed left a stray `null` after the menu data (`EMBEDDED_MENU_JSON = {...} null;` = syntax error), so no click ever worked and the menu stayed at „__main“; plus Moonraker's `{"result":…}` envelope was never unwrapped and the live poll started before the menu data arrived. All three fixed; a new integration test parses and runs the REAL shipped page (node) against the REAL component response — envelope included. **.136i: everything showed but nothing was USABLE** — raw template text in many labels (save_variables...), OctoPrint/Temperature/Live-Tuning visible although the LCD hides them, no way back up, badge saying Klipper nicht bereit although Klipper was fine: the live snapshot had failed and its REASON was thrown away (that handler had never run in the field - the page JS was dead until .136h); enable strings also ship WITH braces, which the evaluator parsed as a dict literal, so NOTHING was ever hidden even with live data; and the sender would have POSTed raw templates (968 of 1964 commands carry jinja). .136i: the component never fails silently (reason in the badge, per-object retry), the page hides/shows exactly like the display, renders every command before sending, adds back-navigation, input value fields, the M117 notification history, the console and the status dashboard. **.136j: the .136i badge paid off immediately** - the surfaced reason revealed the real bug: the component called moonraker with the klipper-style lookup_object (AttributeError on every live poll since the extension existed - masked by an offline fake that implemented the wrong method). Now lookup_component (+ fallback), and the offline fake mirrors only the REAL moonraker API surface |
 
 Diagnostics: SHOW_STATUS · SELF_TEST · KAMP_STATUS · HOST_CHECK (Pi health) · _CHECK_INSTALL at boot.
@@ -3135,7 +3148,13 @@ right (the current M117 line pinned on top, the full history below in
 arrival order — scroll back any time), and the **console** across the
 whole bottom width (the printer's echo/RESPOND stream, auto-scrolling,
 plus a G-code input line — Enter sends, arrow-up recalls the last
-command). **↑ zurück** or a click into the breadcrumb brings you back up
+command). **.136k:** the dashboard values sit in a responsive **grid**
+(2–3 rows instead of one endless line) with the font up two sizes — the
+**whole page including the console fits without scrolling**; the console
+got a **toolbar** like Mainsail: *Leeren* (clear), a **search field**
+(filters the history live) and the autoscroll toggle. The live poll also
+survives value-less snapshots now (see Troubleshooting: Tools menu /
+SD list empty). **↑ zurück** or a click into the breadcrumb brings you back up
 a level. On the printer's host it loads the live tree (`web/r2_menu.py`
 Moonraker extension, `GET /server/r2_menu/tree`) and **evaluates the
 menu templates live**: every 3 s it fetches a pruned printer snapshot
@@ -3769,7 +3788,7 @@ system). Better a quiet fan at full speed than a fast one slowed down.
 ## Appendix C: First start & updates
 
 - upload the folder → includes at the end of printer.cfg → RESTART
-- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-10-29.136j)`
+- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-10-30.136k)`
 - ~10 s later: boot sound + LED animation
 - SHOW_STATUS → mode, material, overrides · Maintenance > Tests > demos + self test
 

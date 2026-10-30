@@ -242,7 +242,15 @@ class R2MenuComponent:
                     skipped.append('%s: %s' % (o, e2))
         status = {k: v for k, v in status.items() if v is not None}
         pruned = self._prune_status(status)
-        out = {'ok': True, 'objects': status, 'pruned': pruned}
+        # R212 (.136k field log: the generator menu entries vanished from
+        # the web-LCD): enables test OBJECT EXISTENCE
+        # ('gcode_macro _GENERATORS' in printer) - the LCD's printer knows
+        # every klippy object, the snapshot only ships the ~16 with values,
+        # so those tests answered False and the page hid the entries. The
+        # full object-name list is already fetched here - ship it as
+        # 'available' and the page materializes the names it does not have.
+        out = {'ok': True, 'objects': status, 'pruned': pruned,
+               'available': sorted(objs)}
         if skipped:
             out['skipped'] = skipped
         self._live_cache = out

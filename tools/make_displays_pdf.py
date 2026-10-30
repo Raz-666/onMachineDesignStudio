@@ -115,7 +115,7 @@ class Doc(BaseDocTemplate):
         canv.line(17*mm, 285*mm, 193*mm, 285*mm)
         canv.setFont('DVS', 8.2); canv.setFillColor(GRAY)
         canv.drawString(17*mm, 287.2*mm, 'R2-D2 Macro System · Displays · Web-UI · Drucker · Nozzles · Test-Stufen')
-        canv.drawRightString(193*mm, 287.2*mm, 'R2-2026-10-29.136j')
+        canv.drawRightString(193*mm, 287.2*mm, 'R2-2026-10-30.136k')
         canv.setFont('DVS', 8.6)
         canv.drawCentredString(105*mm, 9.5*mm, 'Seite %d' % doc.page)
         canv.restoreState()
@@ -136,7 +136,7 @@ A(Paragraph('die ausführliche Übersicht der .135-Runde —<br/>'
 A(Spacer(1, 8*mm))
 A(CENT_DUMMY if False else Spacer(1, 1))
 A(Spacer(1, 6*mm))
-A(Paragraph('Stand: R2-2026-10-29.136j · Grundlagen: menus/lcd_menues.cfg, web/ (r2_menu.py, '
+A(Paragraph('Stand: R2-2026-10-30.136k · Grundlagen: menus/lcd_menues.cfg, web/ (r2_menu.py, '
             'index.html, menu_structure.json), tools/menu_json_export.py · r197_gen_sweep.py · '
             'r198_tier_report.py', S['cap']))
 A(PageBreak())
@@ -258,7 +258,7 @@ A(TBL(['Stufe', 'Batterien', 'Ziel'], [
  ['<b>normal</b>', 'r141 journeys · systemtest · validator · r165 doc', 'was ein normaler Anwender anfasst'],
  ['<b>power</b>', 'megatest · r110 setup · r142 field · r143 audit · r166 templates · r168 stamps · r164 serial', 'Feld- und Setup-Sicherheit'],
  ['<b>developer</b>', 'macro_render (1.910) · r81 goldens · r111 geom · r167 air', 'Ausgabe-Stabilität'],
- ['<b>hardcore</b>', 'r190 tag ladder · r197 gen sweep (413) · r199 zip check · audit_sweep', 'Tiefentest Tagging + Generatoren/Tools + Release-Artefakt'],
+ ['<b>hardcore</b>', 'r190 tag ladder · r197 gen sweep (446) · r212 ultimate sweep (19: Compiler/Strings/Dead/Chains/Preprint) · r199 zip check · audit_sweep', 'Tiefentest Tagging + Generatoren/Tools + Release-Artefakt'],
  ['<b>stress</b>', 'r140 (46.757 Checks)', 'Ausdauer'],
  ['<b>function</b>', 'r187 matrix · systemtest', 'End-to-End-Verhalten'],
 ], [24*mm, 82*mm, 60*mm]))
@@ -287,6 +287,8 @@ A(TBL(['Klasse', 'Beispiel aus dem Feld', 'Abdeckung'], [
  ['<b>NEU (9): Prozess-Duplizierung</b>', '.136-Feldlog: JEDER Watcher-Push lief doppelt (jede SAVE_VARIABLE 2×, Litho-RESPOND 2×, opt_list/sd_tree 3×) — ein alter Watcher lief neben dem neuen (PID-Datei in /tmp war gealtert/leer)', 'R200: Startup-/proc-Scan + Kernel-flock (watcher.lock im Paket-Root) + --once schont den Daemon + HOST_CHECK nennt Duplikat-PIDs mit Fix-Befehl; r197 T6 testet mit echten Daemon-Prozessen'],
  ['<b>NEU (10): Watcher-Boot-Doppelung + stilles klippy-down</b>', '.136a-Feldlog: beim Boot startete ein echter zweiter Watcher mit („Twin“); und der Watcher versuchte den postproc_build-Push endlos still weiter, während das Display „host ok“ sagte', 'R202: breiterer Startup-Matcher (r2_postproc_old.py zählt, r2_menu.py nicht), cgroup-unit reader, Flat-Stray-Warnungen; der Watcher sagt laut, was zu tun ist (FIRMWARE_RESTART, sonst Power OFF 10 s); r197 T6d'],
  ['<b>NEU (11): Live-Endpoint-Last</b>', '.136c-Feldlog: JEDER Web-LCD-Poll blockierte Klippy 0,7 s (QueryStatusHelper) → „Neopixel update did not succeed“; der Endpoint fragte ~300 Makro-Objekte ab statt der 12 referenzierten', 'R204: live_objects im Export (exakt die referenzierten Objekte), Slim-Query + 2,5-s-Cache, max. 1 echte Abfrage pro Poll; r197-Regression mit 300 Junk-Makros'],
+ ['<b>NEU (20): Command-mit-Kindern (LCD-tot)</b>', 'R212-Feldbericht: FILE_CHECK/RETAG unter Pre-Print>Fixes als COMMAND mit Kindern deklariert - Klippers Display-Men\u00f6 \u00f6ffnet die Kinder eines Commands NIE, Retag war am Display unerreichbar (nur die WebUI zeigte es - deshalb gr\u00fcnten alle Web-Tests)', 'R212: zur\u00fcck als LISTE unter System > File check (Scan now, How it works, Retag 2x, Re-fix 2x); r212-DEAD-Scan + macro_render pinnen die Erreichbarkeit'],
+ ['<b>NEU (19): Wert-lose Schnappsch\u00fcsse</b>', 'R212-Feldbericht: Tools-Men\u00fc + SD-Liste leer, obwohl live=ok - der Status-Schnappschuss tr\u00e4gt Objekte OHNE Werte, Existenztests antworteten Nein und blendeten aus', 'R212: Live-Antwort tr\u00e4gt available (Namen), die Seite materialisiert leere Objekte; r197 T8-availability pinnt es'],
  ['<b>NEU (18): Mock-Drift (Fake reicher als die Realit\u00e4t)</b>', '.136i-Feldlog: Badge nannte den Grund - lookup_object existiert auf dem Moonraker-Server nicht (API: lookup_component); der Offline-Fake hatte die falsche Methode implementiert, jeder Test gr\u00fcn, der Pi warf AttributeError; /live scheiterte seit R201', 'R211: lookup_component + Fallback; der Fake spiegelt NUR die echte Moonraker-API-Oberfl\u00e4che; neuer T2d pinnt den Drift'],
  ['<b>NEU (17): Rohbetrieb (UI ohne Daten/Auswertung)</b>', '.136h-Feldlog: Seite lebte, war aber nicht bedienbar - rohe Jinja-Labels, vom LCD ausgeblendete Men\u00fc sichtbar, kein Zur\u00fcck; der Live-Schnappschuss scheiterte und der GRUND wurde weggeworfen; Enable-Strings kamen MIT Klammern (als Dict-Literal gepars-t, nie versteckt); der Sender h\u00e4tte rohe Templates gepostet (968/1964)', 'R210: Grund immer im Badge sichtbar, Per-Objekt-Retry, Enables durch ihre Klammern ausgewertet (Per-ID-Parit\u00e4t vs Display), jeder Befehl vor dem Senden gerendert (Parit\u00e4t vs jinja2), Zur\u00fcck-Navigation, Dashboard + Benachrichtigungen + Konsole'],
  ['<b>NEU (16): Schnittstellen-Vertragsbruch (Seite \u00d7 Endpoint)</b>', '.136g-Feldlog: Seite lud, aber kein Klick („main_") — der JSON-Embed lie\u00df ein verwaistes null: Syntaxfehler, das Seiten-JS lief seit R201 NIE; dazu wurde Moonrakers {"result":…}-Envelope nicht ausgepackt und pollLive startete vor loadDoc', 'R209: Embed geh\u00e4rtet, Envelope-Unwrap + Form-Check, pollLive nach loadDoc; T8 f\u00fchrt die KOMPLETTE echte Seite in node gegen die echte Komponenten-Antwort aus'],

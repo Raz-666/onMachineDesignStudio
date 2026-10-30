@@ -1,6 +1,6 @@
-# TESTANLEITUNG — R2-D2 Makro-System (Version .134)
+# TESTANLEITUNG — R2-D2 Makro-System (Version .136k)
 
-Diese Anleitung beschreibt **nur den aktuellen Stand** (.134). Sie ist die
+Diese Anleitung beschreibt **nur den aktuellen Stand** (.136k). Sie ist die
 komplette Feld-Checkliste nach dem Einspielen eines Updates — von Boot bis
 Druckergebnis. Die Historie der Änderungen steht in README.md.
 
@@ -18,7 +18,7 @@ Druckergebnis. Die Historie der Änderungen steht in README.md.
 ## 2. Boot-Check (Pflicht, 1 Minute)
 
 - [ ] Konsole: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-10-29.136j)`
+      (build R2-2026-10-30.136k)`
 - [ ] ~10 s nach dem Boot: Boot-Sound + LED-Animation
 - [ ] `SHOW_STATUS` antwortet mit Modus/Material/Overrides
 - [ ] Kein Eintrag fehlt: sonst meldet sich `_CHECK_INSTALL` laut mit
@@ -34,6 +34,12 @@ Druckergebnis. Die Historie der Änderungen steht in README.md.
 - [ ] **Start-Dialog** erscheint, Start erst nach Bestätigung
 - [ ] SD-Browser: **Del**-Zeile löscht mit Doppelklick (nur G-Codes-Root,
       nie während eines Drucks)
+- [ ] **System > File check** (.136k: zurück aus Pre-Print > Fixes — dort
+      war es im LCD unerreichbar): Scan now listet, Retag old nur 2×-gedrückt
+- [ ] **Mainsail-Metadaten** (.136k): eine generierte Datei (z. B. Labels)
+      zeigt im Datei-Browser Thumbnail + Druckzeit + Filament; ein
+      Range-Auszug zeigt das THUMBNAIL DER QUELLE; Slicer-Dateien bleiben
+      unverändert
 
 ## 4. Labels (der Alltags-Test)
 
@@ -83,7 +89,19 @@ bewusst angeschweißt). Je ein Probedruck:
       Pre-Print-Zustand exakt wieder her
 - [ ] Pause/Fortsetzen/Objekt ausschließen je einmal testen
 
-## 9. Wartung & Sound
+## 9. Web-LCD im Browser (.136k-Checks)
+
+- [ ] Seite öffnen: **ganze Seite inkl. Konsole ohne Scrollen** sichtbar,
+      Dashboard-Werte im Grid über 2–3 Zeilen, Schrift zwei Nummern größer
+- [ ] Konsole-Toolbar: **Leeren** leert, **Suchfeld** filtert die Historie,
+      Autoscroll-Knopf schaltet
+- [ ] **Tools-Menü + SD-Liste gefüllt** (der .136k-Fix: wert-lose
+      Schnappschüsse dürfen nichts mehr ausblenden — wenn die Konsole
+      live=ok sagt, müssen die Zeilen da sein)
+- [ ] Menü-Baum blendet wie das LCD aus (OctoPrint/Temperatur unsichtbar),
+      Breadcrumb/↑ zurück funktioniert, Befehle senden GERENDERten G-Code
+
+## 10. Wartung & Sound
 
 - [ ] Maintenance > Tests: Selbsttest + Demos
 - [ ] Sounds: Bestätigung/Fehler/Laufzeit unterscheidbar (Fit-Beep =
@@ -92,6 +110,6 @@ bewusst angeschweißt). Je ein Probedruck:
 
 ---
 
-**Alles grün?** Dann ist .134 field-clear. Wenn etwas auffällt: Konsole
+**Alles grün?** Dann ist .136k field-clear. Wenn etwas auffällt: Konsole
 kopieren (RESPOND-Zeilen) + welche Datei/welcher Menüpfad — daraus wird der
 nächste Feldlog-Eintrag.

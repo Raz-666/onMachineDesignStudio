@@ -66,6 +66,20 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # R112 re-freeze: tag v4 -> v5 (STALE/retag round) - every fixture's tag
 # line changed, summaries gained retract_status/retract_max. R112 reference
 # superseded.
+# RE-FREEZE HISTORY (.136k, R212): CONTENT change, proven - every mr
+# fixture gained the R2-META v1 block (128x128 PNG thumbnail + honest time
+# + filament, Mainsail metadata requirement) inserted after the core stamp;
+# the bytes around it are IDENTICAL to .136j (verified: new = stamp +
+# inserted block + old tail, all 13 cases; pr01-pr10 byte-identical - the
+# meta hook lives in make_range + the watcher scan, never in process()).
+# REF frozen from the .136k module after the proof.
+# RE-FREEZE HISTORY (.136k, R212): CONTENT change, proven - every mr
+# fixture gained the R2-META v1 block (128x128 PNG thumbnail + honest time
+# + filament, Mainsail metadata requirement) inserted after the core stamp;
+# the bytes around it are IDENTICAL to .136j (verified: new = stamp +
+# inserted block + old tail, all 13 cases; pr01-pr10 byte-identical - the
+# meta hook lives in make_range + the watcher scan, never in process()).
+# REF frozen from the .136k module after the proof.
 # RE-FREEZE HISTORY (.136j version bump, R211): stamp-only - proven by
 # running the NEW module with the OLD stamp string (all 23 md5 == the
 # .136i goldens). No postproc logic changed this round.
@@ -105,19 +119,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # only touch real violations); the mr extracts differ ONLY in the core
 # stamp line (version bump, by design).
 REF_MD5 = {
- "mr01": "333558a5a4d8da318913d46b5d8586c3",
- "mr02": "3b27fd6050c0e8eb6e705be62ea2d3fd",
- "mr03": "e8e267cf54a612103cb1fc51df506656",
- "mr04": "86c87fb7bdda8a26b83290689c439c12",
- "mr05": "4a87b31042467ab6d5995be890c601cb",
- "mr06": "e7eb59d994b072b6356df37d27c9553f",
- "mr07": "df497249d5dc98bf0a85125cde5de00d",
- "mr08": "3d95e31fa6b198dfee44154406c96fb3",
- "mr09": "5e8d96a2dd9eb2e82fba849921e1dd1c",
- "mr10": "feed2c9b201d070b8c2b33af59189e21",
- "mr11": "53460045cb93a1fe147822e4d24b1b3e",
- "mr12": "2369eddfa867bd102f80b30a00faed14",
- "mr13": "a2cd249eb53cd56e0d1ba0970b49c43d",
+ "mr01": "5112877a5f30c832d1d4fc8adaf5b339",
+ "mr02": "359711133756e635f9f8c7689232634c",
+ "mr03": "b76fda25986624a661a25f92e91609f0",
+ "mr04": "9c7fb26ddc2211ead70130a8ecca77b4",
+ "mr05": "727576248b771e1bc7ded6abb0a1b175",
+ "mr06": "8525615a0eda63d12895810d561014d0",
+ "mr07": "e8ef62af1246188281ed6eedf003c5a4",
+ "mr08": "04b48e411ddcba536658dde6621b658f",
+ "mr09": "02ae5cfc601fb1269cab078f7dc0993e",
+ "mr10": "fbd78282b955b954c25569fd687bbe79",
+ "mr11": "1f7c8c715c2630e3fb6521650d6e3085",
+ "mr12": "e54a1d3ef598595aaafbcd7886c33b3c",
+ "mr13": "0de1ab26bfbc8b9fd57c8242967419ce",
  "pr01": "aa5a6f27d5a7e6576f57eeea93af63a5",
  "pr02": "61457e9bcbd98996b6e7dc26efda23d8",
  "pr03": "923725a1d92fccc88241ed8a3ab8065b",
@@ -127,184 +141,184 @@ REF_MD5 = {
  "pr07": "17fdc789395c2d6f83efc279bb751f21",
  "pr08": "923725a1d92fccc88241ed8a3ab8065b",
  "pr09": "5e90a1d42296412a0ea53e9d6ada0157",
- "pr10": "159ea58bb74bbf9adb377f1e733d152b"
+ "pr10": "159ea58bb74bbf9adb377f1e733d152b",
 }
 
 REF_SUMMARY = {
- "mr01": {
+ "mr01":  {
   "nl": 8,
-  "size": 4214
+  "size": 5055,
  },
- "mr02": {
+ "mr02":  {
   "nl": 10,
-  "size": 11516
+  "size": 14448,
  },
- "mr03": {
+ "mr03":  {
   "nl": 10,
-  "size": 11250
+  "size": 13455,
  },
- "mr04": {
+ "mr04":  {
   "nl": 9,
-  "size": 11548
+  "size": 12999,
  },
- "mr05": {
+ "mr05":  {
   "nl": 10,
-  "size": 18661
+  "size": 21616,
  },
- "mr06": {
+ "mr06":  {
   "nl": 10,
-  "size": 15609
+  "size": 17210,
  },
- "mr07": {
+ "mr07":  {
   "nl": 7,
-  "size": 3846
+  "size": 4687,
  },
- "mr08": {
+ "mr08":  {
   "nl": 6,
-  "size": 3501
+  "size": 4342,
  },
- "mr09": {
+ "mr09":  {
   "nl": 8,
-  "size": 7935
+  "size": 9413,
  },
- "mr10": {
+ "mr10":  {
   "nl": 8,
-  "size": 11493
+  "size": 13070,
  },
- "mr11": {
+ "mr11":  {
   "nl": 8,
-  "size": 7414
+  "size": 8848,
  },
- "mr12": {
+ "mr12":  {
   "nl": 2,
-  "size": 2018
+  "size": 2859,
  },
- "mr13": {
+ "mr13":  {
   "nl": 30,
-  "size": 19244
+  "size": 20575,
  },
- "pr01": {
+ "pr01":  {
   "by_object": False,
-  "fw": "",
+  "fw": '',
   "info_added": True,
   "layers": 9,
   "marks_added": 9,
-  "method": "layer comments",
+  "method": 'layer comments',
   "retract_max": 0.0,
   "retract_pairs": 0,
   "retract_slicer_moves": 0,
-  "retract_status": "",
-  "retract_style": "",
+  "retract_status": '',
+  "retract_style": '',
   "skipped": False,
-  "slicer": "",
+  "slicer": '',
   "tagged": True,
   "types": 26,
   "upgraded": False,
-  "upgraded_from": "v1",
-  "volumetric": False
+  "upgraded_from": 'v1',
+  "volumetric": False,
  },
- "pr02": {
+ "pr02":  {
   "by_object": False,
-  "fw": "",
+  "fw": '',
   "info_added": True,
   "layers": 9,
   "marks_added": 9,
-  "method": "layer comments",
+  "method": 'layer comments',
   "retract_max": 0.0,
   "retract_pairs": 0,
   "retract_slicer_moves": 0,
-  "retract_status": "",
-  "retract_style": "",
+  "retract_status": '',
+  "retract_style": '',
   "skipped": False,
-  "slicer": "",
+  "slicer": '',
   "tagged": True,
   "types": 26,
   "upgraded": False,
-  "upgraded_from": "v1",
-  "volumetric": False
+  "upgraded_from": 'v1',
+  "volumetric": False,
  },
- "pr03": {
+ "pr03":  {
   "by_object": False,
   "derived": True,
-  "fw": "",
+  "fw": '',
   "info_added": True,
   "layers": 8,
   "marks_added": 8,
-  "method": "Z scan",
+  "method": 'Z scan',
   "retract_max": 0.0,
   "retract_pairs": 0,
   "retract_slicer_moves": 0,
-  "retract_status": "",
-  "retract_style": "",
+  "retract_status": '',
+  "retract_style": '',
   "skipped": False,
-  "slicer": "",
+  "slicer": '',
   "tagged": True,
   "types": 9,
   "upgraded": False,
-  "upgraded_from": "v1",
-  "volumetric": False
+  "upgraded_from": 'v1',
+  "volumetric": False,
  },
- "pr04": {
+ "pr04":  {
   "by_object": False,
-  "fw": "",
+  "fw": '',
   "info_added": True,
   "layers": 9,
   "marks_added": 9,
-  "method": "layer comments",
+  "method": 'layer comments',
   "retract_max": 0.0,
   "retract_pairs": 0,
   "retract_slicer_moves": 0,
-  "retract_status": "",
-  "retract_style": "",
+  "retract_status": '',
+  "retract_style": '',
   "skipped": False,
-  "slicer": "",
+  "slicer": '',
   "tagged": True,
   "types": 26,
   "upgraded": True,
-  "upgraded_from": "v4",
-  "volumetric": False
+  "upgraded_from": 'v4',
+  "volumetric": False,
  },
- "pr05": {
+ "pr05":  {
   "by_object": False,
-  "fw": "",
+  "fw": '',
   "info_added": True,
   "layers": 9,
   "marks_added": 9,
-  "method": "layer comments",
+  "method": 'layer comments',
   "retract_max": 0.0,
   "retract_pairs": 0,
   "retract_slicer_moves": 0,
-  "retract_status": "",
-  "retract_style": "",
+  "retract_status": '',
+  "retract_style": '',
   "skipped": False,
-  "slicer": "",
+  "slicer": '',
   "tagged": True,
   "types": 26,
   "upgraded": True,
-  "upgraded_from": "v1",
-  "volumetric": False
+  "upgraded_from": 'v1',
+  "volumetric": False,
  },
- "pr06": {
+ "pr06":  {
   "by_object": False,
-  "fw": "",
+  "fw": '',
   "info_added": True,
   "layers": 9,
   "marks_added": 9,
-  "method": "layer comments",
+  "method": 'layer comments',
   "retract_max": 0.0,
   "retract_pairs": 0,
   "retract_slicer_moves": 0,
-  "retract_status": "",
-  "retract_style": "",
+  "retract_status": '',
+  "retract_style": '',
   "skipped": False,
-  "slicer": "",
+  "slicer": '',
   "tagged": True,
   "types": 26,
   "upgraded": False,
-  "upgraded_from": "v1",
-  "volumetric": False
+  "upgraded_from": 'v1',
+  "volumetric": False,
  },
- "pr07": {
+ "pr07":  {
   "by_object": False,
   "info_added": False,
   "layers": 0,
@@ -315,68 +329,68 @@ REF_SUMMARY = {
   "tagged": False,
   "types": 0,
   "upgraded": False,
-  "upgraded_from": "v1"
+  "upgraded_from": 'v1',
  },
- "pr08": {
+ "pr08":  {
   "by_object": False,
   "derived": True,
-  "fw": "",
+  "fw": '',
   "info_added": True,
   "layers": 8,
   "marks_added": 8,
-  "method": "Z scan",
+  "method": 'Z scan',
   "retract_max": 0.0,
   "retract_pairs": 0,
   "retract_slicer_moves": 0,
-  "retract_status": "",
-  "retract_style": "",
+  "retract_status": '',
+  "retract_style": '',
   "skipped": False,
-  "slicer": "",
+  "slicer": '',
   "tagged": True,
   "types": 9,
   "upgraded": False,
-  "upgraded_from": "v1",
-  "volumetric": False
+  "upgraded_from": 'v1',
+  "volumetric": False,
  },
- "pr09": {
+ "pr09":  {
   "by_object": False,
-  "fw": "",
+  "fw": '',
   "info_added": True,
   "layers": 9,
   "marks_added": 9,
-  "method": "layer comments",
+  "method": 'layer comments',
   "retract_max": 0.0,
   "retract_pairs": 0,
   "retract_slicer_moves": 0,
-  "retract_status": "",
-  "retract_style": "",
+  "retract_status": '',
+  "retract_style": '',
   "skipped": False,
-  "slicer": "",
+  "slicer": '',
   "tagged": True,
   "types": 26,
   "upgraded": False,
-  "upgraded_from": "v1",
-  "volumetric": False
+  "upgraded_from": 'v1',
+  "volumetric": False,
  },
- "pr10": {
+ "pr10":  {
   "by_object": False,
-  "fw": "",
+  "fw": '',
   "info_added": True,
   "layers": 9,
   "marks_added": 9,
-  "method": "layer comments",
+  "method": 'layer comments',
   "retract_max": 0.0,
   "retract_pairs": 0,
   "retract_slicer_moves": 0,
-  "retract_status": "",
-  "retract_style": "",
+  "retract_status": '',
+  "retract_style": '',
   "skipped": False,
-  "slicer": "",
+  "slicer": '',
   "tagged": True,
   "types": 26,
   "upgraded": False,
-  "upgraded_from": "v1",
-  "volumetric": False
+  "upgraded_from": 'v1',
+  "volumetric": False,
  }
 }
 
