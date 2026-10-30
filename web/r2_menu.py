@@ -1,5 +1,7 @@
 # r2_menu.py - Moonraker extension: the R2 menu tree as JSON (.136c, R204:
-# adds /server/r2_menu/live - the pruned printer snapshot for live values)
+# adds /server/r2_menu/live - the pruned printer snapshot for live values;
+# R210/.136i: live handler hardened - reason always visible, per-object
+# retry, klippy-state precheck, dashboard objects, value pruning)
 # ============================================================================
 #  INSTALL (one time):
 #    cp web/r2_menu.py ~/moonraker/moonraker/components/r2_menu.py
@@ -49,10 +51,14 @@ import subprocess
 
 MENU_PATH_DEFAULT = '~/klipper-e3-r2d2/web/menu_structure.json'
 EXPORT_TOOL_DEFAULT = '~/klipper-e3-r2d2/tools/menu_json_export.py'
-# R204: always served even if an old export lacks live_objects
+# R204: always served even if an old export lacks live_objects.
+# R210 (.136i): + the DASHBOARD set - the page's status strip reads
+# temps/fan/feed/flow/PA/accel/progress/layer/feature from these.
 DEFAULT_LIVE_OBJECTS = ('gcode_macro _STATE', 'gcode_macro _PREVIEW',
                         'save_variables', 'print_stats', 'gcode_move',
-                        'display_status')
+                        'display_status',
+                        'extruder', 'heater_bed', 'fan', 'virtual_sdcard',
+                        'toolhead')
 
 
 def load_doc(path):
@@ -116,46 +122,16 @@ class R2MenuComponent:
                 'sha256': self.doc.get('sha256'),
                 'counts': self.doc.get('counts')}
 
-    async def _handle_live(self, web_request):
-        """R201/R204: a minimal printer snapshot for live evaluation.
+    def _live_wanted(self):
+        wanted = set((self.doc or {}).get('live_objects') or ())
+        wanted.update(DEFAULT_LIVE_OBJECTS)
+        return wanted
 
-        The page evaluates the menu name:/enable: jinja fragments against
-        this data. R204 (.136c field log): query ONLY the objects the
-        templates reference - the export's live_objects list, intersected
-        with the real object list. The .136 version queried EVERY
-        gcode_macro (~300 on the field Pi, each serializing all its
-        variables) and blocked klippy's reactor for 0.7 s per poll -
-        'Neopixel update did not succeed' right after, the Timer-too-close
-        class from .125. PRUNING stays: anything whose repr exceeds ~1.2 kB
-        (sd_tree, opt_list, ...) is dropped and NAMED in 'pruned'. Cached
-        2.5 s (the page polls every 3 s - at most ONE real klippy query
-        per poll, shared across tabs)."""
-        import time as _t
-        await self._ensure_loaded()      # the doc carries live_objects
-        if self._live_cache is not None and _t.monotonic() - self._live_t < 2.5:
-            return self._live_cache
-        try:
-            apis = self.server.lookup_object('klippy_apis')
-            objs = await apis.get_object_list()
-        except self.server.error:
-            raise
-        except Exception as e:                                  # noqa: BLE001
-            return {'ok': False, 'reason': 'klippy not available: %s' % e}
-        _lo204 = set((self.doc or {}).get('live_objects')
-                     or DEFAULT_LIVE_OBJECTS)
-        _lo204.update(DEFAULT_LIVE_OBJECTS)
-        want = {}
-        for o in objs:
-            if o in _lo204:
-                want[o] = None
-        try:
-            status = await apis.query_objects(want, default={})
-        except self.server.error:
-            raise
-        except Exception as e:                                  # noqa: BLE001
-            return {'ok': False, 'reason': str(e)}
+    def _prune_status(self, status):
+        """R204/R210: ship VALUES, not kilobytes - and only what the menu
+        templates actually read. Returns the list of pruned keys."""
         pruned = []
-        try:
+        try:    # save_variables: fat variables (sd_tree, gen_files, ...)
             sv = status.get('save_variables', {}).get('variables', {})
             for k in list(sv):
                 try:
@@ -167,7 +143,91 @@ class R2MenuComponent:
                     del sv[k]
         except Exception:                                       # noqa: BLE001
             pass
+        try:    # configfile.settings: the menus only test section NAMES
+            cf = status.get('configfile')
+            if cf and isinstance(cf.get('settings'), dict):
+                cf['settings'] = {k: None for k in cf['settings']}
+                pruned.append('configfile.settings(values)')
+        except Exception:                                       # noqa: BLE001
+            pass
+        try:    # bed_mesh.profiles: the menus only use the profile NAMES
+            bm = status.get('bed_mesh')
+            if bm and isinstance(bm.get('profiles'), dict):
+                bm['profiles'] = {k: {} for k in bm['profiles']}
+                pruned.append('bed_mesh.profiles(values)')
+        except Exception:                                       # noqa: BLE001
+            pass
+        try:    # exclude_object.objects: |length and [i].name only
+            eo = status.get('exclude_object')
+            if eo and isinstance(eo.get('objects'), list):
+                eo['objects'] = [
+                    {'name': o.get('name')} for o in eo['objects']
+                    if isinstance(o, dict)][:64]
+                pruned.append('exclude_object.objects(polygons)')
+        except Exception:                                       # noqa: BLE001
+            pass
+        return pruned
+
+    async def _handle_live(self, web_request):
+        """R201/R204/R210: a minimal printer snapshot for live evaluation.
+
+        The page evaluates the menu name:/enable: jinja fragments against
+        this data. R204 (.136c field log): query ONLY the objects the
+        templates reference - the export's live_objects list, intersected
+        with the real object list. The .136 version queried EVERY
+        gcode_macro (~300 on the field Pi, each serializing all its
+        variables) and blocked klippy's reactor for 0.7 s per poll -
+        'Neopixel update did not succeed' right after, the Timer-too-close
+        class from .125. PRUNING stays: fat values are dropped and NAMED
+        in 'pruned'. Cached 2.5 s (the page polls every 3 s - at most ONE
+        real klippy query per poll, shared across tabs).
+
+        R210 (.136h field log: the page badge stuck at 'Klipper nicht
+        bereit' although klippy was fine): this handler's failures were
+        INVISIBLE - the page threw the reason away and any raised
+        ServerError became an HTTP error the page could only read as
+        'not ready'. Now: NEVER raise, ALWAYS answer
+        {ok, reason | objects, pruned, skipped}, precheck the klippy
+        state, and if the batch query fails retry PER OBJECT so one bad
+        object cannot kill the whole snapshot (the failing objects are
+        named in 'skipped' and the page SHOWS the reason)."""
+        import time as _t
+        await self._ensure_loaded()      # the doc carries live_objects
+        if self._live_cache is not None and _t.monotonic() - self._live_t < 2.5:
+            return self._live_cache
+        try:
+            state = self.server.get_klippy_state()
+        except Exception:                                       # noqa: BLE001
+            state = 'ready'              # older moonraker: no such method
+        if state != 'ready':
+            out = {'ok': False, 'reason': 'klippy state: %s' % state}
+            return out
+        try:
+            apis = self.server.lookup_object('klippy_apis')
+            objs = set(await apis.get_object_list())
+        except self.server.error as e:
+            return {'ok': False, 'reason': str(e)}
+        except Exception as e:                                   # noqa: BLE001
+            return {'ok': False, 'reason': 'object list: %s' % e}
+        wanted = self._live_wanted()
+        want = {o: None for o in objs if o in wanted}
+        status = {}
+        skipped = []
+        try:
+            status = dict(await apis.query_objects(want, default={}) or {})
+        except Exception as e:                                   # noqa: BLE001
+            for o in sorted(want):
+                try:
+                    one = await apis.query_objects({o: None}, default={}) or {}
+                    if one.get(o) is not None:
+                        status[o] = one[o]
+                except Exception as e2:                          # noqa: BLE001
+                    skipped.append('%s: %s' % (o, e2))
+        status = {k: v for k, v in status.items() if v is not None}
+        pruned = self._prune_status(status)
         out = {'ok': True, 'objects': status, 'pruned': pruned}
+        if skipped:
+            out['skipped'] = skipped
         self._live_cache = out
         self._live_t = _t.monotonic()
         return out

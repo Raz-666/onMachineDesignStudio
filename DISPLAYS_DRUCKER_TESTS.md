@@ -1,6 +1,6 @@
 # R2-D2 rundum: Displays, Drucker, Nozzles — und die Test-Stufen
 
-Stand: R2-2026-10-29.136h — **alles aus Abschnitt E ist GEBAUT** (R191–R197). Die
+Stand: R2-2026-10-29.136i — **alles aus Abschnitt E ist GEBAUT** (R191–R197). Die
 ausführliche, grafische Fassung dieser Übersicht ist jetzt **DISPLAYS_WEB_UI.pdf**
 (built by tools/make_displays_pdf.py); diese MD bleibt die Arbeits-Kurzfassung.
 
@@ -190,6 +190,44 @@ sprachen immer perfekt Klipper-Deutsch).
 7. **Web-UI** — GEBAUT (R196): tools/menu_json_export.py + web/r2_menu.py (Moonraker:
    /server/r2_menu/tree|status|refresh) + web/index.html (LCD-Navigation, eingebettetes
    JSON als Fallback). Details + Installation: DISPLAYS_WEB_UI.pdf Kap. 2.
+
+**R210 (.136i):** Feldlog .136h, zweite Schicht: die Seite LEBTE, war
+aber nicht BEDIENBAR - kein Zurueckklicken, viele Eintraege zeigten rohe
+Jinja-Templates (Save variables), OctoPrint/Temperatur/Live-Tuning/
+Start-Auswahl standen im Baum, obwohl das LCD sie ausblendet.
+Ursachenkette (alle von den erweiterten Paritaets-/Integrationstests
+gefunden): (1) der Live-Schnappschuss (/server/r2_menu/live) antwortete
+not-ok und die Seite warf den GRUND weg - Badge meldete Klipper nicht
+bereit, obwohl Klipper lief; dieser Handler war im Feld noch nie
+gelaufen (Seiten-JS war bis .136h tot, T8s Stub fake-te ihn happy).
+Ohne Live-Daten: rohe Labels, NULL Bedingungs-Ausblendung, scheinbar
+falsche Reihenfolge. (2) Auch MIT Live-Daten waere nichts ausgeblendet
+worden: Enable-Strings kommen MIT geschweiften Klammern - der Evaluator
+pars-te sie als Dict-Literal -> Exception -> null -> nie versteckt (der
+strenger gemachte Enable-Paritaetstest fand es). (3) Der Sender haette
+ROHE Templates gepostet - 968 von 1964 Befehlen tragen Jinja; Klippers
+Menue wertet G-Code vor der Ausfuehrung aus, die Seite also auch
+(set/if/for + Inline-Bloecke, lazy tote Zweige - 80-Befehls-Paritaet
+gegen jinja2). (4) JS-/Python-String-Semantik: String([]) ist in JS
+leer, in Python str([]) = [] - replace/upper/join auf Listen renderten
+still falsch. FIXES: Component scheitert nie mehr stumm (klippy-State-
+Vorcheck mit Grund, Per-Objekt-Retry - ein schlechtes Objekt killt den
+Schnappschuss nicht, Aussetzer benannt), Seite blendet PER MENUE-ID
+exakt wie das Display aus (T8: Druck- UND Idle-Snapshot - Rate print?
+verschwindet, Optimized erscheint), rendert jeden Befehl vor dem Senden,
+setzt {menu.input} aus einem Wertfeld, und bekam das gewuenschte
+DASHBOARD: Statusleiste oben (Modus, Datei, Duesen-/Bett-Temps mit
+Soll, Luefter, Feed+Speed, Flow, PA, Accel, Fortschritt+Layer+Laufzeit+
+Restzeit, das gerade druckende Feature MIT dessen Speed/Accel/Flow/PA),
+Menue links, Details & Senden + LCD-Benachrichtigungs-Verlauf (aktuelle
+M117-Zeile oben fixiert, Geschichte in Ankunftsreihenfolge scrollbar)
+rechts, Konsole ueber die gesamte Breite (Echo/RESPOND-Strom via
+/server/gcode_store + G-Code-Eingabezeile, Enter sendet, Pfeil-hoch
+ruft zurueck) unten - ein Raster, alles skaliert zusammen.
+Zurueck-Navigation: Zurueck-Button + klickbare Brotkrume. Feld-Bug-
+Klasse #17: ROHBETRIEB - eine gruen aussehende UI laeuft stumm ohne
+ihre Daten/Auswertung: kein Degradationspfad, kein Grund sichtbar, kein
+Paritaetstest fuer das, was das LCD ausblendet.
 
 **R209 (.136h):** Feldlog .136g: Seite lädt, aber „main_" im Menübaum und
 jeder Klick tot. DREI gestapelte Seiten-Bugs, alle von dem neuen

@@ -115,7 +115,7 @@ class Doc(BaseDocTemplate):
         canv.line(17*mm, 285*mm, 193*mm, 285*mm)
         canv.setFont('DVS', 8.2); canv.setFillColor(GRAY)
         canv.drawString(17*mm, 287.2*mm, 'R2-D2 Macro System · Displays · Web-UI · Drucker · Nozzles · Test-Stufen')
-        canv.drawRightString(193*mm, 287.2*mm, 'R2-2026-10-29.136h')
+        canv.drawRightString(193*mm, 287.2*mm, 'R2-2026-10-29.136i')
         canv.setFont('DVS', 8.6)
         canv.drawCentredString(105*mm, 9.5*mm, 'Seite %d' % doc.page)
         canv.restoreState()
@@ -136,7 +136,7 @@ A(Paragraph('die ausführliche Übersicht der .135-Runde —<br/>'
 A(Spacer(1, 8*mm))
 A(CENT_DUMMY if False else Spacer(1, 1))
 A(Spacer(1, 6*mm))
-A(Paragraph('Stand: R2-2026-10-29.136h · Grundlagen: menus/lcd_menues.cfg, web/ (r2_menu.py, '
+A(Paragraph('Stand: R2-2026-10-29.136i · Grundlagen: menus/lcd_menues.cfg, web/ (r2_menu.py, '
             'index.html, menu_structure.json), tools/menu_json_export.py · r197_gen_sweep.py · '
             'r198_tier_report.py', S['cap']))
 A(PageBreak())
@@ -274,7 +274,7 @@ A(P('.136-Gesamtergebnis: <b>22/22 Batterien grün im Tier-Lauf</b> (r197 wuchs 
     'audit_sweep 82, validator clean, r110 inkl. Flat-Zip-Ablehnung.'))
 
 # ================================ Kap 5 =====================================
-flow += H1('5  Feld-Bug-Klassen (1)–(16) — was das Feld fand')
+flow += H1('5  Feld-Bug-Klassen (1)–(17) — was das Feld fand')
 A(TBL(['Klasse', 'Beispiel aus dem Feld', 'Abdeckung'], [
  ['(1) Parser-Ebenen unter dem Render', '.133 Preset-SAVE: shlex frisst die Quotes', 'R188-Roundtrip; r197 sweep-invalid'],
  ['(2) Zustands-Lebensdauer über Druckgrenzen', '.134 Pause-Register überlebte das Druckende', 'r141 + r187 Matrix'],
@@ -287,6 +287,7 @@ A(TBL(['Klasse', 'Beispiel aus dem Feld', 'Abdeckung'], [
  ['<b>NEU (9): Prozess-Duplizierung</b>', '.136-Feldlog: JEDER Watcher-Push lief doppelt (jede SAVE_VARIABLE 2×, Litho-RESPOND 2×, opt_list/sd_tree 3×) — ein alter Watcher lief neben dem neuen (PID-Datei in /tmp war gealtert/leer)', 'R200: Startup-/proc-Scan + Kernel-flock (watcher.lock im Paket-Root) + --once schont den Daemon + HOST_CHECK nennt Duplikat-PIDs mit Fix-Befehl; r197 T6 testet mit echten Daemon-Prozessen'],
  ['<b>NEU (10): Watcher-Boot-Doppelung + stilles klippy-down</b>', '.136a-Feldlog: beim Boot startete ein echter zweiter Watcher mit („Twin“); und der Watcher versuchte den postproc_build-Push endlos still weiter, während das Display „host ok“ sagte', 'R202: breiterer Startup-Matcher (r2_postproc_old.py zählt, r2_menu.py nicht), cgroup-unit reader, Flat-Stray-Warnungen; der Watcher sagt laut, was zu tun ist (FIRMWARE_RESTART, sonst Power OFF 10 s); r197 T6d'],
  ['<b>NEU (11): Live-Endpoint-Last</b>', '.136c-Feldlog: JEDER Web-LCD-Poll blockierte Klippy 0,7 s (QueryStatusHelper) → „Neopixel update did not succeed“; der Endpoint fragte ~300 Makro-Objekte ab statt der 12 referenzierten', 'R204: live_objects im Export (exakt die referenzierten Objekte), Slim-Query + 2,5-s-Cache, max. 1 echte Abfrage pro Poll; r197-Regression mit 300 Junk-Makros'],
+ ['<b>NEU (17): Rohbetrieb (UI ohne Daten/Auswertung)</b>', '.136h-Feldlog: Seite lebte, war aber nicht bedienbar - rohe Jinja-Labels, vom LCD ausgeblendete Men\u00fc sichtbar, kein Zur\u00fcck; der Live-Schnappschuss scheiterte und der GRUND wurde weggeworfen; Enable-Strings kamen MIT Klammern (als Dict-Literal gepars-t, nie versteckt); der Sender h\u00e4tte rohe Templates gepostet (968/1964)', 'R210: Grund immer im Badge sichtbar, Per-Objekt-Retry, Enables durch ihre Klammern ausgewertet (Per-ID-Parit\u00e4t vs Display), jeder Befehl vor dem Senden gerendert (Parit\u00e4t vs jinja2), Zur\u00fcck-Navigation, Dashboard + Benachrichtigungen + Konsole'],
  ['<b>NEU (16): Schnittstellen-Vertragsbruch (Seite \u00d7 Endpoint)</b>', '.136g-Feldlog: Seite lud, aber kein Klick („main_") — der JSON-Embed lie\u00df ein verwaistes null: Syntaxfehler, das Seiten-JS lief seit R201 NIE; dazu wurde Moonrakers {"result":…}-Envelope nicht ausgepackt und pollLive startete vor loadDoc', 'R209: Embed geh\u00e4rtet, Envelope-Unwrap + Form-Check, pollLive nach loadDoc; T8 f\u00fchrt die KOMPLETTE echte Seite in node gegen die echte Komponenten-Antwort aus'],
  ['<b>NEU (15): Serve-Path-Dateirechte</b>', '.136f-Feldlog: 403 schon beim Öffnen der Seite (auch Inkognito) — nginx läuft als www-data und konnte die Seite unter /home/pi nicht lesen; die API-Pfade liefen weiter, weshalb jeder Proxy-Test grün war', 'R208: Seite in /var/www/r2lcd (welt-lesbar, außerhalb jedes Home-Dirs), Sync bei jedem Update, Selbsttest prüft auch die Seite per GET; E2E mit home=750'],
  ['<b>NEU (14): Geschriebene Konfiguration ≠ aktive Konfiguration</b>', '.136e-Feldlog: 403 trotz R206-Fix — der nginx-Reload schlug still fehl (Seite lief, jeder Befehl 403) und/oder der case-sensitive Origin==Host-Vergleich strauchelte über ein gemischt geschriebenes Lesezeichen', 'R207: Case-insensitive Map, Installer SELBST-TESTET die aktive Guard nach jedem Reload (fremder Origin muss 403 am Proxy bleiben — Retry + klare Ansage), E2E mit echtem nginx'],

@@ -814,6 +814,43 @@ ck('R207 lint: bracketed forms stay clean (no false positives)',
    _lint207_scan(_fxp207b) == [], str(_lint207_scan(_fxp207b)))
 shutil.rmtree(_fx207, ignore_errors=True)
 
+# ---- R210 (.136i): the .136h field log - "kein zurueck, rohe
+# save_variables-Labels, OctoPrint/Temperatur/Live-Tuning sichtbar" ------
+# Root causes: the live snapshot never arrived (reason invisible), the
+# enable strings ship WITH braces (evalj parsed them as dict literals ->
+# null -> NOTHING was ever hidden), and the sender would have POSTed raw
+# templates. Pinned on the SHIPPED files; the behavior itself is pinned
+# by r197 T8 (real page x fake moonraker) + T-live-eval (vs jinja2).
+_page210 = open(os.path.join(ROOT, 'web', 'index.html'),
+                encoding='utf-8').read()
+ck('R210 page: BACK navigation (button + clickable breadcrumb segments)',
+   'id="back"' in _page210 and "mk('span','seg'" in _page210,
+   'back/crumb missing')
+ck('R210 page: live-failure REASON surfaced in the badge (not just '
+   '"Klipper nicht bereit")',
+   'j.reason' in _page210 and 'ohne Angabe' in _page210, 'reason unused')
+ck('R210 page: enable evaluated THROUGH its braces (the dict-literal trap '
+   'that showed OctoPrint/Temperature unhidden)',
+   'evalEnable' in _page210 and 'interp(String(raw),PR)' in _page210,
+   'brace handling missing')
+ck('R210 page: the SENDER renders gcode first ({% set %}/{% if %}/'
+   '{menu.input}) - no raw template POSTs',
+   'renderGcode(sel.gcode' in _page210
+   and 'RENDERED.join' in _page210, 'unrendered send')
+ck('R210 page: M117 notification history + console (gcode_store) + '
+   'input items with value field',
+   'notifIngest' in _page210 and 'gcode_store' in _page210
+   and 'id="gcodein"' in _page210 and 'id="inval"' in _page210
+   and 'id="d_feat"' in _page210, 'panels missing')
+_comp210 = open(os.path.join(ROOT, 'web', 'r2_menu.py'),
+                encoding='utf-8').read()
+ck('R210 component: klippy-state precheck + per-object retry + pruning '
+   '(settings/profiles keys, exclude_object names, fat variables)',
+   'get_klippy_state' in _comp210 and 'skipped' in _comp210
+   and 'configfile.settings(values)' in _comp210
+   and 'exclude_object.objects(polygons)' in _comp210
+   and 'virtual_sdcard' in _comp210, 'hardening missing')
+
 print()
 print('R142 FIELD COVERAGE: %d checks, %d FAIL' % (n_ck[0], len(fails)))
 sys.exit(1 if fails else 0)

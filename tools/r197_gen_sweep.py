@@ -495,6 +495,90 @@ check('T2b live R204: queries ONLY the menu-referenced objects '
       and 'gcode_macro _STATE' in _k204.wants[-1]
       and 'save_variables' in _k204.wants[-1],
       str(sorted(_k204.wants[-1]))[:160])
+
+# ---- T2c (R210): live-handler HARDENING - the .136h field log showed
+# 'Klipper nicht bereit' with the REASON thrown away. Now: per-object
+# retry (one bad object must not kill the snapshot), klippy-state
+# precheck with a visible reason, value pruning (settings/profiles
+# keys only, exclude_object names only) - the menus only read those.
+class _API210(FakeKlippyAPI):
+    async def query_objects(self, want, default=None):
+        self.wants.append(set(want))
+        if len(want) > 1:
+            raise RuntimeError('objects/status failed (simulated)')
+        if 'bed_mesh' in want:
+            raise RuntimeError('bad object: bed_mesh')
+        return {k: v for k, v in self.status.items() if k in want}
+
+class _Cfg210:
+    def __init__(self, server, path):
+        self.server = server
+        self._p = path
+
+    def get(self, key, default):
+        return self._p if key == 'path' else default
+
+    def get_server(self):
+        return self.server
+
+_srv210 = type(cfg.server)()
+_srv210.objects['klippy_apis'] = _API210(
+    ['gcode_macro _STATE', 'save_variables', 'bed_mesh', 'extruder',
+     'configfile', 'exclude_object', 'print_stats',
+     'display_status'],
+    {'gcode_macro _STATE': {'mode': 'idle'},
+     'save_variables': {'variables': {'opt_cnt': 1}},
+     'extruder': {'temperature': 200.0, 'target': 210,
+                  'pressure_advance': 0.095},
+     'configfile': {'settings': {'stepper_z1': {'a': 1},
+                                 'neopixel nozzle_led': {'b': 2}}},
+     'bed_mesh': {'profile_name': 'r2',
+                  'profiles': {'r2': {'points': [1, 2] * 50},
+                               'default': {'points': [1] * 100}}},
+     'exclude_object': {'objects': [
+         {'name': 'O1', 'polygon': [[0, 0], [1, 1], [2, 2]]},
+         {'name': 'O2', 'polygon': [[0, 0], [1, 1]]}],
+         'current_object': 'O1'},
+     'print_stats': {'state': 'idle'},
+     'display_status': {'message': 'hi', 'progress': 0.5}})
+_srv210.get_klippy_state = lambda: 'ready'
+_eps210 = r2m.load_component(
+    _Cfg210(_srv210, os.path.join(REPO, 'web',
+                                  'menu_structure.json'))
+    ).server.endpoints
+_lv210 = loop.run_until_complete(
+    _eps210['/server/r2_menu/live'](FakeReq()))
+check('T2c live R210: per-object retry survives a bad object '
+      '(bed_mesh named in skipped, the rest still served)',
+      _lv210.get('ok')
+      and 'bed_mesh' not in _lv210['objects']
+      and any('bed_mesh' in str(x) for x in _lv210.get('skipped', []))
+      and _lv210['objects']['extruder']['temperature'] == 200.0,
+      str(_lv210)[:200])
+check('T2c live R210: fat values PRUNED to what the menus read '
+      '(configfile.settings keys-only, exclude_object names-only)',
+      _lv210['objects']['configfile']['settings'] ==
+      {'stepper_z1': None, 'neopixel nozzle_led': None}
+      and _lv210['objects']['exclude_object']['objects'] ==
+      [{'name': 'O1'}, {'name': 'O2'}]
+      and 'configfile.settings(values)' in _lv210.get('pruned', [])
+      and 'exclude_object.objects(polygons)' in _lv210.get('pruned', []),
+      str(_lv210.get('pruned'))[:160])
+_srv210b = type(cfg.server)()
+_srv210b.objects['klippy_apis'] = _API210(
+    ['gcode_macro _STATE'], {'gcode_macro _STATE': {'mode': 'idle'}})
+_srv210b.get_klippy_state = lambda: 'shutdown'
+_eps210b = r2m.load_component(
+    _Cfg210(_srv210b, os.path.join(REPO, 'web',
+                                   'menu_structure.json'))
+    ).server.endpoints
+_lv210b = loop.run_until_complete(
+    _eps210b['/server/r2_menu/live'](FakeReq()))
+check('T2c live R210: klippy not ready -> ok False with the REASON '
+      'surfaced (the .136h page only said "Klipper nicht bereit")',
+      _lv210b.get('ok') is False
+      and 'shutdown' in str(_lv210b.get('reason', '')),
+      str(_lv210b)[:160])
 loop.close()
 
 # ---- T-live-eval (R201): the SHIPPED page evaluator vs the LCD truth ---
@@ -523,10 +607,42 @@ else:
             'file_hotend_first': 210, 'file_hotend_after': 215,
             'file_layer_height': 0.2, 'file_nozzle': 0.6,
             'file_wall_loops': 2, 'file_slicer': 'OrcaSlicer',
+            'file_firmware': 'Klipper', 'file_volumetric': False,
+            'file_by_object': False, 'file_seam': 'aligned',
+            'file_line_width': 0.42, 'file_line_width_first': 0.5,
+            'file_line_width_wall': 0.42, 'file_flow_ratio': 0.98,
             'file_feat_spd_wallouter': 45, 'file_pa': 0.095,
             'file_maxrate': 12.5, 'file_derived': False,
-            'opt_pending': True},
+            'file_retract_len': 0.75, 'file_retract_speed': 35.0,
+            'file_retract_style': 'firmware',
+            'file_ironing_speed': 20.0, 'file_ironing_spacing': 0.1,
+            'file_ironing_flow': 0.15, 'file_speed_first': 30.0,
+            'file_speed_outer': 45.0, 'file_speed_inner': 70.0,
+            'file_speed_solid': 70.0, 'file_speed_sparse': 90.0,
+            'file_speed_top': 50.0, 'file_speed_travel': 200.0,
+            'file_speed_skirt': 30.0, 'file_speed_bridge': 25.0,
+            'file_speed_small': 20.0, 'file_speed': 90.0,
+            'file_accel': 8000.0, 'file_accel_outer': 5000.0,
+            'file_accel_inner': 8000.0, 'file_accel_first': 2500.0,
+            'file_accel_solid': 8000.0, 'file_accel_sparse': 8000.0,
+            'file_accel_top': 5000.0, 'file_accel_travel': 8000.0,
+            'file_accel_default': 8000.0, 'file_accel_small': 3000.0,
+            'file_slow_min': 10.0, 'file_time_slow': 0,
+            'file_fil_dia': 1.75, 'file_travel': 200.0,
+            'file_support_speed': 60.0, 'file_types': [],
+            'file_conf': False, 'file_cover': False,
+            'file_optimized': False, 'file_held': False,
+            'file_info_seen': True, 'file_pa_smooth': 0.04,
+            'mesh_delete_armed': '', 'skip_armed_name': '',
+            'pa_value': 0.095, 'pa_smooth': 0.04, 'pa_last': 0.095,
+            'opt_pending': True, 'live_accel': 8000, 'live_flow': 100,
+            'ret_len': 0.75, 'ret_spd': 35.0,
+            'ret_unret': 35.0, 'ret_unretx': 35.0},
         'gcode_macro _PREVIEW': {'type': 'range', 'name': 'TL_new.gcode'},
+        'gcode_macro _R2_CONFIG': {'led_status_n': 4, 'led_bed_n': 6,
+                                   'led_bed_on': 1, 'led_bed_bright': 0.4,
+                                   'led_nozzle_split': 0},
+        'gcode_macro _MATERIALS': {'last': 'PLA'},
         'save_variables': {'variables': {
             'opt_cnt': 3, 'sound_on': True, 'leds_on': True,
             'material': 'PETG', 'ov_bed': 65, 'ov_bed_after': 65,
@@ -534,16 +650,42 @@ else:
             'ov_flow': 100, 'ov_outer_wall': 100, 'ov_ironing_speed': 20,
             'label_font': 'SMOOTH', 'label_w': 40, 'label_h': 13,
             'tie_count': 6, 'tie_length': 120, 'angle_deg': 90,
-            'mesh_last_profile': 'r2', 'pa_test_step': 0.015}},
+            'mesh_last_profile': 'r2', 'pa_test_step': 0.015,
+            'opt_list': 'BigRosGrdTX.gcode|TL_new.gcode|V03_RL-SD1+15.gcode',
+            'opt_print_name': '', 'nozzle_mode': 'auto',
+            'nozzle_split': 0, 'sd_path': 'Range', 'sd_page': 2,
+            'browser_del_on': False, 'gen_out': 1, 'start_confirm': True,
+            'sd_view': ['D:Range', 'F:Vase_big_016.gcode',
+                        'F:Trash.gcode', 'F:Orca_Cube.gcode']}},
         'print_stats': {'filename': 'Vase_big_016.gcode',
-                        'state': 'printing', 'print_duration': 1234.5},
-        'gcode_move': {'speed': 1200, 'speed_factor': 1.0},
-        'display_status': {'message': 'Layer 42/100'},
-        # R204: exactly the objects the menus reference (live_objects) +
-        # the extension's DEFAULT set - nothing the endpoint never ships
-        'bed_mesh': {'profile_name': 'r2'},
-        'configfile': {'config': {}, 'settings': {}},
-        'exclude_object': {'objects': [], 'current_object': None},
+                        'state': 'printing', 'print_duration': 1234.5,
+                        'total_duration': 1300.0, 'filament_used': 4.2},
+        'gcode_move': {'speed': 45.0, 'speed_factor': 1.0,
+                       'extrude_factor': 1.0,
+                       'homing_origin': [0.0, 0.0, 0.0, 0.0]},
+        'display_status': {'message': 'Layer 42/100', 'progress': 0.42},
+        # R210: the dashboard set (DEFAULT_LIVE_OBJECTS) - temps, fan,
+        # feed/flow, PA, accel, progress
+        'extruder': {'temperature': 209.4, 'target': 210,
+                     'pressure_advance': 0.095, 'smooth_time': 0.04},
+        'heater_bed': {'temperature': 59.7, 'target': 60},
+        'fan': {'speed': 0.75},
+        'virtual_sdcard': {'progress': 0.42, 'is_active': True},
+        'toolhead': {'max_accel': 8000, 'max_velocity': 300,
+                     'square_corner_velocity': 4.0,
+                     'minimum_cruise_ratio': 0.85},
+        # R204/R210: exactly the shapes /live ships AFTER the component's
+        # pruning: settings/profiles keys only, exclude_object names only
+        'bed_mesh': {'profile_name': 'r2',
+                     'profiles': {'r2': {}, 'default': {}}},
+        'configfile': {'settings': {'stepper_z1': None,
+                                    'neopixel nozzle_led': None,
+                                    'bed_mesh': None,
+                                    'exclude_object': None}},
+        'exclude_object': {'objects': [{'name': 'Object_1'},
+                                       {'name': 'Object_2'}],
+                           'current_object': 'Object_1',
+                           'excluded_objects': []},
         'input_shaper': {'shaper_type_x': 'mzv', 'shaper_freq_x': 38.2,
                          'shaper_type_y': 'ei', 'shaper_freq_y': 32.0},
     }
@@ -647,6 +789,50 @@ else:
               '(%d sampled, %d strict mismatches)'
               % (len(_ensample201), len(_mme201)),
               not _mme201, str(_mme201[:3])[:200])
+
+    # R210: the SENDER parity - the page's renderGcode vs jinja2 on the
+    # SAME gcode bodies (klipper's menu evaluates item gcode before it
+    # runs; 968 of 1964 commands carry templates. .136h would have POSTed
+    # them raw). menu.input = 42 like a typed value.
+    _gj201 = [i for i in _items201 if i.get('gcode')
+              and '{' in '\n'.join(i['gcode'])]
+    _sg201 = _gj201[::max(1, len(_gj201) // 80)][:80]
+    _eg201 = []
+    for _it201 in _sg201:
+        try:
+            _r201g = _env201.from_string('\n'.join(_it201['gcode'])).render(
+                printer=FIX, params={}, menu={'input': 42})
+            _eg201.append([l.strip() for l in _r201g.split('\n')
+                           if l.strip()])
+        except Exception:                                      # noqa: BLE001
+            _eg201.append(None)
+    _hg201 = (_eval_js + '\nconst DATA = ' + _json201.dumps(FIX)
+              + ';\nconst G = '
+              + _json201.dumps([i['gcode'] for i in _sg201])
+              + ';\nconst OUT = G.map(g => renderGcode(g, DATA, 42));\n'
+                'console.log(JSON.stringify(OUT.map(o => o === null ? '
+                'null : o.map(l => l.trim()).filter(l => l))));\n')
+    open('/tmp/r201_eval_testg.js', 'w').write(_hg201)
+    _r201g2 = _sp201.run(['node', '/tmp/r201_eval_testg.js'],
+                         capture_output=True, text=True, timeout=120)
+    if _r201g2.returncode != 0:
+        check('T-live-eval R210: node runs the shipped gcode renderer',
+              False, _r201g2.stderr[-200:])
+    else:
+        _gotg201 = _json201.loads(_r201g2.stdout)
+        _mmg201 = []
+        for _k201, (e, g) in enumerate(zip(_eg201, _gotg201)):
+            if e is None:
+                continue
+            if g is None or e != g:
+                _mmg201.append((_k201, _sg201[_k201]['id'], e, g))
+        check('T-live-eval R210: gcode RENDER parity with the LCD truth '
+              '(%d templated commands sampled, %d jinja-failed skipped, '
+              '%d mismatches) - the .136h sender would have POSTed raw '
+              'templates' % (len(_sg201),
+                             sum(1 for e in _eg201 if e is None),
+                             len(_mmg201)),
+              not _mmg201, str(_mmg201[:2])[:400])
 
 # T3: the shipped page carries the embedded export
 _html = open(os.path.join(REPO, 'web', 'index.html'), errors='replace').read()
@@ -976,109 +1162,267 @@ finally:
 # was dead. Invisible since .136b because each side was tested against
 # its OWN mocks: the component against the fake moonraker (raw dict),
 # the page evaluator against jinja. THIS test runs the REAL shipped page
-# script against the REAL component response shape, envelope included.
+# script against a FAITHFUL fake moonraker (envelope on EVERY endpoint,
+# /server/gcode_store, script POSTs, a REAL timer queue so the 3 s poll
+# actually cycles).
+# R210 (.136i field log: "seite funktioniert, ABER kein zurueck, rohe
+# save_variables-Labels,OctoPrint/Temperatur/Live-Tuning-Menue sichtbar
+# obwohl das LCD sie ausblendet"): (a) the live badge said "Klipper nicht
+# bereit" while klippy was fine and the REASON was thrown away; (b) no
+# back navigation; (c) without live data the labels show RAW jinja and
+# NOTHING is hidden; (d) the sender would have POSTed raw templates.
+# T8 now asserts the full contract: evaluated labels, LCD-parity
+# hiding (per-ID), back navigation, the M117 notification history, the
+# console rendering + gcode POST, and the reason surfaced on failure.
 try:
+    import copy as _copy210
     import json as _json209
     _page_src209 = open(os.path.join(REPO, 'web', 'index.html'),
                         encoding='utf-8').read()
     _script209 = _page_src209.rsplit('<script>', 1)[1].rsplit('</script>',
                                                               1)[0]
-    _doc209 = _json209.load(open(os.path.join(REPO, 'web',
-                                              'menu_structure.json')))
 
-    def _run_page209(tree_ok, live_obj):
-        """Run the REAL page script in node with DOM/fetch stubs; return
-        {menu_children, crumb, badge, error} - error catches the
-        unhandled rejection the old unwrap bug produced."""
+    _LIVE_IDLE = _copy210.deepcopy(FIX)
+    _LIVE_IDLE['gcode_macro _STATE'].update(
+        mode='idle', opt_pending=False, current_type='', layer=0)
+    _LIVE_IDLE['print_stats'].update(state='idle', filename='',
+                                     print_duration=0.0, total_duration=0.0)
+    _LIVE_IDLE['virtual_sdcard'].update(progress=0.0, is_active=False)
+    _LIVE_IDLE['display_status'].update(message='', progress=0.0)
+
+    def _run_page209(tree_ok, live):
+        """Run the REAL page script in node against the fake moonraker;
+        return the collected contract dict (see the runner's JSON)."""
         _js209 = r"""
 const vm = require('vm'), fs = require('fs');
 const DOC = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
-const LIVE_OBJ = JSON.parse(fs.readFileSync(process.argv[3], 'utf8'));
+const LIVE = JSON.parse(fs.readFileSync(process.argv[3], 'utf8'));
 const TREE_OK = process.argv[4] === '1';
-function elem(id){ return {id, textContent:'', innerHTML:'', className:'',
-  title:'', disabled:false, children:[], _handlers:{},
-  classList:{add(){},remove(){}},
-  appendChild(c){ this.children.push(c); },
-  querySelector(sel){ return null; },   // R209: applyLive probes .nm/.en
-  style: {},
-  set onclick(f){ this._handlers.click = f; },
-  get onclick(){ return this._handlers.click; } }; }
+function elem(id){ return {id: id, textContent: '', innerHTML: '',
+  className: '', title: '', disabled: false, value: '', type: '',
+  min: '', max: '', step: '', children: [], _h: {}, style: {},
+  classList: {add(){}, remove(){}},
+  set onclick(f){ this._h.click = f; }, get onclick(){ return this._h.click; },
+  set oninput(f){ this._h.input = f; }, get oninput(){ return this._h.input; },
+  set onkeydown(f){ this._h.key = f; }, get onkeydown(){ return this._h.key; },
+  appendChild(c){ this.children.push(c); return c; },
+  removeChild(c){ const i = this.children.indexOf(c);
+    if (i >= 0) this.children.splice(i, 1); return c; },
+  get firstChild(){ return this.children[0] || null; },
+  querySelector(){ return null; } }; }
 const reg = {};
 const document = {
-  getElementById(id){ if(!reg[id]) reg[id] = elem(id); return reg[id]; },
-  createElement(tag){ return elem('<'+tag+'>'); } };
+  getElementById(id){ if (!reg[id]) reg[id] = elem(id); return reg[id]; },
+  createElement(t){ return elem('<' + t + '>'); },
+  createTextNode(t){ return {textContent: String(t)}; } };
 let unhandled = null;
 process.on('unhandledRejection', e => { unhandled = String(e); });
-const fetchCalls = [];
-const fetch = async (url) => {
-  fetchCalls.push(url);
-  if (url === '/server/r2_menu/tree') {
-    if (!TREE_OK) return {ok:false, json: async()=>({})};
-    // EXACTLY what moonraker ships: the component dict in an envelope
-    return {ok:true, json: async()=>({result: DOC})};
+const GETS = [], POSTS = [];
+let liveCalls = 0, clock = 0, tid = 0;
+const timers = [];
+const setTimeout = (fn, ms) => {
+  timers.push({id: ++tid, fn: fn, at: clock + (ms || 0)}); return tid; };
+const clearTimeout = (id) => { const i = timers.findIndex(t => t.id === id);
+  if (i >= 0) timers.splice(i, 1); };
+const J = o => ({ok: true, json: async () => ({result: o})});
+const fetch = async (url, opts) => {
+  const u = String(url);
+  GETS.push(u.split('?')[0]);
+  if (u.indexOf('/server/r2_menu/tree') === 0) {
+    if (!TREE_OK) return {ok: false, json: async () => ({})};
+    return J(DOC);
   }
-  if (url === '/server/r2_menu/live') {
-    return {ok:true, json: async()=>({result: {ok:true, objects: LIVE_OBJ,
-                                               pruned: []}})};
+  if (u.indexOf('/server/r2_menu/live') === 0) {
+    liveCalls++;
+    if (LIVE && LIVE.ok === false) return J(LIVE);
+    const o = {ok: true, objects: JSON.parse(JSON.stringify(LIVE)),
+               pruned: []};
+    if (o.objects.display_status)
+      o.objects.display_status.message = 'Meldung ' + liveCalls;
+    return J(o);
   }
-  return {ok:false, json: async()=>({})};
+  if (u.indexOf('/server/gcode_store') === 0) {
+    return J({gcode_store: [
+      {message: 'echo: Macro system OK (build R2-2026-10-29.136i)',
+       time: 1.0, type: 'response'},
+      {message: 'M117 Hallo vom LCD', time: 2.0, type: 'command'},
+      {message: 'RESPOND MSG="ok"', time: 3.0, type: 'response'},
+      {message: '// GuiFromVSDCard state:Printing', time: 4.0,
+       type: 'action'}]});
+  }
+  if (u.indexOf('/printer/gcode/script') === 0) {
+    POSTS.push(opts && opts.body ? String(opts.body) : '(no body)');
+    return J('ok');
+  }
+  if (u.indexOf('/server/r2_menu/refresh') === 0) return J({ok: true});
+  return {ok: false, json: async () => ({})};
 };
-const sandbox = {document, fetch, console,
-  setTimeout: ()=>0, clearTimeout: ()=>{}};
-sandbox.window = sandbox; sandbox.location = {href:''};
+const sandbox = {document: document, fetch: fetch, console: console,
+  setTimeout: setTimeout, clearTimeout: clearTimeout};
+sandbox.window = sandbox;
 vm.createContext(sandbox);
 try { vm.runInNewContext(fs.readFileSync(process.argv[5], 'utf8'),
                          sandbox); }
-catch (e) { console.log(JSON.stringify({error: String(e)})); process.exit(0); }
+catch (e) { console.log(JSON.stringify({error: 'load: ' + String(e)}));
+  process.exit(0); }
 (async () => {
-  for (let i = 0; i < 25; i++) await new Promise(r => process.nextTick(r));
-  const menu = reg['menu'], crumb = reg['crumb'], badge = reg['srcbadge'];
+  const tick = () => new Promise(r => process.nextTick(r));
+  let fired = 0, idle = 0;
+  for (let k = 0; k < 400 && fired < 14 && idle < 10; k++) {
+    for (let j = 0; j < 3; j++) await tick();
+    if (!timers.length) { idle++; continue; }
+    idle = 0;
+    timers.sort((a, b) => a.at - b.at);
+    const t = timers.shift();
+    clock = Math.max(clock, t.at);
+    fired++;
+    try { const r = t.fn(); if (r && r.then) r.then(() => {}, () => {}); }
+    catch (e) { unhandled = unhandled || String(e); }
+  }
+  for (let j = 0; j < 15; j++) await tick();
+  const menu = reg['menu'];
+  const crumbTxt = () => reg['crumb'].children
+    .map(c => c.textContent).join(' ').trim();
+  const names = [], hiddenIds = [];
+  let hidden = 0;
+  if (menu) for (const li of menu.children) {
+    names.push(li._nm ? li._nm.textContent : '');
+    if (li.style && li.style.display === 'none') {
+      hidden++; hiddenIds.push(li._n ? li._n.id : '?'); }
+  }
+  const crumb0 = crumbTxt();
+  let nav = {deep: null, back: null};
+  try {
+    const li = menu.children.find(c => c._n && c._n.type === 'list');
+    if (li && li._h.click) {
+      li._h.click();
+      for (let j = 0; j < 6; j++) await tick();
+      nav.deep = crumbTxt();
+      if (reg['back']._h.click) {
+        reg['back']._h.click();
+        for (let j = 0; j < 6; j++) await tick();
+        nav.back = crumbTxt(); }
+    }
+  } catch (e) { nav = {deep: 'ERR ' + String(e), back: null}; }
+  try {
+    reg['gcodein'].value = 'M117 WebTest';
+    if (reg['gcodesend']._h.click) reg['gcodesend']._h.click();
+    for (let j = 0; j < 6; j++) await tick();
+  } catch (e) {}
+  let selftest = null;
+  try {
+    const R = sandbox.R2WEB;
+    if (!R) selftest = 'no R2WEB';
+    else selftest = {
+      a: R.renderGcode(['{% set s = 5 %}', 'PA {s}'], {}, 0).join('|'),
+      b: R.renderGcode(['{% if 0 %}', 'x', '{% else %}', 'y',
+                        '{% endif %}'], {}, 0).join('|'),
+      c: R.renderGcode(['V={menu.input}'], {}, 42).join('|')};
+  } catch (e) { selftest = 'ERR ' + String(e); }
+  const cnt = id => (reg[id] && reg[id].children)
+    ? reg[id].children.length : -1;
+  const txt = id => reg[id] ? reg[id].textContent : null;
   console.log(JSON.stringify({error: unhandled,
     menu_children: menu ? menu.children.length : -1,
-    crumb: crumb ? crumb.textContent : null,
-    badge: badge ? badge.textContent : null,
-    fetches: fetchCalls.length}));
+    crumb: crumb0, badge: txt('srcbadge'),
+    names: names, hidden: hidden, hidden_ids: hiddenIds,
+    nav: nav, live_calls: liveCalls,
+    notif_n: cnt('notiflist'),
+    notifcur: txt('notifcur'),
+    con_n: cnt('conlist'),
+    gets: GETS, posts: POSTS, selftest: selftest}));
 })();
 """
         import tempfile as _tf209
-        _fd209 = os.path.join(_tf209.mkdtemp(prefix='r209_'), 'page.js')
-        _fo209 = os.path.join(os.path.dirname(_fd209), 'live.json')
-        _fs209 = os.path.join(os.path.dirname(_fd209), 'pagescript.js')
-        open(_fd209, 'w').write(_js209)      # the runner itself (the very
-        # first T8 run never wrote it - MODULE_NOT_FOUND)
-        open(_fo209, 'w').write(_json209.dumps(live_obj))
-        open(_fs209, 'w').write(_script209)   # R209: as a FILE - the script
-        # is ~60 kB, argv would blow ARG_MAX (found by the first T8 run)
+        _d209 = _tf209.mkdtemp(prefix='r210_')
+        _fd209 = os.path.join(_d209, 'page.js')
+        _fo209 = os.path.join(_d209, 'live.json')
+        _fs209 = os.path.join(_d209, 'pagescript.js')
+        open(_fd209, 'w').write(_js209)
+        open(_fo209, 'w').write(_json209.dumps(live))
+        open(_fs209, 'w').write(_script209)   # ~900 kB: as a FILE, not argv
         _r209 = _sp200.run(
             ['node', _fd209, os.path.join(REPO, 'web',
                                           'menu_structure.json'),
              _fo209, '1' if tree_ok else '0', _fs209],
-            capture_output=True, text=True, timeout=120)
-        _sh200.rmtree(os.path.dirname(_fd209), ignore_errors=True)
+            capture_output=True, text=True, timeout=180)
+        _sh200.rmtree(_d209, ignore_errors=True)
         try:
             return _json209.loads(_r209.stdout.strip().splitlines()[-1])
         except Exception as _e209:                                  # noqa
             return {'error': 'node: %s / %s' % (_e209, _r209.stderr[-160:])}
 
-    # the live fixture: exactly what /live ships (the evaluator fixture,
-    # already aligned to live_objects + DEFAULT by the T-live-eval check)
-    _resA209 = _run_page209(True, FIX)
-    check('T8 page<->moonraker contract (R209): the REAL page script '
+    _A = _run_page209(True, FIX)               # printing snapshot
+    _nA = _A.get('names') or []
+    _hA = _A.get('hidden_ids') or []
+    check('T8 page<->moonraker contract (R209+R210): the REAL page script '
           'renders the menu from the REAL component response IN THE '
-          'MOONRAKER ENVELOPE ({"result":...}) - the .136b-.136g page '
-          'crashed on the envelope (menu stayed "__main", clicks dead)',
-          _resA209.get('error') is None
-          and _resA209.get('menu_children', -1) >= 5
-          and _resA209.get('crumb') == '__main'
-          and 'Werte live' in (_resA209.get('badge') or ''),
-          str(_resA209)[:200])
-    _resB209 = _run_page209(False, FIX)
+          'MOONRAKER ENVELOPE, labels EVALUATED live (no raw '
+          '"save_variables" text left) and LCD-conditioned entries '
+          'hidden - the .136b-.136g page crashed on the envelope, the '
+          '.136h page showed raw jinja and hid nothing',
+          _A.get('error') is None
+          and _A.get('menu_children', -1) >= 5
+          and _A.get('crumb') == '__main'
+          and 'Werte live' in (_A.get('badge') or '')
+          and not any('save_variables' in n for n in _nA)
+          and len([n for n in _nA if '{' in n]) <= max(2, len(_nA) // 5)
+          and '__main __start' in _hA            # enable: mode == waiting
+          and '__main __optprint' in _hA         # enable: mode in idle/...
+          and '__main __endq' not in _hA         # opt_pending -> visible
+          and '__main __octoprint' in _hA,       # enable {False}
+          str({k: _A.get(k) for k in ('error', 'menu_children', 'crumb',
+                                      'badge', 'hidden')})[:220])
+    check('T8 R210 interaction: back navigation returns to __main, the '
+          'M117 notification history collects the display stream, the '
+          'console renders gcode_store and the gcode input POSTs to '
+          'moonraker',
+          _A.get('error') is None
+          and (_A.get('nav') or {}).get('back') == '__main'
+          and ((_A.get('nav') or {}).get('deep') or '') not in
+              ('__main', None, '')
+          and (_A.get('live_calls') or 0) >= 3
+          and (_A.get('notif_n') or 0) >= 3
+          and 'Meldung' in (_A.get('notifcur') or '')
+          and (_A.get('con_n') or 0) >= 3
+          and any('/server/gcode_store' in g for g in (_A.get('gets') or []))
+          and any('M117 WebTest' in p for p in (_A.get('posts') or []))
+          and _A.get('selftest') == {'a': 'PA 5', 'b': 'y', 'c': 'V=42'},
+          str({k: _A.get(k) for k in ('nav', 'live_calls', 'notif_n',
+                                      'notifcur', 'con_n', 'posts',
+                                      'selftest')})[:240])
+    _B = _run_page209(True, _LIVE_IDLE)         # idle snapshot
+    _hB = _B.get('hidden_ids') or []
+    check('T8 LCD-parity hiding (R210): idle snapshot flips the menus '
+          'exactly like the display (Rate print? vanishes, Optimized '
+          'appears) and idle labels still evaluate',
+          _B.get('error') is None
+          and '__main __endq' in _hB
+          and '__main __optprint' not in _hB
+          and '__main __start' in _hB
+          and 'Werte live' in (_B.get('badge') or '')
+          and not any('save_variables' in n for n in (_B.get('names') or []))
+          and (_B.get('notifcur') or '') != '',
+          str({'hiddenA': len(_hA), 'hiddenB': len(_hB),
+               'endq_B': '__main __endq' in _hB})[:160])
+    _C = _run_page209(False, FIX)               # tree endpoint down
     check('T8 page fallback: tree endpoint down -> the EMBEDDED export '
-          'renders (menu >= 5, badge says eingebettet, no crash)',
-          _resB209.get('error') is None
-          and _resB209.get('menu_children', -1) >= 5
-          and 'eingebettet' in (_resB209.get('badge') or ''),
-          str(_resB209)[:200])
+          'renders (menu >= 5, badge says eingebettet, labels STILL '
+          'evaluate against live data, no crash)',
+          _C.get('error') is None
+          and _C.get('menu_children', -1) >= 5
+          and 'eingebettet' in (_C.get('badge') or '')
+          and not any('save_variables' in n for n in (_C.get('names') or [])),
+          str({k: _C.get(k) for k in ('error', 'menu_children',
+                                      'badge')})[:200])
+    _D = _run_page209(True, {'ok': False,
+                             'reason': 'klippy state: shutdown'})
+    check('T8 live-reason surfaced (R210): a component failure shows its '
+          'REASON in the badge - .136h only said "Klipper nicht bereit" '
+          'and the reason was thrown away',
+          _D.get('error') is None
+          and 'klippy state: shutdown' in (_D.get('badge') or ''),
+          str(_D)[:220])
 finally:
     pass
 
