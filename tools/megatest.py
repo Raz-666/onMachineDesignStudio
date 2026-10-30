@@ -108,12 +108,17 @@ def check_gcode(name, path, bed=BED, skip_idem=False, extra_types=(), plot=False
             probs.append('E out of range: %.2f' % e)
             break
         e_max = max(e_max, e)
-    for m in re.finditer(r'F(\d+)', txt):
+    # R212: plausibility scans NON-COMMENT lines only - the R2-META
+    # thumbnail block is base64 in comments and happily contains 'F0'
+    # or even a lone 'nan' token; comments never carry g-code
+    code = '\n'.join(l for l in txt.split('\n')
+                     if not l.lstrip().startswith(';'))
+    for m in re.finditer(r'F(\d+)', code):
         f = float(m.group(1))
         if not (0 < f <= 12000):
             probs.append('F out of range: %.0f' % f)
             break
-    if re.search(r'\b(nan|inf)\b', txt, re.I):
+    if re.search(r'\b(nan|inf)\b', code, re.I):
         probs.append('nan/inf in file')
     # -- _FILE_INFO + TYPES honesty (print files only)
     fi = None
