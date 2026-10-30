@@ -794,6 +794,13 @@ check('T6d matcher: broadened to ANY r2_postproc name (stray copies '
       and pp._cmdline_is_watcher(b'python3 /x/r2_postproc_old.py -w /g')
       and not pp._cmdline_is_watcher(b'python3 /x/r2_menu.py')
       and not pp._cmdline_is_watcher(b'nano printer.cfg'))
+check('T6d matcher R207: EXECUTION precision - processes that merely '
+      'MENTION the name never match (bash wrapper, pgrep, grep, sudo)',
+      not pp._cmdline_is_watcher(
+          b'bash -l -c grep r2_postproc.py /var/log/syslog')
+      and not pp._cmdline_is_watcher(b'sudo pgrep -af [r]2_postproc.py')
+      and not pp._cmdline_is_watcher(b'grep -c r2_postproc x')
+      and not pp._cmdline_is_watcher(b'nano r2_postproc.py'))
 check('T6d cgroup unit: str for a live pid, graceful empty for a dead one',
       isinstance(pp._cgroup_unit(os.getpid()), str)
       and pp._cgroup_unit(999999) == '')
@@ -811,6 +818,34 @@ check('T6d flat-stray warnings: name the second watcher copy (flat .134 '
       len(_w202) == 4 and 'SECOND r2_postproc.py' in _w202[0]
       and 'rm -rf' in _w202[3])
 _sh200.rmtree(_d202, ignore_errors=True)
+
+# T6e (R207, .136d field log): the runtime sweep must NAME the rival -
+# its command line from /proc - and stop it. Doubled pushes after a clean
+# update are only diagnosable when the journal says WHAT the second
+# pusher was. (With the R207 execution-precision matcher this test can
+# no longer kill its own bash wrapper - the .136f near-miss.)
+_d207 = tempfile.mkdtemp(prefix='r207_')
+open(os.path.join(_d207, 'r2_postproc_old.py'), 'w').write(
+    'import time\ntime.sleep(120)\n')
+_rival207 = _sp200.Popen(
+    [_sy200.executable, os.path.join(_d207, 'r2_postproc_old.py'),
+     '--watch', _d207])
+import io as _io207
+import contextlib as _ctx207
+_out207 = _io207.StringIO()
+try:
+    with _ctx207.redirect_stdout(_out207):
+        pp._watch_duplicate_sweep()
+    _rival207.wait(timeout=20)
+    check('T6e sweep: names the rival PATH (from /proc) and stops it',
+          'runtime sweep' in _out207.getvalue()
+          and 'r2_postproc_old.py' in _out207.getvalue()
+          and _rival207.returncode is not None
+          and _rival207.returncode != 0,
+          (_out207.getvalue()[-160:] + ' | rc=%s' % _rival207.returncode))
+finally:
+    _rival207.kill()
+    _sh200.rmtree(_d207, ignore_errors=True)
 
 
 # ================================================================== T7 ==
@@ -883,12 +918,16 @@ try:
           and open(_conf203).read().count('[r2_menu]') == 1
           and 'already' in _r203b.stdout)
     _site_txt203 = open(_site203).read()
-    check('T7 site: R206 CSRF guard + Origin strip in BOTH proxy locations',
+    check('T7 site: R207 CSRF guard (case-insensitive map) + Origin strip '
+          'in BOTH proxy locations + Host without port (field-proven)',
           _site_txt203.count('proxy_set_header Origin "";') == 2
           and _site_txt203.count('if ($r2_csrf_bad) { return 403; }') == 2
           and 'map "$http_origin|$http_host" $r2_csrf_bad' in _site_txt203
-          and 'proxy_set_header Host $http_host;' in _site_txt203,
-          _site_txt203[:160])
+          and '~*^http://([^|]+)\\|\\1$' in _site_txt203.replace(' ', '')
+          and 'proxy_set_header Host $host;' in _site_txt203
+          and 'guard self-test' in open(os.path.join(
+              REPO, 'web', 'install_web.sh')).read(),
+          (_site_txt203[:120] + ' | ' + _r203.stdout[-120:]))
     _r203s = _run203(['--status'])
     check('T7 status: reports component + section + URL port',
           _r203s.returncode == 0 and '[section ok]' in _r203s.stdout

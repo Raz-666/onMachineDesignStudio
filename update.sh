@@ -411,6 +411,52 @@ if [ -f "${DIR}/web/install_web.sh" ]; then
     fi
 fi
 
+# --- 6c) FINAL watcher census (R207) ----------------------------------------
+# The census above ran ~3 s after the restart - BEFORE klippy finished
+# booting. The .136d field log showed doubled state pushes right AFTER a
+# clean update (every SAVE_VARIABLE twice, ~8 s staggered): a pusher that
+# appears late (boot race with cron @reboot / rc.local, or one that the
+# early census could not see) slips through that window. This second,
+# read-only census runs when klippy is up and the build stamp came back -
+# THE truth, printed where the user reads it. Never restarts anything.
+sleep 2
+STALE=0; RUNNING=0; WLIST=""
+if command -v pgrep >/dev/null 2>&1; then
+    for PID in $(pgrep -f '[r]2_postproc.py' 2>/dev/null); do
+        [ -z "${PID}" ] && continue
+        RUNNING=1
+        ET="$(ps -o etimes= -p "${PID}" 2>/dev/null | tr -d ' ')"
+        case "${ET}" in ''|*[!0-9]*) continue ;; esac
+        if [ $(( $(date +%s) - ET )) -lt "${UPD_TS}" ]; then
+            STALE=1
+            echo "[!] r2-postproc PID ${PID} (user $(ps -o user= -p "${PID}" 2>/dev/null | tr -d ' '))"
+            echo "    started BEFORE this update unpacked - it still runs the OLD"
+            echo "    generator code. Kill it:  sudo kill ${PID} ; sudo systemctl restart r2-postproc"
+        fi
+    done
+    for PID in $(pgrep -f '[r]2_postproc.py .*--watch' 2>/dev/null); do
+        WLIST="${WLIST} ${PID}"
+    done
+fi
+WN=0; for PID in ${WLIST}; do WN=$((WN + 1)); done
+if [ "${RUNNING}" -eq 0 ]; then
+    echo "[!] final census: NO r2-postproc process is running (klippy is up now)"
+    echo "    start it:  sudo systemctl restart r2-postproc"
+elif [ "${STALE}" -ne 0 ]; then
+    echo "[!] final census: a STALE watcher survived the update - see above"
+elif [ "${WN}" -eq 1 ]; then
+    echo "[ok] final watcher census (klippy up): exactly 1 watcher (PID$(echo "${WLIST}"))"
+elif [ "${WN}" -gt 1 ]; then
+    echo "[!] final watcher census: ${WN} watchers(${WLIST}) - THIS is the"
+    echo "    doubled-push cause (every state push runs twice). The daemon's"
+    echo "    runtime sweep logs the rival's path - see:"
+    echo "        journalctl -u r2-postproc -n 40 | grep -A1 'runtime sweep'"
+    echo "    One command fixes it:  sudo bash ${0}"
+else
+    echo "[!] final census: no r2-postproc WATCHER is running (one-shot only)"
+    echo "    start it:  sudo systemctl restart r2-postproc"
+fi
+
 # --- 7) hint: the environment wizard --------------------------------------------------
 if [ -f "${DIR}/setup.sh" ]; then
     echo "[i] environment wizard available (zram vs SD-swap, optional services like"

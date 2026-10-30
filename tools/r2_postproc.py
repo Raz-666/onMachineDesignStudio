@@ -76,7 +76,7 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-10-29.136e'
+POSTPROC_RELEASE = 'R2-2026-10-29.136f'
 POSTPROC_BUILD = 'R204'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
@@ -18377,17 +18377,19 @@ def _sv_line(var, val):
     return 'SAVE_VARIABLE VARIABLE=%s VALUE=%r' % (var, val)
 
 
-def _stop_duplicate_watcher(pid):
+def _stop_duplicate_watcher(pid, desc=''):
     """R133i: shared kill sequence for duplicate watchers - RESPOND +
     SIGTERM, 5 s grace, then SIGKILL. A duplicate running as ROOT (a
     root-cron / rc.local relic) cannot be signalled from user pi: that
     case gets a LOUD respond with the exact command instead of silently
-    claiming 'found and stopped' on the display."""
+    claiming 'found and stopped' on the display. R207: desc (the rival's
+    command line) rides along so the console names WHAT was stopped."""
     import signal
     try:
         _moonraker_gcode(
-            'RESPOND MSG="R2 watcher: stale duplicate (PID %d) found and '
-            'stopped - one watcher from now on"' % pid)
+            'RESPOND MSG="R2 watcher: stale duplicate (PID %d%s) found and '
+            'stopped - one watcher from now on"'
+            % (pid, (': ' + desc) if desc else ''))
     except Exception:                                       # noqa: BLE001
         pass
     try:
@@ -18406,10 +18408,11 @@ def _stop_duplicate_watcher(pid):
               'stop it. Run: sudo pkill -f \'[r]2_postproc.py\''
               % pid, flush=True)
         try:
+            _q207 = chr(39)     # R207: single quote, escape-hell-free
             _moonraker_gcode(
                 'RESPOND MSG="R2 watcher: duplicate PID %d runs as ROOT - '
                 'cannot stop it. Run on the Pi: sudo pkill -f '
-                'r2_postproc.py"' % pid)
+                '%s[r]2_postproc.py%s"' % (pid, _q207, _q207))
         except Exception:                                   # noqa: BLE001
             pass
     except OSError:
@@ -18596,8 +18599,24 @@ def _cmdline_is_watcher(data):
     'r2_postproc.py' to 'r2_postproc' - the .136 field log showed a twin
     watcher at boot, and a renamed/stray copy (r2_postproc_old.py, the
     flat .134 zip's tools/ copy under a different name) must not slip
-    through the scan just because its filename has a suffix."""
-    return b'r2_postproc' in data
+    through the scan just because its filename has a suffix.
+    R207 (.136f): EXECUTION precision, not mention. The old 'substring
+    anywhere' test matched any process whose TEXT carries the name - a
+    bash/grep/pgrep/nano command line (the r197 T6e run killed its own
+    bash wrapper; in the field a 'grep r2_postproc ...' would have died).
+    A watcher is: a PYTHON interpreter with an r2_postproc*.py file among
+    its ARGUMENTS. /proc cmdlines are NUL-separated; hand-written test
+    blobs (space-joined) are accepted too."""
+    if b'\x00' in data:
+        parts = [p for p in data.split(b'\x00') if p]
+    else:
+        parts = data.split()
+    if not parts or b'python' not in parts[0].lower():
+        return False
+    for arg in parts[1:]:
+        if arg.endswith(b'.py') and b'r2_postproc' in arg.split(b'/')[-1]:
+            return True
+    return False
 
 
 def _find_other_watchers():
@@ -18629,6 +18648,20 @@ _LOUD_DUP = {}          # R147: pid -> last loud-console respond (1/h max)
 _DUEL_UNITS = {}        # R202: systemd unit -> how often it respawned a twin watcher
 
 
+def _pid_cmdline207(pid):
+    """R207 (.136f field log): a rival watcher\'s command line, printable.
+    The .136d field log showed doubled state pushes after a clean update -
+    to tell a REAL twin (which path? which unit started it?) from a display
+    artifact, every sweep message now carries the rival\'s full command
+    line from /proc."""
+    try:
+        with open('/proc/%d/cmdline' % pid, 'rb') as f:
+            return f.read().replace(b'\x00', b' ').decode(
+                'utf-8', 'replace').strip()[:120]
+    except OSError:
+        return '<gone>'
+
+
 def _watch_duplicate_sweep():
     """R133i (field log .101): the STARTUP takeover alone is not enough.
 
@@ -18653,8 +18686,10 @@ def _watch_duplicate_sweep():
                 pass
             sys.exit(0)
         print('[lock] runtime sweep: duplicate watcher PID %d (unit %s) - '
-              'stopping' % (pid, _cgroup_unit(pid) or 'none'), flush=True)
-        _stop_duplicate_watcher(pid)
+              'stopping\n    rival: %s'
+              % (pid, _cgroup_unit(pid) or 'none', _pid_cmdline207(pid)),
+              flush=True)
+        _stop_duplicate_watcher(pid, _pid_cmdline207(pid))
         # R202 (.136 field log): a twin that RETURNS was respawned by its
         # start hook (cron @reboot, rc-local, a second unit with
         # Restart=always). Name the unit + the disable command - killing
@@ -18689,7 +18724,7 @@ def _watch_duplicate_sweep():
                         'RESPOND MSG="R2 watcher: duplicate PID %d SURVIVED '
                         'the stop attempt - it doubles every push and can '
                         'shut the printer down. Run on the Pi: sudo pkill '
-                        '-f r2_postproc.py && sudo systemctl restart '
+                        '-f [r]2_postproc.py && sudo systemctl restart '
                         'r2-postproc"' % pid)
                 except Exception:                           # noqa: BLE001
                     pass

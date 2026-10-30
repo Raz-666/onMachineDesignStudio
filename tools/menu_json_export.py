@@ -165,7 +165,7 @@ def export(cfg_path, out_path=None, page=None):
         counts[n.get('type', '?')] = counts.get(n.get('type', '?'), 0) + 1
     payload = json.dumps(root, ensure_ascii=False, separators=(',', ':'))
     doc = {
-        'generator': 'menu_json_export.py (.136e R206)',
+        'generator': 'menu_json_export.py (.136f R207)',
         'source': os.path.basename(cfg_path),
         'sections': len(sections),
         'counts': counts,

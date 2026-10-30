@@ -66,6 +66,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # R112 re-freeze: tag v4 -> v5 (STALE/retag round) - every fixture's tag
 # line changed, summaries gained retract_status/retract_max. R112 reference
 # superseded.
+# RE-FREEZE HISTORY (.136f version bump, R207): stamp-only - mr01-mr13 carry
+# the R166 core stamp, pr01-pr10 byte-identical; PROVEN by running the new
+# module with the old stamp string (all 23 md5 == the .136e goldens).
 # RE-FREEZE HISTORY (.136e version bump, R206): stamp-only - mr01-mr13 carry
 # the R166 core stamp, pr01-pr10 byte-identical; PROVEN by running the new
 # module with the old stamp string (all 23 md5 == the .136d goldens).
@@ -90,19 +93,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # only touch real violations); the mr extracts differ ONLY in the core
 # stamp line (version bump, by design).
 REF_MD5 = {
- "mr01": "d2da9ef7540a274c94c4f5ddafcc3a3a",
- "mr02": "d56b7328dee814c0836508a61a9508c8",
- "mr03": "ad9d7afbf3c12a27f2917e0859510518",
- "mr04": "c2ead538f0b7b40f8ed6d423f5aa786a",
- "mr05": "2dfd431d1bf65e3112680b6e8fd60dcd",
- "mr06": "9a8ab5fa04568c6567e3ad2fd3f58bba",
- "mr07": "e29961acec01486f4c0a8a5b3d27b0d7",
- "mr08": "0e114c6acd7159ed3c6f9bd497c587fa",
- "mr09": "d70f1812d51be0e7bc4f75891b1edd4f",
- "mr10": "a0a30f1380b251b473c0878374278fee",
- "mr11": "7d8036ea259d5f30d196c30330f92234",
- "mr12": "3131e5143613597ec56921cfb1a805e5",
- "mr13": "64675c0ca3f1a7b2b43911cd3e419eb7",
+ "mr01": "e1efd1a40b36e75e47df33a150ba20ca",
+ "mr02": "7ebe268c0dfce6c40117287a3d84e3b0",
+ "mr03": "a8fb3bbe557540d009a59844422984c1",
+ "mr04": "f6eb63d3f80e7d4a6e8a808ecf632644",
+ "mr05": "6c80896c026793768bd793d9ab99bb16",
+ "mr06": "dc6d4d33808473d3cd79dd5d3d2639ed",
+ "mr07": "c90e8828136391820c332fd48e2ba43d",
+ "mr08": "111c2646a54a898a8179264c2ffc39b6",
+ "mr09": "bb426243c4a79f18bb71d85c4743f8ad",
+ "mr10": "2efeb1a6ae1e5f7343cee3fae28ed75e",
+ "mr11": "5c0378bd20daa1505bde1c9ac91c159a",
+ "mr12": "d0b54c79e0d43151c26c53e2d1acd541",
+ "mr13": "ee246b0f84bb4b609a6ee789f1358374",
  "pr01": "aa5a6f27d5a7e6576f57eeea93af63a5",
  "pr02": "61457e9bcbd98996b6e7dc26efda23d8",
  "pr03": "923725a1d92fccc88241ed8a3ab8065b",

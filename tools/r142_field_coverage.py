@@ -32,6 +32,7 @@ import math
 import os
 import re
 import sys
+import shutil
 import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -753,8 +754,38 @@ ck('R135: stock OctoPrint/Temperature/Setup hidden via enable {False} '
 # form so the checker can never match its own command line. README.md is
 # the changelog (history may quote old commands) - every live surface
 # must stay bracket-clean.
-_bad205 = []
 _pat205 = re.compile(r'(pgrep|pkill)\s+-[a-zA-Z]*f[a-zA-Z]*\s+[\'"]?r2_postproc')
+
+
+def _lint207_scan(path):
+    """R207: unbracketed watcher patterns in ONE file. Lines AND (for
+    .py) the ast-joined string constants - the .136d ROOT respond hid
+    'sudo pkill -f ' + 'r2_postproc.py' across two source lines and
+    slipped the line lint. ast joins implicit concatenation; node.lineno
+    names the first line."""
+    hits = []
+    try:
+        with open(path, encoding='utf-8', errors='replace') as fh:
+            src = fh.read()
+    except OSError:
+        return hits
+    for li, ln in enumerate(src.splitlines(), 1):
+        if _pat205.search(ln):
+            hits.append(li)
+    if path.endswith('.py'):
+        try:
+            import ast
+            for nd in ast.walk(ast.parse(src)):
+                if (isinstance(nd, ast.Constant)
+                        and isinstance(nd.value, str)
+                        and _pat205.search(nd.value)):
+                    hits.append(nd.lineno)
+        except SyntaxError:
+            pass
+    return sorted(set(hits))
+
+
+_bad205 = []
 for _dp205, _dns205, _fns205 in os.walk(ROOT):
     _dns205[:] = [d for d in _dns205 if d not in ('.git', '__pycache__',
                                                   'manual_work')]
@@ -763,18 +794,25 @@ for _dp205, _dns205, _fns205 in os.walk(ROOT):
             continue
         if _fn205 == 'README.md':
             continue
-        _fp205 = os.path.join(_dp205, _fn205)
-        try:
-            with open(_fp205, encoding='utf-8', errors='replace') as _fh205:
-                _lines205 = _fh205.readlines()
-        except OSError:
-            continue
-        for _li205, _ln205 in enumerate(_lines205, 1):
-            if _pat205.search(_ln205):
-                _bad205.append('%s:%d' % (os.path.relpath(_fp205, ROOT),
-                                          _li205))
+        for _li205 in _lint207_scan(os.path.join(_dp205, _fn205)):
+            _bad205.append('%s:%d' % (os.path.relpath(
+                os.path.join(_dp205, _fn205), ROOT), _li205))
 ck('R205: shipped pgrep/pkill watcher patterns are [r]-bracket '
    '(self-match-proof under sudo)', not _bad205, '; '.join(_bad205[:4]))
+
+_fx207 = tempfile.mkdtemp(prefix='r207lint_')
+_fxp207 = os.path.join(_fx207, 'evil_split.py')
+open(_fxp207, 'w').write(
+    "x = ('sudo pkill -f '\n     'r2_postproc.py')\n")
+ck('R207 lint: ast joins split string literals - the .136d ROOT-respond '
+   'class cannot slip again (fixture flagged, line-named)',
+   _lint207_scan(_fxp207) == [1], str(_lint207_scan(_fxp207)))
+_fxp207b = os.path.join(_fx207, 'good_bracket.py')
+open(_fxp207b, 'w').write(
+    "x = ('sudo pkill -f ' + chr(39) + '[r]2_postproc.py' + chr(39))\n")
+ck('R207 lint: bracketed forms stay clean (no false positives)',
+   _lint207_scan(_fxp207b) == [], str(_lint207_scan(_fxp207b)))
+shutil.rmtree(_fx207, ignore_errors=True)
 
 print()
 print('R142 FIELD COVERAGE: %d checks, %d FAIL' % (n_ck[0], len(fails)))

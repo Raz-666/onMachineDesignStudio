@@ -1,6 +1,6 @@
 # R2-D2 rundum: Displays, Drucker, Nozzles — und die Test-Stufen
 
-Stand: R2-2026-10-29.136e — **alles aus Abschnitt E ist GEBAUT** (R191–R197). Die
+Stand: R2-2026-10-29.136f — **alles aus Abschnitt E ist GEBAUT** (R191–R197). Die
 ausführliche, grafische Fassung dieser Übersicht ist jetzt **DISPLAYS_WEB_UI.pdf**
 (built by tools/make_displays_pdf.py); diese MD bleibt die Arbeits-Kurzfassung.
 
@@ -190,6 +190,25 @@ sprachen immer perfekt Klipper-Deutsch).
 7. **Web-UI** — GEBAUT (R196): tools/menu_json_export.py + web/r2_menu.py (Moonraker:
    /server/r2_menu/tree|status|refresh) + web/index.html (LCD-Navigation, eingebettetes
    JSON als Fallback). Details + Installation: DISPLAYS_WEB_UI.pdf Kap. 2.
+
+**R207 (.136f):** Feldlog .136e: „jetzt kommt wieder 403" trotz R206-Fix.
+Zwei Erkenntnisse: (1) eine GESCHRIEBENE Site-Datei ist noch keine AKTIVE
+Konfiguration — schlägt der nginx-Reload still fehl, serviert nginx das
+ALTE Layout weiter (Seite läuft, jeder Befehl 403); (2) der Origin==Host-
+Vergleich war case-sensitiv — der Browser kleinschreibt den Origin, den
+Host sendet er wie getippt (gemischtes Lesezeichen = 403). Fixes:
+Case-insensitive Map (~*), Host wieder ohne Port an Moonraker (Auth liest
+nicht Host — Quellcode verifiziert), und der Installer SELBST-TESTET die
+aktive Guard nach jedem Reload (fremder Origin muss am Proxy 403 bleiben,
+Retry + klare Ansage bei Fehlschlag). Zusätzlich: der Watcher-Matcher
+trifft jetzt nur noch AUSGEFÜHRTE Prozesse (python + r2_postproc*.py als
+Argument) — vorher matchte jede Erwähnung (grep/nano/pgrep) und der
+Runtime-Sweep hätte sie getötet; der Sweep nennt jetzt den Pfad des
+Rivalen, update.sh zählt beim Finale noch einmal (klippy oben) und das
+r142-Lint liest jetzt ast-Joins (Split-Strings können nicht mehr
+entkommen). E2E mit echtem nginx 1.26: volle Matrix + Fallgruben-Test +
+Selbsttest-Retry-Pfad. Feld-Bug-Klasse #14: geschriebene Konfiguration ≠
+aktive Konfiguration.
 
 **R206 (.136e):** Feldlog .136d: „web ui sagt 403 forbidden" — Moonraker
 lehnt jede Anfrage mit unbekanntem Origin-Header ab; Browser senden bei

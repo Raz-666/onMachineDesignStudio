@@ -35,6 +35,11 @@
 #        components/ - the installer ran once, later extension fixes (the
 #        R204 slim query!) never reached the Pi. --update-only refreshes
 #        component + nginx site on every package update.
+#    R207 (.136e field log - "403 again"): a written site file is not a
+#    live config (silent reload failure) and the origin==host comparison
+#    must be case-insensitive (browser lowercases Origin, Host goes as
+#    typed). The map is ~* now, and the installer SELF-TESTS the live
+#    guard after every reload (foreign origin must 403 at the proxy).
 #    Site file + symlink are written via sudo when /etc/nginx is not
 #    user-writable.
 #
@@ -224,10 +229,14 @@ cat > "${_SITE_TMP}" <<EOF
 # the map only lets requests pass whose Origin is empty (same-origin GETs,
 # curl, tools) or exactly this site (http://<host> == Host header) - any
 # other website's Origin is answered 403 BEFORE it reaches the printer.
+# R207: the comparison is CASE-INSENSITIVE (~*) - the browser lowercases
+# the Origin but sends the Host exactly as typed (a bookmarked
+# http://Ender-3.local:7126/ would have failed the case-sensitive map and
+# answered 403 - .136e field suspicion).
 map "\$http_origin|\$http_host" \$r2_csrf_bad {
     default                  1;
     "~^\|"                   0;
-    "~^http://([^|]+)\|\1\$" 0;
+    "~*^http://([^|]+)\|\1\$" 0;
 }
 server {
     listen ${PORT};
@@ -238,13 +247,13 @@ server {
     location /server/ {
         if (\$r2_csrf_bad) { return 403; }
         proxy_pass http://127.0.0.1:7125;
-        proxy_set_header Host \$http_host;
+        proxy_set_header Host \$host;
         proxy_set_header Origin "";
     }
     location /printer/ {
         if (\$r2_csrf_bad) { return 403; }
         proxy_pass http://127.0.0.1:7125;
-        proxy_set_header Host \$http_host;
+        proxy_set_header Host \$host;
         proxy_set_header Origin "";
     }
 }
@@ -276,6 +285,50 @@ if command -v nginx >/dev/null 2>&1 && [ -z "${R2_NO_SERVICES:-}" ]; then
     sudo systemctl reload nginx && echo "[ok] nginx reloaded"
 else
     echo "[i] nginx test/reload skipped (no nginx here or R2_NO_SERVICES)"
+fi
+
+# R207 (.136e field log - "403 again" despite the R206 fix): a written site
+# file is NOT a live config. If the reload silently failed, nginx keeps
+# serving the OLD site (no Origin strip) and every command POST stays 403
+# while the page itself loads fine. So PROVE the guard is live, from the
+# Pi, with real requests through the site:
+#   - a foreign-origin POST must be rejected BY NGINX (403) - moonraker
+#     does not even need to be up for this
+#   - a same-origin POST must NOT be 403 (200/404/405/502 all prove the
+#     request passed the guard)
+# On failure: one reload retry, then the exact one-line fix is printed.
+if [ "${R2_NO_SERVICES:-0}" != "1" ] && command -v curl >/dev/null 2>&1 \
+   && command -v nginx >/dev/null 2>&1; then
+    _guard_test() {
+        curl -s -o /dev/null -w '%{http_code}' -m 5 -X POST \
+             -H "Origin: http://r2-selftest.invalid" --data "" \
+             "http://127.0.0.1:${PORT}/server/r2_menu/status" 2>/dev/null
+    }
+    _same_test() {
+        curl -s -o /dev/null -w '%{http_code}' -m 5 -X POST \
+             -H "Origin: http://127.0.0.1:${PORT}" --data "" \
+             "http://127.0.0.1:${PORT}/server/r2_menu/status" 2>/dev/null
+    }
+    sleep 1
+    _EV="$(_guard_test)"; _SO="$(_same_test)"
+    if [ "${_EV}" = "403" ] && [ "${_SO}" != "403" ] && [ -n "${_SO}" ]; then
+        echo "[ok] web-LCD guard self-test: foreign origin rejected at the"
+        echo "     proxy (403), same origin passes (${_SO}) - commands will work"
+    else
+        echo "[i] web-LCD guard self-test: foreign=${_EV:-no answer} same-origin=${_SO:-no answer}"
+        echo "    retrying one nginx reload ..."
+        sudo nginx -s reload 2>/dev/null || sudo systemctl reload nginx 2>/dev/null
+        sleep 1
+        _EV="$(_guard_test)"; _SO="$(_same_test)"
+        if [ "${_EV}" = "403" ] && [ "${_SO}" != "403" ] && [ -n "${_SO}" ]; then
+            echo "[ok] web-LCD guard self-test PASSED after the reload retry"
+        else
+            echo "[!] web-LCD guard self-test FAILED (foreign=${_EV:-none} same=${_SO:-none})"
+            echo "    the new site is not active. One command:"
+            echo "        sudo systemctl restart nginx"
+            echo "    (page reachable + every command 403 = exactly this state)"
+        fi
+    fi
 fi
 
 # 4) restart moonraker so the endpoints come up
