@@ -1,4 +1,5 @@
 # r2_menu.py - Moonraker extension: the R2 menu tree as JSON (.136c, R204:
+# R211: lookup_component - the REAL moonraker Server API)
 # adds /server/r2_menu/live - the pruned printer snapshot for live values;
 # R210/.136i: live handler hardened - reason always visible, per-object
 # retry, klippy-state precheck, dashboard objects, value pruning)
@@ -122,6 +123,22 @@ class R2MenuComponent:
                 'sha256': self.doc.get('sha256'),
                 'counts': self.doc.get('counts')}
 
+    def _lookup_klippy_apis(self):
+        """R211 (.136i field log: badge 'Server' object has no attribute
+        'lookup_object'): moonraker's Server API is lookup_component() -
+        this component had called the KLIPPER-config-style lookup_object(),
+        so EVERY /live poll failed since the extension existed (raw labels,
+        no LCD hiding, no dashboard). The offline fake in r197 had
+        implemented the wrong method - a fake RICHER than reality greens
+        every offline test while the Pi raises. lookup_component first,
+        the old name kept as a fallback."""
+        for name in ('lookup_component', 'lookup_object'):
+            fn = getattr(self.server, name, None)
+            if fn is not None:
+                return fn('klippy_apis')
+        raise AttributeError(
+            'server has neither lookup_component nor lookup_object')
+
     def _live_wanted(self):
         wanted = set((self.doc or {}).get('live_objects') or ())
         wanted.update(DEFAULT_LIVE_OBJECTS)
@@ -203,7 +220,7 @@ class R2MenuComponent:
             out = {'ok': False, 'reason': 'klippy state: %s' % state}
             return out
         try:
-            apis = self.server.lookup_object('klippy_apis')
+            apis = self._lookup_klippy_apis()
             objs = set(await apis.get_object_list())
         except self.server.error as e:
             return {'ok': False, 'reason': str(e)}

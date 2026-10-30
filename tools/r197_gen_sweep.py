@@ -391,11 +391,19 @@ class FakeServer:
     def get_server(self):
         return self
 
-    def lookup_object(self, name):
-        # R201: the live endpoint resolves 'klippy_apis' like moonraker does
+    def lookup_component(self, name):
+        # R211: the REAL moonraker Server API - lookup_component(), NOT
+        # the klipper-style lookup_object() (.136i field log: the old
+        # fake implemented lookup_object, so the component shipped with a
+        # call the real Server answers with AttributeError - every offline
+        # test green, every /live poll on the Pi dead). This fake mirrors
+        # ONLY what real moonraker actually has.
         if name in self.objects:
             return self.objects[name]
         raise self.error('object %s not found' % name)
+
+    def get_klippy_state(self):
+        return 'ready'
 
 
 class FakeKlippyAPI:
@@ -574,6 +582,15 @@ _eps210b = r2m.load_component(
     ).server.endpoints
 _lv210b = loop.run_until_complete(
     _eps210b['/server/r2_menu/live'](FakeReq()))
+check('T2d live R211: fake mirrors the REAL moonraker API surface and '
+      'the component speaks lookup_component (the .136i field-Pi class: '
+      'a fake RICHER than reality - lookup_object - greens every '
+      'offline test while the Pi raises AttributeError)',
+      not hasattr(cfg.server, 'lookup_object')
+      and hasattr(cfg.server, 'lookup_component')
+      and 'lookup_component' in open(os.path.join(REPO, 'web',
+                                                  'r2_menu.py')).read(),
+      'fake or component drifted')
 check('T2c live R210: klippy not ready -> ok False with the REASON '
       'surfaced (the .136h page only said "Klipper nicht bereit")',
       _lv210b.get('ok') is False

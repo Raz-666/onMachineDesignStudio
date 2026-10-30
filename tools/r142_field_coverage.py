@@ -844,6 +844,12 @@ ck('R210 page: M117 notification history + console (gcode_store) + '
    and 'id="d_feat"' in _page210, 'panels missing')
 _comp210 = open(os.path.join(ROOT, 'web', 'r2_menu.py'),
                 encoding='utf-8').read()
+ck('R211 component: speaks the REAL moonraker Server API '
+   '(lookup_component, not the klipper-style lookup_object that raised '
+   'AttributeError on every /live poll in the .136i field log)',
+   'lookup_component' in _comp210
+   and "getattr(self.server, name, None)" in _comp210,
+   'lookup_component missing')
 ck('R210 component: klippy-state precheck + per-object retry + pruning '
    '(settings/profiles keys, exclude_object names, fat variables)',
    'get_klippy_state' in _comp210 and 'skipped' in _comp210

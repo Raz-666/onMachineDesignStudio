@@ -1,6 +1,6 @@
 # R2-D2 rundum: Displays, Drucker, Nozzles — und die Test-Stufen
 
-Stand: R2-2026-10-29.136i — **alles aus Abschnitt E ist GEBAUT** (R191–R197). Die
+Stand: R2-2026-10-29.136j — **alles aus Abschnitt E ist GEBAUT** (R191–R197). Die
 ausführliche, grafische Fassung dieser Übersicht ist jetzt **DISPLAYS_WEB_UI.pdf**
 (built by tools/make_displays_pdf.py); diese MD bleibt die Arbeits-Kurzfassung.
 
@@ -190,6 +190,22 @@ sprachen immer perfekt Klipper-Deutsch).
 7. **Web-UI** — GEBAUT (R196): tools/menu_json_export.py + web/r2_menu.py (Moonraker:
    /server/r2_menu/tree|status|refresh) + web/index.html (LCD-Navigation, eingebettetes
    JSON als Fallback). Details + Installation: DISPLAYS_WEB_UI.pdf Kap. 2.
+
+**R211 (.136j):** Der .136i-Grund-Badge zahlte sich am ersten Tag aus:
+Das Feldlog zitierte ihn wortwoertlich - „Klipper nicht bereit: object
+list: Server object has no attribute lookup_object". Der Component rief
+die KLIPPER-config-stil-API lookup_object() auf - Moonrakers Server-API
+heisst lookup_component(). Damit scheiterte JEDE /live-Abfrage seit der
+Extension existiert (R201): rohe Labels, keine LCD-Ausblendung, kein
+Dashboard, leere SD-Kartenzeilen (die rendern live aus sd_view). Zwoelf
+Releases lang von ZWEI Schichten maskiert: Das Seiten-JS war bis .136h
+tot, UND der Offline-Fake in r197 hatte die FALSCHE Methode implementiert
+- ein Fake, reicher als die Realitaet, haelt jeden Offline-Test gruen,
+waehrend der echte Pi einen AttributeError wirft. Fix: lookup_component
+mit Fallback; der r197-Fake spiegelt fortan NUR die echte
+Moonraker-API-Oberflaeche (lookup_component, get_klippy_state), neuer T2d
+pinnt den Drift. Feld-Bug-Klasse #18: MOCK-DRIFT - der Mock weiss mehr
+als das System, das er nachbildet.
 
 **R210 (.136i):** Feldlog .136h, zweite Schicht: die Seite LEBTE, war
 aber nicht BEDIENBAR - kein Zurueckklicken, viele Eintraege zeigten rohe
