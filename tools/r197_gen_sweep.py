@@ -968,7 +968,122 @@ finally:
     _sh203_shutil.rmtree(_t203, ignore_errors=True)
 
 
-# ================================================================== summary =
+# ================================================================== T8 ==
+# R209 (.136h field log - "menuebaum zeigt nur __main, Klicks tot"): the
+# page read Moonraker's response WITHOUT unwrapping the {"result": ...}
+# envelope every moonraker endpoint ships - DOC.tree was undefined, the
+# render crashed after the fetch, the menu stayed empty and every button
+# was dead. Invisible since .136b because each side was tested against
+# its OWN mocks: the component against the fake moonraker (raw dict),
+# the page evaluator against jinja. THIS test runs the REAL shipped page
+# script against the REAL component response shape, envelope included.
+try:
+    import json as _json209
+    _page_src209 = open(os.path.join(REPO, 'web', 'index.html'),
+                        encoding='utf-8').read()
+    _script209 = _page_src209.rsplit('<script>', 1)[1].rsplit('</script>',
+                                                              1)[0]
+    _doc209 = _json209.load(open(os.path.join(REPO, 'web',
+                                              'menu_structure.json')))
+
+    def _run_page209(tree_ok, live_obj):
+        """Run the REAL page script in node with DOM/fetch stubs; return
+        {menu_children, crumb, badge, error} - error catches the
+        unhandled rejection the old unwrap bug produced."""
+        _js209 = r"""
+const vm = require('vm'), fs = require('fs');
+const DOC = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+const LIVE_OBJ = JSON.parse(fs.readFileSync(process.argv[3], 'utf8'));
+const TREE_OK = process.argv[4] === '1';
+function elem(id){ return {id, textContent:'', innerHTML:'', className:'',
+  title:'', disabled:false, children:[], _handlers:{},
+  classList:{add(){},remove(){}},
+  appendChild(c){ this.children.push(c); },
+  querySelector(sel){ return null; },   // R209: applyLive probes .nm/.en
+  style: {},
+  set onclick(f){ this._handlers.click = f; },
+  get onclick(){ return this._handlers.click; } }; }
+const reg = {};
+const document = {
+  getElementById(id){ if(!reg[id]) reg[id] = elem(id); return reg[id]; },
+  createElement(tag){ return elem('<'+tag+'>'); } };
+let unhandled = null;
+process.on('unhandledRejection', e => { unhandled = String(e); });
+const fetchCalls = [];
+const fetch = async (url) => {
+  fetchCalls.push(url);
+  if (url === '/server/r2_menu/tree') {
+    if (!TREE_OK) return {ok:false, json: async()=>({})};
+    // EXACTLY what moonraker ships: the component dict in an envelope
+    return {ok:true, json: async()=>({result: DOC})};
+  }
+  if (url === '/server/r2_menu/live') {
+    return {ok:true, json: async()=>({result: {ok:true, objects: LIVE_OBJ,
+                                               pruned: []}})};
+  }
+  return {ok:false, json: async()=>({})};
+};
+const sandbox = {document, fetch, console,
+  setTimeout: ()=>0, clearTimeout: ()=>{}};
+sandbox.window = sandbox; sandbox.location = {href:''};
+vm.createContext(sandbox);
+try { vm.runInNewContext(fs.readFileSync(process.argv[5], 'utf8'),
+                         sandbox); }
+catch (e) { console.log(JSON.stringify({error: String(e)})); process.exit(0); }
+(async () => {
+  for (let i = 0; i < 25; i++) await new Promise(r => process.nextTick(r));
+  const menu = reg['menu'], crumb = reg['crumb'], badge = reg['srcbadge'];
+  console.log(JSON.stringify({error: unhandled,
+    menu_children: menu ? menu.children.length : -1,
+    crumb: crumb ? crumb.textContent : null,
+    badge: badge ? badge.textContent : null,
+    fetches: fetchCalls.length}));
+})();
+"""
+        import tempfile as _tf209
+        _fd209 = os.path.join(_tf209.mkdtemp(prefix='r209_'), 'page.js')
+        _fo209 = os.path.join(os.path.dirname(_fd209), 'live.json')
+        _fs209 = os.path.join(os.path.dirname(_fd209), 'pagescript.js')
+        open(_fd209, 'w').write(_js209)      # the runner itself (the very
+        # first T8 run never wrote it - MODULE_NOT_FOUND)
+        open(_fo209, 'w').write(_json209.dumps(live_obj))
+        open(_fs209, 'w').write(_script209)   # R209: as a FILE - the script
+        # is ~60 kB, argv would blow ARG_MAX (found by the first T8 run)
+        _r209 = _sp200.run(
+            ['node', _fd209, os.path.join(REPO, 'web',
+                                          'menu_structure.json'),
+             _fo209, '1' if tree_ok else '0', _fs209],
+            capture_output=True, text=True, timeout=120)
+        _sh200.rmtree(os.path.dirname(_fd209), ignore_errors=True)
+        try:
+            return _json209.loads(_r209.stdout.strip().splitlines()[-1])
+        except Exception as _e209:                                  # noqa
+            return {'error': 'node: %s / %s' % (_e209, _r209.stderr[-160:])}
+
+    # the live fixture: exactly what /live ships (the evaluator fixture,
+    # already aligned to live_objects + DEFAULT by the T-live-eval check)
+    _resA209 = _run_page209(True, FIX)
+    check('T8 page<->moonraker contract (R209): the REAL page script '
+          'renders the menu from the REAL component response IN THE '
+          'MOONRAKER ENVELOPE ({"result":...}) - the .136b-.136g page '
+          'crashed on the envelope (menu stayed "__main", clicks dead)',
+          _resA209.get('error') is None
+          and _resA209.get('menu_children', -1) >= 5
+          and _resA209.get('crumb') == '__main'
+          and 'Werte live' in (_resA209.get('badge') or ''),
+          str(_resA209)[:200])
+    _resB209 = _run_page209(False, FIX)
+    check('T8 page fallback: tree endpoint down -> the EMBEDDED export '
+          'renders (menu >= 5, badge says eingebettet, no crash)',
+          _resB209.get('error') is None
+          and _resB209.get('menu_children', -1) >= 5
+          and 'eingebettet' in (_resB209.get('badge') or ''),
+          str(_resB209)[:200])
+finally:
+    pass
+
+
+# ================================================================== summary ==
 print()
 if FAILS:
     print('R197 GEN SWEEP: %d checks, %d FAIL' % (N, len(FAILS)))

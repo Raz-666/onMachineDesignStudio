@@ -3,7 +3,7 @@
 **Package:** `klipper-e3-r2d2` · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail) ·
 12864 LCD (16 characters per line)
 
-**Version:** this manual describes the current release, `R2-2026-10-29.136g` — and only it. Every chapter documents what the system
+**Version:** this manual describes the current release, `R2-2026-10-29.136h` — and only it. Every chapter documents what the system
 does today; the version changelog lives in README.md.
 
 This is the operating manual for the complete macro system: what the printer can
@@ -3004,7 +3004,7 @@ is a switch you can turn off.
 | Mesh is full bed although 'adaptive' |: honest wording — 'full bed (file has no object data)' now SAYS so. The mesh before a held file runs adaptive (the watcher replays the file's EXCLUDE_OBJECT_DEFINE at selection); Orca files carry them when 'Label objects' is enabled. Plot/label/bridge files bring their own object polygon |
 | KAMP meshes the whole bed | check KAMP_Settings.cfg margin — AND the file needs object data (see row above) |
 | `sudo` + the watcher check lists 2–3 r2-postproc "processes" | measurement artifact, NOT hidden watchers (.136d field log): `pgrep -f` matches the full command line and the sudo+pgrep pair carries the pattern itself — pgrep excludes only its own PID. A real watcher line looks like `/usr/bin/python3 …/r2_postproc.py --watch …`. Self-match-proof check (with or without sudo): `pgrep -af '[r]2_postproc.py'` — exactly ONE line. Better: update.sh prints the watcher census after every update ("exactly 1 r2-postproc watcher (PID …)"), and a second .136+ watcher cannot even start (kernel flock — it refuses with the reason) |
-| Web-LCD: „Moonraker lehnte ab (403)" | fixed in .136e: Moonraker rejects any request whose Origin header it does not know — and browsers send Origin on EVERY command POST (same-origin GETs carry none: live values worked, buttons died since .136b). The nginx site now strips Origin at the proxy and runs its own CSRF guard (foreign websites get 403 from nginx, never reaching the printer), and update.sh refreshes the web-LCD on every package update. .136f: case-insensitive same-origin check + live-guard self-test after every reload. **.136g: the page itself answered 403 (already on open, inkognito too)** — nginx runs as www-data and could not read the page under /home/pi (serve-path permissions can flip on any update; the API paths kept working, which is why every proxy test was green). The page is now served from `/var/www/r2lcd` (world-readable, outside every home dir), synced on every package update, and the self-test also GETs the page itself. If it still shows 403: run `bash ~/printer_data/config/klipper-e3-r2d2/web/install_web.sh` once and read its self-test verdict |
+| Web-LCD: „Moonraker lehnte ab (403)" | fixed in .136e: Moonraker rejects any request whose Origin header it does not know — and browsers send Origin on EVERY command POST (same-origin GETs carry none: live values worked, buttons died since .136b). The nginx site now strips Origin at the proxy and runs its own CSRF guard (foreign websites get 403 from nginx, never reaching the printer), and update.sh refreshes the web-LCD on every package update. .136f: case-insensitive same-origin check + live-guard self-test after every reload. **.136g: the page itself answered 403 (already on open, inkognito too)** — nginx runs as www-data and could not read the page under /home/pi (serve-path permissions can flip on any update; the API paths kept working, which is why every proxy test was green). The page is now served from `/var/www/r2lcd` (world-readable, outside every home dir), synced on every package update, and the self-test also GETs the page itself. **.136h: the page's JavaScript had never executed at all** — the JSON embed left a stray `null` after the menu data (`EMBEDDED_MENU_JSON = {...} null;` = syntax error), so no click ever worked and the menu stayed at „__main“; plus Moonraker's `{"result":…}` envelope was never unwrapped and the live poll started before the menu data arrived. All three fixed; a new integration test parses and runs the REAL shipped page (node) against the REAL component response — envelope included |
 
 Diagnostics: SHOW_STATUS · SELF_TEST · KAMP_STATUS · HOST_CHECK (Pi health) · _CHECK_INSTALL at boot.
 
@@ -3752,7 +3752,7 @@ system). Better a quiet fan at full speed than a fast one slowed down.
 ## Appendix C: First start & updates
 
 - upload the folder → includes at the end of printer.cfg → RESTART
-- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-10-29.136g)`
+- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-10-29.136h)`
 - ~10 s later: boot sound + LED animation
 - SHOW_STATUS → mode, material, overrides · Maintenance > Tests > demos + self test
 

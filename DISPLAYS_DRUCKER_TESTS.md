@@ -1,6 +1,6 @@
 # R2-D2 rundum: Displays, Drucker, Nozzles — und die Test-Stufen
 
-Stand: R2-2026-10-29.136g — **alles aus Abschnitt E ist GEBAUT** (R191–R197). Die
+Stand: R2-2026-10-29.136h — **alles aus Abschnitt E ist GEBAUT** (R191–R197). Die
 ausführliche, grafische Fassung dieser Übersicht ist jetzt **DISPLAYS_WEB_UI.pdf**
 (built by tools/make_displays_pdf.py); diese MD bleibt die Arbeits-Kurzfassung.
 
@@ -190,6 +190,23 @@ sprachen immer perfekt Klipper-Deutsch).
 7. **Web-UI** — GEBAUT (R196): tools/menu_json_export.py + web/r2_menu.py (Moonraker:
    /server/r2_menu/tree|status|refresh) + web/index.html (LCD-Navigation, eingebettetes
    JSON als Fallback). Details + Installation: DISPLAYS_WEB_UI.pdf Kap. 2.
+
+**R209 (.136h):** Feldlog .136g: Seite lädt, aber „main_" im Menübaum und
+jeder Klick tot. DREI gestapelte Seiten-Bugs, alle von dem neuen
+Integrationstest T8 gefunden (echte Seite × echte Endpoint-Antwort):
+(1) UR-BUG seit R201: der JSON-Embed ersetzte nur den Marker, ließ aber
+das ` null;` der Platzhalterzeile stehen → `EMBEDDED_MENU_JSON = {...}
+null;` = JavaScript-SYNTAXFEHLER → das Seiten-Skript lief in KEINEM
+Browser je (kein Handler, kein Render, kein Fallback); (2) Moonrakers
+`{"result":…}`-Envelope wurde nie ausgepackt → DOC.tree undefined;
+(3) pollLive() startete synchron vor loadDoc() → LIVE noch false →
+Live-Werte fragten NIE ab. Fixes: Embed härtet beide Zweige (frisst das
+verwaiste null), Seite packt den Envelope aus + Form-Check, pollLive
+startet nach erfolgreichem loadDoc. T8 parst und führt fortan die KOMPLETTE
+ausgelieferte Seite in node aus (DOM-/fetch-Stubs, Envelope inklusive)
+— gegen die echte Komponenten-Antwort und den Embedded-Fallback.
+Feld-Bug-Klasse #16: Schnittstellen-Vertragsbruch — jede Seite grün
+gegen ihre eigenen Mocks, nur das Paar wurde nie zusammen getestet.
 
 **R208 (.136g):** Feldlog .136f: „schon beim Öffnen der Seite" 403, auch
 Inkognito — nginx (www-data) konnte die Seite unter /home/pi NICHT LESEN

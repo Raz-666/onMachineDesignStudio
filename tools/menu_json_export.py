@@ -165,7 +165,7 @@ def export(cfg_path, out_path=None, page=None):
         counts[n.get('type', '?')] = counts.get(n.get('type', '?'), 0) + 1
     payload = json.dumps(root, ensure_ascii=False, separators=(',', ':'))
     doc = {
-        'generator': 'menu_json_export.py (.136g R208)',
+        'generator': 'menu_json_export.py (.136h R209)',
         'source': os.path.basename(cfg_path),
         'sections': len(sections),
         'counts': counts,
@@ -190,7 +190,17 @@ def export(cfg_path, out_path=None, page=None):
             doc, ensure_ascii=False)
         marker = '/*EMBEDDED_MENU_JSON*/'
         pre = 'const EMBEDDED_MENU_JSON = '
+        # R209 (.136h field log): the ORIGINAL template line was
+        #   const EMBEDDED_MENU_JSON = /*EMBEDDED_MENU_JSON*/ null;
+        # and the marker branch below replaced ONLY the marker - leaving
+        # '{...} null;' = a JavaScript SYNTAX ERROR. The page's script
+        # never executed in ANY browser since R201 (.136): menu stuck at
+        # '__main', every click dead. Both branches now swallow the stray
+        # ' null' token, and r197 T8 parses the WHOLE shipped script (node)
+        # so a broken page can never ship again.
         if marker in html:
+            html = html.replace(marker + ' null', json.dumps(
+                doc, ensure_ascii=False), 1)
             html = html.replace(marker, json.dumps(doc, ensure_ascii=False))
         elif pre in html:
             i = html.index(pre) + len(pre)
@@ -198,6 +208,11 @@ def export(cfg_path, out_path=None, page=None):
                 _doc, j = json.JSONDecoder().raw_decode(html, i)
             except ValueError:
                 raise SystemExit('%s: embedded JSON does not parse' % page)
+            k = j
+            while k < len(html) and html[k] in ' \t':
+                k += 1
+            if html[k:k + 5] == ' null':
+                j = k + 5            # eat the stray placeholder null
             html = html[:i] + json.dumps(doc, ensure_ascii=False) + html[j:]
         else:
             raise SystemExit('%s: no %s placeholder' % (page, marker))
