@@ -1,6 +1,6 @@
 # R2-D2 rundum: Displays, Drucker, Nozzles — und die Test-Stufen
 
-Stand: R2-2026-10-29.136d — **alles aus Abschnitt E ist GEBAUT** (R191–R197). Die
+Stand: R2-2026-10-29.136e — **alles aus Abschnitt E ist GEBAUT** (R191–R197). Die
 ausführliche, grafische Fassung dieser Übersicht ist jetzt **DISPLAYS_WEB_UI.pdf**
 (built by tools/make_displays_pdf.py); diese MD bleibt die Arbeits-Kurzfassung.
 
@@ -190,6 +190,19 @@ sprachen immer perfekt Klipper-Deutsch).
 7. **Web-UI** — GEBAUT (R196): tools/menu_json_export.py + web/r2_menu.py (Moonraker:
    /server/r2_menu/tree|status|refresh) + web/index.html (LCD-Navigation, eingebettetes
    JSON als Fallback). Details + Installation: DISPLAYS_WEB_UI.pdf Kap. 2.
+
+**R206 (.136e):** Feldlog .136d: „web ui sagt 403 forbidden" — Moonraker
+lehnt jede Anfrage mit unbekanntem Origin-Header ab; Browser senden bei
+JEDEM Befehl-POST einen Origin (GETs keinen) → Live-Werte kamen an, aber
+jeder Button starb (schon das „kann da nix weiter machen" von .136b).
+Zusätzlich: update.sh syncte die Moonraker-Extension nie — der R204-Fix
+erreichte den Pi gar nicht. Fixes: Origin-Strip am nginx-Proxy + eigener
+CSRF-Wächter in der Site-Datei (fremde Origins → 403 von nginx, bevor sie
+den Drucker erreichen), install_web.sh --update-only (update.sh hält die
+Web-LCD ab jetzt bei jedem Update aktuell, NO-OP wenn nicht installiert),
+sudo-fähiges Schreiben der Site (644). End-to-End mit echtem nginx 1.26 +
+Fake-Moonraker bewiesen. Feld-Bug-Klasse #13: Auth-Schicht zwischen Proxy
+und API (+: Code im Zip ist noch lange nicht Code auf dem Pi).
 
 **R205 (.136d):** Feldlog .136c: der Watcher-Check unter sudo zeigte zwei
 zusätzliche „Prozesse“ — das war das sudo+pgrep-Pärchen selbst (pgrep -f

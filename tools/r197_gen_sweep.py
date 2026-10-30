@@ -860,8 +860,13 @@ try:
             capture_output=True, text=True, timeout=120, env=_env203,
             cwd=os.path.join(_cfg203, 'web'))
 
-    _r203 = _run203([])
     _site203 = os.path.join(_ngx203, 'sites-available', 'r2lcd')
+    _r203pre = _run203(['--update-only'])
+    check('T7 update-only: NO-OP when nothing installed (exit 0, says so)',
+          _r203pre.returncode == 0
+          and 'not installed' in _r203pre.stdout
+          and not os.path.exists(_site203), _r203pre.stdout[-160:])
+    _r203 = _run203([])
     _conf_txt203 = open(_conf203).read()
     check('T7 install: exit 0, component copied, section added, '
           'site + symlink, URL printed',
@@ -877,16 +882,32 @@ try:
           _r203b.returncode == 0
           and open(_conf203).read().count('[r2_menu]') == 1
           and 'already' in _r203b.stdout)
+    _site_txt203 = open(_site203).read()
+    check('T7 site: R206 CSRF guard + Origin strip in BOTH proxy locations',
+          _site_txt203.count('proxy_set_header Origin "";') == 2
+          and _site_txt203.count('if ($r2_csrf_bad) { return 403; }') == 2
+          and 'map "$http_origin|$http_host" $r2_csrf_bad' in _site_txt203
+          and 'proxy_set_header Host $http_host;' in _site_txt203,
+          _site_txt203[:160])
     _r203s = _run203(['--status'])
     check('T7 status: reports component + section + URL port',
           _r203s.returncode == 0 and '[section ok]' in _r203s.stdout
           and '7126' in _r203s.stdout)
+    open(os.path.join(_comp203, 'r2_menu.py'), 'w').write('STALE\n')
+    _r203uo = _run203(['--update-only'])
+    check('T7 update-only: refreshes an EXISTING install (component restored)',
+          _r203uo.returncode == 0 and 'refresh' in _r203uo.stdout
+          and open(os.path.join(_comp203, 'r2_menu.py')).read()
+          == open(os.path.join(REPO, 'web', 'r2_menu.py')).read(),
+          _r203uo.stdout[-160:])
     _r203u = _run203(['--uninstall'])
     check('T7 uninstall: site + section + component all removed',
           _r203u.returncode == 0
           and not os.path.exists(_site203)
           and '[r2_menu]' not in open(_conf203).read()
           and not os.path.exists(os.path.join(_comp203, 'r2_menu.py')))
+    check('T7 update.sh syncs the web-LCD on every update (--update-only)',
+          '--update-only' in open(os.path.join(REPO, 'update.sh')).read())
 finally:
     _sh203_shutil.rmtree(_t203, ignore_errors=True)
 

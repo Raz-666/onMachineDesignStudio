@@ -393,6 +393,24 @@ if [ -n "${BUILT}" ]; then
     fi
 fi
 
+# --- 6b) web-LCD: refresh an EXISTING install (R206) -----------------------
+# Field log .136d ("web ui sagt 403 forbidden") had TWO stacked causes:
+#   (1) Moonraker answers 403 to any request whose Origin header it does
+#       not know - browsers send Origin on EVERY command POST (same-origin
+#       GETs carry none: the live values worked, every button died since
+#       .136b). The refreshed nginx site strips Origin at the proxy and
+#       adds its own browser-CSRF guard.
+#   (2) update.sh never synced web/r2_menu.py into moonraker's
+#       components/ - the .136b installer ran once, so later extension
+#       fixes (the R204 slim query!) never reached the Pi.
+# install_web.sh --update-only fixes both - and is a clean NO-OP when no
+# web-LCD is installed (this never force-installs anything).
+if [ -f "${DIR}/web/install_web.sh" ]; then
+    if ! bash "${DIR}/web/install_web.sh" --update-only; then
+        echo "[!] web-LCD refresh failed - run:  bash ${DIR}/web/install_web.sh"
+    fi
+fi
+
 # --- 7) hint: the environment wizard --------------------------------------------------
 if [ -f "${DIR}/setup.sh" ]; then
     echo "[i] environment wizard available (zram vs SD-swap, optional services like"

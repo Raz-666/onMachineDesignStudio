@@ -19,6 +19,24 @@
 #
 #  OPTIONS:   --uninstall    remove everything this script created
 #             --status       show what is installed, do nothing
+#             --update-only  refresh an EXISTING install (update.sh calls
+#                            this after every package update); exits 0 as a
+#                            no-op when no web-LCD is installed here
+
+#  R206 (.136e field fix "403 Forbidden") - two stacked causes, both fixed:
+#    (1) Moonraker answers 403 to every request whose Origin header it does
+#        not know - browsers send Origin on ALL command POSTs (same-origin
+#        GETs carry none: the live values worked, every button died since
+#        .136b). The nginx site now strips Origin at the proxy AND takes
+#        over the browser-CSRF check itself (map at the top of the site
+#        file: no Origin or same-origin passes, foreign websites get 403
+#        before they ever reach the printer).
+#    (2) update.sh never synced web/r2_menu.py into moonraker's
+#        components/ - the installer ran once, later extension fixes (the
+#        R204 slim query!) never reached the Pi. --update-only refreshes
+#        component + nginx site on every package update.
+#    Site file + symlink are written via sudo when /etc/nginx is not
+#    user-writable.
 #
 #  OVERRIDES (for tests / exotic setups):
 #             R2_MOONRAKER_DIR  R2_MOONRAKER_CONF  R2_NGINX_SITES
@@ -34,6 +52,7 @@ USER_HOME="${HOME:-/home/pi}"
 MODE="install"
 [ "${1:-}" = "--uninstall" ] && MODE="uninstall"
 [ "${1:-}" = "--status" ] && MODE="status"
+[ "${1:-}" = "--update-only" ] && MODE="update-only"
 
 # ---------- locate the pieces (defaults first, env overrides, common paths) ----------
 MOON_DIR="${R2_MOONRAKER_DIR:-}"
@@ -77,8 +96,12 @@ if [ "${MODE}" = "status" ]; then
     echo "config    : ${MR_CONF:-not found} $([ -f "${MR_CONF:-/nonexistent}" ] && grep -q '^\[r2_menu\]' "${MR_CONF}" 2>/dev/null && echo '[section ok]' || echo '[no section]')"
     echo "nginx     : ${SITE_FILE} $([ -f "${SITE_FILE}" ] && echo '[ok]' || echo '[missing]')"
     if [ -f "${SITE_FILE}" ]; then
-        P="$(sed -n 's/.*listen \([0-9]*\).*/\1/p' "${SITE_FILE}" | head -1)"
+        _ST="$(cat "${SITE_FILE}" 2>/dev/null || sudo cat "${SITE_FILE}" 2>/dev/null)"
+        P="$(sed -n 's/.*listen \([0-9]*\).*/\1/p' <<<"${_ST}" | head -1)"
         echo "URL       : http://<this-pi>:${P:-?}/r2lcd/"
+        grep -q 'r2_csrf_bad' <<<"${_ST}" \
+            && echo "CSRF guard: [ok] (R206+, Origin stripped at the proxy)" \
+            || echo "CSRF guard: [old site file - re-run this installer]"
     fi
     exit 0
 fi
@@ -87,7 +110,8 @@ fi
 if [ "${MODE}" = "uninstall" ]; then
     RM_ANY=0
     if [ -e "${SITE_LINK}" ] || [ -e "${SITE_FILE}" ]; then
-        rm -f "${SITE_LINK}" "${SITE_FILE}"
+        if [ -w "${NGX_EN}" ]; then rm -f "${SITE_LINK}"; else sudo rm -f "${SITE_LINK}"; fi
+        if [ -w "${NGX_SITES}" ]; then rm -f "${SITE_FILE}"; else sudo rm -f "${SITE_FILE}"; fi
         echo "[ok] nginx site removed (${SITE_FILE})"
         if [ -z "${R2_NO_SERVICES:-}" ] && command -v nginx >/dev/null 2>&1 \
            && [ -d "${NGX_EN}" ]; then
@@ -109,6 +133,20 @@ if [ "${MODE}" = "uninstall" ]; then
     fi
     [ "${RM_ANY}" = "1" ] || echo "[i] nothing installed - nothing to remove"
     exit 0
+fi
+
+# ---------- update-only (used by update.sh): refresh when installed -------
+# Never force-installs: this mode is a NO-OP (exit 0) when no web-LCD
+# install exists - the web-LCD stays strictly opt-in.
+if [ "${MODE}" = "update-only" ]; then
+    if [ ! -f "${SITE_FILE}" ] && [ ! -f "${COMP_DIR}/r2_menu.py" ] \
+       && ! grep -q '^\[r2_menu\]' "${MR_CONF:-/nonexistent}" 2>/dev/null; then
+        echo "[i] web-LCD not installed here - nothing to refresh"
+        echo "    (to add it:  bash $0)"
+        exit 0
+    fi
+    echo "[i] web-LCD install detected - refreshing component + nginx site"
+    # fall through into the regular (idempotent) install flow below
 fi
 
 # ---------- install: sanity ----------
@@ -159,14 +197,38 @@ port_free() {          # /dev/tcp probe: connects = busy
 }
 PORT=""
 if [ -f "${SITE_FILE}" ]; then
-    PORT="$(sed -n 's/.*listen \([0-9]*\).*/\1/p' "${SITE_FILE}" | head -1)"
+    _SITE_TXT="$(cat "${SITE_FILE}" 2>/dev/null \
+                 || sudo cat "${SITE_FILE}" 2>/dev/null)"
+    PORT="$(sed -n 's/.*listen \([0-9]*\).*/\1/p' <<<"${_SITE_TXT}" | head -1)"
+    if [ -z "${PORT}" ]; then
+        echo "[!] cannot read the existing site file (${SITE_FILE}) - not touching it."
+        echo "    fix permissions and re-run:  sudo chmod 644 ${SITE_FILE}"
+        exit 1
+    fi
     echo "[ok] nginx site already present (port ${PORT}) - updating file"
 else
     for p in ${PORTS}; do port_free "$p" && PORT="$p" && break; done
     [ -n "${PORT}" ] || { echo "[!] no free port in ${PORTS}"; exit 1; }
 fi
-cat > "${SITE_FILE}" <<EOF
+# R206: the CSRF map + Origin strip live in the site file itself so the
+# guard is refreshed together with the rest (see header). The template is
+# written to a temp file first, then installed via sudo when /etc/nginx
+# is not user-writable.
+_SITE_TMP="$(mktemp)"
+cat > "${_SITE_TMP}" <<EOF
 # R2-D2 web-LCD (created by web/install_web.sh - remove with --uninstall)
+# R206: the two proxy locations strip the Origin header before Moonraker
+# (Moonraker 403-rejects every request whose Origin it does not know -
+# browsers send Origin on all command POSTs, so every button died while
+# the GET live polls worked). nginx takes over the browser-CSRF check:
+# the map only lets requests pass whose Origin is empty (same-origin GETs,
+# curl, tools) or exactly this site (http://<host> == Host header) - any
+# other website's Origin is answered 403 BEFORE it reaches the printer.
+map "\$http_origin|\$http_host" \$r2_csrf_bad {
+    default                  1;
+    "~^\|"                   0;
+    "~^http://([^|]+)\|\1\$" 0;
+}
 server {
     listen ${PORT};
     location /r2lcd/ {
@@ -174,20 +236,39 @@ server {
         index index.html;
     }
     location /server/ {
+        if (\$r2_csrf_bad) { return 403; }
         proxy_pass http://127.0.0.1:7125;
-        proxy_set_header Host \$host;
+        proxy_set_header Host \$http_host;
+        proxy_set_header Origin "";
     }
     location /printer/ {
+        if (\$r2_csrf_bad) { return 403; }
         proxy_pass http://127.0.0.1:7125;
-        proxy_set_header Host \$host;
+        proxy_set_header Host \$http_host;
+        proxy_set_header Origin "";
     }
 }
 EOF
-mkdir -p "${NGX_EN}"
-ln -sfn "${SITE_FILE}" "${SITE_LINK}"
+if [ -w "${NGX_SITES}" ]; then
+    cp "${_SITE_TMP}" "${SITE_FILE}"
+else
+    sudo cp "${_SITE_TMP}" "${SITE_FILE}"
+    # mktemp creates 0600 - the site file must stay world-readable (status,
+    # port detection and every future refresh read it as the normal user)
+    sudo chmod 644 "${SITE_FILE}"
+fi
+rm -f "${_SITE_TMP}"
+if [ -w "${NGX_EN}" ]; then
+    mkdir -p "${NGX_EN}"
+    ln -sfn "${SITE_FILE}" "${SITE_LINK}"
+else
+    sudo mkdir -p "${NGX_EN}"
+    sudo ln -sfn "${SITE_FILE}" "${SITE_LINK}"
+fi
 if command -v nginx >/dev/null 2>&1 && [ -z "${R2_NO_SERVICES:-}" ]; then
     if ! sudo nginx -t 2>/dev/null; then
-        rm -f "${SITE_LINK}" "${SITE_FILE}"
+        if [ -w "${NGX_EN}" ]; then rm -f "${SITE_LINK}"; else sudo rm -f "${SITE_LINK}"; fi
+        if [ -w "${NGX_SITES}" ]; then rm -f "${SITE_FILE}"; else sudo rm -f "${SITE_FILE}"; fi
         echo "[!] nginx rejected the config (nginx -t failed) - site rolled back,"
         echo "    your existing setup is untouched. Open an issue with 'nginx -t' output."
         exit 1
