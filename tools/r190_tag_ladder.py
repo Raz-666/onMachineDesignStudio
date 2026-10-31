@@ -284,10 +284,18 @@ for i in range(1, 5):
 L += ['M107', 'PRINT_END']
 _, txt, fi = _run(D, 'custom_watch.gcode', L)
 _cr190 = [t for t in fi.split() if t.startswith('CUSTOMRES=')]
-check('L4 CUSTOM watch: unknown vocabulary + wall geometry -> WALL-OUTER '
-      '(never a wall at infill speed), CUSTOMRES books every block',
-      _cr190 and int(_cr190[0].split('=')[1]) >= 1
-      and 'WALL-OUTER' in fi, fi[:110])
+# R213: no blanket wall fallback anymore - the wall-shaped unknown block
+# gets its own numbered slot (a mis-read bridge must not inherit wall
+# speed). The 4 identical layers fuse into ONE group C1.
+_cg190 = [t for t in fi.split() if t.startswith('CUSTOMGROUPS=')]
+check('L4 CUSTOM watch: unknown vocabulary + wall geometry -> numbered '
+      'slot C1 (R213: NEVER blanket WALL-OUTER - a bridge mis-read as a '
+      'wall would print too fast), CUSTOMRES books every block, identical '
+      'layers share one group',
+      _cr190 and int(_cr190[0].split('=')[1]) == 4
+      and _cg190 and _cg190[0] == 'CUSTOMGROUPS=C1'
+      and 'TYPES=C1' in fi
+      and 'WALL-OUTER' not in fi, fi[:110])
 
 # =================== L5: position logic on GENERATOR output ==================
 sys.path.insert(0, HERE)

@@ -49,7 +49,8 @@ Z_OFFSET_APPLY_ENDSTOP Z_OFFSET_APPLY_PROBE
 
 # documented tokens that are VALUES / keys / name suffixes, not commands
 DOC_ONLY = set('''BRIM BRIDGE FILL SKIN SKIRT SUPPORT RETAG MAXRATE TYPE_MAP
-_TX'''.split())
+CUSTOMGROUPS CUSTOMRES CUSTOMBLOCKS
+_TX'''.split())   # CUSTOM*: _FILE_INFO keys (R213), not macros
 
 findings = []
 

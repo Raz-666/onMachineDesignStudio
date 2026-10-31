@@ -3910,7 +3910,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.133) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-30.136k'", repr(_v66)))
+    _v66 == "'R2-2026-10-30.136l'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -7968,8 +7968,8 @@ tests.append(('R95 _FILE_INFO: small perimeter speed/accel from the config heade
     'VARIABLE=file_speed_small VALUE=20.0' in out
     and 'VARIABLE=file_accel_small VALUE=2500.0' in out, out[:200]))
 _f95all = open('macros/08_print_start_stop.cfg', encoding='utf-8').read()
-tests.append(('R95 08 cfg: absent-feature check runs over all 16 codes',
-    _f95all.count("'overhangperim','internalbridge','primetower','custom']") >= 1, ''))
+tests.append(('R95 08 cfg: absent-feature check runs over all 25 codes (16 + C1..C9)',
+    _f95all.count("'overhangperim','internalbridge','primetower','custom','c1','c2','c3','c4','c5','c6','c7','c8','c9']") >= 1, ''))
 
 # --- _FILE_INFO_RESET wipes the new vars too ---
 out = render(get_body('macros/08_print_start_stop.cfg', '_FILE_INFO_RESET'), {})
@@ -10938,19 +10938,21 @@ tests.append(('R112 cross-check: reset list has no undeclared variables',
 # the 17 feature codes are spelled identically everywhere they are listed
 _codes112 = ('wallouter','wallinner','infillsparse','infillsolid','surfacetop',
              'surfacebottom','bridge','gaps','support','ironing','skirt','brim',
-             'overhangperim','internalbridge','primetower','custom','travel')
+             'overhangperim','internalbridge','primetower','custom','travel',
+             'c1','c2','c3','c4','c5','c6','c7','c8','c9')
 _fcodes_mismatch = []
 for _f112 in ['macros/07_start_confirm.cfg', 'macros/10_live_tuning.cfg',
               'macros/05_materials.cfg']:
     _src112 = open(_f112).read()
-    _found112 = _re112c.search(r"\[('wallouter'.*?'travel')\]", _src112, _re112c.S)
+    # R213: the lists grew C1..C9 tails - match to the closing bracket
+    _found112 = _re112c.search(r"\[[('](wallouter'[^\]]*)]", _src112, _re112c.S)
     if not _found112:
         _fcodes_mismatch.append(_f112 + ': no list')
     else:
         _got112 = [c.strip().strip("'") for c in _found112.group(1).split(',')]
         if _got112 != list(_codes112):
             _fcodes_mismatch.append('%s: %s' % (_f112, _got112[:4]))
-tests.append(('R112 cross-check: the 17 feature codes are identical in 07/10/05',
+tests.append(('R112 cross-check: the 26 feature codes (16 + travel + C1..C9) are identical in 07/10/05',
     not _fcodes_mismatch, _fcodes_mismatch))
 
 # ================= R115: fan HOLD + start-dialog idle guard + feature PA =================
@@ -11021,8 +11023,12 @@ tests.append(('R115/R174c frame preset load: a preset without bot_l leaves the '
 _lcd115 = open('menus/lcd_menues.cfg').read()
 _pp_pa115 = [l for l in _lcd115.split(chr(10))
              if l.startswith('[menu __main __preprint __feat __') and l.endswith('__pa]')]
-tests.append(('R115 LCD: 16 feature-PA inputs in Pre-Print > Features',
-    len(_pp_pa115) == 16, 'counted %d' % len(_pp_pa115)))
+tests.append(('R115 LCD: 25 feature-PA inputs in Pre-Print > Features (16 + C1..C9)',
+    len(_pp_pa115) == 25, 'counted %d' % len(_pp_pa115)))
+_lv_pa115 = [l for l in _lcd115.split(chr(10))
+             if l.startswith('[menu __main __live __feat __') and l.endswith('__pa]')]
+tests.append(('R213 LCD: 25 feature-PA inputs in Live > Features too (16 + C1..C9)',
+    len(_lv_pa115) == 25, 'counted %d' % len(_lv_pa115)))
 # R175b: Pause is the LAST live entry now (Exclude right before it) - the
 # slice runs to whatever top-level menu follows the live region
 _pause115 = _lcd115[_lcd115.index('[menu __main __live __pause]'):]
@@ -13787,6 +13793,115 @@ _ADDED135 = [
  '__main __system __fc __fc5',
  '__main __system __fc __scan',
  '__main __temp',
+ '__main __preprint __feat __cu __c1',
+ '__main __preprint __feat __cu __c1 __acc',
+ '__main __preprint __feat __cu __c1 __flw',
+ '__main __preprint __feat __cu __c1 __on',
+ '__main __preprint __feat __cu __c1 __pa',
+ '__main __preprint __feat __cu __c1 __spd',
+ '__main __preprint __feat __cu __c2',
+ '__main __preprint __feat __cu __c2 __acc',
+ '__main __preprint __feat __cu __c2 __flw',
+ '__main __preprint __feat __cu __c2 __on',
+ '__main __preprint __feat __cu __c2 __pa',
+ '__main __preprint __feat __cu __c2 __spd',
+ '__main __preprint __feat __cu __c3',
+ '__main __preprint __feat __cu __c3 __acc',
+ '__main __preprint __feat __cu __c3 __flw',
+ '__main __preprint __feat __cu __c3 __on',
+ '__main __preprint __feat __cu __c3 __pa',
+ '__main __preprint __feat __cu __c3 __spd',
+ '__main __preprint __feat __cu __c4',
+ '__main __preprint __feat __cu __c4 __acc',
+ '__main __preprint __feat __cu __c4 __flw',
+ '__main __preprint __feat __cu __c4 __on',
+ '__main __preprint __feat __cu __c4 __pa',
+ '__main __preprint __feat __cu __c4 __spd',
+ '__main __preprint __feat __cu __c5',
+ '__main __preprint __feat __cu __c5 __acc',
+ '__main __preprint __feat __cu __c5 __flw',
+ '__main __preprint __feat __cu __c5 __on',
+ '__main __preprint __feat __cu __c5 __pa',
+ '__main __preprint __feat __cu __c5 __spd',
+ '__main __preprint __feat __cu __c6',
+ '__main __preprint __feat __cu __c6 __acc',
+ '__main __preprint __feat __cu __c6 __flw',
+ '__main __preprint __feat __cu __c6 __on',
+ '__main __preprint __feat __cu __c6 __pa',
+ '__main __preprint __feat __cu __c6 __spd',
+ '__main __preprint __feat __cu __c7',
+ '__main __preprint __feat __cu __c7 __acc',
+ '__main __preprint __feat __cu __c7 __flw',
+ '__main __preprint __feat __cu __c7 __on',
+ '__main __preprint __feat __cu __c7 __pa',
+ '__main __preprint __feat __cu __c7 __spd',
+ '__main __preprint __feat __cu __c8',
+ '__main __preprint __feat __cu __c8 __acc',
+ '__main __preprint __feat __cu __c8 __flw',
+ '__main __preprint __feat __cu __c8 __on',
+ '__main __preprint __feat __cu __c8 __pa',
+ '__main __preprint __feat __cu __c8 __spd',
+ '__main __preprint __feat __cu __c9',
+ '__main __preprint __feat __cu __c9 __acc',
+ '__main __preprint __feat __cu __c9 __flw',
+ '__main __preprint __feat __cu __c9 __on',
+ '__main __preprint __feat __cu __c9 __pa',
+ '__main __preprint __feat __cu __c9 __spd',
+ '__main __preprint __feat __cu __how',
+ '__main __live __feat __cu __c1',
+ '__main __live __feat __cu __c1 __acc',
+ '__main __live __feat __cu __c1 __flw',
+ '__main __live __feat __cu __c1 __on',
+ '__main __live __feat __cu __c1 __pa',
+ '__main __live __feat __cu __c1 __spd',
+ '__main __live __feat __cu __c2',
+ '__main __live __feat __cu __c2 __acc',
+ '__main __live __feat __cu __c2 __flw',
+ '__main __live __feat __cu __c2 __on',
+ '__main __live __feat __cu __c2 __pa',
+ '__main __live __feat __cu __c2 __spd',
+ '__main __live __feat __cu __c3',
+ '__main __live __feat __cu __c3 __acc',
+ '__main __live __feat __cu __c3 __flw',
+ '__main __live __feat __cu __c3 __on',
+ '__main __live __feat __cu __c3 __pa',
+ '__main __live __feat __cu __c3 __spd',
+ '__main __live __feat __cu __c4',
+ '__main __live __feat __cu __c4 __acc',
+ '__main __live __feat __cu __c4 __flw',
+ '__main __live __feat __cu __c4 __on',
+ '__main __live __feat __cu __c4 __pa',
+ '__main __live __feat __cu __c4 __spd',
+ '__main __live __feat __cu __c5',
+ '__main __live __feat __cu __c5 __acc',
+ '__main __live __feat __cu __c5 __flw',
+ '__main __live __feat __cu __c5 __on',
+ '__main __live __feat __cu __c5 __pa',
+ '__main __live __feat __cu __c5 __spd',
+ '__main __live __feat __cu __c6',
+ '__main __live __feat __cu __c6 __acc',
+ '__main __live __feat __cu __c6 __flw',
+ '__main __live __feat __cu __c6 __on',
+ '__main __live __feat __cu __c6 __pa',
+ '__main __live __feat __cu __c6 __spd',
+ '__main __live __feat __cu __c7',
+ '__main __live __feat __cu __c7 __acc',
+ '__main __live __feat __cu __c7 __flw',
+ '__main __live __feat __cu __c7 __on',
+ '__main __live __feat __cu __c7 __pa',
+ '__main __live __feat __cu __c7 __spd',
+ '__main __live __feat __cu __c8',
+ '__main __live __feat __cu __c8 __acc',
+ '__main __live __feat __cu __c8 __flw',
+ '__main __live __feat __cu __c8 __on',
+ '__main __live __feat __cu __c8 __pa',
+ '__main __live __feat __cu __c8 __spd',
+ '__main __live __feat __cu __c9',
+ '__main __live __feat __cu __c9 __acc',
+ '__main __live __feat __cu __c9 __flw',
+ '__main __live __feat __cu __c9 __on',
+ '__main __live __feat __cu __c9 __pa',
+ '__main __live __feat __cu __c9 __spd',
 ]
 _gone135 = sorted(set(_gold135) - set(_now135))
 _new135 = sorted(set(_now135) - set(_gold135))
@@ -14949,14 +15064,21 @@ tests.append(('R168/R174b Custom Code submenu FILLED: the toggle is ALWAYS '
     _cu168[:90]))
 _kids168 = sorted(k for k in _menus168
                   if k.startswith('__main __live __feat __cu '))
-tests.append(('R168 Custom Code submenu: all 6 children (on/fs/spd/flw/'
-              'acc/pa) - "nothing in it" is history',
-    _kids168 == ['__main __live __feat __cu __acc',
-                 '__main __live __feat __cu __flw',
-                 '__main __live __feat __cu __fs',
-                 '__main __live __feat __cu __on',
-                 '__main __live __feat __cu __pa',
-                 '__main __live __feat __cu __spd'], str(_kids168)))
+_kids168x = ['__main __live __feat __cu __acc',
+              '__main __live __feat __cu __flw',
+              '__main __live __feat __cu __fs',
+              '__main __live __feat __cu __on',
+              '__main __live __feat __cu __pa',
+              '__main __live __feat __cu __spd']
+for _k213 in range(1, 10):
+    _kids168x.append('__main __live __feat __cu __c%d' % _k213)
+    for _sub213 in ('__acc', '__flw', '__on', '__pa', '__spd'):
+        _kids168x.append('__main __live __feat __cu __c%d %s' % (_k213, _sub213))
+tests.append(('R168/R213 Custom Code submenu: the 6 classic children '
+              '(on/fs/spd/flw/acc/pa) - "nothing in it" is history - PLUS '
+              'the 9 numbered C-slots with 5 regulators each (live tunable '
+              'while that block prints)',
+    _kids168 == sorted(_kids168x), str(_kids168[:8])))
 for _f168, _n168 in (('__oh', 'Overhang'), ('__ib', 'Internal Bridge'),
                      ('__pt', 'Prime Tower')):
     _k = sorted(k for k in _menus168
@@ -15064,11 +15186,19 @@ tests.append(('R174c LCD: no artificial limit - 8 slots per page flip with '
     _lcd174c.count('_preset_page|default(0)|int)*8+') == 13 * 8,
     str(_lcd174c.count('_preset_page|default(0)|int)*8+'))))
 _save174c3 = render(_eng174c, {'ACTION': 'save', 'GEN': 'texture', 'NAME': 'GRID'})
-tests.append(('R174c texture preset: SAVE captures the texture settings '
-    '(mode/thick/density/pattern/scale/amp/dir)',
-    "SAVE_VARIABLE VARIABLE=texture_user_presets VALUE=\"{'GRID':{" in _save174c3
+tests.append(('R174c/R213 texture preset: SAVE captures the texture settings '
+    '(mode/thick/density/pattern/scale/amp/dir) under a NUMBERED name - '
+    'grid01, grid02, wave01 (field wish: the old GRID, GRID_2 scheme hid '
+    'how many exist)',
+    "SAVE_VARIABLE VARIABLE=texture_user_presets VALUE=\"{'GRID01':{" in _save174c3
     and 'texture_mode' in _save174c3 and 'texture_nonce' not in _save174c3,
     _save174c3[:100]))
+save_vars.update({'texture_user_presets': {'GRID01': {'texture_mode': 'BUMPS'}}})
+_save174c3b = render(_eng174c, {'ACTION': 'save', 'GEN': 'texture', 'NAME': 'GRID'})
+tests.append(('R213 texture preset numbering: the second GRID save never '
+    'overwrites - the running number moves on (GRID02)',
+    "VALUE=\"{'GRID01':{'texture_mode':'BUMPS'},'GRID02':{" in _save174c3b,
+    _save174c3b[:120]))
 save_vars.update({'frame_user_presets': {'P0': {'frame_w': 1.0},
                                         'P1': {'frame_w': 2.0}}})
 _info174c = render(_eng174c, {'ACTION': 'info', 'GEN': 'frame'})
@@ -16052,14 +16182,18 @@ for _l180 in _L180:
 open(_g180b, 'w').write('\n'.join(_L180b) + '\n')
 _s180b = _pp.process(_g180b)
 _h180b = open(_g180b).read()
-tests.append(('R181: unknown vocabulary over WALL geometry resolves to '
-    'WALL-OUTER (CUSTOMRES in _FILE_INFO, summary.custom_resolved, no '
-    'CUSTOM markers left) - the safety default: never infill speed on a '
-    'wall',
+tests.append(('R181/R213: unknown vocabulary over WALL geometry gets a '
+    'NUMBERED slot C1 - never the old WALL-OUTER blanket fallback (a '
+    'mis-read bridge would print too fast). The block repeats on every '
+    'layer, so all four fuse into ONE group; CUSTOMRES + CUSTOMGROUPS in '
+    '_FILE_INFO; real walls from vocabulary stay WALL-OUTER',
     'CUSTOMRES=4' in _h180b
     and _s180b.get('custom_resolved') == 4
+    and _s180b.get('custom_groups') == ['C1']
+    and 'CUSTOMGROUPS=C1' in _h180b
+    and _h180b.count('APPLY_TYPE TYPE=C1') == 4
     and _h180b.count('APPLY_TYPE TYPE=CUSTOM') == 0
-    and _h180b.count('APPLY_TYPE TYPE=WALL-OUTER') >= 6, ''))
+    and _h180b.count('APPLY_TYPE TYPE=WALL-OUTER') == 4, ''))
 _g180x = os.path.join(_d180, 'xpurge180.gcode')
 _L180x = ['M82', 'G90', 'G92 E0']
 _e180x = 0.0
@@ -16077,13 +16211,18 @@ _L180x.append('PRINT_END')
 open(_g180x, 'w').write('\n'.join(_L180x) + '\n')
 _s180x = _pp.process(_g180x)
 _h180x = open(_g180x).read()
-tests.append(('R181: the TRUE remainder - unknown vocabulary with NO wall '
-    'character (a purge cross: no loop, no hatch, no side-void wall) stays '
-    'CUSTOM, counted honestly, no phantom resolution',
-    'CUSTOMBLOCKS=4' in _h180x
-    and _s180x.get('custom_blocks') == 4
-    and _h180x.count('APPLY_TYPE TYPE=CUSTOM') == 4
-    and 'CUSTOMRES' not in _h180x, ''))
+tests.append(('R181/R213: the TRUE remainder - unknown vocabulary with NO '
+    'wall character (a purge cross: no loop, no hatch, no side-void wall) '
+    'gets a numbered slot too - it CARRIES extrusion values (speed! a '
+    'purge can be slowed or sped), and the four identical crosses fuse '
+    'into ONE group C1 (R213 merge rule: identical value-carrying blocks '
+    'share their number, no 1000-custom-feature flood)',
+    'CUSTOMRES=4' in _h180x
+    and _s180x.get('custom_resolved') == 4
+    and _s180x.get('custom_groups') == ['C1']
+    and 'CUSTOMGROUPS=C1' in _h180x
+    and _h180x.count('APPLY_TYPE TYPE=C1') == 4
+    and _h180x.count('APPLY_TYPE TYPE=CUSTOM') == 0, ''))
 _g180c = os.path.join(_d180, 'kreis.gcode')
 _L180c = ['M82', 'G90', 'G92 E0']
 import math as _m180
@@ -16511,12 +16650,12 @@ tests.append(('R185 current-only manual: no version-history appendix, no era '
     '## Appendix D' not in _m185 and 'Version history' not in _m185
     and _re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185) is None
     and _re2.search(r'\bR1[0-9][0-9]\b', _m185) is None
-    and 'The nine fonts' in _m185 and 'R2-2026-10-30.136k' in _m185,
+    and 'The nine fonts' in _m185 and 'R2-2026-10-30.136l' in _m185,
     'appendixD=%s eratags=%s rtags=%s nine=%s v132=%s' % (
         '## Appendix D' in _m185,
         bool(_re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185)),
         bool(_re2.search(r'\bR1[0-9][0-9]\b', _m185)),
-        'The nine fonts' in _m185, 'R2-2026-10-30.136k' in _m185)))
+        'The nine fonts' in _m185, 'R2-2026-10-30.136l' in _m185)))
 
 # ================== R184 (.131c field round): the brim air gap EVERYWHERE ==
 # The user asked: does the brim fusing hit our OTHER generators too? Measured

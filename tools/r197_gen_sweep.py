@@ -322,8 +322,8 @@ sys.path.insert(0, os.path.join(REPO, 'tools'))
 import menu_json_export as mje                             # noqa: E402
 doc = mje.export(os.path.join(REPO, 'menus', 'lcd_menues.cfg'),
                  os.path.join(D, 'menu.json'))
-check('T1 export: all 2273 sections in one tree, no orphans',
-      doc['sections'] == 2273 and sum(doc['counts'].values()) == 2273,
+check('T1 export: all 2382 sections in one tree, no orphans',
+      doc['sections'] == 2382 and sum(doc['counts'].values()) == 2382,
       str(doc['counts']))
 
 
@@ -336,7 +336,7 @@ def _walk(n, acc):
 
 _all = _walk(doc['tree'], [])
 check('T1 export: tree node count == sections, depth sane, known ids',
-      len(_all) == 2273
+      len(_all) == 2382
       and any(n['id'] == '__main __start __direct' for n in _all)
       and any(n['id'] == '__main __live' for n in _all))
 
@@ -350,7 +350,7 @@ _emb = json.JSONDecoder().raw_decode(
     _ptxt.split('const EMBEDDED_MENU_JSON = ', 1)[1])[0]
 check('T1 embed: placeholder replaced with valid JSON',
       '/*EMBEDDED_MENU_JSON*/ null' not in _ptxt
-      and _emb['sections'] == 2273)
+      and _emb['sections'] == 2382)
 
 # T2: the moonraker extension with a fake app
 spec = importlib.util.spec_from_file_location(
@@ -451,7 +451,7 @@ import asyncio                                            # noqa: E402
 loop = asyncio.new_event_loop()
 tree_doc = loop.run_until_complete(eps['/server/r2_menu/tree'](FakeReq()))
 check('T2 extension: tree handler serves the export',
-      tree_doc['sections'] == 2273 and 'tree' in tree_doc)
+      tree_doc['sections'] == 2382 and 'tree' in tree_doc)
 st = loop.run_until_complete(eps['/server/r2_menu/status'](FakeReq()))
 check('T2 extension: status handler reports ok + sha',
       st['ok'] and st['sha256'] == tree_doc['sha256'])
@@ -619,6 +619,8 @@ else:
     FIX = {
         'gcode_macro _STATE': {
             'mode': 'printing', 'layer': 42, 'total_layers': 100,
+            'file_fan': 255, 'file_flow': 100.0, 'file_accel': 3000.0,
+            'fc_armed': False, 'fc2_armed': False,
             'current_type': 'WALL-OUTER', 'file_type': 'marked',
             'file_material': 'PLA', 'file_bed': 60, 'file_bed_after': 60,
             'file_hotend_first': 210, 'file_hotend_after': 215,
@@ -716,16 +718,13 @@ else:
             _walk201(c)
 
     _walk201(_doc201['tree'])
+    # R213: FULL coverage - every dynamic name, no sampling. The .136k
+    # field report found 'kryptische Bezeichnungen' in submenus the sample
+    # never visited (format filter, menu.input names, is-tests, select).
     _dyn201 = [i for i in _items201
                if '{' in (i.get('name') or '')
                and '{%' not in i['name'] and '{#' not in i['name']]
-    _sample201 = _dyn201[::max(1, len(_dyn201) // 200)][:200]
-    for _extra201 in (_dyn201[:6]
-                      + [i for i in _dyn201 if 'replace(' in i['name']][:3]
-                      + [i for i in _dyn201 if 'truncate(' in i['name']][:3]
-                      + [i for i in _dyn201 if ' if ' in i['name']][:6]):
-        if _extra201 not in _sample201:
-            _sample201.append(_extra201)
+    _sample201 = _dyn201
 
     _fx204 = set(FIX)
     _lo205 = set(json.load(open(os.path.join(REPO, 'web',
@@ -742,18 +741,49 @@ else:
                       variable_start_string='{', variable_end_string='}',
                       block_start_string='{%', block_end_string='%}',
                       trim_blocks=True, undefined=_CU201)
+    # R213: input items see menu.input (their live value) - the LCD names
+    # show it while editing, the web page now passes it too. The DEFAULT
+    # comes from the item's own input template (evaluated by the page).
+    _harness201d = (_eval_js + '\nconst DATA = jparse('
+                    + _json201.dumps(_json201.dumps(FIX)) + ');\nconst TPL = '
+                    + _json201.dumps([i.get('input') for i in _sample201])
+                    + ';\nconst OUT = TPL.map(t => t ? evalName(t, DATA) '
+                      ': null);\nconsole.log(JSON.stringify(OUT));\n')
+    open('/tmp/r201_eval_testd.js', 'w').write(_harness201d)
+    _r201d = _sp201.run(['node', '/tmp/r201_eval_testd.js'],
+                        capture_output=True, text=True, timeout=120)
+    _mi201 = []
+    if _r201d.returncode == 0:
+        for _k201, _v201 in enumerate(_json201.loads(_r201d.stdout)):
+            if not _v201:
+                _mi201.append(None)
+                continue
+            _f201 = None
+            try:
+                _f201 = float(_v201)
+            except ValueError:
+                _f201 = _v201
+            _mi201.append(_f201)
+    else:
+        _mi201 = [None] * len(_sample201)
+
     _exp201 = []
-    for _it201 in _sample201:
+    for _k201, _it201 in enumerate(_sample201):
         try:
+            _ctx201 = {'printer': FIX, 'params': {}}
+            if _mi201[_k201] is not None:
+                _ctx201['menu'] = {'input': _mi201[_k201]}
             _exp201.append(_env201.from_string(_it201['name']).render(
-                printer=FIX, params={}))
+                **_ctx201))
         except Exception:                                      # noqa: BLE001
             _exp201.append(None)     # jinja itself fails -> page shows raw
 
-    _harness201 = (_eval_js + '\nconst DATA = '
-                   + _json201.dumps(FIX) + ';\nconst TPL = '
+    _harness201 = (_eval_js + '\nconst DATA = jparse('
+                   + _json201.dumps(_json201.dumps(FIX)) + ');\nconst TPL = '
                    + _json201.dumps([i['name'] for i in _sample201])
-                   + ';\nconst OUT = TPL.map(t => evalName(t, DATA));\n'
+                   + ';\nconst MI = ' + _json201.dumps(_mi201)
+                   + ';\nconst OUT = TPL.map((t, k) => '
+                     'evalName(t, DATA, MI[k]));\n'
                      'console.log(JSON.stringify(OUT));\n')
     open('/tmp/r201_eval_test.js', 'w').write(_harness201)
     _r201 = _sp201.run(['node', '/tmp/r201_eval_test.js'],
@@ -768,17 +798,26 @@ else:
         _mm201 = [(e, g, t) for e, g, t in _pairs201
                   if e is not None and e != g]
         check('T-live-eval: page evaluator == jinja LCD truth '
-              '(%d dynamic names, %d rendered by jinja, %d mismatch)'
+              '(%d dynamic names - FULL coverage, %d rendered by jinja, '
+              '%d mismatch)'
               % (len(_sample201),
                  sum(1 for e, _, _ in _pairs201 if e is not None),
                  len(_mm201)),
               not _mm201, str(_mm201[:2])[:300])
+        # R213: the 'kryptische Bezeichnungen' regression - NO dynamic
+        # name may come back raw (null or with leftover braces)
+        _raw201 = [(g, t) for e, g, t in _pairs201
+                   if g is None or ('{' in str(g)) or ('}' in str(g))]
+        check('T-live-eval R213: ZERO raw labels - every dynamic menu '
+              'name renders (the .136k field report: kryptische '
+              'Bezeichnungen in submenus)', not _raw201,
+              str(_raw201[:3])[:300])
 
     # enables: strict where the page knows the answer
     _ens201 = [i for i in _items201
                if i.get('enable') and '{' in i['enable']
                and '{%' not in i['enable'] and '{#' not in i['enable']]
-    _ensample201 = _ens201[::max(1, len(_ens201) // 120)][:120]
+    _ensample201 = _ens201      # R213: full coverage
     _expe201 = []
     for _it201 in _ensample201:
         try:
@@ -787,8 +826,8 @@ else:
             _expe201.append(_o201 == 'True')
         except Exception:                                      # noqa: BLE001
             _expe201.append(None)
-    _harness201e = (_eval_js + '\nconst DATA = '
-                    + _json201.dumps(FIX) + ';\nconst TPL = '
+    _harness201e = (_eval_js + '\nconst DATA = jparse('
+                    + _json201.dumps(_json201.dumps(FIX)) + ');\nconst TPL = '
                     + _json201.dumps([i['enable'] for i in _ensample201])
                     + ';\nconst OUT = TPL.map(t => evalEnable(t, DATA));\n'
                       'console.log(JSON.stringify(OUT));\n')
@@ -803,9 +842,15 @@ else:
         _mme201 = [(e, g) for e, g in zip(_expe201, _gote201)
                    if e is not None and g is not None and e != g]
         check('T-live-eval: enable conditions match the LCD truth '
-              '(%d sampled, %d strict mismatches)'
+              '(%d - full coverage, %d strict mismatches)'
               % (len(_ensample201), len(_mme201)),
               not _mme201, str(_mme201[:3])[:200])
+        # R213: every enable must be DECIDABLE (null = the page can never
+        # hide the row = LCD parity broken in the OTHER direction)
+        _null201 = [g for g in _gote201 if g is None]
+        check('T-live-eval R213: every enable decidable (is-tests, '
+              'select) - null would break the LCD hiding parity',
+              not _null201, '%d undecidable' % len(_null201))
 
     # R210: the SENDER parity - the page's renderGcode vs jinja2 on the
     # SAME gcode bodies (klipper's menu evaluates item gcode before it
@@ -823,8 +868,8 @@ else:
                            if l.strip()])
         except Exception:                                      # noqa: BLE001
             _eg201.append(None)
-    _hg201 = (_eval_js + '\nconst DATA = ' + _json201.dumps(FIX)
-              + ';\nconst G = '
+    _hg201 = (_eval_js + '\nconst DATA = jparse('
+              + _json201.dumps(_json201.dumps(FIX)) + ');\nconst G = '
               + _json201.dumps([i['gcode'] for i in _sg201])
               + ';\nconst OUT = G.map(g => renderGcode(g, DATA, 42));\n'
                 'console.log(JSON.stringify(OUT.map(o => o === null ? '
@@ -1241,7 +1286,8 @@ const setTimeout = (fn, ms) => {
   timers.push({id: ++tid, fn: fn, at: clock + (ms || 0)}); return tid; };
 const clearTimeout = (id) => { const i = timers.findIndex(t => t.id === id);
   if (i >= 0) timers.splice(i, 1); };
-const J = o => ({ok: true, json: async () => ({result: o})});
+const J = o => ({ok: true, json: async () => ({result: o}),
+  text: async () => JSON.stringify({result: o})});   // R213: real API
 const fetch = async (url, opts) => {
   const u = String(url);
   GETS.push(u.split('?')[0]);

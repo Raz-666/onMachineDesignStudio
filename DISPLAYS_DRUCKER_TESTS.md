@@ -1,6 +1,6 @@
 # R2-D2 rundum: Displays, Drucker, Nozzles — und die Test-Stufen
 
-Stand: R2-2026-10-30.136k — **alles aus Abschnitt E ist GEBAUT** (R191–R197). Die
+Stand: R2-2026-10-30.136l — **alles aus Abschnitt E ist GEBAUT** (R191–R197). Die
 ausführliche, grafische Fassung dieser Übersicht ist jetzt **DISPLAYS_WEB_UI.pdf**
 (built by tools/make_displays_pdf.py); diese MD bleibt die Arbeits-Kurzfassung.
 

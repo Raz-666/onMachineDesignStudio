@@ -76,7 +76,7 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-10-30.136k'
+POSTPROC_RELEASE = 'R2-2026-10-30.136l'
 POSTPROC_BUILD = 'R204'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
@@ -17046,12 +17046,15 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
     first_cmd = first_cmd_idx if had_v1 else first_cmd_raw
 
     geom.finish()
-    # R181: resolve unknown vocabulary by the block's OWN geometry. The
-    # watch scanner buffered every CUSTOM block; wall-like blocks become
-    # WALL-OUTER (the safety default - the user's rule: never let a wall
-    # print at infill speed), hatch blocks become infill, and only blocks
-    # without any wall character stay CUSTOM. CUSTOMRES in _FILE_INFO is
-    # the before/after number for the LCD.
+    # R213: NUMBER the unknown vocabulary - no geometry guessing anymore.
+    # The watch scanner buffered every CUSTOM block; each distinct one
+    # (footprint + ink length + speed set) becomes C1..C9, repeats across
+    # layers share their number, blocks without extrusion stay CUSTOM
+    # (nothing to tune -> no settings). CUSTOMRES = blocks placed in a
+    # group, CUSTOMGROUPS lists them for the LCD (Pre-Print > Features >
+    # Custom Code shows one slot per group, hidden when the file lacks
+    # it). The R181 wall fallback is GONE by field decision: a block
+    # classified WALL-OUTER could actually be a BRIDGE - too fast.
     _cres181 = getattr(geom, 'custom_res', {})
     _nres181 = 0
     for _ij181, _f181 in _cres181.items():
@@ -17114,6 +17117,11 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
     # menus can explain it and File check > Retag has a before/after number
     if summary.get('custom_resolved'):
         info.append('CUSTOMRES=%d' % summary['custom_resolved'])
+    _cgrps213 = sorted({v for v in type_at.values()
+                        if re.match(r'^C[1-9]$', str(v))})
+    if _cgrps213:
+        info.append('CUSTOMGROUPS=' + ','.join(_cgrps213))
+        summary['custom_groups'] = _cgrps213
     if custom_blocks:
         info.append('CUSTOMBLOCKS=%d' % custom_blocks)
         summary['custom_blocks'] = custom_blocks
@@ -17554,8 +17562,10 @@ class _GeomScan:
         self._w_ij = None
         self._w_budget = 60000
         self._w_over = False
-        self.custom_res = {}     # comment (i, j) -> feature|None
+        self.custom_res = {}     # comment (i, j) -> 'C1'..'C9'|None (R213)
         self.custom_fstat = {}   # comment (i, j) -> {speed: moves}
+        self._cgroups213 = []    # R213: [(id, signature)] of custom groups
+        self._w_sig213 = None    # R213: [minx,miny,maxx,maxy,len] extruding-only
 
     def set_dia(self, d):
         if d and d > 0.5:
@@ -17582,6 +17592,7 @@ class _GeomScan:
             self._w_over = False
             self.watch = True
             self._w_ij = ij
+            self._w_sig213 = None      # R213: fresh signature per block
             return
         if self.armed:
             self.armed = False
@@ -17617,6 +17628,19 @@ class _GeomScan:
             self.e_run = e if not self.e_rel else self.e_run + e
         dist = math.hypot(x1 - x0, y1 - y0)
         extruding = e is not None and de > 0 and dist > 1e-6
+        # R213: custom-block signature - EXTRUDING moves only. The lead-in
+        # travel differs from layer to layer (wherever the nozzle came
+        # from) and must not split one recurring block into C1/C3/C7.
+        if extruding and self.watch:
+            _w213 = self._w_sig213
+            if _w213 is None:
+                self._w_sig213 = [x0, y0, x1, y1, dist]
+            else:
+                if x0 < _w213[0]: _w213[0] = x0
+                if y0 < _w213[1]: _w213[1] = y0
+                if x1 > _w213[2]: _w213[2] = x1
+                if y1 > _w213[3]: _w213[3] = y1
+                _w213[4] += dist
         # light: volumetric rate (mm3/s) of this move
         if extruding and self.f:
             rate = (self.f / 60.0) * (de / dist) * self.area
@@ -18122,12 +18146,20 @@ class _GeomScan:
             self.armed = False
 
     def _resolve_block(self):
-        """R181: the CUSTOM block ended - decide by its own geometry."""
+        """R213: the CUSTOM block ended - NUMBER it (C1..C9), never
+        classify it. R181 used to resolve wall-like blocks to WALL-OUTER
+        as a 'safety default' - the field reconsidered that: a wall
+        fallback can run an actual BRIDGE too fast. Unknown blocks stay
+        custom, but DISTINCT ones get distinct numbers, so a real feature
+        hiding inside one is separately controllable; blocks that repeat
+        across layers (same footprint + ink length + speed set) share
+        their number - no C1..C1000 explosion. Blocks without any
+        extrusion stay unnumbered: nothing print-relevant, no settings
+        (the field rule: ignore the unimportant ones)."""
         self._close_poly()
         polys = self.polys
         self.polys = []
         ij = self._w_ij
-        over = self._w_over
         self.watch = False
         self._w_ij = None
         self._w_over = False
@@ -18138,78 +18170,40 @@ class _GeomScan:
         if polys:
             for (_ij, s, pts, _pl) in polys:
                 fstat[round(s, 1)] = fstat.get(round(s, 1), 0) + len(pts) - 1
-            if not over:
-                feat = self._classify_block(polys)
+            if self._w_sig213 is not None:
+                _mnx213, _mny213, _mxx213, _mxy213, _len213 = self._w_sig213
+                sig = (len(fstat),
+                       round(_len213, 1),
+                       (round(_mnx213 * 2) / 2.0, round(_mny213 * 2) / 2.0,
+                        round(_mxx213 * 2) / 2.0, round(_mxy213 * 2) / 2.0),
+                       tuple(sorted(fstat)))
+                feat = self._cgroup213(sig)
+        self._w_sig213 = None
         self.custom_res[ij] = feat
         self.custom_fstat[ij] = fstat
 
-    def _classify_block(self, polys):
-        """R181: what IS an unknown-vocabulary block, geometrically?
-        Wall-like (>= 30% of the ink, or >= 10mm, has a void side) ->
-        WALL-OUTER, the safety default. Hatch-dominant -> infill.
-        Only sandwiched walls -> WALL-INNER. No wall character, no hatch
-        -> None: CUSTOM stays (that is what 'truly unknown' means now -
-        non-geometric injections, not walls)."""
-        grid = _LayerBitmap(polys)
-        if not grid.ok:
-            return None
-        total = sum(p[3] for p in polys)
-        if total <= 0:
-            return None
-        loops = []
-        curved = []
-        straight = []
-        for (ij, speed, pts, plen) in polys:
-            chord = math.hypot(pts[-1][0] - pts[0][0],
-                               pts[-1][1] - pts[0][1])
-            if (chord < 1.0 and plen > 3.0) or (
-                    chord / plen <= 0.92 and plen > 8.0
-                    and chord < plen * 0.15
-                    and self._turning(pts) > 5.5):
-                loops.append((pts, plen))
-            elif chord / plen > 0.92:
-                (x0, y0), (x1, y1) = pts[0], pts[-1]
-                if (x1, y1) < (x0, y0):
-                    (x0, y0), (x1, y1) = (x1, y1), (x0, y0)
-                ang = math.degrees(math.atan2(y1 - y0, x1 - x0)) % 180.0
-                buck = int(round(ang / 5.0)) % 36
-                nx, ny = -(y1 - y0), (x1 - x0)
-                ln = math.hypot(nx, ny) or 1.0
-                mx, my = (x0 + x1) / 2.0, (y0 + y1) / 2.0
-                straight.append((buck, (mx * nx + my * ny) / ln, plen))
-            else:
-                curved.append((pts, plen))
-        wall_out = 0.0
-        wall_in = 0.0
-        for (pts, plen) in loops + curved:
-            va, vb, ns = grid.side_ink(pts)
-            if ns < 3:
+    def _cgroup213(self, sig):
+        """R213: map a custom block signature to its C-number. Same
+        footprint (bbox +-1.2 mm per side), same ink length (+-12%%),
+        same polygon count and speed set = the same block on another
+        layer. First appearance opens the group, C1.. in stream order;
+        beyond nine distinct groups everything stays plain CUSTOM (the
+        catch-all - bounded slots keep the menus and overrides sane)."""
+        n, total, bbox, speeds = sig
+        for _g, _gs in self._cgroups213:
+            _gn, _gt, _gb, _gsd = _gs
+            if _gn != n or _gsd != speeds:
                 continue
-            if va >= 0.95 or vb >= 0.95:
-                wall_out += plen
-            else:
-                wall_in += plen
-        hatch_len = 0.0
-        gaps = []
-        groups = {}
-        for (buck, off, plen) in straight:
-            groups.setdefault(buck, []).append((off, plen))
-        for (_buck, items) in groups.items():
-            items.sort()
-            offs = [o for (o, _l) in items]
-            gg = [b - a for a, b in zip(offs, offs[1:])]
-            if len(items) < 3 or not gg or min(gg) <= 0.05:
+            if abs(total - _gt) > max(1.0, 0.12 * _gt):
                 continue
-            hatch_len += sum(l for (_o, l) in items)
-            gaps.extend(gg)
-        if wall_out >= max(0.3 * total, 10.0):
-            return 'WALL-OUTER'
-        if hatch_len >= 0.5 * total and gaps:
-            mg = sum(gaps) / len(gaps)
-            return 'INFILL-SPARSE' if mg >= 3.0 else 'INFILL-SOLID'
-        if wall_in >= 0.5 * total:
-            return 'WALL-INNER'
-        return None
+            if any(abs(a - b) > 1.2 for a, b in zip(bbox, _gb)):
+                continue
+            return _g
+        if len(self._cgroups213) >= 9:
+            return None
+        g = 'C%d' % (len(self._cgroups213) + 1)
+        self._cgroups213.append((g, sig))
+        return g
 
     @staticmethod
     def _turning(pts):

@@ -655,11 +655,15 @@ def journey_developer():
        'APPLY_TYPE TYPE=WALL-OUTER' in _tagged141, '')
     ck('F tagger ladder: solid -> INFILL-SOLID',
        'APPLY_TYPE TYPE=INFILL-SOLID' in _tagged141, '')
-    ck('F tagger ladder: the truly unknown stays CUSTOM',
-       'APPLY_TYPE TYPE=CUSTOM' in _tagged141, '')
+    ck('F tagger ladder: the truly unknown gets a numbered slot (R213: '
+       'never blanket CUSTOM-over-wall - it carries real extrusion '
+       'values, so it is separately tunable)',
+       'APPLY_TYPE TYPE=C1' in _tagged141, '')
     _fi141 = [l for l in _tagged141.split('\n') if l.startswith('_FILE_INFO')]
-    ck('F file info names the CUSTOM blocks (CUSTOMBLOCKS key)',
-       _fi141 and 'CUSTOMBLOCKS' in _fi141[0], _fi141[0][:90] if _fi141 else '')
+    ck('F file info names the custom slots (CUSTOMRES + CUSTOMGROUPS keys)',
+       _fi141 and 'CUSTOMRES=' in _fi141[0]
+       and 'CUSTOMGROUPS=C1' in _fi141[0],
+       _fi141[0][:90] if _fi141 else '')
     import shutil as _sh141
     _sh141.rmtree(_d141, ignore_errors=True)
 

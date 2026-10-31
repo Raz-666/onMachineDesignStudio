@@ -131,8 +131,10 @@ pp.process(p)
 body = open(p).read().split('\n')
 applies = [l for l in body if l.startswith('APPLY_TYPE TYPE=')]
 check('1b unknown ;TYPE: no crash, and EVERY unknown spelling gets its own '
-      'CUSTOM boundary (the previous feature\'s override ends there - F1)',
-      len(applies) == 3 and applies[1] == 'APPLY_TYPE TYPE=CUSTOM', applies)
+      'numbered boundary C1 (R213: the previous feature\'s override ends '
+      'there - F1 - and the block carries its own slot instead of a '
+      'blanket CUSTOM)',
+      len(applies) == 3 and applies[1] == 'APPLY_TYPE TYPE=C1', applies)
 
 # ---- 1c) case / whitespace robustness --------------------------------------
 VARIANTS = [('lowercase', ';type:outer wall', True),

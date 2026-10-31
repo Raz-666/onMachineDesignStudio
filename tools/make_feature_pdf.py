@@ -88,7 +88,7 @@ def CENT_COVER():
         ('Stufe 1', 'Kanon + Eliminierungsleiter', BLUE),
         ('Stufe 2', 'APPLY_TYPE-Marker + Live-Interceptor', BLUE),
         ('Stufe 3', 'Geometrie-Klassifikator (ungetagte Dateien)', PURPLE),
-        ('Stufe 4', 'CUSTOM-Watch: Blockgeometerieentscheidung', ORANGE),
+        ('Stufe 4', 'CUSTOM-Watch: C-Nummerierung C1..C9 (R213)', ORANGE),
         ('Stufe 5', 'Ausschluss-Logik + Quer-Schicht (Design .135)', RED),
     ]
     y = 112
@@ -120,7 +120,7 @@ class Doc(BaseDocTemplate):
         canv.line(17*mm, 285*mm, 193*mm, 285*mm)
         canv.setFont('DVS', 8.2); canv.setFillColor(GRAY)
         canv.drawString(17*mm, 287.2*mm, 'R2-D2 Macro System · Feature-Tagging — der komplette Wahrheitspfad')
-        canv.drawRightString(193*mm, 287.2*mm, 'R2-2026-10-30.136k')
+        canv.drawRightString(193*mm, 287.2*mm, 'R2-2026-10-30.136l')
         canv.setFont('DVS', 8.6)
         canv.drawCentredString(105*mm, 9.5*mm, 'Seite %d' % doc.page)
         canv.restoreState()
@@ -167,8 +167,8 @@ def d_ladder():
         ('3  Separator-Toleranz', "'Wall outer' == 'wall-outer' == 'WALL_OUTER'  (R172)"),
         ('4  Support-Substring', "'tree support', 'support/base' -> SUPPORT"),
         ('5  Eliminierungsleiter', 'Schlüsselwort-Token: ' + "'iron', 'tower', 'brim', 'bridge' …" + ' (R180)'),
-        ('6  CUSTOM-Watch', 'unbekannt geblieben: BLOCKGEOMETRIE entscheidet (R181)'),
-        ('=  CUSTOM', 'Rest: eigener APPLY_TYPE-Block, Override default OFF, CUSTOMBLOCKS zählt'),
+        ('6  CUSTOM-Watch', 'unbekannt geblieben: NUMMERIERTER Slot C1..C9 (R213)'),
+        ('=  CUSTOM', 'Rest >9 distinkte Formen: eigener Block, Override default OFF, CUSTOMBLOCKS zählt'),
     ]
     y = 142
     for i, (h, b) in enumerate(steps):
@@ -195,7 +195,7 @@ A(Paragraph('Wie das R2-D2-System aus einer G-Code-Datei die Features liest —<
 A(Spacer(1, 10*mm))
 A(CENT_COVER())
 A(Spacer(1, 8*mm))
-A(Paragraph('Stand: R2-2026-10-30.136k · Code-Wahrheit: tools/r2_postproc.py (TYPE_RE, TYPE_MAP, '
+A(Paragraph('Stand: R2-2026-10-30.136l · Code-Wahrheit: tools/r2_postproc.py (TYPE_RE, TYPE_MAP, '
             '_canon_type, _GeomScan), macros/01_state.cfg + 08_print_start_stop.cfg · '
             'Slicer-Dokumentation: CuraEngine-Wiki »Generating Paths«, OrcaSlicer-Wiki '
             '»Walls printing order«', S['cap']))
@@ -214,7 +214,8 @@ flow += B(
     'GLOBAL-Wert; die Zeile NOW: zeigt das Feature, das gerade druckt.',
     '<b>Pre-Print > File info</b> — TYPES= entscheidet, welche der 16 Feature-Zeilen überhaupt '
     'anklickbar sind (Features, die die Datei nicht enthält, bleiben sichtbar, weigern sich aber '
-    'ehrlich statt tote Schalter zu zeigen).',
+    'ehrlich statt tote Schalter zu zeigen) — plus die C-Slots, die CUSTOMGROUPS der Datei '
+    'auflistet (R213).',
     '<b>Start-Blockades</b> — dateilose Infos (Auto-Load der Datei-Parameter, _FILE_INFO-Replay '
     'beim Laden) und Range/Textur/Scale bauen auf denselben Types auf.')
 A(P('Der Design-Grundsatz dabei ist <b>regelbasiert und deterministisch</b> — kein ML, kein '
@@ -345,18 +346,28 @@ A(P('Die Ehrlichkeits-Spalte: abgeleitete Dateien tragen <b>DERIVED=1 CONF=0.7 C
     'dokumentierte Lücke, Kap. 7).'))
 
 # ============================== Kap 6 =======================================
-flow += H1('6  Stufe 4 — der CUSTOM-Watch: Blockgeometrie statt Kapitulation')
-A(P('Bleibt eine Vokabel nach der Leiter übrig, wird ihr Block nicht einfach abgestempelt: '
-    'der Watch puffert die <b>Geometrie des CUSTOM-Blocks selbst</b> und löst sie nachträglich '
-    'auf (R181):'))
+flow += H1('6  Stufe 4 — der CUSTOM-Watch: nummerierte Slots statt Schätzung')
+A(P('Bleibt eine Vokabel nach der Leiter übrig, wird ihr Block nicht etwa geraten — '
+    'R213 (.136l) ersetzt den alten Geometrie-Fallback durch <b>Nummerierung</b>: '
+    'jeder unbekannte Block, der Extrusionswerte trägt, bekommt seinen eigenen '
+    '<b>C-Slot (C1..C9)</b> mit vollem Regler-Satz (On/Spd/Acc/Flw/PA).'))
 flow += B(
- 'wandartiger Block (Schleifen/Kurven-Charakter) -> <b>WALL-OUTER</b> als Sicherheits-Default '
- '— die Nutzer-Regel: eine Wand darf niemals mit Infill-Tempo drucken.',
- 'hatch-artiger Block -> INFILL-SPARSE/SOLID nach Lückenmaß.',
- 'ohne jeden Wand-Charakter -> bleibt CUSTOM, CUSTOMRES/CUSTOMBLOCKS in der Info-Zeile '
- 'liefern die Vorher/Nachher-Zahl fürs Menü.')
-A(P('Damit ist CUSTOM kein Fehlerzustand mehr, sondern der <b>gezahlte Rest</b> nach vier '
-    'Auflösungs-Stufen — und der Anlass, mit File check &gt; Retag gegen zu steuern.'))
+ 'Feld-Begründung: die frühere pauschale Wand-Klassifikation konnte eine <b>Bridge</b> '
+ 'als Wand deuten — und damit viel zu schnell drucken. Ein unerkannter Block erbt '
+ 'nichts mehr, er trägt seine Werte selbst.',
+ 'Signatur = Speed-Set + Gesamtlänge (±12 %) + Bounding-Box (±1,2 mm), nur '
+ 'Extrusionszüge — gleiche Blöcke über Schichten hinweg teilen die Nummer '
+ '(ein Purge-Kreuz auf 40 Schichten ist EIN Slot, keine 40).',
+ 'wert-lose Blöcke (reine Travel-/Makro-Füllung) bekommen KEINEN Slot — '
+ 'nichts zu regeln.',
+ 'mehr als 9 distinkte Formen -> bleibt unnummeriertes CUSTOM (druckt 1:1, '
+ 'Override default OFF).')
+A(P('<b>CUSTOMGROUPS=C1,C3,…</b> in der _FILE_INFO-Zeile sagt dem Menü, welche Slots '
+    'die Datei wirklich trägt — Pre-Print &gt; Features &gt; Custom Code und Live &gt; '
+    'Features &gt; Custom Code zeigen genau diese. CUSTOM ist damit kein Fehlerzustand, '
+    'sondern der <b>sauber nummerierte Rest</b> nach vier Auflösungs-Stufen — und der '
+    'Anlass, mit File check &gt; Retag gegen zu steuern, wenn eine echte Wand dahinter '
+    'steckt: dann eben über ihren C-Slot gebremst statt global.'))
 
 # ============================== Kap 7 =======================================
 flow += H1('7  Stufe 5 — GEBAUT in .135: Ausschluss-Logik als eigene Ebene')

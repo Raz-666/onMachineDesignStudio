@@ -1,6 +1,6 @@
-# TESTANLEITUNG — R2-D2 Makro-System (Version .136k)
+# TESTANLEITUNG — R2-D2 Makro-System (Version .136l)
 
-Diese Anleitung beschreibt **nur den aktuellen Stand** (.136k). Sie ist die
+Diese Anleitung beschreibt **nur den aktuellen Stand** (.136l). Sie ist die
 komplette Feld-Checkliste nach dem Einspielen eines Updates — von Boot bis
 Druckergebnis. Die Historie der Änderungen steht in README.md.
 
@@ -18,7 +18,7 @@ Druckergebnis. Die Historie der Änderungen steht in README.md.
 ## 2. Boot-Check (Pflicht, 1 Minute)
 
 - [ ] Konsole: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-10-30.136k)`
+      (build R2-2026-10-30.136l)`
 - [ ] ~10 s nach dem Boot: Boot-Sound + LED-Animation
 - [ ] `SHOW_STATUS` antwortet mit Modus/Material/Overrides
 - [ ] Kein Eintrag fehlt: sonst meldet sich `_CHECK_INSTALL` laut mit
@@ -84,15 +84,35 @@ bewusst angeschweißt). Je ein Probedruck:
 ## 8. Live-Tuning & Profil
 
 - [ ] Live: Speed/Flow/Accel/PA pro Feature, Fan LIVE schlägt alles
+- [ ] **Custom-Code-Slots (.136l)**: eine Datei mit unbekanntem
+      `;TYPE:`-Block drucken (z. B. Textur-Reste oder
+      Slicer-Dialekt) → Pre-Print > Features > Custom Code zeigt
+      **C1, C2, … nur die Gruppen, die die Datei wirklich trägt**
+      (kein Sicherheits-Fallback auf Außenwand mehr!) — je Slot:
+      On/Spd/Acc/Flw/PA; Live > Features > Custom Code genauso,
+      Änderung greift sofort wenn genau dieser Block druckt
+- [ ] **Textur-Preset-Nummerierung (.136l)**: Pre-Print > Texture >
+      My presets → Save speichert als **grid01, wave01, …**
+      (Texturname + fortlaufende Nummer, nie Überschreiben); ein
+      zweites Save unter gleichem Namen ergibt grid02
 - [ ] Nach Druckende: **Rate print?** bleibt bis zur Antwort im Menü
       (kein Timeout), YES schreibt `optimized/`-Kopie, NO stellt den
       Pre-Print-Zustand exakt wieder her
 - [ ] Pause/Fortsetzen/Objekt ausschließen je einmal testen
 
-## 9. Web-LCD im Browser (.136k-Checks)
+## 9. Web-LCD im Browser (.136l-Checks)
 
-- [ ] Seite öffnen: **ganze Seite inkl. Konsole ohne Scrollen** sichtbar,
-      Dashboard-Werte im Grid über 2–3 Zeilen, Schrift zwei Nummern größer
+- [ ] Seite öffnen: **die Seite scrollt NIE** (.136l: `100dvh`-Layout,
+      nichts ragt heraus) — nur die Konsole scrollt INNERHALB ihres
+      Kastens, und die **Eingabezeile steht OBEN** bei den
+      Konsolen-Buttons (immer sichtbar, ohne Hinscrollen)
+- [ ] **A+ / A− oben in der Ecke**: globale Schriftgröße 11–24 px in
+      0,5er-Schritten, der Browser merkt sich die Wahl
+- [ ] **Getrennte Schriftgrößen** für Benachrichtigungen, Dateibrowser +
+      Senden-Menü und Konsole (je −5…+8 px um den Basiswert, gemerkt)
+- [ ] **LCD-Benachrichtigungen 3–4 Nummern größer**, Detail-Text im Feld
+      darüber 2 Nummern, Dateibrowser 1 Nummer größer als vorher
+- [ ] Dashboard-Werte im Grid über 2–3 Zeilen
 - [ ] Konsole-Toolbar: **Leeren** leert, **Suchfeld** filtert die Historie,
       Autoscroll-Knopf schaltet
 - [ ] **Tools-Menü + SD-Liste gefüllt** (der .136k-Fix: wert-lose
@@ -100,6 +120,9 @@ bewusst angeschweißt). Je ein Probedruck:
       live=ok sagt, müssen die Zeilen da sein)
 - [ ] Menü-Baum blendet wie das LCD aus (OctoPrint/Temperatur unsichtbar),
       Breadcrumb/↑ zurück funktioniert, Befehle senden GERENDERten G-Code
+- [ ] Untermenüs durchklicken: **keine kryptischen Bezeichnungen** mehr
+      (der .136l-Volltest: jede dynamische Zeile rendert, auch bei
+      C-Slots, Input-Werten und enable-Bedingungen)
 
 ## 10. Wartung & Sound
 
@@ -110,6 +133,6 @@ bewusst angeschweißt). Je ein Probedruck:
 
 ---
 
-**Alles grün?** Dann ist .136k field-clear. Wenn etwas auffällt: Konsole
+**Alles grün?** Dann ist .136l field-clear. Wenn etwas auffällt: Konsole
 kopieren (RESPOND-Zeilen) + welche Datei/welcher Menüpfad — daraus wird der
 nächste Feldlog-Eintrag.

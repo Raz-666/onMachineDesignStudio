@@ -583,17 +583,33 @@ _txo180 = tx.apply_texture(lbl, mode='FUZZY', fuzzy_thick=0.2,
 _rg180 = run('chain: range excerpt of a TEXTURED file', lambda: pp.make_range(
     _txo180, 3, 12, out_dir=D), skip_idem=True, r2_gen=True)
 _hr180 = open(_rg180[0]).read()
-if 'APPLY_TYPE TYPE=WALL-OUTER' not in _hr180 or 'TYPE=CUSTOM' in _hr180:
+# R213: unknown blocks no longer masquerade as WALL-OUTER - texture
+# artefacts keep their own C-numbers. The WALL tagging of REAL walls must
+# survive both hops, and CUSTOM may only appear as numbered slots.
+import re as _re213
+_hn213 = [ln for ln in _hr180.splitlines() if 'APPLY_TYPE TYPE=' in ln]
+if not any('TYPE=WALL-OUTER' in ln for ln in _hn213):
     fails.append(('chain texture->range: the WALL-OUTER tagging must '
-                  'survive both hops, no CUSTOM', _rg180))
+                  'survive both hops', _rg180))
+_bad213 = [ln for ln in _hn213
+           if 'TYPE=CUSTOM' in ln and 'TYPE=CUSTOM,' not in ln]
+if _bad213:
+    fails.append(('chain texture->range: bare CUSTOM (unnumbered) must not '
+                  'appear anymore - R213 slots are C1..C9: %r' % _bad213[:2],
+                  _rg180))
 _sc180 = pp.apply_scale(lbl, sx=1.3, sy=1.3, out_dir=D)[0]
 _sct180 = run('chain: texture on a SCALED file', lambda: tx.apply_texture(
     _sc180, mode='BUMPS', bump_pattern='WAVES', bump_scale=8.0,
     bump_amp=0.4, out_dir=D), skip_idem=True, r2_gen=True)
 _hsc180 = open(_sct180[0]).read()
-if 'APPLY_TYPE TYPE=WALL-OUTER' not in _hsc180 or 'TYPE=CUSTOM' in _hsc180:
-    fails.append(('chain scale->texture: WALL-OUTER must survive, no CUSTOM',
-                  _sct180))
+_hn2_213 = [ln for ln in _hsc180.splitlines() if 'APPLY_TYPE TYPE=' in ln]
+if not any('TYPE=WALL-OUTER' in ln for ln in _hn2_213):
+    fails.append(('chain scale->texture: WALL-OUTER must survive', _sct180))
+_bad2_213 = [ln for ln in _hn2_213
+             if 'TYPE=CUSTOM' in ln and 'TYPE=CUSTOM,' not in ln]
+if _bad2_213:
+    fails.append(('chain scale->texture: bare CUSTOM must not appear - '
+                  'R213 slots are C1..C9: %r' % _bad2_213[:2], _sct180))
 _ck180 = r2_cake.cut_cake(lbl, z_offset=1.0, out_dir=D)[0][0]
 # R180: a cake half with z_offset sits EMPTY for its first layers - the
 # honest make_range guard refuses a no-ink window (expect_error), the real

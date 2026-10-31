@@ -3,7 +3,7 @@
 **Package:** `klipper-e3-r2d2` · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail) ·
 12864 LCD (16 characters per line)
 
-**Version:** this manual describes the current release, `R2-2026-10-30.136k` — and only it. Every chapter documents what the system
+**Version:** this manual describes the current release, `R2-2026-10-30.136l` — and only it. Every chapter documents what the system
 does today; the version changelog lives in README.md.
 
 This is the operating manual for the complete macro system: what the printer can
@@ -315,7 +315,7 @@ Everything here is saved and reused; nothing is lost on restart.
 | Temperatures | Bed/Hotend L1/L2 + Fan L2 (ON/OFF each) + the file's own values for comparison |
 | Velocity | retraction length/speed/unretract + File R: display, acceleration, velocity, minimum cruise ratio, square corner (ON/OFF each) + Z-Hop ON/OFF + height — the global PA moved to PA per feat. **Drive** at the top of Retraction: DIRECT/BOWDEN starting-point profile (SET_EXTRUDER_DRIVE) — sets sane values, everything stays freely editable; ranges span both worlds (length 0–15 mm, speeds 5–100 mm/s) |
 | Spd/Acc/PA/Flw per feat | four quick lists (also in Live Tuning): per-feature speed / accel / PA / flow, each led by its GLOBAL — 1st-layer speed (Spd), global accel + ON (Acc), global PA + smooth + File PA (PA), global flow + ON (Flw) — plus Now: the feature currently printing. The old top-level Speeds/Accels/Flow menus were merged here |
-| Features | 16 submenus, one per feature (outer/inner wall, overhang wall, sparse/solid infill, top/bottom surface, bridge, internal bridge, gap fill, support, ironing, skirt, brim, prime tower, custom code): file original + ON switch + speed % + accel + PA each |
+| Features | 16 submenus, one per feature (outer/inner wall, overhang wall, sparse/solid infill, top/bottom surface, bridge, internal bridge, gap fill, support, ironing, skirt, brim, prime tower, custom code) **plus the numbered custom slots C1..C9 of this file** (.136l — only the groups the file really carries appear): file original + ON switch + speed % + accel + flow + PA each |
 | Bed Mesh | Level old files · Mesh ON/AUTO/OFF · Save after · Adaptive · Travel cap while meshing · Calibrate now · Load…/Delete… |
 | Profiles | per-file profiles (pre/post) + default profiles + material presets — see 3.4a |
 | Range/Stop | planned end at layer N + the range generator with floor/top holes (ch. 5.1) |
@@ -504,7 +504,7 @@ config header (`; key = value` lines) into the file info instead.
 | SK Skirt | `Skirt`, `Ooze shield` | `Skirt` | `SKIRT` | `;TYPE:` marker |
 | BM Brim | `Brim` | `Brim` | `BRIM` | `;TYPE:` marker |
 | PT Prime tower | `Prime tower` | `Wipe tower` | `PRIME-TOWER` | `;TYPE:` marker — and the R2 generators (labels/litho/colorpic) tag their own prime tower as PRIME-TOWER since .135 |
-| CU Custom code | `custom` (custom G-code sections) | `custom` | — | `;TYPE:` marker |
+| CU Custom code | `custom` (custom G-code sections) | `custom` | — | `;TYPE:` marker — unknown blocks arrive NUMBERED as C1..C9 (.136l, one slot per distinct shape) |
 
 **Speed-only — visible in the file info, not live-tunable:**
 
@@ -522,7 +522,10 @@ low acceleration values that no menu owned: those were **custom G-code
 sections** (per-object start/end, filament-change, layer-change G-code with
 their own `M204`). They now arrive as **CU Custom code** and are editable
 like any other feature — including an accel limit that keeps their own M204
-in check.
+in check. Since .136l the same holds for every UNRECOGNIZED block: it gets
+a numbered C-slot instead of a guessed feature, so its hidden extruder
+values (speed, accel) are separately controllable — and a value-less block
+is simply not offered.
 
 **A.2) The geometry classifier — feature control for files WITHOUT `;TYPE:` tags** **
 
@@ -898,7 +901,11 @@ The setting survives a reboot (default QUEUE — the pre-.84 behavior).
 frames and plotter each carry a **My presets** submenu: Save stores ALL of
 that generator's settings under a name of your choice (PHOTO-180, fuzzy, A45 …), Load/Delete work per slot, 8 slots per page with Page</>, the
 list itself is unlimited — and the presets survive reboots. The frame's
-old numbered slots remain loadable as they were.
+old numbered slots remain loadable as they were. **.136l:** saving a
+TEXTURE preset numbers the name — `grid01`, `grid02`, `wave01` …
+(texture name + running two-digit number, so the list shows at a glance
+how many variants exist and nothing is ever overwritten); the other
+generators keep the classic scheme (name, name_2, name_3 …).
 
 ### 5.1 Range — print a section of an existing file
 
@@ -1003,9 +1010,19 @@ layer** (right at the start of raft layer 1, not after the raft).
   (`External perimeter`, `top solid infill`, …) and Cura (`WALL-OUTER`) all
   map — since R95 also `Overhang perimeter`, `Internal bridge`,
   `Prime tower`/`Wipe tower` and `custom` sections to their features.
-- An UNKNOWN `;TYPE:` spelling maps to **CUSTOM** — the section
-  still prints 1:1 (override off), but it is not tunable as the feature
-  it really is, and Live > Features shows it under Custom Code. The
+- An UNKNOWN `;TYPE:` spelling stays **CUSTOM** — but numbered (.136l /
+  R213): every distinct unknown block becomes its own slot **C1, C2, …
+  C9** with the usual regulators (ON, speed %, accel, flow, PA). The
+  field reasoning: the old blanket classification of wall-shaped
+  unknowns as outer wall could print a **bridge** far too fast — an
+  unrecognized block now carries its OWN values, tuned per slot, never
+  inherited. Blocks that repeat across layers (same shape, ±12 % length,
+  ±1.2 mm bounding box, same speed set) share their number — a purge
+  cross on 40 layers is ONE slot, not 40. Identical blocks WITHOUT any
+  extrusion (pure travel/macro filler) get NO slot — nothing to tune.
+  More than 9 distinct shapes stay plain CUSTOM (unnumbered, prints
+  1:1). A slot only appears in the menus while the selected file
+  actually carries that group (`CUSTOMGROUPS` in `_FILE_INFO`); the
   texture tool never touches tags (proven over the 13-dialect corpus):
   if a textured+ranged file shows the outer wall as CUSTOM, the SOURCE
   file's slicer uses a spelling we do not know yet — send the first
@@ -2478,7 +2495,7 @@ retraction reads the firmware values — what you see is what runs.
 | Acc per feat | global mm/s² + Feat x: scales every feature accel by % + the effective accel + FeatAcc: the currently printing feature's accel + all 16 feature accel rows |
 | PA per feat | Glob: the global PA + all 16 feature PA rows (input shaper PA lives per feature) |
 | Flw per feat | Glob: the global flow % + all 16 feature flow rows (ironing flow in its own feature menu) |
-| Features | 16 submenus = same as Pre-Print > Features, but live: edits re-apply immediately when that feature is printing · ShpOff: input shaper OFF for one feature (toggle, .85) — each feature submenu has its own PA input (feature pressure advance, .85) |
+| Features | 16 submenus = same as Pre-Print > Features, but live: edits re-apply immediately when that feature is printing · ShpOff: input shaper OFF for one feature (toggle, .85) — each feature submenu has its own PA input (feature pressure advance, .85) — the numbered custom slots C1..C9 appear here too when the file carries them (.136l) |
 | File (G-code) | FULL mirror of the Pre-Print file info: measured originals (speed/accel per feature), 16 click-activators, temps, PA, retraction, fan, flow, MAXRATE (mm³/s) + seam position + DERIVED flag — everything during the print |
 | Extrusion | Flow % (1–300), PA, PA smooth, RetLen / RetSpd / Unret, UnretExt, Ironing flow, **Z-Hop ON/OFF + height** (lifts over every retract — nozzle-crash protection) — every input shows what Klipper REALLY runs right now, Src info shows file/overwrite/live |
 | Velocity | Velcap (max velocity — caps the fastest moves = travels) · Acccap (global accel cap, travels included) · MCR · corner — live, like Mainsail |
@@ -2496,7 +2513,7 @@ retraction reads the firmware values — what you see is what runs.
 | Profiles | Material (Load/Save/Reset PLA/PETG/TPU + ABS/ASA) · Defaults (Save/Info/Load 1–8/Delete 1–8) · This file (Save pre/Load pre/Load post/Del pre/Del post — only existing slots appear) + Auto-load toggle · From optimized (pick a copy → values become the Pre-Print starting point, .128) |
 | Temperatures | Bed L1/L2, Hotend L1/L2, Fan L2 (ON/OFF each) + File H:/File B: = the file's own values |
 | Velocity | retraction len/spd/unretract + File R: · **Drive: DIRECT/BOWDEN (swap)** (the retraction starting-point profile, every value stays free) · Accel + Vel + MCR + Corner (ON/OFF each; Accel/Vel are GLOBAL caps — travels included; the LIVE accel caps but never RAISES a slower file value) · Z-Hop ON/OFF + height — global PA moved to PA per feat. **retraction overrides apply IMMEDIATELY and at every print start** — generated files retract via G10/G11 and never send a SET_RETRACTION |
-| Features | 16 submenus: outer/inner wall, overhang wall, sparse/solid infill, top/bottom surface, bridge, internal bridge, gap fill, support, ironing (+flow), skirt, brim, prime tower, custom code — each shows the file's ORIGINAL (File:) + own ON switch + speed % (× global) + accel; only features the file really contains are editable — **a feature the file does not contain disappears from the menu entirely, an available-but-inactive one stays visible for live activation**; switching OFF resets the stored values to the file original — never touches the global values · PA input per feature + ShpOff toggle at the top |
+| Features | 16 submenus + the file's own C1..C9 custom slots (.136l): outer/inner wall, overhang wall, sparse/solid infill, top/bottom surface, bridge, internal bridge, gap fill, support, ironing (+flow), skirt, brim, prime tower, custom code — each shows the file's ORIGINAL (File:) + own ON switch + speed % (× global) + accel; only features the file really contains are editable — **a feature the file does not contain disappears from the menu entirely, an available-but-inactive one stays visible for live activation**; switching OFF resets the stored values to the file original — never touches the global values · PA input per feature + ShpOff toggle at the top · Custom Code submenu: How-it-works row + one slot per CUSTOMGROUP the file carries (On/Spd/Acc/Flw/PA) |
 | Spd/Acc/PA/Flw per feat | four quick lists with the globals merged in: 1st-layer speed % (0 = off, default 75) · global accel + ON · global PA + smooth + File PA · global flow + ON · Now: the active feature — the former top-level Speeds/Accels/Flow menus, one level deeper but with everything in ONE place each |
 | Bed Mesh | Level old files · Mesh ON/AUTO/OFF · Save after · Adaptive · Travel cap · Calibrate now · Load…/Delete… |
 | Range/Stop | Stop@ layer + From/To (capped to the selected file's layer count!) + Floor/Top (each FOOTPRINT or OUTLINE, each GRID or SOLID fill) + Brim + Create excerpt (ch. C.1) |
@@ -2625,7 +2642,7 @@ Naming: the console/LCD/Mainsail descriptions say **"Overwrite(s)"** (since
 | Retraction | retract_len, retract_speed, unretract_speed | 0.75 · 35 · 35 | from purge on |
 | Machine limits | accel, velocity, min_cruise, square_corner | 4000 · 300 · 0.5 · 5 (OFF) | start, ONLY ON + value > 0 |
 | Flow / Fan | flow, fan | 100 · 100 | flow global (M221) · fan scaled from the START — the file's M106 S0 stays 0, everything else is scaled by your % |
-| Per feature | feat_spd_<code> + feat_acc_<code> + feat_on_<code> for 16 codes (wallouter, wallinner, infillsparse, infillsolid, surfacetop, surfacebottom, bridge, gaps, support, ironing, skirt, brim, overhangperim, internalbridge, primetower, custom); ironing + ironing_flow | 100 · 0 each | only while that feature prints (APPLY_TYPE): speed = % x CLEAN global, accel absolute — the global value itself never changes; feat_on=0 RESETS the values to the file original; unavailable features refuse |
+| Per feature | feat_spd_<code> + feat_acc_<code> + feat_on_<code> for 25 codes (wallouter, wallinner, infillsparse, infillsolid, surfacetop, surfacebottom, bridge, gaps, support, ironing, skirt, brim, overhangperim, internalbridge, primetower, custom + the numbered slots c1..c9, .136l); ironing + ironing_flow | 100 · 0 each | only while that feature prints (APPLY_TYPE): speed = % x CLEAN global, accel absolute — the global value itself never changes; feat_on=0 RESETS the values to the file original; unavailable features refuse |
 
 The interceptors remember what the FILE asked for — file_hotend_first/after,
 file_bed/after, file_retract_len/speed, file_fan, file_flow, file_accel,
@@ -3154,7 +3171,16 @@ command). **.136k:** the dashboard values sit in a responsive **grid**
 got a **toolbar** like Mainsail: *Leeren* (clear), a **search field**
 (filters the history live) and the autoscroll toggle. The live poll also
 survives value-less snapshots now (see Troubleshooting: Tools menu /
-SD list empty). **↑ zurück** or a click into the breadcrumb brings you back up
+SD list empty). **.136l (R213):** the page NEVER scrolls anymore —
+`100dvh` layout with `overflow:hidden`, only the console scrolls INSIDE
+its own box, and the G-code input line moved UP to sit with the console
+buttons (always visible, no scrolling to reach it); on screens under
+900 px the columns stack without ever growing the page. Font sizes: the
+header carries global **A+ / A−** buttons (11–24 px in 0.5 steps,
+remembered per browser) AND three separate dials — notifications,
+file browser + send menu, console — each −5…+8 px around the base
+(also remembered). LCD notification text grew 3–4 sizes, the detail
+text above it 2, the file browser 1. **↑ zurück** or a click into the breadcrumb brings you back up
 a level. On the printer's host it loads the live tree (`web/r2_menu.py`
 Moonraker extension, `GET /server/r2_menu/tree`) and **evaluates the
 menu templates live**: every 3 s it fetches a pruned printer snapshot
@@ -3788,7 +3814,7 @@ system). Better a quiet fan at full speed than a fast one slowed down.
 ## Appendix C: First start & updates
 
 - upload the folder → includes at the end of printer.cfg → RESTART
-- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-10-30.136k)`
+- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-10-30.136l)`
 - ~10 s later: boot sound + LED animation
 - SHOW_STATUS → mode, material, overrides · Maintenance > Tests > demos + self test
 
