@@ -76,7 +76,7 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-10-30.136l'
+POSTPROC_RELEASE = 'R2-2026-10-31.136m'
 POSTPROC_BUILD = 'R204'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
@@ -1820,6 +1820,12 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                 if idx >= _a_eff187:
                     l = _shift_line(raw[:-1] if raw.endswith('\n') else raw)
                     c = _stripped(l)
+                    # R215 (audit sweep): a window that runs into the source's
+                    # END block must not COPY its PRINT_END - the excerpt
+                    # writes its OWN planned end below. Two PRINT_ENDs ran
+                    # the end choreography twice and left M107 between them.
+                    if c == 'PRINT_END':
+                        break
                     # R180: orphan markers stay OUT. A cake half carries every
                     # ;TYPE: of the source in BOTH halves - its ink may lie
                     # outside this window. Advertising a feature the excerpt
@@ -6058,7 +6064,12 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
             lb['stroke_eff'] = round(min(stroke_w, max(twid, 0.2 * _capmax79)), 2)
     stroke_eff = max(lb['stroke_eff'] for lb in labels)
     fil = FIL_AREA
-    total_layers = base_layers + text_layers
+    # R214 (.136m, field wish): the FIRST text layer prints INSIDE the last
+    # base layer - the letter contours are embedded in the base plastic
+    # (they stay readable even if the raised layers above chip off). The
+    # overall height is the naive sum MINUS one layer; the settings
+    # (base/text layer counts) stay exactly as they are.
+    total_layers = base_layers + text_layers - 1
     # R170: with the handle ON THE PLATE the file grows to the handle's
     # height - the labels finish earlier, the layers above hold only the
     # handle (printed last, nothing to rip off)
@@ -6066,12 +6077,14 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
     ztop = first_h + (base_layers - 1) * layer_h
     # R120 ring layers: height capped at the label's TOTAL height (never
     # above it); default = flush with the base top (never touches the text)
-    _ztot120 = ztop + text_layers * layer_h
+    # R214: the overlap shortens the total height by one layer - the ring
+    # cap follows (still ends one layer below the label's top)
+    _ztot120 = ztop + (text_layers - 1) * layer_h
     _rhm120 = (ztop if ring_h <= 0
                else min(float(ring_h), _ztot120 - layer_h))
     _rl120 = max(1, int(math.floor((_rhm120 - first_h) / layer_h)) + 1) \
         if _rhm120 >= first_h else 1
-    _rl120 = min(_rl120, base_layers + text_layers)
+    _rl120 = min(_rl120, base_layers + text_layers - 1)
 
     L = []
     a = L.append
@@ -6090,6 +6103,10 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
     else:
         a('; base %.0fx%.0fmm, %d layers @ %.2gmm (first %.2gmm), text %d layer(s), font %s'
           % (w, h, base_layers, layer_h, first_h, text_layers, font))
+    a('; R214 text embedding: the FIRST text layer prints INSIDE the last'
+      ' base layer - contours stay in the plastic even if raised layers'
+      ' chip off; total height = %d layers (overlap saves one)'
+      % (base_layers + text_layers - 1))
     a('; R74 text: font size %s, letter spacing +%.1fmm, up to 5 lines per label, uniform scale'
       % ('auto' if not font_size else '%.1fmm caps' % font_size, spacing))
     if stroke_eff < stroke_w - 0.01:
@@ -6557,22 +6574,32 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
             tower_block(z, li, li == 1)
         if _hplate170 and li <= _hl170:
             handle_block(z, li)      # R170: the handle prints LAST
+        if li == base_layers and text_layers >= 1:
+            # R214: the FIRST text layer is EMBEDDED in this very last base
+            # layer - same z, printed right after the base (and the M600
+            # filament change when color2). The raised text starts one
+            # layer lower than before: contours burned into the base stay
+            # readable even when the raised layers chip off.
+            if color2:
+                a('; R2-LABELS: base layers done - PAUSE for the filament'
+                  ' change (text color)')
+                a('; swap filament, then RESUME - the purge tower primes the new color')
+                a('M600')
+            if tower:
+                tower_block(z, li, False, prime=True)
+            for lb in order:
+                border_block(lb, li)
+                text_block(lb, z, li)
 
-    # ---- filament change for the text color ---------------------------------
-    if color2:
-        a('; R2-LABELS: bases done - PAUSE for the filament change (text color)')
-        a('; swap filament, then RESUME - the purge tower primes the new color')
-        a('M600')
-
-    # ---- text layers --------------------------------------------------------
-    for ti in range(1, text_layers + 1):
-        li = base_layers + ti
-        z = round(first_h + (base_layers - 1) * layer_h + ti * layer_h, 3)
+    # ---- text layers (the SECOND and above - the first is inside the base) --
+    for ti in range(2, text_layers + 1):
+        li = base_layers + ti - 1
+        z = round(first_h + (base_layers - 1) * layer_h + (ti - 1) * layer_h, 3)
         L.append(';LAYER_CHANGE')
         L.append(';Z:%.3f' % z)
         pen.set_z(z)
         if tower:
-            tower_block(z, li, False, prime=(ti == 1))
+            tower_block(z, li, False, prime=False)
         order = labels if li % 2 else list(reversed(labels))
         for lb in order:
             border_block(lb, li)
@@ -6582,8 +6609,10 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
 
     # R170: handle-only layers above the label tops (nothing else lives up
     # here - the travels are safely above the finished labels)
-    if _hplate170 and _hl170 > base_layers + text_layers:
-        for li in range(base_layers + text_layers + 1, _hl170 + 1):
+    if _hplate170 and _hl170 > base_layers + text_layers - 1:
+        # R214: the overlap saves one layer - the handle-only layers above
+        # the label tops start one layer earlier accordingly
+        for li in range(base_layers + text_layers, _hl170 + 1):
             z = round(first_h + (li - 1) * layer_h, 3)
             L.append(';LAYER_CHANGE')
             L.append(';Z:%.3f' % z)
@@ -7909,7 +7938,10 @@ NONCE_KEYS = ('preview_nonce', 'range_nonce', 'label_gen_nonce', 'reso_nonce',
               'opt_nonce', 'opt_load_nonce',
               # R174 (.129 field log): SD browser image click - the copy of an
               # image from a subfolder to the g-codes root (litho/plot sources)
-              'img_pick_nonce')
+              'img_pick_nonce',
+              # R214 (.136m): object-only STL export channel - primed like
+              # the rest so a restart never re-fires an old export
+              'stl_nonce')
 
 
 def _prime_nonces(rv):
@@ -8109,6 +8141,46 @@ def _parse_vmstat_swapio(line):
 _SWAP_ACTIVE_KB = 100.0
 
 
+def _klippy_reactor_stats(path=None):
+    """R215 (.136l field log): count klippy's OWN load symptoms in its log.
+
+    The 14:18 shutdown showed the chain loud and clear: 255 'Reactor busy'
+    entries (up to 0.694 s) plus 79 'Neopixel update did not succeed' in
+    eight minutes - klippy's reactor was under constant pressure and died
+    at the first just-in-time phase (homing). HOST_CHECK shows these
+    numbers so 'load 1.5, Throttle NONE' stops looking healthy when the
+    reactor logs a stall every two seconds. Reads the LAST 300 KB only
+    (the log of a busy session can be megabytes)."""
+    import re as _re215
+    if path is None:
+        import glob as _g215
+        _cands = []
+        for _pat in ('~/printer_data/logs/klippy.log',
+                     '/home/*/printer_data/logs/klippy.log',
+                     '/home/pi/klipper/klippy.log'):
+            _cands += _g215.glob(os.path.expanduser(_pat))
+        path = _cands[0] if _cands else None
+    if not path or not os.path.isfile(path):
+        return None
+    try:
+        with open(path, 'rb') as f:
+            try:
+                f.seek(0, 2)
+                sz = f.tell()
+                f.seek(max(0, sz - 300000))
+                data = f.read().decode('utf-8', 'replace')
+            except OSError:
+                return None
+    except OSError:
+        return None
+    stalls = _re215.findall(r'Reactor \d+\.\d+ busy for (\d+\.\d+)', data)
+    neo = data.count('Neopixel update did not succeed')
+    if not stalls and not neo:
+        return (0, 0.0, 0)
+    return (len(stalls), max(float(x) for x in stalls) if stalls else 0.0,
+            neo)
+
+
 def _host_verdict(throttle_bits, load1, cores, swap_used_mb, swap_eaters=None,
                   swap_io_kb=None):
     """R76/R78/R104: the honest overall verdict - priority throttle > swap > overload > OK.
@@ -8158,6 +8230,23 @@ def _host_verdict(throttle_bits, load1, cores, swap_used_mb, swap_eaters=None,
     if parked_msg:
         return True, parked_msg
     return True, 'Verdict: OK - no throttle, load %.1f on %d core(s), no swap. The host can feed Klipper.' % (load1, cores or 1)
+
+
+def _reactor_verdict(rs):
+    """R215: the reactor numbers as a verdict line (None = no log found)."""
+    if rs is None:
+        return None, 'Reactor: klippy.log not found - no stall count this time'
+    n, worst, neo = rs
+    if n == 0 and neo == 0:
+        return True, ('Reactor: clean - no stalls, no failed LED updates in '
+                      'the recent log. Just-in-time phases (homing) are safe.')
+    bad = n >= 60 or worst >= 0.25 or neo >= 20
+    return (not bad,
+            'Reactor: %d stall(s) up to %.3fs + %d failed LED update(s) '
+            'recently%s' % (n, worst, neo,
+                            ' - klippy was BLOCKED repeatedly; the next homing '
+                            'can hit Timer too close' if bad else
+                            ' - occasional stalls are normal, watch the trend'))
 
 
 # R78: services checked by host_check (one systemctl is-active call covers all)
@@ -8385,6 +8474,14 @@ def host_check(host='127.0.0.1', port=7125, cores=None):
     ok, verdict = _host_verdict(throttle_bits, load1, cores, swap_used, swap_eaters,
                                 swap_io_kb)
     lines.append(verdict)
+    # R215: klippy's own symptoms - reactor stalls + failed LED updates
+    try:
+        rok, rline = _reactor_verdict(_klippy_reactor_stats())
+        lines.append(rline)
+        if rok is False:
+            ok = False
+    except Exception:                                         # noqa: BLE001
+        pass
     if not ok and not throttle_bits:
         lines.append("  typical eaters on a Pi Zero: webcam (crowsnest), sonar, OctoEverywhere,")
         lines.append("  moonraker's object processing (enable_object_processing: True), update manager,")
@@ -12397,7 +12494,7 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                     col_layers=0, border=0.0, corner_r=0.0, col_mode='OFF',
                     contrast=True, mirror_x=0, mirror_y=0, contour=0,
                     stamp=0, stamp_base=5.0, stamp_tol=0.25, handle=0,
-                    stamp_infill=10.0):
+                    stamp_infill=10.0, stands=1):
     """R89: photo -> lithophane g-code, printed STANDING (vertical).
 
     Why standing (the field recipe from itslitho/3dp.rocks research): the
@@ -12544,6 +12641,37 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
     x0 = cx - width_mm / 2.0
     yF = (uy0 + uy1) / 2.0 - t_max / 2.0
 
+    # ---- R214 (.136m, field wish): triangular side stands for the upright
+    # print. Two thin fins LEFT and RIGHT of the plate, each docking at the
+    # BACK edge of the solid frame (the thickest border - the light from
+    # behind stays unblocked, the fins only live at the sides). Right
+    # triangle in the YZ plane: vertical leg = the seam along the plate
+    # (full height), horizontal leg = the foot (base_len) on the bed, the
+    # hypotenuse rises to the top. The fin body is a ~5 mm grid (perforated):
+    # X beads at fixed Y positions every layer (vertical ribs) + one Y rib
+    # every ~5 mm of height (bridging). Break-off seam = overlap wide,
+    # printable with the plate, removable with pliers - or left on as a
+    # deco stand. Frame OFF means no anchor face -> stands silently off
+    # (honest note below).
+    _st214 = 1 if int(stands or 0) else 0
+    if _st214 and not frame:
+        _st214 = 0
+        notes.append('stands need the solid frame border - frame is OFF, '
+                     'the plate prints without side stands')
+    _st214_overlap = 1.2 if _st214 else 0.0
+    if _st214:
+        _st214_base = min(max(12.0, 0.55 * height_real),
+                          (uy1 - 2.0) - (yF + t_max))
+        _st214_base = max(_st214_base, 8.0)
+        _st214_nb = max(2, int(round(2.4 / wid)))       # X beads across the fin
+        _st214_fw = _st214_nb * wid                       # fin thickness in X
+        _st214_ya = yF + t_max - _st214_overlap           # seam start (Y)
+        _st214_qz = max(1, int(round(5.0 / layer_h)))     # Y rib every ~5mm
+        notes.append('upright stands: 2 fins left+right at the frame back, '
+                     'foot %.0fmm, perforated ~5mm grid (break-off seam '
+                     '%.1fmm - or leave on as a deco stand)'
+                     % (_st214_base, _st214_overlap))
+
     stem = _gen_stem(src, 'IMG')
     fname = 'V%02d_Litho_%s.gcode' % (
         _next_gen_version(out_dir), stem)
@@ -12588,6 +12716,10 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
         # the topmost layers = top surface (brim + ironing on top of that)
         types = ['SURFACE-BOTTOM', 'INFILL-SOLID', 'SURFACE-TOP'] \
             + (['IRONING'] if ironing else [])
+        if _st214:
+            # R214 stands: fin cores print as outer walls, their Y-ribs as
+            # bridges - the header must say so (megatest TYPES-honesty)
+            types = ['WALL-OUTER', 'BRIDGE'] + types
         if brim_loops:
             types.insert(0, 'BRIM')
         a('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d LINE_WIDTH=%.2g '
@@ -12597,6 +12729,17 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
              ' IRONING_SPEED=25' if ironing else '', ','.join(types)))
         a('EXCLUDE_OBJECT_DEFINE NAME=LITHO CENTER=%.1f,%.1f POLYGON=%s'
           % (cx, yF + t_max / 2.0, fpoly))
+        if _st214:
+            for _sd214, _sx214 in (('L', x0 - _st214_fw), ('R', x0 + width_mm)):
+                _sp214 = '[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]' % (
+                    _sx214, _st214_ya,
+                    _sx214 + _st214_fw, _st214_ya,
+                    _sx214 + _st214_fw, _st214_ya + _st214_overlap + _st214_base,
+                    _sx214, _st214_ya + _st214_overlap + _st214_base)
+                a('EXCLUDE_OBJECT_DEFINE NAME=LITHO_STAND_%s CENTER=%.1f,%.1f '
+                  'POLYGON=%s'
+                  % (_sd214, _sx214 + _st214_fw / 2.0,
+                     _st214_ya + (_st214_overlap + _st214_base) / 2.0, _sp214))
         ps = ('PRINT_START MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d OUTER_WALL_SPEED=25'
               % (material, layer_h, rows))
         a(ps)
@@ -12637,6 +12780,65 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                     at_back = True
                 pen_t = t
 
+        def stand_layer(li, z):
+            """R214: one layer of BOTH fins. X beads = the vertical ribs
+            (they stack into walls), every _st214_qz-th layer one Y rib
+            bridges across (TYPE=Bridge - honest, the override system
+            knows bridges). Layer 1 gets its own mini brim around the
+            fin foot so the narrow triangle base cannot tip over."""
+            feed = 600 if li == 1 else 1500
+            frac = 1.0 - (li * layer_h) / float(height_real or 1.0)
+            for sd, sx in (('L', x0 - _st214_fw), ('R', x0 + width_mm)):
+                a('EXCLUDE_OBJECT_START NAME=LITHO_STAND_%s' % sd)
+                # feature tags mirror the plate: bottom / core / top
+                if li <= 2:
+                    a(';TYPE:Bottom surface')
+                    a('APPLY_TYPE TYPE=SURFACE-BOTTOM')
+                elif li > rows - 2:
+                    a(';TYPE:Top surface')
+                    a('APPLY_TYPE TYPE=SURFACE-TOP')
+                else:
+                    a(';TYPE:Outer wall')
+                    a('APPLY_TYPE TYPE=WALL-OUTER')
+                if li == 1 and brim_loops:
+                    a(';TYPE:Brim')
+                    a('APPLY_TYPE TYPE=BRIM')
+                    for k in range(2 - 1, -1, -1):
+                        off = _brim_gap(wid) + k * wid
+                        _emit_loop(pen, _rect_loop(
+                            sx - off, _st214_ya - off,
+                            sx + _st214_fw + off,
+                            _st214_ya + _st214_overlap + _st214_base + off),
+                            e_wall, 900)
+                    a(';TYPE:Bottom surface')
+                    a('APPLY_TYPE TYPE=SURFACE-BOTTOM')
+                # the triangle shrinks with height: how deep does it reach?
+                y_edge = _st214_ya + (_st214_overlap + _st214_base) * max(
+                    0.0, min(1.0, frac))
+                # 1) seam bead at the frame flank (every layer, full height)
+                pen.travel(sx + _st214_fw / 2.0, _st214_ya + wid / 2.0, 4500)
+                pen.extrude(sx + _st214_fw - wid / 2.0,
+                            _st214_ya + wid / 2.0, e_wall * (_st214_fw - wid),
+                            feed)
+                # 2) vertical ribs at ~5 mm spacing (skip when the
+                #    hypotenuse has eaten them at this height)
+                yk = _st214_ya + _st214_overlap + 5.0
+                while yk + wid <= y_edge:
+                    pen.travel(sx + wid / 2.0, yk + wid / 2.0, 4500)
+                    pen.extrude(sx + _st214_fw - wid / 2.0, yk + wid / 2.0,
+                                e_wall * (_st214_fw - wid), feed)
+                    yk += 5.0
+                # 3) the Y rib every ~5 mm of height: ONE bead along Y,
+                #    bridging between the ribs (and anchored on them)
+                if li % _st214_qz == 0 and y_edge - _st214_ya > 3.0 * wid:
+                    a(';TYPE:Bridge')
+                    a('APPLY_TYPE TYPE=BRIDGE')
+                    pen.travel(sx + _st214_fw / 2.0,
+                               _st214_ya + wid / 2.0, 4500)
+                    pen.extrude(sx + _st214_fw / 2.0, y_edge - wid / 2.0,
+                                e_wall * (y_edge - _st214_ya - wid), feed)
+                a('EXCLUDE_OBJECT_END NAME=LITHO_STAND_%s' % sd)
+
         for li in range(1, rows + 1):
             _job_tick()                        # R133b: yield to the host
             z = round(li * layer_h, 3)         # uniform layers: image stays true
@@ -12675,6 +12877,9 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                 a('APPLY_TYPE TYPE=IRONING')
                 ribbon(li, row, 1500, e_iron)
             a('EXCLUDE_OBJECT_END NAME=LITHO')
+            if _st214:
+                _job_tick()                    # R133b: yield to the host
+                stand_layer(li, z)
         a('M107')
         a('PRINT_END')
         sk.flush()
@@ -12684,7 +12889,7 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
             'width': round(width_mm, 1), 'height': round(height_real, 1),
             'thickness': '%.1f..%.1f' % (t_min, t_max), 'layers': rows,
             'cols': cols, 'levels': levels, 'frame': bool(frame),
-            'ironing': bool(ironing), 'notes': notes}
+            'ironing': bool(ironing), 'stands': bool(_st214), 'notes': notes}
     return out, info
 
 
@@ -15948,6 +16153,217 @@ def _opt_snap_from_file(path):
     return None
 
 
+# ---- R214 (.136m, field wish): G-code -> STL, OBJECT ONLY -----------------------
+# The field rule: export the pure object geometry - no supports, no skirt,
+# no brim, no prime tower, no custom helper blocks, no ironing pass. The
+# G-code is the truth (it is what actually prints), so the STL is rebuilt
+# from the extrusion moves themselves: every extrusion run becomes a ribbon
+# (box) of measured width and layer height. Overlapping ribbons are fine -
+# a slicer unions them; the STL is for viewing, re-slicing, sharing.
+_STL_EXCLUDE214 = frozenset(
+    ('SUPPORT', 'SKIRT', 'BRIM', 'PRIME-TOWER', 'CUSTOM', 'IRONING', 'TRAVEL'))
+_STL_FIL_AREA214 = 1.75 * 1.75 * 0.7853981633974483   # mm^2 filament section
+_STL_MAX_BOXES214 = 150000     # ~72 MB STL - honest abort beyond that
+
+
+def _stl_export(directory, rel, out_dir=None):
+    """R214: rebuild the object-only STL from a finished G-code. Returns
+    (rel_stl, info_dict). Reads the source, never writes it."""
+    rel = str(rel).strip().strip('/').replace('\\', '/')
+    for bad in (';', '"', "'", '#'):
+        rel = rel.replace(bad, '')
+    src = os.path.join(directory, rel)
+    if not os.path.isfile(src):
+        raise FileNotFoundError('file not found: %s' % rel)
+    opener = gzip.open if src.lower().endswith('.gz') else open
+    with opener(src, 'rt', errors='replace') as f:
+        raw = f.read()
+
+    # ---- pass 1: collect extrusion runs (merged collinear segments) -------
+    x = y = z = 0.0
+    e = 0.0
+    e_rel = False
+    cur_type = 'CUSTOM'      # before the first ;TYPE: = purge/helper zone
+    seen_type = False
+    runs = []                # [pts(list of (x,y)), z, e_sum, len_sum, type]
+    run = None
+    excl_mm = {}             # skipped extrusion length per excluded type
+    incl_mm = 0.0
+    for ln in raw.split('\n'):
+        if ln.startswith(';'):
+            m214 = TYPE_RE.match(ln)
+            if m214:
+                seen_type = True
+                cur_type = _canon_type(m214.group(1))
+            continue
+        code = ln.split(';', 1)[0].strip()
+        if not code:
+            continue
+        parts = code.split()
+        cmd = parts[0].upper()
+        if cmd == 'M82':
+            e_rel = False
+            continue
+        if cmd == 'M83':
+            e_rel = True
+            continue
+        if cmd == 'G92':
+            for p in parts[1:]:
+                if p[:1].upper() == 'E':
+                    try:
+                        e = float(p[1:])
+                    except ValueError:
+                        pass
+            continue
+        if cmd not in ('G0', 'G1', 'G2', 'G3'):
+            continue
+        nx = ny = nz = None
+        de = 0.0
+        for p in parts[1:]:
+            a = p[:1].upper()
+            try:
+                v = float(p[1:])
+            except ValueError:
+                continue
+            if a == 'X':
+                nx = v
+            elif a == 'Y':
+                ny = v
+            elif a == 'Z':
+                nz = v
+            elif a == 'E':
+                de = v - e if not e_rel else v
+        e_new = e + de
+        px, py, pz = x, y, z
+        if nx is not None:
+            x = nx
+        if ny is not None:
+            y = ny
+        if nz is not None:
+            z = nz
+        # G2/G3 arcs: treat as a straight segment to the endpoint (rare in
+        # r2 files; the ribbon approximation is honest enough for a mesh)
+        seg = ((x - px) ** 2 + (y - py) ** 2) ** 0.5
+        if de > 0.0 and seg > 1e-4:
+            if cur_type in _STL_EXCLUDE214:
+                excl_mm[cur_type] = excl_mm.get(cur_type, 0.0) + seg
+                run = None
+                continue
+            # provisional width with h=0.2 - only a MERGE criterion; the
+            # final ribbon width is recomputed with the true layer height
+            wprov = de * _STL_FIL_AREA214 / (seg * 0.2)
+            if run is not None and abs(z - run[1]) < 0.002:
+                (lx, ly) = run[0][-1]
+                (dx0, dy0) = run[0][-1][0] - run[0][-2][0], run[0][-1][1] - run[0][-2][1]
+                l0 = (dx0 * dx0 + dy0 * dy0) ** 0.5
+                ok_join = (abs(lx - px) < 0.001 and abs(ly - py) < 0.001
+                           and l0 > 1e-6)
+                if ok_join:
+                    dx1, dy1 = x - px, y - py
+                    cross = abs(dx0 * dy1 - dy0 * dx1) / (l0 * seg)
+                    w_run = (run[2] + de) * _STL_FIL_AREA214 / ((run[3] + seg) * 0.2)
+                    if cross < 0.07 and abs(w_run - wprov) < 0.10:
+                        run[0].append((x, y))
+                        run[2] += de
+                        run[3] += seg
+                        incl_mm += seg
+                        e = e_new
+                        continue
+            run = [[(px, py), (x, y)], z, de, seg]
+            runs.append(run)
+            incl_mm += seg
+        elif de > 0.0:
+            run = None          # pure de-retract: no geometry
+        else:
+            run = None          # travel breaks the run
+        e = e_new
+    del raw
+
+    if not runs:
+        raise RuntimeError('no object extrusion found - only helpers or an '
+                           'untyped file (run System > File check > RETAG '
+                           'first, then export again)')
+
+    # ---- pass 2: true layer heights from the extrusion Z values -----------
+    zs = sorted({round(r[1], 3) for r in runs})
+    z_h = {}
+    for i214, zv in enumerate(zs):
+        z_h[zv] = (zv - zs[i214 - 1]) if i214 else max(0.05, zv)
+        z_h[zv] = min(0.6, max(0.05, z_h[zv]))
+
+    # ---- pass 3: stream the ribbon boxes into a binary STL ---------------
+    outdir = out_dir or os.path.join(directory, 'stl')
+    os.makedirs(outdir, exist_ok=True)
+    base = os.path.basename(rel)
+    for ext in ('.gcode', '.gco', '.g', '.gz'):
+        if base.lower().endswith(ext):
+            base = base[:-len(ext)]
+            break
+    out = os.path.join(outdir, base + '_object.stl')
+    n_tri = 0
+    n_box = 0
+    with open(out, 'wb') as fo:
+        fo.write(struct.pack('<80sI', b'R2 object-only STL (R214): '
+                             b'supports/skirt/brim/prime tower/custom/ironing '
+                             b'skipped - ribbons from extrusion moves', 0))
+        cnt_pos = fo.tell() - 4
+
+        def _tri(ax, ay, az, bx, by, bz, cx, cy, cz):
+            nonlocal n_tri
+            ux, uy, uz = bx - ax, by - ay, bz - az
+            vx, vy, vz = cx - ax, cy - ay, cz - az
+            nxn = uy * vz - uz * vy
+            nyn = uz * vx - ux * vz
+            nzn = ux * vy - uy * vx
+            ln = (nxn * nxn + nyn * nyn + nzn * nzn) ** 0.5 or 1.0
+            fo.write(struct.pack('<12fH', nxn / ln, nyn / ln, nzn / ln,
+                                 ax, ay, az, bx, by, bz, cx, cy, cz, 0))
+            n_tri += 1
+
+        for r in runs:
+            pts, zv, e_sum, len_sum = r[0], r[1], r[2], r[3]
+            if n_box >= _STL_MAX_BOXES214:
+                break
+            h = z_h[round(zv, 3)]
+            w = e_sum * _STL_FIL_AREA214 / (len_sum * h)
+            w = min(1.5, max(0.30, w)) * 0.5
+            zb, zt = zv - h, zv
+            q = pts[0]
+            for p in pts[1:]:
+                (x0, y0), (x1, y1) = q, p
+                q = p
+                dx, dy = x1 - x0, y1 - y0
+                L = (dx * dx + dy * dy) ** 0.5
+                if L < 1e-6:
+                    continue
+                nxh, nyh = -dy / L * w, dx / L * w
+                ax, ay = x0 + nxh, y0 + nyh        # left @ start
+                bx, by = x0 - nxh, y0 - nyh        # right @ start
+                cx, cy = x1 - nxh, y1 - nyh        # right @ end
+                dx2, dy2 = x1 + nxh, y1 + nyh      # left @ end
+                _tri(ax, ay, zt, bx, by, zt, cx, cy, zt)      # top 1
+                _tri(ax, ay, zt, cx, cy, zt, dx2, dy2, zt)    # top 2
+                _tri(ax, ay, zb, dx2, dy2, zb, cx, cy, zb)    # bottom 1
+                _tri(ax, ay, zb, cx, cy, zb, bx, by, zb)      # bottom 2
+                _tri(ax, ay, zb, ax, ay, zt, dx2, dy2, zt)    # left 1
+                _tri(ax, ay, zb, dx2, dy2, zt, dx2, dy2, zb)  # left 2
+                _tri(bx, by, zb, cx, cy, zb, cx, cy, zt)      # right 1
+                _tri(bx, by, zb, cx, cy, zt, bx, by, zt)      # right 2
+                _tri(ax, ay, zb, bx, by, zb, bx, by, zt)      # start cap 1
+                _tri(ax, ay, zb, bx, by, zt, ax, ay, zt)      # start cap 2
+                _tri(cx, cy, zb, dx2, dy2, zb, dx2, dy2, zt)  # end cap 1
+                _tri(cx, cy, zb, dx2, dy2, zt, cx, cy, zt)    # end cap 2
+                n_box += 1
+                if n_box >= _STL_MAX_BOXES214:
+                    break
+        fo.seek(cnt_pos)
+        fo.write(struct.pack('<I', n_tri))
+    info = {'file': out, 'boxes': n_box, 'tris': n_tri,
+            'layers': len(zs), 'runs': len(runs), 'incl_mm': incl_mm,
+            'excl': excl_mm, 'capped': n_box >= _STL_MAX_BOXES214,
+            'untyped': not seen_type}
+    return os.path.relpath(out, directory), info
+
 def _optimize_copy(directory, rel, snap):
     """R169: write the non-invasive optimized copy. The SOURCE file is only
     READ (md5-proof: never written to); the copy lands in
@@ -17550,7 +17966,10 @@ class _GeomScan:
         self._l1_outers = None    # R153: layer-1 wall loops (brim matching)
         self._l1_inners = None    # R153: ...and inner loops (promotion)
         self.seq193 = []          # R193: derived feature stream (audit)
-        self._prev_grid = None    # R193: previous layer bitmap (air scan)
+        self._prev_grids = []     # R193 bitmap ring: the last K layers below
+                                  # (R214: the air scan demands a DEEP void -
+                                  # a skin with support 2 layers down is no
+                                  # bridge, the field question 30.10.)
         self.cls_len = 0.0
         self.tot_len = 0.0
         self.layers_classified = 0
@@ -17946,7 +18365,8 @@ class _GeomScan:
                     # sparse group floats by design - gradual infill), and
                     # never support hatch. _airscan193 itself tolerates a
                     # missing previous picture (None -> keep).
-                    feat = (self._airscan193(items, polys, self._prev_grid,
+                    feat = (self._airscan193(items, polys,
+                                             self._prev_grids,
                                              loops, layer_no) or feat)
                 for (_b, _o, ij, speed, plen, pi) in items:
                     f181 = 'SUPPORT' if pi in sup_set else feat
@@ -17958,9 +18378,13 @@ class _GeomScan:
                     self._seq_add(layer_no, f181)
         # R193 (.135): the layer picture becomes 'the layer below' for the
         # next call - the air scan compares against it (kept only when
-        # usable; an unusable bitmap never poisons the scan)
+        # usable; an unusable bitmap never poisons the scan).
+        # R214: a RING of the last 4 pictures - 'air' must be DEEP air
+        # (up to 3 empty layers with material below = support gap / a
+        # step, NOT a bridge - the field question 30.10.).
         if grid.ok:
-            self._prev_grid = grid
+            self._prev_grids.append(grid)
+            del self._prev_grids[:-4]
 
     def _seq_add(self, layer_no, feat):
         """R193 (.135): derived feature stream for the sequence audit -
@@ -17970,14 +18394,14 @@ class _GeomScan:
             return
         self.seq193.append((layer_no, feat))
 
-    def _airscan193(self, items, polys, prev, loops, layer_no):
+    def _airscan193(self, items, polys, prevs, loops, layer_no):
         """R193 (.135) stage 5a: the CROSS-LAYER AIR SCAN - bridging by
-        comparison with the layer below (the r167 cone rule, import side).
+        comparison with the layers below (the r167 cone rule, import side).
 
         A DENSE hatch group (solid-infill candidate, not support, not the
-        first or last layer) whose region has (almost) NO ink on the
-        previous layer prints over a VOID - no slicer lays plain solid
-        infill over air, that span IS a bridge:
+        first or last layer) whose region has (almost) NO ink on ANY of
+        the last layers below prints over a VOID - no slicer lays plain
+        solid infill over air, that span IS a bridge:
           - anchored ends (the deck sits on material at both sides)
             and outside every closed loop of the layer  -> BRIDGE
           - inside a closed loop (void enclosed by the model) or with no
@@ -17986,9 +18410,20 @@ class _GeomScan:
         safe: even 5% areal ink coverage counts as material - only a true
         void (walls bleed at most a cell strip into the bbox, < 3%) trips
         the scan. Sparse groups never trip it (gradual infill floats by
-        design). Returns the replacement feature or None (keep)."""
-        if len(items) < 3 or prev is None or not prev.ok:
+        design). Returns the replacement feature or None (keep).
+
+        R214 (.136m, field question 30.10.): the void must be DEEP. The
+        old scan compared ONE layer down, so a skin floating 'a couple of
+        layers' above its support read as a bridge - but support-gap skins
+        and stepped overhangs have material 2-3 layers below, a real
+        bridge deck hangs over a deep hole. Material in ANY of the last 3
+        layer pictures disarms the scan; support hatch itself never
+        reaches it (R181 group split) and support ink counts as material
+        like any other ink."""
+        prevs = [g for g in (prevs or []) if g is not None and g.ok]
+        if len(items) < 3 or not prevs:
             return None
+        prev = prevs[-1]      # bbox lattice arithmetic runs on the newest
         # region bbox from the straight hatch lines' endpoints
         bx0 = by0 = 1e30
         bx1 = by1 = -1e30
@@ -18007,27 +18442,39 @@ class _GeomScan:
         cy1 = min(prev.h - 1, int((by1 - prev.oy) / prev.CELL))
         if cx1 <= cx0 or cy1 <= cy0:
             return None
-        # coarse lattice - the coverage estimate stays cheap on any bed
-        stride = max(1, int(((cx1 - cx0 + 1) * (cy1 - cy0 + 1)) ** 0.5 / 250))
-        cells = ink = 0
-        for cy in range(cy0, cy1 + 1, stride):
-            row = cy * prev.w
-            for cx in range(cx0, cx1 + 1, stride):
-                cells += 1
-                if prev.g[row + cx]:
-                    ink += 1
-        if not cells or ink / cells >= 0.03:
-            return None               # material below (sparse infill counts)
-        # endpoints grounded on the previous layer + mid-air fraction
+        # coarse lattice - the coverage estimate stays cheap on any bed.
+        # R214: EVERY picture in the ring gets a say - ink in ANY of the
+        # last 4 layers below = supported (support gap, a step, gradual
+        # overhang growth) -> no bridge tag.
+        for prev in prevs:
+            pcx0 = max(0, int((bx0 - prev.ox) / prev.CELL))
+            pcx1 = min(prev.w - 1, int((bx1 - prev.ox) / prev.CELL))
+            pcy0 = max(0, int((by0 - prev.oy) / prev.CELL))
+            pcy1 = min(prev.h - 1, int((by1 - prev.oy) / prev.CELL))
+            if pcx1 <= pcx0 or pcy1 <= pcy0:
+                continue
+            stride = max(1, int(((pcx1 - pcx0 + 1) * (pcy1 - pcy0 + 1))
+                                ** 0.5 / 250))
+            cells = ink = 0
+            for cy in range(pcy0, pcy1 + 1, stride):
+                row = cy * prev.w
+                for cx in range(pcx0, pcx1 + 1, stride):
+                    cells += 1
+                    if prev.g[row + cx]:
+                        ink += 1
+            if cells and ink / cells >= 0.03:
+                return None           # material below (support/sparse counts)
+        # endpoints grounded on ANY layer below + mid-air fraction
         def _grounded(x, y):
-            cx = int((x - prev.ox) / prev.CELL)
-            cy = int((y - prev.oy) / prev.CELL)
-            for dy in (-1, 0, 1):
-                for dx in (-1, 0, 1):
-                    nx, ny = cx + dx, cy + dy
-                    if (0 <= nx < prev.w and 0 <= ny < prev.h
-                            and prev.g[ny * prev.w + nx]):
-                        return True
+            for prev in prevs:
+                cx = int((x - prev.ox) / prev.CELL)
+                cy = int((y - prev.oy) / prev.CELL)
+                for dy in (-1, 0, 1):
+                    for dx in (-1, 0, 1):
+                        nx, ny = cx + dx, cy + dy
+                        if (0 <= nx < prev.w and 0 <= ny < prev.h
+                                and prev.g[ny * prev.w + nx]):
+                            return True
             return False
         tot = air = g_ends = 0
         for (_b, _o, _ij, _sp, _pl, pi) in items:
@@ -18890,6 +19337,9 @@ def _meta_finalize(p, src=None, force=False):
         if st == 'meta':
             print('[meta] %s: thumbnail + time + filament added'
                   % os.path.basename(p), flush=True)
+        # R215: 'same' = signature matched, nothing written - the watcher
+        # scan calls this for every generated file on every pass and must
+        # stay SILENT (and cheap) when there is nothing to do.
         return st
     except Exception as _e212:                               # noqa: BLE001
         print('[meta] %s: %r' % (os.path.basename(p), _e212), flush=True)
@@ -20031,7 +20481,10 @@ def watch(directory, interval=5.0, once=False):
                 # the browser: disk I/O during a print waits for idle,
                 # same lesson as .125 above.
                 'del_nonce', 'img_pick_nonce', 'scale_nonce',
-                'cake_nonce', 'stringart_nonce')
+                'cake_nonce', 'stringart_nonce',
+                # R214: the STL export reads the whole source and writes a
+                # mesh - that is disk I/O, it waits for idle like the rest
+                'stl_nonce')
         # R61: layer-range excerpt request from the LCD (nonce changes on every request)
         try:
             rv = _read_vars(VAR_PATH)
@@ -20115,6 +20568,7 @@ def watch(directory, interval=5.0, once=False):
                 last_litho_del_nonce = _np.get('litho_del_nonce')
                 last_opt_nonce = _np.get('opt_nonce')              # R169
                 last_opt_load_nonce = _np.get('opt_load_nonce')    # R169
+                last_stl_nonce = _np.get('stl_nonce')                  # R214
                 last_opt_list_pushed = None                         # R169 (no nonce)
                 last_opt_list_try = 0.0
                 # R170: live label fit + queue bed-fit + shutdown watchdog
@@ -20220,6 +20674,44 @@ def watch(directory, interval=5.0, once=False):
                     _spawn_job('Optimized copy', 'opt_copy169', _job169)
             except Exception as _e169o:                          # noqa: BLE001
                 print('[opt] dispatch error: %r' % _e169o, flush=True)
+
+            # ---- R214: object-only STL export (Pre-Print > File > STL) ------
+            try:
+                _sn214 = rv.get('stl_nonce', '')
+                if _sn214 and _sn214 != last_stl_nonce:
+                    last_stl_nonce = _sn214
+                    _sf214 = str(rv.get('stl_file', '')).strip().strip('\'"')
+
+                    def _job214(_rel214=_sf214):
+                        try:
+                            _relout214, _inf214 = _stl_export(
+                                directory, _rel214)
+                            _msg214 = ('[stl] object-only STL saved: %s '
+                                       '(%d ribbons, %d layers, %d triangles)'
+                                       % (_relout214, _inf214['runs'],
+                                          _inf214['layers'], _inf214['tris']))
+                            if _inf214['capped']:
+                                _msg214 += (' - CAPPED at %d ribbons, mesh '
+                                            'truncated' % _inf214['boxes'])
+                            print(_msg214, flush=True)
+                            try:
+                                _moonraker_gcode(
+                                    'RESPOND MSG="%s"\nM117 STL: saved'
+                                    % _msg214.replace('"', ''))
+                            except Exception:                   # noqa: BLE001
+                                pass
+                        except Exception as _e214:             # noqa: BLE001
+                            print('[stl] export FAILED: %r' % _e214, flush=True)
+                            try:
+                                _moonraker_gcode(
+                                    'RESPOND MSG="[stl] export FAILED: %s"'
+                                    % str(_e214).replace('"', '')
+                                                 .replace(';', '')[:120])
+                            except Exception:                   # noqa: BLE001
+                                pass
+                    _spawn_job('STL export', 'stl_export214', _job214)
+            except Exception as _e214o:                          # noqa: BLE001
+                print('[stl] dispatch error: %r' % _e214o, flush=True)
 
             # ---- R169 (E2): load an optimized file's values into Pre-Print -------
             try:
@@ -21203,6 +21695,8 @@ def watch(directory, interval=5.0, once=False):
                     handle=max(0, min(int(_vfl89('litho_handle', 0)), 3)),
                     stamp_infill=max(5.0, min(
                         _vfl89('litho_stamp_infill', 10.0), 30.0)),
+                    # R214: upright side stands (left+right, perforated)
+                    stands=max(0, min(int(_vfl89('litho_stands', 1)), 1)),
                     material=str(rv.get('material', 'PLA') or 'PLA'),
                     bed=_bed89, nozzle=_gen_nozzle(directory), out_dir=_gensub(directory, 'litho'),
                     version=max(1, min(int(_vfl89('gen_version', 1)), 99)))
@@ -22598,6 +23092,9 @@ def watch(directory, interval=5.0, once=False):
             # R133f: the Gen files browser - every 00_ output, newest first
             # (max 12). Pushed ONLY when the list changes. This is output
             # MANAGEMENT (select/delete), not a source picker.
+            class _SkipPush215(Exception):
+                pass        # R215: print started mid-pass - pushes deferred
+
             try:
                 # R146 (.107): 00_ outputs live in per-generator SUBFOLDERS
                 # (Labels/, Frames/, ...) - the list carries RELATIVE paths so
@@ -22619,6 +23116,13 @@ def watch(directory, interval=5.0, once=False):
                                     _sub146 + '/' + _f146))
                 _gf = sorted(_gfe146, reverse=True)[:24]
                 _gfl = [f for _, f in _gf]
+                # R215 (.136l field log): equal mtimes made the top entries
+                # ROTATE between passes (the flip-flopping gen_files pushes
+                # every few seconds). The SET is the truth - when it is
+                # unchanged the last pushed ORDER stays (no push at all).
+                if gen_files_pushed[0] is not None \
+                        and set(_gfl) == set(gen_files_pushed[0]):
+                    _gfl = list(gen_files_pushed[0])
                 # R152 (.113): the R151 rewrite entangled the two pushes (the
                 # gen_files push only fired when sd_files changed) and both
                 # caches counted as 'pushed' BEFORE moonraker answered - a
@@ -22681,6 +23185,12 @@ def watch(directory, interval=5.0, once=False):
                             _walk154((sub + '/' + _d154) if sub else _d154,
                                      depth + 1)
                 _walk154('')
+                # R215: the busy probe at the TOP of the pass is stale by
+                # now - a start clicked mid-pass (the pass can take seconds
+                # on the Pi) must not be met with variable pushes while
+                # klipper homes. One cheap probe, then decide.
+                if _printer_busy():
+                    raise _SkipPush215()
                 if _tree154 != sd_tree_pushed[0]:
                     _tv154 = '{' + ','.join(
                         "'%s': [%s]" % (_k154, ','.join(
@@ -22739,6 +23249,8 @@ def watch(directory, interval=5.0, once=False):
                     else:
                         print('[genfiles] push failed (klipper busy?) - '
                               'retrying next cycle', flush=True)
+            except _SkipPush215:
+                pass            # silent by design - the next pass pushes
             except Exception as e:                      # noqa: BLE001
                 print(f'[genfiles] push error: {e!r}', flush=True)
         # R73: freshly uploaded/converted files -> push their parameters to the
@@ -22958,6 +23470,37 @@ def main():
         br = int(args[6]) if len(args) > 6 else 0
         out, nl = make_range(args[1], int(args[2]), int(args[3]), floor=fl, top=tp, brim=br)
         print(f'[ok] {out}: {nl} layers (floor {fl}/top {tp}/brim {br}) - start via the dialog')
+        return
+    if args[0] == '--stl':
+        # R214: SSH one-liner - object-only STL from a finished G-code.
+        #   r2_postproc.py --stl mypart.gcode
+        # Output: <folder>/stl/mypart_object.stl (next to the source).
+        if len(args) < 2:
+            print('usage: r2_postproc.py --stl FILE.gcode [OUTDIR=]')
+            print('  object-only export: supports, skirt, brim, prime tower,')
+            print('  custom helpers and ironing are skipped')
+            sys.exit(1)
+        kw214 = {}
+        for a214 in args[2:]:
+            if '=' in a214:
+                k214, v214 = a214.split('=', 1)
+                kw214[k214.upper()] = v214
+        rel214, info214 = _stl_export(
+            os.path.dirname(os.path.abspath(args[1])) or '.',
+            os.path.basename(args[1]),
+            out_dir=kw214.get('OUTDIR'))
+        print('[stl] %s: %d ribbons / %d layers / %.1f m object extrusion '
+              '-> %d triangles%s'
+              % (rel214, info214['runs'], info214['layers'],
+                 info214['incl_mm'] / 1000.0, info214['tris'],
+                 ' (CAPPED - file too complex, mesh truncated)' if info214['capped'] else ''))
+        if info214['excl']:
+            print('[stl] skipped: ' + ', '.join(
+                '%s %.1fm' % (k214.lower(), v214 / 1000.0)
+                for k214, v214 in sorted(info214['excl'].items())))
+        if info214['untyped']:
+            print('[stl] NOTE: the file has no ;TYPE comments at all - '
+                  'only typed blocks export (run RETAG if this surprises you)')
         return
     if args[0] == '--file-check':
         # R93: SSH one-liner - version census over a gcodes folder, no

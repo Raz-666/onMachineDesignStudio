@@ -228,6 +228,26 @@ if not led_ok:
     fails.append(('LED diet (R163/R166)', ['r2_printing frame_rate %d '
                                            '(max 5) or its layer is not '
                                            'static/breathing' % pr_fr]))
+
+# R215 (.136l field log): the LONG-RUNNING and start-phase effects drop to
+# 6 fps - idle/waiting run for hours, waiting/heating/homing/leveling sit
+# exactly in the just-in-time windows where the MCU died (the klippy log
+# showed ledFrameHandler inside the busy stacks). Short info effects
+# (boot/finished/alarm/paused/filament) keep 12.
+runs += 1
+_l215 = [e for e in ('r2_idle', 'r2_waiting', 'r2_heating', 'r2_homing',
+                     'r2_leveling', 'r2_pid', 'r2_nozzle_on')]
+_fr215 = {}
+for _e in _l215:
+    _m215 = re.search(r'\[led_effect %s\].*?frame_rate:\s*(\d+)' % _e,
+                      led, re.S)
+    if _m215:
+        _fr215[_e] = int(_m215.group(1))
+_bad215 = {k: v for k, v in _fr215.items() if v > 6}
+if len(_fr215) != len(_l215) or _bad215:
+    fails.append(('LED diet R215 (long-run effects)', [
+        'these effects must run at <= 6 fps: %s (found %s)'
+        % (', '.join(_l215), _fr215)]))
 print('%s %-46s <=%d LED msg/s while printing'
       % ('OK  ' if led_ok else 'FAIL', 'LED diet (printing animation)', pr_fr))
 

@@ -227,7 +227,14 @@ class R2MenuComponent:
         except Exception as e:                                   # noqa: BLE001
             return {'ok': False, 'reason': 'object list: %s' % e}
         wanted = self._live_wanted()
-        want = {o: None for o in objs if o in wanted}
+        # R215 (.136l field log): 'configfile: None' serializes the WHOLE
+        # object in klippy - including the raw config text (megabytes on
+        # this install). The menus only test section names in .settings,
+        # so ask for 'settings' and let _prune_status drop the values.
+        # This was the 0.2-0.7 s reactor stall every poll - one of the
+        # 'Timer too close' contributors while the page was open.
+        want = {o: ('settings' if o == 'configfile' else None)
+                for o in objs if o in wanted}
         status = {}
         skipped = []
         try:

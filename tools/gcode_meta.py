@@ -30,6 +30,7 @@ Design rules:
 import base64
 import math
 import os
+import re
 import struct
 import zlib
 
@@ -240,13 +241,45 @@ def _src_thumb_lines(src):
 
 def finalize(path, src=None):
     """Add/refresh OUR metadata block. Returns a status string:
-    'meta' (written), 'own' (slicer metadata kept), 'skip' (nothing)."""
+    'meta' (written), 'same' (signature matched - NOTHING written),
+    'own' (slicer metadata kept), 'skip' (nothing).
+
+    R215 (.136l field log): the watcher scan calls this for every
+    generated file on EVERY pass - and it used to re-analyze the whole
+    file (thumbnail render!) and REWRITE it even when nothing changed.
+    On the field Pi that meant: mtimes of ~30 files bumped every few
+    seconds (the gen-files list flip-flopped endlessly), the SD card
+    kept being written and the host sat at load 2+ 'idle' - a direct
+    'Timer too close' contributor. The block now ends in a signature
+    line: md5 over the file BODY (everything outside our block). Same
+    signature -> return 'same' after one read, zero writes. Any real
+    change (a fix rewrote the file) changes the body -> one refresh."""
     path = os.path.abspath(path)
     if not os.path.isfile(path):
         return 'missing'
     head = _read_head(path)
     if _has_foreign_thumbnail(head):
         return 'own'                      # slicer file: hands off
+    import hashlib as _hl215
+    with open(path, 'r', errors='replace') as f:
+        raw = f.read()
+    _body215 = raw
+    if MARK_OURS in raw:
+        _i215 = raw.index(MARK_OURS)
+        _k215 = raw.find('\n; R2-META sig =', _i215)
+        if _k215 < 0:
+            _j215 = raw.find('\n',
+                             raw.index('; filament used [mm] =', _i215))
+        else:
+            _j215 = raw.find('\n', _k215 + 1)
+            if _j215 < 0:
+                _j215 = len(raw) - 1
+        _body215 = raw[:_i215] + raw[_j215 + 1:]
+    _sig215 = _hl215.md5(
+        _body215.encode('utf-8', 'replace')).hexdigest()[:16]
+    _m215 = re.search(r'^; R2-META sig = ([0-9a-f]+)', raw, re.M)
+    if _m215 and _m215.group(1) == _sig215:
+        return 'same'
     t, fil, segs, _, _ = analyze(path)
     if not segs:
         return 'skip'                     # nothing printable to show
@@ -263,18 +296,21 @@ def finalize(path, src=None):
               'own moves'] + lines
              + ['; estimated printing time (normal mode) = ' + _fmt_time(t),
                 '; filament used [mm] = %.1fmm' % fil])
-    with open(path, 'r', errors='replace') as f:
-        raw = f.read()
-    # idempotent: drop a previous block of ours (marker .. filament line)
+    # raw was read above (R215) - strip a previous block of ours
+    # (marker .. sig line; pre-sig blocks end at the filament line)
     if MARK_OURS in raw:
         i = raw.index(MARK_OURS)
-        j = raw.find('\n', raw.index('; filament used [mm] =', i))
-        raw = raw[:i].rstrip('\n') + '\n' + raw[j + 1:]
-        if raw.startswith('\n'):
-            raw = raw[1:]
+        k = raw.find('\n; R2-META sig =', i)
+        if k < 0:
+            j = raw.find('\n', raw.index('; filament used [mm] =', i))
+        else:
+            j = raw.find('\n', k + 1)
+            if j < 0:
+                j = len(raw) - 1
+        raw = raw[:i] + raw[j + 1:]
     out = raw.split('\n')
     insert_at = 1 if out and out[0].startswith('; R2-GEN') else 0
-    out[insert_at:insert_at] = block
+    out[insert_at:insert_at] = block + ['; R2-META sig = ' + _sig215]
     with open(path, 'w', encoding='utf-8') as f:
         f.write('\n'.join(out))
     return 'meta'

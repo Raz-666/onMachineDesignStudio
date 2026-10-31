@@ -297,6 +297,39 @@ check('L4 CUSTOM watch: unknown vocabulary + wall geometry -> numbered '
       and 'TYPES=C1' in fi
       and 'WALL-OUTER' not in fi, fi[:110])
 
+# =================== L4b: R214 the DEEP-void air scan =======================
+# Field question 30.10.: the cross-layer air scan compared ONE layer down,
+# so a skin floating 'a couple of layers' above its support (support gap!)
+# or above a step read as a bridge. A real bridge deck hangs over a DEEP
+# hole. Material in ANY of the last 4 layer pictures disarms the scan.
+def _bridge_case(gap):
+    L = _hdr()
+    L += _layer(0.2, [(None, _square(20, 20, 80, 80)
+                        + _hatch(20, 20, 80, 80, 1.5))])
+    L += _layer(0.4, [(None, _square(20, 20, 80, 80)
+                        + _hatch(20, 20, 80, 80, 1.5))])
+    z = 0.6
+    for _ in range(gap):
+        L += _layer(z, [(None, _square(21, 21, 79, 79))])
+        z += 0.2
+    L += _layer(z, [(None, _hatch(23, 23, 77, 77, 1.5))])
+    z += 0.2
+    L += _layer(z, [(None, _square(23, 23, 77, 77))])   # deck not last
+    L += ['M107', 'PRINT_END']
+    return _run(D, 'airgap%d.gcode' % gap, L)
+
+_, _tg214a, _ = _bridge_case(2)
+check('L4b R214 air scan: a skin 2 layers above material (the support-gap '
+      'class) is NO bridge anymore - it prints as what it is (solid skin)',
+      'APPLY_TYPE TYPE=BRIDGE' not in _tg214a
+      and 'APPLY_TYPE TYPE=INTERNAL-BRIDGE' not in _tg214a
+      and 'APPLY_TYPE TYPE=INFILL-SOLID' in _tg214a, '')
+_, _tg214b, _ = _bridge_case(5)
+check('L4b R214 air scan: a deck over a DEEP void (5 empty layers) still '
+      'reads as the bridge it is',
+      ('APPLY_TYPE TYPE=BRIDGE' in _tg214b
+       or 'APPLY_TYPE TYPE=INTERNAL-BRIDGE' in _tg214b), '')
+
 # =================== L5: position logic on GENERATOR output ==================
 sys.path.insert(0, HERE)
 from r2_postproc import make_labels  # noqa: E402

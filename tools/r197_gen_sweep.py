@@ -322,8 +322,9 @@ sys.path.insert(0, os.path.join(REPO, 'tools'))
 import menu_json_export as mje                             # noqa: E402
 doc = mje.export(os.path.join(REPO, 'menus', 'lcd_menues.cfg'),
                  os.path.join(D, 'menu.json'))
-check('T1 export: all 2382 sections in one tree, no orphans',
-      doc['sections'] == 2382 and sum(doc['counts'].values()) == 2382,
+# R214 re-pin: __stl/__lib/__sdp/__fc added 21 paths (2382 -> 2403)
+check('T1 export: all 2403 sections in one tree, no orphans',
+      doc['sections'] == 2403 and sum(doc['counts'].values()) == 2403,
       str(doc['counts']))
 
 
@@ -336,7 +337,7 @@ def _walk(n, acc):
 
 _all = _walk(doc['tree'], [])
 check('T1 export: tree node count == sections, depth sane, known ids',
-      len(_all) == 2382
+      len(_all) == 2403
       and any(n['id'] == '__main __start __direct' for n in _all)
       and any(n['id'] == '__main __live' for n in _all))
 
@@ -350,7 +351,7 @@ _emb = json.JSONDecoder().raw_decode(
     _ptxt.split('const EMBEDDED_MENU_JSON = ', 1)[1])[0]
 check('T1 embed: placeholder replaced with valid JSON',
       '/*EMBEDDED_MENU_JSON*/ null' not in _ptxt
-      and _emb['sections'] == 2382)
+      and _emb['sections'] == 2403)
 
 # T2: the moonraker extension with a fake app
 spec = importlib.util.spec_from_file_location(
@@ -451,7 +452,7 @@ import asyncio                                            # noqa: E402
 loop = asyncio.new_event_loop()
 tree_doc = loop.run_until_complete(eps['/server/r2_menu/tree'](FakeReq()))
 check('T2 extension: tree handler serves the export',
-      tree_doc['sections'] == 2382 and 'tree' in tree_doc)
+      tree_doc['sections'] == 2403 and 'tree' in tree_doc)
 st = loop.run_until_complete(eps['/server/r2_menu/status'](FakeReq()))
 check('T2 extension: status handler reports ok + sha',
       st['ok'] and st['sha256'] == tree_doc['sha256'])

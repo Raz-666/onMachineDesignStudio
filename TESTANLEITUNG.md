@@ -1,6 +1,6 @@
-# TESTANLEITUNG — R2-D2 Makro-System (Version .136l)
+# TESTANLEITUNG — R2-D2 Makro-System (Version .136m)
 
-Diese Anleitung beschreibt **nur den aktuellen Stand** (.136l). Sie ist die
+Diese Anleitung beschreibt **nur den aktuellen Stand** (.136m). Sie ist die
 komplette Feld-Checkliste nach dem Einspielen eines Updates — von Boot bis
 Druckergebnis. Die Historie der Änderungen steht in README.md.
 
@@ -18,7 +18,7 @@ Druckergebnis. Die Historie der Änderungen steht in README.md.
 ## 2. Boot-Check (Pflicht, 1 Minute)
 
 - [ ] Konsole: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-10-30.136l)`
+      (build R2-2026-10-31.136m)`
 - [ ] ~10 s nach dem Boot: Boot-Sound + LED-Animation
 - [ ] `SHOW_STATUS` antwortet mit Modus/Material/Overrides
 - [ ] Kein Eintrag fehlt: sonst meldet sich `_CHECK_INSTALL` laut mit
@@ -80,6 +80,9 @@ bewusst angeschweißt). Je ein Probedruck:
 - [ ] **Plotter**: Bild/Text wählen → Pen-Modus ungeheizt, `00_Plot_*`
       entsteht erst bei Auswahl (keine Zwillinge mehr)
 - [ ] **Bricks/Bausatz/Figuren** nach Bedarf: Noppen klemmen an Originalen
+- [ ] **File-Check an beiden Orten (.136m)**: System > File check UND
+      Pre-Print > Fixes > File check — dieselbe Liste (Scan now, How it
+      works, Retag 2-Press, RETAG OLD NOW, Re-fix, RE-FIX TYPES NOW)
 
 ## 8. Live-Tuning & Profil
 
@@ -95,12 +98,32 @@ bewusst angeschweißt). Je ein Probedruck:
       My presets → Save speichert als **grid01, wave01, …**
       (Texturname + fortlaufende Nummer, nie Überschreiben); ein
       zweites Save unter gleichem Namen ergibt grid02
+- [ ] **Textur-Vorlagen (.136m)**: Pre-Print > Texture > Vorlagen →
+      44 Looks nach Optik (Rattan, Sandstein, Seil, …), 6 Seiten;
+      ein Druck LÄDT alle Settings und die Antwort nennt sie
+      (pattern, scale, zsize, amp, dir); Löschen verweigert
+      (schreibgeschützt); eigener Save unter Vorlagen-Namen nummeriert
+      sich selbst; TEXTURING.pdf im Repo zeigt alle 21 Muster mit
+      echten Vorschauen
+- [ ] **STL-Export (.136m)**: Datei wählen → Pre-Print > File info >
+      `STL: object only` → `gcodes/stl/<name>_object.stl` entsteht
+      (nur Objekt, ohne Supports/Skirt/Brim/Tower/Custom/Ironing;
+      Zusammenfassung nennt Rippen/Layer/Dreiecke und was draußen
+      blieb); nur im Leerlauf (während des Drucks abgewiesen)
+- [ ] **Litho-Aufrechtdruck-Stützen (.136m)**: Litho > Settings >
+      Side stands ON → Datei hat **LITHO_STAND_L/R**-Objekte;
+      dreieckige Flossen links+rechts, ~5-mm-Perforation,
+      1,2-mm-Bruchnaht; Frame OFF → Stützen ehrlich aus + Hinweis
+- [ ] **Label-Einprägung (.136m)**: Label mit 2 Textschichten →
+      Gesamthöhe = naive Summe MINUS 1 Lage (erste Textschicht
+      druckt IN der letzten Basisschicht — Konturen bleiben im
+      Plastik erkennbar, selbst wenn obere Schichten abplatzen)
 - [ ] Nach Druckende: **Rate print?** bleibt bis zur Antwort im Menü
       (kein Timeout), YES schreibt `optimized/`-Kopie, NO stellt den
       Pre-Print-Zustand exakt wieder her
 - [ ] Pause/Fortsetzen/Objekt ausschließen je einmal testen
 
-## 9. Web-LCD im Browser (.136l-Checks)
+## 9. Web-LCD im Browser (.136m-Checks)
 
 - [ ] Seite öffnen: **die Seite scrollt NIE** (.136l: `100dvh`-Layout,
       nichts ragt heraus) — nur die Konsole scrollt INNERHALB ihres
@@ -112,7 +135,11 @@ bewusst angeschweißt). Je ein Probedruck:
       Senden-Menü und Konsole (je −5…+8 px um den Basiswert, gemerkt)
 - [ ] **LCD-Benachrichtigungen 3–4 Nummern größer**, Detail-Text im Feld
       darüber 2 Nummern, Dateibrowser 1 Nummer größer als vorher
-- [ ] Dashboard-Werte im Grid über 2–3 Zeilen
+- [ ] **Live-Bereich gestapelt (.136m)**: Spalten übereinander —
+      Modus+Datei, Temperaturen (Düse/Bett/Lüfter), Speed-Zeug
+      (Feed/Accel), Flow+PA, Zeiten (Fortschritt %, Laufzeit, Rest) —
+      und **Layer + Feature in EINER Zeile GANZ UNTEN** unter allen
+      Werten (gleicher Poll wie vorher, keine zusätzlichen Abfragen)
 - [ ] Konsole-Toolbar: **Leeren** leert, **Suchfeld** filtert die Historie,
       Autoscroll-Knopf schaltet
 - [ ] **Tools-Menü + SD-Liste gefüllt** (der .136k-Fix: wert-lose
@@ -130,9 +157,24 @@ bewusst angeschweißt). Je ein Probedruck:
 - [ ] Sounds: Bestätigung/Fehler/Laufzeit unterscheidbar (Fit-Beep =
       Bestätigung, nicht Fehler-Beep)
 - [ ] `HOST_CHECK`: Pi-Gesundheitsbericht ohne falsche Warnungen
+- [ ] `HOST_CHECK` **zeigt jetzt auch klippys eigene Last** (R215): die
+      Zeile „Reactor: … stalls … failed LED updates“ — nach dem Update
+      sollte sie „clean – no stalls“ sagen; stehen dort viele Stalls,
+      ist der Host zu beschäftigt für die Homing-Phase
+- [ ] **Druckstart ohne MCU-Shutdown** (R215, der .136l-Kettenfix):
+      Datei auswählen → Start → Homing muss durchlaufen, ohne dass
+      „Timer too close“ die Steuerung abschaltet — Watcher schreibt
+      jetzt nicht mehr bei jedem Durchlauf alle Dateien neu, die
+      gen_files-Liste darf sich nicht mehr alle paar Sekunden neu
+      sortieren (Konsole beobachten) und die Weboberfläche hält nach
+      einem Start-Befehl 25 s mit dem Live-Poll still (Konsole läuft
+      weiter)
+- [ ] **Keine „Unknown gcode_macro variable fecho_c1/fov_c1“** mehr in
+      der Konsole (R213-Restfehler: die C-Slots wurden gesetzt, aber
+      nie deklariert)
 
 ---
 
-**Alles grün?** Dann ist .136l field-clear. Wenn etwas auffällt: Konsole
+**Alles grün?** Dann ist .136m field-clear. Wenn etwas auffällt: Konsole
 kopieren (RESPOND-Zeilen) + welche Datei/welcher Menüpfad — daraus wird der
 nächste Feldlog-Eintrag.

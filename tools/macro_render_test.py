@@ -171,6 +171,10 @@ def build_printer(kamp=False, objs=None, excl=None, old_klipper=False, bare_idle
                       'filament_used':4.2,'filename':'test.gcode'}),
     'virtual_sdcard': M({'is_active': True}),
     'save_variables': M({'variables': save_vars}),
+    # R214: the preset engine reads its library from its own macro object
+    # (self-read like Klipper) - the mock ships a NEUTRAL one; the R214
+    # block below overrides it with the real 44-look library
+    'gcode_macro _GEN_PRESET': M({'texture_lib': {}}),
     'exclude_object': M({'objects': objects, 'excluded_objects': [], 'current_object': (objects[0]['name'] if objects else None)}),
     'bed_mesh': M({'profile_name': 'r2', 'profiles': {'r2': {}}}),
     'idle_timeout': M({'state':'Printing','printing_time':0.0,'idle_timeout':3600}),   # REAL keyset (get_status: state/printing_time/idle_timeout)
@@ -3157,7 +3161,7 @@ for _f82 in ('COND', 'NARROW', 'CAPS'):
     _o82, _i82 = _pp61.make_labels(['R2-D2'], w=50, h=15, font=_f82)
     _t82 = open(_o82).read()
     tests.append(('R82 make_labels builds with font %s' % _f82,
-        _t82.count('LAYER_MARK') > 5 and 'APPLY_TYPE' in _t82,
+        _t82.count('LAYER_MARK') > 4 and 'APPLY_TYPE' in _t82,
         _i82.get('font', _f82)))
 _o82a, _i82a = _pp61.make_labels(['X'], w=30, h=10, font='PIXEL')
 _t82a = open(_o82a).read()    # read NOW - the SMOOTH call below writes the SAME filename
@@ -3186,7 +3190,7 @@ tests.append(('R116 fonts: DISTINCT data (no silent SMOOTH fallback)',
     and _pp61.FONT_PLATE['A'][1] != _pp61.FONT_SMOOTH['A'][1]
     and _pp61.FONT_PIXEL['A'][1] != _pp61.FONT_SMOOTH['A'][1], ''))
 tests.append(('R116 make_labels builds with SCRIPT/HAND/PLATE/PIXEL',
-    all(open(_pp61.make_labels(['X'], w=30, h=12, font=_f116)[0]).read().count('LAYER_MARK') > 5
+    all(open(_pp61.make_labels(['X'], w=30, h=12, font=_f116)[0]).read().count('LAYER_MARK') > 4
         for _f116 in ('SCRIPT', 'HAND', 'PLATE', 'PIXEL')), ''))
 _o116, _i116 = _pp61.make_labels(
     ['GARAGE', 'WERKZEUG'], w=60, h=30, font='SMOOTH',
@@ -3251,15 +3255,16 @@ _bed63 = (0.0, -1.0, 244.0, 238.0)
 _out63, _info63 = _pp61.make_labels(['WERKSTATT', 'R2-D2'], w=60, h=30, hole_side=1,
                                     hole_d=5.0, out_dir=_d63, bed=_bed63)
 _t63 = open(_out63).read()
-tests.append(('R63 make_labels: file + info (2 labels, tower, 6 layers)',
-    _info63['count'] == 2 and _info63['layers'] == 6 and _info63['tower']
+tests.append(('R63 make_labels: file + info (2 labels, tower, 5 layers - '
+    'R214: first text INSIDE the last base layer = naive 6 - 1)',
+    _info63['count'] == 2 and _info63['layers'] == 5 and _info63['tower']
     and _os63.path.isfile(_out63), str(_info63)))
 tests.append(('R63 make_labels: tagged by process() (TAG + _FILE_INFO + LAYER_MARK)',
     '; R2-POSTPROC v5' in _t63 and '_FILE_INFO' in _t63 and 'MATERIAL=PLA' in _t63
-    and _t63.count('\nLAYER_MARK\n') == 6, ''))
+    and _t63.count('\nLAYER_MARK\n') == 5, ''))
 tests.append(('R63 make_labels: PRINT_START head + slicer config comments',
     _t63.index('PRINT_START MATERIAL=PLA') > _t63.index('; filament_type = PLA')
-    and 'TOTAL_LAYERS=6' in _t63 and '; layer_height = 0.2' in _t63, ''))
+    and 'TOTAL_LAYERS=5' in _t63 and '; layer_height = 0.2' in _t63, ''))
 tests.append(('R63 make_labels: exclude objects per label + tower + KAMP polygons',
     _t63.count('EXCLUDE_OBJECT_DEFINE') == 3 and 'NAME=LABEL_1' in _t63
     and 'NAME=PURGE_TOWER' in _t63 and 'POLYGON=[[56.0,103.5]' in _t63
@@ -3305,7 +3310,7 @@ tests.append(('R63 text: fits the band, >= 3mm tall',
 # --- z ladder + E sanity + bed bounds ---
 _zs63 = [float(m.group(1)) for m in (_re63.search(r';Z:([\d.]+)', l) for l in _lines63) if m]
 tests.append(('R63 layers: Z ladder first 0.28 then 0.2 steps',
-    _zs63 == [0.28, 0.48, 0.68, 0.88, 1.08, 1.28], str(_zs63)))
+    _zs63 == [0.28, 0.48, 0.68, 0.88, 1.08], str(_zs63)))
 tests.append(('R63 gcode: no negative E, all moves inside the bed',
     not _re63.search(r' E(-\d)', _t63)
     and all(0 <= float(m.group(1)) <= 244 for m in _re63.finditer(r'G[01] X([\d.-]+) Y', _t63))
@@ -3316,8 +3321,9 @@ _o63, _i63 = _pp61.make_labels(['R2-D2'], w=50, h=25, font='PIXEL', base_layers=
                                text_layers=3, hole_side=3, hole_d=4.0, color2=False,
                                out_dir=_d63, bed=_bed63)
 _v63 = open(_o63).read()
-tests.append(('R63 single color: no M600, no tower, still 6 layers + hole TOP',
-    '\nM600\n' not in _v63 and 'PURGE_TOWER' not in _v63 and _v63.count('\nLAYER_MARK\n') == 6, ''))
+tests.append(('R63 single color: no M600, no tower, still 5 layers '
+    '(3 base + 3 text - 1 overlap) + hole TOP',
+    '\nM600\n' not in _v63 and 'PURGE_TOWER' not in _v63 and _v63.count('\nLAYER_MARK\n') == 5, ''))
 _o63b, _i63b = _pp61.make_labels(['TEST'], w=40, h=20, font='MONO', ironing=False,
                                  brim=False, hole_side=2, hole_d=6.0, out_dir=_d63, bed=_bed63)
 _v63b = open(_o63b).read()
@@ -3910,7 +3916,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.133) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-30.136l'", repr(_v66)))
+    _v66 == "'R2-2026-10-31.136m'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -4557,7 +4563,7 @@ _lp73, _li73 = _mod73.make_labels(['Axg@'], w=60, h=30, hole_side=1, hole_d=5.0,
 _lt73 = open(_lp73).read()
 tests.append(('R73 label file: TAG + _FILE_INFO + markers DIRECT (no process re-parse)',
     '; R2-POSTPROC v5' in _lt73 and _lt73.count('_FILE_INFO ') == 1
-    and 'APPLY_TYPE TYPE=WALL-INNER' in _lt73 and _lt73.count('LAYER_MARK') == 3
+    and 'APPLY_TYPE TYPE=WALL-INNER' in _lt73 and _lt73.count('LAYER_MARK') == 2
     and _mod73.process(_lp73)['skipped'] is True, ''))
 _fed73 = [int(_m73.group(1)) for _m73 in _re73.finditer(r'F(\d+)', _lt73)]
 tests.append(('R73/R159 label file: extruding feeds at 60mm/s, travels 180 '
@@ -5194,7 +5200,8 @@ tests.append(('R75 watcher: _prime_nonces adopts the current counters (no re-fir
         'img_pick_nonce': None, 'del_nonce': None,
         'scale_nonce': None,
         'cake_nonce': None,
-        'stringart_nonce': None}, ''))
+        'stringart_nonce': None,
+        'stl_nonce': None}, ''))   # R214 (.136m): the STL export channel
 tests.append(('R75 watcher: daemon runs niced + primes on the first pass',
     'os.nice(4)' in open('tools/r2_postproc.py').read()
     and 'first_prime' in open('tools/r2_postproc.py').read(), ''))
@@ -6389,10 +6396,11 @@ tests.append(('R86 modules: 17_generator.cfg sentinel + _CHECK_INSTALL lists 17'
     '_V18_GEN' in open(_gen86).read()
     and "('17_generator.cfg',       ['_V18_GEN'])" in open('macros/01_state.cfg').read()
     and 'all 17 modules' not in open('macros/01_state.cfg').read(), ''))
-tests.append(('R86-R174 watcher: NONCE_KEYS has 37 channels incl. litho/seal/frame/colorpic '
+tests.append(('R86-R214 watcher: NONCE_KEYS has 38 channels incl. litho/seal/frame/colorpic '
     '+ the three fix channels (.108) + the two optimized-file channels (.128) '
-    '+ the SD-browser image channel (.130)',
-    len(_pp.NONCE_KEYS) == 37 and 'flowcap_fix_nonce' in _pp.NONCE_KEYS
+    '+ the SD-browser image channel (.130) + the STL export channel (.136m)',
+    len(_pp.NONCE_KEYS) == 38 and 'stl_nonce' in _pp.NONCE_KEYS
+    and 'flowcap_fix_nonce' in _pp.NONCE_KEYS
     and 'opt_nonce' in _pp.NONCE_KEYS and 'opt_load_nonce' in _pp.NONCE_KEYS
     and 'img_pick_nonce' in _pp.NONCE_KEYS
     and 'travelacc_fix_nonce' in _pp.NONCE_KEYS
@@ -7470,8 +7478,9 @@ open(_src92, 'wb').write(_png92)
 _p92, _i92 = _pp.make_lithophane(_src92, height_mm=30.0, layer_h=0.12, frame=True,
                                  brim_loops=2, ironing=True, out_dir=_d92)
 _g92 = open(_p92, encoding='utf-8').read()
-tests.append(('R92 litho: TYPES list = bottom/solid/top + brim + ironing',
-    'TYPES=BRIM,SURFACE-BOTTOM,INFILL-SOLID,SURFACE-TOP,IRONING' in _g92, ''))
+tests.append(('R92 litho: TYPES list = bottom/solid/top + brim + ironing '
+    '+ the R214 stand features (WALL-OUTER fins, BRIDGE ribs)',
+    'TYPES=BRIM,WALL-OUTER,BRIDGE,SURFACE-BOTTOM,INFILL-SOLID,SURFACE-TOP,IRONING' in _g92, ''))
 tests.append(('R92 litho: layer 1+2 tagged Bottom surface (not inner wall)',
     _g92.count(';TYPE:Bottom surface') >= 3          # 2 layers + re-assert after the brim
     and 'APPLY_TYPE TYPE=SURFACE-BOTTOM' in _g92
@@ -7722,12 +7731,16 @@ save_vars.update({'file_check_nonce': 0})
 _lcd93 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 tests.append(('R93 LCD: System > File check (R212: back from Pre-Print '
               '> Fixes - a command-with-children was LCD-unreachable; '
-              'Retag 2-press, gated NOW)',
+              'Retag 2-press, gated NOW). R214 (.136m): the SAME list now '
+              'ALSO lives in Pre-Print > Fixes > File check (field wish - '
+              'the fixes are reachable from both places, one truth)',
     all(k in _lcd93 for k in ('__main __system __fc]', '__main __system __fc __fc1]',
                               '__main __system __fc __fc2]', '__main __system __fc __fc3]',
                               '__main __system __fc __fc4]', '__main __system __fc __fc5]',
-                              '__main __system __fc __scan]'))
-    and '__preprint __fixes __fc' not in _lcd93
+                              '__main __system __fc __scan]',
+                              '__main __preprint __fixes __fc]',
+                              '__main __preprint __fixes __fc __fc1]',
+                              '__main __preprint __fixes __fc __scan]'))
     and 'FILE_CHECK RETAG=1 CONFIRM=1' in _lcd93
     and "fc_armed}" in _lcd93, ''))
 _pp93 = open('tools/r2_postproc.py', encoding='utf-8').read()
@@ -8481,8 +8494,9 @@ for _l96 in open(_p92).read().split(chr(10)):
             else:
                 _long96 += 1
         _pos96l = _n96l
-tests.append(('R96 litho: no openings - the only long travel (ironing) retracts',
-    _long96 == 0 and 1 <= _longr96 <= 3,
+tests.append(('R96 litho: no openings - every long travel retracts '
+    '(R214: the side stands add ~1000 more, all retracted)',
+    _long96 == 0 and _longr96 >= 1,
     'unretracted %d / retracted %d' % (_long96, _longr96)))
 
 # --- source: every generator registers its openings + the zero-length guard --
@@ -11156,7 +11170,7 @@ import hashlib as _hl119
 import math as _math119
 import re as _re119
 _D119 = tempfile.mkdtemp(prefix='r119_')
-_MD5_120 = 'c9ec8922c1543c7132c830f79b0c0d85'   # re-frozen .135 (R194): the purge tower is ONE PRIME-TOWER feature now (was Outer/Inner/Internal solid infill markers per tower layer) + the tower brim carries APPLY_TYPE TYPE=BRIM. Diff verified against the .134 module (commit 7014f69): ONLY tower marker lines and the _FILE_INFO TYPES= (+PRIME-TOWER) changed - geometry/speeds byte-identical. R184 before that: brim air gap everywhere.
+_MD5_120 = 'bdeac0dac34434d50a9813d2b3425d9a'   # re-frozen .136m (R214): the first text layer prints INSIDE the last base layer (M600 + tower prime + border + text move into it, the separate first-text layer is gone, TOTAL_LAYERS = naive - 1, + the R214 header note). Diff verified against the .136l module (commit bc63ad5): ONLY the loop structure and the documented lines changed - base geometry/speeds byte-identical. R194 before that: PRIME-TOWER.
 
 def _labpts119(path, li):
     _t = open(path).read()
@@ -11229,7 +11243,7 @@ _o119, _i119 = _pp61.make_labels(['RAND'], border_walls=3, border_gap=1.0,
                                  hole_side=1, w=70, h=30, out_dir=_D119)
 _wid119 = 0.648
 _hd119 = _i119.get('hole_d', 5.0) or 5.0
-_pts, (_cx, _cy), _t119 = _labpts119(_o119, 6)          # first TEXT layer
+_pts, (_cx, _cy), _t119 = _labpts119(_o119, 5)          # raised text layer (R214: first text sits INSIDE layer 4)
 _lx119 = _cx - _i119['w'] / 2
 _insets119 = sorted(set(round(_x - _lx119, 2) for (_x, _y) in _pts if _x < _lx119 + 4.5))
 tests.append(('R119 border: text layer carries the ring at wid/2+gap (+k*wid)',
@@ -11245,7 +11259,7 @@ tests.append(('R119 border: base layers stay at the classic outer wall (no ring)
         and _x > _hz119),
     'xmin %.3f' % _xmin2))
 # hole: no horizontal border extrusion bridges the open hole band
-_lay6 = _re119.split(r'(?m)^;LAYER_CHANGE', _t119)[6]
+_lay6 = _re119.split(r'(?m)^;LAYER_CHANGE', _t119)[5]
 _lab6 = _lay6.split('EXCLUDE_OBJECT_START NAME=LABEL_1')[1].split('EXCLUDE_OBJECT_END')[0]
 _bridge119 = 0
 _px = _py = None
@@ -13902,6 +13916,34 @@ _ADDED135 = [
  '__main __live __feat __cu __c9 __on',
  '__main __live __feat __cu __c9 __pa',
  '__main __live __feat __cu __c9 __spd',
+
+    # ---- R214 (.136m): the field round --------------------------------
+    # (1) Pre-Print > Fixes > File check: the SAME list as System >
+    #     File check, now reachable from both places
+    # (2) Pre-Print > File > STL: object-only export
+    # (3) Texture > Vorlagen: the 44-look library browser
+    # (4) Litho > Settings > Side stands (upright fins)
+    '__main __gen __litho __set __sdp',
+    '__main __preprint __file __stl',
+    '__main __preprint __fixes __fc',
+    '__main __preprint __fixes __fc __fc1',
+    '__main __preprint __fixes __fc __fc2',
+    '__main __preprint __fixes __fc __fc3',
+    '__main __preprint __fixes __fc __fc4',
+    '__main __preprint __fixes __fc __fc5',
+    '__main __preprint __fixes __fc __scan',
+    '__main __preprint __mods __tex __lib',
+    '__main __preprint __mods __tex __lib __how',
+    '__main __preprint __mods __tex __lib __l0',
+    '__main __preprint __mods __tex __lib __l1',
+    '__main __preprint __mods __tex __lib __l2',
+    '__main __preprint __mods __tex __lib __l3',
+    '__main __preprint __mods __tex __lib __l4',
+    '__main __preprint __mods __tex __lib __l5',
+    '__main __preprint __mods __tex __lib __l6',
+    '__main __preprint __mods __tex __lib __l7',
+    '__main __preprint __mods __tex __lib __pd',
+    '__main __preprint __mods __tex __lib __pgu',
 ]
 _gone135 = sorted(set(_gold135) - set(_now135))
 _new135 = sorted(set(_now135) - set(_gold135))
@@ -13955,7 +13997,7 @@ tests.append(('R175b Pre-Print Tools submenu + Motion split',
                                                                  '__acfe']
               and _kids135('__preprint __motion __ext') == ['__pafe', '__flfe']
               and _kids135('__preprint __fixes')[:3] == ['__how', '__seg',
-                                                         '__retst'],
+                                                         '__fc'],
               str(_kids135('__preprint __mods'))))
 
 _poffblk135 = _lcd135[_lcd135.index('[menu __main __preprint __mods __poff]'):
@@ -15202,8 +15244,10 @@ tests.append(('R213 texture preset numbering: the second GRID save never '
 save_vars.update({'frame_user_presets': {'P0': {'frame_w': 1.0},
                                         'P1': {'frame_w': 2.0}}})
 _info174c = render(_eng174c, {'ACTION': 'info', 'GEN': 'frame'})
-tests.append(('R174c preset engine: INFO lists the names (console check)',
-    'user presets (2): P0, P1' in _info174c,
+tests.append(('R174c/R214 preset engine: INFO lists the names (console '
+    'check; R214 counts user and library separately)',
+    'presets: 2 your own + 0 library looks = 2 total' in _info174c
+    and 'names: P0, P1' in _info174c,
     _info174c[:100]))
 tests.append(('R174c preset engine: unknown generator refused honestly',
     'unknown generator' in render(_eng174c, {'ACTION': 'save', 'GEN': 'nosuch'}),
@@ -16650,12 +16694,12 @@ tests.append(('R185 current-only manual: no version-history appendix, no era '
     '## Appendix D' not in _m185 and 'Version history' not in _m185
     and _re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185) is None
     and _re2.search(r'\bR1[0-9][0-9]\b', _m185) is None
-    and 'The nine fonts' in _m185 and 'R2-2026-10-30.136l' in _m185,
+    and 'The nine fonts' in _m185 and 'R2-2026-10-31.136m' in _m185,
     'appendixD=%s eratags=%s rtags=%s nine=%s v132=%s' % (
         '## Appendix D' in _m185,
         bool(_re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185)),
         bool(_re2.search(r'\bR1[0-9][0-9]\b', _m185)),
-        'The nine fonts' in _m185, 'R2-2026-10-30.136l' in _m185)))
+        'The nine fonts' in _m185, 'R2-2026-10-31.136m' in _m185)))
 
 # ================== R184 (.131c field round): the brim air gap EVERYWHERE ==
 # The user asked: does the brim fusing hit our OTHER generators too? Measured
@@ -16920,6 +16964,181 @@ for name, ok, info in tests:
     if not ok:
         fails += 1
         print('      ->', str(info)[:220])
+
+# ================== R214 (.136m): field feedback round ======================
+# (1) preset load always shows what it loaded (+ honest note on older
+#     saves), (2) the 44-look texture library, (3) object-only STL export,
+# (4) upright litho stands, (5) label text embedded in the last base layer,
+# (6) the stacked web live dashboard.
+import ast as _ast214
+import importlib.util as _ilu214
+_mc214 = open('macros/17_generator.cfg', encoding='utf-8').read()
+_lcd214 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+_pp214 = open('tools/r2_postproc.py', encoding='utf-8').read()
+_web214 = open('web/index.html', encoding='utf-8').read()
+
+# the 44 library looks from the ONE truth (the macro config variable)
+_libm214 = re.search(r'^variable_texture_lib: (.+)$', _mc214, re.M)
+_lib214 = _ast214.literal_eval(_libm214.group(1))
+tests.append(('R214 texture library: 44 looks live in the macro config '
+    '(appearance names, full 9-key sets, ranges valid)',
+    len(_lib214) == 44
+    and all(sorted(v) == sorted(['texture_mode', 'texture_fuzzy_thick',
+        'texture_fuzzy_density', 'texture_pattern', 'texture_scale',
+        'texture_zsize', 'texture_amp', 'texture_dir', 'texture_seed'])
+        for v in _lib214.values())
+    and all(3.0 <= v['texture_scale'] <= 80.0
+            and 0.05 <= v['texture_amp'] <= 1.0
+            and 1 <= v['texture_seed'] <= 999 for v in _lib214.values()),
+    str(len(_lib214))))
+
+# render the engine WITH the real library object (self-read like Klipper)
+_p214 = build_printer()
+_p214['gcode_macro _GEN_PRESET'] = M({'texture_lib': _lib214})
+def _r214(par214):
+    return render(_eng174c, par214, extra={'printer': _p214})
+
+_sv_bak214 = dict(save_vars.get('texture_user_presets', {}))
+save_vars.update({'texture_lib_page': 0, 'texture_preset_page': 0})
+_load214 = _r214({'ACTION': 'load', 'GEN': 'texture', 'SRC': 'lib', 'SLOT': '0'})
+_nkeys214 = sum(1 for _k214 in ('texture_mode', 'texture_fuzzy_thick',
+    'texture_fuzzy_density', 'texture_pattern', 'texture_scale',
+    'texture_zsize', 'texture_amp', 'texture_dir', 'texture_seed')
+    if ('VARIABLE=%s VALUE=' % _k214) in _load214)
+_resp214 = [l for l in _load214.split('\n') if 'RESPOND' in l][:1]
+tests.append(('R214 preset load SPEAKS: a library look writes ALL 9 settings '
+    'and answers with the summary (mode/pattern/scale/zsize/amp/dir)',
+    _nkeys214 == 9
+    and _resp214 and '(library) loaded: mode=' in _resp214[0]
+    and 'pattern=' in _resp214[0] and 'review the settings' in _resp214[0],
+    (_resp214[0][:110] if _resp214 else 'no RESPOND')))
+
+save_vars.update({'texture_user_presets': {
+    'AAA alt': {'texture_mode': 'BUMPS', 'texture_pattern': 'GRID',
+                'texture_scale': 9.0}}})
+_load214b = _r214({'ACTION': 'load', 'GEN': 'texture', 'SLOT': '0'})
+_rb214 = [l for l in _load214b.split('\n') if 'RESPOND' in l][:1]
+tests.append(('R214 preset load: an OLDER sparse preset keeps unknown '
+    'settings as-is and SAYS so (the frame-dimensions mystery answered)',
+    _rb214 and '(user)' in _rb214[0]
+    and 'NOTE: 6 setting(s) not in this preset (older save - kept as-is)'
+    in _rb214[0],
+    (_rb214[0][:130] if _rb214 else 'no RESPOND')))
+
+_del214 = _r214({'ACTION': 'delete', 'GEN': 'texture', 'SRC': 'lib', 'SLOT': '0'})
+_save214 = _r214({'ACTION': 'save', 'GEN': 'texture', 'NAME': 'Rattan'})
+tests.append(('R214 library is read-only: Delete refuses, a save under a '
+    'library name numbers itself, and SAVE persists ONLY user presets '
+    '(the 44 looks never leak into save_variables)',
+    'is a LIBRARY look - read-only' in _del214
+    and "'Rattan01':{" in _save214
+    and 'Wellblech' not in _save214.split('texture_user_presets')[1][:400]
+    and _save214.count('VARIABLE=texture_user_presets') == 1,
+    ''))
+
+tests.append(('R214 LCD: the Vorlagen browser - 8 direct-load slots, own '
+    'page counter, SRC=lib (user pages untouched)',
+    _lcd214.count('SRC=lib SLOT=') == 8
+    and 'texture_lib_page|default(0)|int)*8+' in _lcd214
+    and 'LITHO_STAND' not in _lcd214[:1],
+    str(_lcd214.count('SRC=lib SLOT='))))
+
+# ---- STL export -------------------------------------------------------------
+_stl_mac214 = get_body('macros/08_print_start_stop.cfg', 'STL_EXPORT')
+tests.append(('R214 STL export: macro (idle gate + nonce channel) and the '
+    'Pre-Print > File menu entry',
+    'stl_nonce' in _stl_mac214
+    and "mode in ['printing','paused','filament']" in _stl_mac214
+    and '[menu __main __preprint __file __stl]' in _lcd214,
+    ''))
+tests.append(('R214 STL export: watcher dispatch + nonce priming + idle '
+    'freeze (the .125 disk-I/O lesson) + SSH one-liner',
+    "'stl_nonce'" in _pp214.split('NONCE_KEYS')[1][:900]
+    and "'stl_nonce')" in _pp214
+    and '_spawn_job(\'STL export\', \'stl_export214\'' in _pp214
+    and "'--stl'" in _pp214,
+    ''))
+
+_spec214 = _ilu214.spec_from_file_location('r2pp214', 'tools/r2_postproc.py')
+_mod214 = _ilu214.module_from_spec(_spec214)
+_spec214.loader.exec_module(_mod214)
+import tempfile as _tf214, os as _os214
+_d214 = _tf214.mkdtemp()
+_g214 = ['M83', 'G28', 'G0 X10 Y10 Z0.28', 'G1 X20 Y10 E1.0']
+for _z214 in (0.28, 0.48):
+    _g214.append('G0 Z%.2f' % _z214)
+    _g214 += [';TYPE:Skirt', 'G0 X5 Y5', 'G1 X45 Y5 E2', 'G1 X45 Y45 E2']
+    _g214 += [';TYPE:Outer wall', 'G0 X10 Y10', 'G1 X40 Y10 E1.7',
+              'G1 X40 Y40 E1.7', 'G1 X10 Y40 E1.7', 'G1 X10 Y10 E1.7']
+    _g214 += [';TYPE:Support', 'G0 X50 Y50', 'G1 X55 Y50 E0.6']
+    _g214 += [';TYPE:Custom', 'G0 X70 Y70', 'G1 X75 Y70 E0.5']
+_g214.append('G1 E-0.8')
+open(_os214.path.join(_d214, 't214.gcode'), 'w').write('\n'.join(_g214) + '\n')
+_rel214, _inf214 = _mod214._stl_export(_d214, 't214.gcode')
+tests.append(('R214 STL export: the mesh keeps the OBJECT and drops the '
+    'helpers (skirt/support/custom/purge - measured, not promised)',
+    _inf214['tris'] > 0 and _inf214['layers'] == 2
+    and 'SKIRT' in _inf214['excl'] and 'SUPPORT' in _inf214['excl']
+    and 'CUSTOM' in _inf214['excl']
+    and _os214.path.isfile(_os214.path.join(_d214, 'stl', 't214_object.stl')),
+    str(_inf214)))
+
+# ---- litho stands -----------------------------------------------------------
+from PIL import Image as _PILImage214
+_im214 = _PILImage214.new('L', (80, 60), 128)
+for _x214 in range(80):
+    for _y214 in range(60):
+        _im214.putpixel((_x214, _y214), 40 + _x214 * 2)
+_im214.save(_os214.path.join(_d214, 't214.png'))
+_o214, _i214 = _mod214.make_lithophane(
+    _os214.path.join(_d214, 't214.png'), height_mm=30, layer_h=0.16, frame=True,
+    brim_loops=2, out_dir=_d214, orient='STANDING', stands=1,
+    bed=(0.0, -3.0, 244.0, 238.0))
+_txt214 = open(_o214).read()
+_o214b, _i214b = _mod214.make_lithophane(
+    _os214.path.join(_d214, 't214.png'), height_mm=30, layer_h=0.16, frame=False,
+    brim_loops=2, out_dir=_d214, orient='STANDING', stands=1,
+    bed=(0.0, -3.0, 244.0, 238.0))
+tests.append(('R214 litho stands: both fins print with the plate (5mm grid '
+    'ribs + bridge cross-ribs), the LCD toggle exists, and frame OFF '
+    'disables them HONESTLY (note, not silence)',
+    _i214['stands'] and _txt214.count('LITHO_STAND_L') > 2
+    and _txt214.count('LITHO_STAND_R') > 2
+    and ';TYPE:Bridge' in _txt214
+    and '[menu __main __gen __litho __set __sdp]' in _lcd214
+    and not _i214b['stands']
+    and any('stands need the solid frame' in n for n in _i214b['notes']),
+    str(_i214.get('stands')) + '/' + str(_i214b.get('stands'))))
+
+# ---- label embedding --------------------------------------------------------
+_o214c, _i214c = _mod214.make_labels(
+    ['R214'], w=50, h=25, base_layers=4, text_layers=2, layer_h=0.2,
+    first_h=0.28, out_dir=_d214, color2=1, bed=(0.0, -3.0, 244.0, 238.0))
+_t214c = open(_o214c).read()
+_zs214 = [z for z in re.findall(r';Z:([\d.]+)', _t214c)]
+_i600214 = _t214c.index('\nM600\n')
+tests.append(('R214 label embedding: the FIRST text layer prints INSIDE the '
+    'last base layer (M600 + text on the base top Z, total = naive -1)',
+    _i214c['layers'] == 5 and _t214c.count(';LAYER_CHANGE') == 5
+    and len(_zs214) == 5
+    and abs(float(_zs214[3]) - 0.88) < 1e-9      # last base layer z
+    and _i600214 > _t214c.index(';Z:0.880')
+    and _i600214 < _t214c.index(';Z:1.080'),
+    'layers=%s z4=%s' % (_i214c['layers'], _zs214[3] if len(_zs214) > 3 else '-')))
+
+# ---- web dash ---------------------------------------------------------------
+tests.append(('R214 web dash: stacked topic columns + ONE bottom line for '
+    'layer + feature (same poll, no new requests)',
+    _web214.count('class="dcol"') == 5
+    and 'id="d_bottom"' in _web214
+    and 'd_layer' in _web214.split('d_bottom')[1]
+    and 'd_feat' in _web214.split('d_bottom')[1]
+    and "set('d_feat',S.current_type?String(S.current_type):'\\u2013');"
+    in _web214,
+    ''))
+save_vars['texture_user_presets'] = _sv_bak214   # restore
+
+
 print(f"\n{len(tests)-fails}/{len(tests)} passed")
 
 # ================== R185: workspace hygiene ==================

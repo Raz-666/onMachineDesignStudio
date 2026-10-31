@@ -3,7 +3,7 @@
 **Package:** `klipper-e3-r2d2` · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail) ·
 12864 LCD (16 characters per line)
 
-**Version:** this manual describes the current release, `R2-2026-10-30.136l` — and only it. Every chapter documents what the system
+**Version:** this manual describes the current release, `R2-2026-10-31.136m` — and only it. Every chapter documents what the system
 does today; the version changelog lives in README.md.
 
 This is the operating manual for the complete macro system: what the printer can
@@ -1095,7 +1095,7 @@ entirely from the LCD (or one console line).
 | Spc | letter spacing in mm | extra spacing between letters |
 | Stroke | 0 = auto, or mm | the letter LINE WIDTH. 0 = auto (three extrusion lines, solid letters) or your nozzle diameter (0.6 = single-line letters). Capped automatically at ⅕ of the cap height — thicker strokes would merge the letters |
 | ~ | auto | the version in the file name bumps ITSELF (V01, V02, ...) - regenerating never overwrites an older file |
-| Base / Text layers | e.g. 4 + 2 | plate thickness and text relief |
+| Base / Text layers | e.g. 4 + 2 | plate thickness and text relief — **the first text layer prints INSIDE the last base layer** (.136m): the letter contours are embedded in the base plastic and stay readable even if the raised layers chip off; total height = naive sum minus one layer, the layer counts themselves stay untouched |
 | LH / 1st | layer heights | base layer height / first layer |
 | Ironing | ON/OFF | smooths the text surface |
 | Hole | NONE/LEFT/RIGHT/TOP/BOTTOM + diameter | the key-ring hole, 2 mm from the edge |
@@ -1437,7 +1437,8 @@ Stamp`, one label per job, mirrored text).
 | Color swap | OFF / LAST / EACH | FLAT only: OFF = one filament for every step. LAST = M600 right before the DARKEST step — the classic: white body, black contour lines. EACH = M600 at every step boundary. Whenever swaps are on, a purge tower (12×12 mm, 15 mm probe clearance) prints alongside and takes prime + wipe after every change |
 | StepL | 1–30 | layers per gray step (FLAT): step 0 = the whole light background as full layers, every darker step prints its region on top, the darkest = the contour lines |
 | Frame | ON/OFF | border frame that holds the thin plate straight (recommended) |
-| Brim | 0–10 loops | anchors the plate — STANDING to the bed, FLAT against warping |
+| Side stands | ON/OFF (.136m, default ON, STANDING only) | **upright support**: two triangular fins LEFT + RIGHT of the plate, docking at the BACK of the solid frame border (the thickest edge — the light from behind stays unblocked). Right triangle in the side view: vertical seam along the plate (full height), foot on the bed (~55 % of the picture height), hypotenuse rising. The fin body is a **~5 mm perforated grid** (vertical ribs every layer + one bridging rib every ~5 mm of height) — stable to print, quick to remove. Break-off seam 1.2 mm: pliers free the plate, or leave the fins on as a **deco stand**. Needs the frame border — frame OFF disables the stands with an honest note |
+| Brim | 0–10 loops | anchors the plate — STANDING to the bed, FLAT against warping (the fins get their own mini brim on layer 1) |
 | Ironing | ON/OFF | slow smoothing pass over the light side (STANDING: front; FLAT: every step cap) |
 | Border | 0–10 mm | FLAT: a picture frame around the plate at full height — 0 = off (the old Frame switch maps to 2.4 mm) |
 | Corner | 0–20 mm | FLAT: rounded frame corners (0 = square; only with a border) |
@@ -1614,6 +1615,19 @@ GEN_FRAME PRESET=9x13 FRONT=HEX S_SIZE=9 S_DIR=IN
 
 
 ### 5.9 Texture: fuzzy skin & shaped bumps (any g-code file)
+
+**Vorlagen library + full documentation (.136m):** Texture > Vorlagen
+holds **44 ready looks** named after their APPEARANCE — Rattan,
+Sandstein, Seil, Ziegelmauer, Wellblech, Honigwabe … Two or more per
+pattern, every entry carries the complete parameter set. One press loads
+ALL settings and the answer names them (`Rattan (library) loaded:
+mode=BUMPS, pattern=BASKET, scale=6.0, zsize=6.0, amp=0.30, dir=OUT`) —
+the same rule for every generator with presets: **loading always adapts
+and shows the settings** (older, slimmer presets say which settings they
+do not carry instead of silently leaving them). Library looks are
+read-only; saving under a library name numbers itself. The complete
+catalog with a preview per pattern — sampled from the real pattern
+functions — plus the exact parameter mapping lives in **TEXTURING.pdf**.
 
 The only generator that does not create a part — it rewrites the **outer
 wall of a file you already have**. The source is **the file you selected in
@@ -2473,7 +2487,9 @@ confirms by double press (Create, Apply, Fix…) plays the start tune on the
 second press and returns you to where you decide — no zombie rows after the
 kick-off, no third press by accident.
 
-**Menu order** — Pre-Print: File info · Fixes · Tools (Offset, Texture,
+**Menu order** — Pre-Print: File info (incl. `STL: object only`, .136m) ·
+Fixes (incl. the File check list — the same six entries as System > File
+check, .136m) · Tools (Offset, Texture,
 Range, Scale X/Y, Cake cut, Plotter) · Temps · Motion · Features ·
 utilities (Preheat/Mesh/Confirm/Overwrites) · Profiles LAST. Live Tuning:
 Temps & Fan first, then Z-Hopping, Z-offset + babysteps, the quick-access
@@ -2519,8 +2535,9 @@ retraction reads the firmware values — what you see is what runs.
 | Range/Stop | Stop@ layer + From/To (capped to the selected file's layer count!) + Floor/Top (each FOOTPRINT or OUTLINE, each GRID or SOLID fill) + Brim + Create excerpt (ch. C.1) |
 | Filament | Load / Load length / Unload / Unload length / Change (M600) — available BEFORE the print too |
 | File fixes (in File menu) | **Ret:** verdict line (FIX!/can/fixed/fw) · RetFix ON/OFF — auto-treats every NEW upload's clean retract pairs into G10/G11 (old Bowden-era files) · RetFix file (offered only for fix/can) + Vol->mm fix + Fix flow cap (Cap value) + Fix travel accel (TAcc value) — repair the SELECTED file directly on disk (start beep + done beep, markers survive) |
+| STL: object only (.136m) | **G-code → STL** of the selected file: every extrusion move becomes a ribbon of measured width + layer height — a mesh of the PURE OBJECT. Supports, skirt, brim, prime tower, custom helper blocks and the ironing pass are skipped (the summary names what went out). Result: `gcodes/stl/<name>_object.stl` — view it, re-slice it, share it. Idle only (the watcher reads the whole source). Console: `STL_EXPORT FILE=…` |
 | Plotter | only when a plot file is selected: PEN FILE · pen speed % · Pen Z · Shift X/Y · Reset overrides — at the very END of Pre-Print |
-| Texture | acts on the SELECTED file: File (shows the target) · Mode OFF/Fuzzy/Bumps · Fuz thick · Fuz dens · Pattern (**library of 21 + MAP**, 3 pages, seamless snap) · Around · Height · Depth · Seed · Img (MAP source) · **Fixed presets** (Orca/Hide/Subtle/Grip) + **My presets** · > Apply (2×) · How it works — writes a NEW `_TX` file (ch. 5.9), never auto-starts |
+| Texture | acts on the SELECTED file: File (shows the target) · Mode OFF/Fuzzy/Bumps · Fuz thick · Fuz dens · Pattern (**library of 21 + MAP**, 3 pages, seamless snap) · Around · Height · Depth · Seed · Img (MAP source) · **Fixed presets** (Orca/Hide/Subtle/Grip) · **Vorlagen** (.136m: the 44-look LIBRARY — appearance names like Rattan/Sandstein/Seil; one press loads ALL settings and the answer names them: pattern, size, depth, direction; delete refuses, your own save under such a name numbers itself; own page counter) + **My presets** · > Apply (2×) · How it works — writes a NEW `_TX` file (ch. 5.9), never auto-starts |
 
 **Labels** (in Tools)
 
@@ -2562,7 +2579,7 @@ while plotting (ch. C.3).
 | Info | every setting + how many images are ready |
 | Images (Create) | the gcodes folder's `.png/.jpg` list (newest first, 10 slots; plotter uploads included) — slot press = Create |
 | Delete image | same slots, **2-press confirm** (press, press again) — only the image goes away, its plotter `.gcode` stays |
-| Settings | Orient STANDING/FLAT · Height (Size in FLAT) 30–200 mm · Layer 0.08–0.2 (0.12 default) · Levels 0–12 (0 = photo, 2–12 posterized) · Colors 1–4 + ColL 1–30 (FLAT color bands) · Frame ON/OFF · Brim 0–10 · Ironing ON/OFF |
+| Settings | Orient STANDING/FLAT · Height (Size in FLAT) 30–200 mm · Layer 0.08–0.2 (0.12 default) · Levels 0–12 (0 = photo, 2–12 posterized) · Colors 1–4 + ColL 1–30 (FLAT color bands) · Frame ON/OFF · **Side stands** (.136m: ON by default — two triangular fins left+right docking at the BACK of the solid frame, ~5 mm perforated grid, break-off seam 1.2 mm or leave on as a deco stand; needs the frame, OFF says so honestly) · Brim 0–10 · Ironing ON/OFF |
 | How it works | upload, slot press, standing print, white PLA tip, Mainsail one-liner |
 
 **Gaskets** (in Tools — ch. 5.7)
@@ -2705,10 +2722,14 @@ switches the FRAME off/on (sounds keep playing). After a finished print the
 green/white celebration runs for `led_finish_time` seconds (default 10) and then
 returns to idle breathing BY ITSELF — it used to twinkle forever.
 
-All effects run at 12 fps, EXCEPT printing: it breathes slowly at
-5 fps — the LEDs are decoration, the serial bus is not — every
+All effects run at 12 fps, with two .136m exceptions: printing
+breathes slowly at 5 fps and the LONG-RUNNING + start-phase effects (idle,
+waiting, heating, homing, leveling, PID, nozzle work light) run at 6 fps —
+the LEDs are decoration, the serial bus is not — every
 animated frame is a neopixel transmission on the same wire the moves travel,
-and a failed LED readback is resent. 5 fps = 5 messages/s ≈ 1% of the serial
+and a failed LED readback is resent (the .136l field log counted 79 failed
+updates while the reactor was stalled; 6 fps halves that background load
+exactly in the phases where klippy schedules moves just-in-time). 5 fps = 5 messages/s ≈ 1% of the serial
 budget, so the printing state moves gently without touching the headroom.
 
 ### Nozzle LED — its own switch | work light while printing / filament change (r2_nozzle_on) |
@@ -2789,7 +2810,7 @@ Print running (legacy file) - live tuning and overwrites ACTIVE
 | SYS_HOST_RESTART CONFIRM=1 | host service restart — 2× |
 | SYS_SHUTDOWN CONFIRM=1 | heaters/fans/LEDs off → Pi shutdown via moonraker |
 | SYS_SAVE_CONFIG | guarded SAVE_CONFIG: refuses during a print, skips when nothing is pending, warns that the LCD goes DARK for up to 2 min before restarting (2×) |
-| HOST_CHECK | **Pi health report**: throttle/undervoltage flags (now + since boot), CPU temp, load **vs. core count**, **RAM + swap**, disk, **iowait**, **TOP CPU/RAM processes (top 5)** and **who sits IN the swap** (VmSwap per process — names the RAM eater even when the top-RAM list looks innocent) + **service states** (klipper/moonraker/avahi/crowsnest/sonar/OctoEverywhere/pigpiod, with warnings: double webcam stack, avahi still on, cloud relay) — honest verdict: THROTTLED / SWAPPING / OVERLOADED / OK. The swap verdict measures **activity** (vmstat swap-in/out): quietly parked pages after boot are **OK** (normal on a small Pi), only real swap traffic counts as SWAPPING. LCD: System > Host check. Since .136 it also flags DUPLICATE r2-postproc watcher processes (they double every state push) with the fix command |
+| HOST_CHECK | **Pi health report**: throttle/undervoltage flags (now + since boot), CPU temp, load **vs. core count**, **RAM + swap**, disk, **iowait**, **TOP CPU/RAM processes (top 5)** and **who sits IN the swap** (VmSwap per process — names the RAM eater even when the top-RAM list looks innocent) + **service states** (klipper/moonraker/avahi/crowsnest/sonar/OctoEverywhere/pigpiod, with warnings: double webcam stack, avahi still on, cloud relay) — honest verdict: THROTTLED / SWAPPING / OVERLOADED / OK. The swap verdict measures **activity** (vmstat swap-in/out): quietly parked pages after boot are **OK** (normal on a small Pi), only real swap traffic counts as SWAPPING. LCD: System > Host check. Since .136 it also flags DUPLICATE r2-postproc watcher processes (they double every state push) with the fix command. Since .136m it counts **klippy's own load symptoms** from klippy.log — "Reactor: N stall(s) up to X s + N failed LED updates": many stalls mean the host repeatedly blocked klippy's reactor and the next homing can hit 'Timer too close' even with load/throttle looking fine |
 | EMERGENCY_STOP | immediate halt |
 | FILE_CHECK | **g-code inventory**: scans every file's tag version — how many are current, old (upgradeable), untouched (never processed) or plotter files — each file listed on the console with age + size. `FILE_CHECK RETAG=1` (2×/CONFIRM=1) additionally upgrades old + untouched files to the current markers: **.r2bak backup first**, never while printing, max 20 per run. LCD: System > File check + STALE (v4: functional, pre-.86 info line — RETAG adds the new keys) |
 
@@ -3171,7 +3192,12 @@ command). **.136k:** the dashboard values sit in a responsive **grid**
 got a **toolbar** like Mainsail: *Leeren* (clear), a **search field**
 (filters the history live) and the autoscroll toggle. The live poll also
 survives value-less snapshots now (see Troubleshooting: Tools menu /
-SD list empty). **.136l (R213):** the page NEVER scrolls anymore —
+SD list empty). **.136m (R214):** the live area at the top is grouped
+into STACKED topic columns — mode + file, temperatures (nozzle/bed/fan),
+speed (feed/accel), flow + PA, times (progress %, elapsed, remaining) —
+and ONE full-width line at the very bottom carries layer + current
+feature. Same poll, same data, zero extra requests (the MCU load does
+not change). **.136l (R213):** the page NEVER scrolls anymore —
 `100dvh` layout with `overflow:hidden`, only the console scrolls INSIDE
 its own box, and the G-code input line moved UP to sit with the console
 buttons (always visible, no scrolling to reach it); on screens under
@@ -3192,6 +3218,12 @@ is CHEAP by design: the extension queries only the objects the templates
 actually reference (not every macro object), fat lists are pruned, a
 2.5 s cache shares one query across tabs — and if the snapshot ever
 fails, its REASON shows in the badge (nothing fails silently anymore).
+Since .136m two more guards: `configfile` is requested as `settings` only
+(klippy used to serialize the ENTIRE config text on every poll — one of
+the .136l 'Timer too close' contributors), and after a start-type command
+(SDCARD_PRINT_FILE / PRINT_AS_… / RESUME) the page pauses the live poll
+for 25 s — the homing phase schedules its moves just-in-time and does not
+need dashboard updates; the console keeps flowing.
 Opened from anywhere else it falls back to the embedded JSON snapshot
 (labels still evaluate if the live endpoint answers). Commands go
 through Moonraker's own `/printer/gcode/script` endpoint. **Install is ONE command** (SSH on the Pi):
@@ -3814,7 +3846,7 @@ system). Better a quiet fan at full speed than a fast one slowed down.
 ## Appendix C: First start & updates
 
 - upload the folder → includes at the end of printer.cfg → RESTART
-- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-10-30.136l)`
+- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-10-31.136m)`
 - ~10 s later: boot sound + LED animation
 - SHOW_STATUS → mode, material, overrides · Maintenance > Tests > demos + self test
 

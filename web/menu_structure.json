@@ -1,17 +1,18 @@
 {
  "generator": "menu_json_export.py (.136j R211)",
  "source": "lcd_menues.cfg",
- "sections": 2382,
+ "sections": 2403,
  "counts": {
-  "list": 322,
-  "command": 1392,
+  "list": 324,
+  "command": 1411,
   "input": 668
  },
- "sha256": "7b028d3e35391b0b",
+ "sha256": "4beac7590da1feef",
  "live_objects": [
   "bed_mesh",
   "configfile",
   "exclude_object",
+  "gcode_macro _GEN_PRESET",
   "gcode_macro _MATERIALS",
   "gcode_macro _PREVIEW",
   "gcode_macro _R2_CONFIG",
@@ -6169,6 +6170,15 @@
         "children": []
        },
        {
+        "id": "__main __preprint __file __stl",
+        "type": "command",
+        "name": "STL: object only",
+        "gcode": [
+         "STL_EXPORT"
+        ],
+        "children": []
+       },
+       {
         "id": "__main __preprint __file __opt",
         "type": "command",
         "name": "OPTIMIZED - tuned values baked",
@@ -6632,6 +6642,71 @@
          "RESPOND MSG=\"Segment fix: slicer files with thousands of tiny moves (>450/s) outrun the MCU - it cannot plan them fast enough and shuts down (Timer too close). The fix merges micro segments below ~0.1mm: smaller than the 0.4mm nozzle width, so the print result stays the same - only the controller keeps up again.\""
         ],
         "children": []
+       },
+       {
+        "id": "__main __preprint __fixes __fc",
+        "type": "list",
+        "name": "File check",
+        "children": [
+         {
+          "id": "__main __preprint __fixes __fc __scan",
+          "type": "command",
+          "name": "> Scan now",
+          "gcode": [
+           "FILE_CHECK"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __preprint __fixes __fc __fc3",
+          "type": "command",
+          "name": "How it works",
+          "gcode": [
+           "RESPOND MSG=\"File check lists every g-code with its tag version: current (all markers), old (upgradeable), untouched (never processed), plotter (fine as is). RETAG upgrades old+untouched files - backup .r2bak first, never while printing, max 20 per run (same functions as System > File check)\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __preprint __fixes __fc __fc1",
+          "type": "command",
+          "name": "Retag old? arm",
+          "gcode": [
+           "FILE_CHECK RETAG=1"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __preprint __fixes __fc __fc2",
+          "type": "command",
+          "name": ">> RETAG OLD NOW",
+          "enable": "{printer['gcode_macro _STATE'].fc_armed}",
+          "gcode": [
+           "{% if printer['gcode_macro _STATE'].fc_armed|default(False) %}{menu.exit()}{% endif %}",
+           "FILE_CHECK RETAG=1 CONFIRM=1"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __preprint __fixes __fc __fc4",
+          "type": "command",
+          "name": "Re-fix types? arm",
+          "gcode": [
+           "FILE_CHECK RETAG=2"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __preprint __fixes __fc __fc5",
+          "type": "command",
+          "name": ">> RE-FIX TYPES NOW",
+          "enable": "{printer['gcode_macro _STATE'].fc2_armed}",
+          "gcode": [
+           "{% if printer['gcode_macro _STATE'].fc2_armed|default(False) %}{menu.exit()}{% endif %}",
+           "FILE_CHECK RETAG=2 CONFIRM=1"
+          ],
+          "children": []
+         }
+        ]
        },
        {
         "id": "__main __preprint __fixes __retst",
@@ -7574,6 +7649,112 @@
               "children": []
              }
             ]
+           }
+          ]
+         },
+         {
+          "id": "__main __preprint __mods __tex __lib",
+          "type": "list",
+          "name": "Vorlagen (44)",
+          "children": [
+           {
+            "id": "__main __preprint __mods __tex __lib __how",
+            "type": "command",
+            "name": "Info",
+            "gcode": [
+             "_GEN_PRESET ACTION=info GEN=texture"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __tex __lib __pgu",
+            "type": "command",
+            "name": "Page <",
+            "gcode": [
+             "_GEN_PRESET ACTION=page GEN=texture SRC=lib DELTA=-1"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __tex __lib __pd",
+            "type": "command",
+            "name": "Page >",
+            "gcode": [
+             "_GEN_PRESET ACTION=page GEN=texture SRC=lib DELTA=1"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __tex __lib __l0",
+            "type": "command",
+            "name": "Load: {(printer['gcode_macro _GEN_PRESET'].texture_lib|default({})|sort)[(printer['save_variables'].variables.texture_lib_page|default(0)|int)*8+0]|default('--')}",
+            "gcode": [
+             "_GEN_PRESET ACTION=load GEN=texture SRC=lib SLOT=0"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __tex __lib __l1",
+            "type": "command",
+            "name": "Load: {(printer['gcode_macro _GEN_PRESET'].texture_lib|default({})|sort)[(printer['save_variables'].variables.texture_lib_page|default(0)|int)*8+1]|default('--')}",
+            "gcode": [
+             "_GEN_PRESET ACTION=load GEN=texture SRC=lib SLOT=1"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __tex __lib __l2",
+            "type": "command",
+            "name": "Load: {(printer['gcode_macro _GEN_PRESET'].texture_lib|default({})|sort)[(printer['save_variables'].variables.texture_lib_page|default(0)|int)*8+2]|default('--')}",
+            "gcode": [
+             "_GEN_PRESET ACTION=load GEN=texture SRC=lib SLOT=2"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __tex __lib __l3",
+            "type": "command",
+            "name": "Load: {(printer['gcode_macro _GEN_PRESET'].texture_lib|default({})|sort)[(printer['save_variables'].variables.texture_lib_page|default(0)|int)*8+3]|default('--')}",
+            "gcode": [
+             "_GEN_PRESET ACTION=load GEN=texture SRC=lib SLOT=3"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __tex __lib __l4",
+            "type": "command",
+            "name": "Load: {(printer['gcode_macro _GEN_PRESET'].texture_lib|default({})|sort)[(printer['save_variables'].variables.texture_lib_page|default(0)|int)*8+4]|default('--')}",
+            "gcode": [
+             "_GEN_PRESET ACTION=load GEN=texture SRC=lib SLOT=4"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __tex __lib __l5",
+            "type": "command",
+            "name": "Load: {(printer['gcode_macro _GEN_PRESET'].texture_lib|default({})|sort)[(printer['save_variables'].variables.texture_lib_page|default(0)|int)*8+5]|default('--')}",
+            "gcode": [
+             "_GEN_PRESET ACTION=load GEN=texture SRC=lib SLOT=5"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __tex __lib __l6",
+            "type": "command",
+            "name": "Load: {(printer['gcode_macro _GEN_PRESET'].texture_lib|default({})|sort)[(printer['save_variables'].variables.texture_lib_page|default(0)|int)*8+6]|default('--')}",
+            "gcode": [
+             "_GEN_PRESET ACTION=load GEN=texture SRC=lib SLOT=6"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __tex __lib __l7",
+            "type": "command",
+            "name": "Load: {(printer['gcode_macro _GEN_PRESET'].texture_lib|default({})|sort)[(printer['save_variables'].variables.texture_lib_page|default(0)|int)*8+7]|default('--')}",
+            "gcode": [
+             "_GEN_PRESET ACTION=load GEN=texture SRC=lib SLOT=7"
+            ],
+            "children": []
            }
           ]
          }
@@ -16007,6 +16188,16 @@
           "gcode": [
            "SAVE_VARIABLE VARIABLE=litho_frame VALUE={not printer['save_variables'].variables.litho_frame|default(True)}",
            "RESPOND MSG=\"Frame (holds the thin plate straight): {'ON' if not printer['save_variables'].variables.litho_frame|default(True) else 'off'}\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __litho __set __sdp",
+          "type": "command",
+          "name": "Side stands: {'ON' if printer['save_variables'].variables.litho_stands|default(1)|int else 'off'}",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=litho_stands VALUE={0 if printer['save_variables'].variables.litho_stands|default(1)|int else 1}",
+           "RESPOND MSG=\"Side stands (upright print): {'ON - 2 perforated fins left+right at the frame back, break-off seam 1.2mm' if not printer['save_variables'].variables.litho_stands|default(1)|int else 'off - the plate prints bare (thin plate, brim holds it)'}\""
           ],
           "children": []
          },
