@@ -88,6 +88,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # output == old reference + exactly that one line; pr01-pr10 stay
 # byte-identical. The freeze printer now emits Python literals (pprint) -
 # json.dumps false/true tokens made pasted REF_SUMMARYs die with NameError.
+# RE-FREEZE HISTORY (.136o version bump, R217): stamp-only - mr01-mr13
+# re-frozen for the new core stamp, pr01-pr10 byte-identical; PROVEN by
+# running the NEW module (shape TYPES honesty + the two new R217 test
+# tools do not touch range/process paths) with the OLD stamp string:
+# all 23 md5 == the .136n goldens.
 # RE-FREEZE HISTORY (.136n version bump, R216): stamp-only - mr01-mr13
 # carry the R166 core stamp, pr01-pr10 byte-identical; PROVEN by running
 # the new module (stage 7 + the two file fixes) with the old stamp string:
@@ -151,19 +156,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # process() output is identical old vs new, ALL 13 mr md5s change (every
 # range excerpt carries the core stamp), no summary moves, and r81 was
 # 23/23 green with the R213 code BEFORE the stamp bump.
-REF_MD5 = {'mr01': '300f6be60d6b355d5efbf3679f9deb87',
- 'mr02': '3671626f9bbbdecac4e1c37e03838c16',
- 'mr03': '50675687b2a9fb19bbedb1e5459cd1a9',
- 'mr04': '53089c33bac2f1455fba9a9de5bccbb9',
- 'mr05': '83fad2d9c552d63646307ebaa0219b08',
- 'mr06': '5c15161f57d4d41ba434208fa10dc6a3',
- 'mr07': 'ada2a234c40ebe5f5d3d48821ffc91d5',
- 'mr08': 'a2d7cc07d41bdfc28a75837ef129a60e',
- 'mr09': '61f9f2e23eef36432d1e7552cc163ce6',
- 'mr10': 'e297d0846a1aa531f6593c4e6bec3965',
- 'mr11': '56d475a446b8159e503941ef404d0aea',
- 'mr12': '449ff15d66d4a307ad18c2b1b7f46fcb',
- 'mr13': 'f3465d027a1d68df29a34d4a24eaf39d',
+REF_MD5 = {'mr01': '5c223d357fbafc906e8d5ed60599a0b8',
+ 'mr02': 'edf1ae12f8d48db0e919ded61861b2c0',
+ 'mr03': 'ada546d789b415f8c19180fd35febd45',
+ 'mr04': '4ad40c72986b685fbb7e143116310b48',
+ 'mr05': 'b28e7888b8ac6f2b840042c114321225',
+ 'mr06': 'd40065e842b72d33ca44a5007af2852b',
+ 'mr07': '983c1a7befae1e2c2c68e2c4af20d147',
+ 'mr08': '5486ef5d40e4d054961284dd0ee71036',
+ 'mr09': '0c451de5dbfcfd3211c7a0a184236b6d',
+ 'mr10': '1731608652f113611e0086f2bf379453',
+ 'mr11': 'b5e027c87c55c3f560a4d440b84d083b',
+ 'mr12': '236934cd78a634399ee7f564a14f71ac',
+ 'mr13': '1dff02fdc0e1ccf9debf4d9ea4bd6bdd',
  'pr01': 'aa5a6f27d5a7e6576f57eeea93af63a5',
  'pr02': '61457e9bcbd98996b6e7dc26efda23d8',
  'pr03': '923725a1d92fccc88241ed8a3ab8065b',
