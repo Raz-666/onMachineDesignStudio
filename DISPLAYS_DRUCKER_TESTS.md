@@ -1,8 +1,12 @@
 # R2-D2 rundum: Displays, Drucker, Nozzles — und die Test-Stufen
 
-Stand: R2-2026-10-30.136l — **alles aus Abschnitt E ist GEBAUT** (R191–R197). Die
-ausführliche, grafische Fassung dieser Übersicht ist jetzt **DISPLAYS_WEB_UI.pdf**
-(built by tools/make_displays_pdf.py); diese MD bleibt die Arbeits-Kurzfassung.
+Stand: R2-2026-11-01.136n — **alles aus Abschnitt E ist GEBAUT** (R191–R197), die
+Feldrunden .136m/.136n sind eingearbeitet, und die **R217-Testrunde** (02.11.) hat
+Display-/Drucker-/Nozzle-/Bauraum-Aussagen erstmals EMPIRISCH abgesichert
+(Tier-Lauf 22/22, Generator-Matrix 1.314 Checks 0 FAIL, Feld-Bug-Radar 15/15 —
+Abschnitte B.2c, B.3c, C, D). Die ausführliche, grafische Fassung ist
+**DISPLAYS_WEB_UI.pdf** (built by tools/make_displays_pdf.py — Stand .136l, Rebuild
+hängt an der nächsten Release); diese MD ist die Arbeits-Kurzfassung und aktueller.
 
 ---
 
@@ -12,7 +16,7 @@ ausführliche, grafische Fassung dieser Übersicht ist jetzt **DISPLAYS_WEB_UI.p
 
 | Display | Technik | R2-Menüs | Rolle |
 |---|---|---|---|
-| **12864-LCD** (ST7920/UC1701, wie verbaut) | Klipper `[display]` + `[menu]`-Engine | **vollständig** — alle ~460 Menü-Punkte aus `menus/lcd_menues.cfg` | Primärsteuerung am Gerät |
+| **12864-LCD** (ST7920/UC1701, wie verbaut) | Klipper `[display]` + `[menu]`-Engine | **vollständig** — alle **2.472 Menü-Sektionen** (331 Listen / 1.454 Kommandos / 687 Inputs) aus `menus/lcd_menues.cfg`, jede Zeile von 1.937 Render-Tests kompiliert | Primärsteuerung am Gerät |
 | **Mainsail / Fluidd** (Browser, Handy, Tablet, PC) | Moonraker | nein (eigene UI) — aber **jeder** R2-Befehl ist Konsolen-/Makro-tauglich | Zweitdisplay, Datei-Verwaltung, Konsole |
 | **KlipperScreen** (Touch) | eigene UI-Schicht | **nein** — rendert keine Klipper-`[menu]`-Sektionen; eigene Items konfigurierbar | nur mit Kuratierung sinnvoll |
 | HDMI-Display + OctoPrint o. ä. | fremde Stacks | nein | nicht empfohlen |
@@ -55,6 +59,27 @@ DISPLAYS_WEB_UI.pdf Kap. 2. - Die Liste von damals:
   **Menüstruktur aus `lcd_menues.cfg` als JSON exponiert** (Name, Pfad, Guard,
   Konsolen-Äquivalent). Jedes Frontend könnte sie rendern, ohne dass wir ein
   Frontend bauen. Das wäre die Brücke „ein Menü, viele Displays".
+
+**R217-Status und meine unveränderte Einschätzung:** Der Mittelweg ist GEBAUT und
+hat zwei Feldrunden überlebt — `menu_json_export.py` (2.472 Sektionen, sha-Summe)
+→ `web/r2_menu.py` (Moonraker-Komponente, Machine-Panel-Endpunkte, Live-Zustand)
+→ `web/index.html` (LCD-artige Navigation mit eigenem Single-Brace-Jinja-
+Evaluator, 3-s-Poll). Meine Empfehlung bleibt genau die, die .135 begründet wurde:
+
+1. **Mainsail bleibt das Fenster von der Couch** (Dateien, Konsole, Kameras,
+   Updates) — dort duplizieren wir nichts.
+2. **Die LCD-Spiegel-Seite bleibt dünn** — sie rendert NUR die exportierte
+   Menüstruktur + Live-Zustand und besitzt keine eigene Logik. Drift ist
+   konstruktiv ausgeschlossen: der Feld-Bug-Radar (C4, tools/r217_field_bug_radar.py)
+   vergleicht bei jedem Lauf den JSON-Export gegen einen frischen Export und
+   schlägt an, wenn die cfg neuer ist als der Baum. Genau diese Klasse
+   („Anzeige zeigt gestern") war der .136m-Boot-Killer.
+3. **Kein zweiter Voll-UI-Stack.** 2.472 Sektionen mit Live-Jinja in HTML/JS
+   nachzubauen hieße: jede Änderung doppelt, jede Drift ein Feldbug. Die
+   Nutzen-/Kosten-Rechnung ist seit .135 klar dagegen.
+4. **Wenn Touch am Gerät gewünscht:** KlipperScreen + 10–15 kuratierte Favoriten
+   (Start/Pause/Generatoren/Fixes) — NICHT die Vollstruktur (rendert keine
+   Klipper-[menu]-Sektionen).
 - **Wenn Touch gewünscht:** KlipperScreen + 10–15 handverlesene Favoriten
   (Start, Pause, Generatoren-Start, Fixes) statt der Vollstruktur.
 
@@ -99,6 +124,24 @@ Nozzle-Größe kommt aus printer.cfg (Generatoren) bzw. `_FILE_INFO` (Live) — 
 Düsenwechsel ist ein Einzeiler in printer.cfg plus Neustart, danach rechnen alle
 Generatoren, Wächter und Anzeigen um.
 
+**B.2c  R217: die Matrix ist jetzt EMPIRISCH** (tools/r217_gen_matrix.py,
+1.314 Checks / 0 FAIL): jede Düse 0.2/0.4/0.6/0.8/1.0 × Labels, Kabelbinder,
+Shapes (inkl. Vase), Frames, Winkel, Dichtungen, StringArt — Header, Temperaturen,
+Feature-Marker, Bett-Containment, Speed-Bild und E-Werte komplett grün.
+Gemessen:
+
+- **Linienbreite folgt der Düse:** `wid = max(0.4, nozzle × 1.08)` — der
+  Wand-E/mm-Quotient 1.0 vs 0.4 mm Düse misst exakt das erwartete
+  1.08/0.432 ≈ 2,5 (±20 % eingehalten).
+- **Die 0.4-mm-Untergrenze:** bei 0.2er Düsé läuft die Linie auf 0.4 mm (2×
+  Düse) — druckt sauber (field-übliche Overwidth), kostet aber Feinheit;
+  für Feinstes litho `layer_h=0.08` wählen.
+- **StringArt-Stränge bleiben dünn bei JEDER Düse:** absichtlich auf
+  0.42–0.5 mm geklemmt (E/mm-Ratio 1.0 vs 0.4 ≈ 1.19 = 0.5/0.42) — bei 0.8/1.0
+  liegen die Stränge unter der Düsenbreite (geht: dünne Perlen bei zügigem
+  Zug, der Z-Bogen hält sie zahm). **Empfehlung StringArt: 0.4–0.6.** Der Ring
+  skaliert dagegen voll mit (2 Wände + 3/3 solid + 5 % sparse).
+
 ### B.3  Bauraum-Matrix
 
 - **Kleiner als 220×220:** Generatoren verweigern ehrlich mit der nötigen Größe
@@ -108,6 +151,15 @@ Generatoren, Wächter und Anzeigen um.
   die Purge-Line wandert an die neue Kante.
 - **Hoch-Z (CoreXY 400er):** keine Annahmen über Z in den Makros — nur
   Schichthöhen-Arithmetik.
+
+**B.3c  R217: die Bauraum-Matrix ist EMPIRISCH** (gleicher Lauf): 8 Betten —
+120×120, 180×180 (Prusa-Mini-Klasse), 220×217 (Ender-3-Default), 244×238 (R2-D2),
+256×256 (Bambu-Klasse), 300×300 / 350×350 (CoreXY-Klasse), 500×500 (Gantry) —
+× Labels, Frames, Bricks, StringArt, Lithophane, Figuren. Jede XY-Position
+aller erzeugten Dateien liegt im Bett ±3 mm (I10); zu große Objekte werden
+gesaugt (Clamp + Hinweis) oder sauber verweigert. Wichtig für den Port: die
+Bett-Tupel liegen in `_R2_CONFIG` — ohne den Block gilt Ender-3 220×220 als
+Fallback (mit Konsolen-Hinweis beim Start).
 
 ### B.4  Was beim Portieren wirklich zu tun ist
 
@@ -140,9 +192,21 @@ Bett-/Düsen-Kombinationen.
 *(.135-Update: die Stufen laufen jetzt gebündelt über **tools/r198_tier_report.py**
 — ein Befehl, eine Tabelle pro Stufe, Exit-Code ist das Verdikt. .135-Gesamtbild:
 macro_render 1.910/1.910 · r140 46.757/0 · r141 2.372/0 · r187 1.356/0 · r190 32/0 ·
-r197_gen_sweep 403/0 · r81 23/23 (re-frozen auf ehrlichen Fixtures, .134≡.135
+r197_gen_sweep 403/0 · r81 23/23 (re-frozen auf ehrliche Fixtures, .134≡.135
 byte-identisch verifiziert) · systemtest 214/0 · megatest 190/194/0 · audit_sweep
 82/0 · validator clean · r197b Menü-Export: 2.272 Sektionen, 0 Duplikate, 0 Waisen.)*
+
+**R217-Update (02.11., .136n-Code):** Tier-Lauf komplett wiederholt — **22/22
+PASS** (normal: r165 doc clean · power: megatest 190/0, r110 10 Szenarien ·
+developer: macro_render 1.937/1.937, r81 23/23 · hardcore: r190 34/0, r197
+452/0, r199 18/0, audit 82/0 · stress: r140 46.869/0 · function: r187 1.356/0,
+systemtest 214/0). Dazu NEU in dieser Runde:
+
+| Neues Werkzeug | Deckt | Ergebnis |
+|---|---|---|
+| **tools/r217_gen_matrix.py** | „sämtliche Generatoren × Parameter × Düsen × Betten" als eigene Achsen: 5 Düsen × 7 Generatoren, 8 Betten × 6 Generatoren, 30 Parameter-Grenz-/Invalid-Varianten, Determinismus (I13, byte-identisch), Düsen-Skalierung (I14) — 13 Invarianten pro Datei (I1–I12 + I13/I14) | **1.314 Checks, 0 FAIL** |
+| **tools/r217_field_bug_radar.py** | die Bug-KLASSEN, die grüne Tests nie fingen (Abschnitt D): Moonraker-API-Fläche, Menu-Single-Brace-Traps, Jinja-Filter, E-Short-Float-Regexe, Banker's-Rounding auf Mindestabständen, Version-/Export-Drift, LED-FPS, M204-Regel, ;TYPE:-Label-Kanon | **15 Checks + 1 Advisory, 0 FAIL** |
+| r216_stringart_check.py (.136n) | die 7 StringArt-Feldbefunde | 19/19 |
 
 ---
 
@@ -166,6 +230,23 @@ jetzt? Die Musteranalyse:
 Bausteinen, (4) Engine-Eigenschaften außerhalb des Mocks. r188–r190 adressieren
 alle vier; r190 drillt zusätzlich **unbekannte Vokabeln** (die bisherigen Fixtures
 sprachen immer perfekt Klipper-Deutsch).
+
+**R217-Update: Klasse 5 und 6 dazu — und der Radar gegen beide.** Die .136m/.136n-
+Feldrunden branten zwei weitere Lücken-Klassen ans Licht:
+
+| Feldbug (Klasse) | Warum ihn kein Test sah | Radar-Deckung heute |
+|---|---|---|
+| **(5) API-Flächen-Annahmen** — r2_menu starb beim Boot (`add_log_rollback_handler` existiert in diesem Moonraker-Build nicht), .136m | Tests prüfen unsere Python-Logik — nie, ob die fremde API die gerufene Methode Überhaupt hat | r217_field_bug_radar C1: gerufene `server.*`-Methoden gegen die kuratierte, im Feld bewährte Menge; `add_log_rollback_handler` explizit verboten; kein direkter `printer['screws_tilt_adjust']`-Zugriff |
+| **(6) Anzeige-/Pin-Drift** — macro_render standalone scheiterte an .136m-Version-Pins; r140 pinnte 6 Armed-Fixes während der Code 8 hatte; `;TYPE:'Internal sparse infill'` fiel still auf CUSTOM (kein APPLY-Marker) | Pins sind statisch, der Code lebte weiter — grüne Tests lügen, sobald die Welt sich bewegt | Radar C4 (Versionen 01_state≡Daemon≡README≡Manual + JSON-Export-Frische) + C6 (jedes ausgebare `;TYPE:`-Label gegen `_lookup_type`); die Matrix prüft zusätzlich PRO DATEI, dass jedes TYPES-Token einen APPLY-Marker hat (I4) |
+
+Und die R217-Runde fand mit genau diesem Radar-Raster zwei echte, bislang
+ungesehene Fehler — beide in der NEUEN Shape-Generator-TYPES-Liste (R216):
+`INFILL-SOLID` wurde gelistet, obwohl der Körper Solid-Schichten als
+`Bottom/Top surface` labelt (APPLY-Marker fehlte → I4 schlug an), und die Vase
+listete `WALL-INNER` ohne je eine Innenwand zu drucken. Beide behoben (honest
+TYPES); r216_shape_check blieb 17/17, Matrix danach 1.314/0. **Die Lektion:**
+jedes neue Feature bringt seine eigene Drift-Klasse mit — der Radar wird zur
+Release-Bedingung, nicht zur Optionalität.
 
 ---
 

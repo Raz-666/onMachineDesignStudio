@@ -12256,11 +12256,17 @@ def make_shape(shape='CYLINDER', size_x=40.0, size_y=40.0, corners=0,
            % ((minx + maxx) / 2.0, (miny + maxy) / 2.0, pts_j)]
     types_s = ['WALL-OUTER', 'SURFACE-BOTTOM']
     if not vase:
-        types_s += ['WALL-INNER', 'INFILL-SOLID', 'SURFACE-TOP']
-        if 0 < infill < 99.5:
+        types_s += ['WALL-INNER', 'SURFACE-TOP']
+        # R217: honest TYPES - solid base/top layers are labeled
+        # 'Bottom/Top surface' (SURFACE-*); INFILL-SOLID only belongs in
+        # the list when internal solid fill really occurs (infill >= 99.5)
+        if infill >= 99.5:
+            types_s.append('INFILL-SOLID')
+        elif 0 < infill < 99.5:
             types_s.append('INFILL-SPARSE')
     else:
-        types_s.append('WALL-INNER')            # spiral counts as the wall set
+        pass    # R217: honest TYPES - the vase spiral is ONE wall (the
+        # body never emits an Inner wall label, so WALL-INNER would lie)
     hdr.append('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d '
                'LINE_WIDTH=%.2g LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g '
                'FLOW_RATIO=1 NOZZLE=%.1f WALL_LOOPS=%d SPEED_OUTER=40 '
