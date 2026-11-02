@@ -172,6 +172,23 @@ _badcfg = [n for n in _cfgnames if re.search(r'[^\x00-\x7f]', n)]
 ck('english: every LCD menu name is ASCII (they render on the web too)',
    not _badcfg, repr(_badcfg[:4]))
 
+# ---------------- 5b) R219: the empty-snapshot class ------------------------
+ck('live R219: the component queries in TIERS without a default '
+   '(moonraker swallows failed queries as the default - the silent '
+   '{} built an empty printer: ? values, vanished menus, empty SD)',
+   'query_objects(want) or {}' in COMP
+   and 'plain batch:' in COMP
+   and 'status query empty' in COMP
+   and 'self._cf_cache' in COMP)
+ck('live R219: the page NEVER builds a printer from an empty snapshot '
+   '(badge carries the reason instead)',
+   'jHasObjs' in HTML and 'NO LIVE DATA' in HTML
+   and 'never build a printer' in HTML)
+ck('live R219: gcode_macro variables stay flat (klipper truth - '
+   'get_status returns self.variables directly), the unwrap only '
+   'catches the wrapped case',
+   'base[k]=Object.assign({},base[k].variables)' in HTML)
+
 # ---------------- 6) the embedded export stays fresh ------------------------
 _emb = re.search(r'^const EMBEDDED_MENU_JSON = (\{.*\});$',
                HTML, re.M)

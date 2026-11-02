@@ -627,6 +627,73 @@ check('T2c live R210: fat values PRUNED to what the menus read '
       and 'configfile.settings(values)' in _lv210.get('pruned', [])
       and 'exclude_object.objects(polygons)' in _lv210.get('pruned', []),
       str(_lv210.get('pruned'))[:160])
+# ---- T2e (R219, .136q field log: live values '?', Maintenance vanished,
+# SD empty - all three at once): moonraker's query_objects SWALLOWS klippy
+# errors and returns the DEFAULT - a failed batch came back as a silent {}
+# while the handler said ok:True, and the page built an EMPTY printer.
+# The fakes now mirror the REAL semantics (default-swallow when a default
+# is passed, raise without) and the component must answer in tiers and
+# NEVER with ok:True + empty objects.
+class _API219(FakeKlippyAPI):
+    """Rejects the field-list form (configfile:['settings']) like an
+    older klippy - the all-None form works."""
+
+    async def query_objects(self, want, default=None):
+        if any(v for v in want.values()):        # a field list anywhere
+            if default is not None:
+                return default                    # REAL moonraker: swallow
+            raise RuntimeError('objects/query: invalid request format')
+        return {k: v for k, v in self.status.items() if k in want}
+
+
+class _API219z(FakeKlippyAPI):
+    """Everything fails - the total-failure invariant."""
+
+    async def query_objects(self, want, default=None):
+        if default is not None:
+            return default                        # silent swallow
+        raise RuntimeError('klippy query down (simulated)')
+
+
+_FIX219 = {'gcode_macro _STATE': {'mode': 'idle'},
+           'save_variables': {'variables': {'sd_view': ['F:a.gcode'],
+                                            'sd_page': 0}},
+           'extruder': {'temperature': 200.0, 'target': 210},
+           'configfile': {'settings': {'stepper_z1': {'a': 1}}}}
+_OBJS219 = list(_FIX219)
+for _cls219, _tag219 in ((_API219, 'fieldlist'), (_API219z, 'total')):
+    _srv219 = type(cfg.server)()
+    _srv219.objects['klippy_apis'] = _cls219(_OBJS219, _FIX219)
+    _srv219.get_klippy_state = lambda: 'ready'
+    _eps219 = r2m.load_component(
+        _Cfg210(_srv219, os.path.join(REPO, 'web',
+                                      'menu_structure.json'))
+    ).server.endpoints
+    _lv219 = loop.run_until_complete(
+        _eps219['/server/r2_menu/live'](FakeReq()))
+    if _tag219 == 'fieldlist':
+        check('T2e live R219: a klippy that rejects the configfile '
+              'field list still gets a FULL snapshot (tier 2, all-None '
+              'batch) - the .136q vanish/values/SD class',
+              _lv219.get('ok')
+              and _lv219.get('objects', {}).get(
+                  'extruder', {}).get('temperature') == 200.0
+              and _lv219['objects']['gcode_macro _STATE'][
+                  'mode'] == 'idle'
+              and 'configfile' in _lv219['objects'],
+              str(_lv219)[:200])
+        check('T2e live R219 invariant: NEVER ok:True with empty '
+              'objects (the page must not build an empty printer)',
+              not (_lv219.get('ok') and not _lv219.get('objects')),
+              str(_lv219)[:160])
+    else:
+        check('T2e live R219: total query failure -> ok:False WITH the '
+              'reason (badge shows it, no silent empty printer)',
+              _lv219.get('ok') is False
+              and 'status query empty' in str(_lv219.get('reason'))
+              and 'simulated' in str(_lv219.get('reason')),
+              str(_lv219)[:200])
+
 _srv210b = type(cfg.server)()
 _srv210b.objects['klippy_apis'] = _API210(
     ['gcode_macro _STATE'], {'gcode_macro _STATE': {'mode': 'idle'}})

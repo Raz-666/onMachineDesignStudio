@@ -102,6 +102,8 @@ class R2MenuComponent:
         self.last_mtime = 0.0
         self._live_cache = None        # R204: 2.5 s printer-snapshot cache
         self._live_t = 0.0
+        self._cf_cache = None          # R219: configfile settings-keys,
+        self._cf_t = 0.0               # 60 s cache (megabyte fallback)
         self.server.register_endpoint(
             '/server/r2_menu/tree', ['GET'],
             self._handle_tree)
@@ -277,19 +279,59 @@ class R2MenuComponent:
         # 'Timer too close' contributors while the page was open.
         want = {o: ('settings' if o == 'configfile' else None)
                 for o in objs if o in wanted}
+        # R219 (.136q field log: live values '?', Maintenance gone, SD
+        # empty - ALL THREE at once): moonraker's query_objects SWALLOWS
+        # klippy errors and returns the DEFAULT - a failed batch query
+        # came back as a silent {} while this handler said ok:True. The
+        # page then built an EMPTY printer: every value '?', every
+        # mode-based enable false (whole menus 'vanished') and sd_view
+        # undefined (SD list empty). The battery fakes either returned
+        # data or RAISED, so the swallow path was never exercised - the
+        # R211 lesson (a fake richer than reality) again.
+        # New shape: every query runs WITHOUT a default (errors raise),
+        # in tiers - (1) the field-list batch, (2) the all-None batch
+        # (an older klippy may reject field lists; configfile then rides
+        # the 60 s cache so the megabytes transit at most once a minute),
+        # (3) per-object (one bad object must not kill the snapshot).
+        # An EMPTY result at the end answers ok:False WITH the reason -
+        # the page never fakes a printer again.
         status = {}
         skipped = []
+        if self._cf_cache is not None and _t.monotonic() - self._cf_t < 60.0:
+            want.pop('configfile', None)   # the 60 s settings-keys cache
         try:
-            status = dict(await apis.query_objects(want, default={}) or {})
+            status = dict(await apis.query_objects(want) or {})
         except Exception as e:                                   # noqa: BLE001
-            for o in sorted(want):
-                try:
-                    one = await apis.query_objects({o: None}, default={}) or {}
-                    if one.get(o) is not None:
-                        status[o] = one[o]
-                except Exception as e2:                          # noqa: BLE001
-                    skipped.append('%s: %s' % (o, e2))
+            skipped.append('batch: %s' % e)
+            try:
+                status = dict(await apis.query_objects(
+                    {o: None for o in want}) or {})
+            except Exception as e2:                              # noqa: BLE001
+                skipped.append('plain batch: %s' % e2)
+                for o in sorted(want):
+                    try:
+                        one = await apis.query_objects({o: None}) or {}
+                        if one.get(o) is not None:
+                            status[o] = one[o]
+                    except Exception as e3:                      # noqa: BLE001
+                        skipped.append('%s: %s' % (o, e3))
         status = {k: v for k, v in status.items() if v is not None}
+        if want and not status:
+            out = {'ok': False,
+                   'reason': 'status query empty (%s)'
+                             % '; '.join(skipped[:3] or ['no objects'])}
+            self._live_cache = out
+            self._live_t = _t.monotonic()
+            return out
+        # fill the configfile 60 s cache (pruned to the section-name keys
+        # the menus test - the values never survive _prune_status anyway)
+        cfv = status.get('configfile')
+        if cfv and isinstance(cfv.get('settings'), dict):
+            self._cf_cache = {'settings': {k: None
+                                           for k in cfv['settings']}}
+            self._cf_t = _t.monotonic()
+        elif self._cf_cache is not None and 'configfile' in objs:
+            status['configfile'] = dict(self._cf_cache)
         pruned = self._prune_status(status)
         # R212 (.136k field log: the generator menu entries vanished from
         # the web-LCD): enables test OBJECT EXISTENCE

@@ -275,7 +275,7 @@
     <div class="brandbox"><div class="lcd">R2D2</div>
       <div class="brandname">Klipper_e3-r2d2</div></div>
     <span id="srcbadge" class="badge"></span><span id="hid" class="badge"></span>
-    <div class="verbox"><span id="ver">.136p</span></div>
+    <div class="verbox"><span id="ver">.136q</span></div>
     <button id="fsminus" class="hbtn" title="Shrink the font of the whole page">A-</button>
     <button id="fsplus" class="hbtn" title="Grow the font of the whole page">A+</button>
     <button id="refresh" title="Re-run the export on the host and reload it">Reload export</button>
@@ -1412,7 +1412,20 @@ async function pollAll(){
     const r=await fetch('/server/r2_menu/live',{cache:'no-store'});
     let j=jparse(await r.text());           // R213: floats stay floats
     if(j&&j.result!==undefined)j=j.result;  // R209: unwrap envelope
-    if(j&&j.ok){
+    /* R219 (.136q field log): an ok:true response with EMPTY objects must
+       never build a printer - the empty snapshot faked '?' values, hid
+       every mode-conditioned menu (Maintenance) and emptied the SD list.
+       Empty = not ready; the badge carries the reason. */
+    const jHasObjs=j&&j.ok&&j.objects&&Object.keys(j.objects).length>0;
+    if(j&&j.ok&&j.objects&&!jHasObjs){
+      P=null;
+      if(LIVE){
+        const why=String(j.reason||'empty status snapshot').slice(0,90);
+        $('srcbadge').textContent='live (Moonraker) - no data: '+why;
+        const dm=$('d_mode');
+        if(dm){dm.textContent='NO LIVE DATA';dm.title=why;}
+      }
+    }else if(j&&j.ok){
       P=mkPrinter(j.objects,j.available);
       if(LIVE)$('srcbadge').textContent=
         'live (Moonraker) - values live';
@@ -1798,7 +1811,7 @@ for(const _dz213 in _PANELS213){
 }
 fsLoad();
 window.R2WEB={renderGcode:renderGcode,evalName:evalName,
-  evalEnable:evalEnable,ver:'R218'};
+  evalEnable:evalEnable,ver:'R219'};
 loadDoc();
 </script>
 </body>
