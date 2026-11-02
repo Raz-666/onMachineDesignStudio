@@ -13,6 +13,8 @@ frozen references.
 RE-FREEZE HISTORY: the .134 version bump changed the core stamp line in
 every mr excerpt (verified: exactly ONE line per case differs, .133 ->
 .134, nothing else) - refs re-frozen from the bumped module.
+RE-FREEZE HISTORY: R220 (.136r) re-froze mr01-mr13 (same class as R219:
+git-diff proof = POSTPROC_RELEASE line only, pr01-pr10 byte-identical).
 RE-FREEZE HISTORY: R219 (.136q) re-froze mr01-mr13 from the bumped
 module - git-diff proof: tools/r2_postproc.py changed by the
 POSTPROC_RELEASE line ONLY (.136p -> .136q); pr01-pr10 byte-identical
@@ -165,19 +167,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # process() output is identical old vs new, ALL 13 mr md5s change (every
 # range excerpt carries the core stamp), no summary moves, and r81 was
 # 23/23 green with the R213 code BEFORE the stamp bump.
-REF_MD5 = {'mr01': 'aa574334e1876a19e924c4e96f15fd2a',
- 'mr02': 'd9e985cd317241f9691916e82b455fb2',
- 'mr03': '1327633931dedc384e6fa5f98d2093c6',
- 'mr04': '2fb07d7df88d0eaa710e756b16bb8b35',
- 'mr05': '3924c375b29812936a179dda07ee88f7',
- 'mr06': 'f9fb2b3a09f5b7346c528fb32f43d659',
- 'mr07': 'a2ef4a0b13077d4af8e9005293cbbc1d',
- 'mr08': 'df7fae7b1389e3da0fa87af4aafcac98',
- 'mr09': '5457f5430bafea28fb06820c49d4c2c2',
- 'mr10': 'f7e06e6d52b649d20383fbaa241f62fc',
- 'mr11': 'd055920e5d06337194d53abd9d54ae69',
- 'mr12': '62636638bac6d5f97285afa82c7b76e0',
- 'mr13': 'c0f66fb4b7aaa7d8b5c0d8ad9f796310',
+REF_MD5 = {'mr01': '48c16a67ff4501883ef1c0a17deaac10',
+ 'mr02': 'c8e565d087463978366e6ff14678fcb2',
+ 'mr03': 'b96ddcaf9f1db2f6bb338c60a2b18c08',
+ 'mr04': '66a748f0e15fb836da841e8cd2337096',
+ 'mr05': '01c5d657d0ea5cb2ade92ddadcd4bf1e',
+ 'mr06': '379e827260d88b5269d449ece979a30c',
+ 'mr07': '51d93ff74641f3cec52210f468031bc6',
+ 'mr08': '138526e3bf367c4f4ef8e4ed02ea1561',
+ 'mr09': 'f668fc9a3dcfe29bf1c53f9ef08a1654',
+ 'mr10': '1682afd8f61e88a291cbfd3d88ddebcc',
+ 'mr11': '90500be731f0be2d592b7abc43b2fd23',
+ 'mr12': 'ddd9516d96e07ecffaf64bd96e4847c1',
+ 'mr13': '75b88d4399c1f52efa92caf78ebf7054',
  'pr01': 'aa5a6f27d5a7e6576f57eeea93af63a5',
  'pr02': '61457e9bcbd98996b6e7dc26efda23d8',
  'pr03': '923725a1d92fccc88241ed8a3ab8065b',

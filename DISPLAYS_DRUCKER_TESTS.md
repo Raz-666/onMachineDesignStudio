@@ -93,7 +93,7 @@ LCD-bewährten Klipper-Makros zurück (SYS_PI_REBOOT, Geschwister von
 SYS_SHUTDOWN über action_call_remote_method('reboot_machine') — API
 verifiziert) via /printer/gcode/script. (5) **Alles Englisch + ASCII** —
 keine Umlaute/Typo-Zeichen mehr, eingebettetes JSON auf den aktuellen
-Export (2472) aufgefrischt.
+Export (2472) aufgefrischt; R220: 2474 (zwei TYPES-Zeilen in beiden File-info-Menüs).
 
 4. **Wenn Touch am Gerät gewünscht:** KlipperScreen + 10–15 kuratierte Favoriten
    (Start/Pause/Generatoren/Fixes) — NICHT die Vollstruktur (rendert keine

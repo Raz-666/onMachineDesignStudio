@@ -325,8 +325,9 @@ doc = mje.export(os.path.join(REPO, 'menus', 'lcd_menues.cfg'),
 # R216 re-pin: image paging (3x3 nav rows) + ArtisticStrings picker
 # (10 slots) + bricks scale input/size row (2403 -> 2424)
 # R216: string-art field round (shape/presets/bow/spread) adds 12 rows (2472 -> 2472)
-check('T1 export: all 2472 sections in one tree, no orphans',
-      doc['sections'] == 2472 and sum(doc['counts'].values()) == 2472,
+# R220: TYPES summary rows in both File info menus (2472 -> 2474)
+check('T1 export: all 2474 sections in one tree, no orphans',
+      doc['sections'] == 2474 and sum(doc['counts'].values()) == 2474,
       str(doc['counts']))
 
 
@@ -339,9 +340,50 @@ def _walk(n, acc):
 
 _all = _walk(doc['tree'], [])
 check('T1 export: tree node count == sections, depth sane, known ids',
-      len(_all) == 2472
+      len(_all) == 2474
       and any(n['id'] == '__main __start __direct' for n in _all)
       and any(n['id'] == '__main __live' for n in _all))
+
+# R220 (.136o field item 'Shape-TYPES-Anzeige'): the TYPES summary rows
+_feat220 = [n for n in _all if n['id'].endswith(' __feat')
+            and ('__start __info' in n['id'] or '__preprint __file' in n['id'])]
+check('T1 R220: both File info menus (Start? + Pre-Print) carry the '
+      'TYPES summary row with the compact code map',
+      len(_feat220) == 2
+      and all('WALL-OUTER","WO' in n['name']
+              and 'INTERNAL-BRIDGE","IB' in n['name']
+              and 'PRIME-TOWER","PT' in n['name'] for n in _feat220),
+      str([n['id'] for n in _feat220]))
+_cust220 = [n for n in _all if n['id'] == '__main __preprint __file __cust']
+check('T1 R220: the CUSTOM? gate reads the LIVE _STATE.file_types '
+      '(was save_variables.variables.file_types - a variable nothing '
+      'ever writes: the row could never show)',
+      len(_cust220) == 1
+      and 'gcode_macro _STATE' in _cust220[0].get('enable', '')
+      and 'save_variables' not in _cust220[0].get('enable', ''),
+      str(_cust220[0].get('enable'))[:80])
+from jinja2 import Environment as _E220, BaseLoader as _B220, \
+    ChainableUndefined as _C220                    # noqa: E402
+_env220 = _E220(loader=_B220(), variable_start_string='{',
+               variable_end_string='}', block_start_string='{%',
+               block_end_string='%}', trim_blocks=True, undefined=_C220)
+
+
+def _render220(tpl, types220):
+    return _env220.from_string(tpl).render(
+        printer={'gcode_macro _STATE': {'file_types': types220}})
+
+
+_t220 = _feat220[0]['name']
+check('T1 R220: the Feat row compacts TYPES to LCD-width codes '
+      '(mapping + truncate through the REAL exported template)',
+      _render220(_t220, 'WALL-OUTER,INFILL-SPARSE,BRIM') == 'Feat: WO IS BM'
+      and _render220(_t220,
+                     'WALL-OUTER,WALL-INNER,INFILL-SPARSE,SURFACE-TOP,'
+                     'SURFACE-BOTTOM,BRIM,INTERNAL-BRIDGE')
+      == 'Feat: WO WI IS S'
+      and _render220(_t220, '') == 'Feat: ?',
+      _render220(_t220, 'WALL-OUTER,INFILL-SPARSE,BRIM'))
 
 # T1b: embed into a page copy
 page = os.path.join(D, 'page.html')
@@ -353,7 +395,7 @@ _emb = json.JSONDecoder().raw_decode(
     _ptxt.split('const EMBEDDED_MENU_JSON = ', 1)[1])[0]
 check('T1 embed: placeholder replaced with valid JSON',
       '/*EMBEDDED_MENU_JSON*/ null' not in _ptxt
-      and _emb['sections'] == 2472)
+      and _emb['sections'] == 2474)
 
 # T2: the moonraker extension with a fake app
 spec = importlib.util.spec_from_file_location(
@@ -461,7 +503,7 @@ import asyncio                                            # noqa: E402
 loop = asyncio.new_event_loop()
 tree_doc = loop.run_until_complete(eps['/server/r2_menu/tree'](FakeReq()))
 check('T2 extension: tree handler serves the export',
-      tree_doc['sections'] == 2472 and 'tree' in tree_doc)
+      tree_doc['sections'] == 2474 and 'tree' in tree_doc)
 st = loop.run_until_complete(eps['/server/r2_menu/status'](FakeReq()))
 check('T2 extension: status handler reports ok + sha',
       st['ok'] and st['sha256'] == tree_doc['sha256'])
@@ -770,7 +812,11 @@ else:
             'file_accel_default': 8000.0, 'file_accel_small': 3000.0,
             'file_slow_min': 10.0, 'file_time_slow': 0,
             'file_fil_dia': 1.75, 'file_travel': 200.0,
-            'file_support_speed': 60.0, 'file_types': [],
+            'file_support_speed': 60.0,
+            # R220: real _STATE ships TYPES as ONE dash-code
+            # string - the Feat rows compact it on both LCD+web
+            'file_types': 'WALL-OUTER,WALL-INNER,INFILL-SPARSE,'
+                          'SURFACE-TOP,SURFACE-BOTTOM,BRIM',
             'file_conf': False, 'file_cover': False,
             'file_optimized': False, 'file_held': False,
             'file_info_seen': True, 'file_pa_smooth': 0.04,

@@ -189,6 +189,16 @@ ck('live R219: gcode_macro variables stay flat (klipper truth - '
    'catches the wrapped case',
    'base[k]=Object.assign({},base[k].variables)' in HTML)
 
+# ---------------- 5c) R220: the TYPES summary rows (.136o field item) --------
+ck('live R220: both File info TYPES rows are in the page export '
+   '(Start? + Pre-Print) with the compact code map and the empty case',
+   HTML.count('__info __feat') >= 1 and '__preprint __file __feat' in HTML
+   and 'WALL-OUTER' in HTML and 'Feat: ?' in HTML
+   and 'CUSTOM' in HTML)
+ck('live R220: the CUSTOM? gate reads the LIVE _STATE.file_types in the '
+   'page export (dead save_variables copy fixed - the row never showed)',
+   'save_variables\'].variables.file_types' not in HTML)
+
 # ---------------- 6) the embedded export stays fresh ------------------------
 _emb = re.search(r'^const EMBEDDED_MENU_JSON = (\{.*\});$',
                HTML, re.M)
@@ -219,9 +229,14 @@ ck('version: the page ver badge matches 01_state (%s)'
    _ver and _pver and _ver.group(1) == _pver.group(1),
    'page %s vs state %s' % (_pver and _pver.group(1),
                             _ver and _ver.group(1)))
+# R220 lesson from the .136q release: this pin was still 'R218' after the
+# page moved to R219 - the battery had run BEFORE the version bump and the
+# zip shipped a check that fails on the user's Pi. ROUND below MUST move
+# with every release bump - and the battery MUST re-run AFTER the bump.
+ROUND = 'R220'
 _state_ver = re.search(r"ver:'(R\d+)'", HTML)
-ck('version: the page state ver is the current round (R218)',
-   _state_ver and _state_ver.group(1) == 'R218',
+ck('version: the page state ver is the current round (%s)' % ROUND,
+   _state_ver and _state_ver.group(1) == ROUND,
    _state_ver and _state_ver.group(1))
 
 print()

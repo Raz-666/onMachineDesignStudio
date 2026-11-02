@@ -1,13 +1,13 @@
 {
  "generator": "menu_json_export.py (.136j R211)",
  "source": "lcd_menues.cfg",
- "sections": 2472,
+ "sections": 2474,
  "counts": {
   "list": 331,
-  "command": 1454,
+  "command": 1456,
   "input": 687
  },
- "sha256": "d2a81951e1b9fdef",
+ "sha256": "b46db6389cdb5e37",
  "live_objects": [
   "bed_mesh",
   "configfile",
@@ -124,6 +124,19 @@
         "name": "Width {printer[\"gcode_macro _STATE\"].file_line_width|default(0)|round(2) if printer[\"gcode_macro _STATE\"].file_line_width|default(0) > 0 else \"?\"}mm Flow {printer[\"gcode_macro _STATE\"].file_flow_ratio|default(0)|round(2) if printer[\"gcode_macro _STATE\"].file_flow_ratio|default(0) > 0 else \"?\"}",
         "gcode": [
          "RESPOND MSG=\"File: line width {printer['gcode_macro _STATE'].file_line_width}mm (first {printer['gcode_macro _STATE'].file_line_width_first}, wall {printer['gcode_macro _STATE'].file_line_width_wall}) | flow ratio {printer['gcode_macro _STATE'].file_flow_ratio} | by object {printer['gcode_macro _STATE'].file_by_object}\""
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __start __info __feat",
+        "type": "command",
+        "name": "{((\"Feat: \" ~ ((printer[\"gcode_macro _STATE\"].file_types|default(\"\"))|replace(\"INTERNAL-BRIDGE\",\"IB\")|replace(\"OVERHANG-PERIM\",\"OH\")|replace(\"WALL-OUTER\",\"WO\")|replace(\"WALL-INNER\",\"WI\")|replace(\"INFILL-SPARSE\",\"IS\")|replace(\"INFILL-SOLID\",\"IL\")|replace(\"SURFACE-TOP\",\"ST\")|replace(\"SURFACE-BOTTOM\",\"SB\")|replace(\"PRIME-TOWER\",\"PT\")|replace(\"BRIDGE\",\"BR\")|replace(\"GAPS\",\"GP\")|replace(\"SUPPORT\",\"SU\")|replace(\"IRONING\",\"IR\")|replace(\"SKIRT\",\"SK\")|replace(\"BRIM\",\"BM\")|replace(\"CUSTOM\",\"CU\")|replace(\",\",\" \")))|truncate(16, True, \"\")) if (printer[\"gcode_macro _STATE\"].file_types|default(\"\")) != \"\" else \"Feat: ?\"}",
+        "gcode": [
+         "{% set s = printer['gcode_macro _STATE'] %}",
+         "{% set t = s.file_types|default('') %}",
+         "RESPOND MSG=\"File features (TYPES): {t if t != '' else '? - no R2 markers (LEGACY) or not measured yet'}\"",
+         "RESPOND MSG=\"WO WI = walls | IS IL = sparse/solid infill | ST SB = top/bottom surface | BR IB = bridge/internal bridge | GP gaps | SU support | IR ironing | SK skirt | BM brim | OH overhang | PT prime tower | CU custom | C1..C9 = numbered custom blocks\"",
+         "RESPOND MSG=\"Pre-Print > Features only offers what THIS file really has - absent features are parked as SKIP for this print (your switches stay for the next file that has them)\""
         ],
         "children": []
        }
@@ -6159,10 +6172,22 @@
         "children": []
        },
        {
+        "id": "__main __preprint __file __feat",
+        "type": "command",
+        "name": "{((\"Feat: \" ~ ((printer[\"gcode_macro _STATE\"].file_types|default(\"\"))|replace(\"INTERNAL-BRIDGE\",\"IB\")|replace(\"OVERHANG-PERIM\",\"OH\")|replace(\"WALL-OUTER\",\"WO\")|replace(\"WALL-INNER\",\"WI\")|replace(\"INFILL-SPARSE\",\"IS\")|replace(\"INFILL-SOLID\",\"IL\")|replace(\"SURFACE-TOP\",\"ST\")|replace(\"SURFACE-BOTTOM\",\"SB\")|replace(\"PRIME-TOWER\",\"PT\")|replace(\"BRIDGE\",\"BR\")|replace(\"GAPS\",\"GP\")|replace(\"SUPPORT\",\"SU\")|replace(\"IRONING\",\"IR\")|replace(\"SKIRT\",\"SK\")|replace(\"BRIM\",\"BM\")|replace(\"CUSTOM\",\"CU\")|replace(\",\",\" \")))|truncate(16, True, \"\")) if (printer[\"gcode_macro _STATE\"].file_types|default(\"\")) != \"\" else \"Feat: ?\"}",
+        "gcode": [
+         "{% set s = printer['gcode_macro _STATE'] %}",
+         "{% set t = s.file_types|default('') %}",
+         "RESPOND MSG=\"File features (TYPES): {t if t != '' else '? - no R2 markers (LEGACY) or not measured yet'}\"",
+         "RESPOND MSG=\"The feature rows below (and Pre-Print > speeds) only offer what this list contains - absent features are parked as SKIP for this print\""
+        ],
+        "children": []
+       },
+       {
         "id": "__main __preprint __file __cust",
         "type": "command",
         "name": "CUSTOM?",
-        "enable": "{'CUSTOM' in printer['save_variables'].variables.file_types|default('')}",
+        "enable": "{'CUSTOM' in printer['gcode_macro _STATE'].file_types|default('')}",
         "gcode": [
          "RESPOND MSG=\"CUSTOM = a block whose TYPE spelling is unknown AND has no wall character (start/end scripts, purge macros - R181). It prints 1:1 (nothing to tune but PA). After an update: System > File check > RETAG - the new rules usually resolve it\""
         ],
