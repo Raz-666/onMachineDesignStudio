@@ -763,6 +763,36 @@ else:
         'input_shaper': {'shaper_type_x': 'mzv', 'shaper_freq_x': 38.2,
                          'shaper_type_y': 'ei', 'shaper_freq_y': 32.0},
     }
+    # R218 (.136o field log: whole menus vanished from the web page):
+    # the fixture used to ship gcode_macro variables ALREADY UNWRAPPED -
+    # richer than reality. klippy's status query returns every gcode_macro
+    # as {'variables': {...}}; the page must lift them via mkPrinter (the
+    # P=mkPrinter(j.objects,...) path). Every harness below now feeds the
+    # RAW shape through the REAL mkPrinter - this is the regression test
+    # that would have caught the field bug.
+    import copy as _copy218
+    import re as _re218
+
+    def _raw218(fix):
+        raw = {}
+        for k, v in fix.items():
+            raw[k] = ({'variables': _copy218.deepcopy(v)}
+                      if k.startswith('gcode_macro ') else
+                      _copy218.deepcopy(v))
+        return raw
+
+    _mk218m = _re218.search(r'function mkPrinter\(.*?\n\}',
+                            _html201, _re218.S)
+    if not _mk218m:
+        check('T-live-eval R218: mkPrinter present in the page '
+              '(the gcode_macro unwrap)', False, 'function not found')
+        _mk218src = 'function mkPrinter(){return {};}'
+    else:
+        _mk218src = _mk218m.group(0)
+    check('T-live-eval R218: mkPrinter unwraps gcode_macro variables '
+          '(klippy ships {variables:{...}} - the .136o vanish bug)',
+          "base[k]=Object.assign({},base[k].variables)" in _mk218src)
+
     _doc201 = _json201.load(open(os.path.join(REPO, 'web',
                                               'menu_structure.json')))
     _items201 = []
@@ -799,8 +829,10 @@ else:
     # R213: input items see menu.input (their live value) - the LCD names
     # show it while editing, the web page now passes it too. The DEFAULT
     # comes from the item's own input template (evaluated by the page).
-    _harness201d = (_eval_js + '\nconst DATA = jparse('
-                    + _json201.dumps(_json201.dumps(FIX)) + ');\nconst TPL = '
+    _harness201d = (_eval_js + '\n' + _mk218src
+                    + '\nconst DATA = mkPrinter(jparse('
+                    + _json201.dumps(_json201.dumps(_raw218(FIX)))
+                    + '), null);\nconst TPL = '
                     + _json201.dumps([i.get('input') for i in _sample201])
                     + ';\nconst OUT = TPL.map(t => t ? evalName(t, DATA) '
                       ': null);\nconsole.log(JSON.stringify(OUT));\n')
@@ -833,8 +865,10 @@ else:
         except Exception:                                      # noqa: BLE001
             _exp201.append(None)     # jinja itself fails -> page shows raw
 
-    _harness201 = (_eval_js + '\nconst DATA = jparse('
-                   + _json201.dumps(_json201.dumps(FIX)) + ');\nconst TPL = '
+    _harness201 = (_eval_js + '\n' + _mk218src
+                   + '\nconst DATA = mkPrinter(jparse('
+                   + _json201.dumps(_json201.dumps(_raw218(FIX)))
+                   + '), null);\nconst TPL = '
                    + _json201.dumps([i['name'] for i in _sample201])
                    + ';\nconst MI = ' + _json201.dumps(_mi201)
                    + ';\nconst OUT = TPL.map((t, k) => '
@@ -881,8 +915,10 @@ else:
             _expe201.append(_o201 == 'True')
         except Exception:                                      # noqa: BLE001
             _expe201.append(None)
-    _harness201e = (_eval_js + '\nconst DATA = jparse('
-                    + _json201.dumps(_json201.dumps(FIX)) + ');\nconst TPL = '
+    _harness201e = (_eval_js + '\n' + _mk218src
+                    + '\nconst DATA = mkPrinter(jparse('
+                    + _json201.dumps(_json201.dumps(_raw218(FIX)))
+                    + '), null);\nconst TPL = '
                     + _json201.dumps([i['enable'] for i in _ensample201])
                     + ';\nconst OUT = TPL.map(t => evalEnable(t, DATA));\n'
                       'console.log(JSON.stringify(OUT));\n')
@@ -907,6 +943,50 @@ else:
               'select) - null would break the LCD hiding parity',
               not _null201, '%d undecidable' % len(_null201))
 
+        # R218 second state: IDLE - the .136o field report lost exactly
+        # the idle-only menus (Maintenance, Optimized) to a false enable.
+        # Same full coverage, fixture switched to mode='idle'.
+        _fixidle218 = _copy218.deepcopy(FIX)
+        _fixidle218['gcode_macro _STATE']['mode'] = 'idle'
+        _expi218 = []
+        for _it201 in _ensample201:
+            try:
+                _o218 = _env201.from_string(_it201['enable']).render(
+                    printer=_fixidle218, params={})
+                _expi218.append(_o218 == 'True')
+            except Exception:                                  # noqa: BLE001
+                _expi218.append(None)
+        _harni218 = (_eval_js + '\n' + _mk218src
+                     + '\nconst DATA = mkPrinter(jparse('
+                     + _json201.dumps(_json201.dumps(_raw218(_fixidle218)))
+                     + '), null);\nconst TPL = '
+                     + _json201.dumps([i['enable'] for i in _ensample201])
+                     + ';\nconst OUT = TPL.map(t => '
+                       'evalEnable(t, DATA));\n'
+                       'console.log(JSON.stringify(OUT));\n')
+        open('/tmp/r201_eval_testi.js', 'w').write(_harni218)
+        _ri218 = _sp201.run(['node', '/tmp/r201_eval_testi.js'],
+                            capture_output=True, text=True, timeout=120)
+        if _ri218.returncode != 0:
+            check('T-live-eval R218 idle: node runs the shipped evaluator',
+                  False, _ri218.stderr[-200:])
+        else:
+            _goti218 = _json201.loads(_ri218.stdout)
+            _mmi218 = [(e, g) for e, g in zip(_expi218, _goti218)
+                       if e is not None and g is not None and e != g]
+            _maint218 = None
+            for _k218, _it218 in enumerate(_ensample201):
+                if _it218['id'] == '__main __maint':
+                    _maint218 = _goti218[_k218]
+                    break
+            check('T-live-eval R218 idle-state parity: enables match the '
+                  'LCD truth on a mode=idle snapshot too (%d strict '
+                  'mismatches) - Maintenance must be VISIBLE'
+                  % len(_mmi218),
+                  not _mmi218 and _maint218 is True,
+                  'mismatches %s, maint=%r' % (str(_mmi218[:3])[:160],
+                                               _maint218))
+
     # R210: the SENDER parity - the page's renderGcode vs jinja2 on the
     # SAME gcode bodies (klipper's menu evaluates item gcode before it
     # runs; 968 of 1964 commands carry templates. .136h would have POSTed
@@ -923,8 +1003,10 @@ else:
                            if l.strip()])
         except Exception:                                      # noqa: BLE001
             _eg201.append(None)
-    _hg201 = (_eval_js + '\nconst DATA = jparse('
-              + _json201.dumps(_json201.dumps(FIX)) + ');\nconst G = '
+    _hg201 = (_eval_js + '\n' + _mk218src
+              + '\nconst DATA = mkPrinter(jparse('
+              + _json201.dumps(_json201.dumps(_raw218(FIX)))
+              + '), null);\nconst G = '
               + _json201.dumps([i['gcode'] for i in _sg201])
               + ';\nconst OUT = G.map(g => renderGcode(g, DATA, 42));\n'
                 'console.log(JSON.stringify(OUT.map(o => o === null ? '
@@ -1229,9 +1311,10 @@ try:
           ('alias %s/' % _webroot203) in _site_txt203
           and ('alias %s/' % os.path.join(_cfg203, 'web')) not in _site_txt203)
     check('T7 site: R207 CSRF guard (case-insensitive map) + Origin strip '
-          'in BOTH proxy locations + Host without port (field-proven)',
-          _site_txt203.count('proxy_set_header Origin "";') == 2
-          and _site_txt203.count('if ($r2_csrf_bad) { return 403; }') == 2
+          'in ALL proxy locations (/server/, /printer/ AND /machine/ - '
+          'R218) + Host without port (field-proven)',
+          _site_txt203.count('proxy_set_header Origin "";') == 3
+          and _site_txt203.count('if ($r2_csrf_bad) { return 403; }') == 3
           and 'map "$http_origin|$http_host" $r2_csrf_bad' in _site_txt203
           and '~*^http://([^|]+)\\|\\1$' in _site_txt203.replace(' ', '')
           and 'proxy_set_header Host $host;' in _site_txt203
@@ -1359,7 +1442,7 @@ const fetch = async (url, opts) => {
     const o = {ok: true, objects: JSON.parse(JSON.stringify(LIVE)),
                pruned: []};
     if (o.objects.display_status)
-      o.objects.display_status.message = 'Meldung ' + liveCalls;
+      o.objects.display_status.message = 'message ' + liveCalls;
     return J(o);
   }
   if (u.indexOf('/server/gcode_store') === 0) {
@@ -1485,7 +1568,7 @@ catch (e) { console.log(JSON.stringify({error: 'load: ' + String(e)}));
           _A.get('error') is None
           and _A.get('menu_children', -1) >= 5
           and _A.get('crumb') == '__main'
-          and 'Werte live' in (_A.get('badge') or '')
+          and 'values live' in (_A.get('badge') or '')
           and not any('save_variables' in n for n in _nA)
           and len([n for n in _nA if '{' in n]) <= max(2, len(_nA) // 5)
           and '__main __start' in _hA            # enable: mode == waiting
@@ -1504,7 +1587,7 @@ catch (e) { console.log(JSON.stringify({error: 'load: ' + String(e)}));
               ('__main', None, '')
           and (_A.get('live_calls') or 0) >= 3
           and (_A.get('notif_n') or 0) >= 3
-          and 'Meldung' in (_A.get('notifcur') or '')
+          and 'message ' in (_A.get('notifcur') or '')
           and (_A.get('con_n') or 0) >= 3
           and any('/server/gcode_store' in g for g in (_A.get('gets') or []))
           and any('M117 WebTest' in p for p in (_A.get('posts') or []))
@@ -1521,7 +1604,7 @@ catch (e) { console.log(JSON.stringify({error: 'load: ' + String(e)}));
           and '__main __endq' in _hB
           and '__main __optprint' not in _hB
           and '__main __start' in _hB
-          and 'Werte live' in (_B.get('badge') or '')
+          and 'values live' in (_B.get('badge') or '')
           and not any('save_variables' in n for n in (_B.get('names') or []))
           and (_B.get('notifcur') or '') != '',
           str({'hiddenA': len(_hA), 'hiddenB': len(_hB),

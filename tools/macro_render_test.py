@@ -223,6 +223,8 @@ def build_printer(kamp=False, objs=None, excl=None, old_klipper=False, bare_idle
         d['configfile']['idle_timeout'] = M({})   # [idle_timeout] without explicit 'timeout:' option
     if poweroff:
         d['configfile']['settings']['gcode_shell_command poweroff'] = M({'command': 'sudo /sbin/poweroff'})
+        # R218: SYS_PI_REBOOT checks the reboot sibling of the same module
+        d['configfile']['settings']['gcode_shell_command reboot'] = M({'command': 'sudo /sbin/reboot'})
     d['configfile']['save_config_pending'] = scp          # R63 SYS_SAVE_CONFIG guard
     d['gcode_macro _PREVIEW'] = M(preview_vars)
     d['gcode_macro _LABELS'] = M({'charset': LABEL_CHARSET_LCD,
@@ -688,6 +690,16 @@ out = render(body, {'CONFIRM':'1'})
 tests.append(('SHUTDOWN default: moonraker remote', 'shutdown_machine' in out and 'RUN_SHELL_COMMAND' not in out and 'TURN_OFF_HEATERS' in out, out[:200]))
 out = render(body, {'CONFIRM':'1'}, poweroff=True)
 tests.append(('SHUTDOWN w/ module -> poweroff', 'RUN_SHELL_COMMAND CMD=poweroff' in out and 'TURN_OFF_HEATERS' in out, out[:160]))
+
+# ------- SYS_PI_REBOOT (R218: the web Reboot fallback target) --------------------------
+body = get_body('macros/13_system.cfg', 'SYS_PI_REBOOT')
+out = render(body, {})
+tests.append(('R218 PI_REBOOT 1st press arms', 'Press SYS_PI_REBOOT again' in out and 'reboot_machine' not in out, out[:120]))
+out = render(body, {'CONFIRM':'1'})
+tests.append(('R218 PI_REBOOT confirm: moonraker remote + heaters off first',
+    'reboot_machine' in out and 'RUN_SHELL_COMMAND' not in out and 'TURN_OFF_HEATERS' in out, out[:200]))
+out = render(body, {'CONFIRM':'1'}, poweroff=True)
+tests.append(('R218 PI_REBOOT w/ module -> shell reboot', 'RUN_SHELL_COMMAND CMD=reboot' in out and 'TURN_OFF_HEATERS' in out, out[:160]))
 
 # ------- legacy temp heuristic (M104/M140 without PRINT_START) --------------------------
 body = get_body('macros/06_temp_controls.cfg', 'M104')
@@ -3953,8 +3965,8 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         _v66 = _l66.split(':', 1)[1].strip()
         break
 # NOTE: bump this expectation together with the version on every release!
-tests.append(('R66/R80 version is current (.136o) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-11-02.136o'", repr(_v66)))
+tests.append(('R66/R80 version is current (.136p) in 01_state.cfg (bump together with release!)',
+    _v66 == "'R2-2026-11-02.136p'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -16877,12 +16889,12 @@ tests.append(('R185 current-only manual: no version-history appendix, no era '
     '## Appendix D' not in _m185 and 'Version history' not in _m185
     and _re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185) is None
     and _re2.search(r'\bR1[0-9][0-9]\b', _m185) is None
-    and 'The nine fonts' in _m185 and 'R2-2026-11-02.136o' in _m185,
+    and 'The nine fonts' in _m185 and 'R2-2026-11-02.136p' in _m185,
     'appendixD=%s eratags=%s rtags=%s nine=%s v132=%s' % (
         '## Appendix D' in _m185,
         bool(_re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185)),
         bool(_re2.search(r'\bR1[0-9][0-9]\b', _m185)),
-        'The nine fonts' in _m185, 'R2-2026-11-02.136o' in _m185)))
+        'The nine fonts' in _m185, 'R2-2026-11-02.136p' in _m185)))
 
 # ================== R184 (.131c field round): the brim air gap EVERYWHERE ==
 # The user asked: does the brim fusing hit our OTHER generators too? Measured

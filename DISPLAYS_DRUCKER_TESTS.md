@@ -77,6 +77,24 @@ Evaluator, 3-s-Poll). Meine Empfehlung bleibt genau die, die .135 begründet wur
 3. **Kein zweiter Voll-UI-Stack.** 2.472 Sektionen mit Live-Jinja in HTML/JS
    nachzubauen hieße: jede Änderung doppelt, jede Drift ein Feldbug. Die
    Nutzen-/Kosten-Rechnung ist seit .135 klar dagegen.
+**R218 (.136p Feldrunde, 02.11.):** fünf WebUI-Befunde, alle gefixt und
+gepinnt (tools/r218_webui_check.py, 20 Checks): (1) **Verschwundene
+Menüs** — Klippy liefert jedes gcode_macro als `{variables:{...}}`, die
+Templates lesen die Variablen DIREKT; mkPrinter hebt sie jetzt an
+(r197-Fixture auf die ROHE Klippy-Form umgestellt + Idle-Pass, in dem
+Maintenance sichtbar sein MUSS — die Fake-Daten waren „reicher als die
+Realität", exakt die R211-Lektion). (2) **SD-Karte leer** — sd_view (40
+Zeilen) fiel über die 1200-Zeichen-Fett-Grenze des Prunings; jetzt
+gewhitelisted (< 3 KB). (3) **Titel gestaucht** — eigene volle Zeile
+ganz oben, umbruchfähig. (4) **Reboot tot** — ZWEI Ursachen: nginx
+proxyte /machine/ gar nicht (404; Restart lief über /printer/) →
+Location ergänzt; UND die Buttons fallen jetzt auf die
+LCD-bewährten Klipper-Makros zurück (SYS_PI_REBOOT, Geschwister von
+SYS_SHUTDOWN über action_call_remote_method('reboot_machine') — API
+verifiziert) via /printer/gcode/script. (5) **Alles Englisch + ASCII** —
+keine Umlaute/Typo-Zeichen mehr, eingebettetes JSON auf den aktuellen
+Export (2472) aufgefrischt.
+
 4. **Wenn Touch am Gerät gewünscht:** KlipperScreen + 10–15 kuratierte Favoriten
    (Start/Pause/Generatoren/Fixes) — NICHT die Vollstruktur (rendert keine
    Klipper-[menu]-Sektionen).

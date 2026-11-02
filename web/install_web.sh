@@ -298,6 +298,16 @@ server {
         proxy_set_header Host \$host;
         proxy_set_header Origin "";
     }
+    # R218 (.136o field log: 'Reboot does nothing, Restart works'): the
+    # machine buttons POST /machine/reboot + /machine/shutdown - without
+    # this location nginx answered 404 (the /printer/ restart worked,
+    # /machine/ never reached moonraker at all).
+    location /machine/ {
+        if (\$r2_csrf_bad) { return 403; }
+        proxy_pass http://127.0.0.1:7125;
+        proxy_set_header Host \$host;
+        proxy_set_header Origin "";
+    }
 }
 EOF
 if [ -w "${NGX_SITES}" ]; then

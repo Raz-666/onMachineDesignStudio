@@ -182,7 +182,17 @@ class R2MenuComponent:
         pruned = []
         try:    # save_variables: fat variables (sd_tree, gen_files, ...)
             sv = status.get('save_variables', {}).get('variables', {})
+            # R218 (.136o field log: 'SD card menu has no contents'):
+            # sd_view is the LCD's CURRENT page (max 40 rows, bounded by
+            # design) and the web SD menu templates read exactly this -
+            # with long file names its repr crossed the 1200 fat limit
+            # and the whole SD list went empty on the page while the LCD
+            # showed the files. It is whitelisted here (costs < 3 KB);
+            # sd_tree and the other fat vars stay pruned.
+            keep_218 = ('sd_view',)
             for k in list(sv):
+                if k in keep_218:
+                    continue
                 try:
                     fat = len(repr(sv[k])) > 1200
                 except Exception:                               # noqa: BLE001
