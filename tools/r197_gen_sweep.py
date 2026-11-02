@@ -322,9 +322,11 @@ sys.path.insert(0, os.path.join(REPO, 'tools'))
 import menu_json_export as mje                             # noqa: E402
 doc = mje.export(os.path.join(REPO, 'menus', 'lcd_menues.cfg'),
                  os.path.join(D, 'menu.json'))
-# R214 re-pin: __stl/__lib/__sdp/__fc added 21 paths (2382 -> 2403)
-check('T1 export: all 2403 sections in one tree, no orphans',
-      doc['sections'] == 2403 and sum(doc['counts'].values()) == 2403,
+# R216 re-pin: image paging (3x3 nav rows) + ArtisticStrings picker
+# (10 slots) + bricks scale input/size row (2403 -> 2424)
+# R216: string-art field round (shape/presets/bow/spread) adds 12 rows (2472 -> 2472)
+check('T1 export: all 2472 sections in one tree, no orphans',
+      doc['sections'] == 2472 and sum(doc['counts'].values()) == 2472,
       str(doc['counts']))
 
 
@@ -337,7 +339,7 @@ def _walk(n, acc):
 
 _all = _walk(doc['tree'], [])
 check('T1 export: tree node count == sections, depth sane, known ids',
-      len(_all) == 2403
+      len(_all) == 2472
       and any(n['id'] == '__main __start __direct' for n in _all)
       and any(n['id'] == '__main __live' for n in _all))
 
@@ -351,7 +353,7 @@ _emb = json.JSONDecoder().raw_decode(
     _ptxt.split('const EMBEDDED_MENU_JSON = ', 1)[1])[0]
 check('T1 embed: placeholder replaced with valid JSON',
       '/*EMBEDDED_MENU_JSON*/ null' not in _ptxt
-      and _emb['sections'] == 2403)
+      and _emb['sections'] == 2472)
 
 # T2: the moonraker extension with a fake app
 spec = importlib.util.spec_from_file_location(
@@ -361,8 +363,12 @@ spec.loader.exec_module(r2m)
 
 
 class FakeReq:
-    def __init__(self):
+    def __init__(self, args=None):
         self.type = 'GET'
+        self.args = args or {}
+
+    def get(self, key, default=None):
+        return self.args.get(key, default)
 
 
 class _FakeLoop:
@@ -443,22 +449,70 @@ class FakeConfig:
 cfg = FakeConfig(os.path.join(REPO, 'web', 'menu_structure.json'))
 comp = r2m.load_component(cfg)
 eps = cfg.server.endpoints
-check('T2 extension: 4 endpoints registered',
+check('T2 extension: 6 endpoints registered',
       set(eps) == {'/server/r2_menu/tree', '/server/r2_menu/status',
                    '/server/r2_menu/live',
-                   '/server/r2_menu/refresh'}, str(set(eps)))
+                   '/server/r2_menu/refresh',
+                   '/server/r2_menu/pistats',      # R216 (.136n)
+                   '/server/r2_menu/klippylog'},   # R216 (.136n)
+      str(set(eps)))
 
 import asyncio                                            # noqa: E402
 loop = asyncio.new_event_loop()
 tree_doc = loop.run_until_complete(eps['/server/r2_menu/tree'](FakeReq()))
 check('T2 extension: tree handler serves the export',
-      tree_doc['sections'] == 2403 and 'tree' in tree_doc)
+      tree_doc['sections'] == 2472 and 'tree' in tree_doc)
 st = loop.run_until_complete(eps['/server/r2_menu/status'](FakeReq()))
 check('T2 extension: status handler reports ok + sha',
       st['ok'] and st['sha256'] == tree_doc['sha256'])
 rf = loop.run_until_complete(eps['/server/r2_menu/refresh'](FakeReq()))
 check('T2 extension: refresh without the tool degrades gracefully',
       rf['ok'] and rf.get('reExported') in (False, None), str(rf)[:80])
+# R216 (.136n): the Pi stats endpoint - pure /proc reads, never klippy
+cfg.server.objects['klippy_apis'] = FakeKlippyAPI([], {})
+ps = loop.run_until_complete(eps['/server/r2_menu/pistats'](FakeReq()))
+check('T2 extension: pistats answers ok with cpu/ram (no klippy objects)',
+      ps['ok'] and ps.get('cpu') is not None
+      and ps.get('ram_total_mb') is not None
+      and not cfg.server.objects['klippy_apis'].wants, str(ps)[:90])
+# R216 (.136n): the klippy.log window export - file + header + cap
+import tempfile as _tf216, shutil as _sh216
+_logd216 = _tf216.mkdtemp(prefix='r216log_')
+_logf216 = os.path.join(_logd216, 'klippy.log')
+_dt216 = __import__('datetime').datetime.now()
+open(_logf216, 'w').write(
+    '%s old line\n'
+    '%s fresh line\n'
+    'no timestamp context line\n'
+    % ((_dt216 - __import__('datetime').timedelta(hours=8))
+       .strftime('%Y-%m-%d %H:%M:%S'),
+       _dt216.strftime('%Y-%m-%d %H:%M:%S')))
+class _Cfg216(FakeConfig):
+    def get(self, key, default):
+        if key == 'log_path':
+            return _logf216
+        return super().get(key, default)
+cfg216 = _Cfg216(os.path.join(REPO, 'web', 'menu_structure.json'))
+comp216 = r2m.load_component(cfg216)
+kl = loop.run_until_complete(
+    cfg216.server.endpoints['/server/r2_menu/klippylog'](
+        FakeReq({'window': '3h'})))
+check('T2 extension: klippylog 3h window keeps fresh + context lines',
+      kl['ok'] and kl['window'] == '3h' and 'fresh line' in kl['text']
+      and 'context line' in kl['text'] and 'old line' not in kl['text']
+      and kl['text'].startswith('# klippy.log'), str(kl)[:90])
+kl_all = loop.run_until_complete(
+    cfg216.server.endpoints['/server/r2_menu/klippylog'](
+        FakeReq({'window': 'all'})))
+check('T2 extension: klippylog all window keeps everything',
+      kl_all['ok'] and 'old line' in kl_all['text']
+      and 'fresh line' in kl_all['text'], str(kl_all)[:90])
+kl_bad = loop.run_until_complete(
+    cfg216.server.endpoints['/server/r2_menu/klippylog'](
+        FakeReq({'window': 'nope'})))
+check('T2 extension: klippylog rejects unknown windows (falls back)',
+      kl_bad['ok'] and kl_bad['window'] == '3h', str(kl_bad)[:80])
+_sh216.rmtree(_logd216, ignore_errors=True)
 
 # ---- T2b (R201): the LIVE endpoint - a pruned printer snapshot ---------
 _junk204 = ['gcode_macro M%03d' % i for i in range(300)]   # R204
@@ -1277,7 +1331,10 @@ const reg = {};
 const document = {
   getElementById(id){ if (!reg[id]) reg[id] = elem(id); return reg[id]; },
   createElement(t){ return elem('<' + t + '>'); },
-  createTextNode(t){ return {textContent: String(t)}; } };
+  createTextNode(t){ return {textContent: String(t)}; },
+  // R216: the machine panel + clear popover register a global click
+  // listener - a no-op is enough (the shim clicks elements directly)
+  addEventListener(){} };
 let unhandled = null;
 process.on('unhandledRejection', e => { unhandled = String(e); });
 const GETS = [], POSTS = [];
@@ -1471,11 +1528,11 @@ catch (e) { console.log(JSON.stringify({error: 'load: ' + String(e)}));
                'endq_B': '__main __endq' in _hB})[:160])
     _C = _run_page209(False, FIX)               # tree endpoint down
     check('T8 page fallback: tree endpoint down -> the EMBEDDED export '
-          'renders (menu >= 5, badge says eingebettet, labels STILL '
+          'renders (menu >= 5, badge says embedded, labels STILL '
           'evaluate against live data, no crash)',
           _C.get('error') is None
           and _C.get('menu_children', -1) >= 5
-          and 'eingebettet' in (_C.get('badge') or '')
+          and 'embedded' in (_C.get('badge') or '')
           and not any('save_variables' in n for n in (_C.get('names') or [])),
           str({k: _C.get(k) for k in ('error', 'menu_children',
                                       'badge')})[:200])

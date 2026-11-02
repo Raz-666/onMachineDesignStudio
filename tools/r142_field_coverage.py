@@ -118,13 +118,18 @@ ck('geometry classifier: derived APPLY_TYPE keyed by the WRITER index '
 ck('sd_tree/sd_view/gen_files push: a cache only counts on a 200 answer, '
    'failed pushes retry next cycle, the VIEW refresh follows the current '
    'path+page read from save_variables (.112 field regression + .115 '
-   'navigation sync)',
-   src.count('retrying next cycle') == 3
-   and src.count('if _moonraker_gcode(') >= 2
-   and src.count('if not _moonraker_gcode(') == 1
+   'navigation sync; R216b: the .136m push storm wrote 4 scripts / '
+   '~370KB SD in 3.5s - tree+view+gen_files now leave as ONE batched '
+   'push per scan, folder cap 200, postproc_build once per daemon run)',
+   src.count('retrying next cycle') == 1
+   and src.count("if _moonraker_gcode('\\n'.join(_push216))") == 1
    and src.count('gen_files_pushed[0] = _gfl') == 1
    and 'ast.literal_eval(_raw154)' in src
-   and 'sd_tree_pushed[0] is not None' in src, '')
+   and 'sd_tree_pushed[0] is not None' in src
+   and '_v154[:200]' in src                      # tree folder cap
+   and '_new154 != sd_view_pushed[0]' in src     # read-back race cache
+   and '_pb216_done' in src                      # build once per run
+   and 'sd_view_pushed[0] = _new154' in src, '')
 _tx152 = open('tools/r2_texture.py').read()
 _lcd152 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 ck('frame: backplate WITHOUT brim (user rule .115 - it gets inserted '
@@ -827,8 +832,8 @@ ck('R210 page: BACK navigation (button + clickable breadcrumb segments)',
    'id="back"' in _page210 and "mk('span','seg'" in _page210,
    'back/crumb missing')
 ck('R210 page: live-failure REASON surfaced in the badge (not just '
-   '"Klipper nicht bereit")',
-   'j.reason' in _page210 and 'ohne Angabe' in _page210, 'reason unused')
+   '"Klipper not ready")',
+   'j.reason' in _page210 and 'unknown' in _page210, 'reason unused')
 ck('R210 page: enable evaluated THROUGH its braces (the dict-literal trap '
    'that showed OctoPrint/Temperature unhidden)',
    'evalEnable' in _page210 and 'interp(String(raw),PR)' in _page210,

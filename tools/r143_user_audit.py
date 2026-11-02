@@ -438,7 +438,8 @@ frozen = set(_tuple_strs(src, '_freeze133 ='))
 LIVE_OK = ('preview_nonce', 'host_nonce', 'label_fit_nonce',
            'queue_cancel_nonce',          # cancel a queued job: wanted live
            'retract_fix_nonce', 'vol_fix_nonce', 'flowcap_fix_nonce',
-           'travelacc_fix_nonce', 'segments_fix_nonce')  # file_fix blocks itself
+           'travelacc_fix_nonce', 'segments_fix_nonce',
+           'quality_fix_nonce', 'speed_fix_nonce')  # file_fix blocks itself
 # a) freeze-list TYPOS are a hard regression (a frozen name that is no
 #    real channel protects nothing)
 typos = sorted(n for n in frozen if n not in nonce_names)

@@ -53,6 +53,7 @@ import sys
 import time
 import zlib
 import struct
+import gzip        # R216: _stl_export opens .gz sources (NameError in .136m)
 import json
 import ast
 
@@ -76,7 +77,7 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-10-31.136m'
+POSTPROC_RELEASE = 'R2-2026-11-01.136n'
 POSTPROC_BUILD = 'R204'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
@@ -172,6 +173,33 @@ TYPE_MAP = {
     'support-interface': 'SUPPORT',
     'raft': 'SURFACE-BOTTOM',
     'infill': 'INFILL-SPARSE',
+    # R216 (.136n) stage 7: EVERY infill variant a slicer can name - the
+    # 3D families (gyroid, cubic, cross, lightning) and the classic
+    # patterns all reduce to SPARSE unless a solid/top/bottom token says
+    # otherwise. Slicers rarely tag them individually, but exotics
+    # (Simplify3D feature names, IdeaMaker, tuned Prusa forks) DO - and
+    # the ladder below catches the same vocabulary when it drifts.
+    'gyroid': 'INFILL-SPARSE',
+    'gyroid infill': 'INFILL-SPARSE',
+    '3d infill': 'INFILL-SPARSE',
+    '3d-lattice': 'INFILL-SPARSE',
+    'lightning infill': 'INFILL-SPARSE',
+    'lightning': 'INFILL-SPARSE',
+    'honeycomb': 'INFILL-SPARSE',
+    'cubic infill': 'INFILL-SPARSE',
+    'grid infill': 'INFILL-SPARSE',
+    'line infill': 'INFILL-SPARSE',
+    'concentric infill': 'INFILL-SPARSE',
+    'zig-zag infill': 'INFILL-SPARSE',
+    'zigzag infill': 'INFILL-SPARSE',
+    'rectilinear infill': 'INFILL-SPARSE',
+    'triangular infill': 'INFILL-SPARSE',
+    'tri-hexagon infill': 'INFILL-SPARSE',
+    'cross hatch': 'INFILL-SPARSE',
+    'archimedean chords': 'INFILL-SPARSE',
+    'hilbert curve': 'INFILL-SPARSE',
+    'octagram spiral': 'INFILL-SPARSE',
+    'infill (sparse)': 'INFILL-SPARSE',
 }
 
 
@@ -241,6 +269,17 @@ def _canon_type(raw):
     # must never become 'miss'); anything unknown stays CUSTOM by design.
     _sing191['ironing'] = 'iron'
     kts = {_sing191.get(w, w) for w in kt}
+    # R216 (.136n) stage 7: infill PATTERN tokens - a vocabulary that
+    # names only the pattern (';TYPE:Gyroid', ';TYPE:Honeycomb', a
+    # '3D Lattice') still means sparse infill. Whitelisted slicer
+    # pattern names (the Prusa/Orca/Cura catalogs), never a blind
+    # substring match.
+    _pat216 = ('gyroid', 'honeycomb', 'lightning', 'cubic', 'lattice',
+               'concentric', 'rectilinear', 'hilbert', 'octagram',
+               'archimedean', 'trihexagon', 'hexagonal', 'zigzag',
+               'zig', 'crosshatch', 'cross', 'grid', 'wiggle',
+               'triangle', 'triangular', 'waffle', 'spiralfill',
+               'tri', 'hexagon')
     if 'iron' in kts:
         return 'IRONING'
     if 'tower' in kts:
@@ -268,7 +307,7 @@ def _canon_type(raw):
     if 'gap' in kts:
         return 'GAPS'
     if ('infill' in kts or 'fill' in kts or 'solid' in kts
-            or 'sparse' in kts):
+            or 'sparse' in kts or (kts & set(_pat216))):
         if 'solid' in kts or 'dense' in kts:
             return 'INFILL-SOLID'
         if any(w in kts for w in ('top', 'surface', 'skin', 'roof')):
@@ -1338,7 +1377,7 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
         _fv = f_mod      # modal F (mm/min) at the cut
         _acc = acc_mod   # last M204 (mm/s2) in effect there
         _fvre = re.compile(r'F(\d+(?:\.\d+)?)')
-        _evre = re.compile(r'\bE(-?\d+(?:\.\d+)?)')
+        _evre = re.compile(r'\bE(-?\d*\.?\d+)')
         with open(src, 'r', errors='replace') as f:
             _i = 0
             for raw in f:
@@ -4416,6 +4455,52 @@ class _Pen:
         # files use 6mm - only real feature jumps (label->label, ->tower)
         # retract, neighboring infill lines just travel flat.
         self.jump_d = float(jump_d)
+        # R216 GOLDEN RULE (.136n field wish): no travel may ever CROSS
+        # freshly printed plastic. A spatial hash of the CURRENT layer's
+        # extrusion segments; a travel that intersects one transversally
+        # (parallel neighbor lines never intersect - the deliberate
+        # pressure-keeping connect moves stay flat) retracts + Z-hops,
+        # no matter how short it is. Same class as the R95 hole rule,
+        # now for ink instead of openings.
+        self._ink_cell = 2.0        # mm grid
+        self._ink_grid = {}
+        self._ink_z = None
+
+    def _ink_register(self, ax, ay, bx, by):
+        cs = self._ink_cell
+        for cx in range(int(min(ax, bx) // cs), int(max(ax, bx) // cs) + 1):
+            for cy in range(int(min(ay, by) // cs), int(max(ay, by) // cs) + 1):
+                self._ink_grid.setdefault((cx, cy), []).append(
+                    (ax, ay, bx, by))
+
+    def _ink_crossing(self, x, y):
+        """does the travel (pen -> x,y) CROSS this layer's ink?"""
+        if self.x is None or not self._ink_grid or self.z is None:
+            return False
+        cs = self._ink_cell
+        tvx, tvy = x - self.x, y - self.y
+        tl = math.hypot(tvx, tvy)
+        if tl < 0.25:
+            return False
+        tvx, tvy = tvx / tl, tvy / tl
+        step = cs * 0.5
+        seen = set()
+        p = (self.x, self.y)
+        q = (x, y)
+        i = 0
+        while i * step <= tl:
+            px = self.x + tvx * step * i
+            py = self.y + tvy * step * i
+            for cx in range(int((px - cs) // cs), int((px + cs) // cs) + 1):
+                for cy in range(int((py - cs) // cs), int((py + cs) // cs) + 1):
+                    if (cx, cy) in seen:
+                        continue
+                    seen.add((cx, cy))
+                    for (ax, ay, bx, by) in self._ink_grid.get((cx, cy), ()):
+                        if _segs_cross(p, q, (ax, ay), (bx, by)):
+                            return True
+            i += 1
+        return False
 
     def breset(self):
         self._bx0 = self._by0 = 1e9
@@ -4430,6 +4515,9 @@ class _Pen:
 
     def set_z(self, z, feed=1200):
         self.L.append('G0 Z%.3f F%d' % (z, feed))
+        if self._ink_z is None or abs(z - self._ink_z) > 0.02:
+            self._ink_grid = {}          # R216: new layer, new ink
+            self._ink_z = z
         self.z = z
 
     def _hole_cross(self, x, y):
@@ -4457,10 +4545,18 @@ class _Pen:
         else:
             d = math.hypot(x - self.x, y - self.y)
             # R96: the hole check only counts REAL moves - a zero-length hop
-            # (layer seam straight into the band start) crosses nothing
-            if ((d > 0.02 and self._hole_cross(x, y))
+            # (layer seam straight into the band start) crosses nothing.
+            # R216 GOLDEN RULE: an INK crossing (travel across freshly
+            # printed plastic) retracts + hops at ANY length - the field
+            # log showed threads straight across labels and band tops.
+            _hit216 = (d > 0.02 and (self._hole_cross(x, y)
+                                     or self._ink_crossing(x, y)))
+            if (_hit216
                     or d > (self.jump_d if force_d is None else force_d)):
-                hopz = hop and self.z is not None and self.z > 0.35
+                # hop even on the first layers when we cross ink - flat
+                # first-layer crossings dragged the worst strings
+                hopz = (hop and self.z is not None
+                        and (self.z > 0.35 or _hit216))
                 if self.retracts:
                     self.L.append('G10')
                 if hopz:
@@ -4479,6 +4575,10 @@ class _Pen:
         if e <= 0:
             return
         self.L.append('G1 X%.3f Y%.3f E%.5f F%d' % (x, y, e, feed))
+        if (self._ink_z is not None and self.x is not None
+                and self.y is not None
+                and abs((self.z or 0) - self._ink_z) <= 0.02):
+            self._ink_register(self.x, self.y, x, y)   # R216 golden rule
         if self._track:
             if x < self._bx0:
                 self._bx0 = x
@@ -7925,6 +8025,11 @@ NONCE_KEYS = ('preview_nonce', 'range_nonce', 'label_gen_nonce', 'reso_nonce',
               'queue_cancel_nonce', 'gen_del_nonce', 'del_nonce',
               'scale_nonce', 'cake_nonce', 'stringart_nonce',
               'plot_nonce',
+              # R216: simple geometry generator (.136n)
+              'shape_nonce',
+              # R216: twist tool (.136n)
+              'twist_nonce',
+              'quality_fix_nonce', 'speed_fix_nonce',
               # R147 - .108 field log - the r143 audit parses this tuple
               # comment-safe since R186, parentheses are fine. The
               # three NEWER fix channels were read in the watch loop but
@@ -7969,6 +8074,7 @@ GEN_SUBDIRS = {
     'figures': 'Figures', 'plot': 'Plot', 'plotcal': 'Plot',
     'range': 'Range', 'texture': 'Texture', 'towers': 'Towers',
     'scale': 'Scale', 'cake': 'Cake', 'stringart': 'StringArt',
+    'shapes': 'Shapes', 'twist': 'Twist',
 }
 GEN_FOLDER_NAMES = sorted(set(GEN_SUBDIRS.values()))
 _SD_EXT151 = ('.gcode', '.g', '.gco', '.png', '.jpg', '.jpeg',
@@ -8964,40 +9070,133 @@ def _gen_markers(L):
     return outl
 
 
+def _sa_anchor_pts(shape, hx, hy, n):
+    """R216 (.136n field round): the anchor positions on the ring's
+    centerline, centered at (0,0). ROUND: hx = anchor radius (hy unused).
+    RECT: hx/hy = half extents of the rectangular ring centerline. The
+    points are equally spaced by INDEX (equal arc length), so a start
+    spread of k anchors is the same angular distance everywhere."""
+    pts = []
+    if shape == 'RECT':
+        per = 4.0 * hx + 4.0 * hy
+        edges = [((-hx, -hy), (hx, -hy)), ((hx, -hy), (hx, hy)),
+                 ((hx, hy), (-hx, hy)), ((-hx, hy), (-hx, -hy))]
+        for k in range(n):
+            u = k * per / float(n)
+            for (p, q) in edges:
+                el = math.hypot(q[0] - p[0], q[1] - p[1])
+                if u <= el + 1e-9:
+                    t = u / el if el > 0 else 0.0
+                    pts.append((p[0] + (q[0] - p[0]) * t,
+                                p[1] + (q[1] - p[1]) * t))
+                    break
+                u -= el
+            else:
+                pts.append((-hx, -hy))
+    else:
+        for k in range(n):
+            a = 2.0 * math.pi * k / n
+            pts.append((math.cos(a) * hx, math.sin(a) * hx))
+    return pts
+
+
+def _spread_starts(plan, n_anchors, min_deg=15.0):
+    """R216 (.136n field wish): consecutive strands must not start at
+    NEIGHBORING anchors - the field print pulled thread after thread from
+    the same corner, the ring softened and the anchors drifted. The order
+    is re-spread so every next strand starts >= 15 deg around the ring
+    from the previous one ('the first round at 15 deg apart, just to be
+    safe'). Deterministic greedy reorder - the picture stays identical,
+    only the laying order changes."""
+    if len(plan) < 3 or n_anchors < 8:
+        return list(plan)
+    sep = max(1, int(math.ceil(n_anchors * float(min_deg) / 360.0)))
+    buckets = {}
+    for ij in plan:
+        buckets.setdefault(ij[0], []).append(ij)
+    out = []
+    last = None
+    while buckets:
+        if last is None:
+            pick = min(buckets)
+        else:
+            want = (last + sep) % n_anchors
+            pick = None
+            for off in range(n_anchors):
+                kk = (want + off) % n_anchors
+                if kk in buckets:
+                    pick = kk
+                    break
+            if pick is None:                  # cannot happen (buckets set)
+                pick = min(buckets)
+        out.append(buckets[pick].pop(0))
+        if not buckets[pick]:
+            del buckets[pick]
+        last = pick
+    return out
+
+
 def _string_art_plan(iw, ih, lum, n_anchors, n_lines, grid=100, n_cand=240,
-                     thread_dark=0.10, min_chord=0.18, seed=170):
+                     thread_dark=0.10, min_chord=0.18, seed=170,
+                     rect=None):
     """R171: greedy string-art planner - a photo becomes anchor-to-anchor
-    chords. The image is center-cropped to a square, mapped onto a grid
-    inside the circle (dark cell = wants thread), then each round samples a
-    RANDOM subset of candidate chords and lays the one covering the most
-    residual darkness (full 180k-pair search would cook a Pi Zero - the
-    subset greedy converges just as nicely at ~40M simple ops for a
-    1700-line portrait). Returns [(anchor_i, anchor_j), ...] in print order.
-    """
+    chords. The image is center-cropped (square for ROUND, to the frame
+    aspect for RECT), mapped onto a grid inside the ring (dark cell =
+    wants thread), then each round samples a RANDOM subset of candidate
+    chords and lays the one covering the most residual darkness (full
+    180k-pair search would cook a Pi Zero - the subset greedy converges
+    just as nicely at ~40M simple ops for a 1700-line portrait). Returns
+    [(anchor_i, anchor_j), ...] in print order.
+    rect=None -> the classic circle; rect=(w_mm, h_mm) -> the rectangular
+    frame ring (R216 field round: string art in the photo frames)."""
     import random as _rnd
     rng = _rnd.Random(seed)
     G = max(24, min(int(grid), 220))
-    side = min(iw, ih)
-    ox = (iw - side) / 2.0
-    oy = (ih - side) / 2.0
-    rg = G / 2.0 - 1.5
+    if rect:
+        # the rect fills the grid, preserving the frame's aspect
+        rw_mm, rh_mm = float(rect[0]), float(rect[1])
+        sc = (G - 3.0) / max(rw_mm, rh_mm)
+        ghw = rw_mm * sc / 2.0
+        ghh = rh_mm * sc / 2.0
+        # image crop to the SAME aspect (not a square)
+        tr = rw_mm / rh_mm
+        if iw / float(ih) > tr:
+            cw, ch = ih * tr, ih
+            ox, oy = (iw - cw) / 2.0, 0.0
+        else:
+            cw, ch = iw, iw / tr
+            ox, oy = 0.0, (ih - ch) / 2.0
+        bx0, bx1 = G / 2.0 - ghw, G / 2.0 + ghw
+        by0, by1 = G / 2.0 - ghh, G / 2.0 + ghh
+    else:
+        side = min(iw, ih)
+        ox, oy = (iw - side) / 2.0, (ih - side) / 2.0
+        rg = G / 2.0 - 1.5
     tgt = [0.0] * (G * G)
     ins = [False] * (G * G)
     for gy in range(G):
         cy = gy - G / 2.0 + 0.5
         for gx in range(G):
             cx = gx - G / 2.0 + 0.5
-            if cx * cx + cy * cy > rg * rg:
-                continue
+            if rect:
+                if abs(cx) > ghw or abs(cy) > ghh:
+                    continue
+                px = min(iw - 1, max(0, int(ox + (gx + 0.5) / G * cw)))
+                py = min(ih - 1, max(0, int(oy + (gy + 0.5) / G * ch)))
+            else:
+                if cx * cx + cy * cy > rg * rg:
+                    continue
+                px = min(iw - 1, max(0, int(ox + (gx + 0.5) / G * side)))
+                py = min(ih - 1, max(0, int(oy + (gy + 0.5) / G * side)))
             k = gy * G + gx
             ins[k] = True
-            px = min(iw - 1, max(0, int(ox + (gx + 0.5) / G * side)))
-            py = min(ih - 1, max(0, int(oy + (gy + 0.5) / G * side)))
             tgt[k] = max(0.0, 1.0 - lum[py][px])   # dark = wants threads
-    ax = [G / 2.0 + math.cos(2.0 * math.pi * k / n_anchors) * rg
-          for k in range(n_anchors)]
-    ay = [G / 2.0 + math.sin(2.0 * math.pi * k / n_anchors) * rg
-          for k in range(n_anchors)]
+    if rect:
+        apts = _sa_anchor_pts('RECT', ghw, ghh, n_anchors)
+    else:
+        apts = _sa_anchor_pts('ROUND', rg, rg, n_anchors)
+    ax = [G / 2.0 + p[0] for p in apts]
+    ay = [G / 2.0 + p[1] for p in apts]
     mind = max(3, int(n_anchors * min_chord))
     chosen = set()
     out = []
@@ -9039,25 +9238,47 @@ def _string_art_plan(iw, ih, lum, n_anchors, n_lines, grid=100, n_cand=240,
     return out
 
 
+_SA_TEMPS = {'PLA': (225, 220, 60, 55), 'PETG': (245, 240, 80, 70),
+             'ABS': (255, 250, 100, 95), 'ASA': (255, 250, 100, 95),
+             'TPU': (230, 225, 55, 50)}
+
+
 def make_string_art(src=None, pattern='PHOTO', diameter=180.0, anchors=300,
                     lines=1700, ring_w=5.0, ring_h=2.4, layer_h=0.2,
                     first_h=0.28, line_w=0.0, brim=True, material='PLA',
                     bed=None, bed_margin=6.0, nozzle=0.6, out_dir='.',
-                    version=1, seed=170, grid=100, n_cand=240):
+                    version=1, seed=170, grid=100, n_cand=240,
+                    shape='ROUND', size_w=180.0, size_h=130.0, arc=2.0):
     """R171: STRING ART - the proven StringArt3D scheme as a native
     generator (field print .128: a 180mm/600-anchor/1700-line portrait
     printed beautifully - this reproduces its architecture exactly).
 
-    An anchor RING (two walls + solid infill, ~2.4mm tall, brim + first
-    layer fan-off) carries n anchor points on its top. The 'threads' are
-    thin extruded strands (0.5mm wide, ~0.07mm thick) shot straight
-    through the air from anchor to anchor in SIX Z bands above the ring
-    (+0.20/+0.40/+0.55/+0.60/+0.75/+0.95 - the proven ladder: bands
-    crossing each other fuse, later bands clear the earlier ones). Each
-    strand: z-hop travel (the _Pen does G10/hop/G11), a small wrap curl
-    around each anchor end (the 'wound around the nail' physics), ~5mm
-    chord segments, slow 25mm/s, fan ramping per band. Two finishing
-    loops + a cover ring on top tie the strand ends down.
+    An anchor RING carries n anchor points on its top; the 'threads' are
+    thin extruded strands (0.5mm wide, ~0.07mm thick) shot through the
+    air from anchor to anchor in SIX Z bands above the ring (the proven
+    ladder: bands crossing each other fuse, later bands clear the
+    earlier ones). Each strand: a retract+hop travel OVER everything,
+    a small wrap curl around each anchor end (the 'wound around the
+    nail' physics), ~5mm chord segments, slow 25mm/s, fan ramping per
+    band. Finishing loops + a cover ring on top tie the strand ends down.
+
+    R216 (.136n field round - the string-art test print):
+      - E is FILAMENT mm again (every value divided by the 1.75mm
+        cross-section - the old numbers were volumetric-scale, the print
+        came out over-extruded: 'wrong flow')
+      - the file carries its temperatures (PRINT_START BED/HOTEND_* -
+        the preheat fell back to filament-swap level before)
+      - each strand runs as a 2mm BOW in Z (arc=2.0, 0 = flat): up from
+        the band, over, back down - the nozzle never drags through the
+        strands laid before (the field wish 'z-hopping for the strings')
+      - strands are pulled from ALTERNATING directions (a->b, b->a)
+      - the laying order spreads consecutive starts >= 15 deg apart
+        (_spread_starts - 'not thread after thread from the same corner')
+      - shape='RECT' + size_w/size_h: a RECTANGULAR frame ring - with the
+        photo-size presets it fits the Frames system (10x15 -> 102x152)
+      - the ring is 2 walls on every layer + 3 solid bottom layers +
+        3 solid top layers + 5 % sparse infill between (not solid all
+        the way up - a 2.4mm ring wastes half a spool otherwise)
 
     pattern='PHOTO' needs src (.png/.jpg): dark areas get dense threads
     (greedy planner, see _string_art_plan). pattern='SPIRAL' needs no
@@ -9071,13 +9292,28 @@ def make_string_art(src=None, pattern='PHOTO', diameter=180.0, anchors=300,
     diameter = max(60.0, min(float(diameter or 180.0), 400.0))
     max_d = min(uw, uh) - 8.0            # brim needs ~4mm per side
     notes = []
-    if diameter > max_d:
-        notes.append('diameter clamped to the bed: %.0fmm' % max_d)
-        diameter = max_d
+    shape = str(shape or 'ROUND').strip().upper()
+    if shape not in ('ROUND', 'RECT'):
+        shape = 'ROUND'
+    if shape == 'RECT':
+        size_w = max(60.0, min(float(size_w or 180.0), 400.0))
+        size_h = max(60.0, min(float(size_h or 130.0), 400.0))
+        if size_w > uw or size_h > uh:
+            sc = min(uw / size_w, uh / size_h)
+            notes.append('frame clamped to the bed: %.0fx%.0fmm'
+                         % (size_w * sc, size_h * sc))
+            size_w, size_h = size_w * sc, size_h * sc
+        diameter = max(size_w, size_h)
+    else:
+        if diameter > max_d:
+            notes.append('diameter clamped to the bed: %.0fmm' % max_d)
+            diameter = max_d
+        size_w = size_h = diameter
     n_anchors = max(24, min(int(anchors or 300), 720))
     n_lines = max(50, min(int(lines or 1700), 4000))
     ring_w = max(3.0, min(float(ring_w or 5.0), 10.0))
-    ring_h = max(1.2, min(float(ring_h or 2.4), 4.0))
+    ring_h = max(1.2, min(float(ring_h or 2.4), 6.0))
+    arc = max(0.0, min(float(arc if arc is not None else 2.0), 4.0))
     layer_h = max(0.1, min(float(layer_h or 0.2), 0.34))
     first_h = max(layer_h, min(float(first_h or 0.28), 0.4))
     pattern = str(pattern or 'PHOTO').strip().upper()
@@ -9101,7 +9337,9 @@ def make_string_art(src=None, pattern='PHOTO', diameter=180.0, anchors=300,
               % (n_lines, max(24, min(int(grid), 220)),
                  max(24, min(int(grid), 220))), flush=True)
         plan = _string_art_plan(iw, ih, lum, n_anchors, n_lines,
-                                grid=grid, n_cand=n_cand, seed=seed)
+                                grid=grid, n_cand=n_cand, seed=seed,
+                                rect=(size_w, size_h)
+                                if shape == 'RECT' else None)
         if len(plan) < n_lines:
             notes.append('planner converged after %d chords - the image is '
                          'saturated' % len(plan))
@@ -9115,24 +9353,40 @@ def make_string_art(src=None, pattern='PHOTO', diameter=180.0, anchors=300,
     else:
         raise ValueError("pattern must be 'PHOTO' or 'SPIRAL' (got %r)"
                          % pattern)
+    # R216: the laying order - 15 deg apart, alternating pull direction
+    plan = _spread_starts(plan, n_anchors, 15.0)
 
     cx = (bx0 + bx1) / 2.0
     cy = (by0 + by1) / 2.0
-    R = diameter / 2.0
-    ri = R - ring_w
-    anchor_r = R - ring_w / 2.0
+    if shape == 'ROUND':
+        R = diameter / 2.0
+        ri = R - ring_w
+        anchor_pts = _sa_anchor_pts('ROUND', R - ring_w / 2.0, 0, n_anchors)
+    else:
+        WX, WY = size_w / 2.0, size_h / 2.0
+        ri = None
+        anchor_pts = _sa_anchor_pts(
+            'RECT', WX - ring_w / 2.0, WY - ring_w / 2.0, n_anchors)
     nl = 1
     while first_h + (nl - 1) * layer_h < ring_h - 1e-9:
         nl += 1
     ring_top = round(first_h + (nl - 1) * layer_h, 3)
     L = []
     pen = _Pen(L, jump_d=6.0)
-    types = ['BRIM', 'WALL-OUTER', 'WALL-INNER', 'INFILL-SOLID', 'BRIDGE']
+    types = ['BRIM', 'WALL-OUTER', 'WALL-INNER', 'INFILL-SOLID',
+             'INFILL-SPARSE', 'BRIDGE']
     LADDER = (0.20, 0.40, 0.55, 0.60, 0.75, 0.95)
+    # R216: 3 solid bottom + 3 solid top layers, 5 % sparse between
+    n_solid = 3 if nl > 8 else nl
+    sparse_sp = wid / 0.05              # 5 % infill -> ~10mm spacing
 
-    def _loop(rr, e_mm, feed, tpe):
+    def _ring_loop(hx, hy, e_mm, feed, tpe, rect_only=False):
         L.append(';TYPE:%s' % tpe)
-        _emit_loop(pen, _circle(cx, cy, rr, seg=220), e_mm, feed)
+        if shape == 'RECT':
+            pts = _rect_loop(cx - hx, cy - hy, cx + hx, cy + hy)
+            _emit_loop(pen, pts, e_mm, feed)
+        else:
+            _emit_loop(pen, _circle(cx, cy, hx, seg=220), e_mm, feed)
 
     # ---- the anchor ring ------------------------------------------------
     for li in range(1, nl + 1):
@@ -9141,24 +9395,78 @@ def make_string_art(src=None, pattern='PHOTO', diameter=180.0, anchors=300,
         L.append(';Z:%.3f' % z)
         pen.set_z(z)
         eff = first_h if li == 1 else layer_h
-        emm = wid * eff
+        emm = wid * eff / FIL_AREA      # R216: filament mm, not mm3
         fd = 900 if li == 1 else 1800
+        solid = li <= n_solid or li > nl - n_solid
         if li == 1:
             if brim:
-                for k in (2.0, 1.4, 0.8):
-                    _loop(R + k, emm * 0.6, 900, 'Brim')
+                if shape == 'RECT':
+                    for k in (2.0, 1.4, 0.8):
+                        _ring_loop(WX + k, WY + k, emm * 0.6, 900, 'Brim')
+                else:
+                    for k in (2.0, 1.4, 0.8):
+                        _ring_loop(R + k, 0, emm * 0.6, 900, 'Brim')
             L.append('M107   ; R2-STRINGART: first layer = fan off')
-        _loop(R - wid / 2.0, emm, fd, 'Outer wall')
-        _loop(ri + wid / 2.0, emm, fd, 'Inner wall')
-        rr = R - wid
-        while rr > ri + wid * 0.9:
-            _loop(rr, emm, 2400 if li > 1 else 900, 'Internal solid infill')
-            rr -= wid
-        types.append('INFILL-SOLID')
+        # two walls, every layer (the field wish)
+        if shape == 'RECT':
+            _ring_loop(WX - wid / 2.0, WY - wid / 2.0, emm, fd, 'Outer wall')
+            _ring_loop(WX - ring_w + wid / 2.0, WY - ring_w + wid / 2.0,
+                       emm, fd, 'Inner wall')
+            rr = ring_w - wid
+            step = wid if solid else sparse_sp
+            k = 0
+            while rr > wid * 0.9:
+                _ring_loop(WX - wid - k * step, WY - wid - k * step,
+                           emm, 2400 if li > 1 else 900,
+                           'Internal solid infill'
+                           if solid else 'Sparse infill')
+                k += 1
+                rr -= step
+        else:
+            _ring_loop(R - wid / 2.0, 0, emm, fd, 'Outer wall')
+            _ring_loop(ri + wid / 2.0, 0, emm, fd, 'Inner wall')
+            rr = R - wid
+            step = wid if solid else sparse_sp
+            while rr > ri + wid * 0.9:
+                _ring_loop(rr, 0, emm, 2400 if li > 1 else 900,
+                           'Internal solid infill'
+                           if solid else 'Sparse infill')
+                rr -= step
 
     # ---- the threads: six Z bands above the ring -------------------------
     per_band = -(-len(plan) // len(LADDER))
-    Emm = wid * 0.068                  # strand cross-section ~0.07mm
+    Emm = wid * 0.068 / FIL_AREA        # R216: strand cross-section as
+    # filament mm per path mm (the old value was volumetric scale - the
+    # field print came out ~2.4x over-extruded)
+
+    def _sa_travel(x, y, z_band):
+        # retract + hop OVER the bows (they rise up to arc above the band)
+        if pen.x is None:
+            pen.x, pen.y = x, y
+            return
+        if math.hypot(x - pen.x, y - pen.y) < 0.02:
+            pen.x, pen.y = x, y
+            return
+        L.append('G10')
+        if arc > 0:
+            L.append('G0 Z%.3f F1500' % (z_band + arc + 0.5))
+        L.append('G0 X%.3f Y%.3f F8000' % (x, y))
+        if arc > 0:
+            L.append('G0 Z%.3f F1500' % z_band)
+        L.append('G11')
+        pen.ret = False
+        pen.x, pen.y = x, y
+
+    def _arc_seg(x, y, z, feed=1500):
+        z0 = pen.z if pen.z is not None else z
+        d3 = math.sqrt((x - pen.x) ** 2 + (y - pen.y) ** 2 + (z - z0) ** 2)
+        e = d3 * Emm
+        if e <= 0:
+            return
+        L.append('G1 X%.3f Y%.3f Z%.3f E%.5f F%d' % (x, y, z, e, feed))
+        pen.x, pen.y = x, y
+        pen.z = z
+
     for bi, off in enumerate(LADDER):
         blk = plan[bi * per_band:(bi + 1) * per_band]
         if not blk:
@@ -9170,82 +9478,111 @@ def make_string_art(src=None, pattern='PHOTO', diameter=180.0, anchors=300,
         pen.set_z(z)
         L.append('M106 S%d   ; R2-STRINGART: band %d cooling ramp'
                  % (min(255, 60 + bi * 40), bi + 1))
-        for (i, j) in blk:
-            a = (cx + math.cos(2.0 * math.pi * i / n_anchors) * anchor_r,
-                 cy + math.sin(2.0 * math.pi * i / n_anchors) * anchor_r)
-            b = (cx + math.cos(2.0 * math.pi * j / n_anchors) * anchor_r,
-                 cy + math.sin(2.0 * math.pi * j / n_anchors) * anchor_r)
-            pen.travel(a[0], a[1], feed=8000)   # G10 + hop + G11 built in
+        for si, (i, j) in enumerate(blk):
+            if si % 2:                   # R216: alternate the pull direction
+                i, j = j, i
+            a = (cx + anchor_pts[i][0], cy + anchor_pts[i][1])
+            b = (cx + anchor_pts[j][0], cy + anchor_pts[j][1])
+            _sa_travel(a[0], a[1], z)
+            pen.z = z
             aa = math.atan2(a[1] - cy, a[0] - cx)
-            for k in range(6):                   # the start wrap curl
+            for k in range(6):           # the start wrap curl
                 t = 2.0 * math.pi * (k + 1) / 6.0
                 px = a[0] + math.cos(aa + 2.6 + t) * 0.30
                 py = a[1] + math.sin(aa + 2.6 + t) * 0.30
-                pen.extrude(px, py, math.hypot(px - pen.x, py - pen.y) * Emm,
-                            1500)
+                pen.extrude(px, py,
+                            math.hypot(px - pen.x, py - pen.y) * Emm, 1500)
             nst = max(2, int(math.hypot(b[0] - a[0], b[1] - a[1]) / 5.0))
-            for k in range(1, nst + 1):          # the chord
+            for k in range(1, nst + 1):  # the chord, as a bow in Z
                 t = k / float(nst)
                 px = a[0] + (b[0] - a[0]) * t
                 py = a[1] + (b[1] - a[1]) * t
-                pen.extrude(px, py,
-                            math.hypot(px - pen.x, py - pen.y) * Emm, 1500)
+                pz = z + (arc * math.sin(math.pi * t) if arc > 0 else 0.0)
+                _arc_seg(px, py, round(pz, 3))
+            pen.z = z
             ab = math.atan2(b[1] - cy, b[0] - cx)
-            for k in range(6):                   # the end wrap curl
+            for k in range(6):           # the end wrap curl
                 t = 2.0 * math.pi * (k + 1) / 6.0
                 px = b[0] + math.cos(ab - 2.6 - t) * 0.30
                 py = b[1] + math.sin(ab - 2.6 - t) * 0.30
-                pen.extrude(px, py, math.hypot(px - pen.x, py - pen.y) * Emm,
-                            1500)
+                pen.extrude(px, py,
+                            math.hypot(px - pen.x, py - pen.y) * Emm, 1500)
 
     # ---- finishing loops + cover ring -------------------------------------
-    for fz, fr, nm in ((ring_top + 1.05, anchor_r, 'Finishing Ring 1'),
-                       (ring_top + 1.25, anchor_r - wid, 'Finishing Ring 2'),
-                       (ring_top + 1.45, R - wid / 2.0, 'Cover Ring')):
+    if shape == 'RECT':
+        fin = ((ring_top + 1.05, WX - ring_w / 2.0, WY - ring_w / 2.0,
+                'Finishing Rect 1'),
+               (ring_top + 1.25, WX - ring_w / 2.0 - wid,
+                WY - ring_w / 2.0 - wid, 'Finishing Rect 2'),
+               (ring_top + 1.45, WX - wid / 2.0, WY - wid / 2.0,
+                'Cover Rect'))
+    else:
+        fin = ((ring_top + 1.05, R - ring_w / 2.0, 0, 'Finishing Ring 1'),
+               (ring_top + 1.25, R - ring_w / 2.0 - wid, 0,
+                'Finishing Ring 2'),
+               (ring_top + 1.45, R - wid / 2.0, 0, 'Cover Ring'))
+    for (fz, fr1, fr2, nm) in fin:
         L.append(';LAYER_CHANGE')
         L.append(';Z:%.3f' % fz)
         L.append('; %s - ties the strand ends down' % nm)
         pen.set_z(round(fz, 3))
-        _loop(fr, wid * 0.12, 1200, 'Outer wall')
+        _ring_loop(fr1, fr2, wid * 0.12 / FIL_AREA, 1200, 'Outer wall')
     L.append('M107')
 
     # ---- header / footer ---------------------------------------------------
+    h1, h2, b1, b2 = _SA_TEMPS.get(str(material).upper(), (225, 220, 60, 55))
     hdr = []
     a = hdr.append
-    a('; R2-STRINGART generated - pattern=%s anchors=%d strands=%d '
-      'diameter=%.0fmm ring %.1fmm tall' % (pattern, n_anchors, len(plan),
-                                            diameter, ring_h))
+    a('; R2-STRINGART generated - pattern=%s shape=%s anchors=%d strands=%d '
+      '%s ring %.1fmm tall (2 walls, 3 solid bottom + 3 solid top + 5%% '
+      'sparse), strands as %.1fmm bows, starts >=15deg apart'
+      % (pattern, shape, n_anchors, len(plan),
+         ('%.0fx%.0fmm frame' % (size_w, size_h)
+          if shape == 'RECT' else 'diameter %.0fmm' % diameter),
+         ring_h, arc))
     a('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d LINE_WIDTH=%.2g '
       'LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g FLOW_RATIO=1 NOZZLE=%.1f '
       'WALL_LOOPS=2 SPEED_OUTER=40 SPEED_FIRST=25 SPEED_TRAVEL=150 '
-      'TYPES=%s BY_OBJECT=0'
+      'HOTEND=%d BED=%d TYPES=%s BY_OBJECT=0'
       % (material, layer_h, nl + len(LADDER) + 3, wid, first_h, wid,
-         nozzle, ','.join(types)))
-    for nm, rr in (('RING', R), ('FADEN', R)):
-        poly = ','.join('[%.1f,%.1f]' % (cx + math.cos(2.0 * math.pi * k / 12) * rr,
-                                         cy + math.sin(2.0 * math.pi * k / 12) * rr)
+         nozzle, h2, b1, ','.join(types)))
+    if shape == 'RECT':
+        corners = [(cx - WX, cy - WY), (cx + WX, cy - WY), (cx + WX, cy + WY),
+                   (cx - WX, cy + WY)]
+        poly = ','.join('[%.1f,%.1f]' % p for p in corners)
+    else:
+        poly = ','.join('[%.1f,%.1f]' % (cx + math.cos(2.0 * math.pi * k / 12) * R,
+                                         cy + math.sin(2.0 * math.pi * k / 12) * R)
                         for k in range(12))
+    for nm in ('RING', 'FADEN'):
         a('EXCLUDE_OBJECT_DEFINE NAME=%s CENTER=%.1f,%.1f POLYGON=[%s]'
           % (nm, cx, cy, poly))
-    ps = 'PRINT_START MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d OUTER_WALL_SPEED=40' % (
-        material, layer_h, nl + len(LADDER) + 3)
+    ps = ('PRINT_START MATERIAL=%s BED=%g BED_AFTER=%g HOTEND_FIRST=%g '
+          'HOTEND_AFTER=%g LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d '
+          'OUTER_WALL_SPEED=40'
+          % (material, b1, b2, h1, h2, layer_h, nl + len(LADDER) + 3))
     i0 = next(i for i, l in enumerate(L) if l.startswith(';LAYER_CHANGE'))
     outl = (L[:i0] + hdr + [ps, 'G90', 'M83',
                             'M107   ; R2-STRINGART: first layer = fan off']
             + _gen_markers(L[i0:]))
     outl.append('PRINT_END')
-    fname = 'V%02d_StringArt_%s.gcode' % (_next_gen_version(out_dir),
-                                          stem or pattern)
+    base = 'V%02d_StringArt_%s' % (_next_gen_version(out_dir), stem or pattern)
+    if shape == 'RECT':
+        base += '_%dx%d' % (round(size_w), round(size_h))
+    fname = base + '.gcode'
     fname = _dedupe_gen_fname(out_dir, fname)
     out = os.path.join(out_dir, fname)
     with open(out, 'w') as f:
         f.write('\n'.join(outl) + '\n')
     _gen_normalize_speeds(out)   # R159: uniform speeds + travel caps
     info = {'file': fname, 'kind': 'string-art', 'pattern': pattern,
+            'shape': shape,
             'source': os.path.basename(str(src)) if src else None,
-            'diameter': round(diameter, 1), 'anchors': n_anchors,
+            'diameter': round(diameter, 1),
+            'size': (round(size_w, 1), round(size_h, 1)),
+            'anchors': n_anchors,
             'lines': len(plan), 'bands': len(LADDER), 'ring_h': ring_h,
-            'ring_w': ring_w, 'ring_layers': nl,
+            'ring_w': ring_w, 'ring_layers': nl, 'arc': arc,
             'height': round(ring_top + 1.45, 2),
             'converged': len(plan) < n_lines, 'notes': notes}
     return out, info
@@ -11690,6 +12027,265 @@ def make_angles(count=2, angle_deg=90, leg_a=60.0, leg_b=60.0, width=25.0,
     return out, info
 
 
+# ---- R216: simple geometry generator (.136n user wish) ---------------------------
+
+def _ngon_pts(n, w, h, cx=0.0, cy=0.0):
+    """regular n-gon inside the (w x h) box, flat-bottom oriented:
+    odd n -> one vertex up + horizontal bottom edge; n % 4 == 0 -> flat
+    top/bottom (square at n=4!); other even n -> flat top via a0=0."""
+    import math as _m
+    if n % 4 == 0:
+        a0 = _m.pi / n
+    elif n % 2 == 1:
+        a0 = _m.pi / 2.0
+    else:
+        a0 = 0.0
+    pts = []
+    for k in range(n):
+        a = a0 + k * 2.0 * _m.pi / n
+        pts.append((cx + (w / 2.0) * _m.cos(a), cy + (h / 2.0) * _m.sin(a)))
+    return pts
+
+
+def _ngon_inset(pts, k, wid, w, h):
+    """the k-th inner wall loop: vertices pulled toward the center so the
+    loop runs ~k*wid inside the outline (exact for rects and circles,
+    approximate for stretched polygons - inner loops stay parallel)."""
+    if k <= 0:
+        return list(pts)
+    cx = sum(p[0] for p in pts) / len(pts)
+    cy = sum(p[1] for p in pts) / len(pts)
+    sx = max(0.04, (w / 2.0 - k * wid) / (w / 2.0))
+    sy = max(0.04, (h / 2.0 - k * wid) / (h / 2.0))
+    return [(cx + (p[0] - cx) * sx, cy + (p[1] - cy) * sy) for p in pts]
+
+
+def make_shape(shape='CYLINDER', size_x=40.0, size_y=40.0, corners=0,
+               height=20.0, walls=2, wall_thick=0.0, infill=20.0,
+               base=3, top=3, layer_h=0.2, first_h=0.28, material='PLA',
+               bed=None, bed_margin=6.0, nozzle=0.6, out_dir='.', version=1):
+    """R216 (.136n): simple geometric bodies - triangles, squares/rectangles,
+    regular polygons and cylinders (round or with an explicit segment count).
+
+    shape     TRIANGLE | SQUARE | POLY | CYLINDER (SQUARE with size_x ==
+              size_y names itself Square, otherwise Rect)
+    corners   POLY: 3..12 corners. CYLINDER: 0 = round (48 segments),
+              else the segment count (6 = hexagonal, ...)
+    height    body height in mm
+    walls     wall loops, 1..8. **1 wall = SPIRAL / VASE mode**: solid base,
+              then ONE continuous wall with the Z rising steadily - no top,
+              no infill (watertight vase)
+    wall_thick  > 0 overrides the wall COUNT: loops = round(thickness/wid)
+    infill    0..100 % between the walls (0 = hollow, 100 = solid);
+              ignored in vase mode
+    base/top  solid bottom / cap layers (vase: only the base)
+    Returns (path, info).
+    """
+    shape = str(shape).strip().upper()
+    if shape not in ('TRIANGLE', 'SQUARE', 'POLY', 'CYLINDER'):
+        raise ValueError("shape must be TRIANGLE, SQUARE, POLY or CYLINDER")
+    w = max(8.0, min(float(size_x), 200.0))
+    h = max(8.0, min(float(size_y), 200.0))
+    height = max(2.0, min(float(height), 180.0))
+    layer_h = max(0.06, min(float(layer_h), 0.34))
+    first_h = max(0.08, min(float(first_h or 0.28), 0.42))
+    wid = max(0.4, nozzle * 1.08)
+    fil = FIL_AREA
+    infill = max(0.0, min(float(infill), 100.0))
+    base = max(0, min(int(base), 12))
+    top = max(0, min(int(top), 12))
+    if wall_thick and float(wall_thick) > 0:
+        walls = int(round(float(wall_thick) / wid))
+    walls = max(1, min(int(walls), 8))
+    vase = (walls == 1)
+    notes = []
+    if vase and infill > 0:
+        notes.append('vase mode: 1 wall = spiral, infill %g%% ignored'
+                     % infill)
+    if vase:
+        top = 0
+    if base < 1 and vase:
+        base = 2
+        notes.append('vase mode needs a floor: base set to 2')
+
+    # ---- outline ---------------------------------------------------------
+    if shape == 'SQUARE':
+        n, pts = 4, [(-w / 2.0, -h / 2.0), (w / 2.0, -h / 2.0),
+                     (w / 2.0, h / 2.0), (-w / 2.0, h / 2.0)]
+        kind = 'Square' if abs(w - h) < 0.05 else 'Rect'
+    elif shape == 'TRIANGLE':
+        n, pts = 3, _ngon_pts(3, w, h)
+        kind = 'Triangle'
+    elif shape == 'POLY':
+        n = max(3, min(int(corners or 3), 12))
+        pts = _ngon_pts(n, w, h)
+        kind = '%d-gon' % n
+    else:                                    # CYLINDER
+        n = 48 if not corners else max(3, min(int(corners), 64))
+        pts = _ngon_pts(n, w, h)
+        kind = 'Cylinder' if n >= 48 else 'Cyl%dseg' % n
+    # total layers
+    body_h = height - 0.0
+    n_base = base
+    n_top = top
+    total_layers = max(1, int(round(height / layer_h)))
+    if not vase:
+        total_layers = max(n_base + n_top + 1, total_layers)
+
+    # ---- bed placement (centered) ----------------------------------------
+    if bed is None:
+        bed = (0.0, -3.0, 220.0, 217.0)
+    bx0, by0, bx1, by1 = bed
+    ux0, uy0 = bx0 + bed_margin, by0 + bed_margin
+    ux1, uy1 = bx1 - bed_margin, by1 - bed_margin
+    if w > (ux1 - ux0) or h > (uy1 - uy0):
+        raise ValueError('%s %.0fx%.0fmm does not fit the bed (%.0fx%.0f)'
+                         % (kind, w, h, ux1 - ux0, uy1 - uy0))
+    cx = (ux0 + ux1) / 2.0
+    cy = (uy0 + uy1) / 2.0
+    oxs = [(cx + px, cy + py) for (px, py) in pts]
+
+    fname_kind = kind.replace(' ', '')
+    fname = 'V%02d_Shape_%s_%.0fx%.0fx%.0f%s.gcode' % (
+        _next_gen_version(out_dir), fname_kind, w, h, height,
+        '_vase' if vase else '')
+    fname = _dedupe_gen_fname(out_dir, fname)
+    out = os.path.join(out_dir, fname)
+
+    L = []
+    a = L.append
+    a('; R2-SHAPE generated %s (R216) - start it like any other file' % kind)
+    a(TAG)
+    a('; %s %.1f x %.1fmm, %.1fmm tall - %d wall(s) @%.2fmm line, infill %g%%,'
+      ' base %d, top %d layer(s), %d layers @%.2gmm%s'
+      % (kind, w, h, height, walls, wid, infill, base, top,
+         total_layers, layer_h,
+         ' - SPIRAL/VASE: one continuous wall, no top' if vase else ''))
+    a('; spiral vase: solid floor, then the nozzle rises %.2fmm per '
+      'revolution - print it slower for shiny walls' % layer_h
+      if vase else
+      '; walls = concentric loops, infill = alternating grid inside the '
+      'innermost wall')
+    for nt in notes:
+        a('; %s' % nt)
+
+    pen = _Pen(L, jump_d=6.0)
+
+    def _loops_at(li):
+        """wall loops of layer li (outer first)"""
+        return [_ngon_inset(oxs, k, wid, w, h) for k in range(walls)]
+
+    # vase: the loop builds only the solid floor - the spiral body is ONE
+    # continuous extrusion below (no per-layer travels at all)
+    loop_layers = n_base if vase else total_layers
+    for li in range(1, loop_layers + 1):
+        z = round(first_h + (li - 1) * layer_h, 3)
+        a(';LAYER_CHANGE')
+        a(';Z:%.3f' % z)
+        pen.set_z(z)
+        if li == 2:
+            L.append('M106 S178   ; R2-SHAPE: part fan from layer 2')
+        e_wall = (first_h if li == 1 else layer_h) * wid / fil
+        a('EXCLUDE_OBJECT_START NAME=SHAPE_1')
+        is_bottom = li <= n_base
+        is_top = (not vase) and li > total_layers - n_top
+        # ---- walls ----
+        L.append(';TYPE:Outer wall')
+        _emit_loop(pen, _loops_at(li)[0], e_wall, 900 if li == 1 else 1800)
+        if walls > 1:
+            L.append(';TYPE:Inner wall')
+            for lp in _loops_at(li)[1:]:
+                _emit_loop(pen, lp, e_wall, 1200 if li == 1 else 2100)
+        # ---- fill ----
+        if is_bottom or is_top or (infill > 0 and not vase):
+            inner = _loops_at(li)[-1]
+            if is_bottom or is_top or infill >= 99.5:
+                L.append(';TYPE:%s' % ('Bottom surface' if is_bottom else
+                                       'Top surface' if is_top else
+                                       'Internal solid infill'))
+                _sp = wid
+            else:
+                L.append(';TYPE:Sparse infill')
+                _sp = wid * (100.0 / infill)
+            _emit_serp(pen, _poly_hatch(inner, _sp,
+                                        45.0 if li % 2 else 135.0),
+                       e_wall, 1500 if li == 1 else 2700)
+        a('EXCLUDE_OBJECT_END NAME=SHAPE_1')
+
+    # ---- vase spiral body -------------------------------------------------
+    if vase:
+        z_body = round(first_h + n_base * layer_h, 3)
+        # spiral starts on top of the solid floor and rises to the target
+        # height; the loop count follows the LAYER budget the vase asked for
+        body_h = max(4.0, height - (z_body - first_h))
+        revs = max(3, int(round(body_h / layer_h)))
+        a(';LAYER_CHANGE')
+        a(';Z:%.3f' % z_body)
+        a(';TYPE:Outer wall')
+        a('EXCLUDE_OBJECT_START NAME=SHAPE_1')
+        e_wall = layer_h * wid / fil
+        # travel to the loop start (retract handled by the golden rule /
+        # jump distance), then ONE continuous extrusion to the top
+        pen.travel(oxs[0][0], oxs[0][1])
+        ez = 0.0
+        segs_loop = oxs + [oxs[0]]
+        for rev in range(revs):
+            for j in range(1, len(segs_loop)):
+                (x0, y0) = segs_loop[j - 1]
+                (x1, y1) = segs_loop[j]
+                zz = z_body + (rev + j / float(len(segs_loop) - 1)) * layer_h
+                d = ((x1 - x0) ** 2 + (y1 - y0) ** 2) ** 0.5
+                ez += d * e_wall
+                L.append('G1 X%.3f Y%.3f Z%.3f E%.5f F1800'
+                         % (x1, y1, zz, ez))
+        pen.x, pen.y = segs_loop[-1][0], segs_loop[-1][1]
+        pen.z = z_body + revs * layer_h
+        a('EXCLUDE_OBJECT_END NAME=SHAPE_1')
+        total_layers = n_base + revs
+
+    a('M107')
+    a('PRINT_END')
+
+    # ---- header: exclude define + file info + PRINT_START -----------------
+    minx = min(p[0] for p in oxs)
+    maxx = max(p[0] for p in oxs)
+    miny = min(p[1] for p in oxs)
+    maxy = max(p[1] for p in oxs)
+    pts_j = ','.join('[%.1f,%.1f]' % (px, py) for px, py in oxs)
+    hdr = ['EXCLUDE_OBJECT_DEFINE NAME=SHAPE_1 CENTER=%.1f,%.1f POLYGON=[%s]'
+           % ((minx + maxx) / 2.0, (miny + maxy) / 2.0, pts_j)]
+    types_s = ['WALL-OUTER', 'SURFACE-BOTTOM']
+    if not vase:
+        types_s += ['WALL-INNER', 'INFILL-SOLID', 'SURFACE-TOP']
+        if 0 < infill < 99.5:
+            types_s.append('INFILL-SPARSE')
+    else:
+        types_s.append('WALL-INNER')            # spiral counts as the wall set
+    hdr.append('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d '
+               'LINE_WIDTH=%.2g LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g '
+               'FLOW_RATIO=1 NOZZLE=%.1f WALL_LOOPS=%d SPEED_OUTER=40 '
+               'SPEED_INNER=40 SPEED_SOLID=45 SPEED_FIRST=25 SPEED_TRAVEL=75 '
+               'TYPES=%s BY_OBJECT=0'
+               % (material, layer_h, total_layers, wid, first_h, wid, nozzle,
+                  walls, ','.join(types_s)))
+    ps = ('PRINT_START MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d '
+          'OUTER_WALL_SPEED=40' % (material, layer_h, total_layers))
+    i0 = next(i for i, l in enumerate(L) if l.startswith(';LAYER_CHANGE'))
+    outl = (L[:i0] + hdr + [ps, 'G90', 'M83',
+                            'M107   ; R2-SHAPE: first layer = fan off']
+            + _gen_markers(L[i0:]))
+
+    with open(out, 'w') as f:
+        f.write('\n'.join(outl) + '\n')
+    _gen_normalize_speeds(out)
+    info = {'file': fname, 'kind': kind.lower(), 'shape': shape, 'w': w,
+            'h': h, 'height': height, 'walls': walls, 'wall_thick':
+            round(walls * wid, 2), 'infill': infill, 'vase': vase,
+            'base': base, 'top': top, 'layers': total_layers,
+            'corners': n, 'notes': notes}
+    return out, info
+
+
 # ---- R89: lithophane + gasket generators ---------------------------------------
 
 def _img_luma(data, kind):
@@ -13098,9 +13694,35 @@ def _brick_hatch(x0, y0, x1, y1, keeps, spacing, angle_deg, min_len=0.35):
     return segs
 
 
+def _brick_studs(kind, w, l, x, y, bw, bl, pitch):
+    """R216: the stud grid of a part - ONE place, unit-tested.
+
+    The rule (R121/R132 catalog, audited .136n against real bricks):
+      brick/plate/tech/arch/islope  -> full w x l grid
+      tile                          -> NONE (smooth by definition)
+      slope l >= 3 (shallow)        -> the BACK ROW only (w studs)
+      slope l == 2 (steep)          -> NONE (the whole top is the face)
+      round/rplate/cone/jumper      -> ONE centered stud
+    """
+    cx, cy = x + bw / 2.0, y + bl / 2.0
+    grid = [(cx + (i - (w - 1) / 2.0) * pitch,
+             cy + (j - (l - 1) / 2.0) * pitch)
+            for i in range(w) for j in range(l)]
+    if kind in ('round', 'rplate', 'cone', 'jumper'):
+        return [(cx, cy)]
+    if kind == 'slope':
+        if l < 3:
+            return []
+        by = y + bl - pitch / 2.0 - (bl - l * pitch) / 2.0
+        return [(sx, sy) for (sx, sy) in grid if abs(sy - by) < pitch * 0.15]
+    if kind == 'tile':
+        return []
+    return grid
+
+
 def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                 nozzle=0.6, out_dir='.', version=1, brim=2, colors=1,
-                mode='BY_LAYER'):
+                mode='BY_LAYER', scale=100):
     """R121/R132: print exact stud-and-tube building bricks.
 
     jobs = [('B2x4', 3), ...] - catalog codes, counts 1..99.
@@ -13116,6 +13738,23 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
     brick/plate/tile, cone, jumper. Every part its own EXCLUDE_OBJECT; the
     layout is CENTERED on the bed (R132 user rule).
     """
+    # R216 (.136n field wish): percent scaling. Every dimension scales
+    # (pitch, heights, studs, tubes, play) - the WALL LOOPS compensate
+    # instead of the (nozzle-bound) line width: +1 loop at >=200%,
+    # +2 at >=300% (the user rule: a 200% brick keeps its proportions
+    # because the wall GROWS by one line, not by a wider line).
+    scale = max(25, min(int(float(scale or 100)), 300))
+    _s216 = scale / 100.0
+    _P216 = BRICK_PITCH * _s216
+    _BH216 = BRICK_BH * _s216
+    _PH216 = BRICK_PH * _s216
+    _SH216 = BRICK_STUD_H * _s216
+    _SD216 = BRICK_STUD_D * _s216
+    _SW216 = BRICK_STUD_WALL * _s216
+    _PL216 = BRICK_PLAY * _s216
+    _W216 = BRICK_WALL * _s216
+    _TO216 = BRICK_TUBE_OD * _s216
+    _loops216 = 2 + (1 if scale >= 200 else 0) + (1 if scale >= 300 else 0)
     layer_h = max(0.08, min(float(layer_h or 0.2), 0.32))
     brim = max(0, min(int(brim or 0), 8))
     colors = max(1, min(int(colors or 1), 8))
@@ -13123,6 +13762,13 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
     if mode not in ('BY_LAYER', 'BY_OBJECT'):
         raise ValueError("mode must be BY_LAYER or BY_OBJECT")
     notes = []
+    if scale != 100:
+        notes.append('scale %d%% - a 4x2 brick prints %.2f x %.2fmm '
+                     '(%.2f x %.2fmm base); wall loops %d (the +rule: '
+                     '200%% = +1, 300%% = +2)'
+                     % (scale, 4 * _P216 - _PL216, 2 * _P216 - _PL216,
+                        4 * BRICK_PITCH - BRICK_PLAY,
+                        2 * BRICK_PITCH - BRICK_PLAY, _loops216))
     if not jobs:
         raise ValueError('no bricks - add some first (LCD: Bricks > Catalog)')
     parts = []
@@ -13173,36 +13819,26 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                     or (kind == 'slope' and l >= 3))
         cells.append({'code': code, 'kind': kind, 'w': w, 'l': l,
                       'ci': ci_of[code],
-                      'bw': w * BRICK_PITCH - BRICK_PLAY,
-                      'bl': l * BRICK_PITCH - BRICK_PLAY,
-                      'nl': _snap(BRICK_BH if tall else BRICK_PH, code),
-                      'sl': _snap(BRICK_STUD_H, code + ' studs')
+                      'bw': w * _P216 - _PL216,
+                      'bl': l * _P216 - _PL216,
+                      'nl': _snap(_BH216 if tall else _PH216, code),
+                      'sl': _snap(_SH216, code + ' studs')
                             if studs_on else 0})
 
     def _prep(c):
         cx = c['x'] + c['bw'] / 2.0
         cy = c['y'] + c['bl'] / 2.0
-        grid = [(cx + (i - (c['w'] - 1) / 2.0) * BRICK_PITCH,
-                 cy + (j - (c['l'] - 1) / 2.0) * BRICK_PITCH)
-                for i in range(c['w']) for j in range(c['l'])]
-        if c['kind'] == 'slope':
-            # studs only on the flat back row (shallow slopes)
-            c['studs'] = [(sx, sy) for (sx, sy) in grid
-                          if abs(sy - (c['y'] + c['bl'] - BRICK_PITCH / 2.0
-                                       - BRICK_PLAY / 2.0)) < 0.5]
-        elif c['kind'] in ('round', 'rplate', 'cone', 'jumper'):
-            c['studs'] = [(cx, cy)]
-        else:
-            c['studs'] = grid
+        c['studs'] = _brick_studs(c['kind'], c['w'], c['l'],
+                                  c['x'], c['y'], c['bw'], c['bl'], _P216)
         if c['kind'] in ('brick', 'plate', 'tile', 'slope'):
-            c['tubes'] = [(cx + (i - (c['w'] - 1) / 2.0) * BRICK_PITCH,
-                           cy + (j - (c['l'] - 1) / 2.0) * BRICK_PITCH)
+            c['tubes'] = [(cx + (i - (c['w'] - 1) / 2.0) * _P216,
+                           cy + (j - (c['l'] - 1) / 2.0) * _P216)
                           for i in range(c['w'] - 1)
                           for j in range(c['l'] - 1)]
         else:
             c['tubes'] = []
         if c['kind'] == 'tech':
-            c['holes_y'] = [cy + (i - (c['l'] - 2) / 2.0) * BRICK_PITCH
+            c['holes_y'] = [cy + (i - (c['l'] - 2) / 2.0) * _P216
                             for i in range(c['l'] - 1)]
 
     # ---- plates: BY_LAYER = one plate per color --------------------------
@@ -13286,9 +13922,9 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
             a('; exact system geometry: pitch %.1f, brick %.1f, plate %.1f,'
               ' stud O%.1f x %.1f (hollow), body n*%.1f-%.1f so they CLAMP,'
               ' wall %.1f, tube O%.2f / %.3f wall'
-              % (BRICK_PITCH, BRICK_BH, BRICK_PH, BRICK_STUD_D,
-                 BRICK_STUD_H, BRICK_PITCH, BRICK_PLAY, BRICK_WALL,
-                 BRICK_TUBE_OD, BRICK_TUBE_WALL))
+              % (_P216, _BH216, _PH216, _SD216,
+                 _SH216, _P216, _PL216, _W216,
+                 _TO216, BRICK_TUBE_WALL))
             a('; R132 catalog: slopes (S) face -Y, shallow ones carry studs'
               ' on the back row; inverted slopes (I) chamfer the underside;'
               ' arches (A) bridge their underside opening; technic (H)'
@@ -13352,6 +13988,13 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
             def _loops(cx0, cy0, cx1, cy1, e, feed):
                 _emit_loop(pen, _rect_loop(cx0, cy0, cx1, cy1), e, feed)
 
+            def _walls216(x0, y0, x1, y1, feed):
+                # R216: outer wall + inner walls, _loops216 concentric loops
+                for wi in range(_loops216):
+                    _loops(x0 + wi * wid, y0 + wi * wid,
+                           x1 - wi * wid, y1 - wi * wid, e_wall,
+                           feed if wi == 0 else feed + 200)
+
             def _seg_out(x0, y0, x1, y1, p, q, e, feed):
                 pen.travel(p[0], p[1])
                 pen.extrude(q[0], q[1],
@@ -13386,7 +14029,7 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                 x1, y1 = (c['x'] + c['bw'] - wid / 2.0,
                           c['y'] + c['bl'] - wid / 2.0)
                 cx, cy = (c['x'] + c['bw'] / 2.0, c['y'] + c['bl'] / 2.0)
-                keeps = [(tx, ty, BRICK_TUBE_OD / 2.0)
+                keeps = [(tx, ty, _TO216 / 2.0)
                          for tx, ty in c['tubes']]
                 hm = (li - 0.5) * layer_h
 
@@ -13396,7 +14039,7 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                     r_now = rb
                     if c['kind'] == 'cone':
                         r_now = rb - (rb - 2.2) * max(
-                            0.0, min(1.0, hm / BRICK_BH))
+                            0.0, min(1.0, hm / _BH216))
                     if li == 1:
                         _brim_round(c, cx, cy, rb)
                         _ty121('Bottom surface')
@@ -13410,33 +14053,39 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                         _emit_loop(pen, _circle(cx, cy, r_now - wid / 2.0, 24),
                                    e_wall, 2200)
                         _ty121('Wall-Inner')
-                        _emit_loop(pen, _circle(cx, cy, r_now - BRICK_WALL
+                        _emit_loop(pen, _circle(cx, cy, r_now - _W216
                                                 + wid / 2.0, 20), e_wall, 2400)
+                        # R216: scaled bricks grow MORE wall rings (the
+                        # +loop rule) - each only while it fits the radius
+                        for wi in range(2, _loops216):
+                            if r_now - _W216 - (wi - 1) * wid > wid:
+                                _emit_loop(pen, _circle(
+                                    cx, cy, r_now - _W216
+                                    - (wi - 1) * wid + wid / 2.0, 20),
+                                    e_wall, 2400)
                         _ty121('Top surface' if li == c['nl']
                                else 'Internal solid infill')
-                        _rings126(pen, cx, cy, r_now - BRICK_WALL - wid / 2.0,
+                        _rings126(pen, cx, cy,
+                                  r_now - _W216
+                                  - max(0, _loops216 - 2) * wid - wid / 2.0,
                                   0.0, e_wall,
                                   1700 if li == c['nl'] else 1900, wid)
                 elif c['kind'] == 'slope':
                     # ---- top slope: the front edge recedes with height ----
-                    run = (c['l'] - 1) * BRICK_PITCH
-                    frac = max(0.0, min(1.0, hm / BRICK_BH))
+                    run = (c['l'] - 1) * _P216
+                    frac = max(0.0, min(1.0, hm / _BH216))
                     fy = max(y0, c['y'] + run * frac)
                     if li == 1:
                         _brim_rect(c)
                         _ty121('Bottom surface')
-                        _loops(x0, y0, x1, y1, e_wall, 1400)
-                        _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid,
-                               e_wall, 1600)
+                        _walls216(x0, y0, x1, y1, 1400)
                         _hatch_rect(x0 + 2 * wid, y0 + 2 * wid,
                                     x1 - 2 * wid, y1 - 2 * wid, [], li, 1600)
                     elif li <= c['nl']:
                         kact = [(tx, ty, r) for (tx, ty, r) in keeps
                                 if ty < fy - wid]
                         _ty121('Outer wall')
-                        _loops(x0, fy, x1, y1, e_wall, 2200)
-                        _loops(x0 + wid, fy + wid, x1 - wid, y1 - wid,
-                               e_wall, 2400)
+                        _walls216(x0, fy, x1, y1, 2200)
                         if li == c['nl']:
                             _ty121('Top surface')
                             _hatch_rect(x0 + 2 * wid, fy + 2 * wid,
@@ -13448,22 +14097,18 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                                         x1 - 2 * wid, y1 - 2 * wid, kact, li)
                 elif c['kind'] == 'islope':
                     # ---- inverted slope: chamfer on the UNDERSIDE ---------
-                    run = (c['l'] - 1) * BRICK_PITCH
-                    frac = max(0.0, min(1.0, hm / BRICK_BH))
+                    run = (c['l'] - 1) * _P216
+                    frac = max(0.0, min(1.0, hm / _BH216))
                     fy = max(y0, c['y'] + run * (1.0 - frac))
                     if li == 1:
                         _brim_rect(c)
                         _ty121('Bottom surface')
-                        _loops(x0, fy, x1, y1, e_wall, 1400)
-                        _loops(x0 + wid, fy + wid, x1 - wid, y1 - wid,
-                               e_wall, 1600)
+                        _walls216(x0, fy, x1, y1, 1400)
                         _hatch_rect(x0 + 2 * wid, fy + 2 * wid,
                                     x1 - 2 * wid, y1 - 2 * wid, [], li, 1600)
                     elif li <= c['nl']:
                         _ty121('Outer wall')
-                        _loops(x0, fy, x1, y1, e_wall, 2200)
-                        _loops(x0 + wid, fy + wid, x1 - wid, y1 - wid,
-                               e_wall, 2400)
+                        _walls216(x0, fy, x1, y1, 2200)
                         if li == c['nl']:
                             _ty121('Top surface')
                             _hatch_rect(x0 + 2 * wid, fy + 2 * wid,
@@ -13475,8 +14120,8 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                                         x1 - 2 * wid, y1 - 2 * wid, [], li)
                 elif c['kind'] == 'arch':
                     # ---- underside opening, 45deg shoulders, bridged -------
-                    oy0 = c['y'] + BRICK_PITCH
-                    oy1 = c['y'] + c['bl'] - BRICK_PITCH
+                    oy0 = c['y'] + _P216
+                    oy1 = c['y'] + c['bl'] - _P216
                     inset = min(1.6, max(0.0, hm - 4.8))
                     a0 = min(oy0 + inset, (oy0 + oy1) / 2.0)
                     a1 = max(oy1 - inset, (oy0 + oy1) / 2.0)
@@ -13494,9 +14139,7 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                         if just_closed:
                             _ty121('Bridge')
                         _ty121('Outer wall')
-                        _loops(x0, y0, x1, y1, e_wall, 2200)
-                        _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid,
-                               e_wall, 2400)
+                        _walls216(x0, y0, x1, y1, 2200)
                         _ty121('Top surface' if li == c['nl']
                                else 'Internal solid infill')
                         _hatch_rect(x0 + 2 * wid, y0 + 2 * wid,
@@ -13512,6 +14155,12 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                             _loops(lx0, ly0, lx1, ly1, e_wall, 2200)
                             _loops(lx0 + wid, ly0 + wid, lx1 - wid, ly1 - wid,
                                    e_wall, 2400)
+                            for wi in range(2, _loops216):
+                                if (lx1 - wi * wid) - (lx0 + wi * wid) \
+                                        > wid * 0.5:
+                                    _loops(lx0 + wi * wid, ly0 + wi * wid,
+                                           lx1 - wi * wid, ly1 - wi * wid,
+                                           e_wall, 2400)
                             _ty121('Internal solid infill')
                             _hatch_rect(lx0 + 2 * wid, ly0 + 2 * wid,
                                         lx1 - 2 * wid, ly1 - 2 * wid,
@@ -13528,9 +14177,7 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                     if li == 1:
                         _brim_rect(c)
                         _ty121('Bottom surface')
-                        _loops(x0, y0, x1, y1, e_wall, 1400)
-                        _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid,
-                               e_wall, 1600)
+                        _walls216(x0, y0, x1, y1, 1400)
                         _hatch_rect(x0 + 2 * wid, y0 + 2 * wid,
                                     x1 - 2 * wid, y1 - 2 * wid, [], li, 1600)
                     elif h <= wid * 0.45:
@@ -13543,9 +14190,7 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                         if ph > wid * 0.45:
                             _ty121('Bridge')
                         _ty121('Outer wall')
-                        _loops(x0, y0, x1, y1, e_wall, 2200)
-                        _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid,
-                               e_wall, 2400)
+                        _walls216(x0, y0, x1, y1, 2200)
                         _ty121('Top surface' if li == c['nl']
                                else 'Internal solid infill')
                         _hatch_rect(x0 + 2 * wid, y0 + 2 * wid,
@@ -13553,9 +14198,7 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                                     1700 if li == c['nl'] else 1900)
                     else:
                         _ty121('Outer wall')
-                        _loops(x0, y0, x1, y1, e_wall, 2200)
-                        _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid,
-                               e_wall, 2400)
+                        _walls216(x0, y0, x1, y1, 2200)
                         _ty121('Wall-Inner')
                         for yk in c['holes_y']:
                             for yy in (yk - h, yk + h):
@@ -13588,11 +14231,11 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                         _ty121('Wall-Inner')
                         for tx, ty in c['tubes']:
                             _emit_loop(pen, _circle(tx, ty,
-                                                    BRICK_TUBE_OD / 2.0
+                                                    _TO216 / 2.0
                                                     - wid / 2.0, 24),
                                        e_wall, 2200)
                             _emit_loop(pen, _circle(tx, ty,
-                                                    BRICK_TUBE_OD / 2.0
+                                                    _TO216 / 2.0
                                                     - BRICK_TUBE_WALL
                                                     + wid / 2.0, 20),
                                        e_wall, 2200)
@@ -13609,10 +14252,10 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                     _ty121('Outer wall')
                     pen.holes = []
                     for sx, sy in c['studs']:
-                        _emit_loop(pen, _circle(sx, sy, BRICK_STUD_D / 2.0
+                        _emit_loop(pen, _circle(sx, sy, _SD216 / 2.0
                                                 - wid / 2.0, 20), e_wall, 2200)
-                        _emit_loop(pen, _circle(sx, sy, BRICK_STUD_D / 2.0
-                                                - BRICK_STUD_WALL + wid / 2.0,
+                        _emit_loop(pen, _circle(sx, sy, _SD216 / 2.0
+                                                - _SW216 + wid / 2.0,
                                                 16), e_wall, 2200)
                 a('EXCLUDE_OBJECT_END NAME=%s' % c['name'])
 
@@ -13635,7 +14278,7 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                     for li in range(1, c['nl'] + c['sl'] + 1):
                         z = round(first_h + (li - 1) * layer_h, 3)
                         _layer_head(li, z)
-                        pen.holes = [(tx, ty, BRICK_TUBE_OD / 2.0 - 0.6)
+                        pen.holes = [(tx, ty, _TO216 / 2.0 - 0.6)
                                      for tx, ty in c['tubes']] \
                             if 1 < li <= c['nl'] else []
                         brick_block(c, li)
@@ -13644,7 +14287,7 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                     z = round(first_h + (li - 1) * layer_h, 3)
                     _layer_head(li, z)
                     for c in plist:
-                        pen.holes = [(tx, ty, BRICK_TUBE_OD / 2.0 - 0.6)
+                        pen.holes = [(tx, ty, _TO216 / 2.0 - 0.6)
                                      for tx, ty in c['tubes']] \
                             if 1 < li <= c['nl'] else []
                         brick_block(c, li)
@@ -13719,7 +14362,7 @@ def _kit_moves(path):
                 e_rel = True
                 continue
             if ls.startswith('G92'):
-                m = re.search(r'\bE(-?\d+(?:\.\d+)?)', ls)
+                m = re.search(r'\bE(-?\d*\.?\d+)', ls)
                 if m:
                     e_abs = float(m.group(1))
                 continue
@@ -16161,9 +16804,19 @@ def _opt_snap_from_file(path):
 # (box) of measured width and layer height. Overlapping ribbons are fine -
 # a slicer unions them; the STL is for viewing, re-slicing, sharing.
 _STL_EXCLUDE214 = frozenset(
-    ('SUPPORT', 'SKIRT', 'BRIM', 'PRIME-TOWER', 'CUSTOM', 'IRONING', 'TRAVEL'))
+    ('SUPPORT', 'SKIRT', 'BRIM', 'PRIME-TOWER', 'CUSTOM', 'IRONING', 'TRAVEL',
+     # R216 (.136n field log): the .136m exports blew every viewer up -
+     # internal ribbons are the bulk of the mesh (a real file capped at
+     # 90 MB / 1.8 M boxes). The export is the OUTER SKIN now: outer
+     # wall, top, bottom, bridges, overhangs. Internal infill / inner
+     # walls / gap fill are skipped and NAMED in the message - a view
+     # and share mesh that every program can open.
+     'INFILL-SPARSE', 'INFILL-SOLID', 'WALL-INNER', 'GAPS'))
 _STL_FIL_AREA214 = 1.75 * 1.75 * 0.7853981633974483   # mm^2 filament section
-_STL_MAX_BOXES214 = 150000     # ~72 MB STL - honest abort beyond that
+_STL_MAX_BOXES214 = 150000     # hard backstop - honest abort beyond that
+_STL_TARGET_BOXES216 = 45000   # R216: viewer budget (~27 MB / 540k tris) -
+                               # beyond it the SHORTEST segments (micro
+                               # texture strokes) are dropped and named
 
 
 def _stl_export(directory, rel, out_dir=None):
@@ -16178,6 +16831,37 @@ def _stl_export(directory, rel, out_dir=None):
     opener = gzip.open if src.lower().endswith('.gz') else open
     with opener(src, 'rt', errors='replace') as f:
         raw = f.read()
+
+    # ---- pass 0 (R216): the dominant layer height --------------------------
+    # Spiral-vase files raise Z on EVERY segment - without quantizing Z to
+    # the layer grid first, no run ever merges (one vase = 28,785 one-box
+    # 'runs', the .136m mesh capped at 90 MB and crashed every viewer).
+    # A light pre-scan over the Z changes gives the grid step.
+    _zprev216 = None
+    _zchg216 = []
+    for ln in raw.split('\n'):
+        if ln[:2] in ('G0', 'G1', 'G2', 'G3'):
+            for p in ln.split():
+                if p[:1] in ('Z', 'z') and len(p) > 1:
+                    try:
+                        zv216 = float(p[1:])
+                    except ValueError:
+                        continue
+                    if _zprev216 is None or abs(zv216 - _zprev216) > 1e-4:
+                        _zchg216.append(zv216)
+                        _zprev216 = zv216
+                    break
+    _zl216 = [b - a for a, b in zip(_zchg216, _zchg216[1:])
+              if 0.05 <= b - a <= 2.0]
+    if _zl216:
+        _lh216 = max(set(round(d, 3) for d in _zl216),
+                     key=[round(d, 3) for d in _zl216].count)
+    else:
+        _lh216 = 0.2
+    _lh216 = min(0.6, max(0.05, _lh216))
+
+    def _zq216(zv):
+        return round(round(zv / _lh216) * _lh216, 4)
 
     # ---- pass 1: collect extrusion runs (merged collinear segments) -------
     x = y = z = 0.0
@@ -16240,7 +16924,7 @@ def _stl_export(directory, rel, out_dir=None):
         if ny is not None:
             y = ny
         if nz is not None:
-            z = nz
+            z = _zq216(nz)      # R216: layer-grid Z (spiral vases merge)
         # G2/G3 arcs: treat as a straight segment to the endpoint (rare in
         # r2 files; the ribbon approximation is honest enough for a mesh)
         seg = ((x - px) ** 2 + (y - py) ** 2) ** 0.5
@@ -16262,7 +16946,7 @@ def _stl_export(directory, rel, out_dir=None):
                     dx1, dy1 = x - px, y - py
                     cross = abs(dx0 * dy1 - dy0 * dx1) / (l0 * seg)
                     w_run = (run[2] + de) * _STL_FIL_AREA214 / ((run[3] + seg) * 0.2)
-                    if cross < 0.07 and abs(w_run - wprov) < 0.10:
+                    if cross < 0.12 and abs(w_run - wprov) < 0.12:
                         run[0].append((x, y))
                         run[2] += de
                         run[3] += seg
@@ -16284,12 +16968,36 @@ def _stl_export(directory, rel, out_dir=None):
                            'untyped file (run System > File check > RETAG '
                            'first, then export again)')
 
-    # ---- pass 2: true layer heights from the extrusion Z values -----------
-    zs = sorted({round(r[1], 3) for r in runs})
+    # ---- pass 2: layer heights from Z CLUSTERS (R216) ----------------------
+    # The .136m per-unique-Z diff broke on spiral-vase files: every segment
+    # carries its own Z, one vase became 28,785 'layers' of micro ribbons,
+    # the mesh capped at 90 MB and viewers crashed. Cluster nearby Zs onto
+    # the dominant layer-height grid instead: a vase gets real 0.2mm bands,
+    # normal files keep exact per-layer heights.
+    # quantized Zs: each unique value IS a true layer band (bottom = the
+    # previous layer, top = this one; the first sits on the bed)
+    zs = sorted({round(r[1], 4) for r in runs})
     z_h = {}
     for i214, zv in enumerate(zs):
-        z_h[zv] = (zv - zs[i214 - 1]) if i214 else max(0.05, zv)
-        z_h[zv] = min(0.6, max(0.05, z_h[zv]))
+        bottom = zs[i214 - 1] if i214 else max(0.0, zv - _lh216)
+        if zv - bottom < 0.05:
+            bottom = zv - 0.05
+        z_h[zv] = (bottom, zv)
+
+    # ---- pass 2.5 (R216): decimate to the viewer budget --------------------
+    # Real textured files carry 100k+ shell segments - a 1.8 M-triangle box
+    # mesh crashed or froze every viewer in the field report. The SHORTEST
+    # segments go first (micro texture strokes): the macro shape stays,
+    # the mesh fits every program.
+    _minseg216 = 0.0
+    _nseg216 = sum(len(r[0]) - 1 for r in runs)
+    if _nseg216 > _STL_TARGET_BOXES216:
+        _lens216 = sorted(
+            ((r[0][i][0] - r[0][i - 1][0]) ** 2
+             + (r[0][i][1] - r[0][i - 1][1]) ** 2) ** 0.5
+            for r in runs for i in range(1, len(r[0])))
+        _minseg216 = _lens216[len(_lens216) - _STL_TARGET_BOXES216]
+        _minseg216 = min(1.2, max(0.10, _minseg216))
 
     # ---- pass 3: stream the ribbon boxes into a binary STL ---------------
     outdir = out_dir or os.path.join(directory, 'stl')
@@ -16324,17 +17032,17 @@ def _stl_export(directory, rel, out_dir=None):
             pts, zv, e_sum, len_sum = r[0], r[1], r[2], r[3]
             if n_box >= _STL_MAX_BOXES214:
                 break
-            h = z_h[round(zv, 3)]
+            zb, zt = z_h[round(zv, 4)]
+            h = zt - zb
             w = e_sum * _STL_FIL_AREA214 / (len_sum * h)
             w = min(1.5, max(0.30, w)) * 0.5
-            zb, zt = zv - h, zv
             q = pts[0]
             for p in pts[1:]:
                 (x0, y0), (x1, y1) = q, p
                 q = p
                 dx, dy = x1 - x0, y1 - y0
                 L = (dx * dx + dy * dy) ** 0.5
-                if L < 1e-6:
+                if L < 1e-6 or L < _minseg216:
                     continue
                 nxh, nyh = -dy / L * w, dx / L * w
                 ax, ay = x0 + nxh, y0 + nyh        # left @ start
@@ -16359,9 +17067,11 @@ def _stl_export(directory, rel, out_dir=None):
         fo.seek(cnt_pos)
         fo.write(struct.pack('<I', n_tri))
     info = {'file': out, 'boxes': n_box, 'tris': n_tri,
-            'layers': len(zs), 'runs': len(runs), 'incl_mm': incl_mm,
+            'layers': len(z_h), 'runs': len(runs), 'incl_mm': incl_mm,
             'excl': excl_mm, 'capped': n_box >= _STL_MAX_BOXES214,
-            'untyped': not seen_type}
+            'untyped': not seen_type,
+            'decimated': bool(_minseg216 > 0.0),
+            'min_seg': round(_minseg216, 2)}
     return os.path.relpath(out, directory), info
 
 def _optimize_copy(directory, rel, snap):
@@ -16687,6 +17397,387 @@ def _segments_fix_file(path):
     except OSError:
         pass
     return 0, rate_before, rate_before
+
+
+def _quality_fix_file(path):
+    """R216 (.136n): QUALITY fix - travel optimization for sliced files.
+
+    The R216 golden rule applied to a real slicer file: a travel may
+    only cost time and leave blobs when it actually CROSSES freshly
+    printed plastic of the SAME layer. Slicers retract + Z-hop on
+    heuristics (perimeter change, distance threshold), which drags
+    strings across clean infill and stacks pointless hop sequences.
+
+    The pass tracks every extrusion segment of the current layer in a
+    spatial hash (the feature recognition contributes ONLY the travel
+    detection here - no feature is re-tagged, nothing but travels is
+    touched) and asks ONE question per travel block: does the straight
+    pen->target line cross existing ink (transversal - parallel
+    neighbor lines never count)?
+
+      - NON-crossing block -> the retract + hop armor drops (G10/G11
+        pairs, clean E-only retracts, wipe moves, hop-up/down Z moves):
+        the travel prints directly, flat, no ooze wiping on the way
+      - CROSSING block -> keeps everything it had (the slicer was
+        right); travels that cross ink WITHOUT any retract around them
+        are counted so the message says how many crossings ride naked
+
+    Layer-change comments reset the ink. Returns (dropped_blocks,
+    kept_blocks, naked_crossings)."""
+    tmp = path + '.qty'
+    dropped = kept = naked = 0
+    cs = 2.0
+    ink = {}                      # {(cx, cy): [(ax, ay, bx, by), ...]}
+    x = y = 0.0
+    ez = None                     # Z of the last EXTRUSION (the layer)
+    z = None                      # modal Z
+    e = 0.0
+    e_rel = True
+    block = None                  # buffered retract/hop/travel armor
+
+    def _reg(ax, ay, bx, by):
+        for cx in range(int(min(ax, bx) // cs), int(max(ax, bx) // cs) + 1):
+            for cy in range(int(min(ay, by) // cs),
+                            int(max(ay, by) // cs) + 1):
+                ink.setdefault((cx, cy), []).append((ax, ay, bx, by))
+
+    def _crossing(x0, y0, x1, y1):
+        tvx, tvy = x1 - x0, y1 - y0
+        tl = math.hypot(tvx, tvy)
+        if tl < 0.25 or not ink:
+            return False
+        tvx, tvy = tvx / tl, tvy / tl
+        step = cs * 0.5
+        seen = set()
+        i = 0
+        while i * step <= tl:
+            px = x0 + tvx * step * i
+            py = y0 + tvy * step * i
+            for cx in range(int((px - cs) // cs), int((px + cs) // cs) + 1):
+                for cy in range(int((py - cs) // cs),
+                                int((py + cs) // cs) + 1):
+                    key = (cx, cy)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    for (ax, ay, bx, by) in ink.get(key, ()):
+                        if _segs_cross((x0, y0), (x1, y1),
+                                       (ax, ay), (bx, by)):
+                            # endpoint TOUCHES are not crossings - the
+                            # pen starts and ends ON ink all the time
+                            # (next line's start point); only a pass
+                            # THROUGH the segment counts
+                            _tch = False
+                            for (qx, qy) in ((ax, ay), (bx, by)):
+                                if (math.hypot(qx - x0, qy - y0) < 0.15
+                                        or math.hypot(qx - x1, qy - y1)
+                                        < 0.15):
+                                    _tch = True
+                                    break
+                            if _tch:
+                                continue
+                            sx, sy = bx - ax, by - ay
+                            sl = math.hypot(sx, sy) or 1.0
+                            # parallel neighbor lines never count (the
+                            # deliberate pressure-keeping connect moves)
+                            if abs(tvx * sx / sl + tvy * sy / sl) > 0.90:
+                                continue
+                            return True
+            i += 1
+        return False
+
+    def _flush(fo):
+        """decide the buffered block: a crossing keeps the armor"""
+        nonlocal dropped, kept, block
+        if block is None:
+            return
+        if not block['travels'] or not ink:
+            for ln in block['lines']:
+                fo.write(ln + '\n')
+        elif any(_crossing(a, b, c, d)
+                 for (a, b, c, d) in block['travels']):
+            for ln in block['lines']:
+                fo.write(ln + '\n')
+            kept += 1
+        else:
+            for ln in block['travel_lines']:
+                fo.write(ln + '\n')
+            dropped += 1
+        block = None
+
+    with open(path, 'r', errors='replace') as fi, open(tmp, 'w') as fo:
+        for raw in fi:
+            line = raw.rstrip('\n')
+            ls = line.split(';', 1)[0].strip()
+            up = ls.upper()
+            raw_ln = line.strip()
+            if up == 'M83':
+                e_rel = True
+            elif up == 'M82':
+                e_rel = False
+            elif up.startswith('G92'):
+                pm = parse_params(ls)
+                if 'E' in pm:
+                    e = pm['E']
+            # layer marks reset the ink (fresh layer, fresh crossings) -
+            # read the RAW line, a ;TYPE/;LAYER comment has an empty ls
+            if (raw_ln.startswith(';LAYER')
+                    or raw_ln.startswith(';BEFORE_LAYER')
+                    or raw_ln == 'LAYER_MARK'):
+                _flush(fo)
+                ink.clear()
+                fo.write(line + '\n')
+                continue
+            # feature boundaries never ride inside a dropped block
+            if (raw_ln.startswith(';TYPE') or raw_ln.startswith(';FEATURE')
+                    or raw_ln.startswith('APPLY_TYPE')):
+                _flush(fo)
+                fo.write(line + '\n')
+                continue
+            if not ls:
+                fo.write(line + '\n')
+                continue
+            if not ls.startswith(('G0', 'G1')):
+                fo.write(line + '\n')
+                continue
+            if ls.startswith('G10'):
+                if block is None:
+                    block = {'lines': [line], 'travel_lines': [],
+                             'travels': []}
+                else:
+                    block['lines'].append(line)
+                continue
+            if ls.startswith('G11'):
+                if block is not None:
+                    block['lines'].append(line)
+                    _flush(fo)
+                else:
+                    fo.write(line + '\n')
+                continue
+            m = MOVE_RE.match(ls)
+            if m is None:
+                fo.write(line + '\n')
+                continue
+            p = parse_params(ls)
+            has_xy = 'X' in p or 'Y' in p
+            de = 0.0
+            if 'E' in p:
+                de = p['E'] if e_rel else p['E'] - e
+                e = p['E'] if not e_rel else e + p['E']
+            if 'Z' in p:
+                z = p['Z']
+            if de > 0 and has_xy:
+                # EXTRUSION - ends any block, paints ink
+                _flush(fo)
+                nx = p.get('X', x)
+                ny = p.get('Y', y)
+                if z is not None:
+                    if ez is None or abs(z - ez) > 0.05:
+                        ink.clear()      # a new layer begins
+                    ez = z
+                _reg(x, y, nx, ny)
+                x, y = nx, ny
+                fo.write(line + '\n')
+                continue
+            if de < 0:
+                # a retract (G1 E-..) or a wipe (XY with negative E) -
+                # the armor block begins (or continues)
+                if block is None:
+                    block = {'lines': [line], 'travel_lines': [],
+                             'travels': []}
+                else:
+                    block['lines'].append(line)
+                if has_xy:
+                    x = p.get('X', x)
+                    y = p.get('Y', y)
+                continue
+            if de > 0 and not has_xy:
+                # an unretract (deretraction) - closes the block
+                if block is not None:
+                    block['lines'].append(line)
+                    _flush(fo)
+                else:
+                    fo.write(line + '\n')
+                continue
+            if not has_xy:
+                # Z-only or F-only move: a hop inside a block, a plain
+                # setting outside
+                if block is not None:
+                    block['lines'].append(line)
+                else:
+                    fo.write(line + '\n')
+                continue
+            # TRAVEL (XY, no extrusion)
+            nx = p.get('X', x)
+            ny = p.get('Y', y)
+            if block is None:
+                # unprotected travel - a crossing here rides naked
+                if _crossing(x, y, nx, ny):
+                    naked += 1
+                fo.write(line + '\n')
+            else:
+                block['lines'].append(line)
+                block['travel_lines'].append(line)
+                block['travels'].append((x, y, nx, ny))
+            x, y = nx, ny
+        _flush(fo)
+    if dropped:
+        with open(tmp, 'a') as fo:
+            fo.write('\n; R2-QUALITYFIX: %d unprotected retract/hop '
+                     'block(s) dropped (travel crosses no ink - the '
+                     'golden rule), %d crossing block(s) kept, %d naked '
+                     'crossing(s) without any retract\n'
+                     % (dropped, kept, naked))
+        os.replace(tmp, path)
+        return dropped, kept, naked
+    try:
+        os.remove(tmp)
+    except OSError:
+        pass
+    return 0, kept, naked
+
+
+def _speed_fix_file(path):
+    """R216 (.136n): SPEED fix - direct ways + ironing skipped.
+
+    Two accelerations of a sliced file:
+      - DIRECT WAYS: consecutive travel lines (no extrusion, no Z hop
+        between them) collapse into ONE move to the final target - the
+        deceleration ramps of the intermediate stops cost pure time.
+        The merged line carries the effective modal X/Y/F, so the
+        position after the block is exactly the same.
+      - IRONING SKIPPED: the whole ironing block (;TYPE:Ironing /
+        ;FEATURE:Ironing / APPLY_TYPE TYPE=IRONING up to the next
+        feature boundary) drops its extrusion moves - the slowest pass
+        of the file, cosmetic only. Absolute-E files get a G92 E with
+        the block's last E so every following move keeps its meaning;
+        relative-E files need nothing.
+
+    Returns (merged_travels, iron_lines_dropped)."""
+    tmp = path + '.spd'
+    merged = 0
+    ironed = 0
+    e_rel = True
+    in_iron = False
+    e_val = 0.0                 # absolute E base (M82 meaning only)
+    iron_e = None               # last E inside the ironing block
+    e_before_iron = None
+    pend = None                 # buffered travel chain
+
+    def _flush_travel(fo):
+        nonlocal merged, pend
+        if pend is None:
+            return
+        parts = ['G0']
+        if pend['x'] is not None:
+            parts.append('X%s' % pend['x'])
+        if pend['y'] is not None:
+            parts.append('Y%s' % pend['y'])
+        if pend['f'] is not None:
+            parts.append('F%s' % pend['f'])
+        fo.write(' '.join(parts) + '\n')
+        merged += pend['n'] - 1
+        pend = None
+
+    def _praw(ls, key, cur):
+        m = re.search(r'(?i)[\s]' + key + r'(-?\d*\.?\d+)', ls)
+        return m.group(1) if m else cur
+
+    with open(path, 'r', errors='replace') as fi, open(tmp, 'w') as fo:
+        for raw in fi:
+            line = raw.rstrip('\n')
+            ls = line.split(';', 1)[0].strip()
+            up = ls.upper()
+            raw_ln = line.strip()
+            if up == 'M83':
+                e_rel = True
+            elif up == 'M82':
+                e_rel = False
+            # a ;TYPE:/;FEATURE: line is a COMMENT - ls is empty for it,
+            # the regex needs the raw line
+            tm = TYPE_RE.match(raw_ln)
+            if tm is not None:
+                _flush_travel(fo)
+                was_iron = in_iron
+                in_iron = (_canon_type(tm.group(1)) == 'IRONING')
+                if in_iron:
+                    e_before_iron = e_val
+                    iron_e = None
+                elif was_iron:
+                    if not e_rel and iron_e is not None \
+                            and e_before_iron is not None \
+                            and abs(iron_e - e_before_iron) > 1e-9:
+                        fo.write('G92 E%s\n' % iron_e)
+                # the boundary line itself STAYS (an empty ironing block
+                # is honest: the pass was skipped, the structure remains)
+                fo.write(line + '\n')
+                continue
+            if ls.startswith('APPLY_TYPE'):
+                _flush_travel(fo)
+                was_iron = in_iron
+                in_iron = ('TYPE=IRONING' in up)
+                if in_iron:
+                    e_before_iron = e_val
+                    iron_e = None
+                elif was_iron:
+                    if not e_rel and iron_e is not None \
+                            and e_before_iron is not None \
+                            and abs(iron_e - e_before_iron) > 1e-9:
+                        fo.write('G92 E%s\n' % iron_e)
+                # the marker line stays - same rule as ;TYPE: above
+                fo.write(line + '\n')
+                continue
+            if not ls or not ls.startswith(('G0', 'G1')) \
+                    or ls.startswith(('G10', 'G11')):
+                _flush_travel(fo)
+                fo.write(line + '\n')
+                continue
+            m = MOVE_RE.match(ls)
+            if m is None:
+                _flush_travel(fo)
+                fo.write(line + '\n')
+                continue
+            p = parse_params(ls)
+            if 'E' in p:
+                if not e_rel:
+                    e_val = p['E']
+                else:
+                    e_val += p['E']
+            if in_iron and 'E' in p:
+                # the ironing extrusion drops; remember the E base
+                if not e_rel:
+                    iron_e = p['E']
+                ironed += 1
+                continue
+            has_xy = 'X' in p or 'Y' in p
+            if 'E' in p or 'Z' in p or not has_xy:
+                # extrusion, hop or param-only move - ends the chain
+                _flush_travel(fo)
+                fo.write(line + '\n')
+                continue
+            # pure travel line - extend the chain
+            if pend is None:
+                pend = {'x': None, 'y': None, 'f': None, 'n': 0}
+            if 'X' in p:
+                pend['x'] = _praw(ls, 'X', pend['x'])
+            if 'Y' in p:
+                pend['y'] = _praw(ls, 'Y', pend['y'])
+            if 'F' in p:
+                pend['f'] = _praw(ls, 'F', pend['f'])
+            pend['n'] += 1
+        _flush_travel(fo)
+    if merged or ironed:
+        with open(tmp, 'a') as fo:
+            fo.write('\n; R2-SPEEDFIX: %d travel line(s) merged into '
+                     'direct ways, %d ironing move(s) skipped\n'
+                     % (merged, ironed))
+        os.replace(tmp, path)
+        return merged, ironed
+    try:
+        os.remove(tmp)
+    except OSError:
+        pass
+    return 0, 0
 
 
 def _retract_rewrite_file(path):
@@ -17240,7 +18331,7 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
     max_ret_len = 0.0       # R112: longest explicit slicer retract (mm)
     e_rel = False           # M83 seen?
     e_run = 0.0             # running absolute E (M82 world)
-    eret_re = re.compile(r'G1\s+E(-?\d+(?:\.\d+)?)(?:\s+F\d+(?:\.\d+)?)?\s*$')
+    eret_re = re.compile(r'G1\s+E(-?\d*\.?\d+)(?:\s+F\d+(?:\.\d+)?)?\s*$')
 
     def _close_seg():
         if cur_type is None or cur_type == 'CUSTOM':
@@ -17327,7 +18418,7 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
                         slicer_ret += 1
                         max_ret_len = max(max_ret_len, e_run - ev)
                 if not e_rel:
-                    m = re.match(r'G9?[12]\b[^;]*?\bE(-?\d+(?:\.\d+)?)', ls)
+                    m = re.match(r'G9?[12]\b[^;]*?\bE(-?\d*\.?\d+)', ls)
                     if m:
                         e_run = float(m.group(1))
                     elif ls.startswith('G92'):
@@ -17853,6 +18944,51 @@ class _LayerBitmap:
             n += 1
         return (ia / n if n else 1.0, ib / n if n else 1.0, n)
 
+    def sides_ink_far(self, pts, reach=8.0):
+        """R216 (.136n) stage 7: the FAR probe for open curved paths (3D
+        infill). side_ink only looks 0.7/1.2mm out - the width of a
+        neighboring wall - but the 3D infill families (gyroid, cubic,
+        cross, lightning) space their wavy lines 2-6mm apart: a gyroid
+        line measured with side_ink looks FREE on both sides and reads
+        as a wall. This probe walks each side out to `reach` mm
+        (skipping the path's own cells) and asks ONE question per side:
+        is there ink SOMEWHERE out there. Returns (ink_frac_a,
+        ink_frac_b, n_samples) - both fractions high = the path is
+        bathed in material on both sides = infill; one near zero = a
+        genuine boundary arc (still a wall)."""
+        n = 0
+        ia = 0
+        ib = 0
+        step = max(0.5, self.CELL)
+        for k in range(1, len(pts)):
+            (x0, y0), (x1, y1) = pts[k - 1], pts[k]
+            sl = math.hypot(x1 - x0, y1 - y0)
+            if sl < 0.25:
+                continue          # too short to probe safely off the corner
+            tx, ty = (x1 - x0) / sl, (y1 - y0) / sl
+            lx, ly = -ty, tx
+            sx, sy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+            d = 0.7
+            a = False
+            while d <= reach:
+                if self._ink_at(sx + lx * d, sy + ly * d):
+                    a = True
+                    break
+                d += step
+            d = 0.7
+            b = False
+            while d <= reach:
+                if self._ink_at(sx - lx * d, sy - ly * d):
+                    b = True
+                    break
+                d += step
+            if a:
+                ia += 1
+            if b:
+                ib += 1
+            n += 1
+        return (ia / n if n else 0.0, ib / n if n else 0.0, n)
+
     def components(self, polys):
         """R181: connected ink components of the layer picture -> the
         print ORDER rule. Slicers lay SUPPORT before the model on each
@@ -17970,6 +19106,10 @@ class _GeomScan:
                                   # (R214: the air scan demands a DEEP void -
                                   # a skin with support 2 layers down is no
                                   # bridge, the field question 30.10.)
+        self._solid216 = []       # R216 stage 7: pending INFILL-SOLID hatch
+                                  # groups - the layer ABOVE (checked one
+                                  # classify pass later + the final pass)
+                                  # decides top skin vs internal solid
         self.cls_len = 0.0
         self.tot_len = 0.0
         self.layers_classified = 0
@@ -18260,6 +19400,14 @@ class _GeomScan:
                             and _c181['hatch'] >= 0.6 * _c181['plen']):
                         sup_set |= _c181['polys']
 
+        # R216 (.136n) stage 7 pass 2: the layers check EACH OTHER - the
+        # solid candidates of the layer BELOW meet their layer ABOVE (this
+        # very layer): ink over the candidate region = internal solid
+        # (or one more top-shell layer, only the uppermost flips), NO ink
+        # = the candidate was the top skin. Runs after this layer number
+        # is counted, before this layer's own features are decided.
+        self._solid216_check(grid)
+
         # ---- walls ---------------------------------------------------------------
         loops.sort(key=lambda t: -t[0])
         outers = []
@@ -18320,15 +19468,30 @@ class _GeomScan:
             self._brim153([t[1] for t in loops])
 
         # ---- R181: open curved walls - the picture classifies them -------------
+        # R216 (.136n) stage 7: an open CURVED path with material on BOTH
+        # sides is 3D infill (gyroid, cubic, cross, lightning) - INFILL-
+        # SPARSE, not a wall. The Ausschlussprinzip: a real WALL is closed
+        # (a loop) or free on one side (an open arc at a boundary); the 3D
+        # infill families all draw open wavy paths THROUGH the body, every
+        # line bathed in material on both sides. Real inner walls that a
+        # slicer leaves open are straight (they land in the hatch bucket).
         for (pts, plen, ij, speed, pi) in curved:
             feat = None
             if pi in sup_set:
                 feat = 'SUPPORT'
             elif grid.ok:
-                va, vb, ns = grid.side_ink(pts)
+                fa, fb, ns = grid.sides_ink_far(pts)
                 if ns >= 3:
-                    feat = ('WALL-OUTER' if (va >= 0.95 or vb >= 0.95)
-                            else 'WALL-INNER')
+                    if fa <= 0.05 or fb <= 0.05:
+                        feat = 'WALL-OUTER'
+                    elif self._turning(pts) > 3.5:
+                        # loop-like MONOTONE turning (a sandwiched 270-
+                        # degree arc, the R181 field class) - a wall
+                        feat = 'WALL-INNER'
+                    else:
+                        # wave-like (S-curves, net turning ~0) - the 3D
+                        # infill families: gyroid, cubic, cross, lightning
+                        feat = 'INFILL-SPARSE'
             if feat is not None:
                 self.ranges.append((ij[0], ij[1], feat))
                 self.fstat.setdefault(feat, {})
@@ -18355,6 +19518,8 @@ class _GeomScan:
                 if min(gaps) <= 0.05:
                     continue          # overlapping lines - not a hatch
                 feat = 'INFILL-SPARSE' if mean_gap >= 3.0 else 'INFILL-SOLID'
+                _c216 = None             # R216 stage 7 pending candidate
+                _sq0216 = len(self.seq193)
                 if first_layer and feat == 'INFILL-SOLID':
                     feat = 'SURFACE-BOTTOM'
                 elif is_last and feat == 'INFILL-SOLID':
@@ -18368,14 +19533,47 @@ class _GeomScan:
                     feat = (self._airscan193(items, polys,
                                              self._prev_grids,
                                              loops, layer_no) or feat)
+                    if feat == 'INFILL-SOLID':
+                        # R216 (.136n) stage 7: the layer above is not
+                        # known yet - register the group as a PENDING
+                        # candidate. Pass 2 (the next classify run) and
+                        # the final pass (end of file) apply the
+                        # elimination: covered from above = internal
+                        # solid, uncovered = the top skin.
+                        _bx0 = _by0 = 1e30
+                        _bx1 = _by1 = -1e30
+                        for (_b, _o, _ij216, _sp216, _pl216,
+                             _pi216) in items:
+                            _ppts = polys[_pi216][2]
+                            for (_px, _py) in (_ppts[0], _ppts[-1]):
+                                _bx0 = min(_bx0, _px)
+                                _bx1 = max(_bx1, _px)
+                                _by0 = min(_by0, _py)
+                                _by1 = max(_by1, _py)
+                        _c216 = {'layer': layer_no, 'idxs': [],
+                                 'seq': None,
+                                 'bbox': (_bx0, _by0, _bx1, _by1)}
                 for (_b, _o, ij, speed, plen, pi) in items:
                     f181 = 'SUPPORT' if pi in sup_set else feat
+                    _ri216 = len(self.ranges)
                     self.ranges.append((ij[0], ij[1], f181))
                     self.fstat.setdefault(f181, {})
                     self.fstat[f181][round(speed, 1)] = \
                         self.fstat[f181].get(round(speed, 1), 0) + 1
                     self.cls_len += plen
                     self._seq_add(layer_no, f181)
+                    if _c216 is not None:
+                        _c216['idxs'].append((_ri216, speed, 1))
+                if _c216 is not None:
+                    # the seq stream entry this group added (if it added
+                    # one - a second solid group in the same layer shares
+                    # the first one's entry; the first group to flip to
+                    # SURFACE-TOP rewrites it, close enough for the audit)
+                    if (len(self.seq193) > _sq0216
+                            and self.seq193[_sq0216] == (layer_no,
+                                                        'INFILL-SOLID')):
+                        _c216['seq'] = _sq0216
+                    self._solid216.append(_c216)
         # R193 (.135): the layer picture becomes 'the layer below' for the
         # next call - the air scan compares against it (kept only when
         # usable; an unusable bitmap never poisons the scan).
@@ -18385,6 +19583,87 @@ class _GeomScan:
         if grid.ok:
             self._prev_grids.append(grid)
             del self._prev_grids[:-4]
+
+    def _solid216_check(self, grid, final=False):
+        """R216 (.136n) stage 7: the layers check EACH OTHER - the
+        multi-pass elimination for solid infill.
+
+        Pass 1 (streaming) tagged every dense hatch group INFILL-SOLID;
+        the stage 5a air scan already pulled the bridge decks out before.
+        Pass 2 - THIS one, one classify run later - lays each pending
+        candidate's region over the picture of the layer ABOVE: no ink
+        up there = the candidate was the top skin (SURFACE-TOP), ink =
+        internal solid infill, or one more layer of a stacked top shell
+        (only the UPPERMOST flips - top_shell_thickness 2-3 layers is
+        the classic case, the shell layers below stay INFILL-SOLID).
+        The FINAL pass (end of file) flips everything still pending:
+        nothing ever follows the last layer.
+
+        The Ausschlussprinzip, literally: what is NOT covered from above
+        is the surface. Re-tags carry the fstat booking (_fmove192, the
+        R192 lesson) and the seq audit stream."""
+        if not self._solid216:
+            return
+        keep = []
+        for cand in self._solid216:
+            if not final and cand['layer'] != self.layers_classified - 1:
+                keep.append(cand)
+                continue
+            flip = final
+            if not final:
+                if grid is not None and grid.ok:
+                    bx0, by0, bx1, by1 = cand['bbox']
+                    if bx1 <= bx0 or by1 <= by0:
+                        flip = False
+                    else:
+                        cx0 = max(0, int((bx0 - grid.ox) / grid.CELL))
+                        cx1 = min(grid.w - 1,
+                                  int((bx1 - grid.ox) / grid.CELL))
+                        cy0 = max(0, int((by0 - grid.oy) / grid.CELL))
+                        cy1 = min(grid.h - 1,
+                                  int((by1 - grid.oy) / grid.CELL))
+                        if cx1 <= cx0 or cy1 <= cy0:
+                            flip = False
+                        else:
+                            # coarse lattice - same cheap stride math as
+                            # the air scan. The bar is LOW (0.5%, not the
+                            # air scan's 3%): a thin wall ring contour
+                            # over the region already means 'the model
+                            # goes on up there' (the R214 support-gap
+                            # field class: a skin under a shrinking
+                            # silhouette stays SOLID, it is no top skin)
+                            # - only a genuinely EMPTY layer above (0%,
+                            # not even walls) makes the candidate the
+                            # top surface
+                            stride = max(1, int(((cx1 - cx0 + 1)
+                                                 * (cy1 - cy0 + 1))
+                                                ** 0.5 / 250))
+                            cells = ink = 0
+                            for cy in range(cy0, cy1 + 1, stride):
+                                row = cy * grid.w
+                                for cx in range(cx0, cx1 + 1, stride):
+                                    cells += 1
+                                    if grid.g[row + cx]:
+                                        ink += 1
+                            flip = bool(cells and ink / cells < 0.005)
+                else:
+                    # no usable picture of the layer above - stay honest
+                    flip = False
+            if flip:
+                for (ri, sp, cnt) in cand['idxs']:
+                    if (0 <= ri < len(self.ranges)
+                            and self.ranges[ri][2] == 'INFILL-SOLID'):
+                        self.ranges[ri] = (self.ranges[ri][0],
+                                           self.ranges[ri][1],
+                                           'SURFACE-TOP')
+                        self._fmove192('INFILL-SOLID', 'SURFACE-TOP',
+                                       sp, cnt)
+                sq = cand.get('seq')
+                if (sq is not None and sq < len(self.seq193)
+                        and self.seq193[sq] == (cand['layer'],
+                                                'INFILL-SOLID')):
+                    self.seq193[sq] = (cand['layer'], 'SURFACE-TOP')
+        self._solid216 = keep
 
     def _seq_add(self, layer_no, feat):
         """R193 (.135): derived feature stream for the sequence audit -
@@ -18591,6 +19870,9 @@ class _GeomScan:
         if self.armed:
             self._classify(is_last=True)
             self.armed = False
+        # R216 (.136n) stage 7 FINAL pass: everything still pending had no
+        # layer above it after all (the file ended) - it WAS the top skin
+        self._solid216_check(None, final=True)
 
     def _resolve_block(self):
         """R213: the CUSTOM block ended - NUMBER it (C1..C9), never
@@ -19593,7 +20875,8 @@ def _mem_available_mb():
 
 
 
-def apply_scale(src, sx=1.0, sy=1.0, out_dir=None, bed=None):
+def apply_scale(src, sx=1.0, sy=1.0, out_dir=None, bed=None,
+                sxt=None, syt=None):
     """R176 (.130 wish list): scale a file in X/Y with honest extrusion.
 
     A print road is L x w x h; the layer height h stays, so every move's
@@ -19603,6 +20886,14 @@ def apply_scale(src, sx=1.0, sy=1.0, out_dir=None, bed=None):
     CENTERED on the bed (deterministic position - two runs, same spot),
     G2/G3 arcs flatten to scaled chords, the output is name_SXXX-YYY.gcode
     and never overwrites. Returns (new_path, info).
+
+    R216 (.136n) TAPER option (scale_top_x/scale_top_y, an Option in the
+    Scale X/Y tool - NOT its own tool): sxt/syt are the factors at the
+    TOP of the object; the factor interpolates LINEARLY in Z from sx/sy at
+    the bottom. A 100 -> 60%% taper turns a cylinder into a cone with the
+    E math still per-move exact (the factor is evaluated at every move's
+    own Z). Without taper the output is byte-identical to the classic
+    uniform scale.
     """
     import math as _m176
     from r2_texture import _arc_points as _ap176, _parse_move as _pm176, \
@@ -19610,12 +20901,19 @@ def apply_scale(src, sx=1.0, sy=1.0, out_dir=None, bed=None):
 
     sx = float(sx)
     sy = float(sy)
-    if not (0.25 <= sx <= 3.0 and 0.25 <= sy <= 3.0):
-        raise ValueError('scale %.0f%%/%.0f%% out of range (25..300%% '
-                         'per axis)' % (sx * 100, sy * 100))
-    if abs(sx - 1.0) < 1e-9 and abs(sy - 1.0) < 1e-9:
+    sxt = None if sxt is None else float(sxt)
+    syt = None if syt is None else float(syt)
+    for _fv in (sx, sy) + tuple(v for v in (sxt, syt) if v is not None):
+        if not (0.25 <= _fv <= 3.0):
+            raise ValueError('scale %.0f%% out of range (25..300%% per '
+                             'axis)' % (_fv * 100))
+    # R216: a 100%%/100%% BASE with taper factors is a real taper - only
+    # reject when bottom AND top are all 100%%
+    _tt216 = ((sxt is None or abs(sxt - 1.0) < 1e-9)
+              and (syt is None or abs(syt - 1.0) < 1e-9))
+    if abs(sx - 1.0) < 1e-9 and abs(sy - 1.0) < 1e-9 and _tt216:
         raise ValueError('100%%/100%% changes nothing - pick at least one '
-                         'axis')
+                         'axis (or a top factor for a taper)')
     if not os.path.isfile(src):
         raise ValueError('source file not found: %s' % src)
     base = os.path.basename(src)
@@ -19628,21 +20926,47 @@ def apply_scale(src, sx=1.0, sy=1.0, out_dir=None, bed=None):
     # ---- pass 1: bounding box of every move (extruding + travel) ---------
     minx = miny = 1e9
     maxx = maxy = -1e9
+    zmin = 1e9
+    zmax = -1e9
+    ezmin = 1e9
+    ezmax = -1e9
     px1 = py1 = None
+    pz1 = None
     with open(src, errors='replace') as fi:
         for line in fi:
             ls = line.split(';', 1)[0]
+            ga176 = None
             g = _pm176(ls)
             mpts = []
-            if g is not None and g[1] is not None:
-                mpts = [(g[1], g[2] if g[2] is not None else py1)]
+            gz = None
+            if g is not None:
+                gz = g[3]
+                if g[1] is not None:
+                    mpts = [(g[1], g[2] if g[2] is not None else py1)]
             else:
-                ga = _pa176(ls)
-                if ga is not None and ga[1] is not None and px1 is not None:
-                    ay = ga[2] if ga[2] is not None else py1
-                    if ay is not None:
-                        mpts = _ap176(px1, py1, ga[1], ay, i=ga[4], j=ga[5],
-                                      rr=ga[6], cw=(ga[0] == 'G2')) or []
+                ga176 = _pa176(ls)
+                if ga176 is not None:
+                    gz = ga176[3]
+                    if ga176[1] is not None and px1 is not None:
+                        ay = ga176[2] if ga176[2] is not None else py1
+                        if ay is not None:
+                            mpts = _ap176(px1, py1, ga176[1], ay,
+                                          i=ga176[4], j=ga176[5],
+                                          rr=ga176[6],
+                                          cw=(ga176[0] == 'G2')) or []
+            if gz is not None:
+                pz1 = gz
+            if pz1 is not None:
+                zmin = min(zmin, pz1)
+                zmax = max(zmax, pz1)
+            # R216 taper: the interpolation range is the EXTRUDING Z span -
+            # travel hops (z+0.4) would water the top factor down
+            _e176 = g[4] if g is not None else None
+            if _e176 is None and ga176 is not None:
+                _e176 = ga176[7]
+            if _e176 is not None and _e176 > 0 and pz1 is not None:
+                ezmin = min(ezmin, pz1)
+                ezmax = max(ezmax, pz1)
             for x, y in mpts:
                 if x is None or y is None:
                     continue
@@ -19656,11 +20980,29 @@ def apply_scale(src, sx=1.0, sy=1.0, out_dir=None, bed=None):
                 px1, py1 = g[1], g[2]
     if minx > maxx:
         raise ValueError('no moves with X/Y in %s - nothing to scale' % base)
+    if ezmin <= ezmax:
+        zmin, zmax = ezmin, ezmax
+
+    # R216 taper: top factors given and different -> interpolate in Z
+    sxt = sx if sxt is None else sxt
+    syt = sy if syt is None else syt
+    taper = (abs(sxt - sx) > 1e-9 or abs(syt - sy) > 1e-9)
+    zspan = (zmax - zmin) if zmax > zmin else 0.0
+
+    def _fac176(z):
+        """(fx, fy) at height z - constant without taper."""
+        if not taper or zspan <= 0.0 or z is None:
+            return sx, sy
+        t = max(0.0, min(1.0, (z - zmin) / zspan))
+        return (sx + (sxt - sx) * t, sy + (syt - sy) * t)
     w0, h0 = maxx - minx, maxy - miny
+    _fxm = max(sx, sxt) if taper else sx
+    _fym = max(sy, syt) if taper else sy
     w1, h1 = w0 * sx, h0 * sy
-    if w1 > (bx1 - bx0) + 0.5 or h1 > (by1 - by0) + 0.5:
+    if w0 * _fxm > (bx1 - bx0) + 0.5 or h0 * _fym > (by1 - by0) + 0.5:
         raise ValueError('%.0f%%/%.0f%% needs %.0f x %.0f mm - the bed has '
-                         '%.0f x %.0f mm' % (sx * 100, sy * 100, w1, h1,
+                         '%.0f x %.0f mm' % (sx * 100, sy * 100,
+                                             w0 * _fxm, h0 * _fym,
                                              bx1 - bx0, by1 - by0))
 
     cx = (minx + maxx) / 2.0
@@ -19668,15 +21010,18 @@ def apply_scale(src, sx=1.0, sy=1.0, out_dir=None, bed=None):
     tx = (bx0 + bx1) / 2.0
     ty = (by0 + by1) / 2.0
 
-    def _f176(x0, y0, x1, y1):
-        """E factor of one move: (L'/L) * (w'/w)."""
+    def _f176(x0, y0, x1, y1, fx=None, fy=None):
+        """E factor of one move: (L'/L) * (w'/w). fx/fy: the R216 taper
+        factors of THIS move's Z (default = the uniform factors)."""
+        fx = sx if fx is None else fx
+        fy = sy if fy is None else fy
         dx, dy = x1 - x0, y1 - y0
         ln = _m176.hypot(dx, dy)
         if ln < 1e-9:
             return 1.0
         ux, uy = dx / ln, dy / ln
-        lp = _m176.hypot(sx * ux, sy * uy)        # L'/L for a unit move
-        wp = _m176.hypot(sx * uy, sy * ux)        # w'/w perpendicular
+        lp = _m176.hypot(fx * ux, fy * uy)        # L'/L for a unit move
+        wp = _m176.hypot(fx * uy, fy * ux)        # w'/w perpendicular
         return lp * wp
 
     # R187 (.133 collision audit): the scale output sits NEXT to its source
@@ -19686,11 +21031,16 @@ def apply_scale(src, sx=1.0, sy=1.0, out_dir=None, bed=None):
     # unreachable from the display (exactly the 'files I know are there
     # but cannot see' class).
     stem = re.sub(r'[^A-Za-z0-9._-]+', '_', stem).strip('_') or 'MODEL'
-    fname = '%s_S%d-%d.gcode' % (stem, round(sx * 100), round(sy * 100))
+    if taper:
+        fname = '%s_S%d-%dT%d-%d.gcode' % (stem, round(sx * 100),
+                                            round(sy * 100),
+                                            round(sxt * 100),
+                                            round(syt * 100))
+    else:
+        fname = '%s_S%d-%d.gcode' % (stem, round(sx * 100), round(sy * 100))
     _n176 = 2
     while os.path.exists(os.path.join(out_dir, fname)):
-        fname = '%s_S%d-%d_%d.gcode' % (stem, round(sx * 100),
-                                        round(sy * 100), _n176)
+        fname = '%s_%d.gcode' % (os.path.splitext(fname)[0], _n176)
         _n176 += 1
     out = os.path.join(out_dir, fname)
 
@@ -19701,15 +21051,18 @@ def apply_scale(src, sx=1.0, sy=1.0, out_dir=None, bed=None):
     last_e = None
     new_e = None
     px = py = None
+    cur_z = None
     n_moves = 0
     n_arcs = 0
 
-    def _fmt_move(cmd, x, y, z, e_val, f_val):
+    def _fmt_move(cmd, x, y, z, e_val, f_val, fx=None, fy=None):
+        fx = sx if fx is None else fx
+        fy = sy if fy is None else fy
         parts = [cmd]
         if x is not None:
-            parts.append('X%.3f' % (tx + (x - cx) * sx))
+            parts.append('X%.3f' % (tx + (x - cx) * fx))
         if y is not None:
-            parts.append('Y%.3f' % (ty + (y - cy) * sy))
+            parts.append('Y%.3f' % (ty + (y - cy) * fy))
         if z is not None:
             parts.append('Z%.3f' % z)
         if e_val is not None:
@@ -19736,9 +21089,12 @@ def apply_scale(src, sx=1.0, sy=1.0, out_dir=None, bed=None):
                 continue     # R186: re-stamped fresh at the top above
             _me = _excl176.match(ls)
             if _me:
+                # R216 taper: the define carries no Z - use the MEAN factor
+                _exfx = (sx + sxt) / 2.0 if taper else sx
+                _exfy = (sy + syt) / 2.0 if taper else sy
                 fo.write('%s%.3f,%.3f\n' % (_me.group(1),
-                                             tx + (float(_me.group(2)) - cx) * sx,
-                                             ty + (float(_me.group(3)) - cy) * sy))
+                                             tx + (float(_me.group(2)) - cx) * _exfx,
+                                             ty + (float(_me.group(3)) - cy) * _exfy))
                 continue
             if ls == 'M83':
                 e_rel = True
@@ -19759,9 +21115,13 @@ def apply_scale(src, sx=1.0, sy=1.0, out_dir=None, bed=None):
             if g is not None:
                 x, y = g[1], g[2]
                 ay = y if y is not None else py
+                if g[3] is not None:
+                    cur_z = g[3]
+                mfx, mfy = _fac176(cur_z)
                 e_val = None
                 if g[4] is not None:
-                    f176 = _f176(px, py, x if x is not None else px, ay) \
+                    f176 = _f176(px, py, x if x is not None else px, ay,
+                                 mfx, mfy) \
                         if (px is not None and (x is not None or y is not None)) else 1.0
                     if e_rel:
                         e_val = g[4] * f176
@@ -19771,7 +21131,8 @@ def apply_scale(src, sx=1.0, sy=1.0, out_dir=None, bed=None):
                         e_val = base_e + delta * f176
                         last_e = g[4]
                         new_e = e_val
-                fo.write(_fmt_move(g[0], x, y, g[3], e_val, None) + '\n')
+                fo.write(_fmt_move(g[0], x, y, g[3], e_val, None,
+                                   mfx, mfy) + '\n')
                 if x is not None or y is not None:
                     px = x if x is not None else px
                     py = y if y is not None else py
@@ -19784,6 +21145,9 @@ def apply_scale(src, sx=1.0, sy=1.0, out_dir=None, bed=None):
                     pts = _ap176(px, py, ga[1], ay2, i=ga[4], j=ga[5],
                                  rr=ga[6], cw=(ga[0] == 'G2'))
                     if pts:
+                        if ga[3] is not None:
+                            cur_z = ga[3]
+                        afx, afy = _fac176(cur_z)
                         n_arcs += 1
                         chain = [(px, py)] + pts
                         lens = [_m176.hypot(b[0] - a[0], b[1] - a[1])
@@ -19803,21 +21167,24 @@ def apply_scale(src, sx=1.0, sy=1.0, out_dir=None, bed=None):
                             frac = ln / tot
                             if d_total is None:
                                 fo.write(_fmt_move('G1', bx, byv, ga[3],
-                                                   None, None) + f_txt + '\n')
+                                                   None, None, afx, afy)
+                                         + f_txt + '\n')
                             else:
-                                f_i = _f176(ax, ayv, bx, byv)
+                                f_i = _f176(ax, ayv, bx, byv, afx, afy)
                                 if e_rel:
                                     e_i = d_total * frac * f_i
                                     done_e += e_i
                                     fo.write(_fmt_move('G1', bx, byv, ga[3],
-                                                       e_i, None) + f_txt + '\n')
+                                                       e_i, None, afx, afy)
+                                             + f_txt + '\n')
                                 else:
                                     d_i = d_total * frac
                                     e_i = (new_e if new_e is not None
                                            else 0.0) + done_e + d_i * f_i
                                     done_e += d_i * f_i
                                     fo.write(_fmt_move('G1', bx, byv, ga[3],
-                                                       e_i, None) + f_txt + '\n')
+                                                       e_i, None, afx, afy)
+                                             + f_txt + '\n')
                         if d_total is not None and not e_rel:
                             last_e = ga[7]
                             new_e = (new_e if new_e is not None
@@ -19826,10 +21193,268 @@ def apply_scale(src, sx=1.0, sy=1.0, out_dir=None, bed=None):
                         continue
             fo.write(ls + '\n')
     info = {'file': fname, 'src': base, 'sx': sx, 'sy': sy,
+            'sxt': sxt if taper else None, 'syt': syt if taper else None,
+            'taper': taper,
             'old_size': (w0, h0), 'new_size': (w1, h1),
             'moves': n_moves, 'arcs_flattened': n_arcs,
             'bed_center': (tx, ty)}
     return out, info
+
+def apply_twist(src, deg=30.0, out_dir=None, bed=None):
+    """R216 (.136n): twist a file around its Z axis - its OWN tool in
+    Pre-Print > Tools (unlike the taper, which is an option in Scale X/Y).
+
+    Every layer rotates around the object's XY center: 0 deg at the
+    bottom, deg at the top, linear in between. Rotation is isometric -
+    lengths, widths and layer heights stay EXACTLY as sliced, so E is
+    copied verbatim (no flow drift, unlike a scale). G2/G3 arcs flatten
+    to chords (an arc around a shifted center is not the same arc), the
+    output is name_TWR<deg>.gcode in the Twist folder, never overwrites,
+    and the object is re-centered on the bed like every modifier.
+    Returns (new_path, info).
+    """
+    import math as _m216t
+    from r2_texture import _arc_points as _ap216t, _parse_move as _pm216t, \
+        _parse_arc as _pa216t
+
+    deg = float(deg)
+    if abs(deg) < 0.5 or abs(deg) > 720.0:
+        raise ValueError('twist %.1f deg out of range (0.5..720, sign = '
+                         'direction)' % deg)
+    if not os.path.isfile(src):
+        raise ValueError('source file not found: %s' % src)
+    base = os.path.basename(src)
+    stem = os.path.splitext(base)[0]
+    out_dir = out_dir or os.path.dirname(os.path.abspath(src))
+    if bed is None:
+        bed = (0.0, 0.0, 220.0, 220.0)
+    bx0, by0, bx1, by1 = [float(v) for v in bed]
+
+    # ---- pass 1: XY bbox (of every move) + Z range -----------------------
+    minx = miny = 1e9
+    maxx = maxy = -1e9
+    zmin = 1e9
+    zmax = -1e9
+    ezmin = 1e9
+    ezmax = -1e9
+    px1 = py1 = None
+    pz1 = None
+    with open(src, errors='replace') as fi:
+        for line in fi:
+            ls = line.split(';', 1)[0]
+            ga216t = None
+            g = _pm216t(ls)
+            mpts = []
+            gz = None
+            if g is not None:
+                gz = g[3]
+                if g[1] is not None:
+                    mpts = [(g[1], g[2] if g[2] is not None else py1)]
+            else:
+                ga216t = _pa216t(ls)
+                if ga216t is not None:
+                    gz = ga216t[3]
+                    if ga216t[1] is not None and px1 is not None:
+                        ay = ga216t[2] if ga216t[2] is not None else py1
+                        if ay is not None:
+                            mpts = _ap216t(px1, py1, ga216t[1], ay,
+                                           i=ga216t[4], j=ga216t[5],
+                                           rr=ga216t[6],
+                                           cw=(ga216t[0] == 'G2')) or []
+            if gz is not None:
+                pz1 = gz
+            if pz1 is not None:
+                zmin = min(zmin, pz1)
+                zmax = max(zmax, pz1)
+            # R216: twist follows the EXTRUDING Z span - travel hops must
+            # not water the top angle down
+            _e216t = g[4] if g is not None else None
+            if _e216t is None and ga216t is not None:
+                _e216t = ga216t[7]
+            if _e216t is not None and _e216t > 0 and pz1 is not None:
+                ezmin = min(ezmin, pz1)
+                ezmax = max(ezmax, pz1)
+            for x, y in mpts:
+                if x is None or y is None:
+                    continue
+                minx = min(minx, x)
+                maxx = max(maxx, x)
+                miny = min(miny, y)
+                maxy = max(maxy, y)
+            if mpts:
+                px1, py1 = mpts[-1]
+            elif g is not None and g[1] is not None:
+                px1, py1 = g[1], g[2]
+    if minx > maxx:
+        raise ValueError('no moves with X/Y in %s - nothing to twist' % base)
+    if ezmin <= ezmax:
+        zmin, zmax = ezmin, ezmax
+
+    cx = (minx + maxx) / 2.0
+    cy = (miny + maxy) / 2.0
+    tx = (bx0 + bx1) / 2.0
+    ty = (by0 + by1) / 2.0
+    zspan = (zmax - zmin) if zmax > zmin else 0.0
+
+    def _rot216(z):
+        """rotation angle (rad) at height z: 0 at the bottom, deg at top"""
+        if zspan <= 0.0 or z is None:
+            return 0.0
+        t = max(0.0, min(1.0, (z - zmin) / zspan))
+        return _m216t.radians(deg * t)
+
+    # bed fit: the worst case is the circumscribed circle of the object
+    # (a layer may rotate its full diagonal toward an axis)
+    r216 = _m216t.hypot(max(maxx - cx, cx - minx), max(maxy - cy, cy - miny))
+    if 2.0 * r216 > (bx1 - bx0) + 0.5 or 2.0 * r216 > (by1 - by0) + 0.5:
+        raise ValueError('twisting %.0fx%.0fmm needs up to %.0f x %.0f mm '
+                         '(rotation swings the diagonal) - the bed has '
+                         '%.0f x %.0f mm'
+                         % (maxx - minx, maxy - miny, 2 * r216, 2 * r216,
+                            bx1 - bx0, by1 - by0))
+
+    stem = re.sub(r'[^A-Za-z0-9._-]+', '_', stem).strip('_') or 'MODEL'
+    fname = '%s_TWR%d.gcode' % (stem, round(deg))
+    _n216t = 2
+    while os.path.exists(os.path.join(out_dir, fname)):
+        fname = '%s_TWR%d_%d.gcode' % (stem, round(deg), _n216t)
+        _n216t += 1
+    out = os.path.join(out_dir, fname)
+
+    _excl216t = re.compile(r'^(EXCLUDE_OBJECT(?:_DEFINE\s+\S+)?\s+CENTER=)'
+                           r'(-?[\d.]+),(-?[\d.]+)')
+    _c216t = _m216t.cos(_m216t.radians(deg) / 2.0)   # define has no Z: mid
+    _s216t = _m216t.sin(_m216t.radians(deg) / 2.0)
+
+    def _fmt_move(cmd, x, y, z, e_val, f_val, ang):
+        ca, sa = _m216t.cos(ang), _m216t.sin(ang)
+        parts = [cmd]
+        if x is not None:
+            rx, ry = x - cx, y - cy
+            parts.append('X%.3f' % (tx + rx * ca - ry * sa))
+            parts.append('Y%.3f' % (ty + rx * sa + ry * ca))
+        if z is not None:
+            parts.append('Z%.3f' % z)
+        if e_val is not None:
+            parts.append('E%.5f' % e_val)
+        if f_val:
+            parts.append('F%g' % f_val)
+        return ' '.join(parts)
+
+    n_moves = 0
+    n_arcs = 0
+    cur_z = None
+    e_rel_t = False
+    last_e_t = None
+    new_e_t = None
+    with open(src, errors='replace') as fi, open(out, 'w') as fo:
+        fo.write(_core_stamp() + '\n')
+        fo.write('; R216 twist: %.1f deg around the object Z axis (0 at the '
+                 'bottom, %.1f at the top), centered on the bed '
+                 '(%.1f,%.1f)\n' % (deg, deg, tx, ty))
+        fo.write('; rotation is isometric - E is copied verbatim, arcs '
+                 'flattened to rotated chords\n')
+        for line in fi:
+            ls = line.rstrip('\n')
+            if ls.startswith('; R2-GEN core '):
+                continue
+            _me = _excl216t.match(ls)
+            if _me:
+                rx = float(_me.group(2)) - cx
+                ry = float(_me.group(3)) - cy
+                fo.write('%s%.3f,%.3f\n'
+                         % (_me.group(1),
+                            tx + rx * _c216t - ry * _s216t,
+                            ty + rx * _s216t + ry * _c216t))
+                continue
+            if ls == 'M83':
+                e_rel_t = True
+                fo.write(ls + '\n')
+                continue
+            if ls == 'M82':
+                e_rel_t = False
+                fo.write(ls + '\n')
+                continue
+            if ls.startswith('G92'):
+                _m92t = re.match(r'^G92(?:\s+E(-?[\d.]+))?', ls)
+                if _m92t and _m92t.group(1) is not None:
+                    last_e_t = float(_m92t.group(1))
+                    new_e_t = last_e_t
+                fo.write(ls + '\n')
+                continue
+            g = _pm216t(ls)
+            if g is not None:
+                if g[3] is not None:
+                    cur_z = g[3]
+                ang = _rot216(cur_z)
+                e_val = g[4]            # verbatim - rotation changes no E
+                fo.write(_fmt_move(g[0], g[1], g[2], g[3], e_val, None,
+                                   ang) + '\n')
+                if g[1] is not None:
+                    px1 = g[1]
+                if g[2] is not None:
+                    py1 = g[2]
+                n_moves += 1
+                continue
+            ga = _pa216t(ls)
+            if ga is not None and ga[1] is not None and px1 is not None:
+                ay2 = ga[2] if ga[2] is not None else py1
+                if ay2 is not None:
+                    pts = _ap216t(px1, py1, ga[1], ay2, i=ga[4], j=ga[5],
+                                  rr=ga[6], cw=(ga[0] == 'G2'))
+                    if pts:
+                        if ga[3] is not None:
+                            cur_z = ga[3]
+                        aang = _rot216(cur_z)
+                        n_arcs += 1
+                        f_txt = (' F%g' % ga[8]) if ga[8] else ''
+                        # the arc's E splits across the chords by length
+                        # (isometric rotation: fractions, no factor)
+                        chain = [(px1, py1)] + pts
+                        lens = [_m216t.hypot(b[0] - a[0], b[1] - a[1])
+                                for a, b in zip(chain, chain[1:])]
+                        tot = sum(lens) or 1.0
+                        if ga[7] is not None and ga[7] > 0 and not e_rel_t:
+                            d_total = ga[7] - (last_e_t if last_e_t is not None
+                                               else 0.0)
+                        elif ga[7] is not None and ga[7] > 0 and e_rel_t:
+                            d_total = ga[7]
+                        else:
+                            d_total = None
+                        done_e = 0.0
+                        for (ax, ayv), (bx, byv), ln in zip(chain, chain[1:],
+                                                            lens):
+                            frac = ln / tot
+                            if d_total is None:
+                                fo.write(_fmt_move('G1', bx, byv, ga[3],
+                                                   None, None, aang)
+                                         + f_txt + '\n')
+                            elif e_rel_t:
+                                e_i = d_total * frac
+                                done_e += e_i
+                                fo.write(_fmt_move('G1', bx, byv, ga[3],
+                                                   e_i, None, aang)
+                                         + f_txt + '\n')
+                            else:
+                                d_i = d_total * frac
+                                e_i = (new_e_t if new_e_t is not None
+                                       else 0.0) + done_e + d_i
+                                done_e += d_i
+                                fo.write(_fmt_move('G1', bx, byv, ga[3],
+                                                   e_i, None, aang)
+                                         + f_txt + '\n')
+                        if d_total is not None and not e_rel_t:
+                            last_e_t = ga[7]
+                            new_e_t = (new_e_t if new_e_t is not None
+                                       else 0.0) + done_e
+                        px1, py1 = ga[1], ay2
+                        continue
+            fo.write(ls + '\n')
+    info = {'file': fname, 'src': base, 'deg': deg, 'zrange': (zmin, zmax),
+            'moves': n_moves, 'arcs_flattened': n_arcs,
+            'bed_center': (tx, ty)}
+    return out, info
+
 
 def watch(directory, interval=5.0, once=False):
     """Daemon: process every new/changed .gcode file under DIRECTORY.
@@ -19920,7 +21545,9 @@ def watch(directory, interval=5.0, once=False):
         _chan147 = {'retract': 'retract_fix_file', 'vol': 'vol_fix_file',
                     'flowcap': 'flowcap_fix_file',
                     'travelacc': 'travelacc_fix_file',
-                    'segments': 'segments_fix_file'}.get(kind)
+                    'segments': 'segments_fix_file',
+                    'quality': 'quality_fix_file',
+                    'speed': 'speed_fix_file'}.get(kind)
         if not name:
             _moonraker_gcode('RESPOND MSG="File fix: no file selected"\n'
                              'M117 Fix: no file\n_SOUND_LIB NAME=r2_error')
@@ -20066,6 +21693,42 @@ def watch(directory, interval=5.0, once=False):
                     except Exception:                       # noqa: BLE001
                         pass
                 print(f'[segfix] {rel}: {msg}', flush=True)
+            elif kind == 'quality':
+                # R216 (.136n): the golden rule on a sliced file - only
+                # travels that CROSS ink keep their retract + hop armor
+                nd, nk, nn = _quality_fix_file(p)
+                if nd:
+                    msg = ('Quality fix DONE: %d retract/hop block(s) '
+                           'dropped in %s - those travels cross no ink '
+                           '(golden rule), %d crossing block(s) kept'
+                           % (nd, base, nk))
+                    if nn:
+                        msg += (', %d naked crossing(s) without any retract'
+                                ' (the slicer never armored them)' % nn)
+                    snd = 'r2_done'
+                else:
+                    msg = ('Quality fix: %s has no unprotected travel '
+                           'blocks (%d crossing block(s) already armored)'
+                           % (base, nk))
+                    snd = 'r2_notice'
+                _moonraker_gcode('RESPOND MSG=\"%s\"\nM117 QualFix done\n'
+                                 '_SOUND_LIB NAME=%s' % (msg, snd))
+                print(f'[qualfix] {rel}: {msg}', flush=True)
+            elif kind == 'speed':
+                # R216 (.136n): direct ways + ironing skipped
+                nm, ni = _speed_fix_file(p)
+                if nm or ni:
+                    msg = ('Speed fix DONE: %d travel line(s) merged into '
+                           'direct ways, %d ironing move(s) skipped in %s'
+                           % (nm, ni, base))
+                    snd = 'r2_done'
+                else:
+                    msg = ('Speed fix: nothing to merge or skip in %s'
+                           % base)
+                    snd = 'r2_notice'
+                _moonraker_gcode('RESPOND MSG=\"%s\"\nM117 SpdFix done\n'
+                                 '_SOUND_LIB NAME=%s' % (msg, snd))
+                print(f'[spdfix] {rel}: {msg}', flush=True)
             else:
                 n, area = _volumetric_convert_file(p)
                 if n:
@@ -20224,6 +21887,8 @@ def watch(directory, interval=5.0, once=False):
     last_label_nonce = None
     last_cable_tie_nonce = None
     last_angle_nonce = None
+    last_shape_nonce = None         # R216: simple geometry generator
+    last_twist_nonce = None          # R216: twist tool
     last_litho_nonce = None          # R89: lithophane / seal / image-delete
     last_colorpic_nonce = None        # R120: color picture generator
     last_seal_nonce = None
@@ -20232,6 +21897,8 @@ def watch(directory, interval=5.0, once=False):
     last_file_check_nonce = None   # R93: file version census / retag
     last_litho_del_nonce = None
     pushed_images = None             # R89: last image list pushed to the LCD
+    pushed_img_page = -1        # R216: image list page state
+    pushed_img_total = -1       # R216: full image count
     last_fit_nonce = None
     last_retract_fix_nonce = None
     last_vol_fix_nonce = None
@@ -20246,6 +21913,8 @@ def watch(directory, interval=5.0, once=False):
     reselect_wait = {}               # R133: fix_reselect patience counter
     last_brickkit_nonce = None       # R125: brick kit from a sliced file
     last_segments_nonce = None       # R133b: segment fix (see bootstrap)
+    last_quality_nonce = None        # R216: quality fix (golden rule)
+    last_speed_nonce = None          # R216: speed fix (direct ways)
     last_qcancel_nonce = None        # R133c: GEN_QUEUE_CANCEL
     last_gen_del_nonce = None        # R133f: gen file delete
     last_img_pick_nonce = None       # R174: SD browser image -> root copy
@@ -20255,6 +21924,9 @@ def watch(directory, interval=5.0, once=False):
     last_stringart_nonce = None      # R178: string art (R171 live)
     gen_files_pushed = ['']          # R133f: generator outputs for the LCD
     sd_tree_pushed = [None]          # R154: folder tree for the LCD browser
+    sd_view_pushed = [None]          # R216b: the last view WE pushed - the
+                                     # read-back races the SD-card write
+                                     # (.136m double-pushed sd_view twice)
 
     # R133b: ONE generator job at a time, deduplicated, and never while a
     # print runs (the job goes back to the queue until the printer idles).
@@ -20411,6 +22083,12 @@ def watch(directory, interval=5.0, once=False):
     # on the LCD, once at boot.
     _pb166 = '%s (%s)' % (POSTPROC_RELEASE, POSTPROC_BUILD)
     _pb166_t = {'t': 0.0}
+    _pb216_done = [False]   # R216b: one successful push per daemon run.
+                            # The .136m field log pushed postproc_build
+                            # FOUR times in 2 minutes - every push rewrites
+                            # the whole variables file on the SD card and
+                            # the read-back raced the slow write. The flag
+                            # ends the race.
     _pb_hint202 = {'t': 0.0}   # R202: klippy-down advice rate limiter
     _idle_since167 = None          # R167: busy->idle grace timer
     try:
@@ -20484,7 +22162,10 @@ def watch(directory, interval=5.0, once=False):
                 'cake_nonce', 'stringart_nonce',
                 # R214: the STL export reads the whole source and writes a
                 # mesh - that is disk I/O, it waits for idle like the rest
-                'stl_nonce')
+                'stl_nonce',
+                # R216: the shape generator + the twist tool write
+                # files - same rule
+                'shape_nonce', 'twist_nonce')
         # R61: layer-range excerpt request from the LCD (nonce changes on every request)
         try:
             rv = _read_vars(VAR_PATH)
@@ -20492,12 +22173,15 @@ def watch(directory, interval=5.0, once=False):
             # update script queries it to PROVE the restart took effect;
             # rate-limited to 10s so a down klippy cannot stall the loop
             # (the push is retried on a later pass until it sticks).
-            if str(rv.get('postproc_build', '')) != _pb166 and \
-                    time.monotonic() - _pb166_t['t'] >= 10.0:
+            if not _pb216_done[0] \
+                    and str(rv.get('postproc_build', '')) != _pb166 \
+                    and time.monotonic() - _pb166_t['t'] >= 10.0:
                 _pb166_t['t'] = time.monotonic()
                 _ok202 = _moonraker_gcode(
                     'SAVE_VARIABLE VARIABLE=postproc_build VALUE="\\"%s\\""'
                     % _pb166)
+                if _ok202:
+                    _pb216_done[0] = True
                 if not _ok202:
                     # R202 (.136 field log): klippy refused the push - after
                     # that update the MCU sat in a state FIRMWARE_RESTART
@@ -20535,12 +22219,16 @@ def watch(directory, interval=5.0, once=False):
                 last_label_nonce = _np['label_gen_nonce']
                 last_cable_tie_nonce = _np.get('cable_tie_nonce')
                 last_angle_nonce = _np.get('angle_nonce')
+                last_shape_nonce = _np.get('shape_nonce')
+                last_twist_nonce = _np.get('twist_nonce')
                 last_fit_nonce = _np.get('label_fit_nonce')
                 last_retract_fix_nonce = _np.get('retract_fix_nonce')
                 last_vol_fix_nonce = _np.get('vol_fix_nonce')
                 last_flowcap_nonce = _np.get('flowcap_fix_nonce')
                 last_travelacc_nonce = _np.get('travelacc_fix_nonce')
                 last_segments_nonce = _np.get('segments_fix_nonce')
+                last_quality_nonce = _np.get('quality_fix_nonce')
+                last_speed_nonce = _np.get('speed_fix_nonce')
                 last_qcancel_nonce = _np.get('queue_cancel_nonce')
                 # R133f (field log .98 - THE regeneration loop): the four
                 # newer generator channels + plot_cal were NEVER primed -
@@ -20686,17 +22374,24 @@ def watch(directory, interval=5.0, once=False):
                         try:
                             _relout214, _inf214 = _stl_export(
                                 directory, _rel214)
-                            _msg214 = ('[stl] object-only STL saved: %s '
-                                       '(%d ribbons, %d layers, %d triangles)'
-                                       % (_relout214, _inf214['runs'],
+                            _msg214 = ('[stl] shell STL saved: %s '
+                                       '(%d ribbons, %d layers, %d tris)'
+                                       % (_relout214, _inf214['boxes'],
                                           _inf214['layers'], _inf214['tris']))
+                            if _inf214.get('decimated'):
+                                _msg214 += (
+                                    ' - decimated to the viewer budget '
+                                    '(segments under %.2fmm dropped)'
+                                    % _inf214.get('min_seg', 0))
                             if _inf214['capped']:
                                 _msg214 += (' - CAPPED at %d ribbons, mesh '
                                             'truncated' % _inf214['boxes'])
+                            _msg214 += ' - outer skin: internal infill skipped'
                             print(_msg214, flush=True)
                             try:
                                 _moonraker_gcode(
-                                    'RESPOND MSG="%s"\nM117 STL: saved'
+                                    'RESPOND MSG="%s"\nM117 STL saved\n'
+                                    '_SOUND_LIB NAME=r2_done'
                                     % _msg214.replace('"', ''))
                             except Exception:                   # noqa: BLE001
                                 pass
@@ -20705,6 +22400,8 @@ def watch(directory, interval=5.0, once=False):
                             try:
                                 _moonraker_gcode(
                                     'RESPOND MSG="[stl] export FAILED: %s"'
+                                    '\nM117 STL failed\n'
+                                    '_SOUND_LIB NAME=r2_error'
                                     % str(_e214).replace('"', '')
                                                  .replace(';', '')[:120])
                             except Exception:                   # noqa: BLE001
@@ -21203,6 +22900,24 @@ def watch(directory, interval=5.0, once=False):
                          str(rv.get('segments_fix_file', '')).strip())
         except Exception as e:                              # noqa: BLE001
             print(f'[segfix] poll error: {e!r}', flush=True)
+        # R216 (.136n): QUALITY fix - the golden rule on a sliced file
+        try:
+            qfn216 = rv.get('quality_fix_nonce', '')
+            if qfn216 and qfn216 != last_quality_nonce:
+                last_quality_nonce = qfn216
+                file_fix('quality',
+                         str(rv.get('quality_fix_file', '')).strip())
+        except Exception as e:                              # noqa: BLE001
+            print(f'[qualfix] poll error: {e!r}', flush=True)
+        # R216 (.136n): SPEED fix - direct ways + ironing skipped
+        try:
+            sfn216 = rv.get('speed_fix_nonce', '')
+            if sfn216 and sfn216 != last_speed_nonce:
+                last_speed_nonce = sfn216
+                file_fix('speed',
+                         str(rv.get('speed_fix_file', '')).strip())
+        except Exception as e:                              # noqa: BLE001
+            print(f'[spdfix] poll error: {e!r}', flush=True)
         # R133c: GEN_QUEUE_CANCEL - drop everything still waiting (the
         # field log had a stale queue silently recreating deleted files)
         try:
@@ -21607,6 +23322,83 @@ def watch(directory, interval=5.0, once=False):
                         pass
         except Exception as e:                              # noqa: BLE001
             print(f'[angles] poll error: {e!r}', flush=True)
+        # R216: simple geometry generator (shape_nonce bumps per job)
+        try:
+            sn = rv.get('shape_nonce', '')
+            if sn and sn != last_shape_nonce:
+                last_shape_nonce = sn
+                try:
+                    def _vsf(key, dflt):
+                        try:
+                            return float(rv.get(key, dflt) or dflt)
+                        except (TypeError, ValueError):
+                            return float(dflt)
+
+                    def _vsi(key, dflt):
+                        try:
+                            return int(float(rv.get(key, dflt) or dflt))
+                        except (TypeError, ValueError):
+                            return int(dflt)
+
+                    cfg_bed = _bed_limits(os.path.join(
+                        os.path.dirname(os.path.abspath(directory).rstrip('/')),
+                        'config', 'printer.cfg'))
+                    _shp = str(rv.get('shape_kind', 'CYLINDER') or
+                               'CYLINDER').strip().upper()
+                    out_s, info_s = make_shape(
+                        shape=_shp,
+                        size_x=max(8.0, min(_vsf('shape_size_x', 40.0), 200.0)),
+                        size_y=max(8.0, min(_vsf('shape_size_y', 40.0), 200.0)),
+                        corners=max(0, min(_vsi('shape_corners', 0), 64)),
+                        height=max(2.0, min(_vsf('shape_height', 20.0), 180.0)),
+                        walls=max(1, min(_vsi('shape_walls', 2), 8)),
+                        wall_thick=max(0.0, min(_vsf('shape_wall_thick', 0.0), 8.0)),
+                        infill=max(0.0, min(_vsf('shape_infill', 20.0), 100.0)),
+                        base=max(0, min(_vsi('shape_base', 3), 12)),
+                        top=max(0, min(_vsi('shape_top', 3), 12)),
+                        layer_h=_vsf('shape_layer_h', 0.2),
+                        material=str(rv.get('material', 'PLA') or 'PLA'),
+                        bed=cfg_bed, nozzle=_gen_nozzle(directory),
+                        out_dir=_gensub(directory, 'shapes'),
+                        version=max(1, min(_vsi('gen_version', 1), 99)))
+                    _rels216 = os.path.relpath(
+                        os.path.join(directory, info_s['file']), directory)
+                    _msgs216 = ('%s: %s - %.0fx%.0fmm, %.0fmm tall, %d wall(s)'
+                                ' (%.2fmm), infill %g%%, %d layers%s - '
+                                'selected for printing'
+                                % (info_s['kind'], info_s['file'], info_s['w'],
+                                   info_s['h'], info_s['height'], info_s['walls'],
+                                   info_s['wall_thick'], info_s['infill'],
+                                   info_s['layers'],
+                                   ' VASE/SPIRAL' if info_s['vase'] else ''))
+                    for _notes216 in info_s.get('notes', []):
+                        _msgs216 += ' | ' + _notes216
+                    _meta_finalize(out_s)              # R212: thumbnail+meta
+                    try:
+                        _moonraker_gcode(
+                            'RESPOND MSG="%s"\n'
+                            'M117 %s ready\n'
+                            '_SOUND_LIB NAME=r2_done'
+                            % (_msgs216.replace('"', ''),
+                               info_s['kind'][:12])
+                            + _sel_line(rv, _rels216))
+                    except Exception as me:                  # noqa: BLE001
+                        print(f'[shape] moonraker unreachable '
+                              f'({me.__class__.__name__})', flush=True)
+                    print('[shape] %s' % _msgs216, flush=True)
+                except Exception as es:                    # noqa: BLE001
+                    print('[shape] FAILED: %r' % es, flush=True)
+                    try:
+                        _moonraker_gcode(
+                            'RESPOND MSG="[shape] failed: %s"\n'
+                            'M117 Shape failed\n'
+                            '_SOUND_LIB NAME=r2_error'
+                            % str(es).replace('"', '')
+                                         .replace(';', '')[:120])
+                    except Exception:                       # noqa: BLE001
+                        pass
+        except Exception as e:                              # noqa: BLE001
+            print(f'[shape] channel error: {e!r}', flush=True)
 
         # R89: image list push - the Lithophane browser on the LCD shows the
         # gcodes folder's images. Whenever the set changes, ONE SAVE_VARIABLE
@@ -21624,14 +23416,35 @@ def watch(directory, interval=5.0, once=False):
                 except OSError:
                     pass
             _imgs89.sort(reverse=True)
-            _names89 = [fn for (_mt, fn) in _imgs89[:10]]
-            if _names89 != pushed_images:
+            # R216 (.136n field wish: 'the image list shows only 10 - I
+            # want ALL of them'): the list carries up to 60 images now and
+            # the LCD pickers (Lithophane / ColorPicture / ArtisticStrings)
+            # PAGE through it - litho_files is the VISIBLE PAGE (10) like
+            # sd_view, litho_total the full count, litho_page the position.
+            _all89 = [fn for (_mt, fn) in _imgs89[:60]]
+            _total89 = len(_all89)
+            _maxpg89 = max(0, (_total89 - 1) // 10)
+            try:
+                _pg89 = max(0, min(int(float(rv.get('litho_page', 0)
+                                             or 0)), _maxpg89))
+            except (TypeError, ValueError):
+                _pg89 = 0
+            _names89 = _all89[_pg89 * 10:_pg89 * 10 + 10]
+            if (_names89 != pushed_images
+                    or _pg89 != pushed_img_page
+                    or _total89 != pushed_img_total):
                 _val89 = '[' + ','.join("'%s'" % fn for fn in _names89) + ']'
-                _moonraker_gcode(
-                    'SAVE_VARIABLE VARIABLE=litho_files VALUE="%s"\n'
-                    'RESPOND MSG="[i] %d image(s) ready for lithophane '
-                    '(Tools > Lithophane)"' % (_val89, len(_names89)))
-                pushed_images = _names89
+                if _moonraker_gcode(
+                        'SAVE_VARIABLE VARIABLE=litho_files VALUE="%s"\n'
+                        'SAVE_VARIABLE VARIABLE=litho_total VALUE=%d'
+                        % (_val89, _total89)):
+                    pushed_images = _names89
+                    pushed_img_page = _pg89
+                    pushed_img_total = _total89
+                    _moonraker_gcode(
+                        'RESPOND MSG="[i] images: %d total - page %d of %d '
+                        'shown (pickers page with the arrows)"'
+                        % (_total89, _pg89 + 1, _maxpg89 + 1))
         except Exception as e:                              # noqa: BLE001
             print(f'[litholist] push error: {e!r}', flush=True)
 
@@ -21878,6 +23691,7 @@ def watch(directory, interval=5.0, once=False):
                     layer_h=_vfbr121('bricks_layer_h', 0.2),
                     brim=int(str(rv.get('brick_brim', 2) or 2)),
                     colors=int(str(rv.get('brick_colors', 1) or 1)),
+                    scale=int(float(str(rv.get('brick_scale', 100) or 100))),
                     mode=str(rv.get('brick_mode', 'BY_LAYER')
                              or 'BY_LAYER'),
                     material=str(rv.get('material', 'PLA') or 'PLA'),
@@ -22321,6 +24135,13 @@ def watch(directory, interval=5.0, once=False):
                     _srel176 = os.path.basename(_srel176)
                 _sx176 = float(rv.get('scale_x', 100) or 100) / 100.0
                 _sy176 = float(rv.get('scale_y', 100) or 100) / 100.0
+                # R216 taper: top factors (0 = off -> same as the bottom)
+                _sxt176 = float(rv.get('scale_top_x', 0) or 0) / 100.0
+                _syt176 = float(rv.get('scale_top_y', 0) or 0) / 100.0
+                if not (0.25 <= _sxt176 <= 3.0):
+                    _sxt176 = 0.0
+                if not (0.25 <= _syt176 <= 3.0):
+                    _syt176 = 0.0
                 _sbed176 = _bed_limits(os.path.join(
                     directory, _srel176) if _srel176 else directory)
                 if not _srel176:
@@ -22330,17 +24151,22 @@ def watch(directory, interval=5.0, once=False):
                         '\n_SOUND_LIB NAME=r2_notice')
                 else:
                     def _scale_job176(rel=_srel176, sx=_sx176, sy=_sy176,
+                                      sxt=_sxt176 or None,
+                                      syt=_syt176 or None,
                                       bed=_sbed176, rvq=rv):
                         out_s, info_s = apply_scale(
                             os.path.join(directory, rel),
-                            sx=sx, sy=sy,
+                            sx=sx, sy=sy, sxt=sxt, syt=syt,
                             out_dir=_gensub(directory, 'scale'), bed=bed)
-                        _msg = ('Scale: %s -> %s (X %.0f%% Y %.0f%%: '
+                        _tap216 = ('' if not info_s.get('taper') else
+                                   ', TAPER to %.0f%%/%.0f%% at the top'
+                                   % (info_s['sxt'] * 100, info_s['syt'] * 100))
+                        _msg = ('Scale: %s -> %s (X %.0f%% Y %.0f%%%s: '
                                 '%.1f x %.1f -> %.1f x %.1f mm, centered '
                                 'on the bed - E rescaled per move, the '
                                 '100%% flow baseline is the NEW file)'
                                 % (info_s['src'], info_s['file'],
-                                   sx * 100, sy * 100,
+                                   sx * 100, sy * 100, _tap216,
                                    info_s['old_size'][0], info_s['old_size'][1],
                                    info_s['new_size'][0], info_s['new_size'][1]))
                         try:
@@ -22367,6 +24193,61 @@ def watch(directory, interval=5.0, once=False):
             except Exception:                               # noqa: BLE001
                 pass
             print(f'[scale] guard: {ve176}', flush=True)
+
+        # R216 (.136n): the TWIST tool - rotate the file around its Z axis,
+        # 0 deg at the bottom -> deg at the top (its OWN tool, unlike the
+        # taper which rides in the Scale X/Y channel)
+        try:
+            _twn216 = rv.get('twist_nonce', '')
+            if _twn216 and _twn216 != last_twist_nonce:
+                last_twist_nonce = _twn216
+                _twrel216 = str(rv.get('twist_file', '') or '').strip().lstrip('/')
+                if '..' in _twrel216 or _twrel216.startswith('/'):
+                    _twrel216 = os.path.basename(_twrel216)
+                _twdeg216 = float(rv.get('twist_deg', 30) or 30)
+                _twbed216 = _bed_limits(os.path.join(
+                    directory, _twrel216) if _twrel216 else directory)
+                if not _twrel216:
+                    _moonraker_gcode(
+                        'RESPOND MSG=\"Twist: no file selected - pick one '
+                        'first (Pre-Print > File)\"\nM117 Twist: no file'
+                        '\n_SOUND_LIB NAME=r2_notice')
+                else:
+                    def _twist_job216(rel=_twrel216, deg=_twdeg216,
+                                      bed=_twbed216, rvq=rv):
+                        out_t, info_t = apply_twist(
+                            os.path.join(directory, rel), deg=deg,
+                            out_dir=_gensub(directory, 'twist'), bed=bed)
+                        _msg216t = ('Twist: %s -> %s (%.1f deg around the Z '
+                                    'axis, 0 at the bottom -> %.1f at the '
+                                    'top, E verbatim - rotation is '
+                                    'isometric)'
+                                    % (info_t['src'], info_t['file'],
+                                       info_t['deg'], info_t['deg']))
+                        try:
+                            _moonraker_gcode(
+                                'RESPOND MSG=\"%s\"\nM117 Twist ready\n'
+                                '_SOUND_LIB NAME=r2_done' % _msg216t
+                                + _sel_line(rvq, os.path.relpath(out_t,
+                                                                 directory)))
+                        except Exception as me:               # noqa: BLE001
+                            print(f'[twist] moonraker unreachable '
+                                  f'({me.__class__.__name__})', flush=True)
+                        print(f'[twist] {info_t["file"]}: OK '
+                              f'({info_t["moves"]} moves, '
+                              f'{info_t["arcs_flattened"]} arcs)', flush=True)
+                        return [out_t]
+
+                    _spawn_job('Twist', 'twist:%s:%s' % (
+                        _twrel216, _twdeg216), _twist_job216)
+        except ValueError as ve216t:
+            try:
+                _moonraker_gcode(
+                    'RESPOND MSG=\"Twist: %s\"\nM117 Twist error\n'
+                    '_SOUND_LIB NAME=r2_error' % ve216t)
+            except Exception:                               # noqa: BLE001
+                pass
+            print(f'[twist] guard: {ve216t}', flush=True)
 
         # R177 (.130 wish list): the CAKE CUT - split a print with a
         # plane. Angles in all three axes (0.5 deg grid), the plane runs
@@ -22460,26 +24341,49 @@ def watch(directory, interval=5.0, once=False):
                                      or 300))
                 _slin178 = int(float(rv.get('stringart_lines', 1700)
                                      or 1700))
+                # R216 field round: shape / frame size / ring height /
+                # strand bow
+                _ssh178 = str(rv.get('stringart_shape', 0) or 0).strip()
+                _ssh178 = 'RECT' if _ssh178 in ('1', 'RECT') else 'ROUND'
+                try:
+                    _sw178 = float(rv.get('stringart_w', 102) or 102)
+                except (TypeError, ValueError):
+                    _sw178 = 102.0
+                try:
+                    _sh178 = float(rv.get('stringart_h', 152) or 152)
+                except (TypeError, ValueError):
+                    _sh178 = 152.0
+                try:
+                    _srh178 = float(rv.get('stringart_ringh', 2.4) or 2.4)
+                except (TypeError, ValueError):
+                    _srh178 = 2.4
+                try:
+                    _sarc178 = float(rv.get('stringart_arc', 2.0))
+                except (TypeError, ValueError):
+                    _sarc178 = 2.0
                 _ssrc178 = str(rv.get('stringart_src', '') or '').strip().lstrip('/')
                 if '..' in _ssrc178 or _ssrc178.startswith('/'):
                     _ssrc178 = os.path.basename(_ssrc178)
                 _sbed178 = _bed_limits(directory)
                 if _spat178 == 'PHOTO' and not _ssrc178:
                     _moonraker_gcode(
-                        'RESPOND MSG=\"String art: PHOTO needs an image '
+                        'RESPOND MSG=\"ArtisticStrings: PHOTO needs an image '
                         'first - pick one (String art > Img: row)\"\n'
-                        'M117 String art: no image\n'
+                        'M117 ArtisticStrings: no image\n'
                         '_SOUND_LIB NAME=r2_notice')
                 else:
                     def _stringart_job178(pat=_spat178, dia=_sdia178,
                                           anc=_sanc178, lin=_slin178,
                                           src=_ssrc178, bed=_sbed178,
-                                          rvq=rv):
+                                          shp=_ssh178, sw=_sw178,
+                                          sh=_sh178, srh=_srh178,
+                                          sarc=_sarc178, rvq=rv):
                         out_sa, info_sa = make_string_art(
                             src=(os.path.join(directory, src)
                                  if pat == 'PHOTO' else None),
                             pattern=pat, diameter=dia, anchors=anc,
-                            lines=lin,
+                            lines=lin, shape=shp, size_w=sw, size_h=sh,
+                            ring_h=srh, arc=sarc,
                             out_dir=_gensub(directory, 'stringart'),
                             bed=bed)
                         _msg = ('String art: %s (%s, %.0fmm ring, %d '
@@ -22492,7 +24396,7 @@ def watch(directory, interval=5.0, once=False):
                         try:
                             _moonraker_gcode(
                                 'RESPOND MSG=\"%s\"\n'
-                                'M117 String art ready\n'
+                                'M117 ArtisticStrings ready\n'
                                 '_SOUND_LIB NAME=r2_done' % _msg
                                 + _sel_line(rvq, os.path.relpath(
                                     out_sa, directory)))
@@ -22510,7 +24414,7 @@ def watch(directory, interval=5.0, once=False):
             try:
                 _moonraker_gcode(
                     'RESPOND MSG=\"String art: %s\"\n'
-                    'M117 String art error\n'
+                    'M117 ArtisticStrings error\n'
                     '_SOUND_LIB NAME=r2_error' % ve178)
             except Exception:                               # noqa: BLE001
                 pass
@@ -23191,25 +25095,32 @@ def watch(directory, interval=5.0, once=False):
                 # klipper homes. One cheap probe, then decide.
                 if _printer_busy():
                     raise _SkipPush215()
+                # R216b (.136n, the .136m klippy 'Timer too close' dump):
+                # .136m sent tree, view and gen_files as THREE scripts back
+                # to back - every SAVE_VARIABLE rewrites the WHOLE variables
+                # file synchronously on the SD card, klippy's reactor
+                # stalled up to 1.9 s per push while the LCD redrew and the
+                # nozzle LED chain updated -> 'Timer too close'. ONE
+                # batched script = ONE reactor wakeup + ONE file write.
+                # Folder lists are capped at 200 entries - bounded worst
+                # case, no change for a real folder.
+                _push216 = []
+                _pt216 = _pv216 = _pgf216 = False
                 if _tree154 != sd_tree_pushed[0]:
                     _tv154 = '{' + ','.join(
                         "'%s': [%s]" % (_k154, ','.join(
-                            "'" + _e154 + "'" for _e154 in _v154))
+                            "'" + _e154 + "'" for _e154 in _v154[:200]))
                         for _k154, _v154 in _tree154.items()) + '}'
-                    if _moonraker_gcode(
-                            'SAVE_VARIABLE VARIABLE=sd_tree VALUE="%s"'
-                            % _tv154):
-                        sd_tree_pushed[0] = _tree154
-                    else:
-                        print('[sdfiles] tree push failed (klipper busy?) - '
-                              'retrying next cycle', flush=True)
+                    _push216.append(
+                        'SAVE_VARIABLE VARIABLE=sd_tree VALUE="%s"' % _tv154)
+                    _pt216 = True
                 # R154: keep the VIEW in sync too - the menu slots read
                 # sd_view (40 entries of the current path+page). Refreshed
                 # whenever the view differs (tree changed / never arrived /
                 # the user navigated while a push failed). Current path and
                 # page come from save_variables.cfg (best effort) so a tree
                 # change while the user browses a folder updates THAT view.
-                if sd_tree_pushed[0] is not None:
+                if sd_tree_pushed[0] is not None or _pt216:
                     _p154, _pg154, _vw154 = '', 0, None
                     try:
                         _rv154 = _read_vars(VAR_PATH) or {}
@@ -23227,14 +25138,14 @@ def watch(directory, interval=5.0, once=False):
                     _pg154 = min(_pg154,
                                  max(0, (len(_en154) - 1) // 40))
                     _new154 = _en154[_pg154 * 40:_pg154 * 40 + 40]
-                    if _new154 != _vw154:
+                    if (_new154 != _vw154
+                            and _new154 != sd_view_pushed[0]):
                         _vv154 = ('[' + ','.join("'" + _e154 + "'"
                                                  for _e154 in _new154) + ']')
-                        if not _moonraker_gcode(
-                                'SAVE_VARIABLE VARIABLE=sd_view VALUE="%s"'
-                                % _vv154):
-                            print('[sdfiles] view push failed (klipper '
-                                  'busy?) - retrying next cycle', flush=True)
+                        _push216.append(
+                            'SAVE_VARIABLE VARIABLE=sd_view VALUE="%s"'
+                            % _vv154)
+                        _pv216 = True
                 # R133h: a REAL list (the litho_files form) - the old push
                 # stored a STRING, the LCD slots would have shown single
                 # characters
@@ -23242,12 +25153,20 @@ def watch(directory, interval=5.0, once=False):
                     _gv133h = ('[' + ','.join("'" + _f + "'" for _f in _gfl
                                               if '"' not in _f
                                               and "'" not in _f) + ']')
-                    if _moonraker_gcode(
-                            'SAVE_VARIABLE VARIABLE=gen_files VALUE="%s"'
-                            % _gv133h):
-                        gen_files_pushed[0] = _gfl
+                    _push216.append(
+                        'SAVE_VARIABLE VARIABLE=gen_files VALUE="%s"'
+                        % _gv133h)
+                    _pgf216 = True
+                if _push216:
+                    if _moonraker_gcode('\n'.join(_push216)):
+                        if _pt216:
+                            sd_tree_pushed[0] = _tree154
+                        if _pv216:
+                            sd_view_pushed[0] = _new154
+                        if _pgf216:
+                            gen_files_pushed[0] = _gfl
                     else:
-                        print('[genfiles] push failed (klipper busy?) - '
+                        print('[sdfiles] push failed (klipper busy?) - '
                               'retrying next cycle', flush=True)
             except _SkipPush215:
                 pass            # silent by design - the next pass pushes

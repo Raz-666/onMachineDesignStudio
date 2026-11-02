@@ -1,17 +1,18 @@
 {
  "generator": "menu_json_export.py (.136j R211)",
  "source": "lcd_menues.cfg",
- "sections": 2403,
+ "sections": 2472,
  "counts": {
-  "list": 324,
-  "command": 1411,
-  "input": 668
+  "list": 331,
+  "command": 1454,
+  "input": 687
  },
- "sha256": "4beac7590da1feef",
+ "sha256": "d2a81951e1b9fdef",
  "live_objects": [
   "bed_mesh",
   "configfile",
   "exclude_object",
+  "gcode_macro _BED_SCREWS_UI",
   "gcode_macro _GEN_PRESET",
   "gcode_macro _MATERIALS",
   "gcode_macro _PREVIEW",
@@ -5854,8 +5855,7 @@
         "type": "command",
         "name": "How it works",
         "gcode": [
-         "RESPOND MSG=\"Pen pressure = the Z babystep entries at the top of Live Tuning - speed % here - X/Y shifts the whole drawing\"",
-         "RESPOND MSG=\"Pen Z/X/Y shifts are remembered for the next plot start (Tools > Plotter > Start)\""
+         "RESPOND MSG=\"How it works: Pen pressure = the Z babystep entries at the top of Live Tuning - speed % here - X/Y shifts the whole drawing | Pen Z/X/Y shifts are remembered for the next plot start (Tools > Plotter > Start)\""
         ],
         "children": []
        }
@@ -6154,8 +6154,7 @@
         "type": "command",
         "name": "How it works",
         "gcode": [
-         "RESPOND MSG=\"File info: plain rows SHOW values (press = details). Rows with > toggle a FEATURE on/off - the percents live in Live > Features. Fixes that rewrite the file: Pre-Print > Fixes\"",
-         "RESPOND MSG=\"All values are MEASURED from the selected file (the watcher scans it). Generated files carry their own speeds/accels/features since .120\""
+         "RESPOND MSG=\"How it works: File info: plain rows SHOW values (press = details). Rows with > toggle a FEATURE on/off - the percents live in Live > Features. Fixes that rewrite the file: Pre-Print > Fixes | All values are MEASURED from the selected file (the watcher scans it). Generated files carry their own speeds/accels/features since .120\""
         ],
         "children": []
        },
@@ -6172,7 +6171,7 @@
        {
         "id": "__main __preprint __file __stl",
         "type": "command",
-        "name": "STL: object only",
+        "name": "STL: shell",
         "gcode": [
          "STL_EXPORT"
         ],
@@ -6628,9 +6627,7 @@
         "type": "command",
         "name": "How it works",
         "gcode": [
-         "RESPOND MSG=\"Fixes REWRITE the selected file (a .r2bak backup stays next to it). > rows run on press, * rows are values you edit by turning. Nothing rewrites while a print runs\"",
-         "RESPOND MSG=\"Retract fix: explicit slicer retracts become G10/G11 - YOUR retraction rules, live-tunable. Vol->mm: repairs Marlin volumetric files. Segment fix: merges micro moves (MCU 'Timer too close'). Flow cap: slows only moves above your cap. Travel: travel speed + accel\"",
-         "RESPOND MSG=\"Every fix: press = start sound + the display shows the progress (you leave the menu automatically). A print start waits until the fix is done - the melody confirms. Fixes run ONE after another (segment, then travel - the second applies to the fixed file)\""
+         "RESPOND MSG=\"How it works: Fixes REWRITE the selected file (a .r2bak backup stays next to it). > rows run on press, * rows are values you edit by turning. Nothing rewrites while a print runs | Retract fix: explicit slicer retracts become G10/G11 - YOUR retraction rules, live-tunable. Vol->mm: repairs Marlin volumetric files. Segment fix: merges micro moves (MCU 'Timer too close'). Flow cap: slows only moves above your cap. Travel: travel speed + accel | Every fix: press = start sound + the display shows the progress (you leave the menu automatically). A print start waits until the fix is done - the melody confirms. Fixes run ONE after another (segment, then travel - the second applies to the fixed file) | Quality fix: retract+hop only where a travel really CROSSES ink (golden rule). Speed fix: direct ways + ironing skipped\""
         ],
         "children": []
        },
@@ -6662,7 +6659,7 @@
           "type": "command",
           "name": "How it works",
           "gcode": [
-           "RESPOND MSG=\"File check lists every g-code with its tag version: current (all markers), old (upgradeable), untouched (never processed), plotter (fine as is). RETAG upgrades old+untouched files - backup .r2bak first, never while printing, max 20 per run (same functions as System > File check)\""
+           "RESPOND MSG=\"How it works: File check lists every g-code with its tag version: current (all markers), old (upgradeable), untouched (never processed), plotter (fine as is). RETAG upgrades old+untouched files - backup .r2bak first, never while printing, max 20 per run (same functions as System > File check)\""
           ],
           "children": []
          },
@@ -6772,6 +6769,28 @@
         "children": []
        },
        {
+        "id": "__main __preprint __fixes __fixq",
+        "type": "command",
+        "name": "Fix: Quality",
+        "enable": "{printer['gcode_macro _PREVIEW'].name|default('') != ''}",
+        "gcode": [
+         "{menu.exit()}",
+         "FIX_FILE WHAT=QUALITY"
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __preprint __fixes __fixp",
+        "type": "command",
+        "name": "Fix: Speed",
+        "enable": "{printer['gcode_macro _PREVIEW'].name|default('') != ''}",
+        "gcode": [
+         "{menu.exit()}",
+         "FIX_FILE WHAT=SPEED"
+        ],
+        "children": []
+       },
+       {
         "id": "__main __preprint __fixes __fixcv",
         "type": "input",
         "name": "{'* Cap: ' ~ '%4.1f'|format(menu.input) ~ ' mm3/s'}",
@@ -6864,8 +6883,7 @@
           "type": "command",
           "name": "How it works",
           "gcode": [
-           "RESPOND MSG=\"Offset shifts the NEXT print in X/Y/Z (and moves the axes right away): turn = 0.05mm, fast turn = 0.5mm - Z is the same offset as Live Tuning > Z babystepping\"",
-           "RESPOND MSG=\"Typical use: first-layer too high/low -> Z here. Print sits wrong on the plate -> X/Y. Offsets apply on top of the mesh and reset with restart unless saved (Maintenance > Probe Z offset for the probe itself)\""
+           "RESPOND MSG=\"How it works: Offset shifts the NEXT print in X/Y/Z (and moves the axes right away): turn = 0.05mm, fast turn = 0.5mm - Z is the same offset as Live Tuning > Z babystepping | Typical use: first-layer too high/low -> Z here. Print sits wrong on the plate -> X/Y. Offsets apply on top of the mesh and reset with restart unless saved (Maintenance > Probe Z offset for the probe itself)\""
           ],
           "children": []
          },
@@ -6955,7 +6973,7 @@
            {
             "id": "__main __preprint __mods __tex __mode __bum",
             "type": "command",
-            "name": "Bumps{ '*' if printer['save_variables'].variables.texture_mode|default('OFF')|string|upper == 'BUMPS' else '' }",
+            "name": "Displacement{ '*' if printer['save_variables'].variables.texture_mode|default('OFF')|string|upper == 'BUMPS' else '' }",
             "gcode": [
              "SAVE_VARIABLE VARIABLE=texture_mode VALUE=\"\\\"BUMPS\\\"\"",
              "RESPOND MSG=\"Bumps: shaped outer wall (pattern/scale/amp below)\""
@@ -7405,7 +7423,7 @@
           "type": "command",
           "name": "How it works",
           "gcode": [
-           "RESPOND MSG=\"Texture rewrites the SELECTED file's OUTER WALL only (fuzzy scatter or shaped bumps) - tags, features, E and Z stay. Result = NEW _TX file, nothing auto-starts: check it in the 3D viewer, then print it like any file\""
+           "RESPOND MSG=\"How it works: Texture rewrites the SELECTED file's OUTER WALL only (fuzzy scatter or shaped bumps) - tags, features, E and Z stay. Result = NEW _TX file, nothing auto-starts: check it in the 3D viewer, then print it like any file\""
           ],
           "children": []
          },
@@ -7953,11 +7971,7 @@
           "type": "command",
           "name": "How it works",
           "gcode": [
-           "RESPOND MSG=\"Excerpt prints ONLY layers From..To - layer From becomes the first layer, From/To are capped to the file\"",
-           "RESPOND MSG=\"Floor/Top: FOOTPRINT (hull) or OUTLINE (true outline of the layer), each as GRID or SOLID fill\"",
-           "RESPOND MSG=\"The excerpt ends with a proper PRINT_END: park + cool down - the nozzle never stays on the print\"",
-           "RESPOND MSG=\"Select the file first, then Create. The excerpt appears as <name>_L<from>-<to>.gcode - start AS LEGACY\"",
-           "RESPOND MSG=\"Stop@ ends the print NORMALLY when that layer begins (0 = off, also in Live > Pause & Control)\""
+           "RESPOND MSG=\"How it works: Excerpt prints ONLY layers From..To - layer From becomes the first layer, From/To are capped to the file | Floor/Top: FOOTPRINT (hull) or OUTLINE (true outline of the layer), each as GRID or SOLID fill | The excerpt ends with a proper PRINT_END: park + cool down - the nozzle never stays on the print | Select the file first, then Create. The excerpt appears as <name>_L<from>-<to>.gcode - start AS LEGACY | Stop@ ends the print NORMALLY when that layer begins (0 = off, also in Live > Pause & Control)\""
           ],
           "children": []
          }
@@ -7997,6 +8011,34 @@
           "children": []
          },
          {
+          "id": "__main __preprint __mods __scale __topx",
+          "type": "input",
+          "name": "Top X: {'%d' % menu.input}%",
+          "input": "{printer['save_variables'].variables.scale_top_x|default(0)}",
+          "input_min": "0",
+          "input_max": "300",
+          "input_step": "5",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=scale_top_x VALUE={menu.input|round|int}",
+           "RESPOND MSG=\"Scale top X {menu.input|round|int}%% - taper to this at the TOP (0 = off, 25..300%%)\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __preprint __mods __scale __topy",
+          "type": "input",
+          "name": "Top Y: {'%d' % menu.input}%",
+          "input": "{printer['save_variables'].variables.scale_top_y|default(0)}",
+          "input_min": "0",
+          "input_max": "300",
+          "input_step": "5",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=scale_top_y VALUE={menu.input|round|int}",
+           "RESPOND MSG=\"Scale top Y {menu.input|round|int}%% - taper to this at the TOP (0 = off, 25..300%%)\""
+          ],
+          "children": []
+         },
+         {
           "id": "__main __preprint __mods __scale __how",
           "type": "command",
           "name": "How? (E/flow)",
@@ -8018,9 +8060,49 @@
         ]
        },
        {
+        "id": "__main __preprint __mods __twist",
+        "type": "list",
+        "name": "Twist",
+        "children": [
+         {
+          "id": "__main __preprint __mods __twist __deg",
+          "type": "input",
+          "name": "Deg: {menu.input|round(0)|int}",
+          "input": "{printer['save_variables'].variables.twist_deg|default(0)|float}",
+          "input_min": "-720",
+          "input_max": "720",
+          "input_step": "5",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=twist_deg VALUE={menu.input|round(1)}",
+           "RESPOND MSG=\"Twist {menu.input|round(1)} deg around Z (0 at the bottom -> this at the top, sign = direction)\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __preprint __mods __twist __how",
+          "type": "command",
+          "name": "How? (E stays)",
+          "gcode": [
+           "RESPOND MSG=\"Twist rotates every layer around the object center: 0 deg at the bottom, your angle at the top - E stays verbatim (rotation is isometric), the result is centered on the bed\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __preprint __mods __twist __go",
+          "type": "command",
+          "name": "{('> AGAIN = start' if printer['gcode_macro _STATE'].gen_arm|default('') == 'twist' else '> Apply')}",
+          "gcode": [
+           "{% if printer['gcode_macro _STATE'].gen_arm|default('') == 'twist' %}{menu.exit()}{% endif %}",
+           "TWIST_APPLY CONFIRM=1"
+          ],
+          "children": []
+         }
+        ]
+       },
+       {
         "id": "__main __preprint __mods __cake",
         "type": "list",
-        "name": "Cake cut",
+        "name": "Cut & Split",
         "children": [
          {
           "id": "__main __preprint __mods __cake __yaw",
@@ -8032,7 +8114,7 @@
           "input_step": "0.5",
           "gcode": [
            "SAVE_VARIABLE VARIABLE=cake_yaw VALUE={menu.input|round(1)}",
-           "RESPOND MSG=\"Cake yaw {menu.input|round(1)} deg (where the tilt points)\""
+           "RESPOND MSG=\"Cut&split yaw {menu.input|round(1)} deg (where the tilt points)\""
           ],
           "children": []
          },
@@ -8046,7 +8128,7 @@
           "input_step": "0.5",
           "gcode": [
            "SAVE_VARIABLE VARIABLE=cake_pitch VALUE={menu.input|round(1)}",
-           "RESPOND MSG=\"Cake pitch {menu.input|round(1)} deg (front/back tilt)\""
+           "RESPOND MSG=\"Cut&split pitch {menu.input|round(1)} deg (front/back tilt)\""
           ],
           "children": []
          },
@@ -8060,7 +8142,7 @@
           "input_step": "0.5",
           "gcode": [
            "SAVE_VARIABLE VARIABLE=cake_roll VALUE={menu.input|round(1)}",
-           "RESPOND MSG=\"Cake roll {menu.input|round(1)} deg (left/right tilt)\""
+           "RESPOND MSG=\"Cut&split roll {menu.input|round(1)} deg (left/right tilt)\""
           ],
           "children": []
          },
@@ -8074,7 +8156,7 @@
           "input_step": "0.5",
           "gcode": [
            "SAVE_VARIABLE VARIABLE=cake_zoff VALUE={menu.input|round(1)}",
-           "RESPOND MSG=\"Cake plane at z {menu.input|round(1)} mm (bed center x/y)\""
+           "RESPOND MSG=\"Cut&split plane at z {menu.input|round(1)} mm (bed center x/y)\""
           ],
           "children": []
          },
@@ -8088,7 +8170,7 @@
           "input_step": "1",
           "gcode": [
            "SAVE_VARIABLE VARIABLE=cake_part VALUE=\"{menu.input == 0 and 'UPPER' or (menu.input == 1 and 'LOWER' or 'BOTH')}\"",
-           "RESPOND MSG=\"Cake part: {menu.input == 0 and 'UPPER only' or (menu.input == 1 and 'LOWER only' or 'BOTH halves')}\""
+           "RESPOND MSG=\"Cut&split part: {menu.input == 0 and 'UPPER only' or (menu.input == 1 and 'LOWER only' or 'BOTH halves')}\""
           ],
           "children": []
          },
@@ -14149,7 +14231,7 @@
           "type": "command",
           "name": "How it works",
           "gcode": [
-           "RESPOND MSG=\"File profiles: 'pre' = your manual saves (Pre-Print > Profiles > This file). 'post' = automatic after every successful print (pre-print + live tuning of that print). Selecting the file applies the NEWER one when auto-load is ON. Manual 'pre' saves are never overwritten.\""
+           "RESPOND MSG=\"How it works: File profiles: 'pre' = your manual saves (Pre-Print > Profiles > This file). 'post' = automatic after every successful print (pre-print + live tuning of that print). Selecting the file applies the NEWER one when auto-load is ON. Manual 'pre' saves are never overwritten.\""
           ],
           "children": []
          }
@@ -14360,9 +14442,7 @@
         "type": "command",
         "name": "How it works",
         "gcode": [
-         "RESPOND MSG=\"Gen files: every generator output, newest first - press a slot to SELECT that file (the start dialog catches it, nothing prints unasked)\"",
-         "RESPOND MSG=\"Names are V-number-first - the display cuts long names, the number at the front always stays visible. One number per output folder, never reused. Create rows need TWO presses since .120\"",
-         "RESPOND MSG=\"Delete file: press TWICE (first arms, second deletes). Versions auto-bump - a regeneration never overwrites an older V-number\""
+         "RESPOND MSG=\"How it works: Gen files: every generator output, newest first - press a slot to SELECT that file (the start dialog catches it, nothing prints unasked) | Names are V-number-first - the display cuts long names, the number at the front always stays visible. One number per output folder, never reused. Create rows need TWO presses since .120 | Delete file: press TWICE (first arms, second deletes). Versions auto-bump - a regeneration never overwrites an older V-number\""
         ],
         "children": []
        },
@@ -14966,11 +15046,7 @@
         "type": "command",
         "name": "How it works",
         "gcode": [
-         "RESPOND MSG=\"Cable ties: set Count/Length/Width/Layers, Create - the file appears in a few seconds and is selected\"",
-         "RESPOND MSG=\"Closure auto-scales with the width (head, slot, tooth/bead spacing) - CLASSIC = one-way pawl, LOOP = adjustable ball-loop\"",
-         "RESPOND MSG=\"All ties print as one project, every tie is an exclude object - skip a broken one live in the Objects menu\"",
-         "RESPOND MSG=\"PETG/TPU bends best - PLA only for gentle curves. Start the file like any other print\"",
-         "RESPOND MSG=\"Mainsail: GEN_CABLE_TIES COUNT=6 LENGTH=120 WIDTH=8 LAYERS=3 VARIANT=LOOP\""
+         "RESPOND MSG=\"How it works: Cable ties: set Count/Length/Width/Layers, Create - the file appears in a few seconds and is selected | Closure auto-scales with the width (head, slot, tooth/bead spacing) - CLASSIC = one-way pawl, LOOP = adjustable ball-loop | All ties print as one project, every tie is an exclude object - skip a broken one live in the Objects menu | PETG/TPU bends best - PLA only for gentle curves. Start the file like any other print | Mainsail: GEN_CABLE_TIES COUNT=6 LENGTH=120 WIDTH=8 LAYERS=3 VARIANT=LOOP\""
         ],
         "children": []
        },
@@ -15521,11 +15597,7 @@
         "type": "command",
         "name": "How it works",
         "gcode": [
-         "RESPOND MSG=\"Angles: Mode, then Settings (angle 30..170, legs, width, holes) - Create builds the file and selects it\"",
-         "RESPOND MSG=\"Flat splice: straight strip for two boards side by side - Left/Right = the two halves, SAME hole pattern on both\"",
-         "RESPOND MSG=\"Holes auto-arrange along the leg, the diameter clamps to the width and the count drops if the leg is too short (see result message)\"",
-         "RESPOND MSG=\"Countersink = flush flat-head screws. Rib = corner gusset for stiff angles. Every plate is an exclude object\"",
-         "RESPOND MSG=\"Mainsail: GEN_ANGLES ANGLE=90 LEG_A=60 LEG_B=60 WIDTH=25 HOLES=2 HOLE_D=4 CS=1 STIFFENER=1 FLAT=0\""
+         "RESPOND MSG=\"How it works: Angles: Mode, then Settings (angle 30..170, legs, width, holes) - Create builds the file and selects it | Flat splice: straight strip for two boards side by side - Left/Right = the two halves, SAME hole pattern on both | Holes auto-arrange along the leg, the diameter clamps to the width and the count drops if the leg is too short (see result message) | Countersink = flush flat-head screws. Rib = corner gusset for stiff angles. Every plate is an exclude object | Mainsail: GEN_ANGLES ANGLE=90 LEG_A=60 LEG_B=60 WIDTH=25 HOLES=2 HOLE_D=4 CS=1 STIFFENER=1 FLAT=0\""
         ],
         "children": []
        },
@@ -15775,6 +15847,216 @@
       ]
      },
      {
+      "id": "__main __gen __shape",
+      "type": "list",
+      "name": "Geometry",
+      "enable": "{'gcode_macro _GENERATORS' in printer}",
+      "children": [
+       {
+        "id": "__main __gen __shape __info",
+        "type": "command",
+        "name": "Info",
+        "gcode": [
+         "SHAPE_INFO"
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __gen __shape __kind",
+        "type": "list",
+        "name": "Shape: {printer['save_variables'].variables.shape_kind|default('CYLINDER')}",
+        "children": [
+         {
+          "id": "__main __gen __shape __kind __tri",
+          "type": "command",
+          "name": "Triangle{ '*' if printer['save_variables'].variables.shape_kind|default('') == 'TRIANGLE' else '' }",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=shape_kind VALUE='\"TRIANGLE\"'",
+           "RESPOND MSG=\"Geometry: triangle (equilateral in the X/Y box, one corner up)\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __shape __kind __sqr",
+          "type": "command",
+          "name": "Square/Rect{ '*' if printer['save_variables'].variables.shape_kind|default('') == 'SQUARE' else '' }",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=shape_kind VALUE='\"SQUARE\"'",
+           "RESPOND MSG=\"Geometry: square (X=Y) or rectangle (X/Y differ) - 90 deg corners\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __shape __kind __ply",
+          "type": "command",
+          "name": "Polygon{ '*' if printer['save_variables'].variables.shape_kind|default('') == 'POLY' else '' }",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=shape_kind VALUE='\"POLY\"'",
+           "RESPOND MSG=\"Geometry: regular polygon - set the corner count under Settings\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __shape __kind __cyl",
+          "type": "command",
+          "name": "Cylinder{ '*' if printer['save_variables'].variables.shape_kind|default('CYLINDER') == 'CYLINDER' else '' }",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=shape_kind VALUE='\"CYLINDER\"'",
+           "RESPOND MSG=\"Geometry: cylinder - corners 0 = round (48 segments), else a facet count (6 = hexagonal)\""
+          ],
+          "children": []
+         }
+        ]
+       },
+       {
+        "id": "__main __gen __shape __set",
+        "type": "list",
+        "name": "Settings",
+        "children": [
+         {
+          "id": "__main __gen __shape __set __sx",
+          "type": "input",
+          "name": "X: {'%3d' % menu.input|round(0)|int}mm",
+          "input": "{printer['save_variables'].variables.shape_size_x|default(40)}",
+          "input_min": "8",
+          "input_max": "200",
+          "input_step": "1",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=shape_size_x VALUE={menu.input|round(1)}"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __shape __set __sy",
+          "type": "input",
+          "name": "Y: {'%3d' % menu.input|round(0)|int}mm",
+          "input": "{printer['save_variables'].variables.shape_size_y|default(40)}",
+          "input_min": "8",
+          "input_max": "200",
+          "input_step": "1",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=shape_size_y VALUE={menu.input|round(1)}"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __shape __set __crn",
+          "type": "input",
+          "name": "{'Corners: %2d' % menu.input if printer['save_variables'].variables.shape_kind|default('CYLINDER') == 'POLY' else 'Segs: %2d' % menu.input}",
+          "enable": "{printer['save_variables'].variables.shape_kind|default('CYLINDER') in ['POLY', 'CYLINDER']}",
+          "input": "{printer['save_variables'].variables.shape_corners|default(0)}",
+          "input_min": "0",
+          "input_max": "64",
+          "input_step": "1",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=shape_corners VALUE={menu.input|round|int}"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __shape __set __hgt",
+          "type": "input",
+          "name": "Height: {'%3d' % menu.input|round(0)|int}mm",
+          "input": "{printer['save_variables'].variables.shape_height|default(20)}",
+          "input_min": "2",
+          "input_max": "180",
+          "input_step": "1",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=shape_height VALUE={menu.input|round(1)}"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __shape __set __wal",
+          "type": "input",
+          "name": "{'Walls: 1 VASE' if menu.input|round(0)|int == 1 else 'Walls: %2d' % menu.input|round(0)|int}",
+          "input": "{printer['save_variables'].variables.shape_walls|default(2)}",
+          "input_min": "1",
+          "input_max": "8",
+          "input_step": "1",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=shape_walls VALUE={menu.input|round|int}",
+           "RESPOND MSG=\"Geometry: { 'VASE mode - one continuous wall, the Z rises steadily, no top/infill (watertight)' if menu.input|round(0)|int == 1 else 'walls x line width = wall thickness' }\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __shape __set __wt",
+          "type": "input",
+          "name": "Wall t: {'%.1f' % menu.input}mm",
+          "input": "{printer['save_variables'].variables.shape_wall_thick|default(0)}",
+          "input_min": "0",
+          "input_max": "8",
+          "input_step": "0.1",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=shape_wall_thick VALUE={menu.input|float|round(2)}",
+           "RESPOND MSG=\"Geometry: thickness { 'off - the wall loop count rules' if menu.input|float < 0.05 else 'wins over the loop count (loops = thickness / line width)' }\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __shape __set __inf",
+          "type": "input",
+          "name": "Infill: {'%3d' % menu.input|round(0)|int}%",
+          "input": "{printer['save_variables'].variables.shape_infill|default(20)}",
+          "input_min": "0",
+          "input_max": "100",
+          "input_step": "5",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=shape_infill VALUE={menu.input|round(1)}"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __shape __set __bas",
+          "type": "input",
+          "name": "Base: {'%2d' % menu.input|round(0)|int}layers",
+          "input": "{printer['save_variables'].variables.shape_base|default(3)}",
+          "input_min": "0",
+          "input_max": "12",
+          "input_step": "1",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=shape_base VALUE={menu.input|round|int}"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __shape __set __lh",
+          "type": "input",
+          "name": "LH: {'%.2f' % menu.input}mm",
+          "input": "{printer['save_variables'].variables.shape_layer_h|default(0.2)}",
+          "input_min": "0.12",
+          "input_max": "0.32",
+          "input_step": "0.04",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=shape_layer_h VALUE={menu.input|float|round(2)}"
+          ],
+          "children": []
+         }
+        ]
+       },
+       {
+        "id": "__main __gen __shape __gen",
+        "type": "command",
+        "name": "{('> AGAIN = start' if printer['gcode_macro _STATE'].gen_arm|default('') == 'shapes' else '> Create')}",
+        "gcode": [
+         "{% if printer['gcode_macro _STATE'].gen_arm|default('') == 'shapes' %}{menu.exit()}{% endif %}",
+         "SHAPE_GENERATE CONFIRM=1"
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __gen __shape __how",
+        "type": "command",
+        "name": "How it works",
+        "gcode": [
+         "RESPOND MSG=\"How it works: Geometry: pick the shape, then Settings (X/Y, corners/segments for polygon+cylinder, height, walls, wall thickness, infill, base layers) - Create builds the file and selects it | Walls 1 = SPIRAL/VASE: solid floor, then ONE continuous wall with the Z rising per revolution - no top, no infill, watertight | Wall thickness (mm) overrides the loop count | Cylinder corners 0 = round (48 segments), 6 = hexagonal | Mainsail: GEN_SHAPE SHAPE=CYLINDER X=40 Y=40 HEIGHT=20 WALLS=2 INFILL=20 BASE=3\""
+        ],
+        "children": []
+       }
+      ]
+     },
+     {
       "id": "__main __gen __litho",
       "type": "list",
       "name": "Lithophane",
@@ -15795,10 +16077,38 @@
         "name": "Images (Create)",
         "children": [
          {
+          "id": "__main __gen __litho __img __pgi",
+          "type": "command",
+          "name": "{('Page ' ~ (printer['save_variables'].variables.litho_page|default(0)|int + 1) ~ '/' ~ ((((printer['save_variables'].variables.litho_total|default(0)|int - 1) // 10) + 1) if printer['save_variables'].variables.litho_total|default(0)|int > 0 else 1) ~ ' - ' ~ printer['save_variables'].variables.litho_total|default(0)|int ~ ' img')}",
+          "gcode": [
+           "RESPOND MSG=\"Images: newest first, 10 per page - the << / >> rows page through ALL .png/.jpg in the gcodes folder (up to 60). The list refreshes a moment after paging\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __litho __img __pgp",
+          "type": "command",
+          "name": "{'< page ' ~ (printer['save_variables'].variables.litho_page|default(0)|int) if printer['save_variables'].variables.litho_page|default(0)|int > 0 else '(first page)'}",
+          "enable": "{printer['save_variables'].variables.litho_page|default(0)|int > 0}",
+          "gcode": [
+           "_IMG_PAGE DELTA=-1"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __litho __img __pgn",
+          "type": "command",
+          "name": "{'page ' ~ (printer['save_variables'].variables.litho_page|default(0)|int + 2) ~ ' >>' if printer['save_variables'].variables.litho_page|default(0)|int < ((printer['save_variables'].variables.litho_total|default(0)|int - 1) // 10) else '(last page)'}",
+          "enable": "{printer['save_variables'].variables.litho_page|default(0)|int < ((printer['save_variables'].variables.litho_total|default(0)|int - 1) // 10)}",
+          "gcode": [
+           "_IMG_PAGE DELTA=1"
+          ],
+          "children": []
+         },
+         {
           "id": "__main __gen __litho __img __s0",
           "type": "command",
           "name": "{('1* ' ~ (printer['save_variables'].variables.litho_files|default([]))[0]|default('(empty)')|string|truncate(12, True)) if printer['gcode_macro _STATE'].gen_arm|default('') == 'litho0' else ('1 ' ~ (printer['save_variables'].variables.litho_files|default([]))[0]|default('(empty)')|string|truncate(13, True))}",
-          "enable": "{printer['save_variables'].variables.litho_files|default([])|length > 0}",
           "gcode": [
            "{% if printer['gcode_macro _STATE'].gen_arm|default('') == 'litho0' %}{menu.exit()}{% endif %}",
            "LITHO_CREATE INDEX=0 CONFIRM=1"
@@ -16317,11 +16627,7 @@
         "type": "command",
         "name": "How it works",
         "gcode": [
-         "RESPOND MSG=\"Litho: upload a .png/.jpg into the gcodes folder (drag+drop in Mainsail) - the Images list refreshes on its own, plotter uploads included\"",
-         "RESPOND MSG=\"Slot press = Create. The picture prints STANDING (layer lines run with the image), dark = thick, light = thin - white/natural PLA glows best\"",
-         "RESPOND MSG=\"Settings: Height scales the picture, Levels posterizes (0 = photo), Frame keeps it straight, Ironing smooths the light side\"",
-         "RESPOND MSG=\"The image is auto-optimized (contrast, smoothing, mirror). Deleting an image never touches its plotter .gcode\"",
-         "RESPOND MSG=\"Mainsail: LITHO_CREATE INDEX=0 (first image) - settings live in the litho_* save variables\""
+         "RESPOND MSG=\"How it works: Litho: upload a .png/.jpg into the gcodes folder (drag+drop in Mainsail) - the Images list refreshes on its own, plotter uploads included | Slot press = Create. The picture prints STANDING (layer lines run with the image), dark = thick, light = thin - white/natural PLA glows best | Settings: Height scales the picture, Levels posterizes (0 = photo), Frame keeps it straight, Ironing smooths the light side | The image is auto-optimized (contrast, smoothing, mirror). Deleting an image never touches its plotter .gcode | Mainsail: LITHO_CREATE INDEX=0 (first image) - settings live in the litho_* save variables\""
         ],
         "children": []
        },
@@ -16573,7 +16879,7 @@
      {
       "id": "__main __gen __cpic",
       "type": "list",
-      "name": "ColorPic",
+      "name": "ColorPicture",
       "enable": "{'gcode_macro _COLORPIC_SWAP' in printer}",
       "children": [
        {
@@ -16582,6 +16888,35 @@
         "name": "Images",
         "enable": "{printer['save_variables'].variables.litho_files|default([])|length > 0}",
         "children": [
+         {
+          "id": "__main __gen __cpic __img __pgi",
+          "type": "command",
+          "name": "{('Page ' ~ (printer['save_variables'].variables.litho_page|default(0)|int + 1) ~ '/' ~ ((((printer['save_variables'].variables.litho_total|default(0)|int - 1) // 10) + 1) if printer['save_variables'].variables.litho_total|default(0)|int > 0 else 1) ~ ' - ' ~ printer['save_variables'].variables.litho_total|default(0)|int ~ ' img')}",
+          "gcode": [
+           "RESPOND MSG=\"Images: newest first, 10 per page - the << / >> rows page through ALL .png/.jpg in the gcodes folder (up to 60). The list refreshes a moment after paging\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __cpic __img __pgp",
+          "type": "command",
+          "name": "{'< page ' ~ (printer['save_variables'].variables.litho_page|default(0)|int) if printer['save_variables'].variables.litho_page|default(0)|int > 0 else '(first page)'}",
+          "enable": "{printer['save_variables'].variables.litho_page|default(0)|int > 0}",
+          "gcode": [
+           "_IMG_PAGE DELTA=-1"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __cpic __img __pgn",
+          "type": "command",
+          "name": "{'page ' ~ (printer['save_variables'].variables.litho_page|default(0)|int + 2) ~ ' >>' if printer['save_variables'].variables.litho_page|default(0)|int < ((printer['save_variables'].variables.litho_total|default(0)|int - 1) // 10) else '(last page)'}",
+          "enable": "{printer['save_variables'].variables.litho_page|default(0)|int < ((printer['save_variables'].variables.litho_total|default(0)|int - 1) // 10)}",
+          "gcode": [
+           "_IMG_PAGE DELTA=1"
+          ],
+          "children": []
+         },
          {
           "id": "__main __gen __cpic __img __s0",
           "type": "command",
@@ -16708,7 +17043,7 @@
           "input_step": "5",
           "gcode": [
            "SAVE_VARIABLE VARIABLE=colorpic_width VALUE={menu.input|round|int}",
-           "RESPOND MSG=\"ColorPic width {menu.input|round|int}mm in the bed plane - the height follows the image aspect (clamped to the bed)\""
+           "RESPOND MSG=\"ColorPicture width {menu.input|round|int}mm in the bed plane - the height follows the image aspect (clamped to the bed)\""
           ],
           "children": []
          },
@@ -16722,7 +17057,7 @@
           "input_step": "1",
           "gcode": [
            "SAVE_VARIABLE VARIABLE=colorpic_bands VALUE={menu.input|round|int}",
-           "RESPOND MSG=\"ColorPic {menu.input|round|int} color band(s): lightest first, every band is a brightness step - M600 at every boundary (the nozzle LED blinks old->new while you swap)\""
+           "RESPOND MSG=\"ColorPicture {menu.input|round|int} color band(s): lightest first, every band is a brightness step - M600 at every boundary (the nozzle LED blinks old->new while you swap)\""
           ],
           "children": []
          },
@@ -16736,7 +17071,7 @@
           "input_step": "0.2",
           "gcode": [
            "SAVE_VARIABLE VARIABLE=colorpic_bandh VALUE={menu.input|float|round(1)}",
-           "RESPOND MSG=\"ColorPic band height {menu.input|float|round(1)}mm - total thickness = colors x band height ({printer['save_variables'].variables.colorpic_bands|default(4)|int} x {menu.input|float|round(1)} = {((printer['save_variables'].variables.colorpic_bands|default(4)|int) * (menu.input|float|round(1)))|round(1)}mm)\""
+           "RESPOND MSG=\"ColorPicture band height {menu.input|float|round(1)}mm - total thickness = colors x band height ({printer['save_variables'].variables.colorpic_bands|default(4)|int} x {menu.input|float|round(1)} = {((printer['save_variables'].variables.colorpic_bands|default(4)|int) * (menu.input|float|round(1)))|round(1)}mm)\""
           ],
           "children": []
          },
@@ -16763,7 +17098,7 @@
             "type": "command",
             "name": "Now: {printer['save_variables'].variables.colorpic_colors|default('auto')|string|truncate(13, True)}",
             "gcode": [
-             "RESPOND MSG=\"ColorPic colors (light -> dark): {printer['save_variables'].variables.colorpic_colors|default('auto by band count')} - empty/auto = the generator picks a fitting ramp\""
+             "RESPOND MSG=\"ColorPicture colors (light -> dark): {printer['save_variables'].variables.colorpic_colors|default('auto by band count')} - empty/auto = the generator picks a fitting ramp\""
             ],
             "children": []
            },
@@ -16913,7 +17248,7 @@
             "gcode": [
              "SAVE_VARIABLE VARIABLE=colorpic_colors VALUE='\"\"'",
              "M117 Colors: auto",
-             "RESPOND MSG=\"ColorPic colors back to AUTO - the generator picks a fitting light->dark ramp for the band count\""
+             "RESPOND MSG=\"ColorPicture colors back to AUTO - the generator picks a fitting light->dark ramp for the band count\""
             ],
             "children": []
            }
@@ -16925,7 +17260,7 @@
           "name": "Swap: {'ON' if printer['save_variables'].variables.colorpic_swap|default(True) else 'off'}",
           "gcode": [
            "SAVE_VARIABLE VARIABLE=colorpic_swap VALUE={not printer['save_variables'].variables.colorpic_swap|default(True)}",
-           "RESPOND MSG=\"ColorPic filament change {'ON - M600 at every band, purge tower included' if not printer['save_variables'].variables.colorpic_swap|default(True) else 'OFF - every band prints without a filament change (one color)'}\""
+           "RESPOND MSG=\"ColorPicture filament change {'ON - M600 at every band, purge tower included' if not printer['save_variables'].variables.colorpic_swap|default(True) else 'OFF - every band prints without a filament change (one color)'}\""
           ],
           "children": []
          },
@@ -16935,7 +17270,7 @@
           "name": "Contrast: {'ON' if printer['save_variables'].variables.colorpic_contrast|default(True) else 'off'}",
           "gcode": [
            "SAVE_VARIABLE VARIABLE=colorpic_contrast VALUE={not printer['save_variables'].variables.colorpic_contrast|default(True)}",
-           "RESPOND MSG=\"ColorPic contrast boost {'ON - band edges stand out (sketches, logos, text)' if not printer['save_variables'].variables.colorpic_contrast|default(True) else 'off - the raw gray values after the stretch'}\""
+           "RESPOND MSG=\"ColorPicture contrast boost {'ON - band edges stand out (sketches, logos, text)' if not printer['save_variables'].variables.colorpic_contrast|default(True) else 'off - the raw gray values after the stretch'}\""
           ],
           "children": []
          },
@@ -16969,11 +17304,7 @@
         "type": "command",
         "name": "How it works",
         "gcode": [
-         "RESPOND MSG=\"ColorPic: upload a .png/.jpg into the gcodes folder (drag+drop in Mainsail) - same image list as the lithophane, plotter uploads included\"",
-         "RESPOND MSG=\"Slot press = Create. The picture prints FLAT as stacked color bands: lightest color first, every darker band prints only its region on top - no backlight needed\"",
-         "RESPOND MSG=\"At every color change: M600 parks the head, M117 shows the color, the NOZZLE LED BLINKS from the old to the new color - load the filament, the purge strip cleans, resume\"",
-         "RESPOND MSG=\"Settings: Colors = band count, BandH = band thickness, Band colors = per-band palette code (light -> dark)\"",
-         "RESPOND MSG=\"Mainsail: GEN_COLORPIC SRC=photo.png WIDTH=120 BANDS=4 COLORS=WHT,GRY,BLK BANDH=0.8 - or COLORPIC_CREATE INDEX=0\""
+         "RESPOND MSG=\"How it works: ColorPicture: upload a .png/.jpg into the gcodes folder (drag+drop in Mainsail) - same image list as the lithophane, plotter uploads included | Slot press = Create. The picture prints FLAT as stacked color bands: lightest color first, every darker band prints only its region on top - no backlight needed | At every color change: M600 parks the head, M117 shows the color, the NOZZLE LED BLINKS from the old to the new color - load the filament, the purge strip cleans, resume | Settings: Colors = band count, BandH = band thickness, Band colors = per-band palette code (light -> dark) | Mainsail: GEN_COLORPIC SRC=photo.png WIDTH=120 BANDS=4 COLORS=WHT,GRY,BLK BANDH=0.8 - or COLORPIC_CREATE INDEX=0\""
         ],
         "children": []
        },
@@ -17248,6 +17579,29 @@
         "gcode": [
          "SAVE_VARIABLE VARIABLE=brick_count VALUE={menu.input|round|int}",
          "RESPOND MSG=\"Bricks: every catalog pick adds {menu.input|round|int} of that part (queue merges same codes)\""
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __gen __bricks __scl",
+        "type": "input",
+        "name": "Scale: {'%3d' % menu.input}%",
+        "input": "{printer['save_variables'].variables.brick_scale|default(100)}",
+        "input_min": "25",
+        "input_max": "300",
+        "input_step": "5",
+        "gcode": [
+         "SAVE_VARIABLE VARIABLE=brick_scale VALUE={menu.input|round|int}",
+         "RESPOND MSG=\"Bricks scale {menu.input|round|int} percent - a 4x2 prints {((31.8 * menu.input / 100)|round(2))} x {((15.8 * menu.input / 100)|round(2))}mm - wall loops {('+2 (300+)' if menu.input|round|int >= 300 else '+1 (200+)' if menu.input|round|int >= 200 else '2')}\""
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __gen __bricks __sz",
+        "type": "command",
+        "name": "{'4x2 now: ' ~ ((31.8 * printer['save_variables'].variables.brick_scale|default(100)|int / 100)|round(2)) ~ ' x ' ~ ((15.8 * printer['save_variables'].variables.brick_scale|default(100)|int / 100)|round(2)) ~ 'mm'}",
+        "gcode": [
+         "RESPOND MSG=\"Bricks scale: every dimension scales (studs, tubes, heights) - the wall GROWS by extra loops instead of a wider line: 200 percent = +1 loop, 300 = +2. Base 4x2 = 31.80 x 15.80mm\""
         ],
         "children": []
        },
@@ -18133,11 +18487,7 @@
         "type": "command",
         "name": "How it works",
         "gcode": [
-         "RESPOND MSG=\"Bricks: pick parts in Catalog (Count x code per pick, same codes merge, max 120 parts) - 76 codes in 8 families: bricks, plates, tiles, slopes, inverted slopes, arches, technic, round\"",
-         "RESPOND MSG=\"Exact geometry: body n*8-0.2mm (they clamp to each other AND to originals), hollow studs, underside tubes at every inner crossing - layer 1 solid, tubes open from layer 2\"",
-         "RESPOND MSG=\"Brim 0-8 loops per part (Settings), colors 1-8: BY_LAYER = one plate per color, BY_OBJECT = one plate + M600 at the boundaries - the layout is always CENTERED on the bed\"",
-         "RESPOND MSG=\"Every part is its own object - a failed brick can be excluded mid-print and reprinted later\"",
-         "RESPOND MSG=\"Mainsail: GEN_BRICKS CODES=\\\"B2x4:3|P2x2:2\\\" MODE=BY_LAYER COLORS=3 BRIM=2 (sets everything + creates)\""
+         "RESPOND MSG=\"How it works: Bricks: pick parts in Catalog (Count x code per pick, same codes merge, max 120 parts) - 76 codes in 8 families: bricks, plates, tiles, slopes, inverted slopes, arches, technic, round | Exact geometry: body n*8-0.2mm (they clamp to each other AND to originals), hollow studs, underside tubes at every inner crossing - layer 1 solid, tubes open from layer 2 | Brim 0-8 loops per part (Settings), colors 1-8: BY_LAYER = one plate per color, BY_OBJECT = one plate + M600 at the boundaries - the layout is always CENTERED on the bed | Every part is its own object - a failed brick can be excluded mid-print and reprinted later | Mainsail: GEN_BRICKS CODES=\\\"B2x4:3|P2x2:2\\\" MODE=BY_LAYER COLORS=3 BRIM=2 (sets everything + creates)\""
         ],
         "children": []
        },
@@ -18151,10 +18501,7 @@
           "type": "command",
           "name": "How it works",
           "gcode": [
-           "RESPOND MSG=\"Brick kit: a sliced job becomes a stylized kit - support, brim, skirt and towers never make it in\"",
-           "RESPOND MSG=\"Closed bodies become solid bricks, hollow bodies (vases, sparse infill) become ring walls - MICRO/SMALL = 9.6mm brick bands, BIG = 3.2mm plate bands\"",
-           "RESPOND MSG=\"BY_LAYER: one color per plate, the plate change IS the color change (zero M600) - BY_OBJECT: parts print one after another, M600 only at color boundaries\"",
-           "RESPOND MSG=\"Pick the file in the file list first - the kit is built from THAT file (Mainsail: SRC=box.gcode DETAIL=AUTO MODE=BY_LAYER COLORS=3, or INDEX=0..4 = recent jobs)\""
+           "RESPOND MSG=\"How it works: Brick kit: a sliced job becomes a stylized kit - support, brim, skirt and towers never make it in | Closed bodies become solid bricks, hollow bodies (vases, sparse infill) become ring walls - MICRO/SMALL = 9.6mm brick bands, BIG = 3.2mm plate bands | BY_LAYER: one color per plate, the plate change IS the color change (zero M600) - BY_OBJECT: parts print one after another, M600 only at color boundaries | Pick the file in the file list first - the kit is built from THAT file (Mainsail: SRC=box.gcode DETAIL=AUTO MODE=BY_LAYER COLORS=3, or INDEX=0..4 = recent jobs)\""
           ],
           "children": []
          },
@@ -18676,11 +19023,7 @@
           "type": "command",
           "name": "How it works",
           "gcode": [
-           "RESPOND MSG=\"Figures: classic proportions (head, torso with swinging arms, legs) - PARTS: 5 parts, assembly without glue / SINGLE: one fused piece that never comes apart\"",
-           "RESPOND MSG=\"Only 100% = original size mates with the system: hands grip O4.8 studs and axes, hats sit on the head stud, feet click onto studs - other scales are display figures\"",
-           "RESPOND MSG=\"The arm prints LYING - shoulder pivot + hand grip are real vertical through-tubes (R132). Brim 0-8, colors 1-4 (parts mode), BY_LAYER / BY_OBJECT - always centered\"",
-           "RESPOND MSG=\"Layer + Vers are shared with Bricks > Settings (Kit from file is next door)\"",
-           "RESPOND MSG=\"Mainsail: GEN_FIGURES SCALE=100 COUNT=2 MODE=PARTS COLORS=4 BRIM=2 (sets everything + creates)\""
+           "RESPOND MSG=\"How it works: Figures: classic proportions (head, torso with swinging arms, legs) - PARTS: 5 parts, assembly without glue / SINGLE: one fused piece that never comes apart | Only 100% = original size mates with the system: hands grip O4.8 studs and axes, hats sit on the head stud, feet click onto studs - other scales are display figures | The arm prints LYING - shoulder pivot + hand grip are real vertical through-tubes (R132). Brim 0-8, colors 1-4 (parts mode), BY_LAYER / BY_OBJECT - always centered | Layer + Vers are shared with Bricks > Settings (Kit from file is next door) | Mainsail: GEN_FIGURES SCALE=100 COUNT=2 MODE=PARTS COLORS=4 BRIM=2 (sets everything + creates)\""
           ],
           "children": []
          },
@@ -19300,10 +19643,7 @@
         "type": "command",
         "name": "How it works",
         "gcode": [
-         "RESPOND MSG=\"Gaskets: OD/ID/Height, Create - one continuous spiral per band (no seam), prints at 15mm/s\"",
-         "RESPOND MSG=\"NUT = groove + two sealing lips for uneven flanges (needs 2mm+ height - falls back to FLAT if too thin)\"",
-         "RESPOND MSG=\"Measure the sealing surface, not the pipe: OD/ID = the flange faces. TPU seals best, PETG works\"",
-         "RESPOND MSG=\"Mainsail: GEN_SEAL OD=40 ID=20 HEIGHT=1.2 PROFILE=FLAT IRONING=0\""
+         "RESPOND MSG=\"How it works: Gaskets: OD/ID/Height, Create - one continuous spiral per band (no seam), prints at 15mm/s | NUT = groove + two sealing lips for uneven flanges (needs 2mm+ height - falls back to FLAT if too thin) | Measure the sealing surface, not the pipe: OD/ID = the flange faces. TPU seals best, PETG works | Mainsail: GEN_SEAL OD=40 ID=20 HEIGHT=1.2 PROFILE=FLAT IRONING=0\""
         ],
         "children": []
        },
@@ -20155,10 +20495,7 @@
         "type": "command",
         "name": "How it works",
         "gcode": [
-         "RESPOND MSG=\"Frames: preset or custom W/H (photo size), border/depth/corner - depth under 15 = photo frame, 15+ = display case\"",
-         "RESPOND MSG=\"front UP + ironing - no room = 2 plates (A frame, B plate), kit only if the frame alone overflows\"",
-         "RESPOND MSG=\"BACK = snap-in backplate (press in, 4 wall nubs click over it) - SIDE = slide photo + plate in through the left slot - hang keyhole is in the plate\"",
-         "RESPOND MSG=\"Mainsail: GEN_FRAME PRESET=10x15 DEPTH=8 BORDER=12 SHAPE=RECT CLOSURE=BACK HANG=TOP STAND=1\""
+         "RESPOND MSG=\"How it works: Frames: preset or custom W/H (photo size), border/depth/corner - depth under 15 = photo frame, 15+ = display case | front UP + ironing - no room = 2 plates (A frame, B plate), kit only if the frame alone overflows | BACK = snap-in backplate (press in, 4 wall nubs click over it) - SIDE = slide photo + plate in through the left slot - hang keyhole is in the plate | Mainsail: GEN_FRAME PRESET=10x15 DEPTH=8 BORDER=12 SHAPE=RECT CLOSURE=BACK HANG=TOP STAND=1\""
         ],
         "children": []
        },
@@ -21924,12 +22261,7 @@
           "type": "command",
           "name": "How it works",
           "gcode": [
-           "RESPOND MSG=\"Labels: type up to 3 lines (Text > Line 1..3), add the label (Job > Add), repeat - Create builds the file\"",
-           "RESPOND MSG=\"Mode GROW: the label grows until the text fits (Size rules, W/H are minimums + Calc fit sets the lower limits) - Mode FIXED: label stays W/H, the font scales\"",
-           "RESPOND MSG=\"Fit (Job) = last result / re-calc. Calc fit (Settings) = dry run with the real numbers, no file written\"",
-           "RESPOND MSG=\"Print: bases in color 1, M600 pause (swap filament), text on top in color 2 + purge tower\"",
-           "RESPOND MSG=\"Hole sits 2mm from the edge, the text centers between the three free sides - they never collide\"",
-           "RESPOND MSG=\"Mainsail: GEN_LABELS TEXT=\\\"TOP~BOTTOM|A B\\\" W=60 H=30 SIZE=8 SPACING=1 HOLE=LEFT MODE=GROW\""
+           "RESPOND MSG=\"How it works: Labels: type up to 3 lines (Text > Line 1..3), add the label (Job > Add), repeat - Create builds the file | Mode GROW: the label grows until the text fits (Size rules, W/H are minimums + Calc fit sets the lower limits) - Mode FIXED: label stays W/H, the font scales | Fit (Job) = last result / re-calc. Calc fit (Settings) = dry run with the real numbers, no file written | Print: bases in color 1, M600 pause (swap filament), text on top in color 2 + purge tower | Hole sits 2mm from the edge, the text centers between the three free sides - they never collide | Mainsail: GEN_LABELS TEXT=\\\"TOP~BOTTOM|A B\\\" W=60 H=30 SIZE=8 SPACING=1 HOLE=LEFT MODE=GROW\""
           ],
           "children": []
          }
@@ -22486,10 +22818,7 @@
         "type": "command",
         "name": "How it works",
         "gcode": [
-         "RESPOND MSG=\"Upload an image as name.png.gcode (or drawing.svg.gcode) - the watcher converts it to pen g-code\"",
-         "RESPOND MSG=\"Options in the name: bild.c3.s035.png.gcode = 3 color shades, 0.35mm hatch (default c2/s040)\"",
-         "RESPOND MSG=\"Pen Z + speeds are baked in at conversion time (this menu). Print it with AS SLICED (1:1, no purge)\"",
-         "RESPOND MSG=\"Multi-color: the plot pauses (M0) at every pen change - swap the pen, then resume\""
+         "RESPOND MSG=\"How it works: Upload an image as name.png.gcode (or drawing.svg.gcode) - the watcher converts it to pen g-code | Options in the name: bild.c3.s035.png.gcode = 3 color shades, 0.35mm hatch (default c2/s040) | Pen Z + speeds are baked in at conversion time (this menu). Print it with AS SLICED (1:1, no purge) | Multi-color: the plot pauses (M0) at every pen change - swap the pen, then resume\""
         ],
         "children": []
        },
@@ -23395,9 +23724,7 @@
           "type": "command",
           "name": "How it works",
           "gcode": [
-           "RESPOND MSG=\"Upload a text file to the gcodes folder (Mainsail), type its name here WITHOUT .txt, then Plot this file\"",
-           "RESPOND MSG=\"Or in the console: PLOT_TEXT FILE=notes.txt - a name.txt.gcode upload converts itself\"",
-           "RESPOND MSG=\"The text auto-wraps and auto-shrinks to fit ONE page - umlauts print (they are hinted on the LCD only)\""
+           "RESPOND MSG=\"How it works: Upload a text file to the gcodes folder (Mainsail), type its name here WITHOUT .txt, then Plot this file | Or in the console: PLOT_TEXT FILE=notes.txt - a name.txt.gcode upload converts itself | The text auto-wraps and auto-shrinks to fit ONE page - umlauts print (they are hinted on the LCD only)\""
           ],
           "children": []
          }
@@ -23484,7 +23811,7 @@
           "type": "command",
           "name": "How it works",
           "gcode": [
-           "RESPOND MSG=\"These apply at every PLOT START (speed %, pen Z, X/Y shift) - the live versions are in Live Tuning > Plotter while a plot runs\""
+           "RESPOND MSG=\"How it works: These apply at every PLOT START (speed %, pen Z, X/Y shift) - the live versions are in Live Tuning > Plotter while a plot runs\""
           ],
           "children": []
          }
@@ -23750,7 +24077,7 @@
      {
       "id": "__main __gen __stringart",
       "type": "list",
-      "name": "String art",
+      "name": "ArtisticStrings",
       "enable": "{'gcode_macro _GENERATORS' in printer}",
       "children": [
        {
@@ -23763,7 +24090,7 @@
         "input_step": "1",
         "gcode": [
          "SAVE_VARIABLE VARIABLE=stringart_pattern VALUE={menu.input|round|int}",
-         "RESPOND MSG=\"String art pattern: {'PHOTO - a root image becomes the weave (dark = dense)' if menu.input|round|int == 1 else 'SPIRAL - the classic winding, no image needed'}\""
+         "RESPOND MSG=\"ArtisticStrings pattern: {'PHOTO - a root image becomes the weave (dark = dense)' if menu.input|round|int == 1 else 'SPIRAL - the classic winding, no image needed'}\""
         ],
         "children": []
        },
@@ -23777,7 +24104,161 @@
         "input_step": "10",
         "gcode": [
          "SAVE_VARIABLE VARIABLE=stringart_diameter VALUE={menu.input|round|int}",
-         "RESPOND MSG=\"String art ring diameter {menu.input|round|int}mm (clamped to the bed if bigger)\""
+         "RESPOND MSG=\"ArtisticStrings ring diameter {menu.input|round|int}mm (clamped to the bed if bigger)\""
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __gen __stringart __shp",
+        "type": "input",
+        "name": "{'Shape: RECT ' ~ (printer['save_variables'].variables.stringart_w|default(102)|round(0)|string ~ 'x' ~ printer['save_variables'].variables.stringart_h|default(152)|round(0)|string ~ 'mm') if menu.input|round|int == 1 else 'Shape: ROUND'}",
+        "input": "{printer['save_variables'].variables.stringart_shape|default(0)|int}",
+        "input_min": "0",
+        "input_max": "1",
+        "input_step": "1",
+        "gcode": [
+         "SAVE_VARIABLE VARIABLE=stringart_shape VALUE={menu.input|round|int}",
+         "RESPOND MSG=\"ArtisticStrings shape: {'RECT frame ring (photo presets below - fits the Frames system)' if menu.input|round|int == 1 else 'ROUND ring (the classic circle)'}\""
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __gen __stringart __pre",
+        "type": "list",
+        "name": "{'Preset: ' ~ printer['save_variables'].variables.stringart_preset|default('')|string if printer['save_variables'].variables.stringart_preset|default('')|string != '' else 'Preset: --'}",
+        "children": [
+         {
+          "id": "__main __gen __stringart __pre __p913",
+          "type": "command",
+          "name": "9x13 (90x130){ ' *' if printer['save_variables'].variables.stringart_preset|default('')|string == '9x13' else '' }",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=stringart_shape VALUE=1",
+           "SAVE_VARIABLE VARIABLE=stringart_w VALUE=90",
+           "SAVE_VARIABLE VARIABLE=stringart_h VALUE=130",
+           "SAVE_VARIABLE VARIABLE=stringart_preset VALUE='\"9x13\"'",
+           "RESPOND MSG=\"9x13 photo frame ring - 90x130mm (matches the Frames 9x13)\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __stringart __pre __p1015",
+          "type": "command",
+          "name": "10x15 (102x152){ ' *' if printer['save_variables'].variables.stringart_preset|default('')|string == '10x15' else '' }",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=stringart_shape VALUE=1",
+           "SAVE_VARIABLE VARIABLE=stringart_w VALUE=102",
+           "SAVE_VARIABLE VARIABLE=stringart_h VALUE=152",
+           "SAVE_VARIABLE VARIABLE=stringart_preset VALUE='\"10x15\"'",
+           "RESPOND MSG=\"10x15 photo frame ring - 102x152mm (matches the Frames 10x15)\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __stringart __pre __p1318",
+          "type": "command",
+          "name": "13x18 (130x180){ ' *' if printer['save_variables'].variables.stringart_preset|default('')|string == '13x18' else '' }",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=stringart_shape VALUE=1",
+           "SAVE_VARIABLE VARIABLE=stringart_w VALUE=130",
+           "SAVE_VARIABLE VARIABLE=stringart_h VALUE=180",
+           "SAVE_VARIABLE VARIABLE=stringart_preset VALUE='\"13x18\"'",
+           "RESPOND MSG=\"13x18 photo frame ring - 130x180mm (matches the Frames 13x18)\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __stringart __pre __p1520",
+          "type": "command",
+          "name": "15x20 (152x202){ ' *' if printer['save_variables'].variables.stringart_preset|default('')|string == '15x20' else '' }",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=stringart_shape VALUE=1",
+           "SAVE_VARIABLE VARIABLE=stringart_w VALUE=152",
+           "SAVE_VARIABLE VARIABLE=stringart_h VALUE=202",
+           "SAVE_VARIABLE VARIABLE=stringart_preset VALUE='\"15x20\"'",
+           "RESPOND MSG=\"15x20 photo frame ring - 152x202mm (matches the Frames 15x20)\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __stringart __pre __p1824",
+          "type": "command",
+          "name": "18x24 (180x240){ ' *' if printer['save_variables'].variables.stringart_preset|default('')|string == '18x24' else '' }",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=stringart_shape VALUE=1",
+           "SAVE_VARIABLE VARIABLE=stringart_w VALUE=180",
+           "SAVE_VARIABLE VARIABLE=stringart_h VALUE=240",
+           "SAVE_VARIABLE VARIABLE=stringart_preset VALUE='\"18x24\"'",
+           "RESPOND MSG=\"18x24 photo frame ring - 180x240mm (matches the Frames 18x24)\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __stringart __pre __off",
+          "type": "command",
+          "name": "Custom (W/H below)",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=stringart_preset VALUE='\"\"'",
+           "RESPOND MSG=\"Custom size - set W and H below (60..400mm, clamped to the bed)\""
+          ],
+          "children": []
+         }
+        ]
+       },
+       {
+        "id": "__main __gen __stringart __w",
+        "type": "input",
+        "name": "W: {menu.input|round(0)|int}mm",
+        "input": "{printer['save_variables'].variables.stringart_w|default(102)|int}",
+        "input_min": "60",
+        "input_max": "400",
+        "input_step": "2",
+        "gcode": [
+         "SAVE_VARIABLE VARIABLE=stringart_w VALUE={menu.input|round|int}",
+         "SAVE_VARIABLE VARIABLE=stringart_preset VALUE='\"\"'",
+         "RESPOND MSG=\"ArtisticStrings frame width {menu.input|round|int}mm (RECT only)\""
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __gen __stringart __h",
+        "type": "input",
+        "name": "H: {menu.input|round(0)|int}mm",
+        "input": "{printer['save_variables'].variables.stringart_h|default(152)|int}",
+        "input_min": "60",
+        "input_max": "400",
+        "input_step": "2",
+        "gcode": [
+         "SAVE_VARIABLE VARIABLE=stringart_h VALUE={menu.input|round|int}",
+         "SAVE_VARIABLE VARIABLE=stringart_preset VALUE='\"\"'",
+         "RESPOND MSG=\"ArtisticStrings frame height {menu.input|round|int}mm (RECT only)\""
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __gen __stringart __rh",
+        "type": "input",
+        "name": "RingH: {menu.input|round(1)|string}mm",
+        "input": "{printer['save_variables'].variables.stringart_ringh|default(2.4)|float}",
+        "input_min": "1.2",
+        "input_max": "6.0",
+        "input_step": "0.2",
+        "gcode": [
+         "SAVE_VARIABLE VARIABLE=stringart_ringh VALUE={menu.input|round(1)}",
+         "RESPOND MSG=\"ArtisticStrings ring height {menu.input|round(1)}mm - 2 walls every layer, 3 solid bottom + 3 solid top + 5% sparse between\""
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __gen __stringart __arc",
+        "type": "input",
+        "name": "Bow: {menu.input|round(1)|string}mm",
+        "input": "{printer['save_variables'].variables.stringart_arc|default(2.0)|float}",
+        "input_min": "0",
+        "input_max": "4.0",
+        "input_step": "0.5",
+        "gcode": [
+         "SAVE_VARIABLE VARIABLE=stringart_arc VALUE={menu.input|round(1)}",
+         "RESPOND MSG=\"ArtisticStrings strand bow {menu.input|round(1)}mm in Z (0 = flat) - the nozzle never drags through the strands laid before\""
         ],
         "children": []
        },
@@ -23791,7 +24272,7 @@
         "input_step": "12",
         "gcode": [
          "SAVE_VARIABLE VARIABLE=stringart_anchors VALUE={menu.input|round|int}",
-         "RESPOND MSG=\"String art anchors {menu.input|round|int} - the nails on the ring (field proof: 600 on 180mm)\""
+         "RESPOND MSG=\"ArtisticStrings anchors {menu.input|round|int} - the nails on the ring (field proof: 600 on 180mm)\""
         ],
         "children": []
        },
@@ -23805,25 +24286,152 @@
         "input_step": "50",
         "gcode": [
          "SAVE_VARIABLE VARIABLE=stringart_lines VALUE={menu.input|round|int}",
-         "RESPOND MSG=\"String art strands {menu.input|round|int} - more strands = finer shading (PHOTO), fuller spiral (SPIRAL)\""
+         "RESPOND MSG=\"ArtisticStrings strands {menu.input|round|int} - more strands = finer shading (PHOTO), fuller spiral (SPIRAL)\""
         ],
         "children": []
        },
        {
         "id": "__main __gen __stringart __img",
-        "type": "command",
-        "name": "{'Img: ' ~ printer['save_variables'].variables.stringart_src|default('')|string|truncate(11, True) if printer['save_variables'].variables.stringart_src|default('')|string != '' else 'Img: (pick)'}",
-        "gcode": [
-         "STRINGART_IMG"
-        ],
-        "children": []
+        "type": "list",
+        "name": "{'Img: ' ~ printer['save_variables'].variables.stringart_src|default('')|string|truncate(11, True) if printer['save_variables'].variables.stringart_src|default('')|string != '' else 'Images'}",
+        "children": [
+         {
+          "id": "__main __gen __stringart __img __pgi",
+          "type": "command",
+          "name": "{('Page ' ~ (printer['save_variables'].variables.litho_page|default(0)|int + 1) ~ '/' ~ ((((printer['save_variables'].variables.litho_total|default(0)|int - 1) // 10) + 1) if printer['save_variables'].variables.litho_total|default(0)|int > 0 else 1) ~ ' - ' ~ printer['save_variables'].variables.litho_total|default(0)|int ~ ' img')}",
+          "gcode": [
+           "RESPOND MSG=\"Images: newest first, 10 per page - the << / >> rows page through ALL .png/.jpg in the gcodes folder (up to 60). The list refreshes a moment after paging\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __stringart __img __pgp",
+          "type": "command",
+          "name": "{'< page ' ~ (printer['save_variables'].variables.litho_page|default(0)|int) if printer['save_variables'].variables.litho_page|default(0)|int > 0 else '(first page)'}",
+          "enable": "{printer['save_variables'].variables.litho_page|default(0)|int > 0}",
+          "gcode": [
+           "_IMG_PAGE DELTA=-1"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __stringart __img __pgn",
+          "type": "command",
+          "name": "{'page ' ~ (printer['save_variables'].variables.litho_page|default(0)|int + 2) ~ ' >>' if printer['save_variables'].variables.litho_page|default(0)|int < ((printer['save_variables'].variables.litho_total|default(0)|int - 1) // 10) else '(last page)'}",
+          "enable": "{printer['save_variables'].variables.litho_page|default(0)|int < ((printer['save_variables'].variables.litho_total|default(0)|int - 1) // 10)}",
+          "gcode": [
+           "_IMG_PAGE DELTA=1"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __stringart __img __s0",
+          "type": "command",
+          "name": "{('1 ' ~ (printer['save_variables'].variables.litho_files|default([]))[0]|default('(empty)')|string|truncate(11, True)) ~ ' *' if printer['save_variables'].variables.litho_files|default([])|length > 0 and printer['save_variables'].variables.stringart_src|default('')|string == (printer['save_variables'].variables.litho_files|default([]))[0]|default('')|string else ('1 ' ~ (printer['save_variables'].variables.litho_files|default([]))[0]|default('(empty)')|string|truncate(13, True))}",
+          "enable": "{printer['save_variables'].variables.litho_files|default([])|length > 0}",
+          "gcode": [
+           "STRINGART_PICK INDEX=0"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __stringart __img __s1",
+          "type": "command",
+          "name": "{('2 ' ~ (printer['save_variables'].variables.litho_files|default([]))[1]|default('(empty)')|string|truncate(11, True)) ~ ' *' if printer['save_variables'].variables.litho_files|default([])|length > 1 and printer['save_variables'].variables.stringart_src|default('')|string == (printer['save_variables'].variables.litho_files|default([]))[1]|default('')|string else ('2 ' ~ (printer['save_variables'].variables.litho_files|default([]))[1]|default('(empty)')|string|truncate(13, True))}",
+          "enable": "{printer['save_variables'].variables.litho_files|default([])|length > 1}",
+          "gcode": [
+           "STRINGART_PICK INDEX=1"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __stringart __img __s2",
+          "type": "command",
+          "name": "{('3 ' ~ (printer['save_variables'].variables.litho_files|default([]))[2]|default('(empty)')|string|truncate(11, True)) ~ ' *' if printer['save_variables'].variables.litho_files|default([])|length > 2 and printer['save_variables'].variables.stringart_src|default('')|string == (printer['save_variables'].variables.litho_files|default([]))[2]|default('')|string else ('3 ' ~ (printer['save_variables'].variables.litho_files|default([]))[2]|default('(empty)')|string|truncate(13, True))}",
+          "enable": "{printer['save_variables'].variables.litho_files|default([])|length > 2}",
+          "gcode": [
+           "STRINGART_PICK INDEX=2"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __stringart __img __s3",
+          "type": "command",
+          "name": "{('4 ' ~ (printer['save_variables'].variables.litho_files|default([]))[3]|default('(empty)')|string|truncate(11, True)) ~ ' *' if printer['save_variables'].variables.litho_files|default([])|length > 3 and printer['save_variables'].variables.stringart_src|default('')|string == (printer['save_variables'].variables.litho_files|default([]))[3]|default('')|string else ('4 ' ~ (printer['save_variables'].variables.litho_files|default([]))[3]|default('(empty)')|string|truncate(13, True))}",
+          "enable": "{printer['save_variables'].variables.litho_files|default([])|length > 3}",
+          "gcode": [
+           "STRINGART_PICK INDEX=3"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __stringart __img __s4",
+          "type": "command",
+          "name": "{('5 ' ~ (printer['save_variables'].variables.litho_files|default([]))[4]|default('(empty)')|string|truncate(11, True)) ~ ' *' if printer['save_variables'].variables.litho_files|default([])|length > 4 and printer['save_variables'].variables.stringart_src|default('')|string == (printer['save_variables'].variables.litho_files|default([]))[4]|default('')|string else ('5 ' ~ (printer['save_variables'].variables.litho_files|default([]))[4]|default('(empty)')|string|truncate(13, True))}",
+          "enable": "{printer['save_variables'].variables.litho_files|default([])|length > 4}",
+          "gcode": [
+           "STRINGART_PICK INDEX=4"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __stringart __img __s5",
+          "type": "command",
+          "name": "{('6 ' ~ (printer['save_variables'].variables.litho_files|default([]))[5]|default('(empty)')|string|truncate(11, True)) ~ ' *' if printer['save_variables'].variables.litho_files|default([])|length > 5 and printer['save_variables'].variables.stringart_src|default('')|string == (printer['save_variables'].variables.litho_files|default([]))[5]|default('')|string else ('6 ' ~ (printer['save_variables'].variables.litho_files|default([]))[5]|default('(empty)')|string|truncate(13, True))}",
+          "enable": "{printer['save_variables'].variables.litho_files|default([])|length > 5}",
+          "gcode": [
+           "STRINGART_PICK INDEX=5"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __stringart __img __s6",
+          "type": "command",
+          "name": "{('7 ' ~ (printer['save_variables'].variables.litho_files|default([]))[6]|default('(empty)')|string|truncate(11, True)) ~ ' *' if printer['save_variables'].variables.litho_files|default([])|length > 6 and printer['save_variables'].variables.stringart_src|default('')|string == (printer['save_variables'].variables.litho_files|default([]))[6]|default('')|string else ('7 ' ~ (printer['save_variables'].variables.litho_files|default([]))[6]|default('(empty)')|string|truncate(13, True))}",
+          "enable": "{printer['save_variables'].variables.litho_files|default([])|length > 6}",
+          "gcode": [
+           "STRINGART_PICK INDEX=6"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __stringart __img __s7",
+          "type": "command",
+          "name": "{('8 ' ~ (printer['save_variables'].variables.litho_files|default([]))[7]|default('(empty)')|string|truncate(11, True)) ~ ' *' if printer['save_variables'].variables.litho_files|default([])|length > 7 and printer['save_variables'].variables.stringart_src|default('')|string == (printer['save_variables'].variables.litho_files|default([]))[7]|default('')|string else ('8 ' ~ (printer['save_variables'].variables.litho_files|default([]))[7]|default('(empty)')|string|truncate(13, True))}",
+          "enable": "{printer['save_variables'].variables.litho_files|default([])|length > 7}",
+          "gcode": [
+           "STRINGART_PICK INDEX=7"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __stringart __img __s8",
+          "type": "command",
+          "name": "{('9 ' ~ (printer['save_variables'].variables.litho_files|default([]))[8]|default('(empty)')|string|truncate(11, True)) ~ ' *' if printer['save_variables'].variables.litho_files|default([])|length > 8 and printer['save_variables'].variables.stringart_src|default('')|string == (printer['save_variables'].variables.litho_files|default([]))[8]|default('')|string else ('9 ' ~ (printer['save_variables'].variables.litho_files|default([]))[8]|default('(empty)')|string|truncate(13, True))}",
+          "enable": "{printer['save_variables'].variables.litho_files|default([])|length > 8}",
+          "gcode": [
+           "STRINGART_PICK INDEX=8"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __stringart __img __s9",
+          "type": "command",
+          "name": "{('10 ' ~ (printer['save_variables'].variables.litho_files|default([]))[9]|default('(empty)')|string|truncate(11, True)) ~ ' *' if printer['save_variables'].variables.litho_files|default([])|length > 9 and printer['save_variables'].variables.stringart_src|default('')|string == (printer['save_variables'].variables.litho_files|default([]))[9]|default('')|string else ('10 ' ~ (printer['save_variables'].variables.litho_files|default([]))[9]|default('(empty)')|string|truncate(13, True))}",
+          "enable": "{printer['save_variables'].variables.litho_files|default([])|length > 9}",
+          "gcode": [
+           "STRINGART_PICK INDEX=9"
+          ],
+          "children": []
+         }
+        ]
        },
        {
         "id": "__main __gen __stringart __how",
         "type": "command",
         "name": "How does it work?",
         "gcode": [
-         "RESPOND MSG=\"String art: an anchor ring (2 walls + solid, ~2.4mm) prints first, then thin strands shoot from anchor to anchor in six Z bands above it - crossings fuse, later bands clear the earlier ones. SPIRAL winds classically (no image), PHOTO weaves a picture: dark areas get dense threads. Print SLOW, fan as the file says, no ironing.\""
+         "RESPOND MSG=\"ArtisticStrings: an anchor ring prints first (2 walls every layer, 3 solid bottom + 3 solid top + 5% sparse between), then thin strands shoot from anchor to anchor in six Z bands - each strand as a bow in Z (default 2mm), pull direction alternating, consecutive starts 15 deg apart. ROUND ring or RECT frame (photo presets 9x13..18x24 - fits the Frames system). SPIRAL winds classically (no image), PHOTO weaves a picture: dark = dense threads. Print SLOW, fan as the file says, no ironing.\""
         ],
         "children": []
        },
@@ -24123,10 +24731,7 @@
       "type": "command",
       "name": "How it works",
       "gcode": [
-       "RESPOND MSG=\"SD Card: the G-Codes root + every folder at EVERY depth - root: folders first (marked >), then files A-Z. Inside a folder the NEWEST file is on top. 40 per page, '.. up' leaves a folder, page +/- flips long folders\"",
-       "RESPOND MSG=\"The list refreshes LIVE - page and folder changes show up immediately. Rows showing a single dot are free slots (the folder has fewer files than the page)\"",
-       "RESPOND MSG=\"The .gcode tail is hidden to give the name 6 more characters. Generated files show their running number first (V-number) - two files never look alike\"",
-       "RESPOND MSG=\"A file press = the usual start dialog (AS SLICED / AS LEGACY). Images and text pick the PLOTTER flow. The list builds right after boot (takes a minute, retries automatically) - Mainsail shows the same folders anytime\""
+       "RESPOND MSG=\"How it works: SD Card: the G-Codes root + every folder at EVERY depth - root: folders first (marked >), then files A-Z. Inside a folder the NEWEST file is on top. 40 per page, '.. up' leaves a folder, page +/- flips long folders | The list refreshes LIVE - page and folder changes show up immediately. Rows showing a single dot are free slots (the folder has fewer files than the page) | The .gcode tail is hidden to give the name 6 more characters. Generated files show their running number first (V-number) - two files never look alike | A file press = the usual start dialog (AS SLICED / AS LEGACY). Images and text pick the PLOTTER flow. The list builds right after boot (takes a minute, retries automatically) - Mainsail shows the same folders anytime\""
       ],
       "children": []
      },
@@ -24631,12 +25236,72 @@
       "children": [
        {
         "id": "__main __maint __level __screws",
-        "type": "command",
+        "type": "list",
         "name": "Bed screws",
-        "gcode": [
-         "LEVEL_BED_SCREWS"
-        ],
-        "children": []
+        "children": [
+         {
+          "id": "__main __maint __level __screws __head",
+          "type": "command",
+          "name": "{ printer['gcode_macro _BED_SCREWS_UI'].head|default('not running') }",
+          "children": []
+         },
+         {
+          "id": "__main __maint __level __screws __cur",
+          "type": "command",
+          "name": "{ printer['gcode_macro _BED_SCREWS_UI'].cur|default('Start below') }",
+          "children": []
+         },
+         {
+          "id": "__main __maint __level __screws __start",
+          "type": "command",
+          "name": "Start (measure all)",
+          "enable": "{ printer['gcode_macro _BED_SCREWS_UI'].running|default(0)|int == 0 }",
+          "gcode": [
+           "BED_SCREWS_START"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __maint __level __screws __next",
+          "type": "command",
+          "name": "Next screw >",
+          "enable": "{ printer['gcode_macro _BED_SCREWS_UI'].running|default(0)|int == 1 }",
+          "gcode": [
+           "BED_SCREWS_NEXT"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __maint __level __screws __round",
+          "type": "command",
+          "name": "New round (measure)",
+          "enable": "{ printer['gcode_macro _BED_SCREWS_UI'].running|default(0)|int == 1 }",
+          "gcode": [
+           "BED_SCREWS_ROUND"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __maint __level __screws __done",
+          "type": "command",
+          "name": "Finish / take over",
+          "enable": "{ printer['gcode_macro _BED_SCREWS_UI'].running|default(0)|int == 1 }",
+          "gcode": [
+           "BED_SCREWS_DONE"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __maint __level __screws __cancel",
+          "type": "command",
+          "name": "Cancel",
+          "enable": "{ printer['gcode_macro _BED_SCREWS_UI'].running|default(0)|int == 1 }",
+          "gcode": [
+           "BED_SCREWS_CANCEL"
+          ],
+          "children": []
+         }
+        ]
        },
        {
         "id": "__main __maint __level __zoff",
@@ -25514,6 +26179,29 @@
         "children": []
        },
        {
+        "id": "__main __maint __pa __pat",
+        "type": "command",
+        "name": "Pattern: {printer['save_variables'].variables.pa_cal_pattern|default('LINES')}",
+        "gcode": [
+         "{% set cur = printer['save_variables'].variables.pa_cal_pattern|default('LINES') %}",
+         "SAVE_VARIABLE VARIABLE=pa_cal_pattern VALUE='\"{ 'ANGLE' if cur != 'ANGLE' else 'LINES' }\"'"
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __maint __pa __base",
+        "type": "input",
+        "name": "Base: {menu.input|round(0)|int} layers",
+        "input": "{printer['save_variables'].variables.pa_cal_base|default(3)}",
+        "input_min": "0",
+        "input_max": "10",
+        "input_step": "1",
+        "gcode": [
+         "SAVE_VARIABLE VARIABLE=pa_cal_base VALUE={menu.input|round(0)|int}"
+        ],
+        "children": []
+       },
+       {
         "id": "__main __maint __pa __layer",
         "type": "input",
         "name": "Layer: {'%.2f'|format(menu.input)}mm",
@@ -25684,7 +26372,7 @@
           "type": "command",
           "name": "How it works",
           "gcode": [
-           "RESPOND MSG=\"Smooth cal: 1) run the PA test + pick the best line, 2) start the SMOOTH test (uses YOUR PA - editable below), 3) pick the best line -> smooth time is calculated + applied everywhere\""
+           "RESPOND MSG=\"How it works: Smooth cal: 1) run the PA test + pick the best line, 2) start the SMOOTH test (uses YOUR PA - editable below), 3) pick the best line -> smooth time is calculated + applied everywhere\""
           ],
           "children": []
          },
@@ -25970,8 +26658,7 @@
         "type": "command",
         "name": "How it works",
         "gcode": [
-         "RESPOND MSG=\"Two masts: retract length rises block by block (slicer-style G1 E- retracts)\"",
-         "RESPOND MSG=\"Cleanest masts / least stringing wins -> 'Best' sets the retract override ON\""
+         "RESPOND MSG=\"How it works: Two masts: retract length rises block by block (slicer-style G1 E- retracts) | Cleanest masts / least stringing wins -> 'Best' sets the retract override ON\""
         ],
         "children": []
        }
@@ -26111,10 +26798,7 @@
         "type": "command",
         "name": "How it works",
         "gcode": [
-         "RESPOND MSG=\"Bridging test: two towers diagonally + a SHORT bridge (10-50% of the long one) BELOW it on its own lower tower\"",
-         "RESPOND MSG=\"Create the file, start it like any print (mesh + purge + temps). Watch the sag of both bridges from the side\"",
-         "RESPOND MSG=\"Live while printing: Live Tuning > Features > BRIDGE (speed %), fan, flow - better bridges often = faster + more fan\"",
-         "RESPOND MSG=\"Then fine tune in the slicer: bridge speed, bridge flow, bridge fan - and re-test\""
+         "RESPOND MSG=\"How it works: Bridging test: two towers diagonally + a SHORT bridge (10-50% of the long one) BELOW it on its own lower tower | Create the file, start it like any print (mesh + purge + temps). Watch the sag of both bridges from the side | Live while printing: Live Tuning > Features > BRIDGE (speed %), fan, flow - better bridges often = faster + more fan | Then fine tune in the slicer: bridge speed, bridge flow, bridge fan - and re-test\""
         ],
         "children": []
        }
@@ -26192,8 +26876,7 @@
         "type": "command",
         "name": "How it works",
         "gcode": [
-         "RESPOND MSG=\"CARDS cards (F10/S20 .. F20/S40 default), each on BASE base layers, ironing on top\"",
-         "RESPOND MSG=\"Card 4-6 zones via console (F4/S4..), sizes auto-fit. Best -> ironing overrides ON\""
+         "RESPOND MSG=\"How it works: CARDS cards (F10/S20 .. F20/S40 default), each on BASE base layers, ironing on top | Card 4-6 zones via console (F4/S4..), sizes auto-fit. Best -> ironing overrides ON\""
         ],
         "children": []
        }
@@ -26747,7 +27430,7 @@
         "type": "command",
         "name": "How it works",
         "gcode": [
-         "RESPOND MSG=\"File check lists every g-code with its tag version: current (all markers), old (upgradeable), untouched (never processed), plotter (fine as is). RETAG upgrades old+untouched files - backup .r2bak first, never while printing, max 20 per run\""
+         "RESPOND MSG=\"How it works: File check lists every g-code with its tag version: current (all markers), old (upgradeable), untouched (never processed), plotter (fine as is). RETAG upgrades old+untouched files - backup .r2bak first, never while printing, max 20 per run\""
         ],
         "children": []
        },
@@ -26912,7 +27595,9 @@
       "id": "__main __system __sounds",
       "type": "command",
       "name": "Sounds: {('ON' if printer['save_variables'].variables.sound_on|default(True) else 'OFF')}",
-      "description": "Version sentinel of menus/lcd_menues.cfg (internal)",
+      "gcode": [
+       "TOGGLE_SOUNDS"
+      ],
       "children": []
      }
     ]

@@ -52,6 +52,17 @@ def parse_menu_cfg(path):
                     sections.append(cur)
                     last_key = None
                     continue
+                # R216 (.136n field report: web 'Sounds' toggle dead): a
+                # NON-menu section ([gcode_macro ...], [neopixel ...]) is a
+                # hard boundary - its keys belong to IT, never to the menu
+                # section above. The old parser kept 'cur' alive and the
+                # sentinel macro's empty 'gcode:' OVERWROTE the Sounds
+                # menu's 'gcode: TOGGLE_SOUNDS' (the export lost it, the
+                # web Send button stayed disabled, the LCD was fine).
+                if line.strip().startswith('[') and line.strip().endswith(']'):
+                    cur = None
+                    last_key = None
+                    continue
             if cur is None:
                 continue
             if line[:1] not in (' ', '\t'):

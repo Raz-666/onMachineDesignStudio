@@ -272,8 +272,9 @@ for fn, txt in MAC.items():
 w = MAC['08_print_start_stop.cfg']
 ck('D2 idle floor', '{% if t <= 0 %}\n        {% set t = 3600 %}'
    in w or 'set t = 3600' in w)
-# R133: 6 armed fixes now (retract/vol/flowcap/travel/travelacc/segments)
-ck('D2 fix_reselect armed', w.count("fix_reselect VALUE='\"{fn}\"'") == 6,
+# R133: 6 armed fixes (retract/vol/flowcap/travel/travelacc/segments)
+# R216 (.136n quality/speed round): + QUALITY + SPEED -> 8 arms
+ck('D2 fix_reselect armed', w.count("fix_reselect VALUE='\"{fn}\"'") == 8,
    w.count("fix_reselect VALUE='\"{fn}\"'"))
 ck('D2 FIX_FILE no cancel-release',
    "VARIABLE=start_decision VALUE='\"cancel\"'" not in w)

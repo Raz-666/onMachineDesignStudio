@@ -31,6 +31,24 @@
 #                                     klippy is down - raw view then.
 #    POST /server/r2_menu/refresh  -> re-run tools/menu_json_export.py
 #                                     (if the tool exists on this host)
+#    GET /server/r2_menu/pistats   -> R216 (.136n): CPU load + RAM + temp
+#                                     of the Pi (read from /proc + sysfs,
+#                                     NEVER via klippy - the MCU never
+#                                     hears about it). CPU load is a real
+#                                     /proc/stat delta (0.25 s window),
+#                                     cached 30 s so several open tabs
+#                                     share one measurement.
+#    GET /server/r2_menu/klippylog?window=3h|day|boot|all
+#                                  -> R216 (.136n): klippy.log as JSON
+#                                     {ok, text, lines, window} - the page
+#                                     turns it into a .txt download. The
+#                                     windows: 3h = last three hours,
+#                                     day = since midnight, boot = since
+#                                     the last Pi boot (/proc/uptime),
+#                                     all = the whole log. Tail cap 4000
+#                                     lines so a huge log cannot block.
+#                                     config: log_path (default
+#                                     ~/printer_data/logs/klippy.log).
 #
 #  WHY THIS SHAPE (the .135 web-UI recommendation, see DISPLAYS_DRUCKER_TESTS
 #  section B): the LCD menu (menus/lcd_menues.cfg, 1.910 render tests) stays
@@ -75,6 +93,10 @@ class R2MenuComponent:
             config.get('path', MENU_PATH_DEFAULT))
         self.tool = os.path.expanduser(
             config.get('export_tool', EXPORT_TOOL_DEFAULT))
+        self.log_path = os.path.expanduser(
+            config.get('log_path', '~/printer_data/logs/klippy.log'))
+        self._pi_cache = None          # R216: 30 s CPU/RAM cache
+        self._pi_t = 0.0
         self.lock = asyncio.Lock()
         self.doc = None
         self.last_mtime = 0.0
@@ -92,8 +114,18 @@ class R2MenuComponent:
         self.server.register_endpoint(
             '/server/r2_menu/refresh', ['POST'],
             self._handle_refresh)
+        self.server.register_endpoint(          # R216 (.136n)
+            '/server/r2_menu/pistats', ['GET'],
+            self._handle_pistats)
+        self.server.register_endpoint(          # R216 (.136n)
+            '/server/r2_menu/klippylog', ['GET'],
+            self._handle_klippylog)
         self.server.register_remote_method('r2_menu_refresh', None)
-        self.server.add_log_rollback_handler(self._handle_shutdown)
+        # R216 field fix (.136n): add_log_rollback_handler does NOT exist
+        # in this moonraker build - the call killed the whole component at
+        # load time ('Unable to load component: (r2_menu)', the machine
+        # panel endpoints never registered). The handler was a dead
+        # pass-stub anyway: nothing to roll back, so nothing to register.
 
     async def _ensure_loaded(self):
         async with self.lock:
@@ -301,8 +333,138 @@ class R2MenuComponent:
                 'output': (out.decode(errors='replace')
                            if isinstance(out, bytes) else '').strip()}
 
-    def _handle_shutdown(self):
-        pass
+    async def _handle_pistats(self, web_request):
+        """R216 (.136n): Pi CPU/RAM/temp for the web console live strip.
+
+        Reads /proc/stat (a REAL delta over 0.25 s, not the meaningless
+        lifetime average), /proc/meminfo and sysfs thermal - all host
+        files, nothing goes through klippy, so the MCU load is exactly
+        zero. Cached 30 s: the page polls once a minute and several tabs
+        share one measurement. The measurement runs in a worker thread -
+        the 0.25 s sleep never blocks moonraker's loop."""
+        import time as _t
+        if self._pi_cache is not None and _t.monotonic() - self._pi_t < 30:
+            return self._pi_cache
+        out = await self.server.event_loop.run_in_thread(self._pi_measure)
+        self._pi_cache = out
+        self._pi_t = _t.monotonic()
+        return out
+
+    def _pi_measure(self):
+
+        def _read_cpu_ticks():
+            with open('/proc/stat', 'r') as f:
+                parts = f.readline().split()[1:5]
+            vals = [int(x) for x in parts]
+            return sum(vals), vals[3]
+
+        import time as _t
+        cpu = None
+        try:
+            total1, idle1 = _read_cpu_ticks()
+            _t.sleep(0.25)
+            total2, idle2 = _read_cpu_ticks()
+            dt, di = total2 - total1, idle2 - idle1
+            if dt > 0:
+                cpu = max(0.0, min(100.0, 100.0 * (1.0 - di / dt)))
+        except Exception:                                       # noqa: BLE001
+            cpu = None
+        ram_used = ram_total = ram_pct = None
+        try:
+            info = {}
+            with open('/proc/meminfo', 'r') as f:
+                for line in f:
+                    k, _, v = line.partition(':')
+                    info[k.strip()] = int(v.split()[0])       # kB
+            ram_total = info.get('MemTotal')
+            avail = info.get('MemAvailable')
+            if ram_total and avail is not None:
+                ram_used = ram_total - avail
+                ram_pct = 100.0 * ram_used / ram_total
+        except Exception:                                       # noqa: BLE001
+            pass
+        temp = None
+        try:
+            with open('/sys/class/thermal/thermal_zone0/temp', 'r') as f:
+                temp = int(f.read().strip()) / 1000.0
+        except Exception:                                       # noqa: BLE001
+            pass
+        uptime = None
+        try:
+            with open('/proc/uptime', 'r') as f:
+                uptime = float(f.read().split()[0])
+        except Exception:                                       # noqa: BLE001
+            pass
+        return {'ok': cpu is not None or ram_total is not None,
+                'cpu': cpu, 'ram_used_mb': (round(ram_used / 1024.0)
+                                            if ram_used is not None
+                                            else None),
+                'ram_total_mb': (round(ram_total / 1024.0)
+                                 if ram_total is not None else None),
+                'ram_pct': ram_pct, 'temp_c': temp, 'uptime_s': uptime}
+
+    async def _handle_klippylog(self, web_request):
+        """R216 (.136n): klippy.log as JSON for the .txt download button.
+
+        window=3h|day|boot|all - the file read AND the timestamp filter
+        run in a worker thread (a big log must never block moonraker's
+        loop). Lines without a parseable klippy timestamp keep the
+        timestamp of the previous line so context survives the cut.
+        Tail cap 4000 lines after the window cut."""
+        window = (web_request.get('window', '3h') or '3h').strip().lower()
+        if window not in ('3h', 'day', 'boot', 'all'):
+            window = '3h'
+        return await self.server.event_loop.run_in_thread(
+            self._klippylog_read, window)
+
+    def _klippylog_read(self, window):
+        import datetime as _dt
+        try:
+            with open(self.log_path, 'r', errors='replace') as f:
+                lines = f.read().split('\n')
+        except OSError as e:
+            return {'ok': False, 'reason': 'cannot read %s: %s'
+                    % (self.log_path, e)}
+        cutoff = None
+        now = _dt.datetime.now()
+        if window == '3h':
+            cutoff = now - _dt.timedelta(hours=3)
+        elif window == 'day':
+            cutoff = now.replace(hour=0, minute=0, second=0,
+                                 microsecond=0)
+        elif window == 'boot':
+            try:
+                with open('/proc/uptime', 'r') as f:
+                    up = float(f.read().split()[0])
+                cutoff = now - _dt.timedelta(seconds=up)
+            except Exception:                                   # noqa: BLE001
+                cutoff = None                    # fall back to 'all'
+        kept = []
+        last_ts = None
+        for ln in lines:
+            ts = None
+            if len(ln) > 19 and ln[4] == '-' and ln[7] == '-':
+                try:
+                    ts = _dt.datetime.strptime(ln[:19],
+                                               '%Y-%m-%d %H:%M:%S')
+                    last_ts = ts
+                except ValueError:
+                    ts = None
+            eff = ts if ts is not None else last_ts
+            if cutoff is not None:
+                if eff is None and ln.strip():
+                    continue                     # header junk before cut
+                if eff is not None and eff < cutoff:
+                    continue
+            if ln.strip() or ts is not None:
+                kept.append(ln)
+        kept = kept[-4000:]
+        header = ('# klippy.log window=%s (%s .. now) - exported by '
+                  'r2_menu.py\n' % (window, cutoff.isoformat(' ')
+                                    if cutoff else 'beginning'))
+        return {'ok': True, 'window': window,
+                'lines': len(kept),
+                'text': header + '\n'.join(kept)}
 
 
 def load_component(config):

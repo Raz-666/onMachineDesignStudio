@@ -3,7 +3,7 @@
 **Package:** `klipper-e3-r2d2` · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail) ·
 12864 LCD (16 characters per line)
 
-**Version:** this manual describes the current release, `R2-2026-10-31.136m` — and only it. Every chapter documents what the system
+**Version:** this manual describes the current release, `R2-2026-11-01.136n` — and only it. Every chapter documents what the system
 does today; the version changelog lives in README.md.
 
 This is the operating manual for the complete macro system: what the printer can
@@ -362,6 +362,41 @@ Rules of the game:
 commands do the same as their menu items; `FILE_PROFILES_INFO` lists what is
 stored for the selected file.
 
+### 3.4b Pre-Print > Fixes — repair instead of re-slicing
+
+Six in-place repairs for the SELECTED file (a `.r2bak`-style numbered copy
+stays in the folder; nothing runs during a print, the start dialog steps
+aside): **RetFix** (slicer retracts → G10/G11 — your live rules), **Vol →
+mm** (Marlin volumetric E), **Flow cap** (moves over your mm³/s limit get a
+lower F), **Travel / TAcc** (travel speed + accel, live markers), **Segments**
+(micro-move flood merged — MCU safe), **File check** (retag old files).
+**.136n adds two more:**
+
+- **Fix: Quality — the travel golden rule on a sliced file.** A travel
+  may only cost time and leave blobs when it actually **CROSSES freshly
+  printed plastic of the same layer** — endpoint touches and parallel
+  neighbor lines never count. The fix tracks every extrusion segment of
+  each layer and asks exactly that question per retract/hop block:
+  no crossing → the block's retract + Z-hop armor **drops** (the travel
+  prints directly, flat — no string-dragging over clean infill, no
+  pointless hop sequences); crossing → everything stays (the slicer was
+  right). Crossings that ride **without any retract at all** are counted
+  and named in the report. The feature recognition contributes ONLY the
+  travel detection here — no feature is re-tagged, nothing but travels
+  is touched.
+- **Fix: Speed — direct ways + ironing skipped.** Consecutive travel
+  lines (no extrusion between them) merge into ONE move to the final
+  target — the deceleration ramps of the intermediate stops were pure
+  time; the position after the block stays exactly the same. And the
+  whole **ironing pass is skipped** (the slowest, cosmetic-only pass of
+  the file): its extrusion moves drop, the feature boundaries stay, and
+  absolute-E files get a `G92` stitch so every following move keeps its
+  meaning.
+
+Console: `FIX_FILE WHAT=QUALITY` / `FIX_FILE WHAT=SPEED`. Both fixes
+stamp `; R2-QUALITYFIX:` / `; R2-SPEEDFIX:` lines into the file and
+report what they did.
+
 ### 3.5 The start dialog — AS LEGACY or AS SLICED
 
 Every print start (print button, LCD list, PRINT_START) stops at the dialog:
@@ -515,7 +550,12 @@ config header (`; key = value` lines) into the file info instead.
 **Mapping decisions for types without an own menu entry** (documented in
 `r2_postproc.py` `TYPE_MAP`): `Thin wall` → IW, `Skin` → TP (bottom-skin →
 BT), `Raft` → BT, `Support interface`/`transition` → SU, `Ooze shield` → SK,
-plain `Infill` → SP.
+plain `Infill` → SP. **.136n (stage 7):** every INFILL variant a slicer can
+name maps to SP — the 3D families (`Gyroid`, `3D-Lattice`, `Lightning`,
+`Cross-Cubic`, `Honeycomb`) and the classic patterns (`Tri-Hexagon`,
+`Zig-Zag`, `Rectilinear`, `Concentric`, `Octagram spiral`, `Hilbert curve`,
+`Wiggle`…) — a `solid`/`top`/`bottom` token still wins over the pattern
+name, and support grids stay SU.
 
 **The mystery low-accel feature from the field log** — a feature switch with
 low acceleration values that no menu owned: those were **custom G-code
@@ -544,6 +584,28 @@ COVER=…%` — *detected, not assumed*. Curved open paths stay UNCLASSIFIED
 documented limit), and a file WITH tags is never classified: the first
 `;TYPE:` wins, tagged data always beats the guess. Derived features carry
 the fixed confidence 0.7 and the console line explains it in plain words.
+
+**.136n — stage 7 of the classifier: 3D infill + the layers check each
+other.** Two rules were refined:
+
+- **An open CURVED path bathed in material on both sides is 3D infill**
+  (gyroid, cubic, cross, lightning) → SP, not a wall. The far probe
+  (8 mm) sees the 2–6 mm line spacing of the 3D families that the
+  0.7/1.2 mm wall probe misses. A curved path with a genuinely FREE
+  side stays a wall (OW), and a path that turns monotonically like a
+  loop arc (the sandwiched 270° arc) stays IW — a wave (S-curves, net
+  turning ≈ 0) is infill, an arc is a wall.
+- **Solid infill now needs its neighbors' vote (multi pass, the
+  elimination principle):** pass 1 tags dense hatch SOLID as before;
+  pass 2 — one layer later — lays the candidate's region over the
+  picture of the layer ABOVE: **no ink up there (not even a wall ring)
+  = it was the top skin** (TP); ink = internal solid (SP-SOLID) or one
+  more layer of a stacked top shell — only the **uppermost** of a
+  2–3 layer top shell becomes the top surface. The final pass (end of
+  file) flips everything still pending: nothing ever follows the last
+  layer. A thin wall ring above (the support-gap class) counts as
+  "the model goes on" — that skin stays SOLID, exactly the R214 field
+  rule.
 
 **B) Files sliced for Marlin (other firmware) — two real differences**
 
@@ -810,7 +872,7 @@ PAUSE_AT_LAYER LAYER=17
 CANCEL_PRINT                                    # twice within 60 s
 ```
 
-## 5. The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes, ColorPic, Gaskets, Frames, Bricks, Kits & Figures, String Art
+## 5. The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes, ColorPic, Gaskets, Frames, Bricks, Kits & Figures, String Art, Geometry, Scale/Taper, Twist, STL export
 
 Thirteen generators turn the printer into a manufacturing tool of its own:
 partial prints from any G-code, label plates from typed text, pen plots from
@@ -862,7 +924,9 @@ tail — 6 more characters of real name per line.
 **Output folders.** Every generator writes into its OWN subfolder of
 the gcodes directory — `Labels/`, `CableTies/`, `Angles/`, `Gaskets/`,
 `Frames/`, `Litho/`, `ColorPic/`, `Bricks/`, `Kit/`, `Figures/`, `Plot/`,
-`Range/`, `Texture/`, `Towers/` (calibration/test prints). The root stays
+`Range/`, `Texture/`, `Towers/` (calibration/test prints) — and since
+.136n: `Shapes/`, `Scale/`, `Twist/`, `STL/` (geometry generator, the
+scale/taper tool, the twist tool, the STL export). The root stays
 clean for your sliced files and sources. The LCD file browser and Mainsail
 navigate the folders natively; the Gen files list shows the file name and
 selects/deletes via the relative path. **Sort order:** the ROOT lists
@@ -1853,30 +1917,61 @@ COLORS=WHT,GRY,BLK BANDH=0.8 SWAP=1 CONTRAST=1`.
 
 The field proof (a generic StringArt3D file, 180 mm ring / 600
 anchors / 1700 strands, printed beautifully) is now a native generator.
-An **anchor ring** (two walls + solid infill, ~2.4 mm tall, brim, first
-layer fan-off) prints first; then thin **strands** (0.5 mm wide,
-~0.07 mm thick) shoot from anchor to anchor in **six Z bands** above the
-ring — crossings in the same band fuse, later bands clear the earlier
-ones (the proven ladder +0.20/+0.40/+0.55/+0.60/+0.75/+0.95). Two
-finishing loops and a cover ring tie the strand ends down.
+An **anchor ring** prints first — **two walls on every layer, 3 solid
+bottom layers + 3 solid top layers + 5 % sparse infill between** (.136n:
+the old all-solid ring wasted half a spool), brim, first layer fan-off;
+then thin **strands** (0.5 mm wide, ~0.07 mm thick) shoot from anchor to
+anchor in **six Z bands** above the ring — crossings in the same band
+fuse, later bands clear the earlier ones (the proven ladder
++0.20/+0.40/+0.55/+0.60/+0.75/+0.95). Two finishing loops and a cover
+ring tie the strand ends down.
+
+**.136n field round** (the string-art test print brought seven
+findings, all fixed):
+
+- **Flow**: every E value is filament mm again — the old numbers were
+  volumetric scale, the print came out ~2.4× over-extruded.
+- **Temps**: the file carries its temperatures (PRINT_START
+  BED/HOTEND) — the preheat no longer falls back to filament-swap
+  level.
+- **The bow**: each strand runs as a **2 mm bow in Z** (up from the
+  band, over, back down — `Bow:` row, 0 = flat) and the
+  strand-to-strand travel hops OVER the bows: the nozzle never drags
+  through the strands laid before.
+- **Direction**: strands are pulled from **alternating directions**,
+  and consecutive strand starts keep **≥ 15° apart** — not thread after
+  thread from the same corner (the ring softened there in the field
+  print).
+- **Frame**: `Shape: RECT` + the **photo-size presets 9x13 / 10x15 /
+  13x18 / 15x20 / 18x24** (the Frames sizes) build a rectangular ring —
+  string art drops into the Frames system. `W:`/`H:` for custom sizes,
+  clamped to the bed.
+- **Ring height**: `RingH:` 1.2–6 mm (was fixed at ~2.4).
 
 **The workflow (LCD: `Tools > String art`)**
 
 1. **Pattern** — SPIRAL (the classic winding, no image needed — the
    ideal first test) or PHOTO (a root image becomes the weave:
    dark areas get dense threads, seeded = reproducible).
-2. **Ring / Anchors / Strands** — diameter 60–400 mm (clamped to the
-   bed), anchors 24–720 (field proof: 600 on 180 mm), strands 50–4000.
-3. **PHOTO only: `Img:`** — cycles the root image list (the same list
+2. **Shape** — ROUND (the classic circle, `Ring:` diameter 60–400 mm,
+   clamped to the bed) or RECT (photo preset or custom W/H — the
+   frame ring).
+3. **Ring / Anchors / Strands / RingH / Bow** — anchors 24–720 (field
+   proof: 600 on 180 mm), strands 50–4000, ring height 1.2–6 mm,
+   strand bow 0–4 mm.
+4. **PHOTO only: `Img:`** — cycles the root image list (the same list
    as the lithophane, newest first; upload or pick via the SD browser).
-4. **`> Weave it`** — press twice (arm + start). The file lands in the
-   **StringArt** folder as `V01_StringArt_…` and auto-selects.
+5. **`> Weave it`** — press twice (arm + start). The file lands in the
+   **StringArt** folder as `V01_StringArt_…` (RECT names carry the
+   size, e.g. `_102x152`) and auto-selects.
 
-**Print notes:** slow by design (25 mm/s strands, the ring at normal
-speed), leave the fan to the file (first layer off, then a ramp per
-band), no ironing. My presets saves pattern/ring/anchors/strands.
+**Print notes:** strands run at 60 mm/s (field-proven at exactly that
+speed — the bows keep them tame; the file writes FS_BRIDGE, so the
+Pre-Print > Spd/Acc/feature row can slow them live if your filament
+strings), leave the fan to the file (first layer off, then a ramp per
+band), no ironing. My presets saves every value.
 
-### 5.15 Scale X/Y — resize with honest flow
+### 5.15 Scale X/Y — resize with honest flow (with the TAPER option)
 
 Scale the SELECTED file per axis, **25–300 %** — and the flow stays honest:
 E is recomputed **per move** as (L′/L)·(w′/w) — axis moves scale with X·Y,
@@ -1888,6 +1983,16 @@ never overwrites). The bed guard names the required size if it does not
 fit. LCD: Pre-Print > Tools > Scale X/Y — X/Y inputs, `How? (E/flow)`
 explains the math, `> Apply` (2×). Console:
 `SCALE_APPLY X=150 Y=150 FILE=myfile.gcode`.
+
+**Taper (.136n)** — an OPTION of Scale X/Y, not a tool of its own:
+**Top X / Top Y** (0 = off, else 25–300 %) set the scale at the TOP of
+the object while X/Y stay the bottom scale. The factor interpolates
+**linearly in Z over the extruding span** — travel hops do not water
+the top factor down — and E is recomputed **per move** with the local
+factor, so a taper to 60 % really prints 60 % walls at the top. Output
+name: `name_S100-100T60-60.gcode` (bottom-bottom-top-top). The bed
+guard checks with the LARGER of the two factors. Console:
+`SCALE_APPLY X=100 Y=100 TOP_X=60 TOP_Y=60`.
 
 ### 5.16 Cake cut — split a print with a plane
 
@@ -1902,6 +2007,49 @@ bed** (the natural way to print a top piece). Output:
 UPPER / LOWER / BOTH. Guards refuse planes above/below the object.
 LCD: Pre-Print > Tools > Cake cut. Console:
 `CAKE_APPLY PITCH=15 Z=5 PART=BOTH REORIENT=1`.
+
+### 5.17 Twist — rotate around the Z axis (.136n)
+
+Twist the SELECTED file around its own axis: **Deg** (−720…720, sign =
+direction) — 0° at the bottom, your angle at the top, everything in
+between rotates linearly in Z. Every layer rotates **around the
+object's own center** and the object lands **centered on the bed**;
+**E stays verbatim** — a rotation is isometric, the extrusion lengths
+never change. G2/G3 arcs flatten to chords first (each chord carries
+its exact length share of the arc's E). The bed guard checks the
+**circumscribed circle** (the diagonal), because a twisted corner
+sweeps wider than the object. Output: `name_TWR90.gcode` in the
+`Twist/` folder, numbered copies, never overwrites. LCD: Pre-Print >
+Tools > Twist — Deg input, `How? (E stays)`, `> Apply` (2×). Console:
+`TWIST_APPLY DEG=90 FILE=myfile.gcode`. Combine freely: scale/taper
+first, twist the result (or the other way round) — both tools pass
+E honestly through.
+
+### 5.18 Geometry — triangles, polygons, cylinders & vases (.136n)
+
+The geometry generator (Generator > Geometry) prints simple solid
+bodies without a slicer: **TRIANGLE / SQUARE / POLY 3–12 corners /
+CYLINDER** (round = 48 segments, or your own count — hexagonal, …),
+**X/Y size 8–200 mm**, height 2–180 mm, **walls 1–8** (loops),
+**wall thickness in mm** (overrides the loop count: 1.9 mm @ 0.65 line
+= 3 loops), **infill 0–100 %** (0 = hollow, 100 = solid, between =
+sparse grid), base and top surface layers. **Walls = 1 is VASE MODE**:
+solid floor (base layers), then ONE continuous spiral wall with
+steadily rising Z — no top, no infill, the classic vase. Output:
+`V01_Shape_Cylinder_40x40x20.gcode` (vases carry `_vase`) in the
+`Shapes/` folder. Console: `GEN_SHAPE SHAPE=CYLINDER X=40 Y=40 Z=20
+WALLS=1 INFILL=0 BASE=3`.
+
+### 5.19 STL export — a g-code file back into the slicer (.136n)
+
+Pre-Print > Tools > STL: the SELECTED R2-generated file (labels,
+gaskets, angles, figures, shapes — every generator output) becomes a
+**watertight STL mesh** again — one solid per EXCLUDE_OBJECT, real
+extrusion widths as wall thicknesses, floors and top surfaces closed.
+The mesh opens in every common 3D program (Blender, PrusaSlicer,
+Cura, Fusion); export as OBJ works the same way. Start sound +
+LCD notify when the file is done; output lands next to the source in
+the `STL/` folder.
 
 ## 6. During the print: tuning, pauses, objects
 
@@ -2243,6 +2391,17 @@ Probe Z offset by the paper method: TESTZ ±0.04/±0.12, accept → SAVE_CONFIG.
 Bed screws: turn per the console report (screws_tilt_adjust). This is what
 makes layer 1 look right — do it before any material calibration.
 
+**.136n — the bed-screw round, guided on the LCD (Mainsail's flow):**
+Maintenance > Bed Screws > `Start` homes, raises the probe and moves to
+**screw 1 (the base)** — then `Next` walks you from screw to screw, the
+LCD showing `current screw → next` and the measured deviation of the
+CURRENT position in clock notation (`01:20` = one full turn + 20 minutes;
+CW/CCW = which way to turn). Turn the screw, press `Next`, repeat
+until the display says `:ok` — `Round` starts a fresh measuring round,
+`Done` ends with the report (max deviation named), `Cancel` leaves
+without saving anything. The base screw shows `:base`; a screw within
+0.001 mm of nominal reads `00:00`. The console keeps the full report.
+
 ### 10.3 Bed mesh (Maintenance > Bed Mesh)
 
 A fresh mesh runs at EVERY print start (at bed temp). ADAPTIVE over the
@@ -2301,6 +2460,16 @@ The Orca-style line test, generated on the printer: all parameters editable
 cruise ratio, corner, retraction len/spd/unretract, flow — synced with
 Pre-Print/Live Tuning), mesh first. Read the best line → "Best line" sets the
 PA override. Babystepping stays available.
+
+**.136n — Pattern & base:** `PATTERN=LINES` (the classic line test) or
+`PATTERN=ANGLE` (a 5-stroke sawtooth that auto-fits the bed — for judging
+PA on corners and direction changes). **BASE 0–10 layers**: an optional
+solid base under the pattern (3 by default) so the test sits on real
+plastic — 0 prints directly on the bed for cold/quick runs. Every pattern
+prints inside a **2 mm frame** (also on the base) — the enclosure marks
+the test area, the nozzle never leaves it, and the frame walls make the
+corners readable. LCD: PA Cal. > Pattern (toggle) + Base (0–10); console:
+`CALIBRATE_PA PATTERN=ANGLE BASE=3`.
 
 **PA Smooth Cal.** (own submenu): PA prefilled + editable, smooth time
 0.020–0.200 s in 0.010 steps (19 lines — the TOWER's test range; the
@@ -2489,8 +2658,9 @@ kick-off, no third press by accident.
 
 **Menu order** — Pre-Print: File info (incl. `STL: object only`, .136m) ·
 Fixes (incl. the File check list — the same six entries as System > File
-check, .136m) · Tools (Offset, Texture,
-Range, Scale X/Y, Cake cut, Plotter) · Temps · Motion · Features ·
+check, .136m — **plus `Fix: Quality` and `Fix: Speed`**, .136n) · Tools
+(Offset, Texture, Range, **Scale X/Y with the Taper option** and
+**Twist**, .136n, Cake cut, Plotter, STL export) · Temps · Motion · Features ·
 utilities (Preheat/Mesh/Confirm/Overwrites) · Profiles LAST. Live Tuning:
 Temps & Fan first, then Z-Hopping, Z-offset + babysteps, the quick-access
 rows, Features, Motion, Sources/File/Plotter — Exclude + Pause at the very
@@ -2815,6 +2985,17 @@ Print running (legacy file) - live tuning and overwrites ACTIVE
 | FILE_CHECK | **g-code inventory**: scans every file's tag version — how many are current, old (upgradeable), untouched (never processed) or plotter files — each file listed on the console with age + size. `FILE_CHECK RETAG=1` (2×/CONFIRM=1) additionally upgrades old + untouched files to the current markers: **.r2bak backup first**, never while printing, max 20 per run. LCD: System > File check + STALE (v4: functional, pre-.86 info line — RETAG adds the new keys) |
 
 All destructive paths need TWO presses (60 s window). Serial link: UART (ch. B.5).
+
+**.136n — the R2 machine panel in Mainsail (WebUI):** the macro system
+carries its own web page (`web/index.html`, served by moonraker) with a
+**Machine panel styled like Mainsail's** — the system buttons
+(Firmware restart, Host restart, Shutdown, Save config, Emergency stop)
+live in **one dedicated section**, each guarded by the same 2-press
+confirm as on the LCD. System status (mode, host check verdict,
+watchdog state) polls every 3 s; the page never fights Mainsail for a
+command — it routes everything through the same macros. **Log emptying**
+(clearing klippy.log etc.) is a **checkbox selection menu** — nothing
+wipes a log just because the page was opened; you tick what may go.
 
 **Why FILE_CHECK exists:** markers (`APPLY_TYPE`, extended `_FILE_INFO`,
 measured per-feature speeds) grew over the versions — a file uploaded long
@@ -3338,7 +3519,7 @@ stay with Mainsail.
 | **START_PRINT** | — | old macro name: marked = no-op · legacy = real legacy start (dialog or auto-prep) |
 | **PRINT_END** | — | end choreography: heaters/fans per settings, stats, sound, LED celebration → idle after led_finish_time s, full _PRINT_CLEANUP |
 | **SET_LAYER_RANGE** | START, END, FLOOR, FLOOR_SHAPE (0/1), FLOOR_FILL (0/1), TOP, TOP_SHAPE, TOP_FILL, FLOOR_HOLE, TOP_HOLE, BRIM | layer-range excerpt with raft/cap, centered floor+top holes (E14/E27 presets: ch. 5.1); refuses while a print runs |
-| **FIX_FILE** | WHAT=RETRACT/VOL/FLOWCAP/TRAVELACC, CAP=(12), ACCEL=(8000) | repair the SELECTED file in place: retract pairs → G10/G11 · volumetric E → mm · flow cap mm³/s · travel accel |
+| **FIX_FILE** | WHAT=RETRACT/VOL/FLOWCAP/TRAVELACC/QUALITY/SPEED, CAP=(12), ACCEL=(8000) | repair the SELECTED file in place: retract pairs → G10/G11 · volumetric E → mm · flow cap mm³/s · travel accel · QUALITY = travel golden rule (.136n, ch. 3.4b) · SPEED = direct ways + ironing skipped (.136n) |
 
 ### Pause & filament — 09_pause_filament.cfg (11)
 | Macro | Parameters | Purpose |
@@ -3468,9 +3649,11 @@ stay with Mainsail.
 | **GEN_CABLE_TIES** | COUNT=6, LENGTH=120, WIDTH=8, LAYERS=3, VARIANT='CLASSIC', LAYER_H=0.2, BRIM=1 | console/Mainsail cable-tie job: `GEN_CABLE_TIES COUNT=6 LENGTH=120 VARIANT=LOOP` — sets everything + creates the file (VARIANT: CLASSIC one-way pawl · LOOP adjustable bead loop, reusable) |
 | **LITHO_CREATE** | INDEX=0 | lithophane from image slot INDEX (0 = newest picture in Tools > Lithophane; big jobs run in a background thread) |
 | **LITHO_DEL_SLOT** | INDEX=0 | delete image slot INDEX — 2-press logic like the LCD: first call arms, the second deletes (plotter `.gcode` stays) |
-| **STRINGART_APPLY** | PATTERN=0, DIAMETER=180, ANCHORS=300, LINES=1700, FILE=bild.png | string art job: PATTERN 0=SPIRAL / 1=PHOTO — the anchor ring prints first, the strands ride on top in six Z bands; PHOTO weaves the FILE image (default: the picked one), output lands in the StringArt folder |
+| **STRINGART_APPLY** | PATTERN=0, SHAPE=0, W=102, H=152, DIAMETER=180, ANCHORS=300, LINES=1700, RING_H=2.4, ARC=2.0, FILE=bild.png | string art job (.136n: SHAPE 0=ROUND / 1=RECT with the photo-size presets, RING_H ring height, ARC strand bow in Z): PATTERN 0=SPIRAL / 1=PHOTO — the ring prints first (2 walls, 3+3 solid, 5% sparse), the strands ride on top in six Z bands as bows, starts 15 deg apart; PHOTO weaves the FILE image (default: the picked one), output lands in the StringArt folder |
 | **STRINGART_IMG** | — | cycles the root image list (the lithophane list, newest first) for the PHOTO pattern |
-| **SCALE_APPLY** | X=100, Y=100, FILE= | scale the selected file 25–300 % per axis — E recomputed per move, output in Scale/ (ch. 5.15) |
+| **SCALE_APPLY** | X=100, Y=100, TOP_X=0, TOP_Y=0, FILE= | scale the selected file 25–300 % per axis (.136n: TOP_X/TOP_Y = taper, 0 = off) — E recomputed per move, output in Scale/ (ch. 5.15) |
+| **TWIST_APPLY** | DEG=90, FILE= | twist the selected file around Z (.136n): 0° at the bottom → DEG at the top, E verbatim, output in Twist/ (ch. 5.17) |
+| **GEN_SHAPE** | SHAPE=CYLINDER, X=40, Y=40, Z=20, CORNERS=0, WALLS=2, WALL_THICK=0, INFILL=20, BASE=3 | geometry generator (.136n): TRIANGLE/SQUARE/POLY 3–12/CYLINDER, WALLS=1 = vase mode — output in Shapes/ (ch. 5.18) |
 | **CAKE_APPLY** | YAW=0, PITCH=0, ROLL=0, Z=5, PART=BOTH, REORIENT=0, FILE= | cut the selected file with a plane (0.5° grid) — both halves become standalone files in Cake/ (ch. 5.16) |
 | **GEN_SEAL** | OD=40, ID=20, HEIGHT=1.2, PROFILE='FLAT', IRONING=0, LAYER_H=0.2 | console/Mainsail gasket job: `GEN_SEAL OD=30 ID=15 HEIGHT=2 PROFILE=NUT` — groove + two sealing lips |
 | **CABLE_TIE_GENERATE** | — | create the tie file from the stored settings (bumps cable_tie_nonce; the watcher builds it, beeps + selects) |
@@ -3846,7 +4029,7 @@ system). Better a quiet fan at full speed than a fast one slowed down.
 ## Appendix C: First start & updates
 
 - upload the folder → includes at the end of printer.cfg → RESTART
-- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-10-31.136m)`
+- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-11-01.136n)`
 - ~10 s later: boot sound + LED animation
 - SHOW_STATUS → mode, material, overrides · Maintenance > Tests > demos + self test
 

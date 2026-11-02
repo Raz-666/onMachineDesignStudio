@@ -88,6 +88,12 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # output == old reference + exactly that one line; pr01-pr10 stay
 # byte-identical. The freeze printer now emits Python literals (pprint) -
 # json.dumps false/true tokens made pasted REF_SUMMARYs die with NameError.
+# RE-FREEZE HISTORY (.136n version bump, R216): stamp-only - mr01-mr13
+# carry the R166 core stamp, pr01-pr10 byte-identical; PROVEN by running
+# the new module (stage 7 + the two file fixes) with the old stamp string:
+# all 23 md5 == the .136m goldens. The stage-7 classifier changes only
+# touch UNTAGGED files (tagged sources take the ;TYPE: path), the golden
+# fixtures are tagged - the proof shows it.
 # RE-FREEZE HISTORY (.136m, R215b): mr08 + mr13 re-frozen - the range
 # excerpt no longer COPIES the source's PRINT_END when the window runs
 # into the source end block (the audit sweep caught it: two PRINT_ENDs
@@ -145,19 +151,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # process() output is identical old vs new, ALL 13 mr md5s change (every
 # range excerpt carries the core stamp), no summary moves, and r81 was
 # 23/23 green with the R213 code BEFORE the stamp bump.
-REF_MD5 = {'mr01': '977cfab71a75d8f499cb7bb867416177',
- 'mr02': 'be79ad8552b28baeca222bb2102bec7d',
- 'mr03': '026286b0e7355ab2e4331e200d43bc07',
- 'mr04': 'd0650d669230f8fa07d303ca7fc268d2',
- 'mr05': 'fd1f92672aac0d73531dd91e02e54bc9',
- 'mr06': '237fae7f17d017930fa0c71f409eb0ec',
- 'mr07': '96435c32a605c8f8001aceb699d8aeef',
- 'mr08': '48cb9db1de0a165ac823fc58abda34a2',
- 'mr09': '8f38fb669cdfb60448afee92b22c1214',
- 'mr10': 'e4070b89ebe2ff456cbf2b8f0e01e9b8',
- 'mr11': 'dcb0d14ae6a5bcac57d775f5868252be',
- 'mr12': '42fe5192997d76294372d52e9460a696',
- 'mr13': '69a8ee82a84dcc64c782bc4d3c5b0dea',
+REF_MD5 = {'mr01': '300f6be60d6b355d5efbf3679f9deb87',
+ 'mr02': '3671626f9bbbdecac4e1c37e03838c16',
+ 'mr03': '50675687b2a9fb19bbedb1e5459cd1a9',
+ 'mr04': '53089c33bac2f1455fba9a9de5bccbb9',
+ 'mr05': '83fad2d9c552d63646307ebaa0219b08',
+ 'mr06': '5c15161f57d4d41ba434208fa10dc6a3',
+ 'mr07': 'ada2a234c40ebe5f5d3d48821ffc91d5',
+ 'mr08': 'a2d7cc07d41bdfc28a75837ef129a60e',
+ 'mr09': '61f9f2e23eef36432d1e7552cc163ce6',
+ 'mr10': 'e297d0846a1aa531f6593c4e6bec3965',
+ 'mr11': '56d475a446b8159e503941ef404d0aea',
+ 'mr12': '449ff15d66d4a307ad18c2b1b7f46fcb',
+ 'mr13': 'f3465d027a1d68df29a34d4a24eaf39d',
  'pr01': 'aa5a6f27d5a7e6576f57eeea93af63a5',
  'pr02': '61457e9bcbd98996b6e7dc26efda23d8',
  'pr03': '923725a1d92fccc88241ed8a3ab8065b',
@@ -357,6 +363,7 @@ REF_SUMMARY = {'mr01': {'nl': 8, 'size': 5088},
           'upgraded': False,
           'upgraded_from': 'v1',
           'volumetric': False}}
+
 
 CASES = [
     ('mr01', dict(src='vase_m83.gcode', start=5, end=12)),

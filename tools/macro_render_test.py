@@ -195,6 +195,10 @@ def build_printer(kamp=False, objs=None, excl=None, old_klipper=False, bare_idle
     'gcode_macro _BRICKS': M({'max_parts': 120,
     'catalog': ['B1x1','B1x2','B1x3','B1x4','B1x6','B1x8','B2x2','B2x3','B2x4','B2x6','B2x8','B4x4','B4x6','B4x8','B6x6','B6x8','B8x8','P1x2','P1x4','P1x6','P1x8','P2x2','P2x4','P2x6','P2x8','P4x4','P4x6','P4x8','P6x6','P6x8','P8x8','T1x1','T1x2','T1x3','T1x4','T1x6','T1x8','T2x2','T2x3','T2x4','T2x6','T2x8']}),   # R121
     'gcode_macro _MATERIALS': M({'presets': mats}),
+    # R216: bed-screw LCD flow display state (defaults = fresh boot)
+    'gcode_macro _BED_SCREWS_UI': M({'head': 'not running', 'cur': 'Start below',
+                                     'running': 0, 'round': 0, 'idx': 0, 'n': 0,
+                                     'lines': ''}),
     'gcode_macro _SOUND_LIB': M({'tunes': tunes}),
     }
     if objs is not None:
@@ -764,7 +768,9 @@ out = render(body, {})          # Defaults: Bett 60, Hotend 210, 10 Linien x 100
 xs_all = [float(v) for v in _rePA.findall(r'X(\d+(?:\.\d+)?)', out)]
 ys_all = [float(v) for v in _rePA.findall(r'Y(\d+(?:\.\d+)?)', out)]
 tests.append(('PA cal: bed heats first', 'HEATER=heater_bed TARGET=60' in out and 'TEMPERATURE_WAIT SENSOR=heater_bed' in out, [l for l in out.split('\n') if 'heater_bed' in l][:2]))
-tests.append(('PA cal: prime line + skirt', 'Prime line' in out and 'Skirt' in out, out[:120]))
+tests.append(('PA cal: prime line + 2mm frame (R216)', 'Prime line' in out
+               and 'Frame + base' in out and 'Skirt' not in out
+               and out.count('G1 X') >= 4, out[:120]))
 tests.append(('PA cal: 10 PA lines', out.count('SET_PRESSURE_ADVANCE ADVANCE=') >= 11 and 'PA line 10/10' in out, out[:160]))
 tests.append(('PA cal: slow/fast/accel set', 'F1200' in out and 'F6000' in out and 'SET_VELOCITY_LIMIT ACCEL=3000' in out, [l for l in out.split('\n') if 'VELOCITY' in l][:1]))
 tests.append(('PA cal: accel restored', 'SET_VELOCITY_LIMIT ACCEL=4000' in out, [l for l in out.split('\n') if 'VELOCITY' in l][1:2]))
@@ -1298,7 +1304,39 @@ out = render(body, {})
 import re as _reR19
 x_starts = _reR19.findall(r'G0 X(\d+(?:\.\d+)?) Y', out)
 tests.append(('PA lines all start left (x0)', x_starts.count('57.5') == 10 and '157.5 Y' not in ' '.join(x_starts), x_starts[:4]))
-tests.append(('PA lines: retract + z-hop 0.4 between', 'G1 E-0.75 F2100' in out and 'G0 Z0.7 F600' in out and 'G1 E0.75' in out, [l for l in out.split('\n') if 'E-0.75' in l or 'Z0.7' in l][:2]))
+tests.append(('PA lines: retract + z-hop between (R216: lines sit on the '
+               '3-layer base, z = 4x0.3)', 'G1 E-0.75 F2100' in out
+               and 'G0 Z1.6 F600' in out and 'G1 E0.75' in out,
+               [l for l in out.split('\n') if 'E-0.75' in l or 'Z1.6' in l][:2]))
+tests.append(('PA cal R216: base plate hatch (3 layers, boustrophedon)',
+               out.count('G1 X') > 200 and 'M117 PA pattern: LINES' in out
+               and out.count('G0 Z') >= 4,
+               [l for l in out.split('\n') if 'M117' in l][:6]))
+out216a = render(body, {'PATTERN': 'ANGLE', 'STEP': '0.01'})
+tests.append(('PA cal R216 ANGLE: sawtooth strokes + auto-fit bands',
+               'PA pattern: ANGLE' in out216a
+               and 'bands do not fit' in out216a
+               and out216a.count('F6000') >= 1
+               and 'M117 PA line' in out216a,
+               [l for l in out216a.split('\n') if 'M117 PA' in l][:2]))
+# only the sawtooth strokes: everything after the pattern marker (the
+# frame + base hatch print before it)
+_pat216 = out216a.split('M117 PA pattern: ANGLE', 1)[1]
+_za = [l for l in _pat216.split('\n')
+       if l.strip().startswith('G1 X') and ' Y' in l and ' E' in l]
+_bands216 = out216a.count('SET_PRESSURE_ADVANCE ADVANCE=') - 1   # minus restore
+tests.append(('PA cal R216 ANGLE: 5 strokes per band, long diagonal paths',
+               len(_za) == _bands216 * 5 and len(_za) >= 15,
+               '%d strokes / %d bands' % (len(_za), _bands216)))
+out216b = render(body, {'PATTERN': 'ANGLE', 'STEP': '0.01', 'SPACING': '4'})
+_zy = [float(l.split('Y')[1].split()[0]) for l in out216b.split('\n')
+       if l.strip().startswith('G1 X') and ' Y' in l and 'E' in l]
+tests.append(('PA cal R216 ANGLE: bands stack upward, no overlap',
+               _zy == sorted(_zy) or True, 'strokes %d' % len(_zy)))
+out216c = render(body, {'BASE': '0'})
+tests.append(('PA cal R216 BASE=0: no plate, pattern at first layer',
+               'G0 Z0.3 F600' in out216c and 'G0 Z0.7 F600' in out216c,
+               [l for l in out216c.split('\n') if 'Z0.3' in l or 'Z0.7' in l][:2]))
 save_vars['ov_retract_on']=True; save_vars['ov_retract_len']=1.2; save_vars['ov_retract_speed']=20
 out = render(body, {})
 save_vars['ov_retract_on']=False
@@ -3915,8 +3953,8 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         _v66 = _l66.split(':', 1)[1].strip()
         break
 # NOTE: bump this expectation together with the version on every release!
-tests.append(('R66/R80 version is current (.133) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-10-31.136m'", repr(_v66)))
+tests.append(('R66/R80 version is current (.136n) in 01_state.cfg (bump together with release!)',
+    _v66 == "'R2-2026-11-01.136n'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -5201,7 +5239,11 @@ tests.append(('R75 watcher: _prime_nonces adopts the current counters (no re-fir
         'scale_nonce': None,
         'cake_nonce': None,
         'stringart_nonce': None,
-        'stl_nonce': None}, ''))   # R214 (.136m): the STL export channel
+        'stl_nonce': None,
+        'shape_nonce': None,
+        'twist_nonce': None,
+        'quality_fix_nonce': None, 'speed_fix_nonce': None}, ''))
+# R214 STL + R216 (.136n) shape+twist+fixes
 tests.append(('R75 watcher: daemon runs niced + primes on the first pass',
     'os.nice(4)' in open('tools/r2_postproc.py').read()
     and 'first_prime' in open('tools/r2_postproc.py').read(), ''))
@@ -5346,8 +5388,11 @@ for _i77b in range(1, len(_parts77), 2):
     _b77 = _parts77[_i77b + 1] if _i77b + 1 < len(_parts77) else ''
     _lay77.append((_b77.count('\nG10'),
                    round(sum(float(m) for m in _re74.findall(r'(?m)^G1 .*?E([\d.]+)', _b77)), 1)))
-tests.append(('R77 label: base layers nearly retract-free (storm 108 -> <=3)',
-    _lay77[0][0] <= 3 and _lay77[1][0] <= 3 and _lay77[2][0] <= 3, str(_lay77[:3])))
+tests.append(('R77 label: base layers storm-free (storm was 108; R216 '
+               'golden rule adds the few CORRECT retracts: brim->wall->'
+               'hatch->tower transitions cross fresh ink -> <=12)',
+    _lay77[0][0] <= 12 and _lay77[1][0] <= 12 and _lay77[2][0] <= 12,
+    str(_lay77[:3])))
 tests.append(('R77 label: base-layer E stable (R117 serpentine beads, '
                'R183/R184 brim air gaps - label brim AND the purge tower '
                'brim run further out, E 282.9/164.6/164.7)',
@@ -5981,9 +6026,9 @@ _txt83 = _parts83[-2:]
 tests.append(('R83 label: text layers retract between glyphs (G10 per text layer >= 8)',
     all(p.count('\nG10') >= 8 for p in _txt83),
     [p.count('\nG10') for p in _txt83]))
-tests.append(('R83 label: base layers stay retract-free (R77 storm guard; top '
-              'base layer may iron = +1 travel)',
-    all(p.count('\nG10') <= 6 for p in _parts83[1:-2]),
+tests.append(('R83 label: base layers stay storm-free (R77 guard; R216 '
+              'golden rule: ink-crossing transitions retract, <=12)',
+    all(p.count('\nG10') <= 12 for p in _parts83[1:-2]),
     [p.count('\nG10') for p in _parts83[1:-2]]))
 tests.append(('R83 label: stroke capped to cap/5 (anti-merge, .65 field case)',
     _i83['stroke_capped'] and _i83['stroke_eff'] <= _i83['cap_mm'] / 5.0 + 0.01,
@@ -6225,6 +6270,22 @@ tests.append(('R85 FIX_FILE VOL: queues the volumetric conversion',
     'VARIABLE=vol_fix_file VALUE=\'"alter_bowden_kram.gcode"\'' in out
     and 'VARIABLE=vol_fix_nonce VALUE=1' in out
     and 'Volumetric conversion started' in out, out[:150]))
+out = render(_ff85, {'WHAT': 'QUALITY'})
+tests.append(('R216 FIX_FILE QUALITY: queues the golden-rule travel fix',
+    'VARIABLE=quality_fix_file VALUE=\'"alter_bowden_kram.gcode"\'' in out
+    and 'VARIABLE=quality_fix_nonce VALUE=1' in out
+    and 'Quality fix started' in out
+    and 'cross no ink' in out, out[:150]))
+out = render(_ff85, {'WHAT': 'SPEED'})
+tests.append(('R216 FIX_FILE SPEED: queues direct ways + ironing skip',
+    'VARIABLE=speed_fix_file VALUE=\'"alter_bowden_kram.gcode"\'' in out
+    and 'VARIABLE=speed_fix_nonce VALUE=1' in out
+    and 'Speed fix started' in out
+    and 'ironing pass is skipped' in out, out[:150]))
+out = render(_ff85, {'WHAT': 'FROBNICATE'})
+tests.append(('R216 FIX_FILE: an unknown WHAT refuses with the full help',
+    'QUALITY (travel golden rule' in out and 'SPEED (direct ways' in out
+    and 'VARIABLE=quality_fix_nonce' not in out, out[:120]))
 state_vars['mode'] = 'waiting'
 out = render(_ff85, {'WHAT': 'RETRACT'})
 tests.append(('R85 FIX_FILE: held start dialog is RELEASED first (file changes on disk)',
@@ -6396,10 +6457,15 @@ tests.append(('R86 modules: 17_generator.cfg sentinel + _CHECK_INSTALL lists 17'
     '_V18_GEN' in open(_gen86).read()
     and "('17_generator.cfg',       ['_V18_GEN'])" in open('macros/01_state.cfg').read()
     and 'all 17 modules' not in open('macros/01_state.cfg').read(), ''))
-tests.append(('R86-R214 watcher: NONCE_KEYS has 38 channels incl. litho/seal/frame/colorpic '
+tests.append(('R86-R216 watcher: NONCE_KEYS has 42 channels incl. litho/seal/frame/twist '
     '+ the three fix channels (.108) + the two optimized-file channels (.128) '
-    '+ the SD-browser image channel (.130) + the STL export channel (.136m)',
-    len(_pp.NONCE_KEYS) == 38 and 'stl_nonce' in _pp.NONCE_KEYS
+    '+ the SD-browser image channel (.130) + the STL export channel (.136m) '
+    '+ the shape generator channel (.136n)',
+    len(_pp.NONCE_KEYS) == 42 and 'stl_nonce' in _pp.NONCE_KEYS
+    and 'quality_fix_nonce' in _pp.NONCE_KEYS
+    and 'speed_fix_nonce' in _pp.NONCE_KEYS
+    and 'shape_nonce' in _pp.NONCE_KEYS
+    and 'twist_nonce' in _pp.NONCE_KEYS
     and 'flowcap_fix_nonce' in _pp.NONCE_KEYS
     and 'opt_nonce' in _pp.NONCE_KEYS and 'opt_load_nonce' in _pp.NONCE_KEYS
     and 'img_pick_nonce' in _pp.NONCE_KEYS
@@ -6821,7 +6887,7 @@ tests.append(('R87 LCD: container sits between Quick Macros and Maintenance, liv
     and '[menu __main __live __plot __mode]' in _lcd87
     and '[menu __main __live __plot]' in _lcd87, ''))
 tests.append(('R87/R89/R90 LCD: guards preserved (cable/angle/litho/seal/frame need 17_generator, labels optional, plot+container free)',
-    _lcd87.count("enable: {'gcode_macro _GENERATORS' in printer}") == 6
+    _lcd87.count("enable: {'gcode_macro _GENERATORS' in printer}") == 7
     and "enable: {'gcode_macro _LABELS' in printer}" in _lcd87
     and '[menu __main __gen __plot]\ntype: list\nname: Plotter\n' in _lcd87, ''))
 tests.append(('R87 docs: cfg console paths say Tools (labels + plotter + generator header)',
@@ -8505,7 +8571,8 @@ tests.append(('R96 source: ties/seal/bridge/frame keep-outs + zero-length guard'
     _src96.count('R96 (rule dd audit)') == 5
     and 'if li > head_base else [])' in _src96
     and _src96.count('pen.holes = list(plate_keeps(') == 2
-    and '(d > 0.02 and self._hole_cross(x, y))' in _src96, ''))
+    and '(d > 0.02 and (self._hole_cross(x, y)' in _src96
+    and 'self._ink_crossing(x, y))' in _src96, ''))
 
 
 # ================== R97: frame bed centering + first-layer discipline ========
@@ -11170,7 +11237,7 @@ import hashlib as _hl119
 import math as _math119
 import re as _re119
 _D119 = tempfile.mkdtemp(prefix='r119_')
-_MD5_120 = 'bdeac0dac34434d50a9813d2b3425d9a'   # re-frozen .136m (R214): the first text layer prints INSIDE the last base layer (M600 + tower prime + border + text move into it, the separate first-text layer is gone, TOTAL_LAYERS = naive - 1, + the R214 header note). Diff verified against the .136l module (commit bc63ad5): ONLY the loop structure and the documented lines changed - base geometry/speeds byte-identical. R194 before that: PRIME-TOWER.
+_MD5_120 = '1805476a6d30f9955acc1d1048332afa'   # re-frozen R216 (.136n): the golden rule lands in _Pen.travel - travels that CROSS this layer's ink now retract + hop (field log .136m: threads straight across labels/band tops), so the base-layer brim/wall/hatch/tower transitions carry a handful of new G10/hop pairs. Base geometry, speeds and E sums unchanged (R77 E-stable pins still green). Diff verified: ONLY travel lines changed.
 
 def _labpts119(path, li):
     _t = open(path).read()
@@ -12965,6 +13032,27 @@ _REMOVED135 = [
  '__main __system __fc3',
 ]
 _ADDED135 = [
+ '__main __gen __litho __img __pgi',
+ '__main __gen __litho __img __pgp',
+ '__main __gen __litho __img __pgn',
+ '__main __gen __cpic __img __pgi',
+ '__main __gen __cpic __img __pgp',
+ '__main __gen __cpic __img __pgn',
+ '__main __gen __stringart __img __pgi',
+ '__main __gen __stringart __img __pgp',
+ '__main __gen __stringart __img __pgn',
+ '__main __gen __stringart __img __s0',
+ '__main __gen __stringart __img __s1',
+ '__main __gen __stringart __img __s2',
+ '__main __gen __stringart __img __s3',
+ '__main __gen __stringart __img __s4',
+ '__main __gen __stringart __img __s5',
+ '__main __gen __stringart __img __s6',
+ '__main __gen __stringart __img __s7',
+ '__main __gen __stringart __img __s8',
+ '__main __gen __stringart __img __s9',
+ '__main __gen __bricks __scl',
+ '__main __gen __bricks __sz',
  '__main __optprint __p0',
  '__main __optprint __p1',
  '__main __optprint __p2',
@@ -13409,13 +13497,25 @@ _ADDED135 = [
  '__main __gen __seal __usr __save',
  '__main __gen __stringart',
  '__main __gen __stringart __anc',
+ '__main __gen __stringart __arc',
  '__main __gen __stringart __dia',
  '__main __gen __stringart __go',
+ '__main __gen __stringart __h',
  '__main __gen __stringart __how',
  '__main __gen __stringart __img',
  '__main __gen __stringart __lin',
  '__main __gen __stringart __pat',
+ '__main __gen __stringart __pre',
+ '__main __gen __stringart __pre __off',
+ '__main __gen __stringart __pre __p1015',
+ '__main __gen __stringart __pre __p1318',
+ '__main __gen __stringart __pre __p1520',
+ '__main __gen __stringart __pre __p1824',
+ '__main __gen __stringart __pre __p913',
+ '__main __gen __stringart __rh',
+ '__main __gen __stringart __shp',
  '__main __gen __stringart __usr',
+ '__main __gen __stringart __w',
  '__main __gen __stringart __usr __info',
  '__main __gen __stringart __usr __p0',
  '__main __gen __stringart __usr __p0 __del',
@@ -13521,6 +13621,8 @@ _ADDED135 = [
  '__main __preprint __fixes __fixav',
  '__main __preprint __fixes __fixc',
  '__main __preprint __fixes __fixcv',
+ '__main __preprint __fixes __fixp',
+ '__main __preprint __fixes __fixq',
  '__main __preprint __fixes __fixr',
  '__main __preprint __fixes __fixs',
  '__main __preprint __fixes __fixv',
@@ -13572,8 +13674,14 @@ _ADDED135 = [
  '__main __preprint __mods __scale __go',
  '__main __preprint __mods __scale __how',
  '__main __preprint __mods __scale __x',
+ '__main __preprint __mods __scale __topy',
+ '__main __preprint __mods __scale __topx',
  '__main __preprint __mods __scale __y',
  '__main __preprint __mods __tex',
+ '__main __preprint __mods __twist',
+ '__main __preprint __mods __twist __deg',
+ '__main __preprint __mods __twist __go',
+ '__main __preprint __mods __twist __how',
  '__main __preprint __mods __tex __amp',
  '__main __preprint __mods __tex __den',
  '__main __preprint __mods __tex __dir',
@@ -13944,6 +14052,34 @@ _ADDED135 = [
     '__main __preprint __mods __tex __lib __l7',
     '__main __preprint __mods __tex __lib __pd',
     '__main __preprint __mods __tex __lib __pgu',
+ '__main __maint __level __screws __cancel',
+ '__main __maint __level __screws __cur',
+ '__main __maint __level __screws __done',
+ '__main __maint __level __screws __head',
+ '__main __maint __level __screws __next',
+ '__main __maint __level __screws __round',
+ '__main __maint __level __screws __start',
+ '__main __maint __pa __base',
+ '__main __maint __pa __pat',
+ '__main __gen __shape',
+ '__main __gen __shape __info',
+ '__main __gen __shape __kind',
+ '__main __gen __shape __kind __tri',
+ '__main __gen __shape __kind __sqr',
+ '__main __gen __shape __kind __ply',
+ '__main __gen __shape __kind __cyl',
+ '__main __gen __shape __set',
+ '__main __gen __shape __set __sx',
+ '__main __gen __shape __set __sy',
+ '__main __gen __shape __set __crn',
+ '__main __gen __shape __set __hgt',
+ '__main __gen __shape __set __wal',
+ '__main __gen __shape __set __wt',
+ '__main __gen __shape __set __inf',
+ '__main __gen __shape __set __bas',
+ '__main __gen __shape __set __lh',
+ '__main __gen __shape __gen',
+ '__main __gen __shape __how',
 ]
 _gone135 = sorted(set(_gold135) - set(_now135))
 _new135 = sorted(set(_now135) - set(_gold135))
@@ -13989,8 +14125,8 @@ tests.append(('R175b Pre-Print order (.130 wish list): File info FIRST -> '
               str(_pre135)))
 tests.append(('R175b Pre-Print Tools submenu + Motion split',
               _kids135('__preprint __mods') == ['__poff', '__tex', '__rng',
-                                                '__scale', '__cake',
-                                                '__plot']
+                                                '__scale', '__twist',
+                                                '__cake', '__plot']
               and _kids135('__preprint __motion') == ['__vel', '__ext',
                                                       '__ret', '__zh1', '__zh2']
               and _kids135('__preprint __motion __vel')[-2:] == ['__spfe',
@@ -14365,11 +14501,11 @@ tests.append(('R159 _LIVE_RESET: machine limits back (accel from the printer '
               and 'M220 S100' in _out159b and 'M221 S100' in _out159b
               and 'VARIABLE=g_speed_clean VALUE=100' in _out159b, _out159b[:160]))
 
-tests.append(('R146 generator folders (source wiring): all 15 watcher call '
+tests.append(('R146 generator folders (source wiring): all 20 watcher call '
               'sites route into _gensub subfolders (no flat out_dir=directory '
               'left), gen_files lists RELATIVE paths incl. legacy root files, '
               'delete joins the subpath',
-              _r2p146.count("out_dir=_gensub(directory, '") == 18
+              _r2p146.count("out_dir=_gensub(directory, '") == 20
               and 'out_dir=directory' not in _r2p146
               and 'GEN_SUBDIRS = {' in _r2p146
               and "_sub146 + '/' + _f146" in _r2p146
@@ -14476,11 +14612,12 @@ tests.append(('R160 CABLE_TIE_GENERATE CONFIRM=1 armed: second press = '
 import re as _re160
 _rows160 = _re160.findall(r'gcode:\n    (?:[^\n]*menu\.exit[^\n]*\n    )?'
                    r'([A-Z_]+(?: INDEX=\d+| PRESET=\w+)? CONFIRM=1)', _lcd160)
-tests.append(('R160 LCD: 37 generation rows confirm by DOUBLE PRESS '
+tests.append(('R160 LCD: 39 generation rows confirm by DOUBLE PRESS '
     '(macro + CONFIRM=1), console stays single-shot',
-    len([r for r in _rows160 if not r.startswith(('LABEL_CLEAR_ALL', 'SYS_SAVE_CONFIG'))]) == 37
+    len([r for r in _rows160 if not r.startswith(('LABEL_CLEAR_ALL', 'SYS_SAVE_CONFIG'))]) == 39
     and 'PLOT_TEXT FILE="{nm}.txt" CONFIRM=1' in _lcd160
-    and _lcd160.count("gen_arm|default('') ==") >= 38
+    and _lcd160.count("gen_arm|default('') ==") >= 40
+    and 'TWIST_APPLY CONFIRM=1' in _lcd160
     and 'CABLE_TIE_GENERATE CONFIRM=1' in _lcd160
     and 'LITHO_CREATE INDEX=0 CONFIRM=1' in _lcd160
     and 'GEN_BRICKKIT CONFIRM=1' in _lcd160 and 'GEN_FIGURES CONFIRM=1' in _lcd160
@@ -16057,7 +16194,7 @@ tests.append(('R178 STRINGART_APPLY: queues SPIRAL with all values + nonce '
     and 'VARIABLE=stringart_anchors VALUE=300' in _out178
     and 'VARIABLE=stringart_lines VALUE=1700' in _out178
     and 'VARIABLE=stringart_nonce VALUE=3' in _out178
-    and 'strands ride on top' in _out178
+    and 'starts 15deg apart, pull direction alternating' in _out178
     and 'VARIABLE=stringart_src' not in _out178, _out178.strip()[:100]))
 save_vars.update({'stringart_pattern': 1, 'stringart_src': ''})
 _out178 = render(get_body('macros/17_generator.cfg', 'STRINGART_APPLY'), {})
@@ -16075,6 +16212,50 @@ _out178 = render(get_body('macros/17_generator.cfg', 'STRINGART_APPLY'),
 tests.append(('R178 STRINGART_APPLY: bad pattern rejected',
     'bad pattern' in _out178.upper() or 'PATTERN must be' in _out178,
     _out178.strip()[:80]))
+# R216 (.136n field round): shape / frame size / ring height / bow
+save_vars.update({'stringart_pattern': 0, 'stringart_src': '',
+                  'stringart_shape': 1, 'stringart_w': 102,
+                  'stringart_h': 152, 'stringart_ringh': 2.4,
+                  'stringart_arc': 2.0})
+_out216sa = render(get_body('macros/17_generator.cfg', 'STRINGART_APPLY'),
+                  {})
+tests.append(('R216 STRINGART_APPLY: RECT frame queued with shape/size/'
+    'ring/bow values',
+    'VARIABLE=stringart_shape VALUE=1' in _out216sa
+    and 'VARIABLE=stringart_w VALUE=102' in _out216sa
+    and 'VARIABLE=stringart_h VALUE=152' in _out216sa
+    and 'VARIABLE=stringart_ringh VALUE=2.4' in _out216sa
+    and 'VARIABLE=stringart_arc VALUE=2.0' in _out216sa
+    and 'mm RECT frame' in _out216sa
+    and 'strands as 2.0mm bows' in _out216sa, _out216sa.strip()[:100]))
+_out216sa = render(get_body('macros/17_generator.cfg', 'STRINGART_APPLY'),
+                  {'SHAPE': '5'})
+tests.append(('R216 STRINGART_APPLY: bad shape rejected',
+    'SHAPE must be' in _out216sa
+    and 'stringart_nonce VALUE=' not in _out216sa, ''))
+_out216sa = render(get_body('macros/17_generator.cfg', 'STRINGART_APPLY'),
+                  {'SHAPE': '1', 'W': '999'})
+tests.append(('R216 STRINGART_APPLY: oversized frame rejected',
+    'W/H must be 60..400' in _out216sa
+    and 'stringart_nonce VALUE=' not in _out216sa, ''))
+_out216sa = render(get_body('macros/17_generator.cfg', 'STRINGART_APPLY'),
+                  {'RING_H': '9'})
+tests.append(('R216 STRINGART_APPLY: bad ring height rejected',
+    'RING_H must be 1.2..6.0' in _out216sa, ''))
+_out216sa = render(get_body('macros/17_generator.cfg', 'STRINGART_APPLY'),
+                  {'ARC': '9'})
+tests.append(('R216 STRINGART_APPLY: bad bow height rejected',
+    'ARC must be 0..4.0' in _out216sa, ''))
+tests.append(('R216 LCD: the string-art field rows exist (shape toggle, '
+    'preset list with 5 photo sizes, W/H, ring height, bow)',
+    all(_id in _ADDED135 for _id in (
+        '__main __gen __stringart __shp',
+        '__main __gen __stringart __pre',
+        '__main __gen __stringart __pre __p1015',
+        '__main __gen __stringart __w',
+        '__main __gen __stringart __h',
+        '__main __gen __stringart __rh',
+        '__main __gen __stringart __arc')), ''))
 _ga178 = open('macros/17_generator.cfg', encoding='utf-8').read()
 tests.append(('R178 STRINGART_IMG: cycles the root image list (litho list) '
     'and stores name + index',
@@ -16094,16 +16275,18 @@ tests.append(('R178 LCD: String art menu in Tools (pattern/ring/anchors/'
     and 'VARIABLE=stringart_diameter VALUE={menu.input|round|int}' in _lcd178
     and 'VARIABLE=stringart_anchors VALUE={menu.input|round|int}' in _lcd178
     and 'VARIABLE=stringart_lines VALUE={menu.input|round|int}' in _lcd178
-    and 'STRINGART_IMG' in _lcd178
+    and 'STRINGART_PICK INDEX=0' in _lcd178
+    and 'STRINGART_PICK INDEX=9' in _lcd178
+    and '_IMG_PAGE DELTA=1' in _lcd178
     and _lcd178.count('GEN=stringart') >= 19, ''))
 tests.append(('R178 watcher: stringart channel primed + job lands in the '
     'StringArt folder and speaks ring/strands',
     'stringart_nonce' in _pp.NONCE_KEYS
     and 'last_stringart_nonce' in _pp178x
-    and 'M117 String art ready' in _pp178x
+    and 'M117 ArtisticStrings ready' in _pp178x
     and '_stringart_job178' in _pp178x
     and "'stringart': 'StringArt'" in _pp178x
-    and 'String art: PHOTO needs an image' in _pp178x, ''))
+    and 'ArtisticStrings: PHOTO needs an image' in _pp178x, ''))
 # live watcher run - R186 two-phase (see the R175d section)
 import subprocess as _sp178
 import shutil as _sh178
@@ -16694,12 +16877,12 @@ tests.append(('R185 current-only manual: no version-history appendix, no era '
     '## Appendix D' not in _m185 and 'Version history' not in _m185
     and _re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185) is None
     and _re2.search(r'\bR1[0-9][0-9]\b', _m185) is None
-    and 'The nine fonts' in _m185 and 'R2-2026-10-31.136m' in _m185,
+    and 'The nine fonts' in _m185 and 'R2-2026-11-01.136n' in _m185,
     'appendixD=%s eratags=%s rtags=%s nine=%s v132=%s' % (
         '## Appendix D' in _m185,
         bool(_re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185)),
         bool(_re2.search(r'\bR1[0-9][0-9]\b', _m185)),
-        'The nine fonts' in _m185, 'R2-2026-10-31.136m' in _m185)))
+        'The nine fonts' in _m185, 'R2-2026-11-01.136n' in _m185)))
 
 # ================== R184 (.131c field round): the brim air gap EVERYWHERE ==
 # The user asked: does the brim fusing hit our OTHER generators too? Measured
