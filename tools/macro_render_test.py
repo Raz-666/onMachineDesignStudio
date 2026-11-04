@@ -2780,15 +2780,18 @@ tests.append(('R60 LCD Live > File: full mirror (measured spd/acc + 12 activator
     and 'file_feat_spd_wallouter' in _lf60.group(0), 'ids'))
 
 # --- 6) postproc v4: TYPES + measured values in the Rose file ---
-tests.append(('R60 postproc v4: tag + TYPES (7 real features, NO support/sparse) + measured speeds',
-    # R181: ideaMaker's two 'Custom' blocks (start heater block + end park
-    # block - NO wall geometry) honestly stay CUSTOM, counted CUSTOMBLOCKS=2;
-    # their stats now merge post-scan, so CUSTOM sits at the END of TYPES
-    '; R2-POSTPROC v5' in _t58 and 'TYPES=BRIM,WALL-OUTER,SURFACE-BOTTOM,SURFACE-TOP,INFILL-SOLID,IRONING,CUSTOM' in _t58
-    and 'CUSTOMBLOCKS=2' in _t58 and 'CUSTOMRES' not in _t58
-    and 'FS_WALL_OUTER=42.1' in _t58 and 'FS_BRIM=20' in _t58 and 'FS_IRONING=40' in _t58
-    and 'FS_SURFACE_TOP=60' in _t58
-    and 'FS_SUPPORT=' not in _t58, _fi58[:120]))
+# R221: fresh-clone guard (see the _fi58 init above) - reads _t58/_fi58
+# from the FIELD fixtures; skips cleanly when they are absent
+if _fi58:
+    tests.append(('R60 postproc v4: tag + TYPES (7 real features, NO support/sparse) + measured speeds',
+        # R181: ideaMaker's two 'Custom' blocks (start heater block + end park
+        # block - NO wall geometry) honestly stay CUSTOM, counted CUSTOMBLOCKS=2;
+        # their stats now merge post-scan, so CUSTOM sits at the END of TYPES
+        '; R2-POSTPROC v5' in _t58 and 'TYPES=BRIM,WALL-OUTER,SURFACE-BOTTOM,SURFACE-TOP,INFILL-SOLID,IRONING,CUSTOM' in _t58
+        and 'CUSTOMBLOCKS=2' in _t58 and 'CUSTOMRES' not in _t58
+        and 'FS_WALL_OUTER=42.1' in _t58 and 'FS_BRIM=20' in _t58 and 'FS_IRONING=40' in _t58
+        and 'FS_SURFACE_TOP=60' in _t58
+        and 'FS_SUPPORT=' not in _t58, _fi58[:120]))
 
 # ===================== R61: calibration generators + stop/range + plotter =====================
 import importlib.util as _ilu61
