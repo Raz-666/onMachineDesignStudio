@@ -77,7 +77,7 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-02.136r'
+POSTPROC_RELEASE = 'R2-2026-11-02.136s'
 POSTPROC_BUILD = 'R204'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
@@ -5564,11 +5564,13 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
             stamp_tol=stamp_tol, handle=handle, stamp_infill=stamp_infill,
             part=part, dry_layout=dry)
 
-    try:
-        return _one170(texts, job_cfgs)
+    _fiterr170 = 'labels do not fit the bed'      # R221: except-names are unbound
+    try:                                          # after the block - 'raise e170'
+        return _one170(texts, job_cfgs)           # below was a NameError
     except ValueError as e170:
         if 'do not fit the bed' not in str(e170):
             raise
+        _fiterr170 = str(e170)
     # ---- R170: split into parts (largest fitting prefix, reading order) ----
     _rest170 = list(texts)
     _cfgs170 = list(job_cfgs) if job_cfgs else None
@@ -5595,7 +5597,7 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
         if _cfgs170:
             _cfgs170 = _cfgs170[_k170:]
     if not _infos170:
-        raise e170
+        raise ValueError(_fiterr170)
     _info170 = dict(_infos170[0])
     _info170['files'] = [i['file'] for i in _infos170]
     _info170['parts'] = len(_infos170)
@@ -18244,7 +18246,6 @@ def _gen_normalize_speeds(path, print_f=3600, travel_f=10800,
 def _travelaccel_fix_file(path, accel=8000):
     """R111 compat wrapper: accel-only travel fix (no speed, no markers)."""
     return _travel_fix_file(path, accel=accel, speed=0.0, markers=False)
-    return n
 
 
 def rederive_apply_types(path):
@@ -22015,7 +22016,7 @@ def watch(directory, interval=5.0, once=False):
                         _moonraker_gcode(
                             'RESPOND MSG="[queue] %s ABORTED: %s"\n'
                             'M117 %s error\n_SOUND_LIB NAME=r2_error'
-                            % (name, e))
+                            % (name, e, name))
                     except Exception:                           # noqa: BLE001
                         pass
                     outs = []

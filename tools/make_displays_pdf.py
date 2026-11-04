@@ -134,7 +134,7 @@ A(Spacer(1, 5*mm))
 A(Paragraph('die ausführliche Übersicht der .135-Runde —<br/>'
             'inklusive der gebauten Web-UI-Empfehlung und der Test-Stufen', S['sub']))
 A(Spacer(1, 8*mm))
-A(CENT_DUMMY if False else Spacer(1, 1))
+A(Spacer(1, 1))
 A(Spacer(1, 6*mm))
 A(Paragraph('Stand: R2-2026-10-30.136l · Grundlagen: menus/lcd_menues.cfg, web/ (r2_menu.py, '
             'index.html, menu_structure.json), tools/menu_json_export.py · r197_gen_sweep.py · '

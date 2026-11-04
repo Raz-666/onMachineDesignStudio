@@ -2489,6 +2489,10 @@ _FIXMAP = {'Rose_215C_PLA_40m56s.gcode.png': 'rose_215c_pla.gcode.gz',
            'stringart3d_generic-gcode_medium.gcode.png': 'stringart3d_generic.gcode.gz',
            'BigRose_020mm@Ender3_PLA_1h9m.gcode.png': 'bigrose_020mm.gcode.gz'}
 _updir = '/tmp/r2_testfixtures'
+# R221: fresh-clone guard - the field-file tests below need the
+# user's real gcode fixtures; without them _fi58 stays '' and the
+# dependent tests SKIP instead of dying with a NameError
+_fi58 = ''
 if not all(_os56.path.exists(_os56.path.join(_updir, _s56)) for _s56 in _FIXMAP):
     if all(_os56.path.exists(_os56.path.join(_FIXDIR, _g56)) for _g56 in _FIXMAP.values()):
         _os56.makedirs(_updir, exist_ok=True)
@@ -2713,10 +2717,11 @@ tests.append(('R60 LCD file __ac*: MEASURED originals + n/a for absent features'
     and "'n/a' if printer['gcode_macro _STATE'].file_types" in _lcd58, 'name exprs'))
 
 # --- 4) postproc: new slicer keys + gap infill as own type ---
-_fi59 = _fi58 if _fi58 else ''
-tests.append(('R59 postproc _FILE_INFO: solid/gaps/bridge/skirt/suppint speeds',
-    'SPEED_SOLID=60' in _fi59 and 'SPEED_GAPS=60' in _fi59 and 'SPEED_BRIDGE=25' in _fi59
-    and 'SPEED_SKIRT=25' in _fi59 and 'SPEED_SUPPINT=60' in _fi59, _fi59[:150]))
+# R221: skips cleanly when the field fixtures are absent (fresh clone)
+if _fi58:
+    tests.append(('R59 postproc _FILE_INFO: solid/gaps/bridge/skirt/suppint speeds',
+        'SPEED_SOLID=60' in _fi58 and 'SPEED_GAPS=60' in _fi58 and 'SPEED_BRIDGE=25' in _fi58
+        and 'SPEED_SKIRT=25' in _fi58 and 'SPEED_SUPPINT=60' in _fi58, _fi58[:150]))
 
 # --- 5) live __src shows the CLEAN global + active features (no legacy keys) ---
 _srcs = _re59.search(r'\[menu __main __live __spfe __src\].*?(?=\n\[menu )', _lcd58, _re59.S)
@@ -3965,8 +3970,8 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         _v66 = _l66.split(':', 1)[1].strip()
         break
 # NOTE: bump this expectation together with the version on every release!
-tests.append(('R66/R80 version is current (.136r) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-11-02.136r'", repr(_v66)))
+tests.append(('R66/R80 version is current (.136s) in 01_state.cfg (bump together with release!)',
+    _v66 == "'R2-2026-11-02.136s'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -16895,12 +16900,12 @@ tests.append(('R185 current-only manual: no version-history appendix, no era '
     '## Appendix D' not in _m185 and 'Version history' not in _m185
     and _re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185) is None
     and _re2.search(r'\bR1[0-9][0-9]\b', _m185) is None
-    and 'The nine fonts' in _m185 and 'R2-2026-11-02.136r' in _m185,
+    and 'The nine fonts' in _m185 and 'R2-2026-11-02.136s' in _m185,
     'appendixD=%s eratags=%s rtags=%s nine=%s v132=%s' % (
         '## Appendix D' in _m185,
         bool(_re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185)),
         bool(_re2.search(r'\bR1[0-9][0-9]\b', _m185)),
-        'The nine fonts' in _m185, 'R2-2026-11-02.136r' in _m185)))
+        'The nine fonts' in _m185, 'R2-2026-11-02.136s' in _m185)))
 
 # ================== R184 (.131c field round): the brim air gap EVERYWHERE ==
 # The user asked: does the brim fusing hit our OTHER generators too? Measured

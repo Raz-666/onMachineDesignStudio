@@ -13,6 +13,9 @@ frozen references.
 RE-FREEZE HISTORY: the .134 version bump changed the core stamp line in
 every mr excerpt (verified: exactly ONE line per case differs, .133 ->
 .134, nothing else) - refs re-frozen from the bumped module.
+RE-FREEZE HISTORY: R221 (.136s) re-froze mr01-mr13 (git-diff proof: the
+POSTPROC_RELEASE line + three OUTPUT-NEUTRAL fixes - dead return, error-
+path formatting, error-path raise; pr01-pr10 byte-identical).
 RE-FREEZE HISTORY: R220 (.136r) re-froze mr01-mr13 (same class as R219:
 git-diff proof = POSTPROC_RELEASE line only, pr01-pr10 byte-identical).
 RE-FREEZE HISTORY: R219 (.136q) re-froze mr01-mr13 from the bumped
@@ -167,19 +170,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # process() output is identical old vs new, ALL 13 mr md5s change (every
 # range excerpt carries the core stamp), no summary moves, and r81 was
 # 23/23 green with the R213 code BEFORE the stamp bump.
-REF_MD5 = {'mr01': '48c16a67ff4501883ef1c0a17deaac10',
- 'mr02': 'c8e565d087463978366e6ff14678fcb2',
- 'mr03': 'b96ddcaf9f1db2f6bb338c60a2b18c08',
- 'mr04': '66a748f0e15fb836da841e8cd2337096',
- 'mr05': '01c5d657d0ea5cb2ade92ddadcd4bf1e',
- 'mr06': '379e827260d88b5269d449ece979a30c',
- 'mr07': '51d93ff74641f3cec52210f468031bc6',
- 'mr08': '138526e3bf367c4f4ef8e4ed02ea1561',
- 'mr09': 'f668fc9a3dcfe29bf1c53f9ef08a1654',
- 'mr10': '1682afd8f61e88a291cbfd3d88ddebcc',
- 'mr11': '90500be731f0be2d592b7abc43b2fd23',
- 'mr12': 'ddd9516d96e07ecffaf64bd96e4847c1',
- 'mr13': '75b88d4399c1f52efa92caf78ebf7054',
+REF_MD5 = {'mr01': '3853ddd340c12534f9fcfa7db0b45f23',
+ 'mr02': '5d8ab5153304a47ae999bd3db70b8947',
+ 'mr03': '5af9ae4de3edeed33ea5927d9a976ed5',
+ 'mr04': 'edff0f2e858e03b475d14b2fc377f556',
+ 'mr05': '9f6879d238bada4f67c1aa86a68bc026',
+ 'mr06': '63cd0e6e0a5f7f1b8987ad47e5190181',
+ 'mr07': 'be197be479adf7c67d268df63eb4e720',
+ 'mr08': 'd97d5eff4c35d4a57cc0ed333eacb9e3',
+ 'mr09': '495ac63df3637837b145df0be17e4141',
+ 'mr10': '8863cbe1ae0d821a100a8811926ca7e9',
+ 'mr11': '1a577542f2487388bb7f6d3300ad02e4',
+ 'mr12': '2a373960b21588df66fd740f282e518c',
+ 'mr13': '885caed2fcebe466930aa0d1569bbba1',
  'pr01': 'aa5a6f27d5a7e6576f57eeea93af63a5',
  'pr02': '61457e9bcbd98996b6e7dc26efda23d8',
  'pr03': '923725a1d92fccc88241ed8a3ab8065b',

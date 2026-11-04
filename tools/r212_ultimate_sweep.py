@@ -90,6 +90,34 @@ for p in _sh:
 check('SYNTAX shell: %d scripts pass bash -n' % len(_sh),
       not _bad, str(_bad[:3]))
 
+# R221 (external audit finding): klipper's parser MERGES duplicate sections
+# silently - a doubled tail in 08_print_start_stop.cfg (the re-created R117
+# commit fell to snapshot truncation) shipped unnoticed from .89 to .136r
+# because both copies were identical. The battery's cfg parsers were regex/
+# template based and never counted sections. This census is strict: every
+# section in every cfg exactly once, or FAIL.
+import glob as _gb221                                       # noqa: E402
+import re as _re221                                         # noqa: E402
+_cfg221 = sorted(_gb221.glob(os.path.join(ROOT, 'macros', '*.cfg'))
+                 + _gb221.glob(os.path.join(ROOT, 'menus', '*.cfg')))
+_dup221, _nsec221 = [], 0
+for _p221 in _cfg221:
+    _seen221 = {}
+    for _i221, _l221 in enumerate(open(_p221, encoding='utf-8'), 1):
+        _m221 = _re221.match(r'^\s*\[([^\]]+)\]', _l221)
+        if _m221:
+            _nsec221 += 1
+            if _m221.group(1) in _seen221:
+                _dup221.append('%s [%s] lines %d+%d'
+                               % (os.path.basename(_p221), _m221.group(1),
+                                  _seen221[_m221.group(1)], _i221))
+            _seen221[_m221.group(1)] = _i221
+check('SYNTAX cfg: %d sections in %d config files, every section '
+      'exactly once (klipper merges duplicates silently - the .89->.136r '
+      'doubled 08 tail shipped for 40+ releases while the battery was green)'
+      % (_nsec221, len(_cfg221)),
+      not _dup221, str(_dup221[:3]))
+
 _html = open(os.path.join(ROOT, 'web', 'index.html'),
              encoding='utf-8').read()
 _js = _html.rsplit('<script>', 1)[1].rsplit('</script>', 1)[0]

@@ -62,7 +62,6 @@
 #
 #  Tested offline by tools/r193_gen_sweep.py (fake moonraker app object:
 #  endpoint registration + handler responses + refresh without the tool).
-import argparse
 import asyncio
 import os
 import re
