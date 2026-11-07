@@ -77,7 +77,7 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-02.136s'
+POSTPROC_RELEASE = 'R2-2026-11-02.136t'
 POSTPROC_BUILD = 'R204'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
@@ -7814,7 +7814,15 @@ def _plot_write(path, polys, notes, var_path=None, extrude=False):
     _emit_plot(L, polys, trv, spd, extrude, z_up, z_dn, e_per_mm)
     if polys:
         L.append('EXCLUDE_OBJECT_END NAME=R2PLOT')
-    L += ['G0 Z%.2f F600' % (z_up + 5), 'G0 X5 Y190 F4800', 'M107', 'M84']
+    # R222 (.136t): _PLOT_END after the park (pen up, head aside) - heaters
+    # off + speed back to 100. FILAMENT plots kept extruder AND bed at
+    # temperature after the end; PEN plots kept the selection preheat; a
+    # plot M220 override survived into the next job (no layer 2 in a plot
+    # to release it). The plot parks itself - no PRINT_END (no layers, no
+    # stats choreography); the state watcher's complete-branch is the
+    # backstop for plot files written before this hook.
+    L += ['G0 Z%.2f F600' % (z_up + 5), 'G0 X5 Y190 F4800',
+          '_PLOT_END', 'M107', 'M84']
     with open(path, 'w') as f:
         f.write('\n'.join(L) + '\n')
     return len(L)

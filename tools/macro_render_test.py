@@ -1368,6 +1368,35 @@ out = render(watcher, {}, ps_state='complete')
 save_vars['mesh_auto_save']=False
 state_vars['mesh_saved_pending']=False
 tests.append(('WATCHER complete: auto-save ON', 'SAVE_CONFIG' in out and 'auto-save' in out, out[:140]))
+
+# --- R222 (.136t): the plot end hooks - the .136s end-print audit ------------
+# FILAMENT plots heated extruder+bed and the file just ENDED; PEN plots kept
+# the 182C selection preheat; a plot M220 override survived into the next
+# job. _PLOT_END (new hook in the generated files) + the watcher backstop
+# (old plot files) close both.
+_pl222 = get_body('macros/12_maintenance.cfg', '_PLOT_END')
+out = render(_pl222, {}, etgt=215)
+tests.append(('R222 _PLOT_END: heaters off + speed 100 (FILAMENT plot end)',
+    'M99104 S0' in out and 'M99140 S0' in out and 'M220 S100' in out,
+    out[:160]))
+out = render(_pl222, {}, etgt=0)
+tests.append(('R222 _PLOT_END: cold extruder stays untouched (PEN plot, no preheat left)',
+    'M99104' not in out and 'M99140 S0' in out and 'M220 S100' in out,
+    out[:160]))
+_ft222 = state_vars.get('file_type', '')
+state_vars['mode'] = 'printing'
+state_vars['file_type'] = 'plot'
+out = render(watcher, {}, ps_state='complete')
+tests.append(('R222 WATCHER backstop: an OLD plot file ending without the hook '
+    'cools down + resets the speed (a no-op once _PLOT_END ran)',
+    'Plot end backstop' in out and 'M99104 S0' in out and 'M99140 S0' in out
+    and 'M220 S100' in out, out[:200]))
+state_vars['file_type'] = 'legacy'
+out = render(watcher, {}, ps_state='complete')
+tests.append(('R222 WATCHER backstop is PLOT-only (a legacy end keeps its own '
+    'heater management - the file\'s end g-code owns them)',
+    'M99104' not in out and 'Plot end backstop' not in out, out[:160]))
+state_vars['file_type'] = _ft222
 state_vars['mode']='idle'
 
 txt = open('macros/08_print_start_stop.cfg').read()
@@ -3973,8 +4002,8 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         _v66 = _l66.split(':', 1)[1].strip()
         break
 # NOTE: bump this expectation together with the version on every release!
-tests.append(('R66/R80 version is current (.136s) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-11-02.136s'", repr(_v66)))
+tests.append(('R66/R80 version is current (.136t) in 01_state.cfg (bump together with release!)',
+    _v66 == "'R2-2026-11-02.136t'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -16903,12 +16932,12 @@ tests.append(('R185 current-only manual: no version-history appendix, no era '
     '## Appendix D' not in _m185 and 'Version history' not in _m185
     and _re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185) is None
     and _re2.search(r'\bR1[0-9][0-9]\b', _m185) is None
-    and 'The nine fonts' in _m185 and 'R2-2026-11-02.136s' in _m185,
+    and 'The nine fonts' in _m185 and 'R2-2026-11-02.136t' in _m185,
     'appendixD=%s eratags=%s rtags=%s nine=%s v132=%s' % (
         '## Appendix D' in _m185,
         bool(_re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185)),
         bool(_re2.search(r'\bR1[0-9][0-9]\b', _m185)),
-        'The nine fonts' in _m185, 'R2-2026-11-02.136s' in _m185)))
+        'The nine fonts' in _m185, 'R2-2026-11-02.136t' in _m185)))
 
 # ================== R184 (.131c field round): the brim air gap EVERYWHERE ==
 # The user asked: does the brim fusing hit our OTHER generators too? Measured

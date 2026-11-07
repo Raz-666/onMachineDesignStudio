@@ -115,9 +115,23 @@ def validate(path, bed, name, normalized=True):
     txt = open(path, errors='replace').read()
     lines = txt.split('\n')
     if 'R2-PLOT' in txt[:2048]:
-        # pen-plotter file: junk check only, then done
-        return ck('%s I6 plot file clean' % tag,
-                  not any(w in txt for w in ('nan', 'None', 'inf')))
+        # pen-plotter file: junk check + the R222 end choreography
+        _tail = [l.strip() for l in lines
+                 if l.strip() and not l.strip().startswith(';')]
+        _has_park = any(l.startswith('G0 X') and ' Y' in l
+                        and l.endswith('F4800') for l in _tail)
+        _pe = '_PLOT_END' in _tail
+        _m84_last = bool(_tail) and _tail[-1] == 'M84'
+        _pe_before_m84 = _pe and 'M84' in _tail \
+            and _tail.index('_PLOT_END') < _tail.index('M84')
+        return ck('%s I6 plot clean + I5c plot END (park, _PLOT_END heaters/'
+                  'speed hook, motors off LAST - the .136s audit: FILAMENT '
+                  'plots kept extruder+bed hot, PEN kept the preheat)'
+                  % tag,
+                  not any(w in txt for w in ('nan', 'None', 'inf'))
+                  and _has_park and _pe and _m84_last and _pe_before_m84,
+                  'park=%s plotend=%s m84last=%s'
+                  % (_has_park, _pe, _m84_last))
     ok = ck('%s I1 exists non-empty' % tag, True)
     hdr = '\n'.join(lines[:40])
     fi = [l for l in lines if FI_RE.match(l)]
@@ -138,6 +152,27 @@ def validate(path, bed, name, normalized=True):
              == txt.count('EXCLUDE_OBJECT_END'),
              '%d/%d' % (txt.count('EXCLUDE_OBJECT_START'),
                         txt.count('EXCLUDE_OBJECT_END')))
+    # R222 I5b: nothing may MOVE (or heat, or reset state) after PRINT_END -
+    # the end choreography (park + heaters off) must be the last real
+    # action. Info/sound lines after it are legal (the frame kits announce
+    # the next plate with beeps once the head already parks).
+    _after = []
+    _seen_end = False
+    for _l in lines:
+        _t = _l.split(';')[0].strip()
+        if not _t:
+            continue
+        if _t.startswith('PRINT_END'):
+            _seen_end = True
+            continue
+        if _seen_end:
+            _after.append(_t)
+    _info_ok = all(_t.split()[0] in ('RESPOND', 'M117', 'M300', 'G4', 'M107')
+                   for _t in _after)
+    ok &= ck('%s I5b PRINT_END is the last real command (only info/'
+             'sound lines may follow - no moves, no heat, no state '
+             'changes after the park)' % tag,
+             _seen_end and _info_ok, str(_after[:3]))
     bad = [w for w in ('nan', 'None', 'inf', '{%', '}}')
            if w in '\n'.join(l for l in lines
                              if not l.strip().startswith(';'))]
