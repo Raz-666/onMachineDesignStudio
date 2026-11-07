@@ -3,7 +3,7 @@
 **Package:** `klipper-e3-r2d2` · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail) ·
 12864 LCD (16 characters per line)
 
-**Version:** this manual describes the current release, `R2-2026-11-02.136t` — and only it. Every chapter documents what the system
+**Version:** this manual describes the current release, `R2-2026-11-02.136u` — and only it. Every chapter documents what the system
 does today; the version changelog lives in README.md.
 
 This is the operating manual for the complete macro system: what the printer can
@@ -884,6 +884,16 @@ normal G-code files into the gcodes folder (the watcher builds them in the
 background — niced, single-pass, a few seconds), all of them run through the
 NORMAL start flow, and all generated objects are exclude-objects (skippable
 live).
+
+**The job queue (.136u):** heavy builds (string art, lithophanes, color
+pictures) run one at a time in the background. If the printer is busy or the
+host runs low on RAM, a job *parks* — the console says so every 2 minutes,
+and it starts on its own the moment the machine idles. A job that wedges is
+dropped and reported after 20 minutes. **System > Gen jobs** shows the live
+state (BUILDING / idle) and has **Clear queue** (double-press) to drop every
+pending job at once — settings are never touched. If the display ever says
+"Wait: generating" on a print start after a crash: clear the queue, then
+restart the *Pi* (a firmware restart frees no RAM).
 
 **Mainsail metadata (.136k):** every file the system generates or derives
 carries an `R2-META v1` block right behind the stamp — a 128×128 PNG
@@ -2810,7 +2820,8 @@ never error out — the generator clamps and reports.
 LEDs on/off, Nozzle LED — mode AUTO/ON/OFF + live brightness + live color
 R/G/B + presets.
 
-**System:** File check (+ Retag old 2×), restarts (2×), Pi shutdown (2×), **Force end print**, save config
+**System:** File check (+ Retag old 2×), **Gen jobs** (queue state + clear,
+.136u), restarts (2×), Pi shutdown (2×), **Force end print**, save config
 (2×, warns that the LCD goes dark), status, **LED Setup** (areas, bed light,
 nozzle chain/mode — ch. 17, only shown when LED hardware exists).
 
@@ -4029,7 +4040,7 @@ system). Better a quiet fan at full speed than a fast one slowed down.
 ## Appendix C: First start & updates
 
 - upload the folder → includes at the end of printer.cfg → RESTART
-- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-11-02.136t)`
+- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-11-02.136u)`
 - ~10 s later: boot sound + LED animation
 - SHOW_STATUS → mode, material, overrides · Maintenance > Tests > demos + self test
 

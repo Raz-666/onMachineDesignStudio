@@ -1399,6 +1399,35 @@ tests.append(('R222 WATCHER backstop is PLOT-only (a legacy end keeps its own '
 state_vars['file_type'] = _ft222
 state_vars['mode']='idle'
 
+# --- R223 (.136u): the generator queue escape hatch (.136s field log) ------
+# A wedged photo build held the only worker thread forever, gen_busy=1
+# blocked print starts and NOTHING could end it from the LCD. Clear queue
+# (double press, like the system restarts) bumps gen_clear_nonce; the
+# watcher drops the queue, frees the keys and pulls gen_busy down.
+_gq223 = get_body('macros/17_generator.cfg', '_GEN_QUEUE_CLEAR')
+out = render(_gq223, {})
+tests.append(('R223 _GEN_QUEUE_CLEAR arm: announces the second press, '
+    'clears nothing yet',
+    'Press CLEAR again' in out and 'SAVE_VARIABLE' not in out
+    and 'r2_click' in out, out[:160]))
+save_vars['gen_clear_nonce'] = 3
+out = render(_gq223, {'CONFIRM': 1})
+tests.append(('R223 _GEN_QUEUE_CLEAR CONFIRM: bumps the nonce (the watcher '
+    'clears queue + keys + gen_busy)',
+    'SAVE_VARIABLE VARIABLE=gen_clear_nonce VALUE=4' in out, out[:160]))
+_lcd223 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R223 System > Gen jobs: how-it-works + LIVE state row '
+    '(BUILDING/idle from gen_busy) + arm and CLEAR NOW rows',
+    '[menu __main __system __genq]' in _lcd223
+    and '__genq __state' in _lcd223
+    and '"BUILDING" if printer["save_variables"].variables.gen_busy' in _lcd223
+    and 'How it works?' in _lcd223
+    and _lcd223.count('_GEN_QUEUE_CLEAR') == 2, ''))
+tests.append(('R223 Gen jobs rows are pure ASCII (R218 web rule applies to '
+    'the LCD too - no umlauts anywhere in the new block)',
+    all(ord(c) < 128 for c in _lcd223.split('[menu __main __system __genq]')[1]
+        .split('[menu __main __system __fc]')[0]), ''))
+
 txt = open('macros/08_print_start_stop.cfg').read()
 m = _re5b.search(r'\[delayed_gcode _LEGACY_PREP2\]\ngcode:\n(.*?)(?=\n\[|\Z)', txt, _re5b.S)
 prep2 = '\n'.join(l[4:] if l.startswith('    ') else l for l in m.group(1).split('\n'))
@@ -4002,8 +4031,8 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         _v66 = _l66.split(':', 1)[1].strip()
         break
 # NOTE: bump this expectation together with the version on every release!
-tests.append(('R66/R80 version is current (.136t) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-11-02.136t'", repr(_v66)))
+tests.append(('R66/R80 version is current (.136u) in 01_state.cfg (bump together with release!)',
+    _v66 == "'R2-2026-11-02.136u'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -5291,6 +5320,7 @@ tests.append(('R75 watcher: _prime_nonces adopts the current counters (no re-fir
         'stl_nonce': None,
         'shape_nonce': None,
         'twist_nonce': None,
+        'gen_clear_nonce': None,   # R223: queue escape hatch
         'quality_fix_nonce': None, 'speed_fix_nonce': None}, ''))
 # R214 STL + R216 (.136n) shape+twist+fixes
 tests.append(('R75 watcher: daemon runs niced + primes on the first pass',
@@ -6506,11 +6536,12 @@ tests.append(('R86 modules: 17_generator.cfg sentinel + _CHECK_INSTALL lists 17'
     '_V18_GEN' in open(_gen86).read()
     and "('17_generator.cfg',       ['_V18_GEN'])" in open('macros/01_state.cfg').read()
     and 'all 17 modules' not in open('macros/01_state.cfg').read(), ''))
-tests.append(('R86-R216 watcher: NONCE_KEYS has 42 channels incl. litho/seal/frame/twist '
+tests.append(('R86-R223 watcher: NONCE_KEYS has 43 channels incl. litho/seal/frame/twist '
     '+ the three fix channels (.108) + the two optimized-file channels (.128) '
     '+ the SD-browser image channel (.130) + the STL export channel (.136m) '
-    '+ the shape generator channel (.136n)',
-    len(_pp.NONCE_KEYS) == 42 and 'stl_nonce' in _pp.NONCE_KEYS
+    '+ the shape generator channel (.136n) + the queue-clear channel (.136u)',
+    len(_pp.NONCE_KEYS) == 43 and 'stl_nonce' in _pp.NONCE_KEYS
+    and 'gen_clear_nonce' in _pp.NONCE_KEYS
     and 'quality_fix_nonce' in _pp.NONCE_KEYS
     and 'speed_fix_nonce' in _pp.NONCE_KEYS
     and 'shape_nonce' in _pp.NONCE_KEYS
@@ -14135,6 +14166,13 @@ _ADDED135 = [
     # _STATE.file_types (dead save_variables copy - the row never showed)
     '__main __start __info __feat',
     '__main __preprint __file __feat',
+    # ---- R223 (.136u): System > Gen jobs - queue visibility + clear -------
+    # (.136s field log: the wedged photo build had no way out from the LCD)
+    '__main __system __genq',
+    '__main __system __genq __how',
+    '__main __system __genq __state',
+    '__main __system __genq __clear',
+    '__main __system __genq __clear2',
 ]
 _gone135 = sorted(set(_gold135) - set(_now135))
 _new135 = sorted(set(_now135) - set(_gold135))
@@ -14925,7 +14963,7 @@ tests.append(('R160b/R162 worker sounds: a queued job chirps when it ACTUALLY '
     '_PLAY_JOB_START' in _src160b
     and 'RESPOND MSG="[queue] %s waits: %s"' in _src160b
     and 'the printer is busy (a print, a ' in _src160b
-    and 'MB RAM free - it builds ' in _src160b
+    and 'MB RAM free, image builds ' in _src160b
     and 'ABORTED' in _src160b and '_SOUND_LIB NAME=r2_error' in _src160b, ''))
 
 tests.append(('R162 file-fix busy check: patient (stale status re-checked '
@@ -14937,11 +14975,12 @@ tests.append(('R162 file-fix busy check: patient (stale status re-checked '
     and 'File fix: start dialog released' in open(
         'macros/08_print_start_stop.cfg', encoding='utf-8').read(), ''))
 
-tests.append(('R162 generator job gates: busy-probe RETRY (a timeout must '
+tests.append(('R162/R223 generator job gates: busy-probe RETRY (a timeout must '
     'not read as not-busy - the .121 Timer-too-close chain: litho built '
-    'during the print) + builds wait below 60MB RAM',
+    'during the print) + builds wait below their per-job RAM floor '
+    '(60MB, image jobs 110MB since .136u)',
     'for _try162 in (1, 2)' in _src160b and 'if _try162 == 2' in _src160b
-    and '0 < _ram162 < 60' in _src160b, ''))
+    and '0 < _ram162 < ram_min' in _src160b, ''))
 
 try:
     _r164src = open('tools/r164_serial_budget.py', encoding='utf-8').read()
@@ -16932,12 +16971,12 @@ tests.append(('R185 current-only manual: no version-history appendix, no era '
     '## Appendix D' not in _m185 and 'Version history' not in _m185
     and _re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185) is None
     and _re2.search(r'\bR1[0-9][0-9]\b', _m185) is None
-    and 'The nine fonts' in _m185 and 'R2-2026-11-02.136t' in _m185,
+    and 'The nine fonts' in _m185 and 'R2-2026-11-02.136u' in _m185,
     'appendixD=%s eratags=%s rtags=%s nine=%s v132=%s' % (
         '## Appendix D' in _m185,
         bool(_re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185)),
         bool(_re2.search(r'\bR1[0-9][0-9]\b', _m185)),
-        'The nine fonts' in _m185, 'R2-2026-11-02.136t' in _m185)))
+        'The nine fonts' in _m185, 'R2-2026-11-02.136u' in _m185)))
 
 # ================== R184 (.131c field round): the brim air gap EVERYWHERE ==
 # The user asked: does the brim fusing hit our OTHER generators too? Measured
@@ -17110,10 +17149,12 @@ tests.append(('R188 sounds: r2_start on every work press, quiet list covers '
     ''))
 
 # (6) watcher: gen_busy flag around fixes AND jobs (incl. the stamping window)
-tests.append(('R188 watcher: gen_busy=1 around file_fix AND the job worker '
-    '(late release after stamping - the homing race dies)',
+tests.append(('R188/R223 watcher: gen_busy=1 around file_fix AND the job worker '
+    '(late release after stamping - the homing race dies) + R223 drops it '
+    'at boot (stale flag), when the queue is cleared and when a job is '
+    'abandoned as stuck',
     _r2p188.count("SAVE_VARIABLE VARIABLE=gen_busy VALUE=1") == 2
-    and _r2p188.count("SAVE_VARIABLE VARIABLE=gen_busy VALUE=0") == 2
+    and _r2p188.count("SAVE_VARIABLE VARIABLE=gen_busy VALUE=0") == 5
     and 'M117 Fix running:' in _r2p188,
     ''))
 

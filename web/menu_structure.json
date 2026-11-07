@@ -1,13 +1,13 @@
 {
  "generator": "menu_json_export.py (.136j R211)",
  "source": "lcd_menues.cfg",
- "sections": 2474,
+ "sections": 2479,
  "counts": {
-  "list": 331,
-  "command": 1456,
+  "list": 332,
+  "command": 1460,
   "input": 687
  },
- "sha256": "b46db6389cdb5e37",
+ "sha256": "cc55d185b025081e",
  "live_objects": [
   "bed_mesh",
   "configfile",
@@ -27435,6 +27435,49 @@
        "HOST_CHECK"
       ],
       "children": []
+     },
+     {
+      "id": "__main __system __genq",
+      "type": "list",
+      "name": "Gen jobs",
+      "children": [
+       {
+        "id": "__main __system __genq __how",
+        "type": "command",
+        "name": "How it works?",
+        "gcode": [
+         "RESPOND MSG=\"[Gen] Heavy builds (string art, litho, color picture) run one at a time in the background. Low RAM or a busy printer parks a job - the console says so every 2 min. A stuck job is dropped after 20 min. Clear queue drops everything pending - your settings stay.\""
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __system __genq __state",
+        "type": "command",
+        "name": "State: {\"BUILDING\" if printer[\"save_variables\"].variables.gen_busy|default(0) else \"idle\"}",
+        "gcode": [
+         "RESPOND MSG=\"[Gen] State: {'building' if printer['save_variables'].variables.gen_busy|default(0) else 'idle'}. If a job never finishes: Clear queue below, then restart the Pi (System > Pi restart) to end a leftover worker. A firmware restart does NOT free RAM.\""
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __system __genq __clear",
+        "type": "command",
+        "name": "> Clear queue?",
+        "gcode": [
+         "_GEN_QUEUE_CLEAR"
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __system __genq __clear2",
+        "type": "command",
+        "name": ">> CLEAR NOW",
+        "gcode": [
+         "_GEN_QUEUE_CLEAR CONFIRM=1"
+        ],
+        "children": []
+       }
+      ]
      },
      {
       "id": "__main __system __fc",

@@ -400,7 +400,10 @@ ck('queue: ticks with flag on DO pause (8 x 20ms ~ %.2fs)' % _el,
    0.1 <= _el < 1.0, '%.2fs' % _el)
 ck('watch: the 5 generator spawns go through _spawn_job (no bare threads)',
    src.count('_spawn_job(') >= 5
-   and src.count('threading.Thread(target=_') == 1,   # only the worker
+   # R223 (.136u): TWO sanctioned threads - the worker itself + the
+   # per-job build thread (a wedged build gets abandoned by the worker's
+   # stuck watchdog instead of blocking the queue forever)
+   and src.count('threading.Thread(target=_') == 2,
    'spawn=%d bare=%d' % (src.count('_spawn_job('),
                          src.count('threading.Thread(target=_')))
 ck('watch: scan skips while a job runs, is queued or RAM is low (.109)',

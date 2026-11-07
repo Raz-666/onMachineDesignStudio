@@ -437,6 +437,11 @@ nonce_names = set(re.findall(r"'(\w+_nonce)'", src)) | set(pp.NONCE_KEYS)
 frozen = set(_tuple_strs(src, '_freeze133 ='))
 LIVE_OK = ('preview_nonce', 'host_nonce', 'label_fit_nonce',
            'queue_cancel_nonce',          # cancel a queued job: wanted live
+           'gen_clear_nonce',             # R223 (.136u): queue escape hatch -
+                                          # drops pending jobs + flags only,
+                                          # no SD/CPU load -> must answer
+                                          # DURING a print too (the .136s
+                                          # wedged-photo scenario)
            'retract_fix_nonce', 'vol_fix_nonce', 'flowcap_fix_nonce',
            'travelacc_fix_nonce', 'segments_fix_nonce',
            'quality_fix_nonce', 'speed_fix_nonce')  # file_fix blocks itself

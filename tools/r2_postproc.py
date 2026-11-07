@@ -77,8 +77,8 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-02.136t'
-POSTPROC_BUILD = 'R204'
+POSTPROC_RELEASE = 'R2-2026-11-02.136u'
+POSTPROC_BUILD = 'R223'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
 # and no speed/accel/nozzle parameters. Files carrying an OLD tag are UPGRADED
@@ -2002,8 +2002,11 @@ def _read_vars(var_path):
     return vals
 
 
-def _png_to_rgb(data):
-    """Minimal pure-python PNG reader (8-bit gray/RGB/palette/alpha). -> w, h, rows[R,G,B]"""
+def _png_to_rgb(data, max_dim=0):
+    """Minimal pure-python PNG reader (8-bit gray/RGB/palette/alpha). -> w, h, rows[R,G,B]
+    R223: max_dim caps the output resolution (step subsampling, same idea
+    as _jpeg_to_rgb) - big screenshots stop building full-res tuple rows.
+    step=1 / max_dim=0 is byte-identical to the old reader."""
     import struct
     import zlib
     if data[:8] != b'\x89PNG\r\n\x1a\n':
@@ -2035,10 +2038,17 @@ def _png_to_rgb(data):
         raise ValueError(f'unsupported PNG color type {ct}')
     raw = zlib.decompress(idat)
     stride = w * nch
+    # R223: step subsampling (see _jpeg_to_rgb). Unfiltering still runs on
+    # EVERY scanline (it is sequential) but only kept rows are expanded to
+    # (r,g,b) tuples - the byte lines are cheap, the tuple rows were the
+    # RAM mountain.
+    step = 1
+    if max_dim and max(w, h) > max_dim:
+        step = -(-max(w, h) // max_dim)
     rows = []
     prev = bytearray(stride)
     p = 0
-    for _ in range(h):
+    for y in range(h):
         ft = raw[p]
         p += 1
         line = bytearray(raw[p:p + stride])
@@ -2062,29 +2072,30 @@ def _png_to_rgb(data):
                 pr = a if (pa <= pb and pa <= pc) else (b if pb <= pc else c)
                 line[i] = (line[i] + pr) & 255
         row = []
-        for x in range(w):
-            i = x * nch
-            if ct == 3:
-                r, g, b = plte[line[i]]
-                al = 255
-            elif ct == 0:
-                r = g = b = line[i]
-                al = 255
-            elif ct == 4:
-                r = g = b = line[i]
-                al = line[i + 1]
-            elif ct == 2:
-                r, g, b = line[i], line[i + 1], line[i + 2]
-                al = 255
-            else:
-                r, g, b = line[i], line[i + 1], line[i + 2]
-                al = line[i + 3]
-            if al < 128:
-                r = g = b = 255
-            row.append((r, g, b))
-        rows.append(row)
+        if step == 1 or y % step == 0:
+            for x in range(0, w, step):
+                i = x * nch
+                if ct == 3:
+                    r, g, b = plte[line[i]]
+                    al = 255
+                elif ct == 0:
+                    r = g = b = line[i]
+                    al = 255
+                elif ct == 4:
+                    r = g = b = line[i]
+                    al = line[i + 1]
+                elif ct == 2:
+                    r, g, b = line[i], line[i + 1], line[i + 2]
+                    al = 255
+                else:
+                    r, g, b = line[i], line[i + 1], line[i + 2]
+                    al = line[i + 3]
+                if al < 128:
+                    r = g = b = 255
+                row.append((r, g, b))
+            rows.append(row)
         prev = line
-    return w, h, rows
+    return (w + step - 1) // step, (h + step - 1) // step, rows
 
 
 def _svg_to_paths(text, size_mm):
@@ -2286,8 +2297,13 @@ class _JpegBitReader:
         self.nbits = 0
 
 
-def _jpeg_to_rgb(data):
-    """Minimal baseline JPEG decoder -> (w, h, rows[[(r,g,b)..]..])."""
+def _jpeg_to_rgb(data, max_dim=0):
+    """Minimal baseline JPEG decoder -> (w, h, rows[[(r,g,b)..]..]).
+    R223: max_dim caps the output resolution (step subsampling) - a 12MP
+    phone photo no longer materialises 300MB of pixel rows on a 512MB Pi
+    (field log .136s: klippy starved, 'Timer too close' MCU shutdowns).
+    step=1 / max_dim=0 is byte-identical to the old decoder."""
+    from array import array
     if data[:2] != b'\xff\xd8':
         raise ValueError('not a JPEG file')
     pos = 2
@@ -2364,6 +2380,12 @@ def _jpeg_to_rgb(data):
     if sof is None or scan is None:
         raise ValueError('unsupported JPEG (no baseline scan found)')
     w, h = sof
+    # R223: step subsampling - every step-th pixel row/column survives the
+    # decode (same values, fewer of them). The consumers grid images down
+    # to <=220 cells anyway, so full resolution was pure RAM waste.
+    step = 1
+    if max_dim and max(w, h) > max_dim:
+        step = -(-max(w, h) // max_dim)      # ceil: result never exceeds max_dim
     hmax = max(c['h'] for c in comps)
     vmax = max(c['v'] for c in comps)
     mcux = (w + 8 * hmax - 1) // (8 * hmax)
@@ -2388,12 +2410,14 @@ def _jpeg_to_rgb(data):
     for c in comps:
         bw = mcux * c['h']
         bh = mcuy * c['v']
-            # NOTE: 'bh' (block rows) must NOT be named 'h' - the sampling
-            # factors c['h']/c['v'] collided with it and silently shrank the plane.
         # NOTE: 'bh' (block rows) must NOT be named 'h' - the sampling
         # factors c['h']/c['v'] collided with it and silently shrank the plane.
-        planes[c['id']] = {'w': bw, 'bh': bh, 'blocks': [[0] * 64 for _ in range(bw * bh)],
-                       'pred': 0}
+        # R223: array('i') blocks (4B per coefficient) instead of python int
+        # lists (~36B per slot) - the same numbers, an 8x smaller plane.
+        planes[c['id']] = {'w': bw, 'bh': bh,
+                           'blocks': [array('i', [0] * 64)
+                                      for _ in range(bw * bh)],
+                           'pred': 0}
     mcus_done = 0
     total_mcus = mcux * mcuy
     rst = 0
@@ -2438,7 +2462,7 @@ def _jpeg_to_rgb(data):
                         k += 1
                     gx = mx * c['h'] + bx
                     gy = my * c['v'] + by
-                    pl['blocks'][gy * pl['w'] + gx] = blk
+                    pl['blocks'][gy * pl['w'] + gx] = array('i', blk)
         mcus_done += 1
 
     def idct8(blk):
@@ -2461,59 +2485,78 @@ def _jpeg_to_rgb(data):
     # A 32-entry table keeps every AC term's sign correct.
     _COS8 = [round(cos(pi * i / 16), 9) for i in range(32)]
 
-    def plane_pixels(pl):
-        pix = [[0] * (pl['w'] * 8) for _ in range(pl['bh'] * 8)]
+    def plane_pixels(pl, stp):
+        # R223: stp>1 keeps only every stp-th pixel - the IDCT still runs
+        # per block but only kept positions are stored, so the pixel plane
+        # shrinks by stp^2 and the pure-python decode gets faster too.
+        # stp=1 reproduces the old plane exactly (every block fully tiled).
+        rw = (pl['w'] * 8 + stp - 1) // stp
+        rh = (pl['bh'] * 8 + stp - 1) // stp
+        pix = [[128] * rw for _ in range(rh)]
         for gy in range(pl['bh']):
             for gx in range(pl['w']):
+                if stp > 1 and not any((gy * 8 + yy) % stp == 0
+                                       for yy in range(8)):
+                    continue
+                if stp > 1 and not any((gx * 8 + xx) % stp == 0
+                                       for xx in range(8)):
+                    continue
                 vals = idct8(pl['blocks'][gy * pl['w'] + gx])
                 for yy in range(8):
-                    row = pix[gy * 8 + yy]
+                    gy8 = gy * 8 + yy
+                    if stp > 1 and gy8 % stp:
+                        continue
+                    row = pix[gy8 // stp]
                     base = gx * 8
                     for xx in range(8):
-                        row[base + xx] = int(vals[yy * 8 + xx] + 128)
+                        gx8 = base + xx
+                        if stp > 1 and gx8 % stp:
+                            continue
+                        row[gx8 // stp] = int(vals[yy * 8 + xx] + 128)
         return pix
 
-    # decode + upsample to full size
+    # decode + upsample to full size (R223: reduced when step > 1)
     full = {}
     for c in comps:
         pl = planes[c['id']]
-        pix = plane_pixels(pl)
+        pix = plane_pixels(pl, step)
         fw, fh = mcux * hmax * 8, mcuy * vmax * 8
         if c['h'] == hmax and c['v'] == vmax:
             up = pix
         else:
-            up = [[pix[int(y * c['v'] / vmax)][int(x * c['h'] / hmax)] if int(y * c['v'] / vmax) < len(pix) and int(x * c['h'] / hmax) < len(pix[0]) else 128
-                   for x in range(fw)] for y in range(fh)]
-        full[c['id']] = (up, fw, fh)
+            up = [[pix[min(int(y * c['v'] / vmax) // step, len(pix) - 1)][min(int(x * c['h'] / hmax) // step, len(pix[0]) - 1)] if int(y * c['v'] / vmax) // step < len(pix) and int(x * c['h'] / hmax) // step < len(pix[0]) else 128
+                   for x in range(0, fw, step)] for y in range(0, fh, step)]
+        full[c['id']] = (up, (fw + step - 1) // step, (fh + step - 1) // step)
     yid = comps[0]['id']
     ypix, fw, fh = full[yid]
+    h2 = (h + step - 1) // step
     if len(comps) == 1:
-        rows = [[(ypix[y][x], ypix[y][x], ypix[y][x]) if x < len(ypix[y]) else (128, 128, 128) for x in range(w)] for y in range(h)]
-        return w, h, rows
+        rows = [[(ypix[y][x], ypix[y][x], ypix[y][x]) if x < len(ypix[y]) else (128, 128, 128) for x in range(0, w, step)] for y in range(0, h, step)]
+        return (w + step - 1) // step, h2, rows
     cbpix, _, _ = full[comps[1]['id']]
     crpix, _, _ = full[comps[2]['id']]
     rows = []
-    for y in range(h):
-        if y >= fh:
+    for y in range(0, h, step):
+        if y // step >= fh:
             break
         row = []
-        yrow = ypix[y]
-        cbrow = cbpix[min(y, fh - 1)]
-        crrow = crpix[min(y, fh - 1)]
-        for x in range(w):
-            if x >= len(yrow):
+        yrow = ypix[y // step]
+        cbrow = cbpix[min(y // step, fh - 1)]
+        crrow = crpix[min(y // step, fh - 1)]
+        for x in range(0, w, step):
+            if x // step >= len(yrow):
                 break
-            yy = yrow[x]
-            cb = cbrow[min(x, len(cbrow) - 1)] - 128
-            cr = crrow[min(x, len(crrow) - 1)] - 128
+            yy = yrow[x // step]
+            cb = cbrow[min(x // step, len(cbrow) - 1)] - 128
+            cr = crrow[min(x // step, len(crrow) - 1)] - 128
             r = int(yy + 1.402 * cr)
             g = int(yy - 0.344136 * cb - 0.714136 * cr)
             b = int(yy + 1.772 * cb)
             row.append((max(0, min(255, r)), max(0, min(255, g)), max(0, min(255, b))))
         rows.append(row)
-    if len(rows) < h:
-        rows += [rows[-1]] * (h - len(rows))
-    return w, h, rows
+    if len(rows) < h2:
+        rows += [rows[-1]] * (h2 - len(rows))
+    return (w + step - 1) // step, h2, rows
 
 
 # ======================================================================================
@@ -7974,6 +8017,13 @@ import threading as _threading133
 _JOB_STATE = {'queue': [], 'keys': set(), 'busy': False,
               'lock': _threading133.Lock()}
 
+# R223 (.136s field log): a generator job that never returns (the photo
+# string-art build ground the 512MB Pi into swap-thrash for 27+ minutes)
+# used to wedge the single worker thread FOREVER - its key blocked every
+# retry, gen_busy=1 stayed up and blocked print starts. The worker now runs
+# each build in its own thread and abandons it after this timeout.
+JOB_STUCK_S = 1200          # 20 min: every real build stays well under it
+
 
 def _job_tick(step=1, every=25, pause=0.02):
     """Micro-pause inside generator hot loops - only while a job worker
@@ -8039,6 +8089,8 @@ NONCE_KEYS = ('preview_nonce', 'range_nonce', 'label_gen_nonce', 'reso_nonce',
               'shape_nonce',
               # R216: twist tool (.136n)
               'twist_nonce',
+              # R223: generator-queue escape hatch (.136u)
+              'gen_clear_nonce',
               'quality_fix_nonce', 'speed_fix_nonce',
               # R147 - .108 field log - the r143 audit parses this tuple
               # comment-safe since R186, parentheses are fine. The
@@ -9211,6 +9263,17 @@ def _string_art_plan(iw, ih, lum, n_anchors, n_lines, grid=100, n_cand=240,
     chosen = set()
     out = []
     for _it in range(n_lines):
+        # R223 RAM checkpoint: if the host is exhausted MID-build (something
+        # else ate the memory), stop with a plain reason instead of grinding
+        # the box into swap-thrash - klippy then dies with 'Timer too close'
+        # (field log .136s: two MCU shutdowns after a photo build). A stuck
+        # plan is dropped by the job watchdog or System > Gen jobs > clear.
+        if _it % 200 == 0 and _mem_available_mb() < 30:
+            raise ValueError(
+                'string art stopped at %d/%d strands: only %dMB RAM free on '
+                'the Pi - restart it (System > Pi restart; a FIRMWARE_RESTART '
+                'does not free it) and try again' % (_it, n_lines,
+                                                    _mem_available_mb()))
         best, bs = None, 0.05
         for _c in range(max(20, int(n_cand))):
             i = rng.randrange(n_anchors)
@@ -9342,7 +9405,9 @@ def make_string_art(src=None, pattern='PHOTO', diameter=180.0, anchors=300,
             raise ValueError('image not found: %s' % src)
         with open(src, 'rb') as f:
             data = f.read()
-        iw, ih, lum = _img_luma(data, kind)
+        iw, ih, lum = _img_luma(data, kind, max_dim=512)   # R223 RAM cap: the
+        # planner grids <=220x220 cells - a full-res photo decode was pure
+        # RAM waste and starved klippy on the 512MB Pi (field log .136s)
         print('[stringart] planning %d chords (greedy, %dx%d grid)...'
               % (n_lines, max(24, min(int(grid), 220)),
                  max(24, min(int(grid), 220))), flush=True)
@@ -12304,12 +12369,14 @@ def make_shape(shape='CYLINDER', size_x=40.0, size_y=40.0, corners=0,
 
 # ---- R89: lithophane + gasket generators ---------------------------------------
 
-def _img_luma(data, kind):
-    """R89: decode PNG/JPEG -> (w, h, rows of luminance 0..1)."""
+def _img_luma(data, kind, max_dim=0):
+    """R89: decode PNG/JPEG -> (w, h, rows of luminance 0..1).
+    R223: max_dim caps the decode resolution (see _jpeg_to_rgb) - the
+    litho/string-art/color-picture planners sample way below that anyway."""
     if kind == 'png':
-        w, h, px = _png_to_rgb(data)
+        w, h, px = _png_to_rgb(data, max_dim)
     elif kind in ('jpg', 'jpeg'):
-        w, h, px = _jpeg_to_rgb(data)   # raises a clear message on progressive
+        w, h, px = _jpeg_to_rgb(data, max_dim)   # raises a clear message on progressive
     else:
         raise ValueError('unsupported image type %r (png/jpg/jpeg only)' % kind)
     if w < 8 or h < 8:
@@ -12530,7 +12597,7 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
         raise ValueError('image not found: %s' % src)
     with open(src, 'rb') as f:
         data = f.read()
-    w, h, lum = _img_luma(data, kind)
+    w, h, lum = _img_luma(data, kind, max_dim=768)   # R223 RAM cap (see _img_luma)
 
     wid = max(0.4, nozzle * 1.08)
     fil = FIL_AREA
@@ -13189,7 +13256,7 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
         raise ValueError('image not found: %s' % src)
     with open(src, 'rb') as f:
         data = f.read()
-    w, h, lum = _img_luma(data, kind)
+    w, h, lum = _img_luma(data, kind, max_dim=768)   # R223 RAM cap (see _img_luma)
 
     wid = max(0.4, nozzle * 1.08)
     fil = FIL_AREA
@@ -16008,7 +16075,7 @@ def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
         raise ValueError('image not found: %s' % src)
     with open(src, 'rb') as f:
         data = f.read()
-    w, h, lum = _img_luma(data, kind)
+    w, h, lum = _img_luma(data, kind, max_dim=768)   # R223 RAM cap (see _img_luma)
 
     # ---- colors: palette codes, light -> dark --------------------------------
     _dflt120 = COLORPIC_DEFAULTS[bands].split(',')
@@ -21952,6 +22019,15 @@ def watch(directory, interval=5.0, once=False):
         # its own error report. Plus: a stuck printer state (e.g. 'starting'
         # after a failed homing - healed by the _STATE_WATCHER since .120)
         # used to swallow jobs SILENTLY - now the queue says why it waits.
+        # R223 (.136s field log): a job that never RETURNS wedges this ONE
+        # worker thread forever - its key blocked every retry ('the first
+        # one is still working' - a lie), gen_busy=1 stayed up (LCD: 'Wait:
+        # generating' on every print start) and nothing ever timed out. Now
+        # every build runs in its own thread and is abandoned + reported
+        # after JOB_STUCK_S. The wait notice also REPEATS (the one-shot
+        # notice landed in a console nobody was watching), and the swallowed
+        # M117 of the old notice ('\\n' literal instead of a newline) is
+        # fixed with it.
         while True:
             item = None
             with _JOB_STATE['lock']:
@@ -21960,19 +22036,21 @@ def watch(directory, interval=5.0, once=False):
             if item is None:
                 time.sleep(0.4)
                 continue
-            name, key, fn, outs, t_spawn, t_wait, noticed = item
+            name, key, fn, outs, t_spawn, t_wait, t_notice, ram_min = item
             _ram162 = _mem_available_mb()
-            if _printer_busy() or (0 < _ram162 < 60):
+            if _printer_busy() or (0 < _ram162 < ram_min):
                 # print has priority - requeue and let it finish first.
-                # R162 (.121 field log): below 60MB available a generator
-                # build (PIL + gcode rewrite) starves klippy on the Pi
-                # Zero 2 W -> 'Timer too close' MCU shutdown mid-print.
-                # A build waits for RAM headroom like it waits for the
-                # printer.
+                # R162 (.121 field log): below the job's headroom a
+                # generator build starves klippy on the Pi Zero 2 W ->
+                # 'Timer too close' MCU shutdown mid-print. A build waits
+                # for RAM headroom like it waits for the printer. R223:
+                # image jobs ask for 110MB (photos used to pass the old
+                # flat 60MB gate and died during the decode), the rest 60.
                 _waited = time.monotonic() - (t_wait or t_spawn)
                 # R188: 10s instead of 90 - the user must KNOW the job is
                 # parked (field report: 'did it start? did it not?')
-                if not noticed and _waited > 10.0:
+                # R223: repeats every 120s and names the actual way out.
+                if _waited > 10.0 and time.monotonic() - (t_notice or 0) > 120.0:
                     try:
                         if _printer_busy():
                             _why162 = ('the printer is busy (a print, a '
@@ -21980,18 +22058,21 @@ def watch(directory, interval=5.0, once=False):
                                        '- it builds the moment the '
                                        'printer idles')
                         else:
-                            _why162 = ('only %dMB RAM free - it builds '
-                                       'when the host has headroom (a '
-                                       'print keeps the rest)' % _ram162)
+                            _why162 = ('only %dMB RAM free, image builds '
+                                       'want %dMB - a PI restart frees it '
+                                       '(System > Pi restart; a firmware '
+                                       'restart does not)'
+                                       % (_ram162, ram_min))
                         _moonraker_gcode(
-                            'RESPOND MSG="[queue] %s waits: %s"'
-                            '\\nM117 %s: waiting' % (name, _why162, name))
+                            'RESPOND MSG="[queue] %s waits: %s"\n'
+                            'M117 %s: waiting' % (name, _why162, name))
                     except Exception:                           # noqa: BLE001
                         pass
-                    noticed = True
+                    t_notice = time.monotonic()
                 with _JOB_STATE['lock']:
                     _JOB_STATE['queue'].insert(
-                        0, (name, key, fn, outs, t_spawn, t_wait, noticed))
+                        0, (name, key, fn, outs, t_spawn, t_wait, t_notice,
+                            ram_min))
                 time.sleep(5.0)
                 continue
             if time.monotonic() - t_spawn > 3.0:
@@ -22002,7 +22083,7 @@ def watch(directory, interval=5.0, once=False):
                     _moonraker_gcode(
                         'RESPOND MSG="[queue] %s: building now"\n'
                         'M117 %s building\n_PLAY_JOB_START' % (name, name))
-                except Exception:                               # noqa: BLE001
+                except Exception:                           # noqa: BLE001
                     pass
             _JOB_STATE['busy'] = True
             _JOB_YIELD['on'] = True
@@ -22015,10 +22096,54 @@ def watch(directory, interval=5.0, once=False):
                     'SAVE_VARIABLE VARIABLE=gen_busy VALUE=1')
             except Exception:                               # noqa: BLE001
                 pass
-            try:
+            # R223: the build runs in its own thread so a wedged one can be
+            # abandoned (header note above). fn() never blocks the worker.
+            box = {}
+            def _run223():
                 try:
-                    outs = fn() or []
+                    box['outs'] = fn() or []
                 except Exception as e:                          # noqa: BLE001
+                    box['err'] = e
+            th = threading.Thread(target=_run223, daemon=True,
+                                  name='r2job-%s' % key.replace(':', '-'))
+            th.start()
+            th.join(JOB_STUCK_S)
+            try:
+                if th.is_alive():
+                    # STUCK: dump the thread's stack to the journal (see it
+                    # with journalctl -u r2-postproc), abandon it (a daemon
+                    # - it dies with the service / the Pi) and FREE the
+                    # queue. The .136s photo weave sat here 27+ minutes
+                    # with zero feedback and blocked every retry.
+                    try:
+                        import faulthandler
+                        faulthandler.dump_traceback()
+                    except Exception:                           # noqa: BLE001
+                        pass
+                    print('[job:%s] STUCK after %ds - abandoned, queue '
+                          'freed (stack above)' % (name, JOB_STUCK_S),
+                          flush=True)
+                    try:
+                        _moonraker_gcode(
+                            'RESPOND MSG="[queue] %s STUCK after %dmin - '
+                            'dropped, the queue is free (a Pi restart ends '
+                            'the leftover worker; your settings stay)"\n'
+                            'M117 %s: stuck\n_SOUND_LIB NAME=r2_error'
+                            % (name, JOB_STUCK_S // 60, name))
+                    except Exception:                           # noqa: BLE001
+                        pass
+                    _JOB_YIELD['on'] = False
+                    _JOB_STATE['busy'] = False
+                    try:
+                        _moonraker_gcode(
+                            'SAVE_VARIABLE VARIABLE=gen_busy VALUE=0')
+                    except Exception:                           # noqa: BLE001
+                        pass
+                    with _JOB_STATE['lock']:
+                        _JOB_STATE['keys'].discard(key)
+                    continue
+                if 'err' in box:
+                    e = box['err']
                     print(f'[job:{name}] error: {e!r}', flush=True)
                     try:
                         _moonraker_gcode(
@@ -22028,6 +22153,8 @@ def watch(directory, interval=5.0, once=False):
                     except Exception:                           # noqa: BLE001
                         pass
                     outs = []
+                else:
+                    outs = box.get('outs') or []
                 # R133b: the worker stamps the worst move rate into the
                 # file info (the selection path never measures files -
                 # that full-file scan blocked the LCD for minutes on the
@@ -22050,30 +22177,37 @@ def watch(directory, interval=5.0, once=False):
                 try:
                     _moonraker_gcode(
                         'SAVE_VARIABLE VARIABLE=gen_busy VALUE=0')
-                except Exception:                           # noqa: BLE001
+                except Exception:                               # noqa: BLE001
                     pass
                 with _JOB_STATE['lock']:
                     _JOB_STATE['keys'].discard(key)
 
-    def _spawn_job(name, key, fn, outs=None):
+    def _spawn_job(name, key, fn, outs=None, ram_min=60):
+        # R223: ram_min - image jobs (string art, litho, color picture)
+        # pass 110: their decode + build needs real headroom. The old flat
+        # 60MB gate waved a photo build through that then collapsed the
+        # host mid-build (.136s: 'Timer too close' x2 while UNLOAD_FILAMENT
+        # was merely heating).
         with _JOB_STATE['lock']:
             if key in _JOB_STATE['keys']:
                 try:
                     _moonraker_gcode(
                         'RESPOND MSG="%s: already running or queued - your'
                         ' press was a duplicate, the first one is still'
-                        ' working (one job at a time now)"\nM117 %s: busy'
+                        ' working (one job at a time now; System > Gen jobs'
+                        ' shows the queue and can clear it)"\nM117 %s: busy'
                         % (name, name))
                 except Exception:                               # noqa: BLE001
                     pass
                 return False
             _JOB_STATE['keys'].add(key)
             _JOB_STATE['queue'].append(
-                (name, key, fn, outs, time.monotonic(), None, False))
+                (name, key, fn, outs, time.monotonic(), None, 0.0, ram_min))
         return True
     last_figures_nonce = None        # R126: stylized system figures
     last_plotstatus_nonce = None
     last_host_nonce = None
+    last_gclear_nonce = None    # R223: generator-queue clear (.136u)
     first = True
     first_prime = True
     # R148 (.109 field log: the watcher pinned a full core on the Pi while
@@ -22297,6 +22431,21 @@ def watch(directory, interval=5.0, once=False):
                 last_scale_nonce = _np.get('scale_nonce')    # R176
                 last_cake_nonce = _np.get('cake_nonce')      # R177
                 last_stringart_nonce = _np.get('stringart_nonce')  # R178
+                last_gclear_nonce = _np.get('gen_clear_nonce')  # R223
+                # R223 (.136s field log): gen_busy=1 OUTLIVES a killed
+                # watcher - it was raised by a job whose finally never ran
+                # (the wedged photo build took the thread down with the
+                # service). Left up, every print start shows 'Wait:
+                # generating' forever. Drop it once at boot, loudly.
+                if rv.get('gen_busy'):
+                    try:
+                        _moonraker_gcode(
+                            'SAVE_VARIABLE VARIABLE=gen_busy VALUE=0')
+                        print('[boot] dropped a stale gen_busy flag (a '
+                              'generator job died with the old watcher)',
+                              flush=True)
+                    except Exception:                           # noqa: BLE001
+                        pass
                 first_prime = False
             if busy:
                 # generator nonces stay at their last value -> the jobs run
@@ -23107,6 +23256,38 @@ def watch(directory, interval=5.0, once=False):
             print(f'[fixreselect] error: {e!r}', flush=True)
         FIX_DONE.clear()
 
+        # R223 (.136u): the generator-queue escape hatch - System > Gen
+        # jobs > clear queue. The .136s field log: a wedged photo build
+        # held the ONLY worker forever, its key refused every retry and
+        # gen_busy=1 blocked print starts, with no way out from the LCD.
+        # This drops every queued job and frees all keys (including the
+        # running job's - its late cleanup discards a key that is already
+        # gone: harmless) and pulls gen_busy down. A leftover build thread
+        # is abandoned by the R223 stuck watchdog; a Pi restart ends it
+        # instantly. Settings are untouched - nothing is lost but the job.
+        try:
+            _gc223 = rv.get('gen_clear_nonce', '')
+            if _gc223 and _gc223 != last_gclear_nonce:
+                last_gclear_nonce = _gc223
+                with _JOB_STATE['lock']:
+                    _dropped223 = len(_JOB_STATE['queue'])
+                    _JOB_STATE['queue'] = []
+                    _JOB_STATE['keys'].clear()
+                _JOB_STATE['busy'] = False
+                try:
+                    _moonraker_gcode(
+                        'SAVE_VARIABLE VARIABLE=gen_busy VALUE=0\n'
+                        'RESPOND MSG="[OK] generator queue cleared (%d '
+                        'queued dropped, flags reset - a stuck build no '
+                        'longer matters; a Pi restart ends its leftover '
+                        'thread)"\nM117 Gen queue clear\n'
+                        '_SOUND_LIB NAME=r2_done')
+                except Exception:                           # noqa: BLE001
+                    pass
+                print('[queue] cleared on request (%d queued dropped)'
+                      % _dropped223, flush=True)
+        except Exception as e:                              # noqa: BLE001
+            print(f'[queue] clear error: {e!r}', flush=True)
         # R63: label generator request from the LCD (label_gen_nonce bumps per job)
         try:
             ln = rv.get('label_gen_nonce', '')
@@ -23589,7 +23770,7 @@ def watch(directory, interval=5.0, once=False):
                 import threading
                 _spawn_job('Litho',
                            'litho:%s:%r' % (_src89, sorted(_params89.items())),
-                           _litho_job89)
+                           _litho_job89, ram_min=110)   # R223: photo
         except Exception as e:                              # noqa: BLE001
             print(f'[litho] poll error: {e!r}', flush=True)
 
@@ -23672,7 +23853,7 @@ def watch(directory, interval=5.0, once=False):
                 import threading
                 _spawn_job('ColorPic',
                            'colorpic:%s:%r' % (_csrc120, sorted(_cparams120.items())),
-                           _colorpic_job120)
+                           _colorpic_job120, ram_min=110)   # R223: photo
         except Exception as e:                              # noqa: BLE001
             print(f'[colorpic] poll error: {e!r}', flush=True)
 
@@ -24424,7 +24605,7 @@ def watch(directory, interval=5.0, once=False):
 
                     _spawn_job('StringArt', 'stringart:%s:%s/%s/%s' % (
                         _spat178, _sdia178, _sanc178, _slin178),
-                        _stringart_job178)
+                        _stringart_job178, ram_min=110)   # R223: photo
         except ValueError as ve178:
             try:
                 _moonraker_gcode(
@@ -24994,7 +25175,8 @@ def watch(directory, interval=5.0, once=False):
                 _moonraker_gcode(
                     'RESPOND MSG="R2 watcher: host memory low (%dMB free) - '
                     'directory scans paused so klippy keeps the CPU. A '
-                    'restart of the Pi frees swap."' % _ram148v)
+                    'RESTART OF THE PI frees swap (a firmware restart does '
+                    'nothing here) - System > Pi restart."' % _ram148v)
             except Exception:                               # noqa: BLE001
                 pass
         if busy or _JOB_STATE['busy'] or _JOB_STATE['queue'] or _ram_low148:

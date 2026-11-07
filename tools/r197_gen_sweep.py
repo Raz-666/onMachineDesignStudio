@@ -326,8 +326,10 @@ doc = mje.export(os.path.join(REPO, 'menus', 'lcd_menues.cfg'),
 # (10 slots) + bricks scale input/size row (2403 -> 2424)
 # R216: string-art field round (shape/presets/bow/spread) adds 12 rows (2472 -> 2472)
 # R220: TYPES summary rows in both File info menus (2472 -> 2474)
-check('T1 export: all 2474 sections in one tree, no orphans',
-      doc['sections'] == 2474 and sum(doc['counts'].values()) == 2474,
+# R223 (.136u): System > Gen jobs - queue visibility + clear
+# (.136s field log; 2474 -> 2479: list + how/state/clear/clear-now)
+check('T1 export: all 2479 sections in one tree, no orphans',
+      doc['sections'] == 2479 and sum(doc['counts'].values()) == 2479,
       str(doc['counts']))
 
 
@@ -340,7 +342,7 @@ def _walk(n, acc):
 
 _all = _walk(doc['tree'], [])
 check('T1 export: tree node count == sections, depth sane, known ids',
-      len(_all) == 2474
+      len(_all) == 2479
       and any(n['id'] == '__main __start __direct' for n in _all)
       and any(n['id'] == '__main __live' for n in _all))
 
@@ -395,7 +397,7 @@ _emb = json.JSONDecoder().raw_decode(
     _ptxt.split('const EMBEDDED_MENU_JSON = ', 1)[1])[0]
 check('T1 embed: placeholder replaced with valid JSON',
       '/*EMBEDDED_MENU_JSON*/ null' not in _ptxt
-      and _emb['sections'] == 2474)
+      and _emb['sections'] == 2479)
 
 # T2: the moonraker extension with a fake app
 spec = importlib.util.spec_from_file_location(
@@ -503,7 +505,7 @@ import asyncio                                            # noqa: E402
 loop = asyncio.new_event_loop()
 tree_doc = loop.run_until_complete(eps['/server/r2_menu/tree'](FakeReq()))
 check('T2 extension: tree handler serves the export',
-      tree_doc['sections'] == 2474 and 'tree' in tree_doc)
+      tree_doc['sections'] == 2479 and 'tree' in tree_doc)
 st = loop.run_until_complete(eps['/server/r2_menu/status'](FakeReq()))
 check('T2 extension: status handler reports ok + sha',
       st['ok'] and st['sha256'] == tree_doc['sha256'])
@@ -1292,6 +1294,62 @@ check('T6d matcher: broadened to ANY r2_postproc name (stray copies '
       and pp._cmdline_is_watcher(b'python3 /x/r2_postproc_old.py -w /g')
       and not pp._cmdline_is_watcher(b'python3 /x/r2_menu.py')
       and not pp._cmdline_is_watcher(b'nano printer.cfg'))
+
+# ---- R223 (.136u): the .136s field log - the photo build RAM collapse ---
+# A string-art PHOTO job decoded a full-res JPEG into 300MB+ of python
+# rows on the 512MB Pi: klippy starved ('Timer too close' x2, host memory
+# low 25MB), the job wedged the only worker forever, its key refused every
+# retry and gen_busy=1 blocked print starts with no way out from the LCD.
+check('R223a decode caps: max_dim on both decoders + _img_luma, image '
+      'callers capped (string art 512, litho/colorpic 768)',
+      'def _jpeg_to_rgb(data, max_dim=0)' in _src
+      and 'def _png_to_rgb(data, max_dim=0)' in _src
+      and 'def _img_luma(data, kind, max_dim=0)' in _src
+      and '_img_luma(data, kind, max_dim=512)' in _src
+      and _src.count('_img_luma(data, kind, max_dim=768)') == 3)
+check('R223b JPEG planes are array-backed (8x less RAM per coefficient)',
+      "[array('i', [0] * 64)" in _src and '= array(\'i\', blk)' in _src)
+check('R223c worker: per-job thread + 20min stuck watchdog + repeating '
+      'wait notice + per-job ram_min (image jobs 110MB, rest 60)',
+      'JOB_STUCK_S = 1200' in _src and 'th.join(JOB_STUCK_S)' in _src
+      and 'STUCK after' in _src and 'ram_min=110' in _src
+      and _src.count('ram_min=110') == 3)
+check('R223d queue clear channel: gen_clear_nonce in NONCE_KEYS + primed '
+      'at boot + handled in the loop; a stale gen_busy is dropped at boot '
+      '(a died job must not block print starts forever)',
+      "'gen_clear_nonce'," in _src
+      and 'last_gclear_nonce = _np.get' in _src
+      and 'last_gclear_nonce = None' in _src
+      and 'dropped a stale gen_busy flag' in _src
+      and 'generator queue cleared' in _src)
+check('R223e plan checkpoint: string art aborts below 30MB mid-build '
+      'with the Pi-restart advice (not a firmware restart)',
+      'string art stopped at' in _src
+      and 'System > Pi restart' in _src)
+check('R223f RAM-low watcher text says RESTART OF THE PI (a firmware '
+      'restart frees nothing)', 'RESTART OF THE PI frees swap' in _src)
+
+# the fixture decode pin: values frozen from the PRE-refactor decoder
+import hashlib as _h223
+_d223 = open(os.path.join(REPO, 'tools', 'r223_fixture.jpg'), 'rb').read()
+_jw, _jh, _jpx = pp._jpeg_to_rgb(_d223)
+check('R223g JPEG fixture decode is bit-stable across the step/array '
+      'refactor (frozen md5, step=1 = the old decoder exactly)',
+      (_jw, _jh) == (96, 72)
+      and _h223.md5(repr(_jpx).encode()).hexdigest()[:12] == 'a62af9c9d9c1',
+      '%dx%d' % (_jw, _jh))
+_jw2, _jh2, _jpx2 = pp._jpeg_to_rgb(_d223, max_dim=24)
+check('R223h capped decode: max_dim=24 -> 24x18 and the kept pixels are '
+      'IDENTICAL to the full decode (subsample, not a resample)',
+      (_jw2, _jh2) == (24, 18) and _jpx2[0][0] == _jpx[0][0],
+      '%dx%d' % (_jw2, _jh2))
+_m223 = open(os.path.join(REPO, 'menus', 'lcd_menues.cfg')).read()
+check('R223i System > Gen jobs menu: how-it-works + live state row + '
+      'double-press clear (the queue is visible AND escapable now)',
+      '[menu __main __system __genq]' in _m223
+      and '__genq __state' in _m223
+      and '"BUILDING" if printer["save_variables"].variables.gen_busy' in _m223
+      and '_GEN_QUEUE_CLEAR CONFIRM=1' in _m223)
 check('T6d matcher R207: EXECUTION precision - processes that merely '
       'MENTION the name never match (bash wrapper, pgrep, grep, sudo)',
       not pp._cmdline_is_watcher(
