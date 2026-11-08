@@ -618,6 +618,60 @@ for _m226, _p226 in (
                       % _p226.split('/')[-1],
                       False, repr(_e226)[:160]))
 
+# ---- R228 (.136y field log): the pause-storm round ------------------------
+# Field: quick-pause/resume churn on layer 1, "mode was stuck in paused"
+# after EVERY resume (the watcher sampled the gap between our mode flip and
+# print_stats following M24), MCU shutdown "Timer too close" under the load,
+# and the question whether the motion-sensor chirps at the start armed the
+# pauses. Hardening: 3-tick persistence before following an external pause,
+# sensor grace windows (start + resume), Pause-NOW arm timeout.
+_w228 = __import__('re').search(
+    r'\[delayed_gcode _STATE_WATCHER\]\ninitial_duration: 8\ngcode:\n'
+    r'(.*?)(?=\n\[|\Z)', open('macros/01_state.cfg').read(),
+    __import__('re').S).group(1)
+state_vars['mode'] = 'printing'
+state_vars['ext_pause_cnt'] = 0
+out = render(_w228, {}, ps_state='paused')
+tests.append(('R228 watcher: tick 1 of the resume gap - mode NOT flipped '
+              'back (old code knocked it to paused instantly), counter runs',
+              'ext_pause_cnt VALUE=1' in out
+              and "VARIABLE=mode VALUE=" not in out, out[:160]))
+state_vars['ext_pause_cnt'] = 2
+out = render(_w228, {}, ps_state='paused')
+tests.append(('R228 watcher: 3 ticks agree -> external pause followed '
+              '(a Mainsail pause persists, the resume gap never does)',
+              "VARIABLE=mode VALUE=" in out
+              and 'paused externally' in out, out[:160]))
+state_vars['ext_pause_cnt'] = 0
+state_vars['mode'] = 'printing'
+# sensor grace: chatter during start/resume must not arm a pause
+body = get_body('macros/09_pause_filament.cfg', '_FILAMENT_RUNOUT')
+state_vars['sensor_grace'] = True
+out = render(body, {})
+tests.append(('R228 runout during grace: chatter notice, NO pause armed '
+              '(the motion wheel lags while the prime pressure builds)',
+              'grace ignored' in out and 'PAUSE_NEXT_LAYER' not in out,
+              out[:160]))
+state_vars['sensor_grace'] = False
+out = render(body, {})
+tests.append(('R228 runout without grace: pause armed as before (regression)',
+              'PAUSE_NEXT_LAYER REASON="filament out"' in out
+              and 'planned pause armed' in out, out[:160]))
+# the grace windows arm where the chirps happen
+out = render(get_body('macros/08_print_start_stop.cfg', '_PRIME_LINE'),
+             {'LAYER_HEIGHT': '0.2'})
+tests.append(('R228 prime line arms the 30s start grace',
+              'sensor_grace VALUE=True' in out
+              and '_SENSOR_GRACE_OFF DURATION=30' in out, out[:120]))
+state_vars['pause_was_sd'] = True
+out = render(get_body('macros/09_pause_filament.cfg', '_RESUME_COMMON'),
+             {}, etemp=50, ps_state='paused')
+tests.append(('R228 resume arms the 20s grace + re-enables the sensors '
+              '(regression: M24 still there)',
+              'sensor_grace VALUE=True' in out
+              and '_SENSOR_GRACE_OFF DURATION=20' in out and 'M24' in out,
+              out[:120]))
+
 body = get_body('macros/14_kamp.cfg', 'KAMP_STATUS')
 out = render(body, {}, kamp=True)
 tests.append(('KAMP_STATUS installed', 'installed & loaded' in out and 'LINE_PURGE=yes' in out, out[:200]))
@@ -4111,8 +4165,8 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         _v66 = _l66.split(':', 1)[1].strip()
         break
 # NOTE: bump this expectation together with the version on every release!
-tests.append(('R66/R80 version is current (.136y) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-11-08.136y'", repr(_v66)))
+tests.append(('R66/R80 version is current (.136z) in 01_state.cfg (bump together with release!)',
+    _v66 == "'R2-2026-11-08.136z'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -17294,12 +17348,12 @@ tests.append(('R185 current-only manual: no version-history appendix, no era '
     '## Appendix D' not in _m185 and 'Version history' not in _m185
     and _re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185) is None
     and _re2.search(r'\bR1[0-9][0-9]\b', _m185) is None
-    and 'The nine fonts' in _m185 and 'R2-2026-11-08.136y' in _m185,
+    and 'The nine fonts' in _m185 and 'R2-2026-11-08.136z' in _m185,
     'appendixD=%s eratags=%s rtags=%s nine=%s v132=%s' % (
         '## Appendix D' in _m185,
         bool(_re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185)),
         bool(_re2.search(r'\bR1[0-9][0-9]\b', _m185)),
-        'The nine fonts' in _m185, 'R2-2026-11-08.136y' in _m185)))
+        'The nine fonts' in _m185, 'R2-2026-11-08.136z' in _m185)))
 
 # ================== R184 (.131c field round): the brim air gap EVERYWHERE ==
 # The user asked: does the brim fusing hit our OTHER generators too? Measured

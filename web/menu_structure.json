@@ -7,7 +7,7 @@
   "command": 1460,
   "input": 687
  },
- "sha256": "1e7c66d08884e19f",
+ "sha256": "9e3bbe334bcdcc90",
  "live_objects": [
   "bed_mesh",
   "configfile",
@@ -6036,6 +6036,7 @@
          "QUICK_PAUSE",
          "{% else %}",
          "SET_GCODE_VARIABLE MACRO=_STATE VARIABLE=pause_now_arm VALUE=1",
+         "UPDATE_DELAYED_GCODE ID=_PAUSE_NOW_ARM_OFF DURATION=5",
          "RESPOND MSG=\"Press Pause NOW again to pause (protects against accidental double-clicks)\"",
          "{% endif %}"
         ],

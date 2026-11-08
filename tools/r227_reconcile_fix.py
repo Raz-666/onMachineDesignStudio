@@ -111,11 +111,16 @@ check('F2 counts: 7 releases / 3 raises in the daemon '
       and src.count('SAVE_VARIABLE VARIABLE=gen_busy VALUE=1') == 3)
 
 print('--- F3: the daemon build stamp names its round')
-check("F3 POSTPROC_BUILD = 'R227' (the field boot said '.136x (R223)')",
-      re.search(r"^POSTPROC_BUILD = 'R227'$", src, re.M) is not None)
-check('F3 POSTPROC_RELEASE = .136y',
-      re.search(r"^POSTPROC_RELEASE = 'R2-2026-11-08\.136y'$",
-                src, re.M) is not None)
+# .136r lesson: a hard round pin goes stale on the NEXT bump - the checks
+# are round-aware now (>= the round that introduced the fix)
+_b227m = re.search(r"^POSTPROC_BUILD = 'R(\d+)'$", src, re.M)
+check("F3 POSTPROC_BUILD names a round >= R227 (the field boot said "
+      "'.136x (R223)' - the stamp had not been bumped since R223)",
+      bool(_b227m) and int(_b227m.group(1)) >= 227)
+_r227m = re.search(r"^POSTPROC_RELEASE = 'R2-2026-11-08\.136([a-z])'$",
+                   src, re.M)
+check('F3 POSTPROC_RELEASE >= .136y',
+      bool(_r227m) and _r227m.group(1) >= 'y')
 
 print('--- F4: update.sh restarts moonraker (web code lives at startup)')
 upd = open(os.path.join(REPO, 'update.sh')).read()

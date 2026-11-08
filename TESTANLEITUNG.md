@@ -1,6 +1,6 @@
-# TESTANLEITUNG — R2-D2 Makro-System (Version .136y)
+# TESTANLEITUNG — R2-D2 Makro-System (Version .136z)
 
-Diese Anleitung beschreibt **nur den aktuellen Stand** (.136y). Sie ist die
+Diese Anleitung beschreibt **nur den aktuellen Stand** (.136z). Sie ist die
 komplette Feld-Checkliste nach dem Einspielen eines Updates — von Boot bis
 Druckergebnis. Die Historie der Änderungen steht in README.md.
 
@@ -18,7 +18,7 @@ Druckergebnis. Die Historie der Änderungen steht in README.md.
 ## 2. Boot-Check (Pflicht, 1 Minute)
 
 - [ ] Konsole: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-08.136y)`
+      (build R2-2026-11-08.136z)`
 - [ ] ~10 s nach dem Boot: Boot-Sound + LED-Animation
 - [ ] `SHOW_STATUS` antwortet mit Modus/Material/Overrides
 - [ ] Kein Eintrag fehlt: sonst meldet sich `_CHECK_INSTALL` laut mit
@@ -280,6 +280,29 @@ bewusst angeschweißt). Je ein Probedruck:
 
 ---
 
-**Alles grün?** Dann ist .136y field-clear. Wenn etwas auffällt: Konsole
+## 15. Die .136z-Neuerungen (R228-Pausen-Sturm-Runde)
+
+- [ ] **Kein „mode stuck in paused" mehr nach RESUME**: der State-Watcher
+  konnte genau in die Lücke zwischen Modus-Wechsel (printing) und
+  Klippers print_stats (zieht beim M24 erst mit) samplen und kippte den
+  Modus zurück — im Feldlog nach JEDER Pause, Heilung brauchte ~10 s.
+  Jetzt folgt derWatcher einem fremden Pause-Stopp erst nach 3 Runden
+  (Mainsail-Pause bleibt persistend, die Resume-Lücke nie)
+- [ ] **Filament-Sensor-Gnadenfenster**: Prime-Line startet 30 s, Resume
+  20 s Langsamkeit-Toleranz — der Motion-Sensor meldet am Anfang gern
+  „nichts gefördert", solange sich der Druck aufbaut; Geplapper wird
+  gemeldet statt eine Pause zu scharf zu stellen, echte Runouts kommen
+  nach dem Fenster durch
+- [ ] **„Pause NOW"-Armierung läuft ab**: die Zwei-Drück-Bestätigung
+  blieb sonst ewig scharf — jeder spätere Einzelklick (oder EMI-Geister-
+  Klick am 12864-Encoder) pausierte. Armiert verfällt nach 5 s
+- [ ] **Kein Banner-Sturm nach MCU-Shutdown**: der Daemon schiebt jetzt
+  nur noch bei bereitem Klipper (jeder Schub in einen abgeschalteten
+  Klipper druckte das komplette „Timer too close"-Banner neu) und max.
+  1× pro 10 s
+
+---
+
+**Alles grün?** Dann ist .136z field-clear. Wenn etwas auffällt: Konsole
 kopieren (RESPOND-Zeilen) + welche Datei/welcher Menüpfad — daraus wird der
 nächste Feldlog-Eintrag.

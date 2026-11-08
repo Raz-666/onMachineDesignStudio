@@ -77,8 +77,8 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-08.136y'
-POSTPROC_BUILD = 'R227'
+POSTPROC_RELEASE = 'R2-2026-11-08.136z'
+POSTPROC_BUILD = 'R228'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
 # and no speed/accel/nozzle parameters. Files carrying an OLD tag are UPGRADED
@@ -23109,25 +23109,33 @@ def watch(directory, interval=5.0, once=False):
                     and not _JOB_STATE.get('busy') \
                     and (_JOB_STATE.get('thread') is None
                          or not _JOB_STATE['thread'].is_alive()):
-                try:
-                    if not _JOB_STATE.get('stale_gb227'):
-                        _JOB_STATE['stale_gb227'] = True
-                        _moonraker_gcode(
-                            'SAVE_VARIABLE VARIABLE=gen_busy VALUE=0\n'
-                            'RESPOND MSG="[queue] stale gen_busy cleared (no '
-                            'generator is running - the flag survived a '
-                            'restart/error) - print starts are free"\n'
-                            'M117 Queue free')
-                        print('[queue] stale gen_busy cleared (reconciled)',
-                              flush=True)
-                    else:
-                        # announced already - silent retry (klippy may
-                        # still be down; the moment it answers, the clear
-                        # lands and the next pass reads a healthy flag)
-                        _moonraker_gcode(
-                            'SAVE_VARIABLE VARIABLE=gen_busy VALUE=0')
-                except Exception:                                # noqa: BLE001
-                    pass          # moonraker down - retry on the next pass
+                # R228 (.136y field log): rate-limit EVERYTHING to one
+                # attempt per 10 s (the announce as well as the silent
+                # retries - the print-start backlog scan runs tight passes
+                # and amplified the pushes 8x in 8 s), and GATE on klippy
+                # being ready: every push into a shutdown klippy re-printed
+                # the whole 'MCU shutdown: Timer too close' banner to every
+                # client (the field log stormed it 2x per 6 s after the
+                # crash). Klippy down/error -> silent skip, retry later.
+                if time.monotonic() - _JOB_STATE.get('gb227_t', 0.0) >= 10.0:
+                    _JOB_STATE['gb227_t'] = time.monotonic()
+                    _inf228 = _moonraker_json('/server/info')
+                    if _inf228 \
+                            and str(_inf228.get('klippy_state', '')) == 'ready':
+                        if not _JOB_STATE.get('stale_gb227'):
+                            _JOB_STATE['stale_gb227'] = True
+                            _moonraker_gcode(
+                                'SAVE_VARIABLE VARIABLE=gen_busy VALUE=0\n'
+                                'RESPOND MSG="[queue] stale gen_busy cleared (no '
+                                'generator is running - the flag survived a '
+                                'restart/error) - print starts are free"\n'
+                                'M117 Queue free')
+                            print('[queue] stale gen_busy cleared (reconciled)',
+                                  flush=True)
+                        else:
+                            # announced already - silent retry
+                            _moonraker_gcode(
+                                'SAVE_VARIABLE VARIABLE=gen_busy VALUE=0')
             else:
                 # flag healthy (or a real job owns it) - rearm the latch
                 _JOB_STATE['stale_gb227'] = False

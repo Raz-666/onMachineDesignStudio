@@ -58,6 +58,8 @@ TIERS = {
          'gen_busy reconcile, klippy.log sections'),
         ('r227_reconcile_fix', '.136y hotfix: reconcile string-parse + '
          'latch, moonraker restart in update.sh'),
+        ('r228_pause_storm', '.136z pause storm: watcher 3-tick follow, '
+         'sensor grace, arm expiry, banner gate'),
         ('r199_zip_check', 'release-zip layout + version consistency'),
         ('audit_sweep', 'all-file audit sweep'),
         # r142_spell_lint stays OUT of the tiers on purpose: it is a hint
