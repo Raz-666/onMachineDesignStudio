@@ -4165,8 +4165,8 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         _v66 = _l66.split(':', 1)[1].strip()
         break
 # NOTE: bump this expectation together with the version on every release!
-tests.append(('R66/R80 version is current (.136z) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-11-08.136z'", repr(_v66)))
+tests.append(('R66/R80 version is current (.136aa) in 01_state.cfg (bump together with release!)',
+    _v66 == "'R2-2026-11-08.136aa'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -16831,7 +16831,10 @@ _lad180 = [
     ('Outer Solid Infill', 'INFILL-SOLID'), ('Inner Solid Infill', 'INFILL-SOLID'),
     ('outer shell', 'WALL-OUTER'), ('inner shell', 'WALL-INNER'),
     ('Walls', 'WALL-INNER'), ('Solid', 'INFILL-SOLID'), ('Sparse', 'INFILL-SPARSE'),
-    ('purge tower', 'PRIME-TOWER'), ('Purge Line', 'SKIRT'), ('brim', 'BRIM'),
+    ('purge tower', 'PRIME-TOWER'),
+    # R229: 'Purge Line' left the ladder - the exact map owns it now
+    # (PRIME-TOWER, the purge class)
+    ('Purge Line', 'PRIME-TOWER'), ('brim', 'BRIM'),
     ('skirt loop', 'SKIRT'), ('Internal Bridge', 'INTERNAL-BRIDGE'),
     ('overhang wall', 'OVERHANG-PERIM'), ('Top Skin', 'SURFACE-TOP'),
     ('MagicFoamX', 'CUSTOM'), ('custom', 'CUSTOM'), ('Wall outer', 'WALL-OUTER'),
@@ -17348,12 +17351,12 @@ tests.append(('R185 current-only manual: no version-history appendix, no era '
     '## Appendix D' not in _m185 and 'Version history' not in _m185
     and _re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185) is None
     and _re2.search(r'\bR1[0-9][0-9]\b', _m185) is None
-    and 'The nine fonts' in _m185 and 'R2-2026-11-08.136z' in _m185,
+    and 'The nine fonts' in _m185 and 'R2-2026-11-08.136aa' in _m185,
     'appendixD=%s eratags=%s rtags=%s nine=%s v132=%s' % (
         '## Appendix D' in _m185,
         bool(_re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185)),
         bool(_re2.search(r'\bR1[0-9][0-9]\b', _m185)),
-        'The nine fonts' in _m185, 'R2-2026-11-08.136z' in _m185)))
+        'The nine fonts' in _m185, 'R2-2026-11-08.136aa' in _m185)))
 
 # ================== R184 (.131c field round): the brim air gap EVERYWHERE ==
 # The user asked: does the brim fusing hit our OTHER generators too? Measured

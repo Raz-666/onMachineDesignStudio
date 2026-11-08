@@ -117,10 +117,14 @@ _b227m = re.search(r"^POSTPROC_BUILD = 'R(\d+)'$", src, re.M)
 check("F3 POSTPROC_BUILD names a round >= R227 (the field boot said "
       "'.136x (R223)' - the stamp had not been bumped since R223)",
       bool(_b227m) and int(_b227m.group(1)) >= 227)
-_r227m = re.search(r"^POSTPROC_RELEASE = 'R2-2026-11-08\.136([a-z])'$",
+# R229: two-letter suffixes begin at .136aa - 'aa' sorts BELOW 'y'
+# lexicographically, so the check compares the round NUMBER chain via
+# length first (aa.. > z) instead of plain string order
+_r227m = re.search(r"^POSTPROC_RELEASE = 'R2-2026-11-08\.136([a-z]+)'$",
                    src, re.M)
 check('F3 POSTPROC_RELEASE >= .136y',
-      bool(_r227m) and _r227m.group(1) >= 'y')
+      bool(_r227m) and (len(_r227m.group(1)) >= 2
+                        or _r227m.group(1) >= 'y'))
 
 print('--- F4: update.sh restarts moonraker (web code lives at startup)')
 upd = open(os.path.join(REPO, 'update.sh')).read()

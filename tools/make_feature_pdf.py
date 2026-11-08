@@ -120,7 +120,7 @@ class Doc(BaseDocTemplate):
         canv.line(17*mm, 285*mm, 193*mm, 285*mm)
         canv.setFont('DVS', 8.2); canv.setFillColor(GRAY)
         canv.drawString(17*mm, 287.2*mm, 'R2-D2 Macro System · Feature-Tagging — der komplette Wahrheitspfad')
-        canv.drawRightString(193*mm, 287.2*mm, 'R2-2026-11-08.136z')
+        canv.drawRightString(193*mm, 287.2*mm, 'R2-2026-11-08.136aa')
         canv.setFont('DVS', 8.6)
         canv.drawCentredString(105*mm, 9.5*mm, 'Seite %d' % doc.page)
         canv.restoreState()
@@ -195,7 +195,7 @@ A(Paragraph('Wie das R2-D2-System aus einer G-Code-Datei die Features liest —<
 A(Spacer(1, 10*mm))
 A(CENT_COVER())
 A(Spacer(1, 8*mm))
-A(Paragraph('Stand: R2-2026-11-08.136z · Code-Wahrheit: tools/r2_postproc.py (TYPE_RE, TYPE_MAP, '
+A(Paragraph('Stand: R2-2026-11-08.136aa · Code-Wahrheit: tools/r2_postproc.py (TYPE_RE, TYPE_MAP, '
             '_canon_type, _GeomScan), macros/01_state.cfg + 08_print_start_stop.cfg · '
             'Slicer-Dokumentation: CuraEngine-Wiki »Generating Paths«, OrcaSlicer-Wiki '
             '»Walls printing order«', S['cap']))
@@ -540,10 +540,18 @@ flow += B(
  'kolonstreng (kein &bdquo;; type of filament&ldquo;-False-Positive).',
  '<b>Die letzte Vokabular-Runde in TYPE_MAP:</b> KISSlicer crown (=Gap Fill), upper/lower '
  'face, Simplify3Ds single-extrusion-Features (internal = Gap Fill, external = dünne '
- 'Außenwand) und solid layer, ideaMakers Shells/Türme (tip tower, wipe wall als Wegwerf-'
- 'Skirt), Cura roof/floor/draft shield, Orca-CamelCase-Platzhalter (ExternalPerimeter → '
+ 'Außenwand) und solid layer, ideaMakers Shells/Türme (tip tower, wipe wall als Purge-'
+ 'Struktur, R229), Cura roof/floor/draft shield, Orca-CamelCase-Platzhalter (ExternalPerimeter → '
  'Fallenlassen der Groß-/Kleinschreibung in _lookup_type/_canon_type) und die ehrlichen '
  'Reste: Multiple/Undefined/Unknown bleiben CUSTOM (Überschreibung AUS, 1:1-Druck).',
+ '<b>Die R229-Restliste:</b> Nicht-Extrusions-Annotationen (Seam, Destring, Travel, '
+ 'Retract, Wipe, Tool/Color Change) sind KEINE Features — ein Seam-Marker mitten in der '
+ 'Wand würde die Wand-Überschierungen verlieren; sie bleiben deshalb komplett inert, der '
+ 'Feature-Kontext persistiert hindurch. Purge/Prime-Strukturen (Prime Wall/Pillar, Wipe '
+ 'Wall, Purge Block/Line/Blob, Wiping Tower) sind eine Klasse: PRIME-TOWER. Belt Lead → '
+ 'Skirt, Brim Ears → Brim, Painted Support → Support, der Raft-Stapel → Bodenfläche. '
+ 'Infill-Muster-Namen (TPMS, Octet, Tetrahedral, Stars, Lateral Honeycomb, Lattice, '
+ 'Spiral Inset) sind Muster, keine Features - alle werden sparses Infill.',
  '<b>Der Stray-Tag-Vergleich (Nutzerfrage .136w):</b> ein EINZIGES globales Tag über einer '
  'mehrschichtigen Datei trägt keine Feature-Information — ein defekter Postprozessor oder '
  'Handedit würde den ganzen Druck auf EIN Feature plätten. Erkannt wird es durch '

@@ -1,6 +1,6 @@
-# TESTANLEITUNG — R2-D2 Makro-System (Version .136z)
+# TESTANLEITUNG — R2-D2 Makro-System (Version .136aa)
 
-Diese Anleitung beschreibt **nur den aktuellen Stand** (.136z). Sie ist die
+Diese Anleitung beschreibt **nur den aktuellen Stand** (.136aa). Sie ist die
 komplette Feld-Checkliste nach dem Einspielen eines Updates — von Boot bis
 Druckergebnis. Die Historie der Änderungen steht in README.md.
 
@@ -18,7 +18,7 @@ Druckergebnis. Die Historie der Änderungen steht in README.md.
 ## 2. Boot-Check (Pflicht, 1 Minute)
 
 - [ ] Konsole: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-08.136z)`
+      (build R2-2026-11-08.136aa)`
 - [ ] ~10 s nach dem Boot: Boot-Sound + LED-Animation
 - [ ] `SHOW_STATUS` antwortet mit Modus/Material/Overrides
 - [ ] Kein Eintrag fehlt: sonst meldet sich `_CHECK_INSTALL` laut mit
@@ -303,6 +303,24 @@ bewusst angeschweißt). Je ein Probedruck:
 
 ---
 
-**Alles grün?** Dann ist .136z field-clear. Wenn etwas auffällt: Konsole
+## 16. Die .136aa-Neuerungen (R229-Vokabular-Restliste)
+
+- [ ] **KISSlicer-Dateien mit Seam/Destring-Markern:** `; feature Seam`
+  (Nahtpunkt) und `; feature Destring` (Retract/Travel) sind
+  **Bewegungs-Annotationen, keine Features** — früher wären sie CUSTOM
+  geworden und hätten die Wand zerschnitten (Wand-Overrides weg auf den
+  Naht-Segmenten). Jetzt bleibt der Feature-Kontext hindurch bestehen
+  (auch Travel/Retract/Wipe/Tool-Change/Color-Change/Pause als Marker)
+- [ ] **Purge/Prime-Strukturen sind eine Klasse:** Prime Wall, Wipe Wall
+  (Korrektur: war Skirt), Prime Pillar, Wiping Tower, Purge Block/Line/
+  Blob → alle PRIME-TOWER (Überschreibbar wie der Prime-Tower)
+- [ ] **Rest-Zuordnungen:** Belt Lead → Skirt, Brim Ears → Brim, Painted
+  Support → Support, Raft-Stapel → Bodenfläche; Infill-Muster-Namen
+  (TPMS, Octet, Tetrahedral, Stars, Lateral Honeycomb, Lattice, Spiral
+  Inset) → sparses Infill
+
+---
+
+**Alles grün?** Dann ist .136aa field-clear. Wenn etwas auffällt: Konsole
 kopieren (RESPOND-Zeilen) + welche Datei/welcher Menüpfad — daraus wird der
 nächste Feldlog-Eintrag.

@@ -77,8 +77,8 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-08.136z'
-POSTPROC_BUILD = 'R228'
+POSTPROC_RELEASE = 'R2-2026-11-08.136aa'
+POSTPROC_BUILD = 'R229'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
 # and no speed/accel/nozzle parameters. Files carrying an OLD tag are UPGRADED
@@ -134,7 +134,16 @@ TYPE_RE = re.compile(
     # R225: Kiri:Moto's bare words ('; shell', '; fill', '; support') -
     # a TIGHT whitelist, anchored end-to-end, so prose never matches.
     r'|(?=(?:shell|fill|support|skin|infill|solid fill|sparse fill)\s*$)'
-    r')(.+?)\s*$',
+    # R229 (.136aa): NON-EXTRUSION annotations are NOT features. KISSlicer
+    # marks retract/travel moves as '; feature Destring' and the seam point
+    # as '; feature Seam'; viewers show travel/retract/tool-change events
+    # as pseudo types. A seam sits INSIDE a wall loop - letting it open a
+    # feature block would type the following WALL extrusions TRAVEL/CUSTOM
+    # and the wall overrides would silently stop applying there. These
+    # words (whole-line anchored) never match: the feature context simply
+    # persists through them - a move annotation, not a feature switch.
+    r')(?!(?:seam|destring|retract|unretract|wipe|noop|travel|tool\s+change|color\s+change|pause\s+print|custom\s+gcode)\s*$)'
+    r'(.+?)\s*$',
     re.IGNORECASE)
 TYPE_MAP = {
     'outer wall': 'WALL-OUTER',
@@ -250,6 +259,57 @@ TYPE_MAP = {
     'undefined': 'CUSTOM',
     'unknown': 'CUSTOM',
     'others': 'CUSTOM',
+    # R229 (.136aa): the REST LIST of the family compilation - the last
+    # open vocabulary items. (a) purge/prime structures of the
+    # multi-material lists: all one class - material is deliberately
+    # deposited OUTSIDE the object (Kiri:Moto purge tower, KISSlicer
+    # prime pillar/wall, Bambu/ideaMaker purge block, purge line/blob).
+    # 'wipe wall' moves here too (was SKIRT since R225 - a wipe wall IS
+    # a purge structure, not an adhesion skirt; correction, re-pinned).
+    'prime wall': 'PRIME-TOWER',
+    'wipe wall': 'PRIME-TOWER',
+    'prime pillar': 'PRIME-TOWER',
+    'wiping tower': 'PRIME-TOWER',
+    'purge block': 'PRIME-TOWER',
+    'purge line': 'PRIME-TOWER',
+    'prime blob': 'PRIME-TOWER',
+    # (b) adhesion/extras: belt-printer lead strip and brim ears follow
+    # their class, painted support is support, the raft stack follows
+    # the existing 'raft' approximation (bottom-most surface).
+    'belt lead': 'SKIRT',
+    'brim ears': 'BRIM',
+    'painted support': 'SUPPORT',
+    'raft base': 'SURFACE-BOTTOM',
+    'raft interface': 'SURFACE-BOTTOM',
+    'raft surface': 'SURFACE-BOTTOM',
+    'raft top': 'SURFACE-BOTTOM',
+    # (c) infill pattern NAMES (Orca TPMS family, octet/tetrahedral,
+    # stars, lateral honeycomb, lattice, spiral inset) - patterns, not
+    # features: every one of them is sparse fill (the R216 stage-7 rule).
+    'tpms': 'INFILL-SPARSE',
+    'tpms-d': 'INFILL-SPARSE',
+    'tpms-fk': 'INFILL-SPARSE',
+    'octet': 'INFILL-SPARSE',
+    'tetrahedral': 'INFILL-SPARSE',
+    'stars': 'INFILL-SPARSE',
+    'lateral honeycomb': 'INFILL-SPARSE',
+    'lattice': 'INFILL-SPARSE',
+    'spiral inset': 'INFILL-SPARSE',
+    'tri-hexagon': 'INFILL-SPARSE',
+    # (d) NON-EXTRUSION words as a MAP SAFETY NET (the regex already
+    # keeps them inert - these keys catch direct _canon_type callers,
+    # replay files and future dialects): a move annotation is no feature.
+    'seam': 'TRAVEL',
+    'destring': 'TRAVEL',
+    'travel': 'TRAVEL',
+    'retract': 'TRAVEL',
+    'unretract': 'TRAVEL',
+    'wipe': 'TRAVEL',
+    'noop': 'TRAVEL',
+    'tool change': 'TRAVEL',
+    'color change': 'TRAVEL',
+    'pause print': 'TRAVEL',
+    'custom gcode': 'TRAVEL',
 }
 
 

@@ -79,8 +79,11 @@ check('L1 support substring: every support variant folds to SUPPORT', sup_ok)
 ladder_ok = all(_canon_type(x) == exp for x, exp in [
     ('Outer shell', 'WALL-OUTER'), ('inner shells', 'WALL-INNER'),
     ('solid fill', 'INFILL-SOLID'), ('sparse fill', 'INFILL-SPARSE'),
-    ('iron pass', 'IRONING'), ('purge line', 'SKIRT'),
-    ('prime blob', 'SKIRT'), ('tower wall', 'PRIME-TOWER'),
+    ('iron pass', 'IRONING'),
+    # R229: 'purge line'/'prime blob' left the ladder - the exact map
+    # owns them now (PRIME-TOWER, the purge class)
+    ('purge line', 'PRIME-TOWER'), ('prime blob', 'PRIME-TOWER'),
+    ('tower wall', 'PRIME-TOWER'),
     ('top skin layer', 'SURFACE-TOP'), ('bottom base layer', 'SURFACE-BOTTOM'),
     ('bridge internal', 'INTERNAL-BRIDGE'), ('overhang wall', 'OVERHANG-PERIM'),
     ('brim outline', 'BRIM'), ('gap filler', 'GAPS')])

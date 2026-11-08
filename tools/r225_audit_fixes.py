@@ -307,7 +307,9 @@ vocab = [
     (';TYPE:Internal Bridge Infill', 'INTERNAL-BRIDGE'),
     (';TYPE:tip tower', 'PRIME-TOWER'),
     ('; feature dense support', 'SUPPORT'),
-    ('; feature wipe wall', 'SKIRT'),
+    # R229 (.136aa) correction: a wipe wall is a PURGE structure
+    # (KISSlicer's prime-tower equivalent), not an adhesion skirt
+    ('; feature wipe wall', 'PRIME-TOWER'),
     # prose that must NEVER become a feature boundary
     ('; type of filament is PLA', None),
     (';LAYER:5', None),
