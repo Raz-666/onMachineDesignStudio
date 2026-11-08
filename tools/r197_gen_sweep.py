@@ -542,17 +542,32 @@ check('T2 extension: pistats answers ok with cpu/ram (no klippy objects)',
       and ps.get('ram_total_mb') is not None
       and not cfg.server.objects['klippy_apis'].wants, str(ps)[:90])
 # R216 (.136n): the klippy.log window export - file + header + cap
+# R226 (.136x field log): the fixture is the REAL klippy.log format -
+# sections per restart ('Start printer at <asctime>'), NO per-line
+# timestamps. The R216 filter expected 'YYYY-MM-DD ...' lines and
+# produced an EMPTY export on the field Pi (512 bytes, header only).
 import tempfile as _tf216, shutil as _sh216
+import datetime as _dt216
 _logd216 = _tf216.mkdtemp(prefix='r216log_')
 _logf216 = os.path.join(_logd216, 'klippy.log')
-_dt216 = __import__('datetime').datetime.now()
+_now216 = _dt216.datetime.now()
+_old216 = _now216 - _dt216.timedelta(hours=8)
+_fresh216 = _now216 - _dt216.timedelta(minutes=5)
 open(_logf216, 'w').write(
-    '%s old line\n'
-    '%s fresh line\n'
-    'no timestamp context line\n'
-    % ((_dt216 - __import__('datetime').timedelta(hours=8))
-       .strftime('%Y-%m-%d %H:%M:%S'),
-       _dt216.strftime('%Y-%m-%d %H:%M:%S')))
+    '===== Config file =====\n'
+    '[virtual_sdcard]\nOLD HEAD CONFIG\n=======================\n'
+    'old runtime line 0\n'
+    'Start printer at %s\n'
+    '===== Config file =====\n'
+    '[virtual_sdcard]\nOLD SECTION CONFIG\n=======================\n'
+    'old runtime line 1\n'
+    'Start printer at %s\n'
+    '===== Config file =====\n'
+    '[virtual_sdcard]\nFRESH DUMP (must be skipped)\n'
+    '=======================\nLoaded MCU fresh\n'
+    'fresh runtime line\nno timestamp context line\n'
+    % (_old216.strftime('%a %b %d %H:%M:%S %Y'),
+       _fresh216.strftime('%a %b %d %H:%M:%S %Y')))
 class _Cfg216(FakeConfig):
     def get(self, key, default):
         if key == 'log_path':
@@ -563,16 +578,18 @@ comp216 = r2m.load_component(cfg216)
 kl = loop.run_until_complete(
     cfg216.server.endpoints['/server/r2_menu/klippylog'](
         FakeReq({'window': '3h'})))
-check('T2 extension: klippylog 3h window keeps fresh + context lines',
-      kl['ok'] and kl['window'] == '3h' and 'fresh line' in kl['text']
-      and 'context line' in kl['text'] and 'old line' not in kl['text']
+check('T2 extension: klippylog 3h window keeps the CURRENT run (fresh '
+      '+ context lines, config dumps skipped, old sections out)',
+      kl['ok'] and kl['window'] == '3h' and 'fresh runtime line' in kl['text']
+      and 'context line' in kl['text'] and 'old runtime line' not in kl['text']
+      and 'FRESH DUMP' not in kl['text']
       and kl['text'].startswith('# klippy.log'), str(kl)[:90])
 kl_all = loop.run_until_complete(
     cfg216.server.endpoints['/server/r2_menu/klippylog'](
         FakeReq({'window': 'all'})))
 check('T2 extension: klippylog all window keeps everything',
-      kl_all['ok'] and 'old line' in kl_all['text']
-      and 'fresh line' in kl_all['text'], str(kl_all)[:90])
+      kl_all['ok'] and 'old runtime line 1' in kl_all['text']
+      and 'fresh runtime line' in kl_all['text'], str(kl_all)[:90])
 kl_bad = loop.run_until_complete(
     cfg216.server.endpoints['/server/r2_menu/klippylog'](
         FakeReq({'window': 'nope'})))

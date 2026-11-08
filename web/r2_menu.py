@@ -488,11 +488,10 @@ class R2MenuComponent:
     async def _handle_klippylog(self, web_request):
         """R216 (.136n): klippy.log as JSON for the .txt download button.
 
-        window=3h|day|boot|all - the file read AND the timestamp filter
+        window=3h|day|boot|all - the file read AND the section filter
         run in a worker thread (a big log must never block moonraker's
-        loop). Lines without a parseable klippy timestamp keep the
-        timestamp of the previous line so context survives the cut.
-        Tail cap 4000 lines after the window cut."""
+        loop). R226: sections per klippy restart, config dumps skipped,
+        never-empty fallback - see _klippylog_read."""
         window = (web_request.get('window', '3h') or '3h').strip().lower()
         if window not in ('3h', 'day', 'boot', 'all'):
             window = '3h'
@@ -500,6 +499,25 @@ class R2MenuComponent:
             self._klippylog_read, window)
 
     def _klippylog_read(self, window):
+        """R226 (.136x field log): the R216 filter expected per-line
+        timestamps 'YYYY-MM-DD HH:MM:SS' - klippy.log HAS NONE (a real
+        12 MB field log: 0 of 237k lines). Every line fell to the
+        'header junk before cut' rule -> the export was EMPTY (512
+        bytes, header only - the field report's klippy-day.txt). The
+        real format is SECTIONS, one per klippy restart:
+
+            ===== Config file =====      (the dump, ~30k lines)
+            =======================     (dump separator)
+            Loaded MCU... / Git version...
+            Start printer at Sun Nov  8 11:15:02 2026 (...)   <- section ts
+            ... runtime lines of THIS run ...
+
+        Selection now works per section: window keeps the sections whose
+        'Start printer at' is inside (the CURRENT run always included -
+        its tail is the live log), each kept section's CONFIG DUMP is
+        skipped (the runtime lines carry the errors), tail cap 4000.
+        An empty result falls back to the raw tail - the export is never
+        empty while the file has content."""
         import datetime as _dt
         try:
             with open(self.log_path, 'r', errors='replace') as f:
@@ -507,6 +525,9 @@ class R2MenuComponent:
         except OSError as e:
             return {'ok': False, 'reason': 'cannot read %s: %s'
                     % (self.log_path, e)}
+        if not [ln for ln in lines if ln.strip()]:
+            return {'ok': True, 'window': window, 'lines': 0,
+                    'text': '# klippy.log is empty\n'}
         cutoff = None
         now = _dt.datetime.now()
         if window == '3h':
@@ -521,29 +542,58 @@ class R2MenuComponent:
                 cutoff = now - _dt.timedelta(seconds=up)
             except Exception:                                   # noqa: BLE001
                 cutoff = None                    # fall back to 'all'
-        kept = []
-        last_ts = None
-        for ln in lines:
-            ts = None
-            if len(ln) > 19 and ln[4] == '-' and ln[7] == '-':
-                try:
-                    ts = _dt.datetime.strptime(ln[:19],
-                                               '%Y-%m-%d %H:%M:%S')
-                    last_ts = ts
-                except ValueError:
-                    ts = None
-            eff = ts if ts is not None else last_ts
-            if cutoff is not None:
-                if eff is None and ln.strip():
-                    continue                     # header junk before cut
-                if eff is not None and eff < cutoff:
-                    continue
-            if ln.strip() or ts is not None:
-                kept.append(ln)
-        kept = kept[-4000:]
-        header = ('# klippy.log window=%s (%s .. now) - exported by '
-                  'r2_menu.py\n' % (window, cutoff.isoformat(' ')
-                                    if cutoff else 'beginning'))
+        if window == 'all' or cutoff is None:
+            kept = [ln for ln in lines if ln.strip()][-4000:]
+            header = ('# klippy.log window=%s (beginning .. now) - '
+                      'exported by r2_menu.py\n' % window)
+        else:
+            # section boundaries: the 'Start printer at' line of each
+            # klippy restart (asctime - possibly a double space before
+            # a single-digit day, ' '.join collapses it)
+            starts = []            # (line idx, datetime)
+            for i, ln in enumerate(lines):
+                if ln.startswith('Start printer at '):
+                    try:
+                        ts = _dt.datetime.strptime(
+                            ' '.join(ln[len('Start printer at '):]
+                                     .split()[:5]),
+                            '%a %b %d %H:%M:%S %Y')
+                        starts.append((i, ts))
+                    except ValueError:
+                        pass
+            # section k = [start_k, start_{k+1}); section 0 = file head
+            bounds = [(0, None)] + starts + [(len(lines), None)]
+            kept = []
+            for k in range(len(bounds) - 1):
+                a, ts_a = bounds[k]
+                b = bounds[k + 1][0]
+                last = (k == len(bounds) - 2)      # the CURRENT run
+                if not last and (ts_a is None or ts_a < cutoff):
+                    continue                        # old section - out
+                in_dump = False
+                for ln in lines[a:b]:
+                    if ln.startswith('===== Config file ====='):
+                        in_dump = True
+                        continue
+                    if in_dump:
+                        if ln.startswith('======='):
+                            in_dump = False
+                        continue
+                    if ln.strip():
+                        kept.append(ln)
+            if not kept:
+                # no section markers matched (rotated/foreign format) -
+                # never ship an empty log, the raw tail always helps
+                kept = [ln for ln in lines if ln.strip()][-4000:]
+                header = ('# klippy.log window=%s (%s .. now) - exported '
+                          'by r2_menu.py\n# no restart markers found - '
+                          'raw tail\n'
+                          % (window, cutoff.isoformat(' ')))
+            else:
+                kept = kept[-4000:]
+                header = ('# klippy.log window=%s (%s .. now, config '
+                          'dumps skipped) - exported by r2_menu.py\n'
+                          % (window, cutoff.isoformat(' ')))
         return {'ok': True, 'window': window,
                 'lines': len(kept),
                 'text': header + '\n'.join(kept)}

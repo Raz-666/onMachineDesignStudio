@@ -233,7 +233,7 @@ ck('version: the page ver badge matches 01_state (%s)'
 # page moved to R219 - the battery had run BEFORE the version bump and the
 # zip shipped a check that fails on the user's Pi. ROUND below MUST move
 # with every release bump - and the battery MUST re-run AFTER the bump.
-ROUND = 'R225'
+ROUND = 'R226'
 _state_ver = re.search(r"ver:'(R\d+)'", HTML)
 ck('version: the page state ver is the current round (%s)' % ROUND,
    _state_ver and _state_ver.group(1) == ROUND,

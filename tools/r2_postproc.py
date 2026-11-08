@@ -77,7 +77,7 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-08.136w'
+POSTPROC_RELEASE = 'R2-2026-11-08.136x'
 POSTPROC_BUILD = 'R223'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
@@ -20966,6 +20966,157 @@ def _meta_finalize(p, src=None, force=False):
         return 'error'
 
 
+# ---- R226 (.136x field log): CENTER-only object defines -----------------------
+_EOD_RE226 = re.compile(
+    r'^EXCLUDE_OBJECT_DEFINE\s+NAME=(\S+)(.*)$')
+_EOD_START226 = re.compile(r'^EXCLUDE_OBJECT_START\s+NAME=(\S+)')
+_MOVE226 = re.compile(r'^G[01]\b')
+_NUM226 = re.compile(r'([XYZE])(-?\d+(?:\.\d+)?)')
+
+
+def _upgrade_center_excludes(path):
+    """R226 (.136x field log): OrcaSlicer/Bambu Studio write
+    EXCLUDE_OBJECT_DEFINE with CENTER only - Klipper accepts it, but every
+    polygon reader dies on it: KAMP's SMART_PARK runs
+    'objects | map(attribute=polygon)' and jinja throws UndefinedError
+    ('dict object' has no attribute 'polygon') - the PRINT START ABORTS
+    (field log: three SMART_PARK errors, printer in ERROR, no print).
+    KAMP's adaptive BED_MESH_CALIBRATE reads the same attribute.
+
+    This measures each object's REAL outline from its own moves and
+    appends POLYGON=[[minx,miny],[maxx,miny],[maxx,maxy],[minx,maxy]] to
+    the CENTER-only define:
+      - per-object bbox from the moves between EXCLUDE_OBJECT_START
+        NAME=x / EXCLUDE_OBJECT_END (Orca writes the spans)
+      - exactly one object without spans -> the global extrusion bbox
+      - no measurement possible -> the line stays as it is (our macros
+        tolerate CENTER-only since R226, the KAMP call is guarded)
+    Idempotent (POLYGON= lines are skipped), streaming, cheap early exit
+    (head read first - the defines sit at the top of Orca files)."""
+    try:
+        with open(path, 'rb') as _f:
+            _head = _f.read(65536).decode('utf-8', 'replace')
+        if 'EXCLUDE_OBJECT_DEFINE' not in _head:
+            return False
+        # a define beyond 64 kB is exotic - only act on what the head saw
+        _head_lines = _head.split('\n')
+        _cand = [i for i, ln in enumerate(_head_lines)
+                 if ln.startswith('EXCLUDE_OBJECT_DEFINE')
+                 and 'POLYGON=' not in ln]
+        if not _cand:
+            return False
+    except OSError:
+        return False
+    # ---- full pass: measure per-object bboxes --------------------------------
+    defines = {}       # name -> {'line': str, 'poly': None|[minx,miny,maxx,maxy]}
+    order = []         # names in file order (for the single-object fallback)
+    spans = {}         # name -> [minx, miny, maxx, maxy]
+    glob = [1e30, 1e30, -1e30, -1e30]     # global extrusion bbox
+    cur_obj = None
+    x = y = None
+    with open(path, 'r', errors='replace') as f:
+        for line in f:
+            ls = line.strip()
+            if not ls:
+                continue
+            if ls.startswith('EXCLUDE_OBJECT_DEFINE'):
+                m = _EOD_RE226.match(ls)
+                if m and 'POLYGON=' not in ls:
+                    nm = m.group(1)
+                    if nm not in defines:
+                        defines[nm] = {'line': ls, 'poly': None}
+                        order.append(nm)
+                continue
+            if ls.startswith('EXCLUDE_OBJECT_START'):
+                m = _EOD_START226.match(ls)
+                cur_obj = m.group(1) if m else cur_obj
+                continue
+            if ls.startswith('EXCLUDE_OBJECT_END'):
+                cur_obj = None
+                continue
+            if ls.startswith(';') or not _MOVE226.match(ls):
+                continue
+            nx = ny = None
+            epos = False
+            for t, v in _NUM226.findall(ls):
+                v = float(v)
+                if t == 'X':
+                    nx = v
+                elif t == 'Y':
+                    ny = v
+                elif t == 'E' and v > 0:
+                    epos = True
+            if nx is not None:
+                x = nx
+            if ny is not None:
+                y = ny
+            if epos and x is not None and y is not None:
+                if x < glob[0]:
+                    glob[0] = x
+                if y < glob[1]:
+                    glob[1] = y
+                if x > glob[2]:
+                    glob[2] = x
+                if y > glob[3]:
+                    glob[3] = y
+                if cur_obj and cur_obj in defines:
+                    bb = spans.setdefault(cur_obj,
+                                          [1e30, 1e30, -1e30, -1e30])
+                    if x < bb[0]:
+                        bb[0] = x
+                    if y < bb[1]:
+                        bb[1] = y
+                    if x > bb[2]:
+                        bb[2] = x
+                    if y > bb[3]:
+                        bb[3] = y
+    # ---- decide the polygons --------------------------------------------------
+    _one226 = len(order) == 1
+    for nm in order:
+        d = defines[nm]
+        bb = spans.get(nm)
+        if bb is None and _one226 and glob[0] <= glob[2]:
+            bb = glob                    # single object: global bbox is ITS bbox
+        if bb is None or bb[0] > bb[2] or bb[1] > bb[3]:
+            continue                     # nothing measurable - leave the line
+        d['poly'] = bb
+    if not any(d['poly'] for d in defines.values()):
+        return False
+    # ---- rewrite (atomic) ------------------------------------------------------
+    tmp = path + '.r226tmp'
+    n = 0
+    with open(path, 'r', errors='replace') as fi, \
+            open(tmp, 'w', encoding='utf-8') as fo:
+        for line in fi:
+            ls = line.rstrip('\n')
+            m = _EOD_RE226.match(ls) if ls.startswith(
+                'EXCLUDE_OBJECT_DEFINE') else None
+            if m and 'POLYGON=' not in ls and m.group(1) in defines \
+                    and defines[m.group(1)]['poly']:
+                bb = defines[m.group(1)]['poly']
+                if n == 0:
+                    fo.write('; R226 (.136x): POLYGON measured from the '
+                             "object's moves (CENTER-only Orca/Bambu define"
+                             ' upgraded for KAMP)\n')
+                fo.write('%s POLYGON=[[%.2f,%.2f],[%.2f,%.2f],[%.2f,%.2f],'
+                         '[%.2f,%.2f]]\n'
+                         % (ls, bb[0], bb[1], bb[2], bb[1],
+                            bb[2], bb[3], bb[0], bb[3]))
+                n += 1
+            else:
+                fo.write(line)
+    if not n:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        return False
+    os.replace(tmp, path)
+    print('[eod226] %s: %d object define(s) upgraded with a measured '
+          'POLYGON (KAMP-safe)' % (os.path.basename(path), n), flush=True)
+    return True
+
+
 def _sel_note(rv, queued_txt, preview_txt=None):
     """Message suffix: queued or preview, whatever the user picked."""
     return queued_txt if _gen_out(rv) else (preview_txt or ' - in the file list (preview it first)')
@@ -22432,6 +22583,19 @@ def watch(directory, interval=5.0, once=False):
                 seen[p] = key
                 _seen_dirty149[0] += 1     # R149: persist across restarts
                 _done98 += 1
+                # R226 (.136x field log): Orca/Bambu define objects with
+                # CENTER only - KAMP's SMART_PARK / adaptive mesh read
+                # .polygon and ABORT the print start (jinja UndefinedError,
+                # three SMART_PARK errors in the field log, no print). The
+                # watcher measures the real outline from the object's own
+                # moves and appends POLYGON= to CENTER-only defines.
+                # Cached by the seen-key above (changed files only),
+                # idempotent, cheap head-read early exit.
+                try:
+                    if _upgrade_center_excludes(p):
+                        stats['eod_upgraded'] = stats.get('eod_upgraded', 0) + 1
+                except Exception as _e226:                         # noqa: BLE001
+                    print('[eod226] %s: %r' % (fn, _e226), flush=True)
                 # R134 (.103 field redesign): plot sources are NEVER touched
                 # in the scan. The old flow auto-converted every upload
                 # (*.png, *.jpg.gcode, *.txt ...) into plotter g-code in the
@@ -22918,6 +23082,32 @@ def watch(directory, interval=5.0, once=False):
         # R61: layer-range excerpt request from the LCD (nonce changes on every request)
         try:
             rv = _read_vars(VAR_PATH)
+            # R226 (.136x field log): gen_busy RECONCILIATION. The flag
+            # lives in variables.cfg and SURVIVES a klippy restart - but
+            # the R223 boot-drop only runs when the WATCHER restarts, and
+            # a release can fail while klippy is down/error (the field
+            # case: a fix job's finally pushed SAVE_VARIABLE gen_busy=0
+            # into a moonraker that refused it; every later klippy boot
+            # reloaded the stale 1 and NO print could start, even after
+            # restarts). Every pass now compares the flag with reality:
+            # no queued job, no live build thread -> the variable lies ->
+            # clear it, loudly. (The queue worker sets _JOB_STATE['busy']
+            # BEFORE raising the flag - no race.)
+            if rv.get('gen_busy') \
+                    and not _JOB_STATE.get('busy') \
+                    and (_JOB_STATE.get('thread') is None
+                         or not _JOB_STATE['thread'].is_alive()):
+                try:
+                    _moonraker_gcode(
+                        'SAVE_VARIABLE VARIABLE=gen_busy VALUE=0\n'
+                        'RESPOND MSG="[queue] stale gen_busy cleared (no '
+                        'generator is running - the flag survived a '
+                        'restart/error) - print starts are free"\n'
+                        'M117 Queue free')
+                    print('[queue] stale gen_busy cleared (reconciled)',
+                          flush=True)
+                except Exception:                                # noqa: BLE001
+                    pass          # moonraker down - retry on the next pass
             # R166: publish which core is running (postproc_build). The
             # update script queries it to PROVE the restart took effect;
             # rate-limited to 10s so a down klippy cannot stall the loop

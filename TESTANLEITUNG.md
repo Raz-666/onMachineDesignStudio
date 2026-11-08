@@ -1,6 +1,6 @@
-# TESTANLEITUNG — R2-D2 Makro-System (Version .136w)
+# TESTANLEITUNG — R2-D2 Makro-System (Version .136x)
 
-Diese Anleitung beschreibt **nur den aktuellen Stand** (.136w). Sie ist die
+Diese Anleitung beschreibt **nur den aktuellen Stand** (.136x). Sie ist die
 komplette Feld-Checkliste nach dem Einspielen eines Updates — von Boot bis
 Druckergebnis. Die Historie der Änderungen steht in README.md.
 
@@ -18,7 +18,7 @@ Druckergebnis. Die Historie der Änderungen steht in README.md.
 ## 2. Boot-Check (Pflicht, 1 Minute)
 
 - [ ] Konsole: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-08.136w)`
+      (build R2-2026-11-08.136x)`
 - [ ] ~10 s nach dem Boot: Boot-Sound + LED-Animation
 - [ ] `SHOW_STATUS` antwortet mit Modus/Material/Overrides
 - [ ] Kein Eintrag fehlt: sonst meldet sich `_CHECK_INSTALL` laut mit
@@ -236,6 +236,31 @@ bewusst angeschweißt). Je ein Probedruck:
 
 ---
 
-**Alles grün?** Dann ist .136w field-clear. Wenn etwas auffällt: Konsole
+## 13. Die .136x-Neuerungen (R226-Feldrunde)
+
+- [ ] **Orca-CENTER-only-Druck startet** (der Feldlog-Krasher): Orca/
+  Bambu schreiben `EXCLUDE_OBJECT_DEFINE … CENTER=x,y` ohne POLYGON —
+  KAMPs SMART_PARK starb mit `'dict object' has no attribute 'polygon'`
+  und riss den Druckstart mit in den Fehler. Jetzt: (a) der Watcher
+  misst die Objekt-Box aus den Moves nach und ergänzt `POLYGON=` beim
+  Scans (einmalig, idempotent), (b) Prime-Line/Parken/Purge vertragen
+  sich mit CENTER-only (20×20-mm-Box um den Center), (c) SMART_PARK
+  und adaptives Mesh werden nur mit vollständigen Polygonen gerufen —
+  sonst Standard-Park + Vollbett-Mesh mit RESPOND-Hinweis
+- [ ] **gen_busy lügt nie mehr nach**: blieb die Flagge=1 überstehen
+  (Release im Fehlerfall verschluckt, Neustart dazwischen), blockierte
+  sie JEDEN Druckstart („Wait: generating") bis zum Handeingriff.
+  Jeder Watcher-Pass gleicht die Flagge mit der Realität ab — kein
+  Thread, keine Queue → wird laut geräumt („stale gen_busy cleared",
+  M117 „Queue free")
+- [ ] **Klippy-Log-Export zeigt echtes Fenster**: der Filter erwartete
+  Zeilen-Zeitstempel — klippy.log hat keine (Sektionen pro
+  Klipper-Start, `Start printer at …`). Jetzt: Fenster wählt Sektionen,
+  Config-Dumps fliegen raus, der aktuelle Lauf bleibt immer, leerer
+  Export unmöglich (roher Tail als Fallback)
+
+---
+
+**Alles grün?** Dann ist .136x field-clear. Wenn etwas auffällt: Konsole
 kopieren (RESPOND-Zeilen) + welche Datei/welcher Menüpfad — daraus wird der
 nächste Feldlog-Eintrag.

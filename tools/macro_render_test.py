@@ -563,6 +563,61 @@ out = render(body, {'APPLY':'1'}, kamp=True)
 tests.append(('RUN with KAMP: SMART_PARK on', 'SMART_PARK' in out, 'smart park missing'))
 save_vars['kamp_smart_park'] = False
 
+# ---- R226 (.136x field log): CENTER-only objects (Orca/Bambu) ----------------
+# KAMP's SMART_PARK runs objects | map(attribute='polygon') and jinja threw
+# UndefinedError ('dict object' has no attribute 'polygon') - the print
+# start ABORTED (field log: 3x SMART_PARK errors, printer in ERROR, no
+# print start possible). Our own placement macros read o.polygon too
+# (_PRIME_LINE, _PARK_HEAD, _PURGE_STRIP). Everything must tolerate
+# CENTER-only objects; the KAMP call is guarded, the adaptive mesh
+# degrades to full bed with a hint.
+_eod226 = [{'name': 'obj1', 'center': [109.9, 107.0]}]      # CENTER only
+save_vars['kamp_smart_park'] = True
+try:
+    out = render(body, {'APPLY': '1'}, kamp=True, objs=_eod226)
+    tests.append(('R226 CENTER-only: PRINT_START renders and SKIPS '
+                  'SMART_PARK with the hint (no jinja crash, no KAMP call)',
+                  'Smart Park skipped' in out and 'SMART_PARK' not in out,
+                  out[:160]))
+except Exception as _e226:                                    # noqa: BLE001
+    tests.append(('R226 CENTER-only: PRINT_START renders and SKIPS '
+                  'SMART_PARK with the hint (no jinja crash, no KAMP call)',
+                  False, repr(_e226)[:160]))
+out = render(body, {'APPLY': '1'}, kamp=True)      # default objs: polygon
+tests.append(('R226 polygon object: SMART_PARK runs as before',
+              'SMART_PARK' in out and 'skipped' not in out, out[:120]))
+save_vars['kamp_smart_park'] = False
+body = get_body('macros/14_kamp.cfg', '_CALIBRATE_MESH_PROFILE')
+try:
+    out = render(body, {'PROFILE': 'r2'}, kamp=True, objs=_eod226)
+    tests.append(('R226 CENTER-only: adaptive mesh degrades to FULL BED '
+                  '(native _BED_MESH_CALIBRATE, hint, no KAMP crash)',
+                  'KAMP adaptive mesh skipped' in out
+                  and '_BED_MESH_CALIBRATE PROFILE=r2' in out, out[:200]))
+except Exception as _e226:                                    # noqa: BLE001
+    tests.append(('R226 CENTER-only: adaptive mesh degrades to FULL BED '
+                  '(native _BED_MESH_CALIBRATE, hint, no KAMP crash)',
+                  False, repr(_e226)[:160]))
+out = render(body, {'PROFILE': 'r2'}, kamp=True)
+tests.append(('R226 polygon object: KAMP adaptive mesh unchanged',
+              'KAMP adaptive' in out and 'skipped' not in out, out[:160]))
+for _m226, _p226 in (
+        ('macros/08_print_start_stop.cfg', '_PRIME_LINE'),
+        ('macros/09_pause_filament.cfg', '_PARK_HEAD'),
+        ('macros/09_pause_filament.cfg', '_PURGE_STRIP')):
+    _b226 = get_body(_m226, _p226.split('/')[-1])
+    try:
+        out = render(_b226, {'LAYER_HEIGHT': '0.2'}, objs=_eod226)
+        tests.append(('R226 CENTER-only: %s renders via the 20x20mm '
+                      'center box (no o.polygon crash)'
+                      % _p226.split('/')[-1],
+                      'G0' in out or 'G1' in out, out[:120]))
+    except Exception as _e226:                                # noqa: BLE001
+        tests.append(('R226 CENTER-only: %s renders via the 20x20mm '
+                      'center box (no o.polygon crash)'
+                      % _p226.split('/')[-1],
+                      False, repr(_e226)[:160]))
+
 body = get_body('macros/14_kamp.cfg', 'KAMP_STATUS')
 out = render(body, {}, kamp=True)
 tests.append(('KAMP_STATUS installed', 'installed & loaded' in out and 'LINE_PURGE=yes' in out, out[:200]))
@@ -4056,8 +4111,8 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         _v66 = _l66.split(':', 1)[1].strip()
         break
 # NOTE: bump this expectation together with the version on every release!
-tests.append(('R66/R80 version is current (.136w) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-11-08.136w'", repr(_v66)))
+tests.append(('R66/R80 version is current (.136x) in 01_state.cfg (bump together with release!)',
+    _v66 == "'R2-2026-11-08.136x'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -17239,12 +17294,12 @@ tests.append(('R185 current-only manual: no version-history appendix, no era '
     '## Appendix D' not in _m185 and 'Version history' not in _m185
     and _re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185) is None
     and _re2.search(r'\bR1[0-9][0-9]\b', _m185) is None
-    and 'The nine fonts' in _m185 and 'R2-2026-11-08.136w' in _m185,
+    and 'The nine fonts' in _m185 and 'R2-2026-11-08.136x' in _m185,
     'appendixD=%s eratags=%s rtags=%s nine=%s v132=%s' % (
         '## Appendix D' in _m185,
         bool(_re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185)),
         bool(_re2.search(r'\bR1[0-9][0-9]\b', _m185)),
-        'The nine fonts' in _m185, 'R2-2026-11-08.136w' in _m185)))
+        'The nine fonts' in _m185, 'R2-2026-11-08.136x' in _m185)))
 
 # ================== R184 (.131c field round): the brim air gap EVERYWHERE ==
 # The user asked: does the brim fusing hit our OTHER generators too? Measured
@@ -17417,16 +17472,20 @@ tests.append(('R188 sounds: r2_start on every work press, quiet list covers '
     ''))
 
 # (6) watcher: gen_busy flag around fixes AND jobs (incl. the stamping window)
-tests.append(('R188/R224 watcher: gen_busy=1 around file_fix AND the job worker '
+tests.append(('R188/R224/R226 watcher: gen_busy=1 around file_fix AND the job worker '
     '(late release after stamping - the homing race dies) + drops at boot '
     '(stale flag) and when the queue is cleared IDLE. R224: clear during a '
     'running/stuck build now RAISES it (VALUE=1) instead of dropping - the '
-    'thread keeps burning RAM/CPU and no print may start into it',
+    'thread keeps burning RAM/CPU and no print may start into it. R226: '
+    'every scan pass RECONCILES the flag with reality (a release can fail '
+    'while klippy is down - the persisted 1 survived restarts and blocked '
+    'every print start, field log .136w)',
     _r2p188.count("SAVE_VARIABLE VARIABLE=gen_busy VALUE=1") == 3
-    and _r2p188.count("SAVE_VARIABLE VARIABLE=gen_busy VALUE=0") == 5
+    and _r2p188.count("SAVE_VARIABLE VARIABLE=gen_busy VALUE=0") == 6
     and 'M117 Fix running:' in _r2p188
     and 'the RUNNING build keeps' in _r2p188
-    and 'flags reset - nothing is ' in _r2p188,
+    and 'flags reset - nothing is ' in _r2p188
+    and 'stale gen_busy cleared' in _r2p188,
     ''))
 
 # (7) queue notice: 10s instead of 90 (the user must know it is parked)

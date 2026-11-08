@@ -54,6 +54,8 @@ TIERS = {
         ('r197_gen_sweep', 'ALL generators x parameters + tools'),
         ('r225_audit_fixes', '.136w audit round: web refresh, Cura box, '
          'Mainsail meta vs moonraker, families vocabulary, stray tags'),
+        ('r226_field_fixes', '.136x field round: KAMP polygon crash, '
+         'gen_busy reconcile, klippy.log sections'),
         ('r199_zip_check', 'release-zip layout + version consistency'),
         ('audit_sweep', 'all-file audit sweep'),
         # r142_spell_lint stays OUT of the tiers on purpose: it is a hint
