@@ -4056,8 +4056,8 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         _v66 = _l66.split(':', 1)[1].strip()
         break
 # NOTE: bump this expectation together with the version on every release!
-tests.append(('R66/R80 version is current (.136u) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-11-08.136v'", repr(_v66)))
+tests.append(('R66/R80 version is current (.136w) in 01_state.cfg (bump together with release!)',
+    _v66 == "'R2-2026-11-08.136w'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -4970,7 +4970,14 @@ open(_v74, 'w').write('\n'.join(_l74) + '\n')
 _o74, _n74b = _mod73.make_range(_v74, 3, 5, floor=1, top=1, brim=1)
 _t74 = open(_o74).read()
 tests.append(('R74 range: ends with PRINT_END (nozzle parks, no dead stop)',
-    _t74.rstrip().endswith('park + cool down') and '\nPRINT_END' in _t74, _t74[-90:]))
+    # R225 (.136w): the Mainsail meta block (pure COMMENTS) sits after
+    # PRINT_END now - the last COMMAND line still parks the nozzle
+    ([l for l in _t74.rstrip().split('\n')
+      if l.strip() and not l.strip().startswith(';')][-1]
+     .startswith('PRINT_END')
+     and 'park + cool down' in [l for l in _t74.rstrip().split('\n')
+      if l.strip() and not l.strip().startswith(';')][-1])
+    and '\nPRINT_END' in _t74, _t74[-90:]))
 tests.append(('R74 range: _FILE_INFO at the TOP (live file info correct from layer 1)',
     _t74.index('_FILE_INFO') < _t74.index('PRINT_START')
     and _t74.count('_FILE_INFO ') == 1, ''))
@@ -17232,12 +17239,12 @@ tests.append(('R185 current-only manual: no version-history appendix, no era '
     '## Appendix D' not in _m185 and 'Version history' not in _m185
     and _re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185) is None
     and _re2.search(r'\bR1[0-9][0-9]\b', _m185) is None
-    and 'The nine fonts' in _m185 and 'R2-2026-11-08.136v' in _m185,
+    and 'The nine fonts' in _m185 and 'R2-2026-11-08.136w' in _m185,
     'appendixD=%s eratags=%s rtags=%s nine=%s v132=%s' % (
         '## Appendix D' in _m185,
         bool(_re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185)),
         bool(_re2.search(r'\bR1[0-9][0-9]\b', _m185)),
-        'The nine fonts' in _m185, 'R2-2026-11-08.136v' in _m185)))
+        'The nine fonts' in _m185, 'R2-2026-11-08.136w' in _m185)))
 
 # ================== R184 (.131c field round): the brim air gap EVERYWHERE ==
 # The user asked: does the brim fusing hit our OTHER generators too? Measured

@@ -69,6 +69,23 @@ import subprocess
 
 MENU_PATH_DEFAULT = '~/klipper-e3-r2d2/web/menu_structure.json'
 EXPORT_TOOL_DEFAULT = '~/klipper-e3-r2d2/tools/menu_json_export.py'
+
+
+def _tool_from_path(menu_path):
+    """R225 (.136w audit): derive the export tool from the menu's json
+    path - .../web/menu_structure.json and .../tools/menu_json_export.py
+    live in the SAME package root. The DEFAULT tool path only exists
+    where the repo sits in $HOME (dev sandbox); on the documented Pi
+    install the package lives under ~/printer_data/config/ and the
+    refresh silently reloaded the STALE embedded json instead of
+    re-exporting (r197 T2 ran green only because the sandbox repo
+    happens to sit in $HOME). Returns the candidate path or None."""
+    p = (menu_path or '').replace('\\', '/')
+    m = re.search(r'^(.*)/web/menu_structure\.json$', p)
+    if not m:
+        return None
+    cand = m.group(1) + '/tools/menu_json_export.py'
+    return cand if os.path.isfile(cand) else None
 # R204: always served even if an old export lacks live_objects.
 # R210 (.136i): + the DASHBOARD set - the page's status strip reads
 # temps/fan/feed/flow/PA/accel/progress/layer/feature from these.
@@ -90,8 +107,19 @@ class R2MenuComponent:
         self.server = config.get_server()
         self.path = os.path.expanduser(
             config.get('path', MENU_PATH_DEFAULT))
-        self.tool = os.path.expanduser(
-            config.get('export_tool', EXPORT_TOOL_DEFAULT))
+        # R225 (.136w audit): precedence - (1) an EXPLICIT export_tool
+        # (install_web.sh writes it since .136w), (2) the tool derived
+        # from the configured json path (same package root - heals every
+        # install where the section predates the export_tool line),
+        # (3) the $HOME default (dev sandbox).
+        _cfg_tool = config.get('export_tool', None)
+        _derived = _tool_from_path(self.path)
+        if _cfg_tool:
+            self.tool = os.path.expanduser(_cfg_tool)
+        elif _derived:
+            self.tool = _derived
+        else:
+            self.tool = os.path.expanduser(EXPORT_TOOL_DEFAULT)
         self.log_path = os.path.expanduser(
             config.get('log_path', '~/printer_data/logs/klippy.log'))
         self._pi_cache = None          # R216: 30 s CPU/RAM cache

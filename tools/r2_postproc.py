@@ -77,7 +77,7 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-08.136v'
+POSTPROC_RELEASE = 'R2-2026-11-08.136w'
 POSTPROC_BUILD = 'R223'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
@@ -120,8 +120,22 @@ PARAM_RE = re.compile(r'([A-Za-z])\s*([-+]?\d*\.?\d+)')
 # same grammar, same map. Every consumer below reads both spellings now;
 # unknown Bambu vocab still falls through the ladder to CUSTOM (counted,
 # explained) instead of silently inheriting the previous feature.
-TYPE_RE = re.compile(r'^\s*;\s*(?:TYPE|FEATURE)\s*:\s*(.+?)\s*$',
-                     re.IGNORECASE)
+TYPE_RE = re.compile(
+    # ONE capture group for every branch (all call sites read group(1)):
+    # the bare-word branch matches via lookahead so it contributes no
+    # group of its own.
+    r'^\s*;\s*(?:'
+    r'type\s*:\s*'
+    # R225 (.136w): Simplify3D/KISSlicer write '; feature outer perimeter'
+    # (space, no colon), FlashPrint ';structure:shell-inner'. TYPE keeps
+    # its strict colon - every TYPE dialect uses one (no comment-prose
+    # false positives like '; type of filament ...').
+    r'|(?:feature|structure)\s*[: ]\s*'
+    # R225: Kiri:Moto's bare words ('; shell', '; fill', '; support') -
+    # a TIGHT whitelist, anchored end-to-end, so prose never matches.
+    r'|(?=(?:shell|fill|support|skin|infill|solid fill|sparse fill)\s*$)'
+    r')(.+?)\s*$',
+    re.IGNORECASE)
 TYPE_MAP = {
     'outer wall': 'WALL-OUTER',
     'inner wall': 'WALL-INNER',
@@ -200,6 +214,42 @@ TYPE_MAP = {
     'hilbert curve': 'INFILL-SPARSE',
     'octagram spiral': 'INFILL-SPARSE',
     'infill (sparse)': 'INFILL-SPARSE',
+    # R225 (.136w): the remaining vocabulary of the slicer-family
+    # compilation (uploads/slicer-families.md) that still fell to CUSTOM.
+    # Orca/Bambu overhang walls + aggregate roles, KISSlicer faces/crown
+    # (its gap fill), Simplify3D single-extrusion features and solid
+    # layers, ideaMaker shells/towers, FlashPrint structure values (the
+    # 'shell-outer' keys are their normalizations), Cura roof/floor/
+    # draft shield. Aggregate/undefined roles (Multiple, Undefined, ...)
+    # stay CUSTOM on purpose - an honest editable rest, override OFF.
+    'overhang wall': 'OVERHANG-PERIM',
+    'internal bridge infill': 'INTERNAL-BRIDGE',
+    'inner-bridge': 'INTERNAL-BRIDGE',
+    'outer shell': 'WALL-OUTER',
+    'inner shell': 'WALL-INNER',
+    'shell outer': 'WALL-OUTER',
+    'shell inner': 'WALL-INNER',
+    'shell': 'WALL-INNER',
+    'upper face': 'SURFACE-TOP',
+    'lower face': 'SURFACE-BOTTOM',
+    'solid layer': 'INFILL-SOLID',
+    'solid fill': 'INFILL-SOLID',
+    'sparse fill': 'INFILL-SPARSE',
+    'crown': 'GAPS',
+    'internal single extrusion': 'GAPS',
+    'external single extrusion': 'WALL-OUTER',
+    'wipe wall': 'SKIRT',
+    'tip tower': 'PRIME-TOWER',
+    'purge tower': 'PRIME-TOWER',
+    'dense support': 'SUPPORT',
+    'support roof': 'SUPPORT',
+    'support floor': 'SUPPORT',
+    'draft shield': 'SKIRT',
+    'mixed': 'CUSTOM',
+    'multiple': 'CUSTOM',
+    'undefined': 'CUSTOM',
+    'unknown': 'CUSTOM',
+    'others': 'CUSTOM',
 }
 
 
@@ -216,12 +266,25 @@ for _k172, _v172 in TYPE_MAP.items():
 def _lookup_type(raw):
     """R172: TYPE_MAP lookup with separator tolerance - 'Wall outer',
     'WALL-OUTER' and 'wall_outer' are the same feature. Returns None when
-    the vocabulary is unknown (the CALLER decides passthrough vs CUSTOM)."""
+    the vocabulary is unknown (the CALLER decides passthrough vs CUSTOM).
+
+    R225 (.136w): Orca/Bambu change_extrusion_role_gcode placeholders
+    arrive as CamelCase WITHOUT any separator ('ExternalPerimeter') - the
+    separator norm finds nothing to squeeze there. The case boundary is
+    opened before giving up: 'ExternalPerimeter' -> 'external perimeter'
+    -> map hit. One folded retry, no recursion."""
     k = (raw or '').strip().lower()
     if k in TYPE_MAP:
         return TYPE_MAP[k]
     kn = re.sub(r'[^a-z0-9]+', ' ', k).strip()
-    return _TYPE_MAP_NORM.get(kn)
+    if kn in _TYPE_MAP_NORM:
+        return _TYPE_MAP_NORM[kn]
+    if any(c.isupper() for c in (raw or '').strip()):
+        kf = re.sub(r'(?<=[a-z])(?=[A-Z])', ' ',
+                    (raw or '').strip()).lower()
+        kf = re.sub(r'[^a-z0-9]+', ' ', kf).strip()
+        return _TYPE_MAP_NORM.get(kf)
+    return None
 
 
 _CANON_VALUES = frozenset(TYPE_MAP.values()) | {'SUPPORT', 'TRAVEL'}
@@ -247,6 +310,14 @@ def _canon_type(raw):
     kn = re.sub(r'[^a-z0-9]+', ' ', k).strip()
     if kn in _TYPE_MAP_NORM:
         return _TYPE_MAP_NORM[kn]
+    # R225: CamelCase folding BEFORE the ladder - Orca placeholders
+    # ('ExternalPerimeter') say the same thing as the unfolded spelling
+    if any(c.isupper() for c in raw.strip()):
+        kf = re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', raw.strip()).lower()
+        kn = re.sub(r'[^a-z0-9]+', ' ', kf).strip()
+        if kn in _TYPE_MAP_NORM:
+            return _TYPE_MAP_NORM[kn]
+        k = kf                    # the ladder below sees the opened form
     if 'support' in k:
         return 'SUPPORT'
     # R180 (.131a field round): the CUSTOM ELIMINATION LADDER - deterministic
@@ -18797,6 +18868,63 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
                 feat_stats[gfeat] = {'f': dict(gd), 'acc': None}
         summary['derived'] = True
 
+    # R225 (.136w, user question - the APPLY_TYPE global tag): ONE tag is
+    # not a feature map. A file whose ;TYPE: stream NEVER switches carries
+    # no feature information - a stray global tag (broken post-processor,
+    # manual edit, a 'set once' slicer script) would silently flatten the
+    # whole print into ONE feature. The user's cross-level idea, applied:
+    # level 1 counts the DISTINCT tagged types; when exactly one remains
+    # over a multi-layer file, level 2 (the geometry classifier) runs
+    # ANYWAY - a second streaming pass that ignores the tags. More than
+    # one feature found -> the tag was stray, the DERIVED view wins and
+    # _FILE_INFO says so (STRAYTAG=<old>). A file whose geometry agrees
+    # (a pure-wall vase) keeps its tag untouched (stray_checked).
+    _distinct225 = set(type_at.values())
+    if (len(_distinct225) == 1
+            and not re.match(r'^C[1-9]$', str(next(iter(_distinct225))))
+            and 'CUSTOM' not in _distinct225    # R213's C-watch owns the
+            and not has_marks                   # unknown vocabulary path
+            and not summary.get('derived')
+            and (summary['layers'] or 0) >= 2):
+        geom2 = _GeomScan()
+        if 'filament_diameter' in cfg:
+            try:
+                geom2.set_dia(float(cfg['filament_diameter']))
+            except ValueError:
+                pass
+        _i225 = _j225 = 0
+        with open(path, 'r', errors='replace') as _f225:
+            for _raw225 in _f225:
+                _ls225 = _raw225.strip()
+                if LAYER_COMMENT.match(_raw225):
+                    geom2.mark_comment()
+                geom2.step(_i225, _j225, _ls225)
+                _filt225 = (_ls225 in old_tags
+                            or _ls225.startswith('_FILE_INFO')
+                            or _ls225.startswith('APPLY_TYPE'))
+                _i225 += 1
+                if not _filt225:
+                    _j225 += 1
+        geom2.finish()
+        _dfeats225 = {gfeat for (_gi, _gj, gfeat) in geom2.ranges}
+        if len(_dfeats225) > 1:
+            # the tag lied: the derived view replaces it wholesale -
+            # ranges, speeds and the sequence audit all switch to the
+            # classifier's world (never mixed with the tagged stream)
+            type_at = {(gj, gj): gfeat
+                       for (_gi, gj, gfeat) in geom2.ranges}
+            feat_stats = {k: {'f': dict(v), 'acc': None}
+                          for k, v in geom2.fstat.items()}
+            tagged_seq193 = list(geom2.seq193)
+            summary['derived'] = True
+            summary['stray_tag'] = _distinct225.pop()
+            print('[straytag] %s: one global tag (%s), %d features '
+                  're-derived from geometry'
+                  % (os.path.basename(path), summary['stray_tag'],
+                     len(_dfeats225)), flush=True)
+        else:
+            summary['stray_checked'] = 1
+
     type_at = {_aw(p): feat for p, feat in type_at.items()}   # -> apply world
     summary['types'] = len(type_at)
 
@@ -18842,6 +18970,11 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
     # and the dominant seam position
     if summary.get('derived'):
         info.append('DERIVED=1')
+        # R225: the tag was stray (one global ;TYPE:, no switches) - the
+        # geometry view replaced it; say WHICH tag lied, the File info
+        # menu and the audit log can then explain the re-derivation
+        if summary.get('stray_tag'):
+            info.append('STRAYTAG=%s' % summary['stray_tag'])
         info.append('CONF=%g' % _GeomScan.CONF)
         if geom.tot_len > 0:
             info.append('COVER=%d' % round(100.0 * geom.cls_len / geom.tot_len))
@@ -22347,6 +22480,8 @@ def watch(directory, interval=5.0, once=False):
                     print(f'[ok] {fn}: +{s["marks_added"]} LAYER_MARK ({s["method"]}), '
                           f'+{s["types"]} APPLY_TYPE, _FILE_INFO layers={s["layers"]}, '
                           f'by_object={s["by_object"]}'
+                          + (f' [stray tag {s["stray_tag"]} -> geometry re-derived]'
+                             if s.get('stray_tag') else '')
                           + (f' [retract-fix: {s["retract_pairs"]} pair(s) -> G10/G11]'
                              if s.get('retract_pairs') else '')
                           + (f' [sliced by {s.get("slicer", "")} for {s.get("fw", "?")}]'

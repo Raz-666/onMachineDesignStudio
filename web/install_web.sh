@@ -233,9 +233,24 @@ else
         echo "${MARK_B}"
         echo "[r2_menu]"
         echo "path: ${WEB_DIR}/menu_structure.json"
+        echo "export_tool: ${PKG_DIR}/tools/menu_json_export.py"
         echo "${MARK_E}"
     } >> "${MR_CONF}"
     echo "[ok] [r2_menu] section added to ${MR_CONF} (backup .r2bak-* saved)"
+fi
+# R225 (.136w audit): sections written before .136w have no export_tool -
+# the refresh then fell back to the $HOME default (dev sandbox path) and
+# silently reloaded the STALE embedded json. Patch existing sections once.
+if grep -q '^export_tool:' "${MR_CONF}"; then
+    echo "[ok] [r2_menu] export_tool already present in ${MR_CONF}"
+else
+    cp "${MR_CONF}" "${MR_CONF}.r2bak-$(date +%Y%m%d-%H%M%S)"
+    sed -i '/^\[r2_menu\]/,/^path:/ s/^\(path: .*\)$/\1\nexport_tool: '"${PKG_DIR}"'\/tools\/menu_json_export.py/' "${MR_CONF}"
+    if grep -q '^export_tool:' "${MR_CONF}"; then
+        echo "[ok] [r2_menu] export_tool added to ${MR_CONF} (backup .r2bak-* saved)"
+    else
+        echo "[i] [r2_menu] has no path: line - r2_menu.py derives the tool from the json path instead"
+    fi
 fi
 
 # 3) nginx site on a free port (separate file - mainsail config stays untouched)

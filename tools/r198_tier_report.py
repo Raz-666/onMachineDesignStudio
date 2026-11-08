@@ -52,6 +52,8 @@ TIERS = {
     'hardcore': [
         ('r190_tag_ladder', 'feature tagging, 5 levels + rules'),
         ('r197_gen_sweep', 'ALL generators x parameters + tools'),
+        ('r225_audit_fixes', '.136w audit round: web refresh, Cura box, '
+         'Mainsail meta vs moonraker, families vocabulary, stray tags'),
         ('r199_zip_check', 'release-zip layout + version consistency'),
         ('audit_sweep', 'all-file audit sweep'),
         # r142_spell_lint stays OUT of the tiers on purpose: it is a hint

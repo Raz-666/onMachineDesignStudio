@@ -305,7 +305,7 @@ fi
 if [ "${SENT}" -eq 0 ]; then
     echo "[ok] FIRMWARE_RESTART sent - the LCD goes DARK for ~10-60 s,"
     echo "     the boot beep + 'R2 ready' confirm success. Check the console for"
-    echo "     'Macro system OK: all 17 modules loaded and current (build ${V:-?})'"
+    echo "     'Macro system OK: all 19 modules loaded and current (build ${V:-?})'"
 else
     echo "[!] Moonraker unreachable - run FIRMWARE_RESTART in the Mainsail console yourself."
 fi

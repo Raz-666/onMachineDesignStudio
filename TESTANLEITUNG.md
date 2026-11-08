@@ -1,6 +1,6 @@
-# TESTANLEITUNG — R2-D2 Makro-System (Version .136v)
+# TESTANLEITUNG — R2-D2 Makro-System (Version .136w)
 
-Diese Anleitung beschreibt **nur den aktuellen Stand** (.136v). Sie ist die
+Diese Anleitung beschreibt **nur den aktuellen Stand** (.136w). Sie ist die
 komplette Feld-Checkliste nach dem Einspielen eines Updates — von Boot bis
 Druckergebnis. Die Historie der Änderungen steht in README.md.
 
@@ -18,7 +18,7 @@ Druckergebnis. Die Historie der Änderungen steht in README.md.
 ## 2. Boot-Check (Pflicht, 1 Minute)
 
 - [ ] Konsole: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-08.136v)`
+      (build R2-2026-11-08.136w)`
 - [ ] ~10 s nach dem Boot: Boot-Sound + LED-Animation
 - [ ] `SHOW_STATUS` antwortet mit Modus/Material/Overrides
 - [ ] Kein Eintrag fehlt: sonst meldet sich `_CHECK_INSTALL` laut mit
@@ -209,6 +209,33 @@ bewusst angeschweißt). Je ein Probedruck:
 
 ---
 
-**Alles grün?** Dann ist .136v field-clear. Wenn etwas auffällt: Konsole
+## 12. Die .136w-Neuerungen (R225-Auditrunde)
+
+- [ ] **Mainsail-Metadaten bei Generator-Dateien**: frisch generierte
+      Dateien zeigen jetzt Thumbnail, Druckzeit, Filament, Schichthöhen
+      in der Dateiliste (Ident-Stempel „R2-D2", Block am Dateiende,
+      exakt nach Moonrakers Parser; alte Dateien heilen beim nächsten
+      Watcher-Lauf selbst)
+- [ ] **Web-Refresh**: Konsole > Menu refresh re-exportiert jetzt auch
+      auf der Doku-Installation (`~/printer_data/config/...`) — das
+      Werkzeug wird aus dem JSON-Pfad abgeleitet, install_web.sh
+      schreibt `export_tool:` in die moonraker.conf
+- [ ] **Stray-Tag-Schutz**: eine Datei mit nur EINEM globalen
+      APPLY_TYPE/;TYPE: wird auf Geometrie-Ebene gegengeprüft —
+      Wechsel gefunden → Feature-Grenzen aus der Geometrie
+      (`STRAYTAG=` in der Datei-Info nennt das falsche Tag); stimmige
+      Dateien (reine Vasen) bleiben unangetastet
+- [ ] **Slicer-Vokabular**: Simplify3D (`; feature …` ohne Doppelpunkt),
+      FlashPrint (`;structure:…`), Kiri:Moto (`; shell`), KISSlicer
+      (crown/upper face/lower face), ideaMaker (Shells/Türme), Orca-
+      CamelCase-Platzhalter — bisher CUSTOM, jetzt korrekt erkannt
+- [ ] **Cura-Objekt-Box**: ohne ;LAYER:/;TYPE: steht die Box jetzt VOR
+      dem ersten Druckbefehl (nicht mehr hinter PRINT_END) — adaptives
+      Mesh/Parken greift wieder
+- [ ] **update.sh** meldet „all 19 modules" (war 17, es waren immer 19)
+
+---
+
+**Alles grün?** Dann ist .136w field-clear. Wenn etwas auffällt: Konsole
 kopieren (RESPOND-Zeilen) + welche Datei/welcher Menüpfad — daraus wird der
 nächste Feldlog-Eintrag.

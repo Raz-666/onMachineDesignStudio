@@ -120,7 +120,7 @@ class Doc(BaseDocTemplate):
         canv.line(17*mm, 285*mm, 193*mm, 285*mm)
         canv.setFont('DVS', 8.2); canv.setFillColor(GRAY)
         canv.drawString(17*mm, 287.2*mm, 'R2-D2 Macro System · Feature-Tagging — der komplette Wahrheitspfad')
-        canv.drawRightString(193*mm, 287.2*mm, 'R2-2026-11-08.136v')
+        canv.drawRightString(193*mm, 287.2*mm, 'R2-2026-11-08.136w')
         canv.setFont('DVS', 8.6)
         canv.drawCentredString(105*mm, 9.5*mm, 'Seite %d' % doc.page)
         canv.restoreState()
@@ -195,7 +195,7 @@ A(Paragraph('Wie das R2-D2-System aus einer G-Code-Datei die Features liest —<
 A(Spacer(1, 10*mm))
 A(CENT_COVER())
 A(Spacer(1, 8*mm))
-A(Paragraph('Stand: R2-2026-11-08.136v · Code-Wahrheit: tools/r2_postproc.py (TYPE_RE, TYPE_MAP, '
+A(Paragraph('Stand: R2-2026-11-08.136w · Code-Wahrheit: tools/r2_postproc.py (TYPE_RE, TYPE_MAP, '
             '_canon_type, _GeomScan), macros/01_state.cfg + 08_print_start_stop.cfg · '
             'Slicer-Dokumentation: CuraEngine-Wiki »Generating Paths«, OrcaSlicer-Wiki '
             '»Walls printing order«', S['cap']))
@@ -519,20 +519,57 @@ A(TBL(['Stufe', 'Tests'], [
  ['Stufe 3  Klassifikator', 'r111_geom_test (Bögen/hops/Vasen), r190 (ungetaggte Familien-Synthesen), r81 pr03/pr08 (Z-Scan-Ableitung byte-stabil)'],
  ['Stufe 4  CUSTOM-Watch', 'r190 + r142_field_coverage ( CUSTOMRES-Anzeige)'],
  ['Stufe 5  Ausschluss-Logik', 'r167 aircheck (Quer-Schicht-Luft für Generatoren) — Import-Seite folgt in .135 mit eigenen Cases'],
- ['Feld-Bug-Regressionen', 'audit_sweep (82 Dateien), r140 stress (46.778 Checks, Parameter-Gitter), r141 journeys (2.372 Nutzerreisen), r187 matrix (1.356 Kombi-Prüfungen)'],
+ ['Stray-Tag-Vergleich (.136w)', 'r190 (zwei neue Checks: Stray → re-derive + STRAYTAG, Spiegel → Tag bleibt), r225_audit_fixes A7 (Referenz-Gleichheit, Vasen-Kontrolle, Multi-Tag-Unschädlichkeit)'],
+ ['Familien-Vokabular (.136w)', 'r225_audit_fixes A6 (31 Schreibungen aller Dialekte + 5 Prosa-Negativfälle), r190 Ladder-Drill'],
+ ['Feld-Bug-Regressionen', 'audit_sweep (82 Dateien), r140 stress (46.880 Checks, Parameter-Gitter), r141 journeys (2.372 Nutzerreisen), r187 matrix (1.356 Kombi-Prüfungen)'],
 ], [38*mm, 104*mm]))
 A(P('Die Stufen 0–4 sind damit lückenlos im Batterie-Netz; Stufe 5 hat den Geometrie-Teil '
     '(Generatoren) und bekommt mit .135 die Import-Seite samt Sequenz-Regeln und eigenen '
     'Fehlschlägen.'))
 
 # ============================== Kap 14 ======================================
-flow += H1('14  Grenzen — ehrlich')
+flow += H1('14  Die .136w-Runde — Familien-Vokabular komplett, CamelCase, Stray-Tag')
+A(P('Die R225-Runde macht drei Dinge fertig, die die Feld- und Audit-Berichte '
+    'offengehalten hatten:'))
+flow += B(
+ '<b>Alle Dialekte der Familien-Kompilation (uploads/slicer-families.md) werden gelesen.</b> '
+ 'TYPE_RE versteht jetzt neben ;TYPE:/;FEATURE: auch Simplify3D/KISSlicer '
+ '(&bdquo;; feature outer perimeter&ldquo; — Leerzeichen statt Doppelpunkt), FlashPrint '
+ '(&bdquo;;structure:shell-inner&ldquo;) und Kiri:Motos nackte Worte (&bdquo;; shell&ldquo;, '
+ '&bdquo;; fill&ldquo;) — die Bare-Liste ist Ende-anchored, Prosa matcht nie. TYPE bleibt '
+ 'kolonstreng (kein &bdquo;; type of filament&ldquo;-False-Positive).',
+ '<b>Die letzte Vokabular-Runde in TYPE_MAP:</b> KISSlicer crown (=Gap Fill), upper/lower '
+ 'face, Simplify3Ds single-extrusion-Features (internal = Gap Fill, external = dünne '
+ 'Außenwand) und solid layer, ideaMakers Shells/Türme (tip tower, wipe wall als Wegwerf-'
+ 'Skirt), Cura roof/floor/draft shield, Orca-CamelCase-Platzhalter (ExternalPerimeter → '
+ 'Fallenlassen der Groß-/Kleinschreibung in _lookup_type/_canon_type) und die ehrlichen '
+ 'Reste: Multiple/Undefined/Unknown bleiben CUSTOM (Überschreibung AUS, 1:1-Druck).',
+ '<b>Der Stray-Tag-Vergleich (Nutzerfrage .136w):</b> ein EINZIGES globales Tag über einer '
+ 'mehrschichtigen Datei trägt keine Feature-Information — ein defekter Postprozessor oder '
+ 'Handedit würde den ganzen Druck auf EIN Feature plätten. Erkannt wird es durch '
+ 'Stufen-Vergleich: Stufe 1 zählt die verschiedenen getaggten Typen (genau EINS über ≥2 '
+ 'Schichten), Stufe 2 läuft trotzdem — ein zweiter Streaming-Pass, der die Tags ignoriert. '
+ 'Findet die Geometrie MEHR als ein Feature, war das Tag stray: die abgeleitete Sicht '
+ 'gewinnt komplett (Grenzen, Speeds, Sequenz-Audit), STRAYTAG=&lt;alt&gt; in _FILE_INFO '
+ 'nennt das Lügen-Tag. Stimmt die Geometrie zu (reine Wand-Vase), bleibt das Tag '
+ 'unangetastet (stray_checked). Echte Wechsel bleiben getaggt; der R213-CUSTOM/C1-Pfad '
+ 'ist ausgenommen — nummerierte Slots sind bereits die reichere Analyse.')
+A(P('Derselbe Round-Trip bringt die Mainsail-Metadaten ans Ziel: gcode_meta schreibt den '
+    'Thumbnail-Header mit <b>drei</b> Ints (Breite, Höhe, Base64-Länge — Moonrakers Parser '
+    'lehnt Zwei-Int-Header mit &bdquo;Error parsing thumbnail header&rdquo; ab), legt den Block '
+    'ans <b>Dateiende</b> (die PrusaSlicer-Parser-Klasse liest den Footer) und stempelt '
+    '&bdquo;; generated by R2-D2 &lt;Release&gt; on &lt;Datum&gt; at &lt;Zeit&gt;&ldquo; in den '
+    'Kopf — sonst landet die Datei auf UnknownSlicer, dessen Zeit-/Filament-Parser hart '
+    'None liefern. Der Zeitstempel ist aus der Body-Signatur abgeleitet: bytedeterministisch '
+    'für die r81-Goldens.'))
+
+# ============================== Kap 15 ======================================
+flow += H1('15  Grenzen — ehrlich')
 flow += B(
  'Brücken/Überhänge/Support-Interface werden beim IMPORT nicht abgeleitet (dokumentiert; '
  'r167 deckt die Generatoren-Seite).',
  'Ironing und Prime-Tower erkennt nur der Slicer-Tag — die Ableitung fehlt (Sequenzregeln '
  'erst .135).',
- 'Bambu ;FEATURE:-Kommentare werden heute nicht gelesen (Lücke, .135: TYPE_RE erweitern).',
  'Die Reihenfolge der Features innerhalb einer Schicht ist einstellungsabhängig — sie taugt '
  'nur als weiches Signal (so nutzt sie der Klassifikator: Erstsein + Trennung + hatch, nie '
  'allein).',

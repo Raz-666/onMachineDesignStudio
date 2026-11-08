@@ -82,9 +82,19 @@ class KlipperFeatureTypes(Script):
         neu = []
         kopf_done = False
         letzter_typ = None
+        erster_befehl = None      # R225: Index des ersten Druckbefehls
         for zeile in data:
-            neu.append(zeile)
             p = str(zeile).strip()
+            # R225 (.136w Audit Punkt 2): Fallback-Anker - die erste
+            # nicht-leere, keine-Kommentar-Zeile ist der erste Druckbefehl
+            # (G/M/T oder ein Makro-Aufruf wie PRINT_START). Die Box muss
+            # VOR ihm definiert sein, sonst laeuft das Start-Makro (KAMP/
+            # Parken) noch ohne Objekt-Polygon.
+            if (box_einfuegen and not kopf_done
+                    and erster_befehl is None and p
+                    and not p.startswith(";") and not p.startswith("(")):
+                erster_befehl = len(neu)
+            neu.append(zeile)
 
             # Objekt-Box VOR der ersten Layer-/Typ-Zeile einfuegen.
             # R224 (.136v Feld-Review): der alte Anker war ein G28 IM FILE -
@@ -110,8 +120,12 @@ class KlipperFeatureTypes(Script):
                 neu.append("LAYER_MARK\n")
 
         if box_einfuegen and not kopf_done:
-            # weder ;LAYER: noch ;TYPE: gefunden - Box ans Dateiende
-            neu.append(";KLIPPER Objekt-Box (adaptives Mesh/Parken)\n")
-            neu.append("EXCLUDE_OBJECT_DEFINE NAME=druck CENTER={:.2f},{:.2f} POLYGON={}\n".format(cx, cy, polygon))
+            # R225 (.136w Audit): weder ;LAYER: noch ;TYPE: gefunden - die
+            # Box gehoert VOR den ersten Druckbefehl (bzw. PRINT_START),
+            # NICHT ans Dateiende hinter PRINT_END: dort ist sie fuer
+            # KAMP/Parken wirkungslos, das adaptive Mesh lief leer.
+            pos = erster_befehl if erster_befehl is not None else len(neu)
+            neu[pos:pos] = [";KLIPPER Objekt-Box (adaptives Mesh/Parken)\n",
+                            "EXCLUDE_OBJECT_DEFINE NAME=druck CENTER={:.2f},{:.2f} POLYGON={}\n".format(cx, cy, polygon)]
 
         return neu

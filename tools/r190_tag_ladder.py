@@ -413,8 +413,12 @@ for i in range(1, 4):
         (None, _square(40, 40, 80, 80)),
         (None, _hatch(42, 42, 78, 78, 5)),
     ])
-# Bambu-style ;FEATURE: comments are NOT ;TYPE: - documented gap (.135)
+# Bambu-style ;FEATURE: comments are read like ;TYPE: (.135 extension).
+# R225 (.136w): TWO distinct tags now - a SINGLE global tag over a
+# multi-feature file is the stray-tag case (see the R225 check below)
+# and would be re-derived by design.
 L.insert(6, ';FEATURE:Wall outer')
+L.insert(6 + 1 + 2, ';FEATURE:Sparse infill')
 open(p_gap, 'w').write('\n'.join(L) + '\n')
 mod.process(p_gap)
 txt_gap = open(p_gap).read()
@@ -427,6 +431,49 @@ check('Bambu ;FEATURE: read like ;TYPE: (.135 TYPE_RE extension) - tagged, '
 check('Bambu ;FEATURE: an unknown vocabulary still falls to CUSTOM '
       '(honesty preserved through the new regex)',
       _canon_type('frobnicate zone') == 'CUSTOM')
+
+# ---- R225 (.136w): the stray global tag - levels compared -------------------
+p_stray = os.path.join(D, 'stray_tag.gcode')
+L = _hdr()
+for i in range(1, 4):
+    L += _layer(0.2 * i, [
+        (None, _square(40, 40, 80, 80)),
+        (None, _hatch(42, 42, 78, 78, 5)),
+    ])
+# ONE global ;TYPE: that never switches - the user's APPLY_TYPE case.
+# Level 1 (tags) sees a single feature; level 2 (geometry) sees walls +
+# sparse infill. The cross-level comparison lets geometry win and
+# _FILE_INFO names the stray tag.
+L.insert(6, ';TYPE:WALL-OUTER')
+open(p_stray, 'w').write('\n'.join(L) + '\n')
+mod.process(p_stray)
+txt_stray = open(p_stray).read()
+fi_stray = [l for l in txt_stray.split('\n')
+            if l.startswith('_FILE_INFO')][0]
+check('R225 stray tag: one global ;TYPE: over a multi-feature file is '
+      're-derived from geometry (levels compared, STRAYTAG names the '
+      'tag that lied)',
+      'DERIVED=1' in fi_stray and 'STRAYTAG=WALL-OUTER' in fi_stray
+      and 'INFILL-SPARSE' in fi_stray
+      and 'APPLY_TYPE TYPE=INFILL-SPARSE' in txt_stray, fi_stray[:90])
+# the mirror case: geometry AGREES with the single tag (pure walls) -
+# the tag stays, only the cross-check is noted
+p_pure = os.path.join(D, 'pure_wall_tag.gcode')
+L = _hdr()
+for i in range(1, 4):
+    L += _layer(0.2 * i, [
+        (None, _square(40, 40, 80, 80)),
+        (None, _square(45, 45, 75, 75)),
+    ])
+L.insert(6, ';TYPE:WALL-OUTER')
+open(p_pure, 'w').write('\n'.join(L) + '\n')
+mod.process(p_pure)
+fi_pure = [l for l in open(p_pure).read().split('\n')
+           if l.startswith('_FILE_INFO')][0]
+check('R225 stray tag: geometry AGREES with the single tag (pure walls) '
+      '- the tag stays untouched, no DERIVED keys',
+      'DERIVED=1' not in fi_pure and 'STRAYTAG=' not in fi_pure
+      and 'WALL-OUTER' in fi_pure, fi_pure[:90])
 
 # ---- .135 stage 5a: the cross-layer AIR SCAN finds the bridge deck ----------
 p_deck = os.path.join(D, 'deck_bridge.gcode')
