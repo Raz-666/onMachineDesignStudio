@@ -4111,8 +4111,8 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         _v66 = _l66.split(':', 1)[1].strip()
         break
 # NOTE: bump this expectation together with the version on every release!
-tests.append(('R66/R80 version is current (.136x) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-11-08.136x'", repr(_v66)))
+tests.append(('R66/R80 version is current (.136y) in 01_state.cfg (bump together with release!)',
+    _v66 == "'R2-2026-11-08.136y'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -17294,12 +17294,12 @@ tests.append(('R185 current-only manual: no version-history appendix, no era '
     '## Appendix D' not in _m185 and 'Version history' not in _m185
     and _re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185) is None
     and _re2.search(r'\bR1[0-9][0-9]\b', _m185) is None
-    and 'The nine fonts' in _m185 and 'R2-2026-11-08.136x' in _m185,
+    and 'The nine fonts' in _m185 and 'R2-2026-11-08.136y' in _m185,
     'appendixD=%s eratags=%s rtags=%s nine=%s v132=%s' % (
         '## Appendix D' in _m185,
         bool(_re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185)),
         bool(_re2.search(r'\bR1[0-9][0-9]\b', _m185)),
-        'The nine fonts' in _m185, 'R2-2026-11-08.136x' in _m185)))
+        'The nine fonts' in _m185, 'R2-2026-11-08.136y' in _m185)))
 
 # ================== R184 (.131c field round): the brim air gap EVERYWHERE ==
 # The user asked: does the brim fusing hit our OTHER generators too? Measured
@@ -17472,20 +17472,25 @@ tests.append(('R188 sounds: r2_start on every work press, quiet list covers '
     ''))
 
 # (6) watcher: gen_busy flag around fixes AND jobs (incl. the stamping window)
-tests.append(('R188/R224/R226 watcher: gen_busy=1 around file_fix AND the job worker '
+tests.append(('R188/R224/R226/R227 watcher: gen_busy=1 around file_fix AND the job worker '
     '(late release after stamping - the homing race dies) + drops at boot '
     '(stale flag) and when the queue is cleared IDLE. R224: clear during a '
     'running/stuck build now RAISES it (VALUE=1) instead of dropping - the '
     'thread keeps burning RAM/CPU and no print may start into it. R226: '
     'every scan pass RECONCILES the flag with reality (a release can fail '
     'while klippy is down - the persisted 1 survived restarts and blocked '
-    'every print start, field log .136w)',
+    'every print start, field log .136w). R227: the flag is PARSED, not '
+    'string-tested (_read_vars returns strings - the truthiness bug '
+    'sprayed the console every pass, field log .136x), and the stale '
+    'notice fires ONCE per episode (latch + silent retry)',
     _r2p188.count("SAVE_VARIABLE VARIABLE=gen_busy VALUE=1") == 3
-    and _r2p188.count("SAVE_VARIABLE VARIABLE=gen_busy VALUE=0") == 6
+    and _r2p188.count("SAVE_VARIABLE VARIABLE=gen_busy VALUE=0") == 7
     and 'M117 Fix running:' in _r2p188
     and 'the RUNNING build keeps' in _r2p188
     and 'flags reset - nothing is ' in _r2p188
-    and 'stale gen_busy cleared' in _r2p188,
+    and 'stale gen_busy cleared' in _r2p188
+    and '_gb227' in _r2p188
+    and 'stale_gb227' in _r2p188,
     ''))
 
 # (7) queue notice: 10s instead of 90 (the user must know it is parked)

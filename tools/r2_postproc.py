@@ -77,8 +77,8 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-08.136x'
-POSTPROC_BUILD = 'R223'
+POSTPROC_RELEASE = 'R2-2026-11-08.136y'
+POSTPROC_BUILD = 'R227'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
 # and no speed/accel/nozzle parameters. Files carrying an OLD tag are UPGRADED
@@ -23093,21 +23093,44 @@ def watch(directory, interval=5.0, once=False):
             # no queued job, no live build thread -> the variable lies ->
             # clear it, loudly. (The queue worker sets _JOB_STATE['busy']
             # BEFORE raising the flag - no race.)
-            if rv.get('gen_busy') \
+            # R227 (.136y field log): _read_vars returns STRINGS - the
+            # R226 test `rv.get('gen_busy')` was STRING truthiness and
+            # '0' (from `variable_gen_busy: False`) is a NON-EMPTY string
+            # = TRUE in Python. The clear fired EVERY pass (~6 s) with
+            # the flag False in the file all along (field log: the
+            # message 8x in 42 s, no VALUE=1 set in between). Parse the
+            # value for real - and announce ONCE per stale episode: a
+            # refusing klippy (down/error) retries silently, the console
+            # must not spray; the latch rearms the moment a pass sees
+            # the flag healthy (or a real job owns it).
+            _gb227 = str(rv.get('gen_busy', '0')).strip().strip('\'"') \
+                .lower() in ('1', 'true', 'on', 'yes')
+            if _gb227 \
                     and not _JOB_STATE.get('busy') \
                     and (_JOB_STATE.get('thread') is None
                          or not _JOB_STATE['thread'].is_alive()):
                 try:
-                    _moonraker_gcode(
-                        'SAVE_VARIABLE VARIABLE=gen_busy VALUE=0\n'
-                        'RESPOND MSG="[queue] stale gen_busy cleared (no '
-                        'generator is running - the flag survived a '
-                        'restart/error) - print starts are free"\n'
-                        'M117 Queue free')
-                    print('[queue] stale gen_busy cleared (reconciled)',
-                          flush=True)
+                    if not _JOB_STATE.get('stale_gb227'):
+                        _JOB_STATE['stale_gb227'] = True
+                        _moonraker_gcode(
+                            'SAVE_VARIABLE VARIABLE=gen_busy VALUE=0\n'
+                            'RESPOND MSG="[queue] stale gen_busy cleared (no '
+                            'generator is running - the flag survived a '
+                            'restart/error) - print starts are free"\n'
+                            'M117 Queue free')
+                        print('[queue] stale gen_busy cleared (reconciled)',
+                              flush=True)
+                    else:
+                        # announced already - silent retry (klippy may
+                        # still be down; the moment it answers, the clear
+                        # lands and the next pass reads a healthy flag)
+                        _moonraker_gcode(
+                            'SAVE_VARIABLE VARIABLE=gen_busy VALUE=0')
                 except Exception:                                # noqa: BLE001
                     pass          # moonraker down - retry on the next pass
+            else:
+                # flag healthy (or a real job owns it) - rearm the latch
+                _JOB_STATE['stale_gb227'] = False
             # R166: publish which core is running (postproc_build). The
             # update script queries it to PROVE the restart took effect;
             # rate-limited to 10s so a down klippy cannot stall the loop

@@ -1,6 +1,6 @@
-# TESTANLEITUNG — R2-D2 Makro-System (Version .136x)
+# TESTANLEITUNG — R2-D2 Makro-System (Version .136y)
 
-Diese Anleitung beschreibt **nur den aktuellen Stand** (.136x). Sie ist die
+Diese Anleitung beschreibt **nur den aktuellen Stand** (.136y). Sie ist die
 komplette Feld-Checkliste nach dem Einspielen eines Updates — von Boot bis
 Druckergebnis. Die Historie der Änderungen steht in README.md.
 
@@ -18,7 +18,7 @@ Druckergebnis. Die Historie der Änderungen steht in README.md.
 ## 2. Boot-Check (Pflicht, 1 Minute)
 
 - [ ] Konsole: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-08.136x)`
+      (build R2-2026-11-08.136y)`
 - [ ] ~10 s nach dem Boot: Boot-Sound + LED-Animation
 - [ ] `SHOW_STATUS` antwortet mit Modus/Material/Overrides
 - [ ] Kein Eintrag fehlt: sonst meldet sich `_CHECK_INSTALL` laut mit
@@ -261,6 +261,25 @@ bewusst angeschweißt). Je ein Probedruck:
 
 ---
 
-**Alles grün?** Dann ist .136x field-clear. Wenn etwas auffällt: Konsole
+## 14. Die .136y-Neuerungen (R227-Hotfix)
+
+- [ ] **Kein Reconciliation-Spam mehr**: die .136x-Feldrunde meldete
+  „stale gen_busy cleared" alle ~6 s Dauerfeuer, obwohl die Flagge
+  falsch (False) in der Datei stand — der Test hatte den STRING '0'
+  auf Wahrheit geprüft (nicht-leerer String = wahr in Python). Jetzt
+  wird der Wert echt geparst, und die Meldung kommt **einmal pro
+  Vorfall** (klipper down → stille Wiederholung, keine Konsolen-
+  Flut). Druckstarts waren durch den Spam nie blockiert — nur Optik
+- [ ] **update.sh startet Moonraker mit neu**: der Web-Konsolen-Code
+  (r2_menu.py) lädt beim Moonraker-Start — ohne Neustart lief der
+  klippy.log-Tag-Export weiter auf altem Code (78-Byte-Datei), bis der
+  Pi von Hand neu gestartet wurde. update.sh erledigt das jetzt selbst
+- [ ] **postproc_build-Stempel sagt die Runde**: Boot zeigte
+  „.136x (R223)" — der Runden-Annotat war seit R223 nicht gebumpt;
+  jetzt „.136y (R227)"
+
+---
+
+**Alles grün?** Dann ist .136y field-clear. Wenn etwas auffällt: Konsole
 kopieren (RESPOND-Zeilen) + welche Datei/welcher Menüpfad — daraus wird der
 nächste Feldlog-Eintrag.

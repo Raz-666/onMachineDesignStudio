@@ -469,6 +469,21 @@ else
     echo "    start it:  sudo systemctl restart r2-postproc"
 fi
 
+# --- 6d) restart Moonraker (web console code) -------------------------------------------
+# R227 (.136y field log): web/r2_menu.py is loaded by moonraker AT STARTUP.
+# The .136x update restarted klipper + the watcher but NOT moonraker - the
+# klippy.log day export kept running the OLD filter (a 78-byte header-only
+# file, byte-identical to the .136w bug) until the PI was rebooted by hand.
+# update.sh now closes that gap itself: moonraker restarts with everything
+# else, Mainsail reconnects on its own within a few seconds.
+echo "[i] restarting moonraker (web console code reloads)..."
+if sudo systemctl restart moonraker 2>/dev/null; then
+    echo "[ok] moonraker restarted - Mainsail reconnects within a few seconds"
+else
+    echo "[!] could not restart moonraker (sudo?) - run it yourself:"
+    echo "        sudo systemctl restart moonraker"
+fi
+
 # --- 7) hint: the environment wizard --------------------------------------------------
 if [ -f "${DIR}/setup.sh" ]; then
     echo "[i] environment wizard available (zram vs SD-swap, optional services like"
