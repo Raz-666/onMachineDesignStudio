@@ -77,8 +77,8 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-08.136aa'
-POSTPROC_BUILD = 'R229'
+POSTPROC_RELEASE = 'R2-2026-11-08.136ab'
+POSTPROC_BUILD = 'R230'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
 # and no speed/accel/nozzle parameters. Files carrying an OLD tag are UPGRADED
@@ -296,6 +296,34 @@ TYPE_MAP = {
     'lattice': 'INFILL-SPARSE',
     'spiral inset': 'INFILL-SPARSE',
     'tri-hexagon': 'INFILL-SPARSE',
+    # R230 (.136ab): the COMPLETE pattern list of the family document -
+    # the user's ask: one full list so the multi-stage recognition never
+    # leaves a named pattern to CUSTOM. Exact keys also BEAT the support
+    # substring: 'support cubic' is Prusa's SPARSE infill variant that
+    # props the top surfaces, not a support structure.
+    'rectilinear': 'INFILL-SPARSE',
+    'aligned rectilinear': 'INFILL-SPARSE',
+    'grid': 'INFILL-SPARSE',
+    'triangles': 'INFILL-SPARSE',
+    'cubic': 'INFILL-SPARSE',
+    'adaptive cubic': 'INFILL-SPARSE',
+    'support cubic': 'INFILL-SPARSE',
+    'quarter cubic': 'INFILL-SPARSE',
+    'line': 'INFILL-SPARSE',
+    'lines': 'INFILL-SPARSE',
+    'concentric': 'INFILL-SPARSE',
+    '3d honeycomb': 'INFILL-SPARSE',
+    'zig zag': 'INFILL-SPARSE',
+    'cross zag': 'INFILL-SPARSE',
+    'locked zag': 'INFILL-SPARSE',
+    'cross': 'INFILL-SPARSE',
+    'cross 3d': 'INFILL-SPARSE',
+    'cubic subdivision': 'INFILL-SPARSE',
+    'fast honeycomb': 'INFILL-SPARSE',
+    # top/bottom/solid patterns - the monotonic family is what slicers
+    # pick for smooth surfaces: SOLID fill class
+    'monotonic': 'INFILL-SOLID',
+    'monotonic lines': 'INFILL-SOLID',
     # (d) NON-EXTRUSION words as a MAP SAFETY NET (the regex already
     # keeps them inert - these keys catch direct _canon_type callers,
     # replay files and future dialects): a move annotation is no feature.

@@ -1,6 +1,6 @@
-# TESTANLEITUNG — R2-D2 Makro-System (Version .136aa)
+# TESTANLEITUNG — R2-D2 Makro-System (Version .136ab)
 
-Diese Anleitung beschreibt **nur den aktuellen Stand** (.136aa). Sie ist die
+Diese Anleitung beschreibt **nur den aktuellen Stand** (.136ab). Sie ist die
 komplette Feld-Checkliste nach dem Einspielen eines Updates — von Boot bis
 Druckergebnis. Die Historie der Änderungen steht in README.md.
 
@@ -18,7 +18,7 @@ Druckergebnis. Die Historie der Änderungen steht in README.md.
 ## 2. Boot-Check (Pflicht, 1 Minute)
 
 - [ ] Konsole: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-08.136aa)`
+      (build R2-2026-11-08.136ab)`
 - [ ] ~10 s nach dem Boot: Boot-Sound + LED-Animation
 - [ ] `SHOW_STATUS` antwortet mit Modus/Material/Overrides
 - [ ] Kein Eintrag fehlt: sonst meldet sich `_CHECK_INSTALL` laut mit
@@ -321,6 +321,20 @@ bewusst angeschweißt). Je ein Probedruck:
 
 ---
 
-**Alles grün?** Dann ist .136aa field-clear. Wenn etwas auffällt: Konsole
+## 17. Die .136ab-Neuerungen (R230-Komplettliste Infill-Muster)
+
+- [ ] **Vollständige Infill-Muster-Liste:** alle 34 Sparse-Muster aller
+  Slicer-Familien (Prusa/Orca/Bambu, Cura, Simplify3D — von Rectilinear
+  bis TPMS-FK, Cross 3D, Fast Honeycomb) plus die Monotonic-Familie
+  (Top/Bottom → solides Infill) lösen sauber auf — ein benanntes Muster
+  bleibt nie mehr CUSTOM, das mehrstufige Erkennungssystem (Karte →
+  Leiter → Geometrie → CUSTOM-Watch) erkennt Innenfilz damit in jeder
+  Stufe. **Korrektur:** „Support Cubic" ist Prusas sparses Infill zur
+  Top-Abstützung (nicht Support) — der exakte Schlüssel schlägt die
+  Support-Substringsregel
+
+---
+
+**Alles grün?** Dann ist .136ab field-clear. Wenn etwas auffällt: Konsole
 kopieren (RESPOND-Zeilen) + welche Datei/welcher Menüpfad — daraus wird der
 nächste Feldlog-Eintrag.

@@ -120,7 +120,7 @@ class Doc(BaseDocTemplate):
         canv.line(17*mm, 285*mm, 193*mm, 285*mm)
         canv.setFont('DVS', 8.2); canv.setFillColor(GRAY)
         canv.drawString(17*mm, 287.2*mm, 'R2-D2 Macro System · Feature-Tagging — der komplette Wahrheitspfad')
-        canv.drawRightString(193*mm, 287.2*mm, 'R2-2026-11-08.136aa')
+        canv.drawRightString(193*mm, 287.2*mm, 'R2-2026-11-08.136ab')
         canv.setFont('DVS', 8.6)
         canv.drawCentredString(105*mm, 9.5*mm, 'Seite %d' % doc.page)
         canv.restoreState()
@@ -195,7 +195,7 @@ A(Paragraph('Wie das R2-D2-System aus einer G-Code-Datei die Features liest —<
 A(Spacer(1, 10*mm))
 A(CENT_COVER())
 A(Spacer(1, 8*mm))
-A(Paragraph('Stand: R2-2026-11-08.136aa · Code-Wahrheit: tools/r2_postproc.py (TYPE_RE, TYPE_MAP, '
+A(Paragraph('Stand: R2-2026-11-08.136ab · Code-Wahrheit: tools/r2_postproc.py (TYPE_RE, TYPE_MAP, '
             '_canon_type, _GeomScan), macros/01_state.cfg + 08_print_start_stop.cfg · '
             'Slicer-Dokumentation: CuraEngine-Wiki »Generating Paths«, OrcaSlicer-Wiki '
             '»Walls printing order«', S['cap']))
@@ -551,7 +551,13 @@ flow += B(
  'Wall, Purge Block/Line/Blob, Wiping Tower) sind eine Klasse: PRIME-TOWER. Belt Lead → '
  'Skirt, Brim Ears → Brim, Painted Support → Support, der Raft-Stapel → Bodenfläche. '
  'Infill-Muster-Namen (TPMS, Octet, Tetrahedral, Stars, Lateral Honeycomb, Lattice, '
- 'Spiral Inset) sind Muster, keine Features - alle werden sparses Infill.',
+ 'Spiral Inset) sind Muster, keine Features - alle werden sparses Infill. ',
+ '<b>Die R230-Komplettliste:</b> alle 34 Sparse-Muster aller Familien stehen jetzt als exakte '
+ 'Schluessel in der Karte (Rectilinear bis Fast Honeycomb), die Monotonic-Familie (Top/Bottom-'
+ 'Glaettmuster) wird solides Infill. Korrektur: Support Cubic ist Prusas sparses Infill zur '
+ 'Top-Abstuetzung, kein Support - der exakte Schluessel schlaegt die Substringsregel. Ein '
+ 'benanntes Muster bleibt damit nie mehr CUSTOM - jede Stufe des mehrstufigen Systems '
+ '(Karte, Leiter, Geometrie, CUSTOM-Watch) erkennt Innenfilz.',
  '<b>Der Stray-Tag-Vergleich (Nutzerfrage .136w):</b> ein EINZIGES globales Tag über einer '
  'mehrschichtigen Datei trägt keine Feature-Information — ein defekter Postprozessor oder '
  'Handedit würde den ganzen Druck auf EIN Feature plätten. Erkannt wird es durch '

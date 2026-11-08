@@ -62,6 +62,8 @@ TIERS = {
          'sensor grace, arm expiry, banner gate'),
         ('r229_vocab_rest', '.136aa vocabulary rest list: inert move '
          'annotations, purge class, infill patterns'),
+        ('r230_infill_patterns', '.136ab complete infill pattern list '
+         '(34 sparse + monotonic solid)'),
         ('r199_zip_check', 'release-zip layout + version consistency'),
         ('audit_sweep', 'all-file audit sweep'),
         # r142_spell_lint stays OUT of the tiers on purpose: it is a hint
