@@ -12,7 +12,7 @@
 #                       copy (cmp) BEFORE anything else - a failed verify
 #                       aborts the run, nothing is ever modified unbacked
 #    1. environment     Pi / user / systemd / sudo / git / network
-#    2. config location printer.cfg, the 17 include lines, [r2_postproc] bed
+#    2. config location printer.cfg, the 19 include lines, [r2_postproc] bed
 #    2b. hardware        r2_hardware.cfg - the SECOND variables file (build
 #        profile +      volume, probe offsets, clean/present positions, LED
 #        LED wizard    layout). Every value asked + confirmed; survives a
@@ -187,13 +187,18 @@ fi
 
 if [ -n "${CFG_DIR}" ]; then
     MISSING=""
+    # R224 (.136v field review): 19 files - 18_colorpic (R120) and
+    # 19_bricks (R121) were never added here, so a missing include for
+    # them went undetected although INSTALL.md and _CHECK_INSTALL
+    # (the boot selftest) demand them
     for f in 01_state 02_sounds 03_leds 04_notify 05_materials 06_temp_controls \
              07_start_confirm 08_print_start_stop 09_pause_filament 10_live_tuning \
-             11_gantry_sync 12_maintenance 13_system 14_kamp 15_objects 16_labels 17_generator; do
+             11_gantry_sync 12_maintenance 13_system 14_kamp 15_objects 16_labels \
+             17_generator 18_colorpic 19_bricks; do
         grep -q "macros/${f}.cfg" "${CFG}" || MISSING="${MISSING} ${f}"
     done
     if [ -z "${MISSING}" ]; then
-        ok "all 17 macro includes present in printer.cfg"
+        ok "all 19 macro includes present in printer.cfg"
     else
         warn "missing include lines for:${MISSING}"
         info "   add at the end of printer.cfg:"

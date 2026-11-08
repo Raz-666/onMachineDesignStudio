@@ -3,7 +3,7 @@
 **Package:** `klipper-e3-r2d2` · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail) ·
 12864 LCD (16 characters per line)
 
-**Version:** this manual describes the current release, `R2-2026-11-02.136u` — and only it. Every chapter documents what the system
+**Version:** this manual describes the current release, `R2-2026-11-08.136v` — and only it. Every chapter documents what the system
 does today; the version changelog lives in README.md.
 
 This is the operating manual for the complete macro system: what the printer can
@@ -1730,7 +1730,10 @@ Two looks:
 
 LCD: Pre-Print > Texture > **Fixed presets** (Orca / Hide layers / Subtle /
 Grip, one press each) and **My presets** — your own named
-presets, unlimited.
+presets, unlimited. **.136v adds three shaped presets**: **Rope** (3-strand
+twist, 14 mm / depth 0.5), **Basket** (interlaced weave, 10 mm / 0.35) and
+**Chess** (soft chessboard, 12 mm / 0.4) — they switch the mode to BUMPS
+and set the full parameter set, like the library looks.
 The thickness range is 0.05–1.5 mm (Orca-sized).
 - **BUMPS** — the offset follows a **pattern from the library**:
   **21 patterns on 3 pages — 20 shaped ones plus MAP** — Ridges, Waves,
@@ -1746,10 +1749,18 @@ The thickness range is 0.05–1.5 mm (Orca-sized).
 
 Everything else stays **byte-identical**: `;TYPE:` tags, EXCLUDE_OBJECT,
 APPLY_TYPE/LAYER_MARK markers, and the E/Z/F of every move the texture does
-not touch — inner walls, infill, ironing and supports print exactly as
-sliced. On arc-fitted files each flattened chord carries its exact share of
-the arc's E (the total per arc stays — the E is redistributed, not the
-inner geometry). Only the outer skin moves.
+not touch — infill, ironing and supports print exactly as sliced. On
+arc-fitted files each flattened chord carries its exact share of the
+arc's E (the total per arc stays — the E is redistributed, not the
+inner geometry). **Inner walls (.136v):** in BUMPS mode they FOLLOW the
+embossing — same angle, same pattern value, so the wall stack moves as
+one. An untouched inner wall sits one line width behind the surface and
+would CAP the valleys of a deep texture (the pattern reads washed out);
+following keeps it invisible behind the outer skin while the walls keep
+contact (the gap stays one line width, measured — even when the slicer
+runs the inner loop the opposite way round; the tool detects the winding
+per layer and realigns). FUZZY stays Orca-honest: only the outer wall
+jitters, exactly like Orca's fuzzy skin.
 
 **Workflow (LCD):**
 
@@ -2006,17 +2017,24 @@ guard checks with the LARGER of the two factors. Console:
 
 ### 5.16 Cake cut — split a print with a plane
 
-Slice the SELECTED file with a plane: **yaw / pitch / roll** on the 0.5°
-grid (where the tilt points / front-back / left-right) and **Z plane** =
+Slice the SELECTED file with a plane: **pitch / roll** on the 0.5° grid
+(front-back / left-right tilt — .136v: **yaw is gone**, it only said
+where the tilt points and pitch/roll say that alone) and **Z plane** =
 the plane's height at the bed center. Every move splits exactly at the
-plane, E divides by length share, arcs flatten first. **LOWER** keeps its
+plane (t = w0/(w0−w1) from the signed distance — exact, not searched),
+E divides by length share, arcs flatten first. **LOWER** keeps its
 place; **UPPER** becomes its own file — dropped to the file's first layer
 height, or with **Reorient ON** rotated so the **cut face lies flat on the
 bed** (the natural way to print a top piece). Output:
 `name_CUT-U.gcode` / `name_CUT-L.gcode` in the `Cake/` folder; PART picks
-UPPER / LOWER / BOTH. Guards refuse planes above/below the object.
+UPPER / LOWER / **BOTH = two separate files (Lower + Upper), each prints
+standalone with its own E baseline** (.136v). Guards refuse planes
+above/below the object.
 LCD: Pre-Print > Tools > Cake cut. Console:
 `CAKE_APPLY PITCH=15 Z=5 PART=BOTH REORIENT=1`.
+The full methodology — plane mathematics, the two-pass architecture,
+stream separation, Rodrigues reorientation and a worked example with
+real numbers from a real run — lives in **CUTSPLIT.pdf**.
 
 ### 5.17 Twist — rotate around the Z axis (.136n)
 
@@ -3257,7 +3275,9 @@ Diagnostics: SHOW_STATUS · SELF_TEST · KAMP_STATUS · HOST_CHECK (Pi health) �
   angles, frames, litho, seals, bridge) reads `[extruder] nozzle_diameter`
   from printer.cfg — line widths, E-per-mm and hatch spacing all derive from
   it (fallback 0.6, console note when it deviates)
-- texture tool: only outer-wall vertices move; the first outer vertex of a
+- texture tool: outer-wall vertices move, and (.136v) inner walls FOLLOW
+  the embossing in BUMPS mode (gap stays one line width — no valley
+  capping, wall contact kept, winding-aware); the first outer vertex of a
   file and zero-length restarts stay untextured (no approach direction),
   a file without outer walls gets zero shifts — and the 100th version
   (V99 full) refuses with a cleanup hint instead of overwriting
@@ -4040,7 +4060,7 @@ system). Better a quiet fan at full speed than a fast one slowed down.
 ## Appendix C: First start & updates
 
 - upload the folder → includes at the end of printer.cfg → RESTART
-- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-11-02.136u)`
+- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-11-08.136v)`
 - ~10 s later: boot sound + LED animation
 - SHOW_STATUS → mode, material, overrides · Maintenance > Tests > demos + self test
 

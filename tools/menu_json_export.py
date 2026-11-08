@@ -154,10 +154,16 @@ def extract_live_objects(sections):
     reactor for 0.7 s per poll -> 'Neopixel update did not succeed' in the
     console, the exact 'Timer too close' class from .125. Scanning the
     templates keeps the set self-maintaining: a new menu object reference
-    lands in the export automatically."""
-    objs = set()
+    lands in the export automatically.
+    R224 (.136s field log): INPUT templates count too - 'input:
+    {printer.extruder.target}' reads a live value, but input: was never
+    scanned, so extruder/toolhead/... never entered the snapshot and the
+    web-LCD showed those rows EMPTY while the LCD had them. display_status
+    ships always (the page notification ingester reads its message - no
+    menu template references it)."""
+    objs = {'display_status'}
     for sec in sections:
-        for k in ('name', 'enable'):
+        for k in ('name', 'enable', 'input'):
             v = sec.get(k, '')
             if not v or '{' not in v:
                 continue

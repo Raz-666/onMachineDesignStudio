@@ -2,7 +2,7 @@
 #  cura_KlipperFeatureTypes.py – Cura-Post-Processing-Skript
 #  -----------------------------------------------------------------------------------
 #  Macht fuer Cura drei Dinge, die Orca von Haus aus mitbringt:
-#   1) Nach jedem ";TYPE:..." -> "APPLY_TYPE TYP=..."  (Live-Tuning pro Feature)
+#   1) Nach jedem ";TYPE:..." -> "APPLY_TYPE TYPE=..."  (Live-Tuning pro Feature)
 #   2) Nach jedem ";LAYER:..." -> "LAYER_MARK"         (Schichtzaehler, Pause bei Schicht)
 #   3) GANZ OBEN: "EXCLUDE_OBJECT_DEFINE" mit der Gesamt-Bounding-Box aller Druck-Moves
 #      -> dadurch funktionieren das ADAPTIVE Bed-Mesh und die kollisionsfreie Park-/
@@ -86,19 +86,32 @@ class KlipperFeatureTypes(Script):
             neu.append(zeile)
             p = str(zeile).strip()
 
-            # Objekt-Box hinter dem ersten reinen Befehl nach dem Header einfuegen
-            if box_einfuegen and not kopf_done and p.startswith("G28"):
+            # Objekt-Box VOR der ersten Layer-/Typ-Zeile einfuegen.
+            # R224 (.136v Feld-Review): der alte Anker war ein G28 IM FILE -
+            # mit dem empfohlenen PRINT_START-Ablauf (Homing laeuft IN der
+            # Start-Makro-Sequenz) steht kein G28 in der Datei und die Box
+            # fehlte komplett (KAMP fiel auf das Full-Bed-Mesh zurueck).
+            # Neue Anker: erste ;LAYER:-Zeile, sonst erste ;TYPE:-Zeile.
+            if box_einfuegen and not kopf_done and (p.startswith(";LAYER:")
+                                                    or p.startswith(";TYPE:")):
                 kopf_done = True
+                neu.pop()          # die Layer/Type-Zeile kommt HINTER die Box
                 neu.append(";KLIPPER Objekt-Box (adaptives Mesh/Parken)\n")
                 neu.append("EXCLUDE_OBJECT_DEFINE NAME=druck CENTER={:.2f},{:.2f} POLYGON={}\n".format(cx, cy, polygon))
                 neu.append("M117 Klipper-Box aktiv\n")
+                neu.append(zeile)
 
             if p.startswith(";TYPE:"):
                 typ = p.split(":", 1)[1].strip()
                 if typ and typ != letzter_typ:
                     letzter_typ = typ
-                    neu.append("APPLY_TYPE TYP={}\n".format(typ))
+                    neu.append("APPLY_TYPE TYPE={}\n".format(typ))
             elif p.startswith(";LAYER:"):
                 neu.append("LAYER_MARK\n")
+
+        if box_einfuegen and not kopf_done:
+            # weder ;LAYER: noch ;TYPE: gefunden - Box ans Dateiende
+            neu.append(";KLIPPER Objekt-Box (adaptives Mesh/Parken)\n")
+            neu.append("EXCLUDE_OBJECT_DEFINE NAME=druck CENTER={:.2f},{:.2f} POLYGON={}\n".format(cx, cy, polygon))
 
         return neu

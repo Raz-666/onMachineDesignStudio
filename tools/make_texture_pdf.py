@@ -38,6 +38,11 @@ FD = '/usr/share/fonts/truetype/dejavu/'
 pdfmetrics.registerFont(TTFont('DVS', FD + 'DejaVuSans.ttf'))
 pdfmetrics.registerFont(TTFont('DVSB', FD + 'DejaVuSans-Bold.ttf'))
 
+
+def _tfont(sz, bold=False):
+    return ImageFont.truetype(FD + ('DejaVuSans-Bold.ttf' if bold
+                                    else 'DejaVuSans.ttf'), sz)
+
 BLUE = colors.HexColor('#1c4e8c'); LBLUE = colors.HexColor('#e8f0fa')
 ORANGE = colors.HexColor('#e07b00'); GRAY = colors.HexColor('#58595b')
 LGRAY = colors.HexColor('#f2f2f2'); GREEN = colors.HexColor('#1e7d32')
@@ -98,7 +103,7 @@ class Doc(BaseDocTemplate):
         canv.line(17*mm, 285*mm, 193*mm, 285*mm)
         canv.setFont('DVS', 8.2); canv.setFillColor(GRAY)
         canv.drawString(17*mm, 287.2*mm, 'R2-D2 Macro System · Texturing — Struktur-Prägung auf der Objektwand')
-        canv.drawRightString(193*mm, 287.2*mm, 'R2-2026-10-31.136m')
+        canv.drawRightString(193*mm, 287.2*mm, 'R2-2026-11-08.136v')
         canv.setFont('DVS', 8.6)
         canv.drawCentredString(105*mm, 9.5*mm, 'Seite %d' % doc.page)
         canv.restoreState()
@@ -428,9 +433,232 @@ def main():
         'ist nicht geseedet pro Punkt - jede Anwendung erzeugt ein neues '
         'Bild (das ist bei Fuzzy gewollt).'))
 
+    # ------------------------------------------- 6 complex geometry (R224) --
+    flow.extend(H1('6 · Komplexe Geometrie'))
+
+    def fig_square(preset_seed=23):
+        """A SQUARE cross-section textured by the REAL rope pattern: the
+        angle-based mapping works for any outline, not just circles."""
+        import io
+        import math as _m
+        W, H = 620, 430
+        im = PILImage.new('RGB', (W, H), 'white')
+        d = ImageDraw.Draw(im)
+        cx, cy, half = W // 2, H // 2, 130
+        pats = r2_texture._build_patterns(12, 1, preset_seed, None)
+        fn = pats['ROPE']
+        amp = 16.0
+
+        def outline(displace):
+            pts = []
+            for i in range(4 * 48):
+                # walk the square perimeter: side + position on side
+                side, u = i // 48, (i % 48) / 48.0
+                if side == 0:
+                    x, y = -1 + 2 * u, -1
+                    nx_, ny_ = 0.0, -1.0
+                elif side == 1:
+                    x, y = 1, -1 + 2 * u
+                    nx_, ny_ = 1.0, 0.0
+                elif side == 2:
+                    x, y = 1 - 2 * u, 1
+                    nx_, ny_ = 0.0, 1.0
+                else:
+                    x, y = -1, 1 - 2 * u
+                    nx_, ny_ = -1.0, 0.0
+                th = _m.atan2(y, x)
+                s = (th / (2 * _m.pi)) % 1.0
+                v = fn(s, 0.35) if displace else 0.0
+                pts.append((cx + (x + nx_ * v * 0.09) * half,
+                            cy + (y + ny_ * v * 0.09) * half))
+            return pts
+
+        # angle rays every 30 degrees, labeled with s
+        for deg in range(0, 360, 30):
+            a = _m.radians(deg)
+            x2, y2 = cx + _m.cos(a) * (half + 62), cy + _m.sin(a) * (half + 62)
+            d.line([(cx, cy), (int(x2), int(y2))],
+                   fill=(214, 222, 235), width=1)
+            lx = cx + _m.cos(a) * (half + 84)
+            ly = cy + _m.sin(a) * (half + 84)
+            d.text((lx - 16, ly - 9), '%d°' % deg, fill=(150, 150, 150),
+                   font=_tfont(16))
+        # original outline (gray, dashed feel: thin)
+        d.line(outline(False), fill=(170, 170, 170), width=2)
+        # textured outline (blue, thick)
+        d.line(outline(True), fill=(28, 78, 140), width=5)
+        # center + label
+        d.ellipse([cx - 4, cy - 4, cx + 4, cy + 4], fill=(227, 123, 0))
+        d.text((cx + 9, cy + 7), 'Zentrum (cy)', fill=(227, 123, 0),
+               font=_tfont(17))
+        d.text((cx + 9, cy + 28), 's = atan2(y−cy, x−cx)/2π',
+               fill=(28, 78, 140), font=_tfont(18, True))
+        buf = io.BytesIO(); im.save(buf, format='PNG'); buf.seek(0)
+        img = Image(buf, width=140*mm, height=140*mm*H/float(W))
+        img.hAlign = 'CENTER'
+        return img
+
+    def fig_stack():
+        """Outer + inner wall: the SAME displacement vector at the same
+        angle keeps the gap at one line width (R224 task 15)."""
+        import io
+        W, H = 620, 330
+        im = PILImage.new('RGB', (W, H), 'white')
+        d = ImageDraw.Draw(im)
+        f = _tfont(18); fb = _tfont(19, True)
+        # top: original stack (two parallel lines, gap)
+        y0, y1, x0, x1 = 70, 106, 70, 400
+        d.line([(x0, y0), (x1, y0)], fill=(28, 78, 140), width=5)
+        d.line([(x0, y1), (x1, y1)], fill=(106, 63, 181), width=5)
+        d.text((x1 + 14, y0 - 10), 'Außenwand', fill=(28, 78, 140), font=f)
+        d.text((x1 + 14, y1 - 10), 'Innenwand', fill=(106, 63, 181), font=f)
+        d.text((x0, y1 + 16), 'Abstand = eine Linienbreite', fill=(90, 90, 91),
+               font=f)
+        # displacement arrows (same vector at the same angle)
+        for xa in (140, 230, 320):
+            d.line([(xa, y0), (xa, y0 - 40)], fill=(30, 125, 50), width=4)
+            d.polygon([(xa, y0 - 50), (xa - 6, y0 - 36), (xa + 6, y0 - 36)],
+                      fill=(30, 125, 50))
+            d.line([(xa, y1), (xa, y1 - 40)], fill=(30, 125, 50), width=4)
+            d.polygon([(xa, y1 - 50), (xa - 6, y1 - 36), (xa + 6, y1 - 36)],
+                      fill=(30, 125, 50))
+        d.text((150, 8), 'gleicher Winkel ⇒ gleicher Musterwert ⇒ '
+               'gleicher Verschiebevektor', fill=(30, 125, 50), font=fb)
+        # bottom: both shifted (parallel again, gap kept)
+        y0b, y1b = 240, 276
+        d.line([(x0, y0b), (x1, y0b)], fill=(28, 78, 140), width=5)
+        d.line([(x0, y1b), (x1, y1b)], fill=(106, 63, 181), width=5)
+        d.text((x0, y1b + 16), 'Abstand bleibt: eine Linienbreite (gemessen, '
+               'nicht behauptet)', fill=(90, 90, 91), font=f)
+        # gap arrows
+        for xb in (110, 250, 380):
+            d.line([(xb, y0b), (xb, y1b)], fill=(227, 123, 0), width=3)
+        buf = io.BytesIO(); im.save(buf, format='PNG'); buf.seek(0)
+        img = Image(buf, width=140*mm, height=140*mm*H/float(W))
+        img.hAlign = 'CENTER'
+        return img
+
+    A(P('Die Muster-Bibliothek wirkt, als wäre sie für Rundkörper gemacht - '
+        'Rillen, Seil, Waben um einen Zylinder. Tatsächlich arbeitet das '
+        'Mapping <b>winkelbasiert um das Objekt</b>, nicht '
+        'bogenlängenbasiert oder gar kreisspezifisch. Dieses Kapitel '
+        'dokumentiert, was daraus für komplexe Geometrie folgt - und wo '
+        'die Grenzen liegen.'))
+    A(fig_square())
+    A(CAP('Ein QUADRATISCHER Querschnitt, geprägt mit der echten ROPE-'
+          'Funktion (3 Stränge, 1 Verdrehung): der Musterwert hängt nur vom Winkel um das '
+          'Zentrum ab - grau die Originalkontur, blau die verschobene. '
+          'Eckige, konvexe und konkave Querschnitte arbeiten alle '
+          'gleich, weil s = Winkel/2π auf jeder Kontur definiert ist.'))
+    flow.extend(H2('6.1 Zylinderkoordinaten um das Objekt'))
+    A(P('Jeder Wandpunkt (x, y, z) wird in Zylinderkoordinaten um das '
+        'Objektzentrum (cx, cy) gelegt: s = atan2(y−cy, x−cx)/2π (0..1 '
+        'umlaufend) und t = (z−z_min)·n/H (0..1 über die Höhe). Das '
+        'Muster ist eine Funktion f(s, t) - der Winkel sagt, <b>wo um '
+        'den Körper</b> der Punkt liegt, die Höhe sagt, <b>wo im '
+        'Wiederholungszyklus</b>. Ein Quadrat mit gleichem Winkelintervall '
+        'bekommt dieselbe Musterphase wie ein Kreis - nur eben auf '
+        'abgewinkelten Kanten auseinandergezogen.'))
+    flow.extend(H2('6.2 Ganze Wiederholungen: die Naht-freiheit'))
+    A(P('k (Rillen umlaufend) und n (Wiederholungen in Z) sind <b>ganze '
+        'Zahlen</b>: k = round(Umfang/Size) im Bereich 1..240, n = '
+        'round(Höhe/ZSize) im Bereich 1..400. Der_mm-Wert ist eine '
+        'Richtlinie - das Werkzeug snappt auf ganze Wiederholungen und '
+        'meldet die effektive Größe („seamless: 9 ridges × 2 Z-repeats '
+        '(eff. 8.4mm × 2.9mm)“). Genau das macht die Textur nahtfrei: '
+        'der Umfang schließt nach k ganzen Perioden, die Höhe endet '
+        'nach n ganzen Perioden - keine halben Rillen, kein Versatz am '
+        'Schluss.'))
+    flow.extend(H2('6.3 Das Zentrum: zwei Quellen'))
+    A(P('Das Drehzentrum (cx, cy) kommt aus der besten verfügbaren Quelle: '
+        '<b>EXCLUDE_OBJECT_DEFINE CENTER</b>-Zeilen (vom Slicer '
+        'geschrieben, die genaueste Wahl) - sonst aus dem '
+        '<b>Außenwand-Vertex-Schwerpunkt</b> der Datei. Bei mehreren '
+        'Objekten zählt das erste Zentrum; ein drastisch '
+        'asymmetrisches Teil verschiebt die Musterphase, aber nie die '
+        'Naht-freiheit (k bleibt ganz).'))
+    flow.extend(H2('6.4 Bögen: 0,35-mm-Sehnen mit exaktem E'))
+    A(P('Slicer-Dateien mit <b>Bogenanpassung</b> (G2/G3 - Vasen, '
+        'Zylinder) tragen die Außenwand als wenige Bögen statt vieler '
+        'G1-Punkte. Das Werkzeug zerlegt Außenwand-Bögen in 0,35-mm-'
+        'Sehnen - dieselbe Abflachung wie das Cut-&amp;-Split- und das '
+        'Scale-Werkzeug - und verteilt die Extrusion des Bogens exakt '
+        'nach Sehnenlänge (relative E) bzw. interpoliert vom letzten '
+        'Wert (absolute E). Die Textur umläuft danach den GANZEN Körper '
+        '(Feldlog .74: vorher „nur die Ecken").'))
+    flow.extend(H2('6.5 Dialekte: Vase, Cura, Prusa (R152)'))
+    A(P('Orca/Elegoo schreiben im Normalmodus „;TYPE:Outer wall", im '
+        '<b>Vasen-/Spiralmodus</b> aber „;TYPE:Wall outer" - beides wird '
+        'erkannt, ebenso Cura WALL-OUTER (über das kanonische '
+        'APPLY_TYPE) und PrusaSlicers „External perimeter". Eine '
+        'Spiral-Vase bekommt ihre Textur dadurch durchgehend entlang '
+        'der Spiralwand, nicht nur in den Rest-Ebenen.'))
+    flow.extend(H2('6.6 Ohne jede Markierung: der Lithophan-Fallback'))
+    A(P('Dateien ganz ohne Wand-Marker (Lithophane, rohe '
+        'Extrusions-Kunst) laufen im R175-Fallback: <b>jeder Pfad ist '
+        'die Geometrie</b> - Umfang, Höhe und Zentrum werden über ALLE '
+        'Extrusionsbewegungen gemessen, und die Textur prägt jeden '
+        'Pfad. Die Datei-Kopfzeile sagt es, damit niemand rätselt, warum '
+        'auch die Füllung Muster trägt.'))
+    flow.extend(H2('6.7 Z-Verfolgung: Muster leben von der Höhe (R186)'))
+    A(P('Ein BUMP-Muster ist nach Höhe platziert - aber Slicer-Dateien '
+        'tragen Z nur am Schichtwechsel, nicht auf jedem Wandpunkt. Das '
+        'Werkzeug erbt deshalb die letzte gesehene Höhe (cur_z_e): '
+        'jede Bewegung mit Z aktualisiert sie, jeder Wandpunkt wertet '
+        'seine Musterfunktion mit dieser Höhe aus. Vor R186 wertete der '
+        'ganze Text den Wert 0 aus - ein fester Ring statt '
+        'Höhenvariation; Dateien ganz ohne Z verweigern BUMPS '
+        'aufrichtig („needs the layer heights"), FUZZY geht weiter '
+        '(braucht keine Höhe).'))
+    flow.extend(H2('6.8 Innenwände folgen der Prägung (.136v, R224)'))
+    A(P('Eine unberührte Innenwand liegt eine Linienbreite hinter der '
+        'Oberfläche - und <b>kappt die Täler</b> einer tiefen DIR=IN-'
+        'Textur: das Muster wirkt ausgewaschen, weil die glatte '
+        'Innenwand durch die Senken scheint. Seit .136v <b>folgen die '
+        'Innenwände der Prägung</b>: derselbe Winkel ergibt denselben '
+        'Musterwert, und die Verschiebung läuft entlang derselben '
+        'Segment-Normale - der Wandstapel bewegt sich als <b>ein '
+        'Körper</b>. Der Punkt-zu-Punkt-Abstand bleibt exakt eine '
+        'Linienbreite (messtechnisch verifiziert, nicht angenommen), '
+        'die Täler werden voll ausgeprägt, und der Wandkontakt bleibt '
+        'gehalten. Läuft der Slicer eine Innenkontur entgegengesetzt '
+        'zur Außenkontur (eine Festigkeits-Option mancher Slicer), '
+        'erkennt das Werkzeug die Windung pro Schicht und dreht die '
+        'Folge-Verschiebung zurück - ohne diesen Ausgleich würde die '
+        'Innenwand WEG von der Außenwand wandern.'))
+    A(fig_stack())
+    A(CAP('Wandstapel-Following: derselbe Verschiebevektor (grün) trifft '
+          'Außenwand und Innenwand im selben Winkel - der Abstand bleibt '
+          'eine Linienbreite (orange), der Stapel bewegt sich als ein '
+          'Körper. FUZZY bleibt dagegen Orca-treu: nur die Außenwand '
+          'zittert, exakt wie Orcas Fuzzy Skin.'))
+    flow.extend(H2('6.9 Richtung, Anfahrt und Grenzen'))
+    A(P('Die Verschiebung läuft entlang der <b>linken Normale der '
+        'Bewegungsrichtung</b> - lokal, pro Segment, ohne globale '
+        'Richtungskorrektur. DIR=OUT/IN kehrt das Vorzeichen. Der erste '
+        'Vertex einer Kontur und Nulllängen-Neustarts bleiben unversetzt '
+        '(keine Anfahrt = keine Richtung, nichts wird erfunden). Punkte, '
+        'die durch die Verschiebung außerhalb des Betts lägen, werden an '
+        'die Bettgrenze geklemmt und gezählt (clamped). Alles, was '
+        'keine Außenwand (bzw. folgende Innenwand) ist - Füllung, '
+        'Ironing, Stützen - druckt exakt wie vom Slicer gekommen.'))
+    flow.extend(H2('6.10 Die drei Namens-Presets (R224)'))
+    A(P('Die Feldrunde .136v hat außerdem die Muster-Namentreue '
+        'geschärft: <b>ROPE</b> ist jetzt ein echtes Drehtampen-Seil '
+        '(drei Stränge, flache Rücken, runde Furchen - vorher waren es '
+        'bis zu zehn diagonale Rillen), <b>BASKET</b> ein echtes '
+        'Geflecht (durchgehende Bänder mit Über/Unter-Verschränkung - '
+        'vorher punktförmige Erhebungen) und <b>CHECKER</b> ein echtes '
+        'Schachbrett (Zellen wechselnd mit weichen Kanten an JEDER '
+        'Grenze - vorher stufenartig und mit Höckern an den Ecken). '
+        'Dazu gibt es drei feste Presets im LCD (Fixed presets &gt; '
+        'Rope / Basket / Chess), die den BUMPS-Modus mit dem kompletten '
+        'Parametersatz setzen - dieselbe Disziplin wie die '
+        'Vorlagen-Bibliothek.'))
+
     # ------------------------------------------------------------ end ----
     A(Spacer(1, 6*mm))
-    A(Paragraph('Ende · R2-D2 Texturing · Stand .136m (R214)', S['end']))
+    A(Paragraph('Ende · R2-D2 Texturing · Stand .136v (R224)', S['end']))
 
     doc = Doc(os.path.join(_here, 'TEXTURING.pdf'))
     doc.build(flow)

@@ -354,9 +354,12 @@ class R2MenuComponent:
         # found by the r197 fake-moonraker test)
         re_exported = False
         async with self.lock:
-            if not (os.path.isfile(self.tool)
-                    and os.access(self.tool, os.X_OK)):
-                pass           # not executable / not present - just reload
+            # R224 (.136v field review): X_OK was required here although the
+            # subprocess runs 'python3 <tool>' - a 0644-unpacked tool (every
+            # zip without permission bits) silently skipped the re-export
+            # and just reloaded the STALE embedded json. Presence is enough.
+            if not os.path.isfile(self.tool):
+                pass           # not present - just reload
             else:
                 re_exported = True
                 try:

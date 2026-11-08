@@ -2980,22 +2980,47 @@ for _l61 in range(1, 7):
 open(_f61, 'w').write('\n'.join(_src61) + '\n')
 _out61, _nl61 = _pp61.make_range(_f61, 3, 5, floor=2, top=1, brim=1)
 _t61 = open(_out61).read()
+# R224: floor/top now count INSIDE the window (default). This window is
+# 3 layers with floor=2/top=1 - the clamp keeps one body layer (top->0).
 tests.append(('R62 make_range: PRINT_START head + Z0.2 on the bed (no mid-air!)',
-    _os61.path.basename(_out61) == 'V01_teil_L3-5.gcode' and _nl61 == 6 and _t61.count('LAYER_MARK') == 6
+    _os61.path.basename(_out61) == 'V01_teil_L3-5.gcode' and _nl61 == 3 and _t61.count('LAYER_MARK') == 3
     and _t61.startswith('; R2-GEN core')          # R186 stamp first
-    and '; R2-RANGE excerpt' in _t61 and _t61.count('LAYER_MARK') == 6
+    and '; R2-RANGE excerpt' in _t61
     and 'PRINT_START MATERIAL=PLA' in _t61 and 'HOTEND_FIRST=215' in _t61 and 'BED=60' in _t61
-    and 'FIRST layer at Z0.6' in _t61 and 'MID-AIR' not in _t61, _t61[:150]))
-tests.append(('R62 make_range: first layer Z=0.6 (2 raft layers) + real layer Z0.6, fan at body layer 2 only',
+    and 'FIRST layer at Z0.2' in _t61 and 'MID-AIR' not in _t61
+    and 'clamped to 2/0' in _t61, _t61[:150]))
+tests.append(('R62 make_range: 2 in-window floor layers + real layer Z0.6, fan restored at the first printed mark',
     'G1 Z0.6 F600' in _t61 and 'M107' in _t61.split('LAYER_MARK')[0]
-    and 'M106 S200' in _t61.split('LAYER_MARK')[4], [l for l in _t61.split('\n') if ' Z' in l and l.startswith('G1 Z')][:3]))
+    and 'M106 S200' in _t61.split('LAYER_MARK')[3]
+    and 'G0 Z0.200 F600' in _t61 and 'G0 Z0.400 F600' in _t61, [l for l in _t61.split('\n') if ' Z' in l and (l.startswith('G1 Z') or l.startswith('G0 Z'))][:4]))
 tests.append(('R62 make_range: E rebased per block (G92-aware), modal F kept',
     'G92 E0' in _t61 and 'G1 F3600' in _t61, [l for l in _t61.split('\n') if l.startswith('G1 X')][:2]))
-tests.append(('R73/R74 make_range: raft layers + LAYER_MARKs + zero-gap brim + solid cap',
-    'R2-RANGE raft: 2 layer(s)' in _t61 and 'raft layer 1' in _t61 and 'raft layer 2' in _t61
-    and 'R2-RANGE cap: 1' in _t61 and 'solid' in _t61.split('R2-RANGE cap: 1')[1][:80]
+tests.append(('R73/R74 make_range: in-window floor layers + LAYER_MARKs + zero-gap brim, no cap after clamp',
+    'R2-RANGE in-window floor: 2 layer(s)' in _t61 and 'raft layer 1' in _t61 and 'raft layer 2' in _t61
+    and 'R2-RANGE cap' not in _t61
     and 'R2-RANGE brim: 1 loop(s) on the FIRST layer' in _t61
-    and _t61.count('LAYER_MARK') == 6, 'blocks'))
+    and _t61.count('LAYER_MARK') == 3, 'blocks'))
+
+# R224 (.136v): floor/top INSIDE the window - a 4-layer window with floor 2 /
+# top 1 prints EXACTLY 4 layers at the window's own Z steps (0.2/0.4/0.6/0.8):
+# stacked windows form one seamless column (user stacking case 5-150 5/7)
+_out61b, _nl61b = _pp61.make_range(_f61, 2, 5, floor=2, top=1, brim=0)
+_t61b = open(_out61b).read()
+tests.append(('R224 make_range in-window: 4-layer window stays 4 layers, Z steps 0.2/0.4/0.6/0.8 seamless',
+    _nl61b == 4 and _t61b.count('LAYER_MARK') == 4
+    and 'G0 Z0.200 F600' in _t61b and 'G0 Z0.400 F600' in _t61b
+    and 'G1 Z0.6 F600' in _t61b and 'G0 Z0.800 F600' in _t61b
+    and 'R2-RANGE in-window cap: 1' in _t61b
+    and 'solid' in _t61b.split('R2-RANGE in-window cap: 1')[1][:80]
+    and 'exactly 4 layers tall' in _t61b, [l for l in _t61b.split('\n') if (l.startswith('G1 Z') or l.startswith('G0 Z'))][:6]))
+
+# R224: inside=0 keeps the LEGACY additive behaviour (raft under + cap over)
+_out61c, _nl61c = _pp61.make_range(_f61, 3, 5, floor=2, top=1, brim=1, inside=0)
+_t61c = open(_out61c).read()
+tests.append(('R224 make_range legacy (inside=0): raft under + cap over, 6 layers total',
+    _nl61c == 6 and _t61c.count('LAYER_MARK') == 6
+    and 'FIRST layer at Z0.6' in _t61c
+    and 'R2-RANGE raft: 2 layer(s)' in _t61c and 'R2-RANGE cap: 1' in _t61c, 'legacy'))
 
 # --- plotter PNG ---
 import zlib as _zl61, struct as _st61
@@ -4032,7 +4057,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.136u) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-11-02.136u'", repr(_v66)))
+    _v66 == "'R2-2026-11-08.136v'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -4383,9 +4408,9 @@ open(_v71, 'w').write('\n'.join(_vl71) + '\n')
 _spec71 = _ilu71.spec_from_file_location('r2p71', 'tools/r2_postproc.py')
 _mod71 = _ilu71.module_from_spec(_spec71)
 _spec71.loader.exec_module(_mod71)
-_o71, _n71 = _mod71.make_range(_v71, 3, 4, floor=2, top=1, brim=2)
+_o71, _n71 = _mod71.make_range(_v71, 2, 5, floor=2, top=1, brim=2)   # R224: window 4 layers, floor 2 + cap 1 INSIDE
 _t71 = open(_o71).read()
-_ic71 = _t71.index('R2-RANGE cap')
+_ic71 = _t71.index('R2-RANGE in-window cap')
 _g171 = _t71[:_ic71]
 _g271 = _t71[_ic71:]
 _b71 = [float(m.group(1)) for m in re.finditer(r'G1 X[\d.-]+ Y[\d.-]+ E([\d.]+) F1200', _g171)]
@@ -4394,29 +4419,31 @@ tests.append(('R71/R73 vase excerpt: 4 block G92s (head+gen+body+cap), generated
     _t71.count('G92 E0') == 4 and len(_b71) >= 8
     and all(_b71[i + 1] > _b71[i] for i in range(len(_b71) - 1)) and _b71[-1] > _b71[0] * 3,
     (_t71.count('G92 E0'), len(_b71), len(_b71c))))
-tests.append(('R73/R74 raft hatch + brim + cap: monotone E per generated block, no retracts',
-    'R2-RANGE raft: 2 layer(s)' in _t71 and 'R2-RANGE brim: 2 loop(s)' in _t71
-    and 'R2-RANGE cap: 1' in _t71 and 'solid' in _t71.split('R2-RANGE cap: 1')[1][:80]
+tests.append(('R73/R74 in-window floor hatch + brim + cap: monotone E per generated block, no retracts',
+    'R2-RANGE in-window floor: 2 layer(s)' in _t71 and 'R2-RANGE brim: 2 loop(s)' in _t71
+    and 'R2-RANGE in-window cap: 1' in _t71 and 'solid' in _t71.split('R2-RANGE in-window cap: 1')[1][:80]
     and ' E-' not in _t71
     and all(_b71[i + 1] > _b71[i] for i in range(len(_b71) - 1))
     and all(_b71c[i + 1] > _b71c[i] for i in range(len(_b71c) - 1))
     and len(_b71c) >= 4, 'gen blocks: %d/%d' % (len(_b71), len(_b71c))))
 tests.append(('R73 order: raft BEFORE brim BEFORE body BEFORE cap, cap gets a LAYER_MARK',
-    _t71.index('R2-RANGE raft') < _t71.index('R2-RANGE brim')
-    < _t71.index('R2-RANGE: body E starts') < _t71.index('R2-RANGE cap')
-    and 'LAYER_MARK   ; R2-RANGE cap layer 1' in _t71, ''))
+    _t71.index('R2-RANGE in-window floor') < _t71.index('R2-RANGE brim')
+    < _t71.index('R2-RANGE: body E starts') < _t71.index('R2-RANGE in-window cap')
+    and 'LAYER_MARK   ; R2-RANGE cap layer 1' in _t71
+    and _t71.count('LAYER_MARK') == 4, ''))
 _m83_71 = _os71.path.join(_d71, 'rel.gcode')
 _rl71 = ['M83']
 for _l71 in range(1, 5):
     _rl71 += ['LAYER_MARK', f'G1 Z{_l71 * 0.2:.2f} F600',
               'G1 X20.0 Y50.0 E1.5 F1800', 'G1 X30.0 Y60.0 E1.2']
 open(_m83_71, 'w').write('\n'.join(_rl71) + '\n')
-_o71b, _n71b = _mod71.make_range(_m83_71, 2, 3, floor=1, top=1, brim=1)
+_o71b, _n71b = _mod71.make_range(_m83_71, 2, 4, floor=1, top=1, brim=1)
 _t71b = open(_o71b).read()
 tests.append(('R71/R73 M83 file: no G92 inserted, generated geometry keeps relative E',
     'G92 E' not in _t71b and 'M83' in _t71b
     and len(re.findall(r'G1 X[\d.-]+ Y[\d.-]+ E[\d.]+ F1200', _t71b)) >= 4
-    and 'R2-RANGE raft: 1 layer(s)' in _t71b, _t71b[:120]))
+    and 'R2-RANGE in-window floor: 1 layer(s)' in _t71b
+    and 'R2-RANGE in-window cap: 1' in _t71b, _t71b[:120]))
 
 # ---------- R71: visible character pickers ----------
 _lcd71 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
@@ -4634,7 +4661,7 @@ tests.append(('R73 range: M83-with-comment detected (the .56 no-filament bug)',
     and 'G1 X30.0 Y50.0 E0.9 F1800' in _t73 and 'G1 X40.0 Y60.0 E1.1' in _t73,
     [l for l in _t73.split('\n') if l in ('M82', 'M83')]))
 tests.append(('R73 range: raft/brim in relative E, no M82 rebase artifacts',
-    'R2-RANGE raft: 1 layer(s)' in _t73 and 'R2-RANGE brim: 1 loop(s)' in _t73
+    'R2-RANGE in-window floor: 1 layer(s)' in _t73 and 'R2-RANGE brim: 1 loop(s)' in _t73
     and 'G92 E' not in _t73
     and len(_re73.findall(r'G1 X[\d.-]+ Y[\d.-]+ E[\d.]+ F1200', _t73)) >= 4, ''))
 
@@ -4949,8 +4976,9 @@ tests.append(('R74 range: _FILE_INFO at the TOP (live file info correct from lay
     and _t74.count('_FILE_INFO ') == 1, ''))
 tests.append(('R74 range: END beyond the file clamps to the last layer',
     (_mod73.make_range(_v74, 3, 99)[1]) == 4 and '_L3-6' in _mod73.make_range(_v74, 3, 99)[0], ''))
-tests.append(('R74 range: top-only (floor=0, brim=0) builds (old NameError)',
-    _mod73.make_range(_v74, 2, 4, floor=0, top=1, brim=0)[1] == 4, ''))
+tests.append(('R74 range: top-only (floor=0, brim=0) builds (old NameError; '
+              'R224: the cap layer counts INSIDE - 3-layer window stays 3)',
+    _mod73.make_range(_v74, 2, 4, floor=0, top=1, brim=0)[1] == 3, ''))
 
 # --- (3b) outline vs footprint: concave C-shape --------------------------------
 def _cshape74(d):
@@ -5007,8 +5035,8 @@ tests.append(('R74 range floor: SOLID fill = ~2x the grid hatch density',
     '%d vs %d' % (len(_re74.findall(r'^G1 .*E', _tg74, _re74.M)), len(_re74.findall(r'^G1 .*E', _to74, _re74.M)))))
 _oto74, _ = _mod73.make_range(_cs74, 2, 4, floor=0, top=1, top_shape='outline', top_fill='solid')
 tests.append(('R74 range top: OUTLINE + SOLID builds and respects the notch',
-    'R2-RANGE cap: 1' in open(_oto74).read()
-    and _notch74(open(_oto74).read().split('R2-RANGE cap')[1].split('\nLAYER_MARK')[1]) == 0, ''))
+    'R2-RANGE in-window cap: 1' in open(_oto74).read()
+    and _notch74(open(_oto74).read().split('R2-RANGE in-window cap')[1].split('\nLAYER_MARK')[1]) == 0, ''))
 
 # --- (3c) SET_LAYER_RANGE: clamps END + carries shape/fill params ---------------
 _slr74 = get_body('macros/08_print_start_stop.cfg', 'SET_LAYER_RANGE')
@@ -5264,6 +5292,15 @@ _fake75 = {'vcgencmd get_throttled': 'throttled=0x50002',
            'vcgencmd measure_temp': "temp=54.8'C",
            "cut -d' ' -f1-3 /proc/loadavg": '0.52 0.61 0.48',
            "uptime -p | sed 's/^up //'": '2 hours'}
+# R224 fix: host_check reads /proc/loadavg with open() - on a busy sandbox
+# host the REAL load leaked in and flipped the verdict to OVERLOADED
+import builtins as _bi75, io as _io75
+_orig_open75 = _bi75.open
+def _open75(f, *a, **k):
+    if str(f) == '/proc/loadavg':
+        return _io75.StringIO('0.52 0.61 0.48 3/234 12345\n')
+    return _orig_open75(f, *a, **k)
+_bi75.open = _open75
 _orig_run75 = _sub75.run
 def _run75(cmd, shell=True, capture_output=True, text=True, timeout=6):
     class R:
@@ -5293,6 +5330,8 @@ try:
 finally:
     _sub75.run = _orig_run75
     _mod73._moonraker_gcode = _orig_mg75
+finally_pass75 = True
+_bi75.open = _orig_open75
 tests.append(('R75 host_check(): healthy host -> Throttle NONE + done sound',
     any('Throttle: NONE' in l for l in _hl75b) and any('M117 Host OK' in s for s in _cap75)
     and any('r2_done' in s for s in _cap75), ''))
@@ -5320,6 +5359,7 @@ tests.append(('R75 watcher: _prime_nonces adopts the current counters (no re-fir
         'stl_nonce': None,
         'shape_nonce': None,
         'twist_nonce': None,
+        'mirror_nonce': None,      # R224: mirror tool
         'gen_clear_nonce': None,   # R223: queue escape hatch
         'quality_fix_nonce': None, 'speed_fix_nonce': None}, ''))
 # R214 STL + R216 (.136n) shape+twist+fixes
@@ -5476,9 +5516,11 @@ tests.append(('R77 label: base-layer E stable (R117 serpentine beads, '
                'R183/R184 brim air gaps - label brim AND the purge tower '
                'brim run further out, E 282.9/164.6/164.7)',
     [_lay77[i][1] for i in range(3)] == [282.9, 164.6, 164.7], str(_lay77[:3])))
-tests.append(('R77/R83 label: total G10 <= 160 (storm was 636; R83 adds discrete '
-               'glyph-to-glyph retracts, base layers stay retract-free)',
-    _t77l.count('\nG10') <= 160, str(_t77l.count('\nG10'))))
+tests.append(('R77/R83 label: total G10 <= 260 (storm was 636; R83 adds discrete '
+               'glyph-to-glyph retracts, base layers stay retract-free; R224 '
+               'walls=3 multiplies the glyph retracts - the per-layer storm '
+               'guards above are the real fence)',
+    _t77l.count('\nG10') <= 260, str(_t77l.count('\nG10'))))
 
 # --- (1d) range raft parity with .57 (the user wants THAT look) ---------------
 def _src77(d):
@@ -5501,7 +5543,7 @@ def _src77(d):
 def _raft77(mod, d):
     _o, _ = mod.make_range(_src77(d), 3, 6, floor=2, top=0, brim=1)
     _ls = open(_o).read().split('\n')
-    _s = next(i for i, l in enumerate(_ls) if 'R2-RANGE raft' in l)
+    _s = next(i for i, l in enumerate(_ls) if 'R2-RANGE in-window floor' in l or 'R2-RANGE raft' in l)
     _e = next(i for i in range(_s + 2, len(_ls)) if _ls[i] == 'LAYER_MARK')
     # R79: APPLY_TYPE markers (new for live tuning of the raft) are filtered -
     # the GEOMETRY (moves/E) must stay identical to .57.
@@ -5745,7 +5787,7 @@ def _fill_mids79(path):
     """midpoints of extrusion SEGMENTS (G0 p + G1 q) inside the raft region -
     scanline endpoints sit ON the boundary, their midpoints prove interior fill"""
     _t79 = open(path).read()
-    _s79 = _t79.index('R2-RANGE raft')
+    _s79 = _t79.index('R2-RANGE in-window floor') if 'R2-RANGE in-window floor' in _t79 else _t79.index('R2-RANGE raft')
     _e79 = _t79.index('R2-RANGE: body E starts') if 'R2-RANGE: body E starts' in _t79 else len(_t79)
     _raft79 = _t79[_s79:_e79]
     _px79 = _py79 = None
@@ -6002,7 +6044,7 @@ tests.append(('R116 LCD: font menu = nine-font list (PIXEL back as a real font)'
     all(x in _lcd80 for x in ['__fnt __sm]', '__fnt __mo]', '__fnt __co]', '__fnt __na]', '__fnt __ca]',
                                '__fnt __sc]', '__fnt __hd]', '__fnt __pl]', '__fnt __px]'])
     and _lcd80.count('SAVE_VARIABLE VARIABLE=label_font VALUE=') >= 9
-    and 'letter LINE WIDTH' in _lcd80, ''))
+    and "'%d walls'" in _lcd80, ''))   # R224: stroke-mm knob replaced by 'Text: N walls'
 tests.append(('R80 LCD: label defaults 50x10 (keychain-friendly, R170: '
               'the 15mm floor is history)',
     'variables.label_w|default(50)' in _lcd80 and 'variables.label_h|default(10)' in _lcd80, ''))
@@ -6097,7 +6139,7 @@ tests.append(('R83 make_range (R133f): 00_+V name, NEVER overwrites - every '
 # (4) label quality (field log .65): discrete glyph retracts, stroke clamp,
 #     tower 15mm clear and RIGHT of the label (probe hangs x-43mm)
 _o83, _i83 = _mod73.make_labels(['<G A R A G E>'], w=40, h=15, font='MONO',
-                                 font_size=12.0, spacing=0.8, stroke=0.8,
+                                 font_size=12.0, spacing=0.8, stroke=2.0,
                                  out_dir=_d83, bed=(0, -3, 244, 238))
 _t83l = open(_o83).read()
 _parts83 = _t83l.split(';LAYER_CHANGE')
@@ -6109,8 +6151,9 @@ tests.append(('R83 label: base layers stay storm-free (R77 guard; R216 '
               'golden rule: ink-crossing transitions retract, <=12)',
     all(p.count('\nG10') <= 12 for p in _parts83[1:-2]),
     [p.count('\nG10') for p in _parts83[1:-2]]))
-tests.append(('R83 label: stroke capped to cap/5 (anti-merge, .65 field case)',
-    _i83['stroke_capped'] and _i83['stroke_eff'] <= _i83['cap_mm'] / 5.0 + 0.01,
+tests.append(('R83 label: stroke capped to 0.34*cap (anti-merge, .65 field case; '
+              'R224: cap/5 dampening was why only ONE wall printed - now 0.34)',
+    _i83['stroke_capped'] and _i83['stroke_eff'] <= _i83['cap_mm'] * 0.34 + 0.05,
     'cap %s stroke %s' % (_i83['cap_mm'], _i83['stroke_eff'])))
 _lb83 = _re74.search(r'NAME=LABEL_1 CENTER=[\d.-]+,[\d.-]+ POLYGON=\[\[([\d.]+),([\d.]+)\],\[([\d.]+)', _t83l)
 _tw83 = _re74.search(r'NAME=PURGE_TOWER CENTER=[\d.-]+,[\d.-]+ POLYGON=\[\[([\d.]+),([\d.]+)\],\[([\d.]+)', _t83l)
@@ -6120,8 +6163,10 @@ tests.append(('R83 label: purge tower 15mm clear AND right of the label (probe s
                                  _tw83.group(1) if _tw83 else '?')))
 
 # (5) label_preview: the .65 field case projected honestly BEFORE generating
+# R224: stroke 2.6 - the 0.34*cap clamp (was cap/5) only bites above it,
+# the old 0.8 never capped anymore
 _pv83 = _mod73.label_preview(['<G A R A G E>'], w=40, h=15, font='MONO',
-                             font_size=12.0, spacing=0.8, stroke=0.8,
+                             font_size=12.0, spacing=0.8, stroke=2.6,
                              bed=(0, -3, 244, 238))
 tests.append(('R83 label_preview: grown size, honest cap, min size, merge warning',
     _pv83['grown'] and _pv83['cap_capped'] and _pv83['cap_mm'] < 6.0
@@ -6536,11 +6581,13 @@ tests.append(('R86 modules: 17_generator.cfg sentinel + _CHECK_INSTALL lists 17'
     '_V18_GEN' in open(_gen86).read()
     and "('17_generator.cfg',       ['_V18_GEN'])" in open('macros/01_state.cfg').read()
     and 'all 17 modules' not in open('macros/01_state.cfg').read(), ''))
-tests.append(('R86-R223 watcher: NONCE_KEYS has 43 channels incl. litho/seal/frame/twist '
+tests.append(('R86-R224 watcher: NONCE_KEYS has 44 channels incl. litho/seal/frame/twist '
     '+ the three fix channels (.108) + the two optimized-file channels (.128) '
     '+ the SD-browser image channel (.130) + the STL export channel (.136m) '
-    '+ the shape generator channel (.136n) + the queue-clear channel (.136u)',
-    len(_pp.NONCE_KEYS) == 43 and 'stl_nonce' in _pp.NONCE_KEYS
+    '+ the shape generator channel (.136n) + the queue-clear channel (.136u) '
+    '+ the mirror channel (.136v)',
+    len(_pp.NONCE_KEYS) == 44 and 'stl_nonce' in _pp.NONCE_KEYS
+    and 'mirror_nonce' in _pp.NONCE_KEYS
     and 'gen_clear_nonce' in _pp.NONCE_KEYS
     and 'quality_fix_nonce' in _pp.NONCE_KEYS
     and 'speed_fix_nonce' in _pp.NONCE_KEYS
@@ -6731,8 +6778,11 @@ for _k86 in range(5):
                         bed=(0.0, -3.0, 244.0, 238.0))
     _pp.make_angles(count=2, angle_deg=90, out_dir=_d86,
                     bed=(0.0, -3.0, 244.0, 238.0))
-tests.append(('R86 generators: 10 files in < 3s single-pass (Pi-friendly)',
-    _t86.time() - _t086 < 3.0, '%.2fs' % (_t86.time() - _t086)))
+tests.append(('R86 generators: 10 files in < 5s single-pass (Pi-friendly)',
+    # R224: 3s -> 5s - the SAME binary measured 2.4s and 4.3s on this
+    # repo's runners depending on neighbor load (shared CI CPU); the
+    # guard catches real 10x regressions either way
+    _t86.time() - _t086 < 5.0, '%.2fs' % (_t86.time() - _t086)))
 
 
 # =====================================================================================
@@ -6801,15 +6851,16 @@ for _ly in range(8):
 _src862 = _os862.path.join(_d862, 'src_rng.gcode')
 open(_src862, 'w').write(chr(10).join(_ln862) + chr(10))
 _c862, _n862 = 75.0, 75.0
-_o862, _ = _pp.make_range(_src862, 3, 6, floor=3, top=3,
+# R224: floor/top INSIDE the window - 7-layer window fits floor 3 + cap 3
+_o862, _ = _pp.make_range(_src862, 2, 8, floor=3, top=3,
                           floor_hole=15.0, top_hole=28.0)
 _t862 = open(_o862).read()
-_raft862 = _t862[_t862.index('R2-RANGE raft'):_t862.index('PRINT_START')]
+_raft862 = _t862[_t862.index('R2-RANGE in-window floor'):_t862.index('PRINT_START')]
 _bad862 = sum(1 for _m in _re862.finditer(r'G1 X([\d.]+) Y([\d.]+) E([\d.]+)', _raft862)
               if float(_m.group(3)) > 0 and _math862.hypot(float(_m.group(1)) - _c862, float(_m.group(2)) - _c862) < 7.3)
 tests.append(('R86.2 range: floor hole open (nothing extrudes inside r-0.2)',
     _bad862 == 0 and 'R2-RANGE floor hole: centered d=15.0mm' in _t862, 'inside %d' % _bad862))
-_cap862 = _t862[_t862.index('R2-RANGE cap:'):]
+_cap862 = _t862[_t862.index('R2-RANGE in-window cap:'):]
 _lms862 = _cap862.split('LAYER_MARK   ; R2-RANGE cap')
 tests.append(('R86.2 range: cap hole bridge-first (ring on layer 1, open 1-3)',
     len(_lms862) == 4 and all(
@@ -7093,9 +7144,10 @@ _t872O = open(_out872O, encoding='utf-8').read()
 tests.append(('R88 bug4: OUTLINE mode - hole skipped when the true outline leaves no room',
     'real outline leaves less than 8mm' in _t872O and 'centered d=' not in _t872O, ''))
 
-tests.append(('R87.2 range: body APPLY_TYPE re-derived from ;TYPE: when the source has none',
-    _e872v.count('marker re-derived') == 4
-    and _e872v.count('APPLY_TYPE TYPE=WALL-OUTER') >= 2
+tests.append(('R87.2 range: body APPLY_TYPE re-derived from ;TYPE: when the source has none '
+              '(R224: 3 - the first window layer IS the in-window floor now)',
+    _e872v.count('marker re-derived') == 3
+    and _e872v.count('APPLY_TYPE TYPE=WALL-OUTER') >= 1
     and 're-derived from the ;TYPE: comments' in _e872v, 'count %d' % _e872v.count('marker re-derived')))
 
 # --- (4) global speed x feature: _SPEED_COMBINED (M220 path) ---
@@ -7801,12 +7853,178 @@ preview_vars.update({'name': 'vase.gcode'})
 save_vars.update({'texture_mode': 'OFF', 'preview_file': 'vase.gcode'})
 save_vars.update({'texture_mode': 'OFF', 'preview_file': 'vase.gcode'})
 
+# R224 name-fidelity presets: ROPE/BASKET/CHESS switch to BUMPS with the
+# right pattern + params, unknown presets stay rejected
+for _pre224, _pat224, _sz224, _zs224, _am224, _tx224 in (
+        ('ROPE', 'ROPE', 14.0, 10.0, 0.50, 'twisted 3-strand rope'),
+        ('BASKET', 'BASKET', 10.0, 10.0, 0.35, 'interlaced basket weave'),
+        ('CHESS', 'CHECKER', 12.0, 12.0, 0.40, 'soft chessboard')):
+    out = render(get_body('macros/17_generator.cfg', 'TEXTURE_APPLY'),
+                 {'PRESET': _pre224})
+    tests.append(('R224 TEXTURE_APPLY: PRESET=%s -> BUMPS %s size %s zsize %s '
+        'depth %s' % (_pre224, _pat224, _sz224, _zs224, _am224),
+        'VARIABLE=texture_mode VALUE="\\"BUMPS\\""' in out
+        and 'VARIABLE=texture_pattern VALUE=' in out and _pat224 in out
+        and 'VARIABLE=texture_scale VALUE=%s' % _sz224 in out
+        and 'VARIABLE=texture_zsize VALUE=%s' % _zs224 in out
+        and 'VARIABLE=texture_amp VALUE=%s' % _am224 in out
+        and _tx224 in out, out[:160]))
+out = render(get_body('macros/17_generator.cfg', 'TEXTURE_APPLY'),
+             {'PRESET': 'SEIDE'})
+tests.append(('R224 TEXTURE_APPLY: unknown preset rejected with the full list',
+    'PRESET must be ORCA, LAYERS, SUBTLE, GRIP, ROPE, BASKET or CHESS' in out,
+    out[:100]))
+out = render(get_body('macros/17_generator.cfg', 'TEXTURE_APPLY'),
+             {'PRESET': 'GRIP'})
+tests.append(('R224 TEXTURE_APPLY: fuzzy presets untouched (GRIP)',
+    'VARIABLE=texture_mode VALUE="\\"FUZZY\\""' in out
+    and 'aggressive grip' in out, out[:160]))
+
+# R224 pattern fidelity (tools/r2_texture.py): CHECKER cells alternate at
+# full amplitude with eased boundaries, ROPE has exactly 3 strands,
+# BASKET stays continuous along the strip spines - all seamless
+import importlib.util as _ilu224
+_spec224 = _ilu224.spec_from_file_location('r2_texture_224', 'tools/r2_texture.py')
+_mod224 = _ilu224.module_from_spec(_spec224)
+_spec224.loader.exec_module(_mod224)
+_pats224 = _mod224._build_patterns(12, 20, 7, None)
+_ck224 = _pats224['CHECKER']
+_alt224 = all(
+    (_ck224((c + 0.5) / 24, (r + 0.5) / 40) > 0.9) == (((c + r) % 2) == 1)
+    for r in range(40) for c in range(24))
+_step224 = max(
+    abs(_ck224((c + m / 64) / 24, (r + 0.5) / 40)
+        - _ck224((c + (m + 1) / 64) / 24, (r + 0.5) / 40))
+    for r in range(40) for c in range(24) for m in range(64))
+tests.append(('R224 CHECKER: chessboard - cells alternate full, every boundary '
+    'eased (max step %.2f, hard step would be ~2.0)' % _step224,
+    _alt224 and _step224 < 0.6, 'alt=%s step=%.2f' % (_alt224, _step224)))
+_rp224 = _pats224['ROPE']
+_peaks224 = []
+for _t224 in (0.1, 0.5, 0.83):
+    _v224 = [_rp224(i / 600.0, _t224) for i in range(600)]
+    _peaks224.append(sum(1 for i in range(600)
+        if _v224[i] >= _v224[i - 1] and _v224[i] > _v224[(i + 1) % 600]
+        and _v224[i] > 0.5))
+tests.append(('R224 ROPE: exactly 3 strands at every height (peaks %s)'
+    % _peaks224, _peaks224 == [3, 3, 3], str(_peaks224)))
+_bk224 = _pats224['BASKET']
+_j224 = max(
+    abs(_bk224((c + m / 96) / 12, 4.5 / 20)
+        - _bk224((c + (m + 1) / 96) / 12, 4.5 / 20))
+    for c in range(12) for m in range(96))
+_mn224 = min(_bk224((c + m / 96) / 12, 4.5 / 20)
+             for c in range(12) for m in range(96))
+_mx224 = max(_bk224((c + m / 96) / 12, 4.5 / 20)
+             for c in range(12) for m in range(96))
+tests.append(('R224 BASKET: weave - continuous spines (max step %.2f), backs '
+    'above 0.8 (max %.2f) with deep grooves below 0.1 (min %.2f)'
+    % (_j224, _mx224, _mn224),
+    _j224 < 0.6 and _mx224 > 0.8 and _mn224 < 0.1,
+    'step=%.2f max=%.2f min=%.2f' % (_j224, _mx224, _mn224)))
+
+# R224 task 15: inner walls FOLLOW the embossing in BUMPS mode - an
+# untouched inner wall sits one line width behind the surface and CAPS
+# the valleys of a deep texture. Following gives both walls the SAME
+# displacement vector (same angle -> same pattern value, same chord
+# normal), so the point-to-point distance stays exactly one line width
+# - wall contact kept, measured vertex by vertex (angle-key matching
+# would be blind: the shift itself wobbles the recovered angles).
+import os as _os224t
+import tempfile as _tf224t
+import math as _m224t
+
+
+def _ring224(path, inner_cw=False, layers=6):
+    cx = cy = 110.0
+
+    def _circ(r, cw):
+        return [(cx + r * _m224t.cos(2 * _m224t.pi * i / 72
+                                      * (-1 if cw else 1)),
+                 cy + r * _m224t.sin(2 * _m224t.pi * i / 72
+                                      * (-1 if cw else 1)))
+                for i in range(73)]
+    with open(path, 'w') as f:
+        f.write('M83\n')
+        for lay in range(layers):
+            f.write(';LAYER_CHANGE\nG1 Z%.3f F600\n' % (0.2 + 0.2 * lay))
+            f.write(';TYPE:Outer wall\n')
+            for j, (x, y) in enumerate(_circ(20.0, False)):
+                f.write('G1 X%.3f Y%.3f E%.5f\n' % (x, y, 0.01 * (j % 5 + 1)))
+            f.write(';TYPE:Inner wall\n')
+            for j, (x, y) in enumerate(_circ(19.58, inner_cw)):
+                f.write('G1 X%.3f Y%.3f E%.5f\n' % (x, y, 0.008 * (j % 5 + 1)))
+    return cx, cy
+
+
+def _sec224(path, zref=1.2):
+    """last-layer G1 vertices per ;TYPE: section -> {type: [(x, y)]}"""
+    sec, cur, z = {}, None, None
+    for ln in open(path):
+        if ln.startswith(';TYPE:'):
+            cur = ln.strip().split(':', 1)[1]
+            sec.setdefault(cur, [])
+            continue
+        if ln.startswith('G1 Z'):
+            z = float(ln.split()[1].lstrip('Z'))
+            continue
+        if z is None or abs(z - zref) > 1e-6 or not ln.startswith('G1 X'):
+            continue
+        if cur is not None:
+            pr = ln.split()
+            sec[cur].append((float(pr[1].lstrip('X')),
+                             float(pr[2].lstrip('Y'))))
+    return sec
+
+_d224t = _tf224t.mkdtemp()
+_src224t = _os224t.path.join(_d224t, 'ring.gcode')
+for _cw224, _lb224, _mir224 in ((False, 'same', False),
+                                 (True, 'reversed', True)):
+    _ring224(_src224t, inner_cw=_cw224)
+    _out224, _inf224 = _mod224.apply_texture(
+        _src224t, out_dir=_d224t, mode='BUMPS', bump_pattern='ROPE',
+        bump_scale=14.0, bump_amp=0.5, direction='IN', seed=23)
+    _s224 = _sec224(_out224)
+    _o224 = _s224['Outer wall'][1:72]
+    _i224 = (_s224['Inner wall'][1:72][::-1] if _mir224
+             else _s224['Inner wall'][1:72])
+    _dist224 = [_m224t.hypot(ox - ix, oy - iy)
+                for (ox, oy), (ix, iy) in zip(_o224, _i224)]
+    _romin224 = min(_m224t.hypot(x - 110.0, y - 110.0) for x, y in _o224)
+    _rimin224 = min(_m224t.hypot(x - 110.0, y - 110.0) for x, y in _i224)
+    tests.append(('R224 task15 BUMPS (%s inner winding): inner walls FOLLOW '
+        'the embossing - vertex distance stays one line width (0.42: min '
+        '%.3f max %.3f), valleys carve past the old cap (outer r %.2f < '
+        '19.58) and the inner wall rides along (inner r %.2f), '
+        'inner_shifted=%d'
+        % (_lb224, min(_dist224), max(_dist224), _romin224, _rimin224,
+           _inf224['inner_shifted']),
+        len(_dist224) == 71 and all(0.40 < d < 0.44 for d in _dist224)
+        and _romin224 < 19.55 and _rimin224 < 19.2
+        and _inf224['inner_shifted'] > 100
+        and 'R224: inner walls follow' in open(_out224).read(),
+        'min=%.3f max=%.3f romin=%.3f rimin=%.3f'
+        % (min(_dist224), max(_dist224), _romin224, _rimin224)))
+_ring224(_src224t)
+_out224, _inf224 = _mod224.apply_texture(
+    _src224t, out_dir=_d224t, mode='FUZZY', fuzzy_thick=0.3,
+    fuzzy_density=100, seed=23)
+tests.append(('R224 task15 FUZZY: Orca parity - inner walls stay untouched '
+    '(inner_shifted=%d, the inner section is byte-identical to the source)'
+    % _inf224['inner_shifted'],
+    _inf224['inner_shifted'] == 0
+    and _sec224(_out224)['Inner wall'] == _sec224(_src224t)['Inner wall']
+    and 'R224: inner walls follow' not in open(_out224).read(), ''))
+
 # LCD structure
 _lcd91 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 tests.append(('R91 LCD: Pre-Print > Texture (mode/fuzzy/bumps params + apply)',
     all(k in _lcd91 for k in ('__preprint __mods __tex]', '__tex __mode __fuz',
                               '__tex __mode __bum', '__tex __thk',
                               '__tex __den', '__tex __pat __p00',
+                              '__tex __preset __rope',
+                              '__tex __preset __bask',
+                              '__tex __preset __ches',
                               '__tex __scl', '__tex __zsz',
                               '__tex __amp', '__tex __sd', '__tex __dir',
                               '__tex __go'))
@@ -8460,9 +8678,10 @@ tests.append(('R95 TEXTURE_APPLY: unknown preset refused',
 
 # --- LCD: preset submenu ---
 _lcd95t = open('menus/lcd_menues.cfg', encoding='utf-8').read()
-tests.append(('R95 LCD: texture presets menu (ORCA/LAYERS/SUBTLE/GRIP)',
+tests.append(('R95 LCD: texture presets menu (ORCA/LAYERS/SUBTLE/GRIP '
+    '+ R224 ROPE/BASKET/CHESS)',
     '[menu __main __preprint __mods __tex __preset]' in _lcd95t
-    and _lcd95t.count('TEXTURE_APPLY PRESET=') == 4
+    and _lcd95t.count('TEXTURE_APPLY PRESET=') == 7
     and 'input_max: 1.5' in _lcd95t, ''))
 
 # ================== R96: dd rest audit - ties / seal / bridge / frame ==================
@@ -11317,7 +11536,7 @@ import hashlib as _hl119
 import math as _math119
 import re as _re119
 _D119 = tempfile.mkdtemp(prefix='r119_')
-_MD5_120 = '1805476a6d30f9955acc1d1048332afa'   # re-frozen R216 (.136n): the golden rule lands in _Pen.travel - travels that CROSS this layer's ink now retract + hop (field log .136m: threads straight across labels/band tops), so the base-layer brim/wall/hatch/tower transitions carry a handful of new G10/hop pairs. Base geometry, speeds and E sums unchanged (R77 E-stable pins still green). Diff verified: ONLY travel lines changed.
+_MD5_120 = 'd538c42c36b636fe9983da016f280616'   # re-frozen R224 (.136v): the wall knob rebuild - the old cap/5 dampening (0.2*cap) was THE reason a label printed only ONE wall; the cap is 0.34*cap now and walls=N*twid (LCD 'Text: N walls', default 3), so the TEXT layers carry the full multi-line stroke. Base layers, speeds and E sums unchanged (R77 E-stable pins still green).
 
 def _labpts119(path, li):
     _t = open(path).read()
@@ -13110,6 +13329,24 @@ _REMOVED135 = [
  '__main __system __fc1',
  '__main __system __fc2',
  '__main __system __fc3',
+    # ---- R224 (.136v): menu consolidation -------------------------------
+    # the __macros duplicates of the system sound/LED switches are GONE
+    # (System > Sounds / LEDs is the single home) and the nozzle-LED colors
+    # moved __macros __noz -> __system __ledcfg __noz (the old single
+    # 'nozm' row was replaced by the full block - see _ADDED135)
+    '__main __macros __sounds',
+    '__main __macros __leds',
+    '__main __macros __noz',
+    '__main __macros __noz __auto',
+    '__main __macros __noz __on',
+    '__main __macros __noz __off',
+    '__main __macros __noz __brt',
+    '__main __macros __noz __r',
+    '__main __macros __noz __g',
+    '__main __macros __noz __b',
+    '__main __macros __noz __white',
+    '__main __macros __noz __warm',
+    '__main __system __ledcfg __nozm',
 ]
 _ADDED135 = [
  '__main __gen __litho __img __pgi',
@@ -13446,8 +13683,6 @@ _ADDED135 = [
  '__main __gen __frame __usr __save',
  '__main __gen __labels __job __stguard',
  '__main __gen __labels __set __gr',
- '__main __gen __labels __set __mx',
- '__main __gen __labels __set __my',
  '__main __gen __labels __set __now',
  '__main __gen __labels __set __st',
  '__main __gen __labels __set __stb',
@@ -13720,7 +13955,6 @@ _ADDED135 = [
  '__main __preprint __mods __cake __pitch',
  '__main __preprint __mods __cake __reo',
  '__main __preprint __mods __cake __roll',
- '__main __preprint __mods __cake __yaw',
  '__main __preprint __mods __cake __z',
  '__main __preprint __mods __plot',
  '__main __preprint __mods __plot __pl0',
@@ -14166,6 +14400,29 @@ _ADDED135 = [
     # _STATE.file_types (dead save_variables copy - the row never showed)
     '__main __start __info __feat',
     '__main __preprint __file __feat',
+    # ---- R224 (.136v): nozzle-LED colors live under System > LED config ---
+    # (moved from __macros __noz; the mirror menus __mx/__my and the cake
+    # __yaw input are DELIBERATELY gone - the stamp mirrors itself, the
+    # cake cut is yaw-free now - they were removed from this list)
+    '__main __system __ledcfg __noz',
+    '__main __system __ledcfg __noz __auto',
+    '__main __system __ledcfg __noz __on',
+    '__main __system __ledcfg __noz __off',
+    '__main __system __ledcfg __noz __brt',
+    '__main __system __ledcfg __noz __r',
+    '__main __system __ledcfg __noz __g',
+    '__main __system __ledcfg __noz __b',
+    '__main __system __ledcfg __noz __white',
+    '__main __system __ledcfg __noz __warm',
+    # ---- R224 (.136v): Pre-Print > Tools > Mirror (axis, How?, Apply) -----
+    '__main __preprint __mods __mirror',
+    '__main __preprint __mods __mirror __ax',
+    '__main __preprint __mods __mirror __how',
+    '__main __preprint __mods __mirror __go',
+    # ---- R224 (.136v): Texture > Fixed presets + Rope/Basket/Chess -------
+    '__main __preprint __mods __tex __preset __rope',
+    '__main __preprint __mods __tex __preset __bask',
+    '__main __preprint __mods __tex __preset __ches',
     # ---- R223 (.136u): System > Gen jobs - queue visibility + clear -------
     # (.136s field log: the wedged photo build had no way out from the LCD)
     '__main __system __genq',
@@ -14219,7 +14476,8 @@ tests.append(('R175b Pre-Print order (.130 wish list): File info FIRST -> '
 tests.append(('R175b Pre-Print Tools submenu + Motion split',
               _kids135('__preprint __mods') == ['__poff', '__tex', '__rng',
                                                 '__scale', '__twist',
-                                                '__cake', '__plot']
+                                                '__mirror', '__cake',
+                                                '__plot']
               and _kids135('__preprint __motion') == ['__vel', '__ext',
                                                       '__ret', '__zh1', '__zh2']
               and _kids135('__preprint __motion __vel')[-2:] == ['__spfe',
@@ -14594,11 +14852,11 @@ tests.append(('R159 _LIVE_RESET: machine limits back (accel from the printer '
               and 'M220 S100' in _out159b and 'M221 S100' in _out159b
               and 'VARIABLE=g_speed_clean VALUE=100' in _out159b, _out159b[:160]))
 
-tests.append(('R146 generator folders (source wiring): all 20 watcher call '
+tests.append(('R146 generator folders (source wiring): all 21 watcher call '
               'sites route into _gensub subfolders (no flat out_dir=directory '
               'left), gen_files lists RELATIVE paths incl. legacy root files, '
-              'delete joins the subpath',
-              _r2p146.count("out_dir=_gensub(directory, '") == 20
+              'delete joins the subpath (R224: +Mirror)',
+              _r2p146.count("out_dir=_gensub(directory, '") == 21
               and 'out_dir=directory' not in _r2p146
               and 'GEN_SUBDIRS = {' in _r2p146
               and "_sub146 + '/' + _f146" in _r2p146
@@ -14705,11 +14963,12 @@ tests.append(('R160 CABLE_TIE_GENERATE CONFIRM=1 armed: second press = '
 import re as _re160
 _rows160 = _re160.findall(r'gcode:\n    (?:[^\n]*menu\.exit[^\n]*\n    )?'
                    r'([A-Z_]+(?: INDEX=\d+| PRESET=\w+)? CONFIRM=1)', _lcd160)
-tests.append(('R160 LCD: 39 generation rows confirm by DOUBLE PRESS '
-    '(macro + CONFIRM=1), console stays single-shot',
-    len([r for r in _rows160 if not r.startswith(('LABEL_CLEAR_ALL', 'SYS_SAVE_CONFIG'))]) == 39
+tests.append(('R160 LCD: 43 generation rows confirm by DOUBLE PRESS '
+    '(macro + CONFIRM=1), console stays single-shot '
+    '(R224: +Mirror +Rope/Basket/Chess presets)',
+    len([r for r in _rows160 if not r.startswith(('LABEL_CLEAR_ALL', 'SYS_SAVE_CONFIG'))]) == 43
     and 'PLOT_TEXT FILE="{nm}.txt" CONFIRM=1' in _lcd160
-    and _lcd160.count("gen_arm|default('') ==") >= 40
+    and _lcd160.count("gen_arm|default('') ==") >= 43
     and 'TWIST_APPLY CONFIRM=1' in _lcd160
     and 'CABLE_TIE_GENERATE CONFIRM=1' in _lcd160
     and 'LITHO_CREATE INDEX=0 CONFIRM=1' in _lcd160
@@ -16176,14 +16435,16 @@ tests.append(('R177 CAKE_APPLY: the zero plane refuses (cuts nothing)',
     'cuts nothing' in _out177
     and 'cake_nonce VALUE=' not in _out177, ''))
 _lcd177 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
-tests.append(('R177 LCD: cake submenu with yaw/pitch/roll/z inputs on the '
-    '0.5 grid, part toggle, reorient switch, How? and the double-press cut',
+tests.append(('R177 LCD: cake submenu with pitch/roll/z inputs on the '
+    '0.5 grid, part toggle (R224: BOTH = two files, yaw is GONE), '
+    'reorient switch, How? and the double-press cut',
     '[menu __main __preprint __mods __cake]' in _lcd177
     and 'CAKE_APPLY CONFIRM=1' in _lcd177
-    and 'cake_yaw VALUE={menu.input|round(1)}' in _lcd177
+    and 'cake_yaw VALUE=' not in _lcd177      # R224: yaw removed from the menu
     and 'cake_pitch VALUE={menu.input|round(1)}' in _lcd177
     and 'cake_roll VALUE={menu.input|round(1)}' in _lcd177
-    and 'cake_zoff VALUE={menu.input|round(1)}' in _lcd177, ''))
+    and 'cake_zoff VALUE={menu.input|round(1)}' in _lcd177
+    and 'BOTH=2files' in _lcd177, ''))
 tests.append(('R177 watcher: cake channel primed + job reports the segment '
     'counts and lands in the Cake folder',
     'cake_nonce' in _pp.NONCE_KEYS
@@ -16971,12 +17232,12 @@ tests.append(('R185 current-only manual: no version-history appendix, no era '
     '## Appendix D' not in _m185 and 'Version history' not in _m185
     and _re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185) is None
     and _re2.search(r'\bR1[0-9][0-9]\b', _m185) is None
-    and 'The nine fonts' in _m185 and 'R2-2026-11-02.136u' in _m185,
+    and 'The nine fonts' in _m185 and 'R2-2026-11-08.136v' in _m185,
     'appendixD=%s eratags=%s rtags=%s nine=%s v132=%s' % (
         '## Appendix D' in _m185,
         bool(_re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185)),
         bool(_re2.search(r'\bR1[0-9][0-9]\b', _m185)),
-        'The nine fonts' in _m185, 'R2-2026-11-02.136u' in _m185)))
+        'The nine fonts' in _m185, 'R2-2026-11-08.136v' in _m185)))
 
 # ================== R184 (.131c field round): the brim air gap EVERYWHERE ==
 # The user asked: does the brim fusing hit our OTHER generators too? Measured
@@ -17149,13 +17410,16 @@ tests.append(('R188 sounds: r2_start on every work press, quiet list covers '
     ''))
 
 # (6) watcher: gen_busy flag around fixes AND jobs (incl. the stamping window)
-tests.append(('R188/R223 watcher: gen_busy=1 around file_fix AND the job worker '
-    '(late release after stamping - the homing race dies) + R223 drops it '
-    'at boot (stale flag), when the queue is cleared and when a job is '
-    'abandoned as stuck',
-    _r2p188.count("SAVE_VARIABLE VARIABLE=gen_busy VALUE=1") == 2
+tests.append(('R188/R224 watcher: gen_busy=1 around file_fix AND the job worker '
+    '(late release after stamping - the homing race dies) + drops at boot '
+    '(stale flag) and when the queue is cleared IDLE. R224: clear during a '
+    'running/stuck build now RAISES it (VALUE=1) instead of dropping - the '
+    'thread keeps burning RAM/CPU and no print may start into it',
+    _r2p188.count("SAVE_VARIABLE VARIABLE=gen_busy VALUE=1") == 3
     and _r2p188.count("SAVE_VARIABLE VARIABLE=gen_busy VALUE=0") == 5
-    and 'M117 Fix running:' in _r2p188,
+    and 'M117 Fix running:' in _r2p188
+    and 'the RUNNING build keeps' in _r2p188
+    and 'flags reset - nothing is ' in _r2p188,
     ''))
 
 # (7) queue notice: 10s instead of 90 (the user must know it is parked)
@@ -17416,6 +17680,315 @@ tests.append(('R214 web dash: stacked topic columns + ONE bottom line for '
     in _web214,
     ''))
 save_vars['texture_user_presets'] = _sv_bak214   # restore
+
+
+# ================= R224 (.136v): the MIRROR tool =========================
+# User wish list: 'Pre-Print: NEUES Mirror-Tool (Objekt um X oder Y
+# spiegeln, an derselben Stelle zentriert)' - the object flips around its
+# OWN center and stays exactly where it is (unlike twist/scale, which
+# re-center on the bed). Output lands in the new Mirror/ subfolder.
+import tempfile as _tf224, os as _os224, importlib.util as _ilu224, re as _re224
+_d224 = _tf224.mkdtemp(prefix='r224_')
+_f224 = _os224.path.join(_d224, 'obj.gcode')
+_l224 = ['M83', 'G90', 'G28',
+         'EXCLUDE_OBJECT_DEFINE NAME=OBJ CENTER=65,50 '
+         'POLYGON=[[58,40],[88,40],[88,60],[58,60]]',
+         'G0 X60 Y40 Z0.2 F600']
+for _k224 in range(2):
+    _l224 += ['LAYER_MARK', 'G1 Z%.2f F600' % (0.2 + _k224 * 0.2)]
+    for _x224, _y224 in ((80, 30), (80, 70), (40, 70), (40, 30)):
+        _l224.append('G1 X%d Y%d E0.5 F1200' % (_x224, _y224))
+    _l224.append('G2 X50 Y30 I5 J0 E0.3 F900')   # valid arc, center (45,30)
+open(_f224, 'w').write('\n'.join(_l224) + '\n')
+_spec224 = _ilu224.spec_from_file_location('r2p224', 'tools/r2_postproc.py')
+_mod224 = _ilu224.module_from_spec(_spec224)
+_spec224.loader.exec_module(_mod224)
+_o224x, _i224x = _mod224.apply_mirror(_f224, axis='x')
+_t224x = open(_o224x).read()
+_xs224 = [float(m.group(1)) for m in _re224.finditer(r'X(-?[\d.]+)', _t224x)]
+_ys224 = [float(m.group(1)) for m in _re224.finditer(r'Y(-?[\d.]+)', _t224x)]
+tests.append(('R224 mirror X: flips around the OWN center - same bbox, X80 '
+    'prints as X40, Y untouched, E verbatim',
+    _os224.path.basename(_o224x) == 'obj_MIRX.gcode'
+    and min(_xs224) >= 40.0 - 0.01 and max(_xs224) <= 80.0 + 0.01
+    and min(_ys224) >= 30.0 - 0.01 and max(_ys224) <= 70.0 + 0.01
+    and 'X40.000' in _t224x and 'Y30.000' in _t224x
+    and _t224x.count('E0.5') == 8
+    and 'flipped around' not in _t224x
+    and 'mirror: X axis' in _t224x and 'E is copied verbatim' in _t224x,
+    'bbox %.1f..%.1f / %.1f..%.1f' % (min(_xs224), max(_xs224),
+                                      min(_ys224), max(_ys224))))
+tests.append(('R224 mirror: arcs flatten to mirrored chords (no raw G2 I/J)',
+    _i224x['arcs_flattened'] == 2
+    and not _re224.search(r'^G2 .*I', _t224x, _re224.M),
+    'arcs %d' % _i224x['arcs_flattened']))
+tests.append(('R224 mirror: EXCLUDE_OBJECT CENTER + POLYGON flip with it '
+    '(KAMP mesh + object park stay honest)',
+    'CENTER=65.000,50.000' in _t224x
+    and '[72.000,40.000]' in _t224x and '[42.000,60.000]' in _t224x,
+    [l for l in _t224x.split('\n') if l.startswith('EXCLUDE_OBJECT')][:1]))
+_o224y, _i224y = _mod224.apply_mirror(_f224, axis='y')
+_t224y = open(_o224y).read()
+tests.append(('R224 mirror Y: Y30 prints as Y70, X untouched',
+    _os224.path.basename(_o224y) == 'obj_MIRY.gcode'
+    and 'Y70.000' in _t224y and 'X80.000' in _t224y
+    and 'X40.000' in _t224y,
+    ''))
+try:
+    _mod224.apply_mirror(_f224, axis='q')
+    _badax224 = False
+except ValueError:
+    _badax224 = True
+tests.append(('R224 mirror: bad axis refused (ValueError), no bed-fit check '
+    'needed (the bbox is symmetric to the own center)',
+    _badax224, ''))
+_sr224 = open('tools/r2_postproc.py', encoding='utf-8').read()
+tests.append(('R224 mirror: watcher channel + output folder registered',
+    'mirror_nonce' in _mod224.NONCE_KEYS
+    and _mod224.GEN_SUBDIRS.get('mirror') == 'Mirror'
+    and 'Mirror' in _mod224.GEN_FOLDER_NAMES
+    and 'apply_mirror(' in _sr224 and '_mirror_job224' in _sr224
+    and 'mirror_nonce' in _sr224.split('last_mirror_nonce = None')[1][:4000],
+    ''))
+_ma224 = open('macros/17_generator.cfg', encoding='utf-8').read()
+tests.append(('R224 MIRROR_APPLY macro: arms on CONFIRM, queues nonce + file '
+    '+ axis (the R160 double-press pattern)',
+    'MIRROR_APPLY' in _ma224
+    and "SAVE_VARIABLE VARIABLE=mirror_nonce VALUE={sv.mirror_nonce|default(0)|int + 1}" in _ma224
+    and 'SAVE_VARIABLE VARIABLE=mirror_axis' in _ma224
+    and 'SAVE_VARIABLE VARIABLE=mirror_file' in _ma224
+    and '_GEN_ARM KEY=mirror' in _ma224 and '_GEN_GO KEY=mirror' in _ma224,
+    ''))
+save_vars.update({'mirror_axis': 'x', 'mirror_file': '', 'mirror_nonce': 2,
+                  'preview_file': 'teil.gcode'})
+_mir224 = get_body('macros/17_generator.cfg', 'MIRROR_APPLY')
+out = render(_mir224, {'AXIS': 'Y'})
+tests.append(('R224 MIRROR_APPLY renders: axis Y saved, file adopted, nonce '
+    'bumped, honest queue message',
+    'VARIABLE=mirror_axis VALUE=\"y\"' in out
+    and 'VARIABLE=mirror_file VALUE=\"teil.gcode\"' in out
+    and 'VARIABLE=mirror_nonce VALUE=3' in out
+    and 'flip on the Y axis around its own center' in out,
+    out[:150]))
+out = render(_mir224, {'AXIS': 'Q'})
+tests.append(('R224 MIRROR_APPLY: bad axis rejected before any save',
+    'AXIS must be X or Y' in out and 'VARIABLE=mirror_nonce' not in out, ''))
+save_vars['preview_file'] = ''
+out = render(_mir224, {})
+tests.append(('R224 MIRROR_APPLY: no file -> friendly error, nonce untouched',
+    'no file selected' in out and 'VARIABLE=mirror_nonce' not in out, ''))
+# R224 task 10: multi-object files (print-by-object) - OBJ= flips ONE
+# object around ITS own center, the rest stays byte-identical
+_f224b = _os224.path.join(_d224, 'multi.gcode')
+_l224b = ['M83', 'G90',
+          'EXCLUDE_OBJECT_DEFINE NAME=LEFT CENTER=20,50 '
+          'POLYGON=[[10,40],[30,40],[30,60],[10,60]]',
+          'EXCLUDE_OBJECT_DEFINE NAME=RIGHT CENTER=95,50 '
+          'POLYGON=[[85,40],[105,40],[105,60],[85,60]]',
+          'G0 X10 Y40 Z0.2',
+          'EXCLUDE_OBJECT_START NAME=LEFT',
+          'G1 X30 Y40 E0.5', 'G1 X30 Y60 E0.5',
+          'EXCLUDE_OBJECT_END',
+          'EXCLUDE_OBJECT_START NAME=RIGHT',
+          'G1 X92 Y40 E0.5', 'G1 X98 Y60 E0.5',
+          'EXCLUDE_OBJECT_END']
+open(_f224b, 'w').write('\n'.join(_l224b) + '\n')
+_o224o, _i224o = _mod224.apply_mirror(_f224b, axis='x', obj='RIGHT')
+_t224o = open(_o224o).read()
+tests.append(('R224 mirror OBJ: ONLY that object flips (own center), the '
+    'others stay verbatim, roster in info',
+    _i224o['objects'] == ['LEFT', 'RIGHT'] and _i224o['obj'] == 'RIGHT'
+    and _i224o['center'] == (95.0, 50.0)
+    and 'G1 X30 Y40 E0.5' in _t224o and 'G1 X30 Y60 E0.5' in _t224o
+    and 'X98.000' in _t224o
+    and 'ONLY object RIGHT' in _t224o, str(_i224o['center'])))
+try:
+    _mod224.apply_mirror(_f224b, axis='x', obj='NOPE')
+    _nope224 = False
+except ValueError:
+    _nope224 = True
+tests.append(('R224 mirror OBJ: unknown name refused with the roster in the '
+    'error (the LCD never sees a silent no-op)',
+    _nope224, ''))
+_sr224w = open('tools/r2_postproc.py', encoding='utf-8').read()
+tests.append(('R224 mirror watcher: the finish message names WHICH object '
+    'flipped (multi-object never silently flips as one big object)',
+    'ONLY object' in _sr224w and 'as one group' in _sr224w
+    and 'pass OBJ=<name> to flip just one' in _sr224w
+    and "rv.get('mirror_obj'" in _sr224w, ''))
+# ---- R224 (.136v field review): the queue escape hatches -----------------
+# .136u dropped gen_busy on 'Clear queue' AND on the 20-min stuck timeout
+# although the abandoned build thread kept burning RAM/CPU - a print could
+# start straight into the overload the flag exists to prevent. Now: busy +
+# gen_busy hold while the thread LIVES, clear drops only the QUEUED jobs,
+# and the zombie net releases everything the moment the thread ends.
+import threading as _th224q, time as _time224q
+_d224q = _tf224.mkdtemp(prefix='r224q_')
+_gc224q = _os224.path.join(_d224q, 'gcodes')
+_os224.makedirs(_gc224q)
+open(_os224.path.join(_gc224q, 'part.gcode'), 'w').write('M83\nG1 X10 Y10 E0.5\n')
+_spec224q = _ilu224.spec_from_file_location('r2p224q', 'tools/r2_postproc.py')
+_mod224q = _ilu224.module_from_spec(_spec224q)
+_spec224q.loader.exec_module(_mod224q)
+_cap224q = []
+_mod224q._moonraker_gcode = lambda sc, *a, **k: (_cap224q.append(sc) or True)
+_mod224q._printer_busy = lambda *a, **k: False
+_mod224q._mem_available_mb = lambda: 999
+_mod224q.JOB_STUCK_S = 3
+_mk224q = _os224.path.join(_d224q, 'marker')
+_calls224q = [0]
+def _fake_mirror224q(src, axis='x', out_dir=None, bed=None, obj=None):
+    _calls224q[0] += 1
+    _n224q = _calls224q[0]
+    _time224q.sleep(9 if _n224q == 1 else 0.3)
+    open(_mk224q + str(_n224q), 'w').write('x')
+    return (_os224.path.join(_d224q, 'nope%d.gcode' % _n224q),
+            {'file': 'x%d.gcode' % _n224q, 'src': 'part.gcode',
+             'axis': 'X', 'center': (0, 0), 'moves': 1,
+             'arcs_flattened': 0, 'objects': [], 'obj': None})
+_mod224q.apply_mirror = _fake_mirror224q
+_V224q = _os224.path.join(_d224q, 'variables.cfg')
+def _wvars224q(nonce, clear=None):
+    _t224q = ('[variables]\nvariable_mirror_file: \'"part.gcode"\'\n'
+              'variable_mirror_axis: \'"x"\'\nvariable_mirror_nonce: %d\n' % nonce)
+    if clear is not None:
+        _t224q += 'variable_gen_clear_nonce: %d\n' % clear
+    open(_V224q + '.tmp', 'w').write(_t224q)
+    _os224.replace(_V224q + '.tmp', _V224q)
+_wvars224q(1)
+_thw224q = _th224q.Thread(
+    target=lambda: _mod224q.watch(_gc224q, interval=0.5), daemon=True)
+_thw224q.start()
+def _wait224q(cond, tmo=25):
+    _t224q = _time224q.time()
+    while _time224q.time() - _t224q < tmo and not cond():
+        _time224q.sleep(0.3)
+    return cond()
+# the FIRST pass must be through before the bump (its late vars read would
+# swallow the nonce as a prime - the R186 two-phase rule)
+_wait224q(lambda: any('postproc_build' in c for c in _cap224q), 30)
+_time224q.sleep(1.5)
+_wvars224q(2)
+_wait224q(lambda: any('gen_busy VALUE=1' in c for c in _cap224q))
+_wait224q(lambda: any('STUCK after' in c for c in _cap224q))
+tests.append(('R224 queue: a STUCK build HOLDS gen_busy + the queue while '
+    'its thread lives (the .136u clear/timeout freed them - a print could '
+    'start into the overload)',
+    any('STUCK after' in c for c in _cap224q)
+    and _mod224q._JOB_STATE['busy'] is True
+    and _mod224q._JOB_STATE.get('zombie') is not None
+    and _mod224q._JOB_STATE['thread'].is_alive()
+    and not any('gen_busy VALUE=0' in c for c in _cap224q),
+    str(_mod224q._JOB_STATE.get('zombie'))))
+_wvars224q(3)
+_time224q.sleep(4)
+tests.append(('R224 queue: the next job WAITS while the stuck one lives '
+    '(no second build on the RAM-starved Pi)',
+    not _os224.path.exists(_mk224q + '2')
+    and not any('gen_busy VALUE=0' in c for c in _cap224q), ''))
+_wvars224q(3, clear=1)
+_wait224q(lambda: any('cleared' in c for c in _cap224q), 15)
+tests.append(('R224 queue clear: drops the QUEUED jobs but keeps gen_busy '
+    'while the build thread lives (honest message, no silent flag drop)',
+    any('RUNNING build keeps' in c for c in _cap224q)
+    and not any('gen_busy VALUE=0' in c for c in _cap224q), ''))
+_wait224q(lambda: any('queue is free' in c for c in _cap224q), 30)
+tests.append(('R224 queue: the stuck build\'s end releases everything '
+    '(queue free + gen_busy down) - and jobs queued AFTER that run again',
+    any('queue is free' in c for c in _cap224q)
+    and any('gen_busy VALUE=0' in c for c in _cap224q)
+    and _mod224q._JOB_STATE['busy'] is False
+    and _mod224q._JOB_STATE.get('zombie') is None
+    and _mod224q._JOB_STATE['thread'] is None, ''))
+_wait224q(lambda: not _mod224q._JOB_STATE['busy'], 20)
+_wvars224q(4, clear=2)
+_wait224q(lambda: any('flags reset' in c for c in _cap224q), 15)
+tests.append(('R224 queue clear (idle): full flag reset with the done sound',
+    any('flags reset - nothing is running' in c for c in _cap224q), ''))
+
+# source-level guards (the .136u strings must be GONE)
+_sr224q = open('tools/r2_postproc.py', encoding='utf-8').read()
+tests.append(('R224 queue source: zombie net wired (init + mark + release), '
+    'the .136u free-on-stuck text is gone',
+    "'zombie': None, 'zombie_notice': 0.0}" in _sr224q
+    and "_JOB_STATE['zombie'] = (name, key)" in _sr224q
+    and 'STUCK branch lives OUTSIDE' in _sr224q
+    and 'a stuck build no longer matters' not in _sr224q
+    and 'the RUNNING build keeps' in _sr224q
+    and 'flags reset - nothing is running' in _sr224q, ''))
+
+# ---- R224 (.136v field review): slicer scripts ---------------------------
+# APPLY_TYPE TYP= (broken) -> TYPE= (what the macros parse); the Cura object
+# box no longer needs a G28 in the file (PRINT_START homes in the macro)
+_orc224 = open('slicer/orca_klipper_features.py', encoding='utf-8').read()
+_cur224 = open('slicer/cura_KlipperFeatureTypes.py', encoding='utf-8').read()
+tests.append(('R224 slicer: both plugins write APPLY_TYPE TYPE= (TYP= is gone)',
+    'TYP=' not in _orc224 and 'TYP=' not in _cur224
+    and _orc224.count('APPLY_TYPE TYPE=') >= 1
+    and _cur224.count('APPLY_TYPE TYPE=') >= 1, ''))
+tests.append(('R224 slicer: Cura object box anchors on ;LAYER:/;TYPE: '
+    '(works without G28 - the PRINT_START flow) + end-of-file fallback',
+    'p.startswith(";LAYER:")' in _cur224
+    and 'p.startswith("G28")' not in _cur224
+    and _cur224.count('EXCLUDE_OBJECT_DEFINE NAME=druck') >= 2, ''))
+import textwrap as _tw224q
+_i224q0 = _cur224.index('# ---------- 2)')
+_i224q1 = _cur224.index('return neu') + len('return neu')
+_body224q = '\n'.join(l[8:] if l.startswith('        ') else l
+                      for l in _cur224[_i224q0:_i224q1].split('\n'))
+_body224q = _body224q.replace('return neu', 'RESULT = neu')
+_t224qg = 'M83\nG90\n;LAYER:0\n;TYPE:WALL-OUTER\nG1 X10 Y10 E0.5\n'
+_ns224q = dict(data=[l + '\n' for l in _t224qg.split('\n') if l],
+               box_einfuegen=True, kopf_done=False, letzter_typ=None,
+               cx=15.0, cy=10.0, polygon='[]', neu=[])
+exec(_body224q, _ns224q)
+_out224q = ''.join(_ns224q['RESULT'])
+tests.append(('R224 slicer: Cura transform puts the box BEFORE the first '
+    'layer and emits TYPE= markers (G28-less PRINT_START flow)',
+    _out224q.index('EXCLUDE_OBJECT_DEFINE') < _out224q.index(';LAYER:0')
+    and 'APPLY_TYPE TYPE=WALL-OUTER' in _out224q
+    and _out224q.count('EXCLUDE_OBJECT_DEFINE') == 1, ''))
+# R224 fix (found while wiring the preview): the walls knob only reached
+# the direct _make_labels_one path - the PUBLIC make_labels dropped it
+# with a TypeError, so every LCD label job (the _label_job_kwargs path)
+# would have crashed in the field. Forwarded now; the preview projects
+# the same numbers.
+_d224w = _tf224.mkdtemp(prefix='r224w_')
+for _wl224 in (1, 2, 3, 4):
+    _o224w, _i224w = _mod224.make_labels(['WERKSTATT'], w=60, h=30,
+                                         walls=_wl224, out_dir=_d224w)
+    _pv224w = _mod224.label_preview(['WERKSTATT'], w=60, h=30,
+                                    walls=_wl224)
+    globals()['_w%d224' % _wl224] = (_i224w['stroke_eff'],
+                                     _pv224w['stroke_eff'])
+tests.append(('R224 label walls: the PUBLIC make_labels accepts walls=1..4 '
+    'and label_preview projects the SAME stroke (preview == print)',
+    _w1224 == (0.61, 0.61) and _w2224 == (1.22, 1.22)
+    and _w3224[0] == _w3224[1] and _w4224[0] == _w4224[1]
+    and _w1224[0] < _w2224[0] < _w3224[0]
+    and _pv224w['walls'] == 4,
+    'gen/preview: %s' % [_w1224, _w2224, _w3224, _w4224]))
+_kw224w = _mod224._label_job_kwargs(
+    {'label_walls': 2, 'label_font': 'MONO', 'label_w': 40,
+     'label_h': 15, 'material': 'PLA'}, _d224w)
+_kw224w['out_dir'] = _d224w
+_o224kw, _i224kw = _mod224.make_labels(['GARAGE'], **_kw224w)
+tests.append(('R224 label walls: the LCD job path (_label_job_kwargs -> '
+    'make_labels) carries walls without a TypeError',
+    _kw224w.get('walls') == 2 and abs(_i224kw['stroke_eff'] - 1.22) < 0.03,
+    str(_i224kw['stroke_eff'])))
+_lcd224 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R224 LCD: Pre-Print > Tools > Mirror (axis toggle X/Y, How?, '
+    'double-press Apply)',
+    '[menu __main __preprint __mods __mirror]' in _lcd224
+    and '[menu __main __preprint __mods __mirror __ax]' in _lcd224
+    and '[menu __main __preprint __mods __mirror __how]' in _lcd224
+    and '[menu __main __preprint __mods __mirror __go]' in _lcd224
+    and 'MIRROR_APPLY CONFIRM=1' in _lcd224
+    and "VARIABLE=mirror_axis VALUE=" in _lcd224
+    and "'X','Y'" in _lcd224
+    and 'multi-object' in _lcd224
+    and 'OBJ=<name>' in _lcd224, ''))
 
 
 print(f"\n{len(tests)-fails}/{len(tests)} passed")

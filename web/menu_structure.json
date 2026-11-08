@@ -1,17 +1,20 @@
 {
  "generator": "menu_json_export.py (.136j R211)",
  "source": "lcd_menues.cfg",
- "sections": 2479,
+ "sections": 2480,
  "counts": {
-  "list": 332,
+  "list": 333,
   "command": 1460,
   "input": 687
  },
- "sha256": "cc55d185b025081e",
+ "sha256": "1e7c66d08884e19f",
  "live_objects": [
   "bed_mesh",
   "configfile",
+  "display_status",
   "exclude_object",
+  "extruder",
+  "firmware_retraction",
   "gcode_macro _BED_SCREWS_UI",
   "gcode_macro _GEN_PRESET",
   "gcode_macro _MATERIALS",
@@ -22,7 +25,8 @@
   "heater_bed",
   "input_shaper",
   "print_stats",
-  "save_variables"
+  "save_variables",
+  "toolhead"
  ],
  "tree": {
   "id": "__main",
@@ -7064,6 +7068,36 @@
              "TEXTURE_APPLY PRESET=GRIP CONFIRM=1"
             ],
             "children": []
+           },
+           {
+            "id": "__main __preprint __mods __tex __preset __rope",
+            "type": "command",
+            "name": "{('> AGAIN = start' if printer['gcode_macro _STATE'].gen_arm|default('') == 'texture' else '> Rope')}",
+            "gcode": [
+             "{% if printer['gcode_macro _STATE'].gen_arm|default('') == 'texture' %}{menu.exit()}{% endif %}",
+             "TEXTURE_APPLY PRESET=ROPE CONFIRM=1"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __tex __preset __bask",
+            "type": "command",
+            "name": "{('> AGAIN = start' if printer['gcode_macro _STATE'].gen_arm|default('') == 'texture' else '> Basket')}",
+            "gcode": [
+             "{% if printer['gcode_macro _STATE'].gen_arm|default('') == 'texture' %}{menu.exit()}{% endif %}",
+             "TEXTURE_APPLY PRESET=BASKET CONFIRM=1"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __tex __preset __ches",
+            "type": "command",
+            "name": "{('> AGAIN = start' if printer['gcode_macro _STATE'].gen_arm|default('') == 'texture' else '> Chess')}",
+            "gcode": [
+             "{% if printer['gcode_macro _STATE'].gen_arm|default('') == 'texture' %}{menu.exit()}{% endif %}",
+             "TEXTURE_APPLY PRESET=CHESS CONFIRM=1"
+            ],
+            "children": []
            }
           ]
          },
@@ -7816,6 +7850,7 @@
            "{% set tl = printer['gcode_macro _STATE'].total_layers|default(0)|int %}",
            "{% if tl > 0 %}",
            "RESPOND MSG=\"Range source: {printer.print_stats.filename|default('?')} - {tl} layers (From 2..{tl - 1}, To 3..{tl})\"",
+           "RESPOND MSG=\"R224: Floor/Top count INSIDE the window - the excerpt stays (To-From+1) layers tall, windows stack seamlessly\"",
            "{% else %}",
            "RESPOND MSG=\"Range: select a file first - then its layer count caps From/To here\"",
            "{% endif %}"
@@ -8125,24 +8160,51 @@
         ]
        },
        {
+        "id": "__main __preprint __mods __mirror",
+        "type": "list",
+        "name": "Mirror",
+        "children": [
+         {
+          "id": "__main __preprint __mods __mirror __ax",
+          "type": "input",
+          "name": "Axis: {('X','Y')[menu.input|int] if menu.input|int in (0,1) else '?'}",
+          "input": "{1 if printer['save_variables'].variables.mirror_axis|default('x')|string == 'y' else 0}",
+          "input_min": "0",
+          "input_max": "1",
+          "input_step": "1",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=mirror_axis VALUE=\"{('x','y')[menu.input|round|int]}\"",
+           "RESPOND MSG=\"Mirror axis {('X','Y')[menu.input|round|int]} - the object flips around its own center and stays at its place\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __preprint __mods __mirror __how",
+          "type": "command",
+          "name": "How? (in place)",
+          "gcode": [
+           "RESPOND MSG=\"Mirror flips the object on X or Y around its OWN center - it stays exactly at its place (same spot, same size, E verbatim). Output: the Mirror folder\"",
+           "RESPOND MSG=\"R224 multi-object: with OBJ=<name> (Mainsail/console) ONLY that object flips - the finish message lists the file's objects so you always see which one moved\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __preprint __mods __mirror __go",
+          "type": "command",
+          "name": "{('> AGAIN = start' if printer['gcode_macro _STATE'].gen_arm|default('') == 'mirror' else '> Apply')}",
+          "gcode": [
+           "{% if printer['gcode_macro _STATE'].gen_arm|default('') == 'mirror' %}{menu.exit()}{% endif %}",
+           "MIRROR_APPLY CONFIRM=1"
+          ],
+          "children": []
+         }
+        ]
+       },
+       {
         "id": "__main __preprint __mods __cake",
         "type": "list",
         "name": "Cut & Split",
         "children": [
-         {
-          "id": "__main __preprint __mods __cake __yaw",
-          "type": "input",
-          "name": "Yaw: {menu.input|round(1)}",
-          "input": "{printer['save_variables'].variables.cake_yaw|default(0)|float}",
-          "input_min": "-180",
-          "input_max": "180",
-          "input_step": "0.5",
-          "gcode": [
-           "SAVE_VARIABLE VARIABLE=cake_yaw VALUE={menu.input|round(1)}",
-           "RESPOND MSG=\"Cut&split yaw {menu.input|round(1)} deg (where the tilt points)\""
-          ],
-          "children": []
-         },
          {
           "id": "__main __preprint __mods __cake __pitch",
           "type": "input",
@@ -8188,14 +8250,14 @@
          {
           "id": "__main __preprint __mods __cake __part",
           "type": "input",
-          "name": "Part: {menu.input == 0 and 'UPPER' or (menu.input == 1 and 'LOWER' or 'BOTH')}",
+          "name": "Part: {menu.input == 0 and 'UPPER' or (menu.input == 1 and 'LOWER' or 'BOTH=2files')}",
           "input": "{printer['save_variables'].variables.cake_part|default('BOTH') == 'UPPER' and 0 or (printer['save_variables'].variables.cake_part|default('BOTH') == 'LOWER' and 1 or 2)}",
           "input_min": "0",
           "input_max": "2",
           "input_step": "1",
           "gcode": [
            "SAVE_VARIABLE VARIABLE=cake_part VALUE=\"{menu.input == 0 and 'UPPER' or (menu.input == 1 and 'LOWER' or 'BOTH')}\"",
-           "RESPOND MSG=\"Cut&split part: {menu.input == 0 and 'UPPER only' or (menu.input == 1 and 'LOWER only' or 'BOTH halves')}\""
+           "RESPOND MSG=\"Cut&split part: {menu.input == 0 and 'UPPER only' or (menu.input == 1 and 'LOWER only' or 'BOTH - TWO separate files (Lower + Upper), each prints standalone')}\""
           ],
           "children": []
          },
@@ -8218,7 +8280,7 @@
           "type": "command",
           "name": "How does it cut?",
           "gcode": [
-           "RESPOND MSG=\"Cake cut: a plane (yaw/pitch/roll in 0.5 deg steps, z = height at the bed center) slices the print. Every move splits exactly at the plane, E splits by length share, arcs flatten. UPPER lands on the bed (cut face down when reorient is ON), LOWER keeps its place. Both files print standalone - the 100% flow baseline restarts with them.\""
+           "RESPOND MSG=\"Cake cut: a plane (pitch/roll in 0.5 deg steps, z = height at the bed center) slices the print. Every move splits exactly at the plane, E splits by length share, arcs flatten. UPPER lands on the bed (cut face down when reorient is ON), LOWER keeps its place. BOTH = two separate files (Lower + Upper) - each prints standalone, the 100% flow baseline restarts with them.\""
           ],
           "children": []
          },
@@ -14317,128 +14379,6 @@
        "SHOW_STATUS"
       ],
       "children": []
-     },
-     {
-      "id": "__main __macros __sounds",
-      "type": "command",
-      "name": "Sounds: {('ON' if printer['save_variables'].variables.sound_on|default(True) else 'OFF')}",
-      "gcode": [
-       "TOGGLE_SOUNDS"
-      ],
-      "children": []
-     },
-     {
-      "id": "__main __macros __leds",
-      "type": "command",
-      "name": "LEDs: {('ON' if printer['save_variables'].variables.leds_on|default(True) else 'OFF')}",
-      "gcode": [
-       "TOGGLE_LEDS"
-      ],
-      "children": []
-     },
-     {
-      "id": "__main __macros __noz",
-      "type": "list",
-      "name": "Nozzle LED",
-      "children": [
-       {
-        "id": "__main __macros __noz __auto",
-        "type": "command",
-        "name": "{('> AUTO (print)' if printer['save_variables'].variables.nozzle_mode|default('auto')|lower == 'auto' else '  AUTO (print)')}",
-        "gcode": [
-         "NOZZLE_LED MODE=auto"
-        ],
-        "children": []
-       },
-       {
-        "id": "__main __macros __noz __on",
-        "type": "command",
-        "name": "{('> ON' if printer['save_variables'].variables.nozzle_mode|default('auto')|lower == 'on' else '  ON')}",
-        "gcode": [
-         "NOZZLE_LED MODE=on"
-        ],
-        "children": []
-       },
-       {
-        "id": "__main __macros __noz __off",
-        "type": "command",
-        "name": "{('> OFF' if printer['save_variables'].variables.nozzle_mode|default('auto')|lower == 'off' else '  OFF')}",
-        "gcode": [
-         "NOZZLE_LED MODE=off"
-        ],
-        "children": []
-       },
-       {
-        "id": "__main __macros __noz __brt",
-        "type": "input",
-        "name": "Bright: {((menu.input*100)|round|int)}%",
-        "input": "{printer['save_variables'].variables.nozzle_bright|default(1.0)|round(2)}",
-        "input_min": "0.05",
-        "input_max": "1",
-        "input_step": "0.05",
-        "gcode": [
-         "NOZZLE_LED BRIGHT={menu.input|round(2)}"
-        ],
-        "children": []
-       },
-       {
-        "id": "__main __macros __noz __r",
-        "type": "input",
-        "name": "Red: {((menu.input*100)|round|int)}%",
-        "input": "{printer['save_variables'].variables.nozzle_r|default(0.9)|round(2)}",
-        "input_min": "0",
-        "input_max": "1",
-        "input_step": "0.05",
-        "gcode": [
-         "NOZZLE_LED R={menu.input|round(2)}"
-        ],
-        "children": []
-       },
-       {
-        "id": "__main __macros __noz __g",
-        "type": "input",
-        "name": "Green: {((menu.input*100)|round|int)}%",
-        "input": "{printer['save_variables'].variables.nozzle_g|default(0.9)|round(2)}",
-        "input_min": "0",
-        "input_max": "1",
-        "input_step": "0.05",
-        "gcode": [
-         "NOZZLE_LED G={menu.input|round(2)}"
-        ],
-        "children": []
-       },
-       {
-        "id": "__main __macros __noz __b",
-        "type": "input",
-        "name": "Blue: {((menu.input*100)|round|int)}%",
-        "input": "{printer['save_variables'].variables.nozzle_b|default(0.85)|round(2)}",
-        "input_min": "0",
-        "input_max": "1",
-        "input_step": "0.05",
-        "gcode": [
-         "NOZZLE_LED B={menu.input|round(2)}"
-        ],
-        "children": []
-       },
-       {
-        "id": "__main __macros __noz __white",
-        "type": "command",
-        "name": "Color: White",
-        "gcode": [
-         "NOZZLE_LED R=1 G=1 B=1"
-        ],
-        "children": []
-       },
-       {
-        "id": "__main __macros __noz __warm",
-        "type": "command",
-        "name": "Color: Warm",
-        "gcode": [
-         "NOZZLE_LED R=1 G=0.85 B=0.6"
-        ],
-        "children": []
-       }
-      ]
      }
     ]
    },
@@ -21987,14 +21927,14 @@
          {
           "id": "__main __gen __labels __set __sw",
           "type": "input",
-          "name": "Stroke: {('auto' if menu.input == 0 else '%.1f mm' % menu.input)}",
-          "input": "{printer['save_variables'].variables.label_stroke|default(0)}",
-          "input_min": "0",
+          "name": "Text: {'%d walls' % menu.input}",
+          "input": "{printer['save_variables'].variables.label_walls|default(3)}",
+          "input_min": "1",
           "input_max": "4",
-          "input_step": "0.2",
+          "input_step": "1",
           "gcode": [
-           "SAVE_VARIABLE VARIABLE=label_stroke VALUE={menu.input|round(1)}",
-           "RESPOND MSG=\"Stroke = the letter LINE WIDTH in mm: 0 = auto (3 lines, solid letters) - set your NOZZLE diameter (0.6) for single-line letters\""
+           "SAVE_VARIABLE VARIABLE=label_walls VALUE={menu.input|round|int}",
+           "RESPOND MSG=\"Text walls = extrusion lines through every letter stroke: {menu.input} walls - the 3D viewer shows exactly this count (R224)\""
           ],
           "children": []
          },
@@ -22128,32 +22068,12 @@
           "children": []
          },
          {
-          "id": "__main __gen __labels __set __mx",
-          "type": "command",
-          "name": "Mirror X: {'ON' if printer['save_variables'].variables.label_mirror_x|default(False) else 'off'}",
-          "gcode": [
-           "SAVE_VARIABLE VARIABLE=label_mirror_x VALUE={not printer['save_variables'].variables.label_mirror_x|default(False)}",
-           "RESPOND MSG=\"Label Mirror X: {'ON - the text flips left-right (a STAMP needs this: the imprint reads correct)' if not printer['save_variables'].variables.label_mirror_x|default(False) else 'off - normal text'}\""
-          ],
-          "children": []
-         },
-         {
-          "id": "__main __gen __labels __set __my",
-          "type": "command",
-          "name": "Mirror Y: {'ON' if printer['save_variables'].variables.label_mirror_y|default(False) else 'off'}",
-          "gcode": [
-           "SAVE_VARIABLE VARIABLE=label_mirror_y VALUE={not printer['save_variables'].variables.label_mirror_y|default(False)}",
-           "RESPOND MSG=\"Label Mirror Y: {'ON - the text flips up-down' if not printer['save_variables'].variables.label_mirror_y|default(False) else 'off - normal text'}\""
-          ],
-          "children": []
-         },
-         {
           "id": "__main __gen __labels __set __st",
           "type": "command",
           "name": "Stamp: {'ON' if printer['save_variables'].variables.label_stamp|default(False) else 'off'}",
           "gcode": [
            "SAVE_VARIABLE VARIABLE=label_stamp VALUE={not printer['save_variables'].variables.label_stamp|default(False)}",
-           "RESPOND MSG=\"Label Stamp: {'ON - body + snap socket under the text, ONE label per job, hole off (the socket is the mount)' if not printer['save_variables'].variables.label_stamp|default(False) else 'off - plain label plate'}\""
+           "RESPOND MSG=\"Label Stamp: {'ON - body + snap socket under the text, ONE label per job, hole off, text AUTO-MIRRORED so the imprint reads correct' if not printer['save_variables'].variables.label_stamp|default(False) else 'off - plain label plate, normal text'}\""
           ],
           "children": []
          },
@@ -27446,7 +27366,7 @@
         "type": "command",
         "name": "How it works?",
         "gcode": [
-         "RESPOND MSG=\"[Gen] Heavy builds (string art, litho, color picture) run one at a time in the background. Low RAM or a busy printer parks a job - the console says so every 2 min. A stuck job is dropped after 20 min. Clear queue drops everything pending - your settings stay.\""
+         "RESPOND MSG=\"[Gen] Heavy builds (string art, litho, color picture) run one at a time in the background. Low RAM or a busy printer parks a job - the console says so every 2 min. R224: a stuck job holds Wait:generating until its thread ends (no print starts into the overload) - a Pi restart ends it instantly. Clear queue drops everything PENDING.\""
         ],
         "children": []
        },
@@ -27455,7 +27375,7 @@
         "type": "command",
         "name": "State: {\"BUILDING\" if printer[\"save_variables\"].variables.gen_busy|default(0) else \"idle\"}",
         "gcode": [
-         "RESPOND MSG=\"[Gen] State: {'building' if printer['save_variables'].variables.gen_busy|default(0) else 'idle'}. If a job never finishes: Clear queue below, then restart the Pi (System > Pi restart) to end a leftover worker. A firmware restart does NOT free RAM.\""
+         "RESPOND MSG=\"[Gen] State: {'building' if printer['save_variables'].variables.gen_busy|default(0) else 'idle'}. If a job never finishes: Clear queue drops the PENDING ones - the running build keeps Wait:generating up until it ends. Restart the Pi (System > Pi restart) to end a leftover worker NOW - a firmware restart does NOT free RAM.\""
         ],
         "children": []
        },
@@ -27639,14 +27559,108 @@
         "children": []
        },
        {
-        "id": "__main __system __ledcfg __nozm",
-        "type": "command",
-        "name": "Nozzle mode: {printer['save_variables'].variables.nozzle_mode|default('auto')|string|upper}",
-        "gcode": [
-         "{% set cur = printer['save_variables'].variables.nozzle_mode|default('auto')|string|lower %}",
-         "NOZZLE_LED MODE={'off' if cur == 'auto' else ('on' if cur == 'off' else 'auto')}"
-        ],
-        "children": []
+        "id": "__main __system __ledcfg __noz",
+        "type": "list",
+        "name": "Nozzle LED",
+        "children": [
+         {
+          "id": "__main __system __ledcfg __noz __auto",
+          "type": "command",
+          "name": "{('> AUTO (print)' if printer['save_variables'].variables.nozzle_mode|default('auto')|lower == 'auto' else '  AUTO (print)')}",
+          "gcode": [
+           "NOZZLE_LED MODE=auto"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __system __ledcfg __noz __on",
+          "type": "command",
+          "name": "{('> ON' if printer['save_variables'].variables.nozzle_mode|default('auto')|lower == 'on' else '  ON')}",
+          "gcode": [
+           "NOZZLE_LED MODE=on"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __system __ledcfg __noz __off",
+          "type": "command",
+          "name": "{('> OFF' if printer['save_variables'].variables.nozzle_mode|default('auto')|lower == 'off' else '  OFF')}",
+          "gcode": [
+           "NOZZLE_LED MODE=off"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __system __ledcfg __noz __brt",
+          "type": "input",
+          "name": "Bright: {((menu.input*100)|round|int)}%",
+          "input": "{printer['save_variables'].variables.nozzle_bright|default(1.0)|round(2)}",
+          "input_min": "0.05",
+          "input_max": "1",
+          "input_step": "0.05",
+          "gcode": [
+           "NOZZLE_LED BRIGHT={menu.input|round(2)}"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __system __ledcfg __noz __r",
+          "type": "input",
+          "name": "Red: {((menu.input*100)|round|int)}%",
+          "input": "{printer['save_variables'].variables.nozzle_r|default(0.9)|round(2)}",
+          "input_min": "0",
+          "input_max": "1",
+          "input_step": "0.05",
+          "gcode": [
+           "NOZZLE_LED R={menu.input|round(2)}"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __system __ledcfg __noz __g",
+          "type": "input",
+          "name": "Green: {((menu.input*100)|round|int)}%",
+          "input": "{printer['save_variables'].variables.nozzle_g|default(0.9)|round(2)}",
+          "input_min": "0",
+          "input_max": "1",
+          "input_step": "0.05",
+          "gcode": [
+           "NOZZLE_LED G={menu.input|round(2)}"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __system __ledcfg __noz __b",
+          "type": "input",
+          "name": "Blue: {((menu.input*100)|round|int)}%",
+          "input": "{printer['save_variables'].variables.nozzle_b|default(0.85)|round(2)}",
+          "input_min": "0",
+          "input_max": "1",
+          "input_step": "0.05",
+          "gcode": [
+           "NOZZLE_LED B={menu.input|round(2)}"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __system __ledcfg __noz __white",
+          "type": "command",
+          "name": "Color: White",
+          "gcode": [
+           "NOZZLE_LED R=1 G=1 B=1"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __system __ledcfg __noz __warm",
+          "type": "command",
+          "name": "Color: Warm",
+          "gcode": [
+           "NOZZLE_LED R=1 G=0.85 B=0.6"
+          ],
+          "children": []
+         }
+        ]
        },
        {
         "id": "__main __system __ledcfg __pinf",

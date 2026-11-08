@@ -53,7 +53,7 @@ INCLUDES = ''.join(
      '06_temp_controls', '07_start_confirm', '08_print_start_stop',
      '09_pause_filament', '10_live_tuning', '11_gantry_sync',
      '12_maintenance', '13_system', '14_kamp', '15_objects',
-     '16_labels', '17_generator'])
+     '16_labels', '17_generator', '18_colorpic', '19_bricks'])
 
 SAVECFG = '\n#*# <save_config>\n#*# [bltouch]\n#*# z_offset = 2.100\n'
 

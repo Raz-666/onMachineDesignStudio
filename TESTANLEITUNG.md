@@ -1,6 +1,6 @@
-# TESTANLEITUNG — R2-D2 Makro-System (Version .136m)
+# TESTANLEITUNG — R2-D2 Makro-System (Version .136v)
 
-Diese Anleitung beschreibt **nur den aktuellen Stand** (.136m). Sie ist die
+Diese Anleitung beschreibt **nur den aktuellen Stand** (.136v). Sie ist die
 komplette Feld-Checkliste nach dem Einspielen eines Updates — von Boot bis
 Druckergebnis. Die Historie der Änderungen steht in README.md.
 
@@ -18,7 +18,7 @@ Druckergebnis. Die Historie der Änderungen steht in README.md.
 ## 2. Boot-Check (Pflicht, 1 Minute)
 
 - [ ] Konsole: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-10-31.136m)`
+      (build R2-2026-11-08.136v)`
 - [ ] ~10 s nach dem Boot: Boot-Sound + LED-Animation
 - [ ] `SHOW_STATUS` antwortet mit Modus/Material/Overrides
 - [ ] Kein Eintrag fehlt: sonst meldet sich `_CHECK_INSTALL` laut mit
@@ -173,8 +173,42 @@ bewusst angeschweißt). Je ein Probedruck:
       der Konsole (R213-Restfehler: die C-Slots wurden gesetzt, aber
       nie deklariert)
 
+## 11. Die .136v-Neuerungen (R224-Feldrunde)
+
+- [ ] **Spiegel-Tool**: Pre-Print > Mods > Mirror — Achse X/Y, „How?"
+      erklärt, Apply (2×) spiegelt die gewählte Datei (auch OBJ-Modus);
+      es entsteht eine NEUE Datei, die Quelle bleibt
+- [ ] **Cut & Split ohne Yaw**: nur noch Pitch / Roll / Z-Plane;
+      **Part BOTH = ZWEI Dateien** (`…_CUT-L` + `…_CUT-U` im
+      Cake-Ordner), jede druckt eigenständig mit eigenem E-Basiswert
+- [ ] **Range stapelbar**: Range mit Floor/Cap → der Auszug ist exakt
+      so hoch wie das Fenster (Kopfzeile sagt „floor 2 INSIDE the
+      window" — vorher saß der Floor als Floß UNTER dem Fenster);
+      Methodik: CUTSPLIT.pdf + Kapitel 6 TEXTURING.pdf
+- [ ] **Labels**: Walls-Knopf 1–4 (Strichstärke = Wände × Linienbreite,
+      Preview == Druck), der **Stempel spiegelt den Text automatisch**
+      (die Spiegel-Zeilen sind aus dem Label-Menü entfernt), Glyphen
+      sitzen zentriert
+- [ ] **Textur-Namentreue**: Rope = 3-Strang-Drehtampen, Basket = echtes
+      Geflecht, Checker = Schachbrett mit weichen Kanten;
+      **Fixed presets** jetzt 7 Einträge (Orca / Hide layers / Subtle /
+      Grip / **Rope / Basket / Chess**)
+- [ ] **Textur-Innenwände folgen**: BUMPS mit tiefem DIR=IN drucken —
+      die Täler sind voll ausgeprägt (Innenwand folgt der Prägung,
+      Wandabstand bleibt eine Linienbreite); FUZZY unverändert
+      (nur die Außenwand zittert, wie bei Orca)
+- [ ] **Systemmenü**: Sound + LED-Farben unter System > LED config;
+      die WebUI zeigt denselben Menübaum wie das LCD (Embed aktuell,
+      2480 Sektionen)
+- [ ] **Gen jobs**: Clear Queue hält die Flags, solange der Thread lebt
+      (kein Zombie-gen_busy blockiert einen Druckstart mehr); ein
+      laufender Build bleibt beim Clear am Leben
+- [ ] **Slicer-Dateien**: Orca- UND Cura-Dateien bekommen TYPE=
+      (Feature-Übersetzung in der Datei-Info); die Cura-Startbox
+      läuft ohne G28-Störung
+
 ---
 
-**Alles grün?** Dann ist .136m field-clear. Wenn etwas auffällt: Konsole
+**Alles grün?** Dann ist .136v field-clear. Wenn etwas auffällt: Konsole
 kopieren (RESPOND-Zeilen) + welche Datei/welcher Menüpfad — daraus wird der
 nächste Feldlog-Eintrag.

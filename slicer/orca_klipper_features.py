@@ -6,7 +6,7 @@
 #   Orca schreibt Feature-Wechsel als Kommentare in die Datei (";TYPE:Outer wall").
 #   Klipper kann Kommentare nicht verarbeiten. Dieses Skript setzt hinter jeden
 #   Feature-Wechsel einen echten Befehl:
-#        APPLY_TYPE TYP=Outer wall
+#        APPLY_TYPE TYPE=Outer wall
 #   Unser APPLY_TYPE-Makro (macros/10_live_tuning.cfg) setzt daraufhin Speed-Faktor /
 #   Beschleunigung / (Ironing-)Flow – und das LIVE am LCD oder in Mainsail aenderbar.
 #
@@ -44,7 +44,7 @@ def main():
             typ = p.split(":", 1)[1].strip()
             if typ and typ != letzter_typ:        # nur bei echtem Wechsel einsetzen
                 letzter_typ = typ
-                neu.append("APPLY_TYPE TYP={}\n".format(typ))
+                neu.append("APPLY_TYPE TYPE={}\n".format(typ))
                 ersetzungen += 1
 
     with open(pfad, "w", encoding="utf-8") as f:

@@ -173,6 +173,27 @@ def _is_outer_wall(t):
     return t in _OUTER_ALIASES
 
 
+# R224 task 15: INNER walls follow the embossing in BUMPS mode - an
+# untouched inner wall sits one line width behind the surface and CAPS
+# the valleys of a deep DIR=IN texture (the pattern reads washed out).
+# Following keeps the wall stack parallel: the inner wall stays
+# invisible behind the outer surface and keeps wall contact. Dialects
+# mirror the r2-postproc lookup table (WALL-INNER).
+_INNER_ALIASES = {
+    'inner wall',        # Orca/Elegoo/Prusa, R2 canonical WALL-INNER
+    'wall inner',        # Cura WALL-INNER via APPLY_TYPE
+    'inner perimeter',
+    'internal perimeter',
+    'perimeter',         # PrusaSlicer: plain perimeters are the inner ones
+    'thin wall',         # SuperSlicer
+}
+
+
+def _is_inner_wall(t):
+    t = re.sub(r'[^a-z]+', ' ', (t or '').strip().lower()).strip()
+    return t in _INNER_ALIASES
+
+
 # =====================================================================================
 #  R175 PATTERN LIBRARY - every pattern is a function f(s, t, k, n, aux)
 #  with  s = theta/2pi in [0,1)   (seamless: integer k tiles around)
@@ -256,11 +277,17 @@ def _build_patterns(k, n, seed, img):
     def _checker(s, t):
         # soft-edged checkerboard: cell parity from INTEGER grids (2k x 2n
         # cells -> the wrap lands exactly on a cell boundary), edges eased
-        # with smoothstep in BOTH axes (printable, no hard layer steps)
-        e_s = _smoothstep(0.30, 0.70,
-                          abs(((s * k) % 1.0) - 0.5) * 2)
-        e_t = _smoothstep(0.30, 0.70,
-                          abs(((t * n) % 1.0) - 0.5) * 2)
+        # with smoothstep in BOTH axes (printable, no hard layer steps).
+        # R224 name fidelity: cells AND easing on the same 2k x 2n grid
+        # (the old k-grid easing left every second boundary a HARD step),
+        # and the ease INVERTED - it was 1 at the edges and 0 at the
+        # centers, so the pattern showed corner pyramids instead of a
+        # chessboard. Now: full +/- at the cell centers, easing to 0 at
+        # EVERY boundary (printable, seamless wrap - 2k x 2n are even)
+        e_s = 1.0 - _smoothstep(0.62, 0.96,
+                                abs(((s * k * 2) % 1.0) - 0.5) * 2)
+        e_t = 1.0 - _smoothstep(0.62, 0.96,
+                                abs(((t * n * 2) % 1.0) - 0.5) * 2)
         par = (int(s * k * 2) + int(t * n * 2)) % 2
         return (e_s * e_t) * (1.0 if par else -1.0)
     pats['CHECKER'] = _checker
@@ -287,19 +314,40 @@ def _build_patterns(k, n, seed, img):
 
     # ---- woven / twisted --------------------------------------------------------
     def _basket(s, t):
-        over = (int(math.floor(s * k)) + int(math.floor(t * n))) % 2
-        edge = (1.0 - _smoothstep(0.06, 0.16, abs(((s * k) % 1.0) - 0.5))
-                - _smoothstep(0.06, 0.16, abs(((t * n) % 1.0) - 0.5)))
-        base = 0.55 if over else -0.55
-        return max(-1.0, min(1.0, base - 0.45 * max(0.0, 1.0 - edge)))
+        # R224 name fidelity: INTERLACED STRIPS, not pegboard. The old
+        # isolated bumps (flat +/-0.55 cells with border dips) read as
+        # dots, not as a woven basket. Now every strip is CONTINUOUS
+        # along its own direction (rounded spine), arches over the
+        # crossing and dips into the shoulders of the strip passing
+        # under - the classic over/under weave cue.
+        i = s * k
+        j = t * n
+        col = int(math.floor(i))
+        row = int(math.floor(j))
+        fx, fy = i - col, j - row
+        # rounded strip cross-profiles (0 at the borders, 1 on the spine)
+        H = _smoothstep(0.04, 0.32, fy) * (1.0 - _smoothstep(0.68, 0.96, fy))
+        V = _smoothstep(0.04, 0.32, fx) * (1.0 - _smoothstep(0.68, 0.96, fx))
+        if (col + row) % 2:
+            # vertical strip on top: its rounded back crosses OVER the
+            # horizontal spine (0.9*V), the horizontal strip's shoulders
+            # carve in from the sides
+            v = 0.90 * V - 0.55 * (1.0 - H)
+        else:
+            v = 0.90 * H - 0.55 * (1.0 - V)
+        return max(-1.0, min(1.0, v))
     pats['BASKET'] = _basket
 
     def _rope(s, t):
-        strands = max(2, k // 2)
-        twist = max(1, n)
-        v = math.sin(two_pi * (s * strands + t * twist))
-        return (abs(v) ** 0.6 * (1 if v >= 0 else -1)) * \
-            (0.8 + 0.2 * math.sin(two_pi * t * twist * 2))
+        # R224 name fidelity: a ROPE is THREE strands by definition. The
+        # old strands = k//2 count (10+ on a normal size setting) read as
+        # diagonal ridge noise, not rope. tanh() gives flat-topped
+        # strands with deep rounded grooves - the twisted-cord look.
+        # The size knob still sets the TWIST pitch via n (zsize).
+        strands = 3
+        turns = max(2, min(48, n))
+        v = math.sin(two_pi * (s * strands + t * turns))
+        return math.tanh(2.2 * v)
     pats['ROPE'] = _rope
 
     # ---- boards / bricks --------------------------------------------------------
@@ -560,6 +608,9 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
     px2 = py2 = None
     cur_type = ''
     cur_outer = False
+    cur_inner = False       # R224 task 15: inner walls follow the embossing
+    wind_o = {}             # per-Z shoelace winding of the outer wall
+    wind_i = {}             # per-Z shoelace winding of the inner wall
     with open(src, errors='replace') as fi:
         for line in fi:
             ls = line.rstrip('\n')
@@ -571,6 +622,7 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
             if m:
                 cur_type = m.group(1).strip().lower()
                 cur_outer = _is_outer_wall(cur_type)
+                cur_inner = _is_inner_wall(cur_type)
                 if cur_outer:
                     any_outer = True
                 continue
@@ -578,6 +630,7 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
             if _ma152:
                 cur_type = _ma152.group(1).strip().lower()
                 cur_outer = _is_outer_wall(cur_type)
+                cur_inner = _is_inner_wall(cur_type)
                 if cur_outer:
                     any_outer = True
                 continue
@@ -642,6 +695,11 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                         maxz = max(maxz, z_here)
                     if px2 is not None:
                         chord += math.hypot(x - px2, y - py2)
+                        _zk = round(z_here, 3) if z_here is not None else -1.0
+                        wind_o[_zk] = wind_o.get(_zk, 0.0) + (px2 * y - x * py2)
+                elif cur_inner and extruding and px2 is not None:
+                    _zk = round(cur_z, 3) if cur_z is not None else -1.0
+                    wind_i[_zk] = wind_i.get(_zk, 0.0) + (px2 * y - x * py2)
                 px2, py2 = x, y
     all_is_wall = False
     if cnt < 8 and not any_outer and acnt >= 8:
@@ -656,6 +714,15 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
         raise ValueError('no outer wall found in %s - the texture only '
                          'works on files with outer walls (or files without '
                          'any type markers at all)' % base)
+    # R224 task 15: if the slicer runs an inner loop the OPPOSITE way
+    # round (a strength option in some slicers), a naive same-value shift
+    # would push it AWAY from the outer wall - the per-layer winding
+    # comparison catches that and flips the inner displacement back.
+    flip_by_z = {}
+    for _zk, _wi in wind_i.items():
+        _wo = wind_o.get(_zk)
+        if _wo is not None and _wi and _wo and (_wo > 0) != (_wi > 0):
+            flip_by_z[_zk] = -1.0
     if centers:
         cx = sum(c[0] for c in centers) / len(centers)
         cy = sum(c[1] for c in centers) / len(centers)
@@ -692,9 +759,11 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
         t = (((z - minz) * n / height) % 1.0) if height > 0 else 0.0
         return pattern_fn(s, t)
 
-    stats = {'moves': 0, 'shifted': 0, 'clamped': 0, 'layers': 0, 'arcs': 0}
+    stats = {'moves': 0, 'shifted': 0, 'clamped': 0, 'layers': 0, 'arcs': 0,
+             'inner_shifted': 0}
     cur_type = ''
     cur_outer = False       # R152: alias-normalized outer-wall check
+    cur_inner = False       # R224 task 15: BUMPS lets inner walls follow
     t0 = time.time()
     # px/py = None until the first move is seen: a vertex with no known
     # approach direction gets NO offset (same rule as zero-length moves -
@@ -709,9 +778,12 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
     e_rel = False
     last_e = 0.0
 
-    def _shift_txt(txt, x, y, z):
+    def _shift_txt(txt, x, y, z, inner=False):
         """R91 displacement on ONE move line -> possibly shifted text.
-        Reads px/py from the enclosing scope (approach direction)."""
+        Reads px/py from the enclosing scope (approach direction).
+        R224 task 15: inner=True lets an inner-wall move FOLLOW the outer
+        wall's embossing (BUMPS mode only - FUZZY stays Orca-honest and
+        jitters the outer wall alone)."""
         dx, dy = (x - px, y - py) if px is not None else (0.0, 0.0)
         ln = math.hypot(dx, dy)
         stats['moves'] += 1
@@ -735,8 +807,14 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
             # textured NOTHING at all (silent no-op)
             zz = z if z is not None else (
                 cur_z_e if cur_z_e is not None else 0.0)
-            nx = ox * pattern(x, y, zz) * sig * sign
-            ny = oy * pattern(x, y, zz) * sig * sign
+            amp = pattern(x, y, zz) * sig * sign
+            if inner:
+                # same angle -> same pattern value as the outer wall:
+                # the stack moves as one, contact kept. The flip realigns
+                # opposite-running inner loops (see flip_by_z above).
+                amp *= flip_by_z.get(round(zz, 3), 1.0)
+            nx = ox * amp
+            ny = oy * amp
         if nx or ny:
             nx, ny = round(x + nx, 3), round(y + ny, 3)
             if not (bed[0] <= nx <= bed[2] and bed[1] <= ny <= bed[3]):
@@ -746,6 +824,8 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
             txt = re.sub(r'X[\d.\-]+', 'X%.3f' % nx, txt, count=1)
             txt = re.sub(r'Y[\d.\-]+', 'Y%.3f' % ny, txt, count=1)
             stats['shifted'] += 1
+            if inner:
+                stats['inner_shifted'] += 1
         return txt
 
     with open(src, errors='replace') as fi, open(out, 'w') as fo:
@@ -768,6 +848,10 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                  '- tags, features, E and Z stay untouched\n')
         fo.write('; R95: G2/G3 outer-wall arcs are flattened into textured '
                  'chords (arc-fitted files get a seamless all-around texture)\n')
+        if mode == 'BUMPS' and wind_i:
+            fo.write('; R224: inner walls follow the embossing - they no '
+                     'longer cap the valleys (invisible behind the surface) '
+                     'and keep wall contact\n')
         if all_is_wall:
             fo.write('; R175 fallback: no wall markers in this file - the '
                      'texture runs on ALL extrusion paths (lithophane mode)\n')
@@ -777,6 +861,7 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
             if m:
                 cur_type = m.group(1).strip().lower()
                 cur_outer = _is_outer_wall(cur_type)
+                cur_inner = _is_inner_wall(cur_type)
                 fo.write(ls + '\n')
                 continue
             # R152: the r2-postproc injects the CANONICAL type right after
@@ -786,6 +871,7 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
             if _ma152:
                 cur_type = _ma152.group(1).strip().lower()
                 cur_outer = _is_outer_wall(cur_type)
+                cur_inner = _is_inner_wall(cur_type)
             if ls.startswith(';LAYER_CHANGE'):
                 stats['layers'] += 1
             elif ls == 'M83':
@@ -799,11 +885,14 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
             g = _parse_move(ls)
             if g is not None and g[3] is not None:
                 cur_z_e = g[3]           # R186: emission-pass Z tracking
-            if (g and g[0] == 'G1' and (cur_outer or all_is_wall)
+            if (g and g[0] == 'G1' and (cur_outer or all_is_wall
+                                        or (cur_inner and mode == 'BUMPS'))
                     and g[4] is not None and g[4] > _MIN_E and g[1] is not None):
                 x, y = g[1], g[2]
                 z = g[3]
-                fo.write(_shift_txt(ls, x, y, z) + '\n')
+                fo.write(_shift_txt(ls, x, y, z,
+                                    inner=(cur_inner and not cur_outer
+                                           and mode == 'BUMPS')) + '\n')
                 px, py = x, y
                 last_e = g[4]
                 continue
@@ -811,7 +900,8 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
             ga = _parse_arc(ls)
             if ga is not None and ga[3] is not None:
                 cur_z_e = ga[3]           # R186: emission-pass Z tracking
-            if (ga and (cur_outer or all_is_wall) and ga[7] is not None
+            if (ga and (cur_outer or all_is_wall
+                        or (cur_inner and mode == 'BUMPS')) and ga[7] is not None
                     and ga[7] > _MIN_E and px is not None):
                 x1, y1 = ga[1], ga[2]
                 z1 = ga[3]
@@ -833,7 +923,10 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                         else:
                             ec = last_e + (e_arc - last_e) * frac
                         ch = 'G1 X%.3f Y%.3f E%.5f%s' % (qx, qy, ec, f_txt)
-                        fo.write(_shift_txt(ch, qx, qy, z1) + '\n')
+                        fo.write(_shift_txt(
+                            ch, qx, qy, z1,
+                            inner=(cur_inner and not cur_outer
+                                   and mode == 'BUMPS')) + '\n')
                         if not e_rel:
                             last_e = ec
                     px, py = x1, y1
@@ -859,7 +952,7 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
             'eff_size': round(eff_size, 2), 'eff_zsize': round(eff_zsize, 2),
             'height': round(height, 1), 'circumference': round(circum, 1),
             'center': (round(cx, 1), round(cy, 1)),
-            'shifted': stats['shifted'],
+            'shifted': stats['shifted'], 'inner_shifted': stats['inner_shifted'],
             'outer_moves': stats['moves'], 'clamped': stats['clamped'],
             'layers': stats['layers'], 'arcs_flattened': stats['arcs'],
             'secs': round(time.time() - t0, 2)}

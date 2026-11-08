@@ -328,8 +328,12 @@ doc = mje.export(os.path.join(REPO, 'menus', 'lcd_menues.cfg'),
 # R220: TYPES summary rows in both File info menus (2472 -> 2474)
 # R223 (.136u): System > Gen jobs - queue visibility + clear
 # (.136s field log; 2474 -> 2479: list + how/state/clear/clear-now)
-check('T1 export: all 2479 sections in one tree, no orphans',
-      doc['sections'] == 2479 and sum(doc['counts'].values()) == 2479,
+# R224 (.136v): menu consolidation - the __macros sound/LED duplicates and
+# the mirror/cake-yaw inputs are gone, the nozzle-LED block moved under
+# __system __ledcfg __noz (2479 -> 2473), the Mirror tool
+# adds its folder back (2473 -> 2477; R224 adds 3 preset rows -> 2480)
+check('T1 export: all 2473 sections in one tree, no orphans',
+      doc['sections'] == 2480 and sum(doc['counts'].values()) == 2480,
       str(doc['counts']))
 
 
@@ -342,7 +346,7 @@ def _walk(n, acc):
 
 _all = _walk(doc['tree'], [])
 check('T1 export: tree node count == sections, depth sane, known ids',
-      len(_all) == 2479
+      len(_all) == 2480
       and any(n['id'] == '__main __start __direct' for n in _all)
       and any(n['id'] == '__main __live' for n in _all))
 
@@ -397,7 +401,7 @@ _emb = json.JSONDecoder().raw_decode(
     _ptxt.split('const EMBEDDED_MENU_JSON = ', 1)[1])[0]
 check('T1 embed: placeholder replaced with valid JSON',
       '/*EMBEDDED_MENU_JSON*/ null' not in _ptxt
-      and _emb['sections'] == 2479)
+      and _emb['sections'] == 2480)
 
 # T2: the moonraker extension with a fake app
 spec = importlib.util.spec_from_file_location(
@@ -505,13 +509,21 @@ import asyncio                                            # noqa: E402
 loop = asyncio.new_event_loop()
 tree_doc = loop.run_until_complete(eps['/server/r2_menu/tree'](FakeReq()))
 check('T2 extension: tree handler serves the export',
-      tree_doc['sections'] == 2479 and 'tree' in tree_doc)
+      tree_doc['sections'] == 2480 and 'tree' in tree_doc)
 st = loop.run_until_complete(eps['/server/r2_menu/status'](FakeReq()))
 check('T2 extension: status handler reports ok + sha',
       st['ok'] and st['sha256'] == tree_doc['sha256'])
 rf = loop.run_until_complete(eps['/server/r2_menu/refresh'](FakeReq()))
+# R224 (.136v field review): X_OK was dropped from the gate - python3
+# invokes the tool, so a 0644-unpacked one (every zip without permission
+# bits) re-exports NOW instead of silently serving the STALE json
+check('T2 extension: refresh re-exports even a NON-executable tool',
+      rf['ok'] and rf.get('reExported') is True, str(rf)[:80])
+# absent tool: degrade to a plain reload (no crash, no re-export)
+comp.tool = os.path.join(REPO, 'tools', 'does_not_exist_224.py')
+rf2 = loop.run_until_complete(eps['/server/r2_menu/refresh'](FakeReq()))
 check('T2 extension: refresh without the tool degrades gracefully',
-      rf['ok'] and rf.get('reExported') in (False, None), str(rf)[:80])
+      rf2['ok'] and rf2.get('reExported') in (False, None), str(rf2)[:80])
 # R216 (.136n): the Pi stats endpoint - pure /proc reads, never klippy
 cfg.server.objects['klippy_apis'] = FakeKlippyAPI([], {})
 ps = loop.run_until_complete(eps['/server/r2_menu/pistats'](FakeReq()))

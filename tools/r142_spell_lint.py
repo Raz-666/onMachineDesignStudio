@@ -47,10 +47,10 @@ v01 v02 gcode-file
 configfile configfiles
 buildplate buildplates
 kamp voron ender
-fmm gmm src compat freq seg png jpg csv txt bak plt obj img zsize
+fmm gmm src compat freq seg png jpg csv txt bak plt obj img zsize stl
 accels accel decel acc sys mzv deg vel pos cond incl blk
 testz stopat rect ishaper bandh penz fanl wht gry blk
-re-heats re-inserting re-applied dockable cpu mate mating hands hats feet scaled cell cells
+re-heats re-inserting re-applied re-measure dockable cpu mate mating hands hats feet scaled cell cells
 col forced tall stray cleans socket spigot cover shelf joints re-fix
 pre post vol
 '''.split())

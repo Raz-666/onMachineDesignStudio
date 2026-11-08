@@ -2,9 +2,10 @@ name: tests
 
 # R105: the whole quality net runs on every push and pull request - the exact
 # same five checks a fresh clone can run locally (verified: a clean clone of
-# this repository passes all of them with nothing but python3 + jinja2).
-# External dependencies: jinja2 (macro render suite). Everything else is
-# stdlib - by design, so the Pi never needs pip.
+# this repository passes all of them with python3 + jinja2 + pillow).
+# External dependencies: jinja2 (macro render suite) and pillow (the image
+# generator tests - PNG fixtures are BUILT in the suite, no binary assets).
+# Everything else is stdlib - by design, so the Pi never needs pip.
 
 on: [push, pull_request]
 
@@ -18,8 +19,11 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install the one external dependency
-        run: pip install jinja2
+      - name: Install the external dependencies
+        # R224 (.136v field review): pillow was missing - the render suite
+        # died at its first image test (ModuleNotFoundError: PIL) although
+        # it passed locally
+        run: pip install jinja2 pillow
 
       - name: Shell syntax (setup.sh + update.sh)
         run: |

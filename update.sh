@@ -178,6 +178,13 @@ if [ "${1:-}" != "--unpacked" ] && [ -n "${CFG_DIR}" ]; then
                 echo "[!] unpacking FAILED - nothing was restarted, fix the zip first."
                 exit 1
             fi
+            # R224 (.136v field review): zips unpack 0644 - nothing here
+            # strictly needs +x (the service and the web refresh call
+            # python3 explicitly, update.sh runs via bash), but keep the
+            # tools executable for direct console use
+            chmod +x "${CFG_DIR}/${PKG_REL}/update.sh" \
+                     "${CFG_DIR}/${PKG_REL}/setup.sh" \
+                     "${CFG_DIR}/${PKG_REL}/tools/"*.py 2>/dev/null || true
             echo "[ok] package files replaced - continuing with the NEW update.sh"
             # R174 (.129 field log): the applied zip moves to r2_backups -
             # stale zips in the config folder kept winning the 'newest zip'
@@ -200,15 +207,20 @@ if [ -z "${CFG_DIR}" ]; then
     echo "[!] skipping the include check (no printer.cfg)"
 else
     MISSING=""
+    # R224 (.136v field review): 19 files - 18_colorpic (R120) and
+    # 19_bricks (R121) were never added here, so a missing include for
+    # them went undetected although INSTALL.md and _CHECK_INSTALL
+    # (the boot selftest) demand them
     for f in 01_state 02_sounds 03_leds 04_notify 05_materials 06_temp_controls \
              07_start_confirm 08_print_start_stop 09_pause_filament 10_live_tuning \
-             11_gantry_sync 12_maintenance 13_system 14_kamp 15_objects 16_labels 17_generator; do
+             11_gantry_sync 12_maintenance 13_system 14_kamp 15_objects 16_labels \
+             17_generator 18_colorpic 19_bricks; do
         if ! grep -q "${PKG_REL}/macros/${f}.cfg" "${CFG}"; then
             MISSING="${MISSING} ${f}"
         fi
     done
     if [ -z "${MISSING}" ]; then
-        echo "[ok] all 17 macro files are included in printer.cfg"
+        echo "[ok] all 19 macro files are included in printer.cfg"
     else
         echo "[!] MISSING include lines for:${MISSING}"
         echo "    add at the end of ${CFG}:"

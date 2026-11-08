@@ -406,8 +406,12 @@ ck('watch: the 5 generator spawns go through _spawn_job (no bare threads)',
    and src.count('threading.Thread(target=_') == 2,
    'spawn=%d bare=%d' % (src.count('_spawn_job('),
                          src.count('threading.Thread(target=_')))
-ck('watch: scan skips while a job runs, is queued or RAM is low (.109)',
-   "if busy or _JOB_STATE['busy'] or _JOB_STATE['queue'] or _ram_low148:" in src, '')
+ck('watch: scan skips while a job runs, is queued or RAM is low (.109; '
+   'R224: a dirty flag from a just-finished job outranks the RAM gate - '
+   'its files get scanned even when memory is tight)',
+   "if busy or _JOB_STATE['busy'] or _JOB_STATE['queue']:" in src
+   and 'elif _ram_low148 and not _dirty224:' in src
+   and "_JOB_STATE.pop('dirty', False)" in src, '')
 ck('watch: jobs requeue while the printer is busy (print has priority; '
    'R160b: the queue SAYS so after 90s instead of swallowing jobs silently)',
    'if _printer_busy():' in src and 'insert(' in src
