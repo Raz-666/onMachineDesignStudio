@@ -35,10 +35,16 @@ anchored to the absolute angle at the loop start:
 Modes
 - FUZZY: random displacement of every OUTER WALL vertex within +- thick
   (seeded RNG -> deterministic), density = share of scattered vertices
-- BUMPS: displacement along the wall normal proportional to one of 21
-  seamless pattern functions (see PATTERNS below)
-- MAP: a grayscale picture wrapped around the object (cylinder projection,
-  ping-pong tiled -> seamless in both directions; white = out, dark = in)
+- BUMPS: displacement along the wall normal proportional to one of 27
+  seamless pattern functions (see PATTERNS below). R238: every pattern
+  carries an AUTO TILT (PATTERN_TILT) - a helical shift that angles the
+  lattice 2 deg off the layer plane (directional looks keep their own
+  angle), so the texture never runs parallel to the print layers.
+- MAP: a grayscale picture wrapped around the object (cylinder
+  projection). R238: the background is detected (Otsu + border vote) and
+  treated as ALPHA - zero displacement there, feathered edges; TILE =
+  endless mirrored wrap, ONCE = one aspect-true wrap positioned
+  TOP/CENTER/BOTTOM (the masked background hides the seam).
 
 Patterns (all seamless, all seeded where random)
   RIDGES      vertical flutes around the object
@@ -48,7 +54,7 @@ Patterns (all seamless, all seeded where random)
   HONEYCOMB   true hex cells (distance field)
   BASKET      woven over/under basket
   ROPE        twisted strands
-  PLANKS      horizontal boards with seeded staggered joints
+  PLANKS      VERTICAL boards - seeded stagger, grooved seams, grain up (R238)
   BRICKS      running-bond brick courses with mortar grooves
   SANDSTONE   fine 2-octave noise (cast sandstone)
   CONCRETE    coarse noise + seeded pores
@@ -61,7 +67,13 @@ Patterns (all seamless, all seeded where random)
   SCRATCH     anisotropic scratches around the circumference
   HATCH       hard diagonal hatching
   GLITCH      seeded per-band steps (the melt / shifted-layer look)
-  MAP         grayscale image wrapped around (cylinder projection)
+  KNIT        nested V-loops in staggered columns (knit/crochet, R238)
+  FLUTED      vertical half-round flutes (kills Z-banding on cylinders, R238)
+  BARK        vertical ridged cracks - tree bark (R238)
+  SCALES      staggered domed shingles - reptile scales (R238)
+  FACETS      diamond low-poly relief crosses (R238)
+  MACRAME     two twisted cord families crossing into a net (R238)
+  MAP         grayscale image, background = alpha (Otsu), TILE or ONCE (R238)
 
 What it never touches
 - ;TYPE: tags, LAYER_MARK / APPLY_TYPE, EXCLUDE_OBJECT_*, temps, fans,
@@ -267,7 +279,67 @@ def _pp(x):
     return x if x <= 1.0 else 2.0 - x
 
 
-def _build_patterns(k, n, seed, img):
+def _map_prepare(img):
+    """R238 (master prompt): Otsu background detection + soft feathering.
+    The background class (decided by the image BORDER vote - a logo lives
+    in the middle) becomes an ALPHA channel: 0 = NO displacement, the
+    object geometry stays untouched there. The foreground keeps a soft
+    grayscale contrast (bump-mapping, not hard displacement edges - the
+    layer adhesion survives). Returns an 'L' height map 0..255."""
+    from PIL import ImageFilter
+    iw, ih = img.size
+    hist = [0] * 256
+    for v in img.getdata():
+        hist[v] += 1
+    total = float(iw * ih)
+    sum_all = float(sum(i * hist[i] for i in range(256)))
+    sum_b = 0.0
+    w_b = 0.0
+    best_t = 127
+    best_var = -1.0
+    for th in range(256):
+        w_b += hist[th]
+        if w_b == 0:
+            continue
+        w_f = total - w_b
+        if w_f == 0:
+            break
+        sum_b += th * hist[th]
+        m_b = sum_b / w_b
+        m_f = (sum_all - sum_b) / w_f
+        var = w_b * w_f * (m_b - m_f) * (m_b - m_f)
+        if var > best_var:
+            best_var = var
+            best_t = th
+    # the border votes which side is background (a full-photo wrap has no
+    # border majority - then the brighter half wins, harmless either way)
+    pi = img.load()
+    border = []
+    for x in range(iw):
+        border.append(pi[x, 0])
+        border.append(pi[x, ih - 1])
+    for y in range(ih):
+        border.append(pi[0, y])
+        border.append(pi[iw - 1, y])
+    bmean = sum(border) / float(len(border))
+    bg_dark = bmean < best_t
+    span = max(1, (255 - best_t) if bg_dark else best_t)
+    from PIL import Image as _I238
+    out = _I238.new('L', (iw, ih))
+    po = out.load()
+    for y in range(ih):
+        for x in range(iw):
+            v = pi[x, y]
+            fg = (v > best_t) if bg_dark else (v < best_t)
+            if not fg:
+                po[x, y] = 0
+            else:
+                po[x, y] = min(255, 60 + int(abs(v - best_t) * 195 / span))
+    return out.filter(ImageFilter.GaussianBlur(1.2))
+
+
+def _build_patterns(k, n, seed, img, map_mode='TILE', map_pos='CENTER',
+                    map_frac=1.0):
     """R175: returns {NAME: fn(s, t) -> -1..+1} with the geometry snapped."""
     rng = random.Random(seed)
     noise = _make_noise(seed)
@@ -370,14 +442,18 @@ def _build_patterns(k, n, seed, img):
 
     # ---- boards / bricks --------------------------------------------------------
     def _planks(s, t):
-        row = int(math.floor(t * n))
-        jt = row_rnd[row % len(row_rnd)]        # seeded stagger per board
-        x = (s * k + jt) % 1.0
-        fy = (t * n) % 1.0
-        board = _smoothstep(0.0, 0.06, fy) * (1.0 - _smoothstep(0.94, 1.0, fy))
+        # R238 (master prompt): VERTICAL boards - lengthwise planks with
+        # seeded stagger, seams as grooves and grain stretched UP in Z
+        # (the old horizontal rows read as plain stripes).
+        ke = k + (k & 1)                # even column count -> clean wrap
+        i = s * ke
+        col = int(math.floor(i))
+        fx = i - col
+        jt = row_rnd[col % len(row_rnd)]
+        x = (fx + jt) % 1.0
         seam = 1.0 - _smoothstep(0.0, 0.05, min(x, 1.0 - x))
-        grain = (noise(s, t, k * 4, n * 4) - 0.5) * 0.5
-        return max(-1.0, min(1.0, 0.75 * board - 0.9 * seam + grain))
+        grain = (noise(s, t, max(2, ke * 6), max(1, n // 3)) - 0.5) * 0.55
+        return max(-1.0, min(1.0, 0.5 - 0.95 * seam + grain))
     pats['PLANKS'] = _planks
 
     def _bricks(s, t):
@@ -391,6 +467,69 @@ def _build_patterns(k, n, seed, img):
         rough = (noise(s, t, k * 3, rows) - 0.5) * 0.35
         return max(-1.0, min(1.0, face * 1.6 - 0.85 + rough))
     pats['BRICKS'] = _bricks
+
+    # ---- R238 (.136ai master prompt): textile, organic, geometric looks --------
+    def _knit(s, t):
+        # KNIT & CROCHET: nested V-loops in staggered columns - the legs of
+        # every stitch arch over the row below (the prompt's sin*cos with
+        # phase shift). Reads as a knitted sleeve; the 3 deg auto-tilt
+        # breaks the remaining parallelism to the layers.
+        ke = k + (k & 1)              # even column count -> clean wrap
+        i = s * ke
+        col = int(math.floor(i))
+        fx = i - col
+        j = t * n
+        fy = j % 1.0
+        fy2 = (fy + (0.5 if col % 2 else 0.0)) % 1.0
+        leg = abs(fx - 0.5)
+        loop = ((1.0 - _smoothstep(0.10, 0.46, leg))
+                * _smoothstep(0.0, 0.28, fy2)
+                * (1.0 - _smoothstep(0.62, 0.98, fy2)))
+        return max(-1.0, min(1.0, loop * 1.6 - 0.6))
+    pats['KNIT'] = _knit
+
+    pats['FLUTED'] = (
+        lambda s, t: 0.86 * math.sin(two_pi * s * k)
+        + 0.14 * math.sin(two_pi * s * k * 3 + 0.7))
+
+    def _bark(s, t):
+        # TREE BARK: vertical cracks - noise stretched hard AROUND the
+        # object, calm in Z: the streaks run up; ridged for deep cracks
+        v = noise(s, t, max(2, k * 6), max(1, n // 3))
+        return max(-1.0, min(1.0, 1.25 * (1.0 - abs(2.0 * v - 1.0)) - 0.4))
+    pats['BARK'] = _bark
+
+    def _scales(s, t):
+        # REPTILE SCALES: staggered domed shingles (imbricate roof tiles)
+        ke = k + (k & 1)
+        i = s * ke
+        col = int(math.floor(i))
+        fx = i - col
+        j = t * n
+        row = int(math.floor(j))
+        fy = j - row
+        fx2 = (fx + (0.5 if row % 2 else 0.0)) % 1.0
+        d = math.hypot((fx2 - 0.5) * 1.15, (fy - 0.72) * 0.9)
+        return max(-1.0, min(1.0,
+                             1.5 * (1.0 - _smoothstep(0.18, 0.55, d)) - 0.5))
+    pats['SCALES'] = _scales
+
+    def _facets(s, t):
+        # GEOMETRIC FACETS: diamond low-poly relief - soft ridge crosses
+        fx = abs((s * k % 1.0) - 0.5) + abs((t * n % 1.0) - 0.5)
+        return max(-1.0, min(1.0, 1.8 * _smoothstep(0.12, 0.62, fx) - 0.9))
+    pats['FACETS'] = _facets
+
+    def _macrame(s, t):
+        # MACRAME: two twisted cord families crossing into a net - one
+        # winds UP, the other DOWN, the crossings read as knots
+        f = max(2, k // 2)
+        turns = max(2, min(48, n))
+        a = math.sin(two_pi * (s * f + t * turns))
+        b = math.sin(two_pi * (s * f - t * turns))
+        return max(math.tanh(2.2 * a), math.tanh(2.2 * b))
+    pats['MACRAME'] = _macrame
+
 
     # ---- noise families (all seeded + periodic) ---------------------------------
     pats['SANDSTONE'] = (
@@ -460,12 +599,25 @@ def _build_patterns(k, n, seed, img):
     # ---- the image wrap ---------------------------------------------------------
     if img is not None:
         iw, ih = img.size
+        # R238 (master prompt): ONCE = the picture wraps around exactly one
+        # time, aspect-true, positioned TOP/CENTER/BOTTOM (t is the global
+        # Z fraction here - apply_texture forces n=1 for ONCE). Outside the
+        # picture: flat 0 (the Otsu background mask makes the seam
+        # invisible). TILE = the endless mirrored wrap of R175.
+        _v0238 = {'TOP': 1.0 - map_frac,
+                  'BOTTOM': 0.0}.get(map_pos, (1.0 - map_frac) / 2.0)
 
         def _map(s, t):
             # hin + mirrored rueckweg over ONE circumference = seamless at
             # the seam (pixel 0 meets pixel 0); same in Z -> flush at the top
-            u = _pp(2.0 * s)
-            v = _pp(2.0 * t)
+            if map_mode == 'ONCE':
+                if map_frac <= 0.0 or t < _v0238 or t > _v0238 + map_frac:
+                    return 0.0
+                u = s % 1.0
+                v = (t - _v0238) / map_frac
+            else:
+                u = _pp(2.0 * s)
+                v = _pp(2.0 * t)
             px = min(iw - 1, int(u * iw))
             py = min(ih - 1, int(v * ih))
             lum = img.getpixel((px, py))
@@ -480,13 +632,30 @@ def _build_patterns(k, n, seed, img):
 PATTERN_NAMES = ('RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX',
                  'HONEYCOMB', 'BASKET', 'ROPE', 'PLANKS', 'BRICKS',
                  'SANDSTONE', 'CONCRETE', 'CLAY', 'CREPE', 'FABRIC',
-                 'PLUSH', 'HILBERT', 'SCRATCH', 'GLITCH', 'MAP')
+                 'PLUSH', 'HILBERT', 'SCRATCH', 'GLITCH', 'KNIT', 'FLUTED',
+                 'BARK', 'SCALES', 'FACETS', 'MACRAME', 'MAP')
+
+# R238 (.136ai master prompt): the AUTO TILT - pattern rows never run
+# parallel to the print layers (that parallelism is why everything read as
+# 'stripes' and why layer lines stayed visible). The tilt is a HELICAL
+# shift of m integer cells over the object height: the seam stays perfect
+# (s=0 and s=1 differ by exactly k integer cells) and the top closes (the
+# total shift m is an integer). Angles in degrees, 0 = self-aligned (the
+# pattern carries its own direction: rope lay, vertical flutes/bark,
+# crossing facets) - everything else gets the 2 degree micro-tilt that
+# optically melts the layer lines away.
+PATTERN_TILT = {
+    'ROPE': 0.0, 'MACRAME': 0.0, 'FLUTED': 0.0, 'BARK': 0.0,
+    'FACETS': 0.0, 'PLANKS': 0.0, 'MAP': 0.0,
+    'KNIT': 3.0, 'HILBERT': 4.0, 'BASKET': 30.0,
+}
 
 
 def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                   fuzzy_density=100.0, bump_pattern='RIDGES', bump_scale=10.0,
                   bump_amp=0.35, direction='OUT', bed=None, version=1,  # version: retired (R158, folder-global auto)
-                  seed=91, zsize=None, map_file=None):
+                  seed=91, zsize=None, map_file=None,
+                  map_mode='TILE', map_pos='CENTER'):
     """Returns (new_path, info). Raises ValueError on bad parameters.
 
     R175 parameter semantics (the LCD speaks these names):
@@ -549,7 +718,16 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
         if not os.path.isfile(_mp):
             raise ValueError('map image not found: %s (tried %s)'
                              % (map_file, ' | '.join(_cands237)))
-        img = Image.open(_mp).convert('L')
+        # R238 (master prompt): Otsu background -> alpha, soft feathered
+        # foreground (bump-mapping - layer adhesion survives)
+        img = _map_prepare(Image.open(_mp).convert('L'))
+        map_mode = str(map_mode).upper()
+        map_pos = str(map_pos).upper()
+        if map_mode not in ('TILE', 'ONCE'):
+            raise ValueError('MAP mode %r must be TILE or ONCE' % map_mode)
+        if map_pos not in ('TOP', 'CENTER', 'BOTTOM'):
+            raise ValueError('MAP position %r must be TOP, CENTER or BOTTOM'
+                             % map_pos)
 
     out_dir = out_dir or os.path.dirname(os.path.abspath(src))
     if bed is None:
@@ -860,10 +1038,34 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                          % base)
     k = max(1, min(240, int(round(circum / float(bump_scale)))))
     n = max(1, min(400, int(round(height / float(zsize)))))
+    # R238: MAP ONCE = one wrap, aspect-true, positioned - t becomes the
+    # GLOBAL Z fraction (n=1), the picture height is a physical fraction
+    # of the object height (clamped to fit)
+    map_frac = 1.0
+    if mode == 'BUMPS' and bump_pattern == 'MAP' and img is not None \
+            and str(map_mode).upper() == 'ONCE':
+        n = 1
+        if img.size[0] > 0:
+            map_frac = min(1.0, (circum * img.size[1] / img.size[0])
+                           / max(0.1, height))
     eff_size = circum / k
     eff_zsize = height / n
 
-    pats = _build_patterns(k, n, int(seed), img)
+    # R238 (master prompt): the AUTO TILT - see PATTERN_TILT above. The
+    # helical shift keeps the seam (integer k cells apart) AND the flush
+    # top (integer total shift) while the lattice leaves the layer plane.
+    _tilt_deg = PATTERN_TILT.get(bump_pattern, 2.0)
+    m238 = 0
+    if _tilt_deg > 0.0 and circum > 0 and height > 0:
+        m238 = max(1, int(round(
+            height * k / (circum * math.tan(math.radians(_tilt_deg))))))
+    tilt_eff = (math.degrees(math.atan(height * k / (m238 * circum)))
+                if m238 else 0.0)
+
+    pats = _build_patterns(k, n, int(seed), img,
+                           map_mode=str(map_mode).upper(),
+                           map_pos=str(map_pos).upper(),
+                           map_frac=map_frac)
     pattern_fn = pats[bump_pattern]
 
     def pattern(x, y, z, s_arc=None):
@@ -878,6 +1080,11 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
             th = math.atan2(y - cy, x - cx)
             s = (th / (2.0 * math.pi)) % 1.0
         t = (((z - minz) * n / height) % 1.0) if height > 0 else 0.0
+        # R238: the helical tilt - s drifts by m238/k wraps over the full
+        # height (seam-safe: integer cells; top-flush: integer shift)
+        if m238:
+            s = (s + m238 * (((z - minz) / height) if height > 0 else 0.0)
+                 / k) % 1.0
         return pattern_fn(s, t)
 
     stats = {'moves': 0, 'shifted': 0, 'clamped': 0, 'layers': 0, 'arcs': 0,
@@ -1054,6 +1261,11 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
             # R237 (.136ah field report): legacy '_M204 ...' lines from the
             # slicer profile die as 'Unknown command' - rewrite them to the
             # intercepted M204 while we stream the file anyway.
+            if line.startswith('EXCLUDE_OBJECT_DEFINE') and '], [' in line:
+                # R239 (.136ai field log): heal a spaced POLYGON while we
+                # stream the file anyway - the mirror tool emitted them and
+                # every start of such a file died as 'Malformed command'
+                line = line.replace('], [', '],[')
             _r237 = _M204_SCRUB.sub(r'\1M204\2', line)
             if _r237 != line:
                 line = _r237
@@ -1176,5 +1388,10 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
             'layers': stats['layers'], 'arcs_flattened': stats['arcs'],
             'arc_loops': len(loops231), 'arc_fallback': _st231['fb'],
             'm204_scrub': stats['m204_scrub'],
+            'tilt': round(tilt_eff, 1), 'tilt_turns': m238,
+            'map_mode': (str(map_mode).upper()
+                         if mode == 'BUMPS' and bump_pattern == 'MAP' else ''),
+            'map_pos': (str(map_pos).upper()
+                        if mode == 'BUMPS' and bump_pattern == 'MAP' else ''),
             'secs': round(time.time() - t0, 2)}
     return out, info

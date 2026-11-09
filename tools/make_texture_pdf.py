@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """TEXTURING.pdf — the documentation of the R2-D2 texture tool (user
 request, .136m round): how the wall displacement works, the EXACT mapping
-of every setting, all 21 patterns with previews sampled from the REAL
+of every setting, all 27 patterns with previews sampled from the REAL
 pattern functions (tools/r2_texture.py _build_patterns - not redrawn,
 the images ARE the code output), and the 44 library presets listed per
 pattern.
@@ -103,7 +103,7 @@ class Doc(BaseDocTemplate):
         canv.line(17*mm, 285*mm, 193*mm, 285*mm)
         canv.setFont('DVS', 8.2); canv.setFillColor(GRAY)
         canv.drawString(17*mm, 287.2*mm, 'R2-D2 Macro System · Texturing — Struktur-Prägung auf der Objektwand')
-        canv.drawRightString(193*mm, 287.2*mm, 'R2-2026-11-09.136ah')
+        canv.drawRightString(193*mm, 287.2*mm, 'R2-2026-11-09.136ai')
         canv.setFont('DVS', 8.6)
         canv.drawCentredString(105*mm, 9.5*mm, 'Seite %d' % doc.page)
         canv.restoreState()
@@ -206,11 +206,12 @@ PAT_TXT = {
  'BASKET': 'Geflochtenes Muster: Zellparität (Zelle in s + Zelle in t) '
    'entscheidet über/unter, Kanten ausgeprägt - Korboptik mit sichtbarem '
    'Kreuz der Latten.',
- 'ROPE': 'Gedrehtes Seil: strands = max(2, k/2) Stränge, twist = n Umläufe '
-   'über die Höhe. Der Betrag-Lifting (|v|^0.6) macht runde, wulstige Stränge.',
- 'PLANKS': 'Bretter: n Reihen, je Reihe ein geseedeter Versatz der '
-   'Stoßfugen (Stagger), Brettkontur mit weichem Rand, Fugen tief, plus '
-   'feine Maserung (Noise).',
+ 'ROPE': 'Gedrehtes Seil: DREI Stränge (R224), tanh macht flachgewölbte '
+   'Stränge mit tiefen runden Rillen - der Schlag kommt über n Umläufe '
+   '(Z-Größe).',
+ 'PLANKS': 'VERTIKALE Bretter (R238): Latten laufen der Länge nach, '
+   'Fugen als Rillen, geseedeter Versatz bricht den Ring, feine '
+   'Maserung nach oben gestreckt.',
  'BRICKS': 'Ziegel: 2n Reihen, gerader und versetzter Verband im Wechsel, '
    'Steinfläche erhaben, Fugen tief, plus raue Noise-Textur pro Stein.',
  'SANDSTONE': 'Geschichteter Sandstein: zwei überlagerte, geseedete Noise-'
@@ -235,15 +236,32 @@ PAT_TXT = {
  'GLITCH': 'Digitale Fehler: pro Band (Zeile) ein geseedeter KONSTANTER '
    'Versatz - ganze Schichten stehen versetzt („geschmolzene" Layer). '
    'Bänder ohne Fehler (r2 &gt; 0.45) bleiben glatt.',
- 'MAP': 'Bildprägung: das gewählte Foto wird als Höhenkarte um die Wand '
-   'gelegt - hin UND gespiegelt zurück über EINEN Umfang (Naht trifft '
-   'Pixel 0 auf Pixel 0, oben bündig). Hell = erhaben. Das Bild wird im '
-   'Texture-Menü unter „Bild" gewählt.',
+ 'KNIT': 'GESTRICKT (R238): geschachtelte V-Schleifen in versetzten '
+   'Spalten - die Beine jeder Masche wölben sich über die Reihe darunter. '
+   'Strickoptik, Auto-Neigung 3°.',
+ 'FLUTED': 'GERIFFELT (R238): vertikale halbrunde Kanneluren - läuft der '
+   'Länge nach, killt Z-Banding auf Zylindern (antike Säulenoptik).',
+ 'BARK': 'BAUMRINDE (R238): vertikale Risse - stark gestrecktes Noise um '
+   'den Umfang, ruhig in Z, geriffelt für tiefe Borke. Rohre werden '
+   'Stämme.',
+ 'SCALES': 'SCHUPPEN (R238): versetzt überlappende gewölbte Schindeln - '
+   'Reptilienlook mit griffiger Haptik.',
+ 'FACETS': 'FACETTEN (R238): Rauten-Relief - vier weiche Dreiecke pro '
+   'Zelle treffen sich auf einem Gratkreuz. Modern, clean, futuristisch.',
+ 'MACRAME': 'MAKRAMEE (R238): zwei gedrehte Schnur-Familien kreuzen sich '
+   'zum Netz - eine Familie windet auf, die andere ab, die Kreuzungen '
+   'lesen sich als Knoten.',
+ 'MAP': 'Bildprägung (R238): Hintergrund-Erkennung (Otsu + Rand-Voting) - '
+   'der Hintergrund wird wie Alpha behandelt: GAR KEINE Verformung dort, '
+   'Kanten weich gefedert (Haftung bleibt). TILE = endlose gespiegelte '
+   'Wiederholung, ONCE = einmal komplett herum, seitenverhältnis-echt, '
+   'Position oben/mittig/unten.',
 }
 PAT_ORDER = ['RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX',
              'HONEYCOMB', 'BASKET', 'ROPE', 'PLANKS', 'BRICKS', 'SANDSTONE',
              'CONCRETE', 'CLAY', 'CREPE', 'FABRIC', 'PLUSH', 'HILBERT',
-             'SCRATCH', 'GLITCH', 'MAP']
+             'SCRATCH', 'GLITCH', 'KNIT', 'FLUTED', 'BARK', 'SCALES',
+             'FACETS', 'MACRAME', 'MAP']
 
 
 def presets_for(pattern):
@@ -658,7 +676,7 @@ def main():
 
     # ------------------------------------------------------------ end ----
     A(Spacer(1, 6*mm))
-    A(Paragraph('Ende · R2-D2 Texturing · Stand .136ah (R237)', S['end']))
+    A(Paragraph('Ende · R2-D2 Texturing · Stand .136ai (R238)', S['end']))
 
     doc = Doc(os.path.join(_here, 'TEXTURING.pdf'))
     doc.build(flow)

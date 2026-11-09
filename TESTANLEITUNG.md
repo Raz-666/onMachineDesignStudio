@@ -1,6 +1,6 @@
 # TESTANLEITUNG — R2-D2 Makro-System (Version .136ac)
 
-Diese Anleitung beschreibt **nur den aktuellen Stand** (.136ah). Sie ist die
+Diese Anleitung beschreibt **nur den aktuellen Stand** (.136ai). Sie ist die
 komplette Feld-Checkliste nach dem Einspielen eines Updates — von Boot bis
 Druckergebnis. Die Historie der Änderungen steht in README.md.
 
@@ -18,7 +18,7 @@ Druckergebnis. Die Historie der Änderungen steht in README.md.
 ## 2. Boot-Check (Pflicht, 1 Minute)
 
 - [ ] Konsole: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.136ah)`
+      (build R2-2026-11-09.136ai)`
 - [ ] ~10 s nach dem Boot: Boot-Sound + LED-Animation
 - [ ] `SHOW_STATUS` antwortet mit Modus/Material/Overrides
 - [ ] Kein Eintrag fehlt: sonst meldet sich `_CHECK_INSTALL` laut mit
@@ -552,7 +552,7 @@ kontaminierte Fenster werden verworfen.
 - [ ] Neue Datei erscheint nach Job-Ende im LCD-Ordner UND im Web-UI
 - [ ] Defaults > Load 1 → Display „Loading profile“ → Beep → „Loaded“
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.136ah)`
+      (build R2-2026-11-09.136ai)`
 
 **Alles grün?** Dann ist .136ag field-clear. Wenn etwas auffällt: Konsole
 kopieren — daraus wird der nächste Feldlog-Eintrag.
@@ -612,7 +612,115 @@ Drei Antworten:
 - [ ] `TEXTURE_APPLY PATTERN=MAP` ohne jedes Bild → sofort
       „MAP needs an image“ + Error-Beep (nicht erst in der Queue)
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.136ah)`
+      (build R2-2026-11-09.136ai)`
 
 **Alles grün?** Dann ist .136ah field-clear. Wenn etwas auffällt:
+Konsole kopieren — daraus wird der nächste Feldlog-Eintrag.
+
+## 24. Die .136ai-Neuerungen (R238 — Master-Prompt-Runde)
+
+**1) Generierter G-Code ist jetzt VON SELBST MCU-sicher.** Der Job-Worker
+misst nach jedem Generator-Lauf die schlimmste Move-Rate und fährt den
+Segment-Fix AUTOMATISCH, wenn sie über 400 Moves/s liegt (die Schwelle
+aus der Start-Dialog-Warnung): „[queue] … AUTO segment fix — N micro
+move(s) merged, worst rate … -> …/s". Der manuelle Menü-Weg bleibt für
+alte Uploads. Nach dem Generieren ist also KEIN separater Segment-Fix
+mehr nötig.
+
+**2) Die Warteschlange lässt sich STEUERN.** Hauptmenü, direkt über der
+SD-Karte (heiß jetzt „Gen queue", nicht mehr unten):
+- **Skip job -> next** — beendet den LAUFENDEN Job (Teil-Datei wird
+  gelöscht), der nächste startet.
+- **Stop: job + queue** — beendet den laufenden Job UND leert die
+  Warteschlange (Doppelklick-Schutz).
+- **Clear waiting queue** — wie gehabt: nur die Wartenden weg.
+Der Abbruch trifft den Job an einem sicheren Punkt im Generator (nie
+mitten in einem Schreibvorgang). Auch Mainsail/Konsole:
+`_GEN_QUEUE_SKIP` bzw. `_GEN_QUEUE_STOP CONFIRM=1`.
+
+**3) STL-Export ist in Mainsail sichtbar.** Ergebnisse liegen jetzt im
+Ordner **STL** als `name_object.stl.gcode` — Mainsail zeigt sie, ein
+Klick lädt sie herunter, Endung `.gcode` entfernen, fertig (der Watcher
+behandelt sie als Daten, nicht als G-Code; im LCD-Browser erklärt der
+Klick den Weg statt zu drucken).
+
+**4) Texturen hören auf, Streifen zu sein (Master-Prompt).**
+- **Auto-Neigung:** Jedes Muster läuft um ~2° schräg zu den Schichten
+  (helische Verschiebung — Naht bleibt perfekt, oben schließt es).
+  Gerichtete Muster haben ihren eigenen Winkel (Korb 30°, Strick 3°);
+  Seil/Riffel/Rinde/Facetten/Makramee/Planken richten sich selbst aus.
+  Die Fertigmeldung sagt es: „[auto-tilt 2.0 deg]".
+- **6 neue Muster (27 gesamt, Seite 4):** Strick (V-Maschen), Riffel
+  (vertikal — killt Z-Banding), Rinde (vertikale Risse), Schuppen
+  (dachziegelartig), Facetten (Rauten-Relief), Makramee (kreuzende
+  Schnüre). **Planken laufen jetzt VERTIKAL.**
+- **Bild als MAP:** Der Hintergrund wird erkannt (Otsu) und wie ein
+  Alphakanal behandelt — dort GAR KEINE Verformung, weiche Übergänge
+  (Haftung bleibt). Neu: **ONCE** = einmal komplett herum, seiten-
+  verhältnis-echt, Position oben/mitten/unten (der freigestellte
+  Hintergrund macht die Naht unsichtbar); **TILE** = endlos wie bisher.
+- **Menü aufgeräumt:** Fuzzy-Zeilen nur im Fuzzy-Modus, Muster-Zeilen
+  nur im Bumps-Modus.
+
+**5) Zur Temp-Flut in der WebUI:** Im Paket existiert KEIN Absender
+(komplette Prüfung: kein Loop druckt Temperaturen, M105/M155 kommen
+nicht vor, im ganzen 3-h-Log war gcodein=0). Das klassische Bild ist
+ein externer Dienst, der M105 pollt (z. B. ein alter OctoPrint im
+Hinterstand — dann flutet es die Konsole mit T:-Zeilen). Prüfen mit
+`sudo systemctl list-units --type=service | grep -i octo`. Wichtig:
+Konsolen-Meldungen belasten die MCU NICHT (R235-Beweis) — es ist
+nur Optik.
+
+**6) R239 — „Druck lässt sich nicht starten" (Feldlog 2).** Fünfmal
+`Malformed command 'EXCLUDE_OBJECT_DEFINE … POLYGON=[[137.3,111.5],
+[137.3,110.9], …]'` — **Leerzeichen nach den Kommas** im Polygon.
+Klippers Parameter-Parser (shlex) zerschneidet den Wert an
+Leerzeichen → die Zeile stirbt als „Malformed" → Klippy landet im
+Error-State → JEDER Start solcher Dateien schlägt fehl (und jede
+Auswahl, weil der Watcher die Zeile zur Mesh-Vorbereitung nochmal
+pusht). **Ursache: der MIRROR-Tool** hat das gespiegelte Polygon mit
+`, `-Trennern neu geschrieben (Dein Verdacht war richtig!) — die
+Textur-Dateien (BigRosMIR*) haben die Zeile geerbt. Drei Fixes:
+
+- **Mirror schreibt kompakt** (die R87.2-Regel, die alle anderen
+  Emitter schon einhielten).
+- **Jeder Umschreiber heilt Alt-Dateien:** Segment-Fix, Textur,
+  Auswahl-Replay und Range-Auszüge komprimieren `], [` → `],[`
+  während sie die Datei ohnehin streamen.
+- **Segment-Fix wird bei Spiral-Vasen wirksam:** Die alten Regex
+  sah Z-tragende G1-Züge (Vasenmodus!) nicht und die 0,35-mm-Kette
+  war zu kurz — 18 000 Moves/s blieben 18 000 (113 von einer halben
+  Million Zügen gemerged). Jetzt: Z reitet mit, Ketten bis 128 Züge,
+  begrenzt durch die **Sehnen-Abweichung ≤ 0,12 mm** (ein Fünftel
+  der Linienbreite — flache Fluten mergen frei, wandernde Pfade
+  stoppen).
+
+**WICHTIG für bestehende Dateien:** Einmal **Segment fix** über jede
+Mirror-/Textur-Datei laufen lassen (Pre-Print > File > Segment fix) —
+das heilt das Polygon UND mergt die Mikrozüge. Danach startet der
+Druck normal.
+
+### Feld-Checkliste .136ai
+
+- [ ] Eine alte Mirror-/Textur-Datei (z. B. BigRosMIR*) → Pre-Print >
+      File > Segment fix → KEIN „Malformed command" mehr in der Konsole
+      bei Auswahl UND beim Start → Druck beginnt normal
+- [ ] Irgendeinen Generator laufen lassen → Konsole meldet bei riskantem
+      Output „AUTO segment fix … merged" → Datei startet OHNE
+      SegFix-Warnung im Dialog
+- [ ] 2+ Jobs in die Queue → Hauptmenü über der SD-Karte:
+      „Gen queue: 2 waiting" → „Skip job -> next" beendet den laufenden,
+      der nächste beginnt; „Stop" räumt alles weg
+- [ ] Pre-Print > File > STL → Ergebnis im Ordner STL als .stl.gcode →
+      in Mainsail sichtbar + downloadbar, LCD-Klick erklärt
+- [ ] Textur Korb/Strick/Seil auf eine Testvase → Muster läuft SCHÄG
+      bzw. gedreht (nicht mehr schichtparallel), Fertigmeldung nennt
+      „[auto-tilt … deg]"
+- [ ] Textur Riffel/Rinde/Planken → Struktur läuft VERTIKAL
+- [ ] Ein Logo (heller Hintergrund) als MAP → ONCE + Pos: top → Logo
+      einmal herum oben, Hintergrund unangetastet, Naht unsichtbar
+- [ ] `Macro system OK: all 19 modules loaded and current
+      (build R2-2026-11-09.136ai)`
+
+**Alles grün?** Dann ist .136ai field-clear. Wenn etwas auffällt:
 Konsole kopieren — daraus wird der nächste Feldlog-Eintrag.

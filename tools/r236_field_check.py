@@ -279,8 +279,8 @@ calls = pp.count('_genq_push()')
 check('D2: pushed on every change (enqueue/dispatch/finish/clear >= 4 spots)',
       calls >= 4, str(calls))
 check('D3: main menu item exists (above the SD card)',
-      '[menu __main __genq]' in menus
-      and menus.index('[menu __main __genq]') < menus.index(
+      '[menu __main __queue]' in menus          # R238: renamed from __genq
+      and menus.index('[menu __main __queue]') < menus.index(
           '[menu __main __sdcard]'))
 check('D4: it is only visible while anything waits or builds',
       "gen_queue_cnt|default(0)|int > 0 or "

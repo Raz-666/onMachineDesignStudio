@@ -77,7 +77,7 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-09.136ah'
+POSTPROC_RELEASE = 'R2-2026-11-09.136ai'
 POSTPROC_BUILD = 'R236'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
@@ -1513,7 +1513,7 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                         if m and not e_rel:
                             e_abs = float(m.group(1))
                 if ls.startswith('EXCLUDE_OBJECT_DEFINE'):
-                    excludes.append(ls)
+                    excludes.append(_eod_compact(ls))
             # first _FILE_INFO line anywhere (goes to the top of the excerpt)
             if file_info_line is None and ls.startswith('_FILE_INFO'):
                 file_info_line = line
@@ -8647,6 +8647,13 @@ JOB_STUCK_S = 1200          # 20 min: every real build stays well under it
 _GENQ_PUSHED = [None]
 
 
+class _JobCancelled(Exception):
+    """R238 (.136ai): raised inside generator hot loops by _job_tick when
+    the user cancels from the queue menu - 'SKIP' kills the CURRENT job
+    (the next one starts), 'STOP' also clears the waiting line. The job
+    worker deletes the partial output and reports."""
+
+
 def _genq_push():
     """R236: keep save_variables.gen_queue_cnt == len(job queue)."""
     with _JOB_STATE['lock']:
@@ -8685,6 +8692,10 @@ def _job_tick(step=1, every=25, pause=0.02):
     its own when the machine idles."""
     if not _JOB_YIELD['on']:
         return
+    # R238: the cancel door - checked in every generator hot loop
+    _k238 = _JOB_STATE.get('kill')
+    if _k238:
+        raise _JobCancelled(_k238)
     _JOB_YIELD['n'] += step
     if _JOB_YIELD['n'] >= every:
         _JOB_YIELD['n'] = 0
@@ -8743,6 +8754,9 @@ NONCE_KEYS = ('preview_nonce', 'range_nonce', 'label_gen_nonce', 'reso_nonce',
               'mirror_nonce',
               # R223: generator-queue escape hatch (.136u)
               'gen_clear_nonce',
+              # R238 (.136ai): queue KILL channel - Skip current job /
+              # Stop everything (mode rides in genq_kill_mode)
+              'genq_kill_nonce',
               'quality_fix_nonce', 'speed_fix_nonce',
               # R147 - .108 field log - the r143 audit parses this tuple
               # comment-safe since R186, parentheses are fine. The
@@ -8803,8 +8817,11 @@ _GEN_NAME_RE = re.compile(r'^(?:V\d+_|00_)')
 
 
 def _is_gen_name(name):
-    """True if NAME looks like a generator output (Vnn_..., legacy 00_...)."""
-    return bool(_GEN_NAME_RE.match(name)) and str(name).endswith('.gcode')
+    """True if NAME looks like a generator output (Vnn_..., legacy 00_...).
+    R238: STL exports (.stl.gcode) are DATA, not g-code - never processed,
+    retagged or counted, even though their name matches."""
+    return (bool(_GEN_NAME_RE.match(name)) and str(name).endswith('.gcode')
+            and not str(name).lower().endswith('.stl.gcode'))
 
 
 # R160 (.120): the feature types the _FILE_INFO macro can display (FS_/FA_
@@ -17800,14 +17817,14 @@ def _stl_export(directory, rel, out_dir=None):
         _minseg216 = min(1.2, max(0.10, _minseg216))
 
     # ---- pass 3: stream the ribbon boxes into a binary STL ---------------
-    outdir = out_dir or os.path.join(directory, 'stl')
+    outdir = out_dir or os.path.join(directory, 'STL')
     os.makedirs(outdir, exist_ok=True)
     base = os.path.basename(rel)
     for ext in ('.gcode', '.gco', '.g', '.gz'):
         if base.lower().endswith(ext):
             base = base[:-len(ext)]
             break
-    out = os.path.join(outdir, base + '_object.stl')
+    out = os.path.join(outdir, base + '_object.stl.gcode')
     n_tri = 0
     n_box = 0
     with open(out, 'wb') as fo:
@@ -18067,6 +18084,7 @@ def _optimize_copy(directory, rel, snap):
 
 
 _XY_G1_RE = re.compile(r'^G1 X(?P<X>[-\d.]+) Y(?P<Y>[-\d.]+)'
+                       r'(?: Z(?P<Z>[-\d.]+))?'
                        r'(?: E(?P<E>[-\d.]+))?(?:\s+F(?P<F>\d+))?')
 _XY_RE = re.compile(r'(?:^|\s)X([-\d.]+)')
 _Y_RE = re.compile(r'(?:^|\s)Y([-\d.]+)')
@@ -18121,12 +18139,16 @@ def _worst_move_rate(path):
 def _segments_fix_file(path):
     """R133 (field log .94, MCU 'Timer too close'): merge micro G1
     segments in place - hops under 0.1mm (the scaled-down circle-arc
-    flood, up to 3600 moves/s) merge while the straight-line total stays
-    <= 0.35mm, so geometry never deviates more than a line width. Only
+    flood, up to 3600 moves/s) merge in chains of at most 128 moves,
+    bounded by CHORD DEVIATION (R239: <= 0.12mm - a fifth of the line
+    width; the old 0.35mm total cap left a spiral-vase chord flood at
+    18 000 moves/s untouched). Z rides along (spiral vase moves carry
+    it - the end Z wins, dz counts into the hop distance), so does a
+    legacy '_M204' rename and the spaced-POLYGON heal (R239). Only
     CONSECUTIVE G1 XY extrusions merge - feature boundaries, travels and
     retracts stay untouched. E keeps its meaning (relative: summed,
     absolute: last wins), F = the chain's first feed. Returns
-    (merged_hops, rate_before, rate_after)."""
+    (merged_hops, rate_before, rate_after, m204_renamed)."""
     rate_before = _worst_move_rate(path)
     tmp = path + '.sgm'
     merged = 0
@@ -18144,8 +18166,9 @@ def _segments_fix_file(path):
             fo_.write(pd_['text'] + '\n')
         else:
             ftxt = ' F%s' % pd_['f'] if pd_['f'] else ''
-            fo_.write('G1 X%.3f Y%.3f E%.5f%s\n'
-                      % (pd_['xe'], pd_['ye'], pd_['e'], ftxt))
+            ztxt = (' Z%.3f' % pd_['z']) if pd_['z'] is not None else ''
+            fo_.write('G1 X%.3f Y%.3f%s E%.5f%s\n'
+                      % (pd_['xe'], pd_['ye'], ztxt, pd_['e'], ftxt))
 
     with open(path, 'r', errors='replace') as fi, open(tmp, 'w') as fo:
         for raw in fi:
@@ -18153,22 +18176,51 @@ def _segments_fix_file(path):
             m = _XY_G1_RE.match(line) if line.startswith('G1 ') else None
             if m is not None and m.group('E') is not None:
                 x, y = float(m.group('X')), float(m.group('Y'))
+                z = float(m.group('Z')) if m.group('Z') is not None else None
                 e = float(m.group('E'))
                 f = m.group('F')
                 if pend is not None:
-                    de = math.hypot(x - pend['xe'], y - pend['ye'])
-                    tot = math.hypot(x - pend['x0'], y - pend['y0'])
-                    if de < 0.1 and tot <= 0.35:
-                        pend['xe'], pend['ye'] = x, y
-                        pend['e'] = (pend['e'] + e) if e_rel else e
-                        pend['hops'] += 1
-                        merged += 1
-                        lx, ly = x, y
-                        continue
+                    dz239 = (z - pend['z']) if (z is not None
+                                                 and pend['z'] is not None) \
+                        else 0.0
+                    de = math.hypot(x - pend['xe'], y - pend['ye'], dz239)
+                    # R239 (.136ai field log): the old 0.35mm TOTAL cap
+                    # could not heal a spiral-vase chord flood (18 000
+                    # moves/s stayed 18 000 - the fix merged 113 of half a
+                    # million moves). Replaced by a chain of at most 128
+                    # moves bounded by CHORD DEVIATION: flat/straight
+                    # floods merge freely (a chain of 128 micro hops is one
+                    # output move), a wandering path stops the moment the
+                    # chord leaves a 0.12mm tube around it (a fifth of the
+                    # line width - the geometry never deviates more).
+                    if de < 0.1 and pend['hops'] < 127:
+                        ax239, ay239 = pend['x0'], pend['y0']
+                        dx239, dy239 = x - ax239, y - ay239
+                        l239 = math.hypot(dx239, dy239)
+                        ok239 = True
+                        for bx239, by239 in pend['pts']:
+                            d239 = (abs(dx239 * (by239 - ay239)
+                                        - dy239 * (bx239 - ax239)) / l239
+                                    if l239 > 0.0
+                                    else math.hypot(bx239 - ax239,
+                                                    by239 - ay239))
+                            if d239 > 0.12:
+                                ok239 = False
+                                break
+                        if ok239:
+                            pend['xe'], pend['ye'] = x, y
+                            if z is not None:
+                                pend['z'] = z
+                            pend['e'] = (pend['e'] + e) if e_rel else e
+                            pend['pts'].append((x, y))
+                            pend['hops'] += 1
+                            merged += 1
+                            lx, ly = x, y
+                            continue
                     _flush(fo, pend)
                     pend = None
                 pend = {'text': line, 'x0': lx, 'y0': ly, 'xe': x, 'ye': y,
-                        'e': e, 'f': f, 'hops': 0}
+                        'z': z, 'e': e, 'f': f, 'hops': 0, 'pts': [(x, y)]}
                 lx, ly = x, y
                 continue
             if pend is not None:
@@ -18177,6 +18229,8 @@ def _segments_fix_file(path):
             _rw237 = _m204_r237.sub(r'\1M204\2', raw)
             if _rw237 != raw:
                 m204_seen += 1
+            if _rw237.startswith('EXCLUDE_OBJECT_DEFINE'):
+                _rw237 = _eod_compact(_rw237)   # R239: heal spaced polygons
             fo.write(_rw237)
             if line.startswith('G0 ') or line.startswith('G1 '):
                 mx = _XY_RE.search(line)
@@ -20929,6 +20983,19 @@ def _peek_file_info(path):
     return info
 
 
+def _eod_compact(ls):
+    """R239 (.136ai field log): Klipper's shlex splits command values at
+    whitespace - a POLYGON written with ', ' point separators dies as
+    'Malformed command'. The mirror tool emitted spaced polygons (R224
+    used ', '.join); every selection replay AND every print start of such
+    a file ended in klippy's error state = 'the print will not start'.
+    This compacts the separators; CENTER/NAME never carry spaces in the
+    field, so the replace can never touch anything else."""
+    if '], [' in ls:
+        return ls.replace('], [', '],[')
+    return ls
+
+
 def _peek_objects(path, limit=80, max_bytes=12288):
     """R75: collect the file's EXCLUDE_OBJECT_DEFINE lines for a verbatim replay.
 
@@ -20952,7 +21019,7 @@ def _peek_objects(path, limit=80, max_bytes=12288):
     for l in head.split('\n'):
         ls = l.strip()
         if ls.startswith('EXCLUDE_OBJECT_DEFINE'):
-            defs.append(ls)
+            defs.append(_eod_compact(ls))    # R239: heal spaced polygons
             total += len(ls) + 1
             if len(defs) >= limit or total >= max_bytes:
                 break
@@ -21493,6 +21560,11 @@ def _meta_finalize(p, src=None, force=False):
                 and not any(('/%s/' % d) in p.replace('\\', '/')
                             for d in set(GEN_SUBDIRS.values()))):
             return 'foreign'           # not one of ours - hands off
+        # R238: STL exports are binary data despite the .gcode tail -
+        # the Mainsail download trick. Never parse them as g-code.
+        if p.replace('\\', '/').lower().endswith('.stl.gcode') \
+                or '/stl/' in p.replace('\\', '/').lower():
+            return 'foreign'
         st = gcode_meta.finalize(p, src=src)
         if st == 'meta':
             print('[meta] %s: thumbnail + time + filament added'
@@ -22626,7 +22698,11 @@ def apply_mirror(src, axis='x', out_dir=None, bed=None, obj=None):
                 _close = ']'
             pts = re.findall(r'\[(-?[\d.]+),(-?[\d.]+)\]', tail)
             if pts:
-                new_pts = ', '.join(
+                # R239 (.136ai field log): NO ', ' separators - Klipper's
+                # shlex splits the value at whitespace and the whole line
+                # dies as 'Malformed command' (the R87.2 rule; the spaced
+                # polygon killed every start of a mirrored file)
+                new_pts = ','.join(
                     '[%.3f,%.3f]' % (
                         (2.0 * cx - float(a)) if axis == 'x' else float(a),
                         float(b) if axis == 'x' else (2.0 * cy - float(b)))
@@ -23328,6 +23404,27 @@ def watch(directory, interval=5.0, once=False):
             _genq_push()      # R236: one left the waiting line
             with _JOB_STATE['lock']:
                 _n236 = len(_JOB_STATE['queue'])
+            # R238 (.136ai): a queued job parked in the busy/RAM wait can be
+            # cancelled too - it never started, so dropping it is instant
+            if _JOB_STATE.get('kill'):
+                _k238w = _JOB_STATE['kill']
+                _JOB_STATE['kill'] = None
+                if _k238w == 'STOP':
+                    with _JOB_STATE['lock']:
+                        _JOB_STATE['queue'].clear()
+                with _JOB_STATE['lock']:
+                    _JOB_STATE['keys'].discard(key)
+                try:
+                    _moonraker_gcode(
+                        'RESPOND MSG="[queue] %s dropped (cancel - it never '
+                        'started)%s"\\nM117 %s dropped'
+                        % (name,
+                           ' - queue cleared' if _k238w == 'STOP' else '',
+                           name))
+                except Exception:                           # noqa: BLE001
+                    pass
+                _genq_push()
+                continue
             _spin148['win'] = True      # R236: CPU window is contaminated
             name, key, fn, outs, t_spawn, t_wait, t_notice, ram_min = item
             _ram162 = _mem_available_mb()
@@ -23448,14 +23545,45 @@ def watch(directory, interval=5.0, once=False):
             try:
                 if 'err' in box:
                     e = box['err']
-                    print(f'[job:{name}] error: {e!r}', flush=True)
-                    try:
-                        _moonraker_gcode(
-                            'RESPOND MSG="[queue] %s ABORTED: %s"\n'
-                            'M117 %s error\n_SOUND_LIB NAME=r2_error'
-                            % (name, e, name))
-                    except Exception:                           # noqa: BLE001
-                        pass
+                    if isinstance(e, _JobCancelled):
+                        # R238 (.136ai): user cancel from the queue menu -
+                        # the partial output dies, the queue says what happens
+                        # next (SKIP: the next job starts, STOP: queue clear)
+                        _k238c = str(e) or _JOB_STATE.get('kill') or 'SKIP'
+                        _JOB_STATE['kill'] = None
+                        if _k238c == 'STOP':
+                            with _JOB_STATE['lock']:
+                                _JOB_STATE['queue'].clear()
+                        for _o238 in (outs or []):
+                            try:
+                                if _o238 and os.path.isfile(_o238):
+                                    os.remove(_o238)
+                                    print('[queue] partial output removed: '
+                                          '%s' % _o238, flush=True)
+                            except OSError:
+                                pass
+                        try:
+                            _moonraker_gcode(
+                                'RESPOND MSG="[queue] %s CANCELLED - partial '
+                                'output deleted%s"\n'
+                                'M117 %s cancelled\n'
+                                '_SOUND_LIB NAME=r2_notice'
+                                % (name,
+                                   ' - queue cleared' if _k238c == 'STOP'
+                                   else ' - the next job starts', name))
+                        except Exception:                       # noqa: BLE001
+                            pass
+                        print('[queue] %s cancelled (%s)' % (name, _k238c),
+                              flush=True)
+                    else:
+                        print(f'[job:{name}] error: {e!r}', flush=True)
+                        try:
+                            _moonraker_gcode(
+                                'RESPOND MSG="[queue] %s ABORTED: %s"\n'
+                                'M117 %s error\n_SOUND_LIB NAME=r2_error'
+                                % (name, e, name))
+                        except Exception:                       # noqa: BLE001
+                            pass
                     outs = []
                 else:
                     outs = box.get('outs') or []
@@ -23465,15 +23593,43 @@ def watch(directory, interval=5.0, once=False):
                 # field Pi)
                 for _o in (outs or []):
                     try:
-                        if _o and os.path.isfile(_o):
+                        if _o and os.path.isfile(_o) \
+                                and str(_o).endswith('.gcode') \
+                                and not str(_o).lower().endswith('.stl.gcode'):
                             _mr = _worst_move_rate(_o)
                             if _mr and _mr > 1.0:
                                 _patch_info_kv(_o, 'MOVERATE', '%.0f' % _mr)
+                            # R238 (.136ai field wish): MCU-safe BY
+                            # CONSTRUCTION - a freshly generated file above
+                            # the watcher's own risk threshold gets the
+                            # segment fix AUTOMATICALLY (the .136ae field
+                            # log: a texture print ran 6000 moves/s and
+                            # needed the manual fix). No separate menu step.
+                            if _mr and _mr > 400.0:
+                                _n238s, _rb238s, _ra238s, _m2r238s = \
+                                    _segments_fix_file(_o)
+                                if _n238s or _m2r238s:
+                                    if _ra238s:
+                                        _patch_info_kv(_o, 'MOVERATE',
+                                                       '%.0f' % _ra238s)
+                                    try:
+                                        _moonraker_gcode(
+                                            'RESPOND MSG="[queue] %s: AUTO '
+                                            'segment fix - %d micro move(s) '
+                                            'merged, worst rate %.0f -> '
+                                            '%.0f/s (MCU budget ~450)%s"'
+                                            % (os.path.basename(_o), _n238s,
+                                               _rb238s, _ra238s,
+                                               ' [legacy _M204 renamed: %d]'
+                                               % _m2r238s if _m2r238s else ''))
+                                    except Exception:             # noqa: BLE001
+                                        pass
                     except Exception:                           # noqa: BLE001
                         pass
             finally:
                 _JOB_YIELD['on'] = False
                 _JOB_STATE['busy'] = False
+                _JOB_STATE['kill'] = None    # R238: cancel door closed
                 _JOB_STATE['thread'] = None      # R224: zombie net off
                 _JOB_STATE['zombie'] = None
                 # R224 (.136s field log): a fresh generator file must show
@@ -23550,6 +23706,7 @@ def watch(directory, interval=5.0, once=False):
     last_plotstatus_nonce = None
     last_host_nonce = None
     last_gclear_nonce = None    # R223: generator-queue clear (.136u)
+    last_genq_kill_nonce = None  # R238: queue skip/stop channel (.136ai)
     first = True
     first_prime = True
     # R148 (.109 field log: the watcher pinned a full core on the Pi while
@@ -23833,6 +23990,7 @@ def watch(directory, interval=5.0, once=False):
                 last_cake_nonce = _np.get('cake_nonce')      # R177
                 last_stringart_nonce = _np.get('stringart_nonce')  # R178
                 last_gclear_nonce = _np.get('gen_clear_nonce')  # R223
+                last_genq_kill_nonce = _np.get('genq_kill_nonce')  # R238
                 # R223 (.136s field log): gen_busy=1 OUTLIVES a killed
                 # watcher - it was raised by a job whose finally never ran
                 # (the wedged photo build took the thread down with the
@@ -23951,7 +24109,10 @@ def watch(directory, interval=5.0, once=False):
                             if _inf214['capped']:
                                 _msg214 += (' - CAPPED at %d ribbons, mesh '
                                             'truncated' % _inf214['boxes'])
-                            _msg214 += ' - outer skin: internal infill skipped'
+                            _msg214 += (' - outer skin: internal infill '
+                                        'skipped - Mainsail: STL folder, '
+                                        'download + remove the .gcode '
+                                        'ending, every 3D program opens it')
                             print(_msg214, flush=True)
                             try:
                                 _moonraker_gcode(
@@ -24726,6 +24887,53 @@ def watch(directory, interval=5.0, once=False):
                       % _dropped223, flush=True)
         except Exception as e:                              # noqa: BLE001
             print(f'[queue] clear error: {e!r}', flush=True)
+        # R238 (.136ai field wish): the queue KILL channel - Skip cancels
+        # the RUNNING job (the next one starts), Stop cancels + clears the
+        # waiting line. The kill flag is consumed by _job_tick inside the
+        # generator hot loops (cooperative - partial output is deleted by
+        # the worker), a job parked in the busy/RAM wait is dropped at its
+        # next dispatch attempt.
+        try:
+            _kn238 = rv.get('genq_kill_nonce', '')
+            if _kn238 and _kn238 != last_genq_kill_nonce:
+                last_genq_kill_nonce = _kn238
+                _km238 = str(rv.get('genq_kill_mode', 'SKIP')
+                             or 'SKIP').strip().strip('\'"').upper()
+                if _km238 not in ('SKIP', 'STOP'):
+                    _km238 = 'SKIP'
+                _th238 = _JOB_STATE.get('thread')
+                _run238 = (_JOB_STATE.get('busy')
+                           or (_th238 is not None and _th238.is_alive()))
+                if not _run238:
+                    try:
+                        _moonraker_gcode(
+                            'RESPOND MSG="[queue] nothing is building - '
+                            'skip/stop needs a RUNNING job (Clear queue '
+                            'drops the waiting ones)"\nM117 Queue idle')
+                    except Exception:                       # noqa: BLE001
+                        pass
+                else:
+                    _JOB_STATE['kill'] = _km238
+                    _drop238 = 0
+                    if _km238 == 'STOP':
+                        with _JOB_STATE['lock']:
+                            _drop238 = len(_JOB_STATE['queue'])
+                            _JOB_STATE['queue'].clear()
+                        _genq_push()
+                    try:
+                        _moonraker_gcode(
+                            'RESPOND MSG="[queue] cancelling the current '
+                            'job (%s)%s - it stops at the next safe point, '
+                            'the partial output is deleted"\n'
+                            'M117 Cancelling job'
+                            % (_km238,
+                               ' + %d queued dropped' % _drop238
+                               if _drop238 else ''))
+                    except Exception:                       # noqa: BLE001
+                        pass
+                    print('[queue] kill requested (%s)' % _km238, flush=True)
+        except Exception as e:                              # noqa: BLE001
+            print(f'[queue] kill error: {e!r}', flush=True)
         # R63: label generator request from the LCD (label_gen_nonce bumps per job)
         try:
             ln = rv.get('label_gen_nonce', '')
@@ -25723,6 +25931,12 @@ def watch(directory, interval=5.0, once=False):
                     seed=int(float(rv.get('texture_seed', 91) or 91)),
                     zsize=float(rv.get('texture_zsize', 0) or 0) or None,
                     map_file=(_map91 or None),
+                    map_mode=str(rv.get('texture_map_mode', 'TILE')
+                                 or 'TILE').strip().strip('\'"').upper()
+                    or 'TILE',
+                    map_pos=str(rv.get('texture_map_pos', 'CENTER')
+                                or 'CENTER').strip().strip('\'"').upper()
+                    or 'CENTER',
                     bed=_bed91,
                     version=max(1, min(int(float(
                         rv.get('gen_version', 1) or 1)), 99)))
@@ -25741,6 +25955,13 @@ def watch(directory, interval=5.0, once=False):
                                        info_t.get('z_repeats', 0),
                                        info_t.get('eff_size', 0.0),
                                        info_t.get('eff_zsize', 0.0)))
+                        if info_t.get('tilt'):
+                            _snap175 += (' [auto-tilt %.1f deg - never '
+                                         'parallel to the layers]'
+                                         % info_t['tilt'])
+                        if info_t.get('map_mode') == 'ONCE':
+                            _snap175 += (' [MAP once around, %s]'
+                                         % info_t.get('map_pos', 'CENTER'))
                     _snap237 = ''
                     if info_t.get('m204_scrub'):
                         _snap237 = (' [legacy _M204 renamed: %d]'
@@ -27155,7 +27376,7 @@ def main():
     if args[0] == '--stl':
         # R214: SSH one-liner - object-only STL from a finished G-code.
         #   r2_postproc.py --stl mypart.gcode
-        # Output: <folder>/stl/mypart_object.stl (next to the source).
+        # Output: <folder>/STL/mypart_object.stl.gcode (Mainsail: download, strip .gcode).
         if len(args) < 2:
             print('usage: r2_postproc.py --stl FILE.gcode [OUTDIR=]')
             print('  object-only export: supports, skirt, brim, prime tower,')

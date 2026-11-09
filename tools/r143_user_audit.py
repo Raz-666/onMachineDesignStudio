@@ -442,6 +442,10 @@ LIVE_OK = ('preview_nonce', 'host_nonce', 'label_fit_nonce',
                                           # no SD/CPU load -> must answer
                                           # DURING a print too (the .136s
                                           # wedged-photo scenario)
+           'genq_kill_nonce',             # R238 (.136ai): queue skip/stop -
+                                          # cancels the RUNNING job (pure
+                                          # flag + message, REDUCES load) ->
+                                          # must answer during a print too
            'retract_fix_nonce', 'vol_fix_nonce', 'flowcap_fix_nonce',
            'travelacc_fix_nonce', 'segments_fix_nonce',
            'quality_fix_nonce', 'speed_fix_nonce')  # file_fix blocks itself

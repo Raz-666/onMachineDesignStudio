@@ -4168,7 +4168,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.136ab) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-11-09.136ah'", repr(_v66)))
+    _v66 == "'R2-2026-11-09.136ai'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -5481,6 +5481,7 @@ tests.append(('R75 watcher: _prime_nonces adopts the current counters (no re-fir
         'twist_nonce': None,
         'mirror_nonce': None,      # R224: mirror tool
         'gen_clear_nonce': None,   # R223: queue escape hatch
+        'genq_kill_nonce': None,   # R238: queue skip/stop channel
         'quality_fix_nonce': None, 'speed_fix_nonce': None}, ''))
 # R214 STL + R216 (.136n) shape+twist+fixes
 tests.append(('R75 watcher: daemon runs niced + primes on the first pass',
@@ -6709,7 +6710,7 @@ tests.append(('R86-R224 watcher: NONCE_KEYS has 44 channels incl. litho/seal/fra
     '+ the SD-browser image channel (.130) + the STL export channel (.136m) '
     '+ the shape generator channel (.136n) + the queue-clear channel (.136u) '
     '+ the mirror channel (.136v)',
-    len(_pp.NONCE_KEYS) == 44 and 'stl_nonce' in _pp.NONCE_KEYS
+    len(_pp.NONCE_KEYS) == 45 and 'stl_nonce' in _pp.NONCE_KEYS
     and 'mirror_nonce' in _pp.NONCE_KEYS
     and 'gen_clear_nonce' in _pp.NONCE_KEYS
     and 'quality_fix_nonce' in _pp.NONCE_KEYS
@@ -7124,12 +7125,13 @@ import re as _re87
 _lcd87 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 _top87 = sorted(_re87.findall(r'^\[menu __main ([a-z_0-9]+)\]$', _lcd87, _re87.M))
 tests.append(('R87/R169 LCD: 14 top-level R2 menus (+ R169 Rate print? + Optimized '
-              '+ the R236 Gen queue) '
+              '+ the R236 Gen queue, R238 renamed to __queue = directly above '
+              'the SD card) '
               '+ the hidden stock overrides '
               '(OctoPrint/Temperature/Setup R135 + the R151 SD Card browser)',
-    _top87 == ['__endq', '__gen', '__genq', '__live', '__macros', '__maint',
-               '__octoprint', '__optprint', '__preprint', '__sdcard', '__setup',
-               '__start', '__system', '__temp'],
+    _top87 == ['__endq', '__gen', '__live', '__macros', '__maint',
+               '__octoprint', '__optprint', '__preprint', '__queue',
+               '__sdcard', '__setup', '__start', '__system', '__temp'],
     str(_top87)))
 tests.append(('R87 LCD: container Tools + all four trees re-parented, old roots gone',
     '[menu __main __gen]\ntype: list\nname: Tools' in _lcd87
@@ -14598,10 +14600,24 @@ _ADDED135 = [
     '__main __system __genq __clear',
     '__main __system __genq __clear2',
     # ---- R236 (.136ag): Gen queue LIVE in the main menu (above the SD
-    # card) - the waiting count drops with every finished job
-    '__main __genq',
-    '__main __genq __show',
-    '__main __genq __cancel',
+    # card) - the waiting count drops with every finished job.
+    # R238 (.136ai): renamed __genq -> __queue (sorts DIRECTLY above the
+    # SD card) + the kill channel (Skip job / Stop: job + queue)
+    '__main __queue',
+    '__main __queue __show',
+    '__main __queue __skip',
+    '__main __queue __stop',
+    '__main __queue __cancel',
+    # ---- R238 (.136ai): texture MAP mode/position rows + the 6 new
+    # patterns (page 3 fills up, page 4 opens)
+    '__main __preprint __mods __tex __mmode',
+    '__main __preprint __mods __tex __mpos',
+    '__main __preprint __mods __tex __pat __p25',
+    '__main __preprint __mods __tex __pat __p26',
+    '__main __preprint __mods __tex __pat __p27',
+    '__main __preprint __mods __tex __pat __p30',
+    '__main __preprint __mods __tex __pat __p31',
+    '__main __preprint __mods __tex __pat __p32',
 ]
 _gone135 = sorted(set(_gold135) - set(_now135))
 _new135 = sorted(set(_now135) - set(_gold135))
@@ -15927,8 +15943,8 @@ _ta175 = open('macros/17_generator.cfg').read()
 _lcd175 = open('menus/lcd_menues.cfg').read()
 _pp175 = open('tools/r2_postproc.py').read()
 
-tests.append(('R175 library: 21 seamless patterns + FUZZY + MAP image wrap',
-    len(_tx175.PATTERN_NAMES) == 21
+tests.append(('R175 library: 27 seamless patterns + FUZZY + MAP image wrap (R238: 6 more)',
+    len(_tx175.PATTERN_NAMES) == 27
     and 'HONEYCOMB' in _tx175.PATTERN_NAMES and 'GLITCH' in _tx175.PATTERN_NAMES
     and 'MAP' in _tx175.PATTERN_NAMES and 'MANDELBROT' not in _tx175.PATTERN_NAMES,
     str(len(_tx175.PATTERN_NAMES))))
@@ -16010,11 +16026,11 @@ tests.append(('R175 watcher: zsize/seed/map flow into the job + the answer '
     and 'seamless: %d ridges x %d Z-repeats' in _pp175,
     ''))
 tests.append(('R175 LCD: self-explaining names (Around/Height/Depth/Seed) + '
-    '21 patterns on 3 pages + MAP image line',
+    '27 patterns on 4 pages + MAP image line (R238)',
     'Around:' in _lcd175 and 'Height:' in _lcd175 and 'Depth:' in _lcd175
     and 'Seed:' in _lcd175
     and len(_re175.findall(
-        r'\[menu __main __preprint __mods __tex __pat __p\d\d\]', _lcd175)) == 21
+        r'\[menu __main __preprint __mods __tex __pat __p\d\d\]', _lcd175)) == 27
     and 'Img:' in _lcd175,
     ''))
 tests.append(('R175 presets: texture user presets carry zsize + seed (R174c '
@@ -17410,12 +17426,12 @@ tests.append(('R185 current-only manual: no version-history appendix, no era '
     '## Appendix D' not in _m185 and 'Version history' not in _m185
     and _re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185) is None
     and _re2.search(r'\bR1[0-9][0-9]\b', _m185) is None
-    and 'The nine fonts' in _m185 and 'R2-2026-11-09.136ah' in _m185,
+    and 'The nine fonts' in _m185 and 'R2-2026-11-09.136ai' in _m185,
     'appendixD=%s eratags=%s rtags=%s nine=%s v132=%s' % (
         '## Appendix D' in _m185,
         bool(_re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185)),
         bool(_re2.search(r'\bR1[0-9][0-9]\b', _m185)),
-        'The nine fonts' in _m185, 'R2-2026-11-09.136ah' in _m185)))
+        'The nine fonts' in _m185, 'R2-2026-11-09.136ai' in _m185)))
 
 # ================== R184 (.131c field round): the brim air gap EVERYWHERE ==
 # The user asked: does the brim fusing hit our OTHER generators too? Measured
@@ -18245,6 +18261,83 @@ _tx237 = open('tools/r2_texture.py', encoding='utf-8').read()
 tests.append(('R237 texture: scrub regex + map candidates + info counter exist',
     '_M204_SCRUB' in _tx237 and '_cands237' in _tx237
     and "'m204_scrub'" in _tx237, 'scrub/candidates missing'))
+
+# ================== R238 (.136ai): queue kill, auto segfix, STL, texture tilt ==================
+# The master-prompt round: Skip/Stop for the RUNNING job (the old menu only
+# cleared pending), the auto segment fix at 400 moves/s, STL exports as
+# .stl.gcode in the STL folder (Mainsail download trick), the texture AUTO
+# TILT (helical, seam-perfect) + 6 new patterns + MAP Otsu/ONCE/position.
+save_vars.update({'gen_busy': 1, 'genq_kill_nonce': 4,
+                  'gen_queue_cnt': 2, 'gen_clear_nonce': 7})
+out = render(get_body('macros/17_generator.cfg', '_GEN_QUEUE_SKIP'), {})
+tests.append(('R238 _GEN_QUEUE_SKIP: running -> kill nonce + mode SKIP',
+    'VARIABLE=genq_kill_mode VALUE="\\"SKIP\\""' in out
+    and 'VARIABLE=genq_kill_nonce VALUE=5' in out
+    and 'next job starts' in out, out[:120]))
+save_vars['gen_busy'] = 0
+out = render(get_body('macros/17_generator.cfg', '_GEN_QUEUE_SKIP'), {})
+tests.append(('R238 _GEN_QUEUE_SKIP: idle -> honest answer, no nonce',
+    'Nothing is building' in out and 'genq_kill_nonce' not in out,
+    out[:100]))
+out = render(get_body('macros/17_generator.cfg', '_GEN_QUEUE_STOP'),
+             {'CONFIRM': '1'})
+tests.append(('R238 _GEN_QUEUE_STOP: CONFIRM -> kill mode STOP + nonce',
+    'VARIABLE=genq_kill_mode VALUE="\\"STOP\\""' in out
+    and 'VARIABLE=genq_kill_nonce VALUE=5' in out, out[:120]))
+out = render(get_body('macros/17_generator.cfg', '_GEN_QUEUE_STOP'), {})
+tests.append(('R238 _GEN_QUEUE_STOP: bare press arms (two-press rule)',
+    'Press STOP again' in out and 'genq_kill_nonce' not in out, out[:100]))
+save_vars.update({'texture_mode': 'BUMPS', 'texture_pattern': 'MAP',
+                  'texture_dir': 'OUT', 'texture_map': 'logo.png',
+                  'img_pick_file': '', 'preview_file': 'test.gcode',
+                  'texture_nonce': 3})
+out = render(get_body('macros/17_generator.cfg', 'TEXTURE_APPLY'),
+             {'PATTERN': 'MAP', 'DIR': 'OUT', 'MAPMODE': 'ONCE',
+              'MAPPOS': 'TOP'})
+tests.append(('R238 TEXTURE_APPLY: MAPMODE/MAPPOS pass through quoted',
+    'VARIABLE=texture_map_mode VALUE="\\"ONCE\\""' in out
+    and 'VARIABLE=texture_map_pos VALUE="\\"TOP\\""' in out
+    and 'Texture request queued' in out, out[:150]))
+out = render(get_body('macros/08_print_start_stop.cfg', 'STL_EXPORT'),
+             {'FILE': 'V5_box.gcode'}, ps_state='idle')
+tests.append(('R238 STL_EXPORT: the message names the STL folder + the '
+    'ending trick (Mainsail shows the file)',
+    'stl.gcode' in out and 'remove the .gcode ending' in out
+    and 'VARIABLE=stl_nonce VALUE=' in out, out[:150]))
+_lcd238 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R238 LCD: the queue row is __queue, directly above the SD '
+    'card, with Skip + Stop + Clear',
+    '[menu __main __queue]' in _lcd238
+    and _lcd238.index('[menu __main __queue]')
+    < _lcd238.index('[menu __main __sdcard]')
+    and '__queue __skip' in _lcd238 and '__queue __stop' in _lcd238
+    and '[menu __main __genq]' not in _lcd238, ''))
+tests.append(('R238 LCD: 27 pattern rows on 4 pages, the 6 new ones named',
+    _lcd238.count('SAVE_VARIABLE VARIABLE=texture_pattern VALUE=') == 27
+    and 'of 4 - 27 patterns total' in _lcd238
+    and all(('"%s"' % p) in _lcd238 for p in (
+        'KNIT', 'FLUTED', 'BARK', 'SCALES', 'FACETS', 'MACRAME')), ''))
+tests.append(('R238 LCD: MAP mode + position rows (ONCE-gated), fuzzy/bumps '
+    'parameters separated by enable',
+    '[menu __main __preprint __mods __tex __mmode]' in _lcd238
+    and '[menu __main __preprint __mods __tex __mpos]' in _lcd238
+    and 'texture_map_mode|default(\'TILE\')|string == \'ONCE\'' in _lcd238
+    and 'texture_mode|default(\'\')|string == \'FUZZY\'' in _lcd238
+    and 'texture_mode|default(\'\')|string == \'BUMPS\'' in _lcd238, ''))
+tests.append(('R238 LCD: the SD browser refuses .stl.gcode data files',
+    "low.endswith('.stl.gcode')" in _lcd238
+    or "low.endswith('.stl.gcode')" in open(
+        'macros/13_system.cfg', encoding='utf-8').read(), ''))
+_pp238 = open('tools/r2_postproc.py', encoding='utf-8').read()
+tests.append(('R238 watcher: kill channel + auto segment fix + STL guards',
+    "'genq_kill_nonce'" in _pp238 and 'raise _JobCancelled' in _pp238
+    and 'if _mr and _mr > 400.0:' in _pp238
+    and 'endswith(\'.stl.gcode\')' in _pp238
+    and '_object.stl.gcode' in _pp238, ''))
+_tx238b = open('tools/r2_texture.py', encoding='utf-8').read()
+tests.append(('R238 texture: PATTERN_TILT + 27 names + map prepare',
+    'PATTERN_TILT' in _tx238b and 'def _map_prepare' in _tx238b
+    and "'MACRAME'" in _tx238b and 'map_mode=\'TILE\'' in _tx238b, ''))
 
 print(f"\n{len(tests)-fails}/{len(tests)} passed")
 
