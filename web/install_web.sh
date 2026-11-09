@@ -245,7 +245,26 @@ if grep -q '^export_tool:' "${MR_CONF}"; then
     echo "[ok] [r2_menu] export_tool already present in ${MR_CONF}"
 else
     cp "${MR_CONF}" "${MR_CONF}.r2bak-$(date +%Y%m%d-%H%M%S)"
-    sed -i '/^\[r2_menu\]/,/^path:/ s/^\(path: .*\)$/\1\nexport_tool: '"${PKG_DIR}"'\/tools\/menu_json_export.py/' "${MR_CONF}"
+    # R233 (.136ad field report): this patch used a sed whose replacement
+    # carried PKG_DIR with raw '/' - the s/// command died as "sed: -e
+    # expression #1, unknown option to `s'" on every refresh since R225
+    # (the [i] fallback below took over, so only the stderr garbage showed
+    # in the update log). The awk rewrite fixes that AND closes a second
+    # trap the crash used to block accidentally: the old range
+    # '/^\[r2_menu\]/,/^path:/' runs to the NEXT 'path:' line ANYWHERE
+    # later in the file - with the sed repaired it would have appended
+    # export_tool under an [update_manager] 'path:' instead. awk appends
+    # only behind a 'path:' that belongs to [r2_menu] itself (the section
+    # ends at the next [section] header).
+    awk -v pkg="${PKG_DIR}" '
+        /^\[r2_menu\]/ { inr2 = 1; print; next }
+        inr2 && /^\[/  { inr2 = 0 }
+        inr2 && /^path: / && !done {
+            print; print "export_tool: " pkg "/tools/menu_json_export.py"
+            done = 1; next
+        }
+        { print }
+    ' "${MR_CONF}" > "${MR_CONF}.r2awk.tmp" && mv "${MR_CONF}.r2awk.tmp" "${MR_CONF}"
     if grep -q '^export_tool:' "${MR_CONF}"; then
         echo "[ok] [r2_menu] export_tool added to ${MR_CONF} (backup .r2bak-* saved)"
     else

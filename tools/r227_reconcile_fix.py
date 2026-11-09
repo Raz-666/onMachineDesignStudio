@@ -120,11 +120,15 @@ check("F3 POSTPROC_BUILD names a round >= R227 (the field boot said "
 # R229: two-letter suffixes begin at .136aa - 'aa' sorts BELOW 'y'
 # lexicographically, so the check compares the round NUMBER chain via
 # length first (aa.. > z) instead of plain string order
-_r227m = re.search(r"^POSTPROC_RELEASE = 'R2-2026-11-08\.136([a-z]+)'$",
+# R233 (.136ad): the DATE part is not pinned any more - the .136ad release
+# moved to 2026-11-09 and the anchored regex went stale on the day change;
+# only number+suffix are round-relevant.
+_r227m = re.search(r"^POSTPROC_RELEASE = 'R2-\d{4}-\d{2}-\d{2}\.(\d+)([a-z]+)'$",
                    src, re.M)
 check('F3 POSTPROC_RELEASE >= .136y',
-      bool(_r227m) and (len(_r227m.group(1)) >= 2
-                        or _r227m.group(1) >= 'y'))
+      bool(_r227m) and (int(_r227m.group(1)) > 136
+                        or len(_r227m.group(2)) >= 2
+                        or _r227m.group(2) >= 'y'))
 
 print('--- F4: update.sh restarts moonraker (web code lives at startup)')
 upd = open(os.path.join(REPO, 'update.sh')).read()

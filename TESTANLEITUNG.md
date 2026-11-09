@@ -1,6 +1,6 @@
 # TESTANLEITUNG — R2-D2 Makro-System (Version .136ac)
 
-Diese Anleitung beschreibt **nur den aktuellen Stand** (.136ac). Sie ist die
+Diese Anleitung beschreibt **nur den aktuellen Stand** (.136ad). Sie ist die
 komplette Feld-Checkliste nach dem Einspielen eines Updates — von Boot bis
 Druckergebnis. Die Historie der Änderungen steht in README.md.
 
@@ -18,7 +18,7 @@ Druckergebnis. Die Historie der Änderungen steht in README.md.
 ## 2. Boot-Check (Pflicht, 1 Minute)
 
 - [ ] Konsole: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-08.136ac)`
+      (build R2-2026-11-09.136ad)`
 - [ ] ~10 s nach dem Boot: Boot-Sound + LED-Animation
 - [ ] `SHOW_STATUS` antwortet mit Modus/Material/Overrides
 - [ ] Kein Eintrag fehlt: sonst meldet sich `_CHECK_INSTALL` laut mit
@@ -371,3 +371,53 @@ bewusst angeschweißt). Je ein Probedruck:
 **Alles grün?** Dann ist .136ac field-clear. Wenn etwas auffällt: Konsole
 kopieren (RESPOND-Zeilen) + welche Datei/welcher Menüpfad — daraus wird der
 nächste Feldlog-Eintrag.
+
+## 19. Die .136ad-Neuerungen (R233 — Update-Ablauf repariert)
+
+**Was war kaputt (Dein Feldbericht):** seit .136z kam kein Update mehr an —
+„er macht immer wieder nur Z draus, obwohl die anderen Version alle
+hochgeladen sind". Grund: der Buchstaben-Anhang der Hotfix-Versionen ist ein
+**Zähler** (.136z → .136aa → .136ab → .136ac …), update.sh verglich ihn aber
+als **String** — und `'ac' < 'z'` ist lexikographisch WAHR. Jede Version
+nach .136z galt als „ÄLTER" und wurde abgelehnt; das .136ac-Zip lag
+hochgeladen neben der Config und wurde nie entpackt.
+
+**Der Fix:** update.sh zählt den Anhang jetzt arithmetisch
+(`''`=0, a…z=1…26, aa=27, ab=28 … az=52, ba=53 …) — an beiden Stellen,
+sowohl bei der „neuestes Zip"-Auswahl als auch beim Downgrade-Schutz. Die
+Zahlen dominieren weiter (130 > 129a > 129). Nebenbei behoben: der Web-LCD-
+Refresh quittierte seit R225 jede Runde mit `sed: unknown option to 's'`
+(Pfad im s///-Ersatz) — das neue awk hängt `export_tool` nur hinter eine
+`path:`-Zeile INNERHALB der `[r2_menu]`-Sektion (und nie in eine fremde
+Sektion wie `[update_manager]`).
+
+### Einspielen von .136z aus — EINMAL --force
+
+Das auf dem Drucker liegende update.sh ist ja gerade das mit dem kaputten
+Vergleich — es kann es selbst nicht wissen. Deshalb **ein einziges Mal**
+mit `--force` (kein echtes Downgrade — .136ad ist wirklich neuer):
+
+```bash
+bash ~/printer_data/config/klipper-e3-r2d2/update.sh --force
+```
+
+Danach gelten alle künftigen Updates wieder normal (ohne --force). Das alte
+.136ac-Zip darf liegen bleiben (verliert die Auswahl gegen .136ad) —
+aufräumen schadet nicht.
+
+### Feld-Checkliste .136ad
+
+- [ ] Update-Lauf zeigt: `uploaded update zip found:
+      klipper-e3-r2d2-UPDATE-R2-2026-11-09.136ad.zip` und KEIN
+      „that zip is OLDER" mehr
+- [ ] `package version: R2-2026-11-09.136ad`
+- [ ] Konsole nach Boot: `Macro system OK: all 19 modules loaded and
+      current (build R2-2026-11-09.136ad)`
+- [ ] Web-LCD-Refresh im Update-Log OHNE `sed:`-Fehlerzeile
+- [ ] Gegenprobe Downgrade-Schutz: ein älteres Zip (z. B. .136ac aus
+      r2_backups zurück in den Config-Ordner kopiert) wird mit „OLDER"
+      abgelehnt — und zwar zu Recht
+
+**Alles grün?** Dann ist .136ad field-clear — ab jetzt kommen Updates
+wieder von selbst an. Wenn etwas auffällt: Konsole kopieren (update.sh-
+Ausgabe komplett) — daraus wird der nächste Feldlog-Eintrag.

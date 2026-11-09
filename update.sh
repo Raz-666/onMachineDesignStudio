@@ -29,6 +29,14 @@
 #  without the package folder BEFORE unpacking anything, and warns when it
 #  finds the remains of the flat .134 zip in the config folder.
 #
+#  R233 (.136ad field report): the letter suffix is an ODOMETER. The
+#  releases did not stop at .136z - .136aa/.ab/.ac followed, but the old
+#  string compare says 'ac' < 'z', so every zip after .136z failed the
+#  OLDER check and was refused: the printer stayed on .136z forever
+#  ("keine Aenderungen kommen an"). Leaving .136z behind therefore needs
+#  --force ONCE (the installed script cannot know better); from .136ad on
+#  the gate counts the odometer correctly (see r2_sfx_val below).
+#
 #  R108: the update ALSO asks whether to KEEP or CHANGE the LED settings and
 #  the hardware profile (r2_hardware.cfg), shows the moonraker object-
 #  processing state with an offer to change it, and re-applies the LED
@@ -52,6 +60,24 @@ zip_list() {
     else
         python3 -m zipfile -l "$1" 2>/dev/null | awk 'NR>2 {print $1}'
     fi
+}
+
+# R233 (.136ad field report): the hotfix letters are an ODOMETER, not a
+# plain string. The releases did not stop at .136z - .136aa, .136ab and
+# .136ac followed (spreadsheet-column style), and the old lexicographic
+# letter compare says 'ac' < 'z': every zip after .136z looked OLDER than
+# the installed .136z and was refused, while the zips piled up uploaded in
+# the config folder ("er macht immer wieder nur Z drauf, obwohl die anderen
+# Versionen alle hochgeladen sind"). This helper counts the suffix
+# arithmetically - '' = 0, a..z = 1..26, aa = 27, ab = 28 ... az = 52,
+# ba = 53 ... - so .136aa > .136z, while the R174 rules stay true:
+# 129a > 129 and 130 > 129a (the numbers still dominate).
+r2_sfx_val() {   # letter suffix -> odometer value (''=0, a=1 ... z=26, aa=27)
+    local _s="$1" _v=0 _i _n=${#1}
+    for (( _i=0; _i<_n; _i++ )); do
+        _v=$(( _v * 26 + $(printf '%d' "'${_s:_i:1}") - 96 ))
+    done
+    printf '%s\n' "${_v}"
 }
 
 CFG_DIR=""
@@ -125,8 +151,10 @@ if [ "${1:-}" != "--unpacked" ] && [ -n "${CFG_DIR}" ]; then
     # R174 (.129 field log): hotfix versions carry a LETTER suffix (.129a).
     # The old digits-only parser did not even see '129a.zip' - the update
     # re-applied the stale '.129.zip' from the folder and the hotfix never
-    # arrived. Numbers compare numerically, letters lexicographically
-    # ('' < a < b), so 129a > 129 and 130 > 129a.
+    # arrived. Numbers compare numerically; the letters count through
+    # r2_sfx_val above (odometer: '' < a < ... < z < aa < ab < ...), so
+    # 129a > 129, 130 > 129a AND .136ad > .136z (the R233 fix - a plain
+    # string order claimed 'ac' < 'z' and blocked everything after .136z).
     BEST=""; BEST_N=0; BEST_S=""
     for Z in "${CFG_DIR}"/klipper-e3-r2d2-UPDATE-R2-*.zip "${DIR}"/klipper-e3-r2d2-UPDATE-R2-*.zip; do
         [ -f "${Z}" ] || continue
@@ -134,7 +162,8 @@ if [ "${1:-}" != "--unpacked" ] && [ -n "${CFG_DIR}" ]; then
         [ -n "${ZT}" ] || continue
         ZN="${ZT%% *}"; ZS="${ZT##* }"
         if [ "${ZN}" -gt "${BEST_N}" ] \
-           || { [ "${ZN}" -eq "${BEST_N}" ] && [[ "${ZS}" > "${BEST_S}" ]]; }; then
+           || { [ "${ZN}" -eq "${BEST_N}" ] \
+                && [ "$(r2_sfx_val "${ZS}")" -gt "$(r2_sfx_val "${BEST_S}")" ]; }; then
             BEST="${Z}"; BEST_N="${ZN}"; BEST_S="${ZS}"
         fi
     done
@@ -142,7 +171,8 @@ if [ "${1:-}" != "--unpacked" ] && [ -n "${CFG_DIR}" ]; then
         echo "[i] uploaded update zip found: $(basename "${BEST}")  (installed: ${CUR:-unknown})"
         OLDER=0
         if [ "${BEST_N}" -lt "${CUR_N}" ] \
-           || { [ "${BEST_N}" -eq "${CUR_N}" ] && [[ "${BEST_S}" < "${CUR_S}" ]]; }; then
+           || { [ "${BEST_N}" -eq "${CUR_N}" ] \
+                && [ "$(r2_sfx_val "${BEST_S}")" -lt "$(r2_sfx_val "${CUR_S}")" ]; }; then
             OLDER=1
         fi
         if [ "${OLDER}" -eq 1 ] && [ "${FORCE}" -eq 0 ]; then

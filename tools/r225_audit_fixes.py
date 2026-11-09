@@ -139,9 +139,13 @@ print('--- A2/A3: installer writes export_tool, update.sh counts 19')
 sh = open(os.path.join(REPO, 'web', 'install_web.sh')).read()
 check('A2 install_web.sh: new sections get export_tool (belt)',
       'export_tool: ${PKG_DIR}/tools/menu_json_export.py' in sh)
-check('A2 install_web.sh: EXISTING sections get the line patched (braces)',
+check('A2 install_web.sh: EXISTING sections get the line patched '
+      '(R233: bounded awk - the old sed died on the / in PKG_DIR and its '
+      'range could hit a FOREIGN path: line)',
       "grep -q '^export_tool:'" in sh
-      and "sed -i '/^\\[r2_menu\\]/,/^path:/ s/" in sh)
+      and 'awk -v pkg="${PKG_DIR}"' in sh
+      and "inr2 && /^\\[/" in sh
+      and "inr2 && /^path: /" in sh)
 up = open(os.path.join(REPO, 'update.sh')).read()
 check('A3 update.sh: the boot message says all 19 modules',
       'all 19 modules' in up and 'all 17 modules' not in up)
