@@ -1,13 +1,13 @@
 {
  "generator": "menu_json_export.py (.136j R211)",
  "source": "lcd_menues.cfg",
- "sections": 2482,
+ "sections": 2485,
  "counts": {
-  "list": 333,
-  "command": 1461,
+  "list": 334,
+  "command": 1463,
   "input": 688
  },
- "sha256": "64123c915bd9ee36",
+ "sha256": "56a96b66b686fa28",
  "live_objects": [
   "bed_mesh",
   "configfile",
@@ -7464,7 +7464,7 @@
           "input_max": "1",
           "input_step": "1",
           "gcode": [
-           "SAVE_VARIABLE VARIABLE=texture_dir VALUE=\"{ 'OUT' if menu.input|int == 1 else 'IN' }\""
+           "SAVE_VARIABLE VARIABLE=texture_dir VALUE=\"\\\"{ 'OUT' if menu.input|int == 1 else 'IN' }\\\"\""
           ],
           "children": []
          },
@@ -8174,7 +8174,7 @@
           "input_max": "1",
           "input_step": "1",
           "gcode": [
-           "SAVE_VARIABLE VARIABLE=mirror_axis VALUE=\"{('x','y')[menu.input|round|int]}\"",
+           "SAVE_VARIABLE VARIABLE=mirror_axis VALUE=\"\\\"{('x','y')[menu.input|round|int]}\\\"\"",
            "RESPOND MSG=\"Mirror axis {('X','Y')[menu.input|round|int]} - the object flips around its own center and stays at its place\""
           ],
           "children": []
@@ -8257,7 +8257,7 @@
           "input_max": "2",
           "input_step": "1",
           "gcode": [
-           "SAVE_VARIABLE VARIABLE=cake_part VALUE=\"{menu.input == 0 and 'UPPER' or (menu.input == 1 and 'LOWER' or 'BOTH')}\"",
+           "SAVE_VARIABLE VARIABLE=cake_part VALUE=\"\\\"{menu.input == 0 and 'UPPER' or (menu.input == 1 and 'LOWER' or 'BOTH')}\\\"\"",
            "RESPOND MSG=\"Cut&split part: {menu.input == 0 and 'UPPER only' or (menu.input == 1 and 'LOWER only' or 'BOTH - TWO separate files (Lower + Upper), each prints standalone')}\""
           ],
           "children": []
@@ -14024,6 +14024,7 @@
           "name": "Load 1",
           "enable": "{printer['save_variables'].variables.default_preset_1|default(0) != 0}",
           "gcode": [
+           "{menu.exit()}",
            "LOAD_DEFAULT_PRESET N=1"
           ],
           "children": []
@@ -14034,6 +14035,7 @@
           "name": "Load 2",
           "enable": "{printer['save_variables'].variables.default_preset_2|default(0) != 0}",
           "gcode": [
+           "{menu.exit()}",
            "LOAD_DEFAULT_PRESET N=2"
           ],
           "children": []
@@ -14044,6 +14046,7 @@
           "name": "Load 3",
           "enable": "{printer['save_variables'].variables.default_preset_3|default(0) != 0}",
           "gcode": [
+           "{menu.exit()}",
            "LOAD_DEFAULT_PRESET N=3"
           ],
           "children": []
@@ -14054,6 +14057,7 @@
           "name": "Load 4",
           "enable": "{printer['save_variables'].variables.default_preset_4|default(0) != 0}",
           "gcode": [
+           "{menu.exit()}",
            "LOAD_DEFAULT_PRESET N=4"
           ],
           "children": []
@@ -14064,6 +14068,7 @@
           "name": "Load 5",
           "enable": "{printer['save_variables'].variables.default_preset_5|default(0) != 0}",
           "gcode": [
+           "{menu.exit()}",
            "LOAD_DEFAULT_PRESET N=5"
           ],
           "children": []
@@ -14074,6 +14079,7 @@
           "name": "Load 6",
           "enable": "{printer['save_variables'].variables.default_preset_6|default(0) != 0}",
           "gcode": [
+           "{menu.exit()}",
            "LOAD_DEFAULT_PRESET N=6"
           ],
           "children": []
@@ -14084,6 +14090,7 @@
           "name": "Load 7",
           "enable": "{printer['save_variables'].variables.default_preset_7|default(0) != 0}",
           "gcode": [
+           "{menu.exit()}",
            "LOAD_DEFAULT_PRESET N=7"
           ],
           "children": []
@@ -14094,6 +14101,7 @@
           "name": "Load 8",
           "enable": "{printer['save_variables'].variables.default_preset_8|default(0) != 0}",
           "gcode": [
+           "{menu.exit()}",
            "LOAD_DEFAULT_PRESET N=8"
           ],
           "children": []
@@ -14268,6 +14276,7 @@
           "name": "Load 'pre'",
           "enable": "{printer['gcode_macro _STATE'].fp_pre|default(False)}",
           "gcode": [
+           "{menu.exit()}",
            "FILE_PROFILE_LOAD WHICH=pre"
           ],
           "children": []
@@ -14278,6 +14287,7 @@
           "name": "Load 'post'",
           "enable": "{printer['gcode_macro _STATE'].fp_post|default(False)}",
           "gcode": [
+           "{menu.exit()}",
            "FILE_PROFILE_LOAD WHICH=post"
           ],
           "children": []
@@ -24679,6 +24689,33 @@
         "children": []
        }
       ]
+     }
+    ]
+   },
+   {
+    "id": "__main __genq",
+    "type": "list",
+    "name": "{'Gen queue: ' ~ (printer['save_variables'].variables.gen_queue_cnt|default(0)|int) ~ (' + building' if printer['save_variables'].variables.gen_busy|default(0)|int else ' waiting')}",
+    "enable": "{printer['save_variables'].variables.gen_queue_cnt|default(0)|int > 0 or printer['save_variables'].variables.gen_busy|default(0)|int > 0}",
+    "children": [
+     {
+      "id": "__main __genq __show",
+      "type": "command",
+      "name": "Now: {printer['save_variables'].variables.gen_queue_cnt|default(0)|int} waiting{(\" + 1 building\" if printer['save_variables'].variables.gen_busy|default(0)|int else \"\")}",
+      "gcode": [
+       "RESPOND MSG=\"[Gen] State: {'building' if printer['save_variables'].variables.gen_busy|default(0)|int else 'idle'} - {printer['save_variables'].variables.gen_queue_cnt|default(0)|int} job(s) waiting. Clear queue drops the PENDING ones (a running build finishes - Wait: generating stays up until then). The count drops with every finished job - the beep you hear per job is its done-sound\""
+      ],
+      "children": []
+     },
+     {
+      "id": "__main __genq __cancel",
+      "type": "command",
+      "name": "> Clear waiting queue?",
+      "enable": "{printer['gcode_macro _STATE'].mode|default('idle')|string not in ('printing', 'paused', 'starting')}",
+      "gcode": [
+       "GEN_QUEUE_CANCEL"
+      ],
+      "children": []
      }
     ]
    },

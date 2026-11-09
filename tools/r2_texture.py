@@ -748,60 +748,6 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
     else:
         cx, cy = sx / cnt, sy / cnt
         src_center = 'wall centroid'
-    if layers_seen < 1:
-        layers_seen = 1
-    circum = chord / layers_seen
-    if circum < 1.0:
-        circum = 2.0 * math.pi * 8.0     # absurd fallback: 8mm radius
-    height = max(0.2, maxz - minz) if maxz > minz else 0.2
-    # R186: honesty rule - a BUMP pattern is placed BY HEIGHT; a file with
-    # no Z information at all cannot carry one. The old code silently
-    # wrote an untextured copy (shifted=0). FUZZY needs no Z and stays.
-    if mode == 'BUMPS' and minz > maxz:
-        raise ValueError('no Z moves found in %s - a bump pattern needs '
-                         'the layer heights (FUZZY works without Z)'
-                         % base)
-    k = max(1, min(240, int(round(circum / float(bump_scale)))))
-    n = max(1, min(400, int(round(height / float(zsize)))))
-    eff_size = circum / k
-    eff_zsize = height / n
-
-    pats = _build_patterns(k, n, int(seed), img)
-    pattern_fn = pats[bump_pattern]
-
-    def pattern(x, y, z, s_arc=None):
-        """R175: cylinder coordinates around the OBJECT -> seamless.
-        R231: s_arc (if given) is the ARC-ANCHORED loop coordinate (see the
-        module header) - it replaces the raw angle fraction wherever the
-        wall runs inward, so pattern cells keep their physical size on
-        concave sections (vase notches) instead of stretching."""
-        if s_arc is not None:
-            s = s_arc % 1.0
-        else:
-            th = math.atan2(y - cy, x - cx)
-            s = (th / (2.0 * math.pi)) % 1.0
-        t = (((z - minz) * n / height) % 1.0) if height > 0 else 0.0
-        return pattern_fn(s, t)
-
-    stats = {'moves': 0, 'shifted': 0, 'clamped': 0, 'layers': 0, 'arcs': 0,
-             'inner_shifted': 0}
-    cur_type = ''
-    cur_outer = False       # R152: alias-normalized outer-wall check
-    cur_inner = False       # R224 task 15: BUMPS lets inner walls follow
-    t0 = time.time()
-    # px/py = None until the first move is seen: a vertex with no known
-    # approach direction gets NO offset (same rule as zero-length moves -
-    # never invent a direction from the home position)
-    px = py = None
-    # R186: live Z for the EMISSION pass (see _shift_txt) - updated by every
-    # move/arc line that carries Z, exactly like the stats pass does
-    cur_z_e = None
-    # R95: E bookkeeping for arc flattening - chords must carry exactly the
-    # arc's extrusion (relative: distributed by chord length; absolute:
-    # interpolated from the last E to the arc's end value)
-    e_rel = False
-    last_e = 0.0
-
     # ---- R231: loop-length pre-pass ---------------------------------------
     # The arc-anchored mapping needs every wall loop's own length BEFORE the
     # emission shifts its vertices. This walk mirrors the emission's gating
@@ -878,6 +824,71 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
         return lens
 
     loops231 = _scan_loops231()
+    if layers_seen < 1:
+        layers_seen = 1
+    # R236 (.136af field log): chord/layers_seen breaks on SPIRAL VASES -
+    # there Z rises with (almost) every move, so layers_seen counts MOVES
+    # (~45k on the field rose, 242 real layers) and 'circum' degenerated
+    # into the mean SEGMENT length (2.9mm). k = round(2.9/scale) = 1 for
+    # every preset = ONE pattern wave around the object = a sinus with a
+    # zero crossing: the structure faded out across the whole back side
+    # ('the texture slowly disappears'). The R231 loop pre-pass already
+    # measures the real wall loops (one spiral winding / one closed
+    # contour per segment) - its MEDIAN is the true circumference.
+    _ll236 = sorted(l for l in loops231 if l > 1.0)
+    circum = _ll236[len(_ll236) // 2] if len(_ll236) >= 2 \
+        else chord / layers_seen
+    if circum < 1.0:
+        circum = 2.0 * math.pi * 8.0     # absurd fallback: 8mm radius
+    height = max(0.2, maxz - minz) if maxz > minz else 0.2
+    # R186: honesty rule - a BUMP pattern is placed BY HEIGHT; a file with
+    # no Z information at all cannot carry one. The old code silently
+    # wrote an untextured copy (shifted=0). FUZZY needs no Z and stays.
+    if mode == 'BUMPS' and minz > maxz:
+        raise ValueError('no Z moves found in %s - a bump pattern needs '
+                         'the layer heights (FUZZY works without Z)'
+                         % base)
+    k = max(1, min(240, int(round(circum / float(bump_scale)))))
+    n = max(1, min(400, int(round(height / float(zsize)))))
+    eff_size = circum / k
+    eff_zsize = height / n
+
+    pats = _build_patterns(k, n, int(seed), img)
+    pattern_fn = pats[bump_pattern]
+
+    def pattern(x, y, z, s_arc=None):
+        """R175: cylinder coordinates around the OBJECT -> seamless.
+        R231: s_arc (if given) is the ARC-ANCHORED loop coordinate (see the
+        module header) - it replaces the raw angle fraction wherever the
+        wall runs inward, so pattern cells keep their physical size on
+        concave sections (vase notches) instead of stretching."""
+        if s_arc is not None:
+            s = s_arc % 1.0
+        else:
+            th = math.atan2(y - cy, x - cx)
+            s = (th / (2.0 * math.pi)) % 1.0
+        t = (((z - minz) * n / height) % 1.0) if height > 0 else 0.0
+        return pattern_fn(s, t)
+
+    stats = {'moves': 0, 'shifted': 0, 'clamped': 0, 'layers': 0, 'arcs': 0,
+             'inner_shifted': 0}
+    cur_type = ''
+    cur_outer = False       # R152: alias-normalized outer-wall check
+    cur_inner = False       # R224 task 15: BUMPS lets inner walls follow
+    t0 = time.time()
+    # px/py = None until the first move is seen: a vertex with no known
+    # approach direction gets NO offset (same rule as zero-length moves -
+    # never invent a direction from the home position)
+    px = py = None
+    # R186: live Z for the EMISSION pass (see _shift_txt) - updated by every
+    # move/arc line that carries Z, exactly like the stats pass does
+    cur_z_e = None
+    # R95: E bookkeeping for arc flattening - chords must carry exactly the
+    # arc's extrusion (relative: distributed by chord length; absolute:
+    # interpolated from the last E to the arc's end value)
+    e_rel = False
+    last_e = 0.0
+
     # R231 emission-side loop bookkeeping: i = current loop index into
     # loops231, arc = mm walked inside it, anchor = absolute angle fraction
     # at its first vertex, z = the Z the loop prints at (layer-jump guard)

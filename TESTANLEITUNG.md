@@ -1,6 +1,6 @@
 # TESTANLEITUNG — R2-D2 Makro-System (Version .136ac)
 
-Diese Anleitung beschreibt **nur den aktuellen Stand** (.136af). Sie ist die
+Diese Anleitung beschreibt **nur den aktuellen Stand** (.136ag). Sie ist die
 komplette Feld-Checkliste nach dem Einspielen eines Updates — von Boot bis
 Druckergebnis. Die Historie der Änderungen steht in README.md.
 
@@ -18,7 +18,7 @@ Druckergebnis. Die Historie der Änderungen steht in README.md.
 ## 2. Boot-Check (Pflicht, 1 Minute)
 
 - [ ] Konsole: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.136af)`
+      (build R2-2026-11-09.136ag)`
 - [ ] ~10 s nach dem Boot: Boot-Sound + LED-Animation
 - [ ] `SHOW_STATUS` antwortet mit Modus/Material/Overrides
 - [ ] Kein Eintrag fehlt: sonst meldet sich `_CHECK_INSTALL` laut mit
@@ -492,4 +492,67 @@ stammt aus Deiner eigenen printer.cfg, nicht aus dem Paket.
       (build R2-2026-11-09.136af)`
 
 **Alles grün?** Dann ist .136af field-clear. Wenn etwas auffällt: Konsole
+kopieren — daraus wird der nächste Feldlog-Eintrag.
+
+## 22. Die .136ag-Neuerungen (R236 — die Abendrunde: 6 Feldberichte)
+
+**1) Mirror Y speicherte nie.** Die Achsen-Auswahl schrieb
+`SAVE_VARIABLE ... VALUE="y"` — ein nackter String. Klippers
+save_variables parst mit `ast.literal_eval`, und `y` ist kein
+Python-Literal: der Befehl starb still, die Achse blieb für immer `x`
+(deshalb gab es im Mirror-Ordner nur _MIRX-Dateien). Gleiches galt für
+**Textur-Richtung IN** und **Cut&Split-Teil** (UPPER/LOWER/BOTH) — alle
+drei speichern jetzt das korrekt gequote Python-String-Muster.
+
+**2) Die Textur verschwand auf der Rückseite.** Die Umfangsmessung
+(`chord / layers_seen`) bricht auf **Spiral-Vasen**: dort steigt Z mit
+jedem Zug minimal, also zählte `layers_seen` ZÜGE (Deine Rose: 45.292
+statt 242 Layer) — der „Umfang“ degenerierte zur mittleren
+Segmentlänge (2,9 mm). Damit war `k=1` für JEDES Preset: **eine einzige
+Musterwelle um das ganze Objekt** — vorne der Berg, hinten das Tal, das
+wie Original-Oberfläche aussieht. Jetzt ist der Umfang der **Median der
+real gemessenen Wand-Loops** (Beweis: Testvase Umfang 1,5→188,6 mm =
+2πr exakt, ridges 1→8 bei 24 mm-Vorgabe; Deine Rose: ridges 1→11,
+effektive Ridges-Größe 23,3 mm ≈ Vorgabe).
+
+**3) Neue Dateien erschienen nicht im Ordner.** Der Baum-Push pausierte,
+solange die Warteschlange arbeitete — 24 Texture-Jobs = 30 min alte
+Liste. Jetzt pusht **jeder fertige Job sofort** (Druck gewinnt weiter),
+und moonraker bekommt explizit einen filelist-notify für das Web-UI.
+
+**4) Die Warteschlange zeigt sich.** `Gen queue: N waiting` steht jetzt
+**im Hauptmenü direkt über der SD-Karte** (nur sichtbar, wenn etwas
+wartet oder baut), die Zahl fällt mit jedem erledigten Job. „building
+now - 5 waiting“ in der Konsole, „X done - 4 job(s) still waiting“ nach
+jedem Job, Clear wie gehabt.
+
+**5) Profil-Laden antwortet.** Defaults 1–8 und This-file pre/post:
+Klick → **raus aus dem Menü**, Display „Loading profile“ + Start-Beep,
+nach der Werteflut der Done-Beep + „Loaded: N on“. Automatische Lade-
+Pfade (Dateiauswahl) bleiben leise + eine Konsolenzeile.
+
+**6) Keine LED-/Beep-Bursts mehr im Bewegungsmoment.** Homing, Druck-
+start (M24/Layer 1), PAUSE, Filament leer, RESUME: LED-Wechsel + Beep
+kommen jetzt **1–1,5 s später** (modus-geprüft — ein Cancel dazwischen
+killt sie still). Die Aktion selbst bleibt sofort.
+
+**Zusätzlich:** Die „IDLE SPIN detected“-Meldung nach Deiner Job-Serie
+war ein Messfehler (das 5-Min-Fenster enthielt die Generator-Arbeit) —
+kontaminierte Fenster werden verworfen.
+
+### Feld-Checkliste .136ag
+
+- [ ] Mirror: Achse auf Y drehen → bestätigen → beim Wiedereintritt
+      steht `Axis: Y`; ein Mirror-Lauf erzeugt eine **_MIRY**-Datei
+- [ ] Textur auf eine Testrose (z. B. „Sanfte Duenen“, 24 mm) → die
+      Meldung meldet jetzt `N ridges` (nicht mehr `1 ridges`), effektive
+      Größe ≈ Vorgabe → Druck: Textur komplett rundum inkl. Rückseite
+- [ ] Mehrere Jobs in die Warteschlange legen → Hauptmenü zeigt
+      `Gen queue: N waiting` über der SD-Karte, Zahl fällt pro Beep
+- [ ] Neue Datei erscheint nach Job-Ende im LCD-Ordner UND im Web-UI
+- [ ] Defaults > Load 1 → Display „Loading profile“ → Beep → „Loaded“
+- [ ] `Macro system OK: all 19 modules loaded and current
+      (build R2-2026-11-09.136ag)`
+
+**Alles grün?** Dann ist .136ag field-clear. Wenn etwas auffällt: Konsole
 kopieren — daraus wird der nächste Feldlog-Eintrag.

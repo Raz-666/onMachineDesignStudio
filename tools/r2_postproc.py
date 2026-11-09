@@ -77,8 +77,8 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-09.136af'
-POSTPROC_BUILD = 'R235'
+POSTPROC_RELEASE = 'R2-2026-11-09.136ag'
+POSTPROC_BUILD = 'R236'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
 # and no speed/accel/nozzle parameters. Files carrying an OLD tag are UPGRADED
@@ -8638,6 +8638,41 @@ _JOB_STATE = {'queue': [], 'keys': set(), 'busy': False,
 # retry, gen_busy=1 stayed up and blocked print starts. The worker now runs
 # each build in its own thread and abandons it after this timeout.
 JOB_STUCK_S = 1200          # 20 min: every real build stays well under it
+
+# R236 (.136af field log): the queue depth as a save_variable - the LCD
+# main menu shows 'Gen queue: N' and the number DROPS with every finished
+# job (the field log: 'when is my file's turn? I only hear beeps'). Pushed
+# on every change (enqueue / dispatch / finish / clear); a failed push
+# simply retries on the next change.
+_GENQ_PUSHED = [None]
+
+
+def _genq_push():
+    """R236: keep save_variables.gen_queue_cnt == len(job queue)."""
+    with _JOB_STATE['lock']:
+        n = len(_JOB_STATE['queue'])
+    if _GENQ_PUSHED[0] == n:
+        return
+    try:
+        _moonraker_gcode('SAVE_VARIABLE VARIABLE=gen_queue_cnt VALUE=%d' % n)
+        _GENQ_PUSHED[0] = n
+    except Exception:                                       # noqa: BLE001
+        pass
+
+
+def _moonraker_filelist_notify(relpath, host='127.0.0.1', port=7125):
+    """R236: tell moonraker a file appeared that its file manager missed
+    (field log .136af: the web UI folder did not show the new g-code).
+    POST /server/files/notify_filelist_changed?path=<rel> makes moonraker
+    re-check the path and push the list to every connected client. Best
+    effort - an old moonraker answers 404, the caller logs and moves on."""
+    import urllib.request
+    import urllib.parse
+    url = ('http://%s:%d/server/files/notify_filelist_changed?path=%s'
+           % (host, port, urllib.parse.quote(relpath)))
+    req = urllib.request.Request(url, method='POST', data=b'')
+    with urllib.request.urlopen(req, timeout=3.0) as r:
+        return 200 <= r.status < 300
 
 
 def _job_tick(step=1, every=25, pause=0.02):
@@ -23275,6 +23310,10 @@ def watch(directory, interval=5.0, once=False):
             if item is None:
                 time.sleep(0.4)
                 continue
+            _genq_push()      # R236: one left the waiting line
+            with _JOB_STATE['lock']:
+                _n236 = len(_JOB_STATE['queue'])
+            _spin148['win'] = True      # R236: CPU window is contaminated
             name, key, fn, outs, t_spawn, t_wait, t_notice, ram_min = item
             _ram162 = _mem_available_mb()
             if _printer_busy() or (0 < _ram162 < ram_min):
@@ -23323,8 +23362,10 @@ def watch(directory, interval=5.0, once=False):
                 # several generations ran back to back)
                 try:
                     _moonraker_gcode(
-                        'RESPOND MSG="[queue] %s: building now"\n'
-                        'M117 %s building\n_PLAY_JOB_START' % (name, name))
+                        'RESPOND MSG="[queue] %s: building now%s"\n'
+                        'M117 %s building\n_PLAY_JOB_START'
+                        % (name, (' - %d waiting' % _n236) if _n236 else '',
+                           name))
                 except Exception:                           # noqa: BLE001
                     pass
             _JOB_STATE['busy'] = True
@@ -23429,6 +23470,32 @@ def watch(directory, interval=5.0, once=False):
                 # busy still wins).
                 if outs:
                     _JOB_STATE['dirty'] = True
+                    # R236 (.136af field log): moonraker's file manager
+                    # missed the files the watcher wrote (the web UI
+                    # folder did not show the new g-code) - tell it
+                    # explicitly, once per output, best effort.
+                    for _o in outs:
+                        try:
+                            _moonraker_filelist_notify(
+                                os.path.relpath(_o, directory))
+                        except Exception as _e236:          # noqa: BLE001
+                            print('[queue] filelist notify failed: %r'
+                                  % _e236, flush=True)
+                # R236: the queue count DROPS with every finished job -
+                # the LCD main menu shows it live, plus one console line
+                # while anything is still waiting.
+                with _JOB_STATE['lock']:
+                    _left236 = len(_JOB_STATE['queue'])
+                if outs and _left236 > 0:
+                    try:
+                        _moonraker_gcode(
+                            'RESPOND MSG="[queue] %s done - %d job(s) still '
+                            'waiting (main menu shows Gen queue)"'
+                            % (name, _left236))
+                    except Exception:                       # noqa: BLE001
+                        pass
+                _genq_push()
+                _spin148['win'] = True      # R236: CPU window is contaminated
                 # R188: the flag drops only AFTER the stamping above - and
                 # only when nothing else is queued (a queued job re-raises
                 # it when its build begins). Best effort: an unreachable
@@ -23462,6 +23529,7 @@ def watch(directory, interval=5.0, once=False):
             _JOB_STATE['keys'].add(key)
             _JOB_STATE['queue'].append(
                 (name, key, fn, outs, time.monotonic(), None, 0.0, ram_min))
+        _genq_push()              # R236: the waiting count went up
         return True
     last_figures_nonce = None        # R126: stylized system figures
     last_plotstatus_nonce = None
@@ -23479,7 +23547,8 @@ def watch(directory, interval=5.0, once=False):
         faulthandler.register(signal.SIGUSR1)
     except (ImportError, ValueError, OSError):
         pass
-    _spin148 = {'t': time.monotonic(), 'cpu': _self_cpu(), 'loud': 0.0}
+    _spin148 = {'t': time.monotonic(), 'cpu': _self_cpu(), 'loud': 0.0,
+                 'win': False}   # R236: job/print activity in the window
     _ram148 = {'loud': 0.0}
     # R133b: the single generator worker (daemon - dies with the watcher)
     threading.Thread(target=_job_worker, daemon=True).start()
@@ -24417,6 +24486,7 @@ def watch(directory, interval=5.0, once=False):
                     ' dropped. A running job finishes (it is mid-file) -'
                     ' delete its file afterwards if you do not want it"'
                     '\nM117 Queue clear\n_SOUND_LIB NAME=r2_done' % nq)
+                _genq_push()          # R236: the counter drops to 0
                 print(f'[queue] cancelled, {nq} job(s) dropped', flush=True)
         except Exception as e:                              # noqa: BLE001
             print(f'[queue] cancel error: {e!r}', flush=True)
@@ -26605,13 +26675,23 @@ def watch(directory, interval=5.0, once=False):
         # R224: 'dirty' = a job just wrote files - the walk runs even with
         # low RAM then (see the worker finally); a running print still wins.
         _dirty224 = _JOB_STATE.pop('dirty', False)
-        if busy or _JOB_STATE['busy'] or _JOB_STATE['queue']:
+        # R236 (.136af field log): a finished job's files go live RIGHT
+        # AWAY - the tree push no longer waits for the WHOLE queue to
+        # drain (24 texture jobs in a row = 30 min of stale folder lists
+        # on the LCD). A dirty pass runs in the gap between jobs and -
+        # one single time - overlapping the next build (R224 already
+        # sanctioned dirty walks under RAM pressure). While a PRINT runs
+        # the push still defers (R133 - the print owns the SD and CPU)
+        # and a clean mid-job pass defers too (R133b).
+        if busy:
+            if _dirty224:
+                _JOB_STATE['dirty'] = True      # keep it for the idle pass
+            pass
+        elif _JOB_STATE['busy'] and not _dirty224:
             # R133: while klippy streams g-code the SD card and the CPU
             # belong to the print - defer the walk/stat/process pass.
             # R133b: same while a generator job works through its queue -
             # the field Pi (11 parallel lithos) taught us the lesson
-            if _dirty224:
-                _JOB_STATE['dirty'] = True      # keep it for the idle pass
             pass
         elif _ram_low148 and not _dirty224:
             pass
@@ -26855,9 +26935,14 @@ def watch(directory, interval=5.0, once=False):
         if time.monotonic() - _spin148['t'] >= 300:
             _wall148 = time.monotonic() - _spin148['t']
             _cpu148 = _self_cpu() - _spin148['cpu']
+            # R236 (.136af field log): the window may contain generator
+            # jobs (they run in worker threads - _self_cpu() counts them
+            # ALL): 24 texture builds in 5 min > 55% of a core while
+            # 'idle NOW' -> false IDLE SPIN alarm. A contaminated window
+            # is discarded, the measurement simply restarts.
             if (_cpu148 / max(_wall148, 1.0) > 0.55
                     and not _JOB_STATE['busy'] and not _JOB_STATE['queue']
-                    and not busy):
+                    and not busy and not _spin148['win']):
                 print('[spin] WATCHER SPIN DETECTED: %.0f%% of a core while '
                       'idle over the last %.0fs - thread stacks follow'
                       % (100.0 * _cpu148 / max(_wall148, 1.0), _wall148),
@@ -26878,6 +26963,7 @@ def watch(directory, interval=5.0, once=False):
                         pass
             _spin148['t'] = time.monotonic()
             _spin148['cpu'] = _self_cpu()
+            _spin148['win'] = False
         # R149: persist the seen-cache at most once a minute (and only when
         # something new was scanned) - a SIGTERM kill loses at most 60s of
         # scan progress instead of the whole backlog knowledge
@@ -26886,6 +26972,8 @@ def watch(directory, interval=5.0, once=False):
                 _seen_flush149()
             except Exception:                               # noqa: BLE001
                 pass
+        if busy or _JOB_STATE['busy'] or _JOB_STATE['queue']:
+            _spin148['win'] = True      # R236: window had activity
         time.sleep(60.0 if _ram_low148 else (12.0 if busy else interval))
 
 

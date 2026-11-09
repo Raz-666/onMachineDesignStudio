@@ -4168,7 +4168,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.136ab) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-11-09.136af'", repr(_v66)))
+    _v66 == "'R2-2026-11-09.136ag'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -7123,12 +7123,13 @@ tests.append(('R86.2 example cfg: EBB/U2C/relay/nozzle-LED templates present',
 import re as _re87
 _lcd87 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 _top87 = sorted(_re87.findall(r'^\[menu __main ([a-z_0-9]+)\]$', _lcd87, _re87.M))
-tests.append(('R87/R169 LCD: 13 top-level R2 menus (+ R169 Rate print? + Optimized) '
+tests.append(('R87/R169 LCD: 14 top-level R2 menus (+ R169 Rate print? + Optimized '
+              '+ the R236 Gen queue) '
               '+ the hidden stock overrides '
               '(OctoPrint/Temperature/Setup R135 + the R151 SD Card browser)',
-    _top87 == ['__endq', '__gen', '__live', '__macros', '__maint', '__octoprint',
-               '__optprint', '__preprint', '__sdcard', '__setup', '__start',
-               '__system', '__temp'],
+    _top87 == ['__endq', '__gen', '__genq', '__live', '__macros', '__maint',
+               '__octoprint', '__optprint', '__preprint', '__sdcard', '__setup',
+               '__start', '__system', '__temp'],
     str(_top87)))
 tests.append(('R87 LCD: container Tools + all four trees re-parented, old roots gone',
     '[menu __main __gen]\ntype: list\nname: Tools' in _lcd87
@@ -14596,6 +14597,11 @@ _ADDED135 = [
     '__main __system __genq __state',
     '__main __system __genq __clear',
     '__main __system __genq __clear2',
+    # ---- R236 (.136ag): Gen queue LIVE in the main menu (above the SD
+    # card) - the waiting count drops with every finished job
+    '__main __genq',
+    '__main __genq __show',
+    '__main __genq __cancel',
 ]
 _gone135 = sorted(set(_gold135) - set(_now135))
 _new135 = sorted(set(_now135) - set(_gold135))
@@ -17404,12 +17410,12 @@ tests.append(('R185 current-only manual: no version-history appendix, no era '
     '## Appendix D' not in _m185 and 'Version history' not in _m185
     and _re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185) is None
     and _re2.search(r'\bR1[0-9][0-9]\b', _m185) is None
-    and 'The nine fonts' in _m185 and 'R2-2026-11-09.136af' in _m185,
+    and 'The nine fonts' in _m185 and 'R2-2026-11-09.136ag' in _m185,
     'appendixD=%s eratags=%s rtags=%s nine=%s v132=%s' % (
         '## Appendix D' in _m185,
         bool(_re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185)),
         bool(_re2.search(r'\bR1[0-9][0-9]\b', _m185)),
-        'The nine fonts' in _m185, 'R2-2026-11-09.136af' in _m185)))
+        'The nine fonts' in _m185, 'R2-2026-11-09.136ag' in _m185)))
 
 # ================== R184 (.131c field round): the brim air gap EVERYWHERE ==
 # The user asked: does the brim fusing hit our OTHER generators too? Measured
