@@ -77,8 +77,8 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-08.136ab'
-POSTPROC_BUILD = 'R230'
+POSTPROC_RELEASE = 'R2-2026-11-08.136ac'
+POSTPROC_BUILD = 'R232'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
 # and no speed/accel/nozzle parameters. Files carrying an OLD tag are UPGRADED
@@ -995,6 +995,7 @@ class _GenE:
         self.hole = None          # (cx, cy, r) - travels crossing it retract
         self.ret_mm = 0.6         # R87.2: retract over open holes (direct drive)
         self.ret_feed = 2400
+        self.g11_pending = False  # R231: write G11 before the first ink line
         if not e_rel:
             out.append('G92 E0   ; R2-RANGE: generated geometry E starts at 0')
 
@@ -1018,10 +1019,18 @@ class _GenE:
         crosses = (self.hole is not None and self.px is not None
                    and _seg_hits_circle((self.px, self.py), (x, y),
                                         self.hole[0], self.hole[1], self.hole[2]))
-        if crosses:
+        # R231 (.136ab field log, 'the range macro leaves threads across
+        # the fresh surface'): a LONG travel (> 3mm - loop-to-loop, layer-
+        # to-layer) sweeps over freshly printed raft/cap surface and drags
+        # a string across it. Retract exactly like over the hole; the short
+        # hop between neighbouring hatch lines (< spacing) stays retract-
+        # free (R77 - a retract storm starved the nozzle).
+        far = (self.px is not None
+               and math.hypot(x - self.px, y - self.py) > 3.0)
+        if crosses or far:
             self._retract()
         self.out.append('G0 X%.3f Y%.3f F%d' % (x, y, feed))
-        if crosses:
+        if crosses or far:
             self._unretract()
         self.px, self.py = x, y
 
@@ -1030,6 +1039,11 @@ class _GenE:
         if d < 0.05:
             return
         e = d * e_per_mm
+        if self.g11_pending:
+            # R231: the transition retract (see the G10 before this block)
+            # ends right here - the first generated ink line prints wet
+            self.out.append('G11   ; R231: unretract after the transition')
+            self.g11_pending = False
         if self.e_rel:
             self.out.append('G1 X%.3f Y%.3f E%.5f F%d' % (x1, y1, e, feed))
         else:
@@ -1273,6 +1287,14 @@ def _anchor_bbox(anchor, mask, res):
     if mask is not None:
         return (mask[1], mask[2], mask[1] + mask[3] * res, mask[2] + mask[4] * res)
     return None
+
+
+# R231: generated range geometry (raft/brim/cap) prints at 40 mm/s - the
+# user halves the FIRST layer themselves via the Pre-Print brake; a
+# hard-coded 20 mm/s raft slowed every excerpt for nothing (field log
+# .136ab: 'why do the generated files print everything at 20?')
+_RANGE_FLOOR_F = 2400          # mm/min = 40 mm/s
+_RANGE_FLOOR_SPD = 40.0        # mm/s, the honest _FILE_INFO twin
 
 
 def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
@@ -1530,6 +1552,27 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                         # really prints, not the whole source (field log .73:
                         # features from layers outside the range showed as
                         # activatable but never printed)
+    # R231: normalize floor/top/inside BEFORE the body scan - the scan must
+    # only count ink the excerpt REALLY prints (in-window floor/cap REPLACE
+    # the first/last window layers; their markers never reach the file)
+    floor = max(0, min(int(floor), 10))
+    top = max(0, min(int(top), 10))
+    inside = 1 if str(inside).lower() in ('1', 'true', 'yes', 'on') else 0
+    end = min(end_raw, len(marks))   # R231: clamp before the scan as well
+    notes = []
+    # R231: the window-overlap clamp must run BEFORE the body scan too - the
+    # scan skips layers the floor/cap REPLACE, and it must skip exactly the
+    # layers the generator will REALLY replace (floor=6 on a 4-layer window
+    # clamps to 3: layer 5 keeps its ink and WALL-OUTER stayed honest)
+    _nbody231 = end - start + 1
+    if inside and floor + top >= _nbody231:
+        _over224 = floor + top - (_nbody231 - 1)
+        top = max(0, top - _over224)
+        _over224 = floor + top - (_nbody231 - 1)
+        if _over224 > 0:
+            floor = max(0, floor - _over224)
+        notes.append('floor+top exceeded the window - clamped to %d/%d '
+                     '(at least one body layer stays)' % (floor, top))
     if a_idx is not None:
         _b = b_idx if b_idx is not None else n_stream
         # R159 (.119) FIELD FIX: seed the scan with the state ACTIVE AT THE
@@ -1546,11 +1589,22 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
         _acc = acc_mod   # last M204 (mm/s2) in effect there
         _fvre = re.compile(r'F(\d+(?:\.\d+)?)')
         _evre = re.compile(r'\bE(-?\d*\.?\d+)')
+        _mk231 = 0          # R231: LAYER_MARKs inside the window
+        _nwin231 = end - start + 1
         with open(src, 'r', errors='replace') as f:
             _i = 0
             for raw in f:
                 _ls = raw.strip()
                 if _i >= a_idx and _i < _b:
+                    if _ls == 'LAYER_MARK':
+                        _mk231 += 1
+                    # R231: replaced in-window layers never print - their
+                    # ink must not enter bstats (a SURFACE-TOP that only
+                    # exists in a replaced layer showed in TYPES while the
+                    # file carried no marker for it)
+                    _repl231 = bool(inside and (floor > 0 or top > 0)
+                                    and (_mk231 <= floor
+                                         or _mk231 > _nwin231 - top))
                     _mty = TYPE_RE.match(raw)
                     if _mty:
                         body_types += 1
@@ -1564,14 +1618,18 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                         _mp94 = re.search(r'[PS](\d+(?:\.\d+)?)', _ls)
                         if _mp94:
                             _acc = float(_mp94.group(1))
-                    elif _ls.startswith(('G0 ', 'G1 ')):
+                    elif _ls.startswith(('G0 ', 'G1 ', 'G2 ', 'G3 ')):
+                        # R231: G2/G3 arcs carry ink too - a revolved vase
+                        # walls almost entirely on arcs, the G1-only scan
+                        # saw a body with (almost) no feature ink
                         _mf94 = _fvre.search(_ls)
                         if _mf94:
                             _fv = float(_mf94.group(1))
                         _me94 = _evre.search(_ls)
                         if _me94 and float(_me94.group(1)) > 0:
                             _ink180 += 1
-                        if _me94 and _frun and float(_me94.group(1)) > 0:
+                        if (not _repl231 and _me94 and _frun
+                                and float(_me94.group(1)) > 0):
                             _sp94 = round(_fv / 60.0, 2) if _fv else 0.0
                             d = bstats.setdefault(_frun, {'f': {}, 'acc': None})
                             d['f'][_sp94] = d['f'].get(_sp94, 0) + 1
@@ -1593,14 +1651,8 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
     total = len(marks)
     if total < 2:
         raise ValueError('no LAYER_MARK layers found - the file is not processed yet')
-    end = min(end_raw, total)
     if end <= start:
         raise ValueError(f'range {start}..{end} invalid (file has {total} layers)')
-    floor = max(0, min(int(floor), 10))
-    top = max(0, min(int(top), 10))
-    # R224: 'inside' decides whether floor/top REPLACE window layers (1, the
-    # default - seamless stacking) or add raft+cap outside them (0, legacy)
-    inside = 1 if str(inside).lower() in ('1', 'true', 'yes', 'on') else 0
     brim = max(0, min(int(brim), 10))
     floor_shape = 'outline' if str(floor_shape).lower().startswith('out') else 'hull'
     top_shape = 'outline' if str(top_shape).lower().startswith('out') else 'hull'
@@ -1609,7 +1661,6 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
     # R86.2: centered floor/cap holes, 0 = off (diameter mm)
     floor_hole = max(0.0, min(float(floor_hole or 0.0), 90.0))
     top_hole = max(0.0, min(float(top_hole or 0.0), 90.0))
-    notes = []
     a = a_idx                 # first line of layer <start> (its LAYER_MARK)
     b = marks[end] if end < total else n_stream   # exclusive end
     # the cap anchor: layer 'end' complete (falls back to the file's last
@@ -1642,15 +1693,6 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
     # the first printed body layer - 'start+floor' - lands exactly one layer
     # above the floor top). Legacy additive mode keeps the raft underneath.
     n_body224 = end - start + 1                   # layers in the source window
-    if inside and floor + top >= n_body224:
-        # keep at least ONE real body layer between the in-window floor and cap
-        _over224 = floor + top - (n_body224 - 1)
-        top = max(0, top - _over224)
-        _over224 = floor + top - (n_body224 - 1)
-        if _over224 > 0:
-            floor = max(0, floor - _over224)
-        notes.append('floor+top exceeded the window - clamped to %d/%d '
-                     '(at least one body layer stays)' % (floor, top))
     if inside:
         base_z = round(first_h, 3)
     else:
@@ -1697,6 +1739,7 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
     # ---- generated geometry: raft (FLOOR), brim (BRIM), solid cap (TOP) -------
     gen = []            # gcode lines, inserted BEFORE the body (raft/brim)
     gen_top = []        # gcode lines, inserted AFTER the body (cap)
+    _gt_cap = None      # R231: the cap's _GenE (transition G11 hook)
     fh = None           # R86.2: floor hole (bound below when floor > 0)
     if floor > 0 or brim > 0:
         anchor = _as_poly(hull1)
@@ -1733,7 +1776,7 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
             gen.append('APPLY_TYPE TYPE=BRIM')
             for k in range(brim - 1, -1, -1):
                 hull_off = _offset_hull(anchor, wid + k * wid)
-                g.loop(hull_off, first_h * wid / FIL_AREA, 1200)
+                g.loop(hull_off, first_h * wid / FIL_AREA, _RANGE_FLOOR_F)
         # RAFT: 'floor' solid layers under the section footprint - the hull is
         # offset by half a line width so the raft edge sits flush with the
         # model walls (ZERO gap - it welds directly to the section).
@@ -1765,12 +1808,12 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                 if f_shape == 'outline':
                     for poly in _mask_contours(mask1[0], mask1[1], mask1[2],
                                                mask1[3], mask1[4], res):
-                        g.loop(poly, ep, 1200)
+                        g.loop(poly, ep, _RANGE_FLOOR_F)
                     segs = _mask_hatch(mask1[0], mask1[1], mask1[2],
                                        mask1[3], mask1[4], res, spacing, ang)
                 else:
                     hull_off = _offset_hull(anchor, wid / 2.0)
-                    g.loop(hull_off, ep, 1200)
+                    g.loop(hull_off, ep, _RANGE_FLOOR_F)
                     segs = _hull_hatch(anchor, spacing, ang)
                 if fh:
                     # R87.2 FIELD REWORK (.71 log: strings hung across the open
@@ -1781,11 +1824,11 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                     # that still passes over the hole retracts (_GenE.hole)
                     g.hole = (fh['cx'], fh['cy'], fh['r'])
                     _spiral_ring(g, fh['cx'], fh['cy'], fh['r'],
-                                 fh['r_out'], wid, ep, 1200)
+                                 fh['r_out'], wid, ep, _RANGE_FLOOR_F)
                     segs = [s for (p, q) in segs
                             for s in _seg_outside_circle(p, q, fh['cx'],
                                                          fh['cy'], fh['r_out'])]
-                _serp_g(g, segs, eph, 1200, spacing)
+                _serp_g(g, segs, eph, _RANGE_FLOOR_F, spacing)
         if brim > 0 and floor <= 0:
             # R94: no raft - the brim runs alone BEFORE the body, at the
             # body's first Z (it used to inherit whatever Z was modal -
@@ -1813,7 +1856,11 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                                      '(bridge layer + 2 solid)' % top)
                         top = 3
     if top > 0 and t_shape is not None:
-        gt = _GenE(gen_top, e_rel)
+        _gt_cap = gt = _GenE(gen_top, e_rel)
+        # R231: the cap's first travel sweeps over the body's fresh top -
+        # the matching G10 is written just before the cap block; the G11
+        # lands inside the _GenE at its first ink line
+        gt.g11_pending = True
         gen_top.append(('; R2-RANGE in-window cap: %d %s layer(s), %s fill, '
                         'replacing the last layers' if inside else
                         '; R2-RANGE cap: %d %s layer(s), %s fill, over the last layer')
@@ -1840,12 +1887,12 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
             if t_shape == 'outline':
                 for poly in _mask_contours(mask_n[0], mask_n[1], mask_n[2],
                                            mask_n[3], mask_n[4], res):
-                    gt.loop(poly, ep, 1200)
+                    gt.loop(poly, ep, _RANGE_FLOOR_F)
                 segs = _mask_hatch(mask_n[0], mask_n[1], mask_n[2],
                                    mask_n[3], mask_n[4], res, spacing, ang)
             else:
                 hull_off = _offset_hull(hull_n, wid / 2.0)
-                gt.loop(hull_off, ep, 1200)
+                gt.loop(hull_off, ep, _RANGE_FLOOR_F)
                 segs = _hull_hatch(hull_n, spacing, ang)
             if th:
                 # R87.2: travels over the open cap hole retract too
@@ -1877,16 +1924,16 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                         gt.move(_x095, _y095, 4800)
                         gt.line(_x095, _y095, _x195, _y195, ep, 1300)
                     gen_top.append('APPLY_TYPE TYPE=INTERNAL-BRIDGE   ; R95: the ring prints ON the bridges')
-                    gt.loop(_circle(th['cx'], th['cy'], th['r'], 48), ep, 1200)
+                    gt.loop(_circle(th['cx'], th['cy'], th['r'], 48), ep, _RANGE_FLOOR_F)
                     gen_top.append('APPLY_TYPE TYPE=INFILL-SOLID   ; R95: back to the cap solid')
                 else:
                     # R87.2: spiral band (same as the floor) - no strings
                     _spiral_ring(gt, th['cx'], th['cy'], th['r'],
-                                 th['r_out'], wid, ep, 1200)
+                                 th['r_out'], wid, ep, _RANGE_FLOOR_F)
                     segs = [s for (p, q) in segs
                             for s in _seg_outside_circle(p, q, th['cx'],
                                                          th['cy'], th['r_out'])]
-            _serp_g(gt, segs, eph, 1200, spacing)
+            _serp_g(gt, segs, eph, _RANGE_FLOOR_F, spacing)
 
     # R87.2: feature diagnostics for the excerpt header (out_lines is built
     # right below - the notes must be complete before that)
@@ -1902,18 +1949,36 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
             notes.append('NO feature markers in these layers - Live > Features '
                          'cannot switch, the body prints with the last active feature')
     # R94: the generated geometry is content too - raft/cap count as
-    # INFILL-SOLID, the brim as BRIM (both print at F1200 = 20 mm/s)
+    # INFILL-SOLID, the brim as BRIM (both print at F2400 = 40 mm/s, the
+    # Pre-Print first-layer brake halves layer 1 - the user halves it,
+    # a hard-coded slow raft buys nothing: R159 rule)
     if (floor > 0 or top > 0) and 'INFILL-SOLID' not in bstats:
-        bstats['INFILL-SOLID'] = {'f': {20.0: 1}, 'acc': None}
+        bstats['INFILL-SOLID'] = {'f': {_RANGE_FLOOR_SPD: 1}, 'acc': None}
     if brim > 0 and 'BRIM' not in bstats:
-        bstats['BRIM'] = {'f': {20.0: 1}, 'acc': None}
+        bstats['BRIM'] = {'f': {_RANGE_FLOOR_SPD: 1}, 'acc': None}
     # R95: a cap with a hole builds real bridges now (spokes F1300, ring
-    # F1200) - both belong in the excerpt's TYPES so the features are honest
+    #   at the floor speed) - both belong in the excerpt's TYPES so the
+    # features are honest
     if th is not None:
         if 'BRIDGE' not in bstats:
             bstats['BRIDGE'] = {'f': {21.6: 1}, 'acc': None}
         if 'INTERNAL-BRIDGE' not in bstats:
             bstats['INTERNAL-BRIDGE'] = {'f': {20.0: 1}, 'acc': None}
+    # R231 (.136ab field log): the body ALWAYS opens with the re-asserted
+    # cut feature ('APPLY_TYPE ... active at the cut' below) - whatever Live
+    # tuning sees, the Pre-Print feature list must show too. When the body
+    # scan counted no ink under cut_key, _FILE_INFO said TYPES=INFILL-SOLID,
+    # BRIM only: the wall row vanished and with it every feature speed but
+    # the raft's - the user saw 'only brim and solid, everything 20 mm/s'
+    # while the live menu showed the wall. The re-asserted opening segment
+    # runs at f_mod, so seeding the speed from it is honest, not a guess.
+    if cut_key and cut_key not in bstats:
+        bstats[cut_key] = {
+            'f': {round(f_mod / 60.0, 2) if f_mod else 0.0: 1},
+            'acc': acc_mod}
+        notes.append('R231: %s re-added to the file info - the body opens '
+                     'with it (active at the cut), the pre-print list must '
+                     'match the live features' % cut_key)
 
     # ---- prologue: a NORMAL file head with PRINT_START -> full start flow ----
     n_layers = end - start + 1 + (0 if inside else floor + top)   # R224: floor/top inside
@@ -1989,6 +2054,16 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
     out_lines += gen
     if not e_rel and gen:
         out_lines.append('G92 E0   ; R2-RANGE: body E starts at 0')
+    # R231: the floor/brim ends WET and the body's first travel (dropped
+    # head or not, the source's own retract sat above the cut) sweeps over
+    # the fresh raft - the string the field log called 'Fahnen quer ueber
+    # den Boden'. One firmware retract here, one G11 right before the
+    # body's first ink line below (if the body opens with its own retract
+    # pair the G11 lands before its unretract and the pair nets out).
+    _g11_231 = bool(gen)
+    if gen:
+        out_lines.append('G10   ; R231: retract - the body travels over '
+                         'the fresh floor now')
 
     # ---- pass B: stream the body through the Z/E shift into the output -----
     # per-line twin of the old _shift() closure (stateful E base across the
@@ -2159,6 +2234,14 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                                 held_type = l
                                 held_key = _canon_type(mty.group(1))
                             else:
+                                if _g11_231:
+                                    _me231 = re.search(r'\bE(-?[\d.]+)', c)
+                                    if _me231 and float(_me231.group(1)) > 0:
+                                        # R231: end the floor->body transition
+                                        # retract at the body's first wet move
+                                        fo.write('G11   ; R231: unretract '
+                                                 'after the floor transition\n')
+                                        _g11_231 = False
                                 fo.write(l + '\n')
                         if not body_open:
                             # R94 (field log .73): the body must OPEN with the
@@ -2186,6 +2269,12 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
             fo.write('\n')
         if open_obj:
             fo.write(f'EXCLUDE_OBJECT_END NAME={open_obj}   ; R2-RANGE: closed open object at the cut' + '\n')
+        if gen_top and _gt_cap is not None:
+            # R231: the cap travels sweep over the body's fresh top layer -
+            # same transition retract as floor->body (the G11 fires inside
+            # the cap's _GenE at its first ink line, armed at build time)
+            fo.write('G10   ; R231: retract - the cap travels over the '
+                     'fresh body top\n')
         for l in gen_top:
             fo.write(l + '\n')
 
@@ -2713,18 +2802,29 @@ def _jpeg_to_rgb(data, max_dim=0):
         mcus_done += 1
 
     def idct8(blk):
+        # R232 RAM/CPU round: the 2-D IDCT is SEPARABLE - one 1-D pass over
+        # the rows, one over the columns. Same accumulation order per output
+        # pixel as the old nested form (bit-identical floats), a quarter of
+        # the multiplies (1024 vs 4096 per block). The pure-python JPEG
+        # decode was THE string-art cost driver on the Pi Zero (field log:
+        # klippy reactor stalls while a photo build ran).
+        tmp = [0.0] * 64
+        for v in range(8):
+            row = blk[v * 8:v * 8 + 8]
+            for x in range(8):
+                su = 0.0
+                for u in range(8):
+                    cuv = (0.70710678 if u == 0 else 1.0)
+                    su += cuv * row[u] * _COS8[(2 * x + 1) * u % 32]
+                tmp[v * 8 + x] = su
         out = [0.0] * 64
         for y in range(8):
+            cy = [_COS8[(2 * y + 1) * v % 32] for v in range(8)]
             for x in range(8):
                 s = 0.0
                 for v in range(8):
                     cu = (0.70710678 if v == 0 else 1.0)
-                    row = blk[v * 8:v * 8 + 8]
-                    su = 0.0
-                    for u in range(8):
-                        cuv = (0.70710678 if u == 0 else 1.0)
-                        su += cuv * row[u] * _COS8[(2 * x + 1) * u % 32]
-                    s += cu * su * _COS8[(2 * y + 1) * v % 32]
+                    s += cu * tmp[v * 8 + x] * cy[v]
                 out[y * 8 + x] = s / 4.0
         return out
 
@@ -2778,7 +2878,22 @@ def _jpeg_to_rgb(data, max_dim=0):
     ypix, fw, fh = full[yid]
     h2 = (h + step - 1) // step
     if len(comps) == 1:
-        rows = [[(ypix[y][x], ypix[y][x], ypix[y][x]) if x < len(ypix[y]) else (128, 128, 128) for x in range(0, w, step)] for y in range(0, h, step)]
+        # R232 FIELD FIX: grayscale JPEGs crashed the decoder - the row index
+        # used the RAW y instead of y // step (the color path below got it
+        # right), so any gray photo larger than the 512px decode cap died
+        # with IndexError. Same clamping discipline as the color path.
+        rows = []
+        for y in range(0, h, step):
+            if y // step >= len(ypix):
+                break
+            yrow = ypix[y // step]
+            rows.append([(yrow[min(x // step, len(yrow) - 1)],) * 3
+                         for x in range(0, w, step)])
+        if rows and len(rows) < h2:
+            rows += [rows[-1]] * (h2 - len(rows))
+        elif not rows:
+            rows = [[(128, 128, 128)] * ((w + step - 1) // step)
+                    for _ in range(h2)]
         return (w + step - 1) // step, h2, rows
     cbpix, _, _ = full[comps[1]['id']]
     crpix, _, _ = full[comps[2]['id']]
@@ -4956,6 +5071,69 @@ def _emit_loop(pen, pts, e_per_mm, feed, close=True):
         pen.extrude(pts[0][0], pts[0][1], math.hypot(pts[0][0] - px, pts[0][1] - py) * e_per_mm, feed)
 
 
+def _segs_clear_of(segs, keepouts):
+    """R231: split hatch segments into runs that keep their clearance from
+    every keep-out polyline - the label's inlaid top layer prints AROUND
+    the text bands and the border ring, the color-B fills own those
+    regions. keepouts = [(pts, clear_mm), ...]; sampling every 0.6mm (a
+    visual boundary, not exact geometry - the B fills overlap any sliver).
+    Returns a segment list like the input."""
+    if not keepouts:
+        return list(segs)
+    bbs = []
+    for pts, clear in keepouts:
+        if len(pts) < 2:
+            continue
+        for a, b in zip(pts[:-1], pts[1:]):
+            bbs.append((min(a[0], b[0]) - clear, min(a[1], b[1]) - clear,
+                        max(a[0], b[0]) + clear, max(a[1], b[1]) + clear,
+                        a, b, clear))
+    if not bbs:
+        return list(segs)
+    out = []
+    for (p, q) in segs:
+        dx, dy = q[0] - p[0], q[1] - p[1]
+        d = math.hypot(dx, dy)
+        if d < 0.05:
+            continue
+        n = max(2, int(d / 0.6) + 1)
+        run_start = None
+        prev_pt = None
+        for i in range(n):
+            t = i / (n - 1.0)
+            x, y = p[0] + dx * t, p[1] + dy * t
+            ok = True
+            for (bx0, by0, bx1, by1, a, b, clear) in bbs:
+                if bx0 <= x <= bx1 and by0 <= y <= by1:
+                    ex, ey = b[0] - a[0], b[1] - a[1]
+                    dd = ex * ex + ey * ey
+                    if dd < 1e-9:
+                        if math.hypot(x - a[0], y - a[1]) < clear:
+                            ok = False
+                            break
+                    else:
+                        tt = max(0.0, min(1.0, ((x - a[0]) * ex
+                                                + (y - a[1]) * ey) / dd))
+                        if math.hypot(x - (a[0] + ex * tt),
+                                      y - (a[1] + ey * tt)) < clear:
+                            ok = False
+                            break
+                if not ok:
+                    break
+            if ok:
+                if run_start is None:
+                    run_start = (x, y)
+                prev_pt = (x, y)
+            elif run_start is not None and prev_pt is not None:
+                if math.hypot(prev_pt[0] - run_start[0],
+                              prev_pt[1] - run_start[1]) >= 0.3:
+                    out.append((run_start, prev_pt))
+                run_start = None
+        if run_start is not None and prev_pt is not None:
+            out.append((run_start, prev_pt))
+    return out
+
+
 def _hatch(x0, y0, x1, y1, circ_keep, spacing, angle_deg, min_len=0.35):
     """scanline hatch over rect minus keep-out circle -> [(p,q),..] boustrophedon
 
@@ -5819,7 +5997,7 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
                 border_gap=0.0, sparse_pct=8.0, ring=False, ring_d=6.0,
                 ring_h=0.0, mirror_x=0, mirror_y=0, stamp=0,
                 stamp_base=5.0, stamp_tol=0.25, handle=0,
-                stamp_infill=10.0, walls=0):
+                stamp_infill=10.0, walls=0, flip=0):
     """Generate printable label plate file(s). Returns (path, info).
 
     R170 (field report .128): an overflow no longer ERRORS - the job splits
@@ -5862,7 +6040,7 @@ def make_labels(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_layers
             ring_d=ring_d, ring_h=ring_h, mirror_x=mirror_x,
             mirror_y=mirror_y, stamp=stamp, stamp_base=stamp_base,
             stamp_tol=stamp_tol, handle=handle, stamp_infill=stamp_infill,
-            part=part, dry_layout=dry, walls=walls)
+            part=part, dry_layout=dry, walls=walls, flip=flip)
 
     _fiterr170 = 'labels do not fit the bed'      # R221: except-names are unbound
     try:                                          # after the block - 'raise e170'
@@ -5913,7 +6091,7 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
                      border_gap=0.0, sparse_pct=8.0, ring=False, ring_d=6.0,
                 ring_h=0.0, mirror_x=0, mirror_y=0, stamp=0,
                 stamp_base=5.0, stamp_tol=0.25, handle=0,
-                stamp_infill=10.0, part=0, dry_layout=False, walls=0):
+                stamp_infill=10.0, part=0, dry_layout=False, walls=0, flip=0):
     """Generate ONE printable label plate file. Returns (path, info).
 
     R74: every entry may carry up to 3 lines separated by '~' (LCD: Labels >
@@ -6286,6 +6464,40 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
     mirror_x = 1 if (stamp or str(mirror_x).strip().lower()
                      in ('1', 'true', 'on', 'yes')) else 0
     mirror_y = 1 if str(mirror_y).strip().lower() in ('1', 'true', 'on', 'yes') else 0
+    # ---- R231 (.136ab field log): FLIP mode + the INLaid text model -------
+    # flip prints the label text-face DOWN: the buildplate finish lands on
+    # the letter surface. The text MIRRORS in the file so it reads CORRECT
+    # after the part comes off the bed (a stamp is the only case where a
+    # mirrored result is wanted - flip and stamp exclude each other).
+    flip = 1 if str(flip).strip().lower() in ('1', 'true', 'on', 'yes') else 0
+    if flip:
+        if stamp:
+            raise ValueError('Flip and Stamp exclude each other: Flip prints '
+                             'text-face-down for a READABLE surface, a Stamp '
+                             'mirrors for the imprint - pick one')
+        if ring and color2:
+            raise ValueError('Flip + Ring + 2 colors: the ring prints in the '
+                             'text-color block - print single color or drop '
+                             'the ring')
+        for lb in labels:
+            lb['paths'] = [[(lb['w'] - px, py) for (px, py) in path]
+                           for path in lb['paths']]
+    # text_layers = the TOTAL text depth in the label: 2 = flush with the
+    # surface (layer 1 burned into the solid-infill layer, layer 2 in the
+    # top layer), 3/4 add raised layers ON TOP of the flush inlay
+    # ('Schichten 3+4 addieren auf Hoehe'). Old meaning (raise above the
+    # base) = text_layers - 2 now.
+    try:
+        text_layers = max(2, min(int(text_layers or 2), 4))
+    except (TypeError, ValueError):
+        text_layers = 2
+    if base_layers < 2:
+        base_layers = 2     # the inlay needs the infill layer under the top
+    raised_t231 = max(0, text_layers - 2)
+    if flip and ironing:
+        # the ironing pass would run on the label's BACK (the face that
+        # prints last in flip) - pointless, and the text face is on the bed
+        ironing = False
     if mirror_x or mirror_y:
         for lb in labels:
             if mirror_x:
@@ -6472,7 +6684,28 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
         return [(lb['x'] + lb['w'] / 2.0 + px, lb['y'] + lb['h'] / 2.0 + py)
                 for (px, py) in pts]
 
-    # ---- extrusion constants ------------------------------------------------
+    # ---- R231: keep-out geometry for the inlaid top layer -----------------
+    # The top layer's plate fill (and ironing) must print AROUND the text
+    # bands and the border ring - the color-B letter fills own those
+    # regions. One computation per label, reused by every clipped layer.
+    for lb in labels:
+        _half231 = min(lb['stroke_eff'],
+                       max(2.0 * twid, 2.1 * lb['sx'])) / 2.0
+        lb['ko231'] = [(
+            _decimate([(lb['x'] + px, lb['y'] + py)
+                       for (px, py) in path], 0.10),
+            _half231 + wid * 0.55) for path in lb['paths']]
+        if border_walls > 0:
+            for _k231 in range(border_walls):
+                _in231 = wid / 2.0 + border_gap + _k231 * wid
+                _bp231 = _lb_contour(lb, _in231)
+                if _bp231 is None:
+                    _bp231 = _rect_loop(lb['x'] + _in231, lb['y'] + _in231,
+                                        lb['x'] + lb['w'] - _in231,
+                                        lb['y'] + lb['h'] - _in231)
+                lb['ko231'].append((_bp231, wid * 0.85))
+
+    # ---- extrusion constants ---------------------------------------------------------------------------------------------
     twid = max(0.4, nozzle * 1.02)         # one text extrusion line
     # R83 anti-merge: the effective stroke never exceeds cap/5 (>= 1 line)
     _capmax79 = max(lb['cap_h'] for lb in labels)
@@ -6486,7 +6719,10 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
     # (they stay readable even if the raised layers above chip off). The
     # overall height is the naive sum MINUS one layer; the settings
     # (base/text layer counts) stay exactly as they are.
-    total_layers = base_layers + text_layers - 1
+    # R231: text_layers is the TOTAL text depth now (2 = flush inlay:
+    # contour layer inside the base + top layer), so the file height is
+    # base + RAISED layers (text_layers - 2), not base + text_layers - 1.
+    total_layers = base_layers + raised_t231
     # R170: with the handle ON THE PLATE the file grows to the handle's
     # height - the labels finish earlier, the layers above hold only the
     # handle (printed last, nothing to rip off)
@@ -6520,10 +6756,11 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
     else:
         a('; base %.0fx%.0fmm, %d layers @ %.2gmm (first %.2gmm), text %d layer(s), font %s'
           % (w, h, base_layers, layer_h, first_h, text_layers, font))
-    a('; R214 text embedding: the FIRST text layer prints INSIDE the last'
-      ' base layer - contours stay in the plastic even if raised layers'
-      ' chip off; total height = %d layers (overlap saves one)'
-      % (base_layers + text_layers - 1))
+    a('; R231 text inlay: contours burned into the %s layer, flush fills'
+      ' in the top layer%s - total height = %d layers'
+      % ('bottom' if base_layers == 2 else 'solid-infill',
+         (', +%d raised layer(s)' % raised_t231) if raised_t231 else '',
+         total_layers))
     a('; R74 text: font size %s, letter spacing +%.1fmm, up to 5 lines per label, uniform scale'
       % ('auto' if not font_size else '%.1fmm caps' % font_size, spacing))
     if stroke_eff < stroke_w - 0.01:
@@ -6563,6 +6800,21 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
     else:
         a('; layout: %dx%d grid %0.0fx%0.0fmm, %d of max %d labels fit the bed'
           % (cols, rows, gw, gh, n, cols * rows))
+    # R231: the text model line - what 'text layers' means in THIS file
+    if flip:
+        a('; R231 FLIP: printed text-face-down - the buildplate finish '
+          'lands on the letter surface, the text reads correct off the bed')
+        if color2:
+            a('; R231 FLIP + 2 colors: LOAD THE TEXT COLOR FIRST - the '
+              'file starts with the text, one M600 to the plate color '
+              'right after the text face')
+    else:
+        a('; R231 inlay: text %d layer(s) deep in the label - glyph '
+          'contours in the solid-infill layer, flush letter fills in the '
+          'top layer%s'
+          % (text_layers,
+             (' + %d raised layer(s) on top' % raised_t231)
+             if raised_t231 else ''))
     # slicer-style config comments -> _FILE_INFO (Pre-Print shows these)
     a('; filament_type = %s' % material)
     a('; layer_height = %.2g' % layer_h)
@@ -6588,8 +6840,10 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
     # appears; same class as the .134 brim gap: a TYPES= entry with no
     # material enables LCD rows that can do nothing)
     types = ['WALL-OUTER', 'WALL-INNER']
-    if base_layers >= 3:
-        types.append('INFILL-SOLID')
+    # R231: the glyph contours carry the Internal-solid tag in EVERY
+    # inlay now (base_layers 2 = contours in the bottom layer), so
+    # INFILL-SOLID is always an honest TYPES entry
+    types.append('INFILL-SOLID')
     if sparse_mid > 0:
         # R119: the tall-base sparse band is its own feature
         types.append('SPARSE-INFILL')
@@ -6675,11 +6929,14 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
     # R119 sparse band spacing (frames style, 8% default)
     _spc_lab = wid * 100.0 / max(5.0, min(float(sparse_pct or 8.0), 15.0))
 
-    def base_block(lb, z, layer_idx, first, top):
+    def base_block(lb, z, layer_idx, first, top, lo=None, clip231=False):
         """one label's base layer: brim + perimeters + hole + fill (+ironing).
         R119: OVAL/ROUND contours replace the rect loops (brim via polygon
         offset, fills via convex-contour hatch); bases thicker than 6 layers
-        print 4 bottom + 4 top SOLID with sparse infill between (frames)."""
+        print 4 bottom + 4 top SOLID with sparse infill between (frames).
+        R231: lo = the LOGICAL layer (differs from the print index in FLIP
+        mode); clip231 keeps the fill/ironing clear of the inlaid text
+        bands + border (the top layer prints AROUND them)."""
         lx, ly, w, h = lb['x'], lb['y'], lb['w'], lb['h']
         x0, y0 = lx + wid / 2.0, ly + wid / 2.0
         x1, y1 = lx + w - wid / 2.0, ly + h - wid / 2.0
@@ -6768,7 +7025,21 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
         # R106 (user TYPE map): first fill on the bed = Bottom surface,
         # the visible top = Top surface, between = Internal solid;
         # R119: the sparse band between the solid skins = Sparse infill
-        if first:
+        # R231: in FLIP mode lo (the logical layer) drives the surface
+        # names - the label's own top stays 'Top surface' wherever it
+        # physically prints (the flip is explicit, the user tunes the face)
+        if lo is not None:
+            sparse_l = (sparse_mid > 0 and bot_solid < lo
+                        <= base_layers - top_solid)
+            if lo == 1:
+                ftype = 'Bottom surface'
+            elif lo == base_layers:
+                ftype = 'Top surface'
+            elif sparse_l:
+                ftype = 'Sparse infill'
+            else:
+                ftype = 'Internal solid infill'
+        elif first:
             ftype = 'Bottom surface'
         elif top:
             ftype = 'Top surface'
@@ -6784,6 +7055,8 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
                           45.0 if layer_idx % 2 else 135.0)
         else:
             segs = _shape_hatch(fc, fspc, 45.0 if layer_idx % 2 else 135.0, keep)
+        if clip231:
+            segs = _segs_clear_of(segs, lb['ko231'])
         _emit_fill(pen, segs, e_wall, 1500 if first else 2700, fspc)
         if fit168 is not None:
             pen.holes = []
@@ -6801,6 +7074,8 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
             else:
                 isegs = _shape_hatch(ic2, 0.45, 45.0 if layer_idx % 2 else 135.0,
                                      ikeep, min_len=0.3)
+            if clip231:
+                isegs = _segs_clear_of(isegs, lb['ko231'])
             ei = layer_h_eff(layer_idx) * wid * 0.15 / fil
             _emit_fill(pen, isegs, ei, 1800, 0.45)
         L.append('EXCLUDE_OBJECT_END NAME=%s' % lb['name'])
@@ -6843,7 +7118,7 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
         _emit_fill(pen, segs, e_wall, 1500 if first else 2700, wid)
         L.append('EXCLUDE_OBJECT_END NAME=PURGE_TOWER')
 
-    def text_block(lb, z, layer_idx):
+    def text_block(lb, z, layer_idx, tag='Outer wall'):
         """the label's text (R74 line typography) - SOLID double-walled
         strokes (R72: single lines broke off when scratched). Each skeleton
         becomes a bundle of parallel lines +half..-half: the outermost two
@@ -6852,7 +7127,10 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
         wall/fill per stroke line -> hundreds of APPLY_TYPE calls -> host/MCU
         overload), decimated vertices, calmer feeds.
         R74: the stroke bundles print NEAREST-FIRST - reading order added a
-        travel across the whole word before every glyph."""
+        travel across the whole word before every glyph.
+        R231: tag - 'Internal solid infill' for the contour layer burned
+        into the solid-infill layer (plate color), 'Top surface' for the
+        flush inlay in the top layer, 'Outer wall' for raised text."""
         e_txt = layer_h_eff(layer_idx) * twid / fil
         # stroke width: user value (LCD 'Stroke'), auto = 3 extrusion lines;
         # capped by the letter pitch so condensed glyphs keep open counters,
@@ -6862,7 +7140,7 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
         L.append('EXCLUDE_OBJECT_START NAME=%s' % lb['name'])
         # R106 (user TYPE map): the raised text IS the visible surface -
         # its strokes print as Outer wall (outer-wall speed/overrides apply)
-        L.append(';TYPE:Outer wall')
+        L.append(';TYPE:%s' % tag)
         bundles = []
         for pts in lb['paths']:
             pts = _decimate([(lb['x'] + px, lb['y'] + py) for (px, py) in pts], 0.10)
@@ -6971,65 +7249,122 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
                    1500 if first else 2700)
         L.append('EXCLUDE_OBJECT_END NAME=%s' % lb['name'])
 
-    # ---- base layers --------------------------------------------------------
-    # R74: label order alternates per layer (serpentine) - layer N ends at the
-    # last label, layer N+1 starts right there instead of travelling back
-    for li in range(1, base_layers + 1):
-        z = round(first_h + (li - 1) * layer_h, 3)
-        L.append(';LAYER_CHANGE')
-        L.append(';Z:%.3f' % z)
-        pen.set_z(z)
-        if li == 2:
-            L.append('M106 S178   ; R2-LABELS: part fan from layer 2')
-        top = (li == base_layers)
-        order = labels if li % 2 else list(reversed(labels))
-        for lb in order:
-            base_block(lb, z, li, li == 1, top)
-            if li <= _rl120:
-                ring_block(lb, li, li == 1)
-        if tower:
-            tower_block(z, li, li == 1)
-        if _hplate170 and li <= _hl170:
-            handle_block(z, li)      # R170: the handle prints LAST
-        if li == base_layers and text_layers >= 1:
-            # R214: the FIRST text layer is EMBEDDED in this very last base
-            # layer - same z, printed right after the base (and the M600
-            # filament change when color2). The raised text starts one
-            # layer lower than before: contours burned into the base stay
-            # readable even when the raised layers chip off.
-            if color2:
-                a('; R2-LABELS: base layers done - PAUSE for the filament'
-                  ' change (text color)')
-                a('; swap filament, then RESUME - the purge tower primes the new color')
-                a('M600')
-            if tower:
-                tower_block(z, li, False, prime=True)
-            for lb in order:
-                border_block(lb, li)
-                text_block(lb, z, li)
+    # ---- R231 layer plan ----------------------------------------------------
+    # NORMAL: base layers 1..B (the B-1 layer burns the glyph CONTOURS into
+    # the solid infill - plate color, R214 spirit; the B layer prints the
+    # top fill AROUND the text bands, then ONE M600, then the flush text
+    # fills + border in color B), then the raised layers B+1.. on top.
+    # FLIP: the same logical stack printed upside down (B+R first, 1 last):
+    # the text face lies on the buildplate and carries its finish, the
+    # file STARTS in the text color and swaps to the plate color once.
+    # R74: label order alternates per layer (serpentine) - layer N ends at
+    # the last label, layer N+1 starts right there instead of travelling back.
+    _NT231 = base_layers + raised_t231
 
-    # ---- text layers (the SECOND and above - the first is inside the base) --
-    for ti in range(2, text_layers + 1):
-        li = base_layers + ti - 1
-        z = round(first_h + (base_layers - 1) * layer_h + (ti - 1) * layer_h, 3)
+    def _layer_head(p):
+        z = round(first_h + (p - 1) * layer_h, 3)
         L.append(';LAYER_CHANGE')
         L.append(';Z:%.3f' % z)
         pen.set_z(z)
-        if tower:
-            tower_block(z, li, False, prime=False)
-        order = labels if li % 2 else list(reversed(labels))
-        for lb in order:
-            border_block(lb, li)
-            text_block(lb, z, li)
-        if _hplate170 and li <= _hl170:
-            handle_block(z, li)      # R170: the handle prints LAST
+        if p == 2:
+            L.append('M106 S178   ; R2-LABELS: part fan from layer 2')
+        return z, (labels if p % 2 else list(reversed(labels)))
+
+    if not flip:
+        for li in range(1, base_layers + 1):
+            z, order = _layer_head(li)
+            top = (li == base_layers)
+            for lb in order:
+                base_block(lb, z, li, li == 1, top, lo=li, clip231=top)
+                if li <= _rl120:
+                    ring_block(lb, li, li == 1)
+            if tower:
+                tower_block(z, li, li == 1)
+            if _hplate170 and li <= _hl170:
+                handle_block(z, li)      # R170: the handle prints LAST
+            if li == base_layers - 1 and text_layers >= 2:
+                # R231: the text's FIRST inlay layer - the glyph contours
+                # burned into the solid-infill layer below the surface,
+                # PLATE color, no swap: the letters stay readable even if
+                # the flush layer chips (R214 lesson, one layer deeper)
+                for lb in order:
+                    text_block(lb, z, li, tag='Internal solid infill')
+            if li == base_layers and text_layers >= 2:
+                # R231: 'zuerst Label-Flaeche, DANN Buchstaben + Rand' -
+                # the top fill ran clipped AROUND the bands (base_block),
+                # one M600, then the letter fills + border (color B).
+                if color2:
+                    a('; R2-LABELS: top layer done - PAUSE for the '
+                      'filament change (text color)')
+                    a('; swap filament, then RESUME - the purge tower '
+                      'primes the new color')
+                    a('M600')
+                if tower:
+                    tower_block(z, li, False, prime=True)
+                for lb in order:
+                    text_block(lb, z, li, tag='Top surface')
+                    border_block(lb, li)
+        # ---- raised text layers (text_layers 3/4: 'addieren auf Hoehe') ----
+        for li in range(base_layers + 1, _NT231 + 1):
+            z, order = _layer_head(li)
+            if tower:
+                tower_block(z, li, False, prime=False)
+            for lb in order:
+                text_block(lb, z, li, tag='Outer wall')
+                border_block(lb, li)
+            if _hplate170 and li <= _hl170:
+                handle_block(z, li)      # R170: the handle prints LAST
+    else:
+        # FLIP: logical layer lo = _NT231+1-p (the model stands on its
+        # text face); every block keeps its LOGICAL surface type
+        for p in range(1, _NT231 + 1):
+            lo = _NT231 + 1 - p
+            z, order = _layer_head(p)
+            first = (p == 1)
+            if lo >= base_layers + 1:
+                # raised text islands on the bed - TEXT color (flip starts
+                # in the text color, the swap comes after the whole face)
+                for lb in order:
+                    text_block(lb, z, p, tag='Outer wall')
+                    border_block(lb, p)
+            elif lo == base_layers:
+                # the label's TOP FACE: letters + border first (text
+                # color), then ONE M600, then walls + the clipped fill
+                # around them (plate color)
+                for lb in order:
+                    text_block(lb, z, p, tag='Top surface')
+                    border_block(lb, p)
+                if color2:
+                    a('; R2-LABELS: text face done - PAUSE for the '
+                      'filament change (plate color)')
+                    a('; swap filament, then RESUME - the purge tower '
+                      'primes the new color')
+                    a('M600')
+                if tower:
+                    tower_block(z, p, False, prime=True)
+                for lb in order:
+                    base_block(lb, z, p, first, False, lo=lo, clip231=True)
+            elif lo == base_layers - 1:
+                # the contour layer right behind the face
+                for lb in order:
+                    base_block(lb, z, p, first, False, lo=lo, clip231=False)
+                    text_block(lb, z, p, tag='Internal solid infill')
+                if tower:
+                    tower_block(z, p, first)
+            else:
+                for lb in order:
+                    base_block(lb, z, p, first, lo == 1, lo=lo)
+                    if lo <= _rl120:
+                        ring_block(lb, p, first)
+                if tower:
+                    tower_block(z, p, first)
+            if _hplate170 and p <= _hl170:
+                handle_block(z, p)      # unreachable in flip (stamp-only)
 
     # R170: handle-only layers above the label tops (nothing else lives up
     # here - the travels are safely above the finished labels)
-    if _hplate170 and _hl170 > base_layers + text_layers - 1:
-        # R214: the overlap saves one layer - the handle-only layers above
-        # the label tops start one layer earlier accordingly
-        for li in range(base_layers + text_layers, _hl170 + 1):
+    if _hplate170 and _hl170 > total_layers:
+        for li in range(total_layers + 1, _hl170 + 1):
             z = round(first_h + (li - 1) * layer_h, 3)
             L.append(';LAYER_CHANGE')
             L.append(';Z:%.3f' % z)
@@ -7078,6 +7413,7 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
             cx=cx168, cy=cy168)
     info = {'file': fname, 'count': n, 'cols': cols, 'rows': rows,
             'mirror_x': mirror_x, 'mirror_y': mirror_y,
+            'flip': bool(flip), 'raised': raised_t231,
             'stamp': bool(fit168 is not None),
             'handle_file': (os.path.basename(out_handle168)
                             if out_handle168 else None),
@@ -8923,12 +9259,22 @@ def host_check(host='127.0.0.1', port=7125, cores=None):
     ok, verdict = _host_verdict(throttle_bits, load1, cores, swap_used, swap_eaters,
                                 swap_io_kb)
     lines.append(verdict)
+    # R232 FIELD FIX: name the REAL reason in M117. The old line GUESSED
+    # ('swap >= 30MB -> Host SWAPPING!') - a quiet parked swap plus a bad
+    # REACTOR verdict (klippy stalled 0.3s) printed 'Verdict: OK - QUIET'
+    # and then M117 'Host SWAPPING!' + error sound in the same breath
+    # (.136z field log). The M117 now says what actually failed.
+    reason = None if ok else ('THROTTLED' if throttle_bits else
+                              'SWAPPING' if 'SWAPPING' in verdict else
+                              'OVERLOADED')
     # R215: klippy's own symptoms - reactor stalls + failed LED updates
     try:
         rok, rline = _reactor_verdict(_klippy_reactor_stats())
         lines.append(rline)
         if rok is False:
             ok = False
+            if reason is None:
+                reason = 'KLIPPY STALLS'
     except Exception:                                         # noqa: BLE001
         pass
     if not ok and not throttle_bits:
@@ -8938,8 +9284,7 @@ def host_check(host='127.0.0.1', port=7125, cores=None):
 
     script = ['RESPOND MSG="%s"' % l for l in lines]
     script.append('M117 %s' % ('Host OK' if ok else
-                               'Host THROTTLED!' if throttle_bits else
-                               'Host SWAPPING!' if swap_used >= 30 else 'Host OVERLOADED!'))
+                               'Host %s!' % (reason or 'CHECK LOG')))
     script.append('_SOUND_LIB NAME=%s' % ('r2_done' if ok else 'r2_error'))
     try:
         _moonraker_gcode('\n'.join(script), host, port)
@@ -9556,6 +9901,11 @@ def _string_art_plan(iw, ih, lum, n_anchors, n_lines, grid=100, n_cand=240,
                 'does not free it) and try again' % (_it, n_lines,
                                                     _mem_available_mb()))
         best, bs = None, 0.05
+        # R232: locals hoisted out of the sample loop (same math, same
+        # order - the plan is unchanged, the loop just stops re-resolving
+        # list indices a hundred times per candidate)
+        axl, ayl, tg, inl = ax, ay, tgt, ins
+        hyp = math.hypot
         for _c in range(max(20, int(n_cand))):
             i = rng.randrange(n_anchors)
             j = (i + mind + rng.randrange(max(1, n_anchors - 2 * mind))) % n_anchors
@@ -9563,15 +9913,17 @@ def _string_art_plan(iw, ih, lum, n_anchors, n_lines, grid=100, n_cand=240,
                 i, j = j, i
             if (i, j) in chosen:
                 continue
-            d = math.hypot(ax[j] - ax[i], ay[j] - ay[i])
+            axi, ayi = axl[i], ayl[i]
+            dxa, dya = axl[j] - axi, ayl[j] - ayi
+            d = hyp(dxa, dya)
             nst = max(2, int(d / 0.9))
             sc = 0.0
             for k in range(nst + 1):
                 t = k / float(nst)
-                gx = int(ax[i] + (ax[j] - ax[i]) * t)
-                gy = int(ay[i] + (ay[j] - ay[i]) * t)
-                if 0 <= gx < G and 0 <= gy < G and ins[gy * G + gx]:
-                    sc += tgt[gy * G + gx]
+                gx = int(axi + dxa * t)
+                gy = int(ayi + dya * t)
+                if 0 <= gx < G and 0 <= gy < G and inl[gy * G + gx]:
+                    sc += tg[gy * G + gx]
             if sc > bs:
                 bs, best = sc, (i, j)
         if best is None:
@@ -9686,9 +10038,12 @@ def make_string_art(src=None, pattern='PHOTO', diameter=180.0, anchors=300,
             raise ValueError('image not found: %s' % src)
         with open(src, 'rb') as f:
             data = f.read()
-        iw, ih, lum = _img_luma(data, kind, max_dim=512)   # R223 RAM cap: the
-        # planner grids <=220x220 cells - a full-res photo decode was pure
-        # RAM waste and starved klippy on the 512MB Pi (field log .136s)
+        # R232: the cap dropped 512 -> 288 - the planner grid is <=220x220
+        # cells, anything above ~256px of source is invisible to the thread
+        # plan. Combined with the row-wise luma handoff this roughly
+        # quarters the decode RAM/CPU of a photo build (field log .136z:
+        # only 95MB free, the build wanted ~110 and klippy stalled).
+        iw, ih, lum = _img_luma(data, kind, max_dim=288)
         print('[stringart] planning %d chords (greedy, %dx%d grid)...'
               % (n_lines, max(24, min(int(grid), 220)),
                  max(24, min(int(grid), 220))), flush=True)
@@ -12650,6 +13005,46 @@ def make_shape(shape='CYLINDER', size_x=40.0, size_y=40.0, corners=0,
 
 # ---- R89: lithophane + gasket generators ---------------------------------------
 
+def _img_header_dims(path):
+    """R232: 'WxH' from the PNG/JPEG header ONLY (no pixel decode) - feeds
+    the string-art aspect lock. Returns '' when the header is unreadable;
+    never raises, never allocates pixel planes (the early-PC rule: read 24
+    bytes, not the picture)."""
+    try:
+        with open(path, 'rb') as f:
+            head = f.read(64)
+        if head[:8] == b'\x89PNG\r\n\x1a\n' and len(head) >= 24:
+            w = int.from_bytes(head[16:20], 'big')
+            h = int.from_bytes(head[20:24], 'big')
+            return '%dx%d' % (w, h) if w and h else ''
+        if head[:2] == b'\xff\xd8':
+            with open(path, 'rb') as f:
+                data = f.read(65536)
+            i = 2
+            while i + 9 < len(data):
+                if data[i] != 0xFF:
+                    i += 1
+                    continue
+                m = data[i + 1]
+                if m == 0xD8 or m == 0x01 or (0xD0 <= m <= 0xD7):
+                    i += 2
+                    continue
+                if m == 0xDA:            # start of scan - no SOF behind it
+                    return ''
+                if m in (0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7,
+                         0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF):
+                    h = int.from_bytes(data[i + 5:i + 7], 'big')
+                    w = int.from_bytes(data[i + 7:i + 9], 'big')
+                    return '%dx%d' % (w, h) if w and h else ''
+                ln = int.from_bytes(data[i + 2:i + 4], 'big')
+                if ln < 2:
+                    return ''
+                i += 2 + ln
+        return ''
+    except Exception:                                         # noqa: BLE001
+        return ''
+
+
 def _img_luma(data, kind, max_dim=0):
     """R89: decode PNG/JPEG -> (w, h, rows of luminance 0..1).
     R223: max_dim caps the decode resolution (see _jpeg_to_rgb) - the
@@ -12662,14 +13057,20 @@ def _img_luma(data, kind, max_dim=0):
         raise ValueError('unsupported image type %r (png/jpg/jpeg only)' % kind)
     if w < 8 or h < 8:
         raise ValueError('image too small (%dx%d px) - at least 8x8' % (w, h))
+    # R232: convert row by row and DROP the RGB row behind us - the old
+    # loop held the full RGB tuple plane AND the float luma plane at once
+    # (a 768px litho photo = ~40MB tuples + ~18MB floats on a box that
+    # has 95MB free). The consumer only ever sees the luma plane.
     lum = []
     for y in range(h):
         row = px[y]
         lr = []
+        ap = lr.append
         for x in range(w):
             r, g, b = row[x]
-            lr.append((0.299 * r + 0.587 * g + 0.114 * b) / 255.0)
+            ap((0.299 * r + 0.587 * g + 0.114 * b) / 255.0)
         lum.append(lr)
+        px[y] = None
     return w, h, lum
 
 
@@ -20996,6 +21397,9 @@ def _label_job_kwargs(rv, directory):
         # R224 (.136s field log): mirror is no longer a switch - a stamp
         # mirrors itself (make_labels), normal text never flips.
         walls=max(1, min(int(_vf('label_walls', 3)), 4)),
+        # R231 (.136ab field log): FLIP prints the label text-face-down
+        # (buildplate finish on the letter surface, readable off the bed)
+        flip=_vb('label_flip', False),
         stamp=_vb('label_stamp', False),
         stamp_base=max(3.5, min(_vf('label_stamp_base', 5.0), 15.0)),
         stamp_tol=max(0.10, min(_vf('label_stamp_tol', 0.25), 0.50)),
@@ -24564,10 +24968,16 @@ def watch(directory, interval=5.0, once=False):
                     or _pg89 != pushed_img_page
                     or _total89 != pushed_img_total):
                 _val89 = '[' + ','.join("'%s'" % fn for fn in _names89) + ']'
+                # R232: per-image WxH from the HEADER only - the string-art
+                # aspect lock reads it at PICK time, no decode involved
+                _dims89 = '[' + ','.join(
+                    "'%s'" % _img_header_dims(os.path.join(directory, fn))
+                    for fn in _names89) + ']'
                 if _moonraker_gcode(
                         'SAVE_VARIABLE VARIABLE=litho_files VALUE="%s"\n'
+                        'SAVE_VARIABLE VARIABLE=litho_dims VALUE="%s"\n'
                         'SAVE_VARIABLE VARIABLE=litho_total VALUE=%d'
-                        % (_val89, _total89)):
+                        % (_val89, _dims89, _total89)):
                     pushed_images = _names89
                     pushed_img_page = _pg89
                     pushed_img_total = _total89
@@ -26514,6 +26924,7 @@ def main():
             brim=_cb('BRIM', '1'),
             gap=float(kw.get('GAP', 12)),
             color2=_cb('COLOR2', '1'),
+            flip=_cb('FLIP', '0'),      # R231: build-plate-readable text
             material=kw.get('MATERIAL', 'PLA'),
             bed=bed, out_dir=kw.get('OUT', '.'),
             mode=kw.get('MODE', 'grow'))

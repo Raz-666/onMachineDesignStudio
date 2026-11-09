@@ -332,8 +332,12 @@ doc = mje.export(os.path.join(REPO, 'menus', 'lcd_menues.cfg'),
 # the mirror/cake-yaw inputs are gone, the nozzle-LED block moved under
 # __system __ledcfg __noz (2479 -> 2473), the Mirror tool
 # adds its folder back (2473 -> 2477; R224 adds 3 preset rows -> 2480)
+# R231 (.136ac): label generator gains the Flip toggle (build-plate-readable
+# mirrored text) - one more input section (2480 -> 2481)
+# R232 (.136ac): ArtisticStrings gains the AR lock row (photo aspect keeps
+# W and H coupled) - one more input section (2481 -> 2482)
 check('T1 export: all 2473 sections in one tree, no orphans',
-      doc['sections'] == 2480 and sum(doc['counts'].values()) == 2480,
+      doc['sections'] == 2482 and sum(doc['counts'].values()) == 2482,
       str(doc['counts']))
 
 
@@ -346,7 +350,7 @@ def _walk(n, acc):
 
 _all = _walk(doc['tree'], [])
 check('T1 export: tree node count == sections, depth sane, known ids',
-      len(_all) == 2480
+      len(_all) == 2482
       and any(n['id'] == '__main __start __direct' for n in _all)
       and any(n['id'] == '__main __live' for n in _all))
 
@@ -401,7 +405,7 @@ _emb = json.JSONDecoder().raw_decode(
     _ptxt.split('const EMBEDDED_MENU_JSON = ', 1)[1])[0]
 check('T1 embed: placeholder replaced with valid JSON',
       '/*EMBEDDED_MENU_JSON*/ null' not in _ptxt
-      and _emb['sections'] == 2480)
+      and _emb['sections'] == 2482)
 
 # T2: the moonraker extension with a fake app
 spec = importlib.util.spec_from_file_location(
@@ -519,7 +523,7 @@ check('T2 extension: export tool derived from the menu path',
       'path -> tool derivation failed')
 tree_doc = loop.run_until_complete(eps['/server/r2_menu/tree'](FakeReq()))
 check('T2 extension: tree handler serves the export',
-      tree_doc['sections'] == 2480 and 'tree' in tree_doc)
+      tree_doc['sections'] == 2482 and 'tree' in tree_doc)
 st = loop.run_until_complete(eps['/server/r2_menu/status'](FakeReq()))
 check('T2 extension: status handler reports ok + sha',
       st['ok'] and st['sha256'] == tree_doc['sha256'])
@@ -1348,11 +1352,12 @@ check('T6d matcher: broadened to ANY r2_postproc name (stray copies '
 # low 25MB), the job wedged the only worker forever, its key refused every
 # retry and gen_busy=1 blocked print starts with no way out from the LCD.
 check('R223a decode caps: max_dim on both decoders + _img_luma, image '
-      'callers capped (string art 512, litho/colorpic 768)',
+      'callers capped (string art 288 - R232: the planner grid is <=220 '
+      'cells, the extra decode was pure RAM; litho/colorpic 768)',
       'def _jpeg_to_rgb(data, max_dim=0)' in _src
       and 'def _png_to_rgb(data, max_dim=0)' in _src
       and 'def _img_luma(data, kind, max_dim=0)' in _src
-      and '_img_luma(data, kind, max_dim=512)' in _src
+      and '_img_luma(data, kind, max_dim=288)' in _src
       and _src.count('_img_luma(data, kind, max_dim=768)') == 3)
 check('R223b JPEG planes are array-backed (8x less RAM per coefficient)',
       "[array('i', [0] * 64)" in _src and '= array(\'i\', blk)' in _src)

@@ -1,6 +1,6 @@
-# TESTANLEITUNG — R2-D2 Makro-System (Version .136ab)
+# TESTANLEITUNG — R2-D2 Makro-System (Version .136ac)
 
-Diese Anleitung beschreibt **nur den aktuellen Stand** (.136ab). Sie ist die
+Diese Anleitung beschreibt **nur den aktuellen Stand** (.136ac). Sie ist die
 komplette Feld-Checkliste nach dem Einspielen eines Updates — von Boot bis
 Druckergebnis. Die Historie der Änderungen steht in README.md.
 
@@ -18,7 +18,7 @@ Druckergebnis. Die Historie der Änderungen steht in README.md.
 ## 2. Boot-Check (Pflicht, 1 Minute)
 
 - [ ] Konsole: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-08.136ab)`
+      (build R2-2026-11-08.136ac)`
 - [ ] ~10 s nach dem Boot: Boot-Sound + LED-Animation
 - [ ] `SHOW_STATUS` antwortet mit Modus/Material/Overrides
 - [ ] Kein Eintrag fehlt: sonst meldet sich `_CHECK_INSTALL` laut mit
@@ -333,8 +333,41 @@ bewusst angeschweißt). Je ein Probedruck:
   Top-Abstützung (nicht Support) — der exakte Schlüssel schlägt die
   Support-Substringsregel
 
+## 18. Die .136ac-Neuerungen (R231/R232 — Etiketten-Einlege-Druck, Feldkorrekturen)
+
+- [ ] **Etiketten: Schrift als FLUSH-Einlege (Inlay):** Text_layers 2–4 ist
+  jetzt die GESAMT-Texttiefe — 2 = bündig mit der Oberfläche (Konturen
+  werden in die Solidschicht B-1 gebrannt, Füllung bündig in die
+  Deckschicht B), 3/4 = zusätzlich erhaben. Layer 1 druckt die Buchstaben
+  integriert (Bottom). Druckreihenfolge: Fläche+Konturen → Buchstaben+Rand,
+  minimaler Farbwechsel (1× M600)
+- [ ] **Flip-Modus:** Tools > Labels > Settings > Flip — textseitig nach
+  UNTEN drucken: vom Bett abgenommen LESBAR (Buildplate-Finish auf den
+  Buchstaben). Ironing aus, exkludiert Stamp+Ring+2farbig
+- [ ] **Range-Auszüge ehrlich:** TYPES=/FS_ der Excerpt-Datei zählt nur
+  Tinte, die der Auszug WIRKLICH druckt (in-window Floor/Cap ersetzen
+  Schichten — deren Marker zählen nicht mehr doppelt); generierte
+  Grundgeometrie läuft 40 mm/s statt pauschal 20
+- [ ] **Texturen über die GESAMTE Wand:** Musterzellen behalten ihre
+  physische Breite auch auf konkaven Abschnitten (Bogen-Anker), Innenwände
+  folgen der Prägung (Wandpaar bleibt zusammen)
+- [ ] **Bricks-Queue löschen:** Clear all hat einen funktionierenden
+  2-Press-Confirm (vorher wollte das Macro CONFIRM=1, das das LCD nie
+  sendet), Del last heilt Legacy-Queue-Formate
+- [ ] **Presets:** Texture-Delete kopierte die 44 Bibliotheks-Looks in
+  Deinen Preset-Schrank (Schrank schrumpfte nie) — behoben + Selbstheilung
+  beim nächsten Zugriff; defekter Preset-Speicher killt die Engine nicht
+  mehr still
+- [ ] **ArtisticStrings:** Foto-Seitenverhältnis fest verriegelbar
+  (AR-Lock-Zeile: X ändern → Y folgt und zurück; Picker übernimmt das
+  Bildformat); Graustufen-JPEGs dekodieren wieder (>512px crashten den
+  Decoder); Rechenzeit/RAM des Foto-Baus ~3-4× geringer (separable IDCT,
+  Decode-Cap 288px, zeilenweise Luma-Übergabe)
+- [ ] **HOST_CHECK ehrlich:** M117 nennt den ECHTEN Grund („klippy
+  stalls" statt „SWAPPING!" bei still geparktem Swap + Reactor-Blockaden)
+
 ---
 
-**Alles grün?** Dann ist .136ab field-clear. Wenn etwas auffällt: Konsole
+**Alles grün?** Dann ist .136ac field-clear. Wenn etwas auffällt: Konsole
 kopieren (RESPOND-Zeilen) + welche Datei/welcher Menüpfad — daraus wird der
 nächste Feldlog-Eintrag.

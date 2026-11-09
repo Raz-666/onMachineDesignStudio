@@ -15,6 +15,23 @@ the OBJECT (theta from the object center, z from its base) and is SEAMLESS:
 The snapped values are reported back ('12 ridges x 24 repeats, effective
 9.8 x 10.2 mm') - presets stay honest.
 
+R231 ARC-ANCHORED MAPPING (.136ab field log): s used to be pure theta/2pi -
+on a wall that runs INWARD (a vase notch, a cut-out) the same angle range
+covers two or three times the wall length, so the pattern cells STRETCHED
+across the concave section ('the pixels are just pulled to the back, no
+structure'). s is now advanced by ARC LENGTH along each wall loop and
+anchored to the absolute angle at the loop start:
+    s = (theta_start/2pi + arc_pos/loop_len) mod 1
+- the anchor keeps the pattern locked in space across layers (spiral seams
+  rotate - a pure arc fraction would drift with them), the arc advance
+  keeps every cell the same PHYSICAL width on convex AND concave wall
+  sections, and the closure stays seamless: one loop = s runs exactly 0->1,
+  k integer ridges close flush.
+- INNER walls (BUMPS follow mode) do NOT use their own arc-anchored s: they
+  sample the s the OUTER loop used at the same ANGLE (per-layer cache) so
+  the wall pair moves as one - a reversed inner loop's own s runs mirrored
+  and would shear the walls through each other.
+
 Modes
 - FUZZY: random displacement of every OUTER WALL vertex within +- thick
   (seeded RNG -> deterministic), density = share of scattered vertices
@@ -752,10 +769,17 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
     pats = _build_patterns(k, n, int(seed), img)
     pattern_fn = pats[bump_pattern]
 
-    def pattern(x, y, z):
-        """R175: cylinder coordinates around the OBJECT -> seamless."""
-        th = math.atan2(y - cy, x - cx)
-        s = (th / (2.0 * math.pi)) % 1.0
+    def pattern(x, y, z, s_arc=None):
+        """R175: cylinder coordinates around the OBJECT -> seamless.
+        R231: s_arc (if given) is the ARC-ANCHORED loop coordinate (see the
+        module header) - it replaces the raw angle fraction wherever the
+        wall runs inward, so pattern cells keep their physical size on
+        concave sections (vase notches) instead of stretching."""
+        if s_arc is not None:
+            s = s_arc % 1.0
+        else:
+            th = math.atan2(y - cy, x - cx)
+            s = (th / (2.0 * math.pi)) % 1.0
         t = (((z - minz) * n / height) % 1.0) if height > 0 else 0.0
         return pattern_fn(s, t)
 
@@ -778,12 +802,149 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
     e_rel = False
     last_e = 0.0
 
-    def _shift_txt(txt, x, y, z, inner=False):
+    # ---- R231: loop-length pre-pass ---------------------------------------
+    # The arc-anchored mapping needs every wall loop's own length BEFORE the
+    # emission shifts its vertices. This walk mirrors the emission's gating
+    # EXACTLY (same type aliases, same _MIN_E, same arc flattening) - the
+    # loops it finds are the loops the emission walks, index by index.
+    def _scan_loops231():
+        lens = []
+        cur_len = 0.0
+        cur_type_l = ''
+        cur_outer_l = False
+        cur_inner_l = False
+        px_l = py_l = None
+        with open(src, errors='replace') as f:
+            for line in f:
+                ls = line.rstrip('\n')
+                m = _TYPE.match(ls)
+                if m:
+                    cur_type_l = m.group(1).strip().lower()
+                    cur_outer_l = _is_outer_wall(cur_type_l)
+                    cur_inner_l = _is_inner_wall(cur_type_l)
+                    if cur_len > 0.0:
+                        lens.append(cur_len)
+                        cur_len = 0.0
+                    continue
+                ma = _APPLY152.match(ls)
+                if ma:
+                    cur_type_l = ma.group(1).strip().lower()
+                    cur_outer_l = _is_outer_wall(cur_type_l)
+                    cur_inner_l = _is_inner_wall(cur_type_l)
+                    if cur_len > 0.0:
+                        lens.append(cur_len)
+                        cur_len = 0.0
+                    continue
+                if ls.startswith(';LAYER_CHANGE'):
+                    if cur_len > 0.0:
+                        lens.append(cur_len)
+                        cur_len = 0.0
+                    continue
+                gated = (cur_outer_l or all_is_wall
+                         or (cur_inner_l and mode == 'BUMPS'))
+                g = _parse_move(ls)
+                if g is not None and g[1] is not None:
+                    if (g[0] == 'G1' and gated and g[4] is not None
+                            and g[4] > _MIN_E):
+                        if px_l is not None:
+                            cur_len += math.hypot(g[1] - px_l, g[2] - py_l)
+                        px_l, py_l = g[1], g[2]
+                    else:
+                        if cur_len > 0.0:
+                            lens.append(cur_len)
+                            cur_len = 0.0
+                        px_l, py_l = g[1], g[2]
+                    continue
+                ga = _parse_arc(ls)
+                if ga is not None and ga[1] is not None and px_l is not None:
+                    if (gated and ga[7] is not None and ga[7] > _MIN_E):
+                        pts = _arc_points(px_l, py_l, ga[1], ga[2], ga[4],
+                                          ga[5], ga[6], cw=(ga[0] == 'G2'))
+                        if pts:
+                            _allp = [(px_l, py_l)] + pts[:-1]
+                            cur_len += sum(
+                                math.hypot(b[0] - a[0], b[1] - a[1])
+                                for a, b in zip(_allp, pts))
+                        else:
+                            cur_len += math.hypot(ga[1] - px_l,
+                                                  ga[2] - py_l)
+                    else:
+                        if cur_len > 0.0:
+                            lens.append(cur_len)
+                            cur_len = 0.0
+                    px_l, py_l = ga[1], ga[2]
+        if cur_len > 0.0:
+            lens.append(cur_len)
+        return lens
+
+    loops231 = _scan_loops231()
+    # R231 emission-side loop bookkeeping: i = current loop index into
+    # loops231, arc = mm walked inside it, anchor = absolute angle fraction
+    # at its first vertex, z = the Z the loop prints at (layer-jump guard)
+    _st231 = {'i': 0, 'arc': 0.0, 'anchor': None, 'len': None, 'z': None,
+              'fb': 0}
+    # R224/R231: what the OUTER wall's arc-anchored s was at each angle of
+    # the current layer - the inner wall samples THIS (its own s runs
+    # mirrored on reversed windings and would shear the wall pair apart)
+    _sout231 = {}
+
+    def _abin231(x, y):
+        return int((math.atan2(y - cy, x - cx) / (2.0 * math.pi)) % 1.0
+                   * 360.0)
+
+    def _sout_put231(zz, x, y, sv):
+        if sv is not None and zz is not None:
+            _sout231[(round(zz, 3), _abin231(x, y))] = sv
+
+    def _sout_get231(zz, x, y):
+        if zz is None:
+            return None
+        _zk = round(zz, 3)
+        _b = _abin231(x, y)
+        for _d in (0, 1, -1, 2, -2):
+            _v = _sout231.get((_zk, (_b + _d) % 360))
+            if _v is not None:
+                return _v
+        return None
+
+    def _loop_close231():
+        if _st231['arc'] > 0.0:
+            _st231['i'] += 1
+            _st231['arc'] = 0.0
+            _st231['anchor'] = None
+            _st231['len'] = None
+
+    def _s231(x, y, zz, ln):
+        """R231: arc-anchored s for the END vertex of a gated move of
+        length ln. None -> the caller falls back to the classic angle
+        fraction (desync or a degenerate loop - never crashes, never
+        stretches the file's own bookkeeping)."""
+        if zz is not None:
+            if _st231['z'] is not None and abs(zz - _st231['z']) > 0.05:
+                # layer jump inside a gapless stream (no travel, no
+                # ;LAYER_CHANGE): close the loop so its cells stay real
+                _loop_close231()
+            _st231['z'] = zz
+        if _st231['arc'] <= 0.0:
+            _st231['anchor'] = math.atan2(y - cy, x - cx) / (2.0 * math.pi)
+            _st231['len'] = (
+                loops231[_st231['i']]
+                if _st231['i'] < len(loops231)
+                and loops231[_st231['i']] > 1.0 else None)
+        _L231 = _st231['len']
+        if _L231 is None or _st231['anchor'] is None:
+            _st231['fb'] += 1
+            return None
+        return (_st231['anchor'] + (_st231['arc'] + ln) / _L231) % 1.0
+
+    def _shift_txt(txt, x, y, z, inner=False, s_arc=None):
         """R91 displacement on ONE move line -> possibly shifted text.
         Reads px/py from the enclosing scope (approach direction).
         R224 task 15: inner=True lets an inner-wall move FOLLOW the outer
         wall's embossing (BUMPS mode only - FUZZY stays Orca-honest and
-        jitters the outer wall alone)."""
+        jitters the outer wall alone).
+        R231: s_arc = the arc-anchored loop coordinate of the END vertex
+        (None -> the classic angle fraction, the safe fallback)."""
         dx, dy = (x - px, y - py) if px is not None else (0.0, 0.0)
         ln = math.hypot(dx, dy)
         stats['moves'] += 1
@@ -807,7 +968,16 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
             # textured NOTHING at all (silent no-op)
             zz = z if z is not None else (
                 cur_z_e if cur_z_e is not None else 0.0)
-            amp = pattern(x, y, zz) * sig * sign
+            if inner and s_arc is not None:
+                # R224/R231: FOLLOW THE OUTER WALL - sample the s the OUTER
+                # loop used at THIS angle. The inner loop's own arc-anchored
+                # s runs MIRRORED on reversed windings (same angle, other
+                # direction) and on notched walls the two loops' arc maps
+                # differ anyway - the pair would shear apart (field: inner
+                # wall cut past the outer). No outer sample at this angle
+                # (inner printed first) -> classic angle fraction below.
+                s_arc = _sout_get231(zz, x, y)
+            amp = pattern(x, y, zz, s_arc=s_arc) * sig * sign
             if inner:
                 # same angle -> same pattern value as the outer wall:
                 # the stack moves as one, contact kept. The flip realigns
@@ -848,6 +1018,10 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                  '- tags, features, E and Z stay untouched\n')
         fo.write('; R95: G2/G3 outer-wall arcs are flattened into textured '
                  'chords (arc-fitted files get a seamless all-around texture)\n')
+        fo.write('; R231 arc-anchored: %d wall loop(s) measured - every '
+                 'pattern cell keeps its physical size, walls that run '
+                 'inward (notches, cut-outs) carry the structure too\n'
+                 % len(loops231))
         if mode == 'BUMPS' and wind_i:
             fo.write('; R224: inner walls follow the embossing - they no '
                      'longer cap the valleys (invisible behind the surface) '
@@ -862,6 +1036,7 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                 cur_type = m.group(1).strip().lower()
                 cur_outer = _is_outer_wall(cur_type)
                 cur_inner = _is_inner_wall(cur_type)
+                _loop_close231()      # R231: a type switch ends the loop
                 fo.write(ls + '\n')
                 continue
             # R152: the r2-postproc injects the CANONICAL type right after
@@ -872,8 +1047,10 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                 cur_type = _ma152.group(1).strip().lower()
                 cur_outer = _is_outer_wall(cur_type)
                 cur_inner = _is_inner_wall(cur_type)
+                _loop_close231()      # R231: a type switch ends the loop
             if ls.startswith(';LAYER_CHANGE'):
                 stats['layers'] += 1
+                _loop_close231()      # R231: one loop per layer
             elif ls == 'M83':
                 e_rel = True
             elif ls == 'M82':
@@ -890,9 +1067,16 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                     and g[4] is not None and g[4] > _MIN_E and g[1] is not None):
                 x, y = g[1], g[2]
                 z = g[3]
+                _zz231 = z if z is not None else cur_z_e
+                _ln231 = math.hypot(x - px, y - py) if px is not None else 0.0
+                _sar231 = _s231(x, y, _zz231, _ln231)   # R231 arc-anchored s
+                if cur_outer:
+                    _sout_put231(_zz231, x, y, _sar231)
                 fo.write(_shift_txt(ls, x, y, z,
                                     inner=(cur_inner and not cur_outer
-                                           and mode == 'BUMPS')) + '\n')
+                                           and mode == 'BUMPS'),
+                                    s_arc=_sar231) + '\n')
+                _st231['arc'] += _ln231
                 px, py = x, y
                 last_e = g[4]
                 continue
@@ -923,10 +1107,16 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                         else:
                             ec = last_e + (e_arc - last_e) * frac
                         ch = 'G1 X%.3f Y%.3f E%.5f%s' % (qx, qy, ec, f_txt)
+                        _zz231 = z1 if z1 is not None else cur_z_e
+                        _sar231 = _s231(qx, qy, _zz231, cl)
+                        if cur_outer:
+                            _sout_put231(_zz231, qx, qy, _sar231)
                         fo.write(_shift_txt(
                             ch, qx, qy, z1,
                             inner=(cur_inner and not cur_outer
-                                   and mode == 'BUMPS')) + '\n')
+                                   and mode == 'BUMPS'),
+                            s_arc=_sar231) + '\n')
+                        _st231['arc'] += cl
                         if not e_rel:
                             last_e = ec
                     px, py = x1, y1
@@ -936,6 +1126,7 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                 # unresolvable arc geometry -> untouched passthrough (below)
             gm = _parse_move(ls)
             if gm and gm[1] is not None:
+                _loop_close231()   # R231: a travel ends the wall loop
                 px, py = gm[1], gm[2]
                 if gm[4] is not None:
                     last_e = gm[4]
@@ -955,5 +1146,6 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
             'shifted': stats['shifted'], 'inner_shifted': stats['inner_shifted'],
             'outer_moves': stats['moves'], 'clamped': stats['clamped'],
             'layers': stats['layers'], 'arcs_flattened': stats['arcs'],
+            'arc_loops': len(loops231), 'arc_fallback': _st231['fb'],
             'secs': round(time.time() - t0, 2)}
     return out, info

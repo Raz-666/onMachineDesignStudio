@@ -1,13 +1,13 @@
 {
  "generator": "menu_json_export.py (.136j R211)",
  "source": "lcd_menues.cfg",
- "sections": 2480,
+ "sections": 2482,
  "counts": {
   "list": 333,
-  "command": 1460,
-  "input": 687
+  "command": 1461,
+  "input": 688
  },
- "sha256": "9e3bbe334bcdcc90",
+ "sha256": "64123c915bd9ee36",
  "live_objects": [
   "bed_mesh",
   "configfile",
@@ -21955,12 +21955,12 @@
           "type": "input",
           "name": "Text: {'%d ly %.1fmm' % (menu.input, menu.input * printer['save_variables'].variables.label_layer_h|default(0.2)|float)}",
           "input": "{printer['save_variables'].variables.label_text_layers|default(2)}",
-          "input_min": "1",
-          "input_max": "50",
+          "input_min": "2",
+          "input_max": "4",
           "input_step": "1",
           "gcode": [
            "SAVE_VARIABLE VARIABLE=label_text_layers VALUE={menu.input|round|int}",
-           "RESPOND MSG=\"Label text raise: {menu.input} layers = {(menu.input * printer['save_variables'].variables.label_layer_h|default(0.2)|float)|round(1)}mm above the base (R149: up to 10mm)\""
+           "RESPOND MSG=\"Label text depth: {menu.input} layers = {(menu.input * printer['save_variables'].variables.label_layer_h|default(0.2)|float)|round(1)}mm - 2 = FLUSH in the top layer (contours one layer below), 3/4 add {(menu.input - 2) if menu.input > 2 else 'no'} raised layer(s) on top (R231)\""
           ],
           "children": []
          },
@@ -22075,6 +22075,18 @@
           "gcode": [
            "SAVE_VARIABLE VARIABLE=label_stamp VALUE={not printer['save_variables'].variables.label_stamp|default(False)}",
            "RESPOND MSG=\"Label Stamp: {'ON - body + snap socket under the text, ONE label per job, hole off, text AUTO-MIRRORED so the imprint reads correct' if not printer['save_variables'].variables.label_stamp|default(False) else 'off - plain label plate, normal text'}\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __labels __set __flp",
+          "type": "command",
+          "name": "Flip: {'ON' if printer['save_variables'].variables.label_flip|default(False) else 'off'}",
+          "enable": "{not printer['save_variables'].variables.label_stamp|default(False)}",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=label_flip VALUE={not printer['save_variables'].variables.label_flip|default(False)}",
+           "RESPOND MSG=\"Label Flip: {'ON - printed text-face-down: buildplate finish on the letter surface, text reads CORRECT off the bed' if not printer['save_variables'].variables.label_flip|default(False) else 'off - text-face-up like always'}\"",
+           "RESPOND MSG=\"Flip + 2 colors: load the TEXT color first - one M600 to the plate color after the text face. Ironing is off in flip (the face is on the bed)\""
           ],
           "children": []
          },
@@ -24161,7 +24173,16 @@
         "gcode": [
          "SAVE_VARIABLE VARIABLE=stringart_w VALUE={menu.input|round|int}",
          "SAVE_VARIABLE VARIABLE=stringart_preset VALUE='\"\"'",
-         "RESPOND MSG=\"ArtisticStrings frame width {menu.input|round|int}mm (RECT only)\""
+         "{% set ar = printer['save_variables'].variables.stringart_ar|default(0)|float %}",
+         "{% if printer['save_variables'].variables.stringart_arl|default(1)|int == 1 and ar > 0 %}",
+         "{% set nh = ((menu.input|round|int) / ar)|round(0)|int %}",
+         "{% if nh < 60 %}{% set nh = 60 %}{% endif %}",
+         "{% if nh > 400 %}{% set nh = 400 %}{% endif %}",
+         "SAVE_VARIABLE VARIABLE=stringart_h VALUE={nh}",
+         "RESPOND MSG=\"ArtisticStrings W {menu.input|round|int}mm -> H {nh}mm (photo aspect locked - the AR Lock row frees it)\"",
+         "{% else %}",
+         "RESPOND MSG=\"ArtisticStrings frame width {menu.input|round|int}mm (RECT only)\"",
+         "{% endif %}"
         ],
         "children": []
        },
@@ -24176,7 +24197,30 @@
         "gcode": [
          "SAVE_VARIABLE VARIABLE=stringart_h VALUE={menu.input|round|int}",
          "SAVE_VARIABLE VARIABLE=stringart_preset VALUE='\"\"'",
-         "RESPOND MSG=\"ArtisticStrings frame height {menu.input|round|int}mm (RECT only)\""
+         "{% set ar = printer['save_variables'].variables.stringart_ar|default(0)|float %}",
+         "{% if printer['save_variables'].variables.stringart_arl|default(1)|int == 1 and ar > 0 %}",
+         "{% set nw = ((menu.input|round|int) * ar)|round(0)|int %}",
+         "{% if nw < 60 %}{% set nw = 60 %}{% endif %}",
+         "{% if nw > 400 %}{% set nw = 400 %}{% endif %}",
+         "SAVE_VARIABLE VARIABLE=stringart_w VALUE={nw}",
+         "RESPOND MSG=\"ArtisticStrings H {menu.input|round|int}mm -> W {nw}mm (photo aspect locked - the AR Lock row frees it)\"",
+         "{% else %}",
+         "RESPOND MSG=\"ArtisticStrings frame height {menu.input|round|int}mm (RECT only)\"",
+         "{% endif %}"
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __gen __stringart __arl",
+        "type": "input",
+        "name": "{'AR lock ON ' ~ (printer['save_variables'].variables.stringart_imgwh|default('')|string if printer['save_variables'].variables.stringart_imgwh|default('')|string != '' else '(no img)') if menu.input|round|int == 1 else 'AR lock off'}",
+        "input": "{printer['save_variables'].variables.stringart_arl|default(1)|int}",
+        "input_min": "0",
+        "input_max": "1",
+        "input_step": "1",
+        "gcode": [
+         "SAVE_VARIABLE VARIABLE=stringart_arl VALUE={menu.input|round|int}",
+         "RESPOND MSG=\"ArtisticStrings aspect lock {'ON - W and H follow the picked photo (the H row updates when you change W, and back)' if menu.input|round|int == 1 else 'OFF - W and H are free (photo presets and custom frames)'}\""
         ],
         "children": []
        },

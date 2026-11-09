@@ -555,12 +555,12 @@ expect_error('scale 300/300 refused (bed)', lambda: pp.apply_scale(
 # R177: the cake cut - split a print with a plane
 import r2_cake
 run('cake cut horizontal on label', lambda: r2_cake.cut_cake(
-    lbl, z_offset=1.0, out_dir=D)[0], skip_idem=True, r2_gen=True)
+    lbl, z_offset=0.5, out_dir=D)[0], skip_idem=True, r2_gen=True)
 run('cake cut tilted + reorient on label', lambda: r2_cake.cut_cake(
-    lbl, yaw=20.0, pitch=10.0, z_offset=1.0, reorient=True,
+    lbl, yaw=20.0, pitch=10.0, z_offset=0.5, reorient=True,
     out_dir=D)[0], skip_idem=True, r2_gen=True)
 run('cake cut LOWER only', lambda: r2_cake.cut_cake(
-    lbl, z_offset=1.0, part='LOWER', out_dir=D)[0], skip_idem=True,
+    lbl, z_offset=0.5, part='LOWER', out_dir=D)[0], skip_idem=True,
     r2_gen=True)
 expect_error('cake above everything refuses', lambda: r2_cake.cut_cake(
     lbl, z_offset=99.0, out_dir=D))
@@ -610,14 +610,14 @@ _bad2_213 = [ln for ln in _hn2_213
 if _bad2_213:
     fails.append(('chain scale->texture: bare CUSTOM must not appear - '
                   'R213 slots are C1..C9: %r' % _bad2_213[:2], _sct180))
-_ck180 = r2_cake.cut_cake(lbl, z_offset=1.0, out_dir=D)[0][0]
+_ck180 = r2_cake.cut_cake(lbl, z_offset=0.5, out_dir=D)[0][0]
 # R180: a cake half with z_offset sits EMPTY for its first layers - the
 # honest make_range guard refuses a no-ink window (expect_error), the real
 # chain uses layers that actually print
 expect_error('chain: range of the cake half EMPTY layers refuses', lambda:
-    pp.make_range(_ck180, 1, 3, out_dir=D))
+    pp.make_range(_ck180, 1, 1, out_dir=D))
 _ckr180 = run('chain: range excerpt of a CAKE half', lambda: pp.make_range(
-    _ck180, 4, 5, out_dir=D), skip_idem=True, r2_gen=True)
+    _ck180, 2, 3, out_dir=D), skip_idem=True, r2_gen=True)
 _hck180 = open(_ckr180[0]).read()
 if 'TYPE=CUSTOM' in _hck180:
     fails.append(('chain cake->range: no CUSTOM in the excerpt', _ckr180))

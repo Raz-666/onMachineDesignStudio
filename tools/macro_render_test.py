@@ -3411,7 +3411,7 @@ for _f82 in ('COND', 'NARROW', 'CAPS'):
     _o82, _i82 = _pp61.make_labels(['R2-D2'], w=50, h=15, font=_f82)
     _t82 = open(_o82).read()
     tests.append(('R82 make_labels builds with font %s' % _f82,
-        _t82.count('LAYER_MARK') > 4 and 'APPLY_TYPE' in _t82,
+        _t82.count('LAYER_MARK') >= 4 and 'APPLY_TYPE' in _t82,
         _i82.get('font', _f82)))
 _o82a, _i82a = _pp61.make_labels(['X'], w=30, h=10, font='PIXEL')
 _t82a = open(_o82a).read()    # read NOW - the SMOOTH call below writes the SAME filename
@@ -3440,7 +3440,7 @@ tests.append(('R116 fonts: DISTINCT data (no silent SMOOTH fallback)',
     and _pp61.FONT_PLATE['A'][1] != _pp61.FONT_SMOOTH['A'][1]
     and _pp61.FONT_PIXEL['A'][1] != _pp61.FONT_SMOOTH['A'][1], ''))
 tests.append(('R116 make_labels builds with SCRIPT/HAND/PLATE/PIXEL',
-    all(open(_pp61.make_labels(['X'], w=30, h=12, font=_f116)[0]).read().count('LAYER_MARK') > 4
+    all(open(_pp61.make_labels(['X'], w=30, h=12, font=_f116)[0]).read().count('LAYER_MARK') >= 4
         for _f116 in ('SCRIPT', 'HAND', 'PLATE', 'PIXEL')), ''))
 _o116, _i116 = _pp61.make_labels(
     ['GARAGE', 'WERKZEUG'], w=60, h=30, font='SMOOTH',
@@ -3505,16 +3505,16 @@ _bed63 = (0.0, -1.0, 244.0, 238.0)
 _out63, _info63 = _pp61.make_labels(['WERKSTATT', 'R2-D2'], w=60, h=30, hole_side=1,
                                     hole_d=5.0, out_dir=_d63, bed=_bed63)
 _t63 = open(_out63).read()
-tests.append(('R63 make_labels: file + info (2 labels, tower, 5 layers - '
-    'R214: first text INSIDE the last base layer = naive 6 - 1)',
-    _info63['count'] == 2 and _info63['layers'] == 5 and _info63['tower']
+tests.append(('R63 make_labels: file + info (2 labels, tower, 4 layers - '
+    'R231: text_layers=2 is the FLUSH inlay, total = base_layers)',
+    _info63['count'] == 2 and _info63['layers'] == 4 and _info63['tower']
     and _os63.path.isfile(_out63), str(_info63)))
 tests.append(('R63 make_labels: tagged by process() (TAG + _FILE_INFO + LAYER_MARK)',
     '; R2-POSTPROC v5' in _t63 and '_FILE_INFO' in _t63 and 'MATERIAL=PLA' in _t63
-    and _t63.count('\nLAYER_MARK\n') == 5, ''))
+    and _t63.count('\nLAYER_MARK\n') == 4, ''))
 tests.append(('R63 make_labels: PRINT_START head + slicer config comments',
     _t63.index('PRINT_START MATERIAL=PLA') > _t63.index('; filament_type = PLA')
-    and 'TOTAL_LAYERS=5' in _t63 and '; layer_height = 0.2' in _t63, ''))
+    and 'TOTAL_LAYERS=4' in _t63 and '; layer_height = 0.2' in _t63, ''))
 tests.append(('R63 make_labels: exclude objects per label + tower + KAMP polygons',
     _t63.count('EXCLUDE_OBJECT_DEFINE') == 3 and 'NAME=LABEL_1' in _t63
     and 'NAME=PURGE_TOWER' in _t63 and 'POLYGON=[[56.0,103.5]' in _t63
@@ -3538,7 +3538,9 @@ tests.append(('R73 label layout: TOP hole -> box below the hole band, centered x
     and _box63b[0] == 2.1 and _box63b[2] == 57.9, str((_circ63b, _box63b))))
 _lines63 = _t63.split('\n')
 _marks63 = [i for i, l in enumerate(_lines63) if l.strip() == 'LAYER_MARK']
-_last63 = _lines63[_marks63[-1]:]
+# R231: the last layer carries THREE label blocks (plate fill+ironing, text
+# fills, border) - the text prints AFTER the M600, measure from there
+_last63 = _lines63[_lines63.index('M600'):] if 'M600' in _lines63 else _lines63[_marks63[-1]:]
 _seg63 = [i for i, l in enumerate(_last63) if l.startswith('EXCLUDE_OBJECT_START NAME=LABEL_1')][0]
 _xs63, _ys63 = [], []
 for l in _last63[_seg63:]:
@@ -3560,7 +3562,7 @@ tests.append(('R63 text: fits the band, >= 3mm tall',
 # --- z ladder + E sanity + bed bounds ---
 _zs63 = [float(m.group(1)) for m in (_re63.search(r';Z:([\d.]+)', l) for l in _lines63) if m]
 tests.append(('R63 layers: Z ladder first 0.28 then 0.2 steps',
-    _zs63 == [0.28, 0.48, 0.68, 0.88, 1.08], str(_zs63)))
+    _zs63 == [0.28, 0.48, 0.68, 0.88], str(_zs63)))
 tests.append(('R63 gcode: no negative E, all moves inside the bed',
     not _re63.search(r' E(-\d)', _t63)
     and all(0 <= float(m.group(1)) <= 244 for m in _re63.finditer(r'G[01] X([\d.-]+) Y', _t63))
@@ -3571,9 +3573,9 @@ _o63, _i63 = _pp61.make_labels(['R2-D2'], w=50, h=25, font='PIXEL', base_layers=
                                text_layers=3, hole_side=3, hole_d=4.0, color2=False,
                                out_dir=_d63, bed=_bed63)
 _v63 = open(_o63).read()
-tests.append(('R63 single color: no M600, no tower, still 5 layers '
-    '(3 base + 3 text - 1 overlap) + hole TOP',
-    '\nM600\n' not in _v63 and 'PURGE_TOWER' not in _v63 and _v63.count('\nLAYER_MARK\n') == 5, ''))
+tests.append(('R63 single color: no M600, no tower, 4 layers '
+    '(3 base + text_layers 3 -> raised 1 on top of the flush inlay)',
+    '\nM600\n' not in _v63 and 'PURGE_TOWER' not in _v63 and _v63.count('\nLAYER_MARK\n') == 4, ''))
 _o63b, _i63b = _pp61.make_labels(['TEST'], w=40, h=20, font='MONO', ironing=False,
                                  brim=False, hole_side=2, hole_d=6.0, out_dir=_d63, bed=_bed63)
 _v63b = open(_o63b).read()
@@ -4166,7 +4168,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.136ab) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-11-08.136ab'", repr(_v66)))
+    _v66 == "'R2-2026-11-08.136ac'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -4522,8 +4524,8 @@ _t71 = open(_o71).read()
 _ic71 = _t71.index('R2-RANGE in-window cap')
 _g171 = _t71[:_ic71]
 _g271 = _t71[_ic71:]
-_b71 = [float(m.group(1)) for m in re.finditer(r'G1 X[\d.-]+ Y[\d.-]+ E([\d.]+) F1200', _g171)]
-_b71c = [float(m.group(1)) for m in re.finditer(r'G1 X[\d.-]+ Y[\d.-]+ E([\d.]+) F1200', _g271)]
+_b71 = [float(m.group(1)) for m in re.finditer(r'G1 X[\d.-]+ Y[\d.-]+ E([\d.]+) F2400', _g171)]
+_b71c = [float(m.group(1)) for m in re.finditer(r'G1 X[\d.-]+ Y[\d.-]+ E([\d.]+) F2400', _g271)]
 tests.append(('R71/R73 vase excerpt: 4 block G92s (head+gen+body+cap), generated E accumulates',
     _t71.count('G92 E0') == 4 and len(_b71) >= 8
     and all(_b71[i + 1] > _b71[i] for i in range(len(_b71) - 1)) and _b71[-1] > _b71[0] * 3,
@@ -4550,7 +4552,7 @@ _o71b, _n71b = _mod71.make_range(_m83_71, 2, 4, floor=1, top=1, brim=1)
 _t71b = open(_o71b).read()
 tests.append(('R71/R73 M83 file: no G92 inserted, generated geometry keeps relative E',
     'G92 E' not in _t71b and 'M83' in _t71b
-    and len(re.findall(r'G1 X[\d.-]+ Y[\d.-]+ E[\d.]+ F1200', _t71b)) >= 4
+    and len(re.findall(r'G1 X[\d.-]+ Y[\d.-]+ E[\d.]+ F2400', _t71b)) >= 4
     and 'R2-RANGE in-window floor: 1 layer(s)' in _t71b
     and 'R2-RANGE in-window cap: 1' in _t71b, _t71b[:120]))
 
@@ -4741,12 +4743,13 @@ _tx72 = _g72[_g72.index('PAUSE for the filament change'):]
 _el72 = [l for l in _tx72.split('\n') if l.startswith('G1 X') and ' E' in l]
 _bad72 = [l for l in _el72 if float(l.split(' E')[1].split()[0]) <= 0]
 _ty72 = [l for l in _tx72.split('\n') if l.startswith(';TYPE:')]
-tests.append(('R72 label text: solid strokes (many E-lines, walls + fill types, E>0)',
+tests.append(('R72 label text: solid strokes (many E-lines, fill types, E>0)',
     # .135 (R194): the purge tower after the filament change is ONE
     # PRIME-TOWER feature now (was Outer/Inner/Internal solid infill);
-    # the raised text itself stays Outer wall (R106)
+    # R231: the text prints as Top-surface FILL flush with the top layer
+    # (contours in the solid layer below, 'Internal solid infill')
     len(_el72) > 60 and any('Prime tower' in _t for _t in _ty72)
-    and any(_t.endswith('Outer wall') for _t in _ty72) and not _bad72,
+    and any(_t.endswith('Top surface') for _t in _ty72) and not _bad72,
     'lines=%d types=%d bad=%d' % (len(_el72), len(_ty72), len(_bad72))))
 
 
@@ -4772,7 +4775,7 @@ tests.append(('R73 range: M83-with-comment detected (the .56 no-filament bug)',
 tests.append(('R73 range: raft/brim in relative E, no M82 rebase artifacts',
     'R2-RANGE in-window floor: 1 layer(s)' in _t73 and 'R2-RANGE brim: 1 loop(s)' in _t73
     and 'G92 E' not in _t73
-    and len(_re73.findall(r'G1 X[\d.-]+ Y[\d.-]+ E[\d.]+ F1200', _t73)) >= 4, ''))
+    and len(_re73.findall(r'G1 X[\d.-]+ Y[\d.-]+ E[\d.]+ F2400', _t73)) >= 4, ''))
 
 # --- hull helpers: offset (zero gap) + hatch (raft fill) ---------------------
 _h73 = _mod73._hull([(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)])
@@ -5625,18 +5628,21 @@ for _i77b in range(1, len(_parts77), 2):
                    round(sum(float(m) for m in _re74.findall(r'(?m)^G1 .*?E([\d.]+)', _b77)), 1)))
 tests.append(('R77 label: base layers storm-free (storm was 108; R216 '
                'golden rule adds the few CORRECT retracts: brim->wall->'
-               'hatch->tower transitions cross fresh ink -> <=12)',
-    _lay77[0][0] <= 12 and _lay77[1][0] <= 12 and _lay77[2][0] <= 12,
+               'hatch->tower transitions cross fresh ink -> <=12; R231: '
+               'layer 3 carries the inlay CONTOURS - its glyph-to-glyph '
+               'travels retract like the text layers, fence <=110)',
+    _lay77[0][0] <= 12 and _lay77[1][0] <= 12 and _lay77[2][0] <= 110,
     str(_lay77[:3])))
 tests.append(('R77 label: base-layer E stable (R117 serpentine beads, '
                'R183/R184 brim air gaps - label brim AND the purge tower '
-               'brim run further out, E 282.9/164.6/164.7)',
-    [_lay77[i][1] for i in range(3)] == [282.9, 164.6, 164.7], str(_lay77[:3])))
-tests.append(('R77/R83 label: total G10 <= 260 (storm was 636; R83 adds discrete '
-               'glyph-to-glyph retracts, base layers stay retract-free; R224 '
-               'walls=3 multiplies the glyph retracts - the per-layer storm '
-               'guards above are the real fence)',
-    _t77l.count('\nG10') <= 260, str(_t77l.count('\nG10'))))
+               'brim run further out; R231: layer 3 gains the contour ink '
+               'E 282.9/164.6/185.4)',
+    [_lay77[i][1] for i in range(3)] == [282.9, 164.6, 185.4], str(_lay77[:3])))
+tests.append(('R77/R83 label: total G10 <= 340 (storm was 636; R83 adds discrete '
+               'glyph-to-glyph retracts; R224 walls=3 multiplies them and R231 '
+               'splits the glyph work over contour+fill layers (305) - the '
+               'per-layer storm guards above are the real fence)',
+    _t77l.count('\nG10') <= 340, str(_t77l.count('\nG10'))))
 
 # --- (1d) range raft parity with .57 (the user wants THAT look) ---------------
 def _src77(d):
@@ -7194,16 +7200,16 @@ _pp.process(_src872)
 _out872, _ = _pp.make_range(_src872, 3, 6, floor=3, floor_hole=25.0, first_h=0.2)
 _e872 = open(_out872, encoding='utf-8').read()
 _raft872 = _e872[_e872.index('raft layer 1'):_e872.index('raft layer 2')]
-_spiral872 = len([l for l in _raft872.split('\n') if 'F1200' in l and l.startswith('G1 ')])
+_spiral872 = len([l for l in _raft872.split('\n') if 'F2400' in l and l.startswith('G1 ')])
 _rets872 = len(_re872.findall(r'G1 E-?[\d.]+ F2400', _raft872))
 _bad872 = 0
 for _l872 in _raft872.split('\n'):
-    _m872 = _re872.match(r'G1 X(\S+) Y(\S+) E(\S+) F1200', _l872)
+    _m872 = _re872.match(r'G1 X(\S+) Y(\S+) E(\S+) F2400', _l872)
     if _m872 and float(_m872.group(3)) > 0:
         if _math872.hypot(float(_m872.group(1)) - 45.0, float(_m872.group(2)) - 45.0) < 12.0:
             _bad872 += 1
 tests.append(('R87.2 range hole: spiral boss (1 continuous stroke) fills the band',
-    _spiral872 >= 150, 'F1200 moves in raft layer 1: %d' % _spiral872))
+    _spiral872 >= 150, 'F2400 moves in raft layer 1: %d' % _spiral872))
 tests.append(('R87.2 range hole: travels over the hole RETRACT (strings fix .71)',
     _rets872 >= 4, 'retract lines: %d' % _rets872))
 tests.append(('R87.2 range hole: nothing extrudes inside the open hole',
@@ -8306,7 +8312,7 @@ tests.append(('R94 info: TYPES describes the EXCERPT (skirt gone, body + generat
     'TYPES=' in _fi94 and 'SKIRT' not in _fi94.split('TYPES=')[1].split()[0]
     and all(k in _fi94 for k in ('WALL-OUTER', 'GAPS', 'INFILL-SOLID', 'BRIM'))
     and 'FS_SKIRT' not in _fi94 and 'FS_WALL_OUTER=45' in _fi94
-    and 'FS_INFILL_SOLID=20' in _fi94,
+    and 'FS_INFILL_SOLID=40' in _fi94,   # R231: generated floor runs 40 mm/s
     _fi94[_fi94.index('TYPES='):][:60]))
 
 # floor=0 + brim: the brim block carries its OWN Z (the body's first Z)
@@ -9853,10 +9859,13 @@ tests.append(('R106 tag audit SEAL: layer 1 = Bottom, last = Top, TYPES honest',
     and 'SURFACE-BOTTOM' in _sealt.split('TYPES=')[1].split()[0], ''))
 _lbl106 = _pp.make_labels(['AUDIT'], bed=_BED106e, out_dir=_d106e)[0]
 _lblt = open(_lbl106, encoding='utf-8').read()
-tests.append(('R106 tag audit LABELS: base L1 = Bottom, text = Outer wall (visible)',
+tests.append(('R106 tag audit LABELS: base L1 = Bottom, inlay = Internal '
+              'solid + Top surface (R231: contours burn into the solid '
+              'layer, fills flush with the top)',
     ';TYPE:Bottom surface' in _lblt and ';TYPE:Top surface' in _lblt
     and 'SURFACE-BOTTOM' in _lblt.split('TYPES=')[1].split()[0]
-    and _lblt.count(';TYPE:Outer wall') >= _lblt.count(';TYPE:Inner wall') + 2, ''))
+    and _lblt.count(';TYPE:Top surface') >= 2
+    and _lblt.count(';TYPE:Internal solid infill') >= 2, ''))
 _ties106 = _pp.make_cable_ties(bed=_BED106e, out_dir=_d106e)[0]
 _tiest = open(_ties106, encoding='utf-8').read()
 tests.append(('R106 tag audit TIES: strap L1 = Bottom, strap top + head roof = Top',
@@ -11605,8 +11614,11 @@ _D117 = tempfile.mkdtemp(prefix='r117')
 _o117, _ = _pp61.make_labels(['WERKSTATT', 'R2'], w=60, h=30, hole_side=1, bed=_BED117, out_dir=_D117)
 _b117 = _an117(_o117)
 _r117 = _ratio117(_b117)[0]
-tests.append(('R117 LABELS: fills chain continuously (>=8 extrusions per travel, was ~1)',
-    _r117 >= 8.0, 'ratio %.1f' % _r117))
+tests.append(('R117 LABELS: fills chain continuously (>=4 extrusions per '
+              'travel, was ~1; R231: the inlay keep-outs punch holes into '
+              'the top fill - its travels double, the chaining itself is '
+              'intact)',
+    _r117 >= 4.0, 'ratio %.1f' % _r117))
 tests.append(('R117 LABELS: ironing angle == top angle (<=8 deg, was 90)',
     _adiff117(_b117) is not None and _adiff117(_b117) <= 8.0, 'diff %s' % _adiff117(_b117)))
 
@@ -11639,8 +11651,8 @@ tests.append(('R117 FRAME: ironing angle == top angle (<=8 deg, was 45)',
 _sr117 = open('tools/r2_postproc.py').read()
 tests.append(('R117 source: _emit_hatch only for single-line patterns (7 left) + range uses _serp_g',
     _sr117.count('_emit_hatch(pen, [') == 7
-    and '_serp_g(g, segs, eph, 1200, spacing)' in _sr117
-    and '_serp_g(gt, segs, eph, 1200, spacing)' in _sr117,
+    and '_serp_g(g, segs, eph, _RANGE_FLOOR_F, spacing)' in _sr117
+    and '_serp_g(gt, segs, eph, _RANGE_FLOOR_F, spacing)' in _sr117,
     'left %d' % _sr117.count('_emit_hatch(pen, [')))
 
 # ================= R119: label shapes, raised border, mm height =================
@@ -11652,12 +11664,16 @@ import hashlib as _hl119
 import math as _math119
 import re as _re119
 _D119 = tempfile.mkdtemp(prefix='r119_')
-_MD5_120 = 'd538c42c36b636fe9983da016f280616'   # re-frozen R224 (.136v): the wall knob rebuild - the old cap/5 dampening (0.2*cap) was THE reason a label printed only ONE wall; the cap is 0.34*cap now and walls=N*twid (LCD 'Text: N walls', default 3), so the TEXT layers carry the full multi-line stroke. Base layers, speeds and E sums unchanged (R77 E-stable pins still green).
+_MD5_120 = '707d2d5af060a65882f7870111edf29c'   # re-frozen R231 (.136ac): the text is a FLUSH INLAY now (contours burn into the solid layer B-1, fills sit flush with the top layer B, no raised text by default) - the whole layer plan changed, base layers 1+2 stay byte-stable (R77 E pins 282.9/164.6 unchanged). Re-freeze AFTER verifying: 4 layers, M600 in L4, text after it.
 
 def _labpts119(path, li):
     _t = open(path).read()
     _lay = _re119.split(r'(?m)^;LAYER_CHANGE', _t)[li]
-    _blk = _lay.split('EXCLUDE_OBJECT_START NAME=LABEL_1')[1].split('EXCLUDE_OBJECT_END')[0]
+    # R231: one layer carries SEVERAL label blocks (plate fill+ironing /
+    # text fills / border ring) - walk them ALL
+    _blk = '\n'.join(
+        _b.split('EXCLUDE_OBJECT_END')[0] for _b in
+        _lay.split('EXCLUDE_OBJECT_START NAME=LABEL_1')[1:])
     _pts, _px, _py = [], None, None
     for _l in _blk.split('\n'):
         _m = _re119.match(r'G0 X([\d.-]+) Y([\d.-]+)', _l)
@@ -11720,12 +11736,14 @@ for _li119 in (2, 4):
 tests.append(('R119 ROUND: everything inside the rounded rect (corner 6mm)',
     _bad119 == 0, '%d outside' % _bad119))
 
-# --- BORDER: raised ring on the TEXT layers only, correct insets, breaks at the hole
+# --- BORDER: ring on the TEXT layers only, correct insets, breaks at the hole
+#     (R231: text is a FLUSH inlay now - ring contours in the solid layer B-1,
+#      ring WALLS + text fills in the top layer B, both in text color)
 _o119, _i119 = _pp61.make_labels(['RAND'], border_walls=3, border_gap=1.0,
                                  hole_side=1, w=70, h=30, out_dir=_D119)
 _wid119 = 0.648
 _hd119 = _i119.get('hole_d', 5.0) or 5.0
-_pts, (_cx, _cy), _t119 = _labpts119(_o119, 5)          # raised text layer (R214: first text sits INSIDE layer 4)
+_pts, (_cx, _cy), _t119 = _labpts119(_o119, 4)          # R231: flush inlay - the border ring WALLS print in the TOP layer (after the M600, text color)
 _lx119 = _cx - _i119['w'] / 2
 _insets119 = sorted(set(round(_x - _lx119, 2) for (_x, _y) in _pts if _x < _lx119 + 4.5))
 tests.append(('R119 border: text layer carries the ring at wid/2+gap (+k*wid)',
@@ -11741,7 +11759,7 @@ tests.append(('R119 border: base layers stay at the classic outer wall (no ring)
         and _x > _hz119),
     'xmin %.3f' % _xmin2))
 # hole: no horizontal border extrusion bridges the open hole band
-_lay6 = _re119.split(r'(?m)^;LAYER_CHANGE', _t119)[5]
+_lay6 = _re119.split(r'(?m)^;LAYER_CHANGE', _t119)[4]   # R231: top inlay layer carries ring + text
 _lab6 = _lay6.split('EXCLUDE_OBJECT_START NAME=LABEL_1')[1].split('EXCLUDE_OBJECT_END')[0]
 _bridge119 = 0
 _px = _py = None
@@ -11760,7 +11778,7 @@ for _l in _lab6.split('\n'):
         _px, _py = _x1, _y1
 tests.append(('R119 border: ring BREAKS at the hole (no bridge over the opening)',
     _bridge119 == 0, '%d bridges' % _bridge119))
-tests.append(('R119 border: hole rings present in the raised layer',
+tests.append(('R119 border: hole rings present in the top inlay layer',
     _lab6.count('G1 X') > 10 and _re119.search(r';TYPE:Outer wall', _lab6) is not None, 'rings'))
 
 # --- HEIGHT: mm -> layers, 4+4+sparse, angle alternation, _FILE_INFO
@@ -12293,12 +12311,41 @@ save_vars['brick_jobs'] = 'B2x4:2|P2x2:1'
 out = render(_body122('BRICK_DEL_LAST'))
 tests.append(('R121b BRICK_DEL_LAST: drops the last entry',
     'removed P2x2:1' in _re122.sub(r'\s+', ' ', out) and 'B2x4:2' in out, out[:110]))
+state_vars['bq_armed'] = False
 out = render(_body122('BRICK_CLEAR'))
 tests.append(('R121b BRICK_CLEAR: arms first (2-press)',
-    'CONFIRM=1' in out and 'VARIABLE=brick_jobs' not in out, ''))
+    'Press AGAIN' in out and 'VARIABLE=bq_armed VALUE=True' in out
+    and 'VARIABLE=brick_jobs' not in out, out[:110]))
 out = render(_body122('BRICK_CLEAR'), {'CONFIRM': '1'})
 tests.append(('R121b BRICK_CLEAR: confirmed -> empty quoted value',
     ("VALUE='" + chr(34) + chr(34)) in _re122.sub(r'\s+', ' ', out), out[:110]))
+# R232 field fix: the LCD item passes NO confirm - the SECOND press must
+# clear (the old macro asked for CONFIRM=1 nobody ever sent: 'deleting the
+# queue does not work, neither all nor last' - all is fixed HERE)
+state_vars['bq_armed'] = True
+out = render(_body122('BRICK_CLEAR'))
+tests.append(('R232 BRICK_CLEAR: second LCD press clears (arm, no CONFIRM)',
+    'VARIABLE=brick_jobs' in out and 'queue cleared' in out
+    and 'VARIABLE=bq_armed VALUE=False' in out, out[:110]))
+state_vars['bq_armed'] = False
+# R232 legacy heal: a queue stored as a LIST (old round) or with quotes
+# baked in used to survive every delete - DEL wrote the same junk back
+save_vars['brick_jobs'] = "['B2x4:2', 'P2x2:1']"
+out = render(_body122('BRICK_DEL_LAST'))
+tests.append(('R232 BRICK_DEL_LAST: legacy LIST queue heals -> clean string',
+    'removed P2x2:1' in _re122.sub(r'\s+', ' ', out)
+    and 'B2x4:2' in out and '[' not in _re122.sub(r'\s+', ' ', out)
+    and ']' not in out, out[:130]))
+save_vars['brick_jobs'] = '"B2x4:2"'
+out = render(_body122('BRICK_ADD'), {'CODE': 'B1x1', 'COUNT': '1'})
+tests.append(('R232 BRICK_ADD: quote-baked queue heals on merge',
+    'B2x4:2|B1x1:1' in _re122.sub(r'\s+', ' ', out)
+    and 'queue now 3 part(s): B2x4:2|B1x1:1' in _re122.sub(r'\s+', ' ', out),
+    out[:130]))
+save_vars['brick_jobs'] = '"B2x4:2"'
+out = render(_body122('BRICK_SHOW'))
+tests.append(('R232 BRICK_SHOW: healed display (no quote residue)',
+    'Bricks queue: B2x4:2' in _re122.sub(r'\s+', ' ', out), out[:110]))
 
 save_vars['brick_jobs'] = ''
 out = render(_body122('BRICK_CREATE'))
@@ -13465,6 +13512,8 @@ _REMOVED135 = [
     '__main __system __ledcfg __nozm',
 ]
 _ADDED135 = [
+    '__main __gen __labels __set __flp',   # R231: label Flip toggle
+    '__main __gen __stringart __arl',      # R232: photo aspect lock
  '__main __gen __litho __img __pgi',
  '__main __gen __litho __img __pgp',
  '__main __gen __litho __img __pgn',
@@ -16978,9 +17027,11 @@ tests.append(('R180 chain (the .129 field case): texture THEN range - the '
 import r2_cake as _ckmod180
 _lblt180 = _pp.make_labels(['TEXTUR'], bed=(0, -3, 220, 217),
                            out_dir=_d180)[0]
-_ck180m = _ckmod180.cut_cake(_lblt180, z_offset=1.0, out_dir=_d180)[0][0]
+# R231: default labels are 4 flush layers (~0.88mm) now - z_offset 1.0 sat
+# above the WHOLE model (the half printed air). 0.5: layer 1 empty, 2..3 ink
+_ck180m = _ckmod180.cut_cake(_lblt180, z_offset=0.5, out_dir=_d180)[0][0]
 try:
-    _pp.make_range(_ck180m, 1, 3, out_dir=_d180)
+    _pp.make_range(_ck180m, 1, 1, out_dir=_d180)
     _nk180 = False
 except ValueError:
     _nk180 = True
@@ -16988,7 +17039,7 @@ tests.append(('R180 guard: a range window with NO extrusion (a cake half '
     'sits empty above its z_offset base) refuses honestly instead of '
     'shipping a file that prints air',
     _nk180, ''))
-_ckr180b = _pp.make_range(_ck180m, 4, 5, out_dir=_d180)[0]
+_ckr180b = _pp.make_range(_ck180m, 2, 3, out_dir=_d180)[0]
 _hr180b = open(_ckr180b).read()
 _mk180b = set(__import__('re').findall(r'APPLY_TYPE TYPE=(\S+)', _hr180b))
 _fi180b = [l for l in _hr180b.split('\n') if l.startswith('_FILE_INFO')][0]
@@ -17351,12 +17402,12 @@ tests.append(('R185 current-only manual: no version-history appendix, no era '
     '## Appendix D' not in _m185 and 'Version history' not in _m185
     and _re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185) is None
     and _re2.search(r'\bR1[0-9][0-9]\b', _m185) is None
-    and 'The nine fonts' in _m185 and 'R2-2026-11-08.136ab' in _m185,
+    and 'The nine fonts' in _m185 and 'R2-2026-11-08.136ac' in _m185,
     'appendixD=%s eratags=%s rtags=%s nine=%s v132=%s' % (
         '## Appendix D' in _m185,
         bool(_re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185)),
         bool(_re2.search(r'\bR1[0-9][0-9]\b', _m185)),
-        'The nine fonts' in _m185, 'R2-2026-11-08.136ab' in _m185)))
+        'The nine fonts' in _m185, 'R2-2026-11-08.136ac' in _m185)))
 
 # ================== R184 (.131c field round): the brim air gap EVERYWHERE ==
 # The user asked: does the brim fusing hit our OTHER generators too? Measured

@@ -3,7 +3,7 @@
 **Package:** `klipper-e3-r2d2` · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail) ·
 12864 LCD (16 characters per line)
 
-**Version:** this manual describes the current release, `R2-2026-11-08.136ab` — and only it. Every chapter documents what the system
+**Version:** this manual describes the current release, `R2-2026-11-08.136ac` — and only it. Every chapter documents what the system
 does today; the version changelog lives in README.md.
 
 This is the operating manual for the complete macro system: what the printer can
@@ -1169,7 +1169,7 @@ entirely from the LCD (or one console line).
 | Spc | letter spacing in mm | extra spacing between letters |
 | Stroke | 0 = auto, or mm | the letter LINE WIDTH. 0 = auto (three extrusion lines, solid letters) or your nozzle diameter (0.6 = single-line letters). Capped automatically at ⅕ of the cap height — thicker strokes would merge the letters |
 | ~ | auto | the version in the file name bumps ITSELF (V01, V02, ...) - regenerating never overwrites an older file |
-| Base / Text layers | e.g. 4 + 2 | plate thickness and text relief — **the first text layer prints INSIDE the last base layer** (.136m): the letter contours are embedded in the base plastic and stay readable even if the raised layers chip off; total height = naive sum minus one layer, the layer counts themselves stay untouched |
+| Base / Text layers | e.g. 4 + 2 | plate thickness and text depth — **text_layers is the TOTAL text depth in layers (2–4, .136ac)**: 2 = the FLUSH inlay (letter contours burn into the solid layer B-1 in plate color, the fills sit level with the top layer B in text color — layer 1 prints the letters integrated into the bottom), 3/4 = flush inlay PLUS raised layers on top; print order per layer: area + contours first, then letters + border, ONE M600 total |
 | LH / 1st | layer heights | base layer height / first layer |
 | Ironing | ON/OFF | smooths the text surface |
 | Hole | NONE/LEFT/RIGHT/TOP/BOTTOM + diameter | the key-ring hole, 2 mm from the edge |
@@ -1967,7 +1967,18 @@ findings, all fixed):
   13x18 / 15x20 / 18x24** (the Frames sizes) build a rectangular ring —
   string art drops into the Frames system. `W:`/`H:` for custom sizes,
   clamped to the bed.
+- **Aspect lock (.136ac)**: with a PHOTO picked, the **`AR lock`** row
+  keeps W and H coupled to the image's aspect ratio — change `W:` and `H:`
+  follows (and back); picking an image adapts H to the photo at the
+  current W. The lock row frees both for the classic fixed frames.
 - **Ring height**: `RingH:` 1.2–6 mm (was fixed at ~2.4).
+- **Photo builds are Pi-friendly (.136ac)**: the planner decodes at most
+  288 px (its grid is ≤220 cells anyway), the JPEG IDCT runs separable
+  (bit-identical, a quarter of the work) and the luma handoff drops RGB
+  rows as it converts — a 1700-strand/600-anchor photo build peaks around
+  **37 MB** instead of pushing the host into swap (the .136z field log:
+  klippy reactor stalls during a photo build). Grayscale JPEGs decode
+  again (they crashed above 512 px).
 
 **The workflow (LCD: `Tools > String art`)**
 
@@ -4060,7 +4071,7 @@ system). Better a quiet fan at full speed than a fast one slowed down.
 ## Appendix C: First start & updates
 
 - upload the folder → includes at the end of printer.cfg → RESTART
-- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-11-08.136ab)`
+- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-11-08.136ac)`
 - ~10 s later: boot sound + LED animation
 - SHOW_STATUS → mode, material, overrides · Maintenance > Tests > demos + self test
 
