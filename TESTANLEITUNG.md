@@ -1,6 +1,6 @@
 # TESTANLEITUNG — R2-D2 Makro-System (Version .136ac)
 
-Diese Anleitung beschreibt **nur den aktuellen Stand** (.136ad). Sie ist die
+Diese Anleitung beschreibt **nur den aktuellen Stand** (.136ae). Sie ist die
 komplette Feld-Checkliste nach dem Einspielen eines Updates — von Boot bis
 Druckergebnis. Die Historie der Änderungen steht in README.md.
 
@@ -18,7 +18,7 @@ Druckergebnis. Die Historie der Änderungen steht in README.md.
 ## 2. Boot-Check (Pflicht, 1 Minute)
 
 - [ ] Konsole: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.136ad)`
+      (build R2-2026-11-09.136ae)`
 - [ ] ~10 s nach dem Boot: Boot-Sound + LED-Animation
 - [ ] `SHOW_STATUS` antwortet mit Modus/Material/Overrides
 - [ ] Kein Eintrag fehlt: sonst meldet sich `_CHECK_INSTALL` laut mit
@@ -421,3 +421,37 @@ aufräumen schadet nicht.
 **Alles grün?** Dann ist .136ad field-clear — ab jetzt kommen Updates
 wieder von selbst an. Wenn etwas auffällt: Konsole kopieren (update.sh-
 Ausgabe komplett) — daraus wird der nächste Feldlog-Eintrag.
+
+## 20. Die .136ae-Neuerungen (R234 — Feldlog + GitHub-Updates)
+
+**Feldlog 09.11. (auf .136ad):** jeder Foto-Pick meldete
+`!! Malformed command 'SAVE_VARIABLE VARIABLE=stringart_imgwh …'` — das
+Conditional `if dim != '' else '""'` stand als **Text** hinter dem VALUE
+(Klipper lehnte ab, `stringart_imgwh` wurde nie gespeichert). Zweites:
+`[queue] StringArt waits: only 88MB RAM free, image builds want 110MB` —
+die RAM-Schwelle war noch vom alten Decoder; der R232-Planner peakt bei
+**~37 MB**, wartet jetzt ab **64 MB** frei (Litho/ColorPic behalten 110).
+
+**Neu: `update.sh --git`** — Updates direkt aus Deinem GitHub-Clone, ohne
+Zip-Download. Einmalige Einrichtung (Bundle → GitHub → Clone auf dem Pi):
+siehe **GITHUB.md**. Danach ist ein Update ein Befehl:
+
+```bash
+bash ~/printer_data/config/klipper-e3-r2d2/update.sh --git
+```
+
+### Feld-Checkliste .136ae
+
+- [ ] Foto-Pick (ArtisticStrings > PHOTO > Bild wählen): Konsole zeigt
+      KEIN „Malformed command" mehr; AR-Lock-Zeile zeigt die px-Maße statt
+      „(no img)"
+- [ ] StringArt-Fotobau startet bei ~88 MB freiem RAM OHNE Pi-Neustart
+      (Wartemeldung nennt jetzt „want 64MB")
+- [ ] `Macro system OK: all 19 modules loaded and current
+      (build R2-2026-11-09.136ae)`
+- [ ] (Wenn auf Git umgestellt) `update.sh --git` läuft durch:
+      fetch → ggf. „updating <alt> -> <neu>" → komplette Choreographie
+      bis „== done. Happy printing! =="
+
+**Alles grün?** Dann ist .136ae field-clear. Wenn etwas auffällt: Konsole
+kopieren (RESPOND-/!!-Zeilen) — daraus wird der nächste Feldlog-Eintrag.

@@ -1362,10 +1362,11 @@ check('R223a decode caps: max_dim on both decoders + _img_luma, image '
 check('R223b JPEG planes are array-backed (8x less RAM per coefficient)',
       "[array('i', [0] * 64)" in _src and '= array(\'i\', blk)' in _src)
 check('R223c worker: per-job thread + 20min stuck watchdog + repeating '
-      'wait notice + per-job ram_min (image jobs 110MB, rest 60)',
+      'wait notice + per-job ram_min (litho/colorpic 110MB, string art '
+      '64MB since R234 - measured .136ac peak ~37MB, rest 60)',
       'JOB_STUCK_S = 1200' in _src and 'th.join(JOB_STUCK_S)' in _src
       and 'STUCK after' in _src and 'ram_min=110' in _src
-      and _src.count('ram_min=110') == 3)
+      and _src.count('ram_min=110') == 2 and 'ram_min=64)' in _src)
 check('R223d queue clear channel: gen_clear_nonce in NONCE_KEYS + primed '
       'at boot + handled in the loop; a stale gen_busy is dropped at boot '
       '(a died job must not block print starts forever)',

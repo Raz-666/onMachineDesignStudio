@@ -77,8 +77,8 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-09.136ad'
-POSTPROC_BUILD = 'R233'
+POSTPROC_RELEASE = 'R2-2026-11-09.136ae'
+POSTPROC_BUILD = 'R234'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
 # and no speed/accel/nozzle parameters. Files carrying an OLD tag are UPGRADED
@@ -23285,6 +23285,9 @@ def watch(directory, interval=5.0, once=False):
                 # for RAM headroom like it waits for the printer. R223:
                 # image jobs ask for 110MB (photos used to pass the old
                 # flat 60MB gate and died during the decode), the rest 60.
+                # R234 (.136ae): string art only needs 64MB since the
+                # R232 planner (~37MB measured peak) - litho + colorpic
+                # keep 110 (never re-measured).
                 _waited = time.monotonic() - (t_wait or t_spawn)
                 # R188: 10s instead of 90 - the user must KNOW the job is
                 # parked (field report: 'did it start? did it not?')
@@ -26019,7 +26022,13 @@ def watch(directory, interval=5.0, once=False):
 
                     _spawn_job('StringArt', 'stringart:%s:%s/%s/%s' % (
                         _spat178, _sdia178, _sanc178, _slin178),
-                        _stringart_job178, ram_min=110)   # R223: photo
+                        _stringart_job178, ram_min=64)
+                    # R223: photo jobs used to die during the decode (110MB
+                    # headroom). R234 (.136ae field log): the R232 planner
+                    # needs a MEASURED ~37MB peak (separable IDCT, 288px
+                    # decode cap, row-wise luma handoff) - 64MB is that plus
+                    # margin. The old 110 made builds wait for a Pi restart
+                    # although 88MB free were plenty.
         except ValueError as ve178:
             try:
                 _moonraker_gcode(

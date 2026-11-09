@@ -4168,7 +4168,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.136ab) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-11-09.136ad'", repr(_v66)))
+    _v66 == "'R2-2026-11-09.136ae'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -15402,7 +15402,8 @@ tests.append(('R162 file-fix busy check: patient (stale status re-checked '
 tests.append(('R162/R223 generator job gates: busy-probe RETRY (a timeout must '
     'not read as not-busy - the .121 Timer-too-close chain: litho built '
     'during the print) + builds wait below their per-job RAM floor '
-    '(60MB, image jobs 110MB since .136u)',
+    '(rest 60MB; litho/colorpic 110MB, string art 64MB - the .136ac '
+    'planner peaks ~37MB, R234 field log: 110 made it wait on 88MB free)',
     'for _try162 in (1, 2)' in _src160b and 'if _try162 == 2' in _src160b
     and '0 < _ram162 < ram_min' in _src160b, ''))
 
@@ -17402,12 +17403,12 @@ tests.append(('R185 current-only manual: no version-history appendix, no era '
     '## Appendix D' not in _m185 and 'Version history' not in _m185
     and _re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185) is None
     and _re2.search(r'\bR1[0-9][0-9]\b', _m185) is None
-    and 'The nine fonts' in _m185 and 'R2-2026-11-09.136ad' in _m185,
+    and 'The nine fonts' in _m185 and 'R2-2026-11-09.136ae' in _m185,
     'appendixD=%s eratags=%s rtags=%s nine=%s v132=%s' % (
         '## Appendix D' in _m185,
         bool(_re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185)),
         bool(_re2.search(r'\bR1[0-9][0-9]\b', _m185)),
-        'The nine fonts' in _m185, 'R2-2026-11-09.136ad' in _m185)))
+        'The nine fonts' in _m185, 'R2-2026-11-09.136ae' in _m185)))
 
 # ================== R184 (.131c field round): the brim air gap EVERYWHERE ==
 # The user asked: does the brim fusing hit our OTHER generators too? Measured

@@ -21,6 +21,9 @@
 #
 #  Options:  --force      also unpack an OLDER zip (downgrade)
 #            --unpacked   internal flag (do not search for zips again)
+#            --git        pull the update straight from GitHub (no zip:
+#                         fetch + reset to origin + full choreography -
+#                         one-time setup described in GITHUB.md)
 #
 #  R199 (.134 field report): the .134 update zip was built FLAT (no
 #  klipper-e3-r2d2/ top-level folder) - unpacking scattered macros/, tools/
@@ -49,7 +52,9 @@ CFG="${HOME}/printer_data/config/printer.cfg"
 PKG_REL="klipper-e3-r2d2"
 MOONRAKER="http://127.0.0.1:7125"
 FORCE=0
-[ "${1:-}" = "--force" ] && FORCE=1
+# R234: --force may COMBINE with --git ('update.sh --git --force') - scan
+# every argument, not just the first
+for _a in ${@+"$@"}; do [ "${_a}" = "--force" ] && FORCE=1; done
 
 echo "== R2 update helper =="
 
@@ -141,6 +146,90 @@ for _r in ${RETIRE}; do
     fi
 done
 
+# --- 0g) R234 (.136ae): --git - pull the package straight from GitHub -----
+#     The zip flow stays (offline Pi, mailed zips), but a GitHub clone
+#     updates with ONE command: fetch origin, downgrade-check via the
+#     odometer (same rule as the zip gate), reset the package to origin's
+#     state, then the FULL update.sh choreography (include check, version,
+#     LED re-apply, FIRMWARE_RESTART, watcher census, web-LCD refresh).
+#     One-time setup (bundle -> GitHub -> clone on the Pi): see GITHUB.md.
+if [ "${1:-}" = "--git" ]; then
+    if ! command -v git >/dev/null 2>&1; then
+        echo "[!] --git needs git - install it first:  sudo apt install git"
+        exit 1
+    fi
+    if ! git -C "${DIR}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        echo "[!] ${DIR} is not a git repository."
+        echo "    --git needs the package as a GitHub clone - GITHUB.md shows the"
+        echo "    one-time switch (the clone replaces the unzipped folder;"
+        echo "    printer.cfg / r2_hardware.cfg / variables.cfg live OUTSIDE"
+        echo "    and are never touched)."
+        exit 1
+    fi
+    if [ -z "$(git -C "${DIR}" remote get-url origin 2>/dev/null || true)" ]; then
+        echo "[!] no 'origin' remote in ${DIR} - point it at your GitHub repo:"
+        echo "        git -C ${DIR} remote add origin <your-repo-url>"
+        exit 1
+    fi
+    BRANCH="$(git -C "${DIR}" symbolic-ref --short HEAD 2>/dev/null || true)"
+    [ -n "${BRANCH}" ] || BRANCH="main"
+    echo "[i] git update: fetching origin ${BRANCH} ..."
+    if ! git -C "${DIR}" fetch origin "${BRANCH}" 2>&1; then
+        echo "[!] git fetch failed - network down, wrong remote, or no access."
+        echo "    check:  git -C ${DIR} remote -v"
+        exit 1
+    fi
+    REMOTE_SHA="$(git -C "${DIR}" rev-parse "origin/${BRANCH}" 2>/dev/null || true)"
+    [ -n "${REMOTE_SHA}" ] || { echo "[!] origin has no branch '${BRANCH}'"; exit 1; }
+    # refuse to overwrite local edits (untracked files survive a reset -
+    # only tracked modifications would be lost, so those are the blocker)
+    if [ -n "$(git -C "${DIR}" status --porcelain 2>/dev/null | grep -v '^??' || true)" ]; then
+        echo "[!] the package folder has LOCAL changes - a git update would"
+        echo "    overwrite them. stash them first:"
+        echo "        git -C ${DIR} stash"
+        echo "    or discard them knowingly:"
+        echo "        bash \"${DIR}/update.sh\" --git --force"
+        [ "${FORCE}" -eq 1 ] || exit 1
+        echo "[i] --force: overwriting the local changes"
+    fi
+    # downgrade guard on the ODOMETER (same rule as the zip gate, R233):
+    # an origin BEHIND the installed version (rolled back / force-pushed
+    # old state) only goes through with --force.
+    GIT_CUR_N="$(sed -n "s/^[[:space:]]*variable_version: *'R2-[0-9-]*\.\([0-9]*\)[a-z]*'.*/\1/p" \
+        "${DIR}/macros/01_state.cfg" 2>/dev/null | head -1)"
+    GIT_CUR_S="$(sed -n "s/^[[:space:]]*variable_version: *'R2-[0-9-]*\.[0-9]*\([a-z]*\)'.*/\1/p" \
+        "${DIR}/macros/01_state.cfg" 2>/dev/null | head -1)"
+    GIT_NEW_N="$(git -C "${DIR}" show "origin/${BRANCH}:macros/01_state.cfg" 2>/dev/null \
+        | sed -n "s/^[[:space:]]*variable_version: *'R2-[0-9-]*\.\([0-9]*\)[a-z]*'.*/\1/p" | head -1)"
+    GIT_NEW_S="$(git -C "${DIR}" show "origin/${BRANCH}:macros/01_state.cfg" 2>/dev/null \
+        | sed -n "s/^[[:space:]]*variable_version: *'R2-[0-9-]*\.[0-9]*\([a-z]*\)'.*/\1/p" | head -1)"
+    if [ -n "${GIT_NEW_N}" ] && [ -n "${GIT_CUR_N}" ] \
+       && { [ "${GIT_NEW_N}" -lt "${GIT_CUR_N}" ] \
+            || { [ "${GIT_NEW_N}" -eq "${GIT_CUR_N}" ] \
+                 && [ "$(r2_sfx_val "${GIT_NEW_S:-}")" -lt "$(r2_sfx_val "${GIT_CUR_S:-}")" ]; }; }; then
+        if [ "${FORCE}" -eq 0 ]; then
+            echo "[!] origin is OLDER than the installed version (.${GIT_CUR_N}${GIT_CUR_S})"
+            echo "    - a rolled-back or force-pushed repo. Nothing was changed."
+            echo "    to downgrade anyway:  bash \"${DIR}/update.sh\" --git --force"
+            exit 1
+        fi
+        echo "[i] --force: pulling the OLDER origin state anyway"
+    fi
+    LOCAL_SHA="$(git -C "${DIR}" rev-parse HEAD 2>/dev/null || true)"
+    if [ "${LOCAL_SHA}" = "${REMOTE_SHA}" ]; then
+        echo "[ok] already up to date: $(git -C "${DIR}" log -1 --format='%h %s' 2>/dev/null)"
+        echo "[i] running the full check + restart choreography anyway (safe to re-run)"
+    else
+        echo "[i] updating ${LOCAL_SHA:0:7} -> ${REMOTE_SHA:0:7}"
+    fi
+    # the reset runs in BOTH branches (R234 audit G4): the dirty-check above
+    # already refused local changes unless --force - so here the tree goes
+    # to origin's state, even when the commit ids match but stray edits exist
+    git -C "${DIR}" reset --hard "${REMOTE_SHA}"
+    echo "[ok] package files are at origin's state - continuing with the NEW update.sh"
+    exec bash "${DIR}/update.sh" --unpacked
+fi
+
 # --- 1) unzip an uploaded UPDATE zip over the old folder (NEW in .50) ----------------
 if [ "${1:-}" != "--unpacked" ] && [ -n "${CFG_DIR}" ]; then
     CUR="$(sed -n "s/^[[:space:]]*variable_version: *'\(R2-[0-9-]*\.[0-9]*[a-z]*\)'.*/\1/p" \
@@ -229,6 +318,8 @@ if [ "${1:-}" != "--unpacked" ] && [ -n "${CFG_DIR}" ]; then
         echo "[i] no klipper-e3-r2d2-UPDATE-R2-*.zip found in ${CFG_DIR}"
         echo "    (to update: upload the new zip in Mainsail into the config folder"
         echo "     next to printer.cfg, then run this script again)"
+        echo "    (GitHub user?  bash ${DIR}/update.sh --git  pulls the update"
+        echo "     straight from your clone - the one-time setup is in GITHUB.md)"
     fi
 fi
 
