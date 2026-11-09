@@ -4168,7 +4168,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.136ab) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-11-09.136ae'", repr(_v66)))
+    _v66 == "'R2-2026-11-09.136af'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -5329,10 +5329,11 @@ tests.append(('R75 _PREVIEW_SET macro: junk numeric value falls back to 0 (never
 _0875 = open('macros/08_print_start_stop.cfg').read()
 _sec75 = _0875[_0875.index('[gcode_macro _PREVIEW]'):_0875.index('[gcode_macro _PREVIEW_SET]')]
 _pvars75 = _re74.findall(r'^variable_(\w+):', _sec75, _re74.M)
-tests.append(('R75/R84/R89 _PREVIEW card: 29 in-memory variables (name..pens + slicer/fw/vol/retract+status)',
-    len(_pvars75) == 29 and all(v in _pvars75 for v in
+tests.append(('R75/R84/R89 _PREVIEW card: 30 in-memory variables (name..pens + slicer/fw/vol/retract+status+moverate R235)',
+    len(_pvars75) == 30 and all(v in _pvars75 for v in
     ('name', 'type', 'material', 'layer_height', 'hotend', 'bed', 'fan', 'plot', 'pens', 'types',
-     'slicer', 'firmware', 'volumetric', 'retract_style', 'retract_status', 'retract_max')),
+     'slicer', 'firmware', 'volumetric', 'retract_style', 'retract_status', 'retract_max',
+     'moverate')),
     str(_pvars75)))
 tests.append(('R75 nobody reads save_variables.preview_* anymore (in-memory card)',
     'variables.preview_' not in _lcd74
@@ -17403,12 +17404,12 @@ tests.append(('R185 current-only manual: no version-history appendix, no era '
     '## Appendix D' not in _m185 and 'Version history' not in _m185
     and _re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185) is None
     and _re2.search(r'\bR1[0-9][0-9]\b', _m185) is None
-    and 'The nine fonts' in _m185 and 'R2-2026-11-09.136ae' in _m185,
+    and 'The nine fonts' in _m185 and 'R2-2026-11-09.136af' in _m185,
     'appendixD=%s eratags=%s rtags=%s nine=%s v132=%s' % (
         '## Appendix D' in _m185,
         bool(_re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185)),
         bool(_re2.search(r'\bR1[0-9][0-9]\b', _m185)),
-        'The nine fonts' in _m185, 'R2-2026-11-09.136ae' in _m185)))
+        'The nine fonts' in _m185, 'R2-2026-11-09.136af' in _m185)))
 
 # ================== R184 (.131c field round): the brim air gap EVERYWHERE ==
 # The user asked: does the brim fusing hit our OTHER generators too? Measured

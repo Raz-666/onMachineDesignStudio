@@ -234,7 +234,15 @@ for t in NEED:
 
 TMP = tempfile.mkdtemp(prefix='r234_')
 try:
-    OLD_SHA = sh('git rev-parse HEAD', cwd=REPO).stdout.strip()
+    # the last PRE---git stand: the PARENT of the commit that introduced
+    # --git in update.sh (R234 = 0de9a7c, the .136ad zip era was b07fbdb).
+    # NOTE: HEAD itself is --git-capable since .136ae - pinning HEAD here
+    # made G0 silently test the wrong scenario (found in the R235 battery).
+    _intro = sh("git log -S'--git' --reverse --format=%H -- update.sh",
+                cwd=REPO).stdout.split()
+    OLD_SHA = (sh('git rev-parse %s^' % _intro[0], cwd=REPO).stdout.strip()
+               if _intro else
+               sh('git rev-parse HEAD', cwd=REPO).stdout.strip())
     BR = sh('git branch --show-current', cwd=REPO).stdout.strip() or 'master'
 
     def ver_of(path):

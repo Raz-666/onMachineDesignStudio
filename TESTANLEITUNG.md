@@ -1,6 +1,6 @@
 # TESTANLEITUNG — R2-D2 Makro-System (Version .136ac)
 
-Diese Anleitung beschreibt **nur den aktuellen Stand** (.136ae). Sie ist die
+Diese Anleitung beschreibt **nur den aktuellen Stand** (.136af). Sie ist die
 komplette Feld-Checkliste nach dem Einspielen eines Updates — von Boot bis
 Druckergebnis. Die Historie der Änderungen steht in README.md.
 
@@ -18,7 +18,7 @@ Druckergebnis. Die Historie der Änderungen steht in README.md.
 ## 2. Boot-Check (Pflicht, 1 Minute)
 
 - [ ] Konsole: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.136ae)`
+      (build R2-2026-11-09.136af)`
 - [ ] ~10 s nach dem Boot: Boot-Sound + LED-Animation
 - [ ] `SHOW_STATUS` antwortet mit Modus/Material/Overrides
 - [ ] Kein Eintrag fehlt: sonst meldet sich `_CHECK_INSTALL` laut mit
@@ -455,3 +455,41 @@ bash ~/printer_data/config/klipper-e3-r2d2/update.sh --git
 
 **Alles grün?** Dann ist .136ae field-clear. Wenn etwas auffällt: Konsole
 kopieren (RESPOND-/!!-Zeilen) — daraus wird der nächste Feldlog-Eintrag.
+
+## 21. Die .136af-Neuerungen (R235 — Timer-too-close-Feldlog)
+
+**Feldlog 09.11. (Textur-Druck V04_BigRose_020mm_TX.gcode, 6000 moves/s):**
+zwei „Timer too close"-Cluster — eines **vor** dem Druck (Reactor 0,46 s
+blockiert: LCD-Menü + Webhook-Polls + DelayedGcode bei `gcodein=0`, der
+Host war schon angespannt: Watcher 27 % CPU, 11 Reactor-Stalls), eines
+96 s **in** den Druck (Reactor 0,48/0,99 s: Filament-Sensor + Webhooks —
+bei Mikro-Zügen puffert die Move-Queue nur Millisekunden). Die Warnung
+„up to 6000 moves/s …" kam zur **Dateiauswahl**, war aber im
+Entscheidungsdialog (Minuten später) weg gescrollt — gedruckt wurde
+trotzdem ungemergt.
+
+**Der Fix:** das Risiko reist mit der Vorschau-Karte (`_PREVIEW.moverate`,
+gestempelt vom Watcher als MOVERATE) — und der **Start-Dialog wiederholt
+es zur Entscheidungszeit**: beide Fang-Stellen zeigen ab >400 moves/s
+eine `[!]`-Zeile mit dem SegFix-Weg, und solange der Dialog wartet,
+zeigt das LCD `M117 SegFix first! Start?` statt „Changes?".
+
+**Diagnose aus dem Log (fürs Feld):** die Konsolen-Meldungen waren NICHT
+die Ursache (~0,2 Zeilen/s; die Reactor-Spuren nennen Menü, Webhooks,
+Sensor — nie Meldungsverarbeitung). `_M204` (2× „Unknown command")
+stammt aus Deiner eigenen printer.cfg, nicht aus dem Paket.
+
+### Feld-Checkliste .136af
+
+- [ ] Riskante Datei (Textur mit >400 moves/s) auswählen → Start-Dialog
+      zeigt jetzt AUCH im Dialog die `[!] … moves/s … Segment fix FIRST`-
+      Zeile; LCD zeigt während des Wartens `SegFix first! Start?`
+- [ ] **Vor dem Textur-Druck: Pre-Print > File > Segment fix ausführen**
+      (der eigentliche Hebel — verschmilzt die Mikro-Züge auf ~450/s)
+- [ ] Normale Datei: Dialog unverändert („Changes? -> menu Start?",
+      keine `[!]`-Zeile)
+- [ ] `Macro system OK: all 19 modules loaded and current
+      (build R2-2026-11-09.136af)`
+
+**Alles grün?** Dann ist .136af field-clear. Wenn etwas auffällt: Konsole
+kopieren — daraus wird der nächste Feldlog-Eintrag.

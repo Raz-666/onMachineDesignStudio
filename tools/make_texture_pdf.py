@@ -103,7 +103,7 @@ class Doc(BaseDocTemplate):
         canv.line(17*mm, 285*mm, 193*mm, 285*mm)
         canv.setFont('DVS', 8.2); canv.setFillColor(GRAY)
         canv.drawString(17*mm, 287.2*mm, 'R2-D2 Macro System · Texturing — Struktur-Prägung auf der Objektwand')
-        canv.drawRightString(193*mm, 287.2*mm, 'R2-2026-11-09.136ae')
+        canv.drawRightString(193*mm, 287.2*mm, 'R2-2026-11-09.136af')
         canv.setFont('DVS', 8.6)
         canv.drawCentredString(105*mm, 9.5*mm, 'Seite %d' % doc.page)
         canv.restoreState()
@@ -658,7 +658,7 @@ def main():
 
     # ------------------------------------------------------------ end ----
     A(Spacer(1, 6*mm))
-    A(Paragraph('Ende · R2-D2 Texturing · Stand .136ae (R234)', S['end']))
+    A(Paragraph('Ende · R2-D2 Texturing · Stand .136af (R235)', S['end']))
 
     doc = Doc(os.path.join(_here, 'TEXTURING.pdf'))
     doc.build(flow)
