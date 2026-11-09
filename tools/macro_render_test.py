@@ -4168,7 +4168,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.136ab) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-11-09.136ag'", repr(_v66)))
+    _v66 == "'R2-2026-11-09.136ah'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -15818,9 +15818,9 @@ tests.append(('R174 update.sh: letter hotfix zips parse (.129a beats .129, loses
 tests.append(('R174 update.sh: the applied zip is archived to r2_backups after install',
     'mv "${BEST}" "${CFG_DIR}/r2_backups/"' in _upd174,
     'zip archiving missing'))
-tests.append(('R174 SD browser: image clicks copy to the main folder instead of printing',
+tests.append(('R174 SD browser: image clicks pick (and copy) instead of printing',
     'img_pick_nonce' in _13_174
-    and 'is an image in the main folder' in _13_174
+    and 'picked - ready for Texture MAP' in _13_174
     and _13_174.count('SDCARD_PRINT_FILE FILENAME="{ fn }"') == 1,
     'image branch missing'))
 tests.append(('R174 SD browser: the watcher copies the image (nonce channel + job)',
@@ -17410,12 +17410,12 @@ tests.append(('R185 current-only manual: no version-history appendix, no era '
     '## Appendix D' not in _m185 and 'Version history' not in _m185
     and _re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185) is None
     and _re2.search(r'\bR1[0-9][0-9]\b', _m185) is None
-    and 'The nine fonts' in _m185 and 'R2-2026-11-09.136ag' in _m185,
+    and 'The nine fonts' in _m185 and 'R2-2026-11-09.136ah' in _m185,
     'appendixD=%s eratags=%s rtags=%s nine=%s v132=%s' % (
         '## Appendix D' in _m185,
         bool(_re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185)),
         bool(_re2.search(r'\bR1[0-9][0-9]\b', _m185)),
-        'The nine fonts' in _m185, 'R2-2026-11-09.136ag' in _m185)))
+        'The nine fonts' in _m185, 'R2-2026-11-09.136ah' in _m185)))
 
 # ================== R184 (.131c field round): the brim air gap EVERYWHERE ==
 # The user asked: does the brim fusing hit our OTHER generators too? Measured
@@ -18177,6 +18177,74 @@ tests.append(('R224 LCD: Pre-Print > Tools > Mirror (axis toggle X/Y, How?, '
     and 'multi-object' in _lcd224
     and 'OBJ=<name>' in _lcd224, ''))
 
+
+# ================== R237 (.136ah): _M204 legacy alias + MAP image load ==================
+# Field log evidence: 'Unknown command:"_M204"' twice per print, fired FROM
+# THE FILE (virtual SD, start block right after PRINT_START's post-heat
+# settings, sd_pos ~15.6k = right behind the thumbnails). No sender exists
+# in the package (only _M204_SET) nor in the user's printer_data configs -
+# the lines ride in from the slicer profile's start G-code. Three answers:
+# the _M204 alias forwards them into the interceptor, r2_texture + the
+# segment fix rewrite them while processing, and MAP images finally load
+# (root click picks now, watcher resolves the map path absolutely).
+_m237 = get_body('macros/06_temp_controls.cfg', '_M204')
+out = render(_m237, {'S': '4800'}, extra={'rawparams': 'S4800'})
+tests.append(('R237 _M204 alias: forwards the raw parameter text into the M204 interceptor',
+    'M204 S4800' in out, out[:80]))
+out = render(_m237, {}, extra={'rawparams': ''})
+tests.append(('R237 _M204 alias: a bare call stays a harmless empty M204',
+    out.strip() == 'M204', out[:60]))
+_06_237 = open('macros/06_temp_controls.cfg', encoding='utf-8').read()
+tests.append(('R237 _M204 alias: sits next to _M204_SET, the setter itself untouched',
+    'M204 {rawparams}' in _06_237
+    and 'M99204 S{params.VALUE|default(0)|float|round}' in _06_237, ''))
+# SD browser: a ROOT image (the Mainsail drag+drop standard) picks too now -
+# the old code only talked, Texture > Pattern Map could never load it
+_13_237 = open('macros/13_system.cfg', encoding='utf-8').read()
+tests.append(('R237 SD browser: ROOT image clicks set the pick (not only subfolder copies)',
+    _13_237.count('VARIABLE=img_pick_file VALUE=') == 1
+    and _13_237.find('VARIABLE=img_pick_file') < _13_237.find("{% if path == '' %}")
+    and 'picked - ready for Texture MAP' in _13_237
+    and 'copying' in _13_237, 'root pick missing'))
+# TEXTURE_APPLY: MAP without any image fails HERE, not in the watcher queue
+save_vars.update({'texture_mode': 'BUMPS', 'texture_pattern': 'MAP',
+                  'texture_dir': 'OUT', 'texture_map': '',
+                  'img_pick_file': '', 'preview_file': 'test.gcode',
+                  'texture_nonce': 3})
+out = render(get_body('macros/17_generator.cfg', 'TEXTURE_APPLY'),
+             {'PATTERN': 'MAP', 'DIR': 'OUT'})
+tests.append(('R237 TEXTURE_APPLY: MAP with no image anywhere -> early error, no queue',
+    'MAP needs an image' in out and 'texture_nonce' not in out, out[:140]))
+save_vars.update({'img_pick_file': 'foto.png'})
+out = render(get_body('macros/17_generator.cfg', 'TEXTURE_APPLY'),
+             {'PATTERN': 'MAP', 'DIR': 'OUT'})
+tests.append(('R237 TEXTURE_APPLY: MAP falls back to the picked browser image',
+    'using the picked image foto.png' in out
+    and 'VARIABLE=texture_map VALUE=' in out, out[:140]))
+save_vars.update({'texture_map': 'alte.png', 'img_pick_file': ''})
+out = render(get_body('macros/17_generator.cfg', 'TEXTURE_APPLY'),
+             {'PATTERN': 'MAP', 'DIR': 'OUT'})
+tests.append(('R237 TEXTURE_APPLY: a stored texture_map wins, the job queues',
+    'Texture request queued' in out and 'texture_nonce VALUE=4' in out,
+    out[:140]))
+save_vars.update({'texture_map': '', 'img_pick_file': '', 'texture_pattern': ''})
+# The watcher side: root picks must not copy a file onto itself, the map
+# name must arrive ABSOLUTE (relative broke for sources from Texture/ ...)
+_pp237 = open('tools/r2_postproc.py', encoding='utf-8').read()
+tests.append(('R237 watcher: a root pick skips the self-copy (SameFileError guard)',
+    '_isrc174 == _idst174' in _pp237 and 'already at root' in _pp237,
+    'same-file guard missing'))
+tests.append(('R237 watcher: the texture map resolves to an ABSOLUTE path '
+    '(subfolder pick first, then its root copy)',
+    '_mapc91' in _pp237 and 'map_file=(_map91 or None)' in _pp237,
+    'absolute map resolution missing'))
+tests.append(('R237 watcher: segment fix + texture report the _M204 rewrites',
+    '_m204_r237' in _pp237 and 'legacy _M204 renamed' in _pp237
+    and 'm204_seen' in _pp237, 'scrub reporting missing'))
+_tx237 = open('tools/r2_texture.py', encoding='utf-8').read()
+tests.append(('R237 texture: scrub regex + map candidates + info counter exist',
+    '_M204_SCRUB' in _tx237 and '_cands237' in _tx237
+    and "'m204_scrub'" in _tx237, 'scrub/candidates missing'))
 
 print(f"\n{len(tests)-fails}/{len(tests)} passed")
 

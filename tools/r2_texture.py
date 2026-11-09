@@ -89,6 +89,7 @@ TAG = 'R2-TEXTURE v3 (R175)'
 # parsed in ANY order (comments cut before parsing, values rewritten in
 # place - the original token order and everything else on the line stays).
 _CMD_RE = re.compile(r'^(G1|G0)\b')
+_M204_SCRUB = re.compile(r'^(\s*)_M204(\s|$)')   # R237: legacy slicer rename
 _TOK_RE = {t: re.compile(r'(?:^|\s)' + t + r'(-?[\d.]+)')
            for t in ('X', 'Y', 'Z', 'E', 'I', 'J', 'R', 'F')}
 
@@ -535,10 +536,19 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
         except ImportError:
             raise ValueError('MAP needs Pillow (sudo apt install '
                              'python3-pil) - or pick a different pattern')
-        _mp = map_file if os.path.isabs(map_file) else os.path.join(
-            os.path.dirname(os.path.abspath(src)), map_file)
+        # R237 (.136ah field report 'cannot load images as MAP'): the map
+        # name can be a bare root-copy name or a subfolder pick while the
+        # source lives elsewhere - try the literal relative first, then the
+        # basename next to the source (the watcher passes an ABSOLUTE path
+        # since R237, this covers direct CLI callers).
+        _dn237 = os.path.dirname(os.path.abspath(src))
+        _cands237 = ([map_file] if os.path.isabs(map_file) else
+                     [os.path.join(_dn237, map_file),
+                      os.path.join(_dn237, os.path.basename(map_file))])
+        _mp = next((c for c in _cands237 if os.path.isfile(c)), _cands237[0])
         if not os.path.isfile(_mp):
-            raise ValueError('map image not found: %s' % map_file)
+            raise ValueError('map image not found: %s (tried %s)'
+                             % (map_file, ' | '.join(_cands237)))
         img = Image.open(_mp).convert('L')
 
     out_dir = out_dir or os.path.dirname(os.path.abspath(src))
@@ -871,7 +881,7 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
         return pattern_fn(s, t)
 
     stats = {'moves': 0, 'shifted': 0, 'clamped': 0, 'layers': 0, 'arcs': 0,
-             'inner_shifted': 0}
+             'inner_shifted': 0, 'm204_scrub': 0}
     cur_type = ''
     cur_outer = False       # R152: alias-normalized outer-wall check
     cur_inner = False       # R224 task 15: BUMPS lets inner walls follow
@@ -1041,6 +1051,13 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
             fo.write('; R175 fallback: no wall markers in this file - the '
                      'texture runs on ALL extrusion paths (lithophane mode)\n')
         for line in fi:
+            # R237 (.136ah field report): legacy '_M204 ...' lines from the
+            # slicer profile die as 'Unknown command' - rewrite them to the
+            # intercepted M204 while we stream the file anyway.
+            _r237 = _M204_SCRUB.sub(r'\1M204\2', line)
+            if _r237 != line:
+                line = _r237
+                stats['m204_scrub'] += 1
             ls = line.rstrip('\n')
             m = _TYPE.match(ls)
             if m:
@@ -1158,5 +1175,6 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
             'outer_moves': stats['moves'], 'clamped': stats['clamped'],
             'layers': stats['layers'], 'arcs_flattened': stats['arcs'],
             'arc_loops': len(loops231), 'arc_fallback': _st231['fb'],
+            'm204_scrub': stats['m204_scrub'],
             'secs': round(time.time() - t0, 2)}
     return out, info

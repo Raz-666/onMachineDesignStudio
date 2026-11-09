@@ -1,6 +1,6 @@
 # TESTANLEITUNG — R2-D2 Makro-System (Version .136ac)
 
-Diese Anleitung beschreibt **nur den aktuellen Stand** (.136ag). Sie ist die
+Diese Anleitung beschreibt **nur den aktuellen Stand** (.136ah). Sie ist die
 komplette Feld-Checkliste nach dem Einspielen eines Updates — von Boot bis
 Druckergebnis. Die Historie der Änderungen steht in README.md.
 
@@ -18,7 +18,7 @@ Druckergebnis. Die Historie der Änderungen steht in README.md.
 ## 2. Boot-Check (Pflicht, 1 Minute)
 
 - [ ] Konsole: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.136ag)`
+      (build R2-2026-11-09.136ah)`
 - [ ] ~10 s nach dem Boot: Boot-Sound + LED-Animation
 - [ ] `SHOW_STATUS` antwortet mit Modus/Material/Overrides
 - [ ] Kein Eintrag fehlt: sonst meldet sich `_CHECK_INSTALL` laut mit
@@ -552,7 +552,67 @@ kontaminierte Fenster werden verworfen.
 - [ ] Neue Datei erscheint nach Job-Ende im LCD-Ordner UND im Web-UI
 - [ ] Defaults > Load 1 → Display „Loading profile“ → Beep → „Loaded“
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.136ag)`
+      (build R2-2026-11-09.136ah)`
 
 **Alles grün?** Dann ist .136ag field-clear. Wenn etwas auffällt: Konsole
 kopieren — daraus wird der nächste Feldlog-Eintrag.
+
+## 23. Die .136ah-Neuerungen (R237 — MAP-Bilder laden, _M204 gefangen)
+
+**1) Textur-MAP: Bilder lassen sich endlich laden.** Drei Brüche
+wirkten zusammen:
+
+- Ein **Root-Bild** (Mainsail drag&drop in den G-Codes-Ordner) setzte
+  den Pick NIE — der SD-Browser redete nur („use Tools >
+  Lithophane“), gepickt haben nur Subfolder-Klicks. Jetzt pickt der
+  Root-Klick auch („picked - ready for Texture MAP“).
+- Der Watcher hätte einen Root-Pick auf sich selbst kopiert
+  (SameFileError, wäre ohne Feedback gestorben) — gleiche Datei =
+  kein Copy, nur Bestätigung.
+- `texture_map` ist ein relativer Name, der gegen den Ordner der
+  QUELLE aufgelöst wurde — Dateien aus Texture/, Labels/ … fanden
+  ihr Bild nie. Der Watcher übergibt jetzt einen ABSOLUTEN Pfad
+  (Subfolder-Pick zuerst, dann dessen Root-Kopie); das Skript selbst
+  probiert den literalen relativen Pfad und dann den Basename neben
+  der Quelle (eine fehlende Datei nennt jeden versuchten Pfad).
+- Zusätzlich: TEXTURE_APPLY meckert SOFORT („MAP needs an image“),
+  wenn gar kein Bild existiert — statt generisch in der
+  Warteschlange zu sterben.
+
+**2) `_M204` ist gefangen.** Zweimal „Unknown command“ pro Druck —
+das Feldlog beweist: die Aufrufe kommen AUS DER DATEI (virtual-SD,
+Startblock direkt hinter den Thumbnails, unmittelbar nach
+PRINT_STARTs Post-Heat-Settings; gcodein=0). Kein Absender im Paket
+(nur `_M204_SET` — per git log -S über die gesamte Historie bewiesen)
+und keiner in Deinen printer_data-Configs; die Zeilen reiten im
+Start-G-Code des Slicer-Profils mit (deshalb fand Dein grep nichts:
+grep schweigt bei 0 Treffern — das Schweigen WAR das Ergebnis).
+Drei Antworten:
+
+- **Alias:** `_M204` leitet den Rohtext an den M204-Interceptor
+  weiter (Feature-Beschleunigung, globale Überschreibung, Live-Cap,
+  ehrlicher Tracker) — keine Unknown-command-Meldung mehr, auch bei
+  Dateien, die nie ein Tool angefasst hat.
+- **Scrub:** Textur-Tool und Segment-Fix schreiben legacy
+  `_M204`-Zeilen beim Bearbeiten in place zu `M204` um (Fertig-
+  Meldung: „[legacy _M204 renamed: N]“; `_M204_SET` bleibt
+  unberührt — auch der Früh-Ausstieg des Segment-Fix wirft die
+  Umbenennungen nicht mehr weg).
+- **Nie emittiert:** die Generatoren haben `_M204` nie erzeugt.
+
+### Feld-Checkliste .136ah
+
+- [ ] Ein Bild per Mainsail in den G-Codes-Ordner ziehen → im
+      LCD-Browser anklicken → „picked - ready for Texture MAP“
+- [ ] Pre-Print > Texture > Pattern Map → Img: zeigt den Namen →
+      Apply → „Texture ready“ mit ridges-Angabe → der Druck zeigt
+      das Bild als Relieftextur (rundum)
+- [ ] Ein V-File drucken → Konsole: KEIN „Unknown command _M204“
+      mehr (auch alte, ungefixte Dateien: der Alias schluckt sie)
+- [ ] `TEXTURE_APPLY PATTERN=MAP` ohne jedes Bild → sofort
+      „MAP needs an image“ + Error-Beep (nicht erst in der Queue)
+- [ ] `Macro system OK: all 19 modules loaded and current
+      (build R2-2026-11-09.136ah)`
+
+**Alles grün?** Dann ist .136ah field-clear. Wenn etwas auffällt:
+Konsole kopieren — daraus wird der nächste Feldlog-Eintrag.

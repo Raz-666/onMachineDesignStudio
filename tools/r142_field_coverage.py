@@ -342,7 +342,7 @@ open(hot, 'w', encoding='utf-8').write('\n'.join(_hl) + '\n')
 _rb = pp._worst_move_rate(hot)
 ck('segments: the bomb is measured (>1500 moves/s)', _rb > 1500,
    '%.0f/s' % _rb)
-_n, _rb2, _ra = pp._segments_fix_file(hot)
+_n, _rb2, _ra, _m2r237 = pp._segments_fix_file(hot)
 ck('segments: fix merges the flood and lands under 400 moves/s',
    _n >= 250 and _ra < 400, 'merged=%d %.0f->%.0f/s' % (_n, _rb2, _ra))
 _e = sum(float(l.split(' E')[1]) for l in open(hot, encoding='utf-8')

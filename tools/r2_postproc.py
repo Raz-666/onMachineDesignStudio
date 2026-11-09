@@ -77,7 +77,7 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-09.136ag'
+POSTPROC_RELEASE = 'R2-2026-11-09.136ah'
 POSTPROC_BUILD = 'R236'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
@@ -18133,6 +18133,11 @@ def _segments_fix_file(path):
     pend = None            # buffered chain start/end/E/F/original text
     lx = ly = 0.0
     e_rel = True
+    # R237 (.136ah field report): legacy '_M204 ...' lines ride in from the
+    # slicer profile's start G-code and die as 'Unknown command' twice per
+    # print - rename them to the intercepted M204 while we rewrite anyway.
+    _m204_r237 = re.compile(r'^(\s*)_M204(\s|$)')
+    m204_seen = 0
 
     def _flush(fo_, pd_):
         if pd_['hops'] == 0:
@@ -18169,7 +18174,10 @@ def _segments_fix_file(path):
             if pend is not None:
                 _flush(fo, pend)
                 pend = None
-            fo.write(raw)
+            _rw237 = _m204_r237.sub(r'\1M204\2', raw)
+            if _rw237 != raw:
+                m204_seen += 1
+            fo.write(_rw237)
             if line.startswith('G0 ') or line.startswith('G1 '):
                 mx = _XY_RE.search(line)
                 my = _Y_RE.search(line)
@@ -18191,12 +18199,17 @@ def _segments_fix_file(path):
                      % (merged, rate_before, _worst_move_rate(tmp)))
     if merged:
         os.replace(tmp, path)
-        return merged, rate_before, _worst_move_rate(path)
+        return merged, rate_before, _worst_move_rate(path), m204_seen
+    if m204_seen:
+        # R237: nothing to merge, but the legacy _M204 rewrites sit in the
+        # tmp file - keep them (the early exit used to throw them away)
+        os.replace(tmp, path)
+        return 0, rate_before, rate_before, m204_seen
     try:
         os.remove(tmp)
     except OSError:
         pass
-    return 0, rate_before, rate_before
+    return 0, rate_before, rate_before, 0
 
 
 def _quality_fix_file(path):
@@ -22976,11 +22989,13 @@ def watch(directory, interval=5.0, once=False):
                 # R133 (field log .94, MCU 'Timer too close'): heal a
                 # micro-segment flood in ANY selected file (old .93
                 # figures/scaled files included) - no re-upload
-                n, rb, ra = _segments_fix_file(p)
-                if n:
-                    msg = ('Segment fix DONE: %d micro move(s) merged in %s -'
-                           ' worst move rate %.0f -> %.0f/s (MCU budget ~450)'
-                           % (n, base, rb, ra))
+                n, rb, ra, m2 = _segments_fix_file(p)
+                _m2s = (' [legacy _M204 renamed: %d]' % m2) if m2 else ''
+                if n or m2:
+                    msg = ('Segment fix DONE: %s%s in %s - worst move rate '
+                           '%.0f -> %.0f/s (MCU budget ~450)'
+                           % ('%d micro move(s) merged' % n if n
+                              else 'file rewritten', _m2s, base, rb, ra))
                     snd = 'r2_done'
                 else:
                     msg = ('Segment fix: %s is already smooth (%.0f moves/s '
@@ -24539,7 +24554,19 @@ def watch(directory, interval=5.0, once=False):
                 else:
                     _isrc174 = os.path.join(directory, _irel174)
                     _idst174 = os.path.join(directory, os.path.basename(_irel174))
-                    if os.path.isfile(_isrc174):
+                    # R237: a ROOT pick (13_system picks root images too now)
+                    # would copy a file onto itself - shutil.copy2 raises
+                    # SameFileError and the pick died without any feedback.
+                    # Same path = nothing to copy, the pick itself is done.
+                    if _isrc174 == _idst174:
+                        _moonraker_gcode(
+                            'RESPOND MSG=\"[OK] %s picked - already in the '
+                            'main folder - ready for Texture MAP and Tools > '
+                            'Lithophane/Plotter\"\nM117 %s ready'
+                            % (os.path.basename(_irel174),
+                               os.path.basename(_irel174)))
+                        print(f'[imgpick] {_irel174} already at root', flush=True)
+                    elif os.path.isfile(_isrc174):
                         import shutil as _sh174
                         _sh174.copy2(_isrc174, _idst174)
                         _moonraker_gcode(
@@ -25666,6 +25693,20 @@ def watch(directory, interval=5.0, once=False):
                 _bed91 = _bed_limits(os.path.join(
                     os.path.dirname(os.path.abspath(directory.rstrip('/'))),
                     'config', 'printer.cfg'))
+                # R237 (.136ah field report 'cannot load images as MAP'):
+                # texture_map is a RELATIVE name (bare root copy or subfolder
+                # pick) - the texture script resolves relatives against the
+                # SOURCE file's folder, which breaks for sources from
+                # Texture/, Labels/ ... Resolve to an ABSOLUTE path here:
+                # the subfolder pick first, then its root copy.
+                _map91 = str(rv.get('texture_map', '') or '').strip().lstrip('/')
+                if _map91 and '..' not in _map91.split('/'):
+                    _mapc91 = [os.path.join(directory, _map91),
+                               os.path.join(directory, os.path.basename(_map91))]
+                    _map91 = next((c for c in _mapc91 if os.path.isfile(c)),
+                                  _mapc91[0])
+                elif _map91:
+                    _map91 = os.path.basename(_map91)
                 # NOTE: fuzzy/bump values are ABSOLUTE mm - no hidden scaling
                 # (blind-safe parameter rule)
                 _tpar91 = dict(
@@ -25681,7 +25722,7 @@ def watch(directory, interval=5.0, once=False):
                     direction=str(rv.get('texture_dir', 'OUT') or 'OUT'),
                     seed=int(float(rv.get('texture_seed', 91) or 91)),
                     zsize=float(rv.get('texture_zsize', 0) or 0) or None,
-                    map_file=str(rv.get('texture_map', '') or '') or None,
+                    map_file=(_map91 or None),
                     bed=_bed91,
                     version=max(1, min(int(float(
                         rv.get('gen_version', 1) or 1)), 99)))
@@ -25700,12 +25741,17 @@ def watch(directory, interval=5.0, once=False):
                                        info_t.get('z_repeats', 0),
                                        info_t.get('eff_size', 0.0),
                                        info_t.get('eff_zsize', 0.0)))
+                    _snap237 = ''
+                    if info_t.get('m204_scrub'):
+                        _snap237 = (' [legacy _M204 renamed: %d]'
+                                    % info_t['m204_scrub'])
                     _msg = ('Texture: %s -> %s (%s%s, %d outer-wall points '
-                            'shifted, %d layers)%s'
+                            'shifted, %d layers)%s%s'
                             % (info_t['src'], info_t['file'],
                                info_t['mode'], _snap175,
                                info_t['shifted'],
                                info_t['layers'],
+                               _snap237,
                                _sel_note(rvq, ' - selected for printing '
                                              '(replaces the source selection)',
                                          ' - check it in the 3D viewer, '
