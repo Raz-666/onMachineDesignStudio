@@ -117,10 +117,14 @@ ck('geometry classifier: derived APPLY_TYPE keyed by the WRITER index '
    'type_at[(gj, gj)] = gfeat' in src, '')
 ck('sd_tree/sd_view/gen_files push: a cache only counts on a 200 answer, '
    'failed pushes retry next cycle, the VIEW refresh follows the current '
-   'path+page read from save_variables (.112 field regression + .115 '
+   'path+page read LIVE from klippy (.112 field regression + .115 '
    'navigation sync; R216b: the .136m push storm wrote 4 scripts / '
-   '~370KB SD in 3.5s - tree+view+gen_files now leave as ONE batched '
-   'push per scan, folder cap 200, postproc_build once per daemon run)',
+   '~370KB SD in 3.5s - tree+view+gen_files leave as ONE batched push '
+   'per scan, folder cap 200, postproc_build once per daemon run; '
+   'R246 (.142): the mirror goes to RAM - the .140 field shutdowns all '
+   'sat on whole-file SAVE_VARIABLE rewrites of the giant mirrors with '
+   'the host deep in swap, so the pushes are SET_GCODE_VARIABLE MACRO=_SDM '
+   'and the reader queries the live object, disk only as fallback)',
    src.count('retrying next cycle') == 1
    and src.count("if _moonraker_gcode('\\n'.join(_push216))") == 1
    and src.count('gen_files_pushed[0] = _gfl') == 1
@@ -129,7 +133,17 @@ ck('sd_tree/sd_view/gen_files push: a cache only counts on a 200 answer, '
    and '_v154[:200]' in src                      # tree folder cap
    and '_new154 != sd_view_pushed[0]' in src     # read-back race cache
    and '_pb216_done' in src                      # build once per run
-   and 'sd_view_pushed[0] = _new154' in src, '')
+   and 'sd_view_pushed[0] = _new154' in src
+   and src.count('SET_GCODE_VARIABLE MACRO=_SDM VARIABLE=sd_tree') == 1
+   and src.count('SET_GCODE_VARIABLE MACRO=_SDM VARIABLE=sd_view') == 1
+   and src.count('SET_GCODE_VARIABLE MACRO=_SDM VARIABLE=gen_files') == 1
+   and "_sdm_line('opt_list'" in src
+   and src.count('SET_GCODE_VARIABLE MACRO=_SDM VARIABLE=litho_files') == 1
+   and src.count('SAVE_VARIABLE VARIABLE=sd_tree') == 0
+   and src.count('SAVE_VARIABLE VARIABLE=sd_view') == 0
+   and src.count('SAVE_VARIABLE VARIABLE=gen_files') == 0
+   and src.count('SAVE_VARIABLE VARIABLE=opt_list') == 0
+   and '_sdm_state()' in src, '')
 _tx152 = open('tools/r2_texture.py').read()
 _lcd152 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 ck('frame: backplate WITHOUT brim (user rule .115 - it gets inserted '
@@ -173,8 +187,8 @@ ck('LCD SD Card browser (.115): REAL folder navigation - the watcher '
    'SDNAV_GO/UP/PAGE/HOME macros that rebuild the view',
    'menu __main __sdcard]' in _lcd152
    and 'sd_view|default([])' in _lcd152
-   and src.count('SAVE_VARIABLE VARIABLE=sd_tree') == 1
-   and src.count('SAVE_VARIABLE VARIABLE=sd_view') == 1
+   and src.count('SET_GCODE_VARIABLE MACRO=_SDM VARIABLE=sd_tree') == 1
+   and src.count('SET_GCODE_VARIABLE MACRO=_SDM VARIABLE=sd_view') == 1
    and "'D:' + _d" in src and '_SD_EXT151' in src
    and 'sd_tree_pushed' in src
    and _lcd152.count('SDNAV_GO INDEX=') == 40, '')  # R186: the view

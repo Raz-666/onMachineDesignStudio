@@ -101,8 +101,20 @@ save_vars = {
     'angle_countersink': True, 'angle_stiffener': 1, 'angle_flat': False,
     'angle_layer_h': 0.2, 'angle_nonce': 0,
 }
-state_vars = {
-    'file_maxrate': 0.0, 'file_derived': False, 'file_travel': 0.0,   # R111/R121: flow-cap + travel LCD read these
+# R246 (.142): the LCD mirror moved to RAM - menus read
+# printer['gcode_macro _SDM'].<name> now. Tests that populate the OLD
+# save_vars keys keep working: build_printer bridges the mirror keys
+# from save_vars into this dict, so sd_tree/sd_view/... test data
+# reaches the menus either way.
+sdm_vars = {
+    # REAL empty containers, matching the _SDM declaration in 01_state.cfg:
+    # jinja |default() never fires on a PRESENT None, so None init values
+    # would crash |length in the menu draws (R246 test catch).
+    'sd_tree': {}, 'sd_view': [], 'gen_files': [], 'opt_list': '',
+    'litho_files': [], 'litho_dims': {}, 'litho_total': 0,
+    'sd_path': '', 'sd_page': 0,
+}
+state_vars = {    'file_maxrate': 0.0, 'file_derived': False, 'file_travel': 0.0,   # R111/R121: flow-cap + travel LCD read these
     'mode': 'printing', 'layer': 2, 'total_layers': 100, 'current_type': 'WALL-OUTER', 'file_type': 'marked',
     'file_material': 'PLA', 'file_bed': 60, 'file_bed_after': 60,
     'file_hotend_first': 210, 'file_hotend_after': 215, 'file_layer_height': 0.2,
@@ -171,10 +183,19 @@ def build_printer(kamp=False, objs=None, excl=None, old_klipper=False, bare_idle
                       'filament_used':4.2,'filename':'test.gcode'}),
     'virtual_sdcard': M({'is_active': True}),
     'save_variables': M({'variables': save_vars}),
+    'gcode_macro _SDM': M(dict(sdm_vars,
+        # bridge: test data set on the legacy save_vars keys lands in the
+        # RAM mirror (the menus no longer read save_variables for these)
+        **{k: save_vars[k] for k in sdm_vars if k in save_vars})),
     # R214: the preset engine reads its library from its own macro object
     # (self-read like Klipper) - the mock ships a NEUTRAL one; the R214
     # block below overrides it with the real 44-look library
     'gcode_macro _GEN_PRESET': M({'texture_lib': {}}),
+    # R246: the pattern picker reads its tables from _TX_PATTERN (the 27
+    # enable-frozen slots became 8 live name slices)
+    'gcode_macro _TX_PATTERN': M({'tx_names': ['Ridges', 'Waves', 'Grid', 'Hatch', 'Checker', 'Hex', 'Honeycomb', 'Basket', 'Rope', 'Planks', 'Bricks', 'Sandstone', 'Concrete', 'Clay', 'Crepe', 'Fabric', 'Plush', 'Hilbert', 'Scratch', 'Glitch', 'Knit', 'Fluted', 'Bark', 'Scales', 'Facets', 'Macrame', 'Map'],
+                                  'tx_codes': ['RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX', 'HONEYCOMB', 'BASKET', 'ROPE', 'PLANKS', 'BRICKS', 'SANDSTONE', 'CONCRETE', 'CLAY', 'CREPE', 'FABRIC', 'PLUSH', 'HILBERT', 'SCRATCH', 'GLITCH', 'KNIT', 'FLUTED', 'BARK', 'SCALES', 'FACETS', 'MACRAME', 'MAP'],
+                                  'tx_descs': ['Pattern Ridges: vertical flutes around the object - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Waves: diagonal waves around and up - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Grid: crosshatch egg-crate - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Hatch: hard diagonal hatching - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Checker: soft checkerboard - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Hex: organic 3-fold honeycomb-ish - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Honeycomb: true hex cells - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Basket: woven over/under - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Rope: twisted strands - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Planks: boards with staggered joints - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Bricks: running-bond courses - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Sandstone: fine grain noise - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Concrete: coarse noise + pores - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Clay: soft thumb dents - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Crepe: crumpled paper - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Fabric: pleats, sharp valleys - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Plush: dense velvet grain - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Hilbert: zig-zag space-filling bands - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Scratch: scratches around the wall - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Glitch: seeded per-band melt steps - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Knit: nested V-loops in staggered columns (knitted sleeve) - auto-tilt 3 deg breaks the layer lines', 'Pattern Fluted: vertical half-round flutes - runs UP the object, kills Z-banding on cylinders', 'Pattern Bark: vertical ridged cracks - turns tubes and cylinders into tree trunks', 'Pattern Scales: staggered domed shingles - reptile look, grippy', 'Pattern Facets: diamond low-poly relief crosses - modern, futuristically clean', 'Pattern Macrame: two twisted cord families crossing into a net - the knots read as knotted cords', 'Pattern Map: a picture wrapped around - background detected (Otsu) = NO displacement there, Tile = endless mirrored wrap, Once = one aspect-true wrap (position below)']}),
     'exclude_object': M({'objects': objects, 'excluded_objects': [], 'current_object': (objects[0]['name'] if objects else None)}),
     'bed_mesh': M({'profile_name': 'r2', 'profiles': {'r2': {}}}),
     'idle_timeout': M({'state':'Printing','printing_time':0.0,'idle_timeout':3600}),   # REAL keyset (get_status: state/printing_time/idle_timeout)
@@ -4177,7 +4198,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.136ab) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-11-09.141'", repr(_v66)))
+    _v66 == "'R2-2026-11-09.142'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -8156,7 +8177,7 @@ _lcd91 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 tests.append(('R91 LCD: Pre-Print > Texture (mode/fuzzy/bumps params + apply)',
     all(k in _lcd91 for k in ('__preprint __mods __tex]', '__tex __mode __fuz',
                               '__tex __mode __bum', '__tex __thk',
-                              '__tex __den', '__tex __pat __p00',
+                              '__tex __den', '__tex __pat __s0',
                               '__tex __preset __rope',
                               '__tex __preset __bask',
                               '__tex __preset __ches',
@@ -10595,7 +10616,7 @@ tests.append(('R169 watcher: copy job + E2 apply + list channel wired',
     'def _optimize_copy' in _w169 and 'def _opt_compact' in _w169
     and 'compressed sources are not supported' in _w169
     and 'def _opt_snap_from_file' in _w169 and "'opt_nonce'" in _w169
-    and "'opt_load_nonce'" in _w169 and "_sv_line('opt_list'" in _w169, ''))
+    and "'opt_load_nonce'" in _w169 and "_sdm_line('opt_list'" in _w169, ''))
 state_vars.pop('opt_pending', None)
 state_vars.pop('opt_baseline', None)
 for _k169 in ('opt_snap', 'opt_baked', 'opt_list', 'opt_file', 'opt_nonce',
@@ -13300,6 +13321,7 @@ _now135 = _re135.findall(r'^\[menu ([\w ]+)\]$', _lcd135, _re135.M)
     # ---- R240 (.136aj): Live quick lists folded INTO Motion; File-info
     # ---- activators INTO the feature submenus; Profiles = Depot model
 _REMOVED135 = [
+    # R246: 27 enable-frozen pattern slots -> 8 live name slices (_TX_PATTERN)
     '__main __gen __frame __set __fpre',
     '__main __gen __frame __set __fpre __del',
     '__main __gen __frame __set __fpre __del __d1',
@@ -13687,6 +13709,17 @@ _REMOVED135 = [
     # ---- Depot/save/load rows in Profiles
 # R244 (.140): System > MCU Recovery toggle (auto-recovery switch)
 _ADDED135 = [
+    '__main __preprint __mods __tex __pat __s0',
+    '__main __preprint __mods __tex __pat __s1',
+    '__main __preprint __mods __tex __pat __s2',
+    '__main __preprint __mods __tex __pat __s3',
+    '__main __preprint __mods __tex __pat __s4',
+    '__main __preprint __mods __tex __pat __s5',
+    '__main __preprint __mods __tex __pat __s6',
+    '__main __preprint __mods __tex __pat __s7',
+    # R246 live pattern slots (class fix: names refresh in-frame)
+    '__main __preprint __mods __tex __pat __pd',
+    '__main __preprint __mods __tex __pat __pu',
     '__main __endq',
     '__main __endq __info',
     '__main __endq __no',
@@ -14552,35 +14585,6 @@ _ADDED135 = [
     '__main __preprint __mods __tex __mode __off',
     '__main __preprint __mods __tex __mpos',
     '__main __preprint __mods __tex __pat',
-    '__main __preprint __mods __tex __pat __p00',
-    '__main __preprint __mods __tex __pat __p01',
-    '__main __preprint __mods __tex __pat __p02',
-    '__main __preprint __mods __tex __pat __p03',
-    '__main __preprint __mods __tex __pat __p04',
-    '__main __preprint __mods __tex __pat __p05',
-    '__main __preprint __mods __tex __pat __p06',
-    '__main __preprint __mods __tex __pat __p07',
-    '__main __preprint __mods __tex __pat __p10',
-    '__main __preprint __mods __tex __pat __p11',
-    '__main __preprint __mods __tex __pat __p12',
-    '__main __preprint __mods __tex __pat __p13',
-    '__main __preprint __mods __tex __pat __p14',
-    '__main __preprint __mods __tex __pat __p15',
-    '__main __preprint __mods __tex __pat __p16',
-    '__main __preprint __mods __tex __pat __p17',
-    '__main __preprint __mods __tex __pat __p20',
-    '__main __preprint __mods __tex __pat __p21',
-    '__main __preprint __mods __tex __pat __p22',
-    '__main __preprint __mods __tex __pat __p23',
-    '__main __preprint __mods __tex __pat __p24',
-    '__main __preprint __mods __tex __pat __p25',
-    '__main __preprint __mods __tex __pat __p26',
-    '__main __preprint __mods __tex __pat __p27',
-    '__main __preprint __mods __tex __pat __p30',
-    '__main __preprint __mods __tex __pat __p31',
-    '__main __preprint __mods __tex __pat __p32',
-    '__main __preprint __mods __tex __pat __pd',
-    '__main __preprint __mods __tex __pat __pu',
     '__main __preprint __mods __tex __preset',
     '__main __preprint __mods __tex __preset __bask',
     '__main __preprint __mods __tex __preset __ches',
@@ -15079,7 +15083,7 @@ tests.append(('R146 Gen files slots: basename on the 20-char LCD (path split) '
               'subfolder outputs stay selectable (24 select + 24 delete '
               'slots since R187)',
               _lcd146.count(").split('/')[-1]|replace('.gcode', '')|truncate(13, True)}") == 48
-              and _lcd146.count("SDCARD_PRINT_FILE FILENAME=\"{(printer['save_variables'].variables.gen_files|default([]))") >= 12
+              and _lcd146.count("SDCARD_PRINT_FILE FILENAME=\"{(printer['gcode_macro _SDM'].gen_files|default([]))") >= 12
               and _lcd146.count('SDNAV_GO INDEX=') == 40, ''))
 
 _sdnav155 = open('macros/13_system.cfg', encoding='utf-8').read()
@@ -15093,8 +15097,8 @@ tests.append(('R155 SD Card browser: REAL folder navigation - watcher pushes '
               '(no {% %} blocks and no {{ }} in names/enables - both break '
               "with Klipper's single-brace jinja env), "
               'SDNAV_GO/UP/PAGE/HOME rebuild the view',
-              'SAVE_VARIABLE VARIABLE=sd_tree' in _r2p155
-              and 'SAVE_VARIABLE VARIABLE=sd_view' in _r2p155
+              'SET_GCODE_VARIABLE MACRO=_SDM VARIABLE=sd_tree' in _r2p155
+              and 'SET_GCODE_VARIABLE MACRO=_SDM VARIABLE=sd_view' in _r2p155
               and _sdnav155.count('[gcode_macro SDNAV_') == 4
               and _sdnamelines155
               and all('{' + '%' not in l and '{{' not in l
@@ -16274,12 +16278,18 @@ tests.append(('R175 watcher: zsize/seed/map flow into the job + the answer '
     and "rv.get('texture_map'" in _pp175
     and 'seamless: %d ridges x %d Z-repeats' in _pp175,
     ''))
+_gen175 = open('macros/17_generator.cfg', encoding='utf-8').read()
 tests.append(('R175 LCD: self-explaining names (Around/Height/Depth/Seed) + '
-    '27 patterns on 4 pages + MAP image line (R238)',
+    'patterns: 8 LIVE slots slice the 27-entry table (R246 class fix - '
+    'enable-frozen pages only refreshed after re-entering the menu) + '
+    'MAP image line (R238)',
     'Around:' in _lcd175 and 'Height:' in _lcd175 and 'Depth:' in _lcd175
     and 'Seed:' in _lcd175
     and len(_re175.findall(
-        r'\[menu __main __preprint __mods __tex __pat __p\d\d\]', _lcd175)) == 27
+        r'\[menu __main __preprint __mods __tex __pat __s\d\]', _lcd175)) == 8
+    and _lcd175.count('_TX_PATTERN SLOT=') == 8
+    and 'variable_tx_codes' in _gen175
+    and _gen175.count("'RIDGES'") >= 1 and "'MAP'" in _gen175
     and 'Img:' in _lcd175,
     ''))
 tests.append(('R175 presets: texture user presets carry zsize + seed (R174c '
@@ -17675,12 +17685,12 @@ tests.append(('R185 current-only manual: no version-history appendix, no era '
     '## Appendix D' not in _m185 and 'Version history' not in _m185
     and _re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185) is None
     and _re2.search(r'\bR1[0-9][0-9]\b', _m185) is None
-    and 'The nine fonts' in _m185 and 'R2-2026-11-09.141' in _m185,
+    and 'The nine fonts' in _m185 and 'R2-2026-11-09.142' in _m185,
     'appendixD=%s eratags=%s rtags=%s nine=%s v132=%s' % (
         '## Appendix D' in _m185,
         bool(_re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185)),
         bool(_re2.search(r'\bR1[0-9][0-9]\b', _m185)),
-        'The nine fonts' in _m185, 'R2-2026-11-09.141' in _m185)))
+        'The nine fonts' in _m185, 'R2-2026-11-09.142' in _m185)))
 
 # ================== R184 (.131c field round): the brim air gap EVERYWHERE ==
 # The user asked: does the brim fusing hit our OTHER generators too? Measured
@@ -17813,8 +17823,11 @@ _r2p188 = open('tools/r2_postproc.py', encoding='utf-8').read()
 # the enable filter at menu entry - the names are the only live channel)
 tests.append(('R188 live slots: sdcard file slots + gen files + optimized have '
     'NO enable line - names refresh live while the menu is open',
-    len(_re188.findall(r'(?m)^enable:.*(sd_view|gen_files|opt_list)', _lcd188)) == 1
-    and "enable: { printer['save_variables'].variables.sd_view|default([])|length == 0 }" in _lcd188,
+    len(_re188.findall(r'(?m)^enable:.*(sd_view|gen_files|opt_list)', _lcd188)) == 0
+    and len(_re188.findall(r'(?m)^enable:.*_page', _lcd188)) == 0
+    and "{'List empty - info' if printer['gcode_macro _SDM'].sd_view|default([])|length == 0 else '.'}" in _lcd188
+    and _lcd188.count("_TX_PATTERN SLOT=") == 8
+    and 'variable_tx_codes' in _mac188.get('macros/17_generator.cfg', 'variable_tx_codes'),
     'frozen enables left: %r' % _re188.findall(r'(?m)^enable:.*(sd_view|gen_files|opt_list)', _lcd188)[:3]))
 
 # (2) Optimized: slot lists instead of the one-at-a-time picker

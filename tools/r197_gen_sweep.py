@@ -341,9 +341,9 @@ doc = mje.export(os.path.join(REPO, 'menus', 'lcd_menues.cfg'),
 # sections (2485 -> 2441)
 # R244 (.140): System > MCU Recovery toggle (the auto-recovery
 # switch, engine in r2_postproc) - one more command section
-# (2441 -> 2442)
+# (2442 -> 2423 (R246: 27 enable-frozen pattern slots became 8 live rows))
 check('T1 export: all 2473 sections in one tree, no orphans',
-      doc['sections'] == 2442 and sum(doc['counts'].values()) == 2442,
+      doc['sections'] == 2423 and sum(doc['counts'].values()) == 2423,
       str(doc['counts']))
 
 
@@ -356,7 +356,7 @@ def _walk(n, acc):
 
 _all = _walk(doc['tree'], [])
 check('T1 export: tree node count == sections, depth sane, known ids',
-      len(_all) == 2442
+      len(_all) == 2423
       and any(n['id'] == '__main __start __direct' for n in _all)
       and any(n['id'] == '__main __live' for n in _all))
 
@@ -411,7 +411,7 @@ _emb = json.JSONDecoder().raw_decode(
     _ptxt.split('const EMBEDDED_MENU_JSON = ', 1)[1])[0]
 check('T1 embed: placeholder replaced with valid JSON',
       '/*EMBEDDED_MENU_JSON*/ null' not in _ptxt
-      and _emb['sections'] == 2442)
+      and _emb['sections'] == 2423)
 
 # T2: the moonraker extension with a fake app
 spec = importlib.util.spec_from_file_location(
@@ -507,11 +507,12 @@ class FakeConfig:
 cfg = FakeConfig(os.path.join(REPO, 'web', 'menu_structure.json'))
 comp = r2m.load_component(cfg)
 eps = cfg.server.endpoints
-check('T2 extension: 6 endpoints registered',
+check('T2 extension: 7 endpoints registered',
       set(eps) == {'/server/r2_menu/tree', '/server/r2_menu/status',
                    '/server/r2_menu/live',
                    '/server/r2_menu/refresh',
                    '/server/r2_menu/pistats',      # R216 (.136n)
+                   '/server/r2_menu/crashreport',  # R246 (.142)
                    '/server/r2_menu/klippylog'},   # R216 (.136n)
       str(set(eps)))
 
@@ -529,7 +530,7 @@ check('T2 extension: export tool derived from the menu path',
       'path -> tool derivation failed')
 tree_doc = loop.run_until_complete(eps['/server/r2_menu/tree'](FakeReq()))
 check('T2 extension: tree handler serves the export',
-      tree_doc['sections'] == 2442 and 'tree' in tree_doc)
+      tree_doc['sections'] == 2423 and 'tree' in tree_doc)
 st = loop.run_until_complete(eps['/server/r2_menu/status'](FakeReq()))
 check('T2 extension: status handler reports ok + sha',
       st['ok'] and st['sha256'] == tree_doc['sha256'])
@@ -881,6 +882,17 @@ else:
                                    'led_bed_on': 1, 'led_bed_bright': 0.4,
                                    'led_nozzle_split': 0},
         'gcode_macro _MATERIALS': {'last': 'PLA'},
+        # R246 (.142): the LCD mirror lives in _SDM now - the page renders
+        # the optimized/queue/sd slots against it (names + enables), so
+        # the live mock ships a populated one
+        'gcode_macro _SDM': {'sd_tree': {'': ['TL_new.gcode']},
+                             'sd_view': ['TL_new.gcode'], 'gen_files': [],
+                             'opt_list': 'TL_new|Frame_A2', 'litho_files': [],
+                             'litho_dims': {}, 'litho_total': 0,
+                             'sd_path': '', 'sd_page': 0},
+        'gcode_macro _TX_PATTERN': {'tx_names': ['Ridges', 'Waves'],
+                                    'tx_codes': ['RIDGES', 'WAVES'],
+                                    'tx_descs': ['d1', 'd2']},
         'save_variables': {'variables': {
             'opt_cnt': 3, 'sound_on': True, 'leds_on': True,
             'material': 'PETG', 'ov_bed': 65, 'ov_bed_after': 65,

@@ -77,8 +77,8 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-09.141'
-POSTPROC_BUILD = 'R245'
+POSTPROC_RELEASE = 'R2-2026-11-09.142'
+POSTPROC_BUILD = 'R246'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
 # and no speed/accel/nozzle parameters. Files carrying an OLD tag are UPGRADED
@@ -8714,12 +8714,17 @@ def _job_tick(step=1, every=25, pause=0.02):
         time.sleep(pause)
 
 
-def _moonraker_status(host='127.0.0.1', port=7125):
-    """query the live printer status via moonraker (best effort)."""
+def _moonraker_status(host='127.0.0.1', port=7125, objs=None):
+    """query the live printer status via moonraker (best effort).
+    R246: objs parameter - callers can query their own object set
+    (the LCD mirror reads 'gcode_macro _SDM'); the default keeps the
+    dashboard list unchanged."""
     import urllib.request
     import urllib.parse
-    objs = ['gcode_move', 'extruder', 'heater_bed', 'toolhead', 'input_shaper',
-            'bed_mesh', 'print_stats', 'gcode_macro _STATE', 'exclude_object']
+    if objs is None:
+        objs = ['gcode_move', 'extruder', 'heater_bed', 'toolhead',
+                'input_shaper', 'bed_mesh', 'print_stats',
+                'gcode_macro _STATE', 'exclude_object']
     url = 'http://%s:%d/printer/objects/query?%s' % (
         host, port, '&'.join(urllib.parse.quote(o) for o in objs))
     with urllib.request.urlopen(url, timeout=3) as r:
@@ -21075,6 +21080,48 @@ def _sv_line(var, val):
     return 'SAVE_VARIABLE VARIABLE=%s VALUE=%r' % (var, val)
 
 
+def _sdm_line(var, val):
+    """R246 (.142): LCD mirror line - RAM instead of disk.
+
+    The user's diagnosis was right: every SAVE_VARIABLE rewrites the WHOLE
+    variables.cfg synchronously inside klippy's reactor, and ours carried
+    the sd_tree/gen_files/opt_list giants (the .140 field logs: crashes at
+    selection, at the print click and at print end, on files that always
+    printed fine - the host was busy rewriting variables.cfg, 49MB free,
+    deep in swap). The mirror data is REBUILDABLE (the watcher rescans at
+    boot), so it moves to an in-memory gcode_macro (_SDM in 01_state.cfg)
+    via SET_GCODE_VARIABLE: zero disk writes, zero reactor file I/O, the
+    variables.cfg shrinks to real persistence (profiles, toggles). Same
+    escaping rules as _sv_line - the parser is identical.
+    """
+    if isinstance(val, str):
+        for _bad in ('"', '\\', ';'):
+            val = val.replace(_bad, '')
+        return ('SET_GCODE_VARIABLE MACRO=_SDM VARIABLE=%s VALUE="\\"%s\\""'
+                % (var, val))
+    return 'SET_GCODE_VARIABLE MACRO=_SDM VARIABLE=%s VALUE=%r' % (var, val)
+
+
+def _sdm_state():
+    """R246: read the mirror's current path/page/view - live from klippy
+    (one objects query), file fallback for a restarting klippy."""
+    try:
+        st = _moonraker_status(['gcode_macro _SDM']) or {}
+        m = st.get('gcode_macro _SDM') or {}
+        if m.get('sd_tree') is not None or m.get('sd_view') is not None:
+            return {'sd_path': m.get('sd_path', ''),
+                    'sd_page': m.get('sd_page', 0),
+                    'sd_view': repr(m.get('sd_view')) if m.get('sd_view') is not None else ''}
+    except Exception:                                     # noqa: BLE001
+        pass
+    try:
+        if VAR_PATH and os.path.isfile(VAR_PATH):
+            return _read_vars(VAR_PATH) or {}
+    except Exception:                                     # noqa: BLE001
+        pass
+    return {}
+
+
 def _stop_duplicate_watcher(pid, desc=''):
     """R133i: shared kill sequence for duplicate watchers - RESPOND +
     SIGTERM, 5 s grace, then SIGKILL. A duplicate running as ROOT (a
@@ -24605,7 +24652,7 @@ def watch(directory, interval=5.0, once=False):
                     if _joined169 != last_opt_list_pushed \
                             and time.monotonic() - last_opt_list_try > 15:
                         last_opt_list_try = time.monotonic()
-                        if _moonraker_gcode(_sv_line('opt_list', _joined169)):
+                        if _moonraker_gcode(_sdm_line('opt_list', _joined169)):
                             last_opt_list_pushed = _joined169
                             if _lst169:
                                 print('[opt] list pushed: %d files'
@@ -25705,9 +25752,9 @@ def watch(directory, interval=5.0, once=False):
                     "'%s'" % _img_header_dims(os.path.join(directory, fn))
                     for fn in _names89) + ']'
                 if _moonraker_gcode(
-                        'SAVE_VARIABLE VARIABLE=litho_files VALUE="%s"\n'
-                        'SAVE_VARIABLE VARIABLE=litho_dims VALUE="%s"\n'
-                        'SAVE_VARIABLE VARIABLE=litho_total VALUE=%d'
+                        'SET_GCODE_VARIABLE MACRO=_SDM VARIABLE=litho_files VALUE="%s"\n'
+                        'SET_GCODE_VARIABLE MACRO=_SDM VARIABLE=litho_dims VALUE="%s"\n'
+                        'SET_GCODE_VARIABLE MACRO=_SDM VARIABLE=litho_total VALUE=%d'
                         % (_val89, _dims89, _total89)):
                     pushed_images = _names89
                     pushed_img_page = _pg89
@@ -27441,6 +27488,7 @@ def watch(directory, interval=5.0, once=False):
                 # the old first-level-only index made nested folders
                 # unreachable from the LCD, and the page grew 20 -> 40
                 # entries (the 'weird list limits' are history).
+                _t246 = time.time()      # R246: scan duration for the report
                 _tree154 = {}
 
                 def _scan154(sub):
@@ -27450,8 +27498,12 @@ def watch(directory, interval=5.0, once=False):
                     _dirs154, _files154 = [], []
                     try:
                         for _f154 in os.listdir(_d154):
+                            # R246: crash_archive is FORENSICS storage -
+                            # nothing printable, and an empty folder trapped
+                            # the LCD browser (field log 19:21). The WebUI's
+                            # crash-report button is its front door now.
                             if _f154.startswith('.') or "'" in _f154 \
-                                    or '"' in _f154:
+                                    or '"' in _f154 or _f154 == 'crash_archive':
                                 continue
                             _fp154 = os.path.join(_d154, _f154)
                             if os.path.isdir(_fp154):
@@ -27510,7 +27562,7 @@ def watch(directory, interval=5.0, once=False):
                             "'" + _e154 + "'" for _e154 in _v154[:200]))
                         for _k154, _v154 in _tree154.items()) + '}'
                     _push216.append(
-                        'SAVE_VARIABLE VARIABLE=sd_tree VALUE="%s"' % _tv154)
+                        'SET_GCODE_VARIABLE MACRO=_SDM VARIABLE=sd_tree VALUE="%s"' % _tv154)
                     _pt216 = True
                 # R154: keep the VIEW in sync too - the menu slots read
                 # sd_view (40 entries of the current path+page). Refreshed
@@ -27521,7 +27573,7 @@ def watch(directory, interval=5.0, once=False):
                 if sd_tree_pushed[0] is not None or _pt216:
                     _p154, _pg154, _vw154 = '', 0, None
                     try:
-                        _rv154 = _read_vars(VAR_PATH) or {}
+                        _rv154 = _sdm_state()
                         _p154 = str(_rv154.get('sd_path', '') or
                                     '').strip().strip('\'"')
                         _pg154 = int(float(_rv154.get('sd_page', 0) or 0))
@@ -27541,7 +27593,7 @@ def watch(directory, interval=5.0, once=False):
                         _vv154 = ('[' + ','.join("'" + _e154 + "'"
                                                  for _e154 in _new154) + ']')
                         _push216.append(
-                            'SAVE_VARIABLE VARIABLE=sd_view VALUE="%s"'
+                            'SET_GCODE_VARIABLE MACRO=_SDM VARIABLE=sd_view VALUE="%s"'
                             % _vv154)
                         _pv216 = True
                 # R133h: a REAL list (the litho_files form) - the old push
@@ -27552,10 +27604,22 @@ def watch(directory, interval=5.0, once=False):
                                               if '"' not in _f
                                               and "'" not in _f) + ']')
                     _push216.append(
-                        'SAVE_VARIABLE VARIABLE=gen_files VALUE="%s"'
+                        'SET_GCODE_VARIABLE MACRO=_SDM VARIABLE=gen_files VALUE="%s"'
                         % _gv133h)
                     _pgf216 = True
                 if _push216:
+                    if _pt216:
+                        # R246 (.142): make the load VISIBLE - the user asked
+                        # to see when the index work runs and how long it
+                        # takes. One console line per tree CHANGE (boot +
+                        # real file changes), riding the same script - no
+                        # extra call, no extra host load.
+                        _n246 = sum(len(_v154) for _v154
+                                    in _tree154.values()) + len(_tree154)
+                        _push216.append(
+                            'RESPOND MSG="SD index ready: %d entries in '
+                            '%.1fs - the LCD browser updates on its own"'
+                            % (_n246, time.time() - _t246))
                     if _moonraker_gcode('\n'.join(_push216)):
                         if _pt216:
                             sd_tree_pushed[0] = _tree154

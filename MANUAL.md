@@ -3,7 +3,7 @@
 **Package:** `klipper-e3-r2d2` · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail) ·
 12864 LCD (16 characters per line)
 
-**Version:** this manual describes the current release, `R2-2026-11-09.141` — and only it. Every chapter documents what the system
+**Version:** this manual describes the current release, `R2-2026-11-09.142` — and only it. Every chapter documents what the system
 does today; the version changelog lives in README.md.
 
 This is the operating manual for the complete macro system: what the printer can
@@ -3142,6 +3142,22 @@ never edit the file while Klipper runs. Runtime state lives in _STATE (not persi
 | Hardware profile (r2_hardware.cfg — survives a variables.cfg reset!) | bed limits + Z height · probe_x/y · present_x/y · wipe_x/y · led_type/section/status_n/bed_n/bed_on/bed_bright/nozzle_split/nozzle_section |
 | Generators / texture | *_nonce job counters · texture_mode/thick/density/pattern/scale/amp/dir · file_check_retag |
 
+**The LCD mirror lives in RAM (R246/.142):** rebuildable list data — the SD
+tree (`sd_tree`), the browser view (`sd_view`), generator outputs
+(`gen_files`), the optimized list (`opt_list`) and the lithophane image
+lists (`litho_*`) — does **not** live in variables.cfg anymore. It lives in
+the `_SDM` macro's variables (01_state.cfg) and is written with
+`SET_GCODE_VARIABLE`: zero disk writes, zero file serialization inside
+klippy's reactor. Why: every SAVE_VARIABLE rewrites the WHOLE variables.cfg
+synchronously, and with the host deep in swap (49 MB free, Nov 10 field
+log) those whole-file writes of the giant mirrors stalled the reactor into
+MCU shutdowns — at print end, at file selection AND at the print-start
+click. The watcher rescans and refills `_SDM` at boot and after every
+change (one console line: `SD index ready: N entries in X.Xs`). Menus read
+`printer['gcode_macro _SDM'].<name>`. Editing hint: nothing to edit — the
+mirror is 100 % rebuildable; your variables.cfg keeps only true persistence
+(the table above).
+
 Nice edit spots per file:
 
 | File | Edit spots |
@@ -4071,7 +4087,7 @@ system). Better a quiet fan at full speed than a fast one slowed down.
 ## Appendix C: First start & updates
 
 - upload the folder → includes at the end of printer.cfg → RESTART
-- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-11-09.141)`
+- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-11-09.142)`
 - ~10 s later: boot sound + LED animation
 - SHOW_STATUS → mode, material, overrides · Maintenance > Tests > demos + self test
 

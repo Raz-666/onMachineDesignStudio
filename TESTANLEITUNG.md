@@ -18,7 +18,7 @@ Druckergebnis. Die Historie der Änderungen steht in README.md.
 ## 2. Boot-Check (Pflicht, 1 Minute)
 
 - [ ] Konsole: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.141)`
+      (build R2-2026-11-09.142)`
 - [ ] ~10 s nach dem Boot: Boot-Sound + LED-Animation
 - [ ] `SHOW_STATUS` antwortet mit Modus/Material/Overrides
 - [ ] Kein Eintrag fehlt: sonst meldet sich `_CHECK_INSTALL` laut mit
@@ -552,7 +552,7 @@ kontaminierte Fenster werden verworfen.
 - [ ] Neue Datei erscheint nach Job-Ende im LCD-Ordner UND im Web-UI
 - [ ] Defaults > Load 1 → Display „Loading profile“ → Beep → „Loaded“
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.141)`
+      (build R2-2026-11-09.142)`
 
 **Alles grün?** Dann ist .136ag field-clear. Wenn etwas auffällt: Konsole
 kopieren — daraus wird der nächste Feldlog-Eintrag.
@@ -612,7 +612,7 @@ Drei Antworten:
 - [ ] `TEXTURE_APPLY PATTERN=MAP` ohne jedes Bild → sofort
       „MAP needs an image“ + Error-Beep (nicht erst in der Queue)
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.141)`
+      (build R2-2026-11-09.142)`
 
 **Alles grün?** Dann ist .136ah field-clear. Wenn etwas auffällt:
 Konsole kopieren — daraus wird der nächste Feldlog-Eintrag.
@@ -720,7 +720,7 @@ Druck normal.
 - [ ] Ein Logo (heller Hintergrund) als MAP → ONCE + Pos: top → Logo
       einmal herum oben, Hintergrund unangetastet, Naht unsichtbar
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.141)`
+      (build R2-2026-11-09.142)`
 
 **Alles grün?** Dann ist .136ai field-clear. Wenn etwas auffällt:
 Konsole kopieren — daraus wird der nächste Feldlog-Eintrag.
@@ -812,7 +812,7 @@ LED-Hauptschalter und die 0,5-Power-Cap-Regel.
 - [ ] Gen queue > Stop (2× drücken!) → diesmal REALLY Doppelklick:
       erster Druck „Gen: stop?", zweiter beendet
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.141)`
+      (build R2-2026-11-09.142)`
 
 **Alles grün?** Dann ist .136aj field-clear. Wenn etwas auffällt:
 Konsole kopieren — daraus wird der nächste Feldlog-Eintrag.
@@ -828,7 +828,7 @@ Update von .136ai ODER .136aj auf .137 zieht ganz normal.
 
 Was sich in .137 Wirklich ändert:
 
-- **Versions-Strings:** State, Postproc-Kern (`core R2-2026-11-09.141
+- **Versions-Strings:** State, Postproc-Kern (`core R2-2026-11-09.142
   (R241)`), Manual, Web-UI-Badge (der zeigte lange .136ab — jetzt .137).
 - **Batterie-Reparaturen für nackte Nummern:** r227/r234/r217/r218
   verlangten noch einen Buchstaben hinter der Zahl — seit .137 ist der
@@ -840,7 +840,7 @@ Was sich in .137 Wirklich ändert:
 - [ ] Update mit dem .137-Zip einspielen (über .136ai/.136aj: normal,
       ohne --force — der Zähler weiß, dass 137 > 136aj)
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.141)`
+      (build R2-2026-11-09.142)`
 - [ ] Web-UI öffnen: das Version-Kästchen oben zeigt **.137**
 - [ ] Ein Druck starten → läuft an wie unter .136aj (Kapitel 25, Punkt 1)
 
@@ -1070,14 +1070,78 @@ jetzt vor dem Cleanup eingefangen (R174-Klasse bleibt tot).
 ### Field-Check .141
 
 - [ ] Boot: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.141)`
+      (build R2-2026-11-09.142)`
 - [ ] Druck enden lassen → **zuerst** fährt der Kopf hoch/zur Seite,
       **dann** kommt die Melodie — die Düse steht nie auf dem Teil
 - [ ] `Duration: … | layers: NNN` zeigt die echte Layer-Zahl (nicht 0)
-- [ ] Kein `Timer too close` im Endfenster; Web-Badge `.141`
+- [ ] Kein `Timer too close` im Endfenster; Web-Badge `.142`
 - [ ] Wenn doch mal ein Vorfall: `crash_archive/` füllt sich, die
       Auto-Recovery meldet sich (Kap. 29)
 
 **Offen (nächstes Kapitel der Ursachenjagd):** Das `crash_archive/`-Log
 des 18:14-Vorfalls (SD-Browser → crash_archive → mcu-*.log oder 3-h-
 Export) zeigt die exakte Stall-Komposition — bitte mitschicken.
+
+## 31. Die .142-Neuerungen (R246 — Shutdowns endgültig beseitigen: der RAM-Spiegel)
+
+**Diagnose des Nutzers, bestätigt:** Die drei Shutdowns vom 10. Nov
+(18:14 Druckende, 18:57 Datei-Auswahl, 19:52 Druckstart-Klick) lagen an
+Dateien, die immer einwandfrei druckten — der gemeinsame Faktor war der
+**Host**: 17:19 „host memory low (49MB free) … RESTART OF THE PI frees
+swap". Jeder der drei Momente saß auf einem synchronen `SAVE_VARIABLE`,
+das die GESAMTE variables.cfg in klippys Reactor neu schreibt — und
+unsere trug die rekonstruierbaren Riesen (sd_tree ~200 Einträge,
+sd_view, gen_files, opt_list, litho_*). `.141` hat nur das Endfenster
+gefixt — `.142` nimmt die Last komplett raus.
+
+**Der Umbau (vom Nutzer bestellt):** Alle Spiegel-Daten wohnen jetzt in
+einem eigenen Makro `_SDM` (01_state.cfg) — `SET_GCODE_VARIABLE`
+schreibt in RAM, nie auf Disk. Der Watcher liest Pfad/Seite LIVE aus
+dem Objekt (eine Moonraker-Query, Datei nur als Fallback), pusht
+sd_tree/sd_view/gen_files/opt_list/litho_* dorthin — die variables.cfg
+schrumpft auf echte Persistenz (Profile, Schalter, Einstellungen).
+Menüs lesen `printer['gcode_macro _SDM'].…` statt
+`printer['save_variables'].variables.…` (619 Stellen umgezogen).
+
+**Weiter in der Runde:**
+
+- **crash_archive raus aus dem LCD-Browser** (leerer Forensik-Ordner,
+  der die Navigation festsetzte) — die WebUI bekommt dafür den
+  **`crash`-Knopf** neben `klippy.log`: neuester mcu-Snapshot als .txt
+  per Klick (Endpoint `/server/r2_menu/crashreport`).
+- **Ambient-LED-Rahmen** um die WebUI-Seite: zeigt ungefähr die
+  LED-Stimmung des Druckers als sanften Leuchtrahmen — bewusst
+  verzögert aus dem Status-Poll, NICHT synchron.
+- **Laden sichtbar:** Der SD-Index-Scan meldet sich einmal pro
+  Baum-Änderung: „SD index ready: N entries in X.Xs".
+- **Die Paging-KLASSE gefixt:** Klippers Menü wertet enable-Templates
+  nur beim (Neu-)Betreten eines Containers aus — Namen rendert es
+  live in jedem Frame. Die 27 Textur-Pattern-Slots (je Seite per
+  enable eingefroren) wurden zu 8 Zeilen, die die Liste live im Namen
+  slicen (neues Makro `_TX_PATTERN`: Seiten-Mathe + Speichern + die 27
+  Info-Texte an einem Ort). Die 6 litho-Page-Turner verloren ihre
+  enable-Zeilen (ihre Namen zeigen den Zustand schon live). Batterie-
+  Schutz: JEDE enable-Zeile, die an einer `*_page`-Variablen hängt,
+  lässt den Rendertest jetzt scheitern.
+
+### Field-Check .142
+
+- [ ] Boot: `Macro system OK: all 19 modules loaded and current
+      (build R2-2026-11-09.142)`
+- [ ] Nach dem Boot: Konsole zeigt `SD index ready: N entries in X.Xs`,
+      der LCD-SD-Browser füllt sich von allein
+- [ ] **variables.cfg bleibt klein** — beim Ordner-Umräumen/Blättern
+      wächst sie NICHT mehr (vorher: jeder Klick schrieb den Baum)
+- [ ] Textur → Pattern: `Page >` blättert und die Zeilen wechseln
+      SOFORT (ohne raus+rein); `*` markiert das gewählte Pattern
+- [ ] Lithophane-Bilder: `<< / >>` blättern sofort, „(first page)"/
+      „(last page)" erscheint live
+- [ ] crash_archive erscheint NICHT mehr im LCD-Browser; WebUI-Knopf
+      `crash` lädt den neuesten Snapshot als .txt
+- [ ] LED-Rahmen der WebUI folgt grob dem Drucker (Druck = blauer
+      Puls, Heizung = orange, fertig = grün, Alarm = rot)
+- [ ] Ausgewählte Datei drucken → Druck startet ohne `Timer too close`
+      (der Startklick schreibt keinen Baum mehr auf Disk)
+- [ ] Shutdown-Freundesdienst: sollte doch mal einer passieren —
+      Snapshot + Auto-Recovery wie in Kap. 29, und der `crash`-Knopf
+      hat den Bericht parat

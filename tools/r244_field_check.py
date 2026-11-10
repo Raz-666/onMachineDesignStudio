@@ -14,7 +14,7 @@ This battery pins:
      klipper service restart -> L3 Pi reboot (with the persisted
      1/hour brake), the recurrence shortcut, the unsafe-class stop,
      the off-switch and the recovery summary,
-  C) macros + LCD menu entry + the re-embedded menu export (2442),
+  C) macros + LCD menu entry + the re-embedded menu export (2423),
   D) version .140 everywhere,
   E) the real crash-archive copy (fake HOME with a fake klippy.log,
      capped at 7 snapshots).
@@ -251,14 +251,14 @@ check('C2: LCD System > MCU Recovery toggle wired to TOGGLE_RECOVERY',
       and 'MCU Recovery:' in menus)
 doc = json.load(open(os.path.join(HERE, '..', 'web',
                                   'menu_structure.json')))
-check('C3: menu export carries the new section (2442)',
-      doc['sections'] == 2442
-      and sum(doc['counts'].values()) == 2442)
+check('C3: menu export carries the new section count (2423)',
+      doc['sections'] == 2423
+      and sum(doc['counts'].values()) == 2423)
 html = rd('web', 'index.html')
 _emb = json.JSONDecoder().raw_decode(
     html.split('const EMBEDDED_MENU_JSON = ', 1)[1])[0]
 check('C4: web page embed matches the export (sha + sections)',
-      _emb['sections'] == 2442 and _emb['sha256'] == doc['sha256']
+      _emb['sections'] == 2423 and _emb['sha256'] == doc['sha256']
       and '/*EMBEDDED_MENU_JSON*/ null' not in html)
 
 print('--- D) version .140 everywhere --------------------------------------')
@@ -270,22 +270,22 @@ for _f in sorted(os.listdir(os.path.join(HERE, '..', 'macros'))):
         _live += rd('macros', _f).split('\n')
 _live += rd('menus', 'lcd_menues.cfg').split('\n')
 _live = '\n'.join(l for l in _live if not l.lstrip().startswith('#'))
-check('D1: version .141 everywhere, no .138/.139/.140 leftovers in live cfg lines',
-      "'R2-2026-11-09.141'" in st
+check('D1: version .142 everywhere, no .138/.139/.140 leftovers in live cfg lines',
+      "'R2-2026-11-09.142'" in st
       and '.138' not in _live and '.139' not in _live and '.140' not in _live
-      and 'R2-2026-11-09.141' in rd('MANUAL.md')
-      and "POSTPROC_RELEASE = 'R2-2026-11-09.141'" in pp_src
-      and "POSTPROC_BUILD = 'R245'" in pp_src)
-check('D2: web badge .141, page state ver R245',
-      '<span id="ver">.141</span>' in html and "ver:'R245'}" in html)
+      and 'R2-2026-11-09.142' in rd('MANUAL.md')
+      and "POSTPROC_RELEASE = 'R2-2026-11-09.142'" in pp_src
+      and "POSTPROC_BUILD = 'R246'" in pp_src)
+check('D2: web badge .142, page state ver R246',
+      '<span id="ver">.142</span>' in html and "ver:'R246'}" in html)
 ta = rd('TESTANLEITUNG.md')
 check('D3: TESTANLEITUNG ch. 29 documents the ladder + field check',
       '## 29. Die .140-Neuerungen (R244' in ta
       and 'FIRMWARE_RESTART' in ta
       and '### Field-Check .140' in ta
       and 'R2-2026-11-09.140' in ta)
-check('D4: README carries the .141 row',
-      '**.141 (R245)**' in rd('README.md'))
+check('D4: README carries the .142 row',
+      '**.142 (R246)**' in rd('README.md'))
 
 print('--- E) the real crash archive (fake HOME) ---------------------------')
 

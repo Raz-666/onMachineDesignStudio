@@ -153,6 +153,9 @@ class R2MenuComponent:
         self.server.register_endpoint(          # R216 (.136n)
             '/server/r2_menu/klippylog', ['GET'],
             self._handle_klippylog)
+        self.server.register_endpoint(
+            '/server/r2_menu/crashreport', ['GET'],
+            self._handle_crashreport)
         self.server.register_remote_method('r2_menu_refresh', None)
         # R216 field fix (.136n): add_log_rollback_handler does NOT exist
         # in this moonraker build - the call killed the whole component at
@@ -539,6 +542,51 @@ class R2MenuComponent:
                 'ram_total_mb': (round(ram_total / 1024.0)
                                  if ram_total is not None else None),
                 'ram_pct': ram_pct, 'temp_c': temp, 'uptime_s': uptime}
+
+    async def _handle_crashreport(self, web_request):
+        """R246 (.142): crash snapshots as JSON for the WebUI download
+        button. The recovery watcher archives klippy.log into
+        gcodes/crash_archive/mcu-<ts>.log before every restart (max 7).
+        GET without args: list (name/size/mtime, newest first) + the
+        NEWEST snapshot's content. GET ?i=2: that entry (0 = newest).
+        The read runs in a worker thread - a snapshot is a full klippy
+        log and must never block moonraker's loop."""
+        try:
+            i = int(web_request.get('i', '0') or '0')
+        except ValueError:
+            i = 0
+        return await self.server.event_loop.run_in_thread(
+            self._crashreport_read, i)
+
+    def _crashreport_read(self, i):
+        import glob as _glob
+        import os as _os
+        base = _os.path.dirname(self.log_path.rstrip('/'))
+        cands = []
+        for d in (base, _os.path.expanduser('~/printer_data/gcodes'),
+                  _os.path.expanduser('~/gcodes')):
+            if not d:
+                continue
+            arc = _os.path.join(d, 'crash_archive')
+            if _os.path.isdir(arc):
+                cands = sorted(_glob.glob(_os.path.join(arc, 'mcu-*.log')),
+                               key=_os.path.getmtime, reverse=True)
+                break
+        if not cands:
+            return {'ok': False, 'reason': 'no crash snapshots archived',
+                    'files': []}
+        files = [{'name': _os.path.basename(p),
+                  'size': _os.path.getsize(p),
+                  'mtime': int(_os.path.getmtime(p))} for p in cands]
+        i = max(0, min(i, len(cands) - 1))
+        try:
+            with open(cands[i], 'r', errors='replace') as f:
+                content = f.read(3_000_000)          # 3 MB cap
+        except OSError as e:
+            return {'ok': False, 'reason': 'cannot read %s: %s'
+                    % (cands[i], e), 'files': files}
+        return {'ok': True, 'files': files, 'index': i,
+                'name': files[i]['name'], 'content': content}
 
     async def _handle_klippylog(self, web_request):
         """R216 (.136n): klippy.log as JSON for the .txt download button.
