@@ -77,8 +77,8 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-09.142'
-POSTPROC_BUILD = 'R246'
+POSTPROC_RELEASE = 'R2-2026-11-09.142a'
+POSTPROC_BUILD = 'R246b'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
 # and no speed/accel/nozzle parameters. Files carrying an OLD tag are UPGRADED
@@ -21109,9 +21109,16 @@ def _sdm_state():
         st = _moonraker_status(['gcode_macro _SDM']) or {}
         m = st.get('gcode_macro _SDM') or {}
         if m.get('sd_tree') is not None or m.get('sd_view') is not None:
-            return {'sd_path': m.get('sd_path', ''),
-                    'sd_page': m.get('sd_page', 0),
-                    'sd_view': repr(m.get('sd_view')) if m.get('sd_view') is not None else ''}
+            out = {'sd_path': m.get('sd_path', ''),
+                   'sd_page': m.get('sd_page', 0),
+                   'sd_view': repr(m.get('sd_view')) if m.get('sd_view') is not None else ''}
+            # R246b (.142a field log): a TRUTHY live tree proves klippy
+            # still holds our mirror. An empty one after we pushed means
+            # klippy restarted under us (auto-recovery FIRMWARE_RESTART)
+            # - SET_GCODE_VARIABLE state dies with it.
+            if m.get('sd_tree'):
+                out['_tree_live'] = True
+            return out
     except Exception:                                     # noqa: BLE001
         pass
     try:
@@ -27574,6 +27581,25 @@ def watch(directory, interval=5.0, once=False):
                     _p154, _pg154, _vw154 = '', 0, None
                     try:
                         _rv154 = _sdm_state()
+                        if (sd_tree_pushed[0] is not None
+                                and not _rv154.get('_tree_live')):
+                            # R246b (.142a field log 21:51): after the
+                            # auto-recovery's FIRMWARE_RESTART the LCD
+                            # browser showed 'page 1 of 1 (0 entries in /)'
+                            # forever - the _SDM mirror is RAM and died
+                            # with klippy, but our push caches still
+                            # claimed 'already pushed'. Drop every mirror
+                            # cache; the compares below re-push the view
+                            # THIS pass, tree + gen_files the next one.
+                            sd_tree_pushed[0] = None
+                            sd_view_pushed[0] = None
+                            gen_files_pushed[0] = ''
+                            pushed_images = None
+                            pushed_img_page = -1
+                            pushed_img_total = -1
+                            print('[sdfiles] klippy restart detected - '
+                                  'LCD mirror caches dropped, refilling',
+                                  flush=True)
                         _p154 = str(_rv154.get('sd_path', '') or
                                     '').strip().strip('\'"')
                         _pg154 = int(float(_rv154.get('sd_page', 0) or 0))

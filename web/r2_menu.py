@@ -581,7 +581,18 @@ class R2MenuComponent:
         i = max(0, min(i, len(cands) - 1))
         try:
             with open(cands[i], 'r', errors='replace') as f:
-                content = f.read(3_000_000)          # 3 MB cap
+                # R246b (.142a field log): the cap used to read the FIRST
+                # 3 MB - both downloaded snapshots were byte-IDENTICAL
+                # (md5-equal) because a klippy.log carries its history at
+                # the START while the crash evidence sits at the END. A
+                # crash mid-file never made it into the export. Read the
+                # LAST 3 MB instead; drop the partial first line.
+                f.seek(0, 2)
+                _sz = f.tell()
+                f.seek(max(0, _sz - 3_000_000))
+                if _sz > 3_000_000:
+                    f.readline()          # drop the partial first line
+                content = f.read(3_000_000)
         except OSError as e:
             return {'ok': False, 'reason': 'cannot read %s: %s'
                     % (cands[i], e), 'files': files}
@@ -622,8 +633,23 @@ class R2MenuComponent:
         An empty result falls back to the raw tail - the export is never
         empty while the file has content."""
         import datetime as _dt
+        # R246b (.142a field log): this used to read the WHOLE klippy.log
+        # into RAM - on a Pi deep in swap (49MB free) a 20MB+ log (one
+        # full config dump per restart, and tonight had many) was a memory
+        # bomb: the download click froze the whole host, both web UIs and
+        # the LCD died, and the stalled host took the printer down with
+        # it (MCU 'Missed scheduling of next digital out event' during
+        # homing). Read ONLY the last 6 MB - the section filter drops the
+        # necessarily-partial first line anyway, and the runtime evidence
+        # (errors, shutdowns) always sits at the END of the file.
+        _max_raw = 6 * 1024 * 1024
         try:
             with open(self.log_path, 'r', errors='replace') as f:
+                f.seek(0, 2)
+                _sz = f.tell()
+                f.seek(max(0, _sz - _max_raw))
+                if _sz > _max_raw:
+                    f.readline()          # drop the partial first line
                 lines = f.read().split('\n')
         except OSError as e:
             return {'ok': False, 'reason': 'cannot read %s: %s'

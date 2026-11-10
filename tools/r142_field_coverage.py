@@ -883,6 +883,28 @@ ck('R210 component: klippy-state precheck + per-object retry + pruning '
    and 'exclude_object.objects(polygons)' in _comp210
    and 'virtual_sdcard' in _comp210, 'hardening missing')
 
+# ---- R246b (.142a): the three field-log hotfixes -------------------------
+_menu246b = open('web/r2_menu.py', encoding='utf-8').read()
+ck('klippylog export reads ONLY the file tail (6 MB cap) - the .142 '
+   'field log: the download button read the WHOLE klippy.log into RAM, '
+   'on a swap-heavy Pi a memory bomb that froze the host and took the '
+   'printer down (MCU missed scheduling during homing)',
+   '_max_raw = 6 * 1024 * 1024' in _menu246b
+   and 'f.seek(0, 2)' in _menu246b
+   and 'f.seek(max(0, _sz - _max_raw))' in _menu246b, '')
+ck('crash snapshot export reads the LAST 3 MB (the shutdown evidence '
+   'lives at the END of klippy.log) - the .142 field log: both '
+   'downloaded snapshots were byte-IDENTICAL because the cap kept the '
+   'first 3 MB of history',
+   'f.seek(max(0, _sz - 3_000_000))' in _menu246b, '')
+ck('watcher refills the _SDM mirror after a klippy restart - the .142a '
+   'field log 21:51: after the auto-recovery FIRMWARE_RESTART the LCD '
+   'browser showed (0 entries in /) forever: the RAM mirror died with '
+   "klippy while the daemon's push caches still said 'already pushed'",
+   "_rv154.get('_tree_live')" in src
+   and 'klippy restart detected' in src
+   and "gen_files_pushed[0] = ''" in src, '')
+
 print()
 print('R142 FIELD COVERAGE: %d checks, %d FAIL' % (n_ck[0], len(fails)))
 sys.exit(1 if fails else 0)

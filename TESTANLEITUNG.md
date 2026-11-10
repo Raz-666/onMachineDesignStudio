@@ -18,7 +18,7 @@ Druckergebnis. Die Historie der Änderungen steht in README.md.
 ## 2. Boot-Check (Pflicht, 1 Minute)
 
 - [ ] Konsole: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.142)`
+      (build R2-2026-11-09.142a)`
 - [ ] ~10 s nach dem Boot: Boot-Sound + LED-Animation
 - [ ] `SHOW_STATUS` antwortet mit Modus/Material/Overrides
 - [ ] Kein Eintrag fehlt: sonst meldet sich `_CHECK_INSTALL` laut mit
@@ -552,7 +552,7 @@ kontaminierte Fenster werden verworfen.
 - [ ] Neue Datei erscheint nach Job-Ende im LCD-Ordner UND im Web-UI
 - [ ] Defaults > Load 1 → Display „Loading profile“ → Beep → „Loaded“
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.142)`
+      (build R2-2026-11-09.142a)`
 
 **Alles grün?** Dann ist .136ag field-clear. Wenn etwas auffällt: Konsole
 kopieren — daraus wird der nächste Feldlog-Eintrag.
@@ -612,7 +612,7 @@ Drei Antworten:
 - [ ] `TEXTURE_APPLY PATTERN=MAP` ohne jedes Bild → sofort
       „MAP needs an image“ + Error-Beep (nicht erst in der Queue)
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.142)`
+      (build R2-2026-11-09.142a)`
 
 **Alles grün?** Dann ist .136ah field-clear. Wenn etwas auffällt:
 Konsole kopieren — daraus wird der nächste Feldlog-Eintrag.
@@ -720,7 +720,7 @@ Druck normal.
 - [ ] Ein Logo (heller Hintergrund) als MAP → ONCE + Pos: top → Logo
       einmal herum oben, Hintergrund unangetastet, Naht unsichtbar
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.142)`
+      (build R2-2026-11-09.142a)`
 
 **Alles grün?** Dann ist .136ai field-clear. Wenn etwas auffällt:
 Konsole kopieren — daraus wird der nächste Feldlog-Eintrag.
@@ -812,7 +812,7 @@ LED-Hauptschalter und die 0,5-Power-Cap-Regel.
 - [ ] Gen queue > Stop (2× drücken!) → diesmal REALLY Doppelklick:
       erster Druck „Gen: stop?", zweiter beendet
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.142)`
+      (build R2-2026-11-09.142a)`
 
 **Alles grün?** Dann ist .136aj field-clear. Wenn etwas auffällt:
 Konsole kopieren — daraus wird der nächste Feldlog-Eintrag.
@@ -828,7 +828,7 @@ Update von .136ai ODER .136aj auf .137 zieht ganz normal.
 
 Was sich in .137 Wirklich ändert:
 
-- **Versions-Strings:** State, Postproc-Kern (`core R2-2026-11-09.142
+- **Versions-Strings:** State, Postproc-Kern (`core R2-2026-11-09.142a
   (R241)`), Manual, Web-UI-Badge (der zeigte lange .136ab — jetzt .137).
 - **Batterie-Reparaturen für nackte Nummern:** r227/r234/r217/r218
   verlangten noch einen Buchstaben hinter der Zahl — seit .137 ist der
@@ -840,7 +840,7 @@ Was sich in .137 Wirklich ändert:
 - [ ] Update mit dem .137-Zip einspielen (über .136ai/.136aj: normal,
       ohne --force — der Zähler weiß, dass 137 > 136aj)
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.142)`
+      (build R2-2026-11-09.142a)`
 - [ ] Web-UI öffnen: das Version-Kästchen oben zeigt **.137**
 - [ ] Ein Druck starten → läuft an wie unter .136aj (Kapitel 25, Punkt 1)
 
@@ -1070,7 +1070,7 @@ jetzt vor dem Cleanup eingefangen (R174-Klasse bleibt tot).
 ### Field-Check .141
 
 - [ ] Boot: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.142)`
+      (build R2-2026-11-09.142a)`
 - [ ] Druck enden lassen → **zuerst** fährt der Kopf hoch/zur Seite,
       **dann** kommt die Melodie — die Düse steht nie auf dem Teil
 - [ ] `Duration: … | layers: NNN` zeigt die echte Layer-Zahl (nicht 0)
@@ -1124,10 +1124,48 @@ Menüs lesen `printer['gcode_macro _SDM'].…` statt
   Schutz: JEDE enable-Zeile, die an einer `*_page`-Variablen hängt,
   lässt den Rendertest jetzt scheitern.
 
+### Hotfix .142a (R246b — das Feldlog vom ersten Abend)
+
+**Was passierte (10. Nov, abends):** Beim Start des Bilderrahmens
+starb der MCU nach dem Homen an `Missed scheduling of next digital
+out event` — und zeitgleich war der klippy.log-Download über die
+WebUI angeklickt worden. Der Export las die GESAMTE klippy.log in
+den RAM (mittlerweile 20+ MB — pro Neustart ein kompletter
+Config-Dump) — auf einem Pi im Swap eine **RAM-Bombe**: Der Host
+fror komplett ein (beide WebUIs weg, LCD weg), und der stehende
+Host lieferte die Probe-Enable-Pin-Events nicht mehr → Shutdown.
+Die Auto-Recovery holte den Drucker nach 178 s zurück (zweite
+produktive Rettung).
+
+**Drei Fixes in .142a:**
+
+1. **klippy.log-Export liest nur noch die letzten 6 MB** — die
+   Beweise (Fehler, Shutdowns) stehen immer am Dateiende, der
+   Anfang ist ohnehin Config-Geschichte. Der Download kann den
+   Host nicht mehr in den Swap treiben.
+2. **crash-Export liest die letzten 3 MB statt der ersten** — die
+   beiden heruntergeladenen Snapshots waren byte-identisch
+   (gleiche md5!), weil der alte Cap den historischen Präfix
+   lieferte und die Absturz-Beweise abschnitt.
+3. **LCD-Spiegel-Refill nach Klippy-Restart** — nach der Recovery
+   zeigte der SD-Browser dauerhaft `(0 entries in /)`: Der `_SDM`-
+   Spiegel ist RAM und starb mit Klippy mit, während die Daemon-
+   Push-Caches noch glaubten, schon gepusht zu haben. Der Watcher
+   erkennt jetzt den leeren Live-Spiegel (eine Flagge in der
+   ohnehin laufenden Query), verwirft alle Spiegel-Caches und
+   füllt innerhalb eines Scandurchlaufs wieder auf.
+
+- [ ] klippy.log-Download klappt auch bei großem Log schnell (kein
+      Einfrieren des Hosts mehr)
+- [ ] Nach einem Absturz + Auto-Recovery: SD-Browser füllt sich von
+      allein wieder (kein „0 entries")
+- [ ] crash-Download zeigt den NEUESTEN Vorfall am Dateiende
+      („Transition to shutdown" sichtbar)
+
 ### Field-Check .142
 
 - [ ] Boot: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.142)`
+      (build R2-2026-11-09.142a)`
 - [ ] Nach dem Boot: Konsole zeigt `SD index ready: N entries in X.Xs`,
       der LCD-SD-Browser füllt sich von allein
 - [ ] **variables.cfg bleibt klein** — beim Ordner-Umräumen/Blättern

@@ -268,14 +268,14 @@ _live240 = '\n'.join(l for l in allmacros.split('\n')
 # R244 (.140): pin moved - current is .140.
 # R246 (.142): pin moved again - current is .142.
 check('F1: version .142 everywhere, no .136aj/.136ai/.137/.138/.139/.140/.141 leftovers in live cfg lines',
-      "'R2-2026-11-09.142'" in st
+      "'R2-2026-11-09.142a'" in st
       and '.136ai' not in _live240
       and '.136aj' not in _live240
       and '.137' not in _live240
       and '.138' not in _live240
       and '.139' not in _live240
       and '.140' not in _live240
-      and 'R2-2026-11-09.142' in rd('..', 'MANUAL.md'), '')
+      and 'R2-2026-11-09.142a' in rd('..', 'MANUAL.md'), '')
 
 print()
 print('%d checks, %d failed' % (ok + fails, fails))
