@@ -1,6 +1,6 @@
 # TESTANLEITUNG — R2-D2 Makro-System (Version .136ac)
 
-Diese Anleitung beschreibt **nur den aktuellen Stand** (.136ai). Sie ist die
+Diese Anleitung beschreibt **nur den aktuellen Stand** (.136aj). Sie ist die
 komplette Feld-Checkliste nach dem Einspielen eines Updates — von Boot bis
 Druckergebnis. Die Historie der Änderungen steht in README.md.
 
@@ -18,7 +18,7 @@ Druckergebnis. Die Historie der Änderungen steht in README.md.
 ## 2. Boot-Check (Pflicht, 1 Minute)
 
 - [ ] Konsole: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.136ai)`
+      (build R2-2026-11-09.136aj)`
 - [ ] ~10 s nach dem Boot: Boot-Sound + LED-Animation
 - [ ] `SHOW_STATUS` antwortet mit Modus/Material/Overrides
 - [ ] Kein Eintrag fehlt: sonst meldet sich `_CHECK_INSTALL` laut mit
@@ -552,7 +552,7 @@ kontaminierte Fenster werden verworfen.
 - [ ] Neue Datei erscheint nach Job-Ende im LCD-Ordner UND im Web-UI
 - [ ] Defaults > Load 1 → Display „Loading profile“ → Beep → „Loaded“
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.136ai)`
+      (build R2-2026-11-09.136aj)`
 
 **Alles grün?** Dann ist .136ag field-clear. Wenn etwas auffällt: Konsole
 kopieren — daraus wird der nächste Feldlog-Eintrag.
@@ -612,7 +612,7 @@ Drei Antworten:
 - [ ] `TEXTURE_APPLY PATTERN=MAP` ohne jedes Bild → sofort
       „MAP needs an image“ + Error-Beep (nicht erst in der Queue)
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.136ai)`
+      (build R2-2026-11-09.136aj)`
 
 **Alles grün?** Dann ist .136ah field-clear. Wenn etwas auffällt:
 Konsole kopieren — daraus wird der nächste Feldlog-Eintrag.
@@ -720,7 +720,99 @@ Druck normal.
 - [ ] Ein Logo (heller Hintergrund) als MAP → ONCE + Pos: top → Logo
       einmal herum oben, Hintergrund unangetastet, Naht unsichtbar
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.136ai)`
+      (build R2-2026-11-09.136aj)`
 
 **Alles grün?** Dann ist .136ai field-clear. Wenn etwas auffällt:
+Konsole kopieren — daraus wird der nächste Feldlog-Eintrag.
+
+
+## 25. Die .136aj-Neuerungen (R240 — Start-Blocker + Profil-Master-Runde)
+
+**1) DER Start-Blocker ist gelöst.** Das .136ai-Feldlog zeigte 6×
+`Malformed command '_M204_SET VALUE=8000'` direkt nach der Prime-Line —
+danach „Printer reported an ERROR", kein Druck startete. Ursache bis auf
+Klippy-Quellcode-Ebene: Der Dispatcher baut Befehlsnamen NUR aus [A-Z_] —
+**Ziffern beenden einen Namen**. Unser eigener Makro-Name `_M204_SET`
+(R167) wurde also als Befehl `_M204` mit Parametern `_SET VALUE=8000`
+geparst; der R237-`_M204`-Alias fing ihn ab, shlex stolperte über das
+Token `_SET` ohne `=` — fataler Fehler, pro Makro-Ebene einmal gemeldet
+(6 Ebenen = 6 Zeilen). Vor R237 war dieselbe Zeile ein harmloses
+„Unknown command". Jetzt: Makro heißt `_ACCEL_SET`, der Alias ist weg,
+und beide Tools schreiben `_M204_SET VALUE=x`-Zeilen in alten Dateien zu
+`M204 Sx` um. Die neue Batterie `r240_field_check.py` simuliert den
+Klipper-Tokenizer über ALLE Makro-Namen — diese Fehlerklasse kann nicht
+mehr einschleichen.
+
+**2) EIN Depot-Profil, EIN Profil pro Datei.** Pre-Print > Profiles:
+- **> Save > Depot** (Doppelklick) — speichert ALLE Pre-Print-Werte als
+  das EINE zentrale Depot: Temperaturen, Retraction (Länge/Rück-/Vorschub),
+  PA + Smooth-Time, Accel, Velocity, Min-Cruise + Square-Corner, Flow,
+  Fan (inkl. min/max/bridge/clamp), Ironing-Flow, ALLE 25 Feature-Slots
+  (Speed/Accel/Flow/PA), Shaper-off, Erstschicht-Tempo — und jetzt auch
+  **Z-Hop (an/aus + Höhe) und den Extruder-Drive**. Werte UND Schalter,
+  egal ob an oder aus.
+- **> Save > file** — dasselbe komplette Snapshot als 'pre'-Profil der
+  ausgewählten Datei (max. EINS pro Datei).
+- **Load Depot / Load file-pre / Del Depot? / Del file-pre?** — alles
+  Doppelklick mit Ton, die Zeile springt zurück, das Display zeigt das
+  Ergebnis.
+- Die 8 Default-Slots und die Material-Mini-Presets sind aus dem Menü
+  Raus (Konsole bleibt: `LOAD_DEFAULT_PRESET N=1..8`); die Material-
+  Schnellvorlagen (Laden/Speichern/Zurücksetzen) leben jetzt in
+  **Pre-Print > Material**.
+- Beim Datei-Auswählen mit Auto-Load ON: Bestätigungston + „Profile:
+  loaded" — alle Werte stehen im Pre-Print-Menü.
+
+**3) Der Optimierte-Fluss (Ranking-JA).** „Rate print?" -> JA:
+wie gehabt Kopie in `optimized/` mit eingebackenen Werten — UND die
+getunten Werte werden jetzt als **eigenes pre-Print-Profil der Kopie**
+registriert (das neutralisierte Replay-Set: Prozente leben in der Datei,
+Absolute bleiben). Die Kopie später auswählen = Auto-Load + Ton. Die
+ORIGINAL-Datei behält ihr eigenes Profil: Vorher UND Nachher existieren
+getrennt, nichts geht verloren, nichts wird ohne Dein JA gespeichert.
+
+**4) Ironing-Schnellzugriff ist jetzt der FLOW.** Die starre 100-%-
+Zeile wurde durch den echten Ironing-FLOW ersetzt (Default 15 %, Bereich
+5–100 % — typisch 15–20 %), direkt steuerbar in Live > Motion >
+Velocity > Spd/feat. Alle vier Ironing-Flow-Zeilen zeigen jetzt 15.
+
+**5) Live spiegelt Pre-Print > Motion.** Die vier Schnelllisten
+(Speed/Accel/PA/Flow je Feature) sitzen nicht mehr lose im Live-Menü,
+sondern IN Live > Motion: Velocity (inkl. Feature-Geschwindigkeiten und
+-Beschleunigungen), Extrusion (inkl. Feature-PA und -Flow), Retraction.
+Die 32 Feature-Toggles wanderten aus der Datei-Info in ihre Feature-
+Untermenüs (Pre-Print: Datei-Filter; Live: immer klickbar mit
+„(parked)"). Z-Hop bleibt direkt über den Babysteps.
+
+**6) LED-Fortschrittsbalken PRO Job.** Solange ein Watcher-Job arbeitet
+(Generierung, Textur, Segment-Fix, optimierte Kopie), zeigen die Status-
+LEDs einen grünen Balken für DIESEN Job — der nächste Job startet bei 0
+(ein Gesamt-Queue-Balken würde lügen, sobald während des Laufens Jobs
+dazukommen). Nach Job-Ende stellen sich die Status-LEDs wieder her
+(idle/Printing wie zuvor). Gedrosselt auf ~1 Push/1,2 s, respektiert den
+LED-Hauptschalter und die 0,5-Power-Cap-Regel.
+
+### Field-Check .136aj
+
+- [ ] Druck starten (eine normale Datei) → **kein** „Malformed command"
+      mehr, Prime-Line kommt, Druck läuft an
+- [ ] Pre-Print > Profiles > Save > Depot (2× drücken) → Ton, Anzeige,
+      `DEPOT_INFO` in der Konsole listet Z-Hop + Drive
+- [ ] Pre-Print > Profiles > Save > file → gleiche Zeremonie für die
+      Datei; Datei abwählen/neu wählen → Auto-Load lädt mit Ton
+- [ ] Z-Hop und Drive verstellen → Depot speichern → Depot laden →
+      beide Werte sind zurück
+- [ ] Ranking mit JA beantworten → Kopie in optimized/ + Konsole:
+      „now has its own pre-print profile" → Kopie auswählen → Werte
+      kommen mit Ton
+- [ ] Live > Motion > Velocity > IR-Zeile: „IR fl: 15%" — drehen ändert
+      den Ironing-Flow (nicht mehr die Speed)
+- [ ] Einen Generator-Job starten (z. B. Kabelbinder) → LED-Balken
+      füllt sich grün, am Ende stellen sich die Status-LEDs zurück
+- [ ] Gen queue > Stop (2× drücken!) → diesmal REALLY Doppelklick:
+      erster Druck „Gen: stop?", zweiter beendet
+- [ ] `Macro system OK: all 19 modules loaded and current
+      (build R2-2026-11-09.136aj)`
+
+**Alles grün?** Dann ist .136aj field-clear. Wenn etwas auffällt:
 Konsole kopieren — daraus wird der nächste Feldlog-Eintrag.

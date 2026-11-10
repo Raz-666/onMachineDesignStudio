@@ -11,8 +11,15 @@
 #     the calls fire FROM THE FILE (virtual SD, start block right after
 #     PRINT_START's post-heat settings). No sender exists in the package
 #     or the user's configs - the lines ride in from the slicer profile's
-#     start G-code. The tools rewrite them while processing; the _M204
-#     macro alias is the runtime safety net.
+#     start G-code. The tools rewrite them while processing.
+#  R240 (.136aj) UPDATE: the R237 '_M204' alias turned out to be a trap -
+#     klipper's dispatcher builds command names from [A-Z_] only (digits
+#     END the name), so an extended macro can NEVER be called '_M204'.
+#     The alias made '_M204_SET VALUE=8000' (our own R167 macro name!)
+#     dispatch as '_M204' + rawparams '_SET VALUE=8000' -> shlex ValueError
+#     -> 'Malformed command' -> the .136ai start blocker. The alias is GONE
+#     (a bare '_M204 S4800' line now dies as a harmless Unknown command),
+#     the macro is _ACCEL_SET now and the tools rewrite BOTH legacy forms.
 import os
 import re
 import shutil
@@ -62,21 +69,22 @@ try:
         bump_scale=10.0, bump_amp=0.3)
     txt = open(out).read()
     _bare = re.compile(r'^\s*_M204(\s|$)', re.M)
-    check('A1: texture rewrites the 2 legacy _M204 lines to M204',
-          info.get('m204_scrub') == 2 and not _bare.search(txt)
+    check('A1: texture rewrites the 3 legacy _M204 lines to M204',
+          info.get('m204_scrub') == 3 and not _bare.search(txt)
           and 'M204 S4800' in txt and 'M204 S8000' in txt,
           'scrub=%r' % info.get('m204_scrub'))
-    check('A2: _M204_SET stays untouched (the regex knows the boundary)',
-          '_M204_SET VALUE=8000' in txt, '')
+    check('A2: R240 - _M204_SET VALUE= is rewritten to M204 S as well',
+          '_M204_SET' not in txt and 'M204 S8000' in txt, '')
     seg = os.path.join(tmpd, 'V5_seg.gcode')
     _write_case(seg)
     n, rb, ra, m2 = r2_postproc._segments_fix_file(seg)
     stxt = open(seg).read()
-    check('A3: segment fix renames them too (4-tuple return, count 2)',
-          m2 == 2 and not _bare.search(stxt) and 'M204 S4800' in stxt,
+    check('A3: segment fix renames them too (4-tuple return, count 3)',
+          m2 == 3 and not _bare.search(stxt) and 'M204 S4800' in stxt,
           'm2=%r n=%r' % (m2, n))
-    check('A4: segment fix keeps _M204_SET and still merges nothing here',
-          '_M204_SET VALUE=8000' in stxt and n == 0, 'n=%r' % n)
+    check('A4: R240 - segment fix rewrites _M204_SET too, merges nothing',
+          '_M204_SET' not in stxt and 'M204 S8000' in stxt and n == 0,
+          'n=%r' % n)
 
     print('--- B) MAP image loading ----------------------------------------')
     from PIL import Image
@@ -100,7 +108,7 @@ try:
         map_file=os.path.join(root, 'foto.png'))
     check('B1: MAP loads with an ABSOLUTE path (what the watcher passes '
           'since R237 - source from Texture/, image in the root)',
-          os.path.isfile(o1) and i1.get('m204_scrub') == 2
+          os.path.isfile(o1) and i1.get('m204_scrub') == 3
           and i1.get('shifted', 0) > 0,
           'shifted=%r' % i1.get('shifted'))
     o2, i2 = r2_texture.apply_texture(
@@ -143,8 +151,11 @@ try:
           < _13.find("{% if path == '' %}")
           and 'picked - ready for Texture MAP' in _13
           and _13.count('SDCARD_PRINT_FILE FILENAME="{ fn }"') == 1, '')
-    check('C2: _M204 alias forwards rawparams into the interceptor',
-          '[gcode_macro _M204]' in _06 and 'M204 {rawparams}' in _06, '')
+    check('C2: R240 - the _M204 alias is GONE, _ACCEL_SET is the setter',
+          '[gcode_macro _M204]' not in _06
+          and 'M204 {rawparams}' not in _06
+          and '[gcode_macro _ACCEL_SET]' in _06
+          and 'M99204 S{params.VALUE|default(0)|float|round}' in _06, '')
     check('C3: TEXTURE_APPLY fails early on MAP without any image',
           "pat == 'MAP' and params.MAP is not defined" in _17
           and 'MAP needs an image' in _17, '')
@@ -153,6 +164,7 @@ try:
     check('C5: scrub + reporting wired through postproc and texture',
           '_m204_r237' in _pp and 'm204_seen' in _pp
           and 'legacy _M204 renamed' in _pp
+          and '_m204set_r240' in _pp and '_M204SET_SCRUB' in _tx
           and '_M204_SCRUB' in _tx and '_cands237' in _tx
           and "'m204_scrub'" in _tx, '')
     check('C6: no double-brace boot blocker slipped into the edited cfgs',

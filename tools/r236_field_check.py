@@ -322,13 +322,18 @@ check('E5: LOAD_DEFAULT_PRESET passes FEEDBACK=1',
       '_PROFILE_APPLY SRC=default N={n} FEEDBACK=1' in m05)
 check('E6: FILE_PROFILE_LOAD passes FEEDBACK=1 (beep comes from APPLY)',
       '_PROFILE_APPLY SRC=file WHICH={which} FILE="{fn}" FEEDBACK=1' in m05)
-kick = len(re.findall(r'\{menu\.exit\(\)\}\n\s+LOAD_DEFAULT_PRESET N=\d',
-                      menus))
-check('E7: all 8 default loads kick you out to see the display', kick == 8,
+# R240 (.136aj): the 8 default slots retired from the LCD - the ONE Depot
+# profile + the this-file 'pre' load took over, every one with the 2-press
+# arm (gen_arm) + menu.exit so the display shows the result.
+kick = len(re.findall(
+    r"\{menu\.exit\(\)\}\{% endif %\}\n\s+LOAD_DEPOT_PRESET CONFIRM=1",
+    menus))
+check('E7: the Depot load kicks you out to see the display', kick == 1,
       str(kick))
-kick2 = len(re.findall(r'\{menu\.exit\(\)\}\n\s+FILE_PROFILE_LOAD WHICH=',
-                       menus))
-check('E8: this-file pre/post loads kick you out too', kick2 == 2, str(kick2))
+kick2 = len(re.findall(
+    r"\{menu\.exit\(\)\}\{% endif %\}\n\s+FILE_PROFILE_LOAD WHICH=pre CONFIRM=1",
+    menus))
+check('E8: the this-file pre load kicks you out too', kick2 == 1, str(kick2))
 
 print('--- F) AV stagger: no LED/beep in the motion tick --------------------')
 av = re.findall(r'UPDATE_DELAYED_GCODE ID=(_AV_\w+) DURATION=([\d.]+)', m08 + m09)

@@ -2134,17 +2134,25 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
     cut_pending = cut_key is not None   # R94: re-assert the cut feature right
     body_open = False                   # after the body's first line
     with open(out, 'w') as fo:
+        _ledmr = [0, max(1, len(out_lines))]   # R240: [lines seen, total]
         for l in out_lines:
             fo.write(l + '\n')
+            _ledmr[0] += 1
+            if not _ledmr[0] % 4096:
+                _job_led(min(20, 20 * _ledmr[0] // _ledmr[1]))
         with open(src, 'r', errors='replace') as f:
             idx = 0
             # R187: when the start layer's own Z travel sits right before
             # the mark (Z-scan files), the body begins THERE - the layer's
             # Z survives the cut instead of printing at the park height
             _a_eff187 = pre_a if pre_a is not None else a
+            _ledmrs = [0, max(1, b)]           # R240: [lines seen, end]
             for raw in f:
                 if idx >= b:
                     break
+                if not _ledmrs[0] % 8192:
+                    _job_led(20 + 79 * _ledmrs[0] // _ledmrs[1])
+                _ledmrs[0] += 1
                 if idx >= _a_eff187:
                     l = _shift_line(raw[:-1] if raw.endswith('\n') else raw)
                     c = _stripped(l)
@@ -18048,8 +18056,14 @@ def _optimize_copy(directory, rel, snap):
     tmp = dest + '.optmp'
     fi_done = False
     ins_pending = (fi_line == '')
+    _led169 = [0, 0]             # R240: [bytes seen, lines seen]
+    _led169_sz = max(1, os.path.getsize(src))
     with open(src, 'r', errors='replace') as fh, open(tmp, 'w') as fo:
         for raw in fh:
+            _led169[0] += len(raw)
+            _led169[1] += 1
+            if not _led169[1] % 4096:
+                _job_led(min(99, 100 * _led169[0] // _led169_sz))
             ls = raw.strip()
             if fi_line and ls == fi_line and not fi_done:
                 fo.write(out_fi + '\n')
@@ -18159,7 +18173,16 @@ def _segments_fix_file(path):
     # slicer profile's start G-code and die as 'Unknown command' twice per
     # print - rename them to the intercepted M204 while we rewrite anyway.
     _m204_r237 = re.compile(r'^(\s*)_M204(\s|$)')
+    # R240 (.136ai field log - the start blocker): '_M204_SET VALUE=x' is
+    # the OLD package macro name (R167-R239). Klipper's dispatcher builds
+    # command names from [A-Z_] only - digits END the name, so the line
+    # parsed as cmd '_M204' + rawparams '_SET VALUE=8000' and died as
+    # 'Malformed command' (fatal). Files can only carry it via old
+    # exported/copied start blocks - rewrite while we stream anyway.
+    _m204set_r240 = re.compile(r'^(\s*)_M204_SET\s+VALUE=([0-9.]+)\s*$')
     m204_seen = 0
+    _led240 = [0, 0]            # [cumulative bytes seen, lines seen]
+    _led240_sz = max(1, os.path.getsize(path))
 
     def _flush(fo_, pd_):
         if pd_['hops'] == 0:
@@ -18227,11 +18250,17 @@ def _segments_fix_file(path):
                 _flush(fo, pend)
                 pend = None
             _rw237 = _m204_r237.sub(r'\1M204\2', raw)
+            _rw237 = _m204set_r240.sub(r'\1M204 S\2', _rw237)
             if _rw237 != raw:
                 m204_seen += 1
             if _rw237.startswith('EXCLUDE_OBJECT_DEFINE'):
                 _rw237 = _eod_compact(_rw237)   # R239: heal spaced polygons
             fo.write(_rw237)
+            # R240: LED progress bar - this pass IS the job's visible work
+            _led240[0] += len(raw)
+            _led240[1] += 1
+            if not _led240[1] % 4096:
+                _job_led(min(99, 100 * _led240[0] // _led240_sz))
             if line.startswith('G0 ') or line.startswith('G1 '):
                 mx = _XY_RE.search(line)
                 my = _Y_RE.search(line)
@@ -21400,7 +21429,7 @@ def _watch_duplicate_sweep():
 
 
 def _moonraker_gcode(script, host='127.0.0.1', port=7125, timeout=8.0,
-                      retries=2):
+                     retries=2, loud=True):
     """Send a g-code script to Klipper via moonraker's local HTTP API (best
     effort). R132 field log .92: a busy Pi Zero (watcher thread + klippy)
     missed the old 3s timeout - done-reports read as 'ERROR: timed out'
@@ -21417,8 +21446,45 @@ def _moonraker_gcode(script, host='127.0.0.1', port=7125, timeout=8.0,
                 return r.status == 200
         except Exception as e:                  # noqa: BLE001
             last = e
-    print('[moonraker] gcode send failed: %r' % last, flush=True)
+    if loud:
+        print('[moonraker] gcode send failed: %r' % last, flush=True)
     return False
+
+
+# R240 (.136aj): the per-job LED progress bar. While a watcher job works
+# (generation, texture, segment fix, optimized copy, STL export) the frame
+# LEDs show a GREEN progress bar for THAT job - it restarts at 0 when the
+# next job begins (per the .136ai field wish: a whole-queue bar would lie
+# as soon as jobs get added while it runs). _LED_JOB_PROGRESS (03_leds.cfg)
+# draws the bar, _LED_JOB_DONE restores the normal state LEDs. Best effort
+# + throttled (max ~1 push/1.2s and only on >= 2% steps) - the Pi Zero
+# never sees more than one tiny HTTP POST per second from this.
+_LED_BAR = {'t': 0.0, 'pct': -1}
+
+
+def _job_led(pct, force=False):
+    """R240: push the job progress bar to the LEDs (throttled, best effort)."""
+    try:
+        now = time.monotonic()
+        pct = max(0, min(100, int(pct)))
+        if not force:
+            if (now - _LED_BAR['t'] < 1.2
+                    and abs(pct - _LED_BAR['pct']) < 2):
+                return
+        _LED_BAR['t'] = now
+        _LED_BAR['pct'] = pct
+        _moonraker_gcode('_LED_JOB_PROGRESS PCT=%d' % pct, loud=False)
+    except Exception:                               # noqa: BLE001
+        pass
+
+
+def _job_led_done():
+    """R240: a watcher job ended - restore the state LEDs (best effort)."""
+    try:
+        _LED_BAR['pct'] = -1
+        _moonraker_gcode('_LED_JOB_DONE', loud=False)
+    except Exception:                               # noqa: BLE001
+        pass
 
 
 def _moonraker_json(ep, body=None, timeout=4.0):
@@ -23387,6 +23453,7 @@ def watch(directory, interval=5.0, once=False):
                 _JOB_STATE['zombie'] = None
                 _JOB_STATE['busy'] = False
                 _JOB_YIELD['on'] = False
+                _job_led_done()     # R240: a zombie job ended - LEDs back
                 try:
                     _moonraker_gcode(
                         'SAVE_VARIABLE VARIABLE=gen_busy VALUE=0\n'
@@ -23482,6 +23549,10 @@ def watch(directory, interval=5.0, once=False):
                     pass
             _JOB_STATE['busy'] = True
             _JOB_YIELD['on'] = True
+            # R240 (.136aj): per-job LED progress bar starts HERE - the bar
+            # restarts at 0 for every job (a whole-queue bar would lie the
+            # moment jobs get added while it runs - field wish .136ai).
+            _job_led(1, force=True)
             # R188 (.134): LIVE work begins - gen_busy=1 blocks print
             # starts (LCD: 'Wait: generating') until the post-job stamping
             # is done too (the moverate scan is exactly the CPU spike that
@@ -23632,6 +23703,7 @@ def watch(directory, interval=5.0, once=False):
                 _JOB_STATE['kill'] = None    # R238: cancel door closed
                 _JOB_STATE['thread'] = None      # R224: zombie net off
                 _JOB_STATE['zombie'] = None
+                _job_led_done()     # R240: bar off, state LEDs back
                 # R224 (.136s field log): a fresh generator file must show
                 # up in the LCD SD browser IMMEDIATELY - the tree push used
                 # to wait for the next idle pass and RAM-low paused those
@@ -24058,6 +24130,39 @@ def watch(directory, interval=5.0, once=False):
                             _meta_finalize(               # R212: source
                                 os.path.join(directory, _dest169),
                                 src=os.path.join(directory, _rel169))
+                            # R240 (.136aj field wish): the copy's 'pre'
+                            # profile = THIS print's final tuning (the same
+                            # neutralized replay set that is baked into its
+                            # _OPT_BAKED line - percent values already live
+                            # IN the file, absolutes stay). Selecting the
+                            # copy later auto-loads it with the confirmation
+                            # beep. The copy is its OWN file: the ORIGINAL
+                            # keeps whatever profile it had - before AND
+                            # after both exist, nothing is lost.
+                            try:
+                                _snap240 = _opt_snap_from_file(
+                                    os.path.join(directory, _dest169))
+                                if _snap240:
+                                    _rv240 = _read_vars(VAR_PATH) or {}
+                                    _fp240 = dict(_rv240.get('file_profiles')
+                                                  or {})
+                                    _ep240 = int(_rv240.get('fp_epoch')
+                                                 or 0) + 1
+                                    _fp240[_dest169] = {
+                                        'pre': _snap240, 'pre_ep': _ep240}
+                                    _moonraker_gcode(
+                                        'SAVE_VARIABLE VARIABLE=fp_epoch '
+                                        'VALUE=%d\n'
+                                        'SAVE_VARIABLE VARIABLE=file_profiles '
+                                        'VALUE=%s\n'
+                                        'RESPOND MSG="[opt] %s now has its '
+                                        'own pre-print profile (the tuned '
+                                        'values) - selecting the copy '
+                                        'applies them (auto-load + beep)"'
+                                        % (_ep240, repr(_fp240), _dest169))
+                            except Exception as _e240:          # noqa: BLE001
+                                print('[opt] pre-profile register failed: %r'
+                                      % _e240, flush=True)
                             _msg169 = ('[opt] optimized copy saved: %s '
                                        '(%d values, baked: %s)'
                                        % (_dest169, _nv169,
@@ -25944,7 +26049,8 @@ def watch(directory, interval=5.0, once=False):
                 def _texture_job91(rel=_rel91, par=_tpar91, rvq=rv):
                     out_t, info_t = apply_texture(
                         os.path.join(directory, rel),
-                        out_dir=_gensub(directory, 'texture'), **par)
+                        out_dir=_gensub(directory, 'texture'), progress=_job_led,
+                        **par)
                     _meta_finalize(out_t,
                                    src=os.path.join(directory, rel))  # R212
                     _snap175 = ''

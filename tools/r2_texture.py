@@ -102,6 +102,9 @@ TAG = 'R2-TEXTURE v3 (R175)'
 # place - the original token order and everything else on the line stays).
 _CMD_RE = re.compile(r'^(G1|G0)\b')
 _M204_SCRUB = re.compile(r'^(\s*)_M204(\s|$)')   # R237: legacy slicer rename
+# R240 (.136ai field log): the old package macro name _M204_SET (digits end
+# a klipper command name -> 'Malformed command') - rewrite while streaming.
+_M204SET_SCRUB = re.compile(r'^(\s*)_M204_SET\s+VALUE=([0-9.]+)\s*$')
 _TOK_RE = {t: re.compile(r'(?:^|\s)' + t + r'(-?[\d.]+)')
            for t in ('X', 'Y', 'Z', 'E', 'I', 'J', 'R', 'F')}
 
@@ -655,7 +658,7 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                   fuzzy_density=100.0, bump_pattern='RIDGES', bump_scale=10.0,
                   bump_amp=0.35, direction='OUT', bed=None, version=1,  # version: retired (R158, folder-global auto)
                   seed=91, zsize=None, map_file=None,
-                  map_mode='TILE', map_pos='CENTER'):
+                  map_mode='TILE', map_pos='CENTER', progress=None):
     """Returns (new_path, info). Raises ValueError on bad parameters.
 
     R175 parameter semantics (the LCD speaks these names):
@@ -1257,7 +1260,15 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
         if all_is_wall:
             fo.write('; R175 fallback: no wall markers in this file - the '
                      'texture runs on ALL extrusion paths (lithophane mode)\n')
+        _led240 = [0, 0]                # R240: [bytes seen, lines seen]
+        _led240_sz = max(1, os.path.getsize(src))
         for line in fi:
+            # R240: LED progress bar for this texture job (best effort)
+            if progress is not None:
+                _led240[0] += len(line)
+                _led240[1] += 1
+                if not _led240[1] % 4096:
+                    progress(min(99, 100 * _led240[0] // _led240_sz))
             # R237 (.136ah field report): legacy '_M204 ...' lines from the
             # slicer profile die as 'Unknown command' - rewrite them to the
             # intercepted M204 while we stream the file anyway.
@@ -1266,9 +1277,10 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                 # stream the file anyway - the mirror tool emitted them and
                 # every start of such a file died as 'Malformed command'
                 line = line.replace('], [', '],[')
-            _r237 = _M204_SCRUB.sub(r'\1M204\2', line)
-            if _r237 != line:
-                line = _r237
+            _r240 = _M204SET_SCRUB.sub(
+                r'\1M204 S\2', _M204_SCRUB.sub(r'\1M204\2', line))
+            if _r240 != line:
+                line = _r240
                 stats['m204_scrub'] += 1
             ls = line.rstrip('\n')
             m = _TYPE.match(ls)
