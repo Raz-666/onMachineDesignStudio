@@ -162,29 +162,34 @@ check('C4: watchdog re-arms the watcher at its OWN cadence (1 s, not 0.5)',
 
 print('--- D) version + docs -------------------------------------------------')
 
+# R243 (.139): the version checks moved with the release (same pattern as
+# r240 F1). Ch. 27 stays as history; ch. 28 documents the LED ready-crash.
 _live = []
 for _f in sorted(os.listdir(os.path.join(HERE, '..', 'macros'))):
     if _f.endswith('.cfg'):
         _live += rd('macros', _f).split('\n')
 _live += rd('menus', 'lcd_menues.cfg').split('\n')
 _live = '\n'.join(l for l in _live if not l.lstrip().startswith('#'))
-check('D1: version .138 everywhere, no .137/.136 leftovers in live cfg lines',
-      "'R2-2026-11-09.138'" in st
+check('D1: version .139 everywhere, no .137/.138 leftovers in live cfg lines',
+      "'R2-2026-11-09.139'" in st
       and '.137' not in _live
-      and 'R2-2026-11-09.138' in rd('MANUAL.md')
-      and "POSTPROC_RELEASE = 'R2-2026-11-09.138'" in pp_src
-      and "POSTPROC_BUILD = 'R242'" in pp_src)
+      and '.138' not in _live
+      and 'R2-2026-11-09.139' in rd('MANUAL.md')
+      and "POSTPROC_RELEASE = 'R2-2026-11-09.139'" in pp_src
+      and "POSTPROC_BUILD = 'R243'" in pp_src)
 html = rd('web', 'index.html')
-check('D2: web badge .138, page state ver R242',
-      '<span id="ver">.138</span>' in html and "ver:'R242'}" in html)
+check('D2: web badge .139, page state ver R243',
+      '<span id="ver">.139</span>' in html and "ver:'R243'}" in html)
 ta = rd('TESTANLEITUNG.md')
-check('D3: TESTANLEITUNG ch. 27 documents the diet + hardware checklist',
+check('D3: TESTANLEITUNG ch. 27 (diet, history) + ch. 28 (LED crash fix)',
       '## 27. Die .138-Neuerungen (R242' in ta
+      and '## 28. Die .139-Neuerungen (R243' in ta
       and 'Start-Fenster-Di\u00e4t' in ta
       and 'vcgencmd get_throttled' in ta
-      and 'identical re-peek' in ta)
-check('D4: README carries the .138 row',
-      '**.138 (R242)**' in rd('README.md'))
+      and 'identical re-peek' in ta
+      and 'division by zero' in ta)
+check('D4: README carries the .139 row',
+      '**.139 (R243)**' in rd('README.md'))
 
 print()
 print('%d checks, %d failed' % (ok + fails, fails))

@@ -264,12 +264,14 @@ _live240 = '\n'.join(l for l in allmacros.split('\n')
 # R241 (.137): bare version numbers are first class (odometer: sfx('')=0) -
 # the regex must not require a letter any more.
 # R242 (.138): the pin moves with every release - current is .138.
-check('F1: version .138 everywhere, no .136aj/.136ai/.137 leftovers in live cfg lines',
-      "'R2-2026-11-09.138'" in st
+# R243 (.139): the pin moves again - current is .139.
+check('F1: version .139 everywhere, no .136aj/.136ai/.137/.138 leftovers in live cfg lines',
+      "'R2-2026-11-09.139'" in st
       and '.136ai' not in _live240
       and '.136aj' not in _live240
       and '.137' not in _live240
-      and 'R2-2026-11-09.138' in rd('..', 'MANUAL.md'), '')
+      and '.138' not in _live240
+      and 'R2-2026-11-09.139' in rd('..', 'MANUAL.md'), '')
 
 print()
 print('%d checks, %d failed' % (ok + fails, fails))

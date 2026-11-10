@@ -239,7 +239,8 @@ ck('version: the page ver badge matches 01_state (%s)'
 # R241 (.137): the page badge + state ver are maintained again (the .137
 # round repaired the stale .136ab badge - user request: no version confusion)
 # R242 (.138): start-window diet round - badge .138, state ver R242.
-ROUND = 'R242'
+# R243 (.139): the pin moves again - badge .139, state ver R243.
+ROUND = 'R243'
 _state_ver = re.search(r"ver:'(R\d+)'", HTML)
 ck('version: the page state ver is the current round (%s)' % ROUND,
    _state_ver and _state_ver.group(1) == ROUND,

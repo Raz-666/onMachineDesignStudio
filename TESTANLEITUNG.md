@@ -1,6 +1,6 @@
-# TESTANLEITUNG — R2-D2 Makro-System (Version .138)
+# TESTANLEITUNG — R2-D2 Makro-System (Version .139)
 
-Diese Anleitung beschreibt **nur den aktuellen Stand** (.138). Sie ist die
+Diese Anleitung beschreibt **nur den aktuellen Stand** (.139). Sie ist die
 komplette Feld-Checkliste nach dem Einspielen eines Updates — von Boot bis
 Druckergebnis. Die Historie der Änderungen steht in README.md.
 
@@ -18,7 +18,7 @@ Druckergebnis. Die Historie der Änderungen steht in README.md.
 ## 2. Boot-Check (Pflicht, 1 Minute)
 
 - [ ] Konsole: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.138)`
+      (build R2-2026-11-09.139)`
 - [ ] ~10 s nach dem Boot: Boot-Sound + LED-Animation
 - [ ] `SHOW_STATUS` antwortet mit Modus/Material/Overrides
 - [ ] Kein Eintrag fehlt: sonst meldet sich `_CHECK_INSTALL` laut mit
@@ -552,7 +552,7 @@ kontaminierte Fenster werden verworfen.
 - [ ] Neue Datei erscheint nach Job-Ende im LCD-Ordner UND im Web-UI
 - [ ] Defaults > Load 1 → Display „Loading profile“ → Beep → „Loaded“
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.138)`
+      (build R2-2026-11-09.139)`
 
 **Alles grün?** Dann ist .136ag field-clear. Wenn etwas auffällt: Konsole
 kopieren — daraus wird der nächste Feldlog-Eintrag.
@@ -612,7 +612,7 @@ Drei Antworten:
 - [ ] `TEXTURE_APPLY PATTERN=MAP` ohne jedes Bild → sofort
       „MAP needs an image“ + Error-Beep (nicht erst in der Queue)
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.138)`
+      (build R2-2026-11-09.139)`
 
 **Alles grün?** Dann ist .136ah field-clear. Wenn etwas auffällt:
 Konsole kopieren — daraus wird der nächste Feldlog-Eintrag.
@@ -720,7 +720,7 @@ Druck normal.
 - [ ] Ein Logo (heller Hintergrund) als MAP → ONCE + Pos: top → Logo
       einmal herum oben, Hintergrund unangetastet, Naht unsichtbar
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.138)`
+      (build R2-2026-11-09.139)`
 
 **Alles grün?** Dann ist .136ai field-clear. Wenn etwas auffällt:
 Konsole kopieren — daraus wird der nächste Feldlog-Eintrag.
@@ -812,7 +812,7 @@ LED-Hauptschalter und die 0,5-Power-Cap-Regel.
 - [ ] Gen queue > Stop (2× drücken!) → diesmal REALLY Doppelklick:
       erster Druck „Gen: stop?", zweiter beendet
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.138)`
+      (build R2-2026-11-09.139)`
 
 **Alles grün?** Dann ist .136aj field-clear. Wenn etwas auffällt:
 Konsole kopieren — daraus wird der nächste Feldlog-Eintrag.
@@ -828,7 +828,7 @@ Update von .136ai ODER .136aj auf .137 zieht ganz normal.
 
 Was sich in .137 Wirklich ändert:
 
-- **Versions-Strings:** State, Postproc-Kern (`core R2-2026-11-09.138
+- **Versions-Strings:** State, Postproc-Kern (`core R2-2026-11-09.139
   (R241)`), Manual, Web-UI-Badge (der zeigte lange .136ab — jetzt .137).
 - **Batterie-Reparaturen für nackte Nummern:** r227/r234/r217/r218
   verlangten noch einen Buchstaben hinter der Zahl — seit .137 ist der
@@ -840,7 +840,7 @@ Was sich in .137 Wirklich ändert:
 - [ ] Update mit dem .137-Zip einspielen (über .136ai/.136aj: normal,
       ohne --force — der Zähler weiß, dass 137 > 136aj)
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.138)`
+      (build R2-2026-11-09.139)`
 - [ ] Web-UI öffnen: das Version-Kästchen oben zeigt **.137**
 - [ ] Ein Druck starten → läuft an wie unter .136aj (Kapitel 25, Punkt 1)
 
@@ -911,3 +911,56 @@ Leerlauf!) und einmal einen **Pi-Neustart um 09:22**. Bitte prüfen:
 **Alles grün?** Dann ist .138 field-clear. Wenn trotzdem wieder ein
 `Timer too close` kommt: sofort die Konsole + `klippy.log` sichern — dann
 ist die Seriell-/Strom-Schicht der nächste Verdächtige (Checkliste oben).
+
+## 28. Die .139-Neuerungen (R243 — der LED-Ready-Crash)
+
+**Feldlog .138:** Nach dem Einspielen wurde der Drucker **nie wieder
+bereit** — jede Klippy-Runde starb beim Aufwachen mit
+
+```
+Internal error during ready callback: division by zero
+```
+
+**Ursache (Traceback Zeile 111–123):** Die LED-Bibliothek baut jeden
+Cylon-Sweep als `frames = int(Dauer × frame_rate)` Frames und
+interpoliert sie mit `pct = frame / (frames − 1)` — die **einzige**
+solche Division in der ganzen Bibliothek. Die R242-Diät senkte die
+Dauerlauf-Raten von 6 auf 3 fps — dadurch schrumpfte
+`r2_leveling`'s `cylon 0.6` von 3 Frames auf **eines**: `pct = 0/0` →
+ZeroDivisionError im Ready-Callback → Klippy tot, bei jedem Start.
+
+**Wichtig fürs Verständnis der Konsole:** Das 5–6-s-„Loop" im
+Konsolenfenster war **kein** Klippy-Neustart-Loop (nur 2×
+`Start printer` im Log). Es war der Postproc-Daemon, der seinen
+sd_tree/gen_files-Boot-Push solange wiederholt, wie Klippy die
+SAVE_VARIABLEs ablehnt — gewolltes Retry („push failed - retrying next
+cycle"), das sich selbst heilt, sobald Klippy wieder bereit ist.
+
+**Fix (nur Konfiguration, der Daemon ist unberührt):**
+
+1. Beide Cylon-Layer auf **1.0 s**: 3 Frames bei 3 fps — über der
+   Crash-Grenze UND ein sichtbarer Sweep (Scanner bleibt Scanner).
+   `r2_homing` 0.8 s → 1.0 s, `r2_leveling` 0.6 s → 1.0 s.
+2. Die .138-Seriell-Diät bleibt komplett erhalten (idle/waiting/heating/
+   homing/leveling/pid 3 fps, Boot 6, Drucken 5).
+3. **Neue Wache:** `r243_field_check.py` simuliert die Frame-Mathematik
+   für **jeden Layer jedes Effekts** (`int(Dauer × rate) ≥ 2`, bewegte
+   Layer ≥ 3) und reproduziert den Feld-Crash als Negativtest
+   (`cylon 0.6 @ 3` **muss** raisen — sonst wäre die Wache blind).
+
+### Field-Check .139
+
+- [ ] Nach dem Flash: Drucker wird **bereit** (kein
+      `division by zero`, LEDs zeigen die Idle-Atmung)
+- [ ] Boot-Pushes des Daemons landen wieder (Konsole: `sd_tree`/`gen_files`
+      nur einmalig, dann Ruhe — kein 5-s-Retry mehr)
+- [ ] `Macro system OK: all 19 modules loaded and current
+      (build R2-2026-11-09.139)`
+- [ ] Homing → Cyan-Sweep sichtbar (1 s pro Durchlauf, 3 Stufen)
+- [ ] Bed-Mesh/Leveling → Magenta-Scanner sichtbar (1 s pro Durchlauf)
+- [ ] Web-UI-Badge zeigt `.139`
+- [ ] Danach: die offenen Feldfragen aus Kapitel 27 (Pi-Neustart 09:22,
+      Hardware-Checkliste, Segment-Fix für alte Textur-Dateien)
+
+**Alles grün?** Dann ist .139 field-clear und die .138-Diät endlich im
+Feld gültig. Wenn wieder etwas stirbt: Konsole + `klippy.log` sichern.
