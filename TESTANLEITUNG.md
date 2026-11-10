@@ -1,6 +1,6 @@
-# TESTANLEITUNG — R2-D2 Makro-System (Version .136ac)
+# TESTANLEITUNG — R2-D2 Makro-System (Version .137)
 
-Diese Anleitung beschreibt **nur den aktuellen Stand** (.136aj). Sie ist die
+Diese Anleitung beschreibt **nur den aktuellen Stand** (.137). Sie ist die
 komplette Feld-Checkliste nach dem Einspielen eines Updates — von Boot bis
 Druckergebnis. Die Historie der Änderungen steht in README.md.
 
@@ -18,7 +18,7 @@ Druckergebnis. Die Historie der Änderungen steht in README.md.
 ## 2. Boot-Check (Pflicht, 1 Minute)
 
 - [ ] Konsole: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.136aj)`
+      (build R2-2026-11-09.137)`
 - [ ] ~10 s nach dem Boot: Boot-Sound + LED-Animation
 - [ ] `SHOW_STATUS` antwortet mit Modus/Material/Overrides
 - [ ] Kein Eintrag fehlt: sonst meldet sich `_CHECK_INSTALL` laut mit
@@ -552,7 +552,7 @@ kontaminierte Fenster werden verworfen.
 - [ ] Neue Datei erscheint nach Job-Ende im LCD-Ordner UND im Web-UI
 - [ ] Defaults > Load 1 → Display „Loading profile“ → Beep → „Loaded“
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.136aj)`
+      (build R2-2026-11-09.137)`
 
 **Alles grün?** Dann ist .136ag field-clear. Wenn etwas auffällt: Konsole
 kopieren — daraus wird der nächste Feldlog-Eintrag.
@@ -612,7 +612,7 @@ Drei Antworten:
 - [ ] `TEXTURE_APPLY PATTERN=MAP` ohne jedes Bild → sofort
       „MAP needs an image“ + Error-Beep (nicht erst in der Queue)
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.136aj)`
+      (build R2-2026-11-09.137)`
 
 **Alles grün?** Dann ist .136ah field-clear. Wenn etwas auffällt:
 Konsole kopieren — daraus wird der nächste Feldlog-Eintrag.
@@ -720,7 +720,7 @@ Druck normal.
 - [ ] Ein Logo (heller Hintergrund) als MAP → ONCE + Pos: top → Logo
       einmal herum oben, Hintergrund unangetastet, Naht unsichtbar
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.136aj)`
+      (build R2-2026-11-09.137)`
 
 **Alles grün?** Dann ist .136ai field-clear. Wenn etwas auffällt:
 Konsole kopieren — daraus wird der nächste Feldlog-Eintrag.
@@ -812,7 +812,37 @@ LED-Hauptschalter und die 0,5-Power-Cap-Regel.
 - [ ] Gen queue > Stop (2× drücken!) → diesmal REALLY Doppelklick:
       erster Druck „Gen: stop?", zweiter beendet
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.136aj)`
+      (build R2-2026-11-09.137)`
 
 **Alles grün?** Dann ist .136aj field-clear. Wenn etwas auffällt:
+Konsole kopieren — daraus wird der nächste Feldlog-Eintrag.
+
+## 26. Die .137 (R241) — die saubere Versionsnummer
+
+**.137 ist .136aj — nur die Nummer ist neu.** Gleicher Code, gleiche
+Funktionen, gleiche Menüs: Die Buchstaben-Kette .136a… .136aj war im
+Feld verwirrend („welche Version ist denn JETZT die aktuelle?"), also
+startet hier die nackte Zahl. Der Update-Zähler (Odometer) ordnet sie
+korrekt ein: **137 > 136aj** — die Zahl schlägt jeden Buchstaben, ein
+Update von .136ai ODER .136aj auf .137 zieht ganz normal.
+
+Was sich in .137 Wirklich ändert:
+
+- **Versions-Strings:** State, Postproc-Kern (`core R2-2026-11-09.137
+  (R241)`), Manual, Web-UI-Badge (der zeigte lange .136ab — jetzt .137).
+- **Batterie-Reparaturen für nackte Nummern:** r227/r234/r217/r218
+  verlangten noch einen Buchstaben hinter der Zahl — seit .137 ist der
+  Suffix optional (immer war er nur ein Add-on).
+- **Web-UI:** Badge und State-ver (R241) wieder aktuell.
+
+### Field-Check .137
+
+- [ ] Update mit dem .137-Zip einspielen (über .136ai/.136aj: normal,
+      ohne --force — der Zähler weiß, dass 137 > 136aj)
+- [ ] `Macro system OK: all 19 modules loaded and current
+      (build R2-2026-11-09.137)`
+- [ ] Web-UI öffnen: das Version-Kästchen oben zeigt **.137**
+- [ ] Ein Druck starten → läuft an wie unter .136aj (Kapitel 25, Punkt 1)
+
+**Alles grün?** Dann ist .137 field-clear. Wenn etwas auffällt:
 Konsole kopieren — daraus wird der nächste Feldlog-Eintrag.

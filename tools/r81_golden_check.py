@@ -13,6 +13,15 @@ frozen references.
 RE-FREEZE HISTORY: the .134 version bump changed the core stamp line in
 every mr excerpt (verified: exactly ONE line per case differs, .133 ->
 .134, nothing else) - refs re-frozen from the bumped module.
+RE-FREEZE HISTORY: R241 (.137) re-froze mr01-mr13 (pure version
+renumber - NO code change, only POSTPROC_RELEASE .136aj -> .137 and
+BUILD R240 -> R241; proofs: the .136aj module from git 3583861
+reproduces the previous refs byte-exactly (23/23), and the per-case A/B
+diff shows ONLY the version-stamp consequences - the core stamp line,
+the R225 identify line (its date/time is DERIVED from the body
+signature by design) and the R2-META sig; every other byte identical,
+pr01-pr10 byte-IDENTICAL, mr sizes shrink by exactly the 4 stamp
+bytes).
 RE-FREEZE HISTORY: R240 (.136aj) re-froze mr01-mr13 (stamp-bump
 class - proofs: the pre-bump module from git 60ae1db reproduces the
 previous refs byte-exactly (23/23), and the NEW module run with the
@@ -274,19 +283,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # process() output is identical old vs new, ALL 13 mr md5s change (every
 # range excerpt carries the core stamp), no summary moves, and r81 was
 # 23/23 green with the R213 code BEFORE the stamp bump.
-REF_MD5 = {'mr01': '435735c500e90381532c84260b81f796',
- 'mr02': 'ad1018c1b6f4d9013d0bee9ba0fc1edd',
- 'mr03': '14403c52e334f8c7e9190c83e99e876a',
- 'mr04': '9d1d784862c33479498a3e8c28d507ad',
- 'mr05': 'fb8d364b64e75542d78143d9a1160d50',
- 'mr06': '885ac67aa6a6ddc501b9f922755f6a69',
- 'mr07': '83b7ce33a88afbd2821c89257c8c4087',
- 'mr08': '63a5899a72ab9a26bb1ee1fb1d2e3b1d',
- 'mr09': '5b5bb5eccab6a7b03282350117da65d3',
- 'mr10': 'a4049b55226b2319a9de11e816dfac7f',
- 'mr11': '246d7ec50fac202c72b75357bd2e3861',
- 'mr12': 'c850b8a15a0c6e52c18f01de89f4b931',
- 'mr13': '6c6974a911d9d4bb8f18650a16f48059',
+REF_MD5 = {'mr01': '180bec78ee27aab2d76f340e90f93721',
+ 'mr02': 'e57b0752640d3714628ac2cad0455d93',
+ 'mr03': '6bf0e06026a5edcdc998492a8a8d2be3',
+ 'mr04': '08bb0cf2152bb418ed137e528c08440b',
+ 'mr05': '6713b3c3f0cf7630573f0a4cd2e28f19',
+ 'mr06': '6d2f8cf947dc1fd6004b8d088e10845e',
+ 'mr07': 'f5cc3de3ab879088c6d62a112c0b357a',
+ 'mr08': '7bb80d1aff16bb1e91c67047ade12f0a',
+ 'mr09': '472cb4c0fb0a81afa0317e3eeda7d7ca',
+ 'mr10': '1d1ecd6168d780b8f1f5542e9b1e6d96',
+ 'mr11': '9f956fc04e193068be19ad8d4767ca52',
+ 'mr12': '79f1e6e24f068e9c82cf7ba443d323e5',
+ 'mr13': '92de175952394f86afff1f00ee31d789',
  'pr01': 'aa5a6f27d5a7e6576f57eeea93af63a5',
  'pr02': '61457e9bcbd98996b6e7dc26efda23d8',
  'pr03': '923725a1d92fccc88241ed8a3ab8065b',
@@ -298,19 +307,19 @@ REF_MD5 = {'mr01': '435735c500e90381532c84260b81f796',
  'pr09': '5e90a1d42296412a0ea53e9d6ada0157',
  'pr10': '159ea58bb74bbf9adb377f1e733d152b'}
 
-REF_SUMMARY = {'mr01': {'nl': 8, 'size': 5251},
- 'mr02': {'nl': 8, 'size': 14267},
- 'mr03': {'nl': 8, 'size': 13278},
- 'mr04': {'nl': 8, 'size': 13156},
- 'mr05': {'nl': 8, 'size': 21946},
- 'mr06': {'nl': 8, 'size': 17188},
- 'mr07': {'nl': 7, 'size': 4883},
- 'mr08': {'nl': 6, 'size': 4528},
- 'mr09': {'nl': 7, 'size': 9557},
- 'mr10': {'nl': 7, 'size': 13178},
- 'mr11': {'nl': 7, 'size': 8973},
- 'mr12': {'nl': 2, 'size': 3055},
- 'mr13': {'nl': 29, 'size': 20707},
+REF_SUMMARY = {'mr01': {'nl': 8, 'size': 5247},
+ 'mr02': {'nl': 8, 'size': 14263},
+ 'mr03': {'nl': 8, 'size': 13274},
+ 'mr04': {'nl': 8, 'size': 13152},
+ 'mr05': {'nl': 8, 'size': 21942},
+ 'mr06': {'nl': 8, 'size': 17184},
+ 'mr07': {'nl': 7, 'size': 4879},
+ 'mr08': {'nl': 6, 'size': 4524},
+ 'mr09': {'nl': 7, 'size': 9553},
+ 'mr10': {'nl': 7, 'size': 13174},
+ 'mr11': {'nl': 7, 'size': 8969},
+ 'mr12': {'nl': 2, 'size': 3051},
+ 'mr13': {'nl': 29, 'size': 20703},
  'pr01': {'by_object': False,
           'fw': '',
           'info_added': True,

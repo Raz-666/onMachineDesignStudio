@@ -169,7 +169,10 @@ _v_daemon = re.search(r"POSTPROC_RELEASE = '([^']+)'", PP)
 
 
 def _newest(txt):
-    vs = re.findall(r'R2-(\d{4}-\d{2}-\d{2}\.\d+[a-z])', txt)
+    # R241 (.137): [a-z]* - bare numbers match too (the old single-letter
+    # class was an R229 leftover: it truncated .136aj to .136a and C4
+    # quietly drifted; retired battery, repaired in the .137 round)
+    vs = re.findall(r'R2-(\d{4}-\d{2}-\d{2}\.\d+[a-z]*)', txt)
     return max(vs).replace('R2-', '') if vs else None
 
 

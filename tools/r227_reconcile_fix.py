@@ -123,7 +123,9 @@ check("F3 POSTPROC_BUILD names a round >= R227 (the field boot said "
 # R233 (.136ad): the DATE part is not pinned any more - the .136ad release
 # moved to 2026-11-09 and the anchored regex went stale on the day change;
 # only number+suffix are round-relevant.
-_r227m = re.search(r"^POSTPROC_RELEASE = 'R2-\d{4}-\d{2}-\d{2}\.(\d+)([a-z]+)'$",
+# R241 (.137): bare numbers carry no letter suffix - [a-z]* not [a-z]+ (the
+# old regex returned None on 'R2-2026-11-09.137' and F3 failed)
+_r227m = re.search(r"^POSTPROC_RELEASE = 'R2-\d{4}-\d{2}-\d{2}\.(\d+)([a-z]*)'$",
                    src, re.M)
 check('F3 POSTPROC_RELEASE >= .136y',
       bool(_r227m) and (int(_r227m.group(1)) > 136

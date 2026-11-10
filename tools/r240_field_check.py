@@ -261,10 +261,13 @@ print('--- F) version ------------------------------------------------------')
 st = rd('..', 'macros', '01_state.cfg')
 _live240 = '\n'.join(l for l in allmacros.split('\n')
                     if not l.lstrip().startswith('#'))
-check('F1: version .136aj everywhere, no .136ai leftovers in live cfg lines',
-      "'R2-2026-11-09.136aj'" in st
+# R241 (.137): bare version numbers are first class (odometer: sfx('')=0) -
+# the regex must not require a letter any more.
+check('F1: version .137 everywhere, no .136aj/.136ai leftovers in live cfg lines',
+      "'R2-2026-11-09.137'" in st
       and '.136ai' not in _live240
-      and 'R2-2026-11-09.136aj' in rd('..', 'MANUAL.md'), '')
+      and '.136aj' not in _live240
+      and 'R2-2026-11-09.137' in rd('..', 'MANUAL.md'), '')
 
 print()
 print('%d checks, %d failed' % (ok + fails, fails))

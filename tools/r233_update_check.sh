@@ -294,13 +294,26 @@ cp "${ACZIP}" "${NEWZIP}" "$(cfgdir "${SB}")/"
 run_upd "${SB}"
 chk "S1: the old script picks the NEWEST zip (${NEW_VER})" \
     has "${SB}" "uploaded update zip found: klipper-e3-r2d2-UPDATE-${NEW_VER}.zip"
-chk "S1: ...and refuses it as OLDER (the field bug, live)" \
-    has "${SB}" "that zip is OLDER than the installed version - not unpacking it."
-chk "S1: package stays on ${OLD_VER}" ver_is "${SB}" "${OLD_VER}"
-chk "S1: both zips stay in the config folder (nothing was unpacked)" \
-    fis2 "$(cfgdir "${SB}")/klipper-e3-r2d2-UPDATE-${AC_VER}.zip" \
-         "$(cfgdir "${SB}")/klipper-e3-r2d2-UPDATE-${NEW_VER}.zip"
-chk "S1: the refusal does not abort the run (the field log showed the same)" \
+if [ "${NEW_N}" = "136" ]; then
+    chk "S1: ...and refuses it as OLDER (the field bug, live)" \
+        has "${SB}" "that zip is OLDER than the installed version - not unpacking it."
+    chk "S1: package stays on ${OLD_VER}" ver_is "${SB}" "${OLD_VER}"
+    chk "S1: both zips stay in the config folder (nothing was unpacked)" \
+        fis2 "$(cfgdir "${SB}")/klipper-e3-r2d2-UPDATE-${AC_VER}.zip" \
+             "$(cfgdir "${SB}")/klipper-e3-r2d2-UPDATE-${NEW_VER}.zip"
+else
+    # R241 (.137+): a BARE number is past the whole .136 series - even the
+    # OLD string gate sees 137 > 136z, so the letter-era field bug cannot
+    # (and must not) reproduce. The old script ACCEPTS instead - pinned as
+    # a real field guarantee: .137 flashes from ANY historical install,
+    # even a pre-odometer one, without --force.
+    chk "S1: ...and ACCEPTS it (bare .${NEW_N} beats the old string gate too)" \
+        lacks "${SB}" "that zip is OLDER"
+    chk "S1: package updates straight to ${NEW_VER}" ver_is "${SB}" "${NEW_VER}"
+    chk "S1: the stale ${AC_VER} zip stays untouched in the config folder" \
+        test -f "$(cfgdir "${SB}")/klipper-e3-r2d2-UPDATE-${AC_VER}.zip"
+fi
+chk "S1: the run does not abort (the field log showed the same)" \
     has "${SB}" "== done. Happy printing! =="
 
 # the hard pin of THIS release: the old gate must refuse .136ad over .136z
@@ -313,7 +326,8 @@ if [ "${NEW_N}" = "136" ]; then
     fi
 else
     echo "  [i] S1 hard pin: .${NEW_N}${NEW_S} is past the .136 series - the old"
-    echo "      gate refuses it by NUMBER now, the odometer premise is gone"
+    echo "      gate ACCEPTS it by NUMBER (no odometer needed) - the field"
+    echo "      guarantee of the bare renumber: it updates ANY historical install"
 fi
 
 # --- S2: the recovery path - --force once, exactly as the field needs it --------------
@@ -321,8 +335,15 @@ SB="$(mk_sb)"
 install_pkg "${SB}" "${OLD_C}"
 cp "${ACZIP}" "${NEWZIP}" "$(cfgdir "${SB}")/"
 run_upd "${SB}" --force
-chk "S2: --force announces the deliberate downgrade" \
-    has "${SB}" "[i] --force: unpacking the OLDER zip anyway"
+if [ "${NEW_N}" = "136" ]; then
+    chk "S2: --force announces the deliberate downgrade" \
+        has "${SB}" "[i] --force: unpacking the OLDER zip anyway"
+else
+    # R241 (.137+): the zip is not older - nothing to announce, --force
+    # is simply not needed any more from a .136z-era install
+    chk "S2: no downgrade announce (.${NEW_N} is simply newer)" \
+        lacks "${SB}" "[i] --force: unpacking the OLDER zip anyway"
+fi
 chk "S2: the NEW zip is the one unpacked" \
     has "${SB}" "unpacking over $(cfgdir "${SB}")/klipper-e3-r2d2"
 chk "S2: the run re-execs the NEW update.sh" \

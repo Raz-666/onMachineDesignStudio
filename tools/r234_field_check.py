@@ -271,10 +271,17 @@ try:
        % (REPO, seed))
     base_ver = re.sub(r'(\.\d+)[a-z]+$', '', NEW_VER)   # .136ae -> .136
     # one letter back on the odometer: aa->z, ab->aa, ad->ac ...
-    m3 = re.search(r'\.(\d+)([a-z]+)$', NEW_VER)
+    # R241 (.137): a BARE number has no letter - its odometer predecessor is
+    # the previous number with 'z' (.137 -> .136z), exactly how the update
+    # gate orders things (137 > 136z because the number dominates).
+    m3 = re.search(r'\.(\d+)([a-z]*)$', NEW_VER)
     _n, _s = m3.group(1), m3.group(2)
-    _back = (_s[:-1] + chr(ord(_s[-1]) - 1)) if _s[-1] != 'a' else (
-        _s[:-1] if len(_s) > 1 else '')
+    if _s:
+        _back = (_s[:-1] + chr(ord(_s[-1]) - 1)) if _s[-1] != 'a' else (
+            _s[:-1] if len(_s) > 1 else '')
+    else:
+        _back = 'z'
+        _n = str(int(_n) - 1)
     PREV_VER = 'R2-2026-11-09.%s%s' % (_n, _back)
     st = os.path.join(seed, 'macros', '01_state.cfg')
     _txt = open(st, encoding='utf-8').read().replace(NEW_VER, PREV_VER)

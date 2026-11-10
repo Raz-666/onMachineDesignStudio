@@ -221,9 +221,12 @@ ck('embedded: the offline fallback JSON is the CURRENT export '
 
 # ---------------- 7) the page version matches the release -------------------
 _st = rd('macros/01_state.cfg')
-_ver = re.search(r"variable_version:\s*'R2-\d{4}-\d{2}-\d{2}\.(\d+[a-z])'",
+# R241 (.137): [a-z]* - bare version numbers are first class (the old
+# single-letter class predated the two-letter era R229 and never matched
+# .136aj or .137 at all - the check reported 'page None vs state None')
+_ver = re.search(r"variable_version:\s*'R2-\d{4}-\d{2}-\d{2}\.(\d+[a-z]*)'",
                  _st)
-_pver = re.search(r'<span id="ver">\.(\d+[a-z])</span>', HTML)
+_pver = re.search(r'<span id="ver">\.(\d+[a-z]*)</span>', HTML)
 ck('version: the page ver badge matches 01_state (%s)'
    % (_pver.group(1) if _pver else '?'),
    _ver and _pver and _ver.group(1) == _pver.group(1),
@@ -233,7 +236,9 @@ ck('version: the page ver badge matches 01_state (%s)'
 # page moved to R219 - the battery had run BEFORE the version bump and the
 # zip shipped a check that fails on the user's Pi. ROUND below MUST move
 # with every release bump - and the battery MUST re-run AFTER the bump.
-ROUND = 'R230'
+# R241 (.137): the page badge + state ver are maintained again (the .137
+# round repaired the stale .136ab badge - user request: no version confusion)
+ROUND = 'R241'
 _state_ver = re.search(r"ver:'(R\d+)'", HTML)
 ck('version: the page state ver is the current round (%s)' % ROUND,
    _state_ver and _state_ver.group(1) == ROUND,
