@@ -270,22 +270,22 @@ for _f in sorted(os.listdir(os.path.join(HERE, '..', 'macros'))):
         _live += rd('macros', _f).split('\n')
 _live += rd('menus', 'lcd_menues.cfg').split('\n')
 _live = '\n'.join(l for l in _live if not l.lstrip().startswith('#'))
-check('D1: version .140 everywhere, no .138/.139 leftovers in live cfg lines',
-      "'R2-2026-11-09.140'" in st
-      and '.138' not in _live and '.139' not in _live
-      and 'R2-2026-11-09.140' in rd('MANUAL.md')
-      and "POSTPROC_RELEASE = 'R2-2026-11-09.140'" in pp_src
-      and "POSTPROC_BUILD = 'R244'" in pp_src)
-check('D2: web badge .140, page state ver R244',
-      '<span id="ver">.140</span>' in html and "ver:'R244'}" in html)
+check('D1: version .141 everywhere, no .138/.139/.140 leftovers in live cfg lines',
+      "'R2-2026-11-09.141'" in st
+      and '.138' not in _live and '.139' not in _live and '.140' not in _live
+      and 'R2-2026-11-09.141' in rd('MANUAL.md')
+      and "POSTPROC_RELEASE = 'R2-2026-11-09.141'" in pp_src
+      and "POSTPROC_BUILD = 'R245'" in pp_src)
+check('D2: web badge .141, page state ver R245',
+      '<span id="ver">.141</span>' in html and "ver:'R245'}" in html)
 ta = rd('TESTANLEITUNG.md')
 check('D3: TESTANLEITUNG ch. 29 documents the ladder + field check',
       '## 29. Die .140-Neuerungen (R244' in ta
       and 'FIRMWARE_RESTART' in ta
       and '### Field-Check .140' in ta
       and 'R2-2026-11-09.140' in ta)
-check('D4: README carries the .140 row',
-      '**.140 (R244)**' in rd('README.md'))
+check('D4: README carries the .141 row',
+      '**.141 (R245)**' in rd('README.md'))
 
 print('--- E) the real crash archive (fake HOME) ---------------------------')
 

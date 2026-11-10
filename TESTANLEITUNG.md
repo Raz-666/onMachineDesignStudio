@@ -1,6 +1,6 @@
-# TESTANLEITUNG — R2-D2 Makro-System (Version .140)
+# TESTANLEITUNG — R2-D2 Makro-System (Version .141)
 
-Diese Anleitung beschreibt **nur den aktuellen Stand** (.140). Sie ist die
+Diese Anleitung beschreibt **nur den aktuellen Stand** (.141). Sie ist die
 komplette Feld-Checkliste nach dem Einspielen eines Updates — von Boot bis
 Druckergebnis. Die Historie der Änderungen steht in README.md.
 
@@ -18,7 +18,7 @@ Druckergebnis. Die Historie der Änderungen steht in README.md.
 ## 2. Boot-Check (Pflicht, 1 Minute)
 
 - [ ] Konsole: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.140)`
+      (build R2-2026-11-09.141)`
 - [ ] ~10 s nach dem Boot: Boot-Sound + LED-Animation
 - [ ] `SHOW_STATUS` antwortet mit Modus/Material/Overrides
 - [ ] Kein Eintrag fehlt: sonst meldet sich `_CHECK_INSTALL` laut mit
@@ -552,7 +552,7 @@ kontaminierte Fenster werden verworfen.
 - [ ] Neue Datei erscheint nach Job-Ende im LCD-Ordner UND im Web-UI
 - [ ] Defaults > Load 1 → Display „Loading profile“ → Beep → „Loaded“
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.140)`
+      (build R2-2026-11-09.141)`
 
 **Alles grün?** Dann ist .136ag field-clear. Wenn etwas auffällt: Konsole
 kopieren — daraus wird der nächste Feldlog-Eintrag.
@@ -612,7 +612,7 @@ Drei Antworten:
 - [ ] `TEXTURE_APPLY PATTERN=MAP` ohne jedes Bild → sofort
       „MAP needs an image“ + Error-Beep (nicht erst in der Queue)
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.140)`
+      (build R2-2026-11-09.141)`
 
 **Alles grün?** Dann ist .136ah field-clear. Wenn etwas auffällt:
 Konsole kopieren — daraus wird der nächste Feldlog-Eintrag.
@@ -720,7 +720,7 @@ Druck normal.
 - [ ] Ein Logo (heller Hintergrund) als MAP → ONCE + Pos: top → Logo
       einmal herum oben, Hintergrund unangetastet, Naht unsichtbar
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.140)`
+      (build R2-2026-11-09.141)`
 
 **Alles grün?** Dann ist .136ai field-clear. Wenn etwas auffällt:
 Konsole kopieren — daraus wird der nächste Feldlog-Eintrag.
@@ -812,7 +812,7 @@ LED-Hauptschalter und die 0,5-Power-Cap-Regel.
 - [ ] Gen queue > Stop (2× drücken!) → diesmal REALLY Doppelklick:
       erster Druck „Gen: stop?", zweiter beendet
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.140)`
+      (build R2-2026-11-09.141)`
 
 **Alles grün?** Dann ist .136aj field-clear. Wenn etwas auffällt:
 Konsole kopieren — daraus wird der nächste Feldlog-Eintrag.
@@ -828,7 +828,7 @@ Update von .136ai ODER .136aj auf .137 zieht ganz normal.
 
 Was sich in .137 Wirklich ändert:
 
-- **Versions-Strings:** State, Postproc-Kern (`core R2-2026-11-09.140
+- **Versions-Strings:** State, Postproc-Kern (`core R2-2026-11-09.141
   (R241)`), Manual, Web-UI-Badge (der zeigte lange .136ab — jetzt .137).
 - **Batterie-Reparaturen für nackte Nummern:** r227/r234/r217/r218
   verlangten noch einen Buchstaben hinter der Zahl — seit .137 ist der
@@ -840,7 +840,7 @@ Was sich in .137 Wirklich ändert:
 - [ ] Update mit dem .137-Zip einspielen (über .136ai/.136aj: normal,
       ohne --force — der Zähler weiß, dass 137 > 136aj)
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.140)`
+      (build R2-2026-11-09.141)`
 - [ ] Web-UI öffnen: das Version-Kästchen oben zeigt **.137**
 - [ ] Ein Druck starten → läuft an wie unter .136aj (Kapitel 25, Punkt 1)
 
@@ -1030,3 +1030,54 @@ Kapitel 27/28: Pi-Neustart 09:22 (Strom?), Hardware-Checkliste, und
 (BigRosMIRmyChecker3 hatte 14746 Moves/s — 33× über dem MCU-Budget von
 ~450/s; das System warnt davor, aber drucken solltest Du erst nach
 SegFix).
+
+## 30. Die .141-Neuerungen (R245 — erst parken, dann feiern)
+
+**Feldlog .140 (10. Nov, 18:14):** Der 1h15m-Texturdruck lief durch — und
+eine Sekunde nach `PRINT DONE` starb der MCU an `Timer too close`. Die
+Fertig-Melodie brach nach dem ersten Ton ab, und die Düse stand noch auf
+dem Teil. (.140s Auto-Recovery hat den Drucker nach 100 s zurückgebracht —
+erste produktive Rettung, Snapshot liegt in `crash_archive/`.)
+
+**Ursache (zwei Schichten):**
+1. **Falsche Reihenfolge:** `PRINT_END` lief Stats → LED → Melodie →
+   Lüfter → Heater → Cleanup — und parkte den Kopf **zuletzt**. Die Düse
+   saß die ganze End-Choreografie über auf dem fertigen Teil.
+2. **Der Stall-Treiber im selben Fenster:** `_OPT_END_CAPTURE` lief als
+   ERSTES — seine `SAVE_VARIABLE`s sind synchrone SD-Schreibvorgänge auf
+   die variables.cfg, mitten im Klippy-Reactor (R216b-Klasse, bis 1,9 s
+   Stillstand pro Schreibvorgang), während die letzten Moves der
+   14746-Moves/s-Datei noch ausliefen.
+
+**Fix — die neue PRINT_END-Reihenfolge:**
+
+1. Sicherheits-Restores (PA/Shaper, rein In-Memory)
+2. State-Cleanup (In-Memory; der R160b-Schutz „verweigerte Fahrt kann
+   nichts verkeilen" bleibt erhalten)
+3. **Präsentationsfahrt: Z+15 mm, Kopf zur Seite** — die Düse verlässt
+   das Teil als erstes
+4. Stats → Opt-Capture (SD-Schreibvorgänge) → LED → **Melodie** →
+   Lüfter/Heater → Motoren aus (verzögert) → Mesh-Persistenz
+
+Ab Schritt 3 ist die Move-Queue leer — jeder spätere Reactor-Stall
+(auch die SD-Schreibvorgänge) kann dem MCU nichts mehr anhaben. Die
+Fertig-Melodie spielt nur noch für ein **präsentiertes** Teil.
+
+**Gleich mitgefangen (Review-Fund):** `_PRINT_CLEANUP` resettet `layer`
+— die Stats hätten danach „layers: 0" gedruckt. Der Layer-Zähler wird
+jetzt vor dem Cleanup eingefangen (R174-Klasse bleibt tot).
+
+### Field-Check .141
+
+- [ ] Boot: `Macro system OK: all 19 modules loaded and current
+      (build R2-2026-11-09.141)`
+- [ ] Druck enden lassen → **zuerst** fährt der Kopf hoch/zur Seite,
+      **dann** kommt die Melodie — die Düse steht nie auf dem Teil
+- [ ] `Duration: … | layers: NNN` zeigt die echte Layer-Zahl (nicht 0)
+- [ ] Kein `Timer too close` im Endfenster; Web-Badge `.141`
+- [ ] Wenn doch mal ein Vorfall: `crash_archive/` füllt sich, die
+      Auto-Recovery meldet sich (Kap. 29)
+
+**Offen (nächstes Kapitel der Ursachenjagd):** Das `crash_archive/`-Log
+des 18:14-Vorfalls (SD-Browser → crash_archive → mcu-*.log oder 3-h-
+Export) zeigt die exakte Stall-Komposition — bitte mitschicken.
