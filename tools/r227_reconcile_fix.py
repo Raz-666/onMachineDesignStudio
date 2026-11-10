@@ -113,7 +113,9 @@ check('F2 counts: 7 releases / 3 raises in the daemon '
 print('--- F3: the daemon build stamp names its round')
 # .136r lesson: a hard round pin goes stale on the NEXT bump - the checks
 # are round-aware now (>= the round that introduced the fix)
-_b227m = re.search(r"^POSTPROC_BUILD = 'R(\d+)'$", src, re.M)
+# R246b (.142a): hotfix rounds carry a letter (R246b) - the number is
+# the round, the letter the hotfix inside it
+_b227m = re.search(r"^POSTPROC_BUILD = 'R(\d+)[a-z]*'$", src, re.M)
 check("F3 POSTPROC_BUILD names a round >= R227 (the field boot said "
       "'.136x (R223)' - the stamp had not been bumped since R223)",
       bool(_b227m) and int(_b227m.group(1)) >= 227)
