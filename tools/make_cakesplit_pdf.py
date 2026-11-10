@@ -105,7 +105,7 @@ class Doc(BaseDocTemplate):
         canv.line(17*mm, 285*mm, 193*mm, 285*mm)
         canv.setFont('DVS', 8.2); canv.setFillColor(GRAY)
         canv.drawString(17*mm, 287.2*mm, 'R2-D2 Macro System · Cut & Split — Methodik')
-        canv.drawRightString(193*mm, 287.2*mm, 'R2-2026-11-09.137')
+        canv.drawRightString(193*mm, 287.2*mm, 'R2-2026-11-09.138')
         canv.setFont('DVS', 8.6)
         canv.drawCentredString(105*mm, 9.5*mm, 'Seite %d' % doc.page)
         canv.restoreState()
@@ -531,7 +531,7 @@ def main():
         'der Datei-Header, nur die Cut-Zeilen kommen dazu.'))
 
     A(Spacer(1, 8*mm))
-    A(Paragraph('Ende · R2-D2 Cut &amp; Split · Stand .137 (R241)', S['end']))
+    A(Paragraph('Ende · R2-D2 Cut &amp; Split · Stand .138 (R242)', S['end']))
 
     out = os.path.join(os.path.dirname(os.path.dirname(
         os.path.abspath(__file__))), 'CUTSPLIT.pdf')

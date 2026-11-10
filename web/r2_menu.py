@@ -131,6 +131,10 @@ class R2MenuComponent:
         self._live_t = 0.0
         self._cf_cache = None          # R219: configfile settings-keys,
         self._cf_t = 0.0               # 60 s cache (megabyte fallback)
+        self._sv_cache = None          # R242: save_variables 10 s tier - the
+        self._sv_t = 0.0               # fat dict serializes INSIDE klippy
+        self._diet_cache = None        # R242: last full (thin) snapshot for
+                                        # the start-window diet merge
         self.server.register_endpoint(
             '/server/r2_menu/tree', ['GET'],
             self._handle_tree)
@@ -298,6 +302,28 @@ class R2MenuComponent:
         except Exception as e:                                   # noqa: BLE001
             return {'ok': False, 'reason': 'object list: %s' % e}
         wanted = self._live_wanted()
+        # R242 (.138 field log: 'Timer too close' during homing): the start
+        # was triggered from the LCD, so the page's R215 quiet window never
+        # armed and the full ~17-object batch (incl. save_variables - which
+        # klippy serializes as the WHOLE variables dict: sd_tree, gen_files,
+        # file profiles, the depot) hit the exact window where homing plans
+        # moves just-in-time. The SERVER now diets itself: one tiny precheck
+        # (print_stats + _STATE - both small dicts) decides, and while a
+        # start is in flight (mode 'waiting' = held dialog, 'starting' =
+        # decision made, homing + mesh + prime running) only the LIGHT
+        # objects are queried - the rest is served from the last full
+        # snapshot. LCD start or web start no longer matters.
+        _LIGHT = ('display_status', 'print_stats', 'gcode_macro _STATE',
+                  'extruder', 'heater_bed', 'toolhead', 'gcode_move',
+                  'virtual_sdcard', 'fan')
+        try:
+            _pre = dict(await apis.query_objects(
+                {o: None for o in ('print_stats', 'gcode_macro _STATE')
+                 if o in objs}) or {})
+        except Exception:                                       # noqa: BLE001
+            _pre = {}
+        _diet = ((_pre.get('gcode_macro _STATE') or {}).get('mode', '')
+                 in ('waiting', 'starting'))
         # R215 (.136l field log): 'configfile: None' serializes the WHOLE
         # object in klippy - including the raw config text (megabytes on
         # this install). The menus only test section names in .settings,
@@ -306,6 +332,16 @@ class R2MenuComponent:
         # 'Timer too close' contributors while the page was open.
         want = {o: ('settings' if o == 'configfile' else None)
                 for o in objs if o in wanted}
+        # R242: save_variables rides a 10 s tier - klippy's serialization
+        # of the whole variables dict is the single fattest recurring
+        # webhooks cost, and the page prunes it down anyway (sd_view stays
+        # fresh enough for the mirrored SD browser)
+        _sv_fresh = (self._sv_cache is not None
+                     and _t.monotonic() - self._sv_t < 10.0)
+        if _sv_fresh:
+            want.pop('save_variables', None)
+        if _diet:
+            want = {o: f for o, f in want.items() if o in _LIGHT}
         # R219 (.136q field log: live values '?', Maintenance gone, SD
         # empty - ALL THREE at once): moonraker's query_objects SWALLOWS
         # klippy errors and returns the DEFAULT - a failed batch query
@@ -359,6 +395,25 @@ class R2MenuComponent:
             self._cf_t = _t.monotonic()
         elif self._cf_cache is not None and 'configfile' in objs:
             status['configfile'] = dict(self._cf_cache)
+        # R242: fill / serve the save_variables 10 s tier (a copy every
+        # time - _prune_status DELETES keys from the dict it walks)
+        svv = status.get('save_variables')
+        if svv and isinstance(svv.get('variables'), dict):
+            self._sv_cache = {'variables': dict(svv['variables'])}
+            self._sv_t = _t.monotonic()
+        elif _sv_fresh and self._sv_cache is not None:
+            status['save_variables'] = {
+                'variables': dict(self._sv_cache['variables'])}
+        # R242: start-window diet - the light query refreshed only the hot
+        # objects; everything else comes from the last FULL snapshot
+        # (stored post-prune: thin, and the in-place pruning below cannot
+        # damage it)
+        if _diet:
+            if self._diet_cache:
+                for k, v in self._diet_cache.items():
+                    status.setdefault(k, v)
+        elif len(status) > 4:
+            self._diet_cache = status
         pruned = self._prune_status(status)
         # R212 (.136k field log: the generator menu entries vanished from
         # the web-LCD): enables test OBJECT EXISTENCE

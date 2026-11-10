@@ -77,8 +77,8 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-09.137'
-POSTPROC_BUILD = 'R241'
+POSTPROC_RELEASE = 'R2-2026-11-09.138'
+POSTPROC_BUILD = 'R242'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
 # and no speed/accel/nozzle parameters. Files carrying an OLD tag are UPGRADED
@@ -21800,6 +21800,55 @@ def _sel_note(rv, queued_txt, preview_txt=None):
     return queued_txt if _gen_out(rv) else (preview_txt or ' - in the file list (preview it first)')
 
 
+# ---- R242 (.138 field log: 'Timer too close' during homing) ------------------------
+# Every file selection bumped preview_nonce TWICE by design: R62's selection
+# push and R195's _DIALOG_PEEK re-peek 8 s later. Each push ships the ~20 KB
+# script (two EXCLUDE_OBJECT_DEFINE polygons + the raw _FILE_INFO line)
+# through moonraker -> webhooks -> klippy - TWICE, right in the window where
+# homing needs the reactor (the .137 field log shows the fatal 0.54 s stall
+# built from exactly these bursts). The re-peek exists for the GAP cases:
+# first push lost, file swapped under the dialog, klippy restarted. All
+# three are DETECTABLE - so the second push is skipped when it cannot
+# change anything: same file, same mtime+size, previous push ACKED, within
+# the dedupe window, and klippy's _PREVIEW still HOLDS the file's name
+# (a restart resets the macro - the liveness proof).
+_PREVIEW_DEDUP_WIN = 120.0
+_preview_last = {'key': None, 't': 0.0, 'ok': False}
+
+
+def _preview_key(pfn, ppath):
+    """Stable identity of a file selection: name + mtime + size."""
+    try:
+        st = os.stat(ppath)
+        return (str(pfn).strip(), st.st_mtime_ns, st.st_size)
+    except OSError:
+        return None
+
+
+def _preview_dup_skip(pfn, ppath, now=None):
+    """True when an identical preview push just landed - skip the re-peek."""
+    if now is None:
+        now = time.time()
+    key = _preview_key(pfn, ppath)
+    if key is None or key != _preview_last['key'] or not _preview_last['ok']:
+        return False
+    if now - _preview_last['t'] > _PREVIEW_DEDUP_WIN:
+        return False
+    try:
+        held = (_moonraker_status().get('gcode_macro _PREVIEW')
+                or {}).get('name', '')
+    except Exception:                                      # noqa: BLE001
+        return False                # status unknown - push (best effort)
+    return str(held).strip() == str(pfn).strip()
+
+
+def _preview_remember(pfn, ppath, ok):
+    """Record a successful (or failed) push for the dedupe decision."""
+    _preview_last['key'] = _preview_key(pfn, ppath)
+    _preview_last['t'] = time.time()
+    _preview_last['ok'] = bool(ok)
+
+
 def _preview_script(ppath):
     """R74/R75: the moonraker script that makes the LCD show THIS file the moment
     it is selected - not the values of the last print (the .57 field log:
@@ -24092,28 +24141,41 @@ def watch(directory, interval=5.0, once=False):
                 pfn = rv.get('preview_file', '')
                 ppath = os.path.join(directory, pfn.strip())
                 if pfn and os.path.isfile(ppath):
-                    try:
-                        script_lines, nvals = _preview_script(ppath)
-                        # R109: file profiles - the moment THIS file is selected,
-                        # its stored settings (pre/post, whichever is newer)
-                        # apply to Pre-Print. The macro no-ops without a
-                        # profile or when auto-load is off.
-                        # R132 field log .92: the macro is FILE_PROFILE_AUTO
-                        # (05_materials.cfg) - the underscore variant spams
-                        # 'Unknown command' on every file selection.
-                        script_lines.append(
-                            'FILE_PROFILE_AUTO FILE="%s"'
-                            % str(pfn).replace('"', '').replace(';', '')
-                                     .replace("'", ''))
+                    # R242: the R195 dialog re-peek must not re-ship the
+                    # ~20 KB script when the R62 selection push just landed
+                    # and klippy still holds the values (Timer-too-close
+                    # field log .137 - the double push hit the homing
+                    # window twice per selection).
+                    if _preview_dup_skip(pfn, ppath):
+                        print('[preview] %s: identical re-peek within %.0fs - '
+                              'heavy push skipped (R242: the selection push just '
+                              'landed, klippy still holds the values)'
+                              % (pfn, _PREVIEW_DEDUP_WIN), flush=True)
+                    else:
                         try:
-                            ok = _moonraker_gcode('\n'.join(script_lines))
-                            print(f'[preview] {pfn}: {nvals} values pushed to Klipper'
-                                  + ('' if ok else ' (moonraker unreachable - values not visible in the LCD)'), flush=True)
-                        except Exception as pe:            # noqa: BLE001
-                            print(f'[preview] {pfn}: {nvals} values read, but moonraker is unreachable '
-                                  f'({pe.__class__.__name__}) - the LCD shows them from the print start instead', flush=True)
-                    except Exception as e:              # noqa: BLE001
-                        print(f'[preview] {pfn}: {e!r}', flush=True)
+                            script_lines, nvals = _preview_script(ppath)
+                            # R109: file profiles - the moment THIS file is selected,
+                            # its stored settings (pre/post, whichever is newer)
+                            # apply to Pre-Print. The macro no-ops without a
+                            # profile or when auto-load is off.
+                            # R132 field log .92: the macro is FILE_PROFILE_AUTO
+                            # (05_materials.cfg) - the underscore variant spams
+                            # 'Unknown command' on every file selection.
+                            script_lines.append(
+                                'FILE_PROFILE_AUTO FILE="%s"'
+                                % str(pfn).replace('"', '').replace(';', '')
+                                         .replace("'", ''))
+                            try:
+                                ok = _moonraker_gcode('\n'.join(script_lines))
+                                _preview_remember(pfn, ppath, ok)
+                                print(f'[preview] {pfn}: {nvals} values pushed to Klipper'
+                                      + ('' if ok else ' (moonraker unreachable - values not visible in the LCD)'), flush=True)
+                            except Exception as pe:            # noqa: BLE001
+                                _preview_remember(pfn, ppath, False)
+                                print(f'[preview] {pfn}: {nvals} values read, but moonraker is unreachable '
+                                      f'({pe.__class__.__name__}) - the LCD shows them from the print start instead', flush=True)
+                        except Exception as e:              # noqa: BLE001
+                            print(f'[preview] {pfn}: {e!r}', flush=True)
 
             # ---- R169: optimized copy request (the rate-print YES answer) --------
             try:

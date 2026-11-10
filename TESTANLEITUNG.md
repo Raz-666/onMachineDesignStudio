@@ -1,6 +1,6 @@
-# TESTANLEITUNG — R2-D2 Makro-System (Version .137)
+# TESTANLEITUNG — R2-D2 Makro-System (Version .138)
 
-Diese Anleitung beschreibt **nur den aktuellen Stand** (.137). Sie ist die
+Diese Anleitung beschreibt **nur den aktuellen Stand** (.138). Sie ist die
 komplette Feld-Checkliste nach dem Einspielen eines Updates — von Boot bis
 Druckergebnis. Die Historie der Änderungen steht in README.md.
 
@@ -18,7 +18,7 @@ Druckergebnis. Die Historie der Änderungen steht in README.md.
 ## 2. Boot-Check (Pflicht, 1 Minute)
 
 - [ ] Konsole: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.137)`
+      (build R2-2026-11-09.138)`
 - [ ] ~10 s nach dem Boot: Boot-Sound + LED-Animation
 - [ ] `SHOW_STATUS` antwortet mit Modus/Material/Overrides
 - [ ] Kein Eintrag fehlt: sonst meldet sich `_CHECK_INSTALL` laut mit
@@ -552,7 +552,7 @@ kontaminierte Fenster werden verworfen.
 - [ ] Neue Datei erscheint nach Job-Ende im LCD-Ordner UND im Web-UI
 - [ ] Defaults > Load 1 → Display „Loading profile“ → Beep → „Loaded“
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.137)`
+      (build R2-2026-11-09.138)`
 
 **Alles grün?** Dann ist .136ag field-clear. Wenn etwas auffällt: Konsole
 kopieren — daraus wird der nächste Feldlog-Eintrag.
@@ -612,7 +612,7 @@ Drei Antworten:
 - [ ] `TEXTURE_APPLY PATTERN=MAP` ohne jedes Bild → sofort
       „MAP needs an image“ + Error-Beep (nicht erst in der Queue)
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.137)`
+      (build R2-2026-11-09.138)`
 
 **Alles grün?** Dann ist .136ah field-clear. Wenn etwas auffällt:
 Konsole kopieren — daraus wird der nächste Feldlog-Eintrag.
@@ -720,7 +720,7 @@ Druck normal.
 - [ ] Ein Logo (heller Hintergrund) als MAP → ONCE + Pos: top → Logo
       einmal herum oben, Hintergrund unangetastet, Naht unsichtbar
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.137)`
+      (build R2-2026-11-09.138)`
 
 **Alles grün?** Dann ist .136ai field-clear. Wenn etwas auffällt:
 Konsole kopieren — daraus wird der nächste Feldlog-Eintrag.
@@ -812,7 +812,7 @@ LED-Hauptschalter und die 0,5-Power-Cap-Regel.
 - [ ] Gen queue > Stop (2× drücken!) → diesmal REALLY Doppelklick:
       erster Druck „Gen: stop?", zweiter beendet
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.137)`
+      (build R2-2026-11-09.138)`
 
 **Alles grün?** Dann ist .136aj field-clear. Wenn etwas auffällt:
 Konsole kopieren — daraus wird der nächste Feldlog-Eintrag.
@@ -828,7 +828,7 @@ Update von .136ai ODER .136aj auf .137 zieht ganz normal.
 
 Was sich in .137 Wirklich ändert:
 
-- **Versions-Strings:** State, Postproc-Kern (`core R2-2026-11-09.137
+- **Versions-Strings:** State, Postproc-Kern (`core R2-2026-11-09.138
   (R241)`), Manual, Web-UI-Badge (der zeigte lange .136ab — jetzt .137).
 - **Batterie-Reparaturen für nackte Nummern:** r227/r234/r217/r218
   verlangten noch einen Buchstaben hinter der Zahl — seit .137 ist der
@@ -840,9 +840,74 @@ Was sich in .137 Wirklich ändert:
 - [ ] Update mit dem .137-Zip einspielen (über .136ai/.136aj: normal,
       ohne --force — der Zähler weiß, dass 137 > 136aj)
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.137)`
+      (build R2-2026-11-09.138)`
 - [ ] Web-UI öffnen: das Version-Kästchen oben zeigt **.137**
 - [ ] Ein Druck starten → läuft an wie unter .136aj (Kapitel 25, Punkt 1)
 
 **Alles grün?** Dann ist .137 field-clear. Wenn etwas auffällt:
 Konsole kopieren — daraus wird der nächste Feldlog-Eintrag.
+
+## 27. Die .138-Neuerungen (R242 — die Start-Fenster-Diät)
+
+**Feldlog .137:** zweimal `MCU 'mcu' shutdown: Timer too close` — beide
+Male mitten im **Homing** nach Datei-Auswahl, bei sauberen Dateien
+(MAXRATE 12, gcodein=0). Das Klippy-Log zeigte die Ursache: Der Reactor
+stand 0,54 s still (`Reactor busy for 0.541`), aufgebaut aus genau den
+Lasten, die unser eigener Start-Window erzeugt:
+
+1. **Der doppelte Preview-Push.** Jede Datei-Auswahl bumpte die
+   `preview_nonce` zweimal (R62-Auswahl + R195-Dialog-Re-Peek) — der
+   Watcher schickte das ~20-kB-Skript (zwei Riesen-Polygone + rohe
+   `_FILE_INFO`) **zweimal** durch moonraker→webhooks→klippy, exakt
+   während das Homing Moves plant. **Fix:** Der zweite Push wird
+   übersprungen, wenn er nichts ändern kann — gleiche Datei, gleiche
+   Größe+mtime, vorheriger Push bestätigt, und klippy hält die Werte
+   noch (`_PREVIEW.name` = Datei — ein Neustart resettet das und der
+   Push läuft wieder).
+2. **Der fette Web-Poll.** Die Web-UI holte alle 3 s ~17 Objekte, darunter
+   `save_variables` — das klippy als GANZES Variablen-Dict serialisiert
+   (sd_tree, gen_files, Profile, Depot: 10–30 kB JSON pro Poll). **Fix:**
+   10-s-Tier für save_variables + eine **Server-seitige Start-Diät**: ein
+   Mini-Precheck (print_stats + _STATE) erkennt `waiting`/`starting` und
+   fragt dann NUR die leichten Objekte (Temperaturen, Modus, Fortschritt)
+   ab — der Rest kommt aus dem letzten Voll-Snapshot. Gilt jetzt auch für
+   LCD-Starts (die R215-Ruhe der Web-Seite armierte nur bei ihren eigenen
+   Befehlen).
+3. **LED-Frames.** Die animierten Effekte liefen mit 6 fps = sechs
+   Neopixel-Transfers pro Sekunde auf einer Leitung, die schon im Leerlauf
+   Updates verliert (`Neopixel update did not succeed` — jede_FAILURE wird
+   von klippy sofort retried = Reactor-Churn). Dauerlauf-Effekte jetzt
+   3 fps (Boot bleibt 6, Drucken bleibt 5 — r164 bewacht das).
+4. **Watchdog-Kadenz.** Der _WATCHDOG re-armte den _STATE_WATCHER alle 5 s
+   auf 0,5 s — der Ticker lief dadurch ~20 % öfter als geplant. Jetzt
+   konsistent 1 s.
+
+**Was das NICHT heilt — die Seriell-Schicht ist Hardware:** Das Log zeigt
+`bytes_retransmit` (verlorene Bytes Pi↔Board, auch bei kalten Heizern im
+Leerlauf!) und einmal einen **Pi-Neustart um 09:22**. Bitte prüfen:
+
+- [ ] USB-Kabel Pi↔Board: kurz, geschirmt, ggf. anderes Kabel + Ferrit
+- [ ] Pi-Stromversorgung: kräftiges 5V-Netzteil; auf dem Pi:
+      `vcgencmd get_throttled` (muss `0` sein) und `dmesg | grep -i usb`
+- [ ] LED-Datenleitung: 330-Ω-Widerstand in Reihe, gemeinsame Masse
+- [ ] Beim Drucker war um 09:22 ein Neustart des Pi — war der von Dir
+      (Stecker/powercycle) oder kam er von allein? (Von allein = Strom)
+- [ ] Alte Textur-/Mirror-Dateien (V04 hatte 6000 Moves/s!) vor dem Druck
+      einmal durch **Segment fix** schicken — das ist die ANDERE
+      Timer-too-close-Klasse ( Moves-Flut, Feldlog vom Vortag)
+
+### Field-Check .138
+
+- [ ] Datei am LCD auswählen → Konsole zeigt beim Dialog-Öffnen
+      `[preview] …: identical re-peek within 120s - heavy push skipped`
+      (einmalig, danach Ruhe) — statt zweier voller Pushes
+- [ ] Druck starten (Homing) → **kein** `Timer too close` mehr; Web-UI
+      darf dabei offen sein (Temperaturen im Dialog klettern live)
+- [ ] `Macro system OK: all 19 modules loaded and current
+      (build R2-2026-11-09.138)`
+- [ ] LED-Atmung im Leerlauf läuft (etwas ruhiger als vorher, 3 fps)
+- [ ] Web-UI-Badge zeigt `.138`
+
+**Alles grün?** Dann ist .138 field-clear. Wenn trotzdem wieder ein
+`Timer too close` kommt: sofort die Konsole + `klippy.log` sichern — dann
+ist die Seriell-/Strom-Schicht der nächste Verdächtige (Checkliste oben).
