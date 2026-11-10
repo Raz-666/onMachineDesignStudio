@@ -13,6 +13,14 @@ frozen references.
 RE-FREEZE HISTORY: the .134 version bump changed the core stamp line in
 every mr excerpt (verified: exactly ONE line per case differs, .133 ->
 .134, nothing else) - refs re-frozen from the bumped module.
+RE-FREEZE HISTORY: R240 (.136aj) re-froze mr01-mr13 (stamp-bump
+class - proofs: the pre-bump module from git 60ae1db reproduces the
+previous refs byte-exactly (23/23), and the NEW module run with the
+OLD stamp (RELEASE .136ai + BUILD R236) produces a byte-identical
+freeze; the R240 edits live in the _ACCEL_SET rename, the profile
+engine, the LED progress hooks and the menu structure - make_range
+outputs change by the release stamp alone, pr01-pr10 byte-IDENTICAL,
+every summary unchanged).
 RE-FREEZE HISTORY: R238 (.136ai) re-froze mr01-mr13 (stamp-bump class
 again - proofs: the .136ah module from git ef43f21 reproduces the
 previous refs byte-exactly, and the NEW module run with the OLD stamp
@@ -266,19 +274,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # process() output is identical old vs new, ALL 13 mr md5s change (every
 # range excerpt carries the core stamp), no summary moves, and r81 was
 # 23/23 green with the R213 code BEFORE the stamp bump.
-REF_MD5 = {'mr01': '789d2c71285a83fe04b4cc3665165362',
- 'mr02': '01f292f901d765410ac937334ca50d54',
- 'mr03': '3bab2e3e15bef4b72e16bb246119abb4',
- 'mr04': '9308aac4e0a92b597c760a4d339a70f4',
- 'mr05': '55d0e87d5b8a3fa11832efab675165fe',
- 'mr06': 'd2c8a5950fbb337596caa8ad263125a4',
- 'mr07': '0f873b6ff099000157dbaaeaf2d95520',
- 'mr08': '0595f5e24e4c45ad9b41018c475ce2f0',
- 'mr09': '2cc4605a8c0d7bb8792bc53f9834bd74',
- 'mr10': 'd5e002ccbac68aa3cdfff3d811388519',
- 'mr11': '31e62cb930cf8fc68a41fc4561f177d8',
- 'mr12': 'db74844c0f0b993c1199a2a7592e9da6',
- 'mr13': 'd88dd6f823167d180c41050894af5865',
+REF_MD5 = {'mr01': '435735c500e90381532c84260b81f796',
+ 'mr02': 'ad1018c1b6f4d9013d0bee9ba0fc1edd',
+ 'mr03': '14403c52e334f8c7e9190c83e99e876a',
+ 'mr04': '9d1d784862c33479498a3e8c28d507ad',
+ 'mr05': 'fb8d364b64e75542d78143d9a1160d50',
+ 'mr06': '885ac67aa6a6ddc501b9f922755f6a69',
+ 'mr07': '83b7ce33a88afbd2821c89257c8c4087',
+ 'mr08': '63a5899a72ab9a26bb1ee1fb1d2e3b1d',
+ 'mr09': '5b5bb5eccab6a7b03282350117da65d3',
+ 'mr10': 'a4049b55226b2319a9de11e816dfac7f',
+ 'mr11': '246d7ec50fac202c72b75357bd2e3861',
+ 'mr12': 'c850b8a15a0c6e52c18f01de89f4b931',
+ 'mr13': '6c6974a911d9d4bb8f18650a16f48059',
  'pr01': 'aa5a6f27d5a7e6576f57eeea93af63a5',
  'pr02': '61457e9bcbd98996b6e7dc26efda23d8',
  'pr03': '923725a1d92fccc88241ed8a3ab8065b',
