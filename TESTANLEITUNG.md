@@ -1,6 +1,6 @@
-# TESTANLEITUNG — R2-D2 Makro-System (Version .139)
+# TESTANLEITUNG — R2-D2 Makro-System (Version .140)
 
-Diese Anleitung beschreibt **nur den aktuellen Stand** (.139). Sie ist die
+Diese Anleitung beschreibt **nur den aktuellen Stand** (.140). Sie ist die
 komplette Feld-Checkliste nach dem Einspielen eines Updates — von Boot bis
 Druckergebnis. Die Historie der Änderungen steht in README.md.
 
@@ -18,7 +18,7 @@ Druckergebnis. Die Historie der Änderungen steht in README.md.
 ## 2. Boot-Check (Pflicht, 1 Minute)
 
 - [ ] Konsole: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.139)`
+      (build R2-2026-11-09.140)`
 - [ ] ~10 s nach dem Boot: Boot-Sound + LED-Animation
 - [ ] `SHOW_STATUS` antwortet mit Modus/Material/Overrides
 - [ ] Kein Eintrag fehlt: sonst meldet sich `_CHECK_INSTALL` laut mit
@@ -552,7 +552,7 @@ kontaminierte Fenster werden verworfen.
 - [ ] Neue Datei erscheint nach Job-Ende im LCD-Ordner UND im Web-UI
 - [ ] Defaults > Load 1 → Display „Loading profile“ → Beep → „Loaded“
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.139)`
+      (build R2-2026-11-09.140)`
 
 **Alles grün?** Dann ist .136ag field-clear. Wenn etwas auffällt: Konsole
 kopieren — daraus wird der nächste Feldlog-Eintrag.
@@ -612,7 +612,7 @@ Drei Antworten:
 - [ ] `TEXTURE_APPLY PATTERN=MAP` ohne jedes Bild → sofort
       „MAP needs an image“ + Error-Beep (nicht erst in der Queue)
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.139)`
+      (build R2-2026-11-09.140)`
 
 **Alles grün?** Dann ist .136ah field-clear. Wenn etwas auffällt:
 Konsole kopieren — daraus wird der nächste Feldlog-Eintrag.
@@ -720,7 +720,7 @@ Druck normal.
 - [ ] Ein Logo (heller Hintergrund) als MAP → ONCE + Pos: top → Logo
       einmal herum oben, Hintergrund unangetastet, Naht unsichtbar
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.139)`
+      (build R2-2026-11-09.140)`
 
 **Alles grün?** Dann ist .136ai field-clear. Wenn etwas auffällt:
 Konsole kopieren — daraus wird der nächste Feldlog-Eintrag.
@@ -812,7 +812,7 @@ LED-Hauptschalter und die 0,5-Power-Cap-Regel.
 - [ ] Gen queue > Stop (2× drücken!) → diesmal REALLY Doppelklick:
       erster Druck „Gen: stop?", zweiter beendet
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.139)`
+      (build R2-2026-11-09.140)`
 
 **Alles grün?** Dann ist .136aj field-clear. Wenn etwas auffällt:
 Konsole kopieren — daraus wird der nächste Feldlog-Eintrag.
@@ -828,7 +828,7 @@ Update von .136ai ODER .136aj auf .137 zieht ganz normal.
 
 Was sich in .137 Wirklich ändert:
 
-- **Versions-Strings:** State, Postproc-Kern (`core R2-2026-11-09.139
+- **Versions-Strings:** State, Postproc-Kern (`core R2-2026-11-09.140
   (R241)`), Manual, Web-UI-Badge (der zeigte lange .136ab — jetzt .137).
 - **Batterie-Reparaturen für nackte Nummern:** r227/r234/r217/r218
   verlangten noch einen Buchstaben hinter der Zahl — seit .137 ist der
@@ -840,7 +840,7 @@ Was sich in .137 Wirklich ändert:
 - [ ] Update mit dem .137-Zip einspielen (über .136ai/.136aj: normal,
       ohne --force — der Zähler weiß, dass 137 > 136aj)
 - [ ] `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.139)`
+      (build R2-2026-11-09.140)`
 - [ ] Web-UI öffnen: das Version-Kästchen oben zeigt **.137**
 - [ ] Ein Druck starten → läuft an wie unter .136aj (Kapitel 25, Punkt 1)
 
@@ -964,3 +964,69 @@ cycle"), das sich selbst heilt, sobald Klippy wieder bereit ist.
 
 **Alles grün?** Dann ist .139 field-clear und die .138-Diät endlich im
 Feld gültig. Wenn wieder etwas stirbt: Konsole + `klippy.log` sichern.
+
+## 29. Die .140-Neuerungen (R244 — Auto-Recovery)
+
+**Anlass (.139-Feldlog, 10. Nov 15:12):** Wieder `MCU 'mcu' shutdown:
+Timer too close` am Homing-Ende nach Datei-Auswahl — diesmal eine
+Textur-Datei mit **14746 Moves/s** (die markierte SegFix-Klasse; das
+System hatte bei der Auswahl gewarnt: `MCU risk - SegFix!`).
+
+**Dein Wunsch:** „Wenn ich den Drucker immer über die Klipper-Oberfläche
+neu starten kann, musst DU den MCU-Shutdown auch erkennen können —
+erst die Firmware resetten, dann notfalls das ganze System neu starten."
+
+**Die Antwort ist der Watcher:** Klippy kann sich nicht selbst heilen
+(es IST der Patient) und Moonraker startet einen abgeschalteten Klippy
+bewusst nie neu. Aber der Watcher ist ein unabhängiger Prozess mit
+exakt derselben Moonraker-API, die auch die UI-Buttons nutzen.
+
+### Die Eskalationsleiter (alles im Watcher, `_recovery_tick`)
+
+| Stufe | Wann | Aktion |
+|---|---|---|
+| **L1** | 10 s nach erkanntem Shutdown (2 Versuche) | `FIRMWARE_RESTART` — wie der UI-Button: MCU-Reset + Config-Reload |
+| **L2** | nach 90 s tot | Klipper-Dienst-Neustart über Moonraker (`/machine/services/restart`) |
+| **L3** | nach 210 s tot — oder sofort ab der 3. Wiederholung in 15 min | **Kompletter Pi-Reboot** über Moonraker (`/machine/reboot`), max. 1×/Stunde |
+
+**Sicherheiten:**
+- Nur **`Timer too close` / Kommunikationsverlust / Missed-scheduling**-
+  Klassen werden automatisch geheilt (Host- und Link-Probleme; die
+  Heißungen sind im MCU-Shutdown ohnehin aus). Heizungs-/Thermal-/
+  Config-Shutdowns bleiben bewusst unten — die brauchen Augen, keine
+  Restart-Schleife.
+- Der L3-Reboot-Zähler steht in `watcher_recovery.json` (überlebt den
+  Reboot selbst) — ein Crash-Reboot-Crash-Loop bremst sich so selbst.
+- **Vor** dem ersten Restart wird `klippy.log` nach
+  `crash_archive/` gesichert (max. 7 Snapshots, älteste fliegen raus)
+  — die Beweise überleben jede Rotation und sind im SD-Browser sichtbar.
+- Nach erfolgreicher Heilung: `RESPOND MSG="[i] R2 auto-recovery:
+  printer back after Xs …"` in der Konsole.
+
+**Schalter:** `SET_RECOVERY MODE=on|off` oder am LCD
+**System > MCU Recovery** (Standard: AN). Der Watcher liest die Flagge
+aus der Variablen-**Datei** — kein Makro kann laufen, während Klippy
+tot ist.
+
+### Field-Check .140
+
+- [ ] Boot: `Macro system OK: all 19 modules loaded and current
+      (build R2-2026-11-09.140)`
+- [ ] Konsole: `SET_RECOVERY` (ohne MODE) zeigt den aktuellen Modus
+- [ ] LCD: System > MCU Recovery zeigt `ON`, Toggle auf `OFF` und
+      zurück funktioniert (Konsole bestätigt jeweils)
+- [ ] Web-UI-Badge zeigt `.140`
+- [ ] (Nur wenn es erneut kracht:) Konsole zeigt
+      `[recovery] klippy SHUTDOWN detected …`,
+      `[recovery] klippy.log snapshot -> …/crash_archive/…`,
+      `[recovery] L1: sending FIRMWARE_RESTART` — und danach
+      `[i] R2 auto-recovery: printer back after …s`
+- [ ] `crash_archive/` im SD-Browser: nach einem Vorfall liegt dort
+      das Log des Absturzes
+
+**Alles grün?** Dann ist .140 field-clear. Und weiterhin offen aus
+Kapitel 27/28: Pi-Neustart 09:22 (Strom?), Hardware-Checkliste, und
+**Segment fix vor dem Druck** für die alten Textur-Dateien
+(BigRosMIRmyChecker3 hatte 14746 Moves/s — 33× über dem MCU-Budget von
+~450/s; das System warnt davor, aber drucken solltest Du erst nach
+SegFix).

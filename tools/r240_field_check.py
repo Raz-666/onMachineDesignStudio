@@ -230,10 +230,10 @@ check('D4: the queue Stop row is REALLY double-press now (R238 bug fix)',
       and "_GEN_QUEUE_STOP CONFIRM={1 if" in lcdtxt
       and "VARIABLE=gen_arm VALUE='\"qstop\"'" in rd('..', 'macros',
                                                       '17_generator.cfg'), '')
-check('D5: web menu export embedded + current (2441 sections)',
+check('D5: web menu export embedded + current (2442 sections - R244 MCU Recovery row)',
       '"sections"' in rd('..', 'web', 'index.html')
       and '/*EMBEDDED_MENU_JSON*/' not in rd('..', 'web', 'index.html')
-      and len(re.findall(r'^\[menu ', lcdtxt, re.M)) == 2441, '')
+      and len(re.findall(r'^\[menu ', lcdtxt, re.M)) == 2442, '')
 
 print('--- E) per-job LED progress bar ------------------------------------')
 m03 = rd('..', 'macros', '03_leds.cfg')
@@ -265,13 +265,15 @@ _live240 = '\n'.join(l for l in allmacros.split('\n')
 # the regex must not require a letter any more.
 # R242 (.138): the pin moves with every release - current is .138.
 # R243 (.139): the pin moves again - current is .139.
-check('F1: version .139 everywhere, no .136aj/.136ai/.137/.138 leftovers in live cfg lines',
-      "'R2-2026-11-09.139'" in st
+# R244 (.140): pin moved - current is .140.
+check('F1: version .140 everywhere, no .136aj/.136ai/.137/.138/.139 leftovers in live cfg lines',
+      "'R2-2026-11-09.140'" in st
       and '.136ai' not in _live240
       and '.136aj' not in _live240
       and '.137' not in _live240
       and '.138' not in _live240
-      and 'R2-2026-11-09.139' in rd('..', 'MANUAL.md'), '')
+      and '.139' not in _live240
+      and 'R2-2026-11-09.140' in rd('..', 'MANUAL.md'), '')
 
 print()
 print('%d checks, %d failed' % (ok + fails, fails))

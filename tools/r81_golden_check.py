@@ -13,6 +13,13 @@ frozen references.
 RE-FREEZE HISTORY: the .134 version bump changed the core stamp line in
 every mr excerpt (verified: exactly ONE line per case differs, .133 ->
 .134, nothing else) - refs re-frozen from the bumped module.
+RE-FREEZE HISTORY: R244 (.140) re-froze mr01-mr13 (version bump
+class - only POSTPROC_RELEASE .139 -> .140 and BUILD R243 -> R244. The
+R244 MCU-shutdown auto-recovery (_recovery_tick + helpers) lives in
+the watch-loop layer ONLY. Proofs: the .139 module from git 5552dda
+reproduces the previous refs byte-exactly (23/23); the per-case A/B
+diff shows 78 changed lines, ALL stamp class (core stamp, 'generated
+by' line, R225 identify line, R2-META sig); pr01-pr10 byte-IDENTICAL).
 RE-FREEZE HISTORY: R243 (.139) re-froze mr01-mr13 (version bump
 class - only POSTPROC_RELEASE .138 -> .139 and BUILD R242 -> R243; the
 R243 fix itself is config-only (03_leds.cfg cylon layers), the daemon
@@ -298,19 +305,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # process() output is identical old vs new, ALL 13 mr md5s change (every
 # range excerpt carries the core stamp), no summary moves, and r81 was
 # 23/23 green with the R213 code BEFORE the stamp bump.
-REF_MD5 = {'mr01': 'c6954a99bf591f9018ca54c34ce65a6b',
- 'mr02': '98d51a1fbd75a1164d890d54e8f8b801',
- 'mr03': '20e8de8bc24198a85eafe1f54f879285',
- 'mr04': '4f680dd4c27a16e43cd0742486f01843',
- 'mr05': '6113945ff5dfd9fba2e340e3dff62fa4',
- 'mr06': '6f3363387ecf39fbeb58e352531c1531',
- 'mr07': 'ea2b3da27940534358bd536f2f58ee48',
- 'mr08': '5897e14ec27c9f26cc289b1014aec95c',
- 'mr09': 'c7222aabe4ff62a7c5398e3ff924d12c',
- 'mr10': 'f52ae155a007a5b8ed514e33fd411310',
- 'mr11': '61ba781ee31bacf573f6edd872d7867a',
- 'mr12': '350a0da44e989f5d7a367c3cff19a9c9',
- 'mr13': '35f592f8d045c64770089b1f4ba256e1',
+REF_MD5 = {'mr01': '7af3aea9f240b3f412974cc4892a26aa',
+ 'mr02': '4f38ee0915b77a64442b0aef09bbba08',
+ 'mr03': 'd87e81b57b22219314a02d2f425f02c3',
+ 'mr04': '437eac9e958050a58be2793c0d034e50',
+ 'mr05': '7a12063f9fc9f4c0803a5046a5fc1ab8',
+ 'mr06': '9fa73e71431fe1417f46a6def0592b56',
+ 'mr07': 'f5544744cd9cbc5ed7c5d00276335460',
+ 'mr08': 'b8f0a99284a184dd791a0207f06d3fc9',
+ 'mr09': 'd0a2103e3c7c769fc5bfbc88f3b4559a',
+ 'mr10': 'c4ff3082f65e49483574e1921d43a861',
+ 'mr11': 'dd885efcaec65022577d83e8703beac7',
+ 'mr12': 'c0286183bde6d50432f1348223dddc8c',
+ 'mr13': '2c8a61d4f395f6e4e1999e68a3a7d7bf',
  'pr01': 'aa5a6f27d5a7e6576f57eeea93af63a5',
  'pr02': '61457e9bcbd98996b6e7dc26efda23d8',
  'pr03': '923725a1d92fccc88241ed8a3ab8065b',
@@ -321,6 +328,7 @@ REF_MD5 = {'mr01': 'c6954a99bf591f9018ca54c34ce65a6b',
  'pr08': '923725a1d92fccc88241ed8a3ab8065b',
  'pr09': '5e90a1d42296412a0ea53e9d6ada0157',
  'pr10': '159ea58bb74bbf9adb377f1e733d152b'}
+
 REF_SUMMARY = {'mr01': {'nl': 8, 'size': 5247},
  'mr02': {'nl': 8, 'size': 14263},
  'mr03': {'nl': 8, 'size': 13274},
@@ -509,7 +517,6 @@ REF_SUMMARY = {'mr01': {'nl': 8, 'size': 5247},
           'upgraded': False,
           'upgraded_from': 'v1',
           'volumetric': False}}
-
 CASES = [
     ('mr01', dict(src='vase_m83.gcode', start=5, end=12)),
     ('mr02', dict(src='vase_m83.gcode', start=5, end=12, floor=2, brim=1)),

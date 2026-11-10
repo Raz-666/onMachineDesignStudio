@@ -339,8 +339,11 @@ doc = mje.export(os.path.join(REPO, 'menus', 'lcd_menues.cfg'),
 # R236 (.136ag): Gen queue LIVE in the main menu (list + show + cancel,
 # above the SD card - the waiting count drops per finished job): +3
 # sections (2485 -> 2441)
+# R244 (.140): System > MCU Recovery toggle (the auto-recovery
+# switch, engine in r2_postproc) - one more command section
+# (2441 -> 2442)
 check('T1 export: all 2473 sections in one tree, no orphans',
-      doc['sections'] == 2441 and sum(doc['counts'].values()) == 2441,
+      doc['sections'] == 2442 and sum(doc['counts'].values()) == 2442,
       str(doc['counts']))
 
 
@@ -353,7 +356,7 @@ def _walk(n, acc):
 
 _all = _walk(doc['tree'], [])
 check('T1 export: tree node count == sections, depth sane, known ids',
-      len(_all) == 2441
+      len(_all) == 2442
       and any(n['id'] == '__main __start __direct' for n in _all)
       and any(n['id'] == '__main __live' for n in _all))
 
@@ -408,7 +411,7 @@ _emb = json.JSONDecoder().raw_decode(
     _ptxt.split('const EMBEDDED_MENU_JSON = ', 1)[1])[0]
 check('T1 embed: placeholder replaced with valid JSON',
       '/*EMBEDDED_MENU_JSON*/ null' not in _ptxt
-      and _emb['sections'] == 2441)
+      and _emb['sections'] == 2442)
 
 # T2: the moonraker extension with a fake app
 spec = importlib.util.spec_from_file_location(
@@ -526,7 +529,7 @@ check('T2 extension: export tool derived from the menu path',
       'path -> tool derivation failed')
 tree_doc = loop.run_until_complete(eps['/server/r2_menu/tree'](FakeReq()))
 check('T2 extension: tree handler serves the export',
-      tree_doc['sections'] == 2441 and 'tree' in tree_doc)
+      tree_doc['sections'] == 2442 and 'tree' in tree_doc)
 st = loop.run_until_complete(eps['/server/r2_menu/status'](FakeReq()))
 check('T2 extension: status handler reports ok + sha',
       st['ok'] and st['sha256'] == tree_doc['sha256'])

@@ -4177,7 +4177,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.136ab) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-11-09.139'", repr(_v66)))
+    _v66 == "'R2-2026-11-09.140'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -13685,6 +13685,7 @@ _REMOVED135 = [
 ]
     # ---- R240 (.136aj): __lmo mirror rows, feature __on upgrades,
     # ---- Depot/save/load rows in Profiles
+# R244 (.140): System > MCU Recovery toggle (auto-recovery switch)
 _ADDED135 = [
     '__main __endq',
     '__main __endq __info',
@@ -14831,6 +14832,7 @@ _ADDED135 = [
     '__main __setup',
     '__main __start __info __feat',
     '__main __system __fc',
+    '__main __system __rec',
     '__main __system __fc __fc1',
     '__main __system __fc __fc2',
     '__main __system __fc __fc3',
@@ -17673,12 +17675,12 @@ tests.append(('R185 current-only manual: no version-history appendix, no era '
     '## Appendix D' not in _m185 and 'Version history' not in _m185
     and _re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185) is None
     and _re2.search(r'\bR1[0-9][0-9]\b', _m185) is None
-    and 'The nine fonts' in _m185 and 'R2-2026-11-09.139' in _m185,
+    and 'The nine fonts' in _m185 and 'R2-2026-11-09.140' in _m185,
     'appendixD=%s eratags=%s rtags=%s nine=%s v132=%s' % (
         '## Appendix D' in _m185,
         bool(_re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185)),
         bool(_re2.search(r'\bR1[0-9][0-9]\b', _m185)),
-        'The nine fonts' in _m185, 'R2-2026-11-09.139' in _m185)))
+        'The nine fonts' in _m185, 'R2-2026-11-09.140' in _m185)))
 
 # ================== R184 (.131c field round): the brim air gap EVERYWHERE ==
 # The user asked: does the brim fusing hit our OTHER generators too? Measured

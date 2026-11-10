@@ -1,13 +1,13 @@
 {
  "generator": "menu_json_export.py (.136j R211)",
  "source": "lcd_menues.cfg",
- "sections": 2441,
+ "sections": 2442,
  "counts": {
   "list": 331,
-  "command": 1422,
+  "command": 1423,
   "input": 688
  },
- "sha256": "5d6fe604f054d24a",
+ "sha256": "1ce5ebfd241f146e",
  "live_objects": [
   "bed_mesh",
   "configfile",
@@ -26931,6 +26931,15 @@
       "name": "LEDs: {('ON' if printer['save_variables'].variables.leds_on|default(True) else 'OFF')}",
       "gcode": [
        "TOGGLE_LEDS"
+      ],
+      "children": []
+     },
+     {
+      "id": "__main __system __rec",
+      "type": "command",
+      "name": "MCU Recovery: {('ON' if printer['save_variables'].variables.recovery_mode|default('on')|string|lower != 'off' else 'OFF')}",
+      "gcode": [
+       "TOGGLE_RECOVERY"
       ],
       "children": []
      },

@@ -217,24 +217,24 @@ for _f in sorted(os.listdir(os.path.join(HERE, '..', 'macros'))):
         _live += rd('macros', _f).split('\n')
 _live += rd('menus', 'lcd_menues.cfg').split('\n')
 _live = '\n'.join(l for l in _live if not l.lstrip().startswith('#'))
-check('D2: version .139 everywhere, no .138/.137 leftovers in live cfg '
+check('D2: version .140 everywhere, no .138/.139 leftovers in live cfg '
       'lines',
-      "'R2-2026-11-09.139'" in st
-      and '.138' not in _live and '.137' not in _live
-      and 'R2-2026-11-09.139' in rd('MANUAL.md')
-      and "POSTPROC_RELEASE = 'R2-2026-11-09.139'" in pp_src
-      and "POSTPROC_BUILD = 'R243'" in pp_src)
+      "'R2-2026-11-09.140'" in st
+      and '.138' not in _live and '.139' not in _live
+      and 'R2-2026-11-09.140' in rd('MANUAL.md')
+      and "POSTPROC_RELEASE = 'R2-2026-11-09.140'" in pp_src
+      and "POSTPROC_BUILD = 'R244'" in pp_src)
 html = rd('web', 'index.html')
-check('D3: web badge .139, page state ver R243',
-      '<span id="ver">.139</span>' in html and "ver:'R243'}" in html)
+check('D3: web badge .140, page state ver R244',
+      '<span id="ver">.140</span>' in html and "ver:'R244'}" in html)
 ta = rd('TESTANLEITUNG.md')
 check('D4: TESTANLEITUNG ch. 28 documents the crash + field check',
       '## 28. Die .139-Neuerungen (R243' in ta
       and 'division by zero' in ta
       and '### Field-Check .139' in ta
       and 'R2-2026-11-09.139' in ta)
-check('D5: README carries the .139 row',
-      '**.139 (R243)**' in rd('README.md'))
+check('D5: README carries the .140 row',
+      '**.140 (R244)**' in rd('README.md'))
 
 print()
 print('%d checks, %d failed' % (ok + fails, fails))

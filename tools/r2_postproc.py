@@ -77,8 +77,8 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-09.139'
-POSTPROC_BUILD = 'R243'
+POSTPROC_RELEASE = 'R2-2026-11-09.140'
+POSTPROC_BUILD = 'R244'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
 # and no speed/accel/nozzle parameters. Files carrying an OLD tag are UPGRADED
@@ -22962,6 +22962,252 @@ def apply_mirror(src, axis='x', out_dir=None, bed=None, obj=None):
     return out, info
 
 
+# ---- R244 (.140): MCU-shutdown auto-recovery -------------------------------
+# Field log .139 (Nov 10, 15:12): ANOTHER 'MCU 'mcu' shutdown: Timer too
+# close' right at homing end after file selection (a 14746 moves/s texture
+# file - the flagged SegFix class). The user's request: "if I can always
+# restart via the Klipper UI, you must be able to see the MCU shutdown too
+# - reset the firmware first, then reboot the whole system." Klippy cannot
+# heal itself (it IS the patient) and moonraker deliberately never restarts
+# a shutdown klippy - but the WATCHER is an independent process with the
+# same moonraker API the UI buttons use. Escalation ladder, all rate-limited:
+#   L1  FIRMWARE_RESTART (what the UI button does - resets the MCU,
+#       reloads the config; klippy answers it even in shutdown state)
+#   L2  klipper service restart via moonraker /machine/services/restart
+#       (host software died or L1 changed nothing)
+#   L3  full Pi reboot via moonraker /machine/reboot - ONLY when the
+#       printer stayed dead for 3.5 min, at most ONCE per hour (persisted
+#       across daemon restarts in watcher_recovery.json - a reboot must
+#       never reset its own rate limit), or immediately on the 3rd episode
+#       within 15 min (FIRMWARE_RESTART clearly is not enough then).
+# SAFETY: only 'Timer too close' / communication-loss / missed-scheduling
+# classes auto-recover (host + link problems - heaters are OFF in MCU
+# shutdown anyway). Heater/thermal/config classes stay DOWN with one log
+# line - those need eyes, not a restart loop. The whole engine is one
+# cheap HTTP GET per watch cycle (~5-12 s); klippy.log is snapshotted to
+# crash_archive/ BEFORE the first restart, so the forensics survive every
+# rotation. Switch: save_variables recovery_mode ('on' by default,
+# SET_RECOVERY MODE=off|on / LCD System > MCU Recovery) - read from the
+# variables FILE because no macro can run while klippy is dead.
+_RECOVERY_SAFE_CLASSES = (
+    'timer too close', 'lost communication', 'communication timeout',
+    'communications timeout', 'can not update mcu',
+    'missed scheduling of next digital out')
+_RECOVERY = {'active': False, 't0': 0.0, 'msg': '', 'safe': False,
+             'l1': 0, 'l2': False, 'l3': False, 'archived': False,
+             'gave_up': False, 'noticed': '', 'history': []}
+
+
+def _klippy_shutdown_probe(host='127.0.0.1', port=7125):
+    """R244: (state, state_message) from moonraker /printer/info - the one
+    endpoint that answers while klippy is in shutdown state (it is exactly
+    what the UI's red banner reads)."""
+    import urllib.request
+    with urllib.request.urlopen(
+            'http://%s:%d/printer/info' % (host, port), timeout=2.0) as r:
+        js = json.loads(r.read().decode())
+    st = js.get('result') or {}
+    return str(st.get('state', '')), str(st.get('state_message', ''))
+
+
+def _moonraker_post(path, body=None, host='127.0.0.1', port=7125):
+    """R244: one POST against moonraker's machine API (service restart,
+    reboot). Returns True on 2xx. Kept as its own function so the battery
+    can fake the whole ladder with one monkeypatch."""
+    import urllib.request
+    data = json.dumps(body or {}).encode()
+    req = urllib.request.Request(
+        'http://%s:%d%s' % (host, port, path), data=data,
+        headers={'Content-Type': 'application/json'})
+    try:
+        with urllib.request.urlopen(req, timeout=5.0) as r:
+            return 200 <= r.status < 300
+    except Exception as e:                              # noqa: BLE001
+        print('[recovery] POST %s failed: %r' % (path, e), flush=True)
+        return False
+
+
+def _recovery_state_file():
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        'watcher_recovery.json')
+
+
+def _recovery_l3_done_recently():
+    """R244: the L3 rate limit survives reboots - the timestamp lives in a
+    file next to the module, not in this process' memory (otherwise a
+    crash-reboot-crash-reboot loop would reset its own brake)."""
+    try:
+        with open(_recovery_state_file()) as f:
+            return (time.time() - float(json.load(f).get('last_l3', 0)
+                                        or 0)) < 3600.0
+    except Exception:                                   # noqa: BLE001
+        return False
+
+
+def _recovery_l3_mark():
+    try:
+        _d244 = {}
+        try:
+            with open(_recovery_state_file()) as f:
+                _d244 = json.load(f)
+        except Exception:                               # noqa: BLE001
+            pass
+        _d244['last_l3'] = time.time()
+        with open(_recovery_state_file(), 'w') as f:
+            json.dump(_d244, f)
+    except Exception as e:                              # noqa: BLE001
+        print('[recovery] could not persist the L3 stamp: %r' % e,
+              flush=True)
+
+
+def _recovery_archive(directory):
+    """R244: snapshot klippy.log into gcodes/crash_archive/ BEFORE any
+    restart rotates it away - the stall composition (reactor busy lines,
+    neopixel retries, the shutdown dump) is the evidence the next fix is
+    built on. The folder shows up in the SD browser like every other
+    folder; capped at 7 snapshots (oldest first)."""
+    try:
+        import glob as _g244
+        import shutil as _sh244
+        src = None
+        for _cand in ([os.path.expanduser('~/printer_data/logs/klippy.log')]
+                      + sorted(_g244.glob('/home/*/printer_data/logs/klippy.log'))
+                      + [os.path.expanduser('~/klipper/klippy.log')]):
+            if _cand and os.path.isfile(_cand):
+                src = _cand
+                break
+        if src is None:
+            print('[recovery] klippy.log not found - nothing archived',
+                  flush=True)
+            return
+        dst_dir = os.path.join(directory, 'crash_archive')
+        os.makedirs(dst_dir, exist_ok=True)
+        dst = os.path.join(dst_dir,
+                           time.strftime('mcu-%Y%m%d-%H%M%S.log'))
+        _sh244.copy2(src, dst)
+        _olds = sorted(
+            fn for fn in os.listdir(dst_dir) if fn.endswith('.log'))
+        for _old in _olds[:-7]:
+            try:
+                os.unlink(os.path.join(dst_dir, _old))
+            except OSError:
+                pass
+        print('[recovery] klippy.log snapshot -> %s' % dst, flush=True)
+    except Exception as e:                              # noqa: BLE001
+        print('[recovery] archive failed: %r' % e, flush=True)
+
+
+def _recovery_mode_on():
+    """R244: the on/off switch, read from the variables FILE - klippy is
+    dead during an episode, no macro could answer a query."""
+    try:
+        if VAR_PATH and os.path.isfile(VAR_PATH):
+            rv = _read_vars(VAR_PATH) or {}
+            return str(rv.get('recovery_mode', 'on') or 'on').lower() != 'off'
+    except Exception:                                   # noqa: BLE001
+        pass
+    return True
+
+
+def _recovery_tick(directory):
+    """R244: one watch-cycle step of the recovery state machine. Cheap by
+    design (one HTTP GET); every action is logged with [recovery] and the
+    whole ladder gives up loudly instead of looping forever."""
+    try:
+        st, msg = _klippy_shutdown_probe()
+    except Exception:                                   # noqa: BLE001
+        return      # moonraker itself unreachable (Pi boot, service
+                    # restart) - nothing to decide this cycle, no spam
+    R = _RECOVERY
+    now = time.monotonic()
+    if st == 'shutdown':
+        if not R['active']:
+            R.update(active=True, t0=now, msg=msg[:160],
+                     safe=any(c in msg.lower()
+                              for c in _RECOVERY_SAFE_CLASSES),
+                     l1=0, l2=False, l3=False, archived=False,
+                     gave_up=False, noticed='')
+            R['history'].append(time.time())
+            R['history'] = [t for t in R['history']
+                            if time.time() - t < 900.0]
+            _recovery_archive(directory)
+            print('[recovery] klippy SHUTDOWN detected: %s' % R['msg'],
+                  flush=True)
+            if not R['safe']:
+                print('[recovery] class is not auto-recoverable (heater/'
+                      'thermal/config?) - the printer stays down, see '
+                      'crash_archive/ + klippy.log', flush=True)
+                R['gave_up'] = True
+        if R['active'] and not R['gave_up']:
+            if not _recovery_mode_on():
+                if R['noticed'] != 'off':
+                    R['noticed'] = 'off'
+                    print('[recovery] auto-recovery is OFF '
+                          '(recovery_mode=off) - printer stays down',
+                          flush=True)
+                R['gave_up'] = True
+                return
+            el = now - R['t0']
+            recurring = len(R['history']) >= 3
+            if not R['l3']:
+                if (recurring or el >= 210.0) and el >= 10.0:
+                    if _recovery_l3_done_recently():
+                        if R['noticed'] != 'l3cap':
+                            R['noticed'] = 'l3cap'
+                            print('[recovery] escalation stopped: the Pi '
+                                  'was already rebooted within the last '
+                                  'hour - leaving it down (check the '
+                                  'hardware: power, USB, '
+                                  'crash_archive/)', flush=True)
+                        R['gave_up'] = True
+                    else:
+                        print('[recovery] L3: rebooting the Pi via moonraker'
+                              ' (%s)' % ('3rd episode within 15 min'
+                                         if recurring else
+                                         'dead for %.0fs' % el), flush=True)
+                        if _moonraker_post('/machine/reboot'):
+                            _recovery_l3_mark()
+                            R['l3'] = True
+                            R['gave_up'] = True   # we die with the Pi
+                elif el >= 90.0 and not R['l2']:
+                    print('[recovery] L2: restarting the klipper service '
+                          '(FIRMWARE_RESTART did not bring it back)',
+                          flush=True)
+                    if _moonraker_post('/machine/services/restart',
+                                       {'service': 'klipper'}):
+                        R['l2'] = True
+                elif el >= 10.0 and R['l1'] < 2:
+                    print('[recovery] L1: sending FIRMWARE_RESTART '
+                          '(attempt %d)' % (R['l1'] + 1), flush=True)
+                    if _moonraker_gcode('FIRMWARE_RESTART'):
+                        R['l1'] += 1
+                    else:
+                        R['l1'] += 1
+                        print('[recovery] L1 was refused - trying the '
+                              'service restart next cycle', flush=True)
+    else:
+        if R['active']:
+            if st == 'ready':
+                dur = now - R['t0']
+                print('[recovery] klippy READY again after %.0fs '
+                      '(episode: %s)' % (dur, R['msg'][:80]), flush=True)
+                _moonraker_gcode(
+                    'RESPOND MSG="[i] R2 auto-recovery: printer back after '
+                    '%.0fs - MCU shutdown (%s). Snapshot in crash_archive/"'
+                    % (dur, 'recurring' if len(R['history']) >= 3
+                       else 'isolated'))
+                R.update(active=False, gave_up=False, noticed='')
+            elif st == 'error':
+                if R['noticed'] != 'error':
+                    R['noticed'] = 'error'
+                    print('[recovery] klippy ERROR state (config/crash '
+                          'class, like the .138 ready-callback) - no '
+                          'auto-recovery, the log decides', flush=True)
+                R['active'] = False
+            # 'startup'/'printing'/... after our restart: keep the episode
+            # open - the L2/L3 clocks keep running if it never comes up
+
+
 def watch(directory, interval=5.0, once=False):
     """Daemon: process every new/changed .gcode file under DIRECTORY.
 
@@ -23888,6 +24134,16 @@ def watch(directory, interval=5.0, once=False):
         # preview, label fit, file fixes, fix_reselect bookkeeping) stay
         # live; file_fix blocks itself while printing anyway.
         busy = _printer_busy()
+        # R244: the MCU-shutdown watchdog - one cheap /printer/info per
+        # cycle. While klippy is DOWN the probe still answers (it is what
+        # the UI's red banner reads); the ladder (FIRMWARE_RESTART ->
+        # klipper service -> Pi reboot, all rate-limited) lives in
+        # _recovery_tick. Must run even while 'busy' - an MCU shutdown
+        # with a dead print is exactly the case to heal.
+        try:
+            _recovery_tick(directory)
+        except Exception as _e244:                       # noqa: BLE001
+            print('[recovery] tick failed: %r' % _e244, flush=True)
         # R167: after a print ends (busy -> idle) the watcher waits 8s
         # before its first scan/push. The .125 field log: litho + frame
         # prints died with 'Timer too close' EXACTLY at PRINT_END - the
