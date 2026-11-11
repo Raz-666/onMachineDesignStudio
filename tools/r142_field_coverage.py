@@ -116,7 +116,9 @@ ck('geometry classifier: derived APPLY_TYPE keyed by the WRITER index '
    'filtered - derived tags landed next to the wrong lines)',
    'type_at[(gj, gj)] = gfeat' in src, '')
 ck('sd_tree/sd_view/gen_files push: a cache only counts on a 200 answer, '
-   'failed pushes retry next cycle, the VIEW refresh follows the current '
+   'failed pushes retry (R246c: after 3 fails the mirror backs off for 4 '
+   'silent cycles - the .142 night flood hammered a dead moonraker every '
+   'pass), the VIEW refresh follows the current '
    'path+page read LIVE from klippy (.112 field regression + .115 '
    'navigation sync; R216b: the .136m push storm wrote 4 scripts / '
    '~370KB SD in 3.5s - tree+view+gen_files leave as ONE batched push '
@@ -124,9 +126,14 @@ ck('sd_tree/sd_view/gen_files push: a cache only counts on a 200 answer, '
    'R246 (.142): the mirror goes to RAM - the .140 field shutdowns all '
    'sat on whole-file SAVE_VARIABLE rewrites of the giant mirrors with '
    'the host deep in swap, so the pushes are SET_GCODE_VARIABLE MACRO=_SDM '
-   'and the reader queries the live object, disk only as fallback)',
+   'and the reader queries the live object, disk only as fallback; '
+   'R246c (.142b): the push call carries timeout=20.0/retries=1 so a '
+   'struggling moonraker cannot stall the watcher pass)',
    src.count('retrying next cycle') == 1
-   and src.count("if _moonraker_gcode('\\n'.join(_push216))") == 1
+   and src.count("if _moonraker_gcode('\\n'.join(_push216), timeout=20.0,")
+   == 1
+   and 'mirror_fail246c = [0, 0]' in src
+   and 'mirror_fail246c[1] = 4' in src
    and src.count('gen_files_pushed[0] = _gfl') == 1
    and 'ast.literal_eval(_raw154)' in src
    and 'sd_tree_pushed[0] is not None' in src

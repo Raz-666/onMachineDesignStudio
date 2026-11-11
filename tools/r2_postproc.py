@@ -77,8 +77,8 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-09.142a'
-POSTPROC_BUILD = 'R246b'
+POSTPROC_RELEASE = 'R2-2026-11-11.142b'
+POSTPROC_BUILD = 'R246c'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
 # and no speed/accel/nozzle parameters. Files carrying an OLD tag are UPGRADED
@@ -8616,11 +8616,46 @@ def _printer_busy(host='127.0.0.1', port=7125):
     # MCU died with 'Timer too close'. One retry closes the transient
     # hole; a truly unreachable moonraker still reads as not busy.
     for _try162 in (1, 2):
+
         try:
             return _probe162()
         except Exception:                               # noqa: BLE001
             if _try162 == 2:
                 return False
+
+
+def _printer_idle_strict(host='127.0.0.1', port=7125):
+    """R246c (.142 field log 00:08): the PUSH gate - confirmed idle ONLY.
+
+    _printer_busy() must never block the watcher itself, so an unreachable
+    moonraker reads as 'not busy' there. That is the right default for
+    jobs and checks - and the wrong one for VARIABLE pushes: during the
+    00:03-00:08 frame print the daemon kept flooding the console with the
+    full _SDM mirror every cycle, its own load made the 1.5 s busy probe
+    time out, 'not busy' opened the gate again and the spiral ended in
+    'MCU shutdown: Timer too close' at 00:08:21. For pushes the fail-safe
+    direction flips: an UNANSWERED probe counts as BUSY. A moonraker that
+    cannot answer a 3 s query will not accept the push anyway, and a
+    push into a struggling klippy is exactly what must never happen.
+    One probe, no retry - the next cycle gets a fresh vote.
+    """
+    import urllib.parse
+    import urllib.request
+    try:
+        url = ('http://%s:%d/printer/objects/query?%s'
+               % (host, port,
+                  urllib.parse.quote('print_stats gcode_macro _STATE')))
+        with urllib.request.urlopen(url, timeout=3.0) as r:
+            js = json.loads(r.read().decode())
+        _st = ((js.get('result') or {}).get('status') or {})
+        if (_st.get('print_stats') or {}).get('state', '') \
+                in ('printing', 'paused'):
+            return False
+        _mode = (_st.get('gcode_macro _STATE') or {}).get('mode', '')
+        return _mode not in ('waiting', 'starting', 'printing', 'paused',
+                             'filament')
+    except Exception:                                       # noqa: BLE001
+        return False        # probe failed -> treat as busy, do NOT push
 
 
 # R133b (field log .95): generator jobs run ONE AT A TIME through a queue -
@@ -21106,7 +21141,16 @@ def _sdm_state():
     """R246: read the mirror's current path/page/view - live from klippy
     (one objects query), file fallback for a restarting klippy."""
     try:
-        st = _moonraker_status(['gcode_macro _SDM']) or {}
+        # R246c (.142 field log 23:35): the list MUST ride 'objs'. As the
+        # FIRST positional arg it landed in 'host' - the query URL became
+        # "http://['gcode_macro _SDM']:7125/...", EVERY live read failed
+        # and _sdm_state() always fell back to the stale variables.cfg
+        # file. The daemon then stomped the user's LCD navigation back to
+        # the file's old view (the 'optimized/optimized/...' doubling) and
+        # the R246b restart detection fired every cycle (full mirror
+        # re-push every ~11s, 306 reactor stalls in 7 min). The file
+        # fallback stays - but now it only serves a RESTARTING klippy.
+        st = _moonraker_status(objs=['gcode_macro _SDM']) or {}
         m = st.get('gcode_macro _SDM') or {}
         if m.get('sd_tree') is not None or m.get('sd_view') is not None:
             out = {'sd_path': m.get('sd_path', ''),
@@ -23751,6 +23795,14 @@ def watch(directory, interval=5.0, once=False):
     sd_view_pushed = [None]          # R216b: the last view WE pushed - the
                                      # read-back races the SD-card write
                                      # (.136m double-pushed sd_view twice)
+    mirror_fail246c = [0, 0]         # R246c: [consecutive failed mirror
+                                     # pushes, cycles left to skip]. The
+                                     # .142 23:35 storm re-pushed the full
+                                     # mirror every ~11s because failed
+                                     # pushes never latched - after 3
+                                     # straight failures the daemon now
+                                     # pauses ~4 cycles (~45s) + says so,
+                                     # instead of hammering klippy.
 
     # R133b: ONE generator job at a time, deduplicated, and never while a
     # print runs (the job goes back to the queue until the printer idles).
@@ -25723,6 +25775,8 @@ def watch(directory, interval=5.0, once=False):
         # gcodes folder's images. Whenever the set changes, ONE SAVE_VARIABLE
         # via moonraker (the watcher owns the folder view; macros cannot list
         # files). Newest first, 10 slots, only top-level .png/.jpg/.jpeg.
+        class _SkipImg89(Exception):    # R246c: busy -> skip this pass
+            pass
         try:
             _imgs89 = []
             for _fn89 in os.listdir(directory):
@@ -25749,6 +25803,13 @@ def watch(directory, interval=5.0, once=False):
             except (TypeError, ValueError):
                 _pg89 = 0
             _names89 = _all89[_pg89 * 10:_pg89 * 10 + 10]
+            # R246c (.142 field log 00:03): the image push had NO busy
+            # guard at all - during the frame print it re-delivered
+            # litho_files/dims/total every cycle (the console flood).
+            # Now: only on a CONFIRMED idle printer. A changed list while
+            # a print runs waits for the next idle pass - nothing lost.
+            if not _printer_idle_strict():
+                raise _SkipImg89()
             if (_names89 != pushed_images
                     or _pg89 != pushed_img_page
                     or _total89 != pushed_img_total):
@@ -25770,6 +25831,8 @@ def watch(directory, interval=5.0, once=False):
                         'RESPOND MSG="[i] images: %d total - page %d of %d '
                         'shown (pickers page with the arrows)"'
                         % (_total89, _pg89 + 1, _maxpg89 + 1))
+        except _SkipImg89:
+            pass                     # R246c: printer busy, next pass retries
         except Exception as e:                              # noqa: BLE001
             print(f'[litholist] push error: {e!r}', flush=True)
 
@@ -27452,6 +27515,14 @@ def watch(directory, interval=5.0, once=False):
                 pass        # R215: print started mid-pass - pushes deferred
 
             try:
+                if mirror_fail246c[1] > 0:
+                    # R246c: storm breaker - a mirror push that keeps
+                    # failing must not turn the daemon into a hammer. The
+                    # skip covers the whole push block (gen files + tree +
+                    # view): the browser lags ~45s, nothing is lost - the
+                    # next pass after the pause re-pushes everything.
+                    mirror_fail246c[1] -= 1
+                    raise _SkipPush215()
                 # R146 (.107): 00_ outputs live in per-generator SUBFOLDERS
                 # (Labels/, Frames/, ...) - the list carries RELATIVE paths so
                 # select + delete keep working; legacy files in the root stay
@@ -27550,7 +27621,16 @@ def watch(directory, interval=5.0, once=False):
                 # now - a start clicked mid-pass (the pass can take seconds
                 # on the Pi) must not be met with variable pushes while
                 # klipper homes. One cheap probe, then decide.
-                if _printer_busy():
+                # R215: print started mid-pass - pushes deferred. R246c:
+                # the STRICT gate - an unanswered busy probe counts as
+                # busy here (see _printer_idle_strict). The .142 00:08
+                # frame print died exactly here: the flood made the probe
+                # time out, 'idle' opened the gate, the next full-mirror
+                # push stalled the reactor and the MCU hit 'Timer too
+                # close'. While the printer prints (or the probe cannot
+                # say), NOTHING is pushed - the LCD does not need a
+                # refresh mid-print, klippy needs the CPU.
+                if not _printer_idle_strict():
                     raise _SkipPush215()
                 # R216b (.136n, the .136m klippy 'Timer too close' dump):
                 # .136m sent tree, view and gen_files as THREE scripts back
@@ -27646,7 +27726,19 @@ def watch(directory, interval=5.0, once=False):
                             'RESPOND MSG="SD index ready: %d entries in '
                             '%.1fs - the LCD browser updates on its own"'
                             % (_n246, time.time() - _t246))
-                    if _moonraker_gcode('\n'.join(_push216)):
+                    # R246c: ONE try with a LONG timeout. The generic
+                    # default (8s, 2 retries) re-executed this - the
+                    # biggest script the daemon sends - up to 3x whenever
+                    # klippy answered slowly: every retry stalled the
+                    # reactor further, the answer arrived later still,
+                    # nothing latched and the next cycle re-pushed the
+                    # full mirror (the .142 23:35 field storm, 306
+                    # reactor stalls in 7 min). One 20s try, then count
+                    # the failure; 3 in a row trigger the backoff above
+                    # plus ONE notice instead of silent hammering.
+                    if _moonraker_gcode('\n'.join(_push216), timeout=20.0,
+                                        retries=1):
+                        mirror_fail246c[0] = 0
                         if _pt216:
                             sd_tree_pushed[0] = _tree154
                         if _pv216:
@@ -27654,6 +27746,22 @@ def watch(directory, interval=5.0, once=False):
                         if _pgf216:
                             gen_files_pushed[0] = _gfl
                     else:
+                        mirror_fail246c[0] += 1
+                        if mirror_fail246c[0] >= 3:
+                            mirror_fail246c[1] = 4
+                            mirror_fail246c[0] = 0
+                            print('[sdfiles] mirror push failed 3x in a '
+                                  'row - backing off 4 cycles (~45s), one '
+                                  'notice sent', flush=True)
+                            try:
+                                _moonraker_gcode(
+                                    'RESPOND MSG="[sdfiles] the LCD '
+                                    'mirror keeps failing to land - the '
+                                    'SD browser may look stale for a '
+                                    'minute, it recovers on its own, no '
+                                    'action needed"', loud=False)
+                            except Exception:                       # noqa: BLE001
+                                pass
                         print('[sdfiles] push failed (klipper busy?) - '
                               'retrying next cycle', flush=True)
             except _SkipPush215:

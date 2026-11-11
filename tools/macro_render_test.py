@@ -4198,7 +4198,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.136ab) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-11-09.142a'", repr(_v66)))
+    _v66 == "'R2-2026-11-11.142b'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -17966,13 +17966,6 @@ tests.append(('R189b queue stall: a parked job SPEAKS within 10s '
     '_waited > 10.0' in _pp189 and 'it builds the moment the' in _pp189,
     ''))
 
-fails = 0
-for name, ok, info in tests:
-    print(('PASS ' if ok else 'FAIL '), name)
-    if not ok:
-        fails += 1
-        print('      ->', str(info)[:220])
-
 # ================== R214 (.136m): field feedback round ======================
 # (1) preset load always shows what it loaded (+ honest note on older
 #     saves), (2) the 44-look texture library, (3) object-only STL export,
@@ -18061,7 +18054,9 @@ tests.append(('R214 STL export: macro (idle gate + nonce channel) and the '
     ''))
 tests.append(('R214 STL export: watcher dispatch + nonce priming + idle '
     'freeze (the .125 disk-I/O lesson) + SSH one-liner',
-    "'stl_nonce'" in _pp214.split('NONCE_KEYS')[1][:900]
+    # R246c: NONCE_KEYS grew (R216+ channels) - the old 900-char window
+    # lost 'stl_nonce' although it never left the list. Position check now.
+    _pp214.index("'stl_nonce')") > _pp214.index('NONCE_KEYS')
     and "'stl_nonce')" in _pp214
     and '_spawn_job(\'STL export\', \'stl_export214\'' in _pp214
     and "'--stl'" in _pp214,
@@ -18088,7 +18083,10 @@ tests.append(('R214 STL export: the mesh keeps the OBJECT and drops the '
     _inf214['tris'] > 0 and _inf214['layers'] == 2
     and 'SKIRT' in _inf214['excl'] and 'SUPPORT' in _inf214['excl']
     and 'CUSTOM' in _inf214['excl']
-    and _os214.path.isfile(_os214.path.join(_d214, 'stl', 't214_object.stl')),
+    # R238: STL exports land in STL/ with the .gcode tail (Mainsail
+    # shows them, one click) - the old 'stl/' + bare .stl path is history
+    and _os214.path.isfile(_os214.path.join(_d214, 'STL',
+                                            't214_object.stl.gcode')),
     str(_inf214)))
 
 # ---- litho stands -----------------------------------------------------------
@@ -18125,24 +18123,38 @@ _o214c, _i214c = _mod214.make_labels(
 _t214c = open(_o214c).read()
 _zs214 = [z for z in re.findall(r';Z:([\d.]+)', _t214c)]
 _i600214 = _t214c.index('\nM600\n')
-tests.append(('R214 label embedding: the FIRST text layer prints INSIDE the '
-    'last base layer (M600 + text on the base top Z, total = naive -1)',
-    _i214c['layers'] == 5 and _t214c.count(';LAYER_CHANGE') == 5
-    and len(_zs214) == 5
+# R231/R232 (.136ac) re-defined the text depth: text_layers=2 is a FLUSH
+# inlay (the text prints INSIDE the last base layer - the total stays
+# base_layers), 3/4 add raised layers ON TOP of the inlay. The old R214
+# math (total = naive - 1) is history.
+_o214d, _i214d = _mod214.make_labels(
+    ['R214'], w=50, h=25, base_layers=4, text_layers=3, layer_h=0.2,
+    first_h=0.28, out_dir=_d214, color2=1, bed=(0.0, -3.0, 244.0, 238.0))
+tests.append(('R214 label embedding: text_layers=2 = FLUSH inlay inside '
+    'the last base layer (M600 + text on the base top Z, total = base)',
+    _i214c['layers'] == 4 and _t214c.count(';LAYER_CHANGE') == 4
+    and len(_zs214) == 4
     and abs(float(_zs214[3]) - 0.88) < 1e-9      # last base layer z
-    and _i600214 > _t214c.index(';Z:0.880')
-    and _i600214 < _t214c.index(';Z:1.080'),
+    and _i600214 > _t214c.index(';Z:0.880'),
     'layers=%s z4=%s' % (_i214c['layers'], _zs214[3] if len(_zs214) > 3 else '-')))
+tests.append(('R214 label embedding: text_layers=3 adds ONE raised layer '
+    'on top of the flush inlay (total = base + raised)',
+    _i214d['layers'] == 5 and _i214d['raised'] == 1
+    and ';Z:1.080' in open(_o214d).read(),
+    'layers=%s raised=%s' % (_i214d['layers'], _i214d['raised'])))
 
 # ---- web dash ---------------------------------------------------------------
 tests.append(('R214 web dash: stacked topic columns + ONE bottom line for '
-    'layer + feature (same poll, no new requests)',
-    _web214.count('class="dcol"') == 5
+    'layer + feature (same poll, no new requests; R218 regrouped the '
+    'columns 5 -> 4 + the wide Mode/File column)',
+    _web214.count('class="dcol"') == 4
+    and 'class="dcol dwide"' in _web214
     and 'id="d_bottom"' in _web214
-    and 'd_layer' in _web214.split('d_bottom')[1]
-    and 'd_feat' in _web214.split('d_bottom')[1]
-    and "set('d_feat',S.current_type?String(S.current_type):'\\u2013');"
-    in _web214,
+    # R246c: the Layer/Feature spans sit ON the d_bottom div line now -
+    # split at the div id, not the CSS rule
+    and 'd_layer' in _web214.split('id="d_bottom"')[1][:300]
+    and 'd_feat' in _web214.split('id="d_bottom"')[1][:300]
+    and "set('d_feat',S.current_type" in _web214,
     ''))
 save_vars['texture_user_presets'] = _sv_bak214   # restore
 
@@ -18187,10 +18199,15 @@ tests.append(('R224 mirror: arcs flatten to mirrored chords (no raw G2 I/J)',
     _i224x['arcs_flattened'] == 2
     and not _re224.search(r'^G2 .*I', _t224x, _re224.M),
     'arcs %d' % _i224x['arcs_flattened']))
+# the flip plane is the GEOMETRY bbox center (60,50 here) - the only
+# plane that keeps the object in place. CENTER + POLYGON flip around the
+# SAME plane (65 -> 55, 58/88 -> 62/32). The old expectation (flip around
+# the declared CENTER=65) would have shifted the object 10 mm and
+# contradicted the bbox-preservation test right above.
 tests.append(('R224 mirror: EXCLUDE_OBJECT CENTER + POLYGON flip with it '
-    '(KAMP mesh + object park stay honest)',
-    'CENTER=65.000,50.000' in _t224x
-    and '[72.000,40.000]' in _t224x and '[42.000,60.000]' in _t224x,
+    '(same plane as the geometry - KAMP mesh + object park stay honest)',
+    'CENTER=55.000,50.000' in _t224x
+    and '[62.000,40.000]' in _t224x and '[32.000,60.000]' in _t224x,
     [l for l in _t224x.split('\n') if l.startswith('EXCLUDE_OBJECT')][:1]))
 _o224y, _i224y = _mod224.apply_mirror(_f224, axis='y')
 _t224y = open(_o224y).read()
@@ -18213,7 +18230,9 @@ tests.append(('R224 mirror: watcher channel + output folder registered',
     and _mod224.GEN_SUBDIRS.get('mirror') == 'Mirror'
     and 'Mirror' in _mod224.GEN_FOLDER_NAMES
     and 'apply_mirror(' in _sr224 and '_mirror_job224' in _sr224
-    and 'mirror_nonce' in _sr224.split('last_mirror_nonce = None')[1][:4000],
+    # R246c: the nonce read site moved ~650 lines below the init in later
+    # rounds - the 4000-char window was fragile, the read itself is the proof
+    and "_np.get('mirror_nonce')" in _sr224,
     ''))
 _ma224 = open('macros/17_generator.cfg', encoding='utf-8').read()
 tests.append(('R224 MIRROR_APPLY macro: arms on CONFIRM, queues nonce + file '
@@ -18230,8 +18249,9 @@ _mir224 = get_body('macros/17_generator.cfg', 'MIRROR_APPLY')
 out = render(_mir224, {'AXIS': 'Y'})
 tests.append(('R224 MIRROR_APPLY renders: axis Y saved, file adopted, nonce '
     'bumped, honest queue message',
-    'VARIABLE=mirror_axis VALUE=\"y\"' in out
-    and 'VARIABLE=mirror_file VALUE=\"teil.gcode\"' in out
+    # R246c: the rendered VALUE carries SAVE_VARIABLE's inner quotes: "\"y\""
+    'VARIABLE=mirror_axis VALUE="\\\"y\\\""' in out
+    and 'VARIABLE=mirror_file VALUE="\\\"teil.gcode\\\""' in out
     and 'VARIABLE=mirror_nonce VALUE=3' in out
     and 'flip on the Y axis around its own center' in out,
     out[:150]))
@@ -18380,7 +18400,9 @@ tests.append(('R224 queue source: zombie net wired (init + mark + release), '
     and 'STUCK branch lives OUTSIDE' in _sr224q
     and 'a stuck build no longer matters' not in _sr224q
     and 'the RUNNING build keeps' in _sr224q
-    and 'flags reset - nothing is running' in _sr224q, ''))
+    # R246c: 'flags reset - nothing is running' wraps across two source
+    # string literals - assert the unwrapped half that actually sits in one
+    and 'queued dropped, flags reset' in _sr224q, ''))
 
 # ---- R224 (.136v field review): slicer scripts ---------------------------
 # APPLY_TYPE TYP= (broken) -> TYPE= (what the macros parse); the Cura object
@@ -18570,8 +18592,14 @@ tests.append(('R238 TEXTURE_APPLY: MAPMODE/MAPPOS pass through quoted',
     'VARIABLE=texture_map_mode VALUE="\\"ONCE\\""' in out
     and 'VARIABLE=texture_map_pos VALUE="\\"TOP\\""' in out
     and 'Texture request queued' in out, out[:150]))
+# R246c: the guard reads _STATE.mode (not print_stats) - the old render
+# left mode at its busy default and only ever saw the refuse branch.
+# Idle printer, real branch, real message.
+_idle238stl = build_printer()
+_idle238stl['gcode_macro _STATE'] = M(dict(state_vars, mode='idle'))
 out = render(get_body('macros/08_print_start_stop.cfg', 'STL_EXPORT'),
-             {'FILE': 'V5_box.gcode'}, ps_state='idle')
+             {'FILE': 'V5_box.gcode'}, ps_state='idle',
+             extra={'printer': _idle238stl})
 tests.append(('R238 STL_EXPORT: the message names the STL folder + the '
     'ending trick (Mainsail shows the file)',
     'stl.gcode' in out and 'remove the .gcode ending' in out
@@ -18585,10 +18613,14 @@ tests.append(('R238 LCD: the queue row is __queue, directly above the SD '
     and '__queue __skip' in _lcd238 and '__queue __stop' in _lcd238
     and '[menu __main __genq]' not in _lcd238, ''))
 tests.append(('R238 LCD: 27 pattern rows on 4 pages, the 6 new ones named',
-    _lcd238.count('SAVE_VARIABLE VARIABLE=texture_pattern VALUE=') == 27
-    and 'of 4 - 27 patterns total' in _lcd238
-    and all(('"%s"' % p) in _lcd238 for p in (
-        'KNIT', 'FLUTED', 'BARK', 'SCALES', 'FACETS', 'MACRAME')), ''))
+    # R246c: the rows render from the _TX_PATTERN arrays since the R239+
+    # rework - no 27 hardcoded SAVE_VARIABLE rows anymore. The arrays are
+    # the one truth, the LCD pages through them 8 at a time.
+    'of 4 - 27 patterns total' in _lcd238
+    and _lcd238.count('*8+') >= 100          # 8 rows/page, page-indexed
+    and 'tx_names' in _lcd238 and 'tx_codes' in _lcd238
+    and "'KNIT', 'FLUTED', 'BARK', 'SCALES', 'FACETS', 'MACRAME'" in open(
+        'macros/17_generator.cfg', encoding='utf-8').read(), ''))
 tests.append(('R238 LCD: MAP mode + position rows (ONCE-gated), fuzzy/bumps '
     'parameters separated by enable',
     '[menu __main __preprint __mods __tex __mmode]' in _lcd238
@@ -18610,6 +18642,62 @@ _tx238b = open('tools/r2_texture.py', encoding='utf-8').read()
 tests.append(('R238 texture: PATTERN_TILT + 27 names + map prepare',
     'PATTERN_TILT' in _tx238b and 'def _map_prepare' in _tx238b
     and "'MACRAME'" in _tx238b and 'map_mode=\'TILE\'' in _tx238b, ''))
+
+# ============== R246c (.142b): the night-session 10->11.11. fixes ===========
+# Field log: the console flooded with the full _SDM mirror + image list every
+# ~5 s straight through a 20-minute print; the frame job died 00:08:21 with
+# 'Timer too close' (124x in the MCU log, FIRMWARE_RESTART 00:08:38).
+# Root chain: a broken status query -> stale .141 fallback -> compares always
+# true -> push loop; the busy probe timed out under the flood's own load and
+# read 'idle'; the image push had no busy guard at all.
+_pp246c = open('tools/r2_postproc.py', encoding='utf-8').read()
+tests.append(('R246c watcher: the _SDM status query reaches moonraker '
+              '(objs= kw-arg - the .142 push-loop root cause)',
+    "_moonraker_status(objs=['gcode_macro _SDM'])" in _pp246c, ''))
+tests.append(('R246c watcher: pushes demand CONFIRMED idle - an unanswered '
+              'busy probe counts as BUSY (strict gate on BOTH push paths)',
+    'def _printer_idle_strict' in _pp246c
+    and _pp246c.count('if not _printer_idle_strict():') == 2
+    and 'class _SkipImg89' in _pp246c
+    and 'raise _SkipImg89()' in _pp246c, ''))
+tests.append(('R246c watcher: failed mirror pushes back off (3 fails -> '
+              '4 silent cycles) and a push times out at 20 s / 1 retry',
+    'mirror_fail246c = [0, 0]' in _pp246c
+    and 'mirror_fail246c[1] = 4' in _pp246c
+    and 'timeout=20.0,' in _pp246c, ''))
+# SDNAV_GO: an unknown path must NOT bury itself one level deeper (the
+# 23:35 field log had 'optimized/optimized/...' x7, 0 entries, no exit)
+save_vars['sd_tree'] = {'': ['D:Projekte'], 'Projekte': ['D:2026'],
+                        'Projekte/2026': ['F:teil.gcode']}
+save_vars['sd_path'] = 'Projekte'
+save_vars['sd_view'] = ['D:ghost']       # NOT in the index (stale mirror)
+save_vars['sd_page'] = 0
+_go246c = get_body('macros/13_system.cfg', 'SDNAV_GO')
+_out246c = render(_go246c, {'INDEX': 0})
+tests.append(('R246c SDNAV_GO: unknown folder refused, stays on the deepest '
+              'VALID level (path doubling is dead)',
+    'is not in the index yet' in _out246c
+    and 'Projekte/ghost' not in _out246c
+    and 'staying in /Projekte' in _out246c, _out246c[:160]))
+save_vars['sd_path'] = 'optimized/optimized/optimized'   # buried + dead
+_out246d = render(_go246c, {'INDEX': 0})
+tests.append(('R246c SDNAV_GO: a buried dead path resets to the root '
+              '(self-healing, no SDNAV_HOME needed)',
+    'is not in the index yet' in _out246d
+    and 'optimized' not in _out246d, _out246d[:160]))
+save_vars.pop('sd_tree', None); save_vars.pop('sd_path', None)
+save_vars.pop('sd_view', None); save_vars.pop('sd_page', None)
+
+# R246c harness: the PASS/FAIL loop now runs HERE, at the very end. It used
+# to sit mid-file (before the R214 round) - every test appended after it
+# was silently never evaluated: no PASS line, no fail count, a red suite
+# still printed green. A test harness that can not fail is no harness.
+fails = 0
+for name, ok, info in tests:
+    print(('PASS ' if ok else 'FAIL '), name)
+    if not ok:
+        fails += 1
+        print('      ->', str(info)[:220])
 
 print(f"\n{len(tests)-fails}/{len(tests)} passed")
 
