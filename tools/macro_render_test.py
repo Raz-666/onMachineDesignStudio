@@ -2011,13 +2011,13 @@ save_vars['nozzle_r']=0.9; save_vars['nozzle_g']=0.9; save_vars['nozzle_b']=0.85
 body = get_body('macros/03_leds.cfg', 'SET_LED_STATE')
 out = render(body, {'STATE': 'idle'})
 tests.append(('LED_STATE idle+auto: nozzle dark', '_NOZZLE_SET ON=0' in out and 'r2_nozzle_on' not in out and 'EFFECT=r2_idle' in out, out[:200]))
-out = render(body, {'STATE': 'printing'})
+out = render(body, {'STATE': 'printing', 'FORCE': '1'})
 tests.append(('LED_STATE printing+auto: nozzle effect', 'EFFECT=r2_nozzle_on' in out and 'EFFECT=r2_printing' in out, out[:200]))
 save_vars['nozzle_mode']='on'
 out = render(body, {'STATE': 'idle'})
 tests.append(('LED_STATE idle+ON: manual color', '_NOZZLE_SET ON=1' in out and 'r2_nozzle_on' not in out, out[:200]))
 save_vars['nozzle_mode']='off'
-out = render(body, {'STATE': 'printing'})
+out = render(body, {'STATE': 'printing', 'FORCE': '1'})
 tests.append(('LED_STATE printing+OFF: never', '_NOZZLE_SET ON=0' in out and 'EFFECT=r2_nozzle_on' not in out, out[:200]))
 save_vars['leds_on']=False; save_vars['nozzle_mode']='on'
 out = render(body, {'STATE': 'idle'})
@@ -4198,7 +4198,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.136ab) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-11-11.142b'", repr(_v66)))
+    _v66 == "'R2-2026-11-11.142c'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -7130,7 +7130,8 @@ out = render(get_body('macros/03_leds.cfg', '_NOZZLE_SET'), {'ON': '1'})
 tests.append(('R86.2 _NOZZLE_SET split=0 -> unchanged LED 5 path',
     'SET_LED LED=printer_leds INDEX=5' in out, out[:120]))
 save_vars['nozzle_split'] = 1
-out = render(get_body('macros/03_leds.cfg', 'SET_LED_STATE'), {'STATE': 'printing'})
+out = render(get_body('macros/03_leds.cfg', 'SET_LED_STATE'),
+             {'STATE': 'printing', 'FORCE': '1'})
 tests.append(('R86.2 SET_LED_STATE split: work light via _split effect',
     'EFFECT=r2_nozzle_on_split' in out, out[:160]))
 out = render(get_body('macros/03_leds.cfg', 'SET_NOZZLE_SPLIT'), {'STATE': '1'})
@@ -11083,6 +11084,7 @@ tests.append(('R173 SDNAV_GO: nested folders open (the tree is recursive - '
     _out173[:120]))
 save_vars.pop('sd_tree', None); save_vars.pop('sd_path', None)
 save_vars.pop('sd_view', None); save_vars.pop('sd_page', None)
+
 
 # ============== R110: profiles + gen-out LIVE from the LCD (no console, no restart) ==============
 # every item of Pre-Print > Profiles and Tools > After gen must RENDER and do
@@ -17685,7 +17687,7 @@ tests.append(('R185 current-only manual: no version-history appendix, no era '
     '## Appendix D' not in _m185 and 'Version history' not in _m185
     and _re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185) is None
     and _re2.search(r'\bR1[0-9][0-9]\b', _m185) is None
-    and 'The nine fonts' in _m185 and 'R2-2026-11-09.142a' in _m185,
+    and 'The nine fonts' in _m185 and 'R2-2026-11-11.142c' in _m185,
     'appendixD=%s eratags=%s rtags=%s nine=%s v132=%s' % (
         '## Appendix D' in _m185,
         bool(_re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185)),
@@ -18687,6 +18689,111 @@ tests.append(('R246c SDNAV_GO: a buried dead path resets to the root '
     and 'optimized' not in _out246d, _out246d[:160]))
 save_vars.pop('sd_tree', None); save_vars.pop('sd_path', None)
 save_vars.pop('sd_view', None); save_vars.pop('sd_page', None)
+# ============== R246d (.142c): motion-aware quiet ==========================
+# Field log 04:04 (.142b): the flood was dead but the start still died -
+# 'Timer too close' in a reactor window carrying our own status queries
+# and a 2 KB preview script. The blind spot: a manual preheat + G28/homing
+# runs with _STATE mode 'idle' AND print_stats 'idle' - every busy check
+# was blind exactly there. klipper's idle_timeout ('Printing' from the
+# first move on) closes it; the macros already read it, the watcher now
+# does too.
+tests.append(('R246d motion: BOTH busy probes + the preview probe ride '
+              'the print_time TRUTH (idle_timeout alone lingers Printing '
+              'for the configured 3600 s - found in review before release)',
+    'def _motion_active246d' in _pp246c
+    and _pp246c.count('_motion_active246d(') == 4    # def + 3 call sites
+    and '_MOTION246D' in _pp246c
+    and _pp246c.count("'toolhead'") >= 3, ''))
+tests.append(('R246d motion: preview pushes defer while the printer '
+              'moves (2 KB scripts never land in a homing window) and '
+              'flush on idle',
+    'def _printer_moving' in _pp246c
+    and 'PENDING_PREVIEW' in _pp246c
+    and 'push waits for idle' in _pp246c
+    and _pp246c.count('if not busy and PENDING_PREVIEW:') == 1, ''))
+
+# --- R246d reactor relief rec. 1: SET_LED_STATE early-exit ------------------
+_leds246d = open('macros/03_leds.cfg', encoding='utf-8').read()
+_sl246d = get_body('macros/03_leds.cfg', 'SET_LED_STATE')
+_p246d = build_printer()
+_p246d['led_effect r2_idle'] = M({})
+_o246d = render(_sl246d, {'STATE': 'printing'}, extra={'printer': _p246d})
+tests.append(('R246d LED: an UNCHANGED state is a no-op - no STOP_LED_'
+              'EFFECTS, no chain rewrite (reactor relief rec. 1)',
+    'STOP_LED_EFFECTS' not in _o246d and 'SET_LED_EFFECT' not in _o246d
+    and '_NOZZLE_SET' not in _o246d, _o246d[:120]))
+_o246e = render(_sl246d, {'STATE': 'printing', 'FORCE': '1'},
+                extra={'printer': _p246d})
+tests.append(('R246d LED: FORCE=1 re-applies the full chain (the nozzle/'
+              'bedlight setters and every deliberate re-apply)',
+    'STOP_LED_EFFECTS' in _o246e and 'SET_LED_EFFECT EFFECT=r2_printing'
+    in _o246e, _o246e[:120]))
+tests.append(('R246d LED: exactly the four deliberate re-apply callers '
+              'carry FORCE=1 (split toggle, nozzle change, master ON, '
+              'job restore)',
+    len([l for l in _leds246d.split('\n')
+         if 'FORCE=1' in l and l.strip().startswith(('SET_LED_STATE',
+                                                     '{% if on %}'))]) == 4,
+    ''))
+# --- R246d reactor relief rec. 4: the _AV timers yield to motion ------------
+import re as _re246d
+def _dgbody246d(name):
+    _m246d = _re246d.search(r'\[delayed_gcode %s\]\ngcode:\n(.*?)(?=\n\n|\Z)'
+                            % name,
+                            open('macros/08_print_start_stop.cfg',
+                                 encoding='utf-8').read(), _re246d.S)
+    return _m246d.group(1)
+_avh246d = _dgbody246d('_AV_HOMING_AV')
+_avp246d = _dgbody246d('_AV_PRINT_AV')
+def _p246av(mode, av_pt, pt, dur=1234.0):
+    _p = build_printer()
+    _p['gcode_macro _STATE'] = M(dict(state_vars, mode=mode, av_pt=av_pt))
+    _p['toolhead'] = M({'print_time': pt})
+    _p['print_stats'] = M({'state': 'printing', 'print_duration': dur,
+                           'total_duration': dur + 1, 'filament_used': 1.0,
+                           'filename': 'test.gcode'})
+    return _p
+_o246f = render(_avh246d, {}, extra={'printer': _p246av('starting', 1.0, 2.0)})
+tests.append(('R246d AV: _AV_HOMING_AV reschedules while the queue runs '
+              '(print_time advanced - no LED/beep in the motion tick)',
+    'UPDATE_DELAYED_GCODE ID=_AV_HOMING_AV DURATION=2.0' in _o246f
+    and 'r2_notice' not in _o246f, _o246f[:140]))
+_o246g = render(_avh246d, {}, extra={'printer': _p246av('starting', 2.0, 2.0)})
+tests.append(('R246d AV: _AV_HOMING_AV plays when the queue drained '
+              '(print_time frozen - the heating window)',
+    'SET_LED_STATE STATE=homing' in _o246g and 'r2_notice' in _o246g
+    and 'VARIABLE=av_pt VALUE=-1' in _o246g, _o246g[:140]))
+_o246h = render(_avh246d, {}, extra={'printer': _p246av('printing', 1.0, 2.0)})
+tests.append(('R246d AV: _AV_HOMING_AV stays silent once the print runs '
+              '(the print announcement owns the moment)',
+    'SET_LED_STATE' not in _o246h and '_SOUND_LIB' not in _o246h
+    and 'UPDATE_DELAYED_GCODE' not in _o246h, ''))
+_o246i = render(_avp246d, {}, extra={'printer': _p246av('printing', 1.0, 2.0, 5.0)})
+tests.append(('R246d AV: _AV_PRINT_AV reschedules while the first layers '
+              'stream (print_time advancing, under the 120 s window)',
+    'UPDATE_DELAYED_GCODE ID=_AV_PRINT_AV DURATION=1.2' in _o246i
+    and 'r2_printing' not in _o246i, _o246i[:140]))
+_o246j = render(_avp246d, {}, extra={'printer': _p246av('printing', 2.0, 2.0, 5.0)})
+tests.append(('R246d AV: _AV_PRINT_AV plays at the first drained gap '
+              '(idle queue, young print)',
+    'SET_LED_STATE STATE=printing' in _o246j and 'r2_printing' in _o246j,
+    _o246j[:140]))
+_o246k = render(_avp246d, {}, extra={'printer': _p246av('printing', 1.0, 2.0, 130.0)})
+tests.append(('R246d AV: _AV_PRINT_AV gives up silently after 120 s (no '
+              'late beep mid-print)',
+    'SET_LED_STATE' not in _o246k and 'UPDATE_DELAYED_GCODE' not in _o246k,
+    ''))
+_o246l = render(_avp246d, {}, extra={'printer': _p246av('idle', 1.0, 2.0)})
+tests.append(('R246d AV: a cancelled print (_AV_PRINT_AV, mode not '
+              'printing) plays NOTHING',
+    'SET_LED_STATE' not in _o246l and '_SOUND_LIB' not in _o246l, ''))
+# hidepid honesty (the persistent sudo-only-twins field report)
+tests.append(('R246d sweep: the duplicate scan ADMITS hidepid blindness '
+              '(root strays invisible to /proc + pgrep) instead of '
+              'implying a clean scan',
+    'def _proc_hidepid' in _pp246c and 'hidepid_loud' in _pp246c
+    and 'sudo pgrep -af' in _pp246c, ''))
+
 
 # R246c harness: the PASS/FAIL loop now runs HERE, at the very end. It used
 # to sit mid-file (before the R214 round) - every test appended after it

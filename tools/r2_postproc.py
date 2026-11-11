@@ -77,8 +77,8 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-11.142b'
-POSTPROC_BUILD = 'R246c'
+POSTPROC_RELEASE = 'R2-2026-11-11.142c'
+POSTPROC_BUILD = 'R246d'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
 # and no speed/accel/nozzle parameters. Files carrying an OLD tag are UPGRADED
@@ -8601,12 +8601,21 @@ def _printer_busy(host='127.0.0.1', port=7125):
         import urllib.request
         url = ('http://%s:%d/printer/objects/query?%s'
                % (host, port,
-                  urllib.parse.quote('print_stats gcode_macro _STATE')))
+                  urllib.parse.quote(
+                      'print_stats gcode_macro _STATE idle_timeout '
+                      'toolhead')))
         with urllib.request.urlopen(url, timeout=1.5) as r:
             js = json.loads(r.read().decode())
         _st = ((js.get('result') or {}).get('status') or {})
         if (_st.get('print_stats') or {}).get('state', '') \
                 in ('printing', 'paused'):
+            return True
+        # R246d: motion is busy too - a manual preheat + G28/homing runs
+        # in mode 'idle' (the 04:04 blind spot). Same query, no extra
+        # request; _motion_active246d compares print_time against the
+        # last pass (idle_timeout alone lingers 'Printing' for the
+        # configured 3600 s after the last move - see there).
+        if _motion_active246d(_st):
             return True
         _mode = (_st.get('gcode_macro _STATE') or {}).get('mode', '')
         return _mode in ('waiting', 'starting', 'printing', 'paused',
@@ -8622,6 +8631,54 @@ def _printer_busy(host='127.0.0.1', port=7125):
         except Exception:                               # noqa: BLE001
             if _try162 == 2:
                 return False
+
+
+_MOTION246D = {'pt': -1.0}   # R246d: last seen toolhead print_time
+
+
+def _motion_active246d(st):
+    """R246d: TRUE motion - toolhead.print_time advanced since the last
+    call. idle_timeout.state 'Printing' alone is NOT a live signal: with
+    the configured timeout: 3600 it stays 'Printing' for up to an HOUR
+    after the last move (found in review BEFORE release - gating on it
+    alone would have silenced the watcher for an hour after any preheat
+    wiggle). print_time only advances while the move queue actually runs;
+    frozen between two of our samples = drained queue = quiet, whatever
+    idle_timeout claims. Ready/Idle states can only be reached after the
+    full idle timeout without a single move - definitively quiet."""
+    _ito246d = st.get('idle_timeout') or {}
+    _pt246d = (st.get('toolhead') or {}).get('print_time')
+    if _pt246d is None or _ito246d.get('state', '') != 'Printing':
+        if _pt246d is not None:
+            _MOTION246D['pt'] = _pt246d
+        return False
+    _moved246d = _pt246d > _MOTION246D['pt'] + 1e-9
+    _MOTION246D['pt'] = _pt246d
+    return _moved246d
+
+
+def _printer_moving(host='127.0.0.1', port=7125):
+    """R246d (.142b field log 04:04): MOTION probe for the preview push.
+
+    A manual preheat + G28/homing runs with _STATE mode 'idle' AND
+    print_stats 'idle' - both busy checks were blind exactly there while
+    the 04:04 print start died with 'Timer too close' in a reactor window
+    that carried our own status queries and a 2 KB preview script.
+    Uses _motion_active246d (print_time delta vs the sample the pass
+    already took - see there why idle_timeout alone would lie for up to
+    an hour). Unreachable moonraker counts as moving (fail-safe: defer)."""
+    import urllib.parse
+    import urllib.request
+    try:
+        url = ('http://%s:%d/printer/objects/query?%s'
+               % (host, port,
+                  urllib.parse.quote('idle_timeout toolhead')))
+        with urllib.request.urlopen(url, timeout=2.0) as r:
+            js = json.loads(r.read().decode())
+        _st = ((js.get('result') or {}).get('status') or {})
+        return _motion_active246d(_st)
+    except Exception:                                       # noqa: BLE001
+        return True         # cannot say -> assume motion, defer
 
 
 def _printer_idle_strict(host='127.0.0.1', port=7125):
@@ -8644,12 +8701,19 @@ def _printer_idle_strict(host='127.0.0.1', port=7125):
     try:
         url = ('http://%s:%d/printer/objects/query?%s'
                % (host, port,
-                  urllib.parse.quote('print_stats gcode_macro _STATE')))
+                  urllib.parse.quote(
+                      'print_stats gcode_macro _STATE idle_timeout '
+                      'toolhead')))
         with urllib.request.urlopen(url, timeout=3.0) as r:
             js = json.loads(r.read().decode())
         _st = ((js.get('result') or {}).get('status') or {})
         if (_st.get('print_stats') or {}).get('state', '') \
                 in ('printing', 'paused'):
+            return False
+        # R246d: motion blocks pushes too (mode 'idle' homing/preheat -
+        # the 04:04 field crash). Same query, zero extra requests; the
+        # print_time delta is the truth (idle_timeout lingers).
+        if _motion_active246d(_st):
             return False
         _mode = (_st.get('gcode_macro _STATE') or {}).get('mode', '')
         return _mode not in ('waiting', 'starting', 'printing', 'paused',
@@ -21440,7 +21504,61 @@ def _find_other_watchers():
     return found
 
 
+def _proc_hidepid():
+    """R246d: the /proc mount's hidepid level (0 = full visibility).
+
+    Field report (persistent, multiple ssh copies): the user repeatedly
+    saw 3+ r2_postproc PIDs with sudo pgrep while the plain scan showed
+    one. If /proc is mounted hidepid=2 (some distros/hardening do), a
+    user-pi process LIST or READS other users' (root's) processes never
+    - neither pgrep nor our /proc sweep can see a root-cron stray at all.
+    The sweep must SAY so instead of silently reporting 'one watcher'."""
+    try:
+        with open('/proc/mounts') as f:
+            for _ln246d in f:
+                _p246d = _ln246d.split()
+                if len(_p246d) >= 4 and _p246d[1] == '/proc':
+                    for _opt246d in _p246d[3].split(','):
+                        if _opt246d.startswith('hidepid='):
+                            try:
+                                return int(_opt246d.split('=', 1)[1])
+                            except ValueError:
+                                return 1
+                    return 0
+    except OSError:
+        pass
+    return 0
+
+
+def _hidepid_note(state):
+    """R246d: rate-limited honesty when the duplicate scan is half-blind."""
+    import time as _t246d
+    _lvl246d = _proc_hidepid()
+    if _lvl246d < 1:
+        return
+    _now246d = _t246d.time()
+    if _now246d - state.get('hidepid_loud', 0.0) < 3600.0:
+        return
+    state['hidepid_loud'] = _now246d
+    print('[lock] NOTE: /proc is mounted hidepid=%d - this scan CANNOT see '
+          'root-owned processes. A root stray watcher would be invisible '
+          'to it AND to plain pgrep. Verify on the Pi:\n'
+          '    sudo pgrep -af %s[r]2_postproc.py%s\n'
+          '    (the [r] keeps the pattern from matching itself)'
+          % (_lvl246d, chr(39), chr(39)), flush=True)
+    try:
+        _q246d = chr(39)
+        _moonraker_gcode(
+            'RESPOND MSG="R2 watcher: process view is restricted '
+            '(hidepid=%d) - a ROOT stray watcher would be invisible to '
+            'the duplicate scan. Check on the Pi: sudo pgrep -af '
+            '%s[r]2_postproc.py%s"' % (_lvl246d, _q246d, _q246d))
+    except Exception:                                       # noqa: BLE001
+        pass
+
+
 _LOUD_DUP = {}          # R147: pid -> last loud-console respond (1/h max)
+_SWEEP_STATE = {'hidepid_loud': 0.0}     # R246d: hidepid note rate limit
 _DUEL_UNITS = {}        # R202: systemd unit -> how often it respawned a twin watcher
 
 
@@ -21469,7 +21587,14 @@ def _watch_duplicate_sweep():
     _stop_duplicate_watcher. The SUPERVISED systemd instance always wins:
     a manual watcher that meets it exits politely instead of killing it.
     One watcher, ever: at startup AND while running."""
-    for pid in _find_other_watchers():
+    _found246d = _find_other_watchers()
+    if not _found246d:
+        # R246d: nothing found - under hidepid that proves nothing about
+        # ROOT processes. Say so (rate-limited) instead of implying a
+        # clean scan. The persistent field report of sudo-only visible
+        # twins deserves an honest scan.
+        _hidepid_note(_SWEEP_STATE)
+    for pid in _found246d:
         if _svc_watcher(pid) and not _svc_watcher(os.getpid()):
             print('[lock] the systemd watcher (PID %d) is already running '
                   '- this manual watcher exits (one watcher, the '
@@ -23358,6 +23483,7 @@ def watch(directory, interval=5.0, once=False):
     last_beat = time.time()
     last_dup_sweep = 0.0     # R133i: runtime duplicate sweep (1st pass now)
     NEW_PREVIEW = []          # R73: freshly processed files -> LCD preview push
+    PENDING_PREVIEW = []      # R246d: preview pushes deferred while moving
 
     def push_preview(ppath, label='upload'):
         """R73/R74: read the file's parameters and push them to Klipper so
@@ -23366,6 +23492,16 @@ def watch(directory, interval=5.0, once=False):
         SDCARD_PRINT_FILE, Mainsail starts never pushed anything.
         R74: the push now ALSO replays the file's _FILE_INFO line, so the
         Start > File info / Pre-Print / Live menus show THIS file's values."""
+        # R246d (.142b field log 04:04): the 2 KB _PREVIEW_SET script is
+        # real reactor work - it must never land in a homing/KAMP window.
+        # MOTION defers it (a waiting start dialog without motion still
+        # gets it immediately - the dialog needs the file info); the pass
+        # below flushes the pending list once the printer is idle.
+        if _printer_moving():
+            PENDING_PREVIEW.append((ppath, label))
+            print(f'[preview:{label}] {os.path.basename(ppath)}: printer '
+                  'moving - push waits for idle', flush=True)
+            return
         try:
             script_lines, nvals = _preview_script(ppath)
             ok = _moonraker_gcode('\n'.join(script_lines))
@@ -24267,6 +24403,14 @@ def watch(directory, interval=5.0, once=False):
             time.sleep(1.0)
             stats['files'] = 0
             continue
+        # R246d: motion-deferred preview pushes go out once the printer
+        # is idle (the 8 s grace above already let the end choreography
+        # finish) - late, but never inside a move window.
+        if not busy and PENDING_PREVIEW:
+            _pend246d = PENDING_PREVIEW[:]
+            del PENDING_PREVIEW[:]
+            for _pp246d, _pl246d in _pend246d:
+                push_preview(_pp246d, _pl246d)
         if busy:
             _freeze133 = (
                 'label_gen_nonce', 'cable_tie_nonce', 'angle_nonce',

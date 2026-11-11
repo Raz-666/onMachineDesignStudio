@@ -3,7 +3,7 @@
 **Package:** `klipper-e3-r2d2` · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail) ·
 12864 LCD (16 characters per line)
 
-**Version:** this manual describes the current release, `R2-2026-11-09.142a` — and only it. Every chapter documents what the system
+**Version:** this manual describes the current release, `R2-2026-11-11.142b` — and only it. Every chapter documents what the system
 does today; the version changelog lives in README.md.
 
 This is the operating manual for the complete macro system: what the printer can
@@ -872,7 +872,7 @@ PAUSE_AT_LAYER LAYER=17
 CANCEL_PRINT                                    # twice within 60 s
 ```
 
-## 5. The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes, ColorPic, Gaskets, Frames, Bricks, Kits & Figures, String Art, Geometry, Scale/Taper, Twist, STL export
+## 5. The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes, ColorPic, Gaskets, Frames, Bricks, Kits & Figures, String Art, Geometry, Scale/Taper, Twist, Mirror, STL export
 
 Thirteen generators turn the printer into a manufacturing tool of its own:
 partial prints from any G-code, label plates from typed text, pen plots from
@@ -2088,7 +2088,25 @@ extrusion widths as wall thicknesses, floors and top surfaces closed.
 The mesh opens in every common 3D program (Blender, PrusaSlicer,
 Cura, Fusion); export as OBJ works the same way. Start sound +
 LCD notify when the file is done; output lands next to the source in
-the `STL/` folder.
+the `STL/` folder — named `name_object.stl.gcode`: Mainsail
+shows it in the file list, one click downloads it, strip the `.gcode`
+ending and every 3D program opens it.
+
+### 5.20 Mirror — flip on X or Y, exactly in place
+
+Flips the SELECTED file around the **object's own center** — unlike
+scale/twist (which re-center on the bed) the object stays **exactly
+where it was**: every X (or Y) coordinate mirrors around the geometry
+bbox center, the bed footprint is bit-identical. **E stays verbatim**
+(a flip is isometric), G2/G3 arcs flatten to mirrored chords.
+`EXCLUDE_OBJECT_DEFINE` CENTER + POLYGON flip with the same plane — KAMP mesh
+and object exclusion stay honest. Multi-object files
+(print-by-object): `OBJ=` flips ONE object around **its own** center,
+the rest stays untouched. Output: `name_MIRX.gcode` /
+`name_MIRY.gcode` in the `Mirror/` folder, numbered copies, never
+overwrites. LCD: Pre-Print > Tools > Mirror — axis X/Y, `How? (E
+stays)`, `> Apply` (2×). Console: `MIRROR_APPLY AXIS=Y FILE=myfile.gcode
+OBJ=LEFT`.
 
 ## 6. During the print: tuning, pauses, objects
 
@@ -2698,14 +2716,22 @@ kick-off, no third press by accident.
 **Menu order** — Pre-Print: File info (incl. `STL: object only`, .136m) ·
 Fixes (incl. the File check list — the same six entries as System > File
 check, .136m — **plus `Fix: Quality` and `Fix: Speed`**, .136n) · Tools
-(Offset, Texture, Range, **Scale X/Y with the Taper option** and
-**Twist**, .136n, Cake cut, Plotter, STL export) · Temps · Motion · Features ·
+(Offset, Texture, Range, **Scale X/Y with the Taper option**,
+**Twist**, **Mirror**, Cake cut, Plotter, STL export) ·
+**Material** (shows the current material — Load preset now / Save
+current / Reset for PLA, PETG, TPU, ABS/ASA) · Temps ·
+Motion · Features ·
 utilities (Preheat/Mesh/Confirm/Overwrites) · Profiles LAST. Live Tuning:
 Temps & Fan first, then Z-Hopping, Z-offset + babysteps, the quick-access
 rows, Features, Motion, Sources/File/Plotter — Exclude + Pause at the very
 end. The SD browser has a **Del** row: one press switches the mode
 on, then every file and folder needs **two presses** (arm + delete) — only
-inside the G-Codes root, never during a print.
+inside the G-Codes root, never during a print. The browser heals itself:
+a folder the index does not know yet (stale mirror after a
+restart) is REFUSED with a note instead of burying the path — an unknown
+sub-folder keeps you on the deepest valid level, a dead path resets to
+the G-Codes root, and the next index pass fills the gap (SDNAV_HOME
+always goes to the top).
 
 **Live Tuning (during a print, every mode)** — shows Klipper's REAL values:
 the flow input reads the actual extrude factor (M221), PA reads
@@ -2851,7 +2877,8 @@ R/G/B + presets.
 
 **System:** File check (+ Retag old 2×), **Gen jobs** (queue state + clear,
 .136u), restarts (2×), Pi shutdown (2×), **Force end print**, save config
-(2×, warns that the LCD goes dark), status, **LED Setup** (areas, bed light,
+(2×, warns that the LCD goes dark), **MCU Recovery** (auto-recovery
+ON/OFF — see ch. 19), status, **LED Setup** (areas, bed light,
 nozzle chain/mode — ch. 17, only shown when LED hardware exists).
 
 ## 15. Overrides reference
@@ -3023,8 +3050,28 @@ Print running (legacy file) - live tuning and overwrites ACTIVE
 | HOST_CHECK | **Pi health report**: throttle/undervoltage flags (now + since boot), CPU temp, load **vs. core count**, **RAM + swap**, disk, **iowait**, **TOP CPU/RAM processes (top 5)** and **who sits IN the swap** (VmSwap per process — names the RAM eater even when the top-RAM list looks innocent) + **service states** (klipper/moonraker/avahi/crowsnest/sonar/OctoEverywhere/pigpiod, with warnings: double webcam stack, avahi still on, cloud relay) — honest verdict: THROTTLED / SWAPPING / OVERLOADED / OK. The swap verdict measures **activity** (vmstat swap-in/out): quietly parked pages after boot are **OK** (normal on a small Pi), only real swap traffic counts as SWAPPING. LCD: System > Host check. Since .136 it also flags DUPLICATE r2-postproc watcher processes (they double every state push) with the fix command. Since .136m it counts **klippy's own load symptoms** from klippy.log — "Reactor: N stall(s) up to X s + N failed LED updates": many stalls mean the host repeatedly blocked klippy's reactor and the next homing can hit 'Timer too close' even with load/throttle looking fine |
 | EMERGENCY_STOP | immediate halt |
 | FILE_CHECK | **g-code inventory**: scans every file's tag version — how many are current, old (upgradeable), untouched (never processed) or plotter files — each file listed on the console with age + size. `FILE_CHECK RETAG=1` (2×/CONFIRM=1) additionally upgrades old + untouched files to the current markers: **.r2bak backup first**, never while printing, max 20 per run. LCD: System > File check + STALE (v4: functional, pre-.86 info line — RETAG adds the new keys) |
+| SET_RECOVERY MODE=on/off | **MCU-shutdown auto-recovery** switch (default ON). LCD: System > MCU Recovery. Reads from the variables FILE — no macro can run while klippy is dead, so the switch must survive outside klippy's RAM |
 
 All destructive paths need TWO presses (60 s window). Serial link: UART (ch. B.5).
+
+**MCU-shutdown auto-recovery — the watcher as the calm hand:**
+klippy cannot heal itself (it IS the patient) and moonraker deliberately
+never restarts a shutdown klippy — but the watcher is an independent
+process with the same moonraker API the UI buttons use. When the printer
+hits `MCU 'mcu' shutdown`, the watcher walks an escalation ladder, every
+step rate-limited: **L1** `FIRMWARE_RESTART` (what the UI button does —
+klippy answers it even in shutdown state) · **L2** klipper service
+restart via moonraker (host software died or L1 changed nothing) ·
+**L3** full Pi reboot — only after 3.5 min dead, at most ONCE per hour
+(the brake persists in `watcher_recovery.json` — a reboot never resets
+its own rate limit), or immediately on the 3rd episode within 15 min.
+**Only host/link classes auto-recover** (`Timer too close`, lost
+communication/timeout, can-not-update-mcu, missed digital-out
+scheduling — heaters are OFF in MCU shutdown anyway). **Heater, thermal
+and config classes stay DOWN** with one log line — those need eyes, not
+a restart loop. klippy.log is snapshotted to `crash_archive/` BEFORE the
+first restart, so the forensics survive every rotation. Field score so
+far: two production saves (100 s and 178 s from crash to ready).
 
 **.136n — the R2 machine panel in Mainsail (WebUI):** the macro system
 carries its own web page (`web/index.html`, served by moonraker) with a
@@ -4087,7 +4134,7 @@ system). Better a quiet fan at full speed than a fast one slowed down.
 ## Appendix C: First start & updates
 
 - upload the folder → includes at the end of printer.cfg → RESTART
-- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-11-09.142a)`
+- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-11-11.142c)`
 - ~10 s later: boot sound + LED animation
 - SHOW_STATUS → mode, material, overrides · Maintenance > Tests > demos + self test
 

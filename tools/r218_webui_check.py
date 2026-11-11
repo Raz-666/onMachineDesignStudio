@@ -242,7 +242,7 @@ ck('version: the page ver badge matches 01_state (%s)'
 # R243 (.139): the pin moves again - badge .139, state ver R243.
 # R244 (.140): pin moved - badge .140, state ver R244.
 # R246 (.142): pin moved again - badge .142, state ver R246.
-ROUND = 'R246c'
+ROUND = 'R246d'
 _state_ver = re.search(r"ver:'(R\d+[a-z]?)'", HTML)   # R246b: hotfix letters ride along
 ck('version: the page state ver is the current round (%s)' % ROUND,
    _state_ver and _state_ver.group(1) == ROUND,

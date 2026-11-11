@@ -13,6 +13,14 @@ frozen references.
 RE-FREEZE HISTORY: the .134 version bump changed the core stamp line in
 every mr excerpt (verified: exactly ONE line per case differs, .133 ->
 .134, nothing else) - refs re-frozen from the bumped module.
+RE-FREEZE HISTORY: R246d (.142c) re-froze mr01-mr13 (version bump
+class - POSTPROC_RELEASE .142b -> .142c, BUILD R246c -> R246d; the R246d
+changes live in the busy probes (idle_timeout rides the existing query),
+the motion deferral for preview pushes and the watch loop - make_range/
+process are untouched. Proofs: the .142b module from git 76edc81
+reproduces the previous refs byte-exactly (23/23); the per-case A/B diff
+shows ONLY the R2-META sig line per case (26 lines, all sig class);
+pr01-pr10 byte-IDENTICAL).
 RE-FREEZE HISTORY: R246c (.142b) re-froze mr01-mr13 (version bump
 class - POSTPROC_RELEASE .142a -> .142b, BUILD R246b -> R246c; the R246c
 fixes live in the WATCH layer only: strict idle gates before both push
@@ -332,19 +340,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # process() output is identical old vs new, ALL 13 mr md5s change (every
 # range excerpt carries the core stamp), no summary moves, and r81 was
 # 23/23 green with the R213 code BEFORE the stamp bump.
-REF_MD5 = {'mr01': '2231e2ba10d63341624ab58ae6a87333',
- 'mr02': 'c4b21aaceda43339b59ff66afb3361a6',
- 'mr03': '4018bf759b396f55e5da1d8ca2086b5a',
- 'mr04': '8f49ae8c170b41391614bf02d87cc082',
- 'mr05': '3a5b5a2241bdaa2add12abf41eabc5c6',
- 'mr06': 'afb02b126010ccf523b2243bd6910cb1',
- 'mr07': '323db419d5319b2df62a0e5eb46822fe',
- 'mr08': '350f9d7768e6ff1649308d539e7939f8',
- 'mr09': '1fc15f37536a8b1893c43261aa260876',
- 'mr10': '11dc9d679d0c3171a142910edbf9f917',
- 'mr11': '4ff92851ff413c631d6b09bcd2f56fb8',
- 'mr12': 'af50e3080471c5083c28b3c663663c2c',
- 'mr13': '0d99f65a2010641b5bc001ecf1824303',
+REF_MD5 = {'mr01': 'd321704a932b8a109f791ff0a663825c',
+ 'mr02': '2047bce4f52024d15dd82ea79966e664',
+ 'mr03': 'b66aea590b15b73745c5bac903b3fa70',
+ 'mr04': 'cef6b17a009bb84acf78eee0fec824e0',
+ 'mr05': 'c747f62248137544d729ac9f15ad3b3a',
+ 'mr06': 'dfeee58aefb200c2a691fd393c180903',
+ 'mr07': '9b4ecb407854cefe6596ca011d0f4393',
+ 'mr08': 'bbc4b7284323176ebada672cd4754633',
+ 'mr09': '892043ee4278f1d59b215078578251ed',
+ 'mr10': '62f2a94ffca2a897816c1cadd89a683f',
+ 'mr11': '9f07d32203b912521765efd51d126ff1',
+ 'mr12': '7f6c25ee42e0e34f4a1e9341db8589c7',
+ 'mr13': '65355ffe4a52c78d6d4ec74249ec844b',
  'pr01': 'aa5a6f27d5a7e6576f57eeea93af63a5',
  'pr02': '61457e9bcbd98996b6e7dc26efda23d8',
  'pr03': '923725a1d92fccc88241ed8a3ab8065b',

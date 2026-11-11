@@ -336,11 +336,27 @@ kick2 = len(re.findall(
 check('E8: the this-file pre load kicks you out too', kick2 == 1, str(kick2))
 
 print('--- F) AV stagger: no LED/beep in the motion tick --------------------')
-av = re.findall(r'UPDATE_DELAYED_GCODE ID=(_AV_\w+) DURATION=([\d.]+)', m08 + m09)
+# R246d: the _AV bodies self-reschedule now (motion-deferrent retries,
+# DURATION 2.0/2.5) - those retry lines live INSIDE the [delayed_gcode]
+# bodies and are not flow triggers. Count only the FLOW-side triggers
+# (lines outside the delayed_gcode definitions).
+_bodies236 = re.findall(r'\[delayed_gcode _AV_\w+\]\ngcode:\n(.*?)(?=\n\n|\Z)',
+                        m08 + m09, re.S)
+_stripped236 = m08 + m09
+for _b236 in _bodies236:
+    _stripped236 = _stripped236.replace(_b236, '')
+av = re.findall(r'UPDATE_DELAYED_GCODE ID=(_AV_\w+) DURATION=([\d.]+)',
+                _stripped236)
 check('F1: seven burst spots staggered (homing/print x3/pause/filament/resume)',
       len(av) == 7, str(av))
 check('F2: delays are 1.0-1.5s (noticeable relief, no dead time)',
       all(0.9 <= float(d) <= 1.6 for _, d in av))
+check('F2b: the AV retries yield to motion (drain-check self-reschedule '
+      'inside the bodies, bounded by the 120 s window)',
+      re.search(r'_AV_HOMING_AV DURATION=2.0', m08) is not None
+      and re.search(r'_AV_PRINT_AV DURATION=1.2', m08) is not None
+      and '_dur246d > 120' in m08
+      and 'VARIABLE=av_pt VALUE={pt246d|round(6)}' in m08)
 defs = re.findall(r'\[delayed_gcode (_AV_\w+)\]', m08 + m09)
 check('F3: every stagger has its delayed_gcode definition',
       sorted(set(d for d, _ in av)) == sorted(set(defs)), str(defs))
@@ -348,7 +364,8 @@ _av_guarded = True
 for d in set(defs):
     dm = re.search(r'\[delayed_gcode %s\]\ngcode:\n(.*?)(?=\n\n|\Z)' % d,
                    m08 + m09, re.S)
-    if not dm or ("printer['gcode_macro _STATE'].mode" not in dm.group(1)):
+    if not dm or ("printer['gcode_macro _STATE'].mode" not in dm.group(1)
+                  and '.mode' not in dm.group(1)):   # R246d: s246d.mode
         _av_guarded = False
 check('F4: all five AV delayed codes are mode-guarded', _av_guarded)
 # render proof: a cancelled print must not light the wrong LED
