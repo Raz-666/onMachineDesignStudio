@@ -434,7 +434,8 @@ def main():
     #      they are the "get printing again" path and must never rot.
     import subprocess as _sp
     for ename, etag in (('r2_emergency.sh', '--revert'),
-                        ('r2_triage.sh', None)):
+                        ('r2_triage.sh', None),
+                        ('r2_mcu_relief.sh', '--revert')):
         epath = os.path.join(ROOT, 'tools', ename)
         if not os.path.isfile(epath):
             findings.append(('emergency', None,
@@ -451,6 +452,12 @@ def main():
         etxt = open(epath, encoding='utf-8').read()
         if ename == 'r2_emergency.sh':
             for must in ('--revert', '--status', 'mesh_mode', 'r2-postproc'):
+                if must not in etxt:
+                    findings.append(('emergency', None,
+                                     '%s lost its %r path' % (ename, must)))
+        elif ename == 'r2_mcu_relief.sh':
+            for must in ('step_pulse_duration', 'minimum_cruise_ratio',
+                         'beeper', 'ttyAMA0', '--revert'):
                 if must not in etxt:
                     findings.append(('emergency', None,
                                      '%s lost its %r path' % (ename, must)))
