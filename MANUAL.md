@@ -143,8 +143,8 @@ value, flow factor (shown as `File H:215/210C` hints in the menus). This is why
 you can print the SAME file in a different material without opening the slicer:
 load another material preset (Pre-Print > Material) and start AS LEGACY.
 
-**Universal print intercept.** SDCARD_PRINT_FILE (print button) and M24 (LCD
-file list) catch EVERY print: the file is loaded and **held at position 0** —
+**Universal print intercept.** SDCARD_PRINT_FILE (print button), M24 (LCD
+file list) and M23 (the stock SD list's file tap) catch EVERY print: the file is loaded and **held at position 0** —
 not a single command runs before your decision. Then: homed if needed, start
 dialog. The decision rides along until the file identifies itself; a net probe
 (`_START_NET_PROBE`) catches files that neither heat nor call any start macro
@@ -373,17 +373,18 @@ lower F), **Travel / TAcc** (travel speed + accel, live markers), **Segments**
 **.136n adds two more:**
 
 - **Fix: Quality — the travel golden rule on a sliced file.** A travel
-  may only cost time and leave blobs when it actually **CROSSES freshly
-  printed plastic of the same layer** — endpoint touches and parallel
-  neighbor lines never count. The fix tracks every extrusion segment of
-  each layer and asks exactly that question per retract/hop block:
-  no crossing → the block's retract + Z-hop armor **drops** (the travel
-  prints directly, flat — no string-dragging over clean infill, no
-  pointless hop sequences); crossing → everything stays (the slicer was
-  right). Crossings that ride **without any retract at all** are counted
-  and named in the report. The feature recognition contributes ONLY the
-  travel detection here — no feature is re-tagged, nothing but travels
-  is touched.
+  keeps its retract + Z-hop **only when it crosses ink the nozzle would
+  hit**: plastic of the **same layer** (the layer height is measured from
+  the file itself) — endpoint touches and parallel neighbor lines never
+  count — or **sacred ink of any layer** (outer wall, top/bottom surface,
+  ironing: the faces you look at). Every other retract/hop block **drops**
+  and its travel prints directly; that is where the time comes from. A
+  crossing that rides **without any retract at all** (the slicer never
+  armored it) gets the file's **own** retract values — length and F copied
+  from the first retract in the file — and **never an invented Z-hop**;
+  files without any retract are honestly reported instead (nothing is
+  invented). The feature recognition contributes ONLY the travel detection
+  here — no feature is re-tagged, nothing but travels is touched.
 - **Fix: Speed — direct ways + ironing skipped.** Consecutive travel
   lines (no extrusion between them) merge into ONE move to the final
   target — the deceleration ramps of the intermediate stops were pure
@@ -482,8 +483,10 @@ The copy carries your print's tuning:
   overwritten.
 
 **Printing a copy:** the stock LCD file list shows the gcodes root ONLY
-(Klipper never lists subfolders there), so the top-level **Optimized** menu is
-the LCD way in: **40 live slots** (two pages — the list refreshes while the
+(Klipper never lists subfolders there) - the post-processor therefore mirrors
+every printable subfolder file as a **link in the root** (ch. 14, SD Card), so the copy
+is in the stock list AND stays in its folder. The top-level **Optimized** menu
+remains the second way in: **40 live slots** (two pages — the list refreshes while the
 menu is open, empty slots show a dot), pick one, **START** (the start dialog
 asks as always) or **Values > Pre-Print** — the same 40 slots also sit in
 Pre-Print > Profiles > From optimized. Mainsail/Fluidd show the folder
@@ -1435,7 +1438,7 @@ fully automatic hole layout. LCD: `Tools > Angles+Flat`.
 | Rib | None / Gusset / Stepped | corner stiffening (angle mode only) |
 | Walls | 1–6 | concentric wall loops per layer — wall thickness = walls × line width (auto-reduced on narrow legs) |
 | Infill | 20–100 % | 100 = solid hatch, lower = wider line spacing (the walls carry the load) |
-| Ironing | ON / off | one slow, low-flow pass over the top face — smooth finish |
+| Ironing | ON / off | one slow, low-flow pass over the top face — smooth finish. The **flow** row is the slicer's own ironing flow in percent — 5–100, typical **15–20**, default 15; the LCD shows and sets exactly the value the pass runs with (no 100 % multiplier, one flow entry per menu) |
 | Count | 1–12 | plates in ONE project file |
 | ~ | auto | the version in the file name bumps ITSELF (V01, V02, ...) - regenerating never overwrites an older file |
 
@@ -2739,11 +2742,19 @@ Start/Resume/Pause/Cancel), **Control** and **Tune** stay. Start dialog and
 live tuning sit right at the top. Every line fits the 16 characters
 of the 12864 display — the value you edit is always visible (test-enforced).
 
-**SD Card = Klipper's list + two submenus.** The folder browser we built is PARKED: it kept its own copy of the whole folder tree inside
-Klipper and the display side of it could block the Reactor at exactly the
-wrong moment at print start. The stock `vsdlist` shows the G-Codes root
-flat, which is what you press before a print. Two folders that a print
-actually comes from stay one press away, as submenus of SD Card:
+**SD Card = Klipper's list, with EVERY folder in it.** The folder browser we
+built stays PARKED (it kept its own copy of the whole folder tree inside
+Klipper, and the display side of it could block the Reactor at exactly the
+wrong moment at print start) - but the flat stock `vsdlist` is not a
+limitation any more: the post-processor mirrors **every printable file of a
+subfolder as a link in the gcodes root** (up to 200, three levels deep,
+`<subfolder>_<name>.gcode` on a name clash; a real root file always wins, dead
+links are swept, `.stl.gcode` exports never appear). Klipper opens the link
+directly, so the stock list holds the whole library and M23 (our takeover of
+the file tap) routes the pick into the normal start dialog. Nothing is copied
+and nothing is moved - the file keeps its folder. Additionally, the two
+folders a print actually comes from are one press away as submenus of SD
+Card:
 **Optimized** (the tuned library, 40 slots) and **Generated** (every
 generator output, newest first, 20 slots). Nested folders, deleting and
 paging = Mainsail; the generators themselves do not care where the display
@@ -3673,6 +3684,7 @@ stay with Mainsail.
 | **PRINT_START** | BED, HOTEND_FIRST, HOTEND_AFTER, BED_AFTER, MATERIAL='PLA', LAYER_HEIGHT=0.2, TOTAL_LAYERS=0, OUTER_WALL_SPEED=0, SUPPORT_SPEED=0, IRONING_SPEED=0 | start choreography — called by the sliced file |
 | **START_PRINT** | — | old macro name: marked = no-op · legacy = real legacy start (dialog or auto-prep) |
 | **PRINT_END** | — | end choreography: heaters/fans per settings, stats, sound, LED celebration → idle after led_finish_time s, full _PRINT_CLEANUP |
+| **M23** | `filename` (rawparams) | the stock SD list's file tap (real: M9923): selects the file via SDCARD_PRINT_FILE **and** opens the start dialog — a folder link picked there prints exactly like a browser pick; the stripped `_fn` also takes the plain `/name.gcode` Klipper passes |
 | **SET_LAYER_RANGE** | START, END, FLOOR, FLOOR_SHAPE (0/1), FLOOR_FILL (0/1), TOP, TOP_SHAPE, TOP_FILL, FLOOR_HOLE, TOP_HOLE, BRIM | layer-range excerpt with raft/cap, centered floor+top holes (E14/E27 presets: ch. 5.1); refuses while a print runs |
 | **FIX_FILE** | WHAT=RETRACT/VOL/FLOWCAP/TRAVELACC/QUALITY/SPEED, CAP=(12), ACCEL=(8000) | repair the SELECTED file in place: retract pairs → G10/G11 · volumetric E → mm · flow cap mm³/s · travel accel · QUALITY = travel golden rule (.136n, ch. 3.4b) · SPEED = direct ways + ironing skipped (.136n) |
 

@@ -10,6 +10,14 @@ keeps that guarantee alive: it rebuilds the 23 fixture cases, runs them
 through the CURRENT module and compares MD5s + change summaries against the
 frozen references.
 
+RE-FREEZE HISTORY: R249 (.142e) re-froze mr01-mr13 (version bump
+class - POSTPROC_RELEASE .142d -> .142e, BUILD R248 -> R249; the R249
+changes live in the WATCH layer (root links for the flat SD list) and
+in the QUALITY fix (_quality_fix_file rewritten: same-layer + sacred-ink
+crossing rule, naked crossings get the file's own retract, 4-tuple),
+make_range/process are untouched. Proof: the same module with the OLD
+stamp strings reproduces the previous refs byte-exactly (23/23) - the
+stamp is the ONLY difference; re-frozen from the bumped module.
 RE-FREEZE HISTORY: R248 (.142d) re-froze mr01-mr13 (version bump
 class - POSTPROC_RELEASE .142c -> .142d, BUILD R246d -> R248; the R248
 changes live in the WATCH layer and the menus: the LCD folder browser is
@@ -352,19 +360,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # process() output is identical old vs new, ALL 13 mr md5s change (every
 # range excerpt carries the core stamp), no summary moves, and r81 was
 # 23/23 green with the R213 code BEFORE the stamp bump.
-REF_MD5 = {'mr01': 'a97994e3311af43dfe0690df350bacd8',
- 'mr02': 'b865ab332e41b022094d4a755ad6a51f',
- 'mr03': '8fb76fdef9353737e1fb24c575f489c4',
- 'mr04': '885726f7ab279c85cce9fbd94437639b',
- 'mr05': 'b5abf1adc799b3f6d41eaa0d8bb29f0c',
- 'mr06': '90ac876e7654c5b898e8085966167527',
- 'mr07': '1197e1cabccfb61a951bec518a23e9e1',
- 'mr08': 'f9a6a68d8022a1b5ad8de5015a81cb68',
- 'mr09': '9b7aa022e57c3729705d46a4a939f0f4',
- 'mr10': '3dde34cb0d841a9cf0a4feedb56ed05b',
- 'mr11': '6bb975ccc87b95f4b4a7c76b79de8118',
- 'mr12': 'd209e9b07628ef77fd3db37c60e019c1',
- 'mr13': 'bad009b92c940e98f10347fb33030d9a',
+REF_MD5 = {'mr01': 'd590d11e647d5d481090b4a0a4e0d19b',
+ 'mr02': 'd8687652834aed648d69ec3fac1b2ec3',
+ 'mr03': '355869d3ac13974d129e11f585c6e2cd',
+ 'mr04': '90afea76d3f449d2cec2e3745dbe72e9',
+ 'mr05': 'e9b5da3a42532cfbed4056722e627ab7',
+ 'mr06': '77a06e3e87fa671d5c55fd435d2aa458',
+ 'mr07': '7a148b41f7ccdc3edc278b4a2c423810',
+ 'mr08': 'f00e02c14c978f520831db90987f0bae',
+ 'mr09': '8b85d4353e7ab9ba96ec0d0ffb4d375e',
+ 'mr10': '6959076f3cd1b1eae2f968920af3b5fa',
+ 'mr11': 'f99ee0cfd4f0ffb722fd84c0517bfd1f',
+ 'mr12': '5a6946f5c2fd4e1ff09c1ea6e6934c71',
+ 'mr13': '2c61d644aedcc415a7b534a0195e4682',
  'pr01': 'aa5a6f27d5a7e6576f57eeea93af63a5',
  'pr02': '61457e9bcbd98996b6e7dc26efda23d8',
  'pr03': '923725a1d92fccc88241ed8a3ab8065b',

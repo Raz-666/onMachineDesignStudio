@@ -77,8 +77,8 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-11.142d'
-POSTPROC_BUILD = 'R248'
+POSTPROC_RELEASE = 'R2-2026-11-11.142e'
+POSTPROC_BUILD = 'R249'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
 # and no speed/accel/nozzle parameters. Files carrying an OLD tag are UPGRADED
@@ -8938,6 +8938,125 @@ _SD_EXT151 = ('.gcode', '.g', '.gco', '.png', '.jpg', '.jpeg',
 # (00_Name_Vnn.gcode / 00_Vnn_Name.gcode) keep matching so old outputs stay
 # selectable, deletable and counted by the census.
 _GEN_NAME_RE = re.compile(r'^(?:V\d+_|00_)')
+
+
+# ---------------------------------------------------------------------------
+# R249 (.142e): THE ROOT LINKS - folder access on a flat LCD list.
+# Klipper's vsdlist is get_file_list(): ONE directory, no subfolders, ever.
+# The parked browser was the only thing that knew the tree, and with it gone
+# the user could SEE the outputs but not tap one - worthless. The honest fix
+# needs no service stop and no klippy patch: a symlink in the gcodes root per
+# printable file in the subfolders. Klipper lists it like any other file, M23
+# resolves through the link, the file prints. Checked against
+# virtual_sdcard._load_file: it rejects '/' in the NAME (a subfolder path
+# dies there) and get_file_list() filters by the name's extension - so the
+# link must END in .gcode and point at a .gcode, never at a directory.
+# Rules (each defensible in a field log):
+#   * a REAL file of the same name in the root always wins - never shadowed
+#   * same basename in two folders -> the NEWEST wins the plain name, the
+#     other gets '<Folder>_<name>' (a tap must never be ambiguous)
+#   * links whose target vanished are removed
+#   * .stl.gcode exports are DATA, never linked (not printable)
+#   * bounded: at most LINK_CAP links, newest first (the display stays sane)
+LINK_CAP = 200
+LINK_MAX_DEPTH = 3
+
+
+def _link_is_ours(path, root):
+    """True if PATH is a symlink we may own (its target lives in a subfolder
+    of ROOT - never a link the user made to somewhere else)."""
+    try:
+        if not os.path.islink(path):
+            return False
+        tgt = os.path.realpath(path)
+        rroot = os.path.realpath(root)
+        return (os.path.commonpath([tgt, rroot]) == rroot
+                and os.path.dirname(tgt) != rroot)
+    except (OSError, ValueError):
+        return False
+
+
+def _sync_root_links(directory, quiet=True):
+    """R249: expose every printable file from the subfolders in the gcodes
+    ROOT as a symlink, so Klipper's flat SD list can select and print it.
+    Returns (added, removed, dup) - dup = basename collisions resolved.
+    """
+    added = removed = dup = 0
+    root = directory
+    rroot = os.path.realpath(root)
+    # 1) collect candidates: (mtime, relpath) per basename, subfolders only
+    cand = {}
+    base_depth = root.rstrip(os.sep).count(os.sep)
+    for dp, dns, fns in os.walk(root):
+        dns[:] = [d for d in dns if not d.startswith('.')]
+        if dp.rstrip(os.sep).count(os.sep) - base_depth >= LINK_MAX_DEPTH:
+            dns[:] = []
+        if os.path.realpath(dp) == rroot:
+            continue                      # the root itself is not a source
+        for fn in fns:
+            if not fn.endswith('.gcode') or fn.lower().endswith('.stl.gcode'):
+                continue
+            if fn.startswith('.') or "'" in fn or '"' in fn:
+                continue
+            fp = os.path.join(dp, fn)
+            try:
+                if os.path.islink(fp) or not os.path.isfile(fp):
+                    continue
+                cand.setdefault(fn, []).append(
+                    (os.path.getmtime(fp), os.path.relpath(fp, root)))
+            except OSError:
+                continue
+    # 2) decide the link name per candidate (newest wins a contested name)
+    want = {}
+    for fn, lst in cand.items():
+        lst.sort(reverse=True)
+        want[fn] = lst[0][1]
+        for _mt, rel in lst[1:]:
+            dup += 1
+            sub = rel.split(os.sep)[0].replace('/', '_')
+            alt = '%s_%s' % (sub, fn)
+            if alt not in want and not os.path.exists(os.path.join(root, alt)):
+                want[alt] = rel
+    if len(want) > LINK_CAP:
+        newest = sorted(want.items(),
+                        key=lambda kv: max(c[0] for c in cand.get(
+                            os.path.basename(kv[0]), [(0, '')])), reverse=True)
+        want = dict(newest[:LINK_CAP])
+        if not quiet:
+            print('[links] capped at %d of %d' % (LINK_CAP, len(cand)),
+                  flush=True)
+    try:
+        present = os.listdir(root)
+    except OSError:
+        return (0, 0, 0)
+    # 3) create/refresh
+    for name, rel in want.items():
+        lp = os.path.join(root, name)
+        try:
+            if os.path.islink(lp):
+                if os.readlink(lp) == rel:
+                    continue
+                os.unlink(lp)
+            elif os.path.exists(lp):
+                continue                  # real file - the user's, hands off
+            os.symlink(rel, lp)
+            added += 1
+        except OSError as e:
+            if not quiet:
+                print('[links] %s: %r' % (name, e), flush=True)
+    # 4) drop stale links of ours
+    for name in present:
+        lp = os.path.join(root, name)
+        if not _link_is_ours(lp, root):
+            continue
+        tgt = os.path.join(root, os.readlink(lp))
+        if name not in want or not os.path.isfile(tgt):
+            try:
+                os.unlink(lp)
+                removed += 1
+            except OSError:
+                pass
+    return (added, removed, dup)
 
 
 def _is_gen_name(name):
@@ -18411,146 +18530,159 @@ def _segments_fix_file(path):
     return 0, rate_before, rate_before, 0
 
 
+# ---- R249 (.142e): the QUALITY rule, written the way the user defined it ----
+# The old pass asked ONE question per travel block: "does the straight line
+# cross ink of the CURRENT layer?" - and cleared the ink index on every layer
+# change. Two holes, both reported from the field:
+#   * the FIRST travel of a new layer runs with an EMPTY index, so it always
+#     looked "crossing nothing" - its retract and Z-hop were stripped, and that
+#     is exactly the long diagonal across the finished surface on top of the
+#     part (a scratch, not a blob).
+#   * ink with a DIFFERENT z was invisible, so a travel that crosses a wall or
+#     a top surface from the layer below could be de-armored as well.
+# The user's definition, now the contract of this function:
+#   * surfaces and outer walls are never crossed unprotected - when a travel
+#     meets ink of ITS OWN LAYER (or sacred ink anywhere) it keeps every bit
+#     of armor it had
+#   * a crossing that rides NAKED (the slicer left no retract at all) gets
+#     one injected - retract where it matters, nowhere else
+#   * a travel that crosses nothing real drops the armor (no pointless hop,
+#     no ooze-wiping detour)
+# Sacred ink = outer wall, top surface, bottom surface, ironing (the visible
+# skin of the part). Everything else (infill, inner walls, gaps) may be
+# crossed - crossing the inside of the part costs nothing.
+QF_SACRED = ('WALL-OUTER', 'SURFACE-TOP', 'SURFACE-BOTTOM', 'IRONING')
+QF_TYPES = {';TYPE:': None}
+
+
+def _qf_type_of(line):
+    """feature type of a raw line (slicer comments + our own markers)"""
+    _l = line.strip()
+    if _l.startswith(';TYPE:'):
+        _t = _l[6:].strip()
+    elif _l.startswith('APPLY_TYPE'):
+        _t = _l.split('TYPE=', 1)[-1].strip().split()[0] \
+            if 'TYPE=' in _l else ''
+    elif _l.startswith(';FEATURE:'):
+        _t = _l[9:].strip()
+    else:
+        return None
+    return _t.upper().replace(' ', '').replace('_', '-'), _t
+
+
 def _quality_fix_file(path):
-    """R216 (.136n): QUALITY fix - travel optimization for sliced files.
+    """R249: QUALITY fix on a sliced file - protect the skin, never the run.
 
-    The R216 golden rule applied to a real slicer file: a travel may
-    only cost time and leave blobs when it actually CROSSES freshly
-    printed plastic of the SAME layer. Slicers retract + Z-hop on
-    heuristics (perimeter change, distance threshold), which drags
-    strings across clean infill and stacks pointless hop sequences.
+    A travel keeps (or gets) retract + hop when its straight line meets ink
+    that the nozzle would touch: ink of the SAME layer, or sacred ink
+    (outer wall / top / bottom / ironing) of any layer. A travel that only
+    crosses infill or inner walls at a lower Z prints straight - that is
+    where the time comes from, and it costs nothing.
 
-    The pass tracks every extrusion segment of the current layer in a
-    spatial hash (the feature recognition contributes ONLY the travel
-    detection here - no feature is re-tagged, nothing but travels is
-    touched) and asks ONE question per travel block: does the straight
-    pen->target line cross existing ink (transversal - parallel
-    neighbor lines never count)?
-
-      - NON-crossing block -> the retract + hop armor drops (G10/G11
-        pairs, clean E-only retracts, wipe moves, hop-up/down Z moves):
-        the travel prints directly, flat, no ooze wiping on the way
-      - CROSSING block -> keeps everything it had (the slicer was
-        right); travels that cross ink WITHOUT any retract around them
-        are counted so the message says how many crossings ride naked
-
-    Layer-change comments reset the ink. Returns (dropped_blocks,
-    kept_blocks, naked_crossings)."""
+    Returns (dropped, kept, injected, naked_left).
+    """
     tmp = path + '.qty'
-    dropped = kept = naked = 0
+    dropped = kept = injected = naked = 0
     cs = 2.0
-    ink = {}                      # {(cx, cy): [(ax, ay, bx, by), ...]}
+    # ink index: {(cx, cy): [(ax, ay, bx, by, z, sacred), ...]} - ALL layers,
+    # because the z decides whether the nozzle can reach it
+    ink = {}
     x = y = 0.0
-    ez = None                     # Z of the last EXTRUSION (the layer)
-    z = None                      # modal Z
+    ez = None                      # z of the last extrusion (the layer)
+    z = None                       # modal z
     e = 0.0
     e_rel = True
-    block = None                  # buffered retract/hop/travel armor
+    block = None
+    cur_type = ''                  # feature type in effect
+    lh = 0.2                       # layer height, measured when possible
+    z_hist = []
+    ret_e = None                   # retract length seen in this file
+    unret_e = None                 # matching unretract
+    ret_f = 3600.0
 
-    def _reg(ax, ay, bx, by):
+    def _reg(ax, ay, bx, by, zz, sacred):
         for cx in range(int(min(ax, bx) // cs), int(max(ax, bx) // cs) + 1):
             for cy in range(int(min(ay, by) // cs),
                             int(max(ay, by) // cs) + 1):
-                ink.setdefault((cx, cy), []).append((ax, ay, bx, by))
+                ink.setdefault((cx, cy), []).append(
+                    (ax, ay, bx, by, zz, sacred))
 
-    def _crossing(x0, y0, x1, y1):
+    def _scan_travel(x0, y0, x1, y1):
+        """-> (crosses_same_layer, crosses_sacred) for the travel line"""
         tvx, tvy = x1 - x0, y1 - y0
         tl = math.hypot(tvx, tvy)
         if tl < 0.25 or not ink:
-            return False
+            # nothing known yet (first travel of a layer/file) -> treat as
+            # DANGEROUS. Being wrong here costs a blob, not a scratched skin.
+            return (True, True) if not ink else (False, False)
         tvx, tvy = tvx / tl, tvy / tl
         step = cs * 0.5
         seen = set()
+        near = False
+        sacred = False
         i = 0
+        _lay = ez if ez is not None else 0.0
+        _tol = max(0.12, 0.75 * lh)
         while i * step <= tl:
             px = x0 + tvx * step * i
             py = y0 + tvy * step * i
             for cx in range(int((px - cs) // cs), int((px + cs) // cs) + 1):
-                for cy in range(int((py - cs) // cs),
-                                int((py + cs) // cs) + 1):
+                for cy in range(int((py - cs) // cs), int((py + cs) // cs) + 1):
                     key = (cx, cy)
                     if key in seen:
                         continue
                     seen.add(key)
-                    for (ax, ay, bx, by) in ink.get(key, ()):
-                        if _segs_cross((x0, y0), (x1, y1),
-                                       (ax, ay), (bx, by)):
-                            # endpoint TOUCHES are not crossings - the
-                            # pen starts and ends ON ink all the time
-                            # (next line's start point); only a pass
-                            # THROUGH the segment counts
-                            _tch = False
-                            for (qx, qy) in ((ax, ay), (bx, by)):
-                                if (math.hypot(qx - x0, qy - y0) < 0.15
-                                        or math.hypot(qx - x1, qy - y1)
-                                        < 0.15):
-                                    _tch = True
-                                    break
-                            if _tch:
-                                continue
-                            sx, sy = bx - ax, by - ay
-                            sl = math.hypot(sx, sy) or 1.0
-                            # parallel neighbor lines never count (the
-                            # deliberate pressure-keeping connect moves)
-                            if abs(tvx * sx / sl + tvy * sy / sl) > 0.90:
-                                continue
-                            return True
+                    for (ax, ay, bx, by, zz, sac) in ink.get(key, ()):
+                        if _segs_cross((x0, y0), (x1, y1), (ax, ay), (bx, by)):
+                            if sac:
+                                sacred = True
+                            if zz is not None and abs(zz - _lay) <= _tol:
+                                near = True
             i += 1
-        return False
+        return near, sacred
 
     def _flush(fo):
-        """decide the buffered block: a crossing keeps the armor"""
-        nonlocal dropped, kept, block
+        nonlocal kept, dropped, block
         if block is None:
             return
-        if not block['travels'] or not ink:
-            for ln in block['lines']:
-                fo.write(ln + '\n')
-        elif any(_crossing(a, b, c, d)
-                 for (a, b, c, d) in block['travels']):
-            for ln in block['lines']:
-                fo.write(ln + '\n')
+        near = sacred = False
+        for (ax, ay, bx, by) in block['travels']:
+            _n, _s = _scan_travel(ax, ay, bx, by)
+            near = near or _n
+            sacred = sacred or _s
+        if near or sacred:
             kept += 1
+            for line in block['lines']:
+                fo.write(line)
         else:
-            for ln in block['travel_lines']:
-                fo.write(ln + '\n')
             dropped += 1
+            if block['travel_lines']:
+                for line in block['travel_lines']:
+                    fo.write(line)
         block = None
 
-    with open(path, 'r', errors='replace') as fi, open(tmp, 'w') as fo:
-        for raw in fi:
-            line = raw.rstrip('\n')
-            ls = line.split(';', 1)[0].strip()
-            up = ls.upper()
-            raw_ln = line.strip()
-            if up == 'M83':
-                e_rel = True
-            elif up == 'M82':
-                e_rel = False
-            elif up.startswith('G92'):
-                pm = parse_params(ls)
-                if 'E' in pm:
-                    e = pm['E']
-            # layer marks reset the ink (fresh layer, fresh crossings) -
-            # read the RAW line, a ;TYPE/;LAYER comment has an empty ls
-            if (raw_ln.startswith(';LAYER')
-                    or raw_ln.startswith(';BEFORE_LAYER')
-                    or raw_ln == 'LAYER_MARK'):
+    with open(path, 'r', errors='replace') as fi, \
+            open(tmp, 'w') as fo:
+        for line in fi:
+            raw_ln = line.rstrip('\n')
+            line = raw_ln + '\n'      # R249: ONE newline per line - the
+            # block writer appends its own, the old code produced blank
+            # lines between every kept line of an armor block
+            ls = raw_ln.strip()
+            _ty = _qf_type_of(raw_ln)
+            if _ty is not None:
+                cur_type = _ty[1]
                 _flush(fo)
-                ink.clear()
-                fo.write(line + '\n')
+                fo.write(line)
                 continue
-            # feature boundaries never ride inside a dropped block
-            if (raw_ln.startswith(';TYPE') or raw_ln.startswith(';FEATURE')
-                    or raw_ln.startswith('APPLY_TYPE')):
-                _flush(fo)
-                fo.write(line + '\n')
+            if raw_ln.startswith(';'):
+                fo.write(line)
                 continue
             if not ls:
-                fo.write(line + '\n')
+                fo.write(line)
                 continue
-            if not ls.startswith(('G0', 'G1')):
-                fo.write(line + '\n')
+            if not ls.startswith(('G0', 'G1', 'G10', 'G11')):
+                fo.write(line)
                 continue
             if ls.startswith('G10'):
                 if block is None:
@@ -18564,106 +18696,126 @@ def _quality_fix_file(path):
                     block['lines'].append(line)
                     _flush(fo)
                 else:
-                    fo.write(line + '\n')
+                    fo.write(line)
                 continue
             m = MOVE_RE.match(ls)
             if m is None:
-                fo.write(line + '\n')
+                fo.write(line)
                 continue
-            p = parse_params(ls)
-            has_xy = 'X' in p or 'Y' in p
+            pr = parse_params(ls)
+            has_xy = 'X' in pr or 'Y' in pr
             de = 0.0
-            if 'E' in p:
-                de = p['E'] if e_rel else p['E'] - e
-                e = p['E'] if not e_rel else e + p['E']
-            if 'Z' in p:
-                z = p['Z']
+            if 'E' in pr:
+                de = pr['E'] if e_rel else pr['E'] - e
+                e = pr['E'] if not e_rel else e + pr['E']
+            if 'Z' in pr:
+                z = pr['Z']
             if de > 0 and has_xy:
-                # EXTRUSION - ends any block, paints ink
                 _flush(fo)
-                nx = p.get('X', x)
-                ny = p.get('Y', y)
+                nx = pr.get('X', x)
+                ny = pr.get('Y', y)
                 if z is not None:
                     if ez is None or abs(z - ez) > 0.05:
-                        ink.clear()      # a new layer begins
+                        z_hist.append(z)
+                        _h = [abs(b - a) for a, b in zip(z_hist[-6:-1],
+                                                         z_hist[-5:])
+                              if abs(b - a) > 0.02]
+                        if _h:
+                            lh = sorted(_h)[len(_h) // 2]
                     ez = z
-                _reg(x, y, nx, ny)
+                _sac = any(_s in (cur_type or '').upper()
+                           for _s in ('OUTER', 'TOP', 'BOTTOM', 'IRON'))
+                _reg(x, y, nx, ny, ez, _sac)
                 x, y = nx, ny
-                fo.write(line + '\n')
+                fo.write(line)
                 continue
             if de < 0:
-                # a retract (G1 E-..) or a wipe (XY with negative E) -
-                # the armor block begins (or continues)
+                # remember the file's OWN retract values - needed to protect a
+                # naked crossing with the same numbers the file uses elsewhere
+                if has_xy is False and ret_e is None:
+                    ret_e = abs(de)
+                    _mf = re.search(r'F(\d+(?:\.\d+)?)', ls)
+                    if _mf:
+                        ret_f = float(_mf.group(1))
                 if block is None:
                     block = {'lines': [line], 'travel_lines': [],
                              'travels': []}
                 else:
                     block['lines'].append(line)
                 if has_xy:
-                    x = p.get('X', x)
-                    y = p.get('Y', y)
+                    x = pr.get('X', x)
+                    y = pr.get('Y', y)
                 continue
             if de > 0 and not has_xy:
-                # an unretract (deretraction) - closes the block
+                if ret_e is not None and unret_e is None:
+                    unret_e = de
                 if block is not None:
                     block['lines'].append(line)
                     _flush(fo)
                 else:
-                    fo.write(line + '\n')
+                    fo.write(line)
                 continue
             if not has_xy:
-                # Z-only or F-only move: a hop inside a block, a plain
-                # setting outside
                 if block is not None:
                     block['lines'].append(line)
                 else:
-                    fo.write(line + '\n')
+                    fo.write(line)
                 continue
-            # TRAVEL (XY, no extrusion)
-            nx = p.get('X', x)
-            ny = p.get('Y', y)
+            # ---- travel ----
+            nx = pr.get('X', x)
+            ny = pr.get('Y', y)
             if block is None:
-                # unprotected travel - a crossing here rides naked
-                if _crossing(x, y, nx, ny):
-                    naked += 1
-                fo.write(line + '\n')
+                _n, _s = _scan_travel(x, y, nx, ny)
+                if (_n or _s) and ret_e:
+                    # NAKED crossing over the skin: the slicer gave it no
+                    # armor, we give it the file's own retract. Never a hop
+                    # (that would fight the file's Z handling).
+                    fo.write(';R2-QF-ARMOR naked %s crossing\n'
+                             % ('skin' if _s else 'same-layer'))
+                    fo.write('G1 E-%.4f F%.0f\n' % (ret_e, ret_f))
+                    fo.write(line)
+                    fo.write('G1 E%.4f F%.0f\n' % (unret_e or ret_e, ret_f))
+                    injected += 1
+                else:
+                    if _n or _s:
+                        naked += 1      # crossing, but no retract known
+                    fo.write(line)
             else:
                 block['lines'].append(line)
                 block['travel_lines'].append(line)
                 block['travels'].append((x, y, nx, ny))
             x, y = nx, ny
         _flush(fo)
-    if dropped:
+    if dropped or injected:
         with open(tmp, 'a') as fo:
-            fo.write('\n; R2-QUALITYFIX: %d unprotected retract/hop '
-                     'block(s) dropped (travel crosses no ink - the '
-                     'golden rule), %d crossing block(s) kept, %d naked '
-                     'crossing(s) without any retract\n'
-                     % (dropped, kept, naked))
+            fo.write('\n; R2-QUALITYFIX: %d armor block(s) dropped (the '
+                     'travel crosses no skin - the rule), %d kept (a travel '
+                     'meets skin), %d naked crossing(s) protected with the '
+                     'file\'s own retract, %d crossing(s) left as they were '
+                     '(no retract in this file)\n'
+                     % (dropped, kept, injected, naked))
         os.replace(tmp, path)
-        return dropped, kept, naked
+        return dropped, kept, injected, naked
     try:
         os.remove(tmp)
     except OSError:
         pass
-    return 0, kept, naked
+    return 0, kept, injected, naked
 
 
 def _speed_fix_file(path):
-    """R216 (.136n): SPEED fix - direct ways + ironing skipped.
+    """R216 (.136n) + R249 (.142e): SPEED fix - the user's definition, exactly.
 
-    Two accelerations of a sliced file:
-      - DIRECT WAYS: consecutive travel lines (no extrusion, no Z hop
-        between them) collapse into ONE move to the final target - the
-        deceleration ramps of the intermediate stops cost pure time.
-        The merged line carries the effective modal X/Y/F, so the
-        position after the block is exactly the same.
-      - IRONING SKIPPED: the whole ironing block (;TYPE:Ironing /
-        ;FEATURE:Ironing / APPLY_TYPE TYPE=IRONING up to the next
-        feature boundary) drops its extrusion moves - the slowest pass
-        of the file, cosmetic only. Absolute-E files get a G92 E with
-        the block's last E so every following move keeps its meaning;
-        relative-E files need nothing.
+    Speed means SPEED, and it is allowed to be ugly: the nozzle may run over
+    everything, the inside of the part does not care.
+      - DIRECT WAYS: consecutive travel lines (no extrusion between them)
+        collapse into ONE move to the final target - the deceleration ramps
+        of the intermediate stops cost pure time. The merged line carries
+        the effective modal X/Y/F, so the position afterwards is identical.
+      - IRONING SKIPPED: the whole ironing block drops its extrusion moves -
+        the slowest pass of the file, cosmetic only. Absolute-E files get a
+        G92 E with the block's last E so every following move keeps its
+        meaning; relative-E files need nothing.
 
     Returns (merged_travels, iron_lines_dropped)."""
     tmp = path + '.spd'
@@ -22228,6 +22380,8 @@ def file_check_scan(directory):
     for name in sorted(os.listdir(directory)):
         if not name.lower().endswith('.gcode'):
             continue
+        if os.path.islink(os.path.join(directory, name)):
+            continue                      # R249: root links -> own folder
         if not os.path.isfile(os.path.join(directory, name)):
             continue
         _fc_one('', name)
@@ -23699,20 +23853,20 @@ def watch(directory, interval=5.0, once=False):
             elif kind == 'quality':
                 # R216 (.136n): the golden rule on a sliced file - only
                 # travels that CROSS ink keep their retract + hop armor
-                nd, nk, nn = _quality_fix_file(p)
-                if nd:
-                    msg = ('Quality fix DONE: %d retract/hop block(s) '
-                           'dropped in %s - those travels cross no ink '
-                           '(golden rule), %d crossing block(s) kept'
-                           % (nd, base, nk))
+                nd, nk, ni, nn = _quality_fix_file(p)
+                if nd or ni:
+                    msg = ('Quality fix DONE: %d travel block(s) dropped '
+                           '(no skin crossed), %d kept (skin!), %d naked '
+                           'crossing(s) protected with a retract'
+                           % (nd, nk, ni))
                     if nn:
-                        msg += (', %d naked crossing(s) without any retract'
-                                ' (the slicer never armored them)' % nn)
+                        msg += (', %d crossing(s) stayed as they were (this '
+                                'file has no retract to copy)' % nn)
                     snd = 'r2_done'
                 else:
-                    msg = ('Quality fix: %s has no unprotected travel '
-                           'blocks (%d crossing block(s) already armored)'
-                           % (base, nk))
+                    msg = ('Quality fix: %s needs nothing - %d travel '
+                           'block(s) already protect the skin, no naked '
+                           'crossing found' % (base, nk))
                     snd = 'r2_notice'
                 _moonraker_gcode('RESPOND MSG=\"%s\"\nM117 QualFix done\n'
                                  '_SOUND_LIB NAME=%s' % (msg, snd))
@@ -23784,8 +23938,14 @@ def watch(directory, interval=5.0, once=False):
                 if not (fn.lower().endswith(('.gcode', '.gco', '.g'))
                         or PLOT_PAT.search(fn)):
                     continue
-                stats['files'] += 1
                 p = os.path.join(root, fn)
+                # R249: a root LINK is a pointer to an output that is scanned
+                # in its own folder. Processing it here would re-tag the file
+                # THROUGH the link (mtime churn, double _FILE_INFO) and list
+                # it twice. Links are display only.
+                if os.path.islink(p):
+                    continue
+                stats['files'] += 1
                 try:
                     st = os.stat(p)
                 except OSError as e:
@@ -27667,6 +27827,20 @@ def watch(directory, interval=5.0, once=False):
         elif _ram_low148 and not _dirty224:
             pass
         else:
+            # R249: the root links run FIRST - they are what makes the flat
+            # stock SD list usable (folder outputs tappable). Cheap: one
+            # listdir per our folder plus a stat per candidate, and only a
+            # CHANGE is reported (never a per-pass line).
+            try:
+                _la249, _lr249, _ld249 = _sync_root_links(directory)
+                if _la249 or _lr249:
+                    print('[links] %d added, %d removed (folder outputs in '
+                          'the gcodes root)' % (_la249, _lr249), flush=True)
+                if _ld249:
+                    print('[links] %d basename collision(s) - the newest '
+                          'output owns the root name' % _ld249, flush=True)
+            except Exception as e:                  # noqa: BLE001
+                print('[links] sync failed: %r' % e, flush=True)
             try:
                 scan(rrw)
             except Exception as e:                  # noqa: BLE001
@@ -27693,7 +27867,8 @@ def watch(directory, interval=5.0, once=False):
                 # R160 (.120): Vnn_ leads (no 00_), legacy names still listed.
                 _gfe146 = []
                 for _f146 in os.listdir(directory):
-                    if _is_gen_name(_f146):
+                    if _is_gen_name(_f146) and not os.path.islink(
+                            os.path.join(directory, _f146)):
                         _gfe146.append((os.path.getmtime(
                             os.path.join(directory, _f146)), _f146))
                 for _sub146 in GEN_FOLDER_NAMES:

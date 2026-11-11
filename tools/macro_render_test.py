@@ -2900,11 +2900,12 @@ tests.append(('R59+R240 LCD: the 16 feature activators live IN their submenus '
     str(_acids)))
 _acnames = _re59.findall(r'name: (OW|IW|SP|SO|TP|BT|BR|GP|SU|IR|SK|BM|OH|IB|PT|CU):', _lcd58)
 _acmarks = _re59.findall(r"'(OW|IW|SP|SO|TP|BT|BR|GP|SU|IR|SK|BM|OH|IB|PT|CU) \['", _lcd58)
-tests.append(('R95/R123/R124/R160+R240 LCD: 16 feature prefixes x9 (PA/Spd/Flw/'
-    'Acc quick lists) + the activators show the [on]/[off] state marker '
-    '(IR x8 - its quick row is the FLOW now)',
+tests.append(('R95/R123/R124/R160+R240/R249 LCD: 16 feature prefixes x9 '
+    '(PA/Spd/Flw/Acc quick lists) + the activators show the [on]/[off] state '
+    'marker - IR carries SIX "IR:" rows (its velocity AND its flow quick row '
+    'are the one "IR flow:" value, R249)',
     sorted(_acnames) == sorted(['OW','IW','SP','SO','TP','BT','BR','GP','SU','SK','BM','OH','IB','PT','CU'] * 9
-                               + ['IR'] * 8)
+                               + ['IR'] * 6)
     and sorted(_acmarks) == sorted(['OW','IW','SP','SO','TP','BT','BR','GP','SU','IR','SK','BM','OH','IB','PT','CU'])
     and "name: IR fl: {'%3d' % menu.input}%" in _lcd58, str(_acmarks)))
 tests.append(('R59 LCD file __ac*: every click toggles feat_on_<code> + shows o:ON',
@@ -4992,8 +4993,14 @@ tests.append(('R73 LCD: 2.Color item + info submenu in the start menu',
     and '[menu __main __start __info __speeds]' in _lcd73, ''))
 _flowids73 = sum(1 for _c73 in ('ow', 'iw', 'sp', 'so', 'tp', 'bt', 'br', 'gp', 'su', 'ir', 'sk', 'bm')
                  if ('[menu __main __live __feat __%s __flw]' % _c73) in _lcd73)
-tests.append(('R73 LCD: live per-feature FLOW inputs for all 12 features',
-    _flowids73 == 12 and 'feat_flw_wallouter' in _lcd73, str(_flowids73)))
+tests.append(('R73/R249 LCD: live per-feature FLOW inputs for all 12 features - '
+    'IR has exactly ONE (SECTION __feat __ir __fl, no __flw twin, and no '
+    'feat_flw_ironing multiplier anywhere: the LCD value IS the slicer flow)',
+    _flowids73 == 11 and 'feat_flw_wallouter' in _lcd73
+    and '[menu __main __live __feat __ir __fl]' in _lcd73
+    and '[menu __main __live __feat __ir __flw]' not in _lcd73
+    and '[menu __main __preprint __feat __ir __flw]' not in _lcd73
+    and 'feat_flw_ironing' not in _lcd73, str(_flowids73)))
 tests.append(('R73 LCD: plotter Letters (min 6mm) + Fil Z + mode info items',
     '[menu __main __gen __plot __cap]' in _lcd73 and 'input_min: 6\n' in _lcd73
     and '[menu __main __gen __plot __fz]' in _lcd73
@@ -13337,6 +13344,11 @@ _now135 = _re135.findall(r'^\[menu ([\w ]+)\]$', _lcd135, _re135.M)
     # ---- R240 (.136aj): Live quick lists folded INTO Motion; File-info
     # ---- activators INTO the feature submenus; Profiles = Depot model
 _REMOVED135 = [
+    # R249: the duplicate ironing FLOW sections - the submenu keeps ONE
+    # (__feat __ir __fl), the __flw twins were a second entry for the
+    # same thing (and a feat_flw_ironing multiplier the slicer never has)
+    '__main __live __feat __ir __flw',
+    '__main __preprint __feat __ir __flw',
     # R246: 27 enable-frozen pattern slots -> 8 live name slices (_TX_PATTERN)
     '__main __gen __frame __set __fpre',
     '__main __gen __frame __set __fpre __del',
@@ -15095,7 +15107,8 @@ tests.append(('R146/R160 activator rows (Pre-Print File + Live, 2x16): the ON '
               '[on]/[off] state marker since .120',
               _lcd146.count("(' S' if printer['save_variables'].variables.ovf_") == 32
               and _lcd146.count("(' A' if printer['save_variables'].variables.ovf_") == 32
-              and _lcd146.count("(' F' if printer['save_variables'].variables.ovf_") == 32
+              and _lcd146.count("(' F' if printer['save_variables'].variables.ovf_") == 30
+              and _lcd146.count("(' F' if printer['save_variables'].variables.ov_ironing_flow_on") == 2
               and _lcd146.count("(' P' if printer['save_variables'].variables.ovf_") == 32
               and _lcd146.count("('on' if printer['save_variables'].variables.ovf_") == 16
               and _lcd146.count("else 'o:--'") >= 16, ''))
@@ -18878,6 +18891,188 @@ tests.append(('R248 SD submenus: Optimized (40 slots) + Generated (20 '
     _lcd248.count('[menu __main __sdcard __opt __p') == 40
     and _lcd248.count('[menu __main __sdcard __gen __s') == 20
     and 'menu __main __optprint' not in _lcd248, ''))
+
+# ---- R249: THE ROOT LINKS - folder access on Klipper's flat SD list.
+# Klipper's vsdlist reads ONE directory (virtual_sdcard.get_file_list), so a
+# generator output in Frames/ or optimized/ was visible in our submenus but
+# not tappable in the stock list. Proven fix: a symlink per printable file in
+# the gcodes root. The rules below are the ones that keep it safe: a REAL
+# root file always wins, .stl exports are never linked, stale links die.
+# Called IN-PROCESS (the helper is pure filesystem work) - no second watcher,
+# so the runtime lock sweep can never kill this test's subject.
+_base249 = _tf175d.mkdtemp(prefix='r249links_')
+try:
+    _gc249 = os.path.join(_base249, 'gcodes')
+    for _d249 in ('generated', 'optimized', 'Frames',
+                  os.path.join('Projekte', '2026')):
+        os.makedirs(os.path.join(_gc249, _d249))
+    for _rel249 in (('generated', 'V01_vase.gcode'),
+                    ('optimized', 'V02_opt.gcode'),
+                    ('Frames', 'V03_frame.gcode'),
+                    ('Projekte/2026', 'V06_deep.gcode'),
+                    ('', 'V04_root.gcode'),
+                    ('generated', 'V05_model.stl.gcode')):
+        _fp249 = (os.path.join(_gc249, *_rel249) if _rel249[0]
+                  else os.path.join(_gc249, _rel249[1]))
+        open(_fp249, 'w').write(';FLAVOR:Marlin\nG28\nG1 X1 Y1 E1\n')
+    # the root's OWN V03 must survive untouched (same name as Frames/V03)
+    open(os.path.join(_gc249, 'V03_frame.gcode'), 'w').write(
+        ';FLAVOR:Marlin\nG28\n;REAL ROOT FILE\n')
+
+    def _links249():
+        return {_f: os.readlink(os.path.join(_gc249, _f))
+                for _f in os.listdir(_gc249)
+                if os.path.islink(os.path.join(_gc249, _f))}
+
+    _add249 = _pp._sync_root_links(_gc249)
+    _lk249 = _links249()
+    tests.append(('R249 LIVE root links: every printable file of a subfolder '
+                  'is reachable in the FLAT stock SD list - one level deep, '
+                  'three levels deep, and the optimized library',
+        'V01_vase.gcode' in _lk249
+        and 'V02_opt.gcode' in _lk249
+        and 'V06_deep.gcode' in _lk249,
+        '%r -> %r' % (_add249, sorted(_lk249)[:5])))
+    tests.append(('R249 LIVE root links: a REAL file in the root is never '
+                  'shadowed - the user\'s file wins, the folder output does '
+                  'not get a link of the same name',
+        _lk249.get('V03_frame.gcode') is None
+        and open(os.path.join(_gc249, 'V03_frame.gcode')).read()
+            .endswith(';REAL ROOT FILE\n'), ''))
+    tests.append(('R249 LIVE root links: STL exports are data - never linked '
+                  '(a tap must never offer a file you cannot print)',
+        not any('stl' in _k for _k in _lk249), str(sorted(_lk249))[:120]))
+    tests.append(('R249 LIVE root links: the second pass changes NOTHING '
+                  '(idempotent - no link churn, no mtime noise, no log line)',
+        _pp._sync_root_links(_gc249) == (0, 0, 0), ''))
+    os.unlink(os.path.join(_gc249, 'optimized', 'V02_opt.gcode'))
+    _rm249 = _pp._sync_root_links(_gc249)
+    tests.append(('R249 LIVE root links: a deleted output takes its link with '
+                  'it - no dead entry that fails on the tap',
+        not os.path.islink(os.path.join(_gc249, 'V02_opt.gcode'))
+        and _rm249[1] == 1, str(_rm249)))
+    # a link the USER made to somewhere else is not ours - never touched
+    _outside249 = os.path.join(_base249, 'outside.gcode')
+    open(_outside249, 'w').write('x\n')
+    os.symlink(_outside249, os.path.join(_gc249, 'mine.gcode'))
+    _pp._sync_root_links(_gc249)
+    tests.append(('R249 LIVE root links: a symlink the USER made to a file '
+                  'outside the gcodes root is never removed - only our own '
+                  'links are managed',
+        os.path.islink(os.path.join(_gc249, 'mine.gcode')), ''))
+finally:
+    _shut175d.rmtree(_base249, ignore_errors=True)
+
+_pp249 = open('tools/r2_postproc.py', encoding='utf-8').read()
+_pss249 = open('macros/08_print_start_stop.cfg', encoding='utf-8').read()
+tests.append(('R249: the scan NEVER processes a root link - it would re-tag '
+              'the output through the link and list it twice',
+    'if os.path.islink(p):' in _pp249
+    and 'Links are display only' in _pp249
+    and 'and not os.path.islink(' in _pp249, ''))
+tests.append(('R249: M23 (the stock SD list\'s file tap) is TAKEN OVER - it '
+              'routes into the same start dialog as the browser did, instead '
+              'of only selecting the file and leaving the user stuck',
+    '[gcode_macro M23]' in _pss249
+    and 'rename_existing: M9923' in _pss249
+    and 'SDCARD_PRINT_FILE FILENAME="{_fn}"' in _pss249
+    and 'rawparams' in _pss249, ''))
+tests.append(('R249: Klipper\'s flat list rules are honoured - the link ends '
+              'in .gcode, points at a .gcode (never a directory), and lives '
+              'inside the gcodes root (virtual_sdcard opens it directly)',
+    'def _link_is_ours(path, root):' in _pp249
+    and "fn.endswith('.gcode')" in _pp249
+    and 'os.path.commonpath' in _pp249, ''))
+
+# ---- R249 (.142e): the ironing FLOW is the slicer value, ONE entry --------
+_lcd249 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+_irfl249 = _re73.search(r'\[menu __main __live __feat __ir __fl\]\n'
+                        r'(.+?)(?=\n\[menu )', _lcd249, _re73.S)
+_irfl249 = _irfl249.group(1) if _irfl249 else ''
+tests.append(('R249 ironing flow: the feature submenu binds the REAL slicer '
+              'flow (ov_ironing_flow, 5-100 %) and writes it with '
+              'SET_OVERRIDE_VALUE NAME=ironing_flow - no 100 %-default row',
+    "input: {printer['save_variables'].variables.ov_ironing_flow|default(15)}" in _irfl249
+    and 'input_min: 5' in _irfl249 and 'input_max: 100' in _irfl249
+    and 'SET_OVERRIDE_VALUE NAME=ironing_flow VALUE=' in _irfl249
+    and 'feat_flw_ironing' not in _lcd249, _irfl249[:120]))
+tests.append(('R249 ironing flow: BOTH quick rows (live + pre-print) set the '
+              'same value in the slicer scale - one flow, two places to reach it',
+    all(('SET_OVERRIDE_VALUE NAME=ironing_flow VALUE=' in
+         (_re73.search(r'\[menu __main __%s\]\n(.+?)(?=\n\[menu )' % _m,
+                       _lcd249, _re73.S) or ['', ''])[1] or '')
+        and ("ov_ironing_flow|default(15)" in
+             (_re73.search(r'\[menu __main __%s\]\n(.+?)(?=\n\[menu )' % _m,
+                           _lcd249, _re73.S) or ['', ''])[1] or '')
+        for _m in ('live __lmo __extr __flfe __ir',
+                   'preprint __motion __ext __flfe __ir')), ''))
+tests.append(('R249 ironing flow: the F flag of the two activators follows the '
+              'flow ON state (ov_ironing_flow_on = someone set it) - the old '
+              'ovf_ironing_flw != 100 comparison no longer exists',
+    _lcd249.count("(' F' if printer['save_variables'].variables.ov_ironing_flow_on") == 2
+    and 'ovf_ironing_flw' not in _lcd249, ''))
+
+# ---- R249 (.142e): the QUALITY rule on a real file ------------------------
+# bottom -> solid -> top on one layer, then a second layer. Three travels:
+# one crosses no skin (armor must go), one crosses the skin (armor stays),
+# one crosses the skin NAKED (gets the file's own retract, no extra Z hop).
+import tempfile as _tf249, shutil as _sh249, os as _os249
+_d249 = _tf249.mkdtemp(prefix='r249qf_')
+_f249 = _os249.path.join(_d249, 'qf.gcode')
+with open(_f249, 'w') as _fh249:
+    _fh249.write('\n'.join([
+        'M82', 'G90', 'G1 Z0.2 F600',
+        ';TYPE:Outer wall', 'G1 X0 Y0 E1 F1800', 'G1 X40 Y0 E2',
+        'G1 X40 Y40 E3', 'G1 X0 Y40 E4',
+        ';TYPE:Solid infill', 'G1 X0 Y5 E5', 'G1 X40 Y5 E6',
+        'G1 X40 Y10 E7', 'G1 X0 Y10 E8', 'G1 X0 Y15 E9',
+        'G1 X40 Y15 E10',
+        # travel OUT of the part: meets no ink -> the armor must go
+        'G1 E-0.8 F2400', 'G1 Z0.4 F600', 'G1 X60 Y15 F6000',
+        'G1 Z0.2 F600', 'G1 E0.8 F2400',
+        # travel back ACROSS the solid surface -> the armor stays
+        'G1 E-0.8 F2400', 'G1 Z0.4 F600', 'G1 X5 Y15 F6000',
+        'G1 Z0.2 F600', 'G1 E0.8 F2400',
+        # layer change, armored travel across the old surface -> stays
+        ';LAYER:1', 'G1 Z0.4 F600', 'G1 E-0.8 F2400',
+        'G1 Z0.6 F600', 'G1 X35 Y5 F6000', 'G1 Z0.4 F600',
+        'G1 E0.8 F2400',
+        # travel across the surface with NO armor at all -> gets a retract
+        'G1 X5 Y15 F6000',
+        ';TYPE:Outer wall', 'G1 X0 Y0 E1', 'G1 X40 Y0 E2']) + '\n')
+_qf249 = _pp._quality_fix_file(_f249)
+_out249 = open(_f249).read()
+_sh249.rmtree(_d249, ignore_errors=True)
+tests.append(('R249 quality fix: on a sliced file it drops the armor of the '
+              'travel that crosses nothing, keeps the armored skin crossing, '
+              'and gives the NAKED skin crossing a retract (dropped/kept/'
+              'injected/left = 1/2/1/0)',
+    _qf249 == (1, 2, 1, 0)
+    and 'G1 X60 Y15 F6000' in _out249
+    and 'G1 E-0.8000 F2400\nG1 X5 Y15 F6000' in _out249
+    and 'R2-QF-ARMOR' in _out249, str(_qf249)))
+tests.append(('R249 quality fix: the kept block stays a clean armor (retract, '
+              'hop, travel, hop back, unretract) - no blank line is inserted '
+              'between the lines and the crossing keeps its own Z hop',
+    'G1 E-0.8 F2400\nG1 Z0.4 F600\nG1 X5 Y15 F6000\nG1 Z0.2 F600\n'
+    'G1 E0.8 F2400' in _out249, ''))
+_d249b = _tf249.mkdtemp(prefix='r249qn_')
+_f249b = _os249.path.join(_d249b, 'qn.gcode')
+with open(_f249b, 'w') as _fh249b:
+    _fh249b.write('\n'.join([
+        'M82', 'G90', 'G1 Z0.2 F600',
+        ';TYPE:Solid infill', 'G1 X0 Y5 E1', 'G1 X40 Y5 E2',
+        'G1 X40 Y10 E3',
+        ';LAYER:1', 'G1 Z0.4 F600', 'G1 X5 Y2.5 F6000',
+        ';TYPE:Outer wall', 'G1 X0 Y0 E4']) + '\n')
+_qf249b = _pp._quality_fix_file(_f249b)
+_out249b = open(_f249b).read()
+_sh249.rmtree(_d249b, ignore_errors=True)
+tests.append(('R249 quality fix: a file WITHOUT any retract invents nothing - '
+              'the naked crossing is counted (left) and no E line is added, '
+              'the surface is merely reported',
+    _qf249b == (0, 0, 0, 1) and 'G1 E-' not in _out249b
+    and 'G1 X5 Y2.5 F6000' in _out249b, str(_qf249b)))
 
 # ============== R246d (.142c): motion-aware quiet ==========================
 # Field log 04:04 (.142b): the flood was dead but the start still died -
