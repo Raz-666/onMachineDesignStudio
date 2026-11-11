@@ -2847,10 +2847,10 @@ tests.append(('R59 LCD: PA cal inputs + smooth submenu + generic features + cur 
     all(k in _lcd58 for k in ['__maint __pa __vel', '__maint __pa __mcr', '__maint __pa __scv', '__maint __pa __rlen',
                               '__maint __pa __rspd', '__maint __pa __runr', '__maint __pa __fl',
                               '__maint __pa __sm]', '__maint __pa __sm __go', '__maint __pa __sm __res',
-                              '__live __lmo __vel __spfe __curon]',
-                              '__live __lmo __vel __spfe __hd]', '__live __lmo __vel __acfe __hd]',
-                              '__live __lmo __extr __pafe __hd]', '__live __lmo __extr __flfe __hd]',
-                              '__live __lmo __vel __spfe __src]', '__live __lmo __extr __src]', '__live __lmo __vel __mv]',
+                              '__live __spfe __curon]',
+                              '__live __spfe __hd]', '__live __acfe __hd]',
+                              '__live __pafe __hd]', '__live __flfe __hd]',
+                              '__live __spfe __src]', '__live __lmo __extr __src]', '__live __lmo __vel __mv]',
                               '__preprint __feat]', '__preprint __feat __ow]', '__preprint __feat __ir __fl]',
                               '__preprint __motion __ext __pafe __gval]',
                               '__preprint __file __spd]', '__preprint __file __acc]', '__preprint __file __noz]',
@@ -2878,40 +2878,45 @@ tests.append(('R59 M220 S100: g_speed_clean = 100 (APPLY_TYPE else-branch base)'
 # --- 2) live __cur inputs are DYNAMIC on current_type ---
 _cur = [l for l in _lcd58.split('\n')]
 import re as _re59
-_curblk = _re59.search(r'\[menu __main __live __lmo __vel __spfe __cur\]\ntype: input\nname: [^\n]+\ninput: ([^\n]+)', _lcd58)
+_curblk = _re59.search(r'\[menu __main __live __spfe __cur\]\ntype: input\nname: [^\n]+\ninput: ([^\n]+)', _lcd58)
 tests.append(('R59/R248 LCD: no duplicate current-feature value row - the '
               'feature rows keep the dynamic ovf_<type> bindings instead',
-    '[menu __main __live __lmo __vel __spfe __cur]' not in _lcd58
-    and '[menu __main __live __lmo __vel __acfe __cur]' not in _lcd58
+    '[menu __main __live __spfe __cur]' not in _lcd58
+    and '[menu __main __live __acfe __cur]' not in _lcd58
     and "ovf_' ~ printer['gcode_macro _STATE'].current_type" in _lcd58
     and "ovf_' ~ c ~ '_on'" in _lcd58, 'dup rows back?'))
-_curon = _re59.search(r'\[menu __main __live __lmo __vel __spfe __curon\]\ntype: command\nname: ([^\n]+)', _lcd58)
+_curon = _re59.search(r'\[menu __main __live __spfe __curon\]\ntype: command\nname: ([^\n]+)', _lcd58)
 tests.append(('R59 LCD live __curon: toggles ovf_<current_type>_on',
     _curon is not None and "SET_OVERRIDE_VALUE NAME=feat_on_{c}" in _lcd58 and "ovf_' ~ c ~ '_on" in _lcd58,
     _curon.group(1)[:90] if _curon else 'missing'))
 
 # --- 3) feature activators (R240: moved from File info INTO the submenus) ---
 _acids = _re59.findall(r'\[menu __main __preprint __file __(ac\w+)\]', _lcd58)
-tests.append(('R59+R240 LCD: the 16 feature activators live IN their submenus '
-    '(File info keeps only the __acc info row)',
+tests.append(('R59+R240/R250 LCD: the 16 feature activators live IN the '
+    'Pre-Print submenus (File info keeps only the __acc info row) - the Live '
+    '> Features twin is GONE, its job is done by the four quick lists',
     _acids == ['acc']
     and len(_re59.findall(r'\[menu __main __preprint __feat __\w+ __on\]', _lcd58)) == 16
-    and len(_re59.findall(r'\[menu __main __live __feat __\w+ __on\]', _lcd58)) == 17,
+    and _re59.findall(r'\[menu __main __live __feat __\w+ __on\]', _lcd58) == []
+    and len(_re59.findall(r'\[menu __main __live __(spfe|acfe|pafe|flfe) __\w+\]', _lcd58)) == 82,
     str(_acids)))
 _acnames = _re59.findall(r'name: (OW|IW|SP|SO|TP|BT|BR|GP|SU|IR|SK|BM|OH|IB|PT|CU):', _lcd58)
 _acmarks = _re59.findall(r"'(OW|IW|SP|SO|TP|BT|BR|GP|SU|IR|SK|BM|OH|IB|PT|CU) \['", _lcd58)
-tests.append(('R95/R123/R124/R160+R240/R249 LCD: 16 feature prefixes x9 '
-    '(PA/Spd/Flw/Acc quick lists) + the activators show the [on]/[off] state '
-    'marker - IR carries SIX "IR:" rows (its velocity AND its flow quick row '
-    'are the one "IR flow:" value, R249)',
-    sorted(_acnames) == sorted(['OW','IW','SP','SO','TP','BT','BR','GP','SU','SK','BM','OH','IB','PT','CU'] * 9
-                               + ['IR'] * 6)
+tests.append(('R95/R123/R124/R160+R240/R249/R250 LCD: 16 feature prefixes x8 '
+    '(the four quick lists, Live AND Pre-Print) + the activators show the '
+    '[on]/[off] state marker - IR carries FIVE "IR:" rows (its velocity quick '
+    'row is the one "IR fl:" value, R249; the ninth row per feature was the '
+    'Live activator name and that menu is gone, R250)',
+    sorted(_acnames) == sorted(['OW','IW','SP','SO','TP','BT','BR','GP','SU','SK','BM','OH','IB','PT','CU'] * 8
+                               + ['IR'] * 5)
     and sorted(_acmarks) == sorted(['OW','IW','SP','SO','TP','BT','BR','GP','SU','IR','SK','BM','OH','IB','PT','CU'])
     and "name: IR fl: {'%3d' % menu.input}%" in _lcd58, str(_acmarks)))
 tests.append(('R59 LCD file __ac*: every click toggles feat_on_<code> + shows o:ON',
     all('SET_OVERRIDE_VALUE NAME=feat_on_' + c in _lcd58 for c in
         ['wallouter','wallinner','infillsparse','infillsolid','surfacetop','surfacebottom','bridge','gaps','support','ironing','skirt','brim'])
-    and _lcd58.count("else 'o:--'") >= 12, 'gcode keys'))
+    and _lcd58.count("('on' if printer['save_variables'].variables.ovf_") == 16, 'gcode keys'))
+    # R250: the Live > Features activators (which showed 'o:ON') are gone; the
+    # 16 Pre-Print activators carry the [on]/[off] state marker.
 tests.append(('R60 LCD file __ac*: MEASURED originals + n/a for absent features',
     'file_feat_spd_infillsolid' in _lcd58 and 'file_feat_spd_bridge' in _lcd58 and 'file_feat_spd_skirt' in _lcd58
     and 'file_feat_spd_gaps' in _lcd58 and 'file_feat_spd_wallouter' in _lcd58
@@ -2925,7 +2930,7 @@ if _fi58:
         and 'SPEED_SKIRT=25' in _fi58 and 'SPEED_SUPPINT=60' in _fi58, _fi58[:150]))
 
 # --- 5) live __src shows the CLEAN global + active features (no legacy keys) ---
-_srcs = _re59.search(r'\[menu __main __live __lmo __vel __spfe __src\].*?(?=\n\[menu )', _lcd58, _re59.S)
+_srcs = _re59.search(r'\[menu __main __live __spfe __src\].*?(?=\n\[menu )', _lcd58, _re59.S)
 tests.append(('R59 LCD __speeds __src: g_speed_clean + 12er loop, no legacy ov_ keys',
     _srcs is not None and 'g_speed_clean' in _srcs.group(0) and "ovf_' ~ c ~ '_on'" in _srcs.group(0)
     and 'ov_outer_wall' not in _srcs.group(0) and 'speed_factor' not in _srcs.group(0),
@@ -2960,14 +2965,18 @@ tests.append(('R60/R74 cleanup: measured values reset via _FILE_INFO_RESET',
     '_FILE_INFO_RESET' in _b60c and 'file_feat_spd_wallouter' in open('macros/08_print_start_stop.cfg').read(), 'keys'))
 
 # --- 4) Live > Features: 12 submenus, guards, file-original rows ---
-tests.append(('R60 LCD Live > Features: 12 submenus with on/fs/spd/acc + ironing flow',
-    all('__live __feat __' + s + ']' in _lcd58 and '__live __feat __' + s + ' __on]' in _lcd58
-        and '__live __feat __' + s + ' __fs]' in _lcd58 and '__live __feat __' + s + ' __spd]' in _lcd58
-        and '__live __feat __' + s + ' __acc]' in _lcd58
-        for s in ['ow','iw','sp','so','tp','bt','br','gp','su','ir','sk','bm'])
-    and '__live __feat __ir __fl]' in _lcd58, 'ids'))
-tests.append(('R60 LCD Live > Features: guards + original rows + re-APPLY on the current type',
-    _lcd58.count('not seen in this file yet') >= 74  # R159: edits never blocked, just noted
+tests.append(('R60/R250 LCD: Live > Features is GONE (user: never used it, the '
+    'four quick lists replace it) - and every feature is still reachable live: '
+    'Spd/Acc/PA/Flow for all 16 codes hang DIRECTLY under Live Tuning',
+    '[menu __main __live __feat]' not in _lcd58
+    and '__main __live __feat' not in _lcd58
+    and all(('[menu __main __live __%s __%s]' % (q, c)) in _lcd58
+            for q in ('spfe', 'acfe', 'pafe', 'flfe')
+            for c in ('ow','iw','sp','so','tp','bt','br','gp','su','ir','sk','bm','oh','ib','pt','cu')), 'ids'))
+tests.append(('R60/R250 LCD: the guards + file-original rows survived the '
+    'removal - they live in Pre-Print > Features (the live quick rows re-APPLY '
+    'the current type themselves)',
+    _lcd58.count('not seen in this file yet') >= 38  # R159: never blocked, just noted
     and _lcd58.count('APPLY_TYPE TYPE=') >= 24
     and '[File] WALL-OUTER ORIGINAL' in _lcd58, 'guards'))
 
@@ -4204,7 +4213,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.136ab) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-11-11.142d'", repr(_v66)))
+    _v66 == "'R2-2026-11-11.142f'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -4992,14 +5001,14 @@ tests.append(('R73 LCD: 2.Color item + info submenu in the start menu',
     and '[menu __main __start __info __temps]' in _lcd73
     and '[menu __main __start __info __speeds]' in _lcd73, ''))
 _flowids73 = sum(1 for _c73 in ('ow', 'iw', 'sp', 'so', 'tp', 'bt', 'br', 'gp', 'su', 'ir', 'sk', 'bm')
-                 if ('[menu __main __live __feat __%s __flw]' % _c73) in _lcd73)
-tests.append(('R73/R249 LCD: live per-feature FLOW inputs for all 12 features - '
-    'IR has exactly ONE (SECTION __feat __ir __fl, no __flw twin, and no '
-    'feat_flw_ironing multiplier anywhere: the LCD value IS the slicer flow)',
-    _flowids73 == 11 and 'feat_flw_wallouter' in _lcd73
-    and '[menu __main __live __feat __ir __fl]' in _lcd73
-    and '[menu __main __live __feat __ir __flw]' not in _lcd73
-    and '[menu __main __preprint __feat __ir __flw]' not in _lcd73
+                 if ('[menu __main __live __flfe __%s]' % _c73) in _lcd73)
+tests.append(('R73/R249/R250 LCD: live per-feature FLOW inputs for all 12 '
+    'features in the FLOW quick list - ironing is the ONE special case: its '
+    'row reads and writes the real slicer flow (ov_ironing_flow), no __flw '
+    'twin, no feat_flw_ironing multiplier anywhere',
+    _flowids73 == 12 and 'feat_flw_wallouter' in _lcd73
+    and '[menu __main __preprint __feat __ir __fl]' in _lcd73
+    and '[menu __main __live __feat' not in _lcd73
     and 'feat_flw_ironing' not in _lcd73, str(_flowids73)))
 tests.append(('R73 LCD: plotter Letters (min 6mm) + Fil Z + mode info items',
     '[menu __main __gen __plot __cap]' in _lcd73 and 'input_min: 6\n' in _lcd73
@@ -6058,9 +6067,11 @@ _lcd79 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 tests.append(('R79 LCD: Live > Sources + Now items (All-OFF removed in R80)',
     '[menu __main __live __psrc]' in _lcd79 and 'PARAM_SOURCES' in _lcd79
     and '[menu __main __live __feat __reset]' not in _lcd79
-    and '[menu __main __live __lmo __vel __spfe __now]' in _lcd79
-    and '[menu __main __live __lmo __vel __acfe __now]' in _lcd79
-    and '[menu __main __live __feat __now]' in _lcd79, ''))
+    and '[menu __main __live __spfe __now]' in _lcd79
+    and '[menu __main __live __acfe __now]' in _lcd79
+    and '[menu __main __live __pafe __now]' in _lcd79
+    and '[menu __main __live __flfe __now]' in _lcd79
+    and '[menu __main __live __feat' not in _lcd79, ''))
 tests.append(('R79/R248 LCD: the quick menus name the RUNNING feature and '
               'its ON switch (FeatOn); the duplicate value rows (FeatSpd / '
               'FeatAcc) are gone - the same setting lives in that feature\'s '
@@ -8471,9 +8482,9 @@ tests.append(('R92.1 SET_FLOW_RATE: global = the ONE regulator, features on top'
 # --- LCD: percent regulator + effective displays ---
 _lcd921 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 tests.append(('R92.1 LCD: Feat x%% input + effective accel + flow Src in Live Tuning',
-    '[menu __main __live __lmo __vel __acfe __pct]' in _lcd921
+    '[menu __main __live __acfe __pct]' in _lcd921
     and 'name: Feat x:' in _lcd921
-    and '[menu __main __live __lmo __vel __acfe __eff]' in _lcd921
+    and '[menu __main __live __acfe __eff]' in _lcd921
     and '[menu __main __live __lmo __extr __fsrc]' in _lcd921
     and 'SET_GLOBAL_ACCEL_PERCENT PERCENT=' in _lcd921, ''))
 
@@ -8602,9 +8613,14 @@ tests.append(('R95 _STATE: new feature vars + small perimeter declared',
 
 # --- LCD: 4 new submenu pairs + OH/IB/PT/CU activators ---
 _lcd95 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
-tests.append(('R95 LCD: 4 new feature submenus (preprint + live)',
-    all('[menu __main __%s __feat __%s]' % (a, b) in _lcd95
-        for a in ('preprint', 'live') for b in ('oh', 'ib', 'pt', 'cu')), ''))
+tests.append(('R95/R250 LCD: the 4 new feature submenus live in Pre-Print now '
+    '(the Live twin went with Live > Features) - every value stays reachable '
+    'live through the four quick lists',
+    all('[menu __main __preprint __feat __%s]' % b in _lcd95
+        for b in ('oh', 'ib', 'pt', 'cu'))
+    and all('[menu __main __live __%s __%s]' % (q, b) in _lcd95
+            for q in ('spfe', 'acfe', 'pafe', 'flfe')
+            for b in ('oh', 'ib', 'pt', 'cu')), ''))
 tests.append(('R95 LCD: new submenu names human (not the activator prefix)',
     'name: Overhang Wall' in _lcd95 and 'name: Internal Bridge' in _lcd95
     and 'name: Prime Tower' in _lcd95 and 'name: Custom Code' in _lcd95, ''))
@@ -9681,7 +9697,9 @@ tests.append(('R106/R123/R124/R168/R174b+R240 menus: 184 feature items (80 + '
               '16 feature ON-toggles stay clickable with a (parked) name '
               '(R174b; R240: the 16 former File-info activators joined them) - '
               'available-but-off stay visible',
-    _n106 == 172, 'count %d' % _n106))
+    _n106 == 156, 'count %d' % _n106))
+    # R250: 184 -> 172 (R248) -> 156 - the Live > Features gate rows left with
+    # the menu; Pre-Print keeps every per-feature gate.
 tests.append(('R106 preset: picking a preset fills W/H as editable values',
     all(('VARIABLE=frame_w VALUE=%d' % w) in _lcd106
         and ('VARIABLE=frame_h VALUE=%d' % h) in _lcd106
@@ -11606,9 +11624,17 @@ _pp_pa115 = [l for l in _lcd115.split(chr(10))
 tests.append(('R115 LCD: 25 feature-PA inputs in Pre-Print > Features (16 + C1..C9)',
     len(_pp_pa115) == 25, 'counted %d' % len(_pp_pa115)))
 _lv_pa115 = [l for l in _lcd115.split(chr(10))
-             if l.startswith('[menu __main __live __feat __') and l.endswith('__pa]')]
-tests.append(('R213 LCD: 25 feature-PA inputs in Live > Features too (16 + C1..C9)',
-    len(_lv_pa115) == 25, 'counted %d' % len(_lv_pa115)))
+             if l.startswith('[menu __main __live __pafe __') and l.endswith(']')]
+_pa_codes115 = set(re.findall(r'^\[menu __main __live __pafe __(\w+)\]$',
+                             _lcd115, re.M))
+tests.append(('R213/R250 LCD: the live PA inputs are the PA quick list now - '
+    'one row per feature code (the numbered C1..C9 slots stay in Pre-Print '
+    'where the custom blocks are managed)',
+    len(_lv_pa115) == 19
+    and {'ow','iw','sp','so','tp','bt','br','gp','su','ir','sk','bm',
+         'oh','ib','pt','cu'} <= _pa_codes115
+    and '[menu __main __live __feat' not in _lcd115,
+    'counted %d' % len(_lv_pa115)))
 # R175b: Pause is the LAST live entry now (Exclude right before it) - the
 # slice runs to whatever top-level menu follows the live region
 _pause115 = _lcd115[_lcd115.index('[menu __main __live __pause]'):]
@@ -12195,7 +12221,7 @@ tests.append(('R121 travel fix: live markers around every block (feature restore
     and _t121.index('APPLY_TYPE TYPE=Travel') < _t121.index('G0 X30'), ''))
 tests.append(('R121 travel fix: header line + block count',
     _t121.count('; R2-TRAVEL: 220 mm/s travel speed, 6000 mm/s2 travel accel, '
-                'live markers (Live > Features > Travel) (2 travel block(s) wrapped)') == 1, ''))
+                'live markers (Live Tuning > Flux > Travel) (2 travel block(s) wrapped)') == 1, ''))
 _pp._travel_fix_file(_g121, accel=6000, speed=220.0, markers=True)
 tests.append(('R121 travel fix: IDEMPOTENT (re-run = byte-identical)',
     open(_g121).read() == _t121, ''))
@@ -12280,11 +12306,14 @@ tests.append(('R121/R160 LCD Pre-Print > Fixes: Travel speed input + Fix travel 
         '[menu __main __preprint __fixes __tvf]', '[menu __main __preprint __fixes __fixav]',
         "name: 'Fix: Travel moves'", 'FIX_FILE WHAT=TRAVEL SPEED=',
         'VARIABLE=travel_speed VALUE={menu.input|round|int}']), 'ids'))
-tests.append(('R121 LCD Live: Features > Travel (On/File/Spd/Acc, no file-types gate)',
-    all(k in _lcd121 for k in ['[menu __main __live __feat __tv]',
-        '__tv __on]', '__tv __fs]', '__tv __spd]', '__tv __acc]',
-        'SET_OVERRIDE_VALUE NAME=feat_on_travel', 'SET_OVERRIDE_VALUE NAME=feat_spd_travel'])
-    and 'TRAVEL' not in str(_re121.findall(r"enable: \{[^}]*file_types[^}]*\}", _lcd121)).upper().replace('INTERNAL-BRIDGE', ''), ''))
+tests.append(('R121/R250 LCD: the live Travel rows are the SPd and ACC quick '
+    'rows (speed % and accel of every travel) - the on/fs pair stays in '
+    'Pre-Print, the value rows carry no file-types gate',
+    all(k in _lcd121 for k in ['[menu __main __live __spfe __tv]',
+        '[menu __main __live __acfe __tv]',
+        'SET_OVERRIDE_VALUE NAME=feat_spd_travel',
+        'SET_OVERRIDE_VALUE NAME=feat_acc_travel'])
+    and '[menu __main __live __feat __tv]' not in _lcd121, ''))
 tests.append(('R121 LCD: flow cap fix ALWAYS visible again (R120 gate removed)',
     "printer['gcode_macro _STATE'].file_maxrate|default(0)|float > printer['save_variables'].variables.flowcap_limit"
     not in _lcd121, 'gate still there'))
@@ -12519,23 +12548,23 @@ tests.append(('R123/R160 LCD Pre-Print > Fixes: travel fix + flow cap + cap valu
     and _lcd123.count('FIX_FILE WHAT=TRAVEL SPEED=') == 1
     and _lcd123.count('    FIX_FILE WHAT=FLOWCAP' + chr(10)) == 1, 'ids'))
 tests.append(('R123 LCD: PA quick lists in Live AND Pre-Print (16 features each)',
-    _lcd123.count('[menu __main __live __lmo __extr __pafe __') == 19
+    _lcd123.count('[menu __main __live __pafe __') == 19
     and _lcd123.count('[menu __main __preprint __motion __ext __pafe __') == 22
     and 'SET_OVERRIDE_VALUE NAME=feat_pa_wallouter' in _lcd123
     and 'SET_OVERRIDE_VALUE NAME=feat_pa_primetower' in _lcd123
     and 'SET_OVERRIDE_VALUE NAME=feat_on_wallouter VALUE=1' in _lcd123
-    and '[menu __main __live __lmo __extr __pafe]' in _lcd123
+    and '[menu __main __live __pafe]' in _lcd123
     and '[menu __main __preprint __motion __ext __pafe]' in _lcd123, ''))
 # travel is NOT in the PA quick list (PA on non-extruding moves is meaningless)
 tests.append(('R123 LCD: PA quick list has NO travel entry (meaningless PA)',
     'feat_pa_travel' not in _lcd123, ''))
-_blk123 = _lcd123[_lcd123.index('[menu __main __live __lmo __extr __pafe]'):]
+_blk123 = _lcd123[_lcd123.index('[menu __main __live __pafe]'):]
 _pos123 = 0
 while True:
     _pos123 = _blk123.find('\n[menu __main ', _pos123 + 1)
     if _pos123 < 0:
         break
-    if not _blk123[_pos123:].startswith('\n[menu __main __live __lmo __extr __pafe'):
+    if not _blk123[_pos123:].startswith('\n[menu __main __live __pafe'):
         _blk123 = _blk123[:_pos123]
         break
 _n123 = [l.strip()[6:].strip("'") for l in _blk123.split(chr(10)) if l.strip().startswith('name: ')]
@@ -12548,26 +12577,26 @@ tests.append(('R123 LCD: PA quick list names stay short (R29)', len(_long123) ==
 # ===== R124: Spd/Flw/Acc per-feature quick lists ====================
 _lcd124 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 tests.append(('R124 LCD: Spd/Flw/Acc quick lists in Live AND Pre-Print (17/16/17 entries)',
-    _lcd124.count('[menu __main __live __lmo __vel __spfe __') == 22
+    _lcd124.count('[menu __main __live __spfe __') == 22
     and _lcd124.count('[menu __main __preprint __motion __vel __spfe __') == 19
-    and _lcd124.count('[menu __main __live __lmo __extr __flfe __') == 19
+    and _lcd124.count('[menu __main __live __flfe __') == 19
     and _lcd124.count('[menu __main __preprint __motion __ext __flfe __') == 20
-    and _lcd124.count('[menu __main __live __lmo __vel __acfe __') == 22
+    and _lcd124.count('[menu __main __live __acfe __') == 22
     and _lcd124.count('[menu __main __preprint __motion __vel __acfe __') == 20
-    and '[menu __main __live __lmo __vel __spfe]' in _lcd124
+    and '[menu __main __live __spfe]' in _lcd124
     and '[menu __main __preprint __motion __vel __acfe]' in _lcd124, 'counts'))
 tests.append(('R124 LCD: travel in Spd+Acc lists (the travel levers), NOT in Flw/PA',
     'feat_spd_travel' in _lcd124 and 'feat_acc_travel' in _lcd124
     and 'feat_flw_travel' not in _lcd124 and 'feat_pa_travel' not in _lcd124
-    and '[menu __main __live __lmo __vel __spfe __tv]' in _lcd124
-    and '[menu __main __live __lmo __extr __flfe __tv]' not in _lcd124, ''))
+    and '[menu __main __live __spfe __tv]' in _lcd124
+    and '[menu __main __live __flfe __tv]' not in _lcd124, ''))
 tests.append(('R124 LCD: quick values switch the feature ON (spd != 100, acc > 0)',
     _lcd124.count('        SET_OVERRIDE_VALUE NAME=feat_on_wallouter VALUE=1') == 8
     and "menu.input|round|int != 100" in _lcd124
     and "menu.input|round|int > 0" in _lcd124, ''))
 tests.append(('R124 LCD: single % in the value names (no 120%% display bug)',
     'menu.input}%%' not in _lcd124 and "{'%3d' % menu.input}%" in _lcd124, ''))
-_blkl124 = _lcd124[_lcd124.index('[menu __main __live __lmo __vel __spfe]'):_lcd124.index('[menu __main __live __lmo __extr __flfe]')]
+_blkl124 = _lcd124[_lcd124.index('[menu __main __live __spfe]'):_lcd124.index('[menu __main __live __flfe]')]
 _nl124 = [l.strip()[6:].strip("'") for l in _blkl124.split(chr(10)) if l.strip().startswith('name: ')]
 _nl124 = [l.split('{')[0].strip() if '{' in l else l for l in _nl124]
 tests.append(('R124 LCD: quick list names stay short (R29)',
@@ -13341,15 +13370,14 @@ _lcd135 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 _gold135 = [l for l in open('tools/r135_menu_golden.txt',
                             encoding='utf-8').read().split('\n') if l]
 _now135 = _re135.findall(r'^\[menu ([\w ]+)\]$', _lcd135, _re135.M)
-    # ---- R240 (.136aj): Live quick lists folded INTO Motion; File-info
-    # ---- activators INTO the feature submenus; Profiles = Depot model
+# ---- R240 (.136aj): Live quick lists folded INTO Motion; File-info
+# ---- activators INTO the feature submenus; Profiles = Depot model.
+# ---- R250 (.142f) bookkeeping: the four quick lists moved BACK to their
+# ---- .104 paths (__live __spfe / __acfe / __pafe / __flfe), the Motion
+# ---- detour is gone - so those paths count as neither removed nor new.
+# ---- Live > Features (+175 sections) was deleted: EVERY path is listed below
+# ---- as removed, the stored values and SET_OVERRIDE_VALUE stay untouched.
 _REMOVED135 = [
-    # R249: the duplicate ironing FLOW sections - the submenu keeps ONE
-    # (__feat __ir __fl), the __flw twins were a second entry for the
-    # same thing (and a feat_flw_ironing multiplier the slicer never has)
-    '__main __live __feat __ir __flw',
-    '__main __preprint __feat __ir __flw',
-    # R246: 27 enable-frozen pattern slots -> 8 live name slices (_TX_PATTERN)
     '__main __gen __frame __set __fpre',
     '__main __gen __frame __set __fpre __del',
     '__main __gen __frame __set __fpre __del __d1',
@@ -13376,24 +13404,6 @@ _REMOVED135 = [
     '__main __live __accels __ga',
     '__main __live __accels __now',
     '__main __live __accels __pct',
-    '__main __live __acfe',
-    '__main __live __acfe __bm',
-    '__main __live __acfe __br',
-    '__main __live __acfe __bt',
-    '__main __live __acfe __cu',
-    '__main __live __acfe __gp',
-    '__main __live __acfe __ib',
-    '__main __live __acfe __ir',
-    '__main __live __acfe __iw',
-    '__main __live __acfe __oh',
-    '__main __live __acfe __ow',
-    '__main __live __acfe __pt',
-    '__main __live __acfe __sk',
-    '__main __live __acfe __so',
-    '__main __live __acfe __sp',
-    '__main __live __acfe __su',
-    '__main __live __acfe __tp',
-    '__main __live __acfe __tv',
     '__main __live __cbed',
     '__main __live __cfan',
     '__main __live __chot',
@@ -13402,6 +13412,103 @@ _REMOVED135 = [
     '__main __live __extr __fsrc',
     '__main __live __extr __irfl',
     '__main __live __extr __src',
+    '__main __live __feat',
+    '__main __live __feat __bm',
+    '__main __live __feat __bm __acc',
+    '__main __live __feat __bm __flw',
+    '__main __live __feat __bm __fs',
+    '__main __live __feat __bm __on',
+    '__main __live __feat __bm __pa',
+    '__main __live __feat __bm __spd',
+    '__main __live __feat __br',
+    '__main __live __feat __br __acc',
+    '__main __live __feat __br __flw',
+    '__main __live __feat __br __fs',
+    '__main __live __feat __br __on',
+    '__main __live __feat __br __pa',
+    '__main __live __feat __br __spd',
+    '__main __live __feat __bt',
+    '__main __live __feat __bt __acc',
+    '__main __live __feat __bt __flw',
+    '__main __live __feat __bt __fs',
+    '__main __live __feat __bt __on',
+    '__main __live __feat __bt __pa',
+    '__main __live __feat __bt __spd',
+    '__main __live __feat __cu',
+    '__main __live __feat __gp',
+    '__main __live __feat __gp __acc',
+    '__main __live __feat __gp __flw',
+    '__main __live __feat __gp __fs',
+    '__main __live __feat __gp __on',
+    '__main __live __feat __gp __pa',
+    '__main __live __feat __gp __spd',
+    '__main __live __feat __ib',
+    '__main __live __feat __ir',
+    '__main __live __feat __ir __acc',
+    '__main __live __feat __ir __fl',
+    '__main __live __feat __ir __flw',
+    '__main __live __feat __ir __fs',
+    '__main __live __feat __ir __on',
+    '__main __live __feat __ir __pa',
+    '__main __live __feat __ir __spd',
+    '__main __live __feat __iw',
+    '__main __live __feat __iw __acc',
+    '__main __live __feat __iw __flw',
+    '__main __live __feat __iw __fs',
+    '__main __live __feat __iw __on',
+    '__main __live __feat __iw __pa',
+    '__main __live __feat __iw __spd',
+    '__main __live __feat __now',
+    '__main __live __feat __oh',
+    '__main __live __feat __ow',
+    '__main __live __feat __ow __acc',
+    '__main __live __feat __ow __flw',
+    '__main __live __feat __ow __fs',
+    '__main __live __feat __ow __on',
+    '__main __live __feat __ow __pa',
+    '__main __live __feat __ow __spd',
+    '__main __live __feat __pt',
+    '__main __live __feat __shp',
+    '__main __live __feat __sk',
+    '__main __live __feat __sk __acc',
+    '__main __live __feat __sk __flw',
+    '__main __live __feat __sk __fs',
+    '__main __live __feat __sk __on',
+    '__main __live __feat __sk __pa',
+    '__main __live __feat __sk __spd',
+    '__main __live __feat __so',
+    '__main __live __feat __so __acc',
+    '__main __live __feat __so __flw',
+    '__main __live __feat __so __fs',
+    '__main __live __feat __so __on',
+    '__main __live __feat __so __pa',
+    '__main __live __feat __so __spd',
+    '__main __live __feat __sp',
+    '__main __live __feat __sp __acc',
+    '__main __live __feat __sp __flw',
+    '__main __live __feat __sp __fs',
+    '__main __live __feat __sp __on',
+    '__main __live __feat __sp __pa',
+    '__main __live __feat __sp __spd',
+    '__main __live __feat __su',
+    '__main __live __feat __su __acc',
+    '__main __live __feat __su __flw',
+    '__main __live __feat __su __fs',
+    '__main __live __feat __su __on',
+    '__main __live __feat __su __pa',
+    '__main __live __feat __su __spd',
+    '__main __live __feat __tp',
+    '__main __live __feat __tp __acc',
+    '__main __live __feat __tp __flw',
+    '__main __live __feat __tp __fs',
+    '__main __live __feat __tp __on',
+    '__main __live __feat __tp __pa',
+    '__main __live __feat __tp __spd',
+    '__main __live __feat __tv',
+    '__main __live __feat __tv __acc',
+    '__main __live __feat __tv __fs',
+    '__main __live __feat __tv __on',
+    '__main __live __feat __tv __spd',
     '__main __live __file __acbrid',
     '__main __live __file __acbrim',
     '__main __live __file __accust',
@@ -13418,23 +13525,6 @@ _REMOVED135 = [
     '__main __live __file __acsurfb',
     '__main __live __file __acwall',
     '__main __live __file __acwalli',
-    '__main __live __flfe',
-    '__main __live __flfe __bm',
-    '__main __live __flfe __br',
-    '__main __live __flfe __bt',
-    '__main __live __flfe __cu',
-    '__main __live __flfe __gp',
-    '__main __live __flfe __ib',
-    '__main __live __flfe __ir',
-    '__main __live __flfe __iw',
-    '__main __live __flfe __oh',
-    '__main __live __flfe __ow',
-    '__main __live __flfe __pt',
-    '__main __live __flfe __sk',
-    '__main __live __flfe __so',
-    '__main __live __flfe __sp',
-    '__main __live __flfe __su',
-    '__main __live __flfe __tp',
     '__main __live __lpa',
     '__main __live __lpasm',
     '__main __live __lret',
@@ -13443,47 +13533,12 @@ _REMOVED135 = [
     '__main __live __lunretx',
     '__main __live __lzh',
     '__main __live __lzhh',
-    '__main __live __pafe',
-    '__main __live __pafe __bm',
-    '__main __live __pafe __br',
-    '__main __live __pafe __bt',
-    '__main __live __pafe __cu',
-    '__main __live __pafe __gp',
-    '__main __live __pafe __ib',
-    '__main __live __pafe __ir',
-    '__main __live __pafe __iw',
-    '__main __live __pafe __oh',
-    '__main __live __pafe __ow',
-    '__main __live __pafe __pt',
-    '__main __live __pafe __sk',
-    '__main __live __pafe __so',
-    '__main __live __pafe __sp',
-    '__main __live __pafe __su',
-    '__main __live __pafe __tp',
     '__main __live __speeds',
     '__main __live __speeds __cur',
     '__main __live __speeds __curon',
     '__main __live __speeds __gs',
     '__main __live __speeds __now',
     '__main __live __speeds __src',
-    '__main __live __spfe',
-    '__main __live __spfe __bm',
-    '__main __live __spfe __br',
-    '__main __live __spfe __bt',
-    '__main __live __spfe __cu',
-    '__main __live __spfe __gp',
-    '__main __live __spfe __ib',
-    '__main __live __spfe __ir',
-    '__main __live __spfe __iw',
-    '__main __live __spfe __oh',
-    '__main __live __spfe __ow',
-    '__main __live __spfe __pt',
-    '__main __live __spfe __sk',
-    '__main __live __spfe __so',
-    '__main __live __spfe __sp',
-    '__main __live __spfe __su',
-    '__main __live __spfe __tp',
-    '__main __live __spfe __tv',
     '__main __live __vel',
     '__main __live __vel __acc',
     '__main __live __vel __mcr',
@@ -13531,6 +13586,7 @@ _REMOVED135 = [
     '__main __preprint __defs __l7',
     '__main __preprint __defs __l8',
     '__main __preprint __defs __save',
+    '__main __preprint __feat __ir __flw',
     '__main __preprint __file __acbrid',
     '__main __preprint __file __acbrim',
     '__main __preprint __file __accust',
@@ -13733,28 +13789,8 @@ _REMOVED135 = [
     '__main __system __fc3',
     '__main __system __ledcfg __nozm',
 ]
-    # ---- R240 (.136aj): __lmo mirror rows, feature __on upgrades,
-    # ---- Depot/save/load rows in Profiles
-# R244 (.140): System > MCU Recovery toggle (auto-recovery switch)
+
 _ADDED135 = [
-    # R248 (.142d): the R248 removals left this list again - Optimized
-    # moved under SD Card, the FeatSpd/FeatAcc current-feature rows are gone
-    # R248 (.142d): SD submenus (Optimized/Generated) + the flow head rows
-    '__main __live __lmo __extr __flfe __hd',
-    '__main __live __lmo __extr __pafe __hd',
-    '__main __live __lmo __vel __acfe __hd',
-    '__main __live __lmo __vel __spfe __hd',
-    '__main __preprint __mods __tex __pat __s0',
-    '__main __preprint __mods __tex __pat __s1',
-    '__main __preprint __mods __tex __pat __s2',
-    '__main __preprint __mods __tex __pat __s3',
-    '__main __preprint __mods __tex __pat __s4',
-    '__main __preprint __mods __tex __pat __s5',
-    '__main __preprint __mods __tex __pat __s6',
-    '__main __preprint __mods __tex __pat __s7',
-    # R246 live pattern slots (class fix: names refresh in-frame)
-    '__main __preprint __mods __tex __pat __pd',
-    '__main __preprint __mods __tex __pat __pu',
     '__main __endq',
     '__main __endq __info',
     '__main __endq __no',
@@ -14207,130 +14243,21 @@ _ADDED135 = [
     '__main __gen __stringart __usr __pu',
     '__main __gen __stringart __usr __save',
     '__main __gen __stringart __w',
-    '__main __live __feat __cu __acc',
-    '__main __live __feat __cu __c1',
-    '__main __live __feat __cu __c1 __acc',
-    '__main __live __feat __cu __c1 __flw',
-    '__main __live __feat __cu __c1 __on',
-    '__main __live __feat __cu __c1 __pa',
-    '__main __live __feat __cu __c1 __spd',
-    '__main __live __feat __cu __c2',
-    '__main __live __feat __cu __c2 __acc',
-    '__main __live __feat __cu __c2 __flw',
-    '__main __live __feat __cu __c2 __on',
-    '__main __live __feat __cu __c2 __pa',
-    '__main __live __feat __cu __c2 __spd',
-    '__main __live __feat __cu __c3',
-    '__main __live __feat __cu __c3 __acc',
-    '__main __live __feat __cu __c3 __flw',
-    '__main __live __feat __cu __c3 __on',
-    '__main __live __feat __cu __c3 __pa',
-    '__main __live __feat __cu __c3 __spd',
-    '__main __live __feat __cu __c4',
-    '__main __live __feat __cu __c4 __acc',
-    '__main __live __feat __cu __c4 __flw',
-    '__main __live __feat __cu __c4 __on',
-    '__main __live __feat __cu __c4 __pa',
-    '__main __live __feat __cu __c4 __spd',
-    '__main __live __feat __cu __c5',
-    '__main __live __feat __cu __c5 __acc',
-    '__main __live __feat __cu __c5 __flw',
-    '__main __live __feat __cu __c5 __on',
-    '__main __live __feat __cu __c5 __pa',
-    '__main __live __feat __cu __c5 __spd',
-    '__main __live __feat __cu __c6',
-    '__main __live __feat __cu __c6 __acc',
-    '__main __live __feat __cu __c6 __flw',
-    '__main __live __feat __cu __c6 __on',
-    '__main __live __feat __cu __c6 __pa',
-    '__main __live __feat __cu __c6 __spd',
-    '__main __live __feat __cu __c7',
-    '__main __live __feat __cu __c7 __acc',
-    '__main __live __feat __cu __c7 __flw',
-    '__main __live __feat __cu __c7 __on',
-    '__main __live __feat __cu __c7 __pa',
-    '__main __live __feat __cu __c7 __spd',
-    '__main __live __feat __cu __c8',
-    '__main __live __feat __cu __c8 __acc',
-    '__main __live __feat __cu __c8 __flw',
-    '__main __live __feat __cu __c8 __on',
-    '__main __live __feat __cu __c8 __pa',
-    '__main __live __feat __cu __c8 __spd',
-    '__main __live __feat __cu __c9',
-    '__main __live __feat __cu __c9 __acc',
-    '__main __live __feat __cu __c9 __flw',
-    '__main __live __feat __cu __c9 __on',
-    '__main __live __feat __cu __c9 __pa',
-    '__main __live __feat __cu __c9 __spd',
-    '__main __live __feat __cu __flw',
-    '__main __live __feat __cu __fs',
-    '__main __live __feat __cu __on',
-    '__main __live __feat __cu __pa',
-    '__main __live __feat __cu __spd',
-    '__main __live __feat __ib __acc',
-    '__main __live __feat __ib __flw',
-    '__main __live __feat __ib __fs',
-    '__main __live __feat __ib __on',
-    '__main __live __feat __ib __pa',
-    '__main __live __feat __ib __spd',
-    '__main __live __feat __inf',
-    '__main __live __feat __oh __acc',
-    '__main __live __feat __oh __flw',
-    '__main __live __feat __oh __fs',
-    '__main __live __feat __oh __on',
-    '__main __live __feat __oh __pa',
-    '__main __live __feat __oh __spd',
-    '__main __live __feat __pt __acc',
-    '__main __live __feat __pt __flw',
-    '__main __live __feat __pt __fs',
-    '__main __live __feat __pt __on',
-    '__main __live __feat __pt __pa',
-    '__main __live __feat __pt __spd',
+    '__main __live __acfe __eff',
+    '__main __live __acfe __ga',
+    '__main __live __acfe __hd',
+    '__main __live __acfe __now',
+    '__main __live __acfe __pct',
+    '__main __live __flfe __gfl',
+    '__main __live __flfe __hd',
+    '__main __live __flfe __now',
     '__main __live __lmo',
     '__main __live __lmo __extr',
-    '__main __live __lmo __extr __flfe',
-    '__main __live __lmo __extr __flfe __bm',
-    '__main __live __lmo __extr __flfe __br',
-    '__main __live __lmo __extr __flfe __bt',
-    '__main __live __lmo __extr __flfe __cu',
-    '__main __live __lmo __extr __flfe __gfl',
-    '__main __live __lmo __extr __flfe __gp',
-    '__main __live __lmo __extr __flfe __ib',
-    '__main __live __lmo __extr __flfe __ir',
-    '__main __live __lmo __extr __flfe __iw',
-    '__main __live __lmo __extr __flfe __now',
-    '__main __live __lmo __extr __flfe __oh',
-    '__main __live __lmo __extr __flfe __ow',
-    '__main __live __lmo __extr __flfe __pt',
-    '__main __live __lmo __extr __flfe __sk',
-    '__main __live __lmo __extr __flfe __so',
-    '__main __live __lmo __extr __flfe __sp',
-    '__main __live __lmo __extr __flfe __su',
-    '__main __live __lmo __extr __flfe __tp',
     '__main __live __lmo __extr __flow',
     '__main __live __lmo __extr __fsrc',
     '__main __live __lmo __extr __irfl',
     '__main __live __lmo __extr __lpa',
     '__main __live __lmo __extr __lpasm',
-    '__main __live __lmo __extr __pafe',
-    '__main __live __lmo __extr __pafe __bm',
-    '__main __live __lmo __extr __pafe __br',
-    '__main __live __lmo __extr __pafe __bt',
-    '__main __live __lmo __extr __pafe __cu',
-    '__main __live __lmo __extr __pafe __gp',
-    '__main __live __lmo __extr __pafe __gpa',
-    '__main __live __lmo __extr __pafe __ib',
-    '__main __live __lmo __extr __pafe __ir',
-    '__main __live __lmo __extr __pafe __iw',
-    '__main __live __lmo __extr __pafe __now',
-    '__main __live __lmo __extr __pafe __oh',
-    '__main __live __lmo __extr __pafe __ow',
-    '__main __live __lmo __extr __pafe __pt',
-    '__main __live __lmo __extr __pafe __sk',
-    '__main __live __lmo __extr __pafe __so',
-    '__main __live __lmo __extr __pafe __sp',
-    '__main __live __lmo __extr __pafe __su',
-    '__main __live __lmo __extr __pafe __tp',
     '__main __live __lmo __extr __src',
     '__main __live __lmo __lrm',
     '__main __live __lmo __lrm __lret',
@@ -14339,53 +14266,17 @@ _ADDED135 = [
     '__main __live __lmo __lrm __lunretx',
     '__main __live __lmo __vel',
     '__main __live __lmo __vel __acc',
-    '__main __live __lmo __vel __acfe',
-    '__main __live __lmo __vel __acfe __bm',
-    '__main __live __lmo __vel __acfe __br',
-    '__main __live __lmo __vel __acfe __bt',
-    '__main __live __lmo __vel __acfe __cu',
-    '__main __live __lmo __vel __acfe __eff',
-    '__main __live __lmo __vel __acfe __ga',
-    '__main __live __lmo __vel __acfe __gp',
-    '__main __live __lmo __vel __acfe __ib',
-    '__main __live __lmo __vel __acfe __ir',
-    '__main __live __lmo __vel __acfe __iw',
-    '__main __live __lmo __vel __acfe __now',
-    '__main __live __lmo __vel __acfe __oh',
-    '__main __live __lmo __vel __acfe __ow',
-    '__main __live __lmo __vel __acfe __pct',
-    '__main __live __lmo __vel __acfe __pt',
-    '__main __live __lmo __vel __acfe __sk',
-    '__main __live __lmo __vel __acfe __so',
-    '__main __live __lmo __vel __acfe __sp',
-    '__main __live __lmo __vel __acfe __su',
-    '__main __live __lmo __vel __acfe __tp',
-    '__main __live __lmo __vel __acfe __tv',
     '__main __live __lmo __vel __mcr',
     '__main __live __lmo __vel __mv',
     '__main __live __lmo __vel __scv',
-    '__main __live __lmo __vel __spfe',
-    '__main __live __lmo __vel __spfe __bm',
-    '__main __live __lmo __vel __spfe __br',
-    '__main __live __lmo __vel __spfe __bt',
-    '__main __live __lmo __vel __spfe __cu',
-    '__main __live __lmo __vel __spfe __curon',
-    '__main __live __lmo __vel __spfe __gp',
-    '__main __live __lmo __vel __spfe __gs',
-    '__main __live __lmo __vel __spfe __ib',
-    '__main __live __lmo __vel __spfe __ir',
-    '__main __live __lmo __vel __spfe __iw',
-    '__main __live __lmo __vel __spfe __now',
-    '__main __live __lmo __vel __spfe __oh',
-    '__main __live __lmo __vel __spfe __ow',
-    '__main __live __lmo __vel __spfe __pt',
-    '__main __live __lmo __vel __spfe __sk',
-    '__main __live __lmo __vel __spfe __so',
-    '__main __live __lmo __vel __spfe __sp',
-    '__main __live __lmo __vel __spfe __src',
-    '__main __live __lmo __vel __spfe __su',
-    '__main __live __lmo __vel __spfe __tp',
-    '__main __live __lmo __vel __spfe __tv',
+    '__main __live __pafe __gpa',
+    '__main __live __pafe __hd',
+    '__main __live __pafe __now',
+    '__main __live __spfe __curon',
+    '__main __live __spfe __gs',
+    '__main __live __spfe __hd',
+    '__main __live __spfe __now',
+    '__main __live __spfe __src',
     '__main __live __temp __fnow',
     '__main __live __temp __fon',
     '__main __live __temp __fscale',
@@ -14574,6 +14465,16 @@ _ADDED135 = [
     '__main __preprint __mods __tex __mode __off',
     '__main __preprint __mods __tex __mpos',
     '__main __preprint __mods __tex __pat',
+    '__main __preprint __mods __tex __pat __pd',
+    '__main __preprint __mods __tex __pat __pu',
+    '__main __preprint __mods __tex __pat __s0',
+    '__main __preprint __mods __tex __pat __s1',
+    '__main __preprint __mods __tex __pat __s2',
+    '__main __preprint __mods __tex __pat __s3',
+    '__main __preprint __mods __tex __pat __s4',
+    '__main __preprint __mods __tex __pat __s5',
+    '__main __preprint __mods __tex __pat __s6',
+    '__main __preprint __mods __tex __pat __s7',
     '__main __preprint __mods __tex __preset',
     '__main __preprint __mods __tex __preset __bask',
     '__main __preprint __mods __tex __preset __ches',
@@ -14887,7 +14788,6 @@ _ADDED135 = [
     '__main __setup',
     '__main __start __info __feat',
     '__main __system __fc',
-    '__main __system __rec',
     '__main __system __fc __fc1',
     '__main __system __fc __fc2',
     '__main __system __fc __fc3',
@@ -14909,10 +14809,16 @@ _ADDED135 = [
     '__main __system __ledcfg __noz __r',
     '__main __system __ledcfg __noz __warm',
     '__main __system __ledcfg __noz __white',
+    '__main __system __rec',
     '__main __temp',
 ]
+
 _gone135 = sorted(set(_gold135) - set(_now135))
 _new135 = sorted(set(_now135) - set(_gold135))
+# R250: the expected lists are SETS - a path documented twice (a removed entry
+# that was also re-added later) must not break the comparison.
+_REMOVED135 = sorted(set(_REMOVED135))
+_ADDED135 = sorted(set(_ADDED135))
 tests.append(('R135 menu inventory: NOTHING lost - every vanished path is a '
               'documented merge/rename, every new one planned (golden = '
               'pre-.104, %d paths)' % len(_gold135),
@@ -14923,24 +14829,27 @@ def _kids135(region):
     return _re135.findall(r'^\[menu __main %s (\w+)\]$' % region, _lcd135,
                           _re135.M)
 _live135 = _kids135('__live')
-tests.append(('R175b+R240 Live Tuning order: Temps+Fan FIRST -> Z-Hopping '
-              'submenu -> Z-Offset+babysteps as the first plain rows -> '
-              'Features -> Motion (Velocity incl. Spd/Acc per feature, '
-              'Extrusion incl. PA/Flw per feature, Retraction - the R240 '
-              'mirror of Pre-Print Motion) -> Sources/File/Plotter -> Exclude '
-              '+ Pause at the very END',
+tests.append(('R175b+R240/R250 Live Tuning order: Temps+Fan FIRST -> '
+              'Z-Hopping submenu -> Z-Offset+babysteps as the first plain rows '
+              '-> the FOUR quick lists (Spd/Acc/PA/Flow per feature, B1: no '
+              'Motion detour any more) -> Motion (Velocity/Extrusion/'
+              'Retraction) -> Sources/File/Plotter -> Exclude + Pause at the '
+              'very END; the Live > Features submenu is gone',
               _live135 == ['__temp', '__zhop', '__zoff', '__zup', '__zupf',
-                           '__zdown', '__zdownf', '__feat', '__lmo', '__psrc',
-                           '__file', '__plot', '__objects', '__pause'],
+                           '__zdown', '__zdownf', '__spfe', '__acfe', '__pafe',
+                           '__flfe', '__lmo', '__psrc', '__file', '__plot',
+                           '__objects', '__pause']
+              and '__feat' not in _live135,
               str(_live135)))
-tests.append(('R240 Live Motion mirrors Pre-Print Motion: Velocity (globals '
-              'then Spd/Acc per feature) -> Extrusion (PA/smooth/flow/ironing '
-              'then PA/Flw per feature) -> Retraction',
+tests.append(('R240/R250 Live Motion mirrors Pre-Print Motion: Velocity '
+              '(caps + cruise + corner) -> Extrusion (PA/smooth/flow/ironing) '
+              '-> Retraction - the per-feature lists are SIBLINGS now (B1), '
+              'they are no longer Motion children',
               _kids135('__live __lmo __vel') == ['__mv', '__acc', '__mcr',
-                                                 '__scv', '__spfe', '__acfe']
+                                                 '__scv']
               and _kids135('__live __lmo __extr') == [
-                  '__lpa', '__lpasm', '__flow', '__fsrc', '__src', '__irfl',
-                  '__pafe', '__flfe'], str(_kids135('__live __lmo __vel'))))
+                  '__lpa', '__lpasm', '__flow', '__fsrc', '__src', '__irfl'],
+              str(_kids135('__live __lmo __vel'))))
 _lmo135 = _kids135('__live __lmo')
 tests.append(('R175b Live Motion submenu: Velocity -> Extrusion (PA+smooth '
               'moved in) -> Retraction (the four loose rows became a submenu)',
@@ -15018,16 +14927,16 @@ tests.append(('R135 quick access carries the GLOBALS: PA (toggle+value+smooth) '
                   '__main __preprint __motion __vel __acfe __gon',
                   '__main __preprint __motion __vel __acfe __gacc',
                   '__main __preprint __motion __vel __spfe __g1st',
-                  '__main __live __lmo __vel __spfe __gs',
-                  '__main __live __lmo __vel __acfe __ga'))
+                  '__main __live __spfe __gs',
+                  '__main __live __acfe __ga'))
               and 'SET_GLOBAL_SPEED PERCENT=' in _lcd135[_lcd135.index(
-                  '[menu __main __live __lmo __vel __spfe __gs]'):_lcd135.index(
-                  '[menu __main __live __lmo __vel __spfe __src]')], ''))
+                  '[menu __main __live __spfe __gs]'):_lcd135.index(
+                  '[menu __main __live __spfe __src]')], ''))
 tests.append(('R135 Now rows: all 8 quick menus show the ACTIVE feature '
               '(current_type) - the Speed/Accel live-display pattern',
               all(('[menu %s __now]' % p) in _lcd135 for p in (
-                  '__main __live __lmo __vel __spfe', '__main __live __lmo __vel __acfe',
-                  '__main __live __lmo __extr __pafe', '__main __live __lmo __extr __flfe',
+                  '__main __live __spfe', '__main __live __acfe',
+                  '__main __live __pafe', '__main __live __flfe',
                   '__main __preprint __motion __vel __spfe', '__main __preprint __motion __vel __acfe',
                   '__main __preprint __motion __ext __pafe', '__main __preprint __motion __ext __flfe'))
               and _lcd135.count('current_type') >= 8, ''))
@@ -15101,20 +15010,22 @@ tests.append(('R146 Velocity: Drive row at the top of Retraction (shows the '
               and "input: {printer['save_variables'].variables.ov_retract_len|default(0.8)}\ninput_min: 0\ninput_max: 15" in _lcd146
               and "input: {printer['save_variables'].variables.ov_retract_speed|default(35)}\ninput_min: 5\ninput_max: 100" in _lcd146
               and "input: {printer['save_variables'].variables.ov_unretract_speed|default(35)}\ninput_min: 5\ninput_max: 100" in _lcd146, ''))
-tests.append(('R146/R160 activator rows (Pre-Print File + Live, 2x16): the ON '
-              'state lists WHICH parameters are non-neutral - S=speed '
-              'A=accel F=flow P=PA - and the File rows carry the visible '
-              '[on]/[off] state marker since .120',
-              _lcd146.count("(' S' if printer['save_variables'].variables.ovf_") == 32
-              and _lcd146.count("(' A' if printer['save_variables'].variables.ovf_") == 32
-              and _lcd146.count("(' F' if printer['save_variables'].variables.ovf_") == 30
-              and _lcd146.count("(' F' if printer['save_variables'].variables.ov_ironing_flow_on") == 2
-              and _lcd146.count("(' P' if printer['save_variables'].variables.ovf_") == 32
+# R250: die Live-Aktivatoren sind weg -> 16 Aktivatoren (Pre-Print) statt 32
+tests.append(('R146/R160/R250 activator rows (Pre-Print, 16): the ON state '
+              'lists WHICH parameters are non-neutral - S=speed A=accel '
+              'F=flow P=PA - and the rows carry the visible [on]/[off] marker '
+              'since .120 (the Live twin left with Live > Features)',
+              _lcd146.count("(' S' if printer['save_variables'].variables.ovf_") == 16
+              and _lcd146.count("(' A' if printer['save_variables'].variables.ovf_") == 16
+              and _lcd146.count("(' F' if printer['save_variables'].variables.ovf_") == 15
+              and _lcd146.count("(' F' if printer['save_variables'].variables.ov_ironing_flow_on") == 1
+              and _lcd146.count("(' P' if printer['save_variables'].variables.ovf_") == 16
               and _lcd146.count("('on' if printer['save_variables'].variables.ovf_") == 16
-              and _lcd146.count("else 'o:--'") >= 16, ''))
+              and _lcd146.count("~ '] '") == 16, ''))
 try:
     import re as _re146n
-    _ow146 = _re146n.search(r"name: (OW:.*ovf_wallouter_on.*)", _lcd146).group(1)
+    # R250: the marker lives on the Pre-Print activator (the Live one is gone)
+    _ow146 = _re146n.search(r"name: (\{'OW \['.*ovf_wallouter_on.*)", _lcd146).group(1)
     # build_printer() shares the module-level save_vars dict - COPY it, never
     # mutate (the OFF render below and every later test must stay clean)
     _p146 = build_printer()
@@ -15123,13 +15034,14 @@ try:
         ovf_wallouter_acc=0, ovf_wallouter_flw=100, ovf_wallouter_pa=0.03))})
     _r146d = render(_ow146, extra={'printer': _p146})
     _r146e = render(_ow146)
-    _ok146d = ('o:ON S P' in _r146d and ' A' not in _r146d and ' F' not in _r146d
-               and _r146e.strip().endswith('o:--'))
+    _ok146d = ('[on]' in _r146d and ' S P' in _r146d
+               and ' A' not in _r146d and ' F' not in _r146d
+               and '[off]' in _r146e)
 except Exception as _e146:                                            # noqa: BLE001
     _ok146d = False
     _r146d = repr(_e146)
 tests.append(('R146 activator marker RENDER: OW with spd 80% + PA 0.03 shows '
-              "'o:ON S P' (no A, no F); OFF shows plain o:--",
+              "'[on] ... S P' (no A, no F); OFF shows plain [off]",
               _ok146d, str(_r146d)[:160]))
 tests.append(('R146 Gen files slots: basename on the 20-char LCD (path split) '
               'but the FULL relative path goes to SDCARD_PRINT_FILE - '
@@ -16084,35 +15996,47 @@ tests.append(('R168 litho Handle input (R170 numbering): 2 = separate file, '
 
 # the filled CUSTOM submenu: enable follows file_types, the quick value
 # shows the file speed - the .126 field report 'custom stands empty'
-_cu168 = _m168('__main __live __feat __cu __on')
-tests.append(('R168/R174b Custom Code submenu FILLED: the toggle is ALWAYS '
-              'clickable - (parked) in the name + the honest not-in-file answer',
-    'enable:' not in _cu168 and "' (parked)'" in _cu168
-    and 'CUSTOM not seen in this file yet' in _cu168,
+# R250 (.142f): Live > Features is gone - the Custom Code block now lives
+# where it is USED: the toggle + the numbered C1..C9 slots in Pre-Print >
+# Features > Custom Code, the four regulators per feature in the Live quick
+# lists. Both must name the parked/absent case honestly.
+_cu168 = _m168('__main __preprint __feat __cu __on')
+_cu168l = _m168('__main __live __flfe __cu')
+tests.append(('R250 Custom Code: the Pre-Print submenu carries the toggle (with '
+              'the [on]/[off] marker + (parked) answer) and the four Live '
+              'quick lists edit CU like every other feature',
+    "('on' if printer['save_variables'].variables.ovf_custom_on" in _cu168
+    and 'SET_OVERRIDE_VALUE NAME=feat_on_custom' in _cu168
+    and 'enable:' in _cu168
+    and "ovf_custom_flw|default(100)" in _cu168l
+    and 'SET_OVERRIDE_VALUE NAME=feat_flw_custom' in _cu168l,
     _cu168[:90]))
 _kids168 = sorted(k for k in _menus168
-                  if k.startswith('__main __live __feat __cu '))
-_kids168x = ['__main __live __feat __cu __acc',
-              '__main __live __feat __cu __flw',
-              '__main __live __feat __cu __fs',
-              '__main __live __feat __cu __on',
-              '__main __live __feat __cu __pa',
-              '__main __live __feat __cu __spd']
+                  if k.startswith('__main __preprint __feat __cu '))
+_kids168x = ['__main __preprint __feat __cu __how',
+             '__main __preprint __feat __cu __on',
+             '__main __preprint __feat __cu __pa']
 for _k213 in range(1, 10):
-    _kids168x.append('__main __live __feat __cu __c%d' % _k213)
+    _kids168x.append('__main __preprint __feat __cu __c%d' % _k213)
     for _sub213 in ('__acc', '__flw', '__on', '__pa', '__spd'):
-        _kids168x.append('__main __live __feat __cu __c%d %s' % (_k213, _sub213))
-tests.append(('R168/R213 Custom Code submenu: the 6 classic children '
-              '(on/fs/spd/flw/acc/pa) - "nothing in it" is history - PLUS '
+        _kids168x.append('__main __preprint __feat __cu __c%d %s' % (_k213, _sub213))
+tests.append(('R168/R213/R250 Custom Code submenu: the toggle + the how row + '
               'the 9 numbered C-slots with 5 regulators each (live tunable '
-              'while that block prints)',
+              'while that block prints) - the .136l rethink, intact',
     _kids168 == sorted(_kids168x), str(_kids168[:8])))
+# R250: these submenus only exist in Pre-Print now (Live > Features is gone);
+# the Live side of the same values is the quick lists' __<code> row.
 for _f168, _n168 in (('__oh', 'Overhang'), ('__ib', 'Internal Bridge'),
                      ('__pt', 'Prime Tower')):
     _k = sorted(k for k in _menus168
-                if k.startswith('__main __live __feat %s ' % _f168))
-    tests.append(('R168 %s submenu filled (was an empty list)' % _n168,
-        len(_k) == 6, str(len(_k))))
+                if k.startswith('__main __preprint __feat %s ' % _f168))
+    _kl = [k for k in _menus168
+           for q in ('__spfe', '__acfe', '__pafe', '__flfe')
+           if k == '__main __live %s %s' % (q, _f168)]
+    tests.append(('R168/R250 %s submenu filled (was an empty list) - and its '
+                  'live twin is the quick-list row' % _n168,
+        len(_k) == 2 and len(_kl) == 4,
+        '%d / %d' % (len(_k), len(_kl))))
 
 
 # ============================= R174 (.130): the .129 field-log round ================
@@ -16158,29 +16082,34 @@ tests.append(('R174 SD browser: the image pick refuses non-image and traversal p
 # ================== R174b (.130): features parked UX (field log 2) =================
 _lcd174b = open('menus/lcd_menues.cfg').read()
 import re as _re174b
+# R250: the Live > Features toggles are gone - the SURVIVING activators are the
+# 16 Pre-Print ones, and they keep the R174b behaviour (always clickable).
 _feat_on_blocks = _re174b.findall(
-    r"\[menu __main __live __feat __\w+ __on\]\n(.*?)(?=\n\[menu )",
+    r"\[menu __main __preprint __feat __\w+ __on\]\n(.*?)(?=\n\[menu )",
     _lcd174b, _re174b.S)
-tests.append(('R174b feature toggles: ALL %d always clickable - no enable gate left'
-    % len(_feat_on_blocks),
-    len(_feat_on_blocks) == 17
-    and all('enable:' not in _b for _b in _feat_on_blocks),
+tests.append(('R174b/R250 feature toggles: ALL %d always clickable - no enable '
+    'gate left' % len(_feat_on_blocks),
+    len(_feat_on_blocks) == 16
+    and all('not seen in this file yet' in _b for _b in _feat_on_blocks),
     str(len(_feat_on_blocks))))
-tests.append(('R174b feature toggles: the 16 file-type features carry the '
-    '(parked) name marker',
-    sum(1 for _b in _feat_on_blocks if "' (parked)'" in _b) == 16,
-    str(sum(1 for _b in _feat_on_blocks if "' (parked)'" in _b))))
+tests.append(('R174b/R250 feature toggles: the 16 file-type features carry '
+    'the visible [on]/[off] state marker',
+    sum(1 for _b in _feat_on_blocks
+        if "('on' if" in _b and "else 'off'" in _b) == 16,
+    str(sum(1 for _b in _feat_on_blocks if "('on' if" in _b))))
 tests.append(('R174b feature toggles: every (parked) toggle answers with the '
     'honest not-in-file line',
     sum(1 for _b in _feat_on_blocks
         if 'not seen in this file yet' in _b) >= 16,
     str(sum(1 for _b in _feat_on_blocks
             if 'not seen in this file yet' in _b))))
-tests.append(('R174b features menu: the In-file line shows what THIS file has '
-    '(one glance instead of guessing why ironing does nothing)',
-    '[menu __main __live __feat __inf]' in _lcd174b
-    and 'In file: ' in _lcd174b
-    and 'THIS file has:' in _lcd174b,
+tests.append(('R174b/R250: the In-file line still shows what THIS file has - '
+    'it moved from the removed Live > Features into the Start dialog File '
+    'info (one glance instead of guessing why ironing does nothing)',
+    '[menu __main __live __feat __inf]' not in _lcd174b
+    and '[menu __main __start __info __feat]' in _lcd174b
+    and 'File features (TYPES):' in _lcd174b
+    and 'only offers what THIS file really has' in _lcd174b,
     'In-file line missing'))
 tests.append(('R174b ironing flow editor also answers honestly (the .129 log '
     'showed a bare Overwrite line with no context)',
@@ -18984,9 +18913,35 @@ tests.append(('R249: Klipper\'s flat list rules are honoured - the link ends '
     and "fn.endswith('.gcode')" in _pp249
     and 'os.path.commonpath' in _pp249, ''))
 
+# ---- R250 (.142f): B1 + B2 - the four quick lists up front, Features gone ---
+_lcd250 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+_live250 = _re73.findall(r'^\[menu __main __live (\w+)\]$', _lcd250, _re73.M)
+tests.append(('R250 B1: the four quick lists stand DIRECTLY under Live Tuning, '
+              'one after the other (the user\'s wording: "alle vier direkt '
+              'unter Live Tuning uebereinander, ohne die zwei Zwischenebenen")',
+    _live250.index('__spfe') < _live250.index('__acfe') < _live250.index('__pafe')
+    < _live250.index('__flfe') < _live250.index('__lmo')
+    and '__lmo __vel __spfe' not in _lcd250
+    and '__lmo __extr __flfe' not in _lcd250, str(_live250)))
+tests.append(('R250 B2: Live > Features is DELETED (no section, no reference) - '
+              'its 16 activators and file-original rows live in Pre-Print > '
+              'Features, its regulators in the four quick lists',
+    '[menu __main __live __feat' not in _lcd250
+    and 'Live > Features' not in _lcd250
+    and len(_re73.findall(r'^\[menu __main __preprint __feat __\w+ __on\]$',
+                          _lcd250, _re73.M)) == 16
+    and all(('[menu __main __live __%s __ir]' % q) in _lcd250
+            for q in ('spfe', 'acfe', 'pafe', 'flfe')), ''))
+tests.append(('R250: no LCD message points into the deleted menu any more - the '
+              'old "Full set: Live > Features" hint named a menu that no '
+              'longer exists (148 in-menu hints re-aimed)',
+    _lcd250.count('Full set: the four Live rows (Spd/Acc/PA/Flow)') == 129
+    and 'Live > Features' not in open('tools/r2_postproc.py').read()
+    and 'Live > Features' not in open('macros/10_live_tuning.cfg').read(), ''))
+
 # ---- R249 (.142e): the ironing FLOW is the slicer value, ONE entry --------
 _lcd249 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
-_irfl249 = _re73.search(r'\[menu __main __live __feat __ir __fl\]\n'
+_irfl249 = _re73.search(r'\[menu __main __preprint __feat __ir __fl\]\n'
                         r'(.+?)(?=\n\[menu )', _lcd249, _re73.S)
 _irfl249 = _irfl249.group(1) if _irfl249 else ''
 tests.append(('R249 ironing flow: the feature submenu binds the REAL slicer '
@@ -19004,12 +18959,13 @@ tests.append(('R249 ironing flow: BOTH quick rows (live + pre-print) set the '
         and ("ov_ironing_flow|default(15)" in
              (_re73.search(r'\[menu __main __%s\]\n(.+?)(?=\n\[menu )' % _m,
                            _lcd249, _re73.S) or ['', ''])[1] or '')
-        for _m in ('live __lmo __extr __flfe __ir',
+        for _m in ('live __flfe __ir',
                    'preprint __motion __ext __flfe __ir')), ''))
-tests.append(('R249 ironing flow: the F flag of the two activators follows the '
-              'flow ON state (ov_ironing_flow_on = someone set it) - the old '
-              'ovf_ironing_flw != 100 comparison no longer exists',
-    _lcd249.count("(' F' if printer['save_variables'].variables.ov_ironing_flow_on") == 2
+tests.append(('R249/R250 ironing flow: the F flag of the (Pre-Print) '
+              'activator follows the flow ON state (ov_ironing_flow_on = '
+              'someone set it) - the old ovf_ironing_flw != 100 comparison no '
+              'longer exists',
+    _lcd249.count("(' F' if printer['save_variables'].variables.ov_ironing_flow_on") == 1
     and 'ovf_ironing_flw' not in _lcd249, ''))
 
 # ---- R249 (.142e): the QUALITY rule on a real file ------------------------

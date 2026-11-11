@@ -2160,13 +2160,14 @@ Limits:  SET_LIVE_VELOCITY VELOCITY= (caps the FASTEST moves = travels) · SET_L
          SET_LIVE_SQUARE_CORNER VALUE=
 Z-Hop:   SET_Z_HOP ENABLE=1|0 HEIGHT=0.1..3 — lifts Z on every firmware retract (G10/G11), lowers
          before the unretract: nozzle-crash protection for towers, text, small parts
-Live > Features > Custom Code / Overhang Wall / Internal Bridge /
+Pre-Print > Features > Custom Code / Overhang Wall / Internal Bridge /
 Prime Tower carry the full set (On / File / Speed / Flow / Accel / PA)
-like every feature.
+like every feature; while a print runs the same five regulators sit in the
+four Live quick lists.
 
 Feature PA: SET_FEAT_PA FEATURE=<code> PA=<0..0.3> — pressure advance for ONE feature
          (e.g. wallouter 0.055, infillsparse 0.08); applied at every boundary of that
-         feature, the global PA returns when it ends. 0 = off. LCD: Live Tuning > Features > <feature> > PA
+         feature, the global PA returns when it ends. 0 = off. LCD: Live Tuning > PA per feat > <feature>
 Shaper: SET_FEAT_SHAPER_OFF FEATURE=<code> STATE=1|0 — input shaper OFF while that one
          feature prints (sharp corners on slow outer walls), frequencies restored when it
          ends and at PRINT_END/cancel (safety net _FEAT_TUNING_RESTORE). Needs [input_shaper]
@@ -2425,9 +2426,9 @@ never touched by a feature.
 **16 features:** outer/inner wall, overhang wall, sparse/solid infill,
 top/bottom surface, bridge, internal bridge, gap fill, support, ironing
 (+own flow), skirt, brim, prime tower, custom code — every one with its OWN
-ON switch + speed % + accel (Pre-Print > Features, one submenu each; Live
-Tuning shows the CURRENTLY printing feature as "Cur:" — or "CurOv:" to
-toggle its override live). Post-processor v4 maps every slicer family's
+ON switch + speed % + accel (Pre-Print > Features, one submenu each) — and
+live in the four quick lists of Live Tuning, which show the CURRENTLY
+printing feature as "Now:" and toggle its override with FeatOn. Post-processor v4 maps every slicer family's
 ;TYPE: spellings (census table in ch. 3) — since R95 including Overhang
 perimeter, Internal bridge, Prime/Wipe tower and custom G-code sections.
 
@@ -2781,9 +2782,13 @@ check, .136m — **plus `Fix: Quality` and `Fix: Speed`**, .136n) · Tools
 current / Reset for PLA, PETG, TPU, ABS/ASA) · Temps ·
 Motion · Features ·
 utilities (Preheat/Mesh/Confirm/Overwrites) · Profiles LAST. Live Tuning:
-Temps & Fan first, then Z-Hopping, Z-offset + babysteps, the quick-access
-rows, Features, Motion, Sources/File/Plotter — Exclude + Pause at the very
-end. The SD browser has a **Del** row: one press switches the mode
+Temps & Fan first, then Z-Hopping, Z-offset + babysteps, **the four
+quick-access lists (Spd / Acc / PA / Flw per feat — directly under Live
+Tuning, no Motion detour)**, Motion, Sources/File/Plotter — Exclude + Pause
+at the very end. The separate *Live > Features* submenu is gone: everything
+it could do is in those four lists (they cover all 16 feature codes incl.
+Overhang, Internal Bridge, Prime Tower and Custom) and in Pre-Print >
+Features. The SD browser has a **Del** row: one press switches the mode
 on, then every file and folder needs **two presses** (arm + delete) — only
 inside the G-Codes root, never during a print. The browser heals itself:
 a folder the index does not know yet (stale mirror after a
@@ -2803,11 +2808,10 @@ retraction reads the firmware values — what you see is what runs.
 |---|---|
 | Z +0.04 / +0.12 / −0.04 / −0.12 | babystepping right at the top |
 | Hot / Bed / Fan / Zoff | cockpit: temperatures, fan %, Z-offset display · **Fan: NN% (LIVE)** — your absolute %, beats hold/scale/clamp AND the layer-1 rule · LIVE on/off · Hold · Scale (25–150 % × file) · Clamp (FMin/FMax/FBrdg) · How? (fan math) prints the chain |
-| Spd per feat | title row **== SPEED ==** + Glob % (THE overall regulator) + "Now:" which feature is printing + FeatOn: its ON switch + Src info (file/overwrite/live) + all 16 feature % rows (TRV = travels) |
+| Spd per feat | **first entry after the babysteps** · title row **== SPEED ==** + Glob % (THE overall regulator) + "Now:" which feature is printing + FeatOn: its ON switch + Src info (file/overwrite/live) + all 16 feature % rows (TRV = travels) |
 | Acc per feat | title row **== ACCEL ==** + global mm/s² + Feat x: scales every feature accel by % + the effective accel + "Now:" + all 16 feature accel rows |
 | PA per feat | title row **== PRESSURE ADV ==** + Glob: the global PA + all 16 feature PA rows (input shaper PA lives per feature) |
-| Flw per feat | title row **== FLOW ==** + Glob: the global flow % + all 16 feature flow rows (ironing flow in its own feature menu) |
-| Features | 16 submenus = same as Pre-Print > Features, but live: edits re-apply immediately when that feature is printing · ShpOff: input shaper OFF for one feature (toggle, .85) — each feature submenu has its own PA input (feature pressure advance, .85) — the numbered custom slots C1..C9 appear here too when the file carries them (.136l) |
+| Flw per feat | title row **== FLOW ==** + Glob: the global flow % + all 16 feature flow rows — ironing's row IS the real slicer flow (5–100 %, typical 15–20) |
 | File (G-code) | FULL mirror of the Pre-Print file info: measured originals (speed/accel per feature), 16 click-activators, temps, PA, retraction, fan, flow, MAXRATE (mm³/s) + seam position + DERIVED flag — everything during the print |
 | Extrusion | Flow % (1–300), PA, PA smooth, RetLen / RetSpd / Unret, UnretExt, Ironing flow, **Z-Hop ON/OFF + height** (lifts over every retract — nozzle-crash protection) — every input shows what Klipper REALLY runs right now, Src info shows file/overwrite/live |
 | Velocity | Velcap (max velocity — caps the fastest moves = travels) · Acccap (global accel cap, travels included) · MCR · corner — live, like Mainsail |

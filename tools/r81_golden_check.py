@@ -10,6 +10,16 @@ keeps that guarantee alive: it rebuilds the 23 fixture cases, runs them
 through the CURRENT module and compares MD5s + change summaries against the
 frozen references.
 
+RE-FREEZE HISTORY: R250 (.142f) re-froze mr01-mr13 (stamp + pointer
+rename class - POSTPROC_RELEASE .142e -> .142f, BUILD R249 -> R250,
+both the same length; plus ONE deliberate text change: the R2-RANGE note
+pointed at the menu 'Live > Features', which R250 deleted, and now names
+'Live Tuning (Spd/Acc/PA/Flow per feature)' (+26 bytes per case). Proof:
+the same module with the OLD stamp strings differs from the .142e
+references in EXACTLY 3 lines per mr case - the identify line (its date
+is derived from the body signature by design), the R2-RANGE note and the
+R2-META sig; every other byte identical, pr01-pr10 byte-IDENTICAL -
+make_range/process logic untouched.
 RE-FREEZE HISTORY: R249 (.142e) re-froze mr01-mr13 (version bump
 class - POSTPROC_RELEASE .142d -> .142e, BUILD R248 -> R249; the R249
 changes live in the WATCH layer (root links for the flat SD list) and
@@ -360,19 +370,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # process() output is identical old vs new, ALL 13 mr md5s change (every
 # range excerpt carries the core stamp), no summary moves, and r81 was
 # 23/23 green with the R213 code BEFORE the stamp bump.
-REF_MD5 = {'mr01': 'd590d11e647d5d481090b4a0a4e0d19b',
- 'mr02': 'd8687652834aed648d69ec3fac1b2ec3',
- 'mr03': '355869d3ac13974d129e11f585c6e2cd',
- 'mr04': '90afea76d3f449d2cec2e3745dbe72e9',
- 'mr05': 'e9b5da3a42532cfbed4056722e627ab7',
- 'mr06': '77a06e3e87fa671d5c55fd435d2aa458',
- 'mr07': '7a148b41f7ccdc3edc278b4a2c423810',
- 'mr08': 'f00e02c14c978f520831db90987f0bae',
- 'mr09': '8b85d4353e7ab9ba96ec0d0ffb4d375e',
- 'mr10': '6959076f3cd1b1eae2f968920af3b5fa',
- 'mr11': 'f99ee0cfd4f0ffb722fd84c0517bfd1f',
- 'mr12': '5a6946f5c2fd4e1ff09c1ea6e6934c71',
- 'mr13': '2c61d644aedcc415a7b534a0195e4682',
+REF_MD5 = {'mr01': '9eb066f77f13f310ea0575e034bd9555',
+ 'mr02': '033f989675a24bfea9d4c435889666a9',
+ 'mr03': 'cb88728e4e51056eeb884b697b3a4451',
+ 'mr04': '6736937c440e1b4da271c35874674528',
+ 'mr05': '2a50b8ac435f729505dfa6c4a2f11eac',
+ 'mr06': 'ceed5fdc4ec4bcc8c9f577802a1a9504',
+ 'mr07': '38127e7e7d0423ebf61243b73d93197f',
+ 'mr08': 'cc7ae86cf95ef632dcc0d2d98cb1a7f8',
+ 'mr09': 'be1e98bdc978234b7c8e4facb2a19aa0',
+ 'mr10': 'c346570d195f14923a4b8fbeedabd51f',
+ 'mr11': '5bc236f21662ae93c3aa8079f9eba5e7',
+ 'mr12': 'e68728427b0fcec9b6296e73953af091',
+ 'mr13': '702caa863e057f03713f76a5ad25cd8f',
  'pr01': 'aa5a6f27d5a7e6576f57eeea93af63a5',
  'pr02': '61457e9bcbd98996b6e7dc26efda23d8',
  'pr03': '923725a1d92fccc88241ed8a3ab8065b',
@@ -384,19 +394,19 @@ REF_MD5 = {'mr01': 'd590d11e647d5d481090b4a0a4e0d19b',
  'pr09': '5e90a1d42296412a0ea53e9d6ada0157',
  'pr10': '159ea58bb74bbf9adb377f1e733d152b'}
 
-REF_SUMMARY = {'mr01': {'nl': 8, 'size': 5249},
- 'mr02': {'nl': 8, 'size': 14265},
- 'mr03': {'nl': 8, 'size': 13276},
- 'mr04': {'nl': 8, 'size': 13154},
- 'mr05': {'nl': 8, 'size': 21944},
- 'mr06': {'nl': 8, 'size': 17186},
- 'mr07': {'nl': 7, 'size': 4881},
- 'mr08': {'nl': 6, 'size': 4526},
- 'mr09': {'nl': 7, 'size': 9555},
- 'mr10': {'nl': 7, 'size': 13176},
- 'mr11': {'nl': 7, 'size': 8971},
- 'mr12': {'nl': 2, 'size': 3053},
- 'mr13': {'nl': 29, 'size': 20705},
+REF_SUMMARY = {'mr01': {'nl': 8, 'size': 5275},
+ 'mr02': {'nl': 8, 'size': 14291},
+ 'mr03': {'nl': 8, 'size': 13302},
+ 'mr04': {'nl': 8, 'size': 13180},
+ 'mr05': {'nl': 8, 'size': 21970},
+ 'mr06': {'nl': 8, 'size': 17212},
+ 'mr07': {'nl': 7, 'size': 4907},
+ 'mr08': {'nl': 6, 'size': 4552},
+ 'mr09': {'nl': 7, 'size': 9581},
+ 'mr10': {'nl': 7, 'size': 13202},
+ 'mr11': {'nl': 7, 'size': 8997},
+ 'mr12': {'nl': 2, 'size': 3079},
+ 'mr13': {'nl': 29, 'size': 20731},
  'pr01': {'by_object': False,
           'fw': '',
           'info_added': True,

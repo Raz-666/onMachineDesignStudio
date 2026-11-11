@@ -77,8 +77,8 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-11.142e'
-POSTPROC_BUILD = 'R249'
+POSTPROC_RELEASE = 'R2-2026-11-11.142f'
+POSTPROC_BUILD = 'R250'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
 # and no speed/accel/nozzle parameters. Files carrying an OLD tag are UPGRADED
@@ -1787,7 +1787,7 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                        % (floor, {'hull': 'footprint', 'outline': 'true outline'}[f_shape],
                           floor_fill))
             # R79: feature markers for the generated geometry - the raft counts
-            # as INFILL-SOLID, so Live > Features (speed/accel/flow) works on
+            # as INFILL-SOLID, so Live Tuning (Spd/Acc/PA/Flow per feature) (speed/accel/flow) works on
             # it exactly like on any sliced section
             gen.append('APPLY_TYPE TYPE=INFILL-SOLID')
             for i in range(floor):
@@ -1939,14 +1939,14 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
     # right below - the notes must be complete before that)
     if body_types > 0 and body_applies == 0:
         notes.append('body feature markers re-derived from the ;TYPE: comments '
-                     '(the source carried no APPLY_TYPE - Live > Features works anyway)')
+                     '(the source carried no APPLY_TYPE - Live Tuning (Spd/Acc/PA/Flow per feature) works anyway)')
     elif body_types == 0 and body_applies == 0:
         if cut_key:
             notes.append('these layers carry no own ;TYPE: (vase-style: the '
                          'source states it once) - the body opens with %s, '
                          'the feature active at the cut' % cut_key)
         else:
-            notes.append('NO feature markers in these layers - Live > Features '
+            notes.append('NO feature markers in these layers - Live Tuning (Spd/Acc/PA/Flow per feature) '
                          'cannot switch, the body prints with the last active feature')
     # R94: the generated geometry is content too - raft/cap count as
     # INFILL-SOLID, the brim as BRIM (both print at F2400 = 40 mm/s, the
@@ -19228,7 +19228,7 @@ def _travel_fix_file(path, accel=0, speed=0.0, markers=True):
         if accel > 0:
             bits.append('%d mm/s2 travel accel' % int(accel))
         if markers:
-            bits.append('live markers (Live > Features > Travel)')
+            bits.append('live markers (Live Tuning > Flux > Travel)')
         fo_marker = ('; R2-TRAVEL: %s (%d travel block(s) wrapped)\n'
                      % (', '.join(bits), n))
         with open(tmp, 'a') as fo:
