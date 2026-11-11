@@ -3,7 +3,7 @@
 **Package:** `klipper-e3-r2d2` · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail) ·
 12864 LCD (16 characters per line)
 
-**Version:** this manual describes the current release, `R2-2026-11-11.142b` — and only it. Every chapter documents what the system
+**Version:** this manual describes the current release, `R2-2026-11-11.142c` — and only it. Every chapter documents what the system
 does today; the version changelog lives in README.md.
 
 This is the operating manual for the complete macro system: what the printer can
@@ -1736,10 +1736,40 @@ twist, 14 mm / depth 0.5), **Basket** (interlaced weave, 10 mm / 0.35) and
 and set the full parameter set, like the library looks.
 The thickness range is 0.05–1.5 mm (Orca-sized).
 - **BUMPS** — the offset follows a **pattern from the library**:
-  **21 patterns on 3 pages — 20 shaped ones plus MAP** — Ridges, Waves,
-  Grid, Hatch, Checker, Hex, Honeycomb, Basket, Rope, Planks, Bricks,
-  Sandstone, Concrete, Clay, Crepe, Fabric, Plush, Hilbert, Scratch, Glitch
-  — and **MAP**: your own image, wrapped around the part (dark = deep). **Seamless by design:** your mm
+  **27 patterns on 4 pages — 26 shaped ones plus MAP**, every page also
+  names the active one (a `*` marks it):
+
+  | Pattern | What it looks like | Reach for it when |
+  |---|---|---|
+  | Ridges | vertical flutes around the object | vases, cups — grip without bulk |
+  | Waves | diagonal waves (the classic) | the safe default on any shape |
+  | Grid | crosshatch egg-crate | technical parts, panels |
+  | Hatch | hard diagonal hatching | fast, graphic look |
+  | Checker | soft checkerboard | playful boxes, lids |
+  | Hex | organic 3-fold honeycomb-ish | rounded organic surfaces |
+  | Honeycomb | true hex cells (distance field) | real honeycomb geometry |
+  | Basket | woven over/under weave | baskets, boxes, rattan look |
+  | Rope | twisted strands | handles, tubes, tool grips |
+  | Planks | vertical boards, seeded stagger, grooved seams | crates, wooden boxes |
+  | Bricks | running-bond courses with mortar grooves | walls, planters |
+  | Sandstone | fine 2-octave noise | cast stone, terracotta |
+  | Concrete | coarse noise + seeded pores | architectural models |
+  | Clay | soft overlapping thumb dents | pottery, hand-made look |
+  | Crepe | high-frequency crumple × mid wave | paper, packaging |
+  | Fabric | pleats — sharp valleys, wide backs | cloth, curtains |
+  | Plush | dense short fine noise | velvet, soft-touch grips |
+  | Hilbert | zig-zag space-filling bands | where a line-based look fits |
+  | Scratch | anisotropic scratches around the circumference | worn metal, used tools |
+  | Glitch | seeded per-band steps (the melt / shifted-layer look) | sculptures, artistic |
+  | Knit | nested V-loops in staggered columns | knitted sleeves, sweaters |
+  | Fluted | vertical half-round flutes | **kills Z-banding on cylinders** |
+  | Bark | vertical ridged cracks | turns tubes into tree trunks |
+  | Scales | staggered domed shingles | reptile look, grippy |
+  | Facets | diamond low-poly relief crosses | modern / futuristic clean |
+  | Macrame | two twisted cord families into a net | planters, hanging baskets |
+  | MAP | your own image wrapped around (dark = deep) | photos, logos, lettering |
+
+  **Seamless by design:** your mm
   values are guidelines — the tool lays WHOLE grooves around the perimeter
   and WHOLE repeats in Z (the top edge ends flush, no half brick) and
   reports the effective size, e.g. `[seamless: 9 ridges x 2 Z-repeats
@@ -1784,7 +1814,7 @@ In both modes nothing ever starts printing by itself.
 | Fuz thick | 0.05–1.5 mm | scatter radius (fuzzy; the Orca-sized window
   is 0.15–0.5) |
 | Fuz dens | 10–100 % | share of vertices that scatter (100 = all) |
-| Pattern | library: 21 + MAP | 3 pages (see above); MAP = own image, wrapped seamlessly |
+| Pattern | library: 26 + MAP | 4 pages (see the table above); MAP = own image, wrapped seamlessly |
 | Around | 3–60 mm | groove size around the perimeter (guideline — snapped to whole grooves) |
 | Height | 0.4–20 mm | pattern repeat in Z (guideline — snapped to whole repeats, ends flush) |
 | Depth | 0.05–1.5 mm | groove/bump depth |

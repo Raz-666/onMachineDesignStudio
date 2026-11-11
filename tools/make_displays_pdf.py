@@ -20,6 +20,7 @@ from reportlab.platypus import (BaseDocTemplate, PageTemplate, Frame,
                                 Paragraph, Spacer, Table, TableStyle,
                                 PageBreak, CondPageBreak)
 from reportlab.graphics.shapes import Drawing, Rect, String, Line
+from r2_version import VERSION as _R2VER
 
 FD = '/usr/share/fonts/truetype/dejavu/'
 pdfmetrics.registerFont(TTFont('DVS', FD + 'DejaVuSans.ttf'))
@@ -115,7 +116,7 @@ class Doc(BaseDocTemplate):
         canv.line(17*mm, 285*mm, 193*mm, 285*mm)
         canv.setFont('DVS', 8.2); canv.setFillColor(GRAY)
         canv.drawString(17*mm, 287.2*mm, 'R2-D2 Macro System · Displays · Web-UI · Drucker · Nozzles · Test-Stufen')
-        canv.drawRightString(193*mm, 287.2*mm, 'R2-2026-11-09.136ai')
+        canv.drawRightString(193*mm, 287.2*mm, _R2VER)
         canv.setFont('DVS', 8.6)
         canv.drawCentredString(105*mm, 9.5*mm, 'Seite %d' % doc.page)
         canv.restoreState()
@@ -136,7 +137,7 @@ A(Paragraph('die ausführliche Übersicht der .135-Runde —<br/>'
 A(Spacer(1, 8*mm))
 A(Spacer(1, 1))
 A(Spacer(1, 6*mm))
-A(Paragraph('Stand: R2-2026-11-09.136ai · Grundlagen: menus/lcd_menues.cfg, web/ (r2_menu.py, '
+A(Paragraph('Stand: ' + _R2VER + ' · Grundlagen: menus/lcd_menues.cfg, web/ (r2_menu.py, '
             'index.html, menu_structure.json), tools/menu_json_export.py · r197_gen_sweep.py · '
             'r198_tier_report.py', S['cap']))
 A(PageBreak())

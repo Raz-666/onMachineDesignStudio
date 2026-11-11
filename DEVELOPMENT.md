@@ -16,7 +16,7 @@ diagnosis log — they are one.
 
 | Battery | What it proves | Size |
 |---|---|---|
-| Macro render suite | every Klipper template renders correctly (full printer-object simulation, incl. KAMP present/absent, unhomed axes, paused prints, ...) | 1247 tests |
+| Macro render suite | every Klipper template renders correctly (full printer-object simulation, incl. KAMP present/absent, unhomed axes, paused prints, ...) | 2046 tests |
 | Golden byte-identity | generator output is byte-identical to frozen references (regression net) | 23 cases |
 | Audit sweep | emitted g-code obeys the invariants (bed bounds, z-monotonic, retract balance, ;TYPE: honesty) | 59 files |
 | Streaming simulations | the watcher's RSS stays flat while huge files stream (no 'Timer too close' ammo) | all pass |
@@ -25,6 +25,10 @@ diagnosis log — they are one.
 All five run on every push and pull request (see `.github/workflows/tests.yml`)
 — and in any fresh clone: `python3 tools/macro_render_test.py` is the entry
 point, the only external dependency is `jinja2`.
+
+**The full inventory** — every runtime file, every test battery, and what
+each one proves — is in [`docs/TOOLS_INVENTORY.md`](docs/TOOLS_INVENTORY.md).
+The six-tier runner is `python3 tools/r198_tier_report.py --tier all`.
 
 ## Milestone digest
 

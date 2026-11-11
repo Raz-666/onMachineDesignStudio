@@ -357,6 +357,94 @@ def main():
                                  'ch.18 sample "%s" has no matching message '
                                  'template in the sources' % part[:70]))
 
+    # ---- R246d: the two staleness classes that hid for four releases ----
+    import glob
+    # (1) no document may carry a HAND-TYPED release stamp - every builder
+    #     must import r2_version. Field history: all five PDFs still said
+    #     .136ai after four releases because the stamp was hard-coded and
+    #     nobody diffs a PDF.
+    for bp in sorted(glob.glob(os.path.join(ROOT, 'tools', 'make_*_pdf.py'))):
+        bs = open(bp, encoding='utf-8').read()
+        if 'from r2_version import' not in bs:
+            findings.append(('version rule', None,
+                             '%s does not import r2_version - its stamp can '
+                             'go stale silently' % os.path.basename(bp)))
+        for hard in re.findall(r'R2-20\d\d-\d\d-\d\d\.\d+[a-z]*', bs):
+            findings.append(('version rule', None,
+                             '%s carries a HAND-TYPED stamp %r - read it from '
+                             'r2_version instead' % (os.path.basename(bp), hard)))
+    # (2) the MANUAL's texture catalogue must match the code's pattern list.
+    #     Field history: it said "21 patterns on 3 pages" while the code had
+    #     27 on 4 pages, and five patterns had no name in the docs at all.
+    try:
+        gen = open(os.path.join(ROOT, 'macros', '17_generator.cfg'),
+                   encoding='utf-8').read()
+        m_codes = re.search(r'variable_tx_codes:\s*\[([^\]]+)\]', gen)
+        m_names = re.search(r'variable_tx_names:\s*\[([^\]]+)\]', gen)
+        codes = re.findall(r"'([^']+)'", m_codes.group(1)) if m_codes else []
+        names = re.findall(r"'([^']+)'", m_names.group(1)) if m_names else []
+        manual = open(os.path.join(ROOT, 'MANUAL.md'),
+                      encoding='utf-8').read()
+        if codes:
+            stated = re.search(r'\*\*(\d+) patterns on (\d+) pages', manual)
+            if not stated:
+                findings.append(('texture catalogue', None,
+                                 'MANUAL.md no longer states the pattern count '
+                                 'in the "N patterns on M pages" form'))
+            else:
+                if int(stated.group(1)) != len(codes):
+                    findings.append(('texture catalogue', None,
+                                     'MANUAL.md says %s patterns, the code has '
+                                     '%d' % (stated.group(1), len(codes))))
+                want_pages = (len(codes) + 7) // 8
+                if int(stated.group(2)) != want_pages:
+                    findings.append(('texture catalogue', None,
+                                     'MANUAL.md says %s pattern pages, 8 slots '
+                                     'per page means %d'
+                                     % (stated.group(2), want_pages)))
+            for nm in names:
+                if nm.lower() not in manual.lower():
+                    findings.append(('texture catalogue', None,
+                                     'pattern %r exists in the code but has no '
+                                     'name in MANUAL.md' % nm))
+    except OSError:
+        pass
+    # (2b) the PDF builders state the same count - they are hand-written
+    #      documents and repeated the "21 patterns" claim for four releases
+    #      (TEXTURING.pdf even SKIPPED the six preset-less patterns while
+    #      its build message counted 27).
+    for bname in ('make_manual_pdf.py', 'make_texture_pdf.py'):
+        bpath = os.path.join(ROOT, 'tools', bname)
+        try:
+            btxt = open(bpath, encoding='utf-8').read()
+        except OSError:
+            continue
+        for m_cnt in re.finditer(r'(\d+) patterns on (\d+) pages', btxt):
+            if int(m_cnt.group(1)) != len(codes):
+                findings.append(('texture catalogue', None,
+                                 '%s states %s patterns, the code has %d'
+                                 % (bname, m_cnt.group(1), len(codes))))
+            want_pages = (len(codes) + 7) // 8
+            if int(m_cnt.group(2)) != want_pages:
+                findings.append(('texture catalogue', None,
+                                 '%s states %s pattern pages, 8 slots per page '
+                                 'means %d' % (bname, m_cnt.group(2),
+                                               want_pages)))
+    # (3) the inventory document must exist and carry the current version
+    inv = os.path.join(ROOT, 'docs', 'TOOLS_INVENTORY.md')
+    if not os.path.isfile(inv):
+        findings.append(('tools inventory', None,
+                         'docs/TOOLS_INVENTORY.md is missing'))
+    else:
+        itxt = open(inv, encoding='utf-8').read()
+        st = re.search(r"variable_version:\s*'([^']+)'",
+                       open(os.path.join(ROOT, 'macros', '01_state.cfg'),
+                            encoding='utf-8').read())
+        if st and st.group(1) not in itxt:
+            findings.append(('tools inventory', None,
+                             'docs/TOOLS_INVENTORY.md does not carry the '
+                             'current version %r' % st.group(1)))
+
     print('==== R165 DOC CHECK: %d macro tokens, %d lcd paths, %d menu '
           'parents, %d ch.18 samples ===='
           % (len(seen), n_paths, len(by_parent), len(samples)))

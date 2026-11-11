@@ -32,6 +32,7 @@ from reportlab.platypus import (BaseDocTemplate, PageTemplate, Frame,
 from PIL import Image as PILImage, ImageDraw, ImageFont
 
 from r2_cake import cut_cake, _normal
+from r2_version import VERSION as _R2VER
 
 # ---------------------------------------------------------------- fonts ----
 FD = '/usr/share/fonts/truetype/dejavu/'
@@ -105,7 +106,7 @@ class Doc(BaseDocTemplate):
         canv.line(17*mm, 285*mm, 193*mm, 285*mm)
         canv.setFont('DVS', 8.2); canv.setFillColor(GRAY)
         canv.drawString(17*mm, 287.2*mm, 'R2-D2 Macro System · Cut & Split — Methodik')
-        canv.drawRightString(193*mm, 287.2*mm, 'R2-2026-11-09.138')
+        canv.drawRightString(193*mm, 287.2*mm, _R2VER)
         canv.setFont('DVS', 8.6)
         canv.drawCentredString(105*mm, 9.5*mm, 'Seite %d' % doc.page)
         canv.restoreState()

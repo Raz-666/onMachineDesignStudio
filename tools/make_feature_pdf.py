@@ -24,6 +24,7 @@ from reportlab.platypus import (BaseDocTemplate, PageTemplate, Frame,
                                 PageBreak, CondPageBreak, KeepTogether)
 from reportlab.platypus.flowables import Flowable
 from reportlab.graphics.shapes import Drawing, Rect, String, Line, Polygon
+from r2_version import VERSION as _R2VER
 
 FD = '/usr/share/fonts/truetype/dejavu/'
 pdfmetrics.registerFont(TTFont('DVS', FD + 'DejaVuSans.ttf'))
@@ -120,7 +121,7 @@ class Doc(BaseDocTemplate):
         canv.line(17*mm, 285*mm, 193*mm, 285*mm)
         canv.setFont('DVS', 8.2); canv.setFillColor(GRAY)
         canv.drawString(17*mm, 287.2*mm, 'R2-D2 Macro System · Feature-Tagging — der komplette Wahrheitspfad')
-        canv.drawRightString(193*mm, 287.2*mm, 'R2-2026-11-09.136ai')
+        canv.drawRightString(193*mm, 287.2*mm, _R2VER)
         canv.setFont('DVS', 8.6)
         canv.drawCentredString(105*mm, 9.5*mm, 'Seite %d' % doc.page)
         canv.restoreState()
@@ -195,7 +196,7 @@ A(Paragraph('Wie das R2-D2-System aus einer G-Code-Datei die Features liest —<
 A(Spacer(1, 10*mm))
 A(CENT_COVER())
 A(Spacer(1, 8*mm))
-A(Paragraph('Stand: R2-2026-11-09.136ai · Code-Wahrheit: tools/r2_postproc.py (TYPE_RE, TYPE_MAP, '
+A(Paragraph('Stand: ' + _R2VER + ' · Code-Wahrheit: tools/r2_postproc.py (TYPE_RE, TYPE_MAP, '
             '_canon_type, _GeomScan), macros/01_state.cfg + 08_print_start_stop.cfg · '
             'Slicer-Dokumentation: CuraEngine-Wiki »Generating Paths«, OrcaSlicer-Wiki '
             '»Walls printing order«', S['cap']))

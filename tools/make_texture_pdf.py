@@ -103,7 +103,7 @@ class Doc(BaseDocTemplate):
         canv.line(17*mm, 285*mm, 193*mm, 285*mm)
         canv.setFont('DVS', 8.2); canv.setFillColor(GRAY)
         canv.drawString(17*mm, 287.2*mm, 'R2-D2 Macro System · Texturing — Struktur-Prägung auf der Objektwand')
-        canv.drawRightString(193*mm, 287.2*mm, 'R2-2026-11-09.136ai')
+        canv.drawRightString(193*mm, 287.2*mm, _R2VER)
         canv.setFont('DVS', 8.6)
         canv.drawCentredString(105*mm, 9.5*mm, 'Seite %d' % doc.page)
         canv.restoreState()
@@ -111,6 +111,7 @@ class Doc(BaseDocTemplate):
 
 # ------------------------------------------------- the REAL pattern code ---
 import r2_texture
+from r2_version import VERSION as _R2VER
 
 # the 44 library presets, read from the ONE truth (macros/17_generator.cfg)
 _here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -381,11 +382,22 @@ def main():
         'dunkel = vertieft). Was das Bild zeigt, druckt das Werkzeug.'
         % CIRC))
     A(Spacer(1, 2*mm))
+    _nopreset = []
     for pname in PAT_ORDER:
         ps = presets_for(pname)
         if not ps:
-            continue
-        first, fd = ps[0]
+            # R246d: a pattern WITHOUT a library preset used to be skipped
+            # silently - the catalog showed 21 of 27 while the build message
+            # claimed 27. Every pattern gets its page now; a preset-less one
+            # is illustrated with the tool's own defaults and SAID to be so.
+            _nopreset.append(pname)
+            first, fd = '(no library preset yet)', {
+                'texture_scale': 10.0, 'texture_zsize': 6.0,
+                'texture_amp': 0.30, 'texture_seed': 7,
+                'texture_dir': 'OUT', 'texture_mode': 'BUMPS',
+                'texture_pattern': pname}
+        else:
+            first, fd = ps[0]
         k, n = k_n_for(fd)
         block = []
         block += H2('%s  ·  z. B. „%s"' % (pname, first))
@@ -676,12 +688,19 @@ def main():
 
     # ------------------------------------------------------------ end ----
     A(Spacer(1, 6*mm))
-    A(Paragraph('Ende · R2-D2 Texturing · Stand .136ai (R238)', S['end']))
+    A(Paragraph('Ende · R2-D2 Texturing · Stand %s' % _R2VER, S['end']))
 
     doc = Doc(os.path.join(_here, 'TEXTURING.pdf'))
     doc.build(flow)
-    print('[ok] TEXTURING.pdf: %d pages, %d patterns, %d presets'
-          % (doc.page, len(PAT_ORDER), len(LIB)))
+    # R246d: the message must not claim more than the pages hold. A
+    # preset-less pattern is documented but carries no ready look - both
+    # numbers are said out loud.
+    print('[ok] TEXTURING.pdf: %d pages, %d patterns (%d with library '
+          'presets), %d presets'
+          % (doc.page, len(PAT_ORDER), len(PAT_ORDER) - len(_nopreset),
+             len(LIB)))
+    if _nopreset:
+        print('     no library preset yet: %s' % ', '.join(_nopreset))
 
 
 if __name__ == '__main__':

@@ -44,7 +44,7 @@ TIERS = {
         ('r164_serial_budget', 'serial/timeout budget'),
     ],
     'developer': [
-        ('macro_render_test', '1.910 menu/macro renders'),
+        ('macro_render_test', '2.046 menu/macro renders'),
         ('r81_golden_check', 'postproc output goldens'),
         ('r111_geom_test', 'geometry classifier'),
         ('r167_aircheck', 'generator bridge air scan'),
