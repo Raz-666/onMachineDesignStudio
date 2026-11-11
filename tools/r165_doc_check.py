@@ -430,6 +430,38 @@ def main():
                                  '%s states %s pattern pages, 8 slots per page '
                                  'means %d' % (bname, m_cnt.group(2),
                                                want_pages)))
+    # (2c) the emergency scripts must be valid bash and stay documented -
+    #      they are the "get printing again" path and must never rot.
+    import subprocess as _sp
+    for ename, etag in (('r2_emergency.sh', '--revert'),
+                        ('r2_triage.sh', None)):
+        epath = os.path.join(ROOT, 'tools', ename)
+        if not os.path.isfile(epath):
+            findings.append(('emergency', None,
+                             'tools/%s is missing' % ename))
+            continue
+        try:
+            rc = _sp.call(['bash', '-n', epath],
+                          stdout=_sp.DEVNULL, stderr=_sp.DEVNULL)
+        except OSError:
+            rc = 0
+        if rc != 0:
+            findings.append(('emergency', None,
+                             'tools/%s does not parse as bash' % ename))
+        etxt = open(epath, encoding='utf-8').read()
+        if ename == 'r2_emergency.sh':
+            for must in ('--revert', '--status', 'mesh_mode', 'r2-postproc'):
+                if must not in etxt:
+                    findings.append(('emergency', None,
+                                     '%s lost its %r path' % (ename, must)))
+        else:
+            for must in ('Timer too close', 'printer.cfg', 'QUICK '
+                         'SELF-ASSESSMENT'):
+                if must not in etxt:
+                    findings.append(('emergency', None,
+                                     '%s no longer collects %r'
+                                     % (ename, must)))
+
     # (3) the inventory document must exist and carry the current version
     inv = os.path.join(ROOT, 'docs', 'TOOLS_INVENTORY.md')
     if not os.path.isfile(inv):

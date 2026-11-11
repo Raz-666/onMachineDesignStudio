@@ -173,3 +173,18 @@ Five staleness classes were found — and each one now has a check:
 2. The MANUAL's generator chapters describe *parameters and workflows*; a
    per-generator "how it is built" paragraph (geometry math, placement
    rules) lives only in the code docstrings.
+
+---
+
+## H. Emergency & triage (added .142c, R246f)
+
+Two scripts exist purely so that a field problem costs **minutes, not days**:
+
+| Script | Purpose |
+|---|---|
+| `tools/r2_emergency.sh` | **Get printing again.** Stops the watcher service, sets `mesh_mode = "OFF"` (the seam where the crash fires: our start macro runs the mesh calibration directly after `G28`), optionally removes the web extension (`--web-off`), restarts Klipper. Every change is backed up with a state file — `--revert` puts everything back exactly. `--status` shows what is on/off without changing anything. |
+| `tools/r2_triage.sh` | **Collect everything in ONE file.** Version actually installed, host health (RAM/swap/throttle/load), service states, the emergency state, every load-relevant `printer.cfg` section, the last crash context from `klippy.log` incl. the reactor-stall lines, the watcher journal, the web-extension state, and a short self-assessment summary. Changes nothing. |
+
+**The rule these enforce:** before any fix is built, the question "is it us
+or the machine?" must be answerable in one command. `r165` fails if either
+script stops parsing or loses a path.
