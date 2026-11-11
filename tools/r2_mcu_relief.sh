@@ -35,16 +35,21 @@
 #   5) max_accel: 6000 -> 3500 for now
 #      Halves the step-rate peaks. Put it back after we know the cause.
 #
-#   AND THE BIG ONE, NOT CHANGEABLE HERE:
-#   6) [mcu] serial: /dev/ttyAMA0 with NO baud: line = 250000 baud.
-#      That is the GPIO UART, not USB. Klipper's own docs recommend USB
-#      exactly because the serial link is slower - and the header comment of
-#      this very printer.cfg says "USB communication". 250000 baud is ~25 kB/s
-#      for BOTH directions. A probe cycle (deploy, dwell, sample, retract,
-#      stow, next point) is a burst of exactly the kind of tiny moves that
-#      saturate it. THIS is the structural suspect.
-#      Fix = baud: 1000000 in [mcu] AND the firmware flashed with 1000000.
-#      This script does NOT touch it (needs a firmware flash - see the printout).
+#   6) ABOUT THE UART - corrected after field feedback, do NOT change it:
+#      [mcu] serial: /dev/ttyAMA0 with no baud: line runs at 250000 baud on
+#      the GPIO UART. An earlier revision of this script called that "the
+#      structural suspect" - that was WRONG and is retracted.
+#      The honest picture:
+#        - 250000 baud is Klipper's normal default and thousands of printers
+#          run it. It is not "too slow to work".
+#        - A UART is the MORE STABLE CONNECTION (no USB enumeration, no
+#          dropouts, no USB power surprises). That is what the community
+#          recommendation is about, and it is correct.
+#        - Bandwidth only sets how many moves the host can queue AHEAD of the
+#          MCU. A bigger queue absorbs a host stall better. So a slow link
+#          does not CAUSE a stall - it reduces the margin that hides one.
+#      -> Bandwidth amplifies a host stall, it never creates one. Leave the
+#         UART alone unless a log actually shows an MCU-side overrun.
 #
 # USAGE
 #   bash tools/r2_mcu_relief.sh            # show what it WOULD change (dry run)
@@ -96,8 +101,8 @@ do_status() {
     section_body mcu | grep -E 'serial|baud' | sed 's/^/  /'
     n=$(section_body mcu | grep -c 'baud' || true)
     if [ "${n:-0}" -eq 0 ]; then
-        warn "  NO baud: line -> Klipper uses ${R2_DEFAULT_BAUD:-250000} baud on a serial link."
-        warn "  1000000 baud (plus a matching firmware flash) is the real fix."
+        printf '  (no baud: line -> default 250000 - normal and fine; a UART\n'
+        printf '   is the stable choice, see the note in the script header)\n'
     fi
     [ -f "$STATE" ] && echo "backup exists: $STATE"
 }
@@ -168,24 +173,17 @@ do_apply() {
     ask "line (MCU load / link speed), not our macro package."
     echo
     warn "Everything back later:  bash $0 --revert"
-    hdr "THE STRUCTURAL POINT - read this once"
-    echo "  Your [mcu] uses serial: /dev/ttyAMA0 (GPIO UART) with no baud:"
-    echo "  line, so it runs at 250000 baud = ~25 kB/s in BOTH directions."
-    echo "  Klipper's docs recommend USB exactly because of this. The file"
-    echo "  header even says 'USB communication'."
-    echo
-    echo "  The real fix:"
-    echo "    1. add   baud: 1000000   under [mcu]"
-    echo "    2. rebuild + flash the SKR firmware with the SAME 1000000"
-    echo "       (make menuconfig -> Communication interface: serial"
-    echo "        -> baud rate 1000000)"
-    echo "    3. restart klipper"
-    echo
-    echo "  If you would rather go back to USB: change serial: to"
-    echo "     serial: /dev/serial/by-id/usb-Klipper_stm32g0b1xx_..."
-    echo "  (your commented line still has the exact ID) and flash with"
-    echo "  'USB (on PA11/PA12)' instead - that is the robust path and it"
-    echo "  needs no baud change at all."
+    hdr "ABOUT THE UART (corrected - leave it alone)"
+    echo "  Your [mcu] uses serial: /dev/ttyAMA0 = 250000 baud on the GPIO"
+    echo "  UART. An earlier version of this script called that the suspect."
+    echo "  That was wrong. The honest picture:"
+    echo "    - 250000 baud is Klipper's normal default. It works."
+    echo "    - A UART is the MORE STABLE connection (no USB dropouts) -"
+    echo "      the community recommendation is right about that."
+    echo "    - Bandwidth only sets how far ahead the host can queue moves."
+    echo "      A slow link does not cause a stall, it shrinks the cushion"
+    echo "      that hides one."
+    echo "  -> Do not touch it. Fix the stall, not the cable."
 }
 
 do_revert() {

@@ -188,3 +188,39 @@ Two scripts exist purely so that a field problem costs **minutes, not days**:
 **The rule these enforce:** before any fix is built, the question "is it us
 or the machine?" must be answerable in one command. `r165` fails if either
 script stops parsing or loses a path.
+
+---
+
+## I. The menu test (R246h)
+
+`tools/r2_menu_test.sh --off|--on|--status` switches
+`menus/lcd_menues.cfg` out of `printer.cfg` (backup + exact revert).
+
+**Why it exists:** every "Timer too close" field log shows the reactor stall
+containing `MenuManager.dispatch_gcode (menu.py:952)` next to two
+`DelayedGcode` events and two webhook queries. Klipper re-evaluates menu name
+**templates** on every refresh; this menu file is 20 237 lines with 2 423
+menu sections and **483 dynamic name templates**. That is the largest
+synchronous block the reactor can hit — and it survives stopping the
+post-processor daemon, because menus are evaluated *inside* Klipper.
+
+Safe because the file contains exactly one macro, the version sentinel
+`_V16_MENUS`. Nothing in the print flow depends on it.
+
+---
+
+## I. The menu test (R246h)
+
+`tools/r2_menu_test.sh --off|--on|--status` switches
+`menus/lcd_menues.cfg` out of `printer.cfg` (backup + exact revert).
+
+**Why it exists:** every "Timer too close" field log shows the reactor stall
+containing `MenuManager.dispatch_gcode (menu.py:952)` next to two
+`DelayedGcode` events and two webhook queries. Klipper re-evaluates menu name
+**templates** on every refresh; this menu file is 20 237 lines with 2 423
+menu sections and **483 dynamic name templates**. That is the largest
+synchronous block the reactor can hit - and it survives stopping the
+post-processor daemon, because menus are evaluated *inside* Klipper.
+
+Safe because the file contains exactly one macro, the version sentinel
+`_V16_MENUS`. Nothing in the print flow depends on it.
