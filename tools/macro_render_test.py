@@ -2898,7 +2898,8 @@ tests.append(('R59+R240/R250 LCD: the 16 feature activators live IN the '
     _acids == ['acc']
     and len(_re59.findall(r'\[menu __main __preprint __feat __\w+ __on\]', _lcd58)) == 16
     and _re59.findall(r'\[menu __main __live __feat __\w+ __on\]', _lcd58) == []
-    and len(_re59.findall(r'\[menu __main __live __(spfe|acfe|pafe|flfe) __\w+\]', _lcd58)) == 82,
+    # R251: +1 - the per-feature ShpOff row came back into the Spd list
+    and len(_re59.findall(r'\[menu __main __live __(spfe|acfe|pafe|flfe) __\w+\]', _lcd58)) == 83,
     str(_acids)))
 _acnames = _re59.findall(r'name: (OW|IW|SP|SO|TP|BT|BR|GP|SU|IR|SK|BM|OH|IB|PT|CU):', _lcd58)
 _acmarks = _re59.findall(r"'(OW|IW|SP|SO|TP|BT|BR|GP|SU|IR|SK|BM|OH|IB|PT|CU) \['", _lcd58)
@@ -4213,7 +4214,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.136ab) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-11-11.142f'", repr(_v66)))
+    _v66 == "'R2-2026-11-11.142g'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -12577,7 +12578,8 @@ tests.append(('R123 LCD: PA quick list names stay short (R29)', len(_long123) ==
 # ===== R124: Spd/Flw/Acc per-feature quick lists ====================
 _lcd124 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 tests.append(('R124 LCD: Spd/Flw/Acc quick lists in Live AND Pre-Print (17/16/17 entries)',
-    _lcd124.count('[menu __main __live __spfe __') == 22
+    # R251: 23 - the per-feature ShpOff row is back in the Spd quick list
+    _lcd124.count('[menu __main __live __spfe __') == 23
     and _lcd124.count('[menu __main __preprint __motion __vel __spfe __') == 19
     and _lcd124.count('[menu __main __live __flfe __') == 19
     and _lcd124.count('[menu __main __preprint __motion __ext __flfe __') == 20
@@ -14811,8 +14813,33 @@ _ADDED135 = [
     '__main __system __ledcfg __noz __white',
     '__main __system __rec',
     '__main __temp',
+    # R251 (.142g): the shaper switches - the per-feature ShpOff row in the
+    # SPD quick list and the whole Vibration Cal. > Manual subtree (open
+    # point E2: the ishaper_ov_* override had no menu row at all)
+    '__main __live __spfe __shpoff',
+    '__main __maint __vib __man',
+    '__main __maint __vib __man __stat',
+    '__main __maint __vib __man __x',
+    '__main __maint __vib __man __x __fr',
+    '__main __maint __vib __man __x __on',
+    '__main __maint __vib __man __x __ty',
+    '__main __maint __vib __man __x __ty __2h',
+    '__main __maint __vib __man __x __ty __3h',
+    '__main __maint __vib __man __x __ty __cfg',
+    '__main __maint __vib __man __x __ty __ei',
+    '__main __maint __vib __man __x __ty __mzv',
+    '__main __maint __vib __man __x __ty __zv',
+    '__main __maint __vib __man __y',
+    '__main __maint __vib __man __y __fr',
+    '__main __maint __vib __man __y __on',
+    '__main __maint __vib __man __y __ty',
+    '__main __maint __vib __man __y __ty __2h',
+    '__main __maint __vib __man __y __ty __3h',
+    '__main __maint __vib __man __y __ty __cfg',
+    '__main __maint __vib __man __y __ty __ei',
+    '__main __maint __vib __man __y __ty __mzv',
+    '__main __maint __vib __man __y __ty __zv',
 ]
-
 _gone135 = sorted(set(_gold135) - set(_now135))
 _new135 = sorted(set(_now135) - set(_gold135))
 # R250: the expected lists are SETS - a path documented twice (a removed entry
@@ -18912,6 +18939,94 @@ tests.append(('R249: Klipper\'s flat list rules are honoured - the link ends '
     'def _link_is_ours(path, root):' in _pp249
     and "fn.endswith('.gcode')" in _pp249
     and 'os.path.commonpath' in _pp249, ''))
+
+# ---- R251 (.142g): the shaper switches are reachable again (E2) -----------
+_lcd251 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+# (a) the per-feature ShpOff row sits in the SPD quick list, right below FeatOn
+_shp251 = _re73.search(r'\[menu __main __live __spfe __shpoff\]\n'
+                       r'(.+?)(?=\n\[menu )', _lcd251, _re73.S)
+_shp251 = _shp251.group(1) if _shp251 else ''
+tests.append(('R251 E2: the per-feature SHAPER switch is back on the LCD - in '
+              'the SPD quick list directly below FeatOn (both act on the '
+              'feature that prints right now), console-only was the open point',
+    "SET_FEAT_SHAPER_OFF FEATURE={c}" in _shp251
+    and "SET_FEAT_SHAPER_OFF FEATURE=off" in _shp251   # no [input_shaper]
+    and "ovf_shaper_off_feat|default('wallouter')" in _shp251
+    and 'ShpOff:' in _shp251, _shp251[:100]))
+# (b) the manual shaper override has a menu home (the ishaper_ov_* variables
+#     existed since R64 but NO row reached them)
+_man251 = dict(_re73.findall(r'\[menu (__main __maint __vib __man[\w ]*)\]\n'
+                             r'((?:(?!\[menu ).*\n)*)', _lcd251))
+tests.append(('R251 E2: Vibration Cal. > Manual reaches the manual override - '
+              'one child per axis, 5 shapers + printer.cfg restore, a freq '
+              'input and an on/off row, all of them through SHAPER_MANUAL',
+    all(k in _man251 for k in ('__main __maint __vib __man',
+                               '__main __maint __vib __man __stat',
+                               '__main __maint __vib __man __x',
+                               '__main __maint __vib __man __y'))
+    and all(('__main __maint __vib __man __%s __ty __%s' % (a, t)) in _man251
+            for a in ('x', 'y')
+            for t in ('zv', 'mzv', 'ei', '2h', '3h', 'cfg'))
+    and 'SHAPER_MANUAL AXIS=X TYPE=3HUMP_EI' in _lcd251
+    and 'SHAPER_MANUAL AXIS=Y TYPE=CONFIG' in _lcd251
+    and "SHAPER_MANUAL AXIS=X FREQ={menu.input|float|round(1)}" in _lcd251
+    and 'input_min: 5' in _man251['__main __maint __vib __man __x __fr']
+    and 'input_max: 200' in _man251['__main __maint __vib __man __x __fr'], ''))
+tests.append(('R251 E2: the status row shows what Klipper RUNS and what the '
+              'override holds - the honest answer instead of a dead row',
+    'What Klipper RUNS now' in _man251['__main __maint __vib __man __stat']
+    and 'Manual override:' in _man251['__main __maint __vib __man __stat']
+    and 'no accelerometer needed' in _man251['__main __maint __vib __man __stat'].lower()
+    and 'no [input_shaper]' in _man251['__main __maint __vib __man __stat'], ''))
+
+# (c) the macro behind it: live apply, boot override, restore, refusals
+_m251 = get_body('macros/12_maintenance.cfg', 'SHAPER_MANUAL')
+_gd251 = dict(build_printer())
+save_vars.pop('ishaper_ov_on_x', None); save_vars.pop('ishaper_ov_type_x', None)
+save_vars.pop('ishaper_ov_freq_x', None)
+_out251 = render(_m251, {'AXIS': 'X', 'TYPE': 'MZV', 'FREQ': '54.5'})
+tests.append(('R251 SHAPER_MANUAL AXIS=X TYPE=MZV FREQ=54.5: sets Klipper live '
+              'AND stores the boot override (type + freq + on)',
+    'SET_INPUT_SHAPER SHAPER_TYPE_X=mzv SHAPER_FREQ_X=54.5' in _out251
+    and 'ishaper_ov_type_x' in _out251 and 'ishaper_ov_freq_x' in _out251
+    and 'ishaper_ov_on_x VALUE=True' in _out251, _out251[:140]))
+# CONFIG restore: needs a printer.cfg [input_shaper] section to read from
+_gd251c = dict(build_printer())
+_set251 = dict(_gd251c['configfile'].settings)
+_set251['input_shaper'] = M({'shaper_type_x': 'zv', 'shaper_freq_x': 45.5,
+                             'damping_ratio_x': 0.1})
+_gd251c['configfile'] = M({'settings': M(_set251)})
+_out251 = env.from_string(_m251).render(printer=MP(_gd251c),
+                                       params={'AXIS': 'X', 'TYPE': 'CONFIG'})
+tests.append(('R251 SHAPER_MANUAL TYPE=CONFIG: applies the printer.cfg value '
+              'again (damping included, not dropped) and switches the override '
+              'OFF - the LCD way back after a manual frequency',
+    'SET_INPUT_SHAPER SHAPER_TYPE_X=zv SHAPER_FREQ_X=45.5 DAMPING_RATIO_X=0.1' in _out251
+    and 'ishaper_ov_on_x VALUE=False' in _out251
+    and 'back to printer.cfg' in _out251, _out251[:160]))
+_out251 = render(_m251, {'AXIS': 'X', 'TYPE': 'CONFIG'})
+tests.append(('R251 SHAPER_MANUAL TYPE=CONFIG without a printer.cfg section: '
+              'says there is nothing to restore instead of writing zeros',
+    'nothing to restore to' in _out251 and 'SET_INPUT_SHAPER' not in _out251,
+    _out251[:140]))
+_out251 = render(_m251, {'AXIS': 'X', 'TYPE': 'quatsch'})
+tests.append(('R251 SHAPER_MANUAL refuses an unknown shaper type',
+    'TYPE must be' in _out251 and 'SET_INPUT_SHAPER' not in _out251, _out251[:120]))
+_out251 = render(_m251, {'AXIS': 'X', 'TYPE': 'EI', 'FREQ': '400'})
+tests.append(('R251 SHAPER_MANUAL refuses a nonsensical frequency',
+    'Frequency must be 5..200 Hz' in _out251 and 'SET_INPUT_SHAPER' not in _out251,
+    _out251[:120]))
+_gd251.pop('input_shaper', None)
+_out251 = env.from_string(_m251).render(printer=MP(_gd251), params={'AXIS': 'X', 'TYPE': 'MZV'})
+tests.append(('R251 SHAPER_MANUAL without [input_shaper]: says so instead of '
+              'writing dead variables',
+    'needs [input_shaper] in printer.cfg' in _out251
+    and 'SAVE_VARIABLE' not in _out251, _out251[:120]))
+_out251 = render(_m251, {})
+tests.append(('R251 SHAPER_MANUAL without params: shows both axes (runs + '
+              'override) and names the LCD path',
+    'runs' in _out251 and 'manual override' in _out251
+    and 'Vibration Cal. > Manual' in _out251, _out251[:140]))
 
 # ---- R250 (.142f): B1 + B2 - the four quick lists up front, Features gone ---
 _lcd250 = open('menus/lcd_menues.cfg', encoding='utf-8').read()

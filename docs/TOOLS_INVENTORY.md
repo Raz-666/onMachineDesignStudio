@@ -1,6 +1,6 @@
 # Tools inventory — what is what, and what proves it
 
-*Stand: R2-2026-11-11.142f (R250). Auto-checked against reality by
+*Stand: R2-2026-11-11.142g (R251). Auto-checked against reality by
 `tools/r165_doc_check.py`; the version line here is not typed by hand —
 see "The version rule" below.*
 
@@ -64,7 +64,7 @@ thread's reactor.
 builder stamps its pages from it:
 
 ```python
-from r2_version import VERSION as _R2VER     # 'R2-2026-11-11.142f'
+from r2_version import VERSION as _R2VER     # 'R2-2026-11-11.142g'
 ```
 
 **Why this exists:** until .142c all five builders carried a hard-coded

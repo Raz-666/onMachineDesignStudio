@@ -2136,8 +2136,13 @@ chapter('10','Calibration — the ladder to good prints',
     "loop as easily as PA calibration: <b>Diagram (print)</b> or <b>(plot)</b> builds a plate per axis with the "
     "PSD curve, all 5 shaper response curves and the SHAPER TABLE (recommended shaper boxed, marked OK) — read "
     "the table on the paper, <b>Apply result > X/Y > shaper</b> (the stored frequency is applied and saved as "
-    "boot override — printer.cfg untouched). Console: SHAPER_RESULT, SHAPER_RESULT AXIS=X TYPE=MZV, "
-    "TYPE=EI FREQ=58. Recalibrate after mechanical changes; the status line shows the active shapers."),
+    "boot override — printer.cfg untouched). <b>No accelerometer? Use Manual</b> (a submenu of Vibration "
+    "Cal.): the status row says what Klipper runs now and what the override holds; per axis pick "
+    "<b>Override ON/off</b>, <b>Shaper</b> (ZV / MZV / EI / 2HUMP_EI / 3HUMP_EI, or <i>printer.cfg</i> to take the "
+    "file's type, frequency and damping back) and <b>Freq</b> (5–200 Hz in 0.5 steps). Each pick applies live "
+    "and survives every restart. Console: SHAPER_RESULT, SHAPER_RESULT AXIS=X TYPE=MZV, TYPE=EI FREQ=58; "
+    "SHAPER_MANUAL AXIS=X TYPE=MZV FREQ=52 = the same from the console, TYPE=CONFIG = back to printer.cfg. "
+    "Recalibrate after mechanical changes; the status line shows the active shapers."),
   H2('10.6 Temperature tower (Maintenance > Temp Tower)'),
   P("Per material, FIRST. Band control on a sliced tower (Start/End/Step/Band, Plan = calculate, works with "
     "marked AND legacy files) or the GENERATED standalone tower (blocks x BLOCK_HEIGHT, one temperature per "
@@ -2276,7 +2281,7 @@ chapter('14','LCD menu reference',
   ],[42*mm,122*mm]),
   TBL(['Maintenance (calibration order!)','Contents'],[
    ['Clean Nozzle','heat 180C + zigzag pad wipe X0-13/Y0-13, Z<=4, parks high; in every purge '],
-   ['Vibration Cal.','input shaper measurement (ISHAPER.md) + Diagram (print/plot) + Apply result '],
+   ['Vibration Cal.','input shaper measurement (ISHAPER.md) + Diagram (print/plot) + Apply result + Manual override (type/frequency per axis by hand, no sensor needed) '],
    ['Bridging','long diagonal bridge + short one below, all parameters '],
    ['Leveling','bed screws + Z-offset (TESTZ ±0.04/±0) + probe offset'],
    ['Bed Mesh','status, calibrate now, save as 60C, unload, load…/delete…'],

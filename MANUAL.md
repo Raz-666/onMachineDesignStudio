@@ -2171,6 +2171,9 @@ Feature PA: SET_FEAT_PA FEATURE=<code> PA=<0..0.3> — pressure advance for ONE 
 Shaper: SET_FEAT_SHAPER_OFF FEATURE=<code> STATE=1|0 — input shaper OFF while that one
          feature prints (sharp corners on slow outer walls), frequencies restored when it
          ends and at PRINT_END/cancel (safety net _FEAT_TUNING_RESTORE). Needs [input_shaper]
+         LCD: Live Tuning > Spd per feat > `ShpOff: …` (row below FeatOn) — it acts on the
+         feature that prints RIGHT NOW, the label shows `off`, `ON @ <feat>` or
+         `n/a (no shaper)`. One press = shaper off/on for that segment.
 Fan LIVE: SET_FAN_LIVE PERCENT= — YOUR absolute fan %, it beats
          everything: hold, scale, clamp AND the layer-1 fan-off rule (you turned
          the dial). SET_FAN_LIVE ON=0 hands control back to the file. LCD:
@@ -2526,10 +2529,29 @@ resonances in the data.
 3. **Apply result > X/Y > shaper** — the stored frequency of that shaper is
    applied, SET_INPUT_SHAPER runs live AND is saved as the boot override
    (survives every restart, printer.cfg untouched). No math, just pick.
-4. Console: `SHAPER_RESULT` (table), `SHAPER_RESULT AXIS=X TYPE=MZV`,
+4. **Manual** (Maintenance > Vibration Cal. > Manual) — the same thing
+   WITHOUT an accelerometer. Steps 1–3 need `[resonance_tester]`; Manual only
+   needs `[input_shaper]`. The status row says what Klipper RUNS now and what
+   the override holds. Per axis:
+   - `Override: ON/off` — one press switches the manual override off (back to
+     the printer.cfg value) or on again with the stored type + frequency.
+   - `Shaper` — ZV / MZV / EI / 2HUMP_EI / 3HUMP_EI (take the best row from
+     your printed diagram or the SHAPER TABLE) or `printer.cfg`, which
+     restores the file's type, frequency AND damping ratio and turns the
+     override off.
+   - `Freq` — 5 … 200 Hz in 0.5 Hz steps, pre-filled with the value in use.
+   Every pick runs SET_INPUT_SHAPER live and stores the boot override
+   (`ishaper_ov_*`, re-applied at every start). Refused: an unknown type or a
+   frequency outside 5–200 Hz — the LCD says so instead of silently doing
+   nothing. Without an `[input_shaper]` section it says there is nothing to
+   set (an unshaped printer has no shaper to override).
+5. Console: `SHAPER_RESULT` (table), `SHAPER_RESULT AXIS=X TYPE=MZV`,
    `… TYPE=EI FREQ=58` (manual fine tuning). The fit is a faithful port of
    Klipper's shaper_calibrate (ZV/MZV/EI/2HUMP/3HUMP).
-5. Recalibrate after mechanical changes (the status line at the top of the
+   `SHAPER_MANUAL AXIS=X TYPE=MZV FREQ=52` = the Manual menu from the
+   console; `SHAPER_MANUAL AXIS=X TYPE=CONFIG` = back to printer.cfg,
+   `SHAPER_MANUAL AXIS=X ON=0` = override off only.
+6. Recalibrate after mechanical changes (the status line at the top of the
    menu shows the active shapers + frequencies).
 
 ### 10.6 Temperature tower (Maintenance > Temp Tower)
@@ -2808,7 +2830,7 @@ retraction reads the firmware values — what you see is what runs.
 |---|---|
 | Z +0.04 / +0.12 / −0.04 / −0.12 | babystepping right at the top |
 | Hot / Bed / Fan / Zoff | cockpit: temperatures, fan %, Z-offset display · **Fan: NN% (LIVE)** — your absolute %, beats hold/scale/clamp AND the layer-1 rule · LIVE on/off · Hold · Scale (25–150 % × file) · Clamp (FMin/FMax/FBrdg) · How? (fan math) prints the chain |
-| Spd per feat | **first entry after the babysteps** · title row **== SPEED ==** + Glob % (THE overall regulator) + "Now:" which feature is printing + FeatOn: its ON switch + Src info (file/overwrite/live) + all 16 feature % rows (TRV = travels) |
+| Spd per feat | **first entry after the babysteps** · title row **== SPEED ==** + Glob % (THE overall regulator) + "Now:" which feature is printing + FeatOn: its ON switch + **ShpOff** (input shaper off for the feature that prints right now; no ShpOff row in the other three lists) + Src info (file/overwrite/live) + all 16 feature % rows (TRV = travels) |
 | Acc per feat | title row **== ACCEL ==** + global mm/s² + Feat x: scales every feature accel by % + the effective accel + "Now:" + all 16 feature accel rows |
 | PA per feat | title row **== PRESSURE ADV ==** + Glob: the global PA + all 16 feature PA rows (input shaper PA lives per feature) |
 | Flw per feat | title row **== FLOW ==** + Glob: the global flow % + all 16 feature flow rows — ironing's row IS the real slicer flow (5–100 %, typical 15–20) |
@@ -2928,7 +2950,8 @@ never error out — the generator clamps and reports.
 
 **PID Tuning** (hotend+fan% / bed) → **Leveling** (Z offset, bed screws) →
 **Bed Mesh** (settings + profiles) → **Extruder Cal.** (E-steps) →
-**Vibration Cal.** (shaper calibration, diagram print/plot, apply result) →
+**Vibration Cal.** (shaper calibration, diagram print/plot, apply result,
+manual shaper override without accelerometer) →
 **Temp Tower** (band control + generated tower) → **PA Cal.** (line test +
 **PA Smooth Cal.**) → **Flow Cal.** (generated cube + calculator) →
 **Retract Tower** (generated) → **Bridging** (generated) → **Ironing Cal.**
@@ -3770,6 +3793,7 @@ stay with Mainsail.
 | **DUMP_RESONANCES** | AXIS='BOTH' | export raw shaper data |
 | **RESONANCE_DIAGRAM** | AXIS='BOTH', MODE='PRINT'/'PLOT' | CSV → printed/plotted diagram with the shaper table |
 | **SHAPER_RESULT** | AXIS, TYPE, FREQ | shaper calculator: table show / apply the picked shaper + boot override |
+| **SHAPER_MANUAL** | AXIS, TYPE, FREQ, ON | manual shaper without an accelerometer: apply type/frequency live + boot override, `TYPE=CONFIG` restores printer.cfg (damping included), `ON=0` override off |
 | **BRIDGE_TEST** | — | build the bridging test file (long + short bridge) |
 | **PLOT_TEXT** | FILE='notes.txt' | draw a text file from the gcodes folder on paper |
 | **PLOT_STATUS** | — | draw the SHOW_STATUS report on one page |
