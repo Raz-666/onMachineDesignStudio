@@ -110,7 +110,7 @@ sdm_vars = {
     # REAL empty containers, matching the _SDM declaration in 01_state.cfg:
     # jinja |default() never fires on a PRESENT None, so None init values
     # would crash |length in the menu draws (R246 test catch).
-    'sd_tree': {}, 'sd_view': [], 'gen_files': [], 'opt_list': '',
+    'sd_cur': [], 'sd_gen': 0, 'sd_view': [], 'gen_files': [], 'opt_list': '',
     'litho_files': [], 'litho_dims': {}, 'litho_total': 0,
     'sd_path': '', 'sd_page': 0,
 }
@@ -2847,7 +2847,9 @@ tests.append(('R59 LCD: PA cal inputs + smooth submenu + generic features + cur 
     all(k in _lcd58 for k in ['__maint __pa __vel', '__maint __pa __mcr', '__maint __pa __scv', '__maint __pa __rlen',
                               '__maint __pa __rspd', '__maint __pa __runr', '__maint __pa __fl',
                               '__maint __pa __sm]', '__maint __pa __sm __go', '__maint __pa __sm __res',
-                              '__live __lmo __vel __spfe __cur]', '__live __lmo __vel __spfe __curon]', '__live __lmo __vel __acfe __cur]',
+                              '__live __lmo __vel __spfe __curon]',
+                              '__live __lmo __vel __spfe __hd]', '__live __lmo __vel __acfe __hd]',
+                              '__live __lmo __extr __pafe __hd]', '__live __lmo __extr __flfe __hd]',
                               '__live __lmo __vel __spfe __src]', '__live __lmo __extr __src]', '__live __lmo __vel __mv]',
                               '__preprint __feat]', '__preprint __feat __ow]', '__preprint __feat __ir __fl]',
                               '__preprint __motion __ext __pafe __gval]',
@@ -2877,9 +2879,12 @@ tests.append(('R59 M220 S100: g_speed_clean = 100 (APPLY_TYPE else-branch base)'
 _cur = [l for l in _lcd58.split('\n')]
 import re as _re59
 _curblk = _re59.search(r'\[menu __main __live __lmo __vel __spfe __cur\]\ntype: input\nname: [^\n]+\ninput: ([^\n]+)', _lcd58)
-tests.append(('R59 LCD live __cur input: reads ovf_<current_type>_spd dynamically',
-    _curblk is not None and "ovf_' ~ printer['gcode_macro _STATE'].current_type" in _curblk.group(1)
-    and '_spd' in _curblk.group(1), _curblk.group(1)[:90] if _curblk else 'missing'))
+tests.append(('R59/R248 LCD: no duplicate current-feature value row - the '
+              'feature rows keep the dynamic ovf_<type> bindings instead',
+    '[menu __main __live __lmo __vel __spfe __cur]' not in _lcd58
+    and '[menu __main __live __lmo __vel __acfe __cur]' not in _lcd58
+    and "ovf_' ~ printer['gcode_macro _STATE'].current_type" in _lcd58
+    and "ovf_' ~ c ~ '_on'" in _lcd58, 'dup rows back?'))
 _curon = _re59.search(r'\[menu __main __live __lmo __vel __spfe __curon\]\ntype: command\nname: ([^\n]+)', _lcd58)
 tests.append(('R59 LCD live __curon: toggles ovf_<current_type>_on',
     _curon is not None and "SET_OVERRIDE_VALUE NAME=feat_on_{c}" in _lcd58 and "ovf_' ~ c ~ '_on" in _lcd58,
@@ -4198,7 +4203,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.136ab) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-11-11.142c'", repr(_v66)))
+    _v66 == "'R2-2026-11-11.142d'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -6049,9 +6054,13 @@ tests.append(('R79 LCD: Live > Sources + Now items (All-OFF removed in R80)',
     and '[menu __main __live __lmo __vel __spfe __now]' in _lcd79
     and '[menu __main __live __lmo __vel __acfe __now]' in _lcd79
     and '[menu __main __live __feat __now]' in _lcd79, ''))
-tests.append(('R79 LCD: curr renamed to FeatSpd/FeatOn/FeatAcc (clear naming)',
-    "name: FeatSpd:" in _lcd79 and "name: FeatOn:" in _lcd79 and "name: FeatAcc:" in _lcd79
-    and 'No feature printing right now (raft or unmarked section)' in _lcd79, ''))
+tests.append(('R79/R248 LCD: the quick menus name the RUNNING feature and '
+              'its ON switch (FeatOn); the duplicate value rows (FeatSpd / '
+              'FeatAcc) are gone - the same setting lives in that feature\'s '
+              'own row below',
+    "name: FeatOn:" in _lcd79
+    and "name: FeatSpd:" not in _lcd79 and "name: FeatAcc:" not in _lcd79
+    and 'No feature printing right now' in _lcd79, ''))
 tests.append(('R79 LCD: flow + accel inputs read the LIVE Klipper values (2-way sync)',
     'input: {(printer.gcode_move.extrude_factor|default(1)*100)|round|int}' in _lcd79
     and 'input: {printer.toolhead.max_accel|default(8000)|int}' in _lcd79, ''))
@@ -7161,7 +7170,7 @@ tests.append(('R87/R169 LCD: 14 top-level R2 menus (+ R169 Rate print? + Optimiz
               '+ the hidden stock overrides '
               '(OctoPrint/Temperature/Setup R135 + the R151 SD Card browser)',
     _top87 == ['__endq', '__gen', '__live', '__macros', '__maint',
-               '__octoprint', '__optprint', '__preprint', '__queue',
+               '__octoprint', '__preprint', '__queue',
                '__sdcard', '__setup', '__start', '__system', '__temp'],
     str(_top87)))
 tests.append(('R87 LCD: container Tools + all four trees re-parented, old roots gone',
@@ -10605,7 +10614,7 @@ tests.append(('R169 _FILE_INFO: OPT=1 flags the copy on the display',
     'VARIABLE=file_optimized VALUE=True' in _out169, _out169[:80]))
 _lcd169 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 tests.append(('R169 LCD: Rate print? + Optimized + From optimized + OPTIMIZED row',
-    'menu __main __endq]' in _lcd169 and 'menu __main __optprint]' in _lcd169
+    'menu __main __endq]' in _lcd169 and 'menu __main __sdcard __opt]' in _lcd169
     and 'menu __main __preprint __profs __opt]' in _lcd169
     and 'menu __main __preprint __file __opt]' in _lcd169
     and '_OPT_PROMPT_YES' in _lcd169 and '_OPT_PROMPT_NO' in _lcd169
@@ -11035,13 +11044,12 @@ tests.append(('R173 rate print: new selection answers NO (both start paths '
               'resolve the question before loading)',
     _o173.count('_OPT_PROMPT_RESOLVE MODE=timeout') >= 3, ''))
 _l173 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
-tests.append(('R173 SD browser: the four stock items are killed for good '
-              '(same-name overrides, enable off - each stub self-contained)',
-    all(('[menu __main __sdcard __%s]\nenable: {False}' % _k) in _l173
-        or (re.search(r'\[menu __main __sdcard __%s\]\ntype: command\n'
-                      r'name: \.\nenable: \{False\}' % _k, _l173)
-            is not None)
-        for _k in ('start', 'resume', 'pause', 'cancel')), ''))
+tests.append(('R173/R248 SD card: the four stock rows (Start/Resume/Pause/'
+              'Cancel) are Klipper\'s own again - the kill-overrides are gone '
+              'with the parked browser, so no dead entries after a print',
+    all(('[menu __main __sdcard __%s]' % _k) not in _l173
+        for _k in ('start', 'resume', 'pause', 'cancel'))
+    and 'type: vsdlist' in _l173.split('[menu __main __sdcard]')[1][:1200], ''))
 tests.append(('R173 SD browser: 40 slots + page flip at 40 + recursive tree '
               'walker in the watcher',
     _l173.count('SDNAV_GO INDEX=') == 40
@@ -11052,15 +11060,18 @@ tests.append(('R173 SD browser: 40 slots + page flip at 40 + recursive tree '
     and '(len(_en154) - 1) // 40' in open('tools/r2_postproc.py',
                                           encoding='utf-8').read(), ''))
 _sdnav173 = open('macros/13_system.cfg', encoding='utf-8').read()
-tests.append(('R173 SD browser: the macros slice 40 and nest-friendly '
+tests.append(('R173/R247 SD browser: the macros slice 40 out of sd_cur '
+              '(the CURRENT folder, no tree) and stay nest-friendly '
               '(Mandelbrot pattern retired in the same sweep)',
-    'en[0:40]' in _sdnav173 and 'en[np * 40:np * 40 + 40]' in _sdnav173
+    'sd_cur|default([])' in _sdnav173
+    and 'en[np * 40:np * 40 + 40]' in _sdnav173
     and '(en|length - 1) // 40' in _sdnav173
+    and 'sd_tree' not in _sdnav173
     and 'MANDELBROT' not in open('tools/r2_texture.py',
                                  encoding='utf-8').read()
     and 'MANDELBROT' not in _l173, ''))
 # the page math, rendered: 45 entries -> page 1 shows the last 5
-save_vars['sd_tree'] = {'': ['F:%02d.gcode' % _k173 for _k173 in range(45)]}
+save_vars['sd_cur'] = ['F:%02d.gcode' % _k173 for _k173 in range(45)]
 save_vars['sd_path'] = ''
 save_vars['sd_page'] = 0
 save_vars['sd_view'] = ['F:%02d.gcode' % _k173 for _k173 in range(40)]
@@ -11070,19 +11081,22 @@ tests.append(('R173 SDNAV_PAGE: 45 entries -> 2 pages of 40, page 2 holds '
               'the last 5 (no dead zones, no 20-cap)',
     'VARIABLE=sd_page VALUE=1' in _out173
     and _out173.count("'F:4") >= 2, _out173[:120]))
-# nested folder enter: the tree carries EVERY depth
-save_vars['sd_tree'] = {'': ['D:Projekte'], 'Projekte': ['D:2026'],
-                        'Projekte/2026': ['F:teil.gcode']}
-save_vars['sd_path'] = 'Projekte'
-save_vars['sd_view'] = ['D:2026']
+# R247 (.142d): entering a folder is a PATH CHANGE now - the tree left the
+# printer (it was the biggest object in _SDM and every Mainsail query
+# serialized it). The watcher answers with sd_cur + sd_view.
+save_vars['sd_cur'] = ['D:Projekte']
+save_vars['sd_path'] = ''
+save_vars['sd_view'] = ['D:Projekte']
 save_vars['sd_page'] = 0
 _go173 = get_body('macros/13_system.cfg', 'SDNAV_GO')
 _out173 = render(_go173, {'INDEX': 0})
-tests.append(('R173 SDNAV_GO: nested folders open (the tree is recursive - '
-              'first-level-only is history)',
-    'Projekte/2026' in _out173 and "'F:teil.gcode'" in _out173,
-    _out173[:120]))
-save_vars.pop('sd_tree', None); save_vars.pop('sd_path', None)
+tests.append(('R247 SDNAV_GO: entering a folder sets the PATH and asks it to '
+              'load (no tree work inside the reactor)',
+    'VARIABLE=sd_path VALUE="\\"Projekte\\""' in _out173
+    and 'VARIABLE=sd_page VALUE=0' in _out173
+    and 'sd_tree' not in _out173
+    and 'loading' in _out173, _out173[:140]))
+save_vars.pop('sd_cur', None); save_vars.pop('sd_path', None)
 save_vars.pop('sd_view', None); save_vars.pop('sd_page', None)
 
 
@@ -12498,7 +12512,7 @@ tests.append(('R123/R160 LCD Pre-Print > Fixes: travel fix + flow cap + cap valu
     and _lcd123.count('FIX_FILE WHAT=TRAVEL SPEED=') == 1
     and _lcd123.count('    FIX_FILE WHAT=FLOWCAP' + chr(10)) == 1, 'ids'))
 tests.append(('R123 LCD: PA quick lists in Live AND Pre-Print (16 features each)',
-    _lcd123.count('[menu __main __live __lmo __extr __pafe __') == 18
+    _lcd123.count('[menu __main __live __lmo __extr __pafe __') == 19
     and _lcd123.count('[menu __main __preprint __motion __ext __pafe __') == 22
     and 'SET_OVERRIDE_VALUE NAME=feat_pa_wallouter' in _lcd123
     and 'SET_OVERRIDE_VALUE NAME=feat_pa_primetower' in _lcd123
@@ -12529,7 +12543,7 @@ _lcd124 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 tests.append(('R124 LCD: Spd/Flw/Acc quick lists in Live AND Pre-Print (17/16/17 entries)',
     _lcd124.count('[menu __main __live __lmo __vel __spfe __') == 22
     and _lcd124.count('[menu __main __preprint __motion __vel __spfe __') == 19
-    and _lcd124.count('[menu __main __live __lmo __extr __flfe __') == 18
+    and _lcd124.count('[menu __main __live __lmo __extr __flfe __') == 19
     and _lcd124.count('[menu __main __preprint __motion __ext __flfe __') == 20
     and _lcd124.count('[menu __main __live __lmo __vel __acfe __') == 22
     and _lcd124.count('[menu __main __preprint __motion __vel __acfe __') == 20
@@ -13711,6 +13725,13 @@ _REMOVED135 = [
     # ---- Depot/save/load rows in Profiles
 # R244 (.140): System > MCU Recovery toggle (auto-recovery switch)
 _ADDED135 = [
+    # R248 (.142d): the R248 removals left this list again - Optimized
+    # moved under SD Card, the FeatSpd/FeatAcc current-feature rows are gone
+    # R248 (.142d): SD submenus (Optimized/Generated) + the flow head rows
+    '__main __live __lmo __extr __flfe __hd',
+    '__main __live __lmo __extr __pafe __hd',
+    '__main __live __lmo __vel __acfe __hd',
+    '__main __live __lmo __vel __spfe __hd',
     '__main __preprint __mods __tex __pat __s0',
     '__main __preprint __mods __tex __pat __s1',
     '__main __preprint __mods __tex __pat __s2',
@@ -14311,7 +14332,6 @@ _ADDED135 = [
     '__main __live __lmo __vel __acfe __br',
     '__main __live __lmo __vel __acfe __bt',
     '__main __live __lmo __vel __acfe __cu',
-    '__main __live __lmo __vel __acfe __cur',
     '__main __live __lmo __vel __acfe __eff',
     '__main __live __lmo __vel __acfe __ga',
     '__main __live __lmo __vel __acfe __gp',
@@ -14337,7 +14357,6 @@ _ADDED135 = [
     '__main __live __lmo __vel __spfe __br',
     '__main __live __lmo __vel __spfe __bt',
     '__main __live __lmo __vel __spfe __cu',
-    '__main __live __lmo __vel __spfe __cur',
     '__main __live __lmo __vel __spfe __curon',
     '__main __live __lmo __vel __spfe __gp',
     '__main __live __lmo __vel __spfe __gs',
@@ -14372,50 +14391,6 @@ _ADDED135 = [
     '__main __maint __pa __pat',
     '__main __maint __tt __gen',
     '__main __octoprint',
-    '__main __optprint',
-    '__main __optprint __info',
-    '__main __optprint __p0',
-    '__main __optprint __p1',
-    '__main __optprint __p10',
-    '__main __optprint __p11',
-    '__main __optprint __p12',
-    '__main __optprint __p13',
-    '__main __optprint __p14',
-    '__main __optprint __p15',
-    '__main __optprint __p16',
-    '__main __optprint __p17',
-    '__main __optprint __p18',
-    '__main __optprint __p19',
-    '__main __optprint __p2',
-    '__main __optprint __p20',
-    '__main __optprint __p21',
-    '__main __optprint __p22',
-    '__main __optprint __p23',
-    '__main __optprint __p24',
-    '__main __optprint __p25',
-    '__main __optprint __p26',
-    '__main __optprint __p27',
-    '__main __optprint __p28',
-    '__main __optprint __p29',
-    '__main __optprint __p3',
-    '__main __optprint __p30',
-    '__main __optprint __p31',
-    '__main __optprint __p32',
-    '__main __optprint __p33',
-    '__main __optprint __p34',
-    '__main __optprint __p35',
-    '__main __optprint __p36',
-    '__main __optprint __p37',
-    '__main __optprint __p38',
-    '__main __optprint __p39',
-    '__main __optprint __p4',
-    '__main __optprint __p5',
-    '__main __optprint __p6',
-    '__main __optprint __p7',
-    '__main __optprint __p8',
-    '__main __optprint __p9',
-    '__main __optprint __start',
-    '__main __optprint __vals',
     '__main __preprint __feat __cu __c1',
     '__main __preprint __feat __cu __c1 __acc',
     '__main __preprint __feat __cu __c1 __flw',
@@ -14784,7 +14759,6 @@ _ADDED135 = [
     '__main __queue __skip',
     '__main __queue __stop',
     '__main __sdcard',
-    '__main __sdcard __cancel',
     '__main __sdcard __del',
     '__main __sdcard __f0',
     '__main __sdcard __f1',
@@ -14826,14 +14800,77 @@ _ADDED135 = [
     '__main __sdcard __f7',
     '__main __sdcard __f8',
     '__main __sdcard __f9',
+    '__main __sdcard __gen',
+    '__main __sdcard __gen __how',
+    '__main __sdcard __gen __s0',
+    '__main __sdcard __gen __s1',
+    '__main __sdcard __gen __s10',
+    '__main __sdcard __gen __s11',
+    '__main __sdcard __gen __s12',
+    '__main __sdcard __gen __s13',
+    '__main __sdcard __gen __s14',
+    '__main __sdcard __gen __s15',
+    '__main __sdcard __gen __s16',
+    '__main __sdcard __gen __s17',
+    '__main __sdcard __gen __s18',
+    '__main __sdcard __gen __s19',
+    '__main __sdcard __gen __s2',
+    '__main __sdcard __gen __s3',
+    '__main __sdcard __gen __s4',
+    '__main __sdcard __gen __s5',
+    '__main __sdcard __gen __s6',
+    '__main __sdcard __gen __s7',
+    '__main __sdcard __gen __s8',
+    '__main __sdcard __gen __s9',
     '__main __sdcard __home',
     '__main __sdcard __how',
     '__main __sdcard __none',
-    '__main __sdcard __pause',
+    '__main __sdcard __opt',
+    '__main __sdcard __opt __info',
+    '__main __sdcard __opt __p0',
+    '__main __sdcard __opt __p1',
+    '__main __sdcard __opt __p10',
+    '__main __sdcard __opt __p11',
+    '__main __sdcard __opt __p12',
+    '__main __sdcard __opt __p13',
+    '__main __sdcard __opt __p14',
+    '__main __sdcard __opt __p15',
+    '__main __sdcard __opt __p16',
+    '__main __sdcard __opt __p17',
+    '__main __sdcard __opt __p18',
+    '__main __sdcard __opt __p19',
+    '__main __sdcard __opt __p2',
+    '__main __sdcard __opt __p20',
+    '__main __sdcard __opt __p21',
+    '__main __sdcard __opt __p22',
+    '__main __sdcard __opt __p23',
+    '__main __sdcard __opt __p24',
+    '__main __sdcard __opt __p25',
+    '__main __sdcard __opt __p26',
+    '__main __sdcard __opt __p27',
+    '__main __sdcard __opt __p28',
+    '__main __sdcard __opt __p29',
+    '__main __sdcard __opt __p3',
+    '__main __sdcard __opt __p30',
+    '__main __sdcard __opt __p31',
+    '__main __sdcard __opt __p32',
+    '__main __sdcard __opt __p33',
+    '__main __sdcard __opt __p34',
+    '__main __sdcard __opt __p35',
+    '__main __sdcard __opt __p36',
+    '__main __sdcard __opt __p37',
+    '__main __sdcard __opt __p38',
+    '__main __sdcard __opt __p39',
+    '__main __sdcard __opt __p4',
+    '__main __sdcard __opt __p5',
+    '__main __sdcard __opt __p6',
+    '__main __sdcard __opt __p7',
+    '__main __sdcard __opt __p8',
+    '__main __sdcard __opt __p9',
+    '__main __sdcard __opt __start',
+    '__main __sdcard __opt __vals',
     '__main __sdcard __pgd',
     '__main __sdcard __pgu',
-    '__main __sdcard __resume',
-    '__main __sdcard __start',
     '__main __sdcard __up',
     '__main __setup',
     '__main __start __info __feat',
@@ -14953,7 +14990,8 @@ tests.append(('R145 stock menus hidden CORRECTLY: OctoPrint + Temperature + '
               '[menu __main __octoprint]\ntype: list\nname: OctoPrint\nenable: {False}' in _lcd135
               and '[menu __main __temp]\ntype: list\nname: Temperature\nenable: {False}' in _lcd135
               and '[menu __main __setup]\ntype: list\nname: Setup\nenable: {False}' in _lcd135
-              and "[menu __main __sdcard]\ntype: list\nenable: {('virtual_sdcard' in printer)}\nname: { 'SD: /'" in _lcd135
+              and "[menu __main __sdcard]\n" in _lcd135
+              and 'type: vsdlist' in _lcd135.split('[menu __main __sdcard]')[1][:900]
               and not _no_type145, str(_no_type145[:3])))
 tests.append(('R135 quick access carries the GLOBALS: PA (toggle+value+smooth) '
               'and flow (toggle+value) and accel (toggle+value) and 1st-layer '
@@ -15084,7 +15122,9 @@ tests.append(('R146 Gen files slots: basename on the 20-char LCD (path split) '
               'but the FULL relative path goes to SDCARD_PRINT_FILE - '
               'subfolder outputs stay selectable (24 select + 24 delete '
               'slots since R187)',
-              _lcd146.count(").split('/')[-1]|replace('.gcode', '')|truncate(13, True)}") == 48
+              # 48 (Gen files: 24 select + 24 delete) + 20 (R248 SD >
+              # Generated) - same basename rule everywhere
+              _lcd146.count(").split('/')[-1]|replace('.gcode', '')|truncate(13, True)}") == 68
               and _lcd146.count("SDCARD_PRINT_FILE FILENAME=\"{(printer['gcode_macro _SDM'].gen_files|default([]))") >= 12
               and _lcd146.count('SDNAV_GO INDEX=') == 40, ''))
 
@@ -15094,12 +15134,11 @@ _sdregion155 = _lcd146.split('[menu __main __sdcard]')[1].split(
     '[menu __main __gen __gfiles __del]')[0]
 _sdnamelines155 = [l for l in _sdregion155.splitlines()
                    if l.startswith('name:') or l.startswith('enable:')]
-tests.append(('R155 SD Card browser: REAL folder navigation - watcher pushes '
-              'the tree + the current view, pure single-brace menu templates '
-              '(no {% %} blocks and no {{ }} in names/enables - both break '
-              "with Klipper's single-brace jinja env), "
-              'SDNAV_GO/UP/PAGE/HOME rebuild the view',
-              'SET_GCODE_VARIABLE MACRO=_SDM VARIABLE=sd_tree' in _r2p155
+tests.append(('R155/R247 SD Card browser: REAL folder navigation - the '
+              'watcher pushes sd_cur (current folder) + sd_gen + the view, '
+              'pure single-brace menu templates, SDNAV_* move the path',
+              'SET_GCODE_VARIABLE MACRO=_SDM VARIABLE=sd_cur' in _r2p155
+              and 'VARIABLE=sd_gen' in _r2p155
               and 'SET_GCODE_VARIABLE MACRO=_SDM VARIABLE=sd_view' in _r2p155
               and _sdnav155.count('[gcode_macro SDNAV_') == 4
               and _sdnamelines155
@@ -16580,7 +16619,8 @@ try:
         'inside + the tree re-push is forced',
         _ok175d
         and not os.path.exists(os.path.join(_gc175d, 'oldstuff'))
-        and 'sd_tree_pushed[0] = None' in _pp175d,
+        and 'sd_tree_pushed[0] = None' in _pp175d
+        and 'sd_cur_pushed[0] = None' in _pp175d,
         open(_logf175d, errors='replace').read()[:200].replace('\n', ' | ')))
     _ok175d = _wfire186(_base175d,
         '[variables]\nvariable_del_file: \'"../../etc/passwd"\'\n'
@@ -17687,7 +17727,7 @@ tests.append(('R185 current-only manual: no version-history appendix, no era '
     '## Appendix D' not in _m185 and 'Version history' not in _m185
     and _re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185) is None
     and _re2.search(r'\bR1[0-9][0-9]\b', _m185) is None
-    and 'The nine fonts' in _m185 and 'R2-2026-11-11.142c' in _m185,
+    and 'The nine fonts' in _m185 and 'R2-2026-11-11.142d' in _m185,
     'appendixD=%s eratags=%s rtags=%s nine=%s v132=%s' % (
         '## Appendix D' in _m185,
         bool(_re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185)),
@@ -17835,9 +17875,9 @@ tests.append(('R188 live slots: sdcard file slots + gen files + optimized have '
 # (2) Optimized: slot lists instead of the one-at-a-time picker
 tests.append(('R188 optimized: 40 live slots in the main menu AND pre-print '
     '(was a one-file picker - field report)',
-    _re188.findall(r'menu __main __optprint __p\d+', _lcd188).__len__() == 40
+    _re188.findall(r'menu __main __sdcard __opt __p\d+', _lcd188).__len__() == 40
     and _re188.findall(r'menu __main __preprint __profs __opt __p\d+', _lcd188).__len__() == 40,
-    '%d/%d' % (len(_re188.findall(r'menu __main __optprint __p\d+', _lcd188)),
+    '%d/%d' % (len(_re188.findall(r'menu __main __sdcard __opt __p\d+', _lcd188)),
                len(_re188.findall(r'menu __main __preprint __profs __opt __p\d+', _lcd188)))))
 
 # (3) menu.exit() kick-out on every create/fix trigger (conditional on the
@@ -18667,28 +18707,178 @@ tests.append(('R246c watcher: failed mirror pushes back off (3 fails -> '
     'mirror_fail246c = [0, 0]' in _pp246c
     and 'mirror_fail246c[1] = 4' in _pp246c
     and 'timeout=20.0,' in _pp246c, ''))
-# SDNAV_GO: an unknown path must NOT bury itself one level deeper (the
-# 23:35 field log had 'optimized/optimized/...' x7, 0 entries, no exit)
-save_vars['sd_tree'] = {'': ['D:Projekte'], 'Projekte': ['D:2026'],
-                        'Projekte/2026': ['F:teil.gcode']}
+# R247 (.142d): the self-healing moved from the macro to the WATCHER (the
+# macro no longer knows the tree). Macro side: entering a folder is a path
+# change and nothing else - it cannot bury itself, because it never builds
+# a path out of unknown data.
+save_vars['sd_cur'] = ['D:Projekte']
 save_vars['sd_path'] = 'Projekte'
-save_vars['sd_view'] = ['D:ghost']       # NOT in the index (stale mirror)
+save_vars['sd_view'] = ['D:2026']
 save_vars['sd_page'] = 0
 _go246c = get_body('macros/13_system.cfg', 'SDNAV_GO')
 _out246c = render(_go246c, {'INDEX': 0})
-tests.append(('R246c SDNAV_GO: unknown folder refused, stays on the deepest '
-              'VALID level (path doubling is dead)',
-    'is not in the index yet' in _out246c
-    and 'Projekte/ghost' not in _out246c
-    and 'staying in /Projekte' in _out246c, _out246c[:160]))
-save_vars['sd_path'] = 'optimized/optimized/optimized'   # buried + dead
-_out246d = render(_go246c, {'INDEX': 0})
-tests.append(('R246c SDNAV_GO: a buried dead path resets to the root '
-              '(self-healing, no SDNAV_HOME needed)',
-    'is not in the index yet' in _out246d
-    and 'optimized' not in _out246d, _out246d[:160]))
-save_vars.pop('sd_tree', None); save_vars.pop('sd_path', None)
+_ok246c = 'VARIABLE=sd_path VALUE="\\"Projekte/2026\\""'
+tests.append(('R247 SDNAV_GO: the macro moves the PATH only - no tree, no '
+              'view rebuild, no way to bury a dead path inside the reactor',
+    _ok246c in _out246c
+    and 'VARIABLE=sd_view' not in _out246c
+    and 'sd_tree' not in _out246c
+    and 'loading' in _out246c, _out246c[:170]))
+tests.append(('R247 watcher: an unknown sd_path resets the browser to the '
+              'root and SAYS so (the .142b self-healing, same behaviour, '
+              'now where the tree lives)',
+    'not in the index - ' in _pp246c
+    and 'resetting the browser to the root' in _pp246c, ''))
+save_vars.pop('sd_cur', None); save_vars.pop('sd_path', None)
 save_vars.pop('sd_view', None); save_vars.pop('sd_page', None)
+
+# ---- R248 live: THE BROWSER IS PARKED. The proof that matters is the
+# absence of traffic: with SD_BROWSER_ON = False the watcher must not ask
+# klippy about gcode_macro _SDM and must not push sd_cur/sd_view/sd_gen -
+# that query-and-push pair was the whole cost of the folder browser.
+# A fake moonraker on 7125 records every request, a dead sd_path sits in
+# variables.cfg (the shape that used to trigger the reset-every-cycle bug).
+import threading as _th247
+import http.server as _hs247
+import json as _js247
+
+_fake247 = {'path': 'Projekte/verschwunden', 'page': 2}
+_posts247 = []
+_queries247 = []
+
+
+class _MH247(_hs247.BaseHTTPRequestHandler):
+    def log_message(self, *a):
+        pass
+
+    def _send(self, obj):
+        _b = _js247.dumps(obj).encode()
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', str(len(_b)))
+        self.end_headers()
+        try:
+            self.wfile.write(_b)
+        except Exception:
+            pass
+
+    def do_GET(self):
+        if 'objects/query' in self.path:
+            _queries247.append(self.path)
+            if '_SDM' in self.path:
+                self._send({'result': {'status': {'gcode_macro _SDM': {
+                    'sd_path': _fake247['path'],
+                    'sd_page': _fake247['page'],
+                    'sd_view': [], 'sd_cur': [], 'sd_gen': 3}}}})
+            else:
+                self._send({'result': {'status': {}}})
+        else:
+            self._send({'result': {}})
+
+    def do_POST(self):
+        try:
+            _n = int(self.headers.get('Content-Length') or 0)
+            _sc = _js247.loads(self.rfile.read(_n).decode()).get('script', '') \
+                if _n else ''
+        except Exception:
+            _sc = ''
+        _posts247.append(_sc)
+        self._send({'result': 'ok'})
+
+
+_base247 = _tf175d.mkdtemp(prefix='r248park_')
+_srv247 = None
+try:
+    _gc247 = os.path.join(_base247, 'gcodes')
+    os.makedirs(os.path.join(_gc247, 'Projekte'))
+    open(os.path.join(_gc247, 'Projekte', 'teil.gcode'), 'w').write(
+        ';TYPE:Outer wall\nG1 X1 Y1 E1\n')
+    open(os.path.join(_gc247, 'root.gcode'), 'w').write('x\n')
+    try:
+        _srv247 = _hs247.HTTPServer(('127.0.0.1', 7125), _MH247)
+        _th247.Thread(target=_srv247.serve_forever, daemon=True).start()
+    except OSError:
+        _srv247 = None
+    if _srv247 is None:
+        tests.append(('R248 watcher parked: no _SDM traffic (skipped, port '
+                      '7125 busy)', True, 'port busy'))
+    else:
+        _logf247, _p247 = _wlive186(_gc247, _base247,
+            '[variables]\nvariable_sd_path: \'"Projekte/verschwunden"\'\n'
+            'variable_sd_page: 2\n')
+        try:
+            _ready247 = _wready186(_base247, _p247)
+            _time175d.sleep(4.0)
+            _allposts = '\n'.join(_posts247)
+            _sdmq = [q for q in _queries247 if '_SDM' in q]
+            _log247 = open(_logf247, errors='replace').read()
+            tests.append(('R248 LIVE parked browser: the watcher never asks '
+                          'klippy for gcode_macro _SDM and never pushes '
+                          'sd_cur / sd_view / sd_gen - the query+push pair '
+                          'that cost the reactor is simply not there',
+                _ready247 and not _sdmq
+                and 'VARIABLE=sd_cur' not in _allposts
+                and 'VARIABLE=sd_view' not in _allposts
+                and 'VARIABLE=sd_gen' not in _allposts,
+                'sdm queries=%d posts=%d'
+                % (len(_sdmq), len(_posts247))))
+            tests.append(('R248 LIVE parked browser: the dead sd_path is not '
+                          'fought over any more - no reset line, no write-back '
+                          'loop (the parked path cannot flood the log)',
+                'resetting the browser to the root' not in _log247
+                and 'VARIABLE=sd_path' not in _allposts,
+                _log247[-160:].replace('\n', ' | ')))
+            tests.append(('R248 LIVE parked browser: the scan itself still '
+                          'runs (files are tagged, the watcher stays useful '
+                          'with the browser off)',
+                'initial scan done' in _log247
+                or 'gcode file(s) found' in _log247,
+                _log247[:160].replace('\n', ' | ')))
+        finally:
+            try:
+                _p247.terminate(); _p247.wait(timeout=15)
+            except Exception:
+                try:
+                    _p247.kill()
+                except Exception:
+                    pass
+            if _srv247 is not None:
+                try:
+                    _srv247.shutdown()
+                except Exception:
+                    pass
+finally:
+    _shut175d.rmtree(_base247, ignore_errors=True)
+
+# static side: the switch exists, is OFF, and the R247 machinery is still
+# in the file (parked, not deleted - flipping one line brings it back)
+_pp248 = open('tools/r2_postproc.py', encoding='utf-8').read()
+_lcd248 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+tests.append(('R248 parked, not deleted: SD_BROWSER_ON is False AND the '
+              'whole R247 path is still there (tree walk, sd_cur push, '
+              'sd_gen bump, dead-path write-back)',
+    '\nSD_BROWSER_ON = False' in _pp248
+    and 'if SD_BROWSER_ON:' in _pp248
+    and 'def _walk154' in _pp248
+    and 'VARIABLE=sd_cur' in _pp248
+    and 'VARIABLE=sd_gen' in _pp248
+    and 'resetting the browser to the root' in _pp248, ''))
+tests.append(('R248 menu side parked too: the SD menu is Klipper vsdlist '
+              'and every browser row carries enable: {False} (reversible '
+              'line by line), the stock Start/Resume/Pause/Cancel overrides '
+              'are gone',
+    'type: vsdlist' in _lcd248.split('[menu __main __sdcard]')[1][:1200]
+    and '[menu __main __sdcard __start]' not in _lcd248
+    and _lcd248.count(
+        'R248: browser parked (see __sdcard) - this row must not appear')
+        == 47, ''))
+tests.append(('R248 SD submenus: Optimized (40 slots) + Generated (20 '
+              'slots) hang under the SD menu, both reading the watcher '
+              'pushes that still run (opt_list / gen_files)',
+    _lcd248.count('[menu __main __sdcard __opt __p') == 40
+    and _lcd248.count('[menu __main __sdcard __gen __s') == 20
+    and 'menu __main __optprint' not in _lcd248, ''))
+
 # ============== R246d (.142c): motion-aware quiet ==========================
 # Field log 04:04 (.142b): the flood was dead but the start still died -
 # 'Timer too close' in a reactor window carrying our own status queries

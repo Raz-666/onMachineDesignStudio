@@ -77,8 +77,8 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-11.142c'
-POSTPROC_BUILD = 'R246d'
+POSTPROC_RELEASE = 'R2-2026-11-11.142d'
+POSTPROC_BUILD = 'R248'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
 # and no speed/accel/nozzle parameters. Files carrying an OLD tag are UPGRADED
@@ -8848,6 +8848,18 @@ def _r2_version():
 # names of ALL nonce channels (R75: primed after a watcher restart so a
 # restart can never re-fire old jobs - field log .58 showed all four tools
 # re-running in one burst right after the .58 update installed)
+# R248 (.142d): THE LCD FOLDER BROWSER IS PARKED - not deleted.
+# The user's decision after the .142 crash round: keep the feature in the
+# code base (it cost four rounds of work) but stop paying for it while the
+# stock SD list is enough. Everything the browser needs is switched off
+# with this ONE switch: the recursive tree walk (host I/O every pass), the
+# klippy queries of gcode_macro _SDM, and every sd_cur/sd_view/sd_gen push.
+# On the display side menus/lcd_menues.cfg falls back to Klipper's own
+# vsdlist (the gcodes ROOT) - see the SDNAV block there.
+# Setting this True again brings the browser back on the watcher side; the
+# menu side needs the matching switch (SD_NAV_ENABLE in lcd_menues.cfg).
+SD_BROWSER_ON = False
+
 NONCE_KEYS = ('preview_nonce', 'range_nonce', 'label_gen_nonce', 'reso_nonce',
               'bridge_nonce', 'plot_text_nonce', 'plot_status_nonce', 'host_nonce',
               'label_fit_nonce', 'retract_fix_nonce', 'vol_fix_nonce',
@@ -21216,15 +21228,18 @@ def _sdm_state():
         # fallback stays - but now it only serves a RESTARTING klippy.
         st = _moonraker_status(objs=['gcode_macro _SDM']) or {}
         m = st.get('gcode_macro _SDM') or {}
-        if m.get('sd_tree') is not None or m.get('sd_view') is not None:
+        if (m.get('sd_gen') is not None or m.get('sd_view') is not None
+                or m.get('sd_cur') is not None):
             out = {'sd_path': m.get('sd_path', ''),
                    'sd_page': m.get('sd_page', 0),
                    'sd_view': repr(m.get('sd_view')) if m.get('sd_view') is not None else ''}
-            # R246b (.142a field log): a TRUTHY live tree proves klippy
-            # still holds our mirror. An empty one after we pushed means
-            # klippy restarted under us (auto-recovery FIRMWARE_RESTART)
-            # - SET_GCODE_VARIABLE state dies with it.
-            if m.get('sd_tree'):
+            # R246b/R247: a NON-ZERO sd_gen proves klippy still holds our
+            # mirror (the key is '_tree_live' because every call site uses
+            # that name; the tree itself no longer travels - see the push
+            # below). Zero after we pushed = klippy restarted under us
+            # (auto-recovery FIRMWARE_RESTART): SET_GCODE_VARIABLE state
+            # dies with it.
+            if m.get('sd_gen'):
                 out['_tree_live'] = True
             return out
     except Exception:                                     # noqa: BLE001
@@ -23927,7 +23942,9 @@ def watch(directory, interval=5.0, once=False):
     last_cake_nonce = None           # R177: cake cut (plane split)
     last_stringart_nonce = None      # R178: string art (R171 live)
     gen_files_pushed = ['']          # R133f: generator outputs for the LCD
-    sd_tree_pushed = [None]          # R154: folder tree for the LCD browser
+    sd_tree_pushed = [None]          # R154/R247: folder tree (daemon-side now)
+    sd_cur_pushed = [None]           # R247: last sd_cur pushed (current folder)
+    sd_gen_n = [0]                   # R247: mirror generation, bumped per push
     sd_view_pushed = [None]          # R216b: the last view WE pushed - the
                                      # read-back races the SD-card write
                                      # (.136m double-pushed sd_view twice)
@@ -25445,6 +25462,7 @@ def watch(directory, interval=5.0, once=False):
                     import shutil as _sh175d
                     _sh175d.rmtree(_dp175)
                     sd_tree_pushed[0] = None      # force the tree re-push
+                    sd_cur_pushed[0] = None       # R247: and the folder list
                     gen_files_pushed[0] = ''
                     _moonraker_gcode(
                         'RESPOND MSG=\"[OK] folder %s deleted (with '
@@ -25456,6 +25474,7 @@ def watch(directory, interval=5.0, once=False):
                 elif os.path.isfile(_dp175):
                     os.remove(_dp175)
                     sd_tree_pushed[0] = None
+                    sd_cur_pushed[0] = None       # R247
                     gen_files_pushed[0] = ''
                     _moonraker_gcode(
                         'RESPOND MSG=\"[OK] %s deleted - the browser '
@@ -27760,7 +27779,12 @@ def watch(directory, interval=5.0, once=False):
                         for _d154 in _dirs154:
                             _walk154((sub + '/' + _d154) if sub else _d154,
                                      depth + 1)
-                _walk154('')
+                if SD_BROWSER_ON:
+                    # R248: parked - see SD_BROWSER_ON. The walk is a
+                    # recursive listdir+stat of the whole gcodes tree on
+                    # every pass; with the stock SD list on the LCD
+                    # nothing reads it.
+                    _walk154('')
                 # R215: the busy probe at the TOP of the pass is stale by
                 # now - a start clicked mid-pass (the pass can take seconds
                 # on the Pi) must not be met with variable pushes while
@@ -27787,14 +27811,23 @@ def watch(directory, interval=5.0, once=False):
                 # case, no change for a real folder.
                 _push216 = []
                 _pt216 = _pv216 = _pgf216 = False
-                if _tree154 != sd_tree_pushed[0]:
-                    _tv154 = '{' + ','.join(
-                        "'%s': [%s]" % (_k154, ','.join(
-                            "'" + _e154 + "'" for _e154 in _v154[:200]))
-                        for _k154, _v154 in _tree154.items()) + '}'
-                    _push216.append(
-                        'SET_GCODE_VARIABLE MACRO=_SDM VARIABLE=sd_tree VALUE="%s"' % _tv154)
+                _fix247 = False      # R247: dead-path write-back
+                _cur247_new = None
+                # R247 (.142d, the menu-lag round): the TREE no longer goes
+                # to klippy. It was pushed as ONE gcode command of tens of
+                # KB (folders x up to 200 entries), it was then serialized
+                # to JSON by every single query of gcode_macro _SDM - the
+                # watcher's own AND Mainsail's (it lists all macros) - and
+                # the navigation macros indexed it in Jinja inside the
+                # reactor. All three costs are gone: the tree stays HERE,
+                # klippy gets sd_cur (the current folder's entries, what
+                # paging actually slices) plus a sd_gen counter.
+                if SD_BROWSER_ON and _tree154 != sd_tree_pushed[0]:
                     _pt216 = True
+                    sd_gen_n[0] += 1
+                    _push216.append(
+                        'SET_GCODE_VARIABLE MACRO=_SDM VARIABLE=sd_gen VALUE=%d'
+                        % sd_gen_n[0])
                 # R154: keep the VIEW in sync too - the menu slots read
                 # sd_view (40 entries of the current path+page). Refreshed
                 # whenever the view differs (tree changed / never arrived /
@@ -27817,6 +27850,8 @@ def watch(directory, interval=5.0, once=False):
                             # THIS pass, tree + gen_files the next one.
                             sd_tree_pushed[0] = None
                             sd_view_pushed[0] = None
+                            sd_cur_pushed[0] = None      # R247
+                            sd_gen_n[0] = 0               # R247: gen restarts
                             gen_files_pushed[0] = ''
                             pushed_images = None
                             pushed_img_page = -1
@@ -27833,8 +27868,36 @@ def watch(directory, interval=5.0, once=False):
                     except Exception:
                         _p154, _pg154, _vw154 = '', 0, None
                     if _p154 not in _tree154:
+                        # R246c self-healing, moved here with the tree: a
+                        # path klippy reports that we do not know (deleted
+                        # folder, mirror out of sync) falls back to the
+                        # root instead of burying the browser.
+                        if _p154:
+                            print('[sdfiles] sd_path %r not in the index - '
+                                  'resetting the browser to the root'
+                                  % _p154, flush=True)
+                            # R247: say it to klippy as well. Without the
+                            # write-back the dead path stays in the macro,
+                            # the watcher re-detects it every cycle (log
+                            # flood + a root that never sticks - the user
+                            # presses UP and lands nowhere).
+                            _fix247 = True
                         _p154, _pg154 = '', 0
                     _en154 = _tree154.get(_p154, [])
+                    if _fix247:
+                        _push216.append(
+                            'SET_GCODE_VARIABLE MACRO=_SDM '
+                            'VARIABLE=sd_path VALUE=""')
+                        _push216.append(
+                            'SET_GCODE_VARIABLE MACRO=_SDM '
+                            'VARIABLE=sd_page VALUE=0')
+                    if _en154 != sd_cur_pushed[0]:
+                        _cv247 = ('[' + ','.join("'" + _e154 + "'"
+                                                 for _e154 in _en154[:200]) + ']')
+                        _push216.append(
+                            'SET_GCODE_VARIABLE MACRO=_SDM VARIABLE=sd_cur '
+                            'VALUE="%s"' % _cv247)
+                        _cur247_new = _en154      # latch only on success
                     _pg154 = min(_pg154,
                                  max(0, (len(_en154) - 1) // 40))
                     _new154 = _en154[_pg154 * 40:_pg154 * 40 + 40]
@@ -27887,6 +27950,9 @@ def watch(directory, interval=5.0, once=False):
                             sd_tree_pushed[0] = _tree154
                         if _pv216:
                             sd_view_pushed[0] = _new154
+                        if _cur247_new is not None:
+                            sd_cur_pushed[0] = _cur247_new
+
                         if _pgf216:
                             gen_files_pushed[0] = _gfl
                     else:

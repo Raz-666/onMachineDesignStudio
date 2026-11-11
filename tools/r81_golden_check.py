@@ -10,6 +10,18 @@ keeps that guarantee alive: it rebuilds the 23 fixture cases, runs them
 through the CURRENT module and compares MD5s + change summaries against the
 frozen references.
 
+RE-FREEZE HISTORY: R248 (.142d) re-froze mr01-mr13 (version bump
+class - POSTPROC_RELEASE .142c -> .142d, BUILD R246d -> R248; the R248
+changes live in the WATCH layer and the menus: the LCD folder browser is
+PARKED behind SD_BROWSER_ON=False (tree walk, _SDM queries and every
+sd_cur/sd_view/sd_gen push are off), the SD menu is Klipper's vsdlist
+again, the quick menus carry head rows instead of the duplicate
+current-feature value rows - make_range/process are untouched. Proofs:
+the .142c module from git 565c9af reproduces the previous refs
+byte-exactly (23/23); every changed summary is EXACTLY size-1 with the
+same line count (one character less in the build tag R246d -> R248, the
+release string .142c -> .142d is the same length); pr01-pr10
+byte-IDENTICAL).
 RE-FREEZE HISTORY: the .134 version bump changed the core stamp line in
 every mr excerpt (verified: exactly ONE line per case differs, .133 ->
 .134, nothing else) - refs re-frozen from the bumped module.
@@ -340,19 +352,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # process() output is identical old vs new, ALL 13 mr md5s change (every
 # range excerpt carries the core stamp), no summary moves, and r81 was
 # 23/23 green with the R213 code BEFORE the stamp bump.
-REF_MD5 = {'mr01': 'd321704a932b8a109f791ff0a663825c',
- 'mr02': '2047bce4f52024d15dd82ea79966e664',
- 'mr03': 'b66aea590b15b73745c5bac903b3fa70',
- 'mr04': 'cef6b17a009bb84acf78eee0fec824e0',
- 'mr05': 'c747f62248137544d729ac9f15ad3b3a',
- 'mr06': 'dfeee58aefb200c2a691fd393c180903',
- 'mr07': '9b4ecb407854cefe6596ca011d0f4393',
- 'mr08': 'bbc4b7284323176ebada672cd4754633',
- 'mr09': '892043ee4278f1d59b215078578251ed',
- 'mr10': '62f2a94ffca2a897816c1cadd89a683f',
- 'mr11': '9f07d32203b912521765efd51d126ff1',
- 'mr12': '7f6c25ee42e0e34f4a1e9341db8589c7',
- 'mr13': '65355ffe4a52c78d6d4ec74249ec844b',
+REF_MD5 = {'mr01': 'a97994e3311af43dfe0690df350bacd8',
+ 'mr02': 'b865ab332e41b022094d4a755ad6a51f',
+ 'mr03': '8fb76fdef9353737e1fb24c575f489c4',
+ 'mr04': '885726f7ab279c85cce9fbd94437639b',
+ 'mr05': 'b5abf1adc799b3f6d41eaa0d8bb29f0c',
+ 'mr06': '90ac876e7654c5b898e8085966167527',
+ 'mr07': '1197e1cabccfb61a951bec518a23e9e1',
+ 'mr08': 'f9a6a68d8022a1b5ad8de5015a81cb68',
+ 'mr09': '9b7aa022e57c3729705d46a4a939f0f4',
+ 'mr10': '3dde34cb0d841a9cf0a4feedb56ed05b',
+ 'mr11': '6bb975ccc87b95f4b4a7c76b79de8118',
+ 'mr12': 'd209e9b07628ef77fd3db37c60e019c1',
+ 'mr13': 'bad009b92c940e98f10347fb33030d9a',
  'pr01': 'aa5a6f27d5a7e6576f57eeea93af63a5',
  'pr02': '61457e9bcbd98996b6e7dc26efda23d8',
  'pr03': '923725a1d92fccc88241ed8a3ab8065b',
@@ -364,19 +376,19 @@ REF_MD5 = {'mr01': 'd321704a932b8a109f791ff0a663825c',
  'pr09': '5e90a1d42296412a0ea53e9d6ada0157',
  'pr10': '159ea58bb74bbf9adb377f1e733d152b'}
 
-REF_SUMMARY = {'mr01': {'nl': 8, 'size': 5250},
- 'mr02': {'nl': 8, 'size': 14266},
- 'mr03': {'nl': 8, 'size': 13277},
- 'mr04': {'nl': 8, 'size': 13155},
- 'mr05': {'nl': 8, 'size': 21945},
- 'mr06': {'nl': 8, 'size': 17187},
- 'mr07': {'nl': 7, 'size': 4882},
- 'mr08': {'nl': 6, 'size': 4527},
- 'mr09': {'nl': 7, 'size': 9556},
- 'mr10': {'nl': 7, 'size': 13177},
- 'mr11': {'nl': 7, 'size': 8972},
- 'mr12': {'nl': 2, 'size': 3054},
- 'mr13': {'nl': 29, 'size': 20706},
+REF_SUMMARY = {'mr01': {'nl': 8, 'size': 5249},
+ 'mr02': {'nl': 8, 'size': 14265},
+ 'mr03': {'nl': 8, 'size': 13276},
+ 'mr04': {'nl': 8, 'size': 13154},
+ 'mr05': {'nl': 8, 'size': 21944},
+ 'mr06': {'nl': 8, 'size': 17186},
+ 'mr07': {'nl': 7, 'size': 4881},
+ 'mr08': {'nl': 6, 'size': 4526},
+ 'mr09': {'nl': 7, 'size': 9555},
+ 'mr10': {'nl': 7, 'size': 13176},
+ 'mr11': {'nl': 7, 'size': 8971},
+ 'mr12': {'nl': 2, 'size': 3053},
+ 'mr13': {'nl': 29, 'size': 20705},
  'pr01': {'by_object': False,
           'fw': '',
           'info_added': True,

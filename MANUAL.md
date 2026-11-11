@@ -3,7 +3,7 @@
 **Package:** `klipper-e3-r2d2` · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail) ·
 12864 LCD (16 characters per line)
 
-**Version:** this manual describes the current release, `R2-2026-11-11.142c` — and only it. Every chapter documents what the system
+**Version:** this manual describes the current release, `R2-2026-11-11.142d` — and only it. Every chapter documents what the system
 does today; the version changelog lives in README.md.
 
 This is the operating manual for the complete macro system: what the printer can
@@ -2205,11 +2205,14 @@ Sources) prints the full provenance for every parameter: **file | your
 pre-print override | LIVE in Klipper now** — including PA, velocity, min
 cruise ratio, corner velocity, flow, retraction, fan and the L1/L2 temps. The
 LCD inputs for flow/accel read the LIVE Klipper values, so a change made in
-Mainsail shows on the display and vice versa. The **FeatSpd / FeatOn /
-FeatAcc** items edit the feature CURRENTLY printing (which one: the "Now:"
-line at the top of Speeds/Accels/Features); if nothing feature-marked is
-printing (raft or unmarked section) they say so instead of silently doing
-nothing.
+Mainsail shows on the display and vice versa. Each quick menu opens with a
+title row (**== SPEED ==**, **== ACCEL ==**, **== PRESSURE ADV ==**,
+**== FLOW ==**) so you always know which flow you are in, followed by the
+**Now:** line naming the feature that is printing right now. Editing a
+feature's own value happens in that feature's row of the list below — one
+place per setting, not two. The **FeatOn** switch (Speeds / Accels) flips the
+feature that is printing right now; if nothing feature-marked is printing
+(raft or unmarked section) it says so instead of silently doing nothing.
 
 **Feature overrides the file cannot use:** at the print start every enabled
 feature override whose type is not in the file (TYPES from the file info) is
@@ -2730,9 +2733,24 @@ Cable ties · Angles+Flat · Lithophane · ColorPic · Gaskets · Labels ·
 Bricks (catalog, kit, figures) · Plotter · String art, each with its own sub-menu — plus **After gen** (QUEUE/PREVIEW, .84): what
 happens to every generated file, see 5.0),
 Maintenance, System. Klipper's own stock menus OctoPrint, Temperature and
-Setup are hidden — everything they do exists in the R2 menus; the
-SD Card browser (40 entries per page, EVERY folder depth, .129a - the stock Start/Resume/Pause/Cancel dead entries are killed), Control and Tune stay. Start dialog and live tuning sit right at the top. Every line fits the 16 characters
+Setup are hidden — everything they do exists in the R2 menus; **SD Card**
+is Klipper's own list again (the G-Codes root, no subfolders, stock
+Start/Resume/Pause/Cancel), **Control** and **Tune** stay. Start dialog and
+live tuning sit right at the top. Every line fits the 16 characters
 of the 12864 display — the value you edit is always visible (test-enforced).
+
+**SD Card = Klipper's list + two submenus.** The folder browser we built is PARKED: it kept its own copy of the whole folder tree inside
+Klipper and the display side of it could block the Reactor at exactly the
+wrong moment at print start. The stock `vsdlist` shows the G-Codes root
+flat, which is what you press before a print. Two folders that a print
+actually comes from stay one press away, as submenus of SD Card:
+**Optimized** (the tuned library, 40 slots) and **Generated** (every
+generator output, newest first, 20 slots). Nested folders, deleting and
+paging = Mainsail; the generators themselves do not care where the display
+looks — they write the same folders as before. Everything the browser
+needed is still in the code base, switched off in ONE place (the switch
+SD_BROWSER_ON in tools/r2_postproc.py plus the enable: {False} rows in
+menus/lcd_menues.cfg), so it can come back without a rewrite.
 Pattern: first line = ON/OFF toggle (value stays stored), then the values.
 
 **Live rows everywhere:** file browser, generator outputs and optimized
@@ -2761,7 +2779,9 @@ a folder the index does not know yet (stale mirror after a
 restart) is REFUSED with a note instead of burying the path — an unknown
 sub-folder keeps you on the deepest valid level, a dead path resets to
 the G-Codes root, and the next index pass fills the gap (SDNAV_HOME
-always goes to the top).
+always goes to the top). With the browser parked these rows are
+switched off — the SDNAV macros and the self-healing stay in the file for
+the day the browser returns.
 
 **Live Tuning (during a print, every mode)** — shows Klipper's REAL values:
 the flow input reads the actual extrude factor (M221), PA reads
@@ -2772,10 +2792,10 @@ retraction reads the firmware values — what you see is what runs.
 |---|---|
 | Z +0.04 / +0.12 / −0.04 / −0.12 | babystepping right at the top |
 | Hot / Bed / Fan / Zoff | cockpit: temperatures, fan %, Z-offset display · **Fan: NN% (LIVE)** — your absolute %, beats hold/scale/clamp AND the layer-1 rule · LIVE on/off · Hold · Scale (25–150 % × file) · Clamp (FMin/FMax/FBrdg) · How? (fan math) prints the chain |
-| Spd per feat | Glob % (THE overall regulator) + FeatSpd: the currently printing feature's % + FeatOn: its ON switch + Src info (file/overwrite/live) + "Now:" which feature is printing + all 16 feature % rows (TRV = travels) |
-| Acc per feat | global mm/s² + Feat x: scales every feature accel by % + the effective accel + FeatAcc: the currently printing feature's accel + all 16 feature accel rows |
-| PA per feat | Glob: the global PA + all 16 feature PA rows (input shaper PA lives per feature) |
-| Flw per feat | Glob: the global flow % + all 16 feature flow rows (ironing flow in its own feature menu) |
+| Spd per feat | title row **== SPEED ==** + Glob % (THE overall regulator) + "Now:" which feature is printing + FeatOn: its ON switch + Src info (file/overwrite/live) + all 16 feature % rows (TRV = travels) |
+| Acc per feat | title row **== ACCEL ==** + global mm/s² + Feat x: scales every feature accel by % + the effective accel + "Now:" + all 16 feature accel rows |
+| PA per feat | title row **== PRESSURE ADV ==** + Glob: the global PA + all 16 feature PA rows (input shaper PA lives per feature) |
+| Flw per feat | title row **== FLOW ==** + Glob: the global flow % + all 16 feature flow rows (ironing flow in its own feature menu) |
 | Features | 16 submenus = same as Pre-Print > Features, but live: edits re-apply immediately when that feature is printing · ShpOff: input shaper OFF for one feature (toggle, .85) — each feature submenu has its own PA input (feature pressure advance, .85) — the numbered custom slots C1..C9 appear here too when the file carries them (.136l) |
 | File (G-code) | FULL mirror of the Pre-Print file info: measured originals (speed/accel per feature), 16 click-activators, temps, PA, retraction, fan, flow, MAXRATE (mm³/s) + seam position + DERIVED flag — everything during the print |
 | Extrusion | Flow % (1–300), PA, PA smooth, RetLen / RetSpd / Unret, UnretExt, Ironing flow, **Z-Hop ON/OFF + height** (lifts over every retract — nozzle-crash protection) — every input shows what Klipper REALLY runs right now, Src info shows file/overwrite/live |
@@ -4164,7 +4184,7 @@ system). Better a quiet fan at full speed than a fast one slowed down.
 ## Appendix C: First start & updates
 
 - upload the folder → includes at the end of printer.cfg → RESTART
-- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-11-11.142c)`
+- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-11-11.142d)`
 - ~10 s later: boot sound + LED animation
 - SHOW_STATUS → mode, material, overrides · Maintenance > Tests > demos + self test
 

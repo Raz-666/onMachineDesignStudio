@@ -128,7 +128,11 @@ ck('sd_tree/sd_view/gen_files push: a cache only counts on a 200 answer, '
    'the host deep in swap, so the pushes are SET_GCODE_VARIABLE MACRO=_SDM '
    'and the reader queries the live object, disk only as fallback; '
    'R246c (.142b): the push call carries timeout=20.0/retries=1 so a '
-   'struggling moonraker cannot stall the watcher pass)',
+   'struggling moonraker cannot stall the watcher pass; '
+   'R247 (.142d): the TREE is no longer sent at all - it stays daemon-side '
+   'and klippy gets sd_cur (current folder, cap 200) + sd_gen (restart '
+   'proof), because every query of gcode_macro _SDM (watcher AND Mainsail) '
+   'serialized the whole tree in the reactor)',
    src.count('retrying next cycle') == 1
    and src.count("if _moonraker_gcode('\\n'.join(_push216), timeout=20.0,")
    == 1
@@ -137,11 +141,15 @@ ck('sd_tree/sd_view/gen_files push: a cache only counts on a 200 answer, '
    and src.count('gen_files_pushed[0] = _gfl') == 1
    and 'ast.literal_eval(_raw154)' in src
    and 'sd_tree_pushed[0] is not None' in src
-   and '_v154[:200]' in src                      # tree folder cap
+   and '_en154[:200]' in src                     # R247: current-folder cap
+   and 'VARIABLE=sd_tree' not in src             # R247: never sent
+   and 'VARIABLE=sd_cur' in src                  # current folder instead
+   and 'VARIABLE=sd_gen' in src                  # restart proof
    and '_new154 != sd_view_pushed[0]' in src     # read-back race cache
    and '_pb216_done' in src                      # build once per run
    and 'sd_view_pushed[0] = _new154' in src
-   and src.count('SET_GCODE_VARIABLE MACRO=_SDM VARIABLE=sd_tree') == 1
+   and src.count('SET_GCODE_VARIABLE MACRO=_SDM VARIABLE=sd_cur') == 1
+   and src.count('SET_GCODE_VARIABLE MACRO=_SDM VARIABLE=sd_gen') == 1
    and src.count('SET_GCODE_VARIABLE MACRO=_SDM VARIABLE=sd_view') == 1
    and src.count('SET_GCODE_VARIABLE MACRO=_SDM VARIABLE=gen_files') == 1
    and "_sdm_line('opt_list'" in src
@@ -188,16 +196,17 @@ ck('litho FLAT: deeper default relief (.110 field: "just a flat plate") - '
    'col_layers or 3' in src and 'total relief, %.2gmm per step' in src
    and 'litho_col_layers|default(3)' in _lcd152
    and 'more = deeper' in src, '')
-ck('LCD SD Card browser (.115): REAL folder navigation - the watcher '
-   'pushes the whole tree (sd_tree, folders marked D:) + the current view '
-   '(sd_view, 40 entries of path+page), the menu navigates via '
-   'SDNAV_GO/UP/PAGE/HOME macros that rebuild the view',
+ck('LCD SD Card browser (.115/R247): REAL folder navigation - the '
+   'watcher pushes the CURRENT folder listing (sd_cur, cap 200) + the view '
+   '(sd_view, 40 entries of path+page) + sd_gen, the menu navigates via '
+   'SDNAV_GO/UP/PAGE/HOME (page slices sd_cur locally = instant; entering '
+   'a folder moves the PATH and the watcher answers)',
    'menu __main __sdcard]' in _lcd152
    and 'sd_view|default([])' in _lcd152
-   and src.count('SET_GCODE_VARIABLE MACRO=_SDM VARIABLE=sd_tree') == 1
+   and src.count('SET_GCODE_VARIABLE MACRO=_SDM VARIABLE=sd_cur') == 1
    and src.count('SET_GCODE_VARIABLE MACRO=_SDM VARIABLE=sd_view') == 1
    and "'D:' + _d" in src and '_SD_EXT151' in src
-   and 'sd_tree_pushed' in src
+   and 'sd_tree_pushed' in src and 'sd_cur_pushed' in src
    and _lcd152.count('SDNAV_GO INDEX=') == 40, '')  # R186: the view
    # grew to 40 entries (the .130-round browser extension)
 ck('gen folders: created UP FRONT at watcher start (visible right after '
@@ -772,11 +781,17 @@ ck('R135: plot sections moved to the END (Live + Pre-Print) and only for '
                      ".plot|default(0)|int == 1 or "
                      "printer['gcode_macro _STATE']"
                      ".file_type|default('') == 'plot'}") == 2, '')
-ck('R135: stock OctoPrint/Temperature/Setup hidden via enable {False} '
-   'overrides, Control/Tune untouched, SD Card = R151 recursive browser',
-   _lcd135.count('\nenable: {False}') == 7   # R186: later rounds hid
-   # four more stock menus (Extruder/Filament/etc.) - 7 total now
-   and '[menu __main __sdcard]\ntype: list' in _lcd135
+import re as _re142
+ck('R135/R248: stock OctoPrint/Temperature/Setup hidden via enable {False} '
+   'overrides, Control/Tune untouched, SD Card = Klipper vsdlist again '
+   '(the R151 recursive browser is parked: 47 of its rows carry '
+   'enable: {False}, the folder tree no longer travels to klippy)',
+   _lcd135.count('\nenable: {False}') >= 7   # R186/R248: the stock
+   # overrides plus the parked browser rows
+   and len(_re142.findall(r'\[menu __main __sdcard __f\d+\]\n'
+                          r'# R248: browser parked[^\n]*\nenable: \{False\}',
+                          _lcd135)) == 40
+   and '\ntype: vsdlist' in _lcd135.split('[menu __main __sdcard]')[1][:1200]
    and '[menu __main __control]' not in _lcd135, '')
 
 # ---- R205: self-match-proof watcher checks ---------------------------------

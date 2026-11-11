@@ -2223,15 +2223,15 @@ chapter('13','Maintenance &amp; care',
 
 
 chapter('14','LCD menu reference',
-  CENT(d_menu()),CAP('Seven top groups in LCD order — Start Print? (waiting), Live Tuning (printing), then Pre-Print, Quick Macros, Tools (the part generators: Cable ties · Angles+Flat · Lithophane · ColorPic · Gaskets · Frames · Labels · Bricks (catalog, kit, figures) · Plotter · String art), Maintenance, System. Klipper\'s stock menus OctoPrint / Temperature / Setup are HIDDEN — everything lives in the R2 menus; the SD Card browser, Control and Tune stay. The menu order inside: Pre-Print = File info, Fixes, Tools (Offset/Texture/Range/Scale X/Y/Cake cut/Plotter), Temps, Motion, Features, utilities, Profiles last; Live Tuning = Temps & Fan first, Exclude/Pause last. The SD browser\'s Del row deletes with two presses (G-Codes root only, never during a print).'),
+  CENT(d_menu()),CAP('Seven top groups in LCD order — Start Print? (waiting), Live Tuning (printing), then Pre-Print, Quick Macros, Tools (the part generators: Cable ties · Angles+Flat · Lithophane · ColorPic · Gaskets · Frames · Labels · Bricks (catalog, kit, figures) · Plotter · String art), Maintenance, System. Klipper\'s stock menus OctoPrint / Temperature / Setup are HIDDEN — everything lives in the R2 menus; SD Card (Klipper\'s own list: the G-Codes root, stock Start/Resume/Pause/Cancel, plus the Optimized and Generated submenus), Control and Tune stay. The menu order inside: Pre-Print = File info, Fixes, Tools (Offset/Texture/Range/Scale X/Y/Cake cut/Plotter), Temps, Motion, Features, utilities, Profiles last; Live Tuning = Temps & Fan first, Exclude/Pause last. The folder browser (nested folders, paging, delete) is parked: nested folders and deleting live in Mainsail.'),
   P('Every line fits the 16 characters of the 12864 display — the value you edit is always visible '
     '(test-enforced). Pattern: first line = ON/OFF toggle (value stays stored), then the values.'),
   TBL(['Live Tuning (during print)','Contents'],[
    ['Z +0.04 / +0.12 / −0.04 / −0.12','babystepping right at the top'],
    ['Hot / Bed / Fan / Zoff','cockpit: temperatures, fan %, Z-offset display — one click deep. The fan row is the LIVE dial: your absolute % beats hold, scale, clamp AND the layer-1 rule; How? prints the chain'],
-   ['Spd per feat','Glob % (THE overall regulator) + FeatSpd + FeatOn + Src + Now + all 16 feature % rows (TRV = travels)'],
-   ['Acc per feat','global mm/s² + Feat x % + effective accel + FeatAcc + all 16 feature accel rows'],
-   ['PA / Flw per feat','Glob PA / Glob flow % + all 16 feature rows each'],
+   ['Spd per feat','head row == SPEED == + Glob % (THE overall regulator) + FeatOn (the running feature) + Src + Now + all 16 feature % rows (TRV = travels)'],
+   ['Acc per feat','head row == ACCEL == + global mm/s² + Feat x % + effective accel + Now + all 16 feature accel rows'],
+   ['PA / Flw per feat','head row == PA == / == FLOW == + Glob PA / Glob flow % + all 16 feature rows each'],
    ['Features','16 submenus = Pre-Print > Features LIVE: edits re-apply immediately when that feature prints'],
    ['File (G-code)','FULL mirror of the Pre-Print file info : measured originals per feature, 16 activators, temps, PA, retraction, fan, flow'],
    ['Extrusion','Flow 1–300, PA, PA smooth, RetLen/RetSpd/Unret, Ironing flow — every input shows what Klipper REALLY runs + Src info '],

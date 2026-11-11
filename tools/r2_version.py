@@ -34,12 +34,12 @@ def _read_version():
 
 
 VERSION = _read_version()
-# '.142c' out of 'R2-2026-11-11.142c' (what the menus and badges show)
+# '.142d' out of 'R2-2026-11-11.142d' (what the menus and badges show)
 VERSION_SHORT = VERSION.rsplit('.', 1)[-1] if '.' in VERSION else VERSION
 if not VERSION_SHORT.startswith('.'):
     VERSION_SHORT = '.' + VERSION_SHORT
 
-# the build tag the post-processor reports ('R246d')
+# the build tag the post-processor reports ('R248')
 POSTPROC = os.path.join(_HERE, 'r2_postproc.py')
 BUILD = 'unknown'
 try:
