@@ -4214,7 +4214,7 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
         break
 # NOTE: bump this expectation together with the version on every release!
 tests.append(('R66/R80 version is current (.136ab) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-11-11.142g'", repr(_v66)))
+    _v66 == "'R2-2026-11-11.142i'", repr(_v66)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -14839,6 +14839,14 @@ _ADDED135 = [
     '__main __maint __vib __man __y __ty __ei',
     '__main __maint __vib __man __y __ty __mzv',
     '__main __maint __vib __man __y __ty __zv',
+    # R252 (.142h): the post-processor engine switch + the diagnostics
+    # subtree (evidence pack) in the System menu
+    '__main __system __diag',
+    '__main __system __diag __clean',
+    '__main __system __diag __doc',
+    '__main __system __diag __where',
+    '__main __system __pp',
+    '__main __system __ppinfo',
 ]
 _gone135 = sorted(set(_gold135) - set(_now135))
 _new135 = sorted(set(_now135) - set(_gold135))
@@ -18939,6 +18947,114 @@ tests.append(('R249: Klipper\'s flat list rules are honoured - the link ends '
     'def _link_is_ours(path, root):' in _pp249
     and "fn.endswith('.gcode')" in _pp249
     and 'os.path.commonpath' in _pp249, ''))
+
+# ---- R252 (.142h): engine switch + evidence pack ----------------------------
+_lcd252 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+_m252 = {k: v for k, v in _re73.findall(
+    r'\[menu (__main __system __(?:pp|ppinfo|diag[\w ]*))\]\n((?:(?!\[menu ).*\n)*)',
+    _lcd252)}
+tests.append(('R252: the post-processor switch is on the LCD (System menu) - '
+              'stable / EXPERIMENTAL plus the running engine, all through '
+              'TOGGLE_PP_ENGINE, with an explain row next to it',
+    'TOGGLE_PP_ENGINE' in _m252.get('__main __system __pp', '')
+    and 'PP engine (explain)' in _m252.get('__main __system __ppinfo', '')
+    and 'pp_engine' in _m252.get('__main __system __pp', '')
+    and 'print_stats' not in _m252.get('__main __system __pp', ''), ''))
+tests.append(('R252: the evidence pack has an LCD home (System > Diagnostics) '
+              'with the how/where rows - the user must not need SSH to send a '
+              'log',
+    all(k in _m252 for k in ('__main __system __diag', '__main __system __diag __doc',
+                             '__main __system __diag __where',
+                             '__main __system __diag __clean'))
+    and 'DOCTOR_PACK' in _m252['__main __system __diag __doc']
+    and 'crash_archive' in _m252['__main __system __diag __where'], ''))
+_p252 = open('tools/r2_postproc.py', encoding='utf-8').read()
+_n252 = open('tools/r2_postproc_next.py', encoding='utf-8').read()
+tests.append(('R252: the stable post-processor is STILL the entry point and the '
+              'experimental one is a byte-for-byte COPY of it - new work goes '
+              'there, nothing of today\'s code was rewritten',
+    _p252.count('def _pp_engine_gate(') == 1
+    and "_pp_engine_gate(args)" in _p252
+    and _n252.endswith(_p252.split('\n', 3)[3])
+    and 'THIS IS THE EXPERIMENTAL COPY' in _n252
+    and _n252.count('def _pp_engine_gate(') == 1, ''))
+tests.append(('R252: the handover is failure-proof - a missing/broken copy '
+              'stays on stable, a failed handover is braked for 15 min, and '
+              'only --watch hands over (the diagnostics never do)',
+    'if not os.path.isfile(PP_NEXT_FILE)' in _p252
+    and 'compile(f.read(), PP_NEXT_FILE' in _p252
+    and 'age < _PP_FAIL_BRAKE' in _p252
+    and '_pp_fail_write(' in _p252
+    and 'runpy.run_path(PP_NEXT_FILE' in _p252
+    and "--engine=stable" in open('tools/r2_postproc.py', encoding='utf-8').read(), ''))
+_c252 = open('tools/r2_collect.py', encoding='utf-8').read()
+tests.append(('R252: the pack is one downloadable file in crash_archive - as '
+              '.txt AND .txt.gcode (Mainsail only lists printable files, that '
+              'is why the old .log snapshots were invisible)',
+    "PACK_PREFIX = 'R2-DOCTOR-'" in _c252
+    and "base + '.txt'" in _c252
+    and "base + '.txt.gcode'" in _c252
+    and 'crash_archive' in _c252, ''))
+tests.append(('R252: the post-processor never touches an R2-DOCTOR file - the '
+              '.gcode twin exists to be SEEN, not printed or tagged',
+    "if fn.startswith('R2-DOCTOR-'):" in _p252
+    and "if fn.startswith('R2-DOCTOR-'):" in _n252, ''))
+tests.append(('R252: the pack carries what a shutdown round needs - the '
+              'incident digest (events, worst stalls WITH stacks, MCU stats '
+              'around each shutdown), host, services, settings, snapshots',
+    all(k in _c252 for k in ('def _digest(', '### 1.1 events', '### 1.2 reactor stalls',
+                             '### 1.3 MCU statistics', '### 1.4 shutdown paragraphs',
+                             'HOST', 'SERVICES', 'WATCHER STATE', 'SETTINGS',
+                             'GCODES FOLDER', 'PRINTER.CFG'))
+    and 'in_cfg = False' in _c252, ''))
+_m252a = get_body('macros/01_state.cfg', 'SET_PP_ENGINE')
+_out252 = render(_m252a, {'MODE': 'next'})
+tests.append(('R252 SET_PP_ENGINE MODE=next: stores the switch and names the '
+              'way back (no restart needed)',
+    "pp_engine VALUE=\"'next'\"" in _out252
+    and 'EXPERIMENTAL' in _out252 and 'Post-Processor > Use stable' in _out252,
+    _out252[:160]))
+_out252 = render(_m252a, {'MODE': 'stable'})
+tests.append(('R252 SET_PP_ENGINE MODE=stable: back to the engine of today',
+    "pp_engine VALUE=\"'stable'\"" in _out252 and 'STABLE' in _out252,
+    _out252[:140]))
+_out252 = render(_m252a, {'MODE': 'quatsch'})
+tests.append(('R252 SET_PP_ENGINE refuses anything but stable|next',
+    'SET_PP_ENGINE MODE=stable|next' in _out252 and 'SAVE_VARIABLE' not in _out252,
+    _out252[:120]))
+_m252b = get_body('macros/01_state.cfg', 'DOCTOR_PACK')
+_out252 = render(_m252b, {}, ps_state='idle')
+tests.append(('R252/R253 DOCTOR_PACK: bumps the nonce, says where the pack lands and '
+              'gives the SSH way as the alternative',
+    'doctor_nonce' in _out252 and 'crash_archive' in _out252
+    and 'r2_collect.py' in _out252, _out252[:160]))
+_out252 = render(_m252b, {}, ps_state='printing')
+tests.append(('R252/R253 DOCTOR_PACK refuses while printing (it copies logs off the '
+              'SD card - the .125 lesson)',
+    'only while idle' in _out252 and 'doctor_nonce' not in _out252, _out252[:120]))
+
+# ---- R253 (.142i boot halt): NO macro name may violate Klipper's rule -------
+# klippy/gcode.py:145-149 - an extended command must be UPPER case, hold only
+# alnum + '_', and neither cmd[0] nor cmd[1] may be a digit (an 'R2...' name
+# parses as a traditional G/M command). .142h shipped 'R2_DOCTOR' and halted
+# the printer at boot: 'Can't register R2_DOCTOR as it is an invalid name'.
+import glob as _glob253
+_badnames = []
+for _f in sorted(_glob253.glob('**/*.cfg', recursive=True)):
+    for _ln in open(_f, encoding='utf-8', errors='replace'):
+        _mm = _re73.match(r'\[gcode_macro ([^\]]+)\]', _ln.strip())
+        if not _mm:
+            continue
+        _n = _mm.group(1).strip()
+        if _re73.match(r'^[GM]\d', _n):
+            continue                    # traditional gcode, always fine
+        if (_n.upper() != _n or not _n.replace('_', 'A').isalnum()
+                or _n[:1].isdigit() or _n[1:2].isdigit()):
+            _badnames.append('%s (%s)' % (_n, _f))
+tests.append(('R253: every [gcode_macro] name satisfies klippy/gcode.py - a '
+              'name like R2_DOCTOR (digit in position 2) does not register and '
+              'HALTS the printer at boot',
+    not _badnames, ', '.join(_badnames)[:200]))
 
 # ---- R251 (.142g): the shaper switches are reachable again (E2) -----------
 _lcd251 = open('menus/lcd_menues.cfg', encoding='utf-8').read()

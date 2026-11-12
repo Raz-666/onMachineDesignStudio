@@ -11,3 +11,4 @@ SESSION_STATE.md
 r2d2-repo.bundle
 watch_state.json
 watcher.lock
+tools/pp_engine_fail.json

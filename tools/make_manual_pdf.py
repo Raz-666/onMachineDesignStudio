@@ -2231,6 +2231,36 @@ chapter('14','LCD menu reference',
   CENT(d_menu()),CAP('Seven top groups in LCD order — Start Print? (waiting), Live Tuning (printing), then Pre-Print, Quick Macros, Tools (the part generators: Cable ties · Angles+Flat · Lithophane · ColorPic · Gaskets · Frames · Labels · Bricks (catalog, kit, figures) · Plotter · String art), Maintenance, System. Klipper\'s stock menus OctoPrint / Temperature / Setup are HIDDEN — everything lives in the R2 menus; SD Card (Klipper\'s own flat list — and it holds EVERY folder, because the post-processor mirrors each printable subfolder file as a link in the gcodes root; stock Start/Resume/Pause/Cancel, plus the Optimized and Generated submenus), Control and Tune stay. The menu order inside: Pre-Print = File info, Fixes, Tools (Offset/Texture/Range/Scale X/Y/Cake cut/Plotter), Temps, Motion, Features, utilities, Profiles last; Live Tuning = Temps & Fan first, then the four quick lists (Spd / Acc / PA / Flow per feature) directly under it, Motion, Sources/File, Exclude/Pause last — the separate Live > Features submenu no longer exists, its regulators are those four lists. The R2 folder browser (nested folders, paging, delete) is parked: the root links give the full library in the stock list, and creating/deleting folders lives in Mainsail.'),
   P('Every line fits the 16 characters of the 12864 display — the value you edit is always visible '
     '(test-enforced). Pattern: first line = ON/OFF toggle (value stays stored), then the values.'),
+  H2('Links in the gcodes root - what they are'),
+  P("The post-processor shows every printable file of a subfolder as a <b>symbolic link</b> in the "
+    "gcodes root - a tiny pointer, not a copy. Your print stays in its folder, untouched; the link is "
+    "only a second name for it. Deleting the LINK does not delete the file (the watcher rebuilds it on "
+    "the next pass) - to really delete, delete the file in its folder (LCD: SD Card &gt; Optimized / "
+    "Generated; Mainsail: Dateien &rarr; folder). Deleting the FILE makes the link dead, and dead links "
+    "are swept automatically. A real file with the same name always wins the slot. Limits on purpose: "
+    "200 links, three levels deep, <subfolder>_<name>.gcode on a clash, .stl.gcode never appears, links "
+    "are never processed (the original is, once, in its own folder). A constantly refreshing file list "
+    "in Mainsail is moonraker's file metadata, not a fault."),
+  H2('Sending evidence: the Log pack'),
+  P("When something fails, one file is all that is needed: <b>System &gt; Diagnostics &gt; Log pack</b> "
+    "(or on SSH: <i>python3 tools/r2_collect.py</i>). It lands in "
+    "gcodes/crash_archive as <b>R2-DOCTOR-&lt;date&gt;.txt.gcode</b> <i>and</i> as .txt - the .gcode tail "
+    "is there because Mainsail only lists files it considers printable (that is why the old mcu-*.log "
+    "snapshots were in that folder but invisible). Download it in Mainsail under Dateien &rarr; "
+    "crash_archive and send that one file. Inside: build stamps, host health, the three services with "
+    "their journals, the watcher state, variables.cfg, printer.cfg, an incident digest cut out of "
+    "klippy.log (shutdowns, probe failures, the worst Reactor stalls <b>with their stacks</b>, MCU "
+    "statistics), the last 3 MB of the log and the newest MCU snapshot. Read-only, no sudo, idle-gated; "
+    "the post-processor skips every R2-DOCTOR-* name, so it can never be printed."),
+  H2('Two post-processors: stable and experimental'),
+  P("The post-processor is the one part that rewrites your G-code, so it is never rebuilt while you "
+    "print. <b>tools/r2_postproc.py</b> is the stable engine you have been printing with and stays the "
+    "file the service starts. <b>tools/r2_postproc_next.py</b> is a byte-for-byte copy of it where new "
+    "work happens from now on. LCD: <b>System &gt; PP engine</b> - one press flips between stable and "
+    "EXPERIMENTAL, the row shows what is really running, no restart and no sudo. The stable file reads "
+    "the switch from the variables file and hands over; a missing or broken copy keeps the stable engine "
+    "running, a failed handover is braked for 15 minutes, and the diagnostics always run on the stable "
+    "code. Back any time: the same press (or --engine=stable on the command line)."),
   TBL(['Live Tuning (during print)','Contents'],[
    ['Z +0.04 / +0.12 / −0.04 / −0.12','babystepping right at the top'],
    ['Hot / Bed / Fan / Zoff','cockpit: temperatures, fan %, Z-offset display — one click deep. The fan row is the LIVE dial: your absolute % beats hold, scale, clamp AND the layer-1 rule; How? prints the chain'],

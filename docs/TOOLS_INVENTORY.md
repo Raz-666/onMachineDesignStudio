@@ -1,6 +1,6 @@
 # Tools inventory — what is what, and what proves it
 
-*Stand: R2-2026-11-11.142g (R251). Auto-checked against reality by
+*Stand: R2-2026-11-11.142i (R253). Auto-checked against reality by
 `tools/r165_doc_check.py`; the version line here is not typed by hand —
 see "The version rule" below.*
 
@@ -16,7 +16,9 @@ never leaves the repository.
 
 | File | Lines | What it does |
 |---|---|---|
-| `tools/r2_postproc.py` | 28 221 | **The engine.** One systemd service, four jobs: (1) the *layer reader* — tags every new g-code with `LAYER_MARK`/`APPLY_TYPE` markers, a `;TYPE:` map and a `_FILE_INFO` block, so the LCD, the menus and the live tuning know what is printing before layer 1; (2) **every generator** (range, labels, plotter, cable ties, angles, lithos, gaskets, frames, bricks, kits, figures, colorpic, string art, geometry, scale/taper/twist, mirror, STL export, cake cut) — the LCD only sets variables, the real work happens here, off the print thread; (3) the *watcher* — folder watching, preview pushes, queue handling, the recovery tick; (4) **HOST_CHECK** (throttle, load vs cores, swap *activity*, hidepid honesty) and the MCU auto-recovery. Streaming, one line in / one line out — no full-file buffers (a full buffer is what kills the Pi's RAM and then the print). |
+| `tools/r2_postproc.py` | 28 709 | **The engine.** One systemd service, four jobs: (1) the *layer reader* — tags every new g-code with `LAYER_MARK`/`APPLY_TYPE` markers, a `;TYPE:` map and a `_FILE_INFO` block, so the LCD, the menus and the live tuning know what is printing before layer 1; (2) **every generator** (range, labels, plotter, cable ties, angles, lithos, gaskets, frames, bricks, kits, figures, colorpic, string art, geometry, scale/taper/twist, mirror, STL export, cake cut) — the LCD only sets variables, the real work happens here, off the print thread; (3) the *watcher* — folder watching, preview pushes, queue handling, the recovery tick; (4) **HOST_CHECK** (throttle, load vs cores, swap *activity*, hidepid honesty) and the MCU auto-recovery. Streaming, one line in / one line out — no full-file buffers (a full buffer is what kills the Pi's RAM and then the print). |
+| `tools/r2_postproc_next.py` | 28 709 | **The experimental copy.** Byte for byte `r2_postproc.py` at the moment of R252, plus its own header. From now on new post-processor work happens HERE and the stable file is not touched. Never started directly: the service starts the stable file, which reads the pp_engine switch (LCD System > PP engine, variables file) and hands over via runpy when it says `next`; a syntax error or a crashed handover keeps the stable engine and brakes the switch for 15 min. |
+| `tools/r2_collect.py` | 384 | **The evidence pack ('Doctor').** Builds ONE support file: build stamps, host (RAM/swap/disk/load/top/throttled/dmesg), the three services + journals, the watcher state files, variables.cfg, printer.cfg, a compact incident digest out of klippy.log (events, the worst Reactor stalls WITH stacks, MCU statistics around each shutdown), the last 3 MB of the raw log, the newest MCU snapshot, the gcodes inventory. Writes gcodes/crash_archive/R2-DOCTOR-<stamp>.txt + a .txt.gcode twin (Mainsail only lists printable files) - the post-processor skips every R2-DOCTOR-* name. Idle-gated, read-only, no sudo. Started by the LCD (System > Diagnostics), by the watcher (doctor_nonce) or by hand. |
 | `tools/r2_texture.py` | 1 409 | **The texture engine** (called by r2_postproc, also standalone): FUZZY (Orca-style fuzzy skin), BUMPS (27 seamless patterns) and MAP (a picture wrapped around the part). Rewrites only the outer wall of an existing file — `;TYPE:`, E/Z/F and EXCLUDE_OBJECT stay byte-identical. |
 | `tools/r2_cake.py` | 543 | **The cake-cut engine**: splits a print with a plane, E redistributed per section. |
 | `tools/r2_persist.sh` | 161 | Persists a variable into `variables.cfg` from a shell context (the LCD writes, the printer keeps it across a reboot). |
@@ -64,7 +66,7 @@ thread's reactor.
 builder stamps its pages from it:
 
 ```python
-from r2_version import VERSION as _R2VER     # 'R2-2026-11-11.142g'
+from r2_version import VERSION as _R2VER     # 'R2-2026-11-11.142i'
 ```
 
 **Why this exists:** until .142c all five builders carried a hard-coded

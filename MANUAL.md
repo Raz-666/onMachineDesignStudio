@@ -104,6 +104,8 @@ parameter without re-slicing.
 | Tool | What it does | When it runs |
 |---|---|---|
 | `r2_postproc.py` | THE interceptor: watches the gcodes folder (systemd service, 1 s heartbeat). Tags every new G-code with `LAYER_MARK` layer markers, an `APPLY_TYPE` marker after every `;TYPE:` comment and a `_FILE_INFO` parameter block (material, layer height × count, line widths, flow ratio, PA, by-object, nozzle, wall loops, measured per-feature speeds and accels). Contains the generators (Range, Labels, calibration towers, bridging test, resonance plates) and the plot converters (PNG/JPEG/SVG/PDF/TXT → pen-plotter G-code). | continuously (service) |
+| `r2_postproc_next.py` | **the experimental copy** of the post-processor: byte for byte the same code as `r2_postproc.py` from .142h on, and from now on the file where new development happens. Never started directly — the stable file hands over when the LCD switch (System > PP engine) says `next`; a broken copy falls back to stable by itself (ch. 19a3) | selected by the switch |
+| `r2_collect.py` | **the evidence pack**: one file with versions, host health, services + journals, the watcher state, `variables.cfg`, `printer.cfg`, a compact incident digest out of `klippy.log` (shutdowns, probe failures, the worst Reactor stalls with stacks, MCU statistics), the log tail and the newest MCU snapshot — written to `gcodes/crash_archive/` as `.txt` + `.txt.gcode` so Mainsail lists it for download (ch. 19a2) | on demand (LCD System > Diagnostics, or SSH) |
 | `make_label_fonts.py` | builds the label fonts (stroke skeletons) that are baked into `r2_postproc.py` — SMOOTH, MONO and the small-text fonts COND, NARROW, CAPS. | build time only (not needed on the Pi) |
 | `macro_render_test.py` | the 900+ test battery the package is built against | after edits |
 | `config_validator.py` | checks all cfg modules + save-variable keys | after edits |
@@ -2785,6 +2787,51 @@ looks — they write the same folders as before. Everything the browser
 needed is still in the code base, switched off in ONE place (the switch
 SD_BROWSER_ON in tools/r2_postproc.py plus the enable: {False} rows in
 menus/lcd_menues.cfg), so it can come back without a rewrite.
+
+#### The links in the root — how they work, what to watch
+
+A **symbolic link** is not a copy. It is a tiny entry (a few dozen bytes) that
+says "the file you mean is *over there*". For a file
+`gcodes/Frames/V05_Frame_MINI_FLATx4.gcode` the post-processor creates
+`gcodes/Frames_V05_Frame_MINI_FLATx4.gcode` as a link. The bytes of your
+print still live in `Frames/`, in the same file, not touched, not moved:
+
+```
+gcodes/
+├── Frames/                                  ← your file, unchanged
+│   └── V05_Frame_MINI_FLATx4.gcode          ← the real 4.2 MB
+└── Frames_V05_Frame_MINI_FLATx4.gcode       → link (points into Frames/)
+```
+
+What follows from that:
+
+- **Deleting the link does NOT delete the print.** It disappears from the
+  root list and comes back on the next pass of the watcher (the links are
+  rebuilt every scan). To really delete, delete the file in its folder —
+  on the LCD: SD Card > the submenu (**Optimized** / **Generated**), or in
+  Mainsail under **Dateien → folder**.
+- **Deleting the file makes the link dead.** The watcher sweeps dead links
+  every pass, so the stale entry cleans itself up. Nothing else breaks.
+- **Editing/starting a link edits/starts the original** — that is the point:
+  one file, shown in two places. Do not be surprised that the mtime of the
+  original changes after a print.
+- **A real file with the same name always wins.** If you ever put a real
+  `Frames_V05….gcode` in the root, the link is not created; the root copy is
+  what prints.
+- **Limits on purpose:** max 200 links, three folder levels deep, name clash
+  → `<subfolder>_<name>.gcode`, `.stl.gcode` exports never appear (they are
+  not print jobs). The watcher never processes a link (it would re-tag the
+  original through the link on every pass) — the original is processed in its
+  own folder, once.
+- **Mainsail/Auto-refresh:** yes, the file list refreshes constantly — that
+  is moonraker's file-manager metadata (every print start/end, every
+  upload, every link rebuild changes it). The flip-flop you may see in the
+  first seconds after a save is the watcher finishing a scan. It is
+  harmless; if a list ever looks stuck, pull down to refresh (or press
+  "Reload" in the browser) — never delete anything to "fix" a list.
+- **Where a link may live:** only in the gcodes root. A link of your own
+  somewhere else is never touched by the watcher.
+
 Pattern: first line = ON/OFF toggle (value stays stored), then the values.
 
 **Live rows everywhere:** file browser, generator outputs and optimized
@@ -2965,7 +3012,10 @@ R/G/B + presets.
 
 **System:** File check (+ Retag old 2×), **Gen jobs** (queue state + clear,
 .136u), restarts (2×), Pi shutdown (2×), **Force end print**, save config
-(2×, warns that the LCD goes dark), **MCU Recovery** (auto-recovery
+(2×, warns that the LCD goes dark), **PP engine** (stable ⇄ experimental
+post-processor, one press, plus an explain row), **Diagnostics > Log pack**
+(collects the evidence file for a support round — nothing to type), **MCU
+Recovery** (auto-recovery
 ON/OFF — see ch. 19), status, **LED Setup** (areas, bed light,
 nozzle chain/mode — ch. 17, only shown when LED hardware exists).
 
@@ -3139,6 +3189,9 @@ Print running (legacy file) - live tuning and overwrites ACTIVE
 | EMERGENCY_STOP | immediate halt |
 | FILE_CHECK | **g-code inventory**: scans every file's tag version — how many are current, old (upgradeable), untouched (never processed) or plotter files — each file listed on the console with age + size. `FILE_CHECK RETAG=1` (2×/CONFIRM=1) additionally upgrades old + untouched files to the current markers: **.r2bak backup first**, never while printing, max 20 per run. LCD: System > File check + STALE (v4: functional, pre-.86 info line — RETAG adds the new keys) |
 | SET_RECOVERY MODE=on/off | **MCU-shutdown auto-recovery** switch (default ON). LCD: System > MCU Recovery. Reads from the variables FILE — no macro can run while klippy is dead, so the switch must survive outside klippy's RAM |
+| SET_PP_ENGINE MODE=stable\|next | **which post-processor runs**: `stable` = `tools/r2_postproc.py` (the engine of today), `next` = `tools/r2_postproc_next.py` (a byte-for-byte COPY of it — all new work happens there). The service always starts the stable file; it reads this switch from the variables FILE and hands over. A missing/broken copy, or a handover that died in the last 15 min, keeps the stable engine running. LCD: System > PP engine (one press flips it) — no restart needed |
+| PP_ENGINE_INFO | shows switch / actually running engine / build, and how to go back |
+| DOCTOR_PACK | **evidence pack** for a support round: one file with build stamps, host health, the three services + journals, the watcher state files, variables.cfg, printer.cfg, a compact **incident digest** cut out of klippy.log (every shutdown/probe failure, the worst Reactor stalls **with their stacks**, the MCU statistics around each shutdown), the last 3 MB of the raw log and the newest MCU snapshot. Lands in `gcodes/crash_archive/R2-DOCTOR-<date>.txt.gcode` (+ `.txt` twin) — Mainsail only lists printable files, hence the `.gcode` tail; the post-processor skips every `R2-DOCTOR-*` file, so it can never be printed. Idle-gated. LCD: System > Diagnostics > Log pack. No display: `python3 tools/r2_collect.py`. R253: the macro was called R2_DOCTOR in .142h, and that name halted the boot (Klipper rejects a digit in position 2); the old spelling still forwards here, so nothing that was written against .142h breaks |
 
 All destructive paths need TWO presses (60 s window). Serial link: UART (ch. B.5).
 
@@ -3206,6 +3259,62 @@ logged window — it is never a hardware clearance or a substitute for
 measuring the actual installation. After **5 minutes** in
 shutdown it sends the **FIRMWARE_RESTART itself** (max 2 per boot of the
 watcher, at least 1 h apart — no restart loops). Every step is logged.
+
+### 19a2. Sending evidence: the Log pack (no SSH, no hunting for files)
+
+When something fails, the only thing that is ever needed is **one file**:
+
+1. LCD: **System > Diagnostics > Log pack (for support)** — one press. (Or, if
+   you are on SSH anyway:
+   `python3 ~/printer_data/config/klipper-e3-r2d2/tools/r2_collect.py`.)
+2. The display says `Log pack ready`. In Mainsail under **Dateien →
+   crash_archive** there is now `R2-DOCTOR-<date>.txt.gcode` — download it and
+   send that one file.
+
+Why it is built this way: moonraker/Mainsail only LIST files they consider
+printable, which is exactly why the old crash snapshots (`mcu-*.log`) were in
+that folder and invisible. The pack therefore carries the `.gcode` tail, and
+the post-processor skips every `R2-DOCTOR-*` name, so the file can never be
+printed or tagged by accident. The `.txt` twin sits next to it for the case
+that you read it on a PC.
+
+What is inside (that is why one file is enough): build stamps of macros,
+post-processor and Klipper · host (RAM, swap, disk, load, top processes,
+throttling flags, dmesg tail) · klipper / moonraker / r2-postproc with their
+journals · the watcher's own state files · `variables.cfg` and `printer.cfg` ·
+an **incident digest** cut out of `klippy.log` (every shutdown and probe
+failure in order, the **worst Reactor stalls with their stacks**, the MCU
+statistics around each shutdown) · the last 3 MB of the raw log · the newest
+MCU snapshot from `crash_archive/` · the file inventory of the gcodes folder.
+It only reads — nothing is changed, no `sudo`, no service is touched — and it
+waits for idle because it copies logs off the SD card.
+
+### 19a3. Two post-processors: the switch (stable ⇄ experimental)
+
+The post-processor (`tools/r2_postproc.py`) is the one part that rewrites your
+G-code, so it is the one part that must never be "rebuilt while you are
+printing". From .142h there are two files:
+
+| File | Role |
+|---|---|
+| `tools/r2_postproc.py` | **stable** — the engine you have been printing with. Stays the entry point the service starts. |
+| `tools/r2_postproc_next.py` | **experimental** — a byte-for-byte copy of it. Every new development happens here from now on. |
+
+LCD: **System > PP engine: stable** — one press flips it to **EXPERIMENTAL**;
+the row shows `runs: …` with what is really running, so you can see that the
+switch took effect. **No restart, no `sudo`.** The way back is the same press:
+
+- The service always starts the **stable** file. It reads the switch and hands
+  over to the copy only when the switch says so.
+- The copy is checked before the handover: **a syntax error keeps the stable
+  engine running**, and a handover that actually died is **braked for 15
+  minutes** (so a broken experiment cannot loop the daemon).
+- `--engine=stable` on the command line beats the switch, for the case that
+  the display is unreachable:
+  `python3 tools/r2_postproc.py --watch ~/printer_data/gcodes --engine=stable`
+- The diagnostics (`--file-check`, generators, `--stl`) always run on the
+  **stable** code, so the troubleshooting tools work even while an experiment
+  is broken.
 
 ### 19b. setup.sh / update.sh — wizards, backups, change modes
 

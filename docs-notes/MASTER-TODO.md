@@ -1,0 +1,148 @@
+# MASTER-TODO — alles, was der User verlangt hat (Stand: .142h / R252)
+
+**Diese Datei ist ab jetzt der einzige Ort, an dem Aufgaben stehen.** Wenn etwas
+nicht hier steht, existiert es für die Arbeit nicht. Jede erledigte Zeile wird
+abgehakt und mit dem Commit genannt, der sie erledigt hat.
+
+---
+
+## A. Blocker (ohne die ist das System für den User unbedienbar)
+
+- [x] **A1 — Ordner-Zugriff vom LCD.** *(erledigt R249)* Klippers `vsdlist` zeigt nur das
+      gcodes-Root, flach. Beim Antippen einer Datei aus `generated/`,
+      `optimized/` usw. tut sich nichts. Der User MUSS alle Dateien und Ordner
+      am Drucker erreichen können (gesetzte Anforderung seit .114).
+      **Lösung (entschieden):** Symlinks im gcodes-Root auf die Generator- und
+      Optimized-Ausgaben → Klippers Liste zeigt sie als normale Einträge,
+      antippbar und startbar. Kein Dienst-Stopp, Rückweg = Symlinks löschen.
+      *(Wichtig: `.gcode`-Ziel, nicht das Verzeichnis — `get_file_list()` prüft
+      die Erweiterung des Symlink-NAMENS.)*
+- [x] **A2 — Ironing-Flow zeigt 100 % statt des echten Werts.** *(erledigt R249)* `IR:` liest
+      `ovf_ironing_flw|default(100)`. Der User will den Wert, der bei Ironing
+      tatsächlich wirkt — nicht eine 100 %, die er erst überschreiben müsste.
+      Dazu: im Ironing-Untermenü stehen ZWEI Flow-Werte (einer davon sinnlos) —
+      einer fliegt raus.
+- [x] **A3 — Quality-Fix / Speed-Fix sind invertiert.** *(erledigt R249)*
+      Richtig ist: **Quality** = Oberflächen und Außenwände NIE kreuzen,
+      dort Z-Hop UND Retract, quer durch Infill ist erlaubt/nur dort kein
+      Z-Hop nötig. **Speed** = Travels direkt verbinden, kein Zickzack,
+      Ironing überspringen, Düse darf über alles fahren.
+      Umgesetzt ist derzeit das Gegenteil (Z-Hop aus + quer über die Fläche).
+
+## B. Menü (Anweisungen, die ich nicht ausgeführt habe)
+
+- [x] **B1 — Die vier Schnellzugriffe (Spd/Acc/PA/Flw per feat) eine Ebene
+      HOCH.** Sie liegen jetzt in `Live > Motion > Velocity` bzw. `> Extruder`.
+      Der User will alle vier direkt unter `Live Tuning` übereinander sehen,
+      ohne die zwei Zwischenebenen. (Bisher habe ich nur Titelzeilen
+      hinzugefügt — das ist NICHT die Anweisung.)
+- [x] **B2 — Live > Features ausdünnen/entfernen.** *(erledigt R250: 175 Sektionen gelöscht, alle Pfade im Inventar-Test dokumentiert; die vier Schnellzugriffe decken alles ab)* Der User benutzt es nicht
+      (nur als Notgroschen für den versteckten Ironing-Wert). Inhalt in die
+      Schnellzugriffe konsolidieren, dann das Menü raus. 176 Sektionen stehen
+      unverändert.
+- [x] **B3 — Titel in den vier Schnellzugriffen** (`== SPEED ==`, `== ACCEL ==`,
+      `== PA ==`, `== FLOW ==`). Erledigt in R248.
+- [x] **B4 — FeatSpd/FeatAcc-Duplikate entfernt** (Wert steht in der
+      Feature-Zeile der Liste). Erledigt in R248.
+- [ ] **B5 — Feature per Wert 0 abschalten:** geprüft und ABGELEHNT, weil
+      `M220 S0` den Drucker anhält bzw. PA/Flow-0 Sonderfälle sind.
+      Stattdessen `FeatOn` neben dem Wert. (Dem User so erklärt.)
+
+## C. Feature-Erkennung / Tagging (großer Block)
+
+- [ ] **C1 — Nicht beim ersten `APPLY_TYPE` aufhören.** `process()` bricht bei
+      `if TAG in line` ab (`tools/r2_postproc.py`, `summary['skipped'] = True;
+      return`). Ein Wort im Kopf erklärt die Datei für „fertig" und tötet alle
+      weiteren Stufen. **Verlangt:** auch dann weiterprüfen — und zwar mit der
+      Geometrieanalyse — und das Ergebnis gegen den Tag-Befund abgleichen.
+- [ ] **C2 — Schicht-Folge-Regelwerk:** bottom → solid (1..n) → top (+ optional
+      Ironing auf DERSELBEN Schichthöhe). Verboten: zwei bottom übereinander,
+      zwei top übereinander, top ohne solid/Infill dazwischen.
+      bottom ist die ERSTE Schicht einer Einheit, nicht zwingend Layer 1.
+      Bridge über einer top, darunter wieder bottom → solid → top.
+- [ ] **C3 — Brim/Skirt-Erkennung korrigieren (User-Korrektur, wichtig):**
+      Brim/Skirt beginnen IMMER auf der ersten Schicht der Einheit — auch wenn
+      diese Einheit bei Layer 23 anfängt. Ein „Brim bei Layer 23" ist entweder
+      ein höhergezogener Brim (Raft-Schild) oder ein neues Bauteil.
+      Nicht: „brim/skirt nur auf Layer 1".
+- [ ] **C4 — Vokabular aller Slicer-Familien + Ausschlusskriterien** in das
+      Regelwerk (Quelle: `uploads/slicer-families.md`, 92 KB).
+- [ ] **C5 — Gegenprüfung Tag ↔ Geometrie** in den Watcher einbauen (Meldung,
+      wenn die Stufen sich widersprechen).
+
+## D. Dokumentation (Handbücher + PDFs)
+
+- [ ] **D1 — MANUAL.md gegen den CODE prüfen, nicht fortschreiben.**
+      Jede Aussage: stimmt sie noch? Wird sie vom Code so umgesetzt? Wo Code
+      und Doku auseinanderlaufen und der Code nicht der Planung entspricht →
+      **dem User melden**, nicht einfach die Doku anpassen.
+- [ ] **D2 — Textur-PDF ist veraltet:** alte Vorschaubilder, alte Preset-Zahl.
+      Die 27 Textur-Typen/Presets müssen mit Bildern und Parametern drin sein.
+- [ ] **D3 — Pro Generator eine wissenschaftliche PDF** (Vorbild:
+      `TEXTURING.pdf`, `CUTSPLIT.pdf`): Funktionsweise, Parameter, Abläufe,
+      Presets, Beispiel-Parametersätze mit erwartetem Ergebnis.
+- [ ] **D4 — Pro Modifikator (Pre-Print-Geometrie-Tools) eine PDF** mit der
+      Mathematik dahinter — so erklärt, dass man blind am Drucker arbeiten kann.
+- [ ] **D5 — Kreativ-PDF „On-Machine Design Studio for Creative Freedom"**:
+      Fehlersuche/Optimierung, kreative Verkettung, Deko-Sets, Modellbau,
+      Doppel-Durchgänge. Schlusssatz (wörtlich gewünscht): *kein PC, kein
+      3D-Programm, keine KI — nur ein Drehrad.*
+- [ ] **D6 — Bilder-Regel (verbindlich):** keine Fantasie-Grafiken. Jede
+      Anschauung muss aus den tatsächlichen Parametern und dem echten
+      Algorithmus abgeleitet sein, Rechtschreibung im Bild korrekt.
+
+## E. Crash / MCU-Shutdown (offen)
+
+- [ ] **E1 — Shutdown: NEUE BEWEISE aus dem .142g-Feldlog (12.11., 01:36).**
+      Der Shutdown kam diesmal **beim Homing des Print-Starts**, nicht am
+      PRINT_END: `G28` → Z-Homing über den Probe → **4× „No trigger on probe
+      after full movement"** (Probe hat NICHT ausgelöst, Düse lief auf Z=-6.0
+      — Position steht im Log) → 0,47 s Reactor-Block (Stack: led_effect
+      `_pollProgress`/`_getFrames`, Menu-Dispatch, TMC-Enable, delayed_gcode)
+      → `MCU 'mcu' shutdown: Timer too close`. Der MCU war dabei **nicht**
+      ausgelastet (`mcu_awake=0.015`, `sysload≈0.5`) — der Host hat in
+      Schüben gequeued (`buffer_time` bis 3,667 s). Zwei getrennte Baustellen:
+      (a) **Probe/Hardware** (PC14 mit `^!`, Deploy über PA1 + `G4 P750`) —
+      ohne Trigger ist kein Druckstart möglich; (b) die Host-Seite
+      (led_effect + Menü im selben Fenster). Auto-Recovery hat gegriffen
+      (94 s). Nächstes: Probe-Zweig im Print-Start sauber abbrechen und die
+      led_effect-Last während Homing weiter senken.
+- [x] **E2 — Input Shaper ohne Beschleunigungssensor.** *(erledigt R251)*
+      `CALIBRATE_SHAPER` verlangt `[resonance_tester]` + Sensor; `[input_shaper]`
+      allein reicht nicht. Der manuelle Override (`ishaper_ov_*`, überlebt
+      Neustarts) hatte KEINE Menüzeile → für den User unerreichbar.
+      **Gelöst:** Maintenance > Vibration Cal. > **Manual** — Statuszeile (was
+      Klipper JETZT fährt + Override-Zustand), pro Achse `Override: ON/off`,
+      `Shaper` (ZV/MZV/EI/2HUMP_EI/3HUMP_EI oder `printer.cfg`), `Freq`
+      (5–200 Hz, Schritt 0,5). Neues Makro `SHAPER_MANUAL` (live setzen +
+      Boot-Override speichern, `TYPE=CONFIG` holt Typ+Freq+Damping aus
+      printer.cfg zurück, `ON=0` = Override aus, ohne `[input_shaper]` klare
+      Meldung). Dazu **ShpOff** wieder am LCD: Live Tuning > Spd per feat,
+      Zeile direkt unter FeatOn — schaltet den Shaper für das Feature, das
+      GERADE druckt (B2 hatte dem Schalter das Zuhause genommen).
+
+## F. Erledigt (mit Beleg)
+
+- [x] **R252 (.142h) — Postprozessor-Umschalter + Log-Paket.** Auf Anweisung:
+      den laufenden Postprozessor NICHT umbauen, sondern kopieren
+      (`tools/r2_postproc_next.py`, byte-gleich) und einen Schalter ins
+      Systemmenü (`System > PP engine`, `pp_engine` in der variables-DATEI,
+      Handover über runpy, Fallback + 15-min-Bremse, `--engine=stable`).
+      Dazu `tools/r2_collect.py` (Beweispaket) mit LCD-Zeile
+      `System > Diagnostics > Log pack`, Ablage in `crash_archive/` als
+      `.txt` + `.txt.gcode` (Mainsail listet nur „druckbare" Dateien),
+      Scan-Guard im Postprozessor, Doku (Symlink-Kapitel, 19a2, 19a3).
+
+- [x] SD-Browser geparkt (`SD_BROWSER_ON = False`), Klippers `vsdlist` zurück;
+      live geprüft: 0 `_SDM`-Queries, 0 `sd_*`-Pushes. → **aber A1/A2 offen,
+      die Ersatzlösung ist noch nicht bedienbar.**
+- [x] Optimized + Generated als Untermenüs unter SD Card.
+- [x] B3, B4 (Titel + Duplikate).
+- [x] Gates: macro_render 2052/2052, r166 OK, r142 142/0, r165 clean,
+      r81 23/23, r199 18/0.
+- [x] R250: Gates macro_render 2070/2070, r166 OK, r142 142/0, r165 clean,
+      r81 23/23 (neu gefroren), r199 30/0.
+- [x] R251: Gates macro_render 2080/2080, r166 OK (2722 Sektionen), r142 142/0,
+      r165 clean, r81 23/23 (neu gefroren).
+- [x] R252: Gates macro_render 2092/2092, r166 OK (2732 Sektionen), r142 142/0,
+      r165 clean, r81 23/23 (neu gefroren, A/B bewiesen).

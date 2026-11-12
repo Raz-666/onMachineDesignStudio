@@ -10,6 +10,13 @@ keeps that guarantee alive: it rebuilds the 23 fixture cases, runs them
 through the CURRENT module and compares MD5s + change summaries against the
 frozen references.
 
+RE-FREEZE HISTORY: R252 (.142h) re-froze mr01-mr13 (version bump
+class - POSTPROC_RELEASE .142g -> .142h, BUILD R251 -> R252, both the
+same length; R252 adds the engine switch (r2_postproc_next.py handover)
+and the R2-DOCTOR scan guard in the WATCH layer - make_range/process are
+untouched). Proofs: the .142g module from git 9efbeb6 reproduces the
+previous references byte-exactly (23/23, md5 AND summaries); every
+summary dict is unchanged. Re-frozen from the bumped module.
 RE-FREEZE HISTORY: R251 (.142g) re-froze mr01-mr13 (version bump
 class - POSTPROC_RELEASE .142f -> .142g, BUILD R250 -> R251, both the
 same length; the R251 changes live in the menus and in the new
@@ -381,19 +388,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # process() output is identical old vs new, ALL 13 mr md5s change (every
 # range excerpt carries the core stamp), no summary moves, and r81 was
 # 23/23 green with the R213 code BEFORE the stamp bump.
-REF_MD5 = {'mr01': '8b5d8a52b1aa8c1571a4cc0262ad2596',
- 'mr02': '9fa91f12409b1f3184dbc17068ebc040',
- 'mr03': '7946f80905c58d14b48b79bde4e9d90e',
- 'mr04': '4c501f6b27548361589fee10723dd6cb',
- 'mr05': '116ee7b655475975b8b02ad44f93b61c',
- 'mr06': 'dded38b0bcd40045f47687adcadd11b2',
- 'mr07': '44bdd29e75cd8c08e8cd404d3a556597',
- 'mr08': '3692fd48b2e74f3678f09037a865531b',
- 'mr09': '120c8e53c94445e6406aa18bd4f85b25',
- 'mr10': 'aca470aa7a3fabcdaaf2554b8ad5f954',
- 'mr11': 'd8fdac4552d73b6cc05c6f41698e5c88',
- 'mr12': '76e4f0a503da097996bbcb1b5959b989',
- 'mr13': 'f271b28a3cbe0c35da2ae3f5d6be20fe',
+REF_MD5 = {'mr01': '1fe7f818b3f4c88662503b8d6fcfb5b7',
+ 'mr02': '0c7d59f42f0ed6d3516e78b7eac7f906',
+ 'mr03': '714e7174a33e95960ec5e32e19502bfc',
+ 'mr04': '2417a249859e80c44ee6b3755fbd652b',
+ 'mr05': 'e1be54bc79ce59dd2519be0663236f72',
+ 'mr06': 'b19b7147013fcc407d5ed24eff31f8f0',
+ 'mr07': '59120e3853ed710cb6f03df1e193f3c3',
+ 'mr08': '914583d80f19e1d8b9b409c0c3e57c20',
+ 'mr09': 'e876f53582b0995f3dc88f42d3633f46',
+ 'mr10': '76284c7aff2dd2924f82dfc807b83e23',
+ 'mr11': 'ac6975f1085f7d3a9326630b19c037aa',
+ 'mr12': '427c2e5c728c20c4728cfc9bccb0ea9f',
+ 'mr13': 'aaf737e9df092aa6633e4bb9c32a8b0c',
  'pr01': 'aa5a6f27d5a7e6576f57eeea93af63a5',
  'pr02': '61457e9bcbd98996b6e7dc26efda23d8',
  'pr03': '923725a1d92fccc88241ed8a3ab8065b',

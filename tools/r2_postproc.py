@@ -77,8 +77,8 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-11.142g'
-POSTPROC_BUILD = 'R251'
+POSTPROC_RELEASE = 'R2-2026-11-11.142i'
+POSTPROC_BUILD = 'R253'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
 # and no speed/accel/nozzle parameters. Files carrying an OLD tag are UPGRADED
@@ -17872,6 +17872,15 @@ _STL_EXCLUDE214 = frozenset(
      # walls / gap fill are skipped and NAMED in the message - a view
      # and share mesh that every program can open.
      'INFILL-SPARSE', 'INFILL-SOLID', 'WALL-INNER', 'GAPS'))
+# R253 (.142i field log): the surfaces the export is FOR. A file that never
+# names one of these (Kiri:Moto '; shell', SuperSlicer ';TYPE:Perimeter',
+# any vase-mode file whose only wall tag is the inner one) is TYPE=MARKED but
+# every wall lands in WALL-INNER -> the strict set skipped the whole object
+# and the export died with 'no object extrusion found'. The export relaxes
+# instead of failing, and SAYS so.
+_STL_SURFACE214 = frozenset(('WALL-OUTER', 'TOP', 'BOTTOM', 'BRIDGE',
+                             'OVERHANG'))
+_STL_RELAX214 = frozenset(('WALL-INNER', 'GAPS'))   # dropped when relaxing
 _STL_FIL_AREA214 = 1.75 * 1.75 * 0.7853981633974483   # mm^2 filament section
 _STL_MAX_BOXES214 = 150000     # hard backstop - honest abort beyond that
 _STL_TARGET_BOXES216 = 45000   # R216: viewer budget (~27 MB / 540k tris) -
@@ -17891,6 +17900,25 @@ def _stl_export(directory, rel, out_dir=None):
     opener = gzip.open if src.lower().endswith('.gz') else open
     with opener(src, 'rt', errors='replace') as f:
         raw = f.read()
+
+    # ---- pass 0a (R253): which wall kinds does this file actually NAME? ----
+    # A quick comment-only scan (no move parsing) decides whether the strict
+    # outer-skin set can work. Nothing is guessed about geometry here - only
+    # the vocabulary of the file.
+    # types only ever appear in COMMENT lines - skipping the move lines
+    # keeps this pre-scan cheap, and it runs to the END of the file (a
+    # first-move cutoff missed every type, because the skirt block precedes
+    # them in most files - found in the R253 self test)
+    _kinds214 = set()
+    for ln in raw.split('\n'):
+        if ln[:1] == ';':
+            _m214k = TYPE_RE.match(ln)
+            if _m214k:
+                _kinds214.add(_canon_type(_m214k.group(1)))
+    _relax214 = not (_kinds214 & _STL_SURFACE214)
+    _excl214 = ((_STL_EXCLUDE214 - _STL_RELAX214) if _relax214
+                else _STL_EXCLUDE214)
+    del _kinds214
 
     # ---- pass 0 (R216): the dominant layer height --------------------------
     # Spiral-vase files raise Z on EVERY segment - without quantizing Z to
@@ -17989,7 +18017,7 @@ def _stl_export(directory, rel, out_dir=None):
         # r2 files; the ribbon approximation is honest enough for a mesh)
         seg = ((x - px) ** 2 + (y - py) ** 2) ** 0.5
         if de > 0.0 and seg > 1e-4:
-            if cur_type in _STL_EXCLUDE214:
+            if cur_type in _excl214:        # R253: strict or relaxed
                 excl_mm[cur_type] = excl_mm.get(cur_type, 0.0) + seg
                 run = None
                 continue
@@ -18129,7 +18157,7 @@ def _stl_export(directory, rel, out_dir=None):
     info = {'file': out, 'boxes': n_box, 'tris': n_tri,
             'layers': len(z_h), 'runs': len(runs), 'incl_mm': incl_mm,
             'excl': excl_mm, 'capped': n_box >= _STL_MAX_BOXES214,
-            'untyped': not seen_type,
+            'untyped': not seen_type, 'relaxed': _relax214,
             'decimated': bool(_minseg216 > 0.0),
             'min_seg': round(_minseg216, 2)}
     return os.path.relpath(out, directory), info
@@ -18451,12 +18479,18 @@ def _segments_fix_file(path):
                     # output move), a wandering path stops the moment the
                     # chord leaves a 0.12mm tube around it (a fifth of the
                     # line width - the geometry never deviates more).
-                    if de < 0.1 and pend['hops'] < 127:
+                    # R253 (.142i field log): 127 hops * 0.0002mm = 0.026mm -
+                    # the "fix" could not reach the budget on a real micro
+                    # flood and reported 'already smooth (5372 moves/s)'. The
+                    # chord tube (0.12mm) is the real geometry guard; the hop
+                    # cap only has to keep one output move sane, so it is now
+                    # 4096 hops AND 5mm of chord.
+                    if de < 0.1 and pend['hops'] < 4096:
                         ax239, ay239 = pend['x0'], pend['y0']
                         dx239, dy239 = x - ax239, y - ay239
                         l239 = math.hypot(dx239, dy239)
-                        ok239 = True
-                        for bx239, by239 in pend['pts']:
+                        ok239 = l239 <= 5.0
+                        for bx239, by239 in (pend['pts'] if ok239 else ()):
                             d239 = (abs(dx239 * (by239 - ay239)
                                         - dy239 * (bx239 - ax239)) / l239
                                     if l239 > 0.0
@@ -23837,10 +23871,21 @@ def watch(directory, interval=5.0, once=False):
                            % ('%d micro move(s) merged' % n if n
                               else 'file rewritten', _m2s, base, rb, ra))
                     snd = 'r2_done'
-                else:
+                elif rb <= 450.0:
                     msg = ('Segment fix: %s is already smooth (%.0f moves/s '
-                           'worst) - nothing changed' % (base, rb))
+                           'worst, budget ~450) - nothing changed' % (base, rb))
                     snd = 'r2_notice'
+                else:
+                    # R253: the old text claimed 'already smooth (5372
+                    # moves/s)' - a contradiction the field log caught. If
+                    # the rate is still over budget, say so and name the
+                    # reason instead of pretending.
+                    msg = ('Segment fix: %s still carries %.0f moves/s after '
+                           'the merge (MCU budget ~450/s) - no consecutive '
+                           'micro hops were found, the tiny moves sit apart '
+                           '(retracts/feature changes between them). Do NOT '
+                           'print it as is' % (base, ra if ra else rb))
+                    snd = 'r2_alarm'
                 _moonraker_gcode('RESPOND MSG="%s"\nM117 SegFix done\n'
                                  '_SOUND_LIB NAME=%s' % (msg, snd))
                 if n:
@@ -23939,6 +23984,12 @@ def watch(directory, interval=5.0, once=False):
                         or PLOT_PAT.search(fn)):
                     continue
                 p = os.path.join(root, fn)
+                # R252: the evidence pack is a .txt.gcode so Mainsail LISTS it
+                # (that is the whole point) - it must never be tagged, listed
+                # as a print job or picked up by a generator. Both the .txt and
+                # the .txt.gcode twin carry the R2-DOCTOR- prefix.
+                if fn.startswith('R2-DOCTOR-'):
+                    continue
                 # R249: a root LINK is a pointer to an output that is scanned
                 # in its own folder. Processing it here would re-tag the file
                 # THROUGH the link (mtime churn, double _FILE_INFO) and list
@@ -24518,6 +24569,7 @@ def watch(directory, interval=5.0, once=False):
     # on the LCD, once at boot.
     _pb166 = '%s (%s)' % (POSTPROC_RELEASE, POSTPROC_BUILD)
     _pb166_t = {'t': 0.0}
+    _pe252_t = {'t': 0.0}     # R252: rate limit for the engine publication
     _pb216_done = [False]   # R216b: one successful push per daemon run.
                             # The .136m field log pushed postproc_build
                             # FOUR times in 2 minutes - every push rewrites
@@ -24622,6 +24674,14 @@ def watch(directory, interval=5.0, once=False):
         # R61: layer-range excerpt request from the LCD (nonce changes on every request)
         try:
             rv = _read_vars(VAR_PATH)
+            # R252: the evidence pack. The LCD row bumps doctor_nonce; one
+            # pack per press, and only while idle (it copies logs - disk I/O
+            # during a print is the .125 lesson).
+            if not busy:
+                try:
+                    _doctor_tick(directory, rv)
+                except Exception as _e252d:              # noqa: BLE001
+                    print('[doctor] tick failed: %r' % _e252d, flush=True)
             # R226 (.136x field log): gen_busy RECONCILIATION. The flag
             # lives in variables.cfg and SURVIVES a klippy restart - but
             # the R223 boot-drop only runs when the WATCHER restarts, and
@@ -24683,6 +24743,16 @@ def watch(directory, interval=5.0, once=False):
             # update script queries it to PROVE the restart took effect;
             # rate-limited to 10s so a down klippy cannot stall the loop
             # (the push is retried on a later pass until it sticks).
+            # R252: publish WHICH engine runs (stable / experimental copy)
+            # so the LCD row and the update script can prove it.
+            if str(rv.get('postproc_engine', '')) != os.environ.get(
+                    'R2_PP_ENGINE_ACTIVE', 'stable'):
+                if time.monotonic() - _pe252_t['t'] >= 10.0:
+                    _pe252_t['t'] = time.monotonic()
+                    _moonraker_gcode(
+                        'SAVE_VARIABLE VARIABLE=postproc_engine VALUE="\\"%s\\""'
+                        % ('next' if os.environ.get('R2_PP_ENGINE_ACTIVE') == 'next'
+                           else 'stable'))
             if not _pb216_done[0] \
                     and str(rv.get('postproc_build', '')) != _pb166 \
                     and time.monotonic() - _pb166_t['t'] >= 10.0:
@@ -24959,6 +25029,10 @@ def watch(directory, interval=5.0, once=False):
                             if _inf214['capped']:
                                 _msg214 += (' - CAPPED at %d ribbons, mesh '
                                             'truncated' % _inf214['boxes'])
+                            if _inf214.get('relaxed'):
+                                _msg214 += (' - NOTE: this file names no '
+                                            'outer wall, the inner wall is '
+                                            'the surface (R253)')
                             _msg214 += (' - outer skin: internal infill '
                                         'skipped - Mainsail: STL folder, '
                                         'download + remove the .gcode '
@@ -28251,6 +28325,172 @@ def watch(directory, interval=5.0, once=False):
         time.sleep(60.0 if _ram_low148 else (12.0 if busy else interval))
 
 
+# =====================================================================================
+#  R252 (.142h) - TWO THINGS THE USER ASKED FOR IN THE .142g FIELD ROUND
+#
+#  (1) ENGINE SWITCH. Instruction, word for word: do not keep rebuilding the
+#      post-processor we run today - keep it, make a COPY of it and work on
+#      the copy, and put a switch on the LCD (System menu) so the stable or
+#      the experimental one runs, with an instant way back.
+#      This file stays the ONLY entry point the service starts. Before it
+#      does anything in --watch mode it reads the switch (save_variables
+#      'pp_engine', read from the FILE so it works with klippy down) and, if
+#      it says 'next', hands over to r2_postproc_next.py - the copy. A
+#      syntax error, a missing copy or a handover that blew up in the last
+#      15 minutes keeps the STABLE engine running and says so loudly. Nothing
+#      about the print flow, the macros or the menus depends on this.
+#      `--engine=stable|next` on the command line beats the switch.
+#
+#  (2) EVIDENCE PACK ("Doctor"). Every shutdown round started with "how do I
+#      get you the log?". r2_collect.py builds ONE file (versions, host,
+#      services, watcher state, settings, the klippy incident digest, the log
+#      tail, the newest MCU snapshot, printer.cfg) into
+#      gcodes/crash_archive/ - as .txt AND as .txt.gcode, because
+#      Mainsail/the stock SD list only show files they consider printable
+#      (that is why the old .log snapshots were invisible). Started from the
+#      LCD (System > Diagnostics > "Log pack") via doctor_nonce, or by hand:
+#      python3 tools/r2_collect.py
+# =====================================================================================
+_TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
+PP_NEXT_FILE = os.path.join(_TOOLS_DIR, 'r2_postproc_next.py')
+_PP_FAIL_FILE = os.path.join(_TOOLS_DIR, 'pp_engine_fail.json')   # gitignored,
+                                                       # like watch_state.json
+_PP_FAIL_BRAKE = 900.0          # 15 min: a handover that died is not repeated
+
+
+def _pp_var_path(argv):
+    """The variables file the gate must read. watch() computes it from the
+    gcodes dir's parent - the gate runs BEFORE watch(), so it derives the
+    same path from the command line itself (VAR_PATH is still None there)."""
+    for i, a in enumerate(argv):
+        if a == '--watch' and i + 1 < len(argv):
+            return os.path.join(
+                os.path.dirname(os.path.abspath(argv[i + 1].rstrip('/'))),
+                'variables.cfg')
+    return VAR_PATH
+
+
+def _pp_engine_choice(argv):
+    """-> (engine, source). Command line beats the LCD switch beats stable."""
+    for a in argv:
+        if a.startswith('--engine='):
+            v = (a.split('=', 1)[1] or 'stable').strip().lower()
+            return ('next' if v in ('next', 'experimental', 'new', 'copy')
+                    else 'stable'), 'command line'
+    try:
+        _vp = _pp_var_path(argv)
+        if _vp and os.path.isfile(_vp):
+            rv = _read_vars(_vp) or {}
+            v = str(rv.get('pp_engine', 'stable') or 'stable').strip().lower()
+            if v in ('next', 'experimental', 'new', 'copy'):
+                return 'next', 'LCD switch'
+            return 'stable', 'LCD switch'
+    except Exception:                                   # noqa: BLE001
+        pass
+    return 'stable', 'default'
+
+
+def _pp_fail_write(reason):
+    try:
+        import json
+        with open(_PP_FAIL_FILE, 'w') as f:
+            json.dump({'t': time.time(), 'reason': str(reason)[:400]}, f)
+    except Exception:                                   # noqa: BLE001
+        pass
+
+
+def _pp_fail_age():
+    try:
+        return time.time() - os.path.getmtime(_PP_FAIL_FILE)
+    except Exception:                                   # noqa: BLE001
+        return 1e9
+
+
+def _pp_engine_gate(argv):
+    """Hand over to the experimental copy when the switch says so.
+
+    Returns the engine this process is running as. Called from main() for
+    --watch only: the diagnostics (--file-check, --stl, generators) always
+    run on the STABLE code, so a broken experiment can never take the
+    troubleshooting tools down with it.
+    """
+    if os.environ.get('R2_PP_ENGINE_ACTIVE') == 'next':
+        return 'next'
+    eng, src = _pp_engine_choice(argv)
+    if eng != 'next':
+        return 'stable'
+    if not os.path.isfile(PP_NEXT_FILE):
+        _pp_fail_write('copy missing: %s' % PP_NEXT_FILE)
+        print('[engine] switch says EXPERIMENTAL but %s is missing - staying '
+              'on the stable engine' % PP_NEXT_FILE, flush=True)
+        return 'stable'
+    age = _pp_fail_age()
+    if age < _PP_FAIL_BRAKE:
+        print('[engine] switch says EXPERIMENTAL but the last handover failed '
+              '%.0fs ago - staying on stable (fix it, then press the switch '
+              'again in %.0fs)' % (age, _PP_FAIL_BRAKE - age), flush=True)
+        return 'stable'
+    try:
+        with open(PP_NEXT_FILE, encoding='utf-8') as f:
+            compile(f.read(), PP_NEXT_FILE, 'exec')
+    except SyntaxError as e:
+        _pp_fail_write('syntax error: %r' % (e,))
+        print('[engine] the experimental copy does not even parse (%r) - '
+              'staying on stable' % (e,), flush=True)
+        return 'stable'
+    print('[engine] %s says EXPERIMENTAL -> handing over to %s'
+          % (src, os.path.basename(PP_NEXT_FILE)), flush=True)
+    _moonraker_gcode(
+        'RESPOND MSG="[i] Post-processor: EXPERIMENTAL engine (%s). Back any '
+        'time: System > Post-Processor > Use stable."' % POSTPROC_BUILD)
+    os.environ['R2_PP_ENGINE_ACTIVE'] = 'next'
+    try:
+        import runpy
+        runpy.run_path(PP_NEXT_FILE, run_name='__main__')
+    except SystemExit:
+        raise
+    except BaseException as e:                          # noqa: BLE001
+        _pp_fail_write('handover failed: %r' % (e,))
+        print('[engine] the experimental engine died: %r - falling back to '
+              'stable' % (e,), flush=True)
+        try:
+            _moonraker_gcode(
+                'RESPOND MSG="[!] Experimental post-processor failed - back on '
+                'the STABLE one. System > Post-Processor shows the state."')
+        except Exception:                               # noqa: BLE001
+            pass
+        return 'stable'
+    # The experimental engine returned without exiting: do NOT start a second
+    # watch loop in this process.
+    print('[engine] the experimental engine returned - exiting instead of '
+          'running a second watch loop', flush=True)
+    sys.exit(0)
+
+
+_DOCTOR_STATE = {'nonce': None}
+
+
+def _doctor_tick(directory, rv):
+    """R252: build the evidence pack once per LCD press (doctor_nonce)."""
+    nonce = str((rv or {}).get('doctor_nonce', '') or '').strip()
+    if not nonce or nonce == _DOCTOR_STATE['nonce']:
+        return
+    _DOCTOR_STATE['nonce'] = nonce
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        'r2_collect', os.path.join(_TOOLS_DIR, 'r2_collect.py'))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    txt, gc, size, nsec = mod.build_pack(gcodes_dir=directory, quiet=True)
+    name = os.path.basename(gc or txt)
+    print('[doctor] pack: %s (%d bytes, %d sections)' % (name, size, nsec),
+          flush=True)
+    _moonraker_gcode(
+        'RESPOND MSG="[i] Log pack ready: crash_archive/%s (%.1f MB, %d '
+        'sections). Mainsail > Dateien > crash_archive > download it and send '
+        'it over.\\nM117 Log pack ready"' % (name, size / 1048576.0, nsec))
+
+
 def main():
     args = sys.argv[1:]
     if not args:
@@ -28260,6 +28500,9 @@ def main():
         if len(args) < 2:
             print('usage: r2_postproc.py --watch DIRECTORY [--once]')
             sys.exit(1)
+        # R252: the engine switch (see the block above main()). Only the
+        # daemon hands over - the diagnostics never do.
+        _pp_engine_gate(args)
         watch(args[1], once='--once' in args)
         return
     if args[0] == '--label':
@@ -28407,6 +28650,10 @@ def main():
             print('[stl] skipped: ' + ', '.join(
                 '%s %.1fm' % (k214.lower(), v214 / 1000.0)
                 for k214, v214 in sorted(info214['excl'].items())))
+        if info214.get('relaxed'):
+            print('[stl] NOTE: this file names no outer wall (no WALL-OUTER/'
+                  'TOP/BOTTOM) - the inner wall + gap fill are exported so '
+                  'the object is not empty. The surface is the inner line.')
         if info214['untyped']:
             print('[stl] NOTE: the file has no ;TYPE comments at all - '
                   'only typed blocks export (run RETAG if this surprises you)')
