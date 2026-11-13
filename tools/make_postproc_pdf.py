@@ -578,8 +578,8 @@ def build(toc_seiten=None):
     kb.story += CODE(
         'python3 tools/samples/make_statprobe.py        # Quelle erzeugen\n'
         'python3 tools/r2_postproc.py --watch tools/samples --once\n'
-        '# [ok] statprobe.gcode: +0 LAYER_MARK (None), +104 APPLY_TYPE,\n'
-        '#      _FILE_INFO layers=30, by_object=False')
+        '# [ok] statprobe.gcode: +104 APPLY_TYPE, _FILE_INFO layers=30, by_object=False\n'
+        '# [i] initial scan done: 1 gcode file(s) found, 1 processed, 0 errors')
     kb.story += TBL(['Feature', 'Wege', 'Weglänge', 'Q max (mm³/s)', 'Anteil Wege'],
                     [[k.replace('-', ' '), str(st[k]['n']), '%.0f mm' % st[k]['len'],
                       '%.2f' % st[k]['rmax'],
