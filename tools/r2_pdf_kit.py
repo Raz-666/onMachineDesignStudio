@@ -23,6 +23,7 @@ Benutzung (Muster: tools/make_cakesplit_pdf.py):
     kb.story += H1('1 Einleitung') + P('...') + TBL([...],[...],[...])
     kb.build()
 """
+import math
 import os
 import sys
 
@@ -327,14 +328,46 @@ class Doc(BaseDocTemplate):
 
 # ------------------------------------------------------------- Figuren-Helfer
 def toolpath_fig(gcode_path, out_png, titel='', max_moves=60000,
-                 width_px=1100, height_px=560, bed=(0, 0, 235, 235)):
+                 width_px=1100, height_px=560, bed=None):
     """Zeichnet den ECHTEN XY-Fahrweg einer erzeugten G-Code-Datei.
 
     Keine Skizze: gelesen werden G0/G1-Zeilen mit X/Y, aufgeteilt in
     Extrusion (dunkel) und Leerfahrt (hell). Damit sieht man am Bild, was der
     Generator wirklich aufs Bett legt.
     """
+    # R2: ohne festes Bett wird der AUSSCHNITT aus dem Fahrweg selbst
+    # bestimmt - ein 40-mm-Teil auf einem 235-mm-Bett war im Bild sonst ein
+    # Briefmarken-Fleck (im Heft gesehen, nicht vermutet).
+    def _moves():
+        with open(gcode_path, errors='replace') as fh:
+            for line in fh:
+                s_ = line.split(';', 1)[0].strip()
+                if not (s_.startswith('G1 ') or s_.startswith('G0 ')):
+                    continue
+                kv = {}
+                for tok in s_.split()[1:]:
+                    if tok[:1] in 'XYZ':
+                        try:
+                            kv[tok[0]] = float(tok[1:])
+                        except ValueError:
+                            pass
+                if 'X' in kv and 'Y' in kv:
+                    yield kv['X'], kv['Y'], ('E' in kv and kv.get('E', 0) > 0)
+    if bed is None:
+        xs = []
+        ys = []
+        for x, y, _e in _moves():
+            xs.append(x)
+            ys.append(y)
+        if not xs:
+            bed = (0, 0, 235, 235)
+        else:
+            mx = max(6.0, 0.06 * max(1.0, max(xs) - min(xs)))
+            my = max(6.0, 0.06 * max(1.0, max(ys) - min(ys)))
+            bed = (min(xs) - mx, min(ys) - my, max(xs) + mx, max(ys) + my)
     x0, y0, x1, y1 = bed
+    _span = max(x1 - x0, y1 - y0)
+    _grid = 5 if _span <= 40 else (10 if _span <= 90 else (25 if _span <= 160 else 50))
     im = PILImage.new('RGB', (width_px, height_px), 'white')
     d = ImageDraw.Draw(im)
     pad = 34
@@ -351,9 +384,12 @@ def toolpath_fig(gcode_path, out_png, titel='', max_moves=60000,
     _b = px(x1, y1)
     d.rectangle([min(_a[0], _b[0]), min(_a[1], _b[1]),
                  max(_a[0], _b[0]), max(_a[1], _b[1])], outline='#c9d6e6')
-    for g in range(50, int(x1), 50):
-        d.line([px(g, y0), px(g, y1)], fill='#eef2f7')
-        d.line([px(x0, g), px(x1, g)], fill='#eef2f7')
+    _g0 = math.ceil(x0 / _grid) * _grid
+    _g = _g0
+    while _g < x1:
+        d.line([px(_g, y0), px(_g, y1)], fill='#eef2f7')
+        d.line([px(x0, _g), px(x1, _g)], fill='#eef2f7')
+        _g += _grid
     n_move = n_ext = 0
     cur = None
     with open(gcode_path, errors='replace') as fh:
@@ -384,8 +420,11 @@ def toolpath_fig(gcode_path, out_png, titel='', max_moves=60000,
             if n_ext + n_move > max_moves:
                 break
     # Maßstab
-    d.line([pad, height_px - 18, pad + 20 * sc, height_px - 18], fill='#58595b', width=2)
-    d.text((pad + 3, height_px - 34), '20 mm', font=font(13), fill='#58595b')
+    _sb = 20 if _span > 60 else (10 if _span > 25 else 5)
+    d.line([pad, height_px - 18, pad + _sb * sc, height_px - 18],
+           fill='#58595b', width=2)
+    d.text((pad + 3, height_px - 34), '%d mm' % _sb, font=font(13),
+           fill='#58595b')
     if titel:
         d.text((pad, 8), titel, font=font(17, bold=True), fill='#1c4e8c')
     d.text((width_px - 330, height_px - 30),
