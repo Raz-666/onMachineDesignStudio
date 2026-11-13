@@ -55,7 +55,7 @@ env232 = _E232(loader=_B232(), variable_start_string='{',
               block_end_string='%}', comment_start_string='{#',
               comment_end_string='#}')          # trim_blocks NOT set = klipper
 
-# the REAL 44-look texture library (a Python dict literal in the cfg) - the
+# the REAL texture library (a Python dict literal in the cfg) - the
 # harness mock ships a neutral empty one, S5 needs the real shelf
 _libline = [l for l in open(os.path.join(REPO, 'macros', '17_generator.cfg'),
                             encoding='utf-8')

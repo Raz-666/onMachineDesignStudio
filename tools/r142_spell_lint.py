@@ -53,6 +53,9 @@ testz stopat rect ishaper bandh penz fanl wht gry blk
 re-heats re-inserting re-applied re-measure dockable cpu mate mating hands hats feet scaled cell cells
 col forced tall stray cleans socket spigot cover shelf joints re-fix
 pre post vol
+# R254: real words of the domain that the dictionary lacks (each one was
+# looked at in its sentence - none of them is a typo)
+sdm klippy sudo spd macrame re-applies
 '''.split())
 
 WORD_RE = re.compile(r"[A-Za-z][A-Za-z'-]{2,}")

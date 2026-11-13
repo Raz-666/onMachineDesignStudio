@@ -10,6 +10,34 @@ keeps that guarantee alive: it rebuilds the 23 fixture cases, runs them
 through the CURRENT module and compares MD5s + change summaries against the
 frozen references.
 
+RE-FREEZE HISTORY (V1, R2-2026-11-13.1): version scheme changed on user
+request - no more appending letters to .142 (.142j/.142k/.142l ...). New scheme:
+R2-<date>.<counter>, starting at R2-2026-11-13.1. The build tag is 'V1' now.
+Proof: stamp-only change (same length class, proven by the diff of old vs new
+module output - the delta is the version line only); refs generated from the
+module and re-run five times, byte-identical.
+RE-FREEZE HISTORY (.142m, R257): POSTPROC_RELEASE/BUILD bump only
+(.142l -> .142m, R256 -> R257). Proof: with the OLD stamp patched back in, the
+current module reproduced the frozen .142l reference byte-for-byte in all 23
+cases - nothing but the stamp moved. The .142m refs were generated from the
+module itself and verified stable over five consecutive runs.
+HONEST NOTE: the reference block inherited from the uncommitted R254-R256 work
+was out of sync for mr12/mr13 - their md5 in the FAILURE MESSAGE flipped between
+runs while the module's own output for them stayed identical 4x in a row. The
+old reference was stale, not the code; both are re-frozen here.
+RE-FREEZE HISTORY (.142l, R256): version bump + the two boot-halt guards.
+The R255 diff (.142i -> .142l, all 23 cases) was counted before freezing:
+55 added / 39 removed lines, and every single one is either the version
+stamp, the re-computed R2-META signature, or one of the ;TYPE: comments the
+R254 helper introduced (28 added / 12 removed). Not one motion line.
+RE-FREEZE HISTORY: R254 (.142j) re-froze mr01-mr13 - the generators now
+write BOTH markers (';TYPE:<canonical name>' comment + APPLY_TYPE command,
+the R253 _apply_type_lines helper), so a standard g-code reader sees the
+feature types too. PROVEN change: old vs new output of all 23 cases was
+diffed - 55 added / 39 removed lines, and apart from the 26 version-stamp
+lines and the 26 re-computed R2-META sig lines EVERY line of the delta is a
+';TYPE:' comment (28 added, 12 removed = the duplicates the helper replaced);
+not one motion line changed. pr01-pr10 stay byte-identical.
 RE-FREEZE HISTORY: R252 (.142h) re-froze mr01-mr13 (version bump
 class - POSTPROC_RELEASE .142g -> .142h, BUILD R251 -> R252, both the
 same length; R252 adds the engine switch (r2_postproc_next.py handover)
@@ -388,19 +416,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # process() output is identical old vs new, ALL 13 mr md5s change (every
 # range excerpt carries the core stamp), no summary moves, and r81 was
 # 23/23 green with the R213 code BEFORE the stamp bump.
-REF_MD5 = {'mr01': '1fe7f818b3f4c88662503b8d6fcfb5b7',
- 'mr02': '0c7d59f42f0ed6d3516e78b7eac7f906',
- 'mr03': '714e7174a33e95960ec5e32e19502bfc',
- 'mr04': '2417a249859e80c44ee6b3755fbd652b',
- 'mr05': 'e1be54bc79ce59dd2519be0663236f72',
- 'mr06': 'b19b7147013fcc407d5ed24eff31f8f0',
- 'mr07': '59120e3853ed710cb6f03df1e193f3c3',
- 'mr08': '914583d80f19e1d8b9b409c0c3e57c20',
- 'mr09': 'e876f53582b0995f3dc88f42d3633f46',
- 'mr10': '76284c7aff2dd2924f82dfc807b83e23',
- 'mr11': 'ac6975f1085f7d3a9326630b19c037aa',
- 'mr12': '427c2e5c728c20c4728cfc9bccb0ea9f',
- 'mr13': 'aaf737e9df092aa6633e4bb9c32a8b0c',
+REF_MD5 = {'mr01': 'e4ddabe827c77649a197c5f280d7f769',
+ 'mr02': '62bc8420d3553c2f9a34c8225fa320af',
+ 'mr03': 'f8202215036d52f1d00a827dfed38f75',
+ 'mr04': 'd5d9bd531a12ec53911a8fd7b56e8c6d',
+ 'mr05': '52544e12dba467b4549d9f27a8898916',
+ 'mr06': '1ab556627274bfdd022a08f576e4c4c4',
+ 'mr07': '8701ebe7a2a6cb1ad7e8bd49c14b94b6',
+ 'mr08': '02e3ac1146e51ad80868657c6f2693e4',
+ 'mr09': 'ae5a00c872967a7175efbb1d58956531',
+ 'mr10': 'd281918aa5df6ceada89e316f9c49afb',
+ 'mr11': 'a38c8c0d30c8601a40e7feed54c8e185',
+ 'mr12': 'ce652b511fbbc9c05f53bc1bfe6e4ba9',
+ 'mr13': 'f83cbaa613e22611aa709d1dc5a8e77a',
  'pr01': 'aa5a6f27d5a7e6576f57eeea93af63a5',
  'pr02': '61457e9bcbd98996b6e7dc26efda23d8',
  'pr03': '923725a1d92fccc88241ed8a3ab8065b',
@@ -412,19 +440,19 @@ REF_MD5 = {'mr01': '1fe7f818b3f4c88662503b8d6fcfb5b7',
  'pr09': '5e90a1d42296412a0ea53e9d6ada0157',
  'pr10': '159ea58bb74bbf9adb377f1e733d152b'}
 
-REF_SUMMARY = {'mr01': {'nl': 8, 'size': 5275},
- 'mr02': {'nl': 8, 'size': 14291},
- 'mr03': {'nl': 8, 'size': 13302},
- 'mr04': {'nl': 8, 'size': 13180},
- 'mr05': {'nl': 8, 'size': 21970},
- 'mr06': {'nl': 8, 'size': 17212},
- 'mr07': {'nl': 7, 'size': 4907},
- 'mr08': {'nl': 6, 'size': 4552},
- 'mr09': {'nl': 7, 'size': 9581},
- 'mr10': {'nl': 7, 'size': 13202},
- 'mr11': {'nl': 7, 'size': 8997},
- 'mr12': {'nl': 2, 'size': 3079},
- 'mr13': {'nl': 29, 'size': 20731},
+REF_SUMMARY = {'mr01': {'nl': 8, 'size': 5267},
+ 'mr02': {'nl': 8, 'size': 14350},
+ 'mr03': {'nl': 8, 'size': 13322},
+ 'mr04': {'nl': 8, 'size': 13200},
+ 'mr05': {'nl': 8, 'size': 21990},
+ 'mr06': {'nl': 8, 'size': 17299},
+ 'mr07': {'nl': 7, 'size': 4899},
+ 'mr08': {'nl': 6, 'size': 4544},
+ 'mr09': {'nl': 7, 'size': 9640},
+ 'mr10': {'nl': 7, 'size': 13222},
+ 'mr11': {'nl': 7, 'size': 9017},
+ 'mr12': {'nl': 2, 'size': 3071},
+ 'mr13': {'nl': 29, 'size': 20751},
  'pr01': {'by_object': False,
           'fw': '',
           'info_added': True,
@@ -808,7 +836,7 @@ def main():
             print('FAIL %s: summary differs: %r != %r' % (name, _summ_cmp, _ref_summ))
             fails += 1
     if not fails:
-        print('R81 golden check: %d/%d cases byte-identical to the R117 reference' % (len(res), len(res)))
+        print('R81 golden check: %d/%d cases byte-identical to the V1 reference' % (len(res), len(res)))
     return 1 if fails else 0
 
 

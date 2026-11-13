@@ -1,4 +1,4 @@
-# MASTER-TODO — alles, was der User verlangt hat (Stand: .142h / R252)
+# MASTER-TODO — alles, was der User verlangt hat (Stand: R2-2026-11-13.1 / V1)
 
 **Diese Datei ist ab jetzt der einzige Ort, an dem Aufgaben stehen.** Wenn etwas
 nicht hier steht, existiert es für die Arbeit nicht. Jede erledigte Zeile wird
@@ -47,6 +47,76 @@ abgehakt und mit dem Commit genannt, der sie erledigt hat.
 - [ ] **B5 — Feature per Wert 0 abschalten:** geprüft und ABGELEHNT, weil
       `M220 S0` den Drucker anhält bzw. PA/Flow-0 Sonderfälle sind.
       Stattdessen `FeatOn` neben dem Wert. (Dem User so erklärt.)
+
+
+## G. TEXTUREN — der große offene Block (User-Befund 13.11., mit Beweis)
+
+**Der Befund des Users, wörtlich:** „fast alle Texturen, die ich durchprobiert
+habe, haben mich überhaupt nicht überzeugt … es sind einfach nur waagerechte
+Linien in unterschiedlichen Abständen, die teilweise nicht mal die Geometrie
+richtig halten … keine einzige Variation sieht auch nur annähernd wie
+Baumrinde aus oder wie Holzdiele oder Parkett … irgendwas hast du verhauen."
+
+**Er hat recht, und hier ist der Beweis** (alles in diesem Lauf gerechnet):
+- Bild `docs/textur-matrix-ist.png`: alle 26 Muster, gezeichnet aus der
+  Funktion `_build_patterns()` selbst (nicht aus einer Beschreibung). Ergebnis:
+  RIDGES / FLUTED / BARK / PLANKS / FABRIC sind **senkrechte Streifen**, die sich
+  nur in der Amplituden-Modulation unterscheiden. WAVES / HATCH / ROPE sind
+  **diagonale Streifen** — dieselbe Familie. HEX / SCALES / FACETS / MACRAME /
+  HONEYCOMB / BRICKS sind **Punktgitter-Varianten**. GLITCH ist kaputt (flaue
+  Fläche mit einem harten Band). BARK ist „vertikale Streifen mit Rauschen" —
+  keine Rinde. PLANKS ist „vertikale Streifen mit Stufen" — keine Diele.
+- Messung am echten Objekt (Achteck-Zylinder aus dem Shape-Tool, Ihr V52-Fall):
+  Textur auf **8 Vertices pro Lage** (Vase-Modus) = eine Sägezahn-Welle zwischen
+  den 8 Ecken. Deshalb sieht der 3D-Viewer bei allen Presets „Wellen" statt
+  Material. Mit dichterer Abtastung (1-mm-Segmente, 207 Punkte/Lage) kommen die
+  Muster heraus — aber sie bleiben Streifen.
+- Der R238-„AUTO TILT" macht es **schlimmer**: er kippt jede Streifen-Familie um
+  2° und schiebt sie damit optisch in **eine** Diagonale. Genau die Beobachtung
+  „die unterscheiden sich fast gar nicht".
+- R224 hat mehrere Muster umgebaut, R238 den Tilt eingeführt — das sind die
+  Kandidaten für „verschlimmbessert".
+
+- [ ] **G1 — Textur-Bibliothek neu, tief statt flach.** Ziel: 8–10 Materialien,
+      die man am gedruckten Teil ERKENNT (Rinde, Diele, Ziegel, Welle/Eternit,
+      Wabe, Korb, Seil, Fell, Schuppen, Riffel). Kriterium pro Muster: es muss
+      eine **gerichtete Struktur mit Kanten** haben (Nut/Feder, Rindenborke,
+      Mauerfuge), nicht nur eine Sinuswelle. Prüfung: Vergleichsbild wie
+      `textur-matrix-ist.png`, aber als **Soll-Bild** je Material.
+- [ ] **G2 — Der AUTO TILT (R238) muss weg oder abschaltbar.** Er ist der Grund,
+      warum aus drei Familien eine wird. Vorschlag: Standard 0°, pro Preset
+      fest eingestellt, und ein LCD-Schalter „Tilt".
+- [ ] **G3 — Preset-Bibliothek an die Muster koppeln.** Die 27 Presets sind
+      aktuell nur Parametersätze über derselben flachen Funktion. Nach G1:
+      je Material ein echtes Muster + passende Tiefe/Teilung.
+- [ ] **G4 — Abtastung.** Bei Vase-Modus (1 Wand) hat eine Lage nur 8 Punkte —
+      eine Textur kann darauf nicht existieren. Lösung: das Textur-Werkzeug
+      **unterteilt die Wand selbst** (max. 1–2 mm Segmente) bevor es verschiebt.
+- [ ] **G5 — Shape-/Geometrie-Generatoren gegenprüfen** (User: „check mal ob
+      unsere Geometrie-Generatoren die Ursache sind"). Stand: die 8-Eck-Geometrie
+      ist in Ordnung (Maße, Z-Naht, 700 Lagen, E stimmt) — die Ursache ist die
+      Textur, nicht die Form. Bleibt als Regressionsprüfung offen.
+
+## H. RANGE / CAKE (Ursache gefunden, Beweis geliefert)
+
+- [x] **H1 — „Range error" nach dem Cake-Tool.** *(erledigt V1)* Ursache belegt:
+      `r2_cake.py` baut die Datei aus Bewegungssegmenten neu zusammen, reicht
+      aber alle **Nicht-Bewegungs-Zeilen** unverändert in BEIDE Hälften durch —
+      auch den `;LAYER_CHANGE / LAYER_MARK / ;Z:`-Block. In der U-File des Users:
+      **5 Marker**, Kopf behauptet `TOTAL_LAYERS=700`, Körper läuft bis Z=116.5.
+      Der Layer-Zähler und die Range-Liste beschreiben also eine Datei, die es
+      nicht mehr gibt → jeder Bereich landet außerhalb → „Range error".
+      **Fix:** `make_range` liest den R177-Kopf und lehnt eine Schnitt-Hälfte mit
+      Marker/Klausel-Widerspruch ab — **mit** Ursache und Abhilfe im Text.
+      **Prüfung:** `tools/v1_range_cause_check.py` (8 Prüfungen, 3 Fixpunkte +
+      Gegenprobe: ohne die Sperre rutscht die Cake-Hälfte durch).
+- [ ] **H2 — Cake-Tool muss die Schichtstruktur erhalten.** Der eigentliche Bug:
+      der Schnitt soll Marker neu setzen (Z-Sprünge der Schnittfläche zählen als
+      neue Schicht) statt den alten Kopf zu kopieren. Erst danach sind Range,
+      Live-Tuning und Layer-Zähler auf einer Schnitt-Hälfte benutzbar.
+- [ ] **H3 — Cake-Tool „entspricht noch nicht der Vorstellung"** (User). Offene
+      Punkte sammeln: zwei Platten statt einer Kette, Reorient, was mit dem
+      Restmaterial passiert. Mit dem User klären, bevor gebaut wird.
 
 ## C. Feature-Erkennung / Tagging (großer Block)
 
@@ -120,6 +190,19 @@ abgehakt und mit dem Commit genannt, der sie erledigt hat.
       Meldung). Dazu **ShpOff** wieder am LCD: Live Tuning > Spd per feat,
       Zeile direkt unter FeatOn — schaltet den Shaper für das Feature, das
       GERADE druckt (B2 hatte dem Schalter das Zuhause genommen).
+
+- [x] **E3 — LED-Stummschaltung im Sondenfenster.** *(erledigt V1/`.142m`-Code)*
+      6 von 8 Shutdowns lagen auf dem `[safe_z_home]`-XY (115,115) mitten in der
+      Sondenabfahrt; im Send-Queue-Dump derselben Sekunde `neopixel_send` 3x in
+      12 ms, dazu `tmcuart` und `st7920`; davor `Neopixel update did not
+      succeed`, `bytes_retransmit=85`, `buffer_time=0`. `_LED_QUIET` schaltet die
+      Animation für die Dauer der Bewegung stumm (G28, Mesh, Schrauben,
+      PROBE_CALIBRATE), `_STATE_WATCHER` heilt eine hängende Stummschaltung.
+      Prüfung: `tools/r257_crash_guard_check.py` (15 + 7 Gegenproben) und
+      7 Funktionstests in der Batterie. **Am Drucker noch nicht bestätigt.**
+- [ ] **E4 — Sonde löst nicht aus, Düse fährt auf Z = −6.** `[stepper_z]
+      position_min = -6` in der Feld-`printer.cfg`; Vorschlag `-2`. Nicht ohne
+      den User geändert (seine Datei).
 
 ## F. Erledigt (mit Beleg)
 

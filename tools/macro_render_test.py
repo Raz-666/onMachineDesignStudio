@@ -189,7 +189,7 @@ def build_printer(kamp=False, objs=None, excl=None, old_klipper=False, bare_idle
         **{k: save_vars[k] for k in sdm_vars if k in save_vars})),
     # R214: the preset engine reads its library from its own macro object
     # (self-read like Klipper) - the mock ships a NEUTRAL one; the R214
-    # block below overrides it with the real 44-look library
+    # block below overrides it with the real library
     'gcode_macro _GEN_PRESET': M({'texture_lib': {}}),
     # R246: the pattern picker reads its tables from _TX_PATTERN (the 27
     # enable-frozen slots became 8 live name slices)
@@ -4212,9 +4212,17 @@ for _l66 in open('macros/01_state.cfg', encoding='utf-8'):
     if _l66.strip().startswith('variable_version:'):
         _v66 = _l66.split(':', 1)[1].strip()
         break
-# NOTE: bump this expectation together with the version on every release!
-tests.append(('R66/R80 version is current (.136ab) in 01_state.cfg (bump together with release!)',
-    _v66 == "'R2-2026-11-11.142i'", repr(_v66)))
+# R257b: the expectation is NO LONGER typed by hand - it is read from the
+# post-processor (one source of truth, the same rule r2_version.py follows).
+# The old hard-coded literal was one more place to forget on every release.
+def _pprel():
+    for _l in open('tools/r2_postproc.py', encoding='utf-8'):
+        if _l.startswith('POSTPROC_RELEASE'):
+            return _l.split('=', 1)[1].strip().strip("'")
+    return ''
+_ppv = _pprel()
+tests.append(('R66/R80 macro version == post-processor version (one source of truth)',
+    _v66 == "'" + _ppv + "'" and bool(_ppv), repr(_v66) + ' vs ' + repr(_ppv)))
 
 # ---------- R67: EVERY template Klipper compiles at boot must compile (blocker #2) ----------
 # Klipper loads gcode_macro gcode blocks AND menu name/enable/gcode options as
@@ -17987,7 +17995,7 @@ tests.append(('R189b queue stall: a parked job SPEAKS within 10s '
 
 # ================== R214 (.136m): field feedback round ======================
 # (1) preset load always shows what it loaded (+ honest note on older
-#     saves), (2) the 44-look texture library, (3) object-only STL export,
+#     saves), (2) the texture library (27 looks since R253), (3) object-only STL export,
 # (4) upright litho stands, (5) label text embedded in the last base layer,
 # (6) the stacked web live dashboard.
 import ast as _ast214
@@ -17997,12 +18005,12 @@ _lcd214 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 _pp214 = open('tools/r2_postproc.py', encoding='utf-8').read()
 _web214 = open('web/index.html', encoding='utf-8').read()
 
-# the 44 library looks from the ONE truth (the macro config variable)
+# the library looks from the ONE truth (the macro config variable)
 _libm214 = re.search(r'^variable_texture_lib: (.+)$', _mc214, re.M)
 _lib214 = _ast214.literal_eval(_libm214.group(1))
-tests.append(('R214 texture library: 44 looks live in the macro config '
+tests.append(('R214/R253 texture library: 27 looks live in the macro config '
     '(appearance names, full 9-key sets, ranges valid)',
-    len(_lib214) == 44
+    len(_lib214) == 27
     and all(sorted(v) == sorted(['texture_mode', 'texture_fuzzy_thick',
         'texture_fuzzy_density', 'texture_pattern', 'texture_scale',
         'texture_zsize', 'texture_amp', 'texture_dir', 'texture_seed'])
@@ -19300,13 +19308,76 @@ tests.append(('R246d LED: FORCE=1 re-applies the full chain (the nozzle/'
               'bedlight setters and every deliberate re-apply)',
     'STOP_LED_EFFECTS' in _o246e and 'SET_LED_EFFECT EFFECT=r2_printing'
     in _o246e, _o246e[:120]))
-tests.append(('R246d LED: exactly the four deliberate re-apply callers '
+# R257 (.142m): FIVE now - _LED_QUIET's unmute re-applies the state that was
+# asked for while the probe was moving, and it needs FORCE=1 for the same
+# reason as the others: the R246d no-op guard compares last_led, which already
+# holds the wanted value (recording it is exactly what the mute branch does).
+tests.append(('R246d/R257 LED: exactly the five deliberate re-apply callers '
               'carry FORCE=1 (split toggle, nozzle change, master ON, '
-              'job restore)',
+              'job restore, probe-quiet unmute)',
     len([l for l in _leds246d.split('\n')
          if 'FORCE=1' in l and l.strip().startswith(('SET_LED_STATE',
-                                                     '{% if on %}'))]) == 4,
-    ''))
+                                                     '{% if on %}'))]) == 5,
+    'count=%d' % len([l for l in _leds246d.split('\n')
+                      if 'FORCE=1' in l and l.strip().startswith(('SET_LED_STATE',
+                                                                  '{% if on %}'))])))
+# --- R257 (.142m): the probe-quiet LED guard --------------------------------
+# Field logs 12.11.2026 (three DOCTOR packs): 6 of 8 MCU shutdowns report the
+# toolhead at the [safe_z_home] XY (115,115) with Z between 4.76 and 10.0 - the
+# probe descent between z_hop and trigger, the one phase with a 1 ms step
+# interval. The send-queue dumps show neopixel_send/tmcuart_send/st7920 traffic
+# inside exactly that window. One SET_LED_STATE change writes the strip 2-4
+# times back to back; that is what _LED_QUIET removes from the motion.
+state_vars['led_quiet'] = False
+_sl257 = get_body('macros/03_leds.cfg', 'SET_LED_STATE')
+_lq257 = get_body('macros/03_leds.cfg', '_LED_QUIET')
+_g28257 = get_body('macros/08_print_start_stop.cfg', 'G28')
+def _ledp257(**kw):
+    _p = build_printer()
+    _p['led_effect r2_idle'] = M({})
+    _p['gcode_macro _STATE'] = M(dict(state_vars, **kw))
+    return _p
+_o257a = render(_sl257, {'STATE': 'homing'},
+                extra={'printer': _ledp257(led_quiet=True)})
+tests.append(('R257 probe-quiet: a state change while the probe moves writes '
+              'NO strip (no STOP_LED_EFFECTS, no effect, no nozzle) - it only '
+              'records the wanted state',
+    'STOP_LED_EFFECTS' not in _o257a and 'SET_LED_EFFECT' not in _o257a
+    and '_NOZZLE_SET' not in _o257a
+    and 'last_led VALUE=\'"homing"\'' in _o257a, _o257a[:160]))
+_o257b = render(_sl257, {'STATE': 'homing', 'FORCE': '1'},
+                extra={'printer': _ledp257(led_quiet=True)})
+tests.append(('R257 probe-quiet: FORCE=1 is the exception (that is how the '
+              'unmute re-applies the state after the motion) - the full chain '
+              'runs',
+    'STOP_LED_EFFECTS' in _o257b and 'SET_LED_EFFECT EFFECT=r2_homing' in _o257b,
+    _o257b[:160]))
+_o257c = render(_lq257, {'ON': '1'}, extra={'printer': _ledp257(led_quiet=False)})
+tests.append(('R257 probe-quiet: _LED_QUIET ON=1 stops the running effect ONCE '
+              '(one write before the first move) and sets the flag',
+    'STOP_LED_EFFECTS' in _o257c and 'led_quiet VALUE=True' in _o257c
+    and _o257c.count('STOP_LED_EFFECTS') == 1, _o257c[:160]))
+_o257d = render(_lq257, {'ON': '1'}, extra={'printer': _ledp257(led_quiet=True)})
+tests.append(('R257 probe-quiet: muting twice is a no-op (a second G28 in a row '
+              'must not push a second STOP_LED_EFFECTS into the motion)',
+    'STOP_LED_EFFECTS' not in _o257d and 'led_quiet VALUE=True' not in _o257d,
+    _o257d[:160]))
+_o257e = render(_lq257, {'ON': '0'}, extra={'printer': _ledp257(led_quiet=True)})
+tests.append(('R257 probe-quiet: ON=0 clears the flag and re-applies the wanted '
+              'state with FORCE=1 (the R246d no-op would otherwise swallow it)',
+    'led_quiet VALUE=False' in _o257e
+    and 'SET_LED_STATE STATE=printing FORCE=1' in _o257e, _o257e[:160]))
+_o257f = render(_lq257, {'ON': '0'}, extra={'printer': _ledp257(led_quiet=False)})
+tests.append(('R257 probe-quiet: ON=0 without a mute does nothing (no chain, '
+              'no flag write)',
+    'SET_LED_STATE' not in _o257f and 'led_quiet VALUE' not in _o257f,
+    _o257f[:160]))
+_o257g = render(_g28257, {}, extra={'printer': _ledp257(led_quiet=False)})
+tests.append(('R257 probe-quiet: G28 renders _LED_QUIET ON=1 BEFORE the homing '
+              'move and ON=0 after it (order, not just presence)',
+    0 <= _o257g.find('_LED_QUIET ON=1') < _o257g.find('M99110')
+    < _o257g.find('_LED_QUIET ON=0'), _o257g[:200]))
+
 # --- R246d reactor relief rec. 4: the _AV timers yield to motion ------------
 import re as _re246d
 def _dgbody246d(name):

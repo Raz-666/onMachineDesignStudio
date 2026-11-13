@@ -1,6 +1,9 @@
 # Tools inventory — what is what, and what proves it
 
-*Stand: R2-2026-11-11.142i (R253). Auto-checked against reality by
+**Shutdown register:** `docs/SHUTDOWN_REGISTER.md` — every crash site,
+its cause, its fix and the test that holds it, in one table.
+
+*Stand: R2-2026-11-13.1 (V1). Auto-checked against reality by
 `tools/r165_doc_check.py`; the version line here is not typed by hand —
 see "The version rule" below.*
 
@@ -56,6 +59,8 @@ thread's reactor.
 | `tools/make_feature_pdf.py` | `FEATURE_TAGGING.pdf` (14 pages) — the `;TYPE:`/layer-marker system in depth. |
 | `tools/make_displays_pdf.py` | `DISPLAYS_WEB_UI.pdf` (11 pages) — behaviour with other displays / Mainsail / web UI. |
 | `tools/make_cakesplit_pdf.py` | `CUTSPLIT.pdf` (7 pages) — the cut & split methodology. |
+| `tools/make_generators_pdf.py` | `GENERATORS_TOOLS.pdf` (12 pages, R253) — all eleven generators plus all fourteen file tools, one block each: where in the menu, what comes out, **the real LCD rows read out of `menus/lcd_menues.cfg`** (so the page cannot drift), honest limits, one tip. |
+| `tools/make_creative_pdf.py` | `CREATIVE_POSSIBILITIES.pdf` (7 pages, R253) — the idea book: twelve recipes that COMBINE the tools (texture × light, MAP relief, litho+frame+stand, labelled texture, brick structure, string art, variations, cutting, colour, workshop parts, STL round trip, safety tools), plus wall-thickness/light tables and what the system deliberately does not do. |
 | `tools/r2_version.py` | **Not a builder — the version rule.** |
 | `tools/make_label_fonts.py` | Build-time helper for the embedded label fonts. Never needed on the Pi. |
 
@@ -66,7 +71,7 @@ thread's reactor.
 builder stamps its pages from it:
 
 ```python
-from r2_version import VERSION as _R2VER     # 'R2-2026-11-11.142i'
+from r2_version import VERSION as _R2VER     # 'R2-2026-11-12.142l'
 ```
 
 **Why this exists:** until .142c all five builders carried a hard-coded
@@ -184,6 +189,9 @@ Two scripts exist purely so that a field problem costs **minutes, not days**:
 
 | Script | Purpose |
 |---|---|
+| `tools/r256_drift_audit.py` | **Drift audit — "Pre-Print says A, Live says B".** Static data-flow proof over all 2295 LCD rows: every numeric read-out is mapped to the variable that feeds it. It reports a shared name fed by two different macros, a row whose text names one quantity while reading another, a shown variable nobody writes, and a variable name declared by two macros. Current result: 335 shown variables, all of them written, no double source. |
+| `tools/r257_crash_guard_check.py` | **15 checks + 7 counter-tests — pins the PROBE-QUIET LED guard (R257).** `G28`, the mesh block, the screws flow and `PROBE_CALIBRATE` mute the LED animation for the duration of the motion (`_LED_QUIET`), `SET_LED_STATE` only records the wanted state while muted, the watcher heals a stuck mute. The counter-test deletes each guard in turn and requires the run to fail - a check that cannot fail is decoration. Field evidence: 6 of 8 MCU shutdowns sat at the `[safe_z_home]` XY with the toolhead mid-descent. |
+| `tools/r255_homing_guard_check.py` | **18 checks — pins the HOMING GUARD (R255).** The G28 wrapper marks every homing as `mode='homing'`, every motion gate has its own print_time sample, the selection preview defers instead of firing into a probe, the object-polygon payload is capped, the SD write is out of the homing block; plus a functional test of the probe answer (mode homing + still head = moving). |
 | `tools/r2_emergency.sh` | **Get printing again.** Stops the watcher service, sets `mesh_mode = "OFF"` (the seam where the crash fires: our start macro runs the mesh calibration directly after `G28`), optionally removes the web extension (`--web-off`), restarts Klipper. Every change is backed up with a state file — `--revert` puts everything back exactly. `--status` shows what is on/off without changing anything. |
 | `tools/r2_triage.sh` | **Collect everything in ONE file.** Version actually installed, host health (RAM/swap/throttle/load), service states, the emergency state, every load-relevant `printer.cfg` section, the last crash context from `klippy.log` incl. the reactor-stall lines, the watcher journal, the web-extension state, and a short self-assessment summary. Changes nothing. |
 

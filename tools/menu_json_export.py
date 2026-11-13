@@ -104,6 +104,9 @@ def _stripq(v):
 def build_tree(sections):
     """-> nested {id, type, name, enable, gcode, input*, children[]}."""
     nodes = {}
+    attached = set()        # R253: a path is attached to a parent ONCE -
+                            # a placeholder that later meets its real
+                            # section must not be appended a second time
     root = None
     for sec in sections:
         path = sec['__path']
@@ -134,15 +137,47 @@ def build_tree(sections):
             root = node
         elif len(path) > 1:
             parent = nodes.get(tuple(path[:-1]))
+            if parent is None:
+                # R253 (.142i): the parent section may appear LATER in the
+                # file (Klipper does not care about order - its menu.py
+                # creates parents lazily, and lcd_menues.cfg relies on it:
+                # '[menu __main __sdcard __opt]' sits at line 139 while
+                # '[menu __main __sdcard]' is at 8910). The export used to
+                # shovel such children into a separate __orphan bin that it
+                # never wrote into the JSON - the whole 'Optimized' folder
+                # menu (44 sections) was silently missing from the web page.
+                # Placeholders are created bottom-up exactly like menu.py.
+                chain = []
+                for _d in range(len(path) - 1, 0, -1):
+                    if nodes.get(tuple(path[:_d])) is None:
+                        chain.append(path[:_d])
+                for _cp in reversed(chain):
+                    ph = {'id': ' '.join(_cp),
+                          'name': _cp[-1].lstrip('_').capitalize() or '?',
+                          'type': 'list', 'placeholder': True,
+                          'children': []}
+                    nodes[tuple(_cp)] = ph
+                    _par = nodes.get(tuple(_cp[:-1]))
+                    if _par is not None and _par is not ph:
+                        _par['children'].append(ph)
+                        attached.add(tuple(_cp))
+                    elif len(_cp) == 1 and root is None:
+                        root = ph
+                parent = nodes.get(tuple(path[:-1]))
             if parent is not None:
-                parent['children'].append(node)
+                if tuple(path) not in attached:
+                    parent['children'].append(node)
+                    attached.add(tuple(path))
             else:
-                # orphan (no parent section) - keep it visible under a
-                # synthetic __orphan root instead of losing it
                 orph = nodes.setdefault(('__orphan',),
                                         {'id': '__orphan', 'name': '(orphan)',
                                          'type': 'list', 'children': []})
                 orph['children'].append(node)
+    # R253: nothing may ever leave the JSON unseen - a leftover orphan bin
+    # hangs under the root
+    _orph = nodes.get(('__orphan',))
+    if _orph is not None and root is not None:
+        root['children'].append(_orph)
     return root, nodes
 
 

@@ -342,8 +342,16 @@ doc = mje.export(os.path.join(REPO, 'menus', 'lcd_menues.cfg'),
 # R244 (.140): System > MCU Recovery toggle (the auto-recovery
 # switch, engine in r2_postproc) - one more command section
 # (2442 -> 2423 (R246: 27 enable-frozen pattern slots became 8 live rows))
-check('T1 export: all 2473 sections in one tree, no orphans',
-      doc['sections'] == 2423 and sum(doc['counts'].values()) == 2423,
+# R253 (.142i): the expectation was 2423 and had been stale since R250
+# (.142f) rebuilt the Live menu - the sweep failed 5 checks on every release
+# since, which nobody noticed because only the two named tests were read.
+# The truth now, verified against the file itself: 2295 [menu ...] sections.
+# History: R249 2441 -> R250 removed 261 old '__live' rows (Live > Features
+# deleted, the four quick lists up front) and added 115 new ones; R251 +23
+# (shaper switches); R252/R253 +6 (post-processor switch + diagnostics) and
+# the 'Vorlagen' name lost its count. NOTHING outside __main __live vanished.
+check('T1 export: all 2295 sections in one tree, no orphans',
+      doc['sections'] == 2295 and sum(doc['counts'].values()) == 2295,
       str(doc['counts']))
 
 
@@ -356,9 +364,23 @@ def _walk(n, acc):
 
 _all = _walk(doc['tree'], [])
 check('T1 export: tree node count == sections, depth sane, known ids',
-      len(_all) == 2423
+      len(_all) == 2295
       and any(n['id'] == '__main __start __direct' for n in _all)
       and any(n['id'] == '__main __live' for n in _all))
+# R253 (.142i): a child section may be written BEFORE its parent (Klipper's
+# menu.py does not care, and lcd_menues.cfg relies on it) - the export used
+# to shovel those into an __orphan bin it never wrote out, so the whole
+# 'Optimized' folder menu (44 sections) was missing from the web page.
+_src251 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
+_decl251 = [l.strip()[6:-1] for l in _src251.split('\n')
+            if l.startswith('[menu ')]
+_in_tree251 = set(n['id'] for n in _all)
+_missing251 = [i for i in _decl251 if i not in _in_tree251]
+check('R253: every [menu] section in the cfg reaches the exported tree - a '
+      'child that is declared before its parent must not disappear (the 44 '
+      "'Optimized' rows did)",
+      not _missing251 and len(_decl251) == len(_in_tree251),
+      '%d missing: %s' % (len(_missing251), _missing251[:3]))
 
 # R220 (.136o field item 'Shape-TYPES-Anzeige'): the TYPES summary rows
 _feat220 = [n for n in _all if n['id'].endswith(' __feat')
@@ -411,7 +433,7 @@ _emb = json.JSONDecoder().raw_decode(
     _ptxt.split('const EMBEDDED_MENU_JSON = ', 1)[1])[0]
 check('T1 embed: placeholder replaced with valid JSON',
       '/*EMBEDDED_MENU_JSON*/ null' not in _ptxt
-      and _emb['sections'] == 2423)
+      and _emb['sections'] == 2295)
 
 # T2: the moonraker extension with a fake app
 spec = importlib.util.spec_from_file_location(
@@ -530,7 +552,7 @@ check('T2 extension: export tool derived from the menu path',
       'path -> tool derivation failed')
 tree_doc = loop.run_until_complete(eps['/server/r2_menu/tree'](FakeReq()))
 check('T2 extension: tree handler serves the export',
-      tree_doc['sections'] == 2423 and 'tree' in tree_doc)
+      tree_doc['sections'] == 2295 and 'tree' in tree_doc)
 st = loop.run_until_complete(eps['/server/r2_menu/status'](FakeReq()))
 check('T2 extension: status handler reports ok + sha',
       st['ok'] and st['sha256'] == tree_doc['sha256'])
@@ -1248,8 +1270,13 @@ check('T5 anchors: TYPE_RE reads ;TYPE:/;FEATURE:/;STRUCTURE: (Bambu, '
       and 'def _fmove192' in _src
       and 'def _airscan193' in _src
       and 'def _sequence_audit193' in _src
-      and _src.count("';TYPE:Prime tower'") == 6,
-      "prime markers: %d" % _src.count("';TYPE:Prime tower'"))
+      # R254: a prime-tower marker is written EITHER as a literal comment OR
+      # through the one helper that emits comment + APPLY_TYPE - both count as
+      # a tag site (the helper folded four literals into itself).
+      and (_src.count("';TYPE:Prime tower'")
+           + _src.count("_apply_type_lines('PRIME-TOWER'")) == 6,
+      "prime markers: %d" % (_src.count("';TYPE:Prime tower'")
+                              + _src.count("_apply_type_lines('PRIME-TOWER'")))
 check('T5 anchors: SEQWARN in _FILE_INFO + daemon log line',
       "info.append('SEQWARN=%d' % len(_seq193))" in _src
       and '[seqaudit]' in _src)
@@ -1814,7 +1841,11 @@ catch (e) { console.log(JSON.stringify({error: 'load: ' + String(e)}));
           and not any('save_variables' in n for n in _nA)
           and len([n for n in _nA if '{' in n]) <= max(2, len(_nA) // 5)
           and '__main __start' in _hA            # enable: mode == waiting
-          and '__main __optprint' in _hA         # enable: mode in idle/...
+          # R254: the old id __main __optprint is GONE from the menu (R169
+          # moved 'Optimized' under SD Card, so it could never be hidden and
+          # this check could never pass). Proven the same way with a real
+          # mode-gated top-level entry: Pre-Print is hidden while printing.
+          and '__main __preprint' in _hA
           and '__main __endq' not in _hA         # opt_pending -> visible
           and '__main __octoprint' in _hA,       # enable {False}
           str({k: _A.get(k) for k in ('error', 'menu_children', 'crumb',
@@ -1844,7 +1875,7 @@ catch (e) { console.log(JSON.stringify({error: 'load: ' + String(e)}));
           'appears) and idle labels still evaluate',
           _B.get('error') is None
           and '__main __endq' in _hB
-          and '__main __optprint' not in _hB
+          and '__main __preprint' not in _hB
           and '__main __start' in _hB
           and 'values live' in (_B.get('badge') or '')
           and not any('save_variables' in n for n in (_B.get('names') or []))

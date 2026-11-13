@@ -3,7 +3,7 @@
 request, .136m round): how the wall displacement works, the EXACT mapping
 of every setting, all 27 patterns with previews sampled from the REAL
 pattern functions (tools/r2_texture.py _build_patterns - not redrawn,
-the images ARE the code output), and the 44 library presets listed per
+the images ARE the code output), and the 27 library presets listed per
 pattern.
 
 Content basis: tools/r2_texture.py (_build_patterns, apply_texture,
@@ -113,7 +113,7 @@ class Doc(BaseDocTemplate):
 import r2_texture
 from r2_version import VERSION as _R2VER
 
-# the 44 library presets, read from the ONE truth (macros/17_generator.cfg)
+# the 27 library presets, read from the ONE truth (macros/17_generator.cfg)
 _here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _cfg = open(os.path.join(_here, 'macros', '17_generator.cfg'),
             encoding='utf-8').read()
@@ -287,7 +287,7 @@ def main():
         'Mods &gt; Texture): wie die Wandverschiebung arbeitet, das EXAKTE '
         'Mapping jedes Parameters, alle 21 Muster mit Vorschaubildern - '
         'die Bilder sind direkt aus den echten Musterfunktionen gesampelt, '
-        'nicht neu gezeichnet - und die 44 fertigen Vorlagen-Presets.'))
+        'nicht neu gezeichnet - und die 27 fertigen Vorlagen-Presets.'))
     A(Spacer(1, 3*mm))
     A(TBL(['Ebene', 'Was'], [
         ['Modus FUZZY', 'Zufällige Wandverformung (Fuzzy-Skin): jeder '
@@ -299,7 +299,7 @@ def main():
          'Hex), Geflechte (Honeycomb, Basket, Rope), Beplankung (Planks, '
          'Bricks), Noise-Familien (Sandstone, Concrete, Clay, Crepe, Fabric, '
          'Plush), Kurven (Hilbert) und Oberflächen (Scratch, Glitch, Map).'],
-        ['44 Vorlagen', 'Fertige Looks unter Vorlagen im Texture-Menü - '
+        ['27 Vorlagen', 'Fertige Looks unter Vorlagen im Texture-Menü - '
          'Namen nach der OPTIK (Rattan, Sandstein, Seil, Ziegelmauer ...), '
          'jeder Eintrag trägt ALLE neun Settings.'],
     ], [30*mm, 126*mm]))
@@ -418,8 +418,8 @@ def main():
 
     # --------------------------------------------------------- presets ---
     A(PageBreak())
-    flow.extend(H1('4 · Die Vorlagen-Bibliothek (44 Looks)'))
-    A(P('Texture-Menü &gt; Vorlagen: 44 fertige Looks, benannt nach dem '
+    flow.extend(H1('4 · Die Vorlagen-Bibliothek (27 Looks)'))
+    A(P('Texture-Menü &gt; Vorlagen: 27 fertige Looks, benannt nach dem '
         '<b>optischen Erscheinungsbild</b> (der Name sagt, was man sieht - '
         '„Rattan", nicht „BASKET 6/6"). Vorlagen sind schreibgeschützt: '
         'Laden geht, Löschen nicht; speichert man unter einem '

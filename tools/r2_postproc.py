@@ -77,8 +77,8 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-11.142i'
-POSTPROC_BUILD = 'R253'
+POSTPROC_RELEASE = 'R2-2026-11-13.1'
+POSTPROC_BUILD = 'V1'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
 # and no speed/accel/nozzle parameters. Files carrying an OLD tag are UPGRADED
@@ -1651,6 +1651,39 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
     total = len(marks)
     if total < 2:
         raise ValueError('no LAYER_MARK layers found - the file is not processed yet')
+    # V1 (13.11.2026, FIELD CAUSE of the 'Range error' after a cake cut):
+    # the cake/split tool rebuilds the file from motion segments and writes the
+    # old header through to BOTH halves. The ';LAYER_CHANGE / LAYER_MARK / ;Z:'
+    # block is NOT motion - it falls into the pass-through branch, so the head
+    # keeps its few markers while the body holds the whole part. Layer counter
+    # and marker list then describe a file that no longer exists, and every
+    # range request lands outside -> "Range error" without a word about why.
+    # The file names itself (R177 header), so the diagnosis is exact, not a
+    # guess: a CUT half with a marker/claim mismatch is refused with the reason.
+    # A spiral vase (no cake header) is NOT affected - it keeps its old path.
+    _iscut = False
+    try:
+        with open(src, 'r', errors='replace') as _fh:
+            for _k, _ln in enumerate(_fh):
+                if _k > 60:
+                    break
+                if 'cake cut' in _ln or 'R177' in _ln:
+                    _iscut = True
+                    break
+    except OSError:
+        pass
+    _claim = None
+    if file_info_line:
+        _mcl = re.search(r'TOTAL_LAYERS=(\d+)', file_info_line)
+        if _mcl:
+            _claim = int(_mcl.group(1))
+    if _iscut and _claim and total >= 2 and _claim > 4 * total:
+        raise ValueError(
+            'this file is a CAKE CUT half - and a cut half cannot be ranged: '
+            'the header still claims %d layers but the cut rebuilt the body '
+            'and left only %d LAYER_MARK markers behind. Range needs the '
+            'ORIGINAL (uncut) file: select it again in Pre-Print > File'
+            % (_claim, total))
     if end <= start:
         raise ValueError(f'range {start}..{end} invalid (file has {total} layers)')
     brim = max(0, min(int(brim), 10))
@@ -1773,7 +1806,7 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
         def _brim_block():
             gen.append('; R2-RANGE brim: %d loop(s) on the FIRST layer, '
                        'zero gap to the outline' % brim)
-            gen.append('APPLY_TYPE TYPE=BRIM')
+            gen.append(_apply_type_lines('BRIM'))
             for k in range(brim - 1, -1, -1):
                 hull_off = _offset_hull(anchor, wid + k * wid)
                 g.loop(hull_off, first_h * wid / FIL_AREA, _RANGE_FLOOR_F)
@@ -1789,14 +1822,14 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
             # R79: feature markers for the generated geometry - the raft counts
             # as INFILL-SOLID, so Live Tuning (Spd/Acc/PA/Flow per feature) (speed/accel/flow) works on
             # it exactly like on any sliced section
-            gen.append('APPLY_TYPE TYPE=INFILL-SOLID')
+            gen.append(_apply_type_lines('INFILL-SOLID'))
             for i in range(floor):
                 z = round(first_h + i * lh, 3)
                 gen.append('LAYER_MARK   ; R2-RANGE raft layer %d' % (i + 1))
                 gen.append('G0 Z%.3f F600' % z)
                 if i == 0 and brim > 0:
                     _brim_block()                     # R94: brim ON layer 1
-                    gen.append('APPLY_TYPE TYPE=INFILL-SOLID   ; R2-RANGE: back to the raft')
+                    gen.append(_apply_type_lines('INFILL-SOLID', '   ; R2-RANGE: back to the raft'))
                 ep = (first_h if i == 0 else lh) * wid / FIL_AREA
                 ang = 45.0 if i % 2 == 0 else 135.0
                 spacing = wid * 0.92 if floor_fill == 'solid' else 2.0 * wid
@@ -1866,7 +1899,7 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                         '; R2-RANGE cap: %d %s layer(s), %s fill, over the last layer')
                        % (top, {'hull': 'footprint', 'outline': 'true outline'}[t_shape],
                           top_fill))
-        gen_top.append('APPLY_TYPE TYPE=INFILL-SOLID')
+        gen_top.append(_apply_type_lines('INFILL-SOLID'))
         # last Z of the shifted body - reproduced from the tracked original
         # (the old builder scanned it back out of the shifted body lines)
         # R224 inside: the body STOPS 'top' layers early (those layers are the
@@ -1911,7 +1944,7 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                     segs = [s for (p, q) in segs
                             for s in _seg_outside_circle(p, q, th['cx'],
                                                          th['cy'], th['r'])]
-                    gen_top.append('APPLY_TYPE TYPE=BRIDGE   ; R95: bridges around the hole first')
+                    gen_top.append(_apply_type_lines('BRIDGE', '   ; R95: bridges around the hole first'))
                     _over95 = min(0.15, 0.4 * wid)
                     _nb95 = max(12, min(64, int((2.0 * math.pi * th['r']) / 4.0)))
                     for k in range(_nb95):
@@ -1923,9 +1956,9 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                         _y195 = th['cy'] + (th['r'] - _over95) * _sa95
                         gt.move(_x095, _y095, 4800)
                         gt.line(_x095, _y095, _x195, _y195, ep, 1300)
-                    gen_top.append('APPLY_TYPE TYPE=INTERNAL-BRIDGE   ; R95: the ring prints ON the bridges')
+                    gen_top.append(_apply_type_lines('INTERNAL-BRIDGE', '   ; R95: the ring prints ON the bridges'))
                     gt.loop(_circle(th['cx'], th['cy'], th['r'], 48), ep, _RANGE_FLOOR_F)
-                    gen_top.append('APPLY_TYPE TYPE=INFILL-SOLID   ; R95: back to the cap solid')
+                    gen_top.append(_apply_type_lines('INFILL-SOLID', '   ; R95: back to the cap solid'))
                 else:
                     # R87.2: spiral band (same as the floor) - no strings
                     _spiral_ring(gt, th['cx'], th['cy'], th['r'],
@@ -5912,8 +5945,7 @@ def _make_stamp_handle(fit, out_dir='.', material='PLA', nozzle=0.6,
                 a('M106 S178   ; R2-GRIFF: part fan from layer 2')
             a('EXCLUDE_OBJECT_START NAME=GRIFF')
             if li == 1:
-                a(';TYPE:Brim')
-                a('APPLY_TYPE TYPE=BRIM')
+                a(_apply_type_lines('BRIM'))
                 for off in (_brim_gap(wid) + wid, _brim_gap(wid)):
                     _emit_loop(pen, _circle(cx, cy, _r_out(z_top) + off),
                                e_wall, 900)
@@ -5926,16 +5958,14 @@ def _make_stamp_handle(fit, out_dir='.', material='PLA', nozzle=0.6,
                        e_wall, 900 if li == 1 else 1800)
             _bore168 = z_bot < bore_end
             if _bore168:
-                a(';TYPE:Inner wall')
-                a('APPLY_TYPE TYPE=WALL-INNER   ; R168 hollow tip')
+                a(_apply_type_lines('WALL-INNER', '   ; R168 hollow tip'))
                 _emit_loop(pen, _circle(cx, cy, fit.BORE + wid / 2.0),
                            e_wall, 900 if li == 1 else 1800)
                 if z_bot < bore_end <= z_top:
                     # R168 bore ceiling: parallel bridge lines across the
                     # full bore, anchored on the spigot walls - closed by
                     # the disc rings above
-                    a(';TYPE:Bridge')
-                    a('APPLY_TYPE TYPE=BRIDGE   ; R168 bore ceiling')
+                    a(_apply_type_lines('BRIDGE', '   ; R168 bore ceiling'))
                     _rb = fit.BORE + wid * 0.5
                     _nb = max(6, int((2.0 * _rb) / max(wid, 0.4)))
                     for _k in range(_nb + 1):
@@ -5944,8 +5974,7 @@ def _make_stamp_handle(fit, out_dir='.', material='PLA', nozzle=0.6,
                         pen.travel(cx - _hh, cy + _off, 4800)
                         pen.extrude(cx + _hh, cy + _off,
                                     2.0 * _hh * e_wall, 1300)
-                    a(';TYPE:Internal bridge')
-                    a('APPLY_TYPE TYPE=INTERNAL-BRIDGE')
+                    a(_apply_type_lines('INTERNAL-BRIDGE'))
                     _emit_loop(pen, _circle(cx, cy, fit.BORE + wid / 2.0),
                                e_wall, 1200)
             if z_top > fit.z_cone:
@@ -5955,8 +5984,7 @@ def _make_stamp_handle(fit, out_dir='.', material='PLA', nozzle=0.6,
                 # layer below), lines CAN - they weld at every crossing,
                 # exactly like a slicer fills a top surface over sparse
                 # infill. The last 4 layers switch the hatch to solid.
-                a(';TYPE:Inner wall')
-                a('APPLY_TYPE TYPE=WALL-INNER')
+                a(_apply_type_lines('WALL-INNER'))
                 _emit_loop(pen, _circle(cx, cy,
                                         _r_out(z_top) - 1.5 * wid),
                            e_wall, 1800)
@@ -5979,8 +6007,7 @@ def _make_stamp_handle(fit, out_dir='.', material='PLA', nozzle=0.6,
                 _emit_fill(pen, _sg168, e_wall, 2400, _sp168)
             elif z_top > bore_end + layer_h:
                 # spigot above the bore: solid disc (small - rings fill it)
-                a(';TYPE:Internal solid infill')
-                a('APPLY_TYPE TYPE=INFILL-SOLID')
+                a(_apply_type_lines('INFILL-SOLID'))
                 _rr = _r_out(z_top) - 1.5 * wid
                 while _rr > wid * 0.6:
                     _emit_loop(pen, _circle(cx, cy, _rr), e_wall, 2400)
@@ -8615,11 +8642,13 @@ def _printer_busy(host='127.0.0.1', port=7125):
         # request; _motion_active246d compares print_time against the
         # last pass (idle_timeout alone lingers 'Printing' for the
         # configured 3600 s after the last move - see there).
-        if _motion_active246d(_st):
+        if _motion_active246d(_st, 'busy'):
             return True
         _mode = (_st.get('gcode_macro _STATE') or {}).get('mode', '')
-        return _mode in ('waiting', 'starting', 'printing', 'paused',
-                         'filament')
+        # R255: 'homing' is a mode the macros set BEFORE G28 - the start
+        # dialog's homing ran with mode 'idle' and every gate was blind.
+        return _mode in ('waiting', 'starting', 'homing', 'printing',
+                         'paused', 'filament')
     # R162 (.121 field log): a probe TIMEOUT returned 'not busy' on the
     # memory-pressured Pi - a litho build started DURING the print and the
     # MCU died with 'Timer too close'. One retry closes the transient
@@ -8633,28 +8662,51 @@ def _printer_busy(host='127.0.0.1', port=7125):
                 return False
 
 
-_MOTION246D = {'pt': -1.0}   # R246d: last seen toolhead print_time
+# R255 (.142k, the 12.11. FIELD LOG that kept dying at the same place):
+# every consumer now has its OWN print_time sample slot, and a detected move
+# arms a HOLD. Two reasons, both from the log:
+#  * the old code kept ONE shared sample ('pt'). _printer_busy() sampled it
+#    at the top of a pass, the preview probe sampled again milliseconds
+#    later - the delta was always ~0, so the preview probe answered "not
+#    moving" and pushed its 4 KB script straight into the homing window
+#    (log 597.375 s: two identical giant scripts while G28 ran).
+#  * between the two probe contacts the head stands still for seconds, so a
+#    single sample pair says "quiet" right in the worst moment. A move that
+#    happened within _MOTION_HOLD255 seconds keeps the gate closed.
+_MOTION_HOLD255 = 2.0
+_MOTION246D = {}                  # R246d (R255: ONE SLOT PER CONSUMER)
+_MOTION_SEEN255 = [0.0]           # last time real motion was observed
 
 
-def _motion_active246d(st):
+def _motion_seen255():
+    """True while a move was seen less than _MOTION_HOLD255 s ago."""
+    return (time.time() - _MOTION_SEEN255[0]) < _MOTION_HOLD255
+
+
+def _motion_active246d(st, slot='busy'):
     """R246d: TRUE motion - toolhead.print_time advanced since the last
-    call. idle_timeout.state 'Printing' alone is NOT a live signal: with
-    the configured timeout: 3600 it stays 'Printing' for up to an HOUR
-    after the last move (found in review BEFORE release - gating on it
-    alone would have silenced the watcher for an hour after any preheat
+    call OF THIS SLOT. idle_timeout.state 'Printing' alone is NOT a live
+    signal: with the configured timeout: 3600 it stays 'Printing' for up to
+    an HOUR after the last move (found in review BEFORE release - gating on
+    it alone would have silenced the watcher for an hour after any preheat
     wiggle). print_time only advances while the move queue actually runs;
-    frozen between two of our samples = drained queue = quiet, whatever
-    idle_timeout claims. Ready/Idle states can only be reached after the
-    full idle timeout without a single move - definitively quiet."""
+    frozen between two samples of the same slot = drained queue.
+    R255: plus the 2 s hold above (a probe dwell is still motion)."""
     _ito246d = st.get('idle_timeout') or {}
     _pt246d = (st.get('toolhead') or {}).get('print_time')
-    if _pt246d is None or _ito246d.get('state', '') != 'Printing':
-        if _pt246d is not None:
-            _MOTION246D['pt'] = _pt246d
-        return False
-    _moved246d = _pt246d > _MOTION246D['pt'] + 1e-9
-    _MOTION246D['pt'] = _pt246d
-    return _moved246d
+    if _pt246d is None:
+        return _motion_seen255()
+    _prev246d = _MOTION246D.get(slot)
+    _MOTION246D[slot] = _pt246d
+    if _ito246d.get('state', '') != 'Printing':
+        return _motion_seen255()          # klippy says quiet - hold only
+    if _prev246d is None:
+        _MOTION_SEEN255[0] = time.time()  # first look, gcode is running
+        return True
+    if _pt246d > _prev246d + 1e-9:
+        _MOTION_SEEN255[0] = time.time()
+        return True
+    return _motion_seen255()
 
 
 def _printer_moving(host='127.0.0.1', port=7125):
@@ -8672,11 +8724,21 @@ def _printer_moving(host='127.0.0.1', port=7125):
     try:
         url = ('http://%s:%d/printer/objects/query?%s'
                % (host, port,
-                  urllib.parse.quote('idle_timeout toolhead')))
+                  urllib.parse.quote('idle_timeout toolhead '
+                                     'gcode_macro _STATE')))
         with urllib.request.urlopen(url, timeout=2.0) as r:
             js = json.loads(r.read().decode())
         _st = ((js.get('result') or {}).get('status') or {})
-        return _motion_active246d(_st)
+        # R255: the G28 guard wrapper marks EVERY homing as mode 'homing'.
+        # That is the reliable signal for the whole probe sequence - a probe
+        # dwell can be longer than the 2 s motion hold, and the two contacts
+        # are exactly where the field log died. 'waiting' (the open start
+        # dialog) is NOT motion: that is when the preview is wanted.
+        _m255 = ((_st.get('gcode_macro _STATE') or {}).get('mode') or '')
+        if str(_m255).strip().lower() in ('homing', 'starting'):
+            _MOTION_SEEN255[0] = time.time()
+            return True
+        return _motion_active246d(_st, 'preview')
     except Exception:                                       # noqa: BLE001
         return True         # cannot say -> assume motion, defer
 
@@ -8713,11 +8775,13 @@ def _printer_idle_strict(host='127.0.0.1', port=7125):
         # R246d: motion blocks pushes too (mode 'idle' homing/preheat -
         # the 04:04 field crash). Same query, zero extra requests; the
         # print_time delta is the truth (idle_timeout lingers).
-        if _motion_active246d(_st):
+        if _motion_active246d(_st, 'strict'):     # R255: own sample slot
             return False
         _mode = (_st.get('gcode_macro _STATE') or {}).get('mode', '')
-        return _mode not in ('waiting', 'starting', 'printing', 'paused',
-                             'filament')
+        # R255: 'homing' closes this gate too - the SD mirror push is the
+        # biggest script the daemon sends, it must never land in a probe.
+        return _mode not in ('waiting', 'starting', 'homing', 'printing',
+                             'paused', 'filament')
     except Exception:                                       # noqa: BLE001
         return False        # probe failed -> treat as busy, do NOT push
 
@@ -9057,6 +9121,48 @@ def _sync_root_links(directory, quiet=True):
             except OSError:
                 pass
     return (added, removed, dup)
+
+
+# R253 (.142i, REAL field file): everything our generators write carries an
+# APPLY_TYPE command but NO ';TYPE:' comment. That is fine for Klipper (the
+# macro sets the mode) but it blinds every program that reads g-code the
+# standard way: the object STL export skipped the whole file ('no object
+# extrusion found' on a TYPE=MARKED file), and outside tools show nothing.
+# These two helpers are the ONE place a type marker is produced, so a
+# generator can never emit half a marker again.
+_TYPE_CANON253 = {'WALL-OUTER': 'Outer wall', 'WALL-INNER': 'Inner wall',
+                  'INFILL-SPARSE': 'Sparse infill',
+                  'INFILL-SOLID': 'Internal solid infill',
+                  'SURFACE-TOP': 'Top surface',
+                  'SURFACE-BOTTOM': 'Bottom surface', 'BRIDGE': 'Bridge',
+                  'INTERNAL-BRIDGE': 'Internal bridge', 'GAPS': 'Gap fill',
+                  'SUPPORT': 'Support', 'SUPPORT-INTERFACE': 'Support interface',
+                  'IRONING': 'Ironing', 'SKIRT': 'Skirt', 'BRIM': 'Brim',
+                  'PRIME-TOWER': 'Prime tower', 'OVERHANG-PERIM': 'Overhang wall',
+                  'CUSTOM': 'Custom'}
+
+
+def _apply_type_lines(key, note=''):
+    """-> the text a generator writes for one type marker: the standard
+    ';TYPE:' comment FIRST (every slicer/parser reads it), then the APPLY_TYPE
+    command Klipper needs. `note` rides on the APPLY_TYPE line as before."""
+    k = str(key).strip().upper()
+    cmt = _TYPE_CANON253.get(k, k.title().replace('-', ' '))
+    # R254: the note stays VERBATIM - the call sites carry their own spacing
+    # ('   ; R95: ...' vs ' ; R2-TV'), and the old APPLY_TYPE lines are
+    # reproduced byte for byte (the batteries compare exact strings).
+    return ';TYPE:%s\nAPPLY_TYPE TYPE=%s%s' % (cmt, k, note or '')
+
+
+def _is_data_file(path):
+    """R253 (.142i, REAL 44 MB field STL): an object export is BINARY data
+    that only carries a .gcode tail so Mainsail offers it for download. ANY
+    text-mode rewrite destroys it: 'errors=replace' turns every byte >= 0x80
+    into U+FFFD and writing the text back TRIPLES those bytes (the field file
+    grew 27 MB -> 44 MB, the triangle count sat at a garbage offset and no
+    viewer could open it). Every text path must ask this first."""
+    q = str(path).replace('\\', '/').lower()
+    return q.endswith('.stl.gcode') or '/stl/' in q
 
 
 def _is_gen_name(name):
@@ -13872,8 +13978,7 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
             a('EXCLUDE_OBJECT_START NAME=PURGE_TOWER')
             # R194 (.135): the purge tower is its own feature - PRIME-TOWER
             # for the whole body, BRIM keeps its own tag on layer 1
-            a(';TYPE:Prime tower')
-            a('APPLY_TYPE TYPE=PRIME-TOWER')
+            a(_apply_type_lines('PRIME-TOWER'))
             if prime:
                 # push the new color and wipe on the tower
                 pen.travel(tower[0] + 1.5, tower[1] + tw - 1.5)
@@ -13883,15 +13988,13 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                 pen.extrude(tower[0] + 1.5, tower[1] + tw - 1.5,
                             (tw - 3.0) * 0.1, 1320)
             if li == 1:
-                a(';TYPE:Brim')
-                a('APPLY_TYPE TYPE=BRIM')
+                a(_apply_type_lines('BRIM'))
                 for off in (_brim_gap(wid) + wid, _brim_gap(wid)):
                     _emit_loop(pen, _rect_loop(tower[0] - off, tower[1] - off,
                                                tower[0] + tw + off,
                                                tower[1] + tw + off),
                                e_wall, 900)
-                a(';TYPE:Prime tower')
-                a('APPLY_TYPE TYPE=PRIME-TOWER')
+                a(_apply_type_lines('PRIME-TOWER'))
             _emit_loop(pen, _rect_loop(tx0, ty0, tx1, ty1), e_wall,
                        900 if li == 1 else 1800)
             segs = _hatch(tx0 + wid + 0.1, ty0 + wid + 0.1,
@@ -13930,13 +14033,11 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                                               and k == L - 1))))
             a('EXCLUDE_OBJECT_START NAME=LITHO')
             if li == 1 and brim_loops:
-                a(';TYPE:Brim')
-                a('APPLY_TYPE TYPE=BRIM')
+                a(_apply_type_lines('BRIM'))
                 for _b128 in range(brim_loops - 1, -1, -1):
                     off = _brim_gap(wid) + _b128 * wid
                     _emit_loop(pen, _poly_offset(outer_c, off), e_wall, 900)
-            a(';TYPE:Outer wall')
-            a('APPLY_TYPE TYPE=WALL-OUTER')
+            a(_apply_type_lines('WALL-OUTER'))
             _emit_loop(pen, outer_c, e_wall, 900 if li == 1 else 1800)
             if _in_base168:
                 # ---- R168: one stamp body layer --------------------------
@@ -13951,8 +14052,7 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                 _solid168 = (li <= 2 or li > base_n - 2
                              or (_db168 >= fit168.d5))
                 if _r168 is not None:
-                    a(';TYPE:Outer wall')
-                    a('APPLY_TYPE TYPE=WALL-OUTER   ; R168 socket ring')
+                    a(_apply_type_lines('WALL-OUTER', '   ; R168 socket ring'))
                     # centerline r + wid/2: the ring's INNER face IS the
                     # socket surface radius (fit by construction, the
                     # stampcheck tool re-measures it from this file)
@@ -13964,8 +14064,7 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                     # chamber wall) + the sealing ring - the layer above
                     # hatches solid onto it, the ceiling CLOSES (unlike
                     # the R95 cap hole which stays open on purpose)
-                    a(';TYPE:Bridge')
-                    a('APPLY_TYPE TYPE=BRIDGE   ; R168 socket ceiling')
+                    a(_apply_type_lines('BRIDGE', '   ; R168 socket ceiling'))
                     _rb168 = fit168.r_ce + wid * 0.5
                     _n168 = max(6, int((2.0 * _rb168) / max(wid, 0.4)))
                     for _k168 in range(_n168 + 1):
@@ -13975,8 +14074,7 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                         pen.travel(cx - _hh168, cy + _off168, 4800)
                         pen.extrude(cx + _hh168, cy + _off168,
                                     2.0 * _hh168 * e_wall, 1300)
-                    a(';TYPE:Internal bridge')
-                    a('APPLY_TYPE TYPE=INTERNAL-BRIDGE')
+                    a(_apply_type_lines('INTERNAL-BRIDGE'))
                     _emit_loop(pen, _circle(cx, cy, fit168.r_ce + wid / 2.0),
                                e_wall, 1200)
                 _ty168b = ('SURFACE-BOTTOM' if li == 1 else
@@ -14027,8 +14125,7 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                 # wall stands on the step-0 plane (anchored, never air);
                 # level k's wall spans relief layers n_band+1 .. n_band+k'.
                 _rel168 = li - base_n
-                a(';TYPE:Outer wall')
-                a('APPLY_TYPE TYPE=WALL-OUTER   ; R168 contour wall')
+                a(_apply_type_lines('WALL-OUTER', '   ; R168 contour wall'))
                 for _kk168 in range(1, L):
                     if n_band < _rel168 <= n_band * (_kk168 + 1):
                         for _lp168 in _ccache168.get(_kk168, ()):
@@ -14038,16 +14135,14 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                 # R168: the LAST layer drops the fill - only the top
                 # step's true contours (outer + holes) print on the full
                 # layer below (anchored everywhere)
-                a(';TYPE:Outer wall')
-                a('APPLY_TYPE TYPE=WALL-OUTER   ; R168 last-layer contour')
+                a(_apply_type_lines('WALL-OUTER', '   ; R168 last-layer contour'))
                 for _lp168 in _ccache168.get(L - 1, ()):
                     _emit_loop(pen, _lp168, e_wall, 1800)
             elif k > 0 and _blks167:
                 if contour == 3:
                     # R168: TRUE contours as the step walls (holes get
                     # their own wall) - the fill below stays as it is
-                    a(';TYPE:Outer wall')
-                    a('APPLY_TYPE TYPE=WALL-OUTER')
+                    a(_apply_type_lines('WALL-OUTER'))
                     for _lp168 in _ccache168.get(k, ()):
                         _emit_loop(pen, _lp168, e_wall,
                                    900 if li == 1 else 1800)
@@ -14057,8 +14152,7 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                     # crisp edges instead of frayed hatch ends. Supported by
                     # the step below (its region is a superset, the wall's
                     # outer half-line still stands on it).
-                    a(';TYPE:Outer wall')
-                    a('APPLY_TYPE TYPE=WALL-OUTER')
+                    a(_apply_type_lines('WALL-OUTER'))
                     for (r_a, r_b, rr) in _blks167:
                         for (c_a, c_b) in rr:
                             _emit_loop(pen, _rect_loop(
@@ -14089,8 +14183,7 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                                  45.0 if li % 2 else 135.0)
                 _emit_hatch(pen, hs, e_wall, 1200 if li == 1 else 2400)
             if ironing and cap and not _nofill168:
-                a(';TYPE:Ironing')
-                a('APPLY_TYPE TYPE=IRONING')
+                a(_apply_type_lines('IRONING'))
                 for (r_a, r_b, rr) in _bcache128[k]:
                     for (c_a, c_b) in rr:
                         isegs = _hatch(px0 + c_a * wid,
@@ -14448,17 +14541,13 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                 a('EXCLUDE_OBJECT_START NAME=LITHO_STAND_%s' % sd)
                 # feature tags mirror the plate: bottom / core / top
                 if li <= 2:
-                    a(';TYPE:Bottom surface')
-                    a('APPLY_TYPE TYPE=SURFACE-BOTTOM')
+                    a(_apply_type_lines('SURFACE-BOTTOM'))
                 elif li > rows - 2:
-                    a(';TYPE:Top surface')
-                    a('APPLY_TYPE TYPE=SURFACE-TOP')
+                    a(_apply_type_lines('SURFACE-TOP'))
                 else:
-                    a(';TYPE:Outer wall')
-                    a('APPLY_TYPE TYPE=WALL-OUTER')
+                    a(_apply_type_lines('WALL-OUTER'))
                 if li == 1 and brim_loops:
-                    a(';TYPE:Brim')
-                    a('APPLY_TYPE TYPE=BRIM')
+                    a(_apply_type_lines('BRIM'))
                     for k in range(2 - 1, -1, -1):
                         off = _brim_gap(wid) + k * wid
                         _emit_loop(pen, _rect_loop(
@@ -14466,8 +14555,7 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                             sx + _st214_fw + off,
                             _st214_ya + _st214_overlap + _st214_base + off),
                             e_wall, 900)
-                    a(';TYPE:Bottom surface')
-                    a('APPLY_TYPE TYPE=SURFACE-BOTTOM')
+                    a(_apply_type_lines('SURFACE-BOTTOM'))
                 # the triangle shrinks with height: how deep does it reach?
                 y_edge = _st214_ya + (_st214_overlap + _st214_base) * max(
                     0.0, min(1.0, frac))
@@ -14487,8 +14575,7 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                 # 3) the Y rib every ~5 mm of height: ONE bead along Y,
                 #    bridging between the ribs (and anchored on them)
                 if li % _st214_qz == 0 and y_edge - _st214_ya > 3.0 * wid:
-                    a(';TYPE:Bridge')
-                    a('APPLY_TYPE TYPE=BRIDGE')
+                    a(_apply_type_lines('BRIDGE'))
                     pen.travel(sx + _st214_fw / 2.0,
                                _st214_ya + wid / 2.0, 4500)
                     pen.extrude(sx + _st214_fw / 2.0, y_edge - wid / 2.0,
@@ -14505,32 +14592,26 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
             pen.set_z(z)   # R149: explicit Z per row - the file had none
             # R92 feature tags: bottom layers / solid ribbon core / top layers
             if li <= 2:
-                a(';TYPE:Bottom surface')
-                a('APPLY_TYPE TYPE=SURFACE-BOTTOM')
+                a(_apply_type_lines('SURFACE-BOTTOM'))
             elif li > rows - 2:
-                a(';TYPE:Top surface')
-                a('APPLY_TYPE TYPE=SURFACE-TOP')
+                a(_apply_type_lines('SURFACE-TOP'))
             else:
-                a(';TYPE:Internal solid infill')
-                a('APPLY_TYPE TYPE=INFILL-SOLID')
+                a(_apply_type_lines('INFILL-SOLID'))
             if li == 2:
                 a('M106 S178   ; R2-LITHO: part fan from layer 2')
             a('EXCLUDE_OBJECT_START NAME=LITHO')
             if li == 1 and brim_loops:
-                a(';TYPE:Brim')
-                a('APPLY_TYPE TYPE=BRIM')
+                a(_apply_type_lines('BRIM'))
                 for k in range(brim_loops - 1, -1, -1):
                     off = _brim_gap(wid) + k * wid
                     b = (x0 - off, yF - off, x0 + width_mm + off, yF + t_max + off)
                     _emit_loop(pen, _rect_loop(*b), e_wall, 900)
                 # R92 fix: re-assert the layer's main type - the ribbon used
                 # to keep running under TYPE=BRIM on layer 1
-                a(';TYPE:Bottom surface')
-                a('APPLY_TYPE TYPE=SURFACE-BOTTOM')
+                a(_apply_type_lines('SURFACE-BOTTOM'))
             ribbon(li, row, 600 if li == 1 else 1500, e_wall)
             if ironing and li == rows:
-                a(';TYPE:Ironing')
-                a('APPLY_TYPE TYPE=IRONING')
+                a(_apply_type_lines('IRONING'))
                 ribbon(li, row, 1500, e_iron)
             a('EXCLUDE_OBJECT_END NAME=LITHO')
             if _st214:
@@ -17258,8 +17339,7 @@ def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
                 # R194 (.135): tagged as PRIME-TOWER (user request) - one
                 # feature for the body, the brim keeps its own BRIM tag
                 a('EXCLUDE_OBJECT_START NAME=PURGE_TOWER')
-                a(';TYPE:Prime tower')
-                a('APPLY_TYPE TYPE=PRIME-TOWER')
+                a(_apply_type_lines('PRIME-TOWER'))
                 if _swap120:
                     pen.travel(tower[0] + 1.5, tower[1] + tw - 1.5)
                     pen.push(4.0, 180)
@@ -17268,16 +17348,14 @@ def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
                     pen.extrude(tower[0] + 1.5, tower[1] + tw - 1.5,
                                 (tw - 3.0) * 0.1, 1320)
                 if li == 1:
-                    a(';TYPE:Brim')
-                    a('APPLY_TYPE TYPE=BRIM')
+                    a(_apply_type_lines('BRIM'))
                     for off in (_brim_gap(wid) + wid, _brim_gap(wid)):
                         _emit_loop(pen, _rect_loop(tower[0] - off,
                                                    tower[1] - off,
                                                    tower[0] + tw + off,
                                                    tower[1] + tw + off),
                                    e_wall, 900)
-                    a(';TYPE:Prime tower')
-                    a('APPLY_TYPE TYPE=PRIME-TOWER')
+                    a(_apply_type_lines('PRIME-TOWER'))
                 _emit_loop(pen, _rect_loop(tower[0] + wid / 2.0,
                                            tower[1] + wid / 2.0,
                                            tower[0] + tw - wid / 2.0,
@@ -17297,16 +17375,14 @@ def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
                       'SURFACE-TOP' if cap else 'INFILL-SOLID')
             a('EXCLUDE_OBJECT_START NAME=COLORPIC')
             if li == 1 and brim_loops:
-                a(';TYPE:Brim')
-                a('APPLY_TYPE TYPE=BRIM')
+                a(_apply_type_lines('BRIM'))
                 for _b120 in range(brim_loops - 1, -1, -1):
                     off = _brim_gap(wid) + _b120 * wid
                     _emit_loop(pen, _rect_loop(x0 - off, y0 - off,
                                                x0 + width_real + off,
                                                y0 + height_real + off),
                                e_wall, 900)
-            a(';TYPE:Outer wall')
-            a('APPLY_TYPE TYPE=WALL-OUTER')
+            a(_apply_type_lines('WALL-OUTER'))
             for (r_a, r_b, rr) in _bcache120[k]:
                 for (c_a, c_b) in rr:
                     _emit_loop(pen, _rect_loop(x0 + c_a * wid, y0 + r_a * wid,
@@ -17324,8 +17400,7 @@ def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
                                   None, wid, 45.0 if li % 2 else 135.0)
                     _emit_fill(pen, segs, e_wall, 1200 if li == 1 else 2400, wid)
             if ironing and cap:
-                a(';TYPE:Ironing')
-                a('APPLY_TYPE TYPE=IRONING')
+                a(_apply_type_lines('IRONING'))
                 for (r_a, r_b, rr) in _bcache120[k]:
                     for (c_a, c_b) in rr:
                         isegs = _hatch(x0 + c_a * wid,
@@ -17508,8 +17583,7 @@ def make_seal(od=40.0, id_=20.0, height=1.2, profile='FLAT', ironing=False,
         else:
             spiral_band(r_in + wid / 2.0, r_out - wid / 2.0, e_wall, feed, flip)
         if ironing and li == layers:
-            a(';TYPE:Ironing')
-            a('APPLY_TYPE TYPE=IRONING')
+            a(_apply_type_lines('IRONING'))
             e_ir = 0.15 * layer_h * wid / fil
             if groove:
                 spiral_band(r_in + wid / 2.0, r_in + lip - wid / 2.0, e_ir, 1500, False)
@@ -17743,6 +17817,8 @@ def _patch_info_kv(path, key, value):
     in place). The flowcap fix has called this since R111 - it never
     existed, the NameError was swallowed by a bare except (MAXRATE never
     reached the file info)."""
+    if _is_data_file(path):          # R253: binary STL - never touch it
+        return False
     tmp = path + '.ikq'
     hit = False
     with open(path, 'r', errors='replace') as fi, open(tmp, 'w') as fo:
@@ -17915,6 +17991,10 @@ def _stl_export(directory, rel, out_dir=None):
             _m214k = TYPE_RE.match(ln)
             if _m214k:
                 _kinds214.add(_canon_type(_m214k.group(1)))
+        elif ln.startswith('APPLY_TYPE'):      # R253: R2's OWN type markers
+            for _p214k in ln.split(';', 1)[0].split()[1:]:
+                if _p214k.upper().startswith('TYPE='):
+                    _kinds214.add(_canon_type(_p214k.split('=', 1)[1]))
     _relax214 = not (_kinds214 & _STL_SURFACE214)
     _excl214 = ((_STL_EXCLUDE214 - _STL_RELAX214) if _relax214
                 else _STL_EXCLUDE214)
@@ -17973,6 +18053,18 @@ def _stl_export(directory, rel, out_dir=None):
             continue
         parts = code.split()
         cmd = parts[0].upper()
+        if cmd == 'APPLY_TYPE':
+            # R253 (.142i, REAL field file LampOpenE27.gcode): an R2 file has
+            # NO ';TYPE:' comments - its types live in APPLY_TYPE lines (the
+            # post-processor's own marker, 8 of them across 405 layers, the
+            # rest is stateful). Without this the whole object stayed 'CUSTOM'
+            # and every export died with 'no object extrusion found' although
+            # the file is TYPE=MARKED - exactly what the field log showed.
+            for _p1 in parts[1:]:
+                if _p1.upper().startswith('TYPE='):
+                    seen_type = True
+                    cur_type = _canon_type(_p1.split('=', 1)[1])
+            continue
         if cmd == 'M82':
             e_rel = False
             continue
@@ -18077,15 +18169,27 @@ def _stl_export(directory, rel, out_dir=None):
     # mesh crashed or froze every viewer in the field report. The SHORTEST
     # segments go first (micro texture strokes): the macro shape stays,
     # the mesh fits every program.
-    _minseg216 = 0.0
+    # R253 (.142i, real file LampOpenE27.gcode): the R216 rule dropped
+    # segments SHORTER than a threshold that was capped at 1.2 mm - on a
+    # textured vase (220 505 segments, ~1.4 mm each) nothing qualified, the
+    # budget was silently missed and the export wrote a 54 MB / 1.08 M
+    # triangle file (the .136m class of viewer crash, back again). Now the
+    # runs are RESAMPLED: keep every n-th vertex so the box count really
+    # lands on the budget and the polylines stay continuous (dropping
+    # segments left comb-like holes in a bumpy wall).
+    # R253 (.142i, real file LampOpenE27.gcode): this vase is 220 505 SINGLE
+    # short segments (1.4 mm each, 394 layers) - there is nothing to shorten
+    # inside a run, so any per-segment rule either changes nothing (the R216
+    # length filter: 54 MB / 1.08 M triangles) or punches holes into the wall.
+    # The honest decimation axis is Z: keep the full XY resolution and merge
+    # every k-th LAYER band into one taller ribbon. The texture stays visible
+    # (bumps live in XY), the shape stays closed, and the box count lands on
+    # the viewer budget.
+    _dec216 = 1
     _nseg216 = sum(len(r[0]) - 1 for r in runs)
     if _nseg216 > _STL_TARGET_BOXES216:
-        _lens216 = sorted(
-            ((r[0][i][0] - r[0][i - 1][0]) ** 2
-             + (r[0][i][1] - r[0][i - 1][1]) ** 2) ** 0.5
-            for r in runs for i in range(1, len(r[0])))
-        _minseg216 = _lens216[len(_lens216) - _STL_TARGET_BOXES216]
-        _minseg216 = min(1.2, max(0.10, _minseg216))
+        _dec216 = int(math.ceil(float(_nseg216) / _STL_TARGET_BOXES216))
+    _zidx216 = {z: i for i, z in enumerate(zs)}
 
     # ---- pass 3: stream the ribbon boxes into a binary STL ---------------
     outdir = out_dir or os.path.join(directory, 'STL')
@@ -18121,16 +18225,21 @@ def _stl_export(directory, rel, out_dir=None):
             if n_box >= _STL_MAX_BOXES214:
                 break
             zb, zt = z_h[round(zv, 4)]
+            if _dec216 > 1:
+                zt = zb + (zt - zb) * _dec216    # R253: covers k layers
             h = zt - zb
             w = e_sum * _STL_FIL_AREA214 / (len_sum * h)
             w = min(1.5, max(0.30, w)) * 0.5
+            if _dec216 > 1 and (_zidx216.get(round(zv, 4), 0) % _dec216):
+                continue                # R253: this layer band is folded into
+                                        # the previous kept one
             q = pts[0]
-            for p in pts[1:]:
-                (x0, y0), (x1, y1) = q, p
-                q = p
+            for _i in range(1, len(pts)):
+                (x0, y0), (x1, y1) = q, pts[_i]
+                q = pts[_i]
                 dx, dy = x1 - x0, y1 - y0
                 L = (dx * dx + dy * dy) ** 0.5
-                if L < 1e-6 or L < _minseg216:
+                if L < 1e-6:
                     continue
                 nxh, nyh = -dy / L * w, dx / L * w
                 ax, ay = x0 + nxh, y0 + nyh        # left @ start
@@ -18154,12 +18263,28 @@ def _stl_export(directory, rel, out_dir=None):
                     break
         fo.seek(cnt_pos)
         fo.write(struct.pack('<I', n_tri))
+    # ---- R253: prove the file really IS a binary STL -------------------
+    # The field .142h export was silently corrupted AFTER writing (the
+    # watcher tagged it as a print file and put text in front of the binary
+    # header) - a 44 MB file no viewer could load. The scan guard above
+    # stops that; this check makes any future corruption loud instead of
+    # silent.
+    try:
+        with open(out, 'rb') as _chk:
+            _head253 = _chk.read(84)
+        if len(_head253) < 84 or not _head253.startswith(b'R2 object-only STL'):
+            raise RuntimeError(
+                'the written file does not start with the binary STL header '
+                '(something prepended text to it - data must not be tagged): '
+                '%r' % _head253[:32])
+    except OSError:
+        pass
     info = {'file': out, 'boxes': n_box, 'tris': n_tri,
             'layers': len(z_h), 'runs': len(runs), 'incl_mm': incl_mm,
             'excl': excl_mm, 'capped': n_box >= _STL_MAX_BOXES214,
             'untyped': not seen_type, 'relaxed': _relax214,
-            'decimated': bool(_minseg216 > 0.0),
-            'min_seg': round(_minseg216, 2)}
+            'decimated': bool(_dec216 > 1), 'decim_step': _dec216,
+            'segments': _nseg216}
     return os.path.relpath(out, directory), info
 
 def _optimize_copy(directory, rel, snap):
@@ -18363,10 +18488,61 @@ def _optimize_copy(directory, rel, snap):
 _XY_G1_RE = re.compile(r'^G1 X(?P<X>[-\d.]+) Y(?P<Y>[-\d.]+)'
                        r'(?: Z(?P<Z>[-\d.]+))?'
                        r'(?: E(?P<E>[-\d.]+))?(?:\s+F(?P<F>\d+))?')
+# R253 (.142i REAL field file LampOpenE27.gcode): the anchored form above only
+# matches 'X.. Y.. [Z..] [E..]'. A spiral vase writes 'G1 Z26.777 X129.330
+# Y76.988 E.01554' - Z FIRST - so the segment fix never saw a single one of
+# its 3654 over-budget moves and reported 'already smooth (5372 moves/s)'.
+# This parser takes the tokens in ANY order (same class of bug the rate
+# measurement had in R159).
+_G1TOK_RE = dict((_k, re.compile(r'(?:^|\s)%s([-\d.]+)' % _k))
+                 for _k in ('X', 'Y', 'Z', 'E', 'F'))
+
+
+def _g1_tokens(line):
+    """Order-tolerant G1 reader. Returns {'X':..,'Y':..,'E':..,...} or None.
+    X and Y are mandatory (a feed-only or Z-only move is not a wall hop)."""
+    if not (line.startswith('G1 ') or line == 'G1'):
+        return None
+    out = {}
+    for k, rx in _G1TOK_RE.items():
+        m = rx.search(line)
+        if m:
+            out[k] = m.group(1)
+    if 'X' not in out or 'Y' not in out:
+        return None
+    return out
 _XY_RE = re.compile(r'(?:^|\s)X([-\d.]+)')
 _Y_RE = re.compile(r'(?:^|\s)Y([-\d.]+)')
 _ETOK_RE = re.compile(r'(?:^|\s)E([-\d.]+)')
 _F_RE = re.compile(r'(?:^|\s)F(\d+)')
+
+
+def _segment_fix_auto(path, budget=450.0):
+    """R253 (.142i): the segment fix used to make ONE pass at a fixed 0.12mm
+    chord tolerance and then report 'nothing changed' - on the real field
+    files it either merged a little or nothing at all, and the caller had no
+    way to make it try HARDER. This driver measures the SUSTAINED demand and
+    escalates the tolerance while the file is still over the MCU budget:
+    0.12 -> 0.18 -> 0.25 -> 0.35 -> 0.50mm (a fifth to most of a 0.6mm line
+    width). Every pass is bounded by the chord tube, so the geometry never
+    deviates by more than the tolerance - it removes detail the nozzle cannot
+    show anyway, never shape. Returns (merged, before, after, m204, tol)."""
+    before = _move_rate_stats(path)[1]
+    total = 0
+    m204 = 0
+    used = 0.12
+    if before <= budget:
+        return 0, before, before, 0, 0.12      # nothing to do, say so
+    for tol in (0.12, 0.18, 0.25, 0.35, 0.50):
+        n, _rb, ra, m2 = _segments_fix_file(path, tol=tol)
+        total += n
+        m204 += m2
+        used = tol
+        if ra <= budget and (n or m2):
+            return total, before, ra, m204, used
+        if not n and not m2 and tol >= 0.50:
+            break
+    return total, before, _move_rate_stats(path)[1], m204, used
 
 
 def _worst_move_rate(path):
@@ -18379,9 +18555,24 @@ def _worst_move_rate(path):
     across them - the hop to the next wall point looked tiny and produced
     phantom rates), and tokens parse in ANY order (Z-first spiral moves
     were invisible, same regex class as the texture bug)."""
+    return _move_rate_stats(path)[0]
+
+
+def _move_rate_stats(path, window=0.25):
+    """R253 (.142i): the R133 number is a WORST-SINGLE-SEGMENT rate and it
+    fires on isolated strays. Measured on the real field file
+    (LampOpenE27.gcode, 405 layers, spiral vase): worst single = 5372
+    moves/s, but the SUSTAINED demand in any 0.25 s window is 124 moves/s -
+    three times under the ~450/s budget. The old number therefore nagged
+    'run the Segment fix FIRST / Timer too close risk' on a file that was
+    never a serial-budget problem, and the field shutdowns were host stalls
+    (menu dispatch blocking klippy for 0.8-1.3 s), not move floods.
+    Returns (worst_single, sustained_in_window)."""
     worst = 0.0
     px = py = None
     cur_f = 0.0
+    t = 0.0
+    marks = []                  # cumulative print time per counted move
     try:
         with open(path, 'r', errors='replace') as f:
             for raw in f:
@@ -18403,17 +18594,28 @@ def _worst_move_rate(path):
                     continue
                 if px is not None and cur_f > 0:
                     d = math.hypot(x - px, y - py)
-                    if d > 0.01:
+                    if d > 0.0001:
                         r_ = cur_f / 60.0 / d
                         if r_ > worst:
                             worst = r_
+                        t += d / (cur_f / 60.0)
+                        marks.append(t)
                 px, py = x, y
     except OSError:
-        return 0.0
+        return (0.0, 0.0)
+    sustained = 0.0
+    j = 0
+    for i in range(len(marks)):
+        while marks[j] < marks[i] - window:
+            j += 1
+        n = i - j + 1
+        if n > sustained:
+            sustained = n
+    return (worst, sustained / window)
     return worst
 
 
-def _segments_fix_file(path):
+def _segments_fix_file(path, tol=0.12):
     """R133 (field log .94, MCU 'Timer too close'): merge micro G1
     segments in place - hops under 0.1mm (the scaled-down circle-arc
     flood, up to 3600 moves/s) merge in chains of at most 128 moves,
@@ -18426,7 +18628,10 @@ def _segments_fix_file(path):
     retracts stay untouched. E keeps its meaning (relative: summed,
     absolute: last wins), F = the chain's first feed. Returns
     (merged_hops, rate_before, rate_after, m204_renamed)."""
-    rate_before = _worst_move_rate(path)
+    if _is_data_file(path):      # R253: write nothing, change nothing
+        return 0, 0.0, 0.0, 0
+
+    rate_before = _move_rate_stats(path)[1]      # R253: SUSTAINED rate
     tmp = path + '.sgm'
     merged = 0
     pend = None            # buffered chain start/end/E/F/original text
@@ -18459,12 +18664,12 @@ def _segments_fix_file(path):
     with open(path, 'r', errors='replace') as fi, open(tmp, 'w') as fo:
         for raw in fi:
             line = raw.rstrip('\n')
-            m = _XY_G1_RE.match(line) if line.startswith('G1 ') else None
-            if m is not None and m.group('E') is not None:
-                x, y = float(m.group('X')), float(m.group('Y'))
-                z = float(m.group('Z')) if m.group('Z') is not None else None
-                e = float(m.group('E'))
-                f = m.group('F')
+            m = _g1_tokens(line)
+            if m is not None and m.get('E') is not None:
+                x, y = float(m['X']), float(m['Y'])
+                z = float(m['Z']) if m.get('Z') is not None else None
+                e = float(m['E'])
+                f = m.get('F')
                 if pend is not None:
                     dz239 = (z - pend['z']) if (z is not None
                                                  and pend['z'] is not None) \
@@ -18485,7 +18690,16 @@ def _segments_fix_file(path):
                     # chord tube (0.12mm) is the real geometry guard; the hop
                     # cap only has to keep one output move sane, so it is now
                     # 4096 hops AND 5mm of chord.
-                    if de < 0.1 and pend['hops'] < 4096:
+                    # R253: a SHORT pending move must also be able to join
+                    # its (long) follower - the 0.017mm starter of every layer
+                    # loop has a 0.55mm successor and neither side is under
+                    # 0.1mm, so the old rule left it standing at 3128 moves/s.
+                    # 0.15mm = a quarter of a 0.6mm line width: below the
+                    # resolution the printer can show, and it takes the last
+                    # 0.1mm strays under the budget (540 -> ~450 moves/s).
+                    _sp253 = math.hypot(pend['xe'] - pend['x0'],
+                                        pend['ye'] - pend['y0']) < max(0.15, tol)
+                    if (de < max(0.15, tol) or _sp253) and pend['hops'] < 4096:
                         ax239, ay239 = pend['x0'], pend['y0']
                         dx239, dy239 = x - ax239, y - ay239
                         l239 = math.hypot(dx239, dy239)
@@ -18496,7 +18710,7 @@ def _segments_fix_file(path):
                                     if l239 > 0.0
                                     else math.hypot(bx239 - ax239,
                                                     by239 - ay239))
-                            if d239 > 0.12:
+                            if d239 > tol:      # R253: tolerance is a knob
                                 ok239 = False
                                 break
                         if ok239:
@@ -18545,13 +18759,13 @@ def _segments_fix_file(path):
         if pend is not None:
             _flush(fo, pend)
         if merged:
-            fo.write('\n; R2-SEGMENTFIX: %d micro move(s) merged (<0.1mm '
-                     'hops) - worst rate %.0f -> %.0f moves/s (MCU serial '
-                     'budget ~450/s)\n'
-                     % (merged, rate_before, _worst_move_rate(tmp)))
+            fo.write('\n; R2-SEGMENTFIX: %d micro move(s) merged (chord '
+                     'tolerance %.2fmm) - sustained rate %.0f -> %.0f '
+                     'moves/s (MCU serial budget ~450/s)\n'
+                     % (merged, tol, rate_before, _move_rate_stats(tmp)[1]))
     if merged:
         os.replace(tmp, path)
-        return merged, rate_before, _worst_move_rate(path), m204_seen
+        return merged, rate_before, _move_rate_stats(path)[1], m204_seen
     if m204_seen:
         # R237: nothing to merge, but the legacy _M204 rewrites sit in the
         # tmp file - keep them (the early exit used to throw them away)
@@ -18615,6 +18829,9 @@ def _quality_fix_file(path):
 
     Returns (dropped, kept, injected, naked_left).
     """
+    if _is_data_file(path):      # R253: binary data
+        return 0, 0, 0, 0
+
     tmp = path + '.qty'
     dropped = kept = injected = naked = 0
     cs = 2.0
@@ -19160,6 +19377,9 @@ def _travel_fix_file(path, accel=0, speed=0.0, markers=True):
     (or the old R111 ' ; R2-TA') and is dropped again on the next run.
     Returns (n_blocks).
     """
+    if _is_data_file(path):      # R253: binary data
+        return 0
+
     marks = (' ; R2-TA', ' ; R2-TV')
     n = 0
     m204_run = None
@@ -19234,6 +19454,9 @@ def _travel_fix_file(path, accel=0, speed=0.0, markers=True):
                 if accel > 0:
                     fo.write('M204 S%d ; R2-TV\n' % int(accel))
                 if markers:
+                    # R254: TRAVEL is not a print feature - slicers never
+                    # tag it, so no ';TYPE:' comment here (the marker is
+                    # our live-tuning hook and stays exactly as it was).
                     fo.write('APPLY_TYPE TYPE=Travel ; R2-TV\n')
                 in_block = True
                 n += 1
@@ -22318,7 +22541,20 @@ def _preview_script(ppath):
     lines = ['_PREVIEW_SET ' + ' '.join(args)]
     if not busy:
         if excl_ok:
-            lines += _peek_objects(ppath)
+            # R255 (.142k): the EXCLUDE_OBJECT polygon is pure payload - the
+            # field file (vasev650) carries ~3.5 KB of it, and klippy has to
+            # PARSE every byte of this script while the MCU waits. The file
+            # ships its own EXCLUDE_OBJECT_DEFINE line and runs it before its
+            # start block, so the adaptive mesh happens anyway. Short polygons
+            # stay (they are a few bytes), long ones are left to the file.
+            _ex255 = _peek_objects(ppath)
+            if sum(len(_l) for _l in _ex255) <= 1200:
+                lines += _ex255
+            else:
+                print('[preview] %s: %d chars of object polygon left to the '
+                      'file itself (script stays small)'
+                      % (os.path.basename(ppath),
+                         sum(len(_l) for _l in _ex255)), flush=True)
         if raw:
             lines.append(raw)
         if pv.get('HOTEND', '0') != '0' or pv.get('BED', '0') != '0' or pv.get('FAN', '0') != '0':
@@ -22345,8 +22581,10 @@ def _preview_script(ppath):
             mr = float(_mrs)
         except ValueError:
             mr = None
-    if mr is not None and mr > 400.0:
-        lines.append('RESPOND MSG="[!] %s: up to %.0f moves/s - '
+    if mr is not None and mr > 450.0:
+        # R253: only the SUSTAINED demand is a risk. A single 0.01mm stray
+        # in a spiral vase used to trip this on every file selection.
+        lines.append('RESPOND MSG="[!] %s: %.0f moves/s sustained - '
                      '\'Timer too close\' risk! Pre-Print > File > '
                      'Segment fix merges the micro moves (MCU budget '
                      '~450/s)"' % (esc(os.path.basename(ppath)), mr))
@@ -23863,28 +24101,31 @@ def watch(directory, interval=5.0, once=False):
                 # R133 (field log .94, MCU 'Timer too close'): heal a
                 # micro-segment flood in ANY selected file (old .93
                 # figures/scaled files included) - no re-upload
-                n, rb, ra, m2 = _segments_fix_file(p)
+                n, rb, ra, m2, _tol253 = _segment_fix_auto(p)
                 _m2s = (' [legacy _M204 renamed: %d]' % m2) if m2 else ''
                 if n or m2:
-                    msg = ('Segment fix DONE: %s%s in %s - worst move rate '
-                           '%.0f -> %.0f/s (MCU budget ~450)'
+                    msg = ('Segment fix DONE: %s%s in %s - sustained move '
+                           'rate %.0f -> %.0f/s (MCU budget ~450, chord '
+                           'tolerance %.2fmm)'
                            % ('%d micro move(s) merged' % n if n
-                              else 'file rewritten', _m2s, base, rb, ra))
+                              else 'file rewritten', _m2s, base, rb, ra,
+                              _tol253))
                     snd = 'r2_done'
                 elif rb <= 450.0:
-                    msg = ('Segment fix: %s is already smooth (%.0f moves/s '
-                           'worst, budget ~450) - nothing changed' % (base, rb))
+                    msg = ('Segment fix: %s is already smooth (%.0f '
+                           'moves/s sustained, budget ~450) - nothing changed'
+                           % (base, rb))
                     snd = 'r2_notice'
                 else:
                     # R253: the old text claimed 'already smooth (5372
                     # moves/s)' - a contradiction the field log caught. If
                     # the rate is still over budget, say so and name the
                     # reason instead of pretending.
-                    msg = ('Segment fix: %s still carries %.0f moves/s after '
-                           'the merge (MCU budget ~450/s) - no consecutive '
-                           'micro hops were found, the tiny moves sit apart '
-                           '(retracts/feature changes between them). Do NOT '
-                           'print it as is' % (base, ra if ra else rb))
+                    msg = ('Segment fix: %s still carries %.0f moves/s '
+                           'sustained after the merge (MCU budget ~450/s) - '
+                           'the moves are short but not neighbours, so they '
+                           'cannot be merged. Lower the speed for this file'
+                           % (base, ra if ra else rb))
                     snd = 'r2_alarm'
                 _moonraker_gcode('RESPOND MSG="%s"\nM117 SegFix done\n'
                                  '_SOUND_LIB NAME=%s' % (msg, snd))
@@ -23989,6 +24230,16 @@ def watch(directory, interval=5.0, once=False):
                 # as a print job or picked up by a generator. Both the .txt and
                 # the .txt.gcode twin carry the R2-DOCTOR- prefix.
                 if fn.startswith('R2-DOCTOR-'):
+                    continue
+                # R253 (.142i, REAL field STL): the object export writes a
+                # BINARY STL that only carries a .gcode tail so Mainsail
+                # lists it for download (44 MB field example). The scan
+                # tagged it like a print file - the R2 header text went IN
+                # FRONT of the binary header, so the triangle count sat at
+                # the wrong offset and NO viewer could open it ('one showed
+                # only a sphere'). Data is data: never tag, never list.
+                if fn.lower().endswith('.stl.gcode') \
+                        or '/stl/' in p.replace('\\', '/').lower():
                     continue
                 # R249: a root LINK is a pointer to an output that is scanned
                 # in its own folder. Processing it here would re-tag the file
@@ -24432,9 +24683,15 @@ def watch(directory, interval=5.0, once=False):
                         if _o and os.path.isfile(_o) \
                                 and str(_o).endswith('.gcode') \
                                 and not str(_o).lower().endswith('.stl.gcode'):
-                            _mr = _worst_move_rate(_o)
-                            if _mr and _mr > 1.0:
+                            # R253: MOVERATE is the SUSTAINED demand now (the
+                            # number the serial budget is about); the worst
+                            # single segment rides along as MOVERATEMAX.
+                            # stats returns (worst_single, sustained)
+                            _mrmax, _mr = _move_rate_stats(_o)
+                            if _mrmax > 1.0:
                                 _patch_info_kv(_o, 'MOVERATE', '%.0f' % _mr)
+                                _patch_info_kv(_o, 'MOVERATEMAX',
+                                               '%.0f' % _mrmax)
                             # R238 (.136ai field wish): MCU-safe BY
                             # CONSTRUCTION - a freshly generated file above
                             # the watcher's own risk threshold gets the
@@ -24442,8 +24699,8 @@ def watch(directory, interval=5.0, once=False):
                             # log: a texture print ran 6000 moves/s and
                             # needed the manual fix). No separate menu step.
                             if _mr and _mr > 400.0:
-                                _n238s, _rb238s, _ra238s, _m2r238s = \
-                                    _segments_fix_file(_o)
+                                (_n238s, _rb238s, _ra238s, _m2r238s,
+                                 _t238s) = _segment_fix_auto(_o)
                                 if _n238s or _m2r238s:
                                     if _ra238s:
                                         _patch_info_kv(_o, 'MOVERATE',
@@ -24904,6 +25161,18 @@ def watch(directory, interval=5.0, once=False):
                               'heavy push skipped (R242: the selection push just '
                               'landed, klippy still holds the values)'
                               % (pfn, _PREVIEW_DEDUP_WIN), flush=True)
+                    elif _printer_moving():
+                        # R255 (.142k, 12.11. FIELD LOG): THIS branch had no
+                        # motion gate at all - the selection script (4 KB with
+                        # the EXCLUDE_OBJECT polygon) went out while the start
+                        # macro was already homing, twice per selection. The
+                        # log shows exactly that: two identical giant scripts
+                        # at 597.375 s, then 'Timer too close' at the end of
+                        # the Z lift (toolhead 115,115,10). The push is not
+                        # dropped - it waits for the printer to stand still.
+                        PENDING_PREVIEW.append((ppath, 'select'))
+                        print('[preview] %s: printer moving (homing/probing) - '
+                              'the push waits for idle' % pfn, flush=True)
                     else:
                         try:
                             script_lines, nvals = _preview_script(ppath)
@@ -25024,8 +25293,8 @@ def watch(directory, interval=5.0, once=False):
                             if _inf214.get('decimated'):
                                 _msg214 += (
                                     ' - decimated to the viewer budget '
-                                    '(segments under %.2fmm dropped)'
-                                    % _inf214.get('min_seg', 0))
+                                    '(every %d. layer band kept, full XY)'
+                                    % _inf214.get('decim_step', 1))
                             if _inf214['capped']:
                                 _msg214 += (' - CAPPED at %d ribbons, mesh '
                                             'truncated' % _inf214['boxes'])

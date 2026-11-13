@@ -162,6 +162,69 @@ def check_cfg(path):
     return fails
 
 
+
+# ---------------------------------------------------------------------------
+# R256 (.142l): THE BOOT HALT THAT GOT THROUGH R255
+# ---------------------------------------------------------------------------
+# klippy/gcode.py refuses to hand a command an alias of a DIFFERENT name type:
+#
+#   G-Code macro rename of different types ('G28' vs '_G28_RAW')
+#   -> Printer is halted
+#
+# "traditional g-code" means: first char a letter, second char a digit, the
+# rest numeric (G28, M104, G10.1, M99110). Everything else is a macro-style
+# name (PAUSE, SDCARD_PRINT_FILE, _G28_RAW). Both sides of a rename_existing
+# pair must be the SAME type.
+#
+# R255 shipped `rename_existing: _G28_RAW` for the G28 guard and bricked the
+# printer at boot - the templates compiled, the section names were legal, and
+# nothing in the battery looked at this RULE. Now something does.
+def is_traditional_gcode(cmd):
+    cmd = str(cmd).strip()
+    if len(cmd) < 2 or not cmd[0].isalpha() or not cmd[1].isdigit():
+        return False
+    return re.match(r'^[-+0-9.eE]+$', cmd[2:]) is not None
+
+
+def check_renames():
+    """Every [gcode_macro X] with rename_existing: Y must satisfy Klipper's
+    type rule - and an alias may only be claimed once."""
+    fails = []
+    seen = {}
+    for sub in ('macros', 'menus'):
+        d = os.path.join(ROOT, sub)
+        if not os.path.isdir(d):
+            continue
+        for f in sorted(os.listdir(d)):
+            if not f.endswith('.cfg'):
+                continue
+            path = os.path.join(d, f)
+            rel = os.path.relpath(path, ROOT)
+            section = None
+            for i, line in enumerate(open(path, encoding='utf-8'), 1):
+                m = re.match(r'^\[gcode_macro ([^\]]+)\]', line)
+                if m:
+                    section = m.group(1).strip()
+                    continue
+                m = re.match(r'^\s*rename_existing:\s*(\S+)', line)
+                if not m or section is None:
+                    continue
+                alias = m.group(1).strip()
+                if is_traditional_gcode(section) != is_traditional_gcode(alias):
+                    fails.append((
+                        'FAIL', '%s:%d [gcode_macro %s]: rename_existing %s is a '
+                        'DIFFERENT name type - Klipper halts the printer at boot '
+                        '(\"G-Code macro rename of different types\"); use a '
+                        'traditional name (letter + digits, e.g. M99110) as the '
+                        'alias' % (rel, i, section, alias)))
+                if alias in seen:
+                    fails.append((
+                        'FAIL', '%s:%d alias %s already claimed by %s'
+                        % (rel, i, alias, seen[alias])))
+                seen[alias] = '%s [%s]' % (rel, section)
+    return fails
+
+
 def main():
     targets = []
     for sub in ('macros', 'menus'):
@@ -188,6 +251,7 @@ def main():
             if sec.split(None, 1)[0] in ALLOWED and fc.has_option(sec, 'gcode'):
                 n_tpl += 1
         fails += check_cfg(path)
+    fails += check_renames()
 
     for kind, msg in fails:
         print('%s %s' % (kind, msg))
