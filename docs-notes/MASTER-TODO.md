@@ -146,6 +146,29 @@ Baumrinde aus oder wie Holzdiele oder Parkett … irgendwas hast du verhauen."
       Jede Aussage: stimmt sie noch? Wird sie vom Code so umgesetzt? Wo Code
       und Doku auseinanderlaufen und der Code nicht der Planung entspricht →
       **dem User melden**, nicht einfach die Doku anpassen.
+- [x] **D7 — Die vier großen PDFs auf ein gemeinsames Fundament.** *(erledigt V1, Commit folgt)*
+      `tools/r2_pdf_kit.py` = ein Stilsatz für alle Hefte (DejaVu, Palette,
+      `Doc` mit Versionskopf + Seitenzahl, `TBL/BOX/FORMULA/IMG`,
+      `toolpath_fig/bar_fig/ladder_fig`). Darauf gebaut und **fertig**:
+      - **D7a** `KALIBRIERUNG.pdf` — 14 S., 13-Sprossen-Leiter, Fehlerbudget-
+        Formel, Materialtabelle aus `05_materials.cfg`, drei Wege, Prüfliste.
+        `tools/make_calibration_pdf.py`. Alle Zahlen gegen den Code geprüft
+        (u. a. Bett-Schrauben: Klipper-Kriterium `00:00`, **keine** eigene
+        mm-Toleranz im Code → die frühere „0,1 mm"-Behauptung ist raus).
+      - **D7b** `PREPRINT_LIVETUNING.pdf` — 22 S., Pre-Print (13 Zweige),
+        Fixes mit Mathematik, Feature-Tagging **mit Messwerten aus einem
+        echten Postprozessor-Lauf**, Live (17 Zweige), Ketten (Speed/Accel/
+        Flow/PA/Lüfter/Temp), Profile, Ranking inkl. Toleranzen.
+        `tools/make_preprint_pdf.py`.
+      - **D7c** `POSTPROCESSING.pdf` — 15 S., Marker-Grammatik, `_FILE_INFO`,
+        147 Feature-Namen, Zustandsmaschine, MCU-Budget-Mathematik,
+        Fixes als Python, Nicht-Zähler-Brücke (45 Kanäle), Cake/Range-Regel,
+        Messwerte. `tools/make_postproc_pdf.py`.
+      - Reproduzierbarer Messkörper: `tools/samples/make_statprobe.py` →
+        `statprobe.gcode` → echter Lauf → `statprobe_tagged.gcode`
+        (104 Marker, 30 Schichten, MAXRATE 7,2 mm³/s).
+      **Offen:** D7d = `GENERATORS_TOOLS.pdf` (jeder Modifier einzeln) —
+      wartet auf den User, weil dort die Texturen drin sind (Block G).
 - [ ] **D2 — Textur-PDF ist veraltet:** alte Vorschaubilder, alte Preset-Zahl.
       Die 27 Textur-Typen/Presets müssen mit Bildern und Parametern drin sein.
 - [ ] **D3 — Pro Generator eine wissenschaftliche PDF** (Vorbild:
