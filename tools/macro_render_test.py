@@ -2667,12 +2667,20 @@ state_vars['layer'] = 2
 import subprocess, tempfile, shutil as _sh
 import os as _os56, sys as _sys56
 # Workspace-Cleanup (2026-10-11): uploads/ ist aufgeruemt - die drei echten
-# Slicer-Dateien der Batterie liegen als deterministische Gzips in
-# /home/user/testfixtures/ und werden hier in ein gemeinsames Temp-Dir
-# entpackt (wiederverwendet, kein Muell pro Lauf). Ohne das Fixture-Verz.
-# ueberspringen diese Tests genau wie frueher ohne uploads/ (CI unberuehrt).
+# Slicer-Dateien der Batterie liegen als deterministische Gzips im
+# Fixture-Verzeichnis und werden hier in ein gemeinsames Temp-Dir entpackt
+# (wiederverwendet, kein Muell pro Lauf). Ohne dieses Verzeichnis
+# ueberspringen die Tests R56-R60 (14 Tests) - siehe UEBERGABE.md 3.0.
 import gzip as _gzfix
-_FIXDIR = '/home/user/testfixtures'
+# R2: die drei Felddateien liegen seit V1 IM REPO (testfixtures/), damit ein
+# frischer Klon dieselbe Batterie faehrt wie die Entwicklungsumgebung.
+# Reihenfolge: Umgebungsvariable R2_FIXTURES, dann Repo-relativ, dann der
+# alte Workspace-Pfad (bleibt fuer bestehende Installationen gueltig).
+_osfix = __import__('os')
+_repofix = _osfix.path.join(_osfix.path.dirname(_osfix.path.dirname(
+    _osfix.path.abspath(__file__))), 'testfixtures')
+_FIXDIR = (_osfix.environ.get('R2_FIXTURES')
+           or (_repofix if _osfix.path.isdir(_repofix) else '/home/user/testfixtures'))
 _FIXMAP = {'Rose_215C_PLA_40m56s.gcode.png': 'rose_215c_pla.gcode.gz',
            'stringart3d_generic-gcode_medium.gcode.png': 'stringart3d_generic.gcode.gz',
            'BigRose_020mm@Ender3_PLA_1h9m.gcode.png': 'bigrose_020mm.gcode.gz'}
