@@ -1951,7 +1951,7 @@ region on top, so the picture needs NO backlight and works from every
 angle. The image pipeline is the proven one (percentile contrast stretch +
 optional boost), then the picture is quantized into 2–8 luminance bands.
 
-**The workflow (LCD: `Tools > ColorPic`)** — same image list as the
+**The workflow (LCD: `Tools > ColorPicture`)** — same image list as the
 lithophane (upload a `.png`/`.jpg` into the gcodes folder), Width, Bands,
 Band height, Colors (per-band palette, light→dark; auto ramps when empty),
 Layer, Ironing, Brim, **Swap**, **Contrast**, Vers → CREATE →
@@ -2015,7 +2015,7 @@ findings, all fixed):
   klippy reactor stalls during a photo build). Grayscale JPEGs decode
   again (they crashed above 512 px).
 
-**The workflow (LCD: `Tools > String art`)**
+**The workflow (LCD: `Tools > ArtisticStrings`)**
 
 1. **Pattern** — SPIRAL (the classic winding, no image needed — the
    ideal first test) or PHOTO (a root image becomes the weave:
@@ -3614,7 +3614,7 @@ Diagnostics: SHOW_STATUS · SELF_TEST · KAMP_STATUS · HOST_CHECK (Pi health) �
 | print an angle bracket | Tools > Angles+Flat > Mode > Angle, Settings, Create |
 | join two boards flush | Tools > Angles+Flat > Mode > Flat splice, Left/Right, Create |
 | print a lithophane | Tools > Lithophane > Images (Create) — slot press, then start |
-| print a color picture | Tools > ColorPic > Images — slot press, swap filament at every beep |
+| print a color picture | Tools > ColorPicture > Images — slot press, swap filament at every beep |
 | print building bricks | Tools > Bricks > Catalog (count parts) > Create |
 | turn a sliced file into a kit | Tools > Bricks > Kit from file > CREATE kit |
 | print figures | Tools > Bricks > Figures > Scale/Count > CREATE figure |
@@ -3625,7 +3625,7 @@ Diagnostics: SHOW_STATUS · SELF_TEST · KAMP_STATUS · HOST_CHECK (Pi health) �
 | delete a lithophane image | Tools > Lithophane > Delete image — press the slot twice |
 | test ironing | Maintenance > Ironing Cal. |
 | purge / cold pull | console `PURGE_MORE` (15 mm) · Maintenance > Filament |
-| shutdown the Pi | System > Pi shutdown (2×) |
+| shutdown the Pi | System > Pi shutdown? arm, then >> PI SHUTDOWN NOW (2 presses) |
 | cable/lamp hole in a range part | Pre-Print > Range/Stop > Fl.hole / Top hole, then Create |
 | which g-code files are outdated | System > File check — console lists every file; Retag old (2×) upgrades them |
 | printer off, Pi stays on | PRINTER_POWER_OFF (console — needs the relay, ch. 26) |
@@ -3738,284 +3738,501 @@ stay with Mainsail.
 | **MCR** | minimum cruise ratio | **SCV** | square corner velocity |
 
 ## 25. Complete macro index
-194 entries: every public macro with parameters (defaults in parentheses; blank = no parameters) plus the internal hooks worth knowing. Internal helpers (leading `_`) are not user-facing — 239 public + 100 internal macros exist in total; this index lists what you can sensibly type or meet in the console. Grouped by module file — the same file you would edit.
+409 entries: every public macro with parameters (defaults in parentheses; blank = no parameters) plus the internal hooks worth knowing. Internal helpers (leading `_`) are not user-facing — **265 public + 114 internal macros exist in total** (379 `gcode_macro` + 30 `delayed_gcode`, counted from the .cfg files, not copied from an older list). Grouped by module file — the same file you would edit.
 
-### Sounds — 02_sounds.cfg (4)
+
+### State & sentinels — 01_state.cfg (14)
+| Macro | Parameters | Purpose |
+|---|---|---|
+| **DOCTOR_PACK** |  | Build the evidence pack (logs + system state) for support - one downloadable file |
+| **PP_ENGINE_INFO** |  | Show which post-processor engine runs and what the difference is |
+| **SET_PP_ENGINE** | MODE='' | Choose the post-processor engine: stable (today's) or next (the experimental copy) |
+| **SET_RECOVERY** | MODE='' | Enable/disable the MCU-shutdown auto-recovery (MODE=on/off) |
+| **TOGGLE_PP_ENGINE** |  | Flip between the stable and the experimental post-processor (menu hook) |
+| **TOGGLE_RECOVERY** |  | Toggle the MCU-shutdown auto-recovery (menu hook) |
+| _CHECK_INSTALL |  | Verify all macro modules are loaded and current (runs at boot) |
+| _INIT_DEFAULTS |  | seed the live values from save_variables at boot (PA smoothing, recovery flags) |
+| _PACE | P=100 | Micro-pause between disk writes (idle only - never dwells during a print) |
+| _R2_DOCTOR |  | Old name of DOCTOR_PACK (kept as an alias - R253 renamed it, the R252 spelling halted the boot) |
+| _R2_VERSION |  | Version of the macro package |
+| _SDM |  | holder object for the SD list/state the menus and the watcher query (no folder tree any more, R247) |
+| _STATE |  | Internal state store (do not call directly) |
+| _V01_STATE |  | Version sentinel of 01_state.cfg |
+
+### Sounds — 02_sounds.cfg (8)
 | Macro | Parameters | Purpose |
 |---|---|---|
 | **M300** | P=100, S=1000 | single beep — wrapper; the real beep lives on as M99300 |
 | **PLAY_SOUND** | NAME='r2_click' | play a tune by name (ch. 16) |
-| **TOGGLE_SOUNDS** | — | sounds on/off (persisted: sound_on) |
-| **TEST_SOUNDS** | — | play all 20 tunes in sequence |
+| **TEST_SOUNDS** |  | play all 20 tunes in sequence |
+| **TOGGLE_SOUNDS** |  | sounds on/off (persisted: sound_on) |
+| _PLAY_JOB_START |  | Watcher: a queued generation starts building now (internal, R160) |
+| _SOUND_LIB | TUNE='', NAME='' | Internal sound database (do not call directly) |
+| _UI_SOUND | NAME='r2_click' | UI confirmation sound - SILENT while a print runs (R143): queue management and generator presses beep when idle, never into a running print. Errors and alarms (NOTIFY SOUND=...) keep their sound - always. |
+| _V02_SOUNDS |  | Version sentinel of 02_sounds.cfg |
 
-### LEDs — 03_leds.cfg (9)
+### LEDs — 03_leds.cfg (14)
 | Macro | Parameters | Purpose |
 |---|---|---|
-| **SET_LED_STATE** | STATE='idle' | switch the LED pattern (12 states, ch. 17) — applies the nozzle mode + bed light too |
+| **LED_INFO** |  | report chain + pin + areas + switches (console) |
 | **NOZZLE_LED** | MODE, BRIGHT, R, G, B | nozzle light: on/off/auto + live dimming + live color (ch. 17) |
-| **SET_NOZZLE_SPLIT** | STATE=0/1 | nozzle LEDs on their own EBB42 chain (1) or last LED of the main chain (0) — persisted (ch. 26) |
-| **SET_LED_LAYOUT** | STATUS, BED | LED area split — hard-clamped to the chain, persisted in r2_hardware.cfg (ch. 17) |
 | **SET_BED_LIGHT** | STATE, TOGGLE, BRIGHT | bed work light on/off + brightness 0–0.5 (ch. 17) |
-| **LED_INFO** | — | report chain + pin + areas + switches (console) |
-| **TOGGLE_LEDS** | — | frame LEDs off/on (persisted: leds_on) |
-| **TEST_LEDS** | — | LED test animation |
-| _NOZZLE_SET / _BEDLIGHT_SET | ON, BRIGHT | internal: writes the nozzle / bed-light LEDs (capped 0.5) |
+| **SET_LED_LAYOUT** | STATUS, BED | LED area split — hard-clamped to the chain, persisted in r2_hardware.cfg (ch. 17) |
+| **SET_LED_STATE** | STATE='idle' | switch the LED pattern (12 states, ch. 17) — applies the nozzle mode + bed light too |
+| **SET_NOZZLE_SPLIT** | STATE=0/1 | nozzle LEDs on their own EBB42 chain (1) or last LED of the main chain (0) — persisted (ch. 26) |
+| **TEST_LEDS** |  | LED test animation |
+| **TOGGLE_LEDS** |  | frame LEDs off/on (persisted: leds_on) |
+| _BEDLIGHT_SET | ON, BRIGHT | internal: writes the nozzle / bed-light LEDs (capped 0.5) |
+| _LED_JOB_DONE |  | A watcher job ended - restore the state LEDs (watcher hook, R240) |
+| _LED_JOB_PROGRESS | PCT=0 | Job progress bar on the status LEDs (watcher hook, internal, R240) |
+| _LED_QUIET | ON=1 | Mute the LED animation while the probe moves (Timer-too-close guard) |
+| _NOZZLE_SET | ON, BRIGHT | internal: writes the nozzle / bed-light LEDs (capped 0.5) |
+| _V03_LEDS |  | Version sentinel of 03_leds.cfg |
 
-### Notifications — 04_notify.cfg (2)
+### Notifications — 04_notify.cfg (3)
 | Macro | Parameters | Purpose |
 |---|---|---|
 | **NOTIFY** | TEXT, LEVEL='info', LED, SOUND | notification helper: text + sound + LED in one call |
-| **SHOW_STATUS** | — | full status: mode, material, overrides, live values |
+| **SHOW_STATUS** |  | full status: mode, material, overrides, live values |
+| _V04_NOTIFY |  | Version sentinel of 04_notify.cfg |
 
-### Materials & profiles — 05_materials.cfg (18)
+### Materials & profiles — 05_materials.cfg (33)
 | Macro | Parameters | Purpose |
 |---|---|---|
-| **SET_MATERIAL** | MATERIAL=<current>, APPLY_PRESET=1 | select material; APPLY_PRESET=1 also loads its preset |
-| **SAVE_MATERIAL_TEMPS** | MATERIAL=<current> | save current values as this material's preset — works WITHOUT loading it first |
-| **SHOW_MATERIAL** | — | show the current material + its stored preset |
-| **LOAD_DEFAULT_PRESET** | N=1..8 | load standalone default profile N (values + ON switches via _PROFILE_APPLY) |
-| **SAVE_DEFAULT_PRESET** | N=1..8 | save the current override state as default profile N |
+| **DEFAULT_PRESETS_INFO** |  | list all default profiles (slot, material, marker, epoch) |
 | **DELETE_DEFAULT_PRESET** | N=1..8 | delete default profile N |
-| **DEFAULT_PRESETS_INFO** | — | list all default profiles (slot, material, marker, epoch) |
-| **SAVE_FILE_PROFILE** | WHICH=pre | save the selected file's CURRENT pre-print state as its 'pre' profile |
-| **FILE_PROFILE_LOAD** | WHICH=pre/post | load the selected file's profile slot |
-| **FILE_PROFILE_DELETE** | WHICH=pre/post | delete the selected file's profile slot (other slot stays) |
-| **FILE_PROFILES_INFO** | — | what is stored for the selected file: pre/post, epochs, which one auto-load picks |
+| **DELETE_DEPOT_PRESET** | CONFIRM=0 | Delete the Depot profile |
+| **DEPOT_INFO** |  | Show the Depot profile status (console) |
+| **FILE_PROFILES_INFO** |  | what is stored for the selected file: pre/post, epochs, which one auto-load picks |
 | **FILE_PROFILE_AUTO** | FILE=<relpath> (int.) | watcher hook on every file selection: sets the menu flags + applies the newer profile when Auto-load is ON |
-| **_PROFILE_APPLY** | SRC=default N= · SRC=file WHICH= FILE= (int.) | the ONE apply path: values + ON switches + feature values + material |
-| **_PROFILE_SAVE** | WHICH= FILE= (int.) | snapshot the live state and hand it to the writer |
-| **_PROFILE_WRITE** | WHICH= FILE= (int.) | merge the snapshot into file_profiles (other slot + other files preserved), bump the epoch |
+| **FILE_PROFILE_DELETE** | WHICH=pre/post | delete the selected file's profile slot (other slot stays) |
+| **FILE_PROFILE_LOAD** | WHICH=pre/post | load the selected file's profile slot |
+| **LOAD_DEFAULT_PRESET** | N=1..8 | load standalone default profile N (values + ON switches via _PROFILE_APPLY) |
+| **LOAD_DEPOT_PRESET** | CONFIRM=0 | Apply the Depot profile to the Pre-Print settings |
+| **OPT_INFO** |  | Show the last print snapshot / pending question (console) |
+| **SAVE_DEFAULT_PRESET** | N=1..8 | save the current override state as default profile N |
+| **SAVE_DEPOT_PRESET** | CONFIRM=0 | Save ALL current Pre-Print settings as the Depot profile |
+| **SAVE_FILE_PROFILE** | WHICH=pre | save the selected file's CURRENT pre-print state as its 'pre' profile |
+| **SAVE_MATERIAL_TEMPS** | MATERIAL=<current> | save current values as this material's preset — works WITHOUT loading it first |
+| **SET_MATERIAL** | MATERIAL=<current>, APPLY_PRESET=1 | select material; APPLY_PRESET=1 also loads its preset |
+| **SHOW_MATERIAL** |  | show the current material + its stored preset |
+| _MATERIALS |  | Internal material database (do not call directly) |
+| _OPT_APPLY_PICKED | IDX=0 | Load an optimized file's values into Pre-Print |
+| _OPT_BAKED | SNAP | Optimized-file replay - the values baked into the copy apply |
+| _OPT_END_ASK |  | Compare the final snapshot vs the baseline, arm the question |
+| _OPT_PROMPT_NO |  | Rate-print answer NO - discard the live tuning |
+| _OPT_PROMPT_RESOLVE |  | End an unanswered rate-print question |
+| _OPT_PROMPT_YES |  | Rate-print answer YES - write the optimized copy, keep the values |
+| _OPT_QUEUE_JOB |  | Ask the watcher for the optimized copy |
+| _OPT_RESTORE_BASELINE | QUIET=0 | Restore the pre-print override state |
+| _OPT_SAVE_LATER |  | Save the LAST print's snapshot as an optimized copy |
+| _OPT_SNAP_WRITE | DEST='' | Snapshot the current override state |
+| _PROFILE_APPLY | SRC=default N= · SRC=file WHICH= FILE= (int.) | the ONE apply path: values + ON switches + feature values + material |
+| _PROFILE_SAVE | WHICH= FILE= (int.) | snapshot the live state and hand it to the writer |
+| _PROFILE_WRITE | WHICH= FILE= (int.) | merge the snapshot into file_profiles (other slot + other files preserved), bump the epoch |
+| _PROF_ARM | KEY='', WHICH='confirm' | Profiles: arm the 2-press confirm for KEY (internal, R240) |
+| _V05_MATERIALS |  | Version sentinel of 05_materials.cfg |
 
-### Temperatures & marks — 06_temp_controls.cfg (12)
+### Temperatures — 06_temp_controls.cfg (18)
 | Macro | Parameters | Purpose |
 |---|---|---|
+| **LAYER_MARK** |  | layer marker (inserted by the post-processor) |
 | **M104** | S=-1, T | hotend temp — interceptor, redirects by layer (real: M99104) |
+| **M106** | S=255 | part fan — scaling + from-layer-2 rule |
 | **M109** | S=-1, T | like M104, but waits |
 | **M140** | S=-1 | bed temp — interceptor (real: M99140) |
 | **M190** | S=-1 | like M140, but waits |
-| **M106** | S=255 | part fan — scaling + from-layer-2 rule |
 | **M204** | P, S, T | acceleration — interceptor (M99204): feature accel while that feature's override is ON, else global overwrite ON → your accel, else file 1:1 |
-| **LAYER_MARK** | — | layer marker (inserted by the post-processor) |
 | **M220** | S=100 | speed — interceptor (real: M99220): L1 cap while layer 1 runs; ALWAYS stores the clean global % as g_speed_clean — the base command features use |
-| **PAUSE_NEXT_LAYER** | REASON='next layer' | one-shot pause at the next layer boundary |
+| **M221** | S=100 | Flow factor - captured from the file, redirected to YOUR flow when ON |
 | **PAUSE_AT_LAYER** | LAYER=0 | one-shot pause at layer n (n greater than 1) |
-| **SET_LIVE_HOTEND_TEMP** | T=-1 | change the hotend target live |
+| **PAUSE_NEXT_LAYER** | REASON='next layer' | one-shot pause at the next layer boundary |
 | **SET_LIVE_BED_TEMP** | T=-1 | change the bed target live |
+| **SET_LIVE_HOTEND_TEMP** | T=-1 | change the hotend target live |
+| **SET_STOP_AT_LAYER** | LAYER=0 | Stop the print NORMALLY when layer N begins (0 = off) |
+| _ACCEL_SET | VALUE=0 | Set move accel + update the M204 tracker (internal, R167) |
+| _END_AT_LAYER | LAYER=0 | Planned end at layer N (internal): stop the file + normal end choreography |
+| _SPEED_COMBINED |  | apply the effective speed factor - clean global x the CURRENT feature override |
+| _V06_TEMPS |  | Version sentinel of 06_temp_controls.cfg |
 
-### Start dialog & overrides — 07_start_confirm.cfg (8)
+### Start confirm — 07_start_confirm.cfg (10)
 | Macro | Parameters | Purpose |
 |---|---|---|
-| **PRINT_AS_SLICED** | — | start dialog: answer AS SLICED |
-| **PRINT_WITH_OVERRIDES** | — | alias for AS LEGACY (merged mode) |
-| **PRINT_AS_LEGACY** | — | start dialog: AS LEGACY |
-| **CANCEL_PENDING_PRINT** | — | start dialog: cancel (nothing is hot yet) |
-| **SET_OVERRIDE_VALUE** | NAME, VALUE | set one override + switch it ON |
+| **CANCEL_PENDING_PRINT** |  | start dialog: cancel (nothing is hot yet) |
+| **CLEAR_OVERRIDES** |  | all switches OFF (values stay stored) |
+| **PRINT_AS_LEGACY** |  | start dialog: AS LEGACY |
+| **PRINT_AS_SLICED** |  | start dialog: answer AS SLICED |
+| **PRINT_WITH_OVERRIDES** |  | alias for AS LEGACY (merged mode) |
+| **SET_OVERRIDE_VALUE** | NAME, VALUE | generic: NAME=feat_spd_<code> / feat_acc_<code> / feat_on_<code> for 16 codes + all legacy names; feat_on=0 resets speed→100% + accel→file M204 + ironing flow→slicer value |
+| **TOGGLE_FIRST_LAYER_RULES** |  | First-layer rules also in AS SLICED on/off (L1 temps + fan off - R79) |
 | **TOGGLE_OVERRIDE** | NAME='' | flip one override switch |
-| **CLEAR_OVERRIDES** | — | all switches OFF (values stay stored) |
-| **TOGGLE_START_CONFIRMATION** | — | start dialog on/off (persisted: start_confirm) |
+| **TOGGLE_START_CONFIRMATION** |  | start dialog on/off (persisted: start_confirm) |
+| _V07_CONFIRM |  | Version sentinel of 07_start_confirm.cfg |
 
-### Print start & end — 08_print_start_stop.cfg (3)
+### Print start / stop — 08_print_start_stop.cfg (33)
 | Macro | Parameters | Purpose |
 |---|---|---|
-| **PRINT_START** | BED, HOTEND_FIRST, HOTEND_AFTER, BED_AFTER, MATERIAL='PLA', LAYER_HEIGHT=0.2, TOTAL_LAYERS=0, OUTER_WALL_SPEED=0, SUPPORT_SPEED=0, IRONING_SPEED=0 | start choreography — called by the sliced file |
-| **START_PRINT** | — | old macro name: marked = no-op · legacy = real legacy start (dialog or auto-prep) |
-| **PRINT_END** | — | end choreography: heaters/fans per settings, stats, sound, LED celebration → idle after led_finish_time s, full _PRINT_CLEANUP |
-| **M23** | `filename` (rawparams) | the stock SD list's file tap (real: M9923): selects the file via SDCARD_PRINT_FILE **and** opens the start dialog — a folder link picked there prints exactly like a browser pick; the stripped `_fn` also takes the plain `/name.gcode` Klipper passes |
-| **SET_LAYER_RANGE** | START, END, FLOOR, FLOOR_SHAPE (0/1), FLOOR_FILL (0/1), TOP, TOP_SHAPE, TOP_FILL, FLOOR_HOLE, TOP_HOLE, BRIM | layer-range excerpt with raft/cap, centered floor+top holes (E14/E27 presets: ch. 5.1); refuses while a print runs |
+| **FILE_AS_PRESET** |  | Take the previewed file parameters as Pre-Print values (temps/fan/PA) - with beep |
 | **FIX_FILE** | WHAT=RETRACT/VOL/FLOWCAP/TRAVELACC/QUALITY/SPEED, CAP=(12), ACCEL=(8000) | repair the SELECTED file in place: retract pairs → G10/G11 · volumetric E → mm · flow cap mm³/s · travel accel · QUALITY = travel golden rule (.136n, ch. 3.4b) · SPEED = direct ways + ironing skipped (.136n) |
+| **G28** |  | Home (guard wrapper, R256) - tells the host that the machine is moving |
+| **M23** | `filename` (rawparams) | the stock SD list's file tap (real: M9923): selects the file via SDCARD_PRINT_FILE **and** opens the start dialog — a folder link picked there prints exactly like a browser pick; the stripped `_fn` also takes the plain `/name.gcode` Klipper passes |
+| **M24** |  | Start/resume SD print - fresh starts ask first |
+| **PRINT_END** |  | end choreography: heaters/fans per settings, stats, sound, LED celebration → idle after led_finish_time s, full _PRINT_CLEANUP |
+| **PRINT_START** | BED, HOTEND_FIRST, HOTEND_AFTER, BED_AFTER, MATERIAL='PLA', LAYER_HEIGHT=0.2, TOTAL_LAYERS=0, OUTER_WALL_SPEED=0, SUPPORT_SPEED=0, IRONING_SPEED=0 | start choreography — called by the sliced file |
+| **RETRACT_FIX** | STATE=1 | Old-file rescue - rewrite the retracts of the NEXT upload to G10/G11 (your retraction applies) |
+| **SDCARD_PRINT_FILE** | FILENAME='' | Print button: load the file, hold it at position 0, ask first |
+| **SET_LAYER_RANGE** | START, END, FLOOR, FLOOR_SHAPE (0/1), FLOOR_FILL (0/1), TOP, TOP_SHAPE, TOP_FILL, FLOOR_HOLE, TOP_HOLE, BRIM | layer-range excerpt with raft/cap, centered floor+top holes (E14/E27 presets: ch. 5.1); refuses while a print runs |
+| **START_PRINT** |  | old macro name: marked = no-op · legacy = real legacy start (dialog or auto-prep) |
+| **STL_EXPORT** | FILE=printer.print_stats.filename | default('' |
+| _APPLY_OVERRIDES_CORE |  | Apply PA/retract/accel/flow overwrites |
+| _DIALOG_PEEK |  | Start dialog opened - force a fresh file-info peek (.135, internal) |
+| _FILE_INFO | MATERIAL, SLICER, FW, VOLUMETRIC, OPT=0, RETRACT, RETRACT_STATUS='', RETRACT_MAX=0, LAYER_HEIGHT=0, TOTAL_LAYERS=0, LINE_WIDTH=0, LINE_WIDTH_FIRST=0, LINE_WIDTH_WALL=0, FLOW_RATIO=0, PA=0, BY_OBJECT=0, TYPES, CUSTOMGROUPS, NOZZLE=0, WALL_LOOPS=0, IRONING_FLOW=0, DERIVED=0, CONF=0, COVER=0, MAXRATE=0, TRAVEL=0, SEAM, SEAMN=0 | File parameters - injected by the R2 post-processor |
+| _FILE_INFO_RESET |  | Clear ALL file-parameter state - no leftovers from the previous print/selection |
+| _LEGACY_AS_SLICED |  | Legacy file AS SLICED: home + file temps + purge, then the file rules |
+| _LEGACY_DIALOG |  | Legacy file detected: pause + ask AS SLICED or AS LEGACY |
+| _LEGACY_HOME |  | Legacy file: home + overwrites even without full prep (phase 1, internal) |
+| _LEGACY_PREP |  | Auto level+purge a legacy print at its start (phase 1: pause, internal) |
+| _MOVEMENT_START | APPLY=0 | Pure movement file: home + heat + purge infrastructure |
+| _OPT_END_CAPTURE |  | PRINT_END hook: offer the print's live tuning as an optimized file |
+| _PREHEAT_SELECTED |  | Preheat to standby levels the moment a file is selected |
+| _PREVIEW |  | Selected-file preview card, in-memory (pushed by the watcher, internal) |
+| _PREVIEW_SET |  | Watcher pushes the selected file's parameters here (in-memory, internal) |
+| _PREVIEW_TEMPS | HOTEND=0, BED=0, FAN=0 | File preview temps from the watcher push (internal, display only) |
+| _PRIME_LINE | LAYER_HEIGHT=0.2, FLUSH=6 | Purge/prime line: nozzle wipe + X only, right -> toward x=0, probe-aware |
+| _PROBE_STOW |  | Hook - stow/dock the probe before the purge line (EDIT for dockable probes!) |
+| _RUN_PRINT_START | APPLY=0, LEGACY=0 | the actual start sequence after confirmation (APPLY=1 applies overrides, LEGACY=1 hands over to a self-heating file) |
+| _SELECT_FILE | FILE='' | Swap the held/selected file for a freshly GENERATED one |
+| _UNIVERSAL_START_INTERCEPT |  | Catch EVERY print start: hold the file + ask how to proceed |
+| _V08_STARTSTOP |  | Version sentinel of 08_print_start_stop.cfg |
+| _WAIT_IDLE_RESTORE |  | Restore the configured idle_timeout after the start dialog (internal, R115/R132) |
 
-### Pause & filament — 09_pause_filament.cfg (11)
+### Pause & filament — 09_pause_filament.cfg (18)
 | Macro | Parameters | Purpose |
 |---|---|---|
+| **CANCEL_PRINT** |  | 1st press arms (expires 60 s, also while paused), 2nd press cancels + _PRINT_CLEANUP |
+| **CHANGE_FILAMENT** |  | M600 for humans — works from idle too (heats) |
+| **CHANGE_FILAMENT_RESUME** |  | internal continuation after the load |
+| **M0** |  | slicer pause — mapped to PAUSE |
+| **M1** |  | slicer pause — mapped to PAUSE |
+| **M600** |  | filament change (park, unload, wait for load) |
 | **PAUSE** | REASON='User' | pause + park (mode-aware) |
-| **QUICK_PAUSE** | — | alias for PAUSE |
-| **RESUME** | — | the full resume sequence (ch. 6) |
-| **CANCEL_PRINT** | — | 1st press arms (expires 60 s, also while paused), 2nd press cancels + _PRINT_CLEANUP |
-| **M600** | — | filament change (park, unload, wait for load) |
-| **CHANGE_FILAMENT** | — | M600 for humans — works from idle too (heats) |
-| **CHANGE_FILAMENT_RESUME** | — | internal continuation after the load |
-| **PURGE_MORE** | — | purge 15 mm more (after change/resume) |
-| **M0** | — | slicer pause — mapped to PAUSE |
-| **M1** | — | slicer pause — mapped to PAUSE |
-| _PRINT_CLEANUP | — | internal: resets ALL per-print state (called by PRINT_END/CANCEL/watcher — settings + mesh stay) |
+| **PURGE_MORE** |  | purge 15 mm more (after change/resume) |
+| **QUICK_PAUSE** |  | alias for PAUSE |
+| **RESUME** |  | the full resume sequence (ch. 6) |
+| _FILAMENT_INSERTED |  | (Insert) Filament detected - acknowledge (+LED) |
+| _FILAMENT_RUNOUT |  | (Runout) Filament empty - alarm + pause at the next layer boundary |
+| _PARK_HEAD |  | park the head at a safe point before a pause (retract stored for the resume) |
+| _PRINT_CLEANUP |  | internal: resets ALL per-print state (called by PRINT_END/CANCEL/watcher — settings + mesh stay) |
+| _PURGE_STRIP | MM=15 | Purge as a fat line beside the objects (never the park corner) |
+| _RESTORE_IDLE_TIMEOUT |  | Restore idle timeout after pause/cancel/print end |
+| _RESUME_COMMON | UNRETRACT=-1.0 | shared resume path: XY at safe height first, refill the park retract, then Z down |
+| _V09_PAUSE |  | Version sentinel of 09_pause_filament.cfg |
 
-### Live tuning — 10_live_tuning.cfg (35)
+### Live tuning — 10_live_tuning.cfg (52)
 | Macro | Parameters | Purpose |
 |---|---|---|
 | **APPLY_TYPE** | TYPE='' | feature switch: sets current_type + applies the active overrides for THIS feature (speed % x clean global via M99220, absolute accel via M99204, ironing flow via M99221) — injected after every ;TYPE: by the post-processor |
-| **SET_OVERRIDE_VALUE** | NAME, VALUE | generic: NAME=feat_spd_<code> / feat_acc_<code> / feat_on_<code> for 16 codes + all legacy names; feat_on=0 resets speed→100% + accel→file M204 + ironing flow→slicer value |
-| **SET_GLOBAL_SPEED** | PERCENT=100 | global speed % (M220 style, never capped); the running feature stays on top — re-applied immediately |
-| **SET_GLOBAL_ACCEL** | ACCEL=4000 | global acceleration, mm/s²; a feature with its own accel keeps it |
-| **SET_GLOBAL_ACCEL_PERCENT** | PERCENT=100 | scales ALL per-feature accel limits by % (10–300) in the same ratio — the global accel itself stays absolute |
-| **SET_LIVE_VELOCITY** | VELOCITY=300 | max velocity, live |
-| **SET_LIVE_MINIMUM_CRUISE_RATIO** | VALUE=0.5 | minimum cruise ratio, live |
-| **SET_LIVE_SQUARE_CORNER** | VALUE=5 | square corner velocity, live |
-| **SET_FLOW_RATE** | PERCENT=100 | global flow % (M221) |
-| **SET_LIVE_PRESSURE_ADVANCE** | VALUE=0.045 | pressure advance, live |
-| **SET_LIVE_PA_SMOOTH** | TIME=0 | PA smooth time, live |
-| **SET_LIVE_RETRACTION** | LENGTH, SPEED, UNRETRACT_SPEED, EXTRA | live retraction — one parameter, the others stay |
-| **SET_RETRACTION** | RETRACT_LENGTH=0.75, RETRACT_SPEED=35, UNRETRACT_SPEED | firmware retraction — interceptor, override-aware |
-| **SET_PRESSURE_ADVANCE** | ADVANCE, SMOOTH_TIME | interceptor — with the PA override ON your value wins |
-| **SET_FAN_SCALE** | PERCENT=100 | fan scaling % |
+| **BABYSTEP_DOWN** |  | Z --0.04 mm live |
+| **BABYSTEP_DOWN_FINE** |  | Z --0.12 mm — quick rescue step |
+| **BABYSTEP_UP** |  | Z offset +0.04mm (full step, live, with move) |
+| **BABYSTEP_UP_FINE** |  | Z +0.12 mm — quick rescue step |
+| **G10** |  | Firmware retract + optional Z-hop lift |
+| **G11** |  | Optional Z-hop lower + firmware unretract |
+| **PARAM_SOURCES** |  | Value provenance - file vs your override vs LIVE now, for every parameter |
+| **SET_EXTRUDER_DRIVE** | TYPE=DIRECT\ | BOWDEN |
 | **SET_FAN_CLAMP** | ON=-1, MIN=-1, MAX=-1, BRIDGE=-1 | fan curve clamp: every M106 runs between MIN/MAX %, BRIDGE lifts the fan on bridge sections (0 = off); -1 = leave unchanged |
+| **SET_FAN_HOLD** | PERCENT=0 | Hold the part fan at a fixed % - replaces the file's M106 values (SET_FAN_HOLD PERCENT=40, 0 = file rules again) |
 | **SET_FAN_LIVE** | PERCENT=, ON=1 | your ABSOLUTE fan % — beats hold, scale, clamp and the layer-1 rule; ON=0 hands control back to the file chain |
+| **SET_FAN_SCALE** | PERCENT=100 | fan scaling % |
 | **SET_FEAT_PA** | FEATURE, PA=-1 | pressure advance for ONE feature, 0 = off — applied at its boundaries, global PA returns after |
 | **SET_FEAT_SHAPER_OFF** | FEATURE, STATE=-1 | input shaper OFF while one feature prints — freqs saved/restored, safety net at PRINT_END/cancel |
-| **SET_EXTRUDER_DRIVE** | TYPE=DIRECT\|BOWDEN | retraction starting-point profile: direct 0.6mm @ 40mm/s + z-hop off / bowden 4.5mm @ 30mm/s — every value stays freely editable, both directions |
-| **SET_UNRETRACT_EXTRA** | EXTRA=-1 | every unretract adds EXTRA mm — seals the dot after a travel; 0 = off |
-| **SET_OUTER_WALL_SPEED/ACCEL · SET_SUPPORT_SPEED/ACCEL · SET_IRONING_SPEED** | PERCENT= / ACCEL= | legacy-friendly per-feature setters: forward to feat_spd/feat_acc + ON — % sits on top of the CLEAN global |
+| **SET_FLOW_RATE** | PERCENT=100 | global flow % (M221) |
+| **SET_GLOBAL_ACCEL** | ACCEL=4000 | global acceleration, mm/s²; a feature with its own accel keeps it |
+| **SET_GLOBAL_ACCEL_PERCENT** | PERCENT=100 | scales ALL per-feature accel limits by % (10–300) in the same ratio — the global accel itself stays absolute |
+| **SET_GLOBAL_SPEED** | PERCENT=100 | global speed % (M220 style, never capped); the running feature stays on top — re-applied immediately |
+| **SET_INFILL_ACCEL** | ACCEL=0 | Infill accel mm/s2, 0=global (SET_INFILL_ACCEL ACCEL=5000) |
+| **SET_INFILL_SPEED** | PERCENT=100 | Infill speed in % (SET_INFILL_SPEED PERCENT=120) |
+| **SET_INNER_WALL_ACCEL** |  | (compat no-op) per-feature tuning removed in .38 - use the global setter |
+| **SET_INNER_WALL_SPEED** |  | (compat no-op) per-feature tuning removed in .38 - use the global setter |
+| **SET_IRONING_ACCEL** |  | (compat no-op) per-feature tuning removed in .38 - use the global setter |
 | **SET_IRONING_FLOW** | PERCENT=100 | ironing-only flow override |
-| **BABYSTEP_DOWN** | — | Z --0.04 mm live |
-| **BABYSTEP_UP_FINE** | — | Z +0.12 mm — quick rescue step |
-| **BABYSTEP_DOWN_FINE** | — | Z --0.12 mm — quick rescue step |
+| **SET_IRONING_SPEED** | PERCENT=100 | Ironing speed in %% ON TOP of the global factor |
+| **SET_IRONING_TEMP** |  | (compat no-op) per-feature tuning removed in .38 - use the global setter |
+| **SET_LIVE_ACCEL** | ACCEL=4000 | Global acceleration cap in mm/s2 - every move, travels included (SET_LIVE_ACCEL ACCEL=4000) |
+| **SET_LIVE_MINIMUM_CRUISE_RATIO** | VALUE=0.5 | minimum cruise ratio, live |
+| **SET_LIVE_PA_SMOOTH** | TIME=0 | PA smooth time, live |
+| **SET_LIVE_PRESSURE_ADVANCE** | VALUE=0.045 | pressure advance, live |
+| **SET_LIVE_RETRACTION** | LENGTH, SPEED, UNRETRACT_SPEED, EXTRA | live retraction — one parameter, the others stay |
+| **SET_LIVE_SQUARE_CORNER** | VALUE=5 | square corner velocity, live |
+| **SET_LIVE_VELOCITY** | VELOCITY=300 | max velocity, live |
+| **SET_OUTER_WALL_ACCEL** | ACCEL=0 | Outer wall acceleration mm/s^2 (R58; 0 = global) - only this feature |
+| **SET_OUTER_WALL_SPEED** | PERCENT= / ACCEL= | legacy-friendly per-feature setters: forward to feat_spd/feat_acc + ON — % sits on top of the CLEAN global |
+| **SET_PRESSURE_ADVANCE** | ADVANCE, SMOOTH_TIME | interceptor — with the PA override ON your value wins |
+| **SET_RETRACTION** | RETRACT_LENGTH=0.75, RETRACT_SPEED=35, UNRETRACT_SPEED | firmware retraction — interceptor, override-aware |
+| **SET_SOLID_INFILL_ACCEL** |  | (compat no-op) per-feature tuning removed in .38 - use the global setter |
+| **SET_SOLID_INFILL_SPEED** |  | (compat no-op) per-feature tuning removed in .38 - use the global setter |
+| **SET_SUPPORT_ACCEL** | ACCEL=0 | Support acceleration mm/s^2 (R58; 0 = global) - only this feature |
+| **SET_SUPPORT_SPEED** | PERCENT=100 | Support speed in %% ON TOP of the global factor (R58; 100 = off/1:1) - only this feature |
+| **SET_UNRETRACT_EXTRA** | EXTRA=-1 | every unretract adds EXTRA mm — seals the dot after a travel; 0 = off |
+| **SET_Z_HOP** | ENABLE=-1, HEIGHT=0 | Z-hop on firmware retracts: SET_Z_HOP ENABLE=1 HEIGHT=0.4 |
+| _APPLY_OV_RETRACT |  | Push the armed retraction overrides into the firmware (internal, R167) |
+| _FAN_CHAIN_NOW |  | The fan computation path right now, as one line (internal, R175c) |
+| _FEAT_TUNING_RESTORE |  | R111 safety net - restore global PA + input shaper after a feature tuning left them on |
+| _LIVE_RESET |  | Reset all live tuning values to default (100%/off) |
+| _SET_PA | ADVANCE, SMOOTH_TIME | Set PA once - repeat values are swallowed |
+| _SYNC_OV_ACCEL |  | Mirror the pre-print accel override into _STATE (internal, R167) |
+| _SYNC_OV_FEAT |  | Refresh the _STATE override mirrors from save_variables |
+| _V10_LIVE |  | Version sentinel of 10_live_tuning.cfg |
 
-### Gantry — 11_gantry_sync.cfg (7)
+### Gantry sync — 11_gantry_sync.cfg (8)
 | Macro | Parameters | Purpose |
 |---|---|---|
 | **SYNC_GANTRY** | FORCE=0, QUIET=0 | mechanical Z gantry sync — ONE Z stepper/driver only (needs [force_move] + a TMC driver); 2+ Z steppers → use Z_TILT |
-| **TOGGLE_GANTRY_SYNC_BOOT** | — | sync at every boot on/off |
-| **TOGGLE_GANTRY_SYNC_PRINT** | — | sync at every print start on/off |
+| **TOGGLE_GANTRY_SYNC_BOOT** |  | sync at every boot on/off |
+| **TOGGLE_GANTRY_SYNC_PRINT** |  | sync at every print start on/off |
+| **TOGGLE_Z_TILT_BOOT** |  | z-tilt at every boot on/off (single-Z printers keep SYNC_GANTRY's switch) |
+| **TOGGLE_Z_TILT_PRINT** |  | z-tilt at every print start on/off |
 | **Z_TILT** | RETRIES, RETRY_TOLERANCE, QUIET=0 | Z_TILT_ADJUST over the [z_tilt] points — 2+ Z steppers only; defaults from the LCD settings, homes first |
-| **Z_TILT_INFO** | — | lists the probe points, horizontal move Z, retries + tolerance (console) |
-| **TOGGLE_Z_TILT_BOOT** | — | z-tilt at every boot on/off (single-Z printers keep SYNC_GANTRY's switch) |
-| **TOGGLE_Z_TILT_PRINT** | — | z-tilt at every print start on/off |
+| **Z_TILT_INFO** |  | lists the probe points, horizontal move Z, retries + tolerance (console) |
+| _V11_GANTRY |  | Version sentinel of 11_gantry_sync.cfg |
 
-### Maintenance & calibration — 12_maintenance.cfg (35)
+### Maintenance — 12_maintenance.cfg (63)
 | Macro | Parameters | Purpose |
 |---|---|---|
-| **TUNE_PID** | HEATER='extruder', TARGET=210, FAN=-1, AUTOSAVE=1 | PID tune; FAN=% runs with the fan on (like printing) |
-| **CALIBRATE_MESH** | — | full bed mesh now (at bed temperature) |
-| **LOAD_BED_MESH** | PROFILE='' | load a mesh profile (menu list) |
-| **DELETE_MESH** | PROFILE='' | delete a profile (2x confirm) |
-| **LEVEL_BED_SCREWS** | — | screw leveling with console report |
-| **CALIBRATE_PROBE_OFFSET** | — | probe Z offset — paper method, TESTZ, SAVE_CONFIG |
+| **BED_SCREWS_CANCEL** |  | Bed screws - cancel |
+| **BED_SCREWS_DONE** |  | Bed screws - finish / take over |
+| **BED_SCREWS_NEXT** |  | Bed screws - show the next screw |
+| **BED_SCREWS_ROUND** |  | Bed screws - new round (re-measure all screws) |
+| **BED_SCREWS_START** |  | Bed screw calibration on the LCD (Mainsail flow) - start |
+| **BRIDGE_TEST** | OUT | build the bridging test file (long + short bridge) |
 | **CALIBRATE_EXTRUDER** | TEMP=210, MEASURED=0, STEP='' | extruder steps: mark 120 mm, extrude 100, enter the rest |
-| **TEST_RETRACTION** | — | retract/unretract pairs at temperature |
-| **LOAD_FILAMENT** | — | heat if cold + feed load_length mm (default 60, LCD 20-150; .39) |
-| **UNLOAD_FILAMENT** | — | heat + reverse (unload_length, LCD 40-150) |
+| **CALIBRATE_MESH** |  | full bed mesh now (at bed temperature) |
 | **CALIBRATE_PA** | TEMP, BED, START, STEP, LINES, LEN, SLOW, FAST, ACCEL, LAYER, SPACING, WIDTH — all from menu/preset | PA pattern print |
-| **PA_RESULT** | SEG=0, VALUE=-1 | SEG=best line: PA computed + set live · VALUE=... skips the math |
 | **CALIBRATE_PA_SMOOTH** | START, STEP, LINES (0.02/0.01 def., 19 lines) | smooth-time pattern with YOUR PA fixed; mesh + prime first, babystepping works during the test |
-| **PA_SMOOTH_RESULT** | SEG=n | line n → smooth = start+(n-1)·step, set live + override ON |
-| **COLD_PULL** | STEP='run', HOT=240, PULL=100 | cold pull wizard (2 steps + alarm) |
+| **CALIBRATE_PROBE_OFFSET** |  | probe Z offset — paper method, TESTZ, SAVE_CONFIG |
 | **CALIBRATE_SHAPER** | AXIS='BOTH', FREQ_START, FREQ_END, MAX_SMOOTHING, AUTOSAVE | input shaper measurement (ADXL; ISHAPER.md) |
+| **CLEAN_NOZZLE** | PASSES=2, TEMP=180 | Clean the nozzle: heat + zigzag wipe on the front-left pad (PASSES=2) |
+| **COLD_PULL** | STEP='run', HOT=240, PULL=100 | cold pull wizard (2 steps + alarm) |
+| **DELETE_MESH** | PROFILE='' | delete a profile (2x confirm) |
 | **DUMP_RESONANCES** | AXIS='BOTH' | export raw shaper data |
-| **RESONANCE_DIAGRAM** | AXIS='BOTH', MODE='PRINT'/'PLOT' | CSV → printed/plotted diagram with the shaper table |
-| **SHAPER_RESULT** | AXIS, TYPE, FREQ | shaper calculator: table show / apply the picked shaper + boot override |
-| **SHAPER_MANUAL** | AXIS, TYPE, FREQ, ON | manual shaper without an accelerometer: apply type/frequency live + boot override, `TYPE=CONFIG` restores printer.cfg (damping included), `ON=0` override off |
-| **BRIDGE_TEST** | — | build the bridging test file (long + short bridge) |
+| **FLOW_CAL** | MEASURE=<menu>, TARGET | wall measurement -> suggested flow % |
+| **FLOW_CAL_APPLY** |  | apply the suggested flow (override ON, 50-150 % guard) |
+| **FLOW_TEST** | SIZE=sv.flow_t_size | default(30, HEIGHT=sv.flow_t_height |
+| **HOST_CHECK** |  | Pi health check (throttle/temp/load, RAM+swap eaters, services - R78) |
+| **IRONING_CAL** | F1=10, F2=15, F3=20, S1=20, S2=30, S3=40, TEMP=200, BED=60, LAYER=0.2, LEN=40, WID=24, ACCEL=3000 | 3-zone ironing test card |
+| **IRONING_RESULT** | CARD=0 | Ironing calculator: CARD=n -> speed/flow of that card -> ironing overrides ON |
+| **LEVEL_BED_SCREWS** |  | screw leveling with console report |
+| **LOAD_BED_MESH** | PROFILE='' | load a mesh profile (menu list) |
+| **LOAD_FILAMENT** |  | heat if cold + feed load_length mm (default 60, LCD 20-150; .39) |
+| **MESH_BY_INDEX** | INDEX=-1 | load a mesh by menu index |
+| **PA_RESULT** | SEG=0, VALUE=-1 | SEG=best line: PA computed + set live · VALUE=... skips the math |
+| **PA_SMOOTH_RESULT** | SEG=n | line n → smooth = start+(n-1)·step, set live + override ON |
+| **PLOT_CAL** | OUT | Plotter: calibration test plot - offset, dot raster, line quality |
+| **PLOT_NAME_DEL_CHAR** |  | plot text file editor: delete char |
+| **PLOT_STATUS** | CONFIRM=0 | draw the SHOW_STATUS report on one page |
 | **PLOT_TEXT** | FILE='notes.txt' | draw a text file from the gcodes folder on paper |
-| **PLOT_STATUS** | — | draw the SHOW_STATUS report on one page |
-| **SET_PLOT_SPEED** | PCT=100 | live while plotting: pen speed % (M220) |
+| **PLOT_TUNE_RESET** |  | reset the plot start overrides to neutral |
+| **PLT_FRAME** |  | Plotter: drive the pen around the configured bed frame (verify the limits) |
+| **RESONANCE_DIAGRAM** | AXIS='BOTH', MODE='PRINT'/'PLOT' | CSV → printed/plotted diagram with the shaper table |
+| **RETRACT_TOWER** | START=sv.rt_start | default(0.5, STEP=sv.rt_step |
+| **RETRACT_TOWER_RESULT** | BLOCK=0 | Retract tower calculator: BLOCK=n -> retract = start + (n-1)*step -> retract override ON |
+| **SAVE_MESH_AT_TEMP** |  | save the mesh as a bed-temp profile (e.g. r2_60C) |
+| **SELF_TEST** |  | system self test — run before long prints |
+| **SET_COLD_PULL_MATERIAL** | MATERIAL='' | Cold pull: material preset (PLA 230/90, PETG 250/115, ABS 260/130, TPU 235/100) |
+| **SET_MESH_TRAVEL** | SPEED=-1 | Cap the mesh travel speed (SET_MESH_TRAVEL SPEED=120, 0 = off) |
 | **SET_PLOT_PENZ** | DZ=0.05 | live: pen pressure fine tune (Z babystep) |
 | **SET_PLOT_SHIFT** | X=, Y= | live: shift the whole drawing X/Y |
-| **PLOT_TUNE_RESET** | — | reset the plot start overrides to neutral |
-| **_PLOT_NAME_SET_CHAR** | POS, CH | plot text file editor (internal) |
-| **PLOT_NAME_DEL_CHAR** | — | plot text file editor: delete char |
-| **SAVE_MESH_AT_TEMP** | — | save the mesh as a bed-temp profile (e.g. r2_60C) |
-| **MESH_BY_INDEX** | INDEX=-1 | load a mesh by menu index |
-| **UNLOAD_MESH** | — | clear the mesh + level again next time |
-| **SELF_TEST** | — | system self test — run before long prints |
-| **FLOW_CAL** | MEASURE=<menu>, TARGET | wall measurement -> suggested flow % |
-| **FLOW_CAL_APPLY** | — | apply the suggested flow (override ON, 50-150 % guard) |
+| **SET_PLOT_SPEED** | PCT=100 | live while plotting: pen speed % (M220) |
+| **SHAPER_MANUAL** | AXIS, TYPE, FREQ, ON | manual shaper without an accelerometer: apply type/frequency live + boot override, `TYPE=CONFIG` restores printer.cfg (damping included), `ON=0` override off |
+| **SHAPER_RESULT** | AXIS, TYPE, FREQ | shaper calculator: table show / apply the picked shaper + boot override |
+| **TEMP_TOWER_GEN** | START=sv.ttg_start | default(220, STEP=sv.ttg_step |
+| **TEMP_TOWER_RESULT** | BLOCK=0 | Temp tower calculator: BLOCK=n -> temperature = start + (n-1)*step -> temp override ON |
 | **TEMP_TOWER_START** | START=200, END=230, STEP=5, BAND=10 | temperature tower (marker + legacy files) |
-| **TEMP_TOWER_STOP** | — | stop early (otherwise the last temperature holds) |
-| **IRONING_CAL** | F1=10, F2=15, F3=20, S1=20, S2=30, S3=40, TEMP=200, BED=60, LAYER=0.2, LEN=40, WID=24, ACCEL=3000 | 3-zone ironing test card |
+| **TEMP_TOWER_STOP** |  | stop early (otherwise the last temperature holds) |
+| **TEST_RETRACTION** |  | retract/unretract pairs at temperature |
+| **TUNE_PID** | HEATER='extruder', TARGET=210, FAN=-1, AUTOSAVE=1 | PID tune; FAN=% runs with the fan on (like printing) |
+| **UNLOAD_FILAMENT** |  | heat + reverse (unload_length, LCD 40-150) |
+| **UNLOAD_MESH** |  | clear the mesh + level again next time |
+| _BED_SCREWS_UI |  | holder object of the screw-leveling assistant (round, current screw, last measurement) |
+| _CAL_END |  | End a calibration like a print (heaters off, cooldown, idle) |
+| _MESH_DEL_SLOT | INDEX=-1 | Delete mesh number n from the profile list (2-press, LCD slots) |
+| _NOZZLE_WIPE | PASSES=2, TEMP=180 | Heat + zigzag wipe on the front-left pad, ends parked HIGH |
+| _PLOT_END |  | Plot file end: heaters off, speed back to 100 |
+| _PLOT_NAME_SET_CHAR | POS, CH | plot text file editor (internal) |
+| _PLOT_START | EXTRUDE=0 | Plot file start: home + optional heat, then the pen rules |
+| _RUN_PID_TUNE | HEATER='extruder', TARGET=210, AUTOSAVE=1, FAN=printer['save_variables'].variables.pid_fan_percent | default(100 |
+| _V12_MAINT |  | Version sentinel of 12_maintenance.cfg |
 
-### System — 13_system.cfg (7)
+### System — 13_system.cfg (15)
 | Macro | Parameters | Purpose |
 |---|---|---|
+| **EMERGENCY_STOP** |  | immediate full halt |
+| **FILE_CHECK** | RETAG=0, CONFIRM=0 | g-code inventory: tag version census (current/old/untouched/plotter) on console + LCD; `RETAG=1 CONFIRM=1` upgrades old files (.r2bak backup, never while printing) |
+| **FORCE_END_PRINT** | CONFIRM=0 | emergency: ALWAYS ends the print cleanly, even from a wedged state |
+| **HOST_RESTART_INFO** |  | explains what a host restart does |
+| **HW_INFO** |  | Report the hardware profile (build volume, probe, positions, LEDs) |
+| **SDNAV_GO** | INDEX=0 | SD Card browser: open folder / start file at INDEX (internal, .115) |
+| **SDNAV_HOME** |  | SD Card browser: back to the G-Codes root (internal, .247) |
+| **SDNAV_PAGE** | DELTA=1 | SD Card browser: page +/- (DELTA=-1/1, internal, .247) |
+| **SDNAV_UP** |  | SD Card browser: one folder up (internal, .115) |
 | **SYS_FIRMWARE_RESTART** | CONFIRM=0 | Klipper restart (2x) |
 | **SYS_HOST_RESTART** | CONFIRM=0 | host services restart (2x) |
-| **SYS_SHUTDOWN** | CONFIRM=0 | heaters/fans/LEDs off, then Pi shutdown (2x) |
+| **SYS_PI_REBOOT** | CONFIRM=0 | Reboot the Pi (press twice / CONFIRM=1) - like Mainsail's button |
 | **SYS_SAVE_CONFIG** | CONFIRM=0 | guarded SAVE_CONFIG: print guard + pending guard + dark-LCD warning (2x) |
-| **FORCE_END_PRINT** | CONFIRM=0 | emergency: ALWAYS ends the print cleanly, even from a wedged state |
-| **HOST_RESTART_INFO** | — | explains what a host restart does |
-| **EMERGENCY_STOP** | — | immediate full halt |
-| **FILE_CHECK** | RETAG=0, CONFIRM=0 | g-code inventory: tag version census (current/old/untouched/plotter) on console + LCD; `RETAG=1 CONFIRM=1` upgrades old files (.r2bak backup, never while printing) |
+| **SYS_SHUTDOWN** | CONFIRM=0 | heaters/fans/LEDs off, then Pi shutdown (2x) |
+| _V13_SYSTEM |  | Version sentinel of 13_system.cfg |
 
-### Labels — 16_labels.cfg (9)
+### KAMP — 14_kamp.cfg (8)
 | Macro | Parameters | Purpose |
 |---|---|---|
-| **GEN_LABELS** | TEXT, W, H, FONT, BASE_LAYERS, TEXT_LAYERS, LAYER_H, FIRST_H, IRONING, HOLE, HOLE_D, BRIM, GAP, COLOR2 | console/Mainsail label job: `GEN_LABELS TEXT="A\|B" W=60 H=30 HOLE=LEFT` — sets everything + creates the file |
-| **LABEL_GENERATE** | — | create the file for the queued labels (bumps label_gen_nonce; the watcher builds it) |
-| **LABEL_ADD** | — | append the edited text to the queue (max 24) |
-| **LABEL_DEL_LAST** | — | remove the last label from the queue |
+| **KAMP_STATUS** |  | KAMP configuration report |
+| **SET_KAMP_PURGE_TYPE** | TYPE='LINE' | KAMP purge style: LINE or VORON |
+| **TOGGLE_KAMP_MESH** |  | KAMP adaptive mesh on/off |
+| **TOGGLE_KAMP_PURGE** |  | KAMP purge on/off |
+| **TOGGLE_KAMP_SMART_PARK** |  | KAMP smart parking on/off |
+| _CALIBRATE_MESH_PROFILE | PROFILE='mesh_default' | Calibrate bed mesh (KAMP/native/full) and save as profile 'r2' |
+| _PURGE_SMART | LAYER_HEIGHT=0.2 | Purge: KAMP LINE/VORON_PURGE if active, else own prime line |
+| _V14_KAMP |  | Version sentinel of 14_kamp.cfg |
+
+### Objects — 15_objects.cfg (5)
+| Macro | Parameters | Purpose |
+|---|---|---|
+| **SHOW_OBJECTS** |  | list objects + skip state |
+| **SKIP_CURRENT_OBJECT** |  | skip the object currently printing (2x) |
+| **SKIP_DISARM** |  | disarm a pending skip |
+| **SKIP_OBJECT** | NAME='' | arm a skip for one object (2x confirm) |
+| _V15_OBJECTS |  | Version sentinel of 15_objects.cfg |
+
+### Labels — 16_labels.cfg (14)
+| Macro | Parameters | Purpose |
+|---|---|---|
+| **GEN_LABELS** | TEXT, W, H, FONT, BASE_LAYERS, TEXT_LAYERS, LAYER_H, FIRST_H, IRONING, HOLE, HOLE_D, BRIM, GAP, COLOR2 | console/Mainsail label job: `GEN_LABELS TEXT="A\ |
+| **LABEL_ADD** |  | append the edited text to the queue (max 24) |
 | **LABEL_CLEAR_ALL** | CONFIRM=0 | clear the whole queue (2x) |
-| **LABEL_SHOW_TEXT** | — | show the edit buffer (LCD + console) |
-| **LABEL_DEL_CHAR** | — | delete the character at the cursor position |
-| **LABEL_CLEAR_TEXT** | — | clear the edit buffer |
-| **LABEL_INFO** | — | queue + size + font + bed-fit info |
+| **LABEL_CLEAR_TEXT** |  | clear the edit buffer |
+| **LABEL_DEL_CHAR** |  | delete the character at the cursor position |
+| **LABEL_DEL_LAST** |  | remove the last label from the queue |
+| **LABEL_FIT_CALC** |  | Labels: font estimate for the CURRENT text on the current label size |
+| **LABEL_GENERATE** | CONFIRM=0, OUT | create the file for the queued labels (bumps label_gen_nonce; the watcher builds it) |
+| **LABEL_INFO** |  | queue + size + font + bed-fit info |
+| **LABEL_SELECT_LINE** | L=1 | Labels: switch the text editor to line 1..5 |
+| **LABEL_SHOW_TEXT** |  | show the edit buffer (LCD + console) |
+| _LABELS |  | Label generator state (charset + limits, internal) |
+| _LABEL_SET_CHAR | POS=sv.label_pos | default(1, CH=0 |
+| _V17_LABELS |  | Version sentinel of 16_labels.cfg |
 
-### Part generators — 17_generator.cfg (13)
+### Generators — 17_generator.cfg (42)
 | Macro | Parameters | Purpose |
 |---|---|---|
+| **ANGLE_GENERATE** | CONFIRM=0, OUT | create the plate file from the stored settings (bumps angle_nonce) |
+| **ANGLE_INFO** |  | every angle/flat setting + the auto-hole rules |
+| **CABLE_TIE_GENERATE** | CONFIRM=0, OUT | create the tie file from the stored settings (bumps cable_tie_nonce; the watcher builds it, beeps + selects) |
+| **CABLE_TIE_INFO** |  | every tie setting in one listing + material tip |
+| **CAKE_APPLY** | YAW=0, PITCH=0, ROLL=0, Z=5, PART=BOTH, REORIENT=0, FILE= | cut the selected file with a plane (0.5° grid) — both halves become standalone files in Cake/ (ch. 5.16) |
+| **FRAME_DELETE_PRESET** | N=1 | Delete frame user preset N (slot on the current page, R174) |
+| **FRAME_GENERATE** | CONFIRM=0, OUT | create the frame file from the stored settings (bumps frame_nonce) |
+| **FRAME_INFO** |  | every frame setting in one listing + closure explanation |
+| **FRAME_LOAD_PRESET** | N=1 | Load frame user preset N (slot on the current page, R174) |
+| **FRAME_PRESETS_INFO** |  | List all frame user presets (console) |
+| **FRAME_SAVE_PRESET** |  | Store the current frame settings as a user preset |
+| **GEN_ANGLES** | COUNT=2, ANGLE=90, LEG_A=60, LEG_B=60, WIDTH=25, LAYERS=6, HOLES=2, HOLE_D=4, CS=1, STIFFENER=1, WALLS=2, INFILL=100, IRONING=0, FLAT=0, LAYER_H=0.2 | console/Mainsail angle/flat job: `GEN_ANGLES ANGLE=45 LEG_A=80 LEG_B=50 STIFFENER=2` — CS=1 countersunk · FLAT=1 flat connector |
 | **GEN_CABLE_TIES** | COUNT=6, LENGTH=120, WIDTH=8, LAYERS=3, VARIANT='CLASSIC', LAYER_H=0.2, BRIM=1 | console/Mainsail cable-tie job: `GEN_CABLE_TIES COUNT=6 LENGTH=120 VARIANT=LOOP` — sets everything + creates the file (VARIANT: CLASSIC one-way pawl · LOOP adjustable bead loop, reusable) |
+| **GEN_FILE_DEL_SLOT** | INDEX=-1 | Gen files: delete output slot INDEX (press twice to confirm) |
+| **GEN_FRAME** | PRESET='', W=102, H=152, DEPTH=8, BORDER=12, CORNER=6, SHAPE='RECT', CLOSURE='BACK', HANG='TOP', STAND=0, IRONING=1, INFILL=60 | console/Mainsail frame job: `GEN_FRAME PRESET=A6 DEPTH=16 CLOSURE=BACK HANG=OFF STAND=1` — bed fit checked, kit fallback, guard errors beep + show |
+| **GEN_SEAL** | OD=40, ID=20, HEIGHT=1.2, PROFILE='FLAT', IRONING=0, LAYER_H=0.2 | console/Mainsail gasket job: `GEN_SEAL OD=30 ID=15 HEIGHT=2 PROFILE=NUT` — groove + two sealing lips |
+| **GEN_SHAPE** | SHAPE=CYLINDER, X=40, Y=40, Z=20, CORNERS=0, WALLS=2, WALL_THICK=0, INFILL=20, BASE=3 | geometry generator (.136n): TRIANGLE/SQUARE/POLY 3–12/CYLINDER, WALLS=1 = vase mode — output in Shapes/ (ch. 5.18) |
 | **LITHO_CREATE** | INDEX=0 | lithophane from image slot INDEX (0 = newest picture in Tools > Lithophane; big jobs run in a background thread) |
 | **LITHO_DEL_SLOT** | INDEX=0 | delete image slot INDEX — 2-press logic like the LCD: first call arms, the second deletes (plotter `.gcode` stays) |
-| **STRINGART_APPLY** | PATTERN=0, SHAPE=0, W=102, H=152, DIAMETER=180, ANCHORS=300, LINES=1700, RING_H=2.4, ARC=2.0, FILE=bild.png | string art job (.136n: SHAPE 0=ROUND / 1=RECT with the photo-size presets, RING_H ring height, ARC strand bow in Z): PATTERN 0=SPIRAL / 1=PHOTO — the ring prints first (2 walls, 3+3 solid, 5% sparse), the strands ride on top in six Z bands as bows, starts 15 deg apart; PHOTO weaves the FILE image (default: the picked one), output lands in the StringArt folder |
-| **STRINGART_IMG** | — | cycles the root image list (the lithophane list, newest first) for the PHOTO pattern |
+| **LITHO_INFO** |  | lithophane settings + how many images are ready |
+| **MIRROR_APPLY** | AXIS=sv.mirror_axis | default('x', CONFIRM=0, FILE=sv.preview_file |
 | **SCALE_APPLY** | X=100, Y=100, TOP_X=0, TOP_Y=0, FILE= | scale the selected file 25–300 % per axis (.136n: TOP_X/TOP_Y = taper, 0 = off) — E recomputed per move, output in Scale/ (ch. 5.15) |
-| **TWIST_APPLY** | DEG=90, FILE= | twist the selected file around Z (.136n): 0° at the bottom → DEG at the top, E verbatim, output in Twist/ (ch. 5.17) |
-| **GEN_SHAPE** | SHAPE=CYLINDER, X=40, Y=40, Z=20, CORNERS=0, WALLS=2, WALL_THICK=0, INFILL=20, BASE=3 | geometry generator (.136n): TRIANGLE/SQUARE/POLY 3–12/CYLINDER, WALLS=1 = vase mode — output in Shapes/ (ch. 5.18) |
-| **CAKE_APPLY** | YAW=0, PITCH=0, ROLL=0, Z=5, PART=BOTH, REORIENT=0, FILE= | cut the selected file with a plane (0.5° grid) — both halves become standalone files in Cake/ (ch. 5.16) |
-| **GEN_SEAL** | OD=40, ID=20, HEIGHT=1.2, PROFILE='FLAT', IRONING=0, LAYER_H=0.2 | console/Mainsail gasket job: `GEN_SEAL OD=30 ID=15 HEIGHT=2 PROFILE=NUT` — groove + two sealing lips |
-| **CABLE_TIE_GENERATE** | — | create the tie file from the stored settings (bumps cable_tie_nonce; the watcher builds it, beeps + selects) |
-| **CABLE_TIE_INFO** | — | every tie setting in one listing + material tip |
-| **LITHO_INFO** | — | lithophane settings + how many images are ready |
-| **SEAL_INFO** | — | gasket settings + NUT/material tips |
-| **SEAL_GENERATE** | — | create the seal file from the stored settings (bumps seal_nonce) |
-| **GEN_FRAME** | PRESET='', W=102, H=152, DEPTH=8, BORDER=12, CORNER=6, SHAPE='RECT', CLOSURE='BACK', HANG='TOP', STAND=0, IRONING=1, INFILL=60 | console/Mainsail frame job: `GEN_FRAME PRESET=A6 DEPTH=16 CLOSURE=BACK HANG=OFF STAND=1` — bed fit checked, kit fallback, guard errors beep + show |
-| **FRAME_GENERATE** | — | create the frame file from the stored settings (bumps frame_nonce) |
-| **FRAME_INFO** | — | every frame setting in one listing + closure explanation |
-| **GEN_ANGLES** | COUNT=2, ANGLE=90, LEG_A=60, LEG_B=60, WIDTH=25, LAYERS=6, HOLES=2, HOLE_D=4, CS=1, STIFFENER=1, WALLS=2, INFILL=100, IRONING=0, FLAT=0, LAYER_H=0.2 | console/Mainsail angle/flat job: `GEN_ANGLES ANGLE=45 LEG_A=80 LEG_B=50 STIFFENER=2` — CS=1 countersunk · FLAT=1 flat connector |
-| **ANGLE_GENERATE** | — | create the plate file from the stored settings (bumps angle_nonce) |
-| **ANGLE_INFO** | — | every angle/flat setting + the auto-hole rules |
+| **SEAL_GENERATE** | CONFIRM=0, OUT | create the seal file from the stored settings (bumps seal_nonce) |
+| **SEAL_INFO** |  | gasket settings + NUT/material tips |
+| **SHAPE_GENERATE** | CONFIRM=0, OUT | Geometry: create the shape file (bumps shape_nonce) |
+| **SHAPE_INFO** |  | Geometry: current settings |
+| **STRINGART_APPLY** | PATTERN=0, SHAPE=0, W=102, H=152, DIAMETER=180, ANCHORS=300, LINES=1700, RING_H=2.4, ARC=2.0, FILE=bild.png | string art job (.136n: SHAPE 0=ROUND / 1=RECT with the photo-size presets, RING_H ring height, ARC strand bow in Z): PATTERN 0=SPIRAL / 1=PHOTO — the ring prints first (2 walls, 3+3 solid, 5% sparse), the strands ride on top in six Z bands as bows, starts 15 deg apart; PHOTO weaves the FILE image (default: the picked one), output lands in the StringArt folder |
+| **STRINGART_IMG** |  | cycles the root image list (the lithophane list, newest first) for the PHOTO pattern |
+| **STRINGART_PICK** | INDEX=-1 | ArtisticStrings: pick the root image from the paged image list (the PHOTO pattern weaves it) |
 | **TEXTURE_APPLY** | FILE='', MODE='OFF', THICK, DENSITY, PATTERN, SCALE, AMP, DIR='OUT', OUT= | fuzzy skin / shaped bumps for the SELECTED (or FILE) g-code: `TEXTURE_APPLY MODE=FUZZY THICK=0.3 DENSITY=100` — new `Vnn_<name>_TX` file in the background — selected under QUEUE, but never auto-STARTED (ch. 5.9) |
-| **_GEN_OUT_SET** | OUT=QUEUE/PREVIEW (SELECT/ONLY/1/0) (int.) | the sticky generator output switch (ch. 5.0) — every `*_GENERATE` macro also takes a per-run `OUT=` |
+| **TWIST_APPLY** | DEG=90, FILE= | twist the selected file around Z (.136n): 0° at the bottom → DEG at the top, E verbatim, output in Twist/ (ch. 5.17) |
+| _GENERATORS |  | Part generator limits (cable ties + angle plates, internal) |
+| _GEN_ARM | KEY='', WHAT='the generation' | Generators: arm the 2-press confirm for KEY |
+| _GEN_GO |  | Generators: the armed second press - dialog cancel + start sound |
+| _GEN_OUT_SET | OUT=QUEUE/PREVIEW (SELECT/ONLY/1/0) (int.) | the sticky generator output switch (ch. 5.0) — every `*_GENERATE` macro also takes a per-run `OUT=` |
+| _GEN_PRESET | GEN='', ACTION='', NAME='preset', SRC='user', SLOT=0, DELTA=1 | User preset engine for all generators (internal, R174) |
+| _GEN_QUEUE_CLEAR | CONFIRM=0 | Drop queued/stuck generator jobs (press twice / CONFIRM=1) |
+| _GEN_QUEUE_SKIP |  | Cancel the RUNNING generator job - the next one starts |
+| _GEN_QUEUE_STOP | CONFIRM=0 | Cancel the running job AND clear the whole queue |
+| _IMG_PAGE | DELTA=0 | Image list paging - shared by the Lithophane/ColorPicture/ArtisticStrings pickers (10 per page, up to 60 images) |
+| _TX_PATTERN | SLOT=0 | Texture pattern picker for the LCD slots (R246) - page math + save + info in one place |
+| _V18_GEN |  | Version sentinel of 17_generator.cfg |
 
-### Building bricks & figures — 19_bricks.cfg
+### ColorPic — 18_colorpic.cfg (8)
 | Macro | Parameters | Purpose |
 |---|---|---|
-| **GEN_BRICKS** | CODES='B2x4:3\|P2x2:2' | console/Mainsail brick job: sets the queue (code:count, `\|` separated, max 120) and creates `V01_Bricks.gcode` |
-| **BRICK_ADD** | CODE='B2x4', COUNT=2 | add COUNT × CODE to the queue (same codes merge; unknown code or count outside 1–99 rejected) |
-| **BRICK_DEL_LAST** | — | drop the last queue entry |
-| **BRICK_CLEAR** | CONFIRM=1 | empty the queue (2-press: first call arms) |
-| **BRICK_SHOW** | — | list the queue |
-| **BRICK_INFO** | — | settings + geometry summary |
-| **BRICK_CREATE** | OUT=QUEUE/PREVIEW | build the file from the queue (bumps bricks_nonce; the watcher builds, beeps + selects) |
-| **GEN_BRICKKIT** | SRC='box.gcode', INDEX=0–4, DETAIL=AUTO/MICRO/SMALL/BIG, MODE=BY_LAYER/BY_OBJECT, COLORS=1–8 | sliced file → stylized kit (source = the file selected in the file list, like Texture; Mainsail: SRC=name or INDEX=0–4 = recent jobs; no silent newest-job fallback) |
-| **GEN_FIGURES** | SCALE=25–300, COUNT=1–24 | figures at % scale — 5 parts each, assembly without glue; only 100 % mates with the system |
-
-### Color picture — 18_colorpic.cfg
-| Macro | Parameters | Purpose |
-|---|---|---|
-| **GEN_COLORPIC** | SRC='photo.png', WIDTH=25–230, BANDS=2–8, BANDH=0.4–3, COLORS='WHT,GRY,BLK', LAYER_H, IRONING=0/1, BRIM=0–8, SWAP=0/1, CONTRAST=0/1 | console/Mainsail color picture: sets everything + creates (SWAP=0 prints every band without a filament change) |
 | **COLORPIC_CREATE** | INDEX=0–9, SRC='photo.png', OUT= | create from image slot INDEX / explicit SRC / the last picked lithophane image (bumps colorpic_nonce; the watcher builds, beeps + selects) |
+| **COLORPIC_SET_COLOR** | BAND=1, COLOR='' | ColorPic: store the color of one band (BAND=2 COLOR=RED) |
+| **GEN_COLORPIC** | SRC='photo.png', WIDTH=25–230, BANDS=2–8, BANDH=0.4–3, COLORS='WHT,GRY,BLK', LAYER_H, IRONING=0/1, BRIM=0–8, SWAP=0/1, CONTRAST=0/1 | console/Mainsail color picture: sets everything + creates (SWAP=0 prints every band without a filament change) |
+| _COLORPIC_DONE | R=1, G=1, B=1 | ColorPic: filament changed - steady new color |
+| _COLORPIC_LED_APPLY | R=0, G=0, B=0 | ColorPic: set the nozzle LED to an explicit color |
+| _COLORPIC_STATE |  | ColorPic blink state |
+| _COLORPIC_SWAP | IDX=0, TOTAL=0, NAME='?', PREV_R=1, PREV_G=1, PREV_B=1, R=1, G=1, B=1 | ColorPic: announce the next color + start the nozzle LED transition |
+| _V18_COLORPIC |  | Version sentinel of 18_colorpic.cfg |
 
-### KAMP — 14_kamp.cfg (5)
+### Bricks — 19_bricks.cfg (12)
 | Macro | Parameters | Purpose |
 |---|---|---|
-| **TOGGLE_KAMP_MESH** | — | KAMP adaptive mesh on/off |
-| **TOGGLE_KAMP_PURGE** | — | KAMP purge on/off |
-| **SET_KAMP_PURGE_TYPE** | TYPE='LINE' | KAMP purge style: LINE or VORON |
-| **TOGGLE_KAMP_SMART_PARK** | — | KAMP smart parking on/off |
-| **KAMP_STATUS** | — | KAMP configuration report |
+| **BRICK_ADD** | CODE='B2x4', COUNT=2 | add COUNT × CODE to the queue (same codes merge; unknown code or count outside 1–99 rejected) |
+| **BRICK_CLEAR** | CONFIRM=1 | empty the queue (2-press: first call arms) |
+| **BRICK_CREATE** | OUT=QUEUE/PREVIEW | build the file from the queue (bumps bricks_nonce; the watcher builds, beeps + selects) |
+| **BRICK_DEL_LAST** |  | drop the last queue entry |
+| **BRICK_INFO** |  | settings + geometry summary |
+| **BRICK_SHOW** |  | list the queue |
+| **GEN_BRICKKIT** | SRC='box.gcode', INDEX=0–4, DETAIL=AUTO/MICRO/SMALL/BIG, MODE=BY_LAYER/BY_OBJECT, COLORS=1–8 | sliced file → stylized kit (source = the file selected in the file list, like Texture; Mainsail: SRC=name or INDEX=0–4 = recent jobs; no silent newest-job fallback) |
+| **GEN_BRICKS** | CODES='B2x4:3\ | P2x2:2' |
+| **GEN_FIGURES** | SCALE=25–300, COUNT=1–24 | figures at % scale — 5 parts each, assembly without glue; only 100 % mates with the system |
+| **GEN_QUEUE_CANCEL** |  | Drop all queued generator jobs (a running job finishes) |
+| _BRICKS |  | Bricks module state |
+| _V19_BRICKS |  | Version sentinel of 19_bricks.cfg |
 
-### Objects — 15_objects.cfg (4)
+### Menu helpers (menus/lcd_menues.cfg) — ../menus/lcd_menues.cfg (1)
 | Macro | Parameters | Purpose |
 |---|---|---|
-| **SKIP_OBJECT** | NAME='' | arm a skip for one object (2x confirm) |
-| **SKIP_CURRENT_OBJECT** | — | skip the object currently printing (2x) |
-| **SKIP_DISARM** | — | disarm a pending skip |
-| **SHOW_OBJECTS** | — | list objects + skip state |
+| _V16_MENUS |  | Version sentinel of menus/lcd_menues.cfg |
 
----
-
-*Built and tested for one purpose: printing happily — with R2-D2 keeping watch.*
-
----
-
+### delayed_gcode hooks (30)
+| Macro | Parameters | Purpose |
+|---|---|---|
+| _INIT_AFTER_BOOT | — | delayed_gcode hook (01_state.cfg) |
+| _WATCHDOG | — | delayed_gcode hook (01_state.cfg) |
+| _STATE_WATCHER | — | delayed_gcode hook (01_state.cfg) |
+| _LED_TO_IDLE | — | delayed_gcode hook (03_leds.cfg) |
+| _START_CONFIRM_WAITER | — | delayed_gcode hook (07_start_confirm.cfg) |
+| _HOMING_GUARD_OFF | — | delayed_gcode hook (08_print_start_stop.cfg) |
+| _LEGACY_HOME2 | — | delayed_gcode hook (08_print_start_stop.cfg) |
+| _LEGACY_PREP2 | — | delayed_gcode hook (08_print_start_stop.cfg) |
+| _OBJECT_PREP | — | delayed_gcode hook (08_print_start_stop.cfg) |
+| _START_NET_PROBE | — | delayed_gcode hook (08_print_start_stop.cfg) |
+| _OPT_PROMPT_HINT | — | delayed_gcode hook (08_print_start_stop.cfg) |
+| _END_FAN_OFF | — | delayed_gcode hook (08_print_start_stop.cfg) |
+| _END_MOTORS | — | delayed_gcode hook (08_print_start_stop.cfg) |
+| _SYSTEM_BOOT | — | delayed_gcode hook (08_print_start_stop.cfg) |
+| _BOOT_IDLE | — | delayed_gcode hook (08_print_start_stop.cfg) |
+| _BOOT_ZSYNC | — | delayed_gcode hook (08_print_start_stop.cfg) |
+| _BOOT_ZTILT | — | delayed_gcode hook (08_print_start_stop.cfg) |
+| _AV_HOMING_AV | — | delayed_gcode hook (08_print_start_stop.cfg) |
+| _AV_PRINT_AV | — | delayed_gcode hook (08_print_start_stop.cfg) |
+| _PAUSE_NOW_ARM_OFF | — | delayed_gcode hook (09_pause_filament.cfg) |
+| _SENSOR_GRACE_OFF | — | delayed_gcode hook (09_pause_filament.cfg) |
+| _AV_PAUSE_AV | — | delayed_gcode hook (09_pause_filament.cfg) |
+| _AV_FILAMENT_AV | — | delayed_gcode hook (09_pause_filament.cfg) |
+| _AV_RESUME_AV | — | delayed_gcode hook (09_pause_filament.cfg) |
+| _BS_EVAL | — | delayed_gcode hook (12_maintenance.cfg) |
+| _COLD_PULL_BEEP | — | delayed_gcode hook (12_maintenance.cfg) |
+| _SHAPER_REPORT | — | delayed_gcode hook (12_maintenance.cfg) |
+| _SAVE_AFTER_CAL | — | delayed_gcode hook (12_maintenance.cfg) |
+| _GEN_ARM_CLEAR | — | delayed_gcode hook (17_generator.cfg) |
+| _COLORPIC_BLINK | — | delayed_gcode hook (18_colorpic.cfg) |
 ## 26. Electronics & expansion — U2C + EBB42 + Relay V1.2
 
 One four-wire harness to the toolhead instead of a thick bundle, the printer

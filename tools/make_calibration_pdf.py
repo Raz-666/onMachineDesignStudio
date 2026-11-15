@@ -29,6 +29,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from r2_version import VERSION as R2VER
 from r2_pdf_kit import (Doc, H1, H2, H3, P, B, NUM, CODE, CAP, TBL, BOX, IMG,
                         FORMULA, SP, ladder_fig, bar_fig, font, BLUE, S)
 from reportlab.platypus import Paragraph

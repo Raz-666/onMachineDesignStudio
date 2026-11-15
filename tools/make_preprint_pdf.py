@@ -23,6 +23,7 @@ from reportlab.lib.units import mm
 from reportlab.platypus import Paragraph, PageBreak
 
 import r2_pdf_kit as K
+from r2_version import VERSION as R2VER
 from r2_pdf_kit import (Doc, H1, H2, H3, P, B, NUM, CODE, CAP, TBL, BOX, IMG,
                         FORMULA, SP, ladder_fig, bar_fig, S)
 
@@ -885,7 +886,7 @@ def build(toc_seiten=None):
         'Kopfkommentar mit Quelle, Datum und Versionsstand, eine Zeile mit '
         'den eingebackenen Werten und eine Replay-Zeile:')
     kb.story += CODE(
-        '; R2-OPT optimized copy - source: teile/wuerfel.gcode - 2026-11-13 - R2 R2-2026-11-13.1\n'
+        '; R2-OPT optimized copy - source: teile/wuerfel.gcode - 2026-11-13 - R2 ' + R2VER + '\n'
         '; R2-OPT baked: pa, flow, accel, wallouter_spd, wallouter_acc\n'
         '_OPT_BAKED SNAP="{...alle getunten Werte als kompaktes Dict...}"')
     kb.story += P(

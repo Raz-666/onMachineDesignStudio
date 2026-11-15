@@ -142,10 +142,17 @@ Baumrinde aus oder wie Holzdiele oder Parkett … irgendwas hast du verhauen."
 
 ## D. Dokumentation (Handbücher + PDFs)
 
-- [ ] **D1 — MANUAL.md gegen den CODE prüfen, nicht fortschreiben.**
-      Jede Aussage: stimmt sie noch? Wird sie vom Code so umgesetzt? Wo Code
-      und Doku auseinanderlaufen und der Code nicht der Planung entspricht →
-      **dem User melden**, nicht einfach die Doku anpassen.
+- [x] **D1 — MANUAL.md gegen den CODE prüfen, nicht fortschreiben.** *(erledigt 29.08., Werkzeug + Bericht)*
+      `tools/r265_manual_check.py` prüft Index/Zahlen/Menüpfade/Variablen/Befehle,
+      `tools/r266_manual_index.py` baut Kap. 25 aus den .cfg-Dateien neu.
+      Befund + Behebung: `docs-notes/MANUAL-CODE-ABGLEICH.md`.
+      Behoben: Index war 4 Releases alt (194/239/100 → **409 Einträge, 265 + 114
+      + 30 Hooks**), 3 LCD-Anzeigenamen falsch (`ColorPicture`,
+      `ArtisticStrings`, `PI SHUTDOWN NOW`), 5 r165-Verstöße in meinen neuen
+      PDF-Bauern (handgetippter Versionsstempel) → r165 wieder `clean`.
+      **Offen und beim User:** Kap. 14 kennt die LIVE-Lüfterstufe (R175c) nicht —
+      Entscheidung, ob das Handbuch sie nachzieht.
+
 - [x] **D7 — Die vier großen PDFs auf ein gemeinsames Fundament.** *(erledigt V1, Commit folgt)*
       `tools/r2_pdf_kit.py` = ein Stilsatz für alle Hefte (DejaVu, Palette,
       `Doc` mit Versionskopf + Seitenzahl, `TBL/BOX/FORMULA/IMG`,
