@@ -5,9 +5,14 @@ Wer sie liest, weiß, wo die Arbeit steht, was der User verlangt hat und was
 tabu ist. Alles andere steht im Code; diese Datei ersetzt kein Lesen, sie
 verhindert nur, dass jemand von vorn anfängt.
 
-Stand: **`d417be4`** · Version **`R2-2026-11-13.1` / Build `V1`**
-(letzte Änderung: die drei PDF-Hefte KALIBRIERUNG, PREPRINT_LIVETUNING,
-POSTPROCESSING auf gemeinsamem PDF-Kit)
+Stand: **`7b10170`** (= `d417be4` + diese Datei) · Version
+**`R2-2026-11-13.1` / Build `V1`**
+
+**GitHub (Quelle der Wahrheit):** `https://github.com/Raz-666/onMachineDesignStudio`,
+Branch **`main`**. Der Klon auf GitHub steht auf `d417be4` — die drei
+PDF-Hefte sind dort, diese Datei ist der nächste Commit.
+Achtung: in manchen Workspaces heißt der lokale Branch `master`, auf GitHub
+`main` — dann `git push origin HEAD:main` (oder vorher `git branch -m master main`).
 
 ---
 
@@ -18,7 +23,7 @@ POSTPROCESSING auf gemeinsamem PDF-Kit)
 | Was | Beleg |
 |---|---|
 | V1 = `R2-2026-11-13.1` | `macros/01_state.cfg` Z. 535, `tools/r2_postproc*.py` Z. 80/81 |
-| Makro-Batterie | **2100/2100** (`python3 tools/macro_render_test.py`) |
+| Makro-Batterie | **2100/2100** (`python3 tools/macro_render_test.py`) — **nur mit den Feld-Fixtures**, siehe §3.0 |
 | Einzeltests | `r81` 23/23 · `r199` 42/0 · `r257` 15/0 + 7/7 · `v1_range_cause_check` 8/0 |
 | Auslieferung V1 | `releases/klipper-e3-r2d2-UPDATE-R2-2026-11-13.1.zip` (5 782 002 B, md5 `a63f9842d411834b9fe53a2588387983`) — **vom User noch nicht eingespielt** |
 | PDF-Fundament | `tools/r2_pdf_kit.py` (ein Stilsatz, `Doc` mit Versionskopf, `TBL/BOX/FORMULA/IMG`, `toolpath_fig/bar_fig/ladder_fig` aus echten Daten) |
@@ -85,6 +90,34 @@ POSTPROCESSING auf gemeinsamem PDF-Kit)
 
 ---
 
+## 3.0 Prüfstand: warum 2100 und warum manchmal 2086
+
+Die Batterie hängt an drei echten Felddateien, die **nicht im Repo** liegen:
+`/home/user/testfixtures/{rose_215c_pla,stringart3d_generic,bigrose_020mm}.gcode.gz`
+(4,8 MB zusammen). Der Testcode sagt das selbst (Z. 2676 ff.): ohne diese
+Dateien bleiben die Postprozessor-Tests der Gruppe **R56–R60** weg.
+
+**Gemessen (nicht behauptet), dreimal dieselbe Datei `7b10170`:**
+
+| Umgebung | Ergebnis |
+|---|---|
+| Repo mit `testfixtures/` | **2100/2100 passed** |
+| frischer Klon **ohne** `testfixtures/` | **2086/2086 passed** |
+| zwei Batterien **parallel** gestartet | 2097/2100 — die 3 Fehler sind Lock-Artefakte (`[lock] a live watcher already watches the folder`) |
+
+Die 14 fehlenden Tests im frischen Klon sind genau:
+`R56 postproc rose/stringart/bigrose/idempotent`, `R57 --once (3)`,
+`R58 _FILE_INFO`, `R58b (2)`, `R59 (3)`, `R60`.
+**2086 ist also kein Regressionsbefund, sondern der dokumentierte Guard.**
+Wer die vollen 2100 braucht: Fixtures ins Verzeichnis legen (oder
+`_FIXDIR`/`_updir` im Testcode auf den eigenen Pfad zeigen lassen).
+
+**Zwei Regeln daraus:**
+1. **Nie zwei Batterien gleichzeitig laufen lassen** — der Postprozessor-Lock
+   lässt R56/R57 fehlschlagen und man hält es für einen Codefehler.
+2. Nach jedem Lauf prüfen, welche Zahl kam, und **die Umgebung mitnennen**:
+   „2100/2100 (mit Fixtures)" bzw. „2086/2086 (frischer Klon)".
+
 ## 3. Wie man die PDFs baut
 
 ```bash
@@ -148,8 +181,8 @@ dann `git reset --hard`).
 
 ## 6. Erste Schritte für den nächsten Agenten
 
-1. `cd klipper-e3-r2d2 && git log --oneline -3 && git status --short` —
-   stimmt der Stand mit `d417be4`? Ist der Baum sauber?
+1. `git log --oneline -3 && git status --short` — steht `7b10170` (oder
+   `d417be4` + diese Datei) oben? Ist der Baum sauber?
 2. `docs-notes/MASTER-TODO.md` lesen (einzige Aufgabenliste, Blöcke A–H).
 3. `python3 tools/macro_render_test.py` einmal laufen lassen (dauert ~8 min,
    muss **2100/2100** sagen).
