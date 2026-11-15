@@ -4,7 +4,7 @@ Datum: 2026-08-29 · Stand des Codes: `R2-2026-11-13.1` / `V1`
 Werkzeug: `tools/r265_manual_check.py` (prüft) + `tools/r266_manual_index.py`
 (baut den Index aus dem Code neu)
 
-**Ergebnis: 4 echte Abweichungen gefunden, 3 behoben, 1 offen (Entscheidung
+**Ergebnis: 5 echte Abweichungen gefunden, 4 behoben, 1 offen (Entscheidung
 des Users).** Der Rest sind geprüfte Fehlalarme des Prüfers, dokumentiert
 unten — damit niemand sie ein zweites Mal für Fehler hält.
 
@@ -79,7 +79,28 @@ Versionsnummer" (nach dem Vorfall, dass fünf PDFs vier Releases lang
 R2VER` und setzen die Version per Verkettung zusammen. `r165` ist damit
 wieder `clean` — das ist der Prüfstein, nicht meine Zusicherung.
 
-### 2.4 OFFEN: Kapitel 14 beschreibt eine Lüfter-Kette, die es so nicht mehr gibt
+### 2.4 Die erste Fassung des neuen Index verletzte die R185-Regel — **behoben**
+
+Der Batte­rie-Test **R185** („MANUAL beschreibt nur den aktuellen Stand, keine
+Epochenanhänge, keine Revisionsklammern") fiel nach dem ersten Neuaufbau auf
+**2099/2100**. Grund: die Zweck-Texte, die aus den `description:`-Zeilen des
+Codes kamen, trugen dessen Historie mit — `(internal, R167)`, `(.135,
+internal)`, `(R143)`.
+
+Das ist kein Testfehler, sondern die Regel des Users: **der Code darf
+Historie enthalten, das Handbuch nicht.** Behoben in
+`tools/r266_manual_index.py` (`saeubere()`): Klammern mit `R###` oder
+`.###`, nackte Revisionsnummern und leere `(internal)`-Hüllen fliegen raus.
+
+Zweiter Stolperstein, ebenfalls behoben: der Säuberer lief zuerst nur für
+**neue** Einträge. Ein zweiter Lauf sieht die beim ersten Lauf erzeugten
+Texte als „alt" an und lässt sie stehen — die Klammern kamen zurück. Jetzt
+wird **jeder** Zweck-Text gesäubert, jeder Lauf ist idempotent.
+
+Stand danach: `R1xx` 0 Treffer, `(.###` 0 Treffer, Index 409 Einträge,
+Batterie **2100/2100**.
+
+### 2.5 OFFEN: Kapitel 14 beschreibt eine Lüfter-Kette, die es so nicht mehr gibt
 
 Das ist der einzige Punkt, bei dem ich **nicht** einfach das Handbuch
 angepasst habe, weil die Entscheidung dir gehört.

@@ -84,13 +84,31 @@ def params_von(body):
     return ', '.join(gesehen)
 
 
+def saeubere(t):
+    """Entfernt Epochen-/Revisionsangaben aus Code-Beschreibungen.
+
+    USER-REGEL (R185): MANUAL.md beschreibt NUR den aktuellen Stand - keine
+    Klammern wie „(.135)" oder „(R167)". Der Code ist voll davon, weil dort
+    die Historie stehen MUSS. Im Handbuch hat sie nichts zu suchen.
+    """
+    if not t:
+        return t
+    t = re.sub(r'\s*\([^)]*\bR\d{2,3}\b[^)]*\)', '', t)      # (… R167 …)
+    t = re.sub(r'\s*\([^)]*\.\d{2,3}[a-d]?\b[^)]*\)', '', t)  # (… .135 …)
+    t = re.sub(r'\bR\d{2,3}\b[\s:,-]*', '', t)                  # führendes R167
+    t = re.sub(r'\b\.\d{2,3}[a-d]?\b', '', t)                   # nacktes .142d
+    t = re.sub(r'\(\s*(internal|see below)\s*\)', '', t)         # leere Hülle
+    t = re.sub(r'\s{2,}', ' ', t).strip(' -,:;')
+    return t
+
+
 def beschreibung_von(body):
     m = re.search(r'^description:\s*(.+)$', body, re.M)
     if not m:
         return ''
     t = m.group(1).strip()
     t = re.sub(r'\s*\((internal|R\d+[^)]*)\)\s*$', '', t)
-    return t.strip()
+    return saeubere(t.strip())
 
 
 def zellen_aus_handbuch(teil):
@@ -141,6 +159,10 @@ def baue_index(trocken=True):
             p = alt_p if alt_p and alt_p != '—' else params_von(body)
             z = (alt_z if alt_z and alt_z != '—'
                  else (beschreibung_von(body) or '—')).replace('|', '/')
+            # IMMER säubern - auch die übernommenen Texte: ein zweiter Lauf
+            # sieht die beim ersten Lauf erzeugten Texte als „alt" an, und
+            # genau so schlichen sich die Revisionsklammern wieder ein.
+            z = saeubere(z) or '—'
             fett = '**%s**' % name if not name.startswith('_') else name
             if name.startswith('_'):
                 intern += 1
