@@ -5,7 +5,7 @@ Wer sie liest, weiß, wo die Arbeit steht, was der User verlangt hat und was
 tabu ist. Alles andere steht im Code; diese Datei ersetzt kein Lesen, sie
 verhindert nur, dass jemand von vorn anfängt.
 
-Stand: **`7b10170`** (= `d417be4` + diese Datei) · Version
+Stand: **`dae3e1d`** + `gitattributes` · Version
 **`R2-2026-11-13.1` / Build `V1`**
 
 **GitHub (Quelle der Wahrheit):** `https://github.com/Raz-666/onMachineDesignStudio`,
@@ -171,9 +171,21 @@ weil das Git-Bundle den Commit `d417be4` enthielt (`git fetch <bundle>` und
 dann `git reset --hard`).
 
 **Konsequenz für jede Sitzung:**
-1. Workspace klein halten (`du -sh /home/user`, Ziel < 100 MB).
-2. Am Ende **immer** ein Bundle ziehen:
-   `cd klipper-e3-r2d2 && git bundle create ../r2d2-repo.bundle --all`
+1. Workspace klein halten (`du -sh --apparent-size /home/user`, Ziel < 110 MB).
+   Ein 37-MB-Bundle **plus** ein 47-MB-Repo sprengt die Grenze schon.
+2. **Sicherung als Patch-Serie statt Bundle** (12 MB statt 37 MB, geprüft):
+   ```bash
+   cd klipper-e3-r2d2
+   git format-patch --binary a8217a0..HEAD -o ../releases/patches
+   ```
+   Rückweg, falls `.git` zurückfällt — im Sandkasten getestet, byte-gleich:
+   ```bash
+   git reset --hard a8217a0 && git clean -fd
+   git am --binary /home/user/releases/patches/*.patch
+   git diff --stat origin/main     # muss leer sein
+   ```
+   Deshalb seit D1 die `.gitattributes` (`*.pdf -diff`): **ohne** sie kamen
+   zwei PDFs nach `git am` nicht byte-gleich zurück — gemessen, nicht vermutet.
 3. Nach dem Turn prüfen: `git log --oneline -1` muss den erwarteten Commit zeigen.
 4. Große Archive als `.tar.xz`, nicht `.tar.gz`.
 
