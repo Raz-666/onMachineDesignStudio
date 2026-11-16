@@ -1,0 +1,476 @@
+datei	zeile	sektion	name	klasse	quelltext
+macros/07_start_confirm.cfg	281	gcode_macro SET_OVERRIDE_VALUE	<name>	sonstige	"NOTIFY TEXT=""SET_OVERRIDE_VALUE NAME=<name> VALUE=<n> missing"" LEVEL=warn"
+macros/08_print_start_stop.cfg	596	gcode_macro FILE_AS_PRESET	bed	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=bed VALUE={pv.bed|float}
+macros/08_print_start_stop.cfg	597	gcode_macro FILE_AS_PRESET	bed_after	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=bed_after VALUE={pv.bed|float}
+macros/08_print_start_stop.cfg	600	gcode_macro FILE_AS_PRESET	hotend_first	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=hotend_first VALUE={pv.hotend|float}
+macros/08_print_start_stop.cfg	601	gcode_macro FILE_AS_PRESET	hotend_after	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=hotend_after VALUE={pv.hotend|float}
+macros/08_print_start_stop.cfg	604	gcode_macro FILE_AS_PRESET	fan	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=fan VALUE={pv.fan|float}
+macros/08_print_start_stop.cfg	607	gcode_macro FILE_AS_PRESET	pa	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=pa VALUE={pv.pa|float}
+macros/08_print_start_stop.cfg	610	gcode_macro FILE_AS_PRESET	flow	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=flow VALUE={(pv.flow_ratio|float * 100)|round(1)}
+macros/10_live_tuning.cfg	357	gcode_macro SET_OUTER_WALL_SPEED	outer_wall	feature_oder_alias	SET_OVERRIDE_VALUE NAME=outer_wall VALUE={params.PERCENT|default(100)|float}
+macros/10_live_tuning.cfg	362	gcode_macro SET_OUTER_WALL_ACCEL	outer_wall_accel	feature_oder_alias	SET_OVERRIDE_VALUE NAME=outer_wall_accel VALUE={params.ACCEL|default(0)|float}
+macros/10_live_tuning.cfg	380	gcode_macro SET_SUPPORT_SPEED	support	feature_oder_alias	SET_OVERRIDE_VALUE NAME=support VALUE={params.PERCENT|default(100)|float}
+macros/10_live_tuning.cfg	385	gcode_macro SET_SUPPORT_ACCEL	support_accel	feature_oder_alias	SET_OVERRIDE_VALUE NAME=support_accel VALUE={params.ACCEL|default(0)|float}
+macros/10_live_tuning.cfg	787	gcode_macro SET_IRONING_FLOW	ironing_flow	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=ironing_flow VALUE={params.PERCENT|default(100)|float}
+macros/10_live_tuning.cfg	791	gcode_macro SET_IRONING_SPEED	ironing_speed	feature_oder_alias	SET_OVERRIDE_VALUE NAME=ironing_speed VALUE={params.PERCENT|default(100)|float}
+macros/10_live_tuning.cfg	1060	gcode_macro SET_FEAT_PA	feat_pa_{code}	dynamisch_ungeklaert	SET_OVERRIDE_VALUE NAME=feat_pa_{code} VALUE={pa}
+macros/12_maintenance.cfg	1370	gcode_macro FLOW_CAL_APPLY	flow	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=flow VALUE={sv.flow_cal_result|float|round}
+macros/12_maintenance.cfg	1496	gcode_macro TEMP_TOWER_RESULT	hotend_first	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=hotend_first VALUE={tt}
+macros/12_maintenance.cfg	1497	gcode_macro TEMP_TOWER_RESULT	hotend_after	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=hotend_after VALUE={tt}
+macros/12_maintenance.cfg	1788	gcode_macro RETRACT_TOWER_RESULT	retract_len	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=retract_len VALUE={rl}
+macros/12_maintenance.cfg	1913	gcode_macro IRONING_RESULT	feat_spd_ironing	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_ironing VALUE={Ss[c - 1]|round}
+macros/12_maintenance.cfg	1914	gcode_macro IRONING_RESULT	ironing_flow	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=ironing_flow VALUE={Fs[c - 1]|round}
+menus/lcd_menues.cfg	699	menu __main __live __spfe __curon	feat_on_{c}	dynamisch_ungeklaert	SET_OVERRIDE_VALUE NAME=feat_on_{c} VALUE={1 if not printer['save_variables'].variables['ovf_' ~ c ~ '_on']|default(False) else 0}
+menus/lcd_menues.cfg	732	menu __main __live __spfe __ow	feat_spd_wallouter	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_wallouter VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	734	menu __main __live __spfe __ow	feat_on_wallouter	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_wallouter VALUE=1
+menus/lcd_menues.cfg	750	menu __main __live __spfe __iw	feat_spd_wallinner	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_wallinner VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	752	menu __main __live __spfe __iw	feat_on_wallinner	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_wallinner VALUE=1
+menus/lcd_menues.cfg	768	menu __main __live __spfe __sp	feat_spd_infillsparse	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_infillsparse VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	770	menu __main __live __spfe __sp	feat_on_infillsparse	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_infillsparse VALUE=1
+menus/lcd_menues.cfg	786	menu __main __live __spfe __so	feat_spd_infillsolid	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_infillsolid VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	788	menu __main __live __spfe __so	feat_on_infillsolid	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_infillsolid VALUE=1
+menus/lcd_menues.cfg	804	menu __main __live __spfe __tp	feat_spd_surfacetop	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_surfacetop VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	806	menu __main __live __spfe __tp	feat_on_surfacetop	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_surfacetop VALUE=1
+menus/lcd_menues.cfg	822	menu __main __live __spfe __bt	feat_spd_surfacebottom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_surfacebottom VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	824	menu __main __live __spfe __bt	feat_on_surfacebottom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_surfacebottom VALUE=1
+menus/lcd_menues.cfg	840	menu __main __live __spfe __br	feat_spd_bridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_bridge VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	842	menu __main __live __spfe __br	feat_on_bridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_bridge VALUE=1
+menus/lcd_menues.cfg	858	menu __main __live __spfe __gp	feat_spd_gaps	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_gaps VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	860	menu __main __live __spfe __gp	feat_on_gaps	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_gaps VALUE=1
+menus/lcd_menues.cfg	876	menu __main __live __spfe __su	feat_spd_support	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_support VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	878	menu __main __live __spfe __su	feat_on_support	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_support VALUE=1
+menus/lcd_menues.cfg	894	menu __main __live __spfe __ir	ironing_flow	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=ironing_flow VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	909	menu __main __live __spfe __sk	feat_spd_skirt	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_skirt VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	911	menu __main __live __spfe __sk	feat_on_skirt	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_skirt VALUE=1
+menus/lcd_menues.cfg	927	menu __main __live __spfe __bm	feat_spd_brim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_brim VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	929	menu __main __live __spfe __bm	feat_on_brim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_brim VALUE=1
+menus/lcd_menues.cfg	945	menu __main __live __spfe __oh	feat_spd_overhangperim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_overhangperim VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	947	menu __main __live __spfe __oh	feat_on_overhangperim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_overhangperim VALUE=1
+menus/lcd_menues.cfg	963	menu __main __live __spfe __ib	feat_spd_internalbridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_internalbridge VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	965	menu __main __live __spfe __ib	feat_on_internalbridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_internalbridge VALUE=1
+menus/lcd_menues.cfg	981	menu __main __live __spfe __pt	feat_spd_primetower	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_primetower VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	983	menu __main __live __spfe __pt	feat_on_primetower	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_primetower VALUE=1
+menus/lcd_menues.cfg	999	menu __main __live __spfe __cu	feat_spd_custom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_custom VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	1001	menu __main __live __spfe __cu	feat_on_custom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_custom VALUE=1
+menus/lcd_menues.cfg	1016	menu __main __live __spfe __tv	feat_spd_travel	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_travel VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	1018	menu __main __live __spfe __tv	feat_on_travel	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_travel VALUE=1
+menus/lcd_menues.cfg	1105	menu __main __live __acfe __ow	feat_acc_wallouter	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_wallouter VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	1107	menu __main __live __acfe __ow	feat_on_wallouter	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_wallouter VALUE=1
+menus/lcd_menues.cfg	1123	menu __main __live __acfe __iw	feat_acc_wallinner	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_wallinner VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	1125	menu __main __live __acfe __iw	feat_on_wallinner	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_wallinner VALUE=1
+menus/lcd_menues.cfg	1141	menu __main __live __acfe __sp	feat_acc_infillsparse	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_infillsparse VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	1143	menu __main __live __acfe __sp	feat_on_infillsparse	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_infillsparse VALUE=1
+menus/lcd_menues.cfg	1159	menu __main __live __acfe __so	feat_acc_infillsolid	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_infillsolid VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	1161	menu __main __live __acfe __so	feat_on_infillsolid	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_infillsolid VALUE=1
+menus/lcd_menues.cfg	1177	menu __main __live __acfe __tp	feat_acc_surfacetop	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_surfacetop VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	1179	menu __main __live __acfe __tp	feat_on_surfacetop	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_surfacetop VALUE=1
+menus/lcd_menues.cfg	1195	menu __main __live __acfe __bt	feat_acc_surfacebottom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_surfacebottom VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	1197	menu __main __live __acfe __bt	feat_on_surfacebottom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_surfacebottom VALUE=1
+menus/lcd_menues.cfg	1213	menu __main __live __acfe __br	feat_acc_bridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_bridge VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	1215	menu __main __live __acfe __br	feat_on_bridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_bridge VALUE=1
+menus/lcd_menues.cfg	1231	menu __main __live __acfe __gp	feat_acc_gaps	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_gaps VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	1233	menu __main __live __acfe __gp	feat_on_gaps	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_gaps VALUE=1
+menus/lcd_menues.cfg	1249	menu __main __live __acfe __su	feat_acc_support	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_support VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	1251	menu __main __live __acfe __su	feat_on_support	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_support VALUE=1
+menus/lcd_menues.cfg	1267	menu __main __live __acfe __ir	feat_acc_ironing	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_ironing VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	1269	menu __main __live __acfe __ir	feat_on_ironing	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_ironing VALUE=1
+menus/lcd_menues.cfg	1285	menu __main __live __acfe __sk	feat_acc_skirt	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_skirt VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	1287	menu __main __live __acfe __sk	feat_on_skirt	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_skirt VALUE=1
+menus/lcd_menues.cfg	1303	menu __main __live __acfe __bm	feat_acc_brim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_brim VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	1305	menu __main __live __acfe __bm	feat_on_brim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_brim VALUE=1
+menus/lcd_menues.cfg	1321	menu __main __live __acfe __oh	feat_acc_overhangperim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_overhangperim VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	1323	menu __main __live __acfe __oh	feat_on_overhangperim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_overhangperim VALUE=1
+menus/lcd_menues.cfg	1339	menu __main __live __acfe __ib	feat_acc_internalbridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_internalbridge VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	1341	menu __main __live __acfe __ib	feat_on_internalbridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_internalbridge VALUE=1
+menus/lcd_menues.cfg	1357	menu __main __live __acfe __pt	feat_acc_primetower	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_primetower VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	1359	menu __main __live __acfe __pt	feat_on_primetower	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_primetower VALUE=1
+menus/lcd_menues.cfg	1375	menu __main __live __acfe __cu	feat_acc_custom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_custom VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	1377	menu __main __live __acfe __cu	feat_on_custom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_custom VALUE=1
+menus/lcd_menues.cfg	1392	menu __main __live __acfe __tv	feat_acc_travel	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_travel VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	1394	menu __main __live __acfe __tv	feat_on_travel	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_travel VALUE=1
+menus/lcd_menues.cfg	1450	menu __main __live __pafe __ow	feat_pa_wallouter	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_wallouter VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	1452	menu __main __live __pafe __ow	feat_on_wallouter	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_wallouter VALUE=1
+menus/lcd_menues.cfg	1468	menu __main __live __pafe __iw	feat_pa_wallinner	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_wallinner VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	1470	menu __main __live __pafe __iw	feat_on_wallinner	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_wallinner VALUE=1
+menus/lcd_menues.cfg	1486	menu __main __live __pafe __sp	feat_pa_infillsparse	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_infillsparse VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	1488	menu __main __live __pafe __sp	feat_on_infillsparse	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_infillsparse VALUE=1
+menus/lcd_menues.cfg	1504	menu __main __live __pafe __so	feat_pa_infillsolid	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_infillsolid VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	1506	menu __main __live __pafe __so	feat_on_infillsolid	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_infillsolid VALUE=1
+menus/lcd_menues.cfg	1522	menu __main __live __pafe __tp	feat_pa_surfacetop	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_surfacetop VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	1524	menu __main __live __pafe __tp	feat_on_surfacetop	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_surfacetop VALUE=1
+menus/lcd_menues.cfg	1540	menu __main __live __pafe __bt	feat_pa_surfacebottom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_surfacebottom VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	1542	menu __main __live __pafe __bt	feat_on_surfacebottom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_surfacebottom VALUE=1
+menus/lcd_menues.cfg	1558	menu __main __live __pafe __br	feat_pa_bridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_bridge VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	1560	menu __main __live __pafe __br	feat_on_bridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_bridge VALUE=1
+menus/lcd_menues.cfg	1576	menu __main __live __pafe __gp	feat_pa_gaps	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_gaps VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	1578	menu __main __live __pafe __gp	feat_on_gaps	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_gaps VALUE=1
+menus/lcd_menues.cfg	1594	menu __main __live __pafe __su	feat_pa_support	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_support VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	1596	menu __main __live __pafe __su	feat_on_support	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_support VALUE=1
+menus/lcd_menues.cfg	1612	menu __main __live __pafe __ir	feat_pa_ironing	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_ironing VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	1614	menu __main __live __pafe __ir	feat_on_ironing	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_ironing VALUE=1
+menus/lcd_menues.cfg	1630	menu __main __live __pafe __sk	feat_pa_skirt	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_skirt VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	1632	menu __main __live __pafe __sk	feat_on_skirt	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_skirt VALUE=1
+menus/lcd_menues.cfg	1648	menu __main __live __pafe __bm	feat_pa_brim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_brim VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	1650	menu __main __live __pafe __bm	feat_on_brim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_brim VALUE=1
+menus/lcd_menues.cfg	1666	menu __main __live __pafe __oh	feat_pa_overhangperim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_overhangperim VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	1668	menu __main __live __pafe __oh	feat_on_overhangperim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_overhangperim VALUE=1
+menus/lcd_menues.cfg	1684	menu __main __live __pafe __ib	feat_pa_internalbridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_internalbridge VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	1686	menu __main __live __pafe __ib	feat_on_internalbridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_internalbridge VALUE=1
+menus/lcd_menues.cfg	1702	menu __main __live __pafe __pt	feat_pa_primetower	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_primetower VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	1704	menu __main __live __pafe __pt	feat_on_primetower	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_primetower VALUE=1
+menus/lcd_menues.cfg	1720	menu __main __live __pafe __cu	feat_pa_custom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_custom VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	1722	menu __main __live __pafe __cu	feat_on_custom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_custom VALUE=1
+menus/lcd_menues.cfg	1774	menu __main __live __flfe __ow	feat_flw_wallouter	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_wallouter VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	1776	menu __main __live __flfe __ow	feat_on_wallouter	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_wallouter VALUE=1
+menus/lcd_menues.cfg	1792	menu __main __live __flfe __iw	feat_flw_wallinner	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_wallinner VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	1794	menu __main __live __flfe __iw	feat_on_wallinner	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_wallinner VALUE=1
+menus/lcd_menues.cfg	1810	menu __main __live __flfe __sp	feat_flw_infillsparse	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_infillsparse VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	1812	menu __main __live __flfe __sp	feat_on_infillsparse	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_infillsparse VALUE=1
+menus/lcd_menues.cfg	1828	menu __main __live __flfe __so	feat_flw_infillsolid	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_infillsolid VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	1830	menu __main __live __flfe __so	feat_on_infillsolid	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_infillsolid VALUE=1
+menus/lcd_menues.cfg	1846	menu __main __live __flfe __tp	feat_flw_surfacetop	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_surfacetop VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	1848	menu __main __live __flfe __tp	feat_on_surfacetop	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_surfacetop VALUE=1
+menus/lcd_menues.cfg	1864	menu __main __live __flfe __bt	feat_flw_surfacebottom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_surfacebottom VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	1866	menu __main __live __flfe __bt	feat_on_surfacebottom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_surfacebottom VALUE=1
+menus/lcd_menues.cfg	1882	menu __main __live __flfe __br	feat_flw_bridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_bridge VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	1884	menu __main __live __flfe __br	feat_on_bridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_bridge VALUE=1
+menus/lcd_menues.cfg	1900	menu __main __live __flfe __gp	feat_flw_gaps	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_gaps VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	1902	menu __main __live __flfe __gp	feat_on_gaps	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_gaps VALUE=1
+menus/lcd_menues.cfg	1918	menu __main __live __flfe __su	feat_flw_support	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_support VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	1920	menu __main __live __flfe __su	feat_on_support	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_support VALUE=1
+menus/lcd_menues.cfg	1939	menu __main __live __flfe __ir	ironing_flow	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=ironing_flow VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	1954	menu __main __live __flfe __sk	feat_flw_skirt	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_skirt VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	1956	menu __main __live __flfe __sk	feat_on_skirt	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_skirt VALUE=1
+menus/lcd_menues.cfg	1972	menu __main __live __flfe __bm	feat_flw_brim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_brim VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	1974	menu __main __live __flfe __bm	feat_on_brim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_brim VALUE=1
+menus/lcd_menues.cfg	1990	menu __main __live __flfe __oh	feat_flw_overhangperim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_overhangperim VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	1992	menu __main __live __flfe __oh	feat_on_overhangperim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_overhangperim VALUE=1
+menus/lcd_menues.cfg	2008	menu __main __live __flfe __ib	feat_flw_internalbridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_internalbridge VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	2010	menu __main __live __flfe __ib	feat_on_internalbridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_internalbridge VALUE=1
+menus/lcd_menues.cfg	2026	menu __main __live __flfe __pt	feat_flw_primetower	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_primetower VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	2028	menu __main __live __flfe __pt	feat_on_primetower	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_primetower VALUE=1
+menus/lcd_menues.cfg	2044	menu __main __live __flfe __cu	feat_flw_custom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_custom VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	2046	menu __main __live __flfe __cu	feat_on_custom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_custom VALUE=1
+menus/lcd_menues.cfg	2186	menu __main __live __lmo __extr __irfl	ironing_flow	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=ironing_flow VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4174	menu __main __preprint __material __m0 __bed1	bed	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=bed VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4187	menu __main __preprint __material __m0 __bed2	bed_after	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=bed_after VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4200	menu __main __preprint __material __m0 __hot1	hotend_first	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=hotend_first VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4213	menu __main __preprint __material __m0 __hot2	hotend_after	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=hotend_after VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4226	menu __main __preprint __material __m0 __pa	pa	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=pa VALUE={menu.input|round(4)}
+menus/lcd_menues.cfg	4239	menu __main __preprint __material __m0 __flow	flow	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=flow VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4252	menu __main __preprint __material __m0 __fan	fan	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=fan VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4265	menu __main __preprint __material __m0 __retlen	retract_len	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=retract_len VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	4278	menu __main __preprint __material __m0 __retspd	retract_speed	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=retract_speed VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4291	menu __main __preprint __material __m0 __unret	unretract_speed	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=unretract_speed VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4304	menu __main __preprint __material __m0 __pasm	pa_smooth	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=pa_smooth VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	4342	menu __main __preprint __material __m1 __bed1	bed	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=bed VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4355	menu __main __preprint __material __m1 __bed2	bed_after	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=bed_after VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4368	menu __main __preprint __material __m1 __hot1	hotend_first	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=hotend_first VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4381	menu __main __preprint __material __m1 __hot2	hotend_after	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=hotend_after VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4394	menu __main __preprint __material __m1 __pa	pa	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=pa VALUE={menu.input|round(4)}
+menus/lcd_menues.cfg	4407	menu __main __preprint __material __m1 __flow	flow	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=flow VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4420	menu __main __preprint __material __m1 __fan	fan	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=fan VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4433	menu __main __preprint __material __m1 __retlen	retract_len	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=retract_len VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	4446	menu __main __preprint __material __m1 __retspd	retract_speed	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=retract_speed VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4459	menu __main __preprint __material __m1 __unret	unretract_speed	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=unretract_speed VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4472	menu __main __preprint __material __m1 __pasm	pa_smooth	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=pa_smooth VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	4510	menu __main __preprint __material __m2 __bed1	bed	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=bed VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4523	menu __main __preprint __material __m2 __bed2	bed_after	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=bed_after VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4536	menu __main __preprint __material __m2 __hot1	hotend_first	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=hotend_first VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4549	menu __main __preprint __material __m2 __hot2	hotend_after	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=hotend_after VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4562	menu __main __preprint __material __m2 __pa	pa	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=pa VALUE={menu.input|round(4)}
+menus/lcd_menues.cfg	4575	menu __main __preprint __material __m2 __flow	flow	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=flow VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4588	menu __main __preprint __material __m2 __fan	fan	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=fan VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4601	menu __main __preprint __material __m2 __retlen	retract_len	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=retract_len VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	4614	menu __main __preprint __material __m2 __retspd	retract_speed	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=retract_speed VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4627	menu __main __preprint __material __m2 __unret	unretract_speed	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=unretract_speed VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4640	menu __main __preprint __material __m2 __pasm	pa_smooth	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=pa_smooth VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	4678	menu __main __preprint __material __m3 __bed1	bed	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=bed VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4691	menu __main __preprint __material __m3 __bed2	bed_after	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=bed_after VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4704	menu __main __preprint __material __m3 __hot1	hotend_first	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=hotend_first VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4717	menu __main __preprint __material __m3 __hot2	hotend_after	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=hotend_after VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4730	menu __main __preprint __material __m3 __pa	pa	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=pa VALUE={menu.input|round(4)}
+menus/lcd_menues.cfg	4743	menu __main __preprint __material __m3 __flow	flow	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=flow VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4756	menu __main __preprint __material __m3 __fan	fan	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=fan VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4769	menu __main __preprint __material __m3 __retlen	retract_len	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=retract_len VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	4782	menu __main __preprint __material __m3 __retspd	retract_speed	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=retract_speed VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4795	menu __main __preprint __material __m3 __unret	unretract_speed	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=unretract_speed VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4808	menu __main __preprint __material __m3 __pasm	pa_smooth	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=pa_smooth VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	4846	menu __main __preprint __material __m4 __bed1	bed	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=bed VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4859	menu __main __preprint __material __m4 __bed2	bed_after	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=bed_after VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4872	menu __main __preprint __material __m4 __hot1	hotend_first	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=hotend_first VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4885	menu __main __preprint __material __m4 __hot2	hotend_after	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=hotend_after VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4898	menu __main __preprint __material __m4 __pa	pa	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=pa VALUE={menu.input|round(4)}
+menus/lcd_menues.cfg	4911	menu __main __preprint __material __m4 __flow	flow	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=flow VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4924	menu __main __preprint __material __m4 __fan	fan	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=fan VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4937	menu __main __preprint __material __m4 __retlen	retract_len	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=retract_len VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	4950	menu __main __preprint __material __m4 __retspd	retract_speed	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=retract_speed VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4963	menu __main __preprint __material __m4 __unret	unretract_speed	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=unretract_speed VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	4976	menu __main __preprint __material __m4 __pasm	pa_smooth	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=pa_smooth VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	5008	menu __main __preprint __temps __b2	bed	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=bed VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5023	menu __main __preprint __temps __b4	bed_after	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=bed_after VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5038	menu __main __preprint __temps __h1b	hotend_first	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=hotend_first VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5053	menu __main __preprint __temps __h2b	hotend_after	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=hotend_after VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5085	menu __main __preprint __temps __fanval	fan	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=fan VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5157	menu __main __preprint __motion __vel __ve2	velocity	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=velocity VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5172	menu __main __preprint __motion __vel __mc2	min_cruise	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=min_cruise VALUE={menu.input|float}
+menus/lcd_menues.cfg	5187	menu __main __preprint __motion __vel __sc2	square_corner	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=square_corner VALUE={menu.input|float}
+menus/lcd_menues.cfg	5224	menu __main __preprint __motion __vel __spfe __ow	feat_spd_wallouter	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_wallouter VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5226	menu __main __preprint __motion __vel __spfe __ow	feat_on_wallouter	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_wallouter VALUE=1
+menus/lcd_menues.cfg	5242	menu __main __preprint __motion __vel __spfe __iw	feat_spd_wallinner	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_wallinner VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5244	menu __main __preprint __motion __vel __spfe __iw	feat_on_wallinner	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_wallinner VALUE=1
+menus/lcd_menues.cfg	5260	menu __main __preprint __motion __vel __spfe __sp	feat_spd_infillsparse	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_infillsparse VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5262	menu __main __preprint __motion __vel __spfe __sp	feat_on_infillsparse	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_infillsparse VALUE=1
+menus/lcd_menues.cfg	5278	menu __main __preprint __motion __vel __spfe __so	feat_spd_infillsolid	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_infillsolid VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5280	menu __main __preprint __motion __vel __spfe __so	feat_on_infillsolid	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_infillsolid VALUE=1
+menus/lcd_menues.cfg	5296	menu __main __preprint __motion __vel __spfe __tp	feat_spd_surfacetop	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_surfacetop VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5298	menu __main __preprint __motion __vel __spfe __tp	feat_on_surfacetop	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_surfacetop VALUE=1
+menus/lcd_menues.cfg	5314	menu __main __preprint __motion __vel __spfe __bt	feat_spd_surfacebottom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_surfacebottom VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5316	menu __main __preprint __motion __vel __spfe __bt	feat_on_surfacebottom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_surfacebottom VALUE=1
+menus/lcd_menues.cfg	5332	menu __main __preprint __motion __vel __spfe __br	feat_spd_bridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_bridge VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5334	menu __main __preprint __motion __vel __spfe __br	feat_on_bridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_bridge VALUE=1
+menus/lcd_menues.cfg	5350	menu __main __preprint __motion __vel __spfe __gp	feat_spd_gaps	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_gaps VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5352	menu __main __preprint __motion __vel __spfe __gp	feat_on_gaps	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_gaps VALUE=1
+menus/lcd_menues.cfg	5368	menu __main __preprint __motion __vel __spfe __su	feat_spd_support	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_support VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5370	menu __main __preprint __motion __vel __spfe __su	feat_on_support	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_support VALUE=1
+menus/lcd_menues.cfg	5386	menu __main __preprint __motion __vel __spfe __ir	feat_spd_ironing	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_ironing VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5388	menu __main __preprint __motion __vel __spfe __ir	feat_on_ironing	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_ironing VALUE=1
+menus/lcd_menues.cfg	5404	menu __main __preprint __motion __vel __spfe __sk	feat_spd_skirt	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_skirt VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5406	menu __main __preprint __motion __vel __spfe __sk	feat_on_skirt	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_skirt VALUE=1
+menus/lcd_menues.cfg	5422	menu __main __preprint __motion __vel __spfe __bm	feat_spd_brim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_brim VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5424	menu __main __preprint __motion __vel __spfe __bm	feat_on_brim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_brim VALUE=1
+menus/lcd_menues.cfg	5440	menu __main __preprint __motion __vel __spfe __oh	feat_spd_overhangperim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_overhangperim VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5442	menu __main __preprint __motion __vel __spfe __oh	feat_on_overhangperim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_overhangperim VALUE=1
+menus/lcd_menues.cfg	5458	menu __main __preprint __motion __vel __spfe __ib	feat_spd_internalbridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_internalbridge VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5460	menu __main __preprint __motion __vel __spfe __ib	feat_on_internalbridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_internalbridge VALUE=1
+menus/lcd_menues.cfg	5476	menu __main __preprint __motion __vel __spfe __pt	feat_spd_primetower	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_primetower VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5478	menu __main __preprint __motion __vel __spfe __pt	feat_on_primetower	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_primetower VALUE=1
+menus/lcd_menues.cfg	5494	menu __main __preprint __motion __vel __spfe __cu	feat_spd_custom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_custom VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5496	menu __main __preprint __motion __vel __spfe __cu	feat_on_custom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_custom VALUE=1
+menus/lcd_menues.cfg	5511	menu __main __preprint __motion __vel __spfe __tv	feat_spd_travel	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_travel VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5513	menu __main __preprint __motion __vel __spfe __tv	feat_on_travel	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_travel VALUE=1
+menus/lcd_menues.cfg	5540	menu __main __preprint __motion __vel __acfe __gacc	accel	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=accel VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5562	menu __main __preprint __motion __vel __acfe __ow	feat_acc_wallouter	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_wallouter VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5564	menu __main __preprint __motion __vel __acfe __ow	feat_on_wallouter	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_wallouter VALUE=1
+menus/lcd_menues.cfg	5580	menu __main __preprint __motion __vel __acfe __iw	feat_acc_wallinner	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_wallinner VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5582	menu __main __preprint __motion __vel __acfe __iw	feat_on_wallinner	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_wallinner VALUE=1
+menus/lcd_menues.cfg	5598	menu __main __preprint __motion __vel __acfe __sp	feat_acc_infillsparse	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_infillsparse VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5600	menu __main __preprint __motion __vel __acfe __sp	feat_on_infillsparse	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_infillsparse VALUE=1
+menus/lcd_menues.cfg	5616	menu __main __preprint __motion __vel __acfe __so	feat_acc_infillsolid	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_infillsolid VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5618	menu __main __preprint __motion __vel __acfe __so	feat_on_infillsolid	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_infillsolid VALUE=1
+menus/lcd_menues.cfg	5634	menu __main __preprint __motion __vel __acfe __tp	feat_acc_surfacetop	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_surfacetop VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5636	menu __main __preprint __motion __vel __acfe __tp	feat_on_surfacetop	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_surfacetop VALUE=1
+menus/lcd_menues.cfg	5652	menu __main __preprint __motion __vel __acfe __bt	feat_acc_surfacebottom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_surfacebottom VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5654	menu __main __preprint __motion __vel __acfe __bt	feat_on_surfacebottom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_surfacebottom VALUE=1
+menus/lcd_menues.cfg	5670	menu __main __preprint __motion __vel __acfe __br	feat_acc_bridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_bridge VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5672	menu __main __preprint __motion __vel __acfe __br	feat_on_bridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_bridge VALUE=1
+menus/lcd_menues.cfg	5688	menu __main __preprint __motion __vel __acfe __gp	feat_acc_gaps	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_gaps VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5690	menu __main __preprint __motion __vel __acfe __gp	feat_on_gaps	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_gaps VALUE=1
+menus/lcd_menues.cfg	5706	menu __main __preprint __motion __vel __acfe __su	feat_acc_support	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_support VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5708	menu __main __preprint __motion __vel __acfe __su	feat_on_support	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_support VALUE=1
+menus/lcd_menues.cfg	5724	menu __main __preprint __motion __vel __acfe __ir	feat_acc_ironing	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_ironing VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5726	menu __main __preprint __motion __vel __acfe __ir	feat_on_ironing	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_ironing VALUE=1
+menus/lcd_menues.cfg	5742	menu __main __preprint __motion __vel __acfe __sk	feat_acc_skirt	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_skirt VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5744	menu __main __preprint __motion __vel __acfe __sk	feat_on_skirt	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_skirt VALUE=1
+menus/lcd_menues.cfg	5760	menu __main __preprint __motion __vel __acfe __bm	feat_acc_brim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_brim VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5762	menu __main __preprint __motion __vel __acfe __bm	feat_on_brim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_brim VALUE=1
+menus/lcd_menues.cfg	5778	menu __main __preprint __motion __vel __acfe __oh	feat_acc_overhangperim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_overhangperim VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5780	menu __main __preprint __motion __vel __acfe __oh	feat_on_overhangperim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_overhangperim VALUE=1
+menus/lcd_menues.cfg	5796	menu __main __preprint __motion __vel __acfe __ib	feat_acc_internalbridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_internalbridge VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5798	menu __main __preprint __motion __vel __acfe __ib	feat_on_internalbridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_internalbridge VALUE=1
+menus/lcd_menues.cfg	5814	menu __main __preprint __motion __vel __acfe __pt	feat_acc_primetower	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_primetower VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5816	menu __main __preprint __motion __vel __acfe __pt	feat_on_primetower	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_primetower VALUE=1
+menus/lcd_menues.cfg	5832	menu __main __preprint __motion __vel __acfe __cu	feat_acc_custom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_custom VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5834	menu __main __preprint __motion __vel __acfe __cu	feat_on_custom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_custom VALUE=1
+menus/lcd_menues.cfg	5849	menu __main __preprint __motion __vel __acfe __tv	feat_acc_travel	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_travel VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	5851	menu __main __preprint __motion __vel __acfe __tv	feat_on_travel	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_travel VALUE=1
+menus/lcd_menues.cfg	5887	menu __main __preprint __motion __ext __pafe __gval	pa	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=pa VALUE={menu.input|round(4)}
+menus/lcd_menues.cfg	5902	menu __main __preprint __motion __ext __pafe __gsmv	pa_smooth	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=pa_smooth VALUE={menu.input|round(2)}
+menus/lcd_menues.cfg	5930	menu __main __preprint __motion __ext __pafe __ow	feat_pa_wallouter	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_wallouter VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	5932	menu __main __preprint __motion __ext __pafe __ow	feat_on_wallouter	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_wallouter VALUE=1
+menus/lcd_menues.cfg	5948	menu __main __preprint __motion __ext __pafe __iw	feat_pa_wallinner	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_wallinner VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	5950	menu __main __preprint __motion __ext __pafe __iw	feat_on_wallinner	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_wallinner VALUE=1
+menus/lcd_menues.cfg	5966	menu __main __preprint __motion __ext __pafe __sp	feat_pa_infillsparse	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_infillsparse VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	5968	menu __main __preprint __motion __ext __pafe __sp	feat_on_infillsparse	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_infillsparse VALUE=1
+menus/lcd_menues.cfg	5984	menu __main __preprint __motion __ext __pafe __so	feat_pa_infillsolid	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_infillsolid VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	5986	menu __main __preprint __motion __ext __pafe __so	feat_on_infillsolid	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_infillsolid VALUE=1
+menus/lcd_menues.cfg	6002	menu __main __preprint __motion __ext __pafe __tp	feat_pa_surfacetop	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_surfacetop VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	6004	menu __main __preprint __motion __ext __pafe __tp	feat_on_surfacetop	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_surfacetop VALUE=1
+menus/lcd_menues.cfg	6020	menu __main __preprint __motion __ext __pafe __bt	feat_pa_surfacebottom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_surfacebottom VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	6022	menu __main __preprint __motion __ext __pafe __bt	feat_on_surfacebottom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_surfacebottom VALUE=1
+menus/lcd_menues.cfg	6038	menu __main __preprint __motion __ext __pafe __br	feat_pa_bridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_bridge VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	6040	menu __main __preprint __motion __ext __pafe __br	feat_on_bridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_bridge VALUE=1
+menus/lcd_menues.cfg	6056	menu __main __preprint __motion __ext __pafe __gp	feat_pa_gaps	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_gaps VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	6058	menu __main __preprint __motion __ext __pafe __gp	feat_on_gaps	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_gaps VALUE=1
+menus/lcd_menues.cfg	6074	menu __main __preprint __motion __ext __pafe __su	feat_pa_support	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_support VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	6076	menu __main __preprint __motion __ext __pafe __su	feat_on_support	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_support VALUE=1
+menus/lcd_menues.cfg	6092	menu __main __preprint __motion __ext __pafe __ir	feat_pa_ironing	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_ironing VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	6094	menu __main __preprint __motion __ext __pafe __ir	feat_on_ironing	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_ironing VALUE=1
+menus/lcd_menues.cfg	6110	menu __main __preprint __motion __ext __pafe __sk	feat_pa_skirt	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_skirt VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	6112	menu __main __preprint __motion __ext __pafe __sk	feat_on_skirt	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_skirt VALUE=1
+menus/lcd_menues.cfg	6128	menu __main __preprint __motion __ext __pafe __bm	feat_pa_brim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_brim VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	6130	menu __main __preprint __motion __ext __pafe __bm	feat_on_brim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_brim VALUE=1
+menus/lcd_menues.cfg	6146	menu __main __preprint __motion __ext __pafe __oh	feat_pa_overhangperim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_overhangperim VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	6148	menu __main __preprint __motion __ext __pafe __oh	feat_on_overhangperim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_overhangperim VALUE=1
+menus/lcd_menues.cfg	6164	menu __main __preprint __motion __ext __pafe __ib	feat_pa_internalbridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_internalbridge VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	6166	menu __main __preprint __motion __ext __pafe __ib	feat_on_internalbridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_internalbridge VALUE=1
+menus/lcd_menues.cfg	6182	menu __main __preprint __motion __ext __pafe __pt	feat_pa_primetower	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_primetower VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	6184	menu __main __preprint __motion __ext __pafe __pt	feat_on_primetower	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_primetower VALUE=1
+menus/lcd_menues.cfg	6200	menu __main __preprint __motion __ext __pafe __cu	feat_pa_custom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_custom VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	6202	menu __main __preprint __motion __ext __pafe __cu	feat_on_custom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_custom VALUE=1
+menus/lcd_menues.cfg	6225	menu __main __preprint __motion __ext __flfe __gval	flow	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=flow VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6253	menu __main __preprint __motion __ext __flfe __ow	feat_flw_wallouter	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_wallouter VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6255	menu __main __preprint __motion __ext __flfe __ow	feat_on_wallouter	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_wallouter VALUE=1
+menus/lcd_menues.cfg	6271	menu __main __preprint __motion __ext __flfe __iw	feat_flw_wallinner	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_wallinner VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6273	menu __main __preprint __motion __ext __flfe __iw	feat_on_wallinner	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_wallinner VALUE=1
+menus/lcd_menues.cfg	6289	menu __main __preprint __motion __ext __flfe __sp	feat_flw_infillsparse	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_infillsparse VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6291	menu __main __preprint __motion __ext __flfe __sp	feat_on_infillsparse	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_infillsparse VALUE=1
+menus/lcd_menues.cfg	6307	menu __main __preprint __motion __ext __flfe __so	feat_flw_infillsolid	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_infillsolid VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6309	menu __main __preprint __motion __ext __flfe __so	feat_on_infillsolid	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_infillsolid VALUE=1
+menus/lcd_menues.cfg	6325	menu __main __preprint __motion __ext __flfe __tp	feat_flw_surfacetop	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_surfacetop VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6327	menu __main __preprint __motion __ext __flfe __tp	feat_on_surfacetop	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_surfacetop VALUE=1
+menus/lcd_menues.cfg	6343	menu __main __preprint __motion __ext __flfe __bt	feat_flw_surfacebottom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_surfacebottom VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6345	menu __main __preprint __motion __ext __flfe __bt	feat_on_surfacebottom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_surfacebottom VALUE=1
+menus/lcd_menues.cfg	6361	menu __main __preprint __motion __ext __flfe __br	feat_flw_bridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_bridge VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6363	menu __main __preprint __motion __ext __flfe __br	feat_on_bridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_bridge VALUE=1
+menus/lcd_menues.cfg	6379	menu __main __preprint __motion __ext __flfe __gp	feat_flw_gaps	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_gaps VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6381	menu __main __preprint __motion __ext __flfe __gp	feat_on_gaps	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_gaps VALUE=1
+menus/lcd_menues.cfg	6397	menu __main __preprint __motion __ext __flfe __su	feat_flw_support	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_support VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6399	menu __main __preprint __motion __ext __flfe __su	feat_on_support	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_support VALUE=1
+menus/lcd_menues.cfg	6417	menu __main __preprint __motion __ext __flfe __ir	ironing_flow	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=ironing_flow VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6432	menu __main __preprint __motion __ext __flfe __sk	feat_flw_skirt	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_skirt VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6434	menu __main __preprint __motion __ext __flfe __sk	feat_on_skirt	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_skirt VALUE=1
+menus/lcd_menues.cfg	6450	menu __main __preprint __motion __ext __flfe __bm	feat_flw_brim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_brim VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6452	menu __main __preprint __motion __ext __flfe __bm	feat_on_brim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_brim VALUE=1
+menus/lcd_menues.cfg	6468	menu __main __preprint __motion __ext __flfe __oh	feat_flw_overhangperim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_overhangperim VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6470	menu __main __preprint __motion __ext __flfe __oh	feat_on_overhangperim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_overhangperim VALUE=1
+menus/lcd_menues.cfg	6486	menu __main __preprint __motion __ext __flfe __ib	feat_flw_internalbridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_internalbridge VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6488	menu __main __preprint __motion __ext __flfe __ib	feat_on_internalbridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_internalbridge VALUE=1
+menus/lcd_menues.cfg	6504	menu __main __preprint __motion __ext __flfe __pt	feat_flw_primetower	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_primetower VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6506	menu __main __preprint __motion __ext __flfe __pt	feat_on_primetower	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_primetower VALUE=1
+menus/lcd_menues.cfg	6522	menu __main __preprint __motion __ext __flfe __cu	feat_flw_custom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_custom VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6524	menu __main __preprint __motion __ext __flfe __cu	feat_on_custom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_custom VALUE=1
+menus/lcd_menues.cfg	6556	menu __main __preprint __motion __ret __lval	retract_len	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=retract_len VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	6571	menu __main __preprint __motion __ret __sval	retract_speed	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=retract_speed VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6586	menu __main __preprint __motion __ret __uval	unretract_speed	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=unretract_speed VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6628	menu __main __preprint __feat __ow __on	feat_on_wallouter	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_wallouter VALUE={1 if not printer['save_variables'].variables.ovf_wallouter_on|default(False) else 0}
+menus/lcd_menues.cfg	6652	menu __main __preprint __feat __ow __spd	feat_spd_wallouter	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_wallouter VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6666	menu __main __preprint __feat __ow __acc	feat_acc_wallouter	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_wallouter VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6680	menu __main __preprint __feat __ow __flw	feat_flw_wallouter	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_wallouter VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6691	menu __main __preprint __feat __ow __pa	feat_pa_wallouter	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_wallouter VALUE={menu.input|round(4)}
+menus/lcd_menues.cfg	6704	menu __main __preprint __feat __iw __on	feat_on_wallinner	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_wallinner VALUE={1 if not printer['save_variables'].variables.ovf_wallinner_on|default(False) else 0}
+menus/lcd_menues.cfg	6728	menu __main __preprint __feat __iw __spd	feat_spd_wallinner	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_wallinner VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6742	menu __main __preprint __feat __iw __acc	feat_acc_wallinner	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_wallinner VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6756	menu __main __preprint __feat __iw __flw	feat_flw_wallinner	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_wallinner VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6767	menu __main __preprint __feat __iw __pa	feat_pa_wallinner	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_wallinner VALUE={menu.input|round(4)}
+menus/lcd_menues.cfg	6780	menu __main __preprint __feat __sp __on	feat_on_infillsparse	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_infillsparse VALUE={1 if not printer['save_variables'].variables.ovf_infillsparse_on|default(False) else 0}
+menus/lcd_menues.cfg	6804	menu __main __preprint __feat __sp __spd	feat_spd_infillsparse	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_infillsparse VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6818	menu __main __preprint __feat __sp __acc	feat_acc_infillsparse	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_infillsparse VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6832	menu __main __preprint __feat __sp __flw	feat_flw_infillsparse	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_infillsparse VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6843	menu __main __preprint __feat __sp __pa	feat_pa_infillsparse	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_infillsparse VALUE={menu.input|round(4)}
+menus/lcd_menues.cfg	6856	menu __main __preprint __feat __so __on	feat_on_infillsolid	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_infillsolid VALUE={1 if not printer['save_variables'].variables.ovf_infillsolid_on|default(False) else 0}
+menus/lcd_menues.cfg	6880	menu __main __preprint __feat __so __spd	feat_spd_infillsolid	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_infillsolid VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6894	menu __main __preprint __feat __so __acc	feat_acc_infillsolid	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_infillsolid VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6908	menu __main __preprint __feat __so __flw	feat_flw_infillsolid	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_infillsolid VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6919	menu __main __preprint __feat __so __pa	feat_pa_infillsolid	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_infillsolid VALUE={menu.input|round(4)}
+menus/lcd_menues.cfg	6932	menu __main __preprint __feat __tp __on	feat_on_surfacetop	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_surfacetop VALUE={1 if not printer['save_variables'].variables.ovf_surfacetop_on|default(False) else 0}
+menus/lcd_menues.cfg	6956	menu __main __preprint __feat __tp __spd	feat_spd_surfacetop	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_surfacetop VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6970	menu __main __preprint __feat __tp __acc	feat_acc_surfacetop	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_surfacetop VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6984	menu __main __preprint __feat __tp __flw	feat_flw_surfacetop	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_surfacetop VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	6995	menu __main __preprint __feat __tp __pa	feat_pa_surfacetop	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_surfacetop VALUE={menu.input|round(4)}
+menus/lcd_menues.cfg	7008	menu __main __preprint __feat __bt __on	feat_on_surfacebottom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_surfacebottom VALUE={1 if not printer['save_variables'].variables.ovf_surfacebottom_on|default(False) else 0}
+menus/lcd_menues.cfg	7032	menu __main __preprint __feat __bt __spd	feat_spd_surfacebottom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_surfacebottom VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7046	menu __main __preprint __feat __bt __acc	feat_acc_surfacebottom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_surfacebottom VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7060	menu __main __preprint __feat __bt __flw	feat_flw_surfacebottom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_surfacebottom VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7071	menu __main __preprint __feat __bt __pa	feat_pa_surfacebottom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_surfacebottom VALUE={menu.input|round(4)}
+menus/lcd_menues.cfg	7084	menu __main __preprint __feat __br __on	feat_on_bridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_bridge VALUE={1 if not printer['save_variables'].variables.ovf_bridge_on|default(False) else 0}
+menus/lcd_menues.cfg	7108	menu __main __preprint __feat __br __spd	feat_spd_bridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_bridge VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7122	menu __main __preprint __feat __br __acc	feat_acc_bridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_bridge VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7136	menu __main __preprint __feat __br __flw	feat_flw_bridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_bridge VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7147	menu __main __preprint __feat __br __pa	feat_pa_bridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_bridge VALUE={menu.input|round(4)}
+menus/lcd_menues.cfg	7160	menu __main __preprint __feat __gp __on	feat_on_gaps	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_gaps VALUE={1 if not printer['save_variables'].variables.ovf_gaps_on|default(False) else 0}
+menus/lcd_menues.cfg	7184	menu __main __preprint __feat __gp __spd	feat_spd_gaps	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_gaps VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7198	menu __main __preprint __feat __gp __acc	feat_acc_gaps	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_gaps VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7212	menu __main __preprint __feat __gp __flw	feat_flw_gaps	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_gaps VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7223	menu __main __preprint __feat __gp __pa	feat_pa_gaps	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_gaps VALUE={menu.input|round(4)}
+menus/lcd_menues.cfg	7236	menu __main __preprint __feat __su __on	feat_on_support	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_support VALUE={1 if not printer['save_variables'].variables.ovf_support_on|default(False) else 0}
+menus/lcd_menues.cfg	7260	menu __main __preprint __feat __su __spd	feat_spd_support	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_support VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7274	menu __main __preprint __feat __su __acc	feat_acc_support	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_support VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7288	menu __main __preprint __feat __su __flw	feat_flw_support	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_support VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7299	menu __main __preprint __feat __su __pa	feat_pa_support	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_support VALUE={menu.input|round(4)}
+menus/lcd_menues.cfg	7312	menu __main __preprint __feat __ir __on	feat_on_ironing	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_ironing VALUE={1 if not printer['save_variables'].variables.ovf_ironing_on|default(False) else 0}
+menus/lcd_menues.cfg	7336	menu __main __preprint __feat __ir __spd	feat_spd_ironing	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_ironing VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7350	menu __main __preprint __feat __ir __acc	feat_acc_ironing	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_ironing VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7364	menu __main __preprint __feat __ir __pa	feat_pa_ironing	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_ironing VALUE={menu.input|round(4)}
+menus/lcd_menues.cfg	7376	menu __main __preprint __feat __ir __fl	ironing_flow	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=ironing_flow VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7391	menu __main __preprint __feat __sk __on	feat_on_skirt	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_skirt VALUE={1 if not printer['save_variables'].variables.ovf_skirt_on|default(False) else 0}
+menus/lcd_menues.cfg	7415	menu __main __preprint __feat __sk __spd	feat_spd_skirt	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_skirt VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7429	menu __main __preprint __feat __sk __acc	feat_acc_skirt	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_skirt VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7443	menu __main __preprint __feat __sk __flw	feat_flw_skirt	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_skirt VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7454	menu __main __preprint __feat __sk __pa	feat_pa_skirt	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_skirt VALUE={menu.input|round(4)}
+menus/lcd_menues.cfg	7471	menu __main __preprint __feat __oh __on	feat_on_overhangperim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_overhangperim VALUE={1 if not printer['save_variables'].variables.ovf_overhangperim_on|default(False) else 0}
+menus/lcd_menues.cfg	7487	menu __main __preprint __feat __oh __pa	feat_pa_overhangperim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_overhangperim VALUE={menu.input|round(4)}
+menus/lcd_menues.cfg	7500	menu __main __preprint __feat __ib __on	feat_on_internalbridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_internalbridge VALUE={1 if not printer['save_variables'].variables.ovf_internalbridge_on|default(False) else 0}
+menus/lcd_menues.cfg	7516	menu __main __preprint __feat __ib __pa	feat_pa_internalbridge	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_internalbridge VALUE={menu.input|round(4)}
+menus/lcd_menues.cfg	7529	menu __main __preprint __feat __pt __on	feat_on_primetower	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_primetower VALUE={1 if not printer['save_variables'].variables.ovf_primetower_on|default(False) else 0}
+menus/lcd_menues.cfg	7545	menu __main __preprint __feat __pt __pa	feat_pa_primetower	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_primetower VALUE={menu.input|round(4)}
+menus/lcd_menues.cfg	7565	menu __main __preprint __feat __cu __on	feat_on_custom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_custom VALUE={1 if not printer['save_variables'].variables.ovf_custom_on|default(False) else 0}
+menus/lcd_menues.cfg	7594	menu __main __preprint __feat __cu __c1 __on	feat_on_c1	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_c1 VALUE={1 if not printer['save_variables'].variables.ovf_c1_on|default(False) else 0}
+menus/lcd_menues.cfg	7604	menu __main __preprint __feat __cu __c1 __spd	feat_spd_c1	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_c1 VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7615	menu __main __preprint __feat __cu __c1 __acc	feat_acc_c1	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_c1 VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7626	menu __main __preprint __feat __cu __c1 __flw	feat_flw_c1	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_c1 VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7637	menu __main __preprint __feat __cu __c1 __pa	feat_pa_c1	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_c1 VALUE={menu.input|round(4)}
+menus/lcd_menues.cfg	7649	menu __main __preprint __feat __cu __c2 __on	feat_on_c2	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_c2 VALUE={1 if not printer['save_variables'].variables.ovf_c2_on|default(False) else 0}
+menus/lcd_menues.cfg	7659	menu __main __preprint __feat __cu __c2 __spd	feat_spd_c2	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_c2 VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7670	menu __main __preprint __feat __cu __c2 __acc	feat_acc_c2	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_c2 VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7681	menu __main __preprint __feat __cu __c2 __flw	feat_flw_c2	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_c2 VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7692	menu __main __preprint __feat __cu __c2 __pa	feat_pa_c2	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_c2 VALUE={menu.input|round(4)}
+menus/lcd_menues.cfg	7704	menu __main __preprint __feat __cu __c3 __on	feat_on_c3	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_c3 VALUE={1 if not printer['save_variables'].variables.ovf_c3_on|default(False) else 0}
+menus/lcd_menues.cfg	7714	menu __main __preprint __feat __cu __c3 __spd	feat_spd_c3	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_c3 VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7725	menu __main __preprint __feat __cu __c3 __acc	feat_acc_c3	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_c3 VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7736	menu __main __preprint __feat __cu __c3 __flw	feat_flw_c3	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_c3 VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7747	menu __main __preprint __feat __cu __c3 __pa	feat_pa_c3	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_c3 VALUE={menu.input|round(4)}
+menus/lcd_menues.cfg	7759	menu __main __preprint __feat __cu __c4 __on	feat_on_c4	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_c4 VALUE={1 if not printer['save_variables'].variables.ovf_c4_on|default(False) else 0}
+menus/lcd_menues.cfg	7769	menu __main __preprint __feat __cu __c4 __spd	feat_spd_c4	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_c4 VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7780	menu __main __preprint __feat __cu __c4 __acc	feat_acc_c4	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_c4 VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7791	menu __main __preprint __feat __cu __c4 __flw	feat_flw_c4	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_c4 VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7802	menu __main __preprint __feat __cu __c4 __pa	feat_pa_c4	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_c4 VALUE={menu.input|round(4)}
+menus/lcd_menues.cfg	7814	menu __main __preprint __feat __cu __c5 __on	feat_on_c5	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_c5 VALUE={1 if not printer['save_variables'].variables.ovf_c5_on|default(False) else 0}
+menus/lcd_menues.cfg	7824	menu __main __preprint __feat __cu __c5 __spd	feat_spd_c5	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_c5 VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7835	menu __main __preprint __feat __cu __c5 __acc	feat_acc_c5	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_c5 VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7846	menu __main __preprint __feat __cu __c5 __flw	feat_flw_c5	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_c5 VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7857	menu __main __preprint __feat __cu __c5 __pa	feat_pa_c5	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_c5 VALUE={menu.input|round(4)}
+menus/lcd_menues.cfg	7869	menu __main __preprint __feat __cu __c6 __on	feat_on_c6	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_c6 VALUE={1 if not printer['save_variables'].variables.ovf_c6_on|default(False) else 0}
+menus/lcd_menues.cfg	7879	menu __main __preprint __feat __cu __c6 __spd	feat_spd_c6	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_c6 VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7890	menu __main __preprint __feat __cu __c6 __acc	feat_acc_c6	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_c6 VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7901	menu __main __preprint __feat __cu __c6 __flw	feat_flw_c6	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_c6 VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7912	menu __main __preprint __feat __cu __c6 __pa	feat_pa_c6	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_c6 VALUE={menu.input|round(4)}
+menus/lcd_menues.cfg	7924	menu __main __preprint __feat __cu __c7 __on	feat_on_c7	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_c7 VALUE={1 if not printer['save_variables'].variables.ovf_c7_on|default(False) else 0}
+menus/lcd_menues.cfg	7934	menu __main __preprint __feat __cu __c7 __spd	feat_spd_c7	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_c7 VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7945	menu __main __preprint __feat __cu __c7 __acc	feat_acc_c7	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_c7 VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7956	menu __main __preprint __feat __cu __c7 __flw	feat_flw_c7	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_c7 VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	7967	menu __main __preprint __feat __cu __c7 __pa	feat_pa_c7	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_c7 VALUE={menu.input|round(4)}
+menus/lcd_menues.cfg	7979	menu __main __preprint __feat __cu __c8 __on	feat_on_c8	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_c8 VALUE={1 if not printer['save_variables'].variables.ovf_c8_on|default(False) else 0}
+menus/lcd_menues.cfg	7989	menu __main __preprint __feat __cu __c8 __spd	feat_spd_c8	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_c8 VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	8000	menu __main __preprint __feat __cu __c8 __acc	feat_acc_c8	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_c8 VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	8011	menu __main __preprint __feat __cu __c8 __flw	feat_flw_c8	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_c8 VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	8022	menu __main __preprint __feat __cu __c8 __pa	feat_pa_c8	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_c8 VALUE={menu.input|round(4)}
+menus/lcd_menues.cfg	8034	menu __main __preprint __feat __cu __c9 __on	feat_on_c9	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_c9 VALUE={1 if not printer['save_variables'].variables.ovf_c9_on|default(False) else 0}
+menus/lcd_menues.cfg	8044	menu __main __preprint __feat __cu __c9 __spd	feat_spd_c9	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_c9 VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	8055	menu __main __preprint __feat __cu __c9 __acc	feat_acc_c9	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_c9 VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	8066	menu __main __preprint __feat __cu __c9 __flw	feat_flw_c9	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_c9 VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	8077	menu __main __preprint __feat __cu __c9 __pa	feat_pa_c9	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_c9 VALUE={menu.input|round(4)}
+menus/lcd_menues.cfg	8088	menu __main __preprint __feat __cu __pa	feat_pa_custom	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_custom VALUE={menu.input|round(4)}
+menus/lcd_menues.cfg	8097	menu __main __preprint __feat __bm __on	feat_on_brim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_on_brim VALUE={1 if not printer['save_variables'].variables.ovf_brim_on|default(False) else 0}
+menus/lcd_menues.cfg	8121	menu __main __preprint __feat __bm __spd	feat_spd_brim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_spd_brim VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	8135	menu __main __preprint __feat __bm __acc	feat_acc_brim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_acc_brim VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	8149	menu __main __preprint __feat __bm __flw	feat_flw_brim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_flw_brim VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	8160	menu __main __preprint __feat __bm __pa	feat_pa_brim	feature_oder_alias	SET_OVERRIDE_VALUE NAME=feat_pa_brim VALUE={menu.input|round(4)}
+menus/lcd_menues.cfg	15596	menu __main __maint __pa __vel	velocity	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=velocity VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	15606	menu __main __maint __pa __mcr	min_cruise	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=min_cruise VALUE={menu.input|float}
+menus/lcd_menues.cfg	15616	menu __main __maint __pa __scv	square_corner	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=square_corner VALUE={menu.input|float}
+menus/lcd_menues.cfg	15626	menu __main __maint __pa __rlen	retract_len	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=retract_len VALUE={menu.input|round(3)}
+menus/lcd_menues.cfg	15636	menu __main __maint __pa __rspd	retract_speed	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=retract_speed VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	15646	menu __main __maint __pa __runr	unretract_speed	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=unretract_speed VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	15656	menu __main __maint __pa __fl	flow	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=flow VALUE={menu.input|round|int}
+menus/lcd_menues.cfg	15717	menu __main __maint __pa __sm __pa	pa	skalar_betroffener_setterzweig	SET_OVERRIDE_VALUE NAME=pa VALUE={menu.input|round(4)}

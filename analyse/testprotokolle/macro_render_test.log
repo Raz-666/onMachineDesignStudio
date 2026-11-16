@@ -1,0 +1,2220 @@
+[meta] V01_teil_L3-5.gcode: thumbnail + time + filament added
+[meta] V02_teil_L2-5.gcode: thumbnail + time + filament added
+[meta] V03_teil_L3-5.gcode: thumbnail + time + filament added
+[bed] no [gcode_macro _R2_CONFIG] in printer.cfg - using the Ender-3 default 220x220 (add variable_bed_min_x/... to configure)
+[bed] [!] [r2_postproc] in printer.cfg HALTS KLIPPER (unknown config section) - remove it / let setup.sh migrate it to [gcode_macro _R2_CONFIG] (values still read here as a courtesy)
+[bed] [!] [r2_postproc] in printer.cfg HALTS KLIPPER (unknown config section) - remove it / let setup.sh migrate it to [gcode_macro _R2_CONFIG] (values still read here as a courtesy)
+[meta] V01_obj_L2-3.gcode: thumbnail + time + filament added
+[meta] V01_vase_L2-5.gcode: thumbnail + time + filament added
+[meta] V02_rel_L2-4.gcode: thumbnail + time + filament added
+[meta] V01_relcmt_L3-5.gcode: thumbnail + time + filament added
+[meta] V01_r_L3-5.gcode: thumbnail + time + filament added
+[meta] V02_r_L3-6.gcode: thumbnail + time + filament added
+[meta] V03_r_L3-6.gcode: thumbnail + time + filament added
+[meta] V04_r_L2-4.gcode: thumbnail + time + filament added
+[meta] V05_c_L2-4.gcode: thumbnail + time + filament added
+[meta] V06_c_L2-4.gcode: thumbnail + time + filament added
+[meta] V07_c_L2-4.gcode: thumbnail + time + filament added
+[meta] V08_c_L2-4.gcode: thumbnail + time + filament added
+[meta] V01_part77_L3-6.gcode: thumbnail + time + filament added
+[meta] V01_wall79_L3-5.gcode: thumbnail + time + filament added
+[meta] V01_wall79_L3-5.gcode: thumbnail + time + filament added
+[meta] V01_wall79_L3-5.gcode: thumbnail + time + filament added
+[meta] V02_wall79_L3-5.gcode: thumbnail + time + filament added
+[meta] V03_wall79_L3-5.gcode: thumbnail + time + filament added
+[meta] V01_teil_L2-4.gcode: thumbnail + time + filament added
+[meta] V02_teil_L2-4.gcode: thumbnail + time + filament added
+[meta] V03_teil_L2-4.gcode: thumbnail + time + filament added
+[meta] V01_srcrng_L2-8.gcode: thumbnail + time + filament added
+[meta] V02_srcrng_L3-6.gcode: thumbnail + time + filament added
+[meta] V03_srcrng_L3-6.gcode: thumbnail + time + filament added
+[meta] V04_srcrng_L3-6.gcode: thumbnail + time + filament added
+[meta] V06_r872src_L3-6.gcode: thumbnail + time + filament added
+[meta] V07_r872old_L2-5.gcode: thumbnail + time + filament added
+[meta] V08_r872L_L3-6.gcode: thumbnail + time + filament added
+[meta] V09_r872T_L3-6.gcode: thumbnail + time + filament added
+[meta] V10_r872T_L3-6.gcode: thumbnail + time + filament added
+[meta] V01_vase94_L3-12.gcode: thumbnail + time + filament added
+[meta] V02_vase94b_L4-9.gcode: thumbnail + time + filament added
+[meta] V03_prusa94_L3-8.gcode: thumbnail + time + filament added
+[stringart] planning 50 chords (greedy, 48x48 grid)...
+[stringart] planning 50 chords (greedy, 48x48 grid)...
+[meta] V02_trashTX_L2-5.gcode: thumbnail + time + filament added
+[meta] V02_rsrc_L5-11.gcode: thumbnail + time + filament added
+[stringart] planning 150 chords (greedy, 100x100 grid)...
+[stringart] planning 150 chords (greedy, 100x100 grid)...
+[meta] V02_lblTX_L3-10.gcode: thumbnail + time + filament added
+[meta] V04_TEXTURCUTU_L2-3.gcode: thumbnail + time + filament added
+R2 post-processor watching, every 0.5s: /tmp/r224q_01ymokap/gcodes
+[i] gen folders (inside the gcodes root): Angles, Bricks, CableTies, Cake, ColorPic, Figures, Frames, Gaskets, Kit, Labels, Litho, Mirror, Plot, Range, Scale, Shapes, StringArt, Texture, Towers, Twist
+[i] watch state: 9 file(s) already known from the last run - no restart rescan
+[ok] part.gcode: +0 LAYER_MARK (Z scan), +0 APPLY_TYPE, _FILE_INFO layers=0, by_object=False
+[preview:upload] part.gcode: printer moving - push waits for idle
+[i] initial scan done: 1 gcode file(s) found, 1 processed, 0 already tagged, 0 errors - now watching for new files
+[preview:upload] part.gcode: printer moving - push waits for idle
+[preview:upload] part.gcode: printer moving - push waits for idle
+[preview:upload] part.gcode: printer moving - push waits for idle
+[preview:upload] part.gcode: printer moving - push waits for idle
+[preview:upload] part.gcode: printer moving - push waits for idle
+[preview:upload] part.gcode: printer moving - push waits for idle
+[preview:upload] part.gcode: printer moving - push waits for idle
+[preview:upload] part.gcode: printer moving - push waits for idle
+[preview:upload] part.gcode: printer moving - push waits for idle
+[preview:upload] part.gcode: printer moving - push waits for idle
+Thread 0x00007f698b3ff6c0 (most recent call first):
+  File "/home/user/onMachineDesignStudio/tools/macro_render_test.py", line 18363 in _fake_mirror224q
+  File "/home/user/onMachineDesignStudio/tools/r2_postproc.py", line 27359 in _mirror_job224
+  File "/home/user/onMachineDesignStudio/tools/r2_postproc.py", line 24586 in _run223
+  File "/usr/lib/python3.11/threading.py", line 975 in run
+  File "/usr/lib/python3.11/threading.py", line 1038 in _bootstrap_inner
+  File "/usr/lib/python3.11/threading.py", line 995 in _bootstrap
+
+Current thread 0x00007f698c4fe6c0 (most recent call first):
+  File "/home/user/onMachineDesignStudio/tools/r2_postproc.py", line 24608 in _job_worker
+  File "/usr/lib/python3.11/threading.py", line 975 in run
+  File "/usr/lib/python3.11/threading.py", line 1038 in _bootstrap_inner
+  File "/usr/lib/python3.11/threading.py", line 995 in _bootstrap
+
+Thread 0x00007f698ccff6c0 (most recent call first):
+  File "/home/user/onMachineDesignStudio/tools/r2_postproc.py", line 28594 in watch
+  File "/home/user/onMachineDesignStudio/tools/macro_render_test.py", line 18380 in <lambda>
+  File "/usr/lib/python3.11/threading.py", line 975 in run
+  File "/usr/lib/python3.11/threading.py", line 1038 in _bootstrap_inner
+  File "/usr/lib/python3.11/threading.py", line 995 in _bootstrap
+
+Thread 0x00007f699698a2c0 (most recent call first):
+  File "/home/user/onMachineDesignStudio/tools/macro_render_test.py", line 18385 in _wait224q
+  File "/home/user/onMachineDesignStudio/tools/macro_render_test.py", line 18393 in <module>
+[job:Mirror] STUCK after 3s - abandoned, but the queue HOLDS while its thread lives (stack above)
+[preview:upload] part.gcode: printer moving - push waits for idle
+[preview:upload] part.gcode: printer moving - push waits for idle
+[preview:upload] part.gcode: printer moving - push waits for idle
+[preview:upload] part.gcode: printer moving - push waits for idle
+[preview:upload] part.gcode: printer moving - push waits for idle
+[preview:upload] part.gcode: printer moving - push waits for idle
+[preview:upload] part.gcode: printer moving - push waits for idle
+[preview:upload] part.gcode: printer moving - push waits for idle
+[preview:upload] part.gcode: printer moving - push waits for idle
+[queue] cleared on request (1 queued dropped)
+[preview:upload] part.gcode: printer moving - push waits for idle
+[preview:upload] part.gcode: printer moving - push waits for idle
+[preview:upload] part.gcode: printer moving - push waits for idle
+[mirror] x1.gcode: OK (1 moves, 0 arcs)
+[preview:upload] part.gcode: printer moving - push waits for idle
+[preview:upload] part.gcode: printer moving - push waits for idle
+[preview:upload] part.gcode: printer moving - push waits for idle
+[preview:upload] part.gcode: printer moving - push waits for idle
+[preview:upload] part.gcode: printer moving - push waits for idle
+[preview:upload] part.gcode: printer moving - push waits for idle
+[preview:upload] part.gcode: printer moving - push waits for idle
+[preview:upload] part.gcode: printer moving - push waits for idle
+[preview:upload] part.gcode: printer moving - push waits for idle
+[queue] cleared on request (0 queued dropped)
+[preview:upload] part.gcode: printer moving - push waits for idle
+[mirror] x2.gcode: OK (1 moves, 0 arcs)
+[queue] filelist notify failed: URLError(ConnectionRefusedError(111, 'Connection refused'))
+[bed] no [gcode_macro _R2_CONFIG] in printer.cfg - using the Ender-3 default 220x220 (add variable_bed_min_x/... to configure)
+[preview:upload] part.gcode: 7 values pushed
+PASS  M104 layer2 -> 240 + OVERWRITE log
+PASS  M104 layer1 -> 235
+PASS  M104 as-sliced layer 2 (R161): an armed override wins in 1:1 mode too (the default 240 from the tests above)
+PASS  M104 as-sliced: rules OFF + no override -> true 1:1 passthrough (its own 215 stands)
+PASS  R59 APPLY_TYPE: type set + pure global restore (no override)
+PASS  R59 APPLY_TYPE outer wall 80% via BASE cmd (global untouched)
+PASS  R59 FIX compound: feat 80% x global 80 = S64, global stays 80
+PASS  R59 FIX compound: next feature restores S80 (no decay)
+PASS  R59 APPLY_TYPE ironing: speed 50% + flow 20% (base cmds)
+PASS  R59 APPLY_TYPE other feature: global restore + flow 98
+PASS  APPLY_TYPE ironing = no-op (R54)
+PASS  PRIME front strip wins (110mm, R49)
+PASS  PRIME stows probe first
+PASS  PRIME objects right-heavy -> front strip
+PASS  PRIME probe-safe window (x_off -44)
+PASS  PRIME front blocked -> left side
+PASS  PRIME front edge toward x0
+PASS  PRIME direction right -> left
+PASS  SET_MATERIAL petg
+PASS  TOGGLE_OVERRIDE
+PASS  TOGGLE retract_len -> own key
+PASS  TOGGLE ironing_flow -> own key
+PASS  TOGGLE unknown -> error
+PASS  SET_OVERRIDE_VALUE+ON
+PASS  R59 SET_OVERRIDE_VALUE legacy outer_wall -> feat key
+PASS  R59 SET_OVERRIDE_VALUE generic feat_acc_surfacetop
+PASS  R59 SET_OVERRIDE_VALUE feat_on_brim toggles
+PASS  NOTIFY M117 no {{
+PASS  SOUND r2_start
+PASS  M300 S1568 -> CYCLE_TIME=1/f
+PASS  M300 default 1000Hz/100ms
+PASS  PRINT_END duration
+PASS  LAYER_MARK pause@7
+PASS  PARK corner inside the real bed (R92)
+PASS  M106 passthrough
+PASS  M106 50%
+PASS  SYNC_GANTRY kinematic
+PASS  RUN_PRINT_START full
+PASS  RUN as-sliced keeps active mesh
+PASS  RUN mesh_always off -> load r2
+PASS  RUN overrides measures r2
+PASS  PID automation removed
+PASS  CANCEL 1st press arms
+PASS  CANCEL 2nd press kills
+PASS  RESUME disarms cancel
+PASS  KAMP mesh on -> no ADAPTIVE
+PASS  no KAMP -> native ADAPTIVE=1
+PASS  KAMP off -> _BED_MESH+ADAPTIVE
+PASS  KAMP purge -> LINE_PURGE
+PASS  KAMP purge VORON
+PASS  no objects -> own line
+PASS  KAMP line purge skipped (probe off)
+PASS  PURGE_SMART stows probe
+PASS  without KAMP -> own line
+PASS  RUN with KAMP: no default SMART_PARK
+PASS  RUN with KAMP: SMART_PARK on
+PASS  R226 CENTER-only: PRINT_START renders and SKIPS SMART_PARK with the hint (no jinja crash, no KAMP call)
+PASS  R226 polygon object: SMART_PARK runs as before
+PASS  R226 CENTER-only: adaptive mesh degrades to FULL BED (native _BED_MESH_CALIBRATE, hint, no KAMP crash)
+PASS  R226 polygon object: KAMP adaptive mesh unchanged
+PASS  R226 CENTER-only: _PRIME_LINE renders via the 20x20mm center box (no o.polygon crash)
+PASS  R226 CENTER-only: _PARK_HEAD renders via the 20x20mm center box (no o.polygon crash)
+PASS  R226 CENTER-only: _PURGE_STRIP renders via the 20x20mm center box (no o.polygon crash)
+PASS  R228 watcher: tick 1 of the resume gap - mode NOT flipped back (old code knocked it to paused instantly), counter runs
+PASS  R228 watcher: 3 ticks agree -> external pause followed (a Mainsail pause persists, the resume gap never does)
+PASS  R228 runout during grace: chatter notice, NO pause armed (the motion wheel lags while the prime pressure builds)
+PASS  R228 runout without grace: pause armed as before (regression)
+PASS  R228 prime line arms the 30s start grace
+PASS  R228 resume arms the 20s grace + re-enables the sensors (regression: M24 still there)
+PASS  KAMP_STATUS installed
+PASS  KAMP_STATUS without KAMP
+PASS  WATCHER legacy print
+PASS  SKIP 1st press arms
+PASS  SKIP 2nd press executes
+PASS  SKIP last object refused
+PASS  SKIP unknown refused
+PASS  SKIP already-skipped hint
+PASS  SKIP only during print
+PASS  SKIP without NAME -> usage
+PASS  SKIP_CURRENT resolves name
+PASS  SHOW_OBJECTS lists all
+PASS  MENU slot out-of-range safe
+PASS  MENU slot armed prefix
+PASS  ARM line survives shlex -> name
+PASS  DISARM line survives shlex -> empty str
+PASS  RESUME disarm survives shlex
+PASS  PAUSE saves live idle timeout
+PASS  PAUSE old Klipper -> cfg value
+PASS  PAUSE nothing set -> 3600
+PASS  RESTORE uses saved value
+PASS  RESTORE worst case -> 3600
+PASS  CHECK_INSTALL all loaded
+PASS  CHECK_INSTALL detects missing/outdated 14
+PASS  SHUTDOWN 1st press arms
+PASS  SHUTDOWN default: moonraker remote
+PASS  SHUTDOWN w/ module -> poweroff
+PASS  R218 PI_REBOOT 1st press arms
+PASS  R218 PI_REBOOT confirm: moonraker remote + heaters off first
+PASS  R218 PI_REBOOT w/ module -> shell reboot
+PASS  M104 legacy falling -> after
+PASS  M140 legacy falling -> after
+PASS  LAYER_MARK L2 hotend after
+PASS  MESH bed override 70C
+PASS  MESH preset temp (PETG 75)
+PASS  LEGACY_PREP p1: pause+schedule
+PASS  LEGACY_PREP p2 runs when paused
+PASS  R54 PREP2 gapless: no RESUME dance
+PASS  LEGACY_PREP p2: L1-Temp + Overrides + Z10
+PASS  LEGACY_PREP p2 always purges
+PASS  LEGACY_PREP p2 bails if not paused
+PASS  WATCHER calls LEGACY_PREP (confirm off)
+PASS  WATCHER asks via LEGACY_DIALOG (R45)
+PASS  PID manual hotend fan+save
+PASS  PID manual bed no fan no save
+PASS  PA cal: bed heats first
+PASS  PA cal: prime line + 2mm frame (R216)
+PASS  PA cal: 10 PA lines
+PASS  PA cal: slow/fast/accel set
+PASS  PA cal: accel restored
+PASS  PA cal: never out of range
+PASS  PA cal: too many lines refused
+PASS  PA cal: WIDTH expr -> fallback, fits
+PASS  PA cal: BED=0 skips bed
+PASS  PA cal: bad params refused
+PASS  PA cal refuses while printing
+PASS  PA_RESULT line5 -> 0.02
+PASS  PA_RESULT direct VALUE
+PASS  PA_RESULT without input -> hint
+PASS  SAVE_MATERIAL_TEMPS TPU lowercase
+PASS  SYNC fully homed -> no G28
+PASS  SYNC partly homed -> full G28
+PASS  SYNC force_move missing -> refuse
+PASS  SYNC loaded WITHOUT printer-object -> runs
+PASS  PARK unhomed -> no XY move
+PASS  LEGACY_PREP homes if needed
+PASS  LEGACY_PREP homed -> no extra home
+PASS  DELETE 1st press arms
+PASS  DELETE 2nd press removes
+PASS  DELETE without PROFILE -> usage
+PASS  DELETE only when idle
+PASS  Materials: PETG 75C bed
+PASS  Materials: TPU preset 215C
+PASS  INIT emits lowercase var names
+PASS  SET_MATERIAL lowercase names
+PASS  PAUSE idle timeout huge (not 0)
+PASS  PAUSE already paused -> guard
+PASS  PARK cold -> no extrude
+PASS  RESUME cold -> no E2, M24 ok
+PASS  RESUME running -> no M24 (SD busy!)
+PASS  MESH idle: default session-only
+PASS  MESH idle: auto-save ON persists
+PASS  MESH during print -> pending flag
+PASS  START_PRINT shim exists (R48)
+PASS  SELF_TEST homes fully
+PASS  SYNC restore: hold untouched
+PASS  SYNC refuses when flag False
+PASS  SYNC runs with flag True (str)
+PASS  WATCHER Z-track: new layer + planned pause
+PASS  WATCHER Z-track: hop ignored
+PASS  LOAD mesh existing
+PASS  LOAD mesh missing -> friendly
+PASS  SHOW_STATUS prints version
+PASS  CANCEL full cleanup (R46)
+PASS  PRINT_END full cleanup (R46)
+PASS  RUNOUT arms planned pause
+PASS  RUNOUT no double-arm while printing
+PASS  RUNOUT while paused -> load hint
+PASS  INSERT in filament mode -> hint
+PASS  INSERT idle -> click
+PASS  PAUSE runout -> filament mode
+PASS  LIVE hotend unchanged -> no-op
+PASS  LIVE hotend L2 -> after only
+PASS  LIVE hotend L1 -> both phases
+PASS  LIVE bed change -> applies
+PASS  WATCHER Z-acc: vase layer counted
+PASS  WATCHER heals stuck pause (5s)
+PASS  PAUSE_NEXT_LAYER default reason
+PASS  PAUSE_NEXT_LAYER custom reason
+PASS  RUN parks high while heating
+PASS  PRINT_END: no auto SAVE_CONFIG (default)
+PASS  PRINT_END: auto-save ON -> SAVE_CONFIG
+PASS  CHANGE idle keeps current temp
+PASS  CHANGE idle cold -> min 200/preset
+PASS  CHANGE_RESUME idle -> done
+PASS  CHANGE_RESUME paused -> resume print
+PASS  LOAD keeps print temp
+PASS  LOAD idle cold -> preset/200
+PASS  R55 LOAD uses load_length 60
+PASS  R55 LOAD custom length 75
+PASS  R55 LCD load input 20-150 step 5
+PASS  R77 COLD_PULL v2 phase 1: heat, flush+mold, beep loop, assisted pull
+PASS  COLD_PULL finish extrudes
+PASS  COLD_PULL refuses while printing
+PASS  MESH manual homes when unhomed
+PASS  MESH manual homed -> no G28
+PASS  WATCHER legacy OFF -> LEGACY_HOME
+PASS  WATCHER legacy ON -> LEGACY_PREP
+PASS  LEGACY_HOME2 homes when unhomed
+PASS  LEGACY_HOME2 lifts to Z10
+PASS  OVERRIDE_CORE cfg defaults
+PASS  OVERRIDE_CORE pa ON wins
+PASS  RUN waits at Z10 (mesh+purge)
+PASS  SHAPER refuses without tester
+PASS  SHAPER both with range
+PASS  SHAPER defaults: no freq params
+PASS  SHAPER bad axis refused
+PASS  SHAPER report + autosave
+PASS  SHAPER report no-save hint
+PASS  DUMP refuses without tester
+PASS  DUMP writes raw data
+PASS  SAVE_MESH_AT_TEMP name=60
+PASS  SAVE_MESH_AT_TEMP autosave
+PASS  SAVE_MESH_AT_TEMP no mesh -> err
+PASS  MESH_BY_INDEX loads + AUTO
+PASS  MESH_BY_INDEX empty slot
+PASS  UNLOAD_MESH clears + remesh
+PASS  RUN keeps active mesh (AUTO)
+PASS  BABYSTEP 0.04 full step
+PASS  BABYSTEP fine = 0.12
+PASS  PA cal accepts 0.04 layer
+PASS  PA cal ends with _CAL_END
+PASS  CAL_END heaters off + cooldown
+PASS  PRIME: flush + fat line + de-ooze handover (net -0.5)
+PASS  PRIME: long line (110mm fallback)
+PASS  RUN: 1st layer 75%
+PASS  LAYER_MARK 2: speed back 100%
+PASS  PA file passthrough (override off)
+PASS  PA file -> OVERRIDE when ON
+PASS  PA smooth from file -> YOUR smooth
+PASS  LIVE PA persists to ov_pa
+PASS  SYNC allowed during starting (pre-print)
+PASS  SYNC FORCE bypasses guard
+PASS  LEGACY prep: gantry sync before homing
+PASS  Cancel confirm expires after 60s
+PASS  WATCHER Z: layer 2 -> speed 100%
+PASS  LIVE PA smooth persists
+PASS  LIVE PA smooth range guard
+PASS  PA lines all start left (x0)
+PASS  PA lines: retract + z-hop between (R216: lines sit on the 3-layer base, z = 4x0.3)
+PASS  PA cal R216: base plate hatch (3 layers, boustrophedon)
+PASS  PA cal R216 ANGLE: sawtooth strokes + auto-fit bands
+PASS  PA cal R216 ANGLE: 5 strokes per band, long diagonal paths
+PASS  PA cal R216 ANGLE: bands stack upward, no overlap
+PASS  PA cal R216 BASE=0: no plate, pattern at first layer
+PASS  PA lines: override retract wins
+PASS  WATCHER complete: no auto-save (default)
+PASS  WATCHER complete: auto-save ON
+PASS  R222 _PLOT_END: heaters off + speed 100 (FILAMENT plot end)
+PASS  R222 _PLOT_END: cold extruder stays untouched (PEN plot, no preheat left)
+PASS  R222 WATCHER backstop: an OLD plot file ending without the hook cools down + resets the speed (a no-op once _PLOT_END ran)
+PASS  R222 WATCHER backstop is PLOT-only (a legacy end keeps its own heater management - the file's end g-code owns them)
+PASS  R223 _GEN_QUEUE_CLEAR arm: announces the second press, clears nothing yet
+PASS  R223 _GEN_QUEUE_CLEAR CONFIRM: bumps the nonce (the watcher clears queue + keys + gen_busy)
+PASS  R223 System > Gen jobs: how-it-works + LIVE state row (BUILDING/idle from gen_busy) + arm and CLEAR NOW rows
+PASS  R223 Gen jobs rows are pure ASCII (R218 web rule applies to the LCD too - no umlauts anywhere in the new block)
+PASS  prep2: Z10 while hotend heats (after mesh)
+PASS  RUN retract per-key (len ON, spd off)
+PASS  RUN PA smooth ON applied
+PASS  RUN PA smooth OFF -> no smooth
+PASS  R54 RUN applies fan scale at start
+PASS  LAYER_MARK 2: material fan 60%
+PASS  SET_RETRACTION captures file values
+PASS  SET_RETRACTION redirected when ON
+PASS  PA captures file value
+PASS  PID fan percent from LCD (100)
+PASS  PID fan 50% -> S127
+PASS  CHANGE uses unload_length 90
+PASS  SHOW_STATUS hides zero values
+PASS  Speed/Accel SET_GLOBAL_SPEED exists+LCD
+PASS  Speed/Accel SET_GLOBAL_ACCEL exists+LCD
+PASS  R54 feature macros are stubs (compat, no error)
+PASS  R54 feature menus removed from LCD
+PASS  R54 SOLID setter = stub hint
+PASS  R54 INNER accel setter = stub hint
+PASS  R54 IRONING accel setter = stub hint
+PASS  GLOBAL speed M220 S80
+PASS  SEQ: Z-fall restarts with L1 temps + pause
+PASS  SEQ: no re-trigger while layer 2 below 1.5mm
+PASS  SEQ: no trigger high Z
+PASS  SEQ: marked file keeps Z high-water mark
+PASS  SEQ: L1 already set - continue without pause
+PASS  SEQ: legacy start clears Z high-water mark
+PASS  OBJECT_PREP waits + resumes
+PASS  PAUSE re-anchors Z high-water mark
+PASS  LIVE retraction: partial set + no override redirect
+PASS  LCD: babystep top-level in Live Tuning
+PASS  LCD: retract/deretract live inputs (R123: in the Live root)
+PASS  Menu audit: PRINT_AS_SLICED
+PASS  Menu audit: PRINT_WITH_OVERRIDES
+PASS  Menu audit: CANCEL_PENDING_PRINT
+PASS  Menu audit: legacy_level
+PASS  M220 layer1: S100 capped to 75 (R87.2: value goes out via _SPEED_COMBINED)
+PASS  M220 layer2: 1:1 pass-through (via _SPEED_COMBINED)
+PASS  M220 as-sliced: 1:1 (no cap, via _SPEED_COMBINED)
+PASS  HOME2 heats + ALWAYS purges
+PASS  Z-track layer2: L2 temps + fan for legacy
+PASS  07 defines PRINT_AS_LEGACY
+PASS  Waiter as_legacy -> RUN APPLY=1 LEGACY=1
+PASS  R56 LAYER_MARK counts even with legacy_mode
+PASS  R56 RUN LEGACY=1 legacy file -> legacy_mode True
+PASS  R56 FIX: RUN LEGACY=1 MARKED file keeps markers (legacy_mode False)
+PASS  RUN default: legacy_mode False
+PASS  RUN: no override ON -> NO forced SET_VELOCITY_LIMIT
+PASS  RUN: all limits ON -> SET_VELOCITY_LIMIT with 4 params
+PASS  SET_LIVE_VELOCITY renders
+PASS  SET_LIVE_MINIMUM_CRUISE_RATIO renders
+PASS  SET_LIVE_SQUARE_CORNER renders
+PASS  SET_LIVE_RETRACTION mirrors all 4 values
+PASS  SET_OVERRIDE_VALUE velocity
+PASS  SET_OVERRIDE_VALUE min_cruise
+PASS  SET_OVERRIDE_VALUE square_corner
+PASS  SET_OVERRIDE_VALUE fan
+PASS  R40 menu: > AS LEGACY
+PASS  R40 menu: SET_LIVE_VELOCITY VELOCITY=
+PASS  R40 menu: SET_LIVE_MINIMUM_CRUISE_RATIO VALUE=
+PASS  R40 menu: SET_LIVE_SQUARE_CORNER VALUE=
+PASS  R40 menu: SET_FAN_SCALE PERCENT=
+PASS  R40 menu: homing_origin.z
+PASS  R40 menu: __pid __hot
+PASS  R40 menu: __pid __bed
+PASS  R40 menu: FAN=
+PASS  R40 menu: __fanon
+PASS  R40 menu: TOGGLE_OVERRIDE NAME=fan
+PASS  R40 menu: NAME=velocity VALUE=
+PASS  R40 menu: NAME=min_cruise VALUE=
+PASS  R40 menu: NAME=square_corner VALUE=
+PASS  LCD labels <=16 chars incl. value
+PASS  RESUME layer1: brake re-applied
+PASS  RESUME layer2: no brake
+PASS  RESUME as-sliced: no brake
+PASS  Legacy detection resets layer_marks
+PASS  FLOW_CAL 0.46mm wall -> 87.0%
+PASS  FLOW_CAL implausible guard
+PASS  TEMP_TOWER_START plan + vars
+PASS  Tower hook: layer 11 -> 205C
+PASS  R61 IRONING_CAL v2: cards + flows + prime
+PASS  IRONING_CAL: extrusion lines
+PASS  R41 menu: File H:
+PASS  R41 menu: File B:
+PASS  R41 menu: File R:
+PASS  R41 menu: __maint __flow]
+PASS  R41 menu: __maint __tt]
+PASS  R41 menu: __maint __iron]
+PASS  R41 menu: FLOW_CAL MEASURE=
+PASS  R41 menu: TEMP_TOWER_START START=
+PASS  R41 menu: IRONING_CAL TEMP=
+PASS  R41 menu: Wall:
+PASS  R41 menu: Plan (calc)
+PASS  R82 maintenance menu = calibration ladder order
+PASS  R42 cold-start: re-anchors DOWN at layer 0
+PASS  R42 frozen counter: layer 1 counts again
+PASS  R42 frozen counter: layer 2 -> L2 applies
+PASS  WAITER legacy as_sliced = no takeover
+PASS  WAITER legacy as_legacy = prep + takeover
+PASS  WAITER legacy W/CHANGES -> as_legacy
+PASS  WAITER marked as_sliced
+PASS  WAITER marked as_legacy
+PASS  PRINT_START sets file_type=marked
+PASS  MCR live + feedback
+PASS  MCR override -> Klipper + log
+PASS  L1 brake OFF when APPLY=0
+PASS  L1 brake ON when APPLY=1
+PASS  NOZZLE_SET default warm white
+PASS  NOZZLE_SET dim 40% scales
+PASS  NOZZLE_SET power cap 0.5
+PASS  NOZZLE_SET dark
+PASS  LED_STATE idle+auto: nozzle dark
+PASS  LED_STATE printing+auto: nozzle effect
+PASS  LED_STATE idle+ON: manual color
+PASS  LED_STATE printing+OFF: never
+PASS  LED_STATE master OFF + nozzle ON (tool light)
+PASS  LED_STATE master OFF + auto: all dark
+PASS  NOZZLE_LED MODE=on saves+applies
+PASS  NOZZLE_LED BRIGHT live
+PASS  NOZZLE_LED RGB live
+PASS  NOZZLE_LED bad MODE -> hint
+PASS  NOZZLE_LED status report
+PASS  LED_TO_IDLE fires after finished
+PASS  LED_TO_IDLE skips other LED states
+PASS  LED_TO_IDLE skips while printing
+PASS  PRINT_CLEANUP resets everything
+PASS  PRINT_CLEANUP keeps settings+mesh
+PASS  END_FAN_OFF fires when idle
+PASS  END_FAN_OFF guarded during new print
+PASS  WATCHER cancel expiry while paused (R46)
+PASS  WATCHER legacy end: LED timer + cleanup
+PASS  INIT hydrates nozzle defaults
+PASS  SHOW_STATUS nozzle LED line
+PASS  BOOT re-lights nozzle when ON
+PASS  BOOT leaves nozzle off in AUTO
+PASS  TOGGLE_LEDS off hints at nozzle light
+PASS  TOGGLE_LEDS off: no hint in AUTO
+PASS  LEGACY_DIALOG schedules the WAITER (R47)
+PASS  LEGACY_DIALOG clears stale decision
+PASS  M190 legacy-start: preheat, no blocking wait
+PASS  M109 always heats + waits (R48)
+PASS  M190 normal print: heat + wait
+PASS  PRINT_START heals stale waiting
+PASS  PRINT_START still refuses while running
+PASS  RESUME continues paused file (no was_sd)
+PASS  RESUME running: still no M24
+PASS  MENU order: Start > Live > Pre-Print
+PASS  START_PRINT marked -> no-op
+PASS  START_PRINT legacy + confirm -> dialog
+PASS  START_PRINT legacy + no confirm -> prep
+PASS  START_PRINT already prepped -> no-op
+PASS  START_PRINT outside print -> info
+PASS  WAITER legacy as_sliced: calls AS_SLICED macro (R50)
+PASS  WATCHDOG re-arms itself + watcher
+PASS  PRINT_CLEANUP resets legacy_file (R48)
+PASS  SEQ hop un-ratchet: mark cleaned, NO fire (R49)
+PASS  SEQ hop top caught: no fire at the top
+PASS  SEQ hop un-ratchet also for marked files
+PASS  SEQ real object change still fires (fall > 1.0)
+PASS  M104 early: captures file hotend (R49)
+PASS  M109 early: capture + still waits
+PASS  M190 early: captures file bed
+PASS  LEGACY_PREP standby 170 (anti-ooze)
+PASS  PREP2 re-heats to FILE value after standby
+PASS  R51 PRINT BUTTON: guard + load + M25 hold + intercept
+PASS  R51 PRINT BUTTON while waiting: refused
+PASS  R51 PRINT BUTTON confirm OFF: plain start
+PASS  R51 M24 fresh start: intercept instead of start
+PASS  R51 M24 fresh confirm OFF: plain start
+PASS  R51 M24 resume (paused): plain pass
+PASS  R51 M24 while waiting: refused
+PASS  R51 INTERCEPT: fresh state + dialog + waiter (no pause games)
+PASS  R50 WAITER as_sliced unknown: pending + resume + probe
+PASS  R50 WAITER with_overrides unknown: pending + probe
+PASS  R51 WAITER as_legacy unknown: rides along + probe
+PASS  R50 PROBE stage1: no heaters -> second look
+PASS  R50 PROBE stage2: movement file -> infra APPLY=0
+PASS  R50 PROBE movement + overrides: APPLY=1
+PASS  R50 PROBE has_heaters: disarm, KEEP pending
+PASS  R50 PROBE idle when pending empty
+PASS  R50 MOVEMENT as sliced: preset temps + mesh + purge + resume
+PASS  R50 MOVEMENT with settings: ov temps + overrides core
+PASS  R50 MOVEMENT with settings: ov values win
+PASS  R50 PRINT_START pending as_sliced: direct RUN APPLY=0
+PASS  R51 PRINT_START pending overrides: APPLY=1
+PASS  R51 PRINT_START pending as_legacy: APPLY=1 LEGACY=1
+PASS  R50 START_PRINT pending as_sliced: AS_SLICED infra
+PASS  R50 START_PRINT pending overrides: PREP takeover
+PASS  R50 LEGACY_AS_SLICED: pause + waits + purge + mark + resume
+PASS  R50 M104 WITH-SETTINGS: foreign takeover once
+PASS  R50 M104 as_sliced: RAW capture, no takeover
+PASS  R50 M221 pre-decision: capture file flow
+PASS  R50 M221 overwrite ON -> 105 (layer 1: the FILE speaks)
+PASS  R159 M221 user wins from layer 2 (stock Tune / console)
+PASS  R50 M221 as sliced: 1:1 pass
+PASS  R50 M106 pre-decision: capture file fan
+PASS  R51 M204 pre-decision: capture file accel
+PASS  R51 M204 idle (no print): no capture
+PASS  R51 M220 pre-decision: capture file speed
+PASS  R53 CLEAN_NOZZLE refused while printing
+PASS  R53 CLEAN_NOZZLE validates PASSES
+PASS  R53 CLEAN_NOZZLE public: forwards to wipe
+PASS  R53 WIPE cold: heats to 180 first + zigzag + parks high
+PASS  R53 WIPE hot: no re-heat, straight to the pad
+PASS  R53 WIPE PASSES=1: exactly one pass
+PASS  R53 WIPE cold idle call: heater back OFF after
+PASS  R53 PRIME_LINE starts with the wipe
+PASS  R53 KAMP VORON purge: wipe first
+PASS  R53 KAMP LINE purge: wipe first
+PASS  R50 CLEANUP resets intercept state
+PASS  R50 INTERCEPT homes + lifts when unhomed
+PASS  R52 PAUSE without encoder: guard silent (no error)
+PASS  R52 PAUSE with encoder: BOTH sensors off
+PASS  R52 RESUME with encoder: BOTH sensors back on
+PASS  R52 CANCEL with encoder: encoder back on
+PASS  R54 fan OFF after purge dispatch (all branches)
+PASS  R54 LEGACY merge (07: APPLY=1 LEGACY=1)
+PASS  R54 watcher guard: 92% done = NO dialog after end
+PASS  R54 watcher: 0.4% progress = dialog (fresh legacy)
+PASS  R54 mesh OFF: keep loaded, no calibration
+PASS  R54 mesh ON: calibrate r2
+PASS  R54 mesh AUTO: loaded mesh stays (r2 active)
+PASS  R54 mesh AUTO: no mesh loaded -> calibrate
+PASS  R54 CORE fan scale 90% -> 0.9
+PASS  R54 SET_MATERIAL: pa_smooth + unret ON
+PASS  R54 smooth cal: mesh first, PA fixed, smooth varies
+PASS  R54 smooth cal: restores old smooth at end
+PASS  R54 PA_SMOOTH_RESULT seg4 -> 0.007
+PASS  R54 flow input 1-300 step 1
+PASS  R56 _FILE_INFO stores all params + seen flag
+PASS  R56 watcher keeps fresh _FILE_INFO params
+PASS  R56 watcher clears stale params without _FILE_INFO
+PASS  R56 slot editor applies live when active (guard present)
+PASS  R56 live inputs read Klipper truth
+PASS  R56 SHOW_STATUS shows Klipper NOW + line width
+PASS  R59 SHOW_STATUS lists generic feature overrides
+PASS  R56/R74 cleanup resets file info via _FILE_INFO_RESET
+PASS  R56 LAYER_MARK L2: speed + fan + temps together
+PASS  R56 postproc rose.gcode: +242 marks, info ok
+PASS  R56 postproc idempotent (tag skip)
+PASS  R56 postproc stringart.gcode: +15 marks, info ok
+PASS  R56 postproc bigrose.gcode: +251 marks, info ok
+PASS  R57 --once: processes + summary + exit 0
+PASS  R57 --once idempotent: already tagged count
+PASS  R57 wrong path: loud error + exit 1
+PASS  R58 gapless: mode printing before M24 (all 5 sites)
+PASS  R59 M204 outer wall: file 500 -> YOUR 1200
+PASS  R59 M204 top surface feature accel 900
+PASS  R59 M204 inner wall (no feature ovr): global 6000
+PASS  R58 M204 no overrides: 1:1 pass-through
+PASS  R167 M204: repeat value swallowed (echo flood gone)
+PASS  R167 M204: live accel CAPS S8000 -> S6000, never raises S1500
+PASS  R167 M204: file S1500 under the cap passes 1:1
+PASS  R59 CLEAR_OVERRIDES generic feature loop
+PASS  R59 postproc injects APPLY_TYPE (rose: 36 blocks incl. Custom/Brim)
+PASS  R59 postproc: gap infill is its own APPLY_TYPE=GAPS
+PASS  R58 _FILE_INFO carries speeds/accels/nozzle
+PASS  R58b v1->v2 upgrade: marks stay, TYPE added, info replaced
+PASS  R58b upgraded file skips on second run
+PASS  R58 _FILE_INFO stores speeds/accels/nozzle
+PASS  R58 smooth cal range 0.02..0.2
+PASS  R58 PA cal applies motion overrides
+PASS  R59 LCD: PA cal inputs + smooth submenu + generic features + cur + file
+PASS  R59 M220 L1-cap: g_speed_clean = 75 (not 90)
+PASS  R59 M220 pass-through: g_speed_clean = 90
+PASS  R59 M220 S100: g_speed_clean = 100 (APPLY_TYPE else-branch base)
+PASS  R59/R248 LCD: no duplicate current-feature value row - the feature rows keep the dynamic ovf_<type> bindings instead
+PASS  R59 LCD live __curon: toggles ovf_<current_type>_on
+PASS  R59+R240/R250 LCD: the 16 feature activators live IN the Pre-Print submenus (File info keeps only the __acc info row) - the Live > Features twin is GONE, its job is done by the four quick lists
+PASS  R95/R123/R124/R160+R240/R249/R250 LCD: 16 feature prefixes x8 (the four quick lists, Live AND Pre-Print) + the activators show the [on]/[off] state marker - IR carries FIVE "IR:" rows (its velocity quick row is the one "IR fl:" value, R249; the ninth row per feature was the Live activator name and that menu is gone, R250)
+PASS  R59 LCD file __ac*: every click toggles feat_on_<code> + shows o:ON
+PASS  R60 LCD file __ac*: MEASURED originals + n/a for absent features
+PASS  R59 postproc _FILE_INFO: solid/gaps/bridge/skirt/suppint speeds
+PASS  R59 LCD __speeds __src: g_speed_clean + 12er loop, no legacy ov_ keys
+PASS  R60 feat_on=0: speed back to 100% + accel back to file original 500
+PASS  R60 feat_on=0 ironing: flow back to the slicer value 15
+PASS  R60 feat_on=1: just the switch, values stay
+PASS  R60 _FILE_INFO: TYPES string + FS/FA measured values -> state
+PASS  R60/R74 cleanup: measured values reset via _FILE_INFO_RESET
+PASS  R60/R250 LCD: Live > Features is GONE (user: never used it, the four quick lists replace it) - and every feature is still reachable live: Spd/Acc/PA/Flow for all 16 codes hang DIRECTLY under Live Tuning
+PASS  R60/R250 LCD: the guards + file-original rows survived the removal - they live in Pre-Print > Features (the live quick rows re-APPLY the current type themselves)
+PASS  R60+R240 LCD Live > File: measured spd/acc + temps/PA/retract (the 16 activators moved into Live > Features)
+PASS  R60 postproc v4: tag + TYPES (7 real features, NO support/sparse) + measured speeds
+PASS  R61 FLOW_TEST: heat + home + prime + 10 layers
+PASS  R61 FLOW_TEST: 40 side moves, E from FLOW% (F100)
+PASS  R61 FLOW_TEST: FLOW=50 halves E (independent of M221)
+PASS  R61 FLOW_TEST: bad SIZE refused
+PASS  R61 FLOW_TEST refuses while printing
+PASS  R61 TEMP_TOWER_GEN: 3 blocks with falling temps
+PASS  R61 TEMP_TOWER_GEN: fan + mesh + prime + 30 layers
+PASS  R61 TEMP_TOWER_GEN: BLOCKS=1 refused
+PASS  R61 TEMP_TOWER_RESULT: block 2 -> 215C override ON
+PASS  R61 RETRACT_TOWER: 0.5/1.0/1.5mm blocks on two masts
+PASS  R61 RETRACT_TOWER: z-hop between the masts + prime
+PASS  R61 RETRACT_TOWER_RESULT: block 3 -> 1.5mm override ON
+PASS  R61 IRONING_CAL: 4 cards, sizes adapt (card 4 reaches X194)
+PASS  R61 IRONING_CAL: 2 base layers before the ironing pass (Z0.2/Z0.4 -> ironing Z0.6)
+PASS  R61 IRONING_CAL: CARDS=9 refused
+PASS  R61 IRONING_RESULT: card 2 -> speed 30 + flow 15 ON
+PASS  R61 LAYER_MARK: stop_at_layer 5 fires at layer 5
+PASS  R61 LAYER_MARK: no stop when off
+PASS  R61 _END_AT_LAYER: disarm + CANCEL_PRINT_BASE + PRINT_END
+PASS  R61 SET_STOP_AT_LAYER sets 12
+PASS  R61 cleanup disarms stop_at_layer
+PASS  R61 Z-tracker hooks the stop too
+PASS  R62 SET_LAYER_RANGE: start/end/floor/top/brim + nonce + beep
+PASS  R61 SET_LAYER_RANGE: invalid refused
+PASS  R143 SET_LAYER_RANGE: refuses while printing (audit F6) - no nonce bump, a clear notice instead
+PASS  R62 make_range: PRINT_START head + Z0.2 on the bed (no mid-air!)
+PASS  R62 make_range: 2 in-window floor layers + real layer Z0.6, fan restored at the first printed mark
+PASS  R62 make_range: E rebased per block (G92-aware), modal F kept
+PASS  R73/R74 make_range: in-window floor layers + LAYER_MARKs + zero-gap brim, no cap after clamp
+PASS  R224 make_range in-window: 4-layer window stays 4 layers, Z steps 0.2/0.4/0.6/0.8 seamless
+PASS  R224 make_range legacy (inside=0): raft under + cap over, 6 layers total
+PASS  R62 plotter PNG: 2 pens, v4 header, _PLOT_START head, Z/speeds baked
+PASS  R62 plotter PNG: boustrophedon hatching + pen change M0 + centered on the bed
+PASS  R62 plotter SVG: vector paths -> moves, colors grouped (c2 default keeps 2 darkest)
+PASS  R61 LCD: plotter + retract tower + generators + range/stop menus
+PASS  R62 M106: fan command in layer 1 held at OFF (Orca raises it at layer 1 end)
+PASS  R62 M106: layer 2+ scales normally (95% of S255)
+PASS  R79 M106: AS SLICED layer 1 = fan OFF too (first-layer rules)
+PASS  R79 M106: rules OFF -> AS SLICED true 1:1
+PASS  R62/R70 M109: takeover caps the wait at min_extrude_temp+5 (175, no full heat)
+PASS  R62 M109: without takeover the file target rules (225 first)
+PASS  R62 M109: falling temp below the file first value counts as LATER (215)
+PASS  R62 M104: M104 S215 at layer 1 (Orca layer-2 temp) -> after override
+PASS  R62 FORCE_END_PRINT: stops everything, heaters off, state clean
+PASS  R62 SAVE_DEFAULT_PRESET: lowest free slot (1), full snapshot with feature flow
+PASS  R62 SAVE_DEFAULT_PRESET refuses when all 8 slots full
+PASS  R62 LOAD_DEFAULT_PRESET: chains the shared apply + reports
+PASS  R62 _PROFILE_APPLY (default src): restores values + feat flow
+PASS  R109 load FIX: the _on switches REALLY come back (old ";"-comment bug)
+PASS  R62 DELETE_DEFAULT_PRESET frees the slot
+PASS  R62 FILE_AS_PRESET: file temps/fan/PA/flow become pre-print overrides ON (beep)
+PASS  R62 _PLOT_START (pen): identifies as plot, homes, no purge
+PASS  R62 _PLOT_START (filament): heats to L1 + applies overrides
+PASS  R62 PLT_FRAME: drives the bed frame rectangle with pen offset
+PASS  R62 APPLY_TYPE: feature flow 90% applied via M99221
+PASS  R62 APPLY_TYPE: feature flow 100% falls back to the global flow
+PASS  R62 SET_OVERRIDE_VALUE feat_flw_brim 110 -> ON
+PASS  R62 _PREHEAT_SELECTED: heats beyond the current targets (anti-ooze levels)
+PASS  R62 _read_vars: variable_ prefix stripped, = and : both parsed, bare keys win
+PASS  R62 _peek_file_info: temps from M109/M190, fan %, file params - file untouched
+PASS  R62 LCD: defaults + preheat + plot extras + force end + file preview ids
+PASS  R63 fonts cover the whole charset (3 fonts)
+PASS  R82 fonts: COND/NARROW/CAPS cover the whole charset
+PASS  R82 fonts: DISTINCT data (no silent SMOOTH fallback)
+PASS  R82 fonts: COND is actually condensed (A advance < SMOOTH)
+PASS  R82 fonts: CAPS lowercase clones the capitals
+PASS  R82 _label_glyphs: per-font baseline + registry fallback
+PASS  R82 make_labels builds with font COND
+PASS  R82 make_labels builds with font NARROW
+PASS  R82 make_labels builds with font CAPS
+PASS  R116 PIXEL is a REAL font again (Press Start 2P strokes, not the R80 bitmap)
+PASS  R116 plot-text validators accept all 9 fonts
+PASS  R116 fonts: SCRIPT/HAND/PLATE/PIXEL cover the whole charset
+PASS  R116 fonts: DISTINCT data (no silent SMOOTH fallback)
+PASS  R116 make_labels builds with SCRIPT/HAND/PLATE/PIXEL
+PASS  R116 job_cfgs: per-job header + both fonts in info (the .88 font bug)
+PASS  R116 job_cfgs: label cells keep their OWN size (80x40 vs 60x30)
+PASS  R116 job_cfgs=None stays byte-identical (golden safety)
+PASS  R116 watcher reads label_cfgs and passes job_cfgs
+PASS  R116 LABEL_ADD snapshots the COMPLETE settings per job
+PASS  R116 LABEL_DEL_LAST trims texts AND cfgs in parallel
+PASS  R116 shaper-off: no-[input_shaper] case NOTIFYs on the LCD
+PASS  R116 shaper-off: STATE=1 arms the feature shaper-off
+PASS  R63 make_labels: file + info (2 labels, tower, 4 layers - R231: text_layers=2 is the FLUSH inlay, total = base_layers)
+PASS  R63 make_labels: tagged by process() (TAG + _FILE_INFO + LAYER_MARK)
+PASS  R63 make_labels: PRINT_START head + slicer config comments
+PASS  R63 make_labels: exclude objects per label + tower + KAMP polygons
+PASS  R63 make_labels: print-by-layer - M600 after the bases, text after M600
+PASS  R63 make_labels: brim + ironing blocks present
+PASS  R73 label layout: hole 2mm from the edge, text box on the three free sides
+PASS  R73 label layout: TOP hole -> box below the hole band, centered x
+PASS  R63 golden ratio: text never collides with the hole
+PASS  R63 text: fits the band, >= 3mm tall
+PASS  R63 layers: Z ladder first 0.28 then 0.2 steps
+PASS  R63 gcode: no negative E, all moves inside the bed
+PASS  R63 single color: no M600, no tower, 4 layers (3 base + text_layers 3 -> raised 1 on top of the flush inlay)
+PASS  R63 variants: ironing/brim OFF + hole RIGHT + tower prime after M600
+PASS  R63 grid: reading order - most columns that fit (9 labels -> 5x2)
+PASS  R63 grid (R170 numbers): 9 labels 40x20 -> 4 cols x 3 rows (the 10mm gap floor makes the cells 50mm wide)
+PASS  R170 overflow: 10x 120x100 no longer refuses - 5 part files (2 per plate, the old R63 raise is dead)
+PASS  R63 fit guard: a single label larger than the bed still raises
+PASS  R80 labels: long text GROWS the label (was: error) + stays readable
+PASS  R63/R92/R104.2 _bed_limits: [gcode_macro _R2_CONFIG] wins over the lifted steppers
+PASS  R63/R92 _bed_limits: no section / no file -> Ender-3 default 220x220
+PASS  R104.2 _bed_limits: legacy [r2_postproc] still read (courtesy) although it halts Klipper
+PASS  R63 watcher vars: label_* readable via _read_vars
+PASS  R63/R71/R74 _LABEL_SET_CHAR: writes the char, cursor ADVANCES to the next position
+PASS  R63/R74 _LABEL_SET_CHAR: empty buffer, pos 1
+PASS  R63/R74 LABEL_ADD: trims + appends with | separator + queue count
+PASS  R63/R74 LABEL_ADD: empty text -> warning, no write
+PASS  R63 LABEL_DEL_LAST: removes the last entry
+PASS  R63 LABEL_GENERATE: bumps the nonce + announces
+PASS  R63 LABEL_GENERATE: empty queue -> warning
+PASS  R63 GEN_LABELS (console): sets all vars + queues the job
+PASS  R63 GEN_LABELS without TEXT -> usage hint
+PASS  R63 LABEL_CLEAR_ALL CONFIRM=1 clears the queue (shlex-safe)
+PASS  R63 SYS_SAVE_CONFIG: first press reports the pending state
+PASS  R63/R83 SYS_SAVE_CONFIG: nothing pending + CONFIRM -> restart anyway
+PASS  R63 SYS_SAVE_CONFIG: pending + CONFIRM -> SAVE_CONFIG with warning first
+PASS  R63 SYS_SAVE_CONFIG: blocked during a print
+PASS  R63 boot feedback: _INIT_AFTER_BOOT beeps + M117 ready after a restart
+PASS  R63 install hint: missing 16_labels.cfg gets a friendly line
+PASS  R63 LCD: labels menu + editor + settings + job ids, guarded enable
+PASS  R63 LCD: System > Save config is the guarded SYS_SAVE_CONFIG pair
+PASS  R63 LCD: Labels sits before Maintenance
+PASS  R64 MZV base coeffs: classic 1-1/sqrt(2), sqrt(2)-1, sum 1
+PASS  R64 shaper response: notch at the shaper frequency
+PASS  R64 ZV impulses match Klipper formulas
+PASS  R64 EI amplitudes sum to 1
+PASS  R64 smoothing + max_accel positive and monotonic
+PASS  R64 fit_shapers: synthetic 60Hz peak -> best shaper near the peak
+PASS  R64 fit table: all 5 autotune shapers, vibrs in 0..1
+PASS  R64 calibrated CSV: keeps the file shaper frequencies
+PASS  R64 raw resonances CSV: own fit near the 45Hz peak
+PASS  R64 missing axis CSV -> no file found
+PASS  R64 _resonance_axis_data error message names the axis + dirs
+PASS  R64 CSV parser: shaper columns + double-comma layout
+PASS  R64 resonance print: file name + info per axis
+PASS  R64 resonance print: EXCLUDE_OBJECT_DEFINE before PRINT_START
+PASS  R64 resonance print: 5 layers, marks + types via process()
+PASS  R64 resonance print: both plates inside the bed
+PASS  R64 resonance print: single color (no M600), fan from layer 2
+PASS  R64 resonance plot: R2-PLOT header, own file, no PRINT_START
+PASS  R64 process() skips R2-PLOT files (no print tags)
+PASS  R64 single axis + missing axis -> one plate, no crash
+PASS  R64 resonance: bad axis rejected
+PASS  R64 bridge: file name + layer math (30mm top -> 152 layers)
+PASS  R64 bridge: 5 exclude objects, BRIDGE type, fan per deck
+PASS  R64 bridge: A-B spans 150mm on the 45 degree diagonal
+PASS  R64 bridge: C sits ON the diagonal at 40% (short under long)
+PASS  R64 bridge: everything inside the bed + towers + brim
+PASS  R64 bridge: normal flow (PRINT_START + marks + M117 stages)
+PASS  R64 bridge: overlong span rejected with the real limit
+PASS  R64 bridge: short height auto-clamped below the long one
+PASS  R64 text plot: wraps + auto-fits one page, unknown chars -> ?
+PASS  R64 text plot: stays on the plot bed
+PASS  R73 text plot: 80 lines -> 3 columns at >=6mm caps + truncation note
+PASS  R64 status plot: report page with version + key values
+PASS  R64 polarity: dark board detected via the border -> INVERTED
+PASS  R64 polarity: light paper stays normal
+PASS  R64 polarity: both variants produce pen strokes
+PASS  R73 PLOT_PAT knows .txt.gcode AND plain .txt/.png uploads
+PASS  R64 _peek_file_info flags plot files for the Pre-Print menu
+PASS  R64 _peek_file_info: print files are NOT plot files
+PASS  R64 RESONANCE_DIAGRAM: saves axis/mode + bumps the nonce
+PASS  R64 RESONANCE_DIAGRAM: bad axis/mode rejected
+PASS  R64 RESONANCE_DIAGRAM: only when idle
+PASS  R64 SHAPER_RESULT (no args): shows the stored table
+PASS  R64 SHAPER_RESULT: TYPE pick uses the stored frequency (PA-style)
+PASS  R64 SHAPER_RESULT: manual FREQ fine tuning
+PASS  R64 SHAPER_RESULT: zv stored -> applies 61.4
+PASS  R64 SHAPER_RESULT: nothing stored -> helpful error
+PASS  R64 BRIDGE_TEST: bumps the nonce + announces
+PASS  R64 BRIDGE_TEST: only when idle
+PASS  R64 PLOT_TEXT: stores the file + bumps the nonce
+PASS  R64 PLOT_TEXT: paths rejected (basename only)
+PASS  R64/R71 _PLOT_NAME_SET_CHAR: writes the buffer, pos ADVANCES
+PASS  R64 PLOT_STATUS: bumps the nonce
+PASS  R64 SET_PLOT_SPEED: M220 + saved as start default
+PASS  R64 SET_PLOT_PENZ: Z babystep + total offset tracked
+PASS  R64 SET_PLOT_SHIFT: X/Y shift via gcode offset
+PASS  R64 SET_PLOT_SPEED: guarded to plot jobs
+PASS  R64 PLOT_TUNE_RESET: neutralizes all start overrides
+PASS  R64 _PLOT_START: applies speed + Z/X/Y start overrides
+PASS  R64 _PLOT_START: neutral overrides stay silent
+PASS  R64 boot: shaper override applied after every restart
+PASS  R64 boot: no override -> no SET_INPUT_SHAPER
+PASS  R64 LCD: vibration menu grows diagram + apply, plotter grows text/status/start
+PASS  R64 LCD: bridging menu with all live-relevant settings
+PASS  R64 LCD: plotter live group gated on plot jobs + pre-print plot group on preview
+PASS  R64 LCD: plot text editor guarded on the labels charset
+PASS  R64 LCD: new static names stay <= 16 chars
+PASS  R64 no double braces anywhere (Klipper Jinja pitfall)
+PASS  R65 charset: config line parses after the Klipper # strip (92 chars, no #/;)
+PASS  R65 invariant: LCD charset + the appended # == generator charset
+PASS  R65/R74 _LABEL_SET_CHAR: index 92 == # (the %c trick)
+PASS  R65/R74 _LABEL_SET_CHAR: index 5 still F (order kept before the # position)
+PASS  R65 plot name editor: index 92 == # too
+PASS  R65 no # inside quoted strings in ANY cfg (the .47/.48 boot-blocker class)
+PASS  R65/R71 LCD: both char pickers are VISIBLE scroll lists (93 entries each)
+PASS  R66 update.sh: bash script with upload-unpack + loop guard
+PASS  R66 update.sh: unzip -o + python3 fallback + restart endpoint
+PASS  R66 update.sh passes bash -n syntax check
+PASS  R66/R80 macro version == post-processor version (one source of truth)
+PASS  R67 all 5019 boot-compiled templates compile (macro gcode + menu name/enable/gcode)
+PASS  R67 all 4636 menu templates render with mock printer (names+enable+gcode)
+PASS  R67 label queue name uses the fixed .split pattern (no |string.split)
+PASS  R67 label queue name renders 0/24 when queue empty
+PASS  R67 label queue name renders 2/24 with two queued labels
+PASS  R68 hyphen comments + bare E- + ";Z:-" process cleanly (no float crash), tag + marks
+PASS  R68 parse_params: comments stripped, X-/hyphen names ignored, real negatives kept
+PASS  R68 postproc docstring names the real tag (v4, not the stale v2)
+PASS  R69 static gate: no bare VALUE=" (the shutdown class) in any cfg line
+PASS  R69/R74 label editor: every charset char saves clean (no shutdown, exact value)
+PASS  R69 queue add with space + apostrophe saves clean (IT'S|A B)
+PASS  R69 GEN_LABELS with a space in TEXT saves clean (escaped form)
+PASS  R69 GEN_LABELS rejects quotes in TEXT (no poison save, clear error)
+PASS  R69 plot name editor: apostrophe buffer + '#' insert saves clean
+PASS  R69 PLOT_TEXT with a space in FILE saves clean
+PASS  R69 PLOT_TEXT rejects quotes in FILE (no poison save)
+PASS  R69 watcher _sv_line: whole charset + specials + numbers all clean
+PASS  R70 SAVE_DEFAULT_PRESET: dict saves as ONE shlex-quoted token, literal_eval sees the dict
+PASS  R70 static: no raw dict literal VALUE={' in any cfg
+PASS  R70 _LEGACY_PREP waits for the hotend target BEFORE the pause (cold-extrude guard)
+PASS  R70/R72 _LEGACY_PREP: low target still waits to the SAFE 175 (min_extrude_temp+5)
+PASS  R70/R72 _LEGACY_PREP: no guard wait when nothing is heating (target 0)
+PASS  R70 M109 takeover cap floors at min_extrude_temp+5 (170+5=175, not 170)
+PASS  R70 range excerpt keeps EXCLUDE_OBJECT_DEFINE (KAMP adaptive, no full-bed fallback)
+PASS  R71/R73 vase excerpt: 4 block G92s (head+gen+body+cap), generated E accumulates
+PASS  R73/R74 in-window floor hatch + brim + cap: monotone E per generated block, no retracts
+PASS  R73 order: raft BEFORE brim BEFORE body BEFORE cap, cap gets a LAYER_MARK
+PASS  R71/R73 M83 file: no G92 inserted, generated geometry keeps relative E
+PASS  R71 label picker: 93 visible entries, umlaut aliases, # last
+PASS  R71 plot picker: 93 visible entries with _PLOT_NAME_SET_CHAR gcode
+PASS  R71 LCD gate: every menu name is pure ASCII (12864-safe)
+PASS  R71/R74 _LABEL_SET_CHAR: POS defaults to the saved position + auto-advances
+PASS  R71 _PLOT_NAME_SET_CHAR: saved position + auto-advance
+PASS  R72 M190 injection: ARMS the takeover, no immediate PREP
+PASS  R72 M109 injection: ARMS the takeover, no immediate PREP
+PASS  R72 M140 injection: ARMS the takeover, no immediate PREP
+PASS  R72 M104 injection (not armed): immediate guard path PREP
+PASS  R72 M104 injection (already armed): hands over to START_PRINT/probe
+PASS  R72 PREP guard: target 170 -> waits 175 (min_extrude_temp+5)
+PASS  R72 PREP guard: target 220 -> waits 220 (max wins)
+PASS  R72 PREP consumes the arming
+PASS  R72 park: 169.9C + min_extrude_temp 170 -> NO retract
+PASS  R72 park: 178C -> retract fires
+PASS  R72 resume: 169.9C -> no unretract
+PASS  R72 START_PRINT armed: hot takeover via PREP
+PASS  R72 START_PRINT armed + level OFF: takeover via HOME
+PASS  R72 START_PRINT already prepared: printing continues
+PASS  R72 PROBE armed stage0: grace 4s for START_PRINT
+PASS  R72 PROBE armed stage1: takeover NOW (PREP), arming consumed
+PASS  R72 catch: decided file -> NO second dialog, live tuning
+PASS  R72 catch: decided AS SLICED -> ignore_overrides ON
+PASS  R72 WAITER as_sliced: remembers the decision for the file
+PASS  R72 WAITER with_overrides: remembers the decision for the file
+PASS  R72 WAITER as_legacy: remembers the decision for the file
+PASS  R72 SEQ: no START_PRINT-style "(None)" - names the next object
+PASS  R72 live temp T=0 reads as missing (100..300)
+PASS  R72 GEN_LABELS STROKE=2.5 saved
+PASS  R72 strokes: 3 parallel paths, symmetric, spacing = extrusion width
+PASS  R72 strokes: mitered polyline offsets (no crash, 3 paths)
+PASS  R72 label text: solid strokes (many E-lines, fill types, E>0)
+PASS  R73 range: M83-with-comment detected (the .56 no-filament bug)
+PASS  R73 range: raft/brim in relative E, no M82 rebase artifacts
+PASS  R73 _offset_hull grows the outline by d (brim flush to the wall)
+PASS  R73 _hull_hatch fills the hull, segments stay inside
+PASS  R73 _decimate drops micro + collinear points (MCU relief)
+PASS  R73/R74 label text: auto caps stay under 66% of the height (uniform)
+PASS  R73 _glyph_class: A/0 full, x/@/> small (user rule)
+PASS  R73/R74 label text: auto spans ~75% of the label width
+PASS  R73/R74 label text: long word shrinks uniformly (never stretches)
+PASS  R73 label cells: hole diameter clamps to the label height
+PASS  R73 label file: TAG + _FILE_INFO + markers DIRECT (no process re-parse)
+PASS  R73/R159 label file: extruding feeds at 60mm/s, travels 180 (uniform speed image; the MCU-overload cap keeps holding for extruding moves)
+PASS  R73 M221: LIVE flow beats the pre-print flow override
+PASS  R73 M221: without a live value the override still rules (layer 1)
+PASS  R159 M221: from layer 2 the user value IS the flow (no redirect)
+PASS  R73/R87.2 M204: FEATURE accel beats the live global (field log .71)
+PASS  R73 M204: without a live value the feature accel rules
+PASS  R73 M220: user speed leads on layer 1 (no more capped lock)
+PASS  R73 M220: without a live takeover the L1 brake still caps
+PASS  R73 LAYER_MARK n=2: YOUR live speed stays (no reset to 100%)
+PASS  R73 LAYER_MARK n=2: normal reset to 100% when nobody took over
+PASS  R73 APPLY_TYPE: feature boundary re-applies the LIVE flow
+PASS  R73 SET_FLOW_RATE arms the live flow
+PASS  R73 SET_GLOBAL_ACCEL arms the live accel
+PASS  R73 SET_GLOBAL_SPEED on layer 1 disarms the L1 brake
+PASS  R73 _LIVE_RESET clears the live priorities
+PASS  R73 plot FILAMENT: draws at 0.25mm (not the pen Z 0!) with M83
+PASS  R73 plot FILAMENT: relative E per segment with real extrusion per mm
+PASS  R73 plot FILAMENT: travel capped at 80mm/s (MCU relief)
+PASS  R73 text plot: CAP-height letters (>=6mm), solid in FILAMENT mode
+PASS  R73 watcher pushes a preview for every fresh G-CODE file (Mainsail starts too) - R134: a plot source is NOT pushed (it is no g-code; it waits for a selection in the file list)
+PASS  R73 LCD: no float tuple indexing left (values visible again)
+PASS  R73 LCD: 2.Color item + info submenu in the start menu
+PASS  R73/R249/R250 LCD: live per-feature FLOW inputs for all 12 features in the FLOW quick list - ironing is the ONE special case: its row reads and writes the real slicer flow (ov_ironing_flow), no __flw twin, no feat_flw_ironing multiplier anywhere
+PASS  R73 LCD: plotter Letters (min 6mm) + Fil Z + mode info items
+PASS  R73 state: live_flow / live_accel / l1_speed_user / plot_extrude declared
+PASS  R73 _PLOT_START EXTRUDE=1 flags the filament plot mode
+PASS  R73 SYS_SAVE_CONFIG: first press NAMES the pending items
+PASS  R74 _peek_file_info: parses every _FILE_INFO key (not just the old 14)
+PASS  R74 _peek_file_info: TYPE guess + heater/fan peek
+PASS  R74 _peek_file_info: TAG/PRINT_START -> MARKED
+PASS  R74/R75 _preview_script: ONE _PREVIEW_SET line + _FILE_INFO + _PREVIEW_TEMPS
+PASS  R74/R75 _preview_script: while a print RUNS only the preview card goes out
+PASS  R74 _FILE_INFO_RESET: resets every file_* state variable
+PASS  R74 intercept + cleanup both route through _FILE_INFO_RESET
+PASS  R74 _PREVIEW_TEMPS idle: sets file temps + fan
+PASS  R74 _PREVIEW_TEMPS while printing: hands off (guard wins)
+PASS  R74 _PREVIEW_TEMPS during the start dialog: allowed (held file)
+PASS  R74 M24 fresh start: preview nonce bump (LCD M23/M24 selections refresh too)
+PASS  R74 range: ends with PRINT_END (nozzle parks, no dead stop)
+PASS  R74 range: _FILE_INFO at the TOP (live file info correct from layer 1)
+PASS  R74 range: END beyond the file clamps to the last layer
+PASS  R74 range: top-only (floor=0, brim=0) builds (old NameError; R224: the cap layer counts INSIDE - 3-layer window stays 3)
+PASS  R74 range floor: FOOTPRINT bridges the concave notch, OUTLINE does not
+PASS  R74 range floor: SOLID fill = ~2x the grid hatch density
+PASS  R74 range top: OUTLINE + SOLID builds and respects the notch
+PASS  R74 SET_LAYER_RANGE: END capped to the file layer count + says so
+PASS  R74 SET_LAYER_RANGE: shape + fill parameters persist
+PASS  R74 label text: explicit size = exact cap height (uniform scale)
+PASS  R74 label text: letter spacing widens the line by spacing*(n-1)
+PASS  R80 label text: oversized target size falls back to auto (no error)
+PASS  R74/R83 make_labels: >5 lines per label refused (6 lines)
+PASS  R83 make_labels: 5 lines per label build (big signs)
+PASS  R74 make_labels: two-line label via ~ builds, caps reported
+PASS  R74 make_labels: font_size + spacing flow into the header comment
+PASS  R74 label text: 3 lines stack with gaps inside the text box
+PASS  R74 _emit_loop: starts at the vertex CLOSEST to the pen
+PASS  R74 _emit_hatch: starts from the closer END of the run
+PASS  R74 make_labels: label order alternates per layer (serpentine travels)
+PASS  R74 LCD: font SAVE_VARIABLE now quoted (the stuck-on-SMOOTH bug)
+PASS  R74 LCD: Labels > Text has the 3 line pickers + dynamic char limit
+PASS  R74 LCD: Labels settings grow Lines/Size/Spacing (+ fit recalcs)
+PASS  R74 LABEL_FIT_CALC: saves the per-size character limit
+PASS  R74 LABEL_SELECT_LINE: switches the edit buffer + resets the cursor
+PASS  R74 LABEL_ADD: joins the lines with ~ (2-line queue entry)
+PASS  R74/R87 LCD: Plotter lives in the Tools menu (was top level until .70)
+PASS  R74/R77 LCD: Filament in Pre-Print (load/unload/change - cold pull moved to Maintenance)
+PASS  R74 LCD: Filament in Live > Pause (manual change while paused)
+PASS  R74 LCD: Range menu = file info + capped To + shape/fill inputs
+PASS  R74 watcher: label job passes font_size + spacing, range passes shape/fill
+PASS  R74 GEN_LABELS: SIZE/SPACING/LINES parameters documented + wired
+PASS  R75 _PREVIEW_SET line: shlex-parses into clean params
+PASS  R75 _PREVIEW_SET: filename WITH spaces stays one shlex token
+PASS  R75 _PREVIEW_SET macro: SET_GCODE_VARIABLE only (zero disk writes)
+PASS  R75 _PREVIEW_SET macro: junk numeric value falls back to 0 (never a shutdown)
+PASS  R75/R84/R89 _PREVIEW card: 30 in-memory variables (name..pens + slicer/fw/vol/retract+status+moverate R235)
+PASS  R75 nobody reads save_variables.preview_* anymore (in-memory card)
+PASS  R75 _peek_objects: collects the defines verbatim
+PASS  R75 _peek_objects: capped at 80 defines (a push must stay small)
+PASS  R75 _preview_script: replays the file's EXCLUDE_OBJECT_DEFINE (adaptive mesh)
+PASS  R75 mesh: travel capped while meshing, restored after
+PASS  R75 mesh: cap 0 = off (no SET_VELOCITY_LIMIT at all)
+PASS  R75 mesh: honest kind - "full bed (file has no object data)" instead of fake adaptive
+PASS  R75 mesh: with object data it stays "KAMP adaptive"
+PASS  R75 mesh: mesh_last_profile NOT rewritten when unchanged (no useless disk write)
+PASS  R75 mesh: mesh_last_profile saved when it really changes
+PASS  R75 HOST_CHECK: bumps host_nonce + explains Timer-too-close
+PASS  R75 LCD: System > Host check + Pre-Print > Bed Mesh > Travel cap
+PASS  R75 host_check(): undervoltage+freq-cap decoded, error sound + M117
+PASS  R75 host_check(): healthy host -> Throttle NONE + done sound
+PASS  R75 watcher: _prime_nonces adopts the current counters (no re-fire)
+PASS  R75 watcher: daemon runs niced + primes on the first pass
+PASS  R75 plot files: text plot carries the R2PLOT polygon (adaptive mesh)
+PASS  R75 plot files: polygon coordinates inside the bed (X 0..244, Y -1..238)
+PASS  R75 plot files: IMAGE/SVG conversion carries the R2PLOT polygon too
+PASS  R75 label editor: stale cursor clamped (position 7 on empty line -> 1)
+PASS  R75 label editor: cursor within the text stays untouched
+PASS  R76 _host_verdict: throttle beats everything
+PASS  R76 _host_verdict: swap warning (30MB+, SD-card swap stalls the host)
+PASS  R76 _host_verdict: the .59 field case - load 4.2 on 4 cores = OVERLOADED
+PASS  R76 _host_verdict: healthy host = OK verdict
+PASS  R76 _parse_ps: rows parsed (cpu%, rss->MB, name)
+PASS  R76 _parse_vmstat_wa: iowait from 17 and 16 column lines
+PASS  R76 host_check v2: top processes + iowait named in the report
+PASS  R76 host_check v2: verdict line + swap column in the host line
+PASS  R77 _hatch: real SWEEP order - consecutive lines chain (no zigzag)
+PASS  R77 _emit_hatch: nearer-end reversal now CHAINS (segment flip fixed)
+PASS  R77 label: base layers storm-free (storm was 108; R216 golden rule adds the few CORRECT retracts: brim->wall->hatch->tower transitions cross fresh ink -> <=12; R231: layer 3 carries the inlay CONTOURS - its glyph-to-glyph travels retract like the text layers, fence <=110)
+PASS  R77 label: base-layer E stable (R117 serpentine beads, R183/R184 brim air gaps - label brim AND the purge tower brim run further out; R231: layer 3 gains the contour ink E 282.9/164.6/185.4)
+PASS  R77/R83 label: total G10 <= 340 (storm was 636; R83 adds discrete glyph-to-glyph retracts; R224 walls=3 multiplies them and R231 splits the glyph work over contour+fill layers (305) - the per-layer storm guards above are the real fence)
+PASS  R77 range: raft+brim geometry identical to .57 (grid default, R79 APPLY_TYPE filtered)
+PASS  R77 range solid: hatch E compensated 0.92 (serpentine median, no over-extrusion)
+PASS  R77 COLD_PULL v2: PETG preset honored, 2 cycles, assist 70mm@30mm/s
+PASS  R77 COLD_PULL v2: mold-suck back (E-10) + fan cool + beep loop started
+PASS  R77 COLD_PULL v2: unknown material refused politely
+PASS  R77 SET_COLD_PULL_MATERIAL: TPU preset 235/100 written
+PASS  R77 _COLD_PULL_BEEP: counts down + re-arms while above pull temp
+PASS  R77 _COLD_PULL_BEEP: self-terminates at pull temperature
+PASS  R77 LCD: Cold pull = Maintenance only, 7 params + start + verify
+PASS  R77 defaults: cold pull wizard variables initialized
+PASS  R78 _host_verdict: swap verdict NAMES the swap residents (.61 field case)
+PASS  R78 _swap_eaters: VmSwap aggregated per name, biggest first, 0MB skipped
+PASS  R78 host_check v3: Top SWAP names the eaters + verdict quotes them
+PASS  R78 host_check v3: services line + double-webcam + OE warnings
+PASS  R78 host_check v3: ps-artifact filtered (no "ps 100%"), 5 entries each
+PASS  R78 host_check v3: host line carries the swap columns (187/511MB)
+PASS  R78 machine limits echo: cruise ratio rounded (no 0.8999999999999999)
+PASS  R78 HOST_CHECK macro: announces swap eaters + services (.62)
+PASS  R79 _SELECT_FILE: waiting -> releases old selection + selects new (R115: preheat stays!)
+PASS  R79 _SELECT_FILE: idle -> selects the generated file (dialog asks anew)
+PASS  R79 _SELECT_FILE: printing -> never swaps under a running print
+PASS  R79 watcher: generator output follows gen_out (R109: _sel_line everywhere)
+PASS  R79 preview: RANGE excerpts get the AS LEGACY/AS SLICED hint
+PASS  R79 outline floor: closed wall interior gets FILLED (the .62 field bug)
+PASS  R79 outline floor SOLID also fills the interior (denser than grid)
+PASS  R79 footprint floor unchanged (still fills) + APPLY_TYPE markers
+PASS  R79 range: brim carries APPLY_TYPE TYPE=BRIM
+PASS  R79 M104 as-sliced layer 1 -> material hot1 (L1 differs from L2)
+PASS  R79/R161 M140 as-sliced: unknown FILE material falls back to the SELECTED material (L1 rule, layer 1)
+PASS  R79/R161 LAYER_MARK layer 2 (AS SLICED): unified L2 rule (material preset here - no file values) + NO redundant bed write (target already 60) + held-fan logic in the source
+PASS  R79 PARAM_SOURCES: provenance table (file | override | LIVE)
+PASS  R79 TOGGLE_FIRST_LAYER_RULES: flips + persists
+PASS  R79/R83 _RUN_PRINT_START: absent feature overrides parked (IRONING)
+PASS  R79 APPLY_TYPE: parked feature does NOT apply (plain global branch)
+PASS  R79 LCD: Live > Sources + Now items (All-OFF removed in R80)
+PASS  R79/R248 LCD: the quick menus name the RUNNING feature and its ON switch (FeatOn); the duplicate value rows (FeatSpd / FeatAcc) are gone - the same setting lives in that feature's own row below
+PASS  R79 LCD: flow + accel inputs read the LIVE Klipper values (2-way sync)
+PASS  R79 LCD: Pre-Print > L1 rules toggle (first-layer rules also 1:1)
+PASS  R79 LCD: new item names stay <= 16 chars (R29)
+PASS  R79/R161 M109 as-sliced layer 1: L1 rule, single message (no OVERWRITE double)
+PASS  R79/R161 M190 as-sliced layer 1: bed L1 rule applies
+PASS  R161 M109 as-sliced layer 2: armed override wins, no rule forcing
+PASS  R161 M190 as-sliced layer 2: armed override wins, no rule forcing
+PASS  R161 M109 as-sliced layer 2: no override -> true 1:1
+PASS  R161 M190 as-sliced layer 2: no override -> true 1:1
+PASS  R80/R83 absent_features: quoted list, no spaces (shlex-survivable)
+PASS  R80/R83 absent_features: dash types (WALL-OUTER) count as present
+PASS  R80 static: no {{ }} in any cfg (Klipper uses { } - boot blocker)
+PASS  R80 static: no spaces inside VALUE=[...] lists (Malformed command)
+PASS  R80 LCD: feature All-OFF burst REMOVED (Timer-too-close trigger)
+PASS  R80 labels: Garage! @6.0mm caps on 60x15 builds (was: ERROR x4)
+PASS  R80 labels: auto font FILLS a 50x15 keychain tag (hole respected)
+PASS  R80 labels: 2 filled lines only - one shared scale, centered
+PASS  R80 labels: PIXEL falls back to SMOOTH (font removed)
+PASS  R80 labels: 3 long lines -> label grows to the 2.8mm floor
+PASS  R80/R83 LABEL_FIT_CALC: rough estimate + nonce for the exact numbers
+PASS  R116 LCD: font menu = nine-font list (PIXEL back as a real font)
+PASS  R80 LCD: label defaults 50x10 (keychain-friendly, R170: the 15mm floor is history)
+PASS  R83 shlex sweep: every SET/SAVE_VARIABLE VALUE parses after Klipper shlex (start-killer class: absent list + PLA string)
+PASS  R83 PRINT_END: filament stat in meters (Klipper reports mm)
+PASS  R83 make_range (R133f): 00_+V name, NEVER overwrites - every run bumps, version param retired, source never touched
+PASS  R83 label: text layers retract between glyphs (G10 per text layer >= 8)
+PASS  R83 label: base layers stay storm-free (R77 guard; R216 golden rule: ink-crossing transitions retract, <=12)
+PASS  R83 label: stroke capped to 0.34*cap (anti-merge, .65 field case; R224: cap/5 dampening was why only ONE wall printed - now 0.34)
+PASS  R83 label: purge tower 15mm clear AND right of the label (probe safety)
+PASS  R83 label_preview: grown size, honest cap, min size, merge warning
+PASS  R83 LCD (R133f): Labels Settings = Calc fit + L4/L5 pickers, Version item GONE (auto-bump retired it)
+PASS  R84 _detect_slicer: Orca+klipper, Cura+Marlin, volumetric, Kiri:Moto
+PASS  R84 _FILE_INFO: SLICER/FW/VOLUMETRIC -> _STATE (shlex-safe)
+PASS  R84 shlex: _FILE_INFO slicer values parse after Klipper shlex
+PASS  R84 _PREVIEW_SET: slicer/fw land in the preview card
+PASS  R84 retract fix: clean pair -> G10/G11 (hop/travel kept), wipe + prime untouched
+PASS  R84 retract fix: absolute-E mode (G92/M82) rewrites too
+PASS  R84 retract fix: idempotent (second run changes nothing)
+PASS  R84 process: retract_rewrite ON -> pairs converted + R2 markers + slicer info
+PASS  R84 process: retract_rewrite OFF (default) -> file keeps its own retracts
+PASS  R84 process: Marlin flavor file reports FW + VOLUMETRIC warning values
+PASS  R84 start: volumetric file warns loudly (NOTIFY + M117 + console)
+PASS  R84 RETRACT_FIX ON: saves the switch + explains the re-upload
+PASS  R84 RETRACT_FIX OFF
+PASS  R84/R160 LCD: RetFix toggle in Fixes + slicer in File info + preview card
+PASS  R85 volumetric fix: E divided by 2.405 (mm3 -> mm), G92 included
+PASS  R85 volumetric fix: markers neutralized (FLAVOR, use_volumetric_e, note)
+PASS  R85 volumetric fix: idempotent (second run = no-op)
+PASS  R85 volumetric fix: R2 TAG + _FILE_INFO survive, VOLUMETRIC=0
+PASS  R85 volumetric fix: detection drops the flag after conversion
+PASS  R85 retract fix on a TAGGED file: no re-upload, markers intact
+PASS  R85 retract fix tagged: TAG + 4 marks + 4 G10 (exact)
+PASS  R85 FIX_FILE RETRACT: queues the selected file + nonce + start beep
+PASS  R85 FIX_FILE VOL: queues the volumetric conversion
+PASS  R216 FIX_FILE QUALITY: queues the golden-rule travel fix
+PASS  R216 FIX_FILE SPEED: queues direct ways + ironing skip
+PASS  R216 FIX_FILE: an unknown WHAT refuses with the full help
+PASS  R85 FIX_FILE: held start dialog is RELEASED first (file changes on disk)
+PASS  R85 FIX_FILE: blocked during a print
+PASS  R85 FIX_FILE: no-file branch exists (fallback chain FILE>preview>stats)
+PASS  R85 FIX_FILE: WHAT usage line
+PASS  R85 FIX_FILE: filename VALUE survives shlex (spaces, parens, ~)
+PASS  R85 _PACE: 100ms pause while idle
+PASS  R85 _PACE: NO dwell while printing (would stutter motion)
+PASS  R85 SET_LAYER_RANGE: 11 writes paced (~no disk burst)
+PASS  R85 SET_MATERIAL: 25 writes fully paced (biggest burst, Pi Zero guard)
+PASS  R85/R160 LCD: Pre-Print > FIXES has Retract fix + Vol->mm fix (volumetric-gated)
+PASS  R86/R89 CABLE_TIE_INFO: shows every setting + material tip
+PASS  R89 CABLE_TIE_INFO: LOOP variant marked reusable (beads)
+PASS  R86/R160 CABLE_TIE_GENERATE: valid -> nonce bump + creating (console = single shot, no arm needed)
+PASS  R86/R89 CABLE_TIE_GENERATE: length 400 blocked (50..300)
+PASS  R86 GEN_CABLE_TIES: params saved (variant quoted) + paced + chains
+PASS  R86 ANGLE_INFO: angle mode shows legs + rib
+PASS  R86 ANGLE_INFO: flat mode = straight strip
+PASS  R86/R160 ANGLE_GENERATE: valid -> angle_nonce bump + creating
+PASS  R86 ANGLE_GENERATE: angle 25 blocked (30..170)
+PASS  R86 GEN_ANGLES: 12 params saved, paced, no adjacent writes
+PASS  R86/R89 LCD: Cable ties + Angles+Flat in the Tools menu, guarded, all params
+PASS  R86 LCD: angle + rib hidden in FLAT mode (enable gates)
+PASS  R86 LCD: menu names stay short (R29)
+PASS  R86 modules: 17_generator.cfg sentinel + _CHECK_INSTALL lists 17
+PASS  R86-R224 watcher: NONCE_KEYS has 44 channels incl. litho/seal/frame/twist + the three fix channels (.108) + the two optimized-file channels (.128) + the SD-browser image channel (.130) + the STL export channel (.136m) + the shape generator channel (.136n) + the queue-clear channel (.136u) + the mirror channel (.136v)
+PASS  R89 ties: file name 00_+_V01, TAG, PRINT_START, 6 exclude objects
+PASS  R86 ties: 10 layer marks + header order TAG->defines->PRINT_START->G90
+PASS  R89 ties CLASSIC: slot blocked ONLY by 2 floor layers + the pawl
+PASS  R86 angles: name + L-outline polygon (6 pts) + 2 plates + rib layers
+PASS  R86 angles: hole walls sit at r, NOTHING extrudes inside (auto keep-out)
+PASS  R86 flat: own file name + both halves share the SAME hole pattern
+PASS  R86 angles: short leg reduces hole count + notes say so
+PASS  R86 angles: 9mm hole clamped to the 16mm leg (max 10)
+PASS  R86 angles: 8mm hole on a 12mm leg clamps to 6mm
+PASS  R86 angles: countersink grows 2.0 -> 3.0 -> 4.0 over the top layers
+PASS  R86 generators: 10 files in < 5s single-pass (Pi-friendly)
+PASS  R86.2 SET_LAYER_RANGE: 13 writes incl. holes, paced, no adjacency
+PASS  R86.2 SET_LAYER_RANGE: hole announce lines (E14/E27 hint, bridge-first)
+PASS  R86.2 SET_LAYER_RANGE: hole defaults 0 (no holes, unchanged path)
+PASS  R86.2 GEN_ANGLES: WALLS/INFILL/IRONING saved + paced
+PASS  R86.2 ANGLE_INFO: walls/infill/ironing reported
+PASS  R86.2 LCD: range hole inputs + Create passes them
+PASS  R86.2 LCD: angle Walls/Infill/Ironing items
+PASS  R86.2 LCD: hole input names <=16 incl. worst-case value
+PASS  R86.2 range: floor hole open (nothing extrudes inside r-0.2)
+PASS  R86.2 range: cap hole bridge-first (ring on layer 1, open 1-3)
+PASS  R95 cap hole: bridge spokes -> ring on them -> solid (order)
+PASS  R95 cap hole: >= 12 short radial bridge spokes (F1300)
+PASS  R95 cap hole: travels over the open hole retract (bridges + clipped hatch)
+PASS  R95 cap hole: TYPES lists BRIDGE + INTERNAL-BRIDGE
+PASS  R86.2 range: oversized hole auto-clamps with a note
+PASS  R86.2 range: top hole auto-raises TOP to 3
+PASS  R86.2 range: top hole without TOP reports, no crash
+PASS  R86.2 angles: walls=4 -> 3 wall loops + 4 hole circles per layer
+PASS  R86.2 angles: ironing section on the top layer
+PASS  R86.2 angles: infill 50% halves the hatch moves
+PASS  R86.2 angles: walls auto-reduce on a narrow leg (+note)
+PASS  R86.2 leds: split effect shipped (commented) + header doc
+PASS  R86.2 _NOZZLE_SET split=1 -> writes the EBB chain (no INDEX=5)
+PASS  R86.2 _NOZZLE_SET split=0 -> unchanged LED 5 path
+PASS  R86.2 SET_LED_STATE split: work light via _split effect
+PASS  R86.2 SET_NOZZLE_SPLIT STATE=1 persisted
+PASS  R86.2 SET_NOZZLE_SPLIT bad value -> usage hint
+PASS  R86.2 example cfg: EBB/U2C/relay/nozzle-LED templates present
+PASS  R87/R169 LCD: 14 top-level R2 menus (+ R169 Rate print? + Optimized + the R236 Gen queue, R238 renamed to __queue = directly above the SD card) + the hidden stock overrides (OctoPrint/Temperature/Setup R135 + the R151 SD Card browser)
+PASS  R87 LCD: container Tools + all four trees re-parented, old roots gone
+PASS  R87 LCD: container sits between Quick Macros and Maintenance, live plotter untouched
+PASS  R87/R89/R90 LCD: guards preserved (cable/angle/litho/seal/frame need 17_generator, labels optional, plot+container free)
+PASS  R87 docs: cfg console paths say Tools (labels + plotter + generator header)
+PASS  R87.2 ties+angles: all POLYGON definitions are json ([[x,y],...], no whitespace)
+PASS  R87.2 range hole: spiral boss (1 continuous stroke) fills the band
+PASS  R87.2 range hole: travels over the hole RETRACT (strings fix .71)
+PASS  R87.2 range hole: nothing extrudes inside the open hole
+PASS  R88 bug4: thin-L section - centered hole SKIPPED (center in air/too close to the hull edge)
+PASS  R88 bug4: thick-L 50mm hole clamps to the real hull (~32mm, boss stays inside)
+PASS  R88 bug4: OUTLINE mode - hole skipped when the true outline leaves no room
+PASS  R87.2 range: body APPLY_TYPE re-derived from ;TYPE: when the source has none (R224: 3 - the first window layer IS the in-window floor now)
+PASS  R87.2 speed: global 150% x feature 200% = 300% (not 150 - field log .71)
+PASS  R87.2 speed: without a feature the global applies 1:1
+PASS  R87.2 accel: global 4000 keeps the feature accel 1000 (message + value)
+PASS  R90.1a multi: 10x15 -> Part A (frame alone), TAG + PRINT_START
+PASS  R90 frame: layer z strictly ascending, first 0.28, 40 layers
+PASS  R90 frame: photo opening stays free below the shelf (nub tips ok)
+PASS  R90 frame closure: snap band = 2 ramp + 2 click layers at the plate top (R127 + R167 45-deg ramp - the nubs used to print as free-standing walls in the groove air)
+PASS  R90.1a multi: plate B = backplate+stand, own TOTAL_LAYERS, PRINT_END
+PASS  R90.1a multi: end-of-plate hint + beeps in A, NO auto-start
+PASS  R90.1a single: 9x13 border 6 = ONE file frame+plate + PRINT_END
+PASS  R90.1a: 13x18 border 8 = 2 plates (multi-plate BEFORE kit)
+PASS  R90.1a kit: frame alone too tall -> 4 strips on A + plate on B
+PASS  R90.1a kit: corner dropped note + wood glue hint
+PASS  R90.1b FLIP: front band on the bed, NOTHING bridges (rule ll), no ironing
+PASS  R90.1b disc FRONT: lip 1.2mm smaller than the view opening + note
+PASS  R90.1b disc BACK: backlit note + plate clamps the disc rim
+PASS  R90.1b LINES: pattern layer replaces the solid face, no ironing
+PASS  R90.1b WAVES: pattern layer replaces the solid face, no ironing
+PASS  R90.1b HEX: pattern layer replaces the solid face, no ironing
+PASS  R90.1b cable: 6mm slot in the bottom bar, open low / closed high
+PASS  R90.1b guard: 9x13 -> ValueError(cable duct needs)
+PASS  R90.1b guard: 9x13 -> ValueError(SHAPE=RECT)
+PASS  R90.1b guard: 9x13 -> ValueError(must be IRON)
+PASS  R90.1b guard: 9x13 -> ValueError(must be NONE)
+PASS  R90.1b guard: 9x13 -> ValueError(out of range)
+PASS  R90.1b guard: 9x13 -> ValueError(IN or OUT)
+PASS  R90.1b kit: structure + cable skipped with honest notes
+PASS  R90 SIDE: 2 objects, slide-in note, slot in the left wall
+PASS  R106 SIDE: Y-bridge cap note + narrowed window note present
+PASS  R90 SIDE: groove-band layers have NOTHING left of the slot edge inside the window
+PASS  R90 CASE 20mm: mode CASE, 100 layers, stand included
+PASS  R90 guard: ('width', 300) -> ValueError(out of range)
+PASS  R90 guard: ('preset', '10x15') -> ValueError(out of range)
+PASS  R90 guard: ('preset', '10x15') -> ValueError(out of range)
+PASS  R90 guard: ('width', 148) -> ValueError(oval frame)
+PASS  R90 guard: ('preset', 'A6') -> ValueError(SIDE closure needs a RECT)
+PASS  R90 guard: ('preset', '10x15') -> ValueError(out of range)
+PASS  R90 guard: ('width', 40) -> ValueError(split kit)
+PASS  R90 FRAME_INFO: settings echo incl. closure + snap-in hint
+PASS  R90/R160 FRAME_GENERATE: valid settings bump frame_nonce 3 -> 4
+PASS  R90 FRAME_GENERATE: custom 300mm blocked with LCD notice
+PASS  R90 GEN_FRAME: params land in the save_variables + generates
+PASS  R90 GEN_FRAME: HEX shape rejected
+PASS  R90.1b GEN_FRAME: surface/disc/cable params land in the variables
+PASS  R90.1b GEN_FRAME: bad FRONT rejected
+PASS  R90 LCD: Frames menu in Tools with preset/shape/closure/hang/stand
+PASS  R90 LCD: new names stay short (R29)
+PASS  R90.1b LCD: Surface submenu = ONE choice (5 modes) + structure params
+PASS  R90.1b LCD: Disc submenu (5 materials + side + thickness) + cable
+PASS  R90.1c resume: XY travel FIRST, refill ON THE WAY, Z last - never E at the part
+PASS  R90.1c resume: cold park (no retract) -> no refill, mapping note
+PASS  R90.1c resume: UNRETRACT=0 (filament change) -> ZERO E moves
+PASS  R90.1c park: retract tracks park_retracted=True when hot
+PASS  R90.1c park: cold -> park_retracted=False (resume pushes nothing)
+PASS  R90.1c filament resume: strip settles pressure, resume WITHOUT object purge
+PASS  R90.1c nozzle: generators read the REAL diameter from printer.cfg
+PASS  R92 purge strip: front below objects, flat line, never the park corner
+PASS  R92 purge strip: travels HIGH first, descends only in the free zone
+PASS  R92 purge strip: retract after the line (no strings over the print)
+PASS  R92 purge strip: no objects -> front bed edge
+PASS  R92 purge strip: cold hotend -> skipped with notice
+PASS  R92 purge strip: bed full -> in the air (never into the objects)
+PASS  R92 park: corner chosen inside 0..220 / -3..217 with objects
+PASS  R92 filament change: purge runs as the strip, not a corner blob
+PASS  R92 PURGE_MORE: strip as well
+PASS  R92 litho: TYPES list = bottom/solid/top + brim + ironing + the R214 stand features (WALL-OUTER fins, BRIDGE ribs)
+PASS  R92 litho: layer 1+2 tagged Bottom surface (not inner wall)
+PASS  R92 litho: ribbon core tagged Internal solid infill
+PASS  R92 litho: top layers + ironing stay tagged
+PASS  R92 litho: main type re-asserted AFTER the brim (was BRIM before)
+PASS  R91 fuzzy: ALL outer vertices scattered, original untouched
+PASS  R91 fuzzy: seeded = deterministic (same params, same output)
+PASS  R91 fuzzy: density 20% shifts ~1/5 of the vertices
+PASS  R91 bumps: amplitude bounded (<= amp), IN is the mirror of OUT
+PASS  R91 bumps: tags / EXCLUDE / APPLY_TYPE / LAYER_MARK untouched
+PASS  R91 bumps: E values + count untouched (features stay honest)
+PASS  R91 bumps GRID: seamless - identical positions, identical shift
+PASS  R91: existing _TX file -> next free version (never overwritten)
+PASS  R91/R175: file without outer walls -> clear ValueError (v3 refuses to silently fake a texture)
+PASS  R91 guard: mode FLAT -> ValueError(must be FUZZY)
+PASS  R91 guard: direction UP -> ValueError(must be OUT)
+PASS  R91 guard: thick 9 -> ValueError(out of range)
+PASS  R91 guard: pattern KREIS -> ValueError(GRID)
+PASS  R91 guard: missing src -> ValueError(not found)
+PASS  R91 TEXTURE_APPLY: bad mode rejected
+PASS  R91 TEXTURE_APPLY: OFF mode -> pick-mode notice, no nonce
+PASS  R91 TEXTURE_APPLY: queued - the SELECTED file becomes the target + nonce bump (R189: preview_file wins over _PREVIEW.name - it is set synchronously WITH the subfolder path)
+PASS  R91 TEXTURE_APPLY: nothing selected -> error, nonce untouched
+PASS  R224 TEXTURE_APPLY: PRESET=ROPE -> BUMPS ROPE size 14.0 zsize 10.0 depth 0.5
+PASS  R224 TEXTURE_APPLY: PRESET=BASKET -> BUMPS BASKET size 10.0 zsize 10.0 depth 0.35
+PASS  R224 TEXTURE_APPLY: PRESET=CHESS -> BUMPS CHECKER size 12.0 zsize 12.0 depth 0.4
+PASS  R224 TEXTURE_APPLY: unknown preset rejected with the full list
+PASS  R224 TEXTURE_APPLY: fuzzy presets untouched (GRIP)
+PASS  R224 CHECKER: chessboard - cells alternate full, every boundary eased (max step 0.14, hard step would be ~2.0)
+PASS  R224 ROPE: exactly 3 strands at every height (peaks [3, 3, 3])
+PASS  R224 BASKET: weave - continuous spines (max step 0.35), backs above 0.8 (max 0.90) with deep grooves below 0.1 (min 0.00)
+PASS  R224 task15 BUMPS (same inner winding): inner walls FOLLOW the embossing - vertex distance stays one line width (0.42: min 0.419 max 0.421), valleys carve past the old cap (outer r 19.51 < 19.58) and the inner wall rides along (inner r 19.09), inner_shifted=438
+PASS  R224 task15 BUMPS (reversed inner winding): inner walls FOLLOW the embossing - vertex distance stays one line width (0.42: min 0.420 max 0.423), valleys carve past the old cap (outer r 19.51 < 19.58) and the inner wall rides along (inner r 19.09), inner_shifted=438
+PASS  R224 task15 FUZZY: Orca parity - inner walls stay untouched (inner_shifted=0, the inner section is byte-identical to the source)
+PASS  R91 LCD: Pre-Print > Texture (mode/fuzzy/bumps params + apply)
+PASS  R91 watcher: texture_nonce handler + lazy r2_texture import
+PASS  R93 scan: current / old / untouched / plotter + texture flag
+PASS  R93 scan: age 0 days, sorted by name, .txt ignored
+PASS  R93 CLI: --file-check lists every file + summary line
+PASS  R93 FILE_CHECK: scan -> retag cleared + nonce bumped
+PASS  R93 FILE_CHECK: RETAG without confirm only ARMS
+PASS  R93 FILE_CHECK: RETAG + CONFIRM -> retag=1 + nonce + disarm
+PASS  R93 LCD: System > File check (R212: back from Pre-Print > Fixes - a command-with-children was LCD-unreachable; Retag 2-press, gated NOW). R214 (.136m): the SAME list now ALSO lives in Pre-Print > Fixes > File check (field wish - the fixes are reachable from both places, one truth)
+PASS  R93 watcher: file_check_nonce handler + .r2bak backup + print guard
+PASS  R93/R91 watcher: both nonces in NONCE_KEYS (restart-safe)
+PASS  R94 vase: body OPENS with the cut feature (WALL-OUTER), not the raft type
+PASS  R94 vase: the body does not inherit INFILL-SOLID from the raft
+PASS  R94 brim: on the FIRST layer - inside raft layer 1, before layer 2
+PASS  R94 brim: raft resumes INFILL-SOLID right after the brim
+PASS  R94 info: TYPES describes the EXCERPT (skirt gone, body + generated in)
+PASS  R94 brim without raft: own Z line BEFORE the loops
+PASS  R94 TYPE_MAP: gap fill + Prusa/Cura dialects map
+PASS  R94 Prusa dialect: External perimeter -> WALL-OUTER marker
+PASS  R92.1 flow: global 98% x feature 110% = 108% (was absolute 110 before)
+PASS  R92.1 flow: live 150% (the global) x feature 110% = 165%
+PASS  R92.1 ironing flow: legacy 110% x global 90% = 99%
+PASS  R92.1 accel: feature 1000 x 150% = 1500 mm/s2 (limit scaled)
+PASS  R92.1 SET_GLOBAL_ACCEL_PERCENT: saves 150 + applies 1200->1800 now
+PASS  R92.1 SET_GLOBAL_ACCEL_PERCENT: 400 rejected (10..300)
+PASS  R92.1 SET_GLOBAL_ACCEL: feature keeps 1200 x 150% = 1800
+PASS  R92.1 SET_FLOW_RATE: global = the ONE regulator, features on top
+PASS  R92.1 LCD: Feat x%% input + effective accel + flow Src in Live Tuning
+PASS  R95 TYPE_MAP: overhang/internal bridge/prime tower/custom map
+PASS  R95 TYPE_MAP: Cura dialects map (lookup lowercases)
+PASS  R95 CFG_KEYS: small perimeter speed/accel -> SPEED_SMALL/ACCEL_SMALL
+PASS  R95 _FILE_INFO: replays the 4 new FS/FA features
+PASS  R95 _FILE_INFO: small perimeter speed/accel from the config header
+PASS  R95 08 cfg: absent-feature check runs over all 25 codes (16 + C1..C9)
+PASS  R95 _FILE_INFO_RESET: new feature vars + small perimeter wiped
+PASS  R95 APPLY_TYPE: overhang wall 50% + accel 800 applied
+PASS  R95 APPLY_TYPE: custom code accel limit applied
+PASS  R95 preset SAVE: all 16 feats in the snapshot
+PASS  R95 preset LOAD (16 feats): primetower + custom restored
+PASS  R95 preset LOAD (old 12 feats): new 4 fall back to OFF/100
+PASS  R95 _STATE: new feature vars + small perimeter declared
+PASS  R95/R250 LCD: the 4 new feature submenus live in Pre-Print now (the Live twin went with Live > Features) - every value stays reachable live through the four quick lists
+PASS  R95 LCD: new submenu names human (not the activator prefix)
+PASS  R95 pen: travel over an open hole retracts BELOW jump_d
+PASS  R95 pen: travel through a polygon slot retracts
+PASS  R95 labels: every travel over the label hole retracts (audit)
+PASS  R95 angles: every travel over a screw hole retracts (audit)
+PASS  R95 frame: view opening registered as polygon keep-out
+PASS  R95 beep: r2_confirm SILENT while printing
+PASS  R95 beep: r2_click SILENT while printing
+PASS  R95 beep: r2_happy (generator success) SILENT while printing
+PASS  R95 beep: r2_hot (live temp reached) SILENT while printing
+PASS  R95 beep: critical sounds ALWAYS audible while printing
+PASS  R188 beep: start/gen/done feedback SILENT while printing (LED carries it)
+PASS  R95 beep: r2_confirm audible again when idle
+PASS  R95 texture: ALL 12 arcs flattened, no G2/G3 left
+PASS  R95 texture: chords carry texture ALL around (> 95% shifted)
+PASS  R95 texture: arc E preserved (chords sum to the arc total)
+PASS  R95 texture: R-form arcs flatten too
+PASS  R95 texture: thickness range 0.05..1.5 (Orca sizes, 2.0 refused)
+PASS  R95 TEXTURE_APPLY: PRESET=ORCA sets FUZZY 0.3 / 100%
+PASS  R95 TEXTURE_APPLY: PRESET=LAYERS sets FUZZY 0.25 (hide layer lines)
+PASS  R95 TEXTURE_APPLY: unknown preset refused
+PASS  R95 LCD: texture presets menu (ORCA/LAYERS/SUBTLE/GRIP + R224 ROPE/BASKET/CHESS)
+PASS  R96 ties CLASSIC: head-channel crossings retract at any length
+PASS  R96 ties LOOP: slot-hole crossings retract at any length
+PASS  R96 seal FLAT: zero-length seams only - no hole crossing
+PASS  R96 seal GROOVE: travels across the open groove retract
+PASS  R96 seal GROOVE: exactly 3 retracts (2 long + 1 fixed, no zero-length extra)
+PASS  R96 bridge: every deck travel over the span retracts
+PASS  R96 bridge edge case (towers nearly touch): span crossings retract below the jump threshold too
+PASS  R96 frame: keyhole + stud-hole crossings retract (was 74 bad)
+PASS  R96 litho: no openings - every long travel retracts (R214: the side stands add ~1000 more, all retracted)
+PASS  R96 source: ties/seal/bridge/frame keep-outs + zero-length guard
+PASS  R97 frame 1pc: whole plate centered, nothing at the bed corner
+PASS  R97 frame multi: both plates centered, stand OFF the origin and clear of the backplate (was CENTER=0,0 half off the bed)
+PASS  R97 frame kit: every kit plate centered (strips / backplate)
+PASS  R97 frame ring L1: brim -> inner wall -> outer wall -> bottom
+PASS  R97/R101 frame ring L1: serpentine = long bead chains (R101 side grouping), travels few and retracted
+PASS  R97 backplate L1: continuous zigzag (connectors >= 100, travels only at the open holes)
+PASS  R97 kit strip L1: brim -> outer wall -> bottom, ONE travel (a single continuous bead)
+PASS  R97 cable slot L1: crossings of the open slot retract (no extruded connector across it)
+PASS  R97 source: centering + serpentine + poly offset + plate-B fix
+PASS  R98 source: start scan time-boxed (chunk constant + deferral, once exempt)
+PASS  R98 source: deferred files are NOT marked seen (retried next pass)
+PASS  R98 source: backlog push re-checks the preview nonce (never overwrites a selection)
+PASS  R98 source: catch-up messages (initial deferral + background done)
+PASS  R99 frame: _FILE_INFO + TYPES (brim/bottom/ironing; R127 one-piece 9x13 = frame + plate on ONE bed)
+PASS  R99 frame: oversized still splits A/B, TYPES on both, ironing only on A
+PASS  R99 frame: structured fronts tag SURFACE-TOP (was CUSTOM via "Top surface infill")
+PASS  R99 ties: _FILE_INFO + TYPES, BRIM only when the brim is on
+PASS  R99 angles: _FILE_INFO + TYPES (no brim feature, IRONING only when on)
+PASS  R99 labels: GROW grows the label to the font size, FIXED keeps W/H and scales
+PASS  R99 labels: preview min sizes only in GROW mode (LCD W/H lower limits)
+PASS  R99 source: mode wiring (watcher reads label_mode, CLI MODE, menu + macro)
+PASS  R100/R134 plot: a plain image is NEVER converted by the scan - no .gcode twin on the first or any later pass, the source stays (plotting = selecting the file; was: AxtBunny.png re-converted on every watcher start)
+PASS  R100/R134 source: the scan conversion branch is GONE (no out_p, no plain_upload, no in-place rewrite) - sources skip, converted plot files stay recognized, the 404 push hint lives on
+PASS  R101/R106 frame: 2 solid bottom skin layers, sparse body, front band = the top skin
+PASS  R101 frame: top_layers=2 thins the front band (5 -> 2 layers, depth constant -> back band grows)
+PASS  R101 frame: bottom_layers=0 = sparse from layer 1 (old behavior)
+PASS  R101 frame: infill=5% is valid now (was rejected below 20)
+PASS  R101 frame: structured front auto-raises a too-thin top band
+PASS  R101 frame: FLIP closes with the back skin on top (SURFACE-TOP tags + TYPES)
+PASS  R101 frame: mid-body layer crosses the opening only a few times (was ~139 long travels per layer)
+PASS  R101 source: top/bottom wiring (params, watcher, macro, menu) + buckets
+PASS  R102 plot: small image DRAW conversion stays inside the plot bed (was: y up to +1500mm past the bed)
+PASS  R102 frame: TYPES lists BRIDGE (the shelf bands tag it in every file)
+PASS  R102 source: yv scales by line count + plot bed guard
+PASS  R104 verdict: parked swap (109MB, quiet) = OK with explanation (.80 field case)
+PASS  R104 verdict: ACTIVE swapping (850KB/s) stays loud + names the eaters
+PASS  R104 verdict: unmeasurable activity stays conservative-loud (R78 case)
+PASS  R104 verdict: overload outranks parked swap
+PASS  R104 vmstat si/so parser: cols 7/8 on 16- and 17-col lines, garbage -> None
+PASS  R104 host_check v4: parked swap -> calm verdict, Top SWAP says COLD, no error sound
+PASS  R104 PRINT_END: reference axes keep X10 Y228 (nothing changes here)
+PASS  R104 PRINT_END: small bed clamps the presentation (Y228 -> 176, no crash)
+PASS  R104/R104.2 PRINT_END: _R2_CONFIG variable_present_x/y override (clamped to axes)
+PASS  R104 wipe: default anchor stays the axis-minimum corner (unchanged)
+PASS  R104/R104.2 wipe: _R2_CONFIG variable_wipe_x/y moves the pad (60/120 -> 60..73)
+PASS  R104 sources: no naked Y190 calibrator parks left, both clamped to the axes
+PASS  R104 sources: PLT_FRAME parks inside the PLOT bed (not X5 Y190)
+PASS  R104 megatest: --bed/--cfg adapt the sweep, small-bed ValueErrors count as SKIP
+PASS  R104.2 sources: no macro reads the old settings.get(r2_postproc) anymore
+PASS  R104.2 sources: 5 spots read [gcode_macro _R2_CONFIG] (prime, present, parks x2, wipe)
+PASS  R104.2 guard: NO shipped cfg carries a live [r2_postproc] header (halts Klipper!)
+PASS  R104.2 example: printer.cfg.example shows the valid _R2_CONFIG carrier (commented)
+PASS  R104.2 _PRIME_LINE: probe-safe window from the _R2_CONFIG bed (10..200 -> X15..125)
+PASS  R104.2 _PRIME_LINE: without _R2_CONFIG the Ender-3 default window is used (unchanged)
+PASS  R106 fan: scale wakes a 0% fan from the FILE value (printing L5, file S178, 80% -> M99106 S142)
+PASS  R106 fan: layer-1 hold still wins (stored, no forced M99106)
+PASS  R106 velocity: RESPOND explains the CAP semantics
+PASS  R106 corner: RESPOND names the visible lever (cruise ratio)
+PASS  R106 MCR: echo rounds (0.95, never 0.9500000000000004)
+PASS  R106/R123/R124/R168/R174b+R240 menus: 184 feature items (80 + 32 PA + 96 spd/flw/acc quick entries + R168 Custom/Overhang/IntBridge/PrimeTower on+fs) hide when the file lacks them; the 16 feature ON-toggles stay clickable with a (parked) name (R174b; R240: the 16 former File-info activators joined them) - available-but-off stay visible
+PASS  R106 preset: picking a preset fills W/H as editable values
+PASS  R106/R174c frame preset: SAVE stores the FULL config as ONE real dict (naked literal - no quotes, Klipper evaluates it to a dict)
+PASS  R106/R174c frame preset: SAVE on a taken name -> 9x13_2 (unlimited, never overwrites)
+PASS  R106/R174c frame preset: LOAD writes the vars (strings quoted, numbers bare, only keys the preset has)
+PASS  R188 preset engine: every SAVE_VARIABLE survives the REAL Klipper parser chain (shlex posix + literal_eval) - the naked-dict bug is dead
+PASS  R106/R174c frame preset: DELETE removes only the picked preset
+PASS  R106/R174c frame preset: PAGE flips and clamps (20 presets = 3 pages, forward sticks at page 3)
+PASS  R106/R174c frame preset: wrappers keep the old console commands
+PASS  R106 GEN_FRAME: WALLS=3 lands in frame_walls, WALLS=9 is rejected
+PASS  R106/R174c LCD: walls input + the NEW preset menu (8 load slots, 8 delete slots, no 8-slot limit anymore)
+PASS  R106 walls: wall_loops=3 -> ~3x wall length (3 loops/side), info walls=3
+PASS  R106 walls: wall_loops=1 stays the classic geometry (default)
+PASS  R106 walls: watcher passes frame_walls into make_frame
+PASS  R106 z-hop: G10 retracts (G10.1) then lifts Z (z 12.5 + 0.4 -> 12.9)
+PASS  R106 z-hop: OFF = pure passthrough G10.1
+PASS  R106 z-hop: G11 lowers back to the base z, then unretracts (G11.1)
+PASS  R106 z-hop: file moved Z itself (layer change) -> lower SKIPPED
+PASS  R106 z-hop: G11 without a lift = pure passthrough G11.1
+PASS  R106 z-hop: G10 with lift already active does not stack lifts
+PASS  R106 z-hop: SET_Z_HOP stores on+height, hint names G10/G11 + RetFix
+PASS  R106 z-hop: height guard 0.1..3mm
+PASS  R106/R159 SET_LIVE_ACCEL: caps globally AND arms live_accel (the file M204 cannot push it back - field log .115)
+PASS  R106 menus: Z-Hop in live AND pre-print, Velcap + Acccap live
+PASS  R106 print start: machine-limits line says travels included
+PASS  R106 tag audit SEAL: layer 1 = Bottom, last = Top, TYPES honest
+PASS  R106 tag audit LABELS: base L1 = Bottom, inlay = Internal solid + Top surface (R231: contours burn into the solid layer, fills flush with the top)
+PASS  R106 tag audit TIES: strap L1 = Bottom, strap top + head roof = Top
+PASS  R106 tag audit ANGLES: plate L1 = Bottom, top-2 layers = Top
+PASS  R106 tag audit BRIDGE: tower L1 = Bottom surface, deck stays Bridge
+PASS  R106 tag audit CURA: SKIN on layer 1 maps SURFACE-BOTTOM, layer 2 SURFACE-TOP
+PASS  R106 litho FLAT: step print, Bottom->Top tags, layer count
+PASS  R106 litho FLAT: monotone layers (rule ll by construction) - layer extrusion never grows
+PASS  R106/R128 litho FLAT colors: 3 colors -> legacy EACH = M600 per step + purge tower (was: 2 PAUSE + prime lines)
+PASS  R106 litho FLAT clamp: 80mm bed -> plate inside, aspect kept, note
+PASS  R106 litho STANDING: untouched default (kind, vertical)
+PASS  R106 litho SIZE SEMANTICS: FLAT header = picture in XY + Z relief = layers; STANDING = width X + print height Z
+PASS  R106 litho SIZE SEMANTICS: LCD RESPOND names XY (FLAT) vs Z height (STANDING)
+PASS  R106 litho: bad ORIENT raises
+PASS  R106 frame clamp: frame alone too big -> border clamped (not kit)
+PASS  R106 frame clamp: fitting layouts stay untouched (no clamp note)
+PASS  R106 frame clamp: OVAL rescued by the border clamp (no raise)
+PASS  R106 watcher: litho orient/colors/col_layers passthrough
+PASS  R106 LCD: litho Orient/Colors/ColL + dynamic Height max; frame W/H max
+PASS  R106 macros: _LITHO_SELECT + info name the orient and colors
+PASS  R106 z: SYNC_GANTRY refuses on 2+ Z steppers (points to Z_TILT)
+PASS  R106 z: SYNC_GANTRY refuses without a TMC driver (compat)
+PASS  R106 z: SYNC_GANTRY runs normally on the reference (single Z + TMC)
+PASS  R106 z: Z_TILT runs Z_TILT_ADJUST with retries+tolerance (dual Z + [z_tilt])
+PASS  R106 z: Z_TILT saves-variables defaults (retries 2, tol 0.05)
+PASS  R106 z: Z_TILT refuses on ONE Z stepper (points to SYNC_GANTRY)
+PASS  R106 z: Z_TILT refuses without a [z_tilt] section (setup hint)
+PASS  R106 z: Z_TILT_INFO lists the probe points + settings
+PASS  R106 z: toggles save zt_boot / zt_print
+PASS  R106 z: PRINT_START homing is 3-way (gantry single-Z / Z_TILT dual / G28)
+PASS  R106 z: LCD swaps gantry->z-tilt at every position (guards both ways)
+PASS  R106 preheat: 182C default (filament swap during the start dialog)
+PASS  R106 preheat: cap logic takes 182 as the floor (06_cap macro)
+PASS  R106 COMPAT SWEEP: 1675 menu exprs + 354 macro bodies render on reference AND minimal (1 Z, no mesh/shaper/objects/probe/TMC/LEDs) printer
+PASS  R108 LED: _NOZZLE_SET index follows the layout (3+4 -> INDEX=8)
+PASS  R108 LED: _NOZZLE_SET stays INDEX=5 without a profile (compat)
+PASS  R108 LED: _BEDLIGHT_SET lights LED 4-7 white at 0.4 (power cap)
+PASS  R108 LED: _BEDLIGHT_SET BRIGHT clamps at the 0.5 power cap
+PASS  R108 LED: _BEDLIGHT_SET OFF darkens every bed LED
+PASS  R108 LED: SET_LED_STATE re-applies the bed light after effects
+PASS  R108 LED: SET_LED_STATE keeps bn=0 installs unchanged (compat)
+PASS  R108 LED: SET_BED_LIGHT TOGGLE flips + persists into the profile
+PASS  R108 LED: SET_BED_LIGHT BRIGHT persists (0-0.5)
+PASS  R108 LED: SET_LED_LAYOUT 3+4 on an 8-LED chain (no clamp)
+PASS  R108 LED: SET_LED_LAYOUT hard-clamps to the chain (rule nn)
+PASS  R108 LED: SET_LED_LAYOUT without a profile -> clear refusal
+PASS  R108 LED: LED_INFO lists pin, chain, areas, switches
+PASS  R108 LED: LED_INFO without any LED section -> friendly
+PASS  R108 LED: SET_NOZZLE_SPLIT persists into profile AND variables
+PASS  R108 hw: HW_INFO reports profile + persister
+PASS  R108 hw: HW_INFO without a profile -> wizard hint
+PASS  R108 LCD: System > LED Setup submenu complete + guarded
+PASS  R108 files: wizard library + persister + backup shipped
+PASS  R108 watcher: _bed_limits reads r2_hardware.cfg too
+PASS  R109 _PROFILE_APPLY (file src): restores the pre profile
+PASS  R109 SAVE_FILE_PROFILE: no file selected -> clear refusal
+PASS  R109 SAVE_FILE_PROFILE: chains the snapshot save for the selected file
+PASS  R109 _PROFILE_SAVE: snapshots the live state + hands it to the writer
+PASS  R109 _PROFILE_WRITE: pre saved, post + other files PRESERVED, epoch bumped
+PASS  R109 FILE_PROFILE_DELETE pre: post survives
+PASS  R109 FILE_PROFILE_AUTO: flags set + NEWER profile (pre, ep 5>3) applied
+PASS  R169 FILE_PROFILE_AUTO: post is LEGACY - a newer post never auto-applies (pre does)
+PASS  R109 FILE_PROFILE_AUTO: auto-load OFF -> flags only, no apply
+PASS  R169 _OPT_END_CAPTURE: successful end stores the file + chains the snapshot
+PASS  R169 _OPT_END_CAPTURE: cancelled -> baseline restore, never a question
+PASS  R169 _OPT_PROMPT_RESOLVE: quiet resolve + timers cancelled (R173: ID= not NAME= - the field bug killed the YES press)
+PASS  R109 FILE_PROFILES_INFO: pre + post + newer verdict
+PASS  R109 FILE_PROFILE_LOAD post: chains the apply
+PASS  R109 FILE_PROFILE_LOAD: bogus WHICH refused
+PASS  R109 _GEN_OUT_SET OUT=PREVIEW: sticky switch to preview-only
+PASS  R109 _GEN_OUT_SET OUT=QUEUE: sticky switch to queue
+PASS  R109 generators accept OUT= (per-run override, here: cable ties)
+PASS  R169 PRINT_END: _OPT_END_CAPTURE hooked, silent takeover RETIRED
+PASS  R109 watcher: selection pushes FILE_PROFILE_AUTO + gen_out gates every generator
+PASS  R109+R240 LCD: Profiles menu = Depot + this file + From optimized
+PASS  R109 LCD: Tools > After gen (queue/preview) + explanation
+PASS  R109 _STATE: fp flags declared + boot inits for the three switches
+PASS  R169 retirement: no auto-post, no silent capture anywhere
+PASS  R169 _OPT_SNAP_WRITE DEST=snap: compact dict stored + chained ask
+PASS  R169 _OPT_SNAP_WRITE DEST=baseline: _STATE copy only
+PASS  R169 _OPT_END_ASK (R173): changed -> pending + hint, NO auto-timeout - the question stays until answered
+PASS  R169 _OPT_END_ASK: identical -> NO question at all
+PASS  R169 _OPT_PROMPT_YES (R173 fix): pending cleared + hint cancelled via ID= + job chained - the copy finally happens
+PASS  R169 _OPT_PROMPT_YES: nothing pending -> clear refusal
+PASS  R169 _OPT_PROMPT_NO: pending cleared + baseline restored (ID= cancel, no timeout line)
+PASS  R169 _OPT_QUEUE_JOB: nonce bump + honest message
+PASS  R169 _OPT_RESTORE_BASELINE: every override + feat back, material UNTOUCHED
+PASS  R169 _OPT_BAKED: dict stored + chained apply (overrides active)
+PASS  R169 _OPT_BAKED: AS SLICED -> stored but NOT applied
+PASS  R169 _PROFILE_APPLY SRC=opt: the baked dict applies like a profile
+PASS  R169 _OPT_APPLY_PICKED: name + nonce for the watcher
+PASS  R169 _OPT_APPLY_PICKED: out of range -> refusal, no job
+PASS  R169 _OPT_SAVE_LATER (R173 fix): idle + STRING snapshot -> job chained (is-mapping always refused in the field)
+PASS  R169 _OPT_SAVE_LATER: while printing -> refusal
+PASS  R169 _FILE_INFO: OPT=1 flags the copy on the display
+PASS  R169 LCD: Rate print? + Optimized + From optimized + OPTIMIZED row
+PASS  R169 watcher: copy job + E2 apply + list channel wired
+PASS  R170 layout: 14 mixed jobs (one grown to 94mm) - ZERO overlaps (the .128 field chaos: the uniform grid overwrote the shelf pack)
+PASS  R170 layout: label-to-label clearance >= 10mm everywhere
+PASS  R170 gap floor: gap=2 requested -> the plates keep 10mm apart
+PASS  R170 split: 14x 90x40mm overflow -> 2 part files, all named
+PASS  R170 split: every part is a complete plate (own PRINT_START + no overlaps inside)
+PASS  R170 dry runs leave NO residue: a split job writes exactly the part files (the .128-era dry probes leaked V0x leftovers)
+PASS  R170 plate handle: printed LAST on every shared layer (the nozzle never finishes on a label)
+PASS  R170 plate handle: >= 12mm clear of the label, GRIFF exclude object defined, bore bridge + top cap present
+PASS  R170 handle=2: separate handle file beside the stamp (as .127)
+PASS  R170 handle=3: handle file ONLY (no label plate written)
+PASS  R170 handle without stamp -> clear refusal
+PASS  R170 stamp with 2 labels -> refusal names the reason
+PASS  R170 watcher: cfg parser + kwargs builder + moonraker json + the shutdown watchdog wired
+PASS  R170 watchdog: 10min evidence curve + FIRMWARE_RESTART after 5min + restart caps (max 2, 1h cooldown)
+PASS  R170 live fit: the loop pushes label_w_now/h_now/caps + min W 12 / min H 10 (the 1cm labels)
+PASS  R170 dispatch: stamp queue refused loudly + split parts named + handle-only message + M117 carries the reason
+PASS  R170 LCD: Now-row live size + Queue bed-fit + stamp guard + Handle 0-3 + H min 10 + Gap min 10
+PASS  R170 litho handle=2: separate handle file beside the litho stamp (was: handle=1 before the renumbering)
+PASS  R170 litho handle=3: handle file ONLY - no picture processing at all
+PASS  R170 litho handle=1 (on the plate): refused with a pointer to the label stamps
+PASS  R171 string art SPIRAL: 12-layer anchor ring + the 6 proven thread bands + 3 finishing loops (the StringArt3D ladder)
+PASS  R171 string art: firmware retract per strand, Bridge feature, RING + FADEN exclude objects, band fan ramp
+PASS  R171 string art: PRINT_START + _FILE_INFO TYPES + 21 LAYER_MARKs (the live feature system sees the file)
+PASS  R171 string art PHOTO: greedy planner lays 50 chords from a dark disc, stem without extension in the name
+PASS  R171 string art PHOTO: same seed -> byte-identical output (reproducible, no hidden randomness)
+PASS  R171 string art: a 400mm circle clamps to the bed and SAYS so (brim-safe)
+PASS  R171 string art: PHOTO without an image refuses clearly
+PASS  R171 string art: unknown patterns refuse with the choices
+PASS  R172 canon map: separators are cosmetic - Wall outer, WALL-OUTER, wall_outer all map, unknown stays CUSTOM
+PASS  R172 the trash.gcode chain: texture -> range keeps the REAL features (WALL-OUTER arrives, CUSTOM is gone - tuning works)
+PASS  R172 RE-FIX heals pre-.129 files: wrong CUSTOM markers re-derived, correct ones and ;TYPE: untouched
+PASS  R172 wiring: separator-tolerant lookup used by ALL map consumers + watcher RETAG=2 branch (backup, max 20)
+PASS  R172 LCD: Re-fix types arm/NOW (2-press, own armed flag) + FILE_CHECK RETAG=2 renders without a semicolon in strings
+PASS  R173 rate print: no NAME= misuse anywhere, no 90s auto-timeout block, opt_cnt pushed for the LCD counter
+PASS  R173 rate print: new selection answers NO (both start paths resolve the question before loading)
+PASS  R173/R248 SD card: the four stock rows (Start/Resume/Pause/Cancel) are Klipper's own again - the kill-overrides are gone with the parked browser, so no dead entries after a print
+PASS  R173 SD browser: 40 slots + page flip at 40 + recursive tree walker in the watcher
+PASS  R173/R247 SD browser: the macros slice 40 out of sd_cur (the CURRENT folder, no tree) and stay nest-friendly (Mandelbrot pattern retired in the same sweep)
+PASS  R173 SDNAV_PAGE: 45 entries -> 2 pages of 40, page 2 holds the last 5 (no dead zones, no 20-cap)
+PASS  R247 SDNAV_GO: entering a folder sets the PATH and asks it to load (no tree work inside the reactor)
+PASS  R110 LCD: all 170 profile/gen-out menu templates render
+PASS  R110 LCD: NO restart anywhere in the profile menus
+PASS  R110+R240 LCD: full profile lifecycle reachable from the display
+PASS  R110+R240 LCD: EVERY profile action is TWO-PRESS (gen_arm + CONFIRM)
+PASS  R110/R169 LCD: the auto-load toggle is switchable at the display
+PASS  R110+R240 LCD: material save does NOT load the material first (the quick templates live in Pre-Print > Material now)
+PASS  R111 M106: clamp ON caps S255 -> S230 (max 90%)
+PASS  R111 M106: clamp lifts S10 -> S26 (min 10%)
+PASS  R111 M106: clamp OFF -> S255 untouched
+PASS  R111 M106: bridge boost 100% lifts S128 -> S255 (clamped file!)
+PASS  R111 APPLY_TYPE: feature PA 0.06 applied at the boundary
+PASS  R111 APPLY_TYPE: leaving the feature restores the global PA 0.05
+PASS  R111 APPLY_TYPE: shaper OFF while wallouter prints (freqs saved 52.3/41.7)
+PASS  R111 APPLY_TYPE: shaper back ON with the saved freqs after the feature
+PASS  R111 SET_FAN_CLAMP: MIN>MAX rejected
+PASS  R111 SET_FAN_CLAMP: ON=1 stores the curve
+PASS  R111 SET_FEAT_PA: PA over 0.3 rejected
+PASS  R111 SET_FEAT_PA: PA=0.05 routes through feat_pa_wallouter
+PASS  R116 SET_FEAT_SHAPER_OFF: no [input_shaper] -> NOTIFY on the LCD too
+PASS  R111 SET_FEAT_SHAPER_OFF: STATE=1 arms the switch
+PASS  R111 SET_UNRETRACT_EXTRA: 0.05 -> SET_RETRACTION_BASE
+PASS  R111 _FEAT_TUNING_RESTORE: PRINT_END/CANCEL safety net restores PA + shaper
+PASS  R111 _FILE_INFO: geometry keys land in _STATE (derived/conf/cover/maxrate/seam)
+PASS  R111 _FILE_INFO: honest wording - "DERIVED by geometry ... classifier guessed"
+PASS  R111 _FILE_INFO: flow + seam line for the console
+PASS  R111 _FILE_INFO_RESET: the new state clears with the rest
+PASS  R111 _PROFILE_APPLY: 5-element feats load feature PA 0.04
+PASS  R111 _PROFILE_APPLY: old 4-element profile -> PA 0 (no crash)
+PASS  R111 _PROFILE_APPLY: fan clamp + shaper-off replay from the preset
+PASS  R111 _PROFILE_SAVE: snapshot carries the 5th element (feature PA)
+PASS  R111 FIX_FILE WHAT=FLOWCAP: arms the watcher nonce (cap 5.5)
+PASS  R111 FIX_FILE WHAT=FLOWCAP: silly caps rejected honestly
+PASS  R111 FIX_FILE WHAT=TRAVELACC: arms the watcher nonce (6000 mm/s2)
+PASS  R112 a pre-.86 (v4-tagged) file counts as STALE, not CURRENT
+PASS  R112 RETAG upgrades v4 -> v5 with NO double markers
+PASS  R112 RETAG result is CURRENT again and carries the new keys
+PASS  R112 RETAG is idempotent (second run skips)
+PASS  R112 Bowden file (4.5 mm retracts): verdict FIX, not optional
+PASS  R112 moderate retracts (0.8 mm): verdict CAN (optional)
+PASS  R112 G10/G11 file: verdict FW (nothing to do)
+PASS  R112 already-rewritten file: verdict FIXED
+PASS  R112 _FILE_INFO: RETRACT_STATUS/MAX land in _STATE
+PASS  R112 _FILE_INFO: fw verdict explains itself (nothing to do)
+PASS  R112 _FILE_INFO_RESET clears the verdict
+PASS  R112 _PREVIEW_SET resets the verdict (STALE files show -- not the old one)
+PASS  R112 LCD: RetFix file gated on the verdict (fix/can), not just style
+PASS  R112 LCD: the Ret: status line names all four verdicts + fallback
+PASS  R112 LED_INFO: bn=0 -> no bed light LEDs (main chain), not 5-4
+PASS  R112 file-check summary teaches the RETAG path for stale files
+PASS  R112 cross-check: all 84 _FILE_INFO keys map to DECLARED _STATE vars
+PASS  R112 cross-check: every mapped var is in _FILE_INFO_RESET
+PASS  R112 cross-check: all 44 post-processor CFG_KEYS reach the _FILE_INFO parser
+PASS  R112 cross-check: reset list has no undeclared variables
+PASS  R112 cross-check: the 26 feature codes (16 + travel + C1..C9) are identical in 07/10/05
+PASS  R115 M106 HOLD: file S255 -> hold 40% -> S102 (file ignored)
+PASS  R115 M106 HOLD off (0): file rules again (S255 passthrough)
+PASS  R115 SET_FAN_HOLD 40%: applies immediately + speaks it
+PASS  R115 SET_FAN_HOLD 0: back to the file values
+PASS  R115 APPLY_TYPE: no own PA but global 0.055 ON -> boundary states it
+PASS  R115 _WAIT_IDLE_RESTORE: config idle_timeout back
+PASS  R115 _SELECT_FILE: generator takeover does NOT kill the preheat
+PASS  R115/R174c frame preset load: a preset without bot_l leaves the setting untouched (never 0 = see-through!)
+PASS  R115 LCD: 25 feature-PA inputs in Pre-Print > Features (16 + C1..C9)
+PASS  R213/R250 LCD: the live PA inputs are the PA quick list now - one row per feature code (the numbered C1..C9 slots stay in Pre-Print where the custom blocks are managed)
+PASS  R115 LCD: PAUSE NOW no longer the FIRST entry + two-press
+PASS  R117 LABELS: fills chain continuously (>=4 extrusions per travel, was ~1; R231: the inlay keep-outs punch holes into the top fill - its travels double, the chaining itself is intact)
+PASS  R117 LABELS: ironing angle == top angle (<=8 deg, was 90)
+PASS  R117 BRIDGE: deck fills chain continuously (>=20:1)
+PASS  R117 TIES: strap fills chain continuously (>=20:1)
+PASS  R117 ANGLES: plate fills chain (>=4:1 - hole crossings stay travels)
+PASS  R117 ANGLES: ironing angle == top angle (<=8 deg)
+PASS  R117 FRAME: ring fills chain continuously (>=10:1)
+PASS  R117 FRAME: ironing angle == top angle (<=8 deg, was 45)
+PASS  R117 source: _emit_hatch only for single-line patterns (7 left) + range uses _serp_g
+PASS  R119/R160 default path byte-identical across builds (frozen md5, R159 speed image + R160 file info)
+PASS  R119/R160 explicit defaults == implicit (no hidden coupling)
+PASS  R119 OVAL: walls+fill+ironing inside the ellipse (layers 2+4)
+PASS  R119 OVAL: EXCLUDE polygon is the outline (not the 4-pt rect)
+PASS  R119 ROUND: everything inside the rounded rect (corner 6mm)
+PASS  R119 border: text layer carries the ring at wid/2+gap (+k*wid)
+PASS  R119 border: base layers stay at the classic outer wall (no ring)
+PASS  R119 border: ring BREAKS at the hole (no bridge over the opening)
+PASS  R119 border: hole rings present in the top inlay layer
+PASS  R119 height 12mm -> 60 base layers, 52 sparse between 4+4 solid
+PASS  R119 sparse band: 45/135 alternating per layer, ~8.1mm spacing
+PASS  R119 _FILE_INFO carries SPARSE-INFILL only for tall bases
+PASS  R119 height 1mm stays solid (5 layers, no sparse type)
+PASS  R119 label_preview: border shrinks the projected caps (same as print)
+PASS  R119 LCD: W/H inputs step 1mm (was 5)
+PASS  R119 LCD: Height/Shape/Corner/Border/B.Gap inputs exist, layer-count input retired
+PASS  R119 GEN_LABELS: HEIGHT/SHAPE/CORNER/BORDER/BORDER_GAP params wired
+PASS  R119 GEN_LABELS: SHAPE=ROUND maps to 2 (RECT stays 0)
+PASS  R119 watcher: make_labels call carries height/shape/corner/border
+PASS  R114 DERIVED message: 70% confidence (0.7 was shown as 0%!)
+PASS  R114 DERIVED message: no ; anywhere in the message (the cut)
+PASS  R114 codebase: no ; inside any double-quoted string (22 fixed)
+PASS  R120 modules: 18_colorpic.cfg sentinel + _CHECK_INSTALL + include
+PASS  R120 pause compat: 3x guarded SET_LED_STATE STATE=filament (blink owns the nozzle)
+PASS  R120 make_colorpic: file + info (4 bands x 4 layers, nested light->dark)
+PASS  R120 make_colorpic: SWAP before M600 + DONE after, at every boundary
+PASS  R120 make_colorpic: types + layers + start/end (feature tagging)
+PASS  R120 make_colorpic: swap line format (off-by-one guard)
+PASS  R120 make_colorpic: unknown color raises with palette list
+PASS  R120 _COLORPIC_LED_APPLY: SET_LED with brightness cap (leds_on)
+PASS  R120 _COLORPIC_SWAP: 10 state vars + M117 + notify + LED + blink armed
+PASS  R120 _COLORPIC_BLINK: phase 0 shows PREV color + re-arms
+PASS  R120 _COLORPIC_BLINK: phase 1 shows NEW color + M117 name + re-arms
+PASS  R120 _COLORPIC_BLINK: print resumed -> blink stops by itself
+PASS  R120 _COLORPIC_DONE: blink off + steady new color
+PASS  R120 COLORPIC_SET_COLOR: pads unset bands with GRY (no while loop)
+PASS  R120 COLORPIC_SET_COLOR: replaces band 2, trims beyond
+PASS  R120 COLORPIC_SET_COLOR: bad color rejected (palette listed)
+PASS  R120 COLORPIC_SET_COLOR: band 9 rejected (1..8)
+PASS  R120 COLORPIC_CREATE: no image -> notify, no nonce
+PASS  R120 COLORPIC_CREATE: slot 1 -> litho_file saved + nonce bump
+PASS  R120 GEN_COLORPIC: 8 params saved, paced, chains CREATE
+PASS  R120 GEN_COLORPIC: quoted SRC rejected
+PASS  R120 LCD: ColorPic in Tools menu (guarded) with all settings
+PASS  R120 LCD: menu names stay short (R29)
+PASS  R121 travel fix: wraps blocks, rewrites F, restores modal F
+PASS  R121 travel fix: live markers around every block (feature restored - R143: the 2nd restore reports the CORRECT feature, the canonical ;TYPE:INFILL-SPARSE is recognized)
+PASS  R121 travel fix: header line + block count
+PASS  R121 travel fix: IDEMPOTENT (re-run = byte-identical)
+PASS  R121 compat: _travelaccel_fix_file = accel only, no markers
+PASS  R121 travel fix: slicer M204 inside the block closes it (its value rules)
+PASS  R121 process(): FTRAVEL in _FILE_INFO (dominant travel speed)
+PASS  R121 FIX_FILE TRAVEL: saves speed+accel+nonce, explains live markers
+PASS  R121 FIX_FILE TRAVEL: speed 5 rejected (0 or 20..300)
+PASS  R121 FIX_FILE TRAVEL: accel 5 rejected (0 or 100..100000)
+PASS  R121 FIX_FILE TRAVEL: 0/0 = pure live markers, no rewrite
+PASS  R121 APPLY_TYPE Travel: ON -> M99220 130% + M99204 5000, NO respond spam
+PASS  R121 APPLY_TYPE Travel: OFF -> clean global factor only
+PASS  R121 APPLY_TYPE Travel: percent rides ON TOP of the global (50 x 1.3)
+PASS  R121 SET_OVERRIDE_VALUE: feat_spd_travel saves ovf_travel_spd
+PASS  R121 _FILE_INFO: TRAVEL=150 -> file_travel + hint RESPOND
+PASS  R121/R160 LCD Pre-Print > Fixes: Travel speed input + Fix travel + file speed shown
+PASS  R121/R250 LCD: the live Travel rows are the SPd and ACC quick rows (speed % and accel of every travel) - the on/fs pair stays in Pre-Print, the value rows carry no file-types gate
+PASS  R121 LCD: flow cap fix ALWAYS visible again (R120 gate removed)
+PASS  R121b modules: 19_bricks.cfg sentinel + _CHECK_INSTALL + include
+PASS  R121b catalog: cfg list == BRICK_CATALOG (76 codes, ALL families, in sync)
+PASS  R121b make_bricks: bodies exact (2x4=15.8x31.8, 2x2 plate 15.8x15.8) + centered (R132)
+PASS  R121b make_bricks: EXCLUDE balance + TAG + PRINT_START/END + APPLY
+PASS  R121b make_bricks: over-cap raises (120 max)
+PASS  R121b BRICK_ADD: empty queue -> B2x4:2 saved + paced
+PASS  R121b BRICK_ADD: same code MERGES (B2x4:2 +3 -> B2x4:5)
+PASS  R121b BRICK_ADD: unknown code rejected
+PASS  R121b BRICK_ADD: count 0 rejected
+PASS  R121b BRICK_ADD: queue cap 120 -> notify
+PASS  R121b BRICK_DEL_LAST: drops the last entry
+PASS  R121b BRICK_CLEAR: arms first (2-press)
+PASS  R121b BRICK_CLEAR: confirmed -> empty quoted value
+PASS  R232 BRICK_CLEAR: second LCD press clears (arm, no CONFIRM)
+PASS  R232 BRICK_DEL_LAST: legacy LIST queue heals -> clean string
+PASS  R232 BRICK_ADD: quote-baked queue heals on merge
+PASS  R232 BRICK_SHOW: healed display (no quote residue)
+PASS  R121b BRICK_CREATE: empty -> notify, no nonce
+PASS  R121b BRICK_CREATE: queue -> nonce bump + confirm + thread note
+PASS  R121b GEN_BRICKS: valid codes -> queue saved + chains CREATE (call stays raw)
+PASS  R121b GEN_BRICKS: bad code rejected with catalog
+PASS  R121b GEN_BRICKS: over 120 parts rejected
+PASS  R122 PLOT_CAL: idle -> nonce bump + explains the three tests
+PASS  R122 PLOT_CAL: printing -> blocked
+PASS  R122 make_plot_cal: R2-PLOT file (63 dots, strokes, area 100x140)
+PASS  R121b LCD: Bricks menu - 9 catalog groups, queue, settings, CREATE
+PASS  R122 LCD: Cal test in the Plotter menu
+PASS  R122 LCD: flow cap range 0.5..50 + high-flow hint
+PASS  R121b LCD: bricks menu names stay short (R29)
+PASS  R123 LCD Live: Z-Hop + PA + PA-smooth + Retract directly in the root
+PASS  R123/R160 LCD Pre-Print > Fixes: travel fix + flow cap + cap value + Z-Hop direct (the R123 duplicates INSIDE File are gone - ONE canonical set per fix now)
+PASS  R123 LCD: PA quick lists in Live AND Pre-Print (16 features each)
+PASS  R123 LCD: PA quick list has NO travel entry (meaningless PA)
+PASS  R123 LCD: PA quick list names stay short (R29)
+PASS  R124 LCD: Spd/Flw/Acc quick lists in Live AND Pre-Print (17/16/17 entries)
+PASS  R124 LCD: travel in Spd+Acc lists (the travel levers), NOT in Flw/PA
+PASS  R124 LCD: quick values switch the feature ON (spd != 100, acc > 0)
+PASS  R124 LCD: single % in the value names (no 120%% display bug)
+PASS  R124 LCD: quick list names stay short (R29)
+PASS  R125 voxelizer: SUPPORT never reaches the kit (cells identical)
+PASS  R125 voxelizer: solid box -> infill share high (no shell verdict)
+PASS  R125 kit SMALL BY_LAYER: 1 brick band, solid fill, zero M600
+PASS  R125 kit: EXCLUDE balance (parts x layers) + TAG + START/END
+PASS  R125 kit: greedy decomposition uses 2-wide bricks (kit look)
+PASS  R125 kit BIG 3 colors: 3 plates, ONE color each (plate change = color change)
+PASS  R125 kit BY_OBJECT: sequential objects, M600 only at the color boundary, BY_OBJECT=1
+PASS  R125 kit VASE: shell detected -> the kit builds ring walls
+PASS  R125 kit: colors 9 rejected (1..8)
+PASS  R125 kit: bad mode rejected
+PASS  R125 kit: missing source rejected
+PASS  R125b wiring: brickkit_nonce is a primed nonce channel
+PASS  R125b wiring: watcher resolves newest job, skips own 00_ output, threads + errors to the LCD
+PASS  R125b GEN_BRICKKIT (R133d): no params -> the SELECTED file wins, nonce bumps (never a guessed newest job)
+PASS  R125b GEN_BRICKKIT (R133d): nothing selected -> clear error, no nonce
+PASS  R125b GEN_BRICKKIT: path in SRC rejected (no nonce)
+PASS  R125b GEN_BRICKKIT: bad DETAIL rejected
+PASS  R125b GEN_BRICKKIT: bad MODE rejected
+PASS  R125b GEN_BRICKKIT: colors 9 rejected
+PASS  R125b GEN_BRICKKIT: index 9 rejected (0..4)
+PASS  R125b GEN_BRICKKIT: full params -> all five saved + paced
+PASS  R125b LCD: Tools > Bricks > Kit menu complete (source = the SELECTED file, detail, mode, colors 1-8, CREATE)
+PASS  R125b LCD: CREATE chains GEN_BRICKKIT, kit sits INSIDE Bricks
+PASS  R126 figures 100%: 2 figures = 10 parts, ~40mm, one color, zero M600
+PASS  R126 figures 100%: system mating documented (hands/hats/feet)
+PASS  R126 figures: z monotonic (parts interleave per layer)
+PASS  R126 figures: layer snap noted (head 8.5 -> whole layers)
+PASS  R126 figures 50%: half height, display-only note, 5 parts
+PASS  R126 figures: scale rejected ({'scale': 10})
+PASS  R126 figures: scale rejected ({'scale': 400})
+PASS  R126 figures: count rejected ({'count': 0})
+PASS  R126 figures: count rejected ({'count': 30})
+PASS  R126 wiring: figures_nonce primed + threaded watcher
+PASS  R126 GEN_FIGURES: no params -> saved vars win, nonce bumps
+PASS  R132 GEN_FIGURES: SINGLE mode saved + fused-piece note
+PASS  R132 GEN_FIGURES: bad MODE rejected
+PASS  R132 GEN_FIGURES: COLORS 9 rejected (1..4 zone colors)
+PASS  R132 GEN_FIGURES: BRIM 12 rejected (0..8)
+PASS  R132 GEN_FIGURES: bad COLORMODE rejected
+PASS  R132 GEN_FIGURES: full param set saved + paced
+PASS  R126 GEN_FIGURES: scale 400 rejected
+PASS  R126 GEN_FIGURES: count 30 rejected
+PASS  R126 GEN_FIGURES: params saved + paced
+PASS  R126 LCD: Tools > Bricks > Figures (scale 25-300, count 1-24, CREATE)
+PASS  R126 LCD: figures menu names stay short (R29)
+PASS  R128 boost: contrast push is clamped and symmetric
+PASS  R128 litho FLAT: step print - 3 steps x 2 layers, step 0 = the whole area, zero M600, no tower
+PASS  R128 litho FLAT LAST: one M600 before the darkest step + purge tower on every layer
+PASS  R128 litho FLAT EACH + frame: M600 per step, border + rounded corners (rounded outer wall)
+PASS  R128 litho FLAT: contrast boost noted, off = no note
+PASS  R128 litho FLAT: bad col_mode rejected
+PASS  R128 litho STANDING: untouched by the FLAT rebuild
+PASS  R128 colorpic swap OFF: bands print without M600, no tower
+PASS  R128 colorpic swap ON: M600 per band + purge tower on every layer + PRIME-TOWER tagged
+PASS  R128 wiring: watcher reads the new litho + colorpic variables
+PASS  R128 LCD: litho StepL + Color swap + Border + Corner + Contrast
+PASS  R128 LCD: colorpic Swap + Contrast toggles
+PASS  R128 GEN_COLORPIC: SWAP/CONTRAST params saved + paced
+PASS  R130 gate: AST walk flags unknown filters (the .90 boot blocker class - endswith)
+PASS  R130 gate: the FIXED colorpic pattern passes the walk
+PASS  R130 validator: unknown-filter AST rule built in (boot blockers die before the printer sees them)
+PASS  R130 COLORPIC_CREATE: .png SRC accepted -> litho_file saved + nonce bump
+PASS  R130 COLORPIC_CREATE: non-image SRC falls back -> pick hint, no nonce
+PASS  R133h SAVE_VARIABLE pipeline: every rendered macro save AND every menu save survives Klipper exactly (no SyntaxError = no mid-print shutdown; the .100 killer was a bare value)
+PASS  R133h watcher pushes: _save_var + list forms survive the pipeline
+PASS  R133i float echo: ColorPic total thickness (3 x 0.6) renders as 1.8mm - no raw 1.7999999999999998 tail from an unparenthesized product before |round
+PASS  R133i one-shot safety: --file-check leaves a live watcher alone (no takeover, lock untouched, watcher still alive afterwards)
+PASS  R134 PLOT SELECTION: image in the file list -> plot mode (plot_src + plot_nonce bump), NO print start, NO preheat
+PASS  R134 PLOT SELECTION: text source -> plot mode too
+PASS  R134 PLOT SELECTION: converted plot g-code (.gcode tail) prints the NORMAL way (dialog + hold), not the source flow
+PASS  R134 PLOT SELECTION while waiting: refused like any print
+PASS  R134 PLOT SELECTION while busy: refused, never BASE-starts an image as g-code
+PASS  R134 NO AUTO-CONVERT: a plain image/text in the gcodes folder gets NO .gcode twin; a raw .gcode-tailed upload is left byte-identical with a rename hint (plotting = a selection, never background work)
+PASS  R135 menu inventory: NOTHING lost - every vanished path is a documented merge/rename, every new one planned (golden = pre-.104, 1657 paths)
+PASS  R175b+R240/R250 Live Tuning order: Temps+Fan FIRST -> Z-Hopping submenu -> Z-Offset+babysteps as the first plain rows -> the FOUR quick lists (Spd/Acc/PA/Flow per feature, B1: no Motion detour any more) -> Motion (Velocity/Extrusion/Retraction) -> Sources/File/Plotter -> Exclude + Pause at the very END; the Live > Features submenu is gone
+PASS  R240/R250 Live Motion mirrors Pre-Print Motion: Velocity (caps + cruise + corner) -> Extrusion (PA/smooth/flow/ironing) -> Retraction - the per-feature lists are SIBLINGS now (B1), they are no longer Motion children
+PASS  R175b Live Motion submenu: Velocity -> Extrusion (PA+smooth moved in) -> Retraction (the four loose rows became a submenu)
+PASS  R175b Pre-Print order (.130 wish list): File info FIRST -> Fixes (with File check + Segment explanation) -> Tools submenu (Offset/Texture/Range/Plotter) -> Temps (Material/Filament) -> Motion (Velocity/Extrusion/Retraction submenus) -> Features -> utilities -> Profiles at the very END, lone Defaults entry gone (it duplicated Profiles > Defaults)
+PASS  R175b Pre-Print Tools submenu + Motion split
+PASS  R135/R151 Offset X/Y/Z: ONE fine input per axis (0.05mm steps, fast turn 0.5mm) + a How-it-works row - the coarse/fine duplicates showed the SAME value (field report .111)
+PASS  R145 stock menus hidden CORRECTLY: OctoPrint + Temperature + Setup overridden with FULL definitions (type+name+enable False - Klipper reads every [menu] section standalone, enable-only = boot halt, field report .105), SD Card overridden R151 with a FULL recursive browser definition (stock showed the root only), and NO menu section anywhere in lcd_menues.cfg lacks type
+PASS  R135 quick access carries the GLOBALS: PA (toggle+value+smooth) and flow (toggle+value) and accel (toggle+value) and 1st-layer speed in Pre-Print; live global speed (M220) + live accel in Live Tuning
+PASS  R135 Now rows: all 8 quick menus show the ACTIVE feature (current_type) - the Speed/Accel live-display pattern
+PASS  R135 plot sections gated: Pre-Print __plot (pl* moved out of File) and Live __plot only appear for plot files (_PREVIEW.plot or file_type plot)
+PASS  R135 Z-Hop dedupe: Velocity carries exactly ONE toggle + ONE input (was duplicated: top-level + Motion)
+PASS  R135 temp tower: the dead duplicate __go is now __gen - Start tower AND Print tower both reachable
+PASS  R146 SET_EXTRUDER_DRIVE BOWDEN: starting point 4.5mm @ 30mm/s, all three override keys ON, ov_drive saved, paced writes, firmware retraction applied live, UI sound (never _SOUND_LIB)
+PASS  R146 SET_EXTRUDER_DRIVE DIRECT: 0.6mm @ 40mm/s + z-hop OFF (a direct drive needs no hop), same pacing discipline
+PASS  R146 SET_EXTRUDER_DRIVE guard: no/unknown TYPE -> usage message only, nothing written
+PASS  R146 SET_EXTRUDER_DRIVE without [firmware_retraction]: the values still save + the live apply is SKIPPED cleanly (no unknown-command crash on a bare printer)
+PASS  R146 Velocity: Drive row at the top of Retraction (shows the current profile + swaps DIRECT<->BOWDEN) and the ranges span both worlds (length 0-15mm, speeds 5-100mm/s)
+PASS  R146/R160/R250 activator rows (Pre-Print, 16): the ON state lists WHICH parameters are non-neutral - S=speed A=accel F=flow P=PA - and the rows carry the visible [on]/[off] marker since .120 (the Live twin left with Live > Features)
+PASS  R146 activator marker RENDER: OW with spd 80% + PA 0.03 shows '[on] ... S P' (no A, no F); OFF shows plain [off]
+PASS  R146 Gen files slots: basename on the 20-char LCD (path split) but the FULL relative path goes to SDCARD_PRINT_FILE - subfolder outputs stay selectable (24 select + 24 delete slots since R187)
+PASS  R155/R247 SD Card browser: REAL folder navigation - the watcher pushes sd_cur (current folder) + sd_gen + the view, pure single-brace menu templates, SDNAV_* move the path
+PASS  R158/R160 naming source: version FIRST at every generator (Vnn_Name since .120 - the 00_ prefix is GONE, 18+ sites), _next_gen_version folder-global WITHOUT a prefix argument, no _WATCH_ROOT left, the texture tool mirrors the scheme (legacy stems lose their tail version AND their old 00_ prefix - exactly one Vnn_ head per file), _is_gen_name knows all three formats
+PASS  R158/R160 labels E2E: legacy 00_Garage_V05 + 00_V04_Alt in the folder -> the next file is V06_R2-D2.gcode, the one after V07 - the number never repeats across ALL THREE name formats (field log .98 rule, folder-global)
+PASS  R158/R160 LCD display: the SD browser hides the .gcode tail (file slot shows V06_R2-D2 = version FIRST, 12 of 15 chars), folders keep the > marker, a .jpg stays untouched, and the Gen files list shows the same name - two generations are ALWAYS told apart by the leading number
+PASS  R159 texture: Z-FIRST spiral moves scattered (the .115 field vase came out smooth - the old regex demanded X right after G1 and skipped the whole spiral; token order is free now, Z + E stay untouched on the line)
+PASS  R159 range: the cut-ACTIVE feature lands in TYPES=/FS_ (spiral files state their ;TYPE: once, above the window - the excerpt must still advertise WALL-OUTER, with its measured speed)
+PASS  R159 SET_OVERRIDE_VALUE: a feature value ARMS the feature (spd/acc/flw write ovf_*_spd AND ovf_*_on - the trailing SAVE_VARIABLE used to sit behind a comment)
+PASS  R159 _LIVE_RESET: machine limits back (accel from the printer config, M220/M221 100%, g_speed_clean 100) - runs at start, end and cancel
+PASS  R146 generator folders (source wiring): all 21 watcher call sites route into _gensub subfolders (no flat out_dir=directory left), gen_files lists RELATIVE paths incl. legacy root files, delete joins the subpath (R224: +Mirror)
+PASS  R146/R158/R160 _gensub + version scan: Labels/ created on demand; the scan counts ALL THREE name formats in the OUTPUT folder (legacy 00_X_V07, R158 00_V09_X, current V11_Y -> next is V12, never a reuse); the ROOT keeps its own sequence (folder-local since R158 - legacy root files no longer shift subfolder numbers)
+PASS  R160 _GEN_ARM: arms the key + 10s self-clear + click sound
+PASS  R160 _GEN_GO: second press = disarm + silent start-dialog cancel (quiet flag, no r2_sad) + the r2_gen start chirp
+PASS  R160 _GEN_GO: nothing waiting -> just disarm + chirp (no decision touched)
+PASS  R160 start poller: quiet cancel - the dialog closes without r2_sad when a generation took over
+PASS  R160 CABLE_TIE_GENERATE CONFIRM=1 unarmed: first press ARMS (no nonce bump yet)
+PASS  R160 CABLE_TIE_GENERATE CONFIRM=1 armed: second press = _GEN_GO + the nonce bump
+PASS  R160 LCD: 49 rows confirm by DOUBLE PRESS (macro + CONFIRM=1), console stays single-shot (R224: +Mirror +Rope/Basket/Chess presets; R240: +the 6 profile actions +queue stop)
+PASS  R160 _GEN_ARM_CLEAR: the 10s window closes itself
+PASS  R160 Fixes menu: separate + self-explaining (How it works, > = run, * = edit) - File info carries NO fix rows anymore
+PASS  R160 File info: info + feature toggles ONLY (no FIX_FILE, no RetFix toggle) + its own How-it-works row
+PASS  R160 real values: every TYPES entry gets FS_/FA_ (the Spd/Acc/feature rows read exactly those) + SLICER=R2_GEN + RETRACT_STATUS=fw - idempotent
+PASS  R160 _PREVIEW_SET: hotend/bed/fan reset to 0 on every push (generated files carry none - the old card kept the PREVIOUS file temps)
+PASS  R160 File info: temp rows fall back to the material PRESET when the file carries none (generated files heat via PRINT_START)
+PASS  R160 file check: the census walks the generator SUBFOLDERS (relative names) and knows the Vnn_ format + legacy 00_
+PASS  R160 status plot: V01_R2_Status.gcode (the .115 residuum - the old 00_R2_Status_V01 name finally migrated)
+PASS  R160b watcher heals a stuck start: PRINT_START died (homing error) -> mode starting + standby for 3+ min = back to idle, LED idle, a notice sound - generators and sounds unblocked
+PASS  R160b watcher: a REAL start phase (bed chasing 100C) keeps waiting - no premature heal
+PASS  R160b watcher heals a wedged end: mode printing but the printer says standby -> idle after 15s (LEDs stop blinking)
+PASS  R160b _UI_SOUND: stuck mode + real standby = the sound PLAYS; a real print still mutes (the .120 field log: lost confirm sounds)
+PASS  R160b job start chirp: _PLAY_JOB_START plays r2_gen (queued generations announce their actual build start)
+PASS  R160b _LED_TO_IDLE: also returns from a stuck finished mode (PRINT_END aborted mid-flow -> the celebration used to run FOREVER)
+PASS  R160b PRINT_END: mode idle + cleanup run BEFORE the presentation move - a refused move can never wedge the end flow again
+PASS  R160b PRINT_END: the presentation move only runs with HOMED axes - unhomed = a note, not a console error (the field homing message)
+PASS  R160b PRINT_END render (unhomed): skip note + NO G0 move + mode idle anyway
+PASS  R160b PRINT_END render (homed): the part gets presented
+PASS  R160b texture source: keeps the SUBFOLDER path (the old basename strip made every follow-up texture die with one error beep - the TX output auto-selects itself as Texture/Vnn_...
+PASS  R160b range/plot: the range build runs as a QUEUED job (it froze the poller), the plot source keeps its subfolder path
+PASS  R160b/R162 worker sounds: a queued job chirps when it ACTUALLY builds, says WHY it waits - printer busy OR too little RAM (a stuck state used to swallow jobs silently), and a crash beeps r2_error
+PASS  R162 file-fix busy check: patient (stale status re-checked up to 10s) + the R2 mode is the authority - the .121 field log: the fix died on a lagging moonraker status right after the dialog release
+PASS  R162/R223 generator job gates: busy-probe RETRY (a timeout must not read as not-busy - the .121 Timer-too-close chain: litho built during the print) + builds wait below their per-job RAM floor (rest 60MB; litho/colorpic 110MB, string art 64MB - the .136ac planner peaks ~37MB, R234 field log: 110 made it wait on 88MB free)
+PASS  R165 doc-reality audit: tool exists + the duplicate-label UX renames (two identical Src rows in Live > Extrusion and two identical How it works in Flow Cal. can't tell apart) + OUT= on every console generator (the wrappers silently dropped it)
+PASS  R164 serial-budget audit tool exists: worst move rate per file class vs the 450/s Timer-too-close budget at 100/125/150% live speed + the LED diet guard now allowing gentle motion (R163 static -> R166 breathing, rate-guarded)
+PASS  R163/R166 LED serial diet: the printing state BREATHES slowly at <= 5 fps (~5 msg/s = ~1% of the 450/s serial budget - the .122 field log shutdown was the old 24 fps flood, 75/100 queued messages LED frames; static was the .123 emergency fix, R166 brings motion back INSIDE the budget) + every other effect at 12 fps
+PASS  R162 litho/colorpic step FILL: the hatch rects use the FULL cell extent - the old first-center-to-last-center rect was zero-height for single-row blocks (photos!), the picture never printed
+PASS  R167 litho step WALLS: every step region above the base gets a wall loop around it before the fill (user request - clean step edges instead of frayed hatch ends), hatch inset half a line
+PASS  R160b naming guard: _dedupe_gen_fname (V05 taken -> V05b) at 15+ generator write sites + the version scan counts letter variants
+PASS  R160b naming E2E: V01 taken -> V01b -> V01c, and the next free version counts the letters (V01b -> next V02)
+PASS  R160b range tag: 10 chars of the SOURCE OBJECT (version prefixes stripped) - source V05_Vase_klein -> V06_Vaseklein_L2-3 (the source counts in the sequence), legacy 00_Garage_V05 -> V07_Garage_L2-3 (was a useless 00V)
+PASS  R160d multi-plate display: the plate letter sits behind the version (V01_A_Frame_... / V05_A_BrickKit_...) - BOTH plates stay recognizable on the 15-character display (old tail suffix was cut)
+PASS  R160c boot guard: no [delayed_gcode] section carries an option Klipper rejects (description: halted the printer at boot on .120 - the validator catches it statically now)
+PASS  R160b texture tool: own letter guard + letter-aware scan
+PASS  R161 L2 handover (FIELD BUG): AS LEGACY without an armed override switches to the FILE L2 values at layer 2 (generated/range files have no M104/M140 - the bed used to stay at the L1 value)
+PASS  R161 L2 handover: idempotent - already at the L2 target, no redundant heater writes
+PASS  R161 L2 handover: your ARMED override wins over the file values (AS LEGACY)
+PASS  R161 L2 handover: AS SLICED honors your L2 override as well (silently ignored before the audit)
+PASS  R161 L2 handover: nothing armed + rules OFF -> 1:1, no heater writes at all
+PASS  R161 L2 fan: material fan scale applies at layer 2 AND the held layer-1 file fan comes back
+PASS  R161 M104 AS SLICED layer 2: the file's own command wins (the material preset used to FORCE 210 over it)
+PASS  R161 M104 AS SLICED layer 1: first-layer rule still applies (material hot1)
+PASS  R161 M104 AS SLICED layer 2 + your override: rewritten to YOUR value (consistent with the LAYER_MARK rule)
+PASS  R161 Z-track twin: an UNMARKED file switches at its Z-based layer 2 with the same unified rule
+PASS  R161 M140 AS SLICED layer 2: the file's own bed command runs 1:1 (was forced to the material preset)
+PASS  R168 litho Contour input: saves the value, the RESPOND explains the RELIEF mode (topographic walls)
+PASS  R168 Litho Stamp toggle: ON names the snap socket + mirror hint
+PASS  R168 Label Stamp toggle: ON names the snap socket + mirror hint
+PASS  R168 litho Handle input (R170 numbering): 2 = separate file, own print - same numbering as the label stamp
+PASS  R250 Custom Code: the Pre-Print submenu carries the toggle (with the [on]/[off] marker + (parked) answer) and the four Live quick lists edit CU like every other feature
+PASS  R168/R213/R250 Custom Code submenu: the toggle + the how row + the 9 numbered C-slots with 5 regulators each (live tunable while that block prints) - the .136l rethink, intact
+PASS  R168/R250 Overhang submenu filled (was an empty list) - and its live twin is the quick-list row
+PASS  R168/R250 Internal Bridge submenu filled (was an empty list) - and its live twin is the quick-list row
+PASS  R168/R250 Prime Tower submenu filled (was an empty list) - and its live twin is the quick-list row
+PASS  R174 PRINT_END re-entry guard: variable + skip + arm + reset at PRINT RUNNING
+PASS  R174 PRINT_END re-entry guard: both watcher start paths clear it
+PASS  R174 PRINT_END re-entry guard: exactly one guard if/endif around the body
+PASS  R174 update.sh: letter hotfix zips parse (.129a beats .129, loses to .130)
+PASS  R174 update.sh: the applied zip is archived to r2_backups after install
+PASS  R174 SD browser: image clicks pick (and copy) instead of printing
+PASS  R174 SD browser: the watcher copies the image (nonce channel + job)
+PASS  R174 SD browser: the image pick refuses non-image and traversal paths
+PASS  R174b/R250 feature toggles: ALL 16 always clickable - no enable gate left
+PASS  R174b/R250 feature toggles: the 16 file-type features carry the visible [on]/[off] state marker
+PASS  R174b feature toggles: every (parked) toggle answers with the honest not-in-file line
+PASS  R174b/R250: the In-file line still shows what THIS file has - it moved from the removed Live > Features into the Start dialog File info (one glance instead of guessing why ironing does nothing)
+PASS  R174b ironing flow editor also answers honestly (the .129 log showed a bare Overwrite line with no context)
+PASS  R174c preset engine: live in the macros, NO combine filter (Klipper ships stock Jinja2 - combine would halt the boot)
+PASS  R174c preset engine: every generator declares its settings (12 generators, Range excluded by design)
+PASS  R174c LCD: a Presets submenu for all 12 generators (Save + info + Page< + Page> + 8 slots with Load/Delete)
+PASS  R174c LCD: no artificial limit - 8 slots per page flip with Page</>, the dict itself is unlimited
+PASS  R174c/R213 texture preset: SAVE captures the texture settings (mode/thick/density/pattern/scale/amp/dir) under a NUMBERED name - grid01, grid02, wave01 (field wish: the old GRID, GRID_2 scheme hid how many exist)
+PASS  R213 texture preset numbering: the second GRID save never overwrites - the running number moves on (GRID02)
+PASS  R174c/R214 preset engine: INFO lists the names (console check; R214 counts user and library separately)
+PASS  R174c preset engine: unknown generator refused honestly
+PASS  R175 library: 27 seamless patterns + FUZZY + MAP image wrap (R238: 6 more)
+PASS  R175 seamless: pattern functions close at the seam AND the top (wrap jump <= field jump, sampled)
+PASS  R175 geometry snap: k ridges + n Z-repeats are INTEGER counts derived from circumference/height (user size = guideline)
+PASS  R175 center: EXCLUDE_OBJECT CENTER preferred, wall centroid fallback (the texture belongs to the OBJECT, not the bed)
+PASS  R175 real run: BRICKS on a cylinder -> integer ridges/repeats reported (U=75.4mm/8 -> 9 ridges, z-span 5.8mm/2.9 -> 2 repeats)
+PASS  R175 params: SIZE/ZSIZE/DEPTH/SEED/MAP stored (old names stay aliases)
+PASS  R175 macro: 21-pattern validation, MANDELBROT finally gone everywhere
+PASS  R175 watcher: zsize/seed/map flow into the job + the answer reports the snapped counts
+PASS  R175 LCD: self-explaining names (Around/Height/Depth/Seed) + patterns: 8 LIVE slots slice the 27-entry table (R246 class fix - enable-frozen pages only refreshed after re-entering the menu) + MAP image line (R238)
+PASS  R175 presets: texture user presets carry zsize + seed (R174c key list extended)
+PASS  R175 sounds: the RANGE job finally confirms with r2_done (the .129 field log: no sound when the excerpt was ready)
+PASS  R175 optimized copies: printing the same file + YES twice numbers instead of overwriting (name_O2, _O3 ...)
+PASS  R175c M106 LIVE: your absolute % beats hold+scale+clamp (S128 with LIVE 80% -> S204, no scale/hold answers)
+PASS  R175c M106 LIVE beats the layer-1 rule too (you turned the dial on purpose)
+PASS  R175c M106 LIVE off: the chain hold > scale > clamp rules again (file S255 -> hold 50% -> S128)
+PASS  R175c M106 scale path intact: S100 x 1.2 -> S120
+PASS  R175c SET_FAN_LIVE 80: the absolute dial, applies at once
+PASS  R175c SET_FAN_LIVE OFF: the file gets control back
+PASS  R175c LCD fan menu: absolute Fan dial (0..100 -> LIVE) + ON/off row + 'How?' shows the math + Scale renamed (25..150% x file)
+PASS  R175c _STATE carries the LIVE variables + the chain explainer exists
+PASS  R175d SDNAV_GO delete mode: first press ARMS (no delete yet)
+PASS  R175d SDNAV_GO delete mode: second press fires the channel (del_file + nonce bump)
+PASS  R175d SDNAV_GO delete mode: refused while printing
+PASS  R175d SDNAV_GO normal mode untouched: a press still starts the print dialog
+PASS  R175d SDNAV_GO delete mode: FOLDERS delete too (the whole tree goes)
+PASS  R175d LCD: the browser has the Del-mode toggle row
+PASS  R175d watcher: the delete channel is a primed nonce (restart safe) + refuses to leave the G-Codes root
+PASS  R175d watcher live (R186): a nonce from BEFORE the start is primed, the old delete is NOT re-fired
+PASS  R175d watcher live: optimized/teil_O2.gcode really deleted after the LIVE nonce bump (file gone, [del] log)
+PASS  R175d watcher live: a FOLDER goes with everything inside + the tree re-push is forced
+PASS  R175d watcher live: escape attempts outside the root are refused
+PASS  R176 uniform 150%%: size 100->150mm, centered on the bed, E x 2.25 on axis AND diagonal moves
+PASS  R176 non-uniform 200/100: axis moves x 2.0 (sx*sy), the 45deg diagonal x 2.5 ((sx^2+sy^2)/2)
+PASS  R176 name + never overwrite: _S200-100.gcode, second run numbers (_2)
+PASS  R176 arcs: flattened to scaled chords (r 20->30 around the bed center), relative E keeps the volume (x 2.25)
+PASS  R176 guard: 300%% of a 100mm part (300mm) refuses with the bed size in the message
+PASS  R176 guard: 100/100 is refused (nothing to do)
+PASS  R176 EXCLUDE_OBJECT CENTER moves along (skip-object stays honest after scaling)
+PASS  R176 SCALE_APPLY: queued with the selected file + nonce bump
+PASS  R176 SCALE_APPLY: no file selected -> friendly error, nonce untouched
+PASS  R176 SCALE_APPLY: out-of-range X rejected (25..300)
+PASS  R176 LCD: Scale X/Y lives in the Tools menu (X/Y inputs + How? + Apply with the two-press arm)
+PASS  R176 watcher: scale channel primed + job speaks the new size and the fresh 100%% flow baseline
+PASS  R177 horizontal cut at z=5: UPPER moves down to the first layer height (0.2..5.2), LOWER keeps its place, the E volume is preserved across both files
+PASS  R177 tilted plane + reorient: the cut face lies flat - the height above the plane (7.42mm) becomes the part height
+PASS  R177 arcs flatten and split: both halves together keep the full relative E volume (60mm)
+PASS  R177 parts and naming: LOWER/UPPER alone, 0.5 deg grid is enforced (10.3 -> 10.5), never overwrites (_2 suffix)
+PASS  R177 guards: plane above/below the object and the zero plane refuse with clear words
+PASS  R177 CAKE_APPLY: queues with all plane values + nonce bump
+PASS  R177 CAKE_APPLY: no file -> friendly error, nonce untouched
+PASS  R177 CAKE_APPLY: bad PART rejected
+PASS  R177 CAKE_APPLY: the zero plane refuses (cuts nothing)
+PASS  R177 LCD: cake submenu with pitch/roll/z inputs on the 0.5 grid, part toggle (R224: BOTH = two files, yaw is GONE), reorient switch, How? and the double-press cut
+PASS  R177 watcher: cake channel primed + job reports the segment counts and lands in the Cake folder
+PASS  R177 watcher live (R186): a cake nonce from BEFORE the start is primed, nothing re-cuts on boot
+PASS  R177 watcher live: the cake really cuts after the LIVE nonce bump (both halves land in the Cake folder, [cake] log)
+PASS  R178 SPIRAL: ring + strands file with PRINT_START, exclude objects and the six Z bands
+PASS  R178 PHOTO: weaves the image, seeded = byte-identical on a re-run (same parameters, same picture)
+PASS  R178 guard: PHOTO without an image refuses with clear words
+PASS  R178 STRINGART_APPLY: queues SPIRAL with all values + nonce bump
+PASS  R178 STRINGART_APPLY: PHOTO without an image -> friendly error, nonce untouched
+PASS  R178 STRINGART_APPLY: out-of-range values rejected
+PASS  R178 STRINGART_APPLY: bad pattern rejected
+PASS  R216 STRINGART_APPLY: RECT frame queued with shape/size/ring/bow values
+PASS  R216 STRINGART_APPLY: bad shape rejected
+PASS  R216 STRINGART_APPLY: oversized frame rejected
+PASS  R216 STRINGART_APPLY: bad ring height rejected
+PASS  R216 STRINGART_APPLY: bad bow height rejected
+PASS  R216 LCD: the string-art field rows exist (shape toggle, preset list with 5 photo sizes, W/H, ring height, bow)
+PASS  R178 STRINGART_IMG: cycles the root image list (litho list) and stores name + index
+PASS  R178 presets: stringart joined the preset engine (pattern/ring/anchors/strands)
+PASS  R178 LCD: String art menu in Tools (pattern/ring/anchors/strands inputs + Img + How? + My presets + the double-press weave)
+PASS  R178 watcher: stringart channel primed + job lands in the StringArt folder and speaks ring/strands
+PASS  R178 watcher live (R186): a string-art nonce from BEFORE the start is primed, nothing re-weaves on boot
+PASS  R178 watcher live: the SPIRAL really weaves after the LIVE nonce bump (file in the StringArt folder, [stringart] log)
+PASS  R179 boot guard: every type: input menu carries its input option (no input_initial typos - the exact .131 halt)
+PASS  R179 validator: a menu with input_initial instead of input is rejected statically (boot halt caught before the printer sees it)
+PASS  R180 vocabulary ladder: unknown ;TYPE: spellings resolve by deterministic keyword rules - only vocabulary without ANY known token stays CUSTOM
+PASS  R180 E2E: a drifted-dialect file (Simplify3D solid infill, ideaMaker shells) tags WITHOUT any CUSTOM - the outer wall stays tunable
+PASS  R181/R213: unknown vocabulary over WALL geometry gets a NUMBERED slot C1 - never the old WALL-OUTER blanket fallback (a mis-read bridge would print too fast). The block repeats on every layer, so all four fuse into ONE group; CUSTOMRES + CUSTOMGROUPS in _FILE_INFO; real walls from vocabulary stay WALL-OUTER
+PASS  R181/R213: the TRUE remainder - unknown vocabulary with NO wall character (a purge cross: no loop, no hatch, no side-void wall) gets a numbered slot too - it CARRIES extrusion values (speed! a purge can be slowed or sped), and the four identical crosses fuse into ONE group C1 (R213 merge rule: identical value-carrying blocks share their number, no 1000-custom-feature flood)
+PASS  R180 classifier: near-closed curves (a spiral wall with a seam gap, 350 degrees of signed turn) count as LOOPS - an untagged file derives WALL-OUTER instead of leaving the walls unclassified
+PASS  R180 chain (the .129 field case): texture THEN range - the WALL-OUTER tagging survives both hops, no CUSTOM, the excerpt says what it is
+PASS  R180 guard: a range window with NO extrusion (a cake half sits empty above its z_offset base) refuses honestly instead of shipping a file that prints air
+PASS  R180 orphan markers: a range excerpt of a cake half advertises ONLY what it prints (the half carries every source ;TYPE: - markers whose ink is outside the window are dropped, markers == TYPES= in _FILE_INFO)
+PASS  R180 LCD: the File info explains CUSTOM when a file has it (row only enabled then, retag hint included)
+PASS  R181 hole rule: the boundary of a hole is a VISIBLE surface - outer boundary AND hole ring derive WALL-OUTER (the old nesting rule called the hole ring WALL-INNER)
+PASS  R181 open walls: three concentric 270-degree ARCS (open paths - unclassifiable before R181) - the arcs with a void side derive WALL-OUTER, the sandwiched middle arc WALL-INNER
+PASS  R181 support order rule: a detached hatch-dominant structure that prints FIRST in the layer (above the brim layers) derives SUPPORT - its walls do not become tunable WALL-OUTER rows
+PASS  R181 brim patience: a layer-1 ring that vanishes within the first three layers is BRIM (the field rule: brim lives on the first layers at most)
+PASS  R181 brim patience (taper guard): the same ring surviving five layers is a WALL - a tapering silhouette no longer mislabels its own layer-1 walls as brim
+PASS  R182 hotpath: APPLY_TYPE and M106 NEVER touch save_variables (the labels Timer-too-close chain - mirrors only, refreshed by _SYNC_OV_FEAT)
+PASS  R182 _SYNC_OV_FEAT: renders the mirror TUPLES + scalars from save_variables (no braces, no spaces - the # cut, the parameter splitter and literal_eval all stay safe)
+PASS  R182 _SYNC_OV_FEAT render: the tuple mirror carries on/spd/acc/flw/pa of the feature
+PASS  R182 echo gate: the FIRST block announces the feature (speed/accel/flow/PA + the fecho signature store)
+PASS  R182 echo gate: the IDENTICAL block stays SILENT (the labels flood dies) - but the commands still run (M99220/flow/PA bookkeeping)
+PASS  R182 echo gate: a REAL change (global speed 100 -> 125) re-announces the feature with the new composition
+PASS  R182 _SET_PA funnel: a repeat value is NOT re-sent (the // pressure_advance echo flood dies at the source), a new value goes out and updates pa_last
+PASS  R182 _SET_PA funnel: SMOOTH_TIME alone still passes through
+PASS  R182 sync sites: every override writer + print start + the per-layer safety net refresh the mirrors (_SYNC_OV_FEAT), _FILE_INFO also empties the echo cache per print
+PASS  R183 fit beep: the watcher answers EVERY fit request audibly (r2_confirm on success) and previews the EDITOR lines when the queue is still empty (the first-job case) - the error beep was the only beep in the chain before
+PASS  R183 brim air gap: the first brim line keeps a real AIR GAP to the wall ink (measured 1.87mm, was ~0 = fused; the user fought the brim off even at 92% flow)
+PASS  R183 mixed jobs: 4 labels x 4 fonts x 4 sizes (GROW + FIXED) on one plate keep their distance (measured 24.4mm between object inks incl. brims - the per-job shelf pack with the >=10mm gap holds)
+PASS  R183 font collision guard: all 9 stroke fonts - no glyph ink reaches past its advance box (SCRIPT/HAND swashes widened, 'fj' no longer prints as mud) and every glyph sits on the shared baseline window
+PASS  R185 current-only manual: no version-history appendix, no era annotations, nine fonts + current version line documented (changelog = README)
+PASS  R184 brim air gap EVERYWHERE: every generator with a brim measures >= 0.5mm between brim ink and wall ink on layer 1 (was: frame 0.23 / cable ties 0.32 / litho FLAT 0.32 FUSED; one _brim_gap rule for all - the RANGE brim stays welded on purpose, it anchors cut sections) - measured: {'labels': 1.87, 'frame': 1.0, 'cable ties': 1.41, 'string art': 1.05, 'litho FLAT': 1.0, 'label RING': 1.32, 'stamp handle': 1.87, 'colorpic': 1.41}
+PASS  R188 live slots: sdcard file slots + gen files + optimized have NO enable line - names refresh live while the menu is open
+PASS  R188 optimized: 40 live slots in the main menu AND pre-print (was a one-file picker - field report)
+PASS  R188 kick-out: >=45 menu.exit() triggers, >=25 armed-key conditional (the confirm press exits to the LCD, the arm press stays)
+PASS  R188 start guard: AS SLICED / AS LEGACY / WITH_OVERRIDES / SDCARD_PRINT_FILE refuse while gen_busy (file mid-rewrite)
+PASS  R188 sounds: r2_start on every work press, quiet list covers start/gen/done during prints (LED carries it)
+PASS  R188/R224/R226/R227 watcher: gen_busy=1 around file_fix AND the job worker (late release after stamping - the homing race dies) + drops at boot (stale flag) and when the queue is cleared IDLE. R224: clear during a running/stuck build now RAISES it (VALUE=1) instead of dropping - the thread keeps burning RAM/CPU and no print may start into it. R226: every scan pass RECONCILES the flag with reality (a release can fail while klippy is down - the persisted 1 survived restarts and blocked every print start, field log .136w). R227: the flag is PARSED, not string-tested (_read_vars returns strings - the truthiness bug sprayed the console every pass, field log .136x), and the stale notice fires ONCE per episode (latch + silent retry)
+PASS  R188 queue: the first wait notice comes after 10s (was 90)
+PASS  R188 PRINT_START clears planned pauses (next-layer/at-layer from an earlier print could fire right after the purge line)
+PASS  R189 texture: empty _PREVIEW.name falls through to preview_file WITH its subfolder path (the push only carries the basename)
+PASS  R189 texture: nothing selected anywhere -> honest error (nonce untouched)
+PASS  R189b CAKE_APPLY: second press runs _GEN_GO (disarm + dialog cancel + start tune) like every generator
+PASS  R189b SCALE_APPLY: second press runs _GEN_GO (disarm + dialog cancel + start tune) like every generator
+PASS  R189b queue stall: a parked job SPEAKS within 10s (the .132 cake silence cannot happen again)
+PASS  R214/R253 texture library: 27 looks live in the macro config (appearance names, full 9-key sets, ranges valid)
+PASS  R214 preset load SPEAKS: a library look writes ALL 9 settings and answers with the summary (mode/pattern/scale/zsize/amp/dir)
+PASS  R214 preset load: an OLDER sparse preset keeps unknown settings as-is and SAYS so (the frame-dimensions mystery answered)
+PASS  R214 library is read-only: Delete refuses, a save under a library name numbers itself, and SAVE persists ONLY user presets (the 44 looks never leak into save_variables)
+PASS  R214 LCD: the Vorlagen browser - 8 direct-load slots, own page counter, SRC=lib (user pages untouched)
+PASS  R214 STL export: macro (idle gate + nonce channel) and the Pre-Print > File menu entry
+PASS  R214 STL export: watcher dispatch + nonce priming + idle freeze (the .125 disk-I/O lesson) + SSH one-liner
+PASS  R214 STL export: the mesh keeps the OBJECT and drops the helpers (skirt/support/custom/purge - measured, not promised)
+PASS  R214 litho stands: both fins print with the plate (5mm grid ribs + bridge cross-ribs), the LCD toggle exists, and frame OFF disables them HONESTLY (note, not silence)
+PASS  R214 label embedding: text_layers=2 = FLUSH inlay inside the last base layer (M600 + text on the base top Z, total = base)
+PASS  R214 label embedding: text_layers=3 adds ONE raised layer on top of the flush inlay (total = base + raised)
+PASS  R214 web dash: stacked topic columns + ONE bottom line for layer + feature (same poll, no new requests; R218 regrouped the columns 5 -> 4 + the wide Mode/File column)
+PASS  R224 mirror X: flips around the OWN center - same bbox, X80 prints as X40, Y untouched, E verbatim
+PASS  R224 mirror: arcs flatten to mirrored chords (no raw G2 I/J)
+PASS  R224 mirror: EXCLUDE_OBJECT CENTER + POLYGON flip with it (same plane as the geometry - KAMP mesh + object park stay honest)
+PASS  R224 mirror Y: Y30 prints as Y70, X untouched
+PASS  R224 mirror: bad axis refused (ValueError), no bed-fit check needed (the bbox is symmetric to the own center)
+PASS  R224 mirror: watcher channel + output folder registered
+PASS  R224 MIRROR_APPLY macro: arms on CONFIRM, queues nonce + file + axis (the R160 double-press pattern)
+PASS  R224 MIRROR_APPLY renders: axis Y saved, file adopted, nonce bumped, honest queue message
+PASS  R224 MIRROR_APPLY: bad axis rejected before any save
+PASS  R224 MIRROR_APPLY: no file -> friendly error, nonce untouched
+PASS  R224 mirror OBJ: ONLY that object flips (own center), the others stay verbatim, roster in info
+PASS  R224 mirror OBJ: unknown name refused with the roster in the error (the LCD never sees a silent no-op)
+PASS  R224 mirror watcher: the finish message names WHICH object flipped (multi-object never silently flips as one big object)
+PASS  R224 queue: a STUCK build HOLDS gen_busy + the queue while its thread lives (the .136u clear/timeout freed them - a print could start into the overload)
+PASS  R224 queue: the next job WAITS while the stuck one lives (no second build on the RAM-starved Pi)
+PASS  R224 queue clear: drops the QUEUED jobs but keeps gen_busy while the build thread lives (honest message, no silent flag drop)
+PASS  R224 queue: the stuck build's end releases everything (queue free + gen_busy down) - and jobs queued AFTER that run again
+PASS  R224 queue clear (idle): full flag reset with the done sound
+PASS  R224 queue source: zombie net wired (init + mark + release), the .136u free-on-stuck text is gone
+PASS  R224 slicer: both plugins write APPLY_TYPE TYPE= (TYP= is gone)
+PASS  R224 slicer: Cura object box anchors on ;LAYER:/;TYPE: (works without G28 - the PRINT_START flow) + end-of-file fallback
+PASS  R224 slicer: Cura transform puts the box BEFORE the first layer and emits TYPE= markers (G28-less PRINT_START flow)
+PASS  R224 label walls: the PUBLIC make_labels accepts walls=1..4 and label_preview projects the SAME stroke (preview == print)
+PASS  R224 label walls: the LCD job path (_label_job_kwargs -> make_labels) carries walls without a TypeError
+PASS  R224 LCD: Pre-Print > Tools > Mirror (axis toggle X/Y, How?, double-press Apply)
+PASS  R237+R240 _M204: the alias is GONE, the setter is _ACCEL_SET
+PASS  R240 _ACCEL_SET: tracker + raw M204, renders clean
+PASS  R240 _ACCEL_SET: both _NOZZLE_WIPE call sites renamed
+PASS  R237 SD browser: ROOT image clicks set the pick (not only subfolder copies)
+PASS  R237 TEXTURE_APPLY: MAP with no image anywhere -> early error, no queue
+PASS  R237 TEXTURE_APPLY: MAP falls back to the picked browser image
+PASS  R237 TEXTURE_APPLY: a stored texture_map wins, the job queues
+PASS  R237 watcher: a root pick skips the self-copy (SameFileError guard)
+PASS  R237 watcher: the texture map resolves to an ABSOLUTE path (subfolder pick first, then its root copy)
+PASS  R237 watcher: segment fix + texture report the _M204 rewrites
+PASS  R237 texture: scrub regex + map candidates + info counter exist
+PASS  R238 _GEN_QUEUE_SKIP: running -> kill nonce + mode SKIP
+PASS  R238 _GEN_QUEUE_SKIP: idle -> honest answer, no nonce
+PASS  R238 _GEN_QUEUE_STOP: CONFIRM -> kill mode STOP + nonce
+PASS  R238 _GEN_QUEUE_STOP: bare press arms (two-press rule)
+PASS  R238 TEXTURE_APPLY: MAPMODE/MAPPOS pass through quoted
+PASS  R238 STL_EXPORT: the message names the STL folder + the ending trick (Mainsail shows the file)
+PASS  R238 LCD: the queue row is __queue, directly above the SD card, with Skip + Stop + Clear
+PASS  R238 LCD: 27 pattern rows on 4 pages, the 6 new ones named
+PASS  R238 LCD: MAP mode + position rows (ONCE-gated), fuzzy/bumps parameters separated by enable
+PASS  R238 LCD: the SD browser refuses .stl.gcode data files
+PASS  R238 watcher: kill channel + auto segment fix + STL guards
+PASS  R238 texture: PATTERN_TILT + 27 names + map prepare
+PASS  R246c watcher: the _SDM status query reaches moonraker (objs= kw-arg - the .142 push-loop root cause)
+PASS  R246c watcher: pushes demand CONFIRMED idle - an unanswered busy probe counts as BUSY (strict gate on BOTH push paths)
+PASS  R246c watcher: failed mirror pushes back off (3 fails -> 4 silent cycles) and a push times out at 20 s / 1 retry
+PASS  R247 SDNAV_GO: the macro moves the PATH only - no tree, no view rebuild, no way to bury a dead path inside the reactor
+PASS  R247 watcher: an unknown sd_path resets the browser to the root and SAYS so (the .142b self-healing, same behaviour, now where the tree lives)
+PASS  R248 LIVE parked browser: the watcher never asks klippy for gcode_macro _SDM and never pushes sd_cur / sd_view / sd_gen - the query+push pair that cost the reactor is simply not there
+PASS  R248 LIVE parked browser: the dead sd_path is not fought over any more - no reset line, no write-back loop (the parked path cannot flood the log)
+PASS  R248 LIVE parked browser: the scan itself still runs (files are tagged, the watcher stays useful with the browser off)
+PASS  R248 parked, not deleted: SD_BROWSER_ON is False AND the whole R247 path is still there (tree walk, sd_cur push, sd_gen bump, dead-path write-back)
+PASS  R248 menu side parked too: the SD menu is Klipper vsdlist and every browser row carries enable: {False} (reversible line by line), the stock Start/Resume/Pause/Cancel overrides are gone
+PASS  R248 SD submenus: Optimized (40 slots) + Generated (20 slots) hang under the SD menu, both reading the watcher pushes that still run (opt_list / gen_files)
+PASS  R249 LIVE root links: every printable file of a subfolder is reachable in the FLAT stock SD list - one level deep, three levels deep, and the optimized library
+PASS  R249 LIVE root links: a REAL file in the root is never shadowed - the user's file wins, the folder output does not get a link of the same name
+PASS  R249 LIVE root links: STL exports are data - never linked (a tap must never offer a file you cannot print)
+PASS  R249 LIVE root links: the second pass changes NOTHING (idempotent - no link churn, no mtime noise, no log line)
+PASS  R249 LIVE root links: a deleted output takes its link with it - no dead entry that fails on the tap
+PASS  R249 LIVE root links: a symlink the USER made to a file outside the gcodes root is never removed - only our own links are managed
+PASS  R249: the scan NEVER processes a root link - it would re-tag the output through the link and list it twice
+PASS  R249: M23 (the stock SD list's file tap) is TAKEN OVER - it routes into the same start dialog as the browser did, instead of only selecting the file and leaving the user stuck
+PASS  R249: Klipper's flat list rules are honoured - the link ends in .gcode, points at a .gcode (never a directory), and lives inside the gcodes root (virtual_sdcard opens it directly)
+PASS  R252: the post-processor switch is on the LCD (System menu) - stable / EXPERIMENTAL plus the running engine, all through TOGGLE_PP_ENGINE, with an explain row next to it
+PASS  R252: the evidence pack has an LCD home (System > Diagnostics) with the how/where rows - the user must not need SSH to send a log
+PASS  R252: the stable post-processor is STILL the entry point and the experimental one is a byte-for-byte COPY of it - new work goes there, nothing of today's code was rewritten
+PASS  R252: the handover is failure-proof - a missing/broken copy stays on stable, a failed handover is braked for 15 min, and only --watch hands over (the diagnostics never do)
+PASS  R252: the pack is one downloadable file in crash_archive - as .txt AND .txt.gcode (Mainsail only lists printable files, that is why the old .log snapshots were invisible)
+PASS  R252: the post-processor never touches an R2-DOCTOR file - the .gcode twin exists to be SEEN, not printed or tagged
+PASS  R252: the pack carries what a shutdown round needs - the incident digest (events, worst stalls WITH stacks, MCU stats around each shutdown), host, services, settings, snapshots
+PASS  R252 SET_PP_ENGINE MODE=next: stores the switch and names the way back (no restart needed)
+PASS  R252 SET_PP_ENGINE MODE=stable: back to the engine of today
+PASS  R252 SET_PP_ENGINE refuses anything but stable|next
+PASS  R252/R253 DOCTOR_PACK: bumps the nonce, says where the pack lands and gives the SSH way as the alternative
+PASS  R252/R253 DOCTOR_PACK refuses while printing (it copies logs off the SD card - the .125 lesson)
+PASS  R253: every [gcode_macro] name satisfies klippy/gcode.py - a name like R2_DOCTOR (digit in position 2) does not register and HALTS the printer at boot
+PASS  R251 E2: the per-feature SHAPER switch is back on the LCD - in the SPD quick list directly below FeatOn (both act on the feature that prints right now), console-only was the open point
+PASS  R251 E2: Vibration Cal. > Manual reaches the manual override - one child per axis, 5 shapers + printer.cfg restore, a freq input and an on/off row, all of them through SHAPER_MANUAL
+PASS  R251 E2: the status row shows what Klipper RUNS and what the override holds - the honest answer instead of a dead row
+PASS  R251 SHAPER_MANUAL AXIS=X TYPE=MZV FREQ=54.5: sets Klipper live AND stores the boot override (type + freq + on)
+PASS  R251 SHAPER_MANUAL TYPE=CONFIG: applies the printer.cfg value again (damping included, not dropped) and switches the override OFF - the LCD way back after a manual frequency
+PASS  R251 SHAPER_MANUAL TYPE=CONFIG without a printer.cfg section: says there is nothing to restore instead of writing zeros
+PASS  R251 SHAPER_MANUAL refuses an unknown shaper type
+PASS  R251 SHAPER_MANUAL refuses a nonsensical frequency
+PASS  R251 SHAPER_MANUAL without [input_shaper]: says so instead of writing dead variables
+PASS  R251 SHAPER_MANUAL without params: shows both axes (runs + override) and names the LCD path
+PASS  R250 B1: the four quick lists stand DIRECTLY under Live Tuning, one after the other (the user's wording: "alle vier direkt unter Live Tuning uebereinander, ohne die zwei Zwischenebenen")
+PASS  R250 B2: Live > Features is DELETED (no section, no reference) - its 16 activators and file-original rows live in Pre-Print > Features, its regulators in the four quick lists
+PASS  R250: no LCD message points into the deleted menu any more - the old "Full set: Live > Features" hint named a menu that no longer exists (148 in-menu hints re-aimed)
+PASS  R249 ironing flow: the feature submenu binds the REAL slicer flow (ov_ironing_flow, 5-100 %) and writes it with SET_OVERRIDE_VALUE NAME=ironing_flow - no 100 %-default row
+PASS  R249 ironing flow: BOTH quick rows (live + pre-print) set the same value in the slicer scale - one flow, two places to reach it
+PASS  R249/R250 ironing flow: the F flag of the (Pre-Print) activator follows the flow ON state (ov_ironing_flow_on = someone set it) - the old ovf_ironing_flw != 100 comparison no longer exists
+PASS  R249 quality fix: on a sliced file it drops the armor of the travel that crosses nothing, keeps the armored skin crossing, and gives the NAKED skin crossing a retract (dropped/kept/injected/left = 1/2/1/0)
+PASS  R249 quality fix: the kept block stays a clean armor (retract, hop, travel, hop back, unretract) - no blank line is inserted between the lines and the crossing keeps its own Z hop
+PASS  R249 quality fix: a file WITHOUT any retract invents nothing - the naked crossing is counted (left) and no E line is added, the surface is merely reported
+PASS  R246d motion: BOTH busy probes + the preview probe ride the print_time TRUTH (idle_timeout alone lingers Printing for the configured 3600 s - found in review before release)
+PASS  R246d motion: preview pushes defer while the printer moves (2 KB scripts never land in a homing window) and flush on idle
+PASS  R246d LED: an UNCHANGED state is a no-op - no STOP_LED_EFFECTS, no chain rewrite (reactor relief rec. 1)
+PASS  R246d LED: FORCE=1 re-applies the full chain (the nozzle/bedlight setters and every deliberate re-apply)
+PASS  R246d/R257 LED: exactly the five deliberate re-apply callers carry FORCE=1 (split toggle, nozzle change, master ON, job restore, probe-quiet unmute)
+PASS  R257 probe-quiet: a state change while the probe moves writes NO strip (no STOP_LED_EFFECTS, no effect, no nozzle) - it only records the wanted state
+PASS  R257 probe-quiet: FORCE=1 is the exception (that is how the unmute re-applies the state after the motion) - the full chain runs
+PASS  R257 probe-quiet: _LED_QUIET ON=1 stops the running effect ONCE (one write before the first move) and sets the flag
+PASS  R257 probe-quiet: muting twice is a no-op (a second G28 in a row must not push a second STOP_LED_EFFECTS into the motion)
+PASS  R257 probe-quiet: ON=0 clears the flag and re-applies the wanted state with FORCE=1 (the R246d no-op would otherwise swallow it)
+PASS  R257 probe-quiet: ON=0 without a mute does nothing (no chain, no flag write)
+PASS  R257 probe-quiet: G28 renders _LED_QUIET ON=1 BEFORE the homing move and ON=0 after it (order, not just presence)
+PASS  R246d AV: _AV_HOMING_AV reschedules while the queue runs (print_time advanced - no LED/beep in the motion tick)
+PASS  R246d AV: _AV_HOMING_AV plays when the queue drained (print_time frozen - the heating window)
+PASS  R246d AV: _AV_HOMING_AV stays silent once the print runs (the print announcement owns the moment)
+PASS  R246d AV: _AV_PRINT_AV reschedules while the first layers stream (print_time advancing, under the 120 s window)
+PASS  R246d AV: _AV_PRINT_AV plays at the first drained gap (idle queue, young print)
+PASS  R246d AV: _AV_PRINT_AV gives up silently after 120 s (no late beep mid-print)
+PASS  R246d AV: a cancelled print (_AV_PRINT_AV, mode not printing) plays NOTHING
+PASS  R246d sweep: the duplicate scan ADMITS hidepid blindness (root strays invisible to /proc + pgrep) instead of implying a clean scan
+
+2100/2100 passed
+[R185] workspace hygiene: 12 generated test artifact(s) swept from the repo root

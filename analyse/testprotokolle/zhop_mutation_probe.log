@@ -1,0 +1,3 @@
+G1 X12 Y0 original= ['G1 X30 Y0 E1'] E0-Gegenmutation= ['G1 X30 Y0 E1']
+G1 X12 Y0 E0 original= ['G1 X12 Y0 E0', 'G1 X30 Y0 E1'] E0-Gegenmutation= ['G1 X30 Y0 E1']
+G1 X12 Y0 E-0.2 original= ['G1 X12 Y0 E-0.2', 'G1 X30 Y0 E1'] E0-Gegenmutation= ['G1 X12 Y0 E-0.2', 'G1 X30 Y0 E1']

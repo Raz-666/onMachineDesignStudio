@@ -1,0 +1,6 @@
+Geltungsbereich: macros/*.cfg und menus/*.cfg; Textstellen, keine Laufzeiterreichbarkeit.
+CFG-Dateien: 20 Kandidatenzeilen: 475
+Klassen: {'dynamisch_ungeklaert': 2, 'feature_oder_alias': 376, 'skalar_betroffener_setterzweig': 96, 'sonstige': 1}
+Skalare Aufrufe je NAME: {'accel': 1, 'bed': 7, 'bed_after': 7, 'fan': 7, 'flow': 9, 'hotend_after': 8, 'hotend_first': 8, 'ironing_flow': 7, 'min_cruise': 2, 'pa': 8, 'pa_smooth': 6, 'retract_len': 8, 'retract_speed': 7, 'square_corner': 2, 'unretract_speed': 7, 'velocity': 2}
+Dynamische NAMEs: {'feat_on_{c}': 1, 'feat_pa_{code}': 1}
+TSV: analyse/OVERRIDE-AUFRUFE.tsv

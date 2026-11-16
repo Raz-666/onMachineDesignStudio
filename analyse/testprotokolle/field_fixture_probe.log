@@ -1,0 +1,39 @@
+
+ bigrose_020mm.gcode.gz lines= 256582 distinct_markers= 9 brim= [(279, 1, '0.2', 'vaserose_5cm_withbottom.stl_id_0_copy_0')]
+summary: {'skipped': False, 'tagged': True, 'layers': 251, 'by_object': False, 'types': 36, 'slicer': 'OrcaSlicer 2.4.0', 'custom_groups': None, 'seq_warn': None}
+source_lines_equal_ignoring_eol= True inserted= {'; R2-POSTPROC v5': 1, '_FILE_INFO': 1, 'APPLY_TYPE': 36} gzip_unchanged= True mismatch= []
+  Custom count= 2 canon= CUSTOM direct_apply= CUSTOM:2
+  Skirt count= 1 canon= SKIRT direct_apply= SKIRT:1
+  Brim count= 1 canon= BRIM direct_apply= BRIM:1
+  Outer wall count= 7 canon= WALL-OUTER direct_apply= WALL-OUTER:7
+  Gap infill count= 9 canon= GAPS direct_apply= GAPS:9
+  Bottom surface count= 2 canon= SURFACE-BOTTOM direct_apply= SURFACE-BOTTOM:2
+  Internal solid infill count= 5 canon= INFILL-SOLID direct_apply= INFILL-SOLID:5
+  Top surface count= 7 canon= SURFACE-TOP direct_apply= SURFACE-TOP:7
+  Ironing count= 2 canon= IRONING direct_apply= IRONING:2
+
+ rose_215c_pla.gcode.gz lines= 156948 distinct_markers= 7 brim= [(118, 1, '0.2', 'vaserose_5cm_withbottom.stl_id_0_copy_0'), (78227, 122, '0.2', 'vaserose_5cm_withbottom.stl_id_1_copy_0')]
+[seqaudit] rose_215c_pla.gcode: S3 brim beyond the brim window
+summary: {'skipped': False, 'tagged': True, 'layers': 242, 'by_object': True, 'types': 36, 'slicer': 'OrcaSlicer 2.3.2', 'custom_groups': None, 'seq_warn': ['S3 brim beyond the brim window']}
+source_lines_equal_ignoring_eol= True inserted= {'; R2-POSTPROC v5': 1, '_FILE_INFO': 1, 'APPLY_TYPE': 36, 'LAYER_MARK': 242} gzip_unchanged= True mismatch= []
+  Custom count= 2 canon= CUSTOM direct_apply= CUSTOM:2
+  Brim count= 2 canon= BRIM direct_apply= BRIM:2
+  Outer wall count= 14 canon= WALL-OUTER direct_apply= WALL-OUTER:14
+  Bottom surface count= 2 canon= SURFACE-BOTTOM direct_apply= SURFACE-BOTTOM:2
+  Top surface count= 4 canon= SURFACE-TOP direct_apply= SURFACE-TOP:4
+  Internal solid infill count= 8 canon= INFILL-SOLID direct_apply= INFILL-SOLID:8
+  Ironing count= 4 canon= IRONING direct_apply= IRONING:4
+
+ stringart3d_generic.gcode.gz lines= 114702 distinct_markers= 8 brim= []
+summary: {'skipped': False, 'tagged': True, 'layers': 15, 'by_object': False, 'types': 47, 'slicer': '', 'custom_groups': ['C1'], 'seq_warn': None}
+source_lines_equal_ignoring_eol= True inserted= {'; R2-POSTPROC v5': 1, '_FILE_INFO': 1, 'LAYER_MARK': 15, 'APPLY_TYPE': 47} gzip_unchanged= True mismatch= []
+  Outer wall count= 15 canon= WALL-OUTER direct_apply= WALL-OUTER:15
+  Inner adhesion wall count= 1 canon= WALL-INNER direct_apply= WALL-INNER:1
+  Inner wall count= 12 canon= WALL-INNER direct_apply= WALL-INNER:12
+  Internal solid infill count= 15 canon= INFILL-SOLID direct_apply= INFILL-SOLID:15
+  Bridge count= 1 canon= BRIDGE direct_apply= BRIDGE:1
+  Cover Ring count= 1 canon= CUSTOM direct_apply= C1:1
+  Finishing Ring 1 count= 1 canon= CUSTOM direct_apply= C1:1
+  Finishing Ring 2 count= 1 canon= CUSTOM direct_apply= C1:1
+
+Fixture/Alias-Kombinationen: 24

@@ -1,0 +1,5 @@
+total_layers=0: Live-Menue='Ly: 0.2x?'; Marker='M117 Layer 1 | WALL-OUTER'
+  mode=waiting; START=10 END=300: SAVE_VARIABLE VARIABLE=range_end VALUE=300
+total_layers=251: Live-Menue='Ly: 0.2x251'; Marker='M117 Layer 1/251 | WALL-OUTER'
+  mode=waiting; START=10 END=300: SAVE_VARIABLE VARIABLE=range_end VALUE=251
+SET_LAYER_RANGE mode=printing: verweigert; Backend-Range nicht ausgefuehrt.

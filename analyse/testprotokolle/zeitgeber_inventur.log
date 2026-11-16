@@ -1,0 +1,6 @@
+Untersuchte CFG-Dateien=20, delayed_gcode-Sektionen=30, Duplikatnamen=0, statische_Referenzen=62
+Ohne Textreferenz (nicht gleich ungenutzt): _INIT_AFTER_BOOT, _SYSTEM_BOOT
+IDs referenziert, hier nicht definiert: -
+Dynamische/unerkannte Aufrufe: -
+Initial duration explizit: _INIT_AFTER_BOOT=5, _WATCHDOG=30, _STATE_WATCHER=8, _SYSTEM_BOOT=12
+Scopes/Grenzen: nur macros/*.cfg + menus/*.cfg; kein Jinja-/Zeitablauf/Hardware-Check.

@@ -1,0 +1,20 @@
+--- orca---------------- 
+[seqaudit] orca.gcode: S4 top surface on layer 1
+--- prusa--------------- 
+[seqaudit] prusa.gcode: S4 top surface on layer 1
+--- cura---------------- 
+--- elegoo-------------- 
+[seqaudit] elegoo.gcode: S4 top surface on layer 1
+--- kiri---------------- 
+--- astroprint---------- 
+--- slicebeam----------- 
+[seqaudit] slicebeam.gcode: S4 top surface on layer 1
+--- superslicer--------- 
+--- ideamaker----------- 
+--- simplify3d---------- 
+--- reprap-old---------- 
+--- s3d-ztravel--------- 
+--- marlin-volumetric--- 
+
+tagged-feature hit rate on the corpus: 46/46 (100%)
+R110 DIALECT CORPUS: all 13 families passed

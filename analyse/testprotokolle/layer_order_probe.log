@@ -1,0 +1,8 @@
+A: angenommener Watcher-Tick vor Marker
+  watcher z=0.2: ['SET_GCODE_VARIABLE MACRO=_STATE VARIABLE=layer VALUE=1']
+  marker z=0.4: ['SET_GCODE_VARIABLE MACRO=_STATE VARIABLE=layer VALUE=2', 'SET_GCODE_VARIABLE MACRO=_STATE VARIABLE=layer_marks VALUE=True', 'M220 S100', '_END_AT_LAYER LAYER=2']
+B: Marker vor erstem angenommenen Watcher-Tick
+  marker z=0.4: ['SET_GCODE_VARIABLE MACRO=_STATE VARIABLE=layer VALUE=1', 'SET_GCODE_VARIABLE MACRO=_STATE VARIABLE=layer_marks VALUE=True']
+  watcher z=0.4: []
+Ergebnis: A layer=2 marker_stop=True; B layer=1 marker_stop=False
+Grenze: Reihenfolgen vorausgesetzt, Watcher-Hauptkette/Timer/Klipper nicht simuliert.

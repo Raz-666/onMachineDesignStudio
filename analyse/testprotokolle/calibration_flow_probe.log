@@ -1,0 +1,8 @@
+saved target=0.6, nozzle=0.4, MEASURE=0.5 -> ['SAVE_VARIABLE VARIABLE=flow_cal_result VALUE=80.0', 'RESPOND MSG="Flow cal: wall 0.5mm -> target 0.4mm: flow 100.0% -> 80.0% (LCD: Apply)"']
+same but explicitly TARGET=0.6 -> ['SAVE_VARIABLE VARIABLE=flow_cal_result VALUE=120.0', 'RESPOND MSG="Flow cal: wall 0.5mm -> target 0.6mm: flow 100.0% -> 120.0% (LCD: Apply)"']
+Target-Menue-Aufruf ['SAVE_VARIABLE VARIABLE=flow_cal_result VALUE=136.4', 'RESPOND MSG="Flow cal: wall 0.44mm -> target 0.6mm: flow 100.0% -> 136.4% (LCD: Apply)"'] Modellwerte= {'flow_cal_target': 0.6, 'flow_cal_meas': 0.44, 'flow_cal_result': 136.4}
+danach Wall-GO ['SAVE_VARIABLE VARIABLE=flow_cal_result VALUE=80.0', 'RESPOND MSG="Flow cal: wall 0.5mm -> target 0.4mm: flow 100.0% -> 80.0% (LCD: Apply)"'] Modellwerte= {'flow_cal_target': 0.6, 'flow_cal_meas': 0.5, 'flow_cal_result': 80.0}
+RETRACT_TOWER_RESULT BLOCK= 0 setters= []
+RETRACT_TOWER_RESULT BLOCK= 3 setters= ['SET_OVERRIDE_VALUE NAME=retract_len VALUE=1.5']
+RETRACT_TOWER_RESULT BLOCK= 7 setters= []
+Keine Maschinenausfuehrung; FLOW_CAL-Beispiel ist synthetisch.

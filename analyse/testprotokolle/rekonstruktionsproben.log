@@ -1,0 +1,28 @@
+=== _GeomScan: Modal-Gegenproben ===
+G92 reset: x=20, e_run=0.5, active_poly_length=0
+ohne Reset: x=20, e_run=1.5, active_poly_length=20
+relative XYZ: x=10, e_run=2, active_poly_length=0
+
+=== process: Quelldatei und TAG/optionaler Retract-Fix ===
+rewrite=False dry=False: skipped=True pairs=0 unchanged=True G10=False G11=False info_slicer=True
+rewrite=True dry=False: skipped=True pairs=1 unchanged=False G10=True G11=True info_slicer=True
+rewrite=True dry=True: skipped=True pairs=0 unchanged=True G10=False G11=False info_slicer=True
+untagged default: changed= True tagged= True APPLY_TYPE= True
+
+=== STL: M82 gegen M83 nach ausgefiltertem Support ===
+M82 width_mm= 1.202641 excluded= {'SUPPORT': 20.0} boxes= 1
+M83 width_mm= 0.60132 excluded= {'SUPPORT': 20.0} boxes= 1
+
+=== STL: Top+Innenwand, mit und ohne ungenutztes Outer-Tag ===
+ohne {'relaxed': True, 'boxes': 2, 'incl_mm': 40.0, 'excl': {}, 'tris': 24}
+mit {'relaxed': False, 'boxes': 1, 'incl_mm': 20.0, 'excl': {'WALL-INNER': 20.0}, 'tris': 12}
+
+=== Polygon-Autoupgrade: Wipe in M82 gegen M83 ===
+[eod226] polygon-M82.gcode: 1 object define(s) upgraded with a measured POLYGON (KAMP-safe)
+M82 upgraded= True source_changed= True EXCLUDE_OBJECT_DEFINE NAME=o CENTER=5,5 POLYGON=[[0.00,0.00],[100.00,0.00],[100.00,100.00],[0.00,100.00]]
+[eod226] polygon-M83.gcode: 1 object define(s) upgraded with a measured POLYGON (KAMP-safe)
+M83 upgraded= True source_changed= True EXCLUDE_OBJECT_DEFINE NAME=o CENTER=5,5 POLYGON=[[0.00,0.00],[10.00,0.00],[10.00,10.00],[0.00,10.00]]
+
+=== Queue-Kill: isolierter AST mit injiziertem Flag ===
+UnboundLocalError cannot access local variable 'key' where it is not associated with a value queue= 0 keys= ['test:1']
+Realitaet: Erreichbarkeit des gesetzten Kill-Zustands nicht bewiesen.

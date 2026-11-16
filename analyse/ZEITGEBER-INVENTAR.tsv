@@ -1,0 +1,31 @@
+id	definition	initial_duration_roh	textreferenzen_anzahl	textreferenzen
+_INIT_AFTER_BOOT	macros/01_state.cfg:606	5	0	
+_WATCHDOG	macros/01_state.cfg:635	30	1	macros/01_state.cfg:643
+_STATE_WATCHER	macros/01_state.cfg:655	8	2	macros/01_state.cfg:644; macros/01_state.cfg:1038
+_LED_TO_IDLE	macros/03_leds.cfg:628		2	macros/01_state.cfg:951; macros/08_print_start_stop.cfg:2228
+_START_CONFIRM_WAITER	macros/07_start_confirm.cfg:85		6	macros/07_start_confirm.cfg:98; macros/07_start_confirm.cfg:159; macros/07_start_confirm.cfg:245; macros/08_print_start_stop.cfg:145; macros/08_print_start_stop.cfg:1191; macros/08_print_start_stop.cfg:1606
+_HOMING_GUARD_OFF	macros/08_print_start_stop.cfg:57		1	macros/08_print_start_stop.cfg:44
+_LEGACY_HOME2	macros/08_print_start_stop.cfg:1105		1	macros/08_print_start_stop.cfg:1103
+_LEGACY_PREP2	macros/08_print_start_stop.cfg:1238		1	macros/08_print_start_stop.cfg:1231
+_OBJECT_PREP	macros/08_print_start_stop.cfg:1330		1	macros/01_state.cfg:806
+_START_NET_PROBE	macros/08_print_start_stop.cfg:1743		5	macros/07_start_confirm.cfg:122; macros/07_start_confirm.cfg:151; macros/07_start_confirm.cfg:186; macros/08_print_start_stop.cfg:1754; macros/08_print_start_stop.cfg:1780
+_OPT_PROMPT_HINT	macros/08_print_start_stop.cfg:2123		4	macros/05_materials.cfg:910; macros/05_materials.cfg:976; macros/05_materials.cfg:986; macros/05_materials.cfg:1021
+_END_FAN_OFF	macros/08_print_start_stop.cfg:2259		2	macros/08_print_start_stop.cfg:2234; macros/12_maintenance.cfg:1283
+_END_MOTORS	macros/08_print_start_stop.cfg:2268		2	macros/08_print_start_stop.cfg:2244; macros/12_maintenance.cfg:1292
+_SYSTEM_BOOT	macros/08_print_start_stop.cfg:2278	12	0	
+_BOOT_IDLE	macros/08_print_start_stop.cfg:2292		1	macros/08_print_start_stop.cfg:2284
+_BOOT_ZSYNC	macros/08_print_start_stop.cfg:2298		1	macros/08_print_start_stop.cfg:2286
+_BOOT_ZTILT	macros/08_print_start_stop.cfg:2304		1	macros/08_print_start_stop.cfg:2289
+_AV_HOMING_AV	macros/08_print_start_stop.cfg:2328		2	macros/08_print_start_stop.cfg:246; macros/08_print_start_stop.cfg:2353
+_AV_PRINT_AV	macros/08_print_start_stop.cfg:2361		4	macros/08_print_start_stop.cfg:379; macros/08_print_start_stop.cfg:1855; macros/08_print_start_stop.cfg:1909; macros/08_print_start_stop.cfg:2385
+_PAUSE_NOW_ARM_OFF	macros/09_pause_filament.cfg:127		1	menus/lcd_menues.cfg:2566
+_SENSOR_GRACE_OFF	macros/09_pause_filament.cfg:701		2	macros/08_print_start_stop.cfg:2099; macros/09_pause_filament.cfg:289
+_AV_PAUSE_AV	macros/09_pause_filament.cfg:731		1	macros/09_pause_filament.cfg:98
+_AV_FILAMENT_AV	macros/09_pause_filament.cfg:738		1	macros/09_pause_filament.cfg:106
+_AV_RESUME_AV	macros/09_pause_filament.cfg:751		1	macros/09_pause_filament.cfg:293
+_BS_EVAL	macros/12_maintenance.cfg:242		2	macros/12_maintenance.cfg:221; macros/12_maintenance.cfg:236
+_COLD_PULL_BEEP	macros/12_maintenance.cfg:1105		2	macros/12_maintenance.cfg:1064; macros/12_maintenance.cfg:1115
+_SHAPER_REPORT	macros/12_maintenance.cfg:1173		1	macros/12_maintenance.cfg:1169
+_SAVE_AFTER_CAL	macros/12_maintenance.cfg:1299		2	menus/lcd_menues.cfg:14868; menus/lcd_menues.cfg:15010
+_GEN_ARM_CLEAR	macros/17_generator.cfg:84		10	macros/05_materials.cfg:335; macros/05_materials.cfg:349; macros/05_materials.cfg:361; macros/05_materials.cfg:378; macros/05_materials.cfg:637; macros/05_materials.cfg:661; macros/05_materials.cfg:685; macros/17_generator.cfg:79; macros/17_generator.cfg:96; macros/17_generator.cfg:1528
+_COLORPIC_BLINK	macros/18_colorpic.cfg:102		2	macros/18_colorpic.cfg:93; macros/18_colorpic.cfg:115
