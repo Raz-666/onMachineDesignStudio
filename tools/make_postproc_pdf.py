@@ -18,6 +18,7 @@ from reportlab.lib.units import mm
 from reportlab.platypus import Paragraph
 
 import r2_pdf_kit as K
+from r2_version import VERSION as R2VER
 from r2_pdf_kit import (Doc, H1, H2, H3, P, B, NUM, CODE, CAP, TBL, BOX, IMG,
                         FORMULA, SP, ladder_fig, bar_fig, S)
 
@@ -618,7 +619,7 @@ def build(toc_seiten=None):
                     [40 * mm, 66 * mm, 56 * mm], mono_cols=(0,))
     kb.story += P(
         'Die Kennung jeder erzeugten Datei trägt Release und Build: '
-        '<font face="DVSM">R2-2026-11-13.1 / V1</font>. Damit lässt sich an '
+        '<font face="DVSM">' + R2VER + ' / V1</font>. Damit lässt sich an '
         'jeder Datei ablesen, mit welchem Stand sie entstanden ist - '
         'und der File-Check kann alte Dateien erkennen und nachtaggen.')
 
