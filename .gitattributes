@@ -1,0 +1,11 @@
+# R265 (D1): PDFs und Bilder sind Binaerdateien, keine Textdateien.
+# Ohne diese Zeile behandelt git ein PDF als Text (kein NUL-Byte in den ersten
+# KB) und ein `format-patch --binary` laeuft dann ueber eine TEXT-Diff-Strecke:
+# zwei Hefte kamen nach `git am` nicht byte-gleich zurueck (gemessen). Als
+# Binaerdatei markiert ist der Patch ein Literal-Delta und kommt exakt an.
+*.pdf  -diff
+*.png  -diff
+*.gz   -diff
+*.zip  -diff
+*.xz   -diff
+*.stl  -diff
