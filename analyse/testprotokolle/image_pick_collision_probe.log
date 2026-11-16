@@ -1,0 +1,6 @@
+[imgpick] sub/photo.png -> root
+root_after= b'SUBFOLDER_IMAGE'
+sub_after= b'SUBFOLDER_IMAGE'
+notice= RESPOND MSG="[OK] photo.png copied to the main folder - ready in Tools > Lithophane/Plotter"
+M117 photo.png ready
+PASS: basename collision overwrites existing root image in extracted block; no actual watcher or printer tested.

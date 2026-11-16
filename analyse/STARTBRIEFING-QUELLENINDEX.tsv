@@ -1,0 +1,522 @@
+quellen_id	abschnitt	zeile	text	pruefstatus
+SB-L50	1 ROLLE UND ARBEITSWEISE	50	Direkt, sachlich, technisch präzise, ohne Fülltext.	Einzelzuordnung offen
+SB-L51	1 ROLLE UND ARBEITSWEISE	51	Keine pauschalen Zusicherungen oder unbelegten Behauptungen.	Einzelzuordnung offen
+SB-L52	1 ROLLE UND ARBEITSWEISE	52	Konkrete Codefundstellen, Messwerte und Tests statt generischer Tipps.	Einzelzuordnung offen
+SB-L53	1 ROLLE UND ARBEITSWEISE	53	Vorhandene Arbeit lesen und fortführen, nicht unnötig wiederholen.	Einzelzuordnung offen
+SB-L54	1 ROLLE UND ARBEITSWEISE	54	Ist-Zustände mit Datei-/Zeilenreferenzen oder Testbelegen nachweisen.	Einzelzuordnung offen
+SB-L55	1 ROLLE UND ARBEITSWEISE	55	Vermutungen und gesicherte Erkenntnisse klar unterscheiden.	Einzelzuordnung offen
+SB-L56	1 ROLLE UND ARBEITSWEISE	56	Grenzen, Risiken, Zielkonflikte und nicht unterstützte Fälle offenlegen.	Einzelzuordnung offen
+SB-L57	1 ROLLE UND ARBEITSWEISE	57	Keine Architekturänderung nur aus ästhetischen Gründen.	Einzelzuordnung offen
+SB-L81	1 ROLLE UND ARBEITSWEISE	81	G-Code verschiedener Slicer und Dialekte analysieren.	Einzelzuordnung offen
+SB-L82	1 ROLLE UND ARBEITSWEISE	82	Features, Geometrie, Druckparameter und Kompatibilität untersuchen.	Einzelzuordnung offen
+SB-L83	1 ROLLE UND ARBEITSWEISE	83	Dateien prüfen, korrigieren und optimieren, ohne Originale zu ändern.	Einzelzuordnung offen
+SB-L84	1 ROLLE UND ARBEITSWEISE	84	AS SLICED und AS LEGACY als bewusst unterschiedliche Modi anbieten.	Einzelzuordnung offen
+SB-L85	1 ROLLE UND ARBEITSWEISE	85	Generierte/optimierte Dateien eindeutig registrieren und verwalten.	Einzelzuordnung offen
+SB-L88	1 ROLLE UND ARBEITSWEISE	88	Geführte Kalibrierung direkt am Drucker.	Einzelzuordnung offen
+SB-L89	1 ROLLE UND ARBEITSWEISE	89	Z-Offset, Bed Leveling/Mesh, Z-Tilt, Input Shaper, Pressure Advance, Flow, Extruder, Temperatur, Retraktion und Materialprofile.	Einzelzuordnung offen
+SB-L91	1 ROLLE UND ARBEITSWEISE	91	Hardware erkennen und nur tatsächlich unterstützte Schritte anbieten.	Einzelzuordnung offen
+SB-L92	1 ROLLE UND ARBEITSWEISE	92	Ergebnisse speichern und Profilen zuordnen.	Einzelzuordnung offen
+SB-L93	1 ROLLE UND ARBEITSWEISE	93	LCD und WebUI nutzen denselben fachlichen Funktionskern.	Einzelzuordnung offen
+SB-L96	1 ROLLE UND ARBEITSWEISE	96	Objekte, Formen, Text, Bilder, Oberflächen, Linien und G-Code- Geometrien erstellen, verändern, kombinieren und weiterverarbeiten.	Einzelzuordnung offen
+SB-L98	1 ROLLE UND ARBEITSWEISE	98	Beispiele: Dichtungen, Kabelbinder, Lithophanes, Rahmen, Winkel, Bausteine, Beschriftungen, Plotterpfade, Texturen, Artistic Strings.	Einzelzuordnung offen
+SB-L100	1 ROLLE UND ARBEITSWEISE	100	Werkzeuge sollen kombinierbar und reproduzierbar sein.	Einzelzuordnung offen
+SB-L101	1 ROLLE UND ARBEITSWEISE	101	Generatoren laufen im Hintergrund und beeinträchtigen keinen Druck.	Einzelzuordnung offen
+SB-L102	1 ROLLE UND ARBEITSWEISE	102	Kein Generator startet ohne ausdrückliche Nutzeraktion einen Druck.	Einzelzuordnung offen
+SB-L105	1 ROLLE UND ARBEITSWEISE	105	Relevante Parameter während des Drucks kontrollieren.	Einzelzuordnung offen
+SB-L106	1 ROLLE UND ARBEITSWEISE	106	Live-Tuning-Funktionen müssen bei Umbauten vollständig erhalten bleiben.	Einzelzuordnung offen
+SB-L107	1 ROLLE UND ARBEITSWEISE	107	Druckpriorität vor Hintergrundjobs, Animationen, Dateiscans und UI.	Einzelzuordnung offen
+SB-L110	1 ROLLE UND ARBEITSWEISE	110	Nach dem Druck Ergebnis bewerten lassen.	Einzelzuordnung offen
+SB-L111	1 ROLLE UND ARBEITSWEISE	111	Erfolgreiche Einstellungen mit Datei als neue Version/Profil speichern.	Einzelzuordnung offen
+SB-L112	1 ROLLE UND ARBEITSWEISE	112	Originaldatei bleibt erhalten.	Einzelzuordnung offen
+SB-L113	1 ROLLE UND ARBEITSWEISE	113	Parameter, Profile, Quelle und Verarbeitungshistorie bleiben nachvollziehbar.	Einzelzuordnung offen
+SB-L115	1 ROLLE UND ARBEITSWEISE	115	Einstellungen nur bei technischer Kompatibilität auf andere Dateien übertragen.	Einzelzuordnung offen
+SB-L119	1 ROLLE UND ARBEITSWEISE	119	G-Code, Bild, Text und – soweit sinnvoll – PDF als Ausgangsmaterial.	Einzelzuordnung offen
+SB-L120	1 ROLLE UND ARBEITSWEISE	120	Plotter-Modus und Pfadwerkzeuge.	Einzelzuordnung offen
+SB-L121	1 ROLLE UND ARBEITSWEISE	121	Bildauswahl und Bildverarbeitung müssen werkzeugübergreifend konsistent funktionieren.	Einzelzuordnung offen
+SB-L125	1 ROLLE UND ARBEITSWEISE	125	Display mit Dreh-/Drückknopf ist ein Kernmerkmal.	Einzelzuordnung offen
+SB-L126	1 ROLLE UND ARBEITSWEISE	126	WebUI ist funktionale Alternative bei nicht kompatibler Hardware.	Einzelzuordnung offen
+SB-L127	1 ROLLE UND ARBEITSWEISE	127	Keine Verlagerung aller Funktionen in lange Makrolisten.	Einzelzuordnung offen
+SB-L128	1 ROLLE UND ARBEITSWEISE	128	Audio-visuelles Feedback ist Teil der Produktidentität, darf aber niemals Druck oder MCU-Stabilität gefährden.	Einzelzuordnung offen
+SB-L136	3 ÜBERGABEQUELLEN UND RESTORE	136	klipper-e3-r2d2-UPDATE-R2-2026-11-13.1.zip	Einzelzuordnung offen
+SB-L137	3 ÜBERGABEQUELLEN UND RESTORE	137	R2-UEBERGABE-019f0a4.zip	Einzelzuordnung offen
+SB-L138	3 ÜBERGABEQUELLEN UND RESTORE	138	CREATIVE_POSSIBILITIES.pdf	Einzelzuordnung offen
+SB-L139	3 ÜBERGABEQUELLEN UND RESTORE	139	Klipper MCU Shutdown – Root Cause Analyse.pdf	Einzelzuordnung offen
+SB-L140	3 ÜBERGABEQUELLEN UND RESTORE	140	Klipper MCU shutdowns and how to get rid of it.pdf	Einzelzuordnung offen
+SB-L141	3 ÜBERGABEQUELLEN UND RESTORE	141	FeatureErkennung.md	Einzelzuordnung offen
+SB-L142	3 ÜBERGABEQUELLEN UND RESTORE	142	GCode_Reverse_Engineering_Masterkonzept.md	Einzelzuordnung offen
+SB-L143	3 ÜBERGABEQUELLEN UND RESTORE	143	GCode_Reverse_Engineering_Master_Spezifikation.md	Einzelzuordnung offen
+SB-L144	3 ÜBERGABEQUELLEN UND RESTORE	144	Reverse Engineering von G-Code Geometrien.md	Einzelzuordnung offen
+SB-L145	3 ÜBERGABEQUELLEN UND RESTORE	145	R2_Postprozessor_Entwicklungsbriefing-Coding-KI.pdf/.txt	Einzelzuordnung offen
+SB-L146	3 ÜBERGABEQUELLEN UND RESTORE	146	R2_Postprozessor_Entwicklungsbriefing-Coding-KI_v2.pdf/.txt	Einzelzuordnung offen
+SB-L147	3 ÜBERGABEQUELLEN UND RESTORE	147	r2_postproc_next.py	Einzelzuordnung offen
+SB-L196	4 VOLLSTÄNDIGE BESTANDSAUFNAHME VOR CODEÄNDERUNGEN	196	Verzeichnisstruktur, Branch, HEAD, Tags, Status und lokale Änderungen.	Einzelzuordnung offen
+SB-L197	4 VOLLSTÄNDIGE BESTANDSAUFNAHME VOR CODEÄNDERUNGEN	197	Commit 019f0a4 und Version R2-2026-11-13.1 verifizieren.	Einzelzuordnung offen
+SB-L198	4 VOLLSTÄNDIGE BESTANDSAUFNAHME VOR CODEÄNDERUNGEN	198	Patch-Historie nachvollziehen.	Einzelzuordnung offen
+SB-L199	4 VOLLSTÄNDIGE BESTANDSAUFNAHME VOR CODEÄNDERUNGEN	199	Fallback-Snapshot mit Projektstand vergleichen.	Einzelzuordnung offen
+SB-L200	4 VOLLSTÄNDIGE BESTANDSAUFNAHME VOR CODEÄNDERUNGEN	200	Keine Bereinigung ohne Freigabe.	Einzelzuordnung offen
+SB-L203	4 VOLLSTÄNDIGE BESTANDSAUFNAHME VOR CODEÄNDERUNGEN	203	Einstiegspunkte und Datenfluss erfassen.	Einzelzuordnung offen
+SB-L204	4 VOLLSTÄNDIGE BESTANDSAUFNAHME VOR CODEÄNDERUNGEN	204	Python-Module, Klipper-Konfigurationen, Makros, LCD-Menüs, WebUI-Komponenten, Generatoren und Hilfswerkzeuge inventarisieren.	Einzelzuordnung offen
+SB-L206	4 VOLLSTÄNDIGE BESTANDSAUFNAHME VOR CODEÄNDERUNGEN	206	Modulverantwortlichkeiten, globale Zustände und Abhängigkeiten.	Einzelzuordnung offen
+SB-L207	4 VOLLSTÄNDIGE BESTANDSAUFNAHME VOR CODEÄNDERUNGEN	207	Dateioperationen, Polling, Timer, Delayed-Gcodes, Webhooks, LEDs, Sound, Threads und Hintergrundjobs lokalisieren.	Einzelzuordnung offen
+SB-L211	4 VOLLSTÄNDIGE BESTANDSAUFNAHME VOR CODEÄNDERUNGEN	211	README, Installations-/Entwicklungsdokumentation.	Einzelzuordnung offen
+SB-L212	4 VOLLSTÄNDIGE BESTANDSAUFNAHME VOR CODEÄNDERUNGEN	212	Compatibility, LCD-/Display-Portabilität und WebUI.	Einzelzuordnung offen
+SB-L213	4 VOLLSTÄNDIGE BESTANDSAUFNAHME VOR CODEÄNDERUNGEN	213	Feature Tagging und Slicer-Dokumentation.	Einzelzuordnung offen
+SB-L214	4 VOLLSTÄNDIGE BESTANDSAUFNAHME VOR CODEÄNDERUNGEN	214	Master-TODO und weitere Backlogs.	Einzelzuordnung offen
+SB-L215	4 VOLLSTÄNDIGE BESTANDSAUFNAHME VOR CODEÄNDERUNGEN	215	Shutdown Register, Tools Inventory, Release Reports.	Einzelzuordnung offen
+SB-L216	4 VOLLSTÄNDIGE BESTANDSAUFNAHME VOR CODEÄNDERUNGEN	216	StringArt-/Frame-Design und Creative-Possibilities.	Einzelzuordnung offen
+SB-L217	4 VOLLSTÄNDIGE BESTANDSAUFNAHME VOR CODEÄNDERUNGEN	217	Postprocessor- und Reverse-Engineering-Spezifikationen.	Einzelzuordnung offen
+SB-L218	4 VOLLSTÄNDIGE BESTANDSAUFNAHME VOR CODEÄNDERUNGEN	218	Pre-Print-, Live-Tuning- und Kalibrierungsunterlagen.	Einzelzuordnung offen
+SB-L219	4 VOLLSTÄNDIGE BESTANDSAUFNAHME VOR CODEÄNDERUNGEN	219	Code-Kommentare, FIXME, TODO, XXX und Historie.	Einzelzuordnung offen
+SB-L222	4 VOLLSTÄNDIGE BESTANDSAUFNAHME VOR CODEÄNDERUNGEN	222	implementiert und getestet;	Einzelzuordnung offen
+SB-L223	4 VOLLSTÄNDIGE BESTANDSAUFNAHME VOR CODEÄNDERUNGEN	223	implementiert, aber unvollständig;	Einzelzuordnung offen
+SB-L224	4 VOLLSTÄNDIGE BESTANDSAUFNAHME VOR CODEÄNDERUNGEN	224	implementiert, aber nicht integriert;	Einzelzuordnung offen
+SB-L225	4 VOLLSTÄNDIGE BESTANDSAUFNAHME VOR CODEÄNDERUNGEN	225	nur dokumentiert/geplant;	Einzelzuordnung offen
+SB-L226	4 VOLLSTÄNDIGE BESTANDSAUFNAHME VOR CODEÄNDERUNGEN	226	nicht vorhanden;	Einzelzuordnung offen
+SB-L227	4 VOLLSTÄNDIGE BESTANDSAUFNAHME VOR CODEÄNDERUNGEN	227	veraltet/unklar;	Einzelzuordnung offen
+SB-L228	4 VOLLSTÄNDIGE BESTANDSAUFNAHME VOR CODEÄNDERUNGEN	228	hardware- oder konfigurationsabhängig.	Einzelzuordnung offen
+SB-L250	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	250	Vollständige Codebasis inventarisieren.	Einzelzuordnung offen
+SB-L251	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	251	Vorhandene Funktionen, Regeln, Sonderfälle und Rückwärtskompatibilität erhalten.	Einzelzuordnung offen
+SB-L253	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	253	Grenzen mit konkreten Codefundstellen belegen.	Einzelzuordnung offen
+SB-L254	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	254	Modulare Zielarchitektur und risikoarmen Migrationsplan vorlegen.	Einzelzuordnung offen
+SB-L255	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	255	Erst nach Freigabe schrittweise umbauen.	Einzelzuordnung offen
+SB-L256	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	256	Bestehendes Verhalten mit reproduzierbaren Tests sichern.	Einzelzuordnung offen
+SB-L259	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	259	Pauschaler Ersatz der Engine.	Einzelzuordnung offen
+SB-L260	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	260	Entfernen von Funktionen ohne Nachweis/Freigabe.	Einzelzuordnung offen
+SB-L261	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	261	Großflächiges Neuschreiben ohne Migration.	Einzelzuordnung offen
+SB-L262	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	262	Unkontrollierte Änderung von R2-Ausgabeformat, Markern, Metadaten, APPLY_TYPE oder nachgelagerten Verbrauchern.	Einzelzuordnung offen
+SB-L264	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	264	Heuristiken als sichere Wahrheit ausgeben, wenn sie nur Indizien sind.	Einzelzuordnung offen
+SB-L269	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	269	korrekte Interpretation unterstützter G-Code-Befehle und Modalzustände;	Einzelzuordnung offen
+SB-L270	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	270	normalisierte Bewegungen unabhängig von absoluten/relativen Modi;	Einzelzuordnung offen
+SB-L271	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	271	konsistente Extrusionspfade, Layer, Konturen und räumliche Beziehungen;	Einzelzuordnung offen
+SB-L272	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	272	Klassifikation von Außen-/Innenwand, Support, Bridge, Sparse/Solid Infill, Top-/Bottom-Surface, Brim und weiteren Rollen;	Einzelzuordnung offen
+SB-L274	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	274	getrennte Erkennung von Feature, geometrischer Form und Pattern;	Einzelzuordnung offen
+SB-L275	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	275	Konfidenz, Evidenz und Begründung je Klassifikation;	Einzelzuordnung offen
+SB-L276	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	276	UNKNOWN/AMBIGUOUS bei nicht eindeutigen Fällen;	Einzelzuordnung offen
+SB-L277	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	277	stabile Integration in R2.	Einzelzuordnung offen
+SB-L290	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	290	tools/r2_postproc.py enthält G-Code-Scanning, Feature-Tagging, Geometrieanalyse, Generator-Ausführung, G-Code-Mutation, Dateiverwaltung/-überwachung sowie Host-Monitoring/Recovery.	Einzelzuordnung offen
+SB-L293	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	293	tools/r2_postproc_next.py ist eine große Entwicklungsfassung (historisch ca. 1,53 MB / 28.978 Zeilen).	Einzelzuordnung offen
+SB-L295	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	295	_GeomScan beginnt im untersuchten Stand ungefähr bei Zeile 20.532.	Einzelzuordnung offen
+SB-L296	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	296	MOVE_RE liegt ungefähr bei Zeile 105–112 und erkennt im untersuchten Analysepfad G0/G1.	Einzelzuordnung offen
+SB-L298	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	298	r2_texture.py ist separat.	Einzelzuordnung offen
+SB-L299	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	299	r2_cake.py behandelt Cut & Split.	Einzelzuordnung offen
+SB-L300	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	300	Generator- und Geometriefunktionen liegen teilweise noch im Postprocessor.	Einzelzuordnung offen
+SB-L304	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	304	leichter und umfangreicher Analysepfad;	Einzelzuordnung offen
+SB-L305	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	305	modale X/Y/Z- und Feedrate-Verfolgung;	Einzelzuordnung offen
+SB-L306	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	306	M82/M83-Behandlung;	Einzelzuordnung offen
+SB-L307	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	307	volumetrische Extrusionsrate und MAXRATE;	Einzelzuordnung offen
+SB-L308	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	308	Außenwand-Startpunkte als Seam-Grundlage;	Einzelzuordnung offen
+SB-L309	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	309	extrudierende Polylinien je Layer;	Einzelzuordnung offen
+SB-L310	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	310	MAX_PTS-Begrenzung;	Einzelzuordnung offen
+SB-L311	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	311	geschlossene/nahezu geschlossene Konturen;	Einzelzuordnung offen
+SB-L312	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	312	Konturverschachtelung via Point-in-Polygon;	Einzelzuordnung offen
+SB-L313	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	313	Außen-/Innenwand-Ableitung;	Einzelzuordnung offen
+SB-L314	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	314	parallele Hatch-/Infill-Linien;	Einzelzuordnung offen
+SB-L315	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	315	Dichteheuristik INFILL-SPARSE / INFILL-SOLID;	Einzelzuordnung offen
+SB-L316	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	316	_LayerBitmap und Layerbild-Analyse;	Einzelzuordnung offen
+SB-L317	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	317	Materialprüfung beiderseits eines Pfads;	Einzelzuordnung offen
+SB-L318	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	318	offene gekrümmte Pfade anhand Layerbild;	Einzelzuordnung offen
+SB-L319	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	319	Support-Kandidaten anhand Komponenten und Druckreihenfolge;	Einzelzuordnung offen
+SB-L320	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	320	Layerübergreifende Bridge-Kandidaten und Material darunter;	Einzelzuordnung offen
+SB-L321	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	321	mehrstufige Solid-Infill-/Top-Surface-Unterscheidung;	Einzelzuordnung offen
+SB-L322	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	322	Brim-Heuristiken über Layer-1-Konturen;	Einzelzuordnung offen
+SB-L323	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	323	Vase-/Spiralmodus;	Einzelzuordnung offen
+SB-L324	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	324	Feature-Sequenz und Coverage-Kennzahlen;	Einzelzuordnung offen
+SB-L325	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	325	CUSTOM-Kommentare mit nachgelagerter Geometrieprüfung.	Einzelzuordnung offen
+SB-L348	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	348	G90/G91: absolute/relative XYZ-Koordinaten.	Einzelzuordnung offen
+SB-L349	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	349	M82/M83: absolute/relative Extruderkoordinaten.	Einzelzuordnung offen
+SB-L350	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	350	G92: Positions-/Extruder-Reset mit korrekter Zustandsaktualisierung.	Einzelzuordnung offen
+SB-L351	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	351	G20/G21: Inch/mm.	Einzelzuordnung offen
+SB-L352	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	352	Modale Feedrate F und Achsenpositionen.	Einzelzuordnung offen
+SB-L353	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	353	G0/G1.	Einzelzuordnung offen
+SB-L354	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	354	G2/G3.	Einzelzuordnung offen
+SB-L355	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	355	Tool-Wechsel T0/T1 usw. und getrennte Extruderzustände.	Einzelzuordnung offen
+SB-L356	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	356	Retract/Unretract und Z-Hop.	Einzelzuordnung offen
+SB-L357	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	357	Koordinatensysteme und Offsets.	Einzelzuordnung offen
+SB-L358	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	358	Relevante Firmware-/Slicer-Dialekte.	Einzelzuordnung offen
+SB-L359	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	359	Kommentare, Leerzeilen, Checksummen, Zeilennummern.	Einzelzuordnung offen
+SB-L360	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	360	Unbekannte Befehle sichtbar protokollieren.	Einzelzuordnung offen
+SB-L363	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	363	Nach jeder Zeile eindeutiger, testbarer Maschinenzustand.	Einzelzuordnung offen
+SB-L364	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	364	Fehlende X-/Y-Angabe setzt keine Achse auf Null.	Einzelzuordnung offen
+SB-L365	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	365	Relative Moves bauen auf dem letzten Zustand auf.	Einzelzuordnung offen
+SB-L366	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	366	G92 ist keine physische Bewegung.	Einzelzuordnung offen
+SB-L367	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	367	E-Zustände verschiedener Tools werden nicht vermischt.	Einzelzuordnung offen
+SB-L368	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	368	Nicht unterstützte Syntax wird gemeldet.	Einzelzuordnung offen
+SB-L373	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	373	Start-/Endposition in mm.	Einzelzuordnung offen
+SB-L374	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	374	Start-/Endposition der Extruderachse oder Extrusionsdelta.	Einzelzuordnung offen
+SB-L375	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	375	Tool-ID.	Einzelzuordnung offen
+SB-L376	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	376	Feedrate in konsistenten Einheiten.	Einzelzuordnung offen
+SB-L377	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	377	Typ: Travel, Extrusion, Retract, Unretract, Arc, Unknown.	Einzelzuordnung offen
+SB-L378	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	378	Layer-/Z-Kontext.	Einzelzuordnung offen
+SB-L379	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	379	Quellzeilenbereich.	Einzelzuordnung offen
+SB-L380	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	380	Modalzustand und Interpretationsannahmen.	Einzelzuordnung offen
+SB-L381	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	381	Diagnose bei unvollständiger Interpretation.	Einzelzuordnung offen
+SB-L403	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	403	gcode_parser: Zeile -> strukturierter Befehl.	Einzelzuordnung offen
+SB-L404	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	404	modal_state: Koordinaten-, Einheiten-, Extruder- und Toolzustand.	Einzelzuordnung offen
+SB-L405	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	405	motion_model: normalisierte Moves und Bögen.	Einzelzuordnung offen
+SB-L406	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	406	path_builder: zusammenhängende Extrusionspolylinien.	Einzelzuordnung offen
+SB-L407	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	407	layer_model: Layer und variable Layerhöhen.	Einzelzuordnung offen
+SB-L408	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	408	geometry_2d: Konturen, Polygone, Raster, Seitenprüfung.	Einzelzuordnung offen
+SB-L409	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	409	topology_3d: layerübergreifende räumliche Beziehungen.	Einzelzuordnung offen
+SB-L410	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	410	feature_classifier: semantische Rollen.	Einzelzuordnung offen
+SB-L411	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	411	pattern_classifier: Infill-/Surface-Muster.	Einzelzuordnung offen
+SB-L412	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	412	confidence: Evidenz, Score, Ambiguität.	Einzelzuordnung offen
+SB-L413	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	413	r2_adapter: bestehende R2-Integration und Ausgabe.	Einzelzuordnung offen
+SB-L421	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	421	konstante und variable Layerhöhen;	Einzelzuordnung offen
+SB-L422	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	422	Z-Hop und Z-veränderte Travel-Moves;	Einzelzuordnung offen
+SB-L423	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	423	Layergrenzen nicht nur aus Kommentaren;	Einzelzuordnung offen
+SB-L424	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	424	lokale Überhänge und Silhouettenänderungen;	Einzelzuordnung offen
+SB-L425	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	425	Materialstützung über mehrere vorherige Layer;	Einzelzuordnung offen
+SB-L426	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	426	freie Spannweiten vs. Support-Gap-/Stufensituationen;	Einzelzuordnung offen
+SB-L427	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	427	räumliche Kontinuität von Wänden und Flächen;	Einzelzuordnung offen
+SB-L428	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	428	mehrere Islands, Hohlräume, Kanäle und Öffnungen;	Einzelzuordnung offen
+SB-L429	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	429	Material direkt darunter vs. tiefer liegendes Material;	Einzelzuordnung offen
+SB-L430	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	430	Support vs. echte freie Spannweite.	Einzelzuordnung offen
+SB-L455	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	455	Ergebnislabel und Score;	Einzelzuordnung offen
+SB-L456	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	456	verwendete Evidenz;	Einzelzuordnung offen
+SB-L457	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	457	widersprechende Evidenz;	Einzelzuordnung offen
+SB-L458	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	458	alternative Hypothesen;	Einzelzuordnung offen
+SB-L459	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	459	Regel und Regelversion;	Einzelzuordnung offen
+SB-L460	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	460	Datenqualität/Vollständigkeit;	Einzelzuordnung offen
+SB-L461	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	461	Provenienz: Slicer-Tag oder Geometrie-Inferenz;	Einzelzuordnung offen
+SB-L462	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	462	Grund für UNKNOWN/AMBIGUOUS.	Einzelzuordnung offen
+SB-L610	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	610	Slicer-Kommentar-Erkennung.	Einzelzuordnung offen
+SB-L611	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	611	Alias-Mapping / TYPE_MAP.	Einzelzuordnung offen
+SB-L612	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	612	Exakte Canonicalisierung.	Einzelzuordnung offen
+SB-L613	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	613	Case-Normalisierung.	Einzelzuordnung offen
+SB-L614	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	614	Toleranz für Leerzeichen, Trennzeichen, Unterstriche, Bindestriche.	Einzelzuordnung offen
+SB-L615	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	615	CamelCase-Auflösung (ExternalPerimeter -> external perimeter).	Einzelzuordnung offen
+SB-L616	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	616	Bereits kanonische R2-Werte erkennen.	Einzelzuordnung offen
+SB-L617	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	617	Support-Sonderbehandlung.	Einzelzuordnung offen
+SB-L618	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	618	Deterministische CUSTOM-Eliminierungsleiter.	Einzelzuordnung offen
+SB-L619	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	619	Unknown-Feature-Behandlung.	Einzelzuordnung offen
+SB-L620	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	620	Featuregrenzen und APPLY_TYPE-Zuweisung.	Einzelzuordnung offen
+SB-L621	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	621	CUSTOM-Watch und geometrische Nachprüfung.	Einzelzuordnung offen
+SB-L622	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	622	C1–C9 CUSTOM-Gruppen exakt aus den Quellen.	Einzelzuordnung offen
+SB-L623	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	623	Cross-Layer-Sequenzprüfung.	Einzelzuordnung offen
+SB-L624	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	624	Konflikt-/Unmöglichkeitsprüfung.	Einzelzuordnung offen
+SB-L625	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	625	Trennung getaggter von geometrisch inferierten Daten.	Einzelzuordnung offen
+SB-L628	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	628	'Wall outer', 'WALL-OUTER' und 'wall_outer' sollen gleich behandelt werden.	Einzelzuordnung offen
+SB-L630	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	630	Orca/Bambu-Platzhalter können CamelCase liefern, z. B. ExternalPerimeter.	Einzelzuordnung offen
+SB-L632	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	632	Bereits kanonische Werte wie INFILL-SPARSE dürfen nicht zu CUSTOM werden.	Einzelzuordnung offen
+SB-L634	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	634	Support-Varianten können anhand bekannter Begriffe normalisiert werden.	Einzelzuordnung offen
+SB-L635	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	635	CUSTOM-Eliminierung nutzt deterministische Tokens/Whitelists, kein ML und keine freie unscharfe Vermutung.	Einzelzuordnung offen
+SB-L637	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	637	Bekannte Tokenfamilien umfassen outer, shell, solid, ironing, bridge, brim, tower, support sowie Pattern-Begriffe.	Einzelzuordnung offen
+SB-L639	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	639	Pattern-Tokenbeispiele aus dem untersuchten Code: gyroid, honeycomb, lightning, cubic, lattice, concentric, rectilinear, hilbert, octagram, archimedean, trihexagon, hexagonal, zigzag, crosshatch, grid, wiggle, triangle und weitere.	Einzelzuordnung offen
+SB-L645	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	645	Begriffe ohne belastbare Zuordnung bleiben CUSTOM.	Einzelzuordnung offen
+SB-L646	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	646	Keine breite Fuzzy-Suche, die Wände irrtümlich CUSTOM macht.	Einzelzuordnung offen
+SB-L647	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	647	Keine blinde Teilstring-Suche mit Zufallstreffern.	Einzelzuordnung offen
+SB-L648	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	648	C1–C9-Bedeutung nicht erfinden; aus Code/Dokumenten extrahieren.	Einzelzuordnung offen
+SB-L649	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	649	Sequenzregeln für Ironing, Top-Surface, Brim usw. exakt prüfen. Manche Reihenfolgen werden absichtlich nicht erzwungen.	Einzelzuordnung offen
+SB-L651	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	651	CUSTOM-Zähler und File-Info müssen korrekt bleiben.	Einzelzuordnung offen
+SB-L652	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	652	APPLY_TYPE und Live-Tuning-Verbraucher schützen.	Einzelzuordnung offen
+SB-L657	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	657	Flow/Extrusionsvolumen.	Einzelzuordnung offen
+SB-L658	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	658	XY-/XYZ-Pfadlängen.	Einzelzuordnung offen
+SB-L659	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	659	Linienbreite und Querschnittsschätzung.	Einzelzuordnung offen
+SB-L660	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	660	Pfadschluss.	Einzelzuordnung offen
+SB-L661	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	661	Polygonbildung und Konturhierarchie.	Einzelzuordnung offen
+SB-L662	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	662	Bounding Boxes und Convex Hulls.	Einzelzuordnung offen
+SB-L663	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	663	Offsets und Distanzen.	Einzelzuordnung offen
+SB-L664	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	664	Flächenabdeckung und Dichtekarten.	Einzelzuordnung offen
+SB-L665	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	665	Layerübergreifende Boolean-Operationen.	Einzelzuordnung offen
+SB-L666	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	666	Materialstützung über mehrere Layer.	Einzelzuordnung offen
+SB-L667	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	667	lokale Überhänge, Support-Gaps und untere Stützstrukturen.	Einzelzuordnung offen
+SB-L668	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	668	echte freie Spannweiten.	Einzelzuordnung offen
+SB-L669	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	669	mehrere Teile/Islands/Hohlräume.	Einzelzuordnung offen
+SB-L670	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	670	Bridge/Internal Bridge und Top-/Bottom-Surfaces.	Einzelzuordnung offen
+SB-L671	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	671	Pattern Gyroid, Grid, Lines, Rectilinear, Triangles, Cubic, Honeycomb, Lightning, Concentric, Hilbert usw.	Einzelzuordnung offen
+SB-L681	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	681	Golden-Master-Ausgaben des aktuellen Stands.	Einzelzuordnung offen
+SB-L682	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	682	Regressionstests für bestehende R2-Dateien und reale G-Code-Fixtures.	Einzelzuordnung offen
+SB-L683	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	683	Slicer-Fixtures je Familie/Dialekt.	Einzelzuordnung offen
+SB-L684	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	684	Getaggte und ungetaggte Varianten.	Einzelzuordnung offen
+SB-L685	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	685	Modalzustands-, Bewegungs-, Geometrie-, Topologie-, Feature-, Pattern-, CUSTOM-/APPLY_TYPE- und Sequenztests.	Einzelzuordnung offen
+SB-L687	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	687	Präzision, Recall, F1 und Confusion Matrix, sofern Ground Truth existiert.	Einzelzuordnung offen
+SB-L689	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	689	Geometrie-/Volumenabweichungen.	Einzelzuordnung offen
+SB-L690	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	690	Laufzeit-/Speicherverbrauch und MAX_PTS-Ressourcenlimits.	Einzelzuordnung offen
+SB-L691	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	691	Determinismus und Reproduzierbarkeit.	Einzelzuordnung offen
+SB-L692	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	692	Ablationstests für Evidenzkanäle.	Einzelzuordnung offen
+SB-L693	5 POSTPROCESSOR UND G-CODE REVERSE ENGINEERING	693	Beschädigte, unvollständige und unbekannte Befehle.	Einzelzuordnung offen
+SB-L735	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	735	Support / Stützstrukturen und Support Interface;	Einzelzuordnung offen
+SB-L736	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	736	Sparse Infill und Solid/Internal Infill;	Einzelzuordnung offen
+SB-L737	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	737	Top-/Bottom-Skin bzw. interne Füllbahnen, soweit sie nicht zur äußeren Modellhülle gehören;	Einzelzuordnung offen
+SB-L739	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	739	Brim, Skirt, Raft und Mouse Ears;	Einzelzuordnung offen
+SB-L740	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	740	Prime-/Purge-/Wipe-Tower, Prime Lines und Purge-Strukturen;	Einzelzuordnung offen
+SB-L741	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	741	Travel-Moves, Retracts, Unretracts und sonstige nicht extrudierende Bewegungen;	Einzelzuordnung offen
+SB-L743	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	743	sonstige Hilfs-, Reinigungs- und Kalibriergeometrien.	Einzelzuordnung offen
+SB-L755	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	755	mehrere getrennte Modelle auf einer Druckplatte;	Einzelzuordnung offen
+SB-L756	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	756	Print by Layer: mehrere Objekte werden layerweise abwechselnd gedruckt;	Einzelzuordnung offen
+SB-L757	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	757	Print by Object / Sequential Printing: ein Objekt kann vollständig gedruckt werden, bevor das nächste beginnt;	Einzelzuordnung offen
+SB-L759	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	759	mehrere Inseln/Teilkomponenten innerhalb eines Modells;	Einzelzuordnung offen
+SB-L760	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	760	mehrere Instanzen desselben Modells;	Einzelzuordnung offen
+SB-L761	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	761	Objekte, die sich geometrisch berühren oder überlappen;	Einzelzuordnung offen
+SB-L762	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	762	Objektwechsel und Objektmarker des jeweiligen Slicers;	Einzelzuordnung offen
+SB-L763	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	763	G-Code ohne Objektmarker, bei dem Objektgrenzen nur geometrisch und mit Unsicherheit erschlossen werden können.	Einzelzuordnung offen
+SB-L787	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	787	Pro Layer die tatsächlichen äußeren Modellkonturen bestimmen.	Einzelzuordnung offen
+SB-L788	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	788	Außenwand gegenüber Support-, Brim-, Raft- und sonstigen Konturen unterscheiden.	Einzelzuordnung offen
+SB-L790	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	790	Innenkonturen und Öffnungen/Hohlräume erkennen.	Einzelzuordnung offen
+SB-L791	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	791	Konturverschachtelung und Material-/Modellregionen berücksichtigen.	Einzelzuordnung offen
+SB-L792	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	792	Konturen über Layer hinweg zu konsistenten Flächen und Volumen verbinden.	Einzelzuordnung offen
+SB-L794	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	794	Variable Layerhöhen und geneigte/überhängende Außenflächen beachten.	Einzelzuordnung offen
+SB-L795	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	795	Dünne Wände und Bereiche mit nur einer Extrusionsbahn berücksichtigen.	Einzelzuordnung offen
+SB-L798	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	798	Falls Bahnen zur Rekonstruktion verwendet werden, die reale Extrusionsbreite und Layerhöhe als Querschnitt berücksichtigen.	Einzelzuordnung offen
+SB-L800	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	800	Die Ablage einer Extrusionsbahn ist nicht automatisch eine ideale CAD-Fläche.	Einzelzuordnung offen
+SB-L802	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	802	Rundungen, abgeflachte Stränge, Überlappungen, Ecken und Wandverschmelzung müssen berücksichtigt werden.	Einzelzuordnung offen
+SB-L804	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	804	Nicht blind jede Bahn zu einem geschlossenen Zylinder/Prisma machen.	Einzelzuordnung offen
+SB-L805	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	805	Eine aus G-Code rekonstruierte Hülle kann nur eine Annäherung an das ursprüngliche CAD-Modell sein.	Einzelzuordnung offen
+SB-L809	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	809	Objektmarker, Objekt-IDs, Prozess-/Object Labels und Slicer-Metadaten aus Pass 0 extrahieren.	Einzelzuordnung offen
+SB-L811	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	811	Marker mit Geometrie und Layerkontinuität abgleichen.	Einzelzuordnung offen
+SB-L812	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	812	Widersprüche und fehlende Marker als Unsicherheit ausweisen.	Einzelzuordnung offen
+SB-L813	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	813	Kein einzelnes Kommentarformat als universell voraussetzen.	Einzelzuordnung offen
+SB-L816	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	816	Modellkomponenten pro Layer und über Layer hinweg gruppieren.	Einzelzuordnung offen
+SB-L817	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	817	Print-by-Layer- und Print-by-Object-Abläufe getrennt behandeln.	Einzelzuordnung offen
+SB-L818	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	818	Druckreihenfolge, räumliche Nähe und Kontinuität kombinieren.	Einzelzuordnung offen
+SB-L819	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	819	Gleiche XY-Positionen in unterschiedlichen Z-Bereichen nicht automatisch als dasselbe Objekt behandeln.	Einzelzuordnung offen
+SB-L821	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	821	Mehrere getrennte Inseln nicht ohne Prüfung zu einem Objekt zusammenfassen.	Einzelzuordnung offen
+SB-L823	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	823	Wenn die Identität mehrerer Objekte nicht sicher bestimmbar ist, Export als getrennte Komponenten oder Rückfrage/Diagnose anbieten, statt falsche Objektgrenzen zu erfinden.	Einzelzuordnung offen
+SB-L832	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	832	korrektes Binary-STL oder korrektes ASCII-STL;	Einzelzuordnung offen
+SB-L833	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	833	gültiger Header und – bei Binary-STL – korrekte Dreiecksanzahl;	Einzelzuordnung offen
+SB-L834	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	834	Dateilänge passt exakt zum Header und zur Zahl der Facetten;	Einzelzuordnung offen
+SB-L835	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	835	alle Vertex-Koordinaten sind endlich und plausibel;	Einzelzuordnung offen
+SB-L836	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	836	keine NaN-/Inf-Werte;	Einzelzuordnung offen
+SB-L837	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	837	konsistente Einheitenannahme (STL speichert selbst keine Einheit; R2 muss Millimeter als dokumentierte Exportkonvention verwenden);	Einzelzuordnung offen
+SB-L839	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	839	Dreiecksflächen mit ausreichender Fläche, keine degenerierten Dreiecke;	Einzelzuordnung offen
+SB-L841	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	841	konsistente Dreiecksorientierung und Normalen;	Einzelzuordnung offen
+SB-L842	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	842	keine unbeabsichtigten doppelten oder widersprüchlichen Flächen;	Einzelzuordnung offen
+SB-L843	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	843	keine offenen Kanten, sofern ein geschlossenes Volumen erwartet wird;	Einzelzuordnung offen
+SB-L844	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	844	keine nicht-manifold Kanten/Vertices, sofern vermeidbar;	Einzelzuordnung offen
+SB-L845	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	845	keine Selbstüberschneidungen bzw. diese als Fehler/Warnung erkennen;	Einzelzuordnung offen
+SB-L846	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	846	zusammenhängende Komponenten zählen und plausibilisieren;	Einzelzuordnung offen
+SB-L847	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	847	Bounding Box und Volumen berechnen und auf Plausibilität prüfen.	Einzelzuordnung offen
+SB-L856	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	856	korrekte Vertex- und Face-Indizes;	Einzelzuordnung offen
+SB-L857	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	857	gültige Face-Definitionen und konsistente Indizierung;	Einzelzuordnung offen
+SB-L858	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	858	optionale Gruppen (o/g) für getrennte Objekte;	Einzelzuordnung offen
+SB-L859	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	859	keine ungültigen oder außerhalb des Vertexbereichs liegenden Indizes.	Einzelzuordnung offen
+SB-L869	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	869	Konturen je Layer triangulieren bzw. als Querschnittsflächen aufbauen.	Einzelzuordnung offen
+SB-L870	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	870	Innenlöcher korrekt als Löcher behandeln, nicht zufällig füllen.	Einzelzuordnung offen
+SB-L871	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	871	Layerflächen zwischen Z-Höhen zu Seitenflächen verbinden.	Einzelzuordnung offen
+SB-L872	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	872	Unterschiedliche Konturformen zwischen Layern sauber überbrücken.	Einzelzuordnung offen
+SB-L873	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	873	Stufen, Überhänge und schräge Wände ohne falsche Verbindungen rekonstruieren.	Einzelzuordnung offen
+SB-L875	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	875	Top- und Bottom-Abschlussflächen korrekt schließen.	Einzelzuordnung offen
+SB-L876	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	876	Mehrere Komponenten getrennt halten.	Einzelzuordnung offen
+SB-L877	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	877	Degenerierte Dreiecke und Nullflächen entfernen.	Einzelzuordnung offen
+SB-L878	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	878	Vertices/Weld-Toleranzen kontrolliert und einheitenbewusst einsetzen.	Einzelzuordnung offen
+SB-L879	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	879	Keine willkürliche globale Vertex-Verschmelzung, die schmale Spalten, getrennte Objekte oder kleine Details zerstört.	Einzelzuordnung offen
+SB-L881	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	881	Mesh-Reparaturbibliotheken nur nach Prüfung ihrer Lizenz, Verfügbarkeit auf dem Zielsystem, Ressourcenbedarf und tatsächlicher Reparaturwirkung einsetzen.	Einzelzuordnung offen
+SB-L884	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	884	Eine automatische Reparatur darf nicht stillschweigend die Modellgeometrie stark verändern.	Einzelzuordnung offen
+SB-L918	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	918	Eingabe-G-Code und Slicer-/Profilinformationen dokumentieren.	Einzelzuordnung offen
+SB-L919	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	919	Erwartete Objektanzahl und Objektgrenzen festlegen.	Einzelzuordnung offen
+SB-L920	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	920	Exportdatei erzeugen.	Einzelzuordnung offen
+SB-L921	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	921	Datei mit mindestens zwei voneinander unabhängigen Mesh- Implementierungen/Programmen öffnen bzw. prüfen.	Einzelzuordnung offen
+SB-L923	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	923	Slicer-Import testen und einen Slicing-Vorgang durchführen.	Einzelzuordnung offen
+SB-L924	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	924	Mesh-Statistiken protokollieren: Bounding Box, Volumen, Dreiecksanzahl, Komponentenanzahl, watertight/manifold-Status, offene Kanten und degenerierte Flächen.	Einzelzuordnung offen
+SB-L927	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	927	Ergebnis mit dem erwarteten Modell vergleichen.	Einzelzuordnung offen
+SB-L928	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	928	Abweichungen und bekannte Grenzen dokumentieren.	Einzelzuordnung offen
+SB-L937	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	937	Ursprünglichen G-Code niemals überschreiben.	Einzelzuordnung offen
+SB-L938	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	938	Export in eine neue Datei/Output-Struktur.	Einzelzuordnung offen
+SB-L939	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	939	Eindeutige Dateinamen und Zuordnung zum Quelljob.	Einzelzuordnung offen
+SB-L940	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	940	Bei mehreren Objekten: Einzeldateien und/oder gemeinsame Datei.	Einzelzuordnung offen
+SB-L941	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	941	Exportbericht mit Objektanzahl, Komponenten, Bounding Box, Dreiecksanzahl und Validierungsstatus.	Einzelzuordnung offen
+SB-L943	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	943	Warnung, wenn Objektgrenzen oder Modellhülle nur heuristisch rekonstruiert wurden.	Einzelzuordnung offen
+SB-L945	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	945	Bei fehlender geschlossener Hülle keine scheinbar erfolgreiche STL ausgeben; stattdessen Diagnose und klaren Fehlerstatus.	Einzelzuordnung offen
+SB-L947	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	947	Fehlerhafte Meshes nicht als fertigen Export registrieren.	Einzelzuordnung offen
+SB-L948	5.21 STL-/OBJ-EXPORT DER REKONSTRUIERTEN OBJEKTGEOMETRIE	948	Exportjob in die zentrale Queue und Dateiverwaltung integrieren.	Einzelzuordnung offen
+SB-L992	5.22 MEHRFACHOBJEKTE, OBJEKTIDENTITÄT UND DRUCKREIHENFOLGE	992	Mehrere eigenständige Modelle auf einer Druckplatte.	Einzelzuordnung offen
+SB-L993	5.22 MEHRFACHOBJEKTE, OBJEKTIDENTITÄT UND DRUCKREIHENFOLGE	993	Mehrere Instanzen desselben Modells.	Einzelzuordnung offen
+SB-L994	5.22 MEHRFACHOBJEKTE, OBJEKTIDENTITÄT UND DRUCKREIHENFOLGE	994	Print by Layer: mehrere Objekte werden schichtweise gemeinsam gedruckt.	Einzelzuordnung offen
+SB-L995	5.22 MEHRFACHOBJEKTE, OBJEKTIDENTITÄT UND DRUCKREIHENFOLGE	995	Print by Object: Objekte werden nacheinander vollständig gedruckt.	Einzelzuordnung offen
+SB-L996	5.22 MEHRFACHOBJEKTE, OBJEKTIDENTITÄT UND DRUCKREIHENFOLGE	996	Mehrere geometrische Inseln, die zu einem einzigen Modell gehören.	Einzelzuordnung offen
+SB-L997	5.22 MEHRFACHOBJEKTE, OBJEKTIDENTITÄT UND DRUCKREIHENFOLGE	997	Support, Brim, Skirt, Raft, Prime-/Purge-Tower und sonstige Hilfsgeometrie.	Einzelzuordnung offen
+SB-L998	5.22 MEHRFACHOBJEKTE, OBJEKTIDENTITÄT UND DRUCKREIHENFOLGE	998	Nicht eindeutig zuordenbare oder miteinander verbundene Geometrie.	Einzelzuordnung offen
+SB-L1001	5.22 MEHRFACHOBJEKTE, OBJEKTIDENTITÄT UND DRUCKREIHENFOLGE	1001	Slicer-Objektmarker und Metadaten verwenden, sofern vorhanden und verlässlich.	Einzelzuordnung offen
+SB-L1002	5.22 MEHRFACHOBJEKTE, OBJEKTIDENTITÄT UND DRUCKREIHENFOLGE	1002	Geometrische Zusammenhänge und Kontinuität über mehrere Layer untersuchen.	Einzelzuordnung offen
+SB-L1003	5.22 MEHRFACHOBJEKTE, OBJEKTIDENTITÄT UND DRUCKREIHENFOLGE	1003	Druckreihenfolge, Layerwechsel und Z-Verlauf als zusätzliche Evidenz berücksichtigen.	Einzelzuordnung offen
+SB-L1005	5.22 MEHRFACHOBJEKTE, OBJEKTIDENTITÄT UND DRUCKREIHENFOLGE	1005	Print by Layer und Print by Object erkennen und getrennt behandeln.	Einzelzuordnung offen
+SB-L1006	5.22 MEHRFACHOBJEKTE, OBJEKTIDENTITÄT UND DRUCKREIHENFOLGE	1006	Mehrere Instanzen desselben Modells nicht automatisch zu einem Objekt zusammenfassen.	Einzelzuordnung offen
+SB-L1008	5.22 MEHRFACHOBJEKTE, OBJEKTIDENTITÄT UND DRUCKREIHENFOLGE	1008	Zwischen gesicherten Slicer-Informationen und geometrisch abgeleiteten Objektgrenzen unterscheiden.	Einzelzuordnung offen
+SB-L1010	5.22 MEHRFACHOBJEKTE, OBJEKTIDENTITÄT UND DRUCKREIHENFOLGE	1010	Objektanzahl, Objekt-ID, Bounding Box, Position, Höhe und Konfidenz dokumentieren.	Einzelzuordnung offen
+SB-L1028	6 AS SLICED UND AS LEGACY	1028	Originale Slicer-Absicht ist maßgeblich.	Einzelzuordnung offen
+SB-L1029	6 AS SLICED UND AS LEGACY	1029	Keine ungefragte R2-Übernahme.	Einzelzuordnung offen
+SB-L1030	6 AS SLICED UND AS LEGACY	1030	Nur ausdrücklich gewählte, kompatible R2-Funktionen.	Einzelzuordnung offen
+SB-L1031	6 AS SLICED UND AS LEGACY	1031	Slicerparameter nicht stillschweigend überschreiben.	Einzelzuordnung offen
+SB-L1034	6 AS SLICED UND AS LEGACY	1034	R2 übernimmt Verarbeitung und normalisiert, soweit sicher.	Einzelzuordnung offen
+SB-L1035	6 AS SLICED UND AS LEGACY	1035	R2-Presets, Live-Kontrollen, Fixes, Mesh-/Purge-Logik und Kompatibilitätsregeln können angewendet werden.	Einzelzuordnung offen
+SB-L1037	6 AS SLICED UND AS LEGACY	1037	Analyse muss Abweichungen zur Maschine/Materialannahme erkennen.	Einzelzuordnung offen
+SB-L1038	6 AS SLICED UND AS LEGACY	1038	Beispiele: Bowden vs Direct Drive, volumetrische E-Annahmen, Extruder-/Filamentkonfiguration und historische Einstellungen.	Einzelzuordnung offen
+SB-L1040	6 AS SLICED UND AS LEGACY	1040	Bei Unsicherheit warnen und Nutzerentscheidung einholen.	Einzelzuordnung offen
+SB-L1050	7 DATEIVERWALTUNG, QUEUE, BILDER UND JOBS	1050	Optimize- und Generator-Ausgabeordner waren leer.	Einzelzuordnung offen
+SB-L1051	7 DATEIVERWALTUNG, QUEUE, BILDER UND JOBS	1051	Queue zeigte Jobs teils nicht, obwohl sie liefen.	Einzelzuordnung offen
+SB-L1052	7 DATEIVERWALTUNG, QUEUE, BILDER UND JOBS	1052	Sound/Töne fehlten.	Einzelzuordnung offen
+SB-L1053	7 DATEIVERWALTUNG, QUEUE, BILDER UND JOBS	1053	Benachrichtigungen funktionierten bei einigen Tools nicht.	Einzelzuordnung offen
+SB-L1054	7 DATEIVERWALTUNG, QUEUE, BILDER UND JOBS	1054	Bildlisten/Bildauswahl in Texture-/Generatorwerkzeugen fehlerhaft.	Einzelzuordnung offen
+SB-L1055	7 DATEIVERWALTUNG, QUEUE, BILDER UND JOBS	1055	Ausgewähltes Bild konnte nicht gewechselt/zurückgesetzt werden.	Einzelzuordnung offen
+SB-L1056	7 DATEIVERWALTUNG, QUEUE, BILDER UND JOBS	1056	Andere Bilder ließen sich nicht zuverlässig auswählen.	Einzelzuordnung offen
+SB-L1057	7 DATEIVERWALTUNG, QUEUE, BILDER UND JOBS	1057	UI-Zustände blieben hängen.	Einzelzuordnung offen
+SB-L1058	7 DATEIVERWALTUNG, QUEUE, BILDER UND JOBS	1058	Derselbe Dateibrowser war je Tool unterschiedlich implementiert.	Einzelzuordnung offen
+SB-L1061	7 DATEIVERWALTUNG, QUEUE, BILDER UND JOBS	1061	gemeinsamer File Manager;	Einzelzuordnung offen
+SB-L1062	7 DATEIVERWALTUNG, QUEUE, BILDER UND JOBS	1062	gemeinsamer Image Browser/Selector;	Einzelzuordnung offen
+SB-L1063	7 DATEIVERWALTUNG, QUEUE, BILDER UND JOBS	1063	gemeinsamer Queue-/Job-Manager;	Einzelzuordnung offen
+SB-L1064	7 DATEIVERWALTUNG, QUEUE, BILDER UND JOBS	1064	zentrale Notification-API;	Einzelzuordnung offen
+SB-L1065	7 DATEIVERWALTUNG, QUEUE, BILDER UND JOBS	1065	zentrale Sound-API;	Einzelzuordnung offen
+SB-L1066	7 DATEIVERWALTUNG, QUEUE, BILDER UND JOBS	1066	einheitliche Pfad- und Output-Registrierung;	Einzelzuordnung offen
+SB-L1067	7 DATEIVERWALTUNG, QUEUE, BILDER UND JOBS	1067	einheitliche Fehler-/Statuszustände.	Einzelzuordnung offen
+SB-L1088	7 DATEIVERWALTUNG, QUEUE, BILDER UND JOBS	1088	Laufzeit-/temporäre Zustände im RAM halten.	Einzelzuordnung offen
+SB-L1089	7 DATEIVERWALTUNG, QUEUE, BILDER UND JOBS	1089	Persistente Einstellungen nur bei Änderung speichern.	Einzelzuordnung offen
+SB-L1090	7 DATEIVERWALTUNG, QUEUE, BILDER UND JOBS	1090	Schreibvorgänge gegebenenfalls bündeln.	Einzelzuordnung offen
+SB-L1091	7 DATEIVERWALTUNG, QUEUE, BILDER UND JOBS	1091	Wiederholtes vollständiges Umschreiben großer Dateien vermeiden.	Einzelzuordnung offen
+SB-L1092	7 DATEIVERWALTUNG, QUEUE, BILDER UND JOBS	1092	I/O-Last messen.	Einzelzuordnung offen
+SB-L1093	7 DATEIVERWALTUNG, QUEUE, BILDER UND JOBS	1093	Nicht annehmen, mehrere [save_variables]-Sektionen würden nativ unterstützt.	Einzelzuordnung offen
+SB-L1095	7 DATEIVERWALTUNG, QUEUE, BILDER UND JOBS	1095	r2_hardware.cfg trennt Hardwareeinstellungen von Klipper-Variablen; diese Trennung verstehen und schützen.	Einzelzuordnung offen
+SB-L1117	9 MCU-SHUTDOWNS UND HOST-STABILITÄT	1117	Host-Reactor-Stalls.	Einzelzuordnung offen
+SB-L1118	9 MCU-SHUTDOWNS UND HOST-STABILITÄT	1118	Moonraker-Requests während Homing/Probing.	Einzelzuordnung offen
+SB-L1119	9 MCU-SHUTDOWNS UND HOST-STABILITÄT	1119	20 ausstehende API-Requests und doppelte 4-KB-Preview-Payloads während G28.	Einzelzuordnung offen
+SB-L1121	9 MCU-SHUTDOWNS UND HOST-STABILITÄT	1121	11 parallele Lithophane-Threads und Swap.	Einzelzuordnung offen
+SB-L1122	9 MCU-SHUTDOWNS UND HOST-STABILITÄT	1122	wiederholte große SD-Scans.	Einzelzuordnung offen
+SB-L1123	9 MCU-SHUTDOWNS UND HOST-STABILITÄT	1123	unnötige LED-Schreibvorgänge und Metadaten-Rewrites.	Einzelzuordnung offen
+SB-L1124	9 MCU-SHUTDOWNS UND HOST-STABILITÄT	1124	NeoPixel-Updates während Probing.	Einzelzuordnung offen
+SB-L1125	9 MCU-SHUTDOWNS UND HOST-STABILITÄT	1125	serielle Timeouts/Retransmits.	Einzelzuordnung offen
+SB-L1126	9 MCU-SHUTDOWNS UND HOST-STABILITÄT	1126	rund 300 Macro-WebUI-Polling-Objekte; Reduktion auf 12 Objekte mit 2,5-s-Cache wurde als Verbesserung dokumentiert.	Einzelzuordnung offen
+SB-L1128	9 MCU-SHUTDOWNS UND HOST-STABILITÄT	1128	_LED_QUIET während Homing/Probing.	Einzelzuordnung offen
+SB-L1140	9 MCU-SHUTDOWNS UND HOST-STABILITÄT	1140	Druck hat absolute Priorität.	Einzelzuordnung offen
+SB-L1141	9 MCU-SHUTDOWNS UND HOST-STABILITÄT	1141	Asynchrone/gebündelte Aufrufe.	Einzelzuordnung offen
+SB-L1142	9 MCU-SHUTDOWNS UND HOST-STABILITÄT	1142	Begrenzte Callback-Laufzeiten.	Einzelzuordnung offen
+SB-L1143	9 MCU-SHUTDOWNS UND HOST-STABILITÄT	1143	Caches und Rate Limits.	Einzelzuordnung offen
+SB-L1144	9 MCU-SHUTDOWNS UND HOST-STABILITÄT	1144	Worker-Prioritäten.	Einzelzuordnung offen
+SB-L1145	9 MCU-SHUTDOWNS UND HOST-STABILITÄT	1145	Keine langen Berechnungen im Klippy-Reactor.	Einzelzuordnung offen
+SB-L1146	9 MCU-SHUTDOWNS UND HOST-STABILITÄT	1146	Logging, Messwerte und Stress-Tests.	Einzelzuordnung offen
+SB-L1147	9 MCU-SHUTDOWNS UND HOST-STABILITÄT	1147	Pi-3B+-Upgrade allein ist keine Lösung.	Einzelzuordnung offen
+SB-L1148	9 MCU-SHUTDOWNS UND HOST-STABILITÄT	1148	Keine Zusage „nie wieder Shutdowns“; Ursachen messen und kategorisieren.	Einzelzuordnung offen
+SB-L1186	11 SOUND UND LEDS	1186	macros/02_sounds.cfg verwendet nach bisheriger Analyse M300 mit SET_PIN PIN=beeper.	Einzelzuordnung offen
+SB-L1188	11 SOUND UND LEDS	1188	Ohne passende [pwm_cycle_time beeper]-Konfiguration kann dies fehlschlagen.	Einzelzuordnung offen
+SB-L1190	11 SOUND UND LEDS	1190	Guarded-M300-Verhalten und Hardwareerkennung prüfen.	Einzelzuordnung offen
+SB-L1191	11 SOUND UND LEDS	1191	_SOUND_LIB enthält nach bisherigem Stand 19 Tunes; exakt inventarisieren.	Einzelzuordnung offen
+SB-L1200	11 SOUND UND LEDS	1200	klipper-led_effect und [neopixel] optional.	Einzelzuordnung offen
+SB-L1201	11 SOUND UND LEDS	1201	SET_LED_STATE muss ohne LEDs sicherer No-op sein.	Einzelzuordnung offen
+SB-L1202	11 SOUND UND LEDS	1202	R257 _LED_QUIET unterdrückt nach bisherigem Stand Chain-Updates während Homing/Probing; Implementierung verifizieren.	Einzelzuordnung offen
+SB-L1204	11 SOUND UND LEDS	1204	LED-Layouts, Chains, DotStar, EBB/CAN und Varianten inventarisieren.	Einzelzuordnung offen
+SB-L1205	11 SOUND UND LEDS	1205	Keine unnötigen Updates oder Last.	Einzelzuordnung offen
+SB-L1233	12 HARDWAREKOMPATIBILITÄT UND MASCHINENMODELL	1233	_R2_CONFIG-Bounds prüfen.	Einzelzuordnung offen
+SB-L1234	12 HARDWAREKOMPATIBILITÄT UND MASCHINENMODELL	1234	nozzle_diameter aus [extruder] lesen.	Einzelzuordnung offen
+SB-L1235	12 HARDWAREKOMPATIBILITÄT UND MASCHINENMODELL	1235	_gen_nozzle() existiert nach bisheriger Kenntnis; Verwendung in allen Generatoren prüfen.	Einzelzuordnung offen
+SB-L1237	12 HARDWAREKOMPATIBILITÄT UND MASCHINENMODELL	1237	Düse beeinflusst Linienbreite, Wandgeometrie und Hatch.	Einzelzuordnung offen
+SB-L1238	12 HARDWAREKOMPATIBILITÄT UND MASCHINENMODELL	1238	Motion-Limits aus Klipper lesen.	Einzelzuordnung offen
+SB-L1239	12 HARDWAREKOMPATIBILITÄT UND MASCHINENMODELL	1239	Bed Mesh/KAMP nicht überschreiben.	Einzelzuordnung offen
+SB-L1242	12 HARDWAREKOMPATIBILITÄT UND MASCHINENMODELL	1242	parallel verdrahtete Motoren an einem Treiber von unabhängig angesteuerten Z-Steppern unterscheiden.	Einzelzuordnung offen
+SB-L1244	12 HARDWAREKOMPATIBILITÄT UND MASCHINENMODELL	1244	Z_TILT_ADJUST benötigt geeignete unabhängige Z-Stepper und Probe.	Einzelzuordnung offen
+SB-L1245	12 HARDWAREKOMPATIBILITÄT UND MASCHINENMODELL	1245	QUAD_GANTRY_LEVEL für passende Mehrmotor-CoreXY-Gantry.	Einzelzuordnung offen
+SB-L1246	12 HARDWAREKOMPATIBILITÄT UND MASCHINENMODELL	1246	SYNC_GANTRY bei parallel verdrahtetem Dual-Z prüfen.	Einzelzuordnung offen
+SB-L1247	12 HARDWAREKOMPATIBILITÄT UND MASCHINENMODELL	1247	Tatsächliche Konfiguration prüfen, nicht pauschal zwei getrennte Endstops voraussetzen.	Einzelzuordnung offen
+SB-L1251	12 HARDWAREKOMPATIBILITÄT UND MASCHINENMODELL	1251	Switch-Runout von Motion-Sensor/Jam unterscheiden.	Einzelzuordnung offen
+SB-L1252	12 HARDWAREKOMPATIBILITÄT UND MASCHINENMODELL	1252	Runout: sicherer Wechsel möglichst an geeigneter Layergrenze.	Einzelzuordnung offen
+SB-L1253	12 HARDWAREKOMPATIBILITÄT UND MASCHINENMODELL	1253	Motion-Sensor: passende Fehlererkennung und Pause.	Einzelzuordnung offen
+SB-L1254	12 HARDWAREKOMPATIBILITÄT UND MASCHINENMODELL	1254	Optionaler Sensor muss ohne Hardware deaktivierbar sein.	Einzelzuordnung offen
+SB-L1255	12 HARDWAREKOMPATIBILITÄT UND MASCHINENMODELL	1255	Intelligenter Filamentwechsel im Infill ist experimentell und nur bei zuverlässiger Feature-Erkennung denkbar; sicherer Fallback nötig.	Einzelzuordnung offen
+SB-L1259	12 HARDWAREKOMPATIBILITÄT UND MASCHINENMODELL	1259	Position im Maintenance/System-Menü konfigurierbar.	Einzelzuordnung offen
+SB-L1260	12 HARDWAREKOMPATIBILITÄT UND MASCHINENMODELL	1260	Geführte Bewegung über Knopf/WebUI.	Einzelzuordnung offen
+SB-L1261	12 HARDWAREKOMPATIBILITÄT UND MASCHINENMODELL	1261	X/Y speichern, testen, validieren.	Einzelzuordnung offen
+SB-L1262	12 HARDWAREKOMPATIBILITÄT UND MASCHINENMODELL	1262	Darf außerhalb des bedruckbaren Betts liegen, muss mechanisch sicher erreichbar sein.	Einzelzuordnung offen
+SB-L1264	12 HARDWAREKOMPATIBILITÄT UND MASCHINENMODELL	1264	Wipe-Bereich, Richtung und mehrere Positionen prüfen.	Einzelzuordnung offen
+SB-L1299	14 GENERATOREN UND KREATIVE WERKZEUGE	1299	Generatoren kombinierbar und reproduzierbar.	Einzelzuordnung offen
+SB-L1300	14 GENERATOREN UND KREATIVE WERKZEUGE	1300	Parameter/Profile speichern.	Einzelzuordnung offen
+SB-L1301	14 GENERATOREN UND KREATIVE WERKZEUGE	1301	Gemeinsame Queue und Dateiverwaltung.	Einzelzuordnung offen
+SB-L1302	14 GENERATOREN UND KREATIVE WERKZEUGE	1302	Aktiver Druck hat Vorrang.	Einzelzuordnung offen
+SB-L1303	14 GENERATOREN UND KREATIVE WERKZEUGE	1303	Kein automatischer Druckstart.	Einzelzuordnung offen
+SB-L1304	14 GENERATOREN UND KREATIVE WERKZEUGE	1304	Ausgabedatei muss existieren, validiert und registriert sein.	Einzelzuordnung offen
+SB-L1305	14 GENERATOREN UND KREATIVE WERKZEUGE	1305	Fehler, Abbruch und Erfolg zuverlässig melden.	Einzelzuordnung offen
+SB-L1319	14.1 OBJEKTORIENTIERTE VERARBEITUNG VON G-CODE-DATEIEN	1319	Anzahl der erkannten Druckobjekte anzeigen.	Einzelzuordnung offen
+SB-L1320	14.1 OBJEKTORIENTIERTE VERARBEITUNG VON G-CODE-DATEIEN	1320	Erkannte Objekte einzeln identifizieren und auswählen.	Einzelzuordnung offen
+SB-L1321	14.1 OBJEKTORIENTIERTE VERARBEITUNG VON G-CODE-DATEIEN	1321	Bearbeitung auf ein einzelnes Objekt beschränken.	Einzelzuordnung offen
+SB-L1322	14.1 OBJEKTORIENTIERTE VERARBEITUNG VON G-CODE-DATEIEN	1322	Mehrere ausgewählte Objekte gemeinsam bearbeiten.	Einzelzuordnung offen
+SB-L1323	14.1 OBJEKTORIENTIERTE VERARBEITUNG VON G-CODE-DATEIEN	1323	Alle Objekte bearbeiten, wenn dies ausdrücklich gewünscht ist.	Einzelzuordnung offen
+SB-L1324	14.1 OBJEKTORIENTIERTE VERARBEITUNG VON G-CODE-DATEIEN	1324	Unterschiedliche Einstellungen und Bearbeitungsparameter pro Objekt ermöglichen.	Einzelzuordnung offen
+SB-L1326	14.1 OBJEKTORIENTIERTE VERARBEITUNG VON G-CODE-DATEIEN	1326	Globale Hilfsgeometrie von eigentlichen Druckobjekten unterscheiden.	Einzelzuordnung offen
+SB-L1327	14.1 OBJEKTORIENTIERTE VERARBEITUNG VON G-CODE-DATEIEN	1327	Vor der Verarbeitung anzeigen, welche Objekte tatsächlich verändert werden.	Einzelzuordnung offen
+SB-L1333	14.1 OBJEKTORIENTIERTE VERARBEITUNG VON G-CODE-DATEIEN	1333	Ein gemeinsamer Objekt-Erkennungs- und Auswahlmechanismus.	Einzelzuordnung offen
+SB-L1334	14.1 OBJEKTORIENTIERTE VERARBEITUNG VON G-CODE-DATEIEN	1334	Eine einheitliche Objektliste in allen Pre-Print-Werkzeugen.	Einzelzuordnung offen
+SB-L1335	14.1 OBJEKTORIENTIERTE VERARBEITUNG VON G-CODE-DATEIEN	1335	Gleiche Objekt-IDs und Zuordnungen über mehrere Bearbeitungsschritte hinweg.	Einzelzuordnung offen
+SB-L1337	14.1 OBJEKTORIENTIERTE VERARBEITUNG VON G-CODE-DATEIEN	1337	Anzeige von Objektname, Nummer, Position, Höhe und Größe, soweit verfügbar.	Einzelzuordnung offen
+SB-L1339	14.1 OBJEKTORIENTIERTE VERARBEITUNG VON G-CODE-DATEIEN	1339	Auswahlzustand zwischen Werkzeugen nachvollziehbar halten.	Einzelzuordnung offen
+SB-L1340	14.1 OBJEKTORIENTIERTE VERARBEITUNG VON G-CODE-DATEIEN	1340	Bei neu erzeugten Dateien die Objektstruktur erneut analysieren und validieren.	Einzelzuordnung offen
+SB-L1350	14.1 OBJEKTORIENTIERTE VERARBEITUNG VON G-CODE-DATEIEN	1350	Nur Objekt 1 texturieren.	Einzelzuordnung offen
+SB-L1351	14.1 OBJEKTORIENTIERTE VERARBEITUNG VON G-CODE-DATEIEN	1351	Nur Objekt 2 texturieren.	Einzelzuordnung offen
+SB-L1352	14.1 OBJEKTORIENTIERTE VERARBEITUNG VON G-CODE-DATEIEN	1352	Beide Objekte mit derselben Textur bearbeiten.	Einzelzuordnung offen
+SB-L1353	14.1 OBJEKTORIENTIERTE VERARBEITUNG VON G-CODE-DATEIEN	1353	Objekt 1 mit FUZZY und Objekt 2 mit BUMPS bearbeiten.	Einzelzuordnung offen
+SB-L1354	14.1 OBJEKTORIENTIERTE VERARBEITUNG VON G-CODE-DATEIEN	1354	Für jedes Objekt unterschiedliche Muster und Parameter verwenden.	Einzelzuordnung offen
+SB-L1355	14.1 OBJEKTORIENTIERTE VERARBEITUNG VON G-CODE-DATEIEN	1355	Ausgewählte Objekte unverändert lassen.	Einzelzuordnung offen
+SB-L1363	14.1 OBJEKTORIENTIERTE VERARBEITUNG VON G-CODE-DATEIEN	1363	Eigenes geometrisches Zentrum bzw. Transformationszentrum pro Objekt.	Einzelzuordnung offen
+SB-L1364	14.1 OBJEKTORIENTIERTE VERARBEITUNG VON G-CODE-DATEIEN	1364	Ursprüngliche Position des Objekts auf dem Druckbett erhalten.	Einzelzuordnung offen
+SB-L1365	14.1 OBJEKTORIENTIERTE VERARBEITUNG VON G-CODE-DATEIEN	1365	Keine unbeabsichtigte Verschiebung aller Objekte auf denselben Bettmittelpunkt.	Einzelzuordnung offen
+SB-L1367	14.1 OBJEKTORIENTIERTE VERARBEITUNG VON G-CODE-DATEIEN	1367	Keine ungewollten Überlappungen oder Kollisionen mit anderen Objekten.	Einzelzuordnung offen
+SB-L1368	14.1 OBJEKTORIENTIERTE VERARBEITUNG VON G-CODE-DATEIEN	1368	Skalierung und Rotation müssen sich auf das ausgewählte Objekt beziehen.	Einzelzuordnung offen
+SB-L1370	14.1 OBJEKTORIENTIERTE VERARBEITUNG VON G-CODE-DATEIEN	1370	Bettgrenzen, mechanische Grenzen und Abstände zu anderen Objekten prüfen.	Einzelzuordnung offen
+SB-L1372	14.1 OBJEKTORIENTIERTE VERARBEITUNG VON G-CODE-DATEIEN	1372	Extrusionsmengen, Pfadabstände und sonstige geometrieabhängige Größen korrekt behandeln.	Einzelzuordnung offen
+SB-L1386	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1386	Generatoren und Tools dürfen auch mit unsicherer oder experimenteller Zuordnung arbeiten.	Einzelzuordnung offen
+SB-L1388	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1388	Der Nutzer darf bewusst ungewöhnliche Ergebnisse erzeugen wollen (z. B. bei Texturen unerwartete Effekte).	Einzelzuordnung offen
+SB-L1390	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1390	Jede erzeugte Variante muss separat gespeichert und dem Ausgangs-G-Code zugeordnet werden.	Einzelzuordnung offen
+SB-L1392	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1392	Das Original bleibt unverändert. Löschen oder Verwerfen einer erzeugten Variante muss jederzeit möglich sein.	Einzelzuordnung offen
+SB-L1396	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1396	Stufe A – Direkt übernehmen: Ergebnis wird nach erfolgreicher Verarbeitung als aktuelle Druckauswahl gesetzt (nach normaler Nutzeraktion direkt startbereit).	Einzelzuordnung offen
+SB-L1399	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1399	Stufe B – Erzeugen und prüfen: Neue Datei wird gespeichert und kann im Klipper 3D Preview betrachtet werden (erst nach Prüfung und bewusster Auswahl).	Einzelzuordnung offen
+SB-L1402	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1402	Stufe C – Experimentell: Auch bei UNKNOWN/AMBIGUOUS darf generiert werden; Ergebnis bleibt getrennt vom bisherigen Druckjob (keine automatische Übernahme oder direkte Druckfreigabe).	Einzelzuordnung offen
+SB-L1408	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1408	Nur generieren und speichern: Die neue Datei wird abgelegt; der Nutzer entscheidet später.	Einzelzuordnung offen
+SB-L1410	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1410	Generieren und Preview anbieten: Nach Verarbeitung wird die Datei für den Klipper 3D Preview bereitgestellt.	Einzelzuordnung offen
+SB-L1412	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1412	Generieren und als nächsten Druck auswählen: Die neue Datei wird als aktuelle Druckauswahl gesetzt, sofern verarbeitet.	Einzelzuordnung offen
+SB-L1414	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1414	Generieren und den ausgewählten Druckjob durch die neue Version ersetzen: Korrekturen/Fixes übernehmen die aktuelle Druckauswahl.	Einzelzuordnung offen
+SB-L1418	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1418	Nutzer wählt eine G-Code-Datei aus und startet einen Fix.	Einzelzuordnung offen
+SB-L1419	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1419	R2 erstellt eine neue Arbeitskopie und wendet den Fix darauf an.	Einzelzuordnung offen
+SB-L1420	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1420	Nach erfolgreicher Verarbeitung wird die neue Datei validiert und registriert; die bisherige Datei bleibt unverändert erhalten.	Einzelzuordnung offen
+SB-L1422	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1422	Bei sicheren Fixes kann die neue Version automatisch die aktuelle Druckauswahl übernehmen.	Einzelzuordnung offen
+SB-L1424	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1424	Bei UNKNOWN/AMBIGUOUS oder unzureichend geprüften Änderungen greift Stufe B oder C (keine unbemerkte Ersetzung).	Einzelzuordnung offen
+SB-L1428	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1428	Generatoren und rechenintensive Tools laufen kontrolliert über die gemeinsame Queue.	Einzelzuordnung offen
+SB-L1430	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1430	Mehrere Aufträge dürfen sich nicht gegenseitig beschädigen oder dieselben Ausgabedateien überschreiben.	Einzelzuordnung offen
+SB-L1432	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1432	Druckbetrieb hat Vorrang vor Hintergrundverarbeitung.	Einzelzuordnung offen
+SB-L1433	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1433	Ein Generator darf den laufenden Druck nicht durch CPU-, RAM- oder I/O-Last beeinträchtigen.	Einzelzuordnung offen
+SB-L1435	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1435	Wenn der Nutzer einen Workflow wählt, bei dem eine erzeugte Datei direkt gedruckt werden soll, wartet der Druckstartprozess auf die Fertigstellung der Queue-Aufträge.	Einzelzuordnung offen
+SB-L1438	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1438	Sichtbarer Status: wartend, in Bearbeitung, erfolgreich, fehlgeschlagen oder abgebrochen.	Einzelzuordnung offen
+SB-L1440	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1440	Ein fehlgeschlagener oder unvollständiger Auftrag darf niemals als fertige Druckdatei ausgewählt werden.	Einzelzuordnung offen
+SB-L1444	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1444	Aktuelle Druckauswahl: Welche Datei im Druckstartmenü als nächster Druckjob ausgewählt ist.	Einzelzuordnung offen
+SB-L1446	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1446	Druckfreigabe: Ob die Datei als ausreichend geprüft für den Druckstart gilt.	Einzelzuordnung offen
+SB-L1448	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1448	Druckstart: Der tatsächliche Startvorgang, der eine ausdrückliche Nutzeraktion erfordert.	Einzelzuordnung offen
+SB-L1457	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1457	Jeder Job stellt einen Verarbeitungsschritt dar; der nächste Job baut auf dem vollständig erzeugten Ergebnis des vorherigen auf.	Einzelzuordnung offen
+SB-L1459	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1459	Zwischenstände sind temporäre Übergaben; die Originaldatei bleibt unverändert.	Einzelzuordnung offen
+SB-L1461	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1461	Nur das Ergebnis des letzten Jobs wird permanent als Endprodukt gespeichert (sofern freigegeben).	Einzelzuordnung offen
+SB-L1465	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1465	Einzeljob: Ein Tool wird einmal ausgeführt (dauerhaft gespeicherte Ausgabedatei).	Einzelzuordnung offen
+SB-L1467	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1467	Toolchain: Mehrere Jobs werden zu einer Kette verbunden.	Einzelzuordnung offen
+SB-L1470	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1470	Jobs einzeln auswählen, entfernen, an spezifischen Positionen einfügen.	Einzelzuordnung offen
+SB-L1471	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1471	Jeder Job zeigt Nummer und Tool-Namen (z. B. Job 1 – Range, Job 2 – Text).	Einzelzuordnung offen
+SB-L1473	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1473	Das Ändern oder Entfernen eines Jobs macht nachfolgende Schritte ungültig; die Kette wird ab diesem Punkt neu berechnet. Keine dauerhaften Lücken in der Jobnummerierung.	Einzelzuordnung offen
+SB-L1478	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1478	Komplexe Ketten (Reihenfolge, Tools, Generatoren, Parameter) als Preset speichern und auf neue Ausgangsdateien anwenden.	Einzelzuordnung offen
+SB-L1482	14.2 DREI VERARBEITUNGS- UND FREIGABESTUFEN BEI UNTERSCHIEDLICHER ERKENNUNGSSICHERHEIT	1482	Vasen, Schalen, Becher, Boxen, Deckel, Zylinder, konische Körper, Hohlkörper als Ausgangspunkte für anschließende Bearbeitungen.	Einzelzuordnung offen
+SB-L1489	14.4 GEOMETRISCHE INTEGRITÄT, EXTRUSIONSKOMPENSATION UND WANDSTÄRKENERHALTENDE TRANSFORMATIONEN	1489	Vorher-/Nachher-Pfadlängen und Extrusionsvolumen berücksichtigen.	Einzelzuordnung offen
+SB-L1490	14.4 GEOMETRISCHE INTEGRITÄT, EXTRUSIONSKOMPENSATION UND WANDSTÄRKENERHALTENDE TRANSFORMATIONEN	1490	E-Werte bei veränderten Druckwegen sachgerecht neu berechnen ($E_{\text{neu}} = E_{\text{alt}} \cdot \frac{L_{\text{neu}}}{L_{\text{alt}}}$ unter Beachtung von M82/M83, G92, Flow, volumetrischer Extrusion).	Einzelzuordnung offen
+SB-L1492	14.4 GEOMETRISCHE INTEGRITÄT, EXTRUSIONSKOMPENSATION UND WANDSTÄRKENERHALTENDE TRANSFORMATIONEN	1492	Segmentgrenzen, Retracts, Travels und nicht transformierte Bewegungen unberührt lassen.	Einzelzuordnung offen
+SB-L1494	14.4 GEOMETRISCHE INTEGRITÄT, EXTRUSIONSKOMPENSATION UND WANDSTÄRKENERHALTENDE TRANSFORMATIONEN	1494	Die Korrektur muss pro betroffener Bewegung erfolgen, nicht durch unkritische globale Faktoren.	Einzelzuordnung offen
+SB-L1498	14.4 GEOMETRISCHE INTEGRITÄT, EXTRUSIONSKOMPENSATION UND WANDSTÄRKENERHALTENDE TRANSFORMATIONEN	1498	Außen- und Innengeometrie gemeinsam betrachten; Innenwände bei veränderten Außenkonturen sinnvoll mitführen, ohne die Wandstärke unzulässig zu verändern.	Einzelzuordnung offen
+SB-L1501	14.4 GEOMETRISCHE INTEGRITÄT, EXTRUSIONSKOMPENSATION UND WANDSTÄRKENERHALTENDE TRANSFORMATIONEN	1501	Lochbegrenzungen, Hohlräume, Kanäle und verschachtelte Konturen als eigenständige geometrische Grenzen behandeln.	Einzelzuordnung offen
+SB-L1503	14.4 GEOMETRISCHE INTEGRITÄT, EXTRUSIONSKOMPENSATION UND WANDSTÄRKENERHALTENDE TRANSFORMATIONEN	1503	Top- und Bottom-Flächen sowie deren Wandübergänge gesondert berücksichtigen, um Durchbrüche und Wandverdünnungen zu verhindern.	Einzelzuordnung offen
+SB-L1505	14.4 GEOMETRISCHE INTEGRITÄT, EXTRUSIONSKOMPENSATION UND WANDSTÄRKENERHALTENDE TRANSFORMATIONEN	1505	Bestandsschutz und Verifikation: Vorhandene Textur- und Twist-Implementierungen sowie frühere Testdosen (z. B. komplexe Rosen-Testdosen und Vasen) als Regressionstests sichern.	Einzelzuordnung offen
+SB-L1513	14.5 RANGE TOOL – BEKANNTER FEHLER ZUR BESTANDSAUFNAHME	1513	Das Werkzeug hat früher zuverlässig funktioniert; bei neueren Generierungen traten wiederholt Range Errors auf.	Einzelzuordnung offen
+SB-L1515	14.5 RANGE TOOL – BEKANNTER FEHLER ZUR BESTANDSAUFNAHME	1515	Die Coding-KI muss den aktuellen Code, letzte Änderungen und Fehlerursachen untersuchen und Regressionstests mit zuvor funktionierenden Konfigurationen durchführen, statt unkoordiniert neu zu bauen.	Einzelzuordnung offen
+SB-L1549	15 BACKLOG UND TODO-DISPOSITION	1549	beibehalten;	Einzelzuordnung offen
+SB-L1550	15 BACKLOG UND TODO-DISPOSITION	1550	in Zielarchitektur integrieren;	Einzelzuordnung offen
+SB-L1551	15 BACKLOG UND TODO-DISPOSITION	1551	separates Modul;	Einzelzuordnung offen
+SB-L1552	15 BACKLOG UND TODO-DISPOSITION	1552	wegen Abhängigkeit zurückstellen;	Einzelzuordnung offen
+SB-L1553	15 BACKLOG UND TODO-DISPOSITION	1553	zusammenführen;	Einzelzuordnung offen
+SB-L1554	15 BACKLOG UND TODO-DISPOSITION	1554	überholt/redundant/ungültig;	Einzelzuordnung offen
+SB-L1555	15 BACKLOG UND TODO-DISPOSITION	1555	Konflikt/technische Klärung nötig;	Einzelzuordnung offen
+SB-L1556	15 BACKLOG UND TODO-DISPOSITION	1556	bereits erledigt, aber unverifiziert.	Einzelzuordnung offen
+SB-L1652	18 QUALITÄTS- UND SICHERHEITSREGELN	1652	Originaldateien nicht überschreiben.	Einzelzuordnung offen
+SB-L1653	18 QUALITÄTS- UND SICHERHEITSREGELN	1653	Keine ausführbaren G-Code-Befehle ohne gesonderte Freigabe ändern.	Einzelzuordnung offen
+SB-L1654	18 QUALITÄTS- UND SICHERHEITSREGELN	1654	Druckparameter nicht unbemerkt verändern.	Einzelzuordnung offen
+SB-L1655	18 QUALITÄTS- UND SICHERHEITSREGELN	1655	Bestehende Funktionen erst nach Ersatz-/Regressionnachweis entfernen.	Einzelzuordnung offen
+SB-L1656	18 QUALITÄTS- UND SICHERHEITSREGELN	1656	Keine nicht erkannte Hardware voraussetzen.	Einzelzuordnung offen
+SB-L1657	18 QUALITÄTS- UND SICHERHEITSREGELN	1657	Optionale Komponenten müssen deaktivierbar sein.	Einzelzuordnung offen
+SB-L1658	18 QUALITÄTS- UND SICHERHEITSREGELN	1658	Keine langen/blockierenden Arbeiten im Klippy-Reactor.	Einzelzuordnung offen
+SB-L1659	18 QUALITÄTS- UND SICHERHEITSREGELN	1659	Druck vor Generatoren, UI, Sound und LEDs priorisieren.	Einzelzuordnung offen
+SB-L1660	18 QUALITÄTS- UND SICHERHEITSREGELN	1660	Hintergrundjobs mit Ressourcenlimits.	Einzelzuordnung offen
+SB-L1661	18 QUALITÄTS- UND SICHERHEITSREGELN	1661	Kein Job-Erfolg ohne echte, validierte und registrierte Ausgabe.	Einzelzuordnung offen
+SB-L1662	18 QUALITÄTS- UND SICHERHEITSREGELN	1662	Dateibrowser-/Bildauswahl nicht pro Werkzeug unterschiedlich neu bauen.	Einzelzuordnung offen
+SB-L1663	18 QUALITÄTS- UND SICHERHEITSREGELN	1663	Unsichere Feature-Inferenz nicht als Gewissheit ausgeben.	Einzelzuordnung offen
+SB-L1664	18 QUALITÄTS- UND SICHERHEITSREGELN	1664	Keine 100-%-Versprechen bei beliebigem G-Code.	Einzelzuordnung offen
+SB-L1665	18 QUALITÄTS- UND SICHERHEITSREGELN	1665	Unbekannte Befehle/Dialekte/Featuretypen sichtbar behandeln.	Einzelzuordnung offen
+SB-L1666	18 QUALITÄTS- UND SICHERHEITSREGELN	1666	Logs und Diagnosen müssen Fehleranalyse ermöglichen.	Einzelzuordnung offen
+SB-L1667	18 QUALITÄTS- UND SICHERHEITSREGELN	1667	Änderungen klein, überprüfbar und rückrollbar halten.	Einzelzuordnung offen
+SB-L1668	18 QUALITÄTS- UND SICHERHEITSREGELN	1668	Vor/nach jedem Migrationsschritt testen.	Einzelzuordnung offen
+SB-L1669	18 QUALITÄTS- UND SICHERHEITSREGELN	1669	Abweichungen vom freigegebenen Plan begründen und bei Verhaltensänderung erneut freigeben lassen.	Einzelzuordnung offen

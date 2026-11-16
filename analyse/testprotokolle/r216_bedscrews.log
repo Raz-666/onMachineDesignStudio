@@ -1,0 +1,16 @@
+PASS start homes, measures and arms the delayed eval
+PASS start without [screws_tilt_adjust] notifies the config gap
+PASS eval builds bs_state with round 1 + 4 named screws
+PASS eval pushes the display state (head/cur/running) into the UI macro
+PASS eval with empty results says so (no crash)
+PASS next advances to screw 2/4 with its own line
+PASS next writes NOTHING to the SD (no SAVE_VARIABLE)
+PASS next on the last screw parks at round end
+PASS next without a running calibration says so
+PASS done with 2 screws off REJECTS and names them
+PASS round re-measures without a re-home
+PASS eval round 2 counts the round and marks all ok
+PASS done with everything nominal TAKES OVER + clears the state
+PASS cancel clears state + display
+
+RESULT: PASS - 14 checks, bed-screw LCD flow fully pinned

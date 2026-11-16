@@ -1,0 +1,16 @@
+one, guards satisfied 
+  SYNC_GANTRY: ['G1 Z245 F300', 'SET_TMC_CURRENT STEPPER=stepper_z CURRENT=0.35', 'SET_KINEMATIC_POSITION Z=235', 'G1 Z245 F120', 'G1 Z235 F300', 'SET_TMC_CURRENT STEPPER=stepper_z CURRENT=0.8', 'G28 Z'] 
+  Z_TILT: ['NOTIFY TEXT="Z_TILT needs 2+ separate Z steppers - this printer has ONE (or parallel-wired motors on one driver): use SYNC_GANTRY instead" LEVEL=warn SOUND=r2_notice']
+stepper_z1, no z_tilt 
+  SYNC_GANTRY: ['NOTIFY TEXT="SYNC_GANTRY is for ONE Z driver (parallel-wired motors) - this printer has separate Z steppers: use Z_TILT (Maintenance > Z Tilt or the console)" LEVEL=warn SOUND=r2_notice'] 
+  Z_TILT: ['NOTIFY TEXT="Z_TILT needs a [z_tilt] section in printer.cfg: z_positions = one X,Y pair per Z stepper, e.g. z_positions: 45,45 / 225,45 - nothing was moved" LEVEL=error SOUND=r2_error']
+stepper_z1 and z_tilt 
+  SYNC_GANTRY: ['NOTIFY TEXT="SYNC_GANTRY is for ONE Z driver (parallel-wired motors) - this printer has separate Z steppers: use Z_TILT (Maintenance > Z Tilt or the console)" LEVEL=warn SOUND=r2_notice'] 
+  Z_TILT: ['Z_TILT_ADJUST RETRIES=2 RETRY_TOLERANCE=0.05']
+one, force_move missing 
+  SYNC_GANTRY: ['NOTIFY TEXT="SYNC_GANTRY needs [force_move] with \'enable_force_move: True\' in printer.cfg - nothing was moved (without it the bump would be a silent NO-OP!)" LEVEL=error SOUND=r2_error'] 
+  Z_TILT: ['NOTIFY TEXT="Z_TILT needs 2+ separate Z steppers - this printer has ONE (or parallel-wired motors on one driver): use SYNC_GANTRY instead" LEVEL=warn SOUND=r2_notice']
+one, TMC2208 only 
+  SYNC_GANTRY: ['NOTIFY TEXT="SYNC_GANTRY needs a TMC driver on Z (SET_TMC_CURRENT) - this printer has none: level Z mechanically instead" LEVEL=error SOUND=r2_error'] 
+  Z_TILT: ['NOTIFY TEXT="Z_TILT needs 2+ separate Z steppers - this printer has ONE (or parallel-wired motors on one driver): use SYNC_GANTRY instead" LEVEL=warn SOUND=r2_notice']
+Nur Template-Ausgaben, keine Befehle ausgefuehrt; mechanische Eignung nicht getestet.

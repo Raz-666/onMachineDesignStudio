@@ -1,0 +1,19 @@
+test_all_scalar_branches_set_value_and_flag_through_real_parser (__main__.ParserDispatchTests.test_all_scalar_branches_set_value_and_flag_through_real_parser) ... ok
+test_flow_result_to_override_dispatch (__main__.ParserDispatchTests.test_flow_result_to_override_dispatch) ... ok
+test_ironing_snapshot_and_result_for_all_six_cards (__main__.ParserDispatchTests.test_ironing_snapshot_and_result_for_all_six_cards) ... ok
+test_old_semicolon_mutation_is_caught_by_parser (__main__.ParserDispatchTests.test_old_semicolon_mutation_is_caught_by_parser) ... ok
+test_changed_cfg_sections_parse_and_compile_like_klipper (__main__.RenderRegressionTests.test_changed_cfg_sections_parse_and_compile_like_klipper) ... ok
+test_feature_and_alias_setters_remain_distinct (__main__.RenderRegressionTests.test_feature_and_alias_setters_remain_distinct) ... ok
+test_flow_old_target_mutation_is_caught (__main__.RenderRegressionTests.test_flow_old_target_mutation_is_caught) ... ok
+test_flow_target_explicit_then_saved_then_nozzle (__main__.RenderRegressionTests.test_flow_target_explicit_then_saved_then_nozzle) ... ok
+test_invalid_measure_does_not_save_result (__main__.RenderRegressionTests.test_invalid_measure_does_not_save_result) ... ok
+test_invalid_name_and_missing_value_do_not_save (__main__.RenderRegressionTests.test_invalid_name_and_missing_value_do_not_save) ... ok
+test_menu_target_defaults_to_current_nozzle (__main__.RenderRegressionTests.test_menu_target_defaults_to_current_nozzle) ... ok
+test_pa_calibration_respects_each_independent_retraction_flag (__main__.RenderRegressionTests.test_pa_calibration_respects_each_independent_retraction_flag) ... ok
+test_scalar_setters_render_separate_commands_in_order (__main__.RenderRegressionTests.test_scalar_setters_render_separate_commands_in_order) ... ok
+test_web_fallback_target_and_ironing_help_match_lcd (__main__.RenderRegressionTests.test_web_fallback_target_and_ironing_help_match_lcd) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 0.584s
+
+OK

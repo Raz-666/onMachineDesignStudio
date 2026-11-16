@@ -1,0 +1,38 @@
+  Setter-Zeile: SAVE_VARIABLE VARIABLE=ov_bed VALUE=42.0            ; SAVE_VARIABLE VARIABLE=ov_bed_on VALUE=True
+  Setter-Zeile: SAVE_VARIABLE VARIABLE=ov_bed_after VALUE=42.0      ; SAVE_VARIABLE VARIABLE=ov_bed_after_on VALUE=True
+  Setter-Zeile: SAVE_VARIABLE VARIABLE=ov_hotend_first VALUE=42.0   ; SAVE_VARIABLE VARIABLE=ov_hotend_first_on VALUE=True
+  Setter-Zeile: SAVE_VARIABLE VARIABLE=ov_hotend_after VALUE=42.0   ; SAVE_VARIABLE VARIABLE=ov_hotend_after_on VALUE=True
+  Setter-Zeile: SAVE_VARIABLE VARIABLE=ov_pa VALUE=42.0             ; SAVE_VARIABLE VARIABLE=ov_pa_on VALUE=True
+  Setter-Zeile: SAVE_VARIABLE VARIABLE=ov_retract_len VALUE=42.0    ; SAVE_VARIABLE VARIABLE=ov_retract_len_on VALUE=True
+  Setter-Zeile: SAVE_VARIABLE VARIABLE=ov_retract_speed VALUE=42.0  ; SAVE_VARIABLE VARIABLE=ov_retract_speed_on VALUE=True
+  Setter-Zeile: SAVE_VARIABLE VARIABLE=ov_unretract_speed VALUE=42.0; SAVE_VARIABLE VARIABLE=ov_unretract_speed_on VALUE=True
+  Setter-Zeile: SAVE_VARIABLE VARIABLE=ov_accel VALUE=42.0          ; SAVE_VARIABLE VARIABLE=ov_accel_on VALUE=True
+  Setter-Zeile: SAVE_VARIABLE VARIABLE=ov_ironing_flow VALUE=42.0   ; SAVE_VARIABLE VARIABLE=ov_ironing_flow_on VALUE=True
+  Setter-Zeile: SAVE_VARIABLE VARIABLE=ov_pa_smooth VALUE=42.0      ; SAVE_VARIABLE VARIABLE=ov_pa_smooth_on VALUE=True
+  Setter-Zeile: SAVE_VARIABLE VARIABLE=ov_flow VALUE=42.0           ; SAVE_VARIABLE VARIABLE=ov_flow_on VALUE=True
+  Setter-Zeile: SAVE_VARIABLE VARIABLE=ov_velocity VALUE=42.0       ; SAVE_VARIABLE VARIABLE=ov_velocity_on VALUE=True
+  Setter-Zeile: SAVE_VARIABLE VARIABLE=ov_min_cruise VALUE=42.0     ; SAVE_VARIABLE VARIABLE=ov_min_cruise_on VALUE=True
+  Setter-Zeile: SAVE_VARIABLE VARIABLE=ov_square_corner VALUE=42.0  ; SAVE_VARIABLE VARIABLE=ov_square_corner_on VALUE=True
+  Setter-Zeile: SAVE_VARIABLE VARIABLE=ov_fan VALUE=42.0            ; SAVE_VARIABLE VARIABLE=ov_fan_on VALUE=True
+Skalare Setterzweige: 16/16 Werte im Modell gespeichert, 0/16 ausgeschaltete Flags aktiviert.
+  Setter-Zeile: SAVE_VARIABLE VARIABLE=ov_flow VALUE=90.0           ; SAVE_VARIABLE VARIABLE=ov_flow_on VALUE=True
+FLOW_CAL_APPLY prior_on= False -> Wert= 90.0 on= False Aufruf= ['SET_OVERRIDE_VALUE NAME=flow VALUE=90.0']
+  Setter-Zeile: SAVE_VARIABLE VARIABLE=ov_flow VALUE=90.0           ; SAVE_VARIABLE VARIABLE=ov_flow_on VALUE=True
+FLOW_CAL_APPLY prior_on= True -> Wert= 90.0 on= True Aufruf= ['SET_OVERRIDE_VALUE NAME=flow VALUE=90.0']
+  Setter-Zeile: SAVE_VARIABLE VARIABLE=ov_hotend_first VALUE=215.0   ; SAVE_VARIABLE VARIABLE=ov_hotend_first_on VALUE=True
+  Setter-Zeile: SAVE_VARIABLE VARIABLE=ov_hotend_after VALUE=215.0   ; SAVE_VARIABLE VARIABLE=ov_hotend_after_on VALUE=True
+temperature Result-Aufrufe= ['SET_OVERRIDE_VALUE NAME=hotend_first VALUE=215.0', 'SET_OVERRIDE_VALUE NAME=hotend_after VALUE=215.0'] Werte/Flags= {'ttg_nb': 5, 'ttg_start': 220, 'ttg_step': -5, 'ov_hotend_first_on': False, 'ov_hotend_after_on': False, 'ov_hotend_first': 215.0, 'ov_hotend_after': 215.0} saves= [('save', 'ov_hotend_first', 215.0), ('save', 'ov_hotend_after', 215.0)]
+  Setter-Zeile: SAVE_VARIABLE VARIABLE=ov_retract_len VALUE=1.5    ; SAVE_VARIABLE VARIABLE=ov_retract_len_on VALUE=True
+retract Result-Aufrufe= ['SET_OVERRIDE_VALUE NAME=retract_len VALUE=1.5'] Werte/Flags= {'rt_nb': 6, 'rt_start': 0.5, 'rt_step': 0.5, 'ov_retract_len_on': False, 'ov_retract_len': 1.5} saves= [('save', 'ov_retract_len', 1.5)]
+  Setter-Zeile: SAVE_VARIABLE VARIABLE=ov_ironing_flow VALUE=15.0   ; SAVE_VARIABLE VARIABLE=ov_ironing_flow_on VALUE=True
+ironing Result-Aufrufe= ['SET_OVERRIDE_VALUE NAME=feat_spd_ironing VALUE=30.0', 'SET_OVERRIDE_VALUE NAME=ironing_flow VALUE=15.0'] Werte/Flags= {'iron_cal_cards': 3, 'ovf_ironing_on': True, 'ov_ironing_flow_on': False, 'ovf_ironing_spd': 30.0, 'ov_ironing_flow': 15.0} saves= [('save', 'ovf_ironing_spd', 30.0), ('save', 'ovf_ironing_on', True), ('save', 'ov_ironing_flow', 15.0)]
+Startausschnitt apply=True, flow_on= False -> RESULT_FLOW=100
+Startausschnitt apply=True, flow_on= True -> RESULT_FLOW=90.0
+_APPLY_OV_RETRACT len_on= False -> SET_RETRACTION_BASE RETRACT_LENGTH=0.75 RETRACT_SPEED=35.0 UNRETRACT_SPEED=35.0 UNRETRACT_EXTRA_LENGTH=0.0
+_APPLY_OV_RETRACT len_on= True -> SET_RETRACTION_BASE RETRACT_LENGTH=1.5 RETRACT_SPEED=35.0 UNRETRACT_SPEED=35.0 UNRETRACT_EXTRA_LENGTH=0.0
+PA CAL Ausschnitt: separate Flags an, alter Flag= False -> RESULT=0.75,35.0
+PA CAL Ausschnitt: separate Flags an, alter Flag= True -> RESULT=1.5,20.0
+SAVE_MATERIAL_TEMPS bei Flags AUS -> [('mat_pla_flow', 83.0), ('mat_pla_pa', 0.123), ('mat_pla_hot1', 222.0)]
+SET_MATERIAL default apply -> [('ov_flow', 83.0), ('ov_flow_on', True), ('ov_pa', 0.123), ('ov_pa_on', True), ('ov_hotend_first', 222.0), ('ov_hotend_first_on', True)]
+SET_MATERIAL APPLY_PRESET=0 -> {'ov_flow': 83, 'ov_flow_on': False, 'material': 'PETG'}
+Ausser SAVE_VARIABLE im In-Memory-Dict alle Handler Stubs; keine G-Code-Ausfuehrung, kein Klipper-Runtime-/Druckertest.

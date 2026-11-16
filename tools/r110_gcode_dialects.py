@@ -155,7 +155,8 @@ def build(dialect):
                 out.append(';TYPE:%s' % spell)
             out.append('M204 S%d' % acc)
             for k in range(3):
-                e += 0.35 if emode == 'M83' else 0.0
+                # M82 values must accumulate; repeated E0 is not extrusion.
+                e += 0.35
                 ee = ('E%.3f' % e) if emode == 'M82' else ('E%.3f' % 0.35)
                 # Z-scan dialects: Z rides ON the first extruding move of the
                 # layer (the classic combined-move pattern _ZScan reads)

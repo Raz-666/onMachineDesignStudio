@@ -1,0 +1,4 @@
+[meta] V02_Shape8gon4_L2-4.gcode: thumbnail + time + filament added
+[meta] V03_stack_L5-12.gcode: thumbnail + time + filament added
+
+V1 RANGE CAUSE: 8 checks, 0 FAIL - a cake-cut half is refused with the cause named, uncut files keep working

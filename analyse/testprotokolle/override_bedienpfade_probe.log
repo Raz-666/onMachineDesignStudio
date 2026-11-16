@@ -1,0 +1,17 @@
+LCD Flow-Wert 90, vorher on= False -> {'ov_flow': 90.0, 'ov_flow_on': False}
+  danach ein gesonderter Toggle -> {'ov_flow': 90.0, 'ov_flow_on': True} (Vorzustand bestimmt Richtung)
+LCD Flow-Wert 90, vorher on= True -> {'ov_flow': 90.0, 'ov_flow_on': True}
+  danach ein gesonderter Toggle -> {'ov_flow': 90.0, 'ov_flow_on': False} (Vorzustand bestimmt Richtung)
+FILE_AS_PRESET, alle Flags vorher= False -> [('bed', 60.0, False), ('bed_after', 60.0, False), ('hotend_first', 215.0, False), ('hotend_after', 215.0, False), ('fan', 100.0, False), ('pa', 0.05, False), ('flow', 95.0, False)]
+  Resultat: 7 Setteraufrufe, 7 Stub-Saves; Meldung/Beep nicht ausgefuehrt.
+FILE_AS_PRESET, alle Flags vorher= True -> [('bed', 60.0, True), ('bed_after', 60.0, True), ('hotend_first', 215.0, True), ('hotend_after', 215.0, True), ('fan', 100.0, True), ('pa', 0.05, True), ('flow', 95.0, True)]
+  Resultat: 7 Setteraufrufe, 7 Stub-Saves; Meldung/Beep nicht ausgefuehrt.
+PLA Material-Flow bearbeiten, ausgewaehlt= PLA -> mat_pla_flow= 92 ov_flow= 92.0 on= False
+PLA Material-Flow bearbeiten, ausgewaehlt= PETG -> mat_pla_flow= 92 ov_flow= 100 on= False
+IRONING_CAL Karte 2: meldet 30 mm/s und rendert Ironing-G1 mit F1800.0 mm/min
+IRONING_CAL Karte 2 explizit F17/S37 -> RESPOND MSG="Ironing card 2/2: flow 17% speed 37mm/s (after 1 base layer(s))" ; nach modellierten Saves RESULT -> ['SET_OVERRIDE_VALUE NAME=feat_spd_ironing VALUE=30.0', 'SET_OVERRIDE_VALUE NAME=ironing_flow VALUE=15.0']
+IRONING_CAL Karte 4 explizit F17/S37 -> RESPOND MSG="Ironing card 4/4: flow 17% speed 37mm/s (after 1 base layer(s))" ; nach modellierten Saves RESULT -> ['SET_OVERRIDE_VALUE NAME=feat_spd_ironing VALUE=50', 'SET_OVERRIDE_VALUE NAME=ironing_flow VALUE=25']
+APPLY_TYPE IRONING, sync angenommen, iron_flow_on= False -> ['M99220 S30.0', 'M99221 S100.0']
+APPLY_TYPE IRONING, sync angenommen, iron_flow_on= True -> ['M99220 S30.0', 'M99221 S15.0']
+IRONING_CAL Guard rendered: RESPOND MSG="Ironing cal only when idle"; M117 Idle only -> dispatchte Stub-Kommandos: [('stub', 'RESPOND')]
+Annahmen: Jinja getrennt vor jedem simulierten Aufruf, Saves synchron erfolgreich; echte Menue-Erreichbarkeit, Klipper-Runtime und Hardware ungetestet.

@@ -1,0 +1,6 @@
+M83 ohne E  : reported_layers=1 inserted=1 fake_mark_before_hop_move=False; mark_before=['G1 X30 Y0 E1']; _FILE_INFO TOTAL_LAYERS=1 BY_OBJECT=0 TYPES=WALL-OUTER SEAM=0,0 SEAMN=1
+M83 E null  : reported_layers=2 inserted=2 fake_mark_before_hop_move=True; mark_before=['G1 X12 Y0 E0', 'G1 X30 Y0 E1']; _FILE_INFO TOTAL_LAYERS=2 BY_OBJECT=0 TYPES=WALL-OUTER SEAM=0,0 SEAMN=1
+M83 Rueckzug: reported_layers=2 inserted=2 fake_mark_before_hop_move=True; mark_before=['G1 X12 Y0 E-0.2', 'G1 X30 Y0 E1']; _FILE_INFO TOTAL_LAYERS=2 BY_OBJECT=0 TYPES=WALL-OUTER SEAM=0,0 SEAMN=1
+M82 ohne E  : reported_layers=1 inserted=1 fake_mark_before_hop_move=False; mark_before=['G1 X30 Y0 E3']; _FILE_INFO TOTAL_LAYERS=1 BY_OBJECT=0 TYPES=WALL-OUTER SEAM=0,0 SEAMN=1
+M82 E null  : reported_layers=2 inserted=2 fake_mark_before_hop_move=True; mark_before=['G1 X12 Y0 E1', 'G1 X30 Y0 E3']; _FILE_INFO TOTAL_LAYERS=2 BY_OBJECT=0 TYPES=WALL-OUTER SEAM=0,0 SEAMN=1
+M82 Rueckzug: reported_layers=2 inserted=2 fake_mark_before_hop_move=True; mark_before=['G1 X12 Y0 E0.8', 'G1 X30 Y0 E3']; _FILE_INFO TOTAL_LAYERS=2 BY_OBJECT=0 TYPES=WALL-OUTER SEAM=0,0 SEAMN=1

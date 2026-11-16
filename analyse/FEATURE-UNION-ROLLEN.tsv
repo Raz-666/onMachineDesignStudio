@@ -1,0 +1,82 @@
+quellzeile	abschnitt	rollenbezeichnung	quelltext_zweite_spalte	backtick_begriffe
+13	A. Objekt-Wände / Shells / Perimeter	Unknown / Undefined / None / Other / Noop	`Unknown`, `Undefined`, `None`, `Others`, `Other`, `Noop`	Unknown / Undefined / None / Others / Other / Noop
+14	A. Objekt-Wände / Shells / Perimeter	Outer Wall / Außenwand	`External perimeter`, `ExternalPerimeter`, `Outer wall`, `WALL-OUTER`, `Outer Perimeter`, `Outer Shell`, `Perimeter Path`	External perimeter / ExternalPerimeter / Outer wall / WALL-OUTER / Outer Perimeter / Outer Shell / Perimeter Path
+15	A. Objekt-Wände / Shells / Perimeter	Inner Wall / Innenwand	`Perimeter`, `Internal perimeter`, `Inner wall`, `WALL-INNER`, `Inner Perimeter`, `Inner Shell`, `Loop Path`, `Loop`	Perimeter / Internal perimeter / Inner wall / WALL-INNER / Inner Perimeter / Inner Shell / Loop Path / Loop
+16	A. Objekt-Wände / Shells / Perimeter	Generic Wall / Shell	`Wall`, `Shell`, `HShell`, `Skin`, `Surface`, je nach Slicer	Wall / Shell / HShell / Skin / Surface
+17	A. Objekt-Wände / Shells / Perimeter	Overhang Wall / Überhang-Wand	`Overhang perimeter`, `OverhangPerimeter`, `Overhang wall`	Overhang perimeter / OverhangPerimeter / Overhang wall
+18	A. Objekt-Wände / Shells / Perimeter	Floating Vertical Shell	`FloatingVerticalShell`, Bambu-spezifisch	FloatingVerticalShell
+19	A. Objekt-Wände / Shells / Perimeter	Hole Perimeter / Lochwand	interne Loop-Rollen wie `Hole`, `PerimeterHole`; meist als Outer/Inner Wall sichtbar	Hole / PerimeterHole
+20	A. Objekt-Wände / Shells / Perimeter	Second Perimeter / zweiter Wandloop	`SecondPerimeter`, interne Loop-Rolle; meist als Inner Wall sichtbar	SecondPerimeter
+21	A. Objekt-Wände / Shells / Perimeter	Contour Internal Perimeter	`ContourInternalPerimeter`, interne Slic3r/Prusa-artige Loop-Rolle	ContourInternalPerimeter
+22	A. Objekt-Wände / Shells / Perimeter	Thin Wall / Dünnwand	`Thin wall`, `Single extrusion wall`, `External Single Extrusion`, `Internal Single Extrusion`	Thin wall / Single extrusion wall / External Single Extrusion / Internal Single Extrusion
+23	A. Objekt-Wände / Shells / Perimeter	External Single Extrusion	Simplify3D: sehr schmale äußere Geometrie, die mit einer einzelnen Linie statt normalen Perimetern gedruckt wird	
+24	A. Objekt-Wände / Shells / Perimeter	Internal Single Extrusion	Simplify3D: schmale innere Bereiche, die als einzelne Linie gefüllt werden	
+25	A. Objekt-Wände / Shells / Perimeter	Gap Fill / Lückenfüllung	`Gap fill`, `GapFill`, `Gap infill`, `Gaps in walls`, `Gaps in skin`, `Fill thin gaps`	Gap fill / GapFill / Gap infill / Gaps in walls / Gaps in skin / Fill thin gaps
+26	A. Objekt-Wände / Shells / Perimeter	Crown Path	KISSlicer-spezifisch; kleine obere/feine Deckflächen- bzw. Restpfade	
+27	A. Objekt-Wände / Shells / Perimeter	OuterHair / InnerHair	CraftWare-Preview-Begriffe für sehr feine Außen-/Innenlinien	
+37	B. Infill / Füllung / Oberflächen	Sparse Infill / Teilfüllung	`Internal infill`, `InternalInfill`, `Sparse infill`, `FILL`, `Infill`, `Sparse Infill Path`	Internal infill / InternalInfill / Sparse infill / FILL / Infill / Sparse Infill Path
+38	B. Infill / Füllung / Oberflächen	Stacked Sparse Infill	KISSlicer: sparse infill, das nicht auf jedem Layer, sondern gestapelt gedruckt wird	
+39	B. Infill / Füllung / Oberflächen	Solid Infill / Vollfüllung	`Solid infill`, `SolidInfill`, `Internal solid infill`, `Solid Fill`, `Solid Layer`, `Solid Path`	Solid infill / SolidInfill / Internal solid infill / Solid Fill / Solid Layer / Solid Path
+40	B. Infill / Füllung / Oberflächen	Top Solid Infill / Top Surface	`Top solid infill`, `TopSolidInfill`, `Top surface`, `Top Solid Fill`, `Skin`	Top solid infill / TopSolidInfill / Top surface / Top Solid Fill / Skin
+41	B. Infill / Füllung / Oberflächen	Bottom Surface	`BottomSurface`, `Bottom surface`, `Bottom solid infill`, bei Cura meist `SKIN`	BottomSurface / Bottom surface / Bottom solid infill / SKIN
+42	B. Infill / Füllung / Oberflächen	Skin	Cura-Sammelbegriff für Top-/Bottom-/geschlossene Oberflächenbereiche	
+43	B. Infill / Füllung / Oberflächen	Surface Mode	Cura: nur Oberflächenlinien bei Surface Mode `Surface`/`Both`; nicht immer eigenes `;TYPE:`	Surface / Both / ;TYPE:
+44	B. Infill / Füllung / Oberflächen	Infill Over Bridge	Prusa-interne reichere Rolle; wird nicht immer als eigene G-Code-Rolle serialisiert	
+45	B. Infill / Füllung / Oberflächen	Bridge Infill / Bridge	`Bridge infill`, `BridgeInfill`, `Bridge`, `Bridge Path`	Bridge infill / BridgeInfill / Bridge / Bridge Path
+46	B. Infill / Füllung / Oberflächen	Internal Bridge / Inner Bridge	`InternalBridgeInfill`, `Internal Bridge`, `Inner Bridge`, interne Brücken über Infill/Hohlräumen	InternalBridgeInfill / Internal Bridge / Inner Bridge
+47	B. Infill / Füllung / Oberflächen	Ironing	`Ironing`; Glättpfad über Top-Surfaces	Ironing
+48	B. Infill / Füllung / Oberflächen	Support Ironing	Bambu-spezifische Support-Glättrolle	
+49	B. Infill / Füllung / Oberflächen	Progressive / Adaptive Infill	IceSL/andere: Infill mit variabler Dichte; meist trotzdem als Infill klassifiziert	
+59	C. Support / Stützmaterial	Support Material / Support	`Support material`, `SupportMaterial`, `Support`, `SUPPORT`, `Supports`, `Support Path`	Support material / SupportMaterial / Support / SUPPORT / Supports / Support Path
+60	C. Support / Stützmaterial	Support Base / Support Body	normaler Support-Unterbau; oft nur `Support`	Support
+61	C. Support / Stützmaterial	Support Infill	Support-Füllmuster; bei vielen Slicern nicht separat kommentiert	
+62	C. Support / Stützmaterial	Support Wall / Support Perimeter / Sheathed Support	Support-Außenwand; KISSlicer: `Sheathed Support`; Cura: Support-Wall-Optionen, meist `SUPPORT`	Sheathed Support / SUPPORT
+63	C. Support / Stützmaterial	Support Interface	`Support material interface`, `SupportMaterialInterface`, `Support interface`, `SUPPORT-INTERFACE`, `Dense Support`, `Support Interface Path`	Support material interface / SupportMaterialInterface / Support interface / SUPPORT-INTERFACE / Dense Support / Support Interface Path
+64	C. Support / Stützmaterial	Support Roof	obere Support-Interface-Zone direkt unter dem Modell	
+65	C. Support / Stützmaterial	Support Floor	untere Support-Interface-Zone über Modellflächen, wenn Support von oben/innen relevant ist	
+66	C. Support / Stützmaterial	Dense Support	Simplify3D/ideaMaker: dichter Support am Kontaktbereich	
+67	C. Support / Stützmaterial	Support Transition	`SupportTransition`, `Support transition`; Orca/Bambu-Übergangsbereich zwischen Base-Support und Interface	SupportTransition / Support transition
+68	C. Support / Stützmaterial	Tree Support / Organic Support	geometrische Support-Variante; Rolle bleibt meist `Support`/`Support interface`	Support / Support interface
+69	C. Support / Stützmaterial	Pillar Support / Support Pillar	säulenartige Supports; KISSlicer `Pillar Path`; Simplify3D hat Support-Pillar-Auflösung	Pillar Path
+70	C. Support / Stützmaterial	Soft Support	CraftWare: `SoftSupport`	SoftSupport
+71	C. Support / Stützmaterial	Support Brim / Support Base Brim	Haftlinien um Support-Füße; oft als Brim oder Support klassifiziert	
+72	C. Support / Stützmaterial	Inner Support Base	Cura-Einstellung für Support-Basis im ersten Layer	
+82	D. Bettadhäsion / Basisstrukturen	Skirt	`Skirt`, `SKIRT`, `Skirt Path`	Skirt / SKIRT / Skirt Path
+83	D. Bettadhäsion / Basisstrukturen	Brim	`Brim`, `BRIM`, `Skirt/Brim`	Brim / BRIM / Skirt/Brim
+84	D. Bettadhäsion / Basisstrukturen	Skirt/Brim kombiniert	Prusa klassifiziert Brim historisch teilweise als Skirt; Simplify3D nutzt `Skirt/Brim`	Skirt/Brim
+85	D. Bettadhäsion / Basisstrukturen	Mouse Ears / Brim Ears	lokale Brim-Inseln an Ecken; meist kein eigener Kommentar	
+86	D. Bettadhäsion / Basisstrukturen	Raft	`Raft`, `RAFT`, `Raft Path`	Raft / RAFT / Raft Path
+87	D. Bettadhäsion / Basisstrukturen	Raft Base	Cura: Raft-Unterlage/Basis	
+88	D. Bettadhäsion / Basisstrukturen	Raft Middle / Raft Interface	Cura: mittlere Raft-Zone	
+89	D. Bettadhäsion / Basisstrukturen	Raft Top / Raft Surface	Cura: obere Raft-Schicht, auf der das Modell sitzt	
+90	D. Bettadhäsion / Basisstrukturen	Prime Blob	Cura/maschinenabhängig; Start-Priming-Blob	
+91	D. Bettadhäsion / Basisstrukturen	Pre-extrusion / Purge line / Intro line	Start-G-Code-Priming, meist Custom/Start-G-Code	
+101	E. Multi-Material / Purge / Wipe	Wipe Tower	`Wipe tower`, `WipeTower`	Wipe tower / WipeTower
+102	E. Multi-Material / Purge / Wipe	Prime Tower	`Prime tower`, `PRIME-TOWER`	Prime tower / PRIME-TOWER
+103	E. Multi-Material / Purge / Wipe	Prime Pillar	Simplify3D/KISSlicer: `Prime Pillar Path`, `Prime Pillar`	Prime Pillar Path / Prime Pillar
+104	E. Multi-Material / Purge / Wipe	Tip Tower	ideaMaker-ältere/abweichende Bezeichnung	
+105	E. Multi-Material / Purge / Wipe	Wiping Tower	FlashPrint: `Wiping Tower`	Wiping Tower
+106	E. Multi-Material / Purge / Wipe	Ooze Shield	Simplify3D: `Ooze Shield`; Cura: Ooze shield feature	Ooze Shield
+107	E. Multi-Material / Purge / Wipe	Wipe Wall	ideaMaker: `Wipe Wall`; FlashPrint: `Wall` als Dual-Extruder-Abstreifwand	Wipe Wall / Wall
+108	E. Multi-Material / Purge / Wipe	Draft Shield	Cura: Draft shield; meist nicht eigener `;TYPE:`	;TYPE:
+109	E. Multi-Material / Purge / Wipe	Flush / Flushing	Bambu: `Flush`; Purge-/Flush-Material	Flush
+110	E. Multi-Material / Purge / Wipe	Flush into Infill	Bambu/Orca-Funktion; landet geometrisch meist als Infill	
+111	E. Multi-Material / Purge / Wipe	Flush into Support	Bambu/Orca-Funktion; landet geometrisch meist als Support	
+112	E. Multi-Material / Purge / Wipe	Flush into Object	Bambu/Orca-Funktion; landet im gewählten Objektbereich	
+113	E. Multi-Material / Purge / Wipe	Wipe Move	Abstreifbewegung, häufig Bewegungsevent statt Extrusionsrolle	
+114	E. Multi-Material / Purge / Wipe	Tool-change purge	Werkzeugwechsel-Reinigung, oft im Toolchange-G-Code	
+124	F. Bewegungen / Events / Marker	Travel / Move / Jump	`Travel`, `Move`, `Jump`, `Non-print move`, `Destring/Wipe/Jump Path`	Travel / Move / Jump / Non-print move / Destring/Wipe/Jump Path
+125	F. Bewegungen / Events / Marker	Extrude generic	generische Extrusion ohne genauere Rolle	
+126	F. Bewegungen / Events / Marker	Retract	`Retract`, `Retraction`	Retract / Retraction
+127	F. Bewegungen / Events / Marker	Unretract / Deretract / Prime	`Unretract`, `Unretraction`, `Deretract`	Unretract / Unretraction / Deretract
+128	F. Bewegungen / Events / Marker	Seam	`Seam`, `Seams`	Seam / Seams
+129	F. Bewegungen / Events / Marker	Tool Change	`Tool Change`, `ToolChanges`	Tool Change / ToolChanges
+130	F. Bewegungen / Events / Marker	Color Change	`Color Change`, `ColorChanges`, `COLOR_CHANGE`	Color Change / ColorChanges / COLOR_CHANGE
+131	F. Bewegungen / Events / Marker	Pause Print	`Pause Print`, `PausePrint`, `PAUSE_PRINT`	Pause Print / PausePrint / PAUSE_PRINT
+132	F. Bewegungen / Events / Marker	Custom G-code	`Custom`, `Custom G-code`, `CUSTOM_GCODE`	Custom / Custom G-code / CUSTOM_GCODE
+133	F. Bewegungen / Events / Marker	Mixed / Multiple	`Mixed`, `Multiple`, mehrere Rollen in einer Sammlung	Mixed / Multiple
+134	F. Bewegungen / Events / Marker	Layer Change	`LAYER_CHANGE`, `LAYER:n`, `layer N`, kein Druckfeature, aber wichtiger Marker	LAYER_CHANGE / LAYER:n / layer N
+135	F. Bewegungen / Events / Marker	Before Layer Change	`BEFORE_LAYER_CHANGE`	BEFORE_LAYER_CHANGE
+136	F. Bewegungen / Events / Marker	After Layer Change	`AFTER_LAYER_CHANGE`	AFTER_LAYER_CHANGE
+137	F. Bewegungen / Events / Marker	Object Start / Object End	`EXCLUDE_OBJECT_START`, `EXCLUDE_OBJECT_END`, Objektlabeling	EXCLUDE_OBJECT_START / EXCLUDE_OBJECT_END
+138	F. Bewegungen / Events / Marker	Mesh Marker	Cura: `;MESH:...`	;MESH:...

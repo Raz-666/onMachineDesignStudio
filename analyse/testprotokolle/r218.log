@@ -1,0 +1,27 @@
+PASS menus: mkPrinter lifts gcode_macro variables (klippy ships {variables:{...}} - the .136o vanish bug)
+PASS menus: no template reads gcode_macro .variables (the unwrap is loss-free for the shipped menus)
+PASS menus: every root list of the cfg is in the export tree (12 lists - Maintenance included)
+PASS SD: sd_view survives the fat pruning (40 long names > 1200 chars repr - the empty SD list)
+PASS SD: sd_tree stays pruned (the multi-KB tree is still on a diet)
+PASS header: the title owns its own row at the very top (titlerow, full width, wraps)
+PASS header: controls moved to their own row below (hrow)
+PASS reboot: the page falls back to the klipper macros when moonraker refuses /machine/reboot (SYS_PI_REBOOT via /printer/gcode/script)
+PASS reboot: the nginx site proxies /machine/ too (the .136o root cause - 404: Restart lived under /printer/, Reboot under /machine/ which had no location block at all)
+PASS deployment: every API path the page fetches is proxied by the nginx site (/printer, /server)
+PASS reboot: SYS_PI_REBOOT exists (arm + CONFIRM, heaters off first, reboot_machine remote method - the SYS_SHUTDOWN sibling)
+PASS reboot: moonraker really registers reboot_machine (API surface, C1 class - verified against the moonraker machine component docs)
+PASS ascii: no umlauts / non-ASCII anywhere on the page body
+PASS ascii: no numeric/typographic HTML entities left (&ndash; class)
+PASS ascii: no unicode escapes in the page code (icons are ASCII now)
+PASS english: no German words left in the page code
+PASS english: every LCD menu name is ASCII (they render on the web too)
+PASS live R219: the component queries in TIERS without a default (moonraker swallows failed queries as the default - the silent {} built an empty printer: ? values, vanished menus, empty SD)
+PASS live R219: the page NEVER builds a printer from an empty snapshot (badge carries the reason instead)
+PASS live R219: gcode_macro variables stay flat (klipper truth - get_status returns self.variables directly), the unwrap only catches the wrapped case
+PASS live R220: both File info TYPES rows are in the page export (Start? + Pre-Print) with the compact code map and the empty case
+PASS live R220: the CUSTOM? gate reads the LIVE _STATE.file_types in the page export (dead save_variables copy fixed - the row never showed)
+FAIL embedded: the offline fallback JSON is the CURRENT export (2423 sections, sha 4f84af9706af9f9c == disk)  [embedded 2423/4f84af9706af9f9c vs disk 2295/d17ebc4ccd805276]
+FAIL version: the page ver badge matches 01_state (142c)  [page 142c vs state 1]
+PASS version: the page state ver is the current round (R246d)
+
+RESULT: FAIL - 2 of 25 checks failed

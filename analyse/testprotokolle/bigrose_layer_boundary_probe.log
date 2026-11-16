@@ -1,0 +1,9 @@
+sha256= 0f8722007d799774d28de428baf82887ca6afa2df117cf01621dea024b3ec9d0 header= ; total layer number: 251
+LAYER_CHANGE= 251 LAYER_MARK= 251 ;Z-Kommentare= 251
+Abschnitt 1: Markerzeile=191, vorherige_Z-Kommentare=[';Z:0.2'], Z-haltige_G0_G1=17, erste_Z=[0.6, 0.2, 0.6], letzte_Z=[0.6, 0.2, 0.4], Z_minmax=(0.2, 0.6), XY_mit_E=1756
+Abschnitt 2: Markerzeile=2139, vorherige_Z-Kommentare=[';Z:0.4'], Z-haltige_G0_G1=2, erste_Z=[0.4, 0.6], letzte_Z=[0.4, 0.6], Z_minmax=(0.4, 0.6), XY_mit_E=438
+Abschnitt 3: Markerzeile=2703, vorherige_Z-Kommentare=[';Z:0.6'], Z-haltige_G0_G1=2, erste_Z=[0.6, 0.8], letzte_Z=[0.6, 0.8], Z_minmax=(0.6, 0.8), XY_mit_E=437
+Abschnitt 249: Markerzeile=253220, vorherige_Z-Kommentare=[';Z:49.8034'], Z-haltige_G0_G1=845, erste_Z=[49.603, 49.603, 49.604], letzte_Z=[49.803, 49.803, 49.803], Z_minmax=(49.603, 49.803), XY_mit_E=844
+Abschnitt 250: Markerzeile=254086, vorherige_Z-Kommentare=[';Z:50.0042'], Z-haltige_G0_G1=905, erste_Z=[49.803, 49.803, 49.804], letzte_Z=[50.004, 50.004, 50.004], Z_minmax=(49.803, 50.004), XY_mit_E=905
+Abschnitt 251: Markerzeile=255008, vorherige_Z-Kommentare=[';Z:50.0042'], Z-haltige_G0_G1=0, erste_Z=[], letzte_Z=[], Z_minmax=None, XY_mit_E=905
+Gzip unveraendert. Z-Werte nur als geschriebene Parameter; Modi und Bedeutung der Layerzahl nicht abgeleitet.

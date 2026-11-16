@@ -1,0 +1,4 @@
+simulierter_Vorzustand layer=0, stop_at_layer=0: rendered_stop=kein
+simulierter_Vorzustand layer=0, stop_at_layer=1: rendered_stop=['_END_AT_LAYER LAYER=1']
+simulierter_Vorzustand layer=1, stop_at_layer=2: rendered_stop=['_END_AT_LAYER LAYER=2']
+simulierter_Vorzustand layer=1, stop_at_layer=3: rendered_stop=kein

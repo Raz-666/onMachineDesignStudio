@@ -1,0 +1,14 @@
+[meta] V01_vasem83_L5-12.gcode: thumbnail + time + filament added
+[meta] V02_vasem83_L5-12.gcode: thumbnail + time + filament added
+[meta] V03_vasem83_L5-12.gcode: thumbnail + time + filament added
+[meta] V04_vasem83_L5-12.gcode: thumbnail + time + filament added
+[meta] V05_vasem83_L5-12.gcode: thumbnail + time + filament added
+[meta] V06_vasem83_L5-12.gcode: thumbnail + time + filament added
+[meta] V07_vasem83_L2-8.gcode: thumbnail + time + filament added
+[meta] V08_vasem83_L25-30.gcode: thumbnail + time + filament added
+[meta] V09_vasem82exc_L3-9.gcode: thumbnail + time + filament added
+[meta] V10_vasem82g92_L3-9.gcode: thumbnail + time + filament added
+[meta] V11_vasenonl_L4-10.gcode: thumbnail + time + filament added
+[meta] V12_vasem83_L2-3.gcode: thumbnail + time + filament added
+[meta] V13_vasem83_L2-30.gcode: thumbnail + time + filament added
+R81 golden check: 23/23 cases byte-identical to the V1 reference

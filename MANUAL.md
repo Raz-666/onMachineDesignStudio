@@ -4020,7 +4020,7 @@ stay with Mainsail.
 | **FLOW_TEST** | SIZE=sv.flow_t_size | default(30, HEIGHT=sv.flow_t_height |
 | **HOST_CHECK** |  | Pi health check |
 | **IRONING_CAL** | F1=10, F2=15, F3=20, S1=20, S2=30, S3=40, TEMP=200, BED=60, LAYER=0.2, LEN=40, WID=24, ACCEL=3000 | 3-zone ironing test card |
-| **IRONING_RESULT** | CARD=0 | Ironing calculator: CARD=n -> speed/flow of that card -> ironing overrides ON |
+| **IRONING_RESULT** | CARD=0 | Show the completed card's flow (% of a full line) and speed (mm/s); does not apply overrides. |
 | **LEVEL_BED_SCREWS** |  | screw leveling with console report |
 | **LOAD_BED_MESH** | PROFILE='' | load a mesh profile (menu list) |
 | **LOAD_FILAMENT** |  | heat if cold + feed load_length mm |
