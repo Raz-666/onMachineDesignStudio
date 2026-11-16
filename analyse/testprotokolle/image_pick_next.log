@@ -1,0 +1,20 @@
+test_collision_keeps_every_existing_file_and_reports_new_name (__main__.ImagePickTests.test_collision_keeps_every_existing_file_and_reports_new_name) ... ok
+test_copy_failure_keeps_original_and_leaves_no_partial_output (__main__.ImagePickTests.test_copy_failure_keeps_original_and_leaves_no_partial_output) ... ok
+test_directory_and_fifo_sources_are_refused_without_blocking (__main__.ImagePickTests.test_directory_and_fifo_sources_are_refused_without_blocking) ... ok
+test_existing_destination_symlink_not_followed_or_replaced (__main__.ImagePickTests.test_existing_destination_symlink_not_followed_or_replaced) ... ok
+test_existing_root_pick_is_read_only_and_missing_root_fails (__main__.ImagePickTests.test_existing_root_pick_is_read_only_and_missing_root_fails) ... ok
+test_link_failure_keeps_original_and_cleans_staging (__main__.ImagePickTests.test_link_failure_keeps_original_and_cleans_staging) ... ok
+test_new_destination_and_original_preserved (__main__.ImagePickTests.test_new_destination_and_original_preserved) ... ok
+test_no_replace_mutation_is_caught (__main__.ImagePickTests.test_no_replace_mutation_is_caught) ... ok
+test_original_watcher_block_reports_actual_copy_and_error (__main__.ImagePickTests.test_original_watcher_block_reports_actual_copy_and_error) ... [imgpick] 'sub/photo.png' -> photo_1.png
+[imgpick] refused: ValueError('not a safe image path')
+ok
+test_parallel_collision_is_atomic (__main__.ImagePickTests.test_parallel_collision_is_atomic) ... ok
+test_source_changed_mid_copy_is_not_published (__main__.ImagePickTests.test_source_changed_mid_copy_is_not_published) ... ok
+test_symlink_sources_and_nested_symlink_directories_rejected (__main__.ImagePickTests.test_symlink_sources_and_nested_symlink_directories_rejected) ... ok
+test_traversal_invalid_extension_and_command_injection_rejected (__main__.ImagePickTests.test_traversal_invalid_extension_and_command_injection_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.470s
+
+OK

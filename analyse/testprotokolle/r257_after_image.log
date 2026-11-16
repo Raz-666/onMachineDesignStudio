@@ -1,0 +1,11 @@
+--- live config ---
+  all 15 checks pass
+--- counter-test (each mutation must FAIL) ---
+  ok   g28-no-mute        caught by: 4a G28 mutes before homing
+  ok   g28-wrong-order    caught by: 4a G28 mutes before homing
+  ok   sls-no-guard       caught by: 3a SET_LED_STATE reads the flag
+  ok   mesh-no-bracket    caught by: 5a mesh mutes before probing
+  ok   watcher-no-heal    caught by: 7a watcher heals a stuck mute
+  ok   no-flag            caught by: 1 state flag
+  ok   quiet-no-stop      caught by: 2c mute stops the effect
+R257 CRASH GUARD: 15 checks, 0 FAIL, 7/7 mutations caught - no LED animation traffic in the probe descent

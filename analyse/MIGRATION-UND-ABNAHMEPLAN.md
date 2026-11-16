@@ -1,6 +1,8 @@
 # Zielarchitektur, Migration und Abnahme – Freigabevorlage
 
-Dieser Plan ist **kein Implementierungsauftrag**. Das stabile System und alle vorhandenen Funktionen/Timer bleiben erhalten, bis Ersatz und Regression nachgewiesen und die jeweilige Änderung freigegeben sind. Übergabe verlangt Arbeit am experimentellen `tools/r2_postproc_next.py` statt direkt am stabilen Pfad; das allein ist keine Freigabe. Es gibt keinen unbelegten Anspruch auf exakte Semantik beliebiger G-Codes.
+**Historischer Plan:** Die Implementierung wurde inzwischen vom Nutzer freigegeben. Seine neuere Anweisung erlaubt außerdem, die stabile Engine nach gesicherter Backup-Erstellung aus dem aktiven Projektpfad zu nehmen; ein direkter Umschalter ist nicht vorgeschrieben. Das hebt die hier früher formulierten Zwischenfreigaben und die Stable-Pfadpflicht auf, nicht aber die übrigen ausdrücklich gesperrten Bereiche und den Anspruch, den alten Stand zu bewahren. Umsetzungsstand und aktuelle Grenzen: `ARCHITEKTUR-UMSETZUNG-BILDSCHUTZ-UND-SHADOW.md` und `UMSETZUNG-OVERRIDE-UND-KALIBRIERUNG.md`.
+
+Zum damaligen Stand galt: Dieser Plan ist **kein Implementierungsauftrag**. Das stabile System und alle vorhandenen Funktionen/Timer bleiben erhalten, bis Ersatz und Regression nachgewiesen und die jeweilige Änderung freigegeben sind. Übergabe verlangt Arbeit am experimentellen `tools/r2_postproc_next.py` statt direkt am stabilen Pfad; das allein ist keine Freigabe. Es gibt keinen unbelegten Anspruch auf exakte Semantik beliebiger G-Codes.
 
 ## 1. Zielverträge und Grenzen
 
