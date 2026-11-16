@@ -1,0 +1,21 @@
+ok    G28 wrapper: exists, renames the built-in, sets and restores the mode   
+ok    G28 wrapper: a dying G28 releases the guard (delayed_gcode, 15 min)   
+ok    G28 wrapper: zero disk writes (SET_GCODE_VARIABLE only, no SAVE_VARIABLE)   
+ok    G28 wrapper: is inert for the rest of the package (rawparams forwarded)   
+ok    G28 wrapper: the alias is a TRADITIONAL g-code name (M99110), not _G28_RAW - that rename halted the printer at boot   
+ok    motion gate: ONE sample slot PER consumer (the shared slot was the bug)   
+ok    motion gate: the same print_time seen by two consumers still reads MOVING   busy=True preview=True
+ok    motion gate: a 0 s gap (probe dwell) stays BUSY via the 2 s hold   hold = 2.0 s
+ok    motion gate: the hold is bounded (the watcher cannot silence itself)   2.0 s
+ok    selection preview: gated by motion, deferred (not dropped) to idle   
+ok    selection preview: the old blind push is gone (no unguarded moonraker call before the gate)   
+ok    preview payload: a long EXCLUDE_OBJECT polygon is left to the file (ceiling 1200 chars)   
+ok    start interceptor: the SD write (SAVE_VARIABLE start_decision) stands AFTER the homing block, not in it   position 2295 vs G28 at 2144
+ok    busy gate: 'homing' counts as busy (was: mode 'idle' during G28)   
+ok    strict push gate (SD mirror / gen_files): 'homing' counts as busy   
+ok    preview probe: mode homing/starting is motion, mode waiting is not   
+ok    functional: mode homing + still head -> the preview probe says MOVING (push deferred)   moving=True
+ok    functional: mode waiting + still head -> NOT moving (the dialog gets its file info)   moving=False
+ok    functional: manual preheat/G28 outside the dialog (mode idle, print_time advancing) -> MOVING   moving=True
+
+R255 HOMING GUARD: 19 checks, 0 FAIL - our host work stays out of the probe window

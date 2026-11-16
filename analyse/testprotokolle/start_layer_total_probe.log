@@ -1,0 +1,9 @@
+PRINT_START TOTAL_LAYERS=30: SET_GCODE_VARIABLE MACRO=_STATE VARIABLE=total_layers VALUE=30 vor _LIVE_RESET
+_LIVE_RESET: SET_GCODE_VARIABLE MACRO=_STATE VARIABLE=total_layers VALUE=0
+Synthetisch entfaltete Befehlsfolge: ['SET_GCODE_VARIABLE MACRO=_STATE VARIABLE=total_layers VALUE=30', 'SET_GCODE_VARIABLE MACRO=_STATE VARIABLE=total_layers VALUE=0']
+Ergebnis der beiden SET-Anweisungen ohne spaetere Setzer: 0; keine Klipper-Ausfuehrung.
+  Startzweig ohne Dialog: total_then_reset=True; DIALOG_PEEK=False
+  Startzweig mit Dialog: total_then_reset=True; DIALOG_PEEK=True
+  Startzweig Entscheidung vorgemerkt: total_then_reset=True; DIALOG_PEEK=False
+  Startzweig Guard verweigert: total_then_reset=False; DIALOG_PEEK=False
+process() auf Temp-Datei, relevante Dateireihenfolge: ['_FILE_INFO TOTAL_LAYERS=30 BY_OBJECT=0 TYPES=WALL-OUTER SEAM=0,0 SEAMN=1', 'PRINT_START TOTAL_LAYERS=30']

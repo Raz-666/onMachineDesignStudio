@@ -1,0 +1,524 @@
+Quelle	Familie_oder_Gruppe	Quellrolle	Zeile	Originaltext	lookup_type	canon_type	synthetisches_TYPE_RE	Hinweis
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Unknown / Undefined / None / Other / Noop	13	Unknown	CUSTOM	CUSTOM	Unknown	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Unknown / Undefined / None / Other / Noop	13	Undefined	CUSTOM	CUSTOM	Undefined	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Unknown / Undefined / None / Other / Noop	13	None		CUSTOM	None	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Unknown / Undefined / None / Other / Noop	13	Others	CUSTOM	CUSTOM	Others	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Unknown / Undefined / None / Other / Noop	13	Other		CUSTOM	Other	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Unknown / Undefined / None / Other / Noop	13	Noop	TRAVEL	TRAVEL		Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Outer Wall / Außenwand	14	External perimeter	WALL-OUTER	WALL-OUTER	External perimeter	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Outer Wall / Außenwand	14	ExternalPerimeter	WALL-OUTER	WALL-OUTER	ExternalPerimeter	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Outer Wall / Außenwand	14	Outer wall	WALL-OUTER	WALL-OUTER	Outer wall	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Outer Wall / Außenwand	14	WALL-OUTER	WALL-OUTER	WALL-OUTER	WALL-OUTER	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Outer Wall / Außenwand	14	Outer Perimeter		WALL-OUTER	Outer Perimeter	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Outer Wall / Außenwand	14	Outer Shell	WALL-OUTER	WALL-OUTER	Outer Shell	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Outer Wall / Außenwand	14	Perimeter Path		WALL-INNER	Perimeter Path	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Inner Wall / Innenwand	15	Perimeter	WALL-INNER	WALL-INNER	Perimeter	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Inner Wall / Innenwand	15	Internal perimeter		WALL-INNER	Internal perimeter	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Inner Wall / Innenwand	15	Inner wall	WALL-INNER	WALL-INNER	Inner wall	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Inner Wall / Innenwand	15	WALL-INNER	WALL-INNER	WALL-INNER	WALL-INNER	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Inner Wall / Innenwand	15	Inner Perimeter		WALL-INNER	Inner Perimeter	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Inner Wall / Innenwand	15	Inner Shell	WALL-INNER	WALL-INNER	Inner Shell	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Inner Wall / Innenwand	15	Loop Path		WALL-INNER	Loop Path	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Inner Wall / Innenwand	15	Loop		WALL-INNER	Loop	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Generic Wall / Shell	16	Wall		WALL-INNER	Wall	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Generic Wall / Shell	16	Shell	WALL-INNER	WALL-INNER	Shell	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Generic Wall / Shell	16	HShell		CUSTOM	HShell	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Generic Wall / Shell	16	Skin	SURFACE-TOP	SURFACE-TOP	Skin	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Generic Wall / Shell	16	Surface		SURFACE-TOP	Surface	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Overhang Wall / Überhang-Wand	17	Overhang perimeter	OVERHANG-PERIM	OVERHANG-PERIM	Overhang perimeter	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Overhang Wall / Überhang-Wand	17	OverhangPerimeter	OVERHANG-PERIM	OVERHANG-PERIM	OverhangPerimeter	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Overhang Wall / Überhang-Wand	17	Overhang wall	OVERHANG-PERIM	OVERHANG-PERIM	Overhang wall	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Floating Vertical Shell	18	FloatingVerticalShell		WALL-INNER	FloatingVerticalShell	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Hole Perimeter / Lochwand	19	Hole		CUSTOM	Hole	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Hole Perimeter / Lochwand	19	PerimeterHole		WALL-INNER	PerimeterHole	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Second Perimeter / zweiter Wandloop	20	SecondPerimeter		WALL-INNER	SecondPerimeter	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Contour Internal Perimeter	21	ContourInternalPerimeter		WALL-INNER	ContourInternalPerimeter	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Thin Wall / Dünnwand	22	Thin wall	WALL-INNER	WALL-INNER	Thin wall	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Thin Wall / Dünnwand	22	Single extrusion wall		WALL-OUTER	Single extrusion wall	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Thin Wall / Dünnwand	22	External Single Extrusion	WALL-OUTER	WALL-OUTER	External Single Extrusion	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Thin Wall / Dünnwand	22	Internal Single Extrusion	GAPS	GAPS	Internal Single Extrusion	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Gap Fill / Lückenfüllung	25	Gap fill	GAPS	GAPS	Gap fill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Gap Fill / Lückenfüllung	25	GapFill	GAPS	GAPS	GapFill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Gap Fill / Lückenfüllung	25	Gap infill	GAPS	GAPS	Gap infill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Gap Fill / Lückenfüllung	25	Gaps in walls		WALL-INNER	Gaps in walls	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Gap Fill / Lückenfüllung	25	Gaps in skin		GAPS	Gaps in skin	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	A. Objekt-Wände / Shells / Perimeter	Gap Fill / Lückenfüllung	25	Fill thin gaps		GAPS	Fill thin gaps	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	B. Infill / Füllung / Oberflächen	Sparse Infill / Teilfüllung	37	Internal infill		INFILL-SPARSE	Internal infill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	B. Infill / Füllung / Oberflächen	Sparse Infill / Teilfüllung	37	InternalInfill		INFILL-SPARSE	InternalInfill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	B. Infill / Füllung / Oberflächen	Sparse Infill / Teilfüllung	37	Sparse infill	INFILL-SPARSE	INFILL-SPARSE	Sparse infill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	B. Infill / Füllung / Oberflächen	Sparse Infill / Teilfüllung	37	FILL	INFILL-SPARSE	INFILL-SPARSE	FILL	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	B. Infill / Füllung / Oberflächen	Sparse Infill / Teilfüllung	37	Infill	INFILL-SPARSE	INFILL-SPARSE	Infill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	B. Infill / Füllung / Oberflächen	Sparse Infill / Teilfüllung	37	Sparse Infill Path		INFILL-SPARSE	Sparse Infill Path	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	B. Infill / Füllung / Oberflächen	Solid Infill / Vollfüllung	39	Solid infill	INFILL-SOLID	INFILL-SOLID	Solid infill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	B. Infill / Füllung / Oberflächen	Solid Infill / Vollfüllung	39	SolidInfill	INFILL-SOLID	INFILL-SOLID	SolidInfill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	B. Infill / Füllung / Oberflächen	Solid Infill / Vollfüllung	39	Internal solid infill	INFILL-SOLID	INFILL-SOLID	Internal solid infill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	B. Infill / Füllung / Oberflächen	Solid Infill / Vollfüllung	39	Solid Fill	INFILL-SOLID	INFILL-SOLID	Solid Fill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	B. Infill / Füllung / Oberflächen	Solid Infill / Vollfüllung	39	Solid Layer	INFILL-SOLID	INFILL-SOLID	Solid Layer	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	B. Infill / Füllung / Oberflächen	Solid Infill / Vollfüllung	39	Solid Path		INFILL-SOLID	Solid Path	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	B. Infill / Füllung / Oberflächen	Top Solid Infill / Top Surface	40	Top solid infill	SURFACE-TOP	SURFACE-TOP	Top solid infill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	B. Infill / Füllung / Oberflächen	Top Solid Infill / Top Surface	40	TopSolidInfill	SURFACE-TOP	SURFACE-TOP	TopSolidInfill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	B. Infill / Füllung / Oberflächen	Top Solid Infill / Top Surface	40	Top surface	SURFACE-TOP	SURFACE-TOP	Top surface	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	B. Infill / Füllung / Oberflächen	Top Solid Infill / Top Surface	40	Top Solid Fill		INFILL-SOLID	Top Solid Fill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	B. Infill / Füllung / Oberflächen	Top Solid Infill / Top Surface	40	Skin	SURFACE-TOP	SURFACE-TOP	Skin	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	B. Infill / Füllung / Oberflächen	Bottom Surface	41	BottomSurface	SURFACE-BOTTOM	SURFACE-BOTTOM	BottomSurface	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	B. Infill / Füllung / Oberflächen	Bottom Surface	41	Bottom surface	SURFACE-BOTTOM	SURFACE-BOTTOM	Bottom surface	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	B. Infill / Füllung / Oberflächen	Bottom Surface	41	Bottom solid infill	SURFACE-BOTTOM	SURFACE-BOTTOM	Bottom solid infill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	B. Infill / Füllung / Oberflächen	Bottom Surface	41	SKIN	SURFACE-TOP	SURFACE-TOP	SKIN	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	B. Infill / Füllung / Oberflächen	Surface Mode	43	Surface		SURFACE-TOP	Surface	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	B. Infill / Füllung / Oberflächen	Surface Mode	43	Both		CUSTOM	Both	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	B. Infill / Füllung / Oberflächen	Surface Mode	43	;TYPE:		CUSTOM	;TYPE:	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	B. Infill / Füllung / Oberflächen	Bridge Infill / Bridge	45	Bridge infill	BRIDGE	BRIDGE	Bridge infill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	B. Infill / Füllung / Oberflächen	Bridge Infill / Bridge	45	BridgeInfill	BRIDGE	BRIDGE	BridgeInfill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	B. Infill / Füllung / Oberflächen	Bridge Infill / Bridge	45	Bridge	BRIDGE	BRIDGE	Bridge	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	B. Infill / Füllung / Oberflächen	Bridge Infill / Bridge	45	Bridge Path		BRIDGE	Bridge Path	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	B. Infill / Füllung / Oberflächen	Internal Bridge / Inner Bridge	46	InternalBridgeInfill	INTERNAL-BRIDGE	INTERNAL-BRIDGE	InternalBridgeInfill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	B. Infill / Füllung / Oberflächen	Internal Bridge / Inner Bridge	46	Internal Bridge	INTERNAL-BRIDGE	INTERNAL-BRIDGE	Internal Bridge	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	B. Infill / Füllung / Oberflächen	Internal Bridge / Inner Bridge	46	Inner Bridge	INTERNAL-BRIDGE	INTERNAL-BRIDGE	Inner Bridge	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	B. Infill / Füllung / Oberflächen	Ironing	47	Ironing	IRONING	IRONING	Ironing	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	C. Support / Stützmaterial	Support Material / Support	59	Support material	SUPPORT	SUPPORT	Support material	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	C. Support / Stützmaterial	Support Material / Support	59	SupportMaterial	SUPPORT	SUPPORT	SupportMaterial	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	C. Support / Stützmaterial	Support Material / Support	59	Support	SUPPORT	SUPPORT	Support	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	C. Support / Stützmaterial	Support Material / Support	59	SUPPORT	SUPPORT	SUPPORT	SUPPORT	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	C. Support / Stützmaterial	Support Material / Support	59	Supports		SUPPORT	Supports	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	C. Support / Stützmaterial	Support Material / Support	59	Support Path		SUPPORT	Support Path	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	C. Support / Stützmaterial	Support Base / Support Body	60	Support	SUPPORT	SUPPORT	Support	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	C. Support / Stützmaterial	Support Wall / Support Perimeter / Sheathed Support	62	Sheathed Support		SUPPORT	Sheathed Support	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	C. Support / Stützmaterial	Support Wall / Support Perimeter / Sheathed Support	62	SUPPORT	SUPPORT	SUPPORT	SUPPORT	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	C. Support / Stützmaterial	Support Interface	63	Support material interface	SUPPORT	SUPPORT	Support material interface	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	C. Support / Stützmaterial	Support Interface	63	SupportMaterialInterface	SUPPORT	SUPPORT	SupportMaterialInterface	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	C. Support / Stützmaterial	Support Interface	63	Support interface	SUPPORT	SUPPORT	Support interface	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	C. Support / Stützmaterial	Support Interface	63	SUPPORT-INTERFACE	SUPPORT	SUPPORT	SUPPORT-INTERFACE	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	C. Support / Stützmaterial	Support Interface	63	Dense Support	SUPPORT	SUPPORT	Dense Support	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	C. Support / Stützmaterial	Support Interface	63	Support Interface Path		SUPPORT	Support Interface Path	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	C. Support / Stützmaterial	Support Transition	67	SupportTransition	SUPPORT	SUPPORT	SupportTransition	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	C. Support / Stützmaterial	Support Transition	67	Support transition	SUPPORT	SUPPORT	Support transition	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	C. Support / Stützmaterial	Tree Support / Organic Support	68	Support	SUPPORT	SUPPORT	Support	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	C. Support / Stützmaterial	Tree Support / Organic Support	68	Support interface	SUPPORT	SUPPORT	Support interface	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	C. Support / Stützmaterial	Pillar Support / Support Pillar	69	Pillar Path		CUSTOM	Pillar Path	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	C. Support / Stützmaterial	Soft Support	70	SoftSupport		SUPPORT	SoftSupport	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	D. Bettadhäsion / Basisstrukturen	Skirt	82	Skirt	SKIRT	SKIRT	Skirt	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	D. Bettadhäsion / Basisstrukturen	Skirt	82	SKIRT	SKIRT	SKIRT	SKIRT	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	D. Bettadhäsion / Basisstrukturen	Skirt	82	Skirt Path		SKIRT	Skirt Path	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	D. Bettadhäsion / Basisstrukturen	Brim	83	Brim	BRIM	BRIM	Brim	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	D. Bettadhäsion / Basisstrukturen	Brim	83	BRIM	BRIM	BRIM	BRIM	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	D. Bettadhäsion / Basisstrukturen	Brim	83	Skirt/Brim		BRIM	Skirt/Brim	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	D. Bettadhäsion / Basisstrukturen	Skirt/Brim kombiniert	84	Skirt/Brim		BRIM	Skirt/Brim	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	D. Bettadhäsion / Basisstrukturen	Raft	86	Raft	SURFACE-BOTTOM	SURFACE-BOTTOM	Raft	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	D. Bettadhäsion / Basisstrukturen	Raft	86	RAFT	SURFACE-BOTTOM	SURFACE-BOTTOM	RAFT	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	D. Bettadhäsion / Basisstrukturen	Raft	86	Raft Path		SURFACE-BOTTOM	Raft Path	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	E. Multi-Material / Purge / Wipe	Wipe Tower	101	Wipe tower	PRIME-TOWER	PRIME-TOWER	Wipe tower	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	E. Multi-Material / Purge / Wipe	Wipe Tower	101	WipeTower	PRIME-TOWER	PRIME-TOWER	WipeTower	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	E. Multi-Material / Purge / Wipe	Prime Tower	102	Prime tower	PRIME-TOWER	PRIME-TOWER	Prime tower	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	E. Multi-Material / Purge / Wipe	Prime Tower	102	PRIME-TOWER	PRIME-TOWER	PRIME-TOWER	PRIME-TOWER	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	E. Multi-Material / Purge / Wipe	Prime Pillar	103	Prime Pillar Path		SKIRT	Prime Pillar Path	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	E. Multi-Material / Purge / Wipe	Prime Pillar	103	Prime Pillar	PRIME-TOWER	PRIME-TOWER	Prime Pillar	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	E. Multi-Material / Purge / Wipe	Wiping Tower	105	Wiping Tower	PRIME-TOWER	PRIME-TOWER	Wiping Tower	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	E. Multi-Material / Purge / Wipe	Ooze Shield	106	Ooze Shield	SKIRT	SKIRT	Ooze Shield	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	E. Multi-Material / Purge / Wipe	Wipe Wall	107	Wipe Wall	PRIME-TOWER	PRIME-TOWER	Wipe Wall	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	E. Multi-Material / Purge / Wipe	Wipe Wall	107	Wall		WALL-INNER	Wall	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	E. Multi-Material / Purge / Wipe	Draft Shield	108	;TYPE:		CUSTOM	;TYPE:	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	E. Multi-Material / Purge / Wipe	Flush / Flushing	109	Flush		CUSTOM	Flush	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	Travel / Move / Jump	124	Travel	TRAVEL	TRAVEL		Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	Travel / Move / Jump	124	Move		CUSTOM	Move	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	Travel / Move / Jump	124	Jump		CUSTOM	Jump	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	Travel / Move / Jump	124	Non-print move		CUSTOM	Non-print move	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	Travel / Move / Jump	124	Destring/Wipe/Jump Path		CUSTOM	Destring/Wipe/Jump Path	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	Retract	126	Retract	TRAVEL	TRAVEL		Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	Retract	126	Retraction		CUSTOM	Retraction	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	Unretract / Deretract / Prime	127	Unretract	TRAVEL	TRAVEL		Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	Unretract / Deretract / Prime	127	Unretraction		CUSTOM	Unretraction	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	Unretract / Deretract / Prime	127	Deretract		CUSTOM	Deretract	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	Seam	128	Seam	TRAVEL	TRAVEL		Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	Seam	128	Seams		CUSTOM	Seams	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	Tool Change	129	Tool Change	TRAVEL	TRAVEL		Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	Tool Change	129	ToolChanges		CUSTOM	ToolChanges	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	Color Change	130	Color Change	TRAVEL	TRAVEL		Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	Color Change	130	ColorChanges		CUSTOM	ColorChanges	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	Color Change	130	COLOR_CHANGE	TRAVEL	TRAVEL	COLOR_CHANGE	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	Pause Print	131	Pause Print	TRAVEL	TRAVEL		Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	Pause Print	131	PausePrint	TRAVEL	TRAVEL	PausePrint	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	Pause Print	131	PAUSE_PRINT	TRAVEL	TRAVEL	PAUSE_PRINT	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	Custom G-code	132	Custom	CUSTOM	CUSTOM	Custom	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	Custom G-code	132	Custom G-code		CUSTOM	Custom G-code	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	Custom G-code	132	CUSTOM_GCODE	TRAVEL	TRAVEL	CUSTOM_GCODE	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	Mixed / Multiple	133	Mixed	CUSTOM	CUSTOM	Mixed	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	Mixed / Multiple	133	Multiple	CUSTOM	CUSTOM	Multiple	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	Layer Change	134	LAYER_CHANGE		CUSTOM	LAYER_CHANGE	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	Layer Change	134	LAYER:n		CUSTOM	LAYER:n	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	Layer Change	134	layer N		CUSTOM	layer N	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	Before Layer Change	135	BEFORE_LAYER_CHANGE		CUSTOM	BEFORE_LAYER_CHANGE	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	After Layer Change	136	AFTER_LAYER_CHANGE		CUSTOM	AFTER_LAYER_CHANGE	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	Object Start / Object End	137	EXCLUDE_OBJECT_START		CUSTOM	EXCLUDE_OBJECT_START	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	Object Start / Object End	137	EXCLUDE_OBJECT_END		CUSTOM	EXCLUDE_OBJECT_END	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Master-Union	F. Bewegungen / Events / Marker	Mesh Marker	138	;MESH:...		CUSTOM	;MESH:...	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.1 Slic3r / PrusaSlicer / SuperSlicer / SliceBeam / AstroPrint-Slic3r		151	None / Unknown		CUSTOM	None / Unknown	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.1 Slic3r / PrusaSlicer / SuperSlicer / SliceBeam / AstroPrint-Slic3r		152	Perimeter	WALL-INNER	WALL-INNER	Perimeter	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.1 Slic3r / PrusaSlicer / SuperSlicer / SliceBeam / AstroPrint-Slic3r		153	External perimeter	WALL-OUTER	WALL-OUTER	External perimeter	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.1 Slic3r / PrusaSlicer / SuperSlicer / SliceBeam / AstroPrint-Slic3r		154	Overhang perimeter	OVERHANG-PERIM	OVERHANG-PERIM	Overhang perimeter	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.1 Slic3r / PrusaSlicer / SuperSlicer / SliceBeam / AstroPrint-Slic3r		155	Internal infill		INFILL-SPARSE	Internal infill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.1 Slic3r / PrusaSlicer / SuperSlicer / SliceBeam / AstroPrint-Slic3r		156	Solid infill	INFILL-SOLID	INFILL-SOLID	Solid infill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.1 Slic3r / PrusaSlicer / SuperSlicer / SliceBeam / AstroPrint-Slic3r		157	Top solid infill	SURFACE-TOP	SURFACE-TOP	Top solid infill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.1 Slic3r / PrusaSlicer / SuperSlicer / SliceBeam / AstroPrint-Slic3r		158	Ironing	IRONING	IRONING	Ironing	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.1 Slic3r / PrusaSlicer / SuperSlicer / SliceBeam / AstroPrint-Slic3r		159	Bridge infill	BRIDGE	BRIDGE	Bridge infill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.1 Slic3r / PrusaSlicer / SuperSlicer / SliceBeam / AstroPrint-Slic3r		160	Gap fill	GAPS	GAPS	Gap fill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.1 Slic3r / PrusaSlicer / SuperSlicer / SliceBeam / AstroPrint-Slic3r		161	Skirt	SKIRT	SKIRT	Skirt	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.1 Slic3r / PrusaSlicer / SuperSlicer / SliceBeam / AstroPrint-Slic3r		162	Support material	SUPPORT	SUPPORT	Support material	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.1 Slic3r / PrusaSlicer / SuperSlicer / SliceBeam / AstroPrint-Slic3r		163	Support material interface	SUPPORT	SUPPORT	Support material interface	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.1 Slic3r / PrusaSlicer / SuperSlicer / SliceBeam / AstroPrint-Slic3r		164	Wipe tower	PRIME-TOWER	PRIME-TOWER	Wipe tower	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.1 Slic3r / PrusaSlicer / SuperSlicer / SliceBeam / AstroPrint-Slic3r		165	Custom	CUSTOM	CUSTOM	Custom	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.1 Slic3r / PrusaSlicer / SuperSlicer / SliceBeam / AstroPrint-Slic3r		166	Mixed	CUSTOM	CUSTOM	Mixed	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.1 Slic3r / PrusaSlicer / SuperSlicer / SliceBeam / AstroPrint-Slic3r		167	Infill over bridge		BRIDGE	Infill over bridge	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.2 OrcaSlicer / Bambu Studio / ElegooSlicer / Creality Print modern / Anycubic Slicer Next / QIDI Studio / Snapmaker Orca / Sovol-Orca		179	Undefined / Unknown		CUSTOM	Undefined / Unknown	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.2 OrcaSlicer / Bambu Studio / ElegooSlicer / Creality Print modern / Anycubic Slicer Next / QIDI Studio / Snapmaker Orca / Sovol-Orca		180	Perimeter	WALL-INNER	WALL-INNER	Perimeter	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.2 OrcaSlicer / Bambu Studio / ElegooSlicer / Creality Print modern / Anycubic Slicer Next / QIDI Studio / Snapmaker Orca / Sovol-Orca		181	ExternalPerimeter	WALL-OUTER	WALL-OUTER	ExternalPerimeter	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.2 OrcaSlicer / Bambu Studio / ElegooSlicer / Creality Print modern / Anycubic Slicer Next / QIDI Studio / Snapmaker Orca / Sovol-Orca		182	OverhangPerimeter	OVERHANG-PERIM	OVERHANG-PERIM	OverhangPerimeter	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.2 OrcaSlicer / Bambu Studio / ElegooSlicer / Creality Print modern / Anycubic Slicer Next / QIDI Studio / Snapmaker Orca / Sovol-Orca		183	InternalInfill		INFILL-SPARSE	InternalInfill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.2 OrcaSlicer / Bambu Studio / ElegooSlicer / Creality Print modern / Anycubic Slicer Next / QIDI Studio / Snapmaker Orca / Sovol-Orca		184	SolidInfill	INFILL-SOLID	INFILL-SOLID	SolidInfill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.2 OrcaSlicer / Bambu Studio / ElegooSlicer / Creality Print modern / Anycubic Slicer Next / QIDI Studio / Snapmaker Orca / Sovol-Orca		185	TopSolidInfill	SURFACE-TOP	SURFACE-TOP	TopSolidInfill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.2 OrcaSlicer / Bambu Studio / ElegooSlicer / Creality Print modern / Anycubic Slicer Next / QIDI Studio / Snapmaker Orca / Sovol-Orca		186	BottomSurface	SURFACE-BOTTOM	SURFACE-BOTTOM	BottomSurface	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.2 OrcaSlicer / Bambu Studio / ElegooSlicer / Creality Print modern / Anycubic Slicer Next / QIDI Studio / Snapmaker Orca / Sovol-Orca		187	Ironing	IRONING	IRONING	Ironing	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.2 OrcaSlicer / Bambu Studio / ElegooSlicer / Creality Print modern / Anycubic Slicer Next / QIDI Studio / Snapmaker Orca / Sovol-Orca		188	BridgeInfill	BRIDGE	BRIDGE	BridgeInfill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.2 OrcaSlicer / Bambu Studio / ElegooSlicer / Creality Print modern / Anycubic Slicer Next / QIDI Studio / Snapmaker Orca / Sovol-Orca		189	InternalBridgeInfill	INTERNAL-BRIDGE	INTERNAL-BRIDGE	InternalBridgeInfill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.2 OrcaSlicer / Bambu Studio / ElegooSlicer / Creality Print modern / Anycubic Slicer Next / QIDI Studio / Snapmaker Orca / Sovol-Orca		190	GapFill	GAPS	GAPS	GapFill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.2 OrcaSlicer / Bambu Studio / ElegooSlicer / Creality Print modern / Anycubic Slicer Next / QIDI Studio / Snapmaker Orca / Sovol-Orca		191	Skirt	SKIRT	SKIRT	Skirt	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.2 OrcaSlicer / Bambu Studio / ElegooSlicer / Creality Print modern / Anycubic Slicer Next / QIDI Studio / Snapmaker Orca / Sovol-Orca		192	Brim	BRIM	BRIM	Brim	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.2 OrcaSlicer / Bambu Studio / ElegooSlicer / Creality Print modern / Anycubic Slicer Next / QIDI Studio / Snapmaker Orca / Sovol-Orca		193	SupportMaterial	SUPPORT	SUPPORT	SupportMaterial	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.2 OrcaSlicer / Bambu Studio / ElegooSlicer / Creality Print modern / Anycubic Slicer Next / QIDI Studio / Snapmaker Orca / Sovol-Orca		194	SupportMaterialInterface	SUPPORT	SUPPORT	SupportMaterialInterface	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.2 OrcaSlicer / Bambu Studio / ElegooSlicer / Creality Print modern / Anycubic Slicer Next / QIDI Studio / Snapmaker Orca / Sovol-Orca		195	SupportTransition	SUPPORT	SUPPORT	SupportTransition	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.2 OrcaSlicer / Bambu Studio / ElegooSlicer / Creality Print modern / Anycubic Slicer Next / QIDI Studio / Snapmaker Orca / Sovol-Orca		196	WipeTower	PRIME-TOWER	PRIME-TOWER	WipeTower	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.2 OrcaSlicer / Bambu Studio / ElegooSlicer / Creality Print modern / Anycubic Slicer Next / QIDI Studio / Snapmaker Orca / Sovol-Orca		197	Custom	CUSTOM	CUSTOM	Custom	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.2 OrcaSlicer / Bambu Studio / ElegooSlicer / Creality Print modern / Anycubic Slicer Next / QIDI Studio / Snapmaker Orca / Sovol-Orca		198	Mixed / Multiple		CUSTOM	Mixed / Multiple	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.2 OrcaSlicer / Bambu Studio / ElegooSlicer / Creality Print modern / Anycubic Slicer Next / QIDI Studio / Snapmaker Orca / Sovol-Orca		204	FloatingVerticalShell		WALL-INNER	FloatingVerticalShell	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.2 OrcaSlicer / Bambu Studio / ElegooSlicer / Creality Print modern / Anycubic Slicer Next / QIDI Studio / Snapmaker Orca / Sovol-Orca		205	SupportIroning		SUPPORT	SupportIroning	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.2 OrcaSlicer / Bambu Studio / ElegooSlicer / Creality Print modern / Anycubic Slicer Next / QIDI Studio / Snapmaker Orca / Sovol-Orca		206	Flush		CUSTOM	Flush	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.2 OrcaSlicer / Bambu Studio / ElegooSlicer / Creality Print modern / Anycubic Slicer Next / QIDI Studio / Snapmaker Orca / Sovol-Orca		207	PerimeterHole		WALL-INNER	PerimeterHole	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.2 OrcaSlicer / Bambu Studio / ElegooSlicer / Creality Print modern / Anycubic Slicer Next / QIDI Studio / Snapmaker Orca / Sovol-Orca		208	SecondPerimeter		WALL-INNER	SecondPerimeter	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.2 OrcaSlicer / Bambu Studio / ElegooSlicer / Creality Print modern / Anycubic Slicer Next / QIDI Studio / Snapmaker Orca / Sovol-Orca		209	Hole		CUSTOM	Hole	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.2 OrcaSlicer / Bambu Studio / ElegooSlicer / Creality Print modern / Anycubic Slicer Next / QIDI Studio / Snapmaker Orca / Sovol-Orca		210	Internal loop		WALL-INNER	Internal loop	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.2 OrcaSlicer / Bambu Studio / ElegooSlicer / Creality Print modern / Anycubic Slicer Next / QIDI Studio / Snapmaker Orca / Sovol-Orca		211	Skirt loop		SKIRT	Skirt loop	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.3 Cura / CuraEngine / UltiMaker Cura / alte Creality-Cura / alte Elegoo-Cura / AstroPrint-Cura		223	WALL-INNER	WALL-INNER	WALL-INNER	WALL-INNER	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.3 Cura / CuraEngine / UltiMaker Cura / alte Creality-Cura / alte Elegoo-Cura / AstroPrint-Cura		224	WALL-OUTER	WALL-OUTER	WALL-OUTER	WALL-OUTER	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.3 Cura / CuraEngine / UltiMaker Cura / alte Creality-Cura / alte Elegoo-Cura / AstroPrint-Cura		225	SKIN	SURFACE-TOP	SURFACE-TOP	SKIN	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.3 Cura / CuraEngine / UltiMaker Cura / alte Creality-Cura / alte Elegoo-Cura / AstroPrint-Cura		226	SKIRT	SKIRT	SKIRT	SKIRT	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.3 Cura / CuraEngine / UltiMaker Cura / alte Creality-Cura / alte Elegoo-Cura / AstroPrint-Cura		227	SUPPORT	SUPPORT	SUPPORT	SUPPORT	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.3 Cura / CuraEngine / UltiMaker Cura / alte Creality-Cura / alte Elegoo-Cura / AstroPrint-Cura		228	FILL	INFILL-SPARSE	INFILL-SPARSE	FILL	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.3 Cura / CuraEngine / UltiMaker Cura / alte Creality-Cura / alte Elegoo-Cura / AstroPrint-Cura		229	SUPPORT-INTERFACE	SUPPORT	SUPPORT	SUPPORT-INTERFACE	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.3 Cura / CuraEngine / UltiMaker Cura / alte Creality-Cura / alte Elegoo-Cura / AstroPrint-Cura		230	PRIME-TOWER	PRIME-TOWER	PRIME-TOWER	PRIME-TOWER	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.3 Cura / CuraEngine / UltiMaker Cura / alte Creality-Cura / alte Elegoo-Cura / AstroPrint-Cura		236	Prime blob	PRIME-TOWER	PRIME-TOWER	Prime blob	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.3 Cura / CuraEngine / UltiMaker Cura / alte Creality-Cura / alte Elegoo-Cura / AstroPrint-Cura		237	Skirt	SKIRT	SKIRT	Skirt	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.3 Cura / CuraEngine / UltiMaker Cura / alte Creality-Cura / alte Elegoo-Cura / AstroPrint-Cura		238	Brim	BRIM	BRIM	Brim	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.3 Cura / CuraEngine / UltiMaker Cura / alte Creality-Cura / alte Elegoo-Cura / AstroPrint-Cura		239	Raft	SURFACE-BOTTOM	SURFACE-BOTTOM	Raft	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.3 Cura / CuraEngine / UltiMaker Cura / alte Creality-Cura / alte Elegoo-Cura / AstroPrint-Cura		240	Raft Base	SURFACE-BOTTOM	SURFACE-BOTTOM	Raft Base	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.3 Cura / CuraEngine / UltiMaker Cura / alte Creality-Cura / alte Elegoo-Cura / AstroPrint-Cura		241	Raft Middle / Raft Interface		SURFACE-BOTTOM	Raft Middle / Raft Interface	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.3 Cura / CuraEngine / UltiMaker Cura / alte Creality-Cura / alte Elegoo-Cura / AstroPrint-Cura		242	Raft Top / Raft Surface		SURFACE-BOTTOM	Raft Top / Raft Surface	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.3 Cura / CuraEngine / UltiMaker Cura / alte Creality-Cura / alte Elegoo-Cura / AstroPrint-Cura		243	Ooze shield	SKIRT	SKIRT	Ooze shield	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.3 Cura / CuraEngine / UltiMaker Cura / alte Creality-Cura / alte Elegoo-Cura / AstroPrint-Cura		244	Draft shield	SKIRT	SKIRT	Draft shield	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.3 Cura / CuraEngine / UltiMaker Cura / alte Creality-Cura / alte Elegoo-Cura / AstroPrint-Cura		245	Support	SUPPORT	SUPPORT	Support	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.3 Cura / CuraEngine / UltiMaker Cura / alte Creality-Cura / alte Elegoo-Cura / AstroPrint-Cura		246	Support interface	SUPPORT	SUPPORT	Support interface	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.3 Cura / CuraEngine / UltiMaker Cura / alte Creality-Cura / alte Elegoo-Cura / AstroPrint-Cura		247	Infill	INFILL-SPARSE	INFILL-SPARSE	Infill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.3 Cura / CuraEngine / UltiMaker Cura / alte Creality-Cura / alte Elegoo-Cura / AstroPrint-Cura		248	Inner walls		WALL-INNER	Inner walls	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.3 Cura / CuraEngine / UltiMaker Cura / alte Creality-Cura / alte Elegoo-Cura / AstroPrint-Cura		249	Outer wall	WALL-OUTER	WALL-OUTER	Outer wall	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.3 Cura / CuraEngine / UltiMaker Cura / alte Creality-Cura / alte Elegoo-Cura / AstroPrint-Cura		250	Gaps in walls		WALL-INNER	Gaps in walls	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.3 Cura / CuraEngine / UltiMaker Cura / alte Creality-Cura / alte Elegoo-Cura / AstroPrint-Cura		251	Skin	SURFACE-TOP	SURFACE-TOP	Skin	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.3 Cura / CuraEngine / UltiMaker Cura / alte Creality-Cura / alte Elegoo-Cura / AstroPrint-Cura		252	Gaps in skin		GAPS	Gaps in skin	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.3 Cura / CuraEngine / UltiMaker Cura / alte Creality-Cura / alte Elegoo-Cura / AstroPrint-Cura		253	Ironing	IRONING	IRONING	Ironing	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.3 Cura / CuraEngine / UltiMaker Cura / alte Creality-Cura / alte Elegoo-Cura / AstroPrint-Cura		254	Surface Mode		SURFACE-TOP	Surface Mode	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.3 Cura / CuraEngine / UltiMaker Cura / alte Creality-Cura / alte Elegoo-Cura / AstroPrint-Cura		255	Travel	TRAVEL	TRAVEL		Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.3 Cura / CuraEngine / UltiMaker Cura / alte Creality-Cura / alte Elegoo-Cura / AstroPrint-Cura		256	Retraction		CUSTOM	Retraction	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.3 Cura / CuraEngine / UltiMaker Cura / alte Creality-Cura / alte Elegoo-Cura / AstroPrint-Cura		257	Combing travel		CUSTOM	Combing travel	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.4 Simplify3D		269	Travel	TRAVEL	TRAVEL		Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.4 Simplify3D		270	Outer Perimeter		WALL-OUTER	Outer Perimeter	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.4 Simplify3D		271	Inner Perimeter		WALL-INNER	Inner Perimeter	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.4 Simplify3D		272	External Single Extrusion	WALL-OUTER	WALL-OUTER	External Single Extrusion	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.4 Simplify3D		273	Internal Single Extrusion	GAPS	GAPS	Internal Single Extrusion	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.4 Simplify3D		274	Gap Fill	GAPS	GAPS	Gap Fill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.4 Simplify3D		275	Solid Layer	INFILL-SOLID	INFILL-SOLID	Solid Layer	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.4 Simplify3D		276	Infill	INFILL-SPARSE	INFILL-SPARSE	Infill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.4 Simplify3D		277	Bridge	BRIDGE	BRIDGE	Bridge	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.4 Simplify3D		278	Support	SUPPORT	SUPPORT	Support	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.4 Simplify3D		279	Dense Support	SUPPORT	SUPPORT	Dense Support	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.4 Simplify3D		280	Raft	SURFACE-BOTTOM	SURFACE-BOTTOM	Raft	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.4 Simplify3D		281	Skirt/Brim		BRIM	Skirt/Brim	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.4 Simplify3D		282	Prime Pillar	PRIME-TOWER	PRIME-TOWER	Prime Pillar	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.4 Simplify3D		283	Ooze Shield	SKIRT	SKIRT	Ooze Shield	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.5 FlashPrint / FlashForge		295	Infill	INFILL-SPARSE	INFILL-SPARSE	Infill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.5 FlashPrint / FlashForge		296	Solid Fill	INFILL-SOLID	INFILL-SOLID	Solid Fill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.5 FlashPrint / FlashForge		297	Bridge	BRIDGE	BRIDGE	Bridge	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.5 FlashPrint / FlashForge		298	Inner Shell	WALL-INNER	WALL-INNER	Inner Shell	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.5 FlashPrint / FlashForge		299	Outer Shell	WALL-OUTER	WALL-OUTER	Outer Shell	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.5 FlashPrint / FlashForge		300	Supports		SUPPORT	Supports	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.5 FlashPrint / FlashForge		301	Brim	BRIM	BRIM	Brim	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.5 FlashPrint / FlashForge		302	Raft	SURFACE-BOTTOM	SURFACE-BOTTOM	Raft	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.5 FlashPrint / FlashForge		303	Wiping Tower	PRIME-TOWER	PRIME-TOWER	Wiping Tower	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.5 FlashPrint / FlashForge		304	Wall		WALL-INNER	Wall	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.5 FlashPrint / FlashForge		305	Travel	TRAVEL	TRAVEL		Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.5 FlashPrint / FlashForge		306	Retraction		CUSTOM	Retraction	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.5 FlashPrint / FlashForge		307	Others	CUSTOM	CUSTOM	Others	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.6 ideaMaker / Raise3D		319	Infill	INFILL-SPARSE	INFILL-SPARSE	Infill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.6 ideaMaker / Raise3D		320	Solid Fill	INFILL-SOLID	INFILL-SOLID	Solid Fill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.6 ideaMaker / Raise3D		321	Ironing	IRONING	IRONING	Ironing	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.6 ideaMaker / Raise3D		322	Bridge	BRIDGE	BRIDGE	Bridge	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.6 ideaMaker / Raise3D		323	Inner Shell	WALL-INNER	WALL-INNER	Inner Shell	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.6 ideaMaker / Raise3D		324	Outer Shell	WALL-OUTER	WALL-OUTER	Outer Shell	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.6 ideaMaker / Raise3D		325	Support	SUPPORT	SUPPORT	Support	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.6 ideaMaker / Raise3D		326	Dense Support	SUPPORT	SUPPORT	Dense Support	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.6 ideaMaker / Raise3D		327	Skirt/Brim		BRIM	Skirt/Brim	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.6 ideaMaker / Raise3D		328	Raft	SURFACE-BOTTOM	SURFACE-BOTTOM	Raft	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.6 ideaMaker / Raise3D		329	Wipe Wall	PRIME-TOWER	PRIME-TOWER	Wipe Wall	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.6 ideaMaker / Raise3D		330	Wipe Tower	PRIME-TOWER	PRIME-TOWER	Wipe Tower	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.6 ideaMaker / Raise3D		331	Tip Tower	PRIME-TOWER	PRIME-TOWER	Tip Tower	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.6 ideaMaker / Raise3D		332	Travel	TRAVEL	TRAVEL		Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.6 ideaMaker / Raise3D		333	Retraction		CUSTOM	Retraction	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.6 ideaMaker / Raise3D		334	Seams		CUSTOM	Seams	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.6 ideaMaker / Raise3D		335	Inner Bridge	INTERNAL-BRIDGE	INTERNAL-BRIDGE	Inner Bridge	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.7 Kiri:Moto		347	Feature region		CUSTOM	Feature region	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.7 Kiri:Moto		348	Shell / wall		WALL-INNER	Shell / wall	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.7 Kiri:Moto		349	Outer shell / outer wall		WALL-OUTER	Outer shell / outer wall	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.7 Kiri:Moto		350	Inner shell / inner wall		WALL-INNER	Inner shell / inner wall	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.7 Kiri:Moto		351	Thin wall	WALL-INNER	WALL-INNER	Thin wall	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.7 Kiri:Moto		352	Infill	INFILL-SPARSE	INFILL-SPARSE	Infill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.7 Kiri:Moto		353	Sparse infill	INFILL-SPARSE	INFILL-SPARSE	Sparse infill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.7 Kiri:Moto		354	Solid fill / solid areas		INFILL-SOLID	Solid fill / solid areas	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.7 Kiri:Moto		355	Top/bottom solid areas		INFILL-SOLID	Top/bottom solid areas	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.7 Kiri:Moto		356	Bridge / interior bridge		BRIDGE	Bridge / interior bridge	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.7 Kiri:Moto		357	Base		CUSTOM	Base	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.7 Kiri:Moto		358	Skirt	SKIRT	SKIRT	Skirt	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.7 Kiri:Moto		359	Brim	BRIM	BRIM	Brim	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.7 Kiri:Moto		360	Raft	SURFACE-BOTTOM	SURFACE-BOTTOM	Raft	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.7 Kiri:Moto		361	Support	SUPPORT	SUPPORT	Support	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.7 Kiri:Moto		362	Support columns		SUPPORT	Support columns	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.7 Kiri:Moto		363	Travel	TRAVEL	TRAVEL		Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.7 Kiri:Moto		364	Retraction		CUSTOM	Retraction	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.7 Kiri:Moto		365	Tool / nozzle transitions		CUSTOM	Tool / nozzle transitions	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.7 Kiri:Moto		366	Custom feature transition macros		CUSTOM	Custom feature transition macros	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.8 KISSlicer		378	Pillar Path		CUSTOM	Pillar Path	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.8 KISSlicer		379	Raft Path		SURFACE-BOTTOM	Raft Path	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.8 KISSlicer		380	Support Interface Path		SUPPORT	Support Interface Path	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.8 KISSlicer		381	Support (may Stack) Path		SUPPORT	Support (may Stack) Path	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.8 KISSlicer		382	Perimeter Path		WALL-INNER	Perimeter Path	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.8 KISSlicer		383	Loop Path		WALL-INNER	Loop Path	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.8 KISSlicer		384	Solid Path		INFILL-SOLID	Solid Path	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.8 KISSlicer		385	Sparse Infill Path		INFILL-SPARSE	Sparse Infill Path	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.8 KISSlicer		386	Stacked Sparse Infill Path		INFILL-SPARSE	Stacked Sparse Infill Path	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.8 KISSlicer		387	Destring/Wipe/Jump Path		CUSTOM	Destring/Wipe/Jump Path	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.8 KISSlicer		388	Crown Path		CUSTOM	Crown Path	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.8 KISSlicer		389	Prime Pillar Path		SKIRT	Prime Pillar Path	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.8 KISSlicer		390	Skirt Path		SKIRT	Skirt Path	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.8 KISSlicer		396	Skin	SURFACE-TOP	SURFACE-TOP	Skin	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.8 KISSlicer		397	Infill	INFILL-SPARSE	INFILL-SPARSE	Infill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.8 KISSlicer		398	Raft	SURFACE-BOTTOM	SURFACE-BOTTOM	Raft	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.8 KISSlicer		399	Brim	BRIM	BRIM	Brim	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.8 KISSlicer		400	Skirt	SKIRT	SKIRT	Skirt	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.8 KISSlicer		401	Loops		WALL-INNER	Loops	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.8 KISSlicer		402	Perimeter	WALL-INNER	WALL-INNER	Perimeter	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.8 KISSlicer		403	Support	SUPPORT	SUPPORT	Support	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.8 KISSlicer		404	Prime pillar	PRIME-TOWER	PRIME-TOWER	Prime pillar	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.8 KISSlicer		405	Wipe pillar / wall		WALL-INNER	Wipe pillar / wall	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.9 CraftWare / CraftBot		417	Unknown	CUSTOM	CUSTOM	Unknown	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.9 CraftWare / CraftBot		418	Perimeter	WALL-INNER	WALL-INNER	Perimeter	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.9 CraftWare / CraftBot		419	Loop		WALL-INNER	Loop	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.9 CraftWare / CraftBot		420	HShell		CUSTOM	HShell	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.9 CraftWare / CraftBot		421	Infill	INFILL-SPARSE	INFILL-SPARSE	Infill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.9 CraftWare / CraftBot		422	Support	SUPPORT	SUPPORT	Support	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.9 CraftWare / CraftBot		423	SoftSupport		SUPPORT	SoftSupport	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.9 CraftWare / CraftBot		424	Skirt	SKIRT	SKIRT	Skirt	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.9 CraftWare / CraftBot		425	Raft	SURFACE-BOTTOM	SURFACE-BOTTOM	Raft	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.9 CraftWare / CraftBot		426	OuterHair		CUSTOM	OuterHair	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.9 CraftWare / CraftBot		427	InnerHair		CUSTOM	InnerHair	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.9 CraftWare / CraftBot		428	Travel	TRAVEL	TRAVEL		Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.10 MatterSlice / MatterControl		440	Outside Perimeter		WALL-OUTER	Outside Perimeter	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.10 MatterSlice / MatterControl		441	Inside Perimeter		WALL-INNER	Inside Perimeter	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.10 MatterSlice / MatterControl		442	Perimeters		WALL-INNER	Perimeters	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.10 MatterSlice / MatterControl		443	Top Solid Infill	SURFACE-TOP	SURFACE-TOP	Top Solid Infill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.10 MatterSlice / MatterControl		444	Infill	INFILL-SPARSE	INFILL-SPARSE	Infill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.10 MatterSlice / MatterControl		445	Solid infill / top-bottom layers		INFILL-SOLID	Solid infill / top-bottom layers	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.10 MatterSlice / MatterControl		446	Thin gaps / Fill Thin Gaps		GAPS	Thin gaps / Fill Thin Gaps	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.10 MatterSlice / MatterControl		447	Bridge / Bridges		BRIDGE	Bridge / Bridges	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.10 MatterSlice / MatterControl		448	Support Material	SUPPORT	SUPPORT	Support Material	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.10 MatterSlice / MatterControl		449	Support Interface	SUPPORT	SUPPORT	Support Interface	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.10 MatterSlice / MatterControl		450	Support Perimeter		SUPPORT	Support Perimeter	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.10 MatterSlice / MatterControl		451	Raft	SURFACE-BOTTOM	SURFACE-BOTTOM	Raft	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.10 MatterSlice / MatterControl		452	Skirt	SKIRT	SKIRT	Skirt	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.10 MatterSlice / MatterControl		453	Brim	BRIM	BRIM	Brim	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.10 MatterSlice / MatterControl		454	Travel	TRAVEL	TRAVEL		Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.10 MatterSlice / MatterControl		455	Retraction		CUSTOM	Retraction	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.10 MatterSlice / MatterControl		456	Wipe before/after retract		CUSTOM	Wipe before/after retract	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.10 MatterSlice / MatterControl		457	Tool change	TRAVEL	TRAVEL		Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.10 MatterSlice / MatterControl		458	Layer change		CUSTOM	Layer change	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.10 MatterSlice / MatterControl		459	Custom G-code		CUSTOM	Custom G-code	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.11 IceSL		471	Perimeter	WALL-INNER	WALL-INNER	Perimeter	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.11 IceSL		472	Infill	INFILL-SPARSE	INFILL-SPARSE	Infill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.11 IceSL		473	Progressive / variable infill		INFILL-SPARSE	Progressive / variable infill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.11 IceSL		474	Support	SUPPORT	SUPPORT	Support	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.11 IceSL		475	Bridge support / disposable bridge structure		SUPPORT	Bridge support / disposable bridge structure	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.11 IceSL		476	Raft	SURFACE-BOTTOM	SURFACE-BOTTOM	Raft	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.11 IceSL		477	Brim	BRIM	BRIM	Brim	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.11 IceSL		478	Shield brim		BRIM	Shield brim	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.11 IceSL		479	Skirt / priming outline, falls im Profil genutzt		SKIRT	Skirt / priming outline, falls im Profil genutzt	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.11 IceSL		480	Multi-material paths		CUSTOM	Multi-material paths	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.11 IceSL		481	Non-planar surface paths		SURFACE-TOP	Non-planar surface paths	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.12 AstroPrint		494	WALL-INNER	WALL-INNER	WALL-INNER	WALL-INNER	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.12 AstroPrint		495	WALL-OUTER	WALL-OUTER	WALL-OUTER	WALL-OUTER	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.12 AstroPrint		496	SKIN	SURFACE-TOP	SURFACE-TOP	SKIN	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.12 AstroPrint		497	SKIRT	SKIRT	SKIRT	SKIRT	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.12 AstroPrint		498	SUPPORT	SUPPORT	SUPPORT	SUPPORT	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.12 AstroPrint		499	FILL	INFILL-SPARSE	INFILL-SPARSE	FILL	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.12 AstroPrint		500	SUPPORT-INTERFACE	SUPPORT	SUPPORT	SUPPORT-INTERFACE	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.12 AstroPrint		501	PRIME-TOWER	PRIME-TOWER	PRIME-TOWER	PRIME-TOWER	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.12 AstroPrint		505	Perimeter	WALL-INNER	WALL-INNER	Perimeter	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.12 AstroPrint		506	External perimeter	WALL-OUTER	WALL-OUTER	External perimeter	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.12 AstroPrint		507	Internal infill		INFILL-SPARSE	Internal infill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.12 AstroPrint		508	Solid infill	INFILL-SOLID	INFILL-SOLID	Solid infill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.12 AstroPrint		509	Top solid infill	SURFACE-TOP	SURFACE-TOP	Top solid infill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.12 AstroPrint		510	Bridge infill	BRIDGE	BRIDGE	Bridge infill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.12 AstroPrint		511	Gap fill	GAPS	GAPS	Gap fill	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.12 AstroPrint		512	Support material	SUPPORT	SUPPORT	Support material	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.12 AstroPrint		513	Support material interface	SUPPORT	SUPPORT	Support material interface	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.12 AstroPrint		514	Wipe tower	PRIME-TOWER	PRIME-TOWER	Wipe tower	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+Familienliste	2.12 AstroPrint		515	Custom	CUSTOM	CUSTOM	Custom	Quellenbegriff; realer Kommentar oder Sollwert nicht bestaetigt
+TYPE_MAP code	R2		148	outer wall	WALL-OUTER	WALL-OUTER	outer wall	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	inner wall	WALL-INNER	WALL-INNER	inner wall	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	sparse infill	INFILL-SPARSE	INFILL-SPARSE	sparse infill	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	internal solid infill	INFILL-SOLID	INFILL-SOLID	internal solid infill	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	gap infill	GAPS	GAPS	gap infill	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	top surface	SURFACE-TOP	SURFACE-TOP	top surface	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	top surface infill	SURFACE-TOP	SURFACE-TOP	top surface infill	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	bottom surface	SURFACE-BOTTOM	SURFACE-BOTTOM	bottom surface	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	support	SUPPORT	SUPPORT	support	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	support interface	SUPPORT	SUPPORT	support interface	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	support/base	SUPPORT	SUPPORT	support/base	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	ironing	IRONING	IRONING	ironing	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	bridge	BRIDGE	BRIDGE	bridge	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	skirt	SKIRT	SKIRT	skirt	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	brim	BRIM	BRIM	brim	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	custom	CUSTOM	CUSTOM	custom	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	gap fill	GAPS	GAPS	gap fill	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	wall-outer	WALL-OUTER	WALL-OUTER	wall-outer	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	wall-inner	WALL-INNER	WALL-INNER	wall-inner	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	perimeter	WALL-INNER	WALL-INNER	perimeter	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	external perimeter	WALL-OUTER	WALL-OUTER	external perimeter	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	fill	INFILL-SPARSE	INFILL-SPARSE	fill	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	solid infill	INFILL-SOLID	INFILL-SOLID	solid infill	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	top solid infill	SURFACE-TOP	SURFACE-TOP	top solid infill	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	bottom solid infill	SURFACE-BOTTOM	SURFACE-BOTTOM	bottom solid infill	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	bridge infill	BRIDGE	BRIDGE	bridge infill	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	support material	SUPPORT	SUPPORT	support material	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	support material interface	SUPPORT	SUPPORT	support material interface	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	overhang perimeter	OVERHANG-PERIM	OVERHANG-PERIM	overhang perimeter	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	internal bridge	INTERNAL-BRIDGE	INTERNAL-BRIDGE	internal bridge	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	wipe tower	PRIME-TOWER	PRIME-TOWER	wipe tower	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	prime tower	PRIME-TOWER	PRIME-TOWER	prime tower	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	prime-tower	PRIME-TOWER	PRIME-TOWER	prime-tower	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	thin wall	WALL-INNER	WALL-INNER	thin wall	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	support transition	SUPPORT	SUPPORT	support transition	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	ooze shield	SKIRT	SKIRT	ooze shield	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	skin	SURFACE-TOP	SURFACE-TOP	skin	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	top-skin	SURFACE-TOP	SURFACE-TOP	top-skin	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	bottom-skin	SURFACE-BOTTOM	SURFACE-BOTTOM	bottom-skin	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	support-interface	SUPPORT	SUPPORT	support-interface	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	raft	SURFACE-BOTTOM	SURFACE-BOTTOM	raft	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	infill	INFILL-SPARSE	INFILL-SPARSE	infill	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	gyroid	INFILL-SPARSE	INFILL-SPARSE	gyroid	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	gyroid infill	INFILL-SPARSE	INFILL-SPARSE	gyroid infill	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	3d infill	INFILL-SPARSE	INFILL-SPARSE	3d infill	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	3d-lattice	INFILL-SPARSE	INFILL-SPARSE	3d-lattice	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	lightning infill	INFILL-SPARSE	INFILL-SPARSE	lightning infill	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	lightning	INFILL-SPARSE	INFILL-SPARSE	lightning	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	honeycomb	INFILL-SPARSE	INFILL-SPARSE	honeycomb	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	cubic infill	INFILL-SPARSE	INFILL-SPARSE	cubic infill	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	grid infill	INFILL-SPARSE	INFILL-SPARSE	grid infill	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	line infill	INFILL-SPARSE	INFILL-SPARSE	line infill	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	concentric infill	INFILL-SPARSE	INFILL-SPARSE	concentric infill	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	zig-zag infill	INFILL-SPARSE	INFILL-SPARSE	zig-zag infill	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	zigzag infill	INFILL-SPARSE	INFILL-SPARSE	zigzag infill	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	rectilinear infill	INFILL-SPARSE	INFILL-SPARSE	rectilinear infill	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	triangular infill	INFILL-SPARSE	INFILL-SPARSE	triangular infill	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	tri-hexagon infill	INFILL-SPARSE	INFILL-SPARSE	tri-hexagon infill	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	cross hatch	INFILL-SPARSE	INFILL-SPARSE	cross hatch	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	archimedean chords	INFILL-SPARSE	INFILL-SPARSE	archimedean chords	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	hilbert curve	INFILL-SPARSE	INFILL-SPARSE	hilbert curve	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	octagram spiral	INFILL-SPARSE	INFILL-SPARSE	octagram spiral	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	infill (sparse)	INFILL-SPARSE	INFILL-SPARSE	infill (sparse)	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	overhang wall	OVERHANG-PERIM	OVERHANG-PERIM	overhang wall	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	internal bridge infill	INTERNAL-BRIDGE	INTERNAL-BRIDGE	internal bridge infill	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	inner-bridge	INTERNAL-BRIDGE	INTERNAL-BRIDGE	inner-bridge	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	outer shell	WALL-OUTER	WALL-OUTER	outer shell	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	inner shell	WALL-INNER	WALL-INNER	inner shell	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	shell outer	WALL-OUTER	WALL-OUTER	shell outer	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	shell inner	WALL-INNER	WALL-INNER	shell inner	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	shell	WALL-INNER	WALL-INNER	shell	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	upper face	SURFACE-TOP	SURFACE-TOP	upper face	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	lower face	SURFACE-BOTTOM	SURFACE-BOTTOM	lower face	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	solid layer	INFILL-SOLID	INFILL-SOLID	solid layer	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	solid fill	INFILL-SOLID	INFILL-SOLID	solid fill	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	sparse fill	INFILL-SPARSE	INFILL-SPARSE	sparse fill	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	crown	GAPS	GAPS	crown	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	internal single extrusion	GAPS	GAPS	internal single extrusion	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	external single extrusion	WALL-OUTER	WALL-OUTER	external single extrusion	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	wipe wall	PRIME-TOWER	PRIME-TOWER	wipe wall	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	tip tower	PRIME-TOWER	PRIME-TOWER	tip tower	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	purge tower	PRIME-TOWER	PRIME-TOWER	purge tower	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	dense support	SUPPORT	SUPPORT	dense support	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	support roof	SUPPORT	SUPPORT	support roof	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	support floor	SUPPORT	SUPPORT	support floor	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	draft shield	SKIRT	SKIRT	draft shield	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	mixed	CUSTOM	CUSTOM	mixed	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	multiple	CUSTOM	CUSTOM	multiple	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	undefined	CUSTOM	CUSTOM	undefined	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	unknown	CUSTOM	CUSTOM	unknown	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	others	CUSTOM	CUSTOM	others	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	prime wall	PRIME-TOWER	PRIME-TOWER	prime wall	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	prime pillar	PRIME-TOWER	PRIME-TOWER	prime pillar	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	wiping tower	PRIME-TOWER	PRIME-TOWER	wiping tower	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	purge block	PRIME-TOWER	PRIME-TOWER	purge block	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	purge line	PRIME-TOWER	PRIME-TOWER	purge line	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	prime blob	PRIME-TOWER	PRIME-TOWER	prime blob	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	belt lead	SKIRT	SKIRT	belt lead	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	brim ears	BRIM	BRIM	brim ears	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	painted support	SUPPORT	SUPPORT	painted support	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	raft base	SURFACE-BOTTOM	SURFACE-BOTTOM	raft base	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	raft interface	SURFACE-BOTTOM	SURFACE-BOTTOM	raft interface	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	raft surface	SURFACE-BOTTOM	SURFACE-BOTTOM	raft surface	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	raft top	SURFACE-BOTTOM	SURFACE-BOTTOM	raft top	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	tpms	INFILL-SPARSE	INFILL-SPARSE	tpms	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	tpms-d	INFILL-SPARSE	INFILL-SPARSE	tpms-d	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	tpms-fk	INFILL-SPARSE	INFILL-SPARSE	tpms-fk	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	octet	INFILL-SPARSE	INFILL-SPARSE	octet	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	tetrahedral	INFILL-SPARSE	INFILL-SPARSE	tetrahedral	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	stars	INFILL-SPARSE	INFILL-SPARSE	stars	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	lateral honeycomb	INFILL-SPARSE	INFILL-SPARSE	lateral honeycomb	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	lattice	INFILL-SPARSE	INFILL-SPARSE	lattice	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	spiral inset	INFILL-SPARSE	INFILL-SPARSE	spiral inset	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	tri-hexagon	INFILL-SPARSE	INFILL-SPARSE	tri-hexagon	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	rectilinear	INFILL-SPARSE	INFILL-SPARSE	rectilinear	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	aligned rectilinear	INFILL-SPARSE	INFILL-SPARSE	aligned rectilinear	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	grid	INFILL-SPARSE	INFILL-SPARSE	grid	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	triangles	INFILL-SPARSE	INFILL-SPARSE	triangles	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	cubic	INFILL-SPARSE	INFILL-SPARSE	cubic	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	adaptive cubic	INFILL-SPARSE	INFILL-SPARSE	adaptive cubic	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	support cubic	INFILL-SPARSE	INFILL-SPARSE	support cubic	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	quarter cubic	INFILL-SPARSE	INFILL-SPARSE	quarter cubic	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	line	INFILL-SPARSE	INFILL-SPARSE	line	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	lines	INFILL-SPARSE	INFILL-SPARSE	lines	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	concentric	INFILL-SPARSE	INFILL-SPARSE	concentric	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	3d honeycomb	INFILL-SPARSE	INFILL-SPARSE	3d honeycomb	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	zig zag	INFILL-SPARSE	INFILL-SPARSE	zig zag	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	cross zag	INFILL-SPARSE	INFILL-SPARSE	cross zag	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	locked zag	INFILL-SPARSE	INFILL-SPARSE	locked zag	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	cross	INFILL-SPARSE	INFILL-SPARSE	cross	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	cross 3d	INFILL-SPARSE	INFILL-SPARSE	cross 3d	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	cubic subdivision	INFILL-SPARSE	INFILL-SPARSE	cubic subdivision	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	fast honeycomb	INFILL-SPARSE	INFILL-SPARSE	fast honeycomb	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	monotonic	INFILL-SOLID	INFILL-SOLID	monotonic	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	monotonic lines	INFILL-SOLID	INFILL-SOLID	monotonic lines	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	seam	TRAVEL	TRAVEL	seam	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	destring	TRAVEL	TRAVEL	destring	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	travel	TRAVEL	TRAVEL	travel	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	retract	TRAVEL	TRAVEL	retract	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	unretract	TRAVEL	TRAVEL	unretract	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	wipe	TRAVEL	TRAVEL	wipe	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	noop	TRAVEL	TRAVEL	noop	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	tool change	TRAVEL	TRAVEL	tool change	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	color change	TRAVEL	TRAVEL	color change	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	pause print	TRAVEL	TRAVEL	pause print	Wirksamer Mapping-Eintrag
+TYPE_MAP code	R2		148	custom gcode	TRAVEL	TRAVEL	custom gcode	Wirksamer Mapping-Eintrag

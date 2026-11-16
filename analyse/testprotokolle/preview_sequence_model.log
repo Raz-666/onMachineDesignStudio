@@ -1,0 +1,38 @@
+
+ACK, gleicher Name, 1s
+  selection ACK=True: mode=idle, STATE.total=251, PREVIEW.name=bigrose.gcode, PREVIEW.total=251
+  file _FILE_INFO: mode=idle, STATE.total=251, PREVIEW.name=bigrose.gcode, PREVIEW.total=251
+  PRINT_START + _LIVE_RESET: mode=waiting, STATE.total=0, PREVIEW.name=bigrose.gcode, PREVIEW.total=251
+  repeek: skip=True: mode=waiting, STATE.total=0, PREVIEW.name=bigrose.gcode, PREVIEW.total=251
+
+ACK fehlte, keine Zustellung angenommen
+  selection ACK=False: mode=idle, STATE.total=0, PREVIEW.name=-, PREVIEW.total=0
+  file _FILE_INFO: mode=idle, STATE.total=251, PREVIEW.name=-, PREVIEW.total=0
+  PRINT_START + _LIVE_RESET: mode=waiting, STATE.total=0, PREVIEW.name=-, PREVIEW.total=0
+  repeek: skip=False: mode=waiting, STATE.total=251, PREVIEW.name=bigrose.gcode, PREVIEW.total=251
+
+ACK, Fenster abgelaufen
+  selection ACK=True: mode=idle, STATE.total=251, PREVIEW.name=bigrose.gcode, PREVIEW.total=251
+  file _FILE_INFO: mode=idle, STATE.total=251, PREVIEW.name=bigrose.gcode, PREVIEW.total=251
+  PRINT_START + _LIVE_RESET: mode=waiting, STATE.total=0, PREVIEW.name=bigrose.gcode, PREVIEW.total=251
+  repeek: skip=False: mode=waiting, STATE.total=251, PREVIEW.name=bigrose.gcode, PREVIEW.total=251
+
+ACK, anderer Preview-Name
+  selection ACK=True: mode=idle, STATE.total=251, PREVIEW.name=bigrose.gcode, PREVIEW.total=251
+  file _FILE_INFO: mode=idle, STATE.total=251, PREVIEW.name=bigrose.gcode, PREVIEW.total=251
+  PRINT_START + _LIVE_RESET: mode=waiting, STATE.total=0, PREVIEW.name=bigrose.gcode, PREVIEW.total=251
+  repeek: skip=False: mode=waiting, STATE.total=251, PREVIEW.name=bigrose.gcode, PREVIEW.total=251
+
+ACK, Fenster abgelaufen, inzwischen printing
+  selection ACK=True: mode=idle, STATE.total=251, PREVIEW.name=bigrose.gcode, PREVIEW.total=251
+  file _FILE_INFO: mode=idle, STATE.total=251, PREVIEW.name=bigrose.gcode, PREVIEW.total=251
+  PRINT_START + _LIVE_RESET: mode=waiting, STATE.total=0, PREVIEW.name=bigrose.gcode, PREVIEW.total=251
+  repeek: skip=False: mode=printing, STATE.total=0, PREVIEW.name=bigrose.gcode, PREVIEW.total=251
+
+ACK, Datei nach ACK geaendert
+  selection ACK=True: mode=idle, STATE.total=251, PREVIEW.name=bigrose.gcode, PREVIEW.total=251
+  file _FILE_INFO: mode=idle, STATE.total=251, PREVIEW.name=bigrose.gcode, PREVIEW.total=251
+  PRINT_START + _LIVE_RESET: mode=waiting, STATE.total=0, PREVIEW.name=bigrose.gcode, PREVIEW.total=251
+  repeek: skip=False: mode=waiting, STATE.total=251, PREVIEW.name=bigrose.gcode, PREVIEW.total=251
+
+Fixture-Archiv unveraendert; nur teilweises Offline-Modell, keine Befehle ausgefuehrt.

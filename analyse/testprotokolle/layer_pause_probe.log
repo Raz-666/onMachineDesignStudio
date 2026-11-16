@@ -1,0 +1,11 @@
+PAUSE_AT_LAYER LAYER=1 setter: ['SAVE_VARIABLE VARIABLE=pause_at_layer VALUE=1']
+Vorzustand layer=0, pause_at_layer=1: []
+Vorzustand layer=1, pause_at_layer=1: []
+at target: ['SAVE_VARIABLE VARIABLE=pause_at_layer VALUE=0', 'PAUSE REASON="layer 2 (planned)"']
+before target: []
+already past: []
+next only: ['SAVE_VARIABLE VARIABLE=pause_next_layer VALUE=False', 'PAUSE REASON="scheduled (layer 2)"']
+both at target: ['SAVE_VARIABLE VARIABLE=pause_next_layer VALUE=False', 'PAUSE REASON="scheduled (layer 2)"']
+sequence marker n=2: events=['SAVE_VARIABLE VARIABLE=pause_next_layer VALUE=False', 'PAUSE REASON="scheduled (layer 2)"']; afterwards={'pause_next_layer': False, 'pause_at_layer': 2}
+sequence marker n=3: events=[]; afterwards={'pause_next_layer': False, 'pause_at_layer': 2}
+Grenze: synthetische Reihenfolge/Resume, keine Klipper-Ausfuehrung.

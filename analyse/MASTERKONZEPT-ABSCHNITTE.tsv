@@ -1,0 +1,94 @@
+zeile	ueberschrift	status
+1	# Technisches Masterkonzept	Einzelzuordnung offen
+2	## G-Code Reverse Engineering und geometrische Feature-Erkennung per Post-Processing	Einzelzuordnung offen
+9	# 0. Verbindliche technische Leitplanken	Einzelzuordnung offen
+11	## 0.1 Was das System leisten soll	Einzelzuordnung offen
+30	## 0.2 Unmögliche Garantie: 100 % semantische Rekonstruktion	Einzelzuordnung offen
+43	## 0.3 Analyseebenen strikt trennen	Einzelzuordnung offen
+60	# 1. Ziel-Taxonomie	Einzelzuordnung offen
+64	## 1.1 Modellwände und Konturen	Einzelzuordnung offen
+78	## 1.2 Flächen und Infill	Einzelzuordnung offen
+114	## 1.3 Support	Einzelzuordnung offen
+131	## 1.4 Bettadhäsion und Hilfsstrukturen	Einzelzuordnung offen
+151	## 1.5 Bewegungs- und Ereignistypen	Einzelzuordnung offen
+173	## 1.6 Slicer- und Kommentar-Aliase	Einzelzuordnung offen
+202	# 2. Architektur der Software	Einzelzuordnung offen
+206	## Modul A – Input, Normalisierung und Parser	Einzelzuordnung offen
+210	## Modul B – Modal State Machine	Einzelzuordnung offen
+214	## Modul C – Bewegungsrekonstruktion	Einzelzuordnung offen
+218	## Modul D – Extrusions- und Kinematik-Analyse	Einzelzuordnung offen
+222	## Modul E – Layer-Rekonstruktion	Einzelzuordnung offen
+226	## Modul F – Pfad- und Graph-Rekonstruktion	Einzelzuordnung offen
+230	## Modul G – Geometrie-Engine	Einzelzuordnung offen
+234	## Modul H – 3D-/Inter-Layer-Topologie	Einzelzuordnung offen
+238	## Modul I – Feature- und Pattern-Klassifikator	Einzelzuordnung offen
+242	## Modul J – Output / Post-Processing	Einzelzuordnung offen
+248	# 3. G-Code korrekt parsen: Zustandsmaschine ist Pflicht	Einzelzuordnung offen
+252	## 3.1 Mindestens zu unterstützende Befehle	Einzelzuordnung offen
+286	## 3.2 Zustandsvariablen	Einzelzuordnung offen
+309	## 3.3 Parserregeln	Einzelzuordnung offen
+324	## 3.4 Parser-Ausgabe	Einzelzuordnung offen
+350	# 4. Bewegungs- und Extrusionsmathematik	Einzelzuordnung offen
+352	## 4.1 Weglänge	Einzelzuordnung offen
+361	## 4.2 Extrusion	Einzelzuordnung offen
+377	## 4.3 Linienbreite und Layerhöhe schätzen	Einzelzuordnung offen
+387	## 4.4 Travel, Extrusion und Retract	Einzelzuordnung offen
+400	# 5. Layer-Rekonstruktion ohne Kommentare	Einzelzuordnung offen
+404	## 5.1 Verfahren	Einzelzuordnung offen
+415	## 5.2 Sonderfälle	Einzelzuordnung offen
+427	# 6. Pfad-, Kontur- und Objekt-Rekonstruktion	Einzelzuordnung offen
+429	## 6.1 Von Moves zu Pfaden	Einzelzuordnung offen
+442	## 6.2 Graph-Modell	Einzelzuordnung offen
+457	## 6.3 Loop-Erkennung	Einzelzuordnung offen
+474	## 6.4 Konturhierarchie	Einzelzuordnung offen
+487	# 7. Geometrie-Engine und Layer-Topologie	Einzelzuordnung offen
+489	## 7.1 Geometrische Repräsentation	Einzelzuordnung offen
+505	## 7.2 Materialfläche vs. Toolpath-Footprint	Einzelzuordnung offen
+514	## 7.3 Inter-Layer-Vergleich	Einzelzuordnung offen
+533	# 8. Feature-Klassifikation: Evidenz kombinieren	Einzelzuordnung offen
+537	## 8.1 Feature-Scoring	Einzelzuordnung offen
+560	## 8.2 Outer Wall	Einzelzuordnung offen
+571	## 8.3 Inner Wall	Einzelzuordnung offen
+581	## 8.4 Overhang Wall	Einzelzuordnung offen
+591	## 8.5 Top Surface	Einzelzuordnung offen
+601	## 8.6 Bottom Surface	Einzelzuordnung offen
+611	## 8.7 Solid Infill vs. Sparse Infill	Einzelzuordnung offen
+621	## 8.8 Bridge / Internal Bridge	Einzelzuordnung offen
+632	## 8.9 Gap Fill	Einzelzuordnung offen
+642	## 8.10 Ironing	Einzelzuordnung offen
+652	## 8.11 Support Base / Interface / Transition	Einzelzuordnung offen
+674	## 8.12 Skirt / Brim / Raft	Einzelzuordnung offen
+698	## 8.13 Prime Tower / Wipe Tower / Ooze Shield	Einzelzuordnung offen
+716	# 9. Infill- und Oberflächenmuster erkennen	Einzelzuordnung offen
+720	## 9.1 Lineare Muster	Einzelzuordnung offen
+729	## 9.2 Räumlich variierende Muster	Einzelzuordnung offen
+737	## 9.3 Concentric und Spiral	Einzelzuordnung offen
+743	## 9.4 Top-/Bottom-/Solid-Muster	Einzelzuordnung offen
+755	# 10. Multi-Pass-Analyse – verbindliche Ausführungsreihenfolge	Einzelzuordnung offen
+759	### Pass 0 – Rohdaten und Kommentar-Extraktion	Einzelzuordnung offen
+766	### Pass 1 – Syntax- und Zustandsrekonstruktion	Einzelzuordnung offen
+772	### Pass 2 – Bewegungsrekonstruktion	Einzelzuordnung offen
+777	### Pass 3 – Layer- und Z-Struktur	Einzelzuordnung offen
+782	### Pass 4 – Extrusions- und Kinematikprofile	Einzelzuordnung offen
+787	### Pass 5 – Pfad- und Komponentenbildung	Einzelzuordnung offen
+792	### Pass 6 – 2D-Geometrie je Layer	Einzelzuordnung offen
+797	### Pass 7 – Inter-Layer-/3D-Topologie	Einzelzuordnung offen
+802	### Pass 8 – Feature-Klassifikation	Einzelzuordnung offen
+807	### Pass 9 – Pattern-Erkennung	Einzelzuordnung offen
+811	### Pass 10 – Konsistenzprüfung	Einzelzuordnung offen
+817	### Pass 11 – Ausgabe / Post-Processing	Einzelzuordnung offen
+825	# 11. Datenmodell und Ausgabeformat	Einzelzuordnung offen
+827	## 11.1 Jede Bewegung behält Rohdaten und Analyse	Einzelzuordnung offen
+846	## 11.2 Beispiel für Feature-Ergebnis	Einzelzuordnung offen
+875	## 11.3 Aggregierte Layer-/Objektausgabe	Einzelzuordnung offen
+895	# 12. Post-Processing-Regeln	Einzelzuordnung offen
+912	# 13. Validierung und Teststrategie	Einzelzuordnung offen
+916	## 13.1 Testdatensatz	Einzelzuordnung offen
+935	## 13.2 Feature-Testfälle	Einzelzuordnung offen
+959	## 13.3 Testmetriken	Einzelzuordnung offen
+976	## 13.4 Ablation Tests	Einzelzuordnung offen
+988	## 13.5 Regressionstests	Einzelzuordnung offen
+994	# 14. Häufige Fehlannahmen, die ausdrücklich vermieden werden müssen	Einzelzuordnung offen
+1017	# 15. Implementierungsreihenfolge für die Coding-KI	Einzelzuordnung offen
+1070	# 16. Abnahmekriterien	Einzelzuordnung offen
+1090	# 17. Arbeitsauftrag an die Coding-KI	Einzelzuordnung offen

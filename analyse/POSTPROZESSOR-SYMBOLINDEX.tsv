@@ -1,0 +1,557 @@
+typ	qualifizierter_name	start	ende	docstring_erste_zeile
+Funktion	_core_stamp	63	72	R186: the R166 core stamp as a comment line - every generated
+Funktion	_lookup_type	354	375	R172: TYPE_MAP lookup with separator tolerance - 'Wall outer',
+Funktion	_canon_type	381	485	R143 (audit F1/F2): the ONE truth for ';TYPE:' spellings - exact map
+Funktion	_sequence_audit193	508	532	events: ordered [(layer_no, feature)] - the feature stream of a file
+Funktion	parse_params	591	603	G0/G1 parameter dict: {'Z': 2.4, 'E': 1.2, ...}
+Funktion	first_value	606	608	Orca writes multi-extruder values as '0.055,0.1' or 'PLA;PLA' - first.
+Funktion	_stripped	625	627	command part of a gcode line - comments (';...') removed (R73).
+Funktion	_hull	630	647	convex hull (monotone chain) of [(x, y), ...] - CCW, no closing point.
+Funktion	_hull.cross	635	636	
+Funktion	_offset_hull	650	686	convex polygon offset outward by d mm (edge offset + corner cut).
+Funktion	_hull_hatch	689	725	scanline hatch over a convex hull -> [(p, q), ...] boustrophedon.
+Funktion	_hull_hatch.rot	696	697	
+Funktion	_hull_hatch.unrot	718	719	
+Funktion	_layer_ink_hull	728	768	convex hull of the EXTRUSION geometry of lines[a:b] (R73 range raft).
+Funktion	_layer_ink_mask	771	881	R74 OUTLINE mode: rasterize the EXTRUSION geometry of lines[a:b] into a
+Funktion	_mask_hatch	884	926	R74: rotated scanline hatch over a boolean mask -> [(p, q), ...]
+Funktion	_mask_hatch.inside	896	902	
+Funktion	_mask_hatch.unrot	917	918	
+Funktion	_mask_contours	929	980	R74: trace the boundary LOOPS of a boolean mask (edge following).
+Klasse	_GenE	983	1068	emits generated geometry (raft/brim/cap) in the file's E mode.
+Funktion	_GenE.__init__	989	1000	
+Funktion	_GenE._retract	1002	1007	
+Funktion	_GenE._unretract	1009	1014	
+Funktion	_GenE.move	1016	1035	
+Funktion	_GenE.line	1037	1052	
+Funktion	_GenE.loop	1054	1060	
+Funktion	_GenE.loop_open	1062	1068	
+Funktion	_pt_in_poly	1071	1083	R95: even-odd point-in-polygon (open-slot keep-out support).
+Funktion	_segs_cross	1086	1094	R95: do segments (p1,p2) and (p3,p4) properly cross?
+Funktion	_segs_cross._c	1088	1089	
+Funktion	_seg_hits_poly	1097	1106	R95: does segment (p,q) enter the polygon? (endpoint inside or an
+Funktion	_seg_hits_circle	1109	1121	R87.2: does segment (p,q) pass closer than r to (cx,cy)?
+Funktion	_spiral_ring	1124	1145	R87.2: the boss ring around a hole as ONE CONTINUOUS archimedean
+Funktion	_seg_outside_circle	1148	1173	R86.2: clip segment (p,q) to the parts OUTSIDE circle (cx,cy,r).
+Funktion	_poly_min_edge_dist	1176	1196	R88 (field log .71, bug 4): min distance from (cx, cy) to the polygon
+Funktion	_mask_center_dist	1199	1231	R88: distance from (cx, cy) to the nearest cell the outline mask does
+Funktion	_range_hole_prep	1239	1279	R86.2: centered hole in a range floor/cap (cable / E14-E27 lampholder).
+Funktion	_anchor_bbox	1282	1289	bbox of the raft/cap anchor: hull polygon or outline-mask extents.
+Funktion	make_range	1300	2332	R62/R73/R74: create <stem>_L<s>-<e>.gcode next to src.
+Funktion	make_range._shape_ok	1752	1757	an OUTLINE needs a mask, a FOOTPRINT needs a hull - fall back when
+Funktion	make_range._as_poly	1759	1770	
+Funktion	make_range._brim_block	1806	1812	
+Funktion	make_range._shift_line	2107	2124	
+Funktion	_read_vars	2349	2379	Parse a Klipper save_variables.cfg -> dict (best effort, missing file = {}).
+Funktion	_png_to_rgb	2382	2475	Minimal pure-python PNG reader (8-bit gray/RGB/palette/alpha). -> w, h, rows[R,G,B]
+Funktion	_svg_to_paths	2478	2617	Very basic SVG -> [(color, [xy points])]. line/rect/circle/ellipse/poly*,
+Funktion	_svg_to_paths.num	2482	2483	
+Funktion	_svg_to_paths.attrs	2484	2485	
+Funktion	_svg_to_paths.xform	2498	2509	
+Funktion	_svg_to_paths.bezier_c	2511	2514	
+Funktion	_svg_to_paths.bezier_q	2516	2519	
+Klasse	_JpegBitReader	2632	2674	
+Funktion	_JpegBitReader.__init__	2633	2637	
+Funktion	_JpegBitReader._fill	2639	2659	
+Funktion	_JpegBitReader.bit	2661	2665	
+Funktion	_JpegBitReader.bits	2667	2671	
+Funktion	_JpegBitReader.skip_to_byte	2673	2674	
+Funktion	_jpeg_to_rgb	2677	2962	Minimal baseline JPEG decoder -> (w, h, rows[[(r,g,b)..]..]).
+Funktion	_jpeg_to_rgb.huff_decode	2773	2780	
+Funktion	_jpeg_to_rgb.extend	2782	2783	
+Funktion	_jpeg_to_rgb.idct8	2845	2870	
+Funktion	_jpeg_to_rgb.plane_pixels	2876	2904	
+Funktion	_pdf_paths	2969	3068	
+Funktion	_otsu_threshold	3071	3090	Classic Otsu: threshold that separates dark ink from a light background.
+Funktion	plot_convert	3093	3399	Convert name[.opts].png/.jpg/.svg/.pdf.gcode in place into plotter g-code.
+Funktion	plot_convert._v	3113	3117	
+Funktion	plot_convert.raw_lum	3162	3164	
+Funktion	plot_convert.lum	3183	3188	
+Funktion	plot_convert.lum	3192	3193	
+Funktion	plot_convert.lum	3196	3197	
+Funktion	plot_convert.lum_of	3272	3281	
+Funktion	plot_convert.tr	3318	3319	
+Funktion	_parse_stroke_str	4006	4019	'x,y x,y;x,y x,y' -> [[(x,y),..], ..]
+Funktion	_label_glyphs	4340	4413	font name -> {'height', 'baseline', 'cap_top', 'x_top', 'desc_bot',
+Funktion	_glyph_class	4416	4425	FULL (cap height) or SMALL (x-height) for one character (R73).
+Funktion	_label_text	4428	4438	text -> (width_units, height_units, strokes [(x,y)..] with x offsets)
+Funktion	_shape_hatch	4441	4490	R119: scanline hatch INSIDE a convex contour (ellipse / rounded rect),
+Funktion	_label_outline	4493	4509	R119: label wall contour CENTERED on (0,0), the path centerline
+Funktion	_stroke_offsets	4512	4575	R72: stroke skeleton -> parallel offset paths covering [-half, +half]
+Funktion	_label_box_shape	4577	4609	R119: shrink the text box for OVAL / ROUND labels so no letter ever
+Funktion	_label_layout	4612	4654	R73: hole + text box.
+Funktion	_label_metrics	4657	4698	R80: parse label lines once - glyph items, natural width (units),
+Funktion	_label_autocap	4701	4713	R80: the largest uniform cap height at which the WHOLE text block fits
+Funktion	_label_need_size	4716	4727	R80: usable (bw, bh) needed so the block prints at exactly `cap` mm
+Funktion	_label_grow_fit	4730	4766	R83: the AUTO-FIT + AUTO-GROW pass, shared by make_labels and
+Funktion	_label_text_lines	4769	4839	R80 label typography v3 (user spec, field log .63):
+Funktion	_decimate	4842	4873	R73: drop micro segments + merge near-collinear vertices. The .56 label
+Klasse	_Pen	4876	5040	tiny gcode writer with travel/retract/z-hop state (M83 relative E)
+Funktion	_Pen.__init__	4879	4913	
+Funktion	_Pen._ink_register	4915	4920	
+Funktion	_Pen._ink_crossing	4922	4949	does the travel (pen -> x,y) CROSS this layer's ink?
+Funktion	_Pen.breset	4951	4953	
+Funktion	_Pen.bget	4955	4960	R186: (x0, y0, x1, y1) ink extent since the last breset, or
+Funktion	_Pen.set_z	4962	4967	
+Funktion	_Pen._hole_cross	4969	4980	
+Funktion	_Pen.travel	4982	5018	
+Funktion	_Pen.extrude	5020	5037	
+Funktion	_Pen.push	5039	5040	
+Funktion	_circle	5043	5048	
+Funktion	_rect_loop	5051	5052	
+Funktion	_brim_gap	5055	5067	R184 (.131c field round): the BRIM AIR GAP rule, one place for every
+Funktion	_layout_gap	5070	5084	R186: cell-to-cell gap on a multi-part plate. Without a brim the
+Funktion	_emit_loop	5087	5112	
+Funktion	_segs_clear_of	5115	5175	R231: split hatch segments into runs that keep their clearance from
+Funktion	_hatch	5178	5255	scanline hatch over rect minus keep-out circle -> [(p,q),..] boustrophedon
+Funktion	_emit_hatch	5258	5274	
+Funktion	_poly_offset	5277	5300	R97: offset a simple polygon OUTWARD by off (miter at the vertices) -
+Funktion	_emit_serp	5303	5332	R97: first-layer fill as ONE CONTINUOUS zigzag (field log .74: the
+Funktion	_emit_fill	5335	5343	R117 (.88 field log): surface/solid/infill fills print as ONE
+Funktion	_serp_g	5346	5370	R117: the _GenE (make_range) twin of _emit_fill - connects the hatch
+Funktion	_bed_limits	5373	5446	R92/R104.2: the REAL printable bed, not the stepper range.
+Funktion	_bed_limits._parse	5393	5408	
+Funktion	_nozzle_diameter	5453	5484	R90.1c(field): the REAL nozzle diameter from printer.cfg [extruder]
+Funktion	_gen_nozzle	5487	5498	R90.1c(field): nozzle diameter for the watcher's generator calls -
+Funktion	_safe_label_name	5500	5501	
+Funktion	label_preview	5504	5646	R83: project the label outcome WITHOUT writing a file. The LCD 'Fit'
+Klasse	_StampFit168	5649	5756	R168: stamp mount geometry - ONE truth for the base socket and the
+Funktion	_StampFit168.__init__	5677	5721	
+Funktion	_StampFit168.sock_r	5724	5735	
+Funktion	_StampFit168.spig_r	5738	5756	
+Funktion	_stamp_base_notes	5759	5760	
+Funktion	_cell_contours	5763	5862	R168: closed contours of a boolean cell mask - OUTER boundaries AND
+Funktion	_cell_contours._add	5781	5783	
+Funktion	_cell_contours._turn	5822	5825	
+Funktion	_make_stamp_handle	5865	6023	R168: the stamp handle - snap spigot + knob, ONE standalone file
+Funktion	_make_stamp_handle._r_out	5885	5893	
+Funktion	make_labels	6026	6117	Generate printable label plate file(s). Returns (path, info).
+Funktion	make_labels._one170	6064	6078	
+Funktion	_make_labels_one	6120	7475	Generate ONE printable label plate file. Returns (path, info).
+Funktion	_make_labels_one._cf116	6273	6281	
+Funktion	_make_labels_one._handle_r170	6634	6644	R170: outer radius of the handle at height z (spigot -> cone ->
+Funktion	_make_labels_one.handle_block	6646	6709	R170: one handle layer - LAST object of the layer, z-hop
+Funktion	_make_labels_one._lb_contour	6711	6720	R119: this label's wall contour in ABSOLUTE coords, the path
+Funktion	_make_labels_one.base_block	6967	7116	one label's base layer: brim + perimeters + hole + fill (+ironing).
+Funktion	_make_labels_one.layer_h_eff	7118	7119	
+Funktion	_make_labels_one.tower_block	7121	7154	
+Funktion	_make_labels_one.text_block	7156	7207	the label's text (R74 line typography) - SOLID double-walled
+Funktion	_make_labels_one.border_block	7209	7261	R119: the raised border ring - prints ON THE TEXT LAYERS (same
+Funktion	_make_labels_one.ring_block	7263	7285	R120: the external hanging ring - an annulus flush against the
+Funktion	_make_labels_one._layer_head	7299	7306	
+Funktion	_solve_lsq	7494	7511	least squares A ~= M^-1 F via normal equations (tiny, well conditioned).
+Funktion	_mzv_base_coeffs	7517	7530	Klipper's get_mzv_coeffs(n=3, t=0.75) - solved once (freq independent).
+Funktion	_shaper_zv	7533	7537	
+Funktion	_shaper_zvd	7540	7544	
+Funktion	_shaper_mzv	7547	7561	
+Funktion	_shaper_ei	7564	7576	
+Funktion	_shaper_expansion	7579	7590	
+Funktion	_shaper_2hump	7593	7602	
+Funktion	_shaper_3hump	7605	7616	
+Funktion	_shaper_get	7619	7633	
+Funktion	_shaper_response	7636	7651	Klipper's _estimate_shaper: response amplitude per test frequency.
+Funktion	_remaining_vibrations	7654	7660	
+Funktion	_shaper_smoothing	7663	7672	
+Funktion	_shaper_max_accel	7675	7694	Klipper's find_shaper_max_accel (TARGET_SMOOTHING = 0.12, bisect).
+Funktion	_shaper_max_accel.ok	7677	7678	
+Funktion	_fit_one_shaper	7697	7726	Klipper's fit_shaper (no max_smoothing limit - the diagram shows all).
+Funktion	_pick_best	7729	7741	Klipper's find_best_shaper selection over an already fitted table.
+Funktion	_fit_shapers	7744	7758	
+Funktion	_normalize_psd	7761	7769	Klipper's CalibrationData.normalize_to_frequencies (in place copy).
+Funktion	_cfg_val	7777	7796	read one value from a Klipper config ('=' or ':' separated, comments ok).
+Funktion	_resonance_csv_dirs	7799	7812	candidate dirs holding the resonance CSVs (save_path first).
+Funktion	_find_resonance_csv	7815	7848	newest CSV for AXIS; prefers files that already carry a shaper table.
+Funktion	_parse_resonance_csv	7851	7896	Klipper resonance CSV -> dict(freqs, psd, shapers, normalized).
+Funktion	_resonance_axis_data	7899	7935	CSV for one axis -> {'file', 'freqs', 'psd', 'table', 'best'}.
+Funktion	_reso_plate_content	7949	8075	one diagram plate -> (strokes, texts) in local mm (origin bottom-left).
+Funktion	_reso_plate_content._loop	7961	7962	
+Funktion	_reso_plate_content._fit_h	7966	7971	
+Funktion	_reso_plate_content.fx	7989	7990	
+Funktion	_reso_plate_content.ly	8000	8001	
+Funktion	_measure_text	8078	8082	width of text at CAP height h mm (R73: sizes mean cap height now).
+Funktion	_render_texts	8085	8109	backend text -> stroke polylines via the label font machinery.
+Funktion	make_resonance	8112	8341	R64: render the resonance diagram plate(s). Returns (files, info).
+Funktion	make_resonance._vf	8165	8169	
+Funktion	make_resonance.layer_h_eff	8255	8256	
+Funktion	make_resonance.base_block	8258	8278	
+Funktion	make_resonance.feature_block	8280	8307	
+Funktion	_wrap_text	8350	8383	
+Funktion	_wrap_text.wlen	8356	8357	
+Funktion	_fit_text_page	8386	8408	R73: letters never shrink below 6mm caps - the page grows COLUMNS
+Funktion	_text_page_polys	8411	8445	text columns -> polylines in page coords (origin bottom-left, y up).
+Funktion	_plot_write	8448	8514	shared pen-plotter g-code writer (single pen).
+Funktion	_plot_write._vf	8460	8464	
+Funktion	_emit_plot	8517	8551	R73 plot move emitter - shared by _plot_write and plot_convert.
+Funktion	_travel	8554	8571	
+Funktion	text_convert	8574	8612	R64: convert a plain text file into a pen-plotter g-code page.
+Funktion	text_convert._vf	8588	8592	
+Funktion	_printer_busy	8615	8662	R133c (field logs .95/.96): lean busy probe - start phase INCLUDED.
+Funktion	_printer_busy._probe162	8626	8651	
+Funktion	_motion_seen255	8681	8683	True while a move was seen less than _MOTION_HOLD255 s ago.
+Funktion	_motion_active246d	8686	8709	R246d: TRUE motion - toolhead.print_time advanced since the last
+Funktion	_printer_moving	8712	8743	R246d (.142b field log 04:04): MOTION probe for the preview push.
+Funktion	_printer_idle_strict	8746	8786	R246c (.142 field log 00:08): the PUSH gate - confirmed idle ONLY.
+Klasse	_JobCancelled	8821	8825	R238 (.136ai): raised inside generator hot loops by _job_tick when
+Funktion	_genq_push	8828	8838	R236: keep save_variables.gen_queue_cnt == len(job queue).
+Funktion	_moonraker_filelist_notify	8841	8853	R236: tell moonraker a file appeared that its file manager missed
+Funktion	_job_tick	8856	8877	Micro-pause inside generator hot loops - only while a job worker
+Funktion	_moonraker_status	8880	8895	query the live printer status via moonraker (best effort).
+Funktion	_r2_version	8898	8909	
+Funktion	_prime_nonces	8968	8970	first loop pass: adopt the CURRENT counters, fire nothing.
+Funktion	_gen_stem	8973	8980	R133f (field log .98): file names use the FULL source name - the
+Funktion	_link_is_ours	9029	9040	True if PATH is a symlink we may own (its target lives in a subfolder
+Funktion	_sync_root_links	9043	9123	R249: expose every printable file from the subfolders in the gcodes
+Funktion	_apply_type_lines	9145	9154	-> the text a generator writes for one type marker: the standard
+Funktion	_is_data_file	9157	9165	R253 (.142i, REAL 44 MB field STL): an object export is BINARY data
+Funktion	_is_gen_name	9168	9173	True if NAME looks like a generator output (Vnn_..., legacy 00_...).
+Funktion	_gensub	9187	9194	The output subfolder for a generator (created on demand).
+Funktion	_next_gen_version	9197	9232	R158 (.118)/R160 (.120): ONE running number per output FOLDER, and it
+Funktion	_rng_src_tag	9236	9248	R160b (.120 field): the 10-char source tag for RANGE names.
+Funktion	_dedupe_gen_fname	9251	9279	R160b (.120 field): a generated file NEVER overwrites an existing one.
+Funktion	_parse_ps	9281	9291	R76: parse 'ps -eo pcpu,pmem,rss,comm --sort=-pcpu' output -> rows.
+Funktion	_parse_vmstat_wa	9294	9303	R76: the iowait percentage from a vmstat output line (None if unparsable).
+Funktion	_parse_vmstat_swapio	9306	9322	R104: the swap-in/out rate (KB/s) from a vmstat output line.
+Funktion	_klippy_reactor_stats	9330	9367	R215 (.136l field log): count klippy's OWN load symptoms in its log.
+Funktion	_host_verdict	9370	9418	R76/R78/R104: the honest overall verdict - priority throttle > swap > overload > OK.
+Funktion	_reactor_verdict	9421	9435	R215: the reactor numbers as a verdict line (None = no log found).
+Funktion	_read_meminfo	9447	9457	R78: /proc/meminfo as {key: MB} - its own function so tests can fake it.
+Funktion	_swap_eaters	9460	9490	R78: WHO sits in the swap - VmSwap per process, aggregated by name.
+Funktion	host_check	9493	9696	R75/R76/R78: read the HOST's health and report it in the console.
+Funktion	host_check.sh	9516	9521	
+Funktion	make_status_plot	9699	9801	R64: draw the SHOW_STATUS report on paper (one page, auto-fit).
+Funktion	make_status_plot.g	9707	9712	
+Funktion	make_status_plot.pct	9714	9718	
+Funktion	make_status_plot.n1	9720	9724	
+Funktion	make_status_plot.n4	9726	9730	
+Funktion	make_status_plot._vf	9774	9778	
+Funktion	make_bridge	9813	10024	R64: generate the bridging test file. Returns (path, info).
+Funktion	make_bridge.trect	9868	9869	
+Funktion	make_bridge.tpoly	9871	9873	
+Funktion	make_bridge.bpoly	9875	9880	
+Funktion	make_bridge.layer_h_eff	9919	9920	
+Funktion	make_bridge.tower_block	9922	9943	
+Funktion	make_bridge.deck	9945	9977	one bridge deck layer: strands along the span, ;TYPE:Bridge
+Funktion	_poly_hatch	10029	10094	R86: scanline hatch clipped to an ARBITRARY simple polygon (convex or
+Funktion	_inset_poly	10097	10144	R86: inset a polygon by d (edge offset, CCW assumed). Returns None if
+Funktion	_inset_poly.area	10135	10141	
+Funktion	_gen_markers	10147	10159	R86: inject LAYER_MARK + APPLY_TYPE into a generated line list (the
+Funktion	_sa_anchor_pts	10162	10189	R216 (.136n field round): the anchor positions on the ring's
+Funktion	_spread_starts	10192	10225	R216 (.136n field wish): consecutive strands must not start at
+Funktion	_string_art_plan	10228	10345	R171: greedy string-art planner - a photo becomes anchor-to-anchor
+Funktion	make_string_art	10353	10700	R171: STRING ART - the proven StringArt3D scheme as a native
+Funktion	make_string_art._ring_loop	10495	10501	
+Funktion	make_string_art._sa_travel	10554	10570	
+Funktion	make_string_art._arc_seg	10572	10580	
+Funktion	make_cable_ties	10703	11044	R89: classic printable cable ties (Kabelbinder) - strap + small head.
+Funktion	make_cable_ties.tie_block	10815	10962	one tie at layer li
+Funktion	make_cable_ties.tie_brim	10965	10970	
+Funktion	_rr_pts	11063	11081	rounded rect contour, CCW, centered on (0,0).
+Funktion	_el_pts	11084	11087	ellipse contour, CCW, centered on (0,0).
+Funktion	_convex_intervals	11090	11113	scanline through convex poly -> inside interval along (dx,dy) or None.
+Funktion	_resample_poly	11116	11128	evenly resample a closed polygon at ~step mm (R106).
+Funktion	_nearest_on_poly	11131	11145	closest point on a closed polygon + its distance (R106).
+Funktion	_radial_stubs	11148	11173	R106 (field log .82, rule ll): radial anchor stubs between two
+Funktion	_ring_hatch	11176	11246	R90: scanline hatch over the RING between two convex contours (outer,
+Funktion	_bite_contour	11249	11283	rectangular bite into the left('L')/right('R') edge of a closed convex
+Funktion	_bite_contour.inb	11257	11258	
+Funktion	_bite_contour.inb	11264	11265	
+Funktion	make_frame	11286	12806	R90: picture frame (Bilderrahmen) or display case (Schaukasten).
+Funktion	make_frame.plate_keeps	11751	11765	
+Funktion	make_frame._plate_b_block	11767	11784	R97: PLATE B (backplate + stand) as ONE block, centered on the
+Funktion	make_frame.frame_fname	11818	11819	
+Funktion	make_frame.e_w	11846	11847	
+Funktion	make_frame._split_emit	11922	11938	
+Funktion	make_frame.emit_ring	11940	12017	
+Funktion	make_frame.emit_side_cap	12019	12041	
+Funktion	make_frame.emit_shelf	12043	12113	
+Funktion	make_frame.emit_shelf._in_win	12089	12091	
+Funktion	make_frame.emit_nubs	12115	12137	
+Funktion	make_frame._pt_in_rr	12140	12147	
+Funktion	make_frame.pat_ok	12152	12157	
+Funktion	make_frame.emit_pattern	12159	12215	
+Funktion	make_frame.emit_strip	12500	12534	
+Funktion	make_angles	12810	13139	R86: angle plates (Winkel) + flat connectors (Flachenverbinder).
+Funktion	make_angles.leg_holes	12865	12886	hole centers along one leg's centerline (from the corner outward)
+Funktion	make_angles.plate_block	13012	13080	
+Funktion	_ngon_pts	13144	13159	regular n-gon inside the (w x h) box, flat-bottom oriented:
+Funktion	_ngon_inset	13162	13172	the k-th inner wall loop: vertices pulled toward the center so the
+Funktion	make_shape	13175	13404	R216 (.136n): simple geometric bodies - triangles, squares/rectangles,
+Funktion	make_shape._loops_at	13286	13288	wall loops of layer li (outer first)
+Funktion	_img_header_dims	13409	13446	R232: 'WxH' from the PNG/JPEG header ONLY (no pixel decode) - feeds
+Funktion	_img_luma	13449	13475	R89: decode PNG/JPEG -> (w, h, rows of luminance 0..1).
+Funktion	_litho_grid	13478	13558	R89: the 'always beautiful without visual feedback' image pipeline.
+Klasse	_Sink	13561	13579	R89: streaming line sink - a lithophane runs to ~250k gcode lines,
+Funktion	_Sink.__init__	13566	13568	
+Funktion	_Sink.append	13570	13574	
+Funktion	_Sink.flush	13576	13579	
+Funktion	_img_boost128	13582	13590	R128: contrast boost on a 0..1 grid - pushes midtones apart so level
+Funktion	_make_litho_flat	13593	14237	R128 (field report): photo -> lithophane printed FLAT as clean STEPS.
+Funktion	_make_litho_flat._cnt149f	13734	13739	
+Funktion	_make_litho_flat._lvl149	13759	13763	
+Funktion	_make_litho_flat._runs128	13846	13857	
+Funktion	_make_litho_flat._blocks128	13859	13873	merged row-runs of step k's region (level >= k) -> rect blocks
+Funktion	_make_litho_flat._tower128	13975	14004	
+Funktion	make_lithophane	14239	14630	R89: photo -> lithophane g-code, printed STANDING (vertical).
+Funktion	make_lithophane.ribbon	14501	14530	one layer = one continuous zigzag across all columns.
+Funktion	make_lithophane.stand_layer	14532	14583	R214: one layer of BOTH fins. X beads = the vertical ribs
+Funktion	make_plot_cal	14658	14720	R122: pen-plotter calibration test plot - offset, dot raster, lines.
+Funktion	_center_cells	14778	14791	R132 (user rule): every generator CENTERS its packed layout on the
+Funktion	_brick_hatch	14795	14835	R121: scanline hatch over a rect minus SEVERAL circular keep-outs
+Funktion	_brick_studs	14838	14861	R216: the stud grid of a part - ONE place, unit-tested.
+Funktion	make_bricks	14864	15454	R121/R132: print exact stud-and-tube building bricks.
+Funktion	make_bricks._snap	14946	14951	
+Funktion	make_bricks._prep	14969	14983	
+Funktion	make_bricks._ty121	15104	15112	
+Funktion	make_bricks._loops	15129	15130	
+Funktion	make_bricks._walls216	15132	15137	
+Funktion	make_bricks._seg_out	15139	15142	
+Funktion	make_bricks._hatch_rect	15144	15147	
+Funktion	make_bricks._brim_rect	15149	15156	
+Funktion	make_bricks._brim_round	15158	15163	
+Funktion	make_bricks.brick_block	15165	15401	
+Funktion	make_bricks._layer_head	15403	15409	
+Funktion	_kit_moves	15470	15538	stream (x0,y0,z0, x1,y1,z1, canon_type) for every EXTRUDING move.
+Funktion	_kit_voxelize	15541	15586	two-pass streaming rasterization onto the 8 x 8 x 3.2mm grid.
+Funktion	_kit_band_cells	15589	15617	cells at plate resolution -> list of band cell-sets, bottom-up.
+Funktion	_kit_decompose	15624	15654	greedy: cut a band's cell set into catalog parts, largest first.
+Funktion	make_brick_kit	15657	16105	R125: turn a sliced print file into a stylized brick kit.
+Funktion	make_brick_kit._snap	15777	15782	
+Funktion	make_brick_kit._pack	15788	15806	row-pack one part group -> list of plates (lists of placed parts)
+Funktion	make_brick_kit._ty125	15917	15921	
+Funktion	make_brick_kit._slope_poly125	15926	15938	
+Funktion	make_brick_kit._emit125	15940	16055	
+Funktion	_rings126	16118	16125	concentric ring fill of a disc / annulus (ring spacing = line width).
+Funktion	make_figures	16128	17099	R126/R132: stylized figures in the building system.
+Funktion	make_figures._mm	16181	16182	
+Funktion	make_figures._snap	16184	16189	
+Funktion	make_figures._role	16241	16248	
+Funktion	make_figures._layout186	16318	16336	
+Funktion	make_figures._ty126	16428	16434	
+Funktion	make_figures._emit_defines	16436	16454	
+Funktion	make_figures._loops	16456	16457	
+Funktion	make_figures._wall_rect	16459	16463	
+Funktion	make_figures._hatch_rect	16465	16473	
+Funktion	make_figures._brim_rect	16475	16486	
+Funktion	make_figures._brim_round	16488	16499	
+Funktion	make_figures._tube_hole	16501	16508	
+Funktion	make_figures._kapsel_pts	16510	16526	R133: 8-point capsule outline (45deg chamfered ends).
+Funktion	make_figures._arm_strip	16528	16554	R133: lying stripe with a ROUND cross-section - the
+Funktion	make_figures._cap_bars	16556	16568	R133: straight bridge bars across a round opening -
+Funktion	make_figures._part_legs	16570	16637	
+Funktion	make_figures._part_torso	16639	16720	
+Funktion	make_figures._part_arm	16722	16785	
+Funktion	make_figures._part_head	16787	16856	
+Funktion	make_figures._part_single	16858	16980	
+Funktion	make_figures._emit_part	16982	17000	
+Funktion	make_figures._layer_head	17002	17008	
+Funktion	make_figures._draw186	17010	17034	
+Funktion	make_colorpic	17102	17429	R120: photo -> COLOR picture (settings mirror the lithophane generator).
+Funktion	make_colorpic._runs120	17216	17227	
+Funktion	make_colorpic._blocks120	17229	17243	merged row-runs of band k's region (level >= k) -> rect blocks
+Funktion	make_seal	17432	17608	R89: gasket / seal ring (Dichtung) - OD/ID/height, FLAT face or with a
+Funktion	make_seal.band_pts	17491	17506	archimedean spiral centerline from r0 to r1, spacing ~0.95*wid
+Funktion	make_seal.spiral_band	17549	17550	
+Funktion	_detect_slicer	17623	17676	R84: which slicer wrote this file, and for which firmware flavor?
+Klasse	_RetractFix	17679	17784	R84: turn explicit slicer retracts into G10/G11 (firmware retraction)
+Funktion	_RetractFix.__init__	17690	17695	
+Funktion	_RetractFix._parse	17698	17716	(e_val, pure) for G1/G0 lines that carry E - pure = only E/F words.
+Funktion	_RetractFix._take_held	17718	17721	
+Funktion	_RetractFix.feed	17723	17781	returns the list of lines to emit for this input line
+Funktion	_RetractFix.close	17783	17784	
+Funktion	_patch_info_retract	17787	17812	R89: set/replace RETRACT=<style> in a file's _FILE_INFO line (streamed
+Funktion	_patch_info_kv	17815	17844	R133: set/replace KEY=VALUE in a file's _FILE_INFO line (streamed
+Funktion	_opt_compact	17870	17893	R169: compact dict repr that survives Klipper's parser chain
+Funktion	_opt_compact.esc	17876	17884	
+Funktion	_opt_compact.rec	17886	17892	
+Funktion	_opt_parse_snap	17896	17905	R169: the opt_snap value from _read_vars is the dict's repr STRING
+Funktion	_opt_source_of	17908	17916	R169: read the source file name from a copy's '; R2-OPT' tag.
+Funktion	_opt_snap_from_file	17919	17932	R169: the _OPT_BAKED replay line of an optimized copy -> dict.
+Funktion	_stl_export	17967	18288	R214: rebuild the object-only STL from a finished G-code. Returns
+Funktion	_stl_export._zq216	18031	18032	
+Funktion	_stl_export._tri	18211	18221	
+Funktion	_optimize_copy	18290	18485	R169: write the non-invasive optimized copy. The SOURCE file is only
+Funktion	_optimize_copy._fnum	18345	18349	
+Funktion	_g1_tokens	18501	18513	Order-tolerant G1 reader. Returns {'X':..,'Y':..,'E':..,...} or None.
+Funktion	_segment_fix_auto	18520	18545	R253 (.142i): the segment fix used to make ONE pass at a fixed 0.12mm
+Funktion	_worst_move_rate	18548	18558	R133 (field log .94, MCU 'Timer too close'): worst-case moves per
+Funktion	_move_rate_stats	18561	18615	R253 (.142i): the R133 number is a WORST-SINGLE-SEGMENT rate and it
+Funktion	_segments_fix_file	18618	18778	R133 (field log .94, MCU 'Timer too close'): merge micro G1
+Funktion	_segments_fix_file._flush	18655	18662	
+Funktion	_qf_type_of	18806	18818	feature type of a raw line (slicer comments + our own markers)
+Funktion	_quality_fix_file	18821	19054	R249: QUALITY fix on a sliced file - protect the skin, never the run.
+Funktion	_quality_fix_file._reg	18854	18859	
+Funktion	_quality_fix_file._scan_travel	18861	18893	-> (crosses_same_layer, crosses_sacred) for the travel line
+Funktion	_quality_fix_file._flush	18895	18913	
+Funktion	_speed_fix_file	19057	19195	R216 (.136n) + R249 (.142e): SPEED fix - the user's definition, exactly.
+Funktion	_speed_fix_file._flush_travel	19082	19095	
+Funktion	_speed_fix_file._praw	19097	19099	
+Funktion	_retract_rewrite_file	19198	19223	R84: stream-rewrite a file's retract pairs to G10/G11 in place.
+Funktion	_volumetric_convert_file	19226	19275	R85: convert a Marlin-volumetric file (E in mm3) to Klipper mm.
+Funktion	_flowcap_fix_file	19278	19355	R111: cap the volumetric extrusion rate (mm3/s) of a file IN PLACE.
+Funktion	_travel_fix_file	19358	19499	R111/R121: TRAVEL speed + acceleration + live markers, in place.
+Funktion	_travel_fix_file._is_travel	19403	19408	
+Funktion	_travel_fix_file._close	19410	19418	
+Funktion	_gen_normalize_speeds	19502	19656	R159 (.119): ONE uniform speed image for a generated PRINT file -
+Funktion	_travelaccel_fix_file	19659	19661	R111 compat wrapper: accel-only travel fix (no speed, no markers).
+Funktion	rederive_apply_types	19664	19691	R172 (field report .129, the trash.gcode chain): heal files tagged
+Funktion	process	19694	20243	Inject _FILE_INFO + LAYER_MARK. Returns a change summary dict.
+Funktion	process._close_seg	19756	19767	
+Funktion	process._aw	19926	19927	
+Funktion	process._pre	20197	20210	
+Klasse	_ZScan	20246	20307	R81 streaming core of z_scan: feed .step(index, stripped_line) for every
+Funktion	_ZScan.__init__	20251	20257	
+Funktion	_ZScan.step	20259	20302	
+Funktion	_ZScan.result	20304	20307	
+Funktion	z_scan	20310	20315	Detect layer rises in the Z moves. Returns (insert-before indexes, object changes).
+Funktion	count_existing_marks	20318	20319	
+Klasse	_LayerBitmap	20322	20529	R181 (.131a field round): the layer PICTURE. The user's definition
+Funktion	_LayerBitmap.__init__	20343	20386	
+Funktion	_LayerBitmap.cell	20388	20390	
+Funktion	_LayerBitmap._ink_at	20392	20396	
+Funktion	_LayerBitmap.side_ink	20398	20427	Sample every segment at its MIDPOINT and compare the two sides.
+Funktion	_LayerBitmap.sides_ink_far	20429	20472	R216 (.136n) stage 7: the FAR probe for open curved paths (3D
+Funktion	_LayerBitmap.components	20474	20529	R181: connected ink components of the layer picture -> the
+Klasse	_GeomScan	20532	21450	R111 (roadmap L3+/L4): geometry + rate tracker, and - for files with
+Funktion	_GeomScan.__init__	20557	20609	
+Funktion	_GeomScan.set_dia	20611	20613	
+Funktion	_GeomScan.mark_type	20615	20642	a ;TYPE: comment appeared - the file is tagged: heavy part OFF.
+Funktion	_GeomScan.mark_comment	20644	20646	a layer-change comment appeared - classify what came before it
+Funktion	_GeomScan.step	20649	20764	
+Funktion	_GeomScan._close_poly	20766	20775	
+Funktion	_GeomScan._area_bbox	20779	20790	
+Funktion	_GeomScan._classify	20792	21067	
+Funktion	_GeomScan._solid216_check	21069	21148	R216 (.136n) stage 7: the layers check EACH OTHER - the
+Funktion	_GeomScan._seq_add	21150	21156	R193 (.135): derived feature stream for the sequence audit -
+Funktion	_GeomScan._airscan193	21158	21262	R193 (.135) stage 5a: the CROSS-LAYER AIR SCAN - bridging by
+Funktion	_GeomScan._airscan193._grounded	21229	21239	
+Funktion	_GeomScan._fmove192	21264	21285	R192 (.135): move a loop's fstat booking when its range is
+Funktion	_GeomScan._brim153	21287	21345	R153: a BRIM is a layer-1 outer wall loop with no successor on
+Funktion	_GeomScan._brim153._has_succ153	21304	21309	
+Funktion	_GeomScan.finish	21348	21357	
+Funktion	_GeomScan._resolve_block	21359	21394	R213: the CUSTOM block ended - NUMBER it (C1..C9), never
+Funktion	_GeomScan._cgroup213	21396	21417	R213: map a custom block signature to its C-number. Same
+Funktion	_GeomScan._turning	21420	21438	R180/R181: signed total turning of a path (radians). A loop
+Funktion	_GeomScan.seam	21440	21450	modal 5 mm grid over the outer-wall start points
+Funktion	_peek_file_info	21453	21537	Read the _FILE_INFO line + heater commands of a gcode file WITHOUT touching it.
+Funktion	_eod_compact	21540	21550	R239 (.136ai field log): Klipper's shlex splits command values at
+Funktion	_peek_objects	21553	21580	R75: collect the file's EXCLUDE_OBJECT_DEFINE lines for a verbatim replay.
+Funktion	_sv_line	21583	21600	R69: build a SAVE_VARIABLE line that survives Klipper's parser.
+Funktion	_sdm_line	21603	21622	R246 (.142): LCD mirror line - RAM instead of disk.
+Funktion	_sdm_state	21625	21661	R246: read the mirror's current path/page/view - live from klippy
+Funktion	_stop_duplicate_watcher	21664	21703	R133i: shared kill sequence for duplicate watchers - RESPOND +
+Funktion	_watch_lock_takeover	21709	21813	R133h (field log .100 - the SHUTDOWN killer): ONE watcher, ever.
+Funktion	_rm_watch_lock	21816	21827	
+Funktion	_svc_watcher	21830	21836	R133i: True if pid belongs to the SUPERVISED systemd service.
+Funktion	_cgroup_unit	21839	21854	R202 (.136 field log): the systemd unit that OWNS a pid - read from
+Funktion	_flat_stray_warnings	21857	21878	R202 (.136 field log): remains of the FLAT .134 update zip. A twin
+Funktion	_cmdline_is_watcher	21881	21903	R202: does a /proc cmdline blob belong to a watcher? Broadened from
+Funktion	_find_other_watchers	21906	21928	R133i: ANY other r2_postproc process (any version, lock or not).
+Funktion	_proc_hidepid	21931	21954	R246d: the /proc mount's hidepid level (0 = full visibility).
+Funktion	_hidepid_note	21957	21981	R246d: rate-limited honesty when the duplicate scan is half-blind.
+Funktion	_pid_cmdline207	21989	22000	R207 (.136f field log): a rival watcher's command line, printable.
+Funktion	_watch_duplicate_sweep	22003	22075	R133i (field log .101): the STARTUP takeover alone is not enough.
+Funktion	_moonraker_gcode	22078	22098	Send a g-code script to Klipper via moonraker's local HTTP API (best
+Funktion	_job_led	22112	22125	R240: push the job progress bar to the LEDs (throttled, best effort).
+Funktion	_job_led_done	22128	22134	R240: a watcher job ended - restore the state LEDs (best effort).
+Funktion	_moonraker_json	22137	22153	R170: GET (body None) or POST a moonraker API endpoint, return the
+Funktion	_parse_label_cfgs	22156	22176	R170: parse the LCD queue's per-job snapshots
+Funktion	_label_job_kwargs	22179	22234	R170: the label job's make_labels kwargs from save_variables - ONE
+Funktion	_label_job_kwargs._vb	22187	22191	
+Funktion	_label_job_kwargs._vf	22193	22197	
+Funktion	_gen_out	22237	22247	R109: what generators do with a finished file.
+Funktion	_sel_line	22250	22255	The '_SELECT_FILE' tail line for a finished generator file (or '').
+Funktion	_meta_finalize	22258	22291	R212 (.136k): Mainsail metadata (thumbnail + time + filament) for
+Funktion	_upgrade_center_excludes	22302	22442	R226 (.136x field log): OrcaSlicer/Bambu Studio write
+Funktion	_sel_note	22445	22447	Message suffix: queued or preview, whatever the user picked.
+Funktion	_preview_key	22466	22472	Stable identity of a file selection: name + mtime + size.
+Funktion	_preview_dup_skip	22475	22489	True when an identical preview push just landed - skip the re-peek.
+Funktion	_preview_remember	22492	22496	Record a successful (or failed) push for the dedupe decision.
+Funktion	_preview_script	22499	22592	R74/R75: the moonraker script that makes the LCD show THIS file the moment
+Funktion	_preview_script.esc	22531	22535	
+Klasse	_SkipHandler	22595	22596	R89: handler decided everything itself - exit the try block quietly.
+Funktion	file_check_scan	22600	22678	R93: version census over every .gcode in DIRECTORY.
+Funktion	file_check_scan._fc_one	22621	22650	
+Funktion	_seen_state_path	22692	22701	R149: where the persistent file-state cache lives - the PACKAGE folder
+Funktion	_seen_load	22704	22715	R149: load the persistent seen-cache (best effort, corrupt = fresh).
+Funktion	_seen_save	22718	22731	R149: atomic write of the seen-cache (tmp + rename, never a half
+Funktion	_self_cpu	22734	22742	R148: this process's own CPU seconds (user+sys) from /proc/self/stat.
+Funktion	_mem_available_mb	22745	22754	R148: MemAvailable from /proc/meminfo (-1 = unknown).
+Funktion	apply_scale	22758	23081	R176 (.130 wish list): scale a file in X/Y with honest extrusion.
+Funktion	apply_scale._fac176	22872	22877	(fx, fy) at height z - constant without taper.
+Funktion	apply_scale._f176	22893	22905	E factor of one move: (L'/L) * (w'/w). fx/fy: the R216 taper
+Funktion	apply_scale._fmt_move	22938	22952	
+Funktion	apply_twist	23083	23336	R216 (.136n): twist a file around its Z axis - its OWN tool in
+Funktion	apply_twist._rot216	23179	23184	rotation angle (rad) at height z: 0 at the bottom, deg at top
+Funktion	apply_twist._fmt_move	23209	23222	
+Funktion	apply_mirror	23339	23626	R224 (.136v wish list): mirror a file on X or Y - the object stays
+Funktion	apply_mirror._mx	23453	23454	
+Funktion	apply_mirror._my	23456	23457	
+Funktion	apply_mirror._mirror_exclude_line	23459	23491	mirror CENTER= and POLYGON= of an EXCLUDE_OBJECT line (KAMP's
+Funktion	apply_mirror._fmt_move	23493	23505	
+Funktion	_klippy_shutdown_probe	23665	23674	R244: (state, state_message) from moonraker /printer/info - the one
+Funktion	_moonraker_post	23677	23691	R244: one POST against moonraker's machine API (service restart,
+Funktion	_recovery_state_file	23694	23696	
+Funktion	_recovery_l3_done_recently	23699	23708	R244: the L3 rate limit survives reboots - the timestamp lives in a
+Funktion	_recovery_l3_mark	23711	23724	
+Funktion	_recovery_archive	23727	23761	R244: snapshot klippy.log into gcodes/crash_archive/ BEFORE any
+Funktion	_recovery_mode_on	23764	23773	R244: the on/off switch, read from the variables FILE - klippy is
+Funktion	_recovery_tick	23776	23870	R244: one watch-cycle step of the recovery state machine. Cheap by
+Funktion	watch	23875	28594	Daemon: process every new/changed .gcode file under DIRECTORY.
+Funktion	watch._seen_flush149	23914	23918	
+Funktion	watch.push_preview	23929	23958	R73/R74: read the file's parameters and push them to Klipper so
+Funktion	watch.file_fix	23962	24205	R85: fix a file IN PLACE - no re-upload (LCD: Pre-Print > File >
+Funktion	watch.file_fix._fix_busy162	24000	24012	
+Funktion	watch.data_head_if_text	24207	24212	
+Funktion	watch.scan	24214	24351	
+Funktion	watch._job_worker	24424	24774	
+Funktion	watch._job_worker._run223	24584	24588	
+Funktion	watch._spawn_job	24776	24798	
+Funktion	watch._job169	25210	25270	
+Funktion	watch._job214	25285	25327	
+Funktion	watch._rng_flag	25591	25594	
+Funktion	watch._range_job62	25636	25657	
+Funktion	watch._vf_f	25700	25704	
+Funktion	watch._vb_f	25706	25707	
+Funktion	watch._vbt	26223	26227	
+Funktion	watch._vft	26229	26233	
+Funktion	watch._vba	26293	26297	
+Funktion	watch._vfa	26299	26303	
+Funktion	watch._vsf	26368	26372	
+Funktion	watch._vsi	26374	26378	
+Klasse	watch._SkipImg89	26444	26445	
+Funktion	watch._vbl89	26513	26517	
+Funktion	watch._vfl89	26519	26523	
+Funktion	watch._litho_job89	26571	26626	
+Funktion	watch._vbc120	26642	26646	
+Funktion	watch._vfc120	26648	26652	
+Funktion	watch._colorpic_job120	26680	26709	
+Funktion	watch._vfbr121	26725	26729	
+Funktion	watch._bricks_job121	26759	26796	
+Funktion	watch._vfk125	26812	26816	
+Funktion	watch._kit_job125	26883	26930	
+Funktion	watch._vff126	26951	26955	
+Funktion	watch._fig_job126	26976	27028	
+Funktion	watch._vfs89	27042	27046	
+Funktion	watch._vbs89	27048	27052	
+Funktion	watch._texture_job91	27150	27199	
+Funktion	watch._scale_job176	27240	27271	
+Funktion	watch._twist_job216	27303	27326	
+Funktion	watch._mirror_job224	27357	27394	
+Funktion	watch._cake_job177	27436	27470	
+Funktion	watch._stringart_job178	27532	27565	
+Funktion	watch._vf90	27687	27691	
+Funktion	watch._vb90	27693	27697	
+Funktion	watch._vs90	27699	27701	
+Funktion	watch._vf64	27889	27893	
+Funktion	watch._plot_job134	28021	28060	
+Klasse	watch._SkipPush215	28194	28195	
+Funktion	watch._scan154	28253	28291	
+Funktion	watch._walk154	28293	28299	
+Funktion	_pp_var_path	28630	28639	The variables file the gate must read. watch() computes it from the
+Funktion	_pp_engine_choice	28642	28659	-> (engine, source). Command line beats the LCD switch beats stable.
+Funktion	_pp_fail_write	28662	28668	
+Funktion	_pp_fail_age	28671	28675	
+Funktion	_pp_engine_gate	28678	28736	Hand over to the experimental copy when the switch says so.
+Funktion	_doctor_tick	28742	28760	R252: build the evidence pack once per LCD press (doctor_nonce).
+Funktion	main	28763	28969	
+Funktion	main._cb	28791	28792	

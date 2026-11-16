@@ -1,0 +1,14 @@
+bigrose_020mm.gcode.gz: sha256=0f8722007d799774d28de428baf82887ca6afa2df117cf01621dea024b3ec9d0, gzip_unveraendert=True
+  source= {'PRINT_START': 1, 'LAYER_MARK': 251} erstes= {'PRINT_START': (173, '250'), 'LAYER_MARK': (191, '-')}
+  temp_nach_process= {'_FILE_INFO': 1, 'PRINT_START': 1, 'LAYER_MARK': 251} erstes= {'_FILE_INFO': (171, '251'), 'PRINT_START': (176, '250'), 'LAYER_MARK': (194, '-')} summary= {'skipped': False, 'method': None, 'layers': 251, 'marks_added': 0}
+  preview_stub print_stats=printing, mode=waiting: _FILE_INFO_replay=True
+  preview_stub print_stats=printing, mode=printing: _FILE_INFO_replay=False
+  preview_stub print_stats=standby, mode=idle: _FILE_INFO_replay=True
+  dedupe_stub: ACK, gleicher Dateikey & PREVIEW.name, 1s, STATE.total_layers=0 -> skip= True ; anderer PREVIEW.name -> skip= False
+[seqaudit] rose_215c_pla.gcode: S3 brim beyond the brim window
+rose_215c_pla.gcode.gz: sha256=abbc2c80bd7684f5d4425b54dd48c36842b6062fad7ca413a100d802c6b553ea, gzip_unveraendert=True
+  source= {'START_PRINT': 1} erstes= {'START_PRINT': (95, '-')}
+  temp_nach_process= {'_FILE_INFO': 1, 'START_PRINT': 1, 'LAYER_MARK': 242} erstes= {'_FILE_INFO': (87, '242'), 'START_PRINT': (98, '-'), 'LAYER_MARK': (105, '-')} summary= {'skipped': False, 'method': 'layer comments', 'layers': 242, 'marks_added': 242}
+stringart3d_generic.gcode.gz: sha256=a9051f5c107d4310202f67ad2d36fa646bd0e0e35151206ef55040576c98fdd5, gzip_unveraendert=True
+  source= {} erstes= {}
+  temp_nach_process= {'_FILE_INFO': 1, 'LAYER_MARK': 15} erstes= {'_FILE_INFO': (12, '15'), 'LAYER_MARK': (27, '-')} summary= {'skipped': False, 'method': 'layer comments', 'layers': 15, 'marks_added': 15}

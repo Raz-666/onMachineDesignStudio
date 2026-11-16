@@ -1,0 +1,25 @@
+fixture	gzip_sha256	alias	erste_zeile	anzahl	canon_funktion	apply_direkt_nach_kommentar
+bigrose_020mm.gcode.gz	0f8722007d799774d28de428baf82887ca6afa2df117cf01621dea024b3ec9d0	Custom	172	2	CUSTOM	CUSTOM:2
+bigrose_020mm.gcode.gz	0f8722007d799774d28de428baf82887ca6afa2df117cf01621dea024b3ec9d0	Skirt	201	1	SKIRT	SKIRT:1
+bigrose_020mm.gcode.gz	0f8722007d799774d28de428baf82887ca6afa2df117cf01621dea024b3ec9d0	Brim	279	1	BRIM	BRIM:1
+bigrose_020mm.gcode.gz	0f8722007d799774d28de428baf82887ca6afa2df117cf01621dea024b3ec9d0	Outer wall	1588	7	WALL-OUTER	WALL-OUTER:7
+bigrose_020mm.gcode.gz	0f8722007d799774d28de428baf82887ca6afa2df117cf01621dea024b3ec9d0	Gap infill	1844	9	GAPS	GAPS:9
+bigrose_020mm.gcode.gz	0f8722007d799774d28de428baf82887ca6afa2df117cf01621dea024b3ec9d0	Bottom surface	1862	2	SURFACE-BOTTOM	SURFACE-BOTTOM:2
+bigrose_020mm.gcode.gz	0f8722007d799774d28de428baf82887ca6afa2df117cf01621dea024b3ec9d0	Internal solid infill	2394	5	INFILL-SOLID	INFILL-SOLID:5
+bigrose_020mm.gcode.gz	0f8722007d799774d28de428baf82887ca6afa2df117cf01621dea024b3ec9d0	Top surface	4492	7	SURFACE-TOP	SURFACE-TOP:7
+bigrose_020mm.gcode.gz	0f8722007d799774d28de428baf82887ca6afa2df117cf01621dea024b3ec9d0	Ironing	6173	2	IRONING	IRONING:2
+rose_215c_pla.gcode.gz	abbc2c80bd7684f5d4425b54dd48c36842b6062fad7ca413a100d802c6b553ea	Custom	89	2	CUSTOM	CUSTOM:2
+rose_215c_pla.gcode.gz	abbc2c80bd7684f5d4425b54dd48c36842b6062fad7ca413a100d802c6b553ea	Brim	118	2	BRIM	BRIM:2
+rose_215c_pla.gcode.gz	abbc2c80bd7684f5d4425b54dd48c36842b6062fad7ca413a100d802c6b553ea	Outer wall	1400	14	WALL-OUTER	WALL-OUTER:14
+rose_215c_pla.gcode.gz	abbc2c80bd7684f5d4425b54dd48c36842b6062fad7ca413a100d802c6b553ea	Bottom surface	1578	2	SURFACE-BOTTOM	SURFACE-BOTTOM:2
+rose_215c_pla.gcode.gz	abbc2c80bd7684f5d4425b54dd48c36842b6062fad7ca413a100d802c6b553ea	Top surface	1927	4	SURFACE-TOP	SURFACE-TOP:4
+rose_215c_pla.gcode.gz	abbc2c80bd7684f5d4425b54dd48c36842b6062fad7ca413a100d802c6b553ea	Internal solid infill	2140	8	INFILL-SOLID	INFILL-SOLID:8
+rose_215c_pla.gcode.gz	abbc2c80bd7684f5d4425b54dd48c36842b6062fad7ca413a100d802c6b553ea	Ironing	2178	4	IRONING	IRONING:4
+stringart3d_generic.gcode.gz	a9051f5c107d4310202f67ad2d36fa646bd0e0e35151206ef55040576c98fdd5	Outer wall	32	15	WALL-OUTER	WALL-OUTER:15
+stringart3d_generic.gcode.gz	a9051f5c107d4310202f67ad2d36fa646bd0e0e35151206ef55040576c98fdd5	Inner adhesion wall	167	1	WALL-INNER	WALL-INNER:1
+stringart3d_generic.gcode.gz	a9051f5c107d4310202f67ad2d36fa646bd0e0e35151206ef55040576c98fdd5	Inner wall	299	12	WALL-INNER	WALL-INNER:12
+stringart3d_generic.gcode.gz	a9051f5c107d4310202f67ad2d36fa646bd0e0e35151206ef55040576c98fdd5	Internal solid infill	431	15	INFILL-SOLID	INFILL-SOLID:15
+stringart3d_generic.gcode.gz	a9051f5c107d4310202f67ad2d36fa646bd0e0e35151206ef55040576c98fdd5	Bridge	50422	1	BRIDGE	BRIDGE:1
+stringart3d_generic.gcode.gz	a9051f5c107d4310202f67ad2d36fa646bd0e0e35151206ef55040576c98fdd5	Cover Ring	110010	1	CUSTOM	C1:1
+stringart3d_generic.gcode.gz	a9051f5c107d4310202f67ad2d36fa646bd0e0e35151206ef55040576c98fdd5	Finishing Ring 1	111574	1	CUSTOM	C1:1
+stringart3d_generic.gcode.gz	a9051f5c107d4310202f67ad2d36fa646bd0e0e35151206ef55040576c98fdd5	Finishing Ring 2	113136	1	CUSTOM	C1:1
