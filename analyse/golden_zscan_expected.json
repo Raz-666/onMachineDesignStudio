@@ -1,0 +1,37 @@
+{
+  "candidate": {
+    "output_bytes": 241,
+    "output_sha256": "bd67f04a8c820207d22d216484f2faa9622f399e6f493732cbd6004bd94c7e45",
+    "summary": {
+      "by_object": false,
+      "info_added": true,
+      "layers": 1,
+      "marks_added": 1,
+      "method": "Z scan",
+      "retract_pairs": 0,
+      "skipped": false,
+      "tagged": true,
+      "types": 1,
+      "upgraded": false
+    }
+  },
+  "case": "m82_zhop",
+  "format": 1,
+  "reason": "No false layer marker on an absolute-E zero-extrusion Z-hop; see tools/test_zscan_modes.py",
+  "reference": {
+    "output_bytes": 252,
+    "output_sha256": "cef783d8ff0ef3f754279916337729e922f46c9006e65c6e595b84b1efb12cea",
+    "summary": {
+      "by_object": false,
+      "info_added": true,
+      "layers": 2,
+      "marks_added": 2,
+      "method": "Z scan",
+      "retract_pairs": 0,
+      "skipped": false,
+      "tagged": true,
+      "types": 1,
+      "upgraded": false
+    }
+  }
+}

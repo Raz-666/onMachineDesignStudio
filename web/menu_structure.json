@@ -23406,7 +23406,7 @@
         "id": "__main __maint __flow __targ",
         "type": "input",
         "name": "Target: {'%.2f' % menu.input}",
-        "input": "{printer['save_variables'].variables.flow_cal_target|default(0.4)}",
+        "input": "{printer['save_variables'].variables.flow_cal_target|default((printer.configfile.settings.extruder|default({})).nozzle_diameter|default(0.4))}",
         "input_min": "0.25",
         "input_max": "0.8",
         "input_step": "0.05",
@@ -23797,7 +23797,7 @@
         "type": "command",
         "name": "How it works",
         "gcode": [
-         "RESPOND MSG=\"How it works: CARDS cards (F10/S20 .. F20/S40 default), each on BASE base layers, ironing on top | Card 4-6 zones via console (F4/S4..), sizes auto-fit. Best -> ironing overrides ON\""
+         "RESPOND MSG=\"How it works: CARDS cards (F10/S20 .. F20/S40 default), each on BASE base layers, ironing on top | Card 4-6 zones via console (F4/S4..), sizes auto-fit. Best shows recorded flow and speed; no overrides applied\""
         ],
         "children": []
        }

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# THIS IS THE EXPERIMENTAL COPY (R252) - identical to r2_postproc.py
-# apart from these three header lines. The engine gate picks it.
+# Experimental engine copy - selected only by the existing engine gate.
+# Image and queue fixes are also present in the active entry point.
 """R2 G-code post-processor + folder watcher (R56 / .40) - the LAYER READER.
 
 WHY: Klipper macros cannot read files - comments like ';LAYER_CHANGE' never
@@ -8825,6 +8825,19 @@ class _JobCancelled(Exception):
     worker deletes the partial output and reports."""
 
 
+def _job_drop_pending_locked(state):
+    """Drop queued items and their dedup keys, preserving any running key.
+
+    Caller must hold state['lock']. Never call external code under this lock.
+    """
+    pending = state['queue']
+    count = len(pending)
+    for item in pending:
+        state['keys'].discard(item[1])
+    pending.clear()
+    return count
+
+
 def _genq_push():
     """R236: keep save_variables.gen_queue_cnt == len(job queue)."""
     with _JOB_STATE['lock']:
@@ -8851,6 +8864,95 @@ def _moonraker_filelist_notify(relpath, host='127.0.0.1', port=7125):
     req = urllib.request.Request(url, method='POST', data=b'')
     with urllib.request.urlopen(req, timeout=3.0) as r:
         return 200 <= r.status < 300
+
+
+def _copy_picked_image(directory, relative):
+    """Copy a selected image into the root without replacing existing files.
+
+    Return (root basename, copied). A root image is validated but not copied.
+    A nested path is opened component by component without following symlinks;
+    the output is first written under a private temporary name, then published
+    by an atomic no-replace hard link. Unsupported filesystems fail closed.
+    This validates path and regular-file status, not the image's pixel data.
+    """
+    import secrets
+    import stat
+
+    name = str(relative or '').strip().lstrip('/')
+    parts = name.split('/')
+    if (not name or any(p in ('', '.', '..') for p in parts)
+            or '\\' in name or any(ord(c) < 32 or ord(c) == 127 for c in name)
+            or any(c in name for c in ('"', "'", ';'))
+            or os.path.splitext(name)[1].lower() not in ('.png', '.jpg', '.jpeg')):
+        raise ValueError('not a safe image path')
+    if not all(hasattr(os, flag) for flag in ('O_DIRECTORY', 'O_NOFOLLOW', 'O_NONBLOCK')):
+        raise OSError('safe image copy is not supported on this platform')
+
+    root_fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+    opened_dirs = []
+    temp_name = None
+    try:
+        parent_fd = root_fd
+        for part in parts[:-1]:
+            parent_fd = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                                dir_fd=parent_fd)
+            opened_dirs.append(parent_fd)
+        src_fd = os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+                         dir_fd=parent_fd)
+        try:
+            before = os.fstat(src_fd)
+            if not stat.S_ISREG(before.st_mode):
+                raise ValueError('image source is not a regular file')
+        except Exception:
+            os.close(src_fd)
+            raise
+        with os.fdopen(src_fd, 'rb') as src:
+            if len(parts) == 1:
+                return parts[0], False
+
+            # The temporary file is exclusively created in the root and is
+            # invisible to the image list until all bytes have been copied.
+            for _ in range(100):
+                candidate = '.r2-img-' + secrets.token_hex(12) + '.tmp'
+                try:
+                    temp_fd = os.open(candidate, os.O_WRONLY | os.O_CREAT | os.O_EXCL
+                                      | os.O_NOFOLLOW, 0o600, dir_fd=root_fd)
+                    temp_name = candidate
+                    break
+                except FileExistsError:
+                    continue
+            else:
+                raise OSError('cannot create an exclusive image staging file')
+            with os.fdopen(temp_fd, 'wb') as out:
+                shutil.copyfileobj(src, out, length=1024 * 1024)
+                out.flush()
+                after = os.fstat(src.fileno())
+                if ((before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
+                        != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)):
+                    raise OSError('image changed while being copied')
+                os.fchmod(out.fileno(), stat.S_IMODE(before.st_mode))
+                os.utime(out.fileno(), ns=(before.st_atime_ns, before.st_mtime_ns))
+                os.fsync(out.fileno())
+
+        stem, ext = os.path.splitext(parts[-1])
+        for number in range(10000):
+            target = parts[-1] if number == 0 else '%s_%d%s' % (stem, number, ext)
+            try:
+                os.link(temp_name, target, src_dir_fd=root_fd, dst_dir_fd=root_fd,
+                        follow_symlinks=False)
+                return target, True
+            except FileExistsError:
+                continue
+        raise OSError('no free image name found')
+    finally:
+        if temp_name is not None:
+            try:
+                os.unlink(temp_name, dir_fd=root_fd)
+            except FileNotFoundError:
+                pass
+        for fd in reversed(opened_dirs):
+            os.close(fd)
+        os.close(root_fd)
 
 
 def _job_tick(step=1, every=25, pause=0.02):
@@ -18112,6 +18214,9 @@ def _stl_export(directory, rel, out_dir=None):
             if cur_type in _excl214:        # R253: strict or relaxed
                 excl_mm[cur_type] = excl_mm.get(cur_type, 0.0) + seg
                 run = None
+                # Excluding geometry must not exclude the E state update:
+                # later absolute-E extrusion is relative to this move.
+                e = e_new
                 continue
             # provisional width with h=0.2 - only a MERGE criterion; the
             # final ribbon width is recomputed with the true layer height
@@ -19707,9 +19812,20 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
                'info_added': False, 'skipped': False, 'by_object': False,
                'layers': 0, 'method': None, 'types': 0, 'upgraded': False, 'upgraded_from': 'v1',
                'retract_pairs': 0}
-    # R84: Bowden-era rescue - rewrite explicit retracts to G10/G11 BEFORE the
-    # normal processing so the current extruder's retraction applies
+    # Check the same skip predicates before an optional in-place rewrite.
+    # A tagged/plotter file reported as skipped must not be modified first.
     if retract_rewrite and not dry:
+        head = ''
+        with open(path, 'r', errors='replace') as source:
+            for raw in source:
+                if len(head) <= 2048:
+                    head += raw
+                    if 'R2-PLOT' in head[:2048]:
+                        summary['skipped'] = True
+                        return summary
+                if TAG in raw:
+                    summary['skipped'] = True
+                    return summary
         try:
             summary['retract_pairs'], _ab = _retract_rewrite_file(path)
         except OSError as e:
@@ -20254,19 +20370,37 @@ class _ZScan:
         self.prev_z = None      # effective Z of the last EXTRUDING move
         self.acc = 0.0          # vase-mode accumulator
         self.absolute = True
+        self.e_relative = False
+        # The file scanner starts from E0 as a compatibility assumption, not
+        # a measured firmware position; G92 and every E move update it.
+        self.e_position = 0.0
         self.modal_z = None     # R111: last Z seen on ANY move (travel too)
 
     def step(self, i, j, ls):
-        if ls.startswith('G90'):
+        command = ls.split(';', 1)[0].strip().split(None, 1)
+        command = command[0].upper() if command else ''
+        if command == 'G90':
             self.absolute = True
-        elif ls.startswith('G91'):
+        elif command == 'G91':
             self.absolute = False
-        elif ls.startswith('M83'):
-            pass                      # relative E - irrelevant for Z
+        elif command == 'M82':
+            self.e_relative = False
+        elif command == 'M83':
+            self.e_relative = True
+        elif command == 'G92':
+            reset = parse_params(ls[len(command):])
+            if 'E' in reset:
+                self.e_position = reset['E']
         m = MOVE_RE.match(ls)
         if not m:
             return
         p = parse_params(m.group(2))
+        e_delta = None
+        if 'E' in p:
+            # Klipper's G91 also makes E relative, even after M82.
+            relative_e = self.e_relative or not self.absolute
+            e_delta = p['E'] if relative_e else p['E'] - self.e_position
+            self.e_position = self.e_position + e_delta if relative_e else p['E']
         # R111 (roadmap L3+): Z set on a SEPARATE travel line now counts as
         # the layer Z (modal) - files that never repeat Z on the extruding
         # moves get their layer marks too. Hop safety comes free from the
@@ -20281,7 +20415,7 @@ class _ZScan:
             z_eff = self.modal_z
         else:
             return
-        extruding = 'E' in p and ('X' in p or 'Y' in p)
+        extruding = e_delta is not None and e_delta > 0 and ('X' in p or 'Y' in p)
         if not extruding or not self.absolute:
             return
         z = z_eff
@@ -22308,7 +22442,7 @@ def _upgrade_center_excludes(path):
     (field log: three SMART_PARK errors, printer in ERROR, no print).
     KAMP's adaptive BED_MESH_CALIBRATE reads the same attribute.
 
-    This measures each object's REAL outline from its own moves and
+    This approximates each object's XY bounding box from its own moves and
     appends POLYGON=[[minx,miny],[maxx,miny],[maxx,maxy],[minx,maxy]] to
     the CENTER-only define:
       - per-object bbox from the moves between EXCLUDE_OBJECT_START
@@ -22339,6 +22473,9 @@ def _upgrade_center_excludes(path):
     glob = [1e30, 1e30, -1e30, -1e30]     # global extrusion bbox
     cur_obj = None
     x = y = None
+    xyz_absolute = True
+    e_relative = False
+    e_position = 0.0  # file-local initial assumption, not live machine state
     with open(path, 'r', errors='replace') as f:
         for line in f:
             ls = line.strip()
@@ -22359,42 +22496,51 @@ def _upgrade_center_excludes(path):
             if ls.startswith('EXCLUDE_OBJECT_END'):
                 cur_obj = None
                 continue
-            if ls.startswith(';') or not _MOVE226.match(ls):
+            code = ls.split(';', 1)[0].strip()
+            cmd = code.split(None, 1)[0].upper() if code else ''
+            if cmd == 'G90':
+                xyz_absolute = True
+            elif cmd == 'G91':
+                xyz_absolute = False
+            elif cmd == 'M82':
+                e_relative = False
+            elif cmd == 'M83':
+                e_relative = True
+            elif cmd == 'G92':
+                reset = parse_params(code[len(cmd):])
+                # Mixing XY coordinate frames would invent a polygon. Leave
+                # CENTER-only unchanged instead of guessing a transform.
+                if 'X' in reset or 'Y' in reset:
+                    return False
+                if 'E' in reset:
+                    e_position = reset['E']
+            elif cmd in ('G20', 'G2', 'G3'):
+                return False  # inches/arcs are not measured by this scan
+            if not _MOVE226.match(code):
                 continue
-            nx = ny = None
-            epos = False
-            for t, v in _NUM226.findall(ls):
-                v = float(v)
-                if t == 'X':
-                    nx = v
-                elif t == 'Y':
-                    ny = v
-                elif t == 'E' and v > 0:
-                    epos = True
-            if nx is not None:
-                x = nx
-            if ny is not None:
-                y = ny
-            if epos and x is not None and y is not None:
-                if x < glob[0]:
-                    glob[0] = x
-                if y < glob[1]:
-                    glob[1] = y
-                if x > glob[2]:
-                    glob[2] = x
-                if y > glob[3]:
-                    glob[3] = y
-                if cur_obj and cur_obj in defines:
-                    bb = spans.setdefault(cur_obj,
-                                          [1e30, 1e30, -1e30, -1e30])
-                    if x < bb[0]:
-                        bb[0] = x
-                    if y < bb[1]:
-                        bb[1] = y
-                    if x > bb[2]:
-                        bb[2] = x
-                    if y > bb[3]:
-                        bb[3] = y
+            p = parse_params(code[2:])
+            before_x, before_y = x, y
+            if 'X' in p:
+                x = p['X'] if xyz_absolute else (x + p['X'] if x is not None else None)
+            if 'Y' in p:
+                y = p['Y'] if xyz_absolute else (y + p['Y'] if y is not None else None)
+            de = None
+            if 'E' in p:
+                rel_e = e_relative or not xyz_absolute  # Klipper G91 semantics
+                de = p['E'] if rel_e else p['E'] - e_position
+                e_position = e_position + de if rel_e else p['E']
+            if de is not None and de > 0 and ('X' in p or 'Y' in p) and x is not None and y is not None:
+                points = [(x, y)]
+                if before_x is not None and before_y is not None and ('X' in p or 'Y' in p):
+                    points.append((before_x, before_y))
+                for px, py in points:
+                    glob[0], glob[1] = min(glob[0], px), min(glob[1], py)
+                    glob[2], glob[3] = max(glob[2], px), max(glob[3], py)
+                    if cur_obj and cur_obj in defines:
+                        bb = spans.setdefault(cur_obj,
+                                              [1e30, 1e30, -1e30, -1e30])
+                        bb[0], bb[1] = min(bb[0], px), min(bb[1], py)
+                        bb[2], bb[3] = max(bb[2], px), max(bb[3], py)
     # ---- decide the polygons --------------------------------------------------
     _one226 = len(order) == 1
     for nm in order:
@@ -22437,8 +22583,8 @@ def _upgrade_center_excludes(path):
             pass
         return False
     os.replace(tmp, path)
-    print('[eod226] %s: %d object define(s) upgraded with a measured '
-          'POLYGON (KAMP-safe)' % (os.path.basename(path), n), flush=True)
+    print('[eod226] %s: %d object define(s) upgraded with approximate XY '
+          'bounding-box polygons (not verified object outlines)' % (os.path.basename(path), n), flush=True)
     return True
 
 
@@ -24465,6 +24611,10 @@ def watch(directory, interval=5.0, once=False):
                             pass
                     time.sleep(5.0)
                     continue
+                _zdone = _JOB_STATE.get('zombie')
+                if _zdone is not None:
+                    with _JOB_STATE['lock']:
+                        _JOB_STATE['keys'].discard(_zdone[1])
                 _JOB_STATE['thread'] = None
                 _JOB_STATE['zombie'] = None
                 _JOB_STATE['busy'] = False
@@ -24484,6 +24634,9 @@ def watch(directory, interval=5.0, once=False):
             if item is None:
                 time.sleep(0.4)
                 continue
+            # Unpack before inspecting kill: cancellation can arrive just
+            # after dequeue and needs the actual job's name and key.
+            name, key, fn, outs, t_spawn, t_wait, t_notice, ram_min = item
             _genq_push()      # R236: one left the waiting line
             with _JOB_STATE['lock']:
                 _n236 = len(_JOB_STATE['queue'])
@@ -24494,7 +24647,7 @@ def watch(directory, interval=5.0, once=False):
                 _JOB_STATE['kill'] = None
                 if _k238w == 'STOP':
                     with _JOB_STATE['lock']:
-                        _JOB_STATE['queue'].clear()
+                        _job_drop_pending_locked(_JOB_STATE)
                 with _JOB_STATE['lock']:
                     _JOB_STATE['keys'].discard(key)
                 try:
@@ -24509,7 +24662,6 @@ def watch(directory, interval=5.0, once=False):
                 _genq_push()
                 continue
             _spin148['win'] = True      # R236: CPU window is contaminated
-            name, key, fn, outs, t_spawn, t_wait, t_notice, ram_min = item
             _ram162 = _mem_available_mb()
             if _printer_busy() or (0 < _ram162 < ram_min):
                 # print has priority - requeue and let it finish first.
@@ -24626,8 +24778,7 @@ def watch(directory, interval=5.0, once=False):
                 # releases them the moment the thread ends
                 _JOB_STATE['zombie'] = (name, key)
                 _JOB_YIELD['on'] = True    # keep the watcher passes light
-                with _JOB_STATE['lock']:
-                    _JOB_STATE['keys'].discard(key)
+                # Retain the key until the zombie net sees this thread end.
                 continue
             try:
                 if 'err' in box:
@@ -24640,7 +24791,7 @@ def watch(directory, interval=5.0, once=False):
                         _JOB_STATE['kill'] = None
                         if _k238c == 'STOP':
                             with _JOB_STATE['lock']:
-                                _JOB_STATE['queue'].clear()
+                                _job_drop_pending_locked(_JOB_STATE)
                         for _o238 in (outs or []):
                             try:
                                 if _o238 and os.path.isfile(_o238):
@@ -25847,9 +25998,7 @@ def watch(directory, interval=5.0, once=False):
             if qcn and qcn != last_qcancel_nonce:
                 last_qcancel_nonce = qcn
                 with _JOB_STATE['lock']:
-                    nq = len(_JOB_STATE['queue'])
-                    _JOB_STATE['queue'][:] = []
-                    _JOB_STATE['keys'].clear()
+                    nq = _job_drop_pending_locked(_JOB_STATE)
                 _moonraker_gcode(
                     'RESPOND MSG="Job queue cleared - %d pending job(s)'
                     ' dropped. A running job finishes (it is mid-file) -'
@@ -25897,44 +26046,22 @@ def watch(directory, interval=5.0, once=False):
             _ipn = rv.get('img_pick_nonce', '')
             if _ipn and _ipn != last_img_pick_nonce:
                 last_img_pick_nonce = _ipn
-                _irel174 = str(rv.get('img_pick_file', '') or '').strip().lstrip('/')
-                _iext174 = os.path.splitext(_irel174)[1].lower()
-                if (not _irel174 or '..' in _irel174.split('/')
-                        or _iext174 not in ('.png', '.jpg', '.jpeg')):
+                _irel174 = str(rv.get('img_pick_file', '') or '').strip()
+                try:
+                    _iname174, _copied174 = _copy_picked_image(directory, _irel174)
+                except (ValueError, OSError) as _err174:
+                    print('[imgpick] refused: %r' % _err174, flush=True)
                     _moonraker_gcode(
-                        'RESPOND MSG=\"Image pick refused: not an image path\"'
+                        'RESPOND MSG=\"Image pick failed or unsafe - see host log\"'
                         '\nM117 Pick refused\n'
                         '_SOUND_LIB NAME=r2_error')
                 else:
-                    _isrc174 = os.path.join(directory, _irel174)
-                    _idst174 = os.path.join(directory, os.path.basename(_irel174))
-                    # R237: a ROOT pick (13_system picks root images too now)
-                    # would copy a file onto itself - shutil.copy2 raises
-                    # SameFileError and the pick died without any feedback.
-                    # Same path = nothing to copy, the pick itself is done.
-                    if _isrc174 == _idst174:
-                        _moonraker_gcode(
-                            'RESPOND MSG=\"[OK] %s picked - already in the '
-                            'main folder - ready for Texture MAP and Tools > '
-                            'Lithophane/Plotter\"\nM117 %s ready'
-                            % (os.path.basename(_irel174),
-                               os.path.basename(_irel174)))
-                        print(f'[imgpick] {_irel174} already at root', flush=True)
-                    elif os.path.isfile(_isrc174):
-                        import shutil as _sh174
-                        _sh174.copy2(_isrc174, _idst174)
-                        _moonraker_gcode(
-                            'RESPOND MSG=\"[OK] %s copied to the main folder '
-                            '- ready in Tools > Lithophane/Plotter\"'
-                            '\nM117 %s ready'
-                            % (os.path.basename(_irel174),
-                               os.path.basename(_irel174)))
-                        print(f'[imgpick] {_irel174} -> root', flush=True)
-                    else:
-                        _moonraker_gcode(
-                            'RESPOND MSG=\"Image not found: %s\"'
-                            '\nM117 Not found\n'
-                            '_SOUND_LIB NAME=r2_notice' % _irel174)
+                    _action174 = 'copied to' if _copied174 else 'already in'
+                    _moonraker_gcode(
+                        'RESPOND MSG=\"[OK] %s %s the main folder - ready in '
+                        'Tools > Lithophane/Plotter\"\nM117 %s ready'
+                        % (_iname174, _action174, _iname174))
+                    print('[imgpick] %r -> %s' % (_irel174, _iname174), flush=True)
         except Exception as e:                              # noqa: BLE001
             print(f'[imgpick] error: {e!r}', flush=True)
 
@@ -26033,10 +26160,8 @@ def watch(directory, interval=5.0, once=False):
         # jobs > clear queue. The .136s field log: a wedged photo build
         # held the ONLY worker forever, its key refused every retry and
         # gen_busy=1 blocked print starts, with no way out from the LCD.
-        # This drops every QUEUED job and frees all keys (including the
-        # running job's - its late cleanup discards a key that is already
-        # gone: harmless). Settings are untouched - nothing is lost but
-        # the job.
+        # Drop QUEUED jobs and their keys; keep any running job's key
+        # until its worker actually finishes. Settings are untouched.
         # R224 (.136v field review): gen_busy is NO LONGER pulled down
         # blindly. While a build thread still lives (normal or stuck) the
         # flags stay UP - .136u freed them here although the thread kept
@@ -26049,9 +26174,7 @@ def watch(directory, interval=5.0, once=False):
             if _gc223 and _gc223 != last_gclear_nonce:
                 last_gclear_nonce = _gc223
                 with _JOB_STATE['lock']:
-                    _dropped223 = len(_JOB_STATE['queue'])
-                    _JOB_STATE['queue'] = []
-                    _JOB_STATE['keys'].clear()
+                    _dropped223 = _job_drop_pending_locked(_JOB_STATE)
                 _th224c = _JOB_STATE.get('thread')
                 if _th224c is not None and _th224c.is_alive():
                     # a build is STILL running (or stuck): hold the flags
@@ -26112,8 +26235,7 @@ def watch(directory, interval=5.0, once=False):
                     _drop238 = 0
                     if _km238 == 'STOP':
                         with _JOB_STATE['lock']:
-                            _drop238 = len(_JOB_STATE['queue'])
-                            _JOB_STATE['queue'].clear()
+                            _drop238 = _job_drop_pending_locked(_JOB_STATE)
                         _genq_push()
                     try:
                         _moonraker_gcode(

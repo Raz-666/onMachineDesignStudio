@@ -1,0 +1,22 @@
+test_absolute_e_unknown_initial_then_known (__main__.ShadowTests.test_absolute_e_unknown_initial_then_known) ... ok
+test_arcs_unknown_then_explicit_modes_recover (__main__.ShadowTests.test_arcs_unknown_then_explicit_modes_recover) ... ok
+test_cli_reads_input_without_modifying_and_jsonl_roundtrips (__main__.ShadowTests.test_cli_reads_input_without_modifying_and_jsonl_roundtrips) ... ok
+test_compact_arguments_comments_and_raw_are_preserved (__main__.ShadowTests.test_compact_arguments_comments_and_raw_are_preserved) ... ok
+test_default_modes_are_unknown_until_explicitly_set (__main__.ShadowTests.test_default_modes_are_unknown_until_explicitly_set) ... ok
+test_fixpoint_mutation_of_relative_state_is_detected (__main__.ShadowTests.test_fixpoint_mutation_of_relative_state_is_detected) ... ok
+test_g20_klipper_rejected_generic_explicit (__main__.ShadowTests.test_g20_klipper_rejected_generic_explicit) ... ok
+test_g92_is_coordinate_reset_not_motion (__main__.ShadowTests.test_g92_is_coordinate_reset_not_motion) ... ok
+test_inch_and_mm_conversions (__main__.ShadowTests.test_inch_and_mm_conversions) ... ok
+test_klipper_g91_forces_e_relative_even_after_m82 (__main__.ShadowTests.test_klipper_g91_forces_e_relative_even_after_m82) ... ok
+test_m82_g92_and_known_previous_e (__main__.ShadowTests.test_m82_g92_and_known_previous_e) ... ok
+test_numeric_overflow_invalidates_instead_of_inf (__main__.ShadowTests.test_numeric_overflow_invalidates_instead_of_inf) ... ok
+test_passive_event_does_not_change_mode_or_position (__main__.ShadowTests.test_passive_event_does_not_change_mode_or_position) ... ok
+test_relative_unknown_position_is_not_invented (__main__.ShadowTests.test_relative_unknown_position_is_not_invented) ... ok
+test_relative_xyz_accumulates_and_e_relative (__main__.ShadowTests.test_relative_xyz_accumulates_and_e_relative) ... ok
+test_syntax_duplicates_nonfinite_and_invalid_feed_invalidate (__main__.ShadowTests.test_syntax_duplicates_nonfinite_and_invalid_feed_invalidate) ... ok
+test_unknown_macro_tool_and_homing_invalidate (__main__.ShadowTests.test_unknown_macro_tool_and_homing_invalidate) ... ok
+
+----------------------------------------------------------------------
+Ran 17 tests in 0.038s
+
+OK

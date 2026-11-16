@@ -1,0 +1,126 @@
+{
+  "cases": {
+    "bigrose": {
+      "archive_sha256": "0f8722007d799774d28de428baf82887ca6afa2df117cf01621dea024b3ec9d0",
+      "input_bytes": 12366187,
+      "input_sha256": "6eec501c41790d4887d1a74a167cb367b832eb3a6e9f2d25a12498439cfe84eb",
+      "output_bytes": 12368028,
+      "output_sha256": "a15d2d49cc473b8dc086775e5e0a22814272ddb8881ae3960430641425821167",
+      "summary": {
+        "by_object": false,
+        "info_added": true,
+        "layers": 251,
+        "marks_added": 0,
+        "method": null,
+        "retract_pairs": 0,
+        "skipped": false,
+        "tagged": true,
+        "types": 36,
+        "upgraded": false
+      }
+    },
+    "m82_zhop": {
+      "archive_sha256": null,
+      "input_bytes": 114,
+      "input_sha256": "dbc32c2e4533f1e1520a5da0b0193e781ed3aa39492b6902dc9d73affaba07ba",
+      "output_bytes": 252,
+      "output_sha256": "cef783d8ff0ef3f754279916337729e922f46c9006e65c6e595b84b1efb12cea",
+      "summary": {
+        "by_object": false,
+        "info_added": true,
+        "layers": 2,
+        "marks_added": 2,
+        "method": "Z scan",
+        "retract_pairs": 0,
+        "skipped": false,
+        "tagged": true,
+        "types": 1,
+        "upgraded": false
+      }
+    },
+    "m83_comments": {
+      "archive_sha256": null,
+      "input_bytes": 151,
+      "input_sha256": "a67c893d1ca004beda857161d0d496fb5bcf58303f590a7135faf9123079df2b",
+      "output_bytes": 387,
+      "output_sha256": "22ae573aeb55894249be51216b4333ba84a7be323b4fbdc3c58ecbe63cce719e",
+      "summary": {
+        "by_object": false,
+        "info_added": true,
+        "layers": 2,
+        "marks_added": 2,
+        "method": "layer comments",
+        "retract_pairs": 0,
+        "skipped": false,
+        "tagged": true,
+        "types": 2,
+        "upgraded": false
+      }
+    },
+    "rose": {
+      "archive_sha256": "abbc2c80bd7684f5d4425b54dd48c36842b6062fad7ca413a100d802c6b553ea",
+      "input_bytes": 5151986,
+      "input_sha256": "b09177f086e68b17c7e55a5d0ac0d00834553e57e5284f86b33c56598ac8b0ab",
+      "output_bytes": 5156482,
+      "output_sha256": "bdd012d55dc7a2ae16c40bf666f8939780d1edd68b84b643459bb28d55f10393",
+      "summary": {
+        "by_object": true,
+        "info_added": true,
+        "layers": 242,
+        "marks_added": 242,
+        "method": "layer comments",
+        "retract_pairs": 0,
+        "skipped": false,
+        "tagged": true,
+        "types": 36,
+        "upgraded": false
+      }
+    },
+    "stringart": {
+      "archive_sha256": "a9051f5c107d4310202f67ad2d36fa646bd0e0e35151206ef55040576c98fdd5",
+      "input_bytes": 4330515,
+      "input_sha256": "21f37f51309dbfb5656c403dc37ce0de5b52c10b95c50f8e9c4232548fe36008",
+      "output_bytes": 4332328,
+      "output_sha256": "313d3ccac29cad47fc46bdaa065b09ab72d134019dc39254fa2c1a61ea3fa0d0",
+      "summary": {
+        "by_object": false,
+        "info_added": true,
+        "layers": 15,
+        "marks_added": 15,
+        "method": "layer comments",
+        "retract_pairs": 0,
+        "skipped": false,
+        "tagged": true,
+        "types": 47,
+        "upgraded": false
+      }
+    },
+    "tagged": {
+      "archive_sha256": null,
+      "input_bytes": 80,
+      "input_sha256": "70318b8956832da77dc2857d600938006e6392e2593de12e32a80a0db5201d64",
+      "output_bytes": 80,
+      "output_sha256": "70318b8956832da77dc2857d600938006e6392e2593de12e32a80a0db5201d64",
+      "summary": {
+        "by_object": false,
+        "info_added": false,
+        "layers": 0,
+        "marks_added": 0,
+        "method": null,
+        "retract_pairs": 0,
+        "skipped": true,
+        "tagged": false,
+        "types": 0,
+        "upgraded": false
+      }
+    }
+  },
+  "engine": "tools/r2_postproc.py",
+  "engine_sha256": "5e7639d7dd1fea04642fc5fd5286e0ad529a0f27055042b0bf3e1f5b33593c63",
+  "format": 1,
+  "parameters": {
+    "dry": false,
+    "retract_rewrite": false,
+    "verbose": false
+  }
+}

@@ -1,0 +1,10 @@
+[seqaudit] rose.gcode: S3 brim beyond the brim window
+candidate: tools/r2_postproc.py sha256: 5e7639d7dd1fea04642fc5fd5286e0ad529a0f27055042b0bf3e1f5b33593c63
+environment: Linux-6.1.158+-x86_64-with-glibc2.36 Python 3.11.2 pid isolation: one process per case
+m83_comments {"cpu_system_seconds": 0.0, "cpu_user_seconds": 0.002532, "io_delta": {"rchar": 556, "read_bytes": 0, "wchar": 387, "write_bytes": 4096}, "maxrss_raw": 22032, "maxrss_units": "KiB", "wall_seconds": 0.002419}
+m82_zhop {"cpu_system_seconds": 0.0, "cpu_user_seconds": 0.003159, "io_delta": {"rchar": 556, "read_bytes": 0, "wchar": 252, "write_bytes": 4096}, "maxrss_raw": 21912, "maxrss_units": "KiB", "wall_seconds": 0.003066}
+tagged {"cpu_system_seconds": 0.0, "cpu_user_seconds": 0.000537, "io_delta": {"rchar": 179, "read_bytes": 0, "wchar": 0, "write_bytes": 0}, "maxrss_raw": 22028, "maxrss_units": "KiB", "wall_seconds": 0.000446}
+bigrose {"cpu_system_seconds": 0.019615, "cpu_user_seconds": 3.166917, "io_delta": {"rchar": 24929096, "read_bytes": 0, "wchar": 12368028, "write_bytes": 12369920}, "maxrss_raw": 22872, "maxrss_units": "KiB", "wall_seconds": 3.193433}
+rose {"cpu_system_seconds": 0.015985, "cpu_user_seconds": 1.703518, "io_delta": {"rchar": 10500691, "read_bytes": 0, "wchar": 5156536, "write_bytes": 5156864}, "maxrss_raw": 23200, "maxrss_units": "KiB", "wall_seconds": 1.723281}
+stringart {"cpu_system_seconds": 0.004319, "cpu_user_seconds": 1.397256, "io_delta": {"rchar": 8857748, "read_bytes": 0, "wchar": 4332328, "write_bytes": 4333568}, "maxrss_raw": 23308, "maxrss_units": "KiB", "wall_seconds": 1.405111}
+PASS: 6 cases, hashes, summaries and unchanged source archives

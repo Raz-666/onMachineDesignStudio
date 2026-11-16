@@ -1,0 +1,11 @@
+bigrose_020mm.gcode.gz conservative input_sha256= 6eec501c41790d4887d1a74a167cb367b832eb3a6e9f2d25a12498439cfe84eb moves= 0 known_xyz= 0 unknown= 252354 assumed_events= 0 layer_comments= 251 layer_marks= 251
+bigrose_020mm.gcode.gz hypothetical input_sha256= 6eec501c41790d4887d1a74a167cb367b832eb3a6e9f2d25a12498439cfe84eb moves= 250060 known_xyz= 250058 unknown= 2 assumed_events= 2041 layer_comments= 251 layer_marks= 251
+  archive_sha256= 0f8722007d799774d28de428baf82887ca6afa2df117cf01621dea024b3ec9d0 unchanged=True
+rose_215c_pla.gcode.gz conservative input_sha256= b09177f086e68b17c7e55a5d0ac0d00834553e57e5284f86b33c56598ac8b0ab moves= 0 known_xyz= 0 unknown= 148671 assumed_events= 0 layer_comments= 242 layer_marks= 0
+rose_215c_pla.gcode.gz hypothetical input_sha256= b09177f086e68b17c7e55a5d0ac0d00834553e57e5284f86b33c56598ac8b0ab moves= 147799 known_xyz= 147796 unknown= 2 assumed_events= 628 layer_comments= 242 layer_marks= 0
+  archive_sha256= abbc2c80bd7684f5d4425b54dd48c36842b6062fad7ca413a100d802c6b553ea unchanged=True
+stringart3d_generic.gcode.gz conservative input_sha256= 21f37f51309dbfb5656c403dc37ce0de5b52c10b95c50f8e9c4232548fe36008 moves= 0 known_xyz= 0 unknown= 114427 assumed_events= 0 layer_comments= 15 layer_marks= 0
+stringart3d_generic.gcode.gz hypothetical input_sha256= 21f37f51309dbfb5656c403dc37ce0de5b52c10b95c50f8e9c4232548fe36008 moves= 114327 known_xyz= 114326 unknown= 1 assumed_events= 100 layer_comments= 15 layer_marks= 0
+  archive_sha256= a9051f5c107d4310202f67ad2d36fa646bd0e0e35151206ef55040576c98fdd5 unchanged=True
+Hypothetical mode assumes, without proof, that the listed commands do not affect tracked state: M73,SET_PRESSURE_ADVANCE,SET_VELOCITY_LIMIT,EXCLUDE_OBJECT_DEFINE,EXCLUDE_OBJECT_START,EXCLUDE_OBJECT_END,LAYER_MARK,G10,G11,G28,T0
+No resulting coordinate is a measured physical position or print-safety guarantee.

@@ -1,0 +1,11 @@
+test_candidate_comparison_ignores_only_engine_identity (__main__.BaselineTests.test_candidate_comparison_ignores_only_engine_identity) ... ok
+test_copy_of_reference_matches (__main__.BaselineTests.test_copy_of_reference_matches) ... ok
+test_end_to_end_mutated_golden_fails (__main__.BaselineTests.test_end_to_end_mutated_golden_fails) ... ok
+test_input_output_summary_and_engine_mutations_are_detected (__main__.BaselineTests.test_input_output_summary_and_engine_mutations_are_detected) ... ok
+test_missing_or_extra_fields_and_cases_are_detected (__main__.BaselineTests.test_missing_or_extra_fields_and_cases_are_detected) ... ok
+test_worker_uses_current_synthetic_case_and_no_original_write (__main__.BaselineTests.test_worker_uses_current_synthetic_case_and_no_original_write) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 6.896s
+
+OK

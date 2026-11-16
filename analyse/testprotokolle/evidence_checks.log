@@ -1,0 +1,303 @@
+Jinja2 3.1.6
+analyse/klipper-referenz/gcode.py: OK
+backups/r2_postproc_R2-2026-11-13.1_V1.py: OK
+==== active test_image_pick_next.py
+test_collision_keeps_every_existing_file_and_reports_new_name (__main__.ImagePickTests.test_collision_keeps_every_existing_file_and_reports_new_name) ... ok
+test_copy_failure_keeps_original_and_leaves_no_partial_output (__main__.ImagePickTests.test_copy_failure_keeps_original_and_leaves_no_partial_output) ... ok
+test_directory_and_fifo_sources_are_refused_without_blocking (__main__.ImagePickTests.test_directory_and_fifo_sources_are_refused_without_blocking) ... ok
+test_existing_destination_symlink_not_followed_or_replaced (__main__.ImagePickTests.test_existing_destination_symlink_not_followed_or_replaced) ... ok
+test_existing_root_pick_is_read_only_and_missing_root_fails (__main__.ImagePickTests.test_existing_root_pick_is_read_only_and_missing_root_fails) ... ok
+test_link_failure_keeps_original_and_cleans_staging (__main__.ImagePickTests.test_link_failure_keeps_original_and_cleans_staging) ... ok
+test_new_destination_and_original_preserved (__main__.ImagePickTests.test_new_destination_and_original_preserved) ... ok
+test_no_replace_mutation_is_caught (__main__.ImagePickTests.test_no_replace_mutation_is_caught) ... ok
+test_original_watcher_block_reports_actual_copy_and_error (__main__.ImagePickTests.test_original_watcher_block_reports_actual_copy_and_error) ... [imgpick] 'sub/photo.png' -> photo_1.png
+[imgpick] refused: ValueError('not a safe image path')
+ok
+test_parallel_collision_is_atomic (__main__.ImagePickTests.test_parallel_collision_is_atomic) ... ok
+test_source_changed_mid_copy_is_not_published (__main__.ImagePickTests.test_source_changed_mid_copy_is_not_published) ... ok
+test_symlink_sources_and_nested_symlink_directories_rejected (__main__.ImagePickTests.test_symlink_sources_and_nested_symlink_directories_rejected) ... ok
+test_traversal_invalid_extension_and_command_injection_rejected (__main__.ImagePickTests.test_traversal_invalid_extension_and_command_injection_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.475s
+
+OK
+==== active test_queue_next.py
+test_all_clear_paths_use_shared_pending_helper (__main__.QueueTests.test_all_clear_paths_use_shared_pending_helper) ... ok
+test_cancel_skip_and_stop_drop_correct_keys_and_no_job_runs (__main__.QueueTests.test_cancel_skip_and_stop_drop_correct_keys_and_no_job_runs) ... ok
+test_drop_pending_preserves_running_key_and_container_identity (__main__.QueueTests.test_drop_pending_preserves_running_key_and_container_identity) ... ok
+test_old_dequeue_order_mutation_is_caught (__main__.QueueTests.test_old_dequeue_order_mutation_is_caught) ... ok
+test_zombie_key_remains_until_worker_thread_is_gone (__main__.QueueTests.test_zombie_key_remains_until_worker_thread_is_gone) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 2.574s
+
+OK
+==== active test_process_guards.py
+test_reference_backup_demonstrates_old_bug (__main__.SkipTests.test_reference_backup_demonstrates_old_bug) ... ok
+test_skip_unchanged_even_with_retract_rewrite (__main__.SkipTests.test_skip_unchanged_even_with_retract_rewrite) ... ok
+test_untagged_opt_in_retract_fix_is_preserved (__main__.SkipTests.test_untagged_opt_in_retract_fix_is_preserved) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.012s
+
+OK
+==== active test_zscan_modes.py
+test_absolute_e_only_and_g92_update_state (__main__.ZScanTests.test_absolute_e_only_and_g92_update_state) ... ok
+test_klipper_g91_m82_e_mode_is_relative_and_tracks_return_to_g90 (__main__.ZScanTests.test_klipper_g91_m82_e_mode_is_relative_and_tracks_return_to_g90) ... ok
+test_m82_and_m83_hop_e_zero_and_retract_have_no_false_marker (__main__.ZScanTests.test_m82_and_m83_hop_e_zero_and_retract_have_no_false_marker) ... ok
+test_mark_is_before_real_positive_extrusion_in_process (__main__.ZScanTests.test_mark_is_before_real_positive_extrusion_in_process) ... ok
+test_old_backup_proves_false_e_zero_marker (__main__.ZScanTests.test_old_backup_proves_false_e_zero_marker) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.010s
+
+OK
+==== active test_stl_extrusion_state.py
+test_filtered_absolute_and_relative_e_widths_match (__main__.STLExtrusionTests.test_filtered_absolute_and_relative_e_widths_match) ... ok
+test_g92_after_filtered_segment_resets_absolute_e (__main__.STLExtrusionTests.test_g92_after_filtered_segment_resets_absolute_e) ... ok
+test_reference_backup_demonstrates_absolute_e_bug (__main__.STLExtrusionTests.test_reference_backup_demonstrates_absolute_e_bug) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.010s
+
+OK
+==== active test_object_bbox_modes.py
+test_absolute_and_relative_e_exclude_xy_wipe (__main__.BBoxTests.test_absolute_and_relative_e_exclude_xy_wipe) ... [eod226] M82.gcode: 1 object define(s) upgraded with approximate XY bounding-box polygons (not verified object outlines)
+[eod226] M83.gcode: 1 object define(s) upgraded with approximate XY bounding-box polygons (not verified object outlines)
+ok
+test_g92_e_and_relative_xy_mode (__main__.BBoxTests.test_g92_e_and_relative_xy_mode) ... [eod226] x.gcode: 1 object define(s) upgraded with approximate XY bounding-box polygons (not verified object outlines)
+ok
+test_reference_backup_includes_absolute_retraction_wipe (__main__.BBoxTests.test_reference_backup_includes_absolute_retraction_wipe) ... [eod226] old.gcode: 1 object define(s) upgraded with a measured POLYGON (KAMP-safe)
+ok
+test_unknown_xy_origin_or_arc_fails_closed (__main__.BBoxTests.test_unknown_xy_origin_or_arc_fails_closed) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.010s
+
+OK
+==== next test_image_pick_next.py
+test_collision_keeps_every_existing_file_and_reports_new_name (__main__.ImagePickTests.test_collision_keeps_every_existing_file_and_reports_new_name) ... ok
+test_copy_failure_keeps_original_and_leaves_no_partial_output (__main__.ImagePickTests.test_copy_failure_keeps_original_and_leaves_no_partial_output) ... ok
+test_directory_and_fifo_sources_are_refused_without_blocking (__main__.ImagePickTests.test_directory_and_fifo_sources_are_refused_without_blocking) ... ok
+test_existing_destination_symlink_not_followed_or_replaced (__main__.ImagePickTests.test_existing_destination_symlink_not_followed_or_replaced) ... ok
+test_existing_root_pick_is_read_only_and_missing_root_fails (__main__.ImagePickTests.test_existing_root_pick_is_read_only_and_missing_root_fails) ... ok
+test_link_failure_keeps_original_and_cleans_staging (__main__.ImagePickTests.test_link_failure_keeps_original_and_cleans_staging) ... ok
+test_new_destination_and_original_preserved (__main__.ImagePickTests.test_new_destination_and_original_preserved) ... ok
+test_no_replace_mutation_is_caught (__main__.ImagePickTests.test_no_replace_mutation_is_caught) ... ok
+test_original_watcher_block_reports_actual_copy_and_error (__main__.ImagePickTests.test_original_watcher_block_reports_actual_copy_and_error) ... [imgpick] 'sub/photo.png' -> photo_1.png
+[imgpick] refused: ValueError('not a safe image path')
+ok
+test_parallel_collision_is_atomic (__main__.ImagePickTests.test_parallel_collision_is_atomic) ... ok
+test_source_changed_mid_copy_is_not_published (__main__.ImagePickTests.test_source_changed_mid_copy_is_not_published) ... ok
+test_symlink_sources_and_nested_symlink_directories_rejected (__main__.ImagePickTests.test_symlink_sources_and_nested_symlink_directories_rejected) ... ok
+test_traversal_invalid_extension_and_command_injection_rejected (__main__.ImagePickTests.test_traversal_invalid_extension_and_command_injection_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.503s
+
+OK
+==== next test_queue_next.py
+test_all_clear_paths_use_shared_pending_helper (__main__.QueueTests.test_all_clear_paths_use_shared_pending_helper) ... ok
+test_cancel_skip_and_stop_drop_correct_keys_and_no_job_runs (__main__.QueueTests.test_cancel_skip_and_stop_drop_correct_keys_and_no_job_runs) ... ok
+test_drop_pending_preserves_running_key_and_container_identity (__main__.QueueTests.test_drop_pending_preserves_running_key_and_container_identity) ... ok
+test_old_dequeue_order_mutation_is_caught (__main__.QueueTests.test_old_dequeue_order_mutation_is_caught) ... ok
+test_zombie_key_remains_until_worker_thread_is_gone (__main__.QueueTests.test_zombie_key_remains_until_worker_thread_is_gone) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 2.504s
+
+OK
+==== next test_process_guards.py
+test_reference_backup_demonstrates_old_bug (__main__.SkipTests.test_reference_backup_demonstrates_old_bug) ... ok
+test_skip_unchanged_even_with_retract_rewrite (__main__.SkipTests.test_skip_unchanged_even_with_retract_rewrite) ... ok
+test_untagged_opt_in_retract_fix_is_preserved (__main__.SkipTests.test_untagged_opt_in_retract_fix_is_preserved) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.012s
+
+OK
+==== next test_zscan_modes.py
+test_absolute_e_only_and_g92_update_state (__main__.ZScanTests.test_absolute_e_only_and_g92_update_state) ... ok
+test_klipper_g91_m82_e_mode_is_relative_and_tracks_return_to_g90 (__main__.ZScanTests.test_klipper_g91_m82_e_mode_is_relative_and_tracks_return_to_g90) ... ok
+test_m82_and_m83_hop_e_zero_and_retract_have_no_false_marker (__main__.ZScanTests.test_m82_and_m83_hop_e_zero_and_retract_have_no_false_marker) ... ok
+test_mark_is_before_real_positive_extrusion_in_process (__main__.ZScanTests.test_mark_is_before_real_positive_extrusion_in_process) ... ok
+test_old_backup_proves_false_e_zero_marker (__main__.ZScanTests.test_old_backup_proves_false_e_zero_marker) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.012s
+
+OK
+==== next test_stl_extrusion_state.py
+test_filtered_absolute_and_relative_e_widths_match (__main__.STLExtrusionTests.test_filtered_absolute_and_relative_e_widths_match) ... ok
+test_g92_after_filtered_segment_resets_absolute_e (__main__.STLExtrusionTests.test_g92_after_filtered_segment_resets_absolute_e) ... ok
+test_reference_backup_demonstrates_absolute_e_bug (__main__.STLExtrusionTests.test_reference_backup_demonstrates_absolute_e_bug) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.011s
+
+OK
+==== next test_object_bbox_modes.py
+test_absolute_and_relative_e_exclude_xy_wipe (__main__.BBoxTests.test_absolute_and_relative_e_exclude_xy_wipe) ... [eod226] M82.gcode: 1 object define(s) upgraded with approximate XY bounding-box polygons (not verified object outlines)
+[eod226] M83.gcode: 1 object define(s) upgraded with approximate XY bounding-box polygons (not verified object outlines)
+ok
+test_g92_e_and_relative_xy_mode (__main__.BBoxTests.test_g92_e_and_relative_xy_mode) ... [eod226] x.gcode: 1 object define(s) upgraded with approximate XY bounding-box polygons (not verified object outlines)
+ok
+test_reference_backup_includes_absolute_retraction_wipe (__main__.BBoxTests.test_reference_backup_includes_absolute_retraction_wipe) ... [eod226] old.gcode: 1 object define(s) upgraded with a measured POLYGON (KAMP-safe)
+ok
+test_unknown_xy_origin_or_arc_fails_closed (__main__.BBoxTests.test_unknown_xy_origin_or_arc_fails_closed) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.011s
+
+OK
+==== test_r2_shadow.py
+test_absolute_e_unknown_initial_then_known (__main__.ShadowTests.test_absolute_e_unknown_initial_then_known) ... ok
+test_arcs_unknown_then_explicit_modes_recover (__main__.ShadowTests.test_arcs_unknown_then_explicit_modes_recover) ... ok
+test_cli_reads_input_without_modifying_and_jsonl_roundtrips (__main__.ShadowTests.test_cli_reads_input_without_modifying_and_jsonl_roundtrips) ... ok
+test_compact_arguments_comments_and_raw_are_preserved (__main__.ShadowTests.test_compact_arguments_comments_and_raw_are_preserved) ... ok
+test_core_command_cannot_be_reclassified_as_passive (__main__.ShadowTests.test_core_command_cannot_be_reclassified_as_passive) ... ok
+test_default_modes_are_unknown_until_explicitly_set (__main__.ShadowTests.test_default_modes_are_unknown_until_explicitly_set) ... ok
+test_fixpoint_mutation_of_relative_state_is_detected (__main__.ShadowTests.test_fixpoint_mutation_of_relative_state_is_detected) ... ok
+test_g20_klipper_rejected_generic_explicit (__main__.ShadowTests.test_g20_klipper_rejected_generic_explicit) ... ok
+test_g92_is_coordinate_reset_not_motion (__main__.ShadowTests.test_g92_is_coordinate_reset_not_motion) ... ok
+test_inch_and_mm_conversions (__main__.ShadowTests.test_inch_and_mm_conversions) ... ok
+test_klipper_g91_forces_e_relative_even_after_m82 (__main__.ShadowTests.test_klipper_g91_forces_e_relative_even_after_m82) ... ok
+test_m82_g92_and_known_previous_e (__main__.ShadowTests.test_m82_g92_and_known_previous_e) ... ok
+test_numeric_overflow_invalidates_instead_of_inf (__main__.ShadowTests.test_numeric_overflow_invalidates_instead_of_inf) ... ok
+test_passive_event_does_not_change_mode_or_position (__main__.ShadowTests.test_passive_event_does_not_change_mode_or_position) ... ok
+test_passive_macro_requires_explicit_assumption_and_is_labelled (__main__.ShadowTests.test_passive_macro_requires_explicit_assumption_and_is_labelled) ... ok
+test_relative_unknown_position_is_not_invented (__main__.ShadowTests.test_relative_unknown_position_is_not_invented) ... ok
+test_relative_xyz_accumulates_and_e_relative (__main__.ShadowTests.test_relative_xyz_accumulates_and_e_relative) ... ok
+test_syntax_duplicates_nonfinite_and_invalid_feed_invalidate (__main__.ShadowTests.test_syntax_duplicates_nonfinite_and_invalid_feed_invalidate) ... ok
+test_unknown_macro_tool_and_homing_invalidate (__main__.ShadowTests.test_unknown_macro_tool_and_homing_invalidate) ... ok
+
+----------------------------------------------------------------------
+Ran 19 tests in 0.033s
+
+OK
+==== test_r2_analysis.py
+.............
+----------------------------------------------------------------------
+Ran 13 tests in 0.010s
+
+OK
+==== test_r2_offline.py
+test_assumptions_are_explicit_and_report_only (__main__.OfflineTests.test_assumptions_are_explicit_and_report_only) ... ok
+test_cli_error_and_valid_json (__main__.OfflineTests.test_cli_error_and_valid_json) ... ok
+test_collision_symlink_and_fifo_fail_without_modification (__main__.OfflineTests.test_collision_symlink_and_fifo_fail_without_modification) ... ok
+test_derive_runs_real_engine_on_copy_only (__main__.OfflineTests.test_derive_runs_real_engine_on_copy_only) ... ok
+test_destination_symlink_and_source_as_output_never_clobbered (__main__.OfflineTests.test_destination_symlink_and_source_as_output_never_clobbered) ... ok
+test_destructive_link_mutation_is_detected (__main__.OfflineTests.test_destructive_link_mutation_is_detected) ... ok
+test_parallel_publication_has_one_winner (__main__.OfflineTests.test_parallel_publication_has_one_winner) ... ok
+test_processor_failure_timeout_and_unsupported_link (__main__.OfflineTests.test_processor_failure_timeout_and_unsupported_link) ... ok
+test_report_preserves_original_and_finds_evidence (__main__.OfflineTests.test_report_preserves_original_and_finds_evidence) ... ok
+test_size_empty_and_overlong_line_fail_closed (__main__.OfflineTests.test_size_empty_and_overlong_line_fail_closed) ... ok
+test_source_change_before_publish_fails_closed (__main__.OfflineTests.test_source_change_before_publish_fails_closed) ... ok
+
+----------------------------------------------------------------------
+Ran 11 tests in 0.289s
+
+OK
+==== test_override_flow_regressions.py
+test_all_scalar_branches_set_value_and_flag_through_real_parser (__main__.ParserDispatchTests.test_all_scalar_branches_set_value_and_flag_through_real_parser) ... ok
+test_flow_result_to_override_dispatch (__main__.ParserDispatchTests.test_flow_result_to_override_dispatch) ... ok
+test_ironing_snapshot_and_result_for_all_six_cards (__main__.ParserDispatchTests.test_ironing_snapshot_and_result_for_all_six_cards) ... ok
+test_old_semicolon_mutation_is_caught_by_parser (__main__.ParserDispatchTests.test_old_semicolon_mutation_is_caught_by_parser) ... ok
+test_changed_cfg_sections_parse_and_compile_like_klipper (__main__.RenderRegressionTests.test_changed_cfg_sections_parse_and_compile_like_klipper) ... ok
+test_feature_and_alias_setters_remain_distinct (__main__.RenderRegressionTests.test_feature_and_alias_setters_remain_distinct) ... ok
+test_first_layer_pause_rejected_explicitly_not_silently_armed (__main__.RenderRegressionTests.test_first_layer_pause_rejected_explicitly_not_silently_armed) ... ok
+test_flow_old_target_mutation_is_caught (__main__.RenderRegressionTests.test_flow_old_target_mutation_is_caught) ... ok
+test_flow_target_explicit_then_saved_then_nozzle (__main__.RenderRegressionTests.test_flow_target_explicit_then_saved_then_nozzle) ... ok
+test_invalid_measure_does_not_save_result (__main__.RenderRegressionTests.test_invalid_measure_does_not_save_result) ... ok
+test_invalid_name_and_missing_value_do_not_save (__main__.RenderRegressionTests.test_invalid_name_and_missing_value_do_not_save) ... ok
+test_m300_optional_beeper_and_mutation (__main__.RenderRegressionTests.test_m300_optional_beeper_and_mutation) ... ok
+test_menu_target_defaults_to_current_nozzle (__main__.RenderRegressionTests.test_menu_target_defaults_to_current_nozzle) ... ok
+test_pa_calibration_respects_each_independent_retraction_flag (__main__.RenderRegressionTests.test_pa_calibration_respects_each_independent_retraction_flag) ... ok
+test_print_start_declared_total_survives_live_reset_in_all_branches (__main__.RenderRegressionTests.test_print_start_declared_total_survives_live_reset_in_all_branches) ... ok
+test_scalar_setters_render_separate_commands_in_order (__main__.RenderRegressionTests.test_scalar_setters_render_separate_commands_in_order) ... ok
+test_web_fallback_target_and_ironing_help_match_lcd (__main__.RenderRegressionTests.test_web_fallback_target_and_ironing_help_match_lcd) ... ok
+
+----------------------------------------------------------------------
+Ran 17 tests in 0.703s
+
+OK
+==== test_review_bundle.py
+test_ignored_upload_and_archive_are_not_in_source_list (__main__.BundleTests.test_ignored_upload_and_archive_are_not_in_source_list) ... ok
+test_reproducible_archive_and_manifest_mutation (__main__.BundleTests.test_reproducible_archive_and_manifest_mutation) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 3.889s
+
+OK
+==== golden unit
+test_candidate_comparison_ignores_only_engine_identity (__main__.BaselineTests.test_candidate_comparison_ignores_only_engine_identity) ... ok
+test_copy_of_reference_matches (__main__.BaselineTests.test_copy_of_reference_matches) ... ok
+test_documented_zscan_delta_rejects_other_mutations (__main__.BaselineTests.test_documented_zscan_delta_rejects_other_mutations) ... ok
+test_end_to_end_mutated_golden_fails (__main__.BaselineTests.test_end_to_end_mutated_golden_fails) ... ok
+test_input_output_summary_and_engine_mutations_are_detected (__main__.BaselineTests.test_input_output_summary_and_engine_mutations_are_detected) ... ok
+test_missing_or_extra_fields_and_cases_are_detected (__main__.BaselineTests.test_missing_or_extra_fields_and_cases_are_detected) ... ok
+test_reference_backup_mutation_is_rejected (__main__.BaselineTests.test_reference_backup_mutation_is_rejected) ... ok
+test_worker_uses_current_synthetic_case_and_no_original_write (__main__.BaselineTests.test_worker_uses_current_synthetic_case_and_no_original_write) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 7.977s
+
+OK
+==== golden active
+[seqaudit] rose.gcode: S3 brim beyond the brim window
+candidate: tools/r2_postproc.py sha256: c744933514f59c5ad335febd9da126ccf2513d4ce2499583175b419c93bfbffd
+environment: Linux-6.1.158+-x86_64-with-glibc2.36 Python 3.11.2 pid isolation: one process per case
+m83_comments {"cpu_system_seconds": 0.000828, "cpu_user_seconds": 0.001656, "io_delta": {"rchar": 556, "read_bytes": 0, "wchar": 387, "write_bytes": 4096}, "maxrss_raw": 22048, "maxrss_units": "KiB", "wall_seconds": 0.002402}
+m82_zhop {"cpu_system_seconds": 0.0, "cpu_user_seconds": 0.002726, "io_delta": {"rchar": 442, "read_bytes": 0, "wchar": 241, "write_bytes": 4096}, "maxrss_raw": 22136, "maxrss_units": "KiB", "wall_seconds": 0.002646}
+tagged {"cpu_system_seconds": 7.3e-05, "cpu_user_seconds": 0.000329, "io_delta": {"rchar": 179, "read_bytes": 0, "wchar": 0, "write_bytes": 0}, "maxrss_raw": 22084, "maxrss_units": "KiB", "wall_seconds": 0.000338}
+bigrose {"cpu_system_seconds": 0.015969, "cpu_user_seconds": 3.330433, "io_delta": {"rchar": 24929096, "read_bytes": 0, "wchar": 12368028, "write_bytes": 12369920}, "maxrss_raw": 23200, "maxrss_units": "KiB", "wall_seconds": 3.358412}
+rose {"cpu_system_seconds": 0.011792, "cpu_user_seconds": 2.017856, "io_delta": {"rchar": 10500691, "read_bytes": 0, "wchar": 5156536, "write_bytes": 5156864}, "maxrss_raw": 23544, "maxrss_units": "KiB", "wall_seconds": 2.036542}
+stringart {"cpu_system_seconds": 0.007779, "cpu_user_seconds": 1.771867, "io_delta": {"rchar": 8857748, "read_bytes": 0, "wchar": 4332328, "write_bytes": 4333568}, "maxrss_raw": 23380, "maxrss_units": "KiB", "wall_seconds": 1.785923}
+PASS: 6 cases: 5 unchanged, 1 documented Z-scan change; source archives unchanged
+==== golden next
+[seqaudit] rose.gcode: S3 brim beyond the brim window
+candidate: tools/r2_postproc_next.py sha256: 1152298b933a5e037a8f1b150ec67049cdae78e143ec0f5361c62a3749b08d9d
+environment: Linux-6.1.158+-x86_64-with-glibc2.36 Python 3.11.2 pid isolation: one process per case
+m83_comments {"cpu_system_seconds": 0.0, "cpu_user_seconds": 0.002593, "io_delta": {"rchar": 556, "read_bytes": 0, "wchar": 387, "write_bytes": 4096}, "maxrss_raw": 22028, "maxrss_units": "KiB", "wall_seconds": 0.002506}
+m82_zhop {"cpu_system_seconds": 0.0, "cpu_user_seconds": 0.002742, "io_delta": {"rchar": 442, "read_bytes": 0, "wchar": 241, "write_bytes": 4096}, "maxrss_raw": 22040, "maxrss_units": "KiB", "wall_seconds": 0.002636}
+tagged {"cpu_system_seconds": 0.0, "cpu_user_seconds": 0.000425, "io_delta": {"rchar": 179, "read_bytes": 0, "wchar": 0, "write_bytes": 0}, "maxrss_raw": 22064, "maxrss_units": "KiB", "wall_seconds": 0.000342}
+bigrose {"cpu_system_seconds": 0.032497, "cpu_user_seconds": 3.507857, "io_delta": {"rchar": 24929096, "read_bytes": 0, "wchar": 12368028, "write_bytes": 12369920}, "maxrss_raw": 23100, "maxrss_units": "KiB", "wall_seconds": 3.554006}
+rose {"cpu_system_seconds": 0.00384, "cpu_user_seconds": 2.021336, "io_delta": {"rchar": 10500691, "read_bytes": 0, "wchar": 5156536, "write_bytes": 5156864}, "maxrss_raw": 23584, "maxrss_units": "KiB", "wall_seconds": 2.037103}
+stringart {"cpu_system_seconds": 0.003956, "cpu_user_seconds": 1.580237, "io_delta": {"rchar": 8857748, "read_bytes": 0, "wchar": 4332328, "write_bytes": 4333568}, "maxrss_raw": 23524, "maxrss_units": "KiB", "wall_seconds": 1.589551}
+PASS: 6 cases: 5 unchanged, 1 documented Z-scan change; source archives unchanged
+==== dialect corpus
+--- orca----------------
+[seqaudit] orca.gcode: S4 top surface on layer 1
+--- prusa---------------
+[seqaudit] prusa.gcode: S4 top surface on layer 1
+--- cura----------------
+--- elegoo--------------
+[seqaudit] elegoo.gcode: S4 top surface on layer 1
+--- kiri----------------
+--- astroprint----------
+--- slicebeam-----------
+[seqaudit] slicebeam.gcode: S4 top surface on layer 1
+--- superslicer---------
+--- ideamaker-----------
+--- simplify3d----------
+--- reprap-old----------
+--- s3d-ztravel---------
+--- marlin-volumetric---
+
+tagged-feature hit rate on the corpus: 46/46 (100%)
+R110 DIALECT CORPUS: all 13 families passed
+==== crash guard static checks
+--- live config ---
+  all 15 checks pass
+--- counter-test (each mutation must FAIL) ---
+  ok   g28-no-mute        caught by: 4a G28 mutes before homing
+  ok   g28-wrong-order    caught by: 4a G28 mutes before homing
+  ok   sls-no-guard       caught by: 3a SET_LED_STATE reads the flag
+  ok   mesh-no-bracket    caught by: 5a mesh mutes before probing
+  ok   watcher-no-heal    caught by: 7a watcher heals a stuck mute
+  ok   no-flag            caught by: 1 state flag
+  ok   quiet-no-stop      caught by: 2c mute stops the effect
+R257 CRASH GUARD: 15 checks, 0 FAIL, 7/7 mutations caught - no LED animation traffic in the probe descent
+==== whitespace and patch validity
+PASS review checks; this is not an installation or hardware acceptance
