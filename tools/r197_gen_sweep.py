@@ -345,13 +345,13 @@ doc = mje.export(os.path.join(REPO, 'menus', 'lcd_menues.cfg'),
 # R253 (.142i): the expectation was 2423 and had been stale since R250
 # (.142f) rebuilt the Live menu - the sweep failed 5 checks on every release
 # since, which nobody noticed because only the two named tests were read.
-# The truth now, verified against the file itself: 2295 [menu ...] sections.
+# The truth now, verified against the file itself: 2296 [menu ...] sections.
 # History: R249 2441 -> R250 removed 261 old '__live' rows (Live > Features
 # deleted, the four quick lists up front) and added 115 new ones; R251 +23
 # (shaper switches); R252/R253 +6 (post-processor switch + diagnostics) and
 # the 'Vorlagen' name lost its count. NOTHING outside __main __live vanished.
-check('T1 export: all 2295 sections in one tree, no orphans',
-      doc['sections'] == 2295 and sum(doc['counts'].values()) == 2295,
+check('T1 export: all 2296 sections in one tree, no orphans',
+      doc['sections'] == 2296 and sum(doc['counts'].values()) == 2296,
       str(doc['counts']))
 
 
@@ -364,7 +364,7 @@ def _walk(n, acc):
 
 _all = _walk(doc['tree'], [])
 check('T1 export: tree node count == sections, depth sane, known ids',
-      len(_all) == 2295
+      len(_all) == 2296
       and any(n['id'] == '__main __start __direct' for n in _all)
       and any(n['id'] == '__main __live' for n in _all))
 # R253 (.142i): a child section may be written BEFORE its parent (Klipper's
@@ -433,7 +433,7 @@ _emb = json.JSONDecoder().raw_decode(
     _ptxt.split('const EMBEDDED_MENU_JSON = ', 1)[1])[0]
 check('T1 embed: placeholder replaced with valid JSON',
       '/*EMBEDDED_MENU_JSON*/ null' not in _ptxt
-      and _emb['sections'] == 2295)
+      and _emb['sections'] == 2296)
 
 # T2: the moonraker extension with a fake app
 spec = importlib.util.spec_from_file_location(
@@ -552,7 +552,7 @@ check('T2 extension: export tool derived from the menu path',
       'path -> tool derivation failed')
 tree_doc = loop.run_until_complete(eps['/server/r2_menu/tree'](FakeReq()))
 check('T2 extension: tree handler serves the export',
-      tree_doc['sections'] == 2295 and 'tree' in tree_doc)
+      tree_doc['sections'] == 2296 and 'tree' in tree_doc)
 st = loop.run_until_complete(eps['/server/r2_menu/status'](FakeReq()))
 check('T2 extension: status handler reports ok + sha',
       st['ok'] and st['sha256'] == tree_doc['sha256'])

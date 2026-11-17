@@ -77,25 +77,38 @@ Baumrinde aus oder wie Holzdiele oder Parkett … irgendwas hast du verhauen."
 - R224 hat mehrere Muster umgebaut, R238 den Tilt eingeführt — das sind die
   Kandidaten für „verschlimmbessert".
 
-- [ ] **G1 — Textur-Bibliothek neu, tief statt flach.** Ziel: 8–10 Materialien,
-      die man am gedruckten Teil ERKENNT (Rinde, Diele, Ziegel, Welle/Eternit,
-      Wabe, Korb, Seil, Fell, Schuppen, Riffel). Kriterium pro Muster: es muss
-      eine **gerichtete Struktur mit Kanten** haben (Nut/Feder, Rindenborke,
-      Mauerfuge), nicht nur eine Sinuswelle. Prüfung: Vergleichsbild wie
-      `textur-matrix-ist.png`, aber als **Soll-Bild** je Material.
-- [ ] **G2 — Der AUTO TILT (R238) muss weg oder abschaltbar.** Er ist der Grund,
-      warum aus drei Familien eine wird. Vorschlag: Standard 0°, pro Preset
-      fest eingestellt, und ein LCD-Schalter „Tilt".
-- [ ] **G3 — Preset-Bibliothek an die Muster koppeln.** Die 27 Presets sind
-      aktuell nur Parametersätze über derselben flachen Funktion. Nach G1:
-      je Material ein echtes Muster + passende Tiefe/Teilung.
-- [ ] **G4 — Abtastung.** Bei Vase-Modus (1 Wand) hat eine Lage nur 8 Punkte —
-      eine Textur kann darauf nicht existieren. Lösung: das Textur-Werkzeug
-      **unterteilt die Wand selbst** (max. 1–2 mm Segmente) bevor es verschiebt.
-- [ ] **G5 — Shape-/Geometrie-Generatoren gegenprüfen** (User: „check mal ob
-      unsere Geometrie-Generatoren die Ursache sind"). Stand: die 8-Eck-Geometrie
-      ist in Ordnung (Maße, Z-Naht, 700 Lagen, E stimmt) — die Ursache ist die
-      Textur, nicht die Form. Bleibt als Regressionsprüfung offen.
+- [x] **G1 — 10 unterscheidbare, codebasierte Materialreliefs.** BARK wurde
+      zu wandernden Rindenfissuren/Rippen, PLANKS zu Längsbrettern mit
+      versetzten Stoßfugen, BRICKS zu klaren Mauerfugen, HONEYCOMB zu echten
+      sechseckigen Zellen überarbeitet. Die Soll-Matrix
+      `docs/textur-matrix-soll.png` wird reproduzierbar aus den echten
+      Pattern-Funktionen durch `tools/texture_matrix_preview.py` gerendert;
+      Kennzahlentest prüft zehn Materialfelder auf Unterscheidbarkeit und
+      Seams. Belege: `tools/r238_field_check.py` (30 Checks), Makro-Batterie
+      (2102/2102). **Grenze:** algorithmische Vorschau/offline; noch kein
+      gedruckter Musterstreifen oder Hardware-Freigabe.
+- [x] **G2 — AUTO TILT aus und optional schaltbar.** *(opt-in umgesetzt)*
+      Textur-Engine startet mit 0°; `tilt=True` aktiviert die expliziten
+      Musterwinkel (für alle 27 Muster explizit festgelegt). LCD-Schalter
+      `Tilt: OFF/ON` speichert die Wahl, der Watcher reicht sie an beide
+      bytegleichen Engines durch. Beleg: `tools/r238_field_check.py` 30/30;
+      Makro-Batterie 2102/2102;
+      `tools/run_review_checks.sh` PASS (Offline, keine Hardwareabnahme).
+- [x] **G3 — 27 Material-Presets an die 27 Muster gekoppelt.** Jeder Look
+      verwendet genau ein eindeutiges `texture_pattern` mit dafür gesetzter
+      Größe, Z-Teilung, Tiefe und Seed; die sechs zuletzt ergänzten Muster
+      `KNIT/FLUTED/BARK/SCALES/FACETS/MACRAME` haben eigene Presets erhalten.
+      Doppelte Varianten wurden entfernt; die separaten FUZZY-Festpresets
+      bleiben erhalten. Beleg: Makro-Batterie (Library-Coverage-Prüfung).
+- [x] **G4 — Wandabtastung verdichten.** BUMPS unterteilt lange lineare
+      Außenwandzüge vor dem Versatz auf max. 1,5-mm-Schritte; relative E wird
+      restfehlerfrei verteilt, absolute E endet am Originalwert. Belege:
+      `tools/r238_field_check.py` G4 (M82/M83), `macro_render_test.py`
+      2102/2102, `megatest.py` 190/190. Hinweis: G-code wird absichtlich länger.
+- [x] **G5 — Geometrie-Generatoren regressiv geprüft.** Die vorhandene Form-
+      Prüfung bestätigt die Generator-Geometrie; frische Matrix über Generator ×
+      Düsengröße × Bett × Parameter: `tools/r217_gen_matrix.py` 1423 Checks,
+      0 Fehler. Offline-Beleg, kein Druck auf Hardware.
 
 ## H. RANGE / CAKE (Ursache gefunden, Beweis geliefert)
 
@@ -110,10 +123,11 @@ Baumrinde aus oder wie Holzdiele oder Parkett … irgendwas hast du verhauen."
       Marker/Klausel-Widerspruch ab — **mit** Ursache und Abhilfe im Text.
       **Prüfung:** `tools/v1_range_cause_check.py` (8 Prüfungen, 3 Fixpunkte +
       Gegenprobe: ohne die Sperre rutscht die Cake-Hälfte durch).
-- [ ] **H2 — Cake-Tool muss die Schichtstruktur erhalten.** Der eigentliche Bug:
-      der Schnitt soll Marker neu setzen (Z-Sprünge der Schnittfläche zählen als
-      neue Schicht) statt den alten Kopf zu kopieren. Erst danach sind Range,
-      Live-Tuning und Layer-Zähler auf einer Schnitt-Hälfte benutzbar.
+- [x] **H2 — Cake-Tool erhält die Schichtstruktur.** *(umgesetzt V1; offline
+      verifiziert)* Schnitt-Marker und `_FILE_INFO TOTAL_LAYERS` werden pro
+      Hälfte aus positiven Extrusionsschichten neu aufgebaut; geneigte Z-Züge
+      und G17-Helices werden exakt geteilt. Beleg: `tools/test_cake_layers_h2.py`
+      sowie `tools/megatest.py` (190 Läufe, 0 Fehler).
 - [x] **H3 — Cake-Ausgabe nach Nutzerklärung umgesetzt (offline geprüft).**
       `PART=BOTH` erzeugt zwei eigenständige G-code-Dateien im `Cake/`-Ordner:
       `*_CUT-U.gcode` und `*_CUT-L.gcode`; jede Datei enthält genau eine
@@ -126,27 +140,22 @@ Baumrinde aus oder wie Holzdiele oder Parkett … irgendwas hast du verhauen."
       separate U/L-Dateien) und `tools/macro_render_test.py` (2101/2101).
       Offline-Codeprüfung; keine Drucker-/Hardwareabnahme.
 
-## C. Feature-Erkennung / Tagging (großer Block)
+## C. Feature-Erkennung / Tagging (Paket 4 umgesetzt; offline geprüft)
 
-- [ ] **C1 — Nicht beim ersten `APPLY_TYPE` aufhören.** `process()` bricht bei
-      `if TAG in line` ab (`tools/r2_postproc.py`, `summary['skipped'] = True;
-      return`). Ein Wort im Kopf erklärt die Datei für „fertig" und tötet alle
-      weiteren Stufen. **Verlangt:** auch dann weiterprüfen — und zwar mit der
-      Geometrieanalyse — und das Ergebnis gegen den Tag-Befund abgleichen.
-- [ ] **C2 — Schicht-Folge-Regelwerk:** bottom → solid (1..n) → top (+ optional
-      Ironing auf DERSELBEN Schichthöhe). Verboten: zwei bottom übereinander,
-      zwei top übereinander, top ohne solid/Infill dazwischen.
-      bottom ist die ERSTE Schicht einer Einheit, nicht zwingend Layer 1.
-      Bridge über einer top, darunter wieder bottom → solid → top.
-- [ ] **C3 — Brim/Skirt-Erkennung korrigieren (User-Korrektur, wichtig):**
-      Brim/Skirt beginnen IMMER auf der ersten Schicht der Einheit — auch wenn
-      diese Einheit bei Layer 23 anfängt. Ein „Brim bei Layer 23" ist entweder
-      ein höhergezogener Brim (Raft-Schild) oder ein neues Bauteil.
-      Nicht: „brim/skirt nur auf Layer 1".
-- [ ] **C4 — Vokabular aller Slicer-Familien + Ausschlusskriterien** in das
-      Regelwerk (Quelle: `uploads/slicer-families.md`, 92 KB).
-- [ ] **C5 — Gegenprüfung Tag ↔ Geometrie** in den Watcher einbauen (Meldung,
-      wenn die Stufen sich widersprechen).
+- [x] **C1 — Getaggte Dateien werden weiter geprüft.** Die optionale Vollstrom-
+      Tag-Geometrie-Prüfung vergleicht Marker und beobachtete Bewegungen ohne
+      frühes `APPLY_TYPE`-Abbrechen oder Dateiänderung.
+- [x] **C2 — Schicht-Folge-Audit pro Druckeinheit.** Prüft S1–S5 und vermeidet
+      Fehlalarme bei mehrlagigem Brim, sequentiellen Teilen und umwandeten Tops.
+- [x] **C3 — Brim/Skirt pro Einheit.** Erste Extrusionsschicht der Einheit ist
+      maßgeblich; durchgehende bettverankerte Brims sind erlaubt.
+- [x] **C4 — Slicer-Aliase und Ausschlüsse.** Cross-slicer-Vokabular und
+      Nichtdruck-Annotationen sind in der Klassifizierung erfasst.
+- [x] **C5 — Tag ↔ Geometrie-Gegenprüfung.** Audit meldet G1–G6 nicht-destruktiv;
+      die drei Feld-Fixtures und Generator-Beispiele laufen ohne Fehlalarm.
+      Belege: `tools/test_postproc_c1_c5_and_jobs.py`,
+      `tools/test_shadow_analysis_audit_v2.py`, `tools/run_review_checks.sh`.
+      Offline-Checks, keine Live-Watcher-/Hardwareabnahme.
 
 ## D. Dokumentation (Handbücher + PDFs)
 
@@ -182,10 +191,14 @@ Baumrinde aus oder wie Holzdiele oder Parkett … irgendwas hast du verhauen."
       - Reproduzierbarer Messkörper: `tools/samples/make_statprobe.py` →
         `statprobe.gcode` → echter Lauf → `statprobe_tagged.gcode`
         (104 Marker, 30 Schichten, MAXRATE 7,2 mm³/s).
-      **Offen:** D7d = `GENERATORS_TOOLS.pdf` (jeder Modifier einzeln) —
-      wartet auf den User, weil dort die Texturen drin sind (Block G).
-- [ ] **D2 — Textur-PDF ist veraltet:** alte Vorschaubilder, alte Preset-Zahl.
-      Die 27 Textur-Typen/Presets müssen mit Bildern und Parametern drin sein.
+      **Offen:** D7d = `GENERATORS_TOOLS.pdf` (jeder Modifier einzeln).
+      Texturgrundlage jetzt mit G1–G5 aktualisiert; Heft selbst bleibt separat
+      offen und muss gegen den aktuellen Generator-/Modifier-Code neu gebaut werden.
+- [x] **D2 — Textur-PDF erneuert.** `tools/make_texture_pdf.py` wurde nach
+      G1–G4 neu gebaut; `TEXTURING.pdf` enthält 35 Seiten, Vorschauen aus den
+      aktuellen echten Pattern-Funktionen und 27 materialgebundene Presets.
+      Vorschaubilder sind ausdrücklich als Algorithmus-Simulationen markiert,
+      nicht als Druckergebnis.
 - [ ] **D3 — Pro Generator eine wissenschaftliche PDF** (Vorbild:
       `TEXTURING.pdf`, `CUTSPLIT.pdf`): Funktionsweise, Parameter, Abläufe,
       Presets, Beispiel-Parametersätze mit erwartetem Ergebnis.

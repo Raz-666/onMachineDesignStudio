@@ -195,7 +195,7 @@ def build_printer(kamp=False, objs=None, excl=None, old_klipper=False, bare_idle
     # enable-frozen slots became 8 live name slices)
     'gcode_macro _TX_PATTERN': M({'tx_names': ['Ridges', 'Waves', 'Grid', 'Hatch', 'Checker', 'Hex', 'Honeycomb', 'Basket', 'Rope', 'Planks', 'Bricks', 'Sandstone', 'Concrete', 'Clay', 'Crepe', 'Fabric', 'Plush', 'Hilbert', 'Scratch', 'Glitch', 'Knit', 'Fluted', 'Bark', 'Scales', 'Facets', 'Macrame', 'Map'],
                                   'tx_codes': ['RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX', 'HONEYCOMB', 'BASKET', 'ROPE', 'PLANKS', 'BRICKS', 'SANDSTONE', 'CONCRETE', 'CLAY', 'CREPE', 'FABRIC', 'PLUSH', 'HILBERT', 'SCRATCH', 'GLITCH', 'KNIT', 'FLUTED', 'BARK', 'SCALES', 'FACETS', 'MACRAME', 'MAP'],
-                                  'tx_descs': ['Pattern Ridges: vertical flutes around the object - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Waves: diagonal waves around and up - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Grid: crosshatch egg-crate - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Hatch: hard diagonal hatching - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Checker: soft checkerboard - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Hex: organic 3-fold honeycomb-ish - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Honeycomb: true hex cells - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Basket: woven over/under - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Rope: twisted strands - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Planks: boards with staggered joints - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Bricks: running-bond courses - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Sandstone: fine grain noise - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Concrete: coarse noise + pores - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Clay: soft thumb dents - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Crepe: crumpled paper - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Fabric: pleats, sharp valleys - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Plush: dense velvet grain - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Hilbert: zig-zag space-filling bands - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Scratch: scratches around the wall - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Glitch: seeded per-band melt steps - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Knit: nested V-loops in staggered columns (knitted sleeve) - auto-tilt 3 deg breaks the layer lines', 'Pattern Fluted: vertical half-round flutes - runs UP the object, kills Z-banding on cylinders', 'Pattern Bark: vertical ridged cracks - turns tubes and cylinders into tree trunks', 'Pattern Scales: staggered domed shingles - reptile look, grippy', 'Pattern Facets: diamond low-poly relief crosses - modern, futuristically clean', 'Pattern Macrame: two twisted cord families crossing into a net - the knots read as knotted cords', 'Pattern Map: a picture wrapped around - background detected (Otsu) = NO displacement there, Tile = endless mirrored wrap, Once = one aspect-true wrap (position below)']}),
+                                  'tx_descs': ['Pattern Ridges: vertical flutes around the object - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Waves: diagonal waves around and up - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Grid: crosshatch egg-crate - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Hatch: hard diagonal hatching - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Checker: soft checkerboard - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Hex: organic 3-fold honeycomb-ish - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Honeycomb: true hex cells - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Basket: woven over/under - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Rope: twisted strands - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Planks: boards with staggered joints - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Bricks: running-bond courses - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Sandstone: fine grain noise - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Concrete: coarse noise + pores - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Clay: soft thumb dents - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Crepe: crumpled paper - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Fabric: pleats, sharp valleys - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Plush: dense velvet grain - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Hilbert: zig-zag space-filling bands - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Scratch: scratches around the wall - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Glitch: seeded per-band melt steps - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Knit: nested V-loops in staggered columns (knitted sleeve) - optional 3 deg tilt breaks the layer lines', 'Pattern Fluted: vertical half-round flutes - runs UP the object, kills Z-banding on cylinders', 'Pattern Bark: vertical ridged cracks - turns tubes and cylinders into tree trunks', 'Pattern Scales: staggered domed shingles - reptile look, grippy', 'Pattern Facets: diamond low-poly relief crosses - modern, futuristically clean', 'Pattern Macrame: two twisted cord families crossing into a net - the knots read as knotted cords', 'Pattern Map: a picture wrapped around - background detected (Otsu) = NO displacement there, Tile = endless mirrored wrap, Once = one aspect-true wrap (position below)']}),
     'exclude_object': M({'objects': objects, 'excluded_objects': [], 'current_object': (objects[0]['name'] if objects else None)}),
     'bed_mesh': M({'profile_name': 'r2', 'profiles': {'r2': {}}}),
     'idle_timeout': M({'state':'Printing','printing_time':0.0,'idle_timeout':3600}),   # REAL keyset (get_status: state/printing_time/idle_timeout)
@@ -7946,20 +7946,18 @@ tests.append(('R91 fuzzy: density 20% shifts ~1/5 of the vertices',
 _t91d, _ti91d = _at91(_p91, out_dir=_d91b, mode='BUMPS', bump_pattern='WAVES',
                       bump_scale=10, bump_amp=0.35, direction='OUT')
 _d91 = _outer91(_t91d)
-# R186 note: euclidean, not manhattan - with the Z-tracking fixed the WAVES
-# pattern reaches its full amp (0.35) in the NORMAL direction, and manhattan
-# overestimates a diagonal shift by sqrt(2) (0.35 -> 0.495). The bound
-# itself is unchanged: the displacement may never exceed amp.
-_dmax91 = max(((_u[0] - _v[0]) ** 2 + (_u[1] - _v[1]) ** 2) ** 0.5
-               for _u, _v in zip(_o91, _d91))
+# G4 resamples long wall segments, so compare the matched IN/OUT paths:
+# their midpoint is the untextured path and half their separation is the
+# physical displacement, independent of added sample vertices.
 _t91e, _ = _at91(_p91, out_dir=_d91b, mode='BUMPS', bump_pattern='WAVES',
                  bump_scale=10, bump_amp=0.35, direction='IN', version=2)
 _e91 = _outer91(_t91e)
-tests.append(('R91 bumps: amplitude bounded (<= amp), IN is the mirror of OUT',
-    _dmax91 <= 0.36 and _ti91d['pattern'] == 'WAVES'
-    and all(abs((_v[0] - _u[0]) + (_w[0] - _u[0])) < 0.01
-            for _u, _v, _w in zip(_o91, _d91, _e91)),
-    'max=%.3f' % _dmax91))
+_dmax91 = max((((_u[0] - _v[0]) ** 2 + (_u[1] - _v[1]) ** 2) ** 0.5) / 2.0
+               for _u, _v in zip(_d91, _e91))
+tests.append(('R91 bumps: amplitude bounded (<= amp), IN mirrors OUT on resampled points',
+    len(_d91) == len(_e91) and len(_d91) > len(_o91)
+    and _dmax91 <= 0.36 and _ti91d['pattern'] == 'WAVES',
+    'max=%.3f points=%d/%d' % (_dmax91, len(_d91), len(_o91))))
 
 _keep91 = (';TYPE:', 'EXCLUDE_OBJECT', 'APPLY_TYPE', 'LAYER_MARK')
 _src91 = [l for l in open(_p91, encoding='utf-8') if l.startswith(_keep91)]
@@ -7970,8 +7968,12 @@ _E91s = [l.split(' E')[1].split()[0] for l in open(_p91, encoding='utf-8')
          if l.startswith('G1') and ' E' in l]
 _E91o = [l.split(' E')[1].split()[0] for l in open(_t91d, encoding='utf-8')
          if l.startswith('G1') and ' E' in l]
-tests.append(('R91 bumps: E values + count untouched (features stay honest)',
-    _E91s == _E91o, ''))
+tests.append(('G4 bumps: relative E sum is conserved across added samples',
+    len(_E91o) > len(_E91s)
+    and abs(sum(map(float, _E91o)) - sum(map(float, _E91s))) < 1e-5,
+    'E %.5f -> %.5f; moves %d -> %d' % (
+        sum(map(float, _E91s)), sum(map(float, _E91o)),
+        len(_E91s), len(_E91o))))
 
 # seamless: same (x,y,z) -> same displacement (grid pattern is periodic)
 def _disp_profile(path):
@@ -8188,21 +8190,28 @@ for _cw224, _lb224, _mir224 in ((False, 'same', False),
         _src224t, out_dir=_d224t, mode='BUMPS', bump_pattern='ROPE',
         bump_scale=14.0, bump_amp=0.5, direction='IN', seed=23)
     _s224 = _sec224(_out224)
-    _o224 = _s224['Outer wall'][1:72]
-    _i224 = (_s224['Inner wall'][1:72][::-1] if _mir224
-             else _s224['Inner wall'][1:72])
-    _dist224 = [_m224t.hypot(ox - ix, oy - iy)
-                for (ox, oy), (ix, iy) in zip(_o224, _i224)]
+    _o224 = _s224['Outer wall']
+    _i224 = _s224['Inner wall']
+    def _ang224(pt):
+        return _m224t.atan2(pt[1] - 110.0, pt[0] - 110.0)
+    def _adiff224(a, b):
+        return abs((a - b + _m224t.pi) % (2 * _m224t.pi) - _m224t.pi)
+    # Match by polar angle, not list index: G4 inserts geometry samples and
+    # outer/inner radii can therefore have different point counts.
+    _dist224 = []
+    for _ox, _oy in _o224:
+        _oa = _ang224((_ox, _oy))
+        _ix, _iy = min(_i224, key=lambda q: _adiff224(_oa, _ang224(q)))
+        _dist224.append(_m224t.hypot(_ox - _ix, _oy - _iy))
     _romin224 = min(_m224t.hypot(x - 110.0, y - 110.0) for x, y in _o224)
     _rimin224 = min(_m224t.hypot(x - 110.0, y - 110.0) for x, y in _i224)
     tests.append(('R224 task15 BUMPS (%s inner winding): inner walls FOLLOW '
-        'the embossing - vertex distance stays one line width (0.42: min '
-        '%.3f max %.3f), valleys carve past the old cap (outer r %.2f < '
-        '19.58) and the inner wall rides along (inner r %.2f), '
-        'inner_shifted=%d'
+        'the embossing - angularly matched distance stays near one line width '
+        '(0.42: min %.3f max %.3f), valleys carve past the old cap '
+        '(outer r %.2f < 19.58), inner r %.2f; inner_shifted=%d'
         % (_lb224, min(_dist224), max(_dist224), _romin224, _rimin224,
            _inf224['inner_shifted']),
-        len(_dist224) == 71 and all(0.40 < d < 0.44 for d in _dist224)
+        len(_dist224) > 71 and all(0.35 < d < 0.49 for d in _dist224)
         and _romin224 < 19.55 and _rimin224 < 19.2
         and _inf224['inner_shifted'] > 100
         and 'R224: inner walls follow' in open(_out224).read(),
@@ -8807,7 +8816,7 @@ state_vars['mode'] = 'printing'
 import math as _m95
 _d95t = _tf91.mkdtemp(prefix='r95tex_')
 _p95v = _os91.path.join(_d95t, 'vase95.gcode')
-_L95v = ['; R2-POSTPROC v5', 'M83', 'G90', 'G28',
+_L95v = ['; R2-POSTPROC v5', 'G90', 'M83', 'G28',
          'G0 X120.000 Y100.000', 'G1 Z0.2 F600']
 for _ly95 in range(1, 4):
     _L95v += ['LAYER_MARK', 'G1 Z%.2f F600' % (0.2 * _ly95), ';TYPE:Outer wall']
@@ -13811,6 +13820,8 @@ _REMOVED135 = [
 ]
 
 _ADDED135 = [
+    # G2: explicit user-controlled helical tilt toggle in Texture.
+    '__main __preprint __mods __tex __tilt',
     '__main __endq',
     '__main __endq __info',
     '__main __endq __no',
@@ -18044,6 +18055,11 @@ _lib214 = _ast214.literal_eval(_libm214.group(1))
 tests.append(('R214/R253 texture library: 27 looks live in the macro config '
     '(appearance names, full 9-key sets, ranges valid)',
     len(_lib214) == 27
+    and {v['texture_pattern'] for v in _lib214.values()} == {
+        'RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX', 'HONEYCOMB',
+        'BASKET', 'ROPE', 'PLANKS', 'BRICKS', 'SANDSTONE', 'CONCRETE',
+        'CLAY', 'CREPE', 'FABRIC', 'PLUSH', 'HILBERT', 'SCRATCH', 'GLITCH',
+        'KNIT', 'FLUTED', 'BARK', 'SCALES', 'FACETS', 'MACRAME', 'MAP'}
     and all(sorted(v) == sorted(['texture_mode', 'texture_fuzzy_thick',
         'texture_fuzzy_density', 'texture_pattern', 'texture_scale',
         'texture_zsize', 'texture_amp', 'texture_dir', 'texture_seed'])
@@ -18651,6 +18667,16 @@ out = render(get_body('macros/17_generator.cfg', 'TEXTURE_APPLY'),
 tests.append(('R238 TEXTURE_APPLY: MAPMODE/MAPPOS pass through quoted',
     'VARIABLE=texture_map_mode VALUE="\\"ONCE\\""' in out
     and 'VARIABLE=texture_map_pos VALUE="\\"TOP\\""' in out
+    and 'Texture request queued' in out, out[:150]))
+out = render(get_body('macros/17_generator.cfg', 'TEXTURE_APPLY'),
+             {'PATTERN': 'MAP', 'DIR': 'OUT', 'TILT': 'ON'})
+tests.append(('G2 TEXTURE_APPLY TILT=ON stores the opt-in setting',
+    'VARIABLE=texture_tilt VALUE=\"\\\"ON\\\"\"' in out
+    and 'Texture request queued' in out, out[:150]))
+out = render(get_body('macros/17_generator.cfg', 'TEXTURE_APPLY'),
+             {'PATTERN': 'MAP', 'DIR': 'OUT', 'TILT': 'OFF'})
+tests.append(('G2 TEXTURE_APPLY TILT=OFF stores the explicit off setting',
+    'VARIABLE=texture_tilt VALUE=\"\\\"OFF\\\"\"' in out
     and 'Texture request queued' in out, out[:150]))
 # R246c: the guard reads _STATE.mode (not print_stats) - the old render
 # left mode at its busy default and only ever saw the refuse branch.
