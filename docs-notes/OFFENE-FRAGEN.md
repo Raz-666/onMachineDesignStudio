@@ -55,10 +55,12 @@ Nichts hierin ist als Freigabe zu lesen; die Regeln aus `UEBERGABE.md` gelten.
 11. `UEBERGABE.md` nennt als historische Referenz weiterhin `8ea17fc`/`fab29dc`
     in Abschnitt 3 — für das Release irgendwann vollständig neu abgleichen,
     oder so stehen lassen als datierten Verlauf?
-12. D7d `GENERATORS_TOOLS.pdf` (veraltet, Stand `.142j`): als Nächstes
-    Handbuch neu bauen (Generator/Modifier einzeln, nach Vorbild
-    TEXTURING.pdf) — ja/nein, und ist es für das Release relevant oder
-    separater Arbeitsstrang?
+12. D7d `GENERATORS_TOOLS.pdf` (veraltet, Stand `.142j`): inzwischen aus dem
+    aktuellen Code neu gebaut (Versionskopf `R2-2026-11-13.1` auf allen
+    12 Seiten, „27 Muster / 27 Vorlagen“-Zeile korrigiert; Inhalt sonst
+    unverändert; PR #15 gemerged). Weiterhin offen bleibt die
+    Modifier-Einzel-Dokumentation (D4-Umfang: Mathematik pro Modifier).
+    Soll D4 als Nächstes kommen?
 13. MASTER-TODO `B5` (FeatOn statt Wert 0) — für dich geklärt (abgelehnt mit
     Begründung). Keine Aktion nötig.
 
