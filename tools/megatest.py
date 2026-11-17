@@ -610,12 +610,24 @@ _bad2_213 = [ln for ln in _hn2_213
 if _bad2_213:
     fails.append(('chain scale->texture: bare CUSTOM must not appear - '
                   'R213 slots are C1..C9: %r' % _bad2_213[:2], _sct180))
-_ck180 = r2_cake.cut_cake(lbl, z_offset=0.5, out_dir=D)[0][0]
-# R180: a cake half with z_offset sits EMPTY for its first layers - the
-# honest make_range guard refuses a no-ink window (expect_error), the real
-# chain uses layers that actually print
-expect_error('chain: range of the cake half EMPTY layers refuses', lambda:
-    pp.make_range(_ck180, 1, 1, out_dir=D))
+# H2: cut_cake rebuilds truthful per-half LAYER_MARKs (4-layer label cut at
+# z=0.35 yields 1 lower + 3 upper layers). Verify R180's empty-window guard
+# on an explicit empty-layer fixture AND verify the real cake->range chain.
+_empty180 = os.path.join(D, 'empty_win180.gcode')
+open(_empty180, 'w').write(
+    '; R2-POSTPROC v5\n'
+    '_FILE_INFO MATERIAL=PLA LAYER_HEIGHT=0.2 TOTAL_LAYERS=4 '
+    'LINE_WIDTH=0.6 TYPES=WALL-OUTER,SURFACE-TOP SLICER=ORCA\n'
+    'G90\nM83\n'
+    ';LAYER_CHANGE\nLAYER_MARK\n;Z:0.200\nAPPLY_TYPE TYPE=WALL-OUTER\n'
+    'G1 X10 Y10 Z0.2 E1.0 F1800\n'
+    ';LAYER_CHANGE\nLAYER_MARK\n;Z:0.400\nG0 X10 Y10 Z0.4 F6000\n'
+    ';LAYER_CHANGE\nLAYER_MARK\n;Z:0.600\nG0 X10 Y10 Z0.6 F6000\n'
+    ';LAYER_CHANGE\nLAYER_MARK\n;Z:0.800\nAPPLY_TYPE TYPE=SURFACE-TOP\n'
+    'G1 X20 Y10 Z0.8 E1.0 F1800\nPRINT_END\n')
+expect_error('chain: range of EMPTY layers refuses', lambda:
+    pp.make_range(_empty180, 2, 3, out_dir=D))
+_ck180 = r2_cake.cut_cake(lbl, z_offset=0.35, out_dir=D)[0][0]
 _ckr180 = run('chain: range excerpt of a CAKE half', lambda: pp.make_range(
     _ck180, 2, 3, out_dir=D), skip_idem=True, r2_gen=True)
 _hck180 = open(_ckr180[0]).read()

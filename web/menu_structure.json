@@ -8,7 +8,7 @@
   "vsdlist": 1,
   "input": 584
  },
- "sha256": "d17ebc4ccd805276",
+ "sha256": "f16aadd991a3bd00",
  "live_objects": [
   "bed_mesh",
   "configfile",
@@ -23797,7 +23797,7 @@
         "type": "command",
         "name": "How it works",
         "gcode": [
-         "RESPOND MSG=\"How it works: CARDS cards (F10/S20 .. F20/S40 default), each on BASE base layers, ironing on top | Card 4-6 zones via console (F4/S4..), sizes auto-fit. Best shows recorded flow and speed; no overrides applied\""
+         "RESPOND MSG=\"How it works: CARDS cards (F10/S20 .. F20/S40 default), each on BASE base layers, ironing on top | Card 4-6 zones via console (F4/S4..), sizes auto-fit. Best shows recorded flow and speed - no overrides applied\""
         ],
         "children": []
        }
