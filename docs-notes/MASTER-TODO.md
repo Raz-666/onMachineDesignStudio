@@ -197,9 +197,14 @@ Baumrinde aus oder wie Holzdiele oder Parkett … irgendwas hast du verhauen."
       - Reproduzierbarer Messkörper: `tools/samples/make_statprobe.py` →
         `statprobe.gcode` → echter Lauf → `statprobe_tagged.gcode`
         (104 Marker, 30 Schichten, MAXRATE 7,2 mm³/s).
-      **Offen:** D7d = `GENERATORS_TOOLS.pdf` (jeder Modifier einzeln).
-      Texturgrundlage jetzt mit G1–G5 aktualisiert; Heft selbst bleibt separat
-      offen und muss gegen den aktuellen Generator-/Modifier-Code neu gebaut werden.
+      **Teilstand D7d (17.11.2026, späte Fortsetzung):** `GENERATORS_TOOLS.pdf` aus dem
+      aktuellen Code neu gebaut — Versionskopf jetzt `R2-2026-11-13.1` (vorher
+      handgepflegter Stempel `R2-2026-11-12.142j`, 12×), Textur-Zeile auf
+      „27 Muster, 27 fertige Vorlagen“ (Codestand G1–G5). Inhalte/Umfänge
+      unverändert (12 Seiten, 11 Generatoren, 14 Datei-Werkzeuge).
+      Weiter offen: Modifier einzeln tief dokumentieren (Mathematik pro
+      Modifier) — Umfang von D4, nicht mit diesem Rebuild erledigt.
+      Offizieller D7d-Abschluss braucht noch die User-Durchsicht des PDFs.
 - [x] **D2 — Textur-PDF erneuert.** `tools/make_texture_pdf.py` wurde nach
       G1–G4 neu gebaut; `TEXTURING.pdf` enthält 35 Seiten, Vorschauen aus den
       aktuellen echten Pattern-Funktionen und 27 materialgebundene Presets.
