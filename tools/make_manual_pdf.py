@@ -2711,7 +2711,7 @@ _MIDX.append(["Part generators — 17_generator.cfg", [
     ["STRINGART_APPLY", "PATTERN=0, DIAMETER=180, ANCHORS=300, LINES=1700, FILE=photo.png", "string art job: 0=SPIRAL, 1=PHOTO - the anchor ring prints first, the strands ride on top in six Z bands (ch. 5.14)"],
     ["STRINGART_IMG", "—", "cycle the root image list (lithophane list) for the PHOTO pattern"],
     ["SCALE_APPLY", "X=100, Y=100, FILE=", "scale the selected file 25-300% per axis - E recomputed per move, output in Scale/ (ch. 5.15)"],
-    ["CAKE_APPLY", "YAW=0, PITCH=0, ROLL=0, Z=5, PART=BOTH, REORIENT=0, FILE=", "cut the selected file with a plane (0.5 deg grid) - both halves standalone in Cake/ (ch. 5.16)"],
+    ["CAKE_APPLY", "YAW=0, PITCH=0, ROLL=0, Z=5, PART=BOTH, REORIENT=1, FILE=", "cut into two standalone files in Cake/: upper is laid cut-face-down by default; lower keeps its original placement (ch. 5.16)"],
     ["LITHO_CREATE", "INDEX=0",
      "lithophane from image slot INDEX (0 = newest picture in Tools > Lithophane; big jobs run in a background thread)"],
     ["LITHO_DEL_SLOT", "INDEX=0",

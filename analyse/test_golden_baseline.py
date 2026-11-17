@@ -81,6 +81,26 @@ class BaselineTests(unittest.TestCase):
         bad_reference['cases']['m82_zhop']['output_sha256'] = '0' * 64
         self.assertTrue(g.expected_with_zscan_change(bad_reference, delta)[1])
 
+    def test_documented_seq_delta_rejects_other_mutations(self):
+        delta = json.loads(g.SEQ_EXPECTED.read_text())
+        expected, errors = g.expected_with_seq_change(self.expected, delta)
+        self.assertFalse(errors)
+        self.assertEqual(
+            self.expected['cases']['rose']['output_bytes'] - 10,
+            expected['cases']['rose']['output_bytes'])
+        self.assertEqual(
+            self.expected['cases']['bigrose']['output_sha256'],
+            expected['cases']['bigrose']['output_sha256'])
+        self.assertEqual(
+            self.expected['cases']['stringart']['output_sha256'],
+            expected['cases']['stringart']['output_sha256'])
+        changed = copy.deepcopy(expected)
+        changed['cases']['rose']['output_sha256'] = '0' * 64
+        self.assertTrue(g.compare(expected, changed, check_engine=False))
+        bad_reference = copy.deepcopy(self.expected)
+        bad_reference['cases']['rose']['output_sha256'] = '0' * 64
+        self.assertTrue(g.expected_with_seq_change(bad_reference, delta)[1])
+
     def test_reference_backup_mutation_is_rejected(self):
         actual = copy.deepcopy(self.expected)
         metrics = {name: {} for name in g.CASES}

@@ -9,13 +9,14 @@
 #     The queue row moved to __queue = DIRECTLY above the SD card.
 #  3) STL export: STL folder + .stl.gcode (Mainsail shows + downloads it,
 #     strip the ending) - the watcher never processes the data files.
-#  4) Texture master prompt: AUTO TILT (helical, seam-perfect: 2 deg
-#     default, pattern-specific angles), 6 new patterns (Knit, Fluted,
+#  4) Texture engine: optional helical tilt (0 deg default, pattern-specific
+#     angles when enabled), 6 new patterns (Knit, Fluted,
 #     Bark, Scales, Facets, Macrame), vertical Planks, MAP with Otsu
 #     background-as-alpha + TILE/ONCE + TOP/CENTER/BOTTOM, and the menu
 #     separates FUZZY from BUMPS parameters.
 import math
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -159,8 +160,10 @@ try:
     names = r2_texture.PATTERN_NAMES
     check('D1: 27 patterns, the 6 new ones present',
           len(names) == 27 and all(p in names for p in (
-              'KNIT', 'FLUTED', 'BARK', 'SCALES', 'FACETS', 'MACRAME')),
-          str(len(names)))
+              'KNIT', 'FLUTED', 'BARK', 'SCALES', 'FACETS', 'MACRAME'))
+          and set(r2_texture.PATTERN_TILT) == set(names),
+          '%d patterns / %d tilt presets' % (
+              len(names), len(r2_texture.PATTERN_TILT)))
     bad = []
     for p in names:
         if p == 'MAP':
@@ -177,19 +180,24 @@ try:
           not bad, str(bad[:4]))
     _, i_basket = r2_texture.apply_texture(
         src, out_dir=d, mode='BUMPS', bump_pattern='BASKET',
-        bump_scale=10.0, bump_amp=0.4, zsize=10.0)
+        bump_scale=10.0, bump_amp=0.4, zsize=10.0, tilt=True)
     _, i_ridge = r2_texture.apply_texture(
         src, out_dir=d, mode='BUMPS', bump_pattern='RIDGES',
-        bump_scale=10.0, bump_amp=0.4, zsize=10.0)
+        bump_scale=10.0, bump_amp=0.4, zsize=10.0, tilt=True)
     _, i_flute = r2_texture.apply_texture(
         src, out_dir=d, mode='BUMPS', bump_pattern='FLUTED',
+        bump_scale=10.0, bump_amp=0.4, zsize=10.0, tilt=True)
+    _, i_default = r2_texture.apply_texture(
+        src, out_dir=d, mode='BUMPS', bump_pattern='BASKET',
         bump_scale=10.0, bump_amp=0.4, zsize=10.0)
-    check('D3: BASKET carries ~30 deg (weave angle), default ~2, vertical 0',
-          25.0 <= i_basket['tilt'] <= 35.0
+    check('D3: tilt is opt-in; enabled preset angles remain explicit',
+          i_default['tilt'] == 0.0
+          and 25.0 <= i_basket['tilt'] <= 35.0
           and 1.0 <= i_ridge['tilt'] <= 3.0
           and i_flute['tilt'] == 0.0,
-          '%.1f/%.1f/%.1f' % (i_basket['tilt'], i_ridge['tilt'],
-                              i_flute['tilt']))
+          'off %.1f / on %.1f/%.1f/%.1f' % (
+              i_default['tilt'], i_basket['tilt'], i_ridge['tilt'],
+              i_flute['tilt']))
     pats = r2_texture._build_patterns(11, 5, 91, None)
     worst = 0.0
     for zi in range(21):
@@ -203,6 +211,27 @@ try:
             worst = max(worst, abs(fn(s0, t) - fn(s1, t)))
     check('D4: the helical tilt keeps the seam closed (jump < 0.12)',
           worst < 0.12, '%.4f' % worst)
+    # G1: BARK and PLANKS must carry directional, edge-defined relief and
+    # remain periodic at the cylinder seam / top, unlike a flat sinus stripe.
+    _g1p = r2_texture._build_patterns(12, 8, 29, None)
+    _g1metrics = {}
+    for _nm in ('BARK', 'PLANKS'):
+        _fn = _g1p[_nm]
+        _vals = [_fn(i / 240.0, 0.371) for i in range(240)]
+        _seam = abs(_fn(1e-7, 0.371) - _fn(1.0 - 1e-7, 0.371))
+        _zseam = abs(_fn(0.371, 1e-7) - _fn(0.371, 1.0 - 1e-7))
+        _g1metrics[_nm] = (max(_vals) - min(_vals), _seam, _zseam)
+    check('G1: bark fissures and board joints have strong relief + closed seams',
+          all(v[0] > 0.8 and v[1] < 0.05 and v[2] < 0.05
+              for v in _g1metrics.values()), str(_g1metrics))
+    _materials = ('BARK', 'PLANKS', 'BRICKS', 'WAVES', 'HONEYCOMB',
+                  'BASKET', 'ROPE', 'PLUSH', 'SCALES', 'FLUTED')
+    _signatures = {nm: tuple(round(_g1p[nm](x / 32.0, y / 32.0), 2)
+                             for y in range(32) for x in range(32))
+                   for nm in _materials}
+    check('G1: 10 target materials produce distinct code-derived relief fields',
+          len(set(_signatures.values())) == len(_materials),
+          'unique %d/%d' % (len(set(_signatures.values())), len(_materials)))
     from PIL import Image
     imgp = os.path.join(d, 'logo.png')
     im = Image.new('L', (60, 30), 255)
@@ -237,17 +266,52 @@ try:
         check('D7: a bad MAP mode is refused', False, 'no ValueError')
     except ValueError:
         check('D7: a bad MAP mode is refused', True, '')
-    check('D8: the watcher passes map mode/position + tilt report',
+    check('D8: watcher reads the opt-in tilt switch and MAP settings',
       'texture_map_mode' in _pp and 'texture_map_pos' in _pp
-      and 'auto-tilt' in _pp and 'MAP once around' in _pp, '')
-    check('D9: menu - 27 pattern rows, 4 pages, MAP mode/pos rows',
-          _lcd.count('SAVE_VARIABLE VARIABLE=texture_pattern VALUE=') == 27
-          and 'of 4 - 27 patterns total' in _lcd
+      and 'texture_tilt' in _pp and 'optional tilt' in _pp
+      and 'MAP once around' in _pp, '')
+    check('D9: LCD has opt-in Tilt control and MAP mode/position rows',
+          '[menu __main __preprint __mods __tex __tilt]' in _lcd
+          and 'texture_tilt' in _lcd
           and '[menu __main __preprint __mods __tex __mmode]' in _lcd
           and '[menu __main __preprint __mods __tex __mpos]' in _lcd, '')
     check('D10: menu - FUZZY and BUMPS parameters are separated by enable',
           'texture_mode|default(\'\')|string == \'FUZZY\'' in _lcd
           and 'texture_mode|default(\'\')|string == \'BUMPS\'' in _lcd, '')
+    # G4: coarse vase paths get resampled to <=1.5 mm XY chords while
+    # retaining the final absolute-E coordinate and total relative extrusion.
+    _g4src = os.path.join(d, 'coarse_vase.gcode')
+    _coords = ((0, 0), (40, 0), (40, 40), (0, 40), (0, 0))
+    _g4abs = ['G90', 'M82', ';TYPE:Outer wall']
+    _g4rel = ['G90', 'M83', ';TYPE:Outer wall']
+    _e = 0.0
+    for _z in (0.2, 0.4):
+        for _i, (_x, _y) in enumerate(_coords):
+            _delta = 0.1 if _i == 0 else 0.4
+            _e += _delta
+            _g4abs.append('G1 X%d Y%d Z%.1f E%.5f' % (_x, _y, _z, _e))
+            _g4rel.append('G1 X%d Y%d Z%.1f E%.5f' % (_x, _y, _z, _delta))
+    open(_g4src, 'w').write('\n'.join(_g4abs) + '\n')
+    _g4out, _g4info = r2_texture.apply_texture(
+        _g4src, out_dir=d, mode='BUMPS', bump_pattern='BARK',
+        bump_scale=10, bump_amp=0.4, zsize=4)
+    _g4lines = [x for x in open(_g4out).read().splitlines()
+                if x.startswith('G1 ')]
+    _g4last_e = re.findall(r'(?<![A-Z])E(-?[0-9.]+)', _g4lines[-1])[-1]
+    check('G4: coarse vase segments subdivide and absolute E ends unchanged',
+          _g4info['subdivisions'] > 100 and len(_g4lines) > 200
+          and float(_g4last_e) == 3.4,
+          'subdivisions=%s end_E=%s' % (_g4info['subdivisions'], _g4last_e))
+    open(_g4src, 'w').write('\n'.join(_g4rel) + '\n')
+    _g4out2, _g4info2 = r2_texture.apply_texture(
+        _g4src, out_dir=d, mode='BUMPS', bump_pattern='BARK',
+        bump_scale=10, bump_amp=0.4, zsize=4)
+    _g4eout = sum(float(re.findall(r'(?<![A-Z])E(-?[0-9.]+)', x)[-1])
+                  for x in open(_g4out2).read().splitlines()
+                  if x.startswith('G1 ') and re.search(r'(?<![A-Z])E', x))
+    check('G4: M83 subdivisions conserve total extrusion',
+          abs(_g4eout - 3.4) < 1e-6 and _g4info2['subdivisions'] > 100,
+          'E %.7f / subdivisions %d' % (_g4eout, _g4info2['subdivisions']))
 finally:
     shutil.rmtree(d, ignore_errors=True)
 

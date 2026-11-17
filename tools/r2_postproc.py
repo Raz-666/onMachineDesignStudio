@@ -142,7 +142,13 @@ TYPE_RE = re.compile(
     # and the wall overrides would silently stop applying there. These
     # words (whole-line anchored) never match: the feature context simply
     # persists through them - a move annotation, not a feature switch.
-    r')(?!(?:seam|destring|retract|unretract|wipe|noop|travel|tool\s+change|color\s+change|pause\s+print|custom\s+gcode)\s*$)'
+    r')(?!(?:'
+    r'seams?|(?:destring(?:/wipe/jump)?|wipe|jump)(?:\s+path)?|'
+    r'retract(?:ion)?|unretract(?:ion)?|deretract(?:ion)?|'
+    r'noop|travel|combing\s+travel|move|non[- ]print\s+move|'
+    r'tool\s*changes?|color\s*changes?|pause\s*prints?|'
+    r'custom\s+g[- ]?code'
+    r')\s*$)'
     r'(.+?)\s*$',
     re.IGNORECASE)
 TYPE_MAP = {
@@ -247,7 +253,6 @@ TYPE_MAP = {
     'crown': 'GAPS',
     'internal single extrusion': 'GAPS',
     'external single extrusion': 'WALL-OUTER',
-    'wipe wall': 'SKIRT',
     'tip tower': 'PRIME-TOWER',
     'purge tower': 'PRIME-TOWER',
     'dense support': 'SUPPORT',
@@ -328,16 +333,89 @@ TYPE_MAP = {
     # keeps them inert - these keys catch direct _canon_type callers,
     # replay files and future dialects): a move annotation is no feature.
     'seam': 'TRAVEL',
+    'seams': 'TRAVEL',
     'destring': 'TRAVEL',
+    'destring/wipe/jump path': 'TRAVEL',
+    'destring path': 'TRAVEL',
+    'wipe path': 'TRAVEL',
+    'jump path': 'TRAVEL',
     'travel': 'TRAVEL',
+    'combing travel': 'TRAVEL',
+    'move': 'TRAVEL',
+    'jump': 'TRAVEL',
+    'non-print move': 'TRAVEL',
     'retract': 'TRAVEL',
+    'retraction': 'TRAVEL',
     'unretract': 'TRAVEL',
+    'unretraction': 'TRAVEL',
+    'deretract': 'TRAVEL',
+    'deretraction': 'TRAVEL',
     'wipe': 'TRAVEL',
     'noop': 'TRAVEL',
     'tool change': 'TRAVEL',
+    'toolchange': 'TRAVEL',
+    'toolchanges': 'TRAVEL',
     'color change': 'TRAVEL',
+    'colorchange': 'TRAVEL',
+    'colorchanges': 'TRAVEL',
     'pause print': 'TRAVEL',
+    'pauseprint': 'TRAVEL',
+    'pauseprints': 'TRAVEL',
     'custom gcode': 'TRAVEL',
+    'custom g-code': 'TRAVEL',
+    # C4: complete cross-slicer family aliases (Prusa/Super/Orca/Bambu/Cura/
+    # Simplify3D/KISSlicer/ideaMaker/CraftWare/MatterControl/Pathio/MakerBot).
+    'none': 'CUSTOM',
+    'other': 'CUSTOM',
+    'outer perimeter': 'WALL-OUTER',
+    'outside perimeter': 'WALL-OUTER',
+    'outer walls': 'WALL-OUTER',
+    'perimeter path': 'WALL-OUTER',         # KISSlicer outermost contour
+    'inner perimeter': 'WALL-INNER',
+    'internal perimeter': 'WALL-INNER',
+    'inside perimeter': 'WALL-INNER',
+    'inner walls': 'WALL-INNER',
+    'wall': 'WALL-INNER',
+    'perimeters': 'WALL-INNER',
+    'loop': 'WALL-INNER',
+    'loops': 'WALL-INNER',
+    'loop path': 'WALL-INNER',
+    'hole': 'WALL-INNER',                   # CraftWare hole perimeter
+    'perimeter hole': 'WALL-INNER',
+    'second perimeter': 'WALL-INNER',
+    'contour internal perimeter': 'WALL-INNER',
+    'floating vertical shell': 'WALL-INNER',
+    'single extrusion fill': 'GAPS',
+    'gaps in walls': 'GAPS',
+    'gaps in skin': 'GAPS',
+    'fill thin gaps': 'GAPS',
+    'thin gaps': 'GAPS',
+    'crown path': 'GAPS',
+    'sparse infill path': 'INFILL-SPARSE',
+    'stacked sparse infill path': 'INFILL-SPARSE',
+    'solid path': 'INFILL-SOLID',
+    'hshell': 'INFILL-SOLID',               # CraftWare horizontal solid shell
+    'top solid fill': 'SURFACE-TOP',
+    'bottom solid fill': 'SURFACE-BOTTOM',
+    'bridge path': 'BRIDGE',
+    'supports': 'SUPPORT',
+    'support path': 'SUPPORT',
+    'support interface path': 'SUPPORT',
+    'sheathed support': 'SUPPORT',
+    'soft support': 'SUPPORT',
+    'support perimeter': 'SUPPORT',
+    'support wall': 'SUPPORT',
+    'support columns': 'SUPPORT',
+    'pillar path': 'SUPPORT',               # KISSlicer support pillar
+    'skirt path': 'SKIRT',
+    'skirt/brim': 'BRIM',
+    'shield brim': 'BRIM',
+    'raft path': 'SURFACE-BOTTOM',
+    'prime pillar path': 'PRIME-TOWER',
+    'wipe pillar': 'PRIME-TOWER',
+    'purge pillar': 'PRIME-TOWER',
+    'flush': 'PRIME-TOWER',
+    'flushing': 'PRIME-TOWER',
 }
 
 
@@ -441,7 +519,10 @@ def _canon_type(raw):
                'tri', 'hexagon')
     if 'iron' in kts:
         return 'IRONING'
-    if 'tower' in kts:
+    if ('tower' in kts or 'flush' in kts or 'flushing' in kts
+            or ('pillar' in kts and ('prime' in kts or 'purge' in kts
+                                     or 'wipe' in kts))
+            or ('wipe' in kts and 'wall' in kts)):
         return 'PRIME-TOWER'
     if 'purge' in kts or 'prime' in kts:
         return 'SKIRT'            # a purge/prime line is disposable, like ooze
@@ -452,26 +533,46 @@ def _canon_type(raw):
     if 'raft' in kts:
         return 'SURFACE-BOTTOM'   # map precedent
     if 'bridge' in kts:
-        if 'internal' in kts:
+        if 'internal' in kts or 'interior' in kts or 'inner' in kts:
             return 'INTERNAL-BRIDGE'
         return 'BRIDGE'
     if 'overhang' in kts:
         return 'OVERHANG-PERIM'
+    # C4: gap/crown BEFORE wall/shell so 'gaps in walls' maps to GAPS, not WALL
+    if 'gap' in kts or 'crown' in kts:
+        return 'GAPS'
+    # C4: horizontal top/bottom solid shell/fill resolves before vertical wall/shell
+    if 'solid' in kts and bool(
+            kts & {'top', 'roof', 'upper', 'bottom', 'floor', 'lower'}):
+        _has_top = bool(kts & {'top', 'roof', 'upper'})
+        _has_bot = bool(kts & {'bottom', 'floor', 'lower'})
+        if _has_top and not _has_bot:
+            return 'SURFACE-TOP'
+        if _has_bot and not _has_top:
+            return 'SURFACE-BOTTOM'
+        return 'INFILL-SOLID'
     if ('wall' in kts or 'shell' in kts or 'perimeter' in kts
             or 'contour' in kts or 'outline' in kts or 'loop' in kts):
         if any(w in kts for w in ('outer', 'external', 'outside',
                                   'single', 'alone', 'exposed')):
             return 'WALL-OUTER'
         return 'WALL-INNER'       # 'perimeter' / 'thin wall' precedent
-    if 'gap' in kts:
-        return 'GAPS'
     if ('infill' in kts or 'fill' in kts or 'solid' in kts
             or 'sparse' in kts or (kts & set(_pat216))):
+        # C4: explicit one-sided top/bottom beats generic solid ('Top Solid Fill'
+        # -> SURFACE-TOP, 'Bottom Solid Fill' -> SURFACE-BOTTOM; combined
+        # 'top/bottom solid' carries both and stays INFILL-SOLID).
+        _has_top = bool(kts & {'top', 'roof', 'upper'})
+        _has_bot = bool(kts & {'bottom', 'floor', 'lower'})
+        if _has_top and not _has_bot:
+            return 'SURFACE-TOP'
+        if _has_bot and not _has_top:
+            return 'SURFACE-BOTTOM'
         if 'solid' in kts or 'dense' in kts:
             return 'INFILL-SOLID'
-        if any(w in kts for w in ('top', 'surface', 'skin', 'roof')):
+        if 'surface' in kts or 'skin' in kts:
             return 'SURFACE-TOP'
-        if 'bottom' in kts or 'base' in kts:
+        if 'base' in kts:
             return 'SURFACE-BOTTOM'
         return 'INFILL-SPARSE'
     if 'skin' in kts or 'surface' in kts:
@@ -505,31 +606,567 @@ def _canon_type(raw):
 _SEQ_WARN_MAX = 5
 
 
+_STACKED_BRIM_MAX = 12
+
+
 def _sequence_audit193(events):
-    """events: ordered [(layer_no, feature)] - the feature stream of a file
-    (tagged stream from the ;TYPE:/;FEATURE: pass, or the derived stream of
-    the geometry classifier - never both, the worlds stay unmixed).
+    """events: ordered [(layer_no, feature)] or [(unit_layer_no, feature, unit_id)].
+
+    C2/C3 unit-aware impossibility audit:
+      - S1: IRONING on unit layer 1 (nothing below to iron)
+      - S2: IRONING without a preceding SURFACE-TOP in the same (unit, layer)
+      - S3: BRIM beyond unit layer 3, unless part of an unbroken bed-anchored
+            multi-layer brim stack starting at unit layer 1 (1..k, k <= 12).
+            Sequential objects (unit_id >= 1) restart at unit layer 1, so a
+            second by-object brim on the bed never raises a false S3.
+      - S4: SURFACE-TOP on unit layer 1
+      - S5: stacked unenclosed top surface (consecutive unit layers containing
+            only SURFACE-TOP/IRONING with no enclosing walls or infill)
     Returns a list of short violation strings (capped at _SEQ_WARN_MAX)."""
     if not events:
         return []
+    norm = []
+    for ev in events:
+        if len(ev) >= 3:
+            norm.append((int(ev[0]), ev[1], int(ev[2])))
+        else:
+            norm.append((int(ev[0]), ev[1], 0))
+
+    # Per-unit contiguous bed-anchored brim ceiling (default window = 3).
+    brim_by_unit = {}
+    unit_layers = {}
+    for (uln, feat, uid) in norm:
+        unit_layers.setdefault(uid, {}).setdefault(uln, set()).add(feat)
+        if feat == 'BRIM':
+            brim_by_unit.setdefault(uid, set()).add(uln)
+    brim_cap = {}
+    for uid, bls in brim_by_unit.items():
+        cap = 3
+        if 1 in bls:
+            contig = 0
+            while (contig + 1) in bls and contig < _STACKED_BRIM_MAX:
+                contig += 1
+            cap = max(cap, contig)
+        brim_cap[uid] = cap
+
     warns = []
-    top_seen = set()          # layers that already printed a SURFACE-TOP
-    for (ln, feat) in events:
+    top_seen = set()          # (unit_id, unit_layer_no) with SURFACE-TOP seen
+    for (uln, feat, uid) in norm:
         if feat == 'SURFACE-TOP':
-            top_seen.add(ln)
+            top_seen.add((uid, uln))
         elif feat == 'IRONING':
-            if ln <= 1 and 'S1 ironing on layer 1' not in warns:
+            if uln <= 1 and 'S1 ironing on layer 1' not in warns:
                 warns.append('S1 ironing on layer 1')
-            if ln not in top_seen and 'S2 ironing without a top before it' \
-                    not in warns:
+            if ((uid, uln) not in top_seen
+                    and 'S2 ironing without a top before it' not in warns):
                 warns.append('S2 ironing without a top before it')
         elif feat == 'BRIM':
-            if ln > 3 and 'S3 brim beyond the brim window' not in warns:
+            if (uln > brim_cap.get(uid, 3)
+                    and 'S3 brim beyond the brim window' not in warns):
                 warns.append('S3 brim beyond the brim window')
     # S4 separately - the event above already recorded the top
-    if any(ln <= 1 and f == 'SURFACE-TOP' for (ln, f) in events):
+    if any(uln <= 1 and f == 'SURFACE-TOP' for (uln, f, _u) in norm):
         warns.append('S4 top surface on layer 1')
+    # S5: consecutive unenclosed pure top-surface layers within the same unit
+    _aux_only = frozenset({'SURFACE-TOP', 'IRONING', 'SKIRT',
+                           'PRIME-TOWER', 'SUPPORT', 'TRAVEL'})
+    for uid, lmap in unit_layers.items():
+        for uln in sorted(lmap):
+            if uln < 2 or (uln + 1) not in lmap:
+                continue
+            s0, s1 = lmap[uln], lmap[uln + 1]
+            if ('SURFACE-TOP' in s0 and 'SURFACE-TOP' in s1
+                    and not (s0 - _aux_only) and not (s1 - _aux_only)):
+                if 'S5 stacked unenclosed top surface' not in warns:
+                    warns.append('S5 stacked unenclosed top surface')
+                break
     return warns[:_SEQ_WARN_MAX]
+
+
+def _raster_seg_cells(x0, y0, x1, y1, cell_mm):
+    """Return integer (cx, cy) grid cells touched by segment (x0,y0)->(x1,y1)."""
+    inv = 1.0 / cell_mm
+    dist = math.hypot(x1 - x0, y1 - y0)
+    steps = max(1, min(int(math.ceil(dist * inv * 1.5)), 2048))
+    cells = set()
+    for k in range(steps + 1):
+        t = k / float(steps)
+        cells.add((int(math.floor((x0 + (x1 - x0) * t) * inv)),
+                   int(math.floor((y0 + (y1 - y0) * t) * inv))))
+    return cells
+
+
+def _dilate1(cells):
+    out = set()
+    for cx, cy in cells:
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                out.add((cx + dx, cy + dy))
+    return out
+
+
+def audit_tag_geometry(path, cell_mm=1.5, fil_dia=1.75, max_conflicts=50):
+    """C1/C3/C5: non-destructive full-stream tag-vs-geometry consistency audit.
+
+    Reads the ENTIRE G-code stream (no early move cap) in O(one layer) memory,
+    honoring G90/G91 (including Klipper's G91 E-relative rule), M82/M83,
+    G92 X/Y/Z/E, sequential by-object units, and raw-vs-canonical tags.
+    Never modifies the file or overwrites explicit slicer tags; returns
+    concrete, evidence-backed conflict records:
+      - G1_FLOATING_ADHESION: BRIM/RAFT above unit layer 3 without contiguous
+        bed-anchored continuation in the XY cells directly below
+      - G2_IRONING_HIGH_FLOW: IRONING block extruding at printing cross-section
+        (> 65% of nominal bead cross-section)
+      - G3_IRONING_UNSUPPORTED: IRONING block whose XY cells do not ride on
+        a same-layer SURFACE-TOP (1-cell dilated)
+      - G4_STACKED_EXPLICIT_TOP: explicit non-ambiguous Top surface (excludes
+        Cura's combined 'SKIN') repeatedly capping the exact same closed XY
+        cells on consecutive unit layers without enclosing geometry change
+      - G5_UNANCHORED_BRIDGE: BRIDGE block on unit layer >= 2 with neither
+        support below nor endpoint anchored to lower-layer material
+      - G6_OPEN_HATCH_AS_OUTER_WALL: tagged WALL-OUTER block made solely of
+        >= 6 disjoint parallel rectilinear hatch strokes (not closed contours)
+    """
+    cell_mm = max(0.5, float(cell_mm))
+    fil_area = math.pi * (max(0.5, float(fil_dia)) * 0.5) ** 2
+    opener = gzip.open if str(path).lower().endswith('.gz') else open
+
+    x = y = 0.0
+    z = None
+    e = 0.0
+    e_rel = False
+    xyz_rel = False
+    unit_id = 0
+    unit_layer = 0
+    unit_z = None
+    bed_z = None
+    total_layers = 0
+    seen_layer_comment = False
+    pending_layer = False
+
+    cur_raw = None
+    cur_canon = None
+    cur_line = 0
+    blk_moves = 0
+    blk_len = 0.0
+    blk_area_samples = []
+    blk_strokes = []       # [(x0, y0, x1, y1)] disjoint extruding subpaths
+    blk_cur_stroke = None
+    blk_cells = set()
+    blk_endpoints = []
+    tagged_blocks = 0
+    empty_tag_blocks = 0
+    all_xsec = []          # non-ironing bead cross-sections (mm^2)
+
+    # Current and previous layer spatial grids (reset on sequential unit change)
+    prev_all = set()
+    prev_adhesion = set()
+    prev_expl_top = set()
+    prev_iron = set()
+    prev_had_interior = False
+    prev_had_walls = False
+    cur_all = set()
+    cur_adhesion = set()
+    cur_top = set()
+    cur_expl_top = set()
+    cur_iron = set()
+    cur_had_interior = False
+    cur_had_walls = False
+    cur_iron_blocks = []   # [(line, raw, cells, med_xsec, length_mm)]
+    cur_adhes_blocks = []  # [(line, raw, canon, cells, uln, uid)]
+    cur_bridge_blocks = [] # [(line, raw, cells, endpoints, uln, uid)]
+    cur_top_blocks = []    # [(line, raw, cells, uln, uid)]
+    conflicts = []
+
+    def _add_conflict(code, line_no, unit, uln, raw_tag, canon, detail):
+        if len(conflicts) < max_conflicts:
+            conflicts.append({
+                'code': code, 'line': int(line_no), 'unit': int(unit),
+                'unit_layer': int(uln), 'raw_tag': raw_tag,
+                'canonical': canon, 'detail': detail,
+            })
+
+    def _is_parallel_open_hatch(strokes):
+        if len(strokes) < 6:
+            return False
+        angles = []
+        long_cnt = 0
+        for sx0, sy0, sx1, sy1, nseg, slen in strokes:
+            chord = math.hypot(sx1 - sx0, sy1 - sy0)
+            if slen < 3.0:
+                continue
+            # Closed loop has chord near 0 -> immediately NOT open hatch.
+            if chord < 0.85 * slen:
+                return False
+            if nseg > 2:
+                return False
+            ang = math.atan2(sy1 - sy0, sx1 - sx0) % math.pi
+            angles.append(ang)
+            long_cnt += 1
+        if long_cnt < 6:
+            return False
+        ref = angles[0]
+        aligned = sum(
+            1 for a in angles
+            if min(abs(a - ref), math.pi - abs(a - ref)) < math.radians(6.0)
+        )
+        return aligned >= max(6, int(0.85 * len(angles)))
+
+    def _flush_block():
+        nonlocal empty_tag_blocks, blk_moves, blk_len, blk_area_samples
+        nonlocal blk_strokes, blk_cur_stroke, blk_cells, blk_endpoints
+        if blk_cur_stroke is not None:
+            blk_strokes.append(blk_cur_stroke)
+            blk_cur_stroke = None
+        if cur_canon is not None and cur_canon != 'TRAVEL':
+            if blk_moves == 0:
+                empty_tag_blocks += 1
+            else:
+                uln = max(1, unit_layer)
+                raw_lc = (cur_raw or '').strip().lower()
+                if cur_canon == 'IRONING':
+                    sxs = sorted(blk_area_samples)
+                    med = sxs[len(sxs) // 2] if sxs else 0.0
+                    cur_iron_blocks.append(
+                        (cur_line, cur_raw, set(blk_cells), med, blk_len))
+                elif cur_canon == 'BRIM' or raw_lc.startswith('raft'):
+                    cur_adhes_blocks.append(
+                        (cur_line, cur_raw, cur_canon, set(blk_cells),
+                         uln, unit_id))
+                elif cur_canon == 'BRIDGE':
+                    cur_bridge_blocks.append(
+                        (cur_line, cur_raw, set(blk_cells),
+                         list(blk_endpoints), uln, unit_id))
+                elif (cur_canon == 'SURFACE-TOP'
+                      and raw_lc not in ('skin', 'top-skin', 'surface')
+                      and uln >= 2):
+                    cur_top_blocks.append(
+                        (cur_line, cur_raw, set(blk_cells), uln, unit_id))
+                elif (cur_canon == 'WALL-OUTER' and blk_len >= 24.0
+                      and _is_parallel_open_hatch(blk_strokes)):
+                    _add_conflict(
+                        'G6_OPEN_HATCH_AS_OUTER_WALL', cur_line, unit_id, uln,
+                        cur_raw, cur_canon,
+                        '%d disjoint parallel open strokes (%.1f mm) tagged '
+                        'as outer wall' % (len(blk_strokes), blk_len))
+        blk_moves = 0
+        blk_len = 0.0
+        blk_area_samples = []
+        blk_strokes = []
+        blk_cells = set()
+        blk_endpoints = []
+
+    def _finish_layer(reset_unit=False):
+        nonlocal prev_all, prev_adhesion, prev_expl_top, prev_iron
+        nonlocal prev_had_interior, prev_had_walls
+        nonlocal cur_all, cur_adhesion, cur_top, cur_expl_top, cur_iron
+        nonlocal cur_had_interior, cur_had_walls
+        nonlocal cur_iron_blocks, cur_adhes_blocks, cur_bridge_blocks
+        nonlocal cur_top_blocks
+        _flush_block()
+        if cur_all:
+            uln = max(1, unit_layer)
+            # G1: floating adhesion above unit layer 3
+            prev_adh_d = _dilate1(prev_adhesion) if prev_adhesion else set()
+            for bline, braw, bcan, bcells, buln, buid in cur_adhes_blocks:
+                if buln > 3 and bcells:
+                    ov = len(bcells & prev_adh_d) / float(len(bcells))
+                    if ov < 0.30:
+                        _add_conflict(
+                            'G1_FLOATING_ADHESION', bline, buid, buln,
+                            braw, bcan,
+                            'adhesion feature at unit layer %d with %.0f%% '
+                            'continuation from layer below'
+                            % (buln, ov * 100.0))
+            # G2 + G3: ironing high flow & spatial top-surface support
+            top_d = _dilate1(cur_top) if cur_top else set()
+            nom_xsec = (sorted(all_xsec)[len(all_xsec) // 2]
+                        if len(all_xsec) >= 4 else 0.0)
+            for bline, braw, bcells, med_xs, blen in cur_iron_blocks:
+                if bcells and blen >= 4.0:
+                    ov = (len(bcells & top_d) / float(len(bcells))
+                          if top_d else 0.0)
+                    if ov < 0.30:
+                        _add_conflict(
+                            'G3_IRONING_UNSUPPORTED', bline, unit_id, uln,
+                            braw, 'IRONING',
+                            'ironing overlaps only %.0f%% of same-layer top '
+                            'surface cells' % (ov * 100.0))
+                if nom_xsec > 1e-4 and med_xs > 0.65 * nom_xsec and blen >= 4.0:
+                    _add_conflict(
+                        'G2_IRONING_HIGH_FLOW', bline, unit_id, uln,
+                        braw, 'IRONING',
+                        'ironing cross-section %.4f mm2 is %.0f%% of nominal '
+                        '%.4f mm2' % (med_xs, 100.0 * med_xs / nom_xsec,
+                                      nom_xsec))
+            # G4: explicit Top surface re-capping the exact same already-closed
+            # top cells without enclosing walls OR over an already-ironed final
+            # top footprint (legitimate multi-top shells carry enclosing walls
+            # and iron only the final layer).
+            if prev_expl_top and not prev_had_interior and not cur_had_interior:
+                for bline, braw, bcells, buln, buid in cur_top_blocks:
+                    if len(bcells) < 4:
+                        continue
+                    ov = len(bcells & prev_expl_top) / float(len(bcells))
+                    if ov < 0.75:
+                        continue
+                    over_iron = (
+                        bool(prev_iron)
+                        and len(bcells & prev_iron) / float(len(prev_iron)) >= 0.75
+                        and len(bcells & prev_iron) / float(len(bcells)) >= 0.75
+                    )
+                    unenclosed = (not prev_had_walls and not cur_had_walls)
+                    if unenclosed or over_iron:
+                        _add_conflict(
+                            'G4_STACKED_EXPLICIT_TOP', bline, buid, buln,
+                            braw, 'SURFACE-TOP',
+                            'explicit top surface re-caps %.0f%% of '
+                            'already-closed %sprevious-layer top cells'
+                            % (ov * 100.0,
+                               'ironed ' if over_iron else 'unenclosed '))
+            # G5: bridge completely unanchored in empty air
+            if uln >= 2 and cur_bridge_blocks:
+                prev_d = _dilate1(prev_all) if prev_all else set()
+                for bline, braw, bcells, beps, buln, buid in cur_bridge_blocks:
+                    if not bcells or len(bcells) < 2:
+                        continue
+                    anchored = any(ep in prev_d for ep in beps)
+                    supported = bool(bcells & prev_d)
+                    if not anchored and not supported:
+                        _add_conflict(
+                            'G5_UNANCHORED_BRIDGE', bline, buid, buln,
+                            braw, 'BRIDGE',
+                            'bridge has zero lower-layer support or anchored '
+                            'endpoints')
+            if reset_unit:
+                prev_all = set()
+                prev_adhesion = set()
+                prev_expl_top = set()
+                prev_iron = set()
+                prev_had_interior = False
+                prev_had_walls = False
+            else:
+                prev_all = cur_all
+                prev_adhesion = cur_adhesion
+                prev_expl_top = cur_expl_top
+                prev_iron = cur_iron
+                prev_had_interior = cur_had_interior
+                prev_had_walls = cur_had_walls
+        elif reset_unit:
+            prev_all = set()
+            prev_adhesion = set()
+            prev_expl_top = set()
+            prev_iron = set()
+            prev_had_interior = False
+            prev_had_walls = False
+        cur_all = set()
+        cur_adhesion = set()
+        cur_top = set()
+        cur_expl_top = set()
+        cur_iron = set()
+        cur_had_interior = False
+        cur_had_walls = False
+        cur_iron_blocks = []
+        cur_adhes_blocks = []
+        cur_bridge_blocks = []
+        cur_top_blocks = []
+
+    zre_a = re.compile(r'^\s*;\s*Z\s*:\s*(-?\d*\.?\d+)', re.I)
+    with opener(path, 'rt', errors='replace') as fh:
+        for lno, raw in enumerate(fh, 1):
+            line = raw.rstrip('\r\n')
+            ls = line.strip()
+            if not ls:
+                continue
+            if LAYER_COMMENT.match(line):
+                seen_layer_comment = True
+                pending_layer = True
+                continue
+            mz = zre_a.match(line)
+            if mz:
+                zv = float(mz.group(1))
+                if bed_z is None:
+                    bed_z = zv
+                if unit_z is not None and zv < unit_z - 0.45:
+                    _finish_layer(reset_unit=True)
+                    unit_id += 1
+                    unit_layer = 1
+                    total_layers += 1
+                    unit_z = zv
+                    pending_layer = False
+                elif pending_layer:
+                    _finish_layer(reset_unit=False)
+                    unit_layer += 1
+                    total_layers += 1
+                    unit_z = zv
+                    pending_layer = False
+                continue
+            mt = TYPE_RE.match(line)
+            if mt:
+                if pending_layer:
+                    _finish_layer(reset_unit=False)
+                    unit_layer += 1
+                    total_layers += 1
+                    pending_layer = False
+                else:
+                    _flush_block()
+                rtag = mt.group(1).strip()
+                cn = _canon_type(rtag)
+                if cn == 'TRAVEL':
+                    continue
+                eff_uln = max(1, unit_layer)
+                if (cn == 'SURFACE-TOP'
+                        and rtag.lower() in ('skin', 'top-skin')
+                        and eff_uln <= 1):
+                    cn = 'SURFACE-BOTTOM'
+                cur_raw = rtag
+                cur_canon = cn
+                cur_line = lno
+                tagged_blocks += 1
+                continue
+            code = ls.split(';', 1)[0].strip()
+            if not code:
+                continue
+            cmd = code.split(None, 1)[0].upper()
+            if cmd == 'G90':
+                xyz_rel = False
+                continue
+            if cmd == 'G91':
+                xyz_rel = True
+                continue
+            if cmd == 'M82':
+                e_rel = False
+                continue
+            if cmd == 'M83':
+                e_rel = True
+                continue
+            if cmd == 'G92':
+                p92 = parse_params(code[3:])
+                if 'X' in p92 and math.isfinite(p92['X']):
+                    x = p92['X']
+                if 'Y' in p92 and math.isfinite(p92['Y']):
+                    y = p92['Y']
+                if 'Z' in p92 and math.isfinite(p92['Z']):
+                    z = p92['Z']
+                if 'E' in p92 and math.isfinite(p92['E']):
+                    e = p92['E']
+                continue
+            mm = MOVE_RE.match(code)
+            if not mm:
+                continue
+            p = parse_params(mm.group(2))
+            if any(not math.isfinite(v) for v in p.values()):
+                continue
+            x0, y0 = x, y
+            x1 = (x0 + p['X']) if ('X' in p and xyz_rel) else p.get('X', x0)
+            y1 = (y0 + p['Y']) if ('Y' in p and xyz_rel) else p.get('Y', y0)
+            if 'Z' in p:
+                z = (((z if z is not None else 0.0) + p['Z'])
+                     if xyz_rel else p['Z'])
+            ev = p.get('E')
+            de = 0.0
+            eff_erel = e_rel or xyz_rel
+            if ev is not None:
+                de = ev if eff_erel else (ev - e)
+                e = (e + ev) if eff_erel else ev
+            dist = math.hypot(x1 - x0, y1 - y0)
+            x, y = x1, y1
+            if not (ev is not None and de > 1e-5 and dist > 1e-4):
+                if blk_cur_stroke is not None:
+                    blk_strokes.append(blk_cur_stroke)
+                    blk_cur_stroke = None
+                continue
+            # Positive-E XY move: update layer/unit boundary if needed.
+            if z is not None and bed_z is None:
+                bed_z = z
+            if pending_layer:
+                is_reset = (z is not None and unit_z is not None
+                            and bed_z is not None
+                            and unit_z >= bed_z + 0.55
+                            and z <= bed_z + 0.35)
+                _finish_layer(reset_unit=is_reset)
+                if is_reset:
+                    unit_id += 1
+                    unit_layer = 1
+                else:
+                    unit_layer += 1
+                total_layers += 1
+                if z is not None:
+                    unit_z = z
+                pending_layer = False
+            elif not seen_layer_comment and z is not None:
+                if unit_z is None:
+                    unit_layer = max(1, unit_layer)
+                    if total_layers == 0:
+                        total_layers = 1
+                    unit_z = z
+                elif (bed_z is not None and unit_z >= bed_z + 0.55
+                      and z <= bed_z + 0.35):
+                    _finish_layer(reset_unit=True)
+                    unit_id += 1
+                    unit_layer = 1
+                    total_layers += 1
+                    unit_z = z
+                elif z >= unit_z + 0.039 and cur_all:
+                    _finish_layer(reset_unit=False)
+                    unit_layer += 1
+                    total_layers += 1
+                    unit_z = z
+            elif unit_layer == 0:
+                unit_layer = 1
+                total_layers = 1
+
+            scells = _raster_seg_cells(x0, y0, x1, y1, cell_mm)
+            cur_all |= scells
+            xsec = (de * fil_area) / dist
+            if cur_canon != 'IRONING' and len(all_xsec) < 4000 and 1e-4 < xsec < 5.0:
+                all_xsec.append(xsec)
+            if cur_canon is not None and cur_canon != 'TRAVEL':
+                blk_moves += 1
+                blk_len += dist
+                blk_cells |= scells
+                if cur_canon == 'IRONING':
+                    blk_area_samples.append(xsec)
+                    cur_iron |= scells
+                elif cur_canon in ('WALL-OUTER', 'WALL-INNER'):
+                    cur_had_walls = True
+                    if cur_canon == 'WALL-OUTER' and len(blk_strokes) < 200:
+                        if blk_cur_stroke is None:
+                            blk_cur_stroke = [x0, y0, x1, y1, 1, dist]
+                        else:
+                            blk_cur_stroke[2] = x1
+                            blk_cur_stroke[3] = y1
+                            blk_cur_stroke[4] += 1
+                            blk_cur_stroke[5] += dist
+                elif cur_canon == 'SURFACE-TOP':
+                    cur_top |= scells
+                    if (cur_raw or '').strip().lower() not in (
+                            'skin', 'top-skin', 'surface'):
+                        cur_expl_top |= scells
+                elif cur_canon == 'BRIM' or (cur_raw or '').strip().lower().startswith('raft'):
+                    cur_adhesion |= scells
+                elif cur_canon in ('INFILL-SPARSE', 'INFILL-SOLID',
+                                   'INTERNAL-BRIDGE', 'SURFACE-BOTTOM'):
+                    cur_had_interior = True
+                elif cur_canon == 'BRIDGE':
+                    inv = 1.0 / cell_mm
+                    blk_endpoints.append(
+                        (int(math.floor(x0 * inv)), int(math.floor(y0 * inv))))
+                    blk_endpoints.append(
+                        (int(math.floor(x1 * inv)), int(math.floor(y1 * inv))))
+
+    _finish_layer(reset_unit=False)
+    by_code = {}
+    for c in conflicts:
+        by_code[c['code']] = by_code.get(c['code'], 0) + 1
+    return {
+        'units': (unit_id + 1) if total_layers > 0 else 0,
+        'layers': total_layers,
+        'tagged_blocks': tagged_blocks,
+        'empty_tag_blocks': empty_tag_blocks,
+        'conflicts': conflicts,
+        'by_code': by_code,
+    }
 
 
 # ---- slicer config header keys (OrcaSlicer / PrusaSlicer '; key = value') ---------
@@ -8801,7 +9438,20 @@ _JOB_STATE = {'queue': [], 'keys': set(), 'busy': False,
               # and on the stuck timeout although the thread kept burning
               # RAM/CPU, so a print could start straight into the overload
               # the flag exists to prevent.
+              'job_ids': {}, 'registry': None,
               'thread': None, 'zombie': None, 'zombie_notice': 0.0}
+
+
+def _get_job_registry():
+    reg = _JOB_STATE.get('registry')
+    if reg is None:
+        try:
+            from r2_job_service import JobRegistry as _JR
+            reg = _JR(max_history=64)
+            _JOB_STATE['registry'] = reg
+        except Exception:                                  # noqa: BLE001
+            return None
+    return reg
 
 # R223 (.136s field log): a generator job that never returns (the photo
 # string-art build ground the 512MB Pi into swap-thrash for 27+ minutes)
@@ -18079,48 +18729,110 @@ def _stl_export(directory, rel, out_dir=None):
     with opener(src, 'rt', errors='replace') as f:
         raw = f.read()
 
-    # ---- pass 0a (R253): which wall kinds does this file actually NAME? ----
-    # A quick comment-only scan (no move parsing) decides whether the strict
-    # outer-skin set can work. Nothing is guessed about geometry here - only
-    # the vocabulary of the file.
-    # types only ever appear in COMMENT lines - skipping the move lines
-    # keeps this pre-scan cheap, and it runs to the END of the file (a
-    # first-move cutoff missed every type, because the skirt block precedes
-    # them in most files - found in the R253 self test)
+    # ---- pass 0a (R253 + C-fix): which feature kinds ACTUALLY EXTRUDE? ----
+    # Honors G90/G91 (incl. Klipper G91 E-rel), M82/M83, G92 X/Y/Z/E, and only
+    # credits a feature kind when it governs at least one finite positive-E XY
+    # move (empty header/stub ;TYPE:Outer wall comments never mask relaxation).
+    # Also collects real Z steps simultaneously for layer-band quantization.
     _kinds214 = set()
+    _zprev216 = None
+    _zchg216 = []
+    _kx = _ky = _kz = 0.0
+    _ke = 0.0
+    _kerel = False
+    _krel = False
+    _ktype = 'CUSTOM'
     for ln in raw.split('\n'):
         if ln[:1] == ';':
             _m214k = TYPE_RE.match(ln)
             if _m214k:
-                _kinds214.add(_canon_type(_m214k.group(1)))
-        elif ln.startswith('APPLY_TYPE'):      # R253: R2's OWN type markers
-            for _p214k in ln.split(';', 1)[0].split()[1:]:
+                _ktype = _canon_type(_m214k.group(1))
+            continue
+        _kc = ln.split(';', 1)[0].strip()
+        if not _kc:
+            continue
+        _kp = _kc.split()
+        _kcmd = _kp[0].upper()
+        if _kcmd == 'APPLY_TYPE':
+            for _p214k in _kp[1:]:
                 if _p214k.upper().startswith('TYPE='):
-                    _kinds214.add(_canon_type(_p214k.split('=', 1)[1]))
+                    _ktype = _canon_type(_p214k.split('=', 1)[1])
+            continue
+        if _kcmd == 'G90':
+            _krel = False
+            continue
+        if _kcmd == 'G91':
+            _krel = True
+            continue
+        if _kcmd == 'M82':
+            _kerel = False
+            continue
+        if _kcmd == 'M83':
+            _kerel = True
+            continue
+        if _kcmd == 'G92':
+            for _a in _kp[1:]:
+                _ax = _a[:1].upper()
+                try:
+                    _av = float(_a[1:])
+                except ValueError:
+                    continue
+                if not math.isfinite(_av):
+                    continue
+                if _ax == 'X':
+                    _kx = _av
+                elif _ax == 'Y':
+                    _ky = _av
+                elif _ax == 'Z':
+                    _kz = _av
+                elif _ax == 'E':
+                    _ke = _av
+            continue
+        if _kcmd not in ('G0', 'G1', 'G2', 'G3'):
+            continue
+        _nx = _ny = _nz = None
+        _de = 0.0
+        _eff_erel = _kerel or _krel
+        _bad_num = False
+        for _a in _kp[1:]:
+            _ax = _a[:1].upper()
+            if _ax not in ('X', 'Y', 'Z', 'E'):
+                continue
+            try:
+                _av = float(_a[1:])
+            except ValueError:
+                continue
+            if not math.isfinite(_av):
+                _bad_num = True
+                break
+            if _ax == 'X':
+                _nx = (_kx + _av) if _krel else _av
+            elif _ax == 'Y':
+                _ny = (_ky + _av) if _krel else _av
+            elif _ax == 'Z':
+                _nz = (_kz + _av) if _krel else _av
+            elif _ax == 'E':
+                _de = _av if _eff_erel else (_av - _ke)
+        if _bad_num:
+            continue
+        _px0, _py0 = _kx, _ky
+        if _nx is not None:
+            _kx = _nx
+        if _ny is not None:
+            _ky = _ny
+        if _nz is not None:
+            _kz = _nz
+            if _zprev216 is None or abs(_kz - _zprev216) > 1e-4:
+                _zchg216.append(_kz)
+                _zprev216 = _kz
+        _ke += _de
+        if _de > 0.0 and math.hypot(_kx - _px0, _ky - _py0) > 1e-4:
+            _kinds214.add(_ktype)
     _relax214 = not (_kinds214 & _STL_SURFACE214)
     _excl214 = ((_STL_EXCLUDE214 - _STL_RELAX214) if _relax214
                 else _STL_EXCLUDE214)
     del _kinds214
 
-    # ---- pass 0 (R216): the dominant layer height --------------------------
-    # Spiral-vase files raise Z on EVERY segment - without quantizing Z to
-    # the layer grid first, no run ever merges (one vase = 28,785 one-box
-    # 'runs', the .136m mesh capped at 90 MB and crashed every viewer).
-    # A light pre-scan over the Z changes gives the grid step.
-    _zprev216 = None
-    _zchg216 = []
-    for ln in raw.split('\n'):
-        if ln[:2] in ('G0', 'G1', 'G2', 'G3'):
-            for p in ln.split():
-                if p[:1] in ('Z', 'z') and len(p) > 1:
-                    try:
-                        zv216 = float(p[1:])
-                    except ValueError:
-                        continue
-                    if _zprev216 is None or abs(zv216 - _zprev216) > 1e-4:
-                        _zchg216.append(zv216)
-                        _zprev216 = zv216
-                    break
     _zl216 = [b - a for a, b in zip(_zchg216, _zchg216[1:])
               if 0.05 <= b - a <= 2.0]
     if _zl216:
@@ -18135,8 +18847,10 @@ def _stl_export(directory, rel, out_dir=None):
 
     # ---- pass 1: collect extrusion runs (merged collinear segments) -------
     x = y = z = 0.0
+    z_raw = 0.0
     e = 0.0
     e_rel = False
+    xyz_rel = False
     cur_type = 'CUSTOM'      # before the first ;TYPE: = purge/helper zone
     seen_type = False
     runs = []                # [pts(list of (x,y)), z, e_sum, len_sum, type]
@@ -18167,6 +18881,12 @@ def _stl_export(directory, rel, out_dir=None):
                     seen_type = True
                     cur_type = _canon_type(_p1.split('=', 1)[1])
             continue
+        if cmd == 'G90':
+            xyz_rel = False
+            continue
+        if cmd == 'G91':
+            xyz_rel = True
+            continue
         if cmd == 'M82':
             e_rel = False
             continue
@@ -18175,30 +18895,54 @@ def _stl_export(directory, rel, out_dir=None):
             continue
         if cmd == 'G92':
             for p in parts[1:]:
-                if p[:1].upper() == 'E':
-                    try:
-                        e = float(p[1:])
-                    except ValueError:
-                        pass
+                ax = p[:1].upper()
+                try:
+                    gv = float(p[1:])
+                except ValueError:
+                    continue
+                if not math.isfinite(gv):
+                    continue
+                if ax == 'X':
+                    x = gv
+                    run = None
+                elif ax == 'Y':
+                    y = gv
+                    run = None
+                elif ax == 'Z':
+                    z_raw = gv
+                    z = _zq216(gv)
+                    run = None
+                elif ax == 'E':
+                    e = gv
             continue
         if cmd not in ('G0', 'G1', 'G2', 'G3'):
             continue
         nx = ny = nz = None
         de = 0.0
+        eff_erel = e_rel or xyz_rel
+        bad_move = False
         for p in parts[1:]:
             a = p[:1].upper()
+            if a not in ('X', 'Y', 'Z', 'E'):
+                continue
             try:
                 v = float(p[1:])
             except ValueError:
                 continue
+            if not math.isfinite(v):
+                bad_move = True
+                break
             if a == 'X':
-                nx = v
+                nx = (x + v) if xyz_rel else v
             elif a == 'Y':
-                ny = v
+                ny = (y + v) if xyz_rel else v
             elif a == 'Z':
-                nz = v
+                nz = (z_raw + v) if xyz_rel else v
             elif a == 'E':
-                de = v - e if not e_rel else v
+                de = v if eff_erel else (v - e)
+        if bad_move:
+            run = None
+            continue
         e_new = e + de
         px, py, pz = x, y, z
         if nx is not None:
@@ -18206,6 +18950,7 @@ def _stl_export(directory, rel, out_dir=None):
         if ny is not None:
             y = ny
         if nz is not None:
+            z_raw = nz
             z = _zq216(nz)      # R216: layer-grid Z (spiral vases merge)
         # G2/G3 arcs: treat as a straight segment to the endpoint (rare in
         # r2 files; the ribbon approximation is honest enough for a mesh)
@@ -18307,67 +19052,91 @@ def _stl_export(directory, rel, out_dir=None):
     out = os.path.join(outdir, base + '_object.stl.gcode')
     n_tri = 0
     n_box = 0
-    with open(out, 'wb') as fo:
-        fo.write(struct.pack('<80sI', b'R2 object-only STL (R214): '
-                             b'supports/skirt/brim/prime tower/custom/ironing '
-                             b'skipped - ribbons from extrusion moves', 0))
-        cnt_pos = fo.tell() - 4
+    import tempfile as _tempfile_stl
+    _stl_fd, _stl_tmp = _tempfile_stl.mkstemp(prefix='.r2stl_', suffix='.tmp',
+                                              dir=outdir)
+    try:
+        with os.fdopen(_stl_fd, 'wb') as fo:
+            fo.write(struct.pack('<80sI', b'R2 object-only STL (R214): '
+                                 b'supports/skirt/brim/prime tower/custom/ironing '
+                                 b'skipped - ribbons from extrusion moves', 0))
+            cnt_pos = fo.tell() - 4
 
-        def _tri(ax, ay, az, bx, by, bz, cx, cy, cz):
-            nonlocal n_tri
-            ux, uy, uz = bx - ax, by - ay, bz - az
-            vx, vy, vz = cx - ax, cy - ay, cz - az
-            nxn = uy * vz - uz * vy
-            nyn = uz * vx - ux * vz
-            nzn = ux * vy - uy * vx
-            ln = (nxn * nxn + nyn * nyn + nzn * nzn) ** 0.5 or 1.0
-            fo.write(struct.pack('<12fH', nxn / ln, nyn / ln, nzn / ln,
-                                 ax, ay, az, bx, by, bz, cx, cy, cz, 0))
-            n_tri += 1
+            def _tri(ax, ay, az, bx, by, bz, cx, cy, cz):
+                nonlocal n_tri
+                if not all(math.isfinite(c)
+                           for c in (ax, ay, az, bx, by, bz, cx, cy, cz)):
+                    return
+                ux, uy, uz = bx - ax, by - ay, bz - az
+                vx, vy, vz = cx - ax, cy - ay, cz - az
+                nxn = uy * vz - uz * vy
+                nyn = uz * vx - ux * vz
+                nzn = ux * vy - uy * vx
+                ln = (nxn * nxn + nyn * nyn + nzn * nzn) ** 0.5
+                if ln < 1e-12:
+                    return          # degenerate zero-area facet - skip
+                fo.write(struct.pack('<12fH', nxn / ln, nyn / ln, nzn / ln,
+                                     ax, ay, az, bx, by, bz, cx, cy, cz, 0))
+                n_tri += 1
 
-        for r in runs:
-            pts, zv, e_sum, len_sum = r[0], r[1], r[2], r[3]
-            if n_box >= _STL_MAX_BOXES214:
-                break
-            zb, zt = z_h[round(zv, 4)]
-            if _dec216 > 1:
-                zt = zb + (zt - zb) * _dec216    # R253: covers k layers
-            h = zt - zb
-            w = e_sum * _STL_FIL_AREA214 / (len_sum * h)
-            w = min(1.5, max(0.30, w)) * 0.5
-            if _dec216 > 1 and (_zidx216.get(round(zv, 4), 0) % _dec216):
-                continue                # R253: this layer band is folded into
-                                        # the previous kept one
-            q = pts[0]
-            for _i in range(1, len(pts)):
-                (x0, y0), (x1, y1) = q, pts[_i]
-                q = pts[_i]
-                dx, dy = x1 - x0, y1 - y0
-                L = (dx * dx + dy * dy) ** 0.5
-                if L < 1e-6:
-                    continue
-                nxh, nyh = -dy / L * w, dx / L * w
-                ax, ay = x0 + nxh, y0 + nyh        # left @ start
-                bx, by = x0 - nxh, y0 - nyh        # right @ start
-                cx, cy = x1 - nxh, y1 - nyh        # right @ end
-                dx2, dy2 = x1 + nxh, y1 + nyh      # left @ end
-                _tri(ax, ay, zt, bx, by, zt, cx, cy, zt)      # top 1
-                _tri(ax, ay, zt, cx, cy, zt, dx2, dy2, zt)    # top 2
-                _tri(ax, ay, zb, dx2, dy2, zb, cx, cy, zb)    # bottom 1
-                _tri(ax, ay, zb, cx, cy, zb, bx, by, zb)      # bottom 2
-                _tri(ax, ay, zb, ax, ay, zt, dx2, dy2, zt)    # left 1
-                _tri(ax, ay, zb, dx2, dy2, zt, dx2, dy2, zb)  # left 2
-                _tri(bx, by, zb, cx, cy, zb, cx, cy, zt)      # right 1
-                _tri(bx, by, zb, cx, cy, zt, bx, by, zt)      # right 2
-                _tri(ax, ay, zb, bx, by, zb, bx, by, zt)      # start cap 1
-                _tri(ax, ay, zb, bx, by, zt, ax, ay, zt)      # start cap 2
-                _tri(cx, cy, zb, dx2, dy2, zb, dx2, dy2, zt)  # end cap 1
-                _tri(cx, cy, zb, dx2, dy2, zt, cx, cy, zt)    # end cap 2
-                n_box += 1
+            for r in runs:
+                pts, zv, e_sum, len_sum = r[0], r[1], r[2], r[3]
                 if n_box >= _STL_MAX_BOXES214:
                     break
-        fo.seek(cnt_pos)
-        fo.write(struct.pack('<I', n_tri))
+                zb, zt = z_h[round(zv, 4)]
+                if _dec216 > 1:
+                    zt = zb + (zt - zb) * _dec216    # R253: covers k layers
+                h = zt - zb
+                if h <= 1e-6 or len_sum <= 1e-6:
+                    continue
+                w = e_sum * _STL_FIL_AREA214 / (len_sum * h)
+                if not math.isfinite(w):
+                    continue
+                w = min(1.5, max(0.30, w)) * 0.5
+                if _dec216 > 1 and (_zidx216.get(round(zv, 4), 0) % _dec216):
+                    continue                # R253: this layer band is folded into
+                                            # the previous kept one
+                q = pts[0]
+                for _i in range(1, len(pts)):
+                    (x0, y0), (x1, y1) = q, pts[_i]
+                    q = pts[_i]
+                    dx, dy = x1 - x0, y1 - y0
+                    L = (dx * dx + dy * dy) ** 0.5
+                    if L < 1e-6 or not math.isfinite(L):
+                        continue
+                    nxh, nyh = -dy / L * w, dx / L * w
+                    ax, ay = x0 + nxh, y0 + nyh        # left @ start
+                    bx, by = x0 - nxh, y0 - nyh        # right @ start
+                    cx, cy = x1 - nxh, y1 - nyh        # right @ end
+                    dx2, dy2 = x1 + nxh, y1 + nyh      # left @ end
+                    _tri(ax, ay, zt, bx, by, zt, cx, cy, zt)      # top 1
+                    _tri(ax, ay, zt, cx, cy, zt, dx2, dy2, zt)    # top 2
+                    _tri(ax, ay, zb, dx2, dy2, zb, cx, cy, zb)    # bottom 1
+                    _tri(ax, ay, zb, cx, cy, zb, bx, by, zb)      # bottom 2
+                    _tri(ax, ay, zb, ax, ay, zt, dx2, dy2, zt)    # left 1
+                    _tri(ax, ay, zb, dx2, dy2, zt, dx2, dy2, zb)  # left 2
+                    _tri(bx, by, zb, cx, cy, zb, cx, cy, zt)      # right 1
+                    _tri(bx, by, zb, cx, cy, zt, bx, by, zt)      # right 2
+                    _tri(ax, ay, zb, bx, by, zb, bx, by, zt)      # start cap 1
+                    _tri(ax, ay, zb, bx, by, zt, ax, ay, zt)      # start cap 2
+                    _tri(cx, cy, zb, dx2, dy2, zb, dx2, dy2, zt)  # end cap 1
+                    _tri(cx, cy, zb, dx2, dy2, zt, cx, cy, zt)    # end cap 2
+                    n_box += 1
+                    if n_box >= _STL_MAX_BOXES214:
+                        break
+            if n_tri <= 0:
+                raise RuntimeError('no non-degenerate mesh facets generated')
+            fo.seek(cnt_pos)
+            fo.write(struct.pack('<I', n_tri))
+            fo.flush()
+            os.fsync(fo.fileno())
+        os.replace(_stl_tmp, out)
+    except Exception:
+        try:
+            os.unlink(_stl_tmp)
+        except OSError:
+            pass
+        raise
     # ---- R253: prove the file really IS a binary STL -------------------
     # The field .142h export was silently corrupted AFTER writing (the
     # watcher tagged it as a print file and put text in front of the binary
@@ -19796,7 +20565,8 @@ def rederive_apply_types(path):
     return fixed
 
 
-def process(path, dry=False, verbose=False, retract_rewrite=False):
+def process(path, dry=False, verbose=False, retract_rewrite=False,
+            verify_tagged=False, preserve_original=False):
     """Inject _FILE_INFO + LAYER_MARK. Returns a change summary dict.
 
     R81 STREAMING: the old version read the WHOLE file into one string plus a
@@ -19826,6 +20596,13 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
                 if TAG in raw:
                     summary['skipped'] = True
                     return summary
+        if preserve_original:
+            from r2_job_service import OriginalArchive as _OrigArch
+            _oroot = (preserve_original if isinstance(preserve_original, str)
+                      else os.path.dirname(os.path.abspath(path)))
+            _oent = _OrigArch(_oroot).preserve(path)
+            summary['original_sha256'] = _oent['sha256']
+            summary['original_rel_path'] = _oent['rel_path']
         try:
             summary['retract_pairs'], _ab = _retract_rewrite_file(path)
         except OSError as e:
@@ -19838,7 +20615,15 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
     count_marks = 0
     cfg = {}
     comment_matches = []     # (idx, line) of LAYER_COMMENT hits - kept small
-    tagged_seq193 = []      # R193: (layer, feature) of the tagged stream
+    tagged_seq193 = []      # R193/C2/C3: (unit_layer, feature, unit_id)
+    _seq_unit = 0            # C2: sequential print-unit index (by-object)
+    _unit_cm_base = 0        # comment_matches offset at start of current unit
+    _unit_z_last = None      # last layer Z seen in current unit (mm)
+    _unit_bed_z = None       # first-layer bed Z reference (mm)
+    _unit_z_layers = 0       # physical positive-E layers in current unit
+    _cm_fresh_c2 = False     # True right after LAYER_COMMENT until first ink
+    _seen_objs_c2 = set()    # EXCLUDE_OBJECT names seen so far
+    _obj_start_c2 = re.compile(r'^\s*EXCLUDE_OBJECT_START\s+NAME=(\S+)')
     zs_fall = []             # ;Z: comment values (by-object proof)
     zre = re.compile(r'^\s*;\s*Z\s*:\s*(-?\d*\.?\d+)', re.IGNORECASE)
     first_cmd_idx = None     # first command line - filtered world (upgrade case)
@@ -19928,11 +20713,46 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
             if LAYER_COMMENT.match(line):
                 comment_matches.append((i, j))
                 geom.mark_comment()
+                _cm_fresh_c2 = True
+            _mo_c2 = _obj_start_c2.match(line)
+            if _mo_c2:
+                _seen_objs_c2.add(_mo_c2.group(1))
             scan.step(i, j, ls)
             geom.step(i, j, ls)
             m = zre.match(line)
             if m:
-                zs_fall.append(float(m.group(1)))
+                _zv_c2 = float(m.group(1))
+                zs_fall.append(_zv_c2)
+                if _unit_bed_z is None:
+                    _unit_bed_z = _zv_c2
+                if (_unit_z_last is not None
+                        and _zv_c2 < _unit_z_last - 0.45):
+                    _seq_unit += 1
+                    _unit_cm_base = max(0, len(comment_matches) - 1)
+                    _unit_z_layers = 1
+                _unit_z_last = _zv_c2
+                _cm_fresh_c2 = False
+            elif getattr(geom, 'last_extruding', False) and geom.z is not None:
+                _gz_c2 = geom.z
+                if _unit_bed_z is None:
+                    _unit_bed_z = _gz_c2
+                if _unit_z_last is None:
+                    _unit_z_last = _gz_c2
+                    _unit_z_layers = 1
+                elif ((not comment_matches or _cm_fresh_c2)
+                      and _unit_bed_z is not None
+                      and _unit_z_last >= _unit_bed_z + 0.55
+                      and _gz_c2 <= _unit_bed_z + 0.35):
+                    _seq_unit += 1
+                    _unit_cm_base = max(0, len(comment_matches) - 1)
+                    _unit_z_last = _gz_c2
+                    _unit_z_layers = 1
+                elif not comment_matches and _gz_c2 >= _unit_z_last + 0.039:
+                    _unit_z_last = _gz_c2
+                    _unit_z_layers += 1
+                elif _cm_fresh_c2:
+                    _unit_z_last = _gz_c2
+                _cm_fresh_c2 = False
             # ---- R89: retraction style counters -----------------------------
             if ls == 'G10' or ls == 'G11':
                 fw_ret += 1
@@ -19969,22 +20789,50 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
             m = TYPE_RE.match(line)
             feat_here = _canon_type(m.group(1)) if m else None
             if feat_here:
-                # R106 (user TYPE map): Cura's combined 'SKIN' covers top AND
-                # bottom fills; on layer 1 it is unambiguously the BOTTOM fill
-                # -> SURFACE-BOTTOM. Higher bottom skins stay SURFACE-TOP
-                # (layer count unknown - documented approximation).
+                # C2: compute unit-relative layer number from layer comments
+                # when present, or from tracked physical Z levels when layer
+                # comments are absent (metamorphic comment independence).
+                _uid_c2 = _seq_unit
+                if comment_matches:
+                    _uln_c2 = max(1, len(comment_matches) - _unit_cm_base)
+                    if (_cm_fresh_c2 and geom.z is not None
+                            and _unit_z_last is not None
+                            and _unit_bed_z is not None
+                            and _unit_z_last >= _unit_bed_z + 0.55
+                            and geom.z <= _unit_bed_z + 0.35):
+                        # Sequential restart whose travel Z returned to the bed
+                        _seq_unit += 1
+                        _unit_cm_base = max(0, len(comment_matches) - 1)
+                        _unit_z_last = geom.z
+                        _unit_z_layers = 1
+                        _cm_fresh_c2 = False
+                        _uid_c2 = _seq_unit
+                        _uln_c2 = 1
+                else:
+                    if geom.z is not None and _unit_z_last is not None:
+                        if (_unit_bed_z is not None
+                                and _unit_z_last >= _unit_bed_z + 0.55
+                                and geom.z <= _unit_bed_z + 0.35):
+                            _uid_c2 = _seq_unit + 1
+                            _uln_c2 = 1
+                        elif geom.z >= _unit_z_last + 0.039:
+                            _uln_c2 = _unit_z_layers + 1
+                        else:
+                            _uln_c2 = max(1, _unit_z_layers)
+                    else:
+                        _uln_c2 = max(1, _unit_z_layers)
+                # R106 + C2: Cura's combined 'SKIN' on unit layer 1 (including
+                # sequential second+ objects and comment-free files) is bottom.
                 if (feat_here == 'SURFACE-TOP'
                         and m.group(1).strip().lower() in ('skin', 'top-skin')
-                        and len(comment_matches) <= 1):
+                        and _uln_c2 <= 1):
                     feat_here = 'SURFACE-BOTTOM'
                 type_at[(i, j)] = feat_here
                 geom.mark_type(feat_here, (i, j))
                 if feat_here == 'CUSTOM':
                     custom_blocks += 1
-                # R193 (.135) stage 5: the tagged feature stream, in order,
-                # for the sequence audit (impossibility rules S1-S4)
-                tagged_seq193.append((max(1, len(comment_matches)),
-                                      feat_here))
+                # R193 + C2/C3: unit-aware tagged feature stream for S1-S5
+                tagged_seq193.append((_uln_c2, feat_here, _uid_c2))
             # ---- 4c) per-feature measurement (.44) -----------------------------------
             if feat_here:
                 _close_seg()
@@ -20201,6 +21049,13 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
         info.append('SEQWARN=%d' % len(_seq193))
         print('[seqaudit] %s: %s' % (os.path.basename(path),
                                      '; '.join(_seq193)), flush=True)
+    if verify_tagged:
+        _ta_c5 = audit_tag_geometry(
+            path,
+            fil_dia=float(cfg['filament_diameter'])
+            if 'filament_diameter' in cfg else 1.75)
+        summary['tag_audit'] = _ta_c5
+        summary['geom_conflicts'] = _ta_c5['conflicts']
 
     # .44: the REAL originals (measured) + which features the file contains
     for canon in feat_stats:
@@ -20299,6 +21154,14 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
                   f'method={summary["method"]} info={" ".join(info)}')
         return summary
 
+    if preserve_original and 'original_sha256' not in summary:
+        from r2_job_service import OriginalArchive as _OrigArch
+        _oroot = (preserve_original if isinstance(preserve_original, str)
+                  else os.path.dirname(os.path.abspath(path)))
+        _oent = _OrigArch(_oroot).preserve(path)
+        summary['original_sha256'] = _oent['sha256']
+        summary['original_rel_path'] = _oent['rel_path']
+
     mark_set = {i2 for kind, i2 in insert_at if kind == 'after'}
     before_set = {i2 for kind, i2 in insert_at if kind == 'before'}
     tmp = path + '.r2tmp'
@@ -20351,6 +21214,8 @@ def process(path, dry=False, verbose=False, retract_rewrite=False):
         # note: when first_cmd is also in before_set, the mark lands right after info
         if first_cmd is None:
             fo.write('\n' + info_line)
+        fo.flush()
+        os.fsync(fo.fileno())
     os.replace(tmp, path)
 
     summary['tagged'] = True
@@ -20695,6 +21560,8 @@ class _GeomScan:
         self.f = None             # modal F (mm/min)
         self.e_run = 0.0
         self.e_rel = False
+        self.xyz_rel = False
+        self.last_extruding = False
         self.set_dia(fil_dia)
         self.max_rate = 0.0
         self.cur_type = None      # from ;TYPE: (caller feeds mark_type)
@@ -20781,28 +21648,57 @@ class _GeomScan:
 
     # ---- streaming -----------------------------------------------------------------
     def step(self, i, j, ls):
-        if ls.startswith('M82'):
+        self.last_extruding = False
+        code = ls.split(';', 1)[0].strip()
+        if not code:
+            return
+        cmd = code.split(None, 1)[0].upper()
+        if cmd == 'G90':
+            self.xyz_rel = False
+            return
+        if cmd == 'G91':
+            self.xyz_rel = True
+            return
+        if cmd == 'M82':
             self.e_rel = False
-        elif ls.startswith('M83'):
+            return
+        if cmd == 'M83':
             self.e_rel = True
-        m = MOVE_RE.match(ls)
+            return
+        if cmd == 'G92':
+            p92 = parse_params(code[3:])
+            if 'X' in p92 and math.isfinite(p92['X']):
+                self.x = p92['X']
+            if 'Y' in p92 and math.isfinite(p92['Y']):
+                self.y = p92['Y']
+            if 'Z' in p92 and math.isfinite(p92['Z']):
+                self.z = p92['Z']
+            if 'E' in p92 and math.isfinite(p92['E']):
+                self.e_run = p92['E']
+            return
+        m = MOVE_RE.match(code)
         if not m:
             return
         p = parse_params(m.group(2))
-        if 'F' in p:
+        if any(not math.isfinite(v) for v in p.values()):
+            return
+        if 'F' in p and p['F'] > 0:
             self.f = p['F']
         x0, y0 = self.x, self.y
-        x1 = p.get('X', x0)
-        y1 = p.get('Y', y0)
+        x1 = (x0 + p['X']) if ('X' in p and self.xyz_rel) else p.get('X', x0)
+        y1 = (y0 + p['Y']) if ('Y' in p and self.xyz_rel) else p.get('Y', y0)
         if 'Z' in p:
-            self.z = p['Z']
+            self.z = (((self.z if self.z is not None else 0.0) + p['Z'])
+                      if self.xyz_rel else p['Z'])
         e = p.get('E')
         de = 0.0
+        eff_erel = self.e_rel or self.xyz_rel
         if e is not None:
-            de = e if self.e_rel else e - self.e_run
-            self.e_run = e if not self.e_rel else self.e_run + e
+            de = e if eff_erel else (e - self.e_run)
+            self.e_run = (self.e_run + e) if eff_erel else e
         dist = math.hypot(x1 - x0, y1 - y0)
         extruding = e is not None and de > 0 and dist > 1e-6
+        self.last_extruding = extruding
         # R213: custom-block signature - EXTRUDING moves only. The lead-in
         # travel differs from layer to layer (wherever the nozzle came
         # from) and must not split one recurring block into C1/C3/C7.
@@ -22628,8 +23524,16 @@ def _preview_dup_skip(pfn, ppath, now=None):
     if now - _preview_last['t'] > _PREVIEW_DEDUP_WIN:
         return False
     try:
-        held = (_moonraker_status().get('gcode_macro _PREVIEW')
-                or {}).get('name', '')
+        st_prev = _moonraker_status()
+        prev_m = st_prev.get('gcode_macro _PREVIEW') or {}
+        held = prev_m.get('name', '')
+        # Do not skip the re-peek if _LIVE_RESET wiped _STATE.total_layers to 0
+        # while _PREVIEW already knows a positive layer count for this file.
+        prev_tl = int(prev_m.get('total_layers') or 0)
+        st_m = st_prev.get('gcode_macro _STATE')
+        if prev_tl > 0 and isinstance(st_m, dict) and 'total_layers' in st_m:
+            if int(st_m.get('total_layers') or 0) <= 0:
+                return False
     except Exception:                                      # noqa: BLE001
         return False                # status unknown - push (best effort)
     return str(held).strip() == str(pfn).strip()
@@ -24741,6 +25645,13 @@ def watch(directory, interval=5.0, once=False):
             th = threading.Thread(target=_run223, daemon=True,
                                   name='r2job-%s' % key.replace(':', '-'))
             _JOB_STATE['thread'] = th        # R224: zombie net + clear check
+            _reg_w = _get_job_registry()
+            _jid_w = _JOB_STATE.get('job_ids', {}).get(key)
+            if _reg_w is not None and _jid_w:
+                try:
+                    _reg_w.transition(_jid_w, 'running')
+                except Exception:                           # noqa: BLE001
+                    pass
             th.start()
             th.join(JOB_STUCK_S)
             # R224 (.136v field review): the STUCK branch lives OUTSIDE the
@@ -24778,11 +25689,26 @@ def watch(directory, interval=5.0, once=False):
                 # releases them the moment the thread ends
                 _JOB_STATE['zombie'] = (name, key)
                 _JOB_YIELD['on'] = True    # keep the watcher passes light
+                if _reg_w is not None and _jid_w:
+                    try:
+                        _reg_w.transition(_jid_w, 'stuck',
+                                          error='exceeded %ds' % JOB_STUCK_S)
+                    except Exception:                       # noqa: BLE001
+                        pass
                 # Retain the key until the zombie net sees this thread end.
                 continue
             try:
                 if 'err' in box:
                     e = box['err']
+                    if _reg_w is not None and _jid_w:
+                        try:
+                            _reg_w.transition(
+                                _jid_w,
+                                'cancelled' if isinstance(e, _JobCancelled)
+                                else 'failed',
+                                error=str(e))
+                        except Exception:                   # noqa: BLE001
+                            pass
                     if isinstance(e, _JobCancelled):
                         # R238 (.136ai): user cancel from the queue menu -
                         # the partial output dies, the queue says what happens
@@ -24825,6 +25751,48 @@ def watch(directory, interval=5.0, once=False):
                     outs = []
                 else:
                     outs = box.get('outs') or []
+                    # Validate generated output artifacts before stamping/done.
+                    _val_checks = []
+                    _valid_outs = []
+                    try:
+                        from r2_job_service import (
+                            validate_job_output as _vjo,
+                        )
+                    except Exception:                       # noqa: BLE001
+                        _vjo = None
+                    if _reg_w is not None and _jid_w:
+                        try:
+                            _reg_w.transition(_jid_w, 'validating',
+                                              outputs=outs)
+                        except Exception:                   # noqa: BLE001
+                            pass
+                    for _vo in outs:
+                        if _vjo is not None:
+                            _vc = _vjo(_vo, root_dir=directory)
+                            _val_checks.append(_vc)
+                            if not _vc['ok']:
+                                print('[job:%s] invalid output %s: %s'
+                                      % (name, _vo, '; '.join(_vc['errors'])),
+                                      flush=True)
+                                continue
+                        _valid_outs.append(_vo)
+                    if _reg_w is not None and _jid_w:
+                        _bad_vc = [c for c in _val_checks if not c['ok']]
+                        try:
+                            if _bad_vc:
+                                _reg_w.transition(
+                                    _jid_w, 'failed', outputs=outs,
+                                    validation=_val_checks,
+                                    error='; '.join(
+                                        ', '.join(c['errors'])
+                                        for c in _bad_vc))
+                            else:
+                                _reg_w.transition(
+                                    _jid_w, 'succeeded', outputs=_valid_outs,
+                                    validation=_val_checks)
+                        except Exception:                   # noqa: BLE001
+                            pass
+                    outs = _valid_outs
                 # R133b: the worker stamps the worst move rate into the
                 # file info (the selection path never measures files -
                 # that full-file scan blocked the LCD for minutes on the
@@ -24943,6 +25911,13 @@ def watch(directory, interval=5.0, once=False):
                     pass
                 return False
             _JOB_STATE['keys'].add(key)
+            _reg_s = _get_job_registry()
+            if _reg_s is not None:
+                try:
+                    _jid_s, _ = _reg_s.enqueue(name, key, ram_min_mb=ram_min)
+                    _JOB_STATE['job_ids'][key] = _jid_s
+                except Exception:                           # noqa: BLE001
+                    pass
             _JOB_STATE['queue'].append(
                 (name, key, fn, outs, time.monotonic(), None, 0.0, ram_min))
         _genq_push()              # R236: the waiting count went up
@@ -27265,6 +28240,8 @@ def watch(directory, interval=5.0, once=False):
                     map_pos=str(rv.get('texture_map_pos', 'CENTER')
                                 or 'CENTER').strip().strip('\'"').upper()
                     or 'CENTER',
+                    tilt=str(rv.get('texture_tilt', 'OFF') or 'OFF').upper()
+                         in ('1', 'ON', 'TRUE', 'YES'),
                     bed=_bed91,
                     version=max(1, min(int(float(
                         rv.get('gen_version', 1) or 1)), 99)))
@@ -27285,12 +28262,15 @@ def watch(directory, interval=5.0, once=False):
                                        info_t.get('eff_size', 0.0),
                                        info_t.get('eff_zsize', 0.0)))
                         if info_t.get('tilt'):
-                            _snap175 += (' [auto-tilt %.1f deg - never '
-                                         'parallel to the layers]'
+                            _snap175 += (' [optional tilt %.1f deg]'
                                          % info_t['tilt'])
                         if info_t.get('map_mode') == 'ONCE':
                             _snap175 += (' [MAP once around, %s]'
                                          % info_t.get('map_pos', 'CENTER'))
+                        if info_t.get('subdivisions'):
+                            _snap175 += (' [resampled %d segments at <=%.1fmm]'
+                                         % (info_t['subdivisions'],
+                                            info_t.get('sample_step_mm', 1.5)))
                     _snap237 = ''
                     if info_t.get('m204_scrub'):
                         _snap237 = (' [legacy _M204 renamed: %d]'
@@ -27546,7 +28526,7 @@ def watch(directory, interval=5.0, once=False):
                 _czoff177 = float(rv.get('cake_zoff', 5) or 5)
                 _cpart177 = str(rv.get('cake_part', 'BOTH')
                                 or 'BOTH').upper()
-                _creo177 = str(rv.get('cake_reorient', 0) or '0') in ('1', 'True', 'true', 'on')
+                _creo177 = str(rv.get('cake_reorient', 1)) in ('1', 'True', 'true', 'on')
                 _cbed177 = _bed_limits(os.path.join(
                     directory, _crel177) if _crel177 else directory)
                 if not _crel177:

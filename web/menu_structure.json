@@ -1,14 +1,14 @@
 {
  "generator": "menu_json_export.py (.136j R211)",
  "source": "lcd_menues.cfg",
- "sections": 2295,
+ "sections": 2296,
  "counts": {
   "list": 310,
-  "command": 1400,
+  "command": 1401,
   "vsdlist": 1,
   "input": 584
  },
- "sha256": "d17ebc4ccd805276",
+ "sha256": "7658ba9580fe8671",
  "live_objects": [
   "bed_mesh",
   "configfile",
@@ -4784,6 +4784,18 @@
           "children": []
          },
          {
+          "id": "__main __preprint __mods __tex __tilt",
+          "type": "command",
+          "name": "{'Tilt: ON' if printer['save_variables'].variables.texture_tilt|default('OFF')|string|upper == 'ON' else 'Tilt: OFF'}",
+          "enable": "{printer['save_variables'].variables.texture_mode|default('')|string == 'BUMPS'}",
+          "gcode": [
+           "{% set on = printer['save_variables'].variables.texture_tilt|default('OFF')|string|upper == 'ON' %}",
+           "SAVE_VARIABLE VARIABLE=texture_tilt VALUE=\"\\\\\"{ 'OFF' if on else 'ON' }\\\\\"\"",
+           "RESPOND MSG=\"Texture tilt { 'OFF' if on else 'ON' }: pattern's explicit tilt is {'disabled' if on else 'enabled'}\""
+          ],
+          "children": []
+         },
+         {
           "id": "__main __preprint __mods __tex __sd",
           "type": "input",
           "name": "Seed: {'%4d' % menu.input}",
@@ -5659,7 +5671,7 @@
           "id": "__main __preprint __mods __cake __reo",
           "type": "input",
           "name": "Reorient: {menu.input|round|int and 'ON' or 'OFF'}",
-          "input": "{printer['save_variables'].variables.cake_reorient|default(0)|int}",
+          "input": "{printer['save_variables'].variables.cake_reorient|default(1)|int}",
           "input_min": "0",
           "input_max": "1",
           "input_step": "1",
@@ -23797,7 +23809,7 @@
         "type": "command",
         "name": "How it works",
         "gcode": [
-         "RESPOND MSG=\"How it works: CARDS cards (F10/S20 .. F20/S40 default), each on BASE base layers, ironing on top | Card 4-6 zones via console (F4/S4..), sizes auto-fit. Best shows recorded flow and speed; no overrides applied\""
+         "RESPOND MSG=\"How it works: CARDS cards (F10/S20 .. F20/S40 default), each on BASE base layers, ironing on top | Card 4-6 zones via console (F4/S4..), sizes auto-fit. Best shows recorded flow and speed - no overrides applied\""
         ],
         "children": []
        }

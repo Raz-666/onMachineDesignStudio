@@ -1,0 +1,37 @@
+{
+  "candidate": {
+    "output_bytes": 5156472,
+    "output_sha256": "a0d1eb21bbd47c648de465d68d101f11f95d8b3425b5e72a0e6e70fd049639fe",
+    "summary": {
+      "by_object": true,
+      "info_added": true,
+      "layers": 242,
+      "marks_added": 242,
+      "method": "layer comments",
+      "retract_pairs": 0,
+      "skipped": false,
+      "tagged": true,
+      "types": 36,
+      "upgraded": false
+    }
+  },
+  "case": "rose",
+  "format": 1,
+  "reason": "C2/C3 per-unit sequential layer accounting removes false SEQWARN=1 (S3 brim beyond the brim window) on the second by-object rose restarting at Z=0.2 (exact -10 byte diff in _FILE_INFO); see tools/test_postproc_c1_c5_and_jobs.py",
+  "reference": {
+    "output_bytes": 5156482,
+    "output_sha256": "bdd012d55dc7a2ae16c40bf666f8939780d1edd68b84b643459bb28d55f10393",
+    "summary": {
+      "by_object": true,
+      "info_added": true,
+      "layers": 242,
+      "marks_added": 242,
+      "method": "layer comments",
+      "retract_pairs": 0,
+      "skipped": false,
+      "tagged": true,
+      "types": 36,
+      "upgraded": false
+    }
+  }
+}

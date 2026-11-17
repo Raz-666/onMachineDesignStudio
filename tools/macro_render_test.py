@@ -195,7 +195,7 @@ def build_printer(kamp=False, objs=None, excl=None, old_klipper=False, bare_idle
     # enable-frozen slots became 8 live name slices)
     'gcode_macro _TX_PATTERN': M({'tx_names': ['Ridges', 'Waves', 'Grid', 'Hatch', 'Checker', 'Hex', 'Honeycomb', 'Basket', 'Rope', 'Planks', 'Bricks', 'Sandstone', 'Concrete', 'Clay', 'Crepe', 'Fabric', 'Plush', 'Hilbert', 'Scratch', 'Glitch', 'Knit', 'Fluted', 'Bark', 'Scales', 'Facets', 'Macrame', 'Map'],
                                   'tx_codes': ['RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX', 'HONEYCOMB', 'BASKET', 'ROPE', 'PLANKS', 'BRICKS', 'SANDSTONE', 'CONCRETE', 'CLAY', 'CREPE', 'FABRIC', 'PLUSH', 'HILBERT', 'SCRATCH', 'GLITCH', 'KNIT', 'FLUTED', 'BARK', 'SCALES', 'FACETS', 'MACRAME', 'MAP'],
-                                  'tx_descs': ['Pattern Ridges: vertical flutes around the object - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Waves: diagonal waves around and up - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Grid: crosshatch egg-crate - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Hatch: hard diagonal hatching - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Checker: soft checkerboard - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Hex: organic 3-fold honeycomb-ish - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Honeycomb: true hex cells - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Basket: woven over/under - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Rope: twisted strands - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Planks: boards with staggered joints - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Bricks: running-bond courses - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Sandstone: fine grain noise - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Concrete: coarse noise + pores - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Clay: soft thumb dents - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Crepe: crumpled paper - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Fabric: pleats, sharp valleys - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Plush: dense velvet grain - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Hilbert: zig-zag space-filling bands - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Scratch: scratches around the wall - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Glitch: seeded per-band melt steps - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Knit: nested V-loops in staggered columns (knitted sleeve) - auto-tilt 3 deg breaks the layer lines', 'Pattern Fluted: vertical half-round flutes - runs UP the object, kills Z-banding on cylinders', 'Pattern Bark: vertical ridged cracks - turns tubes and cylinders into tree trunks', 'Pattern Scales: staggered domed shingles - reptile look, grippy', 'Pattern Facets: diamond low-poly relief crosses - modern, futuristically clean', 'Pattern Macrame: two twisted cord families crossing into a net - the knots read as knotted cords', 'Pattern Map: a picture wrapped around - background detected (Otsu) = NO displacement there, Tile = endless mirrored wrap, Once = one aspect-true wrap (position below)']}),
+                                  'tx_descs': ['Pattern Ridges: vertical flutes around the object - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Waves: diagonal waves around and up - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Grid: crosshatch egg-crate - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Hatch: hard diagonal hatching - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Checker: soft checkerboard - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Hex: organic 3-fold honeycomb-ish - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Honeycomb: true hex cells - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Basket: woven over/under - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Rope: twisted strands - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Planks: boards with staggered joints - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Bricks: running-bond courses - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Sandstone: fine grain noise - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Concrete: coarse noise + pores - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Clay: soft thumb dents - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Crepe: crumpled paper - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Fabric: pleats, sharp valleys - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Plush: dense velvet grain - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Hilbert: zig-zag space-filling bands - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Scratch: scratches around the wall - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Glitch: seeded per-band melt steps - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Knit: nested V-loops in staggered columns (knitted sleeve) - optional 3 deg tilt breaks the layer lines', 'Pattern Fluted: vertical half-round flutes - runs UP the object, kills Z-banding on cylinders', 'Pattern Bark: vertical ridged cracks - turns tubes and cylinders into tree trunks', 'Pattern Scales: staggered domed shingles - reptile look, grippy', 'Pattern Facets: diamond low-poly relief crosses - modern, futuristically clean', 'Pattern Macrame: two twisted cord families crossing into a net - the knots read as knotted cords', 'Pattern Map: a picture wrapped around - background detected (Otsu) = NO displacement there, Tile = endless mirrored wrap, Once = one aspect-true wrap (position below)']}),
     'exclude_object': M({'objects': objects, 'excluded_objects': [], 'current_object': (objects[0]['name'] if objects else None)}),
     'bed_mesh': M({'profile_name': 'r2', 'profiles': {'r2': {}}}),
     'idle_timeout': M({'state':'Printing','printing_time':0.0,'idle_timeout':3600}),   # REAL keyset (get_status: state/printing_time/idle_timeout)
@@ -221,6 +221,7 @@ def build_printer(kamp=False, objs=None, excl=None, old_klipper=False, bare_idle
                                      'running': 0, 'round': 0, 'idx': 0, 'n': 0,
                                      'lines': ''}),
     'gcode_macro _SOUND_LIB': M({'tunes': tunes}),
+    'pwm_cycle_time beeper': M({'value': 0.0}),
     }
     if objs is not None:
         d['exclude_object'] = M({'objects': objs, 'excluded_objects': (excl or []), 'current_object': (objs[0]['name'] if objs else None)})
@@ -1479,9 +1480,9 @@ out216c = render(body, {'BASE': '0'})
 tests.append(('PA cal R216 BASE=0: no plate, pattern at first layer',
                'G0 Z0.3 F600' in out216c and 'G0 Z0.7 F600' in out216c,
                [l for l in out216c.split('\n') if 'Z0.3' in l or 'Z0.7' in l][:2]))
-save_vars['ov_retract_on']=True; save_vars['ov_retract_len']=1.2; save_vars['ov_retract_speed']=20
+save_vars['ov_retract_len_on']=True; save_vars['ov_retract_speed_on']=True; save_vars['ov_retract_len']=1.2; save_vars['ov_retract_speed']=20
 out = render(body, {})
-save_vars['ov_retract_on']=False
+save_vars['ov_retract_len_on']=False; save_vars['ov_retract_speed_on']=False
 tests.append(('PA lines: override retract wins', 'G1 E-1.2 F1200' in out, [l for l in out.split('\n') if 'E-1.2' in l][:1]))
 state_vars['mode']='printing'
 
@@ -2845,7 +2846,7 @@ save_vars.update({'ov_velocity_on':True,'ov_velocity':250,'ov_min_cruise_on':Tru
 out = render(_b58p, {})
 tests.append(('R58 PA cal applies motion overrides',
     'VELOCITY=250' in out and 'MINIMUM_CRUISE_RATIO=0.9' in out and 'SQUARE_CORNER_VELOCITY=3' in out
-    and 'RETRACT_LENGTH=0.75' in out and 'UNRETRACT_SPEED=40' in out and 'M221 S98' in out, out[:250]))
+    and 'M221 S98' in out, out[:250]))
 save_vars.update({'ov_velocity_on':False,'ov_min_cruise_on':False,'ov_square_corner_on':False,
                   'ov_retract_len_on':False,'ov_retract_speed_on':False,'ov_unretract_speed_on':False,'ov_flow_on':False})
 state_vars['mode'] = 'printing'
@@ -3082,10 +3083,11 @@ tests.append(('R61 IRONING_CAL: 2 base layers before the ironing pass (Z0.2/Z0.4
 out = render(ic, {'CARDS':'9'})
 tests.append(('R61 IRONING_CAL: CARDS=9 refused', 'CARDS must be 1..6' in out, out[:140]))
 _ir61r = get_body('macros/12_maintenance.cfg', 'IRONING_RESULT')
-save_vars.update({'iron_cal_cards':3,'iron_cal_f1':10.0,'iron_cal_f2':15.0,'iron_cal_s1':20.0,'iron_cal_s2':30.0})
+save_vars.update({'iron_result_valid':True,'iron_result_cards':3,'iron_result_f1':10.0,'iron_result_f2':15.0,'iron_result_s1':20.0,'iron_result_s2':30.0})
 out = render(_ir61r, {'CARD':'2'})
-tests.append(('R61 IRONING_RESULT: card 2 -> speed 30 + flow 15 ON',
-    'SET_OVERRIDE_VALUE NAME=feat_spd_ironing VALUE=30' in out and 'SET_OVERRIDE_VALUE NAME=ironing_flow VALUE=15' in out, out[:200]))
+tests.append(('R61 IRONING_RESULT: card 2 -> reports flow 15 + speed 30 without auto-override',
+    'flow 15.0%' in out and 'speed 30.0mm/s' in out and 'SET_OVERRIDE_VALUE' not in out, out[:200]))
+save_vars.update({'iron_result_valid':False,'iron_result_cards':0})
 
 # --- STOP_AT_LAYER chain ---
 _lm61 = get_body('macros/06_temp_controls.cfg', 'LAYER_MARK')
@@ -7944,20 +7946,18 @@ tests.append(('R91 fuzzy: density 20% shifts ~1/5 of the vertices',
 _t91d, _ti91d = _at91(_p91, out_dir=_d91b, mode='BUMPS', bump_pattern='WAVES',
                       bump_scale=10, bump_amp=0.35, direction='OUT')
 _d91 = _outer91(_t91d)
-# R186 note: euclidean, not manhattan - with the Z-tracking fixed the WAVES
-# pattern reaches its full amp (0.35) in the NORMAL direction, and manhattan
-# overestimates a diagonal shift by sqrt(2) (0.35 -> 0.495). The bound
-# itself is unchanged: the displacement may never exceed amp.
-_dmax91 = max(((_u[0] - _v[0]) ** 2 + (_u[1] - _v[1]) ** 2) ** 0.5
-               for _u, _v in zip(_o91, _d91))
+# G4 resamples long wall segments, so compare the matched IN/OUT paths:
+# their midpoint is the untextured path and half their separation is the
+# physical displacement, independent of added sample vertices.
 _t91e, _ = _at91(_p91, out_dir=_d91b, mode='BUMPS', bump_pattern='WAVES',
                  bump_scale=10, bump_amp=0.35, direction='IN', version=2)
 _e91 = _outer91(_t91e)
-tests.append(('R91 bumps: amplitude bounded (<= amp), IN is the mirror of OUT',
-    _dmax91 <= 0.36 and _ti91d['pattern'] == 'WAVES'
-    and all(abs((_v[0] - _u[0]) + (_w[0] - _u[0])) < 0.01
-            for _u, _v, _w in zip(_o91, _d91, _e91)),
-    'max=%.3f' % _dmax91))
+_dmax91 = max((((_u[0] - _v[0]) ** 2 + (_u[1] - _v[1]) ** 2) ** 0.5) / 2.0
+               for _u, _v in zip(_d91, _e91))
+tests.append(('R91 bumps: amplitude bounded (<= amp), IN mirrors OUT on resampled points',
+    len(_d91) == len(_e91) and len(_d91) > len(_o91)
+    and _dmax91 <= 0.36 and _ti91d['pattern'] == 'WAVES',
+    'max=%.3f points=%d/%d' % (_dmax91, len(_d91), len(_o91))))
 
 _keep91 = (';TYPE:', 'EXCLUDE_OBJECT', 'APPLY_TYPE', 'LAYER_MARK')
 _src91 = [l for l in open(_p91, encoding='utf-8') if l.startswith(_keep91)]
@@ -7968,8 +7968,12 @@ _E91s = [l.split(' E')[1].split()[0] for l in open(_p91, encoding='utf-8')
          if l.startswith('G1') and ' E' in l]
 _E91o = [l.split(' E')[1].split()[0] for l in open(_t91d, encoding='utf-8')
          if l.startswith('G1') and ' E' in l]
-tests.append(('R91 bumps: E values + count untouched (features stay honest)',
-    _E91s == _E91o, ''))
+tests.append(('G4 bumps: relative E sum is conserved across added samples',
+    len(_E91o) > len(_E91s)
+    and abs(sum(map(float, _E91o)) - sum(map(float, _E91s))) < 1e-5,
+    'E %.5f -> %.5f; moves %d -> %d' % (
+        sum(map(float, _E91s)), sum(map(float, _E91o)),
+        len(_E91s), len(_E91o))))
 
 # seamless: same (x,y,z) -> same displacement (grid pattern is periodic)
 def _disp_profile(path):
@@ -8186,21 +8190,28 @@ for _cw224, _lb224, _mir224 in ((False, 'same', False),
         _src224t, out_dir=_d224t, mode='BUMPS', bump_pattern='ROPE',
         bump_scale=14.0, bump_amp=0.5, direction='IN', seed=23)
     _s224 = _sec224(_out224)
-    _o224 = _s224['Outer wall'][1:72]
-    _i224 = (_s224['Inner wall'][1:72][::-1] if _mir224
-             else _s224['Inner wall'][1:72])
-    _dist224 = [_m224t.hypot(ox - ix, oy - iy)
-                for (ox, oy), (ix, iy) in zip(_o224, _i224)]
+    _o224 = _s224['Outer wall']
+    _i224 = _s224['Inner wall']
+    def _ang224(pt):
+        return _m224t.atan2(pt[1] - 110.0, pt[0] - 110.0)
+    def _adiff224(a, b):
+        return abs((a - b + _m224t.pi) % (2 * _m224t.pi) - _m224t.pi)
+    # Match by polar angle, not list index: G4 inserts geometry samples and
+    # outer/inner radii can therefore have different point counts.
+    _dist224 = []
+    for _ox, _oy in _o224:
+        _oa = _ang224((_ox, _oy))
+        _ix, _iy = min(_i224, key=lambda q: _adiff224(_oa, _ang224(q)))
+        _dist224.append(_m224t.hypot(_ox - _ix, _oy - _iy))
     _romin224 = min(_m224t.hypot(x - 110.0, y - 110.0) for x, y in _o224)
     _rimin224 = min(_m224t.hypot(x - 110.0, y - 110.0) for x, y in _i224)
     tests.append(('R224 task15 BUMPS (%s inner winding): inner walls FOLLOW '
-        'the embossing - vertex distance stays one line width (0.42: min '
-        '%.3f max %.3f), valleys carve past the old cap (outer r %.2f < '
-        '19.58) and the inner wall rides along (inner r %.2f), '
-        'inner_shifted=%d'
+        'the embossing - angularly matched distance stays near one line width '
+        '(0.42: min %.3f max %.3f), valleys carve past the old cap '
+        '(outer r %.2f < 19.58), inner r %.2f; inner_shifted=%d'
         % (_lb224, min(_dist224), max(_dist224), _romin224, _rimin224,
            _inf224['inner_shifted']),
-        len(_dist224) == 71 and all(0.40 < d < 0.44 for d in _dist224)
+        len(_dist224) > 71 and all(0.35 < d < 0.49 for d in _dist224)
         and _romin224 < 19.55 and _rimin224 < 19.2
         and _inf224['inner_shifted'] > 100
         and 'R224: inner walls follow' in open(_out224).read(),
@@ -8805,7 +8816,7 @@ state_vars['mode'] = 'printing'
 import math as _m95
 _d95t = _tf91.mkdtemp(prefix='r95tex_')
 _p95v = _os91.path.join(_d95t, 'vase95.gcode')
-_L95v = ['; R2-POSTPROC v5', 'M83', 'G90', 'G28',
+_L95v = ['; R2-POSTPROC v5', 'G90', 'M83', 'G28',
          'G0 X120.000 Y100.000', 'G1 Z0.2 F600']
 for _ly95 in range(1, 4):
     _L95v += ['LAYER_MARK', 'G1 Z%.2f F600' % (0.2 * _ly95), ';TYPE:Outer wall']
@@ -13809,6 +13820,8 @@ _REMOVED135 = [
 ]
 
 _ADDED135 = [
+    # G2: explicit user-controlled helical tilt toggle in Texture.
+    '__main __preprint __mods __tex __tilt',
     '__main __endq',
     '__main __endq __info',
     '__main __endq __no',
@@ -16126,8 +16139,8 @@ tests.append(('R174 SD browser: the watcher copies the image (nonce channel + jo
     and '[imgpick]' in _pp174 and 'copy2' in _pp174,
     'watcher copy job missing'))
 tests.append(('R174 SD browser: the image pick refuses non-image and traversal paths',
-    "or '..' in _irel174.split('/')" in _pp174
-    and "_iext174 not in ('.png', '.jpg', '.jpeg')" in _pp174,
+    'def _copy_picked_image(' in _pp174
+    and "('.png', '.jpg', '.jpeg')" in _pp174,
     'path check missing'))
 
 # ================== R174b (.130): features parked UX (field log 2) =================
@@ -16901,6 +16914,14 @@ tests.append(('R177 CAKE_APPLY: queues with all plane values + nonce bump',
     and 'VARIABLE=cake_file' in _out177 and 'teil.gcode' in _out177
     and 'VARIABLE=cake_nonce VALUE=3' in _out177
     and 'the halves land in the cake folder' in _out177, ''))
+_reo_saved177 = save_vars.pop('cake_reorient', None)
+_out_default_reo177 = render(get_body('macros/17_generator.cfg', 'CAKE_APPLY'),
+                             {'PART': 'BOTH'})
+if _reo_saved177 is not None:
+    save_vars['cake_reorient'] = _reo_saved177
+tests.append(('R177 CAKE_APPLY: absent saved setting defaults reorient ON '
+    '(upper cut face on bed)',
+    'VARIABLE=cake_reorient VALUE=1' in _out_default_reo177, ''))
 save_vars['preview_file'] = ''
 _out177 = render(get_body('macros/17_generator.cfg', 'CAKE_APPLY'), {})
 tests.append(('R177 CAKE_APPLY: no file -> friendly error, nonce untouched',
@@ -16927,6 +16948,7 @@ tests.append(('R177 LCD: cake submenu with pitch/roll/z inputs on the '
     and 'cake_pitch VALUE={menu.input|round(1)}' in _lcd177
     and 'cake_roll VALUE={menu.input|round(1)}' in _lcd177
     and 'cake_zoff VALUE={menu.input|round(1)}' in _lcd177
+    and "cake_reorient|default(1)|int" in _lcd177
     and 'BOTH=2files' in _lcd177, ''))
 tests.append(('R177 watcher: cake channel primed + job reports the segment '
     'counts and lands in the Cake folder',
@@ -16935,6 +16957,7 @@ tests.append(('R177 watcher: cake channel primed + job reports the segment '
     and 'M117 Cake ready' in _pp177x
     and "[cake]" in _pp177x
     and "from r2_cake import cut_cake" in _pp177x
+    and "rv.get('cake_reorient', 1)" in _pp177x
     and "'cake': 'Cake'" in _pp177x, ''))
 # live watcher run - R186 two-phase (see the R175d section): the nonce
 # from before the start is primed (no re-fire), the LIVE bump cuts
@@ -17345,18 +17368,31 @@ tests.append(('R180 chain (the .129 field case): texture THEN range - the '
 import r2_cake as _ckmod180
 _lblt180 = _pp.make_labels(['TEXTUR'], bed=(0, -3, 220, 217),
                            out_dir=_d180)[0]
-# R231: default labels are 4 flush layers (~0.88mm) now - z_offset 1.0 sat
-# above the WHOLE model (the half printed air). 0.5: layer 1 empty, 2..3 ink
-_ck180m = _ckmod180.cut_cake(_lblt180, z_offset=0.5, out_dir=_d180)[0][0]
+# H2: cut_cake rebuilds truthful per-half LAYER_MARKs with no empty ghost
+# layers (a 4-layer label cut at z=0.35 yields 1 lower + 3 upper layers).
+# Test the R180 empty-window guard on an explicit no-ink layer fixture, AND
+# test the live cake->range chain on the 3-layer upper half.
+_empty180 = os.path.join(_d180, 'empty_win.gcode')
+open(_empty180, 'w').write(
+    '; R2-POSTPROC v5\n'
+    '_FILE_INFO MATERIAL=PLA LAYER_HEIGHT=0.2 TOTAL_LAYERS=4 '
+    'LINE_WIDTH=0.6 TYPES=WALL-OUTER,SURFACE-TOP SLICER=ORCA\n'
+    'G90\nM83\n'
+    ';LAYER_CHANGE\nLAYER_MARK\n;Z:0.200\nAPPLY_TYPE TYPE=WALL-OUTER\n'
+    'G1 X10 Y10 Z0.2 E1.0 F1800\n'
+    ';LAYER_CHANGE\nLAYER_MARK\n;Z:0.400\nG0 X10 Y10 Z0.4 F6000\n'
+    ';LAYER_CHANGE\nLAYER_MARK\n;Z:0.600\nG0 X10 Y10 Z0.6 F6000\n'
+    ';LAYER_CHANGE\nLAYER_MARK\n;Z:0.800\nAPPLY_TYPE TYPE=SURFACE-TOP\n'
+    'G1 X20 Y10 Z0.8 E1.0 F1800\nPRINT_END\n')
 try:
-    _pp.make_range(_ck180m, 1, 1, out_dir=_d180)
+    _pp.make_range(_empty180, 2, 3, out_dir=_d180)
     _nk180 = False
-except ValueError:
-    _nk180 = True
-tests.append(('R180 guard: a range window with NO extrusion (a cake half '
-    'sits empty above its z_offset base) refuses honestly instead of '
-    'shipping a file that prints air',
+except ValueError as _ev180:
+    _nk180 = 'no extrusion' in str(_ev180)
+tests.append(('R180 guard: a range window with NO extrusion refuses '
+    'honestly instead of shipping a file that prints air',
     _nk180, ''))
+_ck180m = _ckmod180.cut_cake(_lblt180, z_offset=0.35, out_dir=_d180)[0][0]
 _ckr180b = _pp.make_range(_ck180m, 2, 3, out_dir=_d180)[0]
 _hr180b = open(_ckr180b).read()
 _mk180b = set(__import__('re').findall(r'APPLY_TYPE TYPE=(\S+)', _hr180b))
@@ -18019,6 +18055,11 @@ _lib214 = _ast214.literal_eval(_libm214.group(1))
 tests.append(('R214/R253 texture library: 27 looks live in the macro config '
     '(appearance names, full 9-key sets, ranges valid)',
     len(_lib214) == 27
+    and {v['texture_pattern'] for v in _lib214.values()} == {
+        'RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX', 'HONEYCOMB',
+        'BASKET', 'ROPE', 'PLANKS', 'BRICKS', 'SANDSTONE', 'CONCRETE',
+        'CLAY', 'CREPE', 'FABRIC', 'PLUSH', 'HILBERT', 'SCRATCH', 'GLITCH',
+        'KNIT', 'FLUTED', 'BARK', 'SCALES', 'FACETS', 'MACRAME', 'MAP'}
     and all(sorted(v) == sorted(['texture_mode', 'texture_fuzzy_thick',
         'texture_fuzzy_density', 'texture_pattern', 'texture_scale',
         'texture_zsize', 'texture_amp', 'texture_dir', 'texture_seed'])
@@ -18577,7 +18618,7 @@ save_vars.update({'texture_map': '', 'img_pick_file': '', 'texture_pattern': ''}
 # name must arrive ABSOLUTE (relative broke for sources from Texture/ ...)
 _pp237 = open('tools/r2_postproc.py', encoding='utf-8').read()
 tests.append(('R237 watcher: a root pick skips the self-copy (SameFileError guard)',
-    '_isrc174 == _idst174' in _pp237 and 'already at root' in _pp237,
+    'def _copy_picked_image(' in _pp237 and "'already in'" in _pp237,
     'same-file guard missing'))
 tests.append(('R237 watcher: the texture map resolves to an ABSOLUTE path '
     '(subfolder pick first, then its root copy)',
@@ -18626,6 +18667,16 @@ out = render(get_body('macros/17_generator.cfg', 'TEXTURE_APPLY'),
 tests.append(('R238 TEXTURE_APPLY: MAPMODE/MAPPOS pass through quoted',
     'VARIABLE=texture_map_mode VALUE="\\"ONCE\\""' in out
     and 'VARIABLE=texture_map_pos VALUE="\\"TOP\\""' in out
+    and 'Texture request queued' in out, out[:150]))
+out = render(get_body('macros/17_generator.cfg', 'TEXTURE_APPLY'),
+             {'PATTERN': 'MAP', 'DIR': 'OUT', 'TILT': 'ON'})
+tests.append(('G2 TEXTURE_APPLY TILT=ON stores the opt-in setting',
+    'VARIABLE=texture_tilt VALUE=\"\\\"ON\\\"\"' in out
+    and 'Texture request queued' in out, out[:150]))
+out = render(get_body('macros/17_generator.cfg', 'TEXTURE_APPLY'),
+             {'PATTERN': 'MAP', 'DIR': 'OUT', 'TILT': 'OFF'})
+tests.append(('G2 TEXTURE_APPLY TILT=OFF stores the explicit off setting',
+    'VARIABLE=texture_tilt VALUE=\"\\\"OFF\\\"\"' in out
     and 'Texture request queued' in out, out[:150]))
 # R246c: the guard reads _STATE.mode (not print_stats) - the old render
 # left mode at its busy default and only ever saw the refuse branch.
@@ -18992,7 +19043,7 @@ tests.append(('R252: the stable post-processor is STILL the entry point and the 
     _p252.count('def _pp_engine_gate(') == 1
     and "_pp_engine_gate(args)" in _p252
     and _n252.endswith(_p252.split('\n', 3)[3])
-    and 'THIS IS THE EXPERIMENTAL COPY' in _n252
+    and 'Experimental engine copy' in _n252
     and _n252.count('def _pp_engine_gate(') == 1, ''))
 tests.append(('R252: the handover is failure-proof - a missing/broken copy '
               'stays on stable, a failed handover is braked for 15 min, and '

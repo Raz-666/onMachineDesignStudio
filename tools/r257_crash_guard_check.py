@@ -84,6 +84,7 @@ FILES = {
     'start': 'macros/08_print_start_stop.cfg',
     'kamp': 'macros/14_kamp.cfg',
     'maint': 'macros/12_maintenance.cfg',
+    'gantry': 'macros/11_gantry_sync.cfg',
 }
 
 
@@ -218,6 +219,17 @@ def run_checks(src):
     check('7b heal is gated on the mode',
           "'homing'" in around and "'leveling'" in around,
           'the heal must not fire while homing/leveling is still running')
+
+    # ---- 8) Z_TILT_ADJUST in 11_gantry_sync is bracketed ------------------------
+    if 'gantry' in src:
+        zt = macro_body(src['gantry'], 'Z_TILT')
+        zt_at = cmd_pos(zt, 'Z_TILT_ADJUST')
+        zt_on = cmd_pos(zt, '_LED_QUIET ON=1')
+        zt_off = cmd_pos(zt, '_LED_QUIET ON=0')
+        check('8a Z_TILT mutes before probing', 0 <= zt_on < zt_at,
+              'on=%s zt=%s' % (zt_on, zt_at))
+        check('8b Z_TILT unmutes after probing', zt_off > zt_at >= 0,
+              'off=%s zt=%s' % (zt_off, zt_at))
     return fails
 
 
@@ -249,6 +261,8 @@ def mutate(src, what):
         out['state'] = src['state'].replace('variable_led_quiet: False\n', '', 1)
     elif what == 'quiet-no-stop':
         out['leds'] = src['leds'].replace('                STOP_LED_EFFECTS\n', '', 1)
+    elif what == 'ztilt-no-bracket':
+        out['gantry'] = src['gantry'].replace('        _LED_QUIET ON=1\n', '', 1)
     else:
         raise SystemExit('unknown mutation %s' % what)
     return out
@@ -259,7 +273,7 @@ def main():
     fails = run_checks(src)
     total = 0
     for _ in range(1):
-        total += 15   # the number of pinned checks above (1..7b)
+        total += 17   # the number of pinned checks above (1..8b)
     print('--- live config ---')
     for line in fails:
         print('  FAIL %s' % line)
@@ -272,7 +286,8 @@ def main():
     # ---- counter-test: every mutation must be caught ---------------------------
     print('--- counter-test (each mutation must FAIL) ---')
     mutants = ['g28-no-mute', 'g28-wrong-order', 'sls-no-guard',
-               'mesh-no-bracket', 'watcher-no-heal', 'no-flag', 'quiet-no-stop']
+               'mesh-no-bracket', 'watcher-no-heal', 'no-flag', 'quiet-no-stop',
+               'ztilt-no-bracket']
     caught = 0
     for name in mutants:
         mf = run_checks(mutate(src, name))

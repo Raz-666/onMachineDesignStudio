@@ -36,10 +36,9 @@ Modes
 - FUZZY: random displacement of every OUTER WALL vertex within +- thick
   (seeded RNG -> deterministic), density = share of scattered vertices
 - BUMPS: displacement along the wall normal proportional to one of 27
-  seamless pattern functions (see PATTERNS below). R238: every pattern
-  carries an AUTO TILT (PATTERN_TILT) - a helical shift that angles the
-  lattice 2 deg off the layer plane (directional looks keep their own
-  angle), so the texture never runs parallel to the print layers.
+  seamless pattern functions (see PATTERNS below). Helical tilt is opt-in
+  (`tilt=True`); when enabled, PATTERN_TILT supplies each pattern's explicit
+  angle and the shift remains seam-safe and flush at the top.
 - MAP: a grayscale picture wrapped around the object (cylinder
   projection). R238: the background is detected (Otsu + border vote) and
   treated as ALPHA - zero displacement there, feathered edges; TILE =
@@ -386,19 +385,26 @@ def _build_patterns(k, n, seed, img, map_mode='TILE', map_pos='CENTER',
     pats['CHECKER'] = _checker
 
     def _hexcell(s, t):
-        # true hex grid on the unrolled (s*k, t*n) plane - seamless because
-        # k and the ROW COUNT are integers; rows offset by half a cell
-        cols = max(1, k)
-        rows = max(1, int(round(n * 2.0 / math.sqrt(3.0))))
-        x = s * cols
-        y = t * rows
-        row = math.floor(y)
-        x += 0.5 * (row % 2)
-        fx, fy = x - math.floor(x), y - row
-        # distance to the nearest hex cell edge (approx as 3 axes)
-        d = min(abs(fx - 0.5), abs(fy - 0.5),
-                abs((fx - 0.5) * 0.5 + (fy - 0.5) * 0.866))
-        return _smoothstep(0.08, 0.30, d) * 2.0 - 1.0
+        # Repeating hexagonal pavers from the axial/Cartesian distance norm.
+        # Even column/row periods preserve both cylinder and height seams.
+        cols = max(2, k + (k & 1))
+        rows = max(2, int(round(2.0 * max(1, n) / math.sqrt(3.0))))
+        if rows & 1:
+            rows += 1
+        dy = math.sqrt(3.0) / 2.0
+        x, y = s * cols, t * rows * dy
+        r0 = int(round(y / dy))
+        best = 1e9
+        for rr in (r0 - 1, r0, r0 + 1):
+            oy = y - rr * dy
+            offset = 0.5 * (rr & 1)
+            cc = int(round(x - offset))
+            for c in (cc - 1, cc, cc + 1):
+                ox = x - (c + offset)
+                norm = max(abs(ox), abs(0.5 * ox + 0.8660254 * oy),
+                           abs(-0.5 * ox + 0.8660254 * oy))
+                best = min(best, norm)
+        return 1.0 - 2.0 * _smoothstep(0.39, 0.50, best)
     pats['HONEYCOMB'] = _hexcell
     pats['HEX'] = (
         lambda s, t: (math.sin(two_pi * s * k) * 0.5 +
@@ -445,18 +451,22 @@ def _build_patterns(k, n, seed, img, map_mode='TILE', map_pos='CENTER',
 
     # ---- boards / bricks --------------------------------------------------------
     def _planks(s, t):
-        # R238 (master prompt): VERTICAL boards - lengthwise planks with
-        # seeded stagger, seams as grooves and grain stretched UP in Z
-        # (the old horizontal rows read as plain stripes).
-        ke = k + (k & 1)                # even column count -> clean wrap
+        # Long boards with visible vertical grooves, staggered end joints,
+        # and low-amplitude longitudinal grain. Even column count guarantees
+        # a clean wrap around the cylinder; the joint rhythm is periodic in Z.
+        ke = k + (k & 1)
         i = s * ke
         col = int(math.floor(i))
         fx = i - col
-        jt = row_rnd[col % len(row_rnd)]
-        x = (fx + jt) % 1.0
-        seam = 1.0 - _smoothstep(0.0, 0.05, min(x, 1.0 - x))
-        grain = (noise(s, t, max(2, ke * 6), max(1, n // 3)) - 0.5) * 0.55
-        return max(-1.0, min(1.0, 0.5 - 0.95 * seam + grain))
+        stagger = row_rnd[min(col, ke - 1 - col) % len(row_rnd)]
+        zcells = max(2, n * 2)
+        z = (t * zcells + stagger * 0.5) % 1.0
+        edge = 1.0 - _smoothstep(0.018, 0.095, min(fx, 1.0 - fx))
+        end_joint = 1.0 - _smoothstep(0.015, 0.075, min(z, 1.0 - z))
+        grain = (noise(s, t, max(2, ke * 5), max(1, n // 3)) - 0.5) * 0.30
+        face = 0.56 + 0.20 * math.sin(math.pi * fx)
+        return max(-1.0, min(1.0,
+            face + grain - 0.85 * edge - 0.45 * end_joint))
     pats['PLANKS'] = _planks
 
     def _bricks(s, t):
@@ -464,9 +474,8 @@ def _build_patterns(k, n, seed, img, map_mode='TILE', map_pos='CENTER',
         row = int(math.floor(t * rows))
         x = (s * k + (0.5 if row % 2 else 0.0)) % 1.0
         fy = (t * rows) % 1.0
-        face = (_smoothstep(0.0, 0.10, fy) *
-                (1.0 - _smoothstep(0.90, 1.0, fy)) *
-                (1.0 - _smoothstep(0.0, 0.06, min(x, 1.0 - x))))
+        face = (_smoothstep(0.07, 0.15, min(fy, 1.0 - fy)) *
+                _smoothstep(0.04, 0.13, min(x, 1.0 - x)))
         rough = (noise(s, t, k * 3, rows) - 0.5) * 0.35
         return max(-1.0, min(1.0, face * 1.6 - 0.85 + rough))
     pats['BRICKS'] = _bricks
@@ -475,8 +484,8 @@ def _build_patterns(k, n, seed, img, map_mode='TILE', map_pos='CENTER',
     def _knit(s, t):
         # KNIT & CROCHET: nested V-loops in staggered columns - the legs of
         # every stitch arch over the row below (the prompt's sin*cos with
-        # phase shift). Reads as a knitted sleeve; the 3 deg auto-tilt
-        # breaks the remaining parallelism to the layers.
+        # phase shift). Reads as a knitted sleeve; optional 3 deg tilt
+        # breaks the remaining parallelism to the layers when enabled.
         ke = k + (k & 1)              # even column count -> clean wrap
         i = s * ke
         col = int(math.floor(i))
@@ -496,10 +505,18 @@ def _build_patterns(k, n, seed, img, map_mode='TILE', map_pos='CENTER',
         + 0.14 * math.sin(two_pi * s * k * 3 + 0.7))
 
     def _bark(s, t):
-        # TREE BARK: vertical cracks - noise stretched hard AROUND the
-        # object, calm in Z: the streaks run up; ridged for deep cracks
-        v = noise(s, t, max(2, k * 6), max(1, n // 3))
-        return max(-1.0, min(1.0, 1.25 * (1.0 - abs(2.0 * v - 1.0)) - 0.4))
+        # Bark-like plates, not generic vertical noise: a periodic set of
+        # wandering longitudinal fissures, broad raised ridges between them,
+        # and sparse cross-cracks. The warp is low-frequency and periodic so
+        # the cylinder seam and object top remain closed.
+        warp = (noise(s, t, max(2, k * 2), max(2, n)) - 0.5) * 0.22
+        phase = (s * k + warp) % 1.0
+        edge = min(phase, 1.0 - phase)
+        crack = 1.0 - _smoothstep(0.025, 0.095, edge)
+        plate = 0.55 + 0.30 * math.sin(math.pi * phase)
+        cross = noise(s, t, max(2, k * 3), max(2, n * 2))
+        cross_crack = max(0.0, cross - 0.79) * 3.0
+        return max(-1.0, min(1.0, plate - 0.95 * crack - cross_crack))
     pats['BARK'] = _bark
 
     def _scales(s, t):
@@ -638,19 +655,17 @@ PATTERN_NAMES = ('RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX',
                  'PLUSH', 'HILBERT', 'SCRATCH', 'GLITCH', 'KNIT', 'FLUTED',
                  'BARK', 'SCALES', 'FACETS', 'MACRAME', 'MAP')
 
-# R238 (.136ai master prompt): the AUTO TILT - pattern rows never run
-# parallel to the print layers (that parallelism is why everything read as
-# 'stripes' and why layer lines stayed visible). The tilt is a HELICAL
-# shift of m integer cells over the object height: the seam stays perfect
-# (s=0 and s=1 differ by exactly k integer cells) and the top closes (the
-# total shift m is an integer). Angles in degrees, 0 = self-aligned (the
-# pattern carries its own direction: rope lay, vertical flutes/bark,
-# crossing facets) - everything else gets the 2 degree micro-tilt that
-# optically melts the layer lines away.
+# R238: opt-in helical tilt angles by pattern. Disabled by default; when
+# enabled, the helical shift uses an integer number of turns so the seam
+# closes and the texture ends flush at the top. Angles are in degrees.
 PATTERN_TILT = {
-    'ROPE': 0.0, 'MACRAME': 0.0, 'FLUTED': 0.0, 'BARK': 0.0,
-    'FACETS': 0.0, 'PLANKS': 0.0, 'MAP': 0.0,
-    'KNIT': 3.0, 'HILBERT': 4.0, 'BASKET': 30.0,
+    'RIDGES': 2.0, 'WAVES': 2.0, 'GRID': 2.0, 'HATCH': 2.0,
+    'CHECKER': 2.0, 'HEX': 2.0, 'HONEYCOMB': 2.0,
+    'BASKET': 30.0, 'ROPE': 0.0, 'PLANKS': 0.0, 'BRICKS': 2.0,
+    'SANDSTONE': 2.0, 'CONCRETE': 2.0, 'CLAY': 2.0, 'CREPE': 2.0,
+    'FABRIC': 2.0, 'PLUSH': 2.0, 'HILBERT': 4.0, 'SCRATCH': 2.0,
+    'GLITCH': 2.0, 'KNIT': 3.0, 'FLUTED': 0.0, 'BARK': 0.0,
+    'SCALES': 2.0, 'FACETS': 0.0, 'MACRAME': 0.0, 'MAP': 0.0,
 }
 
 
@@ -658,7 +673,7 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                   fuzzy_density=100.0, bump_pattern='RIDGES', bump_scale=10.0,
                   bump_amp=0.35, direction='OUT', bed=None, version=1,  # version: retired (R158, folder-global auto)
                   seed=91, zsize=None, map_file=None,
-                  map_mode='TILE', map_pos='CENTER', progress=None):
+                  map_mode='TILE', map_pos='CENTER', tilt=False, progress=None):
     """Returns (new_path, info). Raises ValueError on bad parameters.
 
     R175 parameter semantics (the LCD speaks these names):
@@ -1054,10 +1069,9 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
     eff_size = circum / k
     eff_zsize = height / n
 
-    # R238 (master prompt): the AUTO TILT - see PATTERN_TILT above. The
-    # helical shift keeps the seam (integer k cells apart) AND the flush
-    # top (integer total shift) while the lattice leaves the layer plane.
-    _tilt_deg = PATTERN_TILT.get(bump_pattern, 2.0)
+    # Optional R238 helical tilt: integer turns preserve the seam and flush
+    # top while the lattice leaves the layer plane.
+    _tilt_deg = (PATTERN_TILT[bump_pattern] if tilt else 0.0)
     m238 = 0
     if _tilt_deg > 0.0 and circum > 0 and height > 0:
         m238 = max(1, int(round(
@@ -1303,8 +1317,12 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
             if ls.startswith(';LAYER_CHANGE'):
                 stats['layers'] += 1
                 _loop_close231()      # R231: one loop per layer
+            elif ls == 'G90':
+                e_rel = False       # Klipper G90 resets E to absolute
+            elif ls == 'G91':
+                e_rel = True        # Klipper G91 resets E to relative
             elif ls == 'M83':
-                e_rel = True
+                e_rel = True        # explicit E mode overrides G90/G91
             elif ls == 'M82':
                 e_rel = False
             elif ls.startswith('G92'):
@@ -1321,14 +1339,55 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                 z = g[3]
                 _zz231 = z if z is not None else cur_z_e
                 _ln231 = math.hypot(x - px, y - py) if px is not None else 0.0
-                _sar231 = _s231(x, y, _zz231, _ln231)   # R231 arc-anchored s
-                if cur_outer:
-                    _sout_put231(_zz231, x, y, _sar231)
-                fo.write(_shift_txt(ls, x, y, z,
-                                    inner=(cur_inner and not cur_outer
-                                           and mode == 'BUMPS'),
-                                    s_arc=_sar231) + '\n')
-                _st231['arc'] += _ln231
+                # G4: BUMPS resamples long straight wall moves before applying
+                # displacement. A vase with 8 vertices/layer otherwise gets
+                # only 8 texture samples. Split by XY arclength, preserve the
+                # total E exactly (including relative-E residual), and retain
+                # the original line/comment on the final chord.
+                _parts = (max(1, min(4096, int(math.ceil(_ln231 / 1.5))))
+                          if mode == 'BUMPS' else 1)
+                _x0, _y0 = (x, y) if px is None or py is None else (px, py)
+                _z0 = cur_z_e if cur_z_e is not None else (z or 0.0)
+                _e0 = last_e
+                _edelta = (g[4] if e_rel else g[4] - _e0)
+                _acc_e = 0.0
+                _feed = _tok(ls.split(';', 1)[0], 'F')
+                for _part in range(1, _parts + 1):
+                    _f = _part / float(_parts)
+                    _qx = _x0 + (x - _x0) * _f
+                    _qy = _y0 + (y - _y0) * _f
+                    _qz = _z0 + (z - _z0) * _f if z is not None else None
+                    _seglen = _ln231 / _parts
+                    _sar231 = _s231(_qx, _qy, _qz, _seglen)
+                    if cur_outer:
+                        _sout_put231(_qz, _qx, _qy, _sar231)
+                    if e_rel:
+                        _qe = (g[4] - _acc_e if _part == _parts
+                               else round(_edelta / _parts, 5))
+                        _acc_e += _qe
+                    else:
+                        _qe = g[4] if _part == _parts else _e0 + _edelta * _f
+                    if _part == _parts:
+                        _outtxt = _shift_txt(ls, _qx, _qy, _qz,
+                            inner=(cur_inner and not cur_outer
+                                   and mode == 'BUMPS'), s_arc=_sar231)
+                        if e_rel:
+                            _outtxt = re.sub(r'(?<![A-Z])E-?[\d.]+',
+                                             'E%.5f' % _qe, _outtxt, count=1)
+                        fo.write(_outtxt + '\n')
+                    else:
+                        _line = 'G1 X%.3f Y%.3f' % (_qx, _qy)
+                        if _qz is not None:
+                            _line += ' Z%.3f' % _qz
+                        _line += ' E%.5f' % _qe
+                        if _feed is not None and _part == 1:
+                            _line += ' F%g' % _feed
+                        _line = _shift_txt(_line, _qx, _qy, _qz,
+                            inner=(cur_inner and not cur_outer
+                                   and mode == 'BUMPS'), s_arc=_sar231)
+                        fo.write(_line + '\n')
+                    _st231['arc'] += _seglen
+                stats['subdivisions'] = stats.get('subdivisions', 0) + _parts - 1
                 px, py = x, y
                 last_e = g[4]
                 continue
@@ -1399,6 +1458,8 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
             'outer_moves': stats['moves'], 'clamped': stats['clamped'],
             'layers': stats['layers'], 'arcs_flattened': stats['arcs'],
             'arc_loops': len(loops231), 'arc_fallback': _st231['fb'],
+            'subdivisions': stats.get('subdivisions', 0),
+            'sample_step_mm': 1.5,
             'm204_scrub': stats['m204_scrub'],
             'tilt': round(tilt_eff, 1), 'tilt_turns': m238,
             'map_mode': (str(map_mode).upper()
