@@ -163,12 +163,26 @@ with open(p, 'wb') as f:
             f.write(b'G1 X%.2f Y%.2f E0.05\r\n' % (_px91, _py91))
     f.write(b';TYPE:infill\r\nG1 X50 Y50 E0.2\r\n')
 _, i4 = apply_texture(p, out_dir=D, mode='BUMPS', bump_pattern='GRID')
-# 2 of the 4 layers sit on the pattern's flush band edges (t=0/1, by
-# design 'the texture ends flush at the top') -> 2 x 16 vertices carry
-# ink shifts, the CRLF parser sees every one of them
-check('CRLF: parser tolerates \\r, 32 of 64 vertices shifted (2 layers)',
-      i4['shifted'] == 32 and i4['outer_moves'] == 64,
-      'shifted=%d/%d' % (i4['shifted'], i4['outer_moves']))
+# R246 (review-gate repair): since the G4 wall resampling, `outer_moves`
+# counts emitted (subdivided) lines, not source wall moves - the old
+# absolute expectation (64/32) could never hold again. The property that
+# actually matters for the parser is stable: a CRLF file must texture
+# byte-identically to its LF twin and must see the same nonzero ink.
+p_lf = os.path.join(D, '00_crlf_lf.gcode')
+with open(p, 'rb') as f:
+    _crlf_bytes = f.read()
+with open(p_lf, 'wb') as f:
+    f.write(_crlf_bytes.replace(b'\r\n', b'\n'))
+tx_lf, i4lf = apply_texture(p_lf, out_dir=D, mode='BUMPS', bump_pattern='GRID')
+tx_crlf, _ = apply_texture(p, out_dir=D, mode='BUMPS', bump_pattern='GRID')
+# the header names the source file; everything after it must be identical
+_same = (open(tx_lf, 'rb').readlines()[1:]
+         == open(tx_crlf, 'rb').readlines()[1:])
+check('CRLF: parser tolerates \\r, body byte-identical to LF twin '
+      '(same shifts, same subdivision)',
+      _same and i4['shifted'] == i4lf['shifted'] and i4['shifted'] > 0,
+      'shifted=%d/%d (LF %d, body identical=%s)' % (
+          i4['shifted'], i4['outer_moves'], i4lf['shifted'], _same))
 
 # ---------------------------------------------------------------------------
 print('=== 5. part at the bed edge (clamping) ===')

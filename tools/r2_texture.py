@@ -1380,7 +1380,11 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                         if _qz is not None:
                             _line += ' Z%.3f' % _qz
                         _line += ' E%.5f' % _qe
-                        if _feed is not None and _part == 1:
+                        if _feed is not None:
+                            # R246: every inserted sub-part carries the F of the
+                            # original move, not only the first one - a reader
+                            # must not depend on modal carryover (r91 gate:
+                            # every emitted G1 keeps its F value)
                             _line += ' F%g' % _feed
                         _line = _shift_txt(_line, _qx, _qy, _qz,
                             inner=(cur_inner and not cur_outer

@@ -21,6 +21,7 @@ sha256sum -c backups/SHA256SUMS
     tools/r2_shadow.py \
     tools/r2_analysis.py \
     tools/r2_offline.py \
+    tools/r2_sidecar.py \
     tools/r2_machine.py \
     tools/menu_json_export.py \
     tools/make_calibration_pdf.py \
@@ -51,6 +52,7 @@ for test in \
     test_r2_shadow.py \
     test_r2_analysis.py \
     test_r2_offline.py \
+    test_r2_sidecar.py \
     test_shadow_analysis_audit_v2.py \
     test_r2_machine.py \
     test_cake_layers_h2.py \
