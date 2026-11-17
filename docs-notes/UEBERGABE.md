@@ -5,7 +5,10 @@ Wer sie liest, weiß, wo die Arbeit steht, was der User verlangt hat und was
 tabu ist. Alles andere steht im Code; diese Datei ersetzt kein Lesen, sie
 verhindert nur, dass jemand von vorn anfängt.
 
-Stand dieses Abgleichs: `origin/main` **`8ea17fc`** (17.11.2026); der aktive Arbeitsbranch `arena/2e9de9ae-onmachinedesignstudio` wurde auf diesen Commit fast-forward-synchronisiert. Version/Build bleiben vorläufig **`R2-2026-11-13.1` / `V1`**; ein neues Release ist nicht gebaut.
+Stand dieses Abgleichs: `origin/main` **`846b1e7`** (Merge PR #12, 17.11.2026); der aktive Arbeitsbranch ist **`arena/dd5058ac-onmachinedesignstudio`** auf derselben Basis. Version/Build bleiben vorläufig **`R2-2026-11-13.1` / `V1`**; ein neues Release ist nicht gebaut.
+
+**Aktualisierung 17.11.2026 (späte Fortsetzung, Branch `arena/dd5058ac-onmachinedesignstudio`):**
+Auf diesem HEAD liefen auf dem synchronisierten Basis-Commit seriell: `tools/run_review_checks.sh` **PASS** (`analyse/testprotokolle/review_checks_dd5058ac_baseline_20261117.log`) und `tools/macro_render_test.py` **2103/2103 PASS** (`analyse/testprotokolle/macro_render_dd5058ac_baseline_20261117.log`). Neu: Pass-11-Sidecar-Writer `tools/r2_sidecar.py` (Schema `r2-sidecar/1`, nicht-destruktiv, `tools/test_r2_sidecar.py` 9/9) und Zeilen-Crosswalk `analyse/STARTBRIEFING-CROSSWALK.tsv` (521/521 Zeilen, geerbte Disposition, nicht einzeln verifiziert). Details: `analyse/STARTBRIEFING-CROSSWALK.md`.
 
 **GitHub (Quelle der Wahrheit):** `https://github.com/Raz-666/onMachineDesignStudio`, Branch `main`. Diese Sitzung arbeitet ausschließlich auf ihrem Arena-Branch; nicht direkt nach `main` pushen und den Branch nicht umbenennen. Diese Übergabe und die Release-Gap-Matrix enthalten noch lokale Änderungen, bis der zugehörige PR gemerged ist.
 
@@ -18,7 +21,7 @@ Stand dieses Abgleichs: `origin/main` **`8ea17fc`** (17.11.2026); der aktive Arb
 | Was | Beleg |
 |---|---|
 | V1 = `R2-2026-11-13.1` | `macros/01_state.cfg` Z. 535, `tools/r2_postproc*.py` Z. 80/81 |
-| Makro-Batterie | Historisch: **2102/2102** im Textur-Branch, **2103/2103** vor Paket 9; letzter Lauf auf `8ea17fc` brach vor Abschluss in R175d mit `FileNotFoundError` für ein temporäres `variables.cfg.tmp` ab — kein finaler PASS. Details: `analyse/RELEASE-GAP-MATRIX.md`. |
+| Makro-Batterie | `fab29dc`: **2103/2103 PASS** (sauberer Worktree, `analyse/testprotokolle/macro_render_main_fab29dc_20261117.log`); auf `846b1e7` erneut **2103/2103 PASS** (`analyse/testprotokolle/macro_render_dd5058ac_baseline_20261117.log`). Historisch: 2102/2102 im Textur-Branch; der Lauf auf `8ea17fc` brach in R175d ab — überholt durch die beiden grünen Läufe. |
 | Einzeltests | `r81` 23/23 · `r199` 42/0 · `r257` 15/0 + 7/7 · `v1_range_cause_check` 8/0 |
 | Historische Auslieferung V1 | Übergabebericht referenziert `releases/klipper-e3-r2d2-UPDATE-R2-2026-11-13.1.zip` (5 782 002 B, md5 `a63f9842d411834b9fe53a2588387983`); dieses ZIP ist kein neuer Build aus `8ea17fc` und im aktuellen Git-Tree nicht enthalten. |
 | PDF-Fundament | `tools/r2_pdf_kit.py` (ein Stilsatz, `Doc` mit Versionskopf, `TBL/BOX/FORMULA/IMG`, `toolpath_fig/bar_fig/ladder_fig` aus echten Daten) |
@@ -39,13 +42,34 @@ Stand dieses Abgleichs: `origin/main` **`8ea17fc`** (17.11.2026); der aktive Arb
 - **C1–C5, H2** bereits in Paket 4/V1 umgesetzt; Checkboxen und Belege in
   `docs-notes/MASTER-TODO.md` synchronisiert.
 
+### Erledigt in der späten Fortsetzung 17.11.2026 (Branch `arena/dd5058ac-onmachinedesignstudio`, Basis `846b1e7`)
+
+- **Pass 11 Sidecar**: `tools/r2_sidecar.py` schreibt ein `r2-sidecar/1`-Dokument
+  (Herkunft: Source-SHA-256, Tool/Version aus dem Code, Trace-Optionen, volles
+  Pass-3–10-Evidenz, optional pro Move/Arc-Records mit `--moves`, Cap +
+  Truncation-Flag, `payload_sha256` über alle übrigen Felder). Quelle bleibt
+  byte-identisch; Veröffentlichung atomar, ohne Überschreiben;
+  `verify_sidecar()` erkennt Manipulation. `tools/test_r2_sidecar.py` 9/9;
+  in `tools/run_review_checks.sh` eingebunden. Gap aus
+  `analyse/RELEASE-GAP-MATRIX.md` („Pass 11 Ausgabe“ / kein einheitliches
+  Move-/Objekt-/Evidenz-JSON) damit offline geschlossen — **kein**
+  Druckbeleg, keine Release-Freigabe.
+- **521-Zeilen-Crosswalk**: `analyse/STARTBRIEFING-CROSSWALK.tsv` (mit
+  `analyse/crosswalk_disposition.py` regenerierbar); jede Zeile geerbt
+  disponiert, alle 521 Zeilen abgedeckt, keine Lücken, keine
+  Einzelverifikation behauptet. Details/Grenzen: `analyse/STARTBRIEFING-CROSSWALK.md`.
+- `tools/r2_offline.py`: optionaler `move_sink`-Parameter (rückwärtskompatibel;
+  Default unverändert), treibt den Sidecar-Move-Export.
+- Gates auf dieser Basis: Review-Checks **PASS**, Makro-Batterie **2103/2103**.
+
 ### Offen
 
 1. **Release-Gap-Matrix / Anforderungsabgleich:** `analyse/RELEASE-GAP-MATRIX.md`
-   ist die aktuelle Übersicht gegen `origin/main` `8ea17fc`. Der 521-Zeilen-
-   Startbriefingindex ist noch nicht einzeln mit Code und Akzeptanztest
-   geschlossen. Der jüngste Makro-Volltest brach vor Abschluss ab; vor einem
-   Release braucht es einen vollständigen grünen Lauf.
+   ist die aktuelle Übersicht. Der 521-Zeilen-`STARTBRIEFING-QUELLENINDEX.tsv`
+   hat jetzt je Zeile eine geerbte Disposition in `analyse/STARTBRIEFING-CROSSWALK.tsv`
+   (Vorsortierung, ausdrücklich **nicht** einzeln verifiziert, Lücken: keine).
+   Für ein Release bleiben Einzelzuordnung, Belege und Entscheidungen offen;
+   der Makro-Volltest ist auf `fab29dc` und auf `846b1e7` grün protokolliert.
 2. **D7d `GENERATORS_TOOLS.pdf`**: veraltetes Heft (12 S., Stand `.142j`),
    Modifier einzeln dokumentieren. Texturgrundlage ist aktualisiert; das Heft
    selbst ist separat offen.
@@ -206,6 +230,6 @@ dann `git reset --hard`).
 
 1. `git status --short --branch` und `git log --oneline -3` prüfen; als synchronisierte Basis gilt derzeit `8ea17fc` auf `main`.
 2. `docs-notes/MASTER-TODO.md` und `analyse/RELEASE-GAP-MATRIX.md` lesen; die älteren Abschnitte dieser Übergabe und `analyse/UMSETZUNG-WEITERARBEIT.md` sind historische Snapshots.
-3. Vor Release den abgebrochenen Makro-Volltestfehler im R175d-Fixture reproduzieren/beheben und alle Gates seriell auf finalem HEAD protokollieren.
+3. Vor Release den vollständigen Makro-Volltest seriell auf dem finalen Release-Commit protokollieren (auf `fab29dc` und `846b1e7` bereits grün: 2103/2103) und alle Gates darauf erneut fahren.
 4. Keine Hardware-Abnahme ohne aktuelle Konfiguration, Feldlogs und separates Nutzer-Go.
 5. Bei Widersprüchen zwischen Doku und Code: Code gilt, Abweichung melden und Doku nach belegtem Stand korrigieren.

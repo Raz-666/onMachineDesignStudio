@@ -114,7 +114,15 @@ def _snapshot(fd, path, destination, max_bytes):
 def analyse(path, max_examples=20, assumed_passive=(), *,
             assume_klipper_defaults=False, enable_arcs=False,
             firmware_retract=False, klipper_passive=False,
-            verified_r2_passive=False):
+            verified_r2_passive=False,
+            move_sink=None, max_move_records=None):
+    """Analyse a G-code file; return the aggregate evidence report.
+
+    ``move_sink`` is an optional caller-provided list. When given, one compact
+    record per move/arc is appended (in file order) up to ``max_move_records``
+    entries; the analysis itself is unchanged. The sink is for the Pass 11
+    sidecar writer, which must stay streaming and memory-bounded.
+    """
     state = r2_shadow.Shadow(
         assume_klipper_defaults=assume_klipper_defaults,
         assumed_passive=assumed_passive,
@@ -127,6 +135,8 @@ def analyse(path, max_examples=20, assumed_passive=(), *,
     counts, reasons, features, objects = Counter(), Counter(), Counter(), Counter()
     examples, known_ends = [], 0
     layer_comments = layer_marks = 0
+    moves_written = 0
+    moves_truncated = False
     with open(path, 'r', encoding='utf8', errors='surrogateescape', newline='') as source:
         number = 0
         while True:
@@ -139,6 +149,29 @@ def analyse(path, max_examples=20, assumed_passive=(), *,
             record = state.process(raw, number)
             evidence.observe(raw, record)
             counts[record['kind']] += 1
+            if move_sink is not None and record['kind'] in ('move', 'arc'):
+                if (max_move_records is not None
+                        and moves_written >= max_move_records):
+                    moves_truncated = True
+                else:
+                    sink_record = {
+                        'line': number,
+                        'raw': raw.rstrip('\r\n'),
+                        'kind': record['kind'],
+                        'command': record.get('command'),
+                        'start_mm': record.get('start_mm'),
+                        'end_mm': record.get('end_mm'),
+                        'commanded_e_delta_mm': record.get('commanded_e_delta_mm'),
+                        'feed_mm_min': record.get('feed_mm_min'),
+                        'xyz_mode': record.get('xyz_mode'),
+                        'e_mode': record.get('e_mode'),
+                    }
+                    if record['kind'] == 'arc':
+                        sink_record['center_mm'] = record.get('center_mm')
+                        sink_record['radius_mm'] = record.get('radius_mm')
+                        sink_record['arc_length_mm'] = record.get('arc_length_mm')
+                    move_sink.append(sink_record)
+                    moves_written += 1
             if record['kind'] in ('move', 'arc') and all(
                     x is not None for x in record['end_mm'].values()):
                 known_ends += 1
@@ -170,6 +203,12 @@ def analyse(path, max_examples=20, assumed_passive=(), *,
         'assumed_passive_commands': sorted(state.assumed_passive),
         'trace_options': opts,
         'record_counts': dict(counts),
+        'moves_meta': {
+            'requested': move_sink is not None,
+            'records': moves_written,
+            'truncated': moves_truncated,
+            'cap': max_move_records,
+        },
         'unknown_reasons': dict(reasons),
         'unknown_examples': examples,
         'moves_with_known_xyz_end': known_ends,
