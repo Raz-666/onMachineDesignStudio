@@ -1,6 +1,8 @@
 # Gesamtbericht und Entscheidungsvorlage
 
-**Stand:** Branch `arena/c7804d42-onmachinedesignstudio`, Produkt-HEAD `ce29e2ac611a50bf8a1bf43e345ad0fab2eaab82`, Version `R2-2026-11-13.1` / V1. **Nur Analyse – kein Implementierungs-, Backlog-, Veröffentlichungs- oder Hardware-Go.** Dieser Bericht bündelt die abgeschlossene zusammenhängende Bestandsaufnahme des verfügbaren Materials und ersetzt als Einstieg die als Zwischenstände bezeichneten Einzelberichte. Er legt zugleich offen, wo die gewünschte vollständige Einzelprüfung noch nicht nachgewiesen oder ohne fehlende Quellen/Maschine nicht möglich ist. Er ist keine Produktabnahme.
+> **Historischer Snapshot:** Dieser Bericht beschreibt Branch `arena/c7804d42-onmachinedesignstudio`, Produkt-HEAD `ce29e2ac611a50bf8a1bf43e345ad0fab2eaab82`, Version `R2-2026-11-13.1` / V1. Er wurde vor den späteren Merge-PRs #7–#10 geschrieben; sein Wortlaut und seine alten offenen Stati sind nicht der heutige Implementierungsstand. Für den Vergleich mit aktuellem `main` (`8ea17fc`), PR-Nachweisen, aktuellem Makrotest-Abbruch und verbleibenden Releases-Gaps gilt jetzt `analyse/RELEASE-GAP-MATRIX.md`. Die historische Analyse bleibt als Beleg der früheren Befunde erhalten; keine pauschale Implementierungs-, Veröffentlichungs- oder Hardwarefreigabe folgt daraus.
+
+**Stand des historischen Berichts:** Branch `arena/c7804d42-onmachinedesignstudio`, Produkt-HEAD `ce29e2ac611a50bf8a1bf43e345ad0fab2eaab82`, Version `R2-2026-11-13.1` / V1. **Nur Analyse – kein Implementierungs-, Backlog-, Veröffentlichungs- oder Hardware-Go.** Dieser Bericht bündelt die abgeschlossene zusammenhängende Bestandsaufnahme des verfügbaren Materials und ersetzt als Einstieg die als Zwischenstände bezeichneten Einzelberichte. Er legt zugleich offen, wo die gewünschte vollständige Einzelprüfung noch nicht nachgewiesen oder ohne fehlende Quellen/Maschine nicht möglich ist. Er ist keine Produktabnahme.
 
 ## 1. Ergebnis auf einen Blick
 

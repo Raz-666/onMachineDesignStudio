@@ -1,0 +1,53 @@
+[meta] V01_teil_L3-5.gcode: thumbnail + time + filament added
+[meta] V02_teil_L2-5.gcode: thumbnail + time + filament added
+[meta] V03_teil_L3-5.gcode: thumbnail + time + filament added
+[bed] no [gcode_macro _R2_CONFIG] in printer.cfg - using the Ender-3 default 220x220 (add variable_bed_min_x/... to configure)
+[bed] [!] [r2_postproc] in printer.cfg HALTS KLIPPER (unknown config section) - remove it / let setup.sh migrate it to [gcode_macro _R2_CONFIG] (values still read here as a courtesy)
+[bed] [!] [r2_postproc] in printer.cfg HALTS KLIPPER (unknown config section) - remove it / let setup.sh migrate it to [gcode_macro _R2_CONFIG] (values still read here as a courtesy)
+[meta] V01_obj_L2-3.gcode: thumbnail + time + filament added
+[meta] V01_vase_L2-5.gcode: thumbnail + time + filament added
+[meta] V02_rel_L2-4.gcode: thumbnail + time + filament added
+[meta] V01_relcmt_L3-5.gcode: thumbnail + time + filament added
+[meta] V01_r_L3-5.gcode: thumbnail + time + filament added
+[meta] V02_r_L3-6.gcode: thumbnail + time + filament added
+[meta] V03_r_L3-6.gcode: thumbnail + time + filament added
+[meta] V04_r_L2-4.gcode: thumbnail + time + filament added
+[meta] V05_c_L2-4.gcode: thumbnail + time + filament added
+[meta] V06_c_L2-4.gcode: thumbnail + time + filament added
+[meta] V07_c_L2-4.gcode: thumbnail + time + filament added
+[meta] V08_c_L2-4.gcode: thumbnail + time + filament added
+[meta] V01_part77_L3-6.gcode: thumbnail + time + filament added
+[meta] V01_wall79_L3-5.gcode: thumbnail + time + filament added
+[meta] V01_wall79_L3-5.gcode: thumbnail + time + filament added
+[meta] V01_wall79_L3-5.gcode: thumbnail + time + filament added
+[meta] V02_wall79_L3-5.gcode: thumbnail + time + filament added
+[meta] V03_wall79_L3-5.gcode: thumbnail + time + filament added
+[meta] V01_teil_L2-4.gcode: thumbnail + time + filament added
+[meta] V02_teil_L2-4.gcode: thumbnail + time + filament added
+[meta] V03_teil_L2-4.gcode: thumbnail + time + filament added
+[meta] V01_srcrng_L2-8.gcode: thumbnail + time + filament added
+[meta] V02_srcrng_L3-6.gcode: thumbnail + time + filament added
+[meta] V03_srcrng_L3-6.gcode: thumbnail + time + filament added
+[meta] V04_srcrng_L3-6.gcode: thumbnail + time + filament added
+[meta] V06_r872src_L3-6.gcode: thumbnail + time + filament added
+[meta] V07_r872old_L2-5.gcode: thumbnail + time + filament added
+[meta] V08_r872L_L3-6.gcode: thumbnail + time + filament added
+[meta] V09_r872T_L3-6.gcode: thumbnail + time + filament added
+[meta] V10_r872T_L3-6.gcode: thumbnail + time + filament added
+[meta] V01_vase94_L3-12.gcode: thumbnail + time + filament added
+[meta] V02_vase94b_L4-9.gcode: thumbnail + time + filament added
+[meta] V03_prusa94_L3-8.gcode: thumbnail + time + filament added
+[stringart] planning 50 chords (greedy, 48x48 grid)...
+[stringart] planning 50 chords (greedy, 48x48 grid)...
+[meta] V02_trashTX_L2-5.gcode: thumbnail + time + filament added
+[meta] V02_rsrc_L5-11.gcode: thumbnail + time + filament added
+Traceback (most recent call last):
+  File "/home/user/onMachineDesignStudio/tools/macro_render_test.py", line 16610, in <module>
+    _ok175d = _wfire186(_base175d,
+              ^^^^^^^^^^^^^^^^^^^^
+  File "/home/user/onMachineDesignStudio/tools/macro_render_test.py", line 16577, in _wfire186
+    _wvars186(base, vfmt % _n)
+  File "/home/user/onMachineDesignStudio/tools/macro_render_test.py", line 16501, in _wvars186
+    open(_tmp, 'w').write(txt)
+    ^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/tmp/r175del_2asm_lbs/variables.cfg.tmp'
