@@ -273,6 +273,17 @@ class CakeLayerPreservationTests(unittest.TestCase):
             (up, lo), info = r2_cake.cut_cake(
                 src, pitch=12.0, z_offset=4.0, reorient=True, out_dir=d,
                 bed=(0, 0, 220, 220))
+            self.assertTrue(os.path.basename(up).startswith('tilted_CUT-U'))
+            self.assertTrue(os.path.basename(lo).startswith('tilted_CUT-L'))
+            self.assertNotEqual(up, lo)
+            # Reorientation is upper-only: LOWER keeps source coordinates;
+            # this original first-wall move remains verbatim in its output.
+            self.assertIn('G1 X125.000 Y95.000 Z0.200 E1.00000 F2100',
+                          Path(lo).read_text(encoding='utf-8'))
+            self.assertIn('The cut face was rotated flat onto the bed',
+                          Path(up).read_text(encoding='utf-8'))
+            self.assertIn('Keeps its original place (it already stands)',
+                          Path(lo).read_text(encoding='utf-8'))
             ub = _layer_blocks(up)
             z_tags = [b[0] for b in ub]
             self.assertEqual(len(ub), info['layers_upper'])

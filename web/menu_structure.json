@@ -8,7 +8,7 @@
   "vsdlist": 1,
   "input": 584
  },
- "sha256": "f16aadd991a3bd00",
+ "sha256": "d36a8e9c7dfbe3f5",
  "live_objects": [
   "bed_mesh",
   "configfile",
@@ -5659,7 +5659,7 @@
           "id": "__main __preprint __mods __cake __reo",
           "type": "input",
           "name": "Reorient: {menu.input|round|int and 'ON' or 'OFF'}",
-          "input": "{printer['save_variables'].variables.cake_reorient|default(0)|int}",
+          "input": "{printer['save_variables'].variables.cake_reorient|default(1)|int}",
           "input_min": "0",
           "input_max": "1",
           "input_step": "1",
