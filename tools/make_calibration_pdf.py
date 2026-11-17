@@ -185,16 +185,20 @@ def main(toc_seiten=None):
          'Wenn die Mechanik wackelt, misst jeder weitere Schritt Mist — '
          'und man sucht den Fehler in der Software.',
          'ca. 20 Minuten', None),
-        ('2', 'Z-Gantry synchron', 'Maintenance > Z Gantry Sync',
+        ('2', 'Z-Gantry synchron', 'Maintenance > Gantry / Z Tilt',
          'Bei zwei Z-Motoren kann das Portal kippen: links und rechts '
-         'verschiedene Höhen. Das Makro SYNC_GANTRY fährt mit niedrigem '
-         'Strom an den oberen Anschlag und richtet beide Seiten aus.',
-         ['Nur nötig, wenn `stepper_z1` vorhanden ist (printer.cfg prüfen — '
-          'das Makro erkennt es selbst).',
-          'Ablauf: SYNC_GANTRY QUIET=1, danach NICHT mehr von Hand am Portal '
-          'ziehen.',
-          'Einschalten vor jedem Druck: `TOGGLE_GANTRY_SYNC_PRINT` '
-          '(Standard aus, weil es Zeit kostet).'],
+         'verschiedene Höhen. Das Verfahren hängt strikt von der Treiber-'
+         'Verdrahtung ab (beide Makros prüfen `stepper_z1` selbst).',
+         ['<b>Ein Z-Treiber</b> (parallel verdrahtete Motoren, <b>kein</b> '
+          '`stepper_z1`, mit `[force_move]` und `[tmc2209 stepper_z]`): '
+          '`SYNC_GANTRY` fährt mit reduziertem Strom an den oberen Anschlag '
+          '(vor jedem Druck optional per `TOGGLE_GANTRY_SYNC_PRINT`). Bei '
+          'vorhandenem `stepper_z1` verweigert `SYNC_GANTRY` den Lauf.',
+          '<b>Getrennte Z-Treiber</b> (`stepper_z1` + `[z_tilt]` in '
+          'printer.cfg): `Z_TILT` (Menü `Maintenance > Z Tilt`) vermisst die '
+          'konfigurierten Punkte per Sonde und gleicht die Treiber einzeln aus.',
+          'Nach dem Ausrichten NICHT mehr von Hand am Portal ziehen; nur auf '
+          'dafür geeigneter Mechanik ausführen.'],
          'Ein kippendes Portal verschiebt die Messpunkte des Meshes '
          'gegeneinander — das Mesh sieht dann eine Welle, die mechanisch da ist, '
          'und kompensiert falsch.',
@@ -225,8 +229,8 @@ def main(toc_seiten=None):
          'über die Erstschicht: zu groß = Raupe liegt nicht an, zu klein = '
          'Düse schabt.',
          ['`CALIBRATE_PROBE_OFFSET` — homet, dann `PROBE_CALIBRATE`: Papier '
-          'unter die Düse, mit `TESTZ Z=+0.02` / `Z=-0.02` fahren (Schritte '
-          'über die LCD-Zeilen `zp`/`zm`).',
+          'unter die Düse, mit `TESTZ Z=+0.04` / `Z=-0.04` fein (`zp`/`zm`) '
+          'bzw. `Z=+0.12` / `Z=-0.12` grob über die LCD-Zeilen fahren.',
           'Papier-Methode ist legitim, aber ein <b>Erstschicht-Muster</b> ist '
           'ehrlicher: eine Lage drucken und die Raupe fühlen. Erst dann '
           '`ACCEPT` → `SAVE_CONFIG`.',
@@ -262,15 +266,16 @@ def main(toc_seiten=None):
          'Das ist reine Mechanik: Ritzel-Durchmesser, Griffigkeit, '
          'Anpressdruck.',
          ['`CALIBRATE_EXTRUDER STEP=heat` → heizt, `STEP=extrude` → fördert '
-          'exakt 100 mm, dann messen.',
-          'Messergebnis: `CALIBRATE_EXTRUDER STEP=result MEASURED=<mm>` — '
-          'das Makro rechnet die neuen `rotation_distance` aus.',
+          '100 mm ab der 120-mm-Markierung, dann Restabstand messen.',
+          'Messergebnis: `CALIBRATE_EXTRUDER STEP=result MEASURED=<Rest_mm>` '
+          '(gültig: 0 < Rest < 120 mm, Soll 20 mm) — das Makro berechnet '
+          '`rotation_distance` aus `120 − Rest`.',
           'Zweimal wiederholen; wenn der zweite Lauf unter 0,5 % Abweichung '
           'liegt, `SAVE_CONFIG`.'],
          'E-Schritte korrigieren nur die Stauchung des Ritzels. Mit vollem '
          'Gegendruck gemessen ist der Wert zu klein — deshalb langsam '
          'fördern und im gleichen Temperaturfenster bleiben.',
-         'ca. 15 Minuten', ('Formel', 'rd_neu = rd_alt × gemessen / 100')),
+         'ca. 15 Minuten', ('Formel', 'rd_neu = rd_alt × (120 − Rest) / 100')),
         ('7', 'PID (Düse + Bett)', 'Maintenance > PID Tuning',
          'Die Regelparameter der Heizungen. Schlechtes PID heißt: '
          'Temperaturschwankung → Schwankung der Viskosität → '
@@ -319,8 +324,9 @@ def main(toc_seiten=None):
          'Fäden, Blobs und Stufen direkt übereinander.',
          ['`RETRACT_TOWER` — Defaults: START 0,5 mm, STEP 0,5 mm, 6 Blöcke, '
           'Blockhöhe 5 mm, Mastabstand 40 mm.',
-          '`RETRACT_TOWER_RESULT BLOCK=<n>` übernimmt Länge/Geschwindigkeit '
-          'des besten Blocks als Overwrite.',
+          '`RETRACT_TOWER_RESULT BLOCK=<n>` übernimmt die Retraktionslänge '
+          '(`retract_len`) des besten Blocks als Override; das Retract-Tempo '
+          'bleibt separat einstellbar.',
           'Beurteilung: kein Faden <i>zwischen</i> den Masten und keine '
           'sichtbare Lücke am Blockanfang — beides zusammen.'],
          'Zu viel Retraktion „klebt" Anfänge, zu wenig fädelt. Der Tower zeigt '
@@ -348,7 +354,9 @@ def main(toc_seiten=None):
          'Deckfläche. Man sieht Banding, Glanz und Rillen.',
          ['`IRONING_CAL` — Defaults: 3 Karten, 40 × 24 mm, Temp 200 °C, '
           'Basislagen davor über START_LAYER.',
-          '`IRONING_RESULT CARD=<n>` übernimmt Tempo + Flow der besten Karte.',
+          '`IRONING_RESULT CARD=<n>` zeigt das gespeicherte Kartentempo '
+          '(mm/s) und den Karten-Flow (%) der gewählten Karte an; es schreibt '
+          'keine automatische mm/s-zu-Prozent-Umrechnung in Overrides.',
           'Wichtig: der am LCD angezeigte Flow ist der Wert, der <b>wirkt</b> '
           '— es gibt keine zweite „echte" Zahl.'],
          'Ironing ist Optik: es lohnt erst, wenn Geometrie, Flow und '
@@ -405,9 +413,9 @@ def main(toc_seiten=None):
         'der Druck im Schlauch nachgibt. Wer TPU auf PLA-Werte stellt, bekommt '
         'Ecken mit „Bauch".')
     kb.story += TBL(['Größe', 'Formel', 'Beispiel PLA (0,6 mm Düse, 0,2 mm)'],
-                    [['Raupe (Volumen)', 'V = w · h · v / 60 · f',
-                      '0,65 · 0,2 · 60 / 60 = 0,13 mm³/s pro mm/s'],
-                     ['Flussgrenze', 'v<sub>max</sub> = V<sub>max</sub> / (w · h)',
+                    [['Volumenstrom', 'Q = w · h · v  (mit v = F / 60)',
+                      '0,65 · 0,2 · 60 = 7,8 mm³/s bei 60 mm/s (w·h = 0,13 mm²)'],
+                     ['Flussgrenze', 'v<sub>max</sub> = Q<sub>max</sub> / (w · h)',
                       '8,3 / (0,65 · 0,2) ≈ 64 mm/s (MAXRATE der Datei)'],
                      ['PA-Vorhalt', 'ΔE = PA · Δv',
                       '0,05 · 60 = 3 mm Vorhalt bei Vollgas'],
@@ -488,8 +496,8 @@ def main(toc_seiten=None):
                   'gilt: eine Größe geändert, Ergebnis geprüft, erst dann weiter.')
     kb.story += TBL(['✓', 'Schritt', 'Ergebnis, das man akzeptieren darf'],
                     [['☐', '1 Rahmen & Riemen', 'von Hand kein Spiel, kein Knacken'],
-                     ['☐', '2 Gantry synchron', 'Portal waagerecht (Wasserwaage oder Sync-Lauf)'],
-                     ['☐', '3 Schrauben', 'drei Runden unter Toleranz'],
+                     ['☐', '2 Gantry / Z Tilt', 'SYNC_GANTRY (1 Treiber) bzw. Z_TILT (stepper_z1) ohne Fehler'],
+                     ['☐', '3 Schrauben', 'alle Schrauben „ok" (`00:00`) im aktuellen Lauf (`BED_SCREWS_DONE`)'],
                      ['☐', '4 Z-Offset', 'Erstschicht-Raupe liegt an, ohne zu schaben'],
                      ['☐', '5 Mesh', 'Restwelligkeit < 0,1 mm im Bericht'],
                      ['☐', '6 E-Schritte', 'zwei Läufe < 0,5 % Abweichung'],

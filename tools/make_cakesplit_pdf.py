@@ -402,9 +402,13 @@ def main():
         'M83/M82 (relativ/absolut) wird in beide Dateien durchgereicht.'))
     flow.extend(H2('3.4 Was die Ebene NICHT berührt'))
     flow.extend(B('Kopfzeilen, ;TYPE:-Marker, EXCLUDE_OBJECT, APPLY_TYPE/LAYER_MARK,',
-        'Temperatur- und Lüfterbefehle, PRINT_START/PRINT_END,',
-        'alles, was keine X/Y/Z-Bewegung trägt: <b>byte-identisch in beide '
-        'Dateien</b>.'))
+        'Temperatur- und Lüfterbefehle sowie PRINT_START/PRINT_END werden in '
+        'beide Hälften übernommen; Schichtmarken (;LAYER_CHANGE, ;Z:, '
+        'LAYER_MARK) und TOTAL_LAYERS in _FILE_INFO werden pro Hälfte exakt '
+        'aus den tatsächlich gedruckten Extrusionsschichten neu aufgebaut '
+        '(direkt weiterverwendbar in Layer Range). G2/G3-Bögen (G17 XY inkl. '
+        'Helix-Z), Klipper-Modalzustände (G90/G91, M82/M83, G92) sowie '
+        'atomare fsync-Dateischreibung werden vollständig berücksichtigt.'))
 
     # ---------------------------------------------------- 4 Platzierung --
     flow.extend(H1('4 · Die Platzierung der Hälften'))
@@ -418,12 +422,13 @@ def main():
     A(P('Ohne Reorient behält die obere Hälfte ihre Orientierung — sie '
         'steht dann auf dem Schnitt-Rand, was bei dünnen Deckeln wackelig '
         'werden kann. Mit <b>Reorient = ON</b> wird die Hälfte so gedreht, '
-        'dass die Schnittflächennormale auf −Z zeigt (die Schnittfläche '
-        'liegt flach auf dem Bett — die natürliche Art, ein Oberteil zu '
-        'drucken). Die Drehung ist eine Rodrigues-Rotation um die Achse'))
-    A(CODE('achse = n × (0, 0, −1)   (normiert)\n'
+        'dass die äußere Schnittflächennormale −n auf (0, 0, −1) — also die '
+        'innere Ebenennormale +n auf (0, 0, +1) — zeigt: die Schnittfläche '
+        'liegt bei z_first flach auf dem Bett und Z wächst monoton nach '
+        'oben. Die Drehung ist eine Rodrigues-Rotation um die Achse'))
+    A(CODE('achse = n × (0, 0, +1)   (normiert)\n'
            "v' = v·cos θ + (achse × v)·sin θ + achse·(achse·v)·(1 − cos θ)"))
-    A(P('mit θ als Winkel zwischen n und (0,0,−1). Danach werden '
+    A(P('mit θ als Winkel zwischen n und (0,0,+1). Danach werden '
         'Zentrierung und Absenkung wie oben angewendet. Vor dem Schreiben '
         'prüft das Werkzeug die transformierte Grundfläche gegen das '
         'Bettmaß — zu groß heißt eine klare Fehlermeldung mit beiden '
@@ -441,6 +446,8 @@ def main():
         ['Normale n (Pitch 10°, Roll 0°)',
          '(%.4f, %.4f, %.4f)' % (nvec[0], nvec[1], nvec[2])],
         ['Erste Schichthöhe z_first', '%.3f mm' % info['first_layer_z']],
+        ['Schichten UPPER / LOWER', '%d / %d'
+         % (info['layers_upper'], info['layers_lower'])],
         ['Segmente UPPER', '%d' % info['segments_upper']],
         ['Segmente LOWER', '%d' % info['segments_lower']],
         ['UPPER-Abmessungen (X/Y/Z)', '%.1f × %.1f × %.1f mm'

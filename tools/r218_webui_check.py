@@ -218,18 +218,26 @@ ck('embedded: the offline fallback JSON is the CURRENT export '
    'embedded %s/%s vs disk %s/%s' % (_embsec, _embsha,
                                      _doc.get('sections'),
                                      _doc.get('sha256')))
+import menu_json_export as _mje
+_live_doc = _mje.export(os.path.join(ROOT, 'menus', 'lcd_menues.cfg'))
+ck('export: web/menu_structure.json matches current lcd_menues.cfg '
+   '(%s sections, sha %s)' % (_live_doc.get('sections'), _live_doc.get('sha256')),
+   (_doc.get('sections') == _live_doc.get('sections')
+    and _doc.get('sha256') == _live_doc.get('sha256')),
+   'disk %s/%s vs live %s/%s' % (_doc.get('sections'), _doc.get('sha256'),
+                                 _live_doc.get('sections'),
+                                 _live_doc.get('sha256')))
 
 # ---------------- 7) the page version matches the release -------------------
 _st = rd('macros/01_state.cfg')
-# R241 (.137): [a-z]* - bare version numbers are first class (the old
-# single-letter class predated the two-letter era R229 and never matched
-# .136aj or .137 at all - the check reported 'page None vs state None')
-_ver = re.search(r"variable_version:\s*'R2-\d{4}-\d{2}-\d{2}\.(\d+[a-z]*)'",
+# Full R2-<date>.<n> version stamp (V1+ dropped legacy .142x suffixes and
+# splitting on '.' collapsed R2-2026-11-13.1 to an ambiguous '.1').
+_ver = re.search(r"variable_version:\s*'(R2-\d{4}-\d{2}-\d{2}\.\d+[a-z]*)'",
                  _st)
-_pver = re.search(r'<span id="ver">\.(\d+[a-z]*)</span>', HTML)
+_pver = re.search(r'<span id="ver">(R2-\d{4}-\d{2}-\d{2}\.\d+[a-z]*|\.\d+[a-z]*)</span>', HTML)
 ck('version: the page ver badge matches 01_state (%s)'
    % (_pver.group(1) if _pver else '?'),
-   _ver and _pver and _ver.group(1) == _pver.group(1),
+   bool(_ver and _pver and _ver.group(1) == _pver.group(1)),
    'page %s vs state %s' % (_pver and _pver.group(1),
                             _ver and _ver.group(1)))
 # R220 lesson from the .136q release: this pin was still 'R218' after the
