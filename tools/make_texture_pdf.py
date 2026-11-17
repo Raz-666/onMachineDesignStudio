@@ -201,18 +201,17 @@ PAT_TXT = {
    'harten Stufen). Der Umfangs-Versatz trifft genau eine Zellgrenze.',
  'HEX': 'Überlagerte Sinusse in s und t (t mit Kosinus-Versatz) - ein '
    'fließendes, wabenartiges Moiré ohne harte Kanten.',
- 'HONEYCOMB': 'Echtes Sechseck-Gitter auf der abgewickelten Ebene: Zeilen um '
-   'eine halbe Zelle versetzt, Kantendistanz über drei Achsen, außen erhaben, '
-   'innen tief. Nahtlos, weil k und die Zeilenzahl ganzzahlig sind.',
+ 'HONEYCOMB': 'Echte sechseckige Zellen mit regelmäßiger Hex-Distanznorm; '
+   'innen erhabene Fläche, außen klare Fuge. Gerade Perioden schließen '
+   'sowohl den Zylinderumfang als auch die Z-Höhe.',
  'BASKET': 'Geflochtenes Muster: Zellparität (Zelle in s + Zelle in t) '
    'entscheidet über/unter, Kanten ausgeprägt - Korboptik mit sichtbarem '
    'Kreuz der Latten.',
  'ROPE': 'Gedrehtes Seil: DREI Stränge (R224), tanh macht flachgewölbte '
    'Stränge mit tiefen runden Rillen - der Schlag kommt über n Umläufe '
    '(Z-Größe).',
- 'PLANKS': 'VERTIKALE Bretter (R238): Latten laufen der Länge nach, '
-   'Fugen als Rillen, geseedeter Versatz bricht den Ring, feine '
-   'Maserung nach oben gestreckt.',
+ 'PLANKS': 'Längsbretter mit tiefen vertikalen Rillen, versetzten '
+   'Stoßfugen je Brett und zurückhaltender, nach oben gestreckter Maserung.',
  'BRICKS': 'Ziegel: 2n Reihen, gerader und versetzter Verband im Wechsel, '
    'Steinfläche erhaben, Fugen tief, plus raue Noise-Textur pro Stein.',
  'SANDSTONE': 'Geschichteter Sandstein: zwei überlagerte, geseedete Noise-'
@@ -239,12 +238,12 @@ PAT_TXT = {
    'Bänder ohne Fehler (r2 &gt; 0.45) bleiben glatt.',
  'KNIT': 'GESTRICKT (R238): geschachtelte V-Schleifen in versetzten '
    'Spalten - die Beine jeder Masche wölben sich über die Reihe darunter. '
-   'Strickoptik, Auto-Neigung 3°.',
+   'Optionaler Musterwinkel 3°; standardmäßig ohne Tilt.',
  'FLUTED': 'GERIFFELT (R238): vertikale halbrunde Kanneluren - läuft der '
    'Länge nach, killt Z-Banding auf Zylindern (antike Säulenoptik).',
- 'BARK': 'BAUMRINDE (R238): vertikale Risse - stark gestrecktes Noise um '
-   'den Umfang, ruhig in Z, geriffelt für tiefe Borke. Rohre werden '
-   'Stämme.',
+ 'BARK': 'BAUMRINDE: wandernde Längsfissuren teilen breite erhöhte '
+   'Borkenplatten; langsame periodische Verformung und sparsame '
+   'Querbrüche vermeiden bloße Sinusstreifen.',
  'SCALES': 'SCHUPPEN (R238): versetzt überlappende gewölbte Schindeln - '
    'Reptilienlook mit griffiger Haptik.',
  'FACETS': 'FACETTEN (R238): Rauten-Relief - vier weiche Dreiecke pro '
@@ -285,23 +284,25 @@ def main():
     A(Spacer(1, 6*mm))
     A(P('Dieses Handbuch dokumentiert das Texture-Werkzeug (Pre-Print &gt; '
         'Mods &gt; Texture): wie die Wandverschiebung arbeitet, das EXAKTE '
-        'Mapping jedes Parameters, alle 21 Muster mit Vorschaubildern - '
+        'Mapping jedes Parameters, alle 27 Muster mit Vorschaubildern - '
         'die Bilder sind direkt aus den echten Musterfunktionen gesampelt, '
-        'nicht neu gezeichnet - und die 27 fertigen Vorlagen-Presets.'))
+        'nicht neu gezeichnet - und 27 materialgebundene Vorlagen (je Muster '
+        'eine). Die Vorschaubilder sind Algorithmus-Simulationen, keine '
+        'Fotos und keine Zusage eines bestimmten Druckergebnisses.'))
     A(Spacer(1, 3*mm))
     A(TBL(['Ebene', 'Was'], [
         ['Modus FUZZY', 'Zufällige Wandverformung (Fuzzy-Skin): jeder '
          'Außenwand-Vertex wandert mit Wahrscheinlichkeit Dichte um bis zu '
          'Dicke in eine Zufallsrichtung. Kein Muster, reines Rauschen.'],
         ['Modus BUMPS', 'Deterministische Musterfunktion verschiebt die '
-         'Außenwand radial - 21 Muster, gesteuert durch SIZE/ZSIZE/DEPTH/DIR/SEED.'],
-        ['21 Muster', 'Trigonometrie (Ridges, Waves, Grid, Hatch, Checker, '
-         'Hex), Geflechte (Honeycomb, Basket, Rope), Beplankung (Planks, '
-         'Bricks), Noise-Familien (Sandstone, Concrete, Clay, Crepe, Fabric, '
-         'Plush), Kurven (Hilbert) und Oberflächen (Scratch, Glitch, Map).'],
+         'Außenwand radial - 27 Muster, gesteuert durch SIZE/ZSIZE/DEPTH/DIR/SEED.'],
+        ['27 Muster', 'Gerichtete Reliefs und Materialfelder: Bretter, '
+         'Rindenfissuren, Ziegel, Wellen, Hex-Zellen, Korb, Seil, Plüsch, '
+         'Schuppen, Kanneluren sowie weitere textile, geometrische, '
+         'Rausch- und Bildmuster.'],
         ['27 Vorlagen', 'Fertige Looks unter Vorlagen im Texture-Menü - '
-         'Namen nach der OPTIK (Rattan, Sandstein, Seil, Ziegelmauer ...), '
-         'jeder Eintrag trägt ALLE neun Settings.'],
+         'genau ein Look je Muster, mit passender Größe, Z-Teilung, Tiefe '
+         'und Seed; die separate FUZZY-Presetreihe bleibt bestehen.'],
     ], [30*mm, 126*mm]))
     A(Spacer(1, 4*mm))
     A(P('<b>Wo:</b> LCD Pre-Print &gt; Mods &gt; Texture (und der Web-LCD '
@@ -359,7 +360,10 @@ def main():
         ['Modus', 'FUZZY / BUMPS', 'Zufallstextur oder Musterfunktion (Kap. 3/4)'],
         ['Dicke (FUZZY)', '0.1-1.0 mm', 'Maximaler Zufallsversatz pro Vertex'],
         ['Dichte (FUZZY)', '10-100 %', 'Anteil der verschobenen Vertices'],
-        ['Muster (BUMPS)', '21 Muster', 'Die Musterfunktion (Kapitel 3)'],
+        ['Muster (BUMPS)', '27 Muster', 'Die Musterfunktion (Kapitel 3)'],
+        ['Tilt', 'OFF / ON', 'Standard OFF (0°); ON aktiviert den expliziten Winkel des gewählten Musters, nahtsicher und bündig am Z-Ende'],
+        ['Abtastung (BUMPS)', 'max. 1.5 mm', 'Lange lineare Wandzüge werden vor dem Versatz unterteilt; E-Gesamtextrusion bleibt erhalten'],
+
         ['Around (SIZE)', '3-80 mm', 'Richtwert Umfang -> k Rippen (ganz)'],
         ['Height (ZSIZE)', '0.5-200 mm', 'Richtwert Höhe -> n Wiederholungen (ganz, oben bündig)'],
         ['Depth (DEPTH)', '0.05-1.0 mm', 'Verschiebetiefe = Amplitude der Prägung'],
@@ -368,6 +372,12 @@ def main():
         ['Bild (MAP)', 'Auswahl', 'Quellfoto für die Bildprägung (hell = erhaben)'],
     ], [34*mm, 24*mm, 98*mm]))
     A(Spacer(1, 2*mm))
+    A(P('<b>Tilt:</b> standardmäßig AUS (0°). Optionales Einschalten wendet '
+        'den hinterlegten Winkel pro Muster über eine ganzzahlige Zahl von '
+        'Helix-Umläufen an; Umfangsnaht und Oberkante bleiben geschlossen. '
+        '<b>Abtastung:</b> BUMPS teilt lange lineare Außenwandsegmente auf '
+        'maximal 1.5 mm, damit ein grobes Vase-Mesh mehrere Texturwerte je '
+        'Zug erhält. Das erhöht die G-Code-Zeilen und bewahrt den E-Betrag.'))
     A(P('<b>Depth in der Praxis:</b> 0.15-0.30 mm für feine Struktur, '
         '0.35-0.50 mm für markante Optik, darüber wird die Wand bei '
         'kleinen Radien wellig. Die erste Lage bleibt unberührt '

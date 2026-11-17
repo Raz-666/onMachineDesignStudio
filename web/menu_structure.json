@@ -1,14 +1,14 @@
 {
  "generator": "menu_json_export.py (.136j R211)",
  "source": "lcd_menues.cfg",
- "sections": 2295,
+ "sections": 2296,
  "counts": {
   "list": 310,
-  "command": 1400,
+  "command": 1401,
   "vsdlist": 1,
   "input": 584
  },
- "sha256": "f16aadd991a3bd00",
+ "sha256": "b8299de898720d9a",
  "live_objects": [
   "bed_mesh",
   "configfile",
@@ -4780,6 +4780,18 @@
           "gcode": [
            "SAVE_VARIABLE VARIABLE=texture_amp VALUE={menu.input|float|round(2)}",
            "RESPOND MSG=\"Pattern depth {menu.input|round(2)}mm - how deep the texture shapes the wall\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __preprint __mods __tex __tilt",
+          "type": "command",
+          "name": "{'Tilt: ON' if printer['save_variables'].variables.texture_tilt|default('OFF')|string|upper == 'ON' else 'Tilt: OFF'}",
+          "enable": "{printer['save_variables'].variables.texture_mode|default('')|string == 'BUMPS'}",
+          "gcode": [
+           "{% set on = printer['save_variables'].variables.texture_tilt|default('OFF')|string|upper == 'ON' %}",
+           "SAVE_VARIABLE VARIABLE=texture_tilt VALUE=\"\\\\\"{ 'OFF' if on else 'ON' }\\\\\"\"",
+           "RESPOND MSG=\"Texture tilt { 'OFF' if on else 'ON' }: pattern's explicit tilt is {'disabled' if on else 'enabled'}\""
           ],
           "children": []
          },

@@ -28240,6 +28240,8 @@ def watch(directory, interval=5.0, once=False):
                     map_pos=str(rv.get('texture_map_pos', 'CENTER')
                                 or 'CENTER').strip().strip('\'"').upper()
                     or 'CENTER',
+                    tilt=str(rv.get('texture_tilt', 'OFF') or 'OFF').upper()
+                         in ('1', 'ON', 'TRUE', 'YES'),
                     bed=_bed91,
                     version=max(1, min(int(float(
                         rv.get('gen_version', 1) or 1)), 99)))
@@ -28260,12 +28262,15 @@ def watch(directory, interval=5.0, once=False):
                                        info_t.get('eff_size', 0.0),
                                        info_t.get('eff_zsize', 0.0)))
                         if info_t.get('tilt'):
-                            _snap175 += (' [auto-tilt %.1f deg - never '
-                                         'parallel to the layers]'
+                            _snap175 += (' [optional tilt %.1f deg]'
                                          % info_t['tilt'])
                         if info_t.get('map_mode') == 'ONCE':
                             _snap175 += (' [MAP once around, %s]'
                                          % info_t.get('map_pos', 'CENTER'))
+                        if info_t.get('subdivisions'):
+                            _snap175 += (' [resampled %d segments at <=%.1fmm]'
+                                         % (info_t['subdivisions'],
+                                            info_t.get('sample_step_mm', 1.5)))
                     _snap237 = ''
                     if info_t.get('m204_scrub'):
                         _snap237 = (' [legacy _M204 renamed: %d]'

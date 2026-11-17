@@ -23,7 +23,7 @@ Achtung: in manchen Workspaces heißt der lokale Branch `master`, auf GitHub
 | Was | Beleg |
 |---|---|
 | V1 = `R2-2026-11-13.1` | `macros/01_state.cfg` Z. 535, `tools/r2_postproc*.py` Z. 80/81 |
-| Makro-Batterie | **2100/2100** (`python3 tools/macro_render_test.py`) — **nur mit den Feld-Fixtures**, siehe §3.0 |
+| Makro-Batterie (Textur-Update 17.11.) | **2102/2102** (`python3 tools/macro_render_test.py`) — **nur mit den Feld-Fixtures**, siehe §3.0 |
 | Einzeltests | `r81` 23/23 · `r199` 42/0 · `r257` 15/0 + 7/7 · `v1_range_cause_check` 8/0 |
 | Auslieferung V1 | `releases/klipper-e3-r2d2-UPDATE-R2-2026-11-13.1.zip` (5 782 002 B, md5 `a63f9842d411834b9fe53a2588387983`) — **vom User noch nicht eingespielt** |
 | PDF-Fundament | `tools/r2_pdf_kit.py` (ein Stilsatz, `Doc` mit Versionskopf, `TBL/BOX/FORMULA/IMG`, `toolpath_fig/bar_fig/ladder_fig` aus echten Daten) |
@@ -32,23 +32,31 @@ Achtung: in manchen Workspaces heißt der lokale Branch `master`, auf GitHub
 | Dokument 4 | `POSTPROCESSING.pdf` (15 S.) ← `tools/make_postproc_pdf.py` |
 | Messkörper | `tools/samples/make_statprobe.py` → `statprobe.gcode` → echter Lauf → `statprobe_tagged.gcode` (104 Marker, 30 Schichten, MAXRATE 7,2 mm³/s) |
 
-### Offen (in dieser Reihenfolge)
+### Erledigt in der Fortsetzung 17.11.2026
 
-1. **Dokument 1: `GENERATORS_TOOLS.pdf` neu bauen** — jeder Modifier einzeln.
-   Das alte Heft (12 S., Stand `.142j`) ist veraltet. **Wartet auf Freigabe des
-   Users**, weil dort die Texturen drin sind (siehe Punkt 2).
-2. **Textur-Block G1–G5** (`docs-notes/MASTER-TODO.md`, Block G) — der User hat
-   ausdrücklich gesagt: **erst wenn er wieder da ist**. Befund liegt vor:
-   RIDGES/FLUTED/BARK/PLANKS/FABRIC = senkrechte Streifen, WAVES/HATCH/ROPE =
-   diagonal, HEX/SCALES/FACETS/MACRAME/HONEYCOMB/BRICKS = Punktgitter, GLITCH
-   kaputt, `PATTERN_TILT` kippt alle Streifen; auf 1-Wand-Achteck nur 8
-   Vertices/Lage. Beleg: `docs/textur-matrix-ist.png`.
-3. **D2** — Textur-PDF: alte Vorschaubilder, alte Preset-Zahl (27 Presets
-   müssen mit Bildern und Parametern drin sein).
-4. **D1** — `MANUAL.md` gegen den CODE prüfen (nicht fortschreiben). Bei
-   Abweichung **melden**, nicht stillschweigend die Doku anpassen.
-5. **E4** — Crash/MCU-Shutdown (Block E); E3 ist erledigt.
-6. **H2/H3** — Range/Cake-Rest (H1 ist erledigt, Ursache belegt).
+- **G1–G5** im Texturblock umgesetzt und offline gegengeprüft: Materialreliefs
+  (inkl. BARK/PLANKS/BRICKS/HONEYCOMB), 0°-Tilt-Standard mit LCD-Opt-in,
+  27 eindeutige Muster-Presets, 1.5-mm-BUMPS-Abtastung mit E-Erhalt sowie
+  Generator-Matrix **1423/1423**. Bildbelege: `docs/textur-matrix-soll.png`
+  (codebasierte Simulation, kein Druckbild) und `tools/r238_field_check.py`.
+- **D2** Textur-PDF neu gebaut: `TEXTURING.pdf`, 35 Seiten, 27 Muster +
+  27 zugeordnete Presets.
+- **C1–C5, H2** bereits in Paket 4/V1 umgesetzt; Checkboxen und Belege in
+  `docs-notes/MASTER-TODO.md` synchronisiert.
+
+### Offen
+
+1. **H3 — Cake-UX-Spezifikation**: erst mit dem User abstimmen (zwei Platten
+   statt Kette, Reorient, Restmaterial); bis dahin nicht implementieren.
+2. **D7d `GENERATORS_TOOLS.pdf`**: veraltetes Heft (12 S., Stand `.142j`),
+   Modifier einzeln dokumentieren. Textur-Grundlage ist jetzt aktualisiert;
+   dieses Heft selbst bleibt noch offen.
+3. **D3–D6**: weitere Generator-/Modifikator-/Kreativ-Dokumente laut
+   `MASTER-TODO.md`.
+4. **E4**: reale Achsgrenzen/Probe-Abnahme und MCU-/Hardwarefragen; offline
+   Bericht ist keine Hardware-Freigabe.
+5. **D1**: MANUAL-CODE-Abgleich ist erledigt; offen bleibt nur die in Kap. 14
+   genannte Nutzerentscheidung zur LIVE-Lüfterstufe.
 
 ---
 
@@ -196,8 +204,8 @@ dann `git reset --hard`).
 1. `git log --oneline -3 && git status --short` — steht `7b10170` (oder
    `d417be4` + diese Datei) oben? Ist der Baum sauber?
 2. `docs-notes/MASTER-TODO.md` lesen (einzige Aufgabenliste, Blöcke A–H).
-3. `python3 tools/macro_render_test.py` einmal laufen lassen (dauert ~8 min,
-   muss **2100/2100** sagen).
-4. **Nichts anfangen, was auf die Freigabe des Users wartet** (Texturen G1–G5,
-   GENERATORS_TOOLS-Rückteil mit Texturen).
+3. Die frische Makro-Batterie vom 17.11. lief mit **2102/2102**; erneuter
+   Lauf seriell (keine parallelen Watcher-/Makro-Batterien).
+4. Texturen G1–G5 und D2 sind erledigt; als nächstes ist H3-Spezifikation
+   mit dem User zu besprechen — Cake-UX nicht vorab verändern.
 5. Bei Widersprüchen zwischen Doku und Code: Code gilt, Abweichung melden.
