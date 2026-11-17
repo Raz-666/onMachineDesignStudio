@@ -311,7 +311,7 @@ TOOLS = [
   'kosten Material, die Kontur ist an der Schnittkante nicht die des '
   'Originalteils.'),
  ('Texture', 'Pre-Print &gt; Mods &gt; Texture',
-  'Prägt eine Struktur auf die Außenwand: 21 Muster, 27 fertige Vorlagen, '
+  'Prägt eine Struktur auf die Außenwand: 27 Muster, 27 fertige Vorlagen, '
   'Fuzzy-Skin, Tiefe in mm, Richtung innen/außen, Seed. Schreibt eine neue '
   '_TX-Datei, startet nie von selbst.',
   'Textur lebt von der Wandstärke: bei sehr dünnen Wänden frisst die Tiefe die '
