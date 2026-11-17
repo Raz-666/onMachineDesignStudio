@@ -1,0 +1,743 @@
+Jinja2 3.1.6
+analyse/klipper-referenz/gcode.py: OK
+backups/r2_postproc_R2-2026-11-13.1_V1.py: OK
+==== engine parity (lines 4+ byte-identical)
+OK: 30080 lines in strict parity
+==== active test_image_pick_next.py
+test_collision_keeps_every_existing_file_and_reports_new_name (__main__.ImagePickTests.test_collision_keeps_every_existing_file_and_reports_new_name) ... ok
+test_copy_failure_keeps_original_and_leaves_no_partial_output (__main__.ImagePickTests.test_copy_failure_keeps_original_and_leaves_no_partial_output) ... ok
+test_directory_and_fifo_sources_are_refused_without_blocking (__main__.ImagePickTests.test_directory_and_fifo_sources_are_refused_without_blocking) ... ok
+test_existing_destination_symlink_not_followed_or_replaced (__main__.ImagePickTests.test_existing_destination_symlink_not_followed_or_replaced) ... ok
+test_existing_root_pick_is_read_only_and_missing_root_fails (__main__.ImagePickTests.test_existing_root_pick_is_read_only_and_missing_root_fails) ... ok
+test_link_failure_keeps_original_and_cleans_staging (__main__.ImagePickTests.test_link_failure_keeps_original_and_cleans_staging) ... ok
+test_new_destination_and_original_preserved (__main__.ImagePickTests.test_new_destination_and_original_preserved) ... ok
+test_no_replace_mutation_is_caught (__main__.ImagePickTests.test_no_replace_mutation_is_caught) ... ok
+test_original_watcher_block_reports_actual_copy_and_error (__main__.ImagePickTests.test_original_watcher_block_reports_actual_copy_and_error) ... [imgpick] 'sub/photo.png' -> photo_1.png
+[imgpick] refused: ValueError('not a safe image path')
+ok
+test_parallel_collision_is_atomic (__main__.ImagePickTests.test_parallel_collision_is_atomic) ... ok
+test_source_changed_mid_copy_is_not_published (__main__.ImagePickTests.test_source_changed_mid_copy_is_not_published) ... ok
+test_symlink_sources_and_nested_symlink_directories_rejected (__main__.ImagePickTests.test_symlink_sources_and_nested_symlink_directories_rejected) ... ok
+test_traversal_invalid_extension_and_command_injection_rejected (__main__.ImagePickTests.test_traversal_invalid_extension_and_command_injection_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.419s
+
+OK
+==== active test_queue_next.py
+test_all_clear_paths_use_shared_pending_helper (__main__.QueueTests.test_all_clear_paths_use_shared_pending_helper) ... ok
+test_cancel_skip_and_stop_drop_correct_keys_and_no_job_runs (__main__.QueueTests.test_cancel_skip_and_stop_drop_correct_keys_and_no_job_runs) ... ok
+test_drop_pending_preserves_running_key_and_container_identity (__main__.QueueTests.test_drop_pending_preserves_running_key_and_container_identity) ... ok
+test_old_dequeue_order_mutation_is_caught (__main__.QueueTests.test_old_dequeue_order_mutation_is_caught) ... ok
+test_zombie_key_remains_until_worker_thread_is_gone (__main__.QueueTests.test_zombie_key_remains_until_worker_thread_is_gone) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 2.028s
+
+OK
+==== active test_process_guards.py
+test_reference_backup_demonstrates_old_bug (__main__.SkipTests.test_reference_backup_demonstrates_old_bug) ... ok
+test_skip_unchanged_even_with_retract_rewrite (__main__.SkipTests.test_skip_unchanged_even_with_retract_rewrite) ... ok
+test_untagged_opt_in_retract_fix_is_preserved (__main__.SkipTests.test_untagged_opt_in_retract_fix_is_preserved) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.214s
+
+OK
+==== active test_zscan_modes.py
+test_absolute_e_only_and_g92_update_state (__main__.ZScanTests.test_absolute_e_only_and_g92_update_state) ... ok
+test_klipper_g91_m82_e_mode_is_relative_and_tracks_return_to_g90 (__main__.ZScanTests.test_klipper_g91_m82_e_mode_is_relative_and_tracks_return_to_g90) ... ok
+test_m82_and_m83_hop_e_zero_and_retract_have_no_false_marker (__main__.ZScanTests.test_m82_and_m83_hop_e_zero_and_retract_have_no_false_marker) ... ok
+test_mark_is_before_real_positive_extrusion_in_process (__main__.ZScanTests.test_mark_is_before_real_positive_extrusion_in_process) ... ok
+test_old_backup_proves_false_e_zero_marker (__main__.ZScanTests.test_old_backup_proves_false_e_zero_marker) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.010s
+
+OK
+==== active test_stl_extrusion_state.py
+test_filtered_absolute_and_relative_e_widths_match (__main__.STLExtrusionTests.test_filtered_absolute_and_relative_e_widths_match) ... ok
+test_g92_after_filtered_segment_resets_absolute_e (__main__.STLExtrusionTests.test_g92_after_filtered_segment_resets_absolute_e) ... ok
+test_reference_backup_demonstrates_absolute_e_bug (__main__.STLExtrusionTests.test_reference_backup_demonstrates_absolute_e_bug) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.012s
+
+OK
+==== active test_object_bbox_modes.py
+test_absolute_and_relative_e_exclude_xy_wipe (__main__.BBoxTests.test_absolute_and_relative_e_exclude_xy_wipe) ... [eod226] M82.gcode: 1 object define(s) upgraded with approximate XY bounding-box polygons (not verified object outlines)
+[eod226] M83.gcode: 1 object define(s) upgraded with approximate XY bounding-box polygons (not verified object outlines)
+ok
+test_g92_e_and_relative_xy_mode (__main__.BBoxTests.test_g92_e_and_relative_xy_mode) ... [eod226] x.gcode: 1 object define(s) upgraded with approximate XY bounding-box polygons (not verified object outlines)
+ok
+test_reference_backup_includes_absolute_retraction_wipe (__main__.BBoxTests.test_reference_backup_includes_absolute_retraction_wipe) ... [eod226] old.gcode: 1 object define(s) upgraded with a measured POLYGON (KAMP-safe)
+ok
+test_unknown_xy_origin_or_arc_fails_closed (__main__.BBoxTests.test_unknown_xy_origin_or_arc_fails_closed) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.009s
+
+OK
+==== active test_postproc_c1_c5_and_jobs.py
+.....[seqaudit] lying_tags.gcode: S3 brim beyond the brim window
+..
+----------------------------------------------------------------------
+Ran 7 tests in 0.401s
+
+OK
+==== next test_image_pick_next.py
+test_collision_keeps_every_existing_file_and_reports_new_name (__main__.ImagePickTests.test_collision_keeps_every_existing_file_and_reports_new_name) ... ok
+test_copy_failure_keeps_original_and_leaves_no_partial_output (__main__.ImagePickTests.test_copy_failure_keeps_original_and_leaves_no_partial_output) ... ok
+test_directory_and_fifo_sources_are_refused_without_blocking (__main__.ImagePickTests.test_directory_and_fifo_sources_are_refused_without_blocking) ... ok
+test_existing_destination_symlink_not_followed_or_replaced (__main__.ImagePickTests.test_existing_destination_symlink_not_followed_or_replaced) ... ok
+test_existing_root_pick_is_read_only_and_missing_root_fails (__main__.ImagePickTests.test_existing_root_pick_is_read_only_and_missing_root_fails) ... ok
+test_link_failure_keeps_original_and_cleans_staging (__main__.ImagePickTests.test_link_failure_keeps_original_and_cleans_staging) ... ok
+test_new_destination_and_original_preserved (__main__.ImagePickTests.test_new_destination_and_original_preserved) ... ok
+test_no_replace_mutation_is_caught (__main__.ImagePickTests.test_no_replace_mutation_is_caught) ... ok
+test_original_watcher_block_reports_actual_copy_and_error (__main__.ImagePickTests.test_original_watcher_block_reports_actual_copy_and_error) ... [imgpick] 'sub/photo.png' -> photo_1.png
+[imgpick] refused: ValueError('not a safe image path')
+ok
+test_parallel_collision_is_atomic (__main__.ImagePickTests.test_parallel_collision_is_atomic) ... ok
+test_source_changed_mid_copy_is_not_published (__main__.ImagePickTests.test_source_changed_mid_copy_is_not_published) ... ok
+test_symlink_sources_and_nested_symlink_directories_rejected (__main__.ImagePickTests.test_symlink_sources_and_nested_symlink_directories_rejected) ... ok
+test_traversal_invalid_extension_and_command_injection_rejected (__main__.ImagePickTests.test_traversal_invalid_extension_and_command_injection_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.377s
+
+OK
+==== next test_queue_next.py
+test_all_clear_paths_use_shared_pending_helper (__main__.QueueTests.test_all_clear_paths_use_shared_pending_helper) ... ok
+test_cancel_skip_and_stop_drop_correct_keys_and_no_job_runs (__main__.QueueTests.test_cancel_skip_and_stop_drop_correct_keys_and_no_job_runs) ... ok
+test_drop_pending_preserves_running_key_and_container_identity (__main__.QueueTests.test_drop_pending_preserves_running_key_and_container_identity) ... ok
+test_old_dequeue_order_mutation_is_caught (__main__.QueueTests.test_old_dequeue_order_mutation_is_caught) ... ok
+test_zombie_key_remains_until_worker_thread_is_gone (__main__.QueueTests.test_zombie_key_remains_until_worker_thread_is_gone) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 1.947s
+
+OK
+==== next test_process_guards.py
+test_reference_backup_demonstrates_old_bug (__main__.SkipTests.test_reference_backup_demonstrates_old_bug) ... ok
+test_skip_unchanged_even_with_retract_rewrite (__main__.SkipTests.test_skip_unchanged_even_with_retract_rewrite) ... ok
+test_untagged_opt_in_retract_fix_is_preserved (__main__.SkipTests.test_untagged_opt_in_retract_fix_is_preserved) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.010s
+
+OK
+==== next test_zscan_modes.py
+test_absolute_e_only_and_g92_update_state (__main__.ZScanTests.test_absolute_e_only_and_g92_update_state) ... ok
+test_klipper_g91_m82_e_mode_is_relative_and_tracks_return_to_g90 (__main__.ZScanTests.test_klipper_g91_m82_e_mode_is_relative_and_tracks_return_to_g90) ... ok
+test_m82_and_m83_hop_e_zero_and_retract_have_no_false_marker (__main__.ZScanTests.test_m82_and_m83_hop_e_zero_and_retract_have_no_false_marker) ... ok
+test_mark_is_before_real_positive_extrusion_in_process (__main__.ZScanTests.test_mark_is_before_real_positive_extrusion_in_process) ... ok
+test_old_backup_proves_false_e_zero_marker (__main__.ZScanTests.test_old_backup_proves_false_e_zero_marker) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.011s
+
+OK
+==== next test_stl_extrusion_state.py
+test_filtered_absolute_and_relative_e_widths_match (__main__.STLExtrusionTests.test_filtered_absolute_and_relative_e_widths_match) ... ok
+test_g92_after_filtered_segment_resets_absolute_e (__main__.STLExtrusionTests.test_g92_after_filtered_segment_resets_absolute_e) ... ok
+test_reference_backup_demonstrates_absolute_e_bug (__main__.STLExtrusionTests.test_reference_backup_demonstrates_absolute_e_bug) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.011s
+
+OK
+==== next test_object_bbox_modes.py
+test_absolute_and_relative_e_exclude_xy_wipe (__main__.BBoxTests.test_absolute_and_relative_e_exclude_xy_wipe) ... [eod226] M82.gcode: 1 object define(s) upgraded with approximate XY bounding-box polygons (not verified object outlines)
+[eod226] M83.gcode: 1 object define(s) upgraded with approximate XY bounding-box polygons (not verified object outlines)
+ok
+test_g92_e_and_relative_xy_mode (__main__.BBoxTests.test_g92_e_and_relative_xy_mode) ... [eod226] x.gcode: 1 object define(s) upgraded with approximate XY bounding-box polygons (not verified object outlines)
+ok
+test_reference_backup_includes_absolute_retraction_wipe (__main__.BBoxTests.test_reference_backup_includes_absolute_retraction_wipe) ... [eod226] old.gcode: 1 object define(s) upgraded with a measured POLYGON (KAMP-safe)
+ok
+test_unknown_xy_origin_or_arc_fails_closed (__main__.BBoxTests.test_unknown_xy_origin_or_arc_fails_closed) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.008s
+
+OK
+==== next test_postproc_c1_c5_and_jobs.py
+.....[seqaudit] lying_tags.gcode: S3 brim beyond the brim window
+..
+----------------------------------------------------------------------
+Ran 7 tests in 0.389s
+
+OK
+==== test_r2_shadow.py
+test_absolute_e_unknown_initial_then_known (__main__.ShadowTests.test_absolute_e_unknown_initial_then_known) ... ok
+test_arcs_unknown_then_explicit_modes_recover (__main__.ShadowTests.test_arcs_unknown_then_explicit_modes_recover) ... ok
+test_cli_reads_input_without_modifying_and_jsonl_roundtrips (__main__.ShadowTests.test_cli_reads_input_without_modifying_and_jsonl_roundtrips) ... ok
+test_compact_arguments_comments_and_raw_are_preserved (__main__.ShadowTests.test_compact_arguments_comments_and_raw_are_preserved) ... ok
+test_core_command_cannot_be_reclassified_as_passive (__main__.ShadowTests.test_core_command_cannot_be_reclassified_as_passive) ... ok
+test_default_modes_are_unknown_until_explicitly_set (__main__.ShadowTests.test_default_modes_are_unknown_until_explicitly_set) ... ok
+test_fixpoint_mutation_of_relative_state_is_detected (__main__.ShadowTests.test_fixpoint_mutation_of_relative_state_is_detected) ... ok
+test_g20_klipper_rejected_generic_explicit (__main__.ShadowTests.test_g20_klipper_rejected_generic_explicit) ... ok
+test_g92_is_coordinate_reset_not_motion (__main__.ShadowTests.test_g92_is_coordinate_reset_not_motion) ... ok
+test_inch_and_mm_conversions (__main__.ShadowTests.test_inch_and_mm_conversions) ... ok
+test_klipper_g91_forces_e_relative_even_after_m82 (__main__.ShadowTests.test_klipper_g91_forces_e_relative_even_after_m82) ... ok
+test_m82_g92_and_known_previous_e (__main__.ShadowTests.test_m82_g92_and_known_previous_e) ... ok
+test_numeric_overflow_invalidates_instead_of_inf (__main__.ShadowTests.test_numeric_overflow_invalidates_instead_of_inf) ... ok
+test_passive_event_does_not_change_mode_or_position (__main__.ShadowTests.test_passive_event_does_not_change_mode_or_position) ... ok
+test_passive_macro_requires_explicit_assumption_and_is_labelled (__main__.ShadowTests.test_passive_macro_requires_explicit_assumption_and_is_labelled) ... ok
+test_relative_unknown_position_is_not_invented (__main__.ShadowTests.test_relative_unknown_position_is_not_invented) ... ok
+test_relative_xyz_accumulates_and_e_relative (__main__.ShadowTests.test_relative_xyz_accumulates_and_e_relative) ... ok
+test_syntax_duplicates_nonfinite_and_invalid_feed_invalidate (__main__.ShadowTests.test_syntax_duplicates_nonfinite_and_invalid_feed_invalidate) ... ok
+test_unknown_macro_tool_and_homing_invalidate (__main__.ShadowTests.test_unknown_macro_tool_and_homing_invalidate) ... ok
+
+----------------------------------------------------------------------
+Ran 19 tests in 0.032s
+
+OK
+==== test_r2_analysis.py
+.............
+----------------------------------------------------------------------
+Ran 13 tests in 0.012s
+
+OK
+==== test_r2_offline.py
+test_assumptions_are_explicit_and_report_only (__main__.OfflineTests.test_assumptions_are_explicit_and_report_only) ... ok
+test_cli_error_and_valid_json (__main__.OfflineTests.test_cli_error_and_valid_json) ... ok
+test_collision_symlink_and_fifo_fail_without_modification (__main__.OfflineTests.test_collision_symlink_and_fifo_fail_without_modification) ... ok
+test_derive_runs_real_engine_on_copy_only (__main__.OfflineTests.test_derive_runs_real_engine_on_copy_only) ... ok
+test_destination_symlink_and_source_as_output_never_clobbered (__main__.OfflineTests.test_destination_symlink_and_source_as_output_never_clobbered) ... ok
+test_destructive_link_mutation_is_detected (__main__.OfflineTests.test_destructive_link_mutation_is_detected) ... ok
+test_parallel_publication_has_one_winner (__main__.OfflineTests.test_parallel_publication_has_one_winner) ... ok
+test_processor_failure_timeout_and_unsupported_link (__main__.OfflineTests.test_processor_failure_timeout_and_unsupported_link) ... ok
+test_report_preserves_original_and_finds_evidence (__main__.OfflineTests.test_report_preserves_original_and_finds_evidence) ... ok
+test_size_empty_and_overlong_line_fail_closed (__main__.OfflineTests.test_size_empty_and_overlong_line_fail_closed) ... ok
+test_source_change_before_publish_fails_closed (__main__.OfflineTests.test_source_change_before_publish_fails_closed) ... ok
+
+----------------------------------------------------------------------
+Ran 11 tests in 0.270s
+
+OK
+==== test_shadow_analysis_audit_v2.py
+...r2-offline: passive assumptions and analysis options are report/audit-only
+..
+----------------------------------------------------------------------
+Ran 5 tests in 0.022s
+
+OK
+{"analysis": {"assumed_passive_commands": [], "evidence": {"groups": [{"bounds_xy_mm": [10.0, 10.0, 30.0, 10.0], "closed_xy_area_sum_mm2": 0.0, "closed_xy_paths": 0, "declared_role": "IRONING", "extruding_xy_length_mm": 20.0, "extruding_xy_segments": 1, "known_xy_segments": 1, "layer_boundary_id": 1, "moves": 2, "object_id": null, "paths": 1, "positive_e_mm": 0.1, "role_alternatives": [], "role_basis": "existing R2 alias map; unverified tag", "role_source": {"kind": "comment", "line": 6, "text": "Ironing"}}, {"bounds_xy_mm": [80.0, 80.0, 95.0, 82.0], "closed_xy_area_sum_mm2": 0.0, "closed_xy_paths": 0, "declared_role": "BRIDGE", "extruding_xy_length_mm": 30.0, "extruding_xy_segments": 2, "known_xy_segments": 4, "layer_boundary_id": 2, "moves": 4, "object_id": null, "paths": 2, "positive_e_mm": 1.6, "role_alternatives": [], "role_basis": "existing R2 alias map; unverified tag", "role_source": {"kind": "comment", "line": 11, "text": "Bridge"}}], "kinematics": {"arc_extruding_length_mm": 0.0, "arc_extruding_moves": 0, "arc_travel_moves": 0, "deretract_moves": 0, "extruding_length_mm": 50.0, "filament_diameter_mm": 1.75, "filament_diameter_source": "default_1.75mm", "firmware_deretracts": 0, "firmware_retracts": 0, "linear_extruding_moves": 3, "linear_travel_moves": 2, "motors_off_events": 0, "negative_e_mm": 0.0, "positive_e_mm": 1.7, "print_speed_max_mm_s": 20.0, "print_speed_min_mm_s": 20.0, "retract_moves": 0, "travel_length_mm": 101.156, "travel_speed_max_mm_s": 100.0, "volumetric_flow_max_mm3_s": 2.5656, "z_only_moves": 0}, "layer_evidence": {"boundary_count": 2, "boundary_sources": {"comment": 2}, "marker_count": 0, "note": "event boundaries, not proven physical layers; see units_and_layers for positive-extrusion layer evidence"}, "limitations": ["object IDs represent explicit names in this file, not proven geometry", "roles are unverified comments or R2 markers, not ground truth", "pattern metadata is independent of role and is not geometric pattern recognition", "geometry is logical G-code space; unknown commands invalidate shadow state", "closed-path area, grid support and flow rates are estimates, not physical certification"], "object_footprints": [{"bounds_xy_mm": [10.0, 10.0, 95.0, 82.0], "extruding_length_mm": 50.0, "object_id": null, "object_name": null, "positive_e_mm": 1.7, "unit_ids": [0], "z_max_mm": 0.4, "z_min_mm": 0.2}], "objects": [], "pattern_metadata": {}, "schema": "r2-evidence/1", "sequence_and_tag_audit": {"empty_tag_blocks": 2, "geometry_conflicts": [{"code": "G5_UNANCHORED_BRIDGE", "declared_role": "BRIDGE", "detail": "bridge has zero lower-layer support or anchored endpoints", "line": 11, "raw_tag": "Bridge", "unit_id": 0, "unit_layer": 2}], "geometry_conflicts_by_code": {"G5_UNANCHORED_BRIDGE": 1}, "note": "non-destructive consistency checks between explicit tags and observed trajectories", "sequence_violations": ["S1 ironing on layer 1", "S2 ironing without a top before it"], "tagged_blocks": 2}, "support_3d": {"cell_mm": 1.5, "note": "1-cell dilated vertical grid continuity across positive-extrusion shadow moves", "supported_ratio": 0.0, "supported_upper_cells": 0, "upper_layer_cells": 22}, "topology_2d": {"ccw_closed_loops": 0, "cw_closed_loops": 0, "nested_closed_loops": 0, "note": "bounding-box loop nesting and open-stroke parallelism over known shadow segments", "outer_closed_loops": 0, "parallel_open_hatch_blocks": 0}, "units_and_layers": {"continuous_z_extrude_moves": 0, "nonplanar_extrude_moves": 0, "physical_extrusion_layers": 2, "planar_extrude_moves": 3, "sequential_by_object": false, "unit_count": 1, "units": [{"extruding_length_mm": 50.0, "layer_count": 2, "object_ids": [], "unit_id": 0, "z_max_mm": 0.4, "z_min_mm": 0.2}], "vase_mode_likely": false, "z_hop_count": 0}, "warning_count": 0, "warnings": []}, "feature_comment_counts": {"Bridge": 1, "Ironing": 1}, "layer_comment_count": 2, "layer_mark_count": 0, "limits": ["comments are evidence, not verified feature classifications", "unknown commands invalidate tracked modal and coordinate state", "coordinates are logical, not machine positions", "opt-in trace capabilities are listed in trace_options; no print safety certified"], "moves_with_known_xyz_end": 6, "object_command_counts": {}, "record_counts": {"comment": 6, "mode": 3, "move": 6}, "trace_options": {"assume_klipper_defaults": true, "assumed_passive": [], "dialect": "klipper", "enable_arcs": true, "firmware_retract": true, "klipper_passive": true, "verified_r2_passive": true}, "unknown_examples": [], "unknown_reasons": {}}, "audit_summary": {"evidence_warning_count": 0, "sequence_violation_count": 2, "status": "findings_present", "tag_geometry_conflict_count": 2, "unknown_command_count": 0}, "mode": "audit", "safety": "experimental offline result; no printer safety certification", "schema": "r2-offline/1", "source": {"bytes": 218, "sha256": "77c8b05bfbad404541d8ba00f8be6c26c7c585d034bad5a9cf31d12508ee7633"}, "tag_geometry_audit": {"by_code": {"G3_IRONING_UNSUPPORTED": 1, "G5_UNANCHORED_BRIDGE": 1}, "conflicts": [{"canonical": "IRONING", "code": "G3_IRONING_UNSUPPORTED", "detail": "ironing overlaps only 0% of same-layer top surface cells", "line": 6, "raw_tag": "Ironing", "unit": 0, "unit_layer": 1}, {"canonical": "BRIDGE", "code": "G5_UNANCHORED_BRIDGE", "detail": "bridge has zero lower-layer support or anchored endpoints", "line": 11, "raw_tag": "Bridge", "unit": 0, "unit_layer": 2}], "empty_tag_blocks": 1, "layers": 2, "tagged_blocks": 2, "units": 1}}
+==== test_r2_machine.py
+.{"analysis": {"assumed_passive_commands": [], "evidence": {"groups": [{"bounds_xy_mm": [90.0, 30.0, 110.0, 70.0], "closed_xy_area_sum_mm2": 0.0, "closed_xy_paths": 0, "declared_role": "UNKNOWN", "extruding_xy_length_mm": 62.83185307179586, "extruding_xy_segments": 1, "known_xy_segments": 2, "layer_boundary_id": null, "moves": 3, "object_id": "obj-37a680133bd09342f934", "paths": 1, "positive_e_mm": 2.5, "role_alternatives": [], "role_basis": "no tag", "role_source": null}], "kinematics": {"arc_extruding_length_mm": 62.8319, "arc_extruding_moves": 1, "arc_travel_moves": 0, "deretract_moves": 0, "extruding_length_mm": 62.8319, "filament_diameter_mm": 2.85, "filament_diameter_source": "header_comment", "firmware_deretracts": 0, "firmware_retracts": 1, "linear_extruding_moves": 0, "linear_travel_moves": 1, "motors_off_events": 0, "negative_e_mm": 0.0, "positive_e_mm": 2.5, "print_speed_max_mm_s": 30.0, "print_speed_min_mm_s": 30.0, "retract_moves": 0, "travel_length_mm": 10.0, "travel_speed_max_mm_s": 150.0, "volumetric_flow_max_mm3_s": 7.6148, "z_only_moves": 0}, "layer_evidence": {"boundary_count": 0, "boundary_sources": {}, "marker_count": 0, "note": "event boundaries, not proven physical layers; see units_and_layers for positive-extrusion layer evidence"}, "limitations": ["object IDs represent explicit names in this file, not proven geometry", "roles are unverified comments or R2 markers, not ground truth", "pattern metadata is independent of role and is not geometric pattern recognition", "geometry is logical G-code space; unknown commands invalidate shadow state", "closed-path area, grid support and flow rates are estimates, not physical certification"], "object_footprints": [{"bounds_xy_mm": [90.0, 30.0, 110.0, 70.0], "extruding_length_mm": 62.832, "object_id": "obj-37a680133bd09342f934", "object_name": "part", "positive_e_mm": 2.5, "unit_ids": [0], "z_max_mm": 0.2, "z_min_mm": 0.2}], "objects": [{"defines": 1, "ends": 1, "evidence_lines": [2, 7, 12], "id": "obj-37a680133bd09342f934", "name": "part", "starts": 1}], "pattern_metadata": {}, "schema": "r2-evidence/1", "sequence_and_tag_audit": {"empty_tag_blocks": 0, "geometry_conflicts": [], "geometry_conflicts_by_code": {}, "note": "non-destructive consistency checks between explicit tags and observed trajectories", "sequence_violations": [], "tagged_blocks": 0}, "support_3d": {"cell_mm": 1.5, "note": "1-cell dilated vertical grid continuity across positive-extrusion shadow moves", "supported_ratio": null, "supported_upper_cells": 0, "upper_layer_cells": 0}, "topology_2d": {"ccw_closed_loops": 0, "cw_closed_loops": 0, "nested_closed_loops": 0, "note": "bounding-box loop nesting and open-stroke parallelism over known shadow segments", "outer_closed_loops": 0, "parallel_open_hatch_blocks": 0}, "units_and_layers": {"continuous_z_extrude_moves": 0, "nonplanar_extrude_moves": 0, "physical_extrusion_layers": 1, "planar_extrude_moves": 1, "sequential_by_object": false, "unit_count": 1, "units": [{"extruding_length_mm": 62.832, "layer_count": 1, "object_ids": ["obj-37a680133bd09342f934"], "unit_id": 0, "z_max_mm": 0.2, "z_min_mm": 0.2}], "vase_mode_likely": false, "z_hop_count": 0}, "warning_count": 0, "warnings": []}, "feature_comment_counts": {}, "layer_comment_count": 0, "layer_mark_count": 0, "limits": ["comments are evidence, not verified feature classifications", "unknown commands invalidate tracked modal and coordinate state", "coordinates are logical, not machine positions", "opt-in trace capabilities are listed in trace_options; no print safety certified"], "moves_with_known_xyz_end": 3, "object_command_counts": {"EXCLUDE_OBJECT_DEFINE": 1, "EXCLUDE_OBJECT_END": 1, "EXCLUDE_OBJECT_START": 1}, "record_counts": {"arc": 1, "comment": 1, "firmware_retract": 1, "klipper_passive": 3, "mode": 4, "move": 2}, "trace_options": {"assume_klipper_defaults": true, "assumed_passive": [], "dialect": "klipper", "enable_arcs": true, "firmware_retract": true, "klipper_passive": true, "verified_r2_passive": true}, "unknown_examples": [], "unknown_reasons": {}}, "audit_summary": {"evidence_warning_count": 0, "machine_violation_count": 5, "sequence_violation_count": 0, "status": "findings_present", "tag_geometry_conflict_count": 0, "unknown_command_count": 0}, "machine_check": {"advisories": [{"code": "SPEED_EXCEEDS_MAX_VELOCITY", "detail": "travel_speed_max_mm_s=150.0 mm/s exceeds [printer] max_velocity=100.0 mm/s (Klipper clamps at runtime)", "field": "travel_speed_max_mm_s"}], "note": "logical G-code vs static config check; start macros, G92 offsets and hardware state not proven", "ok": false, "profile_valid": true, "schema": "r2-machine-check/1", "violations": [{"code": "OUT_OF_BOUNDS_X", "detail": "part extrusion X [90.000, 110.000] exceeds machine [0.000, 100.000] mm", "object": "part"}, {"code": "MISSING_GCODE_ARCS", "detail": "G-code contains 1 G2/G3 arc move(s) but [gcode_arcs] is not configured", "object": null}, {"code": "MISSING_FIRMWARE_RETRACTION", "detail": "G-code uses G10/G11 (1 call(s)) but [firmware_retraction] is not configured", "object": null}, {"code": "MISSING_EXCLUDE_OBJECT", "detail": "G-code uses EXCLUDE_OBJECT_* commands but [exclude_object] is not configured", "object": null}, {"code": "FILAMENT_DIAMETER_MISMATCH", "detail": "G-code filament_diameter (2.85 mm) differs from [extruder] filament_diameter (1.75 mm)", "object": null}]}, "mode": "audit", "safety": "experimental offline result; no printer safety certification", "schema": "r2-offline/1", "source": {"bytes": 207, "sha256": "8576aed91dad47abd0500519284bad009f541a7aa7275772670bd007023e91bc"}, "tag_geometry_audit": {"by_code": {}, "conflicts": [], "empty_tag_blocks": 0, "layers": 0, "tagged_blocks": 0, "units": 0}}
+...
+----------------------------------------------------------------------
+Ran 4 tests in 0.025s
+
+OK
+{
+  "axes": {
+    "x": {
+      "homing_speed_mm_s": null,
+      "position_endstop_mm": null,
+      "position_max_mm": 100.0,
+      "position_min_explicit": true,
+      "position_min_mm": 0.0
+    },
+    "y": {
+      "homing_speed_mm_s": null,
+      "position_endstop_mm": null,
+      "position_max_mm": 100.0,
+      "position_min_explicit": true,
+      "position_min_mm": 0.0
+    },
+    "z": {
+      "dual_z": false,
+      "homing_speed_mm_s": null,
+      "position_endstop_mm": null,
+      "position_max_mm": 50.0,
+      "position_min_explicit": true,
+      "position_min_mm": 0.0
+    }
+  },
+  "bed_mesh": null,
+  "build_volume_mm": {
+    "x": [
+      0.0,
+      100.0
+    ],
+    "y": [
+      0.0,
+      100.0
+    ],
+    "z": [
+      0.0,
+      50.0
+    ]
+  },
+  "capabilities": {
+    "arc_resolution_mm": null,
+    "display": false,
+    "exclude_object": false,
+    "firmware_retraction": false,
+    "gcode_arcs": false,
+    "input_shaper": false,
+    "pause_resume": false,
+    "quad_gantry_level": false,
+    "respond": false,
+    "retract_length_mm": null,
+    "retract_speed_mm_s": null,
+    "save_variables": false,
+    "screws_tilt_adjust": false,
+    "virtual_sdcard": false,
+    "z_tilt": false
+  },
+  "diagnostics": [],
+  "extruder": {
+    "filament_diameter_mm": 1.75,
+    "max_extrude_cross_section_mm2": null,
+    "max_extrude_only_distance_mm": null,
+    "max_temp_c": null,
+    "min_extrude_temp_c": null,
+    "min_temp_c": null,
+    "nozzle_diameter_mm": 0.4,
+    "pressure_advance": null
+  },
+  "files": [
+    {
+      "bytes": 259,
+      "path": "printer.cfg",
+      "sha256": "8bb90d76a7bc299f6eb1b3ee1725ce376c4f40441a4fcdae6f59f26b1c98b26f"
+    }
+  ],
+  "heater_bed": null,
+  "kinematics": {
+    "kinematics": "cartesian",
+    "max_accel_mm_s2": 2000.0,
+    "max_velocity_mm_s": 100.0,
+    "max_z_accel_mm_s2": null,
+    "max_z_velocity_mm_s": null,
+    "square_corner_velocity_mm_s": null
+  },
+  "macros": {
+    "delayed_gcode_count": 0,
+    "delayed_gcodes": [],
+    "gcode_macro_count": 0,
+    "gcode_macros": []
+  },
+  "note": "read-only static config profile; live runtime overrides and hardware state not queried",
+  "probe": null,
+  "r2_studio_prerequisites": {
+    "missing": [
+      "save_variables",
+      "virtual_sdcard",
+      "pause_resume",
+      "respond",
+      "exclude_object",
+      "firmware_retraction"
+    ],
+    "ok": false
+  },
+  "save_config_overrides": [],
+  "schema": "r2-machine-profile/1",
+  "section_count": 5,
+  "valid": true
+}
+==== test_cake_layers_h2.py
+test_counter_mutations_catch_sloped_z_and_missing_layer_marks (__main__.CakeLayerPreservationTests.test_counter_mutations_catch_sloped_z_and_missing_layer_marks)
+Prove the H2 tests fail if sloped Z or per-half layer rebuild breaks. ... ok
+test_horizontal_cut_rebuilds_exact_layers_headers_and_types (__main__.CakeLayerPreservationTests.test_horizontal_cut_rebuilds_exact_layers_headers_and_types) ... /home/user/onMachineDesignStudio/tools/gcode_meta.py:261: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/tmpaeoozjjg/tower_CUT-U.gcode' mode='r' encoding='utf-8'>
+  txt = open(src, 'r', errors='replace').read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+[meta] V01_towerCUTU_L3-8.gcode: thumbnail + time + filament added
+/home/user/onMachineDesignStudio/tools/gcode_meta.py:261: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/tmpaeoozjjg/tower_CUT-L.gcode' mode='r' encoding='utf-8'>
+  txt = open(src, 'r', errors='replace').read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+[meta] V02_towerCUTL_L2-7.gcode: thumbnail + time + filament added
+ok
+test_m82_retracts_and_g91_g92_helical_arcs_conserve_extrusion (__main__.CakeLayerPreservationTests.test_m82_retracts_and_g91_g92_helical_arcs_conserve_extrusion) ... ok
+test_sequential_objects_and_legacy_broken_cut_guard (__main__.CakeLayerPreservationTests.test_sequential_objects_and_legacy_broken_cut_guard) ... ok
+test_sloped_segment_splits_using_z_prev_not_z_end (__main__.CakeLayerPreservationTests.test_sloped_segment_splits_using_z_prev_not_z_end) ... ok
+test_spiral_vase_tilted_cut_supports_make_range_and_exact_z_split (__main__.CakeLayerPreservationTests.test_spiral_vase_tilted_cut_supports_make_range_and_exact_z_split) ... /home/user/onMachineDesignStudio/tools/gcode_meta.py:261: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/tmp7_73vu9b/vase_CUT-U.gcode' mode='r' encoding='utf-8'>
+  txt = open(src, 'r', errors='replace').read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+[meta] V01_vaseCUTU_L4-15.gcode: thumbnail + time + filament added
+/home/user/onMachineDesignStudio/tools/gcode_meta.py:261: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/tmp7_73vu9b/vase_CUT-L.gcode' mode='r' encoding='utf-8'>
+  txt = open(src, 'r', errors='replace').read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+[meta] V02_vaseCUTL_L4-15.gcode: thumbnail + time + filament added
+ok
+test_tilted_reorient_has_monotonic_layers_and_ranges_cleanly (__main__.CakeLayerPreservationTests.test_tilted_reorient_has_monotonic_layers_and_ranges_cleanly) ... /home/user/onMachineDesignStudio/tools/gcode_meta.py:261: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/tmpc_bye1nn/tilted_CUT-U.gcode' mode='r' encoding='utf-8'>
+  txt = open(src, 'r', errors='replace').read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+[meta] V01_tiltedCUTU_L3-10.gcode: thumbnail + time + filament added
+/home/user/onMachineDesignStudio/tools/gcode_meta.py:261: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/tmpc_bye1nn/tilted_CUT-L.gcode' mode='r' encoding='utf-8'>
+  txt = open(src, 'r', errors='replace').read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+[meta] V02_tiltedCUTL_L3-10.gcode: thumbnail + time + filament added
+ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.164s
+
+OK
+==== test_calibration_and_pause_guards.py
+test_calibration_pdf_source_matches_macro_contracts (__main__.CalibrationGuardTests.test_calibration_pdf_source_matches_macro_contracts) ... ok
+test_extruder_cal_blocks_printing_cold_and_invalid_measured (__main__.CalibrationGuardTests.test_extruder_cal_blocks_printing_cold_and_invalid_measured) ... ok
+test_extruder_cal_mutation_allows_negative_distance (__main__.CalibrationGuardTests.test_extruder_cal_mutation_allows_negative_distance) ... ok
+test_layer_pause_clears_both_flags_when_coincident (__main__.CalibrationGuardTests.test_layer_pause_clears_both_flags_when_coincident) ... ok
+test_retract_tower_does_not_persist_invalid_inputs (__main__.CalibrationGuardTests.test_retract_tower_does_not_persist_invalid_inputs) ... ok
+test_g28_restores_entry_mode_not_stale_saved_mode (__main__.G28AndProbeGuardTests.test_g28_restores_entry_mode_not_stale_saved_mode) ... ok
+test_homing_guard_off_clears_led_quiet_before_unlocking (__main__.G28AndProbeGuardTests.test_homing_guard_off_clears_led_quiet_before_unlocking) ... ok
+test_old_g28_saved_mode_read_mutation_is_caught (__main__.G28AndProbeGuardTests.test_old_g28_saved_mode_read_mutation_is_caught) ... ok
+test_z_tilt_brackets_probe_descent_with_led_quiet (__main__.G28AndProbeGuardTests.test_z_tilt_brackets_probe_descent_with_led_quiet) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.444s
+
+OK
+==== test_override_flow_regressions.py
+test_all_scalar_branches_set_value_and_flag_through_real_parser (__main__.ParserDispatchTests.test_all_scalar_branches_set_value_and_flag_through_real_parser) ... ok
+test_flow_result_to_override_dispatch (__main__.ParserDispatchTests.test_flow_result_to_override_dispatch) ... ok
+test_ironing_snapshot_and_result_for_all_six_cards (__main__.ParserDispatchTests.test_ironing_snapshot_and_result_for_all_six_cards) ... ok
+test_old_semicolon_mutation_is_caught_by_parser (__main__.ParserDispatchTests.test_old_semicolon_mutation_is_caught_by_parser) ... ok
+test_changed_cfg_sections_parse_and_compile_like_klipper (__main__.RenderRegressionTests.test_changed_cfg_sections_parse_and_compile_like_klipper) ... ok
+test_feature_and_alias_setters_remain_distinct (__main__.RenderRegressionTests.test_feature_and_alias_setters_remain_distinct) ... ok
+test_first_layer_pause_rejected_explicitly_not_silently_armed (__main__.RenderRegressionTests.test_first_layer_pause_rejected_explicitly_not_silently_armed) ... ok
+test_flow_old_target_mutation_is_caught (__main__.RenderRegressionTests.test_flow_old_target_mutation_is_caught) ... ok
+test_flow_target_explicit_then_saved_then_nozzle (__main__.RenderRegressionTests.test_flow_target_explicit_then_saved_then_nozzle) ... ok
+test_invalid_measure_does_not_save_result (__main__.RenderRegressionTests.test_invalid_measure_does_not_save_result) ... ok
+test_invalid_name_and_missing_value_do_not_save (__main__.RenderRegressionTests.test_invalid_name_and_missing_value_do_not_save) ... ok
+test_m300_optional_beeper_and_mutation (__main__.RenderRegressionTests.test_m300_optional_beeper_and_mutation) ... ok
+test_menu_target_defaults_to_current_nozzle (__main__.RenderRegressionTests.test_menu_target_defaults_to_current_nozzle) ... ok
+test_pa_calibration_respects_each_independent_retraction_flag (__main__.RenderRegressionTests.test_pa_calibration_respects_each_independent_retraction_flag) ... ok
+test_print_start_declared_total_survives_live_reset_in_all_branches (__main__.RenderRegressionTests.test_print_start_declared_total_survives_live_reset_in_all_branches) ... ok
+test_scalar_setters_render_separate_commands_in_order (__main__.RenderRegressionTests.test_scalar_setters_render_separate_commands_in_order) ... ok
+test_web_fallback_target_and_ironing_help_match_lcd (__main__.RenderRegressionTests.test_web_fallback_target_and_ironing_help_match_lcd) ... ok
+
+----------------------------------------------------------------------
+Ran 17 tests in 1.492s
+
+OK
+==== test_review_bundle.py
+test_ignored_upload_and_archive_are_not_in_source_list (__main__.BundleTests.test_ignored_upload_and_archive_are_not_in_source_list) ... ok
+test_reproducible_archive_and_manifest_mutation (__main__.BundleTests.test_reproducible_archive_and_manifest_mutation) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 3.677s
+
+OK
+==== golden unit
+test_candidate_comparison_ignores_only_engine_identity (__main__.BaselineTests.test_candidate_comparison_ignores_only_engine_identity) ... ok
+test_copy_of_reference_matches (__main__.BaselineTests.test_copy_of_reference_matches) ... ok
+test_documented_seq_delta_rejects_other_mutations (__main__.BaselineTests.test_documented_seq_delta_rejects_other_mutations) ... ok
+test_documented_zscan_delta_rejects_other_mutations (__main__.BaselineTests.test_documented_zscan_delta_rejects_other_mutations) ... ok
+test_end_to_end_mutated_golden_fails (__main__.BaselineTests.test_end_to_end_mutated_golden_fails) ... ok
+test_input_output_summary_and_engine_mutations_are_detected (__main__.BaselineTests.test_input_output_summary_and_engine_mutations_are_detected) ... ok
+test_missing_or_extra_fields_and_cases_are_detected (__main__.BaselineTests.test_missing_or_extra_fields_and_cases_are_detected) ... ok
+test_reference_backup_mutation_is_rejected (__main__.BaselineTests.test_reference_backup_mutation_is_rejected) ... ok
+test_worker_uses_current_synthetic_case_and_no_original_write (__main__.BaselineTests.test_worker_uses_current_synthetic_case_and_no_original_write) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 6.539s
+
+OK
+==== golden active
+candidate: tools/r2_postproc.py sha256: cf205b60d9737f13f6a07446615d6abb232d3f722135bd9c586a6aeb0c4c46c3
+environment: Linux-6.1.158+-x86_64-with-glibc2.36 Python 3.11.2 pid isolation: one process per case
+m83_comments {"cpu_system_seconds": 0.0, "cpu_user_seconds": 0.002298, "io_delta": {"rchar": 556, "read_bytes": 0, "wchar": 387, "write_bytes": 4096}, "maxrss_raw": 22332, "maxrss_units": "KiB", "wall_seconds": 0.002963}
+m82_zhop {"cpu_system_seconds": 0.0, "cpu_user_seconds": 0.002961, "io_delta": {"rchar": 442, "read_bytes": 0, "wchar": 241, "write_bytes": 4096}, "maxrss_raw": 22460, "maxrss_units": "KiB", "wall_seconds": 0.004073}
+tagged {"cpu_system_seconds": 0.000159, "cpu_user_seconds": 0.000279, "io_delta": {"rchar": 179, "read_bytes": 0, "wchar": 0, "write_bytes": 0}, "maxrss_raw": 22420, "maxrss_units": "KiB", "wall_seconds": 0.000348}
+bigrose {"cpu_system_seconds": 0.00866, "cpu_user_seconds": 3.043778, "io_delta": {"rchar": 24929096, "read_bytes": 0, "wchar": 12368028, "write_bytes": 12369920}, "maxrss_raw": 23284, "maxrss_units": "KiB", "wall_seconds": 3.058265}
+rose {"cpu_system_seconds": 0.000259, "cpu_user_seconds": 1.62756, "io_delta": {"rchar": 10500691, "read_bytes": 0, "wchar": 5156472, "write_bytes": 5156864}, "maxrss_raw": 23700, "maxrss_units": "KiB", "wall_seconds": 1.631352}
+stringart {"cpu_system_seconds": 0.007803, "cpu_user_seconds": 1.242395, "io_delta": {"rchar": 8857748, "read_bytes": 0, "wchar": 4332328, "write_bytes": 4333568}, "maxrss_raw": 23512, "maxrss_units": "KiB", "wall_seconds": 1.25366}
+PASS: 6 cases: 4 unchanged, 2 documented changes (m82_zhop Z-scan, rose C2/C3 SEQWARN); source archives unchanged
+==== golden next
+candidate: tools/r2_postproc_next.py sha256: 64d951a50f37651343839fa8ee8440713968eff9fae202ee93dec4eaa32acb8b
+environment: Linux-6.1.158+-x86_64-with-glibc2.36 Python 3.11.2 pid isolation: one process per case
+m83_comments {"cpu_system_seconds": 0.0, "cpu_user_seconds": 0.002403, "io_delta": {"rchar": 556, "read_bytes": 0, "wchar": 387, "write_bytes": 4096}, "maxrss_raw": 22340, "maxrss_units": "KiB", "wall_seconds": 0.003132}
+m82_zhop {"cpu_system_seconds": 0.0, "cpu_user_seconds": 0.002652, "io_delta": {"rchar": 442, "read_bytes": 0, "wchar": 241, "write_bytes": 4096}, "maxrss_raw": 22368, "maxrss_units": "KiB", "wall_seconds": 0.003546}
+tagged {"cpu_system_seconds": 0.0, "cpu_user_seconds": 0.00048, "io_delta": {"rchar": 179, "read_bytes": 0, "wchar": 0, "write_bytes": 0}, "maxrss_raw": 22460, "maxrss_units": "KiB", "wall_seconds": 0.000337}
+bigrose {"cpu_system_seconds": 0.01635, "cpu_user_seconds": 2.657579, "io_delta": {"rchar": 24929096, "read_bytes": 0, "wchar": 12368028, "write_bytes": 12369920}, "maxrss_raw": 23292, "maxrss_units": "KiB", "wall_seconds": 2.679795}
+rose {"cpu_system_seconds": 0.008139, "cpu_user_seconds": 1.710255, "io_delta": {"rchar": 10500691, "read_bytes": 0, "wchar": 5156472, "write_bytes": 5156864}, "maxrss_raw": 23704, "maxrss_units": "KiB", "wall_seconds": 1.723156}
+stringart {"cpu_system_seconds": 0.008117, "cpu_user_seconds": 1.552879, "io_delta": {"rchar": 8857748, "read_bytes": 0, "wchar": 4332328, "write_bytes": 4333568}, "maxrss_raw": 23580, "maxrss_units": "KiB", "wall_seconds": 1.566257}
+PASS: 6 cases: 4 unchanged, 2 documented changes (m82_zhop Z-scan, rose C2/C3 SEQWARN); source archives unchanged
+==== R81 golden check & V1 range check
+[meta] V01_vasem83_L5-12.gcode: thumbnail + time + filament added
+[meta] V02_vasem83_L5-12.gcode: thumbnail + time + filament added
+[meta] V03_vasem83_L5-12.gcode: thumbnail + time + filament added
+[meta] V04_vasem83_L5-12.gcode: thumbnail + time + filament added
+[meta] V05_vasem83_L5-12.gcode: thumbnail + time + filament added
+[meta] V06_vasem83_L5-12.gcode: thumbnail + time + filament added
+[meta] V07_vasem83_L2-8.gcode: thumbnail + time + filament added
+[meta] V08_vasem83_L25-30.gcode: thumbnail + time + filament added
+[meta] V09_vasem82exc_L3-9.gcode: thumbnail + time + filament added
+[meta] V10_vasem82g92_L3-9.gcode: thumbnail + time + filament added
+[meta] V11_vasenonl_L4-10.gcode: thumbnail + time + filament added
+[meta] V12_vasem83_L2-3.gcode: thumbnail + time + filament added
+[meta] V13_vasem83_L2-30.gcode: thumbnail + time + filament added
+R81 golden check: 23/23 cases byte-identical to the V1 reference
+[meta] V02_Shape8gon4_L2-4.gcode: thumbnail + time + filament added
+[meta] V03_stack_L5-12.gcode: thumbnail + time + filament added
+
+V1 RANGE CAUSE: 8 checks, 0 FAIL - a cake-cut half is refused with the cause named, uncut files keep working
+==== dialect corpus, tag ladder & vocabulary
+--- orca----------------
+[seqaudit] orca.gcode: S4 top surface on layer 1
+--- prusa---------------
+[seqaudit] prusa.gcode: S4 top surface on layer 1
+--- cura----------------
+--- elegoo--------------
+[seqaudit] elegoo.gcode: S4 top surface on layer 1
+--- kiri----------------
+--- astroprint----------
+--- slicebeam-----------
+[seqaudit] slicebeam.gcode: S4 top surface on layer 1
+--- superslicer---------
+--- ideamaker-----------
+--- simplify3d----------
+--- reprap-old----------
+--- s3d-ztravel---------
+--- marlin-volumetric---
+
+tagged-feature hit rate on the corpus: 46/46 (100%)
+R110 DIALECT CORPUS: all 13 families passed
+PASS  L1 exact map: every one of the 217 spellings maps to its canon  [drift: []]
+PASS  L1 canon passthrough: canonical values survive untouched
+PASS  L1 separator tolerance: space/underscore/dash are cosmetic (R172)
+PASS  L1 support substring: every support variant folds to SUPPORT
+PASS  L1 elimination ladder: 14 unknown spellings resolve deterministically
+PASS  L1 stemming (.135): the -ing whitelist resolves IRONING spellings
+PASS  L1 residue: a vocabulary without any known token stays CUSTOM
+PASS  L2 tagged: APPLY_TYPE markers + TYPES= from the ;TYPE: comments  [_FILE_INFO TOTAL_LAYERS=4 BY_OBJECT=0 FS_WALL_OUTER=30 FS_SURFACE_BOTTOM=45 FS_SURFACE_TOP]
+PASS  L2 tagged: the geometry classifier stays disarmed (no DERIVED)
+PASS  L2 Cura family: dashed spellings map to the same canon  [_FILE_INFO TOTAL_LAYERS=3 BY_OBJECT=0 FS_WALL_OUTER=30 FS_WALL_INNER=30 FS_INFILL_SPARSE=4]
+PASS  L3 untagged: classifier derives walls + infill (DERIVED=1 CONF=0.7)  [_FILE_INFO TOTAL_LAYERS=6 BY_OBJECT=0 FS_WALL_OUTER=30 FS_WALL_INNER=30 FS_INFILL_SPARSE=45 TYPES=WALL-OUTER,W]
+PASS  L3 untagged: layer-1 dense hatch = SURFACE-BOTTOM, last = SURFACE-TOP, middle stays INFILL-SOLID  [TYPES=WALL-OUTER,SURFACE-BOTTOM,INFILL-SOLID,SURFACE-TOP FTRAVEL=45 DERIVED=1 CO]
+PASS  L3 brim rule: a layer-1 loop without a successor gets the BRIM marker (the live interceptor switches to BRIM)
+PASS  L3 brim bookkeeping (.135): the re-tag MOVES the fstat booking - TYPES= carries BRIM, the LCD feature rows enable for derived brims (the .134 field gap, fixed by _fmove192)  [_FILE_INFO TOTAL_LAYERS=5 BY_OBJECT=0 FS_WALL_OUTER=30 FS_INFILL_SPARSE=45 FS_BRIM=30 TYPE]
+PASS  L3 brim bookkeeping: WALL-OUTER survives for the continuing wall (the booking moved away, not the whole feature)  [_FILE_INFO TOTAL_LAYERS=5 BY_OBJECT=0 FS_WALL_OUTER=30 FS_INFILL_SPARSE=45 FS_BRIM=30 TYPE]
+PASS  L3 support rule: detached + first-printing + hatch -> SUPPORT  [TYPES=WALL-OUTER,INFILL-SPARSE,SUPPORT FTRAVEL=45 DERIVED=1 CONF=0.7 COVER=100 MAXRATE=3.0]
+PASS  L4 CUSTOM watch: unknown vocabulary + wall geometry -> numbered slot C1 (R213: NEVER blanket WALL-OUTER - a bridge mis-read as a wall would print too fast), CUSTOMRES books every block, identical layers share one group  [_FILE_INFO TOTAL_LAYERS=4 BY_OBJECT=0 FS_C1=45 TYPES=C1 CUSTOMRES=4 CUSTOMGROUPS=C1 FTRAVEL=45 MAXRATE=1.8 SLI]
+PASS  L4b R214 air scan: a skin 2 layers above material (the support-gap class) is NO bridge anymore - it prints as what it is (solid skin)
+PASS  L4b R214 air scan: a deck over a DEEP void (5 empty layers) still reads as the bridge it is
+PASS  L5 purge tower (.135): 2-color job -> the tower is PRIME-TOWER (TYPES= + markers; the LCD prime-tower row enables)  [_FILE_INFO MATERIAL=PLA LAYER_HEIGHT=0.2 TOTAL_LAYERS=4 LINE_WIDTH=0.65 LINE_WIDTH_FIRST=0.28 LINE_W]
+PASS  L5 purge tower: the tower body is ONE feature (no WALL/INFILL markers inside the PURGE_TOWER block)
+PASS  L5 purge tower: PRIME-TOWER appears in the stream (with BRIM on layer 1) and the whole file is SEQWARN-free
+PASS  L5 labels: BRIM lives in the first layers only (rule: brim = start of the print)  [brim layers [1, 1]]
+PASS  L5 labels: IRONING never on layer 1 (impossible - nothing to iron)  [first ironing layer 4]
+PASS  L5 labels: no SURFACE-TOP on layer 1 (layer 1 solid = BOTTOM)  [first top layer 4]
+PASS  L5 labels: after a TOP surface solid infill never follows (at most ironing - the impossibility rule)  [violations []]
+PASS  L5 labels: SEQWARN-free (ironing after mid-layer tops is LEGAL - the corrected rule; layer-1 solid is BOTTOM, brim in the window)
+PASS  L5 labels: every ironing layer has a top surface before it in the same layer (S2, corrected: ANY top, not only the last)  [iron layers [4] top layers [4]]
+PASS  Bambu ;FEATURE: read like ;TYPE: (.135 TYPE_RE extension) - tagged, not derived, canon applied  [_FILE_INFO TOTAL_LAYERS=3 BY_OBJECT=0 FS_INFILL_SPARSE=45 TYPES=WALL-OUTER,INFILL-SPARSE F]
+PASS  Bambu ;FEATURE: an unknown vocabulary still falls to CUSTOM (honesty preserved through the new regex)
+[straytag] stray_tag.gcode: one global tag (WALL-OUTER), 2 features re-derived from geometry
+PASS  R225 stray tag: one global ;TYPE: over a multi-feature file is re-derived from geometry (levels compared, STRAYTAG names the tag that lied)  [_FILE_INFO TOTAL_LAYERS=3 BY_OBJECT=0 FS_WALL_OUTER=30 FS_INFILL_SPARSE=45 TYPES=WALL-OUTE]
+PASS  R225 stray tag: geometry AGREES with the single tag (pure walls) - the tag stays untouched, no DERIVED keys  [_FILE_INFO TOTAL_LAYERS=3 BY_OBJECT=0 FS_WALL_OUTER=30 TYPES=WALL-OUTER FTRAVEL=10 MAXRATE]
+PASS  L3 air scan (.135): dense hatch over a void = BRIDGE (anchored deck, outside any loop)  [_FILE_INFO TOTAL_LAYERS=6 BY_OBJECT=0 FS_WALL_OUTER=30 FS_BRIDGE=45 FS_SURFACE_TOP=45 TYPE]
+PASS  L3 air scan: dense over SPARSE below stays SURFACE-TOP (material below counts - no false bridge)  [_FILE_INFO TOTAL_LAYERS=5 BY_OBJECT=0 FS_WALL_OUTER=30 FS_INFILL_SPARSE=45 FS_SURFACE_TOP=]
+[seqaudit] seq_violation.gcode: S1 ironing on layer 1; S2 ironing without a top before it; S3 brim beyond the brim window
+PASS  L5 sequence audit (.135): impossible stream flags SEQWARN (ironing on layer 1, without a top; brim beyond the window)  [_FILE_INFO TOTAL_LAYERS=4 BY_OBJECT=0 SEQWARN=3 FS_IRONING=45 FS_WALL_OUTER=30 FS_SURFACE_]
+PASS  L5 sequence audit: the NAMED rules match the fixture (S1+S2 from layer-1 ironing, S3 from the late brim)  [['S1 ironing on layer 1', 'S2 ironing without a top before it', 'S3 brim beyond the brim window']]
+
+R190 TAG LADDER: 36 checks, 0 FAIL - all levels green
+--- A1: refresh tool derived from the menu path (Pi layout)
+  ok   A1 derivation: .../web/menu_structure.json -> sibling tools/ export
+  ok   A1 derivation: foreign layout (no /web/) returns None
+  ok   A1 component: a Pi-layout install derives the tool from the path (no $HOME default, no stale reload)
+  ok   A1 component: an EXPLICIT export_tool beats the derivation
+  ok   A1 component: nothing derivable -> the documented default
+--- A2/A3: installer writes export_tool, update.sh counts 19
+  ok   A2 install_web.sh: new sections get export_tool (belt)
+  ok   A2 install_web.sh: EXISTING sections get the line patched (R233: bounded awk - the old sed died on the / in PKG_DIR and its range could hit a FOREIGN path: line)
+  ok   A3 update.sh: the boot message says all 19 modules
+--- A4: Cura object box before the first print command
+  ok   A4 fallback (no ;LAYER:/;TYPE:): the box lands BEFORE the first print command (PRINT_START), never behind PRINT_END
+  ok   A4 anchored path (;LAYER: present): box before the layer line, APPLY_TYPE + LAYER_MARK unchanged
+--- A5: Mainsail metadata, moonraker-parser simulation
+  ok   A5 identify: the stamp makes moonraker classify the file as slicer "R2-D2" (PrusaSlicer parser chain, UnknownSlicer would drop time/filament)
+  ok   A5 thumbnail: THREE ints in the begin line (w x h + base64 length) and the re-joined payload matches byte-exactly - the two-int headers of R212 were rejected with "Error parsing thumbnail header"
+  ok   A5 footer: time + filament parse with moonraker's PrusaSlicer patterns (footer = last 1 MiB; the R212 header block was invisible there) and the file keeps a trailing newline
+  ok   A5 footer: layer_height / first_layer_height / total layers count in Prusa spelling (Mainsail's layer columns)
+  ok   A5 position: the meta block sits at the END of the file
+  ok   A5 idempotent: a second finalize writes nothing (R215 watcher scan)
+  ok   A5 self-heal: an old-layout block rewrites ONCE to fmt=2 (the old signature alone must not keep the broken 2-int format alive)
+  ok   A5 hands off: slicer files keep THEIR metadata
+--- A6: slicer-families.md vocabulary through TYPE_RE + canon
+  ok   A6 vocabulary: 31 spellings from the family document resolve (S3D space dialect, FlashPrint structure, Kiri:Moto bare words, KISSlicer faces/crown, ideaMaker towers, Orca CamelCase + aggregate roles) and 5 prose lines stay inert
+--- A7: one global APPLY_TYPE/;TYPE: - levels compared
+  ok   A7 reference: the same geometry untagged derives the feature set
+[straytag] a7_stray.gcode: one global tag (WALL-OUTER), 4 features re-derived from geometry
+  ok   A7 stray tag: ONE global ;TYPE: over a multi-feature file is re-derived from geometry (level 1 counts ONE distinct tag, level 2 finds four features - the derived view wins, STRAYTAG names the tag, the feature set EQUALS the untagged reference)
+  ok   A7 stray tag: idempotent (the re-derived file skips on the second pass)
+  ok   A7 mirror: geometry AGREES with the single tag (pure walls) - the tag stays, only the cross-check is noted
+  ok   A7 multi-tag: real feature switches stay TAGGED (no cross-check interference)
+
+R225 AUDIT FIXES: 24 checks, 0 FAIL - the .136w round is pinned
+--- F1: non-extrusion annotations stay INERT (no feature switch)
+  ok   F1 inert: ; feature Seam               -> no feature boundary (move annotation, not a feature)
+  ok   F1 inert: ; feature seam               -> no feature boundary (move annotation, not a feature)
+  ok   F1 inert: ; feature Destring           -> no feature boundary (move annotation, not a feature)
+  ok   F1 inert: ;TYPE:seam                   -> no feature boundary (move annotation, not a feature)
+  ok   F1 inert: ;TYPE:Destring               -> no feature boundary (move annotation, not a feature)
+  ok   F1 inert: ;TYPE:travel                 -> no feature boundary (move annotation, not a feature)
+  ok   F1 inert: ; feature Travel             -> no feature boundary (move annotation, not a feature)
+  ok   F1 inert: ; feature Retract            -> no feature boundary (move annotation, not a feature)
+  ok   F1 inert: ; feature Unretract          -> no feature boundary (move annotation, not a feature)
+  ok   F1 inert: ; feature Wipe               -> no feature boundary (move annotation, not a feature)
+  ok   F1 inert: ; feature Noop               -> no feature boundary (move annotation, not a feature)
+  ok   F1 inert: ; feature Tool Change        -> no feature boundary (move annotation, not a feature)
+  ok   F1 inert: ; feature Color Change       -> no feature boundary (move annotation, not a feature)
+  ok   F1 inert: ; feature Pause Print        -> no feature boundary (move annotation, not a feature)
+  ok   F1 inert: ; feature Custom GCode       -> no feature boundary (move annotation, not a feature)
+  ok   F1 inert: ; structure:seam             -> no feature boundary (move annotation, not a feature)
+  ok   F1 near-miss still matches: ; feature wipe wall -> PRIME-TOWER
+  ok   F1 near-miss still matches: ; feature Wipe Tower -> PRIME-TOWER
+  ok   F1 near-miss still matches: ; feature traveling art (ladder resolves)
+  ok   F1 near-miss still matches: ;TYPE:WALL-OUTER -> WALL-OUTER
+  ok   F1 near-miss still matches: ; shell -> WALL-INNER
+--- F2/F3/F4: the rest-list vocabulary resolves
+  ok   F2-F4 ; feature Prime Wall             -> PRIME-TOWER
+  ok   F2-F4 ; feature wipe wall              -> PRIME-TOWER
+  ok   F2-F4 ; feature Prime Pillar           -> PRIME-TOWER
+  ok   F2-F4 ;TYPE:wiping tower               -> PRIME-TOWER
+  ok   F2-F4 ; feature Purge Block            -> PRIME-TOWER
+  ok   F2-F4 ;TYPE:purge line                 -> PRIME-TOWER
+  ok   F2-F4 ; feature prime blob             -> PRIME-TOWER
+  ok   F2-F4 ; feature Belt Lead              -> SKIRT
+  ok   F2-F4 ; feature Brim Ears              -> BRIM
+  ok   F2-F4 ; feature Painted Support        -> SUPPORT
+  ok   F2-F4 ; feature Raft Base              -> SURFACE-BOTTOM
+  ok   F2-F4 ; feature Raft Interface         -> SURFACE-BOTTOM
+  ok   F2-F4 ; feature Raft Top               -> SURFACE-BOTTOM
+  ok   F2-F4 ;TYPE:TPMS-D                     -> INFILL-SPARSE
+  ok   F2-F4 ;TYPE:octet                      -> INFILL-SPARSE
+  ok   F2-F4 ; feature Tetrahedral            -> INFILL-SPARSE
+  ok   F2-F4 ;TYPE:stars                      -> INFILL-SPARSE
+  ok   F2-F4 ; feature Lateral Honeycomb      -> INFILL-SPARSE
+  ok   F2-F4 ;TYPE:lattice                    -> INFILL-SPARSE
+  ok   F2-F4 ; feature Spiral Inset           -> INFILL-SPARSE
+  ok   F2-F4 ;TYPE:tri-hexagon                -> INFILL-SPARSE
+  ok   F2 map safety net: _canon_type(seam/destring/travel) = TRAVEL (no feature, replay-safe)
+  ok   F2 the correction is pinned: wipe wall left the skirt class (was SKIRT since R225)
+--- F5: end to end - a seam never fragments the wall
+  ok   F5 the processed file knows ONE feature: WALL (no TRAVEL, no CUSTOM from the seam/destring markers)
+  ok   F5 the seam/destring comments survive as plain comments (no boundary inserted around them)
+
+R229 VOCAB REST: 46 checks, 0 FAIL - the rest list is closed
+--- F1: every sparse pattern of every family -> INFILL-SPARSE
+  ok   F1 ;TYPE:Rectilinear          -> INFILL-SPARSE
+  ok   F1 ;TYPE:Aligned Rectilinear  -> INFILL-SPARSE
+  ok   F1 ;TYPE:Grid                 -> INFILL-SPARSE
+  ok   F1 ;TYPE:Triangles            -> INFILL-SPARSE
+  ok   F1 ;TYPE:Stars                -> INFILL-SPARSE
+  ok   F1 ;TYPE:Tri-Hexagon          -> INFILL-SPARSE
+  ok   F1 ;TYPE:Cubic                -> INFILL-SPARSE
+  ok   F1 ;TYPE:Adaptive Cubic       -> INFILL-SPARSE
+  ok   F1 ;TYPE:Support Cubic        -> INFILL-SPARSE
+  ok   F1 ;TYPE:Quarter Cubic        -> INFILL-SPARSE
+  ok   F1 ;TYPE:Line                 -> INFILL-SPARSE
+  ok   F1 ;TYPE:Lines                -> INFILL-SPARSE
+  ok   F1 ;TYPE:Concentric           -> INFILL-SPARSE
+  ok   F1 ;TYPE:Honeycomb            -> INFILL-SPARSE
+  ok   F1 ;TYPE:3D Honeycomb         -> INFILL-SPARSE
+  ok   F1 ;TYPE:Gyroid               -> INFILL-SPARSE
+  ok   F1 ;TYPE:Hilbert Curve        -> INFILL-SPARSE
+  ok   F1 ;TYPE:Archimedean Chords   -> INFILL-SPARSE
+  ok   F1 ;TYPE:Octagram Spiral      -> INFILL-SPARSE
+  ok   F1 ;TYPE:Lightning            -> INFILL-SPARSE
+  ok   F1 ;TYPE:Zig Zag              -> INFILL-SPARSE
+  ok   F1 ;TYPE:Cross Zag            -> INFILL-SPARSE
+  ok   F1 ;TYPE:Locked Zag           -> INFILL-SPARSE
+  ok   F1 ;TYPE:Cross Hatch          -> INFILL-SPARSE
+  ok   F1 ;TYPE:TPMS                 -> INFILL-SPARSE
+  ok   F1 ;TYPE:TPMS-D               -> INFILL-SPARSE
+  ok   F1 ;TYPE:TPMS-FK              -> INFILL-SPARSE
+  ok   F1 ;TYPE:Lateral Honeycomb    -> INFILL-SPARSE
+  ok   F1 ;TYPE:Lattice              -> INFILL-SPARSE
+  ok   F1 ;TYPE:Spiral Inset         -> INFILL-SPARSE
+  ok   F1 ;TYPE:Cubic Subdivision    -> INFILL-SPARSE
+  ok   F1 ;TYPE:Octet                -> INFILL-SPARSE
+  ok   F1 ;TYPE:Cross                -> INFILL-SPARSE
+  ok   F1 ;TYPE:Cross 3D             -> INFILL-SPARSE
+  ok   F1 ;TYPE:Fast Honeycomb       -> INFILL-SPARSE
+--- F2: top/bottom patterns -> INFILL-SOLID
+  ok   F2 ;TYPE:Monotonic            -> INFILL-SOLID
+  ok   F2 ;TYPE:Monotonic Lines      -> INFILL-SOLID
+--- F3: support cubic is infill; real support stays support
+  ok   F3 support cubic = SPARSE infill (exact key beats the substring)
+  ok   F3 support spellings unchanged (regression)
+--- F4: end to end - pattern names tag clean feature blocks
+  ok   F4 gyroid block -> APPLY_TYPE TYPE=INFILL-SPARSE (tunable, not CUSTOM)
+  ok   F4 monotonic block -> APPLY_TYPE TYPE=INFILL-SOLID
+  ok   F4 wall block survives around the patterns (regression)
+--- F5: prose around patterns stays inert
+  ok   F5 prose inert: ; infill pattern = gyroid
+  ok   F5 prose inert: ; grid is nice today
+  ok   F5 prose inert: ; total infill lines: 42
+  ok   F5 prose inert: ;LAYER:3
+
+R230 INFILL PATTERNS: 46 checks, 0 FAIL - the pattern list is complete
+==== cfg, macro, doc, web-UI & crash guards
+==== R165 DOC CHECK: 50 macro tokens, 182 lcd paths, 243 menu parents, 10 ch.18 samples ====
+==== R165 DOC CHECK: clean - documentation matches reality ====
+OK   klipper-parse + jinja compile                        21 cfg files, 2737 sections, 409 templates
+PASS menus: mkPrinter lifts gcode_macro variables (klippy ships {variables:{...}} - the .136o vanish bug)
+PASS menus: no template reads gcode_macro .variables (the unwrap is loss-free for the shipped menus)
+PASS menus: every root list of the cfg is in the export tree (12 lists - Maintenance included)
+PASS SD: sd_view survives the fat pruning (40 long names > 1200 chars repr - the empty SD list)
+PASS SD: sd_tree stays pruned (the multi-KB tree is still on a diet)
+PASS header: the title owns its own row at the very top (titlerow, full width, wraps)
+PASS header: controls moved to their own row below (hrow)
+PASS reboot: the page falls back to the klipper macros when moonraker refuses /machine/reboot (SYS_PI_REBOOT via /printer/gcode/script)
+PASS reboot: the nginx site proxies /machine/ too (the .136o root cause - 404: Restart lived under /printer/, Reboot under /machine/ which had no location block at all)
+PASS deployment: every API path the page fetches is proxied by the nginx site (/printer, /server)
+PASS reboot: SYS_PI_REBOOT exists (arm + CONFIRM, heaters off first, reboot_machine remote method - the SYS_SHUTDOWN sibling)
+PASS reboot: moonraker really registers reboot_machine (API surface, C1 class - verified against the moonraker machine component docs)
+PASS ascii: no umlauts / non-ASCII anywhere on the page body
+PASS ascii: no numeric/typographic HTML entities left (&ndash; class)
+PASS ascii: no unicode escapes in the page code (icons are ASCII now)
+PASS english: no German words left in the page code
+PASS english: every LCD menu name is ASCII (they render on the web too)
+PASS live R219: the component queries in TIERS without a default (moonraker swallows failed queries as the default - the silent {} built an empty printer: ? values, vanished menus, empty SD)
+PASS live R219: the page NEVER builds a printer from an empty snapshot (badge carries the reason instead)
+PASS live R219: gcode_macro variables stay flat (klipper truth - get_status returns self.variables directly), the unwrap only catches the wrapped case
+PASS live R220: both File info TYPES rows are in the page export (Start? + Pre-Print) with the compact code map and the empty case
+PASS live R220: the CUSTOM? gate reads the LIVE _STATE.file_types in the page export (dead save_variables copy fixed - the row never showed)
+PASS embedded: the offline fallback JSON is the CURRENT export (2296 sections, sha 7658ba9580fe8671 == disk)
+PASS export: web/menu_structure.json matches current lcd_menues.cfg (2296 sections, sha 7658ba9580fe8671)
+PASS version: the page ver badge matches 01_state (R2-2026-11-13.1)
+PASS version: the page state ver is the current round (R246d)
+
+RESULT: PASS - 26 checks - the web-UI field round fully pinned
+ok    G28 wrapper: exists, renames the built-in, sets and restores the mode
+ok    G28 wrapper: a dying G28 releases the guard (delayed_gcode, 15 min)
+ok    G28 wrapper: zero disk writes (SET_GCODE_VARIABLE only, no SAVE_VARIABLE)
+ok    G28 wrapper: is inert for the rest of the package (rawparams forwarded)
+ok    G28 wrapper: the alias is a TRADITIONAL g-code name (M99110), not _G28_RAW - that rename halted the printer at boot
+ok    motion gate: ONE sample slot PER consumer (the shared slot was the bug)
+ok    motion gate: the same print_time seen by two consumers still reads MOVING   busy=True preview=True
+ok    motion gate: a 0 s gap (probe dwell) stays BUSY via the 2 s hold   hold = 2.0 s
+ok    motion gate: the hold is bounded (the watcher cannot silence itself)   2.0 s
+ok    selection preview: gated by motion, deferred (not dropped) to idle
+ok    selection preview: the old blind push is gone (no unguarded moonraker call before the gate)
+ok    preview payload: a long EXCLUDE_OBJECT polygon is left to the file (ceiling 1200 chars)
+ok    start interceptor: the SD write (SAVE_VARIABLE start_decision) stands AFTER the homing block, not in it   position 2295 vs G28 at 2144
+ok    busy gate: 'homing' counts as busy (was: mode 'idle' during G28)
+ok    strict push gate (SD mirror / gen_files): 'homing' counts as busy
+ok    preview probe: mode homing/starting is motion, mode waiting is not
+ok    functional: mode homing + still head -> the preview probe says MOVING (push deferred)   moving=True
+ok    functional: mode waiting + still head -> NOT moving (the dialog gets its file info)   moving=False
+ok    functional: manual preheat/G28 outside the dialog (mode idle, print_time advancing) -> MOVING   moving=True
+
+R255 HOMING GUARD: 19 checks, 0 FAIL - our host work stays out of the probe window
+--- live config ---
+  all 17 checks pass
+--- counter-test (each mutation must FAIL) ---
+  ok   g28-no-mute        caught by: 4a G28 mutes before homing
+  ok   g28-wrong-order    caught by: 4a G28 mutes before homing
+  ok   sls-no-guard       caught by: 3a SET_LED_STATE reads the flag
+  ok   mesh-no-bracket    caught by: 5a mesh mutes before probing
+  ok   watcher-no-heal    caught by: 7a watcher heals a stuck mute
+  ok   no-flag            caught by: 1 state flag
+  ok   quiet-no-stop      caught by: 2c mute stops the effect
+  ok   ztilt-no-bracket   caught by: 8a Z_TILT mutes before probing
+R257 CRASH GUARD: 17 checks, 0 FAIL, 8/8 mutations caught - no LED animation traffic in the probe descent
+==== whitespace and patch validity
+PASS review checks; this is not an installation or hardware acceptance

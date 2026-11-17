@@ -84,3 +84,16 @@ python3 tools/r197_gen_sweep.py
 python3 tools/megatest.py
 python3 tools/macro_render_test.py
 ```
+
+---
+
+## 4. Nachtrag zum späteren `main`-Stand (`8ea17fc`, 17.11.2026)
+
+Dieser Abschnitt ergänzt den historischen Stand oben; er ersetzt dessen damalige Testzahlen nicht rückwirkend. Die Datei war zum Zeitpunkt des Paket-1–7-Berichts vor den späteren Merge-PRs #7/#8 geschrieben worden.
+
+- PR #7 hat G1–G5/D2 (Texturreliefs, 27 Muster-Presets, Tilt-Opt-in, Wandabtastung, Soll-Matrix und `TEXTURING.pdf`) offline umgesetzt.
+- PR #8 hat H3 nach Nutzerklärung umgesetzt: `PART=BOTH` ergibt getrennte UPPER-/LOWER-G-Codes; UPPER liegt standardmäßig mit der Schnittfläche auf dem Bett, LOWER bleibt untransformiert. Offline, ohne Druck-/Hardwareabnahme.
+- `docs-notes/MASTER-TODO.md` wurde auf diese späteren Entscheidungen aktualisiert. Die früheren Aussagen „H3 offen“ und „Texturen gesperrt/unverändert“ in Abschnitt 2 oben sind historisch und kein aktueller Aufgabenstatus.
+- Neuester überprüfter Offline-Review-Lauf: `bash tools/run_review_checks.sh` **PASS** auf `8ea17fc` (nach lokalem Wiederherstellen der in `analyse/klipper-referenz/QUELLE.md` gepinnten, ignorierten Klipper-Parserreferenz). Der volle `tools/macro_render_test.py`-Lauf auf diesem Commit brach jedoch vor Abschluss in der R175d-Watcher-Fixture mit `FileNotFoundError` auf `variables.cfg.tmp` ab; daraus folgt kein Gesamt-PASS. Status und nötige Wiederholung stehen in `analyse/RELEASE-GAP-MATRIX.md`.
+- `analyse/testprotokolle/weiterarbeit_checks.log` enthält weiter den Kommentar-vs.-Z-Scan-Gegenfall: dieselben drei physischen Z-Level werden mit `reported_layers=3`, ohne Layer-Kommentare mit `reported_layers=2` gemeldet. Das bleibt als gezielter Parser-/Layer-Gap zu klären.
+- Weiter offen: vollständiger 521-Zeilen-Anforderungs-Crosswalk, D3–D6/D7d, E1/E4 und reale Hardware-/Slicer-Abnahme. Die obigen Tests sind Offline-Nachweise, keine Produkt-/Hardwarefreigabe.

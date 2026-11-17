@@ -77,6 +77,12 @@ Baumrinde aus oder wie Holzdiele oder Parkett … irgendwas hast du verhauen."
 - R224 hat mehrere Muster umgebaut, R238 den Tilt eingeführt — das sind die
   Kandidaten für „verschlimmbessert".
 
+> **Evidenzhinweis 17.11.2026:** Die genannten `2102/2102`, `2101/2101` und
+> `190/190`-Makro-/Megatestzahlen unten stammen aus früheren Branch-Ständen.
+> Nach den späteren Paketen #9/#10 bestand `run_review_checks.sh` auf
+> `8ea17fc`, aber der neu gestartete vollständige Makrotest brach in R175d vor
+> Abschluss ab (kein PASS). Aktueller Nachweis-/Gap-Stand: `analyse/RELEASE-GAP-MATRIX.md`.
+
 - [x] **G1 — 10 unterscheidbare, codebasierte Materialreliefs.** BARK wurde
       zu wandernden Rindenfissuren/Rippen, PLANKS zu Längsbrettern mit
       versetzten Stoßfugen, BRICKS zu klaren Mauerfugen, HONEYCOMB zu echten

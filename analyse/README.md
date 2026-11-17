@@ -1,6 +1,6 @@
 # Analyse-Unterlagen
 
-Einstieg: [Gesamtbericht und Entscheidungsvorlage](GESAMTBERICHT-UND-ENTSCHEIDUNGSVORLAGE.md). Weitere Berichte, Dispositionsmatrix, Proben und Testprotokolle liegen in diesem Verzeichnis. Die Analyse ist eine historische Bestandsaufnahme; sie ist keine Freigabe für Produktänderungen oder Druckerbewegungen.
+Aktueller Einstieg: [Release-Gap-Matrix](RELEASE-GAP-MATRIX.md) gegen `origin/main` `8ea17fc` (17.11.2026). Der [Gesamtbericht und die Entscheidungsvorlage](GESAMTBERICHT-UND-ENTSCHEIDUNGSVORLAGE.md) sind ein historischer Snapshot vor den späteren Merge-PRs; Detail- und Weiterarbeitsberichte sind gemäß ihren Commit-Ständen zu lesen. Weitere Dispositionen, Proben und Testprotokolle liegen in diesem Verzeichnis. Diese Analyse erteilt keine Freigabe für Produktänderungen oder Druckerbewegungen.
 
 ## Quellen und Reproduzierbarkeit
 

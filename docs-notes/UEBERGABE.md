@@ -5,14 +5,9 @@ Wer sie liest, weiß, wo die Arbeit steht, was der User verlangt hat und was
 tabu ist. Alles andere steht im Code; diese Datei ersetzt kein Lesen, sie
 verhindert nur, dass jemand von vorn anfängt.
 
-Stand: **`dae3e1d`** + `gitattributes` · Version
-**`R2-2026-11-13.1` / Build `V1`**
+Stand dieses Abgleichs: `origin/main` **`8ea17fc`** (17.11.2026); der aktive Arbeitsbranch `arena/2e9de9ae-onmachinedesignstudio` wurde auf diesen Commit fast-forward-synchronisiert. Version/Build bleiben vorläufig **`R2-2026-11-13.1` / `V1`**; ein neues Release ist nicht gebaut.
 
-**GitHub (Quelle der Wahrheit):** `https://github.com/Raz-666/onMachineDesignStudio`,
-Branch **`main`**. Der Klon auf GitHub steht auf `d417be4` — die drei
-PDF-Hefte sind dort, diese Datei ist der nächste Commit.
-Achtung: in manchen Workspaces heißt der lokale Branch `master`, auf GitHub
-`main` — dann `git push origin HEAD:main` (oder vorher `git branch -m master main`).
+**GitHub (Quelle der Wahrheit):** `https://github.com/Raz-666/onMachineDesignStudio`, Branch `main`. Diese Sitzung arbeitet ausschließlich auf ihrem Arena-Branch; nicht direkt nach `main` pushen und den Branch nicht umbenennen. Diese Übergabe und die Release-Gap-Matrix enthalten noch lokale Änderungen, bis der zugehörige PR gemerged ist.
 
 ---
 
@@ -23,9 +18,9 @@ Achtung: in manchen Workspaces heißt der lokale Branch `master`, auf GitHub
 | Was | Beleg |
 |---|---|
 | V1 = `R2-2026-11-13.1` | `macros/01_state.cfg` Z. 535, `tools/r2_postproc*.py` Z. 80/81 |
-| Makro-Batterie (Textur-Update 17.11.) | **2102/2102** (`python3 tools/macro_render_test.py`) — **nur mit den Feld-Fixtures**, siehe §3.0 |
+| Makro-Batterie | Historisch: **2102/2102** im Textur-Branch, **2103/2103** vor Paket 9; letzter Lauf auf `8ea17fc` brach vor Abschluss in R175d mit `FileNotFoundError` für ein temporäres `variables.cfg.tmp` ab — kein finaler PASS. Details: `analyse/RELEASE-GAP-MATRIX.md`. |
 | Einzeltests | `r81` 23/23 · `r199` 42/0 · `r257` 15/0 + 7/7 · `v1_range_cause_check` 8/0 |
-| Auslieferung V1 | `releases/klipper-e3-r2d2-UPDATE-R2-2026-11-13.1.zip` (5 782 002 B, md5 `a63f9842d411834b9fe53a2588387983`) — **vom User noch nicht eingespielt** |
+| Historische Auslieferung V1 | Übergabebericht referenziert `releases/klipper-e3-r2d2-UPDATE-R2-2026-11-13.1.zip` (5 782 002 B, md5 `a63f9842d411834b9fe53a2588387983`); dieses ZIP ist kein neuer Build aus `8ea17fc` und im aktuellen Git-Tree nicht enthalten. |
 | PDF-Fundament | `tools/r2_pdf_kit.py` (ein Stilsatz, `Doc` mit Versionskopf, `TBL/BOX/FORMULA/IMG`, `toolpath_fig/bar_fig/ladder_fig` aus echten Daten) |
 | Dokument 2 | `KALIBRIERUNG.pdf` (14 S.) ← `tools/make_calibration_pdf.py` |
 | Dokument 3 | `PREPRINT_LIVETUNING.pdf` (22 S.) ← `tools/make_preprint_pdf.py` |
@@ -46,17 +41,23 @@ Achtung: in manchen Workspaces heißt der lokale Branch `master`, auf GitHub
 
 ### Offen
 
-1. **H3 — Cake-UX-Spezifikation**: erst mit dem User abstimmen (zwei Platten
-   statt Kette, Reorient, Restmaterial); bis dahin nicht implementieren.
+1. **Release-Gap-Matrix / Anforderungsabgleich:** `analyse/RELEASE-GAP-MATRIX.md`
+   ist die aktuelle Übersicht gegen `origin/main` `8ea17fc`. Der 521-Zeilen-
+   Startbriefingindex ist noch nicht einzeln mit Code und Akzeptanztest
+   geschlossen. Der jüngste Makro-Volltest brach vor Abschluss ab; vor einem
+   Release braucht es einen vollständigen grünen Lauf.
 2. **D7d `GENERATORS_TOOLS.pdf`**: veraltetes Heft (12 S., Stand `.142j`),
-   Modifier einzeln dokumentieren. Textur-Grundlage ist jetzt aktualisiert;
-   dieses Heft selbst bleibt noch offen.
+   Modifier einzeln dokumentieren. Texturgrundlage ist aktualisiert; das Heft
+   selbst ist separat offen.
 3. **D3–D6**: weitere Generator-/Modifikator-/Kreativ-Dokumente laut
    `MASTER-TODO.md`.
-4. **E4**: reale Achsgrenzen/Probe-Abnahme und MCU-/Hardwarefragen; offline
-   Bericht ist keine Hardware-Freigabe.
-5. **D1**: MANUAL-CODE-Abgleich ist erledigt; offen bleibt nur die in Kap. 14
-   genannte Nutzerentscheidung zur LIVE-Lüfterstufe.
+4. **E1/E4 und Hardware:** neue Feldbelege/aktuelle Maschinenkonfiguration,
+   Achsgrenzen-/Probe-/MCU-Abnahme; Offline-Guards sind keine Hardwarefreigabe.
+5. **D1:** Code-Abgleich erledigt; Entscheidung zur LIVE-Lüfterstufe laut
+   MASTER-TODO offen.
+6. **H3 / G1–G5:** funktional auf `main` offline umgesetzt, aber nicht gedruckt;
+   die historischen Berichte unten sind datiert und nicht als aktueller
+   Aufgabenstatus zu lesen.
 
 ---
 
@@ -98,7 +99,9 @@ Achtung: in manchen Workspaces heißt der lokale Branch `master`, auf GitHub
 
 ---
 
-## 3.0 Prüfstand: warum 2100 und warum manchmal 2086
+## 3.0 Historischer Prüfstand: warum 2100 und warum manchmal 2086
+
+Die Zahlen in diesem Abschnitt beziehen sich auf den alten Commit `7b10170`, nicht auf `origin/main` `8ea17fc`. Für den aktuellen Teststand siehe die Tabelle oben und `analyse/RELEASE-GAP-MATRIX.md`; der letzte Makro-Volltest auf `8ea17fc` brach vor Abschluss in R175d mit einem temporären `variables.cfg.tmp`-Fehler ab.
 
 Die Batterie hängt an drei echten Felddateien, die **nicht im Repo** liegen:
 `/home/user/testfixtures/{rose_215c_pla,stringart3d_generic,bigrose_020mm}.gcode.gz`
@@ -201,11 +204,8 @@ dann `git reset --hard`).
 
 ## 6. Erste Schritte für den nächsten Agenten
 
-1. `git log --oneline -3 && git status --short` — steht `7b10170` (oder
-   `d417be4` + diese Datei) oben? Ist der Baum sauber?
-2. `docs-notes/MASTER-TODO.md` lesen (einzige Aufgabenliste, Blöcke A–H).
-3. Die frische Makro-Batterie vom 17.11. lief mit **2102/2102**; erneuter
-   Lauf seriell (keine parallelen Watcher-/Makro-Batterien).
-4. Texturen G1–G5 und D2 sind erledigt; als nächstes ist H3-Spezifikation
-   mit dem User zu besprechen — Cake-UX nicht vorab verändern.
-5. Bei Widersprüchen zwischen Doku und Code: Code gilt, Abweichung melden.
+1. `git status --short --branch` und `git log --oneline -3` prüfen; als synchronisierte Basis gilt derzeit `8ea17fc` auf `main`.
+2. `docs-notes/MASTER-TODO.md` und `analyse/RELEASE-GAP-MATRIX.md` lesen; die älteren Abschnitte dieser Übergabe und `analyse/UMSETZUNG-WEITERARBEIT.md` sind historische Snapshots.
+3. Vor Release den abgebrochenen Makro-Volltestfehler im R175d-Fixture reproduzieren/beheben und alle Gates seriell auf finalem HEAD protokollieren.
+4. Keine Hardware-Abnahme ohne aktuelle Konfiguration, Feldlogs und separates Nutzer-Go.
+5. Bei Widersprüchen zwischen Doku und Code: Code gilt, Abweichung melden und Doku nach belegtem Stand korrigieren.
