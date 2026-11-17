@@ -127,10 +127,18 @@ Baumrinde aus oder wie Holzdiele oder Parkett … irgendwas hast du verhauen."
       verifiziert)* Schnitt-Marker und `_FILE_INFO TOTAL_LAYERS` werden pro
       Hälfte aus positiven Extrusionsschichten neu aufgebaut; geneigte Z-Züge
       und G17-Helices werden exakt geteilt. Beleg: `tools/test_cake_layers_h2.py`
-      sowie `tools/megatest.py` (frisch: 190 Läufe, 0 Fehler).
-- [ ] **H3 — Cake-Tool „entspricht noch nicht der Vorstellung"** (User). Offene
-      Punkte sammeln: zwei Platten statt einer Kette, Reorient, was mit dem
-      Restmaterial passiert. Mit dem User klären, bevor gebaut wird.
+      sowie `tools/megatest.py` (190 Läufe, 0 Fehler).
+- [x] **H3 — Cake-Ausgabe nach Nutzerklärung umgesetzt (offline geprüft).**
+      `PART=BOTH` erzeugt zwei eigenständige G-code-Dateien im `Cake/`-Ordner:
+      `*_CUT-U.gcode` und `*_CUT-L.gcode`; jede Datei enthält genau eine
+      Hälfte. Die obere Hälfte wird standardmäßig mit der Schnittfläche aufs
+      Bett reorientiert (`REORIENT=1` als Default, weiterhin explizit
+      abschaltbar). Die untere Hälfte wird nicht transformiert und bleibt an
+      ihrer ursprünglichen Position. Ausgabe bleibt atomar und überschreibt
+      keine vorhandenen Dateien. Belege: `tools/test_cake_layers_h2.py`
+      (7 Tests; H3 ergänzt: obere Reorientierung, untere Originalkoordinaten,
+      separate U/L-Dateien) und `tools/macro_render_test.py` (2101/2101).
+      Offline-Codeprüfung; keine Drucker-/Hardwareabnahme.
 
 ## C. Feature-Erkennung / Tagging (Paket 4 umgesetzt; offline geprüft)
 

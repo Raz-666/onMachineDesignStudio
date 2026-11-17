@@ -16914,6 +16914,14 @@ tests.append(('R177 CAKE_APPLY: queues with all plane values + nonce bump',
     and 'VARIABLE=cake_file' in _out177 and 'teil.gcode' in _out177
     and 'VARIABLE=cake_nonce VALUE=3' in _out177
     and 'the halves land in the cake folder' in _out177, ''))
+_reo_saved177 = save_vars.pop('cake_reorient', None)
+_out_default_reo177 = render(get_body('macros/17_generator.cfg', 'CAKE_APPLY'),
+                             {'PART': 'BOTH'})
+if _reo_saved177 is not None:
+    save_vars['cake_reorient'] = _reo_saved177
+tests.append(('R177 CAKE_APPLY: absent saved setting defaults reorient ON '
+    '(upper cut face on bed)',
+    'VARIABLE=cake_reorient VALUE=1' in _out_default_reo177, ''))
 save_vars['preview_file'] = ''
 _out177 = render(get_body('macros/17_generator.cfg', 'CAKE_APPLY'), {})
 tests.append(('R177 CAKE_APPLY: no file -> friendly error, nonce untouched',
@@ -16940,6 +16948,7 @@ tests.append(('R177 LCD: cake submenu with pitch/roll/z inputs on the '
     and 'cake_pitch VALUE={menu.input|round(1)}' in _lcd177
     and 'cake_roll VALUE={menu.input|round(1)}' in _lcd177
     and 'cake_zoff VALUE={menu.input|round(1)}' in _lcd177
+    and "cake_reorient|default(1)|int" in _lcd177
     and 'BOTH=2files' in _lcd177, ''))
 tests.append(('R177 watcher: cake channel primed + job reports the segment '
     'counts and lands in the Cake folder',
@@ -16948,6 +16957,7 @@ tests.append(('R177 watcher: cake channel primed + job reports the segment '
     and 'M117 Cake ready' in _pp177x
     and "[cake]" in _pp177x
     and "from r2_cake import cut_cake" in _pp177x
+    and "rv.get('cake_reorient', 1)" in _pp177x
     and "'cake': 'Cake'" in _pp177x, ''))
 # live watcher run - R186 two-phase (see the R175d section): the nonce
 # from before the start is primed (no re-fire), the LIVE bump cuts

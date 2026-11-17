@@ -28526,7 +28526,7 @@ def watch(directory, interval=5.0, once=False):
                 _czoff177 = float(rv.get('cake_zoff', 5) or 5)
                 _cpart177 = str(rv.get('cake_part', 'BOTH')
                                 or 'BOTH').upper()
-                _creo177 = str(rv.get('cake_reorient', 0) or '0') in ('1', 'True', 'true', 'on')
+                _creo177 = str(rv.get('cake_reorient', 1)) in ('1', 'True', 'true', 'on')
                 _cbed177 = _bed_limits(os.path.join(
                     directory, _crel177) if _crel177 else directory)
                 if not _crel177:
