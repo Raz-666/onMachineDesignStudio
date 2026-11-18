@@ -788,11 +788,29 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       Überschreiben, Eingabeprüfung vor Start. 18 neue Tests, 39 gesamt.
       Commit `feat: derive toolchain registry from menus and enforce chain
       gates`.
-- [ ] **K2b — System-Anbindung:** echte Werkzeuge als step_runner
-      (make_range & Co.), Toolchain-Start über den bestehenden Weg (Makro →
-      SAVE_VARIABLE → Watcher → `_spawn_job`, EIN Queue-Eintrag pro Kette),
-      Ausgabemodus-Schalter, Makro-/LCD-Anbindung mit macro_render/r81-
-      Gates.
+- [x] **K2b/1 — echte Werkzeuge als step_runner (offline bewiesen):**
+      `tools/toolchain_steps.py` — Adapter für range (make_range:1937),
+      scale (apply_scale:23861, Prozent→Faktor, Taper, Bett-Zentrierung),
+      twist (apply_twist:24186), mirror (apply_mirror:24442, LCD-Index
+      0=X/1=Y), texture (r2_texture.apply_texture:672, BUMPS-Modus); Engines
+      schreiben in den Schritt-Workspace, Adapter überführen auf die
+      Plan-Namen Vnn_ (os.replace). Lazy-Import per importlib (Muster
+      v1_range_cause_check). Anker-Registry auf 5 Werkzeuge erweitert
+      (twist deg -720..720, mirror Achse x/y) mit Menü-Aliasen im
+      Drift-Wächter. `tools/test_toolchain_steps.py` (11 Tests): echte
+      Dreierkette range→scale→twist auf markierter Synthetik-Datei (alle
+      Gates, Temps nach Übernahme gelöscht), Skalier-Orakel (50 % →
+      X-Spanne halbiert), Spiegel-Orakel (Spanne bleibt), Textur auf
+      Außenwänden, Engine-Guard-Fehler wird nachvollziehbarer Schritt-
+      Fehlschlag. NEBENERKENNTNISSE (Verhalten wie geliefert): make_range
+      KLEMMT end auf die echte Schichtzahl (2..99 auf 6 Schichten druckt
+      2..6; nur leeres Fenster = Fehler mit Klartext), apply_scale lehnt
+      No-Op (100 %/100 %) ab. Kein Watcher/Makro/LCD geändert.
+- [ ] **K2b/2 — Watcher-/Makro-/LCD-Anbindung:** Toolchain-Start über den
+      bestehenden Weg (Makro → SAVE_VARIABLE → Watcher → `_spawn_job`, EIN
+      Queue-Eintrag pro Kette), Preset-Auswahl am LCD (Dateien, nicht
+      JSON-Tippen), Ausgabemodus-Registrierung, Meta-Finalisierung der
+      ENDAUSGABE, macro_render/r81-Gates.
 - [ ] **K3 — Phase 3 Bedienoberfläche:** LCD `Pre-Print > Toolchain`
       (Preset wählen, auf ausgewählte Datei anwenden, Fortschritt je
       Stufe), Web-LCD-Spiegel automatisch, Preset-Verwaltung

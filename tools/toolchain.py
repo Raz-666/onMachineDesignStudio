@@ -120,6 +120,9 @@ _ANCHOR_MENU_ALIASES = {
               'top_x': 'scale_top_x', 'top_y': 'scale_top_y'},
     'texture': {'scale_mm': 'texture_scale', 'zsize_mm': 'texture_zsize',
                 'depth_mm': 'texture_amp', 'seed': 'texture_seed'},
+    'twist': {'deg': 'twist_deg'},
+    'mirror': {},   # Achse ist Enum (x/y) vs. LCD-Index 0/1: keine
+                    # Bereichs-Alteste vergleichbar; Zuordnung im Adapter
 }
 
 # ---------------------------------------------------------------------------
@@ -180,6 +183,24 @@ TOOL_REGISTRY = {
                           'required': False, 'default': 'OUT'},
             'seed': {'type': 'int', 'min': 1, 'max': 999,
                      'required': False, 'default': 1},
+        },
+        'rules': [],
+    },
+    'twist': {
+        'title': 'Twist — um Z verdrillen (apply_twist:24186; LCD -720..720)',
+        'outputs': 1,
+        'params': {
+            'deg': {'type': 'number', 'min': -720.0, 'max': 720.0,
+                    'required': True},
+        },
+        'rules': [],
+    },
+    'mirror': {
+        'title': 'Mirror — Achse spiegeln (apply_mirror:24442; '
+                 'LCD-Index 0 = X, 1 = Y, lcd_menues.cfg:3981)',
+        'outputs': 1,
+        'params': {
+            'axis': {'type': 'enum', 'values': ('x', 'y'), 'required': True},
         },
         'rules': [],
     },

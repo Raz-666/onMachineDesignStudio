@@ -103,14 +103,24 @@ fertig behauptet, was nicht existiert.
   Kein Anschluss an Watcher/Queue/Makros.
 - **Phase 2a (erledigt):** Registry aus Menü-Daten + Drift-Wächter +
   Ausführungs-Engine `run_chain` mit §21/§22-Gates (siehe 3a).
-- **Phase 2b — System-Anbindung:** die echten Werkzeuge als step_runner
-  (make_range, Scale-, Texture-, Twist-, Mirror-Engine aus r2_postproc);
-  Toolchain-Start über den bestehenden Weg (Makro → SAVE_VARIABLE →
-  Watcher → `_spawn_job` — EIN Queue-Eintrag pro Kette, da die Queue ohnehin
-  single-worker ist); Job N+1 startet erst nach Validierung von Job N,
-  Temp-Löschung erst nach Übernahme, Fehler-Stufen bleiben nachvollziehbar
-  (§22.4); Ausgabemodus-Schalter für die Gesamtkette (§21). Eigene
-  Testbatterie + Gates (macro_render, r81-Re-Freeze bei Makro-Änderungen).
+- **Phase 2b/1 (erledigt):** die echten Werkzeuge als step_runner —
+  `tools/toolchain_steps.py` wrappt make_range/apply_scale/apply_twist/
+  apply_mirror/apply_texture (Fundstellen im Modulkopf), Engines schreiben
+  in den Schritt-Workspace, der Adapter überführt auf die Plan-Namen Vnn_.
+  Anker-Registry jetzt 5 Werkzeuge (twist/mirror inklusive), weiter vom
+  Menü-Drift-Wächter gesichert. `tools/test_toolchain_steps.py` (11 Tests)
+  fährt ECHTE Ketten auf markierten Synthetik-Dateien: range→scale→twist
+  komplett durch alle Gates, Skalier-/Spiegel-Orakel an den Koordinaten,
+  Textur auf Außenwänden, Engine-Guards (inkl. Cake-Hälften-Schutz aus H1)
+  werden nachvollziehbare Schritt-Fehlschläge. Verhalten wie geliefert
+  dokumentiert: make_range klemmt 'end' auf die echte Schichtzahl;
+  apply_scale lehnt No-Op-Skalierung ab.
+- **Phase 2b/2 — Watcher-/Makro-/LCD-Anbindung:** Toolchain-Start über den
+  bestehenden Weg (Makro → SAVE_VARIABLE → Watcher → `_spawn_job` — EIN
+  Queue-Eintrag pro Kette, da die Queue ohnehin single-worker ist);
+  Preset-Auswahl am LCD über Preset-DATEIEN (kein JSON-Tippen am Drehrad);
+  Meta-Finalisierung der Endausgabe (_meta_finalize am Plan-Pfad);
+  Ausgabemodus-Registrierung; macro_render/r81-Gates bei Makro-Änderungen.
 - **Phase 3 — Bedienoberfläche:** LCD `Pre-Print > Toolchain` (Preset wählen,
   auf ausgewählte Datei anwenden, Fortschritt je Stufe); das Web-LCD spiegelt
   automatisch (Menü-JSON-Spiegel, gleiche Makros — kein zweites Frontend).

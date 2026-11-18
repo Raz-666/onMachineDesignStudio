@@ -40,7 +40,7 @@ class RegistryTests(unittest.TestCase):
         """Jedes Registry-Werkzeug ist vollstaendig und widerspruchsfrei."""
         report = toolchain.registry_report()
         self.assertEqual(sorted(report),
-                         ['range', 'scale', 'texture'])
+                         ['mirror', 'range', 'scale', 'texture', 'twist'])
         for tool, spec in toolchain.TOOL_REGISTRY.items():
             self.assertIsInstance(spec['title'], str)
             self.assertGreater(len(spec['params']), 0)

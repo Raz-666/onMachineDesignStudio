@@ -319,19 +319,19 @@ ALLE Paare (6244/12564/22321) liegen NUR auf dokumentierten Übergangs-
 ebenen — null echte Wanddurchdringungen; audit-Volumen == Konstruktions-
 volumen (float32). Beweis-STLs: analyse/stl-exports/ (+MANIFEST.json).
 8 neue Tests, 172 gesamt lokal bestanden.
-Stand (Sitzung nach `a7f20be`): STL-§24-Fertigstellung bleibt ZURÜCKGESTELLT
-(J1, Richtung „Punktfolke + Haut"). **Toolchain §20: K1 + K2a erledigt** —
-Preset-Vertrag UND Ausführungs-Engine: `tools/toolchain.py` (39 Tests) mit
-`build_registry()` aus web/menu_structure.json (8 Mods-Werkzeuge, LCD-Bereiche,
-SAVE_VARIABLE-Namen), `registry_drift()`-CI-Wächter gegen stille Menü-
-Änderungen, Ankern an Menü-Wahrheit korrigiert, `run_chain()` mit §21/§22-
-Gates (Validierung je Stufe, Temp-Löschung erst nach Übernahme — §22.4-
-Orakeltest, Zustandsmodell, Ausgabemodi mit Registrierungspflicht, kein
-Überschreiben). Phase 2b (echte step_runner + Watcher/Makro-Anbindung) offen.
-Nächste Kandidaten: K2b, J7 Maschinenmodell-Kompatibilitäts-Audit (§12),
-J2 Gießformen (Zuweisung ausstehend: Multi-Part 2/3/4 + Negativform),
-J6 KI-3D/Sprachsteuerung (Vision, für später, Ideen einstreuen), J3 UI
-(navi.json verifiziert), J4 Audio. OFFENE-FRAGEN 15–18.
+Stand (Sitzung nach `31b3df8`): STL-§24-Fertigstellung bleibt ZURÜCKGESTELLT
+(J1, Richtung „Punktfolke + Haut"). **Toolchain §20: K1 + K2a + K2b/1
+erledigt** — `tools/toolchain.py` (39 Tests: Preset-Vertrag, Menü-Registry
+mit Drift-Wächter, run_chain-Engine mit §21/§22-Gates) UND
+`tools/toolchain_steps.py` (11 Tests): die ECHTEN Engines (make_range/
+apply_scale/apply_twist/apply_mirror/apply_texture) als step_runner —
+echte Dreierketten laufen offline durch alle Gates, Skalier-/Spiegel-
+Orakel an Koordinaten, Engine-Guards werden nachvollziehbare Fehlschläge.
+Anker-Registry 5 Werkzeuge (twist/mirror neu), menü-gesichert. r2_postproc/
+Makros/LCD UNVERÄNDERT. Offen: K2b/2 Watcher-/Makro-/LCD-Anbindung
+(macro_render/r81-Gates), K3 UI, K4 Queue-Abhängigkeit. Danach: J7
+Maschinenmodell-Audit (§12), J2 Gießformen (Zuweisung ausstehend),
+J6 KI-Vision, J3 UI (navi.json verifiziert), J4 Audio. OFFENE-FRAGEN 15–18.
 Der Loft ist keine allgemeine Spiralrekonstruktion; aktiver Export unverändert.
 
 ## Historie
