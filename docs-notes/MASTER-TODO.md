@@ -4,6 +4,8 @@
 nicht hier steht, existiert es für die Arbeit nicht. Jede erledigte Zeile wird
 abgehakt und mit dem Commit genannt, der sie erledigt hat.
 
+**Befund 2026-11-18 (Quellen-Ordnung, vom Nutzer geklärt):** Maßgebliche Quelle ist `R2-D2 – Gesamtbriefing für die Coding-GPT.md` (STL-Export-Ergänzung §24 + Ergänzungen 20–31), Vorgängerfassung = `R2_Vollstaendiges_Startbriefing_Coding-KI_finalizedByGemini.txt` (STL dort §5.21), Masterkonzept = Grundgedanke, „Reverse Engineering von G-Code Geometrien.md“ = Detaildokument. `Master_Spezifikation.md` liegt nicht vor. `slicer-families.md` / `Potential performance& compatibility issues.md` bleiben ungeprüfte AI-Notizen — ohne Einzelverifikation kein Beleg. Alle sechs Uploads SHA256-geprüft; Gesamtbriefing-GPT neu ins Manifest aufzunehmen (Release-/Doku-Schritt, kein Produktcode).
+
 **Erledigt 2026-11-18 (Fortsetzung, Branch `arena/4ea70100-...`):** **Gesamtumbau-Analyse fertiggestellt und als Release `R2-2026-11-18.2` / `V3` ausgeliefert** — `tools/gcode_re.py` (Unified Masterkonzept Pass 0–11, Schema `r2-re/2`): Vektor-Pass-6 (Online-Loop-Extraktion, Nesting per Point-in-Polygon, Hatch-Spacing), Pass-8 Feature-Scores v2 (Top-3, UNKNOWN/AMBIGUOUS, `calibrated: false`), Pass-10-Konservation (Zeilen + Filament Shadow↔Tracker, Ratio 1,0 am rose-Fixture), Pass-11 atomares Sidecar (read-only Quelle, SHA-256, kein Überschreiben ohne `--force`). `tools/test_gcode_re.py` 10/10. Gates: Makro 2103/2103, megatest 190/190, review_checks PASS, r91 PASS, r81 23/23 (stamp-class, A/B), r199 12/12. Kein Eingriff in den Druckpfad; Feldabnahme steht aus (Drucker nicht testbereit). Dazu `docs-notes/PRINTER-CFG-AUDIT-2026-11-18.md` (E1/E4 zu `position_min`/Probe — NUR Vorschläge, nicht angewendet). Report: `docs/RELEASE_R2-2026-11-18.2_REPORT.md`.
 
 **Erledigt 2026-11-18:** Release **`R2-2026-11-18.1` / `V2`** gebaut und belegt
@@ -224,10 +226,15 @@ Baumrinde aus oder wie Holzdiele oder Parkett … irgendwas hast du verhauen."
       Presets, Beispiel-Parametersätze mit erwartetem Ergebnis.
 - [ ] **D4 — Pro Modifikator (Pre-Print-Geometrie-Tools) eine PDF** mit der
       Mathematik dahinter — so erklärt, dass man blind am Drucker arbeiten kann.
-- [ ] **D5 — Kreativ-PDF „On-Machine Design Studio for Creative Freedom"**:
-      Fehlersuche/Optimierung, kreative Verkettung, Deko-Sets, Modellbau,
-      Doppel-Durchgänge. Schlusssatz (wörtlich gewünscht): *kein PC, kein
-      3D-Programm, keine KI — nur ein Drehrad.*
+- [x] **D5 — Kreativ-PDF „On-Machine Design Studio for Creative Freedom"** *(erledigt
+      2026-11-18, Commit `9468051`)*: Titel gesetzt, neue Kapitel Modellbau
+      (Toleranzen, Doppel-Durchgang ehrlich), Deko-Sets (Varianten-Strategie),
+      Doppel-Durchgänge (geht / geht bewusst nicht), Fehlersuche und
+      Optimierung (Symptom → Ursache → Werkzeug), plus bisherige Zwölf
+      Rezepte / Material-Licht-Wandstärke / Bewusst-nicht-tut. Schlusssatz
+      verbatim: *kein PC, kein 3D-Programm, keine KI — nur ein Drehrad.*
+      `CREATIVE_POSSIBILITIES.pdf`, 10 Seiten (vorher 7), TOOLS_INVENTORY
+      nachgezogen.
 - [ ] **D6 — Bilder-Regel (verbindlich):** keine Fantasie-Grafiken. Jede
       Anschauung muss aus den tatsächlichen Parametern und dem echten
       Algorithmus abgeleitet sein, Rechtschreibung im Bild korrekt.
@@ -274,6 +281,54 @@ Baumrinde aus oder wie Holzdiele oder Parkett … irgendwas hast du verhauen."
 - [ ] **E4 — Sonde löst nicht aus, Düse fährt auf Z = −6.** `[stepper_z]
       position_min = -6` in der Feld-`printer.cfg`; Vorschlag `-2`. Nicht ohne
       den User geändert (seine Datei).
+
+
+
+## I. STL-Export (Nutzer-Go 2026-11-18 — zuerst Bestandsaufnahme, dann Tests, dann Fix)
+
+- [ ] **I1 — STL-Export funktionsfähig machen (Briefing §24).**
+      Reihenfolge verbindlich: (1) Bestandsaufnahme erledigt —
+      `analyse/STL-EXPORT-AUDIT.md` (Ablauf, Risiken, Testlücken,
+      Orakel-Testplan Phase 2–4); (2) Phase 2: Orakel-Kit
+      (`analyse/stl_oracle.py`: STL-Parser, bbox, Volumen, Winding,
+      Degenerate/Duplikate, Komponenten) mit synthetischen Fixtures
+      (Quader, Vase, by-layer) — **offline möglich, kein Drucker nötig**;
+      (3) Phase 3: Root Cause in `_stl_export` belegen, minimale Fixes,
+      Regression über `rose_215c_pla` + synthetische Fälle;
+      (4) Phase 4: Feldabnahme nur mit Nutzer (2 Programme, Reimport,
+      Reslice) — Ergebnis `docs/STL-EXPORT-ABNAHME.md`.
+      Verboten vor Phase-3-Evidenz: Refactor/Ersatz des Exporters.
+- [x] **I2 — Nahtlose Agenten-Übergabe.** `AGENTS.md` (Repo-Root) als
+      verbindlicher Einstieg (Aktueller Stand, Regeln, Quellen-Hierarchie,
+      Release-Prozess); `analyse/uebergabe-quellen/` mit `.gitignore`
+      (Quellen lokal, nur SHA256SUMS getrackt) + Manifest aktualisiert
+      (Gesamtbriefing-GPT, my_printer.cfg.txt); `UEBERGABE.md` §6 zeigt auf
+      `AGENTS.md`; UEBERGABE-Historie bleibt als datierter Verlauf.
+      V1-UPDATE-ZIP gefunden (Nutzer), verifiziert (167 Einträge, kein
+      analyse/, interner Versionsstempel R2-2026-11-13.1) — Ablage
+      `releases/klipper-e3-r2d2-UPDATE-R2-2026-11-13.1.zip` (6234496e…),
+      nicht im Repo.
+
+## G. Feld-Abnahme-Checkliste (Drucker im Umbau — bei Bereitschaft vortragen)
+
+*(User-Direktive 2026-11-18: Punkte merken, erst liefern, wenn der Drucker
+wieder bereit ist. Nichts hiervon ohne Go.)*
+
+- [ ] **Release-Feldabnahme:** Layer-Anzeige nach Update (R258 Option B —
+      kommentarlose Dateien zählen `rises + big_rises + 1 + bed_returns`;
+      kommentierte Dateien behalten die Slicer-Anzahl).
+- [ ] **3× Z-Homing + 1× Mesh 5×5 + SCREWS_TILT_CALCULATE** — Vorbedingung
+      für E1/E4.
+- [ ] **E1/E4:** `printer.cfg`-Vorschläge (`position_min = -2`,
+      `G4 P750`, speed 100) NUR nach separatem Go + Test-Fenster.
+- [ ] **E3 bestätigen:** LED-Stummschaltung im Sondenfenster am realen Druck.
+- [ ] **Textur-Streifen** drucken (BARK / PLANKS / BRICKS / HONEYCOMB /
+      27 Vorlagen) und Muster sichtbar prüfen.
+- [ ] **Erster echter Cake-Schnitt** (reorient: Schnittfläche auf Bett) +
+      Ausschnitt-Range-Test des Ergebnisses.
+- [ ] **Live-Watcher / Feature-Erkennung** auf einer echten Datei.
+- [ ] **Shutdown-Feldlog** prüfen, falls E1 sich wiederholt (.142g, 12.11.).
+- [ ] G/H/C-Sektionen: alle „offline geprüft“-Vermerke am Drucker nachholen.
 
 ## F. Erledigt (mit Beleg)
 

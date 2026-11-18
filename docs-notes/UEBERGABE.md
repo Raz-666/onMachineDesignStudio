@@ -234,8 +234,15 @@ dann `git reset --hard`).
 
 ## 6. Erste Schritte für den nächsten Agenten
 
-1. `git status --short --branch` und `git log --oneline -3` prüfen; als synchronisierte Basis gilt derzeit `8ea17fc` auf `main`.
-2. `docs-notes/MASTER-TODO.md` und `analyse/RELEASE-GAP-MATRIX.md` lesen; die älteren Abschnitte dieser Übergabe und `analyse/UMSETZUNG-WEITERARBEIT.md` sind historische Snapshots.
-3. Vor Release den vollständigen Makro-Volltest seriell auf dem finalen Release-Commit protokollieren (auf `fab29dc` und `846b1e7` bereits grün: 2103/2103) und alle Gates darauf erneut fahren.
-4. Keine Hardware-Abnahme ohne aktuelle Konfiguration, Feldlogs und separates Nutzer-Go.
+**Seit 2026-11-18 gilt `AGENTS.md` (Repo-Root) als der verbindliche Einstieg** —
+es ersetzt diese Sektion inhaltlich und hält Aktueller Stand, Regeln,
+Quellen-Hierarchie und Release-Prozess gepflegt aktuell. Diese Übergabe
+und die Commit-Hashes darin (u. a. `8ea17fc`, `fab29dc`) sind datierte
+Zwischenstände, kein Status. Bei Widersprüchen gilt: Code > Tests > `AGENTS.md`
+> diese Übergabe.
+
+1. `AGENTS.md` lesen, dann `git status --short --branch` und `git log --oneline -3` prüfen.
+2. `docs-notes/MASTER-TODO.md` (Aufgaben) und `docs-notes/OFFENE-FRAGEN.md` (Nutzer-Entscheidungen) lesen.
+3. Vor Release den vollständigen Makro-Volltest seriell auf dem finalen Release-Commit protokollieren und alle Gates darauf erneut fahren (V2/V3: 2103/2103).
+4. Keine Hardware-Abnahme ohne aktuelle Konfiguration, Feldlogs und separates Nutzer-Go. Drucker war am 2026-11-18 im Umbau — Feldtests aus dem Abschnitt „G. Feld-Abnahme-Checkliste“ in `MASTER-TODO.md` erst bei Bereitschaft.
 5. Bei Widersprüchen zwischen Doku und Code: Code gilt, Abweichung melden und Doku nach belegtem Stand korrigieren.
