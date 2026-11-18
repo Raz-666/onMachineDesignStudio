@@ -382,6 +382,13 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       `feat: add bounded contour surface foundation with analytic mesh tests`).
       6/6 Tests; Quader, konkaves L, Orientierung, ungültige Konturen,
       Float32-Kollaps. Experimentell, kein Eingriff in aktiven Exporter.
-- [ ] **I1 Integration:** Lochkonturen, wechselnde Layerkonturen und
+- [ ] **I1 Integration:** wechselnde Layerkonturen und
       Linienbreitenkorrektur; erst danach G-Code-Anbindung. Nicht mit einem
       fertigen STL-Export verwechseln. Belege/Grenzen im STL-Audit.
+
+- [x] **I1 Durchgangslöcher:** explizite, getrennte Lochkonturen im
+      experimentellen Prisma-Baustein (Commit-Betreff `feat: preserve through-holes in contour surfaces`).
+      Sichtbare Brücken nur zur Deckeltriangulierung, Innenwandnormalen ins
+      Loch; Flächenerhaltung geprüft. 11 Konturtests inklusive drei Löchern
+      in neun Parameterkombinationen, Euler-Topologie und Fehlereingaben.
+      Dazu 5 Mesh- und 3 E-State-Tests bestanden. Aktiver Export unverändert.

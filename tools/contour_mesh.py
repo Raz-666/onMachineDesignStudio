@@ -1,9 +1,9 @@
 """Experimental contour-to-surface foundation, NOT the active G-code exporter.
 
 Input is an already classified physical boundary in mm, not a nozzle centreline.
-This first stage supports one simple, hole-free vertical prism. It intentionally
+This stage supports one simple vertical prism with disjoint through-holes. It intentionally
 rejects ambiguous/degenerate boundaries instead of repairing them. No dependency
-on Klipper or the watcher. Holes, offsets, changing layer topology and G-code
+on Klipper or the watcher. Offsets, changing layer topology and G-code
 classification must be implemented before production integration.
 """
 import math
@@ -67,7 +67,7 @@ def _caps(points):
                 continue
             if any(all(_cross(points[u], points[v], points[p]) >= -EPS
                        for u,v in ((a,b),(b,c),(c,a)))
-                   for p in remaining if p not in (a,b,c)):
+                   for p in remaining if points[p] not in (points[a],points[b],points[c])):
                 continue
             triangles.append((a,b,c))
             del remaining[k]
@@ -78,23 +78,99 @@ def _caps(points):
     return triangles
 
 
-def prism_mesh(boundary, z_bottom, z_top):
-    """Return outward-oriented triangles of a single closed vertical prism.
+def _inside(point, ring):
+    """Strict containment; boundary contacts are not interior."""
+    inside = False
+    x,y = point
+    for a,b in zip(ring, ring[1:]+ring[:1]):
+        if _on_segment(a,b,point):
+            return False
+        if (a[1] > y) != (b[1] > y):
+            if x < a[0] + (y-a[1])*(b[0]-a[0])/(b[1]-a[1]):
+                inside = not inside
+    return inside
 
-    No internal layer caps are produced. Callers must not use this function to
-    fill a contour containing holes; holes require a separate polygon hierarchy.
+
+def _with_holes(outer, holes):
+    """Build a weakly simple cap ring using visible, zero-area bridges.
+
+    All rings must already be simple. Reject nested, intersecting or touching
+    rings. Bridges only affect cap triangulation, never side-wall geometry.
     """
-    points = _boundary(boundary)
+    rings = [outer] + holes
+    for i, ring in enumerate(rings):
+        for other in rings[i+1:]:
+            if any(_intersects(a,b,c,d)
+                   for a,b in zip(ring,ring[1:]+ring[:1])
+                   for c,d in zip(other,other[1:]+other[:1])):
+                raise ValueError('rings intersect or touch')
+    for i, hole in enumerate(holes):
+        if not _inside(hole[0], outer):
+            raise ValueError('hole outside outer contour')
+        if any(_inside(hole[0], other) or _inside(other[0], hole)
+               for other in holes[i+1:]):
+            raise ValueError('nested holes require explicit island hierarchy')
+    merged = outer[:]
+    bridges = []
+    edges = [(a,b) for ring in rings for a,b in zip(ring,ring[1:]+ring[:1])]
+    for hole in holes:
+        candidates = []
+        for i,a in enumerate(merged):
+            for j,b in enumerate(hole):
+                # Incident edges may meet at the bridge endpoint, not overlap it.
+                blocked = False
+                for c,d in edges + bridges:
+                    if a in (c,d) or b in (c,d):
+                        other = d if c in (a,b) else c
+                        if _on_segment(a,b,other) or abs(_cross(a,b,other)) <= EPS:
+                            blocked = True
+                            break
+                    elif _intersects(a,b,c,d):
+                        blocked = True
+                        break
+                midpoint = ((a[0]+b[0])/2,(a[1]+b[1])/2)
+                if not blocked and _inside(midpoint,outer) and not any(_inside(midpoint,h) for h in holes):
+                    candidates.append(((a[0]-b[0])**2+(a[1]-b[1])**2,i,j))
+        if not candidates:
+            raise ValueError('no unambiguous visible bridge for hole')
+        _,i,j = min(candidates)
+        bridges.append((merged[i],hole[j]))
+        merged = merged[:i+1] + hole[j:] + hole[:j+1] + [merged[i]] + merged[i+1:]
+    return merged
+
+
+def prism_mesh(boundary, z_bottom, z_top, *, holes=()):
+    """Outward surface of a prism with explicitly classified through-holes.
+
+    Holes are not inferred from toolpaths. No internal layer caps or bridge
+    walls are produced. Nested holes/islands and changing layers are rejected
+    or outside this API's scope. Input loops may use either orientation.
+    """
+    if len(boundary) + sum(len(h) for h in holes) + 2*len(holes) > MAX_VERTICES:
+        raise ValueError('combined contour/bridge vertex budget exceeded')
+    outer = _boundary(boundary)
+    inner = [_boundary(h)[::-1] for h in holes]  # clockwise: normals into void
+    points = _with_holes(outer,inner) if inner else outer
     if not all(math.isfinite(z) and abs(z) <= 100000 for z in (z_bottom,z_top)) or z_top <= z_bottom:
         raise ValueError('finite increasing Z bounds required')
     bottom = [(x,y,float(z_bottom)) for x,y in points]
     top = [(x,y,float(z_top)) for x,y in points]
     triangles = []
-    for a,b,c in _caps(points):
+    caps = _caps(points)
+    expected_area2 = math.fsum(_cross(r[0],r[i],r[i+1])
+                              for r in [outer]+inner for i in range(1,len(r)-1))
+    cap_area2 = math.fsum(_cross(points[a],points[b],points[c]) for a,b,c in caps)
+    if not math.isclose(cap_area2, expected_area2, rel_tol=1e-9, abs_tol=EPS):
+        raise ValueError('cap area does not preserve outer contour minus holes')
+    for a,b,c in caps:
+        if _cross(points[a],points[b],points[c]) <= EPS:
+            raise ValueError('degenerate cap triangulation')
         triangles.extend(((bottom[c],bottom[b],bottom[a]), (top[a],top[b],top[c])))
-    for a in range(len(points)):
-        b = (a+1)%len(points)
-        triangles.extend(((bottom[a],bottom[b],top[b]), (bottom[a],top[b],top[a])))
+    for ring in [outer]+inner:
+        for a,b in zip(ring,ring[1:]+ring[:1]):
+            lo_a,lo_b = (*a,float(z_bottom)),(*b,float(z_bottom))
+            hi_a,hi_b = (*a,float(z_top)),(*b,float(z_top))
+            triangles.extend(((lo_a,lo_b,hi_b),(lo_a,hi_b,hi_a)))
     return triangles
 
 

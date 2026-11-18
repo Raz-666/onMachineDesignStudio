@@ -68,6 +68,77 @@ class ContourTests(unittest.TestCase):
         for low,high in [(1,0),(0,0),(0,float('inf'))]:
             with self.assertRaises(ValueError): prism_mesh([(0,0),(1,0),(0,1)],low,high)
 
+    def check_holes(self, outer, holes, expected_volume):
+        import copy
+        before = copy.deepcopy((outer,holes))
+        triangles = prism_mesh(outer,0,2,holes=holes)
+        self.assertEqual((outer,holes),before)
+        vertices={v for tri in triangles for v in tri}
+        edges={tuple(sorted((tri[i],tri[(i+1)%3]))) for tri in triangles for i in range(3)}
+        # Closed orientable shell with h through-holes has Euler characteristic 2-2h.
+        self.assertEqual(len(vertices)-len(edges)+len(triangles),2-2*len(holes))
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp)/'holes.stl'
+            path.write_bytes(binary_stl(triangles))
+            report = inspect_stl(path)
+        self.assertAlmostEqual(report['signed_volume'],expected_volume,places=4)
+        for key in ('boundary_edges','nonmanifold_edges','winding_errors',
+                    'degenerate_faces','normal_errors','duplicate_faces'):
+            self.assertEqual(report[key],0,key)
+        self.assertEqual(report['vertex_connected_components'],1)
+        # Independent ray casting at interior samples of every cap triangle.
+        def in_hole(x,y,ring):
+            crossings = 0
+            for a,b in zip(ring,ring[1:]+ring[:1]):
+                if (a[1] > y) != (b[1] > y):
+                    crossings += x < a[0]+(y-a[1])*(b[0]-a[0])/(b[1]-a[1])
+            return crossings % 2 == 1
+        for tri in triangles:
+            if len({v[2] for v in tri}) == 1:
+                for i in range(1,10):
+                    for j in range(1,10-i):
+                        weights=(i/10,j/10,1-(i+j)/10)
+                        x,y=[sum(weights[k]*tri[k][axis] for k in range(3)) for axis in (0,1)]
+                        self.assertFalse(any(in_hole(x,y,h) for h in holes))
+
+    def test_square_through_hole_orientations(self):
+        outer=[(0,0),(10,0),(10,10),(0,10)]
+        hole=[(3,3),(7,3),(7,7),(3,7)]
+        for o in (outer,outer[::-1]):
+            for h in (hole,hole[::-1]):
+                self.check_holes(o,[h],168)
+
+    def test_multiple_holes_order_and_concave_outer(self):
+        outer=[(0,0),(10,0),(10,6),(6,6),(6,10),(0,10)]
+        holes=[[(1,1),(3,1),(3,3),(1,3)],[(7,1),(9,1),(9,3),(7,3)]]
+        self.check_holes(outer,holes,152)
+        self.check_holes(outer,holes[::-1],152)
+
+    def test_concave_hole(self):
+        self.check_holes([(0,0),(10,0),(10,10),(0,10)],
+                         [[(2,2),(6,2),(6,3),(3,3),(3,6),(2,6)]],186)
+
+    def test_three_holes_parameter_sweep(self):
+        for size in (.5,1,1.5):
+            for shift in (0,.2,.4):
+                outer=[(0,0),(12,0),(12,8),(0,8)]
+                holes=[]
+                for x,y in ((1+shift,1),(5,4+shift),(9-shift,2)):
+                    holes.append([(x,y),(x+size,y),(x+size,y+size),(x,y+size)])
+                with self.subTest(size=size,shift=shift):
+                    self.check_holes(outer,holes,2*(96-3*size*size))
+
+    def test_invalid_hole_relationships(self):
+        outer=[(0,0),(10,0),(10,10),(0,10)]
+        square=lambda x,y,w:[(x,y),(x+w,y),(x+w,y+w),(x,y+w)]
+        cases=[[square(11,1,2)], [square(0,1,2)], [square(9,1,2)],
+               [square(1,1,5),square(2,2,1)],
+               [square(1,1,3),square(3,3,3)],
+               [square(1,1,2),square(3,1,2)]]
+        for holes in cases:
+            with self.subTest(holes=holes),self.assertRaises(ValueError):
+                prism_mesh(outer,0,2,holes=holes)
+
     def test_float32_collapse_rejected(self):
         mesh = prism_mesh([(10000,0),(10000.00001,0),(10000.00001,1),(10000,1)],0,1)
         with self.assertRaises(ValueError): binary_stl(mesh)

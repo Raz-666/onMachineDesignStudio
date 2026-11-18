@@ -1,3 +1,32 @@
+# Fortschreibung: explizite Durchgangslöcher
+
+`prism_mesh(..., holes=[...])` unterstützt jetzt mehrere disjunkte,
+explizit als Löcher klassifizierte Ringe. Außen-/Lochkonturen dürfen konkav
+sein und beide Umlaufrichtungen verwenden. Nach Validierung werden Löcher
+über sichtbare, flächenlose Brücken an den Deckelring angeschlossen;
+Ear-Clipping trianguliert die Materialfläche. Die Brücken erzeugen keine
+zusätzlichen Seitenwände. Lochwände zeigen mit ihren Normalen in den Hohlraum.
+Zusätzlich wird die Deckelfläche gegen Außenfläche minus Lochflächen geprüft.
+
+Ablehnung statt Reparatur: berührende, kreuzende, überlappende, außerhalb
+liegende oder ineinander verschachtelte Löcher. Verschachtelte Inseln brauchen
+eine explizite Objekt-/Polygonhierarchie. Gemeinsames Budget von 256 Punkten
+inklusive Brücken; keine Echtzeit-/Watcher-Integration.
+
+Nachweise: **11/11 Konturtests**, **5/5 Mesh-Tests**, **3/3 aktive E-State-Tests**.
+Quadrat 10×10 mit Loch 4×4, Höhe 2: 168 mm³; konkave Außenkontur mit zwei
+Löchern: 152 mm³; konkaves Loch: 186 mm³. Drei Löcher zusätzlich in neun
+Größen-/Positionskombinationen. Prüfer findet keine offenen/nichtmannigfaltigen
+Kanten, doppelten/degenerierten Flächen oder falschen Normalen. Euler-Test
+(V−E+F = 2−2h) und Deckel-Punktproben prüfen, dass Durchgangslöcher offen bleiben.
+
+Weiterhin experimenteller Geometriebaustein, kein G-Code-Rekonstruktor:
+wechselnde Schichtkonturen, Topologiewechsel, Linienbreitenkorrektur und
+G-Code-Anbindung fehlen. Keine unabhängige Slicer-Abnahme oder Hardwaretests.
+Die nachfolgenden Abschnitte dokumentieren frühere Zwischenstände.
+
+---
+
 # Fortschreibung: erster Kontur-Oberflächenbaustein
 
 `tools/contour_mesh.py` rekonstruiert die Oberfläche eines geraden Prismas aus

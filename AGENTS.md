@@ -150,10 +150,11 @@ Die bisherige B/C-Einteilung ist vorläufig, nicht einzeln vollständig belegt.
 STL-Prüfer `tools/stl_audit.py` und 5 Mesh-Tests sind implementiert;
 3 vorhandene E-State-Tests bestehen ebenfalls. Zwei gestapelte Bahnen
 reproduzieren doppelte Grenzflächen (2) und nichtmannigfaltige Kanten (5).
-Erster neuer Oberflächenbaustein: `tools/contour_mesh.py` (einfaches oder
-konkaves gerades Prisma ohne Löcher), 6/6 analytische Tests. Kein Anschluss
+Erster neuer Oberflächenbaustein: `tools/contour_mesh.py` (gerades Prisma mit
+konkaver Außenkontur und expliziten Durchgangslöchern), 11/11 analytische Tests. Kein Anschluss
 an den aktiven Exporter. Details/Grenzen in `analyse/STL-EXPORT-AUDIT.md`.
-Nächster Schritt: Lochkonturen und Zuordnung wechselnder Layerkonturen;
+Nächster Schritt: Zuordnung wechselnder Layerkonturen (Lochanzahl/-topologie
+darf nicht still geändert werden);
 anschließend normalisiertes Bewegungsmodell anbinden. Keine ungeprüften
 Düsenmittellinien als physische Außenkonturen interpretieren.
 
