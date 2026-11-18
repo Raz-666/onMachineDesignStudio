@@ -1,3 +1,38 @@
+# Fortschreibung: Ursache der Rose-Zustandsinvalidierung
+
+Belegte Folge: Zeile 95 `START_PRINT` invalidiert den unbekannten Zustand.
+Zeilen 96–98 deklarieren G90/G21/M83 neu; aber Zeile 100
+`SET_PRESSURE_ADVANCE` invalidiert ihn im strikten Modus erneut. Danach
+scheitern G92/Bewegungen an unbekannten Einheiten/Modi; Objektmarkierungen
+lösen weitere Invalidierungen aus. Keine pauschale „kaputte Geometrie“.
+
+`collect_contours(..., klipper_passive=True)` / CLI `--klipper-passive` reicht
+nun die **bereits vorhandene optionale Shadow-Fähigkeit** durch. Standard
+bleibt strikt. Alle Optionen stehen im Ergebnis. Keine neuen Anfangswerte,
+keine Makroausführung, kein Ignorieren beliebiger Befehle. START_PRINT bleibt
+unbekannt; Erholung nur durch spätere explizite Dateideklarationen/Bewegungen.
+Der Repo-Override `macros/10_live_tuning.cfg::SET_PRESSURE_ADVANCE` wurde gelesen;
+das optionale Modell betrifft logische Koordinaten, nicht reale PA-/Druckeffekte.
+Der gesamte optionale Klipper-Befehlssatz ist keine Hardware-/Makrofreigabe.
+
+Rose-Gegenprobe: vollständig gescannt, unbekannte Records **148529 → 1**
+(Zeile 95), unbekannte Bewegungskoordinaten **4**, nichtplanare Extrusion
+**45285**, offene Ketten **41445**, Konturpunktbudget **2**. Weiterhin
+**0 exakte geschlossene Konturen**. Nächster Engpass: offene/nonplanare Pfade,
+Nahtlücken und konservative Konturvalidierung, nicht fehlende Mode-Defaults.
+
+Zusätzlicher Fix im neuen Kontursammler: Feed-only und unveränderte Position
+bei ΔE=0 erhalten Ketten. Retract, Travel und reine positive E-Moves brechen
+sie weiterhin. Dadurch keine falsche Unterbrechung durch F-Zeilen.
+
+**12/12 Integrationstests**, einschließlich Rose mit Quell-Hashvergleich;
+**16/16 Kontur**, **5/5 Mesh**, **3/3 E-State**, **10/10 RE** erneut bestanden.
+Tests erzwingen: Klipper-Modell opt-in, fehlende G21-/unbekannte Makrosemantik
+wird nicht geraten; keine zusätzlichen Ausgabedateien. Aktiver Export bleibt
+unverändert, keine STL-/Slicer-/Hardware-Abnahme.
+
+---
+
 # Fortschreibung: Anschluss an normalisierte G-Code-Bewegungen
 
 `tools/gcode_contours.py` liest Quelldateien ausschließlich über den vorhandenen

@@ -157,10 +157,15 @@ positive gleichförmige Skalierung und Verschiebung über mehrere Höhen;
 an den aktiven Exporter. Details/Grenzen in `analyse/STL-EXPORT-AUDIT.md`.
 Read-only Anbindung: `tools/gcode_contours.py` nutzt den bestehenden Shadow-Parser
 für exakte geschlossene planare Bahnen samt Zeilen-/E-/Tool-Herkunft (7 Tests).
-Rose-Felddatei im strikten Modus: 0 Konturen, 148529 unbekannte Records;
-keine Freigabe/kein STL. Nicht durch geratene Anfangszustände umgehen.
-Nächster Schritt: unbekannte Semantik/Koordinatenbasis anhand der Quellen klären,
-dann echte Layerkonturen aus dem normalisierten Bewegungsmodell
+Rose-Felddatei: strikt 0 Konturen/148529 unbekannte Records; mit explizitem
+`--klipper-passive` nur START_PRINT (Zeile 95) unbekannt, aber weiter 0 Konturen.
+45285 nichtplanare Extrusionsbewegungen werden erkannt; 4 Bewegungen haben
+noch unbekannte Koordinaten. 12 Integrationstests inklusive Rose bestanden.
+Kein geratenes START_PRINT-Endergebnis: Modus/Position erholen sich nur durch
+nachfolgende Dateibefehle. Parseroptionen stehen im Bericht.
+Nächster Schritt: offene/nichtplanare Bahnen und Nahtlücken analysieren, bevor
+sie zu Modellkonturen rekonstruiert werden; nicht einfach Z runden oder
+Endpunkte zusammenschieben. Danach physische Linienbreiten/Objekte
 mit belegter Zuordnung/physischer Linienbreite verbinden. Der aktuelle Loft
 nimmt explizite Transformationen an, keine beliebigen Layerloops;
 Lochanzahl/-topologie darf nicht still geändert werden.

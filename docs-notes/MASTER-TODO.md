@@ -409,3 +409,13 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       und 148529 unbekannte Records. Gründe/Modalzustände belegen; nicht mit
       pauschalen Annahmen freischalten. Linienbreitenkorrektur und Zuordnung
       von Modell/Hilfsgeometrie weiterhin offen.
+
+- [x] **I1 Rose-Parserdiagnose:** optionales, im Bericht ausgewiesenes
+      `--klipper-passive` nutzt den bestehenden Shadow-Klipper-Modus.
+      Unbekannte Records 148529 → 1 (START_PRINT); 45285 nichtplanare
+      Extrusionsbewegungen, weiterhin 0 exakte Konturen. Keine Startzustände
+      geraten. Feed-only/identische Positionsbefehle trennen Ketten nicht mehr.
+      12 Integrationstests inklusive unveränderter Rose-Datei bestanden.
+      Commit-Betreff `fix: diagnose Klipper contour state and preserve feed-only continuity`.
+- [ ] **I1 nichtplanare/offene Pfade:** für Rose belegte Strategie entwickeln;
+      keine stillschweigende Z-Quantisierung oder Nahtschließung.

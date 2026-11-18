@@ -12,12 +12,12 @@ SQUARE='G1 X10 Y0 E1\nG1 X10 Y10 E1\nG1 X0 Y10 E1\nG1 X0 Y0 E1\n'
 
 
 class IntegrationTests(unittest.TestCase):
-    def run_source(self,text):
+    def run_source(self,text, **options):
         with tempfile.TemporaryDirectory() as tmp:
             path=Path(tmp)/'input.gcode'
             path.write_text(text)
             before=hashlib.sha256(path.read_bytes()).digest()
-            result=gc.collect_contours(path)
+            result=gc.collect_contours(path, **options)
             self.assertEqual(hashlib.sha256(path.read_bytes()).digest(),before)
             self.assertEqual([p.name for p in Path(tmp).iterdir()],['input.gcode'])
         self.assertFalse(result['export_ready'])
@@ -64,6 +64,49 @@ class IntegrationTests(unittest.TestCase):
         with patch.object(gc,'MAX_LINE',10):
             result=self.run_source(HEADER+SQUARE)
             self.assertFalse(result['complete_scan'])
+
+    def test_klipper_mode_recovers_only_from_explicit_declarations(self):
+        text=('START_PRINT T_EXTRUDER=225 T_BED=60\nG90\nG21\nM83\n'
+              'SET_PRESSURE_ADVANCE ADVANCE=.2\nG92 E0\nG0 Z.2\n'
+              'EXCLUDE_OBJECT_START NAME=part\nG0 X0 Y0\n'+SQUARE)
+        self.assertEqual(self.run_source(text)['loops'],[])
+        result=self.run_source(text,klipper_passive=True)
+        self.assertEqual(len(result['loops']),1)
+        self.assertEqual(result['diagnostics']['unknown_records'],1)  # START_PRINT
+        self.assertTrue(result['parser_options']['klipper_passive'])
+
+    def test_klipper_mode_does_not_guess_missing_units_or_macros(self):
+        for text in (HEADER.replace('G21\n','')+SQUARE,
+                     HEADER+'MYSTERY_MACRO\n'+SQUARE):
+            self.assertEqual(self.run_source(text,klipper_passive=True)['loops'],[])
+
+    def test_passive_mode_remains_opt_in(self):
+        result=self.run_source(HEADER+SQUARE)
+        self.assertFalse(result['parser_options']['klipper_passive'])
+
+    def test_feed_only_move_keeps_path_but_retraction_breaks_it(self):
+        for inserted,expected in [('G1 F1500',1),('G1 X10 Y0',1),('G1 E-.5',0)]:
+            text=HEADER+SQUARE.replace('G1 X10 Y10',inserted+'\nG1 X10 Y10')
+            self.assertEqual(len(self.run_source(text)['loops']),expected)
+
+    def test_real_rose_passive_profile_keeps_unknown_start_macro(self):
+        import gzip
+        import shutil
+        fixture=Path(__file__).resolve().parents[1]/'testfixtures/rose_215c_pla.gcode.gz'
+        before=hashlib.sha256(fixture.read_bytes()).digest()
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'rose.gcode'
+            with gzip.open(fixture,'rb') as src,path.open('wb') as dst:
+                shutil.copyfileobj(src,dst)
+            original=hashlib.sha256(path.read_bytes()).digest()
+            result=gc.collect_contours(path,klipper_passive=True)
+            self.assertEqual(hashlib.sha256(path.read_bytes()).digest(),original)
+        self.assertEqual(hashlib.sha256(fixture.read_bytes()).digest(),before)
+        self.assertTrue(result['complete_scan'])
+        self.assertEqual(result['diagnostics']['unknown_records'],1)
+        self.assertEqual(result['unknown_examples'][0]['line'],95)
+        self.assertGreater(result['diagnostics']['nonplanar_extrusion'],0)
+        self.assertFalse(result['export_ready'])
 
     def test_bowtie_closed_but_invalid(self):
         result=self.run_source(HEADER+'G1 X10 Y10 E1\nG1 X0 Y10 E1\nG1 X10 Y0 E1\nG1 X0 Y0 E1\n')

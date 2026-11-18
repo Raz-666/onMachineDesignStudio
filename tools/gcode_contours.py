@@ -18,8 +18,9 @@ MAX_LINE = 1024 * 1024
 MAX_LINES = 2000000
 
 
-def collect_contours(path):
-    state = Shadow()  # explicit modes/units/positions required; no passive guesses
+def collect_contours(path, *, klipper_passive=False):
+    # Reuse the existing explicit dialect capability; never assume initial state.
+    state = Shadow(klipper_passive=klipper_passive)
     loops, issues = [], Counter()
     unknown_examples = []
     chain = []
@@ -72,6 +73,9 @@ def collect_contours(path):
                 flush()
                 issues['nonfinite_motion'] += 1
                 continue
+            if de == 0 and start == end:
+                # Feed-only and duplicate-position moves do not break a path.
+                continue
             if de <= 0 or start[:2] == end[:2]:
                 flush()
                 continue
@@ -111,17 +115,20 @@ def collect_contours(path):
     flush()
     return dict(schema='r2-contour-candidates/1', source=str(path),
                 complete_scan=not truncated, export_ready=False,
+                parser_options=state.options_summary(),
                 loops=loops, diagnostics=dict(issues), unknown_examples=unknown_examples,
                 limitations=['centreline only; physical width/offset missing',
                              'closed loops may be skirt, support, infill or walls',
                              'exact closure only; no seam snapping',
                              'no object/hole/layer correspondence inferred',
                              'coordinates are shadow command frame, not verified machine geometry',
-                             'strict shadow state; no macro execution or assumptions'])
+                             'no macro execution; optional Klipper passive semantics explicitly recorded'])
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('gcode', help='uncompressed G-code; input is read-only')
+    parser.add_argument('--klipper-passive', action='store_true',
+                        help='opt in to the shadow parser Klipper non-motion command model; no initial-state guesses')
     args = parser.parse_args()
-    print(json.dumps(collect_contours(args.gcode),indent=2,ensure_ascii=True))
+    print(json.dumps(collect_contours(args.gcode, klipper_passive=args.klipper_passive),indent=2,ensure_ascii=True))
