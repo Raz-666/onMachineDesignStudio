@@ -273,5 +273,238 @@ class CliTests(unittest.TestCase):
             self.assertTrue(report['errors'])
 
 
+
+
+class MenuRegistryTests(unittest.TestCase):
+    """Registry-Vollstaendigkeit aus web/menu_structure.json (Quelle der
+    Wahrheit, exportiert von menu_json_export.py) + Drift-Waechter."""
+
+    def test_menu_file_is_present_and_exported(self):
+        data = toolchain.load_menu_data()
+        self.assertTrue(data['generator'].startswith('menu_json_export'),
+                        data['generator'])
+        mods = toolchain._find_node(
+            data['tree'], '__main __preprint __mods')
+        self.assertIsNotNone(mods)
+
+    def test_build_registry_finds_all_mods_tools(self):
+        registry = toolchain.build_registry(toolchain.load_menu_data())
+        self.assertEqual(sorted(registry),
+                         ['cake', 'mirror', 'offset', 'plot', 'range',
+                          'scale', 'texture', 'twist'])
+        self.assertEqual(registry['cake']['outputs'], 2)   # H3: PART=BOTH
+        for name in ('range', 'scale', 'texture', 'twist', 'mirror', 'plot'):
+            self.assertEqual(registry[name]['outputs'], 1)
+
+    def test_menu_derived_ranges_match_the_lcd(self):
+        registry = toolchain.build_registry(toolchain.load_menu_data())
+        self.assertEqual(registry['twist']['params']['twist_deg'],
+                         {'type': 'int', 'required': False,
+                          'min': -720, 'max': 720, 'step': 5})
+        self.assertEqual(registry['scale']['params']['scale_x']['min'], 25)
+        self.assertEqual(registry['scale']['params']['scale_x']['max'], 300)
+        self.assertEqual(registry['range']['params']['range_floor']['max'], 10)
+        # Dynamische Menue-Grenze (total_layers): keine statische Pruefung.
+        start = registry['range']['params']['range_start']
+        self.assertEqual(start['min'], 2)
+        self.assertNotIn('max', start)
+        self.assertIn('note', start)
+
+    def test_anchor_registry_has_no_drift_against_menu(self):
+        """CI-Waechter: aendert jemand die LCD-Bereiche, schlaegt das an."""
+        drift = toolchain.registry_drift()
+        self.assertEqual(drift, [], '\n'.join(drift))
+
+    def test_drift_detector_actually_detects_tampering(self):
+        tampered = {tool: dict(spec) for tool, spec
+                    in toolchain.TOOL_REGISTRY.items()}
+        tampered['scale'] = dict(tampered['scale'])
+        tampered['scale']['params'] = dict(tampered['scale']['params'])
+        tampered['scale']['params']['x'] = dict(
+            tampered['scale']['params']['x'], min=10)
+        drift = toolchain.registry_drift(registry=tampered)
+        self.assertTrue(any('scale.x' in d for d in drift), drift)
+
+    def test_menu_registry_validates_twist_preset(self):
+        registry = toolchain.build_registry(toolchain.load_menu_data())
+        preset = {'schema': toolchain.SCHEMA, 'name': 'Verdrillt',
+                  'steps': [{'tool': 'twist',
+                             'params': {'twist_deg': 90}}]}
+        ok, errors = toolchain.validate_preset(preset, registry=registry)
+        self.assertTrue(ok, errors)
+        preset['steps'][0]['params']['twist_deg'] = 800
+        ok, errors = toolchain.validate_preset(preset, registry=registry)
+        self.assertFalse(ok)
+        self.assertTrue(any('ueber Maximum 720' in e for e in errors), errors)
+
+    def test_cake_is_rejected_in_chains_via_menu_registry(self):
+        registry = toolchain.build_registry(toolchain.load_menu_data())
+        preset = {'schema': toolchain.SCHEMA, 'name': 'Mit Cake',
+                  'steps': [{'tool': 'cake',
+                             'params': {'cake_pitch': 15.0}}]}
+        ok, errors = toolchain.validate_preset(preset, registry=registry)
+        self.assertFalse(ok)
+        self.assertTrue(any('mehrere Ausgaben' in e for e in errors), errors)
+
+    def test_corrected_anchor_bounds_follow_the_menu(self):
+        """Anker wurden an die Menue-Wahrheit angeglichen (frueher falsch:
+        seed 0..999999, floor 0..50, start ab 1)."""
+        tex = toolchain.TOOL_REGISTRY['texture']['params']['seed']
+        self.assertEqual((tex['min'], tex['max']), (1, 999))
+        rng = toolchain.TOOL_REGISTRY['range']['params']
+        self.assertEqual(rng['floor']['max'], 10)
+        self.assertEqual(rng['start']['min'], 2)
+        ok, _ = toolchain.validate_preset(preset_range_texture())
+        self.assertTrue(ok)
+
+
+def _append_runner(tag):
+    def runner(step, in_path, out_path):
+        with open(in_path, 'r', encoding='utf-8') as handle:
+            text = handle.read()
+        with open(out_path, 'w', encoding='utf-8') as handle:
+            handle.write(text + tag)
+    return runner
+
+
+class ExecutorTests(unittest.TestCase):
+    """run_chain: §22-Gates — Validierung je Stufe, Temp-Loeschung erst
+    nach Uebernahme, Zustaende, Ausgabemodi, kein Ueberschreiben."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.base = self._tmp.name
+        self.input_path = os.path.join(self.base, 'original.gcode')
+        with open(self.input_path, 'w', encoding='utf-8') as handle:
+            handle.write('G28\n')
+        chain = preset_range_texture()
+        chain['steps'].insert(1, {'tool': 'scale',
+                                  'params': {'x': 120, 'y': 120}})
+        self.plan, errors = toolchain.plan_chain(chain, 'original.gcode')
+        self.assertEqual(errors, [])
+        self.workspace = os.path.join(self.base, 'Toolchain')
+
+    def test_happy_path_deletes_temps_after_takeover_only(self):
+        report = toolchain.run_chain(self.plan, self.workspace,
+                                     self.input_path,
+                                     _append_runner('|R|'))
+        self.assertTrue(report['ok'], report)
+        self.assertEqual(report['state'], 'success')
+        self.assertEqual([r['state'] for r in report['steps']],
+                         ['success', 'success', 'success'])
+        # V01 + V02 waren temporaer und sind nach Uebernahme geloescht;
+        # die Endausgabe V03 bleibt.
+        self.assertEqual(len(report['temp_deleted']), 2)
+        for gone in report['temp_deleted']:
+            self.assertFalse(os.path.exists(gone))
+        final = report['final_output']
+        self.assertTrue(os.path.isfile(final))
+        with open(final, 'r', encoding='utf-8') as handle:
+            self.assertEqual(handle.read(), 'G28\n|R||R||R|')
+
+    def test_cancellation_keeps_untaken_temp(self):
+        """§22.4-Orakel: Abbruch nach Stufe 2 — V01 ist geloescht (von
+        Stufe 2 uebernommen), V02 bleibt (nie uebernommen)."""
+        report = toolchain.run_chain(
+            self.plan, self.workspace, self.input_path, _append_runner('|R|'),
+            cancel_check=lambda idx: idx == 3)
+        self.assertFalse(report['ok'])
+        self.assertEqual(report['state'], 'cancelled')
+        self.assertEqual([r['state'] for r in report['steps']],
+                         ['success', 'success', 'queued'])
+        v01 = os.path.join(self.workspace, 'V01_original.gcode')
+        v02 = os.path.join(self.workspace, 'V02_original.gcode')
+        self.assertFalse(os.path.exists(v01))
+        self.assertTrue(os.path.exists(v02))
+
+    def test_failure_keeps_temp_and_skips_rest(self):
+        def failing_second(step, in_path, out_path):
+            if step['job'] == 2:
+                raise RuntimeError('Synthese gescheitert')
+            _append_runner('|R|')(step, in_path, out_path)
+        report = toolchain.run_chain(self.plan, self.workspace,
+                                     self.input_path, failing_second)
+        self.assertFalse(report['ok'])
+        self.assertEqual(report['state'], 'failed')
+        self.assertEqual([r['state'] for r in report['steps']],
+                         ['success', 'failed', 'queued'])
+        self.assertIn('Synthese gescheitert', report['error'])
+        # Nachvollziehbarkeit: Stufe-1-Zwischenstand bleibt liegen.
+        v01 = os.path.join(self.workspace, 'V01_original.gcode')
+        self.assertTrue(os.path.exists(v01))
+        self.assertEqual(report['temp_deleted'], [])
+
+    def test_empty_output_fails_validation(self):
+        def empty_second(step, in_path, out_path):
+            if step['job'] == 2:
+                open(out_path, 'w').close()
+                return
+            _append_runner('|R|')(step, in_path, out_path)
+        report = toolchain.run_chain(self.plan, self.workspace,
+                                     self.input_path, empty_second)
+        self.assertFalse(report['ok'])
+        self.assertIn('leer', report['error'])
+        self.assertEqual(report['steps'][1]['state'], 'failed')
+
+    def test_existing_final_output_refuses_to_run(self):
+        os.makedirs(self.workspace, exist_ok=True)
+        final = os.path.join(self.workspace, 'V03_original.gcode')
+        with open(final, 'w', encoding='utf-8') as handle:
+            handle.write('alt')
+        report = toolchain.run_chain(self.plan, self.workspace,
+                                     self.input_path, _append_runner('|X|'))
+        self.assertFalse(report['ok'])
+        self.assertIn('nichts wird ueberschrieben', report['error'])
+        self.assertEqual([r['state'] for r in report['steps']],
+                         ['queued', 'queued', 'queued'])
+        with open(final, 'r', encoding='utf-8') as handle:
+            self.assertEqual(handle.read(), 'alt')
+
+    def test_missing_input_fails_before_any_step(self):
+        report = toolchain.run_chain(
+            self.plan, self.workspace,
+            os.path.join(self.base, 'gibt_es_nicht.gcode'),
+            _append_runner('|R|'))
+        self.assertFalse(report['ok'])
+        self.assertIn('Eingabedatei unbrauchbar', report['error'])
+        self.assertEqual([r['state'] for r in report['steps']],
+                         ['queued', 'queued', 'queued'])
+
+    def test_output_mode_save_calls_no_hook(self):
+        calls = []
+        report = toolchain.run_chain(self.plan, self.workspace,
+                                     self.input_path, _append_runner('|R|'),
+                                     output_mode='save',
+                                     on_output=lambda m, p: calls.append((m, p)))
+        self.assertTrue(report['ok'])
+        self.assertEqual(calls, [])
+
+    def test_output_mode_queue_registers_final(self):
+        calls = []
+        report = toolchain.run_chain(self.plan, self.workspace,
+                                     self.input_path, _append_runner('|R|'),
+                                     output_mode='queue',
+                                     on_output=lambda m, p: calls.append((m, p)))
+        self.assertTrue(report['ok'], report)
+        self.assertEqual(calls, [('queue', report['final_output'])])
+
+    def test_output_mode_preview_without_hook_fails_registration(self):
+        """§22.1: nicht korrekt registriert == nicht erfolgreich."""
+        report = toolchain.run_chain(self.plan, self.workspace,
+                                     self.input_path, _append_runner('|R|'),
+                                     output_mode='preview', on_output=None)
+        self.assertFalse(report['ok'])
+        self.assertIn('on_output-Hook', report['error'])
+
+    def test_bad_plan_and_mode_are_rejected_upfront(self):
+        with self.assertRaises(ValueError):
+            toolchain.run_chain({'schema': 'kein-plan'}, self.workspace,
+                                self.input_path, _append_runner('|R|'))
+        with self.assertRaises(ValueError):
+            toolchain.run_chain(self.plan, self.workspace, self.input_path,
+                                _append_runner('|R|'), output_mode='drucken')
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

@@ -773,12 +773,26 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       Multi-Output-Werkzeuge (Cake) bewusst abgelehnt statt Semantik zu
       erfinden. 21 Orakel-Tests (`tools/test_toolchain.py`). Kein
       Ausführer, kein Queue-/Watcher-/LCD-Anschluss — experimentell.
-- [ ] **K2 — Phase 2 Ausführungs-Engine:** Registry-Vollständigung aus
-      Menü-Daten (`menu_json_export.py` als Quelle der Wahrheit), Ketten-
-      Abarbeitung als abhängige Jobs in der BESTEHENDEN Queue (Validierungs-
-      Gate je Stufe, Temp-Löschung erst nach Übernahme, Fehler bleiben
-      nachvollziehbar, §22.4), Ausgabemodus-Schalter für die Gesamtkette
-      (§21), eigene Testbatterie + Gates.
+- [x] **K2a — Registry aus Menü-Daten + Ausführungs-Engine (offline):**
+      `build_registry()` leitet alle 8 Mods-Werkzeuge aus web/menu_
+      structure.json ab (LCD-Bereiche + SAVE_VARIABLE-Namen — Quelle der
+      Wahrheit); `registry_drift()` sichert die Anker-Registry dagegen ab
+      (CI-Test schlägt bei LCD-Änderungen an). Anker an Menü-Wahrheit
+      korrigiert (seed 1..999, floor/top/brim 0..10, start ab 2; start/end-
+      Maximum dynamisch → Fallback 9999 dokumentiert). `run_chain()` setzt
+      die §21/§22-Gates physisch durch: Validierung je Stufe (§22.1:
+      existiert/lesbar/nicht leer), Temp-Löschung ERST nach Übernahme
+      (§22.4-Orakel: Abbruch lässt unübernommene Zwischenstände liegen),
+      Zustände queued/running/success/failed/cancelled, Ausgabemodi save/
+      preview/queue mit Registrierungs-Hook (Hook-Fehler = FAILED), kein
+      Überschreiben, Eingabeprüfung vor Start. 18 neue Tests, 39 gesamt.
+      Commit `feat: derive toolchain registry from menus and enforce chain
+      gates`.
+- [ ] **K2b — System-Anbindung:** echte Werkzeuge als step_runner
+      (make_range & Co.), Toolchain-Start über den bestehenden Weg (Makro →
+      SAVE_VARIABLE → Watcher → `_spawn_job`, EIN Queue-Eintrag pro Kette),
+      Ausgabemodus-Schalter, Makro-/LCD-Anbindung mit macro_render/r81-
+      Gates.
 - [ ] **K3 — Phase 3 Bedienoberfläche:** LCD `Pre-Print > Toolchain`
       (Preset wählen, auf ausgewählte Datei anwenden, Fortschritt je
       Stufe), Web-LCD-Spiegel automatisch, Preset-Verwaltung

@@ -319,18 +319,19 @@ ALLE Paare (6244/12564/22321) liegen NUR auf dokumentierten Übergangs-
 ebenen — null echte Wanddurchdringungen; audit-Volumen == Konstruktions-
 volumen (float32). Beweis-STLs: analyse/stl-exports/ (+MANIFEST.json).
 8 neue Tests, 172 gesamt lokal bestanden.
-Nächster Schritt (Sitzung nach `fecf500`): STL-§24-Fertigstellung bleibt
-ZURÜCKGESTELLT (J1, Richtung „Punktfolke + Haut"). **Toolchain §20 („Effektkette")
-begonnen — K1 erledigt**: `analyse/TOOLCHAIN-KONZEPT.md` (Ist-Stand belegt,
-Phasen 2–4) + `tools/toolchain.py`/`test_toolchain.py` (Preset-Vertrag
-r2-toolchain/1, Registry range/scale/texture quellenbelegt, §20.2 erzwungen,
-reiner Plan mit temp-/Gate-Markierung, 21 Tests; KEIN Ausführer/Queue-Anschluss —
-experimentell). Nächste Kandidaten: K2 Ausführungs-Engine, J7 Maschinenmodell-
-Kompatibilitäts-Audit (§12), J2 Gießformen (Zuweisung/Details ausstehend:
-Multi-Part 2/3/4 + Negativform), J6 KI-3D/Sprachsteuerung (Vision, für später,
-Ideen einstreuen), J3 UI (navi.json VERIFIZIERT — Sidebar-Menüpunkt in Mainsail
-offiziell möglich), J4 Audio (Pi-Klinke/GPIO-Piezo vs. Ist-Guard). Entschei-
-dungsanfragen OFFENE-FRAGEN 15–18.
+Stand (Sitzung nach `a7f20be`): STL-§24-Fertigstellung bleibt ZURÜCKGESTELLT
+(J1, Richtung „Punktfolke + Haut"). **Toolchain §20: K1 + K2a erledigt** —
+Preset-Vertrag UND Ausführungs-Engine: `tools/toolchain.py` (39 Tests) mit
+`build_registry()` aus web/menu_structure.json (8 Mods-Werkzeuge, LCD-Bereiche,
+SAVE_VARIABLE-Namen), `registry_drift()`-CI-Wächter gegen stille Menü-
+Änderungen, Ankern an Menü-Wahrheit korrigiert, `run_chain()` mit §21/§22-
+Gates (Validierung je Stufe, Temp-Löschung erst nach Übernahme — §22.4-
+Orakeltest, Zustandsmodell, Ausgabemodi mit Registrierungspflicht, kein
+Überschreiben). Phase 2b (echte step_runner + Watcher/Makro-Anbindung) offen.
+Nächste Kandidaten: K2b, J7 Maschinenmodell-Kompatibilitäts-Audit (§12),
+J2 Gießformen (Zuweisung ausstehend: Multi-Part 2/3/4 + Negativform),
+J6 KI-3D/Sprachsteuerung (Vision, für später, Ideen einstreuen), J3 UI
+(navi.json verifiziert), J4 Audio. OFFENE-FRAGEN 15–18.
 Der Loft ist keine allgemeine Spiralrekonstruktion; aktiver Export unverändert.
 
 ## Historie

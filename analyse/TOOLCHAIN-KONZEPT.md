@@ -1,10 +1,16 @@
 # Toolchain-Architektur (Gesamtbriefing §20/§22) — Konzept und Phasenplan
 
-**Status:** Phase 1 umgesetzt (`tools/toolchain.py` + `tools/test_toolchain.py`,
-21 Tests). Dieses Dokument ist der vom Gesamtbriefing §20.5 geforderte
-Architektur- und Phasenvorschlag — belegt gegen Code, nicht gegen Doku.
-Kein Werk der Phase 2–4 ist freigegeben oder umgesetzt; nichts hier greift
-in den Druckpfad ein.
+**Status:** Phase 1 + Phase 2a umgesetzt (`tools/toolchain.py` +
+`tools/test_toolchain.py`, 39 Tests). Phase 1: Preset-Vertrag. Phase 2a:
+vollständige Registry aus den MENÜ-DATEN (web/menu_structure.json — Quelle
+der Wahrheit) mit Drift-Wächter als CI-Test, korrigierte Anker an die
+Menü-Wahrheit, und die Ausführungs-Engine `run_chain` mit den §21/§22-Gates
+(Validierung je Stufe, Temp-Löschung erst nach Übernahme, Zustandsmodell,
+Ausgabemodi, kein Überschreiben). Phase 2b (Anbindung der echten System-
+Werkzeuge an Watcher/Queue/Makros) ist NICHT umgesetzt; nichts greift in
+den Druckpfad oder r2_postproc.py ein. Dieses Dokument ist der vom
+Gesamtbriefing §20.5 geforderte Architektur- und Phasenvorschlag — belegt
+gegen Code, nicht gegen Doku.
 
 ---
 
@@ -55,19 +61,56 @@ fertig behauptet, was nicht existiert.
   (Vorschlag), Zwischenstände `temp: true`, jede Folge-Stufe trägt
   `requires: validierte Ausgabe von Job N`. **Nichts wird ausgeführt, keine
   Datei geschrieben.**
-- 21 Orakel-Tests (`tools/test_toolchain.py`), komplett offline.
+- 21 Orakel-Tests Phase 1 + 18 Tests Phase 2a, komplett offline.
+
+## 3a. Phase 2a — Menü-Registry, Drift-Wächter, Ausführungs-Engine
+
+- **Zwei Sichten, eine Wahrheit:** `build_registry(menu_data)` leitet die
+  VOLLSTÄNDIGE Werkzeugliste aus `web/menu_structure.json` ab (Baum
+  `__main __preprint __mods`: range, texture, scale, cake, twist, mirror,
+  offset, plot — jeweils mit LCD-input_min/max/step und SAVE_VARIABLE-
+  Namen). Die Anker-Registry (semantische Parameternamen) wird durch
+  `registry_drift()` GEGEN die Menü-Daten gesichert: Der CI-Test
+  `test_anchor_registry_has_no_drift_against_menu` schlägt an, sobald
+  jemand die LCD-Bereiche ändert — kein zweites Pflegen, kein stilles
+  Auseinanderdriften. Dabei gefundene und korrigierte Abweichungen der
+  Phase-1-Anker: texture seed 0..999999 → **1..999**, range floor/top/
+  brim 0..50/0..50/0..20 → **0..10**, range start ab 1 → **ab 2** (alles
+  Menü-Wahrheit); range_start/-end-Maximum ist im Menü dynamisch
+  (total_layers-abhängig) → statischer Fallback 9999 mit dokumentierter
+  Aussetzung der Bereichsprüfung.
+- **Ausführungs-Engine `run_chain(plan, workspace, input_path,
+  step_runner, ...)`:** führt einen Plan mit einsetzbaren Schritt-
+  Funktionen aus und setzt die Briefing-Gates physisch durch —
+  Validierung je Stufe (Default-§22.1: existiert, lesbar, nicht leer;
+  austauschbarer Validator), Temp-Löschung des Vorgänger-Zwischenstands
+  ERST nach validierter Übernahme durch den Nachfolger (§22.4 — Orakel-
+  test: Abbruch nach Stufe 2 lässt V02 liegen, V01 ist weg), Zustände
+  queued/running/success/failed/cancelled (§22.1), Ausgabemodi save/
+  preview/queue (§21) mit Registrierungs-Hook (scheitert der Hook, ist
+  die Kette FAILED — §22.1 „korrekt registriert"), kategorisches
+  Nicht-Überschreiben existierender Endausgaben, Eingabeprüfung vor
+  Start. Bei Fehler/Abbruch bleiben Zwischenstände zur Nachvollziehbarkeit
+  liegen.
+- **Bewusst offen (Phase 2b):** die step_runner für die echten System-
+  Werkzeuge (make_range & Co. im Watcher-Verbund), Makro-/LCD-Anbindung,
+  echte Dauer-Messung je Schritt. run_chain ist die Engine — WAS sie
+  ausführt, entscheidet die Anbindung.
 
 ## 4. Phasenplan
 
 - **Phase 1 (dieser Stand):** Vertrag + Planung als experimentelles Modul.
   Kein Anschluss an Watcher/Queue/Makros.
-- **Phase 2 — Ausführungs-Engine:** Registry-Vollständigung durch Extraktion
-  aus den Menü-Daten (`tools/menu_json_export.py` ist die Quelle der Wahrheit
-  für Werkzeuge + Wertebereiche, kein zweites Pflegen). Eine Toolchain wird
-  als Folge abhängiger Jobs in der BESTEHENDEN Queue abgearbeitet: Job N+1
-  startet erst nach Validierung von Job N, Temp-Löschung erst nach Übernahme,
-  Fehler-Stufen bleiben nachvollziehbar (§22.4). Ausgabemodus-Schalter für
-  die Gesamtkette (§21). Eigene Testbatterie + Gates.
+- **Phase 2a (erledigt):** Registry aus Menü-Daten + Drift-Wächter +
+  Ausführungs-Engine `run_chain` mit §21/§22-Gates (siehe 3a).
+- **Phase 2b — System-Anbindung:** die echten Werkzeuge als step_runner
+  (make_range, Scale-, Texture-, Twist-, Mirror-Engine aus r2_postproc);
+  Toolchain-Start über den bestehenden Weg (Makro → SAVE_VARIABLE →
+  Watcher → `_spawn_job` — EIN Queue-Eintrag pro Kette, da die Queue ohnehin
+  single-worker ist); Job N+1 startet erst nach Validierung von Job N,
+  Temp-Löschung erst nach Übernahme, Fehler-Stufen bleiben nachvollziehbar
+  (§22.4); Ausgabemodus-Schalter für die Gesamtkette (§21). Eigene
+  Testbatterie + Gates (macro_render, r81-Re-Freeze bei Makro-Änderungen).
 - **Phase 3 — Bedienoberfläche:** LCD `Pre-Print > Toolchain` (Preset wählen,
   auf ausgewählte Datei anwenden, Fortschritt je Stufe); das Web-LCD spiegelt
   automatisch (Menü-JSON-Spiegel, gleiche Makros — kein zweites Frontend).
