@@ -1,3 +1,30 @@
+# Fortschreibung: Ebenenstapel mit identischen Outlines
+
+`contour_preview.py::stacked_prism_preview` (Berichtauswahl über
+`stacked_preview_from_report`) stapelt mehrere Schichtgruppen zu EINEM Prisma
+über die Gesamthöhe, wenn: jede Schicht dieselbe Anzahl Ringgruppen mit exakt
+identischen Offsets hat, die Höhenbänder positiv, endlich und lückenlos
+aufeinanderstapelt sind (Oberkante i == Unterkante i+1), die Quell-Ebenen
+streng steigen und durchgängig dasselbe Tool aktiv ist. Höhenbänder sind
+explizite Aufruferangaben (erste Schicht bei Düsen-Z 0,2 heißt nicht automatisch
+Band [0, 0,2]) — nichts wird aus dem G-Code geschlossen. Die Ergebnis-STL hat
+eine geschlossene Schale pro Insel über die Gesamtfläche, keine inneren
+Deckflächen und keine Schalensuppe; der Prüfer muss Komponentenzahl,
+Gesamtvolumen und fehlerfreie Topologie bestätigen.
+
+Grenzen: Unterschiedliche Outlines zwischen Schichten (Verjüngung, Überhänge,
+neue Inseln) werden abgelehnt — dafür fehlt eine echte Vereinigungs-/Stitching-
+Engine. Es gibt bewusst noch keine CLI-Stapelsyntax.
+
+5 neue Tests: zwei identische Schichten (0,4·(108,16−12,96) mm³, 1 Komponente,
+Provenienz beider Schichten), Zwei-Insel-Stapel (2 Komponenten), abweichende
+Outlines abgelehnt, Band-/Ebenen-/Tool- und Auswahlvalidierung (Lücke,
+Überlappung, Nullhöhe, falsche Reihenfolge, doppelte Indizes, unvollständiger
+Bericht), Quelldatei unverändert. Zusammen 92 Tests lokal bestanden; CI ergänzt.
+Aktiver Exporter unverändert; kein Release, kein Slicer-Reimport.
+
+---
+
 # Fortschreibung: Mehrfachinseln in der Prismavorschau
 
 `contour_preview.py::prism_set_preview` und das CLI-Flag `--group OUTER[:HOLE,...]`

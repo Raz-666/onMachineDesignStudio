@@ -197,7 +197,13 @@ mehrere getrennte, paarweise boundingbox-disjunkte Schalen in eine STL;
 Komponentenzahl muss Gruppenzahl entsprechen. Innerhalb einer Gruppe gelten
 gemeinsamer Objektmarker, Ebene und Tool; zwischen Gruppen dürfen Objektnamen
 abweichen (Mehrobjektdruck, wird protokolliert). 7 neue Tests, 87 gesamt.
-Nächster Schritt: reale Breiten-/Höhenherkunft, Ebenenstapel; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
+Ebenenstapel ergänzt: `stacked_prism_preview`/`stacked_preview_from_report`
+verbinden Schichten mit EXAKT identischen Outlines über lückenlos vorgegebene
+Höhenbänder zu einem Prisma über Gesamthöhe (eine Schale pro Insel).
+Abweichende Outlines, Lücken/Überlappung, nicht steigende Ebenen, Toolwechsel
+werden abgelehnt; Provenienz jeder Schicht bleibt erhalten. 5 neue Tests,
+92 gesamt lokal bestanden. Kein CLI für Stapel, keine Flächenvereinigung.
+Nächster Schritt: reale Breiten-/Höhenherkunft, Outline-Übergänge; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
 Der Loft ist keine allgemeine Spiralrekonstruktion; aktiver Export unverändert.
 
 ## Historie

@@ -3,7 +3,8 @@
 NOT the active exporter: selected planar simple centreline rings are extruded
 through caller-supplied Z bounds. Neither object height nor hole membership is
 inferred from G-code. No file is modified; this API returns bytes and provenance.
-Multiple disjoint ring groups (islands) become separate closed shells.
+Multiple disjoint ring groups (islands) become separate closed shells; identical
+outlines over contiguous caller-supplied bands stack into one prism.
 """
 import math
 from pathlib import Path
@@ -13,10 +14,11 @@ from physical_contours import offset_simple_centerline
 from contour_mesh import prism_mesh, binary_stl, MAX_TRIANGLES
 from stl_audit import inspect_stl
 
-LIMITATIONS=['height and outer/hole selection supplied by caller, not recovered',
+LIMITATIONS=['height, hole membership and layer bands supplied by caller, not recovered',
              'constant width, topology-preserving simple rings and miter corners only',
              'feature/object markers not geometrically verified',
              'islands must be separated by disjoint XY bounding boxes',
+             'stacking requires identical outlines; differing layer topology needs boolean stitching',
              'no original CAD recovery or independent slicer acceptance']
 
 
@@ -45,13 +47,8 @@ def _prepared(proposal, *, width_mm, role):
                             added_edge_mm=proposal.get('added_edge_mm')))
 
 
-def prism_set_preview(groups, *, width_mm, z_bottom, z_top):
-    """Return (binary_stl_bytes, report) for one or more disjoint ring groups.
-
-    groups: iterable of (outer_proposal, hole_proposals_sequence). All rings
-    must share plane and tool; object markers may differ between groups.
-    Islands are only accepted with pairwise disjoint XY bounding boxes.
-    """
+def _prepare_groups(groups, *, width_mm):
+    """Validate ring groups of one layer; returns (prepared, plane, tool)."""
     groups=[(outer,list(holes)) for outer,holes in groups]
     if not groups:
         raise ValueError('at least one ring group required')
@@ -69,25 +66,33 @@ def prism_set_preview(groups, *, width_mm, z_bottom, z_top):
             if ring['name'] != name:
                 raise ValueError('rings of one group must share their object marker')
         prepared.append(rings)
-    triangles=[]
+    return prepared,plane,tool
+
+
+def _group_boxes(prepared):
     boxes=[]
-    summaries=[]
     for rings in prepared:
-        mesh=prism_mesh(rings[0]['offset']['points_mm'],z_bottom,z_top,
-                        holes=[ring['offset']['points_mm'] for ring in rings[1:]])
-        triangles+=mesh
         points=rings[0]['offset']['points_mm']
         boxes.append((min(p[0] for p in points),min(p[1] for p in points),
                       max(p[0] for p in points),max(p[1] for p in points)))
+    for i,(ax0,ay0,ax1,ay1) in enumerate(boxes):
+        for bx0,by0,bx1,by1 in boxes[i+1:]:
+            if not (ax1<bx0 or bx1<ax0 or ay1<by0 or by1<ay0):
+                raise ValueError('ring groups overlap in XY bounding boxes')
+    return boxes
+
+
+def _audit_prisms(prepared, z_bottom, z_top, *, expected_components):
+    triangles=[]
+    summaries=[]
+    for rings in prepared:
+        triangles+=prism_mesh(rings[0]['offset']['points_mm'],z_bottom,z_top,
+                              holes=[ring['offset']['points_mm'] for ring in rings[1:]])
         summaries.append(dict(object_name=rings[0]['name'],tool=rings[0]['tool'],
                               sources=[ring['source'] for ring in rings],
                               offsets=[ring['offset'] for ring in rings]))
     if len(triangles) > MAX_TRIANGLES:
         raise ValueError('combined triangle budget exceeded')
-    for i,(ax0,ay0,ax1,ay1) in enumerate(boxes):
-        for bx0,by0,bx1,by1 in boxes[i+1:]:
-            if not (ax1<bx0 or bx1<ax0 or ay1<by0 or by1<ay0):
-                raise ValueError('ring groups overlap in XY bounding boxes')
     data=binary_stl(triangles)
     with tempfile.TemporaryDirectory(prefix='r2-preview-check-') as directory:
         path=Path(directory)/'preview.stl'
@@ -97,13 +102,83 @@ def prism_set_preview(groups, *, width_mm, z_bottom, z_top):
                 'nonmanifold_edges','winding_errors'):
         if audit[key]:
             raise ValueError('preview failed mesh check: '+key)
-    if audit['signed_volume']<=0 or audit['vertex_connected_components']!=len(groups):
+    if audit['signed_volume']<=0 or audit['vertex_connected_components']!=expected_components:
         raise ValueError('preview must yield one positive-volume shell per group')
+    return data,summaries,audit
+
+
+def prism_set_preview(groups, *, width_mm, z_bottom, z_top):
+    """Return (binary_stl_bytes, report) for one or more disjoint ring groups.
+
+    groups: iterable of (outer_proposal, hole_proposals_sequence). All rings
+    must share plane and tool; object markers may differ between groups.
+    Islands are only accepted with pairwise disjoint XY bounding boxes.
+    """
+    prepared,plane,tool=_prepare_groups(groups,width_mm=width_mm)
+    if not (math.isfinite(z_bottom) and math.isfinite(z_top) and z_top>z_bottom):
+        raise ValueError('positive finite Z bounds required')
+    _group_boxes(prepared)
+    data,summaries,audit=_audit_prisms(prepared,z_bottom,z_top,expected_components=len(prepared))
     return data,dict(schema='r2-prism-set-preview/1',experimental=True,export_ready=False,
                      object_names=[s['object_name'] for s in summaries],tool=tool,
-                     source_plane_mm=plane,expected_components=len(groups),
+                     source_plane_mm=plane,expected_components=len(prepared),
                      explicit_parameters=dict(width_mm=width_mm,z_bottom=z_bottom,z_top=z_top),
                      groups=summaries,audit=audit,limitations=LIMITATIONS[:])
+
+
+def stacked_prism_preview(layers, *, width_mm):
+    """Stack ring groups with IDENTICAL outlines over contiguous Z bands.
+
+    layers: iterable of (z_bottom, z_top, groups). Bands must stack exactly
+    (each top equals the next bottom); outlines must match exactly between
+    layers; source planes must increase strictly. The result is one prism per
+    island over the total height, not a per-layer shell soup.
+    """
+    layers=[(zb,zt,groups) for zb,zt,groups in layers]
+    if not layers:
+        raise ValueError('at least one layer required')
+    base=None
+    plane=tool=None
+    prepared_layers=[]
+    for z_bottom,z_top,groups in layers:
+        if not (math.isfinite(z_bottom) and math.isfinite(z_top) and z_top>z_bottom):
+            raise ValueError('positive finite layer band required')
+        prepared,layer_plane,layer_tool=_prepare_groups(groups,width_mm=width_mm)
+        if plane is None:
+            plane,tool=layer_plane,layer_tool
+        else:
+            if layer_tool != tool:
+                raise ValueError('layers must share tool')
+            if not layer_plane > plane:
+                raise ValueError('layer source planes must increase strictly')
+        if base is None:
+            base=prepared
+        elif len(prepared)!=len(base) or any(
+                [ring['offset']['points_mm'] for ring in rings]!=
+                [ring['offset']['points_mm'] for ring in base_rings]
+                for rings,base_rings in zip(prepared,base)):
+            raise ValueError('layer outlines differ')
+        prepared_layers.append((z_bottom,z_top,layer_plane,prepared))
+    for (_,top_a,_,_),(bottom_b,_,_,_) in zip(prepared_layers,prepared_layers[1:]):
+        if top_a != bottom_b:
+            raise ValueError('layer bands must stack contiguously')
+    _group_boxes(base)
+    z_bottom=prepared_layers[0][0]
+    z_top=prepared_layers[-1][1]
+    data,summaries,audit=_audit_prisms(base,z_bottom,z_top,expected_components=len(base))
+    layer_reports=[dict(z_bottom=zb,z_top=zt,source_plane_mm=layer_plane,
+                        groups=[dict(object_name=rings[0]['name'],
+                                     sources=[ring['source'] for ring in rings],
+                                     offsets=[ring['offset'] for ring in rings])
+                                for rings in prepared])
+                   for zb,zt,layer_plane,prepared in prepared_layers]
+    return data,dict(schema='r2-stacked-prism-preview/1',experimental=True,export_ready=False,
+                     object_names=[s['object_name'] for s in summaries],tool=tool,
+                     source_planes_mm=[layer[2] for layer in prepared_layers],
+                     layer_count=len(prepared_layers),
+                     explicit_parameters=dict(width_mm=width_mm,z_bottom=z_bottom,z_top=z_top),
+                     layers=layer_reports,groups=summaries,audit=audit,
+                     limitations=LIMITATIONS[:])
 
 
 def prism_preview(outer, *, holes=(), width_mm, z_bottom, z_top):
@@ -128,6 +203,18 @@ def _group_indices(report):
         if any(i>=len(proposals) for i in indices):
             raise ValueError('proposal index outside retained report')
     return proposals,check
+
+
+def _layer_selection(layers):
+    selection=[]
+    for z_bottom,z_top,groups in layers:
+        chosen=[(int(outer),[int(hole) for hole in hole_list]) for outer,hole_list in groups]
+        if not chosen:
+            raise ValueError('at least one ring group required')
+        selection.append((z_bottom,z_top,chosen))
+    if not selection:
+        raise ValueError('at least one layer required')
+    return selection
 
 
 def preview_from_report(report, *, outer_index=None, hole_indices=(), groups=None,
@@ -156,6 +243,27 @@ def preview_from_report(report, *, outer_index=None, hole_indices=(), groups=Non
                                    holes=[proposals[i] for i in hole_indices],
                                    width_mm=width_mm,z_bottom=z_bottom,z_top=z_top)
         summary['selection_indices']=indices
+    summary['source']=report['source']
+    summary['parser_options']=report['parser_options']
+    return data,summary
+
+
+def stacked_preview_from_report(report, *, layers, width_mm):
+    """Select stacked layers from ONE complete collector report (file-local IDs).
+
+    layers: iterable of (z_bottom, z_top, groups) with groups as an iterable of
+    (outer_index, hole_indices). Bands and outlines follow stacked_prism_preview.
+    """
+    if report.get('schema')!='r2-contour-candidates/1' or not report.get('complete_scan'):
+        raise ValueError('complete contour-candidate report required')
+    proposals,check=_group_indices(report)
+    selection=_layer_selection(layers)
+    check([i for _,_,groups in selection for pair in groups for i in [pair[0],*pair[1]]])
+    data,summary=stacked_prism_preview([(zb,zt,[(proposals[outer],[proposals[i] for i in holes])
+                                                for outer,holes in groups])
+                                        for zb,zt,groups in selection],
+                                       width_mm=width_mm)
+    summary['selection_indices']=[(zb,zt,groups) for zb,zt,groups in selection]
     summary['source']=report['source']
     summary['parser_options']=report['parser_options']
     return data,summary

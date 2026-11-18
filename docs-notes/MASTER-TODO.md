@@ -474,3 +474,12 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       Objektmarker/Ebene/Tool; gruppenübergreifend verschiedene Objektnamen
       erlaubt und protokolliert. 7 neue Tests, 87 gesamt lokal bestanden.
       Commit-Betreff `feat: preview multiple disjoint prism islands from one report`.
+
+- [x] **I1 Ebenenstapel (identische Outlines):** `stacked_prism_preview`,
+      Schichten mit exakt gleichen Offsets über kontiguierliche Bänder zu
+      einem Prisma über die Gesamthöhe. Quellzeilen jeder Schicht bleiben im
+      Bericht. Abweichende Outlines/Lücken/Überlappungen/nicht steigende
+      Ebenen/Toolwechsel abgelehnt. 5 neue Tests, 92 gesamt lokal bestanden.
+      Commit-Betreff `feat: stack identical layer outlines into single prisms`.
+      Weiter offen: Outline-Übergänge zwischen Schichten (Bool-Operationen),
+      CLI-Stapel, reale Breiten-/Höhenherkunft.
