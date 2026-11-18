@@ -60,7 +60,7 @@ thread's reactor.
 | `tools/make_displays_pdf.py` | `DISPLAYS_WEB_UI.pdf` (11 pages) — behaviour with other displays / Mainsail / web UI. |
 | `tools/make_cakesplit_pdf.py` | `CUTSPLIT.pdf` (7 pages) — the cut & split methodology. |
 | `tools/make_generators_pdf.py` | `GENERATORS_TOOLS.pdf` (12 pages, R253) — all eleven generators plus all fourteen file tools, one block each: where in the menu, what comes out, **the real LCD rows read out of `menus/lcd_menues.cfg`** (so the page cannot drift), honest limits, one tip. |
-| `tools/make_creative_pdf.py` | `CREATIVE_POSSIBILITIES.pdf` (7 pages, R253) — the idea book: twelve recipes that COMBINE the tools (texture × light, MAP relief, litho+frame+stand, labelled texture, brick structure, string art, variations, cutting, colour, workshop parts, STL round trip, safety tools), plus wall-thickness/light tables and what the system deliberately does not do. |
+| `tools/make_creative_pdf.py` | `CREATIVE_POSSIBILITIES.pdf` (10 pages, R2-2026-11-18.2) — **On-Machine Design Studio for Creative Freedom**: twelve recipes that COMBINE the tools (texture × light, MAP relief, litho+frame+stand, labelled texture, brick structure, string art, scale/twist/mirror variations, cutting, colour, workshop parts, STL round trip, safety tools), plus Modellbau/Deko-Sets/Doppel-Durchgänge chapters, a Fehlersuche-und-Optimierung chapter (symptom → cause → tool), wall-thickness/light tables, what the system deliberately does not do — closing with the commissioned line: „kein PC, kein 3D-Programm, keine KI — nur ein Drehrad.“ |
 | `tools/r2_version.py` | **Not a builder — the version rule.** |
 | `tools/make_label_fonts.py` | Build-time helper for the embedded label fonts. Never needed on the Pi. |
 
