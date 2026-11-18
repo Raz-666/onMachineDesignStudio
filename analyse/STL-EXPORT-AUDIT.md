@@ -1,3 +1,38 @@
+# Fortschreibung: Punktretention nichtplanarer Pfade, erste echte Rose-Ringe
+
+`path_evidence.py` erhält ein opt-in `retain_nonplanar_points` (CLI
+`--retain-nonplanar-points`): pro laufendem Pfad werden höchstens 1024 Punkte
+gesammelt (Überlauf macht den Pfad retention-unfähig und wird gezählt); nach
+Ende eines nichtplanaren Pfads entscheidet eine begrenzte Politik: maximal 4
+Retentionsplätze, ein längerer fertiger Pfad verdrängt den kürzesten
+retinierten. Speicher obere Schranke 4×1024 Punkte. Planare Pfade werden nie
+retiniert; ohne Opt-in bleibt die Liste leer. Der Bericht enthält die Punkte
+mit Quellzeilen, Objektmarker, Feature-Hinweis, Tool, Segmentzahl und
+Punktzahl sowie die Retentions-Zähler.
+
+`spiral_rings.py` lockert den Höhenvertrag korrekt: flache Segmente sind
+erlaubt; die Höhe darf nie zu einem früheren Wert zurückkehren. Halb-offene
+Segmentzuordnung bleibt eindeutig.
+
+Rose (Passivmodus, Retention an): 228 nichtplanare Pfade → Retention 4,
+Verdrängungen 33, übersprungen 191. Retiniert: 599/599/602/602 Punkte
+(Zeilen 30138–30735, 34369–34967, 39269–39869, 117378–117978). Der längste
+Pfad steigt von Z 10,2 auf 10,4 und kehrt in XY auf 0,036 mm an den Start
+zurück — konsistent mit einer vollen Wandumdrehung je 0,2 mm (Pitch-Annahme
+bleibt Aufruferangabe). Erste echte Ringprobe: Pitch 0,2, 64 Proben → genau
+1 Ring mit 64 Punkten, Band [10,2; 10,396875] (der Float-Höhenspan 0,2+ε
+erzeugt einen zusätzlichen verworfenen Sample). Bei nur 32 Proben schneidet
+das grob getastete Polygon der konkaven Blütenform sich selbst und wird
+abgelehnt — Untertastung wird bewusst reparaturfrei behandelt.
+
+4 neue Tests: Retentionspolitik (längste gewinnen, planar nie, Overflow,
+opt-in), Collector-Verkabelung, Rose-Regression mit exakten Zahlen inkl.
+Ringprobe und Untertastungs-Ablehnung. Zusammen 107 Tests lokal bestanden;
+CI ergänzt. Kein Mesh aus Ringen, keine Breitenanwendung, keine Verifikation
+des Pitch gegen unabhängige Evidenz; aktiver Export unverändert.
+
+---
+
 # Fortschreibung: Ringabtastung monotoner Spiralwände
 
 Erster Baustein der angekündigten eigenen nichtplanaren Strategie:

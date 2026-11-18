@@ -504,3 +504,14 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       Weiter offen: Punktretention langer realer Spiralpfade (Rose: längster
       Pfad 602 Punkte übersteigt die 257er-Nahtretention), Breitenanwendung,
       Mesh aus nichtplanaren Ringen.
+
+- [x] **I1 nichtplanare Punktretention + Rose-Ring:** opt-in Retention
+      (max 4 längste nichtplanare Pfade, je max 1024 Punkte, Eviction der
+      kürzesten, Overflow-Zähler). spiral_rings erlaubt jetzt flache Segmente
+      (Höhe darf nie zurückkehren, muss nicht strikt steigen). Rose-Regression:
+      4 Pfade 599/599/602/602 Punkte; längster (Zeilen 39269–39869, Z 10,2→10,4,
+      XY-Schlusslücke 0,036 mm) liefert mit Pitch 0,2 und 64 Proben einen Ring
+      (Band [10,2; 10,396875]); 32 Proben werden als selbstschneidend
+      abgelehnt — Untertastung wird nicht repariert. 4 neue Tests, 107 gesamt
+      lokal bestanden. Commit-Betreff `feat: retain longest nonplanar paths and sample real rose ring`.
+      Weiter offen: Ring-zu-Mesh-Vertrag, Breitenanwendung, Pitch-Verifikation.

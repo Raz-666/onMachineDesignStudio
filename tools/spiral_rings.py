@@ -30,10 +30,10 @@ def spiral_rings(points, *, pitch_mm, samples_per_revolution):
     if any(a==b for a,b in zip(pts,pts[1:])):
         raise ValueError('duplicate consecutive points')
     zs=[p[2] for p in pts]
-    ascending=all(b>a for a,b in zip(zs,zs[1:]))
-    descending=all(b<a for a,b in zip(zs,zs[1:]))
+    ascending=all(b>=a for a,b in zip(zs,zs[1:]))
+    descending=all(b<=a for a,b in zip(zs,zs[1:]))
     if not (ascending or descending):
-        raise ValueError('path height must change strictly monotonically')
+        raise ValueError('path height must never return to an earlier value')
     span=abs(zs[-1]-zs[0])
     if span < pitch_mm:
         raise ValueError('pitch exceeds the path height span')
@@ -79,6 +79,7 @@ def spiral_rings(points, *, pitch_mm, samples_per_revolution):
                 height_span_mm=dict(min=min(zs),max=max(zs)),
                 export_ready=False,
                 limitations=['linear chord interpolation between recorded vertices, not the true curve',
+                             'flat segments allowed; heights are never revisited but not strictly rising',
                              'ring points mix heights within one pitch band',
                              'pitch equal to one full XY revolution is a caller assumption, not verified',
                              'centreline rings; bead width not applied',

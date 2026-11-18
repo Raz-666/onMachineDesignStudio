@@ -9,6 +9,9 @@ import math
 import re
 from seam_reconstruction import close_planar_seam
 from physical_contours import width_from_filament
+
+MAX_RETAINED_NONPLANAR = 4
+MAX_NONPLANAR_POINTS = 1024  # matches spiral_rings.MAX_POINTS
 from contour_mesh import MAX_VERTICES
 from contour_context import ObjectContext, feature_role
 
@@ -17,7 +20,7 @@ FEATURE = re.compile(r'^\s*(?:TYPE|FEATURE)\s*:\s*(.*?)\s*$', re.I)
 
 class PathEvidence:
     def __init__(self, *, seam_gap_mm=None, assumed_layer_height_mm=None,
-                 filament_diameter_mm=1.75):
+                 filament_diameter_mm=1.75, retain_nonplanar_points=False):
         if seam_gap_mm is not None and (not math.isfinite(seam_gap_mm) or seam_gap_mm < 0):
             raise ValueError("finite nonnegative seam budget required")
         if assumed_layer_height_mm is not None and (not math.isfinite(assumed_layer_height_mm)
@@ -32,6 +35,11 @@ class PathEvidence:
         self.width_by_role = {}
         self.width_examples = []
         self.width_counts = Counter()
+        self.retain_nonplanar_points = bool(retain_nonplanar_points)
+        self.np_points = []
+        self.np_overflow = False
+        self.np_retained = []
+        self.np_counts = Counter()
         self.seam_counts = Counter()
         self.seam_examples = []
         self.points = []
@@ -88,6 +96,26 @@ class PathEvidence:
             self.examples.append(p)
         if self.longest is None or p['segments'] > self.longest['segments']:
             self.longest = p
+        if self.retain_nonplanar_points:
+            if p['z_span_mm'] and self.np_overflow:
+                self.np_counts['point_overflow_paths'] += 1
+            elif p['z_span_mm']:
+                entry = dict(source_lines=p['source_lines'][:], object_context=p['object_context'],
+                             feature_hint=p['feature_hint'], tool=p['tool'],
+                             segments=p['segments'], point_count=len(self.np_points),
+                             points_mm=[tuple(point) for point in self.np_points])
+                if len(self.np_retained) < MAX_RETAINED_NONPLANAR:
+                    self.np_retained.append(entry)
+                    self.np_counts['retained_paths'] += 1
+                else:
+                    shortest = min(self.np_retained, key=lambda e: e['point_count'])
+                    if entry['point_count'] > shortest['point_count']:
+                        self.np_retained[self.np_retained.index(shortest)] = entry
+                        self.np_counts['evicted_shorter_paths'] += 1
+                    else:
+                        self.np_counts['skipped_shorter_paths'] += 1
+        self.np_points = []
+        self.np_overflow = False
         self.current = None
 
     def _record_plane(self, p):
@@ -194,6 +222,13 @@ class PathEvidence:
             if len(self.points) > MAX_VERTICES + 1:
                 self.point_overflow = True
                 self.points = []
+        if self.retain_nonplanar_points and not self.np_overflow:
+            if not self.np_points:
+                self.np_points.append(start)
+            self.np_points.append(end)
+            if len(self.np_points) > MAX_NONPLANAR_POINTS:
+                self.np_overflow = True
+                self.np_points = []
         p = self.current
         p['end_mm'] = end
         p['source_lines'][1] = record['line']
@@ -207,6 +242,12 @@ class PathEvidence:
 
     def report(self):
         report = dict(object_diagnostics=dict(self.objects.diagnostics), paths_by_role=dict(self.by_role),
+                    nonplanar_point_sets=self.np_retained,
+                    nonplanar_retention=dict(enabled=self.retain_nonplanar_points,
+                                             retained_limit=MAX_RETAINED_NONPLANAR,
+                                             per_path_point_limit=MAX_NONPLANAR_POINTS,
+                                             policy='keep the longest nonplanar paths; evict the shortest retained when a longer one completes',
+                                             counts=dict(self.np_counts)),
                     plane_statistics=self._plane_report(),
                     width_estimates=(None if self.assumed_layer_height_mm is None else
                                      dict(assumed_layer_height_mm=self.assumed_layer_height_mm,

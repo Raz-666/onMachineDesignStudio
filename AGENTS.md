@@ -214,7 +214,13 @@ explizitem Pitch (Höhe je Umdrehung, Aufruferangabe) und N Proben je Umdrehung
 ab; Ringe mischen Höhen innerhalb des Bandes, Sehneninterpolation, Mittellinie
 ohne Breite, nie exportfertig. Anfangs falscher Ansatz (Höhenschnitt) verworfen:
 eine monotone Spirale schneidet jede Höhe genau EINMAL. 6 neue Tests, 103 gesamt.
-Nächster Schritt: Outline-Übergänge, Punktretention für lange Spiralpfade; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
+Punktretention für nichtplanare Pfade: opt-in `--retain-nonplanar-points`
+behält maximal 4 längste Pfade mit je höchstens 1024 Punkten (Eviction der
+kürzesten). Rose: 4 Pfade (599/599/602/602 Punkte), längster Zeilen 39269–39869
+Z10,2→10,4. Erste echte Ringprobe: Pitch 0,2, 64 Proben → 1 Ring (Band bis
+10,396875), 32 Proben werden als selbstschneidend abgelehnt (Untertastung).
+Kein Breiten-/Mesh-Schritt. 4 neue Tests, 107 gesamt lokal bestanden.
+Nächster Schritt: Outline-Übergänge, Ring-zu-Mesh-Vertrag; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
 Der Loft ist keine allgemeine Spiralrekonstruktion; aktiver Export unverändert.
 
 ## Historie
