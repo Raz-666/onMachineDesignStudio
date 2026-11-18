@@ -244,7 +244,16 @@ Breite topologieerhaltend annimmt). Rose-Messung: bis 0,24 mm bestehen alle
 mit strenger Topologie hier NICHT anwendbar; 0,24 ist ausdrückliche Unter-
 Breiten-Annahme, kein Messwert. Erste Außenfläche der Rose: 384 Dreiecke,
 128 offene Randkanten, sauber. 5 neue Tests, 119 gesamt lokal bestanden.
-Nächster Schritt: ganze Wandläufe, Deckel; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
+GANZE ROSE-WAND: `wall_run.py` streamt lagekontinuierliche Wandläufe mit
+gleitendem Punktpuffer (4096) in Ringe je Pitch-Band; ungültige Ringe werden
+protokolliert, nicht repariert; Wandfläche nur ohne jede Ablehnung.
+Rose-Komplettlauf: 115 Pfade (114 steigend + 1 flacher Rand bei Z 24,0),
+62916 Punkte, 114 exakte Fügungen, 114 Ringe Z 1,2→24,0 — bei 96 Proben
+VOLLE Wand: 21696 Dreiecke, 192 offene Randkanten, 0 nichtmannigfaltig,
+1 Komponente. Bei 64 Proben werden 5 Bänder abgelehnt (66/68/78/82/83).
+5 neue Tests, 124 gesamt lokal bestanden. Offenflächen-Mittellinie: kein
+Deckel, keine Breite, kein Festkörper, Pitch unverifiziert.
+Nächster Schritt: Deckel/Boden aus planaren Schleifen, Breite ganze Wand; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
 Der Loft ist keine allgemeine Spiralrekonstruktion; aktiver Export unverändert.
 
 ## Historie

@@ -1,3 +1,40 @@
+# Fortschreibung: kompletter Rose-Wandlauf als ein Mesh
+
+`tools/wall_run.py` ersetzt Punkt-für-Punkt-Retention durch einen
+Streaming-Sampler für ganze Wandläufe: Pfade werden einzeln zugeführt
+(Höhe kehrt nie zurück, flache Segmente erlaubt, Fügungen im expliziten
+Budget), ein gleitender Punktpuffer (höchstens 4096 Punkte, Spitzenspeicher
+wird VOR dem Aufräumen geprüft) reicht für die Abtastung, und je vollem
+Pitch-Band entsteht ein Ring aus N Sehnenproben. Ungültige Ringe (kein
+einfaches XY-Polygon) werden mit Bandindex protokolliert, NICHT repariert;
+`wall_run_surface` baut nur ohne jede Ablehnung. Begrenzungen: 512 Ringe je
+Lauf, Puffer 4096, Proben 3..256.
+
+Echtes Ergebnis Rose (Objekt 0, Zeilen 13404–78198): 115 Pfade — 114
+steigende Wandumdrehungen mit exakten Positionsfügungen plus ein flacher
+Abschlussring bei Z 24,0 (trägt keine eigenen Proben bei) — zusammen 62916
+Punkte und 114 exakte Fügungen. Bei 96 Proben je Umdrehung entstehen 114
+vollständige, gültige Ringe über Z 1,2–24,0, und die WAND DER GESAMTEN VASE
+baut als EIN offenes Mesh: 21696 Dreiecke, genau 192 offene Randkanten
+(2·96, nur erster/letzter Ring), keine nichtmannigfaltigen Kanten, keine
+Duplikate, keine Normalenfehler, keine entarteten Dreiecke, eine Komponente;
+Richtungsungleichgewicht exakt an den offenen Kanten. Zum Vergleich bei nur
+64 Proben werden 5 Bänder abgelehnt (66, 68, 78, 82, 83) — Untertastung der
+konkaven Blütenform wird weiterhin reparaturfrei behandelt.
+
+Einordnung bleibt: OFFENE Mittellinienfläche — kein Deckel, kein Boden, keine
+Materialbreite, kein Festkörper, kein Selbstschnittnachweis, Pitch (0,2 mm je
+voller Umdrehung) weiterhin Aufruferannahme ohne unabhängige Verifikation,
+kein Slicer-Reimport. `export_ready=false`.
+
+5 neue Tests: synthetischer Lauf (Ringe/Fügungen/Wand), Brückenzählung,
+Ablehnungen (Budget, Rückkehr, Richtung, Puffer-, Ringbudget, Parameter),
+komplette Rose-Wand mit exakten Zahlen, Grob-Abtastungs-Ablehnung mit
+Bandindizes. Zusammen 124 Tests lokal bestanden; CI ergänzt. Aktiver Export
+unverändert; kein Release.
+
+---
+
 # Fortschreibung: explizite Breite an Spiralringen und Rose-Außenfläche
 
 Neu in `physical_contours.py`: `vertex_normal_offset(points, width_mm, role)`.

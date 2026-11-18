@@ -550,3 +550,15 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       5 neue Tests, 119 gesamt lokal bestanden. Commit-Betreff
       `feat: apply explicit bead width to spiral wall rings`.
       Weiter offen: ganze Wandläufe, Deckel/Festkörper, Selbstschnittprüfung.
+
+- [x] **I1 kompletter Rose-Wandlauf:** `wall_run.py` (Streaming-Sampler mit
+      gleitendem 4096-Punkte-Puffer, Ring je Pitch-Band, Ablehnungen
+      protokolliert, `wall_run_surface` nur ohne Ablehnung). Rose: 115 Pfade
+      (114 exakte Fügungen + flacher Abschlussring Z 24,0), 62916 Punkte,
+      114 Ringe über Z 1,2–24,0. Bei 96 Proben: vollständige offene Wand mit
+      21696 Dreiecken, 192 Randkanten, 0 nichtmannigfaltig, 1 Komponente.
+      Bei 64 Proben: 5 abgelehnte Bänder (66,68,78,82,83) — Untertastung
+      wird nicht repariert. 5 neue Tests, 124 gesamt lokal bestanden.
+      Commit-Betreff `feat: stream the complete rose vase wall into one mesh`.
+      Weiter offen: Deckel/Boden, Breite über ganze Wand, Selbstschnitt,
+      Pitch-Verifikation, Slicer-Reimport.
