@@ -586,3 +586,17 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       bestanden. Commit `feat: audit the closed rose surface for self-
       intersection`. Weiter offen: Breite/physikalische Außenfläche,
       Slicer-Reimport, zweites Objekt.
+- [x] **I3 Bead-Breite aus G-Code-Evidenz:** `bead_evidence.py` — verein-
+      helligter Kollektor (`collect_chained_run`, rose_run delegiert,
+      identische 115/62916-Kette verifiziert), Stadium-Breite je Pfad
+      (`run_width_evidence`), Volllauf-Audit beidseitig (`wall_width_audit`).
+      Rose: Wand uniform 0,6 mm (113 Pfade 0,5998–0,6001), Boden-/Randloop
+      0,322/0,321, Material 3607,43 mm³. Audit: 0,6 außen 54/114, innen
+      0/114; 0,02 lehnt bereits 3+2 Ringe ab (Ecken nahe 0,001° kollinear)
+      → keine uniforme Breite > 0 volllauffähig; alte ≤0,24-Aussage war
+      4-Ring-Fenster-Artefakt (Volllauf 86/114 bzw. 69/114). Physische
+      Schale bei Evidenzbreite mit Vertex-Normal-Offset NICHT darstellbar.
+      11 neue Tests, 154 gesamt lokal bestanden. Commit `feat: measure the
+      rose wall bead width from g-code evidence`. Weiter offen: Schalen-
+      modell (Miter mit Verschmelzung/Stadium-Sweep), Slicer-Reimport,
+      zweites Objekt.

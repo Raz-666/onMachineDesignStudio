@@ -273,7 +273,18 @@ VERSCHICKTEN float32-Dreiecke und wirft bei Durchdringung. Rose-Fläche:
 134021 adjazent übersprungen, 1,6 s) — Volumen 4810,105 mm³ ist damit
 GEMESSEN, nicht angenommen. Scope: Falten durch gemeinsame Vertices
 werden nicht klassifiziert. 15 neue Tests, 143 gesamt lokal bestanden.
-Nächster Schritt: Breite/physikalische Außenfläche; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
+Bead-Breite aus G-Code-Evidenz: `bead_evidence.py` —
+`collect_chained_run` (EIN Kollektor, rose_run delegiert), `run_width_evidence`
+(Stadium-Schätzung je Pfad), `wall_width_audit` (uniforme Breite an allen
+Ringen beidseitig, Ablehnungen sind Ergebnisse). Rose-Befund: Wand = uniform
+0,6 mm Einzelwand (113 Pfade 0,5998–0,6001; Bodenloop 0,3222, Randloop 0,3209;
+1499,79 mm Filament = 3607,43 mm³). Bei 0,6: außen 54/114 akzeptiert,
+innen 0/114 (Blütenkerben enger als der Strang). Schon bei 0,02 lehnen
+Ringe 106/109/110 (außen) und 37/88 (innen) ab → KEINE uniforme Breite > 0
+volllauffähig; „≤0,24 alle OK" war Fenster-Artefakt (Volllauf: außen 86/114,
+innen 69/114). Physische Schale braucht besseres Modell (Miter mit
+Verschmelzung/überstrichene Stadium-Fläche). 11 neue Tests, 154 gesamt.
+Nächster Schritt: Schalenmodell für Breite, Slicer-Reimport; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
 Der Loft ist keine allgemeine Spiralrekonstruktion; aktiver Export unverändert.
 
 ## Historie

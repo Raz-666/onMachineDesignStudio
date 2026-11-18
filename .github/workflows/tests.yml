@@ -65,6 +65,7 @@ jobs:
           python3 tools/test_wall_run.py
           python3 tools/test_vase_closure.py
           python3 tools/test_self_intersect.py
+          python3 tools/test_bead_evidence.py
 
       - name: Streaming simulations (watcher RSS stays flat)
         run: python3 tools/r91_simulate.py

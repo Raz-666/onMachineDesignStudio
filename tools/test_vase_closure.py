@@ -8,7 +8,6 @@ import unittest
 
 from wall_run import sample_wall_run
 from vase_closure import close_vase_surface, rim_agreement
-from r2_shadow import Shadow
 
 
 def helix_run(revolutions=5, radius=10, pitch=1/16, segments=64):
@@ -22,65 +21,16 @@ _RUN_CACHE=None
 
 
 def rose_run():
+    """The 115-path chained rose vase wall run (bottom loop + wall)."""
     global _RUN_CACHE
     if _RUN_CACHE is not None:
         return _RUN_CACHE
+    from bead_evidence import collect_chained_run
     with tempfile.TemporaryDirectory() as directory:
         path=Path(directory)/'rose.gcode'
         with gzip.open('testfixtures/rose_215c_pla.gcode.gz','rb') as source, path.open('wb') as target:
             shutil.copyfileobj(source,target)
-        state=Shadow(klipper_passive=True)
-        current=None
-        paths=[]
-        def finish():
-            nonlocal current
-            if current and current['points']:
-                paths.append((current['first'],current['points']))
-            current=None
-        with path.open('r',encoding='utf-8',errors='surrogateescape',newline='') as source:
-            number=0
-            while True:
-                raw=source.readline(1024*1024+1)
-                if not raw:
-                    break
-                number+=1
-                record=state.process(raw,number)
-                kind=record['kind']
-                if kind not in ('move','comment','non_motion_event'):
-                    finish()
-                    continue
-                if kind!='move':
-                    continue
-                a,b=record['start_mm'],record['end_mm']
-                start=tuple(a[k] for k in 'XYZ')
-                end=tuple(b[k] for k in 'XYZ')
-                de=record['commanded_e_delta_mm']
-                if any(v is None for v in (*start,*end,de)):
-                    finish()
-                    continue
-                if de==0 and start==end:
-                    continue
-                if de<=0 or start[:2]==end[:2]:
-                    finish()
-                    continue
-                if current and (current['end']!=start or current['tool']!=record['tool']):
-                    finish()
-                if current is None:
-                    current=dict(end=start,tool=record['tool'],first=number,
-                                 points=[start] if number>=13404 else [])
-                current['end']=end
-                if number>=13404:
-                    current['points'].append(end)
-        finish()
-    run=[]
-    previous=None
-    for first,points in paths:
-        if first<13404:
-            continue
-        if previous is not None and math.dist(previous,points[0])>.1:
-            break
-        run.append(points)
-        previous=points[-1]
+        run,_filaments,_lengths=collect_chained_run(path,first_line=13404)
     _RUN_CACHE=run
     return run
 
