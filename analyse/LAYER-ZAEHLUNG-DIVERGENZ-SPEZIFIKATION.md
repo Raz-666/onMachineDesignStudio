@@ -110,3 +110,72 @@ Ground-Truth-Aussage. Die Entscheidung (A/B/C, inkl. Zählperiode bei B) trifft
 der Nutzer; danach Erstumsetzung in `tools/r2_postproc_next.py` mit
 Byte-Parität-Check, Tests, dann kontrollierter Tausch — nicht am laufenden
 Postprozessor direkt.
+
+---
+
+## 7. Umsetzung (R258, Option B) — Stand 2026-11-18
+
+Nutzer-Entscheidung vom 2026-11-18: **Option B** (nach Erklärung in Alltagsdeutsch),
+Release-Freigabe und Paketumfang (ohne `analyse/`) separat erteilt. Umsetzung auf dem
+Arena-Branch `arena/fa800e48-onmachinedesignstudio`, nicht am laufenden Postprozessor
+direkt: `tools/r2_postproc.py` und `tools/r2_postproc_next.py` (Byte-Parität ab Zeile 4,
+durch `tools/run_review_checks.sh` erzwungen).
+
+### 7.1 Was geändert wurde
+
+1. `_ZScan` führt jetzt `rises` (in den bestehenden Marker-Pfad einspeisend),
+   `big_rises` (Extrusions-Z-Sprünge > 0,35 mm — werden **nie** Marker, damit die
+   Marker-Ausgabe byte-stabil bleibt) und `bed_returns` (Fall ≥ 1 mm, der auf die
+   Bett-Höhe der ersten Schicht zurückkehrt = sequentieller Neustart; Rückzug auf
+   Zwischenhöhen zählt nicht — Befund: `stringart3d_generic` hat 1700 Stürze, davon
+   **0** Bett-Rückkehrer).
+2. `Zählperiode`: **Gesamtschichten inkl. erster Schicht** (Kommentarwechseldateien
+   melden heute `TOTAL_LAYERS=3` für drei Schichten; eine andere Periode wäre mit dem
+   kommentierten Pfad inkonsistent).
+3. `TOTAL_LAYERS`: kommentierte Dateien behalten die Slicer-Kommentaranzahl
+   (Begründung siehe 7.3); kommentarlose Dateien melden
+   `rises + big_rises + 1 + bed_returns` statt der bisherigen bloßen Wechselzahl
+   (erste Schicht fehlte). Bereits getaggte Dateien behalten `count_marks`.
+   SKIN-Rollen und Marker-Positionen unverändert (SKIN war nach dem R246-Stand
+   bereits kommentiert/kommentarlos konsistent: BOTTOM/TOP/TOP in beiden Welten).
+4. Die E>0-Bedingung der Z-Scan-Extrusionserkennung war im aktuellen Code bereits
+   wirksam (`e_delta > 0`); die Z-Hop-Probe bestätigt das jetzt für alle sechs
+   Fälle (M83/M82 × ohne E / E0 / Rückzug). Die Probe enthielt noch die alte
+   Gegenbehauptung und wurde korrigiert.
+
+### 7.2 Abnahme gegen Abschnitt 5 — Belegstand
+
+| Abnahmekriterium (§5) | Beleg |
+|---|---|
+| Kommentiert/kommentarlos Byte-Parität der Bewegungsausgabe | `analyse/layer_comment_probe.py` (um Paritäts-Assertion erweitert): GLEICH — einzige Unterschiede sind `;LAYER_CHANGE`/`LAYER_MARK`/`_FILE_INFO`; `analyse/testprotokolle/layer_comment_probe_r258_20261118.log` |
+| `TOTAL_LAYERS` identisch | selbe Probe: 3 == 3 (beide Varianten) |
+| Hop mit E0/negativ/positiv | `analyse/zhop_eprobe.py` (reparierte Erwartung): 6/6 ohne Fehlmarker, `TOTAL_LAYERS=2`; `analyse/testprotokolle/zhop_eprobe_r258_20261118.log` |
+| Variable Layerhöhen; erste/letzte Ebene | `analyse/testprotokolle/layer_comment_probe_r258_20261118.log` + zusätzliche Synthetik-Probe (dz 0,3/0,25/1,2/0,2/0,15/0,4): `TOTAL_LAYERS=6` exakt; Marker-Logik unverändert (Sprünge >0,35 mm ohne Marker — bewusste Grenze) |
+| Vase/Spiral | Fixtures: kontinuierliche Spiralsteigung über die 0,18-mm-Akkumulation → **Näherung, nicht exakt** (siehe 7.4); diese Dateien tragen in allen drei Feld-Fixtures Layer-Kommentare und behalten deren Anzahl |
+| Goldens neu eingefroren mit Begründung | `analyse/golden_r258_expected.json` (neu, m82_zhop `layers 1→2`, −0 Bytes, 1 Ziffer); `tools/r81_golden_check.py`: pr03/pr08 neu eingefroren, A/B-Diff gegen git HEAD = **exakt 1 Zeile je Fall** (`TOTAL_LAYERS=8→9`); mr01–13 unverändert |
+| r110-Erwartung angepasst | `tools/r110_gcode_dialects.py`: Z-Scan-Dialekte erwarten jetzt `layers == truth_layers` (13/13 Familien grün) |
+| Feld-Fixtures ohne Fehlalarme | `analyse/golden_baseline.py verify`: bigrose 251 / rose 242 / stringart 15 **unverändert** (Byte-identisch); m82_zhop dokumentiert geändert |
+
+### 7.3 Bewusste Abweichung von §4 (Option B wie ursprünglich skizziert)
+
+Der Skizzen-Stand sah vor, den physikalischen Zähler auch bei kommentierten Dateien
+vorrangig zu verwenden. Das ist **verworfen**: Die Feld-Fixtures belegen, dass der
+Scan dort überzählt (bigrose 251→275; rose 242→264; stringart 15→1717 — 1700 Stürze
+der String-Verdrahtung wurden als Objekt-Neustarts gelesen, bevor `bed_returns`
+eingeführt wurde; selbst danach bliebe die Spiral-Akkumulation unscharf). Die
+Slicer-Kommentare sind für kommentierte Dateien die bessere Quelle; der Scan ist der
+Fallback. Kommentarlos bleibt damit exakt bei Treppenprofilen und approximativ bei
+Spiralen.
+
+### 7.4 Restrisiken / Grenzen
+
+- Kommentarlose Spiral-/Vase-Dateien: `TOTAL_LAYERS` ist eine Näherung (Akkumulator
+  statt `layer_height`); keine Slicer-seitige Ebeneninformation, keine sichere Zahl.
+- Sequenzieller Druck: Erkennung nur über Bett-Rückkehr (≥1 mm Fall, Rückkehr auf
+  erste Schicht + 0,4 mm). Objekt-Übergaben auf Zwischenhöhen sind nicht erfasst.
+- Layer > 0,35 mm tragen keinen `LAYER_MARK` (Marker-Cap unverändert, Byte-Parität).
+- SKIN-Rollen bleiben Heuristik (BOTTOM/TOP), keine Ground-Truth-Aussage.
+- `LAYER_MARK`-Periode kommentierter Dateien (eine Markierung je Kommentar) ist
+  unverändert; Verbraucher (`PAUSE_AT_LAYER`, `SET_LAYER_RANGE`, Live-Tuning) sind
+  davon nicht betroffen.
+- Keine Drucker-Abnahme: alles offline. Feldabnahme (Layer-Anzeige live) steht aus.

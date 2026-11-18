@@ -20904,7 +20904,23 @@ def process(path, dry=False, verbose=False, retract_rewrite=False,
             insert_at, obj_changes = scan.result(had_v1)
             summary['by_object'] = obj_changes > 0
             summary['method'] = 'Z scan'
-    summary['layers'] = (comment_layers if comment_layers else len(insert_at)) or count_marks
+    # R258 (Option B): for files WITHOUT layer comments the reported
+    # TOTAL_LAYERS is the physical positive-extrusion estimate
+    # (rises+1, plus one layer per bed-returning print-unit restart) -
+    # no longer the bare rise count, which lost the first layer. Files
+    # WITH comments keep the slicer's own count: for continuous-spiral
+    # prints the scan accumulator cannot reproduce it, and the slicer
+    # header is the better source. Marker positions and marker counts
+    # are unchanged in both worlds.
+    _physical258 = scan.physical_layers()
+    if comment_layers:
+        summary['layers'] = comment_layers
+    elif has_marks and count_marks:
+        # already-tagged file: the surviving LAYER_MARKs are the layer
+        # record - better than any re-scan estimate
+        summary['layers'] = count_marks
+    else:
+        summary['layers'] = _physical258 or count_marks
 
     # by-object from object data: several objects + Z falls are detected in
     # z_scan; ;Z: comments with FALLING values prove by-object printing - this
@@ -21232,6 +21248,10 @@ class _ZScan:
     def __init__(self):
         self.inserts = []
         self.obj_changes = 0
+        self.rises = 0          # emitted layer-rise markers (Option B metric)
+        self.big_rises = 0      # extrusion Z jumps > 0.35mm (physical count only, never a marker)
+        self.bed_returns = 0    # print-unit restarts: fall >= 1mm back to the bed
+        self.z_first_ext = None # Z of the first extruding move
         self.prev_z = None      # effective Z of the last EXTRUDING move
         self.acc = 0.0          # vase-mode accumulator
         self.absolute = True
@@ -21284,26 +21304,59 @@ class _ZScan:
         if not extruding or not self.absolute:
             return
         z = z_eff
+        if self.z_first_ext is None:
+            self.z_first_ext = z
         if self.prev_z is None:
             self.prev_z = z
             return
         dz = z - self.prev_z
         if 0.05 < dz <= 0.35:
             self.inserts.append(('before', i, j))
+            self.rises += 1
             self.acc = 0.0
         elif 0 < dz <= 0.05:
             self.acc += dz
             if self.acc >= 0.18:
                 self.inserts.append(('before', i, j))
+                self.rises += 1
                 self.acc = 0.0
+        elif dz > 0.35:
+            # Option B: a staircase layer taller than the marker cap (e.g.
+            # 0.4 mm adaptive layer) still IS a physical layer - counted
+            # here, never turned into a marker (byte parity of the marker
+            # stream is a hard requirement).
+            self.big_rises += 1
         elif dz < -1.0 and self.prev_z >= 1.6:
             self.obj_changes += 1
+            # R258: a real sequential/by-object restart returns Z to the
+            # bed (first-layer height + margin) - string-art style drapes
+            # and toolpath dips do NOT, so only bed-returns count toward
+            # the physical layer estimate.
+            if (self.z_first_ext is not None and z <= self.z_first_ext + 0.4):
+                self.bed_returns += 1
         self.prev_z = z
 
     def result(self, had_v1=False):
         # map the (raw, filtered) index pairs into the apply world
         ins = [(kind, (j if had_v1 else i)) for kind, i, j in self.inserts]
         return ins, self.obj_changes
+
+    def physical_layers(self):
+        """Option B (R258): estimate of the physical positive-extrusion
+        layers for files WITHOUT slicer layer comments.
+
+        rises (+ big_rises for layers taller than the 0.35 mm marker cap)
+        + 1 for the first printed layer, plus one layer per detected
+        print-unit restart that returns Z to the bed. Staircase prints
+        (one Z step per layer) come out exact at ANY layer height;
+        continuous-spiral prints
+        over-count slightly (the marker accumulator fires at ~0.18 mm,
+        not at layer_height) - such files virtually always carry layer
+        comments, which stay the authoritative count for them. Returns 0
+        when no extrusion was seen - callers fall back appropriately."""
+        if self.prev_z is None:
+            return 0
+        return self.rises + self.big_rises + 1 + self.bed_returns
 
 
 def z_scan(lines):

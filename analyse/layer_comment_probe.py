@@ -12,6 +12,7 @@ import tempfile
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'tools'))
 import r2_postproc as pp
 
+bodies={}
 with tempfile.TemporaryDirectory(prefix='r2-layer-comment-') as tmp:
     for label, comments in [('mit_kommentaren',True),('ohne_kommentare',False)]:
         lines=['M83','G90']
@@ -25,6 +26,11 @@ with tempfile.TemporaryDirectory(prefix='r2-layer-comment-') as tmp:
         info=next((x for x in output if x.startswith('_FILE_INFO ')),'')
         skin=[output[i+1] for i,x in enumerate(output) if x == ';TYPE:SKIN']
         marks=[i for i,x in enumerate(output) if x=='LAYER_MARK']
+        bodies[label]=[x for x in output if x not in ('LAYER_MARK',';LAYER_CHANGE') and not x.startswith('_FILE_INFO ')]
         print(label,'physical_z_levels=[0.2,0.4,0.6]',
               'method=',res['method'],'reported_layers=',res['layers'],
               'inserted_marks=',len(marks),'skin=',skin,'info=',info)
+if 'mit_kommentaren' in bodies and 'ohne_kommentare' in bodies:
+    parity = bodies['mit_kommentaren'] == bodies['ohne_kommentare']
+    print('movement-byte-parity (ohne Kommentare/Marks/_FILE_INFO):', 'GLEICH' if parity else 'DIFFERENT')
+    assert parity, 'R258 acceptance: movement output must be byte-identical modulo markers/info'

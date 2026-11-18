@@ -38,6 +38,14 @@ diffed - 55 added / 39 removed lines, and apart from the 26 version-stamp
 lines and the 26 re-computed R2-META sig lines EVERY line of the delta is a
 ';TYPE:' comment (28 added, 12 removed = the duplicates the helper replaced);
 not one motion line changed. pr01-pr10 stay byte-identical.
+RE-FREEZE HISTORY: R258 re-froze pr03/pr08 ONLY (Option B - the user-approved
+layer-count divergence fix): in the Z-scan world _FILE_INFO TOTAL_LAYERS now
+counts the first printed layer (rises+1, plus one layer per bed-returning
+print-unit restart). Proven by A/B against git HEAD (module diff is the
+payload): pr03/pr08 differ in EXACTLY ONE LINE each - TOTAL_LAYERS=8 -> 9 -
+same length, every other byte identical; marks_added unchanged (8), all
+summaries unchanged apart from layers. pr01-pr02/pr04-pr10 byte-identical;
+mr01-mr13 untouched (make_range path unchanged).
 RE-FREEZE HISTORY: R252 (.142h) re-froze mr01-mr13 (version bump
 class - POSTPROC_RELEASE .142g -> .142h, BUILD R251 -> R252, both the
 same length; R252 adds the engine switch (r2_postproc_next.py handover)
@@ -431,12 +439,12 @@ REF_MD5 = {'mr01': 'e4ddabe827c77649a197c5f280d7f769',
  'mr13': 'f83cbaa613e22611aa709d1dc5a8e77a',
  'pr01': 'aa5a6f27d5a7e6576f57eeea93af63a5',
  'pr02': '61457e9bcbd98996b6e7dc26efda23d8',
- 'pr03': '923725a1d92fccc88241ed8a3ab8065b',
+ 'pr03': 'f9f7402c190f07e7aa7470d2185fddfc',
  'pr04': 'aa5a6f27d5a7e6576f57eeea93af63a5',
  'pr05': 'aa5a6f27d5a7e6576f57eeea93af63a5',
  'pr06': 'd9aacaa41daf5314ce72ae8564b34458',
  'pr07': '17fdc789395c2d6f83efc279bb751f21',
- 'pr08': '923725a1d92fccc88241ed8a3ab8065b',
+ 'pr08': 'f9f7402c190f07e7aa7470d2185fddfc',
  'pr09': '5e90a1d42296412a0ea53e9d6ada0157',
  'pr10': '159ea58bb74bbf9adb377f1e733d152b'}
 
@@ -493,7 +501,7 @@ REF_SUMMARY = {'mr01': {'nl': 8, 'size': 5267},
           'derived': True,
           'fw': '',
           'info_added': True,
-          'layers': 8,
+          'layers': 9,
           'marks_added': 8,
           'method': 'Z scan',
           'retract_max': 0.0,
@@ -577,7 +585,7 @@ REF_SUMMARY = {'mr01': {'nl': 8, 'size': 5267},
           'derived': True,
           'fw': '',
           'info_added': True,
-          'layers': 8,
+          'layers': 9,
           'marks_added': 8,
           'method': 'Z scan',
           'retract_max': 0.0,

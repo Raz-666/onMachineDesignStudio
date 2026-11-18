@@ -1,71 +1,30 @@
-# Offene Fragen an den Nutzer (Stand: 2026-11-17, späte Fortsetzung)
+# Offene Fragen an den Nutzer (Stand: 2026-11-18)
 
-Gesammelt, weil du mehrere Stunden nicht erreichbar bist. Reihenfolge ≈ Auswirkung.
-Nichts hierin ist als Freigabe zu lesen; die Regeln aus `UEBERGABE.md` gelten.
+Gesammelt aus der Sitzung vom 18.11.2026. Reihenfolge ≈ Auswirkung. Erst wenn hier konkret entschieden ist, sind die zugehörigen Umbauten freigegeben. Die Regeln aus `UEBERGABE.md` gelten weiter.
 
 ## A. Entscheidungen, die nur du treffen kannst
 
-1. **Layer-Zählung (Release-Blocker):** Option A (Status quo + verbindliche Doku der
-   Zählkonvention), Option B (Z-Scan nur bei positiver Extrusion + SKIN aus physischen
-   Extrusionsschichten, inkl. Migrationsprüfung/Goldens-Neufrieren), oder Option C
-   (Kommentarlose Dateien → `TOTAL_LAYERS=0` + Hinweis)? Vorlage mit Belegen und
-   Abnahmekriterien: `analyse/LAYER-ZAEHLUNG-DIVERGENZ-SPEZIFIKATION.md`
-   (Empfehlung des Analysestands: A sofort, B als eigener Umbau, C nicht).
-2. **D1 (offen, MASTER-TODO):** MANUAL.md Kap. 14 kennt die LIVE-Lüfterstufe
-   (R175c) nicht — Handbuch nachziehen, ja/nein?
-3. **Zwei Briefings:** Rangfolge `R2-D2 – Gesamtbriefing` vs.
-   `R2_Vollstaendiges_Startbriefing_…_finalizedByGemini.txt` (STL/OBJ §5.21 vs.
-   Abschnitt 24). Zudem: existieren `slicer-families.md`,
-   `GCode_Reverse_Engineering_Master_Spezifikation.md` und das referenzierte
-   V1-UPDATE-ZIP noch — und wo?
-4. **Release:** Soll ein neues Release gebaut werden? Wenn ja: Version/Build
-   (z. B. `R2-2026-11-17.1` / `V2`?), Paketinhalt, und ausdrückliche Freigabe
-   nach finaler Offline-Suite. Ohne diese Antwort bleibe ich bei
-   `R2-2026-11-13.1` / `V1` und baue nichts.
-5. **E1/E4 (offen):** `position_min = -6` → Vorschlag `-2` in deiner
-   `printer.cfg`? Probe-Trigger/led_effect-/Homing-Abbruch im Print-Start nur
-   mit aktueller Konfiguration + Feldlogs + separatem Test-Go — welche
-   Dateien/Stände stellst du bereit, und welches Test-Fenster gilt?
-6. **521-Crosswalk:** Soll ich als Nächstes die `O`/`G`-Zeilen
-   (53 + 62 + 18 = 133 Zeilen) für einen Entscheidungstermin aufbereiten
-   (Entscheidungsantwort je Zeile), oder die `P`/`P/G`-Zeilen auf
-   Code-/Testreferenzen aufschlüsseln?
+1. **Layer-Zählung — ENTSCHIEDEN + UMGESETZT (Option B, R258, 2026-11-18).** Deine Erklärung bat um Alltagsdeutsch: Zählt der Drucker an Slicer-Kommentaren (`;LAYER_CHANGE`), meldete er z. B. 3 Schichten; ohne Kommentare zählte er nur Höhensprünge ab der zweiten Schicht (2 statt 3) und alle SKIN-Flächen galten als Boden. Option B (Umbau) ist jetzt umgesetzt: kommentarlos zählt `rises + big_rises + 1 + bed_returns` (erste Schicht, >0,35-mm-Treppen, Bett-Rückkehrer bei sequentiellem Druck); kommentierte Dateien behalten die Slicer-Anzahl (Fixtures belegten, dass der Scan dort überzählt); SKIN ist in beiden Welten konsistent (BOTTOM/TOP/TOP); Marker-Ausgabe byte-stabil. Belege: `analyse/LAYER-ZAEHLUNG-DIVERGENZ-SPEZIFIKATION.md` §7, `analyse/golden_r258_expected.json`, r81-Re-Freeze (pr03/pr08, je exakt 1 Zeile), Makro 2103/2103, review_checks PASS. **Offen bleibt nur die Feldabnahme am Drucker.**
+2. **D1 (offen, MASTER-TODO):** MANUAL.md Kap. 14 kennt die LIVE-Lüfterstufe (R175c) nicht — Handbuch nachziehen, ja/nein?
+3. **Zwei Briefings — TEILWEISE BEANTWORTET.** Geliefert am 18.11.2026: `GCode_Reverse_Engineering_Masterkonzept.md` und `Reverse Engineering von G-Code Geometrien.md` (beide Hash-pinned, echt) sowie neu `slicer-families.md` und `Potential performance& compatibility issues.md` (neu, AI-erzeugt, NICHT pinned, nur lokal in `analyse/uebergabe-quellen/`, nicht im Repo). **Offen:** Rangfolge `R2-D2 – Gesamtbriefing` vs. `R2_Vollstaendiges_Startbriefing_…_finalizedByGemini.txt`; ob `GCode_Reverse_Engineering_Master_Spezifikation.md` existiert; wo das V1-UPDATE-ZIP liegt.
+4. **Release — ENTSCHIEDEN + BEAUFTRAGT.** Bau-Auftrag erteilt: `R2-2026-11-18.1` / `V2`, Paketinhalt **ohne** `analyse/`, ausdrückliche Freigabe nach finaler Offline-Suite. Wird im Folge-PR nach dem R258-PR gebaut; Details und Belege dann im Release-Bericht `docs/RELEASE_R2-2026-11-18.1_REPORT.md`.
+5. **E1/E4 (offen):** `position_min = -6` → Vorschlag `-2` in deiner `printer.cfg`? Probe-Trigger/led_effect-/Homing-Abbruch im Print-Start nur mit aktueller Konfiguration + Feldlogs + separatem Test-Go — welche Dateien/Stände stellst du bereit, und welches Test-Fenster gilt?
+6. **521-Crosswalk:** Soll ich als Nächstes die `O`/`G`-Zeilen (53 + 62 + 18 = 133 Zeilen) für einen Entscheidungstermin aufbereiten (Entscheidungsantwort je Zeile), oder die `P`/`P/G`-Zeilen auf Code-/Testreferenzen aufschlüsseln? (Hinweis: die neuen Slicer-Familien-Notizen können beim Vokabular-Abgleich helfen — werden aber erst verifiziert gegeneinander.)
+7. **Neue Analyse-Dateien:** `slicer-families.md` und `Potential performance& compatibility issues.md` sind jetzt lokal abgelegt und ins SHA256-Manifest aufgenommen; ihre Aussagen sind **nicht verifiziert** (u. a. index.html ≈ 888 KB und menu_structure.json > 1 MB behauptet — muss gegen den Code geprüft werden). Soll ich daraus (a) nur einen Backlog-Vorschlag machen, (b) Punkt für Punkt verifizieren und dann korrigierte Doku ableiten, oder (c) liegen lassen?
 
 ## B. Einordnung der letzten Änderungen
 
-7. **PR #13 (gemerged, Basis `4b22e8e`):** Pass-11-Sidecar (`r2-sidecar/1`),
-   521-Crosswalk-Vorsortierung, CI-Reparatur (r91; kleinste Textur-Engine-
-   Korrektur: jedes eingefügte BUMPS-Sub-Segment trägt wieder `F`). Merge
-   erfolgte auf dein ausdrückliches Go, nachdem CI grün war. Soll künftig
-   jeder Merge auf grünem CI warten (mein Vorgehen), oder Instant-Merge nach
-   explizitem Go genügen?
-8. **`.github/workflows/tests.yml`:** Auf `main` liegt seit `17405c1` ein
-   Node-24-Update der Actions (nicht aus dieser Sitzung). Bestätigen?
-9. **Shadow-Resync:** Soll die Shadow-Rekonstruktion künftig opt-in auf die
-   reale R2-Makrosemantik resynchronisieren dürfen (belegte Hypothese statt
-   Fail-closed-Invalidierung), oder bleibt Fail-closed die verbindliche
-   Semantik? (Aktuell: Fail-closed; die Feldfixtures liefern bewusst
-   0 vollständig bekannte Endpunkte.)
+8. **PR #13 (gemerged, Basis `4b22e8e`):** Pass-11-Sidecar (`r2-sidecar/1`), 521-Crosswalk-Vorsortierung, CI-Reparatur (r91). Merge erfolgte auf dein Go nach grünem CI. Soll künftig jeder Merge auf grünem CI warten (mein Vorgehen), oder Instant-Merge nach explizitem Go genügen?
+9. **`.github/workflows/tests.yml`:** Auf `main` liegt seit `17405c1` ein Node-24-Update der Actions (nicht aus dieser Sitzung). Bestätigen?
+10. **Shadow-Resync:** Soll die Shadow-Rekonstruktion künftig opt-in auf die reale R2-Makrosemantik resynchronisieren dürfen (belegte Hypothese statt Fail-closed-Invalidierung), oder bleibt Fail-closed die verbindliche Semantik? (Aktuell: Fail-closed; die Feldfixtures liefern bewusst 0 vollständig bekannte Endpunkte.)
 
 ## C. Kleinigkeiten / Abwarten
 
-10. `macro_render_test.py` auf dem Merge-Ergebnis `4b22e8e` noch einmal seriell
-    protokollieren? (Vor dem Merge auf dem Branch grün; Merge fügte nur das
-    Actions-Update hinzu.)
-11. `UEBERGABE.md` nennt als historische Referenz weiterhin `8ea17fc`/`fab29dc`
-    in Abschnitt 3 — für das Release irgendwann vollständig neu abgleichen,
-    oder so stehen lassen als datierten Verlauf?
-12. D7d `GENERATORS_TOOLS.pdf` (veraltet, Stand `.142j`): inzwischen aus dem
-    aktuellen Code neu gebaut (Versionskopf `R2-2026-11-13.1` auf allen
-    12 Seiten, „27 Muster / 27 Vorlagen“-Zeile korrigiert; Inhalt sonst
-    unverändert; PR #15 gemerged). Weiterhin offen bleibt die
-    Modifier-Einzel-Dokumentation (D4-Umfang: Mathematik pro Modifier).
-    Soll D4 als Nächstes kommen?
-13. MASTER-TODO `B5` (FeatOn statt Wert 0) — für dich geklärt (abgelehnt mit
-    Begründung). Keine Aktion nötig.
+11. `macro_render_test.py` zuletzt seriell auf dem Release-Stand gelaufen (2103/2103, 18.11.2026). OK.
+12. `UEBERGABE.md` nennt historische Referenzen `8ea17fc`/`fab29dc` — für das Release irgendwann vollständig neu abgleichen, oder so stehen lassen als datierten Verlauf?
+13. D7d `GENERATORS_TOOLS.pdf`: aus aktuellem Code neu gebaut (PR #15, gemerged). Offen bleibt die Modifier-Einzel-Dokumentation (D4). Soll D4 als Nächstes kommen?
+14. MASTER-TODO `B5` (FeatOn statt Wert 0) — für dich geklärt (abgelehnt mit Begründung). Keine Aktion nötig.
 
 ## D. Für den Notfall
 
-- Letzte grüne Stände: Review-Gate PASS (`review_checks_dd5058ac_sidecar_20261117.log`),
-  Makro 2103/2103 (`macro_render_dd5058ac_texturefix_20261117.log`), CI `suite` pass (7m51s).
-- Backout-Referenz: vor PR #13 war `main` bei `846b1e7`; Rückweg = Revert von `4b22e8e`.
+- Letzte grüne Stände (18.11.2026, Branch `arena/fa800e48-onmachinedesignstudio`): review_checks PASS (`analyse/testprotokolle/review_checks_r258_20261118.log`), Makro 2103/2103, megatest 190/190, r91 PASS, r81 23/23, golden_baseline PASS. Notfall-Rückweg für den Release-Stand: Revert des Release-PRs (main vorher `9cb358e`).

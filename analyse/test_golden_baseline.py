@@ -81,6 +81,24 @@ class BaselineTests(unittest.TestCase):
         bad_reference['cases']['m82_zhop']['output_sha256'] = '0' * 64
         self.assertTrue(g.expected_with_zscan_change(bad_reference, delta)[1])
 
+    def test_documented_r258_delta_rejects_other_mutations(self):
+        zscan = json.loads(g.ZSCAN_EXPECTED.read_text())
+        expected, errors = g.expected_with_zscan_change(self.expected, zscan)
+        self.assertFalse(errors)
+        delta = json.loads(g.R258_EXPECTED.read_text())
+        expected, errors = g.expected_with_r258_change(expected, delta)
+        self.assertFalse(errors)
+        self.assertEqual(2, expected['cases']['m82_zhop']['summary']['layers'])
+        self.assertEqual(1, expected['cases']['m82_zhop']['summary']['marks_added'])
+        changed = copy.deepcopy(expected)
+        changed['cases']['m82_zhop']['output_sha256'] = '0' * 64
+        self.assertTrue(g.compare(expected, changed, check_engine=False))
+        bad_reference = copy.deepcopy(expected)
+        bad_reference['cases']['m82_zhop'] = copy.deepcopy(
+            json.loads(g.ZSCAN_EXPECTED.read_text())['candidate'])
+        bad_reference['cases']['m82_zhop']['output_sha256'] = '0' * 64
+        self.assertTrue(g.expected_with_r258_change(bad_reference, delta)[1])
+
     def test_documented_seq_delta_rejects_other_mutations(self):
         delta = json.loads(g.SEQ_EXPECTED.read_text())
         expected, errors = g.expected_with_seq_change(self.expected, delta)
