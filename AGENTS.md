@@ -220,7 +220,14 @@ kürzesten). Rose: 4 Pfade (599/599/602/602 Punkte), längster Zeilen 39269–39
 Z10,2→10,4. Erste echte Ringprobe: Pitch 0,2, 64 Proben → 1 Ring (Band bis
 10,396875), 32 Proben werden als selbstschneidend abgelehnt (Untertastung).
 Kein Breiten-/Mesh-Schritt. 4 neue Tests, 107 gesamt lokal bestanden.
-Nächster Schritt: Outline-Übergänge, Ring-zu-Mesh-Vertrag; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
+Ring-zu-Mesh: `ring_wall.py` näht aufeinanderfolgende Ringe gleicher
+Probenzahl zu einer OFFENEN Wandfläche (Vierecke je Probenpaar, Außenrichtung
+normalisiert, entartete Dreiecke abgelehnt). Offen nur am ersten/letzten Ring:
+erwartete 2N Randkanten, keine nichtmannigfaltigen Kanten, Richtungsungleich-
+gewicht genau am Rand. Keine Deckel, keine Breite, kein Festkörper,
+Selbstdurchdringung ungeprüft. 4 neue Tests, 111 gesamt lokal bestanden.
+Nächster Schritt: pfadübergreifende Phasenfortsetzung (Rose liefert je Pfad
+nur eine Umdrehung), Outline-Übergänge; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
 Der Loft ist keine allgemeine Spiralrekonstruktion; aktiver Export unverändert.
 
 ## Historie

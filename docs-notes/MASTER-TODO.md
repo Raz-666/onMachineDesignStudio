@@ -515,3 +515,13 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       abgelehnt — Untertastung wird nicht repariert. 4 neue Tests, 107 gesamt
       lokal bestanden. Commit-Betreff `feat: retain longest nonplanar paths and sample real rose ring`.
       Weiter offen: Ring-zu-Mesh-Vertrag, Breitenanwendung, Pitch-Verifikation.
+
+- [x] **I1 Ring-zu-Mesh (offene Wandfläche):** `ring_wall.py`, Kontraktnähte
+      aufeinanderfolgender Ringe (gleiche Probenzahl, aufsteigende, disjunkte
+      Bänder, CCW normalisiert) zu einer offenen Mittellinien-Wand.\      Erwartung: genau 2N offene Randkanten, deren Richtungsdifferenz im
+      Prüfer entspricht, sonst 0 Fehler, 1 Komponente. Entartete Dreiecke
+      und Regelverletzungen abgelehnt. 4 neue Zylinder-/Vase-Tests,
+      111 gesamt lokal bestanden. Commit-Betreff
+      `feat: stitch per-revolution rings into open wall surfaces`.
+      Weiter offen: Phasenfortsetzung über Pfadgrenzen (Rose: 1 Umdrehung je
+      Pfad), Deckel/Breite/Festkörper, Selbstschnittprüfung der Quadrate.

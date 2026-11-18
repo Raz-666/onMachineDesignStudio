@@ -1,3 +1,41 @@
+# Fortschreibung: genähte offene Wandflächen aus Ringen
+
+`tools/ring_wall.py::ring_wall_mesh(rings)` näht aufeinanderfolgende
+pro-Umdrehungs-Ringe zu einer Fläche: gleiche Probenzahl N für alle Ringe,
+aufsteigende und disjunkte Höhenbänder, jedes Ring-XY als einfaches Polygon
+geprüft, Umlaufrichtung auf CCW normalisiert (kein Raten — jede Rings separat
+gedreht, Korrespondenzindex bleibt erhalten). Je Probenpaar entsteht ein
+Viereck aus zwei Dreiecken mit Außenrichtung; entartete Dreiecke werden
+abgelehnt. Dreieckbudget bleibt begrenzt.
+
+Ergebnis ist ausdrücklich eine OFFENE Mittellinien-Wandfläche: keine Deckel,
+kein Festkörper, keine Materialbreite; `export_ready=false`. Der Prüfer
+erlaubt genau 2N offene Randkanten (erster/letzter Ring) — das
+Richtungsdifferenz-Ungleichgewicht des Prüfers muss genau dieser offenen
+Kante entsprechen, alle anderen Kanten paarig gegengerichtet; keine
+nichtmannigfaltigen Kanten, Duplikate, Normalenfehler; genau eine Komponente.
+Wichtig für das Verständnis des Prüfers: `winding_errors` zählt bei offenen
+Flächen zwangsläufig die Randkanten mit; das wurde zuerst falsch gedeutet und
+dann als explizite Erwartung fixiert. Selbstschneidungen zwischen Quadrate
+sind NICHT geprüft (Dokumentationspflicht). Indexkorrespondenz setzt die
+Pitch-Vollumdrehungs-Annahme fort.
+
+Absteigende Quellpfade liefern Bänder von oben nach unten — Aufrufer muss die
+Ringliste von unten nach oben übergeben (Vertrag, kein automatisches Drehen).
+
+4 neue Tests: 12-Umdrehungs-Zylinder (704 Dreiecke, 64 offene Kanten,
+Ungleichgewicht exakt 64, 1 Komponente), absteigende Quelle (Bänder umgekehrt
+übergeben), Validierungsablehnungen (ein Ring, unterschiedliche Probenzahlen,
+falsche Reihenfolge, entartete Wand), 2-Umdrehungs-Vase (32 offene Kanten).
+Zusammen 111 Tests lokal bestanden; CI ergänzt.
+
+Rose-Anbindung weiterhin offen: Jeder retinierte Rose-Pfad umfasst nur EINE
+Umdrehung (Band 0,2 mm), daher braucht die Nähterei eine evidenzbasierte
+Phasenfortsetzung über Pfadgrenzen hinweg — noch nicht implementiert und
+nicht behauptet. Aktiver Export unverändert, kein Release.
+
+---
+
 # Fortschreibung: Punktretention nichtplanarer Pfade, erste echte Rose-Ringe
 
 `path_evidence.py` erhält ein opt-in `retain_nonplanar_points` (CLI

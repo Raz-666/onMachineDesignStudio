@@ -59,6 +59,7 @@ jobs:
           python3 tools/test_layer_evidence.py
           python3 tools/test_spiral_rings.py
           python3 tools/test_nonplanar_retention.py
+          python3 tools/test_ring_wall.py
 
       - name: Streaming simulations (watcher RSS stays flat)
         run: python3 tools/r91_simulate.py
