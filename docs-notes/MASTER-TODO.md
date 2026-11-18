@@ -492,3 +492,15 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       Außenwandbreite 0,322–0,910 mm unter Annahme 0,2; Vase-Modus bestätigt.
       5 neue Tests, 97 gesamt lokal bestanden. Commit-Betreff
       `feat: measure layer plane spacing and explicit-assumption widths`.
+
+- [x] **I1 Spiralringe (expliziter Vertrag):** `spiral_rings.py`, Ring je
+      voller Umdrehung aus N Sehnenproben bei fortlaufenden Höhen; Pitch ist
+      Aufruferangabe (eine volle XY-Umdrehung), Ringpunkte mischen Höhen im
+      Band. Kollineare/ungültige Ringe, nichtmonotone Höhen, Budgetüberschreitung
+      abgelehnt; unvollständige Schlussumdrehung wird verworfen und gezählt.
+      6 neue Tests mit synthetischen Helix-Orakeln (binär-exakte Abtastung,
+      Radien-/Bandprüfungen), 103 gesamt lokal bestanden. Commit-Betreff
+      `feat: sample monotonic spiral walls into per-revolution rings`.
+      Weiter offen: Punktretention langer realer Spiralpfade (Rose: längster
+      Pfad 602 Punkte übersteigt die 257er-Nahtretention), Breitenanwendung,
+      Mesh aus nichtplanaren Ringen.

@@ -209,7 +209,12 @@ Vase-Modus, Spiralwände sind nichtplanar und fehlen bewusst als Ebenen).
 `--assume-layer-height-mm` ergänzt Stadion-Breitenschätzungen unter expliziter
 unverifizierter Annahme (Rose bei 0,2: Außenwandhinweise 0,322–0,910 mm,
 Brim ~0,6, 108 unstützbare Querschnitte). 5 neue Tests, 97 gesamt.
-Nächster Schritt: Outline-Übergänge, Breitenstreuung bewerten; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
+Nichtplanare Spiralbahn: `spiral_rings.py` tastet monotone Vase-Wände mit
+explizitem Pitch (Höhe je Umdrehung, Aufruferangabe) und N Proben je Umdrehung
+ab; Ringe mischen Höhen innerhalb des Bandes, Sehneninterpolation, Mittellinie
+ohne Breite, nie exportfertig. Anfangs falscher Ansatz (Höhenschnitt) verworfen:
+eine monotone Spirale schneidet jede Höhe genau EINMAL. 6 neue Tests, 103 gesamt.
+Nächster Schritt: Outline-Übergänge, Punktretention für lange Spiralpfade; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
 Der Loft ist keine allgemeine Spiralrekonstruktion; aktiver Export unverändert.
 
 ## Historie

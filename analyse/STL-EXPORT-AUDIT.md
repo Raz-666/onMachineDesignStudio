@@ -1,3 +1,43 @@
+# Fortschreibung: Ringabtastung monotoner Spiralwände
+
+Erster Baustein der angekündigten eigenen nichtplanaren Strategie:
+`tools/spiral_rings.py::spiral_rings(points, pitch_mm=..., samples_per_revolution=N)`.
+
+Wichtigster Befund VOR der Implementierung: Der erste Entwurf (Schnitt einer
+Spirale mit Höhen-Ebenen, wie bei planaren Schichten) war FALSCH — eine
+streng monotone Vase-Spirale durchstößt jede Höhe genau EINMAL; Höhenschnitte
+liefern keine Ringe. Verworfen, bevor Code/Tests committed wurden.
+
+Korrekter Vertrag: Der Aufrufer liefert die Punkte EINES zusammenhängenden
+Extrusionspfads mit streng monotoner Höhe sowie den Pitch (Höhe von genau einer
+vollen XY-Umdrehung — Aufruferangabe, hier nicht verifiziert) und die Probenzahl
+N je Umdrehung. Ring r sammelt die N Sehnen-interpolierten Proben, deren Höhen
+das Band [z_start+r·pitch, z_start+(r+1)·pitch) überstreichen. Halb-offene
+Segmentzuordnung trifft jede Probe genau ein Segment, auch bei exakt auf einem
+Stützpunkt liegender Probenhöhe. Ringe werden in Pfadreihenfolge gebildet, als
+einfache XY-Polygone geprüft (kollinear/selbstschneidend abgelehnt) und als
+3D-Punkte mit Bandhöhen ausgegeben. Eine unvollständige Schlussumdrehung wird
+verworfen und gezählt. Begrenzungen: 1024 Pfadpunkte, 3..256 Proben, Pitch
+innerhalb der Höhe. Ausdrückliche Grenzen: Sehneninterpolation statt echter
+Kurve, Ringpunkte mischen Höhen innerhalb eines Pitch-Bands (Vertikalabweichung
+bis zu einem Pitch), Pitch=Umdrehung ist unverifizierte Annahme, Mittellinie
+ohne Materialbreite, `export_ready=false`.
+
+Tests mit synthetischen Helix-Orakeln (48 Segmente/Umdrehung, binär-exakte
+Pitch/Step-Wahl für deterministische Abtastung): 12 Umdrehungen → 12 Ringe,
+32 Proben, Bänder [r/16,(r+1)/16], Radien durch Sehneninterpolation um höchstens
+die Segment-Sehne (R·(1−cos(π/48)) ≈ 0,021 mm bei R=10) eingebracht, Zentroid
+< 0,05 mm; 12,5 Umdrehungen → 12 Ringe + 16 verworfene Proben; absteigende
+Pfadrichtung; Parameter-/Pfadvalidierung; kollineare Ringe abgelehnt;
+Vertragskennzeichnung. 6 neue Tests, zusammen 103 lokal bestanden; CI ergänzt.
+
+Offen: Rose-Anbindung — der längste reale Spiralpfad (602 Punkte, Zeilen
+39269–39869) übersteigt die 257-Punkte-Retention des Nahtmodus; eine eigene
+begrenzte Retention für Rekonstruktionspfade fehlt noch. Kein Mesh aus
+nichtplanaren Ringen, kein aktiver Export, keine Abnahme.
+
+---
+
 # Fortschreibung: Ebenenabstände und Breitenschätzungen aus echten Daten
 
 `path_evidence.py` sammelt jetzt pro dateilokalem Objekt die distincten
