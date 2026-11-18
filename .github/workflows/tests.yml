@@ -39,6 +39,9 @@ jobs:
       - name: Audit sweep (gcode invariant checker)
         run: python3 tools/audit_sweep.py
 
+      - name: Unified analysis engine tests (Masterkonzept Pass 0-11)
+        run: python3 tools/test_gcode_re.py
+
       - name: Streaming simulations (watcher RSS stays flat)
         run: python3 tools/r91_simulate.py
 

@@ -3,13 +3,13 @@
 **Shutdown register:** `docs/SHUTDOWN_REGISTER.md` — every crash site,
 its cause, its fix and the test that holds it, in one table.
 
-*Stand: R2-2026-11-18.1 (V2). Auto-checked against reality by
+*Stand: R2-2026-11-18.2 (V3). Auto-checked against reality by
 `tools/r165_doc_check.py`; the version line here is not typed by hand —
 see "The version rule" below.*
 
 This page answers the question the MANUAL deliberately does not: **the
 MANUAL describes what the printer does, this describes the machinery that
-makes it do it.** 73 files, ~77 600 lines, in five groups. Everything in
+makes it do it.** 75 files, ~78 700 lines, in six groups. Everything in
 group A ships to the Pi and runs during a print; everything in group E
 never leaves the repository.
 
@@ -234,3 +234,19 @@ post-processor daemon, because menus are evaluated *inside* Klipper.
 
 Safe because the file contains exactly one macro, the version sentinel
 `_V16_MENUS`. Nothing in the print flow depends on it.
+
+## F. Offline analysis & reverse engineering (never runs on the printer)
+
+The Masterkonzept toolchain. It reads a G-code file read-only and writes a
+JSON sidecar; it never mutates the file, never emits move commands and
+never claims physical print safety. Ships in the package for offline use
+(e.g. on a PC or the Pi when idle) — nothing in this group is wired into
+the live print path.
+
+| File | Lines | What it does |
+|---|---|---|
+| `tools/gcode_re.py` | 884 | **The unified Masterkonzept Pass 0-11 pipeline (v3).** One streaming pass over the source: Pass 0-2 via the verified shadow parser (modal state, fail-closed), Pass 3-10 evidence via the tracker (layers/kinematics/topology/tag-audit G-codes), plus real vector Pass-6 geometry: Z-plane buckets (gap-clustered, default 0.05 mm), endpoint-tolerant **online loop extraction** (rings emitted mid-chain, so branches off a junction do not break the ring), shoelace area, nesting hierarchy from ray-cast point-in-polygon, open-hatch direction histogram + median-gap spacing estimate (`RECTILINEAR_LIKE`/`GRID_LIKE`/`UNKNOWN_PATTERN`). Pass 8 feature scoring v2: multi-signal evidence with **top-3 hypotheses, explicit UNKNOWN/AMBIGUOUS, `calibrated: false`, bounded weights in a documented table** — scores are never probabilities. Pass 10 conservation audit (line accounting, extrusion filament shadow-vs-tracker). Pass 11 sidecar (`r2-re/2`): written atomically, existing destination refused unless `--force`, input opened read-only with sha256 in the provenance block. `--with-moves` embeds compact move records (capped). Measured on the 5 MB `rose_215c_pla` fixture: 156 948 lines -> 156 948 records, extrusion ratio shadow-vs-tracker 1.0, 480 rings found, ~25 s on the sandbox CPU. Honest limits: ultra-adaptive/non-planar prints merge many Z levels into few plane buckets (documented); support/prime-tower/raft roles are NOT inferred. |
+| `tools/r2_offline.py` | 400 | The earlier one-pass evidence report/audit/derive CLI (`report` / `audit` / `derive`) — atomic, source read-only, derive never overwrites. `r2_offline.py report` stays the stable minimal path; `gcode_re.py` is the full Masterkonzept pipeline. |
+| `tools/r2_analysis.py` | 1 045 | Pass 3-10 evidence tracker used by both: units/layers, vase detection, kinematics + volumetric flow, footprints, 2D closed-loop nesting (bbox), 3D support grid, sequence audit (C2/C3), tag-vs-geometry audits G1-G6, pattern *metadata* (not geometric recognition). |
+| `tools/r2_shadow.py` | 547 | Pass 0-2 modal state machine. Fail-closed: unknown/unsupported commands invalidate XYZ/E/feed until re-declared. Opt-in: arcs (G17 I/J), firmware retract, Klipper-passive sets, verified R2 markers, inch units. |
+| `tools/test_gcode_re.py` | 218 | 10 tests: loop symmetry, nesting depth, hatch statistics (spacing 2.0 mm at 2 mm strokes), UNKNOWN stays UNKNOWN, G28 restore semantics, hash preservation, atomic sidecar + refuse-overwrite, `--force`, suffix enforcement, move-record cap. |

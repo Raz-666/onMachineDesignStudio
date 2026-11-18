@@ -10,6 +10,12 @@ keeps that guarantee alive: it rebuilds the 23 fixture cases, runs them
 through the CURRENT module and compares MD5s + change summaries against the
 frozen references.
 
+RE-FREEZE HISTORY (R2-2026-11-18.2, V3): version bump ONLY
+(R2-2026-11-18.1 -> R2-2026-11-18.2, POSTPROC_BUILD V2 -> V3; no code
+path changes). A/B proof: the git HEAD module with ONLY the two stamp
+strings patched reproduces this release's output byte-for-byte for all
+23 cases (md5 AND summaries identical); pr01-pr10 byte-IDENTICAL.
+mr01-mr13 re-frozen (stamp class), nothing else.
 RE-FREEZE HISTORY (V1, R2-2026-11-13.1): version scheme changed on user
 request - no more appending letters to .142 (.142j/.142k/.142l ...). New scheme:
 R2-<date>.<counter>, starting at R2-2026-11-13.1. The build tag is 'V1' now.
@@ -38,7 +44,7 @@ diffed - 55 added / 39 removed lines, and apart from the 26 version-stamp
 lines and the 26 re-computed R2-META sig lines EVERY line of the delta is a
 ';TYPE:' comment (28 added, 12 removed = the duplicates the helper replaced);
 not one motion line changed. pr01-pr10 stay byte-identical.
-RE-FREEZE HISTORY: R2-2026-11-18.1 / V2 version bump re-froze mr01-mr13
+RE-FREEZE HISTORY: R2-2026-11-18.2 / V2 version bump re-froze mr01-mr13
 ONLY (release stamp class): POSTPROC_RELEASE .11-13.1 -> .11-18.1,
 POSTPROC_BUILD V1 -> V2 - same length class; both ride in the
 '; R2-GEN core' line and the re-computed R2-META sig. Proof: the git
@@ -431,19 +437,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # process() output is identical old vs new, ALL 13 mr md5s change (every
 # range excerpt carries the core stamp), no summary moves, and r81 was
 # 23/23 green with the R213 code BEFORE the stamp bump.
-REF_MD5 = {'mr01': '7508a5c6cc8b45eb0e386f9e09bda3fc',
- 'mr02': 'f51dc48e6b13a6dee7444fea06201393',
- 'mr03': 'cc9b441a1289f9ada9326ac592ecf1c2',
- 'mr04': 'dd1a9d4fbd819957d448d7c41a3e74ce',
- 'mr05': 'a42b3e35d6205e65480c55b6b0b517cb',
- 'mr06': 'ccd5727f3cdf6160fe6422fff3d9c311',
- 'mr07': 'da9b7f89a9c887bef7594509988415bd',
- 'mr08': '4ad6ca48a206cd88f1d227f4905e06b2',
- 'mr09': 'fda96a4857d020982f507fa73f5b3bb9',
- 'mr10': 'bdffa2d9620815550d27e4ea79f90c15',
- 'mr11': 'cba948af795bfa8a09d6cf506dbc25d6',
- 'mr12': '6dee2dbb2b4bb603ebd78123be37c931',
- 'mr13': '74e02c8565886e50bc0c26fc2be5f6ee',
+REF_MD5 = {'mr01': '64d3bb50a5a3c6376305821316033b04',
+ 'mr02': '9a2a9f332c4f401988c8a6955e3886e2',
+ 'mr03': '6abb6a911e4ae539411cadcda544da88',
+ 'mr04': '2e7afef8722547034d10a0bd95041d03',
+ 'mr05': '8ce05f2de763c08c1dd91f3e58c067dd',
+ 'mr06': '86a4de49cb2af97136014f73470cbdbc',
+ 'mr07': 'd6af2011c3ec994e547c276bbc5ee710',
+ 'mr08': '70d152ce92c5f40c2174bdaa9db88238',
+ 'mr09': '308006c79bd5d3e6132ab04d992b31dc',
+ 'mr10': '32919b5d2d04a081e2976872e5da0998',
+ 'mr11': 'a77ce29a53ee16523347ab6ad5850ecf',
+ 'mr12': '9104803ea077352addd5539585841e41',
+ 'mr13': '91f925a1eeb414a7f83ec691fdf20949',
  'pr01': 'aa5a6f27d5a7e6576f57eeea93af63a5',
  'pr02': '61457e9bcbd98996b6e7dc26efda23d8',
  'pr03': 'f9f7402c190f07e7aa7470d2185fddfc',
