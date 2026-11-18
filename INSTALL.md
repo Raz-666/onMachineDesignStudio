@@ -20,12 +20,12 @@ just unpack once by hand:
 
 ```bash
 cd ~/printer_data/config
-unzip -o klipper-e3-r2d2-UPDATE-R2-2026-10-22.120.zip
+unzip -o klipper-e3-r2d2-UPDATE-R2-2026-11-18.1.zip
 bash klipper-e3-r2d2/update.sh
 ```
 
 No `unzip` on the Pi?
-`python3 -m zipfile -e klipper-e3-r2d2-UPDATE-R2-2026-10-22.120.zip .` does the
+`python3 -m zipfile -e klipper-e3-r2d2-UPDATE-R2-2026-11-18.1.zip .` does the
 same — update.sh uses that fallback automatically.
 
 **What update.sh does:** it finds the newest `klipper-e3-r2d2-UPDATE-R2-*.zip`
@@ -46,7 +46,7 @@ the folders appear automatically, nothing moves, existing outputs in the
 root keep working (version numbering continues across the move).
 
 Boot sound + `M117 R2 ready` ~10 s later confirm success; the console line must
-say `build R2-2026-10-22.120`
+say `build R2-2026-11-18.1`
 
 ---
 
