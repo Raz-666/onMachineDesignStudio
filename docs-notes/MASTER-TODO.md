@@ -806,15 +806,43 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       KLEMMT end auf die echte Schichtzahl (2..99 auf 6 Schichten druckt
       2..6; nur leeres Fenster = Fehler mit Klartext), apply_scale lehnt
       No-Op (100 %/100 %) ab. Kein Watcher/Makro/LCD geändert.
-- [ ] **K2b/2 — Watcher-/Makro-/LCD-Anbindung:** Toolchain-Start über den
-      bestehenden Weg (Makro → SAVE_VARIABLE → Watcher → `_spawn_job`, EIN
-      Queue-Eintrag pro Kette), Preset-Auswahl am LCD (Dateien, nicht
-      JSON-Tippen), Ausgabemodus-Registrierung, Meta-Finalisierung der
-      ENDAUSGABE, macro_render/r81-Gates.
-- [ ] **K3 — Phase 3 Bedienoberfläche:** LCD `Pre-Print > Toolchain`
-      (Preset wählen, auf ausgewählte Datei anwenden, Fortschritt je
-      Stufe), Web-LCD-Spiegel automatisch, Preset-Verwaltung
-      (speichern/laden/löschen).
+- [x] **K2b/2 — Watcher-/Makro-/LCD-Anbindung (R259, erledigt):**
+      `TOOLCHAIN_APPLY`-Makro (17_generator.cfg: R160-Doppelklick, Guard-
+      Kette, `_GEN_GO KEY=toolchain`, Nonce-Increment) → Watcher-Dispatch
+      (`toolchain_nonce` in NONCE_KEYS + Priming + _freeze133: Ketten-
+      Schreibarbeit wartet auf Idle wie jeder Generator) → EIN
+      `_spawn_job('Toolchain', …)` pro Kette. Preset-Auflösung als
+      testbare Funktion `load_preset_file` (tools/toolchain.py: JSON-/
+      Lesefehler/Vertragsverletzungen → Klartext, Watcher meldet per
+      NOTIFY). Job-Innenleben: plan_chain mit first_version=
+      _next_gen_version(Toolchain/) (kein Kollidieren mit früheren
+      Endausgaben, §22), run_chain + plan_step_runner (gemischte
+      Ketten; laufendes r2_postproc-Modul wird als _PP injiziert — kein
+      zweifaches Laden, Pi Zero 2 W), on_output-Hook für queue/preview
+      (_sel_line-Registrierung), _meta_finalize(force=True) auf der
+      Endausgabe. Preset-Auswahl ALS DATEI: SD-Browser-Klick auf .json
+      (SDNAV_GO in 13_system.cfg; .json neu in _SD_EXT151 sichtbar),
+      Beispiel-Preset presets/toolchain/scale-twist.json wird beim
+      ersten Watcher-Start in den Toolchain-Ordner geseedet (gelöschtes
+      Beispiel bleibt gelöscht). LCD-Menü `Pre-Print > Mods >
+      Toolchain` (Preset/File/How/Apply). Grenze dokumentiert: Ketten-
+      Eingabe = Datei im Gcodes-WURZEL-Ordner (§20.2). Gates: macro_
+      render 2110/2110 (7 neue R259-Tests: Makro rendert+guards,
+      Nonce-/Freeze-/Folder-Registrierung, .json-Pick, Beispiel
+      shippt), r81 23/23 ohne Re-Freeze (keine Engine-Änderung;
+      Versions-Bump + r81-Re-Freeze gehören zum Release-Schritt),
+      audit_sweep 82/0, megatest 190/0, test_toolchain 45 (load_
+      preset_file + first_version), test_toolchain_steps 19 (Ende-zu-
+      Ende-Kette von der DATEI, Zweitlauf-Versionshebung, Verdrahtungs-
+      Guards). r2_postproc_next.py als Byte-Kopie synchron gehalten
+      (R252-Regel). NEBENERKENNTNIS: Klipper-Jinja kennt keinen
+      `endswith`-FILTER — Methodenaufruf `.lower().endswith()` nutzen,
+      und Filter+Methodenaufruf lassen sich nicht mischen (erst `set`).
+- [ ] **K3 — Phase 3 Bedienoberfläche (Rest):** Fortschritt je Stufe am
+      LCD (Kette meldet Schritt n/N — aktuell eine Erfolgszeile am Ende),
+      Web-LCD-Spiegel prüfen (Menü-JSON führt den Toolchain-Knoten
+      bereits), Preset-Verwaltung speichern/laden/löschen am LCD
+      (aktuell: Dateien via Mainsail verwalten — bewusst so einfach).
 - [ ] **K4 — Phase 4 Queue-Abhängigkeit & Doku:** §22.3 Druckstart wartet
       auf Job-Fertigstellung mit sichtbarem wahren Zustand, MANUAL-
       Kapitel, Presets im Backup/Paket.

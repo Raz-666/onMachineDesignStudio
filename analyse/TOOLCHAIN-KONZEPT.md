@@ -115,12 +115,29 @@ fertig behauptet, was nicht existiert.
   werden nachvollziehbare Schritt-Fehlschläge. Verhalten wie geliefert
   dokumentiert: make_range klemmt 'end' auf die echte Schichtzahl;
   apply_scale lehnt No-Op-Skalierung ab.
-- **Phase 2b/2 — Watcher-/Makro-/LCD-Anbindung:** Toolchain-Start über den
-  bestehenden Weg (Makro → SAVE_VARIABLE → Watcher → `_spawn_job` — EIN
-  Queue-Eintrag pro Kette, da die Queue ohnehin single-worker ist);
-  Preset-Auswahl am LCD über Preset-DATEIEN (kein JSON-Tippen am Drehrad);
-  Meta-Finalisierung der Endausgabe (_meta_finalize am Plan-Pfad);
-  Ausgabemodus-Registrierung; macro_render/r81-Gates bei Makro-Änderungen.
+- **Phase 2b/2 (erledigt, R259) — Watcher-/Makro-/LCD-Anbindung:**
+  Toolchain-Start über den bestehenden Weg: `TOOLCHAIN_APPLY`
+  (macros/17_generator.cfg, R160-Doppelklick, Guards, `_GEN_GO`,
+  Nonce-Increment) → SAVE_VARIABLEs → Watcher-Dispatch
+  (`toolchain_nonce` in NONCE_KEYS/_prime_nonces/_freeze133 — Disk-I/O
+  wartet auf Idle wie jeder Generator) → `_spawn_job('Toolchain', …)`
+  mit EINEM Queue-Eintrag pro Kette. Der Job: `load_preset_file`
+  (testbare Preset-Auflösung, tools/toolchain.py) → `plan_chain` mit
+  `first_version=_next_gen_version(Toolchain/)` (kein zweiter Lauf
+  kollidiert mit der ersten Endausgabe, §22) → `run_chain` mit
+  `plan_step_runner` (gemischte Ketten, echte Engines; r2_postproc wird
+  als Modul injiziert statt doppelt geladen — Pi Zero 2 W RAM) →
+  Ausgabemodus queue/preview über on_output-Hook (`_sel_line`), Meta-
+  Finalisierung der Endausgabe (`_meta_finalize(force=True)`).
+  Preset-Auswahl als DATEI: Klick auf ein .json im SD-Browser pickt es
+  (SDNAV_GO, macros/13_system.cfg; `.json` in `_SD_EXT151`), Beispiel-
+  Preset `presets/toolchain/scale-twist.json` wird beim ersten Start in
+  den Toolchain-Ordner geseedet. LCD: `Pre-Print > Mods > Toolchain`
+  (Preset/File-Anzeige, How, Apply-Doppelklick). Eingabe = ausgewählte
+  Datei im Gcodes-WURZEL-Ordner (§20.2 plain name). Gates: macro_render
+  2110/2110 (7 neue R259-Tests), r81 23/23 (keine Engine-Änderung,
+  kein Re-Freeze), audit_sweep 82/0, megatest 190/0,
+  test_toolchain 45 + test_toolchain_steps 19.
 - **Phase 3 — Bedienoberfläche:** LCD `Pre-Print > Toolchain` (Preset wählen,
   auf ausgewählte Datei anwenden, Fortschritt je Stufe); das Web-LCD spiegelt
   automatisch (Menü-JSON-Spiegel, gleiche Makros — kein zweites Frontend).

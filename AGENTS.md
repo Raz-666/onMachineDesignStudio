@@ -76,6 +76,7 @@ Bestehenden PR ergänzen; nicht ohne Freigabe mergen.
 | `web/` | WebUI-Komponente (r2_menu.py etc.). |
 | `tools/` | ~130 Python-Module: Generator-/Postprozessor-Engine (`r2_postproc.py`, Kernfunktion `process`), RE-Analyse (`gcode_re.py`), Tests (`test_*.py`, `r*.py`-Checks), PDF-Builder (`make_*_pdf.py`). |
 | `tools/r2_postproc_next.py` | Eingefrorene Vorgängerversion (byte-gleich zur Stable beim Kopieren); Guard-Tests. |
+| `presets/toolchain/` | Beispiel-Toolchain-Presets (R259): der Watcher seedy `scale-twist.json` beim ersten Start in den Gcodes-`Toolchain/`-Ordner; Nutzer-Presets sind gewöhnliche JSON-Dateien (SD-Browser-Pick). |
 | `testfixtures/` | `.gcode.gz`-Fixtures: `rose_215c_pla` (5 MB Orca), `bigrose_020mm`, `stringart3d_generic`. Golden Master. |
 | `slicer/` | CURA/ORCA Feature-Listen + Parser (Referenz für Feature-Tags). |
 | `docs/` | Freigabedokumente: RELEASE_*_REPORT, TOOLS_INVENTORY, FEATURE_TAGGING.md, SHUTDOWN_REGISTER, LCD_MENU_PORTABILITY, WEBUI_MOONRAKER, STRINGART_DESIGN, frame_design. |

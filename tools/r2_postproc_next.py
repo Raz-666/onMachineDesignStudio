@@ -9714,7 +9714,10 @@ NONCE_KEYS = ('preview_nonce', 'range_nonce', 'label_gen_nonce', 'reso_nonce',
               'img_pick_nonce',
               # R214 (.136m): object-only STL export channel - primed like
               # the rest so a restart never re-fires an old export
-              'stl_nonce')
+              'stl_nonce',
+              # R259: toolchain preset chain (TOOLCHAIN_APPLY -> one job,
+              # every step feeds the next) - primed like the rest
+              'toolchain_nonce')
 
 
 def _prime_nonces(rv):
@@ -9743,10 +9746,12 @@ GEN_SUBDIRS = {
     'range': 'Range', 'texture': 'Texture', 'towers': 'Towers',
     'scale': 'Scale', 'cake': 'Cake', 'stringart': 'StringArt',
     'shapes': 'Shapes', 'twist': 'Twist', 'mirror': 'Mirror',
+    'toolchain': 'Toolchain',
 }
 GEN_FOLDER_NAMES = sorted(set(GEN_SUBDIRS.values()))
 _SD_EXT151 = ('.gcode', '.g', '.gco', '.png', '.jpg', '.jpeg',
-              '.svg', '.pdf', '.txt')      # R151: LCD browser + plot sources
+              '.svg', '.pdf', '.txt',
+              '.json')     # R259: toolchain presets are pickable in the browser
 
 # R160 (.120): the ONE place that recognizes a generated file BY NAME. The
 # 00_ prefix is GONE (user rule: 3 characters back for the display) - the
@@ -25473,6 +25478,7 @@ def watch(directory, interval=5.0, once=False):
     last_shape_nonce = None         # R216: simple geometry generator
     last_twist_nonce = None          # R216: twist tool
     last_mirror_nonce = None         # R224: mirror tool
+    last_toolchain_nonce = None      # R259: preset chain (tools in series)
     last_litho_nonce = None          # R89: lithophane / seal / image-delete
     last_colorpic_nonce = None        # R120: color picture generator
     last_seal_nonce = None
@@ -26032,6 +26038,27 @@ def watch(directory, interval=5.0, once=False):
     except Exception as e:                              # noqa: BLE001
         print('[r166] version probe failed: %r' % e, flush=True)
 
+    # R259: the toolchain ships ONE example preset so the LCD path works
+    # out of the box (pick the .json in the SD browser, Pre-Print > Mods >
+    # Toolchain > Apply). Seeded only when the Toolchain folder does not
+    # exist yet: a deleted example STAYS deleted (reappears only after the
+    # folder itself is gone), user presets are never touched.
+    try:
+        _tcd259 = os.path.join(directory, GEN_SUBDIRS['toolchain'])
+        _tcfresh259 = not os.path.isdir(_tcd259)
+        _gensub(directory, 'toolchain')
+        if _tcfresh259:
+            _tcs259 = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                '..', 'presets', 'toolchain', 'scale-twist.json')
+            if os.path.isfile(_tcs259):
+                shutil.copy2(_tcs259,
+                             os.path.join(_tcd259, 'scale-twist.json'))
+                print('[toolchain] example preset seeded: Toolchain/'
+                      'scale-twist.json', flush=True)
+    except OSError as _tce259:
+        print('[toolchain] seed skipped (%s)' % _tce259, flush=True)
+
     while True:
         stats['files'] = 0
         del NEW_PREVIEW[:]
@@ -26106,7 +26133,10 @@ def watch(directory, interval=5.0, once=False):
                 'stl_nonce',
                 # R216: the shape generator + the twist tool write
                 # files - same rule
-                'shape_nonce', 'twist_nonce', 'mirror_nonce')
+                'shape_nonce', 'twist_nonce', 'mirror_nonce',
+                # R259: a toolchain chain writes MANY files (one per step
+                # plus the final) - disk I/O during a print waits for idle
+                'toolchain_nonce')
         # R61: layer-range excerpt request from the LCD (nonce changes on every request)
         try:
             rv = _read_vars(VAR_PATH)
@@ -26301,6 +26331,7 @@ def watch(directory, interval=5.0, once=False):
                 last_stringart_nonce = _np.get('stringart_nonce')  # R178
                 last_gclear_nonce = _np.get('gen_clear_nonce')  # R223
                 last_genq_kill_nonce = _np.get('genq_kill_nonce')  # R238
+                last_toolchain_nonce = _np.get('toolchain_nonce')  # R259
                 # R223 (.136s field log): gen_busy=1 OUTLIVES a killed
                 # watcher - it was raised by a job whose finally never ran
                 # (the wedged photo build took the thread down with the
@@ -28555,9 +28586,142 @@ def watch(directory, interval=5.0, once=False):
                 _moonraker_gcode(
                     'RESPOND MSG=\"Mirror: %s\"\nM117 Mirror error\n'
                     '_SOUND_LIB NAME=r2_error' % ve224m)
-            except Exception:                               # noqa: BLE001
+            except Exception:                           # noqa: BLE001
                 pass
             print(f'[mirror] guard: {ve224m}', flush=True)
+
+        # R259: the TOOLCHAIN - a preset FILE chains the real tools: every
+        # step feeds the next (Scale -> Twist -> ...), ONE queue entry, only
+        # the LAST output stays (temps die after handover, S22.4). The preset
+        # is picked as a FILE (SD browser click on a .json, macros/13_system
+        # SDNAV_GO) - no JSON typing at the LCD, ever.
+        try:
+            _tcn259 = rv.get('toolchain_nonce', '')
+            if _tcn259 and _tcn259 != last_toolchain_nonce:
+                last_toolchain_nonce = _tcn259
+                _tcp259 = str(rv.get('toolchain_preset', '') or '').strip()
+                _tcp259 = _tcp259.lstrip('/')
+                if '..' in _tcp259.split('/'):
+                    raise ValueError('preset paths may not climb up (..)')
+                _tcr259 = str(rv.get('toolchain_file', '') or '').strip()
+                if '..' in _tcr259 or _tcr259.startswith('/'):
+                    _tcr259 = os.path.basename(_tcr259)
+                if not _tcp259:
+                    raise ValueError('no preset picked - click a .json in '
+                                     'the SD browser first (Pre-Print > '
+                                     'Mods > Toolchain shows it)')
+                if not _tcp259.lower().endswith('.json'):
+                    raise ValueError('preset %s is not a .json file'
+                                     % _tcp259)
+                if not _tcr259:
+                    raise ValueError('no file selected - pick one first '
+                                     '(Pre-Print > File)')
+                if not _tcr259.lower().endswith('.gcode'):
+                    raise ValueError('%s is not a .gcode file (the chain '
+                                     'input lives in the gcodes ROOT - '
+                                     'S20.2)' % _tcr259)
+                _tcpp259 = os.path.join(directory, _tcp259)
+                _tcin259 = os.path.join(directory, _tcr259)
+                if not os.path.isfile(_tcpp259):
+                    raise ValueError('preset %s not found in the gcodes '
+                                     'folder' % _tcp259)
+                if not os.path.isfile(_tcin259):
+                    raise ValueError('input %s not found' % _tcr259)
+                # Full preset validation UP FRONT (load_preset_file is the
+                # offline-tested resolver): a broken JSON beeps NOW, not
+                # minutes later when the queue finally runs it.
+                import toolchain as _tcl259
+                _tcpre259, _tcerr259 = _tcl259.load_preset_file(_tcpp259)
+                if _tcpre259 is None:
+                    raise ValueError(' | '.join(_tcerr259))
+                # the anchor registry (load_preset_file default) only knows
+                # the five chainable tools - cake (2 outputs) and everything
+                # else is rejected UP FRONT with a plain-text reason
+                _tcrun259 = [s['tool'] for s in _tcpre259['steps']]
+
+                def _toolchain_job259(rel=_tcr259, preset_path=_tcpp259,
+                                      pre=_tcpre259, rvq=rv,
+                                      tools=_tcrun259):
+                    # Lazy imports INSIDE the job thread (R91): toolchain
+                    # (plan/validation) + toolchain_steps (real adapters).
+                    # The adapters must use THIS watcher's engines - _PP is
+                    # pre-set to the running module so r2_postproc is never
+                    # loaded a second time (Pi Zero 2 W RAM).
+                    import toolchain as _tcl
+                    import toolchain_steps as _tcst
+                    if _tcst._PP is None:
+                        _me259 = sys.modules.get('__main__')
+                        # only inject when __main__ IS this watcher (the
+                        # engines live there); anything else (tests, other
+                        # entry points) falls back to toolchain_steps' own
+                        # module load - correct, just more RAM
+                        if _me259 is not None and all(
+                                hasattr(_me259, _f259) for _f259 in
+                                ('apply_scale', 'apply_twist', 'make_range')):
+                            _tcst._PP = _me259
+                    _out_dir = _gensub(directory, 'toolchain')
+                    # R259: lift the V-number to the next free one - a
+                    # second run of the same preset must never collide with
+                    # the first run's final output (S22: never overwrite).
+                    _plan259, _perr259 = _tcl.plan_chain(
+                        pre, rel,
+                        first_version=_next_gen_version(_out_dir))
+                    if _plan259 is None:
+                        raise ValueError(' | '.join(_perr259))
+                    _mode259 = 'queue' if _gen_out(rvq) else 'preview'
+                    _bed259 = _bed_limits(os.path.join(directory, rel))
+                    _runner259 = _tcst.plan_step_runner(_plan259,
+                                                        bed=_bed259)
+
+                    def _tc_output259(mode, path):
+                        # S21/S22.1: queue = select the file (derived files
+                        # replace the source selection), preview = it just
+                        # appears. A failing registration fails the CHAIN.
+                        _rel259 = os.path.relpath(path, directory)
+                        try:
+                            _moonraker_gcode(
+                                'RESPOND MSG="Toolchain done: %s through '
+                                '%s (%d steps: %s) -> %s - only the last '
+                                'output stays"\nM117 Chain ready\n'
+                                '_SOUND_LIB NAME=r2_done'
+                                % (rel, os.path.basename(preset_path),
+                                   len(_plan259['steps']),
+                                   ' -> '.join(tools), _rel259)
+                                + _sel_line(rvq, _rel259))
+                        except Exception as me259:        # noqa: BLE001
+                            print('[toolchain] moonraker unreachable '
+                                  '(%s)' % me259.__class__.__name__,
+                                  flush=True)
+                            raise
+                    _report259 = _tcl.run_chain(
+                        _plan259, _out_dir,
+                        os.path.join(directory, rel), _runner259,
+                        output_mode=_mode259, on_output=_tc_output259)
+                    if not _report259['ok']:
+                        # the worker reports this verbatim; temps stay for
+                        # forensics (S22.4), nothing is overwritten
+                        raise ValueError(_report259['error'])
+                    _meta_finalize(_report259['final_output'],
+                                   src=os.path.join(directory, rel),
+                                   force=True)
+                    print('[toolchain] %s: OK (%d steps, %.1fs, %d temp '
+                          'outputs cleaned)'
+                          % (os.path.basename(_report259['final_output']),
+                             len(_plan259['steps']),
+                             _report259['duration_s'],
+                             len(_report259['temp_deleted'])), flush=True)
+                    return [_report259['final_output']]
+
+                _spawn_job('Toolchain', 'toolchain:%s:%s' % (
+                    _tcp259, _tcr259), _toolchain_job259)
+        except ValueError as ve259:
+            try:
+                _moonraker_gcode(
+                    'RESPOND MSG=\"Toolchain: %s\"\nM117 Chain error\n'
+                    '_SOUND_LIB NAME=r2_error' % ve259)
+            except Exception:                           # noqa: BLE001
+                pass
+            print(f'[toolchain] guard: {ve259}', flush=True)
 
         # R177 (.130 wish list): the CAKE CUT - split a print with a
         # plane. Angles in all three axes (0.5 deg grid), the plane runs

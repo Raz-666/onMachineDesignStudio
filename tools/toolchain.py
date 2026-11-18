@@ -44,7 +44,9 @@
 #   - Multi-Output-Werkzeuge (Cake PART=BOTH -> U+L) bleiben in Ketten
 #     abgelehnt (outputs != 1), bis die Verzweigungssemantik geklärt ist
 #   - Ausgabe-Namenskonvention Vnn_<stem>.gcode im Ordner Toolchain/ ist
-#     ein VORSCHLAG (analog Cake/), noch kein Systemverhalten
+#     SEIT R259 (Phase 2b/2) Systemverhalten: der Watcher hebt die Nummer
+#     mit _next_gen_version an (plan_chain, first_version) — kein zweiter
+#     Lauf kollidiert mit der Endausgabe des ersten.
 # ============================================================================
 
 import argparse
@@ -494,14 +496,22 @@ def _effective_params(tool, params, registry):
     return merged
 
 
-def plan_chain(preset, input_name, registry=None):
+def plan_chain(preset, input_name, registry=None, first_version=1):
     """Baut den reinen Ausfuehrungsplan: welche Jobs, in welcher Reihenfolge,
 
     mit welcher Ein-/Ausgabe-Datei und welchem Temp-/Gate-Status. Fuehrt
     NICHTS aus und schreibt keine Datei.
+
+    first_version (R259, System-Anbindung): die V-Nummer des ERSTEN
+    Schritts. Der Watcher uebergibt _next_gen_version(Ausgabeordner), so
+    dass aufeinanderfolgende Laeufe nie auf eine existierende Endausgabe
+    treffen (§22: nichts wird ueberschrieben). Default 1 = K2a-Verhalten.
     """
     if registry is None:
         registry = TOOL_REGISTRY
+    if not isinstance(first_version, int) or first_version < 1:
+        return None, ['first_version muss eine ganze Zahl >= 1 sein '
+                      '(got %r)' % (first_version,)]
     ok, errors = validate_preset(preset, registry)
     if not ok:
         return None, errors
@@ -515,7 +525,7 @@ def plan_chain(preset, input_name, registry=None):
     current_input = input_name
     for idx, step in enumerate(preset['steps'], start=1):
         tool = step['tool']
-        output = 'V%02d_%s.gcode' % (idx, stem)
+        output = 'V%02d_%s.gcode' % (first_version + idx - 1, stem)
         job = {
             'job': idx,
             'tool': tool,
@@ -535,9 +545,10 @@ def plan_chain(preset, input_name, registry=None):
     plan = {
         'schema': PLAN_SCHEMA,
         'input': input_name,
-        'output_dir': 'Toolchain/',   # VORSCHLAG analog Cake/, kein Ist-Stand
-        'naming': 'V<nn>_<stem>.gcode (Vorschlag, Versionierungs-Konvention '
-                  'wie Cake/Range)',
+        'output_dir': 'Toolchain/',   # R259: Watcher-Verhalten (_gensub)
+        'naming': 'V<nn>_<stem>.gcode (R259: nn = first_version + Schritt '
+                  '- 1, der Watcher uebergibt die naechste freie Nummer '
+                  'des Ausgabeordners, Konvention wie Cake/Range)',
         'steps': steps,
         'final_output': steps[-1]['output'],
         'temp_outputs': sum(1 for s in steps if s['temp']),
@@ -552,6 +563,34 @@ def plan_chain(preset, input_name, registry=None):
         ],
     }
     return plan, []
+
+
+def load_preset_file(path, registry=None):
+    """R259 (Phase 2b/2): Preset-DATEI laden und validieren.
+
+    Die Preset-Auswahl am LCD ist ein DATEI-Pick (SD-Browser klickt ein
+    .json an, macros/13_system.cfg SDNAV_GO) — hier entsteht daraus das
+    Preset-Diktat: Lesefehler, JSON-Fehler und Vertragverletzungen werden
+    zu Klartext-Fehlern (keine Ausnahme), damit der Watcher sie als
+    NOTIFY/M117 melden kann. Offline testbar, fasst nichts an.
+
+    Rueckgabe: (preset|None, errors_liste) — preset ist nur bei leerer
+    Fehlerliste nicht None.
+    """
+    if not os.path.isfile(path):
+        return None, ['Preset-Datei fehlt: %s' % path]
+    try:
+        with open(path, 'r', encoding='utf-8') as handle:
+            preset = json.load(handle)
+    except OSError as err:
+        return None, ['Preset nicht lesbar: %s (%s)' % (path, err)]
+    except json.JSONDecodeError as err:
+        return None, ['Preset ist kein gueltiges JSON: %s (Zeile %d, '
+                      'Spalte %d)' % (err.msg, err.lineno, err.colno)]
+    ok, errors = validate_preset(preset, registry)
+    if not ok:
+        return None, ['%s: %s' % (os.path.basename(path), e) for e in errors]
+    return preset, []
 
 
 def registry_report(registry=None):

@@ -1,14 +1,14 @@
 {
  "generator": "menu_json_export.py (.136j R211)",
  "source": "lcd_menues.cfg",
- "sections": 2296,
+ "sections": 2301,
  "counts": {
-  "list": 310,
-  "command": 1401,
+  "list": 311,
+  "command": 1405,
   "vsdlist": 1,
   "input": 584
  },
- "sha256": "7658ba9580fe8671",
+ "sha256": "78cd01cdc40ceb87",
  "live_objects": [
   "bed_mesh",
   "configfile",
@@ -5601,6 +5601,56 @@
           "gcode": [
            "{% if printer['gcode_macro _STATE'].gen_arm|default('') == 'mirror' %}{menu.exit()}{% endif %}",
            "MIRROR_APPLY CONFIRM=1"
+          ],
+          "children": []
+         }
+        ]
+       },
+       {
+        "id": "__main __preprint __mods __toolchain",
+        "type": "list",
+        "name": "Toolchain",
+        "children": [
+         {
+          "id": "__main __preprint __mods __toolchain __preset",
+          "type": "command",
+          "name": "Preset: {printer['save_variables'].variables.toolchain_preset|default('')|string|truncate(11, True, '')}",
+          "gcode": [
+           "{% set sv = printer['save_variables'].variables %}",
+           "{% if sv.toolchain_preset|default('')|string != '' %}",
+           "RESPOND MSG=\"Toolchain preset: {sv.toolchain_preset} - Apply runs it on the selected file\"",
+           "{% else %}",
+           "RESPOND MSG=\"Toolchain needs a preset FILE: click a .json in the SD browser (examples live in the Toolchain folder), no typing here\"",
+           "{% endif %}"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __preprint __mods __toolchain __src",
+          "type": "command",
+          "name": "File: {printer['gcode_macro _PREVIEW'].name|default('')|string|truncate(13, True, '')}",
+          "gcode": [
+           "RESPOND MSG=\"Toolchain runs on {printer['gcode_macro _PREVIEW'].name|default('(none)')|string} - pick the input in the file list first (Pre-Print > File)\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __preprint __mods __toolchain __how",
+          "type": "command",
+          "name": "How? (chain)",
+          "gcode": [
+           "RESPOND MSG=\"A preset chains the tools: every step feeds the next (Scale -> Twist -> ...). One background job, only the LAST output stays - it lands in the Toolchain folder\"",
+           "RESPOND MSG=\"Preset = a .json file in the gcodes folder (make one on the PC, drop it in via Mainsail): click it in the SD browser to pick it. The example ships in the Toolchain folder\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __preprint __mods __toolchain __go",
+          "type": "command",
+          "name": "{('> AGAIN = start' if printer['gcode_macro _STATE'].gen_arm|default('') == 'toolchain' else '> Apply')}",
+          "gcode": [
+           "{% if printer['gcode_macro _STATE'].gen_arm|default('') == 'toolchain' %}{menu.exit()}{% endif %}",
+           "TOOLCHAIN_APPLY CONFIRM=1"
           ],
           "children": []
          }

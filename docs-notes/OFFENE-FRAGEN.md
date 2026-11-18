@@ -56,3 +56,13 @@ Gesammelt aus der Sitzung vom 18.11.2026. Reihenfolge ≈ Auswirkung. Erst wenn 
     Analog-Ausgang, z. B. 3B+) / GPIO-Piezo mit Treiber / WebAudio im
     Browser / still — was ist der Zielweg für die Standard-Installation auf
     fremden Klipper-Druckern? (Eigener Drucker: Pi Zero 2 W ohne Klinke.)
+19. **Toolchain-Ketten-Eingabe nur aus dem Gcodes-WURZEL-Ordner (K2b/2,
+    R259):** `§20.2` verlangt einen plain `.gcode`-Dateinamen als
+    Ketten-Eingabe — Dateien, die in Unterordnern liegen (z. B. alte
+    Range-/Texture-Ausgaben), müssen erst ins Hauptverzeichnis verschoben
+    werden, bevor eine Kette sie fressen kann. Beibehalten (einfach,
+    konsistent mit Scale/Twist/Mirror), oder sollen Ketten auch
+    Unterordner-Eingaben zulassen (dann §20.2 erweitern + Makro-/Watcher-
+    Guards anpassen)? Zweite Kleinigkeit: der Toolchain-Ordner sammelt
+    pro Lauf eine neue V-Nummer (V04_, V06_, …) — gewollt (Nachvollzieh-
+    barkeit wie bei jedem Generator), oder soll ein Aufräummakro her?

@@ -237,6 +237,88 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(plan['steps'][0]['output'], 'V01_figur.gcode')
         self.assertEqual(plan['steps'][1]['output'], 'V02_figur.gcode')
 
+    def test_first_version_lifts_the_whole_chain(self):
+        """R259: der Watcher hebt die V-Nummer auf die naechste freie des
+        Ausgabeordners - kein zweiter Lauf kollidiert mit der ersten
+        Endausgabe (S22: nichts wird ueberschrieben)."""
+        plan, _ = toolchain.plan_chain(preset_range_texture(),
+                                       'figur.gcode', first_version=7)
+        self.assertEqual([s['output'] for s in plan['steps']],
+                         ['V07_figur.gcode', 'V08_figur.gcode'])
+        self.assertEqual(plan['final_output'], 'V08_figur.gcode')
+        # die Kette bleibt verkettet: Ausgabe von Schritt 1 = Eingabe von 2
+        self.assertEqual(plan['steps'][1]['input'],
+                         plan['steps'][0]['output'])
+        plan_bad, errors = toolchain.plan_chain(preset_range_texture(),
+                                                'figur.gcode',
+                                                first_version=0)
+        self.assertIsNone(plan_bad)
+        self.assertTrue(any('first_version' in e for e in errors), errors)
+
+
+class PresetFileTests(unittest.TestCase):
+    """R259 (Phase 2b/2): Preset-Auswahl als DATEI - load_preset_file ist
+    die testbare Aufloesung (der Watcher meldet die Fehler als NOTIFY)."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.dir = self._tmp.name
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def _write(self, name, text):
+        path = os.path.join(self.dir, name)
+        with open(path, 'w', encoding='utf-8') as handle:
+            handle.write(text)
+        return path
+
+    def test_shipped_example_resolves(self):
+        """Das mitgelieferte Beispiel-Preset ist gueltig (der Watcher
+        seedy es in den Toolchain-Ordner)."""
+        repo_example = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            'presets', 'toolchain', 'scale-twist.json')
+        preset, errors = toolchain.load_preset_file(repo_example)
+        self.assertIsNotNone(preset)
+        self.assertEqual(errors, [])
+        self.assertEqual([s['tool'] for s in preset['steps']],
+                         ['scale', 'twist'])
+
+    def test_missing_file_is_a_plain_text_error(self):
+        preset, errors = toolchain.load_preset_file(
+            os.path.join(self.dir, 'gibtsnicht.json'))
+        self.assertIsNone(preset)
+        self.assertEqual(len(errors), 1)
+        self.assertIn('fehlt', errors[0])
+
+    def test_broken_json_names_line_and_column(self):
+        path = self._write('broken.json', '{"schema": "r2-toolchain/1",')
+        preset, errors = toolchain.load_preset_file(path)
+        self.assertIsNone(preset)
+        self.assertTrue(any('kein gueltiges JSON' in e for e in errors),
+                        errors)
+
+    def test_contract_violations_carry_the_file_name(self):
+        path = self._write('boese.json', json.dumps({
+            'schema': 'r2-toolchain/1', 'name': 'Boese',
+            'steps': [{'tool': 'cake', 'params': {'yaw': 0}}]}))
+        preset, errors = toolchain.load_preset_file(path)
+        self.assertIsNone(preset)
+        # cake ist in der Anker-Registry gar nicht verankert (nur die 5
+        # kettenfaehigen Werkzeuge) -> unbekannt, Klartext mit Dateiname
+        self.assertTrue(any('boese.json' in e and 'unbekanntes Werkzeug'
+                            in e for e in errors), errors)
+
+    def test_forbidden_input_key_rejected_in_a_file(self):
+        path = self._write('sneaky.json', json.dumps({
+            'schema': 'r2-toolchain/1', 'name': 'Sneaky',
+            'steps': [{'tool': 'twist', 'params': {'deg': 30},
+                       'file': 'teil.gcode'}]}))
+        preset, errors = toolchain.load_preset_file(path)
+        self.assertIsNone(preset)
+        self.assertTrue(any('file' in e for e in errors), errors)
+
 
 class CliTests(unittest.TestCase):
 

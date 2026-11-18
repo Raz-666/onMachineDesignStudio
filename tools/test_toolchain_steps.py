@@ -8,6 +8,7 @@
 # Alles offline: keine Moonraker-/Druckerabhaengigkeit, temporaere Verzeichnisse.
 # ============================================================================
 
+import json
 import os
 import sys
 import tempfile
@@ -207,6 +208,156 @@ class SystemAdapterTests(unittest.TestCase):
                             'params': {'twist_deg': 10}}], menu=True)
         report = self._run(plan)
         self.assertTrue(report['ok'], report['error'])
+
+
+class PresetFileChainTests(unittest.TestCase):
+    """R259 (Phase 2b/2): der WEG DES NUTZERS, end-to-end offline.
+
+    Preset-DATEI (wie vom SD-Browser gepickt) -> load_preset_file ->
+    plan_chain(first_version wie der Watcher: _next_gen_version) ->
+    run_chain mit plan_step_runner (gemischte Kette, echte Engines) ->
+    Endausgabe validiert, temporäre Zwischenstände aufgeräumt (S22.4).
+    """
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.base = self._tmp.name
+        self.gcodes = os.path.join(self.base, 'gcodes')
+        os.makedirs(self.gcodes)
+        self.input_path = os.path.join(self.gcodes, 'kette.gcode')
+        with open(self.input_path, 'w', encoding='utf-8') as handle:
+            handle.write(layered_fixture())
+        self.preset_path = os.path.join(self.gcodes, 'scale-twist.json')
+        with open(self.preset_path, 'w', encoding='utf-8') as handle:
+            handle.write(json.dumps({
+                'schema': toolchain.SCHEMA, 'name': 'Scale up + twist',
+                'steps': [{'tool': 'scale',
+                           'params': {'x': 110, 'y': 110}},
+                          {'tool': 'twist', 'params': {'deg': 45}}]}))
+
+    def test_full_chain_from_a_preset_file(self):
+        preset, errors = toolchain.load_preset_file(self.preset_path)
+        self.assertEqual(errors, [])
+        plan, errors = toolchain.plan_chain(preset, 'kette.gcode',
+                                            first_version=3)
+        self.assertEqual(errors, [])
+        self.assertEqual([s['output'] for s in plan['steps']],
+                         ['V03_kette.gcode', 'V04_kette.gcode'])
+        workspace = os.path.join(self.gcodes, 'Toolchain')
+        runner = toolchain_steps.plan_step_runner(plan)
+        seen = []
+        report = toolchain.run_chain(plan, workspace, self.input_path,
+                                     runner, output_mode='queue',
+                                     on_output=lambda m, p: seen.append(
+                                         (m, os.path.basename(p))))
+        self.assertTrue(report['ok'], report['error'])
+        final = report['final_output']
+        self.assertEqual(os.path.basename(final), 'V04_kette.gcode')
+        self.assertTrue(os.path.isfile(final))
+        # S22.4: der Zwischenstand V03 ist erst NACH uebernahme geloescht
+        self.assertEqual(report['temp_deleted'],
+                         [os.path.join(workspace, 'V03_kette.gcode')])
+        self.assertFalse(os.path.exists(
+            os.path.join(workspace, 'V03_kette.gcode')))
+        # scale 110% ist sichtbar groesser geworden (echte Engine)
+        lo, hi = g1_x_span(final)
+        src_lo, src_hi = g1_x_span(self.input_path)
+        self.assertGreater(hi - lo, (src_hi - src_lo) * 1.05)
+        # queue-Registrierung (S21): der Hook sah die Endausgabe
+        self.assertEqual(seen, [('queue', 'V04_kette.gcode')])
+
+    def test_second_run_lifts_version_and_collides_with_nothing(self):
+        """Der Watcher vergibt _next_gen_version: Lauf 2 schreibt V05/V06,
+        die Endausgabe von Lauf 1 (V04) bleibt unangetastet (S22)."""
+        preset, _ = toolchain.load_preset_file(self.preset_path)
+        workspace = os.path.join(self.gcodes, 'Toolchain')
+        for version, expect in ((3, 'V04_kette.gcode'),
+                                (5, 'V06_kette.gcode')):
+            plan, _ = toolchain.plan_chain(preset, 'kette.gcode',
+                                           first_version=version)
+            report = toolchain.run_chain(
+                plan, workspace, self.input_path,
+                toolchain_steps.plan_step_runner(plan))
+            self.assertTrue(report['ok'], report['error'])
+            self.assertEqual(os.path.basename(report['final_output']),
+                             expect)
+        self.assertTrue(os.path.isfile(
+            os.path.join(workspace, 'V04_kette.gcode')))
+        self.assertTrue(os.path.isfile(
+            os.path.join(workspace, 'V06_kette.gcode')))
+
+    def test_broken_preset_file_fails_cleanly_before_any_job(self):
+        with open(self.preset_path, 'w', encoding='utf-8') as handle:
+            handle.write('{"schema": "r2-toolchain/1"')
+        preset, errors = toolchain.load_preset_file(self.preset_path)
+        self.assertIsNone(preset)
+        self.assertTrue(any('JSON' in e for e in errors), errors)
+
+
+class SystemWiringTests(unittest.TestCase):
+    """R259-Quellverdrahtung: Makro -> Nonce -> Watcher -> Job -> Menü.
+    Diese Guards sichern die Nahtstellen, die offline nicht lauffaehig
+    sind (Moonraker/Queue) - das Muster: macro_render_test R224-Tests."""
+
+    ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    @classmethod
+    def _read(cls, *parts):
+        with open(os.path.join(cls.ROOT, *parts), encoding='utf-8') as fh:
+            return fh.read()
+
+    def test_watcher_dispatch_and_registrations(self):
+        src = self._read('tools', 'r2_postproc.py')
+        self.assertIn("'toolchain_nonce')", src.split('NONCE_KEYS = (')[1])
+        self.assertIn("'toolchain': 'Toolchain',", src)
+        self.assertIn("'toolchain_nonce')", src.split('_freeze133 = (')[1])
+        self.assertIn("last_toolchain_nonce = _np.get('toolchain_nonce')",
+                      src)
+        self.assertIn("rv.get('toolchain_nonce', '')", src)
+        self.assertIn("_spawn_job('Toolchain',", src)
+        # der SD-Browser zeigt .json (Preset-Pick), R259
+        self.assertIn("'.json')", src.split('_SD_EXT151 = (')[1][:220])
+
+    def test_job_uses_this_watchers_engines(self):
+        """Der Job injiziert das laufende Modul als _PP - r2_postproc wird
+        nie ein zweites Mal geladen (Pi Zero 2 W RAM). Die Injektion prueft
+        hasattr (apply_scale/apply_twist/make_range): fremde __main__
+        (Tests, andere Einspruenge) fallen auf den eigenen Modul-Ladefall
+        zurueck."""
+        src = self._read('tools', 'r2_postproc.py')
+        self.assertIn('_tcst._PP = _me259', src)
+        self.assertIn("sys.modules.get('__main__')", src)
+        self.assertIn("hasattr(_me259, _f259)", src)
+
+    def test_macro_and_lcd_and_pick_wired(self):
+        macro = self._read('macros', '17_generator.cfg')
+        self.assertIn('SAVE_VARIABLE VARIABLE=toolchain_nonce '
+                      'VALUE={sv.toolchain_nonce|default(0)|int + 1}', macro)
+        self.assertIn('_GEN_GO KEY=toolchain', macro)
+        lcd = self._read('menus', 'lcd_menues.cfg')
+        self.assertIn('[menu __main __preprint __mods __toolchain __go]',
+                      lcd)
+        self.assertIn('TOOLCHAIN_APPLY CONFIRM=1', lcd)
+        pick = self._read('macros', '13_system.cfg')
+        self.assertIn("low.endswith('.json')", pick)
+        self.assertIn('SAVE_VARIABLE VARIABLE=toolchain_preset', pick)
+
+    def test_menu_export_carries_the_toolchain_node(self):
+        data = toolchain.load_menu_data()
+        node = toolchain._find_node(
+            data['tree'], '__main __preprint __mods __toolchain')
+        self.assertIsNotNone(node)
+        kids = [c['id'].split()[-1] for c in node.get('children') or []]
+        self.assertEqual(kids, ['__preset', '__src', '__how', '__go'])
+
+    def test_example_preset_ships_and_matches_the_tool_set(self):
+        path = os.path.join(self.ROOT, 'presets', 'toolchain',
+                            'scale-twist.json')
+        preset, errors = toolchain.load_preset_file(path)
+        self.assertEqual(errors, [])
+        for step in preset['steps']:
+            self.assertIn(step['tool'], toolchain_steps.SYSTEM_TOOLS)
 
 
 if __name__ == '__main__':

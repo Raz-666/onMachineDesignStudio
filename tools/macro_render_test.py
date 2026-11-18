@@ -5552,6 +5552,7 @@ tests.append(('R75 watcher: _prime_nonces adopts the current counters (no re-fir
         'mirror_nonce': None,      # R224: mirror tool
         'gen_clear_nonce': None,   # R223: queue escape hatch
         'genq_kill_nonce': None,   # R238: queue skip/stop channel
+        'toolchain_nonce': None,   # R259: preset chain
         'quality_fix_nonce': None, 'speed_fix_nonce': None}, ''))
 # R214 STL + R216 (.136n) shape+twist+fixes
 tests.append(('R75 watcher: daemon runs niced + primes on the first pass',
@@ -6785,8 +6786,9 @@ tests.append(('R86-R224 watcher: NONCE_KEYS has 44 channels incl. litho/seal/fra
     '+ the three fix channels (.108) + the two optimized-file channels (.128) '
     '+ the SD-browser image channel (.130) + the STL export channel (.136m) '
     '+ the shape generator channel (.136n) + the queue-clear channel (.136u) '
-    '+ the mirror channel (.136v)',
-    len(_pp.NONCE_KEYS) == 45 and 'stl_nonce' in _pp.NONCE_KEYS
+    '+ the mirror channel (.136v) + the toolchain channel (R259)',
+    len(_pp.NONCE_KEYS) == 46 and 'stl_nonce' in _pp.NONCE_KEYS
+    and 'toolchain_nonce' in _pp.NONCE_KEYS
     and 'mirror_nonce' in _pp.NONCE_KEYS
     and 'gen_clear_nonce' in _pp.NONCE_KEYS
     and 'quality_fix_nonce' in _pp.NONCE_KEYS
@@ -14876,6 +14878,13 @@ _ADDED135 = [
     '__main __system __diag __where',
     '__main __system __pp',
     '__main __system __ppinfo',
+    # R259: the toolchain preset chain (Pre-Print > Mods > Toolchain) -
+    # preset picked as a FILE (SD browser .json click), 5 sections
+    '__main __preprint __mods __toolchain',
+    '__main __preprint __mods __toolchain __preset',
+    '__main __preprint __mods __toolchain __src',
+    '__main __preprint __mods __toolchain __how',
+    '__main __preprint __mods __toolchain __go',
 ]
 _gone135 = sorted(set(_gold135) - set(_now135))
 _new135 = sorted(set(_now135) - set(_gold135))
@@ -14934,11 +14943,12 @@ tests.append(('R175b Pre-Print order (.130 wish list): File info FIRST -> '
                           '__temps', '__fil', '__motion', '__feat', '__pre',
                           '__mesh', '__confirm', '__alloff', '__profs'],
               str(_pre135)))
-tests.append(('R175b Pre-Print Tools submenu + Motion split',
+tests.append(('R175b Pre-Print Tools submenu + Motion split (R259: '
+              '+Toolchain after Mirror)',
               _kids135('__preprint __mods') == ['__poff', '__tex', '__rng',
                                                 '__scale', '__twist',
-                                                '__mirror', '__cake',
-                                                '__plot']
+                                                '__mirror', '__toolchain',
+                                                '__cake', '__plot']
               and _kids135('__preprint __motion') == ['__vel', '__ext',
                                                       '__ret', '__zh1', '__zh2']
               and _kids135('__preprint __motion __vel')[-2:] == ['__spfe',
@@ -15432,8 +15442,9 @@ _rows160 = _re160.findall(r'gcode:\n    (?:[^\n]*menu\.exit[^\n]*\n    )?'
                    r'([A-Z_]+(?: INDEX=\d+| PRESET=\w+)? CONFIRM=1)', _lcd160)
 tests.append(('R160 LCD: 49 rows confirm by DOUBLE PRESS (macro + CONFIRM=1), '
     'console stays single-shot (R224: +Mirror +Rope/Basket/Chess presets; '
-    'R240: +the 6 profile actions +queue stop)',
-    len([r for r in _rows160 if not r.startswith(('LABEL_CLEAR_ALL', 'SYS_SAVE_CONFIG'))]) == 47
+    'R240: +the 6 profile actions +queue stop; R259: +Toolchain)',
+    len([r for r in _rows160 if not r.startswith(('LABEL_CLEAR_ALL', 'SYS_SAVE_CONFIG'))]) == 48
+    and 'TOOLCHAIN_APPLY CONFIRM=1' in _lcd160
     and 'SAVE_DEPOT_PRESET CONFIRM=1' in _lcd160
     and 'LOAD_DEPOT_PRESET CONFIRM=1' in _lcd160
     and 'FILE_PROFILE_LOAD WHICH=pre CONFIRM=1' in _lcd160
@@ -18338,6 +18349,56 @@ save_vars['preview_file'] = ''
 out = render(_mir224, {})
 tests.append(('R224 MIRROR_APPLY: no file -> friendly error, nonce untouched',
     'no file selected' in out and 'VARIABLE=mirror_nonce' not in out, ''))
+
+# ===== R259: the TOOLCHAIN - preset file chains the real tools =====
+_sr259 = open('tools/r2_postproc.py', encoding='utf-8').read()
+tests.append(('R259 toolchain: watcher channel + output folder + freeze + '
+    'json pick registered (one queue entry per chain, disk I/O waits for '
+    'idle like every generator)',
+    'toolchain_nonce' in _mod224.NONCE_KEYS
+    and _mod224.GEN_SUBDIRS.get('toolchain') == 'Toolchain'
+    and "'toolchain_nonce'" in _sr259.split('_freeze133 = (')[1][:4000]
+    and '_toolchain_job259' in _sr259
+    and "_np.get('toolchain_nonce')" in _sr259
+    and '.json' in _mod224._SD_EXT151, ''))
+_ma259 = open('macros/17_generator.cfg', encoding='utf-8').read()
+tests.append(('R259 TOOLCHAIN_APPLY macro: arms on CONFIRM, saves preset + '
+    'file, bumps the nonce (the R160 double-press pattern)',
+    'TOOLCHAIN_APPLY' in _ma259
+    and "SAVE_VARIABLE VARIABLE=toolchain_nonce VALUE={sv.toolchain_nonce|default(0)|int + 1}" in _ma259
+    and 'SAVE_VARIABLE VARIABLE=toolchain_preset' in _ma259
+    and 'SAVE_VARIABLE VARIABLE=toolchain_file' in _ma259
+    and '_GEN_ARM KEY=toolchain' in _ma259 and '_GEN_GO KEY=toolchain' in _ma259,
+    ''))
+save_vars.update({'toolchain_preset': 'Toolchain/scale-twist.json',
+                  'toolchain_file': '', 'toolchain_nonce': 4,
+                  'preview_file': 'teil.gcode'})
+_tc259 = get_body('macros/17_generator.cfg', 'TOOLCHAIN_APPLY')
+out = render(_tc259, {})
+tests.append(('R259 TOOLCHAIN_APPLY renders: preset + file saved, nonce '
+    'bumped, honest one-job message',
+    'VARIABLE=toolchain_preset VALUE="\\\"Toolchain/scale-twist.json\\\""' in out
+    and 'VARIABLE=toolchain_file VALUE="\\\"teil.gcode\\\""' in out
+    and 'VARIABLE=toolchain_nonce VALUE=5' in out
+    and 'only the last output stays' in out, out[:150]))
+out = render(_tc259, {'PRESET': '../escape.json'})
+tests.append(('R259 TOOLCHAIN_APPLY: path climb refused before any save',
+    'PRESET must be a path inside the gcodes folder' in out
+    and 'VARIABLE=toolchain_nonce' not in out, ''))
+save_vars['preview_file'] = ''
+save_vars['toolchain_preset'] = ''
+out = render(_tc259, {})
+tests.append(('R259 TOOLCHAIN_APPLY: no preset -> friendly pick hint, '
+    'nonce untouched',
+    'no preset picked' in out and 'VARIABLE=toolchain_nonce' not in out, ''))
+_sys259 = open('macros/13_system.cfg', encoding='utf-8').read()
+tests.append(('R259 SD browser: a .json click PICKS the toolchain preset '
+    '(file selection instead of JSON typing at the LCD)',
+    "low.endswith('.json')" in _sys259
+    and 'SAVE_VARIABLE VARIABLE=toolchain_preset' in _sys259, ''))
+tests.append(('R259 example preset ships + resolves (load_preset_file is '
+    'the offline-tested resolver)',
+    __import__('os').path.isfile('presets/toolchain/scale-twist.json'), ''))
 # R224 task 10: multi-object files (print-by-object) - OBJ= flips ONE
 # object around ITS own center, the rest stays byte-identical
 _f224b = _os224.path.join(_d224, 'multi.gcode')

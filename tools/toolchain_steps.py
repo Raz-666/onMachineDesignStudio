@@ -165,3 +165,20 @@ def system_runner_for_plan(plan, bed=None):
         runners[step['job']] = system_step_runner(
             step['tool'], step.get('params', {}), bed=bed)
     return runners
+
+
+def plan_step_runner(plan, bed=None):
+    """R259 (Phase 2b/2): EIN step_runner fuer den GESAMTEN Plan.
+
+    run_chain(step, in_path, out_path) verlangt ein einzelnes Callable —
+    hier wird je Schritt auf den Adapter seines Werkzeugs weitergeleitet
+    (gemischte Ketten: Scale -> Twist -> Mirror -> ...). bed=(x0,y0,x1,y1)
+    wird EINMAL von aussen uebergeben (der Watcher misst es am ORIGINAL-
+    Eingabepfad) und gilt fuer alle Schritte.
+    """
+    runners = system_runner_for_plan(plan, bed=bed)
+
+    def runner(step, in_path, out_path):
+        return runners[step['job']](step, in_path, out_path)
+
+    return runner
