@@ -115,7 +115,8 @@ class IntegrationTests(unittest.TestCase):
         self.assertEqual(evidence['object_diagnostics'],{})
         self.assertEqual(evidence['longest_path']['object_context']['name'],
                          'vaserose_5cm_withbottom.stl_id_0_copy_0')
-        self.assertEqual(evidence['paths_by_role']['helper_hint_excluded'],22)
+        # 22 brim + 108 ironing paths: finishing passes are helpers, not model.
+        self.assertEqual(evidence['paths_by_role']['helper_hint_excluded'],130)
         self.assertGreater(result['diagnostics']['nonplanar_extrusion'],0)
         self.assertFalse(result['export_ready'])
 

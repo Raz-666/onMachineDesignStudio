@@ -15,7 +15,10 @@ MAX_NONPLANAR_POINTS = 1024  # matches spiral_rings.MAX_POINTS
 from contour_mesh import MAX_VERTICES
 from contour_context import ObjectContext, feature_role
 
-FEATURE = re.compile(r'^\s*(?:TYPE|FEATURE)\s*:\s*(.*?)\s*$', re.I)
+# Colon forms: PrusaSlicer-family `;TYPE:<name>`, R2 `;FEATURE:<name>`.
+# Space form: Kiri:Moto `; feature <name>` (e.g. shells, sparse infill,
+# solid fill, support, brim). Hints stay unverified provenance either way.
+FEATURE = re.compile(r'^\s*(?:(?:TYPE|FEATURE)\s*:\s*(.*?)|FEATURE\s+(\S.*?))\s*$', re.I)
 
 
 class PathEvidence:
@@ -183,10 +186,12 @@ class PathEvidence:
             return
         comment = record.get('comment') or ''
         match = FEATURE.match(comment)
-        if match and match.group(1) != self.feature:
-            self.finish('feature_hint_change')
-            # Bound comment storage; hints are not verified feature assignments.
-            self.feature = match.group(1)[:120]
+        if match:
+            hint = match.group(1) if match.group(1) is not None else match.group(2)
+            if hint != self.feature:
+                self.finish('feature_hint_change')
+                # Bound comment storage; hints are not verified feature assignments.
+                self.feature = hint[:120]
         kind = record['kind']
         if kind in ('comment', 'non_motion_event'):
             return

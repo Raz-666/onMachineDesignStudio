@@ -600,3 +600,17 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       rose wall bead width from g-code evidence`. Weiter offen: Schalen-
       modell (Miter mit Verschmelzung/Stadium-Sweep), Slicer-Reimport,
       zweites Objekt.
+- [x] **I4 Fremd-Datei-Härtetest:** drei ältere Nutzer-Uploads (keine
+      Vasen, mit Stützen/Brim) als Fixtures + `test_field_gcode.py`.
+      MAN_V3 (Slice Beam 0.3.0): ;TYPE:-Rollen, 0 Unknowns mit
+      assume_klipper_defaults, 5333/9190 Helper-Pfade (Support, Skirt/Brim,
+      Ironing, Custom). Pumpkin (Kiri:Moto 4.3.2): kein G90 in der Datei,
+      G28 W/G80-Startblock, ;feature-Grammatik, 192 nichtplanare Pfade
+      (Deckenrampe), 415 Helper/6664 Modell. vwbus (Kiri:Moto 4.3.1):
+      31144/39243 Pfade Support (~79 %), 8099 Modell. Fixes: G28-Semantik
+      (nur Achsen invalidieren, Modi erhalten; Record-Typ ‚home‘),
+      FEATURE-Regex + Kiri `; feature`, HELPER_HINTS + skirt/brim, ironing,
+      custom. 10 neue Tests, 164 gesamt lokal bestanden. Commit `feat:
+      ingest three foreign field files with full feature tagging`. Weiter
+      offen: Modell-STL ohne Stützen/Brim aus diesen Dateien, Kiri-Objekt-
+      marker, Schalenmodell, Slicer-Reimport.

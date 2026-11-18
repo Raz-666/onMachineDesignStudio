@@ -2,8 +2,11 @@
 """Read-only, offline G-code state trace engine. Not a postprocessor.
 
 Outputs JSON Lines to stdout; it never executes commands or writes the input.
-Numbers are *G-code coordinate values*, not measured machine position. Unknown
-commands conservatively invalidate tracked coordinates. Optional capabilities
+Numbers are *G-code coordinate values*, not measured machine position. G28
+homing invalidates only the homed axes' coordinates; modal state (G90/G91,
+M82/M83, units) and the logical E coordinate are preserved, matching
+Marlin/Klipper semantics. Unknown commands conservatively invalidate tracked
+coordinates. Optional capabilities
 (`enable_arcs`, `firmware_retract`, `klipper_passive`, `verified_r2_passive`,
 `assume_klipper_defaults`) are strictly opt-in and explicitly recorded so
 traces never hide assumptions.
@@ -286,6 +289,33 @@ class Shadow:
                        position_mm=self.position.copy(),
                        reason='motors disabled; disabled axis and extruder coordinates invalidated')
             return rec
+        # Homing G28: bare axis selectors (optionally valued) plus the Marlin
+        # `W` (no mesh bed level) flag. Homing never changes modal state
+        # (G90/G91, M82/M83, units) or the logical extruder coordinate; only
+        # the homed axes' logical coordinates become unknown until re-set.
+        if command == 'G28':
+            homed = []
+            for token in rest.split():
+                upper = token.upper()
+                if upper == 'W':
+                    continue
+                match = re.fullmatch(r'([XYZ])([+-]?(?:\d+(?:\.\d*)?|\.\d+)?)', upper)
+                if match and match.group(1) not in homed:
+                    homed.append(match.group(1))
+                else:
+                    homed = None
+                    break
+            if homed is None:
+                self.invalidate()
+                rec['reason'] = 'unsupported homing syntax; coordinate state invalidated'
+                return rec
+            axes = tuple(homed) if homed else AXES
+            self.invalidate_axes(axes)
+            rec.update(kind='home', homed_axes=list(axes),
+                       position_mm=self.position.copy(),
+                       reason='homing; homed axis logical coordinates invalidated; '
+                              'modal state and extruder coordinate preserved')
+            return rec
         try:
             params = parameters(rest)
         except ValueError as exc:
@@ -484,7 +514,7 @@ class Shadow:
             rec['kind'] = 'non_motion_event'
             return rec
 
-        # Homing, unrecognised macros, R-form arcs, G90.1/G91.1 fail closed.
+        # Unrecognised macros, R-form arcs, G90.1/G91.1 fail closed.
         self.invalidate()
         rec['reason'] = 'unsupported command; coordinate and modal state invalidated'
         return rec

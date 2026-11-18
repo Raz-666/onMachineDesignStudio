@@ -2,9 +2,10 @@
 from collections import Counter
 import shlex
 
-HELPER_HINTS = frozenset(('brim', 'skirt', 'support', 'support interface',
+HELPER_HINTS = frozenset(('brim', 'skirt', 'skirt/brim', 'support', 'support interface',
                           'support material', 'support material interface',
-                          'raft', 'prime tower', 'wipe tower', 'purge tower'))
+                          'raft', 'prime tower', 'wipe tower', 'purge tower',
+                          'ironing', 'custom'))
 OUTER_HINTS = frozenset(('outer wall', 'external perimeter', 'wall-outer'))
 
 

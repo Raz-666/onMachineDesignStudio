@@ -284,7 +284,25 @@ Ringe 106/109/110 (außen) und 37/88 (innen) ab → KEINE uniforme Breite > 0
 volllauffähig; „≤0,24 alle OK" war Fenster-Artefakt (Volllauf: außen 86/114,
 innen 69/114). Physische Schale braucht besseres Modell (Miter mit
 Verschmelzung/überstrichene Stadium-Fläche). 11 neue Tests, 154 gesamt.
-Nächster Schritt: Schalenmodell für Breite, Slicer-Reimport; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
+Fremd-Datei-Härtetest (Nutzer-Uploads, älter, mit Stützen/Brim,
+KEINE Spiral-Vasen): `testfixtures/{MAN_V3,Pumpkin_Scream_MULTI-011,
+vwbus}.gcode.gz` (SHA256 in test_field_gcode verankert). Alle drei parsen
+jetzt mit 0 Unknown-Records und vollständiger Feature-Klassifikation:
+MAN_V3 = Slice Beam 0.3.0 (PrusaSlicer-Familie, ;TYPE:-Rollen; 9190 Pfade,
+5333 Helper: Support 5008, Skirt/Brim 144, Ironing 179, Custom 2; erster
+Startblock ohne G21 → konservativ 9 Unknowns nur dort, mit
+assume_klipper_defaults vollständig). Pumpkin = Kiri:Moto 4.3.2 (setzt KEIN
+G90! G28 W + G80 Marlin-Startblock; ;feature-Grammatik; 192 nichtplanare
+Pfade durch Deckenrampe; 415 Helper/6664 Modell). vwbus = Kiri:Moto 4.3.1
+(39243 Pfade, davon 31144 Support ≈ 79 %; 8099 Modell). Dafür: G28-Semantik
+in r2_shadow korrigiert (homed nur Achsen-Koordinaten, Modi/E/Einheiten
+erhalten — vorher Total-Invalidate, machte Kiri:Moto unlesbar; neuer
+Record-Typ ‚home‘), FEATURE-Regex erkennt Kiri `; feature <name>`,
+HELPER_HINTS += skirt/brim, ironing, custom (Rose: +108 Ironing-Helper
+korrigiert, waren unclassified). Kiri `; start object id:`-Marker gefunden,
+noch nicht modelliert. 10 neue Tests, 164 gesamt.
+Nächster Schritt: Modell-STL aus Fremd-Dateien (ohne Stützen/Brim),
+Schalenmodell für Breite, Slicer-Reimport; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
 Der Loft ist keine allgemeine Spiralrekonstruktion; aktiver Export unverändert.
 
 ## Historie
