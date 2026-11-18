@@ -1,3 +1,36 @@
+# Fortschreibung: vollständige 3D-Pfade statt zerstückelter planarer Ketten
+
+Neues `tools/path_evidence.py`, parallel zur konservativen Konturerkennung.
+Laufende Summen statt Punktwolken; maximal 12 Beispielpfade + längster Pfad,
+maximal 65 Feature-Hint-Zähler. Ursprung/Ende, Z-Min/Max, auf-/absteigende
+Segmente, 3D-Länge, kommandiertes Filament und Quellenzeilen bleiben erhalten.
+Feature-Kommentare sind ausdrücklich Hinweise, keine belegte Klassifikation.
+Es wird nichts verschoben, geschlossen, geglättet oder auf Z-Ebenen projiziert.
+
+Rose mit optionalem Klipper-Modell:
+- 708 vollständige Extrusionspfade / 137975 Segmente;
+- 480 planare, 228 nichtplanare Pfade;
+- 336 Pfade mit XY-Endlücke <=0,1 mm, aber ohne exakten 3D-Schluss;
+- Feature-Hinweise: Brim 22, Outer wall 304, Bottom surface 2,
+  Top surface 180, Internal solid infill 92, Ironing 108;
+- längste Bahn Zeilen 39269–39869: 601 Segmente, Z10,2→10,4,
+  200 ansteigende/0 absteigende Segmente, XY-Endlücke 0,0358469 mm,
+  Länge 325,488893 mm. Endet vor G92, Hinweis Outer wall.
+
+Damit sind 41445 frühere offene Ketten **nicht** 41445 reale separate Bahnen:
+die planare Extraktion zerlegt jede Z-Änderung. Das Feldproblem enthält sowohl
+kleine Nahtlücken (erste Brim-Pfade etwa 0,06 mm) als auch steigende 3D-Bahnen.
+Diese Messung rechtfertigt keine pauschale Projektion/Schließung und noch
+keine Aussage über die physische Außenwand oder Druckbarkeit.
+
+5 neue Bahnevidenztests + 12 Integrationstests (einschließlich festgehaltener
+Rose-Messwerte), 16 Kontur-, 5 Mesh-, 3 E-State-Tests bestanden: 41 Tests.
+CI ergänzt. Grenzen: keine Objektzuordnung, keine Materialquerschnitts-
+rekonstruktion, keine neue Exportabnahme. Nächste Umsetzung braucht ein
+explizites Annäherungs-/Fehlerbudget für Naht- und Spiralpfade.
+
+---
+
 # Fortschreibung: Ursache der Rose-Zustandsinvalidierung
 
 Belegte Folge: Zeile 95 `START_PRINT` invalidiert den unbekannten Zustand.

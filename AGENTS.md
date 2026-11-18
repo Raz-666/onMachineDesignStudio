@@ -163,14 +163,15 @@ Rose-Felddatei: strikt 0 Konturen/148529 unbekannte Records; mit explizitem
 noch unbekannte Koordinaten. 12 Integrationstests inklusive Rose bestanden.
 Kein geratenes START_PRINT-Endergebnis: Modus/Position erholen sich nur durch
 nachfolgende Dateibefehle. Parseroptionen stehen im Bericht.
-Nächster Schritt: offene/nichtplanare Bahnen und Nahtlücken analysieren, bevor
-sie zu Modellkonturen rekonstruiert werden; nicht einfach Z runden oder
-Endpunkte zusammenschieben. Danach physische Linienbreiten/Objekte
-mit belegter Zuordnung/physischer Linienbreite verbinden. Der aktuelle Loft
-nimmt explizite Transformationen an, keine beliebigen Layerloops;
-Lochanzahl/-topologie darf nicht still geändert werden.
-anschließend normalisiertes Bewegungsmodell anbinden. Keine ungeprüften
-Düsenmittellinien als physische Außenkonturen interpretieren.
+Neue Bahnevidenz: `tools/path_evidence.py`, in `gcode_contours` integriert.
+Rose: 708 zusammenhängende Extrusionspfade, 137975 Segmente; 480 planar,
+228 nichtplanar, 336 XY-Endabstände <=0,1 mm ohne exakten 3D-Schluss.
+Längste Bahn Z10,2→10,4, Zeilen 39269–39869, 601 Segmente, XY-Lücke 0,03585 mm.
+5 neue Tests plus 36 bestehende lokal grün; Rose-Zahlen als Regression gesichert.
+Keine Z-Projektion oder Nahtschließung durchgeführt. Nächster Schritt:
+Rekonstruktionsvertrag für belegte Naht-/Spiralpfade implementieren, mit
+explizitem Fehlerbudget, Objektzuordnung und physischer Linienbreite. Der
+vorhandene Loft ist keine allgemeine Spiralrekonstruktion; aktiver Export unverändert.
 
 ## Historie
 

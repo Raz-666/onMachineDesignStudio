@@ -11,6 +11,7 @@ import math
 from pathlib import Path
 
 from r2_shadow import Shadow
+from path_evidence import PathEvidence
 from contour_mesh import _boundary, MAX_VERTICES
 
 MAX_LOOPS = 1024
@@ -21,6 +22,7 @@ MAX_LINES = 2000000
 def collect_contours(path, *, klipper_passive=False):
     # Reuse the existing explicit dialect capability; never assume initial state.
     state = Shadow(klipper_passive=klipper_passive)
+    paths = PathEvidence()
     loops, issues = [], Counter()
     unknown_examples = []
     chain = []
@@ -50,6 +52,7 @@ def collect_contours(path, *, klipper_passive=False):
                 truncated = True
                 break
             record = state.process(raw,number)
+            paths.consume(record)
             kind = record['kind']
             if kind == 'comment':
                 continue
@@ -113,9 +116,10 @@ def collect_contours(path, *, klipper_passive=False):
                 flush()
                 issues['contour_vertex_budget_exceeded'] += 1
     flush()
+    paths.finish('scan_budget' if truncated else 'eof')
     return dict(schema='r2-contour-candidates/1', source=str(path),
                 complete_scan=not truncated, export_ready=False,
-                parser_options=state.options_summary(),
+                parser_options=state.options_summary(), path_evidence=paths.report(),
                 loops=loops, diagnostics=dict(issues), unknown_examples=unknown_examples,
                 limitations=['centreline only; physical width/offset missing',
                              'closed loops may be skirt, support, infill or walls',

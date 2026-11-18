@@ -419,3 +419,11 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       Commit-Betreff `fix: diagnose Klipper contour state and preserve feed-only continuity`.
 - [ ] **I1 nichtplanare/offene Pfade:** für Rose belegte Strategie entwickeln;
       keine stillschweigende Z-Quantisierung oder Nahtschließung.
+
+- [x] **I1 Bahnevidenz:** begrenzter Streaming-Sammler für vollständige
+      planare/nichtplanare Extrusionsketten ohne Punktwolke. Rose: 708 Pfade,
+      137975 Segmente, 228 nichtplanar, 336 kleine XY-Endlücken ohne 3D-Schluss.
+      5 neue Tests und 36 bestehende bestanden; reale Zahlen regressiv geprüft.
+      Commit-Betreff `feat: measure nonplanar extrusion paths without geometry repair`.
+- [ ] **I1 Naht-/Spiralrekonstruktion:** explizites Fehlerbudget und Herkunft
+      für jede geometrische Annäherung; Brim/Support/Modell getrennt behandeln.

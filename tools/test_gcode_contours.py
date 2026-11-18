@@ -105,6 +105,13 @@ class IntegrationTests(unittest.TestCase):
         self.assertTrue(result['complete_scan'])
         self.assertEqual(result['diagnostics']['unknown_records'],1)
         self.assertEqual(result['unknown_examples'][0]['line'],95)
+        evidence=result['path_evidence']
+        self.assertEqual(evidence['counts']['paths'],708)
+        self.assertEqual(evidence['counts']['segments'],137975)
+        self.assertEqual(evidence['counts']['nonplanar_paths'],228)
+        self.assertEqual(evidence['longest_path']['source_lines'],[39269,39869])
+        self.assertAlmostEqual(evidence['longest_path']['z_span_mm'],.2)
+        self.assertFalse(evidence['longest_path']['closed_3d_exact'])
         self.assertGreater(result['diagnostics']['nonplanar_extrusion'],0)
         self.assertFalse(result['export_ready'])
 
