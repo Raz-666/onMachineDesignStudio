@@ -147,7 +147,11 @@ PDF-Ausbau zurückgestellt. Druckertests bleiben bis zur Bereitschaft gesperrt.
 Nächster Arbeitsschritt: Gesamtbriefing-spezifische Anforderungen mit dem
 bestehenden Abgleich zusammenführen, anschließend STL-Testlücken bearbeiten.
 Die bisherige B/C-Einteilung ist vorläufig, nicht einzeln vollständig belegt.
-Ein STL-Orakel-Kit ist bisher nur vorgeschlagen, noch nicht implementiert.
+STL-Prüfer `tools/stl_audit.py` und 5 Mesh-Tests sind implementiert;
+3 vorhandene E-State-Tests bestehen ebenfalls. Zwei gestapelte Bahnen
+reproduzieren doppelte Grenzflächen (2) und nichtmannigfaltige Kanten (5).
+Nächster STL-Schritt: Kontur-/Oberflächenrekonstruktion gemäß §24, nicht
+blindes Entfernen von Flächen bei überlappenden Boxen. Details im STL-Audit.
 
 ## Historie
 

@@ -364,7 +364,9 @@ wieder bereit ist. Nichts hiervon ohne Go.)*
       Nutzer hat diese Prüfung bereits beauftragt; keine erneute Rückfrage.
       B/C-Status aus dem Gespräch bleibt bis dahin vorläufig.
 - [ ] STL: bestehende Regressionstests ausführen, Mesh-Prüfung ergänzen;
-      Orakel-Kit bisher nur geplant, kein neuer Exporter-Fix umgesetzt.
+      Offline-Prüfer `tools/stl_audit.py` umgesetzt, 5 Mesh-Tests und 3
+      E-State-Tests bestanden. Zwei gestapelte Bahnen reproduzieren 2 doppelte
+      Flächen / 5 nichtmannigfaltige Kanten. Noch kein Exporter-Fix.
       Vorherige Aussage „keine Regression-Fixtures“ ist zu pauschal:
       `tools/test_stl_extrusion_state.py` enthält synthetische Regressionen.
 - [x] Quellen-Verfügbarkeit: sieben vorliegende Originaldokumente inklusive

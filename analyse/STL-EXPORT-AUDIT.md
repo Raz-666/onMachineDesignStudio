@@ -1,3 +1,38 @@
+# Fortschreibung: neue Offline-Mesh-Prüfung
+
+Der frühere Bericht darunter ist eine vorläufige Bestandsaufnahme, keine
+vollständige Abnahme. Insbesondere war „inhaltlich identisch“ für die beiden
+Briefings nicht belegt. Die Behauptung zur Entfernung der kürzesten Segmente
+ist irreführend: der betrachtete Writer faltet Layer-Bänder (jede k-te Höhe).
+
+Jetzt implementiert: `tools/stl_audit.py`, ausschließlich offline und nicht im
+Watcher/Druckpfad. Prüft Binärlänge, endliche Werte, Bounding Box, orientiertes
+Volumen, Normalen, degenerierte/doppelte Flächen, offene/nichtmannigfaltige
+Kanten, Kantenorientierung und über exakt gleiche Vertices verbundene Komponenten.
+Kein automatisches Welding, keine Reparatur, keine Selbstschnittprüfung.
+Speicher wächst mit der Mesh-Größe; NICHT im Echtzeitpfad verwenden. Das greift
+auch den Ressourcen-Hinweis aus `Potential performance& compatibility issues.md`
+auf. Die RE-Recherche (Ansätze C/D: Konturen und Schichtvergleich) passt zur
+notwendigen späteren Rekonstruktion; reine Box-Geometrie erfüllt §24.3 nicht.
+
+Tests: `tools/test_stl_mesh.py` (5 Tests) und aktiver
+`tools/test_stl_extrusion_state.py` (3 Tests) bestanden.
+- Einzelbahn: 12 Dreiecke, Volumen 2 mm³, vier Achsrichtungen und Translation;
+  keine offenen Kanten, Duplikate, Normalen- oder Orientierungsfehler.
+- Zwei identische Bahnen auf Z=.2/.4: 24 Dreiecke, Volumensumme 4 mm³,
+  **2 doppelte Flächen und 5 nichtmannigfaltige Kanten**. Ursache: jede Bahn
+  erhält eigene obere/untere Deckflächen; die gemeinsame Grenzfläche bleibt
+  doppelt im Export. Als Fehler-Reproduzierer gesichert, NICHT als bestandenes
+  Export-Abnahmekriterium. Test muss bei Reparatur auf Null-Fehler-Soll wechseln.
+- Beschädigte Dateilänge, NaN, umgedrehte, doppelte und fehlende Dreiecke
+  werden vom unabhängigen Prüfer erkannt.
+
+Weiter offen: Kontur-/Hohlraumrekonstruktion, Überschneidungen, reale historische
+Fehlexporte, vollständige §24-Testmatrix, unabhängige Programme und Slicer-Reimport.
+Keine Produktänderung, kein vollständiger Release, keine Hardware-Abnahme.
+
+---
+
 # STL-Export — Bestandsaufnahme (2026-11-18, Nutzer-Auftrag)
 
 **Auftrag (Nutzer, 18.11.2026):** Der STL-Export ist „schon ein großer Auftrag" —
