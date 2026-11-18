@@ -253,7 +253,17 @@ VOLLE Wand: 21696 Dreiecke, 192 offene Randkanten, 0 nichtmannigfaltig,
 1 Komponente. Bei 64 Proben werden 5 Bänder abgelehnt (66/68/78/82/83).
 5 neue Tests, 124 gesamt lokal bestanden. Offenflächen-Mittellinie: kein
 Deckel, keine Breite, kein Festkörper, Pitch unverifiziert.
-Nächster Schritt: Deckel/Boden aus planaren Schleifen, Breite ganze Wand; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
+GESCHLOSSENE Vase-Oberfläche: `vase_closure.py` schließt die Wand über
+vertikale Projektionsstreifen (jeder Randvertex wandert NUR in Z) und
+Ohr-Clipping-Deckel; Abweichung pro Deckel dokumentiert (Rose: unten
+0,198 / oben 0,2 mm ≤ Pitch). Rose KOMPLETT GESCHLOSSEN: 22266 Dreiecke,
+0 Randkanten, 0 nichtmannigfaltig, 0 Windungsfehler, 1 Komponente,
+Volumen 4810,105 mm³. Rand-Abgleich: geflätteter Abschlussring liegt
+EXAKT auf der aufgezeichneten Abschlusskontur (max. Abstand < 1e-9,
+Flächendifferenz 2,59 mm² durch Sehnenabtastung). 4 neue Tests,
+128 gesamt lokal bestanden. Zentrum: Mittellinie ohne Breite;
+Volumen setzt nicht-selbstüberschneidende Schale voraus (ungeprüft).
+Nächster Schritt: Breite/physikalische Außenfläche, Selbstschnittprüfung; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
 Der Loft ist keine allgemeine Spiralrekonstruktion; aktiver Export unverändert.
 
 ## Historie

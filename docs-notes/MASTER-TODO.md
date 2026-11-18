@@ -562,3 +562,16 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       Commit-Betreff `feat: stream the complete rose vase wall into one mesh`.
       Weiter offen: Deckel/Boden, Breite über ganze Wand, Selbstschnitt,
       Pitch-Verifikation, Slicer-Reimport.
+
+- [x] **I1 geschlossene Vase-Oberfläche:** `vase_closure.py` — vertikale
+      Projektionsstreifen (Vertex bewegt sich nur in Z, Abweichung ≤ Pitch,
+      dokumentiert) plus Ohr-Clipping-Deckel; zusammengebrochene Streifen-
+      dreiecke werden gezählt. Zylinder-Orakel: Volumen = Fläche·Höhe exakt
+      (Cavalieri). Rose komplett geschlossen: 22266 Dreiecke, 0 offene
+      Randkanten, 0 nichtmannigfaltig, 0 Windungsfehler, 1 Komponente,
+      Volumen 4810,105 mm³; Rand-Abgleich: geflätteter Ring liegt exakt auf
+      der aufgezeichneten Abschlusskontur (max < 1e-9 mm, Flächendifferenz
+      2,59 mm²). 4 neue Tests, 128 gesamt lokal bestanden. Commit-Betreff
+      `feat: close the complete rose vase surface with documented caps`.
+      Weiter offen: Breite/physikalische Außenfläche, Selbstschnittprüfung,
+      Slicer-Reimport, zweites Objekt.

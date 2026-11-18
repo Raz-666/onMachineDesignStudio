@@ -29,8 +29,8 @@ def _normalized_ring(points, samples):
     return ring[::-1] if area < 0 else ring
 
 
-def ring_wall_mesh(rings):
-    """Return (binary_stl_bytes, report) for the stitched open wall surface."""
+def stitch_wall_triangles(rings):
+    """Validate rings and build wall triangles; returns (triangles, samples, bands)."""
     rings=list(rings)
     if len(rings) < 2:
         raise ValueError('at least two rings required')
@@ -60,6 +60,12 @@ def ring_wall_mesh(rings):
         cross=(u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0])
         if not any(abs(component) > 0 for component in cross):
             raise ValueError('degenerate wall triangle')
+    return triangles,n,bands
+
+
+def ring_wall_mesh(rings):
+    """Return (binary_stl_bytes, report) for the stitched open wall surface."""
+    triangles,n,bands=stitch_wall_triangles(rings)
     data=binary_stl(triangles)
     with tempfile.TemporaryDirectory(prefix='r2-ring-wall-') as directory:
         path=Path(directory)/'wall.stl'

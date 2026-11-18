@@ -63,6 +63,7 @@ jobs:
           python3 tools/test_path_continuation.py
           python3 tools/test_wall_surfaces.py
           python3 tools/test_wall_run.py
+          python3 tools/test_vase_closure.py
 
       - name: Streaming simulations (watcher RSS stays flat)
         run: python3 tools/r91_simulate.py
