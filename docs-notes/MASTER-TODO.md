@@ -441,3 +441,13 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       übernehmen. Hilfsgeometrie-Hinweise ausdrücklich ausgeschlossen,
       Außenwandhinweise bleiben unverifiziert. 5 neue Tests + 57 bestehende
       lokal bestanden. Commit-Betreff `feat: retain conservative object and feature provenance for contour proposals`.
+
+- [x] **I1 physischer Konturbaustein:** `physical_contours.py`, konvexe
+      konstantbreite Konturen mit expliziter Außen-/Lochrolle. Gehrungslimit
+      und Kollapsprüfung; keine stillen Konkavitäts-/Breitenannahmen.
+      Stadium-Querschnittsformel getrennt von Geometrie. 7 neue Tests,
+      einschließlich Offset→Loch-Prisma→STL→Volumenprüfung, plus 62 bestehende
+      bestanden. Commit-Betreff `feat: add explicit bead-width and convex physical contour estimates`.
+- [ ] **I1 physische Integration:** reale effektive Extrusion, Schichthöhen,
+      variable/konkave Breiten, Objektgeometrie belegen; neue API bleibt
+      experimentell und ersetzt keinen aktiven Export.

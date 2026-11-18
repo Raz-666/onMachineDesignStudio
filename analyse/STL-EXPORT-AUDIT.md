@@ -1,3 +1,35 @@
+# Fortschreibung: explizite Linienbreite und konvexe physische Konturen
+
+`tools/physical_contours.py` ergänzt zwei getrennte Bausteine:
+
+1. `width_from_filament`: Stadionquerschnitt (Rechteck mit zwei Halbkreisen),
+   A=E·πd²/(4L), w=A/h+h(1−π/4). Explizite effektive Filament-mm, Bahnlänge,
+   Schichthöhe und Filamentdurchmesser erforderlich. Kein geschätzter Düsenwert,
+   keine versteckte M221/PA-/Volumenmodus-Korrektur. Unmögliche Querschnitte
+   (w<h) abgelehnt; Ergebnis ist Modellschätzung, keine Messung.
+2. `offset_convex_centerline`: ausdrücklich klassifizierter Außenring +w/2,
+   Lochring −w/2. Nur strikt konvexe, konstante Breiten; Richtungen normalisiert,
+   Eingabe unverändert. Gehrungs-Ecken mit explizitem Limit (Default 4×Offset).
+   Kollabierende/umgekehrte Kanten abgelehnt, keine künstlich wieder auftauchenden
+   Löcher bei zu großer Breite. Zwischen verschiedenen Ringen muss der Aufrufer
+   weiterhin Überlappung/Nesting prüfen; das Loch-Prisma prüft Berührungen.
+
+Analytische Tests: Quadrat in beiden Umlaufrichtungen, gedrehte Raute,
+Außenvergrößerung/Lochverkleinerung, konkave/akute/kollabierende Fälle,
+Breiten-Rückrechnung. Durchgängiger Test: Außenmittellinie 10×10, Lochmittellinie
+4×4, Breite 0,4, Höhe 2 → Außenmaß 10,4 / Lochmaß 3,6 → Volumen 190,4 mm³.
+STL-Prüfer bestätigt dieses Volumen, keine offenen/nichtmannigfaltigen Kanten,
+Duplikate oder Normalen-/Orientierungsfehler. Gehrung ist ausdrücklich ein
+Eckenmodell und nicht die exakte reale abgerundete Materialspur.
+
+7 neue Tests + bisherige 62 lokal bestanden; CI ergänzt. Keine automatische
+Breitenzuweisung für Rose: effektive E-/Flow-Semantik und physische Schichthöhe
+sind noch nicht abgesichert. Keine Unterstützung konkaver/variabel breiter
+Offsets oder Spiralflächen. Aktiver Export unverändert; kein Release-/Slicer-
+oder Hardware-Nachweis. Frühere Zwischenstände folgen.
+
+---
+
 # Fortschreibung: dateilokale Objekt- und Feature-Provenienz
 
 `tools/contour_context.py` verfolgt explizite EXCLUDE_OBJECT_START/END-Marker.

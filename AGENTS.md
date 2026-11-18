@@ -178,8 +178,11 @@ und START-Zeile an Pfaden/Nahtvorschlägen; ungültige Marker löschen Zugehöri
 Feature-Rollen bleiben Hinweise: Hilfsgeometrie ausgeschlossen, Außenwand
 unverifiziert. Rose: 22 Hilfs-, 76 Außenwandhinweise, 610 unklassifiziert.
 5 neue Tests + bisherige 57 bestanden. Keine geometrische Objektvalidierung.
-Nächster Schritt: physische Linienbreite und geometrische Plausibilisierung vor
-Mesh-Anbindung; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
+Physischer Konturbaustein: `physical_contours.py` (explizite konstante Breite,
+konvexe Ringe, Gehrungsecken; außen +w/2, Loch -w/2). 7 neue analytische Tests,
+insgesamt 69 lokal bestanden. Konkave/variable Breiten bleiben abgelehnt.
+Stadium-Breitenformel nur mit bekannten effektiven E-mm/Schichthöhe, kein Messwert.
+Nächster Schritt: geprüfte Breiten-/Konturherkunft an reale Daten anbinden; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
 Der Loft ist keine allgemeine Spiralrekonstruktion; aktiver Export unverändert.
 
 ## Historie
