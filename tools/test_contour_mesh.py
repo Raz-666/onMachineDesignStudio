@@ -1,0 +1,76 @@
+"""Analytic geometry oracles for the experimental boundary-based surface builder."""
+import math
+from pathlib import Path
+import tempfile
+import unittest
+
+from contour_mesh import prism_mesh, binary_stl
+from stl_audit import inspect_stl
+
+
+class ContourTests(unittest.TestCase):
+    def check_mesh(self, boundary, bottom, top, area):
+        original = list(boundary)
+        mesh = prism_mesh(boundary, bottom, top)
+        self.assertEqual(boundary, original)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp)/'surface.stl'
+            path.write_bytes(binary_stl(mesh))
+            report = inspect_stl(path)
+        self.assertAlmostEqual(report['signed_volume'], area*(top-bottom), places=4)
+        for key in ('degenerate_faces','normal_errors','duplicate_faces',
+                    'boundary_edges','nonmanifold_edges','winding_errors'):
+            self.assertEqual(report[key], 0, key)
+        self.assertEqual(report['vertex_connected_components'], 1)
+        self.assertEqual(report['triangles'], 4*len(original)-4)
+        return report
+
+    def test_rectangle_both_orientations_and_translated(self):
+        for boundary in ([(0,0),(20,0),(20,10),(0,10)],
+                         [(0,10),(20,10),(20,0),(0,0)],
+                         [(-30,50),(-10,50),(-10,60),(-30,60)]):
+            with self.subTest(boundary=boundary):
+                self.check_mesh(boundary, 2, 12, 200)
+
+    def test_concave_L_caps_preserve_notch(self):
+        # A 3x3 square minus its upper-right 2x2 quadrant: area 5.
+        boundary = [(0,0),(3,0),(3,1),(1,1),(1,3),(0,3)]
+        self.check_mesh(boundary, 0, 2, 5)
+        self.check_mesh(boundary[::-1], 0, 2, 5)
+        for tri in prism_mesh(boundary, 0, 2):
+            if len({v[2] for v in tri}) == 1:
+                # Sample each cap triangle, not only its centroid.
+                for i in range(11):
+                    for j in range(11-i):
+                        weights = (i/10,j/10,1-(i+j)/10)
+                        x,y = [sum(weights[k]*tri[k][axis] for k in range(3)) for axis in (0,1)]
+                        self.assertFalse(x > 1+1e-9 and y > 1+1e-9)
+
+    def test_stacked_height_has_no_internal_caps(self):
+        report = self.check_mesh([(0,-.25),(20,-.25),(20,.25),(0,.25)],0,.4,10)
+        self.assertEqual(report['triangles'],12)
+        self.assertEqual(report['bbox'], [[0,-.25,0],[20,.25,report['bbox'][1][2]]])
+
+    def test_explicit_closure_equivalent(self):
+        points = [(0,0),(2,0),(0,2)]
+        self.assertEqual(prism_mesh(points,0,1),prism_mesh(points+[points[0]],0,1))
+
+    def test_invalid_boundaries_fail_instead_of_repair(self):
+        cases = [[], [(0,0),(1,0)], [(0,0),(1,1),(0,1),(1,0)],
+                 [(0,0),(1,0),(2,0),(2,1),(0,1)],
+                 [(0,0),(1,0),(1,1),(0,0),(0,1)],
+                 [(0,0),(float('nan'),0),(0,1)],
+                 [(0,0),(1e6,0),(0,1)],
+                 [(math.cos(i),math.sin(i)) for i in range(257)]]
+        for points in cases:
+            with self.subTest(points=points[:4]), self.assertRaises(ValueError):
+                prism_mesh(points,0,1)
+        for low,high in [(1,0),(0,0),(0,float('inf'))]:
+            with self.assertRaises(ValueError): prism_mesh([(0,0),(1,0),(0,1)],low,high)
+
+    def test_float32_collapse_rejected(self):
+        mesh = prism_mesh([(10000,0),(10000.00001,0),(10000.00001,1),(10000,1)],0,1)
+        with self.assertRaises(ValueError): binary_stl(mesh)
+
+
+if __name__ == '__main__': unittest.main(verbosity=2)

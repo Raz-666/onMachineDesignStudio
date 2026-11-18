@@ -150,8 +150,12 @@ Die bisherige B/C-Einteilung ist vorläufig, nicht einzeln vollständig belegt.
 STL-Prüfer `tools/stl_audit.py` und 5 Mesh-Tests sind implementiert;
 3 vorhandene E-State-Tests bestehen ebenfalls. Zwei gestapelte Bahnen
 reproduzieren doppelte Grenzflächen (2) und nichtmannigfaltige Kanten (5).
-Nächster STL-Schritt: Kontur-/Oberflächenrekonstruktion gemäß §24, nicht
-blindes Entfernen von Flächen bei überlappenden Boxen. Details im STL-Audit.
+Erster neuer Oberflächenbaustein: `tools/contour_mesh.py` (einfaches oder
+konkaves gerades Prisma ohne Löcher), 6/6 analytische Tests. Kein Anschluss
+an den aktiven Exporter. Details/Grenzen in `analyse/STL-EXPORT-AUDIT.md`.
+Nächster Schritt: Lochkonturen und Zuordnung wechselnder Layerkonturen;
+anschließend normalisiertes Bewegungsmodell anbinden. Keine ungeprüften
+Düsenmittellinien als physische Außenkonturen interpretieren.
 
 ## Historie
 

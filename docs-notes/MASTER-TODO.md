@@ -376,3 +376,12 @@ wieder bereit ist. Nichts hiervon ohne Go.)*
 
 MANUAL.md aktualisiert; PDF-Ausbau zurückgestellt. r142 mit installiertem
 Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
+
+- [x] **I1 Teilbaustein Kontur-Oberfläche:** `tools/contour_mesh.py` +
+      `tools/test_contour_mesh.py` (Commit mit Betreff
+      `feat: add bounded contour surface foundation with analytic mesh tests`).
+      6/6 Tests; Quader, konkaves L, Orientierung, ungültige Konturen,
+      Float32-Kollaps. Experimentell, kein Eingriff in aktiven Exporter.
+- [ ] **I1 Integration:** Lochkonturen, wechselnde Layerkonturen und
+      Linienbreitenkorrektur; erst danach G-Code-Anbindung. Nicht mit einem
+      fertigen STL-Export verwechseln. Belege/Grenzen im STL-Audit.

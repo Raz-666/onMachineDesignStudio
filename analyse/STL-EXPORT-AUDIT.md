@@ -1,3 +1,37 @@
+# Fortschreibung: erster Kontur-Oberflächenbaustein
+
+`tools/contour_mesh.py` rekonstruiert die Oberfläche eines geraden Prismas aus
+**einer bereits klassifizierten physischen Außenkontur** und zwei Z-Grenzen.
+Dies ist ausdrücklich noch kein G-Code-Exporter: Düsenmittellinien dürfen
+nicht ohne Linienbreiten-/Lochklassifikation als Eingabe verwendet werden.
+
+- Einfache konvexe und konkave Polygone, beide Umlaufrichtungen, expliziter
+  oder impliziter Ringschluss. Ear-Clipping statt Dreiecksfächer (letzterer
+  würde bei konkaven Formen Material in Aussparungen erzeugen).
+- Nur Seitenfläche, Boden und Deckel; keine doppelten Zwischenlayer-Deckel.
+- Selbstkreuzungen/-berührungen, wiederholte Punkte, kollineare Ecken,
+  nichtendliche Werte und ungültige Höhen werden abgelehnt, nicht repariert.
+- Konservatives Rechenbudget: höchstens 256 Konturpunkte. Kein Pi-/Watcher-
+  Anschluss. STL-Float32-Konvertierung erfolgt vor Normalenberechnung;
+  dadurch zusammenfallende Dreiecke führen zum Fehler statt kaputter Ausgabe.
+
+Nachweise: `tools/test_contour_mesh.py` **6/6**; bestehende Mesh-Tests **5/5**
+und aktive Extrusionstests **3/3** erneut bestanden. Analytische Sollwerte:
+Quadergrundfläche 200 mm² × Höhe 10 mm = 2000 mm³; konkave L-Grundfläche
+5 mm² × Höhe 2 mm = 10 mm³. Innenaussparung zusätzlich durch Punktproben
+auf jedem Deckeldreieck geprüft. Rechteck 20 × .5 × .4 mm: 12 Dreiecke,
+4 mm³, keine doppelten Flächen oder nichtmannigfaltigen Kanten. Dieser letzte
+Fall zeigt einen fehlerfreien **neuen Oberflächenbaustein**, repariert aber
+noch nicht den alten Exportpfad (dessen Reproduzierer bleibt bestehen).
+
+Nächste Integration braucht Lochkonturen, Konturzuordnung zwischen Layern,
+Linienbreitenkorrektur und Anbindung an das normalisierte Bewegungsmodell.
+Nicht unterstützt: Löcher, wechselnde Querschnitte, beliebige Toolpaths.
+Keine Selbstschnittprüfung allgemeiner 3D-Meshes, kein unabhängiger Slicer-
+Reimport, keine Export-/Hardware-Abnahme. Produktpfad unverändert.
+
+---
+
 # Fortschreibung: neue Offline-Mesh-Prüfung
 
 Der frühere Bericht darunter ist eine vorläufige Bestandsaufnahme, keine
