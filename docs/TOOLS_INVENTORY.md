@@ -3,7 +3,7 @@
 **Shutdown register:** `docs/SHUTDOWN_REGISTER.md` — every crash site,
 its cause, its fix and the test that holds it, in one table.
 
-*Stand: R2-2026-11-13.1 (V1). Auto-checked against reality by
+*Stand: R2-2026-11-18.1 (V2). Auto-checked against reality by
 `tools/r165_doc_check.py`; the version line here is not typed by hand —
 see "The version rule" below.*
 

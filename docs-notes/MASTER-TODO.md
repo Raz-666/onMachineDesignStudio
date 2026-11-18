@@ -1,8 +1,15 @@
-# MASTER-TODO — alles, was der User verlangt hat (Stand: R2-2026-11-13.1 / V1)
+# MASTER-TODO — alles, was der User verlangt hat (Stand: R2-2026-11-18.1 / V2)
 
 **Diese Datei ist ab jetzt der einzige Ort, an dem Aufgaben stehen.** Wenn etwas
 nicht hier steht, existiert es für die Arbeit nicht. Jede erledigte Zeile wird
 abgehakt und mit dem Commit genannt, der sie erledigt hat.
+
+**Erledigt 2026-11-18:** Release **`R2-2026-11-18.1` / `V2`** gebaut und belegt
+(Nutzer-Go 18.11.): R258 Option B (Kommentarzeilen-unabhängige TOTAL_LAYERS,
+gemergt `ce0015a`), Versionsstempel in Code/Makro/Web/`GENERATORS_TOOLS.pdf`,
+r81-Re-Freeze (mr01–13 stamp-only A/B, pr03/pr08 je 1 Zeile), Gates grün,
+ZIP nur aus getrackten Dateien (ohne `analyse/`), SHA256 + r199 12/12 —
+siehe `docs/RELEASE_R2-2026-11-18.1_REPORT.md`. Feldabnahme am Drucker steht aus.
 
 ---
 

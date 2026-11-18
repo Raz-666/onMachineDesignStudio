@@ -5,7 +5,10 @@ Wer sie liest, weiß, wo die Arbeit steht, was der User verlangt hat und was
 tabu ist. Alles andere steht im Code; diese Datei ersetzt kein Lesen, sie
 verhindert nur, dass jemand von vorn anfängt.
 
-Stand dieses Abgleichs: `origin/main` **`846b1e7`** (Merge PR #12, 17.11.2026); der aktive Arbeitsbranch ist **`arena/dd5058ac-onmachinedesignstudio`** auf derselben Basis. Version/Build bleiben vorläufig **`R2-2026-11-13.1` / `V1`**; ein neues Release ist nicht gebaut.
+Stand dieses Abgleichs: `origin/main` **`ce0015a`** (Merge PR #17, 18.11.2026, Option B). Neuer Stand: **`R2-2026-11-18.1` / `V2`** — Release `klipper-e3-r2d2-UPDATE-R2-2026-11-18.1.zip` gebaut (SHA256 siehe `releases/…zip.sha256` und PR #18; 202 Einträge, nur getrackte Dateien, `analyse/` ausgeschlossen). Belege und Explizit-nicht-behauptet-Liste: `docs/RELEASE_R2-2026-11-18.1_REPORT.md`. Der aktive Arbeitsbranch dieser Sitzung ist **`arena/fa800e48-onmachinedesignstudio`**; der Release-Commit landet per PR auf `main`.
+
+**Aktualisierung 18.11.2026 (Branch `arena/fa800e48-onmachinedesignstudio`):**
+PR #17 (R258 Option B, Kommentarzeilen-unabhängige TOTAL_LAYERS-Physik, marker-byte-stabil) wurde nach grüner CI gemerged (`ce0015a`); der Release `R2-2026-11-18.1`/`V2` wurde daraus gebaut — Versionsstempel in Code/Makro/Web/PDF, r81-Re-Freeze (mr01–13 stamp-only, A/B-bewiesen; pr03/pr08 je 1 Zeile), `golden_r258_expected.json`, Makro 2103/2103, review_checks PASS, r199 ZIP 12/12, SHA256 im Release-Bericht. Offene Feldabnahme: Layer-Anzeige auf dem Drucker nach dem Update. Frühere abgeschlossene Arbeiten unverändert dokumentiert in den Folgeabschnitten.
 
 **Aktualisierung 17.11.2026 (späte Fortsetzung, Branch `arena/dd5058ac-onmachinedesignstudio`):**
 Auf diesem HEAD liefen auf dem synchronisierten Basis-Commit seriell: `tools/run_review_checks.sh` **PASS** (`analyse/testprotokolle/review_checks_dd5058ac_baseline_20261117.log`) und `tools/macro_render_test.py` **2103/2103 PASS** (`analyse/testprotokolle/macro_render_dd5058ac_baseline_20261117.log`). Neu: Pass-11-Sidecar-Writer `tools/r2_sidecar.py` (Schema `r2-sidecar/1`, nicht-destruktiv, `tools/test_r2_sidecar.py` 9/9) und Zeilen-Crosswalk `analyse/STARTBRIEFING-CROSSWALK.tsv` (521/521 Zeilen, geerbte Disposition, nicht einzeln verifiziert). Details: `analyse/STARTBRIEFING-CROSSWALK.md`.

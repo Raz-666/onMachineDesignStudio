@@ -38,6 +38,13 @@ diffed - 55 added / 39 removed lines, and apart from the 26 version-stamp
 lines and the 26 re-computed R2-META sig lines EVERY line of the delta is a
 ';TYPE:' comment (28 added, 12 removed = the duplicates the helper replaced);
 not one motion line changed. pr01-pr10 stay byte-identical.
+RE-FREEZE HISTORY: R2-2026-11-18.1 / V2 version bump re-froze mr01-mr13
+ONLY (release stamp class): POSTPROC_RELEASE .11-13.1 -> .11-18.1,
+POSTPROC_BUILD V1 -> V2 - same length class; both ride in the
+'; R2-GEN core' line and the re-computed R2-META sig. Proof: the git
+HEAD module with ONLY the two stamp strings patched reproduces this
+release's output byte-for-byte for all 23 cases (md5 AND summaries);
+pr01-pr10 byte-IDENTICAL - process()/make_range untouched.
 RE-FREEZE HISTORY: R258 re-froze pr03/pr08 ONLY (Option B - the user-approved
 layer-count divergence fix): in the Z-scan world _FILE_INFO TOTAL_LAYERS now
 counts the first printed layer (rises+1, plus one layer per bed-returning
@@ -424,19 +431,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # process() output is identical old vs new, ALL 13 mr md5s change (every
 # range excerpt carries the core stamp), no summary moves, and r81 was
 # 23/23 green with the R213 code BEFORE the stamp bump.
-REF_MD5 = {'mr01': 'e4ddabe827c77649a197c5f280d7f769',
- 'mr02': '62bc8420d3553c2f9a34c8225fa320af',
- 'mr03': 'f8202215036d52f1d00a827dfed38f75',
- 'mr04': 'd5d9bd531a12ec53911a8fd7b56e8c6d',
- 'mr05': '52544e12dba467b4549d9f27a8898916',
- 'mr06': '1ab556627274bfdd022a08f576e4c4c4',
- 'mr07': '8701ebe7a2a6cb1ad7e8bd49c14b94b6',
- 'mr08': '02e3ac1146e51ad80868657c6f2693e4',
- 'mr09': 'ae5a00c872967a7175efbb1d58956531',
- 'mr10': 'd281918aa5df6ceada89e316f9c49afb',
- 'mr11': 'a38c8c0d30c8601a40e7feed54c8e185',
- 'mr12': 'ce652b511fbbc9c05f53bc1bfe6e4ba9',
- 'mr13': 'f83cbaa613e22611aa709d1dc5a8e77a',
+REF_MD5 = {'mr01': '7508a5c6cc8b45eb0e386f9e09bda3fc',
+ 'mr02': 'f51dc48e6b13a6dee7444fea06201393',
+ 'mr03': 'cc9b441a1289f9ada9326ac592ecf1c2',
+ 'mr04': 'dd1a9d4fbd819957d448d7c41a3e74ce',
+ 'mr05': 'a42b3e35d6205e65480c55b6b0b517cb',
+ 'mr06': 'ccd5727f3cdf6160fe6422fff3d9c311',
+ 'mr07': 'da9b7f89a9c887bef7594509988415bd',
+ 'mr08': '4ad6ca48a206cd88f1d227f4905e06b2',
+ 'mr09': 'fda96a4857d020982f507fa73f5b3bb9',
+ 'mr10': 'bdffa2d9620815550d27e4ea79f90c15',
+ 'mr11': 'cba948af795bfa8a09d6cf506dbc25d6',
+ 'mr12': '6dee2dbb2b4bb603ebd78123be37c931',
+ 'mr13': '74e02c8565886e50bc0c26fc2be5f6ee',
  'pr01': 'aa5a6f27d5a7e6576f57eeea93af63a5',
  'pr02': '61457e9bcbd98996b6e7dc26efda23d8',
  'pr03': 'f9f7402c190f07e7aa7470d2185fddfc',
@@ -447,7 +454,6 @@ REF_MD5 = {'mr01': 'e4ddabe827c77649a197c5f280d7f769',
  'pr08': 'f9f7402c190f07e7aa7470d2185fddfc',
  'pr09': '5e90a1d42296412a0ea53e9d6ada0157',
  'pr10': '159ea58bb74bbf9adb377f1e733d152b'}
-
 REF_SUMMARY = {'mr01': {'nl': 8, 'size': 5267},
  'mr02': {'nl': 8, 'size': 14350},
  'mr03': {'nl': 8, 'size': 13322},
@@ -844,7 +850,7 @@ def main():
             print('FAIL %s: summary differs: %r != %r' % (name, _summ_cmp, _ref_summ))
             fails += 1
     if not fails:
-        print('R81 golden check: %d/%d cases byte-identical to the V1 reference' % (len(res), len(res)))
+        print('R81 golden check: %d/%d cases byte-identical to the frozen reference' % (len(res), len(res)))
     return 1 if fails else 0
 
 
