@@ -575,3 +575,14 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       `feat: close the complete rose vase surface with documented caps`.
       Weiter offen: Breite/physikalische Außenfläche, Selbstschnittprüfung,
       Slicer-Reimport, zweites Objekt.
+- [x] **I2 Selbstschnittprüfung:** `self_intersect.py` — Dreieck-Dreieck-
+      Test (konservativ, Berührung zählt) für alle nicht-adjazenten Paare,
+      räumlicher Hash, koplanare Fälle per Projektion; Degeneraten werden
+      abgelehnt. `close_vase_surface(check_self_intersection=True)` prüft
+      die verschickten float32-Dreiecke und wirft bei Durchdringung
+      (Stern-Verdreh-Orakel: 8 Paare). Rose: 0 Selbstschnitte, 63194
+      Paartests, 134021 adjazent übersprungen, 1,6 s — Volumen 4810,105 mm³
+      ist gemessen, nicht angenommen. 15 neue Tests, 143 gesamt lokal
+      bestanden. Commit `feat: audit the closed rose surface for self-
+      intersection`. Weiter offen: Breite/physikalische Außenfläche,
+      Slicer-Reimport, zweites Objekt.

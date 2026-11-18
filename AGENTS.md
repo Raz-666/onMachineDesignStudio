@@ -263,7 +263,17 @@ EXAKT auf der aufgezeichneten Abschlusskontur (max. Abstand < 1e-9,
 Flächendifferenz 2,59 mm² durch Sehnenabtastung). 4 neue Tests,
 128 gesamt lokal bestanden. Zentrum: Mittellinie ohne Breite;
 Volumen setzt nicht-selbstüberschneidende Schale voraus (ungeprüft).
-Nächster Schritt: Breite/physikalische Außenfläche, Selbstschnittprüfung; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
+Selbstschnittprüfung: `self_intersect.py` testet alle NICHT-
+adjazenten Dreieckspaare (exakte Vertex-Gleichheit wie stl_audit,
+Berührung zählt, koplanare Überlappung per Achsenprojektion, räumlicher
+Hash mit Median-Zellgröße; input-degeneriert wird abgelehnt).
+`close_vase_surface(..., check_self_intersection=True)` auditiert die
+VERSCHICKTEN float32-Dreiecke und wirft bei Durchdringung. Rose-Fläche:
+0 Selbstschnitte bei 22266 Dreiecken (63194 Paartests nach Pruning,
+134021 adjazent übersprungen, 1,6 s) — Volumen 4810,105 mm³ ist damit
+GEMESSEN, nicht angenommen. Scope: Falten durch gemeinsame Vertices
+werden nicht klassifiziert. 15 neue Tests, 143 gesamt lokal bestanden.
+Nächster Schritt: Breite/physikalische Außenfläche; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
 Der Loft ist keine allgemeine Spiralrekonstruktion; aktiver Export unverändert.
 
 ## Historie

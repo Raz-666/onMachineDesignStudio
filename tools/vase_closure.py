@@ -6,7 +6,10 @@ caller-supplied cap planes, and the caps are ear-clipped from the flattened
 ring XY. Vertical deviation is therefore bounded by the ring's own height
 band (at most one pitch) and is reported per cap. The result is a closed
 surface; its volume assumes a non-self-overlapping shell, which is NOT
-validated here. Centreline geometry, no bead width, never export-ready.
+validated here unless check_self_intersection=True audits the shipped
+float32 triangles (non-adjacent pairs; touching counts; folds through a
+shared vertex are not classified). Centreline geometry, no bead width,
+never export-ready.
 """
 import math
 from pathlib import Path
@@ -14,6 +17,7 @@ import tempfile
 
 from contour_mesh import _caps, binary_stl, MAX_TRIANGLES
 from ring_wall import stitch_wall_triangles
+from self_intersect import self_intersections, triangles_from_stl
 from stl_audit import inspect_stl
 
 
@@ -52,7 +56,7 @@ def _check_not_degenerate(triangles):
             raise ValueError('degenerate closure triangle')
 
 
-def close_vase_surface(rings, *, bottom_z, top_z):
+def close_vase_surface(rings, *, bottom_z, top_z, check_self_intersection=False):
     """Return (binary_stl_bytes, report) for the closed vase centreline surface."""
     rings=list(rings)
     wall,n,bands=stitch_wall_triangles(rings)
@@ -89,6 +93,21 @@ def close_vase_surface(rings, *, bottom_z, top_z):
         raise ValueError('closure must be one fully closed component')
     if audit['signed_volume'] <= 0:
         raise ValueError('closure must enclose a positive volume')
+    self_check=None
+    if check_self_intersection:
+        with tempfile.TemporaryDirectory(prefix='r2-vase-selfcheck-') as directory:
+            path=Path(directory)/'vase.stl'
+            path.write_bytes(data)
+            self_check=self_intersections(triangles_from_stl(path))
+        if self_check['intersecting_pair_count']:
+            raise ValueError('closure failed mesh check: self-intersection (%d pairs)'
+                             % self_check['intersecting_pair_count'])
+    limitations=['volume assumes a non-self-overlapping shell; self-intersection is not validated',
+                                 'centreline surface; bead width not applied',
+                                 'cap planes are caller-supplied, not recovered from G-code',
+                                 'pitch equals one full XY revolution is a caller assumption']
+    if self_check is not None:
+        limitations=limitations[1:]
     return data,dict(schema='r2-vase-surface/1',experimental=True,export_ready=False,
                      ring_count=len(rings),samples_per_ring=n,
                      triangles=len(triangles),
@@ -99,10 +118,8 @@ def close_vase_surface(rings, *, bottom_z, top_z):
                                top_collapsed_strip_triangles=top_collapsed,
                                contract='boundary vertices move only along z; deviation bounded by one pitch band'),
                      audit=audit,
-                     limitations=['volume assumes a non-self-overlapping shell; self-intersection is not validated',
-                                 'centreline surface; bead width not applied',
-                                 'cap planes are caller-supplied, not recovered from G-code',
-                                 'pitch equals one full XY revolution is a caller assumption'])
+                     self_intersection=self_check,
+                     limitations=limitations)
 
 
 def rim_agreement(ring, rim_points):
