@@ -242,8 +242,11 @@ class PresetFileChainTests(unittest.TestCase):
         plan, errors = toolchain.plan_chain(preset, 'kette.gcode',
                                             first_version=3)
         self.assertEqual(errors, [])
+        # R260: Temps plain, Endausgabe mit Preset-Wortkette
+        # ('Scale up + twist' -> ScaleUpTwist)
         self.assertEqual([s['output'] for s in plan['steps']],
-                         ['V03_kette.gcode', 'V04_kette.gcode'])
+                         ['V03_kette.gcode',
+                          'V04_kette_ScaleUpTwist.gcode'])
         workspace = os.path.join(self.gcodes, 'Toolchain')
         runner = toolchain_steps.plan_step_runner(plan)
         seen = []
@@ -253,7 +256,8 @@ class PresetFileChainTests(unittest.TestCase):
                                          (m, os.path.basename(p))))
         self.assertTrue(report['ok'], report['error'])
         final = report['final_output']
-        self.assertEqual(os.path.basename(final), 'V04_kette.gcode')
+        self.assertEqual(os.path.basename(final),
+                         'V04_kette_ScaleUpTwist.gcode')
         self.assertTrue(os.path.isfile(final))
         # S22.4: der Zwischenstand V03 ist erst NACH uebernahme geloescht
         self.assertEqual(report['temp_deleted'],
@@ -265,15 +269,15 @@ class PresetFileChainTests(unittest.TestCase):
         src_lo, src_hi = g1_x_span(self.input_path)
         self.assertGreater(hi - lo, (src_hi - src_lo) * 1.05)
         # queue-Registrierung (S21): der Hook sah die Endausgabe
-        self.assertEqual(seen, [('queue', 'V04_kette.gcode')])
+        self.assertEqual(seen, [('queue', 'V04_kette_ScaleUpTwist.gcode')])
 
     def test_second_run_lifts_version_and_collides_with_nothing(self):
         """Der Watcher vergibt _next_gen_version: Lauf 2 schreibt V05/V06,
         die Endausgabe von Lauf 1 (V04) bleibt unangetastet (S22)."""
         preset, _ = toolchain.load_preset_file(self.preset_path)
         workspace = os.path.join(self.gcodes, 'Toolchain')
-        for version, expect in ((3, 'V04_kette.gcode'),
-                                (5, 'V06_kette.gcode')):
+        for version, expect in ((3, 'V04_kette_ScaleUpTwist.gcode'),
+                                (5, 'V06_kette_ScaleUpTwist.gcode')):
             plan, _ = toolchain.plan_chain(preset, 'kette.gcode',
                                            first_version=version)
             report = toolchain.run_chain(
@@ -283,9 +287,32 @@ class PresetFileChainTests(unittest.TestCase):
             self.assertEqual(os.path.basename(report['final_output']),
                              expect)
         self.assertTrue(os.path.isfile(
-            os.path.join(workspace, 'V04_kette.gcode')))
+            os.path.join(workspace, 'V04_kette_ScaleUpTwist.gcode')))
         self.assertTrue(os.path.isfile(
-            os.path.join(workspace, 'V06_kette.gcode')))
+            os.path.join(workspace, 'V06_kette_ScaleUpTwist.gcode')))
+
+    def test_r260_chain_from_a_subfolder_input(self):
+        """R260: Ketten-Quelle darf in einem Unterordner liegen (z. B. eine
+        Range-Ausgabe) — Stem = Basisname ohne V-Praefix, Endausgabe im
+        Toolchain-Ordner getaggt, echte Engines, S22.4."""
+        sub = os.path.join(self.gcodes, 'Range')
+        os.makedirs(sub, exist_ok=True)
+        sub_input = os.path.join(sub, 'V02_kette.gcode')
+        with open(sub_input, 'w', encoding='utf-8') as handle:
+            handle.write(layered_fixture())
+        preset, _ = toolchain.load_preset_file(self.preset_path)
+        plan, errors = toolchain.plan_chain(preset, 'Range/V02_kette.gcode')
+        self.assertEqual(errors, [])
+        workspace = os.path.join(self.gcodes, 'Toolchain')
+        report = toolchain.run_chain(
+            plan, workspace, sub_input,
+            toolchain_steps.plan_step_runner(plan))
+        self.assertTrue(report['ok'], report['error'])
+        self.assertEqual(os.path.basename(report['final_output']),
+                         'V02_kette_ScaleUpTwist.gcode')
+        self.assertTrue(os.path.isfile(report['final_output']))
+        self.assertFalse(os.path.exists(
+            os.path.join(workspace, 'V01_kette.gcode')))   # Temp weg
 
     def test_broken_preset_file_fails_cleanly_before_any_job(self):
         with open(self.preset_path, 'w', encoding='utf-8') as handle:
@@ -358,6 +385,25 @@ class SystemWiringTests(unittest.TestCase):
         self.assertEqual(errors, [])
         for step in preset['steps']:
             self.assertIn(step['tool'], toolchain_steps.SYSTEM_TOOLS)
+
+    def test_r260_translit_twins_stay_in_sync(self):
+        """R260: die Umschrift-Maps sind ZWILLINGE (toolchain._TRANSLIT
+        fuer den Plan, r2_postproc._translit_name fuer die Engines) —
+        dieser Wächter verhindert Drift. Plus das Verhaltens-Orakel:
+        'Größer Rahmen' -> Groesser_Rahmen statt Gr_er_Rahmen."""
+        pp, _tex = toolchain_steps._engines()
+        self.assertEqual(toolchain._TRANSLIT,
+                         {'ä': 'ae', 'ö': 'oe', 'ü': 'ue', 'ß': 'ss',
+                          'Ä': 'Ae', 'Ö': 'Oe', 'Ü': 'Ue'})
+        self.assertEqual(pp._translit_name('Größer'),
+                         toolchain._translit('Größer'))
+        self.assertEqual(pp._gen_stem('Größer Rahmen.png'),
+                         'Groesser_Rahmen')
+        self.assertEqual(
+            toolchain._sanitize_stem('Größer Rahmen'), 'Groesser_Rahmen')
+        # ASCII-Namen bleiben unberuehrt (Bestandsschutz)
+        self.assertEqual(pp._gen_stem('rose_215c_pla.gcode'),
+                         'rose_215c_pla')
 
 
 if __name__ == '__main__':

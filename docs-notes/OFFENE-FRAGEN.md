@@ -66,3 +66,9 @@ Gesammelt aus der Sitzung vom 18.11.2026. Reihenfolge ≈ Auswirkung. Erst wenn 
     Guards anpassen)? Zweite Kleinigkeit: der Toolchain-Ordner sammelt
     pro Lauf eine neue V-Nummer (V04_, V06_, …) — gewollt (Nachvollzieh-
     barkeit wie bei jedem Generator), oder soll ein Aufräummakro her?
+    **ANTWORT (R260, umgesetzt):** Unterordner-Eingaben JETZT erlaubt
+    (§20.2 → relative Pfade); Umlaute als ae/oe/ue/ß→ss in generierten
+    Namen; Ketten-Endausgabe trägt den Preset-Namen als Wortkette
+    (`V06_Mein_Teil_ScaleUpTwist.gcode`). Die V-Nummern-Sammlung im
+    Toolchain-Ordner bleibt bestehen (Nachvollziehbarkeit; Löschen über
+    den Gen-files-Browser) — bei Bedarf später ein Aufräummakro.

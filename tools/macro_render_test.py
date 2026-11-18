@@ -18385,6 +18385,14 @@ out = render(_tc259, {'PRESET': '../escape.json'})
 tests.append(('R259 TOOLCHAIN_APPLY: path climb refused before any save',
     'PRESET must be a path inside the gcodes folder' in out
     and 'VARIABLE=toolchain_nonce' not in out, ''))
+out = render(_tc259, {'FILE': 'Range/V02_teil.gcode'})
+tests.append(('R260 TOOLCHAIN_APPLY: subfolder FILE accepted (Range/'
+    'Scale outputs are chainable), path saved verbatim',
+    'VARIABLE=toolchain_file VALUE="\\\"Range/V02_teil.gcode\\\""' in out
+    and 'VARIABLE=toolchain_nonce VALUE=' in out, out[:150]))
+out = render(_tc259, {'FILE': '../hoch.gcode'})
+tests.append(('R260 TOOLCHAIN_APPLY: FILE climb still refused',
+    'no climbing up' in out and 'VARIABLE=toolchain_nonce' not in out, ''))
 save_vars['preview_file'] = ''
 save_vars['toolchain_preset'] = ''
 out = render(_tc259, {})

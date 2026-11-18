@@ -218,8 +218,19 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(second['params']['seed'], 1)
 
     def test_plan_rejects_path_like_input(self):
-        for bad in ('../auserhalb.gcode', 'unter/ordner/x.gcode',
-                    'keine-endung', 'x.GCODE'):
+        """R260: relative Unterordner-Pfade sind ERLAUBT (Range/V02_x.gcode);
+        Kletterei ('..'), absolute Pfade und Muell bleiben draussen."""
+        plan, errors = toolchain.plan_chain(
+            preset_range_texture(), 'unter/ordner/x.gcode')
+        self.assertEqual(errors, [])
+        self.assertIsNotNone(plan)
+        self.assertEqual(plan['steps'][0]['input'], 'unter/ordner/x.gcode')
+        # Stem = Basisname (V<nn>_ eines Vorgaenger-Tools faellt weg);
+        # der Preset-Tag haengt NUR an der Endausgabe
+        self.assertEqual([s['output'] for s in plan['steps']],
+                         ['V01_x.gcode', 'V02_x_FensterRinde.gcode'])
+        for bad in ('../auserhalb.gcode', '/absolut.gcode',
+                    'keine-endung', 'x.GCODE', 'a/../b.gcode'):
             plan, errors = toolchain.plan_chain(preset_range_texture(), bad)
             self.assertIsNone(plan, bad)
             self.assertTrue(errors, bad)
@@ -232,10 +243,13 @@ class PlanTests(unittest.TestCase):
         self.assertTrue(errors)
 
     def test_output_naming_follows_version_convention(self):
+        """R260: Temps plain, die ENDAUSGABE traegt den Preset-Namen als
+        Wortkette ('Fenster + Rinde' -> FensterRinde)."""
         plan, _ = toolchain.plan_chain(preset_range_texture(),
                                        'figur.gcode')
         self.assertEqual(plan['steps'][0]['output'], 'V01_figur.gcode')
-        self.assertEqual(plan['steps'][1]['output'], 'V02_figur.gcode')
+        self.assertEqual(plan['steps'][1]['output'],
+                         'V02_figur_FensterRinde.gcode')
 
     def test_first_version_lifts_the_whole_chain(self):
         """R259: der Watcher hebt die V-Nummer auf die naechste freie des
@@ -244,8 +258,9 @@ class PlanTests(unittest.TestCase):
         plan, _ = toolchain.plan_chain(preset_range_texture(),
                                        'figur.gcode', first_version=7)
         self.assertEqual([s['output'] for s in plan['steps']],
-                         ['V07_figur.gcode', 'V08_figur.gcode'])
-        self.assertEqual(plan['final_output'], 'V08_figur.gcode')
+                         ['V07_figur.gcode', 'V08_figur_FensterRinde.gcode'])
+        self.assertEqual(plan['final_output'],
+                         'V08_figur_FensterRinde.gcode')
         # die Kette bleibt verkettet: Ausgabe von Schritt 1 = Eingabe von 2
         self.assertEqual(plan['steps'][1]['input'],
                          plan['steps'][0]['output'])
@@ -254,6 +269,40 @@ class PlanTests(unittest.TestCase):
                                                 first_version=0)
         self.assertIsNone(plan_bad)
         self.assertTrue(any('first_version' in e for e in errors), errors)
+
+    def test_r260_naming_translit_tag_and_vstrip(self):
+        """R260-Namenspaket: Umlaut-Umschrift (Eingabe UND Preset-Name),
+        Preset-Name als Wortkette NUR an der Endausgabe, V<nn>_ einer
+        Vorgaenger-Ausgabe faellt aus dem Stem."""
+        preset = {'schema': toolchain.SCHEMA, 'name': 'Größer Rahmen',
+                  'steps': [{'tool': 'twist', 'params': {'deg': 10}}]}
+        plan, errors = toolchain.plan_chain(preset, 'Größer Rahmen.gcode')
+        self.assertEqual(errors, [])
+        self.assertEqual(plan['steps'][0]['output'],
+                         'V01_Groesser_Rahmen_GroesserRahmen.gcode')
+        # Unterordner + Vorgaenger-V-Prefix: Stem = Basisname ohne V02_
+        plan, errors = toolchain.plan_chain(preset,
+                                            'Range/V02_Mein Teil.gcode')
+        self.assertEqual(errors, [])
+        self.assertEqual(plan['steps'][0]['output'],
+                         'V01_Mein_Teil_GroesserRahmen.gcode')
+
+    def test_r260_chain_tag_cuts_at_word_boundary(self):
+        self.assertEqual(
+            toolchain._chain_tag({'name': 'Scale up + twist'}),
+            'ScaleUpTwist')
+        # Wortgrenze statt Mitte: 'Mein ganz besonders langer
+        # Versuchspreset-Name' -> 23 Zeichen, kein halbes Wort
+        self.assertEqual(
+            toolchain._chain_tag({'name':
+                                  'Mein ganz besonders langer '
+                                  'Versuchspreset-Name'}),
+            'MeinGanzBesondersLanger')
+        self.assertEqual(toolchain._chain_tag({'name': 'x'}), 'X')
+        self.assertEqual(toolchain._chain_tag({}), '')
+        # ein einzelnes laengeres Wort wird hart am Limit geschnitten
+        self.assertEqual(len(toolchain._chain_tag(
+            {'name': 'Supercalifragilisticexpialidocious'})), 24)
 
 
 class PresetFileTests(unittest.TestCase):
@@ -336,7 +385,7 @@ class CliTests(unittest.TestCase):
             report = json.loads(buffer.getvalue())
             self.assertTrue(report['ok'])
             self.assertEqual(report['plan']['final_output'],
-                             'V02_teil.gcode')
+                             'V02_teil_FensterRinde.gcode')
 
     def test_cli_fails_cleanly_on_invalid_preset(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -531,7 +580,8 @@ class ExecutorTests(unittest.TestCase):
 
     def test_existing_final_output_refuses_to_run(self):
         os.makedirs(self.workspace, exist_ok=True)
-        final = os.path.join(self.workspace, 'V03_original.gcode')
+        final = os.path.join(self.workspace,
+                             'V03_original_FensterRinde.gcode')
         with open(final, 'w', encoding='utf-8') as handle:
             handle.write('alt')
         report = toolchain.run_chain(self.plan, self.workspace,

@@ -838,6 +838,20 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       (R252-Regel). NEBENERKENNTNIS: Klipper-Jinja kennt keinen
       `endswith`-FILTER — Methodenaufruf `.lower().endswith()` nutzen,
       und Filter+Methodenaufruf lassen sich nicht mischen (erst `set`).
+- [x] **K2b/3 — Benennung & Unterordner-Eingaben (R260, Nutzer-
+      Entscheidung zu OFFENE-FRAGEN #19):** Ketten-Quelle aus Unter-
+      ordnern erlaubt (§20.2 → relative Pfade, `..`/absolut unmöglich);
+      Umlaut-Umschrift vor dem Sanitize in Engine-_gen_stem (ALLE
+      Generatoren) und Plan-Stem (`Größer Rahmen` → `Groesser_Rahmen`
+      statt `Gr_er_Rahmen`), Zwillings-Maps mit Drift-Wächter;
+      ENDAUSGABE trägt den Preset-Namen als Wortkette
+      (`V06_Mein_Teil_ScaleUpTwist.gcode`), Temps plain; ein führendes
+      V<nn>_ einer Vorgänger-Ausgabe fällt aus dem Stem; Preset-Namen
+      dürfen Umlaute tragen. Gates: macro_render 2112/2112, r81 23/23,
+      audit_sweep 82/0, megatest 190/0, test_toolchain 47,
+      test_toolchain_steps 21. Bestätigt für den Nutzer: Unterordner
+      listen im LCD-Browser schon heute NEUESTE ZUERST (R187), Root
+      bleibt A–Z; Gen-files-Browser (12 neueste) existiert.
 - [ ] **K3 — Phase 3 Bedienoberfläche (Rest):** Fortschritt je Stufe am
       LCD (Kette meldet Schritt n/N — aktuell eine Erfolgszeile am Ende),
       Web-LCD-Spiegel prüfen (Menü-JSON führt den Toolchain-Knoten

@@ -9725,13 +9725,24 @@ def _prime_nonces(rv):
     return {k: (rv.get(k, '') or None) for k in NONCE_KEYS}
 
 
+def _translit_name(text):
+    """R260: German transliteration BEFORE the ASCII sanitize - a source
+    called 'Größer Rahmen' used to become 'Gr_er_Rahmen' (every non-ASCII
+    run collapsed to '_'). Now: Groesser_Rahmen - readable on every LCD
+    font and every SD card. Twin map: tools/toolchain.py _TRANSLIT
+    (drift-pinned by test_toolchain_steps)."""
+    _map260 = {'ä': 'ae', 'ö': 'oe', 'ü': 'ue', 'ß': 'ss',
+               'Ä': 'Ae', 'Ö': 'Oe', 'Ü': 'Ue'}
+    return ''.join(_map260.get(_c, _c) for _c in str(text))
+
+
 def _gen_stem(src, dflt='MODEL'):
     """R133f (field log .98): file names use the FULL source name - the
     old [:8] cut turned 'AxtBunny.png' into 'AxtBunny' and different
     sources into the same prefix. Sanitized (safe chars only), never
-    shortened."""
-    _st = re.sub(r'[^A-Za-z0-9._-]+', '_',
-                 os.path.splitext(os.path.basename(src))[0]).strip('_')
+    shortened. R260: umlauts transliterated first (see _translit_name)."""
+    _st = re.sub(r'[^A-Za-z0-9._-]+', '_', _translit_name(
+        os.path.splitext(os.path.basename(src))[0])).strip('_')
     return _st or dflt
 
 
@@ -28617,9 +28628,7 @@ def watch(directory, interval=5.0, once=False):
                     raise ValueError('no file selected - pick one first '
                                      '(Pre-Print > File)')
                 if not _tcr259.lower().endswith('.gcode'):
-                    raise ValueError('%s is not a .gcode file (the chain '
-                                     'input lives in the gcodes ROOT - '
-                                     'S20.2)' % _tcr259)
+                    raise ValueError('%s is not a .gcode file' % _tcr259)
                 _tcpp259 = os.path.join(directory, _tcp259)
                 _tcin259 = os.path.join(directory, _tcr259)
                 if not os.path.isfile(_tcpp259):

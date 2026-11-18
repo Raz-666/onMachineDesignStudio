@@ -70,8 +70,56 @@ JOB_STATES = ('queued', 'running', 'success', 'failed', 'cancelled')  # §22.1
 _FORBIDDEN_KEYS = re.compile(
     r'^(input|infile|in_file|file|source|src|path|filename|gcode_file)$', re.I)
 
-_PRESET_NAME_RE = re.compile(r'^[A-Za-z0-9][A-Za-z0-9 _().+-]{0,63}$')
-_INPUT_NAME_RE = re.compile(r'^[A-Za-z0-9][A-Za-z0-9 _().+-]*\.gcode$')
+# R260: Preset-Namen duerfen Umlaute tragen (Anzeige/RESPOND) — der
+# Datei-Tag transliteriert sie (ae/oe/ue). Bewusst NUR diese sieben
+# Zeichen, kein freies Unicode (Pfad-/Display-Sicherheit).
+_PRESET_NAME_RE = re.compile(
+    r'^[A-Za-z0-9ÄÖÜäöüß][A-Za-z0-9ÄÖÜäöüß _().+-]{0,63}$')
+# R260: Ketten-Eingabe darf aus Unterordnern kommen (Range/V02_x.gcode) —
+# §20.2 erweitert auf RELATIVE Pfade: kein fuehrendes '/', kein '..'
+# (Segmente muessen alphanumerisch anfangen — Kletterei ist bauartlich
+# unmoeglich), keine Laufwerks-/URL-Reste. Umlaut-Dateinamen sind legal
+# (der Stem wird fuer die AUSGABE ohnehin transliteriert+sanitiert).
+_INPUT_NAME_RE = re.compile(
+    r'^(?:[A-Za-z0-9ÄÖÜäöüß][A-Za-z0-9ÄÖÜäöüß _().+-]*/)*'
+    r'[A-Za-z0-9ÄÖÜäöüß][A-Za-z0-9ÄÖÜäöüß _().+-]*\.gcode$')
+
+# R260: deutsche Umschrift VOR dem ASCII-Sanitize — generierte Namen bleiben
+# auf jedem LCD und jeder SD-Karte lesbar: "Größer Rahmen" -> Groesser_Rahmen
+# statt Gr_er_Rahmen. Zwillings-Map in r2_postproc._translit_name (Drift-
+# Wächter in test_toolchain_steps).
+_TRANSLIT = {
+    'ä': 'ae', 'ö': 'oe', 'ü': 'ue', 'ß': 'ss',
+    'Ä': 'Ae', 'Ö': 'Oe', 'Ü': 'Ue',
+}
+
+
+def _translit(text):
+    return ''.join(_TRANSLIT.get(ch, ch) for ch in str(text))
+
+
+def _sanitize_stem(name, dflt='MODEL'):
+    """R260: Pendant zum Engine-_gen_stem (Transliteration + ASCII)."""
+    st = re.sub(r'[^A-Za-z0-9._-]+', '_', _translit(name)).strip('_')
+    return st or dflt
+
+
+def _chain_tag(preset, limit=24):
+    """R260: Preset-Name als Wortkette (CamelCase) fuer die ENDAUSGABE.
+
+    "Scale up + twist" -> "ScaleUpTwist". Abgeschnitten wird an einer
+    Wortgrenze (limit-Zeichen); gibt es kein Wort, bleibt der Tag aus.
+    """
+    words = re.findall(r'[A-Za-z0-9]+',
+                       _translit(preset.get('name') or ''))
+    parts, used = [], 0
+    for word in words:
+        word = word[0].upper() + word[1:]
+        if parts and used + len(word) > limit:
+            break
+        parts.append(word)
+        used += len(word)
+    return ''.join(parts)[:limit]
 
 # macros/17_generator.cfg:1179 — die 27 Muster-Codes (Reihenfolge dort).
 TEXTURE_PATTERNS = (
@@ -516,16 +564,28 @@ def plan_chain(preset, input_name, registry=None, first_version=1):
     if not ok:
         return None, errors
     if not isinstance(input_name, str) or not _INPUT_NAME_RE.match(input_name):
-        return None, ['Eingabedatei %r ist kein plain .gcode-Dateiname '
-                      '(keine Pfade — §20.2: die Auswahl trifft der Nutzer '
+        return None, ['Eingabedatei %r ist kein relativer .gcode-Pfad im '
+                      'Gcodes-Ordner (Unterordner ok, kein .. / absoluter '
+                      'Pfad — §20.2/R260: die Auswahl trifft der Nutzer '
                       'zur Laufzeit)' % input_name]
 
-    stem = input_name[:-len('.gcode')]
+    # R260: Stem = sanitierter BASENAME (Unterordner-Eingaben!), ein
+    # fuehrendes V<nn>_ einer vorigen Werkzeug-Ausgabe faellt weg — die
+    # Kette setzt ihre eigene Versionsnummer davor.
+    stem = _sanitize_stem(
+        os.path.basename(input_name)[:-len('.gcode')])
+    stem = re.sub(r'^V\d+_', '', stem) or stem
+    tag = _chain_tag(preset)
     steps = []
     current_input = input_name
     for idx, step in enumerate(preset['steps'], start=1):
         tool = step['tool']
         output = 'V%02d_%s.gcode' % (first_version + idx - 1, stem)
+        if idx == len(preset['steps']) and tag:
+            # R260: nur die ENDAUSGABE traegt den Preset-Namen — die
+            # temporaeren Zwischenstaende sterben doch (§22.4)
+            output = 'V%02d_%s_%s.gcode' % (first_version + idx - 1,
+                                            stem, tag)
         job = {
             'job': idx,
             'tool': tool,
@@ -546,9 +606,12 @@ def plan_chain(preset, input_name, registry=None, first_version=1):
         'schema': PLAN_SCHEMA,
         'input': input_name,
         'output_dir': 'Toolchain/',   # R259: Watcher-Verhalten (_gensub)
-        'naming': 'V<nn>_<stem>.gcode (R259: nn = first_version + Schritt '
-                  '- 1, der Watcher uebergibt die naechste freie Nummer '
-                  'des Ausgabeordners, Konvention wie Cake/Range)',
+        'naming': 'V<nn>_<stem>[_<PresetWortkette>].gcode (R259: nn = '
+                  'first_version + Schritt - 1, der Watcher uebergibt die '
+                  'naechste freie Nummer; R260: Stem = sanitierter Basis- '
+                  'name der Eingabe (Umlaute ae/oe/ue, V<nn>_ einer '
+                  'Vorgaenger-Ausgabe faellt weg), der Preset-Name als '
+                  'Wortkette haengt NUR an der Endausgabe)',
         'steps': steps,
         'final_output': steps[-1]['output'],
         'temp_outputs': sum(1 for s in steps if s['temp']),

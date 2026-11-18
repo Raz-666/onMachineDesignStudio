@@ -138,6 +138,24 @@ fertig behauptet, was nicht existiert.
   2110/2110 (7 neue R259-Tests), r81 23/23 (keine Engine-Änderung,
   kein Re-Freeze), audit_sweep 82/0, megatest 190/0,
   test_toolchain 45 + test_toolchain_steps 19.
+- **Phase 2b/3 (erledigt, R260) — Benennung & Unterordner-Eingaben
+  (Nutzer-Entscheidung zu OFFENE-FRAGEN #19):** Ketten-Quelle darf aus
+  Unterordnern kommen (`Range/V02_x.gcode` — §20.2 erweitert auf
+  relative Pfade; `..`/absolute Pfade bleiben bauartlich unmöglich,
+  Macro-/Plan-Guards synchron). Stem = sanitierter BASISNAME, ein
+  führendes `V<nn>_` einer Vorgänger-Ausgabe fällt weg. Umlaut-Umschrift
+  (ä→ae, ö→oe, ü→ue, ß→ss) VOR dem ASCII-Sanitize — überall: Engine-
+  `_gen_stem` (alle Generatoren) UND der Plan-Stem
+  (`Größer Rahmen.gcode` → `Groesser_Rahmen` statt `Gr_er_Rahmen`);
+  Zwillings-Maps mit Drift-Wächter (test_toolchain_steps). Die
+  ENDAUSGABE trägt den Preset-Namen als Wortkette (CamelCase,
+  Wortgrenzen-Schnitt bei 24 Zeichen): `V06_Mein_Teil_ScaleUpTwist.gcode`
+  — Temps bleiben plain (§22.4: sie sterben ohnehin). Preset-Namen
+  dürfen jetzt Umlaute tragen (Anzeige/RESPOND; der Tag transliteriert).
+  Gates: macro_render 2112/2112, r81 23/23 (ASCII-Fixtures unberührt),
+  audit_sweep 82/0, megatest 190/0, test_toolchain 47,
+  test_toolchain_steps 21 (Unterordner-Kette Ende-zu-Ende mit echten
+  Engines).
 - **Phase 3 — Bedienoberfläche:** LCD `Pre-Print > Toolchain` (Preset wählen,
   auf ausgewählte Datei anwenden, Fortschritt je Stufe); das Web-LCD spiegelt
   automatisch (Menü-JSON-Spiegel, gleiche Makros — kein zweites Frontend).
