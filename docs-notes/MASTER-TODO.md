@@ -399,3 +399,13 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       `feat: loft scaled contour sections without internal caps`.
       16 Konturtests + 5 Mesh- + 3 aktive E-State-Tests bestanden.
       Kein allgemeines Layer-Matching und keine produktive G-Code-Anbindung.
+
+- [x] **I1 normalisierte G-Code-Kandidaten:** `tools/gcode_contours.py`
+      liest über `r2_shadow.Shadow`, hält Konturpunkte, Z, Quellenzeilen,
+      Tool und kommandiertes Filament fest. 7 Integrationstests bestanden.
+      Commit-Betreff `feat: extract provenance-bearing contour candidates from shadow moves`.
+      Keine physische Kontur-/Feature-/Lochbehauptung, keine STL-Ausgabe.
+- [ ] **I1 Feldintegration:** Rose liefert im strikten Parsermodus 0 Konturen
+      und 148529 unbekannte Records. Gründe/Modalzustände belegen; nicht mit
+      pauschalen Annahmen freischalten. Linienbreitenkorrektur und Zuordnung
+      von Modell/Hilfsgeometrie weiterhin offen.

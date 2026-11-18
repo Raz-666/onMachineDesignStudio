@@ -47,6 +47,7 @@ jobs:
           R2_TEST_ENGINE=active python3 tools/test_stl_extrusion_state.py
           python3 tools/test_stl_mesh.py
           python3 tools/test_contour_mesh.py
+          python3 tools/test_gcode_contours.py
 
       - name: Streaming simulations (watcher RSS stays flat)
         run: python3 tools/r91_simulate.py

@@ -1,3 +1,34 @@
+# Fortschreibung: Anschluss an normalisierte G-Code-Bewegungen
+
+`tools/gcode_contours.py` liest Quelldateien ausschließlich über den vorhandenen
+`r2_shadow.Shadow`-Parser. Keine zweite Interpretation von G90/G91/M82/M83.
+Exakt geschlossene, planare Extrusionsketten werden mit Punkten, Z, Tool,
+Quellenzeilen und kommandiertem Filament als Kandidaten ausgegeben.
+Koordinaten bleiben im Shadow-Befehlsbezug, nicht behauptet als Maschinengeometrie.
+
+Keine Endpunktrundung, kein Zusammenlegen naher Z-Ebenen. Travels, unbekannte
+Zustände und nichtplanare Extrusion trennen Ketten. Validierung verwirft
+selbstschneidende geschlossene Konturen. Endliche Budgets für Zeilenlänge,
+Zeilenanzahl, Konturpunkte und Schleifenzahl; Abbruch wird ausgewiesen.
+Erste acht unbekannte Record-Gründe bleiben im Bericht zur Diagnose.
+`export_ready` bleibt bewusst false: Wandbreite, Feature-/Objekt-/Lochzuordnung
+sind nicht belegt. Skirt/Support-Loops dürfen nicht als Modell ausgegeben werden.
+
+Tests: **7/7 Integration**, **16/16 Kontur**, **5/5 Mesh**, **3/3 E-State**;
+zusätzlich bestehende RE-Suite **10/10**. Quelle bleibt byte-identisch, keine
+zusätzlichen Dateien. M82/M83/G91, Ebenen .20/.23, unbekannte Makros,
+Seamlücke, Travel-Unterbrechung, Spiralpfad, Budgets und Bowtie geprüft.
+Ein anfänglich fehlerhaftes Testfixture enthielt G0 mit positiver E-Extrusion;
+das ist kein Travel. Korrigiert auf G0 ohne E, keine Parser-Sonderbehandlung.
+
+Feldgegenprobe `testfixtures/rose_215c_pla.gcode.gz` (temporär entpackt): Scan
+vollständig, **0 Konturen / 148529 unbekannte Records** im bewusst strikten
+Parsermodus. Kein Erfolg behauptet. Nächster Engpass ist damit belegte
+Modal-/Makrosemantik vor Konturrekonstruktion, nicht blindes STL-Schreiben.
+Aktiver Exporter und Druckpfad unverändert. Keine neue Hardware-Abnahme.
+
+---
+
 # Fortschreibung: Schichtverbindung für skalierte/verschobene Konturen
 
 Neue API `loft_mesh(boundary, sections, holes=...)` in `tools/contour_mesh.py`.

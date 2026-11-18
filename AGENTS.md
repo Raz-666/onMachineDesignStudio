@@ -155,7 +155,12 @@ konkaver Außenkontur und expliziten Durchgangslöchern), plus `loft_mesh` für
 positive gleichförmige Skalierung und Verschiebung über mehrere Höhen;
 16/16 analytische Tests. Kein Anschluss
 an den aktiven Exporter. Details/Grenzen in `analyse/STL-EXPORT-AUDIT.md`.
-Nächster Schritt: echte Layerkonturen aus dem normalisierten Bewegungsmodell
+Read-only Anbindung: `tools/gcode_contours.py` nutzt den bestehenden Shadow-Parser
+für exakte geschlossene planare Bahnen samt Zeilen-/E-/Tool-Herkunft (7 Tests).
+Rose-Felddatei im strikten Modus: 0 Konturen, 148529 unbekannte Records;
+keine Freigabe/kein STL. Nicht durch geratene Anfangszustände umgehen.
+Nächster Schritt: unbekannte Semantik/Koordinatenbasis anhand der Quellen klären,
+dann echte Layerkonturen aus dem normalisierten Bewegungsmodell
 mit belegter Zuordnung/physischer Linienbreite verbinden. Der aktuelle Loft
 nimmt explizite Transformationen an, keine beliebigen Layerloops;
 Lochanzahl/-topologie darf nicht still geändert werden.
