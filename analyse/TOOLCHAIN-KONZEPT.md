@@ -156,10 +156,17 @@ fertig behauptet, was nicht existiert.
   audit_sweep 82/0, megatest 190/0, test_toolchain 47,
   test_toolchain_steps 21 (Unterordner-Kette Ende-zu-Ende mit echten
   Engines).
-- **Phase 3 — Bedienoberfläche:** LCD `Pre-Print > Toolchain` (Preset wählen,
-  auf ausgewählte Datei anwenden, Fortschritt je Stufe); das Web-LCD spiegelt
-  automatisch (Menü-JSON-Spiegel, gleiche Makros — kein zweites Frontend).
-  Preset-Verwaltung: speichern/laden/löschen am LCD.
+- **Phase 3 — Bedienoberfläche (erledigt, R259/R260/R261):** LCD
+  `Pre-Print > Mods > Toolchain` (Preset-/File-Anzeige, How,
+  Apply-Doppelkdruck — mit R259 geliefert); **Fortschritt je Stufe**
+  (R261): `run_chain(on_step=…)` feuert beim START jedes Schritts,
+  der Job schreibt `M117 Chain n/N: <Werkzeug>` aufs LCD + Journal-Zeile
+  — Kosmetik (Hook-Fehler werden geschluckt), anders als die
+  on_output-Registrierung (Gate). Web-LCD-Spiegel: der Menü-JSON-Export
+  führt den Toolchain-Knoten (menu_json_export, automatic). Preset-
+  Verwaltung: **bewusst DATEIBASIERT** (Nutzer-Entscheidung R260-Runde:
+  Presets sind Dateien, verwaltet über Mainsail/Dateisystem — kein
+  Speichern/Laden/Löschen-Submenü am LCD nachgebaut).
 - **Phase 4 — Queue-Abhängigkeit & Doku:** §22.3 (Druckstart wartet auf
   Job-Fertigstellung, Nutzer sieht den wahren Zustand), MANUAL-Kapitel,
   Toolchain-Presets im Backup/Paket.

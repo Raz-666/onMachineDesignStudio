@@ -28682,6 +28682,21 @@ def watch(directory, interval=5.0, once=False):
                     _runner259 = _tcst.plan_step_runner(_plan259,
                                                         bed=_bed259)
 
+                    def _tc_step259(idx, total, tool):
+                        # R261: Fortschritt JE SCHRITT aufs LCD - der Job
+                        # kann auf dem Pi Zero 2 W Minuten laufen, 'Wait:
+                        # generating' allein sagt nicht WO die Kette steht.
+                        # Kosmetik: moonraker-Hickup darf den Lauf nicht
+                        # anfaechten (anders als die on_output-Registrierung).
+                        try:
+                            _moonraker_gcode(
+                                'M117 Chain %d/%d: %s'
+                                % (idx, total, str(tool).capitalize()))
+                        except Exception:                           # noqa: BLE001
+                            pass
+                        print('[toolchain] step %d/%d: %s'
+                              % (idx, total, tool), flush=True)
+
                     def _tc_output259(mode, path):
                         # S21/S22.1: queue = select the file (derived files
                         # replace the source selection), preview = it just
@@ -28705,7 +28720,8 @@ def watch(directory, interval=5.0, once=False):
                     _report259 = _tcl.run_chain(
                         _plan259, _out_dir,
                         os.path.join(directory, rel), _runner259,
-                        output_mode=_mode259, on_output=_tc_output259)
+                        output_mode=_mode259, on_output=_tc_output259,
+                        on_step=_tc_step259)
                     if not _report259['ok']:
                         # the worker reports this verbatim; temps stay for
                         # forensics (S22.4), nothing is overwritten

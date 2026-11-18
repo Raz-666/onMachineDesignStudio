@@ -852,11 +852,18 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       test_toolchain_steps 21. Bestätigt für den Nutzer: Unterordner
       listen im LCD-Browser schon heute NEUESTE ZUERST (R187), Root
       bleibt A–Z; Gen-files-Browser (12 neueste) existiert.
-- [ ] **K3 — Phase 3 Bedienoberfläche (Rest):** Fortschritt je Stufe am
-      LCD (Kette meldet Schritt n/N — aktuell eine Erfolgszeile am Ende),
-      Web-LCD-Spiegel prüfen (Menü-JSON führt den Toolchain-Knoten
-      bereits), Preset-Verwaltung speichern/laden/löschen am LCD
-      (aktuell: Dateien via Mainsail verwalten — bewusst so einfach).
+- [x] **K3 — Phase 3 Bedienoberfläche (R259/R260/R261, erledigt):** LCD-
+      Menü mit R259 geliefert; Web-Spiegel über den Menü-JSON-Export
+      automatisch (Toolchain-Knoten enthalten); **Fortschritt je Stufe
+      (R261):** `run_chain(on_step=…)` mit Start-Semantik (feuert, BEVOR
+      der Schritt läuft), der Watcher-Job schreibt `M117 Chain n/N:
+      <Werkzeug>` + Journal-Zeile — Hook-Fehler sind Kosmetik und werden
+      geschluckt (asymmetrisch zu on_output: Registrierung ist Gate).
+      Preset-Verwaltung bleibt **bewusst dateibasiert** (Mainsail/
+      Dateisystem) — kein LCD-Submenü für speichern/laden/löschen.
+      Tests: test_toolchain 49 (2 neue on_step-Orakel: Reihenfolge/
+      Start-Semantik, Kosmetik-Regel), test_toolchain_steps 22
+      (Verdrahtungs-Guard).
 - [ ] **K4 — Phase 4 Queue-Abhängigkeit & Doku:** §22.3 Druckstart wartet
       auf Job-Fertigstellung mit sichtbarem wahren Zustand, MANUAL-
       Kapitel, Presets im Backup/Paket.

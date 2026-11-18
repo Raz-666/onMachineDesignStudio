@@ -695,7 +695,7 @@ def default_validator(path):
 
 def run_chain(plan, workspace, input_path, step_runner,
               validator=None, output_mode='save', on_output=None,
-              cancel_check=None):
+              cancel_check=None, on_step=None):
     """Fuehrt einen PLAN aus — mit den Gates aus dem Gesamtbriefing.
 
     Vertrag:
@@ -710,6 +710,12 @@ def run_chain(plan, workspace, input_path, step_runner,
                      on_output-Hook auf — schlaegt der fehl, gilt die Kette
                      als FAILED (§22.1: korrekt registriert)
       cancel_check — callable(schritt_index, 1-basiert) -> True bricht ab
+      on_step      — callable(idx, gesamt, werkzeug), gerufen wenn Schritt
+                     idx ZU ARBEITEN BEGINNT (R261: Fortschritt am LCD,
+                     'Chain 2/3: Twist'). Kosmetik: ein Fehler im Hook
+                     wird geschluckt — anders als on_output, dessen
+                     Scheitern die Registrierung und damit die Kette
+                     verfaelschen wuerde
 
     Rueckgabe: Laufbericht (dict, schema r2-toolchain-run/1) mit den
     Zustaenden queued/running/success/failed/cancelled je Schritt (§22.1).
@@ -765,6 +771,14 @@ def run_chain(plan, workspace, input_path, step_runner,
                           'Abbruch vor Schritt %d (Nutzer/Queue)' % idx)
         record = records[idx - 1]
         record['state'] = 'running'
+        if on_step is not None:
+            # R261: Fortschritt JE SCHRITT (Start-Semantik: der Hook feuert,
+            # BEVOR der Schritt laeuft - das LCD sagt die Wahrheit ueber
+            # den Moment). Kosmetik: Fehler im Hook werden geschluckt.
+            try:
+                on_step(idx, len(plan['steps']), step['tool'])
+            except Exception:                        # noqa: BLE001 — Kosmetik
+                pass
         in_path = (input_path if idx == 1
                    else os.path.join(workspace, step['input']))
         try:

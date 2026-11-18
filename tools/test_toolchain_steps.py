@@ -357,6 +357,20 @@ class SystemWiringTests(unittest.TestCase):
         self.assertIn("sys.modules.get('__main__')", src)
         self.assertIn("hasattr(_me259, _f259)", src)
 
+    def test_r261_step_progress_wired(self):
+        """R261: Fortschritt je Stufe - der Job haengt on_step an run_chain
+        (M117 'Chain n/N: <Werkzeug>' aufs LCD, Journal-Zeile); Fehler im
+        Hook sind Kosmetik und werden geschluckt."""
+        src = self._read('tools', 'r2_postproc.py')
+        self.assertIn('def _tc_step259', src)
+        self.assertIn("'M117 Chain %d/%d: %s'", src)
+        self.assertIn('on_step=_tc_step259', src)
+        # Kosmetik-Regel: der Step-Hook schmeisst NICHT durch
+        self.assertIn('except Exception:                           '
+                      '# noqa: BLE001\n                            pass\n'
+                      '                        print(\'[toolchain] step',
+                      src)
+
     def test_macro_and_lcd_and_pick_wired(self):
         macro = self._read('macros', '17_generator.cfg')
         self.assertIn('SAVE_VARIABLE VARIABLE=toolchain_nonce '

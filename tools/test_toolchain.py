@@ -621,6 +621,43 @@ class ExecutorTests(unittest.TestCase):
         self.assertTrue(report['ok'], report)
         self.assertEqual(calls, [('queue', report['final_output'])])
 
+    def test_r261_on_step_fires_at_step_start_in_order(self):
+        """R261: Fortschritt JE SCHRITT — Start-Semantik (der Hook feuert,
+        BEVOR der Schritt laeuft: beim ersten Call existiert noch keine
+        Ausgabe), Reihenfolge und (idx, gesamt, werkzeug) stimmen."""
+        calls = []
+
+        def watcher(idx, total, tool):
+            # Start-Semantik: beim Feuern von Schritt idx ist Schritt
+            # idx-1 fertig (dessen Ausgabe existiert noch — sie stirbt
+            # erst, wenn idx sie uebernommen hat, §22.4)
+            prev = self.plan['steps'][:idx - 1]
+            prev_out = (os.path.join(self.workspace,
+                                     prev[-1]['output']) if prev else None)
+            calls.append((idx, total, tool,
+                          prev_out is None or os.path.exists(prev_out)))
+
+        report = toolchain.run_chain(self.plan, self.workspace,
+                                     self.input_path, _append_runner('|R|'),
+                                     on_step=watcher)
+        self.assertTrue(report['ok'], report)
+        self.assertEqual([c[:3] for c in calls],
+                         [(1, 3, 'range'), (2, 3, 'scale'),
+                          (3, 3, 'texture')])
+        self.assertTrue(all(c[3] for c in calls), calls)
+
+    def test_r261_on_step_errors_are_cosmetic(self):
+        """Ein FEHLER im Fortschritts-Hook darf die Kette NICHT anfaechten
+        (anders als on_output: Registrierung ist ein Gate, Fortschritt
+        Kosmetik)."""
+        def broken(idx, total, tool):
+            raise RuntimeError('LCD gerade nicht erreichbar')
+        report = toolchain.run_chain(self.plan, self.workspace,
+                                     self.input_path, _append_runner('|R|'),
+                                     on_step=broken)
+        self.assertTrue(report['ok'], report['error'])
+        self.assertTrue(os.path.isfile(report['final_output']))
+
     def test_output_mode_preview_without_hook_fails_registration(self):
         """§22.1: nicht korrekt registriert == nicht erfolgreich."""
         report = toolchain.run_chain(self.plan, self.workspace,
