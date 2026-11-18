@@ -226,8 +226,16 @@ normalisiert, entartete Dreiecke abgelehnt). Offen nur am ersten/letzten Ring:
 erwartete 2N Randkanten, keine nichtmannigfaltigen Kanten, Richtungsungleich-
 gewicht genau am Rand. Keine Deckel, keine Breite, kein Festkörper,
 Selbstdurchdringung ungeprüft. 4 neue Tests, 111 gesamt lokal bestanden.
-Nächster Schritt: pfadübergreifende Phasenfortsetzung (Rose liefert je Pfad
-nur eine Umdrehung), Outline-Übergänge; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
+Pfadfortsetzung: `path_continuation.py` verbindet lagekontinuierliche Pfade
+(exakt geteilter Punkt oder gemessene Geraden-Brücke innerhalb expliziten
+Budgets; Höhe darf nie zurückkehren). Rose-Evidenz: 228 exakt fortlaufende
+Paare, längster zusammenhängender Wandlauf 115 Pfade (Zeilen 13404–78198).
+Erste echte Rose-Wandfläche: Fenster Zeilen 13350–15390, 5 Pfade (1 Brücke
+0,0769 mm + 3 gemeinsame Punkte), Pitch 0,2, 64 Proben → 4 Ringe → vernähte
+offene Wand (384 Dreiecke, 128 offene Randkanten, keine nichtmannigfaltigen
+Kanten). Punktbudget spiral_rings auf 8192 (linearer Scan) angehoben.
+3 neue Tests, 114 gesamt lokal bestanden. Kein Deckel/Breite/Festkörper.
+Nächster Schritt: ganze Wandläufe, Outline-Übergänge; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
 Der Loft ist keine allgemeine Spiralrekonstruktion; aktiver Export unverändert.
 
 ## Historie

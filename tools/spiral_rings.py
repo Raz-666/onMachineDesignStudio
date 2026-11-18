@@ -12,7 +12,7 @@ centreline without bead width and are never export-ready.
 import math
 from contour_mesh import _boundary
 
-MAX_POINTS = 1024
+MAX_POINTS = 8192  # linear scan; ring validation itself stays bounded by MAX_SAMPLES
 MAX_SAMPLES = 256
 
 
@@ -49,13 +49,17 @@ def spiral_rings(points, *, pitch_mm, samples_per_revolution):
                 break
             while index+1 < len(pts) and pts[index+1][2] <= height:
                 index += 1
+            covered=pts[index][2] <= height < pts[index+1][2]
         else:
             if not zs[-1] < height <= zs[0]:
                 break
             while index+1 < len(pts) and pts[index+1][2] >= height:
                 index += 1
+            covered=pts[index+1][2] < height <= pts[index][2]
         if index+1 >= len(pts):
             break
+        if not covered:
+            raise ValueError('query height without a covering segment')
         a,b=pts[index],pts[index+1]
         t=(height-a[2])/(b[2]-a[2])
         samples.append((a[0]+t*(b[0]-a[0]),a[1]+t*(b[1]-a[1]),height))

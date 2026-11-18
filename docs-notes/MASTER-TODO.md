@@ -525,3 +525,15 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       `feat: stitch per-revolution rings into open wall surfaces`.
       Weiter offen: Phasenfortsetzung über Pfadgrenzen (Rose: 1 Umdrehung je
       Pfad), Deckel/Breite/Festkörper, Selbstschnittprüfung der Quadrate.
+
+- [x] **I1 Pfadfortsetzung + echte Rose-Wand:** `path_continuation.py`
+      (Lagekontinuität mit explizitem Brückenbudget, Höhenmonotonie über
+      Fügungen). Rose: 228 exakt fortlaufende Paare, 4 kleine Lücken
+      (0,004–0,078 mm), längster Wandlauf 115 Pfade. Fenster 13350–15390
+      (5 Pfade: eine 0,0769-mm-Brücke, 3 gemeinsame Punkte) → Pitch 0,2/64
+      Proben → 4 Ringe → offene Wand (384 Dreiecke, 128 Randkanten, sauber).
+      spiral_rings-Punktbudget 8192 (linear), Abtastung mit
+      Deckungs-Sicherung. 3 neue Tests, 114 gesamt lokal bestanden.
+      Commit-Betreff `feat: join continuous vase paths into real rose wall windows`.
+      Weiter offen: ganze Wandläufe über Budgetfenster, Deckel/Breite,
+      Selbstschnittprüfung, Slicer-Reimport.

@@ -70,7 +70,8 @@ class SpiralRingTests(unittest.TestCase):
             with self.subTest(bad=bad),self.assertRaises(ValueError):
                 spiral_rings(bad,pitch_mm=1/32,samples_per_revolution=4)
         with self.assertRaises(ValueError):
-            spiral_rings(helix(10,40,1/16),pitch_mm=1/16,samples_per_revolution=8)
+            # 200 revolutions: 9601 points exceed the 8192 point budget.
+            spiral_rings(helix(10,200,1/16),pitch_mm=1/16,samples_per_revolution=8)
         with self.assertRaises(ValueError):
             spiral_rings(helix(10,.9,1/16),pitch_mm=1/16,samples_per_revolution=8)
 

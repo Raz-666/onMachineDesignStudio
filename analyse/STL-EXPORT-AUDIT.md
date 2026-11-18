@@ -1,3 +1,41 @@
+# Fortschreibung: Pfadfortsetzung und erste echte Rose-Wandfläche
+
+Messung an der echten Rose-Datei (Passivmodus): Aufeinanderfolgende
+Vase-Wandpfade sind LAGEKONTINUIERLICH — der Drucker steht beim Pfadwechsel an
+derselben Position; die Kette wird nur durch Objektmarker, G92 E0, Z-only-
+und Vorschub-Zeilen getrennt. 706 gleichobjektige Paare: 228 exakt fortlaufend,
+4 kleine Lücken (0,004–0,078 mm, dz=0), Rest Strukturwechsel (Boden→Wand
+usw.). Längster zusammenhängender Wandlauf: 115 Pfade, Zeilen 13404–78198,
+jeweils durchlaufend steigende Höhe.
+
+`tools/path_continuation.py::joined_points`: Fügt geordnete Pfadpunktmengen
+unter explizitem Budget: exakt gleicher End-/Startpunkt → ein gemeinsamer
+Punkt; kleine Lücke → zusätzliches gerades Brückensegment mit gemessener
+Länge (ausdrückliche Annährung, keine aufgezeichnete Bewegung). Höhe darf über
+Fügungen nie zurückkehren; doppelte Punkte und Punktbudget (8192) abgelehnt.
+`spiral_rings` Punktbudget von 1024 auf 8192 angehoben (linearer Scan; die
+Ringprüfung bleibt über MAX_SAMPLES=256 begrenzt) und die Abtastung um eine
+Deckungssicherung ergänzt (nicht überdeckte Abfrageshöhen sind Vertragsbruch
+und führen zu Fehler, nicht zu Extrapolation).
+
+Erste echte Rose-Wandfläche aus G-Code: Fenster Zeilen 13350–15390 —
+Bodenschlusspfad (z=1,2 planar) plus 4 Wandpfade (z 1,2→2,0). Fügung:
+eine Brücke 0,076922 mm, drei gemeinsame Punkte. Abtastung Pitch 0,2
+(Aunahme: eine volle Umdrehung je 0,2 mm), 64 Proben → genau 4 Ringe mit
+Bändern [1,2;1,4)…[1,8;2,0). `ring_wall_mesh`: 384 Dreiecke, genau 128
+offene Randkanten (2·64), deren Richtungsdifferenz exakt entspricht, keine
+nichtmannigfaltigen Kanten/Duplikate/Normalenfehler, eine Komponente.
+Es bleibt eine OFFENE Mittellinienfläche: kein Deckel, keine Breite, kein
+Festkörper, kein Selbstschnittnachweis, keine unabhängige Pitch-Verifikation,
+`export_ready=false`.
+
+3 neue Tests: synthetische Fügungen (gemeinsamer Punkt, Brücke mit Länge,
+Budget-/Höhen-/Eingabeablehnungen) und die echte Rose-Fensterkette mit exakten
+Zahlen. Zusammen 114 Tests lokal bestanden; CI ergänzt. Aktiver Export
+unverändert; kein Release, kein Slicer-Reimport.
+
+---
+
 # Fortschreibung: genähte offene Wandflächen aus Ringen
 
 `tools/ring_wall.py::ring_wall_mesh(rings)` näht aufeinanderfolgende
