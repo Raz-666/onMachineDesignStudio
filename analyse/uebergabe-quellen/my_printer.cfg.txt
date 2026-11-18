@@ -1,0 +1,935 @@
+# This file contains common pin mappings for the BIGTREETECH SKR mini
+# E3 v3.0. To use this config, the firmware should be compiled for the
+# STM32G0B1 with a "8KiB bootloader" and USB communication.
+
+# The "make flash" command does not work on the SKR mini E3. Instead,
+# after running "make", copy the generated "out/klipper.bin" file to a
+# file named "firmware.bin" on an SD card and then restart the SKR
+# mini E3 with that SD card.
+
+# See docs/Config_Reference.md for a description of parameters.
+
+
+# -------------------------------------------------------------------------------------
+# Pflicht-Sektionen für Makros/Mainsail
+# -------------------------------------------------------------------------------------
+[virtual_sdcard]
+path: ~/printer_data/gcodes
+#on_error_gcode:           # bei Abbruch KEIN automatisches "M84/Turn off" -> unsere Makros regeln das
+
+[pause_resume]             # PAUSE/RESUME/CANCEL_PRINT-Basis
+
+[display_status]           # M117-Text aufs LCD
+
+[respond]                  # M118/RESPOND-Meldungen für Mainsail-Konsole
+default_type: echo
+
+[exclude_object]           # Objektdaten aus dem G-Code (adaptives Mesh, kollisionsfreies Parken)
+
+[idle_timeout]
+timeout: 3600              # 1h – bei PAUSE wird der Timeout per Makro auf "unendlich" gestellt
+
+[save_variables]
+filename: ~/printer_data/variables.cfg   # persistente Einstellungen (Material, Overrides, ...)
+
+
+
+
+# ----------------------------------------------------------------------------------
+# REQUIRED for SYNC_GANTRY (dual-Z synchronization). IMPORTANT: SET_KINEMATIC_POSITION
+# is only registered when enable_force_move is True (verified in Klipper source)!
+# Without this option the sync would silently do NOTHING (no bump at all).
+# Safety note: this also enables the raw FORCE_MOVE command - nothing in this
+# package uses it, do not run it by hand.
+# ----------------------------------------------------------------------------------
+
+[force_move]
+enable_force_move: True
+
+
+
+# =====================================================================================
+#  INCLUDES - copy these lines to the END of your printer.cfg.
+#  NOTE: if you still have the old German file set on the Pi, DELETE the old
+#  macros/ and menus/ files first (or replace the whole klipper-e3-r2d2 folder).
+# =====================================================================================
+
+[include klipper-e3-r2d2/macros/01_state.cfg]
+[include klipper-e3-r2d2/macros/02_sounds.cfg]
+[include klipper-e3-r2d2/macros/03_leds.cfg]
+[include klipper-e3-r2d2/macros/04_notify.cfg]
+[include klipper-e3-r2d2/macros/05_materials.cfg]
+[include klipper-e3-r2d2/macros/06_temp_controls.cfg]
+[include klipper-e3-r2d2/macros/07_start_confirm.cfg]
+[include klipper-e3-r2d2/macros/08_print_start_stop.cfg]
+[include klipper-e3-r2d2/macros/09_pause_filament.cfg]
+[include klipper-e3-r2d2/macros/10_live_tuning.cfg]
+[include klipper-e3-r2d2/macros/11_gantry_sync.cfg]
+[include klipper-e3-r2d2/macros/12_maintenance.cfg]
+[include klipper-e3-r2d2/macros/13_system.cfg]
+[include klipper-e3-r2d2/macros/14_kamp.cfg]
+[include klipper-e3-r2d2/macros/15_objects.cfg]
+[include klipper-e3-r2d2/macros/16_labels.cfg]
+[include klipper-e3-r2d2/menus/lcd_menues.cfg]
+[include klipper-e3-r2d2/macros/17_generator.cfg]
+[include klipper-e3-r2d2/macros/18_colorpic.cfg]
+[include klipper-e3-r2d2/macros/19_bricks.cfg]
+[include KAMP_Settings.cfg]
+
+[include TEST_SPEED.cfg]
+
+[include klipper-macro-collection/dump_parameter.cfg]
+#[include klipper-macro-collection/wartungsposition.cfg]
+
+# Timelapse
+#[include timelapse.cfg]
+
+
+
+
+#=====================================================================
+# ARC SUPPORT
+#====================================================================
+
+#[gcode_arcs]
+#resolution: 0.2
+
+
+
+#=====================================================================
+# Retraction 
+#====================================================================
+# 
+# FIRMWARE-RETRACTION – Voraussetzung, damit Retract LIVE am LCD/Mainsail änderbar ist!
+# Im Slicer "Firmware-Retraction verwenden" aktivieren (Orca) bzw. das
+# Post-Processing nutzt G10/G11 – Werte werden beim Druckstart pro Material gesetzt.
+# -------------------------------------------------------------------------------------
+
+[firmware_retraction]
+retract_length: 0.75         # Length of filament to retract (mm)
+retract_speed: 30            # 35  Retraction speed (mm/s)
+unretract_extra_length: 0    # Additional unretraction length (mm)
+unretract_speed: 25          # 30-35  Unretraction speed (mm/s)
+
+
+
+
+#==================================================
+# Stepper
+#
+# Warning:
+#      no step_pulse_duration: 0.000000100 on ALL FOUR steppers!
+#      Klipper's comment (which is in the file) says it out loud: "Defining a
+#      custom duration completely disables step-on-both-edges". step-on-both-
+#      edges fires the step on the rising AND the falling edge = ONE timer
+#      interrupt per step instead of TWO. Setting the documented default value
+#      explicitly turns that optimiser OFF for no benefit at all.
+#      -> Removing the line HALVES the step interrupt load. Free.
+#==================================================
+
+
+[stepper_x]
+step_pin: PB13
+dir_pin: !PB12
+enable_pin: !PB14
+microsteps: 32  #64  16
+rotation_distance: 40  #39.875  40
+full_steps_per_rotation: 200
+endstop_pin: ^PC0
+position_endstop: 0
+position_min: 0
+position_max: 244      #222
+homing_speed: 15
+homing_retract_dist: 12.0
+homing_retract_speed: 10
+second_homing_speed: 5
+
+
+[tmc2209 stepper_x]
+uart_pin: PC11
+tx_pin: PC10
+uart_address: 0
+run_current: 0.470  #0.470   0.580 - 0.650
+#hold_current:0.350
+interpolate: false
+#stealthchop_threshold: 0      
+#stealthchop_threshold: 999999
+
+
+
+[stepper_y]
+step_pin: PB10
+dir_pin: !PB2
+enable_pin: !PB11
+microsteps: 32    #64  16
+rotation_distance: 40   #40.015  
+full_steps_per_rotation: 200
+endstop_pin: ^PC1
+position_min: 0         #-1 -3  position_min:-12
+position_endstop: 0
+position_max: 239        #238  228
+homing_speed: 15
+homing_retract_dist: 12.0
+homing_retract_speed: 10
+second_homing_speed: 5
+
+[tmc2209 stepper_y]
+uart_pin: PC11
+tx_pin: PC10
+uart_address: 2
+run_current: 0.550     #550   0.650 - 0.700 0.580 wird zu hot
+#hold_current:0.350
+interpolate: false
+#stealthchop_threshold: 0
+#stealthchop_threshold: 999   #999
+
+
+
+# -------------------------------------------------------------------------------------
+# DUAL Z IN PARALLEL: both motors on ONE driver (ZA connector, jumper on ZB).
+# -> only ONE [stepper_z] section, no stepper_z1!
+# -> The top-stop synchronization trick still works: if the gantry sits crooked
+#    (one motor lost steps) exactly the early side skips until both rest on top.
+#    See macros/11_gantry_sync.cfg
+# -------------------------------------------------------------------------------------
+
+[stepper_z]
+step_pin: PB0
+dir_pin: PC5
+enable_pin: !PB1
+microsteps: 32      #64 32
+rotation_distance: 8   #8
+full_steps_per_rotation: 200
+ # endstop_pin: ^PC2
+ # position_endstop: 0.0
+endstop_pin: probe:z_virtual_endstop
+position_max: 212
+position_min: -6
+
+[tmc2209 stepper_z]
+uart_pin: PC11
+tx_pin: PC10
+uart_address: 1
+run_current:  0.940   #1.040  0.850 - 0.950   0.940
+#hold_current:0.700    #0.580
+interpolate: false
+#stealthchop_threshold: 0      
+stealthchop_threshold: 999  #999  stealthchop is on always (war an)
+
+
+
+# -------------------------------------------------------------------------------------
+# Extruder - BMG (3:1 geared) direct drive: rotation_distance 7.71 is the standard
+# starting value. Correct it after the first extruder calibration (Maintenance menu).
+# -------------------------------------------------------------------------------------
+
+# Sensor Types
+#   "EPCOS 100K B57560G104F"
+#   "ATC Semitec 104GT-2"
+#   "NTC 100K beta 3950" (Keenovo Heater Pad)
+#   "Honeywell 100K 135-104LAG-J01"
+#   "NTC 100K MGB18-104F39050L32"
+#   "AD595"
+#   "PT100 INA826"
+
+[extruder]
+step_pin: PB3
+dir_pin: PB4
+enable_pin: !PD1
+microsteps: 16
+rotation_distance: 23.21   #7.708 11.605   22.53  
+gear_ratio: 50:17
+full_steps_per_rotation: 200
+nozzle_diameter: 0.600
+max_extrude_cross_section: 1.8225  #default is: 4.0 * nozzle diameter^2 or extrusion width multiplied by layer height 0.675 × 0.28 = 0.189
+filament_diameter: 1.750
+heater_pin: PC8
+max_power: 1     #0.98
+sensor_type: EPCOS 100K B57560G104F
+sensor_pin: PA0
+smooth_time: 1.25  #2.0 Temperatur Messung default 1.0
+#control: pid
+#pid_Kp: 21.527
+#pid_Ki: 1.063
+#pid_Kd: 108.982
+max_extrude_only_distance: 121.0
+min_extrude_temp: 180
+min_temp: 0
+max_temp: 250
+pressure_advance: 0.095              #0.055 0.130 0.110 0.080  0.20015   0.0725 0.07725
+pressure_advance_smooth_time: 0.04   #0.02 - 0.2
+
+
+[tmc2209 extruder]
+uart_pin: PC11
+tx_pin: PC10
+uart_address: 3         
+run_current: 0.470        #Pancake 0.350 - 0.450     0.580
+#hold_current:0.350
+interpolate: false
+#stealthchop_threshold: 0       #testen  
+#stealthchop_threshold: 999     #999  gutes Ergebnis 
+
+
+
+
+#[extruder_stepper my_extra_stepper]
+#extruder:
+#   The extruder this stepper is synchronized to. If this is set to an
+#   empty string then the stepper will not be synchronized to an
+#   extruder. This parameter must be provided.
+#step_pin:
+#dir_pin:
+#enable_pin:
+#microsteps:
+#rotation_distance:
+#   See the "stepper" section for the definition of the above
+#   parameters.
+
+
+
+
+#[manual_stepper my_stepper]
+#step_pin:
+#dir_pin:
+#enable_pin:
+#microsteps:
+#rotation_distance:
+#   See the "stepper" section for a description of these parameters.
+#velocity:
+#   Set the default velocity (in mm/s) for the stepper. This value
+#   will be used if a MANUAL_STEPPER command does not specify a SPEED
+#   parameter. The default is 5mm/s.
+#accel:
+#   Set the default acceleration (in mm/s^2) for the stepper. An
+#   acceleration of zero will result in no acceleration. This value
+#   will be used if a MANUAL_STEPPER command does not specify an ACCEL
+#   parameter. The default is zero.
+#endstop_pin:
+#   Endstop switch detection pin. If specified, then one may perform
+#   "homing moves" by adding a STOP_ON_ENDSTOP parameter to
+#   MANUAL_STEPPER movement commands.
+#position_min:
+#position_max:
+#   The minimum and maximum position the stepper can be commanded to
+#   move to. If specified then one may not command the stepper to move
+#   past the given position. Note that these limits do not prevent
+#   setting an arbitrary position with the `MANUAL_STEPPER
+#   SET_POSITION=x` command. The default is to not enforce a limit.
+
+
+
+#[gcode_macro my_cmd]
+#gcode:
+#   A list of G-Code commands to execute in place of "my_cmd". See
+#   docs/Command_Templates.md for G-Code format. This parameter must
+#   be provided.
+#variable_<name>:
+#   One may specify any number of options with a "variable_" prefix.
+#   The given variable name will be assigned the given value (parsed
+#   as a Python literal) and will be available during macro expansion.
+#   For example, a config with "variable_fan_speed = 75" might have
+#   gcode commands containing "M106 S{ fan_speed * 255 }". Variables
+#   can be changed at run-time using the SET_GCODE_VARIABLE command
+#   (see docs/Command_Templates.md for details). Variable names may
+#   not use upper case characters.
+#rename_existing:
+#   This option will cause the macro to override an existing G-Code
+#   command and provide the previous definition of the command via the
+#   name provided here. This can be used to override builtin G-Code
+#   commands. Care should be taken when overriding commands as it can
+#   cause complex and unexpected results. The default is to not
+#   override an existing G-Code command.
+#description: G-Code macro
+#   This will add a short description used at the HELP command or while
+#   using the auto completion feature. Default "G-Code macro"
+
+
+#[delayed_gcode my_delayed_gcode]
+#gcode:
+#   A list of G-Code commands to execute when the delay duration has
+#   elapsed. G-Code templates are supported. This parameter must be
+#   provided.
+#initial_duration: 0.0
+#   The duration of the initial delay (in seconds). If set to a
+#   non-zero value the delayed_gcode will execute the specified number
+#   of seconds after the printer enters the "ready" state. This can be
+#   useful for initialization procedures or a repeating delayed_gcode.
+#   If set to 0 the delayed_gcode will not execute on startup.
+#   Default is 0.
+
+
+
+
+
+
+
+[heater_bed]
+heater_pin: PC9
+max_power: 1            #0.99
+sensor_type: EPCOS 100K B57560G104F
+sensor_pin: PC4
+smooth_time: 2.0        #2.0  Temperatur Messung
+#control: pid
+#pid_Kp: 54.027
+#pid_Ki: 0.770
+#pid_Kd: 948.182
+min_temp: 0
+max_temp: 110
+
+
+
+
+#-----------------------------------------------------------------------------------
+# LUEFTER – Namen bitte exakt so lassen, die Makros benutzen "hotend_luefter"
+# -------------------------------------------------------------------------------------
+[fan]                       # Bauteillüfter (part cooling)
+pin: PC6
+kick_start_time: 0.4
+max_power: 1  #0.99
+
+
+
+[heater_fan Hotend_Fan] #hotend_luefter Hotend-Kühllüfter, läuft immer wenn Hotend > 45°C
+pin: PC7
+heater: extruder
+heater_temp: 40.0
+
+
+#[heater_fan Electronics_Fan]  # Elektronik-Lüfter, läuft wenn Bett > 45°C
+#pin: PB15
+#heater: heater_bed
+#heater_temp: 33.0  #45.0
+#max_power: 1
+#fan_speed: 0.98
+
+
+
+[temperature_sensor SKR_mini_e3_v3]  #mcu_temp
+sensor_type: temperature_mcu
+min_temp: 10
+max_temp: 100
+
+
+
+[temperature_sensor Pi_Zero_II] #host_temp
+sensor_type: temperature_host
+min_temp: 10
+max_temp: 100
+
+
+
+[temperature_fan Electronics_Fan]
+pin: PB15                      # Replace with your actual fan PWM pin
+max_power: 1       #0.98
+ shutdown_speed: 0.0
+ #cycle_time: 0.010
+hardware_pwm: True             #False = Software PWM -->MCU Overloads Rpi Zero 2
+kick_start_time: 0.4           #0.4
+sensor_type: temperature_host  # Binds the fan to the host (Raspberry Pi) temperature
+min_temp: 10
+max_temp: 85
+target_temp: 41.0                # The temperature Klipper tries to maintain
+control: pid                   # Use PID control for smooth speed adjustments
+pid_kp: 1.0
+pid_ki: 0.5
+pid_kd: 2.0
+ idle behavior
+off_below: 0.10                # Turns the fan completely off if power drops below 10%
+
+
+
+#====================================================================
+# PRINTER
+#
+#Warning:
+#     minimum_cruise_ratio: 0.85 (default 0.5)
+#      This is the modern replacement for max_accel_to_decel. 0.85 means the
+#      printer may only "cruise" 85% of the ramp - i.e. it accelerates and
+#      decelerates far more aggressively, which means MORE step-rate peaks per
+#      millimetre. On a bed-slinger with 6000 mm/s2 this is the single most
+#      punishing setting in the file.
+#      -> 0.5 (Klipper default) is the safe, printer-friendly value.
+#
+#      max_accel: 6000 -> 3500 for now
+#      Halves the step-rate peaks. Put it back after we know the caus
+#====================================================================
+
+[printer]
+kinematics: cartesian
+minimum_cruise_ratio: 0.5   #0.85  default 0.5
+max_velocity: 300   # 200 250 300  400
+max_accel: 6000     #8000 5000 up to 10000
+max_z_velocity: 20  # 10   8   15   5   20
+max_z_accel: 50    # 200
+square_corner_velocity: 3.0   #6.0 2.0 4.0   8.0
+
+
+
+
+#====================================================================
+# MCU
+#====================================================================
+
+[mcu]
+#serial: /dev/serial/by-id/usb-Klipper_stm32g0b1xx_5800300014504D5930313820-if00
+serial: /dev/ttyAMA0
+restart_method: command
+
+
+
+
+#====================================================================
+# DISPLAY & NEOPIXEL & BUZZER
+#====================================================================
+
+[display]
+lcd_type:st7920
+cs_pin: PB8
+sclk_pin: PB9
+sid_pin: PD6
+encoder_pins: ^PA10, ^PA9
+click_pin: ^!PA15
+menu_timeout: 600          # Sekunden Inaktivität bis Menü verlassen
+
+
+
+# -------------------------------------------------------------------------------------
+# NEOPIXEL – 5 LEDs: Index 1-4 = Rahmen, Index 5 = Düsen-LED (Beleuchtung des Drucks)
+# Am Neopixel-Port des SKR Mini E3 V3.0 (5V!). Max. Helligkeit wird in den Effekten
+# auf 50% begrenzt (Werte <= 0.5), um das Board zu schonen – bitte auch bei eigenen
+# Effekten beibehalten!
+# -------------------------------------------------------------------------------------
+
+[neopixel printer_leds]
+pin: PA8                    # Neopixel-Port des Boards
+chain_count: 5              # 4x Rahmen + 1x Duese (Reihenfolge = Verkabelung, ANPASSEN)
+color_order: GRB            # ANPASSEN: je nach Streifen GRB oder RGB (letzte = Duesen-LED)
+
+
+
+# -------------------------------------------------------------------------------------
+# PIEZO/BEEPER am Creality-12864-LCD (EXP1) – für die R2-D2-Sounds (M300)
+#
+#Warning: 
+#     Software PWM at 1 kHz = a permanent 1000 interrupts/second on the MCU,
+#      even when nothing beeps. 0.01 (100 Hz) sounds the same for a piezo
+# -------------------------------------------------------------------------------------
+
+[pwm_cycle_time beeper]
+pin: PB5
+value: 0            # stumm beim Start
+shutdown_value: 0   # stumm bei Not-Aus
+cycle_time: 0.01   # Grundton 1 kHz (M300 übersteuert das pro Ton)
+
+
+
+
+#====================================================================
+# THERMAL RUNAWAY & HARDWARE PROTECTION
+#====================================================================
+
+[verify_heater extruder]
+max_error: 100
+check_gain_time: 20
+hysteresis: 5
+heating_gain: 2
+
+
+[verify_heater heater_bed]
+max_error: 120
+check_gain_time: 60
+hysteresis: 5
+heating_gain: 1
+
+
+
+
+#====================================================================
+# FILAMENT RUNOUT SENSOR (PAUSE AT NEXT LAYER)
+#====================================================================
+
+# -------------------------------------------------------------------------------------
+# Filament runout sensor - the name "filament_sensor" is used by the macros!
+#   runout_gcode = filament empty -> R2 alarm + gentle pause at the NEXT LAYER
+#                  boundary (direct drive: enough filament left to finish the layer)
+#   insert_gcode = filament inserted -> R2 confirmation + LED
+# pause_on_runout MUST stay False - the macros do EVERYTHING themselves
+# (alarm, planned pause, filament mode with purge on resume, LEDs, sounds).
+# -------------------------------------------------------------------------------------
+
+[filament_switch_sensor filament_sensor]   # Schalter-Teil: Filament-ENDE
+switch_pin: ^PC15
+pause_on_runout: False
+runout_gcode:
+     # Encoder-Rad steht beim Filamentende sowieso -> aus (kein Fehl-Clog)
+      SET_FILAMENT_SENSOR SENSOR=encoder_sensor ENABLE=0
+   #  SET_FILAMENT_SENSOR SENSOR=filament_sensor ENABLE=0
+     _FILAMENT_RUNOUT                        # sanft: Pause an der nächsten Layer-Grenze
+insert_gcode:
+    #  SET_FILAMENT_SENSOR SENSOR=encoder_sensor ENABLE=1
+     _FILAMENT_INSERTED
+    # SET_FILAMENT_SENSOR SENSOR=filament_sensor ENABLE=1
+
+
+[filament_motion_sensor encoder_sensor]    # Encoder-Teil: CLOG/Verknotung
+switch_pin: ^PC2                           # BTT-Manual: Pull-up
+detection_length: 3.88                     # 2.88 BTT-Minimum; bei Fehlalarmen +1 mm
+extruder: extruder
+pause_on_runout: False
+runout_gcode:
+   #  QUICK_PAUSE REASON="Filament Clog or tangled"  # sofortiger sicherer Stopp — Clog wartet nicht
+    # SET_FILAMENT_SENSOR SENSOR=encoder_sensor ENABLE=0
+    # SET_FILAMENT_SENSOR SENSOR=filament_sensor ENABLE=0
+insert_gcode:
+    _FILAMENT_INSERTED
+   # SET_FILAMENT_SENSOR SENSOR=filament_sensor ENABLE=1
+   # SET_FILAMENT_SENSOR SENSOR=encoder_sensor ENABLE=1
+
+
+
+# ----------------------------------------------------------------------------------
+# PI SHUTDOWN FROM THE LCD (System > 'Pi shutdown', press 2x) - NO EXTRA SETUP!
+#
+# SYS_SHUTDOWN uses moonraker's remote method 'shutdown_machine' - the exact
+# same call the Mainsail 'Shutdown' button makes. Since you run Mainsail,
+# it works out of the box. IMPORTANT (Pi powered by the SKR mini!): ALWAYS
+# shut the Pi down via the LCD before switching the printer off, otherwise
+# the SD card may corrupt.
+#
+# The OPTIONAL section below is only an alternative path (gcode-shell-command
+# extension) - NOT required anymore. If you had it commented in: you can leave
+# it or remove it. !!!! Do NOT uncomment it without the extension installed
+# (Klipper would halt: "not a valid config section") !!!!
+# ----------------------------------------------------------------------------------
+
+#[gcode_shell_command poweroff]
+#command: sudo /sbin/poweroff
+#timeout: 10.
+
+
+
+
+#====================================================================
+# ADXL345 INPUT SHAPER CONFIGURATION
+#====================================================================
+
+#[adxl345]
+#cs_pin: rpi:None # Anpassen falls direkt am SKR SPI angeschlossen
+
+#[resonance_tester]
+#accel_chip: adxl345
+#probe_points:
+#    117.5, 117.5, 20
+#   A list of X, Y, Z coordinates of points (one point per line) to test
+#   resonances at. At least one point is required. Make sure that all
+#   points with some safety margin in XY plane (~a few centimeters)
+#   are reachable by the toolhead.
+#accel_chip:
+#   A name of the accelerometer chip to use for measurements. If
+#   an accelerometer was defined without an explicit name, this parameter
+#   can simply reference it by type, e.g. "accel_chip: adxl345", otherwise
+#   a full name must be supplied, e.g. "accel_chip: adxl345 my_chip_name".
+#   Either this, or the next two parameters must be set.
+#accel_chip_x:
+#accel_chip_y:
+#   Names of the accelerometer chips to use for measurements for each
+#   of the axis. Can be useful, for instance, on bed slinger printer,
+#   if two separate accelerometers are mounted on the bed (for Y axis)
+#   and on the toolhead (for X axis). These parameters have the same
+#   format as 'accel_chip' parameter. Only 'accel_chip' or these two
+#   parameters must be provided.
+#accel_chip_z:
+#   A name of the accelerometer chip to use for measurements of Z axis.
+#   This parameter has the same format as 'accel_chip'. The default is
+#   not to configure an accelerometer for Z axis.
+#max_smoothing:
+#   Maximum input shaper smoothing to allow for each axis during shaper
+#   auto-calibration (with 'SHAPER_CALIBRATE' command). By default no
+#   maximum smoothing is specified. Refer to Measuring_Resonances guide
+#   for more details on using this feature.
+#move_speed: 50
+#   The speed (in mm/s) to move the toolhead to and between test points
+#   during the calibration. The default is 50.
+#min_freq: 5
+#   Minimum frequency to test for resonances. The default is 5 Hz.
+#max_freq: 135
+#   Maximum frequency to test for resonances. The default is 135 Hz.
+#max_freq_z: 100
+#   Maximum frequency to test Z axis for resonances. The default is 100 Hz.
+#accel_per_hz: 60
+#   This parameter is used to determine which acceleration to use to
+#   test a specific frequency: accel = accel_per_hz * freq. Higher the
+#   value, the higher is the energy of the oscillations. Can be set to
+#   a lower than the default value if the resonances get too strong on
+#   the printer. However, lower values make measurements of high-frequency
+#   resonances less precise. The default value is 60 (mm/sec).
+#accel_per_hz_z: 15
+#   This parameter has the same meaning as accel_per_hz, but applies to
+#   Z axis specifically. The default is 15 (mm/sec).
+#hz_per_sec: 1
+#   Determines the speed of the test. When testing all frequencies in
+#   range [min_freq, max_freq], each second the frequency increases by
+#   hz_per_sec. Small values make the test slow, and the large values
+#   will decrease the precision of the test. The default value is 1.0
+#   (Hz/sec == sec^-2).
+#sweeping_accel: 400
+#   An acceleration of slow sweeping moves. The default is 400 mm/sec^2.
+#sweeping_accel_z: 50
+#   Same as sweeping_accel above, but for Z axis. The default is 50 mm/sec^2.
+#sweeping_period: 1.2
+#   A period of slow sweeping moves. Setting this parameter to 0
+#   disables slow sweeping moves. Avoid setting it to a too small
+#   non-zero value in order to not poison the measurements.
+#   The default is 1.2 sec which is a good all-round choice.
+
+
+
+
+#====================================================================
+# INPUT SHAPER
+#====================================================================
+
+[input_shaper]
+shaper_type_y: mzv
+shaper_freq_y: 38.8
+shaper_type_x: mzv
+shaper_freq_x: 67.6
+
+
+
+
+#====================================================================
+# PROBE CONFIG
+#====================================================================
+
+[output_pin probe_enable]
+pin: PA1
+value: 0
+
+
+[gcode_macro Probe_Deploy]
+gcode:
+ SET_PIN PIN=probe_enable VALUE=1
+ 
+ 
+[gcode_macro Probe_Stow]
+gcode:
+ SET_PIN PIN=probe_enable VALUE=0
+
+ 
+[probe]
+pin: ^!PC14 ## For V1 version, set to ^PC14 for high-level trigger; for V2 version, set to ^!PC14 for low-level trigger.
+deactivate_on_each_sample: False
+x_offset: -43.0                   # Actual offset of the MicroProbe installation
+y_offset: -5.0                    # Actual offset of the MicroProbe installation
+#z_offset: 1.620                  # Actual offset of the MicroProbe installation
+speed: 5                          # 3   15 10  5.0
+lift_speed: 10                    # 10  8
+samples: 2                        # optional: doppeltes Anfassen pro Messpunkt
+samples_tolerance: 0.15           #testen
+samples_tolerance_retries: 2
+sample_retract_dist: 2
+samples_result: median            #calculation method when sampling more than once - "median" or "average"
+activate_gcode:
+ Probe_Deploy
+ G4 P550  #Allow 550 milliseconds for the probe to deploy
+deactivate_gcode:
+ Probe_Stow
+
+
+
+
+[safe_z_home]
+home_xy_position: 115,115   # Change coordinates to the center of your print bed
+speed: 50                   # 50
+z_hop: 10                   #  Move up 10mm
+z_hop_speed: 15             # 10   8   5  
+
+
+# -------------------------------------------------------------------------------------
+# BETTSCHRAUBEN-AUSRICHTUNG (fürs "Advanced Leveling" im Wartungsmenü):
+# SCREWS_TILT_CALCULATE fährt die 4 Bettschrauben an und misst per Probe die Neigung.
+# Positionen ANPASSEN: X/Y der Schrauben, bezogen auf die PROBE-Position beim Anfahren.
+#
+#WARNING: 
+#     300 mm/s while probing = the Y bed (heavy!) slams between probe points,
+#      and every point is a burst of tiny moves. That burst is exactly the
+#      moment the shutdown happens.
+#      -> 100 mm/s. Probing takes a little longer, the bus stays calm.
+# -------------------------------------------------------------------------------------
+
+[screws_tilt_adjust]
+screw4_name: Vorne links
+screw4: 65.5, 40
+screw2_name: Vorne rechts
+screw2: 236, 41
+screw3_name: Hinten rechts
+screw3: 236, 210.5
+screw1_name: Hinten links
+screw1: 65.5, 210.5
+screw_thread: CW-M4           # M4-Schraube, 0.7mm Steigung (Ender-3 Standard)
+# Valid values: CW-M3, CCW-M3, CW-M4, CCW-M4, CW-M5, CCW-M5, CW-M6, CCW-M6
+# (direction + thread; M4 = 0.7mm pitch -> Ender-3 bed screws)
+horizontal_move_z: 4
+speed: 180
+#probe_speed: 5
+#probe_height: 0    
+# The height of the probe (in mm) after adjusting for 
+# the thermal expansion of bed and nozzle. The default is zero.
+
+
+
+
+#[z_thermal_adjust]
+#temp_coeff:
+#   The temperature coefficient of expansion, in mm/degC. For example, a
+#   temp_coeff of 0.01 mm/degC will move the Z axis downwards by 0.01 mm for
+#   every degree Celsius that the temperature sensor increases. Defaults to
+#   0.0 mm/degC, which applies no adjustment.
+#smooth_time:
+#   Smoothing window applied to the temperature sensor, in seconds. Can reduce
+#   motor noise from excessive small corrections in response to sensor noise.
+#   The default is 2.0 seconds.
+#z_adjust_off_above:
+#   Disables adjustments above this Z height [mm]. The last computed correction
+#   will remain applied until the toolhead moves below the specified Z height
+#   again. The default is 99999999.0 mm (always on).
+#max_z_adjustment:
+#   Maximum absolute adjustment that can be applied to the Z axis [mm]. The
+#   default is 99999999.0 mm (unlimited).
+#sensor_type:
+#sensor_pin:
+#min_temp:
+#max_temp:
+#   Temperature sensor configuration.
+#   See the "extruder" section for the definition of the above
+#   parameters.
+#gcode_id:
+#   See the "heater_generic" section for the definition of this
+#   parameter.
+
+
+
+
+# -------------------------------------------------------------------------------------
+# Bed Mesh – pro Material wird ein eigenes Profil gespeichert (mesh_pla, mesh_petg, ...)
+# ADAPTIV: Klipper mesht automatisch nur den Bereich der Objekte (benötigt [exclude_object]
+# und dass der Slicer Objekte markiert – Orca: "Objekte markieren" aktivieren).
+#====================================================================
+# BED MESH PARAMETERS
+#
+# Warning: 
+#     300 mm/s while probing = the Y bed (heavy!) slams between probe points,
+#      and every point is a burst of tiny moves. That burst is exactly the
+#      moment the shutdown happens.
+#      -> 100 mm/s. Probing takes a little longer, the bus stays calm.
+#====================================================================
+
+[bed_mesh]
+speed: 180                  #250   120
+horizontal_move_z: 4        #6 5
+
+mesh_min: 0,20              #20,10    21,33  0,3  0,10
+mesh_max: 200,220           #191,204  205,230
+probe_count: 5 ,5 #9
+adaptive_margin: 5          #Rand um die Objekte beim adaptiven Mesh
+mesh_pps: 2                 #4
+algorithm: bicubic
+bicubic_tension: .2          #NEU ZUM TESTEN
+#scan_overshoot: 10          #NEU ZUM TESTEN
+#faulty_region_1_min:1,1     # Optional points that define a faulty region.  See docs/Bed_Mesh.md
+#faulty_region_1_max:16,16   # for details on faulty regions.  Up to 99 faulty regions may be added.
+
+#fade_start: 1  
+#fade_end: 10
+#fade_target: 0
+
+
+
+
+[board_pins]
+aliases:
+    # EXP1 header
+    EXP1_1=PB5,  EXP1_3=PA9,   EXP1_5=PA10, EXP1_7=PB8, EXP1_9=<GND>,
+    EXP1_2=PA15, EXP1_4=<RST>, EXP1_6=PB9,  EXP1_8=PD6, EXP1_10=<5V>
+
+# See the sample-lcd.cfg file for definitions of common LCD displays.
+
+
+
+
+[gcode_macro _R2_CONFIG]
+description: R2 portability config (bed limits + positions) - macros AND watcher read this
+variable_bed_min_x: 0.0
+variable_bed_max_x: 220.0
+variable_bed_min_y: 0.0     #-3.0
+variable_bed_max_y: 220.0   # 217
+# optional: variable_present_x/y (PRINT_END presentation), variable_wipe_x/y (wipe pad; -1 = corner)
+gcode:
+    # config carrier only - never runs
+
+
+
+
+
+
+
+#*# <---------------------- SAVE_CONFIG ---------------------->
+#*# DO NOT EDIT THIS BLOCK OR BELOW. The contents are auto-generated.
+#*#
+#*# [extruder]
+#*# control = pid
+#*# pid_kp = 21.463
+#*# pid_ki = 1.145
+#*# pid_kd = 100.609
+#*#
+#*# [heater_bed]
+#*# control = pid
+#*# pid_kp = 65.537
+#*# pid_ki = 1.344
+#*# pid_kd = 798.727
+#*#
+#*# [probe]
+#*# z_offset = 0.949
+#*#
+#*# [bed_mesh best_neu]
+#*# version = 1
+#*# points =
+#*# 	-0.022500, -0.067500, -0.062500, -0.160000, -0.170000, -0.155000, -0.147500, -0.140000, -0.067500
+#*# 	-0.115000, -0.112500, -0.115000, -0.172500, -0.150000, -0.147500, -0.147500, -0.095000, -0.087500
+#*# 	-0.047500, -0.127500, -0.112500, -0.117500, -0.110000, -0.145000, -0.155000, -0.122500, -0.052500
+#*# 	-0.105000, -0.125000, -0.092500, -0.112500, -0.145000, -0.127500, -0.127500, -0.105000, -0.055000
+#*# 	-0.100000, -0.132500, -0.110000, -0.112500, -0.132500, -0.130000, -0.107500, -0.130000, -0.040000
+#*# 	-0.097500, -0.067500, -0.107500, -0.095000, -0.130000, -0.137500, -0.105000, -0.095000, -0.062500
+#*# 	-0.060000, -0.095000, -0.110000, -0.127500, -0.135000, -0.097500, -0.125000, -0.097500, -0.075000
+#*# 	-0.090000, -0.132500, -0.115000, -0.107500, -0.117500, -0.132500, -0.125000, -0.095000, -0.065000
+#*# 	-0.037500, -0.067500, -0.072500, -0.097500, -0.150000, -0.092500, -0.112500, -0.095000, -0.050000
+#*# x_count = 9
+#*# y_count = 9
+#*# mesh_x_pps = 4
+#*# mesh_y_pps = 4
+#*# algo = bicubic
+#*# tension = 0.2
+#*# min_x = 0.0
+#*# max_x = 200.0
+#*# min_y = 10.0
+#*# max_y = 220.0
+#*#
+#*# [bed_mesh crazyFlatBed]
+#*# version = 1
+#*# points =
+#*# 	-0.003750, -0.011250, -0.018750, -0.012500
+#*# 	-0.003750, -0.072500, -0.063750, -0.080000
+#*# 	-0.011250, -0.045000, -0.035000, -0.055000
+#*# 	0.012500, -0.053750, -0.023750, -0.058750
+#*# x_count = 4
+#*# y_count = 4
+#*# mesh_x_pps = 4
+#*# mesh_y_pps = 4
+#*# algo = lagrange
+#*# tension = 0.2
+#*# min_x = 65.3746
+#*# max_x = 156.6046
+#*# min_y = 69.3746
+#*# max_y = 160.6046
