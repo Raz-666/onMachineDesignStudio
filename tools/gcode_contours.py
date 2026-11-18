@@ -2,6 +2,7 @@
 
 Diagnostic only: centreline loops are NOT physical contours. No STL output,
 feature inference, endpoint snapping, layer merging, or guessed initial state.
+Explicit --seam-gap-mm may propose a bounded closing edge for planar paths only.
 Unknown semantics, arcs and nonplanar extrusion break chains and are reported.
 """
 import argparse
@@ -19,10 +20,10 @@ MAX_LINE = 1024 * 1024
 MAX_LINES = 2000000
 
 
-def collect_contours(path, *, klipper_passive=False):
+def collect_contours(path, *, klipper_passive=False, seam_gap_mm=None):
     # Reuse the existing explicit dialect capability; never assume initial state.
     state = Shadow(klipper_passive=klipper_passive)
-    paths = PathEvidence()
+    paths = PathEvidence(seam_gap_mm=seam_gap_mm)
     loops, issues = [], Counter()
     unknown_examples = []
     chain = []
@@ -134,5 +135,7 @@ if __name__ == '__main__':
     parser.add_argument('gcode', help='uncompressed G-code; input is read-only')
     parser.add_argument('--klipper-passive', action='store_true',
                         help='opt in to the shadow parser Klipper non-motion command model; no initial-state guesses')
+    parser.add_argument('--seam-gap-mm', type=float, default=None,
+                        help='opt-in planar seam proposals with explicit maximum added edge; never STL')
     args = parser.parse_args()
-    print(json.dumps(collect_contours(args.gcode, klipper_passive=args.klipper_passive),indent=2,ensure_ascii=True))
+    print(json.dumps(collect_contours(args.gcode, klipper_passive=args.klipper_passive, seam_gap_mm=args.seam_gap_mm),indent=2,ensure_ascii=True))

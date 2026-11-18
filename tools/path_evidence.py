@@ -1,17 +1,27 @@
 """Bounded streaming evidence for extrusion paths, including nonplanar paths.
 
-No point cloud retention, snapping, inferred layers or geometry repair. Near
-closure is a measurement bin only, NOT permission to close/export a path.
+Default: no point cloud retention, snapping or inferred layers. Near closure
+is a measurement bin only. Optional planar seam proposals retain at most 257
+points per active path and 32 proposal examples; never an export approval.
 """
 from collections import Counter
 import math
 import re
+from seam_reconstruction import close_planar_seam
+from contour_mesh import MAX_VERTICES
 
 FEATURE = re.compile(r'^\s*(?:TYPE|FEATURE)\s*:\s*(.*?)\s*$', re.I)
 
 
 class PathEvidence:
-    def __init__(self):
+    def __init__(self, *, seam_gap_mm=None):
+        if seam_gap_mm is not None and (not math.isfinite(seam_gap_mm) or seam_gap_mm < 0):
+            raise ValueError("finite nonnegative seam budget required")
+        self.seam_gap_mm = seam_gap_mm
+        self.seam_counts = Counter()
+        self.seam_examples = []
+        self.points = []
+        self.point_overflow = False
         self.current = None
         self.feature = None
         self.counts = Counter()
@@ -23,6 +33,20 @@ class PathEvidence:
         p = self.current
         if p is None:
             return
+        if self.seam_gap_mm is not None:
+            try:
+                if self.point_overflow:
+                    raise ValueError('seam point budget exceeded or insufficient points')
+                proposal = close_planar_seam(self.points,max_gap_mm=self.seam_gap_mm)
+            except ValueError as exc:
+                self.seam_counts[str(exc)] += 1
+            else:
+                self.seam_counts['accepted_proposals'] += 1
+                if len(self.seam_examples) < 32:
+                    self.seam_examples.append(dict(proposal, source_lines=p['source_lines'][:],
+                                                   feature_hint=p['feature_hint'],tool=p['tool']))
+        self.points = []
+        self.point_overflow = False
         gap = math.dist(p['start_mm'][:2], p['end_mm'][:2])
         p['xy_endpoint_gap_mm'] = gap
         p['z_span_mm'] = p['z_max_mm']-p['z_min_mm']
@@ -79,6 +103,13 @@ class PathEvidence:
                                 tool=record['tool'],feature_hint=self.feature,segments=0,
                                 z_min_mm=start[2],z_max_mm=start[2],z_up_segments=0,z_down_segments=0,
                                 length_3d_mm=0.0,commanded_filament_mm=0.0)
+        if self.seam_gap_mm is not None and not self.point_overflow:
+            if not self.points:
+                self.points.append(start)
+            self.points.append(end)
+            if len(self.points) > MAX_VERTICES + 1:
+                self.point_overflow = True
+                self.points = []
         p = self.current
         p['end_mm'] = end
         p['source_lines'][1] = record['line']
@@ -91,7 +122,9 @@ class PathEvidence:
         p['commanded_filament_mm'] += de
 
     def report(self):
-        return dict(counts=dict(self.counts), paths_by_feature_hint=dict(self.by_feature),
+        return dict(seam_policy=dict(max_gap_mm=self.seam_gap_mm, enabled=self.seam_gap_mm is not None,
+                                     counts=dict(self.seam_counts), proposals=self.seam_examples,
+                                     retained_proposal_limit=32), counts=dict(self.counts), paths_by_feature_hint=dict(self.by_feature),
                     examples=self.examples,longest_path=self.longest,
                     retained_path_summary_limit=13,
                     note='command-coordinate paths; feature hints unverified; no snapping or inferred layers')

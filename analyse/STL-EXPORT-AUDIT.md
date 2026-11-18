@@ -1,3 +1,36 @@
+# Fortschreibung: explizit begrenzte planare Nahtvorschläge
+
+`tools/seam_reconstruction.py::close_planar_seam` ergänzt ausschließlich eine
+Schlusskante zwischen vorhandenen Endpunkten, wenn deren XY-Abstand das
+explizit übergebene Budget nicht überschreitet. Alle vorhandenen Punkte bleiben
+unverändert. Kantenlänge, Budget, Operation und Null-Verschiebung der Vertices
+stehen im Ergebnis; neue Kante ist eine Annäherung, keine wiederhergestellte
+CAD-Geometrie. Bereits exakt geschlossene Pfade erhalten keine weitere Kante.
+
+Anbindung: `gcode_contours.py --klipper-passive --seam-gap-mm 0.1 DATEI`.
+Ohne `--seam-gap-mm` bleibt das bisherige Diagnoseverhalten unverändert.
+Keine Z-Projektion: nichtplanare Pfade werden abgelehnt. Polygonprüfung erkennt
+auch durch die neue Schlusskante entstehende Selbstkreuzungen. Kollineare oder
+degenerierte Ecken bleiben konservativ abgelehnt, keine stille Vereinfachung.
+Maximal 257 Punkte der aktiven Bahn, 32 gespeicherte Vorschläge; danach weiter
+zählen, nicht unbegrenzt sammeln. Provenienz: Quellenzeilen, Tool, Feature-Hinweis.
+
+Rose-Gegenprobe (0,1 mm ist ein ausdrücklich gewählter Versuchsparameter,
+KEIN neuer Standard): 55 Vorschläge, 53 kollineare/degenerierte Ablehnungen,
+140 zu große Lücken, 460 Punktbudget-/Mindestpunkt-Ablehnungen. Große
+nichtplanare Pfade können bereits am Punktbudget scheitern. 32 Vorschläge
+werden gespeichert. Erste Beispiele sind **Brim**, etwa Zeilen 121–252 mit
+0,0601664 mm Schlusskante — daher keine Behauptung, Modellkonturen seien
+bereits sicher erkannt. `export_ready` bleibt false, kein aktiver Export geändert.
+
+6 neue Nahttests: Punkt-Erhaltung, geschlossene Eingabe, Höhen-/Budgetablehnung,
+Selbstkreuzung, Opt-in/Provenienz und begrenzte Speicherung. Zusammen mit
+41 bisherigen Tests und 10 RE-Tests: 57 lokal bestanden. CI ergänzt.
+Noch offen: Objekt-/Featurezuordnung, physischer Querschnitt, nichtplanare
+Rekonstruktion, unabhängiger Slicer-Reimport. Frühere Zwischenstände folgen.
+
+---
+
 # Fortschreibung: vollständige 3D-Pfade statt zerstückelter planarer Ketten
 
 Neues `tools/path_evidence.py`, parallel zur konservativen Konturerkennung.

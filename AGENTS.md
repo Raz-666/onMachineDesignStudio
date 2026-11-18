@@ -168,10 +168,14 @@ Rose: 708 zusammenhängende Extrusionspfade, 137975 Segmente; 480 planar,
 228 nichtplanar, 336 XY-Endabstände <=0,1 mm ohne exakten 3D-Schluss.
 Längste Bahn Z10,2→10,4, Zeilen 39269–39869, 601 Segmente, XY-Lücke 0,03585 mm.
 5 neue Tests plus 36 bestehende lokal grün; Rose-Zahlen als Regression gesichert.
-Keine Z-Projektion oder Nahtschließung durchgeführt. Nächster Schritt:
-Rekonstruktionsvertrag für belegte Naht-/Spiralpfade implementieren, mit
-explizitem Fehlerbudget, Objektzuordnung und physischer Linienbreite. Der
-vorhandene Loft ist keine allgemeine Spiralrekonstruktion; aktiver Export unverändert.
+Opt-in `--seam-gap-mm` erzeugt jetzt explizite planare Nahtvorschläge:
+`tools/seam_reconstruction.py`, vorhandene Punkte unverändert, nur neue
+Schlusskante mit gemessener Länge. Keine Z-Projektion; kein STL.
+Rose bei 0,1 mm: 55 Vorschläge, maximal 32 gespeichert; darunter Brim!
+Diese Zahl ist KEINE Modell-/Exportabnahme. 6 neue Tests bestanden.
+Nächster Schritt: Feature-/Objektzuordnung und physische Linienbreite vor
+Mesh-Anbindung; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
+Der Loft ist keine allgemeine Spiralrekonstruktion; aktiver Export unverändert.
 
 ## Historie
 

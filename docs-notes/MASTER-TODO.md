@@ -427,3 +427,10 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       Commit-Betreff `feat: measure nonplanar extrusion paths without geometry repair`.
 - [ ] **I1 Naht-/Spiralrekonstruktion:** explizites Fehlerbudget und Herkunft
       für jede geometrische Annäherung; Brim/Support/Modell getrennt behandeln.
+
+- [x] **I1 begrenzte planare Nahtvorschläge:** `seam_reconstruction.py`,
+      CLI `--seam-gap-mm`, nur explizite Schlusskante; vorhandene Punkte
+      unverändert. Nichtplanare/ungültige Pfade abgelehnt. 6 neue Tests,
+      41 bestehende plus 10 RE-Tests bestanden. Rose bei 0,1 mm: 55
+      Vorschläge inklusive Brim, höchstens 32 gespeichert; kein STL.
+      Commit-Betreff `feat: propose planar seam closure within explicit distance budgets`.

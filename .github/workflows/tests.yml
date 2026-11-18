@@ -49,6 +49,7 @@ jobs:
           python3 tools/test_contour_mesh.py
           python3 tools/test_gcode_contours.py
           python3 tools/test_path_evidence.py
+          python3 tools/test_seam_reconstruction.py
 
       - name: Streaming simulations (watcher RSS stays flat)
         run: python3 tools/r91_simulate.py
