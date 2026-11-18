@@ -99,6 +99,8 @@ Maßgeblich ist **`R2-D2 – Gesamtbriefing für die Coding-GPT.md`**
 | `GCode_Reverse_Engineering_Masterkonzept.md` | Der Grundgedanke (Konzept), nicht der Implementierungsplan. `c5a1400…` |
 | `Reverse Engineering von G-Code Geometrien.md` | Detaildokument. `8db2965…` |
 | `slicer-families.md` | Nutzer-Recherche, absichtlich umfassend (Feature-/Musterlisten + Mathematik) — **ungeprüft**, als Ideenquelle nutzen, jede Behauptung vor Verwendung verifizieren. `aa1aece…` |
+| `Giessformen generieren.md` | Nutzer-Recherche (AI-Notiz) zum Gießformen-Generator — **ungeprüfte Ideenquelle** für MASTER-TODO J2 (Multi-Part-Teilung, Negativform, Parameterstruktur, direkte G-Code-Erzeugung). `ff780b3e…` |
+| `KI in Klipper integrieren.md` | Nutzer-Recherche (AI-Notiz) zur 3D-KI-Brücke (HF-Spaces-API, Spracheingabe, Mainsail-navi.json) — **ungeprüfte Ideenquelle** für MASTER-TODO J6. `90907f56…` |
 | `Potential performance& compatibility issues.md` | Nutzer-Analyse zu Risiken (MCU-Shutdowns, Kompatibilität, Ressourcen) — **ungeprüft**, Hinweise kein Auftrag. `9eeb66f…` |
 | `my_printer.cfg.txt` | **Die echte printer.cfg des Nutzers** (SKR Mini E3 V3.0 etc.) — für Audits/Tests lesend nutzen, nie ändern ohne Go. `f3b6e3d…` |
 | `GCode_Reverse_Engineering_Master_Spezifikation.md` | **Existiert nicht** (nie bereitgestellt). Nicht annehmen, nicht suchen, nicht ersetzen. |
@@ -317,15 +319,18 @@ ALLE Paare (6244/12564/22321) liegen NUR auf dokumentierten Übergangs-
 ebenen — null echte Wanddurchdringungen; audit-Volumen == Konstruktions-
 volumen (float32). Beweis-STLs: analyse/stl-exports/ (+MANIFEST.json).
 8 neue Tests, 172 gesamt lokal bestanden.
-Nächster Schritt (Nutzer-Entscheidung nach `bdb8b03`): STL-§24-Fertigstellung
-ZURÜCKGESTELLT — Feldfeedback: Fenster-Exporte zeigen nur die auf dem Bett
-liegenden Stoßstangen-Anfänge (vwbus Heck / MAN Front, Fahrzeuge ~30–45°
-geneigt), Pumpkin unbefriedigend; neue Rekonstruktionsrichtung „Punktfolke +
-Haut spannen“ statt Layer-Extraktion (MASTER-TODO J1). Vorgemerkt: J2 Gieß-
-formen-Pre-Print-Tool (Zuweisung ausstehend), J3 UI-Konzept (iframe in
-Mainsail nicht möglich; Port-/Pfad-Entscheidung offen), J4 Audio-Konzept
-(Pi-Klinke/GPIO-Piezo vs. Ist-Guard), J5 verstreute Ideen. Entscheidungs-
-anfragen in OFFENE-FRAGEN 15–18.
+Nächster Schritt (Sitzung nach `fecf500`): STL-§24-Fertigstellung bleibt
+ZURÜCKGESTELLT (J1, Richtung „Punktfolke + Haut"). **Toolchain §20 („Effektkette")
+begonnen — K1 erledigt**: `analyse/TOOLCHAIN-KONZEPT.md` (Ist-Stand belegt,
+Phasen 2–4) + `tools/toolchain.py`/`test_toolchain.py` (Preset-Vertrag
+r2-toolchain/1, Registry range/scale/texture quellenbelegt, §20.2 erzwungen,
+reiner Plan mit temp-/Gate-Markierung, 21 Tests; KEIN Ausführer/Queue-Anschluss —
+experimentell). Nächste Kandidaten: K2 Ausführungs-Engine, J7 Maschinenmodell-
+Kompatibilitäts-Audit (§12), J2 Gießformen (Zuweisung/Details ausstehend:
+Multi-Part 2/3/4 + Negativform), J6 KI-3D/Sprachsteuerung (Vision, für später,
+Ideen einstreuen), J3 UI (navi.json VERIFIZIERT — Sidebar-Menüpunkt in Mainsail
+offiziell möglich), J4 Audio (Pi-Klinke/GPIO-Piezo vs. Ist-Guard). Entschei-
+dungsanfragen OFFENE-FRAGEN 15–18.
 Der Loft ist keine allgemeine Spiralrekonstruktion; aktiver Export unverändert.
 
 ## Historie

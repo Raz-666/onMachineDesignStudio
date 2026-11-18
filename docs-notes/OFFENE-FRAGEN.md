@@ -35,13 +35,23 @@ Gesammelt aus der Sitzung vom 18.11.2026. Reihenfolge ≈ Auswirkung. Erst wenn 
     Rekonstruktionsrichtung „Punktfolke + Haut“ (organische Formen) ist in
     MASTER-TODO J1 notiert. Wiederaufnahme erst nach ausdrücklichem Go.
 16. **Gießformen-Pre-Print-Tool (J2):** Du hast eine weitere Pre-Print-
-    Aufgabe in Aussicht gestellt. Bitte bei Zuweisung klären: Was genau soll
-    das Werkzeug erzeugen (zweiteilige Gießform? Negativform? aus vorhandenem
-    G-Code oder aus Generatoren-Geometrie? Toleranzen/Ausgieser/Luftkanäle?).
-17. **UI-Einbindung der Web-LCD (J3):** iframe in Mainsail ist nicht möglich
-    (kein Custom-Panel-Mechanismus). Optionen: eigener Port (heute gebaut),
-    Pfad im Mainsail-vhost (gleiche URL) oder beides — welche Variante soll
-    der Standard für fremde Drucker werden?
+    Aufgabe in Aussicht gestellt und präzisiert: Teilung nicht nur als
+    2 Hälften, sondern je nach Modellkomplexität auch 3 Drittel oder
+    4 Teile; Negativform ausdrücklich auch gewünscht. Deine Recherche
+    („Giessformen generieren.md") ist ingestiert und in J2 gewürdigt
+    (inkl. kritischer Punkte: trimesh/Boolean-Last auf dem Pi Zero 2 W,
+    echter Job-Weg läuft über die bestehende Queue, nicht RUN_SHELL_
+    COMMAND). Bitte bei Zuweisung noch klären: Quelle der Geometrie
+    (vorhandener G-Code vs. Generatoren-Geometrie vs. STL), Toleranzen/
+    Ausgieser/Entlüftung als Pflicht oder Option.
+17. **UI-Einbindung der Web-LCD (J3):** Panel-iframe in Mainsail: nicht
+    möglich. NEU verifiziert: Mainsail unterstützt offiziell eigene
+    Sidebar-Menüpunkte via `.theme/navi.json` (title/href/icon/target/
+    position — Quelltext `src/components/mixins/navigation.ts`,
+    mainsail-crew/mainsail). Optionen: (a) eigener Port (heute gebaut),
+    (b) Pfad `/r2lcd/` im Mainsail-vhost, (c) navi.json-Menüpunkt auf
+    die Web-LCD — kombinierbar. Welche Variante soll der Standard für
+    fremde Drucker werden?
 18. **Audio-Weg (J4):** MCU-Piezo (heute) / Pi-Klinke (nur Modelle mit
     Analog-Ausgang, z. B. 3B+) / GPIO-Piezo mit Treiber / WebAudio im
     Browser / still — was ist der Zielweg für die Standard-Installation auf

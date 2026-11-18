@@ -68,6 +68,7 @@ jobs:
           python3 tools/test_bead_evidence.py
           python3 tools/test_field_gcode.py
           python3 tools/test_model_export.py
+          python3 tools/test_toolchain.py
 
       - name: Streaming simulations (watcher RSS stays flat)
         run: python3 tools/r91_simulate.py

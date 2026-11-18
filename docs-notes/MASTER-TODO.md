@@ -653,9 +653,24 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       id:`-Marker, Breiten-Schalenmodell, Slicer-Reimport; aktiver
       Exporter (Box-Soup) unverändert defekt.
 - [ ] **J2 — Gießformen-Pre-Print-Tool (NEU, vom Nutzer in Aussicht gestellt).**
-      Ein weiteres Pre-Print-Werkzeug zum Erzeugen von Gießformen. Nur
-      vorgemerkt — Konzept und Details werden vom Nutzer zugewiesen;
-      keine Umsetzung davor.
+      Nutzer-Ergänzung (Sitzung nach `fecf500`): nicht nur zweiteilige
+      Hälften — je nach Modellkomplexität auch **Dreitelung oder Vierteilung**;
+      **Negativform** ausdrücklich ebenfalls gewünscht. Recherche-Datei des
+      Nutzers ingestiert: `analyse/uebergabe-quellen/Giessformen generieren.md`
+      (SHA256 ff780b3e…, AI-Notiz — ungeprüft). Kernpunkte daraus:
+      Parameterstruktur (Wandstärke 3–15 mm, Trennebene Z-Mid/Auto-Bounding/
+      Pitch-Roll, Toleranzspalt, Einguss 5–15 mm + Trichter, Entlüftung
+      1,5–4 mm, Passung Stifte/Nut&Feder/Flansch, Formschräge 0–3°, Oberfläche,
+      Ausgabe Both/Top/Bottom), trimesh-Prototyp, Empfehlung zur DIREKTEN
+      G-Code-Erzeugung ohne Slicer-CLI (wie Labels/Plotter/StringArt).
+      Kritische Bewertung (Agent, vor jeder Umsetzung prüfen): Das
+      `RUN_SHELL_COMMAND`-Beispiel der Notiz passt NICHT zur echten Job-
+      Architektur (echter Weg: Makro → SAVE_VARIABLE → Watcher →
+      `_spawn_job` in die bestehende Queue); trimesh + Boolean-Backends sind
+      auf dem Pi Zero 2 W ein RAM-/Zeitproblem (die Notiz warnt selbst);
+      Multi-Part (3/4) braucht einen allgemeinen Ebenen-/Sektor-Schnitt,
+      nicht nur Z-Mid. natürliche Heimat: ein Werkzeug in der Toolchain
+      (Abschnitt K). Details/Go beim Nutzer.
 - [ ] **J3 — UI-/Display-Gesamtkonzept klären (Gesamtbriefing §10).**
       Ist-Stand (gebaut, zwei Feldrunden überlebt): LCD-Kern + Web-LCD-
       Brücke R196–R217 — `tools/menu_json_export.py` → `web/r2_menu.py`
@@ -666,12 +681,17 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       MCU-/Host-Schonung aus der Performance-Recherche ist eingebaut:
       Live-Poll fragt nur die ~12 referenzierten Objekte ab statt ~300
       Makros (R204), pistats liest /proc statt klippy zu belasten (R216).
-      Nutzerfrage iframe-in-Mainsail — Antwort: Mainsail bietet KEINEN
-      iframe-/Custom-Panel-Mechanismus, eine direkte Einbettung in die
-      Mainsail-Oberfläche ist daher nicht möglich. Offene Entscheidung:
-      (a) eigener Port wie heute, (b) Pfad (z. B. `/r2lcd/`) im Mainsail-
-      vhost — gleiche URL, ein Bookmark, (c) beides konfigurierbar.
-      Wartet auf Nutzer-Entscheidung.
+      iframe-in-Mainsail — Antwort präzisiert (Sitzung nach `fecf500`):
+      ein Panel-iframe gibt es nicht, ABER Mainsail unterstützt offiziell
+      **eigene Sidebar-Menüpunkte via `.theme/navi.json`** (Felder
+      title/href/icon/target/position) — verifiziert gegen den Mainsail-
+      Quelltext `src/components/mixins/navigation.ts` (mainsail-crew/
+      mainsail); Quelle: Nutzer-Recherche „KI in Klipper integrieren.md"
+      (Randnotiz „GEHT DAS AUCH MIT UNSERER WEBUI????") + eigene Verifikation.
+      Die Web-LCD lässt sich damit als eigener Menüpunkt in Mainsail
+      eintragen. Offene Entscheidung: (a) eigener Port wie heute,
+      (b) Pfad (`/r2lcd/`) im Mainsail-vhost, (c) navi.json-Menüpunkt —
+      kombinierbar. Wartet auf Nutzer-Entscheidung.
 - [ ] **J4 — Audio-Feedback-Konzept (Gesamtbriefing §11; Nutzerideen waren
       bisher in KEINER Aufgabenliste vermerkt — jetzt nachgetragen).**
       Ist-Stand: `M300`-Makro mit Guard (`'pwm_cycle_time beeper' in
@@ -700,3 +720,69 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       - `docs/PORTABILITY_SOUND_DISPLAY.md` §2.4 + `WEBUI_MOONRAKER.md`:
         Browser-Sound-Spiegel (WebAudio mit identischer Tune-Tabelle) —
         Konzept, ungebaut (Teil von J4).
+- [ ] **J6 — KI-3D-Generierung + Sprachsteuerung (NEU, große Nutzeridee —
+      ausdrücklich für SPÄTER vorgemerkt, nicht verloren geben!).**
+      Vision des Nutzers: mit dem Drucker FREI sprechen (Spracheingabe,
+      im besten Fall Sprach-Feedback und Rückfragen wie „wie möchtest du
+      das gerne / soll ich das noch aufteilen"); die KI erstellt oder
+      wandelt 3D-Modelle (auch aus hochgeladenen Fotos), bereitet sie vor
+      und macht sie zu G-Code, um sie direkt zu drucken. Nutzer-Anweisung:
+      zwischendurch immer mal wieder Ideen/Informationen dazu einstreuen,
+      damit die Idee auf dem Schirm bleibt. Recherche-Datei ingestiert:
+      `analyse/uebergabe-quellen/KI in Klipper integrieren.md` (SHA256
+      90907f56…, AI-Notiz — ungeprüft). Kernpunkte daraus: Hugging-Face-
+      Spaces-API statt eigener GPU (Hunyuan3D-2/Trellis/TripoSR; Pipeline
+      Text→Bild (Flux/SD) → Bild→3D), Sprache über Browser-Web-Speech
+      (zuverlässig nur localhost/HTTPS) oder Whisper-Space, kleiner
+      Flask-Dienst + systemd auf dem Pi, Ausgabe in den gcodes-Ordner,
+      ZeroGPU-Wartezeiten 30–90 s, KI-Modelle haben oft keine flache
+      Unterseite (Nachbearbeitung nötig), Mainsail-Menüpunkt via
+      `.theme/navi.json`. Erste Agent-Ideen (zu prüfen, nicht Wahrheit):
+      (a) KI-Brücke architektonisch als weiterer „Generator" im Toolchain-/
+      Queue-Verbund (Abschnitt K) — gleiche Busy-Gates, gleiche Ausgabe-
+      modi; (b) JEDES KI-Modell durchläuft vor Slicing/Druck unsere
+      Prüfer (stl_audit: Topologie/Maße; Bettcheck) — die Validierungs-
+      Infrastruktur existiert schon; (c) physischer Druckstart bleibt
+      beim Nutzer (Gesamtbriefing §31); (d) Slicing-Engpass auf dem
+      Pi Zero 2 W: Optionen externer Slicing-Dienst/zweiter Rechner/
+      leichter Host-Slicer — offen; (e) TTS-Antworten können über den
+      J4-Audio-Weg laufen (Pi-Klinke/GPIO-Piezo statt MCU-Beeps — Synergie);
+      (f) Sprach-UI in die Web-LCD integrieren (Browser macht STT/TTS,
+      ein Funktionskern bleibt). Kein Baubeginn vor ausdrücklichem Go.
+- [ ] **J7 — Maschinenmodell-Kompatibilität auditieren (Gesamtbriefing §12).**
+      Was ein FREMDER Drucker braucht, damit das System dort läuft: Bett/
+      Grenzen, Düse, Probe, LEDs, Display-Typ, Audio-Weg, Host-Modell
+      (Pi Zero 2 W vs. 3B+ vs. …). Anknüpfung: `COMPATIBILITY.md`,
+      STARTBRIEFING-ABGLEICH Reihe 12 (Status P — „Konfigurations-/
+      Geräteabdeckung nicht bewiesen"), Generator-Matrix r217 (Bett/Düse
+      parametrisch, 1423 Checks). Offline machbar als Audit + Tests
+      (synthetische Fremddrucker-Konfigurationen gegen Generatoren/
+      Maschinenmodell). Nächster Kandidat nach K2 bzw. nach Nutzerpriorität.
+
+## K. Toolchain-Architektur §20 („Effektkette") — begonnen (Sitzung nach `fecf500`)
+
+- [x] **K1 — Konzept + Preset-Vertrag Phase 1.** `analyse/TOOLCHAIN-KONZEPT.md`
+      (Ist-Stand belegt: `_spawn_job` r2_postproc.py:25949, `JobRegistry`
+      r2_job_service.py:406 mit ram_min_mb-Gates R223, `_GEN_OUT_SET`-
+      Ausgabemodi, Vnn_/Cake-Ordnernamen, make_range:1937 als Werkzeug-
+      beispiel; Phasen 2–4 + Kompatibilitäts-/Host-Schutz-Kapitel).
+      `tools/toolchain.py`: Preset-Schema `r2-toolchain/1`, Registry mit
+      3 quellenbelegten Ankern (range/scale/texture mit LCD-Wertebereichen),
+      §20.2 ERZWUNGEN (Eingabedatei-Schluessel in jeder Ebene verboten),
+      reiner Plan mit temp-/Gate-Markierung je Stufe (§20.3/§22.4),
+      Multi-Output-Werkzeuge (Cake) bewusst abgelehnt statt Semantik zu
+      erfinden. 21 Orakel-Tests (`tools/test_toolchain.py`). Kein
+      Ausführer, kein Queue-/Watcher-/LCD-Anschluss — experimentell.
+- [ ] **K2 — Phase 2 Ausführungs-Engine:** Registry-Vollständigung aus
+      Menü-Daten (`menu_json_export.py` als Quelle der Wahrheit), Ketten-
+      Abarbeitung als abhängige Jobs in der BESTEHENDEN Queue (Validierungs-
+      Gate je Stufe, Temp-Löschung erst nach Übernahme, Fehler bleiben
+      nachvollziehbar, §22.4), Ausgabemodus-Schalter für die Gesamtkette
+      (§21), eigene Testbatterie + Gates.
+- [ ] **K3 — Phase 3 Bedienoberfläche:** LCD `Pre-Print > Toolchain`
+      (Preset wählen, auf ausgewählte Datei anwenden, Fortschritt je
+      Stufe), Web-LCD-Spiegel automatisch, Preset-Verwaltung
+      (speichern/laden/löschen).
+- [ ] **K4 — Phase 4 Queue-Abhängigkeit & Doku:** §22.3 Druckstart wartet
+      auf Job-Fertigstellung mit sichtbarem wahren Zustand, MANUAL-
+      Kapitel, Presets im Backup/Paket.
