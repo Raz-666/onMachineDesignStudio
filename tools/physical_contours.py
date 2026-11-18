@@ -2,8 +2,8 @@
 
 Not connected to automatic G-code/STL export. Caller must classify outer/hole
 rings and establish layer height/filament units/flow. No guessed nozzle width.
-Convex, constant-width, miter-joined rings only; concave/variable-width paths
-require a robust offset/boolean backend, not this restricted implementation.
+Constant-width, topology-preserving miter rings only. Topology-changing and
+variable-width offsets require a boolean backend, not silent repairs here.
 """
 import math
 from contour_mesh import _boundary, _cross, EPS
@@ -28,7 +28,7 @@ def width_from_filament(*, filament_mm, path_length_mm, layer_height_mm, filamen
                 assumptions='effective filament-mm, constant layer height, no unmodelled flow compensation')
 
 
-def offset_convex_centerline(points, *, width_mm, role, max_miter_ratio=4.0):
+def _offset_centerline(points, *, width_mm, role, max_miter_ratio=4.0, convex_only=True):
     """Offset a classified centreline by half its constant width.
 
     Outer perimeter: outward from its enclosed area. Hole perimeter: inward
@@ -44,7 +44,7 @@ def offset_convex_centerline(points, *, width_mm, role, max_miter_ratio=4.0):
         raise ValueError('finite miter ratio >= 1 required')
     ring=_boundary(points)
     n=len(ring)
-    if any(_cross(ring[i-1],ring[i],ring[(i+1)%n]) <= EPS for i in range(n)):
+    if convex_only and any(_cross(ring[i-1],ring[i],ring[(i+1)%n]) <= EPS for i in range(n)):
         raise ValueError('only strictly convex centreline rings supported')
     distance=width_mm/2*(1 if role=='outer' else -1)
     directions=[]
@@ -72,7 +72,31 @@ def offset_convex_centerline(points, *, width_mm, role, max_miter_ratio=4.0):
         if (b[0]-a[0])*dx+(b[1]-a[1])*dy <= EPS:
             raise ValueError('offset collapses or reverses an edge')
     _boundary(shifted)
+    # Keep the same oriented corners: do not accept an offset after a local
+    # topology event, even if the resulting polygon happens to look simple.
+    for i in range(n):
+        before=_cross(ring[i-1],ring[i],ring[(i+1)%n])
+        after=_cross(shifted[i-1],shifted[i],shifted[(i+1)%n])
+        if before*after <= 0:
+            raise ValueError('offset changes corner orientation')
     return dict(points_mm=shifted, width_mm=width_mm, role=role,
                 signed_offset_mm=distance, join='miter',max_miter_ratio=max_miter_ratio,
                 max_vertex_displacement_mm=max(math.dist(a,b) for a,b in zip(ring,shifted)),
-                model='constant-width convex offset',export_ready=False)
+                model='constant-width topology-preserving miter offset',export_ready=False)
+
+
+def offset_convex_centerline(points, *, width_mm, role, max_miter_ratio=4.0):
+    """Compatibility API: explicitly reject concave input rings."""
+    return _offset_centerline(points,width_mm=width_mm,role=role,
+                              max_miter_ratio=max_miter_ratio,convex_only=True)
+
+
+def offset_simple_centerline(points, *, width_mm, role, max_miter_ratio=4.0):
+    """Convex/concave simple rings, only while offset topology is preserved.
+
+    No clipping, splitting, merging or hole deletion. Self-intersections,
+    reversed edges and collapsed corners cause explicit failure. Caller must
+    still validate relationships between offset rings (e.g. via prism_mesh).
+    """
+    return _offset_centerline(points,width_mm=width_mm,role=role,
+                              max_miter_ratio=max_miter_ratio,convex_only=False)

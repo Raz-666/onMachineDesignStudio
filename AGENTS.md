@@ -187,7 +187,12 @@ wählt explizite Vorschlagsindizes und baut ein konstantes konvexes Prisma mit
 Loch, expliziter Breite/Z-Grenzen, STL-Prüfung und .stl.json-Provenienz.
 Kein Überschreiben, kein automatischer Höhenbeweis, kein aktiver Exportwechsel.
 6 neue Tests (inkl. kompletter G-Code→STL-Kette), insgesamt 75 lokal bestanden.
-Nächster Schritt: reale Breiten-/Höhenherkunft und allgemeine Konturen anbinden; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
+Konkave Ringe ergänzt: `offset_simple_centerline` erhält L-/U-Formen nur bei
+bewahrter Topologie (Gehrungsecken, gleiche Eckorientierung, keine
+Selbstdurchdringung/Umkehr). Kerben-/Armzusammenfall wird abgelehnt.
+Vorschau nutzt jetzt den allgemeinen Weg; `offset_convex_centerline` bleibt.
+5 neue Tests, insgesamt 80 lokal bestanden.
+Nächster Schritt: reale Breiten-/Höhenherkunft, Mehrfachringe/Flächen; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
 Der Loft ist keine allgemeine Spiralrekonstruktion; aktiver Export unverändert.
 
 ## Historie

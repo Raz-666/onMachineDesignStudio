@@ -1,6 +1,6 @@
 """Explicit experimental prism preview from selected G-code seam proposals.
 
-NOT the active exporter: selected planar convex centreline rings are extruded
+NOT the active exporter: selected planar simple centreline rings are extruded
 through caller-supplied Z bounds. Neither object height nor hole membership is
 inferred from G-code. No file is modified; this API returns bytes and provenance.
 """
@@ -8,7 +8,7 @@ import math
 from pathlib import Path
 import tempfile
 
-from physical_contours import offset_convex_centerline
+from physical_contours import offset_simple_centerline
 from contour_mesh import prism_mesh, binary_stl
 from stl_audit import inspect_stl
 
@@ -47,7 +47,7 @@ def prism_preview(outer, *, holes=(), width_mm, z_bottom, z_top):
             object_name,plane,tool=name,z,proposal.get('tool')
         elif (name,z,proposal.get('tool')) != (object_name,plane,tool):
             raise ValueError('rings must share object marker, plane and tool')
-        offset=offset_convex_centerline([p[:2] for p in points],width_mm=width_mm,
+        offset=offset_simple_centerline([p[:2] for p in points],width_mm=width_mm,
                                        role='outer' if i==0 else 'hole')
         offsets.append(offset)
         sources.append(dict(source_lines=proposal.get('source_lines'),
@@ -73,7 +73,7 @@ def prism_preview(outer, *, holes=(), width_mm, z_bottom, z_top):
                      explicit_parameters=dict(width_mm=width_mm,z_bottom=z_bottom,z_top=z_top),
                      sources=sources,offsets=offsets,audit=audit,
                      limitations=['height and outer/hole selection supplied by caller, not recovered',
-                                  'constant width, convex rings and miter corners only',
+                                  'constant width, topology-preserving simple rings and miter corners only',
                                   'feature/object markers not geometrically verified',
                                   'no original CAD recovery or independent slicer acceptance'])
 

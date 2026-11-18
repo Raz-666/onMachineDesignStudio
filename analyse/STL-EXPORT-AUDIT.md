@@ -1,3 +1,29 @@
+# Fortschreibung: konkave topologieerhaltende Konturoffsets
+
+`physical_contours.py::offset_simple_centerline` erlaubt jetzt auch konkave
+einfache Ringe. Der Offset bleibt Gehrungsverbunden und wird nur akzeptiert,
+wenn: alle Gehrungen unter dem expliziten Limit liegen, keine Kante kollabiert
+oder umgekehrt wird, das Ergebnis ein einfaches Polygon bleibt und an jeder Ecke
+die ursprüngliche Orientierung erhalten bleibt. Ein lokales Topologieereignis
+(Kerbenzusammenfall bei U-Form, Armkollaps bei Loch in L-Form) führt zu
+expliziter Ablehnung — kein Clipping, Spalten, Verschmelzen oder Lochlöschen.
+`offset_convex_centerline` bleibt als strikt konvexe API erhalten; die
+Prismavorschau nutzt den allgemeinen Weg und prüft danach weiterhin Ring-
+Hierarchien über das Loch-Prisma.
+
+Analytische Orakel: L-Außen w=0,4 → 7,56 mm², L-Loch → 2,76 mm²; U-Außen →
+28+32·0,2+4·0,2² mm². Kompletter Test: konkaves L-Loch im quadratischen
+Außenring, Höhe 2 → Volumen 2·(108,16−2,76)=210,8 mm³; STL-Prüfer meldet keine
+offenen/nichtmannigfaltigen Kanten, Duplikate oder Normalen-/Orientierungsfehler.
+Ebenfalls neu: kompletter synthetischer L-förmiger G-Code → Nahtvorschlag →
+Offset → Prismavorschau mit 15,12 mm³ (7,56·2) und unveränderter Quelldatei.
+
+5 neue Tests + bisherige 75: 80 lokal bestanden; CI ergänzt. Offen bleiben
+variable Breiten, Mehrfachringflächen, nichtplanare/spiralförmige Bahnen und
+die Herkunft realer effektiver Breiten/Höhen. Aktiver Exporter unverändert.
+
+---
+
 # Fortschreibung: durchgängige experimentelle Prismavorschau
 
 `tools/contour_preview.py` verbindet die Module erstmals von einer G-Code-Datei

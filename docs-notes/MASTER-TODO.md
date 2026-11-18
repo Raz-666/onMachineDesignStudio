@@ -459,3 +459,11 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       6 neue Tests, 75 gesamt lokal bestanden. Commit-Betreff
       `feat: connect G-code contour proposals to audited experimental prism previews`.
       Nicht als automatische Modellrekonstruktion oder fertiger Export bezeichnen.
+
+- [x] **I1 konkave topologieerhaltende Offsets:** L-/U-förmige Ringe
+      zulässig, solange Gehrungslimit, Eckorientierung und einfache
+      Polygonform erhalten bleiben. Zusammenfallende Kerben/Arme, Umkehr- und
+      Durchdringungsfälle werden abgelehnt statt repariert. 5 neue Tests
+      (analytische Flächen, L-Loch-Mesh, G-Code→Prismavorschau, CLI-lose
+      Kompabilität), 80 gesamt lokal bestanden. Commit-Betreff
+      `feat: support concave centreline offsets that preserve ring topology`.

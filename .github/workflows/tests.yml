@@ -53,6 +53,7 @@ jobs:
           python3 tools/test_contour_context.py
           python3 tools/test_physical_contours.py
           python3 tools/test_contour_preview.py
+          python3 tools/test_concave_offsets.py
 
       - name: Streaming simulations (watcher RSS stays flat)
         run: python3 tools/r91_simulate.py
