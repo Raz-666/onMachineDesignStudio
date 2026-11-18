@@ -367,9 +367,10 @@ wieder bereit ist. Nichts hiervon ohne Go.)*
       Orakel-Kit bisher nur geplant, kein neuer Exporter-Fix umgesetzt.
       Vorherige Aussage „keine Regression-Fixtures“ ist zu pauschal:
       `tools/test_stl_extrusion_state.py` enthält synthetische Regressionen.
-- [ ] Quellen-Verfügbarkeit für einen frischen Clone herstellen: die
-      Quelldokumente sind derzeit ignoriert, das Manifest allein reicht
-      nicht für eine nahtlose Übergabe. Originale auf sensible Daten prüfen.
+- [x] Quellen-Verfügbarkeit: sieben vorliegende Originaldokumente inklusive
+      printer.cfg ins Repo aufgenommen, Manifestgleichheit geprüft und nach
+      Zugangsdaten-Schlüsselwörtern durchsucht (keine Zugangsdaten gefunden).
+      Ältere nur im Manifest genannte, fehlende Dateien bleiben als fehlend erkennbar.
 
 MANUAL.md aktualisiert; PDF-Ausbau zurückgestellt. r142 mit installiertem
 Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.

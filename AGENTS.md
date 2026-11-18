@@ -33,7 +33,9 @@ du-Anrede, technisch präzise, ohne Fülltext.
 - **D1 ist freigegeben:** MANUAL.md aktuell halten; Kap. 14 ergänzt.
 - **Gesamtprüfung ist beauftragt:** Punkte B/C aus dem Gespräch gegen Code,
   Tests und alle bereitgestellten Recherchen prüfen. Keine erneute Rückfrage
-  zur bereits beauftragten Einzelprüfung. Noch keine Gesamt-Abnahme.
+  zur bereits beauftragten Einzelprüfung. Noch keine Gesamt-Abnahme. Der Nutzer hat nun die Umsetzung des Gesamtumbaus
+  beauftragt; schrittweise implementieren und prüfen, nicht erneut dieselbe
+  Freigabe erfragen. Hardware-Grenzen bleiben bestehen.
 
 Nach jeder größeren abgeschlossenen Arbeit: Übergabestand aktualisieren,
 auf dem aktuellen Session-Branch committen und genau diesen Branch pushen.
@@ -79,7 +81,7 @@ Bestehenden PR ergänzen; nicht ohne Freigabe mergen.
 | `docs/` | Freigabedokumente: RELEASE_*_REPORT, TOOLS_INVENTORY, FEATURE_TAGGING.md, SHUTDOWN_REGISTER, LCD_MENU_PORTABILITY, WEBUI_MOONRAKER, STRINGART_DESIGN, frame_design. |
 | `docs-notes/` | Internes: MASTER-TODO, OFFENE-FRAGEN, UEBERGABE, PRINTER-CFG-AUDIT, MANUAL-CODE-ABGLEICH. |
 | `analyse/` | **137 git-getrackte** Dateien: Abgleich/Crosswalk/Disposition, TSVs, Evidence-Logs, Probe-Scripts. **Im Release-ZIP bewusst NICHT enthalten** (Paket ohne analyse/). Bleibt für Agenten im Repo verfügbar. |
-| `analyse/uebergabe-quellen/` | SHA256SUMS (getrackt) + `.gitignore`; die Quelldokumete selbst verbleiben lokal und sind nicht im Repo (siehe unten). |
+| `analyse/uebergabe-quellen/` | Bereitgestellte Quelldokumente und SHA256SUMS sind getrackt und stehen nach einem Clone zur Verfügung. |
 | `backups/` | `r2_postproc_R2-2026-11-13.1_V1.py` (Notfall-Referenz) + SHA256SUMS. |
 | `printer.cfg.example` | Vorlage; die echte `printer.cfg` ist ein Nutzerartefakt (Felddatei). |
 | `releases/` | Nur lokale Artefakte (gitignored): finale Update-ZIPs + `.sha256`. |
@@ -88,7 +90,7 @@ Bestehenden PR ergänzen; nicht ohne Freigabe mergen.
 ## Quellen-Hierarchie (geklärt mit dem Nutzer, 2026-11-18)
 
 Maßgeblich ist **`R2-D2 – Gesamtbriefing für die Coding-GPT.md`**
-(lokal unter `analyse/uebergabe-quellen/`, SHA256 `926438eb…`).
+(im Repository unter `analyse/uebergabe-quellen/`).
 
 | Datei | Rolle |
 |---|---|

@@ -1,7 +1,3 @@
-# Quelldokumete (Briefings, Recherche, Felddateien) verbleiben lokal im
-# Workspace — bewusst NICHT im Git-Repo. Verbindlich ist nur das Manifest
-# (SHA256SUMS); Quellen im Manifest ohne Datei im Workspace fehlen dann
-# sichtbar, nicht still.
-*
-!SHA256SUMS
-!.gitignore
+# Source documents are tracked for agent handoff. Keep generated archives out.
+*.zip
+*.zip.png
