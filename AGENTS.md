@@ -7,8 +7,8 @@ BMG Direct Drive, MicroProbe, 12864-LCD, Mainsail). Sprache des Projekts ist
 du-Anrede, technisch präzise, ohne Fülltext.
 
 **Wenn der Nutzer „mach einfach weiter" sagt:** lies der Reihe nach
-1. `git status --short --branch` + `git log --oneline -3` (bist du auf dem richtigen Branch?),
-2. dieses Dokument (Aktueller Stand, Regeln),
+1. zuerst dieses Dokument (Aktueller Stand, Regeln),
+2. `git status --short --branch` + `git log --oneline -3`,
 3. `docs-notes/MASTER-TODO.md` (die **einzige** Aufgabenliste),
 4. `docs-notes/OFFENE-FRAGEN.md` (Entscheidungen, die auf den Nutzer warten),
 5. `docs-notes/UEBERGABE.md` §6 (Erste Schritte).
@@ -30,8 +30,14 @@ du-Anrede, technisch präzise, ohne Fülltext.
   `analyse/STL-EXPORT-AUDIT.md`; Vorgehen: Tests zuerst, dann Reparatur.
 - **D3/D4** (wissenschaftliche Generator-/Modifier-PDFs): vom Nutzer
   zurückgestellt, Umfang (>15 Einzel-PDFs vs. Gesamtwerk) noch nicht final.
-- **MANUAL.md Kap. 14** darf um die LIVE-Lüfterstufe ergänzt werden? — wartet
-  auf Nutzer-Entscheid (OFFENE-FRAGEN D1). MANUAL.md trotzdem aktuell halten.
+- **D1 ist freigegeben:** MANUAL.md aktuell halten; Kap. 14 ergänzt.
+- **Gesamtprüfung ist beauftragt:** Punkte B/C aus dem Gespräch gegen Code,
+  Tests und alle bereitgestellten Recherchen prüfen. Keine erneute Rückfrage
+  zur bereits beauftragten Einzelprüfung. Noch keine Gesamt-Abnahme.
+
+Nach jeder größeren abgeschlossenen Arbeit: Übergabestand aktualisieren,
+auf dem aktuellen Session-Branch committen und genau diesen Branch pushen.
+Bestehenden PR ergänzen; nicht ohne Freigabe mergen.
 
 ## Bindende Regeln (nicht verhandelbar)
 
@@ -130,14 +136,16 @@ was vorlag; alles mit Datei im selben Ordner ist byte-geprüft.
 - `releases/` und `SESSION_STATE.md` sind gitignored — keine
   Zwischenstände committen.
 
-## Offene Entscheidungen (Stand 2026-11-18)
+## Entscheidungen und nächster Einstieg
 
-Aus `docs-notes/OFFENE-FRAGEN.md` — **nichts davon selbst entscheiden**:
-D1 (MANUAL Kap. 14 LIVE-Lüfter, ja/nein), Items 2–10 und 12
-(Briefings-V1-ZIP-Ort ist geklärt: ZIP gefunden und verifiziert,
-SHA256 `6234496e…`, Ablage `releases/…-2026-11-13.1.zip`),
-D3/D4-Umfang (zurückgestellt), E1/E4 (`printer.cfg`, nur mit Go),
-Release-Merge-Regel (Frage 8).
+D1: Ja. Gesamtprüfung: beauftragt. Alle Uploads einschließlich RE-Recherche,
+Slicer-Familien und Performance-Hinweisen berücksichtigen; Hinweise vor
+Übernahme prüfen, nicht ignorieren. printer.cfg lesend für Offline-Tests erlaubt.
+PDF-Ausbau zurückgestellt. Druckertests bleiben bis zur Bereitschaft gesperrt.
+Nächster Arbeitsschritt: Gesamtbriefing-spezifische Anforderungen mit dem
+bestehenden Abgleich zusammenführen, anschließend STL-Testlücken bearbeiten.
+Die bisherige B/C-Einteilung ist vorläufig, nicht einzeln vollständig belegt.
+Ein STL-Orakel-Kit ist bisher nur vorgeschlagen, noch nicht implementiert.
 
 ## Historie
 

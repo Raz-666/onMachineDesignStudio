@@ -2889,6 +2889,27 @@ retraction reads the firmware values — what you see is what runs.
 | Objects | skip single objects (2× confirm) |
 | Sources | PARAM_SOURCES: provenance of every parameter (ch. 14.1) |
 
+#### Live > Temps & Fan — every row as you see it (R175c)
+
+The fan entry is an absolute **dial**. Priority chain, strongest first:
+
+**LIVE > layer-1 fan-off > HOLD > SCALE > CLAMP**
+
+| LCD row | What it does |
+|---|---|
+| `Fan: NN% (LIVE)` | Dial 0–100, step 5. A positive value enables LIVE automatically; 0 disables LIVE and returns control to the normal chain (it is not a persistent fan-off lock). YOUR absolute part-fan % — beats Hold, Scale, Clamp and even the layer-1 fan-off rule (you turned the dial on purpose). Sets `f_fan_live` via `SET_FAN_LIVE PERCENT=`. |
+| `LIVE: ON` / `LIVE: off` | The master switch for the LIVE stage. The dial only applies while ON (`SET_FAN_LIVE ON=`). OFF → the chain (Hold/Scale/Clamp, layer-1 rule) takes over again. |
+| `How? (fan math)` | Prints the whole chain with the live numbers (`_FAN_CHAIN_NOW`): what the file asked for, LIVE/HOLD/SCALE/CLAMP, layer-1 state, and what the fan actually runs. |
+| `Scale: NN% file` | 25–150 % — multiplies every M106 of the file (`SET_FAN_SCALE`). |
+| `Clamp: ON fmin–fmax%` / `off` | Switch for the clamp window (`SET_FAN_CLAMP ON/OFF`). |
+| `FMin: NN%` / `FMax: NN%` | The clamp window applied to every file M106 (`SET_FAN_CLAMP MIN/MAX=`). |
+| `FBr: NN% 0=off` | Separate fan floor while a bridge section prints (`SET_FAN_CLAMP BRIDGE=`). |
+| `Hold: NN%` | Absolute % replacing the file's M106 (`SET_FAN_HOLD`). 0 = the file rules again. |
+
+The layer-1 fan-off rule (fan stays OFF on layer 1, default) lives in
+`first_layer_rules` — toggle it under Pre-Print > Temperatures > L1 rules.
+For the console equivalents (`SET_FAN_LIVE`, `SET_FAN_HOLD`, …) see ch. 6.1.
+
 **Pre-Print**
 
 | Entry | Contents |

@@ -184,8 +184,9 @@ Baumrinde aus oder wie Holzdiele oder Parkett … irgendwas hast du verhauen."
       + 30 Hooks**), 3 LCD-Anzeigenamen falsch (`ColorPicture`,
       `ArtisticStrings`, `PI SHUTDOWN NOW`), 5 r165-Verstöße in meinen neuen
       PDF-Bauern (handgetippter Versionsstempel) → r165 wieder `clean`.
-      **Offen und beim User:** Kap. 14 kennt die LIVE-Lüfterstufe (R175c) nicht —
-      Entscheidung, ob das Handbuch sie nachzieht.
+      **Freigegeben und ergänzt:** Kap. 14 LIVE-Lüfterbedienung. Die frühere
+      Behauptung „kennt LIVE nicht“ war überholt: eine Kurzbeschreibung
+      stand bereits dort. Jetzt zusätzlich zeilenweise Bedienreferenz.
 
 - [x] **D7 — Die vier großen PDFs auf ein gemeinsames Fundament.** *(erledigt V1, Commit folgt)*
       `tools/r2_pdf_kit.py` = ein Stilsatz für alle Hefte (DejaVu, Palette,
@@ -355,3 +356,20 @@ wieder bereit ist. Nichts hiervon ohne Go.)*
       r165 clean, r81 23/23 (neu gefroren).
 - [x] R252: Gates macro_render 2092/2092, r166 OK (2732 Sektionen), r142 142/0,
       r165 clean, r81 23/23 (neu gefroren, A/B bewiesen).
+
+### Fortsetzungsstand: Gesamtprüfung B/C
+
+- [ ] Gesamtbriefing §20–28 einzeln gegen Implementierung und Tests abgleichen,
+      einschließlich RE-Recherchen, Slicer-Familien und Performance-Hinweisen.
+      Nutzer hat diese Prüfung bereits beauftragt; keine erneute Rückfrage.
+      B/C-Status aus dem Gespräch bleibt bis dahin vorläufig.
+- [ ] STL: bestehende Regressionstests ausführen, Mesh-Prüfung ergänzen;
+      Orakel-Kit bisher nur geplant, kein neuer Exporter-Fix umgesetzt.
+      Vorherige Aussage „keine Regression-Fixtures“ ist zu pauschal:
+      `tools/test_stl_extrusion_state.py` enthält synthetische Regressionen.
+- [ ] Quellen-Verfügbarkeit für einen frischen Clone herstellen: die
+      Quelldokumente sind derzeit ignoriert, das Manifest allein reicht
+      nicht für eine nahtlose Übergabe. Originale auf sensible Daten prüfen.
+
+MANUAL.md aktualisiert; PDF-Ausbau zurückgestellt. r142 mit installiertem
+Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
