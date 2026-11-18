@@ -1,3 +1,41 @@
+# Fortschreibung: durchgängige experimentelle Prismavorschau
+
+`tools/contour_preview.py` verbindet die Module erstmals von einer G-Code-Datei
+bis zu einer geprüften STL plus obligatorischer `.stl.json`-Provenienz. Es ist
+eine **manuell parametrierte Prismavorschau**, nicht die automatische
+Rekonstruktion eines gesamten G-Code-Modells.
+
+Auswahl aller Ringe aus einem vollständigen Bericht derselben Quelldatei;
+Außenringindex, Lochindizes, konstante Breite und untere/obere Z-Grenze explizit.
+Nur geschlossene planare Kandidaten mit Außenwand-Hinweis, gleichem Objektmarker,
+Tool und gleicher Ebene. Hilfs-/unklassifizierte Hinweise, fehlende Objekte,
+mehrfach gewählte Indizes und unterschiedliche Ebenen abgelehnt. Marker bleiben
+geometrisch unverifiziert; Höhen und Lochzuordnung sind Angaben des Aufrufers.
+Offset und Loch-Prisma prüfen konvexe Geometrie und Hierarchie; Ausgabe nur nach
+STL-Struktur-/Topologie-/Volumenprüfung. Kein Überschreiben bestehender STL oder
+Sidecar, Eingabe bleibt unverändert. Kein Watcher-/LCD-Anschluss.
+
+Beispielaufruf für passende, vorher geprüfte Kandidaten (kein Rose-Rezept):
+
+```sh
+python3 tools/contour_preview.py source.gcode --klipper-passive \
+  --seam-gap-mm 0 --outer-index 0 --hole-index 1 --width-mm 0.4 \
+  --z-bottom 0 --z-top 2 --output preview.stl
+```
+
+Sidecar enthält Quellpfad/-zeilen, Objekt-/Featurehinweise, Parseroptionen,
+Auswahlindizes, Nahtoperationen, Offsets, explizite Breite/Z und Mesh-Prüfung;
+`experimental=true`, `export_ready=false`. Kein gemessenes Modellmaß behauptet.
+
+6 neue Tests: vollständiger synthetischer G-Code bis STL mit 190,4 mm³ Sollvolumen,
+Quell-/Berichterhaltung, CLI/Sidecar/Überschreibschutz, Ausschluss unpassender
+Feature-/Objekt-/Ebenen-/Toolzuordnung, unvollständige Berichte, vertauschte
+Innen-/Außenringe, Breiten-/Höhenfehler. Mit 69 bestehenden: 75 lokal bestanden.
+Weiter offen: automatische Höhen-/Breitenherkunft, allgemeine/spiralförmige
+Rekonstruktion, unabhängiger Slicer-Reimport. Aktiver Exporter unverändert.
+
+---
+
 # Fortschreibung: explizite Linienbreite und konvexe physische Konturen
 
 `tools/physical_contours.py` ergänzt zwei getrennte Bausteine:

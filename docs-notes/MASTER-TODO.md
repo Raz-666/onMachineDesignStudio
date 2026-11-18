@@ -451,3 +451,11 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
 - [ ] **I1 physische Integration:** reale effektive Extrusion, Schichthöhen,
       variable/konkave Breiten, Objektgeometrie belegen; neue API bleibt
       experimentell und ersetzt keinen aktiven Export.
+
+- [x] **I1 durchgängige Offline-Prismavorschau:** `contour_preview.py`,
+      G-Code→Vorschläge→explizite Auswahl/Breite/Z→Offset→Prisma→STL-Prüfer.
+      Pflicht-Provenienz .stl.json, keine Überschreibung. Hilfsgeometrie,
+      unklare/abweichende Objekte, falsche Ebenen und Tools abgelehnt.
+      6 neue Tests, 75 gesamt lokal bestanden. Commit-Betreff
+      `feat: connect G-code contour proposals to audited experimental prism previews`.
+      Nicht als automatische Modellrekonstruktion oder fertiger Export bezeichnen.

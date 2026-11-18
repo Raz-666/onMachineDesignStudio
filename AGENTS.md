@@ -182,7 +182,12 @@ Physischer Konturbaustein: `physical_contours.py` (explizite konstante Breite,
 konvexe Ringe, Gehrungsecken; außen +w/2, Loch -w/2). 7 neue analytische Tests,
 insgesamt 69 lokal bestanden. Konkave/variable Breiten bleiben abgelehnt.
 Stadium-Breitenformel nur mit bekannten effektiven E-mm/Schichthöhe, kein Messwert.
-Nächster Schritt: geprüfte Breiten-/Konturherkunft an reale Daten anbinden; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
+Offline-Vorschau jetzt durchgängig: `tools/contour_preview.py` liest G-Code,
+wählt explizite Vorschlagsindizes und baut ein konstantes konvexes Prisma mit
+Loch, expliziter Breite/Z-Grenzen, STL-Prüfung und .stl.json-Provenienz.
+Kein Überschreiben, kein automatischer Höhenbeweis, kein aktiver Exportwechsel.
+6 neue Tests (inkl. kompletter G-Code→STL-Kette), insgesamt 75 lokal bestanden.
+Nächster Schritt: reale Breiten-/Höhenherkunft und allgemeine Konturen anbinden; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
 Der Loft ist keine allgemeine Spiralrekonstruktion; aktiver Export unverändert.
 
 ## Historie
