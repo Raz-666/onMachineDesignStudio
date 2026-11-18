@@ -483,3 +483,12 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       Commit-Betreff `feat: stack identical layer outlines into single prisms`.
       Weiter offen: Outline-Übergänge zwischen Schichten (Bool-Operationen),
       CLI-Stapel, reale Breiten-/Höhenherkunft.
+
+- [x] **I1 Ebenen-/Breitenevidenz:** `plane_statistics` pro Objekt aus
+      gemessenen Extrusions-Z-Ebenen (Abstände sind Evidenz, keine verifizierte
+      Schichthöhe/Erste-Schicht-Versatz); `--assume-layer-height-mm` liefert
+      Stadion-Breitenschätzungen mit measured=false und Rollen-Min/Max.
+      Rose-Regression: 7 Ebenen je Objekt, Abstände {0,2:5, 22,8:1},
+      Außenwandbreite 0,322–0,910 mm unter Annahme 0,2; Vase-Modus bestätigt.
+      5 neue Tests, 97 gesamt lokal bestanden. Commit-Betreff
+      `feat: measure layer plane spacing and explicit-assumption widths`.

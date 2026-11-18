@@ -203,7 +203,13 @@ Höhenbänder zu einem Prisma über Gesamthöhe (eine Schale pro Insel).
 Abweichende Outlines, Lücken/Überlappung, nicht steigende Ebenen, Toolwechsel
 werden abgelehnt; Provenienz jeder Schicht bleibt erhalten. 5 neue Tests,
 92 gesamt lokal bestanden. Kein CLI für Stapel, keine Flächenvereinigung.
-Nächster Schritt: reale Breiten-/Höhenherkunft, Outline-Übergänge; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
+Reale Höhen-/Breitenevidenz: `plane_statistics` misst Z-Ebenenabstände pro
+Objekt (Rose: 7 planare Ebenen .2→24,0, fünf 0,2-Schritte, dann Sprung 22,8 —
+Vase-Modus, Spiralwände sind nichtplanar und fehlen bewusst als Ebenen).
+`--assume-layer-height-mm` ergänzt Stadion-Breitenschätzungen unter expliziter
+unverifizierter Annahme (Rose bei 0,2: Außenwandhinweise 0,322–0,910 mm,
+Brim ~0,6, 108 unstützbare Querschnitte). 5 neue Tests, 97 gesamt.
+Nächster Schritt: Outline-Übergänge, Breitenstreuung bewerten; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
 Der Loft ist keine allgemeine Spiralrekonstruktion; aktiver Export unverändert.
 
 ## Historie

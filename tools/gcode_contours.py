@@ -20,10 +20,13 @@ MAX_LINE = 1024 * 1024
 MAX_LINES = 2000000
 
 
-def collect_contours(path, *, klipper_passive=False, seam_gap_mm=None):
+def collect_contours(path, *, klipper_passive=False, seam_gap_mm=None,
+                     assumed_layer_height_mm=None, filament_diameter_mm=1.75):
     # Reuse the existing explicit dialect capability; never assume initial state.
     state = Shadow(klipper_passive=klipper_passive)
-    paths = PathEvidence(seam_gap_mm=seam_gap_mm)
+    paths = PathEvidence(seam_gap_mm=seam_gap_mm,
+                         assumed_layer_height_mm=assumed_layer_height_mm,
+                         filament_diameter_mm=filament_diameter_mm)
     loops, issues = [], Counter()
     unknown_examples = []
     chain = []
@@ -137,5 +140,12 @@ if __name__ == '__main__':
                         help='opt in to the shadow parser Klipper non-motion command model; no initial-state guesses')
     parser.add_argument('--seam-gap-mm', type=float, default=None,
                         help='opt-in planar seam proposals with explicit maximum added edge; never STL')
+    parser.add_argument('--assume-layer-height-mm', type=float, default=None,
+                        help='explicit unverified assumption for stadium width estimates; measured=False')
+    parser.add_argument('--filament-diameter-mm', type=float, default=1.75,
+                        help='filament diameter used with --assume-layer-height-mm')
     args = parser.parse_args()
-    print(json.dumps(collect_contours(args.gcode, klipper_passive=args.klipper_passive, seam_gap_mm=args.seam_gap_mm),indent=2,ensure_ascii=True))
+    print(json.dumps(collect_contours(args.gcode, klipper_passive=args.klipper_passive,
+                                      seam_gap_mm=args.seam_gap_mm,
+                                      assumed_layer_height_mm=args.assume_layer_height_mm,
+                                      filament_diameter_mm=args.filament_diameter_mm),indent=2,ensure_ascii=True))

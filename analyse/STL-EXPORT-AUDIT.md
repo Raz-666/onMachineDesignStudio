@@ -1,3 +1,35 @@
+# Fortschreibung: Ebenenabstände und Breitenschätzungen aus echten Daten
+
+`path_evidence.py` sammelt jetzt pro dateilokalem Objekt die distincten
+Extrusions-Z-Ebenen (nur planare Pfade; nichtplanare Spiralen werden bewusst
+NICHT als Ebenen gezählt). Berichtet: Ebenenzahl, Z-Min/Max, Abstände
+aufeinanderfolgender Ebenen, häufigster Abstand, Pfade auf der häufigsten
+Ebene. Die Abstände sind gemessene Düsen-Ebenenabstände — keine verifizierte
+Schichthöhe und kein Erste-Schicht-Versatz-Nachweis. Begrenzt: 64 Objekte,
+4096 Ebenen je Objekt, 64 Abstandswerte.
+
+Neu `--assume-layer-height-mm` (plus `--filament-diameter-mm`): Stadium-
+Breitenschätzung je Pfad aus kommandiertem Filament und 3D-Länge unter
+explizit unverifizierter Schichthöhen-Annahme, `measured=false`, Min/Max je
+Feature-Rolle, 12 Beispiele mit Quellzeilen. Unstützbare Querschnitte werden
+gezählt, nicht geraten. Ohne Annahme bleibt der Berichtsabschnitt null.
+
+Rose (Passivmodus, Annahme 0,2): je Objekt 7 planare Ebenen, Z 0,2→24,0,
+Abstände {0,2 mm: 5, 22,8 mm: 1}, 95 Pfade auf der häufigsten Ebene —
+bestätigt Vase-Modus: die Wände sind durchlaufende nichtplanare Bahnen und
+erscheinen korrekt nicht als Ebenen. Breiten unter Annahme: Außenwandhinweise
+(76 Pfade) 0,322–0,910 mm, Brim (22) ≈0,600 mm, unklassifiziert (502)
+0,321–0,861 mm, 108 unstützbare Querschnitte. Die große Streuung zeigt, dass
+Ketten-E/L-Verhältnisse lange Spiralen mischen — KEINE gemessenen Düsenbreiten,
+keine Grundlage für automatische Offsets.
+
+5 neue Tests (synthetische Ebenen/Annahmen/Ablehnungen, unmarkiert+nichtplanar,
+Collector-Verkabelung, Rose-Regression mit exakten Zahlen). Zusammen 97 Tests
+lokal bestanden; CI ergänzt. Aktiver Exporter unverändert; Outline-Übergänge,
+Breitenstreuung-Bewertung und nichtplanare Rekonstruktion weiter offen.
+
+---
+
 # Fortschreibung: Ebenenstapel mit identischen Outlines
 
 `contour_preview.py::stacked_prism_preview` (Berichtauswahl über

@@ -56,6 +56,7 @@ jobs:
           python3 tools/test_concave_offsets.py
           python3 tools/test_multi_prism.py
           python3 tools/test_stacked_prism.py
+          python3 tools/test_layer_evidence.py
 
       - name: Streaming simulations (watcher RSS stays flat)
         run: python3 tools/r91_simulate.py
