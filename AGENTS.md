@@ -301,7 +301,23 @@ Record-Typ ‚home‘), FEATURE-Regex erkennt Kiri `; feature <name>`,
 HELPER_HINTS += skirt/brim, ironing, custom (Rose: +108 Ironing-Helper
 korrigiert, waren unclassified). Kiri `; start object id:`-Marker gefunden,
 noch nicht modelliert. 10 neue Tests, 164 gesamt.
-Nächster Schritt: Modell-STL aus Fremd-Dateien (ohne Stützen/Brim),
+Modell-STL aus Fremd-Dateien: `model_export.py::model_shells()` —
+nur Wand-Rollen-Hinweise (external/overhang perimeter, perimeter, shells)
+werden Kontur; Support/Brim/Ironing/Custom/Infill/unmarkiert nie. Naht-
+verschluss nur im expliziten Budget (zugefügte Kante berichtet), Inseln
+per Enthaltensein, innere Wandläufe verworfen (Löcher werden NICHT
+inferiert), byte-identische Layer mergen zu Prismen-Runs, eine geschlossene
+Prismenschale pro Insel/Run über DISJUNKTE Z-Bänder → Summe der Schalen-
+volumen ist EXAKT (Cavalieri). Interne Übergangskappen bleiben (dokumentiert).
+Orakel: 3 identische Layer → 1 Prisma exakt; Outline-Wechsel → 82 mm³ exakt
+als 80+8; Helper tragen nie bei. Fremd-Dateien z∈[0,4]: MAN_V3 18 Schalen/
+64,987 mm³/3676 Dreiecke; vwbus 18/348,308/3332; Pumpkin 21/334,337/4236
+(50 Loops >256 Vertices ehrlich gezählt). Selbstschnitt-Charakterisierung:
+ALLE Paare (6244/12564/22321) liegen NUR auf dokumentierten Übergangs-
+ebenen — null echte Wanddurchdringungen; audit-Volumen == Konstruktions-
+volumen (float32). Beweis-STLs: analyse/stl-exports/ (+MANIFEST.json).
+8 neue Tests, 172 gesamt lokal bestanden.
+Nächster Schritt: volle z-Spanne/Loft zwischen Outlines, Kiri-Objektmarker,
 Schalenmodell für Breite, Slicer-Reimport; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
 Der Loft ist keine allgemeine Spiralrekonstruktion; aktiver Export unverändert.
 

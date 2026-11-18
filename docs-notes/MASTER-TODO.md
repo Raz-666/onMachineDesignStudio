@@ -614,3 +614,14 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       ingest three foreign field files with full feature tagging`. Weiter
       offen: Modell-STL ohne Stützen/Brim aus diesen Dateien, Kiri-Objekt-
       marker, Schalenmodell, Slicer-Reimport.
+- [x] **I5 Modell-STL aus Fremd-Dateien:** `model_export.py` — Wand-Rollen-
+      Filter (Helper/Infill/unmarkiert nie Kontur), Nahtbudget, Inseln per
+      Enthaltensein, Run-Merging, Prismen über disjunkte Z-Bänder (Volumen-
+      summe exakt). Orakel exakt (112/88 mm³, Helper-Ausschluss, Vertex-
+      budget). Fremd-Dateien [0,4]: MAN_V3 18 Schalen/64,987 mm³, vwbus
+      18/348,308, Pumpkin 21/334,337; alle Selbstschnitte nur auf Über-
+      gangsebenen (0 Durchdringungen); audit == Konstruktion. Beweis-STLs
+      in analyse/stl-exports/. 8 neue Tests, 172 gesamt. Commit `feat:
+      export model-only shells from foreign g-code files`. Weiter offen:
+      volle Spanne + Loft, Löcher-Inferenz, Kiri-Objektmarker, Breiten-
+      schalenmodell, Slicer-Reimport.
