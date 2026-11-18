@@ -9,6 +9,8 @@ classification must be implemented before production integration.
 import math
 import struct
 
+MAX_SECTIONS = 64
+MAX_TRIANGLES = 32768
 MAX_VERTICES = 256  # bound quadratic validation and cubic worst-case ear clipping
 EPS = 1e-10  # conservative rejection threshold in oriented area (mm squared)
 
@@ -174,12 +176,65 @@ def prism_mesh(boundary, z_bottom, z_top, *, holes=()):
     return triangles
 
 
+def loft_mesh(boundary, sections, *, holes=()):
+    """Surface through translated/uniformly scaled copies of one boundary.
+
+    Each section is (z_mm, positive_scale, x_offset_mm, y_offset_mm).
+    Scaling is around XY=(0,0), then offset is added. All holes undergo the
+    SAME transform. Between sections, coordinates interpolate linearly.
+    This deliberately does not guess correspondence between arbitrary loops.
+    Positive uniform scale preserves the polygon hierarchy throughout each
+    interval; rotation, independent hole motion, splits/merges are unsupported.
+    """
+    if not 2 <= len(sections) <= MAX_SECTIONS:
+        raise ValueError('loft requires 2..64 sections')
+    normalized = []
+    for section in sections:
+        if len(section) != 4:
+            raise ValueError('section must be (z, scale, dx, dy)')
+        z,scale,dx,dy = map(float, section)
+        if not all(math.isfinite(v) for v in (z,scale,dx,dy)) or scale <= 0:
+            raise ValueError('finite section values and positive scale required')
+        if abs(z) > 100000 or (normalized and z <= normalized[-1][0]):
+            raise ValueError('Z sections must increase and stay within bounds')
+        normalized.append((z,scale,dx,dy))
+    # Reuse ring validation and cap triangulation without introducing layer caps.
+    prototype = prism_mesh(boundary,0,1,holes=holes)
+    rings = [_boundary(boundary)] + [_boundary(h)[::-1] for h in holes]
+
+    def transform(point, section):
+        z,scale,dx,dy = section
+        x,y = point[0]*scale+dx, point[1]*scale+dy
+        if not all(math.isfinite(v) and abs(v) <= 100000 for v in (x,y)):
+            raise ValueError('transformed contour outside coordinate bounds')
+        return x,y,z
+
+    # Cache transformed rings; shared vertices are byte-identical at layer seams.
+    layers = [[[transform(p,section) for p in ring] for ring in rings]
+              for section in normalized]
+    triangles = []
+    for triangle in prototype:
+        heights = {p[2] for p in triangle}
+        if heights == {0.0}:
+            triangles.append(tuple(transform(p,normalized[0]) for p in triangle))
+        elif heights == {1.0}:
+            triangles.append(tuple(transform(p,normalized[-1]) for p in triangle))
+    for lower,upper in zip(layers,layers[1:]):
+        for lo,hi in zip(lower,upper):
+            for i in range(len(lo)):
+                j = (i+1)%len(lo)
+                triangles.extend(((lo[i],lo[j],hi[j]),(lo[i],hi[j],hi[i])))
+    if len(triangles) > MAX_TRIANGLES:
+        raise ValueError('experimental triangle budget exceeded')
+    return triangles
+
+
 def binary_stl(triangles):
     """Serialize small experimental meshes; validate after float32 conversion.
 
     Return bytes only; callers own file creation. This never overwrites a file.
     """
-    if not 1 <= len(triangles) <= 4*MAX_VERTICES:
+    if not 1 <= len(triangles) <= MAX_TRIANGLES:
         raise ValueError('experimental triangle budget exceeded or mesh empty')
     records = []
     for triangle in triangles:

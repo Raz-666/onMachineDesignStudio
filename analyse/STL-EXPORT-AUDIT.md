@@ -1,3 +1,37 @@
+# Fortschreibung: Schichtverbindung für skalierte/verschobene Konturen
+
+Neue API `loft_mesh(boundary, sections, holes=...)` in `tools/contour_mesh.py`.
+Jede Sektion gibt `(Z, positiver Maßstab, X-Versatz, Y-Versatz)` vor. Außenring
+und alle Löcher erhalten dieselbe Transformation. Zwischen den Höhen wird
+linear verbunden, nur ganz unten/oben gibt es Deckflächen. Das unterstützt
+Verjüngung, Verbreiterung und Neigung bei konstanter Polygon-/Lochtopologie.
+Es ist **keine automatische Zuordnung beliebiger G-Code-Schichtkonturen**.
+
+Mathematische Grenze: positive gleichförmige Skalierung plus Translation
+erhält die validierte Polygonhierarchie auch zwischen zwei Sektionen.
+Rotation, getrennte Lochbewegung, Öffnen/Schließen von Löchern, Split/Merge
+und allgemeine Querschnittswechsel werden von dieser API nicht angeboten.
+Skalierung erfolgt um XY=(0,0), danach Translation; nicht still um den Schwerpunkt.
+
+Ressourcen: 2–64 Sektionen, bestehendes Konturbudget 256, STL-Budget maximal
+32768 Dreiecke. Z muss endlich und streng aufsteigend sein. Koordinatengrenzen
+werden nach Transformation geprüft; beim Float32-Schreiben kollabierende
+Dreiecke führen zum Abbruch. Keine Verbindung zum Watcher/aktiven Exporter.
+
+Nachweis: **16/16 Konturtests, 5/5 Mesh-Tests, 3/3 aktive E-State-Tests**.
+Volumenorakel je Höhenintervall: A·h·(s0²+s0·s1+s1²)/3, dabei ist A die
+Ausgangsfläche abzüglich Löcher. Geprüft: Verjüngung, Verbreiterung, variable
+Höhen, seitliche Verschiebungen, konkaves L, Lochführung, beide Umlaufrichtungen,
+Euler-Topologie und Abwesenheit interner Deckel. Negativtests: fehlende,
+doppelte/absteigende Höhen, Null-/Negativmaßstab, NaN, Budgetüberschreitung,
+Koordinatenausbruch und Float32-Höhenkollaps.
+
+Offen bleibt die Rekonstruktion echter physischer Konturen aus dem normalisierten
+Bewegungsmodell sowie allgemeines Matching; kein vollständiger STL-/Release-
+Nachweis, kein unabhängiger Slicer-Reimport. Frühere Zwischenstände folgen.
+
+---
+
 # Fortschreibung: explizite Durchgangslöcher
 
 `prism_mesh(..., holes=[...])` unterstützt jetzt mehrere disjunkte,

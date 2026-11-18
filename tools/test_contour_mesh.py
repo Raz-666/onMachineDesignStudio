@@ -4,7 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from contour_mesh import prism_mesh, binary_stl
+from contour_mesh import prism_mesh, loft_mesh, binary_stl
 from stl_audit import inspect_stl
 
 
@@ -138,6 +138,64 @@ class ContourTests(unittest.TestCase):
         for holes in cases:
             with self.subTest(holes=holes),self.assertRaises(ValueError):
                 prism_mesh(outer,0,2,holes=holes)
+
+    def check_loft(self, boundary, sections, area, holes=()):
+        import copy
+        before=copy.deepcopy((boundary,sections,holes))
+        triangles=loft_mesh(boundary,sections,holes=holes)
+        self.assertEqual((boundary,sections,holes),before)
+        volume=sum(area*(b[0]-a[0])*(a[1]**2+a[1]*b[1]+b[1]**2)/3
+                   for a,b in zip(sections,sections[1:]))
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'loft.stl'
+            path.write_bytes(binary_stl(triangles))
+            report=inspect_stl(path)
+        self.assertAlmostEqual(report['signed_volume'],volume,places=4)
+        for key in ('boundary_edges','nonmanifold_edges','winding_errors',
+                    'degenerate_faces','normal_errors','duplicate_faces'):
+            self.assertEqual(report[key],0,key)
+        vertices={v for tri in triangles for v in tri}
+        edges={tuple(sorted((tri[i],tri[(i+1)%3]))) for tri in triangles for i in range(3)}
+        self.assertEqual(len(vertices)-len(edges)+len(triangles),2-2*len(holes))
+        self.assertEqual(report['vertex_connected_components'],1)
+        for tri in triangles:
+            if len({p[2] for p in tri}) == 1:
+                self.assertIn(tri[0][2],(sections[0][0],sections[-1][0]))
+        return report
+
+    def test_loft_taper_and_expansion(self):
+        square=[(0,0),(10,0),(10,10),(0,10)]
+        self.check_loft(square,[(0,1,0,0),(10,.5,0,0)],100)
+        self.check_loft(square,[(0,.5,0,0),(10,1,0,0)],100)
+
+    def test_loft_variable_heights_lean_and_hole(self):
+        outer=[(0,0),(10,0),(10,10),(0,10)]
+        hole=[(3,3),(7,3),(7,7),(3,7)]
+        sections=[(0,1,0,0),(.2,.8,1,-2),(.7,1.2,-2,1),(4,.5,3,4)]
+        self.check_loft(outer,sections,84,[hole])
+        self.check_loft(outer[::-1],sections,84,[hole[::-1]])
+
+    def test_loft_concave_cross_section(self):
+        self.check_loft([(0,0),(3,0),(3,1),(1,1),(1,3),(0,3)],
+                        [(0,1,0,0),(1,2,-1,0),(3,.5,4,2)],5)
+
+    def test_loft_straight_matches_prism_volume_and_bounds(self):
+        report=self.check_loft([(0,0),(2,0),(2,3),(0,3)],
+                               [(0,1,0,0),(.2,1,0,0),(2,1,0,0)],6)
+        self.assertEqual(report['bbox'],[[0,0,0],[2,3,2]])
+
+    def test_loft_invalid_sections_and_float32_collapse(self):
+        boundary=[(0,0),(2,0),(2,2),(0,2)]
+        cases=[[],[(0,1,0,0)],[(1,1,0,0),(0,1,0,0)],
+               [(0,1,0,0),(0,1,0,0)],[(0,1,0,0),(1,0,0,0)],
+               [(0,1,0,0),(1,-1,0,0)],[(0,1,0,0),(1,float('nan'),0,0)],
+               [(0,1,0,0),(1,1,1e6,0)],[(i,1,0,0) for i in range(65)],
+               [(0,1,0,0),(1,1,0)]]
+        for sections in cases:
+            with self.subTest(sections=sections[:2]),self.assertRaises(ValueError):
+                loft_mesh(boundary,sections)
+        triangles=loft_mesh(boundary,[(10000,1,0,0),(10000.00001,1,0,0)])
+        with self.assertRaises(ValueError): binary_stl(triangles)
 
     def test_float32_collapse_rejected(self):
         mesh = prism_mesh([(10000,0),(10000.00001,0),(10000.00001,1),(10000,1)],0,1)

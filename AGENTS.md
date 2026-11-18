@@ -151,10 +151,14 @@ STL-Prüfer `tools/stl_audit.py` und 5 Mesh-Tests sind implementiert;
 3 vorhandene E-State-Tests bestehen ebenfalls. Zwei gestapelte Bahnen
 reproduzieren doppelte Grenzflächen (2) und nichtmannigfaltige Kanten (5).
 Erster neuer Oberflächenbaustein: `tools/contour_mesh.py` (gerades Prisma mit
-konkaver Außenkontur und expliziten Durchgangslöchern), 11/11 analytische Tests. Kein Anschluss
+konkaver Außenkontur und expliziten Durchgangslöchern), plus `loft_mesh` für
+positive gleichförmige Skalierung und Verschiebung über mehrere Höhen;
+16/16 analytische Tests. Kein Anschluss
 an den aktiven Exporter. Details/Grenzen in `analyse/STL-EXPORT-AUDIT.md`.
-Nächster Schritt: Zuordnung wechselnder Layerkonturen (Lochanzahl/-topologie
-darf nicht still geändert werden);
+Nächster Schritt: echte Layerkonturen aus dem normalisierten Bewegungsmodell
+mit belegter Zuordnung/physischer Linienbreite verbinden. Der aktuelle Loft
+nimmt explizite Transformationen an, keine beliebigen Layerloops;
+Lochanzahl/-topologie darf nicht still geändert werden.
 anschließend normalisiertes Bewegungsmodell anbinden. Keine ungeprüften
 Düsenmittellinien als physische Außenkonturen interpretieren.
 

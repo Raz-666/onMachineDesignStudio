@@ -392,3 +392,10 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       Loch; Flächenerhaltung geprüft. 11 Konturtests inklusive drei Löchern
       in neun Parameterkombinationen, Euler-Topologie und Fehlereingaben.
       Dazu 5 Mesh- und 3 E-State-Tests bestanden. Aktiver Export unverändert.
+
+- [x] **I1 eingeschränkter Schicht-Loft:** `loft_mesh` verbindet positiv
+      gleichförmig skalierte/verschobene Konturen über 2–64 Höhen, inklusive
+      Durchgangslöchern, ohne interne Deckflächen. Commit-Betreff
+      `feat: loft scaled contour sections without internal caps`.
+      16 Konturtests + 5 Mesh- + 3 aktive E-State-Tests bestanden.
+      Kein allgemeines Layer-Matching und keine produktive G-Code-Anbindung.
