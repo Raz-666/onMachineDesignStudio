@@ -467,3 +467,10 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       (analytische Flächen, L-Loch-Mesh, G-Code→Prismavorschau, CLI-lose
       Kompabilität), 80 gesamt lokal bestanden. Commit-Betreff
       `feat: support concave centreline offsets that preserve ring topology`.
+
+- [x] **I1 Mehrfachinseln:** `prism_set_preview` + CLI `--group` für mehrere
+      Ringgruppen in einer STL. Getrennte Schalen, paarweise disjunkte XY-
+      Boundingboxen, Komponentenzahl = Gruppenzahl. Gruppenintern gleicher
+      Objektmarker/Ebene/Tool; gruppenübergreifend verschiedene Objektnamen
+      erlaubt und protokolliert. 7 neue Tests, 87 gesamt lokal bestanden.
+      Commit-Betreff `feat: preview multiple disjoint prism islands from one report`.

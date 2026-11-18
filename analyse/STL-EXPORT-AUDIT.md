@@ -1,3 +1,30 @@
+# Fortschreibung: Mehrfachinseln in der Prismavorschau
+
+`contour_preview.py::prism_set_preview` und das CLI-Flag `--group OUTER[:HOLE,...]`
+(wiederholbar) erzeugen eine STL aus mehreren Ringgruppen einer Ebene. Jede
+Gruppe wird einzeln geprüft (Objektmarker, Außenwandhinweis, ebene geschlossene
+Ringe, Offset-Topologie, Loch-Hierarchie) und zu einer eigenen geschlossenen
+Schale aufgebaut. Gruppen müssen paarweise disjunkte XY-Boundingboxen haben;
+Überschneidungen werden abgelehnt, nicht zusammengefasst. Innerhalb einer Gruppe
+müssen Objektmarker, Ebene und Tool übereinstimmen (Loch gehört zum selben
+Objekt); zwischen Gruppen dürfen Objektnamen abweichen (Mehrobjektdruck) und
+werden im Bericht protokolliert. Gesamtzahl der Dreiecke bleibt begrenzt; der
+STL-Prüfer muss Komponentenzahl = Gruppenzahl, positives Gesamtvolumen und
+fehlerfreie Topologie bestätigen.
+
+Das ist eine Schichten-Vorschau mehrerer Inseln, kein zusammengesetztes
+MehrSchichten-Modell und keine automatische Gruppenermittlung.
+
+7 neue Tests: zwei Inseln (2·2·10,4² mm³), Insel mit Loch plus freie Insel
+(2·(108,16−12,96)+2·108,16 mm³), überlappende Inseln abgelehnt, zwei benannte
+Objekte erlaubt/protokolliert, getrennte Ebenen abgelehnt, Auswahlvalidierung
+(leer/doppelt/außerhalb/gleichzeitig mit --outer-index), CLI `--group` mit
+Sidecar/Überschreibschutz, Loch aus anderem Objekt abgelehnt. Mit bisherigen
+Suiten 87 Tests lokal bestanden; CI ergänzt. Aktiver Exporter unverändert;
+weiter offen: Ebenenstapel, echte Breiten-/Höhenherkunft, nichtplanare Bahnen.
+
+---
+
 # Fortschreibung: konkave topologieerhaltende Konturoffsets
 
 `physical_contours.py::offset_simple_centerline` erlaubt jetzt auch konkave

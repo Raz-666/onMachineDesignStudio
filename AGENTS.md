@@ -192,7 +192,12 @@ bewahrter Topologie (Gehrungsecken, gleiche Eckorientierung, keine
 Selbstdurchdringung/Umkehr). Kerben-/Armzusammenfall wird abgelehnt.
 Vorschau nutzt jetzt den allgemeinen Weg; `offset_convex_centerline` bleibt.
 5 neue Tests, insgesamt 80 lokal bestanden.
-Nächster Schritt: reale Breiten-/Höhenherkunft, Mehrfachringe/Flächen; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
+Mehrere Inseln/Flächen: `prism_set_preview`/`--group OUTER[:HOLE,...]` bauen
+mehrere getrennte, paarweise boundingbox-disjunkte Schalen in eine STL;
+Komponentenzahl muss Gruppenzahl entsprechen. Innerhalb einer Gruppe gelten
+gemeinsamer Objektmarker, Ebene und Tool; zwischen Gruppen dürfen Objektnamen
+abweichen (Mehrobjektdruck, wird protokolliert). 7 neue Tests, 87 gesamt.
+Nächster Schritt: reale Breiten-/Höhenherkunft, Ebenenstapel; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
 Der Loft ist keine allgemeine Spiralrekonstruktion; aktiver Export unverändert.
 
 ## Historie
