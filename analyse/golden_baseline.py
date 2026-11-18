@@ -30,6 +30,7 @@ REFERENCE_ENGINE = ROOT / 'backups/r2_postproc_R2-2026-11-13.1_V1.py'
 BASELINE = ROOT / 'analyse/golden_baseline.json'
 ZSCAN_EXPECTED = ROOT / 'analyse/golden_zscan_expected.json'
 SEQ_EXPECTED = ROOT / 'analyse/golden_seq_expected.json'
+R258_EXPECTED = ROOT / 'analyse/golden_r258_expected.json'
 FIELDS = ('tagged', 'skipped', 'marks_added', 'info_added', 'layers', 'method',
           'types', 'by_object', 'upgraded', 'retract_pairs')
 SYNTHETIC = {
@@ -164,6 +165,11 @@ def expected_with_seq_change(reference, delta):
     return expected_with_documented_change(reference, delta, 'rose', 'C2/C3 sequence')
 
 
+def expected_with_r258_change(reference, delta):
+    """Apply the explicitly documented R258 first-layer Z-scan change only."""
+    return expected_with_documented_change(reference, delta, 'm82_zhop', 'R258 first-layer')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest='command', required=True)
@@ -186,7 +192,10 @@ def main():
         reference, json.loads(ZSCAN_EXPECTED.read_text(encoding='utf-8')))
     expected, seq_errors = expected_with_seq_change(
         expected, json.loads(SEQ_EXPECTED.read_text(encoding='utf-8')))
+    expected, r258_errors = expected_with_r258_change(
+        expected, json.loads(R258_EXPECTED.read_text(encoding='utf-8')))
     errors.extend(seq_errors)
+    errors.extend(r258_errors)
     errors.extend(compare(expected, actual, check_engine=False))
     if (reference.get('engine') != str(ENGINE.relative_to(ROOT))
             or not REFERENCE_ENGINE.is_file()
@@ -199,7 +208,7 @@ def main():
     if errors:
         for error in errors: print('FAIL', error, file=sys.stderr)
         return 1
-    print('PASS:', len(CASES), 'cases: 4 unchanged, 2 documented changes (m82_zhop Z-scan, rose C2/C3 SEQWARN); source archives unchanged')
+    print('PASS:', len(CASES), 'cases: 3 unchanged, 3 documented changes (m82_zhop Z-scan + R258 first layer, rose C2/C3 SEQWARN); source archives unchanged')
     return 0
 
 

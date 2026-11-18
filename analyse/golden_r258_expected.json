@@ -1,0 +1,37 @@
+{
+ "candidate": {
+  "output_bytes": 241,
+  "output_sha256": "8ff9f94c4c653b72dff079dd3b53d22073fda0844d5443fc0dfd09f1114d9caa",
+  "summary": {
+   "by_object": false,
+   "info_added": true,
+   "layers": 2,
+   "marks_added": 1,
+   "method": "Z scan",
+   "retract_pairs": 0,
+   "skipped": false,
+   "tagged": true,
+   "types": 1,
+   "upgraded": false
+  }
+ },
+ "case": "m82_zhop",
+ "format": 1,
+ "reason": "R258 Option B (user-approved layer-count divergence fix): TOTAL_LAYERS in the Z-scan world now counts the first printed layer - rises+1 instead of rises, plus one layer per print-unit restart that returns Z to the bed (bed_returns). Marker positions and marker count unchanged; only the _FILE_INFO TOTAL_LAYERS digit (1 -> 2) moves. See analyse/LAYER-ZAEHLUNG-DIVERGENZ-SPEZIFIKATION.md sections 4-5.",
+ "reference": {
+  "output_bytes": 241,
+  "output_sha256": "bd67f04a8c820207d22d216484f2faa9622f399e6f493732cbd6004bd94c7e45",
+  "summary": {
+   "by_object": false,
+   "info_added": true,
+   "layers": 1,
+   "marks_added": 1,
+   "method": "Z scan",
+   "retract_pairs": 0,
+   "skipped": false,
+   "tagged": true,
+   "types": 1,
+   "upgraded": false
+  }
+ }
+}

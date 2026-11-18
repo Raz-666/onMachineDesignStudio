@@ -211,16 +211,19 @@ for dialect in DIALECTS:
           summ and not summ.get('skipped') and '; R2-POSTPROC v5' in body)
     check('%s: _FILE_INFO present' % name, '_FILE_INFO ' in body)
 
-    # layer marks. Z-scan dialects: the scan counts layer CHANGES (the mark
-    # rides before each change; layer 1 begins at print start) -> 2 physical
-    # layers = 1 mark. Comment dialects: one mark per comment.
+    # layer marks. R258 (Option B): _FILE_INFO TOTAL_LAYERS is the physical
+    # positive-extrusion layer count in BOTH detector worlds. The Z-scan
+    # still inserts one mark per layer RISE (layer 1 needs no mark - it
+    # begins at print start), the comment detector inserts one mark per
+    # comment; the reported count is rises+1 either way.
     marks = body.count('LAYER_MARK')
+    check('%s: TOTAL_LAYERS == %d (physical)' % (name, truth_layers),
+          summ.get('layers', 0) == truth_layers, summ.get('layers'))
     if LAYER_STYLE[dialect[3]]:
         check('%s: LAYER_MARK == %d' % (name, truth_layers), marks == truth_layers, marks)
     else:
-        check('%s: Z-scan found the layer change' % name,
-              summ.get('layers', 0) == truth_layers - 1 and marks == truth_layers - 1,
-              (summ.get('layers'), marks))
+        check('%s: Z-scan marks == rises (%d)' % (name, truth_layers - 1),
+              marks == truth_layers - 1, marks)
 
     # TYPES
     m = re.search(r'TYPES=([^\s]*)', fi)
