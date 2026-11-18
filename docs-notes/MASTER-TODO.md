@@ -614,7 +614,7 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       ingest three foreign field files with full feature tagging`. Weiter
       offen: Modell-STL ohne Stützen/Brim aus diesen Dateien, Kiri-Objekt-
       marker, Schalenmodell, Slicer-Reimport.
-- [x] **I5 Modell-STL aus Fremd-Dateien:** `model_export.py` — Wand-Rollen-
+- [x] **I5 Modell-STL aus Fremd-Dateien:** *(Fenster-Export erledigt, siehe unten; Fertigstellung zurückgestellt → J1)* `model_export.py` — Wand-Rollen-
       Filter (Helper/Infill/unmarkiert nie Kontur), Nahtbudget, Inseln per
       Enthaltensein, Run-Merging, Prismen über disjunkte Z-Bänder (Volumen-
       summe exakt). Orakel exakt (112/88 mm³, Helper-Ausschluss, Vertex-
@@ -625,3 +625,78 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       export model-only shells from foreign g-code files`. Weiter offen:
       volle Spanne + Loft, Löcher-Inferenz, Kiri-Objektmarker, Breiten-
       schalenmodell, Slicer-Reimport.
+
+## J. Vorgemerkte Aufgaben und Nutzer-Entscheidungen (Sitzung nach `bdb8b03`)
+
+- [ ] **J1 — STL-§24-Fertigstellung ZURÜCKGESTELLT (Nutzer-Entscheidung).**
+      Feldbefund des Nutzers an den Fenster-Exporten (z∈[0,4] mm): vwbus
+      zeigt nur das Heckstück (Fahrzeug steht ~30–45° geneigt mit der Heck-
+      stoßstange auf dem Bett), MAN nur den Anfang der Frontstoßstange
+      (Stoßstange auf der Druckplatte) — beides ist die korrekte Fenster-
+      Erklärung, kein Exportfehler, aber kein brauchbares Gesamtergebnis.
+      Pumpkin wird vom Nutzer als unbefriedigend beschrieben: zu wenige,
+      zu hohe Ringe, „platt gedrückt“, Brim-/Überhang-Verdacht, große
+      flache 90°-Fläche in Brim-Größe. Diagnose-Kandidaten bei Wieder-
+      aufnahme (ungeprüft): (a) interne Übergangskappen — 21 Schalen über
+      18 Level mit unterschiedlichen Outlines erzeugen viele große hori-
+      zontale Kapp-Ebenen (dokumentierte Grenze), (b) 50 Wand-Loops
+      > 256 Vertices wurden gezählt und NICHT exportiert → feine Umrisse
+      fehlen, (c) reine Fenster-Ansicht (4 mm eines hohen Körpers),
+      (d) Brim-Verdacht ist unwahrscheinlich (skirt/brim-Hints sind
+      gefiltert und 15 Brim-Pfade klassifiziert) — gegenprüfen.
+      NEUE Nutzer-Richtung für die Rekonstruktion: statt Layer-/Prismen-
+      Extraktion über **weniger Punkte eine 3D-Punktfolke** erzeugen und
+      damit eine **Haut spannen** (Surface Reconstruction), um auch
+      organische Formen zu erhalten. Als verbindliche Forschungsrichtung
+      für §24 notiert. Bleibt zusätzlich offen: volle z-Spanne (Dreiecks-
+      budget), Loft zwischen Outlines, Loch-Inferenz, Kiri-`; start object
+      id:`-Marker, Breiten-Schalenmodell, Slicer-Reimport; aktiver
+      Exporter (Box-Soup) unverändert defekt.
+- [ ] **J2 — Gießformen-Pre-Print-Tool (NEU, vom Nutzer in Aussicht gestellt).**
+      Ein weiteres Pre-Print-Werkzeug zum Erzeugen von Gießformen. Nur
+      vorgemerkt — Konzept und Details werden vom Nutzer zugewiesen;
+      keine Umsetzung davor.
+- [ ] **J3 — UI-/Display-Gesamtkonzept klären (Gesamtbriefing §10).**
+      Ist-Stand (gebaut, zwei Feldrunden überlebt): LCD-Kern + Web-LCD-
+      Brücke R196–R217 — `tools/menu_json_export.py` → `web/r2_menu.py`
+      (Moonraker-Extension, Endpoints tree/status/live/pistats) →
+      `web/index.html` (LCD-artige Navigation, eigener Jinja-Evaluator);
+      Installation über `web/install_web.sh` als separater nginx-Port
+      (Mainsail-Konfiguration unberührt), Origin/CSRF-Fix R206.
+      MCU-/Host-Schonung aus der Performance-Recherche ist eingebaut:
+      Live-Poll fragt nur die ~12 referenzierten Objekte ab statt ~300
+      Makros (R204), pistats liest /proc statt klippy zu belasten (R216).
+      Nutzerfrage iframe-in-Mainsail — Antwort: Mainsail bietet KEINEN
+      iframe-/Custom-Panel-Mechanismus, eine direkte Einbettung in die
+      Mainsail-Oberfläche ist daher nicht möglich. Offene Entscheidung:
+      (a) eigener Port wie heute, (b) Pfad (z. B. `/r2lcd/`) im Mainsail-
+      vhost — gleiche URL, ein Bookmark, (c) beides konfigurierbar.
+      Wartet auf Nutzer-Entscheidung.
+- [ ] **J4 — Audio-Feedback-Konzept (Gesamtbriefing §11; Nutzerideen waren
+      bisher in KEINER Aufgabenliste vermerkt — jetzt nachgetragen).**
+      Ist-Stand: `M300`-Makro mit Guard (`'pwm_cycle_time beeper' in
+      printer`), 19 Tunes (`_SOUND_LIB`), LED/M117/RESPOND-Fallbacks,
+      R95-Regel (keine Beeps während des Drucks), `TOGGLE_SOUNDS`.
+      Nutzerideen (Sitzung nach bdb8b03): (a) Soundausgabe über die
+      3,5-mm-Klinke eines Raspberry Pi 3B+, (b) eigenes Piezo-Element an
+      Pi-GPIO-Pins — beides umgeht die Drucker-MCU komplett (kein
+      M300/SET_PIN-Sturm auf die MCU, kein Beitrag zu „Timer too close“;
+      die Performance-Recherche dokumentiert LED-/Sound-Traffic als
+      historische MCU-Last, und das Shutdown-Register zeigt die Ursache
+      in Host-Schüben). Grenzen: Der eigene Drucker läuft auf Pi Zero 2 W —
+      der hat KEINE Klinke und kein Analog-Audio; Pi-Analog-Audio ist
+      modellabhängig (3B+ ja, Zero 2 W nein). GPIO-Piezo braucht einen
+      Treiber (Lautsprecher nie direkt an GPIO — Briefing §11).
+      Optionsmenü laut Briefing §11: Board-Piezo (heute) / externer
+      Buzzer / Pi-GPIO+Treiber / Pi-Analog-/HDMI-Audio / WebAudio im
+      Browser / stiller Betrieb. Nichts entschieden, nichts umgesetzt.
+- [ ] **J5 — Verstreute vorgemerkte Ideen einsammeln (Inventur-Befund:
+      standen nur in Fachdokumenten, nicht in dieser Liste).**
+      - `docs/frame_design.md`: Dreieck- + Stern-Rahmenformen sowie
+        Linie/Welle/Diamant/Honigwabe als Rahmen-Oberflächenstrukturen —
+        ausdrücklich „later backlog (user decision, NOT dropped)“.
+      - `docs/STRINGART_DESIGN.md`: zweifarbige Stringart (Bänder 1–3
+        Farbe A, 4–6 Farbe B) — zurückgestellt.
+      - `docs/PORTABILITY_SOUND_DISPLAY.md` §2.4 + `WEBUI_MOONRAKER.md`:
+        Browser-Sound-Spiegel (WebAudio mit identischer Tune-Tabelle) —
+        Konzept, ungebaut (Teil von J4).

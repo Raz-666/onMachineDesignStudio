@@ -317,8 +317,15 @@ ALLE Paare (6244/12564/22321) liegen NUR auf dokumentierten Übergangs-
 ebenen — null echte Wanddurchdringungen; audit-Volumen == Konstruktions-
 volumen (float32). Beweis-STLs: analyse/stl-exports/ (+MANIFEST.json).
 8 neue Tests, 172 gesamt lokal bestanden.
-Nächster Schritt: volle z-Spanne/Loft zwischen Outlines, Kiri-Objektmarker,
-Schalenmodell für Breite, Slicer-Reimport; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
+Nächster Schritt (Nutzer-Entscheidung nach `bdb8b03`): STL-§24-Fertigstellung
+ZURÜCKGESTELLT — Feldfeedback: Fenster-Exporte zeigen nur die auf dem Bett
+liegenden Stoßstangen-Anfänge (vwbus Heck / MAN Front, Fahrzeuge ~30–45°
+geneigt), Pumpkin unbefriedigend; neue Rekonstruktionsrichtung „Punktfolke +
+Haut spannen“ statt Layer-Extraktion (MASTER-TODO J1). Vorgemerkt: J2 Gieß-
+formen-Pre-Print-Tool (Zuweisung ausstehend), J3 UI-Konzept (iframe in
+Mainsail nicht möglich; Port-/Pfad-Entscheidung offen), J4 Audio-Konzept
+(Pi-Klinke/GPIO-Piezo vs. Ist-Guard), J5 verstreute Ideen. Entscheidungs-
+anfragen in OFFENE-FRAGEN 15–18.
 Der Loft ist keine allgemeine Spiralrekonstruktion; aktiver Export unverändert.
 
 ## Historie

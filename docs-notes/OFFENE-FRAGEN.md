@@ -28,3 +28,21 @@ Gesammelt aus der Sitzung vom 18.11.2026. Reihenfolge ≈ Auswirkung. Erst wenn 
 ## D. Für den Notfall
 
 - Letzte grüne Stände (18.11.2026, Releases `R2-2026-11-18.1`/`V2` und `R2-2026-11-18.2`/`V3`): review_checks PASS, Makro 2103/2103, megatest 190/190, r91 PASS, r81 23/23 (Stamp-Re-Freeze), r199 ZIP 12/12. Notfall-Rückweg: Revert des Release-PRs; vorheriger Release `R2-2026-11-13.1`/`V1` liegt im Paket unter `backups/r2_postproc_R2-2026-11-13.1_V1.py`.
+
+## E. Neue Anfragen (Sitzung nach `bdb8b03`)
+
+15. **STL-§24-Fertigstellung zurückgestellt** — vom Nutzer bestätigt; neue
+    Rekonstruktionsrichtung „Punktfolke + Haut“ (organische Formen) ist in
+    MASTER-TODO J1 notiert. Wiederaufnahme erst nach ausdrücklichem Go.
+16. **Gießformen-Pre-Print-Tool (J2):** Du hast eine weitere Pre-Print-
+    Aufgabe in Aussicht gestellt. Bitte bei Zuweisung klären: Was genau soll
+    das Werkzeug erzeugen (zweiteilige Gießform? Negativform? aus vorhandenem
+    G-Code oder aus Generatoren-Geometrie? Toleranzen/Ausgieser/Luftkanäle?).
+17. **UI-Einbindung der Web-LCD (J3):** iframe in Mainsail ist nicht möglich
+    (kein Custom-Panel-Mechanismus). Optionen: eigener Port (heute gebaut),
+    Pfad im Mainsail-vhost (gleiche URL) oder beides — welche Variante soll
+    der Standard für fremde Drucker werden?
+18. **Audio-Weg (J4):** MCU-Piezo (heute) / Pi-Klinke (nur Modelle mit
+    Analog-Ausgang, z. B. 3B+) / GPIO-Piezo mit Treiber / WebAudio im
+    Browser / still — was ist der Zielweg für die Standard-Installation auf
+    fremden Klipper-Druckern? (Eigener Drucker: Pi Zero 2 W ohne Klinke.)
