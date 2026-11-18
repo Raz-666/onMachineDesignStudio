@@ -235,7 +235,16 @@ Erste echte Rose-Wandfläche: Fenster Zeilen 13350–15390, 5 Pfade (1 Brücke
 offene Wand (384 Dreiecke, 128 offene Randkanten, keine nichtmannigfaltigen
 Kanten). Punktbudget spiral_rings auf 8192 (linearer Scan) angehoben.
 3 neue Tests, 114 gesamt lokal bestanden. Kein Deckel/Breite/Festkörper.
-Nächster Schritt: ganze Wandläufe, Outline-Übergänge; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
+Breite an Ringen: `vertex_normal_offset` (1:1-Ecknormal-Verschiebung, exakt
+auf Kreisen, Eckabweichung begrenzt dokumentiert) und `wall_surfaces.py`
+(Außen-/Innenfläche mit expliziter Breite; Fläche nur, wenn JEDE Ring die
+Breite topologieerhaltend annimmt). Rose-Messung: bis 0,24 mm bestehen alle
+4 Ringe beidseitig, ab 0,3 mm kippen Blütenkerben (0,4: außen 1/4, innen 0/4)
+— die Stadion-Schätzung 0,32–0,91 mm LIEGT darüber: physikalische Breite ist
+mit strenger Topologie hier NICHT anwendbar; 0,24 ist ausdrückliche Unter-
+Breiten-Annahme, kein Messwert. Erste Außenfläche der Rose: 384 Dreiecke,
+128 offene Randkanten, sauber. 5 neue Tests, 119 gesamt lokal bestanden.
+Nächster Schritt: ganze Wandläufe, Deckel; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
 Der Loft ist keine allgemeine Spiralrekonstruktion; aktiver Export unverändert.
 
 ## Historie

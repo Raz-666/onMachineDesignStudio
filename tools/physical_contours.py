@@ -100,3 +100,49 @@ def offset_simple_centerline(points, *, width_mm, role, max_miter_ratio=4.0):
     """
     return _offset_centerline(points,width_mm=width_mm,role=role,
                               max_miter_ratio=max_miter_ratio,convex_only=False)
+
+
+def vertex_normal_offset(points, *, width_mm, role):
+    """Offset each vertex along its averaged edge normal by half the width.
+
+    Keeps a strict 1:1 vertex correspondence (no miter spikes, no bevel
+    insertions), so per-vertex heights survive. Exact on circles; corners
+    follow the averaged vertex normal, so corner-adjacent edges shift less
+    than w/2 and the offset point deviates from the exact miter corner by at
+    most the offset distance.
+    Topology must be preserved: simple polygon, unchanged corner orientation
+    and edge directions, or rejection.
+    """
+    if role not in ('outer','hole'):
+        raise ValueError('explicit outer or hole classification required')
+    if not math.isfinite(width_mm) or width_mm <= 0:
+        raise ValueError('positive finite width required')
+    ring=_boundary(points)
+    n=len(ring)
+    distance=width_mm/2*(1 if role=='outer' else -1)
+    normals=[]
+    for a,b in zip(ring,ring[1:]+ring[:1]):
+        dx,dy=b[0]-a[0],b[1]-a[1]
+        length=math.hypot(dx,dy)
+        normals.append((dy/length,-dx/length))
+    shifted=[]
+    for i,p in enumerate(ring):
+        nx=normals[i-1][0]+normals[i][0]
+        ny=normals[i-1][1]+normals[i][1]
+        length=math.hypot(nx,ny)
+        if length <= 1e-12:
+            raise ValueError('unstable offset corner')
+        shifted.append((p[0]+distance*nx/length,p[1]+distance*ny/length))
+    _boundary(shifted)
+    for i in range(n):
+        if _cross(ring[i-1],ring[i],ring[(i+1)%n])*_cross(shifted[i-1],shifted[i],shifted[(i+1)%n]) <= 0:
+            raise ValueError('offset changes corner orientation')
+        dx,dy=ring[(i+1)%n][0]-ring[i][0],ring[(i+1)%n][1]-ring[i][1]
+        ex,ey=shifted[(i+1)%n][0]-shifted[i][0],shifted[(i+1)%n][1]-shifted[i][1]
+        if dx*ex+dy*ey <= 0:
+            raise ValueError('offset collapses or reverses an edge')
+    return dict(points_mm=shifted,width_mm=width_mm,role=role,
+                signed_offset_mm=distance,join='vertex_normal',
+                max_vertex_displacement_mm=abs(distance),
+                deviation_note='exact on circles; corner-adjacent edges shift less than w/2 and corners deviate from the exact miter offset by at most the offset distance',
+                model='constant-width vertex-normal offset',export_ready=False)

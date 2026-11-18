@@ -1,3 +1,49 @@
+# Fortschreibung: explizite Breite an Spiralringen und Rose-Außenfläche
+
+Neu in `physical_contours.py`: `vertex_normal_offset(points, width_mm, role)`.
+Jeder Ringpunkt wird entlang der gemittelten Kantennormalen um w/2 verschoben
+(außen +, Loch −). Strikte 1:1-Korrespondenz (keine Gehrungsspitzen, keine
+Bevel-Einfügungen), damit die Pro-Umdrehungs-Höhen je Punkt erhalten bleiben.
+Exakt auf Kreisen; an Ecken folgen die Punkte der Ecknormalen — dadurch
+verschieben sich ecknahe Kanten um weniger als w/2 und Ecken weichen von der
+exakten Gehrungs-Abstandsfläche um höchstens die Verschiebung ab (dokumentiert
+im Ergebnis). Topologie muss erhalten bleiben: einfaches Polygon, gleiche
+Eckorientierung, keine Kantenumkehr — sonst Ablehnung.
+
+`wall_surfaces.py`: `offset_wall_rings` versetzt alle Ringe eines Spannabschnitts
+und protokolliert Ablehnungen je Ring; `wall_surface(rings, width_mm, side)`
+baut die Außen- oder Innenfläche über `ring_wall_mesh` NUR, wenn jeder Ring die
+Breite annimmt (ganz oder gar nicht). Annahmen dokumentiert: konstante Breite,
+vertikale Materialflanken (Spiralneigung nicht korrigiert), Breite selbst ist
+unverifizierte Aufruferangabe.
+
+Messung am echten Rose-Fenster (4 Ringe, 64 Proben): Bis 0,24 mm bestehen
+ALLE Ringe beidseitig (außen und innen) die Topologieprüfung. Bei 0,3 mm
+kippen die ersten Blütenkerben (außen 2/4, innen 2/4), bei 0,4 mm außen 1/4,
+innen 0/4 — die Blütenkerben sind schmaler als typische Linienbreiten.
+Wichtigste Einordnung: Die frühere Stadion-Breitenschätzung unter Annahme
+h=0,2 lag bei 0,32–0,91 mm und LIEGT ÜBER der Topologieschwelle. Eine
+physikalisch plausible Breite ist mit strenger Topologieerhaltung an dieser
+Geometrie NICHT anwendbar; die 0,24-mm-Fläche ist eine ausdrückliche
+Unter-Breiten-Annahme, kein Messwert und keine Exportabnahme.
+
+Erste Außenfläche der Rose (Fenster Zeilen 13350–15390, Pitch 0,2, 64 Proben,
+w=0,24): 384 Dreiecke, genau 128 offene Randkanten (2·64), keine
+nichtmannigfaltigen Kanten/Duplikate/Normalenfehler, eine Komponente —
+offene Mittellinien+Breiten-Fläche ohne Deckel, ohne Festkörper, ohne
+Selbstschnittnachweis, ohne unabhängige Pitch-/Breitenverifikation.
+
+5 neue Tests: Kreisexaktheit inkl. Höhenerhalt, Quadrat-Eckabweichung mit
+dokumentierter Abweichung, doppelte Rückkehr/spitze Ecke/Breiten-/Rollen-
+Ablehnungen, versetzter Zylinderwandtest, Rose-Schwellenregression mit exakten
+Ablehnungszahlen. Zusammen 119 Tests lokal bestanden; CI ergänzt.
+Zusätzlich vermerkt: Der lokale .git-Zustand war zu Beginn dieses Schritts auf
+den Basisstand zurückgefallen; alle Commits waren auf dem Remote erhalten und
+wurden per fetch+reset wiederhergestellt; Quellen-SHA256 unverändert.
+Aktiver Export unverändert; kein Release.
+
+---
+
 # Fortschreibung: Pfadfortsetzung und erste echte Rose-Wandfläche
 
 Messung an der echten Rose-Datei (Passivmodus): Aufeinanderfolgende

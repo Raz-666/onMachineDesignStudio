@@ -537,3 +537,16 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       Commit-Betreff `feat: join continuous vase paths into real rose wall windows`.
       Weiter offen: ganze Wandläufe über Budgetfenster, Deckel/Breite,
       Selbstschnittprüfung, Slicer-Reimport.
+
+- [x] **I1 Breite an Spiralringen:** `vertex_normal_offset` in
+      `physical_contours.py` (1:1, Ecknormal, dokumentierte Abweichung) und
+      `wall_surfaces.py` (offset_wall_rings/wall_surface, Außen-/Innenseite,
+      gesamte Spanne oder Ablehnung). Rose-Fenster: bis 0,24 mm alle Ringe
+      beidseitig topologyerhaltend; ab 0,3 mm Ablehnungen an Blütenkerben
+      (0,4 mm: außen 1/4, innen 0/4). Außenfläche bei 0,24 mm: 384 Dreiecke,
+      128 offene Randkanten, keine nichtmannigfaltigen Kanten.
+      WICHTIG: Breite bleibt unverifiziert; Stadium-Schätzung 0,32–0,91 mm
+      übersteigt die Topologieschwelle — kein Messwert, keine Abnahme.
+      5 neue Tests, 119 gesamt lokal bestanden. Commit-Betreff
+      `feat: apply explicit bead width to spiral wall rings`.
+      Weiter offen: ganze Wandläufe, Deckel/Festkörper, Selbstschnittprüfung.
