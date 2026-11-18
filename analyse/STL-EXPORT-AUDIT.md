@@ -1,3 +1,36 @@
+# Fortschreibung: dateilokale Objekt- und Feature-Provenienz
+
+`tools/contour_context.py` verfolgt explizite EXCLUDE_OBJECT_START/END-Marker.
+Pfad-/Nahtberichte enthalten Objektname, START-Zeile und `verified_geometry=false`.
+Keine global erfundenen IDs; die Slicer-Namen gelten nur innerhalb der Quelldatei.
+DEFINE-Polygone werden nicht als Modellgeometrie verwendet. Überlappende Starts,
+abweichende Endnamen, kaputte Parameter und unbekannte Befehle löschen die
+Zuordnung. Objektwechsel beenden die aktuelle Kette; Feature-Hinweise werden
+zurückgesetzt, damit kein alter Hinweis unbemerkt ins nächste Objekt reicht.
+
+Eine bewusst kleine Liste exakter Feature-Namen unterscheidet Hilfsgeometrie
+(Brim/Skirt/Support/Raft/Tower), unverifizierte Außenwandhinweise und unbekannte
+Rollen. Das ist keine vollständige Slicerfamilien-Erkennung. Alle Vorschläge
+bleiben `export_ready=false`, auch bei Außenwandhinweis. Hilfsgeometrie bleibt
+für Diagnose sichtbar, ist ausdrücklich `helper_hint_excluded` markiert.
+
+Rose: 708 Pfade unverändert; Rollen 22 Hilfs-, 76 Außenwandhinweise, 610
+unklassifiziert. Die frühere Zahl 304 Outer-wall-Hinweise beruhte auf durchgehend
+fortgetragenen Kommentaren; nach konservativem Reset an Objektmarkern wird
+sie NICHT als gesicherte Zahl übernommen. Keine Markerfehler in dieser Datei.
+Längste Bahn gehört laut Marker zu `vaserose_5cm_withbottom.stl_id_0_copy_0`,
+START-Zeile 39267. Die 32 gespeicherten Nahtvorschläge enthalten beide
+Slicer-Objektnamen; insgesamt weiter 55 geometrische Nahtvorschläge.
+
+5 neue Tests: wiederholte Objekte/namenloses END, widersprüchliche Marker,
+unbekannte Befehle, konservative Feature-Rollen, keine Objekt-/Feature-Lecks.
+Rose-Zuordnung regressiv ergänzt. Zusammen mit bisherigen Suiten 62 Tests lokal
+bestanden; CI ergänzt. Weiter offen: geometrische Plausibilisierung, physische
+Linienbreite, allgemeine Slicerfamilien-/Objekthierarchie und Spiralrekonstruktion.
+Aktiver Exporter unverändert, keine STL- oder Hardware-Abnahme.
+
+---
+
 # Fortschreibung: explizit begrenzte planare Nahtvorschläge
 
 `tools/seam_reconstruction.py::close_planar_seam` ergänzt ausschließlich eine

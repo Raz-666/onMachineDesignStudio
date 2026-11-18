@@ -434,3 +434,10 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       41 bestehende plus 10 RE-Tests bestanden. Rose bei 0,1 mm: 55
       Vorschläge inklusive Brim, höchstens 32 gespeichert; kein STL.
       Commit-Betreff `feat: propose planar seam closure within explicit distance budgets`.
+
+- [x] **I1 Marker-Provenienz:** `contour_context.py`, dateilokale
+      EXCLUDE_OBJECT_START/END-Zuordnung inklusive Quellenzeile. Fehler/
+      unbekannte Befehle löschen Zugehörigkeit; Features nicht über Objektgrenzen
+      übernehmen. Hilfsgeometrie-Hinweise ausdrücklich ausgeschlossen,
+      Außenwandhinweise bleiben unverifiziert. 5 neue Tests + 57 bestehende
+      lokal bestanden. Commit-Betreff `feat: retain conservative object and feature provenance for contour proposals`.

@@ -112,6 +112,10 @@ class IntegrationTests(unittest.TestCase):
         self.assertEqual(evidence['longest_path']['source_lines'],[39269,39869])
         self.assertAlmostEqual(evidence['longest_path']['z_span_mm'],.2)
         self.assertFalse(evidence['longest_path']['closed_3d_exact'])
+        self.assertEqual(evidence['object_diagnostics'],{})
+        self.assertEqual(evidence['longest_path']['object_context']['name'],
+                         'vaserose_5cm_withbottom.stl_id_0_copy_0')
+        self.assertEqual(evidence['paths_by_role']['helper_hint_excluded'],22)
         self.assertGreater(result['diagnostics']['nonplanar_extrusion'],0)
         self.assertFalse(result['export_ready'])
 

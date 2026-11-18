@@ -173,7 +173,12 @@ Opt-in `--seam-gap-mm` erzeugt jetzt explizite planare Nahtvorschläge:
 Schlusskante mit gemessener Länge. Keine Z-Projektion; kein STL.
 Rose bei 0,1 mm: 55 Vorschläge, maximal 32 gespeichert; darunter Brim!
 Diese Zahl ist KEINE Modell-/Exportabnahme. 6 neue Tests bestanden.
-Nächster Schritt: Feature-/Objektzuordnung und physische Linienbreite vor
+Marker-Provenienz ergänzt (`contour_context.py`): dateilokaler Objektname
+und START-Zeile an Pfaden/Nahtvorschlägen; ungültige Marker löschen Zugehörigkeit.
+Feature-Rollen bleiben Hinweise: Hilfsgeometrie ausgeschlossen, Außenwand
+unverifiziert. Rose: 22 Hilfs-, 76 Außenwandhinweise, 610 unklassifiziert.
+5 neue Tests + bisherige 57 bestanden. Keine geometrische Objektvalidierung.
+Nächster Schritt: physische Linienbreite und geometrische Plausibilisierung vor
 Mesh-Anbindung; nichtplanare Bahnen brauchen weiterhin eine eigene Strategie.
 Der Loft ist keine allgemeine Spiralrekonstruktion; aktiver Export unverändert.
 

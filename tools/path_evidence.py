@@ -9,6 +9,7 @@ import math
 import re
 from seam_reconstruction import close_planar_seam
 from contour_mesh import MAX_VERTICES
+from contour_context import ObjectContext, feature_role
 
 FEATURE = re.compile(r'^\s*(?:TYPE|FEATURE)\s*:\s*(.*?)\s*$', re.I)
 
@@ -23,6 +24,8 @@ class PathEvidence:
         self.points = []
         self.point_overflow = False
         self.current = None
+        self.objects = ObjectContext()
+        self.by_role = Counter()
         self.feature = None
         self.counts = Counter()
         self.by_feature = Counter()
@@ -44,7 +47,9 @@ class PathEvidence:
                 self.seam_counts['accepted_proposals'] += 1
                 if len(self.seam_examples) < 32:
                     self.seam_examples.append(dict(proposal, source_lines=p['source_lines'][:],
-                                                   feature_hint=p['feature_hint'],tool=p['tool']))
+                                                   feature_hint=p['feature_hint'],tool=p['tool'],
+                                                   object_context=p['object_context'],
+                                                   feature_role=p['feature_role']))
         self.points = []
         self.point_overflow = False
         gap = math.dist(p['start_mm'][:2], p['end_mm'][:2])
@@ -52,6 +57,7 @@ class PathEvidence:
         p['z_span_mm'] = p['z_max_mm']-p['z_min_mm']
         p['termination'] = reason
         p['closed_3d_exact'] = p['start_mm'] == p['end_mm']
+        self.by_role[p['feature_role']] += 1
         self.counts['paths'] += 1
         self.counts['segments'] += p['segments']
         self.counts['nonplanar_paths' if p['z_span_mm'] else 'planar_paths'] += 1
@@ -70,6 +76,12 @@ class PathEvidence:
         self.current = None
 
     def consume(self, record):
+        raw_command = (record.get('raw','').strip().split() or [''])[0].upper()
+        if raw_command in ('EXCLUDE_OBJECT_START','EXCLUDE_OBJECT_END'):
+            self.finish('object_boundary')
+        if self.objects.consume(record):
+            self.feature = None  # no stale feature hint across object boundaries
+            return
         comment = record.get('comment') or ''
         match = FEATURE.match(comment)
         if match and match.group(1) != self.feature:
@@ -101,6 +113,7 @@ class PathEvidence:
         if self.current is None:
             self.current = dict(start_mm=start,end_mm=start,source_lines=[record['line'],record['line']],
                                 tool=record['tool'],feature_hint=self.feature,segments=0,
+                                object_context=self.objects.snapshot(),feature_role=feature_role(self.feature),
                                 z_min_mm=start[2],z_max_mm=start[2],z_up_segments=0,z_down_segments=0,
                                 length_3d_mm=0.0,commanded_filament_mm=0.0)
         if self.seam_gap_mm is not None and not self.point_overflow:
@@ -122,7 +135,8 @@ class PathEvidence:
         p['commanded_filament_mm'] += de
 
     def report(self):
-        return dict(seam_policy=dict(max_gap_mm=self.seam_gap_mm, enabled=self.seam_gap_mm is not None,
+        return dict(object_diagnostics=dict(self.objects.diagnostics), paths_by_role=dict(self.by_role),
+                    seam_policy=dict(max_gap_mm=self.seam_gap_mm, enabled=self.seam_gap_mm is not None,
                                      counts=dict(self.seam_counts), proposals=self.seam_examples,
                                      retained_proposal_limit=32), counts=dict(self.counts), paths_by_feature_hint=dict(self.by_feature),
                     examples=self.examples,longest_path=self.longest,
