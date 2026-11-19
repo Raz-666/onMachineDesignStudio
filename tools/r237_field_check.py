@@ -159,8 +159,12 @@ try:
     check('C3: TEXTURE_APPLY fails early on MAP without any image',
           "pat == 'MAP' and params.MAP is not defined" in _17
           and 'MAP needs an image' in _17, '')
+    # the guard moved into the _copy_picked_image helper (root image is
+    # validated but NOT copied - SameFileError class is dead by design)
     check('C4: watcher never self-copies a root pick (SameFileError guard)',
-          '_isrc174 == _idst174' in _pp and 'already at root' in _pp, '')
+          'def _copy_picked_image' in _pp
+          and 'A root image is validated but not copied' in _pp
+          and '_copy_picked_image(directory, _irel174)' in _pp, '')
     check('C5: scrub + reporting wired through postproc and texture',
           '_m204_r237' in _pp and 'm204_seen' in _pp
           and 'legacy _M204 renamed' in _pp

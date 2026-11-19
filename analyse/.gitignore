@@ -1,5 +1,2 @@
-# Original user-supplied handover files stay local; only their checksums ship.
-/uebergabe-quellen/*
-!/uebergabe-quellen/SHA256SUMS
 # The unmodified upstream GPL parser is a local testing reference, not vendored.
 /klipper-referenz/gcode.py

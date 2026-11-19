@@ -1,0 +1,3 @@
+# Source documents are tracked for agent handoff. Keep generated archives out.
+*.zip
+*.zip.png

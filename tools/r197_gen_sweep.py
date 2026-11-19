@@ -345,14 +345,18 @@ doc = mje.export(os.path.join(REPO, 'menus', 'lcd_menues.cfg'),
 # R253 (.142i): the expectation was 2423 and had been stale since R250
 # (.142f) rebuilt the Live menu - the sweep failed 5 checks on every release
 # since, which nobody noticed because only the two named tests were read.
-# The truth now, verified against the file itself: 2296 [menu ...] sections.
+# The truth now, verified against the file itself - DYNAMIC since R267:
+# the section count follows lcd_menues.cfg (2322 with the stencil menu),
+# never a frozen number (2296 rotted twice already).
 # History: R249 2441 -> R250 removed 261 old '__live' rows (Live > Features
 # deleted, the four quick lists up front) and added 115 new ones; R251 +23
 # (shaper switches); R252/R253 +6 (post-processor switch + diagnostics) and
 # the 'Vorlagen' name lost its count. NOTHING outside __main __live vanished.
-check('T1 export: all 2296 sections in one tree, no orphans',
-      doc['sections'] == 2296 and sum(doc['counts'].values()) == 2296,
-      str(doc['counts']))
+_n_secs = len([l for l in open('menus/lcd_menues.cfg', encoding='utf-8')
+                if l.startswith('[menu ')])
+check('T1 export: all cfg sections in one tree, no orphans',
+      doc['sections'] == _n_secs and sum(doc['counts'].values()) == _n_secs,
+      'cfg=%d doc=%s' % (_n_secs, str(doc['counts'])))
 
 
 def _walk(n, acc):
@@ -364,7 +368,7 @@ def _walk(n, acc):
 
 _all = _walk(doc['tree'], [])
 check('T1 export: tree node count == sections, depth sane, known ids',
-      len(_all) == 2296
+      len(_all) == _n_secs
       and any(n['id'] == '__main __start __direct' for n in _all)
       and any(n['id'] == '__main __live' for n in _all))
 # R253 (.142i): a child section may be written BEFORE its parent (Klipper's
@@ -433,7 +437,7 @@ _emb = json.JSONDecoder().raw_decode(
     _ptxt.split('const EMBEDDED_MENU_JSON = ', 1)[1])[0]
 check('T1 embed: placeholder replaced with valid JSON',
       '/*EMBEDDED_MENU_JSON*/ null' not in _ptxt
-      and _emb['sections'] == 2296)
+      and _emb['sections'] == _n_secs)
 
 # T2: the moonraker extension with a fake app
 spec = importlib.util.spec_from_file_location(
@@ -552,7 +556,7 @@ check('T2 extension: export tool derived from the menu path',
       'path -> tool derivation failed')
 tree_doc = loop.run_until_complete(eps['/server/r2_menu/tree'](FakeReq()))
 check('T2 extension: tree handler serves the export',
-      tree_doc['sections'] == 2296 and 'tree' in tree_doc)
+      tree_doc['sections'] == _n_secs and 'tree' in tree_doc)
 st = loop.run_until_complete(eps['/server/r2_menu/status'](FakeReq()))
 check('T2 extension: status handler reports ok + sha',
       st['ok'] and st['sha256'] == tree_doc['sha256'])
@@ -1403,7 +1407,8 @@ check('R223a decode caps: max_dim on both decoders + _img_luma, image '
       and 'def _png_to_rgb(data, max_dim=0)' in _src
       and 'def _img_luma(data, kind, max_dim=0)' in _src
       and '_img_luma(data, kind, max_dim=288)' in _src
-      and _src.count('_img_luma(data, kind, max_dim=768)') == 3)
+      # 4 image generators cap at 768: litho x2, colorpic, stencil (R267)
+      and _src.count('_img_luma(data, kind, max_dim=768)') == 4)
 check('R223b JPEG planes are array-backed (8x less RAM per coefficient)',
       "[array('i', [0] * 64)" in _src and '= array(\'i\', blk)' in _src)
 check('R223c worker: per-job thread + 20min stuck watchdog + repeating '
@@ -1411,7 +1416,8 @@ check('R223c worker: per-job thread + 20min stuck watchdog + repeating '
       '64MB since R234 - measured .136ac peak ~37MB, rest 60)',
       'JOB_STUCK_S = 1200' in _src and 'th.join(JOB_STUCK_S)' in _src
       and 'STUCK after' in _src and 'ram_min=110' in _src
-      and _src.count('ram_min=110') == 2 and 'ram_min=64)' in _src)
+      # 3 image-class jobs at the 110MB floor: litho, colorpic, stencil
+      and _src.count('ram_min=110') == 3 and 'ram_min=64)' in _src)
 check('R223d queue clear channel: gen_clear_nonce in NONCE_KEYS + primed '
       'at boot + handled in the loop; a stale gen_busy is dropped at boot '
       '(a died job must not block print starts forever)',

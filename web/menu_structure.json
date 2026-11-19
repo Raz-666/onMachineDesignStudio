@@ -1,14 +1,14 @@
 {
  "generator": "menu_json_export.py (.136j R211)",
  "source": "lcd_menues.cfg",
- "sections": 2296,
+ "sections": 2322,
  "counts": {
-  "list": 310,
-  "command": 1401,
+  "list": 314,
+  "command": 1420,
   "vsdlist": 1,
-  "input": 584
+  "input": 587
  },
- "sha256": "7658ba9580fe8671",
+ "sha256": "848442bebcc020de",
  "live_objects": [
   "bed_mesh",
   "configfile",
@@ -4645,10 +4645,7 @@
             "type": "command",
             "name": "Page <",
             "gcode": [
-             "{% set sv = printer['save_variables'].variables %}",
-             "{% set pg = sv.texture_pat_page|default(0)|int - 1 %}",
-             "SAVE_VARIABLE VARIABLE=texture_pat_page VALUE={[pg, 0]|max}",
-             "RESPOND MSG=\"Pattern page {[pg, 0]|max + 1} of 4 - 27 patterns total\""
+             "{% set sv = printer['save_variables'].variables %}"
             ],
             "children": []
            },
@@ -4657,10 +4654,7 @@
             "type": "command",
             "name": "Page >",
             "gcode": [
-             "{% set sv = printer['save_variables'].variables %}",
-             "{% set pg = [sv.texture_pat_page|default(0)|int + 1, 3]|min %}",
-             "SAVE_VARIABLE VARIABLE=texture_pat_page VALUE={pg}",
-             "RESPOND MSG=\"Pattern page {pg + 1} of 4 - 27 patterns total\""
+             "{% set sv = printer['save_variables'].variables %}"
             ],
             "children": []
            },
@@ -4775,7 +4769,7 @@
           "enable": "{printer['save_variables'].variables.texture_mode|default('')|string == 'BUMPS'}",
           "input": "{printer['save_variables'].variables.texture_amp|default(0.35)}",
           "input_min": "0.05",
-          "input_max": "1.0",
+          "input_max": "4.0",
           "input_step": "0.05",
           "gcode": [
            "SAVE_VARIABLE VARIABLE=texture_amp VALUE={menu.input|float|round(2)}",
@@ -5601,6 +5595,56 @@
           "gcode": [
            "{% if printer['gcode_macro _STATE'].gen_arm|default('') == 'mirror' %}{menu.exit()}{% endif %}",
            "MIRROR_APPLY CONFIRM=1"
+          ],
+          "children": []
+         }
+        ]
+       },
+       {
+        "id": "__main __preprint __mods __toolchain",
+        "type": "list",
+        "name": "Toolchain",
+        "children": [
+         {
+          "id": "__main __preprint __mods __toolchain __preset",
+          "type": "command",
+          "name": "Preset: {printer['save_variables'].variables.toolchain_preset|default('')|string|truncate(11, True, '')}",
+          "gcode": [
+           "{% set sv = printer['save_variables'].variables %}",
+           "{% if sv.toolchain_preset|default('')|string != '' %}",
+           "RESPOND MSG=\"Toolchain preset: {sv.toolchain_preset} - Apply runs it on the selected file\"",
+           "{% else %}",
+           "RESPOND MSG=\"Toolchain needs a preset FILE: click a .json in the SD browser (examples live in the Toolchain folder), no typing here\"",
+           "{% endif %}"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __preprint __mods __toolchain __src",
+          "type": "command",
+          "name": "File: {printer['gcode_macro _PREVIEW'].name|default('')|string|truncate(13, True, '')}",
+          "gcode": [
+           "RESPOND MSG=\"Toolchain runs on {printer['gcode_macro _PREVIEW'].name|default('(none)')|string} - pick the input in the file list first (Pre-Print > File)\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __preprint __mods __toolchain __how",
+          "type": "command",
+          "name": "How? (chain)",
+          "gcode": [
+           "RESPOND MSG=\"A preset chains the tools: every step feeds the next (Scale -> Twist -> ...). One background job, only the LAST output stays - it lands in the Toolchain folder\"",
+           "RESPOND MSG=\"Preset = a .json file in the gcodes folder (make one on the PC, drop it in via Mainsail): click it in the SD browser to pick it. The example ships in the Toolchain folder\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __preprint __mods __toolchain __go",
+          "type": "command",
+          "name": "{('> AGAIN = start' if printer['gcode_macro _STATE'].gen_arm|default('') == 'toolchain' else '> Apply')}",
+          "gcode": [
+           "{% if printer['gcode_macro _STATE'].gen_arm|default('') == 'toolchain' %}{menu.exit()}{% endif %}",
+           "TOOLCHAIN_APPLY CONFIRM=1"
           ],
           "children": []
          }
@@ -16650,6 +16694,227 @@
       ]
      },
      {
+      "id": "__main __gen __stencil",
+      "type": "list",
+      "name": "Stencil",
+      "enable": "{'gcode_macro _GENERATORS' in printer}",
+      "children": [
+       {
+        "id": "__main __gen __stencil __info",
+        "type": "command",
+        "name": "Info",
+        "gcode": [
+         "STENCIL_INFO"
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __gen __stencil __set",
+        "type": "list",
+        "name": "Settings",
+        "children": [
+         {
+          "id": "__main __gen __stencil __set __stp",
+          "type": "input",
+          "name": "{'Bands: %d' % menu.input}",
+          "input": "{printer['save_variables'].variables.stencil_steps|default(3)}",
+          "input_min": "2",
+          "input_max": "4",
+          "input_step": "1",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=stencil_steps VALUE={menu.input|round|int}",
+           "RESPOND MSG=\"Stencil: {menu.input|round|int} tone band(s) = {menu.input|round|int} plates (2 = light/dark, 3-4 = the profi mode: every band its own plate, sprayed lightest first)\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __stencil __set __sze",
+          "type": "input",
+          "name": "{'Edge: %3dmm' % menu.input}",
+          "input": "{printer['save_variables'].variables.stencil_size|default(100)}",
+          "input_min": "40",
+          "input_max": "220",
+          "input_step": "5",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=stencil_size VALUE={menu.input|round|int}",
+           "RESPOND MSG=\"Stencil: the picture's longer edge = {menu.input|round|int}mm - the other follows the image aspect, frame 8mm and bed clamp on top\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __stencil __set __thk",
+          "type": "input",
+          "name": "{'Thick: %2.1fmm' % menu.input}",
+          "input": "{printer['save_variables'].variables.stencil_thick|default(0.8)}",
+          "input_min": "0.4",
+          "input_max": "2.0",
+          "input_step": "0.2",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=stencil_thick VALUE={menu.input|round(2)}",
+           "RESPOND MSG=\"Stencil: {menu.input|round(2)}mm plate thickness ({(menu.input / 0.2)|round|int} layers at 0.2mm) - thin sprays cleaner edges, thick survives more pins\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __stencil __set __neg",
+          "type": "command",
+          "name": "{'Negativ: ' ~ (printer['save_variables'].variables.stencil_negative|default(False) and 'ON' or 'off')}",
+          "gcode": [
+           "{% set _n = not printer['save_variables'].variables.stencil_negative|default(False) %}",
+           "SAVE_VARIABLE VARIABLE=stencil_negative VALUE={_n}",
+           "RESPOND MSG=\"Stencil negative: { 'ON - one EXTRA plate: the motif stands, the background sprays through (two-color companion)' if _n else 'off - only the tone band plates' }\""
+          ],
+          "children": []
+         }
+        ]
+       },
+       {
+        "id": "__main __gen __stencil __img",
+        "type": "list",
+        "name": "Images (Create)",
+        "children": [
+         {
+          "id": "__main __gen __stencil __img __info",
+          "type": "command",
+          "name": "How it works",
+          "gcode": [
+           "RESPOND MSG=\"How it works: the image becomes 2-4 tone bands (Settings), every band = ONE plate with its cutouts, bridges 3x nozzle keep floating pieces attached, 4 holes D4.2mm at the SAME position in every plate = pin registry | spray lightest band first, darkest last, stack the plates on pins in the SAME corner orientation | the list = the lithophane images (upload .png/.jpg into the gcodes folder)\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __stencil __img __pgp",
+          "type": "command",
+          "name": "{'< page ' ~ (printer['save_variables'].variables.litho_page|default(0)|int) if printer['save_variables'].variables.litho_page|default(0)|int > 0 else '(first page)'}",
+          "gcode": [
+           "_IMG_PAGE DELTA=-1"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __stencil __img __pgn",
+          "type": "command",
+          "name": "{'page ' ~ (printer['save_variables'].variables.litho_page|default(0)|int + 2) ~ ' >>' if printer['save_variables'].variables.litho_page|default(0)|int < ((printer['gcode_macro _SDM'].litho_total|default(0)|int - 1) // 10) else '(last page)'}",
+          "gcode": [
+           "_IMG_PAGE DELTA=1"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __stencil __img __s0",
+          "type": "command",
+          "name": "{('1* ' ~ (printer['gcode_macro _SDM'].litho_files|default([]))[0]|default('(empty)')|string|truncate(12, True)) if printer['gcode_macro _STATE'].gen_arm|default('') == 'stencil0' else ('1 ' ~ (printer['gcode_macro _SDM'].litho_files|default([]))[0]|default('(empty)')|string|truncate(13, True))}",
+          "enable": "{printer['gcode_macro _SDM'].litho_files|default([])|length > 0}",
+          "gcode": [
+           "{% if printer['gcode_macro _STATE'].gen_arm|default('') == 'stencil0' %}{menu.exit()}{% endif %}",
+           "STENCIL_CREATE INDEX=0 CONFIRM=1"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __stencil __img __s1",
+          "type": "command",
+          "name": "{('2* ' ~ (printer['gcode_macro _SDM'].litho_files|default([]))[1]|default('(empty)')|string|truncate(12, True)) if printer['gcode_macro _STATE'].gen_arm|default('') == 'stencil1' else ('2 ' ~ (printer['gcode_macro _SDM'].litho_files|default([]))[1]|default('(empty)')|string|truncate(13, True))}",
+          "enable": "{printer['gcode_macro _SDM'].litho_files|default([])|length > 1}",
+          "gcode": [
+           "{% if printer['gcode_macro _STATE'].gen_arm|default('') == 'stencil1' %}{menu.exit()}{% endif %}",
+           "STENCIL_CREATE INDEX=1 CONFIRM=1"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __stencil __img __s2",
+          "type": "command",
+          "name": "{('3* ' ~ (printer['gcode_macro _SDM'].litho_files|default([]))[2]|default('(empty)')|string|truncate(12, True)) if printer['gcode_macro _STATE'].gen_arm|default('') == 'stencil2' else ('3 ' ~ (printer['gcode_macro _SDM'].litho_files|default([]))[2]|default('(empty)')|string|truncate(13, True))}",
+          "enable": "{printer['gcode_macro _SDM'].litho_files|default([])|length > 2}",
+          "gcode": [
+           "{% if printer['gcode_macro _STATE'].gen_arm|default('') == 'stencil2' %}{menu.exit()}{% endif %}",
+           "STENCIL_CREATE INDEX=2 CONFIRM=1"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __stencil __img __s3",
+          "type": "command",
+          "name": "{('4* ' ~ (printer['gcode_macro _SDM'].litho_files|default([]))[3]|default('(empty)')|string|truncate(12, True)) if printer['gcode_macro _STATE'].gen_arm|default('') == 'stencil3' else ('4 ' ~ (printer['gcode_macro _SDM'].litho_files|default([]))[3]|default('(empty)')|string|truncate(13, True))}",
+          "enable": "{printer['gcode_macro _SDM'].litho_files|default([])|length > 3}",
+          "gcode": [
+           "{% if printer['gcode_macro _STATE'].gen_arm|default('') == 'stencil3' %}{menu.exit()}{% endif %}",
+           "STENCIL_CREATE INDEX=3 CONFIRM=1"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __stencil __img __s4",
+          "type": "command",
+          "name": "{('5* ' ~ (printer['gcode_macro _SDM'].litho_files|default([]))[4]|default('(empty)')|string|truncate(12, True)) if printer['gcode_macro _STATE'].gen_arm|default('') == 'stencil4' else ('5 ' ~ (printer['gcode_macro _SDM'].litho_files|default([]))[4]|default('(empty)')|string|truncate(13, True))}",
+          "enable": "{printer['gcode_macro _SDM'].litho_files|default([])|length > 4}",
+          "gcode": [
+           "{% if printer['gcode_macro _STATE'].gen_arm|default('') == 'stencil4' %}{menu.exit()}{% endif %}",
+           "STENCIL_CREATE INDEX=4 CONFIRM=1"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __stencil __img __s5",
+          "type": "command",
+          "name": "{('6* ' ~ (printer['gcode_macro _SDM'].litho_files|default([]))[5]|default('(empty)')|string|truncate(12, True)) if printer['gcode_macro _STATE'].gen_arm|default('') == 'stencil5' else ('6 ' ~ (printer['gcode_macro _SDM'].litho_files|default([]))[5]|default('(empty)')|string|truncate(13, True))}",
+          "enable": "{printer['gcode_macro _SDM'].litho_files|default([])|length > 5}",
+          "gcode": [
+           "{% if printer['gcode_macro _STATE'].gen_arm|default('') == 'stencil5' %}{menu.exit()}{% endif %}",
+           "STENCIL_CREATE INDEX=5 CONFIRM=1"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __stencil __img __s6",
+          "type": "command",
+          "name": "{('7* ' ~ (printer['gcode_macro _SDM'].litho_files|default([]))[6]|default('(empty)')|string|truncate(12, True)) if printer['gcode_macro _STATE'].gen_arm|default('') == 'stencil6' else ('7 ' ~ (printer['gcode_macro _SDM'].litho_files|default([]))[6]|default('(empty)')|string|truncate(13, True))}",
+          "enable": "{printer['gcode_macro _SDM'].litho_files|default([])|length > 6}",
+          "gcode": [
+           "{% if printer['gcode_macro _STATE'].gen_arm|default('') == 'stencil6' %}{menu.exit()}{% endif %}",
+           "STENCIL_CREATE INDEX=6 CONFIRM=1"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __stencil __img __s7",
+          "type": "command",
+          "name": "{('8* ' ~ (printer['gcode_macro _SDM'].litho_files|default([]))[7]|default('(empty)')|string|truncate(12, True)) if printer['gcode_macro _STATE'].gen_arm|default('') == 'stencil7' else ('8 ' ~ (printer['gcode_macro _SDM'].litho_files|default([]))[7]|default('(empty)')|string|truncate(13, True))}",
+          "enable": "{printer['gcode_macro _SDM'].litho_files|default([])|length > 7}",
+          "gcode": [
+           "{% if printer['gcode_macro _STATE'].gen_arm|default('') == 'stencil7' %}{menu.exit()}{% endif %}",
+           "STENCIL_CREATE INDEX=7 CONFIRM=1"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __stencil __img __s8",
+          "type": "command",
+          "name": "{('9* ' ~ (printer['gcode_macro _SDM'].litho_files|default([]))[8]|default('(empty)')|string|truncate(12, True)) if printer['gcode_macro _STATE'].gen_arm|default('') == 'stencil8' else ('9 ' ~ (printer['gcode_macro _SDM'].litho_files|default([]))[8]|default('(empty)')|string|truncate(13, True))}",
+          "enable": "{printer['gcode_macro _SDM'].litho_files|default([])|length > 8}",
+          "gcode": [
+           "{% if printer['gcode_macro _STATE'].gen_arm|default('') == 'stencil8' %}{menu.exit()}{% endif %}",
+           "STENCIL_CREATE INDEX=8 CONFIRM=1"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __stencil __img __s9",
+          "type": "command",
+          "name": "{('10* ' ~ (printer['gcode_macro _SDM'].litho_files|default([]))[9]|default('(empty)')|string|truncate(12, True)) if printer['gcode_macro _STATE'].gen_arm|default('') == 'stencil9' else ('10 ' ~ (printer['gcode_macro _SDM'].litho_files|default([]))[9]|default('(empty)')|string|truncate(13, True))}",
+          "enable": "{printer['gcode_macro _SDM'].litho_files|default([])|length > 9}",
+          "gcode": [
+           "{% if printer['gcode_macro _STATE'].gen_arm|default('') == 'stencil9' %}{menu.exit()}{% endif %}",
+           "STENCIL_CREATE INDEX=9 CONFIRM=1"
+          ],
+          "children": []
+         }
+        ]
+       }
+      ]
+     },
+     {
       "id": "__main __gen __seal",
       "type": "list",
       "name": "Gaskets",
@@ -22360,6 +22625,83 @@
         "children": []
        },
        {
+        "id": "__main __maint __vib __cx",
+        "type": "command",
+        "name": "Calibrate X",
+        "gcode": [
+         "CALIBRATE_SHAPER AXIS=X"
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __maint __vib __cy",
+        "type": "command",
+        "name": "Calibrate Y",
+        "gcode": [
+         "CALIBRATE_SHAPER AXIS=Y"
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __maint __vib __cxy",
+        "type": "command",
+        "name": "Calibrate X + Y",
+        "gcode": [
+         "CALIBRATE_SHAPER AXIS=BOTH"
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __maint __vib __fs",
+        "type": "input",
+        "name": "Freq from: {'%3d' % menu.input}Hz",
+        "input": "{printer['save_variables'].variables.ishaper_freq_start|default(0)}",
+        "input_min": "0",
+        "input_max": "60",
+        "input_step": "5",
+        "gcode": [
+         "SAVE_VARIABLE VARIABLE=ishaper_freq_start VALUE={menu.input|round|int}"
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __maint __vib __fe",
+        "type": "input",
+        "name": "Freq to: {'%3d' % menu.input}Hz",
+        "input": "{printer['save_variables'].variables.ishaper_freq_end|default(0)}",
+        "input_min": "0",
+        "input_max": "200",
+        "input_step": "5",
+        "gcode": [
+         "SAVE_VARIABLE VARIABLE=ishaper_freq_end VALUE={menu.input|round|int}"
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __maint __vib __sm",
+        "type": "input",
+        "name": "Max smooth: {'%.2f'|format(menu.input)}",
+        "input": "{printer['save_variables'].variables.ishaper_max_smoothing|default(0)}",
+        "input_min": "0",
+        "input_max": "0.5",
+        "input_step": "0.05",
+        "gcode": [
+         "SAVE_VARIABLE VARIABLE=ishaper_max_smoothing VALUE={menu.input|round(2)}"
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __maint __vib __as",
+        "type": "command",
+        "name": "Auto save: {('ON' if printer['save_variables'].variables.ishaper_auto_save|default(True) else 'OFF')}",
+        "gcode": [
+         "{% set on = not printer['save_variables'].variables.ishaper_auto_save|default(True) %}",
+         "SAVE_VARIABLE VARIABLE=ishaper_auto_save VALUE={on}",
+         "M117 Shaper auto save: {'ON' if on else 'OFF'}"
+        ],
+        "children": []
+       },
+       {
         "id": "__main __maint __vib __man",
         "type": "list",
         "name": "Manual",
@@ -22560,83 +22902,6 @@
           ]
          }
         ]
-       },
-       {
-        "id": "__main __maint __vib __cx",
-        "type": "command",
-        "name": "Calibrate X",
-        "gcode": [
-         "CALIBRATE_SHAPER AXIS=X"
-        ],
-        "children": []
-       },
-       {
-        "id": "__main __maint __vib __cy",
-        "type": "command",
-        "name": "Calibrate Y",
-        "gcode": [
-         "CALIBRATE_SHAPER AXIS=Y"
-        ],
-        "children": []
-       },
-       {
-        "id": "__main __maint __vib __cxy",
-        "type": "command",
-        "name": "Calibrate X + Y",
-        "gcode": [
-         "CALIBRATE_SHAPER AXIS=BOTH"
-        ],
-        "children": []
-       },
-       {
-        "id": "__main __maint __vib __fs",
-        "type": "input",
-        "name": "Freq from: {'%3d' % menu.input}Hz",
-        "input": "{printer['save_variables'].variables.ishaper_freq_start|default(0)}",
-        "input_min": "0",
-        "input_max": "60",
-        "input_step": "5",
-        "gcode": [
-         "SAVE_VARIABLE VARIABLE=ishaper_freq_start VALUE={menu.input|round|int}"
-        ],
-        "children": []
-       },
-       {
-        "id": "__main __maint __vib __fe",
-        "type": "input",
-        "name": "Freq to: {'%3d' % menu.input}Hz",
-        "input": "{printer['save_variables'].variables.ishaper_freq_end|default(0)}",
-        "input_min": "0",
-        "input_max": "200",
-        "input_step": "5",
-        "gcode": [
-         "SAVE_VARIABLE VARIABLE=ishaper_freq_end VALUE={menu.input|round|int}"
-        ],
-        "children": []
-       },
-       {
-        "id": "__main __maint __vib __sm",
-        "type": "input",
-        "name": "Max smooth: {'%.2f'|format(menu.input)}",
-        "input": "{printer['save_variables'].variables.ishaper_max_smoothing|default(0)}",
-        "input_min": "0",
-        "input_max": "0.5",
-        "input_step": "0.05",
-        "gcode": [
-         "SAVE_VARIABLE VARIABLE=ishaper_max_smoothing VALUE={menu.input|round(2)}"
-        ],
-        "children": []
-       },
-       {
-        "id": "__main __maint __vib __as",
-        "type": "command",
-        "name": "Auto save: {('ON' if printer['save_variables'].variables.ishaper_auto_save|default(True) else 'OFF')}",
-        "gcode": [
-         "{% set on = not printer['save_variables'].variables.ishaper_auto_save|default(True) %}",
-         "SAVE_VARIABLE VARIABLE=ishaper_auto_save VALUE={on}",
-         "M117 Shaper auto save: {'ON' if on else 'OFF'}"
-        ],
-        "children": []
        },
        {
         "id": "__main __maint __vib __dump",

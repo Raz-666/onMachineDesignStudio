@@ -451,6 +451,18 @@ run('litho FLAT 160mm', lambda: LI(orient='FLAT', height_mm=160.0),
 run('litho FLAT no frame no brim', lambda: LI(orient='FLAT', frame=False,
                                               brim_loops=0), r2_gen=True)
 
+# ======================================================= STENCILS (R267) =
+# J9 spray stencils: one plate per tone band + bridges + registration holes
+def ST(**kw):
+    out, i = pp.make_stencil(img, bed=BED,
+                             out_dir=tempfile.mkdtemp(dir=D), **kw)
+    return [os.path.join(os.path.dirname(out), f) for f in i['files']]
+
+run('stencil 3 bands default', lambda: ST(), r2_gen=True)
+run('stencil 2 bands small', lambda: ST(steps=2, size_mm=60.0), r2_gen=True)
+run('stencil 4 bands thick 1.2mm', lambda: ST(steps=4, thick=1.2), r2_gen=True)
+run('stencil 3 bands + negative', lambda: ST(steps=3, negative=1), r2_gen=True)
+
 # ======================================================= RESONANCE ========
 for ax in ('x', 'y'):
     csv = os.path.join(D, 'resonances_%s_20261008.csv' % ax)
@@ -536,14 +548,35 @@ lbl = pp.make_labels(['TEXTUR'], bed=BED, out_dir=D)[0]
 run('texture FUZZY on label', lambda: tx.apply_texture(
     lbl, mode='FUZZY', fuzzy_thick=0.3, fuzzy_density=55, out_dir=D), skip_idem=True)
 frm = pp.make_frame(preset='9x13', bed=BED, out_dir=D)[0]
-# R175: the seamless pattern library - all 21 patterns, Z-size variants
+# R175/R265: the seamless pattern library - every bump pattern, Z-size
+# variants (R265 adds the stone/tile/parquet/maze six, R265.3 the
+# technical seven: perforation, vent, carbon, pindots, octagons,
+# chainlink, netgrid)
 for pat in ('RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX',
             'HONEYCOMB', 'BASKET', 'ROPE', 'PLANKS', 'BRICKS', 'SANDSTONE',
             'CONCRETE', 'CLAY', 'CREPE', 'FABRIC', 'PLUSH', 'HILBERT',
-            'SCRATCH', 'GLITCH'):
+            'SCRATCH', 'GLITCH', 'STONEWALL', 'RUBBLE', 'TILES', 'PARQUET',
+            'LAMINATE', 'MAZE', 'PERFORATION', 'VENT', 'CARBON', 'PINDOTS',
+            'OCTAGONS', 'CHAINLINK', 'NETGRID',
+            # R266.2 bite 3: organics
+            'RINGS', 'OAK', 'BEECH', 'KNOT', 'OLDBARK', 'LEATHER',
+            'ORANGE', 'CRACKS', 'WRINKLE',
+            # R266.3 bite 4: decor & haptics
+            'HEARTS', 'GOLF', 'BASKETBALL', 'RAUFASER', 'ROOFTILES',
+            'CROCHET'):
     run('texture BUMPS %s on frame' % pat, lambda p=pat: tx.apply_texture(
         frm, mode='BUMPS', bump_pattern=p, bump_scale=6.0, bump_amp=0.5,
         zsize=4.0, seed=11, out_dir=D), skip_idem=True, r2_gen=True)
+# R266: DEEP RELIEF - depth above 1.0mm: E rides the real chord lengths
+# (relative-E sections), steep flanks subdivide, absolute sections stay
+# slicer-true; the purge-line and commented-M83 field bugs are covered
+# by macro_render_test with exact E math
+run('texture BUMPS DEEP BARK 2.0 on frame', lambda: tx.apply_texture(
+    frm, mode='BUMPS', bump_pattern='BARK', bump_scale=6.0, bump_amp=2.0,
+    zsize=4.0, seed=11, out_dir=D), skip_idem=True, r2_gen=True)
+run('texture BUMPS DEEP PINDOTS 1.6 on frame', lambda: tx.apply_texture(
+    frm, mode='BUMPS', bump_pattern='PINDOTS', bump_scale=6.0, bump_amp=1.6,
+    zsize=4.0, seed=11, out_dir=D), skip_idem=True, r2_gen=True)
 # R176: X/Y scaling with per-move flow recalculation
 run('scale 150/150 on label', lambda: pp.apply_scale(
     lbl, sx=1.5, sy=1.5, out_dir=D), skip_idem=True, r2_gen=True)

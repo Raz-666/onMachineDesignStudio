@@ -1,0 +1,9 @@
+{
+  "schema": "r2-toolchain/1",
+  "name": "Scale up + twist",
+  "description": "Beispiel-Kette (R259): 110% X/Y (E je Zug mitgerechnet, auf dem Bett zentriert), danach 45 Grad Verdrillung um Z. Datei in den Gcodes-Ordner legen, im SD-Browser anklicken, dann Apply.",
+  "steps": [
+    { "tool": "scale", "params": { "x": 110, "y": 110 } },
+    { "tool": "twist", "params": { "deg": 45 } }
+  ]
+}

@@ -85,8 +85,13 @@ open(p2, 'w').write('\n'.join([
     'EXCLUDE_OBJECT_START NAME=a',
     'G1 X60 Y40 E1', 'G1 X60 Y60 E2', 'G1 X40 Y60 E3',
     'EXCLUDE_OBJECT_END',
+    # a real slicer TRAVELS (no E) between objects - without this line
+    # the first extruding chord of b starts at a's last point and the
+    # chord-covering attribution (start point counts too, by design)
+    # would rightly stretch b's bbox over the whole file
+    'G0 X140 Y40',
     'EXCLUDE_OBJECT_START NAME=b',
-    'G1 X140 Y40 E4', 'G1 X160 Y40 E5',
+    'G1 X160 Y40 E4',
     'EXCLUDE_OBJECT_END', 'PRINT_END']) + '\n')
 pp._upgrade_center_excludes(p2)
 _t2 = open(p2).read()

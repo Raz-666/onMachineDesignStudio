@@ -502,7 +502,8 @@ ck('queue: GEN_QUEUE_CANCEL macro + watcher dispatch',
    'GEN_QUEUE_CANCEL' in open(os.path.join(
        ROOT, 'macros', '19_bricks.cfg'), encoding='utf-8').read()
    and "rv.get('queue_cancel_nonce'" in src
-   and "_JOB_STATE['queue'][:] = []" in src, '')
+   and 'def _job_drop_pending_locked' in src
+   and 'pending.clear()' in src, '')
 ck('LCD: Cancel job queue entry (Tools root)',
    'Cancel job queue' in open(os.path.join(
        ROOT, 'menus', 'lcd_menues.cfg'), encoding='utf-8').read(), '')

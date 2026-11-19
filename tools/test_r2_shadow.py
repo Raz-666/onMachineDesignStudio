@@ -111,7 +111,7 @@ class ShadowTests(unittest.TestCase):
         self.assertEqual(3, move['commanded_e_delta_mm'])
 
     def test_unknown_macro_tool_and_homing_invalidate(self):
-        for event in ('MY_MACRO', 'G28', 'T1', 'G10', 'G90.1'):
+        for event in ('MY_MACRO', 'T1', 'G10', 'G90.1'):
             with self.subTest(event=event):
                 state = sh.Shadow(assume_klipper_defaults=True)
                 state.process('G1 X10 E2\n', 1)
@@ -121,6 +121,47 @@ class ShadowTests(unittest.TestCase):
                 self.assertIsNone(state.e)
                 self.assertIsNone(state.units_mm)
                 self.assertEqual('unknown', state.process('G1 X20 E3\n', 3)['kind'])
+
+    def test_homing_preserves_modal_state(self):
+        # G28 homes axes (logical coordinates unknown) but never changes
+        # G90/G91/M82/M83, units, feed or the logical E coordinate.
+        state = sh.Shadow(assume_klipper_defaults=True)
+        state.process('M83\n', 1)
+        state.process('G92 E0\n', 2)
+        state.process('G1 X10 Y10 Z5 E2 F1500\n', 3)
+        record = state.process('G28\n', 4)
+        self.assertEqual('home', record['kind'])
+        self.assertEqual(['X', 'Y', 'Z'], record['homed_axes'])
+        for axis in 'XYZ':
+            self.assertIsNone(state.position[axis])
+        self.assertEqual(1.0, state.units_mm)
+        self.assertTrue(state.xyz_absolute)
+        self.assertFalse(state.e_absolute)
+        self.assertEqual(2, state.e)
+        move = state.process('G1 X20 E3\n', 5)
+        self.assertEqual('move', move['kind'])
+        self.assertEqual(20, move['end_mm']['X'])
+        self.assertIsNone(move['start_mm']['Z'])
+        self.assertIsNone(move['end_mm']['Z'])
+
+    def test_homing_axis_selectors_and_marlin_w_flag(self):
+        state = sh.Shadow(assume_klipper_defaults=True)
+        state.process('G1 X10 Y10 Z5\n', 1)
+        self.assertEqual(['X'], state.process('G28 X\n', 2)['homed_axes'])
+        self.assertIsNone(state.position['X'])
+        self.assertEqual(10, state.position['Y'])
+        self.assertEqual(5, state.position['Z'])
+        state.process('G1 X4\n', 3)
+        record = state.process('G28 W  ; home all without mesh bed level\n', 4)
+        self.assertEqual('home', record['kind'])
+        self.assertEqual(['X', 'Y', 'Z'], record['homed_axes'])
+        self.assertEqual('move', state.process('G1 X1 Y2 Z3\n', 5)['kind'])
+        for token in ('G28 Q1', 'G28 X X', 'G28.1'):
+            with self.subTest(token=token):
+                broken = sh.Shadow(assume_klipper_defaults=True)
+                broken.process('G1 X10\n', 1)
+                self.assertEqual('unknown', broken.process(token+'\n', 2)['kind'])
+                self.assertIsNone(broken.units_mm)
 
     def test_syntax_duplicates_nonfinite_and_invalid_feed_invalidate(self):
         for event in ('G1 X1 X2', 'G1 Xnope', 'G1 X1 *123', 'N10 G1 X1',

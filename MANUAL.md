@@ -3,7 +3,7 @@
 **Package:** `klipper-e3-r2d2` · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail) ·
 12864 LCD (16 characters per line)
 
-**Version:** this manual describes the current release, `R2-2026-11-11.142d` — and only it. Every chapter documents what the system
+**Version:** this manual describes the current release, `R2-2026-11-19.1` — and only it. Every chapter documents what the system
 does today; the version changelog lives in README.md.
 
 This is the operating manual for the complete macro system: what the printer can
@@ -29,7 +29,7 @@ reference tables at the end. Installation and wiring live in the appendices.
 2. [The system in five minutes](#2-the-system-in-five-minutes)
 3. [From file to print — the daily workflow](#3-from-file-to-print--the-daily-workflow)
 4. [Scenario library — every file type walked through](#4-scenario-library--every-file-type-walked-through)
-5. [The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes, ColorPic, Gaskets, Frames, Bricks, Kits & Figures, String Art](#5-the-generators-range-labels-plotter-cable-ties-angles-lithophanes-colorpic-gaskets-frames-bricks-kits--figures-string-art)
+5. [The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes (+ Spray stencils), ColorPic, Gaskets, Frames, Bricks, Kits & Figures, String Art](#5-the-generators-range-labels-plotter-cable-ties-angles-lithophanes-spray-stencils-colorpic-gaskets-frames-bricks-kits--figures-string-art)
 6. [During the print: tuning, pauses, objects](#6-during-the-print-tuning-pauses-objects)
 7. [Filament: load / unload / change / runout / cold pull](#7-filament-load--unload--change--runout--cold-pull)
 8. [Temperature system L1/L2](#8-temperature-system-l1l2)
@@ -877,7 +877,7 @@ PAUSE_AT_LAYER LAYER=17
 CANCEL_PRINT                                    # twice within 60 s
 ```
 
-## 5. The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes, ColorPic, Gaskets, Frames, Bricks, Kits & Figures, String Art, Geometry, Scale/Taper, Twist, Mirror, STL export
+## 5. The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes (+ Spray stencils), ColorPic, Gaskets, Frames, Bricks, Kits & Figures, String Art, Geometry, Scale/Taper, Twist, Mirror, STL export, Toolchain (preset chains)
 
 Thirteen generators turn the printer into a manufacturing tool of its own:
 partial prints from any G-code, label plates from typed text, pen plots from
@@ -1561,6 +1561,22 @@ again) removes the picture from the folder. Its **plotter `.gcode` stays** in
 the file list — only the image goes away. Console: `LITHO_CREATE INDEX=0`
 (first image slot) or `LITHO_DEL_SLOT INDEX=2`.
 
+**Spray stencils (R267)** — the same images, cut into tone bands
+(LCD: `Tools > Stencil`, reuses the lithophane image list): the picture is
+quantized into **2–4 tone bands** (`Bands` setting) and EVERY band becomes
+its own flat stencil plate — the cutouts are exactly that tone, so you
+spray **lightest first, darkest last**, stacking the plates on pins.
+Design agreed with the user: bridges are **automatic at 3× nozzle**
+(floating plate pieces — the center of an "O" — stay attached, thin enough
+to hardly show when spraying), every plate is a **rectangle with 4
+registration holes D4.2 mm at the SAME position** (stack on M4 pins,
+same corner orientation), and **Negative ON** adds one extra plate where
+the motif stands and the background sprays through (two-color companion).
+If the image cannot fill the requested band count (flat-color logos),
+the generator honestly makes FEWER, healthy plates and says so. Settings:
+Bands 2–4, Edge 40–220 mm (longer picture edge; aspect follows), Thick
+0.4–2 mm, Negative. Console: `STENCIL_CREATE INDEX=0`.
+
 ### 5.7 Gaskets — the built-in seal maker
 
 Sealing rings straight from the LCD: outer/inner diameter and height, with a
@@ -1696,9 +1712,9 @@ GEN_FRAME PRESET=9x13 FRONT=HEX S_SIZE=9 S_DIR=IN
 ### 5.9 Texture: fuzzy skin & shaped bumps (any g-code file)
 
 **Vorlagen library + full documentation (.136m):** Texture > Vorlagen
-holds **44 ready looks** named after their APPEARANCE — Rattan,
-Sandstein, Seil, Ziegelmauer, Wellblech, Honigwabe … Two or more per
-pattern, every entry carries the complete parameter set. One press loads
+holds **55 ready looks** named after their APPEARANCE — Rattan,
+Sandstein, Seil, Ziegelmauer, Wellblech, Honigwabe … One per pattern
+(55 total), every entry carries the complete parameter set. One press loads
 ALL settings and the answer names them (`Rattan (library) loaded:
 mode=BUMPS, pattern=BASKET, scale=6.0, zsize=6.0, amp=0.30, dir=OUT`) —
 the same rule for every generator with presets: **loading always adapts
@@ -1741,7 +1757,7 @@ twist, 14 mm / depth 0.5), **Basket** (interlaced weave, 10 mm / 0.35) and
 and set the full parameter set, like the library looks.
 The thickness range is 0.05–1.5 mm (Orca-sized).
 - **BUMPS** — the offset follows a **pattern from the library**:
-  **27 patterns on 4 pages — 26 shaped ones plus MAP**, every page also
+  **55 patterns on 7 pages — 54 shaped ones plus MAP**, every page also
   names the active one (a `*` marks it):
 
   | Pattern | What it looks like | Reach for it when |
@@ -1763,7 +1779,7 @@ The thickness range is 0.05–1.5 mm (Orca-sized).
   | Crepe | high-frequency crumple × mid wave | paper, packaging |
   | Fabric | pleats — sharp valleys, wide backs | cloth, curtains |
   | Plush | dense short fine noise | velvet, soft-touch grips |
-  | Hilbert | zig-zag space-filling bands | where a line-based look fits |
+  | Hilbert | REAL order-3 space-filling curve, tiled into a labyrinth | maze look, tech surfaces |
   | Scratch | anisotropic scratches around the circumference | worn metal, used tools |
   | Glitch | seeded per-band steps (the melt / shifted-layer look) | sculptures, artistic |
   | Knit | nested V-loops in staggered columns | knitted sleeves, sweaters |
@@ -1772,6 +1788,34 @@ The thickness range is 0.05–1.5 mm (Orca-sized).
   | Scales | staggered domed shingles | reptile look, grippy |
   | Facets | diamond low-poly relief crosses | modern / futuristic clean |
   | Macrame | two twisted cord families into a net | planters, hanging baskets |
+  | Stonewall | stone courses, mortar beds, staggered joints | garden walls, planters, ruins |
+  | Rubble | voronoi boulders in a deep mortar bed | dry-stone / natural stone look |
+  | Tiles | flat tiles, chamfered edges, recessed grout | kitchens, bathrooms, mosaics |
+  | Parquet | chevron parquet — direction flips per column | wood floors, decor panels |
+  | Laminate | V-bevel planks with fine along-grain | clean wood panels, furniture |
+  | Maze | perfect maze — every corridor reachable | puzzles, artistic grips |
+  | Perforation | round dimples, staggered grid (no through-holes) | perforated sheet, sieve look |
+  | Vent | square recesses, staggered grid | enclosure vents, speaker grilles |
+  | Carbon | 2/2 twill weave, diagonal gloss bands | carbon-fibre look, tech parts |
+  | Pindots | hemisphere knobs in a square matrix | grips, control panels, decor |
+  | Octagons | octagon trays + corner squares, size jitter | model trays, tech surfaces |
+  | Chainlink | woven fence — two 45° wire families, over/under | fence look, props |
+  | Netgrid | round threads + knots, deep open meshes | netting, bags, organics |
+  | Rings | wood cross-cut - growth rings around, wandering widths | turned wood look, decor vases |
+  | Oak | coarse grain - wandering pore streaks over flame waves | oak furniture look, rustic |
+  | Beech | the quiet wood - fine dense vertical fibre, almost poreless | clean wood surfaces |
+  | Knot | burl - fibre deflects around seeded knot eyes | deluxe wood, knife handles |
+  | Oldbark | ancient bark - long plates in DEEP furrows (**depth 2–3.5 mm**) | the old tree trunk (deep relief) |
+  | Leather | padded - diamond-quilted cushions, stitch seams, fine grain | seats, boxes, upscale |
+  | Orange | peel - fine irregular micro dimples (**small depth 0.1–0.25 mm**) | matte grip, organic |
+  | Cracks | dried mud - narrow deep wandering cracks, crowned plates | desert/soil look, artistic |
+  | Wrinkle | heavy folds - big soft drapes with sharp crests | crushed fabric/foil, dramatic |
+  | Hearts | candy-box decor - raised hearts, staggered grid | ornaments, gifts, kitsch |
+  | Golf | golf ball - dense round dimples, no rim | grips, balls, haptics |
+  | Basketball | smooth channels over fine pebble grain | sports look, grips |
+  | Woodchip | Raufaser - flat face, sparse fibre chunks | calm walls, paintable look |
+  | Rooftiles | roof tiles - overlapping courses, side folds run straight through | roofs, facades, decor |
+  | Crochet | knotty stitches with deep eyelets | cozy look, openwork |
   | MAP | your own image wrapped around (dark = deep) | photos, logos, lettering |
 
   **Seamless by design:** your mm
@@ -1783,8 +1827,10 @@ The thickness range is 0.05–1.5 mm (Orca-sized).
   path is the geometry" and says so in the file header.
 
 Everything else stays **byte-identical**: `;TYPE:` tags, EXCLUDE_OBJECT,
-APPLY_TYPE/LAYER_MARK markers, and the E/Z/F of every move the texture does
-not touch — infill, ironing and supports print exactly as sliced. On
+APPLY_TYPE/LAYER_MARK markers, and the Z/F of every move — infill,
+ironing and supports print exactly as sliced. The E of every untouched
+move stays too; in DEEP RELIEF (below) the E of the displaced chords
+rides their real length instead (per-move totals kept). On
 arc-fitted files each flattened chord carries its exact share of the
 arc's E (the total per arc stays — the E is redistributed, not the
 inner geometry). **Inner walls (.136v):** in BUMPS mode they FOLLOW the
@@ -1796,6 +1842,19 @@ contact (the gap stays one line width, measured — even when the slicer
 runs the inner loop the opposite way round; the tool detects the winding
 per layer and realigns). FUZZY stays Orca-honest: only the outer wall
 jitters, exactly like Orca's fuzzy skin.
+
+**DEEP RELIEF (depth above 1 mm, up to 4):** the same patterns, but
+honest about the physics of a deep embossing. A displaced chord has a
+REAL length — stretched flanks would print thin with the slicer's E. On
+relative-E sections (the M83 norm) every chord's E now rides its real
+length (`E_new = E_old × L_new/L_old`, clamped to 0.45–1.8× so a cliff
+cannot over-extrude; the per-move total stays). Steep flanks are
+subdivided to ~0.4 mm height steps so the relief resolves. The wall
+stays closed — the displacement is continuous and inner walls keep
+following. Steep sections print as overhangs, like any stylized model:
+slow outer walls and cooling handle that. On absolute-E files the E stays
+slicer-true and the file header says so. Regression-tested: at depth
+≤ 1 mm the output is byte-identical to the previous engine.
 
 **Workflow (LCD):**
 
@@ -1819,19 +1878,20 @@ In both modes nothing ever starts printing by itself.
 | Fuz thick | 0.05–1.5 mm | scatter radius (fuzzy; the Orca-sized window
   is 0.15–0.5) |
 | Fuz dens | 10–100 % | share of vertices that scatter (100 = all) |
-| Pattern | library: 26 + MAP | 4 pages (see the table above); MAP = own image, wrapped seamlessly |
+| Pattern | library: 54 + MAP | 7 pages (see the table above); MAP = own image, wrapped seamlessly |
 | Around | 3–60 mm | groove size around the perimeter (guideline — snapped to whole grooves) |
 | Height | 0.4–20 mm | pattern repeat in Z (guideline — snapped to whole repeats, ends flush) |
-| Depth | 0.05–1.5 mm | groove/bump depth |
+| Depth | 0.05–4 mm | groove/bump depth — **above 1 mm = DEEP RELIEF** (E follows the real path, see below) |
 | Seed | 1–999 | same seed = same look (Sandstone/Glitch) |
 | Img | root image | MAP source — pick a picture in the SD browser |
 | Dir | OUT / IN | OUT = grows away from the part, IN = cuts into it |
 
 **What the tool will never do:** overwrite the source file · auto-start
 the result · move anything but outer-wall vertices · leave the bed
-(clamping with a counter) · touch E/Z/F values · run without guards (bad
-mode/pattern/direction, missing file, all 99 versions used → clear error,
-nothing half-done).
+(clamping with a counter) · touch Z/F values (deep relief lets the E of a
+displaced chord ride its real length — the per-move total stays) · run
+without guards (bad mode/pattern/direction, missing file, all 99 versions
+used → clear error, nothing half-done).
 
 **Special cases (tested):** a file without outer walls (infill-only
 parts) → zero shifts, no crash · the very first outer vertex of a file and
@@ -2142,6 +2202,35 @@ the rest stays untouched. Output: `name_MIRX.gcode` /
 overwrites. LCD: Pre-Print > Tools > Mirror — axis X/Y, `How? (E
 stays)`, `> Apply` (2×). Console: `MIRROR_APPLY AXIS=Y FILE=myfile.gcode
 OBJ=LEFT`.
+
+### 5.21 Toolchain — chain the tools with a preset file (R259)
+
+Chains the **real tools**: every step feeds the next (Scale → Twist →
+…), **one** background job, only the **last** output stays (intermediate
+steps die after handover). The preset is a **file** — click a `.json`
+in the SD browser to pick it, no JSON typing at the dial. An example
+ships in the `Toolchain/` folder (`Scale up + twist`); make your own on
+the PC and drop it in via Mainsail — any subfolder works. Preset files
+survive umlauts in their *name* (display only); generated *file* names
+transliterate (ä→ae, ö→oe, ü→ue, ß→ss — `Groesser_Rahmen` reads on
+every LCD).
+
+The chain runs on the **selected file** (root folder or any subfolder —
+a Range output chains just fine), shows its **progress per step**
+(`Chain 2/3: Twist`), waits for printer idle like every generator (a
+print start is refused with `Wait: generating` until the chain beeps
+done) and lands the result in the `Toolchain/` folder as
+`V<nn>_<name>_<PresetName>.gcode` — numbered, never overwrites, newest
+first in the folder listing. Deleting a preset file: the SD browser's
+**Del** mode (2× press, same as every file). LCD: Pre-Print > Tools >
+Toolchain — Preset/File info, `How? (chain)`, `> Apply` (2×). Console:
+`TOOLCHAIN_APPLY PRESET=Toolchain/scale-twist.json FILE=myfile.gcode
+OUT=PREVIEW` (OUT=QUEUE selects the result for the next start,
+OUT=PREVIEW just drops it in the list — same as every generator).
+
+**Limits, honest:** chainable tools are Range, Scale, Texture, Twist,
+Mirror. Cake cut (two output files) is not chainable; the preset
+validator says so in plain text before anything runs.
 
 ## 6. During the print: tuning, pauses, objects
 
@@ -2846,7 +2935,8 @@ kick-off, no third press by accident.
 Fixes (incl. the File check list — the same six entries as System > File
 check, .136m — **plus `Fix: Quality` and `Fix: Speed`**, .136n) · Tools
 (Offset, Texture, Range, **Scale X/Y with the Taper option**,
-**Twist**, **Mirror**, Cake cut, Plotter, STL export) ·
+**Twist**, **Mirror**, **Toolchain (preset chains, R259)**, Cake cut,
+Plotter, STL export) ·
 **Material** (shows the current material — Load preset now / Save
 current / Reset for PLA, PETG, TPU, ABS/ASA) · Temps ·
 Motion · Features ·
@@ -2888,6 +2978,27 @@ retraction reads the firmware values — what you see is what runs.
 | Pause & Control | pause now / next layer / at layer / Stop@ (planned NORMAL end) / M600 / Filament (Load/Unload/Change while paused) / cancel (2×) |
 | Objects | skip single objects (2× confirm) |
 | Sources | PARAM_SOURCES: provenance of every parameter (ch. 14.1) |
+
+#### Live > Temps & Fan — every row as you see it (R175c)
+
+The fan entry is an absolute **dial**. Priority chain, strongest first:
+
+**LIVE > layer-1 fan-off > HOLD > SCALE > CLAMP**
+
+| LCD row | What it does |
+|---|---|
+| `Fan: NN% (LIVE)` | Dial 0–100, step 5. A positive value enables LIVE automatically; 0 disables LIVE and returns control to the normal chain (it is not a persistent fan-off lock). YOUR absolute part-fan % — beats Hold, Scale, Clamp and even the layer-1 fan-off rule (you turned the dial on purpose). Sets `f_fan_live` via `SET_FAN_LIVE PERCENT=`. |
+| `LIVE: ON` / `LIVE: off` | The master switch for the LIVE stage. The dial only applies while ON (`SET_FAN_LIVE ON=`). OFF → the chain (Hold/Scale/Clamp, layer-1 rule) takes over again. |
+| `How? (fan math)` | Prints the whole chain with the live numbers (`_FAN_CHAIN_NOW`): what the file asked for, LIVE/HOLD/SCALE/CLAMP, layer-1 state, and what the fan actually runs. |
+| `Scale: NN% file` | 25–150 % — multiplies every M106 of the file (`SET_FAN_SCALE`). |
+| `Clamp: ON fmin–fmax%` / `off` | Switch for the clamp window (`SET_FAN_CLAMP ON/OFF`). |
+| `FMin: NN%` / `FMax: NN%` | The clamp window applied to every file M106 (`SET_FAN_CLAMP MIN/MAX=`). |
+| `FBr: NN% 0=off` | Separate fan floor while a bridge section prints (`SET_FAN_CLAMP BRIDGE=`). |
+| `Hold: NN%` | Absolute % replacing the file's M106 (`SET_FAN_HOLD`). 0 = the file rules again. |
+
+The layer-1 fan-off rule (fan stays OFF on layer 1, default) lives in
+`first_layer_rules` — toggle it under Pre-Print > Temperatures > L1 rules.
+For the console equivalents (`SET_FAN_LIVE`, `SET_FAN_HOLD`, …) see ch. 6.1.
 
 **Pre-Print**
 
@@ -3738,7 +3849,7 @@ stay with Mainsail.
 | **MCR** | minimum cruise ratio | **SCV** | square corner velocity |
 
 ## 25. Complete macro index
-409 entries: every public macro with parameters (defaults in parentheses; blank = no parameters) plus the internal hooks worth knowing. Internal helpers (leading `_`) are not user-facing — **265 public + 114 internal macros exist in total** (379 `gcode_macro` + 30 `delayed_gcode`, counted from the .cfg files, not copied from an older list). Grouped by module file — the same file you would edit.
+412 entries: every public macro with parameters (defaults in parentheses; blank = no parameters) plus the internal hooks worth knowing. Internal helpers (leading `_`) are not user-facing — **268 public + 114 internal macros exist in total** (382 `gcode_macro` + 30 `delayed_gcode`, counted from the .cfg files, not copied from an older list). Grouped by module file — the same file you would edit.
 
 
 ### State & sentinels — 01_state.cfg (14)
@@ -4121,7 +4232,7 @@ stay with Mainsail.
 | _LABEL_SET_CHAR | POS=sv.label_pos | default(1, CH=0 |
 | _V17_LABELS |  | Version sentinel of 16_labels.cfg |
 
-### Generators — 17_generator.cfg (42)
+### Generators — 17_generator.cfg (44)
 | Macro | Parameters | Purpose |
 |---|---|---|
 | **ANGLE_GENERATE** | CONFIRM=0, OUT | create the plate file from the stored settings (bumps angle_nonce) |
@@ -4150,10 +4261,13 @@ stay with Mainsail.
 | **SEAL_INFO** |  | gasket settings + NUT/material tips |
 | **SHAPE_GENERATE** | CONFIRM=0, OUT | Geometry: create the shape file (bumps shape_nonce) |
 | **SHAPE_INFO** |  | Geometry: current settings |
+| **STENCIL_CREATE** | INDEX=0 | spray-stencil set from image slot INDEX (0 = newest picture in the lithophane list): 2–4 tone bands, one plate each + optional negative — bridges 3× nozzle, 4 registration holes D4.2, sprays lightest→darkest (bumps stencil_nonce) |
+| **STENCIL_INFO** |  | stencil settings (bands, edge, thickness, negative) + ready images |
 | **STRINGART_APPLY** | PATTERN=0, SHAPE=0, W=102, H=152, DIAMETER=180, ANCHORS=300, LINES=1700, RING_H=2.4, ARC=2.0, FILE=bild.png | string art job (.136n: SHAPE 0=ROUND / 1=RECT with the photo-size presets, RING_H ring height, ARC strand bow in Z): PATTERN 0=SPIRAL / 1=PHOTO — the ring prints first (2 walls, 3+3 solid, 5% sparse), the strands ride on top in six Z bands as bows, starts 15 deg apart; PHOTO weaves the FILE image (default: the picked one), output lands in the StringArt folder |
 | **STRINGART_IMG** |  | cycles the root image list (the lithophane list, newest first) for the PHOTO pattern |
 | **STRINGART_PICK** | INDEX=-1 | ArtisticStrings: pick the root image from the paged image list (the PHOTO pattern weaves it) |
 | **TEXTURE_APPLY** | FILE='', MODE='OFF', THICK, DENSITY, PATTERN, SCALE, AMP, DIR='OUT', OUT= | fuzzy skin / shaped bumps for the SELECTED (or FILE) g-code: `TEXTURE_APPLY MODE=FUZZY THICK=0.3 DENSITY=100` — new `Vnn_<name>_TX` file in the background — selected under QUEUE, but never auto-STARTED (ch. 5.9) |
+| **TOOLCHAIN_APPLY** | PRESET=sv.toolchain_preset, FILE=sv.preview_file, CONFIRM=0, OUT= | run a preset tool chain (R259): every step feeds the next, ONE background job, only the last output stays — `V<nn>_<name>_<PresetName>.gcode` in Toolchain/, progress `Chain n/N` on the display, input may come from any subfolder (ch. 5.21) |
 | **TWIST_APPLY** | DEG=90, FILE= | twist the selected file around Z (.136n): 0° at the bottom → DEG at the top, E verbatim, output in Twist/ |
 | _GENERATORS |  | Part generator limits (cable ties + angle plates, internal) |
 | _GEN_ARM | KEY='', WHAT='the generation' | Generators: arm the 2-press confirm for KEY |
@@ -4550,7 +4664,7 @@ system). Better a quiet fan at full speed than a fast one slowed down.
 ## Appendix C: First start & updates
 
 - upload the folder → includes at the end of printer.cfg → RESTART
-- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-11-11.142d)`
+- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-11-19.1)`
 - ~10 s later: boot sound + LED animation
 - SHOW_STATUS → mode, material, overrides · Maintenance > Tests > demos + self test
 

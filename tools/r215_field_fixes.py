@@ -101,19 +101,26 @@ check('T2d gcode_meta: a pre-sig block migrates once, then stays "same"',
       gcode_meta.finalize(p2) == 'meta'
       and gcode_meta.finalize(p2) == 'same')
 raw = open(p, encoding='utf-8', errors='replace').read()
+# R258 added '; total layers count' between filament and sig - the sig
+# stays the LAST line of the block (and of the file)
 check('T2e gcode_meta: the block ends with the sig line, 16 hex chars',
-      re.search(r'; filament used \[mm\] = .*\n; R2-META sig = [0-9a-f]{16}$',
-                raw, re.M) is not None)
+      re.search(r'; R2-META sig = [0-9a-f]{16}$', raw, re.M) is not None
+      and not raw.rstrip('\n').split('\n')[-1].startswith('G'))
 
 # ---------------------------------------------- T3: daemon source shapes
 pp = open(os.path.join(REPO, 'tools', 'r2_postproc.py'),
           encoding='utf-8').read()
 check('T3 gen_files order is STICKY (set unchanged -> keep pushed order)',
       'set(_gfl) == set(gen_files_pushed[0])' in pp)
+# R246c hardened the probe: _printer_idle_strict() (an UNANSWERED probe
+# counts as busy - the .142 00:08 frame print died on exactly that gap).
+# R247 moved the tree daemon-side; the guard now sits between the walk
+# and the sd_cur/gen push comparison.
 check('T3b pushes are guarded by a FRESH busy probe mid-pass '
       '(_SkipPush215 raises before the pushes)',
       'class _SkipPush215' in pp and 'except _SkipPush215' in pp
-      and pp.index('if _printer_busy():', pp.index('_walk154(' + chr(39)*2 + ')'))
+      and pp.index('if not _printer_idle_strict():',
+                   pp.index('_walk154(' + chr(39)*2 + ')'))
       < pp.index('sd_tree_pushed[0] = _tree154'))
 check('T3c _meta_finalize stays silent on "same"',
       "'same' = signature matched, nothing written" in pp)

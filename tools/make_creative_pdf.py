@@ -106,7 +106,7 @@ class Doc(BaseDocTemplate):
     def __init__(self, fn):
         super().__init__(fn, pagesize=A4, leftMargin=17*mm, rightMargin=17*mm,
                          topMargin=16*mm, bottomMargin=16*mm,
-                         title='R2-D2 Kreative Möglichkeiten',
+                         title='On-Machine Design Studio for Creative Freedom',
                          author='R2-D2 Macro System')
         f = Frame(self.leftMargin, self.bottomMargin, self.width,
                   self.height, id='f')
@@ -119,7 +119,7 @@ class Doc(BaseDocTemplate):
         canv.line(17*mm, 285*mm, 193*mm, 285*mm)
         canv.setFont('DVS', 8.2); canv.setFillColor(GRAY)
         canv.drawString(17*mm, 287.2*mm,
-                        'R2-D2 Macro System · Kreative Möglichkeiten')
+                        'R2-D2 Macro System · On-Machine Design Studio for Creative Freedom')
         canv.drawRightString(193*mm, 287.2*mm, _R2VER)
         canv.drawCentredString(105*mm, 9.5*mm, 'Seite %d' % doc.page)
         canv.restoreState()
@@ -345,6 +345,26 @@ RECIPES = [
   'nur, dass ein gutes Modell am Drucker scheitert.',
   'Bei jedem neuen Material einmal File check plus Range-Ausschnitt: das '
   'kostet 15 Minuten und spart ganze Abende.'),
+ ('Die Effektkette — ein Preset, ein Guss', PURPLE,
+  'Mehrere Werkzeuge in einem Ablauf: skalieren, verwinden, texturieren — '
+  'ohne jeden Einzelschritt von Hand. Ein JSON-Preset beschreibt die '
+  'Reihenfolge, der Drucker arbeitet sie als EINEN Job ab, und nur das '
+  'Endergebnis bleibt übrig.',
+  ['Am PC/Mainsail ein Preset als .json in den Ordner Toolchain/ legen — '
+   'die Vorlage scale-twist.json aus dem Paket zeigt das Format.',
+   'Pre-Print &gt; Tools &gt; Toolchain öffnen: Preset und Eingabedatei '
+   'stehen dort, How? (chain) erklärt den Ablauf.',
+   'Apply 2x drücken — der Fortschritt läuft als '
+   'Chain n/N &lt;Werkzeug&gt; über das Display; währenddessen '
+   'verweigert jeder Druckstart (Wait: generating).',
+   'Das Ergebnis V&lt;nn&gt;_&lt;Name&gt;_&lt;PresetTag&gt;.gcode liegt im '
+   'Ordner Toolchain/ und ist wie jede erzeugte Datei sofort druckbar.'],
+  'Kettbar sind Range, Scale, Texture, Twist und Mirror — der '
+  'Kuchen-Schnitt bleibt Einzelschritt (Hand-Übergabe). Und: Presets '
+  'entstehen am PC als Datei, nicht am Drehrad — laden und löschen '
+  'geht am Display, schreiben nicht.',
+  'Einmal zehn Minuten fürs Preset — danach ist jede Variante '
+  'wirklich ein einziger Druck.'),
 ]
 
 
@@ -354,10 +374,10 @@ def build(path):
     A = f.append
 
     A(Spacer(1, 22*mm))
-    A(Paragraph('Kreative Möglichkeiten', S['title']))
+    A(Paragraph('On-Machine Design Studio<br/>for Creative Freedom', S['title']))
     A(Spacer(1, 3*mm))
-    A(Paragraph('Was aus diesem Drucker wird, wenn man die Werkzeuge<br/>'
-                'nicht einzeln, sondern zusammen benutzt', S['sub']))
+    A(Paragraph('Kreative Möglichkeiten am Drucker - was aus ihm wird, wenn<br/>'
+                'man die Werkzeuge nicht einzeln, sondern zusammen benutzt', S['sub']))
     A(Spacer(1, 9*mm))
     A(cover_drawing())
     A(Spacer(1, 7*mm))
@@ -381,7 +401,7 @@ def build(path):
           [30*mm, 62*mm, 84*mm]))
     A(PageBreak())
 
-    A(Paragraph('Zwölf Rezepte', S['h1']))
+    A(Paragraph('Dreizehn Rezepte', S['h1']))
     A(P('Jedes Rezept nennt zuerst die Idee, dann die Schritte, dann was es '
         'kostet. Die Menüwege sind die, die am Drucker wirklich existieren.'))
     for title, col, idea, steps, limit, cost in RECIPES:
@@ -391,6 +411,87 @@ def build(path):
         A(Spacer(1, 2*mm))
         A(KV([('GRENZE', limit), ('KOSTEN', cost)]))
         A(Spacer(1, 3*mm))
+
+    f.extend(H1('Modellbau — aus Teilen wird ein Werk'))
+    A(P('Modellbau am Drucker beginnt nicht mit dem großen Körper, sondern mit '
+        'dem kleinsten selbsttragenden Teil. Der Grund ist banal: ein '
+        'Konstruktionsfehler in einer 2-mm-Hülse kostet 8 Minuten; derselbe '
+        'Fehler in einem 8-Stunden-Gehäuse kostet den Abend.'))
+    A(TBL(['Baustein', 'Rolle', 'Rezept/Werkzeug'],
+          [['Bricks-Kits (Hülse + Stopfen)', 'tragende Elemente, Schraubenhalter',
+            'Pre-Print > Mods > Bricks, Satz bauen'],
+           ['Angles+Flat-Winkel', 'Platte-an-Platte-Verbindungen, 2,4 mm Wand',
+            'Pre-Print > Mods > Angles+Flat, Mode Flach'],
+           ['Frames', 'Begrenzung, Abschluss, Rahmen für Platten/Litho',
+            'Pre-Print > Mods > Frames, W/H mit 0,4 mm Zugabe'],
+           ['Measured part / Caliper', 'Passungen messen, bevor gebaut wird',
+            'Schieblehre + Tabelle „Wandstärke“ unten']],
+          [46*mm, 74*mm, 56*mm]))
+    A(P('<b>Toleranzen, die sich bewähren:</b> 0,2 mm bei Steckpassungen '
+        '(Hülsen auf Achsen), 0,3 mm bei Klemmpassungen (Stopfen), 0 mm bei '
+        'Schraubverbindungen mit Absicht (durch-Gewinde druckt sich nicht) - '
+        'Schrauben kommen immer in gedruckte Gewindelöcher, nie in gedruckte '
+        'Gewinde. Richtung der Layer: tragende Teile quer zur Layer-Ebene '
+        'stellen, sonst bricht die Klemmstelle an der Schichtgrenze.'))
+    A(P('<b>Doppel-Durchgang (manuell, ehrlich):</b> der Drucker kennt keinen '
+        'Automatik-Modus „zweimal denselben Layer“. Was geht: die Deckschicht '
+        'über Ironing nachglätten, Volumen über Wandanzahl erhöhen (immer vor '
+        'dem Druck, im Slicer), oder dasselbe Teil zweimal drucken und '
+        'verkleben. Was nicht geht: nachträglich „mehr Material“ in einen '
+        'fertigen G-code zu sprühen - der Generator erzeugt Dateien, er heilt '
+        'keine Geometrie.'))
+    A(Spacer(1, 4*mm))
+
+    f.extend(H1('Deko-Sets — einmal gebaut, mehrfach variiert'))
+    A(P('Ein Set wirkt nur dann als Set, wenn die Teile zusammengehören: '
+        'gleiche Sprache, andere Rolle. Im System entsteht das über '
+        'Wiederholung mit Variation - nicht über Nachslicen.'))
+    A(TBL(['Set-Idee', 'So entsteht es', 'Werkzeug'],
+          [['Litho-Trio (Hell-Mittel-Dunkel)',
+            'dieselbe Vorlage mit Levels 6 / 12 / 20 generieren',
+            'Lithophane > Levels'],
+           ['Farb-Set mit einem Bild',
+            'einmal ColorPicture generieren, Bandfarben pro Teil wechseln',
+            'ColorPicture > Band colors'],
+           ['Textur-Serie',
+            'gleiche Vorlage, anderer Seed ODER andere Tiefe je Teil',
+            'Texture > Seed / Tiefe'],
+           ['Bricks-Miniserie',
+            'ein Kit bauen, Teile in zwei Farben drucken',
+            'Bricks > Satz + Filamentwechsel'],
+           ['Frame-Serie',
+            'ein Rahmen-Parametersatz, drei Größen (Scale-Modifikation)',
+            'Scale > Scale %']],
+          [46*mm, 78*mm, 52*mm]))
+    A(P('<b>Kostenwahrheit:</b> ein Set ist 1 Prototyp + N Varianten. Den '
+        'Prototyp immer als Range-Ausschnitt (5–10 Schichten) testen, bevor '
+        'Sie das Set drucken - ein systematischer Fehler im Grundmodell '
+        'vervielfacht sich sonst mit.'))
+    A(Spacer(1, 4*mm))
+
+    f.extend(H1('Doppel-Durchgänge — was geht, was bewusst nicht geht'))
+    A(TBL(['Wunsch', 'Status im System', 'Weg'],
+          [['Wand zweimal überfahren (doppelt so dicht)',
+            'geht — im Slicer (Wandanzahl), nicht im Generator',
+            'Slicer > Wandanzahl erhöhen'],
+           ['Deckfläche nachglätten',
+            'geht — als Ironing-Pass auf der obersten Schicht',
+            'Pre-Print > Mods > Ironing / Flow niedrig'],
+           ['Gleiches Teil mit mehr Volumen',
+            'geht — über Skalierung vor dem Druck',
+            'Pre-Print > Mods > Scale > Scale %'],
+           ['Ein zweites Mal über ein fertiges Objekt drucken',
+            'geht manuell, ohne Assistent — neues Teil wählen und drucken',
+            'Datei erneut drucken; Vorgang nicht automatisiert'],
+           ['Automatisches „zweite Schicht überall“',
+            'geht NICHT — es gibt keinen Doppel-Extrude-Modus',
+            '—']],
+          [62*mm, 64*mm, 50*mm]))
+    A(P('Warum diese Ehrlichkeit: ein Button „Doppel-Durchgang“, der still '
+        'denselben G-code doppelt druckt, ruiniert jede Vorlage mit '
+        'Kalibrierung, Retracts und Layer-Zählung. Was das System tut, tut es '
+        'sichtbar: als Datei, die Sie ansehen, bevor sie gedruckt wird.'))
+    A(Spacer(1, 4*mm))
 
     A(PageBreak())
     A(Paragraph('Material, Licht und Wandstärke', S['h1']))
@@ -418,6 +519,46 @@ def build(path):
         'Helligkeit: seitlich einfallendes Licht macht aus 0,3 mm Tiefe ein '
         'sichtbares Bild.'))
 
+    f.extend(H1('Fehlersuche und Optimierung'))
+    A(P('Reihenfolge bei jedem Problem: erst die Datei (File check), dann die '
+        'Parameter, dann die Maschine. Die meisten „Druckerfehler“ sind '
+        'Datei- oder Parame­terfehler - der Drucker macht nur, was im Code '
+        'steht. Die Meta-Regel: ein 10-Schichten-Range-Ausschnitt desselben '
+        'Modells kostet 12 Minuten und zeigt 90 % aller systematischen '
+        'Fehler ohne Materialverschwendung.'))
+    A(TBL(['Symptom', 'Wahrscheinliche Ursache', 'Werkzeug / Schritt'],
+          [['Erste Schicht haftet nicht, Ecken rollen ab',
+            'Z-Offset, Betttemperatur, Zug auf der ersten Schicht',
+            'Statprobe-Druck (Messkörper) für Z-Offset; Live-Bed anpassen'],
+           ['Layer-Verschiebung, Bild versetzt',
+            'Kollision im Code, MAXRATE zu hoch, Schrittverlust',
+            'File check; MAXRATE-Warnung beachten; Achsabstände prüfen'],
+           ['Überextrusion, Blobs, Fäden',
+            'Flow zu hoch, Retract zu klein, Travel-Accel zu hoch',
+            'Live Tuning > Flow −; Retract-Check (Fix!); Travel Accel'],
+           ['Wand bricht am Clipping-Punkt',
+            'Wand zu dünn für die Düse / zu wenige Wände',
+            'Wandstärke-Tabelle oben; Wandanzahl erhöhen'],
+           ['Textur unsichtbar / Wellen',
+            'Tiefe zu klein, Richtung falsch, Wand zu dünn',
+            'Texture > Tiefe 0,4–0,6 mm, Richtung OUT, Size ≥ 3 mm Rippen'],
+           ['Litho durchscheinend, Kontrast flach',
+            'Wandstärke zu klein oder zu groß, Levels zu grob',
+            '0,8–1,2 mm Wandstärke; Levels erhöhen; Kontrast-Preset'],
+           ['Farbflächen bluten ineinander',
+            'Bänder zu schmal / Kontrast zu gering / zu viele Farben',
+            'ColorPicture > BandH erhöhen, Kontrast hoch, 3–4 Farben statt 6'],
+           ['Drucker hängt / Shutdown',
+            'Watcher-Last im Homing/Probe-Fenster oder Segmentflut',
+            'Log pack (Doctor) erzeugen; Segment-Fix laufen lassen; '
+            'Feldblöcke beachten, bevor gedruckt wird']],
+          [52*mm, 66*mm, 58*mm]))
+    A(P('<b>Optimierung (Parameter, die sich rechnen):</b> zuerst Wandstärke '
+        'und Layerhöhe (Kosten und Festigkeit), dann Flow und Retract (Qualität '
+        'pro Schicht), zuletzt Speed/Accel (nur wenn die ersten beiden stehen). '
+        'Wer Speed zuerst dreht, sucht Gründe, die er selbst erschaffen hat.'))
+    A(Spacer(1, 4*mm))
+
     f.extend(H1('Was dieses System bewusst nicht tut'))
     A(P('Damit die Erwartungen stimmen - die folgenden Grenzen sind Absicht, '
         'keine Lücken:'))
@@ -443,6 +584,11 @@ def build(path):
         'nicht aus einem Werkzeug, sondern aus der Reihenfolge. Erst die Form, '
         'dann die Oberfläche, dann das Licht - und vor jedem langen Druck ein '
         'Ausschnitt als Beleg.'))
+    A(Spacer(1, 10*mm))
+    A(Paragraph('kein PC, kein 3D-Programm, keine KI — nur ein Drehrad.',
+                ParagraphStyle('closing', fontName='DVSB', fontSize=17,
+                               leading=24, textColor=PURPLE, alignment=1,
+                               spaceBefore=8, spaceAfter=4)))
 
     doc.build(f)
     return path

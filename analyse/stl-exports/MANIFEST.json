@@ -1,0 +1,53 @@
+{
+  "schema": "r2-model-shells-evidence/1",
+  "generated_by": "tools/model_export.py model_shells()",
+  "seam_gap_mm": 0.1,
+  "note": "Model-only shell exports (wall hints only; support/brim/ironing/custom/infill excluded). Volumes are exact for the exported z span; internal transition caps between differing outlines remain. Numbers are pinned by tools/test_model_export.py.",
+  "exports": [
+    {
+      "file": "man_v3_z0-4.stl",
+      "source": "MAN_V3.gcode.gz",
+      "z_span_mm": [
+        0.0,
+        4.0
+      ],
+      "shells": 18,
+      "levels": 16,
+      "triangles": 3676,
+      "total_volume_mm3": 64.98697,
+      "audit_signed_volume_mm3": 64.986992,
+      "sha256": "7c8d693cb9d4d5f9beb49c47149cb820cafe6e5cbb43259cfbe615a6cfb76905",
+      "bytes": 183884
+    },
+    {
+      "file": "vwbus_z0-4.stl",
+      "source": "vwbus.gcode.gz",
+      "z_span_mm": [
+        0.0,
+        4.0
+      ],
+      "shells": 18,
+      "levels": 18,
+      "triangles": 3332,
+      "total_volume_mm3": 348.30814,
+      "audit_signed_volume_mm3": 348.308212,
+      "sha256": "9ca963d908b0b6d6b94a8aefedb603fead4bb00d2452e3643582e4fb816c2fdf",
+      "bytes": 166684
+    },
+    {
+      "file": "pumpkin_z0-4.stl",
+      "source": "Pumpkin_Scream_MULTI-011.gcode.gz",
+      "z_span_mm": [
+        0.0,
+        4.0
+      ],
+      "shells": 21,
+      "levels": 18,
+      "triangles": 4236,
+      "total_volume_mm3": 334.336933,
+      "audit_signed_volume_mm3": 334.336935,
+      "sha256": "23480f0c1955bcf246161ed2855638477ffe68b5081803b0088c872b05985f07",
+      "bytes": 211884
+    }
+  ]
+}

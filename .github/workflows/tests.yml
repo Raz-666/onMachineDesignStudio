@@ -42,6 +42,35 @@ jobs:
       - name: Unified analysis engine tests (Masterkonzept Pass 0-11)
         run: python3 tools/test_gcode_re.py
 
+      - name: STL numeric geometry and extrusion regressions (offline)
+        run: |
+          R2_TEST_ENGINE=active python3 tools/test_stl_extrusion_state.py
+          python3 tools/test_stl_mesh.py
+          python3 tools/test_contour_mesh.py
+          python3 tools/test_gcode_contours.py
+          python3 tools/test_path_evidence.py
+          python3 tools/test_seam_reconstruction.py
+          python3 tools/test_contour_context.py
+          python3 tools/test_physical_contours.py
+          python3 tools/test_contour_preview.py
+          python3 tools/test_concave_offsets.py
+          python3 tools/test_multi_prism.py
+          python3 tools/test_stacked_prism.py
+          python3 tools/test_layer_evidence.py
+          python3 tools/test_spiral_rings.py
+          python3 tools/test_nonplanar_retention.py
+          python3 tools/test_ring_wall.py
+          python3 tools/test_path_continuation.py
+          python3 tools/test_wall_surfaces.py
+          python3 tools/test_wall_run.py
+          python3 tools/test_vase_closure.py
+          python3 tools/test_self_intersect.py
+          python3 tools/test_bead_evidence.py
+          python3 tools/test_field_gcode.py
+          python3 tools/test_model_export.py
+          python3 tools/test_toolchain.py
+          python3 tools/test_toolchain_steps.py
+
       - name: Streaming simulations (watcher RSS stays flat)
         run: python3 tools/r91_simulate.py
 

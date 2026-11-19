@@ -191,7 +191,7 @@ def cover_drawing():
 
 # ------------------------------------------------------------------ content --
 GEN = [
- ('__litho', 'Lithophane', 'Pre-Print &gt; Mods &gt; Lithophane',
+ ('__litho', 'Lithophane', 'Pre-Print &gt; Tools &gt; Lithophane',
   'Ein Bild wird zu einer Lichtplatte: die Helligkeit jedes Pixels bestimmt die '
   'Wandstärke. Gegen Licht gehalten erscheint das Foto. Ausgabe nach '
   '<b>gcodes/Litho/</b>, Name <b>Vnn_…gcode</b>.',
@@ -203,7 +203,7 @@ GEN = [
   'Für Durchlicht PLA (oder weiß) nehmen und mit 0,8–1,2 mm Wandstärke '
   'arbeiten; das Bild nachträglich zu ändern heißt: neu generieren, nicht '
   'nachbearbeiten.'),
- ('__cpic', 'ColorPicture', 'Pre-Print &gt; Mods &gt; ColorPicture',
+ ('__cpic', 'ColorPicture', 'Pre-Print &gt; Tools &gt; ColorPicture',
   'Farbige Bilder als flächiger Druck: das Motiv wird in Farbflächen zerlegt '
   'und mit den vorhandenen Filamenten gedruckt. Ausgabe nach '
   '<b>gcodes/ColorPic/</b>.',
@@ -213,7 +213,7 @@ GEN = [
   'Farben heißt mehr Wechsel und damit mehr Zeit und Abfall.',
   'Erst eine kleine Größe generieren und drucken - die Farbtrennung sieht man '
   'erst im Ergebnis richtig.'),
- ('__bricks', 'Bricks (Klemmbausteine)', 'Pre-Print &gt; Mods &gt; Bricks',
+ ('__bricks', 'Bricks (Klemmbausteine)', 'Pre-Print &gt; Tools &gt; Bricks',
   'Konstruiert Klemmbausteine und Baugruppen in echten Rastermaßen: Steine '
   '(9,6 mm), Platten (3,2 mm), Fliesen, Schrägen, Bögen, Technik-Löcher, Runde '
   'Teile. Ausgabe nach <b>gcodes/Bricks/</b>, dazu Figuren und Kits.',
@@ -224,7 +224,7 @@ GEN = [
   'einmal je Material einstellen.',
   'Ein Probedruck mit 3 Steinen und 1 Platte klärt die Passung schneller als '
   'jede Rechnung.'),
- ('__labels', 'Labels', 'Pre-Print &gt; Mods &gt; Labels',
+ ('__labels', 'Labels', 'Pre-Print &gt; Tools &gt; Labels',
   'Textschilder bis 5 Zeilen mit einstellbarer Position, Zeichenabstand, '
   'Schriftart und Größe. Der Text kann erhaben oder flächenbündig eingelassen '
   'gedruckt werden.',
@@ -234,7 +234,7 @@ GEN = [
   'Vorschau zeigt die Strichstärke, nicht die Druckbarkeit.',
   'Flächenbündig (flush) gedruckt bleibt der Text auch dann lesbar, wenn die '
   'oberste Schicht später abplatzt - die Kontur sitzt in der Schicht darunter.'),
- ('__plot', 'Plotter', 'Pre-Print &gt; Mods &gt; Plotter',
+ ('__plot', 'Plotter', 'Pre-Print &gt; Tools &gt; Plotter',
   'Zeichnet Motive mit dem Drucker als Stiftplotter: SVG, PNG/JPG, PDF oder '
   'Text werden zu Bewegungen. Ausgabe nach <b>gcodes/Plot/</b>.',
   'Modus wählen (Zeichnen/Positionieren), Seite/Nullpunkt setzen, Stift '
@@ -244,7 +244,7 @@ GEN = [
   'nur eine Bewegungsvorschau.',
   'Erst Cal fahren, dann ein kleines Motiv - die Papierlage verschiebt sich '
   'sonst um Millimeter.'),
- ('__stringart', 'ArtisticStrings', 'Pre-Print &gt; Mods &gt; ArtisticStrings',
+ ('__stringart', 'ArtisticStrings', 'Pre-Print &gt; Tools &gt; ArtisticStrings',
   'Fadenkunst aus Nägeln und Linien: ein Bild oder Muster wird in gerade '
   'Fadenzüge zerlegt, gedruckt wird die Platte mit den Nadelpositionen. '
   'Ausgabe nach <b>gcodes/StringArt/</b>.',
@@ -254,7 +254,7 @@ GEN = [
   'zerstört feine Motive.',
   'Ein Foto-Motiv zuerst klein (9×13) bauen und auf Papier kontrollieren, '
   'bevor die große Platte läuft.'),
- ('__frame', 'Frames', 'Pre-Print &gt; Mods &gt; Frames',
+ ('__frame', 'Frames', 'Pre-Print &gt; Tools &gt; Frames',
   'Rahmen mit einstellbaren Maßen, Wandstärke, Tiefe, Rand, Eckradius, '
   'Aufhängung und Stand. Ausgabe nach <b>gcodes/Frames/</b>.',
   'W/H, Wandstärke, Tiefe, Rand und Eckradius setzen, Stand/Aufhängung '
@@ -263,7 +263,7 @@ GEN = [
   'Inhalt (z. B. einer Litho-Platte) passen.',
   'Für Lithos: Plattenmaß zuerst festlegen, dann den Rahmen mit 0,4 mm '
   'Zugabe auf das echte Maß bauen.'),
- ('__angle', 'Angles + Flat', 'Pre-Print &gt; Mods &gt; Angles+Flat',
+ ('__angle', 'Angles + Flat', 'Pre-Print &gt; Tools &gt; Angles+Flat',
   'Winkel und Flachverbinder für Platten- und Gehäusebau: Schenkelmaße, '
   'Winkelgrad, Bohrungen, Wandstärke, Infill, Ironing, Steifigkeit, Stückzahl. '
   'Ausgabe nach <b>gcodes/Angles/</b>.',
@@ -273,7 +273,7 @@ GEN = [
   'muss die Kopfsenkung mitgedacht werden.',
   'Flachverbinder mit zwei Bohrungsreihen sind die stabilste Verbindung zweier '
   'Platten - ein Winkel überträgt die Last nur an der Kante.'),
- ('__cable', 'Cable ties', 'Pre-Print &gt; Mods &gt; Cable ties',
+ ('__cable', 'Cable ties', 'Pre-Print &gt; Tools &gt; Cable ties',
   'Kabelbinder in parametrischer Länge und Breite, mehrlagig, mit '
   'Brim-Option; gespeicherte Sätze als Presets. Ausgabe nach '
   '<b>gcodes/CableTies/</b>.',
@@ -283,7 +283,19 @@ GEN = [
   'Länge - zu dünn gesetzt reißen sie beim Anziehen.',
   'Immer ein Bündel drucken: eine Stange Kabelbinder kostet Minuten, einzelne '
   'sind Verschwendung.'),
- ('__seal', 'Gaskets', 'Pre-Print &gt; Mods &gt; Gaskets',
+ ('__stencil', 'Sprüh-Schablonen (Stencil)', 'Pre-Print &gt; Tools &gt; Stencil',
+  'Aus jedem Bild der Lithophane-Liste ein Schablonen-Set: 2-4 Tonbänder, '
+  'je Band eine flache Platte (Sprühen hell nach dunkel, Platten auf M4-'
+  'Passstiften gestapelt). Stege automatisch bei 3x Düse, Rechteckplatte '
+  'mit 8-mm-Rand und 4 Passlöchern D4.2 an identischer Position, optional '
+  'Negativ-Schablone. Ausgabe nach <b>gcodes/Stencil/</b>.',
+  'Bild hochladen (wie Lithophane), Bands/Edge/Thick/Negativ setzen, '
+  'Bild-Slot zweimal drücken.',
+  'Ein Band unter 2% der Fläche wird keine eigene Platte - der Generator '
+  'liefert dann ehrlich weniger Platten und sagt es in der Antwort.',
+  'Sprühreihenfolge einhalten: hellste Platte zuerst, dunkelste zuletzt - '
+  'die Passlöcher richten jede Lage exakt aus.'),
+ ('__seal', 'Gaskets', 'Pre-Print &gt; Tools &gt; Gaskets',
   'Dichtungen als Ring: Außendurchmesser, Innendurchmesser, Höhe, Profil, '
   'Ironing und Schichthöhe. Ausgabe nach <b>gcodes/Gaskets/</b>.',
   'OD/ID/Höhe und Profil setzen, Ironing zuschalten, Save oder Generate.',
@@ -291,7 +303,7 @@ GEN = [
   'Oberkante rau und trägt nicht flächig.',
   'Ironing an und die Höhe in ganzen Schichten wählen - sonst stimmt die '
   'Endhöhe nicht mit der Nut überein.'),
- ('__shape', 'Geometry (Formen)', 'Pre-Print &gt; Mods &gt; Geometry',
+ ('__shape', 'Geometry (Formen)', 'Pre-Print &gt; Tools &gt; Geometry',
   'Grundkörper und Sonderformen: Würfel, Zylinder, Konus, Rohr, Ring, '
   'Prisma, Stern, Pyramide und weitere - als Ausgangspunkt für eigene Teile.',
   'Form wählen, Maße, Wandstärke und Infill setzen, Generate. Ausgabe nach '
@@ -310,18 +322,30 @@ TOOLS = [
   'Ein Ausschnitt ist ein neues Bauteil: der Sockel und die Kappschichten '
   'kosten Material, die Kontur ist an der Schnittkante nicht die des '
   'Originalteils.'),
- ('Texture', 'Pre-Print &gt; Mods &gt; Texture',
+ ('Texture', 'Pre-Print &gt; Tools &gt; Texture',
   'Prägt eine Struktur auf die Außenwand: 27 Muster, 27 fertige Vorlagen, '
   'Fuzzy-Skin, Tiefe in mm, Richtung innen/außen, Seed. Schreibt eine neue '
   '_TX-Datei, startet nie von selbst.',
   'Textur lebt von der Wandstärke: bei sehr dünnen Wänden frisst die Tiefe die '
   'Wand, bei sehr dicken sieht man sie kaum.'),
- ('Scale / Twist / Mirror', 'Pre-Print &gt; Mods &gt; Geometry tools',
+ ('Scale / Twist / Mirror', 'Pre-Print &gt; Tools &gt; Geometry tools',
   'Skalieren, Verwinden und Spiegeln einer fertigen G-code-Datei. Aus einer '
   'Vorlage werden Varianten, ohne neu zu slicen.',
   'Alle drei arbeiten auf Koordinaten: bei sehr großen Änderungen passen '
   'Extrusionsmengen und Wandabstände nicht mehr zueinander.'),
- ('Cake cut', 'Pre-Print &gt; Mods &gt; Cake',
+ ('Toolchain (Effektkette)', 'Pre-Print &gt; Tools &gt; Toolchain',
+  'Kettet Werkzeuge zu einem Ablauf: ein JSON-Preset (das Beispiel '
+  'scale-twist.json liegt im Ordner Toolchain/) beschreibt die Schritte - '
+  'jedes Werkzeug füttert das nächste, alles läuft als EIN Hintergrundjob, '
+  'am Ende bleibt nur die letzte Ausgabe: '
+  'V&lt;nn&gt;_&lt;Name&gt;_&lt;PresetTag&gt;.gcode im Ordner Toolchain/. '
+  'Preset im SD-Browser anklicken, Apply 2x drücken - der Fortschritt läuft '
+  'als Chain n/N &lt;Werkzeug&gt; über das Display.',
+  'Kettbar sind Range, Scale, Texture, Twist und Mirror - Cake cut nicht '
+  '(zwei Ausgabedateien, Hand-Ubergabe). Presets entstehen am PC/Mainsail '
+  'als .json; am Display kann man sie nur laden und löschen. Während der '
+  'Kette verweigert jeder Druckstart (Wait: generating).'),
+ ('Cake cut', 'Pre-Print &gt; Tools &gt; Cake',
   'Zerteilt ein Modell in druckbare Scheiben oder Hälften mit '
   'Verbindungsflächen, damit große Teile auf den Druckraum passen.',
   'Schnittflächen sind eben; Hinterschneidungen am Schnitt bleiben Sache des '

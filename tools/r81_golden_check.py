@@ -10,6 +10,25 @@ keeps that guarantee alive: it rebuilds the 23 fixture cases, runs them
 through the CURRENT module and compares MD5s + change summaries against the
 frozen references.
 
+RE-FREEZE HISTORY (R2-2026-11-19.1, V5): stamp re-freeze over PURE-ADDITION
+code change. Since V4 the engine gained the texture rounds R265-R266.3 (in
+r2_texture.py + presets, not this module) and the R267 spray-stencil engine
+(make_stencil + watcher block) - 511 added lines, ZERO removed or modified,
+process()/make_range() untouched. PROOF (A/B): the V5 module with ONLY the
+two stamp strings patched back to R2-2026-11-18.3/V4 reproduces the frozen
+V4 references byte-for-byte - all 23 md5 identical, summaries identical.
+Forward run: mr01-mr13 differ by the stamp lines only (same length class,
+nl/size in every summary unchanged); pr01-pr10 byte-IDENTICAL. mr01-mr13
+re-frozen (stamp class), nothing else.
+RE-FREEZE HISTORY (R2-2026-11-18.3, V4): stamp re-freeze over REAL code
+change. Since V3 the engine gained the toolchain rounds R259 (chain engine
++ watcher wiring), R260 (readable chain names, subfolder inputs) and R261
+(on_step M117 progress) - none of it touches process()/make_range().
+PROOF (A/B): the V4 module with ONLY the two stamp strings patched back to
+R2-2026-11-18.2/V3 reproduces the frozen V3 references byte-for-byte - all
+23 md5 identical, summaries identical. Forward run: mr01-mr13 differ by the
+stamp lines only (same length class, nl/size in every summary unchanged);
+pr01-pr10 byte-IDENTICAL. mr01-mr13 re-frozen (stamp class), nothing else.
 RE-FREEZE HISTORY (R2-2026-11-18.2, V3): version bump ONLY
 (R2-2026-11-18.1 -> R2-2026-11-18.2, POSTPROC_BUILD V2 -> V3; no code
 path changes). A/B proof: the git HEAD module with ONLY the two stamp
@@ -437,19 +456,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # process() output is identical old vs new, ALL 13 mr md5s change (every
 # range excerpt carries the core stamp), no summary moves, and r81 was
 # 23/23 green with the R213 code BEFORE the stamp bump.
-REF_MD5 = {'mr01': '64d3bb50a5a3c6376305821316033b04',
- 'mr02': '9a2a9f332c4f401988c8a6955e3886e2',
- 'mr03': '6abb6a911e4ae539411cadcda544da88',
- 'mr04': '2e7afef8722547034d10a0bd95041d03',
- 'mr05': '8ce05f2de763c08c1dd91f3e58c067dd',
- 'mr06': '86a4de49cb2af97136014f73470cbdbc',
- 'mr07': 'd6af2011c3ec994e547c276bbc5ee710',
- 'mr08': '70d152ce92c5f40c2174bdaa9db88238',
- 'mr09': '308006c79bd5d3e6132ab04d992b31dc',
- 'mr10': '32919b5d2d04a081e2976872e5da0998',
- 'mr11': 'a77ce29a53ee16523347ab6ad5850ecf',
- 'mr12': '9104803ea077352addd5539585841e41',
- 'mr13': '91f925a1eeb414a7f83ec691fdf20949',
+REF_MD5 = {'mr01': 'd21b702e5d9572dd1ba2a98978396fda',
+ 'mr02': '707e95c66767df652d8e02a9d1afc958',
+ 'mr03': '2430792c81e21fdedbb3dc1242f6ef23',
+ 'mr04': '945db05cf0795ba986d710505cf63f26',
+ 'mr05': '3062296b2e383d7cfd03e94e08214c5f',
+ 'mr06': '3e08e5aa0bb4fa31e6b6eb62e5c0b100',
+ 'mr07': '6a655dbf7d24bb9a1d3bda2823b43b81',
+ 'mr08': '196361f1e0f8405fd1501bc45370f725',
+ 'mr09': 'c264e28654e6a096564b2c4bfd531a66',
+ 'mr10': '377aa6cdcca10d825f8b72e81e5b5578',
+ 'mr11': '73933c7927fc930a60184d0ef0238548',
+ 'mr12': 'b3a1dda05a2c46babffbc427748697dc',
+ 'mr13': 'c2d2b78bbafba6f0ed4aab57a0cdc90a',
  'pr01': 'aa5a6f27d5a7e6576f57eeea93af63a5',
  'pr02': '61457e9bcbd98996b6e7dc26efda23d8',
  'pr03': 'f9f7402c190f07e7aa7470d2185fddfc',
@@ -460,6 +479,7 @@ REF_MD5 = {'mr01': '64d3bb50a5a3c6376305821316033b04',
  'pr08': 'f9f7402c190f07e7aa7470d2185fddfc',
  'pr09': '5e90a1d42296412a0ea53e9d6ada0157',
  'pr10': '159ea58bb74bbf9adb377f1e733d152b'}
+
 REF_SUMMARY = {'mr01': {'nl': 8, 'size': 5267},
  'mr02': {'nl': 8, 'size': 14350},
  'mr03': {'nl': 8, 'size': 13322},

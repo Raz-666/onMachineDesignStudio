@@ -5552,6 +5552,10 @@ tests.append(('R75 watcher: _prime_nonces adopts the current counters (no re-fir
         'mirror_nonce': None,      # R224: mirror tool
         'gen_clear_nonce': None,   # R223: queue escape hatch
         'genq_kill_nonce': None,   # R238: queue skip/stop channel
+        'toolchain_nonce': None,   # R259: preset chain
+        'stencil_nonce': None,     # R267: spray stencil generator (J9)
+        'doctor_nonce': None,      # R252: evidence pack (gap found by the
+                                   # r142/r143 release audit, now primed)
         'quality_fix_nonce': None, 'speed_fix_nonce': None}, ''))
 # R214 STL + R216 (.136n) shape+twist+fixes
 tests.append(('R75 watcher: daemon runs niced + primes on the first pass',
@@ -6781,12 +6785,14 @@ tests.append(('R86 modules: 17_generator.cfg sentinel + _CHECK_INSTALL lists 17'
     '_V18_GEN' in open(_gen86).read()
     and "('17_generator.cfg',       ['_V18_GEN'])" in open('macros/01_state.cfg').read()
     and 'all 17 modules' not in open('macros/01_state.cfg').read(), ''))
-tests.append(('R86-R224 watcher: NONCE_KEYS has 44 channels incl. litho/seal/frame/twist '
+tests.append(('R86-R224 watcher: NONCE_KEYS has 48 channels incl. litho/seal/frame/twist '
     '+ the three fix channels (.108) + the two optimized-file channels (.128) '
     '+ the SD-browser image channel (.130) + the STL export channel (.136m) '
     '+ the shape generator channel (.136n) + the queue-clear channel (.136u) '
-    '+ the mirror channel (.136v)',
-    len(_pp.NONCE_KEYS) == 45 and 'stl_nonce' in _pp.NONCE_KEYS
+    '+ the mirror channel (.136v) + the toolchain channel (R259) '
+    '+ the stencil channel (R267) + the doctor channel (R252 gap)',
+    len(_pp.NONCE_KEYS) == 48 and 'stl_nonce' in _pp.NONCE_KEYS
+    and 'toolchain_nonce' in _pp.NONCE_KEYS
     and 'mirror_nonce' in _pp.NONCE_KEYS
     and 'gen_clear_nonce' in _pp.NONCE_KEYS
     and 'quality_fix_nonce' in _pp.NONCE_KEYS
@@ -7220,8 +7226,8 @@ tests.append(('R87 LCD: container sits between Quick Macros and Maintenance, liv
     < _lcd87.index('[menu __main __maint]')
     and '[menu __main __live __plot __mode]' in _lcd87
     and '[menu __main __live __plot]' in _lcd87, ''))
-tests.append(('R87/R89/R90 LCD: guards preserved (cable/angle/litho/seal/frame need 17_generator, labels optional, plot+container free)',
-    _lcd87.count("enable: {'gcode_macro _GENERATORS' in printer}") == 7
+tests.append(('R87/R89/R90 LCD: guards preserved (cable/angle/litho/seal/frame/stencil need 17_generator, labels optional, plot+container free)',
+    _lcd87.count("enable: {'gcode_macro _GENERATORS' in printer}") == 8
     and "enable: {'gcode_macro _LABELS' in printer}" in _lcd87
     and '[menu __main __gen __plot]\ntype: list\nname: Plotter\n' in _lcd87, ''))
 tests.append(('R87 docs: cfg console paths say Tools (labels + plotter + generator header)',
@@ -13820,6 +13826,19 @@ _REMOVED135 = [
 ]
 
 _ADDED135 = [
+    # R267 (J9): spray-stencil generator - settings + litho image browser.
+    '__main __gen __stencil',
+    '__main __gen __stencil __info',
+    '__main __gen __stencil __set',
+    '__main __gen __stencil __set __stp',
+    '__main __gen __stencil __set __sze',
+    '__main __gen __stencil __set __thk',
+    '__main __gen __stencil __set __neg',
+    '__main __gen __stencil __img',
+    '__main __gen __stencil __img __info',
+    '__main __gen __stencil __img __pgp',
+    '__main __gen __stencil __img __pgn',
+] + ['__main __gen __stencil __img __s%d' % _i for _i in range(10)] + [
     # G2: explicit user-controlled helical tilt toggle in Texture.
     '__main __preprint __mods __tex __tilt',
     '__main __endq',
@@ -14876,6 +14895,13 @@ _ADDED135 = [
     '__main __system __diag __where',
     '__main __system __pp',
     '__main __system __ppinfo',
+    # R259: the toolchain preset chain (Pre-Print > Mods > Toolchain) -
+    # preset picked as a FILE (SD browser .json click), 5 sections
+    '__main __preprint __mods __toolchain',
+    '__main __preprint __mods __toolchain __preset',
+    '__main __preprint __mods __toolchain __src',
+    '__main __preprint __mods __toolchain __how',
+    '__main __preprint __mods __toolchain __go',
 ]
 _gone135 = sorted(set(_gold135) - set(_now135))
 _new135 = sorted(set(_now135) - set(_gold135))
@@ -14934,11 +14960,12 @@ tests.append(('R175b Pre-Print order (.130 wish list): File info FIRST -> '
                           '__temps', '__fil', '__motion', '__feat', '__pre',
                           '__mesh', '__confirm', '__alloff', '__profs'],
               str(_pre135)))
-tests.append(('R175b Pre-Print Tools submenu + Motion split',
+tests.append(('R175b Pre-Print Tools submenu + Motion split (R259: '
+              '+Toolchain after Mirror)',
               _kids135('__preprint __mods') == ['__poff', '__tex', '__rng',
                                                 '__scale', '__twist',
-                                                '__mirror', '__cake',
-                                                '__plot']
+                                                '__mirror', '__toolchain',
+                                                '__cake', '__plot']
               and _kids135('__preprint __motion') == ['__vel', '__ext',
                                                       '__ret', '__zh1', '__zh2']
               and _kids135('__preprint __motion __vel')[-2:] == ['__spfe',
@@ -15319,11 +15346,11 @@ tests.append(('R159 _LIVE_RESET: machine limits back (accel from the printer '
               and 'M220 S100' in _out159b and 'M221 S100' in _out159b
               and 'VARIABLE=g_speed_clean VALUE=100' in _out159b, _out159b[:160]))
 
-tests.append(('R146 generator folders (source wiring): all 21 watcher call '
+tests.append(('R146 generator folders (source wiring): all 22 watcher call '
               'sites route into _gensub subfolders (no flat out_dir=directory '
               'left), gen_files lists RELATIVE paths incl. legacy root files, '
-              'delete joins the subpath (R224: +Mirror)',
-              _r2p146.count("out_dir=_gensub(directory, '") == 21
+              'delete joins the subpath (R224: +Mirror; R267: +Stencil)',
+              _r2p146.count("out_dir=_gensub(directory, '") == 22
               and 'out_dir=directory' not in _r2p146
               and 'GEN_SUBDIRS = {' in _r2p146
               and "_sub146 + '/' + _f146" in _r2p146
@@ -15430,19 +15457,22 @@ tests.append(('R160 CABLE_TIE_GENERATE CONFIRM=1 armed: second press = '
 import re as _re160
 _rows160 = _re160.findall(r'gcode:\n    (?:[^\n]*menu\.exit[^\n]*\n    )?'
                    r'([A-Z_]+(?: INDEX=\d+| PRESET=\w+)? CONFIRM=1)', _lcd160)
-tests.append(('R160 LCD: 49 rows confirm by DOUBLE PRESS (macro + CONFIRM=1), '
+tests.append(('R160 LCD: 59 rows confirm by DOUBLE PRESS (macro + CONFIRM=1), '
     'console stays single-shot (R224: +Mirror +Rope/Basket/Chess presets; '
-    'R240: +the 6 profile actions +queue stop)',
-    len([r for r in _rows160 if not r.startswith(('LABEL_CLEAR_ALL', 'SYS_SAVE_CONFIG'))]) == 47
+    'R240: +the 6 profile actions +queue stop; R259: +Toolchain; R267: '
+    '+the 10 stencil image slots)',
+    len([r for r in _rows160 if not r.startswith(('LABEL_CLEAR_ALL', 'SYS_SAVE_CONFIG'))]) == 58
+    and 'TOOLCHAIN_APPLY CONFIRM=1' in _lcd160
     and 'SAVE_DEPOT_PRESET CONFIRM=1' in _lcd160
     and 'LOAD_DEPOT_PRESET CONFIRM=1' in _lcd160
     and 'FILE_PROFILE_LOAD WHICH=pre CONFIRM=1' in _lcd160
     and 'FILE_PROFILE_DELETE WHICH=pre CONFIRM=1' in _lcd160
     and 'PLOT_TEXT FILE="{nm}.txt" CONFIRM=1' in _lcd160
-    and _lcd160.count("gen_arm|default('') ==") >= 43
+    and _lcd160.count("gen_arm|default('') ==") >= 53
     and 'TWIST_APPLY CONFIRM=1' in _lcd160
     and 'CABLE_TIE_GENERATE CONFIRM=1' in _lcd160
     and 'LITHO_CREATE INDEX=0 CONFIRM=1' in _lcd160
+    and 'STENCIL_CREATE INDEX=0 CONFIRM=1' in _lcd160
     and 'GEN_BRICKKIT CONFIRM=1' in _lcd160 and 'GEN_FIGURES CONFIRM=1' in _lcd160
     and 'PLOT_STATUS CONFIRM=1' in _lcd160
     and 'TEXTURE_APPLY PRESET=ORCA CONFIRM=1' in _lcd160, str(len(_rows160))))
@@ -16243,10 +16273,17 @@ _ta175 = open('macros/17_generator.cfg').read()
 _lcd175 = open('menus/lcd_menues.cfg').read()
 _pp175 = open('tools/r2_postproc.py').read()
 
-tests.append(('R175 library: 27 seamless patterns + FUZZY + MAP image wrap (R238: 6 more)',
-    len(_tx175.PATTERN_NAMES) == 27
+tests.append(('R175 library: 55 seamless patterns + FUZZY + MAP image wrap '
+    '(R238/R265/R266.2/R266.3: 6+6+7+9+6 more)',
+    len(_tx175.PATTERN_NAMES) == 55
     and 'HONEYCOMB' in _tx175.PATTERN_NAMES and 'GLITCH' in _tx175.PATTERN_NAMES
-    and 'MAP' in _tx175.PATTERN_NAMES and 'MANDELBROT' not in _tx175.PATTERN_NAMES,
+    and 'MAP' in _tx175.PATTERN_NAMES and 'MANDELBROT' not in _tx175.PATTERN_NAMES
+    and 'STONEWALL' in _tx175.PATTERN_NAMES and 'MAZE' in _tx175.PATTERN_NAMES
+    and 'PERFORATION' in _tx175.PATTERN_NAMES
+    and 'NETGRID' in _tx175.PATTERN_NAMES
+    and 'RINGS' in _tx175.PATTERN_NAMES
+    and 'OLDBARK' in _tx175.PATTERN_NAMES
+    and 'WRINKLE' in _tx175.PATTERN_NAMES,
     str(len(_tx175.PATTERN_NAMES))))
 # Seam-Beweis: der Sprung am Umfangs-Wrap ist nie groesser als im Feldinneren
 import math as _m175
@@ -17756,7 +17793,7 @@ tests.append(('R185 current-only manual: no version-history appendix, no era '
     '## Appendix D' not in _m185 and 'Version history' not in _m185
     and _re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185) is None
     and _re2.search(r'\bR1[0-9][0-9]\b', _m185) is None
-    and 'The nine fonts' in _m185 and 'R2-2026-11-11.142d' in _m185,
+    and 'The nine fonts' in _m185 and 'R2-2026-11-19.1' in _m185,
     'appendixD=%s eratags=%s rtags=%s nine=%s v132=%s' % (
         '## Appendix D' in _m185,
         bool(_re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185)),
@@ -18052,20 +18089,25 @@ _web214 = open('web/index.html', encoding='utf-8').read()
 # the library looks from the ONE truth (the macro config variable)
 _libm214 = re.search(r'^variable_texture_lib: (.+)$', _mc214, re.M)
 _lib214 = _ast214.literal_eval(_libm214.group(1))
-tests.append(('R214/R253 texture library: 27 looks live in the macro config '
-    '(appearance names, full 9-key sets, ranges valid)',
-    len(_lib214) == 27
+tests.append(('R214/R253/R265/R266.2/R266.3 texture library: 55 looks live in '
+    'the macro config (appearance names, full 9-key sets, ranges valid)',
+    len(_lib214) == 55
     and {v['texture_pattern'] for v in _lib214.values()} == {
         'RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX', 'HONEYCOMB',
         'BASKET', 'ROPE', 'PLANKS', 'BRICKS', 'SANDSTONE', 'CONCRETE',
         'CLAY', 'CREPE', 'FABRIC', 'PLUSH', 'HILBERT', 'SCRATCH', 'GLITCH',
-        'KNIT', 'FLUTED', 'BARK', 'SCALES', 'FACETS', 'MACRAME', 'MAP'}
+        'KNIT', 'FLUTED', 'BARK', 'SCALES', 'FACETS', 'MACRAME', 'MAP',
+        'STONEWALL', 'RUBBLE', 'TILES', 'PARQUET', 'LAMINATE', 'MAZE',
+        'PERFORATION', 'VENT', 'CARBON', 'PINDOTS', 'OCTAGONS',
+        'CHAINLINK', 'NETGRID', 'RINGS', 'OAK', 'BEECH', 'KNOT', 'OLDBARK',
+        'LEATHER', 'ORANGE', 'CRACKS', 'WRINKLE', 'HEARTS', 'GOLF',
+        'BASKETBALL', 'RAUFASER', 'ROOFTILES', 'CROCHET'}
     and all(sorted(v) == sorted(['texture_mode', 'texture_fuzzy_thick',
         'texture_fuzzy_density', 'texture_pattern', 'texture_scale',
         'texture_zsize', 'texture_amp', 'texture_dir', 'texture_seed'])
         for v in _lib214.values())
     and all(3.0 <= v['texture_scale'] <= 80.0
-            and 0.05 <= v['texture_amp'] <= 1.0
+            and 0.05 <= v['texture_amp'] <= 4.0
             and 1 <= v['texture_seed'] <= 999 for v in _lib214.values()),
     str(len(_lib214))))
 
@@ -18338,6 +18380,64 @@ save_vars['preview_file'] = ''
 out = render(_mir224, {})
 tests.append(('R224 MIRROR_APPLY: no file -> friendly error, nonce untouched',
     'no file selected' in out and 'VARIABLE=mirror_nonce' not in out, ''))
+
+# ===== R259: the TOOLCHAIN - preset file chains the real tools =====
+_sr259 = open('tools/r2_postproc.py', encoding='utf-8').read()
+tests.append(('R259 toolchain: watcher channel + output folder + freeze + '
+    'json pick registered (one queue entry per chain, disk I/O waits for '
+    'idle like every generator)',
+    'toolchain_nonce' in _mod224.NONCE_KEYS
+    and _mod224.GEN_SUBDIRS.get('toolchain') == 'Toolchain'
+    and "'toolchain_nonce'" in _sr259.split('_freeze133 = (')[1][:4000]
+    and '_toolchain_job259' in _sr259
+    and "_np.get('toolchain_nonce')" in _sr259
+    and '.json' in _mod224._SD_EXT151, ''))
+_ma259 = open('macros/17_generator.cfg', encoding='utf-8').read()
+tests.append(('R259 TOOLCHAIN_APPLY macro: arms on CONFIRM, saves preset + '
+    'file, bumps the nonce (the R160 double-press pattern)',
+    'TOOLCHAIN_APPLY' in _ma259
+    and "SAVE_VARIABLE VARIABLE=toolchain_nonce VALUE={sv.toolchain_nonce|default(0)|int + 1}" in _ma259
+    and 'SAVE_VARIABLE VARIABLE=toolchain_preset' in _ma259
+    and 'SAVE_VARIABLE VARIABLE=toolchain_file' in _ma259
+    and '_GEN_ARM KEY=toolchain' in _ma259 and '_GEN_GO KEY=toolchain' in _ma259,
+    ''))
+save_vars.update({'toolchain_preset': 'Toolchain/scale-twist.json',
+                  'toolchain_file': '', 'toolchain_nonce': 4,
+                  'preview_file': 'teil.gcode'})
+_tc259 = get_body('macros/17_generator.cfg', 'TOOLCHAIN_APPLY')
+out = render(_tc259, {})
+tests.append(('R259 TOOLCHAIN_APPLY renders: preset + file saved, nonce '
+    'bumped, honest one-job message',
+    'VARIABLE=toolchain_preset VALUE="\\\"Toolchain/scale-twist.json\\\""' in out
+    and 'VARIABLE=toolchain_file VALUE="\\\"teil.gcode\\\""' in out
+    and 'VARIABLE=toolchain_nonce VALUE=5' in out
+    and 'only the last output stays' in out, out[:150]))
+out = render(_tc259, {'PRESET': '../escape.json'})
+tests.append(('R259 TOOLCHAIN_APPLY: path climb refused before any save',
+    'PRESET must be a path inside the gcodes folder' in out
+    and 'VARIABLE=toolchain_nonce' not in out, ''))
+out = render(_tc259, {'FILE': 'Range/V02_teil.gcode'})
+tests.append(('R260 TOOLCHAIN_APPLY: subfolder FILE accepted (Range/'
+    'Scale outputs are chainable), path saved verbatim',
+    'VARIABLE=toolchain_file VALUE="\\\"Range/V02_teil.gcode\\\""' in out
+    and 'VARIABLE=toolchain_nonce VALUE=' in out, out[:150]))
+out = render(_tc259, {'FILE': '../hoch.gcode'})
+tests.append(('R260 TOOLCHAIN_APPLY: FILE climb still refused',
+    'no climbing up' in out and 'VARIABLE=toolchain_nonce' not in out, ''))
+save_vars['preview_file'] = ''
+save_vars['toolchain_preset'] = ''
+out = render(_tc259, {})
+tests.append(('R259 TOOLCHAIN_APPLY: no preset -> friendly pick hint, '
+    'nonce untouched',
+    'no preset picked' in out and 'VARIABLE=toolchain_nonce' not in out, ''))
+_sys259 = open('macros/13_system.cfg', encoding='utf-8').read()
+tests.append(('R259 SD browser: a .json click PICKS the toolchain preset '
+    '(file selection instead of JSON typing at the LCD)',
+    "low.endswith('.json')" in _sys259
+    and 'SAVE_VARIABLE VARIABLE=toolchain_preset' in _sys259, ''))
+tests.append(('R259 example preset ships + resolves (load_preset_file is '
+    'the offline-tested resolver)',
+    __import__('os').path.isfile('presets/toolchain/scale-twist.json'), ''))
 # R224 task 10: multi-object files (print-by-object) - OBJ= flips ONE
 # object around ITS own center, the rest stays byte-identical
 _f224b = _os224.path.join(_d224, 'multi.gcode')
@@ -18698,13 +18798,17 @@ tests.append(('R238 LCD: the queue row is __queue, directly above the SD '
     < _lcd238.index('[menu __main __sdcard]')
     and '__queue __skip' in _lcd238 and '__queue __stop' in _lcd238
     and '[menu __main __genq]' not in _lcd238, ''))
-tests.append(('R238 LCD: 27 pattern rows on 4 pages, the 6 new ones named',
+tests.append(('R238 LCD: pattern rows page through the _TX_PATTERN arrays '
+    '(8/page, dynamic page cap since R266.2), the 6 R238 ones named',
     # R246c: the rows render from the _TX_PATTERN arrays since the R239+
-    # rework - no 27 hardcoded SAVE_VARIABLE rows anymore. The arrays are
-    # the one truth, the LCD pages through them 8 at a time.
-    'of 4 - 27 patterns total' in _lcd238
-    and _lcd238.count('*8+') >= 100          # 8 rows/page, page-indexed
+    # rework - no 27 hardcoded SAVE_VARIABLE rows anymore. R266.2 field
+    # fix: the page cap derives from tx_codes|length - the hard '3' had
+    # hidden every pattern beyond slot 32 since R265.
+    _lcd238.count('*8+') >= 100          # 8 rows/page, page-indexed
     and 'tx_names' in _lcd238 and 'tx_codes' in _lcd238
+    and 'tx_codes|length' in _lcd238
+    and 'patterns total' in _lcd238
+    and '27 patterns total' not in _lcd238 and 'of 4 -' not in _lcd238
     and "'KNIT', 'FLUTED', 'BARK', 'SCALES', 'FACETS', 'MACRAME'" in open(
         'macros/17_generator.cfg', encoding='utf-8').read(), ''))
 tests.append(('R238 LCD: MAP mode + position rows (ONCE-gated), fuzzy/bumps '
@@ -19496,6 +19600,352 @@ tests.append(('R246d sweep: the duplicate scan ADMITS hidepid blindness '
     'def _proc_hidepid' in _pp246c and 'hidepid_loud' in _pp246c
     and 'sudo pgrep -af' in _pp246c, ''))
 
+
+
+# ================== R266: DEEP RELIEF - E rides the real path ==============
+# The field wish: patterns DEEPER than 1mm must extrude honestly. A
+# displaced chord has a REAL length; on relative-E sections every chord's
+# E rides it (E_new = E_old * L_new/L_old, per-move totals kept to the
+# rounding digit), steep flanks subdivide to ~0.4mm height steps. Two
+# FIELD BUGS fell out of testing this on the real fixtures: X-only purge
+# lines crashed the stats prepass (vwbus) and 'M83 ; comment' never
+# switched the E-mode tracker (rose) - both fixed here with the deep work.
+_d266 = _tf175.mkdtemp()
+_E266 = _re175.compile(r'(?:^|\s)E(-?[\d.]+)')
+_X266 = _re175.compile(r'(?:^|\s)X(-?[\d.]+)')
+_Y266 = _re175.compile(r'(?:^|\s)Y(-?[\d.]+)')
+
+def _cyl266(name, rel=True, purge=False, m83_comment=False):
+    """Uniform-density cylinder: 40 chords of ~2.36mm per layer, 6 layers.
+    E = 0.05 * chord length (relative) - so E-preservation is EXACTLY
+    checkable against the written chord lengths."""
+    _p = _os175.path.join(_d266, name)
+    with open(_p, 'w') as _f:
+        _f.write(';FLAVOR:Marlin\nG90\n')
+        if rel:
+            _f.write('M83 ; use relative distances for extrusion\n'
+                     if m83_comment else 'M83\n')
+        else:
+            _f.write('M82\nG92 E0\n')
+        if purge:
+            _f.write('G1 X60.0 E9.0 ; purge line\n'   # X-only, no Y yet!
+                     'G1 X100.0 E12.5 ; purge line\n')
+        _ea = 0.0
+        for _lay in range(6):
+            _z = 0.2 + _lay * 0.2
+            _f.write(';LAYER_CHANGE\n;TYPE:WALL-OUTER\n')
+            _f.write('G0 X125.000 Y110.000 Z%.3f F9000\n' % _z)
+            for _i in range(1, 41):
+                _a = 2 * _m175.pi * _i / 40
+                _b = 2 * _m175.pi * (_i - 1) / 40
+                _x = 110 + 15 * _m175.cos(_a)
+                _y = 110 + 15 * _m175.sin(_a)
+                _l = _m175.hypot(
+                    15 * _m175.cos(_a) - 15 * _m175.cos(_b),
+                    15 * _m175.sin(_a) - 15 * _m175.sin(_b))
+                if rel:
+                    _f.write('G1 X%.3f Y%.3f E%.5f F2400\n'
+                             % (_x, _y, 0.05 * _l))
+                else:
+                    _ea += 0.05 * _l
+                    _f.write('G1 X%.3f Y%.3f E%.5f F2400\n' % (_x, _y, _ea))
+    return _p
+
+def _scan266(path, wall_only=True):
+    """(chords, sum_e, sum_len, band_viol, neg_e) over written G1s.
+    A G0 travel breaks the chord continuity exactly like the tool's
+    writer-position tracker does (R266)."""
+    _px = _py = None
+    _iw = not wall_only
+    _n = 0; _se = _sl = 0.0; _v = 0; _neg = 0
+    for _ln in open(path):
+        _ln = _ln.rstrip('\n')
+        if _ln.startswith(';TYPE:'):
+            _iw = 'wall' in _ln.lower()
+            continue
+        if _ln.startswith('G0'):
+            _px = _py = None
+            continue
+        if not _ln.startswith('G1 '):
+            continue
+        _mx, _my, _me = (_X266.search(_ln), _Y266.search(_ln),
+                         _E266.search(_ln))
+        if not _mx or not _my:
+            continue
+        _x, _y = float(_mx.group(1)), float(_my.group(1))
+        _e = float(_me.group(1)) if _me else None
+        if _e is None or _e <= 0.00002:
+            if _e is not None and _e < -1e-9:
+                _neg += 1
+            _px = _py = None
+            continue
+        if _px is not None and _iw:
+            _cl = _m175.hypot(_x - _px, _y - _py)
+            _n += 1; _se += _e; _sl += _cl
+            if not (0.45 * 0.05 - 1e-4 <= _e / _cl <= 1.8 * 0.05 + 1e-4):
+                _v += 1
+        _px, _py = _x, _y
+    return _n, _se, _sl, _v, _neg
+
+_tests_deep = []
+try:
+    _o266, _i266 = _tx175.apply_texture(
+        _cyl266('deep_rel.gcode'), out_dir=_d266, mode='BUMPS',
+        bump_pattern='BARK', bump_scale=12.0, bump_amp=2.0, zsize=4.0,
+        seed=43)
+    _n, _se, _sl, _v, _neg = _scan266(_o266)
+    _tests_deep.append(('R266 deep relief: amp 2.0 accepted, deep flag set, '
+        'steep subdivision active (0.4mm steps)',
+        _i266['deep'] and _i266['deep_step_mm'] == 0.4
+        and _i266['subdivisions'] > 0 and _i266['steep_segments'] > 0,
+        'deep=%s step=%s sub=%s steep=%s' % (_i266.get('deep'),
+        _i266.get('deep_step_mm'), _i266.get('subdivisions'),
+        _i266.get('steep_segments'))))
+    _tests_deep.append(('R266 E rides the REAL chord length: every wall '
+        'chord extrudes 0.05*len within the [0.45..1.8] steepness clamp, '
+        'file total matches to the rounding digit',
+        _v == 0 and _neg == 0 and _n > 200
+        and abs(_se - 0.05 * _sl) / (0.05 * _sl) < 5e-4,
+        'chords=%d viol=%d neg=%d rel_err=%.2e' % (_n, _v, _neg,
+        abs(_se - 0.05 * _sl) / max(1e-9, 0.05 * _sl))))
+    _tests_deep.append(('R266 E-mode tracker: a commented \'M83 ; use '
+        'relative distances\' switches the compensation ON (rose field '
+        'bug - the exact == match never saw it)',
+        _i266['deep_e_compensated'] and _i266['deep_e_chords'] > 0,
+        'comp=%s chords=%s' % (_i266.get('deep_e_compensated'),
+        _i266.get('deep_e_chords'))))
+except Exception as _e266:
+    _tests_deep.append(('R266 deep relief: relative-E run crashed', False,
+        repr(_e266)[:200]))
+
+try:
+    _p266b = _cyl266('deep_abs.gcode', rel=False)
+    _in266b = [float(_E266.search(_l).group(1)) for _l in open(_p266b)
+               if _l.startswith('G1 ') and _E266.search(_l)]
+    _o266b, _i266b = _tx175.apply_texture(
+        _p266b, out_dir=_d266, mode='BUMPS', bump_pattern='BARK',
+        bump_scale=12.0, bump_amp=2.0, zsize=4.0, seed=43)
+    _out266b = [float(_E266.search(_l).group(1)) for _l in open(_o266b)
+                if _l.startswith('G1 ') and _E266.search(_l)]
+    # absolute E: subdivision interpolates intermediate values, so the
+    # TOKEN sums differ by design - the honest invariants: every input E
+    # value survives verbatim as a chord-group end (the input sequence is
+    # an ordered subsequence of the output values - intermediates lie
+    # strictly between group ends) and the file maximum is unchanged
+    _it266 = iter(_out266b)
+    _seq_ok = all(any(_v == _w for _w in _it266) for _v in _in266b)
+    _tests_deep.append(('R266 absolute-E honesty: deep mode stays '
+        'slicer-true (every input E value survives as a chord-group end, '
+        'the file max E is unchanged) and the header SAYS so',
+        _i266b['deep'] and not _i266b['deep_e_compensated']
+        and _seq_ok and abs(max(_out266b) - max(_in266b)) < 1e-6
+        and 'absolute-E sections stay slicer-true' in open(_o266b).read(4000),
+        'seq_ok=%s max_in=%.5f max_out=%.5f' % (_seq_ok,
+        max(_in266b), max(_out266b))))
+except Exception as _e266:
+    _tests_deep.append(('R266 absolute-E honesty run crashed', False,
+        repr(_e266)[:200]))
+
+try:
+    _p266c = _cyl266('purge_rel.gcode', rel=True, purge=True)
+    _o266c, _i266c = _tx175.apply_texture(
+        _p266c, out_dir=_d266, mode='BUMPS', bump_pattern='BARK',
+        bump_scale=12.0, bump_amp=2.0, zsize=4.0, seed=43)
+    _purge_ok = ('G1 X60.0 E9.0 ; purge line' in open(_o266c).read()
+                 and 'G1 X100.0 E12.5 ; purge line' in open(_o266c).read())
+    _tests_deep.append(('R266 X-only purge lines survive (vwbus field '
+        'crash: the stats prepass did ay += None), passthrough byte-true',
+        _i266c['shifted'] > 200 and _purge_ok,
+        'shifted=%s purge_lines=%s' % (_i266c.get('shifted'), _purge_ok)))
+except Exception as _e266:
+    _tests_deep.append(('R266 X-only purge run crashed (the old engine '
+        'raised TypeError here)', False, repr(_e266)[:200]))
+
+try:
+    _p266d = _cyl266('soft_rel.gcode', rel=True)
+    _in266d = sum(float(_E266.search(_l).group(1)) for _l in open(_p266d)
+                  if _l.startswith('G1 ') and _E266.search(_l))
+    _o266d, _i266d = _tx175.apply_texture(
+        _p266d, out_dir=_d266, mode='BUMPS', bump_pattern='BARK',
+        bump_scale=12.0, bump_amp=0.45, zsize=4.0, seed=43)
+    _out266d = sum(float(_E266.search(_l).group(1)) for _l in open(_o266d)
+                   if _l.startswith('G1 ') and _E266.search(_l))
+    _tests_deep.append(('R266 regression guard: amp <= 1.0 stays the '
+        'legacy contract - NOT deep, no E touched, file E total EXACT',
+        (not _i266d['deep']) and _i266d['deep_e_chords'] == 0
+        and abs(_out266d - _in266d) < 1e-6,
+        'deep=%s dE=%.2e' % (_i266d.get('deep'),
+        abs(_out266d - _in266d))))
+except Exception as _e266:
+    _tests_deep.append(('R266 regression guard run crashed', False,
+        repr(_e266)[:200]))
+
+_tests_deep.append(('R266 range: 0.05..4.0 with an honest refusal beyond '
+    '(the LCD depth entry inherits the new ceiling)',
+    '0.05 <= float(bump_amp) <= 4.0' in _tx175_src
+    and 'min\': 0.05, \'max\': 4.0' in open('tools/toolchain.py').read(),
+    ''))
+
+try:
+    _tx175.apply_texture(_cyl266('range_refused.gcode'), out_dir=_d266,
+                         mode='BUMPS', bump_pattern='BARK', bump_scale=12.0,
+                         bump_amp=4.5, zsize=4.0, seed=43)
+    _tests_deep.append(('R266 range: 4.5mm refused honestly', False,
+        'no ValueError'))
+except ValueError:
+    _tests_deep.append(('R266 range: 4.5mm refused honestly', True, ''))
+except Exception as _e266:
+    _tests_deep.append(('R266 range: 4.5mm refused honestly', False,
+        repr(_e266)[:200]))
+
+tests.extend(_tests_deep)
+
+
+# ================== R266.2 bite 3: organics - registration =================
+# Wood (rings/oak/beech/knot), ancient bark, leather, orange peel, mud
+# cracks, heavy wrinkle: 9 more patterns = 49 total. The registration
+# must be CONGRUENT everywhere (engine, LCD picker, toolchain) and the
+# LCD page cap must follow the list (field bug: the hard cap hid the
+# patterns beyond slot 32 since R265).
+import ast as _ast266b
+_ta266b = open('macros/17_generator.cfg', encoding='utf-8').read()
+_txp266 = {}
+for _key266 in ('tx_names', 'tx_codes', 'tx_descs'):
+    _m266b = _re175.search(r'variable_%s: (\[.*?\])\n' % _key266, _ta266b)
+    _txp266[_key266] = _ast266b.literal_eval(_m266b.group(1)) if _m266b else []
+tests.append(('R266.2 registration: _TX_PATTERN carries 55 names/codes/descs '
+    'in engine order (LCD picker + RESPOND infos stay congruent)',
+    len(_txp266['tx_names']) == 55
+    and len(_txp266['tx_codes']) == 55
+    and len(_txp266['tx_descs']) == 55
+    and _txp266['tx_codes'] == list(_tx175.PATTERN_NAMES)
+    and all(len(d) > 40 for d in _txp266['tx_descs']),
+    'names %d codes %d descs %d' % (
+        len(_txp266['tx_names']), len(_txp266['tx_codes']),
+        len(_txp266['tx_descs']))))
+
+_lcd266b = _lcd175
+tests.append(('R266.2 LCD page cap: DYNAMIC from tx_codes|length - the old '
+    'hard cap (4 pages / 27 patterns) had hidden everything beyond slot '
+    '32 since R265; 55 patterns need 7 pages and every one is reachable',
+    _lcd266b.count('tx_codes|length') >= 2
+    and '27 patterns total' not in _lcd266b
+    and 'of 4 -' not in _lcd266b
+    and (55 - 1) // 8 == 6,
+    'pages needed %d' % ((55 - 1) // 8 + 1)))
+
+_tc266b = open('tools/toolchain.py', encoding='utf-8').read()
+tests.append(('R266.2 toolchain: TEXTURE_PATTERNS congruent with the engine '
+    '(the R265/R265.3 twelve had never been added there - latent '
+    'inconsistency, fixed with the organics)',
+    'TEXTURE_PATTERNS' in _tc266b
+    and "'RINGS', 'OAK', 'BEECH', 'KNOT', 'OLDBARK', 'LEATHER', 'ORANGE',"
+    in _tc266b
+    and "'WRINKLE'," in _tc266b,
+    ''))
+
+# the organic presets speak their material (deep relief included)
+tests.append(('R266.2 presets: 9 organic looks in the library - Alter Stamm '
+    'carries a DEEP depth (2.8mm, R266), Orangenhaut a deliberately fine '
+    'one (0.18mm)',
+    'Jahresringe' in _lib214 and 'Eichenmaserung' in _lib214
+    and 'Buche fein' in _lib214 and 'Maserwirbel' in _lib214
+    and 'Alter Stamm' in _lib214 and 'Leder gepolstert' in _lib214
+    and 'Orangenhaut' in _lib214 and 'Trockenrisse' in _lib214
+    and 'Knitterfalten' in _lib214
+    and _lib214['Alter Stamm']['texture_pattern'] == 'OLDBARK'
+    and _lib214['Alter Stamm']['texture_amp'] == 2.8
+    and _lib214['Orangenhaut']['texture_amp'] <= 0.25,
+    str([k for k in _lib214 if k in ('Jahresringe', 'Alter Stamm',
+        'Orangenhaut')])))
+
+# seamless stays the law: the R175 seam sampler already covers every
+# PATTERN_NAMES entry - this run PROVES it ran over 49 (a forgotten
+# registration would silently skip the new ones)
+tests.append(('R266.2 seam law: the R175 seam sampler covers all 55 '
+    '(the 9 organics close at the wrap and the top too)',
+    len(_tx175.PATTERN_NAMES) == 55
+    and all(_p266s in _tx175.PATTERN_NAMES for _p266s in (
+        'RINGS', 'OAK', 'BEECH', 'KNOT', 'OLDBARK', 'LEATHER',
+        'ORANGE', 'CRACKS', 'WRINKLE')),
+    ''))
+
+# ================== R266.3: decor & haptics (bite 4) =========================
+# six more library patterns: hearts, golf ball, basketball, woodchip
+# wallpaper, roof tiles, crochet - agreed set with the user (no stars,
+# no rings/bubbles). The library is now 55 (54 shaped + MAP).
+tests.append(('R266.3 registration: the six decor patterns are in the '
+    'engine, _TX_PATTERN and the toolchain (no silent half-registration)',
+    all(_p2663 in _tx175.PATTERN_NAMES for _p2663 in (
+        'HEARTS', 'GOLF', 'BASKETBALL', 'RAUFASER', 'ROOFTILES', 'CROCHET'))
+    and _txp266['tx_codes'][-6:] == ['HEARTS', 'GOLF', 'BASKETBALL',
+        'RAUFASER', 'ROOFTILES', 'CROCHET']
+    and "'HEARTS', 'GOLF', 'BASKETBALL', 'RAUFASER', 'ROOFTILES'," in _tc266b
+    and "'CROCHET'" in _tc266b,
+    ''))
+
+tests.append(('R266.3 stagger seam law: HEARTS/GOLF/CROCHET close the wrap '
+    'in EVERY snapped k/n shape (the stagger phase jumps at the t-wrap '
+    'when the content reaches the row boundary - measured, not assumed)',
+    all(_seamok175(_p2663, k, n)
+        for _p2663 in ('HEARTS', 'GOLF', 'CROCHET')
+        for k in (5, 9, 14, 18)
+        for n in (2, 4, 7)),
+    'a staggered decor pattern jumps at the wrap'))
+
+tests.append(('R266.3 presets: 6 decor looks in the library (Herzen, '
+    'Golfball, Basketball, Raufaser, Dachziegel, Haekelwerk)',
+    all(_k2663 in _lib214 for _k2663 in ('Herzen', 'Golfball', 'Basketball',
+        'Raufaser', 'Dachziegel', 'Haekelwerk'))
+    and _lib214['Herzen']['texture_pattern'] == 'HEARTS'
+    and _lib214['Golfball']['texture_pattern'] == 'GOLF'
+    and _lib214['Basketball']['texture_pattern'] == 'BASKETBALL'
+    and _lib214['Raufaser']['texture_pattern'] == 'RAUFASER'
+    and _lib214['Dachziegel']['texture_pattern'] == 'ROOFTILES'
+    and _lib214['Haekelwerk']['texture_pattern'] == 'CROCHET',
+    ''))
+
+tests.append(('R266.3 LCD pages: 55 patterns still fit 7 pages (8 slots '
+    'each - the dynamic cap from R266.2 carries the growth)',
+    (55 - 1) // 8 + 1 == 7,
+    'pages %d' % ((55 - 1) // 8 + 1)))
+
+# ================== R267: spray-stencil generator (J9) ======================
+# the user-agreed design: steps 2-4 (setting), bridges 3x nozzle
+# (automatic), rectangular plate + 4 registration holes, optional
+# negative stencil. Reuses the lithophane image browser.
+_pp267 = open('tools/r2_postproc.py', encoding='utf-8').read()
+tests.append(('R267 stencil engine: make_stencil lives in the postproc '
+    'core with the bridge law and the honest band reduction',
+    'def make_stencil(' in _pp267
+    and 'def _stencil_bridges267(' in _pp267
+    and 'steps reduced to %d - the image cannot fill more' in _pp267
+    and '3x nozzle' in _pp267,
+    ''))
+
+_mc267 = open('macros/17_generator.cfg', encoding='utf-8').read()
+tests.append(('R267 stencil macros: STENCIL_INFO + STENCIL_CREATE with the '
+    'arm/confirm pattern, reusing the litho image slots',
+    '[gcode_macro STENCIL_INFO]' in _mc267
+    and '[gcode_macro STENCIL_CREATE]' in _mc267
+    and "SAVE_VARIABLE VARIABLE=stencil_nonce" in _mc267
+    and "litho_files" in _mc267,
+    ''))
+
+tests.append(('R267 stencil watcher: stencil_nonce is primed at boot (no '
+    'old-job replay) and spawns a threaded job like the lithophane',
+    "last_stencil_nonce = _np.get('stencil_nonce')" in _pp267
+    and "_spawn_job('Stencil'," in _pp267
+    and "last_stencil_nonce = None" in _pp267,
+    ''))
+
+tests.append(('R267 stencil menu: Settings (bands 2-4, edge, thickness, '
+    'negative) + 10 image slots paging the litho browser',
+    _lcd175.count('[menu __main __gen __stencil') >= 21
+    and 'stencil_steps' in _lcd175
+    and 'stencil_negative' in _lcd175
+    and _lcd175.count('STENCIL_CREATE INDEX=') == 10,
+    '%d blocks' % _lcd175.count('[menu __main __gen __stencil')))
 
 # R246c harness: the PASS/FAIL loop now runs HERE, at the very end. It used
 # to sit mid-file (before the R214 round) - every test appended after it

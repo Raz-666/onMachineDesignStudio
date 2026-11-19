@@ -298,9 +298,15 @@ def main():
 
     # ---------------- 3) wiring sweep ----------------
     src = open(os.path.join(HERE, 'r2_postproc.py'), encoding='utf-8').read()
+    # (rv or {}) is the doctor's defensive read - same channel, same
+    # guarantee (the helper tolerates a None rv)
     check('wiring: every nonce channel is read by the watcher',
-          all("rv.get('%s'" % k in src for k in pp.NONCE_KEYS),
-          str([k for k in pp.NONCE_KEYS if "rv.get('%s'" % k not in src]))
+          all(("rv.get('%s'" % k in src
+               or "(rv or {}).get('%s'" % k in src)
+              for k in pp.NONCE_KEYS),
+          str([k for k in pp.NONCE_KEYS
+               if "rv.get('%s'" % k not in src
+               and "(rv or {}).get('%s'" % k not in src]))
     lcd = open(os.path.join(HERE, '..', 'menus', 'lcd_menues.cfg'),
                encoding='utf-8').read()
     gen_macros = ['GEN_LABELS', 'GEN_FRAME', 'GEN_SEAL', 'GEN_CABLE_TIES',

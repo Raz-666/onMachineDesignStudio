@@ -31,8 +31,15 @@ class BundleTests(unittest.TestCase):
                 bundle.validate(corrupt)
 
     def test_ignored_upload_and_archive_are_not_in_source_list(self):
+        # R262: the handoff sources under analyse/uebergabe-quellen/ are
+        # TRACKED now (user decision, 13th commissioning round - the research
+        # documents live in the repo, see the inner .gitignore). What must
+        # stay out of every source list: the generated archives (*.zip,
+        # *.zip.png - inner .gitignore), releases/, and the local-only pinned
+        # Klipper reference parser.
         paths = bundle.source_paths(bundle.ROOT)
-        self.assertFalse(any(p.startswith('analyse/uebergabe-quellen/') and not p.endswith('SHA256SUMS') for p in paths))
+        self.assertFalse(any(p.startswith('analyse/uebergabe-quellen/') and p.endswith(('.zip', '.zip.png')) for p in paths))
+        self.assertIn('analyse/uebergabe-quellen/SHA256SUMS', paths)
         self.assertFalse(any(p.startswith('releases/') for p in paths))
         self.assertNotIn('analyse/klipper-referenz/gcode.py', paths)
 

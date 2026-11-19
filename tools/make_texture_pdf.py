@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """TEXTURING.pdf — the documentation of the R2-D2 texture tool (user
 request, .136m round): how the wall displacement works, the EXACT mapping
-of every setting, all 27 patterns with previews sampled from the REAL
+of every setting, all 40 patterns with previews sampled from the REAL
 pattern functions (tools/r2_texture.py _build_patterns - not redrawn,
-the images ARE the code output), and the 27 library presets listed per
+the images ARE the code output), and the 55 library presets listed per
 pattern.
 
 Content basis: tools/r2_texture.py (_build_patterns, apply_texture,
@@ -151,7 +151,12 @@ def render_pattern(name, preset):
     shaded preview (light from top-left, dark = deep, bright = raised)"""
     k, n = k_n_for(preset)
     img = _map_img() if name == 'MAP' else None
-    pats = r2_texture._build_patterns(k, n, int(preset['texture_seed']), img)
+    # the preview image is the unwrapped cylinder: 330px ~ circumference,
+    # 220px ~ height - pass the pixel aspect so form-true patterns
+    # (parquet slats, laminate boards) keep their REAL shape (R265.2)
+    pats = r2_texture._build_patterns(k, n, int(preset['texture_seed']), img,
+                                      ar=(220.0 / max(1, n))
+                                         / (330.0 / max(1, k)))
     fn = pats[name]
     W, H = 330, 220
     hm = [[0.0] * W for _ in range(H)]
@@ -228,9 +233,10 @@ PAT_TXT = {
    'Noise-Aufrauung - Leinen-/Köperstruktur in Umfangsrichtung.',
  'PLUSH': 'Plüsch: feines, hochfrequentes Noise (5k×5n, mindestens 6) um den '
    'Neutralpunkt 0.42 - dichtes, kurzfloriges Pelz-Muster.',
- 'HILBERT': 'Raumfüllende Zickzack-Bänder: Dreieckwelle in s, pro Reihe um '
-   'eine halbe Periode versetzt, amplitude zur Bandmitte hin betont - '
-   'Labyrinth-/Mäanderoptik.',
+ 'HILBERT': 'ECHTE HILBERT-KURVE (R265): die fraktale raumfüllende Kurve '
+   'der Ordnung 3 als durchgehende Wandlinie, gekachelt über das Feld - '
+   'die Gänge zwischen den Wänden bilden ein zusammenhängendes Labyrinth, '
+   'die Kurve schließt sauber über alle Kachelgrenzen.',
  'SCRATCH': 'Anisotrope Kratzer: gestrecktes grobes Noise quer + feines '
    'Noise längs (k/2 × 4n und 2k × 6n) - gebürstetes, verkratztes Metall.',
  'GLITCH': 'Digitale Fehler: pro Band (Zeile) ein geseedeter KONSTANTER '
@@ -251,6 +257,119 @@ PAT_TXT = {
  'MACRAME': 'MAKRAMEE (R238): zwei gedrehte Schnur-Familien kreuzen sich '
    'zum Netz - eine Familie windet auf, die andere ab, die Kreuzungen '
    'lesen sich als Knoten.',
+ 'STONEWALL': 'NATURSTEINMAUER (R265): unregelmäßige Blockbreiten in '
+   'acht Bettreihen, Stoßfugen versetzt - Bett- und Stoßfugen als tiefe '
+   'Mörtelrille, Steinoberflächen leicht gewölbt und per Noise getönt.',
+ 'RUBBLE': 'BRUCHSTEIN (R265): Voronoi-Zerlegung in unregelmäßige '
+   'Findlinge mit breitem Mörtelbett - jeder Stein eine gewölbte Fläche '
+   'mit eigenem Ton, Fugen tief und unregelmäßig wie natürlicher Bruch.',
+ 'TILES': 'FLIESEN (R265): plane Steinflächen mit angefasten Kanten auf '
+   'tiefer Fuge - der Heller-Dunkele-Umschlag sitzt NUR auf der Fliese, '
+   'die Fuge bleibt sauber ausgespart (kein Ton in der Fuge).',
+ 'PARQUET': 'PARKETT CHEVRON (R265): Fischgrät-Diagonalbretter, deren '
+   'Richtung je Spalte kippt - V-Fugen an den Stößen, Kantenfugen entlang '
+   'der Diagonalen, ruhige Holzfläche dazwischen.',
+ 'LAMINATE': 'LAMINAT (R265): regelmäßige Dielen mit V-Fase an den '
+   'Längskanten, versetzten Stoßfugen und feiner Längskörnung - der '
+   'saubere, schmale Bruder der PLANKS-Bretter.',
+ 'MAZE': 'LABYRINTH (R265): echter Irrgarten - ein zufälliger Spannbaum '
+   'über das Zellgitter, die stehengebliebenen Wände werden zu erhabenen '
+   'Graten; ALLE Gänge hängen zusammen (perfektes Labyrinth), nahtlos '
+   'über die Periodengrenzen.',
+ 'PERFORATION': 'LOCHBLECH (R265.3): runde Dellen im versetzten Raster '
+   '- die Sieb-/Trittplatten-Optik. Bewusst Dellen statt Durchbrüche: '
+   'die Wand bleibt geschlossen, der Druck bleibt dicht.',
+ 'VENT': 'LÜFTUNGSGITTER (R265.3): quadratische Aussparungen im '
+   'versetzten Raster - Gehäusebelüftung, Lautsprecherabdeckung. Das '
+   'Gegenstück zu FLIESEN: vertieft statt erhaben, versetzt statt '
+   'bündig.',
+ 'CARBON': 'CARBON 2/2-KÖPER (R265.3): diagonale Webbänder mit '
+   'Glanz-Wechsel - die klassische Carbonfaser-Twill-Optik. Zell- und '
+   'Bandperioden schließen auf beiden Nähten exakt.',
+ 'PINDOTS': 'NOPPENMATRIX (R265.3): echte Halbkugel-Kappen im '
+   'quadratischen Raster auf flachem Grund - griffige Deko- und '
+   'Bedienfeld-Optik. Kappenprofil mit endlicher Randsteigung '
+   '(druckbar, keine Senkrechte).',
+ 'OCTAGONS': 'OKTAGON-ZELLEN (R265.3): die 4.3.8.4-Kachelung - '
+   'erhabene Oktagone mit angefasten Rändern, kleine Quadrat-Inseln in '
+   'den Ecken, tiefe Fugen dazwischen. Geseedete Größenvariation '
+   '(variabler Zelldurchmesser).',
+ 'CHAINLINK': 'MASCHENDRAHT (R265.3): zwei Drahtfamilien unter 45°, '
+   'an den Kreuzungen über/unter verwoben (Korb-Parität je Raute) - '
+   'der klassische Zaun-Look, rund gewölbte Drähte, tiefe Maschen.',
+ 'NETGRID': 'NETZGEWEBE (R265.3): runde Fäden umlaufend und hoch, '
+   'Knoten an den Kreuzungen, dazwischen tiefe offene Maschen - '
+   'Fischnetz-Optik. (MAKRAMEE ist dicke gedrehte Schnur, GRID ein '
+   'flaches Kreuzgitter.)',
+ 'RINGS': 'JAHRESRINGE (R266.2): Holz QUER - die Wachstumsringe laufen als '
+   'horizontale Bänder um das Objekt (der Stamm von der Seite). Jeder Ring '
+   '= weites Frühholz + schmale dunkle Spätholzrinde; die RingGRENZEN '
+   'wandern (dünnes Jahr neben dickem), feine Strahlen ziehen um den '
+   'Umfang. ZSIZE bestimmt den Ringabstand.',
+ 'OAK': 'EICHE GROB (R266.2): Die Faser läuft hoch, kräftige wandernde '
+   'PORENSTRICHE bündeln sich und teilen sich - das Eichen-Signatur-Merkmal '
+   '- über breiten Flammenwellen. Poren als Schwellwert-Rillen (tief, '
+   'sparsam), das ganze Porenfeld wandert seitlich.',
+ 'BEECH': 'BUCHE FEIN (R266.2): Das stille Holz - sehr feine dichte '
+   'vertikale Faser, fast keine Poren, eine sanfte weite Undulation. Von '
+   'weitem glatt, aus der Nähe fein masert. Kleinere Tiefe als Eiche.',
+ 'KNOT': 'MASERWIRBEL (R266.2): Die vertikale Faser weicht um geseedete '
+   'Astrieb aus; jeder Ast trägt eigene konzentrische Ringe. Torus-'
+   'Distanzen (mm-echt via AR) + Gauß-Wirbel - die Maserung fließt um den '
+   'Knoten wie echtes Holz.',
+ 'OLDBARK': 'ALTER BAUMSTAMM (R266.2): Lange ausgefranste Rindenplatten in '
+   'TIEFEN Furchen - das Deep-Relief-Schaustück (R266: mit Tiefe 2-3.5mm '
+   'fahren, relatives E reitet die Flanken). Anisotropes Wrapped-Voronoi: '
+   'Zellen strecken sich entlang der Faser, Kanten wandern, Platten '
+   'splittern (Querbrüche).',
+ 'LEATHER': 'LEDER GEPOLSTERT (R266.2): Rauten-Steppung - geschwollene '
+   'Kissen zwischen den Nähten, eine Rille entlang jeder Naht, feines '
+   'Narben-Korn überall. mm-echte 45-Grad-Diagonalen (AR-skaliert); beide '
+   'Gitterphasen ganzzahlig periodisch in s UND t.',
+ 'ORANGE': 'ORANGENHAUT (R266.2): Bewusstes MIKRO-Relief - unregelmäßige '
+   'Dellen, wo zwei Noise-Oktaven übereinstimmen, dazwischen weite ruhige '
+   'Plateaus. Kein Raster (PINDOTS) und kein Samt (PLUSH): die '
+   'einseitigen Schwellwert-Dellen machen den Schief-Kick. Kleine Tiefe '
+   'fahren (0.10-0.25mm)!',
+ 'CRACKS': 'TROCKENRISSE (R266.2): Schlamm-Netz - die Platten wölben sich '
+   'sanft, die Risse sind SCHMALE tiefe V-Furchen mit wandernder Breite '
+   '(je Punkt gedithert - Schlamm reißt nie im Raster). Die Fuge ist der '
+   'Star: anders als MAZE (gleiche Gänge überall) dominieren die Platten '
+   'die Fläche.',
+ 'WRINKLE': 'GROBE KNITTERFALTEN (R266.2): Große weiche Falten mit SCHARFEN '
+   'Graten - zwei Oktaven Ridged-Noise (|n-0.5| = Messer-Kämme), längs '
+   'gestreckt, von einer langsamen ganzzahligen Diagonal-Welle geneigt. '
+   'CREPES lautes Geschwister: ~8x längere Autokorrelation.',
+ 'HEARTS': 'HERZMUSTER (R266.3): Erhabene Herzen im versetzten Raster - das '
+   'Zuckerkisten-Ornament. Das Herz ist die implizite Klassik '
+   '((x²+y²-1)³ - x²y³ < 0), in mm-quadratischen Zellen gemessen und mit '
+   'Smoothstep angeschrägt (druckbar). Der Inhalt bleibt klar der '
+   'Zeilengrenze fern - der Stagger springt am Z-Wrap nicht.',
+ 'GOLF': 'GOLFBALL (R266.3): Dichte halbkugelige Dimples, versetzt, ohne '
+   'Saum - die aerodynamische Haut. Geschwister-Sortierung: '
+   'PERFORATION = kleine Löcher mit Saum, PINDOTS = erhabene Kappen, '
+   'GOLF = die Dellen dominieren. Kappenprofil (1-d²)^0.62 hält die '
+   'Steigung am Rand endlich.',
+ 'BASKETBALL': 'BASKETBALL (R266.3): Glatte breite KANÄLE über feinem '
+   'Noppengrus. Die Kanäle schlängeln sich sanft (nur ganzzahlige '
+   'Wobble-Frequenzen - der Wrap bleibt zu), die Noppen sind '
+   'geschwellter Value-Noise (rund, nahezu gleichhoch, dichter und '
+   'weicher als ORANGENHAUT).',
+ 'RAUFASER': 'RAUFASER (R266.3): Der deutsche Klassiker - flache '
+   'Papierfläche mit spärlichen kurzen Faser-Chips in zwei Skalen, '
+   'zufällig orientiert (eine Familie längs, eine quer). Von fern '
+   'ruhig, in der Hand griffig; bewusst NICHT Noise-überall (das ist '
+   'SANDSTEIN).',
+ 'ROOFTILES': 'DACHZIEGEL (R266.3): Überlappende Reihen mit Falz - '
+   'Panzerziegel-Look. Jede Lagerfuge ist ein steiles Schattental, der '
+   'Bauch dazwischen schwillt an, und der Seitenfalz läuft als '
+   'durchgehende Nut mit Wulst daneben - kerzengerade durch ALLE '
+   'Lagen (kein Versatz: der Unterschied zu ZIEGELMAUER).',
+ 'CROCHET': 'HÄKELWERK (R266.3): Bulky Handarbeit - runde Knoten im '
+   'versetzten Raster, weiche Arme, die zum Maschengitter spannen, und '
+   'TIEFE Maschenaugen dazwischen (die Garnaussparungen, die Häkeln '
+   'neben STRICKMASCHE offen machen). Alles gerundet, Stagger gerade '
+   'gezogen, Inhalt fern der Zeilengrenze.',
  'MAP': 'Bildprägung (R238): Hintergrund-Erkennung (Otsu + Rand-Voting) - '
    'der Hintergrund wird wie Alpha behandelt: GAR KEINE Verformung dort, '
    'Kanten weich gefedert (Haftung bleibt). TILE = endlose gespiegelte '
@@ -261,7 +380,12 @@ PAT_ORDER = ['RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX',
              'HONEYCOMB', 'BASKET', 'ROPE', 'PLANKS', 'BRICKS', 'SANDSTONE',
              'CONCRETE', 'CLAY', 'CREPE', 'FABRIC', 'PLUSH', 'HILBERT',
              'SCRATCH', 'GLITCH', 'KNIT', 'FLUTED', 'BARK', 'SCALES',
-             'FACETS', 'MACRAME', 'MAP']
+             'FACETS', 'MACRAME', 'STONEWALL', 'RUBBLE', 'TILES', 'PARQUET',
+             'LAMINATE', 'MAZE', 'PERFORATION', 'VENT', 'CARBON', 'PINDOTS',
+             'OCTAGONS', 'CHAINLINK', 'NETGRID', 'RINGS', 'OAK', 'BEECH',
+             'KNOT', 'OLDBARK', 'LEATHER', 'ORANGE', 'CRACKS', 'WRINKLE',
+             'HEARTS', 'GOLF', 'BASKETBALL', 'RAUFASER', 'ROOFTILES',
+             'CROCHET', 'MAP']
 
 
 def presets_for(pattern):
@@ -284,9 +408,9 @@ def main():
     A(Spacer(1, 6*mm))
     A(P('Dieses Handbuch dokumentiert das Texture-Werkzeug (Pre-Print &gt; '
         'Mods &gt; Texture): wie die Wandverschiebung arbeitet, das EXAKTE '
-        'Mapping jedes Parameters, alle 27 Muster mit Vorschaubildern - '
+        'Mapping jedes Parameters, alle 40 Muster mit Vorschaubildern - '
         'die Bilder sind direkt aus den echten Musterfunktionen gesampelt, '
-        'nicht neu gezeichnet - und 27 materialgebundene Vorlagen (je Muster '
+        'nicht neu gezeichnet - und 40 materialgebundene Vorlagen (je Muster '
         'eine). Die Vorschaubilder sind Algorithmus-Simulationen, keine '
         'Fotos und keine Zusage eines bestimmten Druckergebnisses.'))
     A(Spacer(1, 3*mm))
@@ -295,12 +419,12 @@ def main():
          'Außenwand-Vertex wandert mit Wahrscheinlichkeit Dichte um bis zu '
          'Dicke in eine Zufallsrichtung. Kein Muster, reines Rauschen.'],
         ['Modus BUMPS', 'Deterministische Musterfunktion verschiebt die '
-         'Außenwand radial - 27 Muster, gesteuert durch SIZE/ZSIZE/DEPTH/DIR/SEED.'],
-        ['27 Muster', 'Gerichtete Reliefs und Materialfelder: Bretter, '
+         'Außenwand radial - 40 Muster, gesteuert durch SIZE/ZSIZE/DEPTH/DIR/SEED.'],
+        ['40 Muster', 'Gerichtete Reliefs und Materialfelder: Bretter, '
          'Rindenfissuren, Ziegel, Wellen, Hex-Zellen, Korb, Seil, Plüsch, '
          'Schuppen, Kanneluren sowie weitere textile, geometrische, '
          'Rausch- und Bildmuster.'],
-        ['27 Vorlagen', 'Fertige Looks unter Vorlagen im Texture-Menü - '
+        ['40 Vorlagen', 'Fertige Looks unter Vorlagen im Texture-Menü - '
          'genau ein Look je Muster, mit passender Größe, Z-Teilung, Tiefe '
          'und Seed; die separate FUZZY-Presetreihe bleibt bestehen.'],
     ], [30*mm, 126*mm]))
@@ -360,13 +484,15 @@ def main():
         ['Modus', 'FUZZY / BUMPS', 'Zufallstextur oder Musterfunktion (Kap. 3/4)'],
         ['Dicke (FUZZY)', '0.1-1.0 mm', 'Maximaler Zufallsversatz pro Vertex'],
         ['Dichte (FUZZY)', '10-100 %', 'Anteil der verschobenen Vertices'],
-        ['Muster (BUMPS)', '27 Muster', 'Die Musterfunktion (Kapitel 3)'],
+        ['Muster (BUMPS)', '40 Muster', 'Die Musterfunktion (Kapitel 3)'],
         ['Tilt', 'OFF / ON', 'Standard OFF (0°); ON aktiviert den expliziten Winkel des gewählten Musters, nahtsicher und bündig am Z-Ende'],
         ['Abtastung (BUMPS)', 'max. 1.5 mm', 'Lange lineare Wandzüge werden vor dem Versatz unterteilt; E-Gesamtextrusion bleibt erhalten'],
 
         ['Around (SIZE)', '3-80 mm', 'Richtwert Umfang -> k Rippen (ganz)'],
         ['Height (ZSIZE)', '0.5-200 mm', 'Richtwert Höhe -> n Wiederholungen (ganz, oben bündig)'],
-        ['Depth (DEPTH)', '0.05-1.0 mm', 'Verschiebetiefe = Amplitude der Prägung'],
+        ['Depth (DEPTH)', '0.05-4 mm',
+         'Verschiebetiefe = Amplitude der Prägung; ueber 1 mm = DEEP RELIEF '
+         '(E folgt der echten Pfadlaenge, Steilflanken werden feiner zerlegt)'],
         ['Richtung (DIR)', 'IN / OUT', 'Vorzeichen: erhaben nach außen oder eingezogen'],
         ['Seed', '1-999', 'Zufallsbasis: Noise-Muster, Fugen-Versatz (Planks/Bricks), Glitch-Bänder. Gleicher Seed = gleiches Bild'],
         ['Bild (MAP)', 'Auswahl', 'Quellfoto für die Bildprägung (hell = erhaben)'],
@@ -428,8 +554,8 @@ def main():
 
     # --------------------------------------------------------- presets ---
     A(PageBreak())
-    flow.extend(H1('4 · Die Vorlagen-Bibliothek (27 Looks)'))
-    A(P('Texture-Menü &gt; Vorlagen: 27 fertige Looks, benannt nach dem '
+    flow.extend(H1('4 · Die Vorlagen-Bibliothek (40 Looks)'))
+    A(P('Texture-Menü &gt; Vorlagen: 40 fertige Looks, benannt nach dem '
         '<b>optischen Erscheinungsbild</b> (der Name sagt, was man sieht - '
         '„Rattan", nicht „BASKET 6/6"). Vorlagen sind schreibgeschützt: '
         'Laden geht, Löschen nicht; speichert man unter einem '

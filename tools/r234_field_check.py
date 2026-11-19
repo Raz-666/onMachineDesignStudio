@@ -120,9 +120,12 @@ def klippy_parse(line):
 
 
 def render_pick(files, dims, index):
+    # R246: the image list lives in the _SDM RAM mirror, not in
+    # save_variables - the mock carries both worlds like the real printer
     printer = {'save_variables': {'variables': {
-        'litho_files': files, 'litho_dims': dims,
-        'stringart_shape': 1, 'stringart_arl': 1, 'stringart_w': 102}}}
+        'stringart_shape': 1, 'stringart_arl': 1, 'stringart_w': 102}},
+        'gcode_macro _SDM': {
+            'litho_files': files, 'litho_dims': dims}}
     old = env.globals.get('params')
     env.globals['params'] = {'INDEX': str(index)}
     try:
@@ -193,8 +196,9 @@ src = open(os.path.join(REPO, 'tools', 'r2_postproc.py'),
            encoding='utf-8').read()
 check('B1: string art job spawns with ram_min=64 (R234)',
       'ram_min=64)' in src and 'MEASURED ~37MB peak' in src)
-check('B2: litho + colorpic keep their 110MB floor (not re-measured)',
-      src.count('ram_min=110') == 2)
+check('B2: litho + colorpic + stencil keep their 110MB floor '
+      '(image-class jobs, not re-measured)',
+      src.count('ram_min=110') == 3)
 check('B3: the wait notice still names the per-job floor',
       'image builds ' in src and 'want %dMB - a PI restart frees it ' in src)
 check('B4: the queue comment documents the R234 split',
@@ -269,20 +273,18 @@ try:
        '--exclude=watcher.lock --exclude=r2d2-repo.bundle '
        "--exclude='__pycache__' --exclude='*.pyc' .) | (cd %r && tar xf -)"
        % (REPO, seed))
-    base_ver = re.sub(r'(\.\d+)[a-z]+$', '', NEW_VER)   # .136ae -> .136
-    # one letter back on the odometer: aa->z, ab->aa, ad->ac ...
-    # R241 (.137): a BARE number has no letter - its odometer predecessor is
-    # the previous number with 'z' (.137 -> .136z), exactly how the update
-    # gate orders things (137 > 136z because the number dominates).
-    m3 = re.search(r'\.(\d+)([a-z]*)$', NEW_VER)
-    _n, _s = m3.group(1), m3.group(2)
-    if _s:
-        _back = (_s[:-1] + chr(ord(_s[-1]) - 1)) if _s[-1] != 'a' else (
-            _s[:-1] if len(_s) > 1 else '')
-    else:
-        _back = 'z'
-        _n = str(int(_n) - 1)
-    PREV_VER = 'R2-2026-11-09.%s%s' % (_n, _back)
+    # R241+V1: versions are DATE-based (R2-YYYY-MM-DD.n) - the letter
+    # odometer died with the scheme change. The honest predecessor is the
+    # version the COMMITTED tree carries (the working tree is the new
+    # release about to ship): read it from git, never hardcode a date.
+    _prev = sh("git show HEAD:macros/01_state.cfg", cwd=REPO).stdout
+    m3 = re.search(r"variable_version: '(R2-[\d-]+\.\d+[a-z]*)'", _prev)
+    PREV_VER = (m3.group(1) if m3 else NEW_VER)
+    if PREV_VER == NEW_VER:
+        # release already committed - fall back one real commit
+        _prev2 = sh("git show HEAD~1:macros/01_state.cfg", cwd=REPO).stdout
+        m4 = re.search(r"variable_version: '(R2-[\d-]+\.\d+[a-z]*)'", _prev2)
+        PREV_VER = (m4.group(1) if m4 else NEW_VER)
     st = os.path.join(seed, 'macros', '01_state.cfg')
     _txt = open(st, encoding='utf-8').read().replace(NEW_VER, PREV_VER)
     open(st, 'w', encoding='utf-8').write(_txt)
@@ -301,9 +303,15 @@ try:
 
     bare = os.path.join(TMP, 'gh.git')            # plays GitHub
     sh('git init -q --bare %r' % bare)
+    # the fake GitHub must serve the branch it was given: a bare repo's
+    # HEAD stays on its init default (master/main) and a clone of it
+    # would check out NOTHING (unborn HEAD) - update.sh then fetches the
+    # default name and dies on a ref that was never pushed
+    sh("git -C %r symbolic-ref HEAD refs/heads/%s" % (bare, BR))
     sh('git push -q %r %s:refs/heads/%s' % (bare, BR, BR), cwd=seed)
     bare_old = os.path.join(TMP, 'gh-old.git')    # plays a ROLLED-BACK GitHub
     sh('git init -q --bare %r' % bare_old)
+    sh("git -C %r symbolic-ref HEAD refs/heads/%s" % (bare_old, BR))
     sh('git push -q %r %s:refs/heads/%s' % (bare_old, BASE_SHA, BR),
        cwd=os.path.join(TMP, 'seed'))
 
