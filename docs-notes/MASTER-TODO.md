@@ -899,6 +899,92 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       r266_deep_relief_preview.png (4 Panels feste mm-Skala,
       Querschnitt, E-Dichte aus echtem G-Code).
       **FERTIG UND GEMERGED (19.11.): PR #20 auf main (`1ef5128`), finales ZIP aus `origin/main` gebaut (ohne `analyse/`, r199 12/0, SHA256 `fb84d321…6390` in `releases/`). R269 direkt vor dem Merge: Manual-Shaper unter die Kalibrierungs-leiter verschoben (Nutzer-Review — R251 hatte den Fallback über den Hauptpfad gestellt). Nächste Welle: J1–J7 nach Nutzer-Entscheidungen, D3/D4 PDFs, Feldabnahme an der echten Maschine.
+      **STAND R266.3 Häppchen 4 (19.11., 6 Deko-/Haptikmuster FERTIG,
+      55 Bibliotheksmuster — Nutzer-Auswahl „sechs ohne Sterne/Ringe"):
+      HEARTS (implizites Herz (x²+y²−1)³−x²y³, Stagger-Raster,
+      Inhalt fern der Zeilengrenze), GOLF (dichte Halbkugel-Dimples,
+      versetzt, ohne Saum, r=0.49 — Stagger-Wrap-Grenze), BASKETBALL
+      (schlängelnde Kanäle + Noppengrus, Wobble nur ganzzahlig),
+      RAUFASER (flache Fläche + spärliche Faser-Chips in 2 Skalen,
+      15 % Chip-Anteil, KEINE tiefen Werte), ROOFTILES (Lagerfugen-
+      Schattental + durchgehender Seitenfalz mit Wulst — KEIN Versatz,
+      der Unterschied zu Ziegelmauer), CROCHET (Knoten + Arme + TIEFE
+      Maschenaugen, 1 Auge/Stitchzelle). Registrierung komplett:
+      _TX_PATTERN 55/55/55, LCD 7 Seiten (dynamischer Cap trägt das),
+      toolchain kongruent, 6 neue Looks (Bibliothek 55, bijektiv —
+      dabei alten Zählfehler im MANUAL gefunden: „53 Looks" war falsch,
+      korrekt war 49, jetzt 55). Evidenz: r238 67/67 GRÜN (8 neue
+      R266.3-Checks inkl. Stagger-Nahtgesetz, Falz-Durchlauf,
+      Maschenaugen-Zählung), macro_render_test 2129/2129 (4 neue
+      R266.3-Tests), megatest 220 Runs 0 FAIL, r165 clean, r199 ok,
+      TEXTURING.pdf 64 Seiten regeneriert, MANUAL 5.9 (54+MAP/7 Seiten,
+      55 Looks), textur-matrix-ist/soll regeneriert. Preview:
+      analyse/r2663_deko_preview.png (6 Panels, echte Preset-Tiefen).
+      **STAND R266.2 Häppchen 3 (19.11., 9 organische Muster FERTIG,
+      49 Bibliotheksmuster):** RINGS (Jahresringe, wandernde
+      Ringgrenzen), OAK (Poren-Streaks über Flammenwellen), BEECH
+      (feine dichte Faser), KNOT (Torus-Knotenaugen + Gauß-Swirl),
+      OLDBARK (anisotrope wrapped Voronoi, Bibliotheks-Look „Alter
+      Stamm" mit amp 2.8 — der Deep-Relief-Baumstamm), LEATHER
+      (45°-Steppung mm-true via ar), ORANGE (Mikro-Dellen, amp 0.18),
+      CRACKS (Voronoi-Netz, Schmalkern 0.07/0.17 + weite Schulter,
+      Tiefe 1.25 — druckbar ~0.4 mm Kern bei 6 mm-Zelle), WRINKLE
+      (two-octave ridged, längsgestreckt). Registrierung komplett:
+      _TX_PATTERN 49/49/49, LCD-Cap DYNAMISCH (war hart auf 4 Seiten/
+      27 Muster kodiert — PERFORATION..NETGRID seit R265 auf dem LCD
+      unerreichbar, Feldbug gefixt), toolchain 27→49 kongruent, 9 neue
+      Bibliotheks-Looks (53 gesamt). Evidenz: r238 59/59 GRÜN, r165
+      clean, r199 ok, megatest 214 Runs 0 FAIL, macro_render_test
+      2125/2125 (inkl. 5 neuer R266.2-Tests). MANUAL 5.9 Katalog +
+      48+MAP/7 Seiten, TEXTURING.pdf 58 Seiten regeneriert,
+      textur-matrix-ist/soll.png regeneriert. Preview: analyse/
+      r2662_organics_preview.png (9 Panels, echte Preset-Tiefen).
+      **Gewünschte neue Familien (Vorschlagsliste, vor Bau mit Nutzer
+      abstimmen):** Wände/Mauerwerk — Natursteinmauer, Bruchstein-
+      Rhändermauer (drei Sorten Fugenversatz), Fliesen (quadratisch +
+      Rechteckversatz, mit Fase), Parkett (Fischgrät + Stabparkett mit
+      Nut/Feder-Kerben), Laminat-Dielen (lange Planken, HF-geprägte
+      Holzstruktur); Hölzer — Längs- UND Querholz (Jahresringe
+      quer), verschiedene Holzarten (Eiche grobfaserig, Buche fein, astig
+      mit Ästen); Labyrinth-artiges — **HILBERT ERSETZEN: echte
+      Hilbert-Kurve (Distance-Field) statt Zickzack-Bändern**
+      (Nutzerbefund: „müsste eher wie ein Labyrinth aussehen“
+      — soll es auch sein), plus echte Labyrinth-/Maze-Struktur;
+      technische/moderne Strukturen — Hexagon-/Oktagon-Zellmuster
+      (variabler Zelldurchmesser), Perforationsblech (rund + quadratisch
+      versetzt), Carbon-/Twill-Gewebe, Pin-/Noppen-Matrix; organisch —
+      Wellblech diagonal, Ledernarben, Orangenhaut (bewusst fein),
+      Trockenrisse/Schlammplatten.
+      Orientierung erlaubt: klassische 3D-Programm-Texturbibliotheken
+      (prozedurale wood/stone/brick/tiles/…), aber nur fürs
+      Bump-Mapping interessante Ideen übernehmen.
+      Lieferumfang je Muster: Pattern-Funktion + Preset + Kennzahlentest +
+      Matrix-Preview-Zelle + TEXTURING.pdf-Katalogseite + r238-artiger
+      Feldcheck. **Vor Baubeginn: verbindliche Musterliste dem Nutzer zur
+      Bestätigung** (Umfang klären: wie viele neu, welche raus).
+- [x] **J9 — SCHABLONEN-GENERATOR (R267, umgesetzt 19.11.2026 nach
+      Nutzer-Design).** Bild → **Sprüh-Schablonen-Set** — LCD `Tools >
+      Stencil` (nutzt die Lithophane-Bildliste): Quantisierung in
+      **2–4 Tonbänder** (`stencil_steps`), **je Band eine flache
+      Platte** — Sprühreihenfolge hell→dunkel, Platten auf Passstiften
+      gestapelt. Nutzer-Design umgesetzt: **Stege automatisch 3× Düse**
+      (`_stencil_bridges267`: Flood-Fill-Insel suche, horizontale
+      Brückenstrips, max 80 Iterationen — das O-Innenstück bleibt
+      angebunden), **Rechteckplatte mit durchgehendem 8-mm-Rand + 4
+      Passlöcher D4.2 mm an IDENTISCHER Position in jeder Platte**
+      (Ecken (FR/2, GR−FR/2), Stack auf M4-Pins), **optionale
+      Negativ-Schablone** (`stencil_negative`: Motiv steht, Hintergrund
+      sprüht durch). Ehrlich statt haarfein: ein Band < 2 % der Fläche
+      wird weggekürzt (Schrittzahl reduziert sich mit Notiz) —
+      Flächenaufdrucke füllen oft weniger Bänder als bestellt.
+      Engine `make_stencil` + Watcher + Makros STENCIL_INFO/STENCIL_CREATE
+      + LCD-Menü (Settings + 10 Bild-Slots mit Stern-Arming) komplett.
+      Evidenz: r267_stencil_check **34/34** (Bänder, Masken-Partition,
+      Loch-Kongruenz, Brücken-Flood, G-Code-Dichte, Determinismus),
+      megatest **224/224** (+4 Stencil-Runs), macro_render_test
+      **2133/2133** (5 neue R267-Checks + Inventory/Counter-Pflege),
+      r265 Manual-Index sauber (268 public), r218 WebUI 26/26 (JSON+
+      Embed aktualisiert), MANUAL.md/MANUAL.pdf (5.6 + Index) gepflegt.
 
 ## K. Toolchain-Architektur §20 („Effektkette") — begonnen (Sitzung nach `fecf500`)
 
