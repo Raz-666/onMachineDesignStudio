@@ -8,7 +8,7 @@
   "vsdlist": 1,
   "input": 587
  },
- "sha256": "9e7b182c88e715b4",
+ "sha256": "848442bebcc020de",
  "live_objects": [
   "bed_mesh",
   "configfile",
@@ -22625,6 +22625,83 @@
         "children": []
        },
        {
+        "id": "__main __maint __vib __cx",
+        "type": "command",
+        "name": "Calibrate X",
+        "gcode": [
+         "CALIBRATE_SHAPER AXIS=X"
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __maint __vib __cy",
+        "type": "command",
+        "name": "Calibrate Y",
+        "gcode": [
+         "CALIBRATE_SHAPER AXIS=Y"
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __maint __vib __cxy",
+        "type": "command",
+        "name": "Calibrate X + Y",
+        "gcode": [
+         "CALIBRATE_SHAPER AXIS=BOTH"
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __maint __vib __fs",
+        "type": "input",
+        "name": "Freq from: {'%3d' % menu.input}Hz",
+        "input": "{printer['save_variables'].variables.ishaper_freq_start|default(0)}",
+        "input_min": "0",
+        "input_max": "60",
+        "input_step": "5",
+        "gcode": [
+         "SAVE_VARIABLE VARIABLE=ishaper_freq_start VALUE={menu.input|round|int}"
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __maint __vib __fe",
+        "type": "input",
+        "name": "Freq to: {'%3d' % menu.input}Hz",
+        "input": "{printer['save_variables'].variables.ishaper_freq_end|default(0)}",
+        "input_min": "0",
+        "input_max": "200",
+        "input_step": "5",
+        "gcode": [
+         "SAVE_VARIABLE VARIABLE=ishaper_freq_end VALUE={menu.input|round|int}"
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __maint __vib __sm",
+        "type": "input",
+        "name": "Max smooth: {'%.2f'|format(menu.input)}",
+        "input": "{printer['save_variables'].variables.ishaper_max_smoothing|default(0)}",
+        "input_min": "0",
+        "input_max": "0.5",
+        "input_step": "0.05",
+        "gcode": [
+         "SAVE_VARIABLE VARIABLE=ishaper_max_smoothing VALUE={menu.input|round(2)}"
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __maint __vib __as",
+        "type": "command",
+        "name": "Auto save: {('ON' if printer['save_variables'].variables.ishaper_auto_save|default(True) else 'OFF')}",
+        "gcode": [
+         "{% set on = not printer['save_variables'].variables.ishaper_auto_save|default(True) %}",
+         "SAVE_VARIABLE VARIABLE=ishaper_auto_save VALUE={on}",
+         "M117 Shaper auto save: {'ON' if on else 'OFF'}"
+        ],
+        "children": []
+       },
+       {
         "id": "__main __maint __vib __man",
         "type": "list",
         "name": "Manual",
@@ -22825,83 +22902,6 @@
           ]
          }
         ]
-       },
-       {
-        "id": "__main __maint __vib __cx",
-        "type": "command",
-        "name": "Calibrate X",
-        "gcode": [
-         "CALIBRATE_SHAPER AXIS=X"
-        ],
-        "children": []
-       },
-       {
-        "id": "__main __maint __vib __cy",
-        "type": "command",
-        "name": "Calibrate Y",
-        "gcode": [
-         "CALIBRATE_SHAPER AXIS=Y"
-        ],
-        "children": []
-       },
-       {
-        "id": "__main __maint __vib __cxy",
-        "type": "command",
-        "name": "Calibrate X + Y",
-        "gcode": [
-         "CALIBRATE_SHAPER AXIS=BOTH"
-        ],
-        "children": []
-       },
-       {
-        "id": "__main __maint __vib __fs",
-        "type": "input",
-        "name": "Freq from: {'%3d' % menu.input}Hz",
-        "input": "{printer['save_variables'].variables.ishaper_freq_start|default(0)}",
-        "input_min": "0",
-        "input_max": "60",
-        "input_step": "5",
-        "gcode": [
-         "SAVE_VARIABLE VARIABLE=ishaper_freq_start VALUE={menu.input|round|int}"
-        ],
-        "children": []
-       },
-       {
-        "id": "__main __maint __vib __fe",
-        "type": "input",
-        "name": "Freq to: {'%3d' % menu.input}Hz",
-        "input": "{printer['save_variables'].variables.ishaper_freq_end|default(0)}",
-        "input_min": "0",
-        "input_max": "200",
-        "input_step": "5",
-        "gcode": [
-         "SAVE_VARIABLE VARIABLE=ishaper_freq_end VALUE={menu.input|round|int}"
-        ],
-        "children": []
-       },
-       {
-        "id": "__main __maint __vib __sm",
-        "type": "input",
-        "name": "Max smooth: {'%.2f'|format(menu.input)}",
-        "input": "{printer['save_variables'].variables.ishaper_max_smoothing|default(0)}",
-        "input_min": "0",
-        "input_max": "0.5",
-        "input_step": "0.05",
-        "gcode": [
-         "SAVE_VARIABLE VARIABLE=ishaper_max_smoothing VALUE={menu.input|round(2)}"
-        ],
-        "children": []
-       },
-       {
-        "id": "__main __maint __vib __as",
-        "type": "command",
-        "name": "Auto save: {('ON' if printer['save_variables'].variables.ishaper_auto_save|default(True) else 'OFF')}",
-        "gcode": [
-         "{% set on = not printer['save_variables'].variables.ishaper_auto_save|default(True) %}",
-         "SAVE_VARIABLE VARIABLE=ishaper_auto_save VALUE={on}",
-         "M117 Shaper auto save: {'ON' if on else 'OFF'}"
-        ],
-        "children": []
        },
        {
         "id": "__main __maint __vib __dump",
