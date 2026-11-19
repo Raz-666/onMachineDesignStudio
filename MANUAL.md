@@ -1796,8 +1796,10 @@ The thickness range is 0.05–1.5 mm (Orca-sized).
   path is the geometry" and says so in the file header.
 
 Everything else stays **byte-identical**: `;TYPE:` tags, EXCLUDE_OBJECT,
-APPLY_TYPE/LAYER_MARK markers, and the E/Z/F of every move the texture does
-not touch — infill, ironing and supports print exactly as sliced. On
+APPLY_TYPE/LAYER_MARK markers, and the Z/F of every move — infill,
+ironing and supports print exactly as sliced. The E of every untouched
+move stays too; in DEEP RELIEF (below) the E of the displaced chords
+rides their real length instead (per-move totals kept). On
 arc-fitted files each flattened chord carries its exact share of the
 arc's E (the total per arc stays — the E is redistributed, not the
 inner geometry). **Inner walls (.136v):** in BUMPS mode they FOLLOW the
@@ -1809,6 +1811,19 @@ contact (the gap stays one line width, measured — even when the slicer
 runs the inner loop the opposite way round; the tool detects the winding
 per layer and realigns). FUZZY stays Orca-honest: only the outer wall
 jitters, exactly like Orca's fuzzy skin.
+
+**DEEP RELIEF (depth above 1 mm, up to 4):** the same patterns, but
+honest about the physics of a deep embossing. A displaced chord has a
+REAL length — stretched flanks would print thin with the slicer's E. On
+relative-E sections (the M83 norm) every chord's E now rides its real
+length (`E_new = E_old × L_new/L_old`, clamped to 0.45–1.8× so a cliff
+cannot over-extrude; the per-move total stays). Steep flanks are
+subdivided to ~0.4 mm height steps so the relief resolves. The wall
+stays closed — the displacement is continuous and inner walls keep
+following. Steep sections print as overhangs, like any stylized model:
+slow outer walls and cooling handle that. On absolute-E files the E stays
+slicer-true and the file header says so. Regression-tested: at depth
+≤ 1 mm the output is byte-identical to the previous engine.
 
 **Workflow (LCD):**
 
@@ -1832,19 +1847,20 @@ In both modes nothing ever starts printing by itself.
 | Fuz thick | 0.05–1.5 mm | scatter radius (fuzzy; the Orca-sized window
   is 0.15–0.5) |
 | Fuz dens | 10–100 % | share of vertices that scatter (100 = all) |
-| Pattern | library: 26 + MAP | 4 pages (see the table above); MAP = own image, wrapped seamlessly |
+| Pattern | library: 39 + MAP | 5 pages (see the table above); MAP = own image, wrapped seamlessly |
 | Around | 3–60 mm | groove size around the perimeter (guideline — snapped to whole grooves) |
 | Height | 0.4–20 mm | pattern repeat in Z (guideline — snapped to whole repeats, ends flush) |
-| Depth | 0.05–1.5 mm | groove/bump depth |
+| Depth | 0.05–4 mm | groove/bump depth — **above 1 mm = DEEP RELIEF** (E follows the real path, see below) |
 | Seed | 1–999 | same seed = same look (Sandstone/Glitch) |
 | Img | root image | MAP source — pick a picture in the SD browser |
 | Dir | OUT / IN | OUT = grows away from the part, IN = cuts into it |
 
 **What the tool will never do:** overwrite the source file · auto-start
 the result · move anything but outer-wall vertices · leave the bed
-(clamping with a counter) · touch E/Z/F values · run without guards (bad
-mode/pattern/direction, missing file, all 99 versions used → clear error,
-nothing half-done).
+(clamping with a counter) · touch Z/F values (deep relief lets the E of a
+displaced chord ride its real length — the per-move total stays) · run
+without guards (bad mode/pattern/direction, missing file, all 99 versions
+used → clear error, nothing half-done).
 
 **Special cases (tested):** a file without outer walls (infill-only
 parts) → zero shifts, no crash · the very first outer vertex of a file and

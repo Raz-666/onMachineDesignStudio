@@ -869,8 +869,37 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       203/0, r165 + r199 clean; Matrix-Previews (39 prozedurale /
       24 kuratierte) + Nutzer-Preview + TEXTURING.pdf (49 Seiten,
       40 Muster) + MANUAL-Katalog neu.
-      **OFFEN: Deep Relief (Querschnitt, als Nächstes), dann
-      Häppchen 3 (organisch), dann Häppchen 4 (Deko/Haptik).**
+      **STAND R266 DEEP RELIEF (19.11., IMPLEMENTIERT — Nutzer-Preview
+      vorgelegt):** Tiefe jetzt 0.05–4.0 mm (BUMPS; >1.0 = Deep-Modus,
+      toolchain-Range mitgezogen). (a) **E-Mitberechnung** umgesetzt:
+      je Chord E_neu = E_alt·L_neu/L_alt auf relativen-E-Abschnitten
+      (M83; Schreibposition wird getrackt inkl. Travels + Bett-Clamp),
+      Steilheits-Clamp 0.45–1.8×, Summen-Erhalt per Restkorrektur am
+      letzten Chord — gemessen am Uniform-Zylinder: rel. Fehler 4.6e-05
+      (pure 5-Dezimalen-Rundung), 0 Clamp-Verletzungen; rose-Fixture:
+      Quantil-Ratios 0.84–1.00. Absolut-E bleibt slicer-echt (Header
+      sagt es). (b) **Subdivision** nach Steilheit: bis ~0.4 mm Höhen-
+      schritt/Chord (cap 256 Teile). (c) **Steilheits-Cap** = der
+      0.45–1.8×-E-Clamp (gegen Über-/Unterextrusion an Klippen);
+      Wandkontinuität per Querschnitt gezeigt, Inner-Follow + Flip
+      (R224) erneut verifiziert (arc_fallback 0, inner_shifted > 0).
+      (d) Zwei FELDBUGS mitgefunden+gefixt: X-only-Purge-Zeilen
+      („G1 X60 E9" ohne Y) ließen den Stats-Präpass crashen (vwbus-
+      Fixture, TypeError ay+=None — Betrifft jede Orca/Purge-Datei!)
+      und „M83 ; use relative…" (Kommentar) schaltete den E-Modus-
+      Tracker nie um (rose-Fixture — betraf auch R95-Arc-Verteilung).
+      Regression: Tiefe ≤1.0 mm byte-identik zum alten Motor (3
+      Fixtures). Gates: macro_render **2120/2120** (+8 R266-Tests:
+      Range, E-ride exakt, M83-Kommentar, Abs-E-Teilsequenz+Max,
+      Purge-Überleben, Regressionswächter, 4.5mm-Refusal), megatest
+      **205/0** (+2 Deep-Runs), r238 48/48, r165 clean, r199 ok.
+      MANUAL 5.9 (Deep-Relief-Absatz, Depth-Range, E-Versprechen
+      präzisiert, Pattern-Zeile 39+MAP/5 Seiten — war widersprüchlich),
+      TEXTURING.pdf Tiefe 0.05–4. Preview: analyse/
+      r266_deep_relief_preview.png (4 Panels feste mm-Skala,
+      Querschnitt, E-Dichte aus echtem G-Code).
+      **OFFEN: Häppchen 3 (organisch — alter Baumstamm kann jetzt Deep
+      Relief nutzen), dann Häppchen 4 (Deko/Haptik).**
       **Gewünschte neue Familien (Vorschlagsliste, vor Bau mit Nutzer
       abstimmen):** Wände/Mauerwerk — Natursteinmauer, Bruchstein-
       Rhändermauer (drei Sorten Fugenversatz), Fliesen (quadratisch +

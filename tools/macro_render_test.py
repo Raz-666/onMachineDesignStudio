@@ -19573,6 +19573,205 @@ tests.append(('R246d sweep: the duplicate scan ADMITS hidepid blindness '
     and 'sudo pgrep -af' in _pp246c, ''))
 
 
+
+# ================== R266: DEEP RELIEF - E rides the real path ==============
+# The field wish: patterns DEEPER than 1mm must extrude honestly. A
+# displaced chord has a REAL length; on relative-E sections every chord's
+# E rides it (E_new = E_old * L_new/L_old, per-move totals kept to the
+# rounding digit), steep flanks subdivide to ~0.4mm height steps. Two
+# FIELD BUGS fell out of testing this on the real fixtures: X-only purge
+# lines crashed the stats prepass (vwbus) and 'M83 ; comment' never
+# switched the E-mode tracker (rose) - both fixed here with the deep work.
+_d266 = _tf175.mkdtemp()
+_E266 = _re175.compile(r'(?:^|\s)E(-?[\d.]+)')
+_X266 = _re175.compile(r'(?:^|\s)X(-?[\d.]+)')
+_Y266 = _re175.compile(r'(?:^|\s)Y(-?[\d.]+)')
+
+def _cyl266(name, rel=True, purge=False, m83_comment=False):
+    """Uniform-density cylinder: 40 chords of ~2.36mm per layer, 6 layers.
+    E = 0.05 * chord length (relative) - so E-preservation is EXACTLY
+    checkable against the written chord lengths."""
+    _p = _os175.path.join(_d266, name)
+    with open(_p, 'w') as _f:
+        _f.write(';FLAVOR:Marlin\nG90\n')
+        if rel:
+            _f.write('M83 ; use relative distances for extrusion\n'
+                     if m83_comment else 'M83\n')
+        else:
+            _f.write('M82\nG92 E0\n')
+        if purge:
+            _f.write('G1 X60.0 E9.0 ; purge line\n'   # X-only, no Y yet!
+                     'G1 X100.0 E12.5 ; purge line\n')
+        _ea = 0.0
+        for _lay in range(6):
+            _z = 0.2 + _lay * 0.2
+            _f.write(';LAYER_CHANGE\n;TYPE:WALL-OUTER\n')
+            _f.write('G0 X125.000 Y110.000 Z%.3f F9000\n' % _z)
+            for _i in range(1, 41):
+                _a = 2 * _m175.pi * _i / 40
+                _b = 2 * _m175.pi * (_i - 1) / 40
+                _x = 110 + 15 * _m175.cos(_a)
+                _y = 110 + 15 * _m175.sin(_a)
+                _l = _m175.hypot(
+                    15 * _m175.cos(_a) - 15 * _m175.cos(_b),
+                    15 * _m175.sin(_a) - 15 * _m175.sin(_b))
+                if rel:
+                    _f.write('G1 X%.3f Y%.3f E%.5f F2400\n'
+                             % (_x, _y, 0.05 * _l))
+                else:
+                    _ea += 0.05 * _l
+                    _f.write('G1 X%.3f Y%.3f E%.5f F2400\n' % (_x, _y, _ea))
+    return _p
+
+def _scan266(path, wall_only=True):
+    """(chords, sum_e, sum_len, band_viol, neg_e) over written G1s.
+    A G0 travel breaks the chord continuity exactly like the tool's
+    writer-position tracker does (R266)."""
+    _px = _py = None
+    _iw = not wall_only
+    _n = 0; _se = _sl = 0.0; _v = 0; _neg = 0
+    for _ln in open(path):
+        _ln = _ln.rstrip('\n')
+        if _ln.startswith(';TYPE:'):
+            _iw = 'wall' in _ln.lower()
+            continue
+        if _ln.startswith('G0'):
+            _px = _py = None
+            continue
+        if not _ln.startswith('G1 '):
+            continue
+        _mx, _my, _me = (_X266.search(_ln), _Y266.search(_ln),
+                         _E266.search(_ln))
+        if not _mx or not _my:
+            continue
+        _x, _y = float(_mx.group(1)), float(_my.group(1))
+        _e = float(_me.group(1)) if _me else None
+        if _e is None or _e <= 0.00002:
+            if _e is not None and _e < -1e-9:
+                _neg += 1
+            _px = _py = None
+            continue
+        if _px is not None and _iw:
+            _cl = _m175.hypot(_x - _px, _y - _py)
+            _n += 1; _se += _e; _sl += _cl
+            if not (0.45 * 0.05 - 1e-4 <= _e / _cl <= 1.8 * 0.05 + 1e-4):
+                _v += 1
+        _px, _py = _x, _y
+    return _n, _se, _sl, _v, _neg
+
+_tests_deep = []
+try:
+    _o266, _i266 = _tx175.apply_texture(
+        _cyl266('deep_rel.gcode'), out_dir=_d266, mode='BUMPS',
+        bump_pattern='BARK', bump_scale=12.0, bump_amp=2.0, zsize=4.0,
+        seed=43)
+    _n, _se, _sl, _v, _neg = _scan266(_o266)
+    _tests_deep.append(('R266 deep relief: amp 2.0 accepted, deep flag set, '
+        'steep subdivision active (0.4mm steps)',
+        _i266['deep'] and _i266['deep_step_mm'] == 0.4
+        and _i266['subdivisions'] > 0 and _i266['steep_segments'] > 0,
+        'deep=%s step=%s sub=%s steep=%s' % (_i266.get('deep'),
+        _i266.get('deep_step_mm'), _i266.get('subdivisions'),
+        _i266.get('steep_segments'))))
+    _tests_deep.append(('R266 E rides the REAL chord length: every wall '
+        'chord extrudes 0.05*len within the [0.45..1.8] steepness clamp, '
+        'file total matches to the rounding digit',
+        _v == 0 and _neg == 0 and _n > 200
+        and abs(_se - 0.05 * _sl) / (0.05 * _sl) < 5e-4,
+        'chords=%d viol=%d neg=%d rel_err=%.2e' % (_n, _v, _neg,
+        abs(_se - 0.05 * _sl) / max(1e-9, 0.05 * _sl))))
+    _tests_deep.append(('R266 E-mode tracker: a commented \'M83 ; use '
+        'relative distances\' switches the compensation ON (rose field '
+        'bug - the exact == match never saw it)',
+        _i266['deep_e_compensated'] and _i266['deep_e_chords'] > 0,
+        'comp=%s chords=%s' % (_i266.get('deep_e_compensated'),
+        _i266.get('deep_e_chords'))))
+except Exception as _e266:
+    _tests_deep.append(('R266 deep relief: relative-E run crashed', False,
+        repr(_e266)[:200]))
+
+try:
+    _p266b = _cyl266('deep_abs.gcode', rel=False)
+    _in266b = [float(_E266.search(_l).group(1)) for _l in open(_p266b)
+               if _l.startswith('G1 ') and _E266.search(_l)]
+    _o266b, _i266b = _tx175.apply_texture(
+        _p266b, out_dir=_d266, mode='BUMPS', bump_pattern='BARK',
+        bump_scale=12.0, bump_amp=2.0, zsize=4.0, seed=43)
+    _out266b = [float(_E266.search(_l).group(1)) for _l in open(_o266b)
+                if _l.startswith('G1 ') and _E266.search(_l)]
+    # absolute E: subdivision interpolates intermediate values, so the
+    # TOKEN sums differ by design - the honest invariants: every input E
+    # value survives verbatim as a chord-group end (the input sequence is
+    # an ordered subsequence of the output values - intermediates lie
+    # strictly between group ends) and the file maximum is unchanged
+    _it266 = iter(_out266b)
+    _seq_ok = all(any(_v == _w for _w in _it266) for _v in _in266b)
+    _tests_deep.append(('R266 absolute-E honesty: deep mode stays '
+        'slicer-true (every input E value survives as a chord-group end, '
+        'the file max E is unchanged) and the header SAYS so',
+        _i266b['deep'] and not _i266b['deep_e_compensated']
+        and _seq_ok and abs(max(_out266b) - max(_in266b)) < 1e-6
+        and 'absolute-E sections stay slicer-true' in open(_o266b).read(4000),
+        'seq_ok=%s max_in=%.5f max_out=%.5f' % (_seq_ok,
+        max(_in266b), max(_out266b))))
+except Exception as _e266:
+    _tests_deep.append(('R266 absolute-E honesty run crashed', False,
+        repr(_e266)[:200]))
+
+try:
+    _p266c = _cyl266('purge_rel.gcode', rel=True, purge=True)
+    _o266c, _i266c = _tx175.apply_texture(
+        _p266c, out_dir=_d266, mode='BUMPS', bump_pattern='BARK',
+        bump_scale=12.0, bump_amp=2.0, zsize=4.0, seed=43)
+    _purge_ok = ('G1 X60.0 E9.0 ; purge line' in open(_o266c).read()
+                 and 'G1 X100.0 E12.5 ; purge line' in open(_o266c).read())
+    _tests_deep.append(('R266 X-only purge lines survive (vwbus field '
+        'crash: the stats prepass did ay += None), passthrough byte-true',
+        _i266c['shifted'] > 200 and _purge_ok,
+        'shifted=%s purge_lines=%s' % (_i266c.get('shifted'), _purge_ok)))
+except Exception as _e266:
+    _tests_deep.append(('R266 X-only purge run crashed (the old engine '
+        'raised TypeError here)', False, repr(_e266)[:200]))
+
+try:
+    _p266d = _cyl266('soft_rel.gcode', rel=True)
+    _in266d = sum(float(_E266.search(_l).group(1)) for _l in open(_p266d)
+                  if _l.startswith('G1 ') and _E266.search(_l))
+    _o266d, _i266d = _tx175.apply_texture(
+        _p266d, out_dir=_d266, mode='BUMPS', bump_pattern='BARK',
+        bump_scale=12.0, bump_amp=0.45, zsize=4.0, seed=43)
+    _out266d = sum(float(_E266.search(_l).group(1)) for _l in open(_o266d)
+                   if _l.startswith('G1 ') and _E266.search(_l))
+    _tests_deep.append(('R266 regression guard: amp <= 1.0 stays the '
+        'legacy contract - NOT deep, no E touched, file E total EXACT',
+        (not _i266d['deep']) and _i266d['deep_e_chords'] == 0
+        and abs(_out266d - _in266d) < 1e-6,
+        'deep=%s dE=%.2e' % (_i266d.get('deep'),
+        abs(_out266d - _in266d))))
+except Exception as _e266:
+    _tests_deep.append(('R266 regression guard run crashed', False,
+        repr(_e266)[:200]))
+
+_tests_deep.append(('R266 range: 0.05..4.0 with an honest refusal beyond '
+    '(the LCD depth entry inherits the new ceiling)',
+    '0.05 <= float(bump_amp) <= 4.0' in _tx175_src
+    and 'min\': 0.05, \'max\': 4.0' in open('tools/toolchain.py').read(),
+    ''))
+
+try:
+    _tx175.apply_texture(_cyl266('range_refused.gcode'), out_dir=_d266,
+                         mode='BUMPS', bump_pattern='BARK', bump_scale=12.0,
+                         bump_amp=4.5, zsize=4.0, seed=43)
+    _tests_deep.append(('R266 range: 4.5mm refused honestly', False,
+        'no ValueError'))
+except ValueError:
+    _tests_deep.append(('R266 range: 4.5mm refused honestly', True, ''))
+except Exception as _e266:
+    _tests_deep.append(('R266 range: 4.5mm refused honestly', False,
+        repr(_e266)[:200]))
+
+tests.extend(_tests_deep)
+
 # R246c harness: the PASS/FAIL loop now runs HERE, at the very end. It used
 # to sit mid-file (before the R214 round) - every test appended after it
 # was silently never evaluated: no PASS line, no fail count, a red suite

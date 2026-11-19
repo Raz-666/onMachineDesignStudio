@@ -549,6 +549,16 @@ for pat in ('RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX',
     run('texture BUMPS %s on frame' % pat, lambda p=pat: tx.apply_texture(
         frm, mode='BUMPS', bump_pattern=p, bump_scale=6.0, bump_amp=0.5,
         zsize=4.0, seed=11, out_dir=D), skip_idem=True, r2_gen=True)
+# R266: DEEP RELIEF - depth above 1.0mm: E rides the real chord lengths
+# (relative-E sections), steep flanks subdivide, absolute sections stay
+# slicer-true; the purge-line and commented-M83 field bugs are covered
+# by macro_render_test with exact E math
+run('texture BUMPS DEEP BARK 2.0 on frame', lambda: tx.apply_texture(
+    frm, mode='BUMPS', bump_pattern='BARK', bump_scale=6.0, bump_amp=2.0,
+    zsize=4.0, seed=11, out_dir=D), skip_idem=True, r2_gen=True)
+run('texture BUMPS DEEP PINDOTS 1.6 on frame', lambda: tx.apply_texture(
+    frm, mode='BUMPS', bump_pattern='PINDOTS', bump_scale=6.0, bump_amp=1.6,
+    zsize=4.0, seed=11, out_dir=D), skip_idem=True, r2_gen=True)
 # R176: X/Y scaling with per-move flow recalculation
 run('scale 150/150 on label', lambda: pp.apply_scale(
     lbl, sx=1.5, sy=1.5, out_dir=D), skip_idem=True, r2_gen=True)

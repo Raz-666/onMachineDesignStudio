@@ -32,6 +32,14 @@ anchored to the absolute angle at the loop start:
   the wall pair moves as one - a reversed inner loop's own s runs mirrored
   and would shear the walls through each other.
 
+R266 DEEP RELIEF (amp above 1.0mm, BUMPS only): the same displacement
+engine, but honest about extrusion - a displaced chord has a REAL length,
+and on relative-E files each chord's E rides it (E_new = E_old * L_new /
+L_old, total per move preserved to the rounding digit). Steep flanks are
+subdivided to ~0.4mm height steps so the relief resolves; the wall stays
+closed (continuous displacement, inner walls follow per R224). On
+absolute-E files E stays slicer-true and the header says so.
+
 Modes
 - FUZZY: random displacement of every OUTER WALL vertex within +- thick
   (seeded RNG -> deterministic), density = share of scattered vertices
@@ -89,7 +97,9 @@ Patterns (all seamless, all seeded where random)
 
 What it never touches
 - ;TYPE: tags, LAYER_MARK / APPLY_TYPE, EXCLUDE_OBJECT_*, temps, fans,
-  retracts, speeds, E values, Z values - the feature system stays intact
+  retracts, speeds, Z values - the feature system stays intact. E stays
+  untouched too, EXCEPT deep relief on relative-E files (R266: chord E
+  follows the displaced length, totals preserved)
 - the source file: the result is a NEW file Vnn_name_TX.gcode (one
   folder-global running number, never reused) - never an overwrite, no
   auto-start (viewer hint instead)
@@ -117,6 +127,10 @@ _M204_SCRUB = re.compile(r'^(\s*)_M204(\s|$)')   # R237: legacy slicer rename
 # R240 (.136ai field log): the old package macro name _M204_SET (digits end
 # a klipper command name -> 'Malformed command') - rewrite while streaming.
 _M204SET_SCRUB = re.compile(r'^(\s*)_M204_SET\s+VALUE=([0-9.]+)\s*$')
+# R266 field fix (rose fixture): slicers write 'M83 ; use relative distances
+# for extrusion' - an exact == match never sees it and the E-mode tracker
+# silently stayed absolute. Match the COMMAND token, ignore the comment.
+_EMODE = re.compile(r'^(G90|G91|M82|M83)\s*$')
 _TOK_RE = {t: re.compile(r'(?:^|\s)' + t + r'(-?[\d.]+)')
            for t in ('X', 'Y', 'Z', 'E', 'I', 'J', 'R', 'F')}
 
@@ -1278,7 +1292,8 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
     R175 parameter semantics (the LCD speaks these names):
       bump_scale = 'size around' guideline in mm  -> snapped to k ridges
       zsize      = 'Z size' guideline in mm       -> snapped to n repeats
-      bump_amp   = 'depth' in mm (0.05..1.0)
+      bump_amp   = 'depth' in mm (0.05..4.0; above 1.0 = DEEP RELIEF,
+                   see the R266 note below)
       seed       = deterministic randomness (noise patterns, fuzzy)
       map_file   = image for PATTERN=MAP (grayscale wrap)
     """
@@ -1305,9 +1320,19 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
         zsize = bump_scale
     if not (0.5 <= float(zsize) <= 200.0):
         raise ValueError('Z size %.1fmm out of range (0.5..200)' % float(zsize))
-    if not (0.05 <= float(bump_amp) <= 1.0):
-        raise ValueError('pattern depth %.2fmm out of range (0.05..1.0)'
+    if not (0.05 <= float(bump_amp) <= 4.0):
+        raise ValueError('pattern depth %.2fmm out of range (0.05..4.0)'
                          % float(bump_amp))
+    # R266 DEEP RELIEF: above 1.0mm the displaced path gets LONGER (and
+    # shorter) in places - leaving E untouched would thin the lines on
+    # stretched flanks. In deep mode (BUMPS only) every chord's E rides
+    # its real length (relative E only - on absolute-E files we stay
+    # slicer-true and SAY so in the header), the subdivision refines by
+    # field steepness so the structure resolves before the nozzle
+    # smooths it, and the wall stays CLOSED: displacement is continuous
+    # and inner walls keep following (R224). Steep flanks print as
+    # overhangs - that is physics, not a hole.
+    _deep = (mode == 'BUMPS' and float(bump_amp) > 1.0)
     if not os.path.isfile(src):
         raise ValueError('source file not found: %s' % src)
 
@@ -1490,6 +1515,12 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                                 mpts = [(ga[1], ay)]
                             extruding = (ga[7] is not None and ga[7] > _MIN_E)
             for x, y in mpts:
+                # R266 field fix (vwbus fixture): a purge line 'G1 X60 E9'
+                # carries X but NO Y - before any Y is known the point has
+                # no placeable geometry. Skip it and keep the last known
+                # position (never invent one), exactly like pass 2 does.
+                if y is None:
+                    continue
                 if extruding:
                     ax += x
                     ay += y
@@ -1596,18 +1627,21 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                 g = _parse_move(ls)
                 if g is not None and g[1] is not None:
                     if (g[0] == 'G1' and gated and g[4] is not None
-                            and g[4] > _MIN_E):
+                            and g[4] > _MIN_E and g[2] is not None):
+                        # R266: g[2] None = X-only move (purge line) - no
+                        # 2D wall geometry, must not touch the loop length
                         if px_l is not None:
                             cur_len += math.hypot(g[1] - px_l, g[2] - py_l)
                         px_l, py_l = g[1], g[2]
-                    else:
+                    elif g[2] is not None:
                         if cur_len > 0.0:
                             lens.append(cur_len)
                             cur_len = 0.0
                         px_l, py_l = g[1], g[2]
                     continue
                 ga = _parse_arc(ls)
-                if ga is not None and ga[1] is not None and px_l is not None:
+                if (ga is not None and ga[1] is not None
+                        and px_l is not None and py_l is not None):
                     if (gated and ga[7] is not None and ga[7] > _MIN_E):
                         pts = _arc_points(px_l, py_l, ga[1], ga[2], ga[4],
                                           ga[5], ga[6], cw=(ga[0] == 'G2'))
@@ -1705,7 +1739,7 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
         return pattern_fn(s, t)
 
     stats = {'moves': 0, 'shifted': 0, 'clamped': 0, 'layers': 0, 'arcs': 0,
-             'inner_shifted': 0, 'm204_scrub': 0}
+             'inner_shifted': 0, 'm204_scrub': 0, 'e_riden': 0}
     cur_type = ''
     cur_outer = False       # R152: alias-normalized outer-wall check
     cur_inner = False       # R224 task 15: BUMPS lets inner walls follow
@@ -1722,6 +1756,13 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
     # interpolated from the last E to the arc's end value)
     e_rel = False
     last_e = 0.0
+    # R266 deep relief: _sh_out = the position the LAST _shift_txt call
+    # actually WROTE (rounded, clamped); _wr = the last position written
+    # to the file at all (shifted wall moves and untouched travels both
+    # update it) - the E compensation measures chord lengths between the
+    # positions the FILE really carries.
+    _sh_out = [0.0, 0.0]
+    _wr = [None, None]
 
     # R231 emission-side loop bookkeeping: i = current loop index into
     # loops231, arc = mm walked inside it, anchor = absolute angle fraction
@@ -1789,11 +1830,16 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
         wall's embossing (BUMPS mode only - FUZZY stays Orca-honest and
         jitters the outer wall alone).
         R231: s_arc = the arc-anchored loop coordinate of the END vertex
-        (None -> the classic angle fraction, the safe fallback)."""
-        dx, dy = (x - px, y - py) if px is not None else (0.0, 0.0)
+        (None -> the classic angle fraction, the safe fallback).
+        R266: also reports the WRITTEN position via _sh_out (rounded and
+        bed-clamped) - the deep-relief E compensation needs the real
+        chord length after displacement."""
+        dx, dy = ((x - px, y - py)
+                  if px is not None and py is not None else (0.0, 0.0))
         ln = math.hypot(dx, dy)
         stats['moves'] += 1
         if ln <= 0.01:
+            _sh_out[0], _sh_out[1] = x, y
             return txt
         # left-hand normal of the move direction (consistent sign)
         ox, oy = -dy / ln, dx / ln
@@ -1841,6 +1887,9 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
             stats['shifted'] += 1
             if inner:
                 stats['inner_shifted'] += 1
+            _sh_out[0], _sh_out[1] = nx, ny
+        else:
+            _sh_out[0], _sh_out[1] = x, y
         return txt
 
     with open(src, errors='replace') as fi, open(out, 'w') as fo:
@@ -1859,8 +1908,13 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
         fo.write('; center from %s at %.1f,%.1f - object height %.1fmm, '
                  'mean circumference %.1fmm, seed %d\n'
                  % (src_center, cx, cy, height, circum, int(seed)))
-        fo.write('; fuzzy scatters / bumps displace ONLY outer-wall vertices '
-                 '- tags, features, E and Z stay untouched\n')
+        if _deep and e_rel:
+            fo.write('; fuzzy scatters / bumps displace ONLY outer-wall '
+                     'vertices - tags, features, Z stay untouched; R266: '
+                     'chord E follows the displaced length (totals kept)\n')
+        else:
+            fo.write('; fuzzy scatters / bumps displace ONLY outer-wall '
+                     'vertices - tags, features, E and Z stay untouched\n')
         fo.write('; R95: G2/G3 outer-wall arcs are flattened into textured '
                  'chords (arc-fitted files get a seamless all-around texture)\n')
         fo.write('; R231 arc-anchored: %d wall loop(s) measured - every '
@@ -1874,6 +1928,12 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
         if all_is_wall:
             fo.write('; R175 fallback: no wall markers in this file - the '
                      'texture runs on ALL extrusion paths (lithophane mode)\n')
+        if _deep:
+            fo.write('; R266 DEEP RELIEF: depth %.2fmm - on relative-E '
+                     'sections every chord E rides its real length '
+                     '(totals kept), steep flanks are subdivided; '
+                     'absolute-E sections stay slicer-true\n'
+                     % float(bump_amp))
         _led240 = [0, 0]                # R240: [bytes seen, lines seen]
         _led240_sz = max(1, os.path.getsize(src))
         for line in fi:
@@ -1917,28 +1977,30 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
             if ls.startswith(';LAYER_CHANGE'):
                 stats['layers'] += 1
                 _loop_close231()      # R231: one loop per layer
-            elif ls == 'G90':
-                e_rel = False       # Klipper G90 resets E to absolute
-            elif ls == 'G91':
-                e_rel = True        # Klipper G91 resets E to relative
-            elif ls == 'M83':
-                e_rel = True        # explicit E mode overrides G90/G91
-            elif ls == 'M82':
-                e_rel = False
             elif ls.startswith('G92'):
                 me92 = re.match(r'^G92(?:\s+E(-?[\d.]+))?', ls)
                 if me92 and me92.group(1) is not None:
                     last_e = float(me92.group(1))
+            else:
+                _me266 = _EMODE.match(ls.split(';', 1)[0].strip())
+                if _me266:
+                    # Klipper: G90/G91 reset E to absolute/relative, an
+                    # explicit M82/M83 overrides them. Comments ignored
+                    # (R266 field fix: 'M83 ; relative...' never matched).
+                    e_rel = _me266.group(1) in ('G91', 'M83')
             g = _parse_move(ls)
             if g is not None and g[3] is not None:
                 cur_z_e = g[3]           # R186: emission-pass Z tracking
             if (g and g[0] == 'G1' and (cur_outer or all_is_wall
                                         or (cur_inner and mode == 'BUMPS'))
-                    and g[4] is not None and g[4] > _MIN_E and g[1] is not None):
+                    and g[4] is not None and g[4] > _MIN_E
+                    and g[1] is not None and g[2] is not None):
+                # R266: g[2] None = X-only purge move - passthrough below
                 x, y = g[1], g[2]
                 z = g[3]
                 _zz231 = z if z is not None else cur_z_e
-                _ln231 = math.hypot(x - px, y - py) if px is not None else 0.0
+                _ln231 = (math.hypot(x - px, y - py)
+                          if px is not None and py is not None else 0.0)
                 # G4: BUMPS resamples long straight wall moves before applying
                 # displacement. A vase with 8 vertices/layer otherwise gets
                 # only 8 texture samples. Split by XY arclength, preserve the
@@ -1948,9 +2010,18 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                           if mode == 'BUMPS' else 1)
                 _x0, _y0 = (x, y) if px is None or py is None else (px, py)
                 _z0 = cur_z_e if cur_z_e is not None else (z or 0.0)
+                # R266 deep relief: refine the subdivision by field
+                # STEEPNESS too - a 3mm bark relief needs ~1mm chord
+                # resolution in the displacement, not only in the path
+                if _deep and px is not None and py is not None:
+                    _slope266 = abs(pattern(x, y, _z0)
+                                   - pattern(_x0, _y0, _z0)) * sig
+                    _parts = max(_parts, min(256,
+                                             int(math.ceil(_slope266 / 0.4))))
                 _e0 = last_e
                 _edelta = (g[4] if e_rel else g[4] - _e0)
                 _acc_e = 0.0
+                _tgt_e = 0.0 if (_deep and e_rel) else g[4]
                 _feed = _tok(ls.split(';', 1)[0], 'F')
                 for _part in range(1, _parts + 1):
                     _f = _part / float(_parts)
@@ -1961,35 +2032,54 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                     _sar231 = _s231(_qx, _qy, _qz, _seglen)
                     if cur_outer:
                         _sout_put231(_qz, _qx, _qy, _sar231)
-                    if e_rel:
-                        _qe = (g[4] - _acc_e if _part == _parts
-                               else round(_edelta / _parts, 5))
-                        _acc_e += _qe
-                    else:
-                        _qe = g[4] if _part == _parts else _e0 + _edelta * _f
+                    # R266: displace FIRST, then let E ride the written
+                    # chord length (relative E + deep mode only - every
+                    # other file keeps the exact legacy numbers)
                     if _part == _parts:
                         _outtxt = _shift_txt(ls, _qx, _qy, _qz,
                             inner=(cur_inner and not cur_outer
                                    and mode == 'BUMPS'), s_arc=_sar231)
-                        if e_rel:
-                            _outtxt = re.sub(r'(?<![A-Z])E-?[\d.]+',
-                                             'E%.5f' % _qe, _outtxt, count=1)
-                        fo.write(_outtxt + '\n')
                     else:
                         _line = 'G1 X%.3f Y%.3f' % (_qx, _qy)
                         if _qz is not None:
                             _line += ' Z%.3f' % _qz
-                        _line += ' E%.5f' % _qe
+                        _line += ' E%.5f' % 0.0
                         if _feed is not None:
                             # R246: every inserted sub-part carries the F of the
                             # original move, not only the first one - a reader
                             # must not depend on modal carryover (r91 gate:
                             # every emitted G1 keeps its F value)
                             _line += ' F%g' % _feed
-                        _line = _shift_txt(_line, _qx, _qy, _qz,
+                        _outtxt = _shift_txt(_line, _qx, _qy, _qz,
                             inner=(cur_inner and not cur_outer
                                    and mode == 'BUMPS'), s_arc=_sar231)
-                        fo.write(_line + '\n')
+                    _f266 = 1.0
+                    if _deep and e_rel:
+                        _lnew266 = (
+                            math.hypot(_sh_out[0] - _wr[0],
+                                       _sh_out[1] - _wr[1])
+                            if _wr[0] is not None else _seglen)
+                        _f266 = (max(0.1, min(8.0, _lnew266 / _seglen))
+                                 if _seglen > 1e-9 else 1.0)
+                        if _f266 > 1.8 or _f266 < 0.45:
+                            stats['steep'] = stats.get('steep', 0) + 1
+                        _tgt_e += _edelta * _f266 / _parts
+                        stats['e_riden'] += 1
+                    _wr[0], _wr[1] = _sh_out[0], _sh_out[1]
+                    if e_rel:
+                        if _part == _parts:
+                            _qe = max(0.0, round(_tgt_e, 5) - _acc_e)
+                        else:
+                            _qe = round(_edelta * _f266 / _parts, 5)
+                            _acc_e += _qe
+                        _outtxt = re.sub(r'(?<![A-Z])E-?[\d.]+',
+                                         'E%.5f' % _qe, _outtxt, count=1)
+                    else:
+                        _qe = g[4] if _part == _parts else _e0 + _edelta * _f
+                        if _part != _parts:
+                            _outtxt = re.sub(r'(?<![A-Z])E-?[\d.]+',
+                                             'E%.5f' % _qe, _outtxt, count=1)
+                    fo.write(_outtxt + '\n')
                     _st231['arc'] += _seglen
                 stats['subdivisions'] = stats.get('subdivisions', 0) + _parts - 1
                 px, py = x, y
@@ -2001,7 +2091,7 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                 cur_z_e = ga[3]           # R186: emission-pass Z tracking
             if (ga and (cur_outer or all_is_wall
                         or (cur_inner and mode == 'BUMPS')) and ga[7] is not None
-                    and ga[7] > _MIN_E and px is not None):
+                    and ga[7] > _MIN_E and px is not None and py is not None):
                 x1, y1 = ga[1], ga[2]
                 z1 = ga[3]
                 pts = _arc_points(
@@ -2014,6 +2104,8 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                     arc_len = sum(math.hypot(b[0] - a[0], b[1] - a[1])
                                   for a, b in zip(_all, pts))
                     f_txt = (' F%g' % ga[8]) if ga[8] else ''
+                    _accA266 = 0.0
+                    _tgtA266 = 0.0 if (_deep and e_rel) else e_arc
                     for (ax, ay), (qx, qy) in zip(_all, pts):
                         cl = math.hypot(qx - ax, qy - ay)
                         frac = (cl / arc_len) if arc_len > 1e-9 else 0.0
@@ -2026,11 +2118,29 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                         _sar231 = _s231(qx, qy, _zz231, cl)
                         if cur_outer:
                             _sout_put231(_zz231, qx, qy, _sar231)
-                        fo.write(_shift_txt(
+                        _outA266 = _shift_txt(
                             ch, qx, qy, z1,
                             inner=(cur_inner and not cur_outer
                                    and mode == 'BUMPS'),
-                            s_arc=_sar231) + '\n')
+                            s_arc=_sar231)
+                        if _deep and e_rel:
+                            # R266: arc chord, same rule as straight moves
+                            _lA266 = (
+                                math.hypot(_sh_out[0] - _wr[0],
+                                           _sh_out[1] - _wr[1])
+                                if _wr[0] is not None else cl)
+                            _fA266 = (max(0.1, min(8.0, _lA266 / cl))
+                                      if cl > 1e-9 else 1.0)
+                            if _fA266 > 1.8 or _fA266 < 0.45:
+                                stats['steep'] = stats.get('steep', 0) + 1
+                            _tgtA266 += e_arc * frac * _fA266
+                            stats['e_riden'] += 1
+                            ec = max(0.0, round(_tgtA266, 5) - _accA266)
+                            _accA266 += ec
+                            _outA266 = re.sub(r'(?<![A-Z])E-?[\d.]+',
+                                              'E%.5f' % ec, _outA266, count=1)
+                        _wr[0], _wr[1] = _sh_out[0], _sh_out[1]
+                        fo.write(_outA266 + '\n')
                         _st231['arc'] += cl
                         if not e_rel:
                             last_e = ec
@@ -2042,7 +2152,12 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
             gm = _parse_move(ls)
             if gm and gm[1] is not None:
                 _loop_close231()   # R231: a travel ends the wall loop
-                px, py = gm[1], gm[2]
+                if gm[2] is not None:      # R266: X-only keeps the last
+                    px, py = gm[1], gm[2]  # known position (no crash)
+                    # R266: a travel line WRITES a position too - the next
+                    # wall chord measures its length from HERE, not from
+                    # the last wall vertex before the travel
+                    _wr[0], _wr[1] = gm[1], gm[2]
                 if gm[4] is not None:
                     last_e = gm[4]
             fo.write(ls + '\n')
@@ -2064,6 +2179,11 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
             'arc_loops': len(loops231), 'arc_fallback': _st231['fb'],
             'subdivisions': stats.get('subdivisions', 0),
             'sample_step_mm': 1.5,
+            'deep': bool(_deep),
+            'deep_e_compensated': bool(_deep and stats['e_riden'] > 0),
+            'deep_e_chords': stats['e_riden'],
+            'deep_step_mm': (0.4 if _deep else 0.0),
+            'steep_segments': stats.get('steep', 0),
             'm204_scrub': stats['m204_scrub'],
             'tilt': round(tilt_eff, 1), 'tilt_turns': m238,
             'map_mode': (str(map_mode).upper()

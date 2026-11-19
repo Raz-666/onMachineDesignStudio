@@ -418,7 +418,9 @@ def main():
 
         ['Around (SIZE)', '3-80 mm', 'Richtwert Umfang -> k Rippen (ganz)'],
         ['Height (ZSIZE)', '0.5-200 mm', 'Richtwert Höhe -> n Wiederholungen (ganz, oben bündig)'],
-        ['Depth (DEPTH)', '0.05-1.0 mm', 'Verschiebetiefe = Amplitude der Prägung'],
+        ['Depth (DEPTH)', '0.05-4 mm',
+         'Verschiebetiefe = Amplitude der Prägung; ueber 1 mm = DEEP RELIEF '
+         '(E folgt der echten Pfadlaenge, Steilflanken werden feiner zerlegt)'],
         ['Richtung (DIR)', 'IN / OUT', 'Vorzeichen: erhaben nach außen oder eingezogen'],
         ['Seed', '1-999', 'Zufallsbasis: Noise-Muster, Fugen-Versatz (Planks/Bricks), Glitch-Bänder. Gleicher Seed = gleiches Bild'],
         ['Bild (MAP)', 'Auswahl', 'Quellfoto für die Bildprägung (hell = erhaben)'],

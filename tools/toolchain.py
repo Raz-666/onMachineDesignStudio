@@ -225,8 +225,8 @@ TOOL_REGISTRY = {
                          'required': True},
             'zsize_mm': {'type': 'number', 'min': 0.5, 'max': 200.0,
                          'required': True},
-            'depth_mm': {'type': 'number', 'min': 0.05, 'max': 1.0,
-                         'required': True},
+            'depth_mm': {'type': 'number', 'min': 0.05, 'max': 4.0,
+                         'required': True},   # R266: >1.0 = DEEP RELIEF
             # lcd_menues.cfg:3458: LCD-Index 1 = OUT, 0 = IN;
             # Engine-Default 'OUT' (r2_postproc.py:28286).
             'direction': {'type': 'enum', 'values': ('IN', 'OUT'),
