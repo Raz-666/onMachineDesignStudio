@@ -295,8 +295,19 @@ TOOL_REGISTRY = {
                       'required': False, 'default': 'AUTO'},
             'zoff': {'type': 'number', 'min': -50.0, 'max': 250.0,
                      'required': False, 'default': 0.0},
+            # R271: sector stage - in Ketten immer 0 gepinnt (die Regel
+            # unten): 3/4-part schreibt MEHRERE Dateien (Stueck-Set) und
+            # wird im LCD-Menue gebaut, nicht in der Kette. Typisiert +
+            # sichtbar bleibt der Parameter, damit Presets eine klare
+            # Meldung statt "unbekannt" kriegen.
+            'sectors': {'type': 'int', 'min': 0, 'max': 2,
+                        'required': False, 'default': 0,
+                        'note': 'Ketten: nur 0 - 3/4-part = LCD-only'},
         },
-        'rules': [],
+        'rules': [{'a': 'sectors', 'op': 'is', 'value': 0,
+                   'msg': '3/4-part schreibt ein Stueck-Set (mehrere '
+                          'Dateien) - im Generator-Menue __gen __mold '
+                          'bauen, nicht in der Kette'}],
     },
 }
 
@@ -506,7 +517,16 @@ def _validate_params(tool, params, where, errors, registry):
                           % (where, name, tool))
     for rule in registry[tool].get('rules', ()):
         a = params.get(rule['a'])
-        b = params.get(rule['b'])
+        b = params.get(rule['b']) if 'b' in rule else None
+        if rule['op'] == 'is':
+            # fester Wert (kein zweiter Parameter) - R271: mold-sectors
+            # ist in Ketten auf 0 gepinnt (Mehr-Datei-Ausgaben sind die
+            # Cake-Regel), der Parameter bleibt sichtbar + typisiert
+            if a is not None and a != rule.get('value'):
+                errors.append('%s: "%s" muss %s sein (%s)'
+                              % (where, rule['a'], rule.get('value'),
+                                 rule.get('msg', 'Kettenregel')))
+            continue
         if _is_number(a) and _is_number(b):
             if rule['op'] == 'le' and not a <= b:
                 errors.append('%s: "%s" (%r) muss <= "%s" (%r) sein'

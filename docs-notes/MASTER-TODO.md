@@ -737,8 +737,56 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       Gates: r270 33/0, macro_render 2133/2133, megatest 224/0,
       systemtest 214/0, r81 23/23, r142 142/0, audit 82/0,
       test_toolchain 49 OK, test_toolchain_steps 25 OK, r165/r166 clean.
-      NOCH OFFEN: 3/4-Teil-Sektorstufe + Oberflaechen-Param, dann
-      Haeppchen 2 (parametrische Grundkoerper).
+      **STAND R271 (19.11., SEKTORSTUFE FERTIG):** `make_mold(sectors=0,
+      sec_half='AUTO')` — sectors=1 = 3-teilig (Trennebene + 1 Sektor-
+      schnitt), sectors=2 = 4-teilig (2 Schnitte). Design im Docstring
+      verankert: achsparallele VERTIKALE Cuts durch die KAVITAET (Achse =
+      laengere Kavitaet-bbox-Seite, Schnitte an den bbox-Dritteln, ge-
+      messen ueber _scan270-Vorab-Scan); die sektorierte Haelfte emitiert
+      EIN FILE PRO STUECK (`Vnn_FormOben_S1_…`), Brim/EXCLUDE-Polygon/
+      Center folgen dem STUECK-Rechteck (Brim greift ueber die Schnitt-
+      kante - Stueck-lokal statt block-lokal). Abzieh-Beweise streaming
+      pro Layer: aeussere Stuecke muessen entlang der Cut-Achse SLIDEN
+      (pro Zeile darf Kavitaet nur an der Cut-Flaeche anliegen - Gehooktes
+      verweigert mit Layer+Zellzahl; der 2-Blobs-Fall beweist: liegt der
+      Schnitt im Leerraum, blockiert der Rahmen das Wegschieben EHRLICH),
+      Mittelstueck (4-teilig) LIFTET vertikal nach Entfernen der aeusseren
+      (geclippter Equator-Check). Preis der Untercut-Abformung: die
+      Kavitatendecke BRIDGEd ueber den Untercut - gezaehlt, max Spanne
+      notiert, >25mm = Verweigerung (Decke sackt sonst in den Guss).
+      Registrierung der Sektorflaechen: horizontale DUEBEL-TUNNEL (2 pro
+      Cut-Flaeche, in den Rahmenbaendern unterhalb der Pin-Zone, Kreis-
+      querschnitt ueber dz/sh, gemessene freie Oeffnung ~5mm bei D3-Pin).
+      AUTO waehlt die Undercut-Haelfte (TOP vor BOTTOM); beide Undercut =
+      ehrliche Verweigerung (Silikon/Modell splitten). Sektorierte Non-
+      Output-Haelfte oder unpassende Sektoren = Note + Fallback plain.
+      Einguss/Entlueftung/Trichter gehoist (einmal berechnet, Sektor- und
+      Einzel-Emission identische Werte); Fuell/Carry-Zaehler nur ueber
+      die GESCHRIEBENEN Sektionen (Pre-Scan-Stroeme verfaelschen sie
+      nicht mehr). info['sectors'/'sec_half'/'sec_axis'/'sec_cuts'/
+      'bridges'] als Beweis. Batterie `r271_mold_check.py` 25/25: Signatur
+      + Clamp (sectors=9→2, -3→0), 2-part-Regression BYTE-IDENTISCH zum
+      Default-Aufruf, Pilz 3-teilig (Dateien/Achse/Cut/Bruecken/Notizen/
+      Kopf + C7 Stueckkoerper bleiben auf ihrer Cut-Seite ab Layer 2),
+      Schale AUTO→BOTTOM, Tunnel (Kern leer, ausserhalb der Spanne solid,
+      freie Hoehe 3.4-7mm), EXCLUDE-Polygon endet exakt am Cut, ehrliche
+      Verweigerungen (Sanduhr beide-Undercut, Baum 4-teilig Mittelstueck-
+      Lift, 2-Blobs-Rahmen-Block, Disc-Bruecke >25mm). WICHTIGE Lektion:
+      das Bett ist (0,-3,244,238) - X-Zentrum 122, Y-Zentrum 117.5; wer
+      117.5 fuer beide annimmt, misst 4.5mm daneben. Verdrahtung: LCD
+      `__cut __sec` (Sektoren 0/1/2) + `__cut __shlf` (AUTO/TOP/BOTTOM),
+      MOLD_INFO/MOLD_CREATE mit SECTORS=/HALF=, Watcher mold_sectors/
+      mold_sec_half (robust geklemmt), Erfolgs-RESPOND mit Stueck-Hand-
+      habung, `__how` aktualisiert (Seiten-Untercuts jetzt giessbar).
+      Toolchain: mold-sectors als eigener Param mit is-0-Regel (3/4-part
+      = Stueck-Set = Mehrfach-Output = Cake-Regel → LCD-only, Adapter-
+      Guard als zweite Schicht); Rule-Sprache um op 'is' (fester Wert)
+      erweitert. Pins: R135-Pfadliste +2 (`__sec`, `__shlf`), r166 2787
+      Sections (+2). Gates: r271 25/25, r270 33/0, macro_render 2133/2133,
+      megatest 224/0, systemtest 214/0, r81 23/23, r142 142/0,
+      test_toolchain 49 OK, test_toolchain_steps 25 OK, r165/r166 clean.
+      NOCH OFFEN: Oberflaechen-Param, dann Haeppchen 2 (parametrische
+      Grundkoerper).
       **Ehrlichkeitsregeln:** Hinterschneidungs-Check pro Hälfte (Kavität
       darf zur Öffnung nicht schrumpfen — Guss löst sich nicht, Druck
       bridgt), Formschräge als Raster-Radius-Approximation (dokumentiert),

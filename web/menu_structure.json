@@ -1,14 +1,14 @@
 {
  "generator": "menu_json_export.py (.136j R211)",
  "source": "lcd_menues.cfg",
- "sections": 2339,
+ "sections": 2341,
  "counts": {
   "list": 317,
   "command": 1424,
   "vsdlist": 1,
-  "input": 597
+  "input": 599
  },
- "sha256": "e10ca9c2fdc7c107",
+ "sha256": "3b06e674f94d6b48",
  "live_objects": [
   "bed_mesh",
   "configfile",
@@ -17093,6 +17093,34 @@
           "children": []
          },
          {
+          "id": "__main __gen __mold __cut __sec",
+          "type": "input",
+          "name": "{'Sectors: ' ~ (menu.input == 0 and 'off (2-part)' or (menu.input == 1 and '1 cut (3-part)' or '2 cuts (4-part)'))}",
+          "input": "{printer['save_variables'].variables.mold_sectors|default(0)|int}",
+          "input_min": "0",
+          "input_max": "2",
+          "input_step": "1",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=mold_sectors VALUE={menu.input|round|int}",
+           "RESPOND MSG=\"Mold sectors: {menu.input == 0 and 'off - the plain 2-part mold (an undercut REFUSES)' or (menu.input == 1 and '1 sector cut = 3-part: the outer pieces SLIDE apart on the parting plane, the cut half bridges over the undercut (counted, refused beyond 25mm)' or '2 sector cuts = 4-part: outer pieces slide, the MIDDLE piece lifts straight up - for objects that hook on BOTH sides')}\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __mold __cut __shlf",
+          "type": "input",
+          "name": "{'Cut half: ' ~ (menu.input == 0 and 'AUTO' or (menu.input == 1 and 'TOP' or 'BOTTOM'))}",
+          "input": "{0 if printer['save_variables'].variables.mold_sec_half|default('AUTO')|string|upper == 'AUTO' else (1 if printer['save_variables'].variables.mold_sec_half|default('AUTO')|string|upper == 'TOP' else 2)}",
+          "input_min": "0",
+          "input_max": "2",
+          "input_step": "1",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=mold_sec_half VALUE=\"\\\"{menu.input == 0 and 'AUTO' or (menu.input == 1 and 'TOP' or 'BOTTOM')}\\\"\"",
+           "RESPOND MSG=\"Mold sector half: {menu.input == 0 and 'AUTO - the half WITH the side undercut gets the cuts (both undercut = honest refusal)' or (menu.input == 1 and 'TOP - the top half becomes the sector pieces (pour + vents stay in it)' or 'BOTTOM - the bottom half becomes the sector pieces')}\""
+          ],
+          "children": []
+         },
+         {
           "id": "__main __gen __mold __cut __go",
           "type": "command",
           "name": "{('> AGAIN = build' if printer['gcode_macro _STATE'].gen_arm|default('') == 'mold' else '> Build mold')}",
@@ -17109,7 +17137,7 @@
         "type": "command",
         "name": "How it works",
         "gcode": [
-         "RESPOND MSG=\"How it works: the print's silhouette per height band becomes the cavity, the widest band splits the mold (equator). Both halves print with the mating face UP - clean top surfaces, no bridging over the cavity. The top half prints MIRRORED - flip it like a lid when assembling, the dowel holes line up. Pour through the funnel, air leaves via vent bores + mating-face grooves. An undercut REFUSES (nothing is written, the message says where) - side undercuts need a 3/4-part mold (later stage) | pick the file first: Pre-Print > File\""
+         "RESPOND MSG=\"How it works: the print's silhouette per height band becomes the cavity, the widest band splits the mold (equator). Both halves print with the mating face UP - clean top surfaces, no bridging over the cavity. The top half prints MIRRORED - flip it like a lid when assembling, the dowel holes line up. Pour through the funnel, air leaves via vent bores + mating-face grooves. A VERTICAL undercut still refuses - but SIDE undercuts are castable now: Sectors 1 (3-part, outer pieces slide apart) or 2 (4-part, middle lifts) - the cut half bridges over the undercut, counted and refused beyond 25mm, the sector faces align on dowel tunnels | pick the file first: Pre-Print > File\""
         ],
         "children": []
        }

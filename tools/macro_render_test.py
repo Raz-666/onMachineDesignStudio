@@ -13845,6 +13845,8 @@ _ADDED135 = [
     '__main __gen __mold __cut __zoff',
     '__main __gen __mold __cut __part',
     '__main __gen __mold __cut __mast',
+    '__main __gen __mold __cut __sec',
+    '__main __gen __mold __cut __shlf',
     '__main __gen __mold __cut __go',
     '__main __gen __mold __how',
     # R267 (J9): spray-stencil generator - settings + litho image browser.

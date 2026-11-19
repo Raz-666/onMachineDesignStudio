@@ -151,6 +151,20 @@ def system_step_runner(tool, params, bed=None):
                                default='CONICAL') or 'CONICAL').upper()
             plane = str(_pick(params, 'plane', 'mold_plane',
                               default='AUTO') or 'AUTO').upper()
+            # R271: sector pieces = MEHRERE Dateien - in Ketten gepinnt
+            # (die is-0-Regel der Registry weiss es, der Adapter ist die
+            # zweite Schicht, falls ein Menue-Alias durchsickert)
+            try:
+                sectors271 = int(float(_pick(params, 'sectors',
+                                             'mold_sectors',
+                                             default=0) or 0))
+            except (TypeError, ValueError):
+                sectors271 = 0
+            if sectors271:
+                raise ValueError('mold: sectors=%d schreibt ein Stueck-'
+                                 'Set (3/4-part, mehrere Dateien) - im '
+                                 'Generator-Menue __gen __mold bauen, '
+                                 'nicht in der Kette' % sectors271)
             out, _info = pp.make_mold(
                 in_path,
                 wall=float(_pick(params, 'wall', 'mold_wall', default=5.0)),

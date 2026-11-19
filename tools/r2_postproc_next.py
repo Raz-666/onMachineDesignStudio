@@ -15447,6 +15447,7 @@ def make_stencil(src, steps=3, size_mm=100.0, layer_h=0.2, thick=0.8,
 def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
               funnel='CONICAL', vent_d=2.5, pin_d=3.0, draft=0.0,
               part='BOTH', plane='AUTO', z_off=0.0, master=False,
+              sectors=0, sec_half='AUTO',
               brim_loops=4, material='PLA', bed=None, bed_margin=6.0,
               nozzle=0.4, out_dir='.', version=1):
     """R270 (J2 bite 1): G-code file -> CASTING MOLD, two flat halves.
@@ -15494,8 +15495,22 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
         thin section refuses instead of silently truncating the cast.
       - Split plane: AUTO = the widest band (the equator), MID = the
         middle of the Z range, OFF = z_off mm above the object bottom.
-        Tilted planes (pitch/roll like the cake cut) come with the
-        3/4-part sector stage.
+        Tilted planes (pitch/roll like the cake cut) come with a later
+        stage.
+      - SECTORS (R271, J2): sectors=1 -> 3-part mold (equator + 1
+        sectorial cut), sectors=2 -> 4-part (2 cuts). The cuts are
+        axis-aligned vertical planes through the CAVITY (axis = the
+        cavity's longer bbox side, cuts at the cavity thirds - measured,
+        not eyeballed). The sectored half trades its vertical undercut
+        check for per-piece removal proofs, streaming per layer:
+        the OUTER pieces must SLIDE off along the cut axis (per row the
+        cavity may only hug the cut face - anything hooked refuses with
+        layer and cell count), the middle piece of a 4-part LIFTS
+        vertically after the outers are gone (clipped equator check).
+        The price: the cavity ceiling BRIDGES where the object
+        undercuts - counted, noted with the max span, refused beyond
+        25mm. Sector faces register via horizontal dowel tunnels
+        (2 per face, in the frame bands, below the pin zone).
 
     Direct G-code like every generator (labels/plotter/stringart - no
     slicer, no trimesh boolean: the Pi Zero 2 W could not afford it).
@@ -15504,6 +15519,12 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
     part = str(part).upper()
     if part not in ('BOTH', 'TOP', 'BOTTOM'):
         raise ValueError("part must be BOTH, TOP or BOTTOM (got %r)" % part)
+    sectors = max(0, min(int(sectors or 0), 2))   # R271: 0/1/2 cuts ->
+    #                                                 2/3/4-part molds
+    sec_half = str(sec_half or 'AUTO').upper()
+    if sec_half not in ('AUTO', 'TOP', 'BOTTOM'):
+        raise ValueError("sec_half must be AUTO, TOP or BOTTOM (got %r)"
+                         % sec_half)
     plane = str(plane).upper()
     if plane not in ('AUTO', 'MID', 'OFF'):
         raise ValueError("plane must be AUTO, MID or OFF (got %r)" % plane)
@@ -15839,6 +15860,198 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
                (_pi270, rows - _pi270),
                (cols - _pi270, rows - _pi270))
 
+    # ---- R271 (J2): SECTOR cuts - 3/4-part molds for undercut objects --
+    # The pre-scan answers two questions with real sections (not hope):
+    # which half fails its vertical undercut check (that one gets the
+    # cuts), and where the cavity's bbox sits (axis + cut positions).
+    # sectors=0 skips ALL of this - the 2-part path stays untouched.
+    _sec270on = None            # 'BOTTOM' / 'TOP' when that half is cut
+    sec_cuts270 = []            # grid lines (axis cells) of the cuts
+    _secaxis270 = None          # 'X' or 'Y'
+    _bridges270 = [0, 0.0]      # cells, max span mm (sectored half)
+    _sectun270 = [0]            # tunnels actually carved
+
+    if sectors:
+        def _scan270(kind, Kp):
+            """(fails_vertical, bbox) of one half - sections in print
+            order, exactly the emission's math."""
+            prev = None
+            fail = False
+            bb = [cols, rows, -1, -1]      # cmin, rmin, cmax, rmax
+            for k in range(Kp, 0, -1):
+                cav = _sect270(kind, k)
+                if prev is not None and not fail:
+                    if any(1 for i in range(len(prev))
+                           if prev[i] and not cav[i]):
+                        fail = True
+                for i in range(len(cav)):
+                    if cav[i]:
+                        r_i = i // cols
+                        c_i = i % cols
+                        if c_i < bb[0]: bb[0] = c_i
+                        if r_i < bb[1]: bb[1] = r_i
+                        if c_i > bb[2]: bb[2] = c_i
+                        if r_i > bb[3]: bb[3] = r_i
+                prev = cav
+            return fail, bb
+
+        _Kbp = max(1, int(math.ceil((z_p - z_min) / layer_h)))
+        _Ktp = max(1, int(math.ceil((z_max - z_p) / layer_h)))
+        # analysis passes must not pollute the geometry notes - the
+        # fill/carry counters reflect the WRITTEN sections only
+        _fh0, _ca0 = _filledholes270[0], _carried270[0]
+        _filledholes270[0] = _carried270[0] = 0
+        _fb270, _bbb270 = _scan270('bot', _Kbp)
+        _ft270, _bbt270 = _scan270('top', _Ktp)
+        _filledholes270[0], _carried270[0] = _fh0, _ca0
+        if sec_half == 'AUTO':
+            _sec270on = 'TOP' if _ft270 else ('BOTTOM' if _fb270
+                                              else 'TOP')
+        else:
+            _sec270on = sec_half
+        # the UNcut half must always pass its vertical check - sectors
+        # free exactly one side
+        _other_fail = _fb270 if _sec270on == 'TOP' else _ft270
+        if _other_fail:
+            raise ValueError(
+                'both halves have an undercut: sectors free ONE side '
+                '(the %s), the other half still could not come off. '
+                'Choose a different plane, cast this object in '
+                'flexible silicone, or split the model.'
+                % ('top' if _sec270on == 'TOP' else 'bottom'))
+        # sectors on a half that is not emitted would be moot - note it
+        if (part == 'TOP' and _sec270on == 'BOTTOM') or \
+                (part == 'BOTTOM' and _sec270on == 'TOP'):
+            notes.append('sectors were aimed at the %s half but only '
+                         'the %s half is emitted - building the plain '
+                         '%s half'
+                         % (_sec270on.lower(), part.lower(), part.lower()))
+            _sec270on = None
+        if _sec270on:
+            _bb = _bbb270 if _sec270on == 'BOTTOM' else _bbt270
+            # axis = the cavity's longer bbox side (cuts across the
+            # short dimension keep every piece wide)
+            _axlen = cols if (_bb[2] - _bb[0]) >= (_bb[3] - _bb[1]) \
+                else rows
+            _secaxis270 = 'X' if _axlen == cols else 'Y'
+            _lo, _hi = ((_bb[0], _bb[2]) if _secaxis270 == 'X'
+                        else (_bb[1], _bb[3]))
+            if sectors == 1:
+                sec_cuts270 = [(_lo + _hi) // 2 + 1]
+            else:
+                _span = max(1, (_hi - _lo + 1) // 3)
+                sec_cuts270 = [_lo + _span, _hi + 1 - _span]
+                if sec_cuts270[0] >= sec_cuts270[1]:
+                    raise ValueError(
+                        'the cavity is too narrow for 2 sector cuts '
+                        '(bbox %d..%d cells) - use sectors=1 or a '
+                        'smaller object' % (_lo, _hi))
+            for _cb in sec_cuts270:
+                if not (1 <= _cb < _axlen):
+                    raise ValueError('sector cut at cell %d lies outside '
+                                     'the block - internal error' % _cb)
+
+    # along-axis length, perp length; perp dowel positions = the frame
+    # band centers (cell centers, snapped like the corner pins)
+    _axlen270 = ((cols, rows) if _secaxis270 in (None, 'X')
+                 else (rows, cols))
+    _perp270 = (_pi270, _axlen270[1] - _pi270)
+
+    def _clip270(m, lo, hi):
+        """Zero out everything outside the axis range [lo, hi) - the
+        piece mask. Pieces reassemble to exactly the uncut half."""
+        if _secaxis270 == 'X':
+            for r in range(rows):
+                base = r * cols
+                if lo > 0:
+                    for c in range(0, min(lo, cols)):
+                        m[base + c] = 0
+                if hi < cols:
+                    for c in range(max(hi, 0), cols):
+                        m[base + c] = 0
+        else:
+            for r in range(rows):
+                if not (lo <= r < hi):
+                    base = r * cols
+                    for c in range(cols):
+                        m[base + c] = 0
+        return m
+
+    def _in270(i, lo, hi):
+        if _secaxis270 == 'X':
+            return lo <= (i % cols) < hi
+        return lo <= (i // cols) < hi
+
+    def _slide_bad270(cav, lo, hi, first):
+        """Cells of a piece whose cavity is HOOKED: the outer pieces
+        slide off along the cut axis, so per row the cavity may only
+        hug the cut face (suffix for the first piece, prefix for the
+        last) - anything behind material would block the slide."""
+        bad = 0
+        if _secaxis270 == 'X':
+            for r in range(rows):
+                base = r * cols
+                seq = range(hi - 1, lo - 1, -1) if first \
+                    else range(lo, hi)
+                seen = False
+                for c in seq:
+                    if seen and cav[base + c]:
+                        bad += 1
+                    if not cav[base + c]:
+                        seen = True
+        else:
+            for c in range(cols):
+                seq = range(hi - 1, lo - 1, -1) if first \
+                    else range(lo, hi)
+                seen = False
+                for r in seq:
+                    if seen and cav[r * cols + c]:
+                        bad += 1
+                    if not cav[r * cols + c]:
+                        seen = True
+        return bad
+
+    def _tunnels270(m, li, lo, hi, n):
+        """Horizontal dowel tunnels across the piece's cut faces: 2 per
+        face in the frame bands, mid-height, BELOW the parting-face pin
+        zone (the corner pin discs live in the top pin_layers - the
+        tunnels never meet them). A horizontal bore prints as an arched
+        opening per layer - standard FDM practice."""
+        if not sec_cuts270:
+            return
+        depth_c = max(2, int(round(max(6.0, 1.5 * pin_d) / wid)))
+        lt = max(2 + int(hole_rc), min(n // 2,
+                                       n - pin_layers - int(hole_rc) - 2))
+        if lt - int(hole_rc) < 2 or lt + int(hole_rc) > n - 1:
+            return                      # piece too flat - pins align it
+        faces = []
+        if lo > 0:
+            faces.append((lo, -1))      # left face, tunnel runs -axis
+        if hi < (_axlen270[0]):
+            faces.append((hi, 1))       # right face, tunnel runs +axis
+        for (fc, sgn) in faces:
+            if sgn < 0:
+                span = (max(1, fc - depth_c), fc)
+            else:
+                span = (fc, min(_axlen270[0] - 1, fc + depth_c))
+            if span[1] - span[0] < 2:
+                continue
+            for pp in _perp270:
+                dz = li - lt
+                if abs(dz) > hole_rc:
+                    continue
+                sh = math.sqrt(max(0.0, hole_rc * hole_rc - dz * dz))
+                lo_p = int(math.floor(pp - sh + 0.5))
+                hi_p = int(math.ceil(pp + sh - 0.5))
+                for q in range(max(0, lo_p), min(_axlen270[1], hi_p)):
+                    for c in range(span[0], span[1]):
+                        if _secaxis270 == 'X':
+                            m[q * cols + c] = 0
+                        else:
+                            m[c * cols + q] = 0
+                if dz == 0:
+                    _sectun270[0] += 1
+
     def _disc270(mask, cc, rr, rad_cells, kill=True):
         R = int(math.ceil(rad_cells))
         r0 = int(rr); c0 = int(cc)
@@ -15912,12 +16125,18 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
                 pass
         del pending270[:]
 
-    def _write270(out, label, mask_iter, n_layers, extra_head, brim=True):
+    def _write270(out, label, mask_iter, n_layers, extra_head, brim=True,
+                  piece_rect=None):
         """mask_iter yields the material masks in print order (it may
         raise mid-way - the file is written to a .tmp270 and only moved
         into place after normalize, so a refusal leaves nothing behind:
         its OWN tmp now, and every earlier tmp of the set via the
-        pending list - a BOTH request is all-or-nothing)."""
+        pending list - a BOTH request is all-or-nothing).
+        piece_rect = the bed rect of ONE sector piece (None = the full
+        block): brim, exclude polygon and center follow the piece."""
+        if piece_rect is None:
+            piece_rect = (x0, y0, x0 + W, y0 + H)
+        qx0, qy0, qx1, qy1 = piece_rect
         tmp270 = out + '.tmp270'
         try:
             with open(tmp270, 'w') as f:
@@ -15946,16 +16165,17 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
                   % (material, layer_h, n_layers, wid, layer_h, wid, nozzle,
                      ','.join(types)))
                 fpoly = ('[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]'
-                         % (x0, y0, x0 + W, y0, x0 + W, y0 + H, x0, y0 + H))
+                         % (qx0, qy0, qx1, qy0, qx1, qy1, qx0, qy1))
                 a('EXCLUDE_OBJECT_DEFINE NAME=%s CENTER=%.1f,%.1f POLYGON=%s'
-                  % (label.upper(), cx, cy, fpoly))
+                  % (label.upper(), (qx0 + qx1) / 2.0,
+                     (qy0 + qy1) / 2.0, fpoly))
                 a('PRINT_START MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d'
                   ' OUTER_WALL_SPEED=18' % (material, layer_h, n_layers))
                 a('G90')
                 a('M83')
                 a('M107   ; R270-MOLD: first layer = fan off')
                 pen = _Pen(sk, jump_d=6.0)
-                outer_c = _rect_loop(x0, y0, x0 + W, y0 + H)
+                outer_c = _rect_loop(qx0, qy0, qx1, qy1)
                 for li in range(1, n_layers + 1):
                     _job_tick()
                     mask = next(mask_iter)
@@ -16086,89 +16306,15 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
                            os.path.join(out_dir, fname)))
         files.append(fname)
 
-    # ---- bottom half ------------------------------------------------------
-    layers_bot = [0]
-    cells_bot = [0]
-    if part in ('BOTH', 'BOTTOM'):
-        K_b = max(1, int(math.ceil((z_p - z_min) / layer_h)))
-        n_bot = F + K_b
-        if n_bot * layer_h > 235.0:
-            raise ValueError('the bottom half would be %.0fmm tall - over '
-                             'the Z range' % (n_bot * layer_h))
-        grooves_bot = [0]
-
-        def _m_bot():
-            layers_bot[0] = n_bot
-            cells_bot[0] = 0
-            prev = None
-            for li in range(1, n_bot + 1):
-                if li <= F:
-                    yield bytearray(b'\x01' * (cols * rows))
-                    continue
-                k = K_b - (li - F) + 1
-                cav = _sect270('bot', k)
-                if prev is not None:
-                    bad = sum(1 for i in range(len(prev))
-                              if prev[i] and not cav[i])
-                    if bad:
-                        raise ValueError(
-                            'UNDERCUT in the bottom half: the cavity '
-                            'narrows toward the parting opening %d cells '
-                            'at layer %d of %d (object z=%.2f) - the cast '
-                            'cannot be pulled out and the wall would '
-                            'print over a void. Choose another plane '
-                            '(plane/z_off), raise the tolerance gap, or '
-                            'wait for the 3/4-part sector stage.'
-                            % (bad, li, n_bot,
-                               z_p - (k - 0.5) * layer_h))
-                prev = cav
-                cells_bot[0] += sum(cav)
-                m = _mat270(cav)
-                if li > n_bot - pin_layers:
-                    for (pc, pr) in pins270:
-                        _disc270(m, pc, pr, hole_rc, kill=True)
-                if li == n_bot:
-                    grooves_bot[0] = _grooves270(m, cav)
-                yield m
-
-        fname = 'V%02d_FormUnten_%s.gcode' % (_next_gen_version(out_dir), stem)
-        fname = _dedupe_gen_fname(out_dir, fname)
-        pending270.append((_write270(os.path.join(out_dir, fname),
-                                    'FormUnten', _m_bot(), n_bot,
-                                    ['R270 BOTTOM HALF: parting face UP '
-                                     '(top surface), solid floor %d layers '
-                                     '(%.1fmm), cavity %d layers, total '
-                                     '%.1fmm'
-                                     % (F, F * layer_h, K_b,
-                                        n_bot * layer_h),
-                                     'split plane: %s - z_p=%.2f, object '
-                                     'z %.2f..%.2f'
-                                     % (how, z_p, z_min, z_max),
-                                     'vent grooves on the parting face '
-                                     '(1 cell wide): trapped air escapes '
-                                     'at the seam',
-                                     'dowel holes: 4 x D%.1fmm + 0.3 '
-                                     'clearance, %.0fmm deep from the '
-                                     'parting face - SAME bed position as '
-                                     'the top half (pin registry)'
-                                     % (pin_d, pin_layers * layer_h),
-                                     'tolerance gap %.2fmm, draft %.1f '
-                                     'deg (cell-quantized erosion)'
-                                     % (gap, draft)]),
-                           os.path.join(out_dir, fname)))
-        files.append(fname)
-
-    # ---- top half (flipped at assembly: Y-mirrored cavity) ---------------
-    layers_top = [0]
+    # ---- top-half prep: sprue/vents/funnel (shared by the single AND
+    # the sector emission - hoisted so both paths use identical values;
+    # the deep section is computed exactly once either way) ---------------
     sprueref = [None]
     ventsref = []
-    cells_top = [0]
+    sprue = None
+    funnel_layers = 0
     if part in ('BOTH', 'TOP'):
         K_t = max(1, int(math.ceil((z_max - z_p) / layer_h)))
-        n_top = CW + K_t
-        if n_top * layer_h > 235.0:
-            raise ValueError('the top half would be %.0fmm tall - over '
-                             'the Z range' % (n_top * layer_h))
         # sprue/vent cells from the DEEPEST section (nearest the back =
         # the object\'s top region - fill from its high ground)
         deep = _sect270('top', K_t)
@@ -16208,6 +16354,308 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
         funnel_layers = (min(CW, int(round(5.0 / layer_h)))
                          if funnel == 'CONICAL' else 0)
 
+
+    def _emit_sector270(kind):
+        """R271: the SECTORED half - one file per piece. The outer
+        pieces must SLIDE off along the cut axis (per row the cavity may
+        only hug the cut face - checked streaming, per layer), the
+        middle piece of a 4-part LIFTS vertically once the outers are
+        gone (clipped equator check). Bridges over the cavity are the
+        price of casting an undercut object: counted, noted with the
+        max span, refused beyond 25mm."""
+        lab = 'FormUnten' if kind == 'bot' else 'FormOben'
+        FL = F if kind == 'bot' else CW
+        K = (max(1, int(math.ceil((z_p - z_min) / layer_h)))
+             if kind == 'bot' else
+             max(1, int(math.ceil((z_max - z_p) / layer_h))))
+        n = FL + K
+        if n * layer_h > 235.0:
+            raise ValueError('the %s half would be %.0fmm tall - over '
+                             'the Z range' % (lab, n * layer_h))
+        axlen = _axlen270[0]
+        ranges = ([(0, sec_cuts270[0])]
+                  + [(sec_cuts270[i], sec_cuts270[i + 1])
+                     for i in range(len(sec_cuts270) - 1)]
+                  + [(sec_cuts270[-1], axlen)])
+        lay = layers_bot if kind == 'bot' else layers_top
+        cel = cells_bot if kind == 'bot' else cells_top
+        # sections ONCE (index 0 = first printed cavity layer) - every
+        # piece clips the same truth, so the set reassembles exactly
+        secs = [_sect270(kind, k) for k in range(K, 0, -1)]
+        lay[0] = n
+        cel[0] = sum(sum(g) for g in secs)
+        for j, (lo, hi) in enumerate(ranges):
+            first = (j == 0)
+            last = (j == len(ranges) - 1)
+            middle = not first and not last
+            tag = '_S%d' % (j + 1)
+            comes = (('slides toward -%s after the cast cures (its '
+                      'cavity is open at the cut face)' % _secaxis270)
+                     if first else
+                     ('slides toward +%s after the cast cures (its '
+                      'cavity is open at the cut face)' % _secaxis270)
+                     if last else
+                     ('LIFTS straight up once the outer pieces slid '
+                      'away'))
+
+            def _m_sec(lo=lo, hi=hi, first=first, middle=middle):
+                prev = None
+                for li in range(1, n + 1):
+                    if li <= FL:
+                        m = bytearray(b'\x01' * (cols * rows))
+                        if kind == 'top':
+                            _disc270(m, sprue[1], sprue[0],
+                                     pour_r / wid, kill=True)
+                            for v in ventsref:
+                                _disc270(m, v[1], v[0], vent_r / wid,
+                                         kill=True)
+                            if funnel_layers and li <= funnel_layers:
+                                t = ((funnel_layers - li + 1)
+                                     / float(funnel_layers))
+                                _disc270(m, sprue[1], sprue[0],
+                                         (pour_r + t * pour_r) / wid,
+                                         kill=True)
+                        m = _clip270(m, lo, hi)
+                        _tunnels270(m, li, lo, hi, n)
+                        yield m
+                        continue
+                    cav = secs[li - FL - 1]
+                    m = _mat270(cav)
+                    if kind == 'top' and li == FL + 1:
+                        _disc270(m, sprue[1], sprue[0], pour_r / wid,
+                                 kill=True)
+                        for v in ventsref:
+                            _disc270(m, v[1], v[0], vent_r / wid,
+                                     kill=True)
+                    if li > n - pin_layers:
+                        for (pc, pr) in pins270:
+                            _disc270(m, pc, pr, hole_rc, kill=True)
+                    if li == n:
+                        _grooves270(m, cav)
+                    m = _clip270(m, lo, hi)
+                    _tunnels270(m, li, lo, hi, n)
+                    cavc = _clip270(bytearray(cav), lo, hi)
+                    if middle:
+                        if prev is not None:
+                            badv = sum(1 for i in range(len(prev))
+                                       if prev[i] and not cavc[i])
+                            if badv:
+                                raise ValueError(
+                                    'the MIDDLE sector %s cannot come '
+                                    'off: its cavity narrows toward the '
+                                    'parting opening by %d cells at '
+                                    'layer %d of %d - after the outer '
+                                    'pieces slide away it must LIFT. '
+                                    'Move the plane or cast this object '
+                                    'differently.'
+                                    % (lab + tag, badv, li, n))
+                    else:
+                        bads = _slide_bad270(cavc, lo, hi, first)
+                        if bads:
+                            raise ValueError(
+                                'SECTOR %s cannot slide off: %d hooked '
+                                'cells at layer %d of %d - every row '
+                                'must be open toward the cut face. Use '
+                                '2 cuts (4-part), another plane, or '
+                                'flexible silicone.'
+                                % (lab + tag, bads, li, n))
+                    if prev is not None:
+                        # bridges: material now where the cavity was one
+                        # layer below (the undercut's print price). Max
+                        # span along BOTH grid directions, per piece.
+                        nbd = 0
+                        run = 0
+                        if _secaxis270 == 'X':
+                            for r in range(rows):
+                                base = r * cols
+                                crun = 0
+                                for c in range(lo, hi):
+                                    if prev[base + c] \
+                                            and not cavc[base + c]:
+                                        crun += 1
+                                        nbd += 1
+                                        if crun > run:
+                                            run = crun
+                                    else:
+                                        crun = 0
+                            for c in range(cols):
+                                crun = 0
+                                for r in range(rows):
+                                    i = r * cols + c
+                                    if prev[i] and not cavc[i]:
+                                        crun += 1
+                                        if crun > run:
+                                            run = crun
+                                    else:
+                                        crun = 0
+                        else:
+                            for c in range(cols):
+                                crun = 0
+                                for r in range(lo, hi):
+                                    i = r * cols + c
+                                    if prev[i] and not cavc[i]:
+                                        crun += 1
+                                        nbd += 1
+                                        if crun > run:
+                                            run = crun
+                                    else:
+                                        crun = 0
+                            for r in range(rows):
+                                base = r * cols
+                                crun = 0
+                                for c in range(lo, hi):
+                                    if prev[base + c] \
+                                            and not cavc[base + c]:
+                                        crun += 1
+                                        if crun > run:
+                                            run = crun
+                                    else:
+                                        crun = 0
+                        if nbd:
+                            _bridges270[0] += nbd
+                            _bridges270[1] = max(_bridges270[1],
+                                                 run * wid)
+                            if run * wid > 25.0:
+                                raise ValueError(
+                                    'the sectored %s half would bridge '
+                                    '%.0fmm over the cavity (max span) '
+                                    '- beyond 25mm the ceiling sags '
+                                    'into the cast. Reduce the undercut '
+                                    'or split the object.'
+                                    % (lab, run * wid))
+                    prev = cavc
+                    yield m
+
+            fname = 'V%02d_%s%s_%s.gcode' % (_next_gen_version(out_dir),
+                                             lab, tag, stem)
+            fname = _dedupe_gen_fname(out_dir, fname)
+            if _secaxis270 == 'X':
+                prect = (x0 + lo * wid, y0, x0 + hi * wid, y0 + H)
+            else:
+                prect = (x0, y0 + lo * wid, x0 + W, y0 + hi * wid)
+            pending270.append(
+                (_write270(os.path.join(out_dir, fname), lab + tag,
+                           _m_sec(), n,
+                           ['R271 SECTOR PIECE %s of the %s half: axis '
+                            '%s, cells %d..%d of %d - %s'
+                            % (tag, 'bottom' if kind == 'bot' else 'top',
+                               _secaxis270, lo, hi, axlen, comes),
+                             'assemble ALL pieces of the set before '
+                             'casting - one piece alone is not a mold',
+                             'split plane: %s - z_p=%.2f, object z '
+                             '%.2f..%.2f' % (how, z_p, z_min, z_max),
+                             'sector registry: horizontal dowel '
+                             'tunnels D%.1fmm + 0.3 clearance through '
+                             'the cut faces (2 per face, frame bands)'
+                             % pin_d,
+                             'tolerance gap %.2fmm, draft %.1f deg '
+                             '(cell-quantized erosion)' % (gap, draft)],
+                           piece_rect=prect),
+                 os.path.join(out_dir, fname)))
+            files.append(fname)
+        if _bridges270[0]:
+            notes.append('sectored %s half bridges over the cavity: %d '
+                         'cells, max span %.1fmm - the ceiling sags '
+                         'there (undercut object), the cast surface is '
+                         'rough at the bridge'
+                         % ('bottom' if kind == 'bot' else 'top',
+                            _bridges270[0], _bridges270[1]))
+        if not _sectun270[0]:
+            notes.append('no sector dowel tunnels fit the pieces - the '
+                         'parting-face pins carry the alignment alone')
+        notes.append('%d-part mold: slide the OUTER sector pieces apart '
+                     'on the parting plane%s, the cast stays in the '
+                     'other half'
+                     % (len(ranges) + 1,
+                        ', then lift the middle piece'
+                        if len(ranges) > 2 else ''))
+
+    # ---- bottom half ------------------------------------------------------
+    layers_bot = [0]
+    cells_bot = [0]
+    if part in ('BOTH', 'BOTTOM') and _sec270on != 'BOTTOM':
+        K_b = max(1, int(math.ceil((z_p - z_min) / layer_h)))
+        n_bot = F + K_b
+        if n_bot * layer_h > 235.0:
+            raise ValueError('the bottom half would be %.0fmm tall - over '
+                             'the Z range' % (n_bot * layer_h))
+        grooves_bot = [0]
+
+        def _m_bot():
+            layers_bot[0] = n_bot
+            cells_bot[0] = 0
+            prev = None
+            for li in range(1, n_bot + 1):
+                if li <= F:
+                    yield bytearray(b'\x01' * (cols * rows))
+                    continue
+                k = K_b - (li - F) + 1
+                cav = _sect270('bot', k)
+                if prev is not None:
+                    bad = sum(1 for i in range(len(prev))
+                              if prev[i] and not cav[i])
+                    if bad:
+                        raise ValueError(
+                            'UNDERCUT in the bottom half: the cavity '
+                            'narrows toward the parting opening %d cells '
+                            'at layer %d of %d (object z=%.2f) - the cast '
+                            'cannot be pulled out and the wall would '
+                            'print over a void. Choose another plane '
+                            '(plane/z_off), raise the tolerance gap, or '
+                            'use the sector mold (sectors=1/2).'
+                            % (bad, li, n_bot,
+                               z_p - (k - 0.5) * layer_h))
+                prev = cav
+                cells_bot[0] += sum(cav)
+                m = _mat270(cav)
+                if li > n_bot - pin_layers:
+                    for (pc, pr) in pins270:
+                        _disc270(m, pc, pr, hole_rc, kill=True)
+                if li == n_bot:
+                    grooves_bot[0] = _grooves270(m, cav)
+                yield m
+
+        fname = 'V%02d_FormUnten_%s.gcode' % (_next_gen_version(out_dir), stem)
+        fname = _dedupe_gen_fname(out_dir, fname)
+        pending270.append((_write270(os.path.join(out_dir, fname),
+                                    'FormUnten', _m_bot(), n_bot,
+                                    ['R270 BOTTOM HALF: parting face UP '
+                                     '(top surface), solid floor %d layers '
+                                     '(%.1fmm), cavity %d layers, total '
+                                     '%.1fmm'
+                                     % (F, F * layer_h, K_b,
+                                        n_bot * layer_h),
+                                     'split plane: %s - z_p=%.2f, object '
+                                     'z %.2f..%.2f'
+                                     % (how, z_p, z_min, z_max),
+                                     'vent grooves on the parting face '
+                                     '(1 cell wide): trapped air escapes '
+                                     'at the seam',
+                                     'dowel holes: 4 x D%.1fmm + 0.3 '
+                                     'clearance, %.0fmm deep from the '
+                                     'parting face - SAME bed position as '
+                                     'the top half (pin registry)'
+                                     % (pin_d, pin_layers * layer_h),
+                                     'tolerance gap %.2fmm, draft %.1f '
+                                     'deg (cell-quantized erosion)'
+                                     % (gap, draft)]),
+                           os.path.join(out_dir, fname)))
+        files.append(fname)
+
+    # ---- bottom half, SECTORED (R271): one file per piece ---------------
+    if part in ('BOTH', 'BOTTOM') and _sec270on == 'BOTTOM':
+        _emit_sector270('bot')
+
+    # ---- top half (flipped at assembly: Y-mirrored cavity) ---------------
+    layers_top = [0]
+    cells_top = [0]
+    if part in ('BOTH', 'TOP') and _sec270on != 'TOP':
+        K_t = max(1, int(math.ceil((z_max - z_p) / layer_h)))
+        n_top = CW + K_t
+        if n_top * layer_h > 235.0:
+            raise ValueError('the top half would be %.0fmm tall - over '
+                             'the Z range' % (n_top * layer_h))
+
         def _m_top():
             layers_top[0] = n_top
             cells_top[0] = 0
@@ -16237,8 +16685,8 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
                             '%d of %d (object z=%.2f) - the cast cannot be '
                             'pulled out and the wall would print over a '
                             'void. Choose another plane (plane/z_off), '
-                            'raise the tolerance gap, or wait for the '
-                            '3/4-part sector stage.'
+                            'raise the tolerance gap, or use the sector '
+                            'mold (sectors=1/2).'
                             % (bad, li, n_top,
                                z_p + (k - 0.5) * layer_h))
                 prev = cav
@@ -16296,6 +16744,10 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
                            os.path.join(out_dir, fname)))
         files.append(fname)
 
+    # ---- top half, SECTORED (R271): one file per piece -------------------
+    if part in ('BOTH', 'TOP') and _sec270on == 'TOP':
+        _emit_sector270('top')
+
     _commit270_done = [False]
 
     def _commit270():
@@ -16337,6 +16789,17 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
                       for v in ventsref],
             'layers_bot': layers_bot[0], 'layers_top': layers_top[0],
             'cells_bot': cells_bot[0], 'cells_top': cells_top[0],
+            # R271 sector evidence: which half was cut, where, and what
+            # the undercut cost in bridges (None when sectors=0 - the
+            # 2-part path is untouched)
+            'sectors': sectors, 'sec_half': _sec270on,
+            'sec_axis': _secaxis270,
+            'sec_cuts': ([(x0 + c * wid) for c in sec_cuts270]
+                         if _secaxis270 == 'X'
+                         else [(y0 + c * wid) for c in sec_cuts270]),
+            'bridges': ({'cells': _bridges270[0],
+                         'max_mm': round(_bridges270[1], 2)}
+                        if sectors else None),
             'notes': notes}
     return os.path.join(out_dir, files[0]), info
 
@@ -27489,7 +27952,8 @@ def watch(directory, interval=5.0, once=False):
                 'toolchain_nonce',
                 # R267 (J9): the stencil set writes one file per tone band
                 'stencil_nonce',
-                # R270 (J2): the mold set writes up to three files
+                # R270/R271 (J2): the mold set writes up to three files
+                # (2-part + master) or up to five with sector pieces
                 'mold_nonce',
                 # R252: the evidence pack copies logs - disk I/O during a
                 # print is the .125 lesson (the macro refuses while
@@ -29308,6 +29772,15 @@ def watch(directory, interval=5.0, once=False):
                     _m_pln270 = ('OFF' if _m_pln270 == 'OFF'
                                  else ('MID' if _m_pln270 == 'MID'
                                        else 'AUTO'))
+                    try:
+                        _m_sec271 = max(0, min(int(float(
+                            rv.get('mold_sectors', 0) or 0)), 2))
+                    except (TypeError, ValueError):
+                        _m_sec271 = 0
+                    _m_sh271 = str(rv.get('mold_sec_half', 'AUTO')
+                                   or 'AUTO').upper()
+                    if _m_sh271 not in ('AUTO', 'TOP', 'BOTTOM'):
+                        _m_sh271 = 'AUTO'
                     _m_par270 = dict(
                         wall=_vfl270('mold_wall', 5.0),
                         gap=_vfl270('mold_gap', 0.15),
@@ -29320,6 +29793,8 @@ def watch(directory, interval=5.0, once=False):
                                  or 'BOTH').upper(),
                         plane=_m_pln270,
                         z_off=_vfl270('mold_zoff', 0.0),
+                        sectors=_m_sec271,
+                        sec_half=_m_sh271,
                         master=_vbl270('mold_master', False),
                         material=str(rv.get('material', 'PLA') or 'PLA'),
                         bed=_m_bed270, nozzle=_gen_nozzle(directory),
@@ -29345,6 +29820,17 @@ def watch(directory, interval=5.0, once=False):
                                            len(_mi270['vents']),
                                            params['pin_d']))
                             _mmsg270 += ' | core %s' % POSTPROC_BUILD
+                            if _mi270.get('sectors'):
+                                _mmsg270 += (
+                                    ' | %d-PART sector mold (%s half cut '
+                                    'into pieces): slide the outer pieces '
+                                    'apart%s - assemble ALL pieces before '
+                                    'casting'
+                                    % (_mi270['sectors'] + 2,
+                                       str(_mi270.get('sec_half')
+                                           or '?').lower(),
+                                       ', lift the middle'
+                                       if _mi270['sectors'] == 2 else ''))
                             for _n270 in _mi270.get('notes', [])[:3]:
                                 _mmsg270 += ' | ' + _n270
                             _moonraker_gcode(
