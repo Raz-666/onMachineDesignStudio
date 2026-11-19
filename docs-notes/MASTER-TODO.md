@@ -663,7 +663,37 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       budget), Loft zwischen Outlines, Loch-Inferenz, Kiri-`; start object
       id:`-Marker, Breiten-Schalenmodell, Slicer-Reimport; aktiver
       Exporter (Box-Soup) unverändert defekt.
-- [ ] **J2 — Gießformen-Pre-Print-Tool (NEU, vom Nutzer in Aussicht gestellt).**
+- [~] **J2 — GIESAFORMEN-GENERATOR — FREIGEGEGEBEN 19.11.2026 (vier
+      Nutzer-Entscheidungen im Arena-Dialog), Bau läuft (R270+).**
+      **Verbindliche Spezifikation (Lastenheft):**
+      (1) **Modellquelle gestaffelt:** Häppchen 1 = Form um eine fertige
+      G-Code-Datei (SD-Browser-Auswahl, Kavität aus per-Z-Band-Silhouetten,
+      gefüllt + Toleranz-Aufweitung); Häppchen 2 = parametrische Grundkörper
+      (Medaillon, Plaque, Bar) mit Relief-Einbettungsplatz.
+      (2) **Teilung VOLL ab Tag 1 (Nutzer-Entscheidung gegen die Staffel-
+      Empfehlung):** 2-teilig (Trennebene Z-Mid/Auto-Äquator/eine Z-Versatz,
+      Pitch-Roll-Pläne mit der 3/4-Stufe), 3-teilig (Ebene + 1 Sektor-
+      schnitt), 4-teilig (2 Sektorenschnitte). Interne Beweisstufen mit
+      eigener Batterie pro Stufe, ein Release-Zyklus.
+      (3) **Ausgabe-Modus am LCD wählbar:** Both / Top / Bottom / je Sektor /
+      Positiv-Master (Silikon-Abform-Referenz).
+      (4) **Heimat beides:** LCD-Menüzweig UND toolchain-Schritt (wie
+      Stencil R267).
+      **Parameter (Defaults aus der Recherche-Notiz):** Wand 3–15 mm (5) ·
+      Toleranzspalt 0,05–0,30 mm (0,15) · Einguss 5–15 mm (8) + Trichter
+      None/Konisch · Entlüftung 1,5–4 mm (2,5) · Passung Stifte Ø 3–8 mm (5)
+      · Formschräge 0–3° (0) · Oberfläche Standard/Fein/Fuzzy (Textur-
+      Anbindung später).
+      **Architektur (fix):** DIREKTE G-Code-Erzeugung (Labels/Plotter/
+      StringArt-Muster), KEIN trimesh-Boolean (Pi Zero 2 W) · Job über
+      Makro → SAVE_VARIABLE → Watcher → `_spawn_job` · RAM-Floor 60 ·
+      Web-UI-Spiegelung automatisch · Versionierung `Vnn_Form…_…`.
+      **Ehrlichkeitsregeln:** Hinterschneidungs-Check pro Hälfte (Kavität
+      darf zur Öffnung nicht schrumpfen — Guss löst sich nicht, Druck
+      bridgt), Formschräge als Raster-Radius-Approximation (dokumentiert),
+      D6: Preview nur aus echtem Code. Evidenz: `r270_mold_check` +
+      Folgestufen-Batterien mit DYNAMISCHEN Pins (V5-Lektion).
+      **Original-Begründung (Historie):**
       Nutzer-Ergänzung (Sitzung nach `fecf500`): nicht nur zweiteilige
       Hälften — je nach Modellkomplexität auch **Dreitelung oder Vierteilung**;
       **Negativform** ausdrücklich ebenfalls gewünscht. Recherche-Datei des
