@@ -79,6 +79,13 @@ Patterns (all seamless, all seeded where random)
   PARQUET     chevron fishbone - diagonal planks, mitred V-joints (R265)
   LAMINATE    long narrow planks - V-bevel + dominant grain streaks (R265)
   MAZE        true labyrinth - seeded spanning-tree maze on the torus (R265)
+  PERFORATION round-hole perforated sheet - staggered hex-style grid (R265.3)
+  VENT        square recesses in a staggered grid - vent panel look (R265.3)
+  CARBON      2/2 twill weave - diagonal carbon-fibre bands, glossy flip (R265.3)
+  PINDOTS     hemisphere dot matrix - round knobs on a flat base (R265.3)
+  OCTAGONS    octagon-and-square cell trays, seeded size jitter (R265.3)
+  CHAINLINK   woven chain-link fence - two 45-degree wire families (R265.3)
+  NETGRID     netting - round threads with knots, deep open meshes (R265.3)
 
 What it never touches
 - ;TYPE: tags, LAYER_MARK / APPLY_TYPE, EXCLUDE_OBJECT_*, temps, fans,
@@ -1021,6 +1028,185 @@ def _build_patterns(k, n, seed, img, map_mode='TILE', map_pos='CENTER',
         return _mz_field(s % 1.0, t % 1.0)
     pats['MAZE'] = _maze
 
+    # ================= R265.3 bite 2: technical structures =====================
+    # All form-true: cells that must be ROUND or SQUARE in real millimetres
+    # use the row count round(n*ar) so the mm cell is square, and in-cell
+    # coordinates are compared in CELL units (which are mm/E) - a circle
+    # in cell units is a circle on the print.
+
+    def _perforation(s, t):
+        # PERFORATED SHEET: round holes in a staggered grid (the classic
+        # tread-plate / sieve look - dimples, NOT through-holes: the wall
+        # stays closed). Every second row shifts half a cell; holes are
+        # true circles because dx/dy are measured in mm-square cell units.
+        kp = max(2, k)
+        rows = max(2, int(round(n * max(0.25, ar))))
+        rows += rows & 1            # EVEN: the stagger alternates over the wrap
+        i = s * kp
+        row = int(math.floor(t * rows))
+        fy = t * rows - row
+        # stagger: even rows centre at 0.5, odd rows at 0.0/1.0 (wrap)
+        if row % 2 == 0:
+            dx = i - math.floor(i) - 0.5
+        else:
+            # odd rows centre on the cell border (0.0/1.0 - same hole
+            # through the wrap): distance to the NEARER of the two
+            dx = min(i - math.floor(i), 1.0 - (i - math.floor(i)))
+        dy = fy - 0.5
+        d = math.sqrt(dx * dx + dy * dy)
+        hole = 1.0 - _smoothstep(0.20, 0.30, d)
+        rim = (_smoothstep(0.20, 0.27, d)
+               * (1.0 - _smoothstep(0.27, 0.36, d)))
+        return max(-1.0, min(1.0, 0.32 - 0.85 * hole + 0.18 * rim))
+    pats['PERFORATION'] = _perforation
+
+    def _vent(s, t):
+        # VENT PANEL: square recesses in a staggered grid - enclosure
+        # ventilation / speaker-grille look. The inverse of TILES (recess
+        # not relief) and the staggered sibling of PERFORATION.
+        kp = max(2, k)
+        rows = max(2, int(round(n * max(0.25, ar))))
+        rows += rows & 1            # EVEN: the stagger alternates over the wrap
+        i = s * kp
+        row = int(math.floor(t * rows))
+        fx = i - math.floor(i)
+        fy = t * rows - row
+        if row % 2 == 0:
+            qx = abs(fx - 0.5)
+        else:
+            qx = min(fx, 1.0 - fx)
+        qy = abs(fy - 0.5)
+        d_edge = max(qx, qy)              # Chebyshev = square
+        hole = 1.0 - _smoothstep(0.26, 0.36, d_edge)
+        rim = (_smoothstep(0.26, 0.33, d_edge)
+               * (1.0 - _smoothstep(0.33, 0.42, d_edge)))
+        return max(-1.0, min(1.0, 0.32 - 0.85 * hole + 0.18 * rim))
+    pats['VENT'] = _vent
+
+    def _carbon(s, t):
+        # CARBON FIBRE, 2/2 twill: the classic diagonal weave. Cell counts
+        # are multiples of 4 so the twill phase closes on BOTH wraps; the
+        # diagonal runs at ~45 deg in real mm (F = round(n*ar)); the gloss
+        # flips between the two thread families, the seams between cells
+        # sit slightly low, and a fine thread relief rides the bands.
+        kc = 4 * max(1, int(round(k / 2.0)))
+        rc = 4 * max(1, int(round(n * max(0.25, ar) / 2.0)))
+        F = max(1, int(round(n * max(0.25, ar))))
+        i = s * kc
+        j = t * rc
+        ci, cj = int(math.floor(i)), int(math.floor(j))
+        fx, fy = i - ci, j - cj
+        band = ((ci + cj) // 2) % 2        # 2-over-2-under diagonal
+        gloss = 0.42 if band == 0 else -0.18
+        seam = (1.0 - _smoothstep(0.00, 0.16, min(fx, 1.0 - fx))) \
+            + (1.0 - _smoothstep(0.00, 0.16, min(fy, 1.0 - fy)))
+        # fine thread relief ALONG the diagonal (period 1/4 cell)
+        ph = (i + j) * 0.25
+        thread = 0.10 * math.sin(2.0 * math.pi * (ph - math.floor(ph)))
+        return max(-1.0, min(1.0,
+            gloss + thread - 0.30 * seam))
+    pats['CARBON'] = _carbon
+
+    def _pindots(s, t):
+        # PIN / DOT MATRIX: true hemisphere knobs on a flat base - the
+        # grip-and-decor surface (control panels, organisers). Rows follow
+        # ar so the matrix is square in mm; the cap profile is a softened
+        # hemisphere (finite slope at the rim - printable).
+        kp = max(2, k)
+        rows = max(2, int(round(n * max(0.25, ar))))
+        i = s * kp
+        row = int(math.floor(t * rows))
+        fx = i - math.floor(i)
+        fy = t * rows - row
+        dx, dy = fx - 0.5, fy - 0.5
+        d = math.sqrt(dx * dx + dy * dy) / 0.40
+        if d >= 1.0:
+            cap = 0.0
+        else:
+            cap = math.pow(1.0 - d * d, 0.62)
+        return max(-1.0, min(1.0, -0.22 + 1.05 * cap))
+    pats['PINDOTS'] = _pindots
+
+    def _octagons(s, t):
+        # OCTAGON-AND-SQUARE trays (the 4.3.8.4 tiling): raised octagon
+        # faces with chamfered rims, small square islands in the corners
+        # one step below the octagons, deep grooves between. Seeded size
+        # jitter gives the 'variable cell diameter' the user asked for.
+        kp = max(2, k)
+        rows = max(2, int(round(n * max(0.25, ar))))
+        i = s * kp
+        row = int(math.floor(t * rows))
+        fx = i - math.floor(i)
+        fy = t * rows - row
+        dx, dy = abs(fx - 0.5), abs(fy - 0.5)
+        d_oct = max(dx, dy, (dx + dy) * 0.70710678)   # octagon norm
+        tone = noise(math.floor(i) / float(kp),
+                     row / float(rows), kp, rows)
+        face = 0.36 + (tone - 0.5) * 0.12
+        oct_r = 0.40 - (tone - 0.5) * 0.05             # size jitter
+        oct_face = _smoothstep(oct_r - 0.07, oct_r, d_oct)
+        # corner squares: one step below the octagon face
+        ex = min(fx, 1.0 - fx)
+        ey = min(fy, 1.0 - fy)
+        de = max(ex, ey)                               # around grid corner
+        sq = (1.0 - _smoothstep(0.10, 0.17, de)) \
+            * _smoothstep(0.30, 0.40, d_oct)
+        groove = 1.0 - _smoothstep(0.02, 0.09, de)
+        return max(-1.0, min(1.0,
+            face * oct_face + 0.05 * sq - 0.55 * (1.0 - oct_face)
+            - 0.25 * groove * (1.0 - sq)))
+    pats['OCTAGONS'] = _octagons
+
+    def _chainlink(s, t):
+        # CHAIN-LINK FENCE: two wire families crossing at ~45 deg (in real
+        # mm, F = round(n*ar)); each wire is a rounded band, and the weave
+        # alternates over/under at the crossings (basket parity on the
+        # diamond cell) - the classic raucous Maschendraht look.
+        F = max(1, int(round(n * max(0.25, ar))))
+        p1 = (k * s + F * t) % 1.0
+        p2 = (k * s - F * t) % 1.0
+        d1 = min(p1, 1.0 - p1)
+        d2 = min(p2, 1.0 - p2)
+        w1 = 1.0 - _smoothstep(0.045, 0.115, d1)
+        w2 = 1.0 - _smoothstep(0.045, 0.115, d2)
+        # dome the wire cross-section
+        w1 *= 0.55 + 0.45 * math.cos(math.pi * min(1.0, d1 / 0.16))
+        w2 *= 0.55 + 0.45 * math.cos(math.pi * min(1.0, d2 / 0.16))
+        # weave parity: which family rides on top in this diamond
+        cell = math.floor(k * s + F * t) + math.floor(k * s - F * t)
+        top1 = 0.95 if (int(cell) % 2 == 0) else 0.60
+        top2 = 1.05 - top1
+        return max(-1.0, min(1.0,
+            -0.55 + 0.85 * (w1 * top1 + w2 * top2)))
+    pats['CHAINLINK'] = _chainlink
+
+    def _netgrid(s, t):
+        # NETTING: round threads running around and up, knotted at the
+        # crossings, with deep open meshes between - fishing-net look.
+        # (MACRAME is thick twisted cords, GRID is a flat egg-crate -
+        # this one is thread + knot + hole.)
+        kp = max(2, k + (k & 1))   # EVEN: weave parity survives the s-wrap
+        rows = max(2, int(round(n * max(0.25, ar))))
+        rows += rows & 1          # EVEN: ... and the t-wrap
+        i = s * kp
+        j = t * rows
+        fx = i - math.floor(i)
+        fy = j - math.floor(j)
+        ci, cj = int(math.floor(i)), int(math.floor(j))
+        ds = min(fx, 1.0 - fx)            # distance to vertical thread
+        dt = min(fy, 1.0 - fy)            # distance to horizontal thread
+        vs = 1.0 - _smoothstep(0.03, 0.10, ds)
+        hs = 1.0 - _smoothstep(0.03, 0.10, dt)
+        vs *= 0.55 + 0.45 * math.cos(math.pi * min(1.0, ds / 0.14))
+        hs *= 0.55 + 0.45 * math.cos(math.pi * min(1.0, dt / 0.14))
+        # knot: a little dome at the crossing, alternating with parity
+        knot = ((ci + cj) % 2) * 0.22 * vs * hs
+        weave = 0.7 if (ci + cj) % 2 == 0 else 1.0
+        return max(-1.0, min(1.0,
+            -0.62 + 0.80 * vs * weave + 0.80 * hs * (2.0 - weave)
+            + 0.35 * knot))
+    pats['NETGRID'] = _netgrid
+
     # ---- the image wrap ---------------------------------------------------------
     if img is not None:
         iw, ih = img.size
@@ -1061,7 +1247,8 @@ PATTERN_NAMES = ('RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX',
                  'BARK', 'SCALES', 'FACETS', 'MACRAME', 'MAP',
                  # R265 (J8 round II, chunk 1): walls, floors, labyrinths
                  'STONEWALL', 'RUBBLE', 'TILES', 'PARQUET', 'LAMINATE',
-                 'MAZE')
+                 'MAZE', 'PERFORATION', 'VENT', 'CARBON', 'PINDOTS',
+                 'OCTAGONS', 'CHAINLINK', 'NETGRID')
 
 # R238: opt-in helical tilt angles by pattern. Disabled by default; when
 # enabled, the helical shift uses an integer number of turns so the seam
@@ -1075,7 +1262,9 @@ PATTERN_TILT = {
     'GLITCH': 2.0, 'KNIT': 3.0, 'FLUTED': 0.0, 'BARK': 0.0,
     'SCALES': 2.0, 'FACETS': 0.0, 'MACRAME': 0.0, 'MAP': 0.0,
     'STONEWALL': 0.0, 'RUBBLE': 0.0, 'TILES': 0.0, 'PARQUET': 0.0,
-    'LAMINATE': 0.0, 'MAZE': 0.0,
+    'LAMINATE': 0.0, 'MAZE': 0.0, 'PERFORATION': 0.0, 'VENT': 0.0,
+    'CARBON': 0.0, 'PINDOTS': 0.0, 'OCTAGONS': 0.0, 'CHAINLINK': 0.0,
+    'NETGRID': 0.0,
 }
 
 

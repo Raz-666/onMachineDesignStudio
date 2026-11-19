@@ -846,6 +846,31 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
         (d) Inner-Wall-Following + Flip-Realign greifen bereits
         (R224), für Deep-Relief erneut verifizieren.
       Vor jedem Häppchen: Nutzer-Preview/Zusage (bewährte Regel).
+      **STAND R265.3 Häppchen 2 (19.11., 7 technische Muster FERTIG,
+      Nutzer-Freigabe „mach weiter wie am sinnvollsten"):**
+      PERFORATION (runde Dellen, versetztes Raster — bewusst keine
+      Durchbrüche, Wand bleibt dicht), VENT (quadratische Aussparungen
+      versetzt — Lüftungsgitter), CARBON (2/2-Köper mit diagonalem
+      Glanzwechsel, Zell-/Bandperioden ×4-sicher), PINDOTS (echte
+      Halbkugelkappen, Kappenprofil (1-d²)^0.62), OCTAGONS (4.3.8.4-
+      Kachelung mit geseedeter Größenvariation), CHAINLINK (zwei 45°-
+      Drahtfamilien, Über/Unter-Verwebung per Rauten-Parität),
+      NETGRID (Fäden + Knoten + tiefe Maschen). 40 Muster gesamt,
+      40 Vorlagen (bijektiv). Wrap-Sicherheit: Stagger-/Webe-Paritäten
+      brauchen GERADE Periodenzahlen (rows += rows&1 etc.) — CARBON/
+      NETGRID haben gewollte Zellstufen, ihr Nahtversprechen ist
+      „Sprung an der Naht ≤ Sprung im Feld" (R175-Regel, so gemessen).
+      Verifiziert: r238 48/48 (R265.3-Sektion: Relief+Naht fair,
+      Distinctness 14 neue vs. 10 Klassiker, PERFORATION rund+versetzt
+      per Richtungs-Sonden, VENT quadratisch per Sehnenmessung √2,
+      CARBON Bandflip+Periodenschluss, PINDOTS Kappenprofil,
+      OCTAGONS Füllfaktor ~0.53, CHAINLINK längs>quer, NETGRID
+      Knoten hoch/Maschen tief), macro_render 2112/2112, megatest
+      203/0, r165 + r199 clean; Matrix-Previews (39 prozedurale /
+      24 kuratierte) + Nutzer-Preview + TEXTURING.pdf (49 Seiten,
+      40 Muster) + MANUAL-Katalog neu.
+      **OFFEN: Deep Relief (Querschnitt, als Nächstes), dann
+      Häppchen 3 (organisch), dann Häppchen 4 (Deko/Haptik).**
       **Gewünschte neue Familien (Vorschlagsliste, vor Bau mit Nutzer
       abstimmen):** Wände/Mauerwerk — Natursteinmauer, Bruchstein-
       Rhändermauer (drei Sorten Fugenversatz), Fliesen (quadratisch +

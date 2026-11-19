@@ -32,6 +32,13 @@ MATERIALS = (
     ('LAMINATE', 'Laminate: V-bevel planks'),
     ('HILBERT', 'Hilbert: real order-3 curve'),
     ('MAZE', 'Maze: spanning-tree labyrinth'),
+    ('PERFORATION', 'Perforation: staggered round holes'),
+    ('VENT', 'Vent: staggered square recesses'),
+    ('CARBON', 'Carbon: 2/2 twill weave'),
+    ('PINDOTS', 'Pindots: hemisphere knob matrix'),
+    ('OCTAGONS', 'Octagons: octagon + square trays'),
+    ('CHAINLINK', 'Chainlink: woven 45-degree wires'),
+    ('NETGRID', 'Netgrid: threads, knots, meshes'),
 )
 
 

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """TEXTURING.pdf — the documentation of the R2-D2 texture tool (user
 request, .136m round): how the wall displacement works, the EXACT mapping
-of every setting, all 33 patterns with previews sampled from the REAL
+of every setting, all 40 patterns with previews sampled from the REAL
 pattern functions (tools/r2_texture.py _build_patterns - not redrawn,
-the images ARE the code output), and the 33 library presets listed per
+the images ARE the code output), and the 40 library presets listed per
 pattern.
 
 Content basis: tools/r2_texture.py (_build_patterns, apply_texture,
@@ -276,6 +276,31 @@ PAT_TXT = {
    'über das Zellgitter, die stehengebliebenen Wände werden zu erhabenen '
    'Graten; ALLE Gänge hängen zusammen (perfektes Labyrinth), nahtlos '
    'über die Periodengrenzen.',
+ 'PERFORATION': 'LOCHBLECH (R265.3): runde Dellen im versetzten Raster '
+   '- die Sieb-/Trittplatten-Optik. Bewusst Dellen statt Durchbrüche: '
+   'die Wand bleibt geschlossen, der Druck bleibt dicht.',
+ 'VENT': 'LÜFTUNGSGITTER (R265.3): quadratische Aussparungen im '
+   'versetzten Raster - Gehäusebelüftung, Lautsprecherabdeckung. Das '
+   'Gegenstück zu FLIESEN: vertieft statt erhaben, versetzt statt '
+   'bündig.',
+ 'CARBON': 'CARBON 2/2-KÖPER (R265.3): diagonale Webbänder mit '
+   'Glanz-Wechsel - die klassische Carbonfaser-Twill-Optik. Zell- und '
+   'Bandperioden schließen auf beiden Nähten exakt.',
+ 'PINDOTS': 'NOPPENMATRIX (R265.3): echte Halbkugel-Kappen im '
+   'quadratischen Raster auf flachem Grund - griffige Deko- und '
+   'Bedienfeld-Optik. Kappenprofil mit endlicher Randsteigung '
+   '(druckbar, keine Senkrechte).',
+ 'OCTAGONS': 'OKTAGON-ZELLEN (R265.3): die 4.3.8.4-Kachelung - '
+   'erhabene Oktagone mit angefasten Rändern, kleine Quadrat-Inseln in '
+   'den Ecken, tiefe Fugen dazwischen. Geseedete Größenvariation '
+   '(variabler Zelldurchmesser).',
+ 'CHAINLINK': 'MASCHENDRAHT (R265.3): zwei Drahtfamilien unter 45°, '
+   'an den Kreuzungen über/unter verwoben (Korb-Parität je Raute) - '
+   'der klassische Zaun-Look, rund gewölbte Drähte, tiefe Maschen.',
+ 'NETGRID': 'NETZGEWEBE (R265.3): runde Fäden umlaufend und hoch, '
+   'Knoten an den Kreuzungen, dazwischen tiefe offene Maschen - '
+   'Fischnetz-Optik. (MAKRAMEE ist dicke gedrehte Schnur, GRID ein '
+   'flaches Kreuzgitter.)',
  'MAP': 'Bildprägung (R238): Hintergrund-Erkennung (Otsu + Rand-Voting) - '
    'der Hintergrund wird wie Alpha behandelt: GAR KEINE Verformung dort, '
    'Kanten weich gefedert (Haftung bleibt). TILE = endlose gespiegelte '
@@ -287,7 +312,8 @@ PAT_ORDER = ['RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX',
              'CONCRETE', 'CLAY', 'CREPE', 'FABRIC', 'PLUSH', 'HILBERT',
              'SCRATCH', 'GLITCH', 'KNIT', 'FLUTED', 'BARK', 'SCALES',
              'FACETS', 'MACRAME', 'STONEWALL', 'RUBBLE', 'TILES', 'PARQUET',
-             'LAMINATE', 'MAZE', 'MAP']
+             'LAMINATE', 'MAZE', 'PERFORATION', 'VENT', 'CARBON', 'PINDOTS',
+             'OCTAGONS', 'CHAINLINK', 'NETGRID', 'MAP']
 
 
 def presets_for(pattern):
@@ -310,9 +336,9 @@ def main():
     A(Spacer(1, 6*mm))
     A(P('Dieses Handbuch dokumentiert das Texture-Werkzeug (Pre-Print &gt; '
         'Mods &gt; Texture): wie die Wandverschiebung arbeitet, das EXAKTE '
-        'Mapping jedes Parameters, alle 33 Muster mit Vorschaubildern - '
+        'Mapping jedes Parameters, alle 40 Muster mit Vorschaubildern - '
         'die Bilder sind direkt aus den echten Musterfunktionen gesampelt, '
-        'nicht neu gezeichnet - und 33 materialgebundene Vorlagen (je Muster '
+        'nicht neu gezeichnet - und 40 materialgebundene Vorlagen (je Muster '
         'eine). Die Vorschaubilder sind Algorithmus-Simulationen, keine '
         'Fotos und keine Zusage eines bestimmten Druckergebnisses.'))
     A(Spacer(1, 3*mm))
@@ -321,12 +347,12 @@ def main():
          'Außenwand-Vertex wandert mit Wahrscheinlichkeit Dichte um bis zu '
          'Dicke in eine Zufallsrichtung. Kein Muster, reines Rauschen.'],
         ['Modus BUMPS', 'Deterministische Musterfunktion verschiebt die '
-         'Außenwand radial - 33 Muster, gesteuert durch SIZE/ZSIZE/DEPTH/DIR/SEED.'],
-        ['33 Muster', 'Gerichtete Reliefs und Materialfelder: Bretter, '
+         'Außenwand radial - 40 Muster, gesteuert durch SIZE/ZSIZE/DEPTH/DIR/SEED.'],
+        ['40 Muster', 'Gerichtete Reliefs und Materialfelder: Bretter, '
          'Rindenfissuren, Ziegel, Wellen, Hex-Zellen, Korb, Seil, Plüsch, '
          'Schuppen, Kanneluren sowie weitere textile, geometrische, '
          'Rausch- und Bildmuster.'],
-        ['33 Vorlagen', 'Fertige Looks unter Vorlagen im Texture-Menü - '
+        ['40 Vorlagen', 'Fertige Looks unter Vorlagen im Texture-Menü - '
          'genau ein Look je Muster, mit passender Größe, Z-Teilung, Tiefe '
          'und Seed; die separate FUZZY-Presetreihe bleibt bestehen.'],
     ], [30*mm, 126*mm]))
@@ -386,7 +412,7 @@ def main():
         ['Modus', 'FUZZY / BUMPS', 'Zufallstextur oder Musterfunktion (Kap. 3/4)'],
         ['Dicke (FUZZY)', '0.1-1.0 mm', 'Maximaler Zufallsversatz pro Vertex'],
         ['Dichte (FUZZY)', '10-100 %', 'Anteil der verschobenen Vertices'],
-        ['Muster (BUMPS)', '33 Muster', 'Die Musterfunktion (Kapitel 3)'],
+        ['Muster (BUMPS)', '40 Muster', 'Die Musterfunktion (Kapitel 3)'],
         ['Tilt', 'OFF / ON', 'Standard OFF (0°); ON aktiviert den expliziten Winkel des gewählten Musters, nahtsicher und bündig am Z-Ende'],
         ['Abtastung (BUMPS)', 'max. 1.5 mm', 'Lange lineare Wandzüge werden vor dem Versatz unterteilt; E-Gesamtextrusion bleibt erhalten'],
 
@@ -454,8 +480,8 @@ def main():
 
     # --------------------------------------------------------- presets ---
     A(PageBreak())
-    flow.extend(H1('4 · Die Vorlagen-Bibliothek (33 Looks)'))
-    A(P('Texture-Menü &gt; Vorlagen: 33 fertige Looks, benannt nach dem '
+    flow.extend(H1('4 · Die Vorlagen-Bibliothek (40 Looks)'))
+    A(P('Texture-Menü &gt; Vorlagen: 40 fertige Looks, benannt nach dem '
         '<b>optischen Erscheinungsbild</b> (der Name sagt, was man sieht - '
         '„Rattan", nicht „BASKET 6/6"). Vorlagen sind schreibgeschützt: '
         'Laden geht, Löschen nicht; speichert man unter einem '

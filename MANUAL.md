@@ -1741,7 +1741,7 @@ twist, 14 mm / depth 0.5), **Basket** (interlaced weave, 10 mm / 0.35) and
 and set the full parameter set, like the library looks.
 The thickness range is 0.05–1.5 mm (Orca-sized).
 - **BUMPS** — the offset follows a **pattern from the library**:
-  **33 patterns on 5 pages — 32 shaped ones plus MAP**, every page also
+  **40 patterns on 5 pages — 39 shaped ones plus MAP**, every page also
   names the active one (a `*` marks it):
 
   | Pattern | What it looks like | Reach for it when |
@@ -1778,6 +1778,13 @@ The thickness range is 0.05–1.5 mm (Orca-sized).
   | Parquet | chevron parquet — direction flips per column | wood floors, decor panels |
   | Laminate | V-bevel planks with fine along-grain | clean wood panels, furniture |
   | Maze | perfect maze — every corridor reachable | puzzles, artistic grips |
+  | Perforation | round dimples, staggered grid (no through-holes) | perforated sheet, sieve look |
+  | Vent | square recesses, staggered grid | enclosure vents, speaker grilles |
+  | Carbon | 2/2 twill weave, diagonal gloss bands | carbon-fibre look, tech parts |
+  | Pindots | hemisphere knobs in a square matrix | grips, control panels, decor |
+  | Octagons | octagon trays + corner squares, size jitter | model trays, tech surfaces |
+  | Chainlink | woven fence — two 45° wire families, over/under | fence look, props |
+  | Netgrid | round threads + knots, deep open meshes | netting, bags, organics |
   | MAP | your own image wrapped around (dark = deep) | photos, logos, lettering |
 
   **Seamless by design:** your mm

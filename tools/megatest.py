@@ -537,12 +537,15 @@ run('texture FUZZY on label', lambda: tx.apply_texture(
     lbl, mode='FUZZY', fuzzy_thick=0.3, fuzzy_density=55, out_dir=D), skip_idem=True)
 frm = pp.make_frame(preset='9x13', bed=BED, out_dir=D)[0]
 # R175/R265: the seamless pattern library - every bump pattern, Z-size
-# variants (R265 adds the stone/tile/parquet/maze six)
+# variants (R265 adds the stone/tile/parquet/maze six, R265.3 the
+# technical seven: perforation, vent, carbon, pindots, octagons,
+# chainlink, netgrid)
 for pat in ('RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX',
             'HONEYCOMB', 'BASKET', 'ROPE', 'PLANKS', 'BRICKS', 'SANDSTONE',
             'CONCRETE', 'CLAY', 'CREPE', 'FABRIC', 'PLUSH', 'HILBERT',
             'SCRATCH', 'GLITCH', 'STONEWALL', 'RUBBLE', 'TILES', 'PARQUET',
-            'LAMINATE', 'MAZE'):
+            'LAMINATE', 'MAZE', 'PERFORATION', 'VENT', 'CARBON', 'PINDOTS',
+            'OCTAGONS', 'CHAINLINK', 'NETGRID'):
     run('texture BUMPS %s on frame' % pat, lambda p=pat: tx.apply_texture(
         frm, mode='BUMPS', bump_pattern=p, bump_scale=6.0, bump_amp=0.5,
         zsize=4.0, seed=11, out_dir=D), skip_idem=True, r2_gen=True)

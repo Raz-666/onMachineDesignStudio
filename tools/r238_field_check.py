@@ -158,12 +158,15 @@ try:
 
     print('--- D) texture: tilt, new patterns, MAP ------------------------')
     names = r2_texture.PATTERN_NAMES
-    check('D1: 33 patterns, the R238 six + the R265 seven present',
-          len(names) == 33 and all(p in names for p in (
+    check('D1: 40 patterns, the R238 six + the R265 fourteen present',
+          len(names) == 40 and all(p in names for p in (
               'KNIT', 'FLUTED', 'BARK', 'SCALES', 'FACETS', 'MACRAME'))
           and all(p in names for p in (
               'STONEWALL', 'RUBBLE', 'TILES', 'PARQUET', 'LAMINATE',
               'HILBERT', 'MAZE'))
+          and all(p in names for p in (
+              'PERFORATION', 'VENT', 'CARBON', 'PINDOTS', 'OCTAGONS',
+              'CHAINLINK', 'NETGRID'))
           and set(r2_texture.PATTERN_TILT) == set(names),
           '%d patterns / %d tilt presets' % (
               len(names), len(r2_texture.PATTERN_TILT)))
@@ -255,16 +258,150 @@ try:
           all(v[0] > 0.8 and v[1] < 0.05 and v[2] < 0.05
               for v in _r265m.values()), str(_r265m))
 
+    _r265b = ('PERFORATION', 'VENT', 'CARBON', 'PINDOTS', 'OCTAGONS',
+              'CHAINLINK', 'NETGRID')
     _sig265 = {nm: tuple(round(_g1p[nm](x / 32.0, y / 32.0), 2)
                          for y in range(32) for x in range(32))
-               for nm in _r265}
-    check('R265 distinct: the 7 new fields differ from each other AND '
+               for nm in tuple(_r265) + _r265b}
+    check('R265 distinct: the 14 new fields differ from each other AND '
           'from the 10 classic materials',
-          len(set(_sig265.values())) == len(_r265)
+          len(set(_sig265.values())) == len(_r265) + len(_r265b)
           and not (set(_sig265.values()) & set(_signatures.values())),
           'unique new %d/%d, classic clashes %d' % (
-              len(set(_sig265.values())), len(_r265),
+              len(set(_sig265.values())), len(_r265) + len(_r265b),
               len(set(_sig265.values()) & set(_signatures.values()))))
+
+    # ---- R265.3 (bite 2): technical structures ---------------------------
+    print('--- R265.3) bite 2: perforation, weave, dots, cells ----------')
+    # CARBON and NETGRID carry intentional cell STEPS (weave edges) - the
+    # seam promise for them is 'no jump at the wrap beyond the jumps the
+    # field itself makes', measured jump-vs-jump (the R175 rule).
+    _b2 = {}
+    for _nm in _r265b:
+        _fn = _g1p[_nm]
+        _vals = [_fn(i / 191.0, j / 127.0) for j in range(128)
+                 for i in range(192)]
+        _fs = max(abs(_fn(_a / 63.0, 0.3) - _fn((_a + 1) / 64.0, 0.3))
+                  for _a in range(63))
+        _ft = max(abs(_fn(0.3, _b / 63.0) - _fn(0.3, (_b + 1) / 64.0))
+                  for _b in range(63))
+        _js = abs(_fn(63 / 64.0, 0.3) - _fn(0.0, 0.3))
+        _jt = abs(_fn(0.3, 63 / 64.0) - _fn(0.3, 0.0))
+        _b2[_nm] = (round(max(_vals) - min(_vals), 2),
+                    round(max(_js - _fs, _jt - _ft, 0.0), 4))
+    check('R265.3 relief: all 7 technical patterns span > 0.8, wrap jump '
+          'never exceeds the field jump',
+          all(v[0] > 0.8 and v[1] <= 0.03 for v in _b2.values()), str(_b2))
+
+    # PERFORATION: holes are ROUND (equal depth in all directions at one
+    # radius) and the grid is STAGGERED (odd rows centre on the seam,
+    # even rows half a cell aside)
+    _pf = _g1p['PERFORATION']
+    _tc = 1.5 / 8.0
+
+    def _pprobe(_ds, _dt):
+        return _pf((0.0 + _ds / 12.0) % 1.0, (_tc + _dt / 8.0) % 1.0)
+    _rc = 0.20
+    _ax = [_pprobe(_rc, 0), _pprobe(-_rc, 0), _pprobe(0, _rc), _pprobe(0, -_rc)]
+    _dg = [_pprobe(_rc * 0.7071, _rc * 0.7071),
+           _pprobe(-_rc * 0.7071, _rc * 0.7071),
+           _pprobe(_rc * 0.7071, -_rc * 0.7071),
+           _pprobe(-_rc * 0.7071, -_rc * 0.7071)]
+    _st_ok = (_pf(0.0, _tc) < -0.4                 # hole in an odd row at 0
+              and _pf(6.5 / 12.0, 2.5 / 8.0) < -0.4  # even row: centre 0.5
+              and _pf(0.0, 2.5 / 8.0) > 0.1)       # even row at 0: sheet
+    check('R265.3 PERFORATION: round holes (axial = diagonal depth) in a '
+          'staggered grid',
+          max(_ax) - min(_ax) < 0.05 and max(_dg) - min(_dg) < 0.05
+          and abs(sum(_ax) / 4.0 - sum(_dg) / 4.0) < 0.05 and _st_ok,
+          'axial %.3f..%.3f diag %.3f..%.3f stagger %s'
+          % (min(_ax), max(_ax), min(_dg), max(_dg), _st_ok))
+
+    # VENT: the recess is SQUARE - the cell-diagonal chord through one
+    # recess is ~sqrt(2) longer than the horizontal chord (windowed, so
+    # neighbour recesses stay out of the measurement)
+    _vf = _g1p['VENT']
+    _cs, _ct = 6.5 / 12.0, 2.5 / 8.0
+    _wh = sum(1 for _d in range(-9, 10)
+              if _vf((_cs + _d * 0.004) % 1.0, _ct) < -0.35)
+    # equal SAMPLE RATE on the diagonal (the 45-deg step is sqrt(2)
+    # longer, so a square recess must collect ~sqrt(2) more samples)
+    _wd = sum(1 for _d in range(-13, 14)
+              if _vf((_cs + _d * 0.00283) % 1.0,
+                     (_ct + _d * 0.00424) % 1.0) < -0.35)
+    check('R265.3 VENT: square recesses (diagonal chord ~ sqrt(2) x '
+          'horizontal)',
+          _wd > _wh * 1.15,
+          'horizontal %d vs diagonal %d samples' % (_wh, _wd))
+
+    # CARBON: the 2/2 twill - band means flip hard and the (2,2)-cell
+    # shift is an exact structure period
+    _cf = _g1p['CARBON']
+    _gA = _gB = _nA = _nB = 0.0
+    for _x in range(0, 192, 3):
+        for _y in range(0, 128, 3):
+            _sx, _ty = _x / 192.0, _y / 128.0
+            _v = _cf(_sx, _ty)
+            _ci = int(math.floor(_sx * 24))
+            _cj = int(math.floor(_ty * 16))
+            if ((_ci + _cj) // 2) % 2 == 0:
+                _gA += _v; _nA += 1
+            else:
+                _gB += _v; _nB += 1
+    _per = max(abs(_cf(_sx, _ty)
+                   - _cf((_sx + 2.0 / 24.0) % 1.0, (_ty + 2.0 / 16.0) % 1.0))
+               for _sx in (0.11, 0.37, 0.52, 0.71)
+               for _ty in (0.13, 0.29, 0.47, 0.66))
+    check('R265.3 CARBON: 2/2 twill - gloss bands flip, weave period '
+          'closes',
+          abs(_gA / _nA - _gB / _nB) > 0.25 and _per < 1e-6,
+          'band means %.3f vs %.3f, period drift %.2g'
+          % (_gA / _nA, _gB / _nB, _per))
+
+    # PINDOTS: true hemisphere caps - centre high, half-radius at ~0.72
+    # of the cap height, flat base outside the dot
+    _pd = _g1p['PINDOTS']
+    _v0 = _pd(6.5 / 12.0, 2.5 / 8.0)
+    _vh = _pd(6.5 / 12.0 + 0.20 / 12.0, 2.5 / 8.0)
+    _ve = _pd(6.5 / 12.0 + 0.40 / 12.0, 2.5 / 8.0)
+    _vo = _pd(6.5 / 12.0 + 0.46 / 12.0, 2.5 / 8.0)
+    check('R265.3 PINDOTS: hemisphere knobs (cap profile + flat base)',
+          _v0 > 0.5 and abs(_vh - (_vo + (_v0 - _vo) * 0.836)) < 0.06
+          and abs(_ve - _vo) < 0.02 and abs(_vo - (-0.22)) < 0.05,
+          'centre %.2f half %.2f rim %.2f base %.2f' % (_v0, _vh, _ve, _vo))
+
+    # OCTAGONS: octagon faces dominate - the 4.3.8.4 fill factor of the
+    # raised area (d8-radius 0.8 of the half cell) is ~0.53
+    _oc = [[_g1p['OCTAGONS'](_x / 168.0, _y / 112.0) for _x in range(168)]
+           for _y in range(112)]
+    _flat = sum(1 for _row in _oc for _v in _row if _v > 0.15)
+    check('R265.3 OCTAGONS: octagon trays dominate (fill ~0.53, '
+          'grooves + corner squares below)',
+          0.40 < _flat / (168.0 * 112.0) < 0.64,
+          'raised share %.2f' % (_flat / (168.0 * 112.0)))
+
+    # CHAINLINK: cutting ALONG a wire stays high, cutting across the
+    # mesh drops deep - the woven-fence reading (45 deg in mm)
+    _chf = _g1p['CHAINLINK']
+    _along = [_chf((0.3 + _i * 0.004) % 1.0, (0.3 - _i * 0.006) % 1.0)
+              for _i in range(24)]
+    _across = [_chf((0.3 + _i * 0.004) % 1.0, 0.3) for _i in range(24)]
+    check('R265.3 CHAINLINK: wires run diagonal - along-wire cut reads '
+          'higher than the across cut',
+          sum(_along) / len(_along) > sum(_across) / len(_across) + 0.15,
+          'along %.2f vs across %.2f' % (sum(_along) / len(_along),
+                                         sum(_across) / len(_across)))
+
+    # NETGRID: knots proud at the thread crossings, mesh centres deep
+    _ng = _g1p['NETGRID']
+    _knots = [_ng(_i / 12.0, _j / 8.0) for _i in range(3) for _j in range(3)]
+    _mesh = [_ng((_i + 0.5) / 12.0, (_j + 0.5) / 8.0)
+             for _i in range(3) for _j in range(3)]
+    check('R265.3 NETGRID: knots at the crossings, deep open meshes',
+          min(_knots) > 0.2 and max(_mesh) < -0.45
+          and min(_knots) - max(_mesh) > 0.7,
+          'knots %.2f..%.2f mesh %.2f..%.2f' % (
+              min(_knots), max(_knots), min(_mesh), max(_mesh)))
 
     def _grid265(fn, w=160, h=112):
         return [[fn(x / float(w), y / float(h)) for x in range(w)]
