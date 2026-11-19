@@ -864,16 +864,20 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       Tests: test_toolchain 49 (2 neue on_step-Orakel: Reihenfolge/
       Start-Semantik, Kosmetik-Regel), test_toolchain_steps 22
       (Verdrahtungs-Guard).
-- [ ] **K4 — Phase 4 (R262: §22.3 ✔, MANUAL ✔, Paket ✔ — REST: Release-
-      Vorbereitung):** §22.3 verifiziert: Kette läuft unter gen_busy
-      (Worker hält die Flagge um den Lauf), alle vier Startwege
-      verweigern mit „Wait: generating“, kein Deadlock mit dem
-      Auto-Re-Select; wahrer Zustand = R261-Schrittfortschritt. MANUAL
-      erweitert: Kap. 5.21 (Toolchain, inkl. ehrlicher Grenzen), Kap.
-      14 Menüfolge, Kap. 25 Makro-Index TOOLCHAIN_APPLY. Presets im
-      Paket: presets/toolchain/ getrackt (reist im ZIP, r199-prüft),
-      Beispiel wird vom Watcher geseedet; Nutzer-Presets = Felddaten im
-      Gcodes-Ordner. **OFFEN:** Versions-Bump R2-2026-11-18.3/V4 +
-      r81-Stempel-Re-Freeze (A/B-Beweis) + WebUI-Badge + INSTALL/
-      README/AGENTS/SHUTDOWN_REGISTER/TOOLS_INVENTORY + TESTANLEITUNG
-      Kap. 32 + Release-Bericht.
+- [x] **K4 — Phase 4 (R262/R263, ERFÜLLT):** §22.3 verifiziert (Kette
+      unter gen_busy, alle vier Startwege verweigern, kein Deadlock);
+      MANUAL Kap. 5.21 + 14 + 25; TESTANLEITUNG Kap. 32 + aktueller
+      Header/Boot-Check (standen noch auf .141/.142a); TOOLS_INVENTORY
+      Stand V4 + Chain-Zeilen; test_review_bundle an getrackte
+      Übergabe-Quellen angepasst (13. Auftrag); Presets im Paket
+      (presets/toolchain/ im ZIP, r199 12/12); Version R2-2026-11-18.3/
+      V4 überall gestempelt (inkl. Web-Badge + Page-State R263, r218-Pin);
+      r81 stamp-class re-frozen über den echten Toolchain-Code (A/B:
+      V4-Modul mit alten Stempeln == V3-Goldens byte-identisch, alle 23;
+      pr01-pr10 unverändert); backups/r2_postproc_R2-2026-11-18.2_V3.py
+      als Feld-Rollback; Release-Bericht
+      docs/RELEASE_R2-2026-11-18.3_REPORT.md; ZIP gebaut aus getracktem
+      Baum ohne analyse/ (256 Dateien) + .sha256-Sidecar in releases/.
+      Gates: macro_render 2112/2112, megatest 190/0, review_checks PASS,
+      r81 23/23, r91, audit 82/0, r110 13/13, r238 30/30, r168 19/19,
+      r165 clean, r218 26, toolchain 49+22, gcode_re 10/10.

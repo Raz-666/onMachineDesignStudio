@@ -3,15 +3,16 @@
 **Shutdown register:** `docs/SHUTDOWN_REGISTER.md` — every crash site,
 its cause, its fix and the test that holds it, in one table.
 
-*Stand: R2-2026-11-18.2 (V3). Auto-checked against reality by
+*Stand: R2-2026-11-18.3 (V4). Auto-checked against reality by
 `tools/r165_doc_check.py`; the version line here is not typed by hand —
 see "The version rule" below.*
 
 This page answers the question the MANUAL deliberately does not: **the
 MANUAL describes what the printer does, this describes the machinery that
-makes it do it.** 75 files, ~78 700 lines, in six groups. Everything in
-group A ships to the Pi and runs during a print; everything in group E
-never leaves the repository.
+makes it do it.** Six groups; the tables below carry the per-file line
+counts (`wc -l` at the release). Everything in group A ships to the Pi
+and runs during a print; everything in group E never leaves the
+repository.
 
 ---
 
@@ -19,8 +20,10 @@ never leaves the repository.
 
 | File | Lines | What it does |
 |---|---|---|
-| `tools/r2_postproc.py` | 28 709 | **The engine.** One systemd service, four jobs: (1) the *layer reader* — tags every new g-code with `LAYER_MARK`/`APPLY_TYPE` markers, a `;TYPE:` map and a `_FILE_INFO` block, so the LCD, the menus and the live tuning know what is printing before layer 1; (2) **every generator** (range, labels, plotter, cable ties, angles, lithos, gaskets, frames, bricks, kits, figures, colorpic, string art, geometry, scale/taper/twist, mirror, STL export, cake cut) — the LCD only sets variables, the real work happens here, off the print thread; (3) the *watcher* — folder watching, preview pushes, queue handling, the recovery tick; (4) **HOST_CHECK** (throttle, load vs cores, swap *activity*, hidepid honesty) and the MCU auto-recovery. Streaming, one line in / one line out — no full-file buffers (a full buffer is what kills the Pi's RAM and then the print). |
-| `tools/r2_postproc_next.py` | 28 709 | **The experimental copy.** Byte for byte `r2_postproc.py` at the moment of R252, plus its own header. From now on new post-processor work happens HERE and the stable file is not touched. Never started directly: the service starts the stable file, which reads the pp_engine switch (LCD System > PP engine, variables file) and hands over via runpy when it says `next`; a syntax error or a crashed handover keeps the stable engine and brakes the switch for 15 min. |
+| `tools/r2_postproc.py` | 30 322 | **The engine.** One systemd service, four jobs: (1) the *layer reader* — tags every new g-code with `LAYER_MARK`/`APPLY_TYPE` markers, a `;TYPE:` map and a `_FILE_INFO` block, so the LCD, the menus and the live tuning know what is printing before layer 1; (2) **every generator** (range, labels, plotter, cable ties, angles, lithos, gaskets, frames, bricks, kits, figures, colorpic, string art, geometry, scale/taper/twist, mirror, STL export, cake cut) — the LCD only sets variables, the real work happens here, off the print thread; (3) the *watcher* — folder watching, preview pushes, queue handling, the recovery tick; (4) **HOST_CHECK** (throttle, load vs cores, swap *activity*, hidepid honesty) and the MCU auto-recovery. Streaming, one line in / one line out — no full-file buffers (a full buffer is what kills the Pi's RAM and then the print). |
+| `tools/r2_postproc_next.py` | 30 322 | **The experimental copy.** Byte for byte `r2_postproc.py` at the moment of R252, plus its own header. From now on new post-processor work happens HERE and the stable file is not touched. Never started directly: the service starts the stable file, which reads the pp_engine switch (LCD System > PP engine, variables file) and hands over via runpy when it says `next`; a syntax error or a crashed handover keeps the stable engine and brakes the switch for 15 min. |
+| `tools/toolchain.py` | 873 | **The chain engine (R259).** `plan_chain()` turns a preset file (JSON, `presets/toolchain/` + the gcodes `Toolchain/` folder) into a validated step plan - tool registry, parameter schema, file-name globbing, honest refusals (unknown tool, missing file, empty plan = `[]`). `run_chain()` executes it streaming: per-step temp workspace (`§22.4` - a step's temp is deleted the moment the next step adopts it), optional `validator`, `output_mode='save'`, `cancel_check`, the `on_output` gate (every artifact passes through it before it becomes the next step's input) and `on_step` progress (R261: fires at step START, cosmetic - a broken hook can never kill a chain). |
+| `tools/toolchain_steps.py` | 184 | **The real adapters.** Each supported tool as one `Step` (command, param mapping, produces/consumes). The registry is the single place that decides what is chainable - and what is not (the cake cutter refuses: it is a hand-over cut, not a file-to-file transform). |
 | `tools/r2_collect.py` | 384 | **The evidence pack ('Doctor').** Builds ONE support file: build stamps, host (RAM/swap/disk/load/top/throttled/dmesg), the three services + journals, the watcher state files, variables.cfg, printer.cfg, a compact incident digest out of klippy.log (events, the worst Reactor stalls WITH stacks, MCU statistics around each shutdown), the last 3 MB of the raw log, the newest MCU snapshot, the gcodes inventory. Writes gcodes/crash_archive/R2-DOCTOR-<stamp>.txt + a .txt.gcode twin (Mainsail only lists printable files) - the post-processor skips every R2-DOCTOR-* name. Idle-gated, read-only, no sudo. Started by the LCD (System > Diagnostics), by the watcher (doctor_nonce) or by hand. |
 | `tools/r2_texture.py` | 1 409 | **The texture engine** (called by r2_postproc, also standalone): FUZZY (Orca-style fuzzy skin), BUMPS (27 seamless patterns) and MAP (a picture wrapped around the part). Rewrites only the outer wall of an existing file — `;TYPE:`, E/Z/F and EXCLUDE_OBJECT stay byte-identical. |
 | `tools/r2_cake.py` | 543 | **The cake-cut engine**: splits a print with a plane, E redistributed per section. |
@@ -141,6 +144,7 @@ reappears, one of these goes red instead of the user finding out mid-print.
 | `r110_*`, `r111_*`, `r190_*`, `r187_*` | g-code dialects, geometry classifier, tagging ladder, workflow matrix |
 | `macro_render_test.py` | the render harness itself: full printer-object simulation (KAMP present/absent, unhomed axes, paused, missing objects…) |
 | `r81_golden_check.py` | byte-level regression net for the post-processor's two core functions |
+| `test_toolchain.py` / `test_toolchain_steps.py` | the chain engine: 49 tests (plan validation, §22.4 temp adoption, on_output gate semantics, on_step start semantics + cosmetic rule) + 22 adapter/registry tests incl. the wiring guard (the watcher really passes `on_step`) |
 
 ### E4. Fixtures
 

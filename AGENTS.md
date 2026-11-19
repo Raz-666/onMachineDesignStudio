@@ -17,9 +17,9 @@ du-Anrede, technisch präzise, ohne Fülltext.
 
 ## Aktueller Stand (2026-11-18)
 
-- `main` = Merge `e2b42bc` (Release **R2-2026-11-18.2 / V3**, PR #19).
-- Release-Status: V1 `R2-2026-11-13.1` → V2 `R2-2026-11-18.1` → V3 `R2-2026-11-18.2`.
-  Das finale V3-ZIP liegt **lokal** in `releases/` (gitignored) mit `.sha256`-Sidecar.
+- `main` = Merge `e2b42bc` (Release **R2-2026-11-18.2 / V3**, PR #19); dieser Branch/PR #20 standen bei Redaktionsstand auf **V4 (`R2-2026-11-18.3`)**.
+- Release-Status: V1 `R2-2026-11-13.1` → V2 `R2-2026-11-18.1` → V3 `R2-2026-11-18.2` → V4 `R2-2026-11-18.3`.
+  Das finale V4-ZIP liegt **lokal** in `releases/` (gitignored) mit `.sha256`-Sidecar.
 - Der **Drucker ist im Umbau** — keine Hardware-Tests, keine Feldabnahme,
   keine `printer.cfg`-Änderungen ohne explizites Go + Test-Fenster.
   Die dafür gesammelte **Feld-Abnahme-Checkliste** steht in

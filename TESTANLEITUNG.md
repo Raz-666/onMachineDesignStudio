@@ -1,8 +1,8 @@
-# TESTANLEITUNG — R2-D2 Makro-System (Version .141)
+# TESTANLEITUNG — R2-D2 Makro-System (Version R2-2026-11-18.3 / V4)
 
-Diese Anleitung beschreibt **nur den aktuellen Stand** (.141). Sie ist die
-komplette Feld-Checkliste nach dem Einspielen eines Updates — von Boot bis
-Druckergebnis. Die Historie der Änderungen steht in README.md.
+Diese Anleitung beschreibt **nur den aktuellen Stand** (R2-2026-11-18.3).
+Sie ist die komplette Feld-Checkliste nach dem Einspielen eines Updates —
+von Boot bis Druckergebnis. Die Historie der Änderungen steht in README.md.
 
 ---
 
@@ -18,7 +18,7 @@ Druckergebnis. Die Historie der Änderungen steht in README.md.
 ## 2. Boot-Check (Pflicht, 1 Minute)
 
 - [ ] Konsole: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-09.142a)`
+      (build R2-2026-11-18.3)`
 - [ ] ~10 s nach dem Boot: Boot-Sound + LED-Animation
 - [ ] `SHOW_STATUS` antwortet mit Modus/Material/Overrides
 - [ ] Kein Eintrag fehlt: sonst meldet sich `_CHECK_INSTALL` laut mit
@@ -1183,3 +1183,48 @@ produktive Rettung).
 - [ ] Shutdown-Freundesdienst: sollte doch mal einer passieren —
       Snapshot + Auto-Recovery wie in Kap. 29, und der `crash`-Knopf
       hat den Bericht parat
+
+
+---
+
+## 32. Die V4-Neuerungen (R2-2026-11-18.3 — die Toolchain)
+
+**Was neu ist:** Die Werkzeuge lassen sich jetzt **ketten** — ein
+Preset (JSON) beschreibt die Schrittfolge, der Drucker führt sie als
+einen Job aus. V1–V3 (R2-2026-11-13.1 bis -18.2) brachten bereits
+Masterkonzept-Analyse (V3) und Ebenen-Zählfix (V2); dieses Kapitel
+gilt dem Neuen seit V3.
+
+- **Preset wählen:** Im SD-Browser gibt es den Ordner **Toolchain/**
+  (liegt im Gcodes-Verzeichnis; das Beispiel `scale-twist.json` wird beim
+  ersten Start dorthin kopiert). Preset anklicken → **Apply**
+  bestätigen (2-Press wie üblich).
+- **Ablauf:** Die Kette läuft als Job unter `gen_busy` — pro
+  Schritt zeigt das Display `Chain n/N: <Werkzeug>`, am Ende liegt die
+  Datei `V<nn>_<Name>_<PresetTag>.gcode` im Ordner **Toolchain/**
+  (der Tag ist der Preset-Name als CamelCase, z. B.
+  `ScaleUpTwist`).
+- **Start-Verweigerung (bewusst):** Während die Kette läuft,
+  verweigert jeder Druckstart mit *Wait: generating … beeps when
+  done* — kein Deadlock, die Datei-Auswahl kommt nach Job-Ende von
+  selbst zurück.
+- **Grenzen (ehrlich):** Cake cut ist nicht kettbar (Hand-Übergabe),
+  Preset-Verwaltung ist Dateiarbeit (PC/Mainsail) — am Display kann
+  man laden und löschen (Del-Mode), aber nicht speichern.
+
+### Field-Check V4
+
+- [ ] Boot: `Macro system OK: all 19 modules loaded and current
+      (build R2-2026-11-18.3)`
+- [ ] Boot: Ordner `Toolchain/` im Gcodes-Verzeichnis enthält
+      `scale-twist.json` (vom Watcher geseedet, falls noch nicht da)
+- [ ] Konsole: `TOOLCHAIN_APPLY PRESET=Toolchain/scale-twist.json
+      FILE=teil.gcode` (oder Preset-Klick + Apply im Browser) —
+      Kette läuft, Display zeigt `Chain 1/2: …` dann
+      `Chain 2/2: …`
+- [ ] Während der Kette: Druckstart-Klick verweigert mit
+      *Wait: generating*; nach Job-Ende kommt die Auswahl zurück
+- [ ] Ergebnis: `V<nn>_<Name>_<Tag>.gcode` im Ordner `Toolchain/`
+      druckbar; `TOOLCHAIN_APPLY` auf ein defektes Preset verweigert mit
+      klarer Fehlermeldung
+- [ ] Del-Mode im Browser löscht ein Preset aus `Toolchain/`
