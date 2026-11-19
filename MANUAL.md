@@ -877,7 +877,7 @@ PAUSE_AT_LAYER LAYER=17
 CANCEL_PRINT                                    # twice within 60 s
 ```
 
-## 5. The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes, ColorPic, Gaskets, Frames, Bricks, Kits & Figures, String Art, Geometry, Scale/Taper, Twist, Mirror, STL export
+## 5. The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes, ColorPic, Gaskets, Frames, Bricks, Kits & Figures, String Art, Geometry, Scale/Taper, Twist, Mirror, STL export, Toolchain (preset chains)
 
 Thirteen generators turn the printer into a manufacturing tool of its own:
 partial prints from any G-code, label plates from typed text, pen plots from
@@ -2143,6 +2143,35 @@ overwrites. LCD: Pre-Print > Tools > Mirror — axis X/Y, `How? (E
 stays)`, `> Apply` (2×). Console: `MIRROR_APPLY AXIS=Y FILE=myfile.gcode
 OBJ=LEFT`.
 
+### 5.21 Toolchain — chain the tools with a preset file (R259)
+
+Chains the **real tools**: every step feeds the next (Scale → Twist →
+…), **one** background job, only the **last** output stays (intermediate
+steps die after handover). The preset is a **file** — click a `.json`
+in the SD browser to pick it, no JSON typing at the dial. An example
+ships in the `Toolchain/` folder (`Scale up + twist`); make your own on
+the PC and drop it in via Mainsail — any subfolder works. Preset files
+survive umlauts in their *name* (display only); generated *file* names
+transliterate (ä→ae, ö→oe, ü→ue, ß→ss — `Groesser_Rahmen` reads on
+every LCD).
+
+The chain runs on the **selected file** (root folder or any subfolder —
+a Range output chains just fine), shows its **progress per step**
+(`Chain 2/3: Twist`), waits for printer idle like every generator (a
+print start is refused with `Wait: generating` until the chain beeps
+done) and lands the result in the `Toolchain/` folder as
+`V<nn>_<name>_<PresetName>.gcode` — numbered, never overwrites, newest
+first in the folder listing. Deleting a preset file: the SD browser's
+**Del** mode (2× press, same as every file). LCD: Pre-Print > Tools >
+Toolchain — Preset/File info, `How? (chain)`, `> Apply` (2×). Console:
+`TOOLCHAIN_APPLY PRESET=Toolchain/scale-twist.json FILE=myfile.gcode
+OUT=PREVIEW` (OUT=QUEUE selects the result for the next start,
+OUT=PREVIEW just drops it in the list — same as every generator).
+
+**Limits, honest:** chainable tools are Range, Scale, Texture, Twist,
+Mirror. Cake cut (two output files) is not chainable; the preset
+validator says so in plain text before anything runs.
+
 ## 6. During the print: tuning, pauses, objects
 
 Everything that happens between "print started" and "print finished". Live
@@ -2846,7 +2875,8 @@ kick-off, no third press by accident.
 Fixes (incl. the File check list — the same six entries as System > File
 check, .136m — **plus `Fix: Quality` and `Fix: Speed`**, .136n) · Tools
 (Offset, Texture, Range, **Scale X/Y with the Taper option**,
-**Twist**, **Mirror**, Cake cut, Plotter, STL export) ·
+**Twist**, **Mirror**, **Toolchain (preset chains, R259)**, Cake cut,
+Plotter, STL export) ·
 **Material** (shows the current material — Load preset now / Save
 current / Reset for PLA, PETG, TPU, ABS/ASA) · Temps ·
 Motion · Features ·
@@ -4175,6 +4205,7 @@ stay with Mainsail.
 | **STRINGART_IMG** |  | cycles the root image list (the lithophane list, newest first) for the PHOTO pattern |
 | **STRINGART_PICK** | INDEX=-1 | ArtisticStrings: pick the root image from the paged image list (the PHOTO pattern weaves it) |
 | **TEXTURE_APPLY** | FILE='', MODE='OFF', THICK, DENSITY, PATTERN, SCALE, AMP, DIR='OUT', OUT= | fuzzy skin / shaped bumps for the SELECTED (or FILE) g-code: `TEXTURE_APPLY MODE=FUZZY THICK=0.3 DENSITY=100` — new `Vnn_<name>_TX` file in the background — selected under QUEUE, but never auto-STARTED (ch. 5.9) |
+| **TOOLCHAIN_APPLY** | PRESET=sv.toolchain_preset, FILE=sv.preview_file, CONFIRM=0, OUT= | run a preset tool chain (R259): every step feeds the next, ONE background job, only the last output stays — `V<nn>_<name>_<PresetName>.gcode` in Toolchain/, progress `Chain n/N` on the display, input may come from any subfolder (ch. 5.21) |
 | **TWIST_APPLY** | DEG=90, FILE= | twist the selected file around Z (.136n): 0° at the bottom → DEG at the top, E verbatim, output in Twist/ |
 | _GENERATORS |  | Part generator limits (cable ties + angle plates, internal) |
 | _GEN_ARM | KEY='', WHAT='the generation' | Generators: arm the 2-press confirm for KEY |

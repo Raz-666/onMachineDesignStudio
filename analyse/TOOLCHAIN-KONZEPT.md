@@ -167,9 +167,19 @@ fertig behauptet, was nicht existiert.
   Verwaltung: **bewusst DATEIBASIERT** (Nutzer-Entscheidung R260-Runde:
   Presets sind Dateien, verwaltet über Mainsail/Dateisystem — kein
   Speichern/Laden/Löschen-Submenü am LCD nachgebaut).
-- **Phase 4 — Queue-Abhängigkeit & Doku:** §22.3 (Druckstart wartet auf
-  Job-Fertigstellung, Nutzer sieht den wahren Zustand), MANUAL-Kapitel,
-  Toolchain-Presets im Backup/Paket.
+- **Phase 4 — Queue-Abhängigkeit & Doku (erledigt, R262):** **§22.3
+  verifiziert:** die Kette läuft über `_spawn_job` → der Worker hält
+  `gen_busy=1` um den LAUF — jeder Druckstart-Weg (SDCARD_PRINT_FILE,
+  AS_SLICED, PRINT_WITH_OVERRIDES, PRINT_AS_LEGACY) verweigert mit
+  „Wait: generating … beeps when done" (07_start_confirm.cfg:31/47/64,
+  08_print_start_stop.cfg:1647), der Auto-Re-Select nach Job-Ende kommt
+  mit gen_busy=0 zurück (kein Deadlock). Der „wahre Zustand" ist seit
+  R261 der Schritt-Fortschritt auf dem Display. MANUAL: Kap. 5.21
+  (Toolchain), Kap. 14 Menüfolge, Kap. 25 Makro-Index. Presets im
+  Paket: `presets/toolchain/` ist getrackt → reist im Release-ZIP
+  (r199 prüft den ZIP-Inhalt zum Bautermin), der Watcher seedy das
+  Beispiel in den Gcodes-Toolchain-Ordner; Nutzer-Presets leben im
+  Gcodes-Ordner (Felddaten, nicht Paket-bestandteil — dokumentiert).
 
 Jede Phase endet mit Commit + Tests + Bericht; kein Sprung ohne grüne Gates.
 

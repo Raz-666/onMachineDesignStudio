@@ -864,6 +864,16 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       Tests: test_toolchain 49 (2 neue on_step-Orakel: Reihenfolge/
       Start-Semantik, Kosmetik-Regel), test_toolchain_steps 22
       (Verdrahtungs-Guard).
-- [ ] **K4 — Phase 4 Queue-Abhängigkeit & Doku:** §22.3 Druckstart wartet
-      auf Job-Fertigstellung mit sichtbarem wahren Zustand, MANUAL-
-      Kapitel, Presets im Backup/Paket.
+- [ ] **K4 — Phase 4 (R262: §22.3 ✔, MANUAL ✔, Paket ✔ — REST: Release-
+      Vorbereitung):** §22.3 verifiziert: Kette läuft unter gen_busy
+      (Worker hält die Flagge um den Lauf), alle vier Startwege
+      verweigern mit „Wait: generating“, kein Deadlock mit dem
+      Auto-Re-Select; wahrer Zustand = R261-Schrittfortschritt. MANUAL
+      erweitert: Kap. 5.21 (Toolchain, inkl. ehrlicher Grenzen), Kap.
+      14 Menüfolge, Kap. 25 Makro-Index TOOLCHAIN_APPLY. Presets im
+      Paket: presets/toolchain/ getrackt (reist im ZIP, r199-prüft),
+      Beispiel wird vom Watcher geseedet; Nutzer-Presets = Felddaten im
+      Gcodes-Ordner. **OFFEN:** Versions-Bump R2-2026-11-18.3/V4 +
+      r81-Stempel-Re-Freeze (A/B-Beweis) + WebUI-Badge + INSTALL/
+      README/AGENTS/SHUTDOWN_REGISTER/TOOLS_INVENTORY + TESTANLEITUNG
+      Kap. 32 + Release-Bericht.
