@@ -347,8 +347,16 @@ def _map_prepare(img):
 
 
 def _build_patterns(k, n, seed, img, map_mode='TILE', map_pos='CENTER',
-                    map_frac=1.0):
-    """R175: returns {NAME: fn(s, t) -> -1..+1} with the geometry snapped."""
+                    map_frac=1.0, ar=1.0):
+    """R175: returns {NAME: fn(s, t) -> -1..+1} with the geometry snapped.
+
+    ar = millimetres of ONE t-period divided by ONE s-period
+    (eff_zsize / eff_size). Form-true patterns (planks, parquet slats)
+    need it: a laminate board must read LONG even when the periods are
+    square-ish, and a chevron diagonal must aim at 45 degrees in real
+    millimetres, not in (s, t) units. Callers that render previews pass
+    the pixel-equivalent ratio so the picture shows the same shapes the
+    printer will raise. Default 1.0 keeps older callers valid."""
     rng = random.Random(seed)
     noise = _make_noise(seed)
     two_pi = 2.0 * math.pi
@@ -923,7 +931,7 @@ def _build_patterns(k, n, seed, img, map_mode='TILE', map_pos='CENTER',
         # surface noise. NOT a CHECKER twin: no parity flip, bevel + tone
         # instead - reads as a tiled wall.
         ke = k + (k & 1)
-        rows = max(2, n)
+        rows = max(2, int(round(n * max(0.25, ar))))
         i = s * ke
         j = t * rows
         col = int(math.floor(i))
@@ -940,49 +948,67 @@ def _build_patterns(k, n, seed, img, map_mode='TILE', map_pos='CENTER',
     pats['TILES'] = _tiles
 
     def _parquet(s, t):
-        # CHEVRON PARQUET (Fischgraet-Optik): diagonal planks whose slope
+        # CHEVRON PARQUET (Fischgraet-Optik): diagonal slats whose slope
         # flips in every column - the mitred V-joints sit exactly on the
-        # column borders. diag = P*(t +/- fx) with INTEGER P is periodic
-        # in t by construction; the even column count closes the s-wrap;
-        # both column families meet the border at the same phase, so the
-        # groove lines join into the fishbone V.
+        # column borders. R265.2 geometry fix (user review: 'reads like
+        # square tiles'): with P = n slats per t-period the slats came
+        # out nearly square. Now the slat count P and the diagonal pitch
+        # Q are DERIVED from a ~1:5 slat at ~45 degrees in REAL mm:
+        #   P = R*n*ar*ke/(2k), Q = P*k/(ke*n*ar)  ->  both INTEGER
+        # (integers keep pd periodic in t and continuous across the
+        # column border: P*(t) jumps by P, d*Q*fx jumps by Q - both
+        # vanish mod 1). The even column count closes the s-wrap.
         ke = max(2, k + (k & 1))
-        P = max(2, n)
+        P = max(2, min(96, int(round(5.0 * n * ar * ke / (2.0 * k)))))
+        Q = max(1, min(12, int(round(P * k / float(ke * n * max(0.2, ar))))))
         i = s * ke
         col = int(math.floor(i))
         fx = i - col
         direc = 1.0 if (col % 2 == 0) else -1.0
-        pd = (P * (t + direc * fx)) % 1.0
-        joint = 1.0 - _smoothstep(0.04, 0.15, min(pd, 1.0 - pd))
+        pd = (P * t + direc * Q * fx) % 1.0
+        joint = 1.0 - _smoothstep(0.05, 0.20, min(pd, 1.0 - pd))
         miter = 1.0 - _smoothstep(0.02, 0.10, min(fx, 1.0 - fx))
         grain = (noise(s, t, max(2, ke * 5), max(2, P)) - 0.5) * 0.22
+        grain *= (1.0 - joint) * (1.0 - 0.7 * miter)
         face = 0.55 + 0.18 * math.sin(math.pi * pd)
         return max(-1.0, min(1.0,
-            face + grain - 0.72 * joint - 0.58 * miter))
+            face + grain - 0.88 * joint - 0.58 * miter))
     pats['PARQUET'] = _parquet
 
     def _laminate(s, t):
-        # LAMINATE FLOORING: narrow, LONG planks (one staggered end joint
-        # per length period - PLANKS uses twice the joint density), a
-        # chamfered V-bevel at every plank border (the click-joint look)
-        # and DOMINANT fine grain streaks along the plank: the HF-embossed
-        # decor of a laminate board. The grain is the headline, not the
-        # groove - that is what separates it from PLANKS.
-        ke = max(3, k + (k % 3))
-        zcells = max(2, n)
+        # LAMINATE FLOORING: narrow, LONG boards. R265.2 geometry fix
+        # (user review: 'planks/parquet/laminate all read like square
+        # tiles'): boards used to be ONE period long and ONE period wide.
+        # Now ke = 2k halves the board width and the board LENGTH spans
+        # M full t-periods, M a divisor of n picked near a 1:6 aspect
+        # (via ar) - a laminate board reads LONG. Staggered end joints
+        # per board lane, a chamfered V-bevel at every border (the
+        # click-joint look) and DOMINANT fine grain streaks along the
+        # board: the HF-embossed decor. The grain is the headline, not
+        # the groove - that is what separates it from PLANKS (broad,
+        # short, deep-grooved) and PARQUET (diagonal slats).
+        ke = max(4, 2 * k)
+        Mtar = max(1.0, 6.0 * k / (float(ke) * max(0.2, ar)))
+        M = 1
+        for m in range(1, max(2, n + 1)):
+            if n % m == 0 and abs(m - Mtar) <= abs(M - Mtar):
+                M = m
+        zc = max(1, n // M)
         i = s * ke
         col = int(math.floor(i))
         fx = i - col
         stagger = row_rnd[min(col, ke - 1 - col) % len(row_rnd)]
-        z = (t * zcells + stagger * 0.5) % 1.0
-        bevel = _smoothstep(0.0, 0.13, min(fx, 1.0 - fx))
-        end_joint = 1.0 - _smoothstep(0.012, 0.06, min(z, 1.0 - z))
+        z = (t * zc + stagger * 0.5) % 1.0
+        bevel = _smoothstep(0.02, 0.16, min(fx, 1.0 - fx))
+        end_joint = 1.0 - _smoothstep(0.02, 0.09, min(z, 1.0 - z))
         tone = noise(col / float(ke), 0.5, ke, 3)
-        grain = (noise(s, t, max(6, ke * 6), max(1, n // 2)) - 0.5) * 0.55
+        grain_t = max(1, 2 * zc)
+        grain = (noise(s, t, max(6, ke * 4), grain_t) - 0.5) * 0.55
+        grain *= bevel * (1.0 - 0.8 * end_joint)
         face = 0.40 + (tone - 0.5) * 0.28
         return max(-1.0, min(1.0,
-            face * (0.35 + 0.65 * bevel) + grain * (0.4 + 0.6 * bevel)
-            - 0.55 * (1.0 - bevel) - 0.45 * end_joint))
+            face * (0.35 + 0.65 * bevel) + grain
+            - 0.55 * (1.0 - bevel) - 0.70 * end_joint))
     pats['LAMINATE'] = _laminate
 
     def _maze(s, t):
@@ -1466,7 +1492,8 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
     pats = _build_patterns(k, n, int(seed), img,
                            map_mode=str(map_mode).upper(),
                            map_pos=str(map_pos).upper(),
-                           map_frac=map_frac)
+                           map_frac=map_frac,
+                           ar=(eff_zsize / eff_size) if eff_size > 0 else 1.0)
     pattern_fn = pats[bump_pattern]
 
     def pattern(x, y, z, s_arc=None):

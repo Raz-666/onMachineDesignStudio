@@ -61,7 +61,10 @@ def render(path, materials=None):
     draw.text((pad, 10), 'Texture library — code-derived height fields', fill='#18232c', font=font)
     draw.text((pad, 29), 'Unwrapped cylinder samples; grayscale = signed displacement. Simulation only, not a print guarantee.',
               fill='#53616b', font=small)
-    patterns = r2_texture._build_patterns(18, 12, 37, None)
+    # ar in pixels = (height/n)/(width/k): previews must show the SAME
+    # plank/slat shapes the printer raises (R265.2 form truth)
+    _ar = (height / 12.0) / (width / 18.0)
+    patterns = r2_texture._build_patterns(18, 12, 37, None, ar=_ar)
     for idx, (name, label) in enumerate(mats):
         col, row = idx % cols, idx // cols
         x0 = pad + col * (width + gap)

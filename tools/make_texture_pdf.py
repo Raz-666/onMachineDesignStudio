@@ -151,7 +151,12 @@ def render_pattern(name, preset):
     shaded preview (light from top-left, dark = deep, bright = raised)"""
     k, n = k_n_for(preset)
     img = _map_img() if name == 'MAP' else None
-    pats = r2_texture._build_patterns(k, n, int(preset['texture_seed']), img)
+    # the preview image is the unwrapped cylinder: 330px ~ circumference,
+    # 220px ~ height - pass the pixel aspect so form-true patterns
+    # (parquet slats, laminate boards) keep their REAL shape (R265.2)
+    pats = r2_texture._build_patterns(k, n, int(preset['texture_seed']), img,
+                                      ar=(220.0 / max(1, n))
+                                         / (330.0 / max(1, k)))
     fn = pats[name]
     W, H = 330, 220
     hm = [[0.0] * W for _ in range(H)]

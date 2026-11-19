@@ -798,12 +798,54 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       macro_render_test 2112/2112, megatest 196/0, r165 clean, r199 clean;
       textur-matrix-ist.png (32 prozedurale) + textur-matrix-soll.png
       (17 kuratierte) neu, TEXTURING.pdf 42 Seiten/33 Muster, MANUAL.md/
-      MANUAL.pdf-Katalog auf 33. **OFFEN: Nutzer-Gegenprüfung Häppchen 1
-      (zugesagt vor Häppchen 2), dann Häppchen 2** (technisch:
-      Perforationsblech rund+quadratisch, Carbon/Twill, Pin-/Noppen-Matrix,
-      Hex/Oktagon-Zellen mit variablem Durchmesser), **Häppchen 3**
-      (organisch: Leder, Orangenhaut, Trockenrisse, Holz längs+quer
-      verschiedener Arten, Wellblech diagonal).
+      MANUAL.pdf-Katalog auf 33.
+      **R265.2 (Nutzer-Review 19.11., umgesetzt):** Bretter/Laminat/
+      Parkett wirkten „wie quadratische Fliesen" — Formtreue-Fix:
+      _build_patterns kennt jetzt **ar** (mm-Verhältnis t-Periode/
+      s-Periode, aus apply_texture gereicht; Preview-Renderer
+      übergeben ihr pixel-äquivalentes ar), LAMINATE = schmale
+      Dielen (halbe Periodenbreite, ke=2k) über M ganze Perioden
+      Länge (Zielaspekt ~1:6, M Teiler von n), PARQUET = echte
+      45°-Fischgrät-Mathematik (P Stäbe/Höhe und Q Diagonal-Versatz
+      ganzzahlig aus ar hergeleitet; Stäbe ~1:5, Winkel 30–75°),
+      TILES bleibt bewusst quadratisch (Reihenzahl folgt ar).
+      Fugen von der Körnung freigehalten (die TILES-Lektion), Preset
+      Laminat auf scale 14/zsize 18. Checks: r238 **40/40** (neu:
+      PARQUET Flip+Winkel+L/B per Fugen-Tracking, LAMINATE-länglich
+      vs TILES-quadratisch per Fugenabstandsmessung), macro_render
+      2112/2112, megatest 196/0, r165 + r199 clean.
+      **OFFEN — Roadmap nach Nutzer-Wunschliste 19.11. (2. Review):**
+      - **Häppchen 2 (technisch/modern):** Perforationsblech (rund +
+        quadratisch versetzt — Dellen, keine echten Löcher!),
+        Carbon/Twill-Gewebe, Pin-/Kugel-Matrix (halbkugelige Noppen,
+        gerade + versetzt), Hexagon-/Oktagon-Zellmuster (variabler
+        Zelldurchmesser), Maschendraht (Rauten-Drahtgitter),
+        Netzgewebe (Fadengitter mit Knoten).
+      - **Häppchen 3 (organisch/natürlich):** Holz QUER (Jahresringe)
+        + Holzarten-Varianten (Eiche grob, Buche fein, astig),
+        Baumrinden-Varianten (u.a. ALTER Baumstamm, rausgefressene
+        Rinde, tiefe Rillen → Deep Relief, s. u.), Leder (Narben +
+        gepolsterte Steppung), Orangenhaut (bewusst fein),
+        Trockenrisse/Schlammplatten, grobe Knitterfalten.
+      - **Häppchen 4 (Deko/Haptik/Kitsch):** Sterne, Herzen,
+        Ringe/Bubbles (viele kleine Ringe AUF der Fläche, nicht um
+        sie), Golfball-Dimples, Basketball (Noppen + Kanäle),
+        Raufasertapete, Dachziegel (überlappend, mit Falz),
+        Häkelstruktur (Strick existiert als KNIT).
+      - **QUERSCHNITT DEEP RELIEF (vor Häppchen 3 bauen, Nutzer-
+        Frage 19.11.):** starke Geometrie-Verformung (2–4 mm statt
+        max 1 mm) für „echter alter Baumstamm". Dafür: (a) **E-
+        Mitberechnung** — aktuell bleibt E je Move unverändert (nur
+        X/Y der Außenwand wandern; Gesamtextrusion exakt, lokale
+        Liniendichte weicht um den Pfadverlängerungsfaktor ab; bei
+        sanften Texturen <5 % unsichtbar, bei tiefen Rillen relevant)
+        → E_neu = E_alt · L_neu/L_alt pro Segment mit Summen-Erhalt;
+        (b) **Subdivision** steiler Gradienten (Struktur auflösen,
+        bevor die Düse sie glattbügelt); (c) **Steilheits-Cap**
+        gegen Selbstschnitt/Löcher (Δrad ≤ Faktor × Segmentlänge);
+        (d) Inner-Wall-Following + Flip-Realign greifen bereits
+        (R224), für Deep-Relief erneut verifizieren.
+      Vor jedem Häppchen: Nutzer-Preview/Zusage (bewährte Regel).
       **Gewünschte neue Familien (Vorschlagsliste, vor Bau mit Nutzer
       abstimmen):** Wände/Mauerwerk — Natursteinmauer, Bruchstein-
       Rhändermauer (drei Sorten Fugenversatz), Fliesen (quadratisch +

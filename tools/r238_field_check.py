@@ -340,28 +340,69 @@ try:
           _ti_flat / _tot > 0.42 and 0.04 < _ti_grout / _tot < 0.35,
           'flat %.2f grout %.2f' % (_ti_flat / _tot, _ti_grout / _tot))
 
-    # PARQUET: the plank diagonals flip direction in every column (chevron).
-    # One pixel in x shifts the plank phase by P/column_px planks = 8 rows
-    # in y at this grid - correlate f(x,y) with f(x+1, y +/- 8): the sign
-    # of the winning shift must alternate per column.
+    # PARQUET (R265.2 form truth): a chevron slat must read LONG, the
+    # diagonal must be a real diagonal (30..75 deg) and the direction
+    # must flip in every column. Measured by TRACKING one joint valley
+    # across each column (immune to the aliasing that kills correlation
+    # shifts when the slat wave is finer than the shift).
     _pq_g = _grid265(_g1p['PARQUET'], w=168, h=112)
     _pq_cols = 12                      # ke = k+(k&1) at k=12
     _pq_cw = 168 // _pq_cols           # column width in px (14)
-    _pq_sh = 6                         # measured: dir=+1 cols match +6
-    _pq_flip_ok = 0
-    for _c in range(_pq_cols):
-        _xa = _c * _pq_cw + 4
-        _xb = _xa + 1                  # ONE pixel in x -> clean phase shift
-        _up = sum(_pq_g[_y][_xa] * _pq_g[(_y + _pq_sh) % 112][_xb]
-                  for _y in range(0, 112, 2))
-        _dn = sum(_pq_g[_y][_xa] * _pq_g[(_y - _pq_sh) % 112][_xb]
-                  for _y in range(0, 112, 2))
-        if ((_c % 2 == 0 and _up > _dn) or (_c % 2 == 1 and _dn > _up)):
-            _pq_flip_ok += 1
-    check('R265 PARQUET: chevron - diagonal direction flips per column',
-          _pq_flip_ok >= _pq_cols - 1,
-          '%d/%d columns flip correctly (sh=%d)' % (
-              _pq_flip_ok, _pq_cols, _pq_sh))
+
+    def _pq_slope(_col):
+        def _f(_fx, _y):
+            return _pq_g[_y % 112][int(_col * _pq_cw + _fx * _pq_cw) % 168]
+        _y0 = min(range(112), key=lambda yy: _f(0.3, yy))
+        _y = _y0
+        for _st in range(9):
+            _y = min(range(_y - 3, _y + 4),
+                     key=lambda yy: _f(0.35 + (_st + 1) * 0.05, yy))
+        return (_y - _y0) / (0.4 * _pq_cw)
+    _pq_slopes = [_pq_slope(_c) for _c in range(_pq_cols)]
+    _pq_ev = sorted(_pq_slopes[0::2])[len(_pq_slopes[0::2]) // 2]
+    _pq_od = sorted(_pq_slopes[1::2])[len(_pq_slopes[1::2]) // 2]
+    _pq_m = abs(_pq_ev - _pq_od) / 2.0
+    _pq_ang = math.degrees(math.atan(_pq_m))
+    # slat aspect: joint spacing on a centre-column t-profile (deep
+    # valleys only - the grain rides on the face, the groove is clean)
+    def _valleys(_prof, _thr, _gap=4):
+        _out = []
+        for _i in range(1, len(_prof) - 1):
+            if (_prof[_i] < _thr and _prof[_i] <= _prof[_i - 1]
+                    and _prof[_i] <= _prof[(_i + 1) % len(_prof)]
+                    and (not _out or _i - _out[-1] > _gap)):
+                _out.append(_i)
+        return len(_out)
+    _pq_sc = (_pq_cols // 2 * _pq_cw + _pq_cw // 2) / 168.0
+    _pq_A = _valleys([_g1p['PARQUET'](_pq_sc, _y / 112.0) for _y in range(112)], -0.2)
+    _pq_dc = 112.0 / max(1, _pq_A)     # joint spacing in px
+    _pq_L = _pq_cw * math.sqrt(1 + _pq_m * _pq_m)
+    _pq_b = _pq_dc / math.sqrt(1 + _pq_m * _pq_m)
+    check('R265 PARQUET: chevron - direction flips per column, slats '
+          'read LONG (angle 30..75, L/B > 3)',
+          (_pq_ev > 0) != (_pq_od > 0) and abs(_pq_ev) > 0.1
+          and abs(_pq_od) > 0.1
+          and 30.0 <= _pq_ang <= 75.0 and _pq_L / _pq_b > 3.0,
+          'even %+.2f odd %+.2f -> %.0f deg, L/B %.1f (%d joints)'
+          % (_pq_ev, _pq_od, _pq_ang, _pq_L / _pq_b, _pq_A))
+
+    # LAMINATE / TILES form truth (R265.2 'the planks read like tiles'):
+    # a laminate board is LONG (end-joint spacing >> board width), a wall
+    # tile is SQUARE. Measured as deep-valley spacing on the s- and
+    # t-profiles of a 168x112 grid (mm-proportional at k=12/n=8/ar=1).
+    _ke_l = max(4, 2 * 12)             # laminate board count at k=12
+    _lam_sc = (_ke_l // 2 + 0.5) / float(_ke_l)      # board CENTRE
+    _lam_B = _valleys([_g1p['LAMINATE'](_x / 168.0, 0.5) for _x in range(168)], -0.25)
+    _lam_A = _valleys([_g1p['LAMINATE'](_lam_sc, _y / 112.0) for _y in range(112)], -0.12)
+    _lam_asp = (112.0 / max(1, _lam_A)) / (168.0 / max(1, _lam_B))
+    _ti_B = _valleys([_g1p['TILES'](_x / 168.0, 0.53) for _x in range(168)], -0.3)
+    _ti_A = _valleys([_g1p['TILES'](0.53, _y / 112.0) for _y in range(112)], -0.3)
+    _ti_asp = (112.0 / max(1, _ti_A)) / (168.0 / max(1, _ti_B))
+    check('R265 LAMINATE: boards read LONG, TILES read SQUARE '
+          '(aspect laminate > 2.5, tiles 0.75..1.35)',
+          _lam_asp > 2.5 and 0.75 <= _ti_asp <= 1.35 and _lam_asp > _ti_asp * 2.0,
+          'laminate %.1f (%d x %d boards), tiles %.2f (%d x %d)'
+          % (_lam_asp, _lam_B, _lam_A, _ti_asp, _ti_B, _ti_A))
 
     # LAMINATE: grain streaks ALONG the plank - horizontal gradients clearly
     # dominate vertical ones, and MORE than on PLANKS (the distinguisher)
