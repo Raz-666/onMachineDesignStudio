@@ -333,6 +333,17 @@ wieder bereit ist. Nichts hiervon ohne Go.)*
 
 ## F. Erledigt (mit Beleg)
 
+- [x] **R264 — PDF-Pflege V4 (19.11.2026).** Die drei versions-/inhaltstragenden
+      PDFs nachgebaut: `MANUAL.pdf` (stempelaktuell R2-2026-11-18.3, Kap. 5.21
+      Toolchain drin), `GENERATORS_TOOLS.pdf` (13 Seiten, 15 File-Tools:
+      Toolchain-Block neu; alle LCD-Pfade von „Mods" auf den echten
+      Anzeigenamen „Tools" berichtigt — 14 Stellen), `CREATIVE_POSSIBILITIES.pdf`
+      (11 Seiten, 13 Rezepte: „Die Effektkette — ein Preset, ein Guss" neu,
+      V4-Stempel, 9 Pfad-Fixes). TEXTURING/FEATURE_TAGGING/DISPLAYS/CUTSPLIT
+      unverändert (keine Versionsstempel, kein Inhaltsdrift). Beleg:
+      Builder-Läufe `[ok] … 13 pages/11 generators/15 tools` bzw. `11 pages,
+      13 recipes`; TOOLS_INVENTORY-Zeilen aktualisiert.
+
 - [x] **R252 (.142h) — Postprozessor-Umschalter + Log-Paket.** Auf Anweisung:
       den laufenden Postprozessor NICHT umbauen, sondern kopieren
       (`tools/r2_postproc_next.py`, byte-gleich) und einen Schalter ins
@@ -758,6 +769,64 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       parametrisch, 1423 Checks). Offline machbar als Audit + Tests
       (synthetische Fremddrucker-Konfigurationen gegen Generatoren/
       Maschinenmodell). Nächster Kandidat nach K2 bzw. nach Nutzerpriorität.
+
+- [ ] **J8 — TEXTUREN-RUNDE II (Nutzer-Wunsch 19.11.2026, mit Lastenheft).**
+      Nutzerbewertung: die zuletzt ergänzten Texturen „sehen wirklich
+      schon sehr gut aus“ — GENAU in die Richtung, aber mehr Auswahl,
+      mehr Variation. Verbindliche Regeln (alle aus der Nutzernachricht):
+      (a) **IMMER passgenaue nahtlose endlos Texturen** (wie vorhanden);
+      (b) **Name passt wirklich zum Ergebnis**; (c) **am 3D-Druck sichtbar**
+      — Muster, die auf der Fläche kaum Unterschied zeigen oder bloß
+      glatte Oberflächen ergeben würden, RAUS oder ersetzen
+      (Kandidaten prüfen: nah beieinander liegende Rausch-Familien);
+      (d) natürlich/organisch ODER akkurat/technisch, je nachdem was
+      die Textur verlangt; (e) gleiche Sorgfalt wie bei der letzten Runde
+      (R238: codebasiert, Matrix-Vorschau aus den echten Pattern-Funktionen,
+      Kennzahlentest auf Unterscheidbarkeit, Presets 1:1 gekoppelt wie G3).
+      **Gewünschte neue Familien (Vorschlagsliste, vor Bau mit Nutzer
+      abstimmen):** Wände/Mauerwerk — Natursteinmauer, Bruchstein-
+      Rhändermauer (drei Sorten Fugenversatz), Fliesen (quadratisch +
+      Rechteckversatz, mit Fase), Parkett (Fischgrät + Stabparkett mit
+      Nut/Feder-Kerben), Laminat-Dielen (lange Planken, HF-geprägte
+      Holzstruktur); Hölzer — Längs- UND Querholz (Jahresringe
+      quer), verschiedene Holzarten (Eiche grobfaserig, Buche fein, astig
+      mit Ästen); Labyrinth-artiges — **HILBERT ERSETZEN: echte
+      Hilbert-Kurve (Distance-Field) statt Zickzack-Bändern**
+      (Nutzerbefund: „müsste eher wie ein Labyrinth aussehen“
+      — soll es auch sein), plus echte Labyrinth-/Maze-Struktur;
+      technische/moderne Strukturen — Hexagon-/Oktagon-Zellmuster
+      (variabler Zelldurchmesser), Perforationsblech (rund + quadratisch
+      versetzt), Carbon-/Twill-Gewebe, Pin-/Noppen-Matrix; organisch —
+      Wellblech diagonal, Ledernarben, Orangenhaut (bewusst fein),
+      Trockenrisse/Schlammplatten.
+      Orientierung erlaubt: klassische 3D-Programm-Texturbibliotheken
+      (prozedurale wood/stone/brick/tiles/…), aber nur fürs
+      Bump-Mapping interessante Ideen übernehmen.
+      Lieferumfang je Muster: Pattern-Funktion + Preset + Kennzahlentest +
+      Matrix-Preview-Zelle + TEXTURING.pdf-Katalogseite + r238-artiger
+      Feldcheck. **Vor Baubeginn: verbindliche Musterliste dem Nutzer zur
+      Bestätigung** (Umfang klären: wie viele neu, welche raus).
+- [ ] **J9 — SCHABLONEN-GENERATOR (NEU, Nutzeridee 19.11.2026 — vorgemerkt
+      für Besprechung, kein Baubeginn ohne Go).** Aus einem hochgeladenen
+      Bild (wie Lithophane/Colorpic: Bild → Analyseschritte) eine
+      **druckbare Schablone zum Zeichnen/Sprühen** erzeugen:
+      — **Einfacher Modus:** hell/dunkel — eine Lage, zwei Stufen.
+      — **Profi-Modus (der eigentliche Wunsch):** Bild auf wenige
+      Farben/Stufen reduzieren (Quantisierung), **je Stufe eine Schablone**;
+      die Lagen werden **in fester Reihenfolge übereinandergelegt**
+      (Registration: Passstifte/Passlöcher, Deckschicht mit
+      Aussparungen).
+      — **Insel-Problem (vom Nutzer selbst erkannt):** Details ohne
+      Verbindung zum Rahmen müssen über **Stegverbindungen**
+      (Brücken, die beim Sprühen kaum auffallen) oder über
+      zusätzliche Lagen angebunden werden — professionelle
+      Mehrschicht-Schablonen lösen das über die Layer-Reihenfolge.
+      — Ausgabe wie jeder Generator: G-code direkt (kein Slicer),
+      dünne Platte mit Aussparungen; natürliche Heimat im
+      Pre-Print-Bereich neben Litho/Colorpic (Bild-Pfad mit Otsu/Schwellen
+      wie MAP existiert schon). Offene Fragen für die Besprechung:
+      Mindest-Stegbreite je Düsendurchmesser, Platten-/Rahmenform,
+      wie viele Stufen sinnvoll (2–5), Negativschablone ja/nein.
 
 ## K. Toolchain-Architektur §20 („Effektkette") — begonnen (Sitzung nach `fecf500`)
 

@@ -345,6 +345,26 @@ RECIPES = [
   'nur, dass ein gutes Modell am Drucker scheitert.',
   'Bei jedem neuen Material einmal File check plus Range-Ausschnitt: das '
   'kostet 15 Minuten und spart ganze Abende.'),
+ ('Die Effektkette — ein Preset, ein Guss', PURPLE,
+  'Mehrere Werkzeuge in einem Ablauf: skalieren, verwinden, texturieren — '
+  'ohne jeden Einzelschritt von Hand. Ein JSON-Preset beschreibt die '
+  'Reihenfolge, der Drucker arbeitet sie als EINEN Job ab, und nur das '
+  'Endergebnis bleibt übrig.',
+  ['Am PC/Mainsail ein Preset als .json in den Ordner Toolchain/ legen — '
+   'die Vorlage scale-twist.json aus dem Paket zeigt das Format.',
+   'Pre-Print &gt; Tools &gt; Toolchain öffnen: Preset und Eingabedatei '
+   'stehen dort, How? (chain) erklärt den Ablauf.',
+   'Apply 2x drücken — der Fortschritt läuft als '
+   'Chain n/N &lt;Werkzeug&gt; über das Display; währenddessen '
+   'verweigert jeder Druckstart (Wait: generating).',
+   'Das Ergebnis V&lt;nn&gt;_&lt;Name&gt;_&lt;PresetTag&gt;.gcode liegt im '
+   'Ordner Toolchain/ und ist wie jede erzeugte Datei sofort druckbar.'],
+  'Kettbar sind Range, Scale, Texture, Twist und Mirror — der '
+  'Kuchen-Schnitt bleibt Einzelschritt (Hand-Übergabe). Und: Presets '
+  'entstehen am PC als Datei, nicht am Drehrad — laden und löschen '
+  'geht am Display, schreiben nicht.',
+  'Einmal zehn Minuten fürs Preset — danach ist jede Variante '
+  'wirklich ein einziger Druck.'),
 ]
 
 
@@ -381,7 +401,7 @@ def build(path):
           [30*mm, 62*mm, 84*mm]))
     A(PageBreak())
 
-    A(Paragraph('Zwölf Rezepte', S['h1']))
+    A(Paragraph('Dreizehn Rezepte', S['h1']))
     A(P('Jedes Rezept nennt zuerst die Idee, dann die Schritte, dann was es '
         'kostet. Die Menüwege sind die, die am Drucker wirklich existieren.'))
     for title, col, idea, steps, limit, cost in RECIPES:
