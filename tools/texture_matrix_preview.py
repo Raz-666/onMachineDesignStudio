@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render a code-derived preview matrix for the selected 10 texture looks.
+"""Render a code-derived preview matrix for the selected texture looks.
 
 This visualizes the exact periodic height-field functions in r2_texture.py on
 an unwrapped cylinder. It is an algorithm diagnostic, NOT a photo or a claim
@@ -25,12 +25,22 @@ MATERIALS = (
     ('PLUSH', 'Plush: fine grain'),
     ('SCALES', 'Scales: domed shingles'),
     ('FLUTED', 'Fluted: axial ribs'),
+    ('STONEWALL', 'Stone wall: bed + joint mortar'),
+    ('RUBBLE', 'Rubble: voronoi boulders'),
+    ('TILES', 'Tiles: chamfer + grout lines'),
+    ('PARQUET', 'Parquet: chevron planks'),
+    ('LAMINATE', 'Laminate: V-bevel planks'),
+    ('HILBERT', 'Hilbert: real order-3 curve'),
+    ('MAZE', 'Maze: spanning-tree labyrinth'),
 )
 
 
-def render(path):
+def render(path, materials=None):
+    mats = list(MATERIALS if materials is None else materials)
     width, label_h = 320, 26
-    cols, panel_rows = 2, 5
+    # keep the classic 2-col layout for small sets, grow for the full library
+    cols = 2 if len(mats) <= 10 else (3 if len(mats) <= 18 else 4)
+    panel_rows = (len(mats) + cols - 1) // cols
     pad, gap = 14, 12
     head_h = 46
     k, n = 18, 12
@@ -52,7 +62,7 @@ def render(path):
     draw.text((pad, 29), 'Unwrapped cylinder samples; grayscale = signed displacement. Simulation only, not a print guarantee.',
               fill='#53616b', font=small)
     patterns = r2_texture._build_patterns(18, 12, 37, None)
-    for idx, (name, label) in enumerate(MATERIALS):
+    for idx, (name, label) in enumerate(mats):
         col, row = idx % cols, idx // cols
         x0 = pad + col * (width + gap)
         y0 = head_h + pad + row * (cell_h + gap)
@@ -74,7 +84,17 @@ def render(path):
 
 
 if __name__ == '__main__':
-    target = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
-        HERE, '..', 'docs', 'textur-matrix-soll.png')
-    size, nbytes = render(target)
+    arg = sys.argv[1] if len(sys.argv) > 1 else None
+    if arg == 'all':
+        # the IST matrix: EVERY procedural pattern of the library, straight
+        # from _build_patterns() - no curation, no description gloss.
+        # (MAP is image-based, not a closed-form height field - skip.)
+        mats = [(name, name) for name in r2_texture.PATTERN_NAMES
+                if name != 'MAP']
+        target = os.path.join(HERE, '..', 'docs', 'textur-matrix-ist.png')
+        size, nbytes = render(target, mats)
+    else:
+        target = arg or os.path.join(
+            HERE, '..', 'docs', 'textur-matrix-soll.png')
+        size, nbytes = render(target)
     print('wrote %s (%dx%d, %d bytes)' % (target, size[0], size[1], nbytes))

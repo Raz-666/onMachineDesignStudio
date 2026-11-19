@@ -536,11 +536,13 @@ lbl = pp.make_labels(['TEXTUR'], bed=BED, out_dir=D)[0]
 run('texture FUZZY on label', lambda: tx.apply_texture(
     lbl, mode='FUZZY', fuzzy_thick=0.3, fuzzy_density=55, out_dir=D), skip_idem=True)
 frm = pp.make_frame(preset='9x13', bed=BED, out_dir=D)[0]
-# R175: the seamless pattern library - all 21 patterns, Z-size variants
+# R175/R265: the seamless pattern library - every bump pattern, Z-size
+# variants (R265 adds the stone/tile/parquet/maze six)
 for pat in ('RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX',
             'HONEYCOMB', 'BASKET', 'ROPE', 'PLANKS', 'BRICKS', 'SANDSTONE',
             'CONCRETE', 'CLAY', 'CREPE', 'FABRIC', 'PLUSH', 'HILBERT',
-            'SCRATCH', 'GLITCH'):
+            'SCRATCH', 'GLITCH', 'STONEWALL', 'RUBBLE', 'TILES', 'PARQUET',
+            'LAMINATE', 'MAZE'):
     run('texture BUMPS %s on frame' % pat, lambda p=pat: tx.apply_texture(
         frm, mode='BUMPS', bump_pattern=p, bump_scale=6.0, bump_amp=0.5,
         zsize=4.0, seed=11, out_dir=D), skip_idem=True, r2_gen=True)

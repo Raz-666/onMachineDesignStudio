@@ -16254,10 +16254,12 @@ _ta175 = open('macros/17_generator.cfg').read()
 _lcd175 = open('menus/lcd_menues.cfg').read()
 _pp175 = open('tools/r2_postproc.py').read()
 
-tests.append(('R175 library: 27 seamless patterns + FUZZY + MAP image wrap (R238: 6 more)',
-    len(_tx175.PATTERN_NAMES) == 27
+tests.append(('R175 library: 33 seamless patterns + FUZZY + MAP image wrap '
+    '(R238/R265: 6+6 more)',
+    len(_tx175.PATTERN_NAMES) == 33
     and 'HONEYCOMB' in _tx175.PATTERN_NAMES and 'GLITCH' in _tx175.PATTERN_NAMES
-    and 'MAP' in _tx175.PATTERN_NAMES and 'MANDELBROT' not in _tx175.PATTERN_NAMES,
+    and 'MAP' in _tx175.PATTERN_NAMES and 'MANDELBROT' not in _tx175.PATTERN_NAMES
+    and 'STONEWALL' in _tx175.PATTERN_NAMES and 'MAZE' in _tx175.PATTERN_NAMES,
     str(len(_tx175.PATTERN_NAMES))))
 # Seam-Beweis: der Sprung am Umfangs-Wrap ist nie groesser als im Feldinneren
 import math as _m175
@@ -18063,14 +18065,15 @@ _web214 = open('web/index.html', encoding='utf-8').read()
 # the library looks from the ONE truth (the macro config variable)
 _libm214 = re.search(r'^variable_texture_lib: (.+)$', _mc214, re.M)
 _lib214 = _ast214.literal_eval(_libm214.group(1))
-tests.append(('R214/R253 texture library: 27 looks live in the macro config '
-    '(appearance names, full 9-key sets, ranges valid)',
-    len(_lib214) == 27
+tests.append(('R214/R253/R265 texture library: 33 looks live in the macro '
+    'config (appearance names, full 9-key sets, ranges valid)',
+    len(_lib214) == 33
     and {v['texture_pattern'] for v in _lib214.values()} == {
         'RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX', 'HONEYCOMB',
         'BASKET', 'ROPE', 'PLANKS', 'BRICKS', 'SANDSTONE', 'CONCRETE',
         'CLAY', 'CREPE', 'FABRIC', 'PLUSH', 'HILBERT', 'SCRATCH', 'GLITCH',
-        'KNIT', 'FLUTED', 'BARK', 'SCALES', 'FACETS', 'MACRAME', 'MAP'}
+        'KNIT', 'FLUTED', 'BARK', 'SCALES', 'FACETS', 'MACRAME', 'MAP',
+        'STONEWALL', 'RUBBLE', 'TILES', 'PARQUET', 'LAMINATE', 'MAZE'}
     and all(sorted(v) == sorted(['texture_mode', 'texture_fuzzy_thick',
         'texture_fuzzy_density', 'texture_pattern', 'texture_scale',
         'texture_zsize', 'texture_amp', 'texture_dir', 'texture_seed'])

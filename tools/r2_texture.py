@@ -61,7 +61,7 @@ Patterns (all seamless, all seeded where random)
   CREPE       high-frequency crumple x a mid wave (paper)
   FABRIC      pleats - sharp valleys, wide backs
   PLUSH       dense short fine noise (velvet)
-  HILBERT     zig-zag space-filling bands (the curve look)
+  HILBERT     REAL order-3 Hilbert curve walls, tiled - the labyrinth (R265)
   CHECKER     checkerboard, soft edges
   SCRATCH     anisotropic scratches around the circumference
   HATCH       hard diagonal hatching
@@ -73,6 +73,12 @@ Patterns (all seamless, all seeded where random)
   FACETS      diamond low-poly relief crosses (R238)
   MACRAME     two twisted cord families crossing into a net (R238)
   MAP         grayscale image, background = alpha (Otsu), TILE or ONCE (R238)
+  STONEWALL   coursed ashlar - seeded block widths per row, mortar beds (R265)
+  RUBBLE      uncoursed fieldstones - wrapped jittered Voronoi + mortar (R265)
+  TILES       glazed square tiles - flat tops, chamfered bevel, grout (R265)
+  PARQUET     chevron fishbone - diagonal planks, mitred V-joints (R265)
+  LAMINATE    long narrow planks - V-bevel + dominant grain streaks (R265)
+  MAZE        true labyrinth - seeded spanning-tree maze on the torus (R265)
 
 What it never touches
 - ;TYPE: tags, LAYER_MARK / APPLY_TYPE, EXCLUDE_OBJECT_*, temps, fans,
@@ -590,11 +596,18 @@ def _build_patterns(k, n, seed, img, map_mode='TILE', map_pos='CENTER',
         lambda s, t: (noise(s, t, max(6, k * 5), max(6, n * 5)) - 0.42) * 1.1)
 
     def _hilbert(s, t):
-        # zig-zag space-filling bands: triangle in s, offset flips per band
-        row = int(math.floor(t * n))
-        off = 0.5 if row % 2 else 0.0
-        v = _tri((s + off) * max(2, k))
-        return v * (0.7 + 0.3 * (1.0 - abs(((t * n) % 1.0) - 0.5) * 2))
+        # R265 (J8): a REAL Hilbert curve - raised walls along the order-3
+        # space-filling path, tiled (one COMPLETE curve per tile). The user
+        # finding was right: the old zig-zag bands were no labyrinth. The
+        # distance field is precomputed ONCE into a bitmap (wrap-aware, so
+        # walls continue cleanly across tile borders) and read back with a
+        # bilinear lookup - O(1) per wall point, Pi-friendly. A gentle ramp
+        # along the curve parameter keeps the traversal order readable.
+        tx = max(1, int(round(k / 4.0)))
+        ty = max(1, int(round(n / 4.0)))
+        u = (s * tx) % 1.0
+        v = (t * ty) % 1.0
+        return _hb_field(u, v)
     pats['HILBERT'] = _hilbert
 
     def _scratch(s, t):
@@ -615,6 +628,372 @@ def _build_patterns(k, n, seed, img, map_mode='TILE', map_pos='CENTER',
         lip = _smoothstep(0.0, 0.08, fy) * (1 - _smoothstep(0.92, 1.0, fy))
         return max(-1.0, min(1.0, step * lip))
     pats['GLITCH'] = _glitch
+
+    # ---- R265 helpers: stone layouts, Voronoi sites, curve/maze bitmaps -------
+    _sw_cache = {}
+
+    def _sw_layout(row):
+        # per-row block widths: seeded, but NORMALIZED to sum exactly ke
+        # (the wrap closes flush no matter what the seed draws)
+        lay = _sw_cache.get(row)
+        if lay is None:
+            ke = max(2, k + (k & 1))
+            ws = [band_rnd[(row * 7 + i * 3) % len(band_rnd)] + 0.30
+                  for i in range(ke)]
+            tot = sum(ws)
+            lay = [w * ke / tot for w in ws]
+            _sw_cache[row] = lay
+        return lay
+
+    _rb_gx = max(3, min(24, k))
+    _rb_gy = max(3, min(24, n))
+    _rb_sites = [[(0.18 + 0.64 * rng.random(), 0.18 + 0.64 * rng.random())
+                  for _ in range(_rb_gy)] for _ in range(_rb_gx)]
+    _rb_tone = [[rng.random() for _ in range(_rb_gy)]
+                for _ in range(_rb_gx)]
+
+    def _field_bitmaps(segs, sx, sy, res, wall_lo, wall_hi):
+        """R265: ONE-TIME wrap-aware distance field over a `sx` x `sy`
+        torus covered by axis-aligned unit-step `segs`
+        (x0, y0, x1, y1, par). Returns lookup(u, v) -> -1..+1 with raised
+        walls along the segments (u, v in [0,1) each cover their full
+        period, so the field TILES exactly). Bucketed per cell; the eval
+        is a bilinear bitmap lookup - O(1) per wall point."""
+        cells = {}
+        for sg in segs:
+            x0, y0, x1, y1, par = sg
+            for ex in (x0, x1):
+                for ey in (y0, y1):
+                    for ox in (-1, 0):
+                        for oy in (-1, 0):
+                            cells.setdefault(
+                                ((ex + ox) % sx, (ey + oy) % sy),
+                                []).append(sg)
+
+        def dist_at(px, py):
+            # torus-wrapped point-to-segment distance + curve parameter
+            best = 1e9
+            bpar = 0.0
+            cx = int(math.floor(px)) % sx
+            cy = int(math.floor(py)) % sy
+            for ddy in (-1, 0, 1):
+                for ddx in (-1, 0, 1):
+                    for sg in cells.get(((cx + ddx) % sx,
+                                         (cy + ddy) % sy), ()):
+                        x0, y0, x1, y1, par = sg
+                        # projection clamp (segments are axis-aligned)
+                        tproj = (((px - x0) * (x1 - x0) +
+                                  (py - y0) * (y1 - y0)) /
+                                 max(1e-12, (x1 - x0) ** 2 + (y1 - y0) ** 2))
+                        tproj = max(0.0, min(1.0, tproj))
+                        dx = x0 + tproj * (x1 - x0) - px
+                        dy = y0 + tproj * (y1 - y0) - py
+                        # EXACT torus distance: wrap each axis into
+                        # [-period/2, period/2) - equivalent to checking
+                        # all 9 copies, at 1/9 the cost
+                        if dx > 0.5 * sx:
+                            dx -= sx
+                        elif dx < -0.5 * sx:
+                            dx += sx
+                        if dy > 0.5 * sy:
+                            dy -= sy
+                        elif dy < -0.5 * sy:
+                            dy += sy
+                        d = dx * dx + dy * dy
+                        if d < best:
+                            best = d
+                            bpar = par
+            return math.sqrt(best), bpar
+
+        field = []
+        parm = []
+        for j in range(res):
+            py = (j + 0.5) * sy / res
+            frow = []
+            prow = []
+            for i in range(res):
+                px = (i + 0.5) * sx / res
+                d, par = dist_at(px, py)
+                frow.append(d)
+                prow.append(par)
+            field.append(frow)
+            parm.append(prow)
+
+        def lookup(u, v):
+            # bilinear read, tile-local u, v in [0,1)
+            fu = u * res - 0.5
+            fv = v * res - 0.5
+            i0 = int(math.floor(fu)) % res
+            j0 = int(math.floor(fv)) % res
+            i1 = (i0 + 1) % res
+            j1 = (j0 + 1) % res
+            ax = fu - math.floor(fu)
+            ay = fv - math.floor(fv)
+            def bl(mat):
+                return (mat[j0][i0] * (1 - ax) * (1 - ay) +
+                        mat[j0][i1] * ax * (1 - ay) +
+                        mat[j1][i0] * (1 - ax) * ay +
+                        mat[j1][i1] * ax * ay)
+            d = bl(field)
+            par = bl(parm)
+            wall = 1.0 - _smoothstep(wall_lo, wall_hi, d)
+            return max(-1.0, min(1.0, 0.9 * wall * (0.82 + 0.18 * par) - 0.35))
+
+        return lookup
+
+    # -- the REAL Hilbert curve (order 3, 8x8, classic d2xy mapping) ----------
+    _hb_side = 8
+
+    def _hb_d2xy(idx):
+        x = y = 0
+        t = idx
+        s = 1
+        while s < _hb_side:
+            rx = 1 & (t // 2)
+            ry = 1 & (t ^ rx)
+            if ry == 0:
+                if rx == 1:
+                    x = s - 1 - x
+                    y = s - 1 - y
+                x, y = y, x
+            x += s * rx
+            y += s * ry
+            t //= 4
+            s *= 2
+        return x, y
+
+    _hb_pts = [_hb_d2xy(i) for i in range(_hb_side * _hb_side)]
+    _hb_segs = []
+    for _i in range(len(_hb_pts) - 1):
+        _a, _b = _hb_pts[_i], _hb_pts[_i + 1]
+        _hb_segs.append((_a[0], _a[1], _b[0], _b[1],
+                         _i / float(len(_hb_pts) - 1)))
+    # walls hug the curve (measured d range 0.10..0.71, median 0.30):
+    # 0.12..0.30 leaves real corridors between the runs. LAZY: only a
+    # HILBERT apply ever pays the one-time bitmap build.
+    _hb_cache = []
+
+    def _hb_field(u, v):
+        if not _hb_cache:
+            _hb_cache.append(_field_bitmaps(
+                _hb_segs, _hb_side, _hb_side, 96, 0.12, 0.30))
+        return _hb_cache[0](u, v)
+
+    # -- the TORUS MAZE (seeded spanning tree; walls = uncarved edges) --------
+    _mz_gx = max(5, min(13, int(round(k))))
+    _mz_gy = max(5, min(13, int(round(n))))
+    _mz_walls = set()
+    for _i in range(_mz_gx):
+        for _j in range(_mz_gy):
+            _mz_walls.add(('E', _i, _j))       # edge to the east neighbour
+            _mz_walls.add(('S', _i, _j))       # edge to the south neighbour
+    _mz_seen = {(0, 0)}
+    _mz_stack = [(0, 0)]
+    while _mz_stack:
+        _cx, _cy = _mz_stack[-1]
+        _nbrs = []
+        for _wk, _nx, _ny in (
+                (('E', _cx, _cy), (_cx + 1) % _mz_gx, _cy),
+                (('E', (_cx - 1) % _mz_gx, _cy), (_cx - 1) % _mz_gx, _cy),
+                (('S', _cx, _cy), _cx, (_cy + 1) % _mz_gy),
+                (('S', _cx, (_cy - 1) % _mz_gy), _cx, (_cy - 1) % _mz_gy)):
+            if (_nx, _ny) not in _mz_seen:
+                _nbrs.append((_wk, _nx, _ny))
+        if _nbrs:
+            _wk, _nx, _ny = _nbrs[rng.randrange(len(_nbrs))]
+            _mz_walls.discard(_wk)
+            _mz_seen.add((_nx, _ny))
+            _mz_stack.append((_nx, _ny))
+        else:
+            _mz_stack.pop()
+    # seal-proofing: a lattice vertex whose 4 surrounding edges are ALL
+    # walls would enclose a tiny unreachable pocket (wall-cycle around one
+    # grid point). Carve one edge of every such vertex - the spanning
+    # tree stays intact (removing walls only ADDS connections), and the
+    # corridor system becomes ONE walkable component: a perfect maze.
+    for _vx in range(_mz_gx):
+        for _vy in range(_mz_gy):
+            _around = (
+                ('E', (_vx - 1) % _mz_gx, (_vy - 1) % _mz_gy),
+                ('E', (_vx - 1) % _mz_gx, _vy % _mz_gy),
+                ('S', (_vx - 1) % _mz_gx, (_vy - 1) % _mz_gy),
+                ('S', _vx % _mz_gx, (_vy - 1) % _mz_gy))
+            if all(_wk in _mz_walls for _wk in _around):
+                _mz_walls.discard(_around[3])
+    _mz_segs = []
+    for _ek, _i, _j in sorted(_mz_walls):
+        if _ek == 'E':
+            # vertical wall segment on the line x = i+1, from y=j to j+1
+            _mz_segs.append((_i + 1, _j, _i + 1, _j + 1, 0.5))
+        else:
+            # horizontal wall segment on the line y = j+1, from x=i to i+1
+            _mz_segs.append((_i, _j + 1, _i + 1, _j + 1, 0.5))
+    # NOTE: boundary segments (x=gx or y=gy) stay WHERE THEY ARE - the
+    # torus distance wraps the deltas per axis, and the cell buckets wrap
+    # their keys. Folding the endpoints back to 0 would instead create
+    # PHANTOM walls spanning the whole domain (a segment from x=11 to
+    # x=0 is 11 cells long, not the 1-cell wall it represents).
+    _mz_cache = []
+
+    def _mz_field(u, v):
+        if not _mz_cache:
+            _mz_cache.append(_field_bitmaps(
+                _mz_segs, _mz_gx, _mz_gy, 180, 0.10, 0.26))
+        return _mz_cache[0](u, v)
+
+    # ---- R265 (J8 texture round II, chunk 1): walls, floors, labyrinths ---------
+    # Every pattern here follows the house rules: seamless by construction
+    # (integer periods / wrapped grids / tiled bitmaps), the NAME matches the
+    # relief, and the features are sized to READ on a print (no smooth-only
+    # near-duplicates of existing families).
+
+    def _stonewall(s, t):
+        # COURSED ASHLAR (Natursteinmauer): rows of dressed blocks whose
+        # widths are seeded per row but ALWAYS sum to the exact column
+        # period (seamless by construction), recessed mortar beds and block
+        # joints, per-block face jitter and a fine stone roughness. Reads
+        # as stacked stone courses - the BRICKS cousin for irregular,
+        # larger blocks with a rough face.
+        rows = max(2, n)
+        row = min(rows - 1, int(math.floor(t * rows)))
+        fy = (t * rows) % 1.0
+        ke = max(2, k + (k & 1))
+        lay = _sw_layout(row)
+        x = s * ke
+        acc = 0.0
+        col = 0
+        w = 1.0
+        for i in range(ke):
+            w = lay[i]
+            if x < acc + w or i == ke - 1:
+                col = i
+                break
+            acc += w
+        fx = (x - acc) / max(1e-9, w)
+        bed = 1.0 - _smoothstep(0.05, 0.16, min(fy, 1.0 - fy))
+        win = _smoothstep(0.02, 0.20, min(fy, 1.0 - fy))
+        joint = 1.0 - _smoothstep(0.04, 0.14, min(fx, 1.0 - fx))
+        tone = band_rnd[(row * 5 + col * 11) % len(band_rnd)]
+        # the block face (incl. its tone) fades INTO the mortar bed and
+        # OUT at the joints - the bed line is pure mortar on BOTH sides,
+        # so every row boundary and the wrap itself stay closed
+        face = (0.55 + 0.25 * math.sin(math.pi * fx)
+                + (tone - 0.5) * 0.25 * (1.0 - joint))
+        rough = (noise(s, t, max(2, ke * 3), max(2, rows * 2)) - 0.5) * 0.16
+        return max(-1.0, min(1.0,
+            (face - 0.66 * joint) * win - 0.78 * bed
+            + rough * (0.4 + 0.6 * win)))
+    pats['STONEWALL'] = _stonewall
+
+    def _rubble(s, t):
+        # UNCOURSED RUBBLE (Bruchstein): irregular fieldstones set in a deep
+        # mortar bed - a jittered-site Voronoi on the WRAPPED grid
+        # (periodic by construction). F1 domes each stone, the F2-F1 ridge
+        # becomes the mortar joint, per-stone tone jitter breaks any grid
+        # reading. Unlike STONEWALL there are NO courses - organic scatter.
+        gx, gy = _rb_gx, _rb_gy
+        x = s * gx
+        y = t * gy
+        ix, iy = int(math.floor(x)), int(math.floor(y))
+        f1 = f2 = 1e18
+        tone = 0.5
+        for dj in (-1, 0, 1):
+            for di in (-1, 0, 1):
+                cx, cy = ix + di, iy + dj
+                jx, jy = _rb_sites[cx % gx][cy % gy]
+                dx = cx + jx - x
+                dy = cy + jy - y
+                d = dx * dx + dy * dy
+                if d < f1:
+                    f2 = f1
+                    f1 = d
+                    tone = _rb_tone[cx % gx][cy % gy]
+                elif d < f2:
+                    f2 = d
+        dome = 1.0 - _smoothstep(0.14, 0.58, math.sqrt(f1))
+        mortar = 1.0 - _smoothstep(0.03, 0.17, math.sqrt(f2) - math.sqrt(f1))
+        return max(-1.0, min(1.0,
+            (0.30 + 0.45 * dome + (tone - 0.5) * 0.25) - 0.85 * mortar))
+    pats['RUBBLE'] = _rubble
+
+    def _tiles(s, t):
+        # GLAZED WALL TILES (Fliesen): a uniform square field - every tile
+        # a FLAT top rising over a chamfered bevel (printable, no hard
+        # step), grout lines recessed, per-tile height offset and a faint
+        # surface noise. NOT a CHECKER twin: no parity flip, bevel + tone
+        # instead - reads as a tiled wall.
+        ke = k + (k & 1)
+        rows = max(2, n)
+        i = s * ke
+        j = t * rows
+        col = int(math.floor(i))
+        row = int(math.floor(j))
+        fx, fy = i - col, j - row
+        d_edge = min(fx, 1.0 - fx, fy, 1.0 - fy)
+        bevel = _smoothstep(0.03, 0.17, d_edge)
+        tone = noise(col / float(ke), row / float(rows), ke, rows)
+        peel = (noise(s, t, max(4, ke * 3), max(4, rows * 3)) - 0.5) * 0.10
+        # tone rides ONLY on the tile face: the grout line is pure grout
+        # on both sides -> the wrap and every grout crossing stay closed
+        top = 0.42 * bevel + (tone - 0.5) * 0.30 * bevel
+        return max(-1.0, min(1.0, top - 0.62 * (1.0 - bevel) + peel))
+    pats['TILES'] = _tiles
+
+    def _parquet(s, t):
+        # CHEVRON PARQUET (Fischgraet-Optik): diagonal planks whose slope
+        # flips in every column - the mitred V-joints sit exactly on the
+        # column borders. diag = P*(t +/- fx) with INTEGER P is periodic
+        # in t by construction; the even column count closes the s-wrap;
+        # both column families meet the border at the same phase, so the
+        # groove lines join into the fishbone V.
+        ke = max(2, k + (k & 1))
+        P = max(2, n)
+        i = s * ke
+        col = int(math.floor(i))
+        fx = i - col
+        direc = 1.0 if (col % 2 == 0) else -1.0
+        pd = (P * (t + direc * fx)) % 1.0
+        joint = 1.0 - _smoothstep(0.04, 0.15, min(pd, 1.0 - pd))
+        miter = 1.0 - _smoothstep(0.02, 0.10, min(fx, 1.0 - fx))
+        grain = (noise(s, t, max(2, ke * 5), max(2, P)) - 0.5) * 0.22
+        face = 0.55 + 0.18 * math.sin(math.pi * pd)
+        return max(-1.0, min(1.0,
+            face + grain - 0.72 * joint - 0.58 * miter))
+    pats['PARQUET'] = _parquet
+
+    def _laminate(s, t):
+        # LAMINATE FLOORING: narrow, LONG planks (one staggered end joint
+        # per length period - PLANKS uses twice the joint density), a
+        # chamfered V-bevel at every plank border (the click-joint look)
+        # and DOMINANT fine grain streaks along the plank: the HF-embossed
+        # decor of a laminate board. The grain is the headline, not the
+        # groove - that is what separates it from PLANKS.
+        ke = max(3, k + (k % 3))
+        zcells = max(2, n)
+        i = s * ke
+        col = int(math.floor(i))
+        fx = i - col
+        stagger = row_rnd[min(col, ke - 1 - col) % len(row_rnd)]
+        z = (t * zcells + stagger * 0.5) % 1.0
+        bevel = _smoothstep(0.0, 0.13, min(fx, 1.0 - fx))
+        end_joint = 1.0 - _smoothstep(0.012, 0.06, min(z, 1.0 - z))
+        tone = noise(col / float(ke), 0.5, ke, 3)
+        grain = (noise(s, t, max(6, ke * 6), max(1, n // 2)) - 0.5) * 0.55
+        face = 0.40 + (tone - 0.5) * 0.28
+        return max(-1.0, min(1.0,
+            face * (0.35 + 0.65 * bevel) + grain * (0.4 + 0.6 * bevel)
+            - 0.55 * (1.0 - bevel) - 0.45 * end_joint))
+    pats['LAMINATE'] = _laminate
+
+    def _maze(s, t):
+        # TRUE LABYRINTH: a seeded spanning-tree maze on the TORUS (the
+        # wall set wraps - corridors cannot dead-end against the seam).
+        # Walls are raised bands along the grid edges the maze did NOT
+        # carve; the distance field is precomputed once into a wrap-aware
+        # bitmap and read back bilinearly (O(1) per wall point). One maze
+        # spans the whole object period - a single connected labyrinth.
+        return _mz_field(s % 1.0, t % 1.0)
+    pats['MAZE'] = _maze
 
     # ---- the image wrap ---------------------------------------------------------
     if img is not None:
@@ -653,7 +1032,10 @@ PATTERN_NAMES = ('RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX',
                  'HONEYCOMB', 'BASKET', 'ROPE', 'PLANKS', 'BRICKS',
                  'SANDSTONE', 'CONCRETE', 'CLAY', 'CREPE', 'FABRIC',
                  'PLUSH', 'HILBERT', 'SCRATCH', 'GLITCH', 'KNIT', 'FLUTED',
-                 'BARK', 'SCALES', 'FACETS', 'MACRAME', 'MAP')
+                 'BARK', 'SCALES', 'FACETS', 'MACRAME', 'MAP',
+                 # R265 (J8 round II, chunk 1): walls, floors, labyrinths
+                 'STONEWALL', 'RUBBLE', 'TILES', 'PARQUET', 'LAMINATE',
+                 'MAZE')
 
 # R238: opt-in helical tilt angles by pattern. Disabled by default; when
 # enabled, the helical shift uses an integer number of turns so the seam
@@ -666,6 +1048,8 @@ PATTERN_TILT = {
     'FABRIC': 2.0, 'PLUSH': 2.0, 'HILBERT': 4.0, 'SCRATCH': 2.0,
     'GLITCH': 2.0, 'KNIT': 3.0, 'FLUTED': 0.0, 'BARK': 0.0,
     'SCALES': 2.0, 'FACETS': 0.0, 'MACRAME': 0.0, 'MAP': 0.0,
+    'STONEWALL': 0.0, 'RUBBLE': 0.0, 'TILES': 0.0, 'PARQUET': 0.0,
+    'LAMINATE': 0.0, 'MAZE': 0.0,
 }
 
 

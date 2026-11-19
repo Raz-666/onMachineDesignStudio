@@ -1741,7 +1741,7 @@ twist, 14 mm / depth 0.5), **Basket** (interlaced weave, 10 mm / 0.35) and
 and set the full parameter set, like the library looks.
 The thickness range is 0.05–1.5 mm (Orca-sized).
 - **BUMPS** — the offset follows a **pattern from the library**:
-  **27 patterns on 4 pages — 26 shaped ones plus MAP**, every page also
+  **33 patterns on 5 pages — 32 shaped ones plus MAP**, every page also
   names the active one (a `*` marks it):
 
   | Pattern | What it looks like | Reach for it when |
@@ -1763,7 +1763,7 @@ The thickness range is 0.05–1.5 mm (Orca-sized).
   | Crepe | high-frequency crumple × mid wave | paper, packaging |
   | Fabric | pleats — sharp valleys, wide backs | cloth, curtains |
   | Plush | dense short fine noise | velvet, soft-touch grips |
-  | Hilbert | zig-zag space-filling bands | where a line-based look fits |
+  | Hilbert | REAL order-3 space-filling curve, tiled into a labyrinth | maze look, tech surfaces |
   | Scratch | anisotropic scratches around the circumference | worn metal, used tools |
   | Glitch | seeded per-band steps (the melt / shifted-layer look) | sculptures, artistic |
   | Knit | nested V-loops in staggered columns | knitted sleeves, sweaters |
@@ -1772,6 +1772,12 @@ The thickness range is 0.05–1.5 mm (Orca-sized).
   | Scales | staggered domed shingles | reptile look, grippy |
   | Facets | diamond low-poly relief crosses | modern / futuristic clean |
   | Macrame | two twisted cord families into a net | planters, hanging baskets |
+  | Stonewall | stone courses, mortar beds, staggered joints | garden walls, planters, ruins |
+  | Rubble | voronoi boulders in a deep mortar bed | dry-stone / natural stone look |
+  | Tiles | flat tiles, chamfered edges, recessed grout | kitchens, bathrooms, mosaics |
+  | Parquet | chevron parquet — direction flips per column | wood floors, decor panels |
+  | Laminate | V-bevel planks with fine along-grain | clean wood panels, furniture |
+  | Maze | perfect maze — every corridor reachable | puzzles, artistic grips |
   | MAP | your own image wrapped around (dark = deep) | photos, logos, lettering |
 
   **Seamless by design:** your mm

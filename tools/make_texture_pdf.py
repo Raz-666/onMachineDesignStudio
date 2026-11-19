@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """TEXTURING.pdf — the documentation of the R2-D2 texture tool (user
 request, .136m round): how the wall displacement works, the EXACT mapping
-of every setting, all 27 patterns with previews sampled from the REAL
+of every setting, all 33 patterns with previews sampled from the REAL
 pattern functions (tools/r2_texture.py _build_patterns - not redrawn,
-the images ARE the code output), and the 27 library presets listed per
+the images ARE the code output), and the 33 library presets listed per
 pattern.
 
 Content basis: tools/r2_texture.py (_build_patterns, apply_texture,
@@ -228,9 +228,10 @@ PAT_TXT = {
    'Noise-Aufrauung - Leinen-/Köperstruktur in Umfangsrichtung.',
  'PLUSH': 'Plüsch: feines, hochfrequentes Noise (5k×5n, mindestens 6) um den '
    'Neutralpunkt 0.42 - dichtes, kurzfloriges Pelz-Muster.',
- 'HILBERT': 'Raumfüllende Zickzack-Bänder: Dreieckwelle in s, pro Reihe um '
-   'eine halbe Periode versetzt, amplitude zur Bandmitte hin betont - '
-   'Labyrinth-/Mäanderoptik.',
+ 'HILBERT': 'ECHTE HILBERT-KURVE (R265): die fraktale raumfüllende Kurve '
+   'der Ordnung 3 als durchgehende Wandlinie, gekachelt über das Feld - '
+   'die Gänge zwischen den Wänden bilden ein zusammenhängendes Labyrinth, '
+   'die Kurve schließt sauber über alle Kachelgrenzen.',
  'SCRATCH': 'Anisotrope Kratzer: gestrecktes grobes Noise quer + feines '
    'Noise längs (k/2 × 4n und 2k × 6n) - gebürstetes, verkratztes Metall.',
  'GLITCH': 'Digitale Fehler: pro Band (Zeile) ein geseedeter KONSTANTER '
@@ -251,6 +252,25 @@ PAT_TXT = {
  'MACRAME': 'MAKRAMEE (R238): zwei gedrehte Schnur-Familien kreuzen sich '
    'zum Netz - eine Familie windet auf, die andere ab, die Kreuzungen '
    'lesen sich als Knoten.',
+ 'STONEWALL': 'NATURSTEINMAUER (R265): unregelmäßige Blockbreiten in '
+   'acht Bettreihen, Stoßfugen versetzt - Bett- und Stoßfugen als tiefe '
+   'Mörtelrille, Steinoberflächen leicht gewölbt und per Noise getönt.',
+ 'RUBBLE': 'BRUCHSTEIN (R265): Voronoi-Zerlegung in unregelmäßige '
+   'Findlinge mit breitem Mörtelbett - jeder Stein eine gewölbte Fläche '
+   'mit eigenem Ton, Fugen tief und unregelmäßig wie natürlicher Bruch.',
+ 'TILES': 'FLIESEN (R265): plane Steinflächen mit angefasten Kanten auf '
+   'tiefer Fuge - der Heller-Dunkele-Umschlag sitzt NUR auf der Fliese, '
+   'die Fuge bleibt sauber ausgespart (kein Ton in der Fuge).',
+ 'PARQUET': 'PARKETT CHEVRON (R265): Fischgrät-Diagonalbretter, deren '
+   'Richtung je Spalte kippt - V-Fugen an den Stößen, Kantenfugen entlang '
+   'der Diagonalen, ruhige Holzfläche dazwischen.',
+ 'LAMINATE': 'LAMINAT (R265): regelmäßige Dielen mit V-Fase an den '
+   'Längskanten, versetzten Stoßfugen und feiner Längskörnung - der '
+   'saubere, schmale Bruder der PLANKS-Bretter.',
+ 'MAZE': 'LABYRINTH (R265): echter Irrgarten - ein zufälliger Spannbaum '
+   'über das Zellgitter, die stehengebliebenen Wände werden zu erhabenen '
+   'Graten; ALLE Gänge hängen zusammen (perfektes Labyrinth), nahtlos '
+   'über die Periodengrenzen.',
  'MAP': 'Bildprägung (R238): Hintergrund-Erkennung (Otsu + Rand-Voting) - '
    'der Hintergrund wird wie Alpha behandelt: GAR KEINE Verformung dort, '
    'Kanten weich gefedert (Haftung bleibt). TILE = endlose gespiegelte '
@@ -261,7 +281,8 @@ PAT_ORDER = ['RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX',
              'HONEYCOMB', 'BASKET', 'ROPE', 'PLANKS', 'BRICKS', 'SANDSTONE',
              'CONCRETE', 'CLAY', 'CREPE', 'FABRIC', 'PLUSH', 'HILBERT',
              'SCRATCH', 'GLITCH', 'KNIT', 'FLUTED', 'BARK', 'SCALES',
-             'FACETS', 'MACRAME', 'MAP']
+             'FACETS', 'MACRAME', 'STONEWALL', 'RUBBLE', 'TILES', 'PARQUET',
+             'LAMINATE', 'MAZE', 'MAP']
 
 
 def presets_for(pattern):
@@ -284,9 +305,9 @@ def main():
     A(Spacer(1, 6*mm))
     A(P('Dieses Handbuch dokumentiert das Texture-Werkzeug (Pre-Print &gt; '
         'Mods &gt; Texture): wie die Wandverschiebung arbeitet, das EXAKTE '
-        'Mapping jedes Parameters, alle 27 Muster mit Vorschaubildern - '
+        'Mapping jedes Parameters, alle 33 Muster mit Vorschaubildern - '
         'die Bilder sind direkt aus den echten Musterfunktionen gesampelt, '
-        'nicht neu gezeichnet - und 27 materialgebundene Vorlagen (je Muster '
+        'nicht neu gezeichnet - und 33 materialgebundene Vorlagen (je Muster '
         'eine). Die Vorschaubilder sind Algorithmus-Simulationen, keine '
         'Fotos und keine Zusage eines bestimmten Druckergebnisses.'))
     A(Spacer(1, 3*mm))
@@ -295,12 +316,12 @@ def main():
          'Außenwand-Vertex wandert mit Wahrscheinlichkeit Dichte um bis zu '
          'Dicke in eine Zufallsrichtung. Kein Muster, reines Rauschen.'],
         ['Modus BUMPS', 'Deterministische Musterfunktion verschiebt die '
-         'Außenwand radial - 27 Muster, gesteuert durch SIZE/ZSIZE/DEPTH/DIR/SEED.'],
-        ['27 Muster', 'Gerichtete Reliefs und Materialfelder: Bretter, '
+         'Außenwand radial - 33 Muster, gesteuert durch SIZE/ZSIZE/DEPTH/DIR/SEED.'],
+        ['33 Muster', 'Gerichtete Reliefs und Materialfelder: Bretter, '
          'Rindenfissuren, Ziegel, Wellen, Hex-Zellen, Korb, Seil, Plüsch, '
          'Schuppen, Kanneluren sowie weitere textile, geometrische, '
          'Rausch- und Bildmuster.'],
-        ['27 Vorlagen', 'Fertige Looks unter Vorlagen im Texture-Menü - '
+        ['33 Vorlagen', 'Fertige Looks unter Vorlagen im Texture-Menü - '
          'genau ein Look je Muster, mit passender Größe, Z-Teilung, Tiefe '
          'und Seed; die separate FUZZY-Presetreihe bleibt bestehen.'],
     ], [30*mm, 126*mm]))
@@ -360,7 +381,7 @@ def main():
         ['Modus', 'FUZZY / BUMPS', 'Zufallstextur oder Musterfunktion (Kap. 3/4)'],
         ['Dicke (FUZZY)', '0.1-1.0 mm', 'Maximaler Zufallsversatz pro Vertex'],
         ['Dichte (FUZZY)', '10-100 %', 'Anteil der verschobenen Vertices'],
-        ['Muster (BUMPS)', '27 Muster', 'Die Musterfunktion (Kapitel 3)'],
+        ['Muster (BUMPS)', '33 Muster', 'Die Musterfunktion (Kapitel 3)'],
         ['Tilt', 'OFF / ON', 'Standard OFF (0°); ON aktiviert den expliziten Winkel des gewählten Musters, nahtsicher und bündig am Z-Ende'],
         ['Abtastung (BUMPS)', 'max. 1.5 mm', 'Lange lineare Wandzüge werden vor dem Versatz unterteilt; E-Gesamtextrusion bleibt erhalten'],
 
@@ -428,8 +449,8 @@ def main():
 
     # --------------------------------------------------------- presets ---
     A(PageBreak())
-    flow.extend(H1('4 · Die Vorlagen-Bibliothek (27 Looks)'))
-    A(P('Texture-Menü &gt; Vorlagen: 27 fertige Looks, benannt nach dem '
+    flow.extend(H1('4 · Die Vorlagen-Bibliothek (33 Looks)'))
+    A(P('Texture-Menü &gt; Vorlagen: 33 fertige Looks, benannt nach dem '
         '<b>optischen Erscheinungsbild</b> (der Name sagt, was man sieht - '
         '„Rattan", nicht „BASKET 6/6"). Vorlagen sind schreibgeschützt: '
         'Laden geht, Löschen nicht; speichert man unter einem '

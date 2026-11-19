@@ -158,9 +158,12 @@ try:
 
     print('--- D) texture: tilt, new patterns, MAP ------------------------')
     names = r2_texture.PATTERN_NAMES
-    check('D1: 27 patterns, the 6 new ones present',
-          len(names) == 27 and all(p in names for p in (
+    check('D1: 33 patterns, the R238 six + the R265 seven present',
+          len(names) == 33 and all(p in names for p in (
               'KNIT', 'FLUTED', 'BARK', 'SCALES', 'FACETS', 'MACRAME'))
+          and all(p in names for p in (
+              'STONEWALL', 'RUBBLE', 'TILES', 'PARQUET', 'LAMINATE',
+              'HILBERT', 'MAZE'))
           and set(r2_texture.PATTERN_TILT) == set(names),
           '%d patterns / %d tilt presets' % (
               len(names), len(r2_texture.PATTERN_TILT)))
@@ -232,6 +235,162 @@ try:
     check('G1: 10 target materials produce distinct code-derived relief fields',
           len(set(_signatures.values())) == len(_materials),
           'unique %d/%d' % (len(set(_signatures.values())), len(_materials)))
+
+    # ---- R265 (J8 texture round II, chunk 1): walls, floors, labyrinths ----
+    print('--- R265) texture round II: name fidelity + closed seams --------')
+    _r265 = ('STONEWALL', 'RUBBLE', 'TILES', 'PARQUET', 'LAMINATE',
+             'HILBERT', 'MAZE')
+    _r265m = {}
+    for _nm in _r265:
+        _fn = _g1p[_nm]
+        _vals = [_fn(i / 191.0, j / 127.0) for j in range(128)
+                 for i in range(192)]
+        _ss265 = max(abs(_fn(1 - 1e-6, _t) - _fn(0.0, _t))
+                     for _t in (_x / 31.0 for _x in range(31)))
+        _st265 = max(abs(_fn(_s2, 1 - 1e-6) - _fn(_s2, 0.0))
+                     for _s2 in (_x / 29.0 for _x in range(29)))
+        _r265m[_nm] = (round(max(_vals) - min(_vals), 2),
+                       round(_ss265, 4), round(_st265, 4))
+    check('R265 relief: all 7 new patterns span > 0.8 with closed seams',
+          all(v[0] > 0.8 and v[1] < 0.05 and v[2] < 0.05
+              for v in _r265m.values()), str(_r265m))
+
+    _sig265 = {nm: tuple(round(_g1p[nm](x / 32.0, y / 32.0), 2)
+                         for y in range(32) for x in range(32))
+               for nm in _r265}
+    check('R265 distinct: the 7 new fields differ from each other AND '
+          'from the 10 classic materials',
+          len(set(_sig265.values())) == len(_r265)
+          and not (set(_sig265.values()) & set(_signatures.values())),
+          'unique new %d/%d, classic clashes %d' % (
+              len(set(_sig265.values())), len(_r265),
+              len(set(_sig265.values()) & set(_signatures.values()))))
+
+    def _grid265(fn, w=160, h=112):
+        return [[fn(x / float(w), y / float(h)) for x in range(w)]
+                for y in range(h)]
+
+    def _flood265(grid, pred):
+        # connected components (4-neighbour) of pred(cells) on the PERIODIC
+        # grid - the wrap counts (the field tiles, so components must close)
+        hh, ww = len(grid), len(grid[0])
+        seen = [[False] * ww for _ in range(hh)]
+        comps = 0
+        for y0 in range(hh):
+            for x0 in range(ww):
+                if seen[y0][x0] or not pred(grid[y0][x0]):
+                    continue
+                comps += 1
+                stack = [(x0, y0)]
+                seen[y0][x0] = True
+                while stack:
+                    cx, cy = stack.pop()
+                    for nx, ny in ((cx + 1, cy), (cx - 1, cy),
+                                   (cx, cy + 1), (cx, cy - 1)):
+                        nx %= ww
+                        ny %= hh
+                        if not seen[ny][nx] and pred(grid[ny][nx]):
+                            seen[ny][nx] = True
+                            stack.append((nx, ny))
+        return comps
+
+    # HILBERT: the walls form ONE connected network PER TILE (the curve is
+    # a single path - 3x2 tiles at k=12/n=8), and the corridors are ONE
+    # walkable system across the whole period - the labyrinth promise
+    _hb_g = _grid265(_g1p['HILBERT'])
+    _hb_wall = sum(1 for row in _hb_g for v in row if v > 0.0)
+    check('R265 HILBERT: real curve - one connected wall path per tile, '
+          'corridors everywhere walkable',
+          0.30 < _hb_wall / (160.0 * 112.0) < 0.68
+          and _flood265(_hb_g, lambda v: v > 0.0) == 3 * 2
+          and _flood265(_hb_g, lambda v: v < -0.1) == 1,
+          'wall %.2f, wall comps %d, corridor comps %d' % (
+              _hb_wall / (160.0 * 112.0),
+              _flood265(_hb_g, lambda v: v > 0.0),
+              _flood265(_hb_g, lambda v: v < -0.1)))
+
+    # MAZE: spanning tree on the torus - the corridor system is ONE connected
+    # component (you can walk everywhere), walls stay raised
+    _mz_g = _grid265(_g1p['MAZE'])
+    _mz_wall = sum(1 for row in _mz_g for v in row if v > 0.0)
+    check('R265 MAZE: spanning-tree labyrinth - corridors all connected',
+          0.18 < _mz_wall / (160.0 * 112.0) < 0.55
+          and _flood265(_mz_g, lambda v: v < -0.05) == 1,
+          'wall %.2f, corridor components %d' % (
+              _mz_wall / (160.0 * 112.0),
+              _flood265(_mz_g, lambda v: v < -0.05)))
+
+    # STONEWALL: exactly n mortar-bed lines (t-periodic courses)
+    _sw_g = _grid265(_g1p['STONEWALL'])
+    _sw_prof = [sum(row) / len(row) for row in _sw_g]
+    _sw_dips = 0
+    for _i, _v in enumerate(_sw_prof):
+        if (_v < -0.30 and _sw_prof[_i - 1] >= -0.30):
+            _sw_dips += 1
+    check('R265 STONEWALL: n=8 mortar bed lines around the height period',
+          _sw_dips == 8, 'dips=%d (rows n=8)' % _sw_dips)
+
+    # TILES: flat tops dominate, grout valleys are a minority - a tiled
+    # wall, not a checkerboard parity flip
+    _ti_g = _grid265(_g1p['TILES'])
+    _ti_flat = sum(1 for row in _ti_g for v in row if 0.2 <= v <= 0.68)
+    _ti_grout = sum(1 for row in _ti_g for v in row if v < -0.45)
+    _tot = 160.0 * 112.0
+    check('R265 TILES: flat tile faces dominate over recessed grout',
+          _ti_flat / _tot > 0.42 and 0.04 < _ti_grout / _tot < 0.35,
+          'flat %.2f grout %.2f' % (_ti_flat / _tot, _ti_grout / _tot))
+
+    # PARQUET: the plank diagonals flip direction in every column (chevron).
+    # One pixel in x shifts the plank phase by P/column_px planks = 8 rows
+    # in y at this grid - correlate f(x,y) with f(x+1, y +/- 8): the sign
+    # of the winning shift must alternate per column.
+    _pq_g = _grid265(_g1p['PARQUET'], w=168, h=112)
+    _pq_cols = 12                      # ke = k+(k&1) at k=12
+    _pq_cw = 168 // _pq_cols           # column width in px (14)
+    _pq_sh = 6                         # measured: dir=+1 cols match +6
+    _pq_flip_ok = 0
+    for _c in range(_pq_cols):
+        _xa = _c * _pq_cw + 4
+        _xb = _xa + 1                  # ONE pixel in x -> clean phase shift
+        _up = sum(_pq_g[_y][_xa] * _pq_g[(_y + _pq_sh) % 112][_xb]
+                  for _y in range(0, 112, 2))
+        _dn = sum(_pq_g[_y][_xa] * _pq_g[(_y - _pq_sh) % 112][_xb]
+                  for _y in range(0, 112, 2))
+        if ((_c % 2 == 0 and _up > _dn) or (_c % 2 == 1 and _dn > _up)):
+            _pq_flip_ok += 1
+    check('R265 PARQUET: chevron - diagonal direction flips per column',
+          _pq_flip_ok >= _pq_cols - 1,
+          '%d/%d columns flip correctly (sh=%d)' % (
+              _pq_flip_ok, _pq_cols, _pq_sh))
+
+    # LAMINATE: grain streaks ALONG the plank - horizontal gradients clearly
+    # dominate vertical ones, and MORE than on PLANKS (the distinguisher)
+    def _aniso265(fn):
+        g = _grid265(fn)
+        gs = sum(abs(g[y][(x + 1) % 160] - g[y][x])
+                 for y in range(112) for x in range(160))
+        gt = sum(abs(g[(y + 1) % 112][x] - g[y][x])
+                 for y in range(112) for x in range(160))
+        return gs / max(1e-9, gt)
+    _lam_a = _aniso265(_g1p['LAMINATE'])
+    _plk_a = _aniso265(_g1p['PLANKS'])
+    check('R265 LAMINATE: dominant along-plank grain (anisotropy > PLANKS)',
+          _lam_a > 1.35 and _lam_a > _plk_a * 1.25,
+          'laminate %.2f vs planks %.2f' % (_lam_a, _plk_a))
+
+    # RUBBLE: ~gx*gy stones (jittered Voronoi sites), no course reading
+    _ru_g = _grid265(_g1p['RUBBLE'])
+    _ru_peaks = 0
+    for _y in range(2, 110, 3):
+        for _x in range(2, 158, 3):
+            _v = _ru_g[_y][_x]
+            if _v > 0.1 and all(
+                    _ru_g[_y + dy][_x + dx] <= _v
+                    for dy in (-2, -1, 0, 1, 2) for dx in (-2, -1, 0, 1, 2)):
+                _ru_peaks += 1
+    check('R265 RUBBLE: stone count matches the site grid (~96)',
+          58 <= _ru_peaks <= 132,
+          'peaks=%d (grid 12x8=96)' % _ru_peaks)
     from PIL import Image
     imgp = os.path.join(d, 'logo.png')
     im = Image.new('L', (60, 30), 255)

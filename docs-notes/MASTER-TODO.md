@@ -770,7 +770,7 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       (synthetische Fremddrucker-Konfigurationen gegen Generatoren/
       Maschinenmodell). Nächster Kandidat nach K2 bzw. nach Nutzerpriorität.
 
-- [ ] **J8 — TEXTUREN-RUNDE II (Nutzer-Wunsch 19.11.2026, mit Lastenheft).**
+- [~] **J8 — TEXTUREN-RUNDE II (Nutzer-Wunsch 19.11.2026, mit Lastenheft).**
       Nutzerbewertung: die zuletzt ergänzten Texturen „sehen wirklich
       schon sehr gut aus“ — GENAU in die Richtung, aber mehr Auswahl,
       mehr Variation. Verbindliche Regeln (alle aus der Nutzernachricht):
@@ -783,6 +783,27 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       die Textur verlangt; (e) gleiche Sorgfalt wie bei der letzten Runde
       (R238: codebasiert, Matrix-Vorschau aus den echten Pattern-Funktionen,
       Kennzahlentest auf Unterscheidbarkeit, Presets 1:1 gekoppelt wie G3).
+      **STAND R265 Häppchen 1 (19.11., 7 Muster FERTIG):** STONEWALL
+      (8 Bettreihen, normierte Blockbreiten, Fensterung an Fugen),
+      RUBBLE (gewrapptes Voronoi mit Mörtelbett), TILES (Fliese+Chamfer+
+      Fuge, Ton nur auf Fliese), PARQUET (Chevron mit Spalten-Flip),
+      LAMINATE (V-Fase+Längskörnung), HILBERT (NEU: ECHTE order-3-Kurve
+      per Distanzfeld, ersetzt die Zickzack-Bänder), MAZE (Spannbaum-
+      Irrgarten, alle Gänge verbunden, Phantom-Wand-Bug beim Grenz-Falten
+      behoben). 33 Muster gesamt, je eine Vorlage (variable_texture_lib
+      33 Looks). Verifiziert: r238_field_check 39/39 (neue R265-Sektion:
+      Relief/Naht aller 7, Distinctness vs. 10 Klassiker, Wand-/Korridor-
+      Konnektivität per Flood-Fill, STONEWALL-Bettlinien, TILES-Flächen-
+      anteil, PARQUET-Flip 12/12, LAMINATE-Anisotropie, RUBBLE-Steinzahl),
+      macro_render_test 2112/2112, megatest 196/0, r165 clean, r199 clean;
+      textur-matrix-ist.png (32 prozedurale) + textur-matrix-soll.png
+      (17 kuratierte) neu, TEXTURING.pdf 42 Seiten/33 Muster, MANUAL.md/
+      MANUAL.pdf-Katalog auf 33. **OFFEN: Nutzer-Gegenprüfung Häppchen 1
+      (zugesagt vor Häppchen 2), dann Häppchen 2** (technisch:
+      Perforationsblech rund+quadratisch, Carbon/Twill, Pin-/Noppen-Matrix,
+      Hex/Oktagon-Zellen mit variablem Durchmesser), **Häppchen 3**
+      (organisch: Leder, Orangenhaut, Trockenrisse, Holz längs+quer
+      verschiedener Arten, Wellblech diagonal).
       **Gewünschte neue Familien (Vorschlagsliste, vor Bau mit Nutzer
       abstimmen):** Wände/Mauerwerk — Natursteinmauer, Bruchstein-
       Rhändermauer (drei Sorten Fugenversatz), Fliesen (quadratisch +
