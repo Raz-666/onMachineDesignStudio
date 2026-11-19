@@ -898,8 +898,27 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       TEXTURING.pdf Tiefe 0.05–4. Preview: analyse/
       r266_deep_relief_preview.png (4 Panels feste mm-Skala,
       Querschnitt, E-Dichte aus echtem G-Code).
-      **OFFEN: Häppchen 3 (organisch — alter Baumstamm kann jetzt Deep
-      Relief nutzen), dann Häppchen 4 (Deko/Haptik).**
+      **OFFEN: Häppchen 4 (Deko/Haptik) — Nutzer-Vorschlagsliste im
+      MASTER-TODO vor Bau abstimmen.**
+      **STAND R266.2 Häppchen 3 (19.11., 9 organische Muster FERTIG,
+      49 Bibliotheksmuster):** RINGS (Jahresringe, wandernde
+      Ringgrenzen), OAK (Poren-Streaks über Flammenwellen), BEECH
+      (feine dichte Faser), KNOT (Torus-Knotenaugen + Gauß-Swirl),
+      OLDBARK (anisotrope wrapped Voronoi, Bibliotheks-Look „Alter
+      Stamm" mit amp 2.8 — der Deep-Relief-Baumstamm), LEATHER
+      (45°-Steppung mm-true via ar), ORANGE (Mikro-Dellen, amp 0.18),
+      CRACKS (Voronoi-Netz, Schmalkern 0.07/0.17 + weite Schulter,
+      Tiefe 1.25 — druckbar ~0.4 mm Kern bei 6 mm-Zelle), WRINKLE
+      (two-octave ridged, längsgestreckt). Registrierung komplett:
+      _TX_PATTERN 49/49/49, LCD-Cap DYNAMISCH (war hart auf 4 Seiten/
+      27 Muster kodiert — PERFORATION..NETGRID seit R265 auf dem LCD
+      unerreichbar, Feldbug gefixt), toolchain 27→49 kongruent, 9 neue
+      Bibliotheks-Looks (53 gesamt). Evidenz: r238 59/59 GRÜN, r165
+      clean, r199 ok, megatest 214 Runs 0 FAIL, macro_render_test
+      2125/2125 (inkl. 5 neuer R266.2-Tests). MANUAL 5.9 Katalog +
+      48+MAP/7 Seiten, TEXTURING.pdf 58 Seiten regeneriert,
+      textur-matrix-ist/soll.png regeneriert. Preview: analyse/
+      r2662_organics_preview.png (9 Panels, echte Preset-Tiefen).
       **Gewünschte neue Familien (Vorschlagsliste, vor Bau mit Nutzer
       abstimmen):** Wände/Mauerwerk — Natursteinmauer, Bruchstein-
       Rhändermauer (drei Sorten Fugenversatz), Fliesen (quadratisch +

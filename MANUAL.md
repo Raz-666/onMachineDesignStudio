@@ -1696,7 +1696,7 @@ GEN_FRAME PRESET=9x13 FRONT=HEX S_SIZE=9 S_DIR=IN
 ### 5.9 Texture: fuzzy skin & shaped bumps (any g-code file)
 
 **Vorlagen library + full documentation (.136m):** Texture > Vorlagen
-holds **44 ready looks** named after their APPEARANCE — Rattan,
+holds **53 ready looks** named after their APPEARANCE — Rattan,
 Sandstein, Seil, Ziegelmauer, Wellblech, Honigwabe … Two or more per
 pattern, every entry carries the complete parameter set. One press loads
 ALL settings and the answer names them (`Rattan (library) loaded:
@@ -1741,7 +1741,7 @@ twist, 14 mm / depth 0.5), **Basket** (interlaced weave, 10 mm / 0.35) and
 and set the full parameter set, like the library looks.
 The thickness range is 0.05–1.5 mm (Orca-sized).
 - **BUMPS** — the offset follows a **pattern from the library**:
-  **40 patterns on 5 pages — 39 shaped ones plus MAP**, every page also
+  **49 patterns on 7 pages — 48 shaped ones plus MAP**, every page also
   names the active one (a `*` marks it):
 
   | Pattern | What it looks like | Reach for it when |
@@ -1785,6 +1785,15 @@ The thickness range is 0.05–1.5 mm (Orca-sized).
   | Octagons | octagon trays + corner squares, size jitter | model trays, tech surfaces |
   | Chainlink | woven fence — two 45° wire families, over/under | fence look, props |
   | Netgrid | round threads + knots, deep open meshes | netting, bags, organics |
+  | Rings | wood cross-cut - growth rings around, wandering widths | turned wood look, decor vases |
+  | Oak | coarse grain - wandering pore streaks over flame waves | oak furniture look, rustic |
+  | Beech | the quiet wood - fine dense vertical fibre, almost poreless | clean wood surfaces |
+  | Knot | burl - fibre deflects around seeded knot eyes | deluxe wood, knife handles |
+  | Oldbark | ancient bark - long plates in DEEP furrows (**depth 2–3.5 mm**) | the old tree trunk (deep relief) |
+  | Leather | padded - diamond-quilted cushions, stitch seams, fine grain | seats, boxes, upscale |
+  | Orange | peel - fine irregular micro dimples (**small depth 0.1–0.25 mm**) | matte grip, organic |
+  | Cracks | dried mud - narrow deep wandering cracks, crowned plates | desert/soil look, artistic |
+  | Wrinkle | heavy folds - big soft drapes with sharp crests | crushed fabric/foil, dramatic |
   | MAP | your own image wrapped around (dark = deep) | photos, logos, lettering |
 
   **Seamless by design:** your mm
@@ -1847,7 +1856,7 @@ In both modes nothing ever starts printing by itself.
 | Fuz thick | 0.05–1.5 mm | scatter radius (fuzzy; the Orca-sized window
   is 0.15–0.5) |
 | Fuz dens | 10–100 % | share of vertices that scatter (100 = all) |
-| Pattern | library: 39 + MAP | 5 pages (see the table above); MAP = own image, wrapped seamlessly |
+| Pattern | library: 48 + MAP | 7 pages (see the table above); MAP = own image, wrapped seamlessly |
 | Around | 3–60 mm | groove size around the perimeter (guideline — snapped to whole grooves) |
 | Height | 0.4–20 mm | pattern repeat in Z (guideline — snapped to whole repeats, ends flush) |
 | Depth | 0.05–4 mm | groove/bump depth — **above 1 mm = DEEP RELIEF** (E follows the real path, see below) |

@@ -39,6 +39,16 @@ MATERIALS = (
     ('OCTAGONS', 'Octagons: octagon + square trays'),
     ('CHAINLINK', 'Chainlink: woven 45-degree wires'),
     ('NETGRID', 'Netgrid: threads, knots, meshes'),
+    # R266.2 bite 3: organics
+    ('RINGS', 'Rings: growth rings, wandering widths'),
+    ('OAK', 'Oak: coarse pore streaks + flames'),
+    ('BEECH', 'Beech: fine quiet vertical fibre'),
+    ('KNOT', 'Knot: burl eyes, deflected fibre'),
+    ('OLDBARK', 'Oldbark: plates in deep furrows'),
+    ('LEATHER', 'Leather: diamond cushions + seams'),
+    ('ORANGE', 'Orange peel: fine micro dimples'),
+    ('CRACKS', 'Cracks: narrow mud fissures'),
+    ('WRINKLE', 'Wrinkle: heavy folds, sharp crests'),
 )
 
 

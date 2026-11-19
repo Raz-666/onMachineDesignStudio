@@ -3,7 +3,7 @@
 request, .136m round): how the wall displacement works, the EXACT mapping
 of every setting, all 40 patterns with previews sampled from the REAL
 pattern functions (tools/r2_texture.py _build_patterns - not redrawn,
-the images ARE the code output), and the 40 library presets listed per
+the images ARE the code output), and the 49 library presets listed per
 pattern.
 
 Content basis: tools/r2_texture.py (_build_patterns, apply_texture,
@@ -301,6 +301,45 @@ PAT_TXT = {
    'Knoten an den Kreuzungen, dazwischen tiefe offene Maschen - '
    'Fischnetz-Optik. (MAKRAMEE ist dicke gedrehte Schnur, GRID ein '
    'flaches Kreuzgitter.)',
+ 'RINGS': 'JAHRESRINGE (R266.2): Holz QUER - die Wachstumsringe laufen als '
+   'horizontale Bänder um das Objekt (der Stamm von der Seite). Jeder Ring '
+   '= weites Frühholz + schmale dunkle Spätholzrinde; die RingGRENZEN '
+   'wandern (dünnes Jahr neben dickem), feine Strahlen ziehen um den '
+   'Umfang. ZSIZE bestimmt den Ringabstand.',
+ 'OAK': 'EICHE GROB (R266.2): Die Faser läuft hoch, kräftige wandernde '
+   'PORENSTRICHE bündeln sich und teilen sich - das Eichen-Signatur-Merkmal '
+   '- über breiten Flammenwellen. Poren als Schwellwert-Rillen (tief, '
+   'sparsam), das ganze Porenfeld wandert seitlich.',
+ 'BEECH': 'BUCHE FEIN (R266.2): Das stille Holz - sehr feine dichte '
+   'vertikale Faser, fast keine Poren, eine sanfte weite Undulation. Von '
+   'weitem glatt, aus der Nähe fein masert. Kleinere Tiefe als Eiche.',
+ 'KNOT': 'MASERWIRBEL (R266.2): Die vertikale Faser weicht um geseedete '
+   'Astrieb aus; jeder Ast trägt eigene konzentrische Ringe. Torus-'
+   'Distanzen (mm-echt via AR) + Gauß-Wirbel - die Maserung fließt um den '
+   'Knoten wie echtes Holz.',
+ 'OLDBARK': 'ALTER BAUMSTAMM (R266.2): Lange ausgefranste Rindenplatten in '
+   'TIEFEN Furchen - das Deep-Relief-Schaustück (R266: mit Tiefe 2-3.5mm '
+   'fahren, relatives E reitet die Flanken). Anisotropes Wrapped-Voronoi: '
+   'Zellen strecken sich entlang der Faser, Kanten wandern, Platten '
+   'splittern (Querbrüche).',
+ 'LEATHER': 'LEDER GEPOLSTERT (R266.2): Rauten-Steppung - geschwollene '
+   'Kissen zwischen den Nähten, eine Rille entlang jeder Naht, feines '
+   'Narben-Korn überall. mm-echte 45-Grad-Diagonalen (AR-skaliert); beide '
+   'Gitterphasen ganzzahlig periodisch in s UND t.',
+ 'ORANGE': 'ORANGENHAUT (R266.2): Bewusstes MIKRO-Relief - unregelmäßige '
+   'Dellen, wo zwei Noise-Oktaven übereinstimmen, dazwischen weite ruhige '
+   'Plateaus. Kein Raster (PINDOTS) und kein Samt (PLUSH): die '
+   'einseitigen Schwellwert-Dellen machen den Schief-Kick. Kleine Tiefe '
+   'fahren (0.10-0.25mm)!',
+ 'CRACKS': 'TROCKENRISSE (R266.2): Schlamm-Netz - die Platten wölben sich '
+   'sanft, die Risse sind SCHMALE tiefe V-Furchen mit wandernder Breite '
+   '(je Punkt gedithert - Schlamm reißt nie im Raster). Die Fuge ist der '
+   'Star: anders als MAZE (gleiche Gänge überall) dominieren die Platten '
+   'die Fläche.',
+ 'WRINKLE': 'GROBE KNITTERFALTEN (R266.2): Große weiche Falten mit SCHARFEN '
+   'Graten - zwei Oktaven Ridged-Noise (|n-0.5| = Messer-Kämme), längs '
+   'gestreckt, von einer langsamen ganzzahligen Diagonal-Welle geneigt. '
+   'CREPES lautes Geschwister: ~8x längere Autokorrelation.',
  'MAP': 'Bildprägung (R238): Hintergrund-Erkennung (Otsu + Rand-Voting) - '
    'der Hintergrund wird wie Alpha behandelt: GAR KEINE Verformung dort, '
    'Kanten weich gefedert (Haftung bleibt). TILE = endlose gespiegelte '
@@ -313,7 +352,9 @@ PAT_ORDER = ['RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX',
              'SCRATCH', 'GLITCH', 'KNIT', 'FLUTED', 'BARK', 'SCALES',
              'FACETS', 'MACRAME', 'STONEWALL', 'RUBBLE', 'TILES', 'PARQUET',
              'LAMINATE', 'MAZE', 'PERFORATION', 'VENT', 'CARBON', 'PINDOTS',
-             'OCTAGONS', 'CHAINLINK', 'NETGRID', 'MAP']
+             'OCTAGONS', 'CHAINLINK', 'NETGRID', 'RINGS', 'OAK', 'BEECH',
+             'KNOT', 'OLDBARK', 'LEATHER', 'ORANGE', 'CRACKS', 'WRINKLE',
+             'MAP']
 
 
 def presets_for(pattern):

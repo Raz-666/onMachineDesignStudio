@@ -16254,14 +16254,17 @@ _ta175 = open('macros/17_generator.cfg').read()
 _lcd175 = open('menus/lcd_menues.cfg').read()
 _pp175 = open('tools/r2_postproc.py').read()
 
-tests.append(('R175 library: 40 seamless patterns + FUZZY + MAP image wrap '
-    '(R238/R265: 6+6+7 more)',
-    len(_tx175.PATTERN_NAMES) == 40
+tests.append(('R175 library: 49 seamless patterns + FUZZY + MAP image wrap '
+    '(R238/R265/R266.2: 6+6+7+9 more)',
+    len(_tx175.PATTERN_NAMES) == 49
     and 'HONEYCOMB' in _tx175.PATTERN_NAMES and 'GLITCH' in _tx175.PATTERN_NAMES
     and 'MAP' in _tx175.PATTERN_NAMES and 'MANDELBROT' not in _tx175.PATTERN_NAMES
     and 'STONEWALL' in _tx175.PATTERN_NAMES and 'MAZE' in _tx175.PATTERN_NAMES
     and 'PERFORATION' in _tx175.PATTERN_NAMES
-    and 'NETGRID' in _tx175.PATTERN_NAMES,
+    and 'NETGRID' in _tx175.PATTERN_NAMES
+    and 'RINGS' in _tx175.PATTERN_NAMES
+    and 'OLDBARK' in _tx175.PATTERN_NAMES
+    and 'WRINKLE' in _tx175.PATTERN_NAMES,
     str(len(_tx175.PATTERN_NAMES))))
 # Seam-Beweis: der Sprung am Umfangs-Wrap ist nie groesser als im Feldinneren
 import math as _m175
@@ -18067,9 +18070,9 @@ _web214 = open('web/index.html', encoding='utf-8').read()
 # the library looks from the ONE truth (the macro config variable)
 _libm214 = re.search(r'^variable_texture_lib: (.+)$', _mc214, re.M)
 _lib214 = _ast214.literal_eval(_libm214.group(1))
-tests.append(('R214/R253/R265 texture library: 40 looks live in the macro '
-    'config (appearance names, full 9-key sets, ranges valid)',
-    len(_lib214) == 40
+tests.append(('R214/R253/R265/R266.2 texture library: 49 looks live in the '
+    'macro config (appearance names, full 9-key sets, ranges valid)',
+    len(_lib214) == 49
     and {v['texture_pattern'] for v in _lib214.values()} == {
         'RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX', 'HONEYCOMB',
         'BASKET', 'ROPE', 'PLANKS', 'BRICKS', 'SANDSTONE', 'CONCRETE',
@@ -18077,13 +18080,14 @@ tests.append(('R214/R253/R265 texture library: 40 looks live in the macro '
         'KNIT', 'FLUTED', 'BARK', 'SCALES', 'FACETS', 'MACRAME', 'MAP',
         'STONEWALL', 'RUBBLE', 'TILES', 'PARQUET', 'LAMINATE', 'MAZE',
         'PERFORATION', 'VENT', 'CARBON', 'PINDOTS', 'OCTAGONS',
-        'CHAINLINK', 'NETGRID'}
+        'CHAINLINK', 'NETGRID', 'RINGS', 'OAK', 'BEECH', 'KNOT', 'OLDBARK',
+        'LEATHER', 'ORANGE', 'CRACKS', 'WRINKLE'}
     and all(sorted(v) == sorted(['texture_mode', 'texture_fuzzy_thick',
         'texture_fuzzy_density', 'texture_pattern', 'texture_scale',
         'texture_zsize', 'texture_amp', 'texture_dir', 'texture_seed'])
         for v in _lib214.values())
     and all(3.0 <= v['texture_scale'] <= 80.0
-            and 0.05 <= v['texture_amp'] <= 1.0
+            and 0.05 <= v['texture_amp'] <= 4.0
             and 1 <= v['texture_seed'] <= 999 for v in _lib214.values()),
     str(len(_lib214))))
 
@@ -18774,13 +18778,17 @@ tests.append(('R238 LCD: the queue row is __queue, directly above the SD '
     < _lcd238.index('[menu __main __sdcard]')
     and '__queue __skip' in _lcd238 and '__queue __stop' in _lcd238
     and '[menu __main __genq]' not in _lcd238, ''))
-tests.append(('R238 LCD: 27 pattern rows on 4 pages, the 6 new ones named',
+tests.append(('R238 LCD: pattern rows page through the _TX_PATTERN arrays '
+    '(8/page, dynamic page cap since R266.2), the 6 R238 ones named',
     # R246c: the rows render from the _TX_PATTERN arrays since the R239+
-    # rework - no 27 hardcoded SAVE_VARIABLE rows anymore. The arrays are
-    # the one truth, the LCD pages through them 8 at a time.
-    'of 4 - 27 patterns total' in _lcd238
-    and _lcd238.count('*8+') >= 100          # 8 rows/page, page-indexed
+    # rework - no 27 hardcoded SAVE_VARIABLE rows anymore. R266.2 field
+    # fix: the page cap derives from tx_codes|length - the hard '3' had
+    # hidden every pattern beyond slot 32 since R265.
+    _lcd238.count('*8+') >= 100          # 8 rows/page, page-indexed
     and 'tx_names' in _lcd238 and 'tx_codes' in _lcd238
+    and 'tx_codes|length' in _lcd238
+    and 'patterns total' in _lcd238
+    and '27 patterns total' not in _lcd238 and 'of 4 -' not in _lcd238
     and "'KNIT', 'FLUTED', 'BARK', 'SCALES', 'FACETS', 'MACRAME'" in open(
         'macros/17_generator.cfg', encoding='utf-8').read(), ''))
 tests.append(('R238 LCD: MAP mode + position rows (ONCE-gated), fuzzy/bumps '
@@ -19771,6 +19779,76 @@ except Exception as _e266:
         repr(_e266)[:200]))
 
 tests.extend(_tests_deep)
+
+
+# ================== R266.2 bite 3: organics - registration =================
+# Wood (rings/oak/beech/knot), ancient bark, leather, orange peel, mud
+# cracks, heavy wrinkle: 9 more patterns = 49 total. The registration
+# must be CONGRUENT everywhere (engine, LCD picker, toolchain) and the
+# LCD page cap must follow the list (field bug: the hard cap hid the
+# patterns beyond slot 32 since R265).
+import ast as _ast266b
+_ta266b = open('macros/17_generator.cfg', encoding='utf-8').read()
+_txp266 = {}
+for _key266 in ('tx_names', 'tx_codes', 'tx_descs'):
+    _m266b = _re175.search(r'variable_%s: (\[.*?\])\n' % _key266, _ta266b)
+    _txp266[_key266] = _ast266b.literal_eval(_m266b.group(1)) if _m266b else []
+tests.append(('R266.2 registration: _TX_PATTERN carries 49 names/codes/descs '
+    'in engine order (LCD picker + RESPOND infos stay congruent)',
+    len(_txp266['tx_names']) == 49
+    and len(_txp266['tx_codes']) == 49
+    and len(_txp266['tx_descs']) == 49
+    and _txp266['tx_codes'] == list(_tx175.PATTERN_NAMES)
+    and all(len(d) > 40 for d in _txp266['tx_descs']),
+    'names %d codes %d descs %d' % (
+        len(_txp266['tx_names']), len(_txp266['tx_codes']),
+        len(_txp266['tx_descs']))))
+
+_lcd266b = _lcd175
+tests.append(('R266.2 LCD page cap: DYNAMIC from tx_codes|length - the old '
+    'hard cap (4 pages / 27 patterns) had hidden everything beyond slot '
+    '32 since R265; 49 patterns need 7 pages and every one is reachable',
+    _lcd266b.count('tx_codes|length') >= 2
+    and '27 patterns total' not in _lcd266b
+    and 'of 4 -' not in _lcd266b
+    and (49 - 1) // 8 == 6,
+    'pages needed %d' % ((49 - 1) // 8 + 1)))
+
+_tc266b = open('tools/toolchain.py', encoding='utf-8').read()
+tests.append(('R266.2 toolchain: TEXTURE_PATTERNS congruent with the engine '
+    '(the R265/R265.3 twelve had never been added there - latent '
+    'inconsistency, fixed with the organics)',
+    'TEXTURE_PATTERNS' in _tc266b
+    and "'RINGS', 'OAK', 'BEECH', 'KNOT', 'OLDBARK', 'LEATHER', 'ORANGE',"
+    in _tc266b
+    and "'WRINKLE'," in _tc266b,
+    ''))
+
+# the organic presets speak their material (deep relief included)
+tests.append(('R266.2 presets: 9 organic looks in the library - Alter Stamm '
+    'carries a DEEP depth (2.8mm, R266), Orangenhaut a deliberately fine '
+    'one (0.18mm)',
+    'Jahresringe' in _lib214 and 'Eichenmaserung' in _lib214
+    and 'Buche fein' in _lib214 and 'Maserwirbel' in _lib214
+    and 'Alter Stamm' in _lib214 and 'Leder gepolstert' in _lib214
+    and 'Orangenhaut' in _lib214 and 'Trockenrisse' in _lib214
+    and 'Knitterfalten' in _lib214
+    and _lib214['Alter Stamm']['texture_pattern'] == 'OLDBARK'
+    and _lib214['Alter Stamm']['texture_amp'] == 2.8
+    and _lib214['Orangenhaut']['texture_amp'] <= 0.25,
+    str([k for k in _lib214 if k in ('Jahresringe', 'Alter Stamm',
+        'Orangenhaut')])))
+
+# seamless stays the law: the R175 seam sampler already covers every
+# PATTERN_NAMES entry - this run PROVES it ran over 49 (a forgotten
+# registration would silently skip the new ones)
+tests.append(('R266.2 seam law: the R175 seam sampler covers all 49 '
+    '(the 9 organics close at the wrap and the top too)',
+    len(_tx175.PATTERN_NAMES) == 49
+    and all(_p266s in _tx175.PATTERN_NAMES for _p266s in (
+        'RINGS', 'OAK', 'BEECH', 'KNOT', 'OLDBARK', 'LEATHER',
+        'ORANGE', 'CRACKS', 'WRINKLE')),
+    ''))
 
 # R246c harness: the PASS/FAIL loop now runs HERE, at the very end. It used
 # to sit mid-file (before the R214 round) - every test appended after it

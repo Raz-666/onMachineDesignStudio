@@ -158,8 +158,9 @@ try:
 
     print('--- D) texture: tilt, new patterns, MAP ------------------------')
     names = r2_texture.PATTERN_NAMES
-    check('D1: 40 patterns, the R238 six + the R265 fourteen present',
-          len(names) == 40 and all(p in names for p in (
+    check('D1: 49 patterns, the R238 six + the R265 fourteen + the '
+          'R266.2 nine present',
+          len(names) == 49 and all(p in names for p in (
               'KNIT', 'FLUTED', 'BARK', 'SCALES', 'FACETS', 'MACRAME'))
           and all(p in names for p in (
               'STONEWALL', 'RUBBLE', 'TILES', 'PARQUET', 'LAMINATE',
@@ -167,6 +168,9 @@ try:
           and all(p in names for p in (
               'PERFORATION', 'VENT', 'CARBON', 'PINDOTS', 'OCTAGONS',
               'CHAINLINK', 'NETGRID'))
+          and all(p in names for p in (
+              'RINGS', 'OAK', 'BEECH', 'KNOT', 'OLDBARK', 'LEATHER',
+              'ORANGE', 'CRACKS', 'WRINKLE'))
           and set(r2_texture.PATTERN_TILT) == set(names),
           '%d patterns / %d tilt presets' % (
               len(names), len(r2_texture.PATTERN_TILT)))
@@ -615,6 +619,274 @@ try:
     check('D10: menu - FUZZY and BUMPS parameters are separated by enable',
           'texture_mode|default(\'\')|string == \'FUZZY\'' in _lcd
           and 'texture_mode|default(\'\')|string == \'BUMPS\'' in _lcd, '')
+    # ---- R266.2 (bite 3): organics ----------------------------------------
+    print('--- R266.2) bite 3: wood, old bark, leather, peel, mud, folds -')
+    _b3 = ('RINGS', 'OAK', 'BEECH', 'KNOT', 'OLDBARK', 'LEATHER',
+           'ORANGE', 'CRACKS', 'WRINKLE')
+    _b3m = {}
+    for _nm in _b3:
+        _fn = _g1p[_nm]
+        _vals = [_fn(i / 191.0, j / 127.0) for j in range(128)
+                 for i in range(192)]
+        _fs = max(abs(_fn(_a / 63.0, 0.3) - _fn((_a + 1) / 64.0, 0.3))
+                  for _a in range(63))
+        _ft = max(abs(_fn(0.3, _b / 63.0) - _fn(0.3, (_b + 1) / 64.0))
+                  for _b in range(63))
+        _js = abs(_fn(63 / 64.0, 0.3) - _fn(0.0, 0.3))
+        _jt = abs(_fn(0.3, 63 / 64.0) - _fn(0.3, 0.0))
+        _b3m[_nm] = (round(max(_vals) - min(_vals), 2),
+                     round(max(_js - _fs, _jt - _ft, 0.0), 4))
+    check('R266.2 relief: all 9 organic patterns span > 0.8, wrap jump '
+          'never exceeds the field jump',
+          all(v[0] > 0.8 and v[1] <= 0.03 for v in _b3m.values()), str(_b3m))
+
+    _sig266 = {nm: tuple(round(_g1p[nm](x / 32.0, y / 32.0), 2)
+                         for y in range(32) for x in range(32))
+               for nm in _b3}
+    _sig_all266 = dict(_signatures)
+    _sig_all266.update(_sig265)
+    _sig_all266.update(_sig266)
+    check('R266.2 distinct: the 9 organic fields differ from each other, '
+          'the 14 bite-1/2 fields and the 10 classics',
+          len(set(_sig_all266.values())) == len(_sig_all266),
+          'unique %d/%d' % (len(set(_sig_all266.values())),
+                            len(_sig_all266)))
+
+    _W3, _H3 = 160, 112
+
+    def _grid3(fn):
+        return [[fn(x / float(_W3), y / float(_H3))
+                 for x in range(_W3)] for y in range(_H3)]
+
+    def _zwgaps3(fn):
+        gaps = []
+        for y in range(0, _H3, 2):
+            row = [fn(x / float(_W3), y / float(_H3)) for x in range(_W3)]
+            idx = [i for i in range(_W3)
+                   if (row[i] >= 0) != (row[i - 1] >= 0)]
+            for a, b in zip(idx, idx[1:]):
+                if b - a > 1:
+                    gaps.append(b - a)
+        gaps.sort()
+        return (gaps[len(gaps) // 20] if gaps else 0,
+                gaps[len(gaps) // 2] if gaps else 0)
+
+    # RINGS: growth rings run AROUND (horizontal bands, the cross-cut
+    # promise) and their SPACING SCATTERS - stonewall courses are even
+    _rg_g = _grid3(_g1p['RINGS'])
+    _pt = [sum(_rg_g[y][x] for x in range(_W3)) / _W3 for y in range(_H3)]
+    _ps = [sum(_rg_g[y][x] for y in range(_H3)) / _H3 for x in range(_W3)]
+    _vt = sum((v - sum(_pt) / _H3) ** 2 for v in _pt) / _H3
+    _vs = sum((v - sum(_ps) / _W3) ** 2 for v in _ps) / _W3
+    _rmins = [y for y in range(1, _H3 - 1)
+              if _pt[y] < _pt[y - 1] and _pt[y] < _pt[y + 1]
+              and _pt[y] < -0.2]
+    _rd = [b - a for a, b in zip(_rmins, _rmins[1:])]
+    _rm = sum(_rd) / len(_rd) if _rd else 0.0
+    _rs = (sum((d - _rm) ** 2 for d in _rd) / len(_rd)) ** 0.5 \
+        if _rd else 0.0
+    _sw_g = _grid3(_g1p['STONEWALL'])
+    _swp = [sum(_sw_g[y][x] for x in range(_W3)) / _W3 for y in range(_H3)]
+    _swm = [y for y in range(1, _H3 - 1)
+            if _swp[y] < _swp[y - 1] and _swp[y] < _swp[y + 1]
+            and _swp[y] < -0.2]
+    _swd = [b - a for a, b in zip(_swm, _swm[1:])]
+    _swmm = sum(_swd) / len(_swd) if _swd else 0.0
+    _sws = (sum((d - _swmm) ** 2 for d in _swd) / len(_swd)) ** 0.5 \
+        if _swd else 0.0
+    check('R266.2 RINGS: bands run around (row var >> col var) and the '
+          'ring SPACING scatters (growth) - stonewall courses stay even',
+          _vt > 20.0 * max(_vs, 1e-9)
+          and (_rs / _rm if _rm else 0.0) > 0.30
+          and (_sws / _swmm if _swmm else 0.0) < 0.05
+          and len(_rd) >= 6,
+          'q=%.1f rings rel-std %.2f vs stonewall %.2f (%d rings)'
+          % (_vt / max(_vs, 1e-9), _rs / _rm if _rm else 0.0,
+             _sws / _swmm if _swmm else 0.0, len(_rd)))
+
+    # OAK: the fibre runs UP - columns vary more than rows, the pores are
+    # deep-but-sparse (bundled streaks), the crest distance is COARSE
+    _ok_g = _grid3(_g1p['OAK'])
+    _okt = [sum(_ok_g[y][x] for x in range(_W3)) / _W3 for y in range(_H3)]
+    _oks = [sum(_ok_g[y][x] for y in range(_H3)) / _H3 for x in range(_W3)]
+    _okvt = sum((v - sum(_okt) / _H3) ** 2 for v in _okt) / _H3
+    _okvs = sum((v - sum(_oks) / _W3) ** 2 for v in _oks) / _W3
+    _okv = [v for row in _ok_g for v in row]
+    _ok_pores = sum(1 for v in _okv if v < -0.45) / float(len(_okv))
+    _okq = _zwgaps3(_g1p['OAK'])[1]
+    check('R266.2 OAK: vertical fibre (col var > 2x row var), deep pore '
+          'grooves 4..16% of the surface, coarse crest spacing',
+          _okvs > 2.0 * _okvt and 0.04 < _ok_pores < 0.16 and _okq > 8,
+          'col/row %.2f pores %.2f q50 %dpx' % (
+              _okvs / max(_okvt, 1e-9), _ok_pores, _okq))
+
+    # BEECH: the QUIET wood - fine everywhere (closer zero crossings than
+    # oak), calm plateaus dominate, no deep pores
+    _be_v = [_g1p['BEECH'](i / 191.0, j / 127.0)
+             for j in range(128) for i in range(192)]
+    _be_span = max(_be_v) - min(_be_v)
+    _be_plateau = sum(1 for v in _be_v if 0.2 <= v <= 0.4) / float(len(_be_v))
+    _be_deep = sum(1 for v in _be_v if v < -0.45) / float(len(_be_v))
+    _beq = _zwgaps3(_g1p['BEECH'])[1]
+    check('R266.2 BEECH: fine (zero-cross gaps <= 8px, finer than oak), '
+          'calm plateaus > 30%, no deep pores (< 1%)',
+          _beq <= 8 and _beq < _okq and _be_plateau > 0.30
+          and _be_deep < 0.01 and 0.8 < _be_span <= 1.2,
+          'q50 %dpx plateau %.2f deep %.3f span %.2f' % (
+              _beq, _be_plateau, _be_deep, _be_span))
+
+    # KNOT: burl eyes - the field stays high (fibre), the valleys fall
+    # into MANY SMALL compact components (the eye rings), unlike BARK's
+    # long through-going fissures
+    _kn_g = _grid3(_g1p['KNOT'])
+    _kn_v = [v for row in _kn_g for v in row]
+    _kn_high = sum(1 for v in _kn_v if v > 0.0) / float(len(_kn_v))
+    _kn_n = _flood265(_kn_g, lambda v: v < -0.05)
+    _kn_zw = 0
+    for y in range(0, _H3, 2):
+        row = [_g1p['KNOT'](x / float(_W3), y / float(_H3))
+               for x in range(_W3)]
+        _kn_zw += sum(1 for i in range(_W3)
+                      if (row[i] >= 0) != (row[i - 1] >= 0))
+    _bk_g = _grid3(_g1p['BARK'])
+    _bk_zw = 0
+    for y in range(0, _H3, 2):
+        row = [_g1p['BARK'](x / float(_W3), y / float(_H3))
+               for x in range(_W3)]
+        _bk_zw += sum(1 for i in range(_W3)
+                      if (row[i] >= 0) != (row[i - 1] >= 0))
+    check('R266.2 KNOT: burl - high fibre field, valleys as MANY SMALL '
+          'eye components, far fewer sign flips than bark fissures',
+          _kn_high > 0.55 and _kn_n >= 8 and _kn_zw < 250 and _bk_zw > 500,
+          'high %.2f comps %d zw %d (bark %d)' % (
+              _kn_high, _kn_n, _kn_zw, _bk_zw))
+
+    # OLDBARK: coarse furrows - few column-profile minima (bark has ~2x),
+    # deep furrow share 4..16%, strong span (the deep-relief showpiece)
+    _ob_g = _grid3(_g1p['OLDBARK'])
+    _obp = [sum(_ob_g[y][x] for y in range(_H3)) / _H3 for x in range(_W3)]
+    _obm = [x for x in range(1, _W3 - 1)
+            if _obp[x] < _obp[x - 1] and _obp[x] < _obp[x + 1]
+            and _obp[x] < -0.1]
+    _bkp = [sum(_bk_g[y][x] for y in range(_H3)) / _H3 for x in range(_W3)]
+    _bkm = [x for x in range(1, _W3 - 1)
+            if _bkp[x] < _bkp[x - 1] and _bkp[x] < _bkp[x + 1]
+            and _bkp[x] < -0.1]
+    _ob_v = [v for row in _ob_g for v in row]
+    _ob_deep = sum(1 for v in _ob_v if v < -0.45) / float(len(_ob_v))
+    check('R266.2 OLDBARK: coarse plates (fewer furrow minima than bark), '
+          'deep furrow share 4..16%, span > 1.4 (deep-relief material)',
+          len(_obm) <= 5 and len(_bkm) >= 6 and 0.04 < _ob_deep < 0.16
+          and (max(_ob_v) - min(_ob_v)) > 1.4,
+          'furrows %d (bark %d) deep %.2f span %.2f' % (
+              len(_obm), len(_bkm), _ob_deep, max(_ob_v) - min(_ob_v)))
+
+    # LEATHER: diamond quilting - cushions high at the cell centres,
+    # stitch seams the VALLEYS (chainlink keeps its WIRES high instead)
+    _lf = _g1p['LEATHER']
+    _kp3, _rw3 = 12, 8
+    _cush, _seam = [], []
+    for x in range(_W3):
+        for y in range(_H3):
+            _s3, _t3 = x / float(_W3), y / float(_H3)
+            _u3 = (_s3 * _kp3 + _t3 * _rw3) % 1.0
+            _v3 = (_t3 * _rw3 - _s3 * _kp3) % 1.0
+            _du3, _dv3 = min(_u3, 1 - _u3), min(_v3, 1 - _v3)
+            if _du3 > 0.42 and _dv3 > 0.42:
+                _cush.append(_lf(_s3, _t3))
+            if _du3 < 0.03 or _dv3 < 0.03:
+                _seam.append(_lf(_s3, _t3))
+    check('R266.2 LEATHER: cushions proud at the diamond centres '
+          '(min > 0.5), seams are valleys (mean < -0.2, max <= 0.15)',
+          len(_cush) > 200 and len(_seam) > 500
+          and min(_cush) > 0.5 and sum(_seam) / len(_seam) < -0.2
+          and max(_seam) <= 0.15,
+          'cushion n=%d min %.2f | seam n=%d mean %.2f max %.2f' % (
+              len(_cush), min(_cush), len(_seam),
+              sum(_seam) / len(_seam), max(_seam)))
+
+    # ORANGE: micro peel - wide calm plateaus, one-sided dimple pits,
+    # fine structure
+    _or_v = [_g1p['ORANGE'](i / 191.0, j / 127.0)
+             for j in range(128) for i in range(192)]
+    _or_plateau = sum(1 for v in _or_v if 0.2 <= v <= 0.4) \
+        / float(len(_or_v))
+    _or_pits = sum(1 for v in _or_v if v < 0.0) / float(len(_or_v))
+    _orq = _zwgaps3(_g1p['ORANGE'])[1]
+    check('R266.2 ORANGE: peel - plateaus > 55%, one-sided pits 15..40%, '
+          'fine (zero-cross gaps <= 8px)',
+          _or_plateau > 0.55 and 0.15 < _or_pits < 0.40 and _orq <= 8,
+          'plateau %.2f pits %.2f q50 %dpx' % (
+              _or_plateau, _or_pits, _orq))
+
+    # CRACKS: mud - the crack network is NARROW (much thinner than the
+    # maze corridors) and CONNECTED (one shrinks as it dries); plates
+    # dominate the area. Measured at 2x resolution - the crack core is
+    # ~0.1 cell wide and a 160px grid fragments it into alias slivers.
+    _ckW, _ckH = 320, 224
+    _ck_g = [[_g1p['CRACKS'](x / float(_ckW), y / float(_ckH))
+              for x in range(_ckW)] for y in range(_ckH)]
+    _ck_v = [v for row in _ck_g for v in row]
+    _ck_crack = sum(1 for v in _ck_v if v < -0.45) / float(len(_ck_v))
+    _ck_plate = sum(1 for v in _ck_v if v > 0.3) / float(len(_ck_v))
+    _ck_seen = [[False] * _ckW for _ in range(_ckH)]
+    _ck_net = 0
+    for _y0 in range(_ckH):
+        for _x0 in range(_ckW):
+            if _ck_seen[_y0][_x0] or not (_ck_g[_y0][_x0] < -0.30):
+                continue
+            _ck_net += 1
+            _stk = [(_x0, _y0)]
+            _ck_seen[_y0][_x0] = True
+            while _stk:
+                _cx, _cy = _stk.pop()
+                for _nx, _ny in ((_cx + 1, _cy), (_cx - 1, _cy),
+                                 (_cx, _cy + 1), (_cx, _cy - 1)):
+                    _nx %= _ckW
+                    _ny %= _ckH
+                    if not _ck_seen[_ny][_nx] and _ck_g[_ny][_nx] < -0.30:
+                        _ck_seen[_ny][_nx] = True
+                        _stk.append((_nx, _ny))
+    _mz_g = _grid3(_g1p['MAZE'])
+    _mz_v = [v for row in _mz_g for v in row]
+    _mz_corridor = sum(1 for v in _mz_v if v < -0.05) / float(len(_mz_v))
+    # 'narrow' is measured AGAINST THE PLATEAU level (the whole fissure
+    # incl. its flanks, v < 0.05) and against the maze corridors - mud
+    # cracks are FISSURES, not corridors; the deep cores (v < -0.45)
+    # stay a small share of that
+    _ck_rille = sum(1 for v in _ck_v if v < 0.05) / float(len(_ck_v))
+    check('R266.2 CRACKS: narrow connected crack network (fissure share '
+          '< 60% of the maze corridors), crowned plates dominate',
+          0.02 < _ck_crack < 0.26 and 0.15 < _ck_rille < 0.45
+          and _ck_net <= 4 and _ck_plate > 0.55
+          and _ck_rille < 0.60 * _mz_corridor,
+          'cores %.3f rille %.3f (maze corridors %.3f) net comps %d '
+          'plates %.2f' % (_ck_crack, _ck_rille, _mz_corridor, _ck_net,
+                           _ck_plate))
+
+    # WRINKLE: big folds - the s autocorrelation runs long (CREPE is ~5x
+    # finer) and the fold valley is ONE connected blanket
+    def _acl3(fn):
+        row = [fn(x / float(_W3), 0.37) for x in range(_W3)]
+        _m = sum(row) / _W3
+        row = [v - _m for v in row]
+        for lag in range(1, 60):
+            if sum(row[i] * row[(i + lag) % _W3]
+                   for i in range(_W3 - lag)) <= 0:
+                return lag / float(_W3)
+        return 1.0
+    _wr_acl = _acl3(_g1p['WRINKLE'])
+    _cp_acl = _acl3(_g1p['CREPE'])
+    _wr_g = _grid3(_g1p['WRINKLE'])
+    _wr_v = [v for row in _wr_g for v in row]
+    _wr_crest = sum(1 for v in _wr_v if v > 0.3) / float(len(_wr_v))
+    check('R266.2 WRINKLE: heavy folds - autocorrelation >= 2.5x CREPE, '
+          'crests cover 5..30% (sharp ridges, not blanket noise)',
+          _wr_acl > 0.06 and _wr_acl > 2.5 * _cp_acl
+          and 0.05 < _wr_crest < 0.30,
+          'acl %.3f vs crepe %.3f, crests %.2f' % (
+              _wr_acl, _cp_acl, _wr_crest))
+
     # G4: coarse vase paths get resampled to <=1.5 mm XY chords while
     # retaining the final absolute-E coordinate and total relative extrusion.
     _g4src = os.path.join(d, 'coarse_vase.gcode')

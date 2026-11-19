@@ -94,6 +94,15 @@ Patterns (all seamless, all seeded where random)
   OCTAGONS    octagon-and-square cell trays, seeded size jitter (R265.3)
   CHAINLINK   woven chain-link fence - two 45-degree wire families (R265.3)
   NETGRID     netting - round threads with knots, deep open meshes (R265.3)
+  RINGS       wood cross-cut - growth rings around, jittered widths (R266.2)
+  OAK         coarse oak grain - wandering pore streaks, flame waves (R266.2)
+  BEECH       fine beech - quiet dense vertical fibre, almost poreless (R266.2)
+  KNOT        burl grain - fibre deflects around seeded knot eyes (R266.2)
+  OLDBARK     ancient bark - long plates in DEEP furrows (deep relief!) (R266.2)
+  LEATHER     padded leather - diamond-quilted cushions + fine grain (R266.2)
+  ORANGE      orange peel - fine irregular micro dimples (small depth!) (R266.2)
+  CRACKS      dried mud - narrow deep wandering cracks, crowned plates (R266.2)
+  WRINKLE     heavy wrinkle - big folds with sharp crests (CREPE's sibling) (R266.2)
 
 What it never touches
 - ;TYPE: tags, LAYER_MARK / APPLY_TYPE, EXCLUDE_OBJECT_*, temps, fans,
@@ -1221,6 +1230,247 @@ def _build_patterns(k, n, seed, img, map_mode='TILE', map_pos='CENTER',
             + 0.35 * knot))
     pats['NETGRID'] = _netgrid
 
+    # ================= R266.2 bite 3: organics ===================================
+    # Wood (cross-cut rings, oak, beech, burl), ancient bark (the deep-
+    # relief showpiece - pair with depth 2-3.5mm), padded leather, orange
+    # peel, dried-mud cracks, heavy wrinkle. All periodic by construction:
+    # integer-frequency noise, torus-wrapped distances, toroidal knot
+    # sites - no free edges anywhere.
+
+    # ring BOUNDARIES wander (a thin year next to a fat one - the
+    # signature of real growth rings) and groove widths jitter per ring.
+    # Period n in the ring index: boundary n == boundary 0, the t-wrap
+    # closes exactly.
+    _rg_n = max(2, n)
+    _rg_off = [(rng.random() - 0.5) * 0.55 for _ in range(_rg_n)]
+    _rg_w0 = [rng.random() for _ in range(_rg_n)]
+
+    def _rings(s, t):
+        # WOOD CROSS-CUT (Jahresringe): growth rings run AROUND the
+        # object - horizontal bands up the Z axis, the log seen from the
+        # side. Every ring = one wide early-wood arch + one narrow dark
+        # late-wood groove. The boundaries WANDER (unequal ring widths),
+        # the groove line sways, fine rays streak along the circumference.
+        y = t * n + (noise(s, t, max(2, k // 2), max(2, n)) - 0.5) * 0.14
+        j0 = int(math.floor(y + 0.5))
+        bj, bd = j0, y - j0
+        for j in (j0 - 1, j0, j0 + 1):
+            d = y - (j + _rg_off[j % _rg_n])
+            if abs(d) < abs(bd):
+                bj, bd = j, d
+        edge = abs(bd)
+        o_j = _rg_off[bj % _rg_n]
+        o_j1 = _rg_off[(bj + 1) % _rg_n]
+        bw = max(0.35, 1.0 + o_j1 - o_j)      # local ring width
+        jit = _rg_w0[bj % _rg_n]
+        w0 = 0.016 + 0.05 * jit
+        late = 1.0 - _smoothstep(w0, w0 + 0.05, edge)
+        early = 0.50 + 0.36 * math.sin(
+            math.pi * min(1.0, edge / bw))
+        ray = (noise(s, t, max(2, k * 3), max(2, max(1, n // 2)))
+               - 0.5) * 0.27
+        return max(-1.0, min(1.0, early - 0.88 * late + ray))
+    pats['RINGS'] = _rings
+
+    def _oak(s, t):
+        # OAK (Eiche grob): the fibre runs UP, strong wandering PORE
+        # streaks that bundle and part - oak's signature - over broad
+        # flame waves. Pores are thresholded (deep, sparse grooves), the
+        # wander shifts the whole pore field sideways, low frequency.
+        wander = (noise(s, t, max(2, k // 3), max(2, max(1, n // 2)))
+                  - 0.5) * 0.45
+        u = (s + 0.35 * wander) % 1.0
+        pv = noise(u, t, max(2, k), max(2, max(1, n // 3)))
+        pore = max(0.0, pv - 0.55) * 3.4
+        flame = 0.42 + 0.30 * math.sin(
+            two_pi * (u * max(2, k // 2) + 0.8 * wander))
+        fibre = (noise(u, t, max(2, k * 2), max(2, n)) - 0.5) * 0.16
+        return max(-1.0, min(1.0, flame - 0.85 * pore + fibre))
+    pats['OAK'] = _oak
+
+    def _beech(s, t):
+        # BEECH (Buche fein): the QUIET wood - very fine dense vertical
+        # fibre, almost no pores, one soft wide undulation. Smooth from a
+        # distance, finely grained up close (two elongated octaves).
+        u = (s + 0.10 * (noise(s, t, max(2, k // 2), max(2, max(1, n // 2)))
+                         - 0.5)) % 1.0
+        fine = noise(u, t, max(2, k * 3), max(2, max(1, n // 2)))
+        finer = noise(u, t, max(2, k * 5), max(2, n))
+        wave = 0.34 + 0.16 * math.sin(
+            two_pi * (u * max(2, k // 2) + t * 2))
+        return max(-1.0, min(1.0,
+            wave + (fine - 0.5) * 0.55 + (finer - 0.5) * 0.18))
+    pats['BEECH'] = _beech
+
+    _nk266 = max(2, min(4, (k + n) // 12))
+    _kn_x = [rng.random() for _ in range(_nk266)]
+    _kn_y = [rng.random() for _ in range(_nk266)]
+    _kn_r = [0.16 + 0.10 * rng.random() for _ in range(_nk266)]
+    _kn_ph = [rng.random() for _ in range(_nk266)]
+
+    def _knot(s, t):
+        # BURL GRAIN (Maserwirbel): the vertical fibre DEFLECTS around
+        # seeded knot eyes, each eye carries its own concentric rings.
+        # Torus-wrapped distances (mm-true via ar) + gaussian swirl ->
+        # the grain flows around the knot like real wood; everything
+        # periodic, no free edge.
+        swirl = 0.0
+        eye = 0.0
+        for _i in range(_nk266):
+            dx = s - _kn_x[_i]
+            dx -= math.floor(dx + 0.5)
+            dy = t - _kn_y[_i]
+            dy -= math.floor(dy + 0.5)
+            d = math.hypot(dx, dy * ar)
+            r = _kn_r[_i]
+            g = math.exp(-(d / r) ** 2 * 2.2)
+            swirl += g * _kn_ph[_i]
+            eye += g * math.cos(two_pi * (d / r) * 3.0
+                                + _kn_ph[_i] * two_pi)
+        grain = math.sin(two_pi * (s * max(2, k // 2) + 0.9 * swirl
+                 + (noise(s, t, 5, 3) - 0.5) * 0.5))
+        return max(-1.0, min(1.0, 0.45 + 0.42 * grain + 0.38 * eye))
+    pats['KNOT'] = _knot
+
+    _ob_gx = max(3, min(14, k // 2))
+    _ob_gy = max(2, int(round(_ob_gx / max(0.30, ar * 2.6))))
+    _ob_sites = [[(rng.random(), rng.random()) for _ in range(_ob_gy)]
+                 for _ in range(_ob_gx)]
+    _ob_tone = [[rng.random() for _ in range(_ob_gy)]
+                for _ in range(_ob_gx)]
+
+    def _oldbark(s, t):
+        # ANCIENT BARK (alter Baumstamm): long ragged bark plates in DEEP
+        # furrows - the deep-relief showpiece (R266: pair with depth
+        # 2-3.5mm, relative E rides the flanks). Anisotropic wrapped
+        # Voronoi: s-distance costs 2.2x -> cells stretch along the fibre.
+        # Plates chip (per-plate tone + thresholded cross breaks); the
+        # furrow floor stays CLOSED - dimples, never holes.
+        x = s * _ob_gx
+        y = t * _ob_gy
+        ix, iy = int(math.floor(x)), int(math.floor(y))
+        f1 = f2 = 1e18
+        tone = 0.5
+        for dj in (-1, 0, 1):
+            for di in (-1, 0, 1):
+                cx, cy = ix + di, iy + dj
+                jx, jy = _ob_sites[cx % _ob_gx][cy % _ob_gy]
+                dx = cx + jx - x
+                dy = cy + jy - y
+                d = (dx * 2.2) ** 2 + dy * dy
+                if d < f1:
+                    f2 = f1
+                    f1 = d
+                    tone = _ob_tone[cx % _ob_gx][cy % _ob_gy]
+                elif d < f2:
+                    f2 = d
+        d1, d2 = math.sqrt(f1), math.sqrt(f2)
+        plate = 1.0 - _smoothstep(0.30, 1.05, d1)
+        furrow = 1.0 - _smoothstep(0.05, 0.26, d2 - d1)
+        cross = noise(s, t, max(2, _ob_gx * 3), max(2, _ob_gy * 3))
+        cross_brk = max(0.0, cross - 0.82) * 3.0
+        return max(-1.0, min(1.0,
+            0.34 + 0.46 * plate + (tone - 0.5) * 0.30
+            - 0.95 * furrow - 0.40 * cross_brk))
+    pats['OLDBARK'] = _oldbark
+
+    def _leather(s, t):
+        # PADDED LEATHER (Leder): diamond-quilted cushions - swollen
+        # between the stitch seams, a groove along every seam, fine
+        # grain (Narben) everywhere. mm-true 45-degree diagonals via the
+        # ar-scaled row count; both lattice phases are integer-periodic
+        # in s AND t, so the wrap and the top close exactly.
+        kp = k + (k & 1)
+        rows = max(2, int(round(n * max(0.25, ar))))
+        rows += rows & 1
+        u = (s * kp + t * rows) % 1.0
+        v = (t * rows - s * kp) % 1.0
+        du = min(u, 1.0 - u)
+        dv = min(v, 1.0 - v)
+        de = min(du, dv)
+        seam = 1.0 - _smoothstep(0.030, 0.09, de)
+        cushion = _smoothstep(0.17, 0.44, max(du, dv))
+        grain = (noise(s, t, max(2, kp * 4), max(2, rows * 4))
+                 - 0.5) * 0.21
+        return max(-1.0, min(1.0,
+            0.26 + 0.62 * cushion - 0.88 * seam + grain))
+    pats['LEATHER'] = _leather
+
+    def _orange(s, t):
+        # ORANGE PEEL (Orangenhaut): deliberate MICRO relief - irregular
+        # dimples where two noise octaves agree, wide calm plateaus
+        # between. NOT a grid (Pindots) and not velvet (Plush): the
+        # one-sided thresholded pits make the skew. Pairs with a SMALL
+        # depth (0.10-0.25mm).
+        rq = max(2, int(round(n * max(0.25, ar))))
+        a = noise(s, t, max(2, k * 4), rq * 2)
+        b = noise(s, t, max(2, k * 2), rq)
+        v = a * 0.6 + b * 0.4
+        pit = _smoothstep(0.55, 0.67, v)
+        base = 0.30 + 0.10 * (b - 0.5)
+        return max(-1.0, min(1.0, base - 0.90 * pit))
+    pats['ORANGE'] = _orange
+
+    _cr_gx = max(3, min(20, k))
+    _cr_gy = max(2, int(round(_cr_gx / max(0.25, ar))))
+    _cr_sites = [[(rng.random(), rng.random()) for _ in range(_cr_gy)]
+                 for _ in range(_cr_gx)]
+
+    def _cracks(s, t):
+        # DRIED MUD (Trockenrisse): a voronoi crack network - plates
+        # crown slightly, the cracks are NARROW DEEP V-grooves whose
+        # width WANDERS (per-point dither - mud never cracks on a grid).
+        # The joint is the star: unlike MAZE (even corridors everywhere)
+        # and RUBBLE (round stones in wide mortar) the plates dominate
+        # the area and only thin dark lines split them.
+        x = s * _cr_gx
+        y = t * _cr_gy
+        ix, iy = int(math.floor(x)), int(math.floor(y))
+        f1 = f2 = 1e18
+        for dj in (-1, 0, 1):
+            for di in (-1, 0, 1):
+                cx, cy = ix + di, iy + dj
+                jx, jy = _cr_sites[cx % _cr_gx][cy % _cr_gy]
+                d = (cx + jx - x) ** 2 + (cy + jy - y) ** 2
+                if d < f1:
+                    f2 = f1
+                    f1 = d
+                elif d < f2:
+                    f2 = d
+        d1, d2 = math.sqrt(f1), math.sqrt(f2)
+        wjit = (noise(s, t, max(2, _cr_gx * 2), max(2, _cr_gy * 2))
+                - 0.5) * 0.05
+        # a PRINTABLE crack: the core keeps full depth for ~0.12 cell
+        # (~1mm at a 6mm cell) with steep V-flanks - reads as a fissure,
+        # not a hairline the nozzle cannot resolve
+        # narrow DEEP core (full depth only within ~0.07 cell of the
+        # edge) opening into a wide shallow shoulder - the fissure reads
+        # as a dark line with a printable bevel
+        crack = 1.0 - _smoothstep(0.07 + wjit, 0.17 + wjit, d2 - d1)
+        plate = 0.42 + 0.28 * (1.0 - _smoothstep(0.25, 0.75, d1))
+        rough = (noise(s, t, max(2, _cr_gx * 2), max(2, _cr_gy * 2))
+                 - 0.5) * 0.10
+        return max(-1.0, min(1.0, plate - 1.25 * crack + rough))
+    pats['CRACKS'] = _cracks
+
+    def _wrinkle(s, t):
+        # HEAVY WRINKLE (grobe Knitterfalten): big soft folds with SHARP
+        # crests - two octaves of ridged noise (|n-0.5| -> knife-edge
+        # ridges). The folds STRETCH along the fibre (t-cells are 4x
+        # coarser) and a slow integer-frequency diagonal swell leans the
+        # whole field, like fabric hanging in folds. CREPE's loud sibling:
+        # CREPE = fine paper crumple (k*4 cells), this runs k//2 - the
+        # autocorrelation length is ~8x longer. (No shear term - a shear
+        # breaks the t-periodicity; the swell is integer-safe.)
+        a = noise(s, t, max(2, k // 2), max(1, n // 4))
+        b = noise(s, t, max(2, k), max(2, n // 2))
+        r1 = 1.0 - 2.0 * abs(a - 0.5)
+        r2 = 1.0 - 2.0 * abs(b - 0.5)
+        swell = 0.82 + 0.18 * math.sin(two_pi * (s * 2 + t))
+        return max(-1.0, min(1.0,
+            ((0.62 * r1 + 0.38 * r2) * swell - 0.55) * 1.8))
+    pats['WRINKLE'] = _wrinkle
+
     # ---- the image wrap ---------------------------------------------------------
     if img is not None:
         iw, ih = img.size
@@ -1262,7 +1512,11 @@ PATTERN_NAMES = ('RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX',
                  # R265 (J8 round II, chunk 1): walls, floors, labyrinths
                  'STONEWALL', 'RUBBLE', 'TILES', 'PARQUET', 'LAMINATE',
                  'MAZE', 'PERFORATION', 'VENT', 'CARBON', 'PINDOTS',
-                 'OCTAGONS', 'CHAINLINK', 'NETGRID')
+                 'OCTAGONS', 'CHAINLINK', 'NETGRID',
+                 # R266.2 (J8 bite 3): organics - wood, bark, leather,
+                 # orange peel, mud cracks, heavy wrinkle
+                 'RINGS', 'OAK', 'BEECH', 'KNOT', 'OLDBARK', 'LEATHER',
+                 'ORANGE', 'CRACKS', 'WRINKLE')
 
 # R238: opt-in helical tilt angles by pattern. Disabled by default; when
 # enabled, the helical shift uses an integer number of turns so the seam
@@ -1279,6 +1533,8 @@ PATTERN_TILT = {
     'LAMINATE': 0.0, 'MAZE': 0.0, 'PERFORATION': 0.0, 'VENT': 0.0,
     'CARBON': 0.0, 'PINDOTS': 0.0, 'OCTAGONS': 0.0, 'CHAINLINK': 0.0,
     'NETGRID': 0.0,
+    'RINGS': 0.0, 'OAK': 0.0, 'BEECH': 0.0, 'KNOT': 0.0, 'OLDBARK': 0.0,
+    'LEATHER': 0.0, 'ORANGE': 0.0, 'CRACKS': 0.0, 'WRINKLE': 2.0,
 }
 
 

@@ -127,6 +127,13 @@ TEXTURE_PATTERNS = (
     'BASKET', 'ROPE', 'PLANKS', 'BRICKS', 'SANDSTONE', 'CONCRETE', 'CLAY',
     'CREPE', 'FABRIC', 'PLUSH', 'HILBERT', 'SCRATCH', 'GLITCH', 'KNIT',
     'FLUTED', 'BARK', 'SCALES', 'FACETS', 'MACRAME', 'MAP',
+    # R265/R265.3 (was never extended there - latent inconsistency):
+    'STONEWALL', 'RUBBLE', 'TILES', 'PARQUET', 'LAMINATE', 'MAZE',
+    'PERFORATION', 'VENT', 'CARBON', 'PINDOTS', 'OCTAGONS', 'CHAINLINK',
+    'NETGRID',
+    # R266.2 bite 3: organics
+    'RINGS', 'OAK', 'BEECH', 'KNOT', 'OLDBARK', 'LEATHER', 'ORANGE',
+    'CRACKS', 'WRINKLE',
 )
 
 # ---------------------------------------------------------------------------
