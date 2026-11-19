@@ -16254,9 +16254,9 @@ _ta175 = open('macros/17_generator.cfg').read()
 _lcd175 = open('menus/lcd_menues.cfg').read()
 _pp175 = open('tools/r2_postproc.py').read()
 
-tests.append(('R175 library: 49 seamless patterns + FUZZY + MAP image wrap '
-    '(R238/R265/R266.2: 6+6+7+9 more)',
-    len(_tx175.PATTERN_NAMES) == 49
+tests.append(('R175 library: 55 seamless patterns + FUZZY + MAP image wrap '
+    '(R238/R265/R266.2/R266.3: 6+6+7+9+6 more)',
+    len(_tx175.PATTERN_NAMES) == 55
     and 'HONEYCOMB' in _tx175.PATTERN_NAMES and 'GLITCH' in _tx175.PATTERN_NAMES
     and 'MAP' in _tx175.PATTERN_NAMES and 'MANDELBROT' not in _tx175.PATTERN_NAMES
     and 'STONEWALL' in _tx175.PATTERN_NAMES and 'MAZE' in _tx175.PATTERN_NAMES
@@ -18070,9 +18070,9 @@ _web214 = open('web/index.html', encoding='utf-8').read()
 # the library looks from the ONE truth (the macro config variable)
 _libm214 = re.search(r'^variable_texture_lib: (.+)$', _mc214, re.M)
 _lib214 = _ast214.literal_eval(_libm214.group(1))
-tests.append(('R214/R253/R265/R266.2 texture library: 49 looks live in the '
-    'macro config (appearance names, full 9-key sets, ranges valid)',
-    len(_lib214) == 49
+tests.append(('R214/R253/R265/R266.2/R266.3 texture library: 55 looks live in '
+    'the macro config (appearance names, full 9-key sets, ranges valid)',
+    len(_lib214) == 55
     and {v['texture_pattern'] for v in _lib214.values()} == {
         'RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX', 'HONEYCOMB',
         'BASKET', 'ROPE', 'PLANKS', 'BRICKS', 'SANDSTONE', 'CONCRETE',
@@ -18081,7 +18081,8 @@ tests.append(('R214/R253/R265/R266.2 texture library: 49 looks live in the '
         'STONEWALL', 'RUBBLE', 'TILES', 'PARQUET', 'LAMINATE', 'MAZE',
         'PERFORATION', 'VENT', 'CARBON', 'PINDOTS', 'OCTAGONS',
         'CHAINLINK', 'NETGRID', 'RINGS', 'OAK', 'BEECH', 'KNOT', 'OLDBARK',
-        'LEATHER', 'ORANGE', 'CRACKS', 'WRINKLE'}
+        'LEATHER', 'ORANGE', 'CRACKS', 'WRINKLE', 'HEARTS', 'GOLF',
+        'BASKETBALL', 'RAUFASER', 'ROOFTILES', 'CROCHET'}
     and all(sorted(v) == sorted(['texture_mode', 'texture_fuzzy_thick',
         'texture_fuzzy_density', 'texture_pattern', 'texture_scale',
         'texture_zsize', 'texture_amp', 'texture_dir', 'texture_seed'])
@@ -19793,11 +19794,11 @@ _txp266 = {}
 for _key266 in ('tx_names', 'tx_codes', 'tx_descs'):
     _m266b = _re175.search(r'variable_%s: (\[.*?\])\n' % _key266, _ta266b)
     _txp266[_key266] = _ast266b.literal_eval(_m266b.group(1)) if _m266b else []
-tests.append(('R266.2 registration: _TX_PATTERN carries 49 names/codes/descs '
+tests.append(('R266.2 registration: _TX_PATTERN carries 55 names/codes/descs '
     'in engine order (LCD picker + RESPOND infos stay congruent)',
-    len(_txp266['tx_names']) == 49
-    and len(_txp266['tx_codes']) == 49
-    and len(_txp266['tx_descs']) == 49
+    len(_txp266['tx_names']) == 55
+    and len(_txp266['tx_codes']) == 55
+    and len(_txp266['tx_descs']) == 55
     and _txp266['tx_codes'] == list(_tx175.PATTERN_NAMES)
     and all(len(d) > 40 for d in _txp266['tx_descs']),
     'names %d codes %d descs %d' % (
@@ -19807,12 +19808,12 @@ tests.append(('R266.2 registration: _TX_PATTERN carries 49 names/codes/descs '
 _lcd266b = _lcd175
 tests.append(('R266.2 LCD page cap: DYNAMIC from tx_codes|length - the old '
     'hard cap (4 pages / 27 patterns) had hidden everything beyond slot '
-    '32 since R265; 49 patterns need 7 pages and every one is reachable',
+    '32 since R265; 55 patterns need 7 pages and every one is reachable',
     _lcd266b.count('tx_codes|length') >= 2
     and '27 patterns total' not in _lcd266b
     and 'of 4 -' not in _lcd266b
-    and (49 - 1) // 8 == 6,
-    'pages needed %d' % ((49 - 1) // 8 + 1)))
+    and (55 - 1) // 8 == 6,
+    'pages needed %d' % ((55 - 1) // 8 + 1)))
 
 _tc266b = open('tools/toolchain.py', encoding='utf-8').read()
 tests.append(('R266.2 toolchain: TEXTURE_PATTERNS congruent with the engine '
@@ -19842,13 +19843,53 @@ tests.append(('R266.2 presets: 9 organic looks in the library - Alter Stamm '
 # seamless stays the law: the R175 seam sampler already covers every
 # PATTERN_NAMES entry - this run PROVES it ran over 49 (a forgotten
 # registration would silently skip the new ones)
-tests.append(('R266.2 seam law: the R175 seam sampler covers all 49 '
+tests.append(('R266.2 seam law: the R175 seam sampler covers all 55 '
     '(the 9 organics close at the wrap and the top too)',
-    len(_tx175.PATTERN_NAMES) == 49
+    len(_tx175.PATTERN_NAMES) == 55
     and all(_p266s in _tx175.PATTERN_NAMES for _p266s in (
         'RINGS', 'OAK', 'BEECH', 'KNOT', 'OLDBARK', 'LEATHER',
         'ORANGE', 'CRACKS', 'WRINKLE')),
     ''))
+
+# ================== R266.3: decor & haptics (bite 4) =========================
+# six more library patterns: hearts, golf ball, basketball, woodchip
+# wallpaper, roof tiles, crochet - agreed set with the user (no stars,
+# no rings/bubbles). The library is now 55 (54 shaped + MAP).
+tests.append(('R266.3 registration: the six decor patterns are in the '
+    'engine, _TX_PATTERN and the toolchain (no silent half-registration)',
+    all(_p2663 in _tx175.PATTERN_NAMES for _p2663 in (
+        'HEARTS', 'GOLF', 'BASKETBALL', 'RAUFASER', 'ROOFTILES', 'CROCHET'))
+    and _txp266['tx_codes'][-6:] == ['HEARTS', 'GOLF', 'BASKETBALL',
+        'RAUFASER', 'ROOFTILES', 'CROCHET']
+    and "'HEARTS', 'GOLF', 'BASKETBALL', 'RAUFASER', 'ROOFTILES'," in _tc266b
+    and "'CROCHET'" in _tc266b,
+    ''))
+
+tests.append(('R266.3 stagger seam law: HEARTS/GOLF/CROCHET close the wrap '
+    'in EVERY snapped k/n shape (the stagger phase jumps at the t-wrap '
+    'when the content reaches the row boundary - measured, not assumed)',
+    all(_seamok175(_p2663, k, n)
+        for _p2663 in ('HEARTS', 'GOLF', 'CROCHET')
+        for k in (5, 9, 14, 18)
+        for n in (2, 4, 7)),
+    'a staggered decor pattern jumps at the wrap'))
+
+tests.append(('R266.3 presets: 6 decor looks in the library (Herzen, '
+    'Golfball, Basketball, Raufaser, Dachziegel, Haekelwerk)',
+    all(_k2663 in _lib214 for _k2663 in ('Herzen', 'Golfball', 'Basketball',
+        'Raufaser', 'Dachziegel', 'Haekelwerk'))
+    and _lib214['Herzen']['texture_pattern'] == 'HEARTS'
+    and _lib214['Golfball']['texture_pattern'] == 'GOLF'
+    and _lib214['Basketball']['texture_pattern'] == 'BASKETBALL'
+    and _lib214['Raufaser']['texture_pattern'] == 'RAUFASER'
+    and _lib214['Dachziegel']['texture_pattern'] == 'ROOFTILES'
+    and _lib214['Haekelwerk']['texture_pattern'] == 'CROCHET',
+    ''))
+
+tests.append(('R266.3 LCD pages: 55 patterns still fit 7 pages (8 slots '
+    'each - the dynamic cap from R266.2 carries the growth)',
+    (55 - 1) // 8 + 1 == 7,
+    'pages %d' % ((55 - 1) // 8 + 1)))
 
 # R246c harness: the PASS/FAIL loop now runs HERE, at the very end. It used
 # to sit mid-file (before the R214 round) - every test appended after it

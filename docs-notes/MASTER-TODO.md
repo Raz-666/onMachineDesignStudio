@@ -898,8 +898,29 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       TEXTURING.pdf Tiefe 0.05–4. Preview: analyse/
       r266_deep_relief_preview.png (4 Panels feste mm-Skala,
       Querschnitt, E-Dichte aus echtem G-Code).
-      **OFFEN: Häppchen 4 (Deko/Haptik) — Nutzer-Vorschlagsliste im
-      MASTER-TODO vor Bau abstimmen.**
+      **OFFEN: J9 Schablonen-Generator-Besprechung; danach Release-Vorbereitung
+      (README/INSTALL/TESTANLEITUNG-Finals, Release ohne `analyse/`).**
+      **STAND R266.3 Häppchen 4 (19.11., 6 Deko-/Haptikmuster FERTIG,
+      55 Bibliotheksmuster — Nutzer-Auswahl „sechs ohne Sterne/Ringe"):
+      HEARTS (implizites Herz (x²+y²−1)³−x²y³, Stagger-Raster,
+      Inhalt fern der Zeilengrenze), GOLF (dichte Halbkugel-Dimples,
+      versetzt, ohne Saum, r=0.49 — Stagger-Wrap-Grenze), BASKETBALL
+      (schlängelnde Kanäle + Noppengrus, Wobble nur ganzzahlig),
+      RAUFASER (flache Fläche + spärliche Faser-Chips in 2 Skalen,
+      15 % Chip-Anteil, KEINE tiefen Werte), ROOFTILES (Lagerfugen-
+      Schattental + durchgehender Seitenfalz mit Wulst — KEIN Versatz,
+      der Unterschied zu Ziegelmauer), CROCHET (Knoten + Arme + TIEFE
+      Maschenaugen, 1 Auge/Stitchzelle). Registrierung komplett:
+      _TX_PATTERN 55/55/55, LCD 7 Seiten (dynamischer Cap trägt das),
+      toolchain kongruent, 6 neue Looks (Bibliothek 55, bijektiv —
+      dabei alten Zählfehler im MANUAL gefunden: „53 Looks" war falsch,
+      korrekt war 49, jetzt 55). Evidenz: r238 67/67 GRÜN (8 neue
+      R266.3-Checks inkl. Stagger-Nahtgesetz, Falz-Durchlauf,
+      Maschenaugen-Zählung), macro_render_test 2129/2129 (4 neue
+      R266.3-Tests), megatest 220 Runs 0 FAIL, r165 clean, r199 ok,
+      TEXTURING.pdf 64 Seiten regeneriert, MANUAL 5.9 (54+MAP/7 Seiten,
+      55 Looks), textur-matrix-ist/soll regeneriert. Preview:
+      analyse/r2663_deko_preview.png (6 Panels, echte Preset-Tiefen).
       **STAND R266.2 Häppchen 3 (19.11., 9 organische Muster FERTIG,
       49 Bibliotheksmuster):** RINGS (Jahresringe, wandernde
       Ringgrenzen), OAK (Poren-Streaks über Flammenwellen), BEECH

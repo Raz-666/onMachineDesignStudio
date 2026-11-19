@@ -548,7 +548,10 @@ for pat in ('RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX',
             'OCTAGONS', 'CHAINLINK', 'NETGRID',
             # R266.2 bite 3: organics
             'RINGS', 'OAK', 'BEECH', 'KNOT', 'OLDBARK', 'LEATHER',
-            'ORANGE', 'CRACKS', 'WRINKLE'):
+            'ORANGE', 'CRACKS', 'WRINKLE',
+            # R266.3 bite 4: decor & haptics
+            'HEARTS', 'GOLF', 'BASKETBALL', 'RAUFASER', 'ROOFTILES',
+            'CROCHET'):
     run('texture BUMPS %s on frame' % pat, lambda p=pat: tx.apply_texture(
         frm, mode='BUMPS', bump_pattern=p, bump_scale=6.0, bump_amp=0.5,
         zsize=4.0, seed=11, out_dir=D), skip_idem=True, r2_gen=True)

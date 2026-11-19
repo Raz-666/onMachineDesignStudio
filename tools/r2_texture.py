@@ -43,8 +43,8 @@ absolute-E files E stays slicer-true and the header says so.
 Modes
 - FUZZY: random displacement of every OUTER WALL vertex within +- thick
   (seeded RNG -> deterministic), density = share of scattered vertices
-- BUMPS: displacement along the wall normal proportional to one of 27
-  seamless pattern functions (see PATTERNS below). Helical tilt is opt-in
+- BUMPS: displacement along the wall normal proportional to one of the
+  55 seamless library pattern functions (see PATTERNS below). Helical tilt is opt-in
   (`tilt=True`); when enabled, PATTERN_TILT supplies each pattern's explicit
   angle and the shift remains seam-safe and flush at the top.
 - MAP: a grayscale picture wrapped around the object (cylinder
@@ -1471,6 +1471,170 @@ def _build_patterns(k, n, seed, img, map_mode='TILE', map_pos='CENTER',
             ((0.62 * r1 + 0.38 * r2) * swell - 0.55) * 1.8))
     pats['WRINKLE'] = _wrinkle
 
+    # ================= R266.3 bite 4: decor & haptics ===========================
+    # Form-true like bite 2: stagger parities need EVEN row counts
+    # (rows += rows & 1) so the offset alternates cleanly over the wrap.
+
+    def _hearts(s, t):
+        # DECOR HEARTS: raised hearts in a staggered grid - the classic
+        # candy-box / ornament surface. The heart is the implicit classic
+        # (x^2+y^2-1)^3 - x^2*y^3 < 0, sampled in mm-square cell units and
+        # eased with smoothstep so the print gets a bevel, not a knife
+        # edge. Base stays flat and closed (decor, no holes).
+        kp = max(2, k)
+        rows = max(2, int(round(n * max(0.25, ar))))
+        rows += rows & 1            # EVEN: stagger alternates over the wrap
+        i = s * kp
+        row = int(math.floor(t * rows))
+        fx = i - math.floor(i)
+        fy = t * rows - row
+        u = (fx + (0.5 if row % 2 else 0.0)) % 1.0
+        # the heart must stay clear of the row boundaries (flat bands
+        # top and bottom) or the stagger phase jumps at the t-wrap
+        x = (u - 0.5) * 3.4
+        y = (fy - 0.5) * 4.8
+        f = (x * x + y * y - 1.0) ** 3 - x * x * y * y * y
+        heart = 1.0 - _smoothstep(-0.10, 0.35, f)
+        # gentle dome: the swage between the lobes sits highest
+        dome = 0.55 + 0.45 * _smoothstep(-1.2, 0.4, y)
+        return max(-1.0, min(1.0, -0.32 + 1.15 * heart * dome))
+    pats['HEARTS'] = _hearts
+
+    def _golf(s, t):
+        # GOLF BALL: dense hemispherical dimples, staggered, NO rim -
+        # the aerodynamic skin. Sibling of PERFORATION (holes + raised
+        # rim, sparse) and inverse of PINDOTS (knobs): here the dents
+        # dominate the surface, the land between is narrow. Cap profile
+        # (1-d^2)^0.62 keeps the slope finite at the rim (printable).
+        kp = max(2, k)
+        rows = max(2, int(round(n * max(0.25, ar))))
+        rows += rows & 1            # EVEN: stagger alternates over the wrap
+        i = s * kp
+        row = int(math.floor(t * rows))
+        fx = i - math.floor(i)
+        fy = t * rows - row
+        if row % 2 == 0:
+            u = fx
+        else:
+            u = (fx + 0.5) % 1.0
+        dx, dy = u - 0.5, fy - 0.5
+        d = math.sqrt(dx * dx + dy * dy) / 0.49
+        if d >= 1.0:
+            cap = 0.0
+        else:
+            cap = math.pow(1.0 - d * d, 0.62)
+        return max(-1.0, min(1.0, 0.30 - 1.05 * cap))
+    pats['GOLF'] = _golf
+
+    def _basketball(s, t):
+        # BASKETBALL: smooth wide CHANNELS over a fine pebble grain.
+        # The channels gently snake (integer-frequency wobble only - the
+        # wrap stays closed); the pebbles are thresholded value noise
+        # (round bumps of near-uniform height, denser and softer than
+        # ORANGE peel). Land + pebbles stay positive, channels dive.
+        kp = max(2, k)
+        rows = max(2, int(round(n * max(0.25, ar))))
+        cv = max(2, (kp + 2) // 4)      # vertical channel count
+        ch = max(1, rows // 4)          # horizontal channel count
+        ws = 0.010 * math.sin(two_pi * t * rows)   # snake, periodic in t
+        wt = 0.010 * math.sin(two_pi * s * cv)     # periodic in s
+        dv = abs(((s + ws) * cv) % 1.0 - 0.5)
+        dh = abs(((t + wt) * ch) % 1.0 - 0.5)
+        gv = 1.0 - _smoothstep(0.045, 0.13, dv)
+        gh = 1.0 - _smoothstep(0.045, 0.13, dh)
+        groove = max(gv, gh)
+        pn = noise(s, t, kp * 2, rows * 2)
+        pebble = 2.0 * max(0.0, pn - 0.42)
+        return max(-1.0, min(1.0, 0.22 + 0.50 * pebble - 1.15 * groove))
+    pats['BASKETBALL'] = _basketball
+
+    def _raufaser(s, t):
+        # WOODCHIP WALLPAPER (Raufaser): the German classic - a FLAT
+        # paper face with sparse short fibre chunks pressed in, two
+        # scales, randomly oriented (one family stretched along Z, the
+        # other along the perimeter). Reads calm from afar, grippy up
+        # close; deliberately NOT noise-all-over (that is SANDSTONE).
+        kp = max(2, k)
+        rows = max(2, int(round(n * max(0.25, ar))))
+        a = noise(s, t, max(2, kp // 2), max(2, rows))          # along t
+        b = noise(s, t, max(2, kp), max(2, rows // 2))          # along s
+        chunk = (_smoothstep(0.76, 0.84, a)
+                 + _smoothstep(0.78, 0.86, b))
+        chunk = min(1.0, chunk)
+        paper = (noise(s, t, kp * 3, rows * 3) - 0.5) * 0.12
+        return max(-1.0, min(1.0, -0.18 + 1.05 * chunk + paper))
+    pats['RAUFASER'] = _raufaser
+
+    def _rooftiles(s, t):
+        # ROOF TILES (pan tiles, German 'Falzziegel'): overlapping
+        # courses - each row of tiles reaches OVER the row below, so
+        # every course boundary is a deep shadow step, the belly between
+        # steps swells, and the side folds ('Falz') run as vertical
+        # grooves with a raised bead beside them. Rows stagger half a
+        # tile; EVEN column and row counts keep the wrap closed.
+        # pan tiles are NOT staggered: the side folds run STRAIGHT
+        # through every course (that is the visual difference to
+        # BRICKS) - so no row offset, and the course boundary itself
+        # is a symmetric hanging-edge valley (steep, printable)
+        ke = max(2, k)
+        rows = max(2, int(round(n * max(0.25, ar)))) * 2   # courses
+        i = s * ke
+        fx = i - math.floor(i)
+        j = t * rows
+        row = int(math.floor(j))
+        fy = j - row
+        # course profile: overlap shadow valley at BOTH sides of the
+        # course boundary, swelling belly between
+        edge = 1.0 - _smoothstep(0.0, 0.16, min(fy, 1.0 - fy))
+        belly = (_smoothstep(0.10, 0.48, fy)
+                 * (1.0 - _smoothstep(0.52, 0.90, fy)))
+        belly = 0.42 + 0.58 * belly
+        # side fold: groove at the tile border + raised bead beside it
+        db = min(fx, 1.0 - fx)
+        falz = 1.0 - _smoothstep(0.03, 0.11, db)
+        bead = (_smoothstep(0.11, 0.20, db)
+                * (1.0 - _smoothstep(0.24, 0.34, db)))
+        grit = (noise(s, t, max(2, ke * 2), max(2, rows)) - 0.5) * 0.14
+        return max(-1.0, min(1.0,
+            0.30 * belly - 0.28 + 0.38 * bead
+            - 1.05 * edge - 0.75 * falz + grit))
+    pats['ROOFTILES'] = _rooftiles
+
+    def _crochet(s, t):
+        # CROCHET (Haeckeln): chunky handcraft - round knot bumps in a
+        # staggered grid, soft arms arching to the row below, and DEEP
+        # eyelet holes at the grid corners (the yarn gaps that make
+        # crochet read open next to KNIT's closed V-loops). Stagger
+        # needs EVEN rows; everything is rounded (printable).
+        ke = max(2, k) + (k & 1)
+        rows = max(2, int(round(n * max(0.25, ar))))
+        rows += rows & 1            # EVEN: stagger alternates over the wrap
+        i = s * ke
+        row = int(math.floor(t * rows))
+        fx = i - math.floor(i)
+        fy = t * rows - row
+        u = (fx + (0.5 if row % 2 else 0.0)) % 1.0
+        # round knot centred in the cell (the flat row-boundary bands
+        # keep the stagger phase continuous across the t-wrap)
+        dx, dy = u - 0.5, fy - 0.5
+        d = math.sqrt(dx * dx + dy * dy) / 0.44
+        knot = math.pow(max(0.0, 1.0 - d * d), 0.62) if d < 1.0 else 0.0
+        # two soft arms arching out from the knot's flanks, fading
+        # BEFORE the row boundary (no content at fy<0.10 / fy>0.90)
+        leg = abs(u - 0.5)
+        arm = ((1.0 - _smoothstep(0.06, 0.42, leg))
+               * _smoothstep(0.10, 0.38, fy)
+               * (1.0 - _smoothstep(0.62, 0.88, fy)))
+        # eyelet hole: the yarn gap BETWEEN two stitches of a row,
+        # centred mid-height at the u-border (symmetric in u)
+        ex = min(u, 1.0 - u)
+        ey = abs(fy - 0.5) * 0.75
+        de = math.sqrt(ex * ex + ey * ey)
+        hole = 1.0 - _smoothstep(0.13, 0.26, de)
+        return max(-1.0, min(1.0,
+            -0.28 + 1.00 * knot + 0.50 * arm - 0.85 * hole))
+    pats['CROCHET'] = _crochet
+
     # ---- the image wrap ---------------------------------------------------------
     if img is not None:
         iw, ih = img.size
@@ -1516,7 +1680,11 @@ PATTERN_NAMES = ('RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX',
                  # R266.2 (J8 bite 3): organics - wood, bark, leather,
                  # orange peel, mud cracks, heavy wrinkle
                  'RINGS', 'OAK', 'BEECH', 'KNOT', 'OLDBARK', 'LEATHER',
-                 'ORANGE', 'CRACKS', 'WRINKLE')
+                 'ORANGE', 'CRACKS', 'WRINKLE',
+                 # R266.3 (J8 bite 4): decor & haptics - hearts, sports
+                 # balls, woodchip wallpaper, roof tiles, crochet
+                 'HEARTS', 'GOLF', 'BASKETBALL', 'RAUFASER', 'ROOFTILES',
+                 'CROCHET')
 
 # R238: opt-in helical tilt angles by pattern. Disabled by default; when
 # enabled, the helical shift uses an integer number of turns so the seam
@@ -1535,6 +1703,8 @@ PATTERN_TILT = {
     'NETGRID': 0.0,
     'RINGS': 0.0, 'OAK': 0.0, 'BEECH': 0.0, 'KNOT': 0.0, 'OLDBARK': 0.0,
     'LEATHER': 0.0, 'ORANGE': 0.0, 'CRACKS': 0.0, 'WRINKLE': 2.0,
+    'HEARTS': 0.0, 'GOLF': 0.0, 'BASKETBALL': 0.0, 'RAUFASER': 0.0,
+    'ROOFTILES': 0.0, 'CROCHET': 0.0,
 }
 
 

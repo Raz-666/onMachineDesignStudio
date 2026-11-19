@@ -134,6 +134,8 @@ TEXTURE_PATTERNS = (
     # R266.2 bite 3: organics
     'RINGS', 'OAK', 'BEECH', 'KNOT', 'OLDBARK', 'LEATHER', 'ORANGE',
     'CRACKS', 'WRINKLE',
+    # R266.3 bite 4: decor & haptics
+    'HEARTS', 'GOLF', 'BASKETBALL', 'RAUFASER', 'ROOFTILES', 'CROCHET',
 )
 
 # ---------------------------------------------------------------------------

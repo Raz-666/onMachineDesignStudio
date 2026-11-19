@@ -1696,9 +1696,9 @@ GEN_FRAME PRESET=9x13 FRONT=HEX S_SIZE=9 S_DIR=IN
 ### 5.9 Texture: fuzzy skin & shaped bumps (any g-code file)
 
 **Vorlagen library + full documentation (.136m):** Texture > Vorlagen
-holds **53 ready looks** named after their APPEARANCE — Rattan,
-Sandstein, Seil, Ziegelmauer, Wellblech, Honigwabe … Two or more per
-pattern, every entry carries the complete parameter set. One press loads
+holds **55 ready looks** named after their APPEARANCE — Rattan,
+Sandstein, Seil, Ziegelmauer, Wellblech, Honigwabe … One per pattern
+(55 total), every entry carries the complete parameter set. One press loads
 ALL settings and the answer names them (`Rattan (library) loaded:
 mode=BUMPS, pattern=BASKET, scale=6.0, zsize=6.0, amp=0.30, dir=OUT`) —
 the same rule for every generator with presets: **loading always adapts
@@ -1741,7 +1741,7 @@ twist, 14 mm / depth 0.5), **Basket** (interlaced weave, 10 mm / 0.35) and
 and set the full parameter set, like the library looks.
 The thickness range is 0.05–1.5 mm (Orca-sized).
 - **BUMPS** — the offset follows a **pattern from the library**:
-  **49 patterns on 7 pages — 48 shaped ones plus MAP**, every page also
+  **55 patterns on 7 pages — 54 shaped ones plus MAP**, every page also
   names the active one (a `*` marks it):
 
   | Pattern | What it looks like | Reach for it when |
@@ -1794,6 +1794,12 @@ The thickness range is 0.05–1.5 mm (Orca-sized).
   | Orange | peel - fine irregular micro dimples (**small depth 0.1–0.25 mm**) | matte grip, organic |
   | Cracks | dried mud - narrow deep wandering cracks, crowned plates | desert/soil look, artistic |
   | Wrinkle | heavy folds - big soft drapes with sharp crests | crushed fabric/foil, dramatic |
+  | Hearts | candy-box decor - raised hearts, staggered grid | ornaments, gifts, kitsch |
+  | Golf | golf ball - dense round dimples, no rim | grips, balls, haptics |
+  | Basketball | smooth channels over fine pebble grain | sports look, grips |
+  | Woodchip | Raufaser - flat face, sparse fibre chunks | calm walls, paintable look |
+  | Rooftiles | roof tiles - overlapping courses, side folds run straight through | roofs, facades, decor |
+  | Crochet | knotty stitches with deep eyelets | cozy look, openwork |
   | MAP | your own image wrapped around (dark = deep) | photos, logos, lettering |
 
   **Seamless by design:** your mm
@@ -1856,7 +1862,7 @@ In both modes nothing ever starts printing by itself.
 | Fuz thick | 0.05–1.5 mm | scatter radius (fuzzy; the Orca-sized window
   is 0.15–0.5) |
 | Fuz dens | 10–100 % | share of vertices that scatter (100 = all) |
-| Pattern | library: 48 + MAP | 7 pages (see the table above); MAP = own image, wrapped seamlessly |
+| Pattern | library: 54 + MAP | 7 pages (see the table above); MAP = own image, wrapped seamlessly |
 | Around | 3–60 mm | groove size around the perimeter (guideline — snapped to whole grooves) |
 | Height | 0.4–20 mm | pattern repeat in Z (guideline — snapped to whole repeats, ends flush) |
 | Depth | 0.05–4 mm | groove/bump depth — **above 1 mm = DEEP RELIEF** (E follows the real path, see below) |

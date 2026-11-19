@@ -49,6 +49,12 @@ MATERIALS = (
     ('ORANGE', 'Orange peel: fine micro dimples'),
     ('CRACKS', 'Cracks: narrow mud fissures'),
     ('WRINKLE', 'Wrinkle: heavy folds, sharp crests'),
+    ('HEARTS', 'Hearts: staggered raised hearts'),
+    ('GOLF', 'Golf ball: dense round dimples'),
+    ('BASKETBALL', 'Basketball: channels + pebble grain'),
+    ('RAUFASER', 'Woodchip: flat face, fibre chunks'),
+    ('ROOFTILES', 'Roof tiles: courses + side folds'),
+    ('CROCHET', 'Crochet: knots, arms, deep eyelets'),
 )
 
 

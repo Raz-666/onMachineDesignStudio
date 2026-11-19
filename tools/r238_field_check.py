@@ -158,9 +158,9 @@ try:
 
     print('--- D) texture: tilt, new patterns, MAP ------------------------')
     names = r2_texture.PATTERN_NAMES
-    check('D1: 49 patterns, the R238 six + the R265 fourteen + the '
-          'R266.2 nine present',
-          len(names) == 49 and all(p in names for p in (
+    check('D1: 55 patterns, the R238 six + the R265 fourteen + the '
+          'R266.2 nine + the R266.3 six present',
+          len(names) == 55 and all(p in names for p in (
               'KNIT', 'FLUTED', 'BARK', 'SCALES', 'FACETS', 'MACRAME'))
           and all(p in names for p in (
               'STONEWALL', 'RUBBLE', 'TILES', 'PARQUET', 'LAMINATE',
@@ -171,6 +171,9 @@ try:
           and all(p in names for p in (
               'RINGS', 'OAK', 'BEECH', 'KNOT', 'OLDBARK', 'LEATHER',
               'ORANGE', 'CRACKS', 'WRINKLE'))
+          and all(p in names for p in (
+              'HEARTS', 'GOLF', 'BASKETBALL', 'RAUFASER', 'ROOFTILES',
+              'CROCHET'))
           and set(r2_texture.PATTERN_TILT) == set(names),
           '%d patterns / %d tilt presets' % (
               len(names), len(r2_texture.PATTERN_TILT)))
@@ -886,6 +889,137 @@ try:
           and 0.05 < _wr_crest < 0.30,
           'acl %.3f vs crepe %.3f, crests %.2f' % (
               _wr_acl, _cp_acl, _wr_crest))
+
+    # ---- R266.3 (bite 4): decor & haptics ---------------------------------
+    print('--- R266.3) bite 4: hearts, balls, wallpaper, roof, crochet -')
+    _b4 = ('HEARTS', 'GOLF', 'BASKETBALL', 'RAUFASER', 'ROOFTILES',
+           'CROCHET')
+    _b4m = {}
+    for _nm in _b4:
+        _fn = _g1p[_nm]
+        _vals = [_fn(i / 191.0, j / 127.0) for j in range(128)
+                 for i in range(192)]
+        _fs = max(abs(_fn(_a / 63.0, 0.3) - _fn((_a + 1) / 64.0, 0.3))
+                  for _a in range(63))
+        _ft = max(abs(_fn(0.3, _b / 63.0) - _fn(0.3, (_b + 1) / 64.0))
+                  for _b in range(63))
+        _js = abs(_fn(63 / 64.0, 0.3) - _fn(0.0, 0.3))
+        _jt = abs(_fn(0.3, 63 / 64.0) - _fn(0.3, 0.0))
+        _b4m[_nm] = (round(max(_vals) - min(_vals), 2),
+                     round(max(_js - _fs, _jt - _ft, 0.0), 4))
+    check('R266.3 relief: all 6 decor patterns span > 0.8, wrap jump '
+          'never exceeds the field jump',
+          all(v[0] > 0.8 and v[1] <= 0.03 for v in _b4m.values()), str(_b4m))
+
+    _sig2663 = {nm: tuple(round(_g1p[nm](x / 32.0, y / 32.0), 2)
+                          for y in range(32) for x in range(32))
+                for nm in _b4}
+    _sig_all2663 = dict(_sig_all266)
+    _sig_all2663.update(_sig2663)
+    check('R266.3 distinct: the 6 decor fields differ from each other and '
+          'from every earlier pattern',
+          len(set(_sig_all2663.values())) == len(_sig_all2663),
+          'unique %d/%d' % (len(set(_sig_all2663.values())),
+                            len(_sig_all2663)))
+
+    _d4h = _grid3(_g1p['HEARTS'])
+    _d4hv = [v for row in _d4h for v in row]
+    _d4h_up = sum(1 for v in _d4hv if v > 0.3) / float(len(_d4hv))
+    _d4h_first = []
+    for _r in range(8):
+        for _y in range(_r * 14, (_r + 1) * 14):
+            _xs = [x for x in range(_W3) if _d4h[_y][x] > 0.3]
+            if _xs:
+                _d4h_first.append(min(_xs))
+                break
+    _d4h_cell = _W3 / 12.0
+    _d4h_stag = (len(set(_d4h_first)) == 2
+                 and 0.25 * _d4h_cell < abs(_d4h_first[0] - _d4h_first[1])
+                 < 0.75 * _d4h_cell)
+    check('R266.3 HEARTS: raised share 15..40%, rows staggered by HALF a '
+          'cell (adjacent rows start at two alternating offsets)',
+          0.15 < _d4h_up < 0.40 and _d4h_stag,
+          'up %.3f firsts %s cell %.1f' % (_d4h_up, _d4h_first, _d4h_cell))
+
+    _d4g = [v for row in _grid3(_g1p['GOLF']) for v in row]
+    check('R266.3 GOLF: dents cover 22..42% (dense, no rim land), the '
+          'deep core is small (spherical cap), nothing rises above the '
+          'flat land',
+          0.22 < sum(1 for v in _d4g if v < -0.45) / float(len(_d4g)) < 0.42
+          and 0.02 < sum(1 for v in _d4g if v < -0.70) / float(len(_d4g)) < 0.12
+          and sum(1 for v in _d4g if v > 0.42) == 0,
+          'dent %.3f core %.3f' % (
+              sum(1 for v in _d4g if v < -0.45) / float(len(_d4g)),
+              sum(1 for v in _d4g if v < -0.70) / float(len(_d4g))))
+
+    _d4b = [v for row in _grid3(_g1p['BASKETBALL']) for v in row]
+    check('R266.3 BASKETBALL: channels 15..40%, pebble band 20..45% '
+          '(both live between the extremes)',
+          0.15 < sum(1 for v in _d4b if v < -0.45) / float(len(_d4b)) < 0.40
+          and 0.20 < sum(1 for v in _d4b if 0.3 < v < 0.85) / float(len(_d4b)) < 0.45,
+          'chan %.3f pebble %.3f' % (
+              sum(1 for v in _d4b if v < -0.45) / float(len(_d4b)),
+              sum(1 for v in _d4b if 0.3 < v < 0.85) / float(len(_d4b))))
+
+    _d4r = [v for row in _grid3(_g1p['RAUFASER']) for v in row]
+    check('R266.3 RAUFASER: sparse chunks (5..25% raised), NO deep values '
+          'at all - wallpaper stays a closed wall',
+          0.05 < sum(1 for v in _d4r if v > 0.3) / float(len(_d4r)) < 0.25
+          and sum(1 for v in _d4r if v < -0.3) == 0,
+          'up %.3f deep %d' % (
+              sum(1 for v in _d4r if v > 0.3) / float(len(_d4r)),
+              sum(1 for v in _d4r if v < -0.3)))
+
+    _d4t = _grid3(_g1p['ROOFTILES'])
+    _d4tv = [v for row in _d4t for v in row]
+    _d4t_deep = sum(1 for v in _d4tv if v < -0.45) / float(len(_d4tv))
+    _d4t_cmin = min(min(_d4t[y][x] for y in range(_H3)) for x in range(_W3))
+    _d4t_fx = min((x for x in range(_W3)
+                   if min(_d4t[y][x] for y in range(_H3)) == _d4t_cmin))
+    _d4t_run = sum(1 for y in range(_H3) if _d4t[y][_d4t_fx] < -0.2) / float(_H3)
+    _d4t_rowdeep = [sum(1 for x in range(_W3) if _d4t[y][x] < -0.4)
+                    / float(_W3) for y in range(_H3)]
+    _d4t_bands = sum(1 for i in range(_H3)
+                     if _d4t_rowdeep[i] > 0.3
+                     and (i == 0 or _d4t_rowdeep[i - 1] <= 0.3))
+    check('R266.3 ROOFTILES: course shadow 15..35% of the area, exactly '
+          '2*n course bands (16), and the deepest side fold runs '
+          'VERTICALLY through every row (no stagger - the brick '
+          'difference)',
+          0.15 < _d4t_deep < 0.35 and _d4t_bands == 16 and _d4t_run > 0.9,
+          'deep %.3f bands %d falz-run %.3f' % (
+              _d4t_deep, _d4t_bands, _d4t_run))
+
+    _d4c = _grid3(_g1p['CROCHET'])
+    _d4cv = [v for row in _d4c for v in row]
+    _d4c_up = sum(1 for v in _d4cv if v > 0.3) / float(len(_d4cv))
+    _d4c_seen = [[False] * _W3 for _ in range(_H3)]
+    _d4c_n = 0
+    _d4c_max = 0
+    for _y0 in range(_H3):
+        for _x0 in range(_W3):
+            if _d4c_seen[_y0][_x0] or not _d4c[_y0][_x0] < -0.6:
+                continue
+            _d4c_n += 1
+            _sz = 0
+            _stk = [(_x0, _y0)]
+            _d4c_seen[_y0][_x0] = True
+            while _stk:
+                _cx, _cy = _stk.pop()
+                _sz += 1
+                for _nx, _ny in ((_cx + 1, _cy), (_cx - 1, _cy),
+                                 (_cx, _cy + 1), (_cx, _cy - 1)):
+                    _nx %= _W3
+                    _ny %= _H3
+                    if not _d4c_seen[_ny][_nx] and _d4c[_ny][_nx] < -0.6:
+                        _d4c_seen[_ny][_nx] = True
+                        _stk.append((_nx, _ny))
+            _d4c_max = max(_d4c_max, _sz)
+    check('R266.3 CROCHET: one eyelet per stitch cell (60..130 holes, '
+          'k12x8=96 expected), each hole SMALL (no giant gap - the wall '
+          'stays printable), knots cover 20..50%',
+          60 <= _d4c_n <= 130 and _d4c_max <= 60 and 0.20 < _d4c_up < 0.50,
+          'holes %d max %d up %.3f' % (_d4c_n, _d4c_max, _d4c_up))
 
     # G4: coarse vase paths get resampled to <=1.5 mm XY chords while
     # retaining the final absolute-E coordinate and total relative extrusion.

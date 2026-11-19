@@ -3,7 +3,7 @@
 request, .136m round): how the wall displacement works, the EXACT mapping
 of every setting, all 40 patterns with previews sampled from the REAL
 pattern functions (tools/r2_texture.py _build_patterns - not redrawn,
-the images ARE the code output), and the 49 library presets listed per
+the images ARE the code output), and the 55 library presets listed per
 pattern.
 
 Content basis: tools/r2_texture.py (_build_patterns, apply_texture,
@@ -340,6 +340,36 @@ PAT_TXT = {
    'Graten - zwei Oktaven Ridged-Noise (|n-0.5| = Messer-Kämme), längs '
    'gestreckt, von einer langsamen ganzzahligen Diagonal-Welle geneigt. '
    'CREPES lautes Geschwister: ~8x längere Autokorrelation.',
+ 'HEARTS': 'HERZMUSTER (R266.3): Erhabene Herzen im versetzten Raster - das '
+   'Zuckerkisten-Ornament. Das Herz ist die implizite Klassik '
+   '((x²+y²-1)³ - x²y³ < 0), in mm-quadratischen Zellen gemessen und mit '
+   'Smoothstep angeschrägt (druckbar). Der Inhalt bleibt klar der '
+   'Zeilengrenze fern - der Stagger springt am Z-Wrap nicht.',
+ 'GOLF': 'GOLFBALL (R266.3): Dichte halbkugelige Dimples, versetzt, ohne '
+   'Saum - die aerodynamische Haut. Geschwister-Sortierung: '
+   'PERFORATION = kleine Löcher mit Saum, PINDOTS = erhabene Kappen, '
+   'GOLF = die Dellen dominieren. Kappenprofil (1-d²)^0.62 hält die '
+   'Steigung am Rand endlich.',
+ 'BASKETBALL': 'BASKETBALL (R266.3): Glatte breite KANÄLE über feinem '
+   'Noppengrus. Die Kanäle schlängeln sich sanft (nur ganzzahlige '
+   'Wobble-Frequenzen - der Wrap bleibt zu), die Noppen sind '
+   'geschwellter Value-Noise (rund, nahezu gleichhoch, dichter und '
+   'weicher als ORANGENHAUT).',
+ 'RAUFASER': 'RAUFASER (R266.3): Der deutsche Klassiker - flache '
+   'Papierfläche mit spärlichen kurzen Faser-Chips in zwei Skalen, '
+   'zufällig orientiert (eine Familie längs, eine quer). Von fern '
+   'ruhig, in der Hand griffig; bewusst NICHT Noise-überall (das ist '
+   'SANDSTEIN).',
+ 'ROOFTILES': 'DACHZIEGEL (R266.3): Überlappende Reihen mit Falz - '
+   'Panzerziegel-Look. Jede Lagerfuge ist ein steiles Schattental, der '
+   'Bauch dazwischen schwillt an, und der Seitenfalz läuft als '
+   'durchgehende Nut mit Wulst daneben - kerzengerade durch ALLE '
+   'Lagen (kein Versatz: der Unterschied zu ZIEGELMAUER).',
+ 'CROCHET': 'HÄKELWERK (R266.3): Bulky Handarbeit - runde Knoten im '
+   'versetzten Raster, weiche Arme, die zum Maschengitter spannen, und '
+   'TIEFE Maschenaugen dazwischen (die Garnaussparungen, die Häkeln '
+   'neben STRICKMASCHE offen machen). Alles gerundet, Stagger gerade '
+   'gezogen, Inhalt fern der Zeilengrenze.',
  'MAP': 'Bildprägung (R238): Hintergrund-Erkennung (Otsu + Rand-Voting) - '
    'der Hintergrund wird wie Alpha behandelt: GAR KEINE Verformung dort, '
    'Kanten weich gefedert (Haftung bleibt). TILE = endlose gespiegelte '
@@ -354,7 +384,8 @@ PAT_ORDER = ['RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX',
              'LAMINATE', 'MAZE', 'PERFORATION', 'VENT', 'CARBON', 'PINDOTS',
              'OCTAGONS', 'CHAINLINK', 'NETGRID', 'RINGS', 'OAK', 'BEECH',
              'KNOT', 'OLDBARK', 'LEATHER', 'ORANGE', 'CRACKS', 'WRINKLE',
-             'MAP']
+             'HEARTS', 'GOLF', 'BASKETBALL', 'RAUFASER', 'ROOFTILES',
+             'CROCHET', 'MAP']
 
 
 def presets_for(pattern):
