@@ -713,9 +713,32 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       (R162-Pin ehrlich auf 3 Vollumfang-Hatch-Aufrufe erweitert — der
       Pin fing vorher einen ECHTEN Nullhöhen-Bug im Mold-Fill), megatest
       224/0, systemtest 214/0, r81 23/23, r142 142/0, audit 82/0,
-      toolchain OK. NOCH OFFEN Stage B: Makro/LCD/Nonce/Toolchain-
-      Verdrahtung, dann 3/4-Teil-Sektorstufe, dann Häppchen 2
-      (parametrische Grundkörper).
+      toolchain OK.
+      **STAND R270 STAGE B (19.11., VERDRAHTET):** LCD-Generator-Menü
+      `__gen __mold` (Wand/Spalt/Einguss+Trichter/Entlüftung/Dübel/
+      Formschräge + Split & part [AUTO/MID/OFF+Z, BOTH/TOP/BOTTOM,
+      Master-Toggle] + 2-Druck-Build), Makros MOLD_INFO/MOLD_CREATE
+      (Datei aus SD-Browser-Auswahl wie Cake, Nonce + _GEN_ARM/_GEN_GO),
+      Watcher mold_nonce-Block (ValueError-Verweigerungen erreichen das
+      LCD MIT Grund), GEN_SUBDIRS 'molds'->Molds + 'stencil'->Stencil
+      nachgetragen (V5-Latenzbug: der R267-Watcher rief einen nie
+      registrierten Key - jede Schablonen-Anfrage waere am Geraet mit
+      KeyError gestorben; Batterien umgehen den Watcher, deshalb sahen
+      es alle Gates gruen), Toolchain: TOOL_REGISTRY['mold'] (Ketten
+      einseitig: part-Enum nur TOP/BOTTOM, BOTH lehnt Validierung UND
+      Adapter ab) + Adapter + 3 neue Ketten-Tests. Daneben 2 ehrliche
+      Altfund-Fixes: LCD-Anzeigebug Cake 'and 0 or'-Muster (UPPER zeigte
+      BOTH an - 'True and 0' ist falsy, '0 or 2' nimmt 2; durch
+      Konditionalausdruck ersetzt) und Fixture-E in test_toolchain_steps
+      (konstantes E0.20 nach G90-ueber-M83 extrudiert unter Klipper nur
+      den ersten Zug - E jetzt kumulativ wie bei echten Slicern).
+      Pins ehrlich fortgeschrieben: NONCE_KEYS 49, Guards 9, _gensub-
+      Call-Sites 23, CONFIRM-Zeilen 59, R135-Pfadliste +17, R162-Pin 3.
+      Gates: r270 33/0, macro_render 2133/2133, megatest 224/0,
+      systemtest 214/0, r81 23/23, r142 142/0, audit 82/0,
+      test_toolchain 49 OK, test_toolchain_steps 25 OK, r165/r166 clean.
+      NOCH OFFEN: 3/4-Teil-Sektorstufe + Oberflaechen-Param, dann
+      Haeppchen 2 (parametrische Grundkoerper).
       **Ehrlichkeitsregeln:** Hinterschneidungs-Check pro Hälfte (Kavität
       darf zur Öffnung nicht schrumpfen — Guss löst sich nicht, Druck
       bridgt), Formschräge als Raster-Radius-Approximation (dokumentiert),

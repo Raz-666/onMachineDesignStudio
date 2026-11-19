@@ -37,8 +37,10 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _PP = None
 _TEX = None
 
-# Werkzeuge, für die es echte Adapter gibt (cake bleibt gesperrt: 2 Ausgaben).
-SYSTEM_TOOLS = ('range', 'scale', 'texture', 'twist', 'mirror')
+# Werkzeuge, für die es echte Adapter gibt (cake bleibt gesperrt: 2 Ausgaben;
+# mold R270: Ketten sind einseitig - part=BOTH lehnt der Adapter ab, das
+# LCD-Menü des Generators liegt in __gen __mold, nicht in __mods).
+SYSTEM_TOOLS = ('range', 'scale', 'texture', 'twist', 'mirror', 'mold')
 
 
 def _engines():
@@ -130,6 +132,41 @@ def system_step_runner(tool, params, bed=None):
                 axis = ('x', 'y')[axis] if axis in (0, 1) else 'x'
             out, _info = pp.apply_mirror(
                 in_path, axis=str(axis).lower(),
+                out_dir=workspace, bed=limits)
+            _relocate(out, out_path)
+
+        elif tool == 'mold':
+            # R270 (J2): the casting mold around the CURRENT file. Chains
+            # are single-sided: part=BOTH writes TWO files (bottom + top)
+            # and stays refused - the cake rule; the standalone LCD path
+            # (mold_nonce via the __gen menu) does BOTH.
+            part = str(_pick(params, 'part', 'mold_part',
+                             default='TOP') or 'TOP').upper()
+            if part == 'BOTH':
+                raise ValueError('mold: part=BOTH schreibt ZWEI Dateien '
+                                 '(Unten + Oben) und bleibt in Ketten '
+                                 'gesperrt - part TOP oder BOTTOM waehlen '
+                                 '(beide Haelften: das Generator-Menue)')
+            funnel = str(_pick(params, 'funnel', 'mold_funnel',
+                               default='CONICAL') or 'CONICAL').upper()
+            plane = str(_pick(params, 'plane', 'mold_plane',
+                              default='AUTO') or 'AUTO').upper()
+            out, _info = pp.make_mold(
+                in_path,
+                wall=float(_pick(params, 'wall', 'mold_wall', default=5.0)),
+                gap=float(_pick(params, 'gap', 'mold_gap', default=0.15)),
+                pour_d=float(_pick(params, 'pour', 'mold_pour',
+                                   default=8.0)),
+                funnel='NONE' if funnel == 'NONE' else 'CONICAL',
+                vent_d=float(_pick(params, 'vent', 'mold_vent',
+                                   default=2.5)),
+                pin_d=float(_pick(params, 'pin', 'mold_pin', default=3.0)),
+                draft=float(_pick(params, 'draft', 'mold_draft',
+                                  default=0.0)),
+                part=part,
+                plane=('OFF' if plane == 'OFF'
+                       else ('MID' if plane == 'MID' else 'AUTO')),
+                z_off=float(_pick(params, 'zoff', 'mold_zoff', default=0.0)),
                 out_dir=workspace, bed=limits)
             _relocate(out, out_path)
 

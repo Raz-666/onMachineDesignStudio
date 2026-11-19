@@ -81,6 +81,8 @@ Die Tools-Menüs und der Postprozessor können laut Projektunterlagen G-Code fü
 - **Kabelbinder:** klassische Einweg- und wiederverwendbare LOOP-Varianten.
 - **Winkel- und Flachverbinder:** parametrisierte Platten, Bohrungen, Senkungen und Versteifungen.
 - **Dichtungen:** flache oder profilierte Ringe.
+- **Sprayschablonen:** Tonbänder eines Bildes als Platten mit automatischen Stegen und Passloch-Registrierung.
+- **Gießformen:** zweiteilige Formen um einen fertigen Druck (Äquator-Teilung, Einguss mit Trichter, Entlüftungen, Dübel-Registrierung) sowie Positiv-Master; über das Generatoren-Menü und als Toolchain-Schritt.
 - **Bricks/Kits/Figures:** Systembausteine, aus einem G-Code abgeleitete Bausätze sowie zusammensteckbare Figuren.
 - **String Art:** Bild-/Spiralstrukturen mit Ankerrahmen und gestaffelten Strängen.
 - **Texturierung:** vorhandene Datei (insbesondere Außenwände) mit reproduzierbarer Fuzzy-, Muster- oder Bildtextur versehen.

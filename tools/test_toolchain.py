@@ -39,8 +39,11 @@ class RegistryTests(unittest.TestCase):
     def test_registry_selfcheck(self):
         """Jedes Registry-Werkzeug ist vollstaendig und widerspruchsfrei."""
         report = toolchain.registry_report()
+        # R270 (J2): mold joins - its UI is the generator menu (__gen),
+        # the anchor registry is its contract
         self.assertEqual(sorted(report),
-                         ['mirror', 'range', 'scale', 'texture', 'twist'])
+                         ['mirror', 'mold', 'range', 'scale', 'texture',
+                          'twist'])
         for tool, spec in toolchain.TOOL_REGISTRY.items():
             self.assertIsInstance(spec['title'], str)
             self.assertGreater(len(spec['params']), 0)

@@ -81,6 +81,8 @@ The project documentation describes LCD-accessible G-code generation or transfor
 - **Cable ties:** classic one-way and reusable LOOP variants.
 - **Angle and flat connectors:** parameterized plates, holes, countersinks, and stiffeners.
 - **Gaskets:** flat or profiled rings.
+- **Spray stencils:** image tone bands as plates with automatic bridges and pin registration.
+- **Casting molds:** two-part molds around a finished print (equator split, pour funnel, vents, dowel registry) plus a positive master; via the generator menu and as a toolchain step.
 - **Bricks/kits/figures:** system-compatible building parts, kits derived from a G-code model, and assembled figures.
 - **String Art:** image/spiral patterns made from an anchor frame and layered strands.
 - **Texturing:** add deterministic fuzzy, patterned, or image-based texture to an existing file, especially outer walls.

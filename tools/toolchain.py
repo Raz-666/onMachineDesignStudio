@@ -263,6 +263,41 @@ TOOL_REGISTRY = {
         },
         'rules': [],
     },
+    # R270 (J2): casting mold around the current file. The LCD-UI is the
+    # GENERATOR menu (__main __gen __mold), not __mods - the anchor
+    # registry is the contract (no menu mirror, like the enums below it
+    # the ranges are engine law: make_mold clamps + refuses).
+    'mold': {
+        'title': 'Mold — Gießform um die Datei (make_mold R270/J2; '
+                 'LCD-UI im Generator-Menü __gen __mold)',
+        'outputs': 1,
+        'params': {
+            'wall': {'type': 'int', 'min': 3, 'max': 15,
+                     'required': False, 'default': 5},
+            'gap': {'type': 'number', 'min': 0.05, 'max': 0.30,
+                    'required': False, 'default': 0.15},
+            'pour': {'type': 'int', 'min': 5, 'max': 15,
+                     'required': False, 'default': 8},
+            'funnel': {'type': 'enum', 'values': ('NONE', 'CONICAL'),
+                       'required': False, 'default': 'CONICAL'},
+            'vent': {'type': 'number', 'min': 1.5, 'max': 4.0,
+                     'required': False, 'default': 2.5},
+            'pin': {'type': 'int', 'min': 3, 'max': 8,
+                    'required': False, 'default': 3},
+            'draft': {'type': 'number', 'min': 0.0, 'max': 3.0,
+                      'required': False, 'default': 0.0},
+            # BOTH (2 Dateien) hat in Ketten keine Semantik (die Cake-
+            # Regel) - der Enum lehnt es schon bei der Preset-Validierung
+            # ab, der Adapter zur Laufzeit gleich mit
+            'part': {'type': 'enum', 'values': ('TOP', 'BOTTOM'),
+                     'required': False, 'default': 'TOP'},
+            'plane': {'type': 'enum', 'values': ('AUTO', 'MID', 'OFF'),
+                      'required': False, 'default': 'AUTO'},
+            'zoff': {'type': 'number', 'min': -50.0, 'max': 250.0,
+                     'required': False, 'default': 0.0},
+        },
+        'rules': [],
+    },
 }
 
 

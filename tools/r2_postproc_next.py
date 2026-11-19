@@ -9701,6 +9701,8 @@ NONCE_KEYS = ('preview_nonce', 'range_nonce', 'label_gen_nonce', 'reso_nonce',
               # entry the boot prime reads None and every watcher restart
               # would replay the LAST stencil press (the .108 bug class)
               'stencil_nonce',
+              # R270 (J2): casting mold generator - same replay guard
+              'mold_nonce',
               # R252: the evidence pack channel (doctor) - read by
               # _doctor_tick via rv; priming closes the restart-replay gap
               'doctor_nonce',
@@ -9765,6 +9767,12 @@ GEN_SUBDIRS = {
     'scale': 'Scale', 'cake': 'Cake', 'stringart': 'StringArt',
     'shapes': 'Shapes', 'twist': 'Twist', 'mirror': 'Mirror',
     'toolchain': 'Toolchain',
+    # R270 (J2): the mold outputs. The 'stencil' entry is the V5 LATENCY
+    # BUG fix - the R267 watcher already called _gensub(directory,
+    # 'stencil') but the key was never registered: every stencil press
+    # would have died in a KeyError at the device (batteries bypass the
+    # watcher, so no gate saw it).
+    'stencil': 'Stencil', 'mold': 'Molds',
 }
 GEN_FOLDER_NAMES = sorted(set(GEN_SUBDIRS.values()))
 _SD_EXT151 = ('.gcode', '.g', '.gco', '.png', '.jpg', '.jpeg',
@@ -26822,6 +26830,7 @@ def watch(directory, interval=5.0, once=False):
     last_litho_nonce = None          # R89: lithophane / seal / image-delete
     last_colorpic_nonce = None        # R120: color picture generator
     last_stencil_nonce = None         # R267: spray stencil generator (J9)
+    last_mold_nonce = None           # R270: casting mold generator (J2)
     last_seal_nonce = None
     last_frame_nonce = None         # R90: picture frame / display case
     last_texture_nonce = None       # R91: fuzzy skin / bumps on an existing file
@@ -27480,6 +27489,8 @@ def watch(directory, interval=5.0, once=False):
                 'toolchain_nonce',
                 # R267 (J9): the stencil set writes one file per tone band
                 'stencil_nonce',
+                # R270 (J2): the mold set writes up to three files
+                'mold_nonce',
                 # R252: the evidence pack copies logs - disk I/O during a
                 # print is the .125 lesson (the macro refuses while
                 # printing; this is the watcher-side second layer)
@@ -27637,6 +27648,7 @@ def watch(directory, interval=5.0, once=False):
                 # ever since bricks shipped (.90).
                 last_colorpic_nonce = _np.get('colorpic_nonce')   # R120
                 last_stencil_nonce = _np.get('stencil_nonce')    # R267
+                last_mold_nonce = _np.get('mold_nonce')      # R270
                 last_bricks_nonce = _np.get('bricks_nonce')       # R121
                 last_brickkit_nonce = _np.get('brickkit_nonce')   # R125
                 last_figures_nonce = _np.get('figures_nonce')     # R126
@@ -29250,6 +29262,135 @@ def watch(directory, interval=5.0, once=False):
         except Exception as e:                              # noqa: BLE001
             print(f'[stencil] poll error: {e!r}', flush=True)
 
+        # R270 (J2): casting mold request (mold_nonce) - runs THREADED like
+        # the stencil (two halves + funnel + vents is a lot of gcode). The
+        # source is the SD browser selection (preview_file) - the cake
+        # pattern. A REFUSED request (undercut, dowels that do not fit the
+        # wall, bed too small) reaches the LCD with its reason - and the
+        # all-or-nothing writer has left NOTHING behind.
+        try:
+            _mn270 = rv.get('mold_nonce', '')
+            if _mn270 and _mn270 != last_mold_nonce:
+                last_mold_nonce = _mn270
+
+                def _vfl270(key, dflt):
+                    try:
+                        return float(rv.get(key, dflt) or dflt)
+                    except (TypeError, ValueError):
+                        return float(dflt)
+
+                def _vbl270(key, dflt):
+                    v = str(rv.get(key, dflt)).strip().lower()
+                    if v == '':
+                        return dflt
+                    return v in ('true', '1', 'on', 'yes')
+
+                _m_src270 = os.path.basename(
+                    str(rv.get('mold_file', '') or ''))
+                _m_p270 = os.path.join(directory, _m_src270)
+                if not _m_src270:
+                    _moonraker_gcode(
+                        'RESPOND MSG="Mold: no file selected - pick one '
+                        'first (Pre-Print > File)"\nM117 Mold: no file\n'
+                        '_SOUND_LIB NAME=r2_notice')
+                elif not os.path.isfile(_m_p270):
+                    raise ValueError('file not found: %s' % _m_p270)
+                else:
+                    _m_bed270 = _bed_limits(os.path.join(
+                        os.path.dirname(
+                            os.path.abspath(directory).rstrip('/')),
+                        'config', 'printer.cfg'))
+                    _m_fun270 = str(rv.get('mold_funnel', 'CONICAL')
+                                    or 'CONICAL').upper()
+                    _m_fun270 = 'NONE' if _m_fun270 == 'NONE' else 'CONICAL'
+                    _m_pln270 = str(rv.get('mold_plane', 'AUTO')
+                                    or 'AUTO').upper()
+                    _m_pln270 = ('OFF' if _m_pln270 == 'OFF'
+                                 else ('MID' if _m_pln270 == 'MID'
+                                       else 'AUTO'))
+                    _m_par270 = dict(
+                        wall=_vfl270('mold_wall', 5.0),
+                        gap=_vfl270('mold_gap', 0.15),
+                        pour_d=_vfl270('mold_pour', 8.0),
+                        funnel=_m_fun270,
+                        vent_d=_vfl270('mold_vent', 2.5),
+                        pin_d=_vfl270('mold_pin', 3.0),
+                        draft=_vfl270('mold_draft', 0.0),
+                        part=str(rv.get('mold_part', 'BOTH')
+                                 or 'BOTH').upper(),
+                        plane=_m_pln270,
+                        z_off=_vfl270('mold_zoff', 0.0),
+                        master=_vbl270('mold_master', False),
+                        material=str(rv.get('material', 'PLA') or 'PLA'),
+                        bed=_m_bed270, nozzle=_gen_nozzle(directory),
+                        out_dir=_gensub(directory, 'mold'),
+                        version=max(1, min(int(_vfl270('gen_version', 1)), 99)))
+
+                    def _mold_job270(p=_m_p270, params=_m_par270,
+                                     src=_m_src270):
+                        try:
+                            _first270, _mi270 = make_mold(p, **params)
+                            _mfiles270 = [os.path.join(directory, fn)
+                                          for fn in _mi270['files']]
+                            _mrel270 = os.path.relpath(
+                                _mfiles270[0], directory)
+                            _mmsg270 = ('Mold: %d file(s) from %s - split '
+                                        '%s at z %.2f, %d+%d layers, %d '
+                                        'vent bore(s), dowels D%.1fmm - '
+                                        'selected for printing'
+                                        % (len(_mfiles270), src,
+                                           _mi270['split'], _mi270['z_p'],
+                                           _mi270['layers_bot'],
+                                           _mi270['layers_top'],
+                                           len(_mi270['vents']),
+                                           params['pin_d']))
+                            _mmsg270 += ' | core %s' % POSTPROC_BUILD
+                            for _n270 in _mi270.get('notes', [])[:3]:
+                                _mmsg270 += ' | ' + _n270
+                            _moonraker_gcode(
+                                'RESPOND MSG="%s"\nM117 Mold ready\n'
+                                '_SOUND_LIB NAME=r2_done' % _mmsg270
+                                + _sel_line(rv, _mrel270))
+                            return _mfiles270
+                        except ValueError as ve270:
+                            # the honest refusals (undercut with layer+
+                            # cell count, dowels vs wall, bed, draft) -
+                            # user-fixable, the reason must reach the LCD
+                            print(f'[mold] refused: {ve270}', flush=True)
+                            try:
+                                _moonraker_gcode(
+                                    'RESPOND MSG="Mold REFUSED: %s - '
+                                    'nothing was written"\n'
+                                    'M117 Mold: refused\n'
+                                    '_SOUND_LIB NAME=r2_error' % ve270)
+                            except Exception:               # noqa: BLE001
+                                pass
+                        except Exception as e:              # noqa: BLE001
+                            print(f'[mold] error: {e!r}', flush=True)
+                            try:
+                                _moonraker_gcode(
+                                    'RESPOND MSG="Mold ERROR: %s"\n'
+                                    'M117 Mold error\n'
+                                    '_SOUND_LIB NAME=r2_error' % e)
+                            except Exception:               # noqa: BLE001
+                                pass
+
+                    import threading
+                    _spawn_job('Mold',
+                               'mold:%s:%r' % (_m_src270,
+                                               sorted(_m_par270.items())),
+                               _mold_job270)
+        except ValueError as ve270:
+            try:
+                _moonraker_gcode(
+                    'RESPOND MSG="Mold: %s"\nM117 Mold error\n'
+                    '_SOUND_LIB NAME=r2_error' % ve270)
+            except Exception:                               # noqa: BLE001
+                pass
+            print(f'[mold] guard: {ve270}', flush=True)
+        except Exception as e:                              # noqa: BLE001
+            print(f'[mold] poll error: {e!r}', flush=True)
+
         # R120: color picture generator request (colorpic_nonce) - runs
         # THREADED like the lithophane (a big picture is a lot of gcode).
         try:
@@ -30092,7 +30233,8 @@ def watch(directory, interval=5.0, once=False):
                         # module load - correct, just more RAM
                         if _me259 is not None and all(
                                 hasattr(_me259, _f259) for _f259 in
-                                ('apply_scale', 'apply_twist', 'make_range')):
+                                ('apply_scale', 'apply_twist',
+                                 'make_range', 'make_mold')):
                             _tcst._PP = _me259
                     _out_dir = _gensub(directory, 'toolchain')
                     # R259: lift the V-number to the next free one - a

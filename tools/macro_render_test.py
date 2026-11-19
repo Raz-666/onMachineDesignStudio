@@ -5554,6 +5554,7 @@ tests.append(('R75 watcher: _prime_nonces adopts the current counters (no re-fir
         'genq_kill_nonce': None,   # R238: queue skip/stop channel
         'toolchain_nonce': None,   # R259: preset chain
         'stencil_nonce': None,     # R267: spray stencil generator (J9)
+        'mold_nonce': None,        # R270: casting mold generator (J2)
         'doctor_nonce': None,      # R252: evidence pack (gap found by the
                                    # r142/r143 release audit, now primed)
         'quality_fix_nonce': None, 'speed_fix_nonce': None}, ''))
@@ -6790,8 +6791,10 @@ tests.append(('R86-R224 watcher: NONCE_KEYS has 48 channels incl. litho/seal/fra
     '+ the SD-browser image channel (.130) + the STL export channel (.136m) '
     '+ the shape generator channel (.136n) + the queue-clear channel (.136u) '
     '+ the mirror channel (.136v) + the toolchain channel (R259) '
-    '+ the stencil channel (R267) + the doctor channel (R252 gap)',
-    len(_pp.NONCE_KEYS) == 48 and 'stl_nonce' in _pp.NONCE_KEYS
+    '+ the stencil channel (R267) + the doctor channel (R252 gap) '
+    '+ the mold channel (R270)',
+    len(_pp.NONCE_KEYS) == 49 and 'stl_nonce' in _pp.NONCE_KEYS
+    and 'mold_nonce' in _pp.NONCE_KEYS
     and 'toolchain_nonce' in _pp.NONCE_KEYS
     and 'mirror_nonce' in _pp.NONCE_KEYS
     and 'gen_clear_nonce' in _pp.NONCE_KEYS
@@ -7226,8 +7229,8 @@ tests.append(('R87 LCD: container sits between Quick Macros and Maintenance, liv
     < _lcd87.index('[menu __main __maint]')
     and '[menu __main __live __plot __mode]' in _lcd87
     and '[menu __main __live __plot]' in _lcd87, ''))
-tests.append(('R87/R89/R90 LCD: guards preserved (cable/angle/litho/seal/frame/stencil need 17_generator, labels optional, plot+container free)',
-    _lcd87.count("enable: {'gcode_macro _GENERATORS' in printer}") == 8
+tests.append(('R87/R89/R90 LCD: guards preserved (cable/angle/litho/seal/frame/stencil/mold need 17_generator, labels optional, plot+container free)',
+    _lcd87.count("enable: {'gcode_macro _GENERATORS' in printer}") == 9
     and "enable: {'gcode_macro _LABELS' in printer}" in _lcd87
     and '[menu __main __gen __plot]\ntype: list\nname: Plotter\n' in _lcd87, ''))
 tests.append(('R87 docs: cfg console paths say Tools (labels + plotter + generator header)',
@@ -13826,6 +13829,24 @@ _REMOVED135 = [
 ]
 
 _ADDED135 = [
+    # R270 (J2): casting mold generator - settings + split & part + build.
+    '__main __gen __mold',
+    '__main __gen __mold __info',
+    '__main __gen __mold __set',
+    '__main __gen __mold __set __wall',
+    '__main __gen __mold __set __gap',
+    '__main __gen __mold __set __pour',
+    '__main __gen __mold __set __fun',
+    '__main __gen __mold __set __vent',
+    '__main __gen __mold __set __pin',
+    '__main __gen __mold __set __drf',
+    '__main __gen __mold __cut',
+    '__main __gen __mold __cut __pln',
+    '__main __gen __mold __cut __zoff',
+    '__main __gen __mold __cut __part',
+    '__main __gen __mold __cut __mast',
+    '__main __gen __mold __cut __go',
+    '__main __gen __mold __how',
     # R267 (J9): spray-stencil generator - settings + litho image browser.
     '__main __gen __stencil',
     '__main __gen __stencil __info',
@@ -15346,11 +15367,12 @@ tests.append(('R159 _LIVE_RESET: machine limits back (accel from the printer '
               and 'M220 S100' in _out159b and 'M221 S100' in _out159b
               and 'VARIABLE=g_speed_clean VALUE=100' in _out159b, _out159b[:160]))
 
-tests.append(('R146 generator folders (source wiring): all 22 watcher call '
+tests.append(('R146 generator folders (source wiring): all 23 watcher call '
               'sites route into _gensub subfolders (no flat out_dir=directory '
               'left), gen_files lists RELATIVE paths incl. legacy root files, '
-              'delete joins the subpath (R224: +Mirror; R267: +Stencil)',
-              _r2p146.count("out_dir=_gensub(directory, '") == 22
+              'delete joins the subpath (R224: +Mirror; R267: +Stencil; '
+              'R270: +Mold)',
+              _r2p146.count("out_dir=_gensub(directory, '") == 23
               and 'out_dir=directory' not in _r2p146
               and 'GEN_SUBDIRS = {' in _r2p146
               and "_sub146 + '/' + _f146" in _r2p146
@@ -15460,8 +15482,9 @@ _rows160 = _re160.findall(r'gcode:\n    (?:[^\n]*menu\.exit[^\n]*\n    )?'
 tests.append(('R160 LCD: 59 rows confirm by DOUBLE PRESS (macro + CONFIRM=1), '
     'console stays single-shot (R224: +Mirror +Rope/Basket/Chess presets; '
     'R240: +the 6 profile actions +queue stop; R259: +Toolchain; R267: '
-    '+the 10 stencil image slots)',
-    len([r for r in _rows160 if not r.startswith(('LABEL_CLEAR_ALL', 'SYS_SAVE_CONFIG'))]) == 58
+    '+the 10 stencil image slots; R270: +the mold build)',
+    len([r for r in _rows160 if not r.startswith(('LABEL_CLEAR_ALL', 'SYS_SAVE_CONFIG'))]) == 59
+    and 'MOLD_CREATE CONFIRM=1' in _lcd160
     and 'TOOLCHAIN_APPLY CONFIRM=1' in _lcd160
     and 'SAVE_DEPOT_PRESET CONFIRM=1' in _lcd160
     and 'LOAD_DEPOT_PRESET CONFIRM=1' in _lcd160
