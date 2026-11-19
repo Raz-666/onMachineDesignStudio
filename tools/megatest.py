@@ -451,6 +451,18 @@ run('litho FLAT 160mm', lambda: LI(orient='FLAT', height_mm=160.0),
 run('litho FLAT no frame no brim', lambda: LI(orient='FLAT', frame=False,
                                               brim_loops=0), r2_gen=True)
 
+# ======================================================= STENCILS (R267) =
+# J9 spray stencils: one plate per tone band + bridges + registration holes
+def ST(**kw):
+    out, i = pp.make_stencil(img, bed=BED,
+                             out_dir=tempfile.mkdtemp(dir=D), **kw)
+    return [os.path.join(os.path.dirname(out), f) for f in i['files']]
+
+run('stencil 3 bands default', lambda: ST(), r2_gen=True)
+run('stencil 2 bands small', lambda: ST(steps=2, size_mm=60.0), r2_gen=True)
+run('stencil 4 bands thick 1.2mm', lambda: ST(steps=4, thick=1.2), r2_gen=True)
+run('stencil 3 bands + negative', lambda: ST(steps=3, negative=1), r2_gen=True)
+
 # ======================================================= RESONANCE ========
 for ax in ('x', 'y'):
     csv = os.path.join(D, 'resonances_%s_20261008.csv' % ax)

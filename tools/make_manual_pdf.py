@@ -1726,7 +1726,7 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
     "holes per leg. The ready-message lists EVERY automatic adjustment — nothing clamps silently. Console: "
     "GEN_ANGLES COUNT=2 ANGLE=90 LEG_A=60 LEG_B=60 WIDTH=25 LAYERS=6 HOLES=2 HOLE_D=4 CS=1 STIFFENER=1 FLAT=0 "
     "(CS=1 countersunk; FLAT=1 = flat connector)."),
-  H2('5.6 Lithophanes — photos that glow'),
+  H2('5.6 Lithophanes — photos that glow (+ spray stencils)'),
   P("Turn any picture into a back-lit relief print: dark areas print thick, light areas thin — held against a "
     "lamp or window the photo appears. No slicer, no modeling, no manual image editing: upload a .png/.jpg into "
     "the gcodes folder (drag + drop in Mainsail), the Images list of Tools > Lithophane refreshes on its own "
@@ -1761,6 +1761,16 @@ chapter('5','The generators: Range, Labels, Plotter, Cable ties, Angles, Lithoph
     "over air, the nozzle never dives, the probe never catches. The classic sketch "
     "recipe: white background image + Levels 3 + Color swap LAST = white body with "
     "black lines. File: Vxx_LithoF_name.gcode."),
+  P("SPRAY STENCILS (R267) — the same images, cut into tone bands (menu Tools > Stencil, it reuses the "
+    "lithophane image list): the picture is quantized into 2-4 tone bands (Bands setting) and EVERY band "
+    "becomes its own flat stencil plate — the cutouts are exactly that tone, so you spray lightest first, "
+    "darkest last, stacking the plates on pins. Bridges are automatic at 3x nozzle (floating plate pieces "
+    "— the center of an O — stay attached, thin enough to hardly show), every plate is a rectangle with 4 "
+    "registration holes D4.2 mm at the SAME position (stack on M4 pins, same corner orientation), and "
+    "Negative ON adds one extra plate where the motif stands and the background sprays through (the "
+    "two-color companion). A band under 2% of the area is not worth its own plate: the generator then "
+    "honestly makes fewer, healthy plates and says so in the answer. Settings: Bands 2-4, Edge 40-220 mm "
+    "(the longer picture edge; aspect follows), Thick 0.4-2 mm, Negative. Console: STENCIL_CREATE INDEX=0."),
   H2('5.7 Gaskets — the built-in seal maker'),
   P("Sealing rings straight from the LCD (menu Tools > Gaskets): outer/inner diameter and height, flat face "
     "or groove. One continuous spiral per band — no seam, no start-stop blob where a seal would leak, and no "

@@ -898,8 +898,8 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       TEXTURING.pdf Tiefe 0.05–4. Preview: analyse/
       r266_deep_relief_preview.png (4 Panels feste mm-Skala,
       Querschnitt, E-Dichte aus echtem G-Code).
-      **OFFEN: J9 Schablonen-Generator-Besprechung; danach Release-Vorbereitung
-      (README/INSTALL/TESTANLEITUNG-Finals, Release ohne `analyse/`).**
+      **OFFEN: Release-Vorbereitung (README/INSTALL/TESTANLEITUNG-Finals,
+      Release ohne `analyse/`); J9 Schablonen (R267) ist FERTIG.**
       **STAND R266.3 Häppchen 4 (19.11., 6 Deko-/Haptikmuster FERTIG,
       55 Bibliotheksmuster — Nutzer-Auswahl „sechs ohne Sterne/Ringe"):
       HEARTS (implizites Herz (x²+y²−1)³−x²y³, Stagger-Raster,
@@ -963,27 +963,29 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       Matrix-Preview-Zelle + TEXTURING.pdf-Katalogseite + r238-artiger
       Feldcheck. **Vor Baubeginn: verbindliche Musterliste dem Nutzer zur
       Bestätigung** (Umfang klären: wie viele neu, welche raus).
-- [ ] **J9 — SCHABLONEN-GENERATOR (NEU, Nutzeridee 19.11.2026 — vorgemerkt
-      für Besprechung, kein Baubeginn ohne Go).** Aus einem hochgeladenen
-      Bild (wie Lithophane/Colorpic: Bild → Analyseschritte) eine
-      **druckbare Schablone zum Zeichnen/Sprühen** erzeugen:
-      — **Einfacher Modus:** hell/dunkel — eine Lage, zwei Stufen.
-      — **Profi-Modus (der eigentliche Wunsch):** Bild auf wenige
-      Farben/Stufen reduzieren (Quantisierung), **je Stufe eine Schablone**;
-      die Lagen werden **in fester Reihenfolge übereinandergelegt**
-      (Registration: Passstifte/Passlöcher, Deckschicht mit
-      Aussparungen).
-      — **Insel-Problem (vom Nutzer selbst erkannt):** Details ohne
-      Verbindung zum Rahmen müssen über **Stegverbindungen**
-      (Brücken, die beim Sprühen kaum auffallen) oder über
-      zusätzliche Lagen angebunden werden — professionelle
-      Mehrschicht-Schablonen lösen das über die Layer-Reihenfolge.
-      — Ausgabe wie jeder Generator: G-code direkt (kein Slicer),
-      dünne Platte mit Aussparungen; natürliche Heimat im
-      Pre-Print-Bereich neben Litho/Colorpic (Bild-Pfad mit Otsu/Schwellen
-      wie MAP existiert schon). Offene Fragen für die Besprechung:
-      Mindest-Stegbreite je Düsendurchmesser, Platten-/Rahmenform,
-      wie viele Stufen sinnvoll (2–5), Negativschablone ja/nein.
+- [x] **J9 — SCHABLONEN-GENERATOR (R267, umgesetzt 19.11.2026 nach
+      Nutzer-Design).** Bild → **Sprüh-Schablonen-Set** — LCD `Tools >
+      Stencil` (nutzt die Lithophane-Bildliste): Quantisierung in
+      **2–4 Tonbänder** (`stencil_steps`), **je Band eine flache
+      Platte** — Sprühreihenfolge hell→dunkel, Platten auf Passstiften
+      gestapelt. Nutzer-Design umgesetzt: **Stege automatisch 3× Düse**
+      (`_stencil_bridges267`: Flood-Fill-Insel suche, horizontale
+      Brückenstrips, max 80 Iterationen — das O-Innenstück bleibt
+      angebunden), **Rechteckplatte mit durchgehendem 8-mm-Rand + 4
+      Passlöcher D4.2 mm an IDENTISCHER Position in jeder Platte**
+      (Ecken (FR/2, GR−FR/2), Stack auf M4-Pins), **optionale
+      Negativ-Schablone** (`stencil_negative`: Motiv steht, Hintergrund
+      sprüht durch). Ehrlich statt haarfein: ein Band < 2 % der Fläche
+      wird weggekürzt (Schrittzahl reduziert sich mit Notiz) —
+      Flächenaufdrucke füllen oft weniger Bänder als bestellt.
+      Engine `make_stencil` + Watcher + Makros STENCIL_INFO/STENCIL_CREATE
+      + LCD-Menü (Settings + 10 Bild-Slots mit Stern-Arming) komplett.
+      Evidenz: r267_stencil_check **34/34** (Bänder, Masken-Partition,
+      Loch-Kongruenz, Brücken-Flood, G-Code-Dichte, Determinismus),
+      megatest **224/224** (+4 Stencil-Runs), macro_render_test
+      **2133/2133** (5 neue R267-Checks + Inventory/Counter-Pflege),
+      r265 Manual-Index sauber (268 public), r218 WebUI 26/26 (JSON+
+      Embed aktualisiert), MANUAL.md/MANUAL.pdf (5.6 + Index) gepflegt.
 
 ## K. Toolchain-Architektur §20 („Effektkette") — begonnen (Sitzung nach `fecf500`)
 

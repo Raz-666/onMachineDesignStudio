@@ -29,7 +29,7 @@ reference tables at the end. Installation and wiring live in the appendices.
 2. [The system in five minutes](#2-the-system-in-five-minutes)
 3. [From file to print — the daily workflow](#3-from-file-to-print--the-daily-workflow)
 4. [Scenario library — every file type walked through](#4-scenario-library--every-file-type-walked-through)
-5. [The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes, ColorPic, Gaskets, Frames, Bricks, Kits & Figures, String Art](#5-the-generators-range-labels-plotter-cable-ties-angles-lithophanes-colorpic-gaskets-frames-bricks-kits--figures-string-art)
+5. [The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes (+ Spray stencils), ColorPic, Gaskets, Frames, Bricks, Kits & Figures, String Art](#5-the-generators-range-labels-plotter-cable-ties-angles-lithophanes-spray-stencils-colorpic-gaskets-frames-bricks-kits--figures-string-art)
 6. [During the print: tuning, pauses, objects](#6-during-the-print-tuning-pauses-objects)
 7. [Filament: load / unload / change / runout / cold pull](#7-filament-load--unload--change--runout--cold-pull)
 8. [Temperature system L1/L2](#8-temperature-system-l1l2)
@@ -877,7 +877,7 @@ PAUSE_AT_LAYER LAYER=17
 CANCEL_PRINT                                    # twice within 60 s
 ```
 
-## 5. The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes, ColorPic, Gaskets, Frames, Bricks, Kits & Figures, String Art, Geometry, Scale/Taper, Twist, Mirror, STL export, Toolchain (preset chains)
+## 5. The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes (+ Spray stencils), ColorPic, Gaskets, Frames, Bricks, Kits & Figures, String Art, Geometry, Scale/Taper, Twist, Mirror, STL export, Toolchain (preset chains)
 
 Thirteen generators turn the printer into a manufacturing tool of its own:
 partial prints from any G-code, label plates from typed text, pen plots from
@@ -1560,6 +1560,22 @@ diffuser). Big plates above ~120 mm can be printed in two halves and glued.
 again) removes the picture from the folder. Its **plotter `.gcode` stays** in
 the file list — only the image goes away. Console: `LITHO_CREATE INDEX=0`
 (first image slot) or `LITHO_DEL_SLOT INDEX=2`.
+
+**Spray stencils (R267)** — the same images, cut into tone bands
+(LCD: `Tools > Stencil`, reuses the lithophane image list): the picture is
+quantized into **2–4 tone bands** (`Bands` setting) and EVERY band becomes
+its own flat stencil plate — the cutouts are exactly that tone, so you
+spray **lightest first, darkest last**, stacking the plates on pins.
+Design agreed with the user: bridges are **automatic at 3× nozzle**
+(floating plate pieces — the center of an "O" — stay attached, thin enough
+to hardly show when spraying), every plate is a **rectangle with 4
+registration holes D4.2 mm at the SAME position** (stack on M4 pins,
+same corner orientation), and **Negative ON** adds one extra plate where
+the motif stands and the background sprays through (two-color companion).
+If the image cannot fill the requested band count (flat-color logos),
+the generator honestly makes FEWER, healthy plates and says so. Settings:
+Bands 2–4, Edge 40–220 mm (longer picture edge; aspect follows), Thick
+0.4–2 mm, Negative. Console: `STENCIL_CREATE INDEX=0`.
 
 ### 5.7 Gaskets — the built-in seal maker
 
@@ -3833,7 +3849,7 @@ stay with Mainsail.
 | **MCR** | minimum cruise ratio | **SCV** | square corner velocity |
 
 ## 25. Complete macro index
-409 entries: every public macro with parameters (defaults in parentheses; blank = no parameters) plus the internal hooks worth knowing. Internal helpers (leading `_`) are not user-facing — **265 public + 114 internal macros exist in total** (379 `gcode_macro` + 30 `delayed_gcode`, counted from the .cfg files, not copied from an older list). Grouped by module file — the same file you would edit.
+412 entries: every public macro with parameters (defaults in parentheses; blank = no parameters) plus the internal hooks worth knowing. Internal helpers (leading `_`) are not user-facing — **268 public + 114 internal macros exist in total** (382 `gcode_macro` + 30 `delayed_gcode`, counted from the .cfg files, not copied from an older list). Grouped by module file — the same file you would edit.
 
 
 ### State & sentinels — 01_state.cfg (14)
@@ -4216,7 +4232,7 @@ stay with Mainsail.
 | _LABEL_SET_CHAR | POS=sv.label_pos | default(1, CH=0 |
 | _V17_LABELS |  | Version sentinel of 16_labels.cfg |
 
-### Generators — 17_generator.cfg (42)
+### Generators — 17_generator.cfg (44)
 | Macro | Parameters | Purpose |
 |---|---|---|
 | **ANGLE_GENERATE** | CONFIRM=0, OUT | create the plate file from the stored settings (bumps angle_nonce) |
@@ -4245,6 +4261,8 @@ stay with Mainsail.
 | **SEAL_INFO** |  | gasket settings + NUT/material tips |
 | **SHAPE_GENERATE** | CONFIRM=0, OUT | Geometry: create the shape file (bumps shape_nonce) |
 | **SHAPE_INFO** |  | Geometry: current settings |
+| **STENCIL_CREATE** | INDEX=0 | spray-stencil set from image slot INDEX (0 = newest picture in the lithophane list): 2–4 tone bands, one plate each + optional negative — bridges 3× nozzle, 4 registration holes D4.2, sprays lightest→darkest (bumps stencil_nonce) |
+| **STENCIL_INFO** |  | stencil settings (bands, edge, thickness, negative) + ready images |
 | **STRINGART_APPLY** | PATTERN=0, SHAPE=0, W=102, H=152, DIAMETER=180, ANCHORS=300, LINES=1700, RING_H=2.4, ARC=2.0, FILE=bild.png | string art job (.136n: SHAPE 0=ROUND / 1=RECT with the photo-size presets, RING_H ring height, ARC strand bow in Z): PATTERN 0=SPIRAL / 1=PHOTO — the ring prints first (2 walls, 3+3 solid, 5% sparse), the strands ride on top in six Z bands as bows, starts 15 deg apart; PHOTO weaves the FILE image (default: the picked one), output lands in the StringArt folder |
 | **STRINGART_IMG** |  | cycles the root image list (the lithophane list, newest first) for the PHOTO pattern |
 | **STRINGART_PICK** | INDEX=-1 | ArtisticStrings: pick the root image from the paged image list (the PHOTO pattern weaves it) |

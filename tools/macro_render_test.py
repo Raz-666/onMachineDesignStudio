@@ -7222,8 +7222,8 @@ tests.append(('R87 LCD: container sits between Quick Macros and Maintenance, liv
     < _lcd87.index('[menu __main __maint]')
     and '[menu __main __live __plot __mode]' in _lcd87
     and '[menu __main __live __plot]' in _lcd87, ''))
-tests.append(('R87/R89/R90 LCD: guards preserved (cable/angle/litho/seal/frame need 17_generator, labels optional, plot+container free)',
-    _lcd87.count("enable: {'gcode_macro _GENERATORS' in printer}") == 7
+tests.append(('R87/R89/R90 LCD: guards preserved (cable/angle/litho/seal/frame/stencil need 17_generator, labels optional, plot+container free)',
+    _lcd87.count("enable: {'gcode_macro _GENERATORS' in printer}") == 8
     and "enable: {'gcode_macro _LABELS' in printer}" in _lcd87
     and '[menu __main __gen __plot]\ntype: list\nname: Plotter\n' in _lcd87, ''))
 tests.append(('R87 docs: cfg console paths say Tools (labels + plotter + generator header)',
@@ -13822,6 +13822,19 @@ _REMOVED135 = [
 ]
 
 _ADDED135 = [
+    # R267 (J9): spray-stencil generator - settings + litho image browser.
+    '__main __gen __stencil',
+    '__main __gen __stencil __info',
+    '__main __gen __stencil __set',
+    '__main __gen __stencil __set __stp',
+    '__main __gen __stencil __set __sze',
+    '__main __gen __stencil __set __thk',
+    '__main __gen __stencil __set __neg',
+    '__main __gen __stencil __img',
+    '__main __gen __stencil __img __info',
+    '__main __gen __stencil __img __pgp',
+    '__main __gen __stencil __img __pgn',
+] + ['__main __gen __stencil __img __s%d' % _i for _i in range(10)] + [
     # G2: explicit user-controlled helical tilt toggle in Texture.
     '__main __preprint __mods __tex __tilt',
     '__main __endq',
@@ -15329,11 +15342,11 @@ tests.append(('R159 _LIVE_RESET: machine limits back (accel from the printer '
               and 'M220 S100' in _out159b and 'M221 S100' in _out159b
               and 'VARIABLE=g_speed_clean VALUE=100' in _out159b, _out159b[:160]))
 
-tests.append(('R146 generator folders (source wiring): all 21 watcher call '
+tests.append(('R146 generator folders (source wiring): all 22 watcher call '
               'sites route into _gensub subfolders (no flat out_dir=directory '
               'left), gen_files lists RELATIVE paths incl. legacy root files, '
-              'delete joins the subpath (R224: +Mirror)',
-              _r2p146.count("out_dir=_gensub(directory, '") == 21
+              'delete joins the subpath (R224: +Mirror; R267: +Stencil)',
+              _r2p146.count("out_dir=_gensub(directory, '") == 22
               and 'out_dir=directory' not in _r2p146
               and 'GEN_SUBDIRS = {' in _r2p146
               and "_sub146 + '/' + _f146" in _r2p146
@@ -15440,20 +15453,22 @@ tests.append(('R160 CABLE_TIE_GENERATE CONFIRM=1 armed: second press = '
 import re as _re160
 _rows160 = _re160.findall(r'gcode:\n    (?:[^\n]*menu\.exit[^\n]*\n    )?'
                    r'([A-Z_]+(?: INDEX=\d+| PRESET=\w+)? CONFIRM=1)', _lcd160)
-tests.append(('R160 LCD: 49 rows confirm by DOUBLE PRESS (macro + CONFIRM=1), '
+tests.append(('R160 LCD: 59 rows confirm by DOUBLE PRESS (macro + CONFIRM=1), '
     'console stays single-shot (R224: +Mirror +Rope/Basket/Chess presets; '
-    'R240: +the 6 profile actions +queue stop; R259: +Toolchain)',
-    len([r for r in _rows160 if not r.startswith(('LABEL_CLEAR_ALL', 'SYS_SAVE_CONFIG'))]) == 48
+    'R240: +the 6 profile actions +queue stop; R259: +Toolchain; R267: '
+    '+the 10 stencil image slots)',
+    len([r for r in _rows160 if not r.startswith(('LABEL_CLEAR_ALL', 'SYS_SAVE_CONFIG'))]) == 58
     and 'TOOLCHAIN_APPLY CONFIRM=1' in _lcd160
     and 'SAVE_DEPOT_PRESET CONFIRM=1' in _lcd160
     and 'LOAD_DEPOT_PRESET CONFIRM=1' in _lcd160
     and 'FILE_PROFILE_LOAD WHICH=pre CONFIRM=1' in _lcd160
     and 'FILE_PROFILE_DELETE WHICH=pre CONFIRM=1' in _lcd160
     and 'PLOT_TEXT FILE="{nm}.txt" CONFIRM=1' in _lcd160
-    and _lcd160.count("gen_arm|default('') ==") >= 43
+    and _lcd160.count("gen_arm|default('') ==") >= 53
     and 'TWIST_APPLY CONFIRM=1' in _lcd160
     and 'CABLE_TIE_GENERATE CONFIRM=1' in _lcd160
     and 'LITHO_CREATE INDEX=0 CONFIRM=1' in _lcd160
+    and 'STENCIL_CREATE INDEX=0 CONFIRM=1' in _lcd160
     and 'GEN_BRICKKIT CONFIRM=1' in _lcd160 and 'GEN_FIGURES CONFIRM=1' in _lcd160
     and 'PLOT_STATUS CONFIRM=1' in _lcd160
     and 'TEXTURE_APPLY PRESET=ORCA CONFIRM=1' in _lcd160, str(len(_rows160))))
@@ -19890,6 +19905,43 @@ tests.append(('R266.3 LCD pages: 55 patterns still fit 7 pages (8 slots '
     'each - the dynamic cap from R266.2 carries the growth)',
     (55 - 1) // 8 + 1 == 7,
     'pages %d' % ((55 - 1) // 8 + 1)))
+
+# ================== R267: spray-stencil generator (J9) ======================
+# the user-agreed design: steps 2-4 (setting), bridges 3x nozzle
+# (automatic), rectangular plate + 4 registration holes, optional
+# negative stencil. Reuses the lithophane image browser.
+_pp267 = open('tools/r2_postproc.py', encoding='utf-8').read()
+tests.append(('R267 stencil engine: make_stencil lives in the postproc '
+    'core with the bridge law and the honest band reduction',
+    'def make_stencil(' in _pp267
+    and 'def _stencil_bridges267(' in _pp267
+    and 'steps reduced to %d - the image cannot fill more' in _pp267
+    and '3x nozzle' in _pp267,
+    ''))
+
+_mc267 = open('macros/17_generator.cfg', encoding='utf-8').read()
+tests.append(('R267 stencil macros: STENCIL_INFO + STENCIL_CREATE with the '
+    'arm/confirm pattern, reusing the litho image slots',
+    '[gcode_macro STENCIL_INFO]' in _mc267
+    and '[gcode_macro STENCIL_CREATE]' in _mc267
+    and "SAVE_VARIABLE VARIABLE=stencil_nonce" in _mc267
+    and "litho_files" in _mc267,
+    ''))
+
+tests.append(('R267 stencil watcher: stencil_nonce is primed at boot (no '
+    'old-job replay) and spawns a threaded job like the lithophane',
+    "last_stencil_nonce = _np.get('stencil_nonce')" in _pp267
+    and "_spawn_job('Stencil'," in _pp267
+    and "last_stencil_nonce = None" in _pp267,
+    ''))
+
+tests.append(('R267 stencil menu: Settings (bands 2-4, edge, thickness, '
+    'negative) + 10 image slots paging the litho browser',
+    _lcd175.count('[menu __main __gen __stencil') >= 21
+    and 'stencil_steps' in _lcd175
+    and 'stencil_negative' in _lcd175
+    and _lcd175.count('STENCIL_CREATE INDEX=') == 10,
+    '%d blocks' % _lcd175.count('[menu __main __gen __stencil')))
 
 # R246c harness: the PASS/FAIL loop now runs HERE, at the very end. It used
 # to sit mid-file (before the R214 round) - every test appended after it

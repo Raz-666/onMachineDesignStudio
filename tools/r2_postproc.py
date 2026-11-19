@@ -15004,6 +15004,431 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
             'notes': notes}
     return out, info
 
+# =====================================================================================
+# R267 (J9, user idea 19.11.2026): SPRAY-STENCIL GENERATOR
+# Image -> quantized tone bands -> ONE FLAT STENCIL PLATE PER BAND (2-4 steps,
+# selectable), printed like every generator file (no slicer). Design agreed
+# with the user: steps 2-4 via setting, bridge width = 3x nozzle (automatic),
+# rectangular plate + registration holes (passstifte), optional NEGATIVE
+# stencil (motif stands, background sprays through). The natural home is the
+# image browser the lithophane already feeds (Tools > Stencil).
+# =====================================================================================
+
+def _stencil_bridges267(mask, bw):
+    """R267: connect every plate ISLAND to the frame with thin bridges.
+
+    A plate island (material surrounded by cutouts, e.g. the center of an
+    'O') would float off the bed. Bridges are horizontal strips of plate,
+    bw cells tall (= 3x nozzle), running from the island outward LEFT and
+    RIGHT until they hit plate material (the walk stops at the first plate
+    run; if none exists the strip runs to the grid edge = the frame ring,
+    which is always plate). Iterated until one connected component remains
+    (an island chained to another island only gets linked on the next
+    pass). Returns (bridge_count, connected).
+    """
+    R = len(mask)
+    C = len(mask[0]) if R else 0
+    if not R or not C:
+        return 0, True
+    bridges = 0
+    for _ in range(80):
+        # flood the frame-connected mainland from the grid corner
+        comp = [[False] * C for _ in range(R)]
+        stk = []
+        if mask[0][0]:
+            stk.append((0, 0))
+            comp[0][0] = True
+        while stk:
+            x, y = stk.pop()
+            for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1),
+                           (x + 1, y + 1), (x - 1, y - 1),
+                           (x + 1, y - 1), (x - 1, y + 1)):
+                if 0 <= nx < C and 0 <= ny < R \
+                        and mask[ny][nx] and not comp[ny][nx]:
+                    comp[ny][nx] = True
+                    stk.append((nx, ny))
+        # first island (scan order), its centroid row + x extent
+        isl = None
+        for y in range(R):
+            for x in range(C):
+                if mask[y][x] and not comp[y][x]:
+                    isl = (x, y)
+                    break
+            if isl:
+                break
+        if isl is None:
+            return bridges, True
+        xs = []
+        ys = []
+        seen = [[False] * C for _ in range(R)]
+        stk = [isl]
+        seen[isl[1]][isl[0]] = True
+        while stk:
+            x, y = stk.pop()
+            xs.append(x)
+            ys.append(y)
+            for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1),
+                           (x + 1, y + 1), (x - 1, y - 1),
+                           (x + 1, y - 1), (x - 1, y + 1)):
+                if 0 <= nx < C and 0 <= ny < R \
+                        and mask[ny][nx] and not seen[ny][nx] \
+                        and not comp[ny][nx]:
+                    seen[ny][nx] = True
+                    stk.append((nx, ny))
+        cy = sum(ys) // len(ys)
+        r0 = max(0, cy - bw // 2)
+        r1 = min(R - 1, r0 + bw - 1)
+        x0 = min(xs)
+        while x0 > 0 and not mask[cy][x0 - 1]:
+            x0 -= 1
+        x1 = max(xs)
+        while x1 < C - 1 and not mask[cy][x1 + 1]:
+            x1 += 1
+        for rr in range(r0, r1 + 1):
+            for cc in range(x0, x1 + 1):
+                mask[rr][cc] = True
+        bridges += 1
+    return bridges, False
+
+
+def make_stencil(src, steps=3, size_mm=100.0, layer_h=0.2, thick=0.8,
+                 frame_w=8.0, hole_d=4.2, negative=False, brim_loops=4,
+                 material='PLA', bed=None, bed_margin=6.0, nozzle=0.4,
+                 out_dir='.', version=1):
+    """R267 (J9): image -> SPRAY STENCILS, one flat plate per tone band.
+
+    The image is contrast-stretched, quantized into `steps` tone bands
+    (2..4, the agreed range) and EVERY band becomes its own stencil file:
+    the plate carries the cutout for exactly that band, plus a rectangular
+    frame with 4 registration holes (same bed position in every file - the
+    layers align on pins). Floating plate pieces (islands) get bridges
+    3x nozzle wide before the gcode is written (measured, not assumed -
+    see r267_stencil_check). negative=1 adds one extra plate where the
+    MOTIF stands and the background (band 0) sprays through - the classic
+    two-color companion. Output like every generator: G-code directly,
+    thin plate, no slicer.
+    Returns (first_path, info) with info['files'] = all stencil paths.
+    """
+    S = max(2, min(int(steps or 3), 4))
+    size_mm = max(40.0, min(float(size_mm or 100.0), 220.0))
+    layer_h = max(0.08, min(float(layer_h or 0.2), 0.24))
+    thick = max(0.4, min(float(thick or 0.8), 2.0))
+    frame_w = max(5.0, min(float(frame_w or 8.0), 14.0))
+    hole_d = max(3.0, min(float(hole_d or 4.2), 6.0))
+    brim_loops = max(0, min(int(brim_loops or 0), 10))
+    negative = 1 if str(negative).strip().lower() in ('1', 'true', 'on', 'yes') else 0
+    if bed is None:
+        bed = (0.0, -3.0, 244.0, 238.0)
+    ext = os.path.splitext(src)[1].lower().lstrip('.')
+    kind = {'png': 'png', 'jpg': 'jpg', 'jpeg': 'jpg'}.get(ext)
+    if kind is None:
+        raise ValueError('stencil source must be .png/.jpg/.jpeg (got %r)' % ext)
+    if not os.path.isfile(src):
+        raise ValueError('image not found: %s' % src)
+    with open(src, 'rb') as f:
+        data = f.read()
+    w, h, lum = _img_luma(data, kind, max_dim=768)
+
+    wid = max(0.4, nozzle * 1.08)
+    # size_mm = the picture's LONGER edge; the other follows the aspect
+    if w >= h:
+        cols = max(8, int(round(size_mm / wid)))
+        rows = max(8, int(round(cols * h / float(w))))
+    else:
+        rows = max(8, int(round(size_mm / wid)))
+        cols = max(8, int(round(rows * w / float(h))))
+    bx0, by0, bx1, by1 = bed
+    ux0, uy0 = bx0 + bed_margin, by0 + bed_margin
+    ux1, uy1 = bx1 - bed_margin, by1 - bed_margin
+    FR = max(3, int(round(frame_w / wid)))
+    notes = []
+    _sc267 = min(1.0, (ux1 - ux0 - 2 * frame_w) / (cols * wid),
+                 (uy1 - uy0 - 2 * frame_w) / (rows * wid))
+    if _sc267 < 0.999:
+        cols = max(8, int(cols * _sc267))
+        rows = max(8, int(rows * _sc267))
+        notes.append('picture clamped to the bed - %.0f%% of the requested'
+                     ' size' % (_sc267 * 100.0))
+    width_real = cols * wid
+    height_real = rows * wid
+    W = width_real + 2 * frame_w
+    H = height_real + 2 * frame_w
+
+    # image pipeline exactly like the litho FLAT mode: percentile stretch,
+    # blur, contrast boost, NO mirror (top view reads straight), top at
+    # the back of the bed
+    grid, rep = _litho_grid(lum, w, h, cols, rows, gamma=1.0, levels=0,
+                            mirror=False)
+    grid = grid[::-1]
+    grid = _img_boost128(grid, 1.35)
+    rep += ' + contrast boost'
+
+    # quantize into S tone bands (0 = lightest = background). R267 rules:
+    # a band under 2% of the window is a hairline stencil nobody can
+    # spray through. First the linear cuts, then the R149 percentile
+    # recut (ties-safe: a garbage recut is discarded, not kept), and if
+    # the image simply has fewer usable tones than requested the band
+    # count honestly REDUCES (with a note) instead of shipping hairline
+    # plates. Flat-color logos are the norm here, photos the exception.
+    _vals267 = sorted(grid[_r][_c] for _r in range(rows)
+                      for _c in range(cols))
+
+    def _cnt267f(lv, n):
+        cc = [0] * n
+        for _r in range(rows):
+            for _c in range(cols):
+                cc[lv[_r][_c]] += 1
+        return cc
+
+    def _lin267(n):
+        return [[min(n - 1, int(grid[r][c] * n + 0.5))
+                 for c in range(cols)] for r in range(rows)]
+
+    def _recut267(n):
+        cut = []
+        for _k in range(1, n):
+            _pos = min(len(_vals267) - 1,
+                       max(0, int(round(_k * len(_vals267) / float(n)))))
+            cut.append(_vals267[_pos])
+
+        def _lvl(v):
+            for _k, _cv in enumerate(cut):
+                if v < _cv:
+                    return _k
+            return len(cut)
+        return [[max(0, min(n - 1, _lvl(grid[r][c])))
+                 for c in range(cols)] for r in range(rows)]
+
+    def _thin267(cc):
+        return any(k < rows * cols * 0.02 for k in cc)
+
+    LV = _lin267(S)
+    _cnt267 = _cnt267f(LV, S)
+    if _thin267(_cnt267) and len(set(_vals267)) >= S:
+        _lv2 = _recut267(S)
+        _cc2 = _cnt267f(_lv2, S)
+        if not _thin267(_cc2):
+            LV, _cnt267 = _lv2, _cc2
+            notes.append('tone bands recut at pixel percentiles (linear '
+                         'cuts left a band under 2%)')
+    while S > 2 and _thin267(_cnt267):
+        S -= 1
+        LV = _lin267(S)
+        _cnt267 = _cnt267f(LV, S)
+        if _thin267(_cnt267) and len(set(_vals267)) >= S:
+            _lv2 = _recut267(S)
+            _cc2 = _cnt267f(_lv2, S)
+            if not _thin267(_cc2):
+                LV, _cnt267 = _lv2, _cc2
+        notes.append('steps reduced to %d - the image cannot fill more '
+                     'healthy tone bands (a band under 2%% of the area '
+                     'is not worth its own plate)' % S)
+    notes.append('tone band cells: ' + ', '.join(
+        'band %d=%d' % (k, _cnt267[k]) for k in range(S)))
+
+    # the full plate grid: frame ring + window; registration holes sit in
+    # the four frame corners (identical cells in EVERY file = pin registry)
+    GR = rows + 2 * FR
+    GC = cols + 2 * FR
+    _hr267 = (hole_d / 2.0) / wid
+    _hc267 = (FR / 2.0, FR / 2.0, GC - FR / 2.0, GR - FR / 2.0)
+    _holes267 = ((_hc267[0], _hc267[1]), (_hc267[2], _hc267[1]),
+                 (_hc267[0], _hc267[3]), (_hc267[2], _hc267[3]))
+    bw = max(2, int(round(3.0 * nozzle / wid)))
+    notes.append('bridges: %dx nozzle = %.1fmm (%d cells), registration '
+                 'holes %d x D%.1fmm in the frame corners'
+                 % (3, 3.0 * nozzle, bw, 4, hole_d))
+
+    def _plate267(band):
+        """plate mask for one stencil: frame + all window cells whose tone
+        is NOT `band` (band=-1: the negative - plate = motif = bands 1..)"""
+        m = [[True] * GC for _ in range(GR)]
+        for r in range(rows):
+            for c in range(cols):
+                if band < 0:
+                    cut = LV[r][c] == 0
+                else:
+                    cut = LV[r][c] == band
+                if cut:
+                    m[FR + r][FR + c] = False
+        for (hx, hy) in _holes267:
+            r0 = max(0, int(math.floor(hy - _hr267)))
+            r1 = min(GR - 1, int(math.ceil(hy + _hr267)))
+            c0 = max(0, int(math.floor(hx - _hr267)))
+            c1 = min(GC - 1, int(math.ceil(hx + _hr267)))
+            for r in range(r0, r1 + 1):
+                for c in range(c0, c1 + 1):
+                    if (c - hx) ** 2 + (r - hy) ** 2 <= _hr267 ** 2:
+                        m[r][c] = False
+        return m
+
+    cx = (ux0 + ux1) / 2.0
+    cy = (uy0 + uy1) / 2.0
+    x0 = cx - W / 2.0
+    y0 = cy - H / 2.0
+    px0, py0 = x0 + frame_w, y0 + frame_w
+    n_layers = max(2, int(round(thick / layer_h)))
+    e_wall = layer_h * wid / FIL_AREA
+    stem = _gen_stem(src, 'IMG')
+
+    def _runs267(row):
+        runs = []
+        c = 0
+        while c < GC:
+            if row[c]:
+                c0 = c
+                while c < GC and row[c]:
+                    c += 1
+                runs.append((c0, c - 1))
+            else:
+                c += 1
+        return tuple(runs)
+
+    def _blocks267(mask):
+        row_runs = [_runs267(mask[r]) for r in range(GR)]
+        blocks = []
+        r_i = 0
+        while r_i < GR:
+            rr = row_runs[r_i]
+            r_j = r_i
+            while r_j + 1 < GR and row_runs[r_j + 1] == rr:
+                r_j += 1
+            if rr:
+                blocks.append((r_i, r_j, rr))
+            r_i = r_j + 1
+        return blocks
+
+    files = []
+    masks = []
+    bridges_all = []
+    jobs = [(k, 'Schablone%d' % (k + 1)) for k in range(S)]
+    if negative:
+        jobs.append((-1, 'SchabloneNeg'))
+
+    for (band, label) in jobs:
+        mask = _plate267(band)
+        nbr, ok = _stencil_bridges267(mask, bw)
+        bridges_all.append(nbr)
+        if not ok:
+            notes.append('%s: bridge fallback - an island stayed separate'
+                         ' after 80 bridges' % label)
+        masks.append((label, mask))
+        fname = 'V%02d_%s_%s.gcode' % (
+            _next_gen_version(out_dir), label, stem)
+        fname = _dedupe_gen_fname(out_dir, fname)
+        out = os.path.join(out_dir, fname)
+        contours = _cell_contours(mask, x0, y0, wid)
+        blocks = _blocks267(mask)
+        with open(out, 'w') as f:
+            sk = _Sink(f)
+            a = sk.append
+            a('; R267-STENCIL generated spray stencil - print it like any'
+              ' other file')
+            a(TAG)
+            a('; source %s (%dx%d px) -> %dx%d cells, band %s of %d,'
+              ' plate %.1f x %.1fmm, %d layers @%.2gmm = %.1fmm thick'
+              % (os.path.basename(src), w, h, cols, rows,
+                 band + 1 if band >= 0 else 'NEGATIVE', S,
+                 W, H, n_layers, layer_h, n_layers * layer_h))
+            a('; %s' % rep)
+            a('; plate = frame %.1fmm + material; cutouts = tone band %s;'
+              ' bridges %d x %.1fmm (3x nozzle) keep islands on the plate'
+              % (frame_w, 'ALL' if band < 0 else str(band + 1), nbr,
+                 3.0 * nozzle))
+            a('; registration: 4 holes D%.1fmm at the SAME bed position in'
+              ' every stencil - stack the plates on pins and spray in'
+              ' order: lightest first, darkest last (each darker layer'
+              ' sprays THROUGH its own stencil on top of the previous)'
+              % hole_d)
+            a('; %s' % ('NEGATIVE: the motif stands, the background sprays'
+                        ' through - the two-color companion'
+                        if band < 0 else
+                        'band %d of %d: cutout = this tone only'
+                        % (band + 1, S)))
+            for _n in notes:
+                a('; note: %s' % _n)
+            a('; filament_type = %s' % material)
+            a('; layer_height = %.2g' % layer_h)
+            a('; nozzle_diameter = %.1f' % nozzle)
+            a('; line_width = %.2g' % wid)
+            a('; inner_wall_speed = 18')
+            a('; initial_layer_speed = 10')
+            a('; travel_speed = 120')
+            types = ['WALL-OUTER', 'SURFACE-BOTTOM', 'INFILL-SOLID',
+                     'SURFACE-TOP']
+            if brim_loops:
+                types.insert(0, 'BRIM')
+            a('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d '
+              'LINE_WIDTH=%.2g LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g '
+              'FLOW_RATIO=1 NOZZLE=%.1f WALL_LOOPS=2 SPEED_INNER=18 '
+              'SPEED_FIRST=10 SPEED_TRAVEL=120 TYPES=%s BY_OBJECT=0'
+              % (material, layer_h, n_layers, wid, layer_h, wid, nozzle,
+                 ','.join(types)))
+            fpoly = ('[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]'
+                     % (x0, y0, x0 + W, y0, x0 + W, y0 + H, x0, y0 + H))
+            a('EXCLUDE_OBJECT_DEFINE NAME=SCHABLONE CENTER=%.1f,%.1f '
+              'POLYGON=%s' % (cx, cy, fpoly))
+            a('PRINT_START MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d'
+              ' OUTER_WALL_SPEED=18' % (material, layer_h, n_layers))
+            a('G90')
+            a('M83')
+            a('M107   ; R267-STENCIL: first layer = fan off')
+            pen = _Pen(sk, jump_d=6.0)
+            outer_c = _rect_loop(x0, y0, x0 + W, y0 + H)
+            for li in range(1, n_layers + 1):
+                _job_tick()
+                z = round(li * layer_h, 3)
+                a(';LAYER_CHANGE')
+                a(';Z:%.3f' % z)
+                a('LAYER_MARK')
+                pen.set_z(z)
+                if li == 2:
+                    a('M106 S178   ; R267-STENCIL: part fan from layer 2')
+                a('EXCLUDE_OBJECT_START NAME=SCHABLONE')
+                if li == 1 and brim_loops:
+                    a(_apply_type_lines('BRIM'))
+                    for _b267 in range(brim_loops - 1, -1, -1):
+                        off = _brim_gap(wid) + _b267 * wid
+                        _emit_loop(pen, _poly_offset(outer_c, off),
+                                   e_wall, 900)
+                a(_apply_type_lines('WALL-OUTER'))
+                for _lp267 in contours:
+                    _emit_loop(pen, _lp267, e_wall,
+                               900 if li == 1 else 1800)
+                _ty267 = ('SURFACE-BOTTOM' if li == 1 else
+                          'SURFACE-TOP' if li == n_layers else 'INFILL-SOLID')
+                a(';TYPE:%s' % {'SURFACE-BOTTOM': 'Bottom surface',
+                                'SURFACE-TOP': 'Top surface',
+                                'INFILL-SOLID': 'Internal solid infill',
+                                }[_ty267])
+                a('APPLY_TYPE TYPE=%s' % _ty267)
+                for (r_a, r_b, rr) in blocks:
+                    for (c_a, c_b) in rr:
+                        segs = _hatch(px0 - frame_w + c_a * wid + wid * 0.5,
+                                      y0 + r_a * wid + wid * 0.5,
+                                      px0 - frame_w + (c_b + 1) * wid - wid * 0.5,
+                                      y0 + (r_b + 1) * wid - wid * 0.5,
+                                      None, wid,
+                                      45.0 if li % 2 else 135.0)
+                        _emit_fill(pen, segs, e_wall,
+                                   1200 if li == 1 else 2400, wid)
+                a('EXCLUDE_OBJECT_END NAME=SCHABLONE')
+            a('M107')
+            a('PRINT_END')
+            sk.flush()
+        _gen_normalize_speeds(out)
+        files.append(fname)
+
+    info = {'file': files[0], 'files': list(files), 'source':
+            os.path.basename(src), 'kind': 'stencil-set',
+            'width': W, 'height': H, 'layers': n_layers, 'steps': S,
+            'thickness': n_layers * layer_h, 'bridges': bridges_all,
+            'hole_d': hole_d, 'frame': frame_w, 'notes': notes,
+            'masks': masks, 'bands': _cnt267, 'grid': (GR, GC),
+            'window': (FR, FR, cols, rows)}
+    return os.path.join(out_dir, files[0]), info
+
+
 def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                     brim_loops=6, ironing=False, base=0.7, dyn=2.3, gamma=1.0,
                     material='PLA', bed=None, bed_margin=6.0, nozzle=0.6,
@@ -25492,6 +25917,7 @@ def watch(directory, interval=5.0, once=False):
     last_toolchain_nonce = None      # R259: preset chain (tools in series)
     last_litho_nonce = None          # R89: lithophane / seal / image-delete
     last_colorpic_nonce = None        # R120: color picture generator
+    last_stencil_nonce = None         # R267: spray stencil generator (J9)
     last_seal_nonce = None
     last_frame_nonce = None         # R90: picture frame / display case
     last_texture_nonce = None       # R91: fuzzy skin / bumps on an existing file
@@ -26295,6 +26721,7 @@ def watch(directory, interval=5.0, once=False):
                 # jobs, recreating deleted files with beeps + boot load,
                 # ever since bricks shipped (.90).
                 last_colorpic_nonce = _np.get('colorpic_nonce')   # R120
+                last_stencil_nonce = _np.get('stencil_nonce')    # R267
                 last_bricks_nonce = _np.get('bricks_nonce')       # R121
                 last_brickkit_nonce = _np.get('brickkit_nonce')   # R125
                 last_figures_nonce = _np.get('figures_nonce')     # R126
@@ -27823,6 +28250,90 @@ def watch(directory, interval=5.0, once=False):
                            _litho_job89, ram_min=110)   # R223: photo
         except Exception as e:                              # noqa: BLE001
             print(f'[litho] poll error: {e!r}', flush=True)
+
+        # R267 (J9): stencil generator request (stencil_nonce) - runs
+        # THREADED like the lithophane (quantization + bridges + gcode).
+        try:
+            _stn267 = rv.get('stencil_nonce', '')
+            if _stn267 and _stn267 != last_stencil_nonce:
+                last_stencil_nonce = _stn267
+
+                def _vbl267(key, dflt):
+                    v = str(rv.get(key, dflt)).strip().lower()
+                    if v == '':
+                        return dflt
+                    return v in ('true', '1', 'on', 'yes')
+
+                def _vfl267(key, dflt):
+                    try:
+                        return float(rv.get(key, dflt) or dflt)
+                    except (TypeError, ValueError):
+                        return float(dflt)
+
+                _st_src267 = os.path.basename(
+                    str(rv.get('stencil_file', '') or ''))
+                if not _st_src267.lower().endswith(('.png', '.jpg', '.jpeg')):
+                    raise ValueError('not an image: %r' % _st_src267)
+                _st_p267 = os.path.join(directory, _st_src267)
+                if not os.path.isfile(_st_p267):
+                    raise ValueError('image not found: %s' % _st_p267)
+                _st_bed267 = _bed_limits(os.path.join(
+                    os.path.dirname(os.path.abspath(directory).rstrip('/')),
+                    'config', 'printer.cfg'))
+                _st_par267 = dict(
+                    steps=max(2, min(int(_vfl267('stencil_steps', 3)), 4)),
+                    size_mm=_vfl267('stencil_size', 100.0),
+                    layer_h=_vfl267('stencil_layer_h', 0.2),
+                    thick=_vfl267('stencil_thick', 0.8),
+                    frame_w=_vfl267('stencil_frame', 8.0),
+                    hole_d=_vfl267('stencil_hole', 4.2),
+                    negative=_vbl267('stencil_negative', False),
+                    material=str(rv.get('material', 'PLA') or 'PLA'),
+                    bed=_st_bed267, nozzle=_gen_nozzle(directory),
+                    out_dir=_gensub(directory, 'stencil'),
+                    version=max(1, min(int(_vfl267('gen_version', 1)), 99)))
+
+                def _stl_job267(p=_st_p267, params=_st_par267,
+                                src=_st_src267):
+                    try:
+                        _first, _si = make_stencil(p, **params)
+                        _files267 = [os.path.join(directory, fn)
+                                     for fn in _si['files']]
+                        _rel267 = os.path.relpath(_files267[0], directory)
+                        _msg267 = ('Stencil: %d plate(s) from %s - %.0fx%.0fmm,'
+                                   ' %.1fmm thick, %d tone band(s), bridges %s,'
+                                   ' 4 registration holes D%.1fmm - lightest'
+                                   ' first, darkest last, stack on pins'
+                                   ' - selected for printing'
+                                   % (len(_files267), src, _si['width'],
+                                      _si['height'], _si['thickness'],
+                                      _si['steps'], _si['bridges'],
+                                      _si['hole_d']))
+                        _msg267 += ' | core %s' % POSTPROC_BUILD
+                        for _n267 in _si.get('notes', [])[:2]:
+                            _msg267 += ' | ' + _n267
+                        _moonraker_gcode(
+                            'RESPOND MSG="%s"\nM117 Stencil ready\n'
+                            '_SOUND_LIB NAME=r2_done' % _msg267
+                            + _sel_line(rv, _rel267))
+                        return _files267
+                    except Exception as e:                      # noqa: BLE001
+                        print(f'[stencil] error: {e!r}', flush=True)
+                        try:
+                            _moonraker_gcode(
+                                'RESPOND MSG="Stencil ERROR: %s"\n'
+                                'M117 Stencil error\n'
+                                '_SOUND_LIB NAME=r2_error' % e)
+                        except Exception:                       # noqa: BLE001
+                            pass
+
+                import threading
+                _spawn_job('Stencil',
+                           'stencil:%s:%r' % (_st_src267,
+                                              sorted(_st_par267.items())),
+                           _stl_job267, ram_min=110)
+        except Exception as e:                              # noqa: BLE001
+            print(f'[stencil] poll error: {e!r}', flush=True)
 
         # R120: color picture generator request (colorpic_nonce) - runs
         # THREADED like the lithophane (a big picture is a lot of gcode).
