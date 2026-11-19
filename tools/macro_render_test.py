@@ -15790,7 +15790,9 @@ tests.append(('R162 litho/colorpic step FILL: the hatch rects use the FULL '
     '_hatch(px0 + c_a * wid + wid * 0.5' not in _src160b
     and '_hatch(x0 + c_a * wid + wid * 0.5' not in _src160b
     and _src160b.count('_hatch(px0 + c_a * wid + _in167,') == 1
-    and _src160b.count('_hatch(x0 + c_a * wid,') == 2, ''))
+    # R270: the mold generator's block fill is the THIRD full-extent
+    # call (litho + colorpic + mold) - stencil dodges via px0 - frame_w
+    and _src160b.count('_hatch(x0 + c_a * wid,') == 3, ''))
 tests.append(('R167 litho step WALLS: every step region above the base gets '
     'a wall loop around it before the fill (user request - clean step '
     'edges instead of frayed hatch ends), hatch inset half a line',

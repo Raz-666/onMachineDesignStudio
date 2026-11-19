@@ -137,6 +137,7 @@ reappears, one of these goes red instead of the user finding out mid-print.
 | `r167_aircheck.py` | physically: do generator paths bridge over air |
 | `r168_stampcheck.py` | stamp/contour/mirror fit, in millimetres |
 | `r267_stencil_check.py` | the spray-stencil law: tone bands, mask partition, registration-hole congruence, bridge flood (no floating islands), gcode density, determinism (34 checks) |
+| `r270_mold_check.py` | the casting-mold law (J2): analytic layer math, equator split, cavity truth measured from the gcode, dowel registry at the same bed position, vent honesty (0 vents + note when the top is too small), draft erosion + gap growth by cavity-cell counters, undercut/bed/pin-fit refusals, all-or-nothing commit, determinism (33 checks) |
 | `r165_doc_check.py` | every macro named in the docs exists; every LCD path in the docs exists in the menu tree |
 | `r166_template_check.py` | Klipper-parse + Jinja compile of every template (the way Klipper does it, not the way we hope) |
 | `r142_spell_lint.py` | spelling of user-facing strings (a hint lint — deliberately not a gate) |

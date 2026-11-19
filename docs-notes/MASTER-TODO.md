@@ -688,6 +688,34 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       StringArt-Muster), KEIN trimesh-Boolean (Pi Zero 2 W) · Job über
       Makro → SAVE_VARIABLE → Watcher → `_spawn_job` · RAM-Floor 60 ·
       Web-UI-Spiegelung automatisch · Versionierung `Vnn_Form…_…`.
+      **STAND R270 (19.11., Häppchen 1 Stage A FERTIG):** Engine
+      `make_mold()` in r2_postproc.py — Source-Scan (G90/G91/M82/M83/
+      G92, ;TYPE:-Filter mit der R253-Regel „keine TYPE-Zeilen = nichts
+      ausschließen", Arkten grob gesampelt), gefüllte Silhouetten pro
+      Z-Fenster, Äquator-Split (AUTO/MID/OFF), BEIDE Hälften Parting-
+      Fläche-nach-oben (klassischer flat-face-up-Trick: beide Passflächen
+      werden Top-Surfaces, keine Kavitätswand druckt über Leere; das
+      Oberteil ist Y-gespiegelt gedruckt, der Nutzer wendet es beim
+      Zusammenbau wie einen Deckel), Boden/Deckel = Wandstärke, Einguss-
+      kanal + konischer Trichter + adaptive Entlüftungen (nur wo sie
+      PHYSISCH passen: ≥2mm Steg zwischen Einguss und Lüfter, sonst
+      ehrliche Notiz), Dübellöcher an identischen Bett-Koordinaten
+      (Stencil-Registratur-Muster, auf Zellzentren gesnappt, D3-Default
+      = Filamentstab, Dübel-vs-Wand-Validierung), Entlüftungsrillen auf
+      BEIDEN Trennflächen, Formschräge als echte Zell-Erosion (der
+      Radius-Trick wurde von der Silhouetten-Füllung geschluckt — Batterie
+      bewies 3904==3904 Zellen, jetzt messbar weniger), Master (Positiv)
+      mit. All-or-nothing: jede Verweigerung (Hintersneidung mit Layer-
+      und Zellzahl, Bett, Draft schließt die Kavität, Dübel passt nicht)
+      hinterlässt KEIN File. Batterie `r270_mold_check.py` 33/0 (dynamisch:
+      Layer-Mathematik analytisch, Geometrie aus dem G-Code gemessen,
+      Draft/Gap über Kavitäts-Zellzähler). Gates: macro_render 2133/2133
+      (R162-Pin ehrlich auf 3 Vollumfang-Hatch-Aufrufe erweitert — der
+      Pin fing vorher einen ECHTEN Nullhöhen-Bug im Mold-Fill), megatest
+      224/0, systemtest 214/0, r81 23/23, r142 142/0, audit 82/0,
+      toolchain OK. NOCH OFFEN Stage B: Makro/LCD/Nonce/Toolchain-
+      Verdrahtung, dann 3/4-Teil-Sektorstufe, dann Häppchen 2
+      (parametrische Grundkörper).
       **Ehrlichkeitsregeln:** Hinterschneidungs-Check pro Hälfte (Kavität
       darf zur Öffnung nicht schrumpfen — Guss löst sich nicht, Druck
       bridgt), Formschräge als Raster-Radius-Approximation (dokumentiert),

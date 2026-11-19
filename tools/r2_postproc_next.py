@@ -15436,6 +15436,903 @@ def make_stencil(src, steps=3, size_mm=100.0, layer_h=0.2, thick=0.8,
     return os.path.join(out_dir, files[0]), info
 
 
+def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
+              funnel='CONICAL', vent_d=2.5, pin_d=3.0, draft=0.0,
+              part='BOTH', plane='AUTO', z_off=0.0, master=False,
+              brim_loops=4, material='PLA', bed=None, bed_margin=6.0,
+              nozzle=0.4, out_dir='.', version=1):
+    """R270 (J2 bite 1): G-code file -> CASTING MOLD, two flat halves.
+
+    The finished print file is the truth (same rule as the STL export):
+    its extrusion moves are rasterized per Z band, the outer silhouette is
+    flood-filled solid (a cast replicates the OUTER shape - through-holes
+    are cast solid, honestly noted) and every half becomes a block with
+    the cavity carved layer by layer.
+
+    Print orientation (the classic flat-face-up mold trick - decided the
+    honest way after the parting-face-down idea failed on paper): BOTH
+    halves print with the parting face as the TOP surface, so both mating
+    faces are top surfaces (the smoothest a printer makes) and no cavity
+    wall ever prints over a void:
+      - BOTTOM half: solid floor (`wall` mm) at the bed, the cavity opens
+        at the parting face (top) and narrows downward with the object
+        below the split - walls always stand on material.
+      - TOP half: solid back (`wall` mm) at the bed, the cavity opens at
+        the parting face (top) and narrows downward toward the back - the
+        object ABOVE the split, mirrored in Y, because the user flips the
+        top half over like a lid onto the bottom half at assembly. The
+        dowel holes sit symmetrically, so they align after the flip.
+      - Pour channel + vents run from the back face into the cavity's
+        high ground (the object's top region, near the back); the conical
+        funnel widens at the outer face. Vent grooves on BOTH parting
+        faces let trapped air escape at the seam.
+      - Registration: 4 dowel holes at the SAME bed position in both
+        halves (the stencil pin registry pattern) - bosses cannot print
+        on a top surface either, so the pins are separate dowels (steel
+        or filament rods), holes get +0.3mm clearance.
+      - master=1 adds the POSITIVE: the object itself, solid silhouettes
+        per layer (silicone forming reference / fit gauge).
+
+    Honesty rules (measured, not assumed):
+      - UNDERCUT CHECK per half, streaming with the writer: toward the
+        parting opening the cavity must not shrink (the cast could not be
+        pulled out and the wall would print over a void). The tolerance
+        gap already absorbs sub-gap undercuts; anything beyond refuses
+        with the layer and cell count - no half file is left behind
+        (atomic temp file).
+      - draft is a real per-layer cell erosion (1 cell per
+        wid/tan(draft) mm of depth, measured by the battery: the cavity
+        cell count shrinks with draft) - a draft that would close a
+        thin section refuses instead of silently truncating the cast.
+      - Split plane: AUTO = the widest band (the equator), MID = the
+        middle of the Z range, OFF = z_off mm above the object bottom.
+        Tilted planes (pitch/roll like the cake cut) come with the
+        3/4-part sector stage.
+
+    Direct G-code like every generator (labels/plotter/stringart - no
+    slicer, no trimesh boolean: the Pi Zero 2 W could not afford it).
+    Returns (first_path, info); info['files'] = all written paths.
+    """
+    part = str(part).upper()
+    if part not in ('BOTH', 'TOP', 'BOTTOM'):
+        raise ValueError("part must be BOTH, TOP or BOTTOM (got %r)" % part)
+    plane = str(plane).upper()
+    if plane not in ('AUTO', 'MID', 'OFF'):
+        raise ValueError("plane must be AUTO, MID or OFF (got %r)" % plane)
+    wall = max(3.0, min(float(wall or 5.0), 15.0))
+    layer_h = max(0.08, min(float(layer_h or 0.2), 0.24))
+    gap = max(0.05, min(float(gap or 0.15), 0.30))
+    pour_d = max(5.0, min(float(pour_d or 8.0), 15.0))
+    vent_d = max(1.5, min(float(vent_d or 2.5), 4.0))
+    pin_d = max(3.0, min(float(pin_d or 3.0), 8.0))
+    draft = max(0.0, min(float(draft or 0.0), 3.0))
+    funnel = str(funnel or 'CONICAL').upper()
+    if funnel not in ('NONE', 'KEIN', 'CONICAL', 'STANDARD'):
+        raise ValueError("funnel must be NONE, CONICAL or STANDARD (got %r)"
+                         % funnel)
+    if funnel == 'STANDARD':
+        funnel = 'CONICAL'      # one funnel shape in v1, named honestly
+    master = 1 if str(master).strip().lower() in ('1', 'true', 'on', 'yes') else 0
+    brim_loops = max(0, min(int(brim_loops or 0), 10))
+    if bed is None:
+        bed = (0.0, -3.0, 244.0, 238.0)
+    if not os.path.isfile(src):
+        raise ValueError('source file not found: %s' % src)
+    wid = max(0.4, nozzle * 1.08)
+
+    # ---- pass 1: scan the source moves into per-Z-band segment buckets --
+    # Same semantics as the STL export pass 0a: G90/G91 (Klipper E-rel in
+    # G91), M82/M83, G92 X/Y/Z/E, ;TYPE: filtering. Skirt/brim/support/
+    # prime-tower/custom/ironing do not belong to the object. Arcs are
+    # sampled coarsely (0.6 rad) - noted when seen.
+    _EXC270 = frozenset(('SUPPORT', 'SKIRT', 'BRIM', 'PRIME-TOWER',
+                         'CUSTOM', 'IRONING', 'TRAVEL'))
+    bands = {}                      # z (rounded) -> [(x0, y0, x1, y1), ...]
+    minx = [1e30]; miny = [1e30]; maxx = [-1e30]; maxy = [-1e30]
+    arcs_seen = [0]
+    types_seen = [False]   # R253 lesson: a file with NO ;TYPE: lines at all
+                           # is not 'all CUSTOM' - nothing gets excluded then
+    opener = gzip.open if str(src).lower().endswith('.gz') else open
+
+    def _see270(x, y):
+        minx[0] = min(minx[0], x); miny[0] = min(miny[0], y)
+        maxx[0] = max(maxx[0], x); maxy[0] = max(maxy[0], y)
+
+    with opener(src, 'rt', errors='replace') as f:
+        x = y = z = 0.0
+        e = 0.0
+        xyz_rel = e_rel = False
+        ftype = 'CUSTOM'
+        for ln in f:
+            if ln[:1] == ';':
+                m270 = TYPE_RE.match(ln)
+                if m270:
+                    ftype = _canon_type(m270.group(1))
+                    types_seen[0] = True
+                continue
+            code = ln.split(';', 1)[0].strip()
+            if not code:
+                continue
+            cmd = code.split(None, 1)[0].upper()
+            prm = code[len(cmd):]
+            if cmd in ('G0', 'G1'):
+                p = parse_params(prm)
+                nx = x; ny = y; nz = z
+                if 'X' in p:
+                    nx = p['X'] if not xyz_rel else x + p['X']
+                if 'Y' in p:
+                    ny = p['Y'] if not xyz_rel else y + p['Y']
+                if 'Z' in p:
+                    nz = p['Z'] if not xyz_rel else z + p['Z']
+                de = 0.0
+                if 'E' in p:
+                    de = p['E'] if (e_rel or xyz_rel) else p['E'] - e
+                    e = p['E'] if not (e_rel or xyz_rel) else e + p['E']
+                moved = (abs(nx - x) + abs(ny - y)) > 1e-9
+                if de > 0.0 and moved and (not types_seen[0]
+                                           or ftype not in _EXC270):
+                    zk = round(nz, 3)
+                    bands.setdefault(zk, []).append((x, y, nx, ny))
+                    _see270(x, y); _see270(nx, ny)
+                x, y, z = nx, ny, nz
+            elif cmd in ('G2', 'G3'):
+                arcs_seen[0] += 1
+                p = parse_params(prm)
+                if 'X' in p or 'Y' in p:
+                    nx = p.get('X', x) if not xyz_rel else x + p.get('X', 0.0)
+                    ny = p.get('Y', y) if not xyz_rel else y + p.get('Y', 0.0)
+                    i0 = p.get('I', 0.0); j0 = p.get('J', 0.0)
+                    r0 = p.get('R')
+                    if r0 is not None and abs(r0) > 1e-9:
+                        dx = nx - x; dy = ny - y
+                        d2 = math.hypot(dx, dy) / 2.0
+                        h270 = math.sqrt(max(0.0, r0 * r0 - d2 * d2))
+                        s270 = -1.0 if r0 < 0 else 1.0
+                        if cmd == 'G3':
+                            s270 = -s270
+                        mx = (x + nx) / 2.0; my = (y + ny) / 2.0
+                        ux, uy = -dy, dx
+                        ul = math.hypot(ux, uy) or 1.0
+                        ux, uy = ux / ul * h270 * s270, uy / ul * h270 * s270
+                        i0 = (mx + ux) - x; j0 = (my + uy) - y
+                    cx, cy = x + i0, y + j0
+                    a0 = math.atan2(y - cy, x - cx)
+                    a1 = math.atan2(ny - cy, nx - cx)
+                    rr = math.hypot(x - cx, y - cy)
+                    if cmd == 'G2':
+                        while a1 >= a0 - 1e-12:
+                            a1 -= 2 * math.pi
+                    else:
+                        while a1 <= a0 + 1e-12:
+                            a1 += 2 * math.pi
+                    n270 = max(2, int(abs(a1 - a0) / 0.6))
+                    px, py = x, y
+                    for k270 in range(1, n270 + 1):
+                        ak = a0 + (a1 - a0) * k270 / float(n270)
+                        qx = cx + rr * math.cos(ak)
+                        qy = cy + rr * math.sin(ak)
+                        if e > 0.0 and (not types_seen[0]
+                                        or ftype not in _EXC270):
+                            zk = round(z, 3)
+                            bands.setdefault(zk, []).append((px, py, qx, qy))
+                            _see270(px, py); _see270(qx, qy)
+                        px, py = qx, qy
+                    x, y = nx, ny
+            elif cmd == 'G90':
+                xyz_rel = e_rel = False
+            elif cmd == 'G91':
+                xyz_rel = True
+                e_rel = True          # Klipper: G91 makes E relative too
+            elif cmd == 'M82':
+                e_rel = False
+            elif cmd == 'M83':
+                e_rel = True
+            elif cmd == 'G92':
+                p = parse_params(prm)
+                if 'X' in p: x = p['X']
+                if 'Y' in p: y = p['Y']
+                if 'Z' in p: z = p['Z']
+                if 'E' in p: e = p['E']
+    if not bands:
+        raise ValueError('no object extrusion with XY moves in %s - the '
+                         'mold needs a real print file' % os.path.basename(src))
+
+    zs = sorted(bands)
+    z_min, z_max = zs[0], zs[-1]
+    if maxx[0] <= minx[0] or maxy[0] <= miny[0]:
+        raise ValueError('degenerate XY bbox in the source - no mold')
+
+    # ---- split plane (band index: bands [0..i_p) -> bottom, rest -> top)
+    def _area270(zk):
+        return sum(abs(x1 - x0) + abs(y1 - y0) for (x0, y0, x1, y1)
+                   in bands[zk])       # cheap proxy: total bead length
+    if plane == 'AUTO':
+        i_p = max(range(len(zs)), key=lambda i: (_area270(zs[i]), i)) + 1
+        how = ('AUTO equator (widest band at z=%.2f, %.0fmm beads)'
+               % (zs[i_p - 1], _area270(zs[i_p - 1])))
+    elif plane == 'MID':
+        i_p = max(1, len(zs) // 2)
+        how = 'MID (band %d of %d, z=%.2f)' % (i_p, len(zs), zs[i_p - 1])
+    else:
+        zt = z_min + max(0.0, float(z_off or 0.0))
+        i_p = max(1, min(len(zs), sum(1 for zk in zs if zk <= zt)))
+        how = 'OFFSET %.1fmm above the bottom (z=%.2f)' % (z_off, zs[i_p - 1])
+    if i_p >= len(zs):
+        i_p = len(zs) - 1              # the top half needs at least one band
+        how += ' - clamped (top half needs a band)'
+    z_p = zs[i_p - 1] + 1e-6           # parting plane just above band i_p-1
+
+    # ---- the block grid: source bbox + wall, centered on the bed -------
+    W = (maxx[0] - minx[0]) + 2 * wall
+    H = (maxy[0] - miny[0]) + 2 * wall
+    bx0, by0, bx1, by1 = bed
+    ux0, uy0 = bx0 + bed_margin, by0 + bed_margin
+    ux1, uy1 = bx1 - bed_margin, by1 - bed_margin
+    if W > (ux1 - ux0) or H > (uy1 - uy0):
+        raise ValueError('the mold block needs %.0f x %.0fmm - the bed '
+                         'offers %.0f x %.0fmm (lower the wall or use a '
+                         'smaller source)' % (W, H, ux1 - ux0, uy1 - uy0))
+    cols = int(math.ceil(W / wid))
+    rows = int(math.ceil(H / wid))
+    W = cols * wid
+    H = rows * wid
+    cx = (ux0 + ux1) / 2.0
+    cy = (uy0 + uy1) / 2.0
+    x0 = cx - W / 2.0
+    y0 = cy - H / 2.0
+    sh_x = x0 + wall - minx[0]        # source -> grid shift (bbox lands
+    sh_y = y0 + wall - miny[0]        # `wall` inside the block)
+
+    notes = []
+    if arcs_seen[0]:
+        notes.append('%d arc moves sampled coarsely (0.6 rad) - the cavity '
+                     'outline is approximate on arcs' % arcs_seen[0])
+
+    # ---- cavity sections (streaming, one grid at a time) ----------------
+    # _sect270(kind, k) = FILLED silhouette of the cavity at mold layer k
+    # (k=1 at the parting plane, growing away from it), Y-MIRRORED for the
+    # top half (the user flips it like a lid - the mirror makes the flip
+    # align). Segments rasterize with radius
+    #   r = wid/2 + gap - tan(draft)*depth
+    # (the draft approximation: the outline offset shrinks with depth).
+    _tan270 = math.tan(math.radians(draft))
+    _rmax270 = wid / 2.0 + gap
+    _carried270 = [0]
+    _filledholes270 = [0]
+
+    def _erode270(g, k):
+        """k rounds of 4-neighbour erosion - the cavity outline moves
+        INWARD by k cells (the real, cell-quantized draft: the old
+        radius-shrink trick was absorbed by the silhouette fill and did
+        nothing)."""
+        for _270e in range(k):
+            ng = bytearray(len(g))
+            for i in range(cols, len(g) - cols):
+                if g[i] and g[i - 1] and g[i + 1] \
+                        and g[i - cols] and g[i + cols]:
+                    ng[i] = 1
+            g = ng
+        return g
+
+    def _window_bands(kind, k):
+        lo = z_p + (k - 1) * layer_h if kind == 'top' else z_p - k * layer_h
+        hi = lo + layer_h
+        sel = [zk for zk in zs if lo < zk <= hi]
+        if not sel:
+            # carry the nearest band in the pull direction (never invent
+            # geometry - a sparse z-range keeps the last real section)
+            if kind == 'top':
+                cand = [zk for zk in zs if zk > lo]
+                pick = min(cand) if cand else z_max
+            else:
+                cand = [zk for zk in zs if zk <= hi]
+                pick = max(cand) if cand else z_min
+            sel = [pick]
+            _carried270[0] += 1
+        return sel
+
+    def _sect270(kind, k):
+        depth = (k - 0.5) * layer_h
+        r = _rmax270
+        rc = r / wid
+        offs = []
+        R = int(math.ceil(rc))
+        for dr in range(-R, R + 1):
+            for dc in range(-R, R + 1):
+                if dr * dr + dc * dc <= rc * rc + 1e-9:
+                    offs.append((dr, dc))
+        g = bytearray(cols * rows)
+        step = wid * 0.5
+        mir = (kind == 'top')
+        for zk in _window_bands(kind, k):
+            for (ax, ay, bx, by) in bands[zk]:
+                ax += sh_x; ay += sh_y; bx += sh_x; by += sh_y
+                L = math.hypot(bx - ax, by - ay)
+                n270 = max(1, int(L / step))
+                for j270 in range(n270 + 1):
+                    t = j270 / float(n270)
+                    qx = ax + (bx - ax) * t
+                    qy = ay + (by - ay) * t
+                    r0 = int((qy - y0) / wid)
+                    c0 = int((qx - x0) / wid)
+                    if mir:
+                        r0 = rows - 1 - r0
+                    for (dr, dc) in offs:
+                        rr = r0 + dr
+                        cc = c0 + dc
+                        if 0 <= rr < rows and 0 <= cc < cols:
+                            g[rr * cols + cc] = 1
+        # fill enclosed holes: flood the outside from the border, then
+        # every unreached empty cell is an interior hole -> solid
+        out270 = bytearray(cols * rows)
+        stk = []
+        for c in range(cols):
+            stk.append(c)
+            stk.append((rows - 1) * cols + c)
+        for r in range(rows):
+            stk.append(r * cols)
+            stk.append(r * cols + cols - 1)
+        while stk:
+            i = stk.pop()
+            if i < 0 or i >= len(g) or out270[i] or g[i]:
+                continue
+            out270[i] = 1
+            cc = i % cols
+            stk.append(i - 1 if cc > 0 else -1)
+            stk.append(i + 1 if cc < cols - 1 else -1)
+            stk.append(i - cols)
+            stk.append(i + cols)
+        for i in range(len(g)):
+            if not g[i] and not out270[i]:
+                g[i] = 1
+                _filledholes270[0] += 1
+        if _tan270 > 0.0:
+            ke = int(_tan270 * depth / wid)
+            if ke:
+                g = _erode270(g, ke)
+                if not any(g):
+                    raise ValueError(
+                        'draft %.1f deg closes the cavity at depth '
+                        '%.1fmm - the section is thinner than the '
+                        'erosion. Reduce the draft.' % (draft, depth))
+        return g
+
+    def _mat270(cav):                 # material layer = block - cavity
+        m = bytearray(b'\x01' * (cols * rows))
+        for i in range(len(m)):
+            if cav[i]:
+                m[i] = 0
+        return m
+
+    def _mask_cells(g):
+        return [(i // cols, i % cols) for i in range(len(g)) if g[i]]
+
+    e_wall = layer_h * wid / FIL_AREA
+    stem = _gen_stem(src, 'MODELL')
+    F = max(2, int(round(wall / layer_h)))          # floor layers (bottom)
+    CW = max(2, int(round(wall / layer_h)))         # back layers (top)
+    pin_layers = max(3, int(round(max(6.0, 1.5 * pin_d) / layer_h)))
+    # the dowel holes must FIT the frame band: hole + webs inside `wall`.
+    # A D3 dowel (a piece of filament) is the default - a D5.6 hole in a
+    # 5mm wall (the old default pairing) would break into the cavity.
+    if pin_d + 0.3 + 1.2 > wall:
+        raise ValueError('the dowel holes do not fit the wall: pin D%.1f '
+                         '+ 0.3 clearance + 1.2mm webs needs wall >= '
+                         '%.1fmm (raise the wall or shrink the pins)'
+                         % (pin_d, pin_d + 1.5))
+    pour_r = pour_d / 2.0
+    vent_r = vent_d / 2.0
+    hole_rc = (pin_d / 2.0 + 0.3) / wid             # dowel hole + clearance
+    # snapped to a CELL CENTER: an off-grid disc center loses up to
+    # 0.7*wid of inscribed radius and a D3 dowel would not fit anymore
+    _pi270 = int(round(wall / 2.0 / wid - 0.5)) + 0.5
+    pins270 = ((_pi270, _pi270),
+               (cols - _pi270, _pi270),
+               (_pi270, rows - _pi270),
+               (cols - _pi270, rows - _pi270))
+
+    def _disc270(mask, cc, rr, rad_cells, kill=True):
+        R = int(math.ceil(rad_cells))
+        r0 = int(rr); c0 = int(cc)
+        for dr in range(-R, R + 1):
+            for dc in range(-R, R + 1):
+                if dr * dr + dc * dc <= rad_cells * rad_cells + 1e-9:
+                    rr2 = r0 + dr; cc2 = c0 + dc
+                    if 0 <= rr2 < rows and 0 <= cc2 < cols:
+                        i = rr2 * cols + cc2
+                        mask[i] = 0 if kill else 1
+
+    def _grooves270(mask, cav):
+        """1-cell vent runs on a parting face: from the cavity boundary
+        outward to the block edge, compass directions."""
+        cells = _mask_cells(cav)
+        if not cells:
+            return 0
+        made = 0
+        for (dr, dc) in ((0, 1), (0, -1), (1, 0), (-1, 0)):
+            if dr:
+                cand = [c for c in cells if (c[0] - rows / 2.0) * dr > 0]
+                hit = max(cand, key=lambda c: c[0] * dr) if cand else None
+            else:
+                cand = [c for c in cells if (c[1] - cols / 2.0) * dc > 0]
+                hit = max(cand, key=lambda c: c[1] * dc) if cand else None
+            if hit is None:
+                continue
+            rr, cc = hit
+            while 0 <= rr < rows and 0 <= cc < cols:
+                mask[rr * cols + cc] = 0
+                rr += dr; cc += dc
+            made += 1
+        return made
+
+    def _runs270(row):
+        runs = []
+        c = 0
+        while c < cols:
+            if row[c]:
+                c0 = c
+                while c < cols and row[c]:
+                    c += 1
+                runs.append((c0, c - 1))
+            else:
+                c += 1
+        return tuple(runs)
+
+    def _blocks270(mask):
+        row_runs = [_runs270(mask[r * cols:(r + 1) * cols])
+                    for r in range(rows)]
+        blocks = []
+        r_i = 0
+        while r_i < rows:
+            rr = row_runs[r_i]
+            r_j = r_i
+            while r_j + 1 < rows and row_runs[r_j + 1] == rr:
+                r_j += 1
+            if rr:
+                blocks.append((r_i, r_j, rr))
+            r_i = r_j + 1
+        return blocks
+
+    pending270 = []        # (tmp, final) - committed when the WHOLE set
+                          # is green (a refused half leaves no orphan)
+
+    def _cleanup270():
+        for (tmp270, _o270) in pending270:
+            try:
+                os.unlink(tmp270)
+            except OSError:
+                pass
+        del pending270[:]
+
+    def _write270(out, label, mask_iter, n_layers, extra_head, brim=True):
+        """mask_iter yields the material masks in print order (it may
+        raise mid-way - the file is written to a .tmp270 and only moved
+        into place after normalize, so a refusal leaves nothing behind:
+        its OWN tmp now, and every earlier tmp of the set via the
+        pending list - a BOTH request is all-or-nothing)."""
+        tmp270 = out + '.tmp270'
+        try:
+            with open(tmp270, 'w') as f:
+                sk = _Sink(f)
+                a = sk.append
+                a('; R270-MOLD generated casting mold - print it like any '
+                  'other file')
+                a(TAG)
+                for hl in extra_head:
+                    a('; %s' % hl)
+                a('; filament_type = %s' % material)
+                a('; layer_height = %.2g' % layer_h)
+                a('; nozzle_diameter = %.1f' % nozzle)
+                a('; line_width = %.2g' % wid)
+                a('; inner_wall_speed = 18')
+                a('; initial_layer_speed = 10')
+                a('; travel_speed = 120')
+                types = ['WALL-OUTER', 'SURFACE-BOTTOM', 'INFILL-SOLID',
+                         'SURFACE-TOP']
+                if brim and brim_loops:
+                    types.insert(0, 'BRIM')
+                a('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d '
+                  'LINE_WIDTH=%.2g LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g '
+                  'FLOW_RATIO=1 NOZZLE=%.1f WALL_LOOPS=2 SPEED_INNER=18 '
+                  'SPEED_FIRST=10 SPEED_TRAVEL=120 TYPES=%s BY_OBJECT=0'
+                  % (material, layer_h, n_layers, wid, layer_h, wid, nozzle,
+                     ','.join(types)))
+                fpoly = ('[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]'
+                         % (x0, y0, x0 + W, y0, x0 + W, y0 + H, x0, y0 + H))
+                a('EXCLUDE_OBJECT_DEFINE NAME=%s CENTER=%.1f,%.1f POLYGON=%s'
+                  % (label.upper(), cx, cy, fpoly))
+                a('PRINT_START MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d'
+                  ' OUTER_WALL_SPEED=18' % (material, layer_h, n_layers))
+                a('G90')
+                a('M83')
+                a('M107   ; R270-MOLD: first layer = fan off')
+                pen = _Pen(sk, jump_d=6.0)
+                outer_c = _rect_loop(x0, y0, x0 + W, y0 + H)
+                for li in range(1, n_layers + 1):
+                    _job_tick()
+                    mask = next(mask_iter)
+                    z = round(li * layer_h, 3)
+                    a(';LAYER_CHANGE')
+                    a(';Z:%.3f' % z)
+                    a('LAYER_MARK')
+                    pen.set_z(z)
+                    if li == 2:
+                        a('M106 S178   ; R270-MOLD: part fan from layer 2')
+                    a('EXCLUDE_OBJECT_START NAME=%s' % label.upper())
+                    if li == 1 and brim and brim_loops:
+                        a(_apply_type_lines('BRIM'))
+                        for b270 in range(brim_loops - 1, -1, -1):
+                            off = _brim_gap(wid) + b270 * wid
+                            _emit_loop(pen, _poly_offset(outer_c, off),
+                                       e_wall, 900)
+                    a(_apply_type_lines('WALL-OUTER'))
+                    for lp270 in _cell_contours(
+                            [mask[r * cols:(r + 1) * cols]
+                             for r in range(rows)], x0, y0, wid):
+                        _emit_loop(pen, lp270, e_wall,
+                                   900 if li == 1 else 1800)
+                    ty270 = ('SURFACE-BOTTOM' if li == 1 else
+                             'SURFACE-TOP' if li == n_layers
+                             else 'INFILL-SOLID')
+                    a(';TYPE:%s' % {'SURFACE-BOTTOM': 'Bottom surface',
+                                    'SURFACE-TOP': 'Top surface',
+                                    'INFILL-SOLID': 'Internal solid infill',
+                                    }[ty270])
+                    a('APPLY_TYPE TYPE=%s' % ty270)
+                    for (r_a, r_b, rr) in _blocks270(mask):
+                        for (c_a, c_b) in rr:
+                            # R162 law: FULL cell extent (cell edges, not
+                            # centers) - a center-to-center rect is
+                            # zero-height for single-row blocks (thin
+                            # frame strips) and the fill silently drops
+                            segs = _hatch(x0 + c_a * wid,
+                                          y0 + r_a * wid,
+                                          x0 + (c_b + 1) * wid,
+                                          y0 + (r_b + 1) * wid,
+                                          None, wid,
+                                          45.0 if li % 2 else 135.0)
+                            _emit_fill(pen, segs, e_wall,
+                                       1200 if li == 1 else 2400, wid)
+                    a('EXCLUDE_OBJECT_END NAME=%s' % label.upper())
+                a('M107')
+                a('PRINT_END')
+                sk.flush()
+            _gen_normalize_speeds(tmp270)
+            return tmp270
+        except BaseException:
+            try:
+                os.unlink(tmp270)
+            except OSError:
+                pass
+            _cleanup270()     # earlier parts of a refused set go too
+            raise
+
+    files = []
+
+    # ---- master (the positive) -------------------------------------------
+    if master:
+        K_m = max(2, int(math.ceil((z_max - z_min + layer_h) / layer_h)))
+
+        def _m_master():
+            for k in range(1, K_m + 1):
+                lo = z_min + (k - 1) * layer_h
+                g = bytearray(cols * rows)
+                offs = [(0, 0), (0, 1), (0, -1), (1, 0), (-1, 0),
+                        (1, 1), (1, -1), (-1, 1), (-1, -1)]
+                sel = [zk for zk in zs if lo < zk <= lo + layer_h] or \
+                    [min((zk for zk in zs if zk > lo), default=z_max)]
+                for zk in sel:
+                    for (ax, ay, bx, by) in bands[zk]:
+                        ax += sh_x; ay += sh_y; bx += sh_x; by += sh_y
+                        L = math.hypot(bx - ax, by - ay)
+                        n270 = max(1, int(L / (wid * 0.5)))
+                        for j270 in range(n270 + 1):
+                            t = j270 / float(n270)
+                            r0 = int((ay + (by - ay) * t - y0) / wid)
+                            c0 = int((ax + (bx - ax) * t - x0) / wid)
+                            for (dr, dc) in offs:
+                                rr = r0 + dr; cc = c0 + dc
+                                if 0 <= rr < rows and 0 <= cc < cols:
+                                    g[rr * cols + cc] = 1
+                out270 = bytearray(cols * rows)
+                stk = list(range(cols)) + [(rows - 1) * cols + c
+                                           for c in range(cols)]
+                for r in range(rows):
+                    stk.append(r * cols); stk.append(r * cols + cols - 1)
+                while stk:
+                    i = stk.pop()
+                    if 0 <= i < len(g) and not out270[i] and not g[i]:
+                        out270[i] = 1
+                        cc = i % cols
+                        if cc > 0: stk.append(i - 1)
+                        if cc < cols - 1: stk.append(i + 1)
+                        stk.append(i - cols); stk.append(i + cols)
+                for i in range(len(g)):
+                    if not g[i] and not out270[i]:
+                        g[i] = 1
+                if not any(g):
+                    raise ValueError('master layer %d came out empty - '
+                                     'z-window math is off' % k)
+                yield g
+
+        if K_m * layer_h > 235.0:
+            raise ValueError('the master would be %.0fmm tall - over the '
+                             'Z range' % (K_m * layer_h))
+        fname = 'V%02d_Master_%s.gcode' % (_next_gen_version(out_dir), stem)
+        fname = _dedupe_gen_fname(out_dir, fname)
+        pending270.append((_write270(os.path.join(out_dir, fname), 'Master',
+                                    _m_master(), K_m,
+                                    ['R270 MASTER: the positive itself, '
+                                     'solid silhouettes per layer (%d '
+                                     'layers, %.1fmm)'
+                                     % (K_m, K_m * layer_h),
+                                     'source %s, %d z-bands, %.1f x '
+                                     '%.1fmm footprint'
+                                     % (os.path.basename(src), len(zs),
+                                        maxx[0] - minx[0], maxy[0] - miny[0]),
+                                     'through-holes print SOLID here '
+                                     '(silhouette mode) - the exact-as-'
+                                     'printed mode comes with the '
+                                     'parametric stage'],
+                                    brim=False),
+                           os.path.join(out_dir, fname)))
+        files.append(fname)
+
+    # ---- bottom half ------------------------------------------------------
+    layers_bot = [0]
+    cells_bot = [0]
+    if part in ('BOTH', 'BOTTOM'):
+        K_b = max(1, int(math.ceil((z_p - z_min) / layer_h)))
+        n_bot = F + K_b
+        if n_bot * layer_h > 235.0:
+            raise ValueError('the bottom half would be %.0fmm tall - over '
+                             'the Z range' % (n_bot * layer_h))
+        grooves_bot = [0]
+
+        def _m_bot():
+            layers_bot[0] = n_bot
+            cells_bot[0] = 0
+            prev = None
+            for li in range(1, n_bot + 1):
+                if li <= F:
+                    yield bytearray(b'\x01' * (cols * rows))
+                    continue
+                k = K_b - (li - F) + 1
+                cav = _sect270('bot', k)
+                if prev is not None:
+                    bad = sum(1 for i in range(len(prev))
+                              if prev[i] and not cav[i])
+                    if bad:
+                        raise ValueError(
+                            'UNDERCUT in the bottom half: the cavity '
+                            'narrows toward the parting opening %d cells '
+                            'at layer %d of %d (object z=%.2f) - the cast '
+                            'cannot be pulled out and the wall would '
+                            'print over a void. Choose another plane '
+                            '(plane/z_off), raise the tolerance gap, or '
+                            'wait for the 3/4-part sector stage.'
+                            % (bad, li, n_bot,
+                               z_p - (k - 0.5) * layer_h))
+                prev = cav
+                cells_bot[0] += sum(cav)
+                m = _mat270(cav)
+                if li > n_bot - pin_layers:
+                    for (pc, pr) in pins270:
+                        _disc270(m, pc, pr, hole_rc, kill=True)
+                if li == n_bot:
+                    grooves_bot[0] = _grooves270(m, cav)
+                yield m
+
+        fname = 'V%02d_FormUnten_%s.gcode' % (_next_gen_version(out_dir), stem)
+        fname = _dedupe_gen_fname(out_dir, fname)
+        pending270.append((_write270(os.path.join(out_dir, fname),
+                                    'FormUnten', _m_bot(), n_bot,
+                                    ['R270 BOTTOM HALF: parting face UP '
+                                     '(top surface), solid floor %d layers '
+                                     '(%.1fmm), cavity %d layers, total '
+                                     '%.1fmm'
+                                     % (F, F * layer_h, K_b,
+                                        n_bot * layer_h),
+                                     'split plane: %s - z_p=%.2f, object '
+                                     'z %.2f..%.2f'
+                                     % (how, z_p, z_min, z_max),
+                                     'vent grooves on the parting face '
+                                     '(1 cell wide): trapped air escapes '
+                                     'at the seam',
+                                     'dowel holes: 4 x D%.1fmm + 0.3 '
+                                     'clearance, %.0fmm deep from the '
+                                     'parting face - SAME bed position as '
+                                     'the top half (pin registry)'
+                                     % (pin_d, pin_layers * layer_h),
+                                     'tolerance gap %.2fmm, draft %.1f '
+                                     'deg (cell-quantized erosion)'
+                                     % (gap, draft)]),
+                           os.path.join(out_dir, fname)))
+        files.append(fname)
+
+    # ---- top half (flipped at assembly: Y-mirrored cavity) ---------------
+    layers_top = [0]
+    sprueref = [None]
+    ventsref = []
+    cells_top = [0]
+    if part in ('BOTH', 'TOP'):
+        K_t = max(1, int(math.ceil((z_max - z_p) / layer_h)))
+        n_top = CW + K_t
+        if n_top * layer_h > 235.0:
+            raise ValueError('the top half would be %.0fmm tall - over '
+                             'the Z range' % (n_top * layer_h))
+        # sprue/vent cells from the DEEPEST section (nearest the back =
+        # the object\'s top region - fill from its high ground)
+        deep = _sect270('top', K_t)
+        cells = _mask_cells(deep)
+        if not cells:
+            raise ValueError('topmost cavity section is empty - source '
+                             'ends in a travel-only band')
+        mcx = sum(c[1] for c in cells) / float(len(cells))
+        mcy = sum(c[0] for c in cells) / float(len(cells))
+        sprue = min(cells, key=lambda c: (c[1] - mcx) ** 2
+                    + (c[0] - mcy) ** 2)
+        sprueref[0] = (x0 + (sprue[1] + 0.5) * wid,
+                       y0 + (sprue[0] + 0.5) * wid)
+        far = sorted(cells, key=lambda c: -((c[1] - sprue[1]) ** 2
+                                            + (c[0] - sprue[0]) ** 2))
+        # vents only where they FIT: a wall >= 2mm between the pour bore
+        # and a vent bore (otherwise the channels merge into one hole).
+        # Preferred spread 10mm, but a small high spot (a cone tip) takes
+        # what it reaches; a top too small for any vent says so honestly.
+        _min270 = (pour_r + vent_r + 2.0) / wid
+        _md270 = (math.sqrt((far[0][1] - sprue[1]) ** 2
+                            + (far[0][0] - sprue[0]) ** 2) if far else 0.0)
+        _sep270 = max(_min270, min(10.0 / wid, 0.5 * _md270))
+        for c in far:
+            if len(ventsref) >= 3:
+                break
+            if (c[1] - sprue[1]) ** 2 + (c[0] - sprue[0]) ** 2 < _min270 ** 2:
+                continue
+            if all((c[1] - v[1]) ** 2 + (c[0] - v[0]) ** 2
+                   >= _sep270 ** 2 for v in ventsref):
+                ventsref.append(c)
+        if not ventsref:
+            notes.append('no vent bores beside the pour: the cavity top is '
+                         'smaller than pour D%.1f + wall + vent D%.1f - the '
+                         'parting-face grooves carry the venting'
+                         % (pour_d, vent_d))
+        funnel_layers = (min(CW, int(round(5.0 / layer_h)))
+                         if funnel == 'CONICAL' else 0)
+
+        def _m_top():
+            layers_top[0] = n_top
+            cells_top[0] = 0
+            prev = None
+            for li in range(1, n_top + 1):
+                if li <= CW:
+                    m = bytearray(b'\x01' * (cols * rows))
+                    _disc270(m, sprue[1], sprue[0], pour_r / wid,
+                             kill=True)
+                    for v in ventsref:
+                        _disc270(m, v[1], v[0], vent_r / wid, kill=True)
+                    if funnel_layers and li <= funnel_layers:
+                        t = (funnel_layers - li + 1) / float(funnel_layers)
+                        _disc270(m, sprue[1], sprue[0],
+                                 (pour_r + t * pour_r) / wid, kill=True)
+                    yield m
+                    continue
+                k = K_t - (li - CW) + 1
+                cav = _sect270('top', k)
+                if prev is not None:
+                    bad = sum(1 for i in range(len(prev))
+                              if prev[i] and not cav[i])
+                    if bad:
+                        raise ValueError(
+                            'UNDERCUT in the top half: the cavity narrows '
+                            'toward the parting opening %d cells at layer '
+                            '%d of %d (object z=%.2f) - the cast cannot be '
+                            'pulled out and the wall would print over a '
+                            'void. Choose another plane (plane/z_off), '
+                            'raise the tolerance gap, or wait for the '
+                            '3/4-part sector stage.'
+                            % (bad, li, n_top,
+                               z_p + (k - 0.5) * layer_h))
+                prev = cav
+                cells_top[0] += sum(cav)
+                m = _mat270(cav)
+                if li == CW + 1:
+                    _disc270(m, sprue[1], sprue[0], pour_r / wid,
+                             kill=True)
+                    for v in ventsref:
+                        _disc270(m, v[1], v[0], vent_r / wid, kill=True)
+                if li > n_top - pin_layers:
+                    for (pc, pr) in pins270:
+                        _disc270(m, pc, pr, hole_rc, kill=True)
+                if li == n_top:
+                    _grooves270(m, cav)
+                yield m
+
+        fname = 'V%02d_FormOben_%s.gcode' % (_next_gen_version(out_dir), stem)
+        fname = _dedupe_gen_fname(out_dir, fname)
+        pending270.append((_write270(os.path.join(out_dir, fname),
+                                    'FormOben', _m_top(), n_top,
+                                    ['R270 TOP HALF: parting face UP (top '
+                                     'surface), solid back %d layers '
+                                     '(%.1fmm), cavity %d layers, total '
+                                     '%.1fmm'
+                                     % (CW, CW * layer_h, K_t,
+                                        n_top * layer_h),
+                                     'FLIP IT LIKE A LID onto the bottom '
+                                     'half (turn over the horizontal '
+                                     'center line) - the cavity is printed '
+                                     'Y-mirrored so the flip aligns it and '
+                                     'the dowel holes',
+                                     'split plane: %s - z_p=%.2f, object '
+                                     'z %.2f..%.2f'
+                                     % (how, z_p, z_min, z_max),
+                                     'pour channel D%.1fmm through the '
+                                     'back into the cavity high ground '
+                                     '(%.1f,%.1f)%s'
+                                     % (pour_d, sprueref[0][0],
+                                        sprueref[0][1],
+                                        ', conical funnel at the outer '
+                                        'face (top %.0fmm)'
+                                        % (funnel_layers * layer_h)
+                                        if funnel_layers else ' (straight)'),
+                                     'vents: %d x D%.1fmm at the far high '
+                                     'spots' % (len(ventsref), vent_d),
+                                     'dowel holes: 4 x D%.1fmm + 0.3 '
+                                     'clearance, %.0fmm deep from the '
+                                     'parting face - SAME bed position as '
+                                     'the bottom half (pin registry)'
+                                     % (pin_d, pin_layers * layer_h),
+                                     'tolerance gap %.2fmm, draft %.1f '
+                                     'deg (cell-quantized erosion)'
+                                     % (gap, draft)]),
+                           os.path.join(out_dir, fname)))
+        files.append(fname)
+
+    _commit270_done = [False]
+
+    def _commit270():
+        if _commit270_done[0]:
+            return
+        _commit270_done[0] = True
+        for (tmp270, out270) in pending270:
+            os.replace(tmp270, out270)
+
+    _commit270()
+
+    if _carried270[0]:
+        notes.append('%d cavity windows carried a neighbour section '
+                     '(z-gap in the source - no invented geometry)'
+                     % _carried270[0])
+    if _filledholes270[0]:
+        notes.append('%d enclosed-hole cell fills across all windows - '
+                     'silhouette mode: through-holes are cast solid (the '
+                     'exact-as-printed mode comes with the parametric '
+                     'stage)' % _filledholes270[0])
+    if draft > 0.0:
+        notes.append('draft %.1f deg = cavity outline eroded by 1 cell '
+                     '(%.2fmm) per %.1fmm depth (cell quantization)'
+                     % (draft, wid, wid / _tan270 if _tan270 > 0 else 1e9))
+
+    info = {'file': files[0], 'files': list(files),
+            'source': os.path.basename(src), 'kind': 'mold-set',
+            'split': how, 'z_p': z_p, 'z_range': (z_min, z_max),
+            'bands': len(zs), 'grid': (rows, cols),
+            'block': (W, H), 'wall': wall, 'gap': gap, 'draft': draft,
+            'pour_d': pour_d, 'vent_d': vent_d, 'pin_d': pin_d,
+            # pin coords are already CELL-CENTER based (snapped) - no
+            # extra +0.5 (sprue/vent cells are integer cell indices and
+            # DO carry the +0.5)
+            'pins': [(x0 + pc * wid, y0 + pr * wid)
+                     for (pc, pr) in pins270],
+            'sprue': sprueref[0],
+            'vents': [(x0 + (v[1] + 0.5) * wid, y0 + (v[0] + 0.5) * wid)
+                      for v in ventsref],
+            'layers_bot': layers_bot[0], 'layers_top': layers_top[0],
+            'cells_bot': cells_bot[0], 'cells_top': cells_top[0],
+            'notes': notes}
+    return os.path.join(out_dir, files[0]), info
+
+
 def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                     brim_loops=6, ironing=False, base=0.7, dyn=2.3, gamma=1.0,
                     material='PLA', bed=None, bed_margin=6.0, nozzle=0.6,
