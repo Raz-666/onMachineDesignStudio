@@ -286,6 +286,11 @@ TOOL_REGISTRY = {
                     'required': False, 'default': 3},
             'draft': {'type': 'number', 'min': 0.0, 'max': 3.0,
                       'required': False, 'default': 0.0},
+            # R272: surface mode - chain-friendly (no output-count
+            # change): STANDARD/FINE (ironing + 20mm/s)/FUZZY (matte)
+            'surface': {'type': 'enum', 'values': ('STANDARD', 'FINE',
+                                                   'FUZZY'),
+                        'required': False, 'default': 'STANDARD'},
             # BOTH (2 Dateien) hat in Ketten keine Semantik (die Cake-
             # Regel) - der Enum lehnt es schon bei der Preset-Validierung
             # ab, der Adapter zur Laufzeit gleich mit

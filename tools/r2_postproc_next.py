@@ -15446,8 +15446,8 @@ def make_stencil(src, steps=3, size_mm=100.0, layer_h=0.2, thick=0.8,
 
 def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
               funnel='CONICAL', vent_d=2.5, pin_d=3.0, draft=0.0,
-              part='BOTH', plane='AUTO', z_off=0.0, master=False,
-              sectors=0, sec_half='AUTO',
+              surface='STANDARD', part='BOTH', plane='AUTO', z_off=0.0,
+              master=False, sectors=0, sec_half='AUTO',
               brim_loops=4, material='PLA', bed=None, bed_margin=6.0,
               nozzle=0.4, out_dir='.', version=1):
     """R270 (J2 bite 1): G-code file -> CASTING MOLD, two flat halves.
@@ -15511,6 +15511,21 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
         undercuts - counted, noted with the max span, refused beyond
         25mm. Sector faces register via horizontal dowel tunnels
         (2 per face, in the frame bands, below the pin zone).
+      - SURFACE (R272, J2): STANDARD = as printed (the 60mm/s field
+        speed image). FINE = the parting face gets IRONING smoothing
+        passes (dense thin lines, 15% flow - the mating face is the
+        sealing face, the smoothest a printer makes becomes
+        mirror-smooth) and the whole file prints at 20mm/s instead of
+        the 60mm/s field image (the one knob the R159 speed normalizer
+        actually exposes - honestly visible in _FILE_INFO SPEED_PRINT).
+        FUZZY = the CAVITY wall loops jitter: a deterministic hash
+        offset, up to 0.12mm, ONLY INTO the material (the contour rule
+        of _cell_contours keeps material on the left of the walk, so
+        the offset direction is exact - like the draft erosion, fuzzy
+        may only OPEN the cavity, never shrink it). The cast surface
+        comes out matte/rough and demolds easier. The cavity MASK is
+        untouched (cells identical to STANDARD - measured by the
+        battery), fuzz moves printed lines, not geometry.
 
     Direct G-code like every generator (labels/plotter/stringart - no
     slicer, no trimesh boolean: the Pi Zero 2 W could not afford it).
@@ -15535,6 +15550,10 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
     vent_d = max(1.5, min(float(vent_d or 2.5), 4.0))
     pin_d = max(3.0, min(float(pin_d or 3.0), 8.0))
     draft = max(0.0, min(float(draft or 0.0), 3.0))
+    surface = str(surface or 'STANDARD').upper()
+    if surface not in ('STANDARD', 'FINE', 'FUZZY'):
+        raise ValueError("surface must be STANDARD, FINE or FUZZY (got %r)"
+                         % surface)
     funnel = str(funnel or 'CONICAL').upper()
     if funnel not in ('NONE', 'KEIN', 'CONICAL', 'STANDARD'):
         raise ValueError("funnel must be NONE, CONICAL or STANDARD (got %r)"
@@ -16125,6 +16144,37 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
                 pass
         del pending270[:]
 
+    def _fuzz270(pts, li, amp=0.12):
+        """R272 FUZZY surface: deterministic jitter on a wall loop, ONLY
+        into the material. _cell_contours keeps the filled cells on the
+        LEFT of the walk, so the left normal IS the material direction -
+        fuzz may only OPEN the cavity, never shrink it (the same honesty
+        as the draft erosion). The hash rides on the layer + quantized
+        point, so reruns stay byte-identical (determinism check)."""
+        n = len(pts)
+        if n < 2:
+            return list(pts)
+        out = []
+        for i in range(n):
+            x, y = pts[i]
+            h = (li * 2654435761) & 0xffffffff
+            h ^= (int(round(x * 1000.0)) * 40503) & 0xffffffff
+            h ^= (int(round(y * 1000.0)) * 12289) & 0xffffffff
+            h = ((h ^ (h >> 13)) * 1274126177) & 0xffffffff
+            t = ((h ^ (h >> 16)) & 0xffff) / 65535.0
+            mag = amp * (0.25 + 0.75 * t)
+            qx0, qy0 = pts[(i - 1) % n]
+            qx1, qy1 = pts[(i + 1) % n]
+            dx, dy = qx1 - qx0, qy1 - qy0
+            L = math.hypot(dx, dy)
+            if L < 1e-9:
+                out.append((x, y))
+                continue
+            out.append((x - dy / L * mag, y + dx / L * mag))
+        return out
+
+    _fine272 = (surface == 'FINE')
+
     def _write270(out, label, mask_iter, n_layers, extra_head, brim=True,
                   piece_rect=None):
         """mask_iter yields the material masks in print order (it may
@@ -16156,6 +16206,8 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
                 a('; travel_speed = 120')
                 types = ['WALL-OUTER', 'SURFACE-BOTTOM', 'INFILL-SOLID',
                          'SURFACE-TOP']
+                if _fine272:
+                    types.append('IRONING')      # R272 parting-face pass
                 if brim and brim_loops:
                     types.insert(0, 'BRIM')
                 a('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d '
@@ -16197,6 +16249,8 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
                     for lp270 in _cell_contours(
                             [mask[r * cols:(r + 1) * cols]
                              for r in range(rows)], x0, y0, wid):
+                        if surface == 'FUZZY':
+                            lp270 = _fuzz270(lp270, li)
                         _emit_loop(pen, lp270, e_wall,
                                    900 if li == 1 else 1800)
                     ty270 = ('SURFACE-BOTTOM' if li == 1 else
@@ -16221,11 +16275,39 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
                                           45.0 if li % 2 else 135.0)
                             _emit_fill(pen, segs, e_wall,
                                        1200 if li == 1 else 2400, wid)
+                    if _fine272 and li == n_layers:
+                        # R272 FINE: ironing over the parting face - the
+                        # mating face is the SEALING face, dense thin
+                        # lines at 15% flow make it mirror-smooth. The
+                        # mask of the last layer already carries the pin
+                        # holes and the vent grooves, so the pass hugs
+                        # the real surface (never bridges the cavity).
+                        a(_apply_type_lines(
+                            'IRONING',
+                            '   ; R272-MOLD: fine parting face - light '
+                            'smoothing pass'))
+                        for (r_a, r_b, rr) in _blocks270(mask):
+                            for (c_a, c_b) in rr:
+                                segs = _hatch(
+                                    x0 + c_a * wid, y0 + r_a * wid,
+                                    x0 + (c_b + 1) * wid,
+                                    y0 + (r_b + 1) * wid,
+                                    None, wid * 0.45, 90.0)
+                                # feed rides the uniform speed image:
+                                # FINE normalizes every print move to
+                                # 1200 (20mm/s - slicer-typical ironing)
+                                _emit_fill(pen, segs, e_wall * 0.15, 1200,
+                                           wid * 0.45)
                     a('EXCLUDE_OBJECT_END NAME=%s' % label.upper())
                 a('M107')
                 a('PRINT_END')
                 sk.flush()
-            _gen_normalize_speeds(tmp270)
+            # R272 FINE: the ONE place a speed change survives - the
+            # uniform speed image. STANDARD keeps the field rule
+            # (60mm/s), FINE prints everything at 20mm/s (the QUALITY
+            # mode - honestly visible in _FILE_INFO SPEED_PRINT)
+            _gen_normalize_speeds(tmp270,
+                                  print_f=1200 if _fine272 else 3600)
             return tmp270
         except BaseException:
             try:
@@ -16793,6 +16875,7 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
             # the undercut cost in bridges (None when sectors=0 - the
             # 2-part path is untouched)
             'sectors': sectors, 'sec_half': _sec270on,
+            'surface': surface,
             'sec_axis': _secaxis270,
             'sec_cuts': ([(x0 + c * wid) for c in sec_cuts270]
                          if _secaxis270 == 'X'
@@ -29781,6 +29864,10 @@ def watch(directory, interval=5.0, once=False):
                                    or 'AUTO').upper()
                     if _m_sh271 not in ('AUTO', 'TOP', 'BOTTOM'):
                         _m_sh271 = 'AUTO'
+                    _m_srf272 = str(rv.get('mold_surface', 'STANDARD')
+                                    or 'STANDARD').upper()
+                    if _m_srf272 not in ('STANDARD', 'FINE', 'FUZZY'):
+                        _m_srf272 = 'STANDARD'
                     _m_par270 = dict(
                         wall=_vfl270('mold_wall', 5.0),
                         gap=_vfl270('mold_gap', 0.15),
@@ -29789,6 +29876,7 @@ def watch(directory, interval=5.0, once=False):
                         vent_d=_vfl270('mold_vent', 2.5),
                         pin_d=_vfl270('mold_pin', 3.0),
                         draft=_vfl270('mold_draft', 0.0),
+                        surface=_m_srf272,
                         part=str(rv.get('mold_part', 'BOTH')
                                  or 'BOTH').upper(),
                         plane=_m_pln270,

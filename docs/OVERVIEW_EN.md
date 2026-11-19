@@ -82,7 +82,7 @@ The project documentation describes LCD-accessible G-code generation or transfor
 - **Angle and flat connectors:** parameterized plates, holes, countersinks, and stiffeners.
 - **Gaskets:** flat or profiled rings.
 - **Spray stencils:** image tone bands as plates with automatic bridges and pin registration.
-- **Casting molds:** two-part molds around a finished print (equator split, pour funnel, vents, dowel registry) plus a positive master; via the generator menu and as a toolchain step. Since R271 also 3-/4-part: vertical sector cuts through the cavity make side undercuts castable (outer pieces slide off, the middle lifts; the ceiling bridges over the undercut - counted, refused beyond 25mm span; dowel tunnels register the cut faces).
+- **Casting molds:** two-part molds around a finished print (equator split, pour funnel, vents, dowel registry) plus a positive master; via the generator menu and as a toolchain step. Since R271 also 3-/4-part: vertical sector cuts through the cavity make side undercuts castable (outer pieces slide off, the middle lifts; the ceiling bridges over the undercut - counted, refused beyond 25mm span; dowel tunnels register the cut faces). Surface mode STANDARD/FINE/FUZZY: FINE irons the parting face and prints the whole file at 20mm/s, FUZZY jitters the cavity walls deterministically (into the material only - the cast comes out matte).
 - **Bricks/kits/figures:** system-compatible building parts, kits derived from a G-code model, and assembled figures.
 - **String Art:** image/spiral patterns made from an anchor frame and layered strands.
 - **Texturing:** add deterministic fuzzy, patterned, or image-based texture to an existing file, especially outer walls.

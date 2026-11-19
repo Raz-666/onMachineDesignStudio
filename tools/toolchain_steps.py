@@ -177,6 +177,9 @@ def system_step_runner(tool, params, bed=None):
                 pin_d=float(_pick(params, 'pin', 'mold_pin', default=3.0)),
                 draft=float(_pick(params, 'draft', 'mold_draft',
                                   default=0.0)),
+                surface=str(_pick(params, 'surface', 'mold_surface',
+                                  default='STANDARD')
+                            or 'STANDARD').upper(),
                 part=part,
                 plane=('OFF' if plane == 'OFF'
                        else ('MID' if plane == 'MID' else 'AUTO')),

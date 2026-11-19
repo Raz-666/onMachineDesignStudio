@@ -785,8 +785,40 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       Sections (+2). Gates: r271 25/25, r270 33/0, macro_render 2133/2133,
       megatest 224/0, systemtest 214/0, r81 23/23, r142 142/0,
       test_toolchain 49 OK, test_toolchain_steps 25 OK, r165/r166 clean.
-      NOCH OFFEN: Oberflaechen-Param, dann Haeppchen 2 (parametrische
-      Grundkoerper).
+      **STAND R272 (19.11., OBERFLAECHEN-PARAM FERTIG):** `make_mold(
+      surface='STANDARD')` - STANDARD = wie gedruckt (60mm/s-Feldspeed,
+      byte-identisch zum alten Aufruf). FINE = IRONING-Glaettpaese ueber
+      der TRENEBENE (oberster Layer: dichte duenne Linien quer zum Fill,
+      15% Flow; die Trennebene ist die DICHTFLAECHE - die Maske des
+      letzten Layers traegt die Pinloecher + Rillen, der Pass umgeht
+      sie automatisch) + das GANZE File druckt mit 20mm/s statt 60
+      (print_f=1200 am _gen_normalize_speeds-Aufruf - die EINE Stelle,
+      an der eine Speed-Aenderung das R159-Speed-Image ueberlebt; die
+      historischen 900/1800/1200/2400-Feeds in _write270 sind seit R159
+      wirkungslos, normalize ueberschreibt jeden Druckzug - deshalb kein
+      toter Drossel-Code). FUZZY = deterministisches Zittern auf den
+      KAVITAET-Wandloops (Hash aus Layer+quantisiertem Punkt, max
+      0.12mm, NUR INS MATERIAL - die Konturregel von _cell_contours
+      haelt Material links der Laufrichtung, also ist die Versatz-
+      richtung exakt; wie die Draft-Erosion darf Fuzzy die Kavitaet nur
+      OEFFNEN, nie schrumpfen; die Maske bleibt unberuehrt: cells_top
+      identisch zu STANDARD, gemessen). Guss wird matt/rau, entformt
+      leichter. info['surface']. Batterie r272_mold_check.py 20/20:
+      STANDARD byte-identisch, IRONING nur im letzten Layer + TYPES-
+      Token + SPEED_INNER 60->20 + kein F3600 + Kavitaet identisch,
+      FUZZY: STANDARD-Wandpunkte EXAKT auf Zellkanten (0/352 >0.02mm),
+      FUZZY versetzt 272/352, max 0.085mm, Determinismus, Kavitaet
+      identisch, Sektorkombi (beide Stuecke geironed). Verdrahtung:
+      LCD `__set __srf`, MOLD_INFO/MOLD_CREATE SURFACE=, Watcher
+      mold_surface (robust geklemmt), Toolchain surface-Enum (ketten-
+      freundlich, kein Output-Problem). Gates: r272 20/20, r270 33/0,
+      r271 25/25, macro_render 2133/2133 (R135 +1), megatest 224/0,
+      systemtest 214/0, r81 23/23, r142 142/0, audit 68/0, toolchain
+      49+25 OK, r165/r166 clean (2788 sections). _next synced.
+      J2-Haeppchen-1-Engine damit KOMPLETT (alle Lastenheft-Parameter
+      umgesetzt).
+      NOCH OFFEN: Haeppchen 2 (parametrische Grundkoerper: Medaillon,
+      Plaque, Bar - mit Relief-Einbettungsplatz).
       **Ehrlichkeitsregeln:** Hinterschneidungs-Check pro Hälfte (Kavität
       darf zur Öffnung nicht schrumpfen — Guss löst sich nicht, Druck
       bridgt), Formschräge als Raster-Radius-Approximation (dokumentiert),
