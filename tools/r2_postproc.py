@@ -77,8 +77,8 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-18.3'
-POSTPROC_BUILD = 'V4'
+POSTPROC_RELEASE = 'R2-2026-11-19.1'
+POSTPROC_BUILD = 'V5'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
 # and no speed/accel/nozzle parameters. Files carrying an OLD tag are UPGRADED
@@ -9697,6 +9697,13 @@ NONCE_KEYS = ('preview_nonce', 'range_nonce', 'label_gen_nonce', 'reso_nonce',
               # R238 (.136ai): queue KILL channel - Skip current job /
               # Stop everything (mode rides in genq_kill_mode)
               'genq_kill_nonce',
+              # R267 (J9): spray stencil generator - without the NONCE_KEYS
+              # entry the boot prime reads None and every watcher restart
+              # would replay the LAST stencil press (the .108 bug class)
+              'stencil_nonce',
+              # R252: the evidence pack channel (doctor) - read by
+              # _doctor_tick via rv; priming closes the restart-replay gap
+              'doctor_nonce',
               'quality_fix_nonce', 'speed_fix_nonce',
               # R147 - .108 field log - the r143 audit parses this tuple
               # comment-safe since R186, parentheses are fine. The
@@ -15345,8 +15352,8 @@ def make_stencil(src, steps=3, size_mm=100.0, layer_h=0.2, thick=0.8,
                         if band < 0 else
                         'band %d of %d: cutout = this tone only'
                         % (band + 1, S)))
-            for _n in notes:
-                a('; note: %s' % _n)
+            for _n267 in notes:
+                a('; note: %s' % _n267)
             a('; filament_type = %s' % material)
             a('; layer_height = %.2g' % layer_h)
             a('; nozzle_diameter = %.1f' % nozzle)
@@ -26573,7 +26580,13 @@ def watch(directory, interval=5.0, once=False):
                 'shape_nonce', 'twist_nonce', 'mirror_nonce',
                 # R259: a toolchain chain writes MANY files (one per step
                 # plus the final) - disk I/O during a print waits for idle
-                'toolchain_nonce')
+                'toolchain_nonce',
+                # R267 (J9): the stencil set writes one file per tone band
+                'stencil_nonce',
+                # R252: the evidence pack copies logs - disk I/O during a
+                # print is the .125 lesson (the macro refuses while
+                # printing; this is the watcher-side second layer)
+                'doctor_nonce')
         # R61: layer-range excerpt request from the LCD (nonce changes on every request)
         try:
             rv = _read_vars(VAR_PATH)
@@ -26713,6 +26726,11 @@ def watch(directory, interval=5.0, once=False):
                 last_segments_nonce = _np.get('segments_fix_nonce')
                 last_quality_nonce = _np.get('quality_fix_nonce')
                 last_speed_nonce = _np.get('speed_fix_nonce')
+                # R252 gap (found by the r142/r143 release audit): the
+                # evidence pack kept its own nonce state and was NEVER
+                # primed - every watcher restart replayed the LAST pack
+                # press. Prime it like every other channel.
+                _DOCTOR_STATE['nonce'] = str(_np.get('doctor_nonce') or '')
                 last_qcancel_nonce = _np.get('queue_cancel_nonce')
                 # R133f (field log .98 - THE regeneration loop): the four
                 # newer generator channels + plot_cal were NEVER primed -

@@ -1,6 +1,6 @@
-# TESTANLEITUNG — R2-D2 Makro-System (Version R2-2026-11-18.3 / V4)
+# TESTANLEITUNG — R2-D2 Makro-System (Version R2-2026-11-19.1 / V5)
 
-Diese Anleitung beschreibt **nur den aktuellen Stand** (R2-2026-11-18.3).
+Diese Anleitung beschreibt **nur den aktuellen Stand** (R2-2026-11-19.1).
 Sie ist die komplette Feld-Checkliste nach dem Einspielen eines Updates —
 von Boot bis Druckergebnis. Die Historie der Änderungen steht in README.md.
 
@@ -18,7 +18,7 @@ von Boot bis Druckergebnis. Die Historie der Änderungen steht in README.md.
 ## 2. Boot-Check (Pflicht, 1 Minute)
 
 - [ ] Konsole: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-18.3)`
+      (build R2-2026-11-19.1)`
 - [ ] ~10 s nach dem Boot: Boot-Sound + LED-Animation
 - [ ] `SHOW_STATUS` antwortet mit Modus/Material/Overrides
 - [ ] Kein Eintrag fehlt: sonst meldet sich `_CHECK_INSTALL` laut mit
@@ -1215,7 +1215,7 @@ gilt dem Neuen seit V3.
 ### Field-Check V4
 
 - [ ] Boot: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-18.3)`
+      (build R2-2026-11-19.1)`
 - [ ] Boot: Ordner `Toolchain/` im Gcodes-Verzeichnis enthält
       `scale-twist.json` (vom Watcher geseedet, falls noch nicht da)
 - [ ] Konsole: `TOOLCHAIN_APPLY PRESET=Toolchain/scale-twist.json
@@ -1228,3 +1228,46 @@ gilt dem Neuen seit V3.
       druckbar; `TOOLCHAIN_APPLY` auf ein defektes Preset verweigert mit
       klarer Fehlermeldung
 - [ ] Del-Mode im Browser löscht ein Preset aus `Toolchain/`
+
+## 33. Die V5-Neuerungen (R2-2026-11-19.1 — Texturen II + Sprüh-Schablonen)
+
+**Was neu ist:** Zwei Baustellen seit V4. (1) Die **Textur-Bibliothek ist
+auf 55 Muster gewachsen** (vier Häppchen: R265 nahtlose Technik-Basen +
+form-true Planks, R265.3 sieben weitere Techniken, R266 Deep Relief,
+R266.2 neun Organics, R266.3 sechs Deko/Haptik) — und das LCD blättert
+die Muster jetzt **dynamisch** (vorher war die Seitenzahl hart auf 4
+Seiten/27 Muster kodiert, Muster 28+ waren am Gerät UNERREICHBAR —
+Feldbug gefixt). (2) **Sprüh-Schablonen (R267):** jedes Bild aus der
+Lithophane-Liste wird zu einem Schablonen-Set — pro Tonband eine Platte
+mit Passlöchern, Stege automatisch.
+
+- **Texturen:** `Pre-Print > Mods > Texture` — die Musterliste blättert
+  über 7 Seiten (55 Muster, Cap im Titel mitgezählt). Deep Relief:
+  Tiefen bis 4 mm, E folgt dem echten Weg.
+- **Schablonen:** `Tools > Stencil` (nutzt die Lithophane-Bildliste).
+  Settings: Bands 2–4, Edge 40–220 mm, Thick 0.4–2 mm, Negativ an/aus.
+  Ausgabe: `V<nn>_Schablone<n>_<name>.gcode` je Band (+ optional
+  `SchabloneNeg`), Sprühreihenfolge hell→dunkel, Platten auf M4-Pins
+  stapeln (4 Passlöcher D4.2 an identischer Position).
+- **Ehrlichkeitsregel:** Ein Band unter 2 % der Fläche wird keine eigene
+  Platte — der Generator reduziert die Schrittzahl und sagt es in der
+  Antwort.
+
+### Field-Check V5
+
+- [ ] Boot: `Macro system OK: all 19 modules loaded and current
+      (build R2-2026-11-19.1)`
+- [ ] Texture: Musterliste blättert bis Seite 7 (55 Muster, Titel zeigt
+      `n/55`); ein R266.2/R266.3-Muster (z. B. LEDER oder CROCHET)
+      anwenden und drucken
+- [ ] Texture: Deep-Relief-Muster (z. B. ALTER STAMM) mit Tiefe > 2 mm
+      drucken — Wand folgt der geschnitzten Fläche, keine Delamination
+- [ ] Stencil: Bild in den Gcodes-Ordner laden, `Tools > Stencil`,
+      Bands=3, Create (2-Press) → 3 Dateien `V<nn>_Schablone1..3_*`
+- [ ] Stencil: Platten übereinander auf 4 M4-Pins stecken — Passlöcher
+      deckungsgleich; Ring-förmige Inseln (z. B. das O eines Texts)
+      halten über Stege an der Platte
+- [ ] Stencil: Negativ an → zusätzliche `SchabloneNeg`-Datei; Konsole:
+      `STENCIL_INFO` zeigt Settings + Bilderzahl
+- [ ] Stencil: 4-Band-Wunsch auf einem 3-Farb-Logo → Generator liefert
+      ehrlich 3 Platten + Hinweis in der Antwort

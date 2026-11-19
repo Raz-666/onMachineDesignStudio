@@ -3,7 +3,7 @@
 **Shutdown register:** `docs/SHUTDOWN_REGISTER.md` — every crash site,
 its cause, its fix and the test that holds it, in one table.
 
-*Stand: R2-2026-11-18.3 (V4). Auto-checked against reality by
+*Stand: R2-2026-11-19.1 (V5). Auto-checked against reality by
 `tools/r165_doc_check.py`; the version line here is not typed by hand —
 see "The version rule" below.*
 
@@ -20,12 +20,12 @@ repository.
 
 | File | Lines | What it does |
 |---|---|---|
-| `tools/r2_postproc.py` | 30 322 | **The engine.** One systemd service, four jobs: (1) the *layer reader* — tags every new g-code with `LAYER_MARK`/`APPLY_TYPE` markers, a `;TYPE:` map and a `_FILE_INFO` block, so the LCD, the menus and the live tuning know what is printing before layer 1; (2) **every generator** (range, labels, plotter, cable ties, angles, lithos, gaskets, frames, bricks, kits, figures, colorpic, string art, geometry, scale/taper/twist, mirror, STL export, cake cut) — the LCD only sets variables, the real work happens here, off the print thread; (3) the *watcher* — folder watching, preview pushes, queue handling, the recovery tick; (4) **HOST_CHECK** (throttle, load vs cores, swap *activity*, hidepid honesty) and the MCU auto-recovery. Streaming, one line in / one line out — no full-file buffers (a full buffer is what kills the Pi's RAM and then the print). |
+| `tools/r2_postproc.py` | 30 833 | **The engine.** One systemd service, four jobs: (1) the *layer reader* — tags every new g-code with `LAYER_MARK`/`APPLY_TYPE` markers, a `;TYPE:` map and a `_FILE_INFO` block, so the LCD, the menus and the live tuning know what is printing before layer 1; (2) **every generator** (range, labels, plotter, cable ties, angles, lithos, gaskets, frames, bricks, kits, figures, colorpic, string art, geometry, scale/taper/twist, mirror, STL export, cake cut, spray stencils) — the LCD only sets variables, the real work happens here, off the print thread; (3) the *watcher* — folder watching, preview pushes, queue handling, the recovery tick; (4) **HOST_CHECK** (throttle, load vs cores, swap *activity*, hidepid honesty) and the MCU auto-recovery. Streaming, one line in / one line out — no full-file buffers (a full buffer is what kills the Pi's RAM and then the print). |
 | `tools/r2_postproc_next.py` | 30 322 | **The experimental copy.** Byte for byte `r2_postproc.py` at the moment of R252, plus its own header. From now on new post-processor work happens HERE and the stable file is not touched. Never started directly: the service starts the stable file, which reads the pp_engine switch (LCD System > PP engine, variables file) and hands over via runpy when it says `next`; a syntax error or a crashed handover keeps the stable engine and brakes the switch for 15 min. |
 | `tools/toolchain.py` | 873 | **The chain engine (R259).** `plan_chain()` turns a preset file (JSON, `presets/toolchain/` + the gcodes `Toolchain/` folder) into a validated step plan - tool registry, parameter schema, file-name globbing, honest refusals (unknown tool, missing file, empty plan = `[]`). `run_chain()` executes it streaming: per-step temp workspace (`§22.4` - a step's temp is deleted the moment the next step adopts it), optional `validator`, `output_mode='save'`, `cancel_check`, the `on_output` gate (every artifact passes through it before it becomes the next step's input) and `on_step` progress (R261: fires at step START, cosmetic - a broken hook can never kill a chain). |
 | `tools/toolchain_steps.py` | 184 | **The real adapters.** Each supported tool as one `Step` (command, param mapping, produces/consumes). The registry is the single place that decides what is chainable - and what is not (the cake cutter refuses: it is a hand-over cut, not a file-to-file transform). |
 | `tools/r2_collect.py` | 384 | **The evidence pack ('Doctor').** Builds ONE support file: build stamps, host (RAM/swap/disk/load/top/throttled/dmesg), the three services + journals, the watcher state files, variables.cfg, printer.cfg, a compact incident digest out of klippy.log (events, the worst Reactor stalls WITH stacks, MCU statistics around each shutdown), the last 3 MB of the raw log, the newest MCU snapshot, the gcodes inventory. Writes gcodes/crash_archive/R2-DOCTOR-<stamp>.txt + a .txt.gcode twin (Mainsail only lists printable files) - the post-processor skips every R2-DOCTOR-* name. Idle-gated, read-only, no sudo. Started by the LCD (System > Diagnostics), by the watcher (doctor_nonce) or by hand. |
-| `tools/r2_texture.py` | 1 409 | **The texture engine** (called by r2_postproc, also standalone): FUZZY (Orca-style fuzzy skin), BUMPS (27 seamless patterns) and MAP (a picture wrapped around the part). Rewrites only the outer wall of an existing file — `;TYPE:`, E/Z/F and EXCLUDE_OBJECT stay byte-identical. |
+| `tools/r2_texture.py` | 2 620 | **The texture engine** (called by r2_postproc, also standalone): FUZZY (Orca-style fuzzy skin), BUMPS (**55 seamless patterns**, deep relief up to 4 mm — E rides the real path) and MAP (a picture wrapped around the part). Rewrites only the outer wall of an existing file — `;TYPE:`, E/Z/F and EXCLUDE_OBJECT stay byte-identical. |
 | `tools/r2_cake.py` | 543 | **The cake-cut engine**: splits a print with a plane, E redistributed per section. |
 | `tools/r2_persist.sh` | 161 | Persists a variable into `variables.cfg` from a shell context (the LCD writes, the printer keeps it across a reboot). |
 | `tools/r2-postproc.service` | 21 | The systemd unit — restart always, one watcher only. |
@@ -58,11 +58,11 @@ thread's reactor.
 | File | Produces |
 |---|---|
 | `tools/make_manual_pdf.py` | `MANUAL.pdf` (107 pages) — the illustrated handbook. |
-| `tools/make_texture_pdf.py` | `TEXTURING.pdf` (30 pages) — the full pattern catalog, every pattern sampled from the real pattern functions, plus the preset mapping. |
+| `tools/make_texture_pdf.py` | `TEXTURING.pdf` (64 pages) — the full pattern catalog, every pattern sampled from the real pattern functions, plus the preset mapping. |
 | `tools/make_feature_pdf.py` | `FEATURE_TAGGING.pdf` (14 pages) — the `;TYPE:`/layer-marker system in depth. |
 | `tools/make_displays_pdf.py` | `DISPLAYS_WEB_UI.pdf` (11 pages) — behaviour with other displays / Mainsail / web UI. |
 | `tools/make_cakesplit_pdf.py` | `CUTSPLIT.pdf` (7 pages) — the cut & split methodology. |
-| `tools/make_generators_pdf.py` | `GENERATORS_TOOLS.pdf` (13 pages, R2-2026-11-18.3) — all eleven generators plus all fifteen file tools (R263: + Toolchain), one block each: where in the menu, what comes out, **the real LCD rows read out of `menus/lcd_menues.cfg`** (so the page cannot drift), honest limits, one tip. |
+| `tools/make_generators_pdf.py` | `GENERATORS_TOOLS.pdf` (14 pages, R2-2026-11-19.1) — all twelve generators plus all fifteen file tools (R263: + Toolchain; R267: + Stencil), one block each: where in the menu, what comes out, **the real LCD rows read out of `menus/lcd_menues.cfg`** (so the page cannot drift), honest limits, one tip. |
 | `tools/make_creative_pdf.py` | `CREATIVE_POSSIBILITIES.pdf` (11 pages, R2-2026-11-18.3) — **On-Machine Design Studio for Creative Freedom**: thirteen recipes (R263: + Effektkette/Toolchain) that COMBINE the tools (texture × light, MAP relief, litho+frame+stand, labelled texture, brick structure, string art, scale/twist/mirror variations, cutting, colour, workshop parts, STL round trip, safety tools), plus Modellbau/Deko-Sets/Doppel-Durchgänge chapters, a Fehlersuche-und-Optimierung chapter (symptom → cause → tool), wall-thickness/light tables, what the system deliberately does not do — closing with the commissioned line: „kein PC, kein 3D-Programm, keine KI — nur ein Drehrad.“ |
 | `tools/r2_version.py` | **Not a builder — the version rule.** |
 | `tools/make_label_fonts.py` | Build-time helper for the embedded label fonts. Never needed on the Pi. |
@@ -136,6 +136,7 @@ reappears, one of these goes red instead of the user finding out mid-print.
 | `r164_serial_budget.py` | the MCU serial budget — the "Timer too close" firewall |
 | `r167_aircheck.py` | physically: do generator paths bridge over air |
 | `r168_stampcheck.py` | stamp/contour/mirror fit, in millimetres |
+| `r267_stencil_check.py` | the spray-stencil law: tone bands, mask partition, registration-hole congruence, bridge flood (no floating islands), gcode density, determinism (34 checks) |
 | `r165_doc_check.py` | every macro named in the docs exists; every LCD path in the docs exists in the menu tree |
 | `r166_template_check.py` | Klipper-parse + Jinja compile of every template (the way Klipper does it, not the way we hope) |
 | `r142_spell_lint.py` | spelling of user-facing strings (a hint lint — deliberately not a gate) |

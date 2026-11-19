@@ -283,6 +283,18 @@ GEN = [
   'Länge - zu dünn gesetzt reißen sie beim Anziehen.',
   'Immer ein Bündel drucken: eine Stange Kabelbinder kostet Minuten, einzelne '
   'sind Verschwendung.'),
+ ('__stencil', 'Sprüh-Schablonen (Stencil)', 'Pre-Print &gt; Tools &gt; Stencil',
+  'Aus jedem Bild der Lithophane-Liste ein Schablonen-Set: 2-4 Tonbänder, '
+  'je Band eine flache Platte (Sprühen hell nach dunkel, Platten auf M4-'
+  'Passstiften gestapelt). Stege automatisch bei 3x Düse, Rechteckplatte '
+  'mit 8-mm-Rand und 4 Passlöchern D4.2 an identischer Position, optional '
+  'Negativ-Schablone. Ausgabe nach <b>gcodes/Stencil/</b>.',
+  'Bild hochladen (wie Lithophane), Bands/Edge/Thick/Negativ setzen, '
+  'Bild-Slot zweimal drücken.',
+  'Ein Band unter 2% der Fläche wird keine eigene Platte - der Generator '
+  'liefert dann ehrlich weniger Platten und sagt es in der Antwort.',
+  'Sprühreihenfolge einhalten: hellste Platte zuerst, dunkelste zuletzt - '
+  'die Passlöcher richten jede Lage exakt aus.'),
  ('__seal', 'Gaskets', 'Pre-Print &gt; Tools &gt; Gaskets',
   'Dichtungen als Ring: Außendurchmesser, Innendurchmesser, Höhe, Profil, '
   'Ironing und Schichthöhe. Ausgabe nach <b>gcodes/Gaskets/</b>.',

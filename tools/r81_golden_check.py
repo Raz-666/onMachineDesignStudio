@@ -10,6 +10,16 @@ keeps that guarantee alive: it rebuilds the 23 fixture cases, runs them
 through the CURRENT module and compares MD5s + change summaries against the
 frozen references.
 
+RE-FREEZE HISTORY (R2-2026-11-19.1, V5): stamp re-freeze over PURE-ADDITION
+code change. Since V4 the engine gained the texture rounds R265-R266.3 (in
+r2_texture.py + presets, not this module) and the R267 spray-stencil engine
+(make_stencil + watcher block) - 511 added lines, ZERO removed or modified,
+process()/make_range() untouched. PROOF (A/B): the V5 module with ONLY the
+two stamp strings patched back to R2-2026-11-18.3/V4 reproduces the frozen
+V4 references byte-for-byte - all 23 md5 identical, summaries identical.
+Forward run: mr01-mr13 differ by the stamp lines only (same length class,
+nl/size in every summary unchanged); pr01-pr10 byte-IDENTICAL. mr01-mr13
+re-frozen (stamp class), nothing else.
 RE-FREEZE HISTORY (R2-2026-11-18.3, V4): stamp re-freeze over REAL code
 change. Since V3 the engine gained the toolchain rounds R259 (chain engine
 + watcher wiring), R260 (readable chain names, subfolder inputs) and R261
@@ -446,19 +456,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # process() output is identical old vs new, ALL 13 mr md5s change (every
 # range excerpt carries the core stamp), no summary moves, and r81 was
 # 23/23 green with the R213 code BEFORE the stamp bump.
-REF_MD5 = {'mr01': '510ae206f00a71c24913c0b88c0ed8f0',
- 'mr02': 'f2826ea7c57ffddbab596a86edfb989e',
- 'mr03': 'b6c8696a4dd9ec98a772e1702648e6c4',
- 'mr04': 'db2e71aed1b950c450985dd7bb041220',
- 'mr05': '9ca7283eadccc02a938093f2562cdfc2',
- 'mr06': 'bb5042813ec2d748b756e5e94070094e',
- 'mr07': '9af517bc5cca4286d2fe1e66d6581b32',
- 'mr08': '86efd45922f90600ed2d5a7daeee7d85',
- 'mr09': '7ce74e4ae24244cb3ee66db19f0bdeb9',
- 'mr10': '81dc8d2f6d254b2b0ed877320062046c',
- 'mr11': '3b3323f38928bad9a3572ba069bc8248',
- 'mr12': 'c87611743936eeaac2c6aa74704888a7',
- 'mr13': '2e240c29c34b77097086f8dc2f421f22',
+REF_MD5 = {'mr01': 'd21b702e5d9572dd1ba2a98978396fda',
+ 'mr02': '707e95c66767df652d8e02a9d1afc958',
+ 'mr03': '2430792c81e21fdedbb3dc1242f6ef23',
+ 'mr04': '945db05cf0795ba986d710505cf63f26',
+ 'mr05': '3062296b2e383d7cfd03e94e08214c5f',
+ 'mr06': '3e08e5aa0bb4fa31e6b6eb62e5c0b100',
+ 'mr07': '6a655dbf7d24bb9a1d3bda2823b43b81',
+ 'mr08': '196361f1e0f8405fd1501bc45370f725',
+ 'mr09': 'c264e28654e6a096564b2c4bfd531a66',
+ 'mr10': '377aa6cdcca10d825f8b72e81e5b5578',
+ 'mr11': '73933c7927fc930a60184d0ef0238548',
+ 'mr12': 'b3a1dda05a2c46babffbc427748697dc',
+ 'mr13': 'c2d2b78bbafba6f0ed4aab57a0cdc90a',
  'pr01': 'aa5a6f27d5a7e6576f57eeea93af63a5',
  'pr02': '61457e9bcbd98996b6e7dc26efda23d8',
  'pr03': 'f9f7402c190f07e7aa7470d2185fddfc',
@@ -658,7 +668,6 @@ REF_SUMMARY = {'mr01': {'nl': 8, 'size': 5267},
           'upgraded': False,
           'upgraded_from': 'v1',
           'volumetric': False}}
-
 CASES = [
     ('mr01', dict(src='vase_m83.gcode', start=5, end=12)),
     ('mr02', dict(src='vase_m83.gcode', start=5, end=12, floor=2, brim=1)),

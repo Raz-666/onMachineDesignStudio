@@ -56,12 +56,15 @@ class RegistryTests(unittest.TestCase):
                 if pspec['type'] == 'enum':
                     self.assertGreater(len(pspec['values']), 0)
 
-    def test_texture_pattern_enum_is_the_27_code_list(self):
-        """Die 27 Muster stammen aus macros/17_generator.cfg:1179."""
-        self.assertEqual(len(toolchain.TEXTURE_PATTERNS), 27)
+    def test_texture_pattern_enum_is_the_code_list(self):
+        """Die Muster stammen aus macros/17_generator.cfg (_TX_PATTERN) -
+        R265-R266.3 wuchsen auf 55; der Pin folgt der Bibliothek, NICHT
+        umgekehrt (r232 haelt die Kongruenz zur Makro-Seite)."""
+        self.assertGreaterEqual(len(toolchain.TEXTURE_PATTERNS), 55)
         self.assertIn('BARK', toolchain.TEXTURE_PATTERNS)
         self.assertIn('MACRAME', toolchain.TEXTURE_PATTERNS)
         self.assertIn('MAP', toolchain.TEXTURE_PATTERNS)
+        self.assertIn('CROCHET', toolchain.TEXTURE_PATTERNS)
 
 
 class ValidationTests(unittest.TestCase):

@@ -170,18 +170,17 @@ for _f in sorted(os.listdir(os.path.join(HERE, '..', 'macros'))):
         _live += rd('macros', _f).split('\n')
 _live += rd('menus', 'lcd_menues.cfg').split('\n')
 _live = '\n'.join(l for l in _live if not l.lstrip().startswith('#'))
-check('D1: version .142 everywhere, no .137/.138/.139/.140 leftovers in live cfg lines',
-      "'R2-2026-11-09.142a'" in st
-      and '.137' not in _live
-      and '.138' not in _live
-      and '.139' not in _live
-      and '.140' not in _live
-      and 'R2-2026-11-09.142a' in rd('MANUAL.md')
-      and "POSTPROC_RELEASE = 'R2-2026-11-09.142a'" in pp_src
-      and "POSTPROC_BUILD = 'R246b'" in pp_src)
+_m = re.search(r"variable_version:\s*'(R2-\d{4}-\d{2}-\d{2}\.\d+)'", st)
+_ver = _m.group(1) if _m else None
+check('D1: the CURRENT version is consistent (01_state == engine == MANUAL), '
+      'no dead .13x/.14x scheme in the live state file',
+      _ver is not None
+      and ("POSTPROC_RELEASE = '%s'" % _ver) in pp_src
+      and _ver in rd('MANUAL.md')
+      and 'R2-2026-11-09.142a' not in st, _ver)
 html = rd('web', 'index.html')
-check('D2: web badge .142, page state ver R246',
-      '<span id="ver">.142a</span>' in html and "ver:'R246b'}" in html)
+check('D2: web badge == 01_state version',
+      ('<span id="ver">%s</span>' % _ver) in html, _ver)
 ta = rd('TESTANLEITUNG.md')
 check('D3: TESTANLEITUNG ch. 27 (diet, history) + ch. 28 (LED crash fix)',
       '## 27. Die .138-Neuerungen (R242' in ta

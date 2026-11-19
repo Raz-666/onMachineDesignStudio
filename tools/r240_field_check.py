@@ -20,6 +20,7 @@
 #     FLOW quick value (15-20% typical instead of the stiff 100% speed),
 #     Live mirrors Pre-Print Motion, per-job LED progress bar, every
 #     long-unclear action double-press + sound + menu exit.
+import json
 import os
 import re
 import sys
@@ -101,6 +102,10 @@ for m in re.finditer(r'^\[gcode_macro (_\w+)\]', allmacros, re.M):
         never_dispatched.add(name)
 whitelist = {n for n in never_dispatched
              if re.match(r'^_(V\d\d_|R2_VERSION)', n)}
+# R253: _R2_DOCTOR is the deliberately kept dead alias of DOCTOR_PACK -
+# defined so nothing written against R252 breaks, never dispatched (a
+# call would be mangled by the tokenizer, exactly this check's point)
+whitelist.add('_R2_DOCTOR')
 check('A4a: every digit-named macro is a status-only one (whitelisted)',
       never_dispatched == whitelist, str(never_dispatched - whitelist))
 
@@ -201,25 +206,28 @@ check('C1: the quick row is the IRONING FLOW (default 15, range 5-100)',
       in lcdtxt, '')
 check('C2: no stiff default(100) ironing flow left in the menus',
       'ov_ironing_flow|default(100)' not in lcdtxt
-      and lcdtxt.count('ov_ironing_flow|default(15)') == 4, '')
+      and lcdtxt.count('ov_ironing_flow|default(15)') == 5, '')
 check('C3: Pre-Print > Features > Ironing carries the Flow row',
       '[menu __main __preprint __feat __ir __fl]' in lcdtxt, '')
 
 print('--- D) Live mirrors Pre-Print Motion -------------------------------')
-check('D1: the quick lists live INSIDE Live > Motion now',
-      '[menu __main __live __lmo __vel __spfe]' in lcdtxt
-      and '[menu __main __live __lmo __vel __acfe]' in lcdtxt
-      and '[menu __main __live __lmo __extr __pafe]' in lcdtxt
-      and '[menu __main __live __lmo __extr __flfe]' in lcdtxt
-      and '[menu __main __live __spfe]' not in lcdtxt
-      and '[menu __main __live __acfe]' not in lcdtxt
-      and '[menu __main __live __pafe]' not in lcdtxt
-      and '[menu __main __live __flfe]' not in lcdtxt, '')
+# R250 (user decision B1) superseded the R240 layout: the four quick
+# lists are SIBLINGS at the Live top level again - no Motion detour.
+check('D1: the quick lists are Live top-level siblings (R250 B1, the '
+      'R240 inside-Motion layout was superseded)',
+      '[menu __main __live __spfe]' in lcdtxt
+      and '[menu __main __live __acfe]' in lcdtxt
+      and '[menu __main __live __pafe]' in lcdtxt
+      and '[menu __main __live __flfe]' in lcdtxt
+      and '[menu __main __live __lmo __vel __spfe]' not in lcdtxt
+      and '[menu __main __live __lmo __extr __pafe]' not in lcdtxt, '')
 live_l1 = re.findall(r'^\[menu __main __live (\w+)\]$', lcdtxt, re.M)
-check('D2: Live order - temps, Z-hop above the babysteps, Features, Motion',
-      live_l1[:9] == ['__temp', '__zhop', '__zoff', '__zup', '__zupf',
-                      '__zdown', '__zdownf', '__feat', '__lmo'],
-      str(live_l1[:9]))
+check('D2: Live order - temps, Z-hop above the babysteps, the four quick '
+      'lists, then Motion',
+      live_l1[:12] == ['__temp', '__zhop', '__zoff', '__zup', '__zupf',
+                       '__zdown', '__zdownf', '__spfe', '__acfe', '__pafe',
+                       '__flfe', '__lmo'],
+      str(live_l1[:12]))
 check('D3: the activators live in the feature submenus (File keeps __acc)',
       len(re.findall(r'\[menu __main __preprint __feat __\w+ __on\]',
                      lcdtxt)) == 16
@@ -230,10 +238,14 @@ check('D4: the queue Stop row is REALLY double-press now (R238 bug fix)',
       and "_GEN_QUEUE_STOP CONFIRM={1 if" in lcdtxt
       and "VARIABLE=gen_arm VALUE='\"qstop\"'" in rd('..', 'macros',
                                                       '17_generator.cfg'), '')
-check('D5: web menu export embedded + current (2423 sections - R246: pattern slots consolidated)',
+_n_secs = len(re.findall(r'^\[menu ', lcdtxt, re.M))
+check('D5: web menu export embedded + current (section count follows the '
+      'menu, not a frozen number)',
       '"sections"' in rd('..', 'web', 'index.html')
       and '/*EMBEDDED_MENU_JSON*/' not in rd('..', 'web', 'index.html')
-      and len(re.findall(r'^\[menu ', lcdtxt, re.M)) == 2423, '')
+      and json.load(open(os.path.join(
+          here, '..', 'web', 'menu_structure.json')))['sections'] == _n_secs,
+      'menu sections=%d' % _n_secs)
 
 print('--- E) per-job LED progress bar ------------------------------------')
 m03 = rd('..', 'macros', '03_leds.cfg')
@@ -267,15 +279,14 @@ _live240 = '\n'.join(l for l in allmacros.split('\n')
 # R243 (.139): the pin moves again - current is .139.
 # R244 (.140): pin moved - current is .140.
 # R246 (.142): pin moved again - current is .142.
-check('F1: version .142 everywhere, no .136aj/.136ai/.137/.138/.139/.140/.141 leftovers in live cfg lines',
-      "'R2-2026-11-09.142a'" in st
-      and '.136ai' not in _live240
-      and '.136aj' not in _live240
-      and '.137' not in _live240
-      and '.138' not in _live240
-      and '.139' not in _live240
-      and '.140' not in _live240
-      and 'R2-2026-11-09.142a' in rd('..', 'MANUAL.md'), '')
+_m240 = re.search(r"variable_version:\s*'(R2-\d{4}-\d{2}-\d{2}\.\d+)'", st)
+_ver240 = _m240.group(1) if _m240 else None
+check('F1: the CURRENT version is consistent (01_state == engine == MANUAL), '
+      'no dead .13x/.14x scheme in live cfg lines',
+      _ver240 is not None
+      and r2_postproc.POSTPROC_RELEASE == _ver240
+      and _ver240 in rd('..', 'MANUAL.md')
+      and 'R2-2026-11-09.142a' not in st, _ver240)
 
 print()
 print('%d checks, %d failed' % (ok + fails, fails))

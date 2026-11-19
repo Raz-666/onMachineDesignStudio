@@ -898,8 +898,28 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       TEXTURING.pdf Tiefe 0.05–4. Preview: analyse/
       r266_deep_relief_preview.png (4 Panels feste mm-Skala,
       Querschnitt, E-Dichte aus echtem G-Code).
-      **OFFEN: Release-Vorbereitung (README/INSTALL/TESTANLEITUNG-Finals,
-      Release ohne `analyse/`); J9 Schablonen (R267) ist FERTIG.**
+      **OFFEN: nur noch Merge-Go für PR #20 (V5 `R2-2026-11-19.1`) +
+      finales ZIP aus `origin/main` + Feldabnahme. Release-Vorbereitung
+      IST FERTIG (19.11.): Stempel V5 überall, r81 Stamp-Re-Freeze
+      (A/B), MANUAL/TESTANLEITUNG (Kap. 33)/INSTALL/README/AGENTS/
+      TOOLS_INVENTORY gepflegt, Release-Bericht
+      `docs/RELEASE_R2-2026-11-19.1_REPORT.md`, V4-Engine als
+      Rollback-Anchor. DREI echte Funde der kompletten Serien-Batterie:
+      (a) R268 RELEASE-BLOCKER — der Update-Odometer (Git- UND ZIP-Tor)
+      war datenblind: V5 (…-19.1) galt als älter als V4 (…-18.3), Update
+      wäre verweigert worden; beide Tore vergleichen jetzt Datum →
+      Zähler → Suffix. (b) Sieben Feldpin-Batterien (r215/r226/r234/
+      r237/r240/r242/r244) waren seit V4 unsichtbar rot (verrottete
+      .142-Pins/Zähler, Mock ohne _SDM, PREV_VER hartcodiert) — alle
+      grün, Pins jetzt DYNAMISCH. (c) stencil_nonce + doctor_nonce nie
+      geprimet/gefroren (Replay-Klasse .108), LCD-Tiefenzeile der Textur
+      hing bei 1 mm (Deep Relief am Gerät unerreichbar). KOMPLETT grün:
+      macro_render 2133, megatest 224/0, review_checks, r81 23/23, r91,
+      audit 82/0, r110 10/10, systemtest 214/0, r142 142/0, r143 68/0,
+      r197 472/0, r212 20/0, r215 20/0, r226 14/0, r228 13/0, r234 38/0,
+      r237 14/0, r240 29/0, r242 20/0, r244 26/0, r238 67/0, r267 34/0,
+      r165/r265 clean, r168 19/0, r218 26/26, toolchain 49+22, gcode_re
+      10/10. J9 (R267) FERTIG.**
       **STAND R266.3 Häppchen 4 (19.11., 6 Deko-/Haptikmuster FERTIG,
       55 Bibliotheksmuster — Nutzer-Auswahl „sechs ohne Sterne/Ringe"):
       HEARTS (implizites Herz (x²+y²−1)³−x²y³, Stagger-Raster,

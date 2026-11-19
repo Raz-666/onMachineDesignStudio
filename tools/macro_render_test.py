@@ -5553,6 +5553,9 @@ tests.append(('R75 watcher: _prime_nonces adopts the current counters (no re-fir
         'gen_clear_nonce': None,   # R223: queue escape hatch
         'genq_kill_nonce': None,   # R238: queue skip/stop channel
         'toolchain_nonce': None,   # R259: preset chain
+        'stencil_nonce': None,     # R267: spray stencil generator (J9)
+        'doctor_nonce': None,      # R252: evidence pack (gap found by the
+                                   # r142/r143 release audit, now primed)
         'quality_fix_nonce': None, 'speed_fix_nonce': None}, ''))
 # R214 STL + R216 (.136n) shape+twist+fixes
 tests.append(('R75 watcher: daemon runs niced + primes on the first pass',
@@ -6782,12 +6785,13 @@ tests.append(('R86 modules: 17_generator.cfg sentinel + _CHECK_INSTALL lists 17'
     '_V18_GEN' in open(_gen86).read()
     and "('17_generator.cfg',       ['_V18_GEN'])" in open('macros/01_state.cfg').read()
     and 'all 17 modules' not in open('macros/01_state.cfg').read(), ''))
-tests.append(('R86-R224 watcher: NONCE_KEYS has 44 channels incl. litho/seal/frame/twist '
+tests.append(('R86-R224 watcher: NONCE_KEYS has 48 channels incl. litho/seal/frame/twist '
     '+ the three fix channels (.108) + the two optimized-file channels (.128) '
     '+ the SD-browser image channel (.130) + the STL export channel (.136m) '
     '+ the shape generator channel (.136n) + the queue-clear channel (.136u) '
-    '+ the mirror channel (.136v) + the toolchain channel (R259)',
-    len(_pp.NONCE_KEYS) == 46 and 'stl_nonce' in _pp.NONCE_KEYS
+    '+ the mirror channel (.136v) + the toolchain channel (R259) '
+    '+ the stencil channel (R267) + the doctor channel (R252 gap)',
+    len(_pp.NONCE_KEYS) == 48 and 'stl_nonce' in _pp.NONCE_KEYS
     and 'toolchain_nonce' in _pp.NONCE_KEYS
     and 'mirror_nonce' in _pp.NONCE_KEYS
     and 'gen_clear_nonce' in _pp.NONCE_KEYS
@@ -17789,7 +17793,7 @@ tests.append(('R185 current-only manual: no version-history appendix, no era '
     '## Appendix D' not in _m185 and 'Version history' not in _m185
     and _re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185) is None
     and _re2.search(r'\bR1[0-9][0-9]\b', _m185) is None
-    and 'The nine fonts' in _m185 and 'R2-2026-11-18.3' in _m185,
+    and 'The nine fonts' in _m185 and 'R2-2026-11-19.1' in _m185,
     'appendixD=%s eratags=%s rtags=%s nine=%s v132=%s' % (
         '## Appendix D' in _m185,
         bool(_re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185)),

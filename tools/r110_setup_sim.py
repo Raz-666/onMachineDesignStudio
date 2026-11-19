@@ -41,11 +41,14 @@ VERSION = 'R2-2026-10-12.92'
 # Derived from the repo's real version now: never rots again.
 import re as _rev110
 _mv110 = _rev110.search(
-    r"variable_version: 'R2-[\d-]+\.(\d+)[a-z]*'",
+    r"variable_version: 'R2-([\d-]+)\.(\d+)([a-z]*)'",
     open(os.path.join(REPO, 'macros', '01_state.cfg'),
          encoding='utf-8').read())
-ZIP_NAME = 'klipper-e3-r2d2-UPDATE-R2-2026-10-22.%03d.zip' \
-    % (int(_mv110.group(1)) + 1)
+# R268: DATE + counter both derive from the repo's real version (the
+# update gate compares the date first since V5 - a hardcoded old date
+# with a bumped counter is a DOWNGRADE now and rightly refused)
+ZIP_NAME = 'klipper-e3-r2d2-UPDATE-R2-%s.%03d%s.zip' \
+    % (_mv110.group(1), int(_mv110.group(2)) + 1, _mv110.group(3))
 
 INCLUDES = ''.join(
     '[include klipper-e3-r2d2/macros/%s.cfg]\n' % m for m in

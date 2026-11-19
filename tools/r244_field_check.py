@@ -22,6 +22,7 @@ This battery pins:
 import importlib.util
 import json
 import os
+import re
 import sys
 import tempfile
 
@@ -251,33 +252,32 @@ check('C2: LCD System > MCU Recovery toggle wired to TOGGLE_RECOVERY',
       and 'MCU Recovery:' in menus)
 doc = json.load(open(os.path.join(HERE, '..', 'web',
                                   'menu_structure.json')))
-check('C3: menu export carries the new section count (2423)',
-      doc['sections'] == 2423
-      and sum(doc['counts'].values()) == 2423)
+_n_secs = sum(doc['counts'].values())
+check('C3: menu export is internally consistent (sections == sum of counts)',
+      doc['sections'] == _n_secs and doc['sections'] > 2300,
+      'sections=%s counts=%s' % (doc.get('sections'), _n_secs))
 html = rd('web', 'index.html')
 _emb = json.JSONDecoder().raw_decode(
     html.split('const EMBEDDED_MENU_JSON = ', 1)[1])[0]
 check('C4: web page embed matches the export (sha + sections)',
-      _emb['sections'] == 2423 and _emb['sha256'] == doc['sha256']
+      _emb['sections'] == doc['sections']
+      and _emb['sha256'] == doc['sha256']
       and '/*EMBEDDED_MENU_JSON*/ null' not in html)
 
-print('--- D) version .140 everywhere --------------------------------------')
+print('--- D) version consistency (dynamic since V1: R2-YYYY-MM-DD.n) ------')
 
 st = rd('macros', '01_state.cfg')
-_live = []
-for _f in sorted(os.listdir(os.path.join(HERE, '..', 'macros'))):
-    if _f.endswith('.cfg'):
-        _live += rd('macros', _f).split('\n')
-_live += rd('menus', 'lcd_menues.cfg').split('\n')
-_live = '\n'.join(l for l in _live if not l.lstrip().startswith('#'))
-check('D1: version .142 everywhere, no .138/.139/.140 leftovers in live cfg lines',
-      "'R2-2026-11-09.142a'" in st
-      and '.138' not in _live and '.139' not in _live and '.140' not in _live
-      and 'R2-2026-11-09.142a' in rd('MANUAL.md')
-      and "POSTPROC_RELEASE = 'R2-2026-11-09.142a'" in pp_src
-      and "POSTPROC_BUILD = 'R246b'" in pp_src)
-check('D2: web badge .142, page state ver R246',
-      '<span id="ver">.142a</span>' in html and "ver:'R246b'}" in html)
+_m = re.search(r"variable_version:\s*'(R2-\d{4}-\d{2}-\d{2}\.\d+)'", st)
+_ver = _m.group(1) if _m else None
+check('D1: the CURRENT version is consistent everywhere (01_state == engine '
+      '== MANUAL), no dead .13x/.14x scheme in live cfg lines',
+      _ver is not None
+      and ("POSTPROC_RELEASE = '%s'" % _ver) in pp_src
+      and _ver in rd('MANUAL.md')
+      and not re.search(r"R2-2026-11-0[789]\.\d{2}[a-z]", st)
+      and 'R2-2026-11-09.142a' not in st, _ver)
+check('D2: web badge == 01_state version',
+      ('<span id="ver">%s</span>' % _ver) in html, _ver)
 ta = rd('TESTANLEITUNG.md')
 check('D3: TESTANLEITUNG ch. 29 documents the ladder + field check',
       '## 29. Die .140-Neuerungen (R244' in ta

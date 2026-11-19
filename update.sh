@@ -195,20 +195,32 @@ if [ "${1:-}" = "--git" ]; then
     # downgrade guard on the ODOMETER (same rule as the zip gate, R233):
     # an origin BEHIND the installed version (rolled back / force-pushed
     # old state) only goes through with --force.
+    # V5 fix (R268): the version is DATE-based (R2-YYYY-MM-DD.n since V1)
+    # and the counter RESETS with every new date - comparing only counter
+    # + suffix called V5 (R2-2026-11-19.1) OLDER than V4 (R2-2026-11-18.3)
+    # and would have blocked the whole release. The DATE dominates now,
+    # then the counter, then the suffix.
+    GIT_CUR_D="$(sed -n "s/^[[:space:]]*variable_version: *'R2-\([0-9-]*\)\.[0-9]*[a-z]*'.*/\1/p" \
+        "${DIR}/macros/01_state.cfg" 2>/dev/null | head -1 | tr -d '-')"
     GIT_CUR_N="$(sed -n "s/^[[:space:]]*variable_version: *'R2-[0-9-]*\.\([0-9]*\)[a-z]*'.*/\1/p" \
         "${DIR}/macros/01_state.cfg" 2>/dev/null | head -1)"
     GIT_CUR_S="$(sed -n "s/^[[:space:]]*variable_version: *'R2-[0-9-]*\.[0-9]*\([a-z]*\)'.*/\1/p" \
         "${DIR}/macros/01_state.cfg" 2>/dev/null | head -1)"
+    GIT_NEW_D="$(git -C "${DIR}" show "origin/${BRANCH}:macros/01_state.cfg" 2>/dev/null \
+        | sed -n "s/^[[:space:]]*variable_version: *'R2-\([0-9-]*\)\.[0-9]*[a-z]*'.*/\1/p" | head -1 | tr -d '-')"
     GIT_NEW_N="$(git -C "${DIR}" show "origin/${BRANCH}:macros/01_state.cfg" 2>/dev/null \
         | sed -n "s/^[[:space:]]*variable_version: *'R2-[0-9-]*\.\([0-9]*\)[a-z]*'.*/\1/p" | head -1)"
     GIT_NEW_S="$(git -C "${DIR}" show "origin/${BRANCH}:macros/01_state.cfg" 2>/dev/null \
         | sed -n "s/^[[:space:]]*variable_version: *'R2-[0-9-]*\.[0-9]*\([a-z]*\)'.*/\1/p" | head -1)"
+    GIT_CUR_D="${GIT_CUR_D:-0}"; GIT_NEW_D="${GIT_NEW_D:-0}"
     if [ -n "${GIT_NEW_N}" ] && [ -n "${GIT_CUR_N}" ] \
-       && { [ "${GIT_NEW_N}" -lt "${GIT_CUR_N}" ] \
-            || { [ "${GIT_NEW_N}" -eq "${GIT_CUR_N}" ] \
-                 && [ "$(r2_sfx_val "${GIT_NEW_S:-}")" -lt "$(r2_sfx_val "${GIT_CUR_S:-}")" ]; }; }; then
+       && { [ "${GIT_NEW_D}" -lt "${GIT_CUR_D}" ] \
+            || { [ "${GIT_NEW_D}" -eq "${GIT_CUR_D}" \
+                 && { [ "${GIT_NEW_N}" -lt "${GIT_CUR_N}" ] \
+                      || { [ "${GIT_NEW_N}" -eq "${GIT_CUR_N}" ] \
+                           && [ "$(r2_sfx_val "${GIT_NEW_S:-}")" -lt "$(r2_sfx_val "${GIT_CUR_S:-}")" ]; }; }; }; }; then
         if [ "${FORCE}" -eq 0 ]; then
-            echo "[!] origin is OLDER than the installed version (.${GIT_CUR_N}${GIT_CUR_S})"
+            echo "[!] origin is OLDER than the installed version (R2 date ${GIT_CUR_D}, .${GIT_CUR_N}${GIT_CUR_S})"
             echo "    - a rolled-back or force-pushed repo. Nothing was changed."
             echo "    to downgrade anyway:  bash \"${DIR}/update.sh\" --git --force"
             exit 1
@@ -234,6 +246,8 @@ fi
 if [ "${1:-}" != "--unpacked" ] && [ -n "${CFG_DIR}" ]; then
     CUR="$(sed -n "s/^[[:space:]]*variable_version: *'\(R2-[0-9-]*\.[0-9]*[a-z]*\)'.*/\1/p" \
            "${DIR}/macros/01_state.cfg" 2>/dev/null | head -1)"
+    CUR_D="$(printf '%s' "${CUR:-}" | sed -n 's/^R2-\([0-9-]*\)\.[0-9]*[a-z]*$/\1/p' | tr -d '-')"
+    CUR_D="${CUR_D:-0}"
     CUR_N="$(printf '%s' "${CUR:-}" | sed -n 's/.*\.\([0-9]*\)[a-z]*$/\1/p')"
     CUR_N="${CUR_N:-0}"
     CUR_S="$(printf '%s' "${CUR:-}" | sed -n 's/.*\.[0-9]*\([a-z]*\)$/\1/p')"
@@ -244,24 +258,35 @@ if [ "${1:-}" != "--unpacked" ] && [ -n "${CFG_DIR}" ]; then
     # r2_sfx_val above (odometer: '' < a < ... < z < aa < ab < ...), so
     # 129a > 129, 130 > 129a AND .136ad > .136z (the R233 fix - a plain
     # string order claimed 'ac' < 'z' and blocked everything after .136z).
-    BEST=""; BEST_N=0; BEST_S=""
+    # V5 fix (R268): the zip name carries the DATE (klipper-e3-r2d2-UPDATE-
+    # R2-YYYY-MM-DD.n.zip) and the counter resets with every new date -
+    # the old greedy '.*\.' parse saw only the counter, called a
+    # 19.1 zip OLDER than an installed 18.3 and even preferred the OLD
+    # zip when both lay in the folder. Date dominates, then counter,
+    # then suffix.
+    BEST=""; BEST_D=0; BEST_N=0; BEST_S=""
     for Z in "${CFG_DIR}"/klipper-e3-r2d2-UPDATE-R2-*.zip "${DIR}"/klipper-e3-r2d2-UPDATE-R2-*.zip; do
         [ -f "${Z}" ] || continue
-        ZT="$(basename "${Z}" | sed -n 's/.*\.\([0-9]*\)\([a-z]*\)\.zip$/\1 \2/p')"
+        ZT="$(basename "${Z}" | sed -n 's/.*UPDATE-R2-\([0-9]*-[0-9]*-[0-9]*\)\.\([0-9]*\)\([a-z]*\)\.zip$/\1 \2 \3/p')"
         [ -n "${ZT}" ] || continue
-        ZN="${ZT%% *}"; ZS="${ZT##* }"
-        if [ "${ZN}" -gt "${BEST_N}" ] \
-           || { [ "${ZN}" -eq "${BEST_N}" ] \
-                && [ "$(r2_sfx_val "${ZS}")" -gt "$(r2_sfx_val "${BEST_S}")" ]; }; then
-            BEST="${Z}"; BEST_N="${ZN}"; BEST_S="${ZS}"
+        ZD="$(printf '%s' "${ZT%% *}" | tr -d '-')"
+        ZR="${ZT#* }"; ZN="$((10#${ZR%% *}))"; ZS="${ZR##* }"
+        if [ "${ZD}" -gt "${BEST_D}" ] \
+           || { [ "${ZD}" -eq "${BEST_D}" \
+                && { [ "${ZN}" -gt "${BEST_N}" ] \
+                     || { [ "${ZN}" -eq "${BEST_N}" ] \
+                          && [ "$(r2_sfx_val "${ZS}")" -gt "$(r2_sfx_val "${BEST_S}")" ]; }; }; }; then
+            BEST="${Z}"; BEST_D="${ZD}"; BEST_N="${ZN}"; BEST_S="${ZS}"
         fi
     done
     if [ -n "${BEST}" ]; then
         echo "[i] uploaded update zip found: $(basename "${BEST}")  (installed: ${CUR:-unknown})"
         OLDER=0
-        if [ "${BEST_N}" -lt "${CUR_N}" ] \
-           || { [ "${BEST_N}" -eq "${CUR_N}" ] \
-                && [ "$(r2_sfx_val "${BEST_S}")" -lt "$(r2_sfx_val "${CUR_S}")" ]; }; then
+        if [ "${BEST_D}" -lt "${CUR_D}" ] \
+           || { [ "${BEST_D}" -eq "${CUR_D}" ] \
+                && { [ "${BEST_N}" -lt "${CUR_N}" ] \
+                     || { [ "${BEST_N}" -eq "${CUR_N}" ] \
+                          && [ "$(r2_sfx_val "${BEST_S}")" -lt "$(r2_sfx_val "${CUR_S}")" ]; }; }; }; then
             OLDER=1
         fi
         if [ "${OLDER}" -eq 1 ] && [ "${FORCE}" -eq 0 ]; then

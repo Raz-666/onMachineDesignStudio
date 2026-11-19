@@ -8,7 +8,7 @@
   "vsdlist": 1,
   "input": 587
  },
- "sha256": "ba4497e8ddcd7036",
+ "sha256": "9e7b182c88e715b4",
  "live_objects": [
   "bed_mesh",
   "configfile",
@@ -4769,7 +4769,7 @@
           "enable": "{printer['save_variables'].variables.texture_mode|default('')|string == 'BUMPS'}",
           "input": "{printer['save_variables'].variables.texture_amp|default(0.35)}",
           "input_min": "0.05",
-          "input_max": "1.0",
+          "input_max": "4.0",
           "input_step": "0.05",
           "gcode": [
            "SAVE_VARIABLE VARIABLE=texture_amp VALUE={menu.input|float|round(2)}",
