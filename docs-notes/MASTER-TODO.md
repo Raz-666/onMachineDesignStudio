@@ -817,8 +817,44 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       49+25 OK, r165/r166 clean (2788 sections). _next synced.
       J2-Haeppchen-1-Engine damit KOMPLETT (alle Lastenheft-Parameter
       umgesetzt).
-      NOCH OFFEN: Haeppchen 2 (parametrische Grundkoerper: Medaillon,
-      Plaque, Bar - mit Relief-Einbettungsplatz).
+      **STAND R273 (19.11., Haeppchen 2 FERTIG - J2 DAMIT KOMPLETT):**
+      Parametrische Grundkoerper OHNE Quelldatei: `make_mold_blank()`
+      (MEDALLION dia x thick / PLAQUE width x height x thick + Ecken-
+      radius / BAR length x bar_w x bar_h + Taper zum Kopf) generiert
+      die Silhouetten-Referenz selbst und stellt den R270-R272-Apparat
+      drumherum. **Relief-Einbettungsplatz (Boss):** Die Tasche geht
+      NICHT durch die Silhouetten-Fuellung (Flood-Fill soldiert jede
+      eingeschlossene Oeffnung - die ehrliche Through-Hole-Regel),
+      sondern ist ein explizites Form-Feature: konstanter Querschnitt,
+      in die rueckwärtigen Layer der Top-Kavität gestanzt (NACH der
+      Formschraegen-Erosion - Taschenwaende bleiben senkrecht, nur die
+      Aussenkavitaet kriegt Schraege), haengt am Ruecken = waechst beim
+      Druck vom Boden (kein Bridging), oeffnet zur Trennflaeche =
+      entformt senkrecht. Fit-Check mit echten Sektionen: Boss + 2
+      Zellen Freiraum muessen auf JEDER Boss-Layer in der Kavitaet
+      liegen (sonst ValueError mit mm-Angabe); Rim >= 4mm und Boden
+      >= 2mm unter der Tasche werden vorab verweigert; Sektoren + Boss
+      verweigern ehrlich (der Boss blockiert das Abgleiten der Stuecke).
+      Taschen-Defaults pro Form (Medaillon D-10, Plaque/Breite-12),
+      Tiefe 2mm, 0 = aus. Verdrahtung: LCD `__mold __blank` (Form, 10
+      Masze, Sitztiefe; Build-Doppelklick), MOLD_BLANK_INFO/
+      MOLD_BLANK_CREATE (SHAPE=/DIA=/THICK=/WIDTH=/HEIGHT=/CORNER=/
+      LENGTH=/BARW=/BARH=/TAPER=/POCKET_T=/POCKET_D|W|H=, PLANE
+      defaultet auf OFF), Watcher `mold_blank_nonce` (gethreadet wie
+      mold, _gensub 'mold', Nonce-Prime + Busy-Guard), Toolchain-
+      Schritt `mold_blank` (16 Params = Cap, part=BOTH + Sektoren in
+      Ketten gesperrt wie beim mold, Chain-Input wird ignoriert - der
+      Grundkoerper ist seine eigene Quelle). Evidenz:
+      `r273_mold_check.py` 22/22 (Boss-Zellen analytisch pi*r^2 pro
+      Layer, Boss-Wand zentral in der ersten Kavitaeets-Layer, nichts
+      Zentrales in der letzten, Taper 34->40 gemessen vs taper=1.0
+      gleich breit, Rim/Boden/Form-Verweigerungen, BOTH/Master/BOTTOM/
+      FINE-Kombis). Gates: r273 22/22, r270 33/0, r271 25/25, r272
+      20/20, macro_render 2133/2133 (R135 +15 Pfade, R160 60 Zeilen,
+      NONCE 50, R146 24), megatest 224/0, systemtest 214/0, r81 23/23,
+      r142 142/0, audit 82/0, toolchain 49+27 OK,
+      r165/r166 clean (2805 sections). _next synced.
+      **J2 DAMIT KOMPLETT (beide Haeppchen umgesetzt).**
       **Ehrlichkeitsregeln:** Hinterschneidungs-Check pro Hälfte (Kavität
       darf zur Öffnung nicht schrumpfen — Guss löst sich nicht, Druck
       bridgt), Formschräge als Raster-Radius-Approximation (dokumentiert),

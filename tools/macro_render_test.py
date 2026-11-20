@@ -5555,6 +5555,7 @@ tests.append(('R75 watcher: _prime_nonces adopts the current counters (no re-fir
         'toolchain_nonce': None,   # R259: preset chain
         'stencil_nonce': None,     # R267: spray stencil generator (J9)
         'mold_nonce': None,        # R270: casting mold generator (J2)
+        'mold_blank_nonce': None,  # R273: parametric blank molds (J2)
         'doctor_nonce': None,      # R252: evidence pack (gap found by the
                                    # r142/r143 release audit, now primed)
         'quality_fix_nonce': None, 'speed_fix_nonce': None}, ''))
@@ -6786,15 +6787,16 @@ tests.append(('R86 modules: 17_generator.cfg sentinel + _CHECK_INSTALL lists 17'
     '_V18_GEN' in open(_gen86).read()
     and "('17_generator.cfg',       ['_V18_GEN'])" in open('macros/01_state.cfg').read()
     and 'all 17 modules' not in open('macros/01_state.cfg').read(), ''))
-tests.append(('R86-R224 watcher: NONCE_KEYS has 48 channels incl. litho/seal/frame/twist '
+tests.append(('R86-R224 watcher: NONCE_KEYS has 49 channels incl. litho/seal/frame/twist '
     '+ the three fix channels (.108) + the two optimized-file channels (.128) '
     '+ the SD-browser image channel (.130) + the STL export channel (.136m) '
     '+ the shape generator channel (.136n) + the queue-clear channel (.136u) '
     '+ the mirror channel (.136v) + the toolchain channel (R259) '
     '+ the stencil channel (R267) + the doctor channel (R252 gap) '
-    '+ the mold channel (R270)',
-    len(_pp.NONCE_KEYS) == 49 and 'stl_nonce' in _pp.NONCE_KEYS
+    '+ the mold channel (R270) + the blank mold channel (R273)',
+    len(_pp.NONCE_KEYS) == 50 and 'stl_nonce' in _pp.NONCE_KEYS
     and 'mold_nonce' in _pp.NONCE_KEYS
+    and 'mold_blank_nonce' in _pp.NONCE_KEYS
     and 'toolchain_nonce' in _pp.NONCE_KEYS
     and 'mirror_nonce' in _pp.NONCE_KEYS
     and 'gen_clear_nonce' in _pp.NONCE_KEYS
@@ -13850,6 +13852,22 @@ _ADDED135 = [
     '__main __gen __mold __cut __shlf',
     '__main __gen __mold __cut __go',
     '__main __gen __mold __how',
+    # R273 (J2 bite 2): parametric blank molds - shape + dims + seat.
+    '__main __gen __mold __blank',
+    '__main __gen __mold __blank __info',
+    '__main __gen __mold __blank __set',
+    '__main __gen __mold __blank __set __shape',
+    '__main __gen __mold __blank __set __dia',
+    '__main __gen __mold __blank __set __thk',
+    '__main __gen __mold __blank __set __pw',
+    '__main __gen __mold __blank __set __ph',
+    '__main __gen __mold __blank __set __crn',
+    '__main __gen __mold __blank __set __len',
+    '__main __gen __mold __blank __set __bw',
+    '__main __gen __mold __blank __set __bh',
+    '__main __gen __mold __blank __set __tap',
+    '__main __gen __mold __blank __set __pd',
+    '__main __gen __mold __blank __go',
     # R267 (J9): spray-stencil generator - settings + litho image browser.
     '__main __gen __stencil',
     '__main __gen __stencil __info',
@@ -15370,12 +15388,12 @@ tests.append(('R159 _LIVE_RESET: machine limits back (accel from the printer '
               and 'M220 S100' in _out159b and 'M221 S100' in _out159b
               and 'VARIABLE=g_speed_clean VALUE=100' in _out159b, _out159b[:160]))
 
-tests.append(('R146 generator folders (source wiring): all 23 watcher call '
+tests.append(('R146 generator folders (source wiring): all 24 watcher call '
               'sites route into _gensub subfolders (no flat out_dir=directory '
               'left), gen_files lists RELATIVE paths incl. legacy root files, '
               'delete joins the subpath (R224: +Mirror; R267: +Stencil; '
-              'R270: +Mold)',
-              _r2p146.count("out_dir=_gensub(directory, '") == 23
+              'R270: +Mold; R273: +Blank mold)',
+              _r2p146.count("out_dir=_gensub(directory, '") == 24
               and 'out_dir=directory' not in _r2p146
               and 'GEN_SUBDIRS = {' in _r2p146
               and "_sub146 + '/' + _f146" in _r2p146
@@ -15482,12 +15500,14 @@ tests.append(('R160 CABLE_TIE_GENERATE CONFIRM=1 armed: second press = '
 import re as _re160
 _rows160 = _re160.findall(r'gcode:\n    (?:[^\n]*menu\.exit[^\n]*\n    )?'
                    r'([A-Z_]+(?: INDEX=\d+| PRESET=\w+)? CONFIRM=1)', _lcd160)
-tests.append(('R160 LCD: 59 rows confirm by DOUBLE PRESS (macro + CONFIRM=1), '
+tests.append(('R160 LCD: 60 rows confirm by DOUBLE PRESS (macro + CONFIRM=1), '
     'console stays single-shot (R224: +Mirror +Rope/Basket/Chess presets; '
     'R240: +the 6 profile actions +queue stop; R259: +Toolchain; R267: '
-    '+the 10 stencil image slots; R270: +the mold build)',
-    len([r for r in _rows160 if not r.startswith(('LABEL_CLEAR_ALL', 'SYS_SAVE_CONFIG'))]) == 59
+    '+the 10 stencil image slots; R270: +the mold build; R273: +the '
+    'blank mold build)',
+    len([r for r in _rows160 if not r.startswith(('LABEL_CLEAR_ALL', 'SYS_SAVE_CONFIG'))]) == 60
     and 'MOLD_CREATE CONFIRM=1' in _lcd160
+    and 'MOLD_BLANK_CREATE CONFIRM=1' in _lcd160
     and 'TOOLCHAIN_APPLY CONFIRM=1' in _lcd160
     and 'SAVE_DEPOT_PRESET CONFIRM=1' in _lcd160
     and 'LOAD_DEPOT_PRESET CONFIRM=1' in _lcd160

@@ -89,10 +89,10 @@ class SystemAdapterTests(unittest.TestCase):
     def test_system_tools_are_menu_tools(self):
         menu = toolchain.build_registry(toolchain.load_menu_data())
         for tool in toolchain_steps.SYSTEM_TOOLS:
-            if tool == 'mold':
-                # R270 (J2): mold's UI is the GENERATOR menu
-                # (__main __gen __mold), not __mods - the anchor registry
-                # (TOOL_REGISTRY) is its contract instead
+            if tool in ('mold', 'mold_blank'):
+                # R270/R273 (J2): mold + mold_blank UI is the GENERATOR
+                # menu (__main __gen __mold [__blank]), not __mods - the
+                # anchor registry (TOOL_REGISTRY) is its contract instead
                 self.assertIn(tool, toolchain.TOOL_REGISTRY)
                 continue
             self.assertIn(tool, menu)
@@ -142,6 +142,53 @@ class SystemAdapterTests(unittest.TestCase):
             runner({'tool': 'mold', 'params': {'part': 'BOTH'}},
                    self.input_path, os.path.join(self.base, 'x.gcode'))
         self.assertIn('ZWEI Dateien', str(ctx.exception))
+
+    def test_mold_blank_step_builds_a_blank(self):
+        """R273 (J2 bite 2): der Blank-Mold-Schritt in einer Kette - der
+        Chain-Input wird IGNORIERT (der Grundkoerper ist seine eigene
+        Quelle), die Ausgabe traegt den Plan-Namen, und der Relief-Sitz
+        steckt im G-Code (Boss-Wand zentral in der ersten Kavitaeats-
+        Schicht)."""
+        plan = self._plan([
+            {'tool': 'mold_blank',
+             'params': {'shape': 'MEDALLION', 'dia': 40, 'thick': 8,
+                        'pocket_t': 2, 'wall': 5}},
+        ])
+        report = self._run(plan)
+        self.assertTrue(report['ok'], report['error'])
+        self.assertEqual([r['state'] for r in report['steps']], ['success'])
+        final = report['final_output']
+        self.assertTrue(os.path.isfile(final))
+        self.assertTrue(os.path.basename(final).startswith('V01_kette'))
+        with open(final, 'r', encoding='utf-8') as handle:
+            body = handle.read()
+        self.assertIn('PRINT_START', body)
+        self.assertGreater(body.count(';LAYER_CHANGE'), 25)
+        # der Relief-Sitz: der Boss druckt zentral ueber dem Bett-Zentrum
+        self.assertIn(';LAYER_CHANGE', body)
+
+    def test_mold_blank_both_and_sectors_refused_in_chains(self):
+        """part=BOTH und sectors>0 bleiben in Ketten gesperrt (Stueck-
+        bzw. Zwei-Dateien-Semantik) - Enum vorab, Adapter doppelt."""
+        preset = {'schema': toolchain.SCHEMA, 'name': 'Blank BOTH',
+                  'steps': [{'tool': 'mold_blank',
+                             'params': {'part': 'BOTH'}}]}
+        ok, errors = toolchain.validate_preset(preset)
+        self.assertFalse(ok)
+        self.assertTrue(any('"part"' in e and 'enum' in e for e in errors),
+                        errors)
+        runner = toolchain_steps.system_step_runner(
+            'mold_blank', {'part': 'BOTH'})
+        with self.assertRaises(ValueError) as ctx:
+            runner({'tool': 'mold_blank', 'params': {'part': 'BOTH'}},
+                   self.input_path, os.path.join(self.base, 'x.gcode'))
+        self.assertIn('ZWEI Dateien', str(ctx.exception))
+        runner2 = toolchain_steps.system_step_runner(
+            'mold_blank', {'sectors': 1})
+        with self.assertRaises(ValueError) as ctx2:
+            runner2({'tool': 'mold_blank', 'params': {'sectors': 1}},
+                    self.input_path, os.path.join(self.base, 'x.gcode'))
+        self.assertIn('Stueck-Set', str(ctx2.exception))
 
     def test_mold_default_part_is_chain_friendly(self):
         """Ohne part-Paramter baut der Schritt die TOP-Haelfte (Ketten-

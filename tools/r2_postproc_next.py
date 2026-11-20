@@ -9703,6 +9703,8 @@ NONCE_KEYS = ('preview_nonce', 'range_nonce', 'label_gen_nonce', 'reso_nonce',
               'stencil_nonce',
               # R270 (J2): casting mold generator - same replay guard
               'mold_nonce',
+              # R273 (J2 bite 2): parametric blank molds - same guard
+              'mold_blank_nonce',
               # R252: the evidence pack channel (doctor) - read by
               # _doctor_tick via rv; priming closes the restart-replay gap
               'doctor_nonce',
@@ -15448,6 +15450,7 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
               funnel='CONICAL', vent_d=2.5, pin_d=3.0, draft=0.0,
               surface='STANDARD', part='BOTH', plane='AUTO', z_off=0.0,
               master=False, sectors=0, sec_half='AUTO',
+              pocket_d=0.0, pocket_w=0.0, pocket_h=0.0, pocket_t=0.0,
               brim_loops=4, material='PLA', bed=None, bed_margin=6.0,
               nozzle=0.4, out_dir='.', version=1):
     """R270 (J2 bite 1): G-code file -> CASTING MOLD, two flat halves.
@@ -15527,6 +15530,22 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
         untouched (cells identical to STANDARD - measured by the
         battery), fuzz moves printed lines, not geometry.
 
+      - POCKET (R273, J2): the RELIEF SEAT - a flat depression cast
+        into the object's top face. A pocket cannot travel through the
+        silhouette scan (the flood fill solidifies every enclosed void
+        - the honest through-hole rule), so it is an explicit form
+        feature: a constant-section BOSS stamped into the TOP cavity's
+        back-most layers, centered on the object bbox. Print-wise the
+        boss grows straight off the back floor (never bridges);
+        cast-wise the pocket opens toward the parting face, so the mold
+        lifts off straight. The stamp runs AFTER the draft erosion -
+        the pocket walls stay vertical (documented: draft applies to
+        the outer cavity only). The boss must stand FREE inside the
+        cavity (2 cells clearance on every boss layer, checked with
+        real sections) - a boss touching the wall would split the
+        cavity and the cast. Lay the relief onto the boss before
+        pouring: it embeds flush in the cast's top face.
+
     Direct G-code like every generator (labels/plotter/stringart - no
     slicer, no trimesh boolean: the Pi Zero 2 W could not afford it).
     Returns (first_path, info); info['files'] = all written paths.
@@ -15554,6 +15573,21 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
     if surface not in ('STANDARD', 'FINE', 'FUZZY'):
         raise ValueError("surface must be STANDARD, FINE or FUZZY (got %r)"
                          % surface)
+    pocket_d = max(0.0, min(float(pocket_d or 0.0), 200.0))
+    pocket_w = max(0.0, min(float(pocket_w or 0.0), 200.0))
+    pocket_h = max(0.0, min(float(pocket_h or 0.0), 200.0))
+    pocket_t = max(0.0, min(float(pocket_t or 0.0), 50.0))
+    if pocket_d and (pocket_w or pocket_h):
+        raise ValueError('pick ONE pocket shape: pocket_d (round) or '
+                         'pocket_w + pocket_h (rectangular)')
+    if (pocket_w > 0.0) != (pocket_h > 0.0):
+        raise ValueError('a rectangular pocket needs BOTH pocket_w and '
+                         'pocket_h')
+    if (pocket_d or pocket_w) and not pocket_t:
+        raise ValueError('the pocket needs a depth: pocket_t (0.4mm up)')
+    if pocket_t and not (pocket_d or pocket_w):
+        raise ValueError('pocket_t without a pocket - set pocket_d (round) '
+                         'or pocket_w + pocket_h (rectangular)')
     funnel = str(funnel or 'CONICAL').upper()
     if funnel not in ('NONE', 'KEIN', 'CONICAL', 'STANDARD'):
         raise ValueError("funnel must be NONE, CONICAL or STANDARD (got %r)"
@@ -15843,6 +15877,31 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
                         'draft %.1f deg closes the cavity at depth '
                         '%.1fmm - the section is thinner than the '
                         'erosion. Reduce the draft.' % (draft, depth))
+        # R273: stamp the POCKET boss AFTER the draft erosion - the
+        # pocket walls stay vertical (documented), and the eroded outer
+        # cavity keeps its clearance around the constant boss
+        if kind == 'top' and _pk270 and k >= _pk270[0]:
+            _kmin273, _cc273, _rr273, _rc273, _hw273, _hh273 = _pk270
+            _radr273 = (_rc273 if _rc273 is not None else _hh273)
+            _radc273 = (_rc273 if _rc273 is not None else _hw273)
+            _r0273 = max(0, int(math.floor(_rr273 - _radr273)))
+            _r1273 = min(rows - 1, int(math.ceil(_rr273 + _radr273)))
+            _c0273 = max(0, int(math.floor(_cc273 - _radc273)))
+            _c1273 = min(cols - 1, int(math.ceil(_cc273 + _radc273)))
+            for r273 in range(_r0273, _r1273 + 1):
+                base273 = r273 * cols
+                for c273 in range(_c0273, _c1273 + 1):
+                    i273 = base273 + c273
+                    if not g[i273]:
+                        continue
+                    if _rc273 is not None:
+                        if ((r273 - _rr273) ** 2
+                                + (c273 - _cc273) ** 2
+                                <= _rc273 ** 2 + 1e-9):
+                            g[i273] = 0
+                    elif (abs(r273 - _rr273) <= _hh273
+                            and abs(c273 - _cc273) <= _hw273):
+                        g[i273] = 0
         return g
 
     def _mat270(cav):                 # material layer = block - cavity
@@ -15878,6 +15937,97 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
                (cols - _pi270, _pi270),
                (_pi270, rows - _pi270),
                (cols - _pi270, rows - _pi270))
+
+    # ---- R273 (J2): the POCKET boss (relief seat) ------------------------
+    # Stamped into _sect270('top', k) for the back-most pocket layers -
+    # see the docstring. Runs BEFORE every top-section consumer (the
+    # sector pre-scan included), so all paths see the same cavity.
+    _pk270 = None               # [k_min, cc, rr, rc, hw, hh]
+    _pkt270 = 0
+    if (pocket_d or pocket_w) and pocket_t:
+        if part not in ('BOTH', 'TOP'):
+            notes.append('pocket ignored: part=BOTTOM has no top cavity '
+                         'to seat the relief in')
+        else:
+            _pkt270 = max(1, int(round(pocket_t / layer_h)))
+            _kt273 = max(1, int(math.ceil((z_max - z_p) / layer_h)))
+            if _pkt270 > _kt273 - 2:
+                raise ValueError('the pocket does not fit above the '
+                                 'split: pocket_t %.1fmm needs at least '
+                                 '%.1fmm of object above the parting '
+                                 'plane (2 spare layers for the seal)'
+                                 % (pocket_t, (_pkt270 + 2) * layer_h))
+            # boss center = the object bbox center (blank shapes are
+            # symmetric; the top path mirrors Y, so flip the row)
+            _cx273 = (minx[0] + maxx[0]) / 2.0 + sh_x
+            _cy273 = (miny[0] + maxy[0]) / 2.0 + sh_y
+            _cc273 = int((_cx273 - x0) / wid)
+            _rr273 = rows - 1 - int((_cy273 - y0) / wid)
+            if pocket_d:
+                _rc273 = (pocket_d / 2.0) / wid
+                _hw273 = _hh273 = None
+            else:
+                _rc273 = None
+                _hw273 = (pocket_w / 2.0) / wid
+                _hh273 = (pocket_h / 2.0) / wid
+            _kmin273 = _kt273 - _pkt270 + 1
+            # FIT with real sections: boss + 2 cells clearance must sit
+            # INSIDE the cavity on every boss layer. The check runs with
+            # _pk270 STILL None (the stamp is not active yet - otherwise
+            # the boss would clear its own seat and never fit). The fill
+            # counters must not see these passes either (R271 lesson).
+            _fh273, _ca273 = _filledholes270[0], _carried270[0]
+            _filledholes270[0] = _carried270[0] = 0
+            try:
+                for _k273 in range(_kmin273, _kt273 + 1):
+                    _g273 = _sect270('top', _k273)
+                    _radr273 = (_rc273 if _rc273 is not None else _hh273)
+                    _radc273 = (_rc273 if _rc273 is not None else _hw273)
+                    _rA273 = int(math.floor(_rr273 - _radr273 - 2.0))
+                    _rB273 = int(math.ceil(_rr273 + _radr273 + 2.0))
+                    _cA273 = int(math.floor(_cc273 - _radc273 - 2.0))
+                    _cB273 = int(math.ceil(_cc273 + _radc273 + 2.0))
+                    for _r273 in range(_rA273, _rB273 + 1):
+                        for _c273 in range(_cA273, _cB273 + 1):
+                            _dr273 = _r273 - _rr273
+                            _dc273 = _c273 - _cc273
+                            if _rc273 is not None:
+                                _in273 = (_dr273 * _dr273
+                                          + _dc273 * _dc273
+                                          <= (_rc273 + 2.0) ** 2)
+                            else:
+                                _in273 = (abs(_dr273) <= _hh273 + 2.0
+                                          and abs(_dc273) <= _hw273 + 2.0)
+                            if _in273 and (
+                                    not (0 <= _r273 < rows)
+                                    or not (0 <= _c273 < cols)
+                                    or not _g273[_r273 * cols + _c273]):
+                                raise ValueError(
+                                    'the pocket does not fit the cavity: '
+                                    'the boss needs 2 cells of clearance '
+                                    'all around at %.1fmm below the '
+                                    'object top. Shrink pocket_d/'
+                                    'pocket_w/pocket_h or pocket_t.'
+                                    % ((_kt273 - _k273 + 0.5) * layer_h))
+            finally:
+                _filledholes270[0], _carried270[0] = _fh273, _ca273
+            # the fit passed - NOW the stamp goes live for every later
+            # _sect270('top', k) consumer (emission, scans, sectors)
+            _pk270 = [_kmin273, _cc273, _rr273, _rc273, _hw273, _hh273]
+            if pocket_d:
+                notes.append('relief seat: round D%.1fmm, %.1fmm deep in '
+                             'the cast top face - lay the relief onto the '
+                             'boss before pouring, it embeds flush'
+                             % (pocket_d, pocket_t))
+            else:
+                notes.append('relief seat: %.1f x %.1fmm, %.1fmm deep in '
+                             'the cast top face - lay the relief onto the '
+                             'boss before pouring, it embeds flush'
+                             % (pocket_w, pocket_h, pocket_t))
+            if master:
+                notes.append('the master prints the SOLID positive - the '
+                             'pocket lives in the mold halves, the cast '
+                             'gets the seat')
 
     # ---- R271 (J2): SECTOR cuts - 3/4-part molds for undercut objects --
     # The pre-scan answers two questions with real sections (not hope):
@@ -16876,6 +17026,11 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
             # 2-part path is untouched)
             'sectors': sectors, 'sec_half': _sec270on,
             'surface': surface,
+            # R273: the relief seat evidence (None without a pocket)
+            'pocket': (None if not (pocket_d or pocket_w) else
+                       {'d': pocket_d or None, 'w': pocket_w or None,
+                        'h': pocket_h or None, 't_mm': pocket_t,
+                        'layers': _pkt270}),
             'sec_axis': _secaxis270,
             'sec_cuts': ([(x0 + c * wid) for c in sec_cuts270]
                          if _secaxis270 == 'X'
@@ -16885,6 +17040,224 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
                         if sectors else None),
             'notes': notes}
     return os.path.join(out_dir, files[0]), info
+
+
+def make_mold_blank(shape='MEDALLION', dia=40.0, thick=8.0,
+                    pocket_d=0.0, pocket_t=2.0,
+                    width=60.0, height=40.0, corner=4.0,
+                    length=90.0, bar_w=40.0, bar_h=25.0, taper=0.85,
+                    pocket_w=0.0, pocket_h=0.0,
+                    wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
+                    funnel='CONICAL', vent_d=2.5, pin_d=3.0, draft=0.0,
+                    surface='STANDARD', part='TOP', plane='OFF',
+                    z_off=0.0, master=False, sectors=0, sec_half='AUTO',
+                    material='PLA', bed=None, out_dir='.', version=1):
+    """R273 (J2 bite 2): parametric BLANK -> casting mold. No source
+    file needed: the blank (MEDALLION / PLAQUE / BAR) is generated as a
+    silhouette-reference G-code (contours per layer - NOT a print job),
+    and the full make_mold apparatus runs around it: equator/offset
+    split, undercut honesty, dowel registry, pour + vents, sectors,
+    surface modes and the POCKET boss (the relief seat in the cast's
+    top face - lay the relief onto the boss before pouring).
+
+    Shapes (all bbox-centered, the pocket sits on the object axis):
+      MEDALLION  dia x thick, ROUND pocket pocket_d x pocket_t
+                 (default pocket_d = dia - 10)
+      PLAQUE     width x height x thick, corner radius, RECTANGULAR
+                 pocket pocket_w x pocket_h x pocket_t (defaults
+                 width-12 / height-12)
+      BAR        length x bar_w x bar_h, the cross-section TAPERS
+                 toward the top (bar_w at the foot, bar_w*taper at the
+                 top - bar-shaped, demolds easily), RECTANGULAR pocket
+                 on the top face (defaults length-16 / top width-12)
+
+    Defaults differ from make_mold on purpose: part='TOP' (the pocket
+    lives in the top cavity; part='BOTH' adds a solid base block) and
+    plane='OFF'/z_off=0 (the split at the blank's foot - AUTO would
+    park the plane at the top of a constant cross-section and leave no
+    room for the pocket).
+
+    Validations are honest and named: ranges per shape, the pocket
+    must fit the top cavity (make_mold's 2-cell clearance check), the
+    pocket needs a floor under it (2 spare layers) and a rim around
+    it (>= 4mm). Returns (first_path, info); info['blank'] carries the
+    shape parameters and the reference file name.
+    """
+    shape = str(shape or 'MEDALLION').upper()
+    if shape not in ('MEDALLION', 'PLAQUE', 'BAR'):
+        raise ValueError("shape must be MEDALLION, PLAQUE or BAR (got %r)"
+                         % shape)
+    layer_h = max(0.08, min(float(layer_h or 0.2), 0.24))
+    pocket_t = max(0.0, min(float(pocket_t or 0.0), 50.0))
+
+    if shape == 'MEDALLION':
+        dia = max(15.0, min(float(dia or 40.0), 100.0))
+        thick = max(4.0, min(float(thick or 8.0), 25.0))
+        if pocket_w or pocket_h:
+            raise ValueError('the medallion takes a ROUND pocket - use '
+                             'pocket_d (pocket_w/pocket_h are for the '
+                             'plaque/bar)')
+        pd = float(pocket_d or 0.0)
+        if pocket_t and not pd:
+            pd = dia - 10.0
+        if pocket_t:
+            if pd < 8.0:
+                raise ValueError('pocket_d %.1fmm is too small (min 8)'
+                                 % pd)
+            if pd > dia - 8.0:
+                raise ValueError('pocket_d %.1fmm leaves no rim on a '
+                                 'D%.1fmm medallion (max %.1f)'
+                                 % (pd, dia, dia - 8.0))
+            if pocket_t > thick - 2.0:
+                raise ValueError('pocket_t %.1fmm needs a floor: at least '
+                                 '2mm must stay under it (thick >= %.1f)'
+                                 % (pocket_t, pocket_t + 2.0))
+        else:
+            pd = 0.0
+        pw = ph = 0.0
+        nl = max(2, int(round(thick / layer_h)))
+        dims = {'dia': dia, 'thick': thick}
+    elif shape == 'PLAQUE':
+        width = max(20.0, min(float(width or 60.0), 150.0))
+        height = max(20.0, min(float(height or 40.0), 150.0))
+        thick = max(4.0, min(float(thick or 8.0), 25.0))
+        corner = max(0.0, min(float(corner or 0.0), 12.0,
+                              min(width, height) / 2.0))
+        if pocket_d:
+            raise ValueError('the plaque takes a RECTANGULAR pocket - use '
+                             'pocket_w + pocket_h (pocket_d is for the '
+                             'medallion)')
+        pw = float(pocket_w or 0.0)
+        ph = float(pocket_h or 0.0)
+        if pocket_t and not (pw and ph):
+            pw = pw or (width - 12.0)
+            ph = ph or (height - 12.0)
+        if pocket_t:
+            if pw < 8.0 or ph < 8.0:
+                raise ValueError('pocket %.1f x %.1fmm is too small '
+                                 '(min 8 x 8)' % (pw, ph))
+            if pw > width - 8.0 or ph > height - 8.0:
+                raise ValueError('pocket %.1f x %.1fmm leaves no rim on '
+                                 'the %.1f x %.1fmm plaque (max %.1f x '
+                                 '%.1f)' % (pw, ph, width, height,
+                                            width - 8.0, height - 8.0))
+            if pocket_t > thick - 2.0:
+                raise ValueError('pocket_t %.1fmm needs a floor: at least '
+                                 '2mm must stay under it (thick >= %.1f)'
+                                 % (pocket_t, pocket_t + 2.0))
+        else:
+            pw = ph = 0.0
+        pd = 0.0
+        nl = max(2, int(round(thick / layer_h)))
+        dims = {'width': width, 'height': height, 'thick': thick,
+                'corner': corner}
+    else:
+        length = max(30.0, min(float(length or 90.0), 180.0))
+        bar_w = max(15.0, min(float(bar_w or 40.0), 90.0))
+        bar_h = max(10.0, min(float(bar_h or 25.0), 60.0))
+        taper = max(0.5, min(float(taper or 0.85), 1.0))
+        top_w = bar_w * taper
+        if pocket_d:
+            raise ValueError('the bar takes a RECTANGULAR pocket - use '
+                             'pocket_w + pocket_h (pocket_d is for the '
+                             'medallion)')
+        pw = float(pocket_w or 0.0)
+        ph = float(pocket_h or 0.0)
+        if pocket_t and not (pw and ph):
+            pw = pw or (length - 16.0)
+            ph = ph or (top_w - 12.0)
+        if pocket_t:
+            if pw < 8.0 or ph < 8.0:
+                raise ValueError('pocket %.1f x %.1fmm is too small '
+                                 '(min 8 x 8)' % (pw, ph))
+            if pw > length - 8.0:
+                raise ValueError('pocket_w %.1fmm leaves no rim on the '
+                                 '%.1fmm bar (max %.1f)'
+                                 % (pw, length, length - 8.0))
+            if ph > top_w - 8.0:
+                raise ValueError('pocket_h %.1fmm leaves no rim on the '
+                                 'bar top (%.1fmm wide after the taper - '
+                                 'max %.1f; raise bar_w or the taper)'
+                                 % (ph, top_w, top_w - 8.0))
+            if pocket_t > bar_h - 2.0:
+                raise ValueError('pocket_t %.1fmm needs a floor: at least '
+                                 '2mm must stay under it (bar_h >= %.1f)'
+                                 % (pocket_t, pocket_t + 2.0))
+        else:
+            pw = ph = 0.0
+        pd = 0.0
+        nl = max(2, int(round(bar_h / layer_h)))
+        dims = {'length': length, 'bar_w': bar_w, 'bar_h': bar_h,
+                'taper': taper}
+
+    # ---- the blank as a silhouette reference file (contours only) ----
+    cx0, cy0 = 110.0, 110.0
+
+    def _rrect_pts(xa, ya, xb, yb, rad):
+        if rad <= 0.01:
+            return [(xa, ya), (xb, ya), (xb, yb), (xa, yb)]
+        pts = []
+        for (qx, qy, a0) in ((xb - rad, yb - rad, 0),
+                             (xa + rad, yb - rad, 90),
+                             (xa + rad, ya + rad, 180),
+                             (xb - rad, ya + rad, 270)):
+            for adeg in range(0, 91, 6):
+                ang = math.radians(a0 + adeg)
+                pts.append((qx + rad * math.cos(ang),
+                            qy + rad * math.sin(ang)))
+        return pts
+
+    def _contour(z):
+        if shape == 'MEDALLION':
+            r = dia / 2.0
+            return [(cx0 + r * math.cos(a), cy0 + r * math.sin(a))
+                    for a in [i * math.pi / 36.0 for i in range(73)]]
+        if shape == 'PLAQUE':
+            return _rrect_pts(cx0 - width / 2.0, cy0 - height / 2.0,
+                              cx0 + width / 2.0, cy0 + height / 2.0,
+                              corner)
+        t = min(1.0, z / bar_h)
+        w = bar_w * (1.0 - (1.0 - taper) * t)
+        return _rrect_pts(cx0 - length / 2.0, cy0 - w / 2.0,
+                          cx0 + length / 2.0, cy0 + w / 2.0, 0.0)
+
+    stem = {'MEDALLION': 'Medaillon%.0fx%.0f' % (dia, thick),
+            'PLAQUE': 'Plaque%.0fx%.0f' % (width, height),
+            'BAR': 'Bar%.0fx%.0f' % (length, bar_w)}[shape]
+    fname = 'V%02d_%s.gcode' % (_next_gen_version(out_dir), stem)
+    fname = _dedupe_gen_fname(out_dir, fname)
+    src = os.path.join(out_dir, fname)
+    with open(src, 'w') as f:
+        f.write('; R273 BLANK SOURCE: silhouette reference for the mold '
+                'generator - contours only, NOT a print job\n')
+        f.write('; shape=%s %s\n' % (shape, ' '.join(
+            '%s=%.1f' % kv for kv in sorted(dims.items()))))
+        f.write(';TYPE:Outer wall\nM82\nG90\n')
+        e = 0.0
+        for li in range(1, nl + 1):
+            z = round(li * layer_h, 3)
+            poly = _contour(z)
+            f.write(';LAYER_CHANGE\nG1 Z%.3f F600\n' % z)
+            px, py = poly[0]
+            f.write('G0 X%.3f Y%.3f F3000\n' % (px, py))
+            for (qx, qy) in poly[1:] + [poly[0]]:
+                d = math.hypot(qx - px, qy - py)
+                e += d * 0.05
+                f.write('G1 X%.3f Y%.3f E%.5f F1200\n' % (qx, qy, e))
+                px, py = qx, qy
+
+    out, info = make_mold(
+        src, wall=wall, layer_h=layer_h, gap=gap, pour_d=pour_d,
+        funnel=funnel, vent_d=vent_d, pin_d=pin_d, draft=draft,
+        surface=surface, part=part, plane=plane, z_off=z_off,
+        master=master, sectors=sectors, sec_half=sec_half,
+        pocket_d=pd, pocket_w=pw, pocket_h=ph,
+        pocket_t=(pocket_t if (pd or (pw and ph)) else 0.0),
+        material=material, bed=bed, out_dir=out_dir, version=version)
+    info['blank'] = {'shape': shape, 'file': fname, 'layers': nl,
+                     'dims': dims,
+                     'pocket_mm': (round(pocket_t, 2) if pocket_t else 0.0)}
+    return out, info
 
 
 def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
@@ -27377,6 +27750,7 @@ def watch(directory, interval=5.0, once=False):
     last_colorpic_nonce = None        # R120: color picture generator
     last_stencil_nonce = None         # R267: spray stencil generator (J9)
     last_mold_nonce = None           # R270: casting mold generator (J2)
+    last_mold_blank_nonce = None     # R273: parametric blank molds (J2)
     last_seal_nonce = None
     last_frame_nonce = None         # R90: picture frame / display case
     last_texture_nonce = None       # R91: fuzzy skin / bumps on an existing file
@@ -28038,6 +28412,9 @@ def watch(directory, interval=5.0, once=False):
                 # R270/R271 (J2): the mold set writes up to three files
                 # (2-part + master) or up to five with sector pieces
                 'mold_nonce',
+                # R273 (J2 bite 2): the blank mold writes the same set
+                # plus its silhouette reference file
+                'mold_blank_nonce',
                 # R252: the evidence pack copies logs - disk I/O during a
                 # print is the .125 lesson (the macro refuses while
                 # printing; this is the watcher-side second layer)
@@ -28196,6 +28573,7 @@ def watch(directory, interval=5.0, once=False):
                 last_colorpic_nonce = _np.get('colorpic_nonce')   # R120
                 last_stencil_nonce = _np.get('stencil_nonce')    # R267
                 last_mold_nonce = _np.get('mold_nonce')      # R270
+                last_mold_blank_nonce = _np.get('mold_blank_nonce')  # R273
                 last_bricks_nonce = _np.get('bricks_nonce')       # R121
                 last_brickkit_nonce = _np.get('brickkit_nonce')   # R125
                 last_figures_nonce = _np.get('figures_nonce')     # R126
@@ -29964,6 +30342,167 @@ def watch(directory, interval=5.0, once=False):
             print(f'[mold] guard: {ve270}', flush=True)
         except Exception as e:                              # noqa: BLE001
             print(f'[mold] poll error: {e!r}', flush=True)
+
+        # R273 (J2 bite 2): PARAMETRIC BLANK mold request (mold_blank_nonce)
+        # - runs THREADED like the mold. No source file: the blank
+        # (MEDALLION / PLAQUE / BAR) is generated as a silhouette
+        # reference and the full R270-R272 apparatus runs around it,
+        # plus the POCKET boss - the relief seat cast into the blank's
+        # top face (lay the relief onto the boss before pouring, it
+        # embeds flush). Refusals (pocket fit/rim/floor, undercut,
+        # dowels vs wall, bed) reach the LCD with their reason and
+        # write NOTHING.
+        try:
+            _mbn273 = rv.get('mold_blank_nonce', '')
+            if _mbn273 and _mbn273 != last_mold_blank_nonce:
+                last_mold_blank_nonce = _mbn273
+
+                def _vfl273(key, dflt):
+                    try:
+                        return float(rv.get(key, dflt) or dflt)
+                    except (TypeError, ValueError):
+                        return float(dflt)
+
+                def _vbl273(key, dflt):
+                    v = str(rv.get(key, dflt)).strip().lower()
+                    if v == '':
+                        return dflt
+                    return v in ('true', '1', 'on', 'yes')
+
+                _m_shp273 = str(rv.get('mold_blank_shape', 'MEDALLION')
+                                or 'MEDALLION').upper()
+                if _m_shp273 not in ('MEDALLION', 'PLAQUE', 'BAR'):
+                    _m_shp273 = 'MEDALLION'
+                _m_bed273 = _bed_limits(os.path.join(
+                    os.path.dirname(
+                        os.path.abspath(directory).rstrip('/')),
+                    'config', 'printer.cfg'))
+                _m_fun273 = str(rv.get('mold_funnel', 'CONICAL')
+                                or 'CONICAL').upper()
+                _m_fun273 = 'NONE' if _m_fun273 == 'NONE' else 'CONICAL'
+                _m_pln273 = str(rv.get('mold_plane', 'OFF') or 'OFF').upper()
+                _m_pln273 = ('OFF' if _m_pln273 == 'OFF'
+                             else ('MID' if _m_pln273 == 'MID'
+                                   else 'AUTO'))
+                try:
+                    _m_sec273 = max(0, min(int(float(
+                        rv.get('mold_sectors', 0) or 0)), 2))
+                except (TypeError, ValueError):
+                    _m_sec273 = 0
+                _m_sh273 = str(rv.get('mold_sec_half', 'AUTO')
+                               or 'AUTO').upper()
+                if _m_sh273 not in ('AUTO', 'TOP', 'BOTTOM'):
+                    _m_sh273 = 'AUTO'
+                _m_srf273 = str(rv.get('mold_surface', 'STANDARD')
+                                or 'STANDARD').upper()
+                if _m_srf273 not in ('STANDARD', 'FINE', 'FUZZY'):
+                    _m_srf273 = 'STANDARD'
+                _m_par273 = dict(
+                    shape=_m_shp273,
+                    dia=_vfl273('mold_blank_dia', 40.0),
+                    thick=_vfl273('mold_blank_thick', 8.0),
+                    width=_vfl273('mold_blank_w', 60.0),
+                    height=_vfl273('mold_blank_h', 40.0),
+                    corner=_vfl273('mold_blank_corner', 4.0),
+                    length=_vfl273('mold_blank_len', 90.0),
+                    bar_w=_vfl273('mold_blank_bw', 40.0),
+                    bar_h=_vfl273('mold_blank_bh', 25.0),
+                    taper=_vfl273('mold_blank_taper', 0.85),
+                    pocket_t=_vfl273('mold_blank_pt', 2.0),
+                    pocket_d=_vfl273('mold_blank_pd', 0.0),
+                    pocket_w=_vfl273('mold_blank_pw', 0.0),
+                    pocket_h=_vfl273('mold_blank_ph', 0.0),
+                    wall=_vfl273('mold_wall', 5.0),
+                    gap=_vfl273('mold_gap', 0.15),
+                    pour_d=_vfl273('mold_pour', 8.0),
+                    funnel=_m_fun273,
+                    vent_d=_vfl273('mold_vent', 2.5),
+                    pin_d=_vfl273('mold_pin', 3.0),
+                    draft=_vfl273('mold_draft', 0.0),
+                    surface=_m_srf273,
+                    part=str(rv.get('mold_part', 'BOTH') or 'BOTH').upper(),
+                    plane=_m_pln273,
+                    z_off=_vfl273('mold_zoff', 0.0),
+                    sectors=_m_sec273,
+                    sec_half=_m_sh273,
+                    master=_vbl273('mold_master', False),
+                    material=str(rv.get('material', 'PLA') or 'PLA'),
+                    bed=_m_bed273, nozzle=_gen_nozzle(directory),
+                    out_dir=_gensub(directory, 'mold'),
+                    version=max(1, min(int(_vfl273('gen_version', 1)), 99)))
+
+                def _mold_blank_job273(params=_m_par273):
+                    try:
+                        _first273, _mi273 = make_mold_blank(**params)
+                        _mbfiles273 = [os.path.join(directory, fn)
+                                       for fn in _mi273['files']]
+                        _mbrel273 = os.path.relpath(
+                            _mbfiles273[0], directory)
+                        _mbmsg273 = ('Blank mold: %d file(s) - %s'
+                                     % (len(_mbfiles273),
+                                        str(_mi273.get('blank', {})
+                                            .get('shape', '?')).upper()))
+                        _mbpk273 = _mi273.get('pocket')
+                        if _mbpk273:
+                            _mbmsg273 += (
+                                ' + relief seat %s x %.1fmm deep'
+                                % (_mbpk273.get('d')
+                                   and ('D%.0f' % _mbpk273['d'])
+                                   or ('%.0f x %.0f'
+                                       % (_mbpk273.get('w') or 0,
+                                          _mbpk273.get('h') or 0)),
+                                   _mbpk273.get('t_mm') or 0))
+                        _mbmsg273 += (
+                            ' - split %s at z %.2f, %d+%d layers, dowels '
+                            'D%.1fmm'
+                            % (_mi273['split'], _mi273['z_p'],
+                               _mi273['layers_bot'], _mi273['layers_top'],
+                               params['pin_d']))
+                        _mbmsg273 += ' | core %s' % POSTPROC_BUILD
+                        for _nb273 in _mi273.get('notes', [])[:3]:
+                            _mbmsg273 += ' | ' + _nb273
+                        _moonraker_gcode(
+                            'RESPOND MSG="%s"\nM117 Blank mold ready\n'
+                            '_SOUND_LIB NAME=r2_done' % _mbmsg273
+                            + _sel_line(rv, _mbrel273))
+                        return _mbfiles273
+                    except ValueError as ve273:
+                        # the honest refusals (pocket fit/rim/floor,
+                        # undercut, dowels vs wall, bed, draft) -
+                        # user-fixable, the reason must reach the LCD
+                        print(f'[mold_blank] refused: {ve273}', flush=True)
+                        try:
+                            _moonraker_gcode(
+                                'RESPOND MSG="Blank mold REFUSED: %s - '
+                                'nothing was written"\n'
+                                'M117 Blank: refused\n'
+                                '_SOUND_LIB NAME=r2_error' % ve273)
+                        except Exception:               # noqa: BLE001
+                            pass
+                    except Exception as e:              # noqa: BLE001
+                        print(f'[mold_blank] error: {e!r}', flush=True)
+                        try:
+                            _moonraker_gcode(
+                                'RESPOND MSG="Blank mold ERROR: %s"\n'
+                                'M117 Blank error\n'
+                                '_SOUND_LIB NAME=r2_error' % e)
+                        except Exception:               # noqa: BLE001
+                            pass
+
+                import threading
+                _spawn_job('Blank mold',
+                           'mold_blank:%r' % (sorted(_m_par273.items()),),
+                           _mold_blank_job273)
+        except ValueError as ve273:
+            try:
+                _moonraker_gcode(
+                    'RESPOND MSG="Blank mold: %s"\nM117 Blank error\n'
+                    '_SOUND_LIB NAME=r2_error' % ve273)
+            except Exception:                               # noqa: BLE001
+                pass
+            print(f'[mold_blank] guard: {ve273}', flush=True)
+        except Exception as e:                              # noqa: BLE001
+            print(f'[mold_blank] poll error: {e!r}', flush=True)
 
         # R120: color picture generator request (colorpic_nonce) - runs
         # THREADED like the lithophane (a big picture is a lot of gcode).

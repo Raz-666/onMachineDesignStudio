@@ -1,14 +1,14 @@
 {
  "generator": "menu_json_export.py (.136j R211)",
  "source": "lcd_menues.cfg",
- "sections": 2342,
+ "sections": 2357,
  "counts": {
-  "list": 317,
-  "command": 1424,
+  "list": 319,
+  "command": 1426,
   "vsdlist": 1,
-  "input": 600
+  "input": 611
  },
- "sha256": "b22e409873b7b369",
+ "sha256": "db8d76a01cb555ff",
  "live_objects": [
   "bed_mesh",
   "configfile",
@@ -17141,6 +17141,193 @@
           "gcode": [
            "{% if printer['gcode_macro _STATE'].gen_arm|default('') == 'mold' %}{menu.exit()}{% endif %}",
            "MOLD_CREATE CONFIRM=1"
+          ],
+          "children": []
+         }
+        ]
+       },
+       {
+        "id": "__main __gen __mold __blank",
+        "type": "list",
+        "name": "Blank molds",
+        "children": [
+         {
+          "id": "__main __gen __mold __blank __info",
+          "type": "command",
+          "name": "Info",
+          "gcode": [
+           "MOLD_BLANK_INFO"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __gen __mold __blank __set",
+          "type": "list",
+          "name": "Shape & size",
+          "children": [
+           {
+            "id": "__main __gen __mold __blank __set __shape",
+            "type": "input",
+            "name": "{'Shape: ' ~ (menu.input == 0 and 'MEDALLION' or (menu.input == 1 and 'PLAQUE' or 'BAR'))}",
+            "input": "{0 if printer['save_variables'].variables.mold_blank_shape|default('MEDALLION')|string|upper == 'MEDALLION' else (1 if printer['save_variables'].variables.mold_blank_shape|default('MEDALLION')|string|upper == 'PLAQUE' else 2)}",
+            "input_min": "0",
+            "input_max": "2",
+            "input_step": "1",
+            "gcode": [
+             "SAVE_VARIABLE VARIABLE=mold_blank_shape VALUE=\"\\\"{menu.input == 0 and 'MEDALLION' or (menu.input == 1 and 'PLAQUE' or 'BAR')}\\\"\"",
+             "RESPOND MSG=\"Blank shape: {menu.input == 0 and 'MEDALLION - a round disc, the classic pendant/coin' or (menu.input == 1 and 'PLAQUE - a rounded rectangle, plates and signs' or 'BAR - a long tapered ingot, soap and chocolate bars')}\""
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __gen __mold __blank __set __dia",
+            "type": "input",
+            "name": "{'Diameter: %2dmm' % menu.input}",
+            "input": "{printer['save_variables'].variables.mold_blank_dia|default(40)}",
+            "input_min": "15",
+            "input_max": "100",
+            "input_step": "1",
+            "gcode": [
+             "SAVE_VARIABLE VARIABLE=mold_blank_dia VALUE={menu.input|round|int}",
+             "RESPOND MSG=\"Blank: D{menu.input|round|int}mm medallion (the relief seat defaults to D{menu.input|round|int - 10}mm)\""
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __gen __mold __blank __set __thk",
+            "type": "input",
+            "name": "{'Thickness: %.1fmm' % menu.input}",
+            "input": "{printer['save_variables'].variables.mold_blank_thick|default(8)}",
+            "input_min": "4",
+            "input_max": "25",
+            "input_step": "0.5",
+            "gcode": [
+             "SAVE_VARIABLE VARIABLE=mold_blank_thick VALUE={menu.input|round(1)}",
+             "RESPOND MSG=\"Blank: {menu.input|round(1)}mm thick (medallion + plaque) - the relief seat needs 2mm of floor under it\""
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __gen __mold __blank __set __pw",
+            "type": "input",
+            "name": "{'Plaque W: %3dmm' % menu.input}",
+            "input": "{printer['save_variables'].variables.mold_blank_w|default(60)}",
+            "input_min": "20",
+            "input_max": "150",
+            "input_step": "1",
+            "gcode": [
+             "SAVE_VARIABLE VARIABLE=mold_blank_w VALUE={menu.input|round|int}",
+             "RESPOND MSG=\"Blank: {menu.input|round|int}mm plaque width (X)\""
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __gen __mold __blank __set __ph",
+            "type": "input",
+            "name": "{'Plaque H: %3dmm' % menu.input}",
+            "input": "{printer['save_variables'].variables.mold_blank_h|default(40)}",
+            "input_min": "20",
+            "input_max": "150",
+            "input_step": "1",
+            "gcode": [
+             "SAVE_VARIABLE VARIABLE=mold_blank_h VALUE={menu.input|round|int}",
+             "RESPOND MSG=\"Blank: {menu.input|round|int}mm plaque height (Y)\""
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __gen __mold __blank __set __crn",
+            "type": "input",
+            "name": "{'Corner R: %.1fmm' % menu.input}",
+            "input": "{printer['save_variables'].variables.mold_blank_corner|default(4)}",
+            "input_min": "0",
+            "input_max": "12",
+            "input_step": "0.5",
+            "gcode": [
+             "SAVE_VARIABLE VARIABLE=mold_blank_corner VALUE={menu.input|round(1)}",
+             "RESPOND MSG=\"Blank: {menu.input|round(1)}mm plaque corner radius (0 = square)\""
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __gen __mold __blank __set __len",
+            "type": "input",
+            "name": "{'Bar L: %3dmm' % menu.input}",
+            "input": "{printer['save_variables'].variables.mold_blank_len|default(90)}",
+            "input_min": "30",
+            "input_max": "180",
+            "input_step": "5",
+            "gcode": [
+             "SAVE_VARIABLE VARIABLE=mold_blank_len VALUE={menu.input|round|int}",
+             "RESPOND MSG=\"Blank: {menu.input|round|int}mm bar length\""
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __gen __mold __blank __set __bw",
+            "type": "input",
+            "name": "{'Bar W: %2dmm' % menu.input}",
+            "input": "{printer['save_variables'].variables.mold_blank_bw|default(40)}",
+            "input_min": "15",
+            "input_max": "90",
+            "input_step": "1",
+            "gcode": [
+             "SAVE_VARIABLE VARIABLE=mold_blank_bw VALUE={menu.input|round|int}",
+             "RESPOND MSG=\"Blank: {menu.input|round|int}mm bar width at the foot (tapers toward the top)\""
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __gen __mold __blank __set __bh",
+            "type": "input",
+            "name": "{'Bar H: %2dmm' % menu.input}",
+            "input": "{printer['save_variables'].variables.mold_blank_bh|default(25)}",
+            "input_min": "10",
+            "input_max": "60",
+            "input_step": "1",
+            "gcode": [
+             "SAVE_VARIABLE VARIABLE=mold_blank_bh VALUE={menu.input|round|int}",
+             "RESPOND MSG=\"Blank: {menu.input|round|int}mm bar height\""
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __gen __mold __blank __set __tap",
+            "type": "input",
+            "name": "{'Taper: %.2f' % menu.input}",
+            "input": "{printer['save_variables'].variables.mold_blank_taper|default(0.85)}",
+            "input_min": "0.5",
+            "input_max": "1",
+            "input_step": "0.05",
+            "gcode": [
+             "SAVE_VARIABLE VARIABLE=mold_blank_taper VALUE={menu.input|round(2)}",
+             "RESPOND MSG=\"Blank taper: {menu.input|round(2)} - the bar narrows to {menu.input * 100|round(0)|int}% of its foot width at the top (1.00 = straight walls, easier cast release at lower values)\""
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __gen __mold __blank __set __pd",
+            "type": "input",
+            "name": "{'Seat depth: %.1fmm' % menu.input}",
+            "input": "{printer['save_variables'].variables.mold_blank_pt|default(2)}",
+            "input_min": "0",
+            "input_max": "10",
+            "input_step": "0.2",
+            "gcode": [
+             "SAVE_VARIABLE VARIABLE=mold_blank_pt VALUE={menu.input|round(1)}",
+             "RESPOND MSG=\"Blank relief seat: {menu.input|round(1) == 0 and 'off - a plain blank' or (menu.input|round(1)|string ~ 'mm deep flat seat in the cast top face - lay the relief onto the boss before pouring, it embeds flush')}\""
+            ],
+            "children": []
+           }
+          ]
+         },
+         {
+          "id": "__main __gen __mold __blank __go",
+          "type": "command",
+          "name": "{('> AGAIN = build' if printer['gcode_macro _STATE'].gen_arm|default('') == 'mold_blank' else '> Build blank mold')}",
+          "gcode": [
+           "{% if printer['gcode_macro _STATE'].gen_arm|default('') == 'mold_blank' %}{menu.exit()}{% endif %}",
+           "MOLD_BLANK_CREATE CONFIRM=1"
           ],
           "children": []
          }

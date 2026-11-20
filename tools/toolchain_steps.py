@@ -40,7 +40,8 @@ _TEX = None
 # Werkzeuge, für die es echte Adapter gibt (cake bleibt gesperrt: 2 Ausgaben;
 # mold R270: Ketten sind einseitig - part=BOTH lehnt der Adapter ab, das
 # LCD-Menü des Generators liegt in __gen __mold, nicht in __mods).
-SYSTEM_TOOLS = ('range', 'scale', 'texture', 'twist', 'mirror', 'mold')
+SYSTEM_TOOLS = ('range', 'scale', 'texture', 'twist', 'mirror', 'mold',
+                  'mold_blank')
 
 
 def _engines():
@@ -184,6 +185,71 @@ def system_step_runner(tool, params, bed=None):
                 plane=('OFF' if plane == 'OFF'
                        else ('MID' if plane == 'MID' else 'AUTO')),
                 z_off=float(_pick(params, 'zoff', 'mold_zoff', default=0.0)),
+                out_dir=workspace, bed=limits)
+            _relocate(out, out_path)
+
+        elif tool == 'mold_blank':
+            # R273 (J2 bite 2): parametric blank mold - the chain input
+            # is IGNORED (the blank is its own source; it lands in the
+            # workspace as the silhouette reference). part=BOTH writes
+            # TWO files and stays refused (cake rule), sectors likewise
+            # (piece set) - the LCD menu (__gen __mold __blank) does
+            # both. The pocket dims default per shape (dia-10 / w-12 /
+            # h-12); only the depth rides in the chain.
+            part = str(_pick(params, 'part', 'mold_part',
+                             default='TOP') or 'TOP').upper()
+            if part == 'BOTH':
+                raise ValueError('mold_blank: part=BOTH schreibt ZWEI '
+                                 'Dateien (Unten + Oben) und bleibt in '
+                                 'Ketten gesperrt - part TOP oder BOTTOM '
+                                 'waehlen (beide Haelften: das '
+                                 'Generator-Menue __gen __mold __blank)')
+            try:
+                sectors273 = int(float(_pick(params, 'sectors',
+                                             'mold_sectors',
+                                             default=0) or 0))
+            except (TypeError, ValueError):
+                sectors273 = 0
+            if sectors273:
+                raise ValueError('mold_blank: sectors=%d schreibt ein '
+                                 'Stueck-Set (3/4-part, mehrere Dateien) '
+                                 '- im Generator-Menue __gen __mold '
+                                 '__blank bauen, nicht in der Kette'
+                                 % sectors273)
+            shape273 = str(_pick(params, 'shape', 'mold_blank_shape',
+                                 default='MEDALLION')
+                           or 'MEDALLION').upper()
+            plane273 = str(_pick(params, 'plane', 'mold_plane',
+                                 default='OFF') or 'OFF').upper()
+            out, _info = pp.make_mold_blank(
+                shape=shape273,
+                dia=float(_pick(params, 'dia', 'mold_blank_dia',
+                                default=40.0)),
+                thick=float(_pick(params, 'thick', 'mold_blank_thick',
+                                  default=8.0)),
+                width=float(_pick(params, 'width', 'mold_blank_w',
+                                  default=60.0)),
+                height=float(_pick(params, 'height', 'mold_blank_h',
+                                   default=40.0)),
+                corner=float(_pick(params, 'corner', 'mold_blank_corner',
+                                   default=4.0)),
+                length=float(_pick(params, 'length', 'mold_blank_len',
+                                   default=90.0)),
+                bar_w=float(_pick(params, 'bar_w', 'mold_blank_bw',
+                                  default=40.0)),
+                bar_h=float(_pick(params, 'bar_h', 'mold_blank_bh',
+                                  default=25.0)),
+                taper=float(_pick(params, 'taper', 'mold_blank_taper',
+                                  default=0.85)),
+                pocket_t=float(_pick(params, 'pocket_t', 'mold_blank_pt',
+                                     default=2.0)),
+                wall=float(_pick(params, 'wall', 'mold_wall', default=5.0)),
+                surface=str(_pick(params, 'surface', 'mold_surface',
+                                  default='STANDARD')
+                            or 'STANDARD').upper(),
+                part=part,
+                plane=('OFF' if plane273 == 'OFF'
+                       else ('MID' if plane273 == 'MID' else 'AUTO')),
                 out_dir=workspace, bed=limits)
             _relocate(out, out_path)
 

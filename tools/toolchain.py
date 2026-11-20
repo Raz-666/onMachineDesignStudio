@@ -314,6 +314,62 @@ TOOL_REGISTRY = {
                           'Dateien) - im Generator-Menue __gen __mold '
                           'bauen, nicht in der Kette'}],
     },
+
+    # R273 (J2 bite 2): parametric BLANK mold - no input file needed
+    # (the blank IS the source; the chain input is ignored). 16 params
+    # = the cap: the rest (gap, pour, funnel, vent, pin, draft, zoff,
+    # pocket dims) stays on the engine defaults - the LCD menu carries
+    # the full set. part=BOTH (2 Dateien) und Sektoren (Stueck-Set)
+    # bleiben wie beim mold in Ketten gesperrt.
+    'mold_blank': {
+        'title': 'Blank-Mold — parametrischer Grundkoerper (make_mold_'
+                 'blank R273/J2; LCD-UI im Generator-Menue __gen __mold '
+                 '__blank)',
+        'outputs': 1,
+        'params': {
+            'shape': {'type': 'enum',
+                      'values': ('MEDALLION', 'PLAQUE', 'BAR'),
+                      'required': False, 'default': 'MEDALLION'},
+            'dia': {'type': 'int', 'min': 15, 'max': 100,
+                    'required': False, 'default': 40},
+            'thick': {'type': 'number', 'min': 4.0, 'max': 25.0,
+                      'required': False, 'default': 8.0},
+            'width': {'type': 'int', 'min': 20, 'max': 150,
+                      'required': False, 'default': 60},
+            'height': {'type': 'int', 'min': 20, 'max': 150,
+                       'required': False, 'default': 40},
+            'corner': {'type': 'number', 'min': 0.0, 'max': 12.0,
+                       'required': False, 'default': 4.0},
+            'length': {'type': 'int', 'min': 30, 'max': 180,
+                       'required': False, 'default': 90},
+            'bar_w': {'type': 'int', 'min': 15, 'max': 90,
+                      'required': False, 'default': 40},
+            'bar_h': {'type': 'int', 'min': 10, 'max': 60,
+                      'required': False, 'default': 25},
+            'taper': {'type': 'number', 'min': 0.5, 'max': 1.0,
+                      'required': False, 'default': 0.85},
+            # relief seat depth in the cast top face (0 = plain blank);
+            # the pocket DIMS default per shape (dia-10 / w-12 / h-12)
+            'pocket_t': {'type': 'number', 'min': 0.0, 'max': 10.0,
+                         'required': False, 'default': 2.0},
+            'wall': {'type': 'int', 'min': 3, 'max': 15,
+                     'required': False, 'default': 5},
+            'surface': {'type': 'enum', 'values': ('STANDARD', 'FINE',
+                                                   'FUZZY'),
+                        'required': False, 'default': 'STANDARD'},
+            'part': {'type': 'enum', 'values': ('TOP', 'BOTTOM'),
+                     'required': False, 'default': 'TOP'},
+            'plane': {'type': 'enum', 'values': ('AUTO', 'MID', 'OFF'),
+                      'required': False, 'default': 'OFF'},
+            'sectors': {'type': 'int', 'min': 0, 'max': 2,
+                        'required': False, 'default': 0,
+                        'note': 'Ketten: nur 0 - 3/4-part = LCD-only'},
+        },
+        'rules': [{'a': 'sectors', 'op': 'is', 'value': 0,
+                   'msg': '3/4-part schreibt ein Stueck-Set (mehrere '
+                          'Dateien) - im Generator-Menue __gen __mold '
+                          'bauen, nicht in der Kette'}],
+    },
 }
 
 
