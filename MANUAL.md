@@ -2229,8 +2229,62 @@ OUT=PREVIEW` (OUT=QUEUE selects the result for the next start,
 OUT=PREVIEW just drops it in the list — same as every generator).
 
 **Limits, honest:** chainable tools are Range, Scale, Texture, Twist,
-Mirror. Cake cut (two output files) is not chainable; the preset
+Mirror, plus single-half Mold and Blank-Mold steps (`part` TOP or BOTTOM,
+`sectors` 0 — multi-file BOTH and multi-piece sector sets belong in the
+generator menu). Cake cut (two output files) is not chainable; the preset
 validator says so in plain text before anything runs.
+
+### 5.22 Casting molds — negative molds & parametric blanks (R270–R273)
+
+Turns the **selected G-code file** into a printable casting mold (silicone,
+soap, wax, plaster, resin) — or builds a **parametric blank mold** without any
+source file at all. Everything lands in the `Molds/` folder
+(`V<nn>_FormUnten_<name>.gcode`, `V<nn>_FormOben_<name>.gcode`, optional
+`V<nn>_Master_<name>.gcode` or `V<nn>_FormObenA…_<name>.gcode`), numbered and
+never overwriting.
+
+**How the file mold works (LCD: `Tools > Casting molds`)**
+
+1. Select the source print in `Pre-Print > File info` (same workflow as Cake
+   cut and Texture). Support, skirt, brim, prime tower and ironing moves are
+   ignored automatically; the outer silhouette per Z band defines the cavity
+   (enclosed through-holes cast solid — noted honestly in the console).
+2. **Both halves print mating-face UP:** the parting face is the top surface
+   of each block (the smoothest surface an FDM printer makes, zero cavity
+   walls over air). The top half is mirrored in Y so you flip it over like a
+   lid onto the bottom half; four dowel holes (`Pin D` + 0.3 mm clearance,
+   default D3 mm = a piece of filament or M3 pin) sit at identical bed
+   positions and align both halves.
+3. **Pour channel, conical funnel & vents:** carved from the back face into
+   the cavity's highest region, plus parting-seam vent grooves.
+4. **Honest undercut & wall checks:** every half is checked layer by layer in
+   pull direction. If the cavity shrinks toward the parting face beyond the
+   tolerance gap (`Gap`, 0.05–0.30 mm), or if dowel holes do not fit `Wall`
+   (`Pin D + 1.5 mm <= Wall`), or if the block exceeds the bed, the generator
+   **refuses and writes nothing**, naming the exact layer or millimeter limit.
+5. **3- and 4-part sector molds (R271):** `Sectors` (1 cut = 3-part, 2 cuts =
+   4-part) splits the undercut half with vertical planes at the cavity thirds
+   so outer pieces slide off sideways and the middle piece lifts straight up
+   (registered by horizontal dowel tunnels; cavity ceiling bridges are counted
+   and refused above 25 mm span).
+6. **Surface modes (R272):** STANDARD (60 mm/s), FINE (parting face smoothed
+   with 15% flow ironing passes + 20 mm/s print speed), or FUZZY (deterministic
+   inward-only wall jitter up to 0.12 mm — matte cast, easier demolding, zero
+   undercut penalty).
+
+**Parametric blank molds & relief seat (R273 — LCD: `Tools > Casting molds > Blank molds`)**
+
+No source file needed: pick MEDALLION (`Diameter` 15–100 mm × `Thickness`
+4–25 mm), PLAQUE (`Plaque W` × `Plaque H` 20–150 mm, `Corner R` 0–12 mm), or
+tapered BAR (`Bar L` 30–180 × `Bar W` 15–90 × `Bar H` 10–60 mm, `Taper`
+0.50–1.00). With `Seat depth` > 0 (POCKET_T), a flat vertical-walled boss is
+stamped onto the cavity floor so the cast gets a **flush relief pocket** in
+its top face — drop a printed Lithophane, ColorPicture or StringArt tile onto
+the boss before pouring and it embeds flush. Refuses honestly if the rim is
+under 4 mm, the floor under 2 mm, or the boss lacks 2 cells of wall clearance.
+
+Console: `MOLD_INFO`, `MOLD_CREATE PART=BOTH PLANE=AUTO SURFACE=STANDARD`,
+`MOLD_BLANK_INFO`, `MOLD_BLANK_CREATE SHAPE=MEDALLION DIA=50 THICK=10 POCKET_T=2`.
 
 ## 6. During the print: tuning, pauses, objects
 
@@ -3731,6 +3785,8 @@ Diagnostics: SHOW_STATUS · SELF_TEST · KAMP_STATUS · HOST_CHECK (Pi health) �
 | print figures | Tools > Bricks > Figures > Scale/Count > CREATE figure |
 | print a gasket | Tools > Gaskets > Settings, Create (press 2×) |
 | print a picture frame | Tools > Frames > Settings, Create (press 2×) |
+| cast a mold from a print | Tools > Casting molds > Split & part > Build mold (press 2×) |
+| cast a blank mold with relief seat | Tools > Casting molds > Blank molds > Build blank mold (press 2×) |
 | frame as glue kit | Tools > Frames > Preset 13x18, Border 16+, Create — strips + plate, glue the joints |
 | fuzzy skin / dimples on a part | Pre-Print > Texture — pick mode + values, > Apply, check the _TX file in the viewer |
 | delete a lithophane image | Tools > Lithophane > Delete image — press the slot twice |
@@ -3849,7 +3905,7 @@ stay with Mainsail.
 | **MCR** | minimum cruise ratio | **SCV** | square corner velocity |
 
 ## 25. Complete macro index
-412 entries: every public macro with parameters (defaults in parentheses; blank = no parameters) plus the internal hooks worth knowing. Internal helpers (leading `_`) are not user-facing — **268 public + 114 internal macros exist in total** (382 `gcode_macro` + 30 `delayed_gcode`, counted from the .cfg files, not copied from an older list). Grouped by module file — the same file you would edit.
+416 entries: every public macro with parameters (defaults in parentheses; blank = no parameters) plus the internal hooks worth knowing. Internal helpers (leading `_`) are not user-facing — **272 public + 114 internal macros exist in total** (386 `gcode_macro` + 30 `delayed_gcode`, counted from the .cfg files, not copied from an older list). Grouped by module file — the same file you would edit.
 
 
 ### State & sentinels — 01_state.cfg (14)
@@ -4232,7 +4288,7 @@ stay with Mainsail.
 | _LABEL_SET_CHAR | POS=sv.label_pos | default(1, CH=0 |
 | _V17_LABELS |  | Version sentinel of 16_labels.cfg |
 
-### Generators — 17_generator.cfg (44)
+### Generators — 17_generator.cfg (49)
 | Macro | Parameters | Purpose |
 |---|---|---|
 | **ANGLE_GENERATE** | CONFIRM=0, OUT | create the plate file from the stored settings (bumps angle_nonce) |
@@ -4256,6 +4312,10 @@ stay with Mainsail.
 | **LITHO_DEL_SLOT** | INDEX=0 | delete image slot INDEX — 2-press logic like the LCD: first call arms, the second deletes (plotter `.gcode` stays) |
 | **LITHO_INFO** |  | lithophane settings + how many images are ready |
 | **MIRROR_APPLY** | AXIS=sv.mirror_axis | default('x', CONFIRM=0, FILE=sv.preview_file |
+| **MOLD_BLANK_CREATE** | SHAPE=sv.mold_blank_shape/default('MEDALLION', PART=sv.mold_part/default('BOTH', SURFACE=sv.mold_surface/default('STANDARD', PLANE='OFF', CONFIRM=0, DIA=sv.mold_blank_dia/default(40, THICK=sv.mold_blank_thick/default(8, WIDTH=sv.mold_blank_w/default(60, HEIGHT=sv.mold_blank_h/default(40, CORNER=sv.mold_blank_corner/default(4, LENGTH=sv.mold_blank_len/default(90, BARW=sv.mold_blank_bw/default(40, BARH=sv.mold_blank_bh/default(25, TAPER=sv.mold_blank_taper/default(0.85, POCKET_T=sv.mold_blank_pt/default(2, POCKET_D=sv.mold_blank_pd/default(0, POCKET_W=sv.mold_blank_pw/default(0, POCKET_H=sv.mold_blank_ph/default(0, OUT | Molds: build a parametric blank mold (bumps mold_blank_nonce) |
+| **MOLD_BLANK_INFO** |  | Molds: show the parametric blank settings |
+| **MOLD_CREATE** | PART=sv.mold_part/default('BOTH', PLANE=sv.mold_plane/default('AUTO', SECTORS=sv.mold_sectors/default(0, HALF=sv.mold_sec_half/default('AUTO', SURFACE=sv.mold_surface/default('STANDARD', FILE=sv.preview_file/default('', CONFIRM=0, OUT | Molds: build the mold from the selected file (bumps mold_nonce) |
+| **MOLD_INFO** |  | Molds: show the settings + the selected file |
 | **SCALE_APPLY** | X=100, Y=100, TOP_X=0, TOP_Y=0, FILE= | scale the selected file 25–300 % per axis (.136n: TOP_X/TOP_Y = taper, 0 = off) — E recomputed per move, output in Scale/ |
 | **SEAL_GENERATE** | CONFIRM=0, OUT | create the seal file from the stored settings (bumps seal_nonce) |
 | **SEAL_INFO** |  | gasket settings + NUT/material tips |
@@ -4267,7 +4327,7 @@ stay with Mainsail.
 | **STRINGART_IMG** |  | cycles the root image list (the lithophane list, newest first) for the PHOTO pattern |
 | **STRINGART_PICK** | INDEX=-1 | ArtisticStrings: pick the root image from the paged image list (the PHOTO pattern weaves it) |
 | **TEXTURE_APPLY** | FILE='', MODE='OFF', THICK, DENSITY, PATTERN, SCALE, AMP, DIR='OUT', OUT= | fuzzy skin / shaped bumps for the SELECTED (or FILE) g-code: `TEXTURE_APPLY MODE=FUZZY THICK=0.3 DENSITY=100` — new `Vnn_<name>_TX` file in the background — selected under QUEUE, but never auto-STARTED (ch. 5.9) |
-| **TOOLCHAIN_APPLY** | PRESET=sv.toolchain_preset, FILE=sv.preview_file, CONFIRM=0, OUT= | run a preset tool chain (R259): every step feeds the next, ONE background job, only the last output stays — `V<nn>_<name>_<PresetName>.gcode` in Toolchain/, progress `Chain n/N` on the display, input may come from any subfolder (ch. 5.21) |
+| **TOOLCHAIN_APPLY** | PRESET=sv.toolchain_preset, FILE=sv.preview_file, CONFIRM=0, OUT= | run a preset tool chain: every step feeds the next, ONE background job, only the last output stays — `V<nn>_<name>_<PresetName>.gcode` in Toolchain/, progress `Chain n/N` on the display, input may come from any subfolder |
 | **TWIST_APPLY** | DEG=90, FILE= | twist the selected file around Z (.136n): 0° at the bottom → DEG at the top, E verbatim, output in Twist/ |
 | _GENERATORS |  | Part generator limits (cable ties + angle plates, internal) |
 | _GEN_ARM | KEY='', WHAT='the generation' | Generators: arm the 2-press confirm for KEY |

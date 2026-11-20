@@ -222,9 +222,25 @@ Baumrinde aus oder wie Holzdiele oder Parkett … irgendwas hast du verhauen."
       aktuellen echten Pattern-Funktionen und 27 materialgebundene Presets.
       Vorschaubilder sind ausdrücklich als Algorithmus-Simulationen markiert,
       nicht als Druckergebnis.
-- [ ] **D3 — Pro Generator eine wissenschaftliche PDF** (Vorbild:
+- [~] **D3 — Pro Generator eine wissenschaftliche PDF** (Vorbild:
       `TEXTURING.pdf`, `CUTSPLIT.pdf`): Funktionsweise, Parameter, Abläufe,
       Presets, Beispiel-Parametersätze mit erwartetem Ergebnis.
+      **STAND R275 (erster Generator-Band fertig + Sammel-/Handbuch-Drift
+      geschlossen):** `MOLDS.pdf` (`tools/make_molds_pdf.py`, 11 Seiten,
+      Stempel dynamisch aus `r2_version`) dokumentiert `make_mold()` &
+      `make_mold_blank()` vollständig mit Gleichungen, 34 live aus
+      `menus/lcd_menues.cfg` gelesenen LCD-Zeilen, 4 aus echten Engine-Läufen
+      gerenderten Abbildungen und 5 live gemessenen Referenz-Parametersätzen.
+      Dazu Sammel-/Handbuch-Parität nachgezogen: `GENERATORS_TOOLS.pdf`
+      (15 S., alle 13 Generatoren inkl. Casting molds unter echtem Wurzelpfad
+      `Tools > …`, alle Datei-Werkzeug-Pfade gegen `lcd_menues.cfg` berichtigt),
+      `MANUAL.md` (§5.22 Casting molds + §25 Makro-Index per `r266` auf
+      416 Einträge / 272 öffentlich aktualisiert → `r265` 0 ungelistet,
+      `r165` clean), `MANUAL.pdf` (113 S., §5.17–5.22 + Index ergänzt).
+      Beleg: `tools/r275_docs_mold_pdf_check.py` 15/15. Offen in D3: Einzel-PDFs
+      für die übrigen 12 Generatoren (Lithophane, Stencil, ColorPicture,
+      Bricks, Labels, Plotter, ArtisticStrings, Frames, Angles+Flat,
+      Cable ties, Gaskets, Geometry).
 - [ ] **D4 — Pro Modifikator (Pre-Print-Geometrie-Tools) eine PDF** mit der
       Mathematik dahinter — so erklärt, dass man blind am Drucker arbeiten kann.
 - [x] **D5 — Kreativ-PDF „On-Machine Design Studio for Creative Freedom"** *(erledigt
@@ -236,9 +252,11 @@ Baumrinde aus oder wie Holzdiele oder Parkett … irgendwas hast du verhauen."
       verbatim: *kein PC, kein 3D-Programm, keine KI — nur ein Drehrad.*
       `CREATIVE_POSSIBILITIES.pdf`, 10 Seiten (vorher 7), TOOLS_INVENTORY
       nachgezogen.
-- [ ] **D6 — Bilder-Regel (verbindlich):** keine Fantasie-Grafiken. Jede
+- [~] **D6 — Bilder-Regel (verbindlich):** keine Fantasie-Grafiken. Jede
       Anschauung muss aus den tatsächlichen Parametern und dem echten
       Algorithmus abgeleitet sein, Rechtschreibung im Bild korrekt.
+      *(Laufende Pflichtregel für alle D3/D4-Bände; in R275 für `MOLDS.pdf`
+      eingehalten und per Seiten-Render optisch geprüft.)*
 
 ## E. Crash / MCU-Shutdown (offen)
 

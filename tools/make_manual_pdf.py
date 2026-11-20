@@ -1989,6 +1989,48 @@ chapter('5.16','Cake cut: split a print with a plane',
   CODE('CAKE_APPLY PITCH=15 Z=5 PART=BOTH REORIENT=1'),
   )
 
+chapter('5.17','Twist, Mirror, Geometry &amp; STL export (.136n)',
+  H2('5.17 Twist — rotate around the Z axis'),
+  P("Rotates every XY vertex around the object centroid linearly with Z: angle = DEG * (z - z0) / H, "
+    "subdividing long straight segments so walls curve smoothly and scaling E with the new chord length. "
+    "Output lands in Twist/ as Vnn_name_TW...gcode (LCD: Pre-Print > Tools > Twist)."),
+  H2('5.18 Geometry — parametric solids &amp; vases'),
+  P("Builds standalone shapes (triangle, square/rect, polygon, circle/cylinder, star, vase/shell) directly "
+    "into Shapes/ without a slicer (LCD: Tools > Geometry)."),
+  H2('5.19 STL export — G-code back into a mesh'),
+  P("Extracts object extrusions only (drops skirt, brim, support, prime tower) into a binary STL saved as "
+    "gcodes/STL/name.stl.gcode for direct download in Mainsail (LCD: Pre-Print > File info > STL: shell)."),
+  H2('5.20 Mirror — flip on X or Y in place'),
+  P("Reflects every object coordinate across the part's own X or Y centroid axis so the bed footprint "
+    "stays exactly in place; output lands in Mirror/ (LCD: Pre-Print > Tools > Mirror)."),
+  )
+
+chapter('5.21','Toolchain &amp; Casting molds (R259 / R270–R273)',
+  H2('5.21 Toolchain — chain tools via a .json preset'),
+  P("Chains Range, Scale, Texture, Twist, Mirror and single-half Mold / Blank-Mold steps in one background "
+    "job: pick a .json preset in the SD browser (example Toolchain/scale-twist.json), Pre-Print > Tools > "
+    "Toolchain > Apply (2x). Progress runs as Chain k/N on the LCD; only the final output stays in Toolchain/."),
+  CODE('TOOLCHAIN_APPLY PRESET=Toolchain/scale-twist.json FILE=myfile.gcode OUT=PREVIEW'),
+  H2('5.22 Casting molds — negative molds &amp; parametric blanks'),
+  P("Turns the selected G-code file into a 2-, 3- or 4-part casting mold in Molds/ (LCD: Tools > Casting molds). "
+    "Both halves print mating-face UP (the top half mirrored in Y so it flips like a lid), aligned by 4 dowel "
+    "holes (Pin D + 0.3 mm clearance) with pour channel, conical funnel and seam vents. Undercuts beyond Gap, "
+    "oversized blocks, dowel/wall clashes (Pin D + 1.5 mm > Wall) or sector bridges > 25 mm refuse cleanly "
+    "without writing half a file. Surface modes: STANDARD (60 mm/s), FINE (parting face ironed at 15% flow + "
+    "20 mm/s), FUZZY (deterministic inward-only cavity jitter <= 0.12 mm for a matte cast)."),
+  P("<b>Parametric blank molds (R273):</b> Tools > Casting molds > Blank molds builds MEDALLION, PLAQUE or "
+    "tapered BAR molds without any source file — including a vertical-walled boss (Seat depth > 0) that casts "
+    "a flush relief pocket into the top face for Lithophane, ColorPic or StringArt inlays (full equations and "
+    "worked examples in MOLDS.pdf)."),
+  TBL(['Macro / LCD branch','Key parameters','Purpose'],[
+   ['MOLD_CREATE','PART, PLANE, SECTORS, HALF, SURFACE, FILE','2/3/4-part mold around selected G-code'],
+   ['MOLD_BLANK_CREATE','SHAPE, DIA/WIDTH/HEIGHT/LENGTH, POCKET_T','parametric blank mold + flush relief seat'],
+   ['MOLD_INFO / MOLD_BLANK_INFO','—','print current mold / blank settings to console'],
+  ],[48*mm,54*mm,62*mm]),
+  CODE('MOLD_CREATE PART=BOTH PLANE=AUTO SURFACE=FINE\n'
+       'MOLD_BLANK_CREATE SHAPE=MEDALLION DIA=50 THICK=10 POCKET_T=2'),
+  )
+
 chapter('6','During the print: tuning, pauses, objects',
   H2('6.1 Live tuning reference'),
   P("Works in EVERY start mode — including AS SLICED and while plotting. The LCD shows Klipper REAL values: flow "
@@ -2749,7 +2791,17 @@ _MIDX.append(["Part generators — 17_generator.cfg", [
     ["ANGLE_GENERATE", "—", "create the plate file from the stored settings (watcher builds it)"],
     ["ANGLE_INFO", "—", "every angle/flat setting + the auto-hole rules"],
     ["TEXTURE_APPLY", "FILE='', MODE='OFF', THICK, DENSITY, PATTERN, SCALE, AMP, DIR='OUT'",
-     "fuzzy skin / shaped bumps for the SELECTED (or FILE) g-code - new Vnn_name_TX file in the background, never auto-started (ch. 5.9)"]]])
+     "fuzzy skin / shaped bumps for the SELECTED (or FILE) g-code - new Vnn_name_TX file in the background, never auto-started (ch. 5.9)"],
+    ["STENCIL_INFO", "—", "spray-stencil settings + image slot info (ch. 5.6)"],
+    ["STENCIL_CREATE", "INDEX=0, CONFIRM=0, OUT=", "2-4 tone-band spray stencils from image slot INDEX into Stencil/ (ch. 5.6)"],
+    ["TOOLCHAIN_INFO", "—", "show selected preset file + target file + chain overview (ch. 5.21)"],
+    ["TOOLCHAIN_APPLY", "PRESET='', FILE='', CONFIRM=0, OUT=", "run a .json tool chain in the background into Toolchain/ (ch. 5.21)"],
+    ["MOLD_INFO", "—", "show casting-mold settings + selected source file (ch. 5.22)"],
+    ["MOLD_CREATE", "PART='BOTH', PLANE='AUTO', SECTORS=0, HALF='AUTO', SURFACE='STANDARD', FILE='', OUT=",
+     "2/3/4-part negative casting mold around the selected G-code file into Molds/ (ch. 5.22)"],
+    ["MOLD_BLANK_INFO", "—", "show parametric blank-mold settings + relief seat summary (ch. 5.22)"],
+    ["MOLD_BLANK_CREATE", "SHAPE='MEDALLION', DIA, THICK, WIDTH, HEIGHT, CORNER, LENGTH, BARW, BARH, TAPER, POCKET_T, PART, PLANE, SURFACE, OUT=",
+     "parametric blank mold (MEDALLION/PLAQUE/BAR) + optional flush relief seat into Molds/ (ch. 5.22)"]]])
 # R131: building bricks / kits / figures + colorpic in the index
 _MIDX.append(["Building bricks & figures — 19_bricks.cfg", [
     ["GEN_BRICKS", "CODES='B2x4:3|P2x2:2'",
