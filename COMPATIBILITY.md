@@ -1,6 +1,9 @@
 # Running the R2 macro system on OTHER printers
 
-Compatibility report & portability model (R103/R104, status of release .81).
+Compatibility report & portability model (R103/R104, status of release .81;
+R274 machine-model audit: every claim below that is testable offline is now
+PROVEN by `tools/r274_compat_check.py` - synthetic foreign printers against
+the config layer, the post-R217 generators and the macro math, see §9).
 Scope: **cartesian and CoreXY FDM printers** with Klipper + Moonraker/Mainsail. Not in scope:
 delta robots (round bed - the generators place rectangular plates), belt printers, resin.
 
@@ -59,6 +62,8 @@ the `_R2_CONFIG` bed. Your lifted axes (if any) never distort generated plates.
 | Plotter area, pen offsets, scale, speeds | save_variables (`plot_bed_min_x` ... `plot_off_*`, `plot_scale_*`) - LCD *Tools > Plotter* | `PLT_FRAME` corners test draws the actual area; defaults are the reference machine's 5,5..239,233 |
 | Resonance plates | bed via `_bed_limits()`, axes generic x/y | input shaper CSVs from `CALIBRATE_SHAPER`/`DUMP_RESONANCES` |
 | Move speeds | Klipper clamps every move to `[printer] max_velocity/max_accel` | fast travel values degrade safely on slower machines |
+| Casting molds (R270-R273) | `bed=` + `nozzle=` on every `make_mold` / `make_mold_blank` call (watcher + toolchain both pass the parsed values) | block centered on the bed, wall widths derive from `max(0.4, nozzle*1.08)`; a block that does not fit REFUSES with the mm it needs (measured on 180/250/300mm beds, r274 B1-B6) |
+| Textures (R175-R266) + stencils (R267) | `bed=` on `apply_texture` / `make_stencil` | placement clamped to the bed (r274 C1-C2) |
 
 LCD macros use Klipper's native config introspection
 (`printer.configfile.settings.get('r2_postproc', {})`) - the same section, one truth,
@@ -133,3 +138,37 @@ Remaining (P3, cosmetic): calibrator prime-line X75 clamp on ultra-small beds.
 - This file documents the portability contract; the hardening plan above is the road to
   "no Ender-3 coordinate left in a movement command".
 - Still open before publishing: license file + screenshot assets (the R104 hardening is done).
+
+## 9. R274 machine-model audit (offline, measured)
+
+`tools/r274_compat_check.py` (J7) - 24 checks, synthetic foreign printers:
+
+- **Config layer** (A1-A7): `_R2_CONFIG` bed values win; `r2_hardware.cfg`
+  overrides `printer.cfg`; missing config falls back to the Ender-3 default
+  WITH the one-line hint; insane values (min > max) refuse and fall back;
+  the legacy `[r2_postproc]` section still triggers the HALTS-KLIPPER
+  warning while its values are read as a courtesy; `nozzle_diameter` is
+  parsed from `[extruder]`, clamped to 0.1..2.0, fallback 0.6.
+- **Post-R217 generators** (B1-B6, C1-C2) - the R217 matrix predates them,
+  so the audit closes the gap: `make_mold` and `make_mold_blank` on
+  180/250/300mm beds keep EVERY emitted X/Y inside the bed (the I10 clamp
+  proof); an oversized block REFUSES with the mm it needs; wall and brim
+  E/mm scale with `max(0.4, nozzle*1.08)` (0.4 -> 0.8 measured 2.14x /
+  2.00x) while the block placement does not move. HONEST caveat: the solid
+  hatch snaps its line COUNT to the region width, so hatch E/mm adapts
+  (measured 1.65x, not 2x) - correct behavior, not a bug. Textures and
+  stencils clamp to the foreign bed the same way.
+- **Macro math** (D1-D6): `_PRIME_LINE` rendered with Klipper's Jinja
+  dialect against four synthetic machines (home 244x238 with -45/-10
+  probe, a 300x300 CoreXY with +60/+10 probe, no probe, no `_R2_CONFIG`)
+  - the prime line always lands in the probe-safe window AND the probe
+  stays on the plate; PRINT_END's lift clamps to `axis_maximum.z - 2`
+  (low-Z 180mm machine) and the presentation move clamps to small axes
+  (150mm: Y 228 -> 146).
+- **Docs parity** (E1-E2): this file and the MASTER-TODO carry the R274
+  status.
+
+NOT covered offline (needs real hardware / user decision): actual probe
+z-offset quality, display type, audio path, host performance (J3/JJ4
+decisions pending), the bring-up checklist of §7 on a real foreign
+machine.

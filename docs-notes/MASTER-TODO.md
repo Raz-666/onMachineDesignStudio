@@ -957,7 +957,7 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       J4-Audio-Weg laufen (Pi-Klinke/GPIO-Piezo statt MCU-Beeps — Synergie);
       (f) Sprach-UI in die Web-LCD integrieren (Browser macht STT/TTS,
       ein Funktionskern bleibt). Kein Baubeginn vor ausdrücklichem Go.
-- [ ] **J7 — Maschinenmodell-Kompatibilität auditieren (Gesamtbriefing §12).**
+- [~] **J7 — Maschinenmodell-Kompatibilität auditieren (Gesamtbriefing §12).**
       Was ein FREMDER Drucker braucht, damit das System dort läuft: Bett/
       Grenzen, Düse, Probe, LEDs, Display-Typ, Audio-Weg, Host-Modell
       (Pi Zero 2 W vs. 3B+ vs. …). Anknüpfung: `COMPATIBILITY.md`,
@@ -966,6 +966,27 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       parametrisch, 1423 Checks). Offline machbar als Audit + Tests
       (synthetische Fremddrucker-Konfigurationen gegen Generatoren/
       Maschinenmodell). Nächster Kandidat nach K2 bzw. nach Nutzerpriorität.
+      **STAND R274 (19.11., OFFLINE-AUDIT FERTIG — Batterie
+      `r274_compat_check.py` 24/24):** Konfigschicht: _R2_CONFIG-Bett
+      gewinnt, r2_hardware.cfg ueberschreibt printer.cfg, Ender-3-Fallback
+      + Hinweis, wahnsinnige Werte -> Fallback + Warnung, Legacy-
+      [r2_postproc] -> HALTS-Warnung + Courtesy-Read, nozzle_diameter
+      geparst/geklemmt (0.1–2.0, Fallback 0.6). Post-R217-Generatoren
+      (die Matrix kannte sie noch NICHT): make_mold + make_mold_blank auf
+      180/250/300mm-Betten — jede X/Y bleibt im Bett (I10-Beweis),
+      uebergrosser Block verweigert mit mm-Angabe, Wand-/Brim-E/mm
+      folgen nozzle*1.08 (0.4->0.8 gemessen 2.14x/2.00x), Block-Platz
+      stabil; EHRLICH: Solid-Hatch snappt die Linienzahl an die
+      Regionsbreite, Hatch-E/mm adaptiert (1.65x, kein Bug); Textur +
+      Stencil klemmen genauso. Makro-Mathe mit Klipper-Jinja-Dialekt
+      (Single-Brace!) gegen 4 synthetische Drucker: _PRIME_LINE-Fenster
+      immer probe-sicher (Heim 244x238/-45/-10, CoreXY 300x300/+60/+10,
+      ohne Probe, ohne _R2_CONFIG), PRINT_END-Lift <= z_max-2 (180mm-
+      Maschine), Praesentation auf 150mm-Achsen geklemmt (Y 228->146).
+      COMPATIBILITY.md um §9 (R274-Audit) + die neuen Generator-Zeilen
+      erweitert. NICHT offline: echte Probe-Z-Qualitaet, Display-Typ,
+      Audio-Weg, Host-Performance (J3/J4 beim Nutzer), §7-Bring-up an
+      einem echten Fremddrucker — bleibt Feldabnahme.
 
 - [~] **J8 — TEXTUREN-RUNDE II (Nutzer-Wunsch 19.11.2026, mit Lastenheft).**
       Nutzerbewertung: die zuletzt ergänzten Texturen „sehen wirklich
