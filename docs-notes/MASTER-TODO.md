@@ -225,22 +225,41 @@ Baumrinde aus oder wie Holzdiele oder Parkett … irgendwas hast du verhauen."
 - [~] **D3 — Pro Generator eine wissenschaftliche PDF** (Vorbild:
       `TEXTURING.pdf`, `CUTSPLIT.pdf`): Funktionsweise, Parameter, Abläufe,
       Presets, Beispiel-Parametersätze mit erwartetem Ergebnis.
-      **STAND R275 (erster Generator-Band fertig + Sammel-/Handbuch-Drift
-      geschlossen):** `MOLDS.pdf` (`tools/make_molds_pdf.py`, 11 Seiten,
-      Stempel dynamisch aus `r2_version`) dokumentiert `make_mold()` &
-      `make_mold_blank()` vollständig mit Gleichungen, 34 live aus
-      `menus/lcd_menues.cfg` gelesenen LCD-Zeilen, 4 aus echten Engine-Läufen
-      gerenderten Abbildungen und 5 live gemessenen Referenz-Parametersätzen.
-      Dazu Sammel-/Handbuch-Parität nachgezogen: `GENERATORS_TOOLS.pdf`
-      (15 S., alle 13 Generatoren inkl. Casting molds unter echtem Wurzelpfad
-      `Tools > …`, alle Datei-Werkzeug-Pfade gegen `lcd_menues.cfg` berichtigt),
-      `MANUAL.md` (§5.22 Casting molds + §25 Makro-Index per `r266` auf
-      416 Einträge / 272 öffentlich aktualisiert → `r265` 0 ungelistet,
-      `r165` clean), `MANUAL.pdf` (113 S., §5.17–5.22 + Index ergänzt).
-      Beleg: `tools/r275_docs_mold_pdf_check.py` 15/15. Offen in D3: Einzel-PDFs
-      für die übrigen 12 Generatoren (Lithophane, Stencil, ColorPicture,
-      Bricks, Labels, Plotter, ArtisticStrings, Frames, Angles+Flat,
-      Cable ties, Gaskets, Geometry).
+      **STAND R277 (5 von 13 Einzel-Generator-PDFs fertig; Bild-/Kunst-Familie
+      komplett):**
+      - **R275:** `MOLDS.pdf` (`tools/make_molds_pdf.py`, 11 S.) + Sammel-/
+        Handbuch-Parität (`GENERATORS_TOOLS.pdf` 15 S., `MANUAL.md` §5.22 +
+        416er Index, `MANUAL.pdf` 113 S.; Gate `r275_docs_mold_pdf_check.py` 15/15).
+      - **R277 (Paket 1 — Bild-/Kunst-Generatoren, alle D6-geprüft per Seiten-Render):**
+        1. `STENCIL.pdf` (`tools/make_stencil_pdf.py`, 6 S.): Perzentil-Tonband-
+           Partition, R267 `< 2 %`-Flächenwächter & ehrliche Plattenreduktion,
+           8er-Flood-Fill-Inselbrücken `_stencil_bridges267()` (`3× Düse = 1,2 mm`),
+           4× M4-Passlöcher `D4,2 mm` (`ΔXY = 0,0000 mm`), `Negativ = ON`,
+           echte G-Code-Werkzeugbahnen + 5 gemessene Parametersätze.
+        2. `LITHOPHANE.pdf` (`tools/make_lithophane_pdf.py`, 7 S.): Beer-Lambert-
+           Durchlichtgesetz `I(t) = I_0·e^(-μ·t)`, 7-stufige `_litho_grid()`-Pipeline,
+           `STANDING`-Einspur-Zickzack `ribbon()` (0 Retracts) + R214-Seitenfinnen
+           `LITHO_STAND_L/R`, `FLAT`-Stufenrelief (`OFF/LAST/EACH`-M600 +
+           `PURGE_TOWER`, `Contour 0..3`) sowie R168-Raststempel (`Vnn_Stempel` +
+           `Vnn_Griff`), 6 gemessene Referenzläufe.
+        3. `COLORPIC.pdf` (`tools/make_colorpic_pdf.py`, 5 S.): Geschachtelte
+           Luminanz-Plateaus `Ω_0 ⊇ ... ⊇ Ω_{B-1}` (100 % Unterbau, 0 Überhang),
+           `_blocks120`-Scanline-RLE, 14er `COLORPIC_PALETTE` + `COLORPIC_DEFAULTS[2..8]`,
+           LED-geführter `_COLORPIC_SWAP + M600` + R149-`pen.set_z(z)` +
+           `12×12 mm`-`PURGE_TOWER` + Cap-`IRONING`, 5 Läufe inkl. realem
+           Spulenbedarf in mm und Gramm.
+        4. `STRINGART.pdf` (`tools/make_stringart_pdf.py`, 6 S.): `SPIRAL`-Kaustik
+           `r_env = R·cos(π·step/N)` vs. `PHOTO`-Greedy-Radon-Planer
+           `_string_art_plan()` (`n_cand = 240`, `min_chord = 0,18·N`,
+           `_spread_starts >= 15°`), 6-Band-`LADDER` (`+0,20..+0,95 mm`),
+           nicht-planarer Sinusbogen `z_band + Bow·sin(π·t)`, 40×-Lupe auf den
+           echten 6-Punkt-Anker-Wickelcurl (`r = 0,30 mm`), R216-Fadenfluss
+           `E/mm = wid·0,068/A_fil`, `Frames`-kompatible `ROUND`/`RECT`-Formate,
+           5 gemessene Läufe.
+        Beleg: `tools/r277_d3_image_pdfs_check.py` 22/22.
+      - **Offen in D3 (8 Generatoren, geplant in 2 Paketen à 4):** Bricks
+        (+ BrickKit + Figures), Labels, Frames, Plotter sowie Angles+Flat,
+        Cable ties, Gaskets (`make_seal`), Geometry (`make_shape` + `make_bridge`).
 - [x] **D4 — Pro Modifikator (Pre-Print-Geometrie-Tools) eine PDF** mit der
       Mathematik dahinter — so erklärt, dass man blind am Drucker arbeiten kann.
       **ERLEDIGT R276:** Alle fünf bisher fehlenden Pre-Print-Geometrie-Modifikatoren
