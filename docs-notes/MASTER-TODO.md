@@ -225,41 +225,41 @@ Baumrinde aus oder wie Holzdiele oder Parkett … irgendwas hast du verhauen."
 - [~] **D3 — Pro Generator eine wissenschaftliche PDF** (Vorbild:
       `TEXTURING.pdf`, `CUTSPLIT.pdf`): Funktionsweise, Parameter, Abläufe,
       Presets, Beispiel-Parametersätze mit erwartetem Ergebnis.
-      **STAND R277 (5 von 13 Einzel-Generator-PDFs fertig; Bild-/Kunst-Familie
-      komplett):**
+      **STAND R278 (9 von 13 Einzel-Generator-PDFs fertig; Bild-/Kunst- &
+      Konstruktions-/Alltags-Familien komplett):**
       - **R275:** `MOLDS.pdf` (`tools/make_molds_pdf.py`, 11 S.) + Sammel-/
         Handbuch-Parität (`GENERATORS_TOOLS.pdf` 15 S., `MANUAL.md` §5.22 +
         416er Index, `MANUAL.pdf` 113 S.; Gate `r275_docs_mold_pdf_check.py` 15/15).
       - **R277 (Paket 1 — Bild-/Kunst-Generatoren, alle D6-geprüft per Seiten-Render):**
-        1. `STENCIL.pdf` (`tools/make_stencil_pdf.py`, 6 S.): Perzentil-Tonband-
-           Partition, R267 `< 2 %`-Flächenwächter & ehrliche Plattenreduktion,
-           8er-Flood-Fill-Inselbrücken `_stencil_bridges267()` (`3× Düse = 1,2 mm`),
-           4× M4-Passlöcher `D4,2 mm` (`ΔXY = 0,0000 mm`), `Negativ = ON`,
-           echte G-Code-Werkzeugbahnen + 5 gemessene Parametersätze.
-        2. `LITHOPHANE.pdf` (`tools/make_lithophane_pdf.py`, 7 S.): Beer-Lambert-
-           Durchlichtgesetz `I(t) = I_0·e^(-μ·t)`, 7-stufige `_litho_grid()`-Pipeline,
-           `STANDING`-Einspur-Zickzack `ribbon()` (0 Retracts) + R214-Seitenfinnen
-           `LITHO_STAND_L/R`, `FLAT`-Stufenrelief (`OFF/LAST/EACH`-M600 +
-           `PURGE_TOWER`, `Contour 0..3`) sowie R168-Raststempel (`Vnn_Stempel` +
-           `Vnn_Griff`), 6 gemessene Referenzläufe.
-        3. `COLORPIC.pdf` (`tools/make_colorpic_pdf.py`, 5 S.): Geschachtelte
-           Luminanz-Plateaus `Ω_0 ⊇ ... ⊇ Ω_{B-1}` (100 % Unterbau, 0 Überhang),
-           `_blocks120`-Scanline-RLE, 14er `COLORPIC_PALETTE` + `COLORPIC_DEFAULTS[2..8]`,
-           LED-geführter `_COLORPIC_SWAP + M600` + R149-`pen.set_z(z)` +
-           `12×12 mm`-`PURGE_TOWER` + Cap-`IRONING`, 5 Läufe inkl. realem
-           Spulenbedarf in mm und Gramm.
-        4. `STRINGART.pdf` (`tools/make_stringart_pdf.py`, 6 S.): `SPIRAL`-Kaustik
-           `r_env = R·cos(π·step/N)` vs. `PHOTO`-Greedy-Radon-Planer
-           `_string_art_plan()` (`n_cand = 240`, `min_chord = 0,18·N`,
-           `_spread_starts >= 15°`), 6-Band-`LADDER` (`+0,20..+0,95 mm`),
-           nicht-planarer Sinusbogen `z_band + Bow·sin(π·t)`, 40×-Lupe auf den
-           echten 6-Punkt-Anker-Wickelcurl (`r = 0,30 mm`), R216-Fadenfluss
-           `E/mm = wid·0,068/A_fil`, `Frames`-kompatible `ROUND`/`RECT`-Formate,
-           5 gemessene Läufe.
-        Beleg: `tools/r277_d3_image_pdfs_check.py` 22/22.
-      - **Offen in D3 (8 Generatoren, geplant in 2 Paketen à 4):** Bricks
-        (+ BrickKit + Figures), Labels, Frames, Plotter sowie Angles+Flat,
-        Cable ties, Gaskets (`make_seal`), Geometry (`make_shape` + `make_bridge`).
+        `STENCIL.pdf` (6 S.), `LITHOPHANE.pdf` (7 S.), `COLORPIC.pdf` (5 S.),
+        `STRINGART.pdf` (6 S.) — Beleg: `tools/r277_d3_image_pdfs_check.py` 22/22.
+      - **R278 (Paket 2 — Konstruktions- & Alltags-Generatoren, alle D6-geprüft per Seiten-Render):**
+        1. `BRICKS.pdf` (`tools/make_bricks_pdf.py`, 7 S.): `8,0-mm`-Systemraster,
+           `n·8,0 - 0,20 mm` Klemmkörper, Hohlnoppen `Ø4,8×1,8 mm` & Tangentialröhre
+           `Ø6,31 mm`, alle 76 Katalog-Codes in 8 Familien, R216-Wandstufenregel
+           (`200 % -> +1`, `300 % -> +2`), `BY_LAYER` (`0× M600`) vs. `BY_OBJECT`,
+           `make_brick_kit()`-Voxelisierer inkl. Slope-Kantenerkennung sowie
+           `make_figures()` (`PARTS` 5-teilig mit liegenden Armen vs. `SINGLE`).
+        2. `LABELS.pdf` (`tools/make_labels_pdf.py`, 6 S.): Alle 8 eingebetteten
+           Vektor-Strichschriften (`SMOOTH..PLATE`) über `_stroke_offsets()` +
+           R183-Kollisionsschutz, `GROW`/`FIXED`-Auto-Fit, `RECT`/`ROUND`/`OVAL`
+           mit Innenloch oder Außenöse, R170-Mehrplatten-Split (`_T1/_T2`),
+           R231-Verankerung (`text_layers = 2..4`), `Flip = ON` Bettseiten-Inlay
+           sowie R168/R170-Stempel (`Stamp = ON`, `Handle = 0..3`).
+        3. `FRAMES.pdf` (`tools/make_frames_pdf.py`, 5 S.): Überhangfreie Falz-
+           Mathematik (`+0,8 mm` Fotospiel/Seite, `2,3 mm` Kurzbrücke, `1,2 mm`
+           Scheibenlippe), `FLAT` (`< 15 mm`) vs. `CASE` (`>= 15 mm` + `Cable = ON`),
+           `BACK` (brimmfreie Klick-Rückwand R115 + Aufsteller) vs. `SIDE`,
+           echte G-Code-Deckbänder `IRON`/`LINES`/`WAVES`/`HEX` + Auto-Split.
+        4. `PLOTTER.pdf` (`tools/make_plotter_pdf.py`, 5 S.): `PEN` (kalt) vs.
+           `FILAMENT` (`E/mm = fil_z·0,65/A_fil`, `d <= 2,2 mm` flach ohne Hop),
+           R64-Dunkelpolarität + R62-Otsu-Schwelle, `Mode 0` (Boustrophedon) vs.
+           `Mode 1` (Stipple), SVG/PDF-Vektor & `text_convert()`, `make_plot_cal()`
+           (`100×140 mm`, 63 Dots + 27 Linien), `R2PLOT`-KAMP-Schutz & `_PLOT_END`.
+        Beleg: `tools/r278_d3_craft_pdfs_check.py` 25/25.
+      - **Offen in D3 (letztes Paket 3 = 4 Werkstatt-Generatoren):** Angles+Flat
+        (`make_angles`), Cable ties (`make_cable_ties`), Gaskets (`make_seal`),
+        Geometry (`make_shape` + `make_bridge`).
 - [x] **D4 — Pro Modifikator (Pre-Print-Geometrie-Tools) eine PDF** mit der
       Mathematik dahinter — so erklärt, dass man blind am Drucker arbeiten kann.
       **ERLEDIGT R276:** Alle fünf bisher fehlenden Pre-Print-Geometrie-Modifikatoren
