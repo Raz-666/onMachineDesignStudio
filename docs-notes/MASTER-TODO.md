@@ -241,8 +241,40 @@ Baumrinde aus oder wie Holzdiele oder Parkett … irgendwas hast du verhauen."
       für die übrigen 12 Generatoren (Lithophane, Stencil, ColorPicture,
       Bricks, Labels, Plotter, ArtisticStrings, Frames, Angles+Flat,
       Cable ties, Gaskets, Geometry).
-- [ ] **D4 — Pro Modifikator (Pre-Print-Geometrie-Tools) eine PDF** mit der
+- [x] **D4 — Pro Modifikator (Pre-Print-Geometrie-Tools) eine PDF** mit der
       Mathematik dahinter — so erklärt, dass man blind am Drucker arbeiten kann.
+      **ERLEDIGT R276:** Alle fünf bisher fehlenden Pre-Print-Geometrie-Modifikatoren
+      unter `Pre-Print > Tools` besitzen nun neben `TEXTURING.pdf` und
+      `CUTSPLIT.pdf` jeweils ihr eigenes Mathematik- & Blindbedienungs-Fachheft
+      auf Basis von `r2_pdf_kit.py` (dynamischer `R2VER`-Stempel, live aus
+      `menus/lcd_menues.cfg` gelesene Menüzeilen, sämtliche Abbildungen und
+      Referenztabellen zur Bauzeit aus echten Engine-Läufen berechnet):
+      1. `SCALE.pdf` (6 S., `tools/make_scale_pdf.py`) — anisotrope XY-Skalierung,
+         lineare Z-Taper-Interpolation auf `[ezmin, ezmax]`, Richtungsfaktor
+         `k_E(θ, z) = (L'/L)·(w'/w)`, G2/G3-Ellipsensehnen, physikalische
+         0,4-mm-Düsengrenzen, Rasten- & Kopfrechenregeln.
+      2. `TWIST.pdf` (6 S., `tools/make_twist_pdf.py`) — `SO(2)`-Helixrotation,
+         Isometrie-Beweis (`det R = +1 -> E verbatim`), Umkreis-Bettwächter
+         `2·R_circ`, Überhang-Nomogramm & Kopfrechenformel `|DEG|_sicher ≈ 63·H/r`.
+      3. `MIRROR.pdf` (5 S., `tools/make_mirror_pdf.py`) — In-Place-Spiegelung
+         um eigenes Zentrum `(c_x, c_y)`, BBox-Selbstinvarianzbeweis, G2/G3-
+         Chiralitätswechsel, R239-KAMP-`POLYGON=`-Regel & R224 `OBJ=<Name>`.
+      4. `RANGE.pdf` (6 S., `tools/make_range_pdf.py`) — `Stop@` vs.
+         `make_range()`, globale `Δz`-Bettankerung, höhentreue R224-In-Window-
+         Ersetzung (`inside=1`) zum nahtlosen Stapeln, `FOOTPRINT` vs. `OUTLINE`
+         + Nabenloch, `O(1 Layer)`-Streaming & Messschieber-zu-Schicht-Kopfrechnen.
+      5. `TOOLCHAIN.pdf` (6 S., `tools/make_toolchain_pdf.py`) — Operator-
+         Komposition `(T_n ∘ ... ∘ T_1)(G_0)`, Kommutatorbeweis `[R(α), S] != 0`
+         (`Scale -> Twist != Twist -> Scale`), kanonische 5er-Reihenfolge,
+         `r2-toolchain/1` & §22.4 atomare `Vnn_`-Übergabe sowie Abgrenzung zur
+         Laufzeit-Translation `Offset X/Y/Z` (`SET_GCODE_OFFSET`).
+      Zusatzfund & Fix durch die D6-Echtlauf-Messung in R276: In `apply_twist()`
+      und `apply_mirror()` (`tools/r2_postproc.py` + `r2_postproc_next.py`)
+      wurden `last_e`/`new_e` auf `M82`-`G1`-Zügen vor `G2/G3`-Bögen nicht
+      nachgeführt (E-Sprung am Bogen), einachsige `G1 X...`-Züge in `apply_twist`
+      sowie das Header-`EXCLUDE_OBJECT_DEFINE` bei `apply_mirror(..., obj=...)`
+      abgesichert — jetzt `ΔE = 0,00000 mm` exakt. Beleg:
+      `tools/r276_d4_modifier_pdfs_check.py` 22/22.
 - [x] **D5 — Kreativ-PDF „On-Machine Design Studio for Creative Freedom"** *(erledigt
       2026-11-18, Commit `9468051`)*: Titel gesetzt, neue Kapitel Modellbau
       (Toleranzen, Doppel-Durchgang ehrlich), Deko-Sets (Varianten-Strategie),
@@ -256,7 +288,9 @@ Baumrinde aus oder wie Holzdiele oder Parkett … irgendwas hast du verhauen."
       Anschauung muss aus den tatsächlichen Parametern und dem echten
       Algorithmus abgeleitet sein, Rechtschreibung im Bild korrekt.
       *(Laufende Pflichtregel für alle D3/D4-Bände; in R275 für `MOLDS.pdf`
-      eingehalten und per Seiten-Render optisch geprüft.)*
+      und in R276 für alle fünf D4-Bände `SCALE.pdf`, `TWIST.pdf`,
+      `MIRROR.pdf`, `RANGE.pdf`, `TOOLCHAIN.pdf` eingehalten und per
+      Seiten-Render optisch geprüft.)*
 
 ## E. Crash / MCU-Shutdown (offen)
 

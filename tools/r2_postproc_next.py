@@ -26584,10 +26584,13 @@ def apply_twist(src, deg=30.0, out_dir=None, bed=None):
     def _fmt_move(cmd, x, y, z, e_val, f_val, ang):
         ca, sa = _m216t.cos(ang), _m216t.sin(ang)
         parts = [cmd]
-        if x is not None:
-            rx, ry = x - cx, y - cy
-            parts.append('X%.3f' % (tx + rx * ca - ry * sa))
-            parts.append('Y%.3f' % (ty + rx * sa + ry * ca))
+        if x is not None or y is not None:
+            mx = x if x is not None else px1
+            my = y if y is not None else py1
+            if mx is not None and my is not None:
+                rx, ry = mx - cx, my - cy
+                parts.append('X%.3f' % (tx + rx * ca - ry * sa))
+                parts.append('Y%.3f' % (ty + rx * sa + ry * ca))
         if z is not None:
             parts.append('Z%.3f' % z)
         if e_val is not None:
@@ -26643,6 +26646,9 @@ def apply_twist(src, deg=30.0, out_dir=None, bed=None):
                     cur_z = g[3]
                 ang = _rot216(cur_z)
                 e_val = g[4]            # verbatim - rotation changes no E
+                if e_val is not None and not e_rel_t:
+                    last_e_t = e_val
+                    new_e_t = e_val
                 fo.write(_fmt_move(g[0], g[1], g[2], g[3], e_val, None,
                                    ang) + '\n')
                 if g[1] is not None:
@@ -26900,18 +26906,22 @@ def apply_mirror(src, axis='x', out_dir=None, bed=None, obj=None):
             ls = line.rstrip('\n')
             if ls.startswith('; R2-GEN core '):
                 continue
-            if _objstart224 is not None:
-                if ls.strip() == _objstart224:
-                    _ino224 = True
-                    fo.write(ls + '\n')
-                    continue
-                if ls.strip().startswith('EXCLUDE_OBJECT_END') and _ino224:
-                    _ino224 = False
-                    fo.write(ls + '\n')
-                    continue
-                if not _ino224:
-                    fo.write(ls + '\n')
-                    continue
+            _lsc224 = ls.split(';', 1)[0].strip()
+            if _lsc224 == 'M83':
+                e_rel_m = True
+                fo.write(ls + '\n')
+                continue
+            if _lsc224 == 'M82':
+                e_rel_m = False
+                fo.write(ls + '\n')
+                continue
+            if _lsc224.startswith('G92'):
+                _m92m = re.match(r'^G92(?:\s+E(-?[\d.]+))?', _lsc224)
+                if _m92m and _m92m.group(1) is not None:
+                    last_e_m = float(_m92m.group(1))
+                    new_e_m = last_e_m
+                fo.write(ls + '\n')
+                continue
             if ls.startswith('EXCLUDE_OBJECT') and ('CENTER=' in ls
                                                     or 'POLYGON=[' in ls):
                 if obj is None or (('NAME=%s ' % obj) in ls + ' '
@@ -26920,25 +26930,44 @@ def apply_mirror(src, axis='x', out_dir=None, bed=None, obj=None):
                 else:
                     fo.write(ls + '\n')
                 continue
-            if ls == 'M83':
-                e_rel_m = True
-                fo.write(ls + '\n')
-                continue
-            if ls == 'M82':
-                e_rel_m = False
-                fo.write(ls + '\n')
-                continue
-            if ls.startswith('G92'):
-                _m92m = re.match(r'^G92(?:\s+E(-?[\d.]+))?', ls)
-                if _m92m and _m92m.group(1) is not None:
-                    last_e_m = float(_m92m.group(1))
-                    new_e_m = last_e_m
-                fo.write(ls + '\n')
-                continue
+            if _objstart224 is not None:
+                if _lsc224 == _objstart224:
+                    _ino224 = True
+                    fo.write(ls + '\n')
+                    continue
+                if _lsc224.startswith('EXCLUDE_OBJECT_END') and _ino224:
+                    _ino224 = False
+                    fo.write(ls + '\n')
+                    continue
+                if not _ino224:
+                    _g0m = _pm224m(ls)
+                    if _g0m is not None:
+                        if _g0m[1] is not None:
+                            px1 = _g0m[1]
+                        if _g0m[2] is not None:
+                            py1 = _g0m[2]
+                        if _g0m[4] is not None and not e_rel_m:
+                            last_e_m = _g0m[4]
+                            new_e_m = _g0m[4]
+                    else:
+                        _ga0m = _pa224m(ls)
+                        if _ga0m is not None:
+                            if _ga0m[1] is not None:
+                                px1 = _ga0m[1]
+                            if _ga0m[2] is not None:
+                                py1 = _ga0m[2]
+                            if _ga0m[7] is not None and not e_rel_m:
+                                last_e_m = _ga0m[7]
+                                new_e_m = _ga0m[7]
+                    fo.write(ls + '\n')
+                    continue
             g = _pm224m(ls)
             if g is not None:
                 if g[3] is not None:
                     cur_z = g[3]
+                if g[4] is not None and not e_rel_m:
+                    last_e_m = g[4]
+                    new_e_m = g[4]
                 fo.write(_fmt_move(g[0], g[1], g[2], g[3], g[4], None)
                          + '\n')
                 if g[1] is not None:
