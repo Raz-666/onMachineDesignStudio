@@ -1,4 +1,4 @@
-# MASTER-TODO — alles, was der User verlangt hat (Stand: R2-2026-11-18.2 / V3)
+# MASTER-TODO — alles, was der User verlangt hat (Stand: R2-2026-11-19.2 / V6)
 
 **Diese Datei ist ab jetzt der einzige Ort, an dem Aufgaben stehen.** Wenn etwas
 nicht hier steht, existiert es für die Arbeit nicht. Jede erledigte Zeile wird

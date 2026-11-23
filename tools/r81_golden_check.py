@@ -10,6 +10,15 @@ keeps that guarantee alive: it rebuilds the 23 fixture cases, runs them
 through the CURRENT module and compares MD5s + change summaries against the
 frozen references.
 
+RE-FREEZE HISTORY (R2-2026-11-19.2, V6): stamp re-freeze over REAL code
+change. Since V5 the engine gained J2 casting molds (make_mold + make_mold_blank
++ sector stage + surface stage, R270-R273) and the R276 M82 arc/single-axis E
+sync fix in apply_twist()/apply_mirror() - process()/make_range() untouched.
+PROOF (A/B): the V6 module BEFORE bumping POSTPROC_RELEASE/POSTPROC_BUILD from
+R2-2026-11-19.1/V5 reproduced all 23 frozen V5 references byte-for-byte
+(23/23 md5 identical, summaries identical). Forward run: mr01-mr13 differ by
+the stamp lines only (same length class, nl/size in every summary unchanged);
+pr01-pr10 byte-IDENTICAL. mr01-mr13 re-frozen (stamp class), nothing else.
 RE-FREEZE HISTORY (R2-2026-11-19.1, V5): stamp re-freeze over PURE-ADDITION
 code change. Since V4 the engine gained the texture rounds R265-R266.3 (in
 r2_texture.py + presets, not this module) and the R267 spray-stencil engine
@@ -456,19 +465,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # process() output is identical old vs new, ALL 13 mr md5s change (every
 # range excerpt carries the core stamp), no summary moves, and r81 was
 # 23/23 green with the R213 code BEFORE the stamp bump.
-REF_MD5 = {'mr01': 'd21b702e5d9572dd1ba2a98978396fda',
- 'mr02': '707e95c66767df652d8e02a9d1afc958',
- 'mr03': '2430792c81e21fdedbb3dc1242f6ef23',
- 'mr04': '945db05cf0795ba986d710505cf63f26',
- 'mr05': '3062296b2e383d7cfd03e94e08214c5f',
- 'mr06': '3e08e5aa0bb4fa31e6b6eb62e5c0b100',
- 'mr07': '6a655dbf7d24bb9a1d3bda2823b43b81',
- 'mr08': '196361f1e0f8405fd1501bc45370f725',
- 'mr09': 'c264e28654e6a096564b2c4bfd531a66',
- 'mr10': '377aa6cdcca10d825f8b72e81e5b5578',
- 'mr11': '73933c7927fc930a60184d0ef0238548',
- 'mr12': 'b3a1dda05a2c46babffbc427748697dc',
- 'mr13': 'c2d2b78bbafba6f0ed4aab57a0cdc90a',
+REF_MD5 = {'mr01': 'cd9399e959fb91e0fbdaa60cf2e88e1c',
+ 'mr02': '0abadc7ceb5183476840ebc403840e87',
+ 'mr03': '84a2b1a6241f50f25d6cddb226188ecb',
+ 'mr04': '30e948d71aa6eb537694f29a5f4bda27',
+ 'mr05': '5a0cc1deb73ded60d4dfae472aa48bae',
+ 'mr06': '5402bc46b9304fc603aeadb2cdfc735d',
+ 'mr07': '1c42a0805ccbc8e319089d594f0522c7',
+ 'mr08': 'cb587fb7efeca72a883772deb1c47fe3',
+ 'mr09': '47c21c8663feba1cb132b5d76daf89d8',
+ 'mr10': '1ee514b11edd6dac323653958bcbbea5',
+ 'mr11': 'd6f00e403acdb61463c0ca367892649f',
+ 'mr12': '9232916f6aad03860df83e0d7c052a6d',
+ 'mr13': '7cc82659b966c6a328917ce27ccf1a6a',
  'pr01': 'aa5a6f27d5a7e6576f57eeea93af63a5',
  'pr02': '61457e9bcbd98996b6e7dc26efda23d8',
  'pr03': 'f9f7402c190f07e7aa7470d2185fddfc',

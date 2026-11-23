@@ -1,6 +1,6 @@
-# TESTANLEITUNG — R2-D2 Makro-System (Version R2-2026-11-19.1 / V5)
+# TESTANLEITUNG — R2-D2 Makro-System (Version R2-2026-11-19.2 / V6)
 
-Diese Anleitung beschreibt **nur den aktuellen Stand** (R2-2026-11-19.1).
+Diese Anleitung beschreibt **nur den aktuellen Stand** (R2-2026-11-19.2).
 Sie ist die komplette Feld-Checkliste nach dem Einspielen eines Updates —
 von Boot bis Druckergebnis. Die Historie der Änderungen steht in README.md.
 
@@ -18,7 +18,7 @@ von Boot bis Druckergebnis. Die Historie der Änderungen steht in README.md.
 ## 2. Boot-Check (Pflicht, 1 Minute)
 
 - [ ] Konsole: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-19.1)`
+      (build R2-2026-11-19.2)`
 - [ ] ~10 s nach dem Boot: Boot-Sound + LED-Animation
 - [ ] `SHOW_STATUS` antwortet mit Modus/Material/Overrides
 - [ ] Kein Eintrag fehlt: sonst meldet sich `_CHECK_INSTALL` laut mit
@@ -1215,7 +1215,7 @@ gilt dem Neuen seit V3.
 ### Field-Check V4
 
 - [ ] Boot: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-19.1)`
+      (build R2-2026-11-19.2)`
 - [ ] Boot: Ordner `Toolchain/` im Gcodes-Verzeichnis enthält
       `scale-twist.json` (vom Watcher geseedet, falls noch nicht da)
 - [ ] Konsole: `TOOLCHAIN_APPLY PRESET=Toolchain/scale-twist.json
@@ -1256,7 +1256,7 @@ mit Passlöchern, Stege automatisch.
 ### Field-Check V5
 
 - [ ] Boot: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-19.1)`
+      (build R2-2026-11-19.2)`
 - [ ] Texture: Musterliste blättert bis Seite 7 (55 Muster, Titel zeigt
       `n/55`); ein R266.2/R266.3-Muster (z. B. LEDER oder CROCHET)
       anwenden und drucken
@@ -1271,3 +1271,57 @@ mit Passlöchern, Stege automatisch.
       `STENCIL_INFO` zeigt Settings + Bilderzahl
 - [ ] Stencil: 4-Band-Wunsch auf einem 3-Farb-Logo → Generator liefert
       ehrlich 3 Platten + Hinweis in der Antwort
+
+## 34. Die V6-Neuerungen (R2-2026-11-19.2 — Gießformen J2, Fremddrucker-Audit J7, M82-Bogen-Fix & 28 Fachhefte)
+
+**Was neu ist:** Vier große Blöcke seit V5.
+1. **Gießformen-Generator (`J2`, R270–R273):** `Tools > Casting molds`
+   baut direkt auf dem Drucker mehrteilige Silikon-/Gießformen — sowohl
+   um jede ausgewählte G-Code-Datei (`MOLD_CREATE`) als auch ohne
+   Vorlage als parametrische Urkörper (`Tools > Casting molds > Blank
+   molds`: Medaillon, Plakette, Barren mit optionaler Relief-Tasche
+   `MOLD_BLANK_CREATE`). 2-teilige Äquator-Formen (`AUTO`/`MID`/`OFF`),
+   3-/4-teilige Sektorformen (`Sectors = 1/2` mit Abgleit-Beweis und
+   horizontalen Dübeltunneln), Einguss + konischer Trichter, adaptive
+   Entlüftungen, Passdübel an identischen Bettkoordinaten, Formschräge
+   `0..3°` und drei Oberflächenmodi (`STANDARD`, `FINE` mit gebügelter
+   Trennfläche bei `20 mm/s`, `FUZZY` auf den Außenwänden). Einseitig
+   (`TOP`/`BOTTOM`) auch als Toolchain-Stufe (`mold`, `mold_blank`)
+   nutzbar.
+2. **M82-Bogen-Extrusions-Fix (`R276`):** `apply_twist` und
+   `apply_mirror` führen auf `M82`-Dateien (absolute Extrusion) den
+   laufenden `E`-Zähler jetzt auch über `G2`/`G3`-Bögen, einachsige
+   `G1`-Züge und selektive `OBJ=<Name>`-Spiegelungen exakt nach (`0`
+   E-Sprünge, `ΣΔE` invariant).
+3. **Fremddrucker- & Maschinenmodell-Audit (`J7`, R274):** Gemessener
+   Kompatibilitäts-Nachweis über Betten von `180..300 mm`, Düsen
+   `0,4..0,8 mm`, Sonden-Offsets und Niedrig-Z-Achsen (`COMPATIBILITY.md`
+   §9).
+4. **Sektion D komplett (28 stempelaktuelle PDFs im Repo-Root):** Alle
+   **13/13 Einzel-Generator-Fachhefte** (`MOLDS`, `STENCIL`,
+   `LITHOPHANE`, `COLORPIC`, `STRINGART`, `BRICKS`, `LABELS`, `FRAMES`,
+   `PLOTTER`, `ANGLES`, `CABLETIES`, `GASKETS`, `GEOMETRY.pdf`) und alle
+   **7/7 Pre-Print-Modifikator-Fachhefte** (`TEXTURING`, `CUTSPLIT`,
+   `SCALE`, `TWIST`, `MIRROR`, `RANGE`, `TOOLCHAIN.pdf`) fertiggestellt
+   und D6-geprüft.
+
+### Field-Check V6
+
+- [ ] Boot: `Macro system OK: all 19 modules loaded and current
+      (build R2-2026-11-19.2)`
+- [ ] Gießform aus Datei: Einfaches Testteil im SD-Browser wählen →
+      `Tools > Casting molds` → `Split: AUTO`, `Part: BOTH`, `Create`
+      (2-Press) → `Molds/V<nn>_FormUnten_…` und `V<nn>_FormOben_…`
+      entstehen; beide Trennflächen liegen beim Druck oben, die 4
+      Passdübellöcher fluchten beim Zusammenklappen
+- [ ] Gießform-Urkörper mit Relief-Tasche: `Tools > Casting molds >
+      Blank molds` → `MEDALLION` (`Dia 40`, `Thick 8`, `Pocket t 2 mm`) →
+      `Create` (2-Press) → Formhälfte mit sauberem zentralen
+      Relief-Sitz entsteht (`MOLD_BLANK_INFO` zeigt Parameter)
+- [ ] Sektorform & ehrliche Ablehnung: Überhängendes Teil (z. B. Pilz)
+      mit `Sectors = 1` bauen (`FormOben_S1`/`S2` mit Dübeltunneln);
+      erzwungene Hinterschneidung (z. B. `Plane = OFF`, `Z = 1 mm` an
+      einer Kugel) verweigert ehrlich ohne Datei-Reste
+- [ ] Twist / Mirror auf M82-Datei: `Pre-Print > Tools > Twist` bzw.
+      `Mirror` auf einer `M82`-Datei mit Bögen ausführen — Vorschau und
+      Druck ohne Extrusions-Ruck am Bogenübergang

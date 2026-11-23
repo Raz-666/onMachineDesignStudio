@@ -215,9 +215,9 @@ if [ "${1:-}" = "--git" ]; then
     GIT_CUR_D="${GIT_CUR_D:-0}"; GIT_NEW_D="${GIT_NEW_D:-0}"
     if [ -n "${GIT_NEW_N}" ] && [ -n "${GIT_CUR_N}" ] \
        && { [ "${GIT_NEW_D}" -lt "${GIT_CUR_D}" ] \
-            || { [ "${GIT_NEW_D}" -eq "${GIT_CUR_D}" \
-                 && { [ "${GIT_NEW_N}" -lt "${GIT_CUR_N}" ] \
-                      || { [ "${GIT_NEW_N}" -eq "${GIT_CUR_N}" ] \
+            || { [ "${GIT_NEW_D}" -eq "${GIT_CUR_D}" ] \
+                 && { [ "$((10#${GIT_NEW_N}))" -lt "$((10#${GIT_CUR_N}))" ] \
+                      || { [ "$((10#${GIT_NEW_N}))" -eq "$((10#${GIT_CUR_N}))" ] \
                            && [ "$(r2_sfx_val "${GIT_NEW_S:-}")" -lt "$(r2_sfx_val "${GIT_CUR_S:-}")" ]; }; }; }; }; then
         if [ "${FORCE}" -eq 0 ]; then
             echo "[!] origin is OLDER than the installed version (R2 date ${GIT_CUR_D}, .${GIT_CUR_N}${GIT_CUR_S})"
@@ -272,7 +272,7 @@ if [ "${1:-}" != "--unpacked" ] && [ -n "${CFG_DIR}" ]; then
         ZD="$(printf '%s' "${ZT%% *}" | tr -d '-')"
         ZR="${ZT#* }"; ZN="$((10#${ZR%% *}))"; ZS="${ZR##* }"
         if [ "${ZD}" -gt "${BEST_D}" ] \
-           || { [ "${ZD}" -eq "${BEST_D}" \
+           || { [ "${ZD}" -eq "${BEST_D}" ] \
                 && { [ "${ZN}" -gt "${BEST_N}" ] \
                      || { [ "${ZN}" -eq "${BEST_N}" ] \
                           && [ "$(r2_sfx_val "${ZS}")" -gt "$(r2_sfx_val "${BEST_S}")" ]; }; }; }; then
