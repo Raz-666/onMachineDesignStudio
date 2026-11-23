@@ -1,4 +1,4 @@
-# MASTER-TODO — alles, was der User verlangt hat (Stand: R2-2026-11-18.2 / V3)
+# MASTER-TODO — alles, was der User verlangt hat (Stand: R2-2026-11-19.2 / V6)
 
 **Diese Datei ist ab jetzt der einzige Ort, an dem Aufgaben stehen.** Wenn etwas
 nicht hier steht, existiert es für die Arbeit nicht. Jede erledigte Zeile wird
@@ -222,11 +222,82 @@ Baumrinde aus oder wie Holzdiele oder Parkett … irgendwas hast du verhauen."
       aktuellen echten Pattern-Funktionen und 27 materialgebundene Presets.
       Vorschaubilder sind ausdrücklich als Algorithmus-Simulationen markiert,
       nicht als Druckergebnis.
-- [ ] **D3 — Pro Generator eine wissenschaftliche PDF** (Vorbild:
+- [x] **D3 — Pro Generator eine wissenschaftliche PDF** (Vorbild:
       `TEXTURING.pdf`, `CUTSPLIT.pdf`): Funktionsweise, Parameter, Abläufe,
       Presets, Beispiel-Parametersätze mit erwartetem Ergebnis.
-- [ ] **D4 — Pro Modifikator (Pre-Print-Geometrie-Tools) eine PDF** mit der
+      **KOMPLETT ERLEDIGT R275 / R277 / R278 / R279 (alle 13 von 13 Einzel-
+      Generator-PDFs fertiggestellt, D6-geprüft per Seiten-Render & mit
+      Pure-Stdlib-Gates abgesichert):**
+      - **R275 (1/13):** `MOLDS.pdf` (`tools/make_molds_pdf.py`, 11 S.) + Sammel-/
+        Handbuch-Parität (`GENERATORS_TOOLS.pdf` 15 S., `MANUAL.md` §5.22 +
+        416er Index, `MANUAL.pdf` 113 S.; Gate `r275_docs_mold_pdf_check.py` 15/15).
+      - **R277 (Paket 1 — Bild-/Kunst-Generatoren, 5/13):**
+        `STENCIL.pdf` (6 S.), `LITHOPHANE.pdf` (7 S.), `COLORPIC.pdf` (5 S.),
+        `STRINGART.pdf` (6 S.) — Beleg: `tools/r277_d3_image_pdfs_check.py` 22/22.
+      - **R278 (Paket 2 — Konstruktions- & Alltags-Generatoren, 9/13):**
+        `BRICKS.pdf` (7 S.), `LABELS.pdf` (6 S.), `FRAMES.pdf` (5 S.),
+        `PLOTTER.pdf` (5 S.) — Beleg: `tools/r278_d3_craft_pdfs_check.py` 25/25.
+      - **R279 (Paket 3 — Werkstatt- & Grundkörper-Generatoren, 13/13 komplett):**
+        1. `ANGLES.pdf` (`tools/make_angles_pdf.py`, 6 S.): Konkaves 6-Eck-Winkelpolygon
+           (`30°..170°`) vs. `FLAT`-Stoßverbinder (`180°`, gespiegeltes Lochbild),
+           `>= 3,0-mm`-Randgarantie (`d_max = min(width - 6, 10)`) + automatische
+           Lochzahl-/Wandring-Reduktion, 2-Stufen-Senkung `CS` (`1,5×d / 2,0×d`) +
+           R95-Bohrungs-Sperrkreise, ein-/zweistufige Eckrippen (`Gusset` / `Stepped`),
+           `_poly_hatch()` (`max_conn <= 3,0 mm`), 5 gemessene Läufe.
+        2. `CABLETIES.pdf` (`tools/make_cableties_pdf.py`, 6 S.): Band-Biegedehnung
+           `ε_max = t_strap / (2·R_min)`, selbstskalierender `CLASSIC`-Kopf
+           (`slot_w = width + 0,50 mm`, `+0,6 mm` versetzte 2-Lagen-Sägezähne,
+           Decken-Sperrklinke `Pawl`) vs. wiederlösbare `LOOP`-Schlaufe + seitliche
+           45°-Rastperlen (`+0,5 mm/Seite`), selektiver Kopf-Brim, R96-Schlitzwächter,
+           R197-ehrliche `TYPES=` & `TIE_1..TIE_n`-Einzelobjekte, 5 gemessene Läufe.
+        3. `GASKETS.pdf` (`tools/make_gaskets_pdf.py`, 5 S.): Nahtlose archimedische
+           Spirale `band_pts()` (`Δr = 0,95·wid`, alternierender Schichtaufstieg,
+           0 Radialnähte), `FLAT` vs. `NUT`-Doppellippe (`2× 30 %` Lippen + `40 %`
+           Nut -> exakt `A_NUT = 0,60·A_FLAT`, `+66,7 %` Flächenpressung), Stegbreiten-
+           Wächter + ehrlicher `NUT->FLAT`-Fallback, R96-Nutsperrscheibe, 15-%-Fluss-
+           Spiral-Ironing, 5 gemessene Läufe.
+        4. `GEOMETRY.pdf` (`tools/make_geometry_pdf.py`, 5 S.): `TRIANGLE`, `SQUARE`,
+           `POLY` (`3..12`) & `CYLINDER` (`48` rund / `3..64` Seg.) mit kippfreier
+           Startphase `a_0`, affinem `_ngon_inset()`, echter 3D-Spiralvase (`Walls = 1`,
+           stetiger Z-Anstieg, 0 Retracts, R217-ehrliche `TYPES=`) sowie zweistufigem
+           45°-Diagonal-Brückentest `make_bridge()` (`L_max = min(u_w-t, u_h-t)·√2`,
+           erzwungener `>= 10-mm`-Luftspalt zwischen `BRIDGE_LONG` und `BRIDGE_SHORT`),
+           6 gemessene Läufe.
+        Beleg: `tools/r279_d3_workshop_pdfs_check.py` 25/25.
+- [x] **D4 — Pro Modifikator (Pre-Print-Geometrie-Tools) eine PDF** mit der
       Mathematik dahinter — so erklärt, dass man blind am Drucker arbeiten kann.
+      **ERLEDIGT R276:** Alle fünf bisher fehlenden Pre-Print-Geometrie-Modifikatoren
+      unter `Pre-Print > Tools` besitzen nun neben `TEXTURING.pdf` und
+      `CUTSPLIT.pdf` jeweils ihr eigenes Mathematik- & Blindbedienungs-Fachheft
+      auf Basis von `r2_pdf_kit.py` (dynamischer `R2VER`-Stempel, live aus
+      `menus/lcd_menues.cfg` gelesene Menüzeilen, sämtliche Abbildungen und
+      Referenztabellen zur Bauzeit aus echten Engine-Läufen berechnet):
+      1. `SCALE.pdf` (6 S., `tools/make_scale_pdf.py`) — anisotrope XY-Skalierung,
+         lineare Z-Taper-Interpolation auf `[ezmin, ezmax]`, Richtungsfaktor
+         `k_E(θ, z) = (L'/L)·(w'/w)`, G2/G3-Ellipsensehnen, physikalische
+         0,4-mm-Düsengrenzen, Rasten- & Kopfrechenregeln.
+      2. `TWIST.pdf` (6 S., `tools/make_twist_pdf.py`) — `SO(2)`-Helixrotation,
+         Isometrie-Beweis (`det R = +1 -> E verbatim`), Umkreis-Bettwächter
+         `2·R_circ`, Überhang-Nomogramm & Kopfrechenformel `|DEG|_sicher ≈ 63·H/r`.
+      3. `MIRROR.pdf` (5 S., `tools/make_mirror_pdf.py`) — In-Place-Spiegelung
+         um eigenes Zentrum `(c_x, c_y)`, BBox-Selbstinvarianzbeweis, G2/G3-
+         Chiralitätswechsel, R239-KAMP-`POLYGON=`-Regel & R224 `OBJ=<Name>`.
+      4. `RANGE.pdf` (6 S., `tools/make_range_pdf.py`) — `Stop@` vs.
+         `make_range()`, globale `Δz`-Bettankerung, höhentreue R224-In-Window-
+         Ersetzung (`inside=1`) zum nahtlosen Stapeln, `FOOTPRINT` vs. `OUTLINE`
+         + Nabenloch, `O(1 Layer)`-Streaming & Messschieber-zu-Schicht-Kopfrechnen.
+      5. `TOOLCHAIN.pdf` (6 S., `tools/make_toolchain_pdf.py`) — Operator-
+         Komposition `(T_n ∘ ... ∘ T_1)(G_0)`, Kommutatorbeweis `[R(α), S] != 0`
+         (`Scale -> Twist != Twist -> Scale`), kanonische 5er-Reihenfolge,
+         `r2-toolchain/1` & §22.4 atomare `Vnn_`-Übergabe sowie Abgrenzung zur
+         Laufzeit-Translation `Offset X/Y/Z` (`SET_GCODE_OFFSET`).
+      Zusatzfund & Fix durch die D6-Echtlauf-Messung in R276: In `apply_twist()`
+      und `apply_mirror()` (`tools/r2_postproc.py` + `r2_postproc_next.py`)
+      wurden `last_e`/`new_e` auf `M82`-`G1`-Zügen vor `G2/G3`-Bögen nicht
+      nachgeführt (E-Sprung am Bogen), einachsige `G1 X...`-Züge in `apply_twist`
+      sowie das Header-`EXCLUDE_OBJECT_DEFINE` bei `apply_mirror(..., obj=...)`
+      abgesichert — jetzt `ΔE = 0,00000 mm` exakt. Beleg:
+      `tools/r276_d4_modifier_pdfs_check.py` 22/22.
 - [x] **D5 — Kreativ-PDF „On-Machine Design Studio for Creative Freedom"** *(erledigt
       2026-11-18, Commit `9468051`)*: Titel gesetzt, neue Kapitel Modellbau
       (Toleranzen, Doppel-Durchgang ehrlich), Deko-Sets (Varianten-Strategie),
@@ -236,9 +307,13 @@ Baumrinde aus oder wie Holzdiele oder Parkett … irgendwas hast du verhauen."
       verbatim: *kein PC, kein 3D-Programm, keine KI — nur ein Drehrad.*
       `CREATIVE_POSSIBILITIES.pdf`, 10 Seiten (vorher 7), TOOLS_INVENTORY
       nachgezogen.
-- [ ] **D6 — Bilder-Regel (verbindlich):** keine Fantasie-Grafiken. Jede
+- [x] **D6 — Bilder-Regel (verbindlich):** keine Fantasie-Grafiken. Jede
       Anschauung muss aus den tatsächlichen Parametern und dem echten
       Algorithmus abgeleitet sein, Rechtschreibung im Bild korrekt.
+      *(Laufende Dauerregel; in R275–R279 für sämtliche 13 D3-Generator-PDFs
+      und sämtliche 5 neuen D4-Modifikator-PDFs zu 100 % eingehalten, aus
+      echten Engine-Läufen erzeugt und Seite für Seite visuell per PNG-Render
+      gegengeprüft.)*
 
 ## E. Crash / MCU-Shutdown (offen)
 
@@ -370,10 +445,14 @@ wieder bereit ist. Nichts hiervon ohne Go.)*
 
 ### Fortsetzungsstand: Gesamtprüfung B/C
 
-- [ ] Gesamtbriefing §20–28 einzeln gegen Implementierung und Tests abgleichen,
-      einschließlich RE-Recherchen, Slicer-Familien und Performance-Hinweisen.
-      Nutzer hat diese Prüfung bereits beauftragt; keine erneute Rückfrage.
-      B/C-Status aus dem Gespräch bleibt bis dahin vorläufig.
+- [x] **Gesamtbriefing §20–28 einzeln gegen Implementierung und Tests abgeglichen (erledigt R280, Beleg: `analyse/GESAMTBRIEFING-ABGLEICH-20-28.md`).**
+      Paragraf-für-Paragraf-Matrix für **§§ 20–29** (`R2-D2 – Gesamtbriefing für die Coding-GPT.md`, Zeilen `1155–2444`) sowie Einzelprüfung von `GCode_Reverse_Engineering_Masterkonzept.md`, `Reverse Engineering von G-Code Geometrien.md`, `slicer-families.md` und `Potential performance& compatibility issues.md` gegen aktuellen Produktcode und Batterien:
+      - **§20 Toolchain:** `r2-toolchain/1`, `plan_chain`/`run_chain`, §20.2 Eingabeverbot, §20.3/§22.4 Temp-Handoff und 7 kettbare Tools (`range/scale/twist/mirror/texture/mold/mold_blank`) erfüllt (`E`); interaktiver LCD-Ketteneditor gemäß Nutzerentscheid K3 bewusst dateibasiert (`D`).
+      - **§21–§22 Ausgabemodi & Queue:** `SAVE/PREVIEW/QUEUE`, nicht-destruktive `Vnn_`-Ableitungen für alle Generatoren/Modifikatoren/Ketten, `validate_job_output`, `gen_busy`-Sperre an allen 4 Druckstart-Einstiegen (K4), `ram_min_mb=60` und alle 50 `NONCE_KEYS` geprimet & im Druck eingefroren (`E`); historisches In-Place-Tagging von `process()` als bewusste Bestandsregel (`r81`) separat dokumentiert.
+      - **§23 Objektmodell:** `apply_mirror(..., obj=...)` beherrscht Einzelobjekt-Spiegelung ums eigene Objektzentrum (`E`); `Scale`/`Twist`/`Texture` wirken aktuell noch plattenweit ohne `OBJ=`-Auswahl (`G`/`DEFER`).
+      - **§24 STL-/OBJ-Export:** 16 Offline-Module mit 172 CI-Tests + geschlossene Rose-Vase (`22.266` Dreiecke, `0` Selbstschnitte, `4.810,105 mm³`); Umbau des aktiven `_stl_export` gemäß Nutzerentscheid **J1** zurückgestellt (neue Richtung: Punktwolke + Haut spannen).
+      - **§25–§27 Extrusionskompensation, Texture & Range:** Richtungs-/Breitenfaktor `k_E(θ, z)` in `Scale`, `SO(2)`/`O(2)`-Isometrie + R276-`M82`-Bogen-Fix in `Twist`/`Mirror`, `R266`-Deep-Relief-`L_neu/L_alt` + R224-Innenwandführung + 55 Muster in `Texture` sowie H1–H3 Cake/Range-Reparatur vollständig verifiziert (`E`).
+      - **§28 Reverse Engineering & Slicer-Familien:** `gcode_re.py` (`r2-re/2`, Pass 0–11, read-only Sidecar, `calibrated: false`, `UNKNOWN/AMBIGUOUS`) + `TYPE_MAP` (217 Aliase → 17 Rollen) + 4 Feld-Fixtures (`Orca`, `SliceBeam`, `Kiri:Moto`) + 13 synthetische Dialekt-Familien verifiziert; exotische Slicer ohne echte Voll-Fixtures ehrlich auf `VERIFY` belassen. Alle 8 Risikogruppen aus `Potential performance& compatibility issues.md` einzeln gegengeprüft.
 - [ ] STL: bestehende Regressionstests ausführen, Mesh-Prüfung ergänzen;
       Offline-Prüfer `tools/stl_audit.py` umgesetzt, 5 Mesh-Tests und 3
       E-State-Tests bestanden. Zwei gestapelte Bahnen reproduzieren 2 doppelte
@@ -663,7 +742,204 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       budget), Loft zwischen Outlines, Loch-Inferenz, Kiri-`; start object
       id:`-Marker, Breiten-Schalenmodell, Slicer-Reimport; aktiver
       Exporter (Box-Soup) unverändert defekt.
-- [ ] **J2 — Gießformen-Pre-Print-Tool (NEU, vom Nutzer in Aussicht gestellt).**
+- [~] **J2 — GIESAFORMEN-GENERATOR — FREIGEGEGEBEN 19.11.2026 (vier
+      Nutzer-Entscheidungen im Arena-Dialog), Bau läuft (R270+).**
+      **Verbindliche Spezifikation (Lastenheft):**
+      (1) **Modellquelle gestaffelt:** Häppchen 1 = Form um eine fertige
+      G-Code-Datei (SD-Browser-Auswahl, Kavität aus per-Z-Band-Silhouetten,
+      gefüllt + Toleranz-Aufweitung); Häppchen 2 = parametrische Grundkörper
+      (Medaillon, Plaque, Bar) mit Relief-Einbettungsplatz.
+      (2) **Teilung VOLL ab Tag 1 (Nutzer-Entscheidung gegen die Staffel-
+      Empfehlung):** 2-teilig (Trennebene Z-Mid/Auto-Äquator/eine Z-Versatz,
+      Pitch-Roll-Pläne mit der 3/4-Stufe), 3-teilig (Ebene + 1 Sektor-
+      schnitt), 4-teilig (2 Sektorenschnitte). Interne Beweisstufen mit
+      eigener Batterie pro Stufe, ein Release-Zyklus.
+      (3) **Ausgabe-Modus am LCD wählbar:** Both / Top / Bottom / je Sektor /
+      Positiv-Master (Silikon-Abform-Referenz).
+      (4) **Heimat beides:** LCD-Menüzweig UND toolchain-Schritt (wie
+      Stencil R267).
+      **Parameter (Defaults aus der Recherche-Notiz):** Wand 3–15 mm (5) ·
+      Toleranzspalt 0,05–0,30 mm (0,15) · Einguss 5–15 mm (8) + Trichter
+      None/Konisch · Entlüftung 1,5–4 mm (2,5) · Passung Stifte Ø 3–8 mm (5)
+      · Formschräge 0–3° (0) · Oberfläche Standard/Fein/Fuzzy (Textur-
+      Anbindung später).
+      **Architektur (fix):** DIREKTE G-Code-Erzeugung (Labels/Plotter/
+      StringArt-Muster), KEIN trimesh-Boolean (Pi Zero 2 W) · Job über
+      Makro → SAVE_VARIABLE → Watcher → `_spawn_job` · RAM-Floor 60 ·
+      Web-UI-Spiegelung automatisch · Versionierung `Vnn_Form…_…`.
+      **STAND R270 (19.11., Häppchen 1 Stage A FERTIG):** Engine
+      `make_mold()` in r2_postproc.py — Source-Scan (G90/G91/M82/M83/
+      G92, ;TYPE:-Filter mit der R253-Regel „keine TYPE-Zeilen = nichts
+      ausschließen", Arkten grob gesampelt), gefüllte Silhouetten pro
+      Z-Fenster, Äquator-Split (AUTO/MID/OFF), BEIDE Hälften Parting-
+      Fläche-nach-oben (klassischer flat-face-up-Trick: beide Passflächen
+      werden Top-Surfaces, keine Kavitätswand druckt über Leere; das
+      Oberteil ist Y-gespiegelt gedruckt, der Nutzer wendet es beim
+      Zusammenbau wie einen Deckel), Boden/Deckel = Wandstärke, Einguss-
+      kanal + konischer Trichter + adaptive Entlüftungen (nur wo sie
+      PHYSISCH passen: ≥2mm Steg zwischen Einguss und Lüfter, sonst
+      ehrliche Notiz), Dübellöcher an identischen Bett-Koordinaten
+      (Stencil-Registratur-Muster, auf Zellzentren gesnappt, D3-Default
+      = Filamentstab, Dübel-vs-Wand-Validierung), Entlüftungsrillen auf
+      BEIDEN Trennflächen, Formschräge als echte Zell-Erosion (der
+      Radius-Trick wurde von der Silhouetten-Füllung geschluckt — Batterie
+      bewies 3904==3904 Zellen, jetzt messbar weniger), Master (Positiv)
+      mit. All-or-nothing: jede Verweigerung (Hintersneidung mit Layer-
+      und Zellzahl, Bett, Draft schließt die Kavität, Dübel passt nicht)
+      hinterlässt KEIN File. Batterie `r270_mold_check.py` 33/0 (dynamisch:
+      Layer-Mathematik analytisch, Geometrie aus dem G-Code gemessen,
+      Draft/Gap über Kavitäts-Zellzähler). Gates: macro_render 2133/2133
+      (R162-Pin ehrlich auf 3 Vollumfang-Hatch-Aufrufe erweitert — der
+      Pin fing vorher einen ECHTEN Nullhöhen-Bug im Mold-Fill), megatest
+      224/0, systemtest 214/0, r81 23/23, r142 142/0, audit 82/0,
+      toolchain OK.
+      **STAND R270 STAGE B (19.11., VERDRAHTET):** LCD-Generator-Menü
+      `__gen __mold` (Wand/Spalt/Einguss+Trichter/Entlüftung/Dübel/
+      Formschräge + Split & part [AUTO/MID/OFF+Z, BOTH/TOP/BOTTOM,
+      Master-Toggle] + 2-Druck-Build), Makros MOLD_INFO/MOLD_CREATE
+      (Datei aus SD-Browser-Auswahl wie Cake, Nonce + _GEN_ARM/_GEN_GO),
+      Watcher mold_nonce-Block (ValueError-Verweigerungen erreichen das
+      LCD MIT Grund), GEN_SUBDIRS 'molds'->Molds + 'stencil'->Stencil
+      nachgetragen (V5-Latenzbug: der R267-Watcher rief einen nie
+      registrierten Key - jede Schablonen-Anfrage waere am Geraet mit
+      KeyError gestorben; Batterien umgehen den Watcher, deshalb sahen
+      es alle Gates gruen), Toolchain: TOOL_REGISTRY['mold'] (Ketten
+      einseitig: part-Enum nur TOP/BOTTOM, BOTH lehnt Validierung UND
+      Adapter ab) + Adapter + 3 neue Ketten-Tests. Daneben 2 ehrliche
+      Altfund-Fixes: LCD-Anzeigebug Cake 'and 0 or'-Muster (UPPER zeigte
+      BOTH an - 'True and 0' ist falsy, '0 or 2' nimmt 2; durch
+      Konditionalausdruck ersetzt) und Fixture-E in test_toolchain_steps
+      (konstantes E0.20 nach G90-ueber-M83 extrudiert unter Klipper nur
+      den ersten Zug - E jetzt kumulativ wie bei echten Slicern).
+      Pins ehrlich fortgeschrieben: NONCE_KEYS 49, Guards 9, _gensub-
+      Call-Sites 23, CONFIRM-Zeilen 59, R135-Pfadliste +17, R162-Pin 3.
+      Gates: r270 33/0, macro_render 2133/2133, megatest 224/0,
+      systemtest 214/0, r81 23/23, r142 142/0, audit 82/0,
+      test_toolchain 49 OK, test_toolchain_steps 25 OK, r165/r166 clean.
+      **STAND R271 (19.11., SEKTORSTUFE FERTIG):** `make_mold(sectors=0,
+      sec_half='AUTO')` — sectors=1 = 3-teilig (Trennebene + 1 Sektor-
+      schnitt), sectors=2 = 4-teilig (2 Schnitte). Design im Docstring
+      verankert: achsparallele VERTIKALE Cuts durch die KAVITAET (Achse =
+      laengere Kavitaet-bbox-Seite, Schnitte an den bbox-Dritteln, ge-
+      messen ueber _scan270-Vorab-Scan); die sektorierte Haelfte emitiert
+      EIN FILE PRO STUECK (`Vnn_FormOben_S1_…`), Brim/EXCLUDE-Polygon/
+      Center folgen dem STUECK-Rechteck (Brim greift ueber die Schnitt-
+      kante - Stueck-lokal statt block-lokal). Abzieh-Beweise streaming
+      pro Layer: aeussere Stuecke muessen entlang der Cut-Achse SLIDEN
+      (pro Zeile darf Kavitaet nur an der Cut-Flaeche anliegen - Gehooktes
+      verweigert mit Layer+Zellzahl; der 2-Blobs-Fall beweist: liegt der
+      Schnitt im Leerraum, blockiert der Rahmen das Wegschieben EHRLICH),
+      Mittelstueck (4-teilig) LIFTET vertikal nach Entfernen der aeusseren
+      (geclippter Equator-Check). Preis der Untercut-Abformung: die
+      Kavitatendecke BRIDGEd ueber den Untercut - gezaehlt, max Spanne
+      notiert, >25mm = Verweigerung (Decke sackt sonst in den Guss).
+      Registrierung der Sektorflaechen: horizontale DUEBEL-TUNNEL (2 pro
+      Cut-Flaeche, in den Rahmenbaendern unterhalb der Pin-Zone, Kreis-
+      querschnitt ueber dz/sh, gemessene freie Oeffnung ~5mm bei D3-Pin).
+      AUTO waehlt die Undercut-Haelfte (TOP vor BOTTOM); beide Undercut =
+      ehrliche Verweigerung (Silikon/Modell splitten). Sektorierte Non-
+      Output-Haelfte oder unpassende Sektoren = Note + Fallback plain.
+      Einguss/Entlueftung/Trichter gehoist (einmal berechnet, Sektor- und
+      Einzel-Emission identische Werte); Fuell/Carry-Zaehler nur ueber
+      die GESCHRIEBENEN Sektionen (Pre-Scan-Stroeme verfaelschen sie
+      nicht mehr). info['sectors'/'sec_half'/'sec_axis'/'sec_cuts'/
+      'bridges'] als Beweis. Batterie `r271_mold_check.py` 25/25: Signatur
+      + Clamp (sectors=9→2, -3→0), 2-part-Regression BYTE-IDENTISCH zum
+      Default-Aufruf, Pilz 3-teilig (Dateien/Achse/Cut/Bruecken/Notizen/
+      Kopf + C7 Stueckkoerper bleiben auf ihrer Cut-Seite ab Layer 2),
+      Schale AUTO→BOTTOM, Tunnel (Kern leer, ausserhalb der Spanne solid,
+      freie Hoehe 3.4-7mm), EXCLUDE-Polygon endet exakt am Cut, ehrliche
+      Verweigerungen (Sanduhr beide-Undercut, Baum 4-teilig Mittelstueck-
+      Lift, 2-Blobs-Rahmen-Block, Disc-Bruecke >25mm). WICHTIGE Lektion:
+      das Bett ist (0,-3,244,238) - X-Zentrum 122, Y-Zentrum 117.5; wer
+      117.5 fuer beide annimmt, misst 4.5mm daneben. Verdrahtung: LCD
+      `__cut __sec` (Sektoren 0/1/2) + `__cut __shlf` (AUTO/TOP/BOTTOM),
+      MOLD_INFO/MOLD_CREATE mit SECTORS=/HALF=, Watcher mold_sectors/
+      mold_sec_half (robust geklemmt), Erfolgs-RESPOND mit Stueck-Hand-
+      habung, `__how` aktualisiert (Seiten-Untercuts jetzt giessbar).
+      Toolchain: mold-sectors als eigener Param mit is-0-Regel (3/4-part
+      = Stueck-Set = Mehrfach-Output = Cake-Regel → LCD-only, Adapter-
+      Guard als zweite Schicht); Rule-Sprache um op 'is' (fester Wert)
+      erweitert. Pins: R135-Pfadliste +2 (`__sec`, `__shlf`), r166 2787
+      Sections (+2). Gates: r271 25/25, r270 33/0, macro_render 2133/2133,
+      megatest 224/0, systemtest 214/0, r81 23/23, r142 142/0,
+      test_toolchain 49 OK, test_toolchain_steps 25 OK, r165/r166 clean.
+      **STAND R272 (19.11., OBERFLAECHEN-PARAM FERTIG):** `make_mold(
+      surface='STANDARD')` - STANDARD = wie gedruckt (60mm/s-Feldspeed,
+      byte-identisch zum alten Aufruf). FINE = IRONING-Glaettpaese ueber
+      der TRENEBENE (oberster Layer: dichte duenne Linien quer zum Fill,
+      15% Flow; die Trennebene ist die DICHTFLAECHE - die Maske des
+      letzten Layers traegt die Pinloecher + Rillen, der Pass umgeht
+      sie automatisch) + das GANZE File druckt mit 20mm/s statt 60
+      (print_f=1200 am _gen_normalize_speeds-Aufruf - die EINE Stelle,
+      an der eine Speed-Aenderung das R159-Speed-Image ueberlebt; die
+      historischen 900/1800/1200/2400-Feeds in _write270 sind seit R159
+      wirkungslos, normalize ueberschreibt jeden Druckzug - deshalb kein
+      toter Drossel-Code). FUZZY = deterministisches Zittern auf den
+      KAVITAET-Wandloops (Hash aus Layer+quantisiertem Punkt, max
+      0.12mm, NUR INS MATERIAL - die Konturregel von _cell_contours
+      haelt Material links der Laufrichtung, also ist die Versatz-
+      richtung exakt; wie die Draft-Erosion darf Fuzzy die Kavitaet nur
+      OEFFNEN, nie schrumpfen; die Maske bleibt unberuehrt: cells_top
+      identisch zu STANDARD, gemessen). Guss wird matt/rau, entformt
+      leichter. info['surface']. Batterie r272_mold_check.py 20/20:
+      STANDARD byte-identisch, IRONING nur im letzten Layer + TYPES-
+      Token + SPEED_INNER 60->20 + kein F3600 + Kavitaet identisch,
+      FUZZY: STANDARD-Wandpunkte EXAKT auf Zellkanten (0/352 >0.02mm),
+      FUZZY versetzt 272/352, max 0.085mm, Determinismus, Kavitaet
+      identisch, Sektorkombi (beide Stuecke geironed). Verdrahtung:
+      LCD `__set __srf`, MOLD_INFO/MOLD_CREATE SURFACE=, Watcher
+      mold_surface (robust geklemmt), Toolchain surface-Enum (ketten-
+      freundlich, kein Output-Problem). Gates: r272 20/20, r270 33/0,
+      r271 25/25, macro_render 2133/2133 (R135 +1), megatest 224/0,
+      systemtest 214/0, r81 23/23, r142 142/0, audit 68/0, toolchain
+      49+25 OK, r165/r166 clean (2788 sections). _next synced.
+      J2-Haeppchen-1-Engine damit KOMPLETT (alle Lastenheft-Parameter
+      umgesetzt).
+      **STAND R273 (19.11., Haeppchen 2 FERTIG - J2 DAMIT KOMPLETT):**
+      Parametrische Grundkoerper OHNE Quelldatei: `make_mold_blank()`
+      (MEDALLION dia x thick / PLAQUE width x height x thick + Ecken-
+      radius / BAR length x bar_w x bar_h + Taper zum Kopf) generiert
+      die Silhouetten-Referenz selbst und stellt den R270-R272-Apparat
+      drumherum. **Relief-Einbettungsplatz (Boss):** Die Tasche geht
+      NICHT durch die Silhouetten-Fuellung (Flood-Fill soldiert jede
+      eingeschlossene Oeffnung - die ehrliche Through-Hole-Regel),
+      sondern ist ein explizites Form-Feature: konstanter Querschnitt,
+      in die rueckwärtigen Layer der Top-Kavität gestanzt (NACH der
+      Formschraegen-Erosion - Taschenwaende bleiben senkrecht, nur die
+      Aussenkavitaet kriegt Schraege), haengt am Ruecken = waechst beim
+      Druck vom Boden (kein Bridging), oeffnet zur Trennflaeche =
+      entformt senkrecht. Fit-Check mit echten Sektionen: Boss + 2
+      Zellen Freiraum muessen auf JEDER Boss-Layer in der Kavitaet
+      liegen (sonst ValueError mit mm-Angabe); Rim >= 4mm und Boden
+      >= 2mm unter der Tasche werden vorab verweigert; Sektoren + Boss
+      verweigern ehrlich (der Boss blockiert das Abgleiten der Stuecke).
+      Taschen-Defaults pro Form (Medaillon D-10, Plaque/Breite-12),
+      Tiefe 2mm, 0 = aus. Verdrahtung: LCD `__mold __blank` (Form, 10
+      Masze, Sitztiefe; Build-Doppelklick), MOLD_BLANK_INFO/
+      MOLD_BLANK_CREATE (SHAPE=/DIA=/THICK=/WIDTH=/HEIGHT=/CORNER=/
+      LENGTH=/BARW=/BARH=/TAPER=/POCKET_T=/POCKET_D|W|H=, PLANE
+      defaultet auf OFF), Watcher `mold_blank_nonce` (gethreadet wie
+      mold, _gensub 'mold', Nonce-Prime + Busy-Guard), Toolchain-
+      Schritt `mold_blank` (16 Params = Cap, part=BOTH + Sektoren in
+      Ketten gesperrt wie beim mold, Chain-Input wird ignoriert - der
+      Grundkoerper ist seine eigene Quelle). Evidenz:
+      `r273_mold_check.py` 22/22 (Boss-Zellen analytisch pi*r^2 pro
+      Layer, Boss-Wand zentral in der ersten Kavitaeets-Layer, nichts
+      Zentrales in der letzten, Taper 34->40 gemessen vs taper=1.0
+      gleich breit, Rim/Boden/Form-Verweigerungen, BOTH/Master/BOTTOM/
+      FINE-Kombis). Gates: r273 22/22, r270 33/0, r271 25/25, r272
+      20/20, macro_render 2133/2133 (R135 +15 Pfade, R160 60 Zeilen,
+      NONCE 50, R146 24), megatest 224/0, systemtest 214/0, r81 23/23,
+      r142 142/0, audit 82/0, toolchain 49+27 OK,
+      r165/r166 clean (2805 sections). _next synced.
+      **J2 DAMIT KOMPLETT (beide Haeppchen umgesetzt).**
+      **Ehrlichkeitsregeln:** Hinterschneidungs-Check pro Hälfte (Kavität
+      darf zur Öffnung nicht schrumpfen — Guss löst sich nicht, Druck
+      bridgt), Formschräge als Raster-Radius-Approximation (dokumentiert),
+      D6: Preview nur aus echtem Code. Evidenz: `r270_mold_check` +
+      Folgestufen-Batterien mit DYNAMISCHEN Pins (V5-Lektion).
+      **Original-Begründung (Historie):**
       Nutzer-Ergänzung (Sitzung nach `fecf500`): nicht nur zweiteilige
       Hälften — je nach Modellkomplexität auch **Dreitelung oder Vierteilung**;
       **Negativform** ausdrücklich ebenfalls gewünscht. Recherche-Datei des
@@ -760,7 +1036,7 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       J4-Audio-Weg laufen (Pi-Klinke/GPIO-Piezo statt MCU-Beeps — Synergie);
       (f) Sprach-UI in die Web-LCD integrieren (Browser macht STT/TTS,
       ein Funktionskern bleibt). Kein Baubeginn vor ausdrücklichem Go.
-- [ ] **J7 — Maschinenmodell-Kompatibilität auditieren (Gesamtbriefing §12).**
+- [~] **J7 — Maschinenmodell-Kompatibilität auditieren (Gesamtbriefing §12).**
       Was ein FREMDER Drucker braucht, damit das System dort läuft: Bett/
       Grenzen, Düse, Probe, LEDs, Display-Typ, Audio-Weg, Host-Modell
       (Pi Zero 2 W vs. 3B+ vs. …). Anknüpfung: `COMPATIBILITY.md`,
@@ -769,6 +1045,27 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       parametrisch, 1423 Checks). Offline machbar als Audit + Tests
       (synthetische Fremddrucker-Konfigurationen gegen Generatoren/
       Maschinenmodell). Nächster Kandidat nach K2 bzw. nach Nutzerpriorität.
+      **STAND R274 (19.11., OFFLINE-AUDIT FERTIG — Batterie
+      `r274_compat_check.py` 24/24):** Konfigschicht: _R2_CONFIG-Bett
+      gewinnt, r2_hardware.cfg ueberschreibt printer.cfg, Ender-3-Fallback
+      + Hinweis, wahnsinnige Werte -> Fallback + Warnung, Legacy-
+      [r2_postproc] -> HALTS-Warnung + Courtesy-Read, nozzle_diameter
+      geparst/geklemmt (0.1–2.0, Fallback 0.6). Post-R217-Generatoren
+      (die Matrix kannte sie noch NICHT): make_mold + make_mold_blank auf
+      180/250/300mm-Betten — jede X/Y bleibt im Bett (I10-Beweis),
+      uebergrosser Block verweigert mit mm-Angabe, Wand-/Brim-E/mm
+      folgen nozzle*1.08 (0.4->0.8 gemessen 2.14x/2.00x), Block-Platz
+      stabil; EHRLICH: Solid-Hatch snappt die Linienzahl an die
+      Regionsbreite, Hatch-E/mm adaptiert (1.65x, kein Bug); Textur +
+      Stencil klemmen genauso. Makro-Mathe mit Klipper-Jinja-Dialekt
+      (Single-Brace!) gegen 4 synthetische Drucker: _PRIME_LINE-Fenster
+      immer probe-sicher (Heim 244x238/-45/-10, CoreXY 300x300/+60/+10,
+      ohne Probe, ohne _R2_CONFIG), PRINT_END-Lift <= z_max-2 (180mm-
+      Maschine), Praesentation auf 150mm-Achsen geklemmt (Y 228->146).
+      COMPATIBILITY.md um §9 (R274-Audit) + die neuen Generator-Zeilen
+      erweitert. NICHT offline: echte Probe-Z-Qualitaet, Display-Typ,
+      Audio-Weg, Host-Performance (J3/J4 beim Nutzer), §7-Bring-up an
+      einem echten Fremddrucker — bleibt Feldabnahme.
 
 - [~] **J8 — TEXTUREN-RUNDE II (Nutzer-Wunsch 19.11.2026, mit Lastenheft).**
       Nutzerbewertung: die zuletzt ergänzten Texturen „sehen wirklich

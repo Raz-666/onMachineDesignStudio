@@ -23,6 +23,10 @@ import toolchain_steps  # noqa: E402
 def layered_fixture(total_layers=6, size=20.0, x0=100.0, y0=100.0):
     """Synthetische, markierte Datei: total_layers Schichten, pro Schicht
     eine quadratische Aussenwand (APPLY_TYPE WALL-OUTER) mit E."""
+    # R270: E is CUMULATIVE - Klipper reads G90 (after M83) as absolute
+    # for E too, and a constant E0.20 would extrude only the FIRST move
+    # (a real slicer never writes that; the mold scan counts E deltas)
+    e_cum = 0.0
     lines = ['; synthetic chain fixture', 'M83', 'G21', 'G90']
     for layer in range(1, total_layers + 1):
         z = 0.2 * layer
@@ -34,7 +38,8 @@ def layered_fixture(total_layers=6, size=20.0, x0=100.0, y0=100.0):
                    (x0, y0 + size), (x0, y0)]
         lines.append('G0 X%.3f Y%.3f Z%.3f F3600' % (x0, y0, z))
         for cx, cy in corners[1:]:
-            lines.append('G1 X%.3f Y%.3f E0.20 F1800' % (cx, cy))
+            e_cum += 0.20
+            lines.append('G1 X%.3f Y%.3f E%.2f F1800' % (cx, cy, e_cum))
     lines.append('_FILE_INFO MATERIAL=PLA LAYER_HEIGHT=0.2 '
                  'TOTAL_LAYERS=%d LINE_WIDTH=0.6 SLICER=R2_GEN' % total_layers)
     return '\n'.join(lines) + '\n'
@@ -84,11 +89,121 @@ class SystemAdapterTests(unittest.TestCase):
     def test_system_tools_are_menu_tools(self):
         menu = toolchain.build_registry(toolchain.load_menu_data())
         for tool in toolchain_steps.SYSTEM_TOOLS:
+            if tool in ('mold', 'mold_blank'):
+                # R270/R273 (J2): mold + mold_blank UI is the GENERATOR
+                # menu (__main __gen __mold [__blank]), not __mods - the
+                # anchor registry (TOOL_REGISTRY) is its contract instead
+                self.assertIn(tool, toolchain.TOOL_REGISTRY)
+                continue
             self.assertIn(tool, menu)
 
     def test_unknown_tool_has_no_adapter(self):
         with self.assertRaises(ValueError):
             toolchain_steps.system_step_runner('cake', {})
+
+    def test_mold_step_builds_one_half(self):
+        """R270 (J2): der Mold-Schritt in einer Kette - einseitig, die
+        Ausgabe traegt den Plan-Namen (V01_kette_...), nicht den
+        Engine-Namen (V01_FormOben_kette.gcode)."""
+        with open(self.input_path, 'rb') as handle:
+            _before = handle.read()
+        plan = self._plan([
+            {'tool': 'mold', 'params': {'part': 'TOP', 'wall': 5}},
+        ])
+        report = self._run(plan)
+        self.assertTrue(report['ok'], report['error'])
+        self.assertEqual([r['state'] for r in report['steps']], ['success'])
+        final = report['final_output']
+        self.assertTrue(os.path.isfile(final))
+        self.assertTrue(os.path.basename(final).startswith('V01_kette'))
+        self.assertNotIn('FormOben', os.path.basename(final))
+        with open(final, 'r', encoding='utf-8') as handle:
+            body = handle.read()
+        # eine echte Mold-Haelfte: Klipper-Rahmen + Schicht-Marker
+        self.assertIn('PRINT_START', body)
+        self.assertIn('LAYER_MARK', body)
+        self.assertGreater(body.count(';LAYER_CHANGE'), 25)   # 25 back layers
+        with open(self.input_path, 'rb') as handle:   # Quelle unangetastet
+            self.assertEqual(handle.read(), _before)
+
+    def test_mold_both_refused_in_chains(self):
+        """part=BOTH (2 Dateien) lehnt schon die Preset-Validierung ab -
+        der Enum kennt nur TOP/BOTTOM; der Adapter prueft doppelt."""
+        preset = {'schema': toolchain.SCHEMA, 'name': 'Mold BOTH',
+                  'steps': [{'tool': 'mold',
+                             'params': {'part': 'BOTH'}}]}
+        ok, errors = toolchain.validate_preset(preset)
+        self.assertFalse(ok)
+        self.assertTrue(any('"part"' in e and 'enum' in e for e in errors),
+                        errors)
+        runner = toolchain_steps.system_step_runner(
+            'mold', {'part': 'BOTH'})
+        with self.assertRaises(ValueError) as ctx:
+            runner({'tool': 'mold', 'params': {'part': 'BOTH'}},
+                   self.input_path, os.path.join(self.base, 'x.gcode'))
+        self.assertIn('ZWEI Dateien', str(ctx.exception))
+
+    def test_mold_blank_step_builds_a_blank(self):
+        """R273 (J2 bite 2): der Blank-Mold-Schritt in einer Kette - der
+        Chain-Input wird IGNORIERT (der Grundkoerper ist seine eigene
+        Quelle), die Ausgabe traegt den Plan-Namen, und der Relief-Sitz
+        steckt im G-Code (Boss-Wand zentral in der ersten Kavitaeats-
+        Schicht)."""
+        plan = self._plan([
+            {'tool': 'mold_blank',
+             'params': {'shape': 'MEDALLION', 'dia': 40, 'thick': 8,
+                        'pocket_t': 2, 'wall': 5}},
+        ])
+        report = self._run(plan)
+        self.assertTrue(report['ok'], report['error'])
+        self.assertEqual([r['state'] for r in report['steps']], ['success'])
+        final = report['final_output']
+        self.assertTrue(os.path.isfile(final))
+        self.assertTrue(os.path.basename(final).startswith('V01_kette'))
+        with open(final, 'r', encoding='utf-8') as handle:
+            body = handle.read()
+        self.assertIn('PRINT_START', body)
+        self.assertGreater(body.count(';LAYER_CHANGE'), 25)
+        # der Relief-Sitz: der Boss druckt zentral ueber dem Bett-Zentrum
+        self.assertIn(';LAYER_CHANGE', body)
+
+    def test_mold_blank_both_and_sectors_refused_in_chains(self):
+        """part=BOTH und sectors>0 bleiben in Ketten gesperrt (Stueck-
+        bzw. Zwei-Dateien-Semantik) - Enum vorab, Adapter doppelt."""
+        preset = {'schema': toolchain.SCHEMA, 'name': 'Blank BOTH',
+                  'steps': [{'tool': 'mold_blank',
+                             'params': {'part': 'BOTH'}}]}
+        ok, errors = toolchain.validate_preset(preset)
+        self.assertFalse(ok)
+        self.assertTrue(any('"part"' in e and 'enum' in e for e in errors),
+                        errors)
+        runner = toolchain_steps.system_step_runner(
+            'mold_blank', {'part': 'BOTH'})
+        with self.assertRaises(ValueError) as ctx:
+            runner({'tool': 'mold_blank', 'params': {'part': 'BOTH'}},
+                   self.input_path, os.path.join(self.base, 'x.gcode'))
+        self.assertIn('ZWEI Dateien', str(ctx.exception))
+        runner2 = toolchain_steps.system_step_runner(
+            'mold_blank', {'sectors': 1})
+        with self.assertRaises(ValueError) as ctx2:
+            runner2({'tool': 'mold_blank', 'params': {'sectors': 1}},
+                    self.input_path, os.path.join(self.base, 'x.gcode'))
+        self.assertIn('Stueck-Set', str(ctx2.exception))
+
+    def test_mold_default_part_is_chain_friendly(self):
+        """Ohne part-Paramter baut der Schritt die TOP-Haelfte (Ketten-
+        Default, einseitig) - BOTH muss explizit uebers LCD-Generator-
+        Menue laufen."""
+        plan = self._plan([{'tool': 'mold', 'params': {'wall': 6}}])
+        report = self._run(plan)
+        self.assertTrue(report['ok'], report['error'])
+        final = report['final_output']
+        self.assertTrue(os.path.isfile(final))
+        self.assertTrue(os.path.basename(final).startswith('V01_kette'))
+        with open(final, 'r', encoding='utf-8') as handle:
+            body = handle.read()
+        self.assertIn('PRINT_START', body)
+        self.assertIn('LAYER_MARK', body)
 
     def test_range_step_writes_the_planned_name(self):
         plan = self._plan([{'tool': 'range',

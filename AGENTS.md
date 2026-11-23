@@ -17,9 +17,9 @@ du-Anrede, technisch präzise, ohne Fülltext.
 
 ## Aktueller Stand (2026-11-19)
 
-- `main` = Merge `e2b42bc` (Release **R2-2026-11-18.2 / V3**, PR #19); dieser Branch/PR #20 steht auf **V5 (`R2-2026-11-19.1`)** — Texturen-Runde II (55 Muster, Deep Relief) + Sprüh-Schablonen (R267).
-- Release-Status: V1 `R2-2026-11-13.1` → V2 `R2-2026-11-18.1` → V3 `R2-2026-11-18.2` → V4 `R2-2026-11-18.3` → V5 `R2-2026-11-19.1`.
-  Das finale V5-ZIP liegt nach Merge-Go **lokal** in `releases/` (gitignored) mit `.sha256`-Sidecar; der Release-Kandidat wurde auf dem Branch gebaut und geprüft (r199).
+- Release-Stand: **V6 (`R2-2026-11-19.2`)** auf Branch `arena/82ead60b-onmachinedesignstudio` (PR #22 → `main`): Gießformen-Generator **J2** (R270–R273), Fremddrucker-Audit **J7** (R274), M82-Bogen-Extrusionsfix in `Twist`/`Mirror` (R276), **Sektion D komplett** (alle 13/13 D3-Generator-PDFs + alle 7/7 D4-Modifikator-PDFs = 28 Root-PDFs, R275–R279) sowie **Gesamtbriefing-Abgleich §§ 20–28** (`analyse/GESAMTBRIEFING-ABGLEICH-20-28.md`, R280).
+- Release-Historie: V1 `R2-2026-11-13.1` → V2 `R2-2026-11-18.1` → V3 `R2-2026-11-18.2` → V4 `R2-2026-11-18.3` → V5 `R2-2026-11-19.1` → **V6 `R2-2026-11-19.2`**.
+  Das finale V6-ZIP liegt nach Merge in `releases/` (gitignored) mit `.sha256`-Sidecar (aus `origin/main` ohne `analyse/` gebaut und per `r199_zip_check.py` geprüft).
 - Der **Drucker ist im Umbau** — keine Hardware-Tests, keine Feldabnahme,
   keine `printer.cfg`-Änderungen ohne explizites Go + Test-Fenster.
   Die dafür gesammelte **Feld-Abnahme-Checkliste** steht in

@@ -112,6 +112,12 @@ def KV(rows):
 def _clean_name(t):
     t = t.strip().strip("'")
     if t.startswith('{') and t.endswith('}'):
+        m = re.match(
+            r"^\{['\"]([A-Za-z][A-Za-z0-9 +/._-]*?):\s*"
+            r"(?:%[0-9.+-]*[df]([a-zA-Z%/ ]*))?['\"]\s*(?:%|~)", t)
+        if m:
+            unit = (m.group(2) or '').strip()
+            return (m.group(1).strip() + (': ' + unit if unit else ''))[:42]
         return ''
     t = re.sub(r'\{[^{}]*(\{[^{}]*\}[^{}]*)*\}', ' ', t)
     if '{' in t or '}' in t or 'printer[' in t or 'params.' in t:
@@ -127,9 +133,10 @@ def menu_rows(branch, max_n=14):
     src = open(os.path.join(REPO, 'menus', 'lcd_menues.cfg'),
                encoding='utf-8').read()
     out = []
+    seen = set()
     for blk in re.split(r'^\[menu ', src, flags=re.M)[1:]:
         path = blk.split(']')[0].split()
-        if len(path) != 5 or path[2] != branch:
+        if len(path) not in (5, 6) or path[2] != branch:
             continue
         head = blk.split('\n\n')[0]
         m = re.search(r'^name: (.+)$', head, re.M)
@@ -138,7 +145,11 @@ def menu_rows(branch, max_n=14):
         nm = _clean_name(m.group(1))
         if not nm:
             continue
-        out.append((path[4].lstrip('_'), nm))
+        key = path[-1].lstrip('_')
+        if (key, nm) in seen:
+            continue
+        seen.add((key, nm))
+        out.append((key, nm))
         if len(out) >= max_n:
             break
     return out
@@ -183,7 +194,7 @@ def cover_drawing():
                          textAnchor='middle', fillColor=colors.black))
         x += 147
     d.add(Line(8, 20, 442, 20, strokeColor=GRAY, strokeWidth=0.6))
-    d.add(String(225, 10, 'ein Drucker, ein Menü — alles unter Pre-Print > Mods',
+    d.add(String(225, 10, 'ein Drucker, ein Menü — Generatoren unter Tools, Datei-Werkzeuge unter Pre-Print',
                  fontName='DVS', fontSize=8.2, textAnchor='middle',
                  fillColor=GRAY))
     return d
@@ -191,7 +202,7 @@ def cover_drawing():
 
 # ------------------------------------------------------------------ content --
 GEN = [
- ('__litho', 'Lithophane', 'Pre-Print &gt; Tools &gt; Lithophane',
+ ('__litho', 'Lithophane', 'Tools &gt; Lithophane',
   'Ein Bild wird zu einer Lichtplatte: die Helligkeit jedes Pixels bestimmt die '
   'Wandstärke. Gegen Licht gehalten erscheint das Foto. Ausgabe nach '
   '<b>gcodes/Litho/</b>, Name <b>Vnn_…gcode</b>.',
@@ -203,7 +214,7 @@ GEN = [
   'Für Durchlicht PLA (oder weiß) nehmen und mit 0,8–1,2 mm Wandstärke '
   'arbeiten; das Bild nachträglich zu ändern heißt: neu generieren, nicht '
   'nachbearbeiten.'),
- ('__cpic', 'ColorPicture', 'Pre-Print &gt; Tools &gt; ColorPicture',
+ ('__cpic', 'ColorPicture', 'Tools &gt; ColorPicture',
   'Farbige Bilder als flächiger Druck: das Motiv wird in Farbflächen zerlegt '
   'und mit den vorhandenen Filamenten gedruckt. Ausgabe nach '
   '<b>gcodes/ColorPic/</b>.',
@@ -213,7 +224,7 @@ GEN = [
   'Farben heißt mehr Wechsel und damit mehr Zeit und Abfall.',
   'Erst eine kleine Größe generieren und drucken - die Farbtrennung sieht man '
   'erst im Ergebnis richtig.'),
- ('__bricks', 'Bricks (Klemmbausteine)', 'Pre-Print &gt; Tools &gt; Bricks',
+ ('__bricks', 'Bricks (Klemmbausteine)', 'Tools &gt; Bricks',
   'Konstruiert Klemmbausteine und Baugruppen in echten Rastermaßen: Steine '
   '(9,6 mm), Platten (3,2 mm), Fliesen, Schrägen, Bögen, Technik-Löcher, Runde '
   'Teile. Ausgabe nach <b>gcodes/Bricks/</b>, dazu Figuren und Kits.',
@@ -224,7 +235,7 @@ GEN = [
   'einmal je Material einstellen.',
   'Ein Probedruck mit 3 Steinen und 1 Platte klärt die Passung schneller als '
   'jede Rechnung.'),
- ('__labels', 'Labels', 'Pre-Print &gt; Tools &gt; Labels',
+ ('__labels', 'Labels', 'Tools &gt; Labels',
   'Textschilder bis 5 Zeilen mit einstellbarer Position, Zeichenabstand, '
   'Schriftart und Größe. Der Text kann erhaben oder flächenbündig eingelassen '
   'gedruckt werden.',
@@ -234,7 +245,7 @@ GEN = [
   'Vorschau zeigt die Strichstärke, nicht die Druckbarkeit.',
   'Flächenbündig (flush) gedruckt bleibt der Text auch dann lesbar, wenn die '
   'oberste Schicht später abplatzt - die Kontur sitzt in der Schicht darunter.'),
- ('__plot', 'Plotter', 'Pre-Print &gt; Tools &gt; Plotter',
+ ('__plot', 'Plotter', 'Tools &gt; Plotter',
   'Zeichnet Motive mit dem Drucker als Stiftplotter: SVG, PNG/JPG, PDF oder '
   'Text werden zu Bewegungen. Ausgabe nach <b>gcodes/Plot/</b>.',
   'Modus wählen (Zeichnen/Positionieren), Seite/Nullpunkt setzen, Stift '
@@ -244,7 +255,7 @@ GEN = [
   'nur eine Bewegungsvorschau.',
   'Erst Cal fahren, dann ein kleines Motiv - die Papierlage verschiebt sich '
   'sonst um Millimeter.'),
- ('__stringart', 'ArtisticStrings', 'Pre-Print &gt; Tools &gt; ArtisticStrings',
+ ('__stringart', 'ArtisticStrings', 'Tools &gt; ArtisticStrings',
   'Fadenkunst aus Nägeln und Linien: ein Bild oder Muster wird in gerade '
   'Fadenzüge zerlegt, gedruckt wird die Platte mit den Nadelpositionen. '
   'Ausgabe nach <b>gcodes/StringArt/</b>.',
@@ -254,7 +265,7 @@ GEN = [
   'zerstört feine Motive.',
   'Ein Foto-Motiv zuerst klein (9×13) bauen und auf Papier kontrollieren, '
   'bevor die große Platte läuft.'),
- ('__frame', 'Frames', 'Pre-Print &gt; Tools &gt; Frames',
+ ('__frame', 'Frames', 'Tools &gt; Frames',
   'Rahmen mit einstellbaren Maßen, Wandstärke, Tiefe, Rand, Eckradius, '
   'Aufhängung und Stand. Ausgabe nach <b>gcodes/Frames/</b>.',
   'W/H, Wandstärke, Tiefe, Rand und Eckradius setzen, Stand/Aufhängung '
@@ -263,7 +274,7 @@ GEN = [
   'Inhalt (z. B. einer Litho-Platte) passen.',
   'Für Lithos: Plattenmaß zuerst festlegen, dann den Rahmen mit 0,4 mm '
   'Zugabe auf das echte Maß bauen.'),
- ('__angle', 'Angles + Flat', 'Pre-Print &gt; Tools &gt; Angles+Flat',
+ ('__angle', 'Angles + Flat', 'Tools &gt; Angles+Flat',
   'Winkel und Flachverbinder für Platten- und Gehäusebau: Schenkelmaße, '
   'Winkelgrad, Bohrungen, Wandstärke, Infill, Ironing, Steifigkeit, Stückzahl. '
   'Ausgabe nach <b>gcodes/Angles/</b>.',
@@ -273,7 +284,7 @@ GEN = [
   'muss die Kopfsenkung mitgedacht werden.',
   'Flachverbinder mit zwei Bohrungsreihen sind die stabilste Verbindung zweier '
   'Platten - ein Winkel überträgt die Last nur an der Kante.'),
- ('__cable', 'Cable ties', 'Pre-Print &gt; Tools &gt; Cable ties',
+ ('__cable', 'Cable ties', 'Tools &gt; Cable ties',
   'Kabelbinder in parametrischer Länge und Breite, mehrlagig, mit '
   'Brim-Option; gespeicherte Sätze als Presets. Ausgabe nach '
   '<b>gcodes/CableTies/</b>.',
@@ -283,7 +294,7 @@ GEN = [
   'Länge - zu dünn gesetzt reißen sie beim Anziehen.',
   'Immer ein Bündel drucken: eine Stange Kabelbinder kostet Minuten, einzelne '
   'sind Verschwendung.'),
- ('__stencil', 'Sprüh-Schablonen (Stencil)', 'Pre-Print &gt; Tools &gt; Stencil',
+ ('__stencil', 'Sprüh-Schablonen (Stencil)', 'Tools &gt; Stencil',
   'Aus jedem Bild der Lithophane-Liste ein Schablonen-Set: 2-4 Tonbänder, '
   'je Band eine flache Platte (Sprühen hell nach dunkel, Platten auf M4-'
   'Passstiften gestapelt). Stege automatisch bei 3x Düse, Rechteckplatte '
@@ -295,7 +306,23 @@ GEN = [
   'liefert dann ehrlich weniger Platten und sagt es in der Antwort.',
   'Sprühreihenfolge einhalten: hellste Platte zuerst, dunkelste zuletzt - '
   'die Passlöcher richten jede Lage exakt aus.'),
- ('__seal', 'Gaskets', 'Pre-Print &gt; Tools &gt; Gaskets',
+ ('__mold', 'Gießformen (Casting molds)', 'Tools &gt; Casting molds',
+  'Baut aus einer ausgewählten G-code-Datei eine 2-, 3- oder 4-teilige '
+  'Negativform (beide Hälften drucken mit der Trennebene nach oben; '
+  'Oberhälfte Y-gespiegelt zum Zuklappen, 4 Passlöcher +0,3 mm, Einguss-'
+  'trichter + Entlüftung, Oberflächen STANDARD / FINE mit Ironing / FUZZY '
+  'matt) — oder ohne Quelldatei einen parametrischen Rohling (MEDALLION, '
+  'PLAQUE, BAR) mit bündigem Relief-Einbettungssitz. Ausgabe nach '
+  '<b>gcodes/Molds/</b> (Details im eigenen Fachheft <b>MOLDS.pdf</b>).',
+  'Für Dateiformen: Datei wählen, Settings + Split &amp; part setzen, '
+  'Build mold 2× drücken. Für Rohlinge: Blank molds &gt; Shape &amp; size '
+  'setzen, Build blank mold 2× drücken.',
+  'Durchgangslöcher werden in der Silhouette voll gegossen (ehrlich '
+  'gemeldet); Hinterschneidungen über Gap oder Deckenbrücken über 25 mm '
+  'sowie zu schmale Ränder (&lt; 4 mm) verweigern ohne halbe Datei.',
+  'Ein Stück 1,75-mm- oder 3-mm-Rundmaterial als Passstift reicht; für '
+  'Silikon/Harz FINE wählen — die geglättete Trennebene dichtet ohne Grat.'),
+ ('__seal', 'Gaskets', 'Tools &gt; Gaskets',
   'Dichtungen als Ring: Außendurchmesser, Innendurchmesser, Höhe, Profil, '
   'Ironing und Schichthöhe. Ausgabe nach <b>gcodes/Gaskets/</b>.',
   'OD/ID/Höhe und Profil setzen, Ironing zuschalten, Save oder Generate.',
@@ -303,7 +330,7 @@ GEN = [
   'Oberkante rau und trägt nicht flächig.',
   'Ironing an und die Höhe in ganzen Schichten wählen - sonst stimmt die '
   'Endhöhe nicht mit der Nut überein.'),
- ('__shape', 'Geometry (Formen)', 'Pre-Print &gt; Tools &gt; Geometry',
+ ('__shape', 'Geometry (Formen)', 'Tools &gt; Geometry',
   'Grundkörper und Sonderformen: Würfel, Zylinder, Konus, Rohr, Ring, '
   'Prisma, Stern, Pyramide und weitere - als Ausgangspunkt für eigene Teile.',
   'Form wählen, Maße, Wandstärke und Infill setzen, Generate. Ausgabe nach '
@@ -315,7 +342,7 @@ GEN = [
 ]
 
 TOOLS = [
- ('Range (Ausschnitt)', 'Pre-Print &gt; File &gt; Range',
+ ('Range (Ausschnitt)', 'Pre-Print &gt; Tools &gt; Range/Stop',
   'Schneidet aus einer großen Datei einen Schichtbereich heraus - als '
   'eigenständiger Druck mit Sockel, Brim und sauberem Ende. Ideal für '
   'Materialproben und Passungstests, ohne 6 Stunden zu drucken.',
@@ -328,7 +355,7 @@ TOOLS = [
   '_TX-Datei, startet nie von selbst.',
   'Textur lebt von der Wandstärke: bei sehr dünnen Wänden frisst die Tiefe die '
   'Wand, bei sehr dicken sieht man sie kaum.'),
- ('Scale / Twist / Mirror', 'Pre-Print &gt; Tools &gt; Geometry tools',
+ ('Scale / Twist / Mirror', 'Pre-Print &gt; Tools &gt; Scale X/Y · Twist · Mirror',
   'Skalieren, Verwinden und Spiegeln einer fertigen G-code-Datei. Aus einer '
   'Vorlage werden Varianten, ohne neu zu slicen.',
   'Alle drei arbeiten auf Koordinaten: bei sehr großen Änderungen passen '
@@ -341,16 +368,17 @@ TOOLS = [
   'V&lt;nn&gt;_&lt;Name&gt;_&lt;PresetTag&gt;.gcode im Ordner Toolchain/. '
   'Preset im SD-Browser anklicken, Apply 2x drücken - der Fortschritt läuft '
   'als Chain n/N &lt;Werkzeug&gt; über das Display.',
-  'Kettbar sind Range, Scale, Texture, Twist und Mirror - Cake cut nicht '
-  '(zwei Ausgabedateien, Hand-Ubergabe). Presets entstehen am PC/Mainsail '
-  'als .json; am Display kann man sie nur laden und löschen. Während der '
-  'Kette verweigert jeder Druckstart (Wait: generating).'),
- ('Cake cut', 'Pre-Print &gt; Tools &gt; Cake',
+  'Kettbar sind Range, Scale, Texture, Twist, Mirror sowie einseitige '
+  'Mold-/Mold-Blank-Schritte (TOP oder BOTTOM, 0 Sektoren) - Cake cut und '
+  'zweiteilige Molds (BOTH) nicht, weil eine Kette immer genau eine Datei '
+  'weiterreicht. Während der Kette verweigert jeder Druckstart '
+  '(Wait: generating).'),
+ ('Cake cut', 'Pre-Print &gt; Tools &gt; Cut &amp; Split',
   'Zerteilt ein Modell in druckbare Scheiben oder Hälften mit '
   'Verbindungsflächen, damit große Teile auf den Druckraum passen.',
   'Schnittflächen sind eben; Hinterschneidungen am Schnitt bleiben Sache des '
   'Modells.'),
- ('Segment fix', 'Pre-Print &gt; File &gt; Segment fix',
+ ('Segment fix', 'Pre-Print &gt; Fixes &gt; Fix: Segments (MCU)',
   'Verschmilzt Mikro-Segmente, die die MCU-Zeitplanung überlasten können. '
   'Arbeitet mit einer Chord-Toleranz (0,12 bis 0,50 mm) und legt so lange '
   'nach, bis die <b>Dauerrate</b> unter dem MCU-Budget von ~450 moves/s liegt. '
@@ -359,22 +387,22 @@ TOOLS = [
   'Er ersetzt keine Geometrie: was zu klein für die Düse ist, wird '
   'zusammengefasst; echte Details bleiben stehen, wenn sie größer als die '
   'Toleranz sind.'),
- ('Retract fix', 'Pre-Print &gt; File &gt; Retract fix',
+ ('Retract fix', 'Pre-Print &gt; Fixes &gt; Fix: Retraction',
   'Schreibt Retract-Paare auf G10/G11 um, damit die aktuellen '
   'Rückzugs-Einstellungen greifen.',
   'Nur saubere Paare werden umgeschrieben - Wischbewegungen bleiben '
   'unangetastet.'),
- ('Flow cap', 'Pre-Print &gt; File &gt; Flow cap',
+ ('Flow cap', 'Pre-Print &gt; Fixes &gt; Fix: Flow cap',
   'Begrenzt Moves auf einen volumetrischen Grenzwert (mm³/s), damit die '
   'Hotend-Grenze nicht überschritten wird.',
   'Es kappt nach oben; zu kalt oder zu schnell bleibt trotzdem schlecht '
   'druckbar.'),
- ('Travel accel', 'Pre-Print &gt; File &gt; Travel accel',
+ ('Travel accel', 'Pre-Print &gt; Fixes &gt; Fix: Travel moves',
   'Setzt eigene Beschleunigung und Geschwindigkeit für Verfahrwege - '
   'Druck-Accel bleibt unberührt.',
   'Sehr hohe Werte übertragen Riemen und Rahmen: es ist eine '
   'Zeitoptimierung, keine Qualitätsverbesserung.'),
- ('Quality fix', 'Pre-Print &gt; File &gt; Quality fix',
+ ('Quality fix', 'Pre-Print &gt; Fixes &gt; Fix: Quality',
   'Setzt die Quality-Regel durch: nur Verfahrwege, die gedruckte Oberfläche '
   'KREUZEN, behalten Z-Hop und Retract; durch Infill darf direkt verbunden '
   'werden.',
@@ -384,12 +412,12 @@ TOOLS = [
   'Prüft Dateien auf fehlende oder falsche Typ-Marker und schreibt sie neu - '
   'die Grundlage dafür, dass Overrides und Werkzeuge die Datei verstehen.',
   'Ein RETAG ändert nur Kommentare, nie Bewegungen.'),
- ('Optimized copy', 'Pre-Print &gt; File &gt; Optimized',
+ ('Optimized copy', 'Pre-Print &gt; Profiles &gt; Save last print &gt; optimized',
   'Erzeugt eine Tuning-Kopie einer Datei mit gebackenen Einstellungen '
   '(Geschwindigkeit, Fluss, Beschleunigung), ohne das Original anzufassen.',
   'Eine Kopie ist ein Stand: spätere Änderungen an den Pre-Print-Werten '
   'wirken nicht in die Kopie hinein.'),
- ('STL-Export', 'Pre-Print &gt; File &gt; STL: object only',
+ ('STL-Export', 'Pre-Print &gt; File info &gt; STL: shell',
   'Baut aus einer gedruckten Datei wieder ein Netz: nur das Objekt, ohne '
   'Stützen, Skirt, Brim, Turm und Hilfsgeometrie. Praktisch, um ein Ergebnis '
   'weiterzugeben oder in einem anderen Programm zu prüfen.',
@@ -399,7 +427,7 @@ TOOLS = [
   'Sammelt Versionen, Dienst-Status, die Klipper-Vorfälle und die letzten '
   'Log-Megabyte in EINE Datei - ohne SSH, direkt aus dem Menü.',
   'Es schreibt nur, solange nicht gedruckt wird.'),
- ('Post-Processor-Schalter', 'System &gt; Post-Processor',
+ ('Post-Processor-Schalter', 'System &gt; PP engine',
   'Schaltet zwischen dem stabilen und dem experimentellen Postprozessor um, '
   'mit sofortigem Rückweg. Der Rückweg bleibt immer möglich.',
   'Der Schalter gilt ab dem nächsten Start; ein kaputter Experimentalstand '
@@ -434,7 +462,8 @@ def build(path):
     A(Spacer(1, 5*mm))
     A(TBL(['Wohin die Ergebnisse gehen', 'Ordner'],
           [['Alle generierten Dateien', 'gcodes/&lt;Werkzeug&gt;/ · Name Vnn_…gcode'],
-           ['Bereichs-Ausschnitte', 'gcodes/Range/'],
+           ['Gießformen &amp; Schablonen', 'gcodes/Molds/ · gcodes/Stencil/'],
+           ['Effektketten &amp; Ausschnitte', 'gcodes/Toolchain/ · gcodes/Range/'],
            ['Texturen', 'gcodes/Texture/'],
            ['STL-Ausgaben', 'gcodes/STL/ · Endung .stl.gcode (nur zum Herunterladen)'],
            ['Optimierte Kopien', 'gcodes/optimized/'],
@@ -444,7 +473,7 @@ def build(path):
 
     # ---- generators -------------------------------------------------------
     A(Paragraph('Teil 1 · Die Generatoren', S['h1']))
-    A(P('Elf Generatoren unter <b>Pre-Print &gt; Mods</b> (dazu die '
+    A(P('Dreizehn Generatoren unter <b>Tools</b> im Hauptmenü (dazu die '
         'Dateiliste „Gen files“, die zeigt, was gebaut wurde). Jeder Eintrag ist '
         'gleich aufgebaut: wohin, was herauskommt, welche Zeilen Sie am LCD '
         'wirklich sehen, wo die Grenzen liegen und der eine Tipp, der Zeit '
