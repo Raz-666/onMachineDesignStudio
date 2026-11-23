@@ -445,10 +445,14 @@ wieder bereit ist. Nichts hiervon ohne Go.)*
 
 ### Fortsetzungsstand: Gesamtprüfung B/C
 
-- [ ] Gesamtbriefing §20–28 einzeln gegen Implementierung und Tests abgleichen,
-      einschließlich RE-Recherchen, Slicer-Familien und Performance-Hinweisen.
-      Nutzer hat diese Prüfung bereits beauftragt; keine erneute Rückfrage.
-      B/C-Status aus dem Gespräch bleibt bis dahin vorläufig.
+- [x] **Gesamtbriefing §20–28 einzeln gegen Implementierung und Tests abgeglichen (erledigt R280, Beleg: `analyse/GESAMTBRIEFING-ABGLEICH-20-28.md`).**
+      Paragraf-für-Paragraf-Matrix für **§§ 20–29** (`R2-D2 – Gesamtbriefing für die Coding-GPT.md`, Zeilen `1155–2444`) sowie Einzelprüfung von `GCode_Reverse_Engineering_Masterkonzept.md`, `Reverse Engineering von G-Code Geometrien.md`, `slicer-families.md` und `Potential performance& compatibility issues.md` gegen aktuellen Produktcode und Batterien:
+      - **§20 Toolchain:** `r2-toolchain/1`, `plan_chain`/`run_chain`, §20.2 Eingabeverbot, §20.3/§22.4 Temp-Handoff und 7 kettbare Tools (`range/scale/twist/mirror/texture/mold/mold_blank`) erfüllt (`E`); interaktiver LCD-Ketteneditor gemäß Nutzerentscheid K3 bewusst dateibasiert (`D`).
+      - **§21–§22 Ausgabemodi & Queue:** `SAVE/PREVIEW/QUEUE`, nicht-destruktive `Vnn_`-Ableitungen für alle Generatoren/Modifikatoren/Ketten, `validate_job_output`, `gen_busy`-Sperre an allen 4 Druckstart-Einstiegen (K4), `ram_min_mb=60` und alle 50 `NONCE_KEYS` geprimet & im Druck eingefroren (`E`); historisches In-Place-Tagging von `process()` als bewusste Bestandsregel (`r81`) separat dokumentiert.
+      - **§23 Objektmodell:** `apply_mirror(..., obj=...)` beherrscht Einzelobjekt-Spiegelung ums eigene Objektzentrum (`E`); `Scale`/`Twist`/`Texture` wirken aktuell noch plattenweit ohne `OBJ=`-Auswahl (`G`/`DEFER`).
+      - **§24 STL-/OBJ-Export:** 16 Offline-Module mit 172 CI-Tests + geschlossene Rose-Vase (`22.266` Dreiecke, `0` Selbstschnitte, `4.810,105 mm³`); Umbau des aktiven `_stl_export` gemäß Nutzerentscheid **J1** zurückgestellt (neue Richtung: Punktwolke + Haut spannen).
+      - **§25–§27 Extrusionskompensation, Texture & Range:** Richtungs-/Breitenfaktor `k_E(θ, z)` in `Scale`, `SO(2)`/`O(2)`-Isometrie + R276-`M82`-Bogen-Fix in `Twist`/`Mirror`, `R266`-Deep-Relief-`L_neu/L_alt` + R224-Innenwandführung + 55 Muster in `Texture` sowie H1–H3 Cake/Range-Reparatur vollständig verifiziert (`E`).
+      - **§28 Reverse Engineering & Slicer-Familien:** `gcode_re.py` (`r2-re/2`, Pass 0–11, read-only Sidecar, `calibrated: false`, `UNKNOWN/AMBIGUOUS`) + `TYPE_MAP` (217 Aliase → 17 Rollen) + 4 Feld-Fixtures (`Orca`, `SliceBeam`, `Kiri:Moto`) + 13 synthetische Dialekt-Familien verifiziert; exotische Slicer ohne echte Voll-Fixtures ehrlich auf `VERIFY` belassen. Alle 8 Risikogruppen aus `Potential performance& compatibility issues.md` einzeln gegengeprüft.
 - [ ] STL: bestehende Regressionstests ausführen, Mesh-Prüfung ergänzen;
       Offline-Prüfer `tools/stl_audit.py` umgesetzt, 5 Mesh-Tests und 3
       E-State-Tests bestanden. Zwei gestapelte Bahnen reproduzieren 2 doppelte
