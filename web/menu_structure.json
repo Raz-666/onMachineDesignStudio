@@ -1,14 +1,14 @@
 {
  "generator": "menu_json_export.py (.136j R211)",
  "source": "lcd_menues.cfg",
- "sections": 2357,
+ "sections": 2395,
  "counts": {
-  "list": 319,
-  "command": 1426,
+  "list": 325,
+  "command": 1458,
   "vsdlist": 1,
   "input": 611
  },
- "sha256": "db8d76a01cb555ff",
+ "sha256": "ebfa890903df2dc0",
  "live_objects": [
   "bed_mesh",
   "configfile",
@@ -4878,6 +4878,16 @@
           "children": []
          },
          {
+          "id": "__main __preprint __mods __tex __add",
+          "type": "command",
+          "name": "+ Add to chain",
+          "gcode": [
+           "TOOLCHAIN_ADD TOOL=texture",
+           "RESPOND MSG=\"Texture: in die Toolchain-Liste gehaengt (Pre-Print > Mods > Toolchain zeigt die Jobs)\""
+          ],
+          "children": []
+         },
+         {
           "id": "__main __preprint __mods __tex __how",
           "type": "command",
           "name": "How it works",
@@ -5427,6 +5437,16 @@
           "children": []
          },
          {
+          "id": "__main __preprint __mods __rng __add",
+          "type": "command",
+          "name": "+ Add to chain",
+          "gcode": [
+           "TOOLCHAIN_ADD TOOL=range",
+           "RESPOND MSG=\"Range: in die Toolchain-Liste gehaengt\""
+          ],
+          "children": []
+         },
+         {
           "id": "__main __preprint __mods __rng __how",
           "type": "command",
           "name": "How it works",
@@ -5516,6 +5536,16 @@
            "SCALE_APPLY CONFIRM=1"
           ],
           "children": []
+         },
+         {
+          "id": "__main __preprint __mods __scale __add",
+          "type": "command",
+          "name": "+ Add to chain",
+          "gcode": [
+           "TOOLCHAIN_ADD TOOL=scale",
+           "RESPOND MSG=\"Scale: in die Toolchain-Liste gehaengt\""
+          ],
+          "children": []
          }
         ]
        },
@@ -5554,6 +5584,16 @@
           "gcode": [
            "{% if printer['gcode_macro _STATE'].gen_arm|default('') == 'twist' %}{menu.exit()}{% endif %}",
            "TWIST_APPLY CONFIRM=1"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __preprint __mods __twist __add",
+          "type": "command",
+          "name": "+ Add to chain",
+          "gcode": [
+           "TOOLCHAIN_ADD TOOL=twist",
+           "RESPOND MSG=\"Twist: in die Toolchain-Liste gehaengt\""
           ],
           "children": []
          }
@@ -5597,6 +5637,16 @@
            "MIRROR_APPLY CONFIRM=1"
           ],
           "children": []
+         },
+         {
+          "id": "__main __preprint __mods __mirror __add",
+          "type": "command",
+          "name": "+ Add to chain",
+          "gcode": [
+           "TOOLCHAIN_ADD TOOL=mirror",
+           "RESPOND MSG=\"Mirror: in die Toolchain-Liste gehaengt\""
+          ],
+          "children": []
          }
         ]
        },
@@ -5605,20 +5655,6 @@
         "type": "list",
         "name": "Toolchain",
         "children": [
-         {
-          "id": "__main __preprint __mods __toolchain __preset",
-          "type": "command",
-          "name": "Preset: {printer['save_variables'].variables.toolchain_preset|default('')|string|truncate(11, True, '')}",
-          "gcode": [
-           "{% set sv = printer['save_variables'].variables %}",
-           "{% if sv.toolchain_preset|default('')|string != '' %}",
-           "RESPOND MSG=\"Toolchain preset: {sv.toolchain_preset} - Apply runs it on the selected file\"",
-           "{% else %}",
-           "RESPOND MSG=\"Toolchain needs a preset FILE: click a .json in the SD browser (examples live in the Toolchain folder), no typing here\"",
-           "{% endif %}"
-          ],
-          "children": []
-         },
          {
           "id": "__main __preprint __mods __toolchain __src",
           "type": "command",
@@ -5629,19 +5665,318 @@
           "children": []
          },
          {
+          "id": "__main __preprint __mods __toolchain __n",
+          "type": "command",
+          "name": "{((printer['save_variables'].variables.toolchain_chain_lcd|default('')|string).split('|')|list|count) ~ ' job(s)' if (printer['save_variables'].variables.toolchain_chain_lcd|default('')|string) != '' else 'empty list'}",
+          "gcode": [
+           "{% set cl285 = printer['save_variables'].variables.toolchain_chain_lcd|default('')|string %}",
+           "{% if cl285 == '' %}",
+           "RESPOND MSG=\"The chain is EMPTY. Build it: Tools > Scale/Texture/Range/Twist/Mirror > set the values > '+ Add to chain'. Job 1 is protected (never deletable).\"",
+           "{% else %}",
+           "RESPOND MSG=\"Toolchain ({ cl285.split('|')|list|count } job(s)): { cl285 } - click a job to edit (Up/Down/Delete/To tool). Job 1 is protected.\"",
+           "{% endif %}"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __preprint __mods __toolchain __j1",
+          "type": "list",
+          "name": "{((printer['save_variables'].variables.toolchain_chain_lcd|default('')|string).split('|')|list)[0]|default('')|string|truncate(20, True, '')}",
+          "children": [
+           {
+            "id": "__main __preprint __mods __toolchain __j1 __up",
+            "type": "command",
+            "name": "Up",
+            "gcode": [
+             "TOOLCHAIN_OP OP=UP IDX=0"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __toolchain __j1 __down",
+            "type": "command",
+            "name": "Down",
+            "gcode": [
+             "TOOLCHAIN_OP OP=DOWN IDX=0"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __toolchain __j1 __del",
+            "type": "command",
+            "name": "Delete (job 1 locked)",
+            "gcode": [
+             "TOOLCHAIN_OP OP=DEL IDX=0"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __toolchain __j1 __goto",
+            "type": "command",
+            "name": "To tool (edit)",
+            "gcode": [
+             "TOOLCHAIN_OP OP=GOTO IDX=0"
+            ],
+            "children": []
+           }
+          ]
+         },
+         {
+          "id": "__main __preprint __mods __toolchain __j2",
+          "type": "list",
+          "name": "{((printer['save_variables'].variables.toolchain_chain_lcd|default('')|string).split('|')|list)[1]|default('')|string|truncate(20, True, '')}",
+          "children": [
+           {
+            "id": "__main __preprint __mods __toolchain __j2 __up",
+            "type": "command",
+            "name": "Up",
+            "gcode": [
+             "TOOLCHAIN_OP OP=UP IDX=1"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __toolchain __j2 __down",
+            "type": "command",
+            "name": "Down",
+            "gcode": [
+             "TOOLCHAIN_OP OP=DOWN IDX=1"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __toolchain __j2 __del",
+            "type": "command",
+            "name": "Delete",
+            "gcode": [
+             "TOOLCHAIN_OP OP=DEL IDX=1"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __toolchain __j2 __goto",
+            "type": "command",
+            "name": "To tool (edit)",
+            "gcode": [
+             "TOOLCHAIN_OP OP=GOTO IDX=1"
+            ],
+            "children": []
+           }
+          ]
+         },
+         {
+          "id": "__main __preprint __mods __toolchain __j3",
+          "type": "list",
+          "name": "{((printer['save_variables'].variables.toolchain_chain_lcd|default('')|string).split('|')|list)[2]|default('')|string|truncate(20, True, '')}",
+          "children": [
+           {
+            "id": "__main __preprint __mods __toolchain __j3 __up",
+            "type": "command",
+            "name": "Up",
+            "gcode": [
+             "TOOLCHAIN_OP OP=UP IDX=2"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __toolchain __j3 __down",
+            "type": "command",
+            "name": "Down",
+            "gcode": [
+             "TOOLCHAIN_OP OP=DOWN IDX=2"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __toolchain __j3 __del",
+            "type": "command",
+            "name": "Delete",
+            "gcode": [
+             "TOOLCHAIN_OP OP=DEL IDX=2"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __toolchain __j3 __goto",
+            "type": "command",
+            "name": "To tool (edit)",
+            "gcode": [
+             "TOOLCHAIN_OP OP=GOTO IDX=2"
+            ],
+            "children": []
+           }
+          ]
+         },
+         {
+          "id": "__main __preprint __mods __toolchain __j4",
+          "type": "list",
+          "name": "{((printer['save_variables'].variables.toolchain_chain_lcd|default('')|string).split('|')|list)[3]|default('')|string|truncate(20, True, '')}",
+          "children": [
+           {
+            "id": "__main __preprint __mods __toolchain __j4 __up",
+            "type": "command",
+            "name": "Up",
+            "gcode": [
+             "TOOLCHAIN_OP OP=UP IDX=3"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __toolchain __j4 __down",
+            "type": "command",
+            "name": "Down",
+            "gcode": [
+             "TOOLCHAIN_OP OP=DOWN IDX=3"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __toolchain __j4 __del",
+            "type": "command",
+            "name": "Delete",
+            "gcode": [
+             "TOOLCHAIN_OP OP=DEL IDX=3"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __toolchain __j4 __goto",
+            "type": "command",
+            "name": "To tool (edit)",
+            "gcode": [
+             "TOOLCHAIN_OP OP=GOTO IDX=3"
+            ],
+            "children": []
+           }
+          ]
+         },
+         {
+          "id": "__main __preprint __mods __toolchain __j5",
+          "type": "list",
+          "name": "{((printer['save_variables'].variables.toolchain_chain_lcd|default('')|string).split('|')|list)[4]|default('')|string|truncate(20, True, '')}",
+          "children": [
+           {
+            "id": "__main __preprint __mods __toolchain __j5 __up",
+            "type": "command",
+            "name": "Up",
+            "gcode": [
+             "TOOLCHAIN_OP OP=UP IDX=4"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __toolchain __j5 __down",
+            "type": "command",
+            "name": "Down",
+            "gcode": [
+             "TOOLCHAIN_OP OP=DOWN IDX=4"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __toolchain __j5 __del",
+            "type": "command",
+            "name": "Delete",
+            "gcode": [
+             "TOOLCHAIN_OP OP=DEL IDX=4"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __toolchain __j5 __goto",
+            "type": "command",
+            "name": "To tool (edit)",
+            "gcode": [
+             "TOOLCHAIN_OP OP=GOTO IDX=4"
+            ],
+            "children": []
+           }
+          ]
+         },
+         {
+          "id": "__main __preprint __mods __toolchain __j6",
+          "type": "list",
+          "name": "{((printer['save_variables'].variables.toolchain_chain_lcd|default('')|string).split('|')|list)[5]|default('')|string|truncate(20, True, '')}",
+          "children": [
+           {
+            "id": "__main __preprint __mods __toolchain __j6 __up",
+            "type": "command",
+            "name": "Up",
+            "gcode": [
+             "TOOLCHAIN_OP OP=UP IDX=5"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __toolchain __j6 __down",
+            "type": "command",
+            "name": "Down",
+            "gcode": [
+             "TOOLCHAIN_OP OP=DOWN IDX=5"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __toolchain __j6 __del",
+            "type": "command",
+            "name": "Delete",
+            "gcode": [
+             "TOOLCHAIN_OP OP=DEL IDX=5"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __toolchain __j6 __goto",
+            "type": "command",
+            "name": "To tool (edit)",
+            "gcode": [
+             "TOOLCHAIN_OP OP=GOTO IDX=5"
+            ],
+            "children": []
+           }
+          ]
+         },
+         {
+          "id": "__main __preprint __mods __toolchain __save",
+          "type": "command",
+          "name": "Save preset (own)",
+          "gcode": [
+           "TOOLCHAIN_SAVE"
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __preprint __mods __toolchain __load",
+          "type": "command",
+          "name": "Load preset (.json)",
+          "gcode": [
+           "RESPOND MSG=\"Preset LADEN = die Datei im SD-Browser anklicken (Toolchain-Ordner) - sie ERSETZT die Liste hier. Speichern oben; kein Tippen am LCD.\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __preprint __mods __toolchain __clr",
+          "type": "command",
+          "name": "Clear list",
+          "gcode": [
+           "TOOLCHAIN_OP OP=CLEAR"
+          ],
+          "children": []
+         },
+         {
           "id": "__main __preprint __mods __toolchain __how",
           "type": "command",
           "name": "How? (chain)",
           "gcode": [
-           "RESPOND MSG=\"A preset chains the tools: every step feeds the next (Scale -> Twist -> ...). One background job, only the LAST output stays - it lands in the Toolchain folder\"",
-           "RESPOND MSG=\"Preset = a .json file in the gcodes folder (make one on the PC, drop it in via Mainsail): click it in the SD browser to pick it. The example ships in the Toolchain folder\""
+           "RESPOND MSG=\"Bauen: Tools > Scale/Texture/Range/Twist/Mirror > Werte setzen > '+ Add to chain'. Die Liste hier zeigt Job 1..n; Job anklicken = Hoch/Runter/Loeschen/Zum Werkzeug (Werte aendern, als NEUEN Job anhaengen). Job 1 ist geschuetzt.\"",
+           "RESPOND MSG=\"Apply chain laeuft 1->n, jede Stufe fuettert die naechste, nur die LETZTE Ausgabe bleibt (Toolchain-Ordner). 'Save preset' schreibt deine eigene .json; Laden = im SD-Browser anklicken.\""
           ],
           "children": []
          },
          {
           "id": "__main __preprint __mods __toolchain __go",
           "type": "command",
-          "name": "{('> AGAIN = start' if printer['gcode_macro _STATE'].gen_arm|default('') == 'toolchain' else '> Apply')}",
+          "name": "{('> AGAIN = start' if printer['gcode_macro _STATE'].gen_arm|default('') == 'toolchain' else '> Apply chain')}",
           "gcode": [
            "{% if printer['gcode_macro _STATE'].gen_arm|default('') == 'toolchain' %}{menu.exit()}{% endif %}",
            "TOOLCHAIN_APPLY CONFIRM=1"

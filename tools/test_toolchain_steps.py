@@ -343,7 +343,9 @@ class PresetFileChainTests(unittest.TestCase):
         self.input_path = os.path.join(self.gcodes, 'kette.gcode')
         with open(self.input_path, 'w', encoding='utf-8') as handle:
             handle.write(layered_fixture())
-        self.preset_path = os.path.join(self.gcodes, 'scale-twist.json')
+        # R285: ein USER-Preset (kein mitgeliefertes Beispiel mehr - die
+        # LCD-Kette ist der Primaerweg, .json nur noch Speichern/Laden)
+        self.preset_path = os.path.join(self.gcodes, 'my-chain.json')
         with open(self.preset_path, 'w', encoding='utf-8') as handle:
             handle.write(json.dumps({
                 'schema': toolchain.SCHEMA, 'name': 'Scale up + twist',
@@ -497,23 +499,32 @@ class SystemWiringTests(unittest.TestCase):
         self.assertIn('TOOLCHAIN_APPLY CONFIRM=1', lcd)
         pick = self._read('macros', '13_system.cfg')
         self.assertIn("low.endswith('.json')", pick)
-        self.assertIn('SAVE_VARIABLE VARIABLE=toolchain_preset', pick)
+        # R285: der .json-Klick laedt in die Jobliste (TOOLCHAIN_LOAD),
+        # statt nur die Datei zu picken
+        self.assertIn('TOOLCHAIN_LOAD FILE=', pick)
 
     def test_menu_export_carries_the_toolchain_node(self):
+        # R285: die Jobliste ersetzt den Preset-Pick - die Kids sind die
+        # Liste (__n) + 6 editierbare Jobs + Save/Load/Clear/How/Apply
         data = toolchain.load_menu_data()
         node = toolchain._find_node(
             data['tree'], '__main __preprint __mods __toolchain')
         self.assertIsNotNone(node)
         kids = [c['id'].split()[-1] for c in node.get('children') or []]
-        self.assertEqual(kids, ['__preset', '__src', '__how', '__go'])
+        self.assertEqual(kids, ['__src', '__n', '__j1', '__j2', '__j3',
+                                '__j4', '__j5', '__j6', '__save', '__load',
+                                '__clr', '__how', '__go'])
 
     def test_example_preset_ships_and_matches_the_tool_set(self):
-        path = os.path.join(self.ROOT, 'presets', 'toolchain',
-                            'scale-twist.json')
-        preset, errors = toolchain.load_preset_file(path)
-        self.assertEqual(errors, [])
-        for step in preset['steps']:
-            self.assertIn(step['tool'], toolchain_steps.SYSTEM_TOOLS)
+        """R285: NICHTS wird mehr mitgeliefert (User-Regel: keine
+        vorinstallierten Presets - nur eigene). Der Watcher-Seeder ist
+        weg; das Verzeichnis presets/toolchain/ darf nicht mehr existieren.
+        Der Loader selbst bleibt (eigene .json laden ist der Speicher-
+        Weg) und wird vom User-Preset-Test oben gedeckt."""
+        self.assertFalse(os.path.exists(
+            os.path.join(self.ROOT, 'presets', 'toolchain')))
+        src = self._read('tools', 'r2_postproc.py')
+        self.assertNotIn('example preset seeded', src)
 
     def test_r260_translit_twins_stay_in_sync(self):
         """R260: die Umschrift-Maps sind ZWILLINGE (toolchain._TRANSLIT

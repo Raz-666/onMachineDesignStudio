@@ -9292,8 +9292,15 @@ tests.append(('R98 source: start scan time-boxed (chunk constant + deferral, onc
     and "_dl98 = None if once else time.time() + _SCAN_CHUNK_S" in _src98
     and "stats['deferred'] += 1" in _src98
     and "stats['deferred'] = 0" in _src98, ''))
+# R281: the per-file work (incl. the seen-mark) lives in _work_file281 now.
+# The structural invariant is unchanged: defer/abandon paths sit BEFORE the
+# worker call, the seen-mark only ever happens INSIDE the worker.
+_defer98 = _src98.find("stats['deferred'] += 1")
+_call98 = _src98.find('_work_file281(p, fn, key)',
+                      _src98.find('def _work_file281') + 10)
+_seen98 = _src98.find('seen[p] = key', _src98.find('def _work_file281'))
 tests.append(('R98 source: deferred files are NOT marked seen (retried next pass)',
-    _src98.find("stats['deferred'] += 1") < _src98.find("seen[p] = key", _src98.find("stats['deferred'] += 1") - 4000), ''))
+    0 < _src98.find('def _work_file281') < _seen98 < _defer98 < _call98, ''))
 tests.append(('R98 source: backlog push re-checks the preview nonce (never overwrites a selection)',
     "_pn98 == rv.get('preview_nonce', '')" in _src98
     and _src98.find("if _pn98 ==") < _src98.find("for _pp in NEW_PREVIEW[-1:]"), ''))
@@ -18032,9 +18039,10 @@ tests.append(('R188/R224/R226/R227 watcher: gen_busy=1 around file_fix AND the j
     'every print start, field log .136w). R227: the flag is PARSED, not '
     'string-tested (_read_vars returns strings - the truthiness bug '
     'sprayed the console every pass, field log .136x), and the stale '
-    'notice fires ONCE per episode (latch + silent retry)',
-    _r2p188.count("SAVE_VARIABLE VARIABLE=gen_busy VALUE=1") == 3
-    and _r2p188.count("SAVE_VARIABLE VARIABLE=gen_busy VALUE=0") == 7
+    'notice fires ONCE per episode (latch + silent retry). R281: + the '
+    'upload scan holds it around every per-file rewrite (worker finally)',
+    _r2p188.count("SAVE_VARIABLE VARIABLE=gen_busy VALUE=1") == 4
+    and _r2p188.count("SAVE_VARIABLE VARIABLE=gen_busy VALUE=0") == 8
     and 'M117 Fix running:' in _r2p188
     and 'the RUNNING build keeps' in _r2p188
     and 'flags reset - nothing is ' in _r2p188
@@ -18475,17 +18483,49 @@ tests.append(('R260 TOOLCHAIN_APPLY: FILE climb still refused',
 save_vars['preview_file'] = ''
 save_vars['toolchain_preset'] = ''
 out = render(_tc259, {})
-tests.append(('R259 TOOLCHAIN_APPLY: no preset -> friendly pick hint, '
+tests.append(('R285 TOOLCHAIN_APPLY: empty list + no preset -> build hint, '
     'nonce untouched',
-    'no preset picked' in out and 'VARIABLE=toolchain_nonce' not in out, ''))
+    'the job list is empty' in out
+    and 'VARIABLE=toolchain_nonce' not in out, ''))
+# R285: die JOBLISTE (toolchain_chain) traegt den Apply - kein .json noetig
+save_vars['toolchain_chain'] = 'scale:x=110,y=110|twist:deg=45'
+out = render(_tc259, {})
+tests.append(('R285 TOOLCHAIN_APPLY: the LCD job list runs WITHOUT a preset '
+    '(chain state beats the file)', 'VARIABLE=toolchain_nonce VALUE=' in out
+    and 'the job list is empty' not in out, out[:150]))
+save_vars['toolchain_chain'] = ''
 _sys259 = open('macros/13_system.cfg', encoding='utf-8').read()
-tests.append(('R259 SD browser: a .json click PICKS the toolchain preset '
-    '(file selection instead of JSON typing at the LCD)',
+tests.append(('R285 SD browser: a .json click LOADS the preset into the '
+    'job list (TOOLCHAIN_LOAD), it is no longer just picked',
     "low.endswith('.json')" in _sys259
-    and 'SAVE_VARIABLE VARIABLE=toolchain_preset' in _sys259, ''))
-tests.append(('R259 example preset ships + resolves (load_preset_file is '
-    'the offline-tested resolver)',
-    __import__('os').path.isfile('presets/toolchain/scale-twist.json'), ''))
+    and 'TOOLCHAIN_LOAD FILE=' in _sys259, ''))
+tests.append(('R285: NOTHING ships (user rule: no preinstalled presets - '
+    'only your own)', not __import__('os').path.exists(
+        'presets/toolchain'), ''))
+# R285: die vier Joblisten-Makros existieren und bumpen nur Nonces
+tests.append(('R285 TOOLCHAIN_ADD/OP/SAVE/LOAD macros: nonce bumps only '
+    '(the watcher owns parsing/validation)',
+    all(_m in _ma259 for _m in ('TOOLCHAIN_ADD', 'TOOLCHAIN_OP',
+                                'TOOLCHAIN_SAVE', 'TOOLCHAIN_LOAD'))
+    and 'toolchain_add_nonce VALUE={sv.toolchain_add_nonce|default(0)|int + 1}' in _ma259
+    and 'toolchain_op_nonce VALUE={sv.toolchain_op_nonce|default(0)|int + 1}' in _ma259
+    and 'toolchain_save_nonce VALUE={sv.toolchain_save_nonce|default(0)|int + 1}' in _ma259
+    and 'toolchain_load_nonce VALUE={sv.toolchain_load_nonce|default(0)|int + 1}' in _ma259, ''))
+_tcadd = get_body('macros/17_generator.cfg', 'TOOLCHAIN_ADD')
+out = render(_tcadd, {'TOOL': 'scale'})
+tests.append(('R285 TOOLCHAIN_ADD renders: tool saved + add nonce bumped',
+    'VARIABLE=toolchain_add_tool VALUE=' in out
+    and 'VARIABLE=toolchain_add_nonce VALUE=' in out, out[:150]))
+out = render(_tcadd, {'TOOL': 'cake'})
+tests.append(('R285 TOOLCHAIN_ADD: a chainable tool is enforced in the '
+    'macro already (cake refused)', 'bad tool' in out
+    and 'VARIABLE=toolchain_add_nonce' not in out, ''))
+_tcop = get_body('macros/17_generator.cfg', 'TOOLCHAIN_OP')
+out = render(_tcop, {'OP': 'DEL', 'IDX': 2})
+tests.append(('R285 TOOLCHAIN_OP renders: op + idx saved, nonce bumped',
+    'VARIABLE=toolchain_op VALUE=' in out
+    and 'VARIABLE=toolchain_op_idx VALUE=2' in out
+    and 'VARIABLE=toolchain_op_nonce VALUE=' in out, out[:150]))
 # R224 task 10: multi-object files (print-by-object) - OBJ= flips ONE
 # object around ITS own center, the rest stays byte-identical
 _f224b = _os224.path.join(_d224, 'multi.gcode')
@@ -18577,9 +18617,21 @@ def _wait224q(cond, tmo=25):
 # swallow the nonce as a prime - the R186 two-phase rule)
 _wait224q(lambda: any('postproc_build' in c for c in _cap224q), 30)
 _time224q.sleep(1.5)
+# R281: the scan's per-file gen_busy hold (upload tagging under the start
+# guard) fires on pass 1 - part.gcode is new. Pin the pair HERE so the
+# queue checks below can judge the BUILD's hold from the STUCK marker on.
+_cap224q_pre281 = list(_cap224q)
+tests.append(('R281 scan: upload file work holds gen_busy per file (the '
+              'start macros wait) and always releases it after the file',
+    any('gen_busy VALUE=1' in c for c in _cap224q_pre281)
+    and any('gen_busy VALUE=0' in c for c in _cap224q_pre281), ''))
 _wvars224q(2)
 _wait224q(lambda: any('gen_busy VALUE=1' in c for c in _cap224q))
 _wait224q(lambda: any('STUCK after' in c for c in _cap224q))
+# R281: judge gen_busy releases only AFTER the stuck marker - the scan's
+# per-file upload hold (see the R281 pin above) released legitimately on
+# pass 1, long before this build started.
+_cap224q_mark = len(_cap224q)
 tests.append(('R224 queue: a STUCK build HOLDS gen_busy + the queue while '
     'its thread lives (the .136u clear/timeout freed them - a print could '
     'start into the overload)',
@@ -18587,20 +18639,20 @@ tests.append(('R224 queue: a STUCK build HOLDS gen_busy + the queue while '
     and _mod224q._JOB_STATE['busy'] is True
     and _mod224q._JOB_STATE.get('zombie') is not None
     and _mod224q._JOB_STATE['thread'].is_alive()
-    and not any('gen_busy VALUE=0' in c for c in _cap224q),
+    and not any('gen_busy VALUE=0' in c for c in _cap224q[_cap224q_mark:]),
     str(_mod224q._JOB_STATE.get('zombie'))))
 _wvars224q(3)
 _time224q.sleep(4)
 tests.append(('R224 queue: the next job WAITS while the stuck one lives '
     '(no second build on the RAM-starved Pi)',
     not _os224.path.exists(_mk224q + '2')
-    and not any('gen_busy VALUE=0' in c for c in _cap224q), ''))
+    and not any('gen_busy VALUE=0' in c for c in _cap224q[_cap224q_mark:]), ''))
 _wvars224q(3, clear=1)
 _wait224q(lambda: any('cleared' in c for c in _cap224q), 15)
 tests.append(('R224 queue clear: drops the QUEUED jobs but keeps gen_busy '
     'while the build thread lives (honest message, no silent flag drop)',
     any('RUNNING build keeps' in c for c in _cap224q)
-    and not any('gen_busy VALUE=0' in c for c in _cap224q), ''))
+    and not any('gen_busy VALUE=0' in c for c in _cap224q[_cap224q_mark:]), ''))
 _wait224q(lambda: any('queue is free' in c for c in _cap224q), 30)
 tests.append(('R224 queue: the stuck build\'s end releases everything '
     '(queue free + gen_busy down) - and jobs queued AFTER that run again',

@@ -718,7 +718,8 @@ def audit_tag_geometry(path, cell_mm=1.5, fil_dia=1.75, max_conflicts=50):
       - G2_IRONING_HIGH_FLOW: IRONING block extruding at printing cross-section
         (> 65% of nominal bead cross-section)
       - G3_IRONING_UNSUPPORTED: IRONING block whose XY cells do not ride on
-        a same-layer SURFACE-TOP (1-cell dilated)
+        same-layer solid support (SURFACE-TOP / INFILL-SOLID / WALLS / GAPS,
+        1-cell dilated)
       - G4_STACKED_EXPLICIT_TOP: explicit non-ambiguous Top surface (excludes
         Cura's combined 'SKIN') repeatedly capping the exact same closed XY
         cells on consecutive unit layers without enclosing geometry change
@@ -768,6 +769,7 @@ def audit_tag_geometry(path, cell_mm=1.5, fil_dia=1.75, max_conflicts=50):
     cur_all = set()
     cur_adhesion = set()
     cur_top = set()
+    cur_support = set()  # R281: G3 support world - same-layer solid cells
     cur_expl_top = set()
     cur_iron = set()
     cur_had_interior = False
@@ -860,6 +862,7 @@ def audit_tag_geometry(path, cell_mm=1.5, fil_dia=1.75, max_conflicts=50):
         nonlocal prev_all, prev_adhesion, prev_expl_top, prev_iron
         nonlocal prev_had_interior, prev_had_walls
         nonlocal cur_all, cur_adhesion, cur_top, cur_expl_top, cur_iron
+        nonlocal cur_support
         nonlocal cur_had_interior, cur_had_walls
         nonlocal cur_iron_blocks, cur_adhes_blocks, cur_bridge_blocks
         nonlocal cur_top_blocks
@@ -878,20 +881,27 @@ def audit_tag_geometry(path, cell_mm=1.5, fil_dia=1.75, max_conflicts=50):
                             'adhesion feature at unit layer %d with %.0f%% '
                             'continuation from layer below'
                             % (buln, ov * 100.0))
-            # G2 + G3: ironing high flow & spatial top-surface support
-            top_d = _dilate1(cur_top) if cur_top else set()
+            # G2 + G3: ironing high flow & spatial same-layer support.
+            # R281: the G3 support world is every SOLID same-layer feature a
+            # slicer may iron over - SURFACE-TOP plus INFILL-SOLID, WALL-OUTER
+            # /WALL-INNER and GAPS. Slice Beam irons stepped ceilings ON plain
+            # 'Solid infill' and upper wall edges (field file MAN_V3: 42 false
+            # G3 alarms, measured support overlap 100%); ironing that truly
+            # floats still overlaps nothing (test 4f: 0%).
+            sup_d = _dilate1(cur_support) if cur_support else set()
             nom_xsec = (sorted(all_xsec)[len(all_xsec) // 2]
                         if len(all_xsec) >= 4 else 0.0)
             for bline, braw, bcells, med_xs, blen in cur_iron_blocks:
                 if bcells and blen >= 4.0:
-                    ov = (len(bcells & top_d) / float(len(bcells))
-                          if top_d else 0.0)
+                    ov = (len(bcells & sup_d) / float(len(bcells))
+                          if sup_d else 0.0)
                     if ov < 0.30:
                         _add_conflict(
                             'G3_IRONING_UNSUPPORTED', bline, unit_id, uln,
                             braw, 'IRONING',
-                            'ironing overlaps only %.0f%% of same-layer top '
-                            'surface cells' % (ov * 100.0))
+                            'ironing overlaps only %.0f%% of same-layer solid '
+                            'support cells (top/infill/wall/gap)'
+                            % (ov * 100.0))
                 if nom_xsec > 1e-4 and med_xs > 0.65 * nom_xsec and blen >= 4.0:
                     _add_conflict(
                         'G2_IRONING_HIGH_FLOW', bline, unit_id, uln,
@@ -962,6 +972,7 @@ def audit_tag_geometry(path, cell_mm=1.5, fil_dia=1.75, max_conflicts=50):
         cur_all = set()
         cur_adhesion = set()
         cur_top = set()
+        cur_support = set()
         cur_expl_top = set()
         cur_iron = set()
         cur_had_interior = False
@@ -1130,6 +1141,7 @@ def audit_tag_geometry(path, cell_mm=1.5, fil_dia=1.75, max_conflicts=50):
                     cur_iron |= scells
                 elif cur_canon in ('WALL-OUTER', 'WALL-INNER'):
                     cur_had_walls = True
+                    cur_support |= scells
                     if cur_canon == 'WALL-OUTER' and len(blk_strokes) < 200:
                         if blk_cur_stroke is None:
                             blk_cur_stroke = [x0, y0, x1, y1, 1, dist]
@@ -1140,14 +1152,19 @@ def audit_tag_geometry(path, cell_mm=1.5, fil_dia=1.75, max_conflicts=50):
                             blk_cur_stroke[5] += dist
                 elif cur_canon == 'SURFACE-TOP':
                     cur_top |= scells
+                    cur_support |= scells
                     if (cur_raw or '').strip().lower() not in (
                             'skin', 'top-skin', 'surface'):
                         cur_expl_top |= scells
                 elif cur_canon == 'BRIM' or (cur_raw or '').strip().lower().startswith('raft'):
                     cur_adhesion |= scells
                 elif cur_canon in ('INFILL-SPARSE', 'INFILL-SOLID',
-                                   'INTERNAL-BRIDGE', 'SURFACE-BOTTOM'):
+                                   'INTERNAL-BRIDGE', 'SURFACE-BOTTOM', 'GAPS'):
                     cur_had_interior = True
+                    # R281: solid infill and gap fill carry ironing just as
+                    # well as a tagged top surface (Slice Beam field file)
+                    if cur_canon in ('INFILL-SOLID', 'GAPS'):
+                        cur_support |= scells
                 elif cur_canon == 'BRIDGE':
                     inv = 1.0 / cell_mm
                     blk_endpoints.append(
@@ -9728,7 +9745,12 @@ NONCE_KEYS = ('preview_nonce', 'range_nonce', 'label_gen_nonce', 'reso_nonce',
               'stl_nonce',
               # R259: toolchain preset chain (TOOLCHAIN_APPLY -> one job,
               # every step feeds the next) - primed like the rest
-              'toolchain_nonce')
+              'toolchain_nonce',
+              # R285: the toolchain job-list channels (add / op / save /
+              # load) - primed like the rest, a stored nonce from before
+              # the boot never fires twice
+              'toolchain_add_nonce', 'toolchain_op_nonce',
+              'toolchain_save_nonce', 'toolchain_load_nonce')
 
 
 def _prime_nonces(rv):
@@ -13957,6 +13979,34 @@ def _ngon_inset(pts, k, wid, w, h):
     return [(cx + (p[0] - cx) * sx, cy + (p[1] - cy) * sy) for p in pts]
 
 
+def _subdivide_poly(pts, max_seg=1.5):
+    """R283 (field report 24.11.2026 'texture only at the corners'): a
+    generated shape with n corners emits its wall as n LONG straight chords
+    (an 8-gon: 8 lines of ~27mm each). A texture pattern mapped onto that
+    finds support points only AT the corners - between them the wall runs
+    straight through the pattern field, so the relief reads as long streaks
+    instead of the intended structure. Subdivide every chord into segments
+    of at most max_seg mm: the pattern then samples the wall evenly around
+    the whole perimeter, the geometry stays identical, and the E per move
+    scales with the chord length (the caller already multiplies by the real
+    segment length). Closed loop in, closed loop out - same vertex count +
+    inserted intermediates."""
+    if len(pts) < 2:
+        return list(pts)
+    out = []
+    n = len(pts)
+    for i in range(n):
+        x0, y0 = pts[i]
+        x1, y1 = pts[(i + 1) % n]
+        out.append((x0, y0))
+        seg = math.hypot(x1 - x0, y1 - y0)
+        parts = int(math.ceil(seg / max_seg)) if seg > max_seg else 1
+        for k in range(1, parts):
+            f = k / float(parts)
+            out.append((x0 + (x1 - x0) * f, y0 + (y1 - y0) * f))
+    return out
+
+
 def make_shape(shape='CYLINDER', size_x=40.0, size_y=40.0, corners=0,
                height=20.0, walls=2, wall_thick=0.0, infill=20.0,
                base=3, top=3, layer_h=0.2, first_h=0.28, material='PLA',
@@ -14069,8 +14119,11 @@ def make_shape(shape='CYLINDER', size_x=40.0, size_y=40.0, corners=0,
     pen = _Pen(L, jump_d=6.0)
 
     def _loops_at(li):
-        """wall loops of layer li (outer first)"""
-        return [_ngon_inset(oxs, k, wid, w, h) for k in range(walls)]
+        """wall loops of layer li (outer first). R283: subdivided to <=1.5mm
+        chords so a follow-up texture samples the wall evenly, not only at
+        the corners."""
+        return [_subdivide_poly(_ngon_inset(oxs, k, wid, w, h))
+                for k in range(walls)]
 
     # vase: the loop builds only the solid floor - the spiral body is ONE
     # continuous extrusion below (no per-layer travels at all)
@@ -14125,7 +14178,9 @@ def make_shape(shape='CYLINDER', size_x=40.0, size_y=40.0, corners=0,
         # jump distance), then ONE continuous extrusion to the top
         pen.travel(oxs[0][0], oxs[0][1])
         ez = 0.0
-        segs_loop = oxs + [oxs[0]]
+        # R283: subdivide the spiral's base polygon too - the continuous
+        # body below otherwise carries only one texture sample per corner
+        segs_loop = _subdivide_poly(oxs) + [_subdivide_poly(oxs)[0]]
         for rev in range(revs):
             for j in range(1, len(segs_loop)):
                 (x0, y0) = segs_loop[j - 1]
@@ -23322,6 +23377,57 @@ def process(path, dry=False, verbose=False, retract_rewrite=False,
         else:
             summary['stray_checked'] = 1
 
+    # R281 (field file MAN_V3): verify_tagged turns the C1/C5 audit into a
+    # VERDICT. Geometry conflicts mean the slicer's tag stream contradicts
+    # the part it describes ('Ironing' tags riding on plain solid infill) -
+    # such tags are worse than none. The whole foreign tag world is then
+    # discarded and the geometry classifier re-derives every feature in a
+    # second streaming pass (the R225 stray-tag path, same replacement
+    # rules, the worlds are never mixed). _FILE_INFO carries
+    # TAGMISMATCH=<codes> next to DERIVED=1 so File info can say WHY.
+    if verify_tagged:
+        _ta_c5 = audit_tag_geometry(
+            path,
+            fil_dia=float(cfg['filament_diameter'])
+            if 'filament_diameter' in cfg else 1.75)
+        summary['tag_audit'] = _ta_c5
+        summary['geom_conflicts'] = _ta_c5['conflicts']
+        if _ta_c5['conflicts'] and not summary.get('derived'):
+            geom2 = _GeomScan()
+            if 'filament_diameter' in cfg:
+                try:
+                    geom2.set_dia(float(cfg['filament_diameter']))
+                except ValueError:
+                    pass
+            _i_c5 = _j_c5 = 0
+            with open(path, 'r', errors='replace') as _f_c5:
+                for _raw_c5 in _f_c5:
+                    _ls_c5 = _raw_c5.strip()
+                    if LAYER_COMMENT.match(_raw_c5):
+                        geom2.mark_comment()
+                    geom2.step(_i_c5, _j_c5, _ls_c5)
+                    _filt_c5 = (_ls_c5 in old_tags
+                                or _ls_c5.startswith('_FILE_INFO')
+                                or _ls_c5.startswith('APPLY_TYPE'))
+                    _i_c5 += 1
+                    if not _filt_c5:
+                        _j_c5 += 1
+            geom2.finish()
+            if geom2.ranges:
+                summary['tag_mismatch'] = sorted(_ta_c5['by_code'])
+                type_at = {(gj, gj): gfeat
+                           for (_gi, gj, gfeat) in geom2.ranges}
+                feat_stats = {k: {'f': dict(v), 'acc': None}
+                              for k, v in geom2.fstat.items()}
+                tagged_seq193 = list(geom2.seq193)
+                summary['derived'] = True
+                print('[tagmismatch] %s: %d tag/geometry conflict(s) (%s) - '
+                      'foreign tags discarded, %d feature block(s) '
+                      're-derived from geometry'
+                      % (os.path.basename(path), len(_ta_c5['conflicts']),
+                         ','.join(summary['tag_mismatch']),
+                         len(type_at)), flush=True)
+
     type_at = {_aw(p): feat for p, feat in type_at.items()}   # -> apply world
     summary['types'] = len(type_at)
 
@@ -23337,14 +23443,6 @@ def process(path, dry=False, verbose=False, retract_rewrite=False,
         info.append('SEQWARN=%d' % len(_seq193))
         print('[seqaudit] %s: %s' % (os.path.basename(path),
                                      '; '.join(_seq193)), flush=True)
-    if verify_tagged:
-        _ta_c5 = audit_tag_geometry(
-            path,
-            fil_dia=float(cfg['filament_diameter'])
-            if 'filament_diameter' in cfg else 1.75)
-        summary['tag_audit'] = _ta_c5
-        summary['geom_conflicts'] = _ta_c5['conflicts']
-
     # .44: the REAL originals (measured) + which features the file contains
     for canon in feat_stats:
         d = feat_stats[canon]
@@ -23379,6 +23477,10 @@ def process(path, dry=False, verbose=False, retract_rewrite=False,
         # menu and the audit log can then explain the re-derivation
         if summary.get('stray_tag'):
             info.append('STRAYTAG=%s' % summary['stray_tag'])
+        # R281: the tag stream contradicted the geometry and was discarded
+        # wholesale - name the conflict codes so File info can explain it
+        if summary.get('tag_mismatch'):
+            info.append('TAGMISMATCH=%s' % ','.join(summary['tag_mismatch']))
         info.append('CONF=%g' % _GeomScan.CONF)
         if geom.tot_len > 0:
             info.append('COVER=%d' % round(100.0 * geom.cls_len / geom.tot_len))
@@ -27620,6 +27722,118 @@ def watch(directory, interval=5.0, once=False):
         _dl98 = None if once else time.time() + _SCAN_CHUNK_S
         _done98 = 0
         stats['deferred'] = 0
+        _busyck281 = [0.0]      # R281: last busy probe (monotonic, throttled)
+
+        def _print_busy281():
+            # R281: a print start must win within ~1 s - but a backlog pass
+            # must not hammer moonraker with one query per file either.
+            _nw281 = time.monotonic()
+            if _nw281 - _busyck281[0] < 1.0:
+                return False
+            _busyck281[0] = _nw281
+            return _printer_busy()
+
+        def _work_file281(p, fn, key):
+            # R281: EVERY per-file rewrite (center-exclude upgrade, meta
+            # finalize, the tagging pass - which now also VERIFIES the
+            # file's tags against its geometry) runs under the gen_busy
+            # hold: the print start macros gate on it (R188 pattern), so a
+            # start clicked mid-rewrite WAITS instead of racing a
+            # half-processed upload. The hold is released in the finally,
+            # and only when it was really taken - a stuck gen_busy would
+            # block every print start forever (the R188 lesson).
+            nonlocal _done98
+            _held281 = _moonraker_gcode(
+                'SAVE_VARIABLE VARIABLE=gen_busy VALUE=1', loud=False)
+            try:
+                seen[p] = key
+                _seen_dirty149[0] += 1     # R149: persist across restarts
+                _done98 += 1
+                # R226 (.136x field log): Orca/Bambu define objects with
+                # CENTER only - KAMP's SMART_PARK / adaptive mesh read
+                # .polygon and ABORT the print start (jinja UndefinedError,
+                # three SMART_PARK errors in the field log, no print). The
+                # watcher measures the real outline from the object's own
+                # moves and appends POLYGON= to CENTER-only defines.
+                # Cached by the seen-key above (changed files only),
+                # idempotent, cheap head-read early exit.
+                try:
+                    if _upgrade_center_excludes(p):
+                        stats['eod_upgraded'] = stats.get('eod_upgraded', 0) + 1
+                except Exception as _e226:                         # noqa: BLE001
+                    print('[eod226] %s: %r' % (fn, _e226), flush=True)
+                # R134 (.103 field redesign): plot sources are NEVER touched
+                # in the scan. The old flow auto-converted every upload
+                # (*.png, *.jpg.gcode, *.txt ...) into plotter g-code in the
+                # background - including every plain image uploaded as a
+                # litho/colorpic source (field log .101: AxtBunny.png grew an
+                # unrequested AxtBunny.png.gcode twin). Plotting is now a
+                # DECISION: select the image/text/pdf/svg in the file list -
+                # SDCARD_PRINT_FILE switches to plot mode and bumps plot_nonce,
+                # the watcher generates 00_Plot_*_Vnn.gcode on demand (one
+                # job at a time, gen_out decides start vs preview).
+                if PLOT_PAT.search(fn):
+                    if fn.lower().endswith(('.gcode', '.gco', '.g')):
+                        if b'R2-PLOT' in data_head_if_text(p):
+                            stats['tagged_before'] += 1   # plotter g-code, ready
+                        else:
+                            # raw image smuggled with the OLD .gcode-tail
+                            # trick - tell the user, convert nothing
+                            print('[plot] %s: raw upload with the old .gcode '
+                                  'tail - plotting needs the plain name now: '
+                                  'rename (drop the .gcode), then select it '
+                                  'in the file list' % fn, flush=True)
+                            stats['tagged_before'] += 1
+                    else:
+                        # plain source (.png/.jpg/.svg/.pdf/.txt): stays as
+                        # is - select it in the file list to plot it
+                        stats['tagged_before'] += 1
+                    return
+                # R64: generated plotter files without .png/... endings
+                # (Resonance_*_plot.gcode, V01_R2_Status.gcode) carry the R2-PLOT header
+                if b'R2-PLOT' in data_head_if_text(p):
+                    stats['tagged_before'] += 1
+                    _meta_finalize(p)     # R212: Mainsail meta for gen files
+                    return
+                try:
+                    # R281: verify_tagged=True - the tag-vs-geometry audit
+                    # becomes a VERDICT (conflicts discard the foreign tags
+                    # wholesale, the geometry classifier re-derives)
+                    s = process(p, retract_rewrite=rrw, verify_tagged=True)
+                except Exception as e:              # noqa: BLE001
+                    stats['errors'] += 1
+                    print(f'[!] {fn}: {e!r}', flush=True)
+                    return
+                if s['skipped']:
+                    stats['tagged_before'] += 1
+                    _meta_finalize(p)     # R212: Mainsail meta for gen files
+                else:
+                    stats['processed'] += 1
+                    NEW_PREVIEW.append(p)
+                    print(f'[ok] {fn}: +{s["marks_added"]} LAYER_MARK ({s["method"]}), '
+                          f'+{s["types"]} APPLY_TYPE, _FILE_INFO layers={s["layers"]}, '
+                          f'by_object={s["by_object"]}'
+                          + (f' [stray tag {s["stray_tag"]} -> geometry re-derived]'
+                             if s.get('stray_tag') else '')
+                          + (' [tag/geometry conflicts '
+                             + ','.join(s['tag_mismatch']) + ' -> re-derived]'
+                             if s.get('tag_mismatch') else '')
+                          + (f' [retract-fix: {s["retract_pairs"]} pair(s) -> G10/G11]'
+                             if s.get('retract_pairs') else '')
+                          + (f' [sliced by {s.get("slicer", "")} for {s.get("fw", "?")}]'
+                             if s.get('slicer') else '')
+                          + (' [upgraded from ' + s['upgraded_from'] + ']' if s['upgraded'] else ''), flush=True)
+            finally:
+                if _held281:
+                    _moonraker_gcode(
+                        'SAVE_VARIABLE VARIABLE=gen_busy VALUE=0')
+
+        # R281: while a print runs (start/homing phases included) the scan
+        # touches NOTHING: it returns BEFORE any seen-mark, so the first
+        # pass after the print retries every file. An unreachable moonraker
+        # reads as not busy (offline dev hosts keep working).
+        if _printer_busy():
+            return
         for root, dirs, files in os.walk(directory):
             dirs[:] = [d for d in dirs if not d.startswith('.')]
             for fn in sorted(files):
@@ -27674,77 +27888,17 @@ def watch(directory, interval=5.0, once=False):
                 if _dl98 is not None and _done98 and time.time() > _dl98:
                     stats['deferred'] += 1
                     continue
-                seen[p] = key
-                _seen_dirty149[0] += 1     # R149: persist across restarts
-                _done98 += 1
-                # R226 (.136x field log): Orca/Bambu define objects with
-                # CENTER only - KAMP's SMART_PARK / adaptive mesh read
-                # .polygon and ABORT the print start (jinja UndefinedError,
-                # three SMART_PARK errors in the field log, no print). The
-                # watcher measures the real outline from the object's own
-                # moves and appends POLYGON= to CENTER-only defines.
-                # Cached by the seen-key above (changed files only),
-                # idempotent, cheap head-read early exit.
-                try:
-                    if _upgrade_center_excludes(p):
-                        stats['eod_upgraded'] = stats.get('eod_upgraded', 0) + 1
-                except Exception as _e226:                         # noqa: BLE001
-                    print('[eod226] %s: %r' % (fn, _e226), flush=True)
-                # R134 (.103 field redesign): plot sources are NEVER touched
-                # in the scan. The old flow auto-converted every upload
-                # (*.png, *.jpg.gcode, *.txt ...) into plotter g-code in the
-                # background - including every plain image uploaded as a
-                # litho/colorpic source (field log .101: AxtBunny.png grew an
-                # unrequested AxtBunny.png.gcode twin). Plotting is now a
-                # DECISION: select the image/text/pdf/svg in the file list -
-                # SDCARD_PRINT_FILE switches to plot mode and bumps plot_nonce,
-                # the watcher generates 00_Plot_*_Vnn.gcode on demand (one
-                # job at a time, gen_out decides start vs preview).
-                if PLOT_PAT.search(fn):
-                    if fn.lower().endswith(('.gcode', '.gco', '.g')):
-                        if b'R2-PLOT' in data_head_if_text(p):
-                            stats['tagged_before'] += 1   # plotter g-code, ready
-                        else:
-                            # raw image smuggled with the OLD .gcode-tail
-                            # trick - tell the user, convert nothing
-                            print('[plot] %s: raw upload with the old .gcode '
-                                  'tail - plotting needs the plain name now: '
-                                  'rename (drop the .gcode), then select it '
-                                  'in the file list' % fn, flush=True)
-                            stats['tagged_before'] += 1
-                    else:
-                        # plain source (.png/.jpg/.svg/.pdf/.txt): stays as
-                        # is - select it in the file list to plot it
-                        stats['tagged_before'] += 1
-                    continue
-                # R64: generated plotter files without .png/... endings
-                # (Resonance_*_plot.gcode, V01_R2_Status.gcode) carry the R2-PLOT header
-                if b'R2-PLOT' in data_head_if_text(p):
-                    stats['tagged_before'] += 1
-                    _meta_finalize(p)     # R212: Mainsail meta for gen files
-                    continue
-                try:
-                    s = process(p, retract_rewrite=rrw)
-                except Exception as e:              # noqa: BLE001
-                    stats['errors'] += 1
-                    print(f'[!] {fn}: {e!r}', flush=True)
-                    continue
-                if s['skipped']:
-                    stats['tagged_before'] += 1
-                    _meta_finalize(p)     # R212: Mainsail meta for gen files
-                else:
-                    stats['processed'] += 1
-                    NEW_PREVIEW.append(p)
-                    print(f'[ok] {fn}: +{s["marks_added"]} LAYER_MARK ({s["method"]}), '
-                          f'+{s["types"]} APPLY_TYPE, _FILE_INFO layers={s["layers"]}, '
-                          f'by_object={s["by_object"]}'
-                          + (f' [stray tag {s["stray_tag"]} -> geometry re-derived]'
-                             if s.get('stray_tag') else '')
-                          + (f' [retract-fix: {s["retract_pairs"]} pair(s) -> G10/G11]'
-                             if s.get('retract_pairs') else '')
-                          + (f' [sliced by {s.get("slicer", "")} for {s.get("fw", "?")}]'
-                             if s.get('slicer') else '')
-                          + (' [upgraded from ' + s['upgraded_from'] + ']' if s['upgraded'] else ''), flush=True)
+                # R281: a print start mid-pass wins NOW - the file stays
+                # un-seen (the next pass retries it and the rest of the
+                # backlog). The per-file gen_busy hold inside the worker
+                # makes the start macros wait their turn (R188 pattern).
+                if _print_busy281():
+                    stats['deferred'] += 1
+                    print('[i] print active - the upload scan pauses, %s '
+                          'and the rest retry on the next pass' % fn,
+                          flush=True)
+                    return
+                _work_file281(p, fn, key)
         # R98 (field log .75): backlog bookkeeping - the initial message
         # reports what is deferred, the last chunk reports completion
         if stats['deferred']:
@@ -27775,6 +27929,12 @@ def watch(directory, interval=5.0, once=False):
     last_twist_nonce = None          # R216: twist tool
     last_mirror_nonce = None         # R224: mirror tool
     last_toolchain_nonce = None      # R259: preset chain (tools in series)
+    # R285: the toolchain JOB LIST - the chain is LCD state now (add / edit
+    # ops / save / load), the preset file is only the load/save format
+    last_toolchain_add_nonce = None
+    last_toolchain_op_nonce = None
+    last_toolchain_save_nonce = None
+    last_toolchain_load_nonce = None
     last_litho_nonce = None          # R89: lithophane / seal / image-delete
     last_colorpic_nonce = None        # R120: color picture generator
     last_stencil_nonce = None         # R267: spray stencil generator (J9)
@@ -28337,26 +28497,12 @@ def watch(directory, interval=5.0, once=False):
     except Exception as e:                              # noqa: BLE001
         print('[r166] version probe failed: %r' % e, flush=True)
 
-    # R259: the toolchain ships ONE example preset so the LCD path works
-    # out of the box (pick the .json in the SD browser, Pre-Print > Mods >
-    # Toolchain > Apply). Seeded only when the Toolchain folder does not
-    # exist yet: a deleted example STAYS deleted (reappears only after the
-    # folder itself is gone), user presets are never touched.
-    try:
-        _tcd259 = os.path.join(directory, GEN_SUBDIRS['toolchain'])
-        _tcfresh259 = not os.path.isdir(_tcd259)
-        _gensub(directory, 'toolchain')
-        if _tcfresh259:
-            _tcs259 = os.path.join(
-                os.path.dirname(os.path.abspath(__file__)),
-                '..', 'presets', 'toolchain', 'scale-twist.json')
-            if os.path.isfile(_tcs259):
-                shutil.copy2(_tcs259,
-                             os.path.join(_tcd259, 'scale-twist.json'))
-                print('[toolchain] example preset seeded: Toolchain/'
-                      'scale-twist.json', flush=True)
-    except OSError as _tce259:
-        print('[toolchain] seed skipped (%s)' % _tce259, flush=True)
+    # R285: the toolchain ships NO example preset any more (user rule:
+    # "keine vorinstallierten Presets - nur eigene"). The LCD builds the
+    # chain as a JOB LIST (Tools > <tool> > Add to chain); "Preset
+    # speichern" writes the user's own .json into the Toolchain folder,
+    # the SD browser pick loads it back into the list.
+    _gensub(directory, 'toolchain')
 
     while True:
         stats['files'] = 0
@@ -28651,6 +28797,12 @@ def watch(directory, interval=5.0, once=False):
                 last_gclear_nonce = _np.get('gen_clear_nonce')  # R223
                 last_genq_kill_nonce = _np.get('genq_kill_nonce')  # R238
                 last_toolchain_nonce = _np.get('toolchain_nonce')  # R259
+                # R285: the job-list channels prime the same way - a stored
+                # nonce from before the boot must never fire twice
+                last_toolchain_add_nonce = _np.get('toolchain_add_nonce')
+                last_toolchain_op_nonce = _np.get('toolchain_op_nonce')
+                last_toolchain_save_nonce = _np.get('toolchain_save_nonce')
+                last_toolchain_load_nonce = _np.get('toolchain_load_nonce')
                 # R223 (.136s field log): gen_busy=1 OUTLIVES a killed
                 # watcher - it was raised by a job whose finally never ran
                 # (the wedged photo build took the thread down with the
@@ -29161,6 +29313,35 @@ def watch(directory, interval=5.0, once=False):
                                 floor_hole=rfh, top_hole=rth, version=1,
                                 out_dir=_gensub(directory, 'range'))
                             _rs62, _re62 = int(float(rs)), int(float(re_))
+                            # R283 range-guard: read the file's real layer
+                            # count FIRST and clamp the window before the
+                            # job starts - make_range's late ValueError
+                            # ('range 6..750 invalid, file has 100 layers')
+                            # only ever reached the poll log, never the LCD.
+                            try:
+                                _nl62 = 0
+                                with open(sp, errors='replace') as _fh62:
+                                    for _ln62 in _fh62:
+                                        if _ln62.startswith(';LAYER_CHANGE'):
+                                            _nl62 += 1
+                                if _nl62 > 0:
+                                    if _re62 > _nl62:
+                                        _moonraker_gcode(
+                                            'RESPOND MSG="[range] end %d clamped to %d (file has %d layers)"'
+                                            % (_re62, _nl62, _nl62)
+                                            + '\\nM117 Range: end %d -> %d'
+                                            % (_re62, _nl62))
+                                        _re62 = _nl62
+                                    if _rs62 > _re62:
+                                        _moonraker_gcode(
+                                            'RESPOND MSG="[range] start %d beyond end %d - nothing to cut"'
+                                            % (_rs62, _re62)
+                                            + '\\nM117 Range: bad window'
+                                            + '\\n_SOUND_LIB NAME=r2_error')
+                                        continue
+                            except Exception as _e62g:              # noqa: BLE001
+                                print(f'[range] layer pre-scan failed: '
+                                      f'{_e62g!r}', flush=True)
 
                             def _range_job62(sp=src_path, a=_rargs62,
                                              s=_rs62, e=_re62, rvq=rv):
@@ -31310,6 +31491,224 @@ def watch(directory, interval=5.0, once=False):
                 pass
             print(f'[mirror] guard: {ve224m}', flush=True)
 
+        # ------------------------------------------------------------------
+        # R285: the toolchain JOB LIST - the chain is LCD STATE now.
+        # toolchain_chain (machine form 'tool:k=v,...|...') and
+        # toolchain_chain_lcd (display form) live in save_variables; the
+        # macros only bump nonces, ALL parsing/validation/editing happens
+        # here in Python. Four channels: ADD (append the tool's CURRENT
+        # LCD values), OP (DEL/UP/DOWN/CLEAR/GOTO), SAVE (list -> .json in
+        # the Toolchain folder), LOAD (.json -> list, the SD browser pick).
+        # ------------------------------------------------------------------
+        def _tc_push285(jobs, _tcl):
+            """Write both chain variables back (machine + display form)."""
+            _moonraker_gcode(
+                'SAVE_VARIABLE VARIABLE=toolchain_chain VALUE="%s"\n_PACE\n'
+                'SAVE_VARIABLE VARIABLE=toolchain_chain_lcd VALUE="%s"'
+                % (_tcl.chain_to_string(jobs), _tcl.chain_display(jobs)))
+
+        def _tc_read285(rv, _tcl):
+            """Current job list from rv; (jobs, error)."""
+            return _tcl.chain_from_string(rv.get('toolchain_chain', ''))
+
+        # -- ADD: Tools > <tool> > '+ Add to chain' -------------------------
+        try:
+            _an285 = rv.get('toolchain_add_nonce', '')
+            if _an285 and _an285 != last_toolchain_add_nonce:
+                last_toolchain_add_nonce = _an285
+                import toolchain as _tcl285
+                _tool285 = str(rv.get('toolchain_add_tool', '')
+                               or '').strip().lower()
+                _jobs285, _err285 = _tc_read285(rv, _tcl285)
+                if _err285:
+                    raise ValueError('Kette unlesbar: %s' % _err285)
+                if _tool285 not in _tcl285.TOOL_VAR_MAP:
+                    raise ValueError(
+                        'Werkzeug %r kann nicht in die Kette (erlaubt: %s)'
+                        % (_tool285, ', '.join(sorted(_tcl285.TOOL_VAR_MAP))))
+                if len(_jobs285) >= _tcl285.MAX_STEPS:
+                    raise ValueError(
+                        'die Kette ist voll (%d Jobs) - erst loeschen'
+                        % _tcl285.MAX_STEPS)
+                _jobs285.append({'tool': _tool285,
+                                 'params': _tcl285.params_from_vars(
+                                     _tool285, rv)})
+                _ok285, _errs285 = _tcl285.validate_chain(_jobs285)
+                if not _ok285:
+                    raise ValueError(' | '.join(_errs285[:2]))
+                _tc_push285(_jobs285, _tcl285)
+                _moonraker_gcode(
+                    'RESPOND MSG="Chain: %s hinzugefuegt - %d Job(s): %s"'
+                    % (_tool285, len(_jobs285),
+                       _tcl285._display_seg(_jobs285[-1]))
+                    + '\nM117 Chain: %d Jobs\n_SOUND_LIB NAME=r2_confirm'
+                    % len(_jobs285))
+                print('[toolchain] added %s (%d jobs)'
+                      % (_tool285, len(_jobs285)), flush=True)
+        except ValueError as _ve285a:
+            try:
+                _moonraker_gcode(
+                    'RESPOND MSG="Chain add: %s"\nM117 Chain add error\n'
+                    '_SOUND_LIB NAME=r2_error'
+                    % str(_ve285a).replace('"', "'"))
+            except Exception:                           # noqa: BLE001
+                pass
+            print('[toolchain] add guard: %s' % _ve285a, flush=True)
+
+        # -- OP: DEL / UP / DOWN / CLEAR / GOTO ------------------------------
+        try:
+            _on285 = rv.get('toolchain_op_nonce', '')
+            if _on285 and _on285 != last_toolchain_op_nonce:
+                last_toolchain_op_nonce = _on285
+                import toolchain as _tcl285
+                _op285 = str(rv.get('toolchain_op', '') or '').strip().upper()
+                try:
+                    _idx285 = int(float(rv.get('toolchain_op_idx', 0) or 0))
+                except (TypeError, ValueError):
+                    _idx285 = 0
+                _jobs285, _err285 = _tc_read285(rv, _tcl285)
+                if _err285:
+                    raise ValueError('Kette unlesbar: %s' % _err285)
+                if _op285 == 'GOTO':
+                    # 'Zum Tool': die Job-Parameter in die Variablen des
+                    # Werkzeugs laden - sein Menue oeffnet vorbefuellt,
+                    # dort aendern und als NEUEN Job wieder anhaengen.
+                    if not (0 <= _idx285 < len(_jobs285)):
+                        raise ValueError('Job %d gibt es nicht'
+                                         % (_idx285 + 1))
+                    _job285 = _jobs285[_idx285]
+                    _vars285 = _tcl285.params_to_vars(
+                        _job285['tool'], _job285.get('params') or {})
+                    _lines285 = []
+                    for _vn285, _vv285 in _vars285.items():
+                        if isinstance(_vv285, str):
+                            # String-Wert: VALUE="\"GRID\"" - das \
+                            # escaped Quote quoted den String-Wert
+                            _lines285.append(
+                                'SAVE_VARIABLE VARIABLE=%s VALUE="%s%s%s"'
+                                % (_vn285, chr(92) + '"', _vv285,
+                                   chr(92) + '"'))
+                        else:
+                            _lines285.append(
+                                'SAVE_VARIABLE VARIABLE=%s VALUE=%s'
+                                % (_vn285, _vv285))
+                    _moonraker_gcode(
+                        '\n_PACE\n'.join(_lines285)
+                        + '\nRESPOND MSG="Job %d ins %s-Menue geladen - '
+                          'dort aendern und mit + Add to chain als neuen '
+                          'Job anhaengen"\nM117 Job %d -> %s'
+                        % (_idx285 + 1, _job285['tool'],
+                           _idx285 + 1, _job285['tool']))
+                else:
+                    _new285, _oerr285 = _tcl285.chain_apply_op(
+                        _jobs285, _op285, _idx285)
+                    if _oerr285:
+                        raise ValueError(_oerr285)
+                    _tc_push285(_new285, _tcl285)
+                    _moonraker_gcode(
+                        'RESPOND MSG="Chain: %s - %d Job(s) uebrig"\n'
+                        'M117 Chain: %d Jobs\n_SOUND_LIB NAME=r2_confirm'
+                        % ({'DEL': 'Job %d geloescht' % (_idx285 + 1),
+                            'CLEAR': 'Liste geleert'}.get(
+                                _op285, '%s ok' % _op285),
+                           len(_new285), len(_new285)))
+                    print('[toolchain] op %s@%d -> %d jobs'
+                          % (_op285, _idx285, len(_new285)), flush=True)
+        except ValueError as _ve285o:
+            try:
+                _moonraker_gcode(
+                    'RESPOND MSG="Chain: %s"\nM117 Chain op error\n'
+                    '_SOUND_LIB NAME=r2_error'
+                    % str(_ve285o).replace('"', "'"))
+            except Exception:                           # noqa: BLE001
+                pass
+            print('[toolchain] op guard: %s' % _ve285o, flush=True)
+
+        # -- SAVE: die Liste als eigenes Preset (.json im Toolchain-Ordner) --
+        try:
+            _sn285 = rv.get('toolchain_save_nonce', '')
+            if _sn285 and _sn285 != last_toolchain_save_nonce:
+                last_toolchain_save_nonce = _sn285
+                import toolchain as _tcl285
+                _jobs285, _err285 = _tc_read285(rv, _tcl285)
+                if _err285:
+                    raise ValueError('Kette unlesbar: %s' % _err285)
+                if not _jobs285:
+                    raise ValueError('die Kette ist leer - nichts zu '
+                                     'speichern')
+                _ok285, _errs285 = _tcl285.validate_chain(_jobs285)
+                if not _ok285:
+                    raise ValueError(' | '.join(_errs285[:2]))
+                _name285 = 'Kette %s' % time.strftime('%Y-%m-%d %H.%M')
+                _pre285 = _tcl285.preset_from_jobs(
+                    _jobs285, _name285,
+                    description='Am LCD gebaute Kette (%d Jobs), gespeichert '
+                                '%s' % time.strftime('%d.%m.%Y %H.%M'))
+                _sdir285 = _gensub(directory, 'toolchain')
+                _sfile285 = 'kette-%s.json' % time.strftime('%Y%m%d-%H%M%S')
+                _spath285 = os.path.join(_sdir285, _sfile285)
+                with open(_spath285, 'w', encoding='utf-8') as _fh285:
+                    json.dump(_pre285, _fh285, indent=2, ensure_ascii=False)
+                    _fh285.write('\n')
+                try:
+                    _moonraker_filelist_notify(
+                        os.path.relpath(_spath285, directory))
+                except Exception:                       # noqa: BLE001
+                    pass
+                _moonraker_gcode(
+                    'RESPOND MSG="Chain gespeichert: %s (%d Jobs) - laden: '
+                    'im SD-Browser anklicken"\nM117 Preset saved\n'
+                    '_SOUND_LIB NAME=r2_done'
+                    % (_sfile285, len(_jobs285)))
+                print('[toolchain] saved: %s' % _sfile285, flush=True)
+        except (ValueError, OSError) as _ve285s:
+            try:
+                _moonraker_gcode(
+                    'RESPOND MSG="Chain save: %s"\nM117 Chain save error\n'
+                    '_SOUND_LIB NAME=r2_error'
+                    % str(_ve285s).replace('"', "'"))
+            except Exception:                           # noqa: BLE001
+                pass
+            print('[toolchain] save guard: %s' % _ve285s, flush=True)
+
+        # -- LOAD: .json-Pick aus dem SD-Browser -> ersetzt die Liste --------
+        try:
+            _ln285 = rv.get('toolchain_load_nonce', '')
+            if _ln285 and _ln285 != last_toolchain_load_nonce:
+                last_toolchain_load_nonce = _ln285
+                import toolchain as _tcl285
+                _lp285 = str(rv.get('toolchain_preset', '') or '').strip()
+                _lp285 = _lp285.lstrip('/')
+                if '..' in _lp285.split('/'):
+                    raise ValueError('Preset-Pfade klettern nicht hoch (..)')
+                if not _lp285.lower().endswith('.json'):
+                    raise ValueError('Preset muss eine .json-Datei sein')
+                _lpath285 = os.path.join(directory, _lp285)
+                _pre285, _lerr285 = _tcl285.load_preset_file(_lpath285)
+                if _pre285 is None:
+                    raise ValueError(' | '.join(_lerr285[:2]))
+                _jobs285 = _tcl285.jobs_from_preset(_pre285)
+                _tc_push285(_jobs285, _tcl285)
+                # geladen = Datei-Modus AUS: Apply nutzt wieder die Liste
+                _moonraker_gcode(
+                    'SAVE_VARIABLE VARIABLE=toolchain_preset VALUE=""\n'
+                    '_PACE\n'
+                    'RESPOND MSG="Preset %s geladen: %d Jobs in der Liste"\n'
+                    'M117 Chain: %d Jobs\n_SOUND_LIB NAME=r2_confirm'
+                    % (str(_pre285.get('name', '?'))[:40],
+                       len(_jobs285), len(_jobs285)))
+                print('[toolchain] loaded %s -> %d jobs'
+                      % (_lp285, len(_jobs285)), flush=True)
+        except ValueError as _ve285l:
+            try:
+                _moonraker_gcode(
+                    'RESPOND MSG="Chain load: %s"\nM117 Chain load error\n'
+                    '_SOUND_LIB NAME=r2_error'
+                    % str(_ve285l).replace('"', "'"))
+            except Exception:                           # noqa: BLE001
+                pass
+            print('[toolchain] load guard: %s' % _ve285l, flush=True)
+
         # R259: the TOOLCHAIN - a preset FILE chains the real tools: every
         # step feeds the next (Scale -> Twist -> ...), ONE queue entry, only
         # the LAST output stays (temps die after handover, S22.4). The preset
@@ -31319,6 +31718,8 @@ def watch(directory, interval=5.0, once=False):
             _tcn259 = rv.get('toolchain_nonce', '')
             if _tcn259 and _tcn259 != last_toolchain_nonce:
                 last_toolchain_nonce = _tcn259
+                # R285: QUELLE = Datei-Modus (toolchain_preset gesetzt,
+                # Konsole PRESET=) ODER die LCD-Jobliste (Default).
                 _tcp259 = str(rv.get('toolchain_preset', '') or '').strip()
                 _tcp259 = _tcp259.lstrip('/')
                 if '..' in _tcp259.split('/'):
@@ -31326,39 +31727,57 @@ def watch(directory, interval=5.0, once=False):
                 _tcr259 = str(rv.get('toolchain_file', '') or '').strip()
                 if '..' in _tcr259 or _tcr259.startswith('/'):
                     _tcr259 = os.path.basename(_tcr259)
-                if not _tcp259:
-                    raise ValueError('no preset picked - click a .json in '
-                                     'the SD browser first (Pre-Print > '
-                                     'Mods > Toolchain shows it)')
-                if not _tcp259.lower().endswith('.json'):
-                    raise ValueError('preset %s is not a .json file'
-                                     % _tcp259)
+                _tcpre259 = None          # Datei-Modus: das Preset
+                _tcjobs259 = None         # Listen-Modus: die Jobs
+                _tcl259 = None
+                if _tcp259:
+                    # ---- Datei-Modus (R259-Vertrag, unveraendert) ----
+                    if not _tcp259.lower().endswith('.json'):
+                        raise ValueError('preset %s is not a .json file'
+                                         % _tcp259)
+                    _tcpp259 = os.path.join(directory, _tcp259)
+                    if not os.path.isfile(_tcpp259):
+                        raise ValueError('preset %s not found in the gcodes '
+                                         'folder' % _tcp259)
+                    import toolchain as _tcl259
+                    _tcpre259, _tcerr259 = _tcl259.load_preset_file(_tcpp259)
+                    if _tcpre259 is None:
+                        raise ValueError(' | '.join(_tcerr259))
+                else:
+                    # ---- Listen-Modus (R285): die Jobliste IST die Kette ----
+                    import toolchain as _tcl259
+                    _tcjobs259, _tcjerr259 = _tcl259.chain_from_string(
+                        rv.get('toolchain_chain', ''))
+                    if _tcjerr259:
+                        raise ValueError('Kette unlesbar: %s' % _tcjerr259)
+                    if not _tcjobs259:
+                        raise ValueError(
+                            "die Kette ist leer - Tools > <Werkzeug> > "
+                            "'+ Add to chain' baut sie, oder ein eigenes "
+                            "Preset im SD-Browser anklicken")
+                    _tcpp259 = None
                 if not _tcr259:
                     raise ValueError('no file selected - pick one first '
                                      '(Pre-Print > File)')
                 if not _tcr259.lower().endswith('.gcode'):
                     raise ValueError('%s is not a .gcode file' % _tcr259)
-                _tcpp259 = os.path.join(directory, _tcp259)
                 _tcin259 = os.path.join(directory, _tcr259)
-                if not os.path.isfile(_tcpp259):
-                    raise ValueError('preset %s not found in the gcodes '
-                                     'folder' % _tcp259)
                 if not os.path.isfile(_tcin259):
                     raise ValueError('input %s not found' % _tcr259)
-                # Full preset validation UP FRONT (load_preset_file is the
-                # offline-tested resolver): a broken JSON beeps NOW, not
-                # minutes later when the queue finally runs it.
-                import toolchain as _tcl259
-                _tcpre259, _tcerr259 = _tcl259.load_preset_file(_tcpp259)
-                if _tcpre259 is None:
-                    raise ValueError(' | '.join(_tcerr259))
                 # the anchor registry (load_preset_file default) only knows
                 # the five chainable tools - cake (2 outputs) and everything
                 # else is rejected UP FRONT with a plain-text reason
-                _tcrun259 = [s['tool'] for s in _tcpre259['steps']]
+                if _tcpre259 is not None:
+                    _tcrun259 = [s['tool'] for s in _tcpre259['steps']]
+                else:
+                    _tcok259, _tcerr259 = _tcl259.validate_chain(_tcjobs259)
+                    if not _tcok259:
+                        raise ValueError(' | '.join(_tcerr259[:2]))
+                    _tcrun259 = [j['tool'] for j in _tcjobs259]
 
                 def _toolchain_job259(rel=_tcr259, preset_path=_tcpp259,
-                                      pre=_tcpre259, rvq=rv,
+                                      pre=_tcpre259, jobs=_tcjobs259,
+                                      rvq=rv,
                                       tools=_tcrun259):
                     # Lazy imports INSIDE the job thread (R91): toolchain
                     # (plan/validation) + toolchain_steps (real adapters).
@@ -31379,6 +31798,14 @@ def watch(directory, interval=5.0, once=False):
                                  'make_range', 'make_mold')):
                             _tcst._PP = _me259
                     _out_dir = _gensub(directory, 'toolchain')
+                    # R285: Listen-Modus - die Jobliste wird hier (im Job,
+                    # am Scheduler vorbei) zum Preset; 'name'/'description'
+                    # tauchen nur als Metadaten auf, nie im Dateinamen.
+                    if pre is None:
+                        pre = _tcl.preset_from_jobs(
+                            jobs, 'LCD chain',
+                            description='Am LCD gebaute Kette (%d Jobs)'
+                                        % len(jobs))
                     # R259: lift the V-number to the next free one - a
                     # second run of the same preset must never collide with
                     # the first run's final output (S22: never overwrite).
@@ -31418,7 +31845,8 @@ def watch(directory, interval=5.0, once=False):
                                 '%s (%d steps: %s) -> %s - only the last '
                                 'output stays"\nM117 Chain ready\n'
                                 '_SOUND_LIB NAME=r2_done'
-                                % (rel, os.path.basename(preset_path),
+                                % (rel, os.path.basename(preset_path)
+                                   if preset_path else 'LCD chain',
                                    len(_plan259['steps']),
                                    ' -> '.join(tools), _rel259)
                                 + _sel_line(rvq, _rel259))
@@ -31448,7 +31876,8 @@ def watch(directory, interval=5.0, once=False):
                     return [_report259['final_output']]
 
                 _spawn_job('Toolchain', 'toolchain:%s:%s' % (
-                    _tcp259, _tcr259), _toolchain_job259)
+                    _tcp259 or ('jobs:' + '>'.join(_tcrun259)),
+                    _tcr259), _toolchain_job259)
         except ValueError as ve259:
             try:
                 _moonraker_gcode(
