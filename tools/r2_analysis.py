@@ -222,6 +222,7 @@ class Tracker:
         self._cur_cells = set()
         self._cur_adhesion = set()
         self._cur_top = set()
+        self._cur_support = set()   # R281: G3 support world (solid same-layer)
         self._cur_expl_top = set()
         self._cur_iron = set()
         self._cur_had_interior = False
@@ -444,19 +445,27 @@ class Tracker:
                             'adhesion feature at unit layer %d with %.0f%% lower-layer continuation'
                             % (buln, ov * 100.0))
 
-            top_d = _dilate1(self._cur_top) if self._cur_top else set()
+            # R281: same widened G3 support world as the upload audit
+            # (r2_postproc.audit_tag_geometry) - every solid same-layer
+            # feature, not only SURFACE-TOP - so the offline audit and the
+            # upload audit reach the same verdict (Slice Beam's MAN_V3
+            # ironed stepped ceilings on plain solid infill: 100% support).
+            sup_d = (_dilate1(self._cur_support)
+                     if self._cur_support else set())
             nom_xs = 0.0
             if len(self._xsec_samples) >= 4:
                 sxs = sorted(self._xsec_samples)
                 nom_xs = sxs[len(sxs) // 2]
             for bline, braw, bcells, med_xs, blen in self._cur_iron_blocks:
                 if bcells and uln >= 2:
-                    ov = (len(bcells & top_d) / float(len(bcells))) if top_d else 0.0
+                    ov = ((len(bcells & sup_d) / float(len(bcells)))
+                          if sup_d else 0.0)
                     if ov < 0.35:
                         self._add_conflict(
                             'G3_IRONING_UNSUPPORTED', bline, self._unit_id, uln,
                             braw, 'IRONING',
-                            'ironing overlaps only %.0f%% of same-layer top surface cells'
+                            'ironing overlaps only %.0f%% of same-layer solid '
+                            'support cells (top/infill/wall/gap)'
                             % (ov * 100.0))
                 if nom_xs > 1e-4 and med_xs > 0.65 * nom_xs and blen >= 4.0:
                     self._add_conflict(
@@ -521,6 +530,7 @@ class Tracker:
         self._cur_cells = set()
         self._cur_adhesion = set()
         self._cur_top = set()
+        self._cur_support = set()
         self._cur_expl_top = set()
         self._cur_iron = set()
         self._cur_had_interior = False
@@ -654,6 +664,7 @@ class Tracker:
                 self._cur_iron |= cells
             elif role in ('WALL-OUTER', 'WALL-INNER'):
                 self._cur_had_walls = True
+                self._cur_support |= cells
                 if (role == 'WALL-OUTER' and len(seg_points) == 2
                         and len(self._blk_strokes) < 200):
                     sx0, sy0, _ = seg_points[0]
@@ -667,18 +678,24 @@ class Tracker:
                         self._blk_cur_stroke[5] += dist_mm
             elif role == 'SURFACE-TOP':
                 self._cur_top |= cells
+                self._cur_support |= cells
                 if raw_lc not in ('skin', 'top-skin', 'surface'):
                     self._cur_expl_top |= cells
             elif role == 'AMBIGUOUS' and raw_lc in ('skin', 'top-skin'):
                 if self._unit_layer >= 2:
                     self._cur_top |= cells
+                    self._cur_support |= cells
                 else:
                     self._cur_had_interior = True
             elif role == 'BRIM' or raw_lc.startswith('raft'):
                 self._cur_adhesion |= cells
             elif role in ('INFILL-SPARSE', 'INFILL-SOLID',
-                          'INTERNAL-BRIDGE', 'SURFACE-BOTTOM'):
+                          'INTERNAL-BRIDGE', 'SURFACE-BOTTOM', 'GAPS'):
                 self._cur_had_interior = True
+                # R281: solid infill / gap fill carry ironing too (parity
+                # with the upload audit's G3 support world)
+                if role in ('INFILL-SOLID', 'GAPS'):
+                    self._cur_support |= cells
             elif role == 'BRIDGE':
                 inv = 1.0 / self.CELL_MM
                 sx0, sy0, _ = seg_points[0]
