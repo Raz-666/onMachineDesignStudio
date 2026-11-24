@@ -214,7 +214,7 @@ def build_printer(kamp=False, objs=None, excl=None, old_klipper=False, bare_idle
     'gcode_macro _STATE': M(state_vars),
     'gcode_macro _COLORPIC_STATE': M(cpic_state_vars),   # R120
     'gcode_macro _BRICKS': M({'max_parts': 120,
-    'catalog': ['B1x1','B1x2','B1x3','B1x4','B1x6','B1x8','B2x2','B2x3','B2x4','B2x6','B2x8','B4x4','B4x6','B4x8','B6x6','B6x8','B8x8','P1x2','P1x4','P1x6','P1x8','P2x2','P2x4','P2x6','P2x8','P4x4','P4x6','P4x8','P6x6','P6x8','P8x8','T1x1','T1x2','T1x3','T1x4','T1x6','T1x8','T2x2','T2x3','T2x4','T2x6','T2x8']}),   # R121
+    'catalog': ['B1x1','B1x2','B1x3','B1x4','B1x6','B1x8','B2x2','B2x3','B2x4','B2x6','B2x8','B4x4','B4x6','B4x8','B6x6','B6x8','B8x8','P1x2','P1x4','P1x6','P1x8','P2x2','P2x4','P2x6','P2x8','P4x4','P4x6','P4x8','P6x6','P6x8','P8x8','T1x1','T1x2','T1x3','T1x4','T1x6','T1x8','T2x2','T2x3','T2x4','T2x6','T2x8','BP8x8','BP16x16','BP24x24','BP11x16','BP16x22','G12','G16','G24','G40','AX2','AX4','AX6','AH2x2','D2x2']}),   # R121/R289
     'gcode_macro _MATERIALS': M({'presets': mats}),
     # R216: bed-screw LCD flow display state (defaults = fresh boot)
     'gcode_macro _BED_SCREWS_UI': M({'head': 'not running', 'cur': 'Start below',
@@ -12378,9 +12378,11 @@ tests.append(('R121b modules: 19_bricks.cfg sentinel + _CHECK_INSTALL + include'
 # --- catalog sync: python BRICK_CATALOG == cfg variable_catalog ---
 _cat122 = _re122.findall(r"variable_catalog: \[([^\]]+)\]",
                          open('macros/19_bricks.cfg').read())
-_codes122 = _re122.findall(r"'([A-Z]+\d+x\d+)'", _cat122[0]) if _cat122 else []
-tests.append(('R121b catalog: cfg list == BRICK_CATALOG (76 codes, ALL families, in sync)',
-    sorted(_codes122) == sorted(_pp61.BRICK_CATALOG) and len(_codes122) == 76,
+# R289: codes may carry no 'x' at all (G12, AX4) - the old regex required
+# one and would have silently dropped the new families from the sync check
+_codes122 = _re122.findall(r"'([A-Z]+\d+(?:x\d+)?)'", _cat122[0]) if _cat122 else []
+tests.append(('R121b catalog: cfg list == BRICK_CATALOG (90 codes, ALL families, in sync)',
+    sorted(_codes122) == sorted(_pp61.BRICK_CATALOG) and len(_codes122) == 90,
     'diff %s' % (set(_codes122) ^ set(_pp61.BRICK_CATALOG) or 'none')))
 
 # --- generator file invariants (real file) ---
@@ -12543,23 +12545,30 @@ tests.append(('R122 make_plot_cal: R2-PLOT file (63 dots, strokes, area 100x140)
 
 # --- LCD wiring ---
 _lcd122 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
-tests.append(('R121b LCD: Bricks menu - 9 catalog groups, queue, settings, CREATE',
+tests.append(('R121b LCD: Bricks menu - 13 catalog groups (R289 adds '
+    'baseplates/gears/axles/organic), queue, settings, CREATE',
     all(k in _lcd122 for k in ['[menu __main __gen __bricks]',
         '__bricks __cat __br]', '__bricks __cat __pl]', '__bricks __cat __ti]',
         '__bricks __cat __sl]', '__bricks __cat __iv]', '__bricks __cat __ar]',
         '__bricks __cat __te]', '__bricks __cat __ro]',
+        '__bricks __cat __bp]', '__bricks __cat __gr]',
+        '__bricks __cat __ax]', '__bricks __cat __dm]',
         '__bricks __cat __br __B2x4]', '__bricks __cat __pl __P2x2]',
         '__bricks __cat __ti __T1x2]', '__bricks __cat __sl __S2x6]',
         '__bricks __cat __iv __I2x3]', '__bricks __cat __ar __A1x6]',
         '__bricks __cat __te __H1x8]', '__bricks __cat __ro __C1x1]',
         '__bricks __cat __ro __RT1x1]',
+        '__bricks __cat __bp __BP16x16]', '__bricks __cat __bp __BP11x16]',
+        '__bricks __cat __gr __G12]', '__bricks __cat __gr __G40]',
+        '__bricks __cat __ax __AX2]', '__bricks __cat __ax __AH2x2]',
+        '__bricks __cat __dm __D2x2]',
         '__bricks __q __del]', '__bricks __q __clr]',
         '__bricks __set __lh]', '__bricks __set __brim]', '__bricks __set __col]',
         '__bricks __set __mod __layer]', '__bricks __set __mod __obj]',
         '__bricks __create]',
         'BRICK_ADD CODE=', 'BRICK_CREATE',
         "enable: {'gcode_macro _BRICKS' in printer}"])
-    and _lcd122.count('BRICK_ADD CODE=') == 76, 'ids'))
+    and _lcd122.count('BRICK_ADD CODE=') == 90, 'ids'))
 tests.append(('R122 LCD: Cal test in the Plotter menu',
     '__plot __cal]' in _lcd122 and 'PLOT_CAL' in _lcd122, ''))
 tests.append(('R122 LCD: flow cap range 0.5..50 + high-flow hint',
@@ -14951,6 +14960,25 @@ _ADDED135 = [
     '__main __preprint __mods __toolchain __src',
     '__main __preprint __mods __toolchain __how',
     '__main __preprint __mods __toolchain __go',
+    # R289: brick catalog growth - baseplates / gears / axles / organic.
+    '__main __gen __bricks __cat __bp',
+    '__main __gen __bricks __cat __bp __BP8x8',
+    '__main __gen __bricks __cat __bp __BP16x16',
+    '__main __gen __bricks __cat __bp __BP24x24',
+    '__main __gen __bricks __cat __bp __BP11x16',
+    '__main __gen __bricks __cat __bp __BP16x22',
+    '__main __gen __bricks __cat __gr',
+    '__main __gen __bricks __cat __gr __G12',
+    '__main __gen __bricks __cat __gr __G16',
+    '__main __gen __bricks __cat __gr __G24',
+    '__main __gen __bricks __cat __gr __G40',
+    '__main __gen __bricks __cat __ax',
+    '__main __gen __bricks __cat __ax __AX2',
+    '__main __gen __bricks __cat __ax __AX4',
+    '__main __gen __bricks __cat __ax __AX6',
+    '__main __gen __bricks __cat __ax __AH2x2',
+    '__main __gen __bricks __cat __dm',
+    '__main __gen __bricks __cat __dm __D2x2',
 ]
 _gone135 = sorted(set(_gold135) - set(_now135))
 _new135 = sorted(set(_now135) - set(_gold135))

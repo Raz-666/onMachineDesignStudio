@@ -17855,10 +17855,27 @@ for _al132 in (3, 4, 5, 6):
     BRICK_CATALOG['A1x%d' % _al132] = ('arch', 1, _al132)
 for _hl132 in (2, 3, 4, 6, 8):
     BRICK_CATALOG['H1x%d' % _hl132] = ('tech', 1, _hl132)
+# R289 catalog growth (field wish 17.11.2026 'the assortment is thin'):
+#  BP baseplates - thin exact base plates to build on (the two odd sizes
+#    11x16 / 16x22 drop into the 9x13 / 13x18 Frames system exactly)
+#  G  spur gears, module 1 (teeth = the code number), O4.9 axle bore
+#  AX technic cross axles (standing print, length in studs, tapered tip)
+#  AH axle stand: 2x2 brick with a vertical O4.9 through-socket
+#  D  dome: 2x2 base that really stacks + a solid hemispherical cap
+#    (the first ORGANIC shape of the catalog)
+for _bp289 in ((8, 8), (16, 16), (24, 24), (11, 16), (16, 22)):
+    BRICK_CATALOG['BP%dx%d' % _bp289] = ('baseplate', _bp289[0], _bp289[1])
+for _gz289 in (12, 16, 24, 40):
+    BRICK_CATALOG['G%d' % _gz289] = ('gear', _gz289, _gz289)
+for _ax289 in (2, 4, 6):
+    BRICK_CATALOG['AX%d' % _ax289] = ('axle', 1, _ax289)
+BRICK_CATALOG['AH2x2'] = ('axholder', 2, 2)
+BRICK_CATALOG['D2x2'] = ('dome', 2, 2)
 # slope rule: 2 long = steep face, 3+ = shallow face (run (l-1) studs);
 # the shallow ones carry studs on the flat back row, the steep ones are smooth.
-BRICK_TALL = ('brick', 'slope', 'islope', 'arch', 'tech', 'round', 'cone')
-BRICK_FLAT = ('plate', 'tile', 'jumper', 'rplate', 'rtile')
+BRICK_TALL = ('brick', 'slope', 'islope', 'arch', 'tech', 'round', 'cone',
+              'gear', 'axle', 'axholder', 'dome')
+BRICK_FLAT = ('plate', 'tile', 'jumper', 'rplate', 'rtile', 'baseplate')
 
 
 def _center_cells(cells, bed):
@@ -17919,6 +17936,28 @@ def _brick_hatch(x0, y0, x1, y1, keeps, spacing, angle_deg, min_len=0.35):
         t += spacing
         row += 1
     return segs
+
+
+def _cross_poly289(cx, cy, half, arm, sc=1.0):
+    """R289: technic cross profile (12 points) - the axle silhouette.
+    half = half reach of the arms, arm = half arm width; sc scales the
+    whole cross (the tapered tip at the top of a standing axle)."""
+    h, a = half * sc, arm * sc
+    return [(cx + a, cy + h), (cx + a, cy + a), (cx + h, cy + a),
+            (cx + h, cy - a), (cx + a, cy - a), (cx + a, cy - h),
+            (cx - a, cy - h), (cx - a, cy - a), (cx - h, cy - a),
+            (cx - h, cy + a), (cx - a, cy + a), (cx - a, cy + h)]
+
+
+def _gear_tooth289(cx, cy, ang, r_root, r_tip, half_a_root, half_a_tip):
+    """R289: one trapezoid tooth of a spur gear - 4 points, radial:
+    wide at the root circle, ~60% width at the tip."""
+    pts = []
+    for (r, da) in ((r_root, -half_a_root), (r_tip, -half_a_tip),
+                    (r_tip, half_a_tip), (r_root, half_a_root)):
+        aa = ang + da
+        pts.append((cx + r * math.cos(aa), cy + r * math.sin(aa)))
+    return pts
 
 
 def _brick_studs(kind, w, l, x, y, bw, bl, pitch):
@@ -18001,7 +18040,11 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
     parts = []
     codes_seen = []
     for code, count in jobs:
-        code = str(code).strip().upper().replace('X', 'x')
+        code = str(code).strip().upper()
+        # R289: only a size separator X (digit left of it) folds to 'x' -
+        # a blanket replace('X','x') mangled the new AX/AXle codes ('AX4'
+        # became 'Ax4' and missed the catalog)
+        code = re.sub(r'(\d)X', r'\1x', code)
         if code not in BRICK_CATALOG:
             raise ValueError("unknown brick %r - catalog: %s"
                              % (code, ', '.join(sorted(BRICK_CATALOG))))
@@ -18037,18 +18080,46 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
         return nl
 
     # ---- cells: one per part, with kind-specific heights -----------------
+    def _foot289(kind, w, l):
+        """R289: footprint (bw, bl) per family. Baseplates are EXACT grid
+        (n*8, no play - they ARE the ground others clamp onto); gears size
+        by tip diameter (module 1: (teeth+2)mm) plus a hair of air; axles
+        stand on a small cross cell."""
+        if kind == 'baseplate':
+            return w * _P216, l * _P216
+        if kind == 'gear':
+            gd = (w + 2.0) * _s216 + 0.6
+            return gd, gd
+        if kind == 'axle':
+            return 6.0 * _s216, 6.0 * _s216
+        return w * _P216 - _PL216, l * _P216 - _PL216
+
+    def _nl289(kind, w, l, code):
+        """R289 body layer counts: baseplate = thin 1.2mm base, axle = the
+        stud length standing, dome = 3.2 base + hemisphere (r = half the
+        2x2 span). Everything else keeps the classic brick/plate rule."""
+        if kind == 'baseplate':
+            return _snap(1.2 * _s216, code)
+        if kind == 'axle':
+            return _snap(l * _P216, code)
+        if kind == 'dome':
+            # base 3.2 + hemisphere, capped one layer early: the last
+            # 0.35mm of a sphere would print as a useless dot-stub
+            return _snap((3.2 + 7.55) * _s216, code)
+        return _snap(_BH216 if kind in BRICK_TALL else _PH216, code)
+
     cells = []
     for code in parts:
         kind, w, l = BRICK_CATALOG[code]
-        tall = kind in BRICK_TALL
         studs_on = (kind in ('brick', 'plate', 'tech', 'arch', 'islope',
-                             'round', 'rplate', 'cone', 'jumper')
+                             'round', 'rplate', 'cone', 'jumper',
+                             'baseplate', 'axholder')
                     or (kind == 'slope' and l >= 3))
+        _bw289, _bl289 = _foot289(kind, w, l)
         cells.append({'code': code, 'kind': kind, 'w': w, 'l': l,
                       'ci': ci_of[code],
-                      'bw': w * _P216 - _PL216,
-                      'bl': l * _P216 - _PL216,
-                      'nl': _snap(_BH216 if tall else _PH216, code),
+                      'bw': _bw289, 'bl': _bl289,
+                      'nl': _nl289(kind, w, l, code),
                       'sl': _snap(_SH216, code + ' studs')
                             if studs_on else 0})
 
@@ -18057,7 +18128,7 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
         cy = c['y'] + c['bl'] / 2.0
         c['studs'] = _brick_studs(c['kind'], c['w'], c['l'],
                                   c['x'], c['y'], c['bw'], c['bl'], _P216)
-        if c['kind'] in ('brick', 'plate', 'tile', 'slope'):
+        if c['kind'] in ('brick', 'plate', 'tile', 'slope', 'dome'):
             c['tubes'] = [(cx + (i - (c['w'] - 1) / 2.0) * _P216,
                            cy + (j - (c['l'] - 1) / 2.0) * _P216)
                           for i in range(c['w'] - 1)
@@ -18156,6 +18227,11 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
               ' on the back row; inverted slopes (I) chamfer the underside;'
               ' arches (A) bridge their underside opening; technic (H)'
               ' drills O4.9 holes along X; round family + cone + jumper')
+            a('; R289 adds: baseplates BP (thin exact base, full stud grid,'
+              ' 11x16/16x22 fit the 9x13/13x18 Frames), gears G (module 1,'
+              ' O4.9 bore), cross axles AX (standing, tapered tip), axle'
+              ' stand AH2x2 (vertical O4.9 through-socket), dome D2x2'
+              ' (stacking base + hemisphere cap)')
             a('; layer %.2g -> body up to %d layer(s), studs up to %d -'
               ' R288: the underside is OPEN from layer 1 (tube rings and'
               ' wall ring start on the bed, 1xN cores stay hollow) so the'
@@ -18504,6 +18580,144 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                                 _hatch_rect(x0 + 2 * wid, edges[bi] + wid,
                                             x1 - 2 * wid, edges[bi + 1] - wid,
                                             [], li)
+                elif c['kind'] == 'baseplate' and li <= c['nl']:
+                    # ---- R289 baseplate: thin solid base to BUILD on -----
+                    # exact grid footprint, smooth underside (it stands on
+                    # the table), full stud grid grows on top (stud layers
+                    # fall through to the shared else-branch below).
+                    if li == 1:
+                        _brim_rect(c)
+                        _ty121('Bottom surface')
+                    else:
+                        _ty121('Outer wall')
+                    _fw = 1400 if li == 1 else 2200
+                    _loops(x0, y0, x1, y1, e_wall, _fw)
+                    _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid,
+                           e_wall, _fw + 200)
+                    _ty121('Top surface' if li == c['nl']
+                           else 'Internal solid infill')
+                    _hatch_rect(x0 + 2 * wid, y0 + 2 * wid,
+                                x1 - 2 * wid, y1 - 2 * wid, [], li,
+                                1700 if li == c['nl'] else 1900)
+                elif c['kind'] == 'gear':
+                    # ---- R289 spur gear, module 1, O4.9 axle bore --------
+                    # teeth = trapezoid blocks on the root disc (radial,
+                    # one closed loop each), the disc fills ring-wise down
+                    # to the bore; the bore rim prints as its own loop.
+                    # G12 is the smallest - the bore needs ~2mm of meat
+                    # under the tooth roots.
+                    teeth = c['w']
+                    rt = (teeth / 2.0 + 1.0) * _s216
+                    rr = (teeth / 2.0 - 1.25) * _s216
+                    rh = 2.55 * _s216
+                    tw = 1.41 * _s216
+                    if li == 1:
+                        _brim_round(c, cx, cy, rt)
+                    _ty121('Bottom surface' if li == 1 else 'Outer wall')
+                    _fw = 1400 if li == 1 else 2200
+                    for ti in range(teeth):
+                        _a289 = ti * 2.0 * math.pi / teeth
+                        _emit_loop(pen, _gear_tooth289(
+                            cx, cy, _a289, rr - 0.4 * _s216, rt,
+                            (tw / 2.0) / rr, (tw * 0.3) / rt),
+                            e_wall, _fw)
+                    _emit_loop(pen, _circle(cx, cy, rr - wid / 2.0, 32),
+                               e_wall, _fw)
+                    _ty121('Top surface' if li == c['nl']
+                           else 'Internal solid infill')
+                    _rings126(pen, cx, cy, rr - wid, rh + wid, e_wall,
+                              1700 if li == c['nl'] else 1900, wid)
+                    _ty121('Wall-Inner')
+                    _emit_loop(pen, _circle(cx, cy, rh + wid / 2.0, 20),
+                               e_wall, 2000)
+                elif c['kind'] == 'axle':
+                    # ---- R289 cross axle, standing, tip tapers up --------
+                    # the cross keeps full size to the bed (grip), the last
+                    # ~1.2mm shrink to ~55% as the entry chamfer.
+                    half = 2.3 * _s216
+                    arm = 0.85 * _s216
+                    h_rem = (c['nl'] - li) * layer_h
+                    sc = 1.0
+                    if h_rem < 1.2 * _s216:
+                        sc = max(0.55, h_rem / (1.2 * _s216))
+                    if li == 1:
+                        _brim_round(c, cx, cy, half * 1.15)
+                    _ty121('Bottom surface' if li == 1 else 'Outer wall')
+                    _emit_loop(pen, _cross_poly289(cx, cy, half, arm, sc),
+                               e_wall, 1400 if li == 1 else 2200)
+                    if sc > 0.6:
+                        _ty121('Wall-Inner')
+                        _emit_loop(pen, _cross_poly289(
+                            cx, cy, half - wid, arm * 0.72, sc),
+                            e_wall, 2400)
+                        _emit_loop(pen, [(cx + 0.8, cy), (cx, cy + 0.8),
+                                         (cx - 0.8, cy), (cx, cy - 0.8)],
+                                   e_wall, 2400)
+                elif c['kind'] == 'axholder' and li <= c['nl']:
+                    # ---- R289 axle stand: 2x2, vertical O4.9 socket ------
+                    # the socket is a THROUGH hole - the top cap keeps the
+                    # keep-out too (an axle drops in from above and spins).
+                    keeph = [(cx, cy, 2.55 * _s216 + wid)]
+                    if li == 1:
+                        _brim_rect(c)
+                        _ty121('Bottom surface')
+                    else:
+                        _ty121('Outer wall')
+                    _fw = 1400 if li == 1 else 2200
+                    _loops(x0, y0, x1, y1, e_wall, _fw)
+                    _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid,
+                           e_wall, _fw + 200)
+                    _ty121('Wall-Inner')
+                    _emit_loop(pen, _circle(cx, cy,
+                                            2.55 * _s216 + wid / 2.0, 20),
+                               e_wall, 2000)
+                    _ty121('Top surface' if li == c['nl']
+                           else 'Internal solid infill')
+                    _hatch_rect(x0 + 2 * wid, y0 + 2 * wid,
+                                x1 - 2 * wid, y1 - 2 * wid, keeph, li,
+                                1700 if li == c['nl'] else 1900)
+                elif c['kind'] == 'dome':
+                    # ---- R289 dome (organic): 2x2 stacking base + solid
+                    # hemisphere cap (r = half the 2x2 span, inscribed in
+                    # the square base - the corners stay visible)
+                    base_nl = max(1, int(round(3.2 * _s216 / layer_h)))
+                    if li <= base_nl:
+                        if li == 1:
+                            _brim_rect(c)
+                            _ty121('Bottom surface')
+                        else:
+                            _ty121('Outer wall')
+                        _fw = 1400 if li == 1 else 2200
+                        _loops(x0, y0, x1, y1, e_wall, _fw)
+                        _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid,
+                               e_wall, _fw + 200)
+                        for tx, ty in c['tubes']:
+                            _emit_loop(pen, _circle(tx, ty,
+                                                    _TO216 / 2.0
+                                                    - wid / 2.0, 24),
+                                       e_wall, _fw)
+                            _emit_loop(pen, _circle(tx, ty,
+                                                    _TO216 / 2.0
+                                                    - BRICK_TUBE_WALL
+                                                    + wid / 2.0, 20),
+                                       e_wall, _fw)
+                        _ty121('Internal solid infill')
+                        _hatch_rect(x0 + 2 * wid, y0 + 2 * wid,
+                                    x1 - 2 * wid, y1 - 2 * wid, keeps,
+                                    li, 1900)
+                    else:
+                        R = 7.9 * _s216
+                        hr = hm - base_nl * layer_h
+                        # the cap ends as a small solid disc (the layer
+                        # budget stops 0.35mm under the mathematical tip)
+                        rk = math.sqrt(max(2.3 ** 2, R * R - hr * hr))
+                        _ty121('Outer wall')
+                        _emit_loop(pen, _circle(cx, cy, rk - wid / 2.0, 28),
+                                   e_wall, 2200)
+                        _ty121('Top surface' if li == c['nl']
+                               else 'Internal solid infill')
+                        _rings126(pen, cx, cy, rk - wid, 0.0, e_wall,
+                                  1700 if li == c['nl'] else 1900, wid)
                 elif li == 1:
                     # ---- brick / plate / tile / jumper: layer 1 ------------
                     # R288 (field report 17.11.2026 'studs on top but

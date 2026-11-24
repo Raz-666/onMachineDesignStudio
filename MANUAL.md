@@ -1928,11 +1928,26 @@ the catalog, CREATE, print.
 | stud | Ø4.8 × 1.8 mm, hollow (1.2 mm wall) | stacks like the original, prints without a solid blob on top |
 | underside tube | Ø6.31 at every inner grid crossing | the tube walls spread over the stud below — the clutch comes out exactly right |
 | brick / plate / tile | 9.6 / 3.2 mm heights, tile = smooth plate | layer heights that do not divide evenly snap to whole layers (noted in the file header) |
-| layer 1 | solid + brim | bed adhesion; the tubes open from layer 2 up |
+| underside | **open from layer 1** | wall ring + tube rings start on the bed — the parts really stack. 1xN parts keep a hollow core (studs clamp between the long walls); round parts keep a hollow core up to the cap. Brim anchors the outline |
+| technic holes | Ø4.9 through BOTH long sides | the channel walls run segmented between the hole cutouts, the bridge layer above closes the roof — an axle passes clean through |
 
-**The catalog (45 codes)** — `B`=brick 9.6 mm, `P`=plate 3.2 mm, `T`=tile
-(smooth plate): 1x1, 1x2, 1x3, 1x4, 1x6, 1x8, 2x2, 2x3, 2x4, 2x6, 2x8, 4x4,
-4x6, 4x8, 6x6, 6x8, 8x8 — first the width in studs, then the length.
+**The catalog (90 codes)** — `B`=brick 9.6 mm, `P`=plate 3.2 mm, `T`=tile
+(smooth plate): 1x1 … 8x8 — first the width in studs, then the length.
+Plus the families: `J1x2` jumper, round family `R1x1` / `RP1x1` /
+`RT1x1`, `C1x1` cone, slopes `S` (steep 2-long, shallow 3+ with studs on
+the back row), inverted slopes `I`, arches `A1x3..A1x6`, technic bricks
+`H1x2..H1x8` with the Ø4.9 side holes.
+
+**Baseplates, gears, axles & organic shapes:**
+
+| Code | Part | Geometry |
+|---|---|---|
+| `BP8x8` … `BP24x24` | baseplates | thin 1.2 mm exact-grid base (n·8, NO play — it IS the ground), smooth underside, full stud grid on top |
+| `BP11x16`, `BP16x22` | frame-matched baseplates | drop into the **9x13 / 13x18 Frames** exactly — a mosaic field for the picture frame |
+| `G12` … `G40` | spur gears | module 1 (tip Ø = teeth+2 mm), trapezoid teeth, Ø4.9 axle bore — meshes across the 8 mm grid (G12+G24 centers 3 studs apart, …) |
+| `AX2` / `AX4` / `AX6` | cross axles | standing print, technic cross profile Ø4.6, length 16/32/48 mm, tapered tip |
+| `AH2x2` | axle stand | 2x2 brick with a **vertical Ø4.9 through-socket** — an axle drops in from above and spins |
+| `D2x2` | dome | 2x2 stacking base (open underside) + solid hemisphere cap — the first organic shape |
 
 **The workflow (LCD: `Tools > Bricks`)**
 
