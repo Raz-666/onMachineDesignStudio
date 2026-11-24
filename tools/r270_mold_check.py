@@ -126,7 +126,7 @@ def main():
                    5.0 + 10.0 * math.sin(math.pi * min(1.0, (z - 8.0) / 8.0))))
 
     # ---- A/B/C: the boulder set ------------------------------------------------
-    out, info = pp.make_mold(boulder, wall=5.0, part='BOTH', master=True,
+    out, info = pp.make_mold(boulder, layout='FLAT', wall=5.0, part='BOTH', master=True,
                              out_dir=D, layer_h=LH, gap=0.15)
     check('A1 generation: BOTH + master = 3 files (Unten, Oben, Master)',
           len(info['files']) == 3 and
@@ -171,12 +171,12 @@ def main():
           abs(info['z_p'] - 10.0) < 0.25 and
           info['split'].startswith('AUTO'), info['split'])
 
-    _, i_mid = pp.make_mold(cone, wall=5.0, part='TOP', out_dir=D,
+    _, i_mid = pp.make_mold(cone, layout='FLAT', wall=5.0, part='TOP', out_dir=D,
                             plane='MID')
     check('C2 MID plane at band 50 of 100 (z=10.0)',
           i_mid['split'].startswith('MID') and abs(i_mid['z_p'] - 10.0)
           < 0.25, i_mid['split'])
-    _, i_off = pp.make_mold(cone, wall=5.0, part='TOP', out_dir=D,
+    _, i_off = pp.make_mold(cone, layout='FLAT', wall=5.0, part='TOP', out_dir=D,
                             plane='OFF', z_off=5.0)
     check('C3 OFFSET plane 5mm above the foot (z=5.2)',
           'OFFSET' in i_off['split'] and abs(i_off['z_p'] - 5.2) < 0.21,
@@ -244,7 +244,7 @@ def main():
           len(info['vents']) == 0 and
           any('no vent bores' in n for n in info['notes']),
           info['notes'])
-    _, ic = pp.make_mold(cylinder, wall=5.0, part='TOP', out_dir=D)
+    _, ic = pp.make_mold(cylinder, layout='FLAT', wall=5.0, part='TOP', out_dir=D)
     check('F2 cylinder: >= 2 vent bores at the far high spots',
           len(ic['vents']) >= 2, ic['vents'])
     z_cb1, pts_cb1 = layer_points(
@@ -258,18 +258,18 @@ def main():
     # draft needs DEPTH: the cylinder's AUTO split degenerates to the top
     # band (equal bead lengths tie -> highest) - the boulder carries a
     # real 50-layer top half whose deep layers erode by 1-2 cells
-    _, i_d0 = pp.make_mold(boulder, wall=5.0, part='TOP', out_dir=D,
+    _, i_d0 = pp.make_mold(boulder, layout='FLAT', wall=5.0, part='TOP', out_dir=D,
                            draft=0.0)
-    _, i_d3 = pp.make_mold(boulder, wall=5.0, part='TOP', out_dir=D,
+    _, i_d3 = pp.make_mold(boulder, layout='FLAT', wall=5.0, part='TOP', out_dir=D,
                            draft=3.0)
     check('G1 draft erodes the cavity: cells %d -> %d (top half depth '
           '%.1fmm)' % (i_d3['cells_top'], i_d0['cells_top'],
                        i_d0['layers_top'] * LH),
           i_d3['cells_top'] < i_d0['cells_top'],
           (i_d0['cells_top'], i_d3['cells_top']))
-    _, i_gw = pp.make_mold(cylinder, wall=5.0, part='TOP', out_dir=D,
+    _, i_gw = pp.make_mold(cylinder, layout='FLAT', wall=5.0, part='TOP', out_dir=D,
                            gap=0.30)
-    _, i_gn = pp.make_mold(cylinder, wall=5.0, part='TOP', out_dir=D,
+    _, i_gn = pp.make_mold(cylinder, layout='FLAT', wall=5.0, part='TOP', out_dir=D,
                            gap=0.05)
     check('G2 tolerance gap grows the cavity: cells %d -> %d'
           % (i_gn['cells_top'], i_gw['cells_top']),
@@ -289,12 +289,12 @@ def main():
           % (w50, 2 * r50), abs(w50 - 2 * r50) < 1.6, (w50, 2 * r50))
 
     # ---- I: refusals + determinism ---------------------------------------------------
-    _, i_sh = pp.make_mold(mushroom, wall=5.0, part='BOTH', out_dir=D)
+    _, i_sh = pp.make_mold(mushroom, layout='FLAT', wall=5.0, part='BOTH', out_dir=D)
     check('I1 mushroom AUTO finds the cap equator (no undercut)',
           abs(i_sh['z_p'] - 12.0) < 0.25, i_sh['split'])
     D2 = tempfile.mkdtemp(prefix='r270bad_')
     try:
-        pp.make_mold(mushroom, wall=5.0, part='BOTH', master=True,
+        pp.make_mold(mushroom, layout='FLAT', wall=5.0, part='BOTH', master=True,
                      out_dir=D2, plane='OFF', z_off=0.0)
         check('I2 forced foot plane refuses (undercut)', False, 'no raise')
     except ValueError as ex:
@@ -305,19 +305,19 @@ def main():
     huge = write_shape(D2 if False else D, 'huge.gcode', lambda z: 115.0,
                        cx=120.0, cy=120.0)
     try:
-        pp.make_mold(huge, wall=15.0, part='TOP', out_dir=D)
+        pp.make_mold(huge, layout='FLAT', wall=15.0, part='TOP', out_dir=D)
         check('I4 bed refusal (block > bed)', False, 'no raise')
     except ValueError as ex:
         check('I4 bed refusal (block > bed)', 'mold block needs' in str(ex),
               str(ex)[:90])
     try:
-        pp.make_mold(boulder, part='QUER', out_dir=D)
+        pp.make_mold(boulder, layout='FLAT', part='QUER', out_dir=D)
         check('I5 bad part value refuses', False, 'no raise')
     except ValueError as ex:
         check('I5 bad part value refuses',
               "part must be BOTH, TOP or BOTTOM" in str(ex), str(ex)[:60])
     try:
-        pp.make_mold(boulder, wall=5.0, pin_d=6.0, part='TOP', out_dir=D)
+        pp.make_mold(boulder, layout='FLAT', wall=5.0, pin_d=6.0, part='TOP', out_dir=D)
         check('I6 dowel-vs-wall validation refuses (D6 in a 5mm wall)',
               False, 'no raise')
     except ValueError as ex:
@@ -325,8 +325,8 @@ def main():
               'do not fit the wall' in str(ex), str(ex)[:80])
     d1 = tempfile.mkdtemp(prefix='r270d1_')
     d2 = tempfile.mkdtemp(prefix='r270d2_')
-    _, i_first = pp.make_mold(boulder, wall=5.0, part='BOTTOM', out_dir=d1)
-    _, i_rerun = pp.make_mold(boulder, wall=5.0, part='BOTTOM', out_dir=d2)
+    _, i_first = pp.make_mold(boulder, layout='FLAT', wall=5.0, part='BOTTOM', out_dir=d1)
+    _, i_rerun = pp.make_mold(boulder, layout='FLAT', wall=5.0, part='BOTTOM', out_dir=d2)
     check('I7 determinism: rerun byte-identical',
           open(os.path.join(d1, i_first['files'][0]), 'rb').read()
           == open(os.path.join(d2, i_rerun['files'][0]), 'rb').read(),

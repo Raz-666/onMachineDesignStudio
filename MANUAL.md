@@ -1942,12 +1942,12 @@ the back row), inverted slopes `I`, arches `A1x3..A1x6`, technic bricks
 
 | Code | Part | Geometry |
 |---|---|---|
-| `BP8x8` … `BP24x24` | baseplates | thin 1.2 mm exact-grid base (n·8, NO play — it IS the ground), smooth underside, full stud grid on top |
-| `BP11x16`, `BP16x22` | frame-matched baseplates | drop into the **9x13 / 13x18 Frames** exactly — a mosaic field for the picture frame |
-| `G12` … `G40` | spur gears | module 1 (tip Ø = teeth+2 mm), trapezoid teeth, Ø4.9 axle bore — meshes across the 8 mm grid (G12+G24 centers 3 studs apart, …) |
-| `AX2` / `AX4` / `AX6` | cross axles | standing print, technic cross profile Ø4.6, length 16/32/48 mm, tapered tip |
-| `AH2x2` | axle stand | 2x2 brick with a **vertical Ø4.9 through-socket** — an axle drops in from above and spins |
-| `D2x2` | dome | 2x2 stacking base (open underside) + solid hemisphere cap — the first organic shape |
+| **BP8x8** … **BP24x24** | baseplates | thin 1.2 mm exact-grid base (n·8, NO play — it IS the ground), smooth underside, full stud grid on top |
+| **BP11x16**, **BP16x22** | frame-matched baseplates | drop into the **9x13 / 13x18 Frames** exactly — a mosaic field for the picture frame |
+| **G12** … **G40** | spur gears | module 1 (tip Ø = teeth+2 mm), trapezoid teeth, Ø4.9 axle bore — meshes across the 8 mm grid (G12+G24 centers 3 studs apart, …) |
+| **AX2** / **AX4** / **AX6** | cross axles | standing print, technic cross profile Ø4.6, length 16/32/48 mm, tapered tip |
+| **AH2x2** | axle stand | 2x2 brick with a **vertical Ø4.9 through-socket** — an axle drops in from above and spins |
+| **D2x2** | dome | 2x2 stacking base (open underside) + solid hemisphere cap — the first organic shape |
 
 **The workflow (LCD: `Tools > Bricks`)**
 
@@ -2249,14 +2249,15 @@ Mirror, plus single-half Mold and Blank-Mold steps (`part` TOP or BOTTOM,
 generator menu). Cake cut (two output files) is not chainable; the preset
 validator says so in plain text before anything runs.
 
-### 5.22 Casting molds — negative molds & parametric blanks (R270–R273)
+### 5.22 Casting molds — negative molds & parametric blanks (R270–R273, vertical standing molds: R290)
 
 Turns the **selected G-code file** into a printable casting mold (silicone,
 soap, wax, plaster, resin) — or builds a **parametric blank mold** without any
 source file at all. Everything lands in the `Molds/` folder
-(`V<nn>_FormUnten_<name>.gcode`, `V<nn>_FormOben_<name>.gcode`, optional
-`V<nn>_Master_<name>.gcode` or `V<nn>_FormObenA…_<name>.gcode`), numbered and
-never overwriting.
+(`V<nn>_FormLinks_<name>.gcode` + `V<nn>_FormRechts_<name>.gcode` for the
+vertical mold, `V<nn>_FormUnten_<name>.gcode` + `V<nn>_FormOben_<name>.gcode`
+for the flat one, optional `V<nn>_Master_<name>.gcode` or
+`V<nn>_FormObenA…_<name>.gcode`), numbered and never overwriting.
 
 **How the file mold works (LCD: `Tools > Casting molds`)**
 
@@ -2287,6 +2288,38 @@ never overwriting.
    inward-only wall jitter up to 0.12 mm — matte cast, easier demolding, zero
    undercut penalty).
 
+**Vertical standing molds (R290 — the tool decides the layout itself)**
+
+With `LAYOUT=AUTO` (the default) the generator tries the **vertical
+side-split mold first** — the professional figure mold:
+
+* **The figure STANDS.** The source keeps its print orientation; the parting
+  plane is vertical (perpendicular to X). The two plates **FormLinks** and
+  **FormRechts** print mating-face UP like the flat halves and **open
+  sideways** — no fighting a deep flat shell.
+* **The pour sits at the TOP edge.** The pour channel and up to two vent
+  channels are half-round grooves carved INTO both parting faces; assembled
+  they form round channels from the seam's top edge into the cavity's highest
+  region (the conical funnel widens the opening). The dowel registry and the
+  parting-face vent grooves work exactly like the flat mold's.
+* **The split position is computed, not guessed.** The object rasterizes into
+  x-slabs (one per print layer); every (y,z) column's solid run must touch
+  its plate's parting face — the intersection over all columns is the exact
+  release window, and inside it the split rides the silhouette equator. A
+  shape whose silhouette hooks in X (a dumbbell, a C-clip) has no such window
+  and **refuses with the reason** — AUTO then builds the classic flat mold
+  automatically. Master, pocket and sector requests are flat features and
+  route the same way: **AUTO always lands on its feet.**
+* `LAYOUT=VSPLIT` forces the vertical mold (a refusal stays a refusal),
+  `LAYOUT=FLAT` pins the classic equator mold. With the vertical mold the
+  **PLANE**/**z_off** knobs address the X axis (MID = the x middle, OFF = z_off mm
+  from the object's smallest x).
+* **Assembly:** lay the plates face to face like closing a book (FormRechts
+  prints mirrored so the fold aligns), stand the pair up — the seam is
+  vertical, the pour opening on top. Clamp or tape, pour, open sideways.
+  Thin flat pieces (medallions, plaques) automatically stay with the flat
+  mold — a side split needs a standing body (≥ 6 mm in X).
+
 **Parametric blank molds & relief seat (R273 — LCD: `Tools > Casting molds > Blank molds`)**
 
 No source file needed: pick MEDALLION (`Diameter` 15–100 mm × `Thickness`
@@ -2298,7 +2331,7 @@ its top face — drop a printed Lithophane, ColorPicture or StringArt tile onto
 the boss before pouring and it embeds flush. Refuses honestly if the rim is
 under 4 mm, the floor under 2 mm, or the boss lacks 2 cells of wall clearance.
 
-Console: `MOLD_INFO`, `MOLD_CREATE PART=BOTH PLANE=AUTO SURFACE=STANDARD`,
+Console: `MOLD_INFO`, `MOLD_CREATE PART=BOTH LAYOUT=AUTO PLANE=AUTO SURFACE=STANDARD`,
 `MOLD_BLANK_INFO`, `MOLD_BLANK_CREATE SHAPE=MEDALLION DIA=50 THICK=10 POCKET_T=2`.
 
 ## 6. During the print: tuning, pauses, objects

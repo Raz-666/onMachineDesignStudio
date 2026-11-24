@@ -15511,7 +15511,7 @@ def make_stencil(src, steps=3, size_mm=100.0, layer_h=0.2, thick=0.8,
 def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
               funnel='CONICAL', vent_d=2.5, pin_d=3.0, draft=0.0,
               surface='STANDARD', part='BOTH', plane='AUTO', z_off=0.0,
-              master=False, sectors=0, sec_half='AUTO',
+              master=False, sectors=0, sec_half='AUTO', layout='AUTO',
               pocket_d=0.0, pocket_w=0.0, pocket_h=0.0, pocket_t=0.0,
               brim_loops=4, material='PLA', bed=None, bed_margin=6.0,
               nozzle=0.4, out_dir='.', version=1):
@@ -15562,6 +15562,23 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
         middle of the Z range, OFF = z_off mm above the object bottom.
         Tilted planes (pitch/roll like the cake cut) come with a later
         stage.
+      - LAYOUT (R290): layout='AUTO' tries the vertical side-split mold
+        FIRST - the figure STANDS (the source keeps its orientation),
+        the parting plane is vertical (perpendicular to X), the two
+        plates open sideways like professional figure molds, the pour
+        channel sits at the TOP edge of the seam and the vents breathe
+        there. The split position is not guessed: the object rasterizes
+        into x-slabs (one per print layer), every (y,z) cell's solid
+        runs must touch its plate's parting face - the intersection
+        over all runs is ONE exact window; inside it the split rides
+        the silhouette equator (max fill), ties break to the center.
+        No window = the silhouette hooks in X = refuse. AUTO falls back
+        to the flat equator mold on any refusal (master/pocket/sector
+        requests route the same way - they are flat features); 'VSPLIT'
+        forces the vertical mold (a refusal stays a refusal, with the
+        reason); 'FLAT' keeps only the classic path. With the vertical
+        mold the plane/z_off knobs address the X axis (MID = the x
+        middle, OFF = z_off mm from the object's smallest x).
       - SECTORS (R271, J2): sectors=1 -> 3-part mold (equator + 1
         sectorial cut), sectors=2 -> 4-part (2 cuts). The cuts are
         axis-aligned vertical planes through the CAVITY (axis = the
@@ -15624,6 +15641,17 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
     plane = str(plane).upper()
     if plane not in ('AUTO', 'MID', 'OFF'):
         raise ValueError("plane must be AUTO, MID or OFF (got %r)" % plane)
+    # R290 (field wish 17.11.2026 'decide the split yourself, keep the
+    # knobs minimal'): layout picks the mold FAMILY. AUTO = the tool
+    # tries the side-opening vertical mold first (the figure stands,
+    # the mold opens sideways like professional figure molds) and falls
+    # back to the flat equator mold when the object is too bulbous for
+    # a side split; VSPLIT forces the vertical family (a refusal stays
+    # a refusal); FLAT = the classic equator mold only.
+    layout = str(layout or 'AUTO').strip().upper()
+    if layout not in ('AUTO', 'VSPLIT', 'FLAT'):
+        raise ValueError("layout must be AUTO, VSPLIT or FLAT (got %r)"
+                         % layout)
     wall = max(3.0, min(float(wall or 5.0), 15.0))
     layer_h = max(0.08, min(float(layer_h or 0.2), 0.24))
     gap = max(0.05, min(float(gap or 0.15), 0.30))
@@ -15812,7 +15840,9 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
     bx0, by0, bx1, by1 = bed
     ux0, uy0 = bx0 + bed_margin, by0 + bed_margin
     ux1, uy1 = bx1 - bed_margin, by1 - bed_margin
-    if W > (ux1 - ux0) or H > (uy1 - uy0):
+    # R290: this bed guard belongs to the FLAT layout - AUTO/VSPLIT size
+    # their own standing plate below (the AUTO fallback re-checks there).
+    if layout == 'FLAT' and (W > (ux1 - ux0) or H > (uy1 - uy0)):
         raise ValueError('the mold block needs %.0f x %.0fmm - the bed '
                          'offers %.0f x %.0fmm (lower the wall or use a '
                          'smaller source)' % (W, H, ux1 - ux0, uy1 - uy0))
@@ -16529,6 +16559,469 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
             _cleanup270()     # earlier parts of a refused set go too
             raise
 
+    # ==================== R290: the VSPLIT mold family ==================
+    # The standing-figure side-opening mold (see the docstring). AUTO
+    # tries this family first and falls back to the flat equator mold on
+    # any _Refuse290; VSPLIT turns the same refusal into a ValueError.
+    # The block sizes its own plate grid (cols = y, rows = z, one x-slab
+    # per print layer), reuses _write270/_mat270/_disc270/_grooves270
+    # (they read the closure grid names - swapped here, restored on a
+    # refusal so the flat path below never sees them), and RETURNS on
+    # success: the flat code below stays byte-for-byte the flat path.
+    class _Refuse290(Exception):
+        pass
+
+    if layout != 'FLAT':
+        _sv290 = (cols, rows, W, H, x0, y0)
+        try:
+            if master:
+                raise _Refuse290('the master positive has no split - it '
+                                 'prints with the flat layout')
+            if sectors:
+                raise _Refuse290('sectors are the flat mold\'s undercut '
+                                 'answer - the vertical mold opens '
+                                 'sideways and needs none')
+            if pocket_d or pocket_w or pocket_t:
+                raise _Refuse290('the relief pocket seats in the flat '
+                                 'top half - no pocket in the vertical '
+                                 'mold')
+            if part != 'BOTH':
+                raise _Refuse290('the vertical mold always prints BOTH '
+                                 'side plates (part must be BOTH)')
+            x_min = minx[0]
+            x_span = maxx[0] - x_min
+            if x_span < 6.0:
+                raise _Refuse290('the object is only %.1fmm thick in X '
+                                 '- a side split needs a standing body '
+                                 '(>= 6mm), the flat mold fits it better'
+                                 % x_span)
+            lh290 = layer_h
+            K290 = max(2, int(math.ceil(x_span / lh290)))
+            cv290 = int(math.ceil((maxy[0] - miny[0] + 2 * wall) / wid))
+            rv290 = int(math.ceil((z_max - z_min + 2 * wall) / wid))
+            Wv = cv290 * wid
+            Hv = rv290 * wid
+            if Wv > (ux1 - ux0) or Hv > (uy1 - uy0):
+                raise _Refuse290('the standing plate needs %.0f x %.0fmm '
+                                 'of bed - the bed offers %.0f x %.0fmm'
+                                 % (Wv, Hv, ux1 - ux0, uy1 - uy0))
+            if K290 * cv290 * rv290 > 96000000:
+                raise _Refuse290('too big for the vertical raster (%d '
+                                 'slabs of %d x %d cells) - the flat '
+                                 'mold streams and takes it'
+                                 % (K290, cv290, rv290))
+            cols, rows, W, H = cv290, rv290, Wv, Hv
+            x0 = (ux0 + ux1) / 2.0 - W / 2.0
+            y0 = (uy0 + uy1) / 2.0 - H / 2.0
+
+            # ---- rasterize: per z-band the filled XY silhouette (the
+            # flat mold's truth - a closed ring fills its disc), then
+            # every filled cell projects along x into each slab it
+            # overlaps. The silhouette grid shares the VSPLIT y axis
+            # (same origin, same pitch), so the y index carries over.
+            masks290 = [bytearray(cols * rows) for _ in range(K290)]
+            gx_cols = int(math.ceil((x_span + 2 * wall) / wid))
+            xrad290 = wid / 2.0 + gap
+            rcg290 = xrad290 / wid
+            _R290 = int(math.ceil(rcg290))
+            offs290 = [(dr, dc)
+                       for dr in range(-_R290, _R290 + 1)
+                       for dc in range(-_R290, _R290 + 1)
+                       if dr * dr + dc * dc <= rcg290 * rcg290 + 1e-9]
+            step290 = wid * 0.5
+            filled290 = 0
+            for zk in zs:
+                gx = bytearray(gx_cols * cols)
+                for (ax, ay, bx, by) in bands[zk]:
+                    L290 = math.hypot(bx - ax, by - ay)
+                    nq290 = max(1, int(L290 / step290))
+                    for jq in range(nq290 + 1):
+                        t = jq / float(nq290)
+                        qx = ax + (bx - ax) * t
+                        qy = ay + (by - ay) * t
+                        r0g = int((qy - miny[0] + wall) / wid)
+                        c0g = int((qx - x_min + wall) / wid)
+                        for (dr, dc) in offs290:
+                            rr = r0g + dr
+                            cc2 = c0g + dc
+                            if 0 <= rr < cols and 0 <= cc2 < gx_cols:
+                                gx[rr * gx_cols + cc2] = 1
+                outm = bytearray(gx_cols * cols)
+                stk = list(range(gx_cols))
+                stk += range((cols - 1) * gx_cols, cols * gx_cols)
+                for rr in range(cols):
+                    stk.append(rr * gx_cols)
+                    stk.append(rr * gx_cols + gx_cols - 1)
+                while stk:
+                    i = stk.pop()
+                    if 0 <= i < len(gx) and not gx[i] and not outm[i]:
+                        outm[i] = 1
+                        cc2 = i % gx_cols
+                        if cc2 > 0:
+                            stk.append(i - 1)
+                        if cc2 < gx_cols - 1:
+                            stk.append(i + 1)
+                        stk.append(i - gx_cols)
+                        stk.append(i + gx_cols)
+                for i in range(len(gx)):
+                    if not gx[i] and not outm[i]:
+                        gx[i] = 1
+                        filled290 += 1
+                r0z = int((zk - z_min + wall) / wid)
+                for iy in range(cols):
+                    base = iy * gx_cols
+                    if not any(gx[base:base + gx_cols]):
+                        continue
+                    for jx in range(gx_cols):
+                        if not gx[base + jx]:
+                            continue
+                        xlo = x_min - wall + jx * wid
+                        s_lo = int((xlo - x_min) / lh290)
+                        s_hi = int((xlo + wid - 1e-9 - x_min) / lh290)
+                        if s_lo < 0:
+                            s_lo = 0
+                        if s_hi > K290 - 1:
+                            s_hi = K290 - 1
+                        for s in range(s_lo, s_hi + 1):
+                            m290 = masks290[s]
+                            for rr in (r0z - 1, r0z, r0z + 1):
+                                if 0 <= rr < rows:
+                                    m290[rr * cols + iy] = 1
+
+            # ---- the exact split window: per (y,z) cell the solid
+            # slabs form runs; a run [a,b] allows splits p in [a, b+1]
+            # (the run must touch its plate's parting face, otherwise
+            # the cast hooks). Intersect over ALL cells: P_lo = the
+            # largest run start, P_hi = the smallest first-run end + 1.
+            import array as _array290
+            ncel290 = cols * rows
+            last_start = _array290.array('H', [0]) * ncel290
+            first_end = _array290.array('H', [65535]) * ncel290
+            prev290 = bytearray(ncel290)
+            for s in range(K290):
+                m290 = masks290[s]
+                for i in range(ncel290):
+                    if m290[i]:
+                        if not prev290[i]:
+                            last_start[i] = s
+                    elif prev290[i] and first_end[i] == 65535:
+                        first_end[i] = s - 1
+                prev290 = m290
+            P_lo = max(last_start)
+            P_hi = min(first_end) + 1
+            lo_w = max(2, P_lo)
+            hi_w = min(K290 - 2, P_hi)
+            if lo_w > hi_w:
+                raise _Refuse290('the silhouette hooks in X - no '
+                                 'straight vertical split releases the '
+                                 'cast (the flat mold\'s sectors answer '
+                                 'exactly this shape)')
+            fill290 = [sum(m) for m in masks290]
+            if plane == 'MID':
+                p = K290 // 2
+                if not (lo_w <= p <= hi_w):
+                    raise _Refuse290('plane MID (slab %d) sits in a hook '
+                                     '- the release window is slabs '
+                                     '%d..%d' % (p, lo_w, hi_w))
+            elif plane == 'OFF':
+                p = int(round(float(z_off or 0.0) / lh290))
+                if not (lo_w <= p <= hi_w):
+                    raise _Refuse290('the offset split (x=%.1fmm from '
+                                     'the object edge) lands in a hook '
+                                     '- the release window is %.1f..'
+                                     '%.1fmm' % (z_off,
+                                                 x_min + lo_w * lh290,
+                                                 x_min + hi_w * lh290))
+            else:
+                best290 = None
+                p = lo_w
+                for cand in range(lo_w, hi_w + 1):
+                    key = (fill290[cand - 1] + fill290[cand],
+                           -abs(cand * 2 - K290))
+                    if best290 is None or key > best290:
+                        best290 = key
+                        p = cand
+            x_part290 = x_min + p * lh290
+
+            # ---- draft: cell-quantized erosion per slab (deeper slabs
+            # erode more), then the release proof re-runs at p - draft
+            # may never carve a hook
+            if draft > 0.0:
+                _tan290 = math.tan(math.radians(draft))
+                for s in range(K290):
+                    if s < p:
+                        dep = (p - s - 0.5) * lh290
+                    else:
+                        dep = (s - p + 0.5) * lh290
+                    rnd = int(dep * _tan290 / wid)
+                    if rnd > 0:
+                        masks290[s] = _erode270(masks290[s], rnd)
+                ok290 = True
+                for i in range(ncel290):
+                    seen0 = False
+                    for s in range(p - 1, -1, -1):
+                        if masks290[s][i]:
+                            if seen0:
+                                ok290 = False
+                                break
+                        else:
+                            seen0 = True
+                    if not ok290:
+                        break
+                    seen0 = False
+                    for s in range(p, K290):
+                        if masks290[s][i]:
+                            if seen0:
+                                ok290 = False
+                                break
+                        else:
+                            seen0 = True
+                    if not ok290:
+                        break
+                if not ok290:
+                    raise _Refuse290('draft %.1f deg erodes the cavity '
+                                     'into a hook at the split - less '
+                                     'draft or the flat mold' % draft)
+
+            # ---- pour channel + vents: both live IN the parting face
+            # and enter at the TOP edge (the seam's highest line). The
+            # release proof guarantees every cavity column reaches the
+            # parting slabs, so the union of slabs p-1/p IS the cavity's
+            # full (y,z) projection - its highest cells are the global
+            # high spots (air truth, not hope).
+            um290 = bytearray(ncel290)
+            ma290 = masks290[p - 1]
+            mb290 = masks290[p]
+            for i in range(ncel290):
+                if ma290[i] or mb290[i]:
+                    um290[i] = 1
+            rmax290 = {}
+            for i in range(ncel290):
+                if um290[i]:
+                    rr = i // cols
+                    cc2 = i % cols
+                    if cc2 not in rmax290 or rr > rmax290[cc2]:
+                        rmax290[cc2] = rr
+            if not rmax290:
+                raise _Refuse290('the split plane shows no cavity - '
+                                 'the source bbox math is off')
+            hw290 = pour_r / wid
+            vhw290 = vent_r / wid
+            clo290 = int(math.ceil(_pi270 + hole_rc + hw290 + 1.5))
+            chi290 = int(math.floor(cols - 1 - _pi270 - hole_rc - hw290
+                                    - 1.5))
+            if clo290 > chi290:
+                raise _Refuse290('no room for the pour channel between '
+                                 'the corner dowels - the object is too '
+                                 'wide in Y for the standing plate')
+            ranked290 = sorted(rmax290.items(),
+                               key=lambda kv: (-kv[1],
+                                               abs(kv[0]
+                                                   - (cols - 1) / 2.0)))
+            pick290 = None
+            for (cc2, rr) in ranked290:
+                if clo290 <= cc2 <= chi290:
+                    pick290 = (cc2, rr)
+                    break
+            if pick290 is None:
+                raise _Refuse290('the pour channel finds no cavity '
+                                 'column between the dowels')
+            c_s290, r_top290 = pick290
+            sep290 = hw290 + vhw290 + 3.0
+            vents290 = []
+            for (cc2, rr) in ranked290:
+                if len(vents290) >= 2:
+                    break
+                if not (clo290 <= cc2 <= chi290):
+                    continue
+                if abs(cc2 - c_s290) < sep290:
+                    continue
+                if any(abs(cc2 - v[0]) < sep290 for v in vents290):
+                    continue
+                vents290.append((cc2, rr))
+            if not vents290:
+                notes.append('R290: no vent column beside the pour - '
+                             'the parting-face grooves carry the '
+                             'venting')
+
+            FLr290 = max(2, int(round(5.0 / wid)))
+
+            def _carve290(m, cc, r_from, rad_mm, flare):
+                """Half-round channel carved into the parting face: rows
+                r_from..top edge, radius rad_mm at this depth layer,
+                optional funnel flare toward the edge."""
+                hw_c = rad_mm / wid
+                if hw_c <= 0.0:
+                    return
+                for rr in range(max(0, r_from), rows):
+                    hw2 = hw_c
+                    if flare and rr > rows - 1 - FLr290:
+                        hw2 = hw_c + hw290 * (
+                            (rr - (rows - 1 - FLr290)) / float(FLr290))
+                    lo2 = int(math.floor(cc - hw2))
+                    hi2 = int(math.ceil(cc + hw2))
+                    if lo2 < 0:
+                        lo2 = 0
+                    if hi2 > cols - 1:
+                        hi2 = cols - 1
+                    base = rr * cols
+                    for cc2 in range(lo2, hi2 + 1):
+                        m[base + cc2] = 0
+
+            def _mir290(m):
+                """Mirror the grid columns - the right plate is flipped
+                onto the left like a closing book, the mirror makes the
+                fold align (same idea as the flat top half's Y-mirror)."""
+                out = bytearray(len(m))
+                for rr in range(rows):
+                    seg = m[rr * cols:(rr + 1) * cols]
+                    seg.reverse()
+                    out[rr * cols:(rr + 1) * cols] = seg
+                return out
+
+            pins290 = ((_pi270, _pi270), (cols - _pi270, _pi270),
+                       (_pi270, rows - _pi270),
+                       (cols - _pi270, rows - _pi270))
+            files290 = []
+            for side in ('L', 'R'):
+                n_slabs = p if side == 'L' else K290 - p
+                n_pl = F + n_slabs
+                if n_pl * lh290 > 235.0:
+                    raise _Refuse290('the %s plate would be %.0fmm tall '
+                                     '- over the Z range'
+                                     % ('left' if side == 'L'
+                                        else 'right', n_pl * lh290))
+
+                def _gen290(side=side, n_pl=n_pl):
+                    for li in range(1, n_pl + 1):
+                        if li <= F:
+                            yield bytearray([1]) * (cols * rows)
+                            continue
+                        j = li - F - 1
+                        s = j if side == 'L' else (K290 - 1 - j)
+                        cav = masks290[s]
+                        if side == 'R':
+                            cav = _mir290(cav)
+                        m = _mat270(cav)
+                        dep = (n_pl - li) * lh290   # 0 at the face
+                        if dep < pour_r:
+                            rad = math.sqrt(max(0.0, pour_r * pour_r
+                                                - dep * dep))
+                            _carve290(m, c_s290 if side == 'L'
+                                      else cols - 1 - c_s290,
+                                      r_top290, rad,
+                                      funnel != 'NONE')
+                        if dep < vent_r:
+                            rad = math.sqrt(max(0.0, vent_r * vent_r
+                                                - dep * dep))
+                            for (vc, vr) in vents290:
+                                _carve290(m, vc if side == 'L'
+                                          else cols - 1 - vc,
+                                          vr, rad, False)
+                        if li > n_pl - pin_layers:
+                            for (pcx, pcy) in pins290:
+                                _disc270(m, pcx, pcy, hole_rc, kill=True)
+                        if li == n_pl:
+                            _grooves270(m, cav)
+                        yield m
+
+                lab290 = 'FormLinks' if side == 'L' else 'FormRechts'
+                fn290 = 'V%02d_%s_%s.gcode' % (_next_gen_version(out_dir),
+                                               lab290, stem)
+                fn290 = _dedupe_gen_fname(out_dir, fn290)
+                pending270.append(
+                    (_write270(os.path.join(out_dir, fn290), lab290,
+                               _gen290(), n_pl,
+                               ['R290 VSPLIT %s PLATE: the standing mold '
+                                '- parting face UP (top surface), solid '
+                                'back %d layers (%.1fmm), cavity %d '
+                                'slabs, total %.1fmm'
+                                % ('LEFT' if side == 'L' else 'RIGHT',
+                                   F, F * lh290, n_slabs, n_pl * lh290),
+                                'the figure STANDS - vertical split at '
+                                'x=%.2f (release window %.2f..%.2fmm), '
+                                'the mold opens SIDEWAYS'
+                                % (x_part290, x_min + lo_w * lh290,
+                                   x_min + hi_w * lh290),
+                                ('assembly: lay the plates face to face '
+                                 'like closing a book (this plate is '
+                                 'printed mirrored, the fold aligns), '
+                                 'stand the pair up - the seam is '
+                                 'vertical'
+                                 if side == 'R' else
+                                 'assembly: lay the plates face to face '
+                                 'like closing a book, stand the pair '
+                                 'up - the seam is vertical'),
+                                'pour channel D%.1fmm at the TOP edge '
+                                '(bed x=%.1f, opens at z=%.1f)%s'
+                                % (pour_d,
+                                   (x0 + (c_s290 + 0.5) * wid
+                                    if side == 'L' else
+                                    x0 + (cols - 1 - c_s290 + 0.5)
+                                    * wid),
+                                   z_min - wall + (r_top290 + 0.5) * wid,
+                                   ', conical funnel at the edge'
+                                   if funnel != 'NONE' else ''),
+                                'vents: %d seam channels D%.1fmm + '
+                                'parting-face grooves'
+                                % (len(vents290), vent_d),
+                                'dowels: 4 x D%.1fmm + 0.3 clearance, '
+                                '%.0fmm deep from the face'
+                                % (pin_d, pin_layers * lh290),
+                                'tolerance gap %.2fmm, draft %.1f deg '
+                                '(cell-quantized erosion)'
+                                % (gap, draft)]),
+                     os.path.join(out_dir, fn290)))
+                files290.append(fn290)
+
+            for (t290, o290) in pending270:
+                os.replace(t290, o290)
+            if filled290:
+                notes.append('%d enclosed-hole cell fills across the '
+                             'slabs - silhouette mode: through-holes '
+                             'cast solid (the exact-as-printed mode '
+                             'comes with the parametric stage)'
+                             % filled290)
+            notes.append('R290 VSPLIT: figure stands (z %.1f..%.1f), '
+                         'vertical split at x=%.2f, plates %d+%d slabs, '
+                         'pour at the top edge'
+                         % (z_min, z_max, x_part290, p, K290 - p))
+            info = {'file': files290[0], 'files': list(files290),
+                    'source': os.path.basename(src), 'kind': 'mold-set',
+                    'layout': 'VSPLIT',
+                    'split': ('vertical side split at x=%.2f (release '
+                              'window %.2f..%.2fmm, slab %d of %d)'
+                              % (x_part290, x_min + lo_w * lh290,
+                                 x_min + hi_w * lh290, p, K290)),
+                    'z_p': None, 'x_part': x_part290,
+                    'z_range': (z_min, z_max), 'bands': len(zs),
+                    'grid': (rows, cols), 'block': (W, H), 'wall': wall,
+                    'gap': gap, 'draft': draft, 'pour_d': pour_d,
+                    'vent_d': vent_d, 'pin_d': pin_d,
+                    'pins': [(x0 + pcx * wid, y0 + pcy * wid)
+                             for (pcx, pcy) in pins290],
+                    'sprue': (x0 + (c_s290 + 0.5) * wid, y0 + H),
+                    'vents': [(x0 + (vc + 0.5) * wid, y0 + H)
+                              for (vc, _vr) in vents290],
+                    'layers_left': F + p, 'layers_right': F + (K290 - p),
+                    'surface': surface,
+                    'sectors': 0, 'sec_half': None, 'sec_axis': None,
+                    'sec_cuts': [], 'pocket': None, 'bridges': None,
+                    'notes': notes}
+            return os.path.join(out_dir, files290[0]), info
+        except _Refuse290 as _e290:
+            cols, rows, W, H, x0, y0 = _sv290
+            if layout == 'VSPLIT':
+                raise ValueError('vertical mold refused: %s' % _e290)
+            notes.append('R290 AUTO: no vertical side split (%s) - '
+                         'falling back to the flat equator mold'
+                         % _e290)
+            if W > (ux1 - ux0) or H > (uy1 - uy0):
+                raise ValueError('the mold block needs %.0f x %.0fmm - '
+                                 'the bed offers %.0f x %.0fmm (lower '
+                                 'the wall or use a smaller source)'
+                                 % (W, H, ux1 - ux0, uy1 - uy0))
+
     files = []
 
     # ---- master (the positive) -------------------------------------------
@@ -17069,6 +17562,7 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
 
     info = {'file': files[0], 'files': list(files),
             'source': os.path.basename(src), 'kind': 'mold-set',
+            'layout': 'FLAT',
             'split': how, 'z_p': z_p, 'z_range': (z_min, z_max),
             'bands': len(zs), 'grid': (rows, cols),
             'block': (W, H), 'wall': wall, 'gap': gap, 'draft': draft,
@@ -17313,6 +17807,7 @@ def make_mold_blank(shape='MEDALLION', dia=40.0, thick=8.0,
         funnel=funnel, vent_d=vent_d, pin_d=pin_d, draft=draft,
         surface=surface, part=part, plane=plane, z_off=z_off,
         master=master, sectors=sectors, sec_half=sec_half,
+        layout='FLAT',
         pocket_d=pd, pocket_w=pw, pocket_h=ph,
         pocket_t=(pocket_t if (pd or (pw and ph)) else 0.0),
         material=material, bed=bed, out_dir=out_dir, version=version)
@@ -30769,6 +31264,13 @@ def watch(directory, interval=5.0, once=False):
                                     or 'STANDARD').upper()
                     if _m_srf272 not in ('STANDARD', 'FINE', 'FUZZY'):
                         _m_srf272 = 'STANDARD'
+                    # R290: the mold family - AUTO = the tool tries the
+                    # standing side-split mold first and falls back to
+                    # the flat equator mold; VSPLIT forces, FLAT pins
+                    _m_ly290 = str(rv.get('mold_layout', 'AUTO')
+                                   or 'AUTO').upper()
+                    if _m_ly290 not in ('AUTO', 'VSPLIT', 'FLAT'):
+                        _m_ly290 = 'AUTO'
                     _m_par270 = dict(
                         wall=_vfl270('mold_wall', 5.0),
                         gap=_vfl270('mold_gap', 0.15),
@@ -30778,6 +31280,7 @@ def watch(directory, interval=5.0, once=False):
                         pin_d=_vfl270('mold_pin', 3.0),
                         draft=_vfl270('mold_draft', 0.0),
                         surface=_m_srf272,
+                        layout=_m_ly290,
                         part=str(rv.get('mold_part', 'BOTH')
                                  or 'BOTH').upper(),
                         plane=_m_pln270,
@@ -30798,16 +31301,35 @@ def watch(directory, interval=5.0, once=False):
                                           for fn in _mi270['files']]
                             _mrel270 = os.path.relpath(
                                 _mfiles270[0], directory)
-                            _mmsg270 = ('Mold: %d file(s) from %s - split '
-                                        '%s at z %.2f, %d+%d layers, %d '
-                                        'vent bore(s), dowels D%.1fmm - '
-                                        'selected for printing'
-                                        % (len(_mfiles270), src,
-                                           _mi270['split'], _mi270['z_p'],
-                                           _mi270['layers_bot'],
-                                           _mi270['layers_top'],
-                                           len(_mi270['vents']),
-                                           params['pin_d']))
+                            if _mi270.get('layout') == 'VSPLIT':
+                                # R290: the standing mold - the message
+                                # names its own truth (x split, side
+                                # plates, pour at the top edge)
+                                _mmsg270 = (
+                                    'Mold: %d file(s) from %s - the '
+                                    'figure STANDS: %s, %d+%d layers, '
+                                    'pour at the TOP edge, %d vent '
+                                    'channel(s), dowels D%.1fmm - '
+                                    'selected for printing'
+                                    % (len(_mfiles270), src,
+                                       _mi270['split'],
+                                       _mi270['layers_left'],
+                                       _mi270['layers_right'],
+                                       len(_mi270['vents']),
+                                       params['pin_d']))
+                            else:
+                                _mmsg270 = ('Mold: %d file(s) from %s - '
+                                            'split %s at z %.2f, %d+%d '
+                                            'layers, %d vent bore(s), '
+                                            'dowels D%.1fmm - selected '
+                                            'for printing'
+                                            % (len(_mfiles270), src,
+                                               _mi270['split'],
+                                               _mi270['z_p'],
+                                               _mi270['layers_bot'],
+                                               _mi270['layers_top'],
+                                               len(_mi270['vents']),
+                                               params['pin_d']))
                             _mmsg270 += ' | core %s' % POSTPROC_BUILD
                             if _mi270.get('sectors'):
                                 _mmsg270 += (
