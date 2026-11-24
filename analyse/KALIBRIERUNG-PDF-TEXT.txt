@@ -1,6 +1,6 @@
-===== PDF-SEITE 1 =====
+===== Seite 1 =====
 R2-D2 Macro System · Kalibrierungsleiter
-R2-2026-11-13.1
+R2-2026-11-19.2
 Seite 1
 R2-D2 · Ender-3
  R2-D2 MACRO SYSTEM · KALIBRIERUNG
@@ -17,9 +17,9 @@ Alle Werte sind aus den Makros gelesen: was hier steht, ist das, was der
 Drucker wirklich tut.
 
 
-===== PDF-SEITE 2 =====
+===== Seite 2 =====
 R2-D2 Macro System · Kalibrierungsleiter
-R2-2026-11-13.1
+R2-2026-11-19.2
 Seite 2
 R2-D2 · Ender-3
 Inhalt
@@ -40,15 +40,15 @@ Drei Wege: 1 Stunde / ein Abend / voller Durchgang
 13
 6
 Was schiefgeht - und wie man es erkennt
-13
+14
 7
 Prüfliste zum Abhaken
 14
 
 
-===== PDF-SEITE 3 =====
+===== Seite 3 =====
 R2-D2 Macro System · Kalibrierungsleiter
-R2-2026-11-13.1
+R2-2026-11-19.2
 Seite 3
 R2-D2 · Ender-3
 1  Warum eine Reihenfolge — das
@@ -82,9 +82,9 @@ Abhängigkeitsreihenfolge: Schritt n setzt voraus, dass Schritt n−1 abgeschlos
 ist.
 
 
-===== PDF-SEITE 4 =====
+===== Seite 4 =====
 R2-D2 Macro System · Kalibrierungsleiter
-R2-2026-11-13.1
+R2-2026-11-19.2
 Seite 4
 R2-D2 · Ender-3
  Abb. 1 — Die Leiter, wie das Maintenance-Menü sie abbildet.
@@ -111,6 +111,13 @@ waagerechte X-Achse
 (Portal kippt nicht)
 0,2 mm
 3
+Input Shaper
+Maintenance > Vibration Cal.
+Ringing/Ghosting - die
+Dynamik der
+Mechanik
+—
+4
 Bett leveln
 (Schrauben)
 Maintenance > Leveling >
@@ -118,65 +125,49 @@ Screws
 Bett-Ebene gegen die
 Düse
 0,1 mm
-4
+5
 Sonde: Z-Offset
 Maintenance > Leveling >
 zoff
 Düse-zu-Bett-Abstand
 bei Erstschicht
 0,02 mm
-5
+6
 Bett-Mesh
 Maintenance > Bed Mesh > now
 Restwelligkeit der
 Oberfläche
 0,05 mm
-6
+7
 E-Schritte
 Maintenance > Extruder Cal.
 Fördermenge pro mm
 (mechanisch)
 0,5 %
-7
+8
 PID (Düse +
 Bett)
 Maintenance > PID Tuning
 Temperatur-Konstanz
 ±1 °C
-8
+9
+Temperatur
+Maintenance > Temp Tower
+Viskosität:
+Oberfläche,
+Festigkeit, Brücken
+5 °C
+10
 Flow
 Maintenance > Flow Cal.
 Breite der
 Extrusionsraupe
 0,5 %
-9
-Pressure
-Advance
-Maintenance > PA Cal.
-Ecken, Nähte, Beschl
-eunigungs-Übergänge
-0,005
-10
-Retraktion
-Maintenance > Retract Tower
-Fäden, Blobs, Tropfen
-0,1 mm
-11
-Temperatur
-Maintenance > Temp Tower
-Oberfläche,
-Festigkeit, Brücken
-5 °C
-12
-Ironing
-Maintenance > Ironing Cal.
-Deckflächen-Optik
-2 %
 
 
-===== PDF-SEITE 5 =====
+===== Seite 5 =====
 R2-D2 Macro System · Kalibrierungsleiter
-R2-2026-11-13.1
+R2-2026-11-19.2
 Seite 5
 R2-D2 · Ender-3
 #
@@ -185,15 +176,27 @@ Menüpfad (LCD)
 legt fest
 Restfehle
 r danach
+11
+Pressure
+Advance
+Maintenance > PA Cal.
+Ecken, Nähte, Beschl
+eunigungs-Übergänge
+0,005
+12
+Retraktion
+Maintenance > Retract Tower
+Fäden, Blobs, Tropfen
+0,1 mm
 13
-Input Shaper
-Maintenance > Vibration Cal.
-Ringing/Ghosting
-nach Ecken
-—
+Ironing
+Maintenance > Ironing Cal.
+Deckflächen-Optik
+2 %
 Der eine Satz, den man sich merken muss
-Erst was mechanisch ist, dann was misst, dann was fördert, dann was
-dynamisch ist, dann was aussieht.
+Erst was mechanisch ist (inkl. seiner Dynamik = Input Shaper), dann was misst,
+dann was fördert (Temperatur vor Flow), dann was dynamisch am Material ist,
+dann was aussieht.
 Umgekehrt kalibriert man gegen einen Zaun, der sich noch bewegt.
 3  Die Schritte im Einzelnen
 1  Rahmen & Riemen
@@ -218,30 +221,67 @@ und man sucht den Fehler in der Software.
  Feld
 Wert
 Menü
-Maintenance > Z Gantry Sync
+Maintenance > Gantry / Z Tilt
 Dauer
 ca. 3 Minuten
 Was hier festgelegt wird. Bei zwei Z-Motoren kann das Portal kippen: links und
-rechts verschiedene Höhen. Das Makro SYNC_GANTRY fährt mit niedrigem Strom
-an den oberen Anschlag und richtet beide Seiten aus.
+rechts verschiedene Höhen. Das Verfahren hängt strikt von der
+Treiber-Verdrahtung ab (beide Makros prüfen `stepper_z1` selbst).
 Ablauf.
- 1.  Nur nötig, wenn `stepper_z1` vorhanden ist (printer.cfg prüfen — das Makro
-erkennt es selbst).
 
 
-===== PDF-SEITE 6 =====
+===== Seite 6 =====
 R2-D2 Macro System · Kalibrierungsleiter
-R2-2026-11-13.1
+R2-2026-11-19.2
 Seite 6
 R2-D2 · Ender-3
-2.  Ablauf: SYNC_GANTRY QUIET=1, danach NICHT mehr von Hand am Portal
-ziehen.
-3.  Einschalten vor jedem Druck: `TOGGLE_GANTRY_SYNC_PRINT` (Standard aus,
-weil es Zeit kostet).
+1.  Ein Z-Treiber (parallel verdrahtete Motoren, kein `stepper_z1`, mit
+`[force_move]` und `[tmc2209 stepper_z]`): `SYNC_GANTRY` fährt mit
+reduziertem Strom an den oberen Anschlag (vor jedem Druck optional per
+`TOGGLE_GANTRY_SYNC_PRINT`). Bei vorhandenem `stepper_z1` verweigert
+`SYNC_GANTRY` den Lauf.
+2.  Getrennte Z-Treiber (`stepper_z1` + `[z_tilt]` in printer.cfg): `Z_TILT` (Menü
+`Maintenance > Z Tilt`) vermisst die konfigurierten Punkte per Sonde und gleicht
+die Treiber einzeln aus.
+3.  Nach dem Ausrichten NICHT mehr von Hand am Portal ziehen; nur auf dafür
+geeigneter Mechanik ausführen.
 Warum erst jetzt. Ein kippendes Portal verschiebt die Messpunkte des Meshes
 gegeneinander — das Mesh sieht dann eine Welle, die mechanisch da ist, und
 kompensiert falsch.
-3  Bett leveln (Schrauben)
+3  Input Shaper
+ Feld
+Wert
+Menü
+Maintenance > Vibration Cal.
+Dauer
+ca. 20 Minuten ohne Sensor
+Merke
+Erhöht man später max_accel, alte Werte prüfen
+Was hier festgelegt wird. Ringing (Geisterkanten) nach Ecken. Mit
+Beschleunigungssensor: automatisch messen. Ohne Sensor: manuell einstellen.
+Ablauf.
+ 1.  Ohne Sensor: `SHAPER_MANUAL AXIS=X TYPE=mzv FREQ=` — Typen
+ZV/MZV/EI/2HUMP_EI/3HUMP_EI, Frequenz 5–200 Hz in 0,5er-Schritten.
+`TYPE=CONFIG` holt die Werte aus printer.cfg zurück.
+2.  Mit sensorlosen Maschinen ist die Frequenz die erste Harmonische des
+Ringings: Kantenabstand messen, Frequenz = Druckgeschwindigkeit / Abstand.
+3.  Fertig, wenn die Testwürfel-Ecken keine Doppelkante mehr zeigen; sonst
+Frequenz in 2-Hz-Schritten variieren.
+Warum erst jetzt. Der Shaper legt das dynamische Verhalten der Mechanik fest —
+und braucht dafür KEIN Filament. Er steht deshalb VOR jeder Material-Kalibrierung
+(Modell C): PA und Retraktion werden später durch das Beschleunigungsprofil
+beeinflusst; wer den Shaper erst am Ende setzt, misst beide auf einer Maschine,
+die sich danach anders bewegt. Erst Dynamik festnageln, dann Material darauf
+abstimmen. Nur eines gilt weiterhin: prüfe die Ecken des PA-Tests (Schritt 11) — sie
+sind zugleich die Probe, dass der Shaper sitzt.
+
+
+===== Seite 7 =====
+R2-D2 Macro System · Kalibrierungsleiter
+R2-2026-11-19.2
+Seite 7
+R2-D2 · Ender-3
+4  Bett leveln (Schrauben)
  Feld
 Wert
 Menü
@@ -268,7 +308,7 @@ Den Weg von Höhe zu Umdrehung rechnet Klipper über die Gewindesteigung
 (`screw_thread`) aus deiner printer.cfg; diese Datei ist nicht Teil des Makro-Pakets,
 deshalb steht hier keine Millimeterzahl, sondern die Anzeige, die auf dem LCD
 steht.
-4  Sonde: Z-Offset
+5  Sonde: Z-Offset
  Feld
 Wert
 Menü
@@ -279,20 +319,20 @@ Grenze
 Der Verfahrweg nach unten begrenzt `position_min` der Z-Achse in deiner
 printer.cfg (nicht Teil dieses Pakets). Steht sie sehr weit negativ, kann ein
 zu kleiner Offset die Düse ins Bett fahren, ohne dass Klipper stoppt.
-
-
-===== PDF-SEITE 7 =====
-R2-D2 Macro System · Kalibrierungsleiter
-R2-2026-11-13.1
-Seite 7
-R2-D2 · Ender-3
 Was hier festgelegt wird. Der Abstand Sonde → Düse, wenn die Sonde aufsetzt. Er
 entscheidet über die Erstschicht: zu groß = Raupe liegt nicht an, zu klein = Düse
 schabt.
 Ablauf.
  1.  `CALIBRATE_PROBE_OFFSET` — homet, dann `PROBE_CALIBRATE`: Papier
-unter die Düse, mit `TESTZ Z=+0.02` / `Z=-0.02` fahren (Schritte über die
-LCD-Zeilen `zp`/`zm`).
+unter die Düse, mit `TESTZ Z=+0.04` / `Z=-0.04` fein (`zp`/`zm`) bzw.
+`Z=+0.12` / `Z=-0.12` grob über die LCD-Zeilen fahren.
+
+
+===== Seite 8 =====
+R2-D2 Macro System · Kalibrierungsleiter
+R2-2026-11-19.2
+Seite 8
+R2-D2 · Ender-3
 2.  Papier-Methode ist legitim, aber ein Erstschicht-Muster ist ehrlicher: eine Lage
 drucken und die Raupe fühlen. Erst dann `ACCEPT` → `SAVE_CONFIG`.
 3.  Merke: der Offset gehört zur SONDE, nicht zum Bett. Nach einem
@@ -300,7 +340,7 @@ Sondentausch ist er neu fällig, nach dem Bettleveln nicht.
 Warum erst jetzt. Meshes werden bei Betttemperatur geprobt. Kalibriert man kalt,
 verschiebt die Wärmeausdehnung den Bezug — deshalb heizt das System vor dem
 Meshen auf die Materialtemperatur.
-5  Bett-Mesh
+6  Bett-Mesh
  Feld
 Wert
 Menü
@@ -322,15 +362,8 @@ dort fiel der Host früher aus.
 auf AUTO schalten (Mesh wird geladen, nicht neu gemessen).
 Warum erst jetzt. Ein Mesh ersetzt kein Leveln: es korrigiert Wellen bis etwa 0,3
 mm. Eine schiefe Ebene (linearer Fehler) frisst das Mesh nur mit Auflösung —
-deshalb Schritt 3 vor Schritt 5.
-
-
-===== PDF-SEITE 8 =====
-R2-D2 Macro System · Kalibrierungsleiter
-R2-2026-11-13.1
-Seite 8
-R2-D2 · Ender-3
-6  E-Schritte
+deshalb Schritt 4 (Schrauben) vor Schritt 6 (Mesh).
+7  E-Schritte
  Feld
 Wert
 Menü
@@ -338,21 +371,29 @@ Maintenance > Extruder Cal.
 Dauer
 ca. 15 Minuten
 Formel
-rd_neu = rd_alt × gemessen / 100
+rd_neu = rd_alt × (120 − Rest) / 100
 Was hier festgelegt wird. Wie viel Filament der Extruder pro Motorumdrehung
 wirklich fördert. Das ist reine Mechanik: Ritzel-Durchmesser, Griffigkeit,
 Anpressdruck.
 Ablauf.
- 1.  `CALIBRATE_EXTRUDER STEP=heat` → heizt, `STEP=extrude` → fördert exakt
-100 mm, dann messen.
-2.  Messergebnis: `CALIBRATE_EXTRUDER STEP=result MEASURED=` — das
-Makro rechnet die neuen `rotation_distance` aus.
+
+
+===== Seite 9 =====
+R2-D2 Macro System · Kalibrierungsleiter
+R2-2026-11-19.2
+Seite 9
+R2-D2 · Ender-3
+1.  `CALIBRATE_EXTRUDER STEP=heat` → heizt, `STEP=extrude` → fördert 100
+mm ab der 120-mm-Markierung, dann Restabstand messen.
+2.  Messergebnis: `CALIBRATE_EXTRUDER STEP=result MEASURED=` (gültig: 0 <
+Rest < 120 mm, Soll 20 mm) — das Makro berechnet `rotation_distance` aus
+`120 − Rest`.
 3.  Zweimal wiederholen; wenn der zweite Lauf unter 0,5 % Abweichung liegt,
 `SAVE_CONFIG`.
 Warum erst jetzt. E-Schritte korrigieren nur die Stauchung des Ritzels. Mit vollem
 Gegendruck gemessen ist der Wert zu klein — deshalb langsam fördern und im
 gleichen Temperaturfenster bleiben.
-7  PID (Düse + Bett)
+8  PID (Düse + Bett)
  Feld
 Wert
 Menü
@@ -371,14 +412,37 @@ dem du druckst (`FAN=0..100`).
 test finished".
 Warum erst jetzt. Immer bei der Temperatur tunen, die man druckt. Ein bei 250 °C
 getunter Hotend regelt bei 210 °C träge.
+9  Temperatur
+ Feld
+Wert
+Menü
+Maintenance > Temp Tower
+Dauer
+ca. 40–60 Minuten
+Merke
+2 °C zu kalt sieht wie zu wenig Flow aus
+Was hier festgelegt wird. Fünf Temperaturblöcke übereinander. Man beurteilt
+Oberfläche, Schichtbindung, Brücken und Fäden.
+Ablauf.
+ 1.  `TEMP_TOWER_GEN` — Defaults: START 220 °C, STEP −5 °C, 5 Blöcke,
+Blockhöhe 10 mm, Lüfter 100 %.
 
 
-===== PDF-SEITE 9 =====
+===== Seite 10 =====
 R2-D2 Macro System · Kalibrierungsleiter
-R2-2026-11-13.1
-Seite 9
+R2-2026-11-19.2
+Seite 10
 R2-D2 · Ender-3
-8  Flow
+2.  `TEMP_TOWER_RESULT BLOCK=` setzt die passende Temperatur als
+Overwrite.
+3.  Beurteilung: den kühlsten Block nehmen, der noch keine glänzenden Kanten
+(Unterextrusion) zeigt.
+Warum erst jetzt. Temperatur wirkt auf ALLES (Viskosität, PA, Retraktion, Brücken).
+Deshalb kommt sie VOR Flow, PA und Retraktion (Modell C): erst wird die
+Arbeitstemperatur des Materials gewählt, dann werden Flow, PA und Retraktion bei
+genau dieser Temperatur gemessen. Wer die Temperatur zuletzt stellt, kalibriert
+alle drei gegen eine Viskosität, die er danach wieder ändert.
+10  Flow
  Feld
 Wert
 Menü
@@ -398,9 +462,9 @@ Wandstärke an möglichst vielen Stellen messen.
 3.  Beurteilung: der Mittelwert zählt, nicht die dickste Stelle; die Streuung ist dein
 Rauschmaß.
 Warum erst jetzt. Flow und E-Schritte nicht doppelt korrigieren: die E-Schritte sind
-Mechanik, der Flow ist der Prozess. Erst E-Schritte, dann das Bett — deshalb steht
-dieser Schritt nach 6.
-9  Pressure Advance
+Mechanik, der Flow ist der Prozess. Erst E-Schritte (7), dann Temperatur (9), dann
+Flow — deshalb steht dieser Schritt nach beiden.
+11  Pressure Advance
  Feld
 Wert
 Menü
@@ -413,6 +477,13 @@ PLA 0,05 · PETG 0,06 · ABS 0,05 · TPU 0,09 (DB-Werte)
 Was hier festgelegt wird. PA beschreibt, wie der Druck im Druckkopf beim
 Beschleunigen und Abbremsen fehlt oder sich staut. Das Werkzeug druckt eine
 lange Linie pro PA-Wert, jede ein Stück weiter.
+
+
+===== Seite 11 =====
+R2-D2 Macro System · Kalibrierungsleiter
+R2-2026-11-19.2
+Seite 11
+R2-D2 · Ender-3
 Ablauf.
  1.  `CALIBRATE_PA` — Defaults aus dem Speicher: START 0, STEP 0,005, LINES 10
 (0,005-Schritte sind fein genug für PLA; PETG braucht 0,01), Länge 100 mm.
@@ -421,15 +492,9 @@ oder direkt `PA_RESULT VALUE=0,05`.
 3.  Danach `CALIBRATE_PA_SMOOTH` — die Glättungszeit (pa_smooth).
 Materialwerte: PLA 0,04 s, PETG 0,04 s, TPU 0,04 s.
 Warum erst jetzt. PA ohne Flow-Kalibrierung ist wertlos: PA regelt gegen eine
-Raupe, deren Volumen noch falsch ist. Deshalb Schritt 8 vor 9.
-
-
-===== PDF-SEITE 10 =====
-R2-D2 Macro System · Kalibrierungsleiter
-R2-2026-11-13.1
-Seite 10
-R2-D2 · Ender-3
-10  Retraktion
+Raupe, deren Volumen noch falsch ist. Deshalb Schritt 10 (Flow) vor 11 — und
+beide erst NACH Temperatur (9) und Shaper (3).
+12  Retraktion
  Feld
 Wert
 Menü
@@ -444,42 +509,15 @@ sieht Fäden, Blobs und Stufen direkt übereinander.
 Ablauf.
  1.  `RETRACT_TOWER` — Defaults: START 0,5 mm, STEP 0,5 mm, 6 Blöcke,
 Blockhöhe 5 mm, Mastabstand 40 mm.
-2.  `RETRACT_TOWER_RESULT BLOCK=` übernimmt Länge/Geschwindigkeit des
-besten Blocks als Overwrite.
+2.  `RETRACT_TOWER_RESULT BLOCK=` übernimmt die Retraktionslänge
+(`retract_len`) des besten Blocks als Override; das Retract-Tempo bleibt separat
+einstellbar.
 3.  Beurteilung: kein Faden zwischen den Masten und keine sichtbare Lücke am
 Blockanfang — beides zusammen.
 Warum erst jetzt. Zu viel Retraktion „klebt" Anfänge, zu wenig fädelt. Der Tower
 zeigt beide Richtungen in einem Druck; deshalb ein Druck statt zwölf
 Einzelversuche.
-11  Temperatur
- Feld
-Wert
-Menü
-Maintenance > Temp Tower
-Dauer
-ca. 40–60 Minuten
-Merke
-2 °C zu kalt sieht wie zu wenig Flow aus
-Was hier festgelegt wird. Fünf Temperaturblöcke übereinander. Man beurteilt
-Oberfläche, Schichtbindung, Brücken und Fäden.
-Ablauf.
- 1.  `TEMP_TOWER_GEN` — Defaults: START 220 °C, STEP −5 °C, 5 Blöcke,
-Blockhöhe 10 mm, Lüfter 100 %.
-2.  `TEMP_TOWER_RESULT BLOCK=` setzt die passende Temperatur als
-Overwrite.
-3.  Beurteilung: den kühlsten Block nehmen, der noch keine glänzenden Kanten
-(Unterextrusion) zeigt.
-Warum erst jetzt. Temperatur wirkt auf ALLES (Viskosität, PA, Retraktion, Brücken).
-Deshalb kommt sie nach PA und Retraktion: man probiert die Mechanismen erst bei
-einer festen Temperatur aus und stimmt die Temperatur zuletzt.
-
-
-===== PDF-SEITE 11 =====
-R2-D2 Macro System · Kalibrierungsleiter
-R2-2026-11-13.1
-Seite 11
-R2-D2 · Ender-3
-12  Ironing
+13  Ironing
  Feld
 Wert
 Menü
@@ -490,45 +528,26 @@ Typisch
 Flow 15–20 %, ab 25 % wird gerippt
 Was hier festgelegt wird. Karten mit unterschiedlichem Ironing-Flow und -Tempo
 auf einer Deckfläche. Man sieht Banding, Glanz und Rillen.
+
+
+===== Seite 12 =====
+R2-D2 Macro System · Kalibrierungsleiter
+R2-2026-11-19.2
+Seite 12
+R2-D2 · Ender-3
 Ablauf.
  1.  `IRONING_CAL` — Defaults: 3 Karten, 40 × 24 mm, Temp 200 °C, Basislagen
 davor über START_LAYER.
-2.  `IRONING_RESULT CARD=` übernimmt Tempo + Flow der besten Karte.
+2.  `IRONING_RESULT CARD=` zeigt das gespeicherte Kartentempo (mm/s) und
+den Karten-Flow (%) der gewählten Karte an; es schreibt keine automatische
+mm/s-zu-Prozent-Umrechnung in Overrides.
 3.  Wichtig: der am LCD angezeigte Flow ist der Wert, der wirkt — es gibt keine
 zweite „echte" Zahl.
 Warum erst jetzt. Ironing ist Optik: es lohnt erst, wenn Geometrie, Flow und
 Temperatur stimmen — sonst ironiert man Unebenheiten fest.
-13  Input Shaper
- Feld
-Wert
-Menü
-Maintenance > Vibration Cal.
-Dauer
-ca. 20 Minuten ohne Sensor
-Merke
-Erhöht man später max_accel, alte Werte prüfen
-Was hier festgelegt wird. Ringing (Geisterkanten) nach Ecken. Mit
-Beschleunigungssensor: automatisch messen. Ohne Sensor: manuell einstellen.
-Ablauf.
- 1.  Ohne Sensor: `SHAPER_MANUAL AXIS=X TYPE=mzv FREQ=` — Typen
-ZV/MZV/EI/2HUMP_EI/3HUMP_EI, Frequenz 5–200 Hz in 0,5er-Schritten.
-`TYPE=CONFIG` holt die Werte aus printer.cfg zurück.
-2.  Mit sensorlosen Maschinen ist die Frequenz die erste Harmonische des
-Ringings: Kantenabstand messen, Frequenz = Druckgeschwindigkeit / Abstand.
-3.  Fertig, wenn die Testwürfel-Ecken keine Doppelkante mehr zeigen; sonst
-Frequenz in 2-Hz-Schritten variieren.
-Warum erst jetzt. Shaper ändert das dynamische Verhalten — nie vor PA und
-Retraktion tun: beide werden durch andere Beschleunigungsprofile neu bewertet.
-
-
-===== PDF-SEITE 12 =====
-R2-D2 Macro System · Kalibrierungsleiter
-R2-2026-11-13.1
-Seite 12
-R2-D2 · Ender-3
 4  Material-Referenz
 Diese Werte stehen in der Materialdatenbank des Systems
-(macros/05_materials.cfg). Sie sind der Startpunkt für die Schritte 8–11 — nicht
+(macros/05_materials.cfg). Sie sind der Startpunkt für die Schritte 9–12 — nicht
 das Ergebnis. Deine eigene Kalibrierung überschreibt sie (`SET_MATERIAL` lädt sie,
 `SAVE_MATERIAL_TEMPS` schreibt deine Werte zurück).
  Material
@@ -582,12 +601,12 @@ nachgibt. Wer TPU auf PLA-Werte stellt, bekommt Ecken mit „Bauch".
 Formel
 Beispiel PLA (0,6 mm Düse, 0,2
 mm)
-Raupe (Volumen)
-V = w · h · v / 60 · f
-0,65 · 0,2 · 60 / 60 = 0,13 mm³/s pro
-mm/s
+Volumenstrom
+Q = w · h · v (mit v = F / 60)
+0,65 · 0,2 · 60 = 7,8 mm³/s bei 60
+mm/s (w·h = 0,13 mm²)
 Flussgrenze
-vmax = Vmax / (w · h)
+vmax = Qmax / (w · h)
 8,3 / (0,65 · 0,2) ≈ 64 mm/s
 (MAXRATE der Datei)
 PA-Vorhalt
@@ -598,55 +617,65 @@ Druck
 r = rDB · (1 ± 0,2)
 0,75 ± 0,15 mm Startfenster für den
 Tower
+
+
+===== Seite 13 =====
+R2-D2 Macro System · Kalibrierungsleiter
+R2-2026-11-19.2
+Seite 13
+R2-D2 · Ender-3
 5  Drei Wege durch die Leiter
 Niemand kalibriert jeden Druck neu. Hier sind drei sinnvolle Ausschnitte —
 abhängig davon, was gerade nicht stimmt.
 A) Die Stunde nach dem Aufbau (oder nach einem Umzug)
- 1.  Schrauben leveln (Schritt 3).
-2.  Z-Offset mit Erstschicht-Muster prüfen (4).
-3.  Mesh messen und speichern (5).
-4.  E-Schritte kontrollieren (6) — 15 Minuten, einmal im Leben.
-5.  Einen Testwürfel drucken und Wandstärke messen (8).
-
-
-===== PDF-SEITE 13 =====
-R2-D2 Macro System · Kalibrierungsleiter
-R2-2026-11-13.1
-Seite 13
-R2-D2 · Ender-3
+ 1.  Schrauben leveln (Schritt 4).
+2.  Z-Offset mit Erstschicht-Muster prüfen (5).
+3.  Mesh messen und speichern (6).
+4.  E-Schritte kontrollieren (7) — 15 Minuten, einmal im Leben.
+5.  Einen Testwürfel drucken und Wandstärke messen (10).
 B) Der Abend für ein neues Material
- 1.  Material laden (`SET_MATERIAL`) — Temperaturen stimmen dann schon.
-2.  Temp Tower (11): die richtige Temperatur wählen.
-3.  Flow-Würfel (8) mit dieser Temperatur.
-4.  PA-Leiter (9) mit diesem Flow.
-5.  Retract Tower (10).
+Die Maschinenseite (Shaper, Mesh, E-Schritte) ist materialunabhängig und bleibt.
+Hier läuft nur die Materialkette — in genau der Reihenfolge der Leiter (Temperatur
+vor Flow/PA/Retraktion):
+ 1.  Material laden (`SET_MATERIAL`) — als Startpunkt.
+2.  Temp Tower (9): die richtige Temperatur wählen.
+3.  Flow-Würfel (10) mit dieser Temperatur.
+4.  PA-Leiter (11) mit diesem Flow.
+5.  Retract Tower (12).
 6.  Ergebnis mit `SAVE_MATERIAL_TEMPS`/Overrides sichern.
 C) Wenn eine bestimmte Macke auftritt
  Symptom
 Erst prüfen
 dann
 Erstschicht liegt nicht an
-Z-Offset (4)
-Bett leveln (3), Mesh (5)
+Z-Offset (5)
+Bett leveln (4), Mesh (6)
 Wandstärke weicht überall
 gleich ab
-Flow (8)
-E-Schritte (6)
+Flow (10)
+E-Schritte (7)
 Ecken haben Bauch / Lücke
-PA (9)
-Temperatur (11)
+PA (11)
+Temperatur (9)
 Fäden zwischen Türmen
-Retraktion (10)
-Temperatur senken (11)
+Retraktion (12)
+Temperatur senken (9)
 Geisterkanten nach Ecken
-Input Shaper (13)
+Input Shaper (3)
 Beschleunigung prüfen
 Oberfläche bandförmig
-PID (7)
+PID (8)
 Durchflussgrenze der Datei
 Deckfläche rau
-Ironing (12)
-Flow (8)
+Ironing (13)
+Flow (10)
+
+
+===== Seite 14 =====
+R2-D2 Macro System · Kalibrierungsleiter
+R2-2026-11-19.2
+Seite 14
+R2-D2 · Ender-3
 6  Was schiefgeht — und wie man es erkennt
  Fallstrick
 Woran man es merkt
@@ -655,18 +684,18 @@ Kalibriert, bevor das
 Bett warm ist
 Erstschicht gut, dritte Schicht
 zu dünn
-Schritte 4/5 bei
+Schritte 5/6 bei
 Betttemperatur wiederholen
 E-Schritte mit
 Widerstand gemessen
 Flow muss ständig über 105 %
 stehen
-Schritt 6 langsam und frei
+Schritt 7 langsam und frei
 fördernd wiederholen
 PA auf falschem Flow
 PA-Wert „wandert" bei jedem
 Versuch
-erst 8, dann 9 — in dieser
+erst 10, dann 11 — in dieser
 Reihenfolge
 Retraktion zu hoch
 eingestellt
@@ -684,32 +713,31 @@ Mesh als Level-Ersatz
 benutzt
 Mesh kompensiert dauerhaft >
 0,2 mm
-mechanisch leveln (3), dann
+mechanisch leveln (4), dann
 neu meshen
 Nach Sondentausch
 nicht neu kalibriert
 Erstschicht plötzlich zu tief/zu
 hoch
-Schritt 4 wiederholen, Mesh
+Schritt 5 wiederholen, Mesh
 neu
+Shaper erst NACH
+PA/Retraktion gesetzt
+Ecken sauber, nach
+Shaper-Tuning wieder Bauch
+Shaper zuerst (3), dann
+Materialkette — nie umgekehrt
 Zwei Korrekturen
 gleichzeitig
 Verbesserung hier,
 Verschlechterung dort
 immer nur EINE Größe ändern,
 sonst ist die Ursache weg
-
-
-===== PDF-SEITE 14 =====
-R2-D2 Macro System · Kalibrierungsleiter
-R2-2026-11-13.1
-Seite 14
-R2-D2 · Ender-3
 Der häufigste Fehler ist nicht die Kalibrierung, sondern ihre
 Reihenfolge
 In den Feldprotokollen dieses Systems tauchen drei Fälle immer wieder auf: (a)
-Z-Offset vor dem Leveln gesetzt, (b) PA bei falschem Flow gemessen, (c) Mesh
-als Ersatz für die Schrauben benutzt.
+Z-Offset vor dem Leveln gesetzt (5 vor 4), (b) PA bei falschem Flow gemessen
+(11 vor 10), (c) Mesh als Ersatz für die Schrauben benutzt (6 statt 4).
 Alle drei sind keine Bedienfehler, sondern Reihenfolgefehler — und alle drei
 sehen wie ein Hardwareproblem aus.
 7  Prüfliste zum Abhaken
@@ -722,44 +750,54 @@ Ergebnis, das man akzeptieren darf
 1 Rahmen & Riemen
 von Hand kein Spiel, kein Knacken
 ☐
-2 Gantry synchron
-Portal waagerecht (Wasserwaage oder
-Sync-Lauf)
+2 Gantry / Z Tilt
+SYNC_GANTRY (1 Treiber) bzw. Z_TILT
+(stepper_z1) ohne Fehler
 ☐
-3 Schrauben
-drei Runden unter Toleranz
+3 Shaper
+keine Doppelkanten an Würfelecken
 ☐
-4 Z-Offset
+4 Schrauben
+alle Schrauben „ok" (`00:00`) im aktuellen Lauf
+(`BED_SCREWS_DONE`)
+☐
+5 Z-Offset
 Erstschicht-Raupe liegt an, ohne zu schaben
 ☐
-5 Mesh
+6 Mesh
 Restwelligkeit < 0,1 mm im Bericht
 ☐
-6 E-Schritte
+7 E-Schritte
 zwei Läufe < 0,5 % Abweichung
+
+
+===== Seite 15 =====
+R2-D2 Macro System · Kalibrierungsleiter
+R2-2026-11-19.2
+Seite 15
+R2-D2 · Ender-3
+✓
+Schritt
+Ergebnis, das man akzeptieren darf
 ☐
-7 PID
+8 PID
 Konsole: „PID test finished", keine Schwankung
 > ±1 °C
 ☐
-8 Flow
-Wandstärke = Düsenbreite ± 0,02 mm
-☐
-9 PA
-Ecken ohne Bauch, Naht ohne Lücke
-☐
-10 Retraktion
-keine Fäden, keine Anfangs-Lücken
-☐
-11 Temperatur
+9 Temperatur
 Oberfläche matt-gleichmäßig, Brücken tragen
 ☐
-12 Ironing
-Deckfläche gleichmäßig, kein Rippenmuster
+10 Flow
+Wandstärke = Düsenbreite ± 0,02 mm
 ☐
-13 Shaper
-keine Doppelkanten an Würfelecken
+11 PA
+Ecken ohne Bauch, Naht ohne Lücke
+☐
+12 Retraktion
+keine Fäden, keine Anfangs-Lücken
+☐
+13 Ironing
+Deckfläche gleichmäßig, kein Rippenmuster
 Damit ist die Leiter einmal komplett. Sie muss nicht jedes Mal komplett gegangen
 werden — aber wenn etwas nicht stimmt, sagt die Reihenfolge, wo man anfängt zu
 suchen: immer oben.
-

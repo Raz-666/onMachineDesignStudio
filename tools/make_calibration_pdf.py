@@ -9,10 +9,10 @@ man aufhören darf.
 Warum die Reihenfolge überhaupt zählt (Kurzfassung, mit Zahlen im Kapitel 2):
 jeder Schritt hat ein Fehlerbudget. Eine Kalibrierung, die 0,3 mm verbiegt,
 macht die 0,05-mm-Feinheit des nächsten Schritts wertlos. Deshalb: erst die
-Mechanik (Geometrie), dann die Sensorik (Sonde, Mesh), dann die Materialförderung
-(E-Schritte, Flow), dann das dynamische Verhalten (PA, Retraktion, Shaper), dann
-die Optik (Temperatur, Ironing). Wer das vertauscht, kalibriert gegen einen
-beweglichen Zaun.
+Mechanik (Geometrie UND ihre Dynamik - der Input Shaper), dann die Sensorik
+(Sonde, Mesh), dann die Materialförderung (E-Schritte, Temperatur, Flow),
+dann das dynamische Materialverhalten (PA, Retraktion), dann die Optik
+(Ironing). Wer das vertauscht, kalibriert gegen einen beweglichen Zaun.
 
 Alle Zahlen in diesem Dokument kommen aus dem Code:
   * Parameter + Grenzwerte: macros/12_maintenance.cfg (CALIBRATE_EXTRUDER,
@@ -43,33 +43,39 @@ os.makedirs(TMP, exist_ok=True)
 # ---------------------------------------------------------------------------
 # 1. Die Leiter - EINE Liste, aus der Figur, Tabelle und Kapitel entstehen.
 #    (nr, Kurzname, Menüpfad, was es festlegt, Restfehler danach)
+#    Modell C (Beschluss, 17.11.2026): die DYNAMIK der Maschine (Input
+#    Shaper) wird festgelegt, BEVOR irgendetwas Material kalibriert wird -
+#    der Shaper braucht kein Filament und verändert die Beschleunigungs-
+#    profile, auf die sich PA/Retraktion/Flow beziehen. Und die Temperatur
+#    kommt VOR Flow/PA/Retraktion, weil sie die Viskosität aller drei
+#    bestimmt. Damit sind Leiter und Materialweg (Kapitel 5) EINE Ordnung.
 LEITER = [
     ('1', 'Rahmen & Riemen', 'Maintenance > Tests / mechanisch',
      'Sitz aller Achsen, Riemenspannung, Spiel', '0,5 mm'),
     ('2', 'Z-Gantry synchron', 'Maintenance > Z Gantry Sync',
      'waagerechte X-Achse (Portal kippt nicht)', '0,2 mm'),
-    ('3', 'Bett leveln (Schrauben)', 'Maintenance > Leveling > Screws',
+    ('3', 'Input Shaper', 'Maintenance > Vibration Cal.',
+     'Ringing/Ghosting - die Dynamik der Mechanik', '—'),
+    ('4', 'Bett leveln (Schrauben)', 'Maintenance > Leveling > Screws',
      'Bett-Ebene gegen die Düse', '0,1 mm'),
-    ('4', 'Sonde: Z-Offset', 'Maintenance > Leveling > zoff',
+    ('5', 'Sonde: Z-Offset', 'Maintenance > Leveling > zoff',
      'Düse-zu-Bett-Abstand bei Erstschicht', '0,02 mm'),
-    ('5', 'Bett-Mesh', 'Maintenance > Bed Mesh > now',
+    ('6', 'Bett-Mesh', 'Maintenance > Bed Mesh > now',
      'Restwelligkeit der Oberfläche', '0,05 mm'),
-    ('6', 'E-Schritte', 'Maintenance > Extruder Cal.',
+    ('7', 'E-Schritte', 'Maintenance > Extruder Cal.',
      'Fördermenge pro mm (mechanisch)', '0,5 %'),
-    ('7', 'PID (Düse + Bett)', 'Maintenance > PID Tuning',
+    ('8', 'PID (Düse + Bett)', 'Maintenance > PID Tuning',
      'Temperatur-Konstanz', '±1 °C'),
-    ('8', 'Flow', 'Maintenance > Flow Cal.',
+    ('9', 'Temperatur', 'Maintenance > Temp Tower',
+     'Viskosität: Oberfläche, Festigkeit, Brücken', '5 °C'),
+    ('10', 'Flow', 'Maintenance > Flow Cal.',
      'Breite der Extrusionsraupe', '0,5 %'),
-    ('9', 'Pressure Advance', 'Maintenance > PA Cal.',
+    ('11', 'Pressure Advance', 'Maintenance > PA Cal.',
      'Ecken, Nähte, Beschleunigungs-Übergänge', '0,005'),
-    ('10', 'Retraktion', 'Maintenance > Retract Tower',
+    ('12', 'Retraktion', 'Maintenance > Retract Tower',
      'Fäden, Blobs, Tropfen', '0,1 mm'),
-    ('11', 'Temperatur', 'Maintenance > Temp Tower',
-     'Oberfläche, Festigkeit, Brücken', '5 °C'),
-    ('12', 'Ironing', 'Maintenance > Ironing Cal.',
+    ('13', 'Ironing', 'Maintenance > Ironing Cal.',
      'Deckflächen-Optik', '2 %'),
-    ('13', 'Input Shaper', 'Maintenance > Vibration Cal.',
-     'Ringing/Ghosting nach Ecken', '—'),
 ]
 
 # ---------------------------------------------------------------------------
@@ -164,8 +170,10 @@ def main(toc_seiten=None):
                     [10 * mm, 33 * mm, 55 * mm, 42 * mm, 22 * mm])
     kb.story += SP(2)
     kb.story.append(BOX('Der eine Satz, den man sich merken muss', [
-        'Erst was <b>mechanisch</b> ist, dann was <b>misst</b>, dann was '
-        '<b>fördert</b>, dann was <b>dynamisch</b> ist, dann was <b>aussieht</b>.',
+        'Erst was <b>mechanisch</b> ist (inkl. seiner <b>Dynamik</b> = Input '
+        'Shaper), dann was <b>misst</b>, dann was <b>fördert</b> '
+        '(Temperatur vor Flow), dann was <b>dynamisch</b> am Material ist, '
+        'dann was <b>aussieht</b>.',
         'Umgekehrt kalibriert man gegen einen Zaun, der sich noch bewegt.'],
         'why'))
 
@@ -203,7 +211,28 @@ def main(toc_seiten=None):
          'gegeneinander — das Mesh sieht dann eine Welle, die mechanisch da ist, '
          'und kompensiert falsch.',
          'ca. 3 Minuten', None),
-        ('3', 'Bett leveln (Schrauben)', 'Maintenance > Leveling > Screws',
+        ('3', 'Input Shaper', 'Maintenance > Vibration Cal.',
+         'Ringing (Geisterkanten) nach Ecken. Mit Beschleunigungssensor: '
+         'automatisch messen. Ohne Sensor: manuell einstellen.',
+         ['Ohne Sensor: `SHAPER_MANUAL AXIS=X TYPE=mzv FREQ=<Hz>` — Typen '
+          'ZV/MZV/EI/2HUMP_EI/3HUMP_EI, Frequenz 5–200 Hz in 0,5er-Schritten. '
+          '`TYPE=CONFIG` holt die Werte aus printer.cfg zurück.',
+          'Mit sensorlosen Maschinen ist die Frequenz die erste Harmonische '
+          'des Ringings: Kantenabstand messen, Frequenz = '
+          'Druckgeschwindigkeit / Abstand.',
+          'Fertig, wenn die Testwürfel-Ecken keine Doppelkante mehr zeigen; '
+          'sonst Frequenz in 2-Hz-Schritten variieren.'],
+         'Der Shaper legt das dynamische Verhalten der Mechanik fest — und '
+         'braucht dafür KEIN Filament. Er steht deshalb VOR jeder Material-'
+         'Kalibrierung (Modell C): PA und Retraktion werden später durch das '
+         'Beschleunigungsprofil beeinflusst; wer den Shaper erst am Ende '
+         'setzt, misst beide auf einer Maschine, die sich danach anders '
+         'bewegt. Erst Dynamik festnageln, dann Material darauf abstimmen. '
+         'Nur eines gilt weiterhin: prüfe die Ecken des PA-Tests (Schritt 11) '
+         '— sie sind zugleich die Probe, dass der Shaper sitzt.',
+         'ca. 20 Minuten ohne Sensor', ('Merke', 'Erhöht man später max_accel, '
+                                           'alte Werte prüfen')),
+        ('4', 'Bett leveln (Schrauben)', 'Maintenance > Leveling > Screws',
          'Die vier Schrauben unter dem Bett. Das System macht es wie Mainsails '
          'Assistent: es probt alle Schrauben, sagt „drehen" und wiederholt, bis '
          'der Rest unter der Toleranz liegt.',
@@ -224,7 +253,7 @@ def main(toc_seiten=None):
          'keine Millimeterzahl, sondern die Anzeige, die auf dem LCD steht.',
          'ca. 10–15 Minuten', ('Fertig-Kriterium', 'jede Schraube „ok“ '
                                '(Klipper `00:00`) - keine eigene mm-Toleranz im Code')),
-        ('4', 'Sonde: Z-Offset', 'Maintenance > Leveling > zoff',
+        ('5', 'Sonde: Z-Offset', 'Maintenance > Leveling > zoff',
          'Der Abstand Sonde → Düse, wenn die Sonde aufsetzt. Er entscheidet '
          'über die Erstschicht: zu groß = Raupe liegt nicht an, zu klein = '
          'Düse schabt.',
@@ -244,7 +273,7 @@ def main(toc_seiten=None):
                             '(nicht Teil dieses Pakets). Steht sie sehr weit '
                             'negativ, kann ein zu kleiner Offset die Düse ins '
                             'Bett fahren, ohne dass Klipper stoppt.')),
-        ('5', 'Bett-Mesh', 'Maintenance > Bed Mesh > now',
+        ('6', 'Bett-Mesh', 'Maintenance > Bed Mesh > now',
          'Das Mesh beschreibt die Restwelligkeit der Oberfläche nach dem '
          'Leveln. Das System probt bei Betttemperatur und speichert als '
          'Profil `r2`.',
@@ -258,10 +287,10 @@ def main(toc_seiten=None):
           'hat, kann auf AUTO schalten (Mesh wird geladen, nicht neu gemessen).'],
          'Ein Mesh ersetzt kein Leveln: es korrigiert Wellen bis etwa 0,3 mm. '
          'Eine schiefe Ebene (linearer Fehler) frisst das Mesh nur mit '
-         'Auflösung — deshalb Schritt 3 vor Schritt 5.',
+         'Auflösung — deshalb Schritt 4 (Schrauben) vor Schritt 6 (Mesh).',
          'ca. 5–10 Minuten', ('Auflösung', '9×9 Punkte (Mesh-Punkte in '
                             'printer.cfg), bicubic')),
-        ('6', 'E-Schritte', 'Maintenance > Extruder Cal.',
+        ('7', 'E-Schritte', 'Maintenance > Extruder Cal.',
          'Wie viel Filament der Extruder pro Motorumdrehung wirklich fördert. '
          'Das ist reine Mechanik: Ritzel-Durchmesser, Griffigkeit, '
          'Anpressdruck.',
@@ -276,7 +305,7 @@ def main(toc_seiten=None):
          'Gegendruck gemessen ist der Wert zu klein — deshalb langsam '
          'fördern und im gleichen Temperaturfenster bleiben.',
          'ca. 15 Minuten', ('Formel', 'rd_neu = rd_alt × (120 − Rest) / 100')),
-        ('7', 'PID (Düse + Bett)', 'Maintenance > PID Tuning',
+        ('8', 'PID (Düse + Bett)', 'Maintenance > PID Tuning',
          'Die Regelparameter der Heizungen. Schlechtes PID heißt: '
          'Temperaturschwankung → Schwankung der Viskosität → '
          'Oberflächenbänder.',
@@ -289,7 +318,24 @@ def main(toc_seiten=None):
          'getunter Hotend regelt bei 210 °C träge.',
          'je Heizung 5–8 Minuten', ('Achtung', 'Lüfter ändern = Tune '
                                     'wiederholen')),
-        ('8', 'Flow', 'Maintenance > Flow Cal.',
+        ('9', 'Temperatur', 'Maintenance > Temp Tower',
+         'Fünf Temperaturblöcke übereinander. Man beurteilt Oberfläche, '
+         'Schichtbindung, Brücken und Fäden.',
+         ['`TEMP_TOWER_GEN` — Defaults: START 220 °C, STEP −5 °C, 5 Blöcke, '
+          'Blockhöhe 10 mm, Lüfter 100 %.',
+          '`TEMP_TOWER_RESULT BLOCK=<n>` setzt die passende Temperatur als '
+          'Overwrite.',
+          'Beurteilung: den kühlsten Block nehmen, der noch keine glänzenden '
+          'Kanten (Unterextrusion) zeigt.'],
+         'Temperatur wirkt auf ALLES (Viskosität, PA, Retraktion, Brücken). '
+         'Deshalb kommt sie VOR Flow, PA und Retraktion (Modell C): erst '
+         'wird die Arbeitstemperatur des Materials gewählt, dann werden Flow, '
+         'PA und Retraktion bei genau dieser Temperatur gemessen. Wer die '
+         'Temperatur zuletzt stellt, kalibriert alle drei gegen eine '
+         'Viskosität, die er danach wieder ändert.',
+         'ca. 40–60 Minuten', ('Merke', '2 °C zu kalt sieht wie zu wenig Flow '
+                               'aus')),
+        ('10', 'Flow', 'Maintenance > Flow Cal.',
          'Welche Menge pro mm tatsächlich gefördert wird, wenn die Düse gegen '
          'Widerstand drückt. Anders als die E-Schritte misst man hier die '
          '<b>Raupe</b>, nicht den Motor.',
@@ -300,11 +346,12 @@ def main(toc_seiten=None):
           'Beurteilung: der Mittelwert zählt, nicht die dickste Stelle; die '
           'Streuung ist dein Rauschmaß.'],
          'Flow und E-Schritte nicht doppelt korrigieren: die E-Schritte '
-         'sind Mechanik, der Flow ist der Prozess. Erst E-Schritte, dann '
-         'das Bett — deshalb steht dieser Schritt nach 6.',
+         'sind Mechanik, der Flow ist der Prozess. Erst E-Schritte (7), dann '
+         'Temperatur (9), dann Flow — deshalb steht dieser Schritt nach '
+         'beiden.',
          'ca. 30–45 Minuten inkl. Druck', ('Grenzen', 'Düsenbreite 0,4…0,8 mm '
                                             '(aus printer.cfg gelesen)')),
-        ('9', 'Pressure Advance', 'Maintenance > PA Cal.',
+        ('11', 'Pressure Advance', 'Maintenance > PA Cal.',
          'PA beschreibt, wie der Druck im Druckkopf beim Beschleunigen und '
          'Abbremsen fehlt oder sich staut. Das Werkzeug druckt eine lange '
          'Linie pro PA-Wert, jede ein Stück weiter.',
@@ -316,10 +363,11 @@ def main(toc_seiten=None):
           'Danach `CALIBRATE_PA_SMOOTH` — die Glättungszeit (pa_smooth). '
           'Materialwerte: PLA 0,04 s, PETG 0,04 s, TPU 0,04 s.'],
          'PA ohne Flow-Kalibrierung ist wertlos: PA regelt gegen eine Raupe, '
-         'deren Volumen noch falsch ist. Deshalb Schritt 8 vor 9.',
+         'deren Volumen noch falsch ist. Deshalb Schritt 10 (Flow) vor 11 — '
+         'und beide erst NACH Temperatur (9) und Shaper (3).',
          'ca. 20–30 Minuten', ('Typische Werte', 'PLA 0,05 · PETG 0,06 · '
                                'ABS 0,05 · TPU 0,09 (DB-Werte)')),
-        ('10', 'Retraktion', 'Maintenance > Retract Tower',
+        ('12', 'Retraktion', 'Maintenance > Retract Tower',
          'Zwei Masten, je Block eine andere Retraktionslänge; man sieht '
          'Fäden, Blobs und Stufen direkt übereinander.',
          ['`RETRACT_TOWER` — Defaults: START 0,5 mm, STEP 0,5 mm, 6 Blöcke, '
@@ -334,22 +382,7 @@ def main(toc_seiten=None):
          'Einzelversuche.',
          'ca. 30–45 Minuten', ('DB-Vorgaben', 'PLA 0,75 · PETG 0,90 · '
                                'TPU 1,20 mm')),
-        ('11', 'Temperatur', 'Maintenance > Temp Tower',
-         'Fünf Temperaturblöcke übereinander. Man beurteilt Oberfläche, '
-         'Schichtbindung, Brücken und Fäden.',
-         ['`TEMP_TOWER_GEN` — Defaults: START 220 °C, STEP −5 °C, 5 Blöcke, '
-          'Blockhöhe 10 mm, Lüfter 100 %.',
-          '`TEMP_TOWER_RESULT BLOCK=<n>` setzt die passende Temperatur als '
-          'Overwrite.',
-          'Beurteilung: den kühlsten Block nehmen, der noch keine glänzenden '
-          'Kanten (Unterextrusion) zeigt.'],
-         'Temperatur wirkt auf ALLES (Viskosität, PA, Retraktion, Brücken). '
-         'Deshalb kommt sie nach PA und Retraktion: man probiert die '
-         'Mechanismen erst bei einer festen Temperatur aus und stimmt die '
-         'Temperatur zuletzt.',
-         'ca. 40–60 Minuten', ('Merke', '2 °C zu kalt sieht wie zu wenig Flow '
-                               'aus')),
-        ('12', 'Ironing', 'Maintenance > Ironing Cal.',
+        ('13', 'Ironing', 'Maintenance > Ironing Cal.',
          'Karten mit unterschiedlichem Ironing-Flow und -Tempo auf einer '
          'Deckfläche. Man sieht Banding, Glanz und Rillen.',
          ['`IRONING_CAL` — Defaults: 3 Karten, 40 × 24 mm, Temp 200 °C, '
@@ -363,22 +396,7 @@ def main(toc_seiten=None):
          'Temperatur stimmen — sonst ironiert man Unebenheiten fest.',
          'ca. 20–30 Minuten', ('Typisch', 'Flow 15–20 %, ab 25 % wird '
                                'gerippt')),
-        ('13', 'Input Shaper', 'Maintenance > Vibration Cal.',
-         'Ringing (Geisterkanten) nach Ecken. Mit Beschleunigungssensor: '
-         'automatisch messen. Ohne Sensor: manuell einstellen.',
-         ['Ohne Sensor: `SHAPER_MANUAL AXIS=X TYPE=mzv FREQ=<Hz>` — Typen '
-          'ZV/MZV/EI/2HUMP_EI/3HUMP_EI, Frequenz 5–200 Hz in 0,5er-Schritten. '
-          '`TYPE=CONFIG` holt die Werte aus printer.cfg zurück.',
-          'Mit sensorlosen Maschinen ist die Frequenz die erste Harmonische '
-          'des Ringings: Kantenabstand messen, Frequenz = '
-          'Druckgeschwindigkeit / Abstand.',
-          'Fertig, wenn die Testwürfel-Ecken keine Doppelkante mehr zeigen; '
-          'sonst Frequenz in 2-Hz-Schritten variieren.'],
-         'Shaper ändert das dynamische Verhalten — nie vor PA und '
-         'Retraktion tun: beide werden durch andere Beschleunigungsprofile '
-         'neu bewertet.',
-         'ca. 20 Minuten ohne Sensor', ('Merke', 'Erhöht man später max_accel, '
-                                           'alte Werte prüfen')),
+
     ]
 
     for (nr, titel, pfad, was, ablauf, warum, dauer, extra) in schritte:
@@ -399,7 +417,7 @@ def main(toc_seiten=None):
     kb.story += P(
         'Diese Werte stehen in der Materialdatenbank des Systems '
         '(<font face="DVSM">macros/05_materials.cfg</font>). Sie sind der '
-        'Startpunkt für die Schritte 8–11 — nicht das Ergebnis. Deine eigene '
+        'Startpunkt für die Schritte 9–12 — nicht das Ergebnis. Deine eigene '
         'Kalibrierung überschreibt sie (`SET_MATERIAL` lädt sie, '
         '`SAVE_MATERIAL_TEMPS` schreibt deine Werte zurück).')
     kb.story += TBL(['Material', 'Düse °C', 'Bett °C', 'PA', 'Retraktion mm',
@@ -429,28 +447,31 @@ def main(toc_seiten=None):
         'Niemand kalibriert jeden Druck neu. Hier sind drei sinnvolle '
         'Ausschnitte — abhängig davon, was gerade nicht stimmt.')
     kb.story += H3('A) Die Stunde nach dem Aufbau (oder nach einem Umzug)')
-    kb.story += NUM('Schrauben leveln (Schritt 3).',
-                    'Z-Offset mit Erstschicht-Muster prüfen (4).',
-                    'Mesh messen und speichern (5).',
-                    'E-Schritte kontrollieren (6) — 15 Minuten, einmal im Leben.',
-                    'Einen Testwürfel drucken und Wandstärke messen (8).')
+    kb.story += NUM('Schrauben leveln (Schritt 4).',
+                    'Z-Offset mit Erstschicht-Muster prüfen (5).',
+                    'Mesh messen und speichern (6).',
+                    'E-Schritte kontrollieren (7) — 15 Minuten, einmal im Leben.',
+                    'Einen Testwürfel drucken und Wandstärke messen (10).')
     kb.story += H3('B) Der Abend für ein neues Material')
-    kb.story += NUM('Material laden (`SET_MATERIAL`) — Temperaturen stimmen dann '
-                    'schon.',
-                    'Temp Tower (11): die richtige Temperatur wählen.',
-                    'Flow-Würfel (8) mit dieser Temperatur.',
-                    'PA-Leiter (9) mit diesem Flow.',
-                    'Retract Tower (10).',
+    kb.story += P(
+        'Die Maschinenseite (Shaper, Mesh, E-Schritte) ist materialunabhängig '
+        'und bleibt. Hier läuft nur die Materialkette — in genau der '
+        'Reihenfolge der Leiter (Temperatur vor Flow/PA/Retraktion):')
+    kb.story += NUM('Material laden (`SET_MATERIAL`) — als Startpunkt.',
+                    'Temp Tower (9): die richtige Temperatur wählen.',
+                    'Flow-Würfel (10) mit dieser Temperatur.',
+                    'PA-Leiter (11) mit diesem Flow.',
+                    'Retract Tower (12).',
                     'Ergebnis mit `SAVE_MATERIAL_TEMPS`/Overrides sichern.')
     kb.story += H3('C) Wenn eine bestimmte Macke auftritt')
     kb.story += TBL(['Symptom', 'Erst prüfen', 'dann'],
-                    [['Erstschicht liegt nicht an', 'Z-Offset (4)', 'Bett leveln (3), Mesh (5)'],
-                     ['Wandstärke weicht überall gleich ab', 'Flow (8)', 'E-Schritte (6)'],
-                     ['Ecken haben Bauch / Lücke', 'PA (9)', 'Temperatur (11)'],
-                     ['Fäden zwischen Türmen', 'Retraktion (10)', 'Temperatur senken (11)'],
-                     ['Geisterkanten nach Ecken', 'Input Shaper (13)', 'Beschleunigung prüfen'],
-                     ['Oberfläche bandförmig', 'PID (7)', 'Durchflussgrenze der Datei'],
-                     ['Deckfläche rau', 'Ironing (12)', 'Flow (8)']],
+                    [['Erstschicht liegt nicht an', 'Z-Offset (5)', 'Bett leveln (4), Mesh (6)'],
+                     ['Wandstärke weicht überall gleich ab', 'Flow (10)', 'E-Schritte (7)'],
+                     ['Ecken haben Bauch / Lücke', 'PA (11)', 'Temperatur (9)'],
+                     ['Fäden zwischen Türmen', 'Retraktion (12)', 'Temperatur senken (9)'],
+                     ['Geisterkanten nach Ecken', 'Input Shaper (3)', 'Beschleunigung prüfen'],
+                     ['Oberfläche bandförmig', 'PID (8)', 'Durchflussgrenze der Datei'],
+                     ['Deckfläche rau', 'Ironing (13)', 'Flow (10)']],
                     [58 * mm, 46 * mm, 58 * mm])
 
     # ---------------------------------------------------------------- Kapitel 6
@@ -458,13 +479,13 @@ def main(toc_seiten=None):
     kb.story += TBL(['Fallstrick', 'Woran man es merkt', 'Was zu tun ist'],
                     [['Kalibriert, bevor das Bett warm ist',
                       'Erstschicht gut, dritte Schicht zu dünn',
-                      'Schritte 4/5 bei Betttemperatur wiederholen'],
+                      'Schritte 5/6 bei Betttemperatur wiederholen'],
                      ['E-Schritte mit Widerstand gemessen',
                       'Flow muss ständig über 105 % stehen',
-                      'Schritt 6 langsam und frei fördernd wiederholen'],
+                      'Schritt 7 langsam und frei fördernd wiederholen'],
                      ['PA auf falschem Flow',
                       'PA-Wert „wandert" bei jedem Versuch',
-                      'erst 8, dann 9 — in dieser Reihenfolge'],
+                      'erst 10, dann 11 — in dieser Reihenfolge'],
                      ['Retraktion zu hoch eingestellt',
                       'Blockanfänge mit Lücke, feine Löcher in der Wand',
                       'Block eins zurück, 0,1-mm-Schritte'],
@@ -473,10 +494,13 @@ def main(toc_seiten=None):
                       'einen Block wärmer, dann Brückentest'],
                      ['Mesh als Level-Ersatz benutzt',
                       'Mesh kompensiert dauerhaft > 0,2 mm',
-                      'mechanisch leveln (3), dann neu meshen'],
+                      'mechanisch leveln (4), dann neu meshen'],
                      ['Nach Sondentausch nicht neu kalibriert',
                       'Erstschicht plötzlich zu tief/zu hoch',
-                      'Schritt 4 wiederholen, Mesh neu'],
+                      'Schritt 5 wiederholen, Mesh neu'],
+                     ['Shaper erst NACH PA/Retraktion gesetzt',
+                      'Ecken sauber, nach Shaper-Tuning wieder Bauch',
+                      'Shaper zuerst (3), dann Materialkette — nie umgekehrt'],
                      ['Zwei Korrekturen gleichzeitig',
                       'Verbesserung hier, Verschlechterung dort',
                       'immer nur EINE Größe ändern, sonst ist die Ursache weg']],
@@ -484,8 +508,9 @@ def main(toc_seiten=None):
     kb.story += SP(2)
     kb.story.append(BOX('Der häufigste Fehler ist nicht die Kalibrierung, sondern ihre Reihenfolge', [
         'In den Feldprotokollen dieses Systems tauchen drei Fälle immer wieder '
-        'auf: (a) Z-Offset vor dem Leveln gesetzt, (b) PA bei falschem Flow '
-        'gemessen, (c) Mesh als Ersatz für die Schrauben benutzt.',
+        'auf: (a) Z-Offset vor dem Leveln gesetzt (5 vor 4), (b) PA bei '
+        'falschem Flow gemessen (11 vor 10), (c) Mesh als Ersatz für die '
+        'Schrauben benutzt (6 statt 4).',
         'Alle drei sind keine Bedienfehler, sondern Reihenfolgefehler — und '
         'alle drei sehen wie ein Hardwareproblem aus.'],
         'warn'))
@@ -497,17 +522,17 @@ def main(toc_seiten=None):
     kb.story += TBL(['✓', 'Schritt', 'Ergebnis, das man akzeptieren darf'],
                     [['☐', '1 Rahmen & Riemen', 'von Hand kein Spiel, kein Knacken'],
                      ['☐', '2 Gantry / Z Tilt', 'SYNC_GANTRY (1 Treiber) bzw. Z_TILT (stepper_z1) ohne Fehler'],
-                     ['☐', '3 Schrauben', 'alle Schrauben „ok" (`00:00`) im aktuellen Lauf (`BED_SCREWS_DONE`)'],
-                     ['☐', '4 Z-Offset', 'Erstschicht-Raupe liegt an, ohne zu schaben'],
-                     ['☐', '5 Mesh', 'Restwelligkeit < 0,1 mm im Bericht'],
-                     ['☐', '6 E-Schritte', 'zwei Läufe < 0,5 % Abweichung'],
-                     ['☐', '7 PID', 'Konsole: „PID test finished", keine Schwankung > ±1 °C'],
-                     ['☐', '8 Flow', 'Wandstärke = Düsenbreite ± 0,02 mm'],
-                     ['☐', '9 PA', 'Ecken ohne Bauch, Naht ohne Lücke'],
-                     ['☐', '10 Retraktion', 'keine Fäden, keine Anfangs-Lücken'],
-                     ['☐', '11 Temperatur', 'Oberfläche matt-gleichmäßig, Brücken tragen'],
-                     ['☐', '12 Ironing', 'Deckfläche gleichmäßig, kein Rippenmuster'],
-                     ['☐', '13 Shaper', 'keine Doppelkanten an Würfelecken']],
+                     ['☐', '3 Shaper', 'keine Doppelkanten an Würfelecken'],
+                     ['☐', '4 Schrauben', 'alle Schrauben „ok" (`00:00`) im aktuellen Lauf (`BED_SCREWS_DONE`)'],
+                     ['☐', '5 Z-Offset', 'Erstschicht-Raupe liegt an, ohne zu schaben'],
+                     ['☐', '6 Mesh', 'Restwelligkeit < 0,1 mm im Bericht'],
+                     ['☐', '7 E-Schritte', 'zwei Läufe < 0,5 % Abweichung'],
+                     ['☐', '8 PID', 'Konsole: „PID test finished", keine Schwankung > ±1 °C'],
+                     ['☐', '9 Temperatur', 'Oberfläche matt-gleichmäßig, Brücken tragen'],
+                     ['☐', '10 Flow', 'Wandstärke = Düsenbreite ± 0,02 mm'],
+                     ['☐', '11 PA', 'Ecken ohne Bauch, Naht ohne Lücke'],
+                     ['☐', '12 Retraktion', 'keine Fäden, keine Anfangs-Lücken'],
+                     ['☐', '13 Ironing', 'Deckfläche gleichmäßig, kein Rippenmuster']],
                     [10 * mm, 62 * mm, 90 * mm])
 
     kb.story += SP(6)
