@@ -327,6 +327,28 @@ def check(name, ok, info=''):
         print('  FAIL %s %s' % (name, info))
     return ok
 
+def klipper_literal_errors(hw_text):
+    """Every variable_* value of [gcode_macro _R2_CONFIG] through the parser
+    Klipper itself uses (klippy/extras/gcode_macro.py: ast.literal_eval).
+    R282 (field boot halt): 'variable_led_type: neopixel' BARE -> Klipper
+    refuses to boot with 'not a valid literal: <ast.Name object>'. This
+    guard catches that class offline, before any printer ever sees it."""
+    import ast
+    errs = []
+    inside = False
+    for ln, raw in enumerate(hw_text.splitlines(), 1):
+        ls = raw.strip()
+        if ls.startswith('[') and ls.endswith(']'):
+            inside = (ls[1:-1].strip().lower() == 'gcode_macro _r2_config')
+            continue
+        if inside and ls.startswith('variable_') and ':' in ls:
+            val = ls.split(':', 1)[1].split('#')[0].strip()
+            try:
+                ast.literal_eval(val)
+            except (SyntaxError, ValueError, TypeError) as e:
+                errs.append('line %d: %s (%s)' % (ln, val, e))
+    return errs
+
 def copy_pkg(dst):
     """installed package = the current repo working tree (no .git)"""
     shutil.copytree(REPO, dst, ignore=shutil.ignore_patterns(
@@ -464,6 +486,12 @@ def simulate(name):
     pc_now = open(pc).read()
 
     check('%s: r2_hardware.cfg written' % name, '[gcode_macro _R2_CONFIG]' in hw)
+    if hw:
+        # R282: the file must BOOT - every variable value a valid literal,
+        # parsed exactly the way Klipper parses it
+        _lit = klipper_literal_errors(hw)
+        check('%s: profile values are valid Klipper literals (the R282 '
+              'boot-halt class)' % name, not _lit, '; '.join(_lit[:3]))
     check('%s: include added exactly once' % name,
           pc_now.count('[include r2_hardware.cfg]') == 1)
     check('%s: include BEFORE the save_config block' % name,
@@ -496,8 +524,10 @@ def simulate(name):
         check('%s: LED section in profile' % name,
               ('[neopixel printer_leds]' in hw) or ('[dotstar printer_leds]' in hw))
         co = 'BGR' if name in ('corexy-2z', 'hybrid-corexy') else 'GRB'
-        check('%s: color_order %s asked + written' % (name, co),
-              'color_order: %s' % co in hw and ('variable_led_color_order: %s' % co) in hw)
+        check('%s: color_order %s asked + written (quoted literal, R282)'
+              % (name, co),
+              'color_order: %s' % co in hw
+              and ("variable_led_color_order: '%s'" % co) in hw)
     if name in ('voron-v2', 'corexz-sw'):
         check('%s: LED skip = no LED keys' % name,
               'variable_led_type' not in hw)
@@ -618,6 +648,70 @@ def flat_zip_scenario():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def heal_quoting_scenario():
+    """R282 (field boot halt): an r2_hardware.cfg written by the PRE-fix
+    wizard carries bare-word string values ('variable_led_type: neopixel')
+    and Klipper refuses to boot with 'not a valid literal: <ast.Name>'.
+    The update keep path must re-render such a profile with quoted
+    literals - values kept, printer.cfg untouched, healthy profiles stay
+    byte-identical (the byte-identity check in simulate() proves that)."""
+    global CURRENT_SCENARIO
+    CURRENT_SCENARIO = 'heal-quoting'
+    print('--- %s ' % 'R282 heal: bare-word profile fixed by update'.ljust(48, '-'))
+    tmp = tempfile.mkdtemp(prefix='r110_heal_')
+    try:
+        home = os.path.join(tmp, 'home')
+        cfg_dir = os.path.join(home, 'printer_data', 'config')
+        os.makedirs(cfg_dir)
+        copy_pkg(os.path.join(cfg_dir, 'klipper-e3-r2d2'))
+        pc = os.path.join(cfg_dir, 'printer.cfg')
+        pc_text = INCLUDES + '[include r2_hardware.cfg]\n' + SAVECFG
+        open(pc, 'w').write(pc_text)
+        open(os.path.join(cfg_dir, 'moonraker.conf'), 'w').write(MOONRAKER)
+        hw_path = os.path.join(cfg_dir, 'r2_hardware.cfg')
+        broken = (
+            "[gcode_macro _R2_CONFIG]\n"
+            "description: R2 hardware profile\n"
+            "variable_bed_max_x: 230.0\n"
+            "variable_led_type: neopixel\n"
+            "variable_led_section: printer_leds\n"
+            "variable_led_pin: PA8\n"
+            "variable_led_color_order: GRB\n"
+            "variable_led_status_n: 4\n"
+            "gcode:\n"
+            "    # config carrier only - never runs\n")
+        open(hw_path, 'w').write(broken)
+        # counter-mutation: the guard itself must SEE the field failure
+        # (all 4 bare words) and accept the quoted spelling
+        _err = klipper_literal_errors(broken)
+        check('heal: guard catches every bare word (mutation anchor)',
+              len(_err) == 4, _err)
+        check('heal: guard accepts quoted literals', not klipper_literal_errors(
+            "[gcode_macro _R2_CONFIG]\nvariable_led_type: 'neopixel'\n"))
+        make_zip(cfg_dir)
+        p = run_script(['bash', 'klipper-e3-r2d2/update.sh'], [],
+                       cfg_dir, home, 'update')
+        out = p.stdout
+        check('heal: update exit 0', p.returncode == 0, out[-600:])
+        healed = open(hw_path).read()
+        _err2 = klipper_literal_errors(healed)
+        check('heal: profile parses as Klipper literals after the update',
+              not _err2, '; '.join(_err2[:3]))
+        check('heal: the rewrite was announced',
+              'quoted string values' in out)
+        check('heal: values survived the rewrite',
+              "variable_led_type: 'neopixel'" in healed
+              and "variable_led_section: 'printer_leds'" in healed
+              and "variable_led_pin: 'PA8'" in healed
+              and "variable_led_color_order: 'GRB'" in healed
+              and 'variable_led_status_n: 4' in healed
+              and 'variable_bed_max_x: 230.0' in healed)
+        check('heal: printer.cfg untouched by the rewrite',
+              open(pc).read() == pc_text)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 # =====================================================================================
 if __name__ == '__main__':
     os.chdir(REPO)
@@ -625,10 +719,12 @@ if __name__ == '__main__':
     for sc in (sys.argv[1:] or list(PRINTER)):
         simulate(sc)
     flat_zip_scenario()
+    heal_quoting_scenario()
     print()
     if fails:
         print('R110 SETUP SIM: %d FAILURE(S)' % len(fails))
         sys.exit(1)
     print('R110 SETUP SIM: all %d printer scenarios passed'
           ' (install + update + check + EOF + idempotence)'
-          ' + flat-zip refusal (R199)' % len(PRINTER))
+          ' + flat-zip refusal (R199) + literal-quote heal (R282)'
+          % len(PRINTER))

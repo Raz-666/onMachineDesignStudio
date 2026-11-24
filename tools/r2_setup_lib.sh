@@ -490,6 +490,56 @@ r2_hw_read() {
     done
 }
 
+r2_hw_needs_literal_fix() {   # 0 = the profile has a value Klipper cannot parse
+    # R282 (field boot halt): Klipper runs ast.literal_eval on every
+    # variable_* value of a gcode_macro. A bare word ('variable_led_type:
+    # neopixel') is a Name node -> 'not a valid literal', Klipper REFUSES
+    # TO BOOT. Heuristic tripwire for the update keep path (the setup sim
+    # runs the exact ast parser as the authority): a value is fine when it
+    # starts quoted, looks like a number, or is a True/False/None/collection
+    # literal - anything else (a bare word) needs the re-render.
+    local hw; hw="$(r2_hwfile)"
+    [ -f "${hw}" ] || return 1
+    local in282=0 l282 v282
+    while IFS= read -r l282; do
+        case "${l282}" in
+            \[*)
+                if [ "$(printf '%s' "${l282}" | tr 'A-Z' 'a-z')" = "[gcode_macro _r2_config]" ]; then
+                    in282=1
+                else
+                    in282=0
+                fi ;;
+            variable_*:*)
+                [ "${in282}" = "1" ] || continue
+                v282="${l282#*:}"
+                v282="${v282#"${v282%%[![:space:]]*}"}"   # leading ws
+                v282="${v282%%#*}"                          # trailing comment
+                case "${v282}" in
+                    "'"*|'"'*|-*|[0-9]*|True|False|None|\[*|\{*|\(*) ;;
+                    *) return 0 ;;
+                esac ;;
+        esac
+    done < "${hw}"
+    return 1
+}
+
+r2_hw_quote() {   # variable value -> a value Klipper can BOOT: plain numbers
+                  # raw, everything else a quoted Python string. R282 (field
+                  # boot halt): the wizard wrote 'variable_led_type: neopixel'
+                  # BARE - Klipper runs ast.literal_eval on every variable_*
+                  # value of a gcode_macro and REFUSED TO START ('not a valid
+                  # literal: <ast.Name object>'). r2_hw_read strips quotes on
+                  # the way in, so old and new files read identically.
+    local v="$1"
+    if printf '%s' "${v}" | grep -qE '^-?[0-9]+(\.[0-9]+)?$'; then
+        printf '%s' "${v}"
+    else
+        v="${v//\\/\\\\}"
+        v="${v//\'/\\\'}"
+        printf "'%s'" "${v}"
+    fi
+}
+
 r2_hw_write() {   # regenerates r2_hardware.cfg from R2_HW (keeping unknown keys)
     local hw; hw="$(r2_hwfile)"
     local tmp="${hw}.r2tmp.$$"
@@ -511,7 +561,7 @@ r2_hw_write() {   # regenerates r2_hardware.cfg from R2_HW (keeping unknown keys
                  led_status_n led_bed_n led_bed_on led_bed_bright \
                  led_nozzle_split led_nozzle_section led_nozzle_pin led_nozzle_chain \
                  led_nozzle_color_order; do
-            [ -n "${R2_HW[${k}]:-}" ] && printf 'variable_%s: %s\n' "${k}" "${R2_HW[${k}]}"
+            [ -n "${R2_HW[${k}]:-}" ] && printf 'variable_%s: %s\n' "${k}" "$(r2_hw_quote "${R2_HW[${k}]}")"
         done
         # keep keys we do not know (future versions / hand edits)
         local kk
@@ -522,7 +572,7 @@ r2_hw_write() {   # regenerates r2_hardware.cfg from R2_HW (keeping unknown keys
                 led_clk_pin|led_chain|led_color_order|led_status_n|led_bed_n|\
                 led_bed_on|led_bed_bright|led_nozzle_split|led_nozzle_section|\
                 led_nozzle_pin|led_nozzle_chain|led_nozzle_color_order) ;;
-                *) printf 'variable_%s: %s\n' "${kk}" "${R2_HW[${kk}]}" ;;
+                *) printf 'variable_%s: %s\n' "${kk}" "$(r2_hw_quote "${R2_HW[${kk}]}")" ;;
             esac
         done
         echo "gcode:"
