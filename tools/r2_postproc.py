@@ -14177,7 +14177,6 @@ def make_shape(shape='CYLINDER', size_x=40.0, size_y=40.0, corners=0,
         # travel to the loop start (retract handled by the golden rule /
         # jump distance), then ONE continuous extrusion to the top
         pen.travel(oxs[0][0], oxs[0][1])
-        ez = 0.0
         # R283: subdivide the spiral's base polygon too - the continuous
         # body below otherwise carries only one texture sample per corner
         segs_loop = _subdivide_poly(oxs) + [_subdivide_poly(oxs)[0]]
@@ -14187,9 +14186,17 @@ def make_shape(shape='CYLINDER', size_x=40.0, size_y=40.0, corners=0,
                 (x1, y1) = segs_loop[j]
                 zz = z_body + (rev + j / float(len(segs_loop) - 1)) * layer_h
                 d = ((x1 - x0) ** 2 + (y1 - y0) ** 2) ** 0.5
-                ez += d * e_wall
+                # R287 (field report 17.11.2026 'vase walls come out
+                # bricks-thick, the extruder hammers, then the print dies
+                # mid-wall'): E must be PER MOVE - the file runs M83
+                # (relative extrusion). The old accumulator ('ez +=') sent
+                # a quadratically growing E with every segment: after one
+                # revolution the nozzle was laying ~80x the plastic, a few
+                # revolutions later the move crossed Klipper's
+                # max-extrusion guard and the print aborted. Flow tuning
+                # could never fix it - the growth is geometric.
                 L.append('G1 X%.3f Y%.3f Z%.3f E%.5f F1800'
-                         % (x1, y1, zz, ez))
+                         % (x1, y1, zz, d * e_wall))
         pen.x, pen.y = segs_loop[-1][0], segs_loop[-1][1]
         pen.z = z_body + revs * layer_h
         a('EXCLUDE_OBJECT_END NAME=SHAPE_1')
@@ -18150,7 +18157,9 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
               ' arches (A) bridge their underside opening; technic (H)'
               ' drills O4.9 holes along X; round family + cone + jumper')
             a('; layer %.2g -> body up to %d layer(s), studs up to %d -'
-              ' layer 1 prints SOLID%s, the tubes open from layer 2 up'
+              ' R288: the underside is OPEN from layer 1 (tube rings and'
+              ' wall ring start on the bed, 1xN cores stay hollow) so the'
+              ' parts really stack%s'
               % (layer_h, max(c['nl'] for c in plist),
                  max(c['sl'] for c in plist),
                  ' + %d-loop brim' % brim if brim else ' (no brim)'))
@@ -18255,19 +18264,24 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
 
                 if c['kind'] in ('round', 'rplate', 'rtile', 'cone'):
                     # ---- round family: circles instead of rects ----------
+                    # R288: the underside takes a counter-stud - the core
+                    # stays HOLLOW (r_in) from layer 1 up to the cap, the
+                    # old solid fill made every round part a plugged slab.
                     rb = c['bw'] / 2.0
                     r_now = rb
                     if c['kind'] == 'cone':
                         r_now = rb - (rb - 2.2) * max(
                             0.0, min(1.0, hm / _BH216))
+                    r_core = max(0.0, min(_SD216 / 2.0 + 0.15,
+                                          r_now - _W216 - wid))
                     if li == 1:
                         _brim_round(c, cx, cy, rb)
                         _ty121('Bottom surface')
                         _emit_loop(pen, _circle(cx, cy, r_now - wid / 2.0, 24),
                                    e_wall, 1400)
                         _ty121('Internal solid infill')
-                        _rings126(pen, cx, cy, r_now - wid, 0.0, e_wall, 1600,
-                                  wid)
+                        _rings126(pen, cx, cy, r_now - wid, r_core, e_wall,
+                                  1600, wid)
                     elif li <= c['nl']:
                         _ty121('Outer wall')
                         _emit_loop(pen, _circle(cx, cy, r_now - wid / 2.0, 24),
@@ -18288,10 +18302,15 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                         _rings126(pen, cx, cy,
                                   r_now - _W216
                                   - max(0, _loops216 - 2) * wid - wid / 2.0,
-                                  0.0, e_wall,
+                                  r_core if li < c['nl'] else 0.0, e_wall,
                                   1700 if li == c['nl'] else 1900, wid)
                 elif c['kind'] == 'slope':
                     # ---- top slope: the front edge recedes with height ----
+                    # R288: the tubes under the rear rows open from layer 1
+                    # (they never reach the sloped front - the kact filter
+                    # keeps only tubes behind the face) and their rings
+                    # print like any brick's - the old solid fill plugged
+                    # every bore.
                     run = (c['l'] - 1) * _P216
                     frac = max(0.0, min(1.0, hm / _BH216))
                     fy = max(y0, c['y'] + run * frac)
@@ -18299,8 +18318,19 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                         _brim_rect(c)
                         _ty121('Bottom surface')
                         _walls216(x0, y0, x1, y1, 1400)
+                        for tx, ty in c['tubes']:
+                            _emit_loop(pen, _circle(tx, ty,
+                                                    _TO216 / 2.0
+                                                    - wid / 2.0, 24),
+                                       e_wall, 1600)
+                            _emit_loop(pen, _circle(tx, ty,
+                                                    _TO216 / 2.0
+                                                    - BRICK_TUBE_WALL
+                                                    + wid / 2.0, 20),
+                                       e_wall, 1600)
                         _hatch_rect(x0 + 2 * wid, y0 + 2 * wid,
-                                    x1 - 2 * wid, y1 - 2 * wid, [], li, 1600)
+                                    x1 - 2 * wid, y1 - 2 * wid, keeps,
+                                    li, 1600)
                     elif li <= c['nl']:
                         kact = [(tx, ty, r) for (tx, ty, r) in keeps
                                 if ty < fy - wid]
@@ -18312,6 +18342,17 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                                         x1 - 2 * wid, y1 - 2 * wid, [], li,
                                         1700)
                         else:
+                            _ty121('Wall-Inner')
+                            for tx, ty, _r in kact:
+                                _emit_loop(pen, _circle(tx, ty,
+                                                        _TO216 / 2.0
+                                                        - wid / 2.0, 24),
+                                           e_wall, 2200)
+                                _emit_loop(pen, _circle(tx, ty,
+                                                        _TO216 / 2.0
+                                                        - BRICK_TUBE_WALL
+                                                        + wid / 2.0, 20),
+                                           e_wall, 2200)
                             _ty121('Internal solid infill')
                             _hatch_rect(x0 + 2 * wid, fy + 2 * wid,
                                         x1 - 2 * wid, y1 - 2 * wid, kact, li)
@@ -18417,18 +18458,47 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                                     x1 - 2 * wid, y1 - 2 * wid, [], li,
                                     1700 if li == c['nl'] else 1900)
                     else:
+                        # R288 (field report 17.11.2026 'technic bricks
+                        # show ghost circles on the side, but the holes
+                        # are sealed solid'): the channel must BREAK
+                        # THROUGH both long sides - the old full rect
+                        # walls printed right over the openings and left
+                        # a sealed void inside (visible as circle seams).
+                        # Now the long side walls only run in the solid
+                        # bands between the hole cutouts; the short end
+                        # walls stay full, the bridge layer above closes
+                        # the channel roof as before.
+                        edges = [y0]
+                        for yk in sorted(c['holes_y']):
+                            edges += [yk - h, yk + h]
+                        edges.append(y1)
                         _ty121('Outer wall')
-                        _walls216(x0, y0, x1, y1, 2200)
+                        for wi in range(_loops216):
+                            xx0 = x0 + wi * wid
+                            xx1 = x1 - wi * wid
+                            yy0 = y0 + wi * wid
+                            yy1 = y1 - wi * wid
+                            feed = 2200 if wi == 0 else 2400
+                            pen.travel(xx0, yy0)
+                            pen.extrude(xx1, yy0, (xx1 - xx0) * e_wall, feed)
+                            pen.travel(xx0, yy1)
+                            pen.extrude(xx1, yy1, (xx1 - xx0) * e_wall, feed)
+                            for bi in range(0, len(edges) - 1, 2):
+                                s0 = max(yy0, edges[bi])
+                                s1 = min(yy1, edges[bi + 1])
+                                if s1 - s0 > 0.3:
+                                    pen.travel(xx0, s0)
+                                    pen.extrude(xx0, s1,
+                                                (s1 - s0) * e_wall, feed)
+                                    pen.travel(xx1, s0)
+                                    pen.extrude(xx1, s1,
+                                                (s1 - s0) * e_wall, feed)
                         _ty121('Wall-Inner')
                         for yk in c['holes_y']:
                             for yy in (yk - h, yk + h):
                                 pen.travel(x0, yy)
                                 pen.extrude(x1, yy, (x1 - x0) * e_wall, 2400)
                         _ty121('Internal solid infill')
-                        edges = [y0]
-                        for yk in sorted(c['holes_y']):
-                            edges += [yk - h, yk + h]
-                        edges.append(y1)
                         for bi in range(0, len(edges) - 1, 2):
                             if edges[bi + 1] - edges[bi] >= wid * 0.9:
                                 _hatch_rect(x0 + 2 * wid, edges[bi] + wid,
@@ -18436,12 +18506,38 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                                             [], li)
                 elif li == 1:
                     # ---- brick / plate / tile / jumper: layer 1 ------------
+                    # R288 (field report 17.11.2026 'studs on top but
+                    # NOTHING to plug them into - every part is a solid
+                    # slab'): system bricks are OPEN underneath. The old
+                    # solid first layer skinned every tube bore shut with
+                    # a 0.2mm membrane no stud ever passes. Now: wall ring
+                    # + tube rings from layer 1 on, infill keeps the bores
+                    # clear; 1xN parts stay HOLLOW (no tubes fit - the core
+                    # clamps studs between the long walls, like the real
+                    # ones). Brim still anchors the outline.
                     _brim_rect(c)
                     _ty121('Bottom surface')
                     _loops(x0, y0, x1, y1, e_wall, 1400)
-                    _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid, e_wall, 1600)
-                    _hatch_rect(x0 + 2 * wid, y0 + 2 * wid,
-                                x1 - 2 * wid, y1 - 2 * wid, [], li, 1600)
+                    _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid,
+                           e_wall, 1600)
+                    for tx, ty in c['tubes']:
+                        _emit_loop(pen, _circle(tx, ty,
+                                                _TO216 / 2.0
+                                                - wid / 2.0, 24),
+                                   e_wall, 1600)
+                        _emit_loop(pen, _circle(tx, ty,
+                                                _TO216 / 2.0
+                                                - BRICK_TUBE_WALL
+                                                + wid / 2.0, 20),
+                                   e_wall, 1600)
+                    if c['tubes']:
+                        _hatch_rect(x0 + 2 * wid, y0 + 2 * wid,
+                                    x1 - 2 * wid, y1 - 2 * wid, keeps,
+                                    li, 1600)
+                    elif c['w'] > 1 and c['l'] > 1:
+                        _hatch_rect(x0 + 2 * wid, y0 + 2 * wid,
+                                    x1 - 2 * wid, y1 - 2 * wid, [], li, 1600)
+                    # else: 1xN hollow core - no infill on purpose
                 elif li <= c['nl']:
                     # ---- brick / plate / tile / jumper: body ---------------
                     _ty121('Outer wall')
@@ -18463,10 +18559,13 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                         _ty121('Top surface')
                         _hatch_rect(x0 + 2 * wid, y0 + 2 * wid,
                                     x1 - 2 * wid, y1 - 2 * wid, [], li, 1700)
-                    else:
+                    elif c['tubes'] or (c['w'] > 1 and c['l'] > 1):
                         _ty121('Internal solid infill')
                         _hatch_rect(x0 + 2 * wid, y0 + 2 * wid,
                                     x1 - 2 * wid, y1 - 2 * wid, keeps, li)
+                    # else: R288 - a 1xN part keeps its core HOLLOW up to
+                    # the cap; the studs clamp between the long walls (the
+                    # solid fill used to seal the whole underside shut)
                 else:
                     # ---- stud layers: hollow stud rings --------------------
                     _ty121('Outer wall')

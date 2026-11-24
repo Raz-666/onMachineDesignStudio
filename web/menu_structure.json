@@ -8,7 +8,7 @@
   "vsdlist": 1,
   "input": 611
  },
- "sha256": "ebfa890903df2dc0",
+ "sha256": "d9c6b7bd8adcace9",
  "live_objects": [
   "bed_mesh",
   "configfile",
@@ -5142,7 +5142,7 @@
          {
           "id": "__main __preprint __mods __tex __lib",
           "type": "list",
-          "name": "Vorlagen (27)",
+          "name": "{'Vorlagen (' ~ (printer['gcode_macro _GEN_PRESET'].texture_lib|default({})|list|count) ~ ')'}",
           "children": [
            {
             "id": "__main __preprint __mods __tex __lib __how",

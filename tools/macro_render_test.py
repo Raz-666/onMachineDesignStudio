@@ -18132,7 +18132,8 @@ tests.append(('R189b queue stall: a parked job SPEAKS within 10s '
 
 # ================== R214 (.136m): field feedback round ======================
 # (1) preset load always shows what it loaded (+ honest note on older
-#     saves), (2) the texture library (27 looks since R253), (3) object-only STL export,
+#     saves), (2) the texture library (55 looks since R253-R266, R286
+#     parity-pinned), (3) object-only STL export,
 # (4) upright litho stands, (5) label text embedded in the last base layer,
 # (6) the stacked web live dashboard.
 import ast as _ast214
@@ -18217,6 +18218,22 @@ tests.append(('R214 LCD: the Vorlagen browser - 8 direct-load slots, own '
     and 'texture_lib_page|default(0)|int)*8+' in _lcd214
     and 'LITHO_STAND' not in _lcd214[:1],
     str(_lcd214.count('SRC=lib SLOT='))))
+
+# R286: the library title counts itself (never a stale '27' again) and the
+# looks cover the ENGINE's pattern list exactly - a new pattern without a
+# look (or a dead look) fails here, not in the field.
+import importlib.util as _ilu286
+_spec286 = _ilu286.spec_from_file_location(
+    'r2_texture', 'tools/r2_texture.py')
+_tex286 = _ilu286.module_from_spec(_spec286)
+_spec286.loader.exec_module(_tex286)
+tests.append(('R286 texture library parity: one look per engine pattern '
+    '(r2_texture.PATTERN_NAMES), the Vorlagen title counts itself',
+    {v['texture_pattern'] for v in _lib214.values()}
+        == (set(_tex286.PATTERN_NAMES))
+    and "name: {'Vorlagen (' ~ " in _lcd214
+    and 'texture_lib|default({})|list|count' in _lcd214
+    and 'Vorlagen (27)' not in _lcd214, ''))
 
 # ---- STL export -------------------------------------------------------------
 _stl_mac214 = get_body('macros/08_print_start_stop.cfg', 'STL_EXPORT')
