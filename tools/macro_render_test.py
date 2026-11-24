@@ -9292,8 +9292,15 @@ tests.append(('R98 source: start scan time-boxed (chunk constant + deferral, onc
     and "_dl98 = None if once else time.time() + _SCAN_CHUNK_S" in _src98
     and "stats['deferred'] += 1" in _src98
     and "stats['deferred'] = 0" in _src98, ''))
+# R281: the per-file work (incl. the seen-mark) lives in _work_file281 now.
+# The structural invariant is unchanged: defer/abandon paths sit BEFORE the
+# worker call, the seen-mark only ever happens INSIDE the worker.
+_defer98 = _src98.find("stats['deferred'] += 1")
+_call98 = _src98.find('_work_file281(p, fn, key)',
+                      _src98.find('def _work_file281') + 10)
+_seen98 = _src98.find('seen[p] = key', _src98.find('def _work_file281'))
 tests.append(('R98 source: deferred files are NOT marked seen (retried next pass)',
-    _src98.find("stats['deferred'] += 1") < _src98.find("seen[p] = key", _src98.find("stats['deferred'] += 1") - 4000), ''))
+    0 < _src98.find('def _work_file281') < _seen98 < _defer98 < _call98, ''))
 tests.append(('R98 source: backlog push re-checks the preview nonce (never overwrites a selection)',
     "_pn98 == rv.get('preview_nonce', '')" in _src98
     and _src98.find("if _pn98 ==") < _src98.find("for _pp in NEW_PREVIEW[-1:]"), ''))
@@ -18032,9 +18039,10 @@ tests.append(('R188/R224/R226/R227 watcher: gen_busy=1 around file_fix AND the j
     'every print start, field log .136w). R227: the flag is PARSED, not '
     'string-tested (_read_vars returns strings - the truthiness bug '
     'sprayed the console every pass, field log .136x), and the stale '
-    'notice fires ONCE per episode (latch + silent retry)',
-    _r2p188.count("SAVE_VARIABLE VARIABLE=gen_busy VALUE=1") == 3
-    and _r2p188.count("SAVE_VARIABLE VARIABLE=gen_busy VALUE=0") == 7
+    'notice fires ONCE per episode (latch + silent retry). R281: + the '
+    'upload scan holds it around every per-file rewrite (worker finally)',
+    _r2p188.count("SAVE_VARIABLE VARIABLE=gen_busy VALUE=1") == 4
+    and _r2p188.count("SAVE_VARIABLE VARIABLE=gen_busy VALUE=0") == 8
     and 'M117 Fix running:' in _r2p188
     and 'the RUNNING build keeps' in _r2p188
     and 'flags reset - nothing is ' in _r2p188
@@ -18577,9 +18585,21 @@ def _wait224q(cond, tmo=25):
 # swallow the nonce as a prime - the R186 two-phase rule)
 _wait224q(lambda: any('postproc_build' in c for c in _cap224q), 30)
 _time224q.sleep(1.5)
+# R281: the scan's per-file gen_busy hold (upload tagging under the start
+# guard) fires on pass 1 - part.gcode is new. Pin the pair HERE so the
+# queue checks below can judge the BUILD's hold from the STUCK marker on.
+_cap224q_pre281 = list(_cap224q)
+tests.append(('R281 scan: upload file work holds gen_busy per file (the '
+              'start macros wait) and always releases it after the file',
+    any('gen_busy VALUE=1' in c for c in _cap224q_pre281)
+    and any('gen_busy VALUE=0' in c for c in _cap224q_pre281), ''))
 _wvars224q(2)
 _wait224q(lambda: any('gen_busy VALUE=1' in c for c in _cap224q))
 _wait224q(lambda: any('STUCK after' in c for c in _cap224q))
+# R281: judge gen_busy releases only AFTER the stuck marker - the scan's
+# per-file upload hold (see the R281 pin above) released legitimately on
+# pass 1, long before this build started.
+_cap224q_mark = len(_cap224q)
 tests.append(('R224 queue: a STUCK build HOLDS gen_busy + the queue while '
     'its thread lives (the .136u clear/timeout freed them - a print could '
     'start into the overload)',
@@ -18587,20 +18607,20 @@ tests.append(('R224 queue: a STUCK build HOLDS gen_busy + the queue while '
     and _mod224q._JOB_STATE['busy'] is True
     and _mod224q._JOB_STATE.get('zombie') is not None
     and _mod224q._JOB_STATE['thread'].is_alive()
-    and not any('gen_busy VALUE=0' in c for c in _cap224q),
+    and not any('gen_busy VALUE=0' in c for c in _cap224q[_cap224q_mark:]),
     str(_mod224q._JOB_STATE.get('zombie'))))
 _wvars224q(3)
 _time224q.sleep(4)
 tests.append(('R224 queue: the next job WAITS while the stuck one lives '
     '(no second build on the RAM-starved Pi)',
     not _os224.path.exists(_mk224q + '2')
-    and not any('gen_busy VALUE=0' in c for c in _cap224q), ''))
+    and not any('gen_busy VALUE=0' in c for c in _cap224q[_cap224q_mark:]), ''))
 _wvars224q(3, clear=1)
 _wait224q(lambda: any('cleared' in c for c in _cap224q), 15)
 tests.append(('R224 queue clear: drops the QUEUED jobs but keeps gen_busy '
     'while the build thread lives (honest message, no silent flag drop)',
     any('RUNNING build keeps' in c for c in _cap224q)
-    and not any('gen_busy VALUE=0' in c for c in _cap224q), ''))
+    and not any('gen_busy VALUE=0' in c for c in _cap224q[_cap224q_mark:]), ''))
 _wait224q(lambda: any('queue is free' in c for c in _cap224q), 30)
 tests.append(('R224 queue: the stuck build\'s end releases everything '
     '(queue free + gen_busy down) - and jobs queued AFTER that run again',

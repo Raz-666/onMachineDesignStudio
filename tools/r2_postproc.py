@@ -718,7 +718,8 @@ def audit_tag_geometry(path, cell_mm=1.5, fil_dia=1.75, max_conflicts=50):
       - G2_IRONING_HIGH_FLOW: IRONING block extruding at printing cross-section
         (> 65% of nominal bead cross-section)
       - G3_IRONING_UNSUPPORTED: IRONING block whose XY cells do not ride on
-        a same-layer SURFACE-TOP (1-cell dilated)
+        same-layer solid support (SURFACE-TOP / INFILL-SOLID / WALLS / GAPS,
+        1-cell dilated)
       - G4_STACKED_EXPLICIT_TOP: explicit non-ambiguous Top surface (excludes
         Cura's combined 'SKIN') repeatedly capping the exact same closed XY
         cells on consecutive unit layers without enclosing geometry change
@@ -768,6 +769,7 @@ def audit_tag_geometry(path, cell_mm=1.5, fil_dia=1.75, max_conflicts=50):
     cur_all = set()
     cur_adhesion = set()
     cur_top = set()
+    cur_support = set()  # R281: G3 support world - same-layer solid cells
     cur_expl_top = set()
     cur_iron = set()
     cur_had_interior = False
@@ -860,6 +862,7 @@ def audit_tag_geometry(path, cell_mm=1.5, fil_dia=1.75, max_conflicts=50):
         nonlocal prev_all, prev_adhesion, prev_expl_top, prev_iron
         nonlocal prev_had_interior, prev_had_walls
         nonlocal cur_all, cur_adhesion, cur_top, cur_expl_top, cur_iron
+        nonlocal cur_support
         nonlocal cur_had_interior, cur_had_walls
         nonlocal cur_iron_blocks, cur_adhes_blocks, cur_bridge_blocks
         nonlocal cur_top_blocks
@@ -878,20 +881,27 @@ def audit_tag_geometry(path, cell_mm=1.5, fil_dia=1.75, max_conflicts=50):
                             'adhesion feature at unit layer %d with %.0f%% '
                             'continuation from layer below'
                             % (buln, ov * 100.0))
-            # G2 + G3: ironing high flow & spatial top-surface support
-            top_d = _dilate1(cur_top) if cur_top else set()
+            # G2 + G3: ironing high flow & spatial same-layer support.
+            # R281: the G3 support world is every SOLID same-layer feature a
+            # slicer may iron over - SURFACE-TOP plus INFILL-SOLID, WALL-OUTER
+            # /WALL-INNER and GAPS. Slice Beam irons stepped ceilings ON plain
+            # 'Solid infill' and upper wall edges (field file MAN_V3: 42 false
+            # G3 alarms, measured support overlap 100%); ironing that truly
+            # floats still overlaps nothing (test 4f: 0%).
+            sup_d = _dilate1(cur_support) if cur_support else set()
             nom_xsec = (sorted(all_xsec)[len(all_xsec) // 2]
                         if len(all_xsec) >= 4 else 0.0)
             for bline, braw, bcells, med_xs, blen in cur_iron_blocks:
                 if bcells and blen >= 4.0:
-                    ov = (len(bcells & top_d) / float(len(bcells))
-                          if top_d else 0.0)
+                    ov = (len(bcells & sup_d) / float(len(bcells))
+                          if sup_d else 0.0)
                     if ov < 0.30:
                         _add_conflict(
                             'G3_IRONING_UNSUPPORTED', bline, unit_id, uln,
                             braw, 'IRONING',
-                            'ironing overlaps only %.0f%% of same-layer top '
-                            'surface cells' % (ov * 100.0))
+                            'ironing overlaps only %.0f%% of same-layer solid '
+                            'support cells (top/infill/wall/gap)'
+                            % (ov * 100.0))
                 if nom_xsec > 1e-4 and med_xs > 0.65 * nom_xsec and blen >= 4.0:
                     _add_conflict(
                         'G2_IRONING_HIGH_FLOW', bline, unit_id, uln,
@@ -962,6 +972,7 @@ def audit_tag_geometry(path, cell_mm=1.5, fil_dia=1.75, max_conflicts=50):
         cur_all = set()
         cur_adhesion = set()
         cur_top = set()
+        cur_support = set()
         cur_expl_top = set()
         cur_iron = set()
         cur_had_interior = False
@@ -1130,6 +1141,7 @@ def audit_tag_geometry(path, cell_mm=1.5, fil_dia=1.75, max_conflicts=50):
                     cur_iron |= scells
                 elif cur_canon in ('WALL-OUTER', 'WALL-INNER'):
                     cur_had_walls = True
+                    cur_support |= scells
                     if cur_canon == 'WALL-OUTER' and len(blk_strokes) < 200:
                         if blk_cur_stroke is None:
                             blk_cur_stroke = [x0, y0, x1, y1, 1, dist]
@@ -1140,14 +1152,19 @@ def audit_tag_geometry(path, cell_mm=1.5, fil_dia=1.75, max_conflicts=50):
                             blk_cur_stroke[5] += dist
                 elif cur_canon == 'SURFACE-TOP':
                     cur_top |= scells
+                    cur_support |= scells
                     if (cur_raw or '').strip().lower() not in (
                             'skin', 'top-skin', 'surface'):
                         cur_expl_top |= scells
                 elif cur_canon == 'BRIM' or (cur_raw or '').strip().lower().startswith('raft'):
                     cur_adhesion |= scells
                 elif cur_canon in ('INFILL-SPARSE', 'INFILL-SOLID',
-                                   'INTERNAL-BRIDGE', 'SURFACE-BOTTOM'):
+                                   'INTERNAL-BRIDGE', 'SURFACE-BOTTOM', 'GAPS'):
                     cur_had_interior = True
+                    # R281: solid infill and gap fill carry ironing just as
+                    # well as a tagged top surface (Slice Beam field file)
+                    if cur_canon in ('INFILL-SOLID', 'GAPS'):
+                        cur_support |= scells
                 elif cur_canon == 'BRIDGE':
                     inv = 1.0 / cell_mm
                     blk_endpoints.append(
@@ -23322,6 +23339,57 @@ def process(path, dry=False, verbose=False, retract_rewrite=False,
         else:
             summary['stray_checked'] = 1
 
+    # R281 (field file MAN_V3): verify_tagged turns the C1/C5 audit into a
+    # VERDICT. Geometry conflicts mean the slicer's tag stream contradicts
+    # the part it describes ('Ironing' tags riding on plain solid infill) -
+    # such tags are worse than none. The whole foreign tag world is then
+    # discarded and the geometry classifier re-derives every feature in a
+    # second streaming pass (the R225 stray-tag path, same replacement
+    # rules, the worlds are never mixed). _FILE_INFO carries
+    # TAGMISMATCH=<codes> next to DERIVED=1 so File info can say WHY.
+    if verify_tagged:
+        _ta_c5 = audit_tag_geometry(
+            path,
+            fil_dia=float(cfg['filament_diameter'])
+            if 'filament_diameter' in cfg else 1.75)
+        summary['tag_audit'] = _ta_c5
+        summary['geom_conflicts'] = _ta_c5['conflicts']
+        if _ta_c5['conflicts'] and not summary.get('derived'):
+            geom2 = _GeomScan()
+            if 'filament_diameter' in cfg:
+                try:
+                    geom2.set_dia(float(cfg['filament_diameter']))
+                except ValueError:
+                    pass
+            _i_c5 = _j_c5 = 0
+            with open(path, 'r', errors='replace') as _f_c5:
+                for _raw_c5 in _f_c5:
+                    _ls_c5 = _raw_c5.strip()
+                    if LAYER_COMMENT.match(_raw_c5):
+                        geom2.mark_comment()
+                    geom2.step(_i_c5, _j_c5, _ls_c5)
+                    _filt_c5 = (_ls_c5 in old_tags
+                                or _ls_c5.startswith('_FILE_INFO')
+                                or _ls_c5.startswith('APPLY_TYPE'))
+                    _i_c5 += 1
+                    if not _filt_c5:
+                        _j_c5 += 1
+            geom2.finish()
+            if geom2.ranges:
+                summary['tag_mismatch'] = sorted(_ta_c5['by_code'])
+                type_at = {(gj, gj): gfeat
+                           for (_gi, gj, gfeat) in geom2.ranges}
+                feat_stats = {k: {'f': dict(v), 'acc': None}
+                              for k, v in geom2.fstat.items()}
+                tagged_seq193 = list(geom2.seq193)
+                summary['derived'] = True
+                print('[tagmismatch] %s: %d tag/geometry conflict(s) (%s) - '
+                      'foreign tags discarded, %d feature block(s) '
+                      're-derived from geometry'
+                      % (os.path.basename(path), len(_ta_c5['conflicts']),
+                         ','.join(summary['tag_mismatch']),
+                         len(type_at)), flush=True)
+
     type_at = {_aw(p): feat for p, feat in type_at.items()}   # -> apply world
     summary['types'] = len(type_at)
 
@@ -23337,14 +23405,6 @@ def process(path, dry=False, verbose=False, retract_rewrite=False,
         info.append('SEQWARN=%d' % len(_seq193))
         print('[seqaudit] %s: %s' % (os.path.basename(path),
                                      '; '.join(_seq193)), flush=True)
-    if verify_tagged:
-        _ta_c5 = audit_tag_geometry(
-            path,
-            fil_dia=float(cfg['filament_diameter'])
-            if 'filament_diameter' in cfg else 1.75)
-        summary['tag_audit'] = _ta_c5
-        summary['geom_conflicts'] = _ta_c5['conflicts']
-
     # .44: the REAL originals (measured) + which features the file contains
     for canon in feat_stats:
         d = feat_stats[canon]
@@ -23379,6 +23439,10 @@ def process(path, dry=False, verbose=False, retract_rewrite=False,
         # menu and the audit log can then explain the re-derivation
         if summary.get('stray_tag'):
             info.append('STRAYTAG=%s' % summary['stray_tag'])
+        # R281: the tag stream contradicted the geometry and was discarded
+        # wholesale - name the conflict codes so File info can explain it
+        if summary.get('tag_mismatch'):
+            info.append('TAGMISMATCH=%s' % ','.join(summary['tag_mismatch']))
         info.append('CONF=%g' % _GeomScan.CONF)
         if geom.tot_len > 0:
             info.append('COVER=%d' % round(100.0 * geom.cls_len / geom.tot_len))
@@ -27620,6 +27684,118 @@ def watch(directory, interval=5.0, once=False):
         _dl98 = None if once else time.time() + _SCAN_CHUNK_S
         _done98 = 0
         stats['deferred'] = 0
+        _busyck281 = [0.0]      # R281: last busy probe (monotonic, throttled)
+
+        def _print_busy281():
+            # R281: a print start must win within ~1 s - but a backlog pass
+            # must not hammer moonraker with one query per file either.
+            _nw281 = time.monotonic()
+            if _nw281 - _busyck281[0] < 1.0:
+                return False
+            _busyck281[0] = _nw281
+            return _printer_busy()
+
+        def _work_file281(p, fn, key):
+            # R281: EVERY per-file rewrite (center-exclude upgrade, meta
+            # finalize, the tagging pass - which now also VERIFIES the
+            # file's tags against its geometry) runs under the gen_busy
+            # hold: the print start macros gate on it (R188 pattern), so a
+            # start clicked mid-rewrite WAITS instead of racing a
+            # half-processed upload. The hold is released in the finally,
+            # and only when it was really taken - a stuck gen_busy would
+            # block every print start forever (the R188 lesson).
+            nonlocal _done98
+            _held281 = _moonraker_gcode(
+                'SAVE_VARIABLE VARIABLE=gen_busy VALUE=1', loud=False)
+            try:
+                seen[p] = key
+                _seen_dirty149[0] += 1     # R149: persist across restarts
+                _done98 += 1
+                # R226 (.136x field log): Orca/Bambu define objects with
+                # CENTER only - KAMP's SMART_PARK / adaptive mesh read
+                # .polygon and ABORT the print start (jinja UndefinedError,
+                # three SMART_PARK errors in the field log, no print). The
+                # watcher measures the real outline from the object's own
+                # moves and appends POLYGON= to CENTER-only defines.
+                # Cached by the seen-key above (changed files only),
+                # idempotent, cheap head-read early exit.
+                try:
+                    if _upgrade_center_excludes(p):
+                        stats['eod_upgraded'] = stats.get('eod_upgraded', 0) + 1
+                except Exception as _e226:                         # noqa: BLE001
+                    print('[eod226] %s: %r' % (fn, _e226), flush=True)
+                # R134 (.103 field redesign): plot sources are NEVER touched
+                # in the scan. The old flow auto-converted every upload
+                # (*.png, *.jpg.gcode, *.txt ...) into plotter g-code in the
+                # background - including every plain image uploaded as a
+                # litho/colorpic source (field log .101: AxtBunny.png grew an
+                # unrequested AxtBunny.png.gcode twin). Plotting is now a
+                # DECISION: select the image/text/pdf/svg in the file list -
+                # SDCARD_PRINT_FILE switches to plot mode and bumps plot_nonce,
+                # the watcher generates 00_Plot_*_Vnn.gcode on demand (one
+                # job at a time, gen_out decides start vs preview).
+                if PLOT_PAT.search(fn):
+                    if fn.lower().endswith(('.gcode', '.gco', '.g')):
+                        if b'R2-PLOT' in data_head_if_text(p):
+                            stats['tagged_before'] += 1   # plotter g-code, ready
+                        else:
+                            # raw image smuggled with the OLD .gcode-tail
+                            # trick - tell the user, convert nothing
+                            print('[plot] %s: raw upload with the old .gcode '
+                                  'tail - plotting needs the plain name now: '
+                                  'rename (drop the .gcode), then select it '
+                                  'in the file list' % fn, flush=True)
+                            stats['tagged_before'] += 1
+                    else:
+                        # plain source (.png/.jpg/.svg/.pdf/.txt): stays as
+                        # is - select it in the file list to plot it
+                        stats['tagged_before'] += 1
+                    return
+                # R64: generated plotter files without .png/... endings
+                # (Resonance_*_plot.gcode, V01_R2_Status.gcode) carry the R2-PLOT header
+                if b'R2-PLOT' in data_head_if_text(p):
+                    stats['tagged_before'] += 1
+                    _meta_finalize(p)     # R212: Mainsail meta for gen files
+                    return
+                try:
+                    # R281: verify_tagged=True - the tag-vs-geometry audit
+                    # becomes a VERDICT (conflicts discard the foreign tags
+                    # wholesale, the geometry classifier re-derives)
+                    s = process(p, retract_rewrite=rrw, verify_tagged=True)
+                except Exception as e:              # noqa: BLE001
+                    stats['errors'] += 1
+                    print(f'[!] {fn}: {e!r}', flush=True)
+                    return
+                if s['skipped']:
+                    stats['tagged_before'] += 1
+                    _meta_finalize(p)     # R212: Mainsail meta for gen files
+                else:
+                    stats['processed'] += 1
+                    NEW_PREVIEW.append(p)
+                    print(f'[ok] {fn}: +{s["marks_added"]} LAYER_MARK ({s["method"]}), '
+                          f'+{s["types"]} APPLY_TYPE, _FILE_INFO layers={s["layers"]}, '
+                          f'by_object={s["by_object"]}'
+                          + (f' [stray tag {s["stray_tag"]} -> geometry re-derived]'
+                             if s.get('stray_tag') else '')
+                          + (' [tag/geometry conflicts '
+                             + ','.join(s['tag_mismatch']) + ' -> re-derived]'
+                             if s.get('tag_mismatch') else '')
+                          + (f' [retract-fix: {s["retract_pairs"]} pair(s) -> G10/G11]'
+                             if s.get('retract_pairs') else '')
+                          + (f' [sliced by {s.get("slicer", "")} for {s.get("fw", "?")}]'
+                             if s.get('slicer') else '')
+                          + (' [upgraded from ' + s['upgraded_from'] + ']' if s['upgraded'] else ''), flush=True)
+            finally:
+                if _held281:
+                    _moonraker_gcode(
+                        'SAVE_VARIABLE VARIABLE=gen_busy VALUE=0')
+
+        # R281: while a print runs (start/homing phases included) the scan
+        # touches NOTHING: it returns BEFORE any seen-mark, so the first
+        # pass after the print retries every file. An unreachable moonraker
+        # reads as not busy (offline dev hosts keep working).
+        if _printer_busy():
+            return
         for root, dirs, files in os.walk(directory):
             dirs[:] = [d for d in dirs if not d.startswith('.')]
             for fn in sorted(files):
@@ -27674,77 +27850,17 @@ def watch(directory, interval=5.0, once=False):
                 if _dl98 is not None and _done98 and time.time() > _dl98:
                     stats['deferred'] += 1
                     continue
-                seen[p] = key
-                _seen_dirty149[0] += 1     # R149: persist across restarts
-                _done98 += 1
-                # R226 (.136x field log): Orca/Bambu define objects with
-                # CENTER only - KAMP's SMART_PARK / adaptive mesh read
-                # .polygon and ABORT the print start (jinja UndefinedError,
-                # three SMART_PARK errors in the field log, no print). The
-                # watcher measures the real outline from the object's own
-                # moves and appends POLYGON= to CENTER-only defines.
-                # Cached by the seen-key above (changed files only),
-                # idempotent, cheap head-read early exit.
-                try:
-                    if _upgrade_center_excludes(p):
-                        stats['eod_upgraded'] = stats.get('eod_upgraded', 0) + 1
-                except Exception as _e226:                         # noqa: BLE001
-                    print('[eod226] %s: %r' % (fn, _e226), flush=True)
-                # R134 (.103 field redesign): plot sources are NEVER touched
-                # in the scan. The old flow auto-converted every upload
-                # (*.png, *.jpg.gcode, *.txt ...) into plotter g-code in the
-                # background - including every plain image uploaded as a
-                # litho/colorpic source (field log .101: AxtBunny.png grew an
-                # unrequested AxtBunny.png.gcode twin). Plotting is now a
-                # DECISION: select the image/text/pdf/svg in the file list -
-                # SDCARD_PRINT_FILE switches to plot mode and bumps plot_nonce,
-                # the watcher generates 00_Plot_*_Vnn.gcode on demand (one
-                # job at a time, gen_out decides start vs preview).
-                if PLOT_PAT.search(fn):
-                    if fn.lower().endswith(('.gcode', '.gco', '.g')):
-                        if b'R2-PLOT' in data_head_if_text(p):
-                            stats['tagged_before'] += 1   # plotter g-code, ready
-                        else:
-                            # raw image smuggled with the OLD .gcode-tail
-                            # trick - tell the user, convert nothing
-                            print('[plot] %s: raw upload with the old .gcode '
-                                  'tail - plotting needs the plain name now: '
-                                  'rename (drop the .gcode), then select it '
-                                  'in the file list' % fn, flush=True)
-                            stats['tagged_before'] += 1
-                    else:
-                        # plain source (.png/.jpg/.svg/.pdf/.txt): stays as
-                        # is - select it in the file list to plot it
-                        stats['tagged_before'] += 1
-                    continue
-                # R64: generated plotter files without .png/... endings
-                # (Resonance_*_plot.gcode, V01_R2_Status.gcode) carry the R2-PLOT header
-                if b'R2-PLOT' in data_head_if_text(p):
-                    stats['tagged_before'] += 1
-                    _meta_finalize(p)     # R212: Mainsail meta for gen files
-                    continue
-                try:
-                    s = process(p, retract_rewrite=rrw)
-                except Exception as e:              # noqa: BLE001
-                    stats['errors'] += 1
-                    print(f'[!] {fn}: {e!r}', flush=True)
-                    continue
-                if s['skipped']:
-                    stats['tagged_before'] += 1
-                    _meta_finalize(p)     # R212: Mainsail meta for gen files
-                else:
-                    stats['processed'] += 1
-                    NEW_PREVIEW.append(p)
-                    print(f'[ok] {fn}: +{s["marks_added"]} LAYER_MARK ({s["method"]}), '
-                          f'+{s["types"]} APPLY_TYPE, _FILE_INFO layers={s["layers"]}, '
-                          f'by_object={s["by_object"]}'
-                          + (f' [stray tag {s["stray_tag"]} -> geometry re-derived]'
-                             if s.get('stray_tag') else '')
-                          + (f' [retract-fix: {s["retract_pairs"]} pair(s) -> G10/G11]'
-                             if s.get('retract_pairs') else '')
-                          + (f' [sliced by {s.get("slicer", "")} for {s.get("fw", "?")}]'
-                             if s.get('slicer') else '')
-                          + (' [upgraded from ' + s['upgraded_from'] + ']' if s['upgraded'] else ''), flush=True)
+                # R281: a print start mid-pass wins NOW - the file stays
+                # un-seen (the next pass retries it and the rest of the
+                # backlog). The per-file gen_busy hold inside the worker
+                # makes the start macros wait their turn (R188 pattern).
+                if _print_busy281():
+                    stats['deferred'] += 1
+                    print('[i] print active - the upload scan pauses, %s '
+                          'and the rest retry on the next pass' % fn,
+                          flush=True)
+                    return
+                _work_file281(p, fn, key)
         # R98 (field log .75): backlog bookkeeping - the initial message
         # reports what is deferred, the last chunk reports completion
         if stats['deferred']:
