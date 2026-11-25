@@ -828,6 +828,7 @@ ist „versteckt", sie werden hier wie alle anderen bearbeitet und abgehakt.
       Der Crash-Ordner (Crashlogs) darf **nicht** vom Watcher-Wurzel-Scan
       erfasst werden; Crashlogs sind **nur zum Download per Mainsail**.
       Verifikation: Wurzel-Scan-Audit + Fix (Crash-Ordner ausschließen).
+  **L11-Begleit-Korrektur (2026-11-25, Range-/Top-Bridge-Commits):** Die User-Analyse "kein Top auf Sparse-Infill -> BRIDGE" ist **nicht pauschal korrekt** und wird durch `tools/test_r286_topbridge_logic.py` (3/3) **bewiesen**: die Engine-Logik (audit_tag_geometry, R281-Support-Welt) enthält die Korrektur **bereits** - Top und Bridge sind getrennte Pfade. `SURFACE-TOP` auf Sparse-Infill wird **niemals** als BRIDGE klassifiziert (kein G5_UNANCHORED_BRIDGE), und solid infill + Top + Ironing wird korrekt als support-getragen akzeptiert (kein G3_IRONING_UNSUPPORTED). Es gibt **keine** pauschale Sparse->Bridge-Entscheidung in der Engine.
 - [ ] **L11 — „Range Rover" im range Tool (Nutzer-Frage: was soll das?).**
       Suche im Repo: **kein „Rover"-String** in Code/Menü/Web/PDF
       (`grep -rn -i rover` + PDF-Text-Extraktion aller 28 PDFs = 0 Hits).
