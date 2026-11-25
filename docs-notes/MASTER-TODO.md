@@ -792,6 +792,7 @@ ist „versteckt", sie werden hier wie alle anderen bearbeitet und abgehakt.
       gegeben, die **Bündigkeit/Größe-Konformität** aber nicht verpflichtend
       geprüft. Verifikation: Label-Render-Test mit Ausrichtung-Checks
       (Grundlinie/Cap-Height pro Zeile).
+  **L4-Begleit-Status (2026-11-25, Engine-Verifikation):** Die Engine erfasst und rendert **alle 5 Zeilen** (`max_lines=5`, Text-Blöcke im G-Code vorhanden) - L2 ist im Engine-Code enthalten. Der Befund „L2 wird nicht gedruckt" ist ein **Feldbefund am Drucker** (LCD-Eingabe/Start-Fluss), kein Engine-Bug. Field-Check bleibt.
 - [ ] **L4 — Label-L2 (und L3/L4/L5) Text gedruckt (Nutzer-Befund: L2
       wird nicht gedruckt).** Engine hat 5 Zeilen (R83 `__ln1`..`__ln5`,
       `LABEL_ADD` joined mit `~`, `make_labels` parse via `~`), aber der
