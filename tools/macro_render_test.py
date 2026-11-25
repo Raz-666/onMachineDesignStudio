@@ -14962,7 +14962,8 @@ _ADDED135 = [
     '__main __system __diag __doc',
     '__main __system __diag __where',
     '__main __system __pp',
-    '__main __system __ppinfo',
+    # R286: the second PP-engine row "PP engine (explain)" was REMOVED by
+    # user rule - only the switch "PP engine:" stays on the LCD.
     # R259: the toolchain preset chain (Pre-Print > Mods > Toolchain) -
     # preset picked as a FILE (SD browser .json click), 5 sections
     '__main __preprint __mods __toolchain',
@@ -19352,9 +19353,9 @@ _m252 = {k: v for k, v in _re73.findall(
     _lcd252)}
 tests.append(('R252: the post-processor switch is on the LCD (System menu) - '
               'stable / EXPERIMENTAL plus the running engine, all through '
-              'TOGGLE_PP_ENGINE, with an explain row next to it',
+              'TOGGLE_PP_ENGINE, with NO second explain row (R286 removed it)',
     'TOGGLE_PP_ENGINE' in _m252.get('__main __system __pp', '')
-    and 'PP engine (explain)' in _m252.get('__main __system __ppinfo', '')
+    and '__main __system __ppinfo' not in _m252
     and 'pp_engine' in _m252.get('__main __system __pp', '')
     and 'print_stats' not in _m252.get('__main __system __pp', ''), ''))
 tests.append(('R252: the evidence pack has an LCD home (System > Diagnostics) '

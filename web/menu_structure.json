@@ -25652,15 +25652,6 @@
       "children": []
      },
      {
-      "id": "__main __system __ppinfo",
-      "type": "command",
-      "name": "PP engine (explain)",
-      "gcode": [
-       "PP_ENGINE_INFO"
-      ],
-      "children": []
-     },
-     {
       "id": "__main __system __diag",
       "type": "list",
       "name": "Diagnostics",

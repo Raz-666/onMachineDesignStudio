@@ -2011,7 +2011,12 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
     body through the Z/E shift straight into the output file. Output is
     byte-identical to the previous builder (R81 golden test).
     """
-    start = max(2, int(start))
+    # R286 field fix: the start layer was clamped to >= 2 (legacy), so a
+    # range that legitimately begins on layer 1 was refused with "Range:
+    # invalid" - the user had to pick layer 2 or 3 as the start every time.
+    # Layer 1 is a valid range start (it is the first printed layer): clamp
+    # to >= 1 and let the end > start check below guard the window.
+    start = max(1, int(start))
     end_raw = int(end)
 
     # ---- pass A: stream once - marks, modal state, anchors, trackers ------
