@@ -867,6 +867,35 @@ ist „versteckt", sie werden hier wie alle anderen bearbeitet und abgehakt.
       `.19.3`. (e) `tools/samples/statprobe.gcode` +
       `statprobe_tagged.gcode` neu erzeugt (fehlte für die PDF-Builder).
       Verifikation: alle 28 PDFs tragen `R2-2026-11-19.3`.
+- [x] **L15 — range Tool: Range-Error, Start musste Schicht 2 oder 3 sein
+      (GELOEST 2026-11-25, Commit `531f101`).** Ursache: `make_range`
+      clampt `start = max(2, int(start))`, das Makro `SET_LAYER_RANGE`
+      prüfte `start < 2` → „Range: invalid", und das LCD hatte
+      `input_min: 2`. Schicht 1 als Range-Start wurde immer verworfen —
+      genau der Workaround des Nutzers (Start 2 oder 3 wählen). **Fix:**
+      in `tools/r2_postproc.py` + `tools/r2_postproc_next.py` auf
+      `start = max(1, ...)`, Makro-Guard auf `start < 1`, LCD
+      `From input_min: 1` / `To input_min: 2`, Toolchain-Schema
+      `start min=1, end min=2` synchronisiert. **Beleg:** `make_range`
+      mit start=1 (auch + Floor/Brim) OK; Range-Urheber-Check 8/8 grün;
+      r111-Geometrie grün.
+- [ ] **L16 — Toolchain (getestet, funktional korrekt, 2026-11-25).**
+      Echte Chain Range→Scale ausgeführt: beide Schritte `success`,
+      final output korrekt skaliert (X/Y 150%, E per Move rescaled,
+      Header „R176 scale"). `TOOLCHAIN_ADD` crasht nicht,
+      generated/optimized korrekt. Test-Suites grün (61 + 27).
+      **Kein Engine-Bug gefunden** — der `r2_texture`-Import-Fehler war
+      ein Test-Harness-Artifakt (fehlender `sys.path`; im echten
+      Watcher kein Problem).
+- [x] **L17 — zweiter PP-Engine-Eintrag im Systemmenü (GELOEST
+      2026-11-25, Commit `531f101`).** Das arm/confirm-Paar
+      `PP engine:` (Switch, bleibt) + `PP engine (explain)` (der
+      zweite, selectable) wurde auf Antrag des Nutzers reduziert: der
+      `__ppinfo`-LCD-Eintrag **entfernt**, nur der Switch `PP engine:`
+      bleibt (zeigt bereits stable/experimental + laufenden Engine).
+      Der Makro `PP_ENGINE_INFO` bleibt per Konsole erreichbar.
+      Render-Test (R252) + `web/menu_structure.json` synchronisiert.
+      Beleg: `__ppinfo`-Section fehlt, JSON parsebar.
 - [ ] **L12 — Dokumentation: agents.md + TODO-Inventur (Nutzer-Frage).**
       Systematische Inventur aller offenen/versteckten Aufgaben: diese
       Liste ist das Ergebnis. `AGENTS.md` als Einstiegsdokument auf
