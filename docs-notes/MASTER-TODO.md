@@ -819,6 +819,7 @@ ist „versteckt", sie werden hier wie alle anderen bearbeitet und abgehakt.
       hoch (MCU-Shutdown-Risiko). Verlangt: **kleineres/anderes Warte-Tool**
       mit geringem RAM-Fußabdruck. Verifikation: RAM-Messung (idle +
       Last), Nachweis der Reduktion.
+  **L9-Begleit-Status (2026-11-25, Engine-Verifikation):** Der Engine-Teil von L9 ist **VERIFIZIERT**: eine echte Scale(150/150)+Range(1-2)-Chain läuft via `plan_step_runner` **erfolgreich** (`state=success`), die Endausgabe ist **nicht leer** (49 Zeilen), alle Koordinaten sind **valide G-Code** (keine NaN/Inf/leere Werte), und die Skalierung ist korrekt (um das Bett-Mitte). Kein Absturz, keine leere generated - der reported Crash kommt nicht vom Engine-Code. Der verbleibende Field-Teil (LCD zeigt optimized-Slot nur als "1" ohne Titel) ist eine Display-/Menü-Beobachtung am Drucker und wird als Feld-Check gezeichnet.
 - [ ] **L9 — Toolchain-Job-Add crasht Drucker (Nutzer-Befund, v19.3).**
       Job-Add mit **scale XY** lässt den Drucker abstürzt. Nach
       Neustart: **generated leer**, **optimized zeigt nur „1" ohne Titel**.
