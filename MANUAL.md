@@ -3,7 +3,7 @@
 **Package:** `klipper-e3-r2d2` · Ender-3 + BTT SKR mini E3 + Pi Zero 2 W (Mainsail) ·
 12864 LCD (16 characters per line)
 
-**Version:** this manual describes the current release, `R2-2026-11-19.2` — and only it. Every chapter documents what the system
+**Version:** this manual describes the current release, `R2-2026-11-19.3` — and only it. Every chapter documents what the system
 does today; the version changelog lives in README.md.
 
 This is the operating manual for the complete macro system: what the printer can
@@ -1928,11 +1928,26 @@ the catalog, CREATE, print.
 | stud | Ø4.8 × 1.8 mm, hollow (1.2 mm wall) | stacks like the original, prints without a solid blob on top |
 | underside tube | Ø6.31 at every inner grid crossing | the tube walls spread over the stud below — the clutch comes out exactly right |
 | brick / plate / tile | 9.6 / 3.2 mm heights, tile = smooth plate | layer heights that do not divide evenly snap to whole layers (noted in the file header) |
-| layer 1 | solid + brim | bed adhesion; the tubes open from layer 2 up |
+| underside | **open from layer 1** | wall ring + tube rings start on the bed — the parts really stack. 1xN parts keep a hollow core (studs clamp between the long walls); round parts keep a hollow core up to the cap. Brim anchors the outline |
+| technic holes | Ø4.9 through BOTH long sides | the channel walls run segmented between the hole cutouts, the bridge layer above closes the roof — an axle passes clean through |
 
-**The catalog (45 codes)** — `B`=brick 9.6 mm, `P`=plate 3.2 mm, `T`=tile
-(smooth plate): 1x1, 1x2, 1x3, 1x4, 1x6, 1x8, 2x2, 2x3, 2x4, 2x6, 2x8, 4x4,
-4x6, 4x8, 6x6, 6x8, 8x8 — first the width in studs, then the length.
+**The catalog (90 codes)** — `B`=brick 9.6 mm, `P`=plate 3.2 mm, `T`=tile
+(smooth plate): 1x1 … 8x8 — first the width in studs, then the length.
+Plus the families: `J1x2` jumper, round family `R1x1` / `RP1x1` /
+`RT1x1`, `C1x1` cone, slopes `S` (steep 2-long, shallow 3+ with studs on
+the back row), inverted slopes `I`, arches `A1x3..A1x6`, technic bricks
+`H1x2..H1x8` with the Ø4.9 side holes.
+
+**Baseplates, gears, axles & organic shapes:**
+
+| Code | Part | Geometry |
+|---|---|---|
+| **BP8x8** … **BP24x24** | baseplates | thin 1.2 mm exact-grid base (n·8, NO play — it IS the ground), smooth underside, full stud grid on top |
+| **BP11x16**, **BP16x22** | frame-matched baseplates | drop into the **9x13 / 13x18 Frames** exactly — a mosaic field for the picture frame |
+| **G12** … **G40** | spur gears | module 1 (tip Ø = teeth+2 mm), trapezoid teeth, Ø4.9 axle bore — meshes across the 8 mm grid (G12+G24 centers 3 studs apart, …) |
+| **AX2** / **AX4** / **AX6** | cross axles | standing print, technic cross profile Ø4.6, length 16/32/48 mm, tapered tip |
+| **AH2x2** | axle stand | 2x2 brick with a **vertical Ø4.9 through-socket** — an axle drops in from above and spins |
+| **D2x2** | dome | 2x2 stacking base (open underside) + solid hemisphere cap — the first organic shape |
 
 **The workflow (LCD: `Tools > Bricks`)**
 
@@ -2234,14 +2249,15 @@ Mirror, plus single-half Mold and Blank-Mold steps (`part` TOP or BOTTOM,
 generator menu). Cake cut (two output files) is not chainable; the preset
 validator says so in plain text before anything runs.
 
-### 5.22 Casting molds — negative molds & parametric blanks (R270–R273)
+### 5.22 Casting molds — negative molds & parametric blanks (R270–R273, vertical standing molds: R290)
 
 Turns the **selected G-code file** into a printable casting mold (silicone,
 soap, wax, plaster, resin) — or builds a **parametric blank mold** without any
 source file at all. Everything lands in the `Molds/` folder
-(`V<nn>_FormUnten_<name>.gcode`, `V<nn>_FormOben_<name>.gcode`, optional
-`V<nn>_Master_<name>.gcode` or `V<nn>_FormObenA…_<name>.gcode`), numbered and
-never overwriting.
+(`V<nn>_FormLinks_<name>.gcode` + `V<nn>_FormRechts_<name>.gcode` for the
+vertical mold, `V<nn>_FormUnten_<name>.gcode` + `V<nn>_FormOben_<name>.gcode`
+for the flat one, optional `V<nn>_Master_<name>.gcode` or
+`V<nn>_FormObenA…_<name>.gcode`), numbered and never overwriting.
 
 **How the file mold works (LCD: `Tools > Casting molds`)**
 
@@ -2272,6 +2288,38 @@ never overwriting.
    inward-only wall jitter up to 0.12 mm — matte cast, easier demolding, zero
    undercut penalty).
 
+**Vertical standing molds (R290 — the tool decides the layout itself)**
+
+With `LAYOUT=AUTO` (the default) the generator tries the **vertical
+side-split mold first** — the professional figure mold:
+
+* **The figure STANDS.** The source keeps its print orientation; the parting
+  plane is vertical (perpendicular to X). The two plates **FormLinks** and
+  **FormRechts** print mating-face UP like the flat halves and **open
+  sideways** — no fighting a deep flat shell.
+* **The pour sits at the TOP edge.** The pour channel and up to two vent
+  channels are half-round grooves carved INTO both parting faces; assembled
+  they form round channels from the seam's top edge into the cavity's highest
+  region (the conical funnel widens the opening). The dowel registry and the
+  parting-face vent grooves work exactly like the flat mold's.
+* **The split position is computed, not guessed.** The object rasterizes into
+  x-slabs (one per print layer); every (y,z) column's solid run must touch
+  its plate's parting face — the intersection over all columns is the exact
+  release window, and inside it the split rides the silhouette equator. A
+  shape whose silhouette hooks in X (a dumbbell, a C-clip) has no such window
+  and **refuses with the reason** — AUTO then builds the classic flat mold
+  automatically. Master, pocket and sector requests are flat features and
+  route the same way: **AUTO always lands on its feet.**
+* `LAYOUT=VSPLIT` forces the vertical mold (a refusal stays a refusal),
+  `LAYOUT=FLAT` pins the classic equator mold. With the vertical mold the
+  **PLANE**/**z_off** knobs address the X axis (MID = the x middle, OFF = z_off mm
+  from the object's smallest x).
+* **Assembly:** lay the plates face to face like closing a book (FormRechts
+  prints mirrored so the fold aligns), stand the pair up — the seam is
+  vertical, the pour opening on top. Clamp or tape, pour, open sideways.
+  Thin flat pieces (medallions, plaques) automatically stay with the flat
+  mold — a side split needs a standing body (≥ 6 mm in X).
+
 **Parametric blank molds & relief seat (R273 — LCD: `Tools > Casting molds > Blank molds`)**
 
 No source file needed: pick MEDALLION (`Diameter` 15–100 mm × `Thickness`
@@ -2283,7 +2331,7 @@ its top face — drop a printed Lithophane, ColorPicture or StringArt tile onto
 the boss before pouring and it embeds flush. Refuses honestly if the rim is
 under 4 mm, the floor under 2 mm, or the boss lacks 2 cells of wall clearance.
 
-Console: `MOLD_INFO`, `MOLD_CREATE PART=BOTH PLANE=AUTO SURFACE=STANDARD`,
+Console: `MOLD_INFO`, `MOLD_CREATE PART=BOTH LAYOUT=AUTO PLANE=AUTO SURFACE=STANDARD`,
 `MOLD_BLANK_INFO`, `MOLD_BLANK_CREATE SHAPE=MEDALLION DIA=50 THICK=10 POCKET_T=2`.
 
 ## 6. During the print: tuning, pauses, objects
@@ -4724,7 +4772,7 @@ system). Better a quiet fan at full speed than a fast one slowed down.
 ## Appendix C: First start & updates
 
 - upload the folder → includes at the end of printer.cfg → RESTART
-- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-11-19.2)`
+- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-11-19.3)`
 - ~10 s later: boot sound + LED animation
 - SHOW_STATUS → mode, material, overrides · Maintenance > Tests > demos + self test
 

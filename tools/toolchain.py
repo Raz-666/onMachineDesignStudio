@@ -951,6 +951,262 @@ def run_chain(plan, workspace, input_path, step_runner,
 
 
 # ---------------------------------------------------------------------------
+# R285: the LCD JOB LIST - the chain is first-class STATE, not only a file.
+#
+# The job list lives in two save_variables the WATCHER owns (macros only
+# ever bump nonces - all validation and all edits happen in Python):
+#   toolchain_chain      machine form, e.g. 'scale:x=110,y=110|twist:deg=45'
+#                        (compact charset [a-z0-9:=,|._-] - Klipper-safe in a
+#                        SAVE_VARIABLE line, no quotes/backslashes ever)
+#   toolchain_chain_lcd  display form ' | '-joined ('1:Scale 110/110% | ...'),
+#                        the LCD job rows split on '|' - Jinja cannot parse
+#                        JSON, so the watcher pre-renders the rows
+# Operations (TOOLCHAIN_OP): DEL (the FIRST job is protected - the user
+# rule), UP, DOWN, GOTO (preload the job's params into the tool's own
+# variables so its menu opens pre-filled), CLEAR (the escape hatch when the
+# protected first job must go too). Preset save/load maps 1:1 onto the job
+# list - a preset IS a named job list.
+# ---------------------------------------------------------------------------
+
+# anchor-param <-> save_variable (the watcher's rv dict carries these).
+# R285: this map is the SINGLE truth - the watcher's Add/GOTO and the tests
+# share it (drift-pinned by test_toolchain).
+TOOL_VAR_MAP = {
+    'range': {'start': 'range_start', 'end': 'range_end',
+              'floor': 'range_floor', 'top': 'range_top',
+              'brim': 'range_brim', 'floor_hole': 'range_floor_hole',
+              'top_hole': 'range_top_hole'},
+    'scale': {'x': 'scale_x', 'y': 'scale_y',
+              'top_x': 'scale_top_x', 'top_y': 'scale_top_y'},
+    'texture': {'pattern': 'texture_pattern', 'scale_mm': 'texture_scale',
+                'zsize_mm': 'texture_zsize', 'depth_mm': 'texture_amp',
+                'direction': 'texture_dir', 'seed': 'texture_seed'},
+    'twist': {'deg': 'twist_deg'},
+    'mirror': {'axis': 'mirror_axis'},
+}
+
+# Display- und Maschinen-Form duerfen alles ausser den SAVE_VARIABLE-
+# Schaeden ('"', Backslash, Zeilenumbruch) tragen - der Watcher schreibt
+# beide, das LCD liest nur.
+_CHAIN_SAFE = re.compile(r'[^A-Za-z0-9:=,|._%/+ -]')
+
+
+def params_from_vars(tool, rv, registry=None):
+    """Snapshot a tool's CURRENT LCD variable state (the rv dict) as chain
+    params. Missing variables fall back to the registry default; params the
+    registry does not know are never invented. Type casts follow the
+    registry spec (int/number/enum-string)."""
+    if registry is None:
+        registry = TOOL_REGISTRY
+    if tool not in registry:
+        raise ValueError('unbekanntes Werkzeug %r' % (tool,))
+    params = {}
+    spec = registry[tool]['params']
+    for name, var in TOOL_VAR_MAP.get(tool, {}).items():
+        if name not in spec:
+            continue
+        pspec = spec[name]
+        raw = rv.get(var)
+        if raw is None or (isinstance(raw, str) and raw.strip() == ''):
+            if 'default' in pspec:
+                params[name] = pspec['default']
+            continue
+        try:
+            if pspec['type'] == 'int':
+                params[name] = int(float(raw))
+            elif pspec['type'] == 'number':
+                params[name] = float(raw)
+            else:                                   # enum: plain string
+                params[name] = str(raw).strip()
+        except (TypeError, ValueError):
+            if 'default' in pspec:
+                params[name] = pspec['default']
+    return params
+
+
+def params_to_vars(tool, params, registry=None):
+    """Reverse of params_from_vars (GOTO 'Zum Tool'): the job's params as
+    save_variable assignments {var: value}. String values (enums) stay
+    strings - the caller quotes them for the SAVE_VARIABLE line."""
+    if registry is None:
+        registry = TOOL_REGISTRY
+    out = {}
+    spec = registry.get(tool, {}).get('params', {})
+    for name, var in TOOL_VAR_MAP.get(tool, {}).items():
+        if name not in params or name not in spec:
+            continue
+        pspec = spec[name]
+        val = params[name]
+        if pspec['type'] == 'int':
+            out[var] = int(float(val))
+        elif pspec['type'] == 'number':
+            out[var] = float(val)
+        else:
+            out[var] = str(val)
+    return out
+
+
+def chain_to_string(jobs):
+    """jobs [{'tool','params'}] -> 'scale:x=110,y=110|twist:deg=45'.
+    Deterministic: params in registry order (TOOLS first, then alpha for
+    strays - there are no strays after validation, this is defence)."""
+    segs = []
+    for job in jobs:
+        tool = str(job.get('tool', ''))
+        spec = TOOL_REGISTRY.get(tool, {}).get('params', {})
+        params = job.get('params') or {}
+        keys = [k for k in spec if k in params]
+        keys += sorted(k for k in params if k not in spec)
+        parts = []
+        for key in keys:
+            val = params[key]
+            if isinstance(val, float) and val == int(val):
+                val = int(val)                      # 45.0 -> 45 (kuerzer)
+            parts.append('%s=%s' % (key, val))
+        segs.append('%s:%s' % (tool, ','.join(parts)))
+    return '|'.join(segs)
+
+
+def chain_from_string(text):
+    """Parse the machine form back into jobs. Returns (jobs, error) -
+    error is None on success, jobs is [] on error. Empty string = empty
+    list (NOT an error: the fresh state)."""
+    text = (text or '').strip()
+    if not text:
+        return [], None
+    jobs = []
+    for seg in text.split('|'):
+        if ':' not in seg:
+            return [], 'Ketten-Segment ohne Werkzeug: %r' % seg
+        tool, _, rest = seg.partition(':')
+        tool = tool.strip()
+        params = {}
+        for part in rest.split(','):
+            if not part:
+                continue
+            if '=' not in part:
+                return [], 'Ketten-Parameter ohne Wert: %r' % part
+            key, _, val = part.partition('=')
+            key = key.strip()
+            val = val.strip()
+            pspec = TOOL_REGISTRY.get(tool, {}).get('params', {}).get(key)
+            try:
+                if pspec is not None and pspec['type'] == 'enum':
+                    params[key] = val                # enum: keep the word
+                elif '.' in val or 'e' in val.lower():
+                    params[key] = float(val)
+                else:
+                    params[key] = int(val)
+            except ValueError:
+                try:
+                    params[key] = float(val)
+                except ValueError:
+                    params[key] = val
+        jobs.append({'tool': tool, 'params': params})
+    return jobs, None
+
+
+def _num(value):
+    """Display-Zahl: int-like floats ohne Komma (10.0 -> '10')."""
+    if isinstance(value, float) and value == int(value):
+        return int(value)
+    return value
+
+
+def _display_seg(job):
+    """One LCD row segment, <=24 chars: 'Scale 110/110%', 'Tex GRID 10/12/0.4'."""
+    tool = job.get('tool', '?')
+    p = {k: _num(v) for k, v in (job.get('params') or {}).items()}
+    if tool == 'range':
+        seg = 'Range %s-%s' % (p.get('start', '?'), p.get('end', '?'))
+        extras = []
+        if p.get('floor'):
+            extras.append('f%d' % p['floor'])
+        if p.get('top'):
+            extras.append('t%d' % p['top'])
+        if p.get('brim'):
+            extras.append('b%d' % p['brim'])
+        if extras:
+            seg += ' ' + ' '.join(extras)
+    elif tool == 'scale':
+        seg = 'Scale %s/%s%%' % (p.get('x', '?'), p.get('y', '?'))
+        if p.get('top_x') or p.get('top_y'):
+            seg += '>%s/%s' % (p.get('top_x', 0), p.get('top_y', 0))
+    elif tool == 'texture':
+        seg = 'Tex %s %s/%s/%s' % (p.get('pattern', '?'), p.get('scale_mm', '?'),
+                                   p.get('zsize_mm', '?'), p.get('depth_mm', '?'))
+    elif tool == 'twist':
+        seg = 'Twist %s' % (p.get('deg', '?'),)
+    elif tool == 'mirror':
+        seg = 'Mirror %s' % str(p.get('axis', '?')).upper()
+    else:
+        seg = tool.capitalize()
+    return _CHAIN_SAFE.sub(' ', seg)[:24].strip()
+
+
+def chain_display(jobs, registry=None):
+    """The LCD form: ' | '-joined, numbered 1-based ('1:Scale 110/110%')."""
+    return ' | '.join('%d:%s' % (i, _display_seg(job))
+                      for i, job in enumerate(jobs, start=1))
+
+
+def chain_apply_op(jobs, op, idx=0):
+    """One edit on the job list. Returns (new_jobs, error) - exactly one of
+    them is not None. The FIRST job is protected against DEL (user rule);
+    CLEAR empties everything (the escape hatch). GOTO changes nothing -
+    the watcher reads the job at idx itself."""
+    op = str(op or '').upper()
+    jobs = [dict(j, params=dict(j.get('params') or {})) for j in jobs]
+    n = len(jobs)
+    if op == 'CLEAR':
+        return [], None
+    if not (0 <= idx < n):
+        return None, 'Job %d gibt es nicht (die Kette hat %d)' % (idx + 1, n)
+    if op == 'DEL':
+        if idx == 0:
+            return None, ('Job 1 ist geschuetzt - erst die anderen loeschen '
+                          'oder "Liste leeren" nutzen')
+        del jobs[idx]
+        return jobs, None
+    if op == 'UP':
+        if idx == 0:
+            return None, 'Job 1 ist schon ganz oben'
+        jobs[idx - 1], jobs[idx] = jobs[idx], jobs[idx - 1]
+        return jobs, None
+    if op == 'DOWN':
+        if idx >= n - 1:
+            return None, 'Job %d ist schon ganz unten' % (idx + 1)
+        jobs[idx + 1], jobs[idx] = jobs[idx], jobs[idx + 1]
+        return jobs, None
+    return None, 'unbekannte Ketten-Operation %r' % op
+
+
+def validate_chain(jobs, registry=None):
+    """Validate a bare job list against the chain contract. A job list IS a
+    preset without a name - this wraps it and reuses validate_preset so the
+    rules can never drift apart. Returns (ok, errors)."""
+    if not isinstance(jobs, list) or not jobs:
+        return False, ['die Kette ist leer - erst Werkzeuge hinzufuegen '
+                       '(Tools > <Werkzeug> > Add to chain)']
+    return validate_preset(
+        {'schema': SCHEMA, 'name': 'LCD chain', 'steps': jobs}, registry)
+
+
+def preset_from_jobs(jobs, name, description=''):
+    """Job list -> preset dict (for TOOLCHAIN_SAVE and the apply path)."""
+    return {'schema': SCHEMA, 'name': name, 'description': description,
+            'steps': [{'tool': j['tool'],
+                       'params': dict(j.get('params') or {})}
+                      for j in jobs]}
+
+
+def jobs_from_preset(preset):
+    """Preset dict -> bare job list (for TOOLCHAIN_LOAD)."""
+    return [{'tool': s['tool'], 'params': dict(s.get('params') or {})}
+            for s in preset.get('steps') or []]
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 

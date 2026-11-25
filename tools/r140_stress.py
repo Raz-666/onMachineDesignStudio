@@ -15,7 +15,7 @@ exactly those classes:
           must parse: raw G/M/T commands pass, everything else must be
           NAME KEY=VALUE KEY=VALUE (values may be quoted). Bare tokens and
           unquoted trailing text are what Klipper rejects as 'Malformed'.
-  PART B  generation matrix - all 76 catalog codes, both color modes, brim
+  PART B  generation matrix - all 90 catalog codes, both color modes, brim
           0 and 8, figures x modes x scales x colors, kit from a generated
           file, colorpic, ties, angles, seal, labels - twice (idempotence).
   PART C  invariants - bed bounds, CENTERED layout (R132 user rule),
@@ -117,16 +117,41 @@ def gen(name, fn):
 
 
 codes = sorted(pp.BRICK_CATALOG)
-ck('catalog has 76 codes', len(codes) == 76, len(codes))
+ck('catalog has 90 codes', len(codes) == 90, len(codes))
 for need in ('S1x2', 'S2x6', 'I1x3', 'A1x6', 'H1x8', 'C1x1', 'J1x2',
              'RT1x1', 'T8x8', 'RP1x1'):
     ck('catalog has ' + need, need in pp.BRICK_CATALOG)
 
+
+def _brick_batch(b, v):
+    """one catalog batch -> list of infos. The catalog carries baseplates
+    up to 24x24 (192mm): a batch of 12 can honestly exceed the bed - the
+    generator answers 'split the job', so the stress does exactly that
+    (the documented workflow), down to singles if needed."""
+    try:
+        _out, info = pp.make_bricks([(c, 1) for c in b], out_dir=D,
+                                    bed=BED, version=v)
+        return [info]
+    except ValueError as e:
+        if 'do not fit' in str(e) and len(b) > 1:
+            return (_brick_batch(b[:len(b) // 2], v)
+                    + _brick_batch(b[len(b) // 2:], v))
+        raise
+
+
 for bi in range(0, len(codes), 12):
     batch = codes[bi:bi + 12]
-    gen('bricks batch%d' % bi,
-        lambda b=batch, v=bi // 12 + 1: pp.make_bricks(
-            [(c, 1) for c in b], out_dir=D, bed=BED, version=v))
+    try:
+        infos = _brick_batch(batch, bi // 12 + 1)
+    except Exception as e:                    # noqa: BLE001
+        ck('gen bricks batch%d' % bi, False, repr(e))
+        continue
+    ck('gen bricks batch%d' % bi, True)
+    for info in infos:
+        for f in (info.get('plate_files') or [info.get('file')]):
+            if f:
+                gen_files.append((os.path.join(D, str(f)),
+                                  'bricks batch%d' % bi, info))
 
 gen('bricks BY_LAYER 3col',
     lambda: pp.make_bricks([('B2x4', 3), ('P2x2', 2), ('S1x3', 1),
@@ -324,7 +349,7 @@ for entry in ('__bricks __set __brim]', '__bricks __set __col]',
               '__bricks __cat __sl]', '__bricks __cat __te]',
               '__bricks __cat __ro]'):
     ck('D8 menu ' + entry, entry in lcd)
-ck('D8 menu 76 catalog entries', lcd.count('BRICK_ADD CODE=') == 76,
+ck('D8 menu 90 catalog entries', lcd.count('BRICK_ADD CODE=') == 90,
    lcd.count('BRICK_ADD CODE='))
 
 # ============================================================ PART E ======

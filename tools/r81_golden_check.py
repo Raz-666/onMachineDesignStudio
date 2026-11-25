@@ -10,6 +10,14 @@ keeps that guarantee alive: it rebuilds the 23 fixture cases, runs them
 through the CURRENT module and compares MD5s + change summaries against the
 frozen references.
 
+RE-FREEZE HISTORY (R2-2026-11-19.3, R285): stamp re-freeze over
+PURE-ADDITION code change. Since V6 the engine gained the R285 toolchain
+job-list channels (4 new NONCE_KEYS, watcher + freeze entries) and the
+r226/r227 reconcile wiring - process()/make_range() untouched. PROOF
+(A/B): the committed V6 module reproduced all 23 frozen V6 references
+byte-for-byte (23/23 md5 identical) before the stamp bump. Forward run:
+mr01-mr13 differ by the stamp lines only; pr01-pr10 byte-IDENTICAL.
+mr01-mr13 re-frozen (stamp class), nothing else.
 RE-FREEZE HISTORY (R2-2026-11-19.2, V6): stamp re-freeze over REAL code
 change. Since V5 the engine gained J2 casting molds (make_mold + make_mold_blank
 + sector stage + surface stage, R270-R273) and the R276 M82 arc/single-axis E
@@ -465,19 +473,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # process() output is identical old vs new, ALL 13 mr md5s change (every
 # range excerpt carries the core stamp), no summary moves, and r81 was
 # 23/23 green with the R213 code BEFORE the stamp bump.
-REF_MD5 = {'mr01': 'cd9399e959fb91e0fbdaa60cf2e88e1c',
- 'mr02': '0abadc7ceb5183476840ebc403840e87',
- 'mr03': '84a2b1a6241f50f25d6cddb226188ecb',
- 'mr04': '30e948d71aa6eb537694f29a5f4bda27',
- 'mr05': '5a0cc1deb73ded60d4dfae472aa48bae',
- 'mr06': '5402bc46b9304fc603aeadb2cdfc735d',
- 'mr07': '1c42a0805ccbc8e319089d594f0522c7',
- 'mr08': 'cb587fb7efeca72a883772deb1c47fe3',
- 'mr09': '47c21c8663feba1cb132b5d76daf89d8',
- 'mr10': '1ee514b11edd6dac323653958bcbbea5',
- 'mr11': 'd6f00e403acdb61463c0ca367892649f',
- 'mr12': '9232916f6aad03860df83e0d7c052a6d',
- 'mr13': '7cc82659b966c6a328917ce27ccf1a6a',
+REF_MD5 = {'mr01': '3d1b038779b8b856e39d2cde7ad1bd22',
+ 'mr02': 'b4bf11d7c6fad0722caa2c69a58be210',
+ 'mr03': '158415ebb640338c8c186516845c6a8d',
+ 'mr04': '6f5147bd6a87609cf82555737206e979',
+ 'mr05': '4abec9768ba1677fa15771cb5efe1bd0',
+ 'mr06': '8a4709b30698813522a8b2831c25bd95',
+ 'mr07': '7b87449398c235c277099b7b4d8c8db6',
+ 'mr08': 'd0b3b0cefefcdd53add43d64fbdb6b73',
+ 'mr09': 'b98b38f13f2c782d01a5dfa2af3140d0',
+ 'mr10': 'a5e0b048bc07bb66aeb7755ed7520c2e',
+ 'mr11': '97d6e23519dc4b62eb60a207568b5330',
+ 'mr12': '0b269fe7a4829be8e281e8cca57e3831',
+ 'mr13': 'b5a1edb0e2ce3412f5171bf651d85fd7',
  'pr01': 'aa5a6f27d5a7e6576f57eeea93af63a5',
  'pr02': '61457e9bcbd98996b6e7dc26efda23d8',
  'pr03': 'f9f7402c190f07e7aa7470d2185fddfc',
@@ -489,19 +497,19 @@ REF_MD5 = {'mr01': 'cd9399e959fb91e0fbdaa60cf2e88e1c',
  'pr09': '5e90a1d42296412a0ea53e9d6ada0157',
  'pr10': '159ea58bb74bbf9adb377f1e733d152b'}
 
-REF_SUMMARY = {'mr01': {'nl': 8, 'size': 5267},
- 'mr02': {'nl': 8, 'size': 14350},
- 'mr03': {'nl': 8, 'size': 13322},
- 'mr04': {'nl': 8, 'size': 13200},
- 'mr05': {'nl': 8, 'size': 21990},
- 'mr06': {'nl': 8, 'size': 17299},
- 'mr07': {'nl': 7, 'size': 4899},
- 'mr08': {'nl': 6, 'size': 4544},
- 'mr09': {'nl': 7, 'size': 9640},
- 'mr10': {'nl': 7, 'size': 13222},
- 'mr11': {'nl': 7, 'size': 9017},
- 'mr12': {'nl': 2, 'size': 3071},
- 'mr13': {'nl': 29, 'size': 20751},
+REF_SUMMARY = {'mr01': {'nl': 8, 'size': 5269},
+ 'mr02': {'nl': 8, 'size': 14352},
+ 'mr03': {'nl': 8, 'size': 13324},
+ 'mr04': {'nl': 8, 'size': 13202},
+ 'mr05': {'nl': 8, 'size': 21992},
+ 'mr06': {'nl': 8, 'size': 17301},
+ 'mr07': {'nl': 7, 'size': 4901},
+ 'mr08': {'nl': 6, 'size': 4546},
+ 'mr09': {'nl': 7, 'size': 9642},
+ 'mr10': {'nl': 7, 'size': 13224},
+ 'mr11': {'nl': 7, 'size': 9019},
+ 'mr12': {'nl': 2, 'size': 3073},
+ 'mr13': {'nl': 29, 'size': 20753},
  'pr01': {'by_object': False,
           'fw': '',
           'info_added': True,

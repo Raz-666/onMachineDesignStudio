@@ -65,7 +65,9 @@ VOCAB = [
     ('honeycomb bottom', 'SURFACE-BOTTOM'),
     # support grids stay support (substring rule runs first)
     ('Grid support', 'SUPPORT'),
-    ('support cubic', 'SUPPORT'),
+    # R230: 'support cubic' is Prusa's SPARSE INFILL variant (props top
+    # surfaces), not a support structure - the exact map wins
+    ('support cubic', 'INFILL-SPARSE'),
     # unknown residue stays honest
     ('frobnicate quux', 'CUSTOM'),
 ]

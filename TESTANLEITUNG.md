@@ -1,6 +1,6 @@
-# TESTANLEITUNG — R2-D2 Makro-System (Version R2-2026-11-19.2 / V6)
+# TESTANLEITUNG — R2-D2 Makro-System (Version R2-2026-11-19.3 / R285)
 
-Diese Anleitung beschreibt **nur den aktuellen Stand** (R2-2026-11-19.2).
+Diese Anleitung beschreibt **nur den aktuellen Stand** (R2-2026-11-19.3).
 Sie ist die komplette Feld-Checkliste nach dem Einspielen eines Updates —
 von Boot bis Druckergebnis. Die Historie der Änderungen steht in README.md.
 
@@ -18,7 +18,7 @@ von Boot bis Druckergebnis. Die Historie der Änderungen steht in README.md.
 ## 2. Boot-Check (Pflicht, 1 Minute)
 
 - [ ] Konsole: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-19.2)`
+      (build R2-2026-11-19.3)`
 - [ ] ~10 s nach dem Boot: Boot-Sound + LED-Animation
 - [ ] `SHOW_STATUS` antwortet mit Modus/Material/Overrides
 - [ ] Kein Eintrag fehlt: sonst meldet sich `_CHECK_INSTALL` laut mit
@@ -1215,7 +1215,7 @@ gilt dem Neuen seit V3.
 ### Field-Check V4
 
 - [ ] Boot: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-19.2)`
+      (build R2-2026-11-19.3)`
 - [ ] Boot: Ordner `Toolchain/` im Gcodes-Verzeichnis enthält
       `scale-twist.json` (vom Watcher geseedet, falls noch nicht da)
 - [ ] Konsole: `TOOLCHAIN_APPLY PRESET=Toolchain/scale-twist.json
@@ -1256,7 +1256,7 @@ mit Passlöchern, Stege automatisch.
 ### Field-Check V5
 
 - [ ] Boot: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-19.2)`
+      (build R2-2026-11-19.3)`
 - [ ] Texture: Musterliste blättert bis Seite 7 (55 Muster, Titel zeigt
       `n/55`); ein R266.2/R266.3-Muster (z. B. LEDER oder CROCHET)
       anwenden und drucken
@@ -1308,7 +1308,7 @@ mit Passlöchern, Stege automatisch.
 ### Field-Check V6
 
 - [ ] Boot: `Macro system OK: all 19 modules loaded and current
-      (build R2-2026-11-19.2)`
+      (build R2-2026-11-19.3)`
 - [ ] Gießform aus Datei: Einfaches Testteil im SD-Browser wählen →
       `Tools > Casting molds` → `Split: AUTO`, `Part: BOTH`, `Create`
       (2-Press) → `Molds/V<nn>_FormUnten_…` und `V<nn>_FormOben_…`

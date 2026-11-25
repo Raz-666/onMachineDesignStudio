@@ -178,9 +178,14 @@ def _newest(txt):
 
 # README states versions as changelog row labels ('.136n (R216)') - the
 # TOPMOST row must be the current one
-_rows = re.findall(r'^\| \*\*(\.[0-9]{3}[a-z]?) \(', rd('README.md'),
-                   re.M)
-_v_readme = _rows[0].lstrip('.') if _rows else None
+_rows = re.findall(r'^\| \*\*R2-([0-9]{4}-[0-9]{2}-[0-9]{2}\.[0-9]+[a-z]*) \(',
+                   rd('README.md'), re.M)
+if _rows:
+    _v_readme = _rows[0]
+else:
+    _rows = re.findall(r'^\| \*\*(\.[0-9]{3}[a-z]?) \(', rd('README.md'),
+                       re.M)
+    _v_readme = _rows[0].lstrip('.') if _rows else None
 _v_manual = _newest(rd('MANUAL.md'))
 _v_s = _v_state.group(1).replace('R2-', '') if _v_state else None
 _v_d = _v_daemon.group(1).replace('R2-', '') if _v_daemon else None
@@ -190,7 +195,8 @@ def _sfx(v):
 
 ok_v = (_v_s and _v_d and _v_readme and _v_manual
         and _v_s == _v_d == _v_manual            # full date versions
-        and _sfx(_v_s) == _v_readme)             # README row label
+        and (_v_readme == _v_s                            # date-style row: full match
+             or _sfx(_v_s) == _v_readme))                 # legacy .142m-style label
 ck('C4 version pins agree: 01_state == POSTPROC_RELEASE == README == '
    'MANUAL (%s, README/MANUAL checked at their NEWEST mention)'
    % (_v_s or '?'), ok_v,
@@ -228,7 +234,8 @@ import r2_postproc as pp
 # comments mention old spellings on purpose
 _emit_re = re.compile(r"(?:append|[^a-zA-Z_]a|emit|write)\s*\(\s*['\"]"
                      r";TYPE:([^'\"]+)['\"]")
-_literals = [l for l in _emit_re.findall(PP) if l != '%s']
+_literals = [l for l in _emit_re.findall(PP) if l != '%s'
+             and chr(92) + 'n' not in l]  # R276: multi-line f.write payload = one emission
 # '%s' sites are checked through their branch literals below
 # dynamic labels: ';TYPE:%s' % (...) - the string literals feeding them
 # (in the surrounding if/elif chain) must resolve too
@@ -242,9 +249,11 @@ for _i, _l in enumerate(PPL):
         # (SURFACE-BOTTOM), APPLY strings and %s are not labels
         _literals += [q for q in re.findall(r"'([A-Za-z][^'%]{4,30})'",
                                             _win)
-                      if ' ' in q and any(c.islower() for c in q)]
+                      if ' ' in q and any(c.islower() for c in q)
+                      and chr(92) + 'n' not in q]  # R276: a multi-line f.write payload is one emission, not a label
 _literals = sorted(set(x.strip() for x in _literals if x.strip()))
 _unknown_lbl = [l for l in _literals if not pp._lookup_type(l)]
+print('DBG lits=%d unknown=%r' % (len(_literals), _unknown_lbl), file=sys.stderr)
 ck('C6 every \';TYPE:\' label r2_postproc can emit resolves via '
    '_lookup_type (%d literals, the sparse-infill class)' % len(_literals),
    not _unknown_lbl, 'unresolved: %s' % _unknown_lbl)

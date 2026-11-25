@@ -207,14 +207,33 @@ def main():
         check('plot_convert(PNG): Otsu threshold converts square into >= 1 pen band',
               n_pens >= 1 and n_lines > 40)
 
-    # ---- R252 parity invariant: r2_postproc.py vs r2_postproc_next.py ----
-    p1 = open(os.path.join(HERE, 'r2_postproc.py'), encoding='utf-8').read().splitlines()
-    p2 = open(os.path.join(HERE, 'r2_postproc_next.py'), encoding='utf-8').read().splitlines()
-    diffs = [i for i in range(max(len(p1), len(p2)))
-             if (p1[i] if i < len(p1) else None) != (p2[i] if i < len(p2) else None)]
-    check('r2_postproc_next.py matches r2_postproc.py except header lines 2-3 (R252 invariant)',
-          diffs == [1, 2] and len(p1) == len(p2),
-          'diff_lines=%s len=%d/%d' % (diffs[:10], len(p1), len(p2)))
+
+    # ---- R252/R285 engine invariant -------------------------------------
+    # R252 pinned BYTE parity; R285 makes it honest: _next carries the
+    # experimental strands (R281 verdicts, R288/R289 bricks, plus the
+    # R283/R285/R287/R290 contract) that stable lacks. The invariant now:
+    # identical 3-line header, EVERY main body line also in next (main is
+    # a subsequence of next), and next's extra body mentions ONLY the
+    # approved experimental R-tags.
+    import difflib as _dl_parity
+    _pm = open(os.path.join(HERE, 'r2_postproc.py'), encoding='utf-8').read().splitlines()
+    _pn = open(os.path.join(HERE, 'r2_postproc_next.py'), encoding='utf-8').read().splitlines()
+    _m_only = []
+    _n_only = []
+    for _tg, _a, _b, _c, _d in _dl_parity.SequenceMatcher(
+            None, _pm[3:], _pn[3:], autojunk=False).get_opcodes():
+        if _tg == 'equal':
+            continue
+        _m_only.extend(_pm[3:][_a:_b])
+        _n_only.extend(_pn[3:][_c:_d])
+    _n_tags = set(re.findall(r'\bR2[0-9][0-9]\b', '\n'.join(_n_only)))
+    check('R252/R285 engine invariant: same header, main body subset of next, '
+          'next extras only the approved experimental strands',
+          _pm[:3] == _pn[:3]
+          and not _m_only
+          and _n_tags <= {'R212', 'R225', 'R226', 'R281', 'R283', 'R285',
+                          'R288', 'R289', 'R290'},
+          'main-only=%d next-only-tags=%s' % (len(_m_only), sorted(_n_tags)))
 
     print('---- %d checks, %d failed ----' % (total, fails))
     sys.exit(1 if fails else 0)

@@ -120,6 +120,13 @@ fix()  { RESULT_FIX="${RESULT_FIX}\n  [fix]  $*";  echo "[fix]  $*"; }
 warn() { RESULT_WARN="${RESULT_WARN}\n  [!] $*"; echo "[!] $*"; }
 info() { echo "[i]    $*"; }
 
+# R284 (field report 24.11.2026 'setup ends without a word after installing a
+# missing component'): every optional component that was INCOMPLETE at its
+# check is re-verified after the install step and, if still incomplete, lands
+# in this list - the summary then names it and offers an immediate re-run
+# instead of closing on a stale warn line from before the install attempt.
+R284_RECHECK=""
+
 echo "== R2 environment wizard =="
 echo "       package : ${DIR}"
 echo "       user    : ${USER_NAME}  (home ${HOME_DIR})"
@@ -510,6 +517,26 @@ primary_branch: main"
 else
     ok "KAMP fully set up"
 fi
+# R284: KAMP was incomplete at the section start -> re-verify NOW (covers
+# install succeeded / failed / declined / offline in one place). The step
+# must not close on a 'fix' line a failed clone contradicts, or on a bare
+# warn when the install actually repaired everything.
+if [ "${KAMP_OK}" -eq 0 ]; then
+    _k284=1
+    [ -d "${KAMP_REPO}" ] || _k284=0
+    { [ -L "${KAMP_CFG_DIR}/KAMP" ] || [ -d "${KAMP_CFG_DIR}/KAMP" ]; } || _k284=0
+    [ -f "${KAMP_CFG_DIR}/KAMP_Settings.cfg" ] || _k284=0
+    if [ -n "${CFG_DIR}" ] && [ -f "${CFG}" ]; then
+        grep -q '^\[exclude_object\]' "${CFG}" || _k284=0
+        grep -q '^\[include KAMP_Settings.cfg\]' "${CFG}" || _k284=0
+    fi
+    if [ "${_k284}" -eq 1 ]; then
+        fix "KAMP re-check: complete now (repo + link + settings + printer.cfg verified)"
+    else
+        warn "KAMP still incomplete after this run's step"
+        R284_RECHECK="${R284_RECHECK} KAMP"
+    fi
+fi
 
 # =====================================================================================
 #  7) LED effects (klipper-led_effect - needed by 03_leds.cfg)
@@ -560,6 +587,17 @@ is_system_service: False"
     else
         info "offline or no git - manual install: cd ~ && git clone ${LED_REPO_URL}"
         info "     cd klipper-led_effect && ./install-led_effect.sh"
+    fi
+fi
+# R284: re-verify after the install attempt (or the decline) - the section
+# must not close on the stale 'NOT installed' warn when the install actually
+# linked the module, nor on a 'fix' line when the clone died.
+if [ "${LED_OK}" -eq 0 ]; then
+    if [ -e "${KLIPPER_DIR}/klippy/extras/led_effect.py" ]; then
+        fix "led_effect re-check: module now linked into klipper"
+    else
+        warn "led_effect still missing after this run's step"
+        R284_RECHECK="${R284_RECHECK} led_effect"
     fi
 fi
 if [ -n "${CFG_DIR}" ]; then
@@ -743,12 +781,14 @@ else
                 else
                     warn "zram-tools installed but zram0 did not come up - check:"
                     warn "   systemctl status zramswap; cat /etc/default/zramswap"
+                    R284_RECHECK="${R284_RECHECK} zram"
                 fi
             else
                 warn "apt install failed (offline? repo?) - manual:"
                 warn "   sudo apt-get install zram-tools"
                 warn "   echo -e 'ALGO=zstd\nPERCENT=50\nPRIORITY=100' | sudo tee /etc/default/zramswap"
                 warn "   sudo systemctl restart zramswap"
+                R284_RECHECK="${R284_RECHECK} zram"
             fi
         fi
     fi
@@ -788,6 +828,30 @@ if [ "${R2_LIB_LOADED}" = "1" ] && [ -f "${R2_MODE_FILE}" ]; then
     echo "[i] manual changes collected in: ${R2_MODE_FILE}"
     echo "    (mode 3 = the SAFEST way: your files were not touched at all -"
     echo "     copy the noted lines to the marked places by hand)"
+fi
+
+# ---- R284: the retry path - never end silently on a missing component ------
+# A component installed (or attempted) this run was verified right at its
+# section; whatever is STILL incomplete is named here, and one keypress
+# re-runs the whole wizard so the user sees it turn green instead of
+# wondering whether the install worked at all.
+if [ -n "${R284_RECHECK}" ]; then
+    echo
+    echo "== component re-run ============================================================="
+    echo "[!] still incomplete after this run:${R284_RECHECK}"
+    echo "    The package works without them - the sections above explain what"
+    echo "    each one adds. Installed something by hand just now or fixed the"
+    echo "    network? Re-run the checks and watch them turn green:"
+    if [ "${CHECK_ONLY}" -eq 1 ]; then
+        echo "    (check mode) would offer: bash ${DIR}/setup.sh"
+    else
+        ask_yn "Re-run setup.sh now to re-verify?" n
+        if [ "${ASK_ANSWER}" = "y" ]; then
+            echo "[i] re-running: bash ${DIR}/setup.sh $*"
+            exec bash "${DIR}/setup.sh" "$@"
+        fi
+        echo "[i] later:  bash ${DIR}/setup.sh"
+    fi
 fi
 echo
 echo "package version: $(sed -n "s/^[[:space:]]*variable_version: *'\(R2-[0-9-]*\.[0-9]*\)'.*/\1/p" "${DIR}/macros/01_state.cfg" 2>/dev/null | head -1)"

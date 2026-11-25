@@ -105,10 +105,11 @@ check('F2 latch rearms when the flag is healthy or a real job owns it '
       '(the else branch)',
       "else:\n                # flag healthy (or a real job owns it) - "
       'rearm the latch' in blk.replace('\r', ''))
-check('F2 counts: 7 releases / 3 raises in the daemon '
-      '(+1 silent retry vs R226)',
-      src.count('SAVE_VARIABLE VARIABLE=gen_busy VALUE=0') == 7
-      and src.count('SAVE_VARIABLE VARIABLE=gen_busy VALUE=1') == 3)
+check('F2 counts: 8 releases / 4 raises in the daemon '
+      '(+1 silent retry vs R226; R281 held-scan added the 8th release '
+      '+ the 4th raise around the upload rewrite)',
+      src.count('SAVE_VARIABLE VARIABLE=gen_busy VALUE=0') == 8
+      and src.count('SAVE_VARIABLE VARIABLE=gen_busy VALUE=1') == 4)
 
 print('--- F3: the daemon build stamp names its round')
 # .136r lesson: a hard round pin goes stale on the NEXT bump - the checks
@@ -127,12 +128,15 @@ check("F3 POSTPROC_BUILD names a round >= R227 (the field boot said "
 # only number+suffix are round-relevant.
 # R241 (.137): bare numbers carry no letter suffix - [a-z]* not [a-z]+ (the
 # old regex returned None on 'R2-2026-11-09.137' and F3 failed)
-_r227m = re.search(r"^POSTPROC_RELEASE = 'R2-\d{4}-\d{2}-\d{2}\.(\d+)([a-z]*)'$",
+_r227m = re.search(r"^POSTPROC_RELEASE = 'R2-(\d{4}-\d{2}-\d{2})\.(\d+)([a-z]*)'$",
                    src, re.M)
-check('F3 POSTPROC_RELEASE >= .136y',
-      bool(_r227m) and (int(_r227m.group(1)) > 136
-                        or len(_r227m.group(2)) >= 2
-                        or _r227m.group(2) >= 'y'))
+check('F3 POSTPROC_RELEASE >= .136y (date scheme: any release after '
+      '2026-11-09 passes, same-day needs the counter/suffix rule)',
+      bool(_r227m) and (_r227m.group(1) > '2026-11-09'
+                        or (_r227m.group(1) == '2026-11-09'
+                            and (int(_r227m.group(2)) > 136
+                                 or len(_r227m.group(3)) >= 2
+                                 or _r227m.group(3) >= 'y'))))
 
 print('--- F4: update.sh restarts moonraker (web code lives at startup)')
 upd = open(os.path.join(REPO, 'update.sh')).read()

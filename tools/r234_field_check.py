@@ -281,10 +281,19 @@ try:
     m3 = re.search(r"variable_version: '(R2-[\d-]+\.\d+[a-z]*)'", _prev)
     PREV_VER = (m3.group(1) if m3 else NEW_VER)
     if PREV_VER == NEW_VER:
-        # release already committed - fall back one real commit
-        _prev2 = sh("git show HEAD~1:macros/01_state.cfg", cwd=REPO).stdout
-        m4 = re.search(r"variable_version: '(R2-[\d-]+\.\d+[a-z]*)'", _prev2)
-        PREV_VER = (m4.group(1) if m4 else NEW_VER)
+        # release already committed - walk back to the first commit whose
+        # version really differs (a merge commit's HEAD~1 can carry the
+        # same stamp - that made BASE_SHA == SEED_SHA and C1 collapsed)
+        _n = 1
+        while _n < 50 and PREV_VER == NEW_VER:
+            _prev2 = sh("git show HEAD~%d:macros/01_state.cfg" % _n,
+                        cwd=REPO).stdout
+            m4 = re.search(r"variable_version: '(R2-[\d-]+\.\d+[a-z]*)'",
+                           _prev2)
+            if m4 and m4.group(1) != NEW_VER:
+                PREV_VER = m4.group(1)
+                break
+            _n += 1
     st = os.path.join(seed, 'macros', '01_state.cfg')
     _txt = open(st, encoding='utf-8').read().replace(NEW_VER, PREV_VER)
     open(st, 'w', encoding='utf-8').write(_txt)
