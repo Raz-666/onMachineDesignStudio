@@ -18041,7 +18041,8 @@ tests.append(('R188/R224/R226/R227 watcher: gen_busy=1 around file_fix AND the j
     'every print start, field log .136w). R227: the flag is PARSED, not '
     'string-tested (_read_vars returns strings - the truthiness bug '
     'sprayed the console every pass, field log .136x), and the stale '
-    'notice fires ONCE per episode (latch + silent retry)',
+    'notice fires ONCE per episode (latch + silent retry). R281: + the '
+    'upload scan holds it around every per-file rewrite (worker finally)',
     _r2p188.count("SAVE_VARIABLE VARIABLE=gen_busy VALUE=1") == 4
     and _r2p188.count("SAVE_VARIABLE VARIABLE=gen_busy VALUE=0") == 8
     and 'M117 Fix running:' in _r2p188

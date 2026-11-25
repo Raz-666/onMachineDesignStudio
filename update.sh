@@ -423,6 +423,16 @@ if [ -f "${DIR}/tools/r2_setup_lib.sh" ]; then
         done
         r2_ask "Keep the current LED + hardware settings?" y
         if [ "${R2_YN}" = "y" ]; then
+            # R282 (field boot halt): profiles written by the pre-fix wizard
+            # carry BARE string values ('variable_led_type: neopixel') -
+            # Klipper runs ast.literal_eval on every variable_* value and
+            # refuses to boot ('not a valid literal: <ast.Name object>').
+            # Re-render the profile from its parsed values - but ONLY when
+            # such a bare value exists: healthy profiles stay byte-identical.
+            if r2_hw_needs_literal_fix; then
+                r2_hw_write
+                echo "[fix] hardware profile re-written with quoted string values (Klipper literal rule, R282)"
+            fi
             r2_apply_led_layout
             echo "[ok] LED layout re-applied to the freshly unpacked 03_leds.cfg"
         else
