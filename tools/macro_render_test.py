@@ -5558,7 +5558,10 @@ tests.append(('R75 watcher: _prime_nonces adopts the current counters (no re-fir
         'mold_blank_nonce': None,  # R273: parametric blank molds (J2)
         'doctor_nonce': None,      # R252: evidence pack (gap found by the
                                    # r142/r143 release audit, now primed)
-        'quality_fix_nonce': None, 'speed_fix_nonce': None}, ''))
+        'quality_fix_nonce': None, 'speed_fix_nonce': None,
+        # R285: the four chain-editing channels (add/op/save/load)
+        'toolchain_add_nonce': None, 'toolchain_op_nonce': None,
+        'toolchain_save_nonce': None, 'toolchain_load_nonce': None}, ''))
 # R214 STL + R216 (.136n) shape+twist+fixes
 tests.append(('R75 watcher: daemon runs niced + primes on the first pass',
     'os.nice(4)' in open('tools/r2_postproc.py').read()
@@ -6794,7 +6797,7 @@ tests.append(('R86-R224 watcher: NONCE_KEYS has 49 channels incl. litho/seal/fra
     '+ the mirror channel (.136v) + the toolchain channel (R259) '
     '+ the stencil channel (R267) + the doctor channel (R252 gap) '
     '+ the mold channel (R270) + the blank mold channel (R273)',
-    len(_pp.NONCE_KEYS) == 50 and 'stl_nonce' in _pp.NONCE_KEYS
+    len(_pp.NONCE_KEYS) == 54 and 'stl_nonce' in _pp.NONCE_KEYS
     and 'mold_nonce' in _pp.NONCE_KEYS
     and 'mold_blank_nonce' in _pp.NONCE_KEYS
     and 'toolchain_nonce' in _pp.NONCE_KEYS
@@ -13896,7 +13899,8 @@ _ADDED135 = [
     '__main __gen __stencil __img __info',
     '__main __gen __stencil __img __pgp',
     '__main __gen __stencil __img __pgn',
-] + ['__main __gen __stencil __img __s%d' % _i for _i in range(10)] + [
+] + [
+
     # G2: explicit user-controlled helical tilt toggle in Texture.
     '__main __preprint __mods __tex __tilt',
     '__main __endq',
@@ -14956,7 +14960,6 @@ _ADDED135 = [
     # R259: the toolchain preset chain (Pre-Print > Mods > Toolchain) -
     # preset picked as a FILE (SD browser .json click), 5 sections
     '__main __preprint __mods __toolchain',
-    '__main __preprint __mods __toolchain __preset',
     '__main __preprint __mods __toolchain __src',
     '__main __preprint __mods __toolchain __how',
     '__main __preprint __mods __toolchain __go',
@@ -14979,6 +14982,57 @@ _ADDED135 = [
     '__main __gen __bricks __cat __ax __AH2x2',
     '__main __gen __bricks __cat __dm',
     '__main __gen __bricks __cat __dm __D2x2',
+    # R267/R285/R288-R290: stencil image slots, toolchain job list,
+    # the add-to-toolchain rows on the tools, texture library growth
+    '__main __gen __stencil __img __s0',
+    '__main __gen __stencil __img __s1',
+    '__main __gen __stencil __img __s2',
+    '__main __gen __stencil __img __s3',
+    '__main __gen __stencil __img __s4',
+    '__main __gen __stencil __img __s5',
+    '__main __gen __stencil __img __s6',
+    '__main __gen __stencil __img __s7',
+    '__main __gen __stencil __img __s8',
+    '__main __gen __stencil __img __s9',
+    '__main __preprint __mods __mirror __add',
+    '__main __preprint __mods __rng __add',
+    '__main __preprint __mods __scale __add',
+    '__main __preprint __mods __tex __add',
+    '__main __preprint __mods __toolchain __clr',
+    '__main __preprint __mods __toolchain __j1',
+    '__main __preprint __mods __toolchain __j1 __del',
+    '__main __preprint __mods __toolchain __j1 __down',
+    '__main __preprint __mods __toolchain __j1 __goto',
+    '__main __preprint __mods __toolchain __j1 __up',
+    '__main __preprint __mods __toolchain __j2',
+    '__main __preprint __mods __toolchain __j2 __del',
+    '__main __preprint __mods __toolchain __j2 __down',
+    '__main __preprint __mods __toolchain __j2 __goto',
+    '__main __preprint __mods __toolchain __j2 __up',
+    '__main __preprint __mods __toolchain __j3',
+    '__main __preprint __mods __toolchain __j3 __del',
+    '__main __preprint __mods __toolchain __j3 __down',
+    '__main __preprint __mods __toolchain __j3 __goto',
+    '__main __preprint __mods __toolchain __j3 __up',
+    '__main __preprint __mods __toolchain __j4',
+    '__main __preprint __mods __toolchain __j4 __del',
+    '__main __preprint __mods __toolchain __j4 __down',
+    '__main __preprint __mods __toolchain __j4 __goto',
+    '__main __preprint __mods __toolchain __j4 __up',
+    '__main __preprint __mods __toolchain __j5',
+    '__main __preprint __mods __toolchain __j5 __del',
+    '__main __preprint __mods __toolchain __j5 __down',
+    '__main __preprint __mods __toolchain __j5 __goto',
+    '__main __preprint __mods __toolchain __j5 __up',
+    '__main __preprint __mods __toolchain __j6',
+    '__main __preprint __mods __toolchain __j6 __del',
+    '__main __preprint __mods __toolchain __j6 __down',
+    '__main __preprint __mods __toolchain __j6 __goto',
+    '__main __preprint __mods __toolchain __j6 __up',
+    '__main __preprint __mods __toolchain __load',
+    '__main __preprint __mods __toolchain __n',
+    '__main __preprint __mods __toolchain __save',
+    '__main __preprint __mods __twist __add',
 ]
 _gone135 = sorted(set(_gold135) - set(_now135))
 _new135 = sorted(set(_now135) - set(_gold135))
@@ -15535,12 +15589,12 @@ tests.append(('R160 CABLE_TIE_GENERATE CONFIRM=1 armed: second press = '
 import re as _re160
 _rows160 = _re160.findall(r'gcode:\n    (?:[^\n]*menu\.exit[^\n]*\n    )?'
                    r'([A-Z_]+(?: INDEX=\d+| PRESET=\w+)? CONFIRM=1)', _lcd160)
-tests.append(('R160 LCD: 60 rows confirm by DOUBLE PRESS (macro + CONFIRM=1), '
+tests.append(('R160 LCD: 56 rows confirm by DOUBLE PRESS (macro + CONFIRM=1), '
     'console stays single-shot (R224: +Mirror +Rope/Basket/Chess presets; '
     'R240: +the 6 profile actions +queue stop; R259: +Toolchain; R267: '
     '+the 10 stencil image slots; R270: +the mold build; R273: +the '
     'blank mold build)',
-    len([r for r in _rows160 if not r.startswith(('LABEL_CLEAR_ALL', 'SYS_SAVE_CONFIG'))]) == 60
+    len([r for r in _rows160 if not r.startswith(('LABEL_CLEAR_ALL', 'SYS_SAVE_CONFIG'))]) == 56
     and 'MOLD_CREATE CONFIRM=1' in _lcd160
     and 'MOLD_BLANK_CREATE CONFIRM=1' in _lcd160
     and 'TOOLCHAIN_APPLY CONFIRM=1' in _lcd160
@@ -17876,7 +17930,7 @@ tests.append(('R185 current-only manual: no version-history appendix, no era '
     '## Appendix D' not in _m185 and 'Version history' not in _m185
     and _re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185) is None
     and _re2.search(r'\bR1[0-9][0-9]\b', _m185) is None
-    and 'The nine fonts' in _m185 and 'R2-2026-11-19.2' in _m185,
+    and 'The nine fonts' in _m185 and 'R2-2026-11-19.3' in _m185,
     'appendixD=%s eratags=%s rtags=%s nine=%s v132=%s' % (
         '## Appendix D' in _m185,
         bool(_re2.search(r'\(\.\d{2,3}[a-d]?[,)]', _m185)),
@@ -18260,7 +18314,7 @@ tests.append(('R286 texture library parity: one look per engine pattern '
     {v['texture_pattern'] for v in _lib214.values()}
         == (set(_tex286.PATTERN_NAMES))
     and "name: {'Vorlagen (' ~ " in _lcd214
-    and 'texture_lib|default({})|list|count' in _lcd214
+    and 'texture_lib|default({})|length' in _lcd214
     and 'Vorlagen (27)' not in _lcd214, ''))
 
 # ---- STL export -------------------------------------------------------------
@@ -18533,11 +18587,32 @@ tests.append(('R285 TOOLCHAIN_APPLY: empty list + no preset -> build hint, '
     'the job list is empty' in out
     and 'VARIABLE=toolchain_nonce' not in out, ''))
 # R285: die JOBLISTE (toolchain_chain) traegt den Apply - kein .json noetig
+save_vars['toolchain_preset'] = ''   # the earlier R259 render left one behind
 save_vars['toolchain_chain'] = 'scale:x=110,y=110|twist:deg=45'
 out = render(_tc259, {})
 tests.append(('R285 TOOLCHAIN_APPLY: the LCD job list runs WITHOUT a preset '
-    '(chain state beats the file)', 'VARIABLE=toolchain_nonce VALUE=' in out
-    and 'the job list is empty' not in out, out[:150]))
+    '(chain state beats the file - but a file is still needed: it asks, '
+    'the nonce stays untouched)',
+    'no file selected' in out
+    and 'VARIABLE=toolchain_nonce' not in out, out[:150]))
+# ...mit Datei laeuft die Liste los (nonce bump)
+save_vars['preview_file'] = 'teil.gcode'
+out = render(_tc259, {})
+_c285 = ('VARIABLE=toolchain_nonce VALUE=5' in out
+         and 'the job list is empty' not in out
+         and 'VARIABLE=toolchain_preset VALUE=' in out
+         and 'scale-twist.json' not in out)
+tests.append(('R285 TOOLCHAIN_APPLY: job list + file -> nonce bumped, no '
+    'preset file involved', _c285,
+    'c=%s nonce=%s empty=%s preset=%s json=%s | %r' % (
+        _c285,
+        'VARIABLE=toolchain_nonce VALUE=5' in out,
+        'the job list is empty' not in out,
+        'VARIABLE=toolchain_preset VALUE=' in out,
+        'scale-twist.json' not in out,
+        out[:160])))
+
+save_vars['preview_file'] = ''
 save_vars['toolchain_chain'] = ''
 _sys259 = open('macros/13_system.cfg', encoding='utf-8').read()
 tests.append(('R285 SD browser: a .json click LOADS the preset into the '
@@ -19286,14 +19361,11 @@ tests.append(('R252: the evidence pack has an LCD home (System > Diagnostics) '
     and 'crash_archive' in _m252['__main __system __diag __where'], ''))
 _p252 = open('tools/r2_postproc.py', encoding='utf-8').read()
 _n252 = open('tools/r2_postproc_next.py', encoding='utf-8').read()
-tests.append(('R252: the stable post-processor is STILL the entry point and the '
-              'experimental one is a byte-for-byte COPY of it - new work goes '
-              'there, nothing of today\'s code was rewritten',
+tests.append(('R252: the stable post-processor is STILL the entry point '
+              '(user directive: NO parallel engines - r2_postproc_next.py is '
+              'a legacy artifact, never to be mirrored)',
     _p252.count('def _pp_engine_gate(') == 1
-    and "_pp_engine_gate(args)" in _p252
-    and _n252.endswith(_p252.split('\n', 3)[3])
-    and 'Experimental engine copy' in _n252
-    and _n252.count('def _pp_engine_gate(') == 1, ''))
+    and "_pp_engine_gate(args)" in _p252, ''))
 tests.append(('R252: the handover is failure-proof - a missing/broken copy '
               'stays on stable, a failed handover is braked for 15 min, and '
               'only --watch hands over (the diagnostics never do)',

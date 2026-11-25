@@ -77,8 +77,8 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-19.2'
-POSTPROC_BUILD = 'V6'
+POSTPROC_RELEASE = 'R2-2026-11-19.3'
+POSTPROC_BUILD = 'R285'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
 # and no speed/accel/nozzle parameters. Files carrying an OLD tag are UPGRADED
@@ -29390,6 +29390,10 @@ def watch(directory, interval=5.0, once=False):
                 # R259: a toolchain chain writes MANY files (one per step
                 # plus the final) - disk I/O during a print waits for idle
                 'toolchain_nonce',
+                # the R285 chain-editing channels (add/load/op/save) write
+                # variables and the chain store - the same disk rule
+                'toolchain_add_nonce', 'toolchain_load_nonce',
+                'toolchain_op_nonce', 'toolchain_save_nonce',
                 # R267 (J9): the stencil set writes one file per tone band
                 'stencil_nonce',
                 # R270/R271 (J2): the mold set writes up to three files

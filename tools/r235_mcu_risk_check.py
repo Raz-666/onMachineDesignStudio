@@ -190,8 +190,10 @@ check('C3: the waiter reads it too',
 print('--- D/E) pins: threshold + card variable ------------------------------')
 pp = open(os.path.join(REPO, 'tools', 'r2_postproc.py'),
           encoding='utf-8').read()
-check('D1: watcher selection threshold still > 400.0 (same rule)',
-      'mr is not None and mr > 400.0' in pp)
+check('D1: watcher selection threshold still > 450.0 (R253: the SUSTAINED '
+      'demand rule - a single stray segment in a spiral vase used to trip '
+      'the old 400/s pin on every selection)',
+      'mr is not None and mr > 450.0' in pp)
 check('D2: the watcher still stamps MOVERATE (source of the number)',
       "_patch_info_kv(p, 'MOVERATE'" in pp)
 check('E1: _PREVIEW declares variable_moverate: 0.0',

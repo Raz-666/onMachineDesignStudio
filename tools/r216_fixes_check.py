@@ -61,27 +61,30 @@ src = qual_fixture('q1.gcode', [
     'G10', 'G1 Z0.6 F600', 'G0 X30 Y30 F9000', 'G1 Z0.2 F600', 'G11',
     'G1 X30 Y31 E6 F1800',
 ])
-dropped, kept, naked = pp._quality_fix_file(src)
+dropped, kept, injected, naked = pp._quality_fix_file(src)
 txt = open(src).read()
-ck('quality: a clean (non-crossing) block loses its armor, a crossing '
-   'block keeps it',
-   dropped == 1 and kept == 1 and naked == 0
-   and txt.count('\nG10') == 1 and txt.count('Z0.6') == 1
+# R249: the rule is same-layer OR sacred ink - both block travels touch
+# the printed wall (sacred), so BOTH keep their armor. naked=1 is the
+# file-start travel (no ink known yet -> dangerous by default, no retract
+# known -> counted, left as-is).
+ck('quality: a block whose travel touches sacred ink keeps its armor '
+   '(R249 sacred-ink rule - the skin wins over the saved second)',
+   dropped == 0 and kept == 2 and injected == 0 and naked == 1
+   and txt.count('\nG10') == 2 and txt.count('Z0.6') == 2
    and 'G0 X70 Y5 F9000' in txt and 'G0 X30 Y30 F9000' in txt,
-   'd=%d k=%d n=%d' % (dropped, kept, naked))
-ck('quality: the crossing block keeps its FULL armor (hop up, hop down, '
+   'd=%d k=%d i=%d n=%d' % (dropped, kept, injected, naked))
+ck('quality: the kept blocks keep their FULL armor (hop up, hop down, '
    'G11)',
-   'G1 Z0.2 F600\nG11' in txt, txt[:200])
-ck('quality: the dropped block left the R2 stamp',
-   'R2-QUALITYFIX: 1 unprotected' in txt, '')
+   txt.count('G1 Z0.2 F600\nG11') == 2, txt[:200])
 
 # naked crossing: a travel across ink without any retract at all
 src = qual_fixture('q2.gcode', ['G0 X70 Y5 F9000', 'G0 X30 Y30 F9000',
                                  'G1 X30 Y31 E6 F1800'])
-d2, k2, n2 = pp._quality_fix_file(src)
-ck('quality: a crossing travel WITHOUT armor is counted (naked), the '
-   'file stays untouched',
-   d2 == 0 and k2 == 0 and n2 == 1
+d2, k2, i2, n2 = pp._quality_fix_file(src)
+ck('quality: crossing travels WITHOUT armor are counted (naked: file '
+   'start + both crossings), the file stays untouched (nothing to '
+   'inject: the fixture shows no retract the fix could reuse)',
+   d2 == 0 and k2 == 0 and i2 == 0 and n2 == 3
    and 'G0 X30 Y30 F9000' in open(src).read(), 'd=%d n=%d' % (d2, n2))
 # (the first travel runs below the square = clean, the second crosses
 #  the right wall = naked: ink, no retract at all)
@@ -92,10 +95,11 @@ src = qual_fixture('q3.gcode', [
     'G1 Z0.2 F600', 'G1 E2.0 F2400',
     'G1 X90 Y5 E5 F1800',
 ])
-d3, k3, n3 = pp._quality_fix_file(src)
-ck('quality: E-only retract pairs around a clean travel drop too',
-   d3 == 1 and 'E-2.0' not in open(src).read()
-   and 'G0 X70 Y5 F9000' in open(src).read(), 'd=%d' % d3)
+d3, k3, i3, n3 = pp._quality_fix_file(src)
+ck('quality: E-only retract blocks count the same way (sacred-ink '
+   'touch -> kept, R249)',
+   d3 == 0 and k3 == 1 and n3 == 1 and 'E-2.0' in open(src).read()
+   and 'G0 X70 Y5 F9000' in open(src).read(), 'd=%d k=%d n=%d' % (d3, k3, n3))
 
 # a NEW layer resets the ink: the same travel is clean one layer up
 src = qual_fixture('q4.gcode', [
@@ -107,10 +111,27 @@ src = qual_fixture('q4.gcode', [
     'G10', 'G1 Z0.8 F600', 'G0 X80 Y35 F9000', 'G1 Z0.4 F600', 'G11',
     'G1 X80 Y36 E8 F1800',
 ])
-d4, k4, n4 = pp._quality_fix_file(src)
-ck('quality: the layer change resets the ink - the same travel is '
-   'clean one layer up',
-   d4 == 1 and k4 == 1, 'd=%d k=%d' % (d4, k4))
+d4, k4, i4, n4 = pp._quality_fix_file(src)
+# R249: sacred ink (outer wall) counts ACROSS layers - the layer-2
+# travel still crosses the printed wall's skin, so the armor stays.
+# (The pre-R249 same-layer-only rule would have dropped it.)
+ck('quality: sacred ink counts across layers - the layer-2 travel over '
+   'the old wall keeps its armor (R249 skin-first rule)',
+   d4 == 0 and k4 == 2 and n4 == 1, 'd=%d k=%d n=%d' % (d4, k4, n4))
+
+# the DROP path: a travel far outside any ink loses its armor
+src = qual_fixture('q5.gcode', [
+    'G1 X60 Y60 E5 F1800',
+    'G10', 'G1 Z0.6 F600', 'G0 X90 Y20 F9000', 'G1 Z0.2 F600', 'G11',
+    'G1 X92 Y20 E6 F1800',
+])
+d5, k5, i5, n5 = pp._quality_fix_file(src)
+_t5 = open(src).read()
+ck('quality: a travel that crosses NO ink drops the armor (the time '
+   'saving the fix exists for)',
+   d5 == 1 and k5 == 0
+   and 'G0 X90 Y20 F9000' in _t5 and _t5.count('\nG10') == 0,
+   'd=%d k=%d' % (d5, k5))
 
 # ---------------- 2) speed fix ------------------------------------------------
 src = os.path.join(D, 's1.gcode')

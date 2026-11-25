@@ -8,7 +8,7 @@
   "vsdlist": 1,
   "input": 611
  },
- "sha256": "bbdfcce66d849f4b",
+ "sha256": "839529ee00e6a96a",
  "live_objects": [
   "bed_mesh",
   "configfile",
@@ -5142,7 +5142,7 @@
          {
           "id": "__main __preprint __mods __tex __lib",
           "type": "list",
-          "name": "{'Vorlagen (' ~ (printer['gcode_macro _GEN_PRESET'].texture_lib|default({})|list|count) ~ ')'}",
+          "name": "{'Vorlagen (' ~ (printer['gcode_macro _GEN_PRESET'].texture_lib|default({})|length) ~ ')'}",
           "children": [
            {
             "id": "__main __preprint __mods __tex __lib __how",
@@ -5667,13 +5667,13 @@
          {
           "id": "__main __preprint __mods __toolchain __n",
           "type": "command",
-          "name": "{((printer['save_variables'].variables.toolchain_chain_lcd|default('')|string).split('|')|list|count) ~ ' job(s)' if (printer['save_variables'].variables.toolchain_chain_lcd|default('')|string) != '' else 'empty list'}",
+          "name": "{((printer['save_variables'].variables.toolchain_chain_lcd|default('')|string).split('|')|length) ~ ' job(s)' if (printer['save_variables'].variables.toolchain_chain_lcd|default('')|string) != '' else 'empty list'}",
           "gcode": [
            "{% set cl285 = printer['save_variables'].variables.toolchain_chain_lcd|default('')|string %}",
            "{% if cl285 == '' %}",
            "RESPOND MSG=\"The chain is EMPTY. Build it: Tools > Scale/Texture/Range/Twist/Mirror > set the values > '+ Add to chain'. Job 1 is protected (never deletable).\"",
            "{% else %}",
-           "RESPOND MSG=\"Toolchain ({ cl285.split('|')|list|count } job(s)): { cl285 } - click a job to edit (Up/Down/Delete/To tool). Job 1 is protected.\"",
+           "RESPOND MSG=\"Toolchain ({ cl285.split('|')|length } job(s)): { cl285 } - click a job to edit (Up/Down/Delete/To tool). Job 1 is protected.\"",
            "{% endif %}"
           ],
           "children": []
@@ -5950,7 +5950,7 @@
           "type": "command",
           "name": "Load preset (.json)",
           "gcode": [
-           "RESPOND MSG=\"Preset LADEN = die Datei im SD-Browser anklicken (Toolchain-Ordner) - sie ERSETZT die Liste hier. Speichern oben; kein Tippen am LCD.\""
+           "RESPOND MSG=\"Load a preset = click the file in the SD browser (Toolchain folder) - it REPLACES the list here. Saving is above, no typing on the LCD.\""
           ],
           "children": []
          },
@@ -5968,8 +5968,8 @@
           "type": "command",
           "name": "How? (chain)",
           "gcode": [
-           "RESPOND MSG=\"Bauen: Tools > Scale/Texture/Range/Twist/Mirror > Werte setzen > '+ Add to chain'. Die Liste hier zeigt Job 1..n; Job anklicken = Hoch/Runter/Loeschen/Zum Werkzeug (Werte aendern, als NEUEN Job anhaengen). Job 1 ist geschuetzt.\"",
-           "RESPOND MSG=\"Apply chain laeuft 1->n, jede Stufe fuettert die naechste, nur die LETZTE Ausgabe bleibt (Toolchain-Ordner). 'Save preset' schreibt deine eigene .json; Laden = im SD-Browser anklicken.\""
+           "RESPOND MSG=\"Build: Tools > Scale/Texture/Range/Twist/Mirror > set the values > '+ Add to chain'. This list shows job 1..n, click a job = move up/down/delete/open its tool (change values, append as a NEW job). Job 1 is protected.\"",
+           "RESPOND MSG=\"Apply chain runs 1->n, every stage feeds the next, only the LAST output stays (Toolchain folder). 'Save preset' writes your own .json, loading = click it in the SD browser.\""
           ],
           "children": []
          },

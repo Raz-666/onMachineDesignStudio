@@ -352,6 +352,15 @@ class PostprocPaket4Tests(unittest.TestCase):
             lines += [';LAYER_CHANGE', ';Z:0.80',
                       ';TYPE:Top surface'] + _rect_hatch(11, 11, 29, 29, 0.8, step=1.2)
             lines += [';TYPE:Brim'] + _rect_loop(50, 50, 70, 70, 0.8)
+            # R281: ironing ON same-layer solid infill (no top surface at
+            # all) is LEGAL - Slice Beam irons stepped ceilings exactly this
+            # way (field file MAN_V3). The widened G3 support world must NOT
+            # fire here, so the G3 count pins it to the remote block alone.
+            lines += [';LAYER_CHANGE', ';Z:1.00',
+                      ';TYPE:Solid infill']
+            lines += _rect_hatch(40, 40, 58, 58, 1.0, step=1.2)
+            lines += [';TYPE:Ironing']
+            lines += _rect_hatch(40, 40, 58, 58, 1.0, step=0.6, e_per_mm=0.005)
             p.write_text('\n'.join(lines) + '\n', encoding='utf-8')
 
             s = PP.process(str(p), verify_tagged=True)
@@ -360,8 +369,19 @@ class PostprocPaket4Tests(unittest.TestCase):
                          'G3_IRONING_UNSUPPORTED', 'G4_STACKED_EXPLICIT_TOP',
                          'G5_UNANCHORED_BRIDGE', 'G6_OPEN_HATCH_AS_OUTER_WALL'):
                 self.assertIn(want, codes, f'missing {want} in {s["tag_audit"]}')
-            # Non-destructive: explicit tags stayed untouched (never silently DERIVED).
-            self.assertFalse(s.get('derived', False))
+            # R281: conflicts are a VERDICT - the lying tag world is
+            # discarded wholesale and the geometry classifier re-derives
+            # every feature (DERIVED=1 + TAGMISMATCH= in _FILE_INFO). The
+            # audit itself still reports all six conflict classes above.
+            self.assertTrue(s.get('derived', False))
+            self.assertEqual(sorted(codes), s.get('tag_mismatch'))
+            self.assertIn('TAGMISMATCH=', p.read_text(encoding='utf-8'))
+            # R281 mutation pin: exactly ONE G3 (the remote block). The
+            # layer-5 ironing riding on solid infill is supported - a G3
+            # support world that knows only SURFACE-TOP fires twice here.
+            self.assertEqual(
+                1, s['tag_audit']['by_code']['G3_IRONING_UNSUPPORTED'],
+                f'widened G3 support world broken: {s["tag_audit"]}')
 
     # ---- 4g: r2_job_service archive, output validation, lifecycle ---------
     def test_4g_original_archive_validator_and_job_registry(self):

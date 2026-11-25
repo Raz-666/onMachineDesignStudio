@@ -217,24 +217,29 @@ for _f in sorted(os.listdir(os.path.join(HERE, '..', 'macros'))):
         _live += rd('macros', _f).split('\n')
 _live += rd('menus', 'lcd_menues.cfg').split('\n')
 _live = '\n'.join(l for l in _live if not l.lstrip().startswith('#'))
-check('D2: version .142 everywhere, no .138/.139/.140 leftovers in live cfg '
-      'lines',
-      "'R2-2026-11-09.142a'" in st
-      and '.138' not in _live and '.139' not in _live and '.140' not in _live
-      and 'R2-2026-11-09.142a' in rd('MANUAL.md')
-      and "POSTPROC_RELEASE = 'R2-2026-11-09.142a'" in pp_src
-      and "POSTPROC_BUILD = 'R246b'" in pp_src)
+# R285: dynamic pins (the frozen .142a/R246b strings rotted with every
+# release - the r272 repair round made the other batteries dynamic, this
+# one was missed). Current version read live, leftover ban stays.
+_cur_ver = re.search(r"variable_version: '([^']+)'", st).group(1)
+_cur_rel = re.search(r"POSTPROC_RELEASE = '([^']+)'", pp_src).group(1)
+_cur_build = re.search(r"POSTPROC_BUILD = '([^']+)'", pp_src).group(1)
+check('D2: current version everywhere, no .138/.139/.140 leftovers in '
+      'live cfg lines',
+      '.138' not in _live and '.139' not in _live and '.140' not in _live
+      and _cur_ver in rd('MANUAL.md')
+      and _cur_ver == _cur_rel)
 html = rd('web', 'index.html')
-check('D3: web badge .142, page state ver R246',
-      '<span id="ver">.142a</span>' in html and "ver:'R246b'}" in html)
+check('D3: web badge == 01_state version, page state ver == POSTPROC_BUILD',
+      ('<span id="ver">%s</span>' % _cur_ver) in html
+      and ("ver:'%s'}" % _cur_build) in html)
 ta = rd('TESTANLEITUNG.md')
 check('D4: TESTANLEITUNG ch. 28 documents the crash + field check',
       '## 28. Die .139-Neuerungen (R243' in ta
       and 'division by zero' in ta
       and '### Field-Check .139' in ta
       and 'R2-2026-11-09.139' in ta)
-check('D5: README carries the .142 row',
-      '**.142a (R246b)**' in rd('README.md'))
+check('D5: README carries the current release row',
+      ('**R2-%s' % _cur_ver.replace('R2-', '')) in rd('README.md'))
 
 print()
 print('%d checks, %d failed' % (ok + fails, fails))
