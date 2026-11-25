@@ -829,12 +829,44 @@ ist „versteckt", sie werden hier wie alle anderen bearbeitet und abgehakt.
       erfasst werden; Crashlogs sind **nur zum Download per Mainsail**.
       Verifikation: Wurzel-Scan-Audit + Fix (Crash-Ordner ausschließen).
 - [ ] **L11 — „Range Rover" im range Tool (Nutzer-Frage: was soll das?).**
-      Suche im Repo: **kein „Rover"-String** in Code/Menü/Web/PDF. Der
-      range Tool (`make_range`, H.-Abschnitt) hat **keine**
-      „Range Rover"-Funktion — vermutlich ein **Missverständnis/Fehlfunktion**
-      (evtl. verwechselt mit einem Menüeintrag oder einer Display-Meldung).
-      Prüfung: wo genau der Begriff auftaucht (LCD? WebUI? Log?), dann
-      beheben oder als Nicht-Issue bestätigen — mit Beleg.
+      Suche im Repo: **kein „Rover"-String** in Code/Menü/Web/PDF
+      (`grep -rn -i rover` + PDF-Text-Extraktion aller 28 PDFs = 0 Hits).
+      Der range Tool (`make_range`, H.-Abschnitt) hat **keine**
+      „Range Rover"-Funktion. Das Menü `Pre-Print > Tools > Range/Stop`
+      besteht aus **16 Zeilen** (File, Stop@, From, To, Floor, F.Shp,
+      F.Fill, Top, T.Shp, T.Fill, Fl.hole, Top hole, Brim, Create,
+      +Add to chain, How it works) — vollständig in `RANGE.pdf`
+      dokumentiert. **Vermutung:** der Begriff ist ein **Missverständnis**
+      (evtl. verwechselt mit dem Auto-Namen oder einer Display-Meldung am
+      Gerät). Prüfung: wo genau der Begriff am Gerät/im Log auftaucht, dann
+      als Nicht-Issue bestätigen oder beheben — mit Beleg.
+- [ ] **L13 — Geometrie-Generatoren: Textur-Träger-Geometrie
+      (Nutzer-Hinweis: „das stand auch schon mit auf der Aufgabenliste").**
+      Die `make_shape`-Generatoren (TRIANGLE/SQUARE/POLY/CYLINDER,
+      `tools/r2_postproc.py`) erzeugen Rohlinge mit proper `;TYPE:Outer
+      wall`-Blöcken — die **Textur-Anwendung darauf funktioniert offline**
+      (Verification-Probe: `make_shape` + `apply_texture(BUMPS, RIDGES/
+      BARK)` → `; R2-TEXTURE` + 80/4 outer-wall-Blöcke, 25 002
+      Extrusionsmoves). **Offene Prüfung:** am **Drucker** muss die
+      Textur-Prägung auf den Generator-Rohlingen sichtbar/lesbar sein
+      (Field-Check, analog „Textur-Streifen drucken"). Die
+      GEOMETRY.pdf-Zitat: make_shape erzeugt „Rohling für das Textur- und
+      Twist-Werkzeug". Field-Abnahme = G.-Checkliste.
+- [ ] **L14 — Handover-/Repo-Probleme (gefunden und teilweise behoben,
+      2026-11-25).** (a) **Shallow-Clone:** der Session-Clone war
+      shallow (nur 3 Commits, `.git/shallow` = `06e460a`) — History
+      auffüllen mit `git fetch --unshallow` → **343 Commits**, jetzt
+      voll sichtbar. (b) **`analyse/RELEASE-GAP-MATRIX.md` leer (0 Byte)**
+      — im Commit `7123662` (R258, 18.11.) geleert; aus der letzten
+      guten Version (`0f2f245`, 25 358 Byte) **restauriert**.
+      (c) **`docs/RELEASE_R2-2026-11-19.3_REPORT.md` fehlte** — für V7
+      wurde kein Release-Bericht erstellt; **neu geschrieben** (PR #26,
+      Gates, PDF-Auslieferung, Grenzen). (d) **Drei PDFs mit stale
+      Stempel** (`KALIBRIERUNG/POSTPROCESSING/PREPRINT_LIVETUNING.pdf`
+      auf `.19.2`) — **neu gebaut**, alle 28 PDFs jetzt einheitlich
+      `.19.3`. (e) `tools/samples/statprobe.gcode` +
+      `statprobe_tagged.gcode` neu erzeugt (fehlte für die PDF-Builder).
+      Verifikation: alle 28 PDFs tragen `R2-2026-11-19.3`.
 - [ ] **L12 — Dokumentation: agents.md + TODO-Inventur (Nutzer-Frage).**
       Systematische Inventur aller offenen/versteckten Aufgaben: diese
       Liste ist das Ergebnis. `AGENTS.md` als Einstiegsdokument auf
