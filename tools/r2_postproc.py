@@ -9908,7 +9908,10 @@ def _sync_root_links(directory, quiet=True):
     cand = {}
     base_depth = root.rstrip(os.sep).count(os.sep)
     for dp, dns, fns in os.walk(root):
-        dns[:] = [d for d in dns if not d.startswith('.')]
+        # R286 (L10): the crash_archive folder holds crash snapshots for
+        # Mainsail download only - never expose them as printable SD links.
+        dns[:] = [d for d in dns if not d.startswith('.')
+                  and d.lower() != 'crash_archive']
         if dp.rstrip(os.sep).count(os.sep) - base_depth >= LINK_MAX_DEPTH:
             dns[:] = []
         if os.path.realpath(dp) == rroot:
