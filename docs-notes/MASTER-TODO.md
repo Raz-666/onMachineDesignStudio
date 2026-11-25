@@ -756,6 +756,90 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       volle Spanne + Loft, Löcher-Inferenz, Kiri-Objektmarker, Breiten-
       schalenmodell, Slicer-Reimport.
 
+## L. Feld-Befunde 2026-11-25 (gestrige Version, vom Nutzer neu gemeldet) — Offen
+
+**Systematische Inventur 2026-11-25:** diese Punkte standen **nicht** (oder
+nur teilweise) in der Aufgabenliste — jetzt alle nachgetragen. Kein Punkt
+ist „versteckt", sie werden hier wie alle anderen bearbeitet und abgehakt.
+
+- [ ] **L1 — Tonausgabe auf dem Raspberry (Nutzer-Nachforderung, 2026-11-25).**
+      Installation/Update soll **wählen**: **Beep** (Board-Piezo/M300, wie
+      heute) **oder** **Klinke/HDMI-Audio** (Raspberry-Ausgang, umgeht die
+      MCU). Beleg-Standort: J4 (Audio-Feedback-Konzept) — dort als Konzept
+      entworfen, aber die konkrete Wahl-Funktion (Install/Update-Dialog
+      Beep vs. Klinke/HDMI) wurde **nicht** umgesetzt. Grenzen dokumentiert:
+      Pi Zero 2 W hat keine Klinke/Analog-Audio (3B+ ja); GPIO-Piezo braucht
+      Treiber; HDMI-Audio over Display-Weg. Umsetzung: Install/Update-Pfad
+      mit lựacher Audio-Ausgang (Klangquelle), Wert in save_variables,
+      Audit-Tool verifiziert die Auswahl. Offene Nutzer-Entscheidung: welche
+      Quelle soll als PRIMÄR gelistet sein.
+- [ ] **L2 — LED-Effekte während des Drucks ausschalten (Nutzer-Regel,
+      2026-11-25).** Während des Drucks **nur eine Farbe, ohne Effekt** —
+      damit die MCU nicht überlastet. Beleg: `macros/03_leds.cfg` hat
+      `r2_printing` als Effekt-Animation; R164-Serial-Budget-Guard existiert
+      (frame_rate <= 5), aber die Nutzer-Regel lautet auf **einfarbig,
+      ohne Effekt**. Umsetzung: Druck-Start setzt **statisches Monochrom**
+      (kein `SET_LED_EFFECT`-Animation), Druck-Ende kehrt zur Effekt-Palette
+      zurück; R164-Guard bleibt. Verifikation: r164_serial_budget +
+      macro_render_Test.
+- [ ] **L3 — Label-Schrift: Ausrichtung/Größe-Regeln verpflichtend
+      (Nutzer: „schon so oft gesagt").** Zeilen **bündig** (gemeinsame
+      Grundlinie), **Kleinbuchstaben gleiche Größe**, ordentliches Layout
+      wie getippt — mit festen Regeln, die der Generator sucht/erfindet.
+      Beleg-Standort: `tools/r2_postproc.py` `_make_labels_one`
+      (Font-Zeichensatz + Uniform-Scale-R99); `make_labels_pdf.py`
+      (Vektor-Schriftkarten). Die `~`-Zeilen-Einteilung (R83, L1–L5) ist
+      gegeben, die **Bündigkeit/Größe-Konformität** aber nicht verpflichtend
+      geprüft. Verifikation: Label-Render-Test mit Ausrichtung-Checks
+      (Grundlinie/Cap-Height pro Zeile).
+- [ ] **L4 — Label-L2 (und L3/L4/L5) Text gedruckt (Nutzer-Befund: L2
+      wird nicht gedruckt).** Engine hat 5 Zeilen (R83 `__ln1`..`__ln5`,
+      `LABEL_ADD` joined mit `~`, `make_labels` parse via `~`), aber der
+      Nutzer hat beobachtet, dass **L2 nicht gedruckt** wird. Prüfung:
+      Verifikations-Probe, ob **alle** gefüllten Zeilen (L1–L5) in die
+      Engine und ins Render-Bild kommen; Fix + Label-Audit-Tool.
+- [ ] **L5 — Label-Anordnung/Größe/Schrift je nach Modus (Nutzer-Frage).**
+      Modi (`grow`/`fixed`) existieren (R99), aber die **konsequente
+      Anordnung (Zeilenfolge, Ausrichtung), Größe und Schriftwahl pro Modus**
+      muss verifiziert und ggf. vereinheitlicht werden. Verifikation:
+      Render-Audit pro Modus.
+- [ ] **L6 — Stempel-Schrift-Ausbringung (Nutzer-Befund: Schrift als
+      Stempel sichtbar/lesbar, ggf. spiegeln).** `stamp=1` existiert
+      (`make_labels`, `_make_labels_one`, `stamp_base`); der Nutzer beobachtet
+      Schrift-Ausbringung des Stamp-Modus. Prüfung: Stamp-Render-Audit
+      (Schrift lesbar, ggf. Spiegelung), Fix + `r168_stampcheck`-Erweiterung.
+- [ ] **L7 — Generator-Audit (Nutzer-Anforderung): alle Generatoren.**
+      Geometrie-Position, Feature-Benennung und **Live-Parameter** prüfen,
+      dass kein Generator „aus der Reihe tanzt" — keine singulären
+      Stimmbehaft-Korrekturen nachträglich. Umfasst: alle D3/D4-Generatoren
+      + Labels + Frames + Toolchain. Verifikation: Generator-Audit-Tool
+      (Parameter-Matrix + Render-Abgleich).
+- [ ] **L8 — Watcher-Speicher: r2_postproc.py 130 MB idle (Nutzer-Befund).**
+      Der Wächter (`r2_postproc.py --watch`) nimmt im Idle 130 MB — zu
+      hoch (MCU-Shutdown-Risiko). Verlangt: **kleineres/anderes Warte-Tool**
+      mit geringem RAM-Fußabdruck. Verifikation: RAM-Messung (idle +
+      Last), Nachweis der Reduktion.
+- [ ] **L9 — Toolchain-Job-Add crasht Drucker (Nutzer-Befund, v19.3).**
+      Job-Add mit **scale XY** lässt den Drucker abstürzt. Nach
+      Neustart: **generated leer**, **optimized zeigt nur „1" ohne Titel**.
+      Verifikation: Job-Add-Repro mit scale-XY, Fix, Folder-Anzeige-Fix
+      (generated/optimized mit echtem Titel).
+- [ ] **L10 — Crash-Ordner nicht in Wurzel-Scan (Nutzer-Befund).**
+      Der Crash-Ordner (Crashlogs) darf **nicht** vom Watcher-Wurzel-Scan
+      erfasst werden; Crashlogs sind **nur zum Download per Mainsail**.
+      Verifikation: Wurzel-Scan-Audit + Fix (Crash-Ordner ausschließen).
+- [ ] **L11 — „Range Rover" im range Tool (Nutzer-Frage: was soll das?).**
+      Suche im Repo: **kein „Rover"-String** in Code/Menü/Web/PDF. Der
+      range Tool (`make_range`, H.-Abschnitt) hat **keine**
+      „Range Rover"-Funktion — vermutlich ein **Missverständnis/Fehlfunktion**
+      (evtl. verwechselt mit einem Menüeintrag oder einer Display-Meldung).
+      Prüfung: wo genau der Begriff auftaucht (LCD? WebUI? Log?), dann
+      beheben oder als Nicht-Issue bestätigen — mit Beleg.
+- [ ] **L12 — Dokumentation: agents.md + TODO-Inventur (Nutzer-Frage).**
+      Systematische Inventur aller offenen/versteckten Aufgaben: diese
+      Liste ist das Ergebnis. `AGENTS.md` als Einstiegsdokument auf
+      vollständigen Stand bringen (Stand: Release V7 / Branch-Status).
+
 ## J. Vorgemerkte Aufgaben und Nutzer-Entscheidungen (Sitzung nach `bdb8b03`)
 
 - [ ] **J1 — STL-§24-Fertigstellung ZURÜCKGESTELLT (Nutzer-Entscheidung).**

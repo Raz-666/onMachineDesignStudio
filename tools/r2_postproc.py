@@ -24917,6 +24917,10 @@ class _GeomScan:
         self._p_f = None
         self._p_len = 0
         self.ranges = []          # [(i, j, feature)] - polyline starts
+        self._prev_r0 = 0         # R286: range index where the previous
+                                  # layer's ranges start (layer-sequence rule)
+        self._prev_layer_feats = set()  # R286: features of the last
+                                       # classified layer (top/bottom order rule)
         self.fstat = {}           # feature -> {speed_mm_s: move count}
         self.vase = False         # R153: spiral detected -> one feature rules
         self._vn153 = 0           # rising-Z extruding move run
@@ -25273,6 +25277,13 @@ class _GeomScan:
         # model rests on), not plain support. One-layer lookback like the
         # solid check. Runs right after, before this layer is classified.
         self._sup_interface286(grid, layer_no)
+        # R286 (Befund 1): the layer-sequence GROUND RULE bookkeeping -
+        # the ranges of the layer BELOW are already final now (the solid
+        # check re-tagged them); their features drive the top/bottom
+        # order rule for THIS layer.
+        _r0 = len(self.ranges)
+        self._prev_layer_feats = set(
+            r[2] for r in self.ranges[self._prev_r0:_r0])
 
         # ---- walls ---------------------------------------------------------------
         loops.sort(key=lambda t: -t[0])
@@ -25447,6 +25458,22 @@ class _GeomScan:
                                    'idxs': []}
                 for (_b, _o, ij, speed, plen, pi) in items:
                     f181 = 'SUPPORT' if pi in sup_set else feat
+                    # R286 (Befund 1): the layer-sequence GROUND RULE -
+                    # 'Top surface' is always the UPPERMOST finishing
+                    # surface, never stacked on another Top; 'Bottom
+                    # surface' is the LOWEST layer alone, never a second
+                    # Bottom on it. After Sparse infill the next solid
+                    # deck is a BRIDGE, not a Top. Support ranges keep
+                    # their tag (they are not part of the model stack).
+                    if f181 == 'SURFACE-TOP' \
+                            and 'SURFACE-TOP' in self._prev_layer_feats:
+                        f181 = 'INFILL-SOLID'
+                    elif f181 == 'SURFACE-BOTTOM' \
+                            and 'SURFACE-BOTTOM' in self._prev_layer_feats:
+                        f181 = 'INFILL-SOLID'
+                    elif f181 == 'SURFACE-TOP' \
+                            and 'INFILL-SPARSE' in self._prev_layer_feats:
+                        f181 = 'BRIDGE'
                     _ri216 = len(self.ranges)
                     self.ranges.append((ij[0], ij[1], f181))
                     self.fstat.setdefault(f181, {})
@@ -25486,6 +25513,10 @@ class _GeomScan:
                                     and _nb[0] < p['bbox'][2]
                                     and p['bbox'][1] < _nb[3]
                                     and _nb[1] < p['bbox'][3])]
+        # R286 (Befund 1): the ranges of THIS layer are complete now -
+        # the next classify run sees them as 'the layer below' (top/bottom
+        # order rule + overhang scan bookkeeping).
+        self._prev_r0 = _r0
         # R193 (.135): the layer picture becomes 'the layer below' for the
         # next call - the air scan compares against it (kept only when
         # usable; an unusable bitmap never poisons the scan).
@@ -25580,6 +25611,14 @@ class _GeomScan:
                 keep.append(cand)
                 continue
             flip = final
+            # R286 (Befund 1): the final pass flips the last layer's
+            # solid candidates to Top surface - but the GROUND RULE
+            # forbids a Top on Top. If the layer BELOW the last one
+            # already carried Top surface, this candidate stays
+            # INFILL-SOLID (it is not the uppermost finishing surface).
+            if flip and cand['layer'] == self.layers_classified \
+                    and 'SURFACE-TOP' in self._prev_layer_feats:
+                flip = False
             if not final:
                 if grid is not None and grid.ok:
                     bx0, by0, bx1, by1 = cand['bbox']
