@@ -30455,7 +30455,7 @@ def watch(directory, interval=5.0, once=False):
                             # only ever reached the poll log, never the LCD.
                             try:
                                 _nl62 = 0
-                                with open(sp, errors='replace') as _fh62:
+                                with open(src_path, errors='replace') as _fh62:
                                     for _ln62 in _fh62:
                                         if _ln62.startswith(';LAYER_CHANGE'):
                                             _nl62 += 1

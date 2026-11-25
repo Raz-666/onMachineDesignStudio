@@ -31105,36 +31105,7 @@ def watch(directory, interval=5.0, once=False):
                             # only ever reached the poll log, never the LCD.
                             try:
                                 _nl62 = 0
-                                with open(sp, errors='replace') as _fh62:
-                                    for _ln62 in _fh62:
-                                        if _ln62.startswith(';LAYER_CHANGE'):
-                                            _nl62 += 1
-                                if _nl62 > 0:
-                                    if _re62 > _nl62:
-                                        _moonraker_gcode(
-                                            'RESPOND MSG="[range] end %d clamped to %d (file has %d layers)"'
-                                            % (_re62, _nl62, _nl62)
-                                            + '\\nM117 Range: end %d -> %d'
-                                            % (_re62, _nl62))
-                                        _re62 = _nl62
-                                    if _rs62 > _re62:
-                                        _moonraker_gcode(
-                                            'RESPOND MSG="[range] start %d beyond end %d - nothing to cut"'
-                                            % (_rs62, _re62)
-                                            + '\\nM117 Range: bad window'
-                                            + '\\n_SOUND_LIB NAME=r2_error')
-                                        continue
-                            except Exception as _e62g:              # noqa: BLE001
-                                print(f'[range] layer pre-scan failed: '
-                                      f'{_e62g!r}', flush=True)
-                            # R283 range-guard: read the file's real layer
-                            # count FIRST and clamp the window before the
-                            # job starts - make_range's late ValueError
-                            # ('range 6..750 invalid, file has 100 layers')
-                            # only ever reached the poll log, never the LCD.
-                            try:
-                                _nl62 = 0
-                                with open(sp, errors='replace') as _fh62:
+                                with open(src_path, errors='replace') as _fh62:
                                     for _ln62 in _fh62:
                                         if _ln62.startswith(';LAYER_CHANGE'):
                                             _nl62 += 1
