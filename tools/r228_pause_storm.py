@@ -111,7 +111,9 @@ check('F4 the announce/silent structure survived the restructure '
       '(R227 latch semantics intact)',
       "not _JOB_STATE.get('stale_gb227')" in b
       and 'M117 Queue free' in b
-      and r2p.count('SAVE_VARIABLE VARIABLE=gen_busy VALUE=0') == 7)
+      # 8 = the 7 original clear sites + the R281 held-scan finally (that
+      # block carries its own gen_busy release; the latch law is unchanged)
+      and r2p.count('SAVE_VARIABLE VARIABLE=gen_busy VALUE=0') == 8)
 
 print()
 if fails:

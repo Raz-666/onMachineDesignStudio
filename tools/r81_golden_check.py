@@ -10,6 +10,14 @@ keeps that guarantee alive: it rebuilds the 23 fixture cases, runs them
 through the CURRENT module and compares MD5s + change summaries against the
 frozen references.
 
+RE-FREEZE HISTORY (R2-2026-11-19.3, R285): stamp re-freeze over
+PURE-ADDITION code change. Since V6 the engine gained the R285 toolchain
+job-list channels (4 new NONCE_KEYS, watcher + freeze entries) and the
+r226/r227 reconcile wiring - process()/make_range() untouched. PROOF
+(A/B): the committed V6 module reproduced all 23 frozen V6 references
+byte-for-byte (23/23 md5 identical) before the stamp bump. Forward run:
+mr01-mr13 differ by the stamp lines only; pr01-pr10 byte-IDENTICAL.
+mr01-mr13 re-frozen (stamp class), nothing else.
 RE-FREEZE HISTORY (R2-2026-11-19.2, V6): stamp re-freeze over REAL code
 change. Since V5 the engine gained J2 casting molds (make_mold + make_mold_blank
 + sector stage + surface stage, R270-R273) and the R276 M82 arc/single-axis E

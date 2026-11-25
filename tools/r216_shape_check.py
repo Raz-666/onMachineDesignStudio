@@ -260,6 +260,29 @@ ck('vase: body is ONE continuous rising extrusion (spiral)',
    '%d moves, %d z-levels' % (len(sp), uniq))
 ck('vase: floor is solid (SURFACE-BOTTOM present), clean travels',
    'SURFACE-BOTTOM' in txt and len(audit(f)) == 0, '')
+# R287 (field report 17.11.2026 'extruder hammers, walls bricks-thick, then
+# the print dies'): the spiral runs under M83 (relative extrusion), so every
+# spiral move's E must equal ITS OWN segment length x the per-mm rate - an
+# accumulator ('ez +=') grows E quadratically: ~80x the plastic after one
+# revolution, then Klipper's max-extrusion guard kills the print. Pin:
+# per-move E scales with the move length, never with the revolution count.
+_sp_e = [float(l.split(' E')[1].split()[0]) for l in sp]
+_sp_len = []
+_px = _py = None
+for l in sp:
+    _lx = float(l.split('X')[1].split()[0])
+    _ly = float(l.split('Y')[1].split()[0])
+    _sp_len.append(0.0 if _px is None else
+                   ((_lx - _px) ** 2 + (_ly - _py) ** 2) ** 0.5)
+    _px, _py = _lx, _ly
+_rates = [e_ / d_ for e_, d_ in zip(_sp_e, _sp_len) if d_ > 0.2]
+_rate_ok = _rates and (max(_rates) < 1.6 * min(_rates))
+_growth = max(_sp_e) / max(0.01, sorted(_sp_e)[len(_sp_e) // 2])
+ck('vase spiral E is PER MOVE (R287): uniform mm-of-filament per mm of '
+   'wall, no accumulator growth',
+   _rate_ok and _growth < 3.0 and all(0 < e_ < 2.0 for e_ in _sp_e),
+   'rate spread %.3f..%.3f, median/max growth %.1f'
+   % (min(_rates), max(_rates), _growth))
 f, i = outs['vasetri']
 ck('vase works for the triangle too', i['vase'] and len(audit(f)) == 0,
    str(i)[:60])

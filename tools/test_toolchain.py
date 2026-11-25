@@ -329,16 +329,14 @@ class PresetFileTests(unittest.TestCase):
         return path
 
     def test_shipped_example_resolves(self):
-        """Das mitgelieferte Beispiel-Preset ist gueltig (der Watcher
-        seedy es in den Toolchain-Ordner)."""
+        """R285: es gibt KEIN mitgeliefertes Beispiel mehr (User-Regel:
+        keine vorinstallierten Presets). presets/toolchain/ ist weg; der
+        Loader laeuft weiterhin an USER-Presets (Speichern/Laden-Weg) -
+        gedeckt durch die plan_chain/load-Tests unten."""
         repo_example = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
             'presets', 'toolchain', 'scale-twist.json')
-        preset, errors = toolchain.load_preset_file(repo_example)
-        self.assertIsNotNone(preset)
-        self.assertEqual(errors, [])
-        self.assertEqual([s['tool'] for s in preset['steps']],
-                         ['scale', 'twist'])
+        self.assertFalse(os.path.exists(repo_example))
 
     def test_missing_file_is_a_plain_text_error(self):
         preset, errors = toolchain.load_preset_file(
@@ -679,6 +677,141 @@ class ExecutorTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             toolchain.run_chain(self.plan, self.workspace, self.input_path,
                                 _append_runner('|R|'), output_mode='drucken')
+
+
+class TestR285JobList(unittest.TestCase):
+    """R285: die LCD-Jobliste - die Kette als Zustand, nicht nur als Datei."""
+
+    RV = {'scale_x': 110, 'scale_y': 120, 'scale_top_x': 0,
+          'scale_top_y': 0, 'texture_pattern': 'CROCHET',
+          'texture_scale': 10.0, 'texture_zsize': 12.0,
+          'texture_amp': 0.4, 'texture_dir': 'OUT', 'texture_seed': 91,
+          'twist_deg': 45, 'mirror_axis': 'y',
+          'range_start': 6, 'range_end': 100, 'range_floor': 2,
+          'range_top': 1, 'range_brim': 0, 'range_floor_hole': 0.0,
+          'range_top_hole': 0.0}
+
+    def test_params_from_vars_snapshots_the_lcd_state(self):
+        p = toolchain.params_from_vars('scale', self.RV)
+        self.assertEqual(p, {'x': 110, 'y': 120, 'top_x': 0, 'top_y': 0})
+        p = toolchain.params_from_vars('texture', self.RV)
+        self.assertEqual(p['pattern'], 'CROCHET')
+        self.assertEqual(p['depth_mm'], 0.4)
+        self.assertEqual(p['direction'], 'OUT')
+        p = toolchain.params_from_vars('mirror', self.RV)
+        self.assertEqual(p, {'axis': 'y'})
+
+    def test_params_from_vars_defaults_and_unknown_tool(self):
+        p = toolchain.params_from_vars('texture', {})
+        self.assertEqual(p['direction'], 'OUT')     # Registry-Default
+        self.assertNotIn('pattern', p)              # Pflicht ohne Default
+        with self.assertRaises(ValueError):
+            toolchain.params_from_vars('cake', self.RV)
+
+    def test_params_to_vars_roundtrip(self):
+        p = toolchain.params_from_vars('texture', self.RV)
+        v = toolchain.params_to_vars('texture', p)
+        self.assertEqual(v['texture_pattern'], 'CROCHET')
+        self.assertEqual(v['texture_amp'], 0.4)
+        rv2 = dict(self.RV)
+        rv2.update(v)
+        self.assertEqual(toolchain.params_from_vars('texture', rv2), p)
+
+    def test_chain_string_roundtrip(self):
+        jobs = [{'tool': 'scale', 'params': {'x': 110, 'y': 120}},
+                {'tool': 'texture',
+                 'params': toolchain.params_from_vars('texture', self.RV)},
+                {'tool': 'twist', 'params': {'deg': 45}}]
+        text = toolchain.chain_to_string(jobs)
+        self.assertNotIn('"', text)                  # SAVE_VARIABLE-sicher
+        self.assertNotIn('\\', text)
+        back, err = toolchain.chain_from_string(text)
+        self.assertIsNone(err)
+        self.assertEqual(back, jobs)
+
+    def test_chain_from_string_garbage_and_empty(self):
+        jobs, err = toolchain.chain_from_string('')
+        self.assertEqual(jobs, [])                   # leer ist legal
+        self.assertIsNone(err)
+        _jobs, err = toolchain.chain_from_string('scale|twist')
+        self.assertIsNotNone(err)
+        _jobs, err = toolchain.chain_from_string('scale:x')
+        self.assertIsNotNone(err)
+
+    def test_chain_display_rows_fit_the_lcd(self):
+        jobs = [{'tool': t, 'params': toolchain.params_from_vars(t, self.RV)}
+                for t in ('range', 'scale', 'texture', 'twist', 'mirror')]
+        disp = toolchain.chain_display(jobs)
+        segs = disp.split(' | ')
+        self.assertEqual(len(segs), 5)
+        for i, seg in enumerate(segs, start=1):
+            self.assertTrue(seg.startswith('%d:' % i))
+            self.assertLessEqual(len(seg), 26)
+
+    def test_apply_op_delete_protects_the_first_job(self):
+        jobs = [{'tool': 'scale', 'params': {'x': 100, 'y': 100}},
+                {'tool': 'twist', 'params': {'deg': 45}},
+                {'tool': 'mirror', 'params': {'axis': 'x'}}]
+        out, err = toolchain.chain_apply_op(jobs, 'DEL', 0)
+        self.assertIsNone(out)
+        self.assertIn('geschuetzt', err)
+        out, err = toolchain.chain_apply_op(jobs, 'DEL', 2)
+        self.assertIsNone(err)
+        self.assertEqual([j['tool'] for j in out], ['scale', 'twist'])
+        # Eingabe unveraendert (pure function)
+        self.assertEqual(len(jobs), 3)
+
+    def test_apply_op_up_down_bounds(self):
+        jobs = [{'tool': t, 'params': {}}
+                for t in ('scale', 'twist', 'mirror')]
+        out, err = toolchain.chain_apply_op(jobs, 'UP', 1)
+        self.assertEqual([j['tool'] for j in out], ['twist', 'scale', 'mirror'])
+        out, err = toolchain.chain_apply_op(jobs, 'UP', 0)
+        self.assertIsNone(out)
+        out, err = toolchain.chain_apply_op(jobs, 'DOWN', 2)
+        self.assertIsNone(out)
+        self.assertIn('unten', err)
+        out, err = toolchain.chain_apply_op(jobs, 'DEL', 9)
+        self.assertIsNone(out)
+
+    def test_apply_op_clear_is_the_escape_hatch(self):
+        jobs = [{'tool': 'scale', 'params': {'x': 100, 'y': 100}}]
+        out, err = toolchain.chain_apply_op(jobs, 'CLEAR')
+        self.assertEqual(out, [])
+        self.assertIsNone(err)
+        _out, err = toolchain.chain_apply_op(jobs, 'LOESCHEN')
+        self.assertIsNotNone(err)
+
+    def test_validate_chain_reuses_the_preset_contract(self):
+        ok, errors = toolchain.validate_chain([])
+        self.assertFalse(ok)
+        ok, errors = toolchain.validate_chain(
+            [{'tool': 'scale', 'params': {'x': 500, 'y': 100}}])
+        self.assertFalse(ok)                         # x ueber Maximum
+        ok, errors = toolchain.validate_chain(
+            [{'tool': 'scale', 'params': {'x': 110, 'y': 110}},
+             {'tool': 'twist', 'params': {'deg': 45}}])
+        self.assertTrue(ok, errors)
+        ok, errors = toolchain.validate_chain(
+            [{'tool': 'cake', 'params': {}}])
+        self.assertFalse(ok)                         # 2 Ausgaben: Kettensperre
+
+    def test_preset_jobs_roundtrip(self):
+        jobs = [{'tool': 'scale', 'params': {'x': 110, 'y': 110}},
+                {'tool': 'twist', 'params': {'deg': 45}}]
+        preset = toolchain.preset_from_jobs(jobs, 'Meine Kette')
+        ok, errors = toolchain.validate_preset(preset)
+        self.assertTrue(ok, errors)
+        self.assertEqual(toolchain.jobs_from_preset(preset), jobs)
+
+    def test_plan_chain_accepts_a_job_list_preset(self):
+        jobs = [{'tool': 'scale', 'params': {'x': 110, 'y': 110}},
+                {'tool': 'twist', 'params': {'deg': 45}}]
+        plan, errors = toolchain.plan_chain(
+            toolchain.preset_from_jobs(jobs, 'LCD chain'), 'V01_teil.gcode')
+        self.assertIsNotNone(plan, errors)
+        self.assertEqual([s['tool'] for s in plan['steps']],
+                         ['scale', 'twist'])
 
 
 if __name__ == '__main__':

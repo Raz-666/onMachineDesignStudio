@@ -29390,6 +29390,10 @@ def watch(directory, interval=5.0, once=False):
                 # R259: a toolchain chain writes MANY files (one per step
                 # plus the final) - disk I/O during a print waits for idle
                 'toolchain_nonce',
+                # the R285 chain-editing channels (add/load/op/save) write
+                # variables and the chain store - the same disk rule
+                'toolchain_add_nonce', 'toolchain_load_nonce',
+                'toolchain_op_nonce', 'toolchain_save_nonce',
                 # R267 (J9): the stencil set writes one file per tone band
                 'stencil_nonce',
                 # R270/R271 (J2): the mold set writes up to three files

@@ -306,11 +306,17 @@ def build_pdf(out_pdf):
                                   w=40.0, d=40.0, layers=50, layer_h=0.2)
         bb_src, e_src, _ = _bbox_and_e(src)
 
-        # 1) Echtes mitgeliefertes System-Preset presets/toolchain/scale-twist.json
-        shipped_preset_path = os.path.join(REPO, 'presets', 'toolchain',
-                                           'scale-twist.json')
-        shipped_preset, errs0 = tc.load_preset_file(shipped_preset_path)
-        assert not errs0, errs0
+        # 1) Referenzkette scale->twist. R285 (user rule): NOTHING ships as
+        # a preset file any more - the chain is defined inline here, exactly
+        # what the LCD job list builds interactively.
+        shipped_preset = {
+            'schema': 'r2-toolchain/1',
+            'name': 'scale-twist (job list)',
+            'steps': [
+                {'tool': 'scale', 'params': {'x': 110, 'y': 110}},
+                {'tool': 'twist', 'params': {'deg': 45}},
+            ],
+        }
         ws1 = os.path.join(tmpdir, 'ws_shipped')
         plan1, perr1 = tc.plan_chain(shipped_preset, 'Turm40.gcode', first_version=1)
         assert not perr1, perr1
@@ -573,7 +579,7 @@ def build_pdf(out_pdf):
         st += H2('Blind-Ablauf in 4 Griffen + kopierfertiges JSON-Rezept', '5.1')
         st += NUM(
             '<b>Einmalig Preset wählen:</b> Im SD-Browser in den Ordner <b>Toolchain/</b> '
-            'gehen und z. B. die mitgelieferte <b>scale-twist.json</b> einmal anklicken '
+            'gehen und die Kette ueber die Jobliste zusammenklicken '
             '(bleibt in <b>save_variables.cfg</b> dauerhaft gespeichert, auch über Neustarts!).',
             '<b>Werkstück wählen:</b> Im SD-Browser oder unter <b>Pre-Print &gt; File</b> '
             'die gewünschte <b>.gcode</b>-Datei anklicken.',
@@ -586,7 +592,7 @@ def build_pdf(out_pdf):
         st += CODE(json.dumps(preset_4, indent=2, ensure_ascii=False))
         st += CAP(
             'Kopierfertiges 4-Schritt-Preset (als *.json in gcodes/Toolchain/ ablegen; '
-            'Konsole: TOOLCHAIN_APPLY PRESET=Toolchain/scale-twist.json FILE=teil.gcode OUT=PREVIEW).'
+            'Konsole: TOOLCHAIN_APPLY FILE=teil.gcode OUT=PREVIEW, nachdem die Jobliste gefuellt wurde).'
         )
 
         # ---- Kapitel 6 ------------------------------------------------------
@@ -597,7 +603,7 @@ def build_pdf(out_pdf):
             % (bb_src[1] - bb_src[0], bb_src[3] - bb_src[2], e_src)
         )
         chain_cases = [
-            ('1. System-Preset scale-twist.json', run1, 'scale(110/110) -> twist(45°)'),
+            ('1. Jobliste scale+twist', run1, 'scale(110/110) -> twist(45°)'),
             ('2. Kette A (Scale -> Twist)', run_ab, 'scale(160/65) -> twist(90°)'),
             ('3. Kette B (Twist -> Scale)', run_ba, 'twist(90°) -> scale(160/65)'),
             ('4. Kanonische 4er-Kette', run_4, 'range -> scale -> twist -> mirror'),
@@ -626,7 +632,7 @@ def build_pdf(out_pdf):
             '<b>Gegenprobe an den Zahlen:</b> Bei einer Kette der Länge N werden exakt '
             '<b>N - 1</b> temporäre Vorstufen nach erfolgreicher Übernahme gelöscht '
             '(1 gelöschte Datei bei 2er-Ketten, 3 gelöschte Dateien bei der 4er-Kette). '
-            'Beim System-Preset <b>scale-twist.json</b> beträgt ΣΔE\' / ΣΔE exakt '
+            'Bei der Referenz-Jobliste <b>scale+twist</b> beträgt ΣΔE\' / ΣΔE exakt '
             '<b>1,10² = 1,210</b>, weil Schritt 1 mit 1,21 skaliert und Schritt 2 (Twist) '
             'isometrisch mit Faktor 1,000 folgt.'
         )

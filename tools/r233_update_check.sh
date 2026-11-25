@@ -104,6 +104,18 @@ newer_than() {   # newer_than <n1> <s1> <n2> <s2> : is v1 strictly newer than v2
     fi
     return 1
 }
+# R285: update.sh compares DATE first (R2-YYYY-MM-DD.n[sfx]; the counter
+# resets per date), the mirror above is counter-only. vd() extracts the
+# date key; newer_ver() is the full order for whole version strings.
+vd()  { printf '%s' "${1:-}" | sed -n 's/^R2-\([0-9]*-[0-9]*-[0-9]*\)\..*/\1/p' | tr -d '-'; }
+newer_ver() {  # newer_ver <fullA> <fullB>
+    local da db
+    da="$(vd "$1")"; db="$(vd "$2")"
+    [ -n "${da}" ] && [ -n "${db}" ] || return 1
+    [ "${da}" -gt "${db}" ] && return 0
+    [ "${da}" -lt "${db}" ] && return 1
+    newer_than "$(vn "$1")" "$(vs "$1")" "$(vn "$2")" "$(vs "$2")"
+}
 # the OLD rule (pre-R233, for the side-by-side verdict) - numbers numeric,
 # letters as a plain string
 old_newer_than() {
@@ -222,8 +234,8 @@ if [ "${NEW_VER}" = "${OLD_VER}" ] || [ "${NEW_VER}" = "${AC_VER}" ]; then
     echo "      release first (this audit ships WITH .136ad)."
     exit 1
 fi
-chk "precondition: the working tree version .${NEW_N}${NEW_S} is newer than .136z" \
-    newer_than "${NEW_N}" "${NEW_S}" "${OLD_N}" "${OLD_S}"
+chk "precondition: the working tree version ${NEW_VER} is newer than .136z" \
+    newer_ver "${NEW_VER}" "${OLD_VER}"
 
 # --- build the zips ------------------------------------------------------------------
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/r233.XXXXXX")"
@@ -292,8 +304,15 @@ SB="$(mk_sb)"
 install_pkg "${SB}" "${OLD_C}"
 cp "${ACZIP}" "${NEWZIP}" "$(cfgdir "${SB}")/"
 run_upd "${SB}"
-chk "S1: the old script picks the NEWEST zip (${NEW_VER})" \
-    has "${SB}" "uploaded update zip found: klipper-e3-r2d2-UPDATE-${NEW_VER}.zip"
+if [ "$(vd "${NEW_VER}")" -gt "$(vd "${OLD_VER}")" ]; then
+    # date-era working tree: the pre-R268 script has no date field, so
+    # 'picks the NEWEST' reduces to 'picks the highest COUNTER' - .136ac
+    chk "S1: the old date-blind script picks the highest COUNTER (${AC_VER}, not ${NEW_VER})" \
+        has "${SB}" "uploaded update zip found: klipper-e3-r2d2-UPDATE-${AC_VER}.zip"
+else
+    chk "S1: the old script picks the NEWEST zip (${NEW_VER})" \
+        has "${SB}" "uploaded update zip found: klipper-e3-r2d2-UPDATE-${NEW_VER}.zip"
+fi
 if [ "${NEW_N}" = "136" ]; then
     chk "S1: ...and refuses it as OLDER (the field bug, live)" \
         has "${SB}" "that zip is OLDER than the installed version - not unpacking it."
@@ -301,6 +320,20 @@ if [ "${NEW_N}" = "136" ]; then
     chk "S1: both zips stay in the config folder (nothing was unpacked)" \
         fis2 "$(cfgdir "${SB}")/klipper-e3-r2d2-UPDATE-${AC_VER}.zip" \
              "$(cfgdir "${SB}")/klipper-e3-r2d2-UPDATE-${NEW_VER}.zip"
+elif [ "$(vd "${NEW_VER}")" -gt "$(vd "${OLD_VER}")" ]; then
+    # R285 (date-reset era): the old pre-R268 script parsed ONLY the
+    # counter - .3 reads as .0000003-era garbage next to .136z and is
+    # refused as OLDER. That is NOT the field bug and NOT a new gate
+    # failure: the installed base since R268 (shipped 2026-11-19,
+    # commits f7f914d+) compares the DATE first and takes the zip. The
+    # frozen field reproduction lives in the S1-hard-pin + level B gate
+    # walk above; what the old script does with a date-era zip is
+    # documented history, not a guarantee.
+    chk "S1: old pre-R268 script is DATE-BLIND - refuses ${NEW_VER} as OLDER (known, expected)" \
+        has "${SB}" "that zip is OLDER than the installed version - not unpacking it."
+    chk "S1: package stays on ${OLD_VER} under the old script" ver_is "${SB}" "${OLD_VER}"
+    echo "  [i] S1: from R268 on the shipped gate compares the DATE first -"
+    echo "      the live guarantee is pinned by S3 (fixed gate, no --force)."
 else
     # R241 (.137+): a BARE number is past the whole .136 series - even the
     # OLD string gate sees 137 > 136z, so the letter-era field bug cannot
@@ -338,33 +371,58 @@ run_upd "${SB}" --force
 if [ "${NEW_N}" = "136" ]; then
     chk "S2: --force announces the deliberate downgrade" \
         has "${SB}" "[i] --force: unpacking the OLDER zip anyway"
+elif [ "$(vd "${NEW_VER}")" -gt "$(vd "${OLD_VER}")" ]; then
+    # R285: the old pre-R268 script is date-blind (see S1) - to IT the
+    # date-era zip reads as ancient, so --force DOES print the announce.
+    # From R268 on the shipped gate is date-aware and stays silent.
+    chk "S2: --force announces the deliberate downgrade (old script is date-blind)" \
+        has "${SB}" "[i] --force: unpacking the OLDER zip anyway"
 else
     # R241 (.137+): the zip is not older - nothing to announce, --force
     # is simply not needed any more from a .136z-era install
     chk "S2: no downgrade announce (.${NEW_N} is simply newer)" \
         lacks "${SB}" "[i] --force: unpacking the OLDER zip anyway"
 fi
-chk "S2: the NEW zip is the one unpacked" \
+chk "S2: a zip is unpacked (the forced recovery)" \
     has "${SB}" "unpacking over $(cfgdir "${SB}")/klipper-e3-r2d2"
-chk "S2: the run re-execs the NEW update.sh" \
+chk "S2: the run re-execs the unpacked update.sh" \
     has "${SB}" "continuing with the NEW update.sh"
-chk "S2: package version is now ${NEW_VER}" ver_is "${SB}" "${NEW_VER}"
-chk "S2: the FIXED gate is installed (r2_sfx_val in the live update.sh)" \
-    grep -q 'r2_sfx_val' "$(cfgdir "${SB}")/klipper-e3-r2d2/update.sh"
-chk "S2: the new script reports the new version" \
-    has "${SB}" "[i] package version: ${NEW_VER}"
-chk "S2: the applied zip moved to r2_backups" \
-    fis2 "$(cfgdir "${SB}")/r2_backups/klipper-e3-r2d2-UPDATE-${NEW_VER}.zip" \
-         "$(cfgdir "${SB}")/klipper-e3-r2d2-UPDATE-${AC_VER}.zip"
+if [ "$(vd "${NEW_VER}")" -gt "$(vd "${OLD_VER}")" ]; then
+    # date-era: the blind script picked the highest COUNTER = .136ac, the
+    # forced 'recovery' lands on .136ac, and .136ac's own re-exec'd script
+    # unpacks the .3 zip it finds (its own gate: 3 > ac... no - it is the
+    # SAME old script: counter 3 < 136 -> refused). Net: forced run from a
+    # pre-R268 install onto a date-era zip CANNOT self-serve - it needs the
+    # documented two-step (any R268+ zip first). Pin the honest result:
+    chk "S2: forced run from the blind script lands on ${AC_VER} (highest counter)" \
+        ver_is "${SB}" "${AC_VER}"
+    echo "  [i] S2: a date-era release reaches a pre-R268 install via ANY"
+    echo "      R268+ zip first (date gate) - or one manual unzip. Documented"
+    echo "      in the release notes; S3 pins the fixed gate itself."
+else
+    chk "S2: package version is now ${NEW_VER}" ver_is "${SB}" "${NEW_VER}"
+    chk "S2: the FIXED gate is installed (r2_sfx_val in the live update.sh)" \
+        grep -q 'r2_sfx_val' "$(cfgdir "${SB}")/klipper-e3-r2d2/update.sh"
+    chk "S2: the new script reports the new version" \
+        has "${SB}" "[i] package version: ${NEW_VER}"
+    chk "S2: the applied zip moved to r2_backups" \
+        fis2 "$(cfgdir "${SB}")/r2_backups/klipper-e3-r2d2-UPDATE-${NEW_VER}.zip" \
+             "$(cfgdir "${SB}")/klipper-e3-r2d2-UPDATE-${AC_VER}.zip"
+fi
 chk "S2: the run completes" has "${SB}" "== done. Happy printing! =="
 
 # --- S2b: the NEW gate vs the stale zip left behind ------------------------------------
-run_upd "${SB}"
-chk "S2b: the new script finds the stale ${AC_VER} zip" \
-    has "${SB}" "uploaded update zip found: klipper-e3-r2d2-UPDATE-${AC_VER}.zip"
-chk "S2b: ...and refuses it (a real downgrade - not the odometer bug)" \
-    has "${SB}" "that zip is OLDER than the installed version - not unpacking it."
-chk "S2b: package stays on ${NEW_VER}" ver_is "${SB}" "${NEW_VER}"
+if [ "$(vd "${NEW_VER}")" -gt "$(vd "${OLD_VER}")" ]; then
+    echo "  [i] S2b skipped in the date era: after S2 the package is .136ac,"
+    echo "      the 'new script' premise does not hold (see S2)."
+else
+    run_upd "${SB}"
+    chk "S2b: the new script finds the stale ${AC_VER} zip" \
+        has "${SB}" "uploaded update zip found: klipper-e3-r2d2-UPDATE-${AC_VER}.zip"
+    chk "S2b: ...and refuses it (a real downgrade - not the odometer bug)" \
+        has "${SB}" "that zip is OLDER than the installed version - not unpacking it."
+    chk "S2b: package stays on ${NEW_VER}" ver_is "${SB}" "${NEW_VER}"
+fi
 
 # --- S3: the fix itself - .136z package, FIXED gate, NO --force ------------------------
 SB="$(mk_sb)"

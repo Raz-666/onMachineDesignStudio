@@ -934,6 +934,38 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       r142 142/0, audit 82/0, toolchain 49+27 OK,
       r165/r166 clean (2805 sections). _next synced.
       **J2 DAMIT KOMPLETT (beide Haeppchen umgesetzt).**
+      **STAND R290 (17.11.2026, VERTIKALE STEHFORM - das Werkzeug
+      entscheidet die Teilung selbst):** `layout=` ('AUTO'|'VSPLIT'|
+      'FLAT', Default AUTO) an `make_mold()`. Die STEHENDE Figurenform:
+      die Figur bleibt in Druckorientierung (steht), die Trennebene
+      liegt vertikal (senkrecht zu X), die zwei Platten
+      **FormLinks/FormRechts** oeffnen seitlich wie Profi-Figurenformen.
+      Eingusskanal + bis zu 2 Entlueftungskanaele liegen als
+      Halbrund-Rillen IN der Trennflaeche und muenden an der OBERKANTE
+      (Trichter weitet die Oeffnung); Dübel-Register (4x Pin D +0.3) und
+      Trennflaechen-Rillen wie beim Flachen. **Teilung exakt berechnet,
+      nicht geraten:** das Objekt rastert in x-Scheiben (eine pro
+      Drucklayer, aus den pro-z-Band gefuellten XY-Silhouetten
+      projiziert); jeder (y,z)-Spalten-Solidrun muss die Trennflaeche
+      seiner Platte beruehren - der Schnitt ueber alle Spalten ist das
+      exakte Release-Fenster [max Run-Start, min Run-Ende+1]; darin
+      waehlt der Silhouetten-Aequator (max Fuellung, Mitte bei
+      Gleichstand). Kein Fenster (Haken-Silhouette, z.B. Hantel) ->
+      ehrliche Verweigerung; AUTO faellt dann automatisch auf die flache
+      Aequatorform zurueck (master/pocket/sectors/part!=BOTH routen
+      genauso - AUTO landet immer auf den Fuessen). VSPLIT erzwingt
+      (Verweigerung bleibt Verweigerung, mit Grund), FLAT pinnt den
+      Bestand. PLANE/z_off wirken in VSPLIT auf die X-Achse (MID =
+      x-Mitte, OFF = z_off mm ab x_min); ausserhalb des Fensters ->
+      Verweigerung mit Fenster-Angabe. Draft = Zell-Erosion pro Scheibe
+      + Re-Proof am Split. Waechter liest `mold_layout` (MOLD_CREATE
+      LAYOUT=), Erfolgsmeldung layout-bewusst; Blank-Pfad pinnt FLAT.
+      Evidenz: `r290_vsplit_check.py` 25/25 (Routing, Layer-Math aus dem
+      G-code, Einguss offen an der Oberkante, Dübelscheiben leer,
+      Fenster-Math MID/OFF, Fallbacks, Byte-Determinismus), r270 33/0
+      (Batterie auf FLAT gepinnt), r271 25/25, r272 20/20, r273 22/22,
+      r274 24/24, r275 14/15 (A3 pre-existing), megatest 224/0, r217
+      1423/0, macro_render 2133/2140 (7 FAILs pre-existing, belegt).
       **Ehrlichkeitsregeln:** Hinterschneidungs-Check pro Hälfte (Kavität
       darf zur Öffnung nicht schrumpfen — Guss löst sich nicht, Druck
       bridgt), Formschräge als Raster-Radius-Approximation (dokumentiert),

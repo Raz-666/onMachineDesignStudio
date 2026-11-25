@@ -242,8 +242,11 @@ def wall_points_at(path, z):
             y = ny
         if ne is not None and ne > 0 and abs(cz - z) < 0.06:
             pts.append((x, y))
-            if len(pts) >= 8:
-                return pts
+        elif pts and (nz is not None or (ne is None)):
+            # R283: walls are subdivided to <=1.5mm chords - the wall LOOP
+            # is all extrusion points at this z until the next Z hop, not
+            # the first 8 chords (a tapered top wall starts mid-segment)
+            return pts
     return pts
 
 

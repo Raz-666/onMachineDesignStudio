@@ -149,7 +149,7 @@ check('B4 every scan pass compares the flag with reality '
       'stale gen_busy cleared' in _src
       # R227: 7 = 6 releases + the new SILENT retry (a refusing klippy
       # must not spray the console - see r227_reconcile_fix F2)
-      and _src.count("SAVE_VARIABLE VARIABLE=gen_busy VALUE=0") == 7
+      and _src.count("SAVE_VARIABLE VARIABLE=gen_busy VALUE=0") == 8  # R281: the held-scan clear
       # the race guard: the queue worker raises _JOB_STATE['busy']
       # BEFORE the flag - the reconciliation must check both
       and 'not _JOB_STATE.get(\'busy\')' in _src)

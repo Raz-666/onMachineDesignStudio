@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# Experimental engine copy - selected only by the existing engine gate.
-# Image and queue fixes are also present in the active entry point.
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Raz-666 and contributors
 """R2 G-code post-processor + folder watcher (R56 / .40) - the LAYER READER.
 
 WHY: Klipper macros cannot read files - comments like ';LAYER_CHANGE' never
@@ -1161,6 +1161,10 @@ def audit_tag_geometry(path, cell_mm=1.5, fil_dia=1.75, max_conflicts=50):
                 elif cur_canon in ('INFILL-SPARSE', 'INFILL-SOLID',
                                    'INTERNAL-BRIDGE', 'SURFACE-BOTTOM', 'GAPS'):
                     cur_had_interior = True
+                    # R281: solid infill and gap fill carry ironing just as
+                    # well as a tagged top surface (Slice Beam field file)
+                    if cur_canon in ('INFILL-SOLID', 'GAPS'):
+                        cur_support |= scells
                     # R281: solid infill and gap fill carry ironing just as
                     # well as a tagged top surface (Slice Beam field file)
                     if cur_canon in ('INFILL-SOLID', 'GAPS'):
@@ -14007,6 +14011,34 @@ def _subdivide_poly(pts, max_seg=1.5):
     return out
 
 
+def _subdivide_poly(pts, max_seg=1.5):
+    """R283 (field report 24.11.2026 'texture only at the corners'): a
+    generated shape with n corners emits its wall as n LONG straight chords
+    (an 8-gon: 8 lines of ~27mm each). A texture pattern mapped onto that
+    finds support points only AT the corners - between them the wall runs
+    straight through the pattern field, so the relief reads as long streaks
+    instead of the intended structure. Subdivide every chord into segments
+    of at most max_seg mm: the pattern then samples the wall evenly around
+    the whole perimeter, the geometry stays identical, and the E per move
+    scales with the chord length (the caller already multiplies by the real
+    segment length). Closed loop in, closed loop out - same vertex count +
+    inserted intermediates."""
+    if len(pts) < 2:
+        return list(pts)
+    out = []
+    n = len(pts)
+    for i in range(n):
+        x0, y0 = pts[i]
+        x1, y1 = pts[(i + 1) % n]
+        out.append((x0, y0))
+        seg = math.hypot(x1 - x0, y1 - y0)
+        parts = int(math.ceil(seg / max_seg)) if seg > max_seg else 1
+        for k in range(1, parts):
+            f = k / float(parts)
+            out.append((x0 + (x1 - x0) * f, y0 + (y1 - y0) * f))
+    return out
+
+
 def make_shape(shape='CYLINDER', size_x=40.0, size_y=40.0, corners=0,
                height=20.0, walls=2, wall_thick=0.0, infill=20.0,
                base=3, top=3, layer_h=0.2, first_h=0.28, material='PLA',
@@ -15579,6 +15611,23 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
         reason); 'FLAT' keeps only the classic path. With the vertical
         mold the plane/z_off knobs address the X axis (MID = the x
         middle, OFF = z_off mm from the object's smallest x).
+      - LAYOUT (R290): layout='AUTO' tries the vertical side-split mold
+        FIRST - the figure STANDS (the source keeps its orientation),
+        the parting plane is vertical (perpendicular to X), the two
+        plates open sideways like professional figure molds, the pour
+        channel sits at the TOP edge of the seam and the vents breathe
+        there. The split position is not guessed: the object rasterizes
+        into x-slabs (one per print layer), every (y,z) cell's solid
+        runs must touch its plate's parting face - the intersection
+        over all runs is ONE exact window; inside it the split rides
+        the silhouette equator (max fill), ties break to the center.
+        No window = the silhouette hooks in X = refuse. AUTO falls back
+        to the flat equator mold on any refusal (master/pocket/sector
+        requests route the same way - they are flat features); 'VSPLIT'
+        forces the vertical mold (a refusal stays a refusal, with the
+        reason); 'FLAT' keeps only the classic path. With the vertical
+        mold the plane/z_off knobs address the X axis (MID = the x
+        middle, OFF = z_off mm from the object's smallest x).
       - SECTORS (R271, J2): sectors=1 -> 3-part mold (equator + 1
         sectorial cut), sectors=2 -> 4-part (2 cuts). The cuts are
         axis-aligned vertical planes through the CAVITY (axis = the
@@ -15641,6 +15690,17 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
     plane = str(plane).upper()
     if plane not in ('AUTO', 'MID', 'OFF'):
         raise ValueError("plane must be AUTO, MID or OFF (got %r)" % plane)
+    # R290 (field wish 17.11.2026 'decide the split yourself, keep the
+    # knobs minimal'): layout picks the mold FAMILY. AUTO = the tool
+    # tries the side-opening vertical mold first (the figure stands,
+    # the mold opens sideways like professional figure molds) and falls
+    # back to the flat equator mold when the object is too bulbous for
+    # a side split; VSPLIT forces the vertical family (a refusal stays
+    # a refusal); FLAT = the classic equator mold only.
+    layout = str(layout or 'AUTO').strip().upper()
+    if layout not in ('AUTO', 'VSPLIT', 'FLAT'):
+        raise ValueError("layout must be AUTO, VSPLIT or FLAT (got %r)"
+                         % layout)
     # R290 (field wish 17.11.2026 'decide the split yourself, keep the
     # knobs minimal'): layout picks the mold FAMILY. AUTO = the tool
     # tries the side-opening vertical mold first (the figure stands,
@@ -16558,6 +16618,469 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
                 pass
             _cleanup270()     # earlier parts of a refused set go too
             raise
+
+    # ==================== R290: the VSPLIT mold family ==================
+    # The standing-figure side-opening mold (see the docstring). AUTO
+    # tries this family first and falls back to the flat equator mold on
+    # any _Refuse290; VSPLIT turns the same refusal into a ValueError.
+    # The block sizes its own plate grid (cols = y, rows = z, one x-slab
+    # per print layer), reuses _write270/_mat270/_disc270/_grooves270
+    # (they read the closure grid names - swapped here, restored on a
+    # refusal so the flat path below never sees them), and RETURNS on
+    # success: the flat code below stays byte-for-byte the flat path.
+    class _Refuse290(Exception):
+        pass
+
+    if layout != 'FLAT':
+        _sv290 = (cols, rows, W, H, x0, y0)
+        try:
+            if master:
+                raise _Refuse290('the master positive has no split - it '
+                                 'prints with the flat layout')
+            if sectors:
+                raise _Refuse290('sectors are the flat mold\'s undercut '
+                                 'answer - the vertical mold opens '
+                                 'sideways and needs none')
+            if pocket_d or pocket_w or pocket_t:
+                raise _Refuse290('the relief pocket seats in the flat '
+                                 'top half - no pocket in the vertical '
+                                 'mold')
+            if part != 'BOTH':
+                raise _Refuse290('the vertical mold always prints BOTH '
+                                 'side plates (part must be BOTH)')
+            x_min = minx[0]
+            x_span = maxx[0] - x_min
+            if x_span < 6.0:
+                raise _Refuse290('the object is only %.1fmm thick in X '
+                                 '- a side split needs a standing body '
+                                 '(>= 6mm), the flat mold fits it better'
+                                 % x_span)
+            lh290 = layer_h
+            K290 = max(2, int(math.ceil(x_span / lh290)))
+            cv290 = int(math.ceil((maxy[0] - miny[0] + 2 * wall) / wid))
+            rv290 = int(math.ceil((z_max - z_min + 2 * wall) / wid))
+            Wv = cv290 * wid
+            Hv = rv290 * wid
+            if Wv > (ux1 - ux0) or Hv > (uy1 - uy0):
+                raise _Refuse290('the standing plate needs %.0f x %.0fmm '
+                                 'of bed - the bed offers %.0f x %.0fmm'
+                                 % (Wv, Hv, ux1 - ux0, uy1 - uy0))
+            if K290 * cv290 * rv290 > 96000000:
+                raise _Refuse290('too big for the vertical raster (%d '
+                                 'slabs of %d x %d cells) - the flat '
+                                 'mold streams and takes it'
+                                 % (K290, cv290, rv290))
+            cols, rows, W, H = cv290, rv290, Wv, Hv
+            x0 = (ux0 + ux1) / 2.0 - W / 2.0
+            y0 = (uy0 + uy1) / 2.0 - H / 2.0
+
+            # ---- rasterize: per z-band the filled XY silhouette (the
+            # flat mold's truth - a closed ring fills its disc), then
+            # every filled cell projects along x into each slab it
+            # overlaps. The silhouette grid shares the VSPLIT y axis
+            # (same origin, same pitch), so the y index carries over.
+            masks290 = [bytearray(cols * rows) for _ in range(K290)]
+            gx_cols = int(math.ceil((x_span + 2 * wall) / wid))
+            xrad290 = wid / 2.0 + gap
+            rcg290 = xrad290 / wid
+            _R290 = int(math.ceil(rcg290))
+            offs290 = [(dr, dc)
+                       for dr in range(-_R290, _R290 + 1)
+                       for dc in range(-_R290, _R290 + 1)
+                       if dr * dr + dc * dc <= rcg290 * rcg290 + 1e-9]
+            step290 = wid * 0.5
+            filled290 = 0
+            for zk in zs:
+                gx = bytearray(gx_cols * cols)
+                for (ax, ay, bx, by) in bands[zk]:
+                    L290 = math.hypot(bx - ax, by - ay)
+                    nq290 = max(1, int(L290 / step290))
+                    for jq in range(nq290 + 1):
+                        t = jq / float(nq290)
+                        qx = ax + (bx - ax) * t
+                        qy = ay + (by - ay) * t
+                        r0g = int((qy - miny[0] + wall) / wid)
+                        c0g = int((qx - x_min + wall) / wid)
+                        for (dr, dc) in offs290:
+                            rr = r0g + dr
+                            cc2 = c0g + dc
+                            if 0 <= rr < cols and 0 <= cc2 < gx_cols:
+                                gx[rr * gx_cols + cc2] = 1
+                outm = bytearray(gx_cols * cols)
+                stk = list(range(gx_cols))
+                stk += range((cols - 1) * gx_cols, cols * gx_cols)
+                for rr in range(cols):
+                    stk.append(rr * gx_cols)
+                    stk.append(rr * gx_cols + gx_cols - 1)
+                while stk:
+                    i = stk.pop()
+                    if 0 <= i < len(gx) and not gx[i] and not outm[i]:
+                        outm[i] = 1
+                        cc2 = i % gx_cols
+                        if cc2 > 0:
+                            stk.append(i - 1)
+                        if cc2 < gx_cols - 1:
+                            stk.append(i + 1)
+                        stk.append(i - gx_cols)
+                        stk.append(i + gx_cols)
+                for i in range(len(gx)):
+                    if not gx[i] and not outm[i]:
+                        gx[i] = 1
+                        filled290 += 1
+                r0z = int((zk - z_min + wall) / wid)
+                for iy in range(cols):
+                    base = iy * gx_cols
+                    if not any(gx[base:base + gx_cols]):
+                        continue
+                    for jx in range(gx_cols):
+                        if not gx[base + jx]:
+                            continue
+                        xlo = x_min - wall + jx * wid
+                        s_lo = int((xlo - x_min) / lh290)
+                        s_hi = int((xlo + wid - 1e-9 - x_min) / lh290)
+                        if s_lo < 0:
+                            s_lo = 0
+                        if s_hi > K290 - 1:
+                            s_hi = K290 - 1
+                        for s in range(s_lo, s_hi + 1):
+                            m290 = masks290[s]
+                            for rr in (r0z - 1, r0z, r0z + 1):
+                                if 0 <= rr < rows:
+                                    m290[rr * cols + iy] = 1
+
+            # ---- the exact split window: per (y,z) cell the solid
+            # slabs form runs; a run [a,b] allows splits p in [a, b+1]
+            # (the run must touch its plate's parting face, otherwise
+            # the cast hooks). Intersect over ALL cells: P_lo = the
+            # largest run start, P_hi = the smallest first-run end + 1.
+            import array as _array290
+            ncel290 = cols * rows
+            last_start = _array290.array('H', [0]) * ncel290
+            first_end = _array290.array('H', [65535]) * ncel290
+            prev290 = bytearray(ncel290)
+            for s in range(K290):
+                m290 = masks290[s]
+                for i in range(ncel290):
+                    if m290[i]:
+                        if not prev290[i]:
+                            last_start[i] = s
+                    elif prev290[i] and first_end[i] == 65535:
+                        first_end[i] = s - 1
+                prev290 = m290
+            P_lo = max(last_start)
+            P_hi = min(first_end) + 1
+            lo_w = max(2, P_lo)
+            hi_w = min(K290 - 2, P_hi)
+            if lo_w > hi_w:
+                raise _Refuse290('the silhouette hooks in X - no '
+                                 'straight vertical split releases the '
+                                 'cast (the flat mold\'s sectors answer '
+                                 'exactly this shape)')
+            fill290 = [sum(m) for m in masks290]
+            if plane == 'MID':
+                p = K290 // 2
+                if not (lo_w <= p <= hi_w):
+                    raise _Refuse290('plane MID (slab %d) sits in a hook '
+                                     '- the release window is slabs '
+                                     '%d..%d' % (p, lo_w, hi_w))
+            elif plane == 'OFF':
+                p = int(round(float(z_off or 0.0) / lh290))
+                if not (lo_w <= p <= hi_w):
+                    raise _Refuse290('the offset split (x=%.1fmm from '
+                                     'the object edge) lands in a hook '
+                                     '- the release window is %.1f..'
+                                     '%.1fmm' % (z_off,
+                                                 x_min + lo_w * lh290,
+                                                 x_min + hi_w * lh290))
+            else:
+                best290 = None
+                p = lo_w
+                for cand in range(lo_w, hi_w + 1):
+                    key = (fill290[cand - 1] + fill290[cand],
+                           -abs(cand * 2 - K290))
+                    if best290 is None or key > best290:
+                        best290 = key
+                        p = cand
+            x_part290 = x_min + p * lh290
+
+            # ---- draft: cell-quantized erosion per slab (deeper slabs
+            # erode more), then the release proof re-runs at p - draft
+            # may never carve a hook
+            if draft > 0.0:
+                _tan290 = math.tan(math.radians(draft))
+                for s in range(K290):
+                    if s < p:
+                        dep = (p - s - 0.5) * lh290
+                    else:
+                        dep = (s - p + 0.5) * lh290
+                    rnd = int(dep * _tan290 / wid)
+                    if rnd > 0:
+                        masks290[s] = _erode270(masks290[s], rnd)
+                ok290 = True
+                for i in range(ncel290):
+                    seen0 = False
+                    for s in range(p - 1, -1, -1):
+                        if masks290[s][i]:
+                            if seen0:
+                                ok290 = False
+                                break
+                        else:
+                            seen0 = True
+                    if not ok290:
+                        break
+                    seen0 = False
+                    for s in range(p, K290):
+                        if masks290[s][i]:
+                            if seen0:
+                                ok290 = False
+                                break
+                        else:
+                            seen0 = True
+                    if not ok290:
+                        break
+                if not ok290:
+                    raise _Refuse290('draft %.1f deg erodes the cavity '
+                                     'into a hook at the split - less '
+                                     'draft or the flat mold' % draft)
+
+            # ---- pour channel + vents: both live IN the parting face
+            # and enter at the TOP edge (the seam's highest line). The
+            # release proof guarantees every cavity column reaches the
+            # parting slabs, so the union of slabs p-1/p IS the cavity's
+            # full (y,z) projection - its highest cells are the global
+            # high spots (air truth, not hope).
+            um290 = bytearray(ncel290)
+            ma290 = masks290[p - 1]
+            mb290 = masks290[p]
+            for i in range(ncel290):
+                if ma290[i] or mb290[i]:
+                    um290[i] = 1
+            rmax290 = {}
+            for i in range(ncel290):
+                if um290[i]:
+                    rr = i // cols
+                    cc2 = i % cols
+                    if cc2 not in rmax290 or rr > rmax290[cc2]:
+                        rmax290[cc2] = rr
+            if not rmax290:
+                raise _Refuse290('the split plane shows no cavity - '
+                                 'the source bbox math is off')
+            hw290 = pour_r / wid
+            vhw290 = vent_r / wid
+            clo290 = int(math.ceil(_pi270 + hole_rc + hw290 + 1.5))
+            chi290 = int(math.floor(cols - 1 - _pi270 - hole_rc - hw290
+                                    - 1.5))
+            if clo290 > chi290:
+                raise _Refuse290('no room for the pour channel between '
+                                 'the corner dowels - the object is too '
+                                 'wide in Y for the standing plate')
+            ranked290 = sorted(rmax290.items(),
+                               key=lambda kv: (-kv[1],
+                                               abs(kv[0]
+                                                   - (cols - 1) / 2.0)))
+            pick290 = None
+            for (cc2, rr) in ranked290:
+                if clo290 <= cc2 <= chi290:
+                    pick290 = (cc2, rr)
+                    break
+            if pick290 is None:
+                raise _Refuse290('the pour channel finds no cavity '
+                                 'column between the dowels')
+            c_s290, r_top290 = pick290
+            sep290 = hw290 + vhw290 + 3.0
+            vents290 = []
+            for (cc2, rr) in ranked290:
+                if len(vents290) >= 2:
+                    break
+                if not (clo290 <= cc2 <= chi290):
+                    continue
+                if abs(cc2 - c_s290) < sep290:
+                    continue
+                if any(abs(cc2 - v[0]) < sep290 for v in vents290):
+                    continue
+                vents290.append((cc2, rr))
+            if not vents290:
+                notes.append('R290: no vent column beside the pour - '
+                             'the parting-face grooves carry the '
+                             'venting')
+
+            FLr290 = max(2, int(round(5.0 / wid)))
+
+            def _carve290(m, cc, r_from, rad_mm, flare):
+                """Half-round channel carved into the parting face: rows
+                r_from..top edge, radius rad_mm at this depth layer,
+                optional funnel flare toward the edge."""
+                hw_c = rad_mm / wid
+                if hw_c <= 0.0:
+                    return
+                for rr in range(max(0, r_from), rows):
+                    hw2 = hw_c
+                    if flare and rr > rows - 1 - FLr290:
+                        hw2 = hw_c + hw290 * (
+                            (rr - (rows - 1 - FLr290)) / float(FLr290))
+                    lo2 = int(math.floor(cc - hw2))
+                    hi2 = int(math.ceil(cc + hw2))
+                    if lo2 < 0:
+                        lo2 = 0
+                    if hi2 > cols - 1:
+                        hi2 = cols - 1
+                    base = rr * cols
+                    for cc2 in range(lo2, hi2 + 1):
+                        m[base + cc2] = 0
+
+            def _mir290(m):
+                """Mirror the grid columns - the right plate is flipped
+                onto the left like a closing book, the mirror makes the
+                fold align (same idea as the flat top half's Y-mirror)."""
+                out = bytearray(len(m))
+                for rr in range(rows):
+                    seg = m[rr * cols:(rr + 1) * cols]
+                    seg.reverse()
+                    out[rr * cols:(rr + 1) * cols] = seg
+                return out
+
+            pins290 = ((_pi270, _pi270), (cols - _pi270, _pi270),
+                       (_pi270, rows - _pi270),
+                       (cols - _pi270, rows - _pi270))
+            files290 = []
+            for side in ('L', 'R'):
+                n_slabs = p if side == 'L' else K290 - p
+                n_pl = F + n_slabs
+                if n_pl * lh290 > 235.0:
+                    raise _Refuse290('the %s plate would be %.0fmm tall '
+                                     '- over the Z range'
+                                     % ('left' if side == 'L'
+                                        else 'right', n_pl * lh290))
+
+                def _gen290(side=side, n_pl=n_pl):
+                    for li in range(1, n_pl + 1):
+                        if li <= F:
+                            yield bytearray([1]) * (cols * rows)
+                            continue
+                        j = li - F - 1
+                        s = j if side == 'L' else (K290 - 1 - j)
+                        cav = masks290[s]
+                        if side == 'R':
+                            cav = _mir290(cav)
+                        m = _mat270(cav)
+                        dep = (n_pl - li) * lh290   # 0 at the face
+                        if dep < pour_r:
+                            rad = math.sqrt(max(0.0, pour_r * pour_r
+                                                - dep * dep))
+                            _carve290(m, c_s290 if side == 'L'
+                                      else cols - 1 - c_s290,
+                                      r_top290, rad,
+                                      funnel != 'NONE')
+                        if dep < vent_r:
+                            rad = math.sqrt(max(0.0, vent_r * vent_r
+                                                - dep * dep))
+                            for (vc, vr) in vents290:
+                                _carve290(m, vc if side == 'L'
+                                          else cols - 1 - vc,
+                                          vr, rad, False)
+                        if li > n_pl - pin_layers:
+                            for (pcx, pcy) in pins290:
+                                _disc270(m, pcx, pcy, hole_rc, kill=True)
+                        if li == n_pl:
+                            _grooves270(m, cav)
+                        yield m
+
+                lab290 = 'FormLinks' if side == 'L' else 'FormRechts'
+                fn290 = 'V%02d_%s_%s.gcode' % (_next_gen_version(out_dir),
+                                               lab290, stem)
+                fn290 = _dedupe_gen_fname(out_dir, fn290)
+                pending270.append(
+                    (_write270(os.path.join(out_dir, fn290), lab290,
+                               _gen290(), n_pl,
+                               ['R290 VSPLIT %s PLATE: the standing mold '
+                                '- parting face UP (top surface), solid '
+                                'back %d layers (%.1fmm), cavity %d '
+                                'slabs, total %.1fmm'
+                                % ('LEFT' if side == 'L' else 'RIGHT',
+                                   F, F * lh290, n_slabs, n_pl * lh290),
+                                'the figure STANDS - vertical split at '
+                                'x=%.2f (release window %.2f..%.2fmm), '
+                                'the mold opens SIDEWAYS'
+                                % (x_part290, x_min + lo_w * lh290,
+                                   x_min + hi_w * lh290),
+                                ('assembly: lay the plates face to face '
+                                 'like closing a book (this plate is '
+                                 'printed mirrored, the fold aligns), '
+                                 'stand the pair up - the seam is '
+                                 'vertical'
+                                 if side == 'R' else
+                                 'assembly: lay the plates face to face '
+                                 'like closing a book, stand the pair '
+                                 'up - the seam is vertical'),
+                                'pour channel D%.1fmm at the TOP edge '
+                                '(bed x=%.1f, opens at z=%.1f)%s'
+                                % (pour_d,
+                                   (x0 + (c_s290 + 0.5) * wid
+                                    if side == 'L' else
+                                    x0 + (cols - 1 - c_s290 + 0.5)
+                                    * wid),
+                                   z_min - wall + (r_top290 + 0.5) * wid,
+                                   ', conical funnel at the edge'
+                                   if funnel != 'NONE' else ''),
+                                'vents: %d seam channels D%.1fmm + '
+                                'parting-face grooves'
+                                % (len(vents290), vent_d),
+                                'dowels: 4 x D%.1fmm + 0.3 clearance, '
+                                '%.0fmm deep from the face'
+                                % (pin_d, pin_layers * lh290),
+                                'tolerance gap %.2fmm, draft %.1f deg '
+                                '(cell-quantized erosion)'
+                                % (gap, draft)]),
+                     os.path.join(out_dir, fn290)))
+                files290.append(fn290)
+
+            for (t290, o290) in pending270:
+                os.replace(t290, o290)
+            if filled290:
+                notes.append('%d enclosed-hole cell fills across the '
+                             'slabs - silhouette mode: through-holes '
+                             'cast solid (the exact-as-printed mode '
+                             'comes with the parametric stage)'
+                             % filled290)
+            notes.append('R290 VSPLIT: figure stands (z %.1f..%.1f), '
+                         'vertical split at x=%.2f, plates %d+%d slabs, '
+                         'pour at the top edge'
+                         % (z_min, z_max, x_part290, p, K290 - p))
+            info = {'file': files290[0], 'files': list(files290),
+                    'source': os.path.basename(src), 'kind': 'mold-set',
+                    'layout': 'VSPLIT',
+                    'split': ('vertical side split at x=%.2f (release '
+                              'window %.2f..%.2fmm, slab %d of %d)'
+                              % (x_part290, x_min + lo_w * lh290,
+                                 x_min + hi_w * lh290, p, K290)),
+                    'z_p': None, 'x_part': x_part290,
+                    'z_range': (z_min, z_max), 'bands': len(zs),
+                    'grid': (rows, cols), 'block': (W, H), 'wall': wall,
+                    'gap': gap, 'draft': draft, 'pour_d': pour_d,
+                    'vent_d': vent_d, 'pin_d': pin_d,
+                    'pins': [(x0 + pcx * wid, y0 + pcy * wid)
+                             for (pcx, pcy) in pins290],
+                    'sprue': (x0 + (c_s290 + 0.5) * wid, y0 + H),
+                    'vents': [(x0 + (vc + 0.5) * wid, y0 + H)
+                              for (vc, _vr) in vents290],
+                    'layers_left': F + p, 'layers_right': F + (K290 - p),
+                    'surface': surface,
+                    'sectors': 0, 'sec_half': None, 'sec_axis': None,
+                    'sec_cuts': [], 'pocket': None, 'bridges': None,
+                    'notes': notes}
+            return os.path.join(out_dir, files290[0]), info
+        except _Refuse290 as _e290:
+            cols, rows, W, H, x0, y0 = _sv290
+            if layout == 'VSPLIT':
+                raise ValueError('vertical mold refused: %s' % _e290)
+            notes.append('R290 AUTO: no vertical side split (%s) - '
+                         'falling back to the flat equator mold'
+                         % _e290)
+            if W > (ux1 - ux0) or H > (uy1 - uy0):
+                raise ValueError('the mold block needs %.0f x %.0fmm - '
+                                 'the bed offers %.0f x %.0fmm (lower '
+                                 'the wall or use a smaller source)'
+                                 % (W, H, ux1 - ux0, uy1 - uy0))
 
     # ==================== R290: the VSPLIT mold family ==================
     # The standing-figure side-opening mold (see the docstring). AUTO
@@ -18366,6 +18889,22 @@ for _ax289 in (2, 4, 6):
     BRICK_CATALOG['AX%d' % _ax289] = ('axle', 1, _ax289)
 BRICK_CATALOG['AH2x2'] = ('axholder', 2, 2)
 BRICK_CATALOG['D2x2'] = ('dome', 2, 2)
+# R289 catalog growth (field wish 17.11.2026 'the assortment is thin'):
+#  BP baseplates - thin exact base plates to build on (the two odd sizes
+#    11x16 / 16x22 drop into the 9x13 / 13x18 Frames system exactly)
+#  G  spur gears, module 1 (teeth = the code number), O4.9 axle bore
+#  AX technic cross axles (standing print, length in studs, tapered tip)
+#  AH axle stand: 2x2 brick with a vertical O4.9 through-socket
+#  D  dome: 2x2 base that really stacks + a solid hemispherical cap
+#    (the first ORGANIC shape of the catalog)
+for _bp289 in ((8, 8), (16, 16), (24, 24), (11, 16), (16, 22)):
+    BRICK_CATALOG['BP%dx%d' % _bp289] = ('baseplate', _bp289[0], _bp289[1])
+for _gz289 in (12, 16, 24, 40):
+    BRICK_CATALOG['G%d' % _gz289] = ('gear', _gz289, _gz289)
+for _ax289 in (2, 4, 6):
+    BRICK_CATALOG['AX%d' % _ax289] = ('axle', 1, _ax289)
+BRICK_CATALOG['AH2x2'] = ('axholder', 2, 2)
+BRICK_CATALOG['D2x2'] = ('dome', 2, 2)
 # slope rule: 2 long = steep face, 3+ = shallow face (run (l-1) studs);
 # the shallow ones carry studs on the flat back row, the steep ones are smooth.
 BRICK_TALL = ('brick', 'slope', 'islope', 'arch', 'tech', 'round', 'cone',
@@ -18431,6 +18970,28 @@ def _brick_hatch(x0, y0, x1, y1, keeps, spacing, angle_deg, min_len=0.35):
         t += spacing
         row += 1
     return segs
+
+
+def _cross_poly289(cx, cy, half, arm, sc=1.0):
+    """R289: technic cross profile (12 points) - the axle silhouette.
+    half = half reach of the arms, arm = half arm width; sc scales the
+    whole cross (the tapered tip at the top of a standing axle)."""
+    h, a = half * sc, arm * sc
+    return [(cx + a, cy + h), (cx + a, cy + a), (cx + h, cy + a),
+            (cx + h, cy - a), (cx + a, cy - a), (cx + a, cy - h),
+            (cx - a, cy - h), (cx - a, cy - a), (cx - h, cy - a),
+            (cx - h, cy + a), (cx - a, cy + a), (cx - a, cy + h)]
+
+
+def _gear_tooth289(cx, cy, ang, r_root, r_tip, half_a_root, half_a_tip):
+    """R289: one trapezoid tooth of a spur gear - 4 points, radial:
+    wide at the root circle, ~60% width at the tip."""
+    pts = []
+    for (r, da) in ((r_root, -half_a_root), (r_tip, -half_a_tip),
+                    (r_tip, half_a_tip), (r_root, half_a_root)):
+        aa = ang + da
+        pts.append((cx + r * math.cos(aa), cy + r * math.sin(aa)))
+    return pts
 
 
 def _cross_poly289(cx, cy, half, arm, sc=1.0):
@@ -18603,6 +19164,34 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
             return _snap((3.2 + 7.55) * _s216, code)
         return _snap(_BH216 if kind in BRICK_TALL else _PH216, code)
 
+    def _foot289(kind, w, l):
+        """R289: footprint (bw, bl) per family. Baseplates are EXACT grid
+        (n*8, no play - they ARE the ground others clamp onto); gears size
+        by tip diameter (module 1: (teeth+2)mm) plus a hair of air; axles
+        stand on a small cross cell."""
+        if kind == 'baseplate':
+            return w * _P216, l * _P216
+        if kind == 'gear':
+            gd = (w + 2.0) * _s216 + 0.6
+            return gd, gd
+        if kind == 'axle':
+            return 6.0 * _s216, 6.0 * _s216
+        return w * _P216 - _PL216, l * _P216 - _PL216
+
+    def _nl289(kind, w, l, code):
+        """R289 body layer counts: baseplate = thin 1.2mm base, axle = the
+        stud length standing, dome = 3.2 base + hemisphere (r = half the
+        2x2 span). Everything else keeps the classic brick/plate rule."""
+        if kind == 'baseplate':
+            return _snap(1.2 * _s216, code)
+        if kind == 'axle':
+            return _snap(l * _P216, code)
+        if kind == 'dome':
+            # base 3.2 + hemisphere, capped one layer early: the last
+            # 0.35mm of a sphere would print as a useless dot-stub
+            return _snap((3.2 + 7.55) * _s216, code)
+        return _snap(_BH216 if kind in BRICK_TALL else _PH216, code)
+
     cells = []
     for code in parts:
         kind, w, l = BRICK_CATALOG[code]
@@ -18727,6 +19316,11 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
               ' O4.9 bore), cross axles AX (standing, tapered tip), axle'
               ' stand AH2x2 (vertical O4.9 through-socket), dome D2x2'
               ' (stacking base + hemisphere cap)')
+            a('; R289 adds: baseplates BP (thin exact base, full stud grid,'
+              ' 11x16/16x22 fit the 9x13/13x18 Frames), gears G (module 1,'
+              ' O4.9 bore), cross axles AX (standing, tapered tip), axle'
+              ' stand AH2x2 (vertical O4.9 through-socket), dome D2x2'
+              ' (stacking base + hemisphere cap)')
             a('; layer %.2g -> body up to %d layer(s), studs up to %d -'
               ' R288: the underside is OPEN from layer 1 (tube rings and'
               ' wall ring start on the bed, 1xN cores stay hollow) so the'
@@ -18838,11 +19432,16 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                     # R288: the underside takes a counter-stud - the core
                     # stays HOLLOW (r_in) from layer 1 up to the cap, the
                     # old solid fill made every round part a plugged slab.
+                    # R288: the underside takes a counter-stud - the core
+                    # stays HOLLOW (r_in) from layer 1 up to the cap, the
+                    # old solid fill made every round part a plugged slab.
                     rb = c['bw'] / 2.0
                     r_now = rb
                     if c['kind'] == 'cone':
                         r_now = rb - (rb - 2.2) * max(
                             0.0, min(1.0, hm / _BH216))
+                    r_core = max(0.0, min(_SD216 / 2.0 + 0.15,
+                                          r_now - _W216 - wid))
                     r_core = max(0.0, min(_SD216 / 2.0 + 0.15,
                                           r_now - _W216 - wid))
                     if li == 1:
@@ -18882,6 +19481,11 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                     # keeps only tubes behind the face) and their rings
                     # print like any brick's - the old solid fill plugged
                     # every bore.
+                    # R288: the tubes under the rear rows open from layer 1
+                    # (they never reach the sloped front - the kact filter
+                    # keeps only tubes behind the face) and their rings
+                    # print like any brick's - the old solid fill plugged
+                    # every bore.
                     run = (c['l'] - 1) * _P216
                     frac = max(0.0, min(1.0, hm / _BH216))
                     fy = max(y0, c['y'] + run * frac)
@@ -18889,6 +19493,16 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                         _brim_rect(c)
                         _ty121('Bottom surface')
                         _walls216(x0, y0, x1, y1, 1400)
+                        for tx, ty in c['tubes']:
+                            _emit_loop(pen, _circle(tx, ty,
+                                                    _TO216 / 2.0
+                                                    - wid / 2.0, 24),
+                                       e_wall, 1600)
+                            _emit_loop(pen, _circle(tx, ty,
+                                                    _TO216 / 2.0
+                                                    - BRICK_TUBE_WALL
+                                                    + wid / 2.0, 20),
+                                       e_wall, 1600)
                         for tx, ty in c['tubes']:
                             _emit_loop(pen, _circle(tx, ty,
                                                     _TO216 / 2.0
@@ -18913,6 +19527,17 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                                         x1 - 2 * wid, y1 - 2 * wid, [], li,
                                         1700)
                         else:
+                            _ty121('Wall-Inner')
+                            for tx, ty, _r in kact:
+                                _emit_loop(pen, _circle(tx, ty,
+                                                        _TO216 / 2.0
+                                                        - wid / 2.0, 24),
+                                           e_wall, 2200)
+                                _emit_loop(pen, _circle(tx, ty,
+                                                        _TO216 / 2.0
+                                                        - BRICK_TUBE_WALL
+                                                        + wid / 2.0, 20),
+                                           e_wall, 2200)
                             _ty121('Wall-Inner')
                             for tx, ty, _r in kact:
                                 _emit_loop(pen, _circle(tx, ty,
@@ -19029,6 +19654,20 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                                     x1 - 2 * wid, y1 - 2 * wid, [], li,
                                     1700 if li == c['nl'] else 1900)
                     else:
+                        # R288 (field report 17.11.2026 'technic bricks
+                        # show ghost circles on the side, but the holes
+                        # are sealed solid'): the channel must BREAK
+                        # THROUGH both long sides - the old full rect
+                        # walls printed right over the openings and left
+                        # a sealed void inside (visible as circle seams).
+                        # Now the long side walls only run in the solid
+                        # bands between the hole cutouts; the short end
+                        # walls stay full, the bridge layer above closes
+                        # the channel roof as before.
+                        edges = [y0]
+                        for yk in sorted(c['holes_y']):
+                            edges += [yk - h, yk + h]
+                        edges.append(y1)
                         # R288 (field report 17.11.2026 'technic bricks
                         # show ghost circles on the side, but the holes
                         # are sealed solid'): the channel must BREAK
@@ -19213,8 +19852,155 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                                else 'Internal solid infill')
                         _rings126(pen, cx, cy, rk - wid, 0.0, e_wall,
                                   1700 if li == c['nl'] else 1900, wid)
+                elif c['kind'] == 'baseplate' and li <= c['nl']:
+                    # ---- R289 baseplate: thin solid base to BUILD on -----
+                    # exact grid footprint, smooth underside (it stands on
+                    # the table), full stud grid grows on top (stud layers
+                    # fall through to the shared else-branch below).
+                    if li == 1:
+                        _brim_rect(c)
+                        _ty121('Bottom surface')
+                    else:
+                        _ty121('Outer wall')
+                    _fw = 1400 if li == 1 else 2200
+                    _loops(x0, y0, x1, y1, e_wall, _fw)
+                    _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid,
+                           e_wall, _fw + 200)
+                    _ty121('Top surface' if li == c['nl']
+                           else 'Internal solid infill')
+                    _hatch_rect(x0 + 2 * wid, y0 + 2 * wid,
+                                x1 - 2 * wid, y1 - 2 * wid, [], li,
+                                1700 if li == c['nl'] else 1900)
+                elif c['kind'] == 'gear':
+                    # ---- R289 spur gear, module 1, O4.9 axle bore --------
+                    # teeth = trapezoid blocks on the root disc (radial,
+                    # one closed loop each), the disc fills ring-wise down
+                    # to the bore; the bore rim prints as its own loop.
+                    # G12 is the smallest - the bore needs ~2mm of meat
+                    # under the tooth roots.
+                    teeth = c['w']
+                    rt = (teeth / 2.0 + 1.0) * _s216
+                    rr = (teeth / 2.0 - 1.25) * _s216
+                    rh = 2.55 * _s216
+                    tw = 1.41 * _s216
+                    if li == 1:
+                        _brim_round(c, cx, cy, rt)
+                    _ty121('Bottom surface' if li == 1 else 'Outer wall')
+                    _fw = 1400 if li == 1 else 2200
+                    for ti in range(teeth):
+                        _a289 = ti * 2.0 * math.pi / teeth
+                        _emit_loop(pen, _gear_tooth289(
+                            cx, cy, _a289, rr - 0.4 * _s216, rt,
+                            (tw / 2.0) / rr, (tw * 0.3) / rt),
+                            e_wall, _fw)
+                    _emit_loop(pen, _circle(cx, cy, rr - wid / 2.0, 32),
+                               e_wall, _fw)
+                    _ty121('Top surface' if li == c['nl']
+                           else 'Internal solid infill')
+                    _rings126(pen, cx, cy, rr - wid, rh + wid, e_wall,
+                              1700 if li == c['nl'] else 1900, wid)
+                    _ty121('Wall-Inner')
+                    _emit_loop(pen, _circle(cx, cy, rh + wid / 2.0, 20),
+                               e_wall, 2000)
+                elif c['kind'] == 'axle':
+                    # ---- R289 cross axle, standing, tip tapers up --------
+                    # the cross keeps full size to the bed (grip), the last
+                    # ~1.2mm shrink to ~55% as the entry chamfer.
+                    half = 2.3 * _s216
+                    arm = 0.85 * _s216
+                    h_rem = (c['nl'] - li) * layer_h
+                    sc = 1.0
+                    if h_rem < 1.2 * _s216:
+                        sc = max(0.55, h_rem / (1.2 * _s216))
+                    if li == 1:
+                        _brim_round(c, cx, cy, half * 1.15)
+                    _ty121('Bottom surface' if li == 1 else 'Outer wall')
+                    _emit_loop(pen, _cross_poly289(cx, cy, half, arm, sc),
+                               e_wall, 1400 if li == 1 else 2200)
+                    if sc > 0.6:
+                        _ty121('Wall-Inner')
+                        _emit_loop(pen, _cross_poly289(
+                            cx, cy, half - wid, arm * 0.72, sc),
+                            e_wall, 2400)
+                        _emit_loop(pen, [(cx + 0.8, cy), (cx, cy + 0.8),
+                                         (cx - 0.8, cy), (cx, cy - 0.8)],
+                                   e_wall, 2400)
+                elif c['kind'] == 'axholder' and li <= c['nl']:
+                    # ---- R289 axle stand: 2x2, vertical O4.9 socket ------
+                    # the socket is a THROUGH hole - the top cap keeps the
+                    # keep-out too (an axle drops in from above and spins).
+                    keeph = [(cx, cy, 2.55 * _s216 + wid)]
+                    if li == 1:
+                        _brim_rect(c)
+                        _ty121('Bottom surface')
+                    else:
+                        _ty121('Outer wall')
+                    _fw = 1400 if li == 1 else 2200
+                    _loops(x0, y0, x1, y1, e_wall, _fw)
+                    _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid,
+                           e_wall, _fw + 200)
+                    _ty121('Wall-Inner')
+                    _emit_loop(pen, _circle(cx, cy,
+                                            2.55 * _s216 + wid / 2.0, 20),
+                               e_wall, 2000)
+                    _ty121('Top surface' if li == c['nl']
+                           else 'Internal solid infill')
+                    _hatch_rect(x0 + 2 * wid, y0 + 2 * wid,
+                                x1 - 2 * wid, y1 - 2 * wid, keeph, li,
+                                1700 if li == c['nl'] else 1900)
+                elif c['kind'] == 'dome':
+                    # ---- R289 dome (organic): 2x2 stacking base + solid
+                    # hemisphere cap (r = half the 2x2 span, inscribed in
+                    # the square base - the corners stay visible)
+                    base_nl = max(1, int(round(3.2 * _s216 / layer_h)))
+                    if li <= base_nl:
+                        if li == 1:
+                            _brim_rect(c)
+                            _ty121('Bottom surface')
+                        else:
+                            _ty121('Outer wall')
+                        _fw = 1400 if li == 1 else 2200
+                        _loops(x0, y0, x1, y1, e_wall, _fw)
+                        _loops(x0 + wid, y0 + wid, x1 - wid, y1 - wid,
+                               e_wall, _fw + 200)
+                        for tx, ty in c['tubes']:
+                            _emit_loop(pen, _circle(tx, ty,
+                                                    _TO216 / 2.0
+                                                    - wid / 2.0, 24),
+                                       e_wall, _fw)
+                            _emit_loop(pen, _circle(tx, ty,
+                                                    _TO216 / 2.0
+                                                    - BRICK_TUBE_WALL
+                                                    + wid / 2.0, 20),
+                                       e_wall, _fw)
+                        _ty121('Internal solid infill')
+                        _hatch_rect(x0 + 2 * wid, y0 + 2 * wid,
+                                    x1 - 2 * wid, y1 - 2 * wid, keeps,
+                                    li, 1900)
+                    else:
+                        R = 7.9 * _s216
+                        hr = hm - base_nl * layer_h
+                        # the cap ends as a small solid disc (the layer
+                        # budget stops 0.35mm under the mathematical tip)
+                        rk = math.sqrt(max(2.3 ** 2, R * R - hr * hr))
+                        _ty121('Outer wall')
+                        _emit_loop(pen, _circle(cx, cy, rk - wid / 2.0, 28),
+                                   e_wall, 2200)
+                        _ty121('Top surface' if li == c['nl']
+                               else 'Internal solid infill')
+                        _rings126(pen, cx, cy, rk - wid, 0.0, e_wall,
+                                  1700 if li == c['nl'] else 1900, wid)
                 elif li == 1:
                     # ---- brick / plate / tile / jumper: layer 1 ------------
+                    # R288 (field report 17.11.2026 'studs on top but
+                    # NOTHING to plug them into - every part is a solid
+                    # slab'): system bricks are OPEN underneath. The old
+                    # solid first layer skinned every tube bore shut with
+                    # a 0.2mm membrane no stud ever passes. Now: wall ring
+                    # + tube rings from layer 1 on, infill keeps the bores
+                    # clear; 1xN parts stay HOLLOW (no tubes fit - the core
+                    # clamps studs between the long walls, like the real
+                    # ones). Brim still anchors the outline.
                     # R288 (field report 17.11.2026 'studs on top but
                     # NOTHING to plug them into - every part is a solid
                     # slab'): system bricks are OPEN underneath. The old
@@ -19272,6 +20058,9 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
                         _ty121('Internal solid infill')
                         _hatch_rect(x0 + 2 * wid, y0 + 2 * wid,
                                     x1 - 2 * wid, y1 - 2 * wid, keeps, li)
+                    # else: R288 - a 1xN part keeps its core HOLLOW up to
+                    # the cap; the studs clamp between the long walls (the
+                    # solid fill used to seal the whole underside shut)
                     # else: R288 - a 1xN part keeps its core HOLLOW up to
                     # the cap; the studs clamp between the long walls (the
                     # solid fill used to seal the whole underside shut)
@@ -24236,6 +25025,57 @@ def process(path, dry=False, verbose=False, retract_rewrite=False,
                          ','.join(summary['tag_mismatch']),
                          len(type_at)), flush=True)
 
+    # R281 (field file MAN_V3): verify_tagged turns the C1/C5 audit into a
+    # VERDICT. Geometry conflicts mean the slicer's tag stream contradicts
+    # the part it describes ('Ironing' tags riding on plain solid infill) -
+    # such tags are worse than none. The whole foreign tag world is then
+    # discarded and the geometry classifier re-derives every feature in a
+    # second streaming pass (the R225 stray-tag path, same replacement
+    # rules, the worlds are never mixed). _FILE_INFO carries
+    # TAGMISMATCH=<codes> next to DERIVED=1 so File info can say WHY.
+    if verify_tagged:
+        _ta_c5 = audit_tag_geometry(
+            path,
+            fil_dia=float(cfg['filament_diameter'])
+            if 'filament_diameter' in cfg else 1.75)
+        summary['tag_audit'] = _ta_c5
+        summary['geom_conflicts'] = _ta_c5['conflicts']
+        if _ta_c5['conflicts'] and not summary.get('derived'):
+            geom2 = _GeomScan()
+            if 'filament_diameter' in cfg:
+                try:
+                    geom2.set_dia(float(cfg['filament_diameter']))
+                except ValueError:
+                    pass
+            _i_c5 = _j_c5 = 0
+            with open(path, 'r', errors='replace') as _f_c5:
+                for _raw_c5 in _f_c5:
+                    _ls_c5 = _raw_c5.strip()
+                    if LAYER_COMMENT.match(_raw_c5):
+                        geom2.mark_comment()
+                    geom2.step(_i_c5, _j_c5, _ls_c5)
+                    _filt_c5 = (_ls_c5 in old_tags
+                                or _ls_c5.startswith('_FILE_INFO')
+                                or _ls_c5.startswith('APPLY_TYPE'))
+                    _i_c5 += 1
+                    if not _filt_c5:
+                        _j_c5 += 1
+            geom2.finish()
+            if geom2.ranges:
+                summary['tag_mismatch'] = sorted(_ta_c5['by_code'])
+                type_at = {(gj, gj): gfeat
+                           for (_gi, gj, gfeat) in geom2.ranges}
+                feat_stats = {k: {'f': dict(v), 'acc': None}
+                              for k, v in geom2.fstat.items()}
+                tagged_seq193 = list(geom2.seq193)
+                summary['derived'] = True
+                print('[tagmismatch] %s: %d tag/geometry conflict(s) (%s) - '
+                      'foreign tags discarded, %d feature block(s) '
+                      're-derived from geometry'
+                      % (os.path.basename(path), len(_ta_c5['conflicts']),
+                         ','.join(summary['tag_mismatch']),
+                         len(type_at)), flush=True)
+
     type_at = {_aw(p): feat for p, feat in type_at.items()}   # -> apply world
     summary['types'] = len(type_at)
 
@@ -24285,6 +25125,10 @@ def process(path, dry=False, verbose=False, retract_rewrite=False,
         # menu and the audit log can then explain the re-derivation
         if summary.get('stray_tag'):
             info.append('STRAYTAG=%s' % summary['stray_tag'])
+        # R281: the tag stream contradicted the geometry and was discarded
+        # wholesale - name the conflict codes so File info can explain it
+        if summary.get('tag_mismatch'):
+            info.append('TAGMISMATCH=%s' % ','.join(summary['tag_mismatch']))
         # R281: the tag stream contradicted the geometry and was discarded
         # wholesale - name the conflict codes so File info can explain it
         if summary.get('tag_mismatch'):
@@ -28642,6 +29486,118 @@ def watch(directory, interval=5.0, once=False):
         # reads as not busy (offline dev hosts keep working).
         if _printer_busy():
             return
+        _busyck281 = [0.0]      # R281: last busy probe (monotonic, throttled)
+
+        def _print_busy281():
+            # R281: a print start must win within ~1 s - but a backlog pass
+            # must not hammer moonraker with one query per file either.
+            _nw281 = time.monotonic()
+            if _nw281 - _busyck281[0] < 1.0:
+                return False
+            _busyck281[0] = _nw281
+            return _printer_busy()
+
+        def _work_file281(p, fn, key):
+            # R281: EVERY per-file rewrite (center-exclude upgrade, meta
+            # finalize, the tagging pass - which now also VERIFIES the
+            # file's tags against its geometry) runs under the gen_busy
+            # hold: the print start macros gate on it (R188 pattern), so a
+            # start clicked mid-rewrite WAITS instead of racing a
+            # half-processed upload. The hold is released in the finally,
+            # and only when it was really taken - a stuck gen_busy would
+            # block every print start forever (the R188 lesson).
+            nonlocal _done98
+            _held281 = _moonraker_gcode(
+                'SAVE_VARIABLE VARIABLE=gen_busy VALUE=1', loud=False)
+            try:
+                seen[p] = key
+                _seen_dirty149[0] += 1     # R149: persist across restarts
+                _done98 += 1
+                # R226 (.136x field log): Orca/Bambu define objects with
+                # CENTER only - KAMP's SMART_PARK / adaptive mesh read
+                # .polygon and ABORT the print start (jinja UndefinedError,
+                # three SMART_PARK errors in the field log, no print). The
+                # watcher measures the real outline from the object's own
+                # moves and appends POLYGON= to CENTER-only defines.
+                # Cached by the seen-key above (changed files only),
+                # idempotent, cheap head-read early exit.
+                try:
+                    if _upgrade_center_excludes(p):
+                        stats['eod_upgraded'] = stats.get('eod_upgraded', 0) + 1
+                except Exception as _e226:                         # noqa: BLE001
+                    print('[eod226] %s: %r' % (fn, _e226), flush=True)
+                # R134 (.103 field redesign): plot sources are NEVER touched
+                # in the scan. The old flow auto-converted every upload
+                # (*.png, *.jpg.gcode, *.txt ...) into plotter g-code in the
+                # background - including every plain image uploaded as a
+                # litho/colorpic source (field log .101: AxtBunny.png grew an
+                # unrequested AxtBunny.png.gcode twin). Plotting is now a
+                # DECISION: select the image/text/pdf/svg in the file list -
+                # SDCARD_PRINT_FILE switches to plot mode and bumps plot_nonce,
+                # the watcher generates 00_Plot_*_Vnn.gcode on demand (one
+                # job at a time, gen_out decides start vs preview).
+                if PLOT_PAT.search(fn):
+                    if fn.lower().endswith(('.gcode', '.gco', '.g')):
+                        if b'R2-PLOT' in data_head_if_text(p):
+                            stats['tagged_before'] += 1   # plotter g-code, ready
+                        else:
+                            # raw image smuggled with the OLD .gcode-tail
+                            # trick - tell the user, convert nothing
+                            print('[plot] %s: raw upload with the old .gcode '
+                                  'tail - plotting needs the plain name now: '
+                                  'rename (drop the .gcode), then select it '
+                                  'in the file list' % fn, flush=True)
+                            stats['tagged_before'] += 1
+                    else:
+                        # plain source (.png/.jpg/.svg/.pdf/.txt): stays as
+                        # is - select it in the file list to plot it
+                        stats['tagged_before'] += 1
+                    return
+                # R64: generated plotter files without .png/... endings
+                # (Resonance_*_plot.gcode, V01_R2_Status.gcode) carry the R2-PLOT header
+                if b'R2-PLOT' in data_head_if_text(p):
+                    stats['tagged_before'] += 1
+                    _meta_finalize(p)     # R212: Mainsail meta for gen files
+                    return
+                try:
+                    # R281: verify_tagged=True - the tag-vs-geometry audit
+                    # becomes a VERDICT (conflicts discard the foreign tags
+                    # wholesale, the geometry classifier re-derives)
+                    s = process(p, retract_rewrite=rrw, verify_tagged=True)
+                except Exception as e:              # noqa: BLE001
+                    stats['errors'] += 1
+                    print(f'[!] {fn}: {e!r}', flush=True)
+                    return
+                if s['skipped']:
+                    stats['tagged_before'] += 1
+                    _meta_finalize(p)     # R212: Mainsail meta for gen files
+                else:
+                    stats['processed'] += 1
+                    NEW_PREVIEW.append(p)
+                    print(f'[ok] {fn}: +{s["marks_added"]} LAYER_MARK ({s["method"]}), '
+                          f'+{s["types"]} APPLY_TYPE, _FILE_INFO layers={s["layers"]}, '
+                          f'by_object={s["by_object"]}'
+                          + (f' [stray tag {s["stray_tag"]} -> geometry re-derived]'
+                             if s.get('stray_tag') else '')
+                          + (' [tag/geometry conflicts '
+                             + ','.join(s['tag_mismatch']) + ' -> re-derived]'
+                             if s.get('tag_mismatch') else '')
+                          + (f' [retract-fix: {s["retract_pairs"]} pair(s) -> G10/G11]'
+                             if s.get('retract_pairs') else '')
+                          + (f' [sliced by {s.get("slicer", "")} for {s.get("fw", "?")}]'
+                             if s.get('slicer') else '')
+                          + (' [upgraded from ' + s['upgraded_from'] + ']' if s['upgraded'] else ''), flush=True)
+            finally:
+                if _held281:
+                    _moonraker_gcode(
+                        'SAVE_VARIABLE VARIABLE=gen_busy VALUE=0')
+
+        # R281: while a print runs (start/homing phases included) the scan
+        # touches NOTHING: it returns BEFORE any seen-mark, so the first
+        # pass after the print retries every file. An unreachable moonraker
+        # reads as not busy (offline dev hosts keep working).
+        if _printer_busy():
+            return
         for root, dirs, files in os.walk(directory):
             dirs[:] = [d for d in dirs if not d.startswith('.')]
             for fn in sorted(files):
@@ -28737,6 +29693,12 @@ def watch(directory, interval=5.0, once=False):
     last_twist_nonce = None          # R216: twist tool
     last_mirror_nonce = None         # R224: mirror tool
     last_toolchain_nonce = None      # R259: preset chain (tools in series)
+    # R285: the toolchain JOB LIST - the chain is LCD state now (add / edit
+    # ops / save / load), the preset file is only the load/save format
+    last_toolchain_add_nonce = None
+    last_toolchain_op_nonce = None
+    last_toolchain_save_nonce = None
+    last_toolchain_load_nonce = None
     # R285: the toolchain JOB LIST - the chain is LCD state now (add / edit
     # ops / save / load), the preset file is only the load/save format
     last_toolchain_add_nonce = None
@@ -29390,6 +30352,10 @@ def watch(directory, interval=5.0, once=False):
                 # R259: a toolchain chain writes MANY files (one per step
                 # plus the final) - disk I/O during a print waits for idle
                 'toolchain_nonce',
+                # the R285 chain-editing channels (add/load/op/save) write
+                # variables and the chain store - the same disk rule
+                'toolchain_add_nonce', 'toolchain_load_nonce',
+                'toolchain_op_nonce', 'toolchain_save_nonce',
                 # R267 (J9): the stencil set writes one file per tone band
                 'stencil_nonce',
                 # R270/R271 (J2): the mold set writes up to three files
@@ -29605,6 +30571,12 @@ def watch(directory, interval=5.0, once=False):
                 last_gclear_nonce = _np.get('gen_clear_nonce')  # R223
                 last_genq_kill_nonce = _np.get('genq_kill_nonce')  # R238
                 last_toolchain_nonce = _np.get('toolchain_nonce')  # R259
+                # R285: the job-list channels prime the same way - a stored
+                # nonce from before the boot must never fire twice
+                last_toolchain_add_nonce = _np.get('toolchain_add_nonce')
+                last_toolchain_op_nonce = _np.get('toolchain_op_nonce')
+                last_toolchain_save_nonce = _np.get('toolchain_save_nonce')
+                last_toolchain_load_nonce = _np.get('toolchain_load_nonce')
                 # R285: the job-list channels prime the same way - a stored
                 # nonce from before the boot must never fire twice
                 last_toolchain_add_nonce = _np.get('toolchain_add_nonce')
@@ -30121,6 +31093,35 @@ def watch(directory, interval=5.0, once=False):
                                 floor_hole=rfh, top_hole=rth, version=1,
                                 out_dir=_gensub(directory, 'range'))
                             _rs62, _re62 = int(float(rs)), int(float(re_))
+                            # R283 range-guard: read the file's real layer
+                            # count FIRST and clamp the window before the
+                            # job starts - make_range's late ValueError
+                            # ('range 6..750 invalid, file has 100 layers')
+                            # only ever reached the poll log, never the LCD.
+                            try:
+                                _nl62 = 0
+                                with open(sp, errors='replace') as _fh62:
+                                    for _ln62 in _fh62:
+                                        if _ln62.startswith(';LAYER_CHANGE'):
+                                            _nl62 += 1
+                                if _nl62 > 0:
+                                    if _re62 > _nl62:
+                                        _moonraker_gcode(
+                                            'RESPOND MSG="[range] end %d clamped to %d (file has %d layers)"'
+                                            % (_re62, _nl62, _nl62)
+                                            + '\\nM117 Range: end %d -> %d'
+                                            % (_re62, _nl62))
+                                        _re62 = _nl62
+                                    if _rs62 > _re62:
+                                        _moonraker_gcode(
+                                            'RESPOND MSG="[range] start %d beyond end %d - nothing to cut"'
+                                            % (_rs62, _re62)
+                                            + '\\nM117 Range: bad window'
+                                            + '\\n_SOUND_LIB NAME=r2_error')
+                                        continue
+                            except Exception as _e62g:              # noqa: BLE001
+                                print(f'[range] layer pre-scan failed: '
+                                      f'{_e62g!r}', flush=True)
                             # R283 range-guard: read the file's real layer
                             # count FIRST and clamp the window before the
                             # job starts - make_range's late ValueError
@@ -31264,6 +32265,13 @@ def watch(directory, interval=5.0, once=False):
                                     or 'STANDARD').upper()
                     if _m_srf272 not in ('STANDARD', 'FINE', 'FUZZY'):
                         _m_srf272 = 'STANDARD'
+                    # R290: the mold family - AUTO = the tool tries the
+                    # standing side-split mold first and falls back to
+                    # the flat equator mold; VSPLIT forces, FLAT pins
+                    _m_ly290 = str(rv.get('mold_layout', 'AUTO')
+                                   or 'AUTO').upper()
+                    if _m_ly290 not in ('AUTO', 'VSPLIT', 'FLAT'):
+                        _m_ly290 = 'AUTO'
                     # R290: the mold family - AUTO = the tool tries the
                     # standing side-split mold first and falls back to
                     # the flat equator mold; VSPLIT forces, FLAT pins
@@ -32544,6 +33552,224 @@ def watch(directory, interval=5.0, once=False):
                 pass
             print('[toolchain] load guard: %s' % _ve285l, flush=True)
 
+        # ------------------------------------------------------------------
+        # R285: the toolchain JOB LIST - the chain is LCD STATE now.
+        # toolchain_chain (machine form 'tool:k=v,...|...') and
+        # toolchain_chain_lcd (display form) live in save_variables; the
+        # macros only bump nonces, ALL parsing/validation/editing happens
+        # here in Python. Four channels: ADD (append the tool's CURRENT
+        # LCD values), OP (DEL/UP/DOWN/CLEAR/GOTO), SAVE (list -> .json in
+        # the Toolchain folder), LOAD (.json -> list, the SD browser pick).
+        # ------------------------------------------------------------------
+        def _tc_push285(jobs, _tcl):
+            """Write both chain variables back (machine + display form)."""
+            _moonraker_gcode(
+                'SAVE_VARIABLE VARIABLE=toolchain_chain VALUE="%s"\n_PACE\n'
+                'SAVE_VARIABLE VARIABLE=toolchain_chain_lcd VALUE="%s"'
+                % (_tcl.chain_to_string(jobs), _tcl.chain_display(jobs)))
+
+        def _tc_read285(rv, _tcl):
+            """Current job list from rv; (jobs, error)."""
+            return _tcl.chain_from_string(rv.get('toolchain_chain', ''))
+
+        # -- ADD: Tools > <tool> > '+ Add to chain' -------------------------
+        try:
+            _an285 = rv.get('toolchain_add_nonce', '')
+            if _an285 and _an285 != last_toolchain_add_nonce:
+                last_toolchain_add_nonce = _an285
+                import toolchain as _tcl285
+                _tool285 = str(rv.get('toolchain_add_tool', '')
+                               or '').strip().lower()
+                _jobs285, _err285 = _tc_read285(rv, _tcl285)
+                if _err285:
+                    raise ValueError('Kette unlesbar: %s' % _err285)
+                if _tool285 not in _tcl285.TOOL_VAR_MAP:
+                    raise ValueError(
+                        'Werkzeug %r kann nicht in die Kette (erlaubt: %s)'
+                        % (_tool285, ', '.join(sorted(_tcl285.TOOL_VAR_MAP))))
+                if len(_jobs285) >= _tcl285.MAX_STEPS:
+                    raise ValueError(
+                        'die Kette ist voll (%d Jobs) - erst loeschen'
+                        % _tcl285.MAX_STEPS)
+                _jobs285.append({'tool': _tool285,
+                                 'params': _tcl285.params_from_vars(
+                                     _tool285, rv)})
+                _ok285, _errs285 = _tcl285.validate_chain(_jobs285)
+                if not _ok285:
+                    raise ValueError(' | '.join(_errs285[:2]))
+                _tc_push285(_jobs285, _tcl285)
+                _moonraker_gcode(
+                    'RESPOND MSG="Chain: %s hinzugefuegt - %d Job(s): %s"'
+                    % (_tool285, len(_jobs285),
+                       _tcl285._display_seg(_jobs285[-1]))
+                    + '\nM117 Chain: %d Jobs\n_SOUND_LIB NAME=r2_confirm'
+                    % len(_jobs285))
+                print('[toolchain] added %s (%d jobs)'
+                      % (_tool285, len(_jobs285)), flush=True)
+        except ValueError as _ve285a:
+            try:
+                _moonraker_gcode(
+                    'RESPOND MSG="Chain add: %s"\nM117 Chain add error\n'
+                    '_SOUND_LIB NAME=r2_error'
+                    % str(_ve285a).replace('"', "'"))
+            except Exception:                           # noqa: BLE001
+                pass
+            print('[toolchain] add guard: %s' % _ve285a, flush=True)
+
+        # -- OP: DEL / UP / DOWN / CLEAR / GOTO ------------------------------
+        try:
+            _on285 = rv.get('toolchain_op_nonce', '')
+            if _on285 and _on285 != last_toolchain_op_nonce:
+                last_toolchain_op_nonce = _on285
+                import toolchain as _tcl285
+                _op285 = str(rv.get('toolchain_op', '') or '').strip().upper()
+                try:
+                    _idx285 = int(float(rv.get('toolchain_op_idx', 0) or 0))
+                except (TypeError, ValueError):
+                    _idx285 = 0
+                _jobs285, _err285 = _tc_read285(rv, _tcl285)
+                if _err285:
+                    raise ValueError('Kette unlesbar: %s' % _err285)
+                if _op285 == 'GOTO':
+                    # 'Zum Tool': die Job-Parameter in die Variablen des
+                    # Werkzeugs laden - sein Menue oeffnet vorbefuellt,
+                    # dort aendern und als NEUEN Job wieder anhaengen.
+                    if not (0 <= _idx285 < len(_jobs285)):
+                        raise ValueError('Job %d gibt es nicht'
+                                         % (_idx285 + 1))
+                    _job285 = _jobs285[_idx285]
+                    _vars285 = _tcl285.params_to_vars(
+                        _job285['tool'], _job285.get('params') or {})
+                    _lines285 = []
+                    for _vn285, _vv285 in _vars285.items():
+                        if isinstance(_vv285, str):
+                            # String-Wert: VALUE="\"GRID\"" - das \
+                            # escaped Quote quoted den String-Wert
+                            _lines285.append(
+                                'SAVE_VARIABLE VARIABLE=%s VALUE="%s%s%s"'
+                                % (_vn285, chr(92) + '"', _vv285,
+                                   chr(92) + '"'))
+                        else:
+                            _lines285.append(
+                                'SAVE_VARIABLE VARIABLE=%s VALUE=%s'
+                                % (_vn285, _vv285))
+                    _moonraker_gcode(
+                        '\n_PACE\n'.join(_lines285)
+                        + '\nRESPOND MSG="Job %d ins %s-Menue geladen - '
+                          'dort aendern und mit + Add to chain als neuen '
+                          'Job anhaengen"\nM117 Job %d -> %s'
+                        % (_idx285 + 1, _job285['tool'],
+                           _idx285 + 1, _job285['tool']))
+                else:
+                    _new285, _oerr285 = _tcl285.chain_apply_op(
+                        _jobs285, _op285, _idx285)
+                    if _oerr285:
+                        raise ValueError(_oerr285)
+                    _tc_push285(_new285, _tcl285)
+                    _moonraker_gcode(
+                        'RESPOND MSG="Chain: %s - %d Job(s) uebrig"\n'
+                        'M117 Chain: %d Jobs\n_SOUND_LIB NAME=r2_confirm'
+                        % ({'DEL': 'Job %d geloescht' % (_idx285 + 1),
+                            'CLEAR': 'Liste geleert'}.get(
+                                _op285, '%s ok' % _op285),
+                           len(_new285), len(_new285)))
+                    print('[toolchain] op %s@%d -> %d jobs'
+                          % (_op285, _idx285, len(_new285)), flush=True)
+        except ValueError as _ve285o:
+            try:
+                _moonraker_gcode(
+                    'RESPOND MSG="Chain: %s"\nM117 Chain op error\n'
+                    '_SOUND_LIB NAME=r2_error'
+                    % str(_ve285o).replace('"', "'"))
+            except Exception:                           # noqa: BLE001
+                pass
+            print('[toolchain] op guard: %s' % _ve285o, flush=True)
+
+        # -- SAVE: die Liste als eigenes Preset (.json im Toolchain-Ordner) --
+        try:
+            _sn285 = rv.get('toolchain_save_nonce', '')
+            if _sn285 and _sn285 != last_toolchain_save_nonce:
+                last_toolchain_save_nonce = _sn285
+                import toolchain as _tcl285
+                _jobs285, _err285 = _tc_read285(rv, _tcl285)
+                if _err285:
+                    raise ValueError('Kette unlesbar: %s' % _err285)
+                if not _jobs285:
+                    raise ValueError('die Kette ist leer - nichts zu '
+                                     'speichern')
+                _ok285, _errs285 = _tcl285.validate_chain(_jobs285)
+                if not _ok285:
+                    raise ValueError(' | '.join(_errs285[:2]))
+                _name285 = 'Kette %s' % time.strftime('%Y-%m-%d %H.%M')
+                _pre285 = _tcl285.preset_from_jobs(
+                    _jobs285, _name285,
+                    description='Am LCD gebaute Kette (%d Jobs), gespeichert '
+                                '%s' % time.strftime('%d.%m.%Y %H.%M'))
+                _sdir285 = _gensub(directory, 'toolchain')
+                _sfile285 = 'kette-%s.json' % time.strftime('%Y%m%d-%H%M%S')
+                _spath285 = os.path.join(_sdir285, _sfile285)
+                with open(_spath285, 'w', encoding='utf-8') as _fh285:
+                    json.dump(_pre285, _fh285, indent=2, ensure_ascii=False)
+                    _fh285.write('\n')
+                try:
+                    _moonraker_filelist_notify(
+                        os.path.relpath(_spath285, directory))
+                except Exception:                       # noqa: BLE001
+                    pass
+                _moonraker_gcode(
+                    'RESPOND MSG="Chain gespeichert: %s (%d Jobs) - laden: '
+                    'im SD-Browser anklicken"\nM117 Preset saved\n'
+                    '_SOUND_LIB NAME=r2_done'
+                    % (_sfile285, len(_jobs285)))
+                print('[toolchain] saved: %s' % _sfile285, flush=True)
+        except (ValueError, OSError) as _ve285s:
+            try:
+                _moonraker_gcode(
+                    'RESPOND MSG="Chain save: %s"\nM117 Chain save error\n'
+                    '_SOUND_LIB NAME=r2_error'
+                    % str(_ve285s).replace('"', "'"))
+            except Exception:                           # noqa: BLE001
+                pass
+            print('[toolchain] save guard: %s' % _ve285s, flush=True)
+
+        # -- LOAD: .json-Pick aus dem SD-Browser -> ersetzt die Liste --------
+        try:
+            _ln285 = rv.get('toolchain_load_nonce', '')
+            if _ln285 and _ln285 != last_toolchain_load_nonce:
+                last_toolchain_load_nonce = _ln285
+                import toolchain as _tcl285
+                _lp285 = str(rv.get('toolchain_preset', '') or '').strip()
+                _lp285 = _lp285.lstrip('/')
+                if '..' in _lp285.split('/'):
+                    raise ValueError('Preset-Pfade klettern nicht hoch (..)')
+                if not _lp285.lower().endswith('.json'):
+                    raise ValueError('Preset muss eine .json-Datei sein')
+                _lpath285 = os.path.join(directory, _lp285)
+                _pre285, _lerr285 = _tcl285.load_preset_file(_lpath285)
+                if _pre285 is None:
+                    raise ValueError(' | '.join(_lerr285[:2]))
+                _jobs285 = _tcl285.jobs_from_preset(_pre285)
+                _tc_push285(_jobs285, _tcl285)
+                # geladen = Datei-Modus AUS: Apply nutzt wieder die Liste
+                _moonraker_gcode(
+                    'SAVE_VARIABLE VARIABLE=toolchain_preset VALUE=""\n'
+                    '_PACE\n'
+                    'RESPOND MSG="Preset %s geladen: %d Jobs in der Liste"\n'
+                    'M117 Chain: %d Jobs\n_SOUND_LIB NAME=r2_confirm'
+                    % (str(_pre285.get('name', '?'))[:40],
+                       len(_jobs285), len(_jobs285)))
+                print('[toolchain] loaded %s -> %d jobs'
+                      % (_lp285, len(_jobs285)), flush=True)
+        except ValueError as _ve285l:
+            try:
+                _moonraker_gcode(
+                    'RESPOND MSG="Chain load: %s"\nM117 Chain load error\n'
+                    '_SOUND_LIB NAME=r2_error'
+                    % str(_ve285l).replace('"', "'"))
+            except Exception:                           # noqa: BLE001
+                pass
+            print('[toolchain] load guard: %s' % _ve285l, flush=True)
+
         # R259: the TOOLCHAIN - a preset FILE chains the real tools: every
         # step feeds the next (Scale -> Twist -> ...), ONE queue entry, only
         # the LAST output stays (temps die after handover, S22.4). The preset
@@ -32553,6 +33779,8 @@ def watch(directory, interval=5.0, once=False):
             _tcn259 = rv.get('toolchain_nonce', '')
             if _tcn259 and _tcn259 != last_toolchain_nonce:
                 last_toolchain_nonce = _tcn259
+                # R285: QUELLE = Datei-Modus (toolchain_preset gesetzt,
+                # Konsole PRESET=) ODER die LCD-Jobliste (Default).
                 # R285: QUELLE = Datei-Modus (toolchain_preset gesetzt,
                 # Konsole PRESET=) ODER die LCD-Jobliste (Default).
                 _tcp259 = str(rv.get('toolchain_preset', '') or '').strip()
@@ -32633,6 +33861,14 @@ def watch(directory, interval=5.0, once=False):
                                  'make_range', 'make_mold')):
                             _tcst._PP = _me259
                     _out_dir = _gensub(directory, 'toolchain')
+                    # R285: Listen-Modus - die Jobliste wird hier (im Job,
+                    # am Scheduler vorbei) zum Preset; 'name'/'description'
+                    # tauchen nur als Metadaten auf, nie im Dateinamen.
+                    if pre is None:
+                        pre = _tcl.preset_from_jobs(
+                            jobs, 'LCD chain',
+                            description='Am LCD gebaute Kette (%d Jobs)'
+                                        % len(jobs))
                     # R285: Listen-Modus - die Jobliste wird hier (im Job,
                     # am Scheduler vorbei) zum Preset; 'name'/'description'
                     # tauchen nur als Metadaten auf, nie im Dateinamen.
