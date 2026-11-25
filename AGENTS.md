@@ -15,11 +15,21 @@ du-Anrede, technisch präzise, ohne Fülltext.
 
 ---
 
-## Aktueller Stand (2026-11-19)
+## Aktueller Stand (2026-11-25)
 
-- Release-Stand: **V6 (`R2-2026-11-19.2`)** auf Branch `arena/82ead60b-onmachinedesignstudio` (PR #22 → `main`): Gießformen-Generator **J2** (R270–R273), Fremddrucker-Audit **J7** (R274), M82-Bogen-Extrusionsfix in `Twist`/`Mirror` (R276), **Sektion D komplett** (alle 13/13 D3-Generator-PDFs + alle 7/7 D4-Modifikator-PDFs = 28 Root-PDFs, R275–R279) sowie **Gesamtbriefing-Abgleich §§ 20–28** (`analyse/GESAMTBRIEFING-ABGLEICH-20-28.md`, R280).
-- Release-Historie: V1 `R2-2026-11-13.1` → V2 `R2-2026-11-18.1` → V3 `R2-2026-11-18.2` → V4 `R2-2026-11-18.3` → V5 `R2-2026-11-19.1` → **V6 `R2-2026-11-19.2`**.
-  Das finale V6-ZIP liegt nach Merge in `releases/` (gitignored) mit `.sha256`-Sidecar (aus `origin/main` ohne `analyse/` gebaut und per `r199_zip_check.py` geprüft).
+- Release-Stand: **V7 (`R2-2026-11-19.3`, Build `R285`)** — gemergt auf `main`
+  über **PR #26** (Merge-Commit `0772a15`). Inhalt dieser Runde: Setup-Retry-Pfad
+  (R284), Toolchain-Jobliste als LCD-State (R285, kein Preset-File mehr), Feldreport
+  17.11. (Textur-Label, Vase-E, Brick-Öffnungen, R286–R288), Brick-Katalog-Wachstum
+  auf **90 Codes** (Baseplates BP, Gears G12–G40, Achsen AX2/AX4/AX6/AH2x2, Dome D2x2,
+  R289) und vertikale Standing-Molds mit Auto-Split (R290). Engine = volle
+  `r2_postproc.py` R2.85; `r2_postproc_next.py` ist die experimentelle Kopie mit
+  R252-Handover. Checks dieser Runde: `r288_brick_openings_check.py`,
+  `r289_brick_families_check.py`, `r290_vsplit_check.py`; macro_render 2141/2141,
+  r81 23/23 (V7-Re-Freeze, A/B bewiesen), r276–279 22/22/25/25/25, r234 38/0.
+- Vorgänger-Stand: **V6 (`R2-2026-11-19.2`)** (PR #22 → `main`): Gießformen-Generator **J2** (R270–R273), Fremddrucker-Audit **J7** (R274), M82-Bogen-Extrusionsfix in `Twist`/`Mirror` (R276), **Sektion D komplett** (alle 13/13 D3-Generator-PDFs + alle 7/7 D4-Modifikator-PDFs = 28 Root-PDFs, R275–R279) sowie **Gesamtbriefing-Abgleich §§ 20–28** (`analyse/GESAMTBRIEFING-ABGLEICH-20-28.md`, R280).
+- Release-Historie: V1 `R2-2026-11-13.1` → V2 `R2-2026-11-18.1` → V3 `R2-2026-11-18.2` → V4 `R2-2026-11-18.3` → V5 `R2-2026-11-19.1` → V6 `R2-2026-11-19.2` → **V7 `R2-2026-11-19.3`**.
+  Das finale V7-ZIP liegt nach Merge in `releases/` (gitignored) mit `.sha256`-Sidecar (aus `origin/main` ohne `analyse/` gebaut und per `r199_zip_check.py` geprüft).
 - Der **Drucker ist im Umbau** — keine Hardware-Tests, keine Feldabnahme,
   keine `printer.cfg`-Änderungen ohne explizites Go + Test-Fenster.
   Die dafür gesammelte **Feld-Abnahme-Checkliste** steht in
@@ -28,9 +38,8 @@ du-Anrede, technisch präzise, ohne Fülltext.
   Commit-Serie dieser Branch). Release-Berichte unter `docs/RELEASE_*.md`.
 - Offen (Hauptbaustelle): **STL-Export** (Briefing §24) — Bestandsaufnahme in
   `analyse/STL-EXPORT-AUDIT.md`; Vorgehen: Tests zuerst, dann Reparatur.
-- **D3/D4** (wissenschaftliche Generator-/Modifier-PDFs): vom Nutzer
-  zurückgestellt, Umfang (>15 Einzel-PDFs vs. Gesamtwerk) noch nicht final.
 - **D1 ist freigegeben:** MANUAL.md aktuell halten; Kap. 14 ergänzt.
+- **D3/D4 sind ERLEDIGT** (28/28 Root-PDFs, R275–R279 — siehe V6-Stand oben).
 - **Gesamtprüfung ist beauftragt:** Punkte B/C aus dem Gespräch gegen Code,
   Tests und alle bereitgestellten Recherchen prüfen. Keine erneute Rückfrage
   zur bereits beauftragten Einzelprüfung. Noch keine Gesamt-Abnahme. Der Nutzer hat nun die Umsetzung des Gesamtumbaus

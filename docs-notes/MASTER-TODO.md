@@ -1,4 +1,6 @@
-# MASTER-TODO — alles, was der User verlangt hat (Stand: R2-2026-11-19.2 / V6)
+# MASTER-TODO — alles, was der User verlangt hat (Stand: R2-2026-11-19.3 / V7, gemergt PR #26)
+
+**Erledigt 2026-11-25 (PR #26 → main):** R284 Setup-Retry-Pfad · R285 Toolchain-Jobliste als LCD-State · R286–R288 Feldreport 17.11. (Textur-Label, Vase-E, Brick-Öffnungen — `r288_brick_openings_check.py`) · R289 Brick-Katalog 90 Codes (Baseplates/Gears/Achsen/Dome — `r289_brick_families_check.py`, `macros/19_bricks.cfg` synchron zu `BRICK_CATALOG`) · R290 vertikale Standing-Molds mit Auto-Split (`r290_vsplit_check.py`). Engine R2.85/R285 auf main; r81-Goldens V7-re-frozen (Stamp-Klasse, A/B bewiesen); alle 28 PDFs gegen .3 neu gebaut; macro_render 2141/2141.
 
 **Diese Datei ist ab jetzt der einzige Ort, an dem Aufgaben stehen.** Wenn etwas
 nicht hier steht, existiert es für die Arbeit nicht. Jede erledigte Zeile wird
