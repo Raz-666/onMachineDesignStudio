@@ -4986,7 +4986,9 @@ _LABEL_STROKE_FONTS = {
     'SCRIPT': (FONT_SCRIPT, FONT_META_SCRIPT, False),
     'HAND':   (FONT_HAND, FONT_META_HAND, False),
     'PLATE':  (FONT_PLATE, FONT_META_PLATE, False),
-    'PIXEL':  (FONT_PIXEL, FONT_META_PIXEL, False),
+    # R286 (Befund 4b): PIXEL retired (R80 field log .63: unreadable + the
+    # MCU-Shutdown risk) - removed from the printable fonts. A saved PIXEL
+    # selection falls back to SMOOTH (the normalization above).
 }
 _LABEL_FONT_CACHE = {}
 
@@ -7208,29 +7210,26 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
     stamp_base = max(3.5, min(float(stamp_base or 5.0), 15.0))
     stamp_tol = max(0.10, min(float(stamp_tol or 0.25), 0.50))
     fit168 = None
-    cx168 = cy168 = None
     if stamp:
-        if len(labels) > 1:
-            raise ValueError('stamp labels: exactly ONE label per job '
-                             '(got %d) - the socket sits under the text'
-                             % len(labels))
-        if labels[0]['circ']:
+        # R286 (Befund 4c): MULTIPLE stamp labels per job are allowed -
+        # every stamp label carries its own snap socket under its text and
+        # its own handle on the plate (the old 'exactly ONE label per job'
+        # rule dropped the handles when the job had more than one stamp).
+        if any(lb['circ'] for lb in labels):
             raise ValueError('stamp labels print without the label hole '
                              '(Hole=0) - the snap socket IS the mount')
         fit168 = _StampFit168(tol=stamp_tol, layer_h=layer_h)
         _need168 = max(stamp_base, fit168.d5 + 2.0 * layer_h + 0.4)
         while first_h + (base_layers - 1) * layer_h < _need168:
             base_layers += 1
-        lb0 = labels[0]
-        cx168 = lb0['x'] + lb0['w'] / 2.0
-        cy168 = lb0['y'] + lb0['h'] / 2.0
-        if min(lb0['w'], lb0['h']) < 2.0 * fit168.r_e + 6.0:
-            raise ValueError('stamp label too small: the socket '
-                             '(d%.1fmm) needs a label of at least '
-                             '%.0fx%.0fmm'
-                             % (2.0 * fit168.r_e,
-                                2.0 * fit168.r_e + 6.0,
-                                2.0 * fit168.r_e + 6.0))
+        for lb0 in labels:
+            if min(lb0['w'], lb0['h']) < 2.0 * fit168.r_e + 6.0:
+                raise ValueError('stamp label too small: the socket '
+                                 '(d%.1fmm) needs a label of at least '
+                                 '%.0fx%.0fmm'
+                                 % (2.0 * fit168.r_e,
+                                    2.0 * fit168.r_e + 6.0,
+                                    2.0 * fit168.r_e + 6.0))
         if handle == 1 and not mirror_x:
             pass    # noted in the job message; no hidden flips
 
@@ -7241,7 +7240,7 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
     # the on-plate handle snaps exactly like the standalone file's.
     _hplate170 = bool(fit168 is not None and handle == 1)
     _hl170 = 0
-    _hpos170 = None
+    _hpos170 = []
     if _hplate170:
         _hl170 = max(6, int(math.ceil(fit168.total_grip / layer_h)))
         _hr170 = fit168.GRIP_R + 2.5
@@ -7257,10 +7256,23 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
         _by1h = max(r[3] for r in _rects170)
         _cxh = (_bx0h + _bx1h) / 2.0
         _cyh = (_by0h + _by1h) / 2.0
+        # R286 (Befund 4c): ONE handle PER stamp label - the candidates are
+        # the four sides of the label cluster; each placed handle keeps its
+        # clearance from every label, the tower and the handles already
+        # placed. The handles MUST land on the plate (the user's complaint:
+        # the handles were missing when the job had more than one stamp).
+        _ncand170 = len(labels)
+        if _ncand170 > 4:
+            raise ValueError('%d stamp handles do not fit the plate - at '
+                             'most 4 handles (one per cluster side), use '
+                             'Handle=2 (separate files) for more'
+                             % _ncand170)
         for _hx, _hy in ((_bx1h + _cl170 + _hr170, _cyh),
                          (_bx0h - _cl170 - _hr170, _cyh),
                          (_cxh, _by0h - _cl170 - _hr170),
                          (_cxh, _by1h + _cl170 + _hr170)):
+            if len(_hpos170) >= _ncand170:
+                break
             if not (ux0 <= _hx - _hr170 and _hx + _hr170 <= ux1
                     and uy0 <= _hy - _hr170 and _hy + _hr170 <= uy1):
                 continue
@@ -7272,13 +7284,19 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
                         - max(_hy - _hr170, _ry0 - _cl170) > 0.0):
                     _ok170 = False
                     break
+            for (_hpx, _hpy) in _hpos170:
+                if (min(_hx + _hr170, _hpx + _hr170)
+                        - max(_hx - _hr170, _hpx - _hr170) > 0.0
+                        and min(_hy + _hr170, _hpy + _hr170)
+                        - max(_hy - _hr170, _hpy - _hr170) > 0.0):
+                    _ok170 = False
+                    break
             if _ok170:
-                _hpos170 = (_hx, _hy)
-                break
-        if _hpos170 is None:
-            raise ValueError('no room for the handle on the plate - '
+                _hpos170.append((_hx, _hy))
+        if len(_hpos170) < _ncand170:
+            raise ValueError('no room for %d handle(s) on the plate - '
                              'fewer/smaller labels, a smaller gap, or '
-                             'Handle=2 (separate file)')
+                             'Handle=2 (separate file)' % _ncand170)
     if dry_layout:
         # R170: layout probe only - packing + handle placement decided,
         # NOTHING is written (the split loop fires dozens of these per job;
@@ -7299,68 +7317,81 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
 
     def handle_block(z, li):
         """R170: one handle layer - LAST object of the layer, z-hop
-        approach (never skims a finished label), bore ceiling bridged."""
-        _hx, _hy = _hpos170
+        approach (never skims a finished label), bore ceiling bridged.
+        R286 (Befund 4c): one block PER handle - a job with several
+        stamps carries one handle per stamp, all on the plate."""
         _ew170 = layer_h_eff(li) * wid / fil
         _zbot170 = (first_h + (li - 2) * layer_h) if li > 1 else 0.0
         _bore_end170 = fit168.z_ramp_up + 0.6
-        L.append('G0 Z%.3f F600   ; R170: hop over to the handle' % (z + 3.0))
-        pen.travel(_hx - _handle_r170(z) - wid, _hy, 4800)
-        L.append('G0 Z%.3f F600' % z)
-        L.append('EXCLUDE_OBJECT_START NAME=GRIFF')
-        if li == 1 and brim:
-            L.append(';TYPE:Brim')
-            # R183: same air-gap fix as the label base brim - the handle
-            # wall ink reaches its radius, the first brim line keeps clear
-            _bgap183 = wid + 0.35
-            for off in (_bgap183 + wid, _bgap183):
-                _emit_loop(pen, _circle(_hx, _hy, _handle_r170(z) + off),
-                           _ew170, 900)
-        L.append(';TYPE:Outer wall')
-        _emit_loop(pen, _circle(_hx, _hy, _handle_r170(z) - wid / 2.0),
-                   _ew170, 900 if li == 1 else 1800)
-        if _zbot170 < _bore_end170:
-            L.append(';TYPE:Inner wall')
-            _emit_loop(pen, _circle(_hx, _hy, fit168.BORE + wid / 2.0),
+        for _hx, _hy in _hpos170:
+            L.append('G0 Z%.3f F600   ; R170: hop over to the handle'
+                     % (z + 3.0))
+            pen.travel(_hx - _handle_r170(z) - wid, _hy, 4800)
+            L.append('G0 Z%.3f F600' % z)
+            L.append('EXCLUDE_OBJECT_START NAME=GRIFF')
+            if li == 1 and brim:
+                L.append(';TYPE:Brim')
+                # R183: same air-gap fix as the label base brim - the
+                # handle wall ink reaches its radius, the first brim line
+                # keeps clear
+                _bgap183 = wid + 0.35
+                for off in (_bgap183 + wid, _bgap183):
+                    _emit_loop(pen, _circle(_hx, _hy,
+                                            _handle_r170(z) + off),
+                               _ew170, 900)
+            L.append(';TYPE:Outer wall')
+            _emit_loop(pen, _circle(_hx, _hy, _handle_r170(z) - wid / 2.0),
                        _ew170, 900 if li == 1 else 1800)
-            if _zbot170 < _bore_end170 <= z:
-                L.append(';TYPE:Bridge')
-                _rb = fit168.BORE + wid * 0.5
-                _nb = max(6, int((2.0 * _rb) / max(wid, 0.4)))
-                for _k in range(_nb + 1):
-                    _off = -_rb + (2.0 * _rb) * _k / _nb
-                    _hh = math.sqrt(max(0.0, _rb * _rb - _off * _off))
-                    pen.travel(_hx - _hh, _hy + _off, 4800)
-                    pen.extrude(_hx + _hh, _hy + _off,
-                                2.0 * _hh * _ew170, 1300)
-                L.append(';TYPE:Internal bridge')
+            if _zbot170 < _bore_end170:
+                L.append(';TYPE:Inner wall')
                 _emit_loop(pen, _circle(_hx, _hy, fit168.BORE + wid / 2.0),
-                           _ew170, 1200)
-        if z > fit168.z_cone:
-            L.append(';TYPE:Inner wall')
-            _emit_loop(pen, _circle(_hx, _hy, _handle_r170(z) - 1.5 * wid),
-                       _ew170, 1800)
-            _rbk = min(_handle_r170(z), _handle_r170(max(0.0, z - layer_h)))
-            _rr = _rbk - 2.0 * wid
-            while _rr > _rbk - 5.0 * wid and _rr > wid:
-                _emit_loop(pen, _circle(_hx, _hy, _rr), _ew170, 2400)
-                _rr -= wid
-            _capk = (li > _hl170 - 4)
-            L.append(';TYPE:%s' % ('Top surface' if _capk
-                                   else 'Sparse infill'))
-            _sq = max(wid, (_rbk - 5.0 * wid) / math.sqrt(2.0))
-            _sp = wid if _capk else wid * 100.0 / 12.0
-            _sg = _hatch(_hx - _sq, _hy - _sq, _hx + _sq, _hy + _sq, None,
-                         _sp, 45.0 if li % 2 else 135.0)
-            _emit_fill(pen, _sg, _ew170, 2400, _sp)
-        elif z > _bore_end170 + layer_h:
-            L.append(';TYPE:Internal solid infill')
-            _rr = _handle_r170(z) - 1.5 * wid
-            while _rr > wid * 0.6:
-                _emit_loop(pen, _circle(_hx, _hy, _rr), _ew170, 2400)
-                _rr -= wid
-        pen.holes = []
-        L.append('EXCLUDE_OBJECT_END NAME=GRIFF')
+                           _ew170, 900 if li == 1 else 1800)
+                if _zbot170 < _bore_end170 <= z:
+                    L.append(';TYPE:Bridge')
+                    _rb = fit168.BORE + wid * 0.5
+                    _nb = max(6, int((2.0 * _rb) / max(wid, 0.4)))
+                    for _k in range(_nb + 1):
+                        _off = -_rb + (2.0 * _rb) * _k / _nb
+                        _hh = math.sqrt(max(0.0, _rb * _rb
+                                             - _off * _off))
+                        pen.travel(_hx - _hh, _hy + _off, 4800)
+                        pen.extrude(_hx + _hh, _hy + _off,
+                                    2.0 * _hh * _ew170, 1300)
+                    L.append(';TYPE:Internal bridge')
+                    _emit_loop(pen, _circle(_hx, _hy,
+                                            fit168.BORE + wid / 2.0),
+                               _ew170, 1200)
+            if z > fit168.z_cone:
+                L.append(';TYPE:Inner wall')
+                _emit_loop(pen, _circle(_hx, _hy,
+                                        _handle_r170(z) - 1.5 * wid),
+                           _ew170, 1800)
+                _rbk = min(_handle_r170(z),
+                           _handle_r170(max(0.0, z - layer_h)))
+                _rr = _rbk - 2.0 * wid
+                while _rr > _rbk - 5.0 * wid and _rr > wid:
+                    _emit_loop(pen, _circle(_hx, _hy, _rr), _ew170, 2400)
+                    _rr -= wid
+                # R286 (Befund 1): the cap is solid hatch on every layer,
+                # but only the TOP layer carries 'Top surface' - no stacked
+                # top on top, and the top never sits directly on the sparse
+                # cone body (the layers below are solid infill).
+                _capk = (li == _hl170)
+                L.append(';TYPE:%s' % ('Top surface' if _capk
+                                       else 'Internal solid infill'))
+                _sq = max(wid, (_rbk - 5.0 * wid) / math.sqrt(2.0))
+                _sp = wid
+                _sg = _hatch(_hx - _sq, _hy - _sq, _hx + _sq, _hy + _sq,
+                             None, _sp, 45.0 if li % 2 else 135.0)
+                _emit_fill(pen, _sg, _ew170, 2400, _sp)
+            elif z > _bore_end170 + layer_h:
+                L.append(';TYPE:Internal solid infill')
+                _rr = _handle_r170(z) - 1.5 * wid
+                while _rr > wid * 0.6:
+                    _emit_loop(pen, _circle(_hx, _hy, _rr), _ew170, 2400)
+                    _rr -= wid
+            pen.holes = []
+            L.append('EXCLUDE_OBJECT_END NAME=GRIFF')
 
     def _lb_contour(lb, inset):
         """R119: this label's wall contour in ABSOLUTE coords, the path
@@ -7550,9 +7581,10 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
     else:
         types += ['SURFACE-TOP']
     if _hplate170:
-        a('; R170: handle ON THE PLATE at (%.0f,%.0f) - printed LAST on'
+        _hpos_txt = ', '.join('(%.0f,%.0f)' % h for h in _hpos170)
+        a('; R170: handle(s) ON THE PLATE at %s - printed LAST on'
           ' every layer (%d layers, the file tops out at the handle)'
-          % (_hpos170[0], _hpos170[1], _hl170))
+          % (_hpos_txt, _hl170))
     a('_FILE_INFO MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d LINE_WIDTH=%.2g '
       'LINE_WIDTH_FIRST=%.2g LINE_WIDTH_WALL=%.2g FLOW_RATIO=1 NOZZLE=%.1f '
       'WALL_LOOPS=2 SPEED_OUTER=40 SPEED_FIRST=25 SPEED_TRAVEL=150%s TYPES=%s BY_OBJECT=0'
@@ -7591,13 +7623,16 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
           % (tower[0] + tw / 2.0, tower[1] + tw / 2.0, poly))
     if _hplate170:
         _hr170 = fit168.GRIP_R + 2.5
+        # R286: one GRIFF object covering ALL handles (a bounding rect
+        # around every placed handle - the LCD shows the whole group).
+        _gx0 = min(h[0] for h in _hpos170) - _hr170
+        _gy0 = min(h[1] for h in _hpos170) - _hr170
+        _gx1 = max(h[0] for h in _hpos170) + _hr170
+        _gy1 = max(h[1] for h in _hpos170) + _hr170
         poly = '[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]' % (
-            _hpos170[0] - _hr170, _hpos170[1] - _hr170,
-            _hpos170[0] + _hr170, _hpos170[1] - _hr170,
-            _hpos170[0] + _hr170, _hpos170[1] + _hr170,
-            _hpos170[0] - _hr170, _hpos170[1] + _hr170)
+            _gx0, _gy0, _gx1, _gy0, _gx1, _gy1, _gx0, _gy1)
         a('EXCLUDE_OBJECT_DEFINE NAME=GRIFF CENTER=%.1f,%.1f POLYGON=%s'
-          % (_hpos170[0], _hpos170[1], poly))
+          % ((_gx0 + _gx1) / 2.0, (_gy0 + _gy1) / 2.0, poly))
     ps = 'PRINT_START MATERIAL=%s LAYER_HEIGHT=%.2g TOTAL_LAYERS=%d OUTER_WALL_SPEED=40' % (
         material, layer_h, _total170)
     if ironing:
@@ -7676,7 +7711,12 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
         if lb['circ']:
             keep = (lb['circ'][0] + lx, lb['circ'][1] + ly, lb['circ'][2] + 2.0 * wid)
         # ---- R168: the stamp socket under this label ------------------
+        # R286: the socket sits under THIS label's text (per-label center,
+        # not one global center) - every stamp label in the job gets its
+        # own socket.
         if fit168 is not None:
+            _sx168 = lb['x'] + lb['w'] / 2.0
+            _sy168 = lb['y'] + lb['h'] / 2.0
             _zb168 = z - layer_h_eff(layer_idx)
             _r168 = (fit168.sock_r(min(z, fit168.d5 - 1e-9))
                      if _zb168 < fit168.d5 else None)
@@ -7684,10 +7724,10 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
             if _r168 is not None:
                 L.append(';TYPE:Outer wall')
                 L.append('APPLY_TYPE TYPE=WALL-OUTER   ; R168 socket ring')
-                _emit_loop(pen, _circle(cx168, cy168,
+                _emit_loop(pen, _circle(_sx168, _sy168,
                                         _r168 + wid / 2.0),
                            e_wall, 1500 if first else 2400)
-                keep = (cx168, cy168, _r168 + wid + 0.2)
+                keep = (_sx168, _sy168, _r168 + wid + 0.2)
             if _ceil168:
                 L.append(';TYPE:Bridge')
                 L.append('APPLY_TYPE TYPE=BRIDGE   ; R168 socket ceiling')
@@ -7697,18 +7737,18 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
                     _off168 = -_rb168 + (2.0 * _rb168) * _k168 / _n168
                     _hh168 = math.sqrt(max(0.0, _rb168 * _rb168
                                            - _off168 * _off168))
-                    pen.travel(cx168 - _hh168, cy168 + _off168, 4800)
-                    pen.extrude(cx168 + _hh168, cy168 + _off168,
+                    pen.travel(_sx168 - _hh168, _sy168 + _off168, 4800)
+                    pen.extrude(_sx168 + _hh168, _sy168 + _off168,
                                 2.0 * _hh168 * e_wall, 1300)
                 L.append(';TYPE:Internal bridge')
                 L.append('APPLY_TYPE TYPE=INTERNAL-BRIDGE')
-                _emit_loop(pen, _circle(cx168, cy168,
+                _emit_loop(pen, _circle(_sx168, _sy168,
                                         fit168.r_ce + wid / 2.0),
                            e_wall, 1200)
             if _zb168 >= fit168.d5:
                 sparse_l = False     # solid above the closed ceiling
             if _r168 is not None:
-                pen.holes = [(cx168, cy168, _r168)]
+                pen.holes = [(_sx168, _sy168, _r168)]
             else:
                 pen.holes = []
         # R106 (user TYPE map): first fill on the bed = Bottom surface,
@@ -8096,10 +8136,11 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
     _gen_normalize_speeds(out)   # R159: uniform 60/1500 + travel 180/8000
     out_handle168 = None
     if fit168 is not None and handle == 2:      # R170: 2 = own file
+        # R286: the standalone handle file prints at the BED CENTER (its
+        # own file, no labels on the plate) - _make_stamp_handle defaults.
         out_handle168, _hi168 = _make_stamp_handle(
             fit168, out_dir=out_dir, material=material, nozzle=nozzle,
-            wid=wid, layer_h=layer_h, src_stem=first_name,
-            cx=cx168, cy=cy168)
+            wid=wid, layer_h=layer_h, src_stem=first_name)
     info = {'file': fname, 'count': n, 'cols': cols, 'rows': rows,
             'mirror_x': mirror_x, 'mirror_y': mirror_y,
             'flip': bool(flip), 'raised': raised_t231,
@@ -8107,8 +8148,8 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
             'handle_file': (os.path.basename(out_handle168)
                             if out_handle168 else None),
             'handle_plate': _hplate170,      # R170: handle on the plate
-            'handle_pos': (round(_hpos170[0], 1), round(_hpos170[1], 1))
-                          if _hpos170 else None,
+            'handle_pos': ([(round(h[0], 1), round(h[1], 1))
+                            for h in _hpos170] if _hpos170 else None),
             'file_layers': _total170,
             'jobs': ([{'font': jb['font'], 'w': round(jb['w'], 1),
                        'h': round(jb['h'], 1), 'grown': jb.get('grown', False)}
@@ -8721,8 +8762,9 @@ def _reso_plate_content(axis, data, measure):
     _pick = 'PICK: VIBRATION CAL > APPLY %s' % axis.upper()
     _ph = _fit_h(_pick, 4.2, W - 8.0)
     if measure(_pick, _ph) > W - 8.0:
-        # very wide font (PIXEL print plates): shorter wording instead of
-        # overflowing the plate border
+        # very wide font: shorter wording instead of overflowing the plate
+        # border (R286: the resonance plate prints SMOOTH now - PIXEL is
+        # retired, R80 + the MCU-Shutdown risk)
         _pick = 'PICK: APPLY %s' % axis.upper()
         _ph = _fit_h(_pick, 4.2, W - 8.0)
     texts.append((_pick, 4.0, 2.5, _ph, 'l'))
@@ -8826,7 +8868,7 @@ def make_resonance(axes=('x', 'y'), mode='print', out_dir='.', bed=None, version
         pw = max(20.0, min(RESO_PLATE_W, (bmax_x - bmin_x) - 4))
         ph = max(20.0, min(RESO_PLATE_H, (bmax_y - bmin_y) - 4))
         font = str(v.get('plot_text_font', 'SMOOTH') or 'SMOOTH').upper()
-        if font not in ('SMOOTH', 'MONO', 'COND', 'NARROW', 'CAPS', 'SCRIPT', 'HAND', 'PLATE', 'PIXEL'):
+        if font not in ('SMOOTH', 'MONO', 'COND', 'NARROW', 'CAPS', 'SCRIPT', 'HAND', 'PLATE'):
             font = 'SMOOTH'
         lays = []
         lay_w = sum(1 for _ in plates)
@@ -8890,9 +8932,11 @@ def make_resonance(axes=('x', 'y'), mode='print', out_dir='.', bed=None, version
     a('; wall_loops = 2')
     contents = {}
     for ax, gx, gy in plates:
+        # R286 (Befund 4b): PIXEL retired (R80 + the MCU-Shutdown risk) -
+        # the resonance plate prints SMOOTH now.
         strokes, texts = _reso_plate_content(ax, data[ax],
-                                             lambda t, h: _measure_text(t, h, 'PIXEL'))
-        txt_strokes = _render_texts(texts, 'PIXEL')
+                                             lambda t, h: _measure_text(t, h, 'SMOOTH'))
+        txt_strokes = _render_texts(texts, 'SMOOTH')
         contents[ax] = (gx, gy, strokes, txt_strokes)
         poly = '[[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f],[%.1f,%.1f]]' % (
             gx, gy, gx + RESO_PLATE_W, gy, gx + RESO_PLATE_W, gy + RESO_PLATE_H, gx, gy + RESO_PLATE_H)
@@ -9250,7 +9294,7 @@ def text_convert(path, out=None, var_path=None):
     page_h = (bmax_y - bmin_y) - 8.0
     size = max(6.0, min(_vf('plot_text_size', 7.0), 20.0))    # R73: >=6mm caps
     font = str(v.get('plot_text_font', 'SMOOTH') or 'SMOOTH').upper()
-    if font not in ('SMOOTH', 'MONO', 'COND', 'NARROW', 'CAPS', 'SCRIPT', 'HAND', 'PLATE', 'PIXEL'):
+    if font not in ('SMOOTH', 'MONO', 'COND', 'NARROW', 'CAPS', 'SCRIPT', 'HAND', 'PLATE'):
         font = 'SMOOTH'
     cols, size = _fit_text_page(raw, page_w, page_h, size, font)
     extrude = int(_vf('plot_extrude', 0)) == 1
@@ -10589,7 +10633,7 @@ def make_status_plot(out=None, var_path=None, host='127.0.0.1', port=7125):
     page_h = (bmax_y - bmin_y) - 8.0
     size = max(6.0, min(_vf('plot_text_size', 7.0), 20.0))    # R73: >=6mm caps
     font = str(v.get('plot_text_font', 'SMOOTH') or 'SMOOTH').upper()
-    if font not in ('SMOOTH', 'MONO', 'COND', 'NARROW', 'CAPS', 'SCRIPT', 'HAND', 'PLATE', 'PIXEL'):
+    if font not in ('SMOOTH', 'MONO', 'COND', 'NARROW', 'CAPS', 'SCRIPT', 'HAND', 'PLATE'):
         font = 'SMOOTH'
     cols, size = _fit_text_page(lines, page_w, page_h, size, font)
     extrude = int(_vf('plot_extrude', 0)) == 1
@@ -12346,7 +12390,11 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
     if solid_ft < 1:
         raise ValueError('front band too thin for %.1fmm deep grooves - '
                          'increase DEPTH or use direction OUT' % float(s_deep))
-    bp_layers = max(3, int(round(0.8 / layer_h)))
+    # R286 (Befund: Frame Tool): the backplate is exactly THREE layers -
+    # enough for the snap fit (the nubs ride over its top edge), one solid
+    # top skin for the hang keyhole. The old 0.8mm target made 4 layers at
+    # 0.2mm and was more than the plate needs.
+    bp_layers = 3
     st_layers = max(6, int(round(1.2 / layer_h)))
     stud_layers = 6
     total_layers = frame_layers
@@ -12364,7 +12412,10 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
     # -0.35mm/side: the plate was OVERSIZE by 0.7mm total plus elephant
     # foot - a press fit no force could close ('never a single one fit').
     # New: 0.35mm play per side - the plate drops in, the nubs click.
-    _play167 = 0.35
+    # R286 (Befund 3): 0.15mm play per side now - the 0.35 left the plate
+    # too loose (the MINI backplate fell out, ~0.5-1mm short of the snap).
+    # 0.15 still slides in, the nubs grip; the plate is ~0.4mm larger.
+    _play167 = 0.15
     # nub reach measured from the wall's LIGHT edge: play + 0.2mm overlap
     # (the old nub reached 1.2mm past the CONTOUR - deeper into the shaft
     # than the comment's '0.2mm overlap' by 6x - nothing could click past)
@@ -12434,17 +12485,29 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
     # frame left; right column = backplate (top) + stand (below). 4mm gaps,
     # 2mm plate rim - a 10x15 frame with border 10 still fits beside its plate
     gap = 3.0
+    # R286 (Befund 3): the SIDE plate is ~1mm WIDER than the BACK one (it
+    # slides through the wall slot, so it does not need the shaft drop-in
+    # clearance) - clamped to the shaft fit so it never jams. The play
+    # itself is set in the nub section above (0.15mm per side, R286).
     if closure == 'BACK':
-        # R127 -> R167: the plate must pass through the photo shaft with
-        # the line-width math above (see the nub section): 0.35mm play
-        # per side, both closures share it (SIDE slides through a wall
-        # slot with the same light-size math, the plate ends up in the
-        # shaft anyway).
+        # R127 -> R167 -> R286: the plate must pass through the photo shaft
+        # with the line-width math above (see the nub section): play per
+        # side, both closures share the drop-in size.
         bw, bh = (pw - 2 * wid - 2 * _play167,
                   ph - 2 * wid - 2 * _play167)
     else:
         bw, bh = (pw - 2 * wid - 2 * _play167,
                   ph - 2 * wid - 2 * _play167)
+        # R286: the SIDE plate slides through the wall slot - it can be
+        # wider than the BACK drop-in plate, but never past the shaft fit
+        # (plate outer = bw + wid <= shaft light = pw - wid).
+        _bw_max = pw - 2 * wid - 0.15
+        _bw_side = min(bw + 1.0, _bw_max)
+        if _bw_side < bw + 0.95:
+            notes.append('side backplate widened %.2fmm (clamped to the '\
+                         'shaft fit - the slot slide needs the width, the '\
+                         'shaft sets the ceiling)' % (_bw_side - bw))
+        bw = _bw_side
     sw, sh = (26.0, 62.0) if stand else (0.0, 0.0)
     bx0, by0, bx1, by1 = bed
     ux0, uy0 = bx0 + bed_margin, by0 + bed_margin
@@ -12807,10 +12870,21 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                         a(';TYPE:Bottom surface')
                         _emit_serp(pen, segs, ew, 1500, spacing * 2.5)
                     elif skin == 'bottom':
-                        a(';TYPE:Bottom surface')
+                        # R286 (Befund 1): the bottom skin is the BED layer
+                        # only - every layer above it is solid infill, never
+                        # another 'Bottom surface' (user rule: bottom = the
+                        # lowest layer alone). The hatch stays solid.
+                        a(';TYPE:Internal solid infill')
                         _emit_fill(pen, segs, ew, 2700, spacing)
                     elif skin == 'top':
-                        a(';TYPE:Top surface')
+                        # R286 (Befund 1): the top skin is the TOP layer of
+                        # the face only - never stacked 'Top surface' on
+                        # 'Top surface'. The band below the visible face is
+                        # solid infill. The visible face is the front band in
+                        # BOTH orientations (in FLIP it prints FIRST, but it
+                        # is still the geometric top face - R286 Befund FLIP).
+                        a(';TYPE:%s' % ('Top surface' if eli == frame_layers
+                                        else 'Internal solid infill'))
                         _emit_fill(pen, segs, ew, 2700, spacing)
                     elif inner is photo_c and infill < 100.0:
                         # R101: sparse body - its own feature tag so the
@@ -12967,8 +13041,13 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                 ew = e_w(li)
                 # R99 (field log .75): was ';TYPE:Top surface infill' - not in
                 # the TYPE map, so the structured fronts ran as APPLY_TYPE
-                # TYPE=CUSTOM instead of SURFACE-TOP
-                a(';TYPE:Top surface')
+                # TYPE=CUSTOM instead of SURFACE-TOP.
+                # R286 (Befund 1): the pattern IS the visible face, but only
+                # the LAST pattern layer carries 'Top surface' - never a
+                # stacked top on top (the layers below are the face's solid
+                # structure).
+                a(';TYPE:%s' % ('Top surface' if li == frame_layers
+                                else 'Internal solid infill'))
                 if front == 'LINES':
                     hs = _ring_hatch(outer_c, lip_c if lip else view_c,
                                      float(s_space), float(s_angle))
@@ -13052,10 +13131,14 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                     # the geometry of layer frame_layers+1-li (front on bed)
                     eli = frame_layers + 1 - li if front == 'FLIP' else li
                     if eli <= n_bb:
-                        # R101 (field log .78): solid skin at the back face
-                        # (bottom in normal orientation, top when FLIP)
-                        _sk101 = (('bottom' if front != 'FLIP' else 'top')
-                                  if eli <= bot_sol else None)
+                        # R101 (field log .78): solid skin at the back face.
+                        # R286 (Befund: FLIP): the surface NAMES follow the
+                        # GEOMETRIC faces, never the print order - in FLIP
+                        # the front band (the visible face, printed FIRST on
+                        # the bed) must stay 'Top surface' and the back band
+                        # (printed last) stays 'Bottom surface'. The old
+                        # FLIP inversion tagged the visible face as bottom.
+                        _sk101 = ('bottom' if eli <= bot_sol else None)
                         _notch = (cable_box if eli <= n_cable_l else None)
                         if front == 'FLIP' and side_slot and eli == n_bb:
                             # R106: in FLIP the back band prints ABOVE the
@@ -13099,10 +13182,12 @@ def make_frame(preset='', width=148.0, height=210.0, depth=8.0, frame_w=12.0,
                             # R106 (field log .82): the front band IS the
                             # frame's top skin - was mistagged Internal solid
                             # infill, so SURFACE-TOP overrides never reached
-                            # the visible face (user TYPE map)
-                            emit_ring(eli, _fin,
-                                      skin=('top' if front != 'FLIP'
-                                            else 'bottom'))
+                            # the visible face (user TYPE map).
+                            # R286 (Befund: FLIP): the visible front face is
+                            # 'Top surface' in BOTH orientations - in FLIP
+                            # it prints FIRST (on the bed) but it is still
+                            # the face the user looks at, never 'bottom'.
+                            emit_ring(eli, _fin, skin='top')
                         else:
                             # R90.1b structure layer: walls only + pattern
                             emit_ring(eli, _fin, hatch=False)
@@ -13856,10 +13941,13 @@ def make_angles(count=2, angle_deg=90, leg_a=60.0, leg_b=60.0, width=25.0,
                 L.append(';TYPE:Inner wall')
                 _emit_loop(pen, _circle(ox + hx, oy + hy, d / 2.0), e_wall,
                            1500 if first else 2400)
-            # R106 (user TYPE map): first fill = Bottom surface, the top 2
-            # plate layers (countersink/ironing zone) = Top surface
+            # R106 (user TYPE map): first fill = Bottom surface, the top
+            # plate layer = Top surface. R286 (Befund 1): the countersink
+            # zone keeps its two-layer GEOMETRY (cs_d1/cs_d2) but only the
+            # LAST plate layer carries 'Top surface' - never a stacked top
+            # on top (the layer below is solid infill).
             L.append(';TYPE:%s' % ('Bottom surface' if first else
-                                   'Top surface' if top else
+                                   'Top surface' if plate_z == layers else
                                    'Internal solid infill'))
             # R86.2: INFILL % - line spacing wid at 100 (solid), wider below;
             # the hatch runs INSIDE the walls (no overlap with the loops)
@@ -14150,9 +14238,19 @@ def make_shape(shape='CYLINDER', size_x=40.0, size_y=40.0, corners=0,
         if is_bottom or is_top or (infill > 0 and not vase):
             inner = _loops_at(li)[-1]
             if is_bottom or is_top or infill >= 99.5:
-                L.append(';TYPE:%s' % ('Bottom surface' if is_bottom else
-                                       'Top surface' if is_top else
-                                       'Internal solid infill'))
+                # R286 (Befund 1): bottom = the bed layer ALONE, top = the
+                # last layer ALONE. The base/cap interior is solid infill,
+                # and a cap that rises out of a sparse body starts with a
+                # Bridge (user rule: no top directly on sparse infill).
+                if li == 1:
+                    _tag = 'Bottom surface'
+                elif is_top and li == total_layers:
+                    _tag = 'Top surface'
+                elif is_top and infill < 99.5 and li - 1 > n_base:
+                    _tag = 'Bridge'
+                else:
+                    _tag = 'Internal solid infill'
+                L.append(';TYPE:%s' % _tag)
                 _sp = wid
             else:
                 L.append(';TYPE:Sparse infill')
@@ -18120,10 +18218,12 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
             frac = 1.0 - (li * layer_h) / float(height_real or 1.0)
             for sd, sx in (('L', x0 - _st214_fw), ('R', x0 + width_mm)):
                 a('EXCLUDE_OBJECT_START NAME=LITHO_STAND_%s' % sd)
-                # feature tags mirror the plate: bottom / core / top
-                if li <= 2:
+                # feature tags mirror the plate: bottom / core / top.
+                # R286 (Befund 1): bottom = the bed layer ALONE, top = the
+                # last layer ALONE - never a stacked surface tag.
+                if li == 1:
                     a(_apply_type_lines('SURFACE-BOTTOM'))
-                elif li > rows - 2:
+                elif li == rows:
                     a(_apply_type_lines('SURFACE-TOP'))
                 else:
                     a(_apply_type_lines('WALL-OUTER'))
@@ -21441,6 +21541,11 @@ def make_seal(od=40.0, id_=20.0, height=1.2, profile='FLAT', ironing=False,
         a(';LAYER_CHANGE')
         a(';Z:%.3f' % z)
         a('LAYER_MARK')
+        # R286 (Befund 2): the nozzle must ACTUALLY rise to the layer - the
+        # old file only wrote the ;Z comment and never moved (the ring printed
+        # 'in the air' at the bed height / the previous Z). Same set_z the
+        # other generators use (G0 Z + the R216 ink-grid reset).
+        pen.set_z(z)
         a(';TYPE:%s' % ('Bottom surface' if li == 1 else
                          'Top surface' if li == layers else
                          'Internal solid infill'))
@@ -24828,6 +24933,9 @@ class _GeomScan:
                                   # groups - the layer ABOVE (checked one
                                   # classify pass later + the final pass)
                                   # decides top skin vs internal solid
+        self._sup_pend286 = []    # R286: pending SUPPORT groups (bbox +
+                                  # range idxs), resolved to SUPPORT-INTERFACE
+                                  # by the model ink of the layer above
         self.cls_len = 0.0
         self.tot_len = 0.0
         self.layers_classified = 0
@@ -25001,8 +25109,13 @@ class _GeomScan:
                 self._close_poly()
                 self._classify()
                 self.polys = []
+                _old_lz = self.layer_z
                 self.layer_idx = getattr(self, 'layer_idx', 0) + 1
                 self.layer_z = self.z
+                # R286: track the layer height (the overhang scan needs the
+                # 45-degree cone reach = the layer height)
+                if _old_lz is not None and self.z is not None:
+                    self.layer_h = abs(self.z - _old_lz)
                 self._comment_pending = False
                 self._seam_layer = False
             if self.layer_z is None and self.z is not None:
@@ -25154,6 +25267,12 @@ class _GeomScan:
         # = the candidate was the top skin. Runs after this layer number
         # is counted, before this layer's own features are decided.
         self._solid216_check(grid)
+        # R286: SUPPORT-INTERFACE resolution - the support layers below
+        # meet the model: the uppermost support layer whose region has
+        # MODEL material above it is the support INTERFACE (the roof the
+        # model rests on), not plain support. One-layer lookback like the
+        # solid check. Runs right after, before this layer is classified.
+        self._sup_interface286(grid, layer_no)
 
         # ---- walls ---------------------------------------------------------------
         loops.sort(key=lambda t: -t[0])
@@ -25180,6 +25299,17 @@ class _GeomScan:
             else:
                 # no usable bitmap - the R111 nesting fallback
                 feat = 'WALL-INNER' if nesting_inner else 'WALL-OUTER'
+            # R286: OVERHANG-PERIM - a WALL-OUTER whose outer edge leans out
+            # beyond the 45-degree cone of the layer below. Distinct from
+            # BRIDGE (a horizontal deck, _airscan193): this is a WALL whose
+            # edge overhangs. The layer below is the most recent picture.
+            if (feat == 'WALL-OUTER' and not first_layer
+                    and self._prev_grids):
+                _oh = self._overhang_scan(
+                    pts, self._prev_grids[-1],
+                    getattr(self, 'layer_h', 0.2) or 0.2)
+                if _oh >= 0.5:
+                    feat = 'OVERHANG-PERIM'
             if not nesting_inner:
                 outers.append((bb, pts))
                 if feat == 'WALL-OUTER' and not self._seam_layer:
@@ -25300,6 +25430,21 @@ class _GeomScan:
                         _c216 = {'layer': layer_no, 'idxs': [],
                                  'seq': None,
                                  'bbox': (_bx0, _by0, _bx1, _by1)}
+                _sup286 = None
+                if sup_set:
+                    _sbx0 = _sby0 = 1e30
+                    _sbx1 = _sby1 = -1e30
+                    for (_sb, _so, _sij, _ssp, _spl, _spi) in items:
+                        if _spi in sup_set:
+                            for (_spx, _spy) in polys[_spi][2][:2]:
+                                _sbx0 = min(_sbx0, _spx)
+                                _sbx1 = max(_sbx1, _spx)
+                                _sby0 = min(_sby0, _spy)
+                                _sby1 = max(_sby1, _spy)
+                    if _sbx1 > _sbx0 and _sby1 > _sby0:
+                        _sup286 = {'layer': layer_no, 'bbox':
+                                   (_sbx0, _sby0, _sbx1, _sby1),
+                                   'idxs': []}
                 for (_b, _o, ij, speed, plen, pi) in items:
                     f181 = 'SUPPORT' if pi in sup_set else feat
                     _ri216 = len(self.ranges)
@@ -25311,6 +25456,8 @@ class _GeomScan:
                     self._seq_add(layer_no, f181)
                     if _c216 is not None:
                         _c216['idxs'].append((_ri216, speed, 1))
+                    if _sup286 is not None and pi in sup_set:
+                        _sup286['idxs'].append((_ri216, speed, 1))
                 if _c216 is not None:
                     # the seq stream entry this group added (if it added
                     # one - a second solid group in the same layer shares
@@ -25321,6 +25468,24 @@ class _GeomScan:
                                                         'INFILL-SOLID')):
                         _c216['seq'] = _sq0216
                     self._solid216.append(_c216)
+                if _sup286 is not None:
+                    # the seq entry the group added (consecutive support
+                    # ranges share one entry, like the solid groups)
+                    if (self.seq193 and self.seq193[-1]
+                            == (layer_no, 'SUPPORT')):
+                        _sup286['seq'] = len(self.seq193) - 1
+                    self._sup_pend286.append(_sup286)
+                    # only the most recent pending support of a region
+                    # matters (the interface is the TOP support layer);
+                    # older entries covered by the new bbox are dropped
+                    if len(self._sup_pend286) > 1:
+                        _nb = _sup286['bbox']
+                        self._sup_pend286 = [
+                            p for p in self._sup_pend286[:-1]
+                            if not (p['bbox'][0] < _nb[2]
+                                    and _nb[0] < p['bbox'][2]
+                                    and p['bbox'][1] < _nb[3]
+                                    and _nb[1] < p['bbox'][3])]
         # R193 (.135): the layer picture becomes 'the layer below' for the
         # next call - the air scan compares against it (kept only when
         # usable; an unusable bitmap never poisons the scan).
@@ -25330,6 +25495,64 @@ class _GeomScan:
         if grid.ok:
             self._prev_grids.append(grid)
             del self._prev_grids[:-4]
+
+    def _sup_interface286(self, grid, layer_no):
+        """R286: SUPPORT-INTERFACE - the uppermost support layer whose roof
+        touches the model above.
+
+        A pending support group (registered in _classify) whose region has
+        MODEL ink on the layer directly above IS the support interface: the
+        model rests on that support roof. Groups with NO ink above are
+        plain interior support (they carry the interface below them) and
+        stay SUPPORT. One-layer lookback: each group is resolved on the
+        very next classified layer, so no bookkeeping survives long.
+        """
+        if not self._sup_pend286 or not grid.ok:
+            return
+        keep = []
+        for _sup in self._sup_pend286:
+            if _sup['layer'] != layer_no - 1:
+                # not the layer directly below this one - still pending
+                keep.append(_sup)
+                continue
+            bx0, by0, bx1, by1 = _sup['bbox']
+            if bx1 <= bx0 or by1 <= by0:
+                keep.append(_sup)
+                continue
+            cx0 = max(0, int((bx0 - grid.ox) / grid.CELL))
+            cx1 = min(grid.w - 1, int((bx1 - grid.ox) / grid.CELL))
+            cy0 = max(0, int((by0 - grid.oy) / grid.CELL))
+            cy1 = min(grid.h - 1, int((by1 - grid.oy) / grid.CELL))
+            if cx1 <= cx0 or cy1 <= cy0:
+                keep.append(_sup)
+                continue
+            # ink fraction over the support region: a real model roof has
+            # dense ink; a sparse wisp (a wall passing over) is no roof
+            stride = max(1, int(((cx1 - cx0 + 1)
+                                 * (cy1 - cy0 + 1)) ** 0.5 / 250))
+            cells = ink = 0
+            for cy in range(cy0, cy1 + 1, stride):
+                row = cy * grid.w
+                for cx in range(cx0, cx1 + 1, stride):
+                    cells += 1
+                    if grid.g[row + cx]:
+                        ink += 1
+            if cells and ink / cells >= 0.25:
+                # model material above = this support roof is the interface
+                for (_ri, _sp, _cnt) in _sup['idxs']:
+                    if 0 <= _ri < len(self.ranges) \
+                            and self.ranges[_ri][2] == 'SUPPORT':
+                        self.ranges[_ri] = (self.ranges[_ri][0],
+                                            self.ranges[_ri][1],
+                                            'SUPPORT-INTERFACE')
+                        self._fmove192('SUPPORT',
+                                       'SUPPORT-INTERFACE', _sp, _cnt)
+                _sq = _sup.get('seq')
+                if _sq is not None and _sq < len(self.seq193) \
+                        and self.seq193[_sq] == (layer_no - 1, 'SUPPORT'):
+                    self.seq193[_sq] = (layer_no - 1, 'SUPPORT-INTERFACE')
+            # resolved (either way) - only unresolved groups survive
+        self._sup_pend286 = keep
 
     def _solid216_check(self, grid, final=False):
         """R216 (.136n) stage 7: the layers check EACH OTHER - the
@@ -25419,6 +25642,62 @@ class _GeomScan:
         if self.seq193 and self.seq193[-1] == (layer_no, feat):
             return
         self.seq193.append((layer_no, feat))
+
+    def _overhang_scan(self, pts, below, layer_h):
+        """R286: OVERHANG-PERIM - a wall whose outer edge leans out beyond
+        the 45-degree cone of the layer below.
+
+        The user's rule, drawn: a wall is an OVERHANG when the material
+        BELOW does not reach up to the wall's outer edge within the
+        45-degree cone - the horizontal reach of the cone equals the layer
+        height, so a wall edge with NO ink below within layer_h of the
+        edge (measured perpendicular to the edge) is steeper than 45 deg
+        and is an overhang, not a plain wall.
+
+        Distinction from BRIDGE (the user's explicit ask):
+          - BRIDGE    = a HORIZONTAL deck (hatch) spanning a void, anchored
+                        at both ends on the layer below (_airscan193).
+          - OVERHANG  = a WALL/contour whose outer edge leans out over air -
+                        the wall itself is the overhanging feature.
+        A wall whose edge is fully supported below stays WALL-OUTER; only
+        the genuinely unsupported edge becomes OVERHANG-PERIM.
+
+        Returns the overhang fraction (0..1) of the edge length.
+        """
+        if below is None or not below.ok or layer_h <= 0:
+            return 0.0
+        # sample the edge at ~1.2mm steps, probe the perpendicular reach
+        # of the 45-degree cone (= layer_h) on the layer below
+        n = 0
+        over = 0
+        for k in range(1, len(pts)):
+            (x0, y0), (x1, y1) = pts[k - 1], pts[k]
+            dx, dy = x1 - x0, y1 - y0
+            sl = math.hypot(dx, dy)
+            if sl <= 1e-9:
+                continue
+            ux, uy = dx / sl, dy / sl          # unit along the edge
+            px, py = -uy, ux                    # unit perpendicular (left)
+            steps = max(1, int(sl / 1.2))
+            for q in range(steps + 1):
+                t = q / steps
+                x, y = x0 + dx * t, y0 + dy * t
+                n += 1
+                # probe both perpendicular sides within the cone reach
+                found = False
+                for sgn in (1.0, -1.0):
+                    for d in (0.4, layer_h * 0.6, layer_h):
+                        if below._ink_at(x + px * sgn * d,
+                                         y + py * sgn * d):
+                            found = True
+                            break
+                    if found:
+                        break
+                if not found:
+                    over += 1
+        if n == 0:
+            return 0.0
+        return over / n
 
     def _airscan193(self, items, polys, prevs, loops, layer_no):
         """R193 (.135) stage 5a: the CROSS-LAYER AIR SCAN - bridging by

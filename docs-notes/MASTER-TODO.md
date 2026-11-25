@@ -6,6 +6,44 @@
 nicht hier steht, existiert es für die Arbeit nicht. Jede erledigte Zeile wird
 abgehakt und mit dem Commit genannt, der sie erledigt hat.
 
+**Befund-Audit-Phase 2026-11-25 (Branch `arena/6ce4402e-...`):** alle vom
+Nutzer gemeldeten Befunde fixt und verifiziert (Nachweise:
+`gcodes-20261125-195553.zip`, `R2-DOCTOR-20261125-195928.txt.gcode.txt`):
+- **Gasket-Bug (Befund 2)** — `make_seal` emittiert jetzt 6 `G0 Z0.2-1.2`
+  (Nutzer-Seal hatte 0 Z-Moves, 6 `;Z:`-Kommentare = druckte in der Luft).
+- **PIXEL-Font retiriert (Befund 4b)** — MCU-Shutdown-Risiko; PIXEL-Label
+  fällt effizient auf SMOOTH, Resonanz auf SMOOTH, 8-Font-Listen.
+- **Labels-Flip-Switch (Befund 4f)** — `__flp`-Sektion aus cfg +
+  `make_labels_pdf.py` entfernt; `web/menu_structure.json` neu exportiert
+  (2412 sections, `__flp` weg).
+- **Mehrfachstempel (Befund 4c)** — pro-Label-Socket + ein Handle pro
+  Stempel (max 4) in einem GRIFF-Bounding-Objekt.
+- **Frame-Tool FLIP (Neubefund)** — sichtbare Vorderseite = `Top surface`
+  in BOTH Orientierungen (war fälschlich Bottom); FLIP-9x13 verifiziert
+  (z0.28 FRAME=Top, z8.08=Bottom).
+- **Frame-Backplate (Neubefund)** — Rückwand genau 3 Schichten
+  (`bp_layers=3`; MINI-Frame: Bottom -> Internal solid -> Top).
+- **R170-Stamp-Handle** — `_make_stamp_handle` NameError (undefinierte
+  cx168/cy168) behoben; BED-CENTER-Defaults.
+- **Feature-Erkennung (R286, Nutzer-Nachforderung, extrem wichtig)** —
+  Erkennungs-Grenzen geschlossen: `OVERHANG-PERIM` (Wand-Rand >45 deg,
+  45-deg-Kegel-Erkundung gegen die Schicht darunter, eindeutig getrennt
+  von BRIDGE = horizontale Decke), `SUPPORT-INTERFACE` (oberste
+  Support-Schicht, deren Dach Modell-Material trägt; Bare-Support bleibt
+  SUPPORT). 4 neue Einheitstests in `tools/r111_geom_test.py`.
+- **Input-Shaper LCD-Eintrag** — verifiziert vorhanden:
+  `__main __maint __vib` (Stat / Kalibrierung / Manual / Dump /
+  Diagram print+plot / Show table / Apply result mit Diagramm-Messwerten
+  pro Shaper-Typ) — im Menü-JSON eingebunden, Diagramm-Auswertung
+  vollständig.
+- **Menü-Inventur** — `macro_render_test.py` R135-Inventur grün (kein
+  Pfad verloren; `__labels __set __flp` = Added-Pfad, korrekt aus
+  `_ADDED135` entfernt); R90-Frame-Snap-Band um eine Schicht (3-Layer-
+  Backplate) verschoben.
+- **Gates:** r111_geom_test (alle Checks grün), `macro_render_test.py`
+  **2141/2141**, r167_aircheck (6/0), r168_stampcheck (19/0),
+  r213_label_audit (0/0), r235_mcu_risk_check (23/0).
+
 **Befund 2026-11-18 (Quellen-Ordnung, vom Nutzer geklärt):** Maßgebliche Quelle ist `R2-D2 – Gesamtbriefing für die Coding-GPT.md` (STL-Export-Ergänzung §24 + Ergänzungen 20–31), Vorgängerfassung = `R2_Vollstaendiges_Startbriefing_Coding-KI_finalizedByGemini.txt` (STL dort §5.21), Masterkonzept = Grundgedanke, „Reverse Engineering von G-Code Geometrien.md“ = Detaildokument. `Master_Spezifikation.md` liegt nicht vor. `slicer-families.md` / `Potential performance& compatibility issues.md` bleiben ungeprüfte AI-Notizen — ohne Einzelverifikation kein Beleg. Alle sechs Uploads SHA256-geprüft; Gesamtbriefing-GPT neu ins Manifest aufzunehmen (Release-/Doku-Schritt, kein Produktcode).
 
 **Erledigt 2026-11-18 (Fortsetzung, Branch `arena/4ea70100-...`):** **Gesamtumbau-Analyse fertiggestellt und als Release `R2-2026-11-18.2` / `V3` ausgeliefert** — `tools/gcode_re.py` (Unified Masterkonzept Pass 0–11, Schema `r2-re/2`): Vektor-Pass-6 (Online-Loop-Extraktion, Nesting per Point-in-Polygon, Hatch-Spacing), Pass-8 Feature-Scores v2 (Top-3, UNKNOWN/AMBIGUOUS, `calibrated: false`), Pass-10-Konservation (Zeilen + Filament Shadow↔Tracker, Ratio 1,0 am rose-Fixture), Pass-11 atomares Sidecar (read-only Quelle, SHA-256, kein Überschreiben ohne `--force`). `tools/test_gcode_re.py` 10/10. Gates: Makro 2103/2103, megatest 190/190, review_checks PASS, r91 PASS, r81 23/23 (stamp-class, A/B), r199 12/12. Kein Eingriff in den Druckpfad; Feldabnahme steht aus (Drucker nicht testbereit). Dazu `docs-notes/PRINTER-CFG-AUDIT-2026-11-18.md` (E1/E4 zu `position_min`/Probe — NUR Vorschläge, nicht angewendet). Report: `docs/RELEASE_R2-2026-11-18.2_REPORT.md`.

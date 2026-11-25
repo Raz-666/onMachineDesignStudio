@@ -3473,12 +3473,12 @@ _o82a, _i82a = _pp61.make_labels(['X'], w=30, h=10, font='PIXEL')
 _t82a = open(_o82a).read()    # read NOW - the SMOOTH call below writes the SAME filename
 _o82b, _i82b = _pp61.make_labels(['X'], w=30, h=10, font='SMOOTH')
 _t82b = open(_o82b).read()
-tests.append(('R116 PIXEL is a REAL font again (Press Start 2P strokes, not the R80 bitmap)',
-    _t82a != _t82b and 'font PIXEL' in _t82a, _t82a[:60]))
+tests.append(('R286 PIXEL retired: a PIXEL label falls back to SMOOTH (R80 + MCU risk)',
+    _t82a == _t82b and 'font SMOOTH' in _t82a, _t82a[:60]))
 _sr82 = open('tools/r2_postproc.py').read()
-tests.append(('R116 plot-text validators accept all 9 fonts',
-    _sr82.count("('SMOOTH', 'MONO', 'COND', 'NARROW', 'CAPS', 'SCRIPT', 'HAND', 'PLATE', 'PIXEL')") >= 3,
-    _sr82.count("('SMOOTH', 'MONO', 'COND', 'NARROW', 'CAPS', 'SCRIPT', 'HAND', 'PLATE', 'PIXEL')")))
+tests.append(('R116 plot-text validators accept all 8 fonts (PIXEL retired, R286)',
+    _sr82.count("('SMOOTH', 'MONO', 'COND', 'NARROW', 'CAPS', 'SCRIPT', 'HAND', 'PLATE')") >= 3,
+    _sr82.count("('SMOOTH', 'MONO', 'COND', 'NARROW', 'CAPS', 'SCRIPT', 'HAND', 'PLATE')")))
 
 # ============================== R116 tests: label job snapshots + new fonts ================
 # .88 field log: (a) the label queue stored ONLY the text - font/size were read
@@ -7447,8 +7447,9 @@ for _l90 in _g90a.split(chr(10)):
 _nubz90 = sorted(_z90x for _z90x, _c90x in _seen90.items() if _c90x >= 2)
 tests.append(('R90 frame closure: snap band = 2 ramp + 2 click layers at the '
     'plate top (R127 + R167 45-deg ramp - the nubs used to print as '
-    'free-standing walls in the groove air)',
-    _nubz90 == [5.48, 5.68, 5.88, 6.08], str(_nubz90)))
+    'free-standing walls in the groove air; R286: the 3-layer backplate '
+    'shifts the band one layer down)',
+    _nubz90 == [5.28, 5.48, 5.68, 5.88], str(_nubz90)))
 
 # --- R90.1a: multi-plate mechanics (Part B, trailer, no auto-start) -----------
 _g90b = open(_os90.path.join(_d90, _i90a['plates'][1]), encoding='utf-8').read()
@@ -9459,15 +9460,16 @@ import re as _re101
 _t101a = _re101.sub(
     r'EXCLUDE_OBJECT_START NAME=(BACKPLATE|STAND)[^\n]*\n.*?EXCLUDE_OBJECT_END[^\n]*\n',
     '', _t101a, flags=_re101.S)
-tests.append(('R101/R106 frame: 2 solid bottom skin layers, sparse body, '
-              'front band = the top skin',
-    _t101a.count(';TYPE:Bottom surface') == 2
+tests.append(('R101/R106/R286 frame: bottom = bed layer ALONE, top = top '
+              'layer ALONE, sparse body, front band = the top skin',
+    _t101a.count(';TYPE:Bottom surface') == 1
     and _t101a.count(';TYPE:Sparse infill') >= 20
     and 'INFILL-SPARSE' in _t101a.split('TYPES=')[1].split()[0]
     # R106 (field log .82, user TYPE map): the solid front band is the
     # frame's TOP skin - SURFACE-TOP belongs in TYPES and the file tags it
     and 'SURFACE-TOP' in _t101a.split('TYPES=')[1].split()[0]
-    and _t101a.count(';TYPE:Top surface') == 5,
+    # R286 (Befund 1): no stacked surfaces - one Bottom (bed), one Top
+    and _t101a.count(';TYPE:Top surface') == 1,
     'bottom %d sparse %d top %d' % (_t101a.count(';TYPE:Bottom surface'),
                                     _t101a.count(';TYPE:Sparse infill'),
                                     _t101a.count(';TYPE:Top surface'))))
@@ -9973,7 +9975,7 @@ _d106e = tempfile.mkdtemp()
 _seal106 = _pp.make_seal(bed=_BED106e, out_dir=_d106e)[0]
 _sealt = open(_seal106, encoding='utf-8').read()
 tests.append(('R106 tag audit SEAL: layer 1 = Bottom, last = Top, TYPES honest',
-    re.search(r';LAYER_CHANGE\n;Z:[\d.]+\nLAYER_MARK\n;TYPE:Bottom surface', _sealt)
+    re.search(r';LAYER_CHANGE\n;Z:[\d.]+\nLAYER_MARK\n(?:G0 Z[\d.]+ F\d+\n)?;TYPE:Bottom surface', _sealt)
     and ';TYPE:Top surface' in _sealt
     and 'SURFACE-BOTTOM' in _sealt.split('TYPES=')[1].split()[0], ''))
 _lbl106 = _pp.make_labels(['AUDIT'], bed=_BED106e, out_dir=_d106e)[0]
@@ -10847,12 +10849,17 @@ except ValueError:
 tests.append(('R170 handle without stamp -> clear refusal',
     _refused170, ''))
 try:
-    _pp61.make_labels(['A', 'B'], stamp=True, out_dir=_d170)
-    _refused170b = False
+    _o170b, _i170b = _pp61.make_labels(['A', 'B'], stamp=True, handle=1,
+                                      out_dir=_d170)
+    _o170bt = open(_o170b, encoding='utf-8').read()
+    _multi170 = (_i170b.get('handle_plate') is True
+                 and _o170bt.count('EXCLUDE_OBJECT_START NAME=GRIFF') >= 2
+                 and _o170bt.count('R168 socket ring') >= 2)
 except ValueError as _e170r:
-    _refused170b = 'exactly ONE label' in str(_e170r)
-tests.append(('R170 stamp with 2 labels -> refusal names the reason',
-    _refused170b, ''))
+    _multi170 = False
+tests.append(('R170/R286 stamp with 2 labels -> BOTH sockets + BOTH handles '
+              'on the plate (no more one-label refusal)',
+    _multi170, ''))
 
 # --- 6) watcher-side helpers -------------------------------------------
 tests.append(('R170 watcher: cfg parser + kwargs builder + moonraker json '
@@ -14140,7 +14147,6 @@ _ADDED135 = [
     '__main __gen __gfiles __s22',
     '__main __gen __gfiles __s23',
     '__main __gen __labels __job __stguard',
-    '__main __gen __labels __set __flp',
     '__main __gen __labels __set __gr',
     '__main __gen __labels __set __now',
     '__main __gen __labels __set __st',

@@ -182,8 +182,13 @@ g.finish()
 # R181 (.131b): open arcs classify LIKE LOOPS - a curved wall is a
 # wall (the .131a near-closed rule generalized). The pre-R181
 # 'curved stays UNCLASSIFIED' expectation was retired.
-check('arc -> classified as WALL-OUTER (open arcs like loops, R181)',
-      [f for (_, _, f) in g.ranges] == ['WALL-OUTER', 'WALL-OUTER']
+# R286: the layer-2 loop (50..90) leans out over the layer-1 arc
+# (a semicircle of r=15 at (70,60)): the loop's outer edge has NO ink
+# below within the 45-degree cone -> OVERHANG-PERIM. The arc itself
+# (layer 1) stays WALL-OUTER.
+check('arc -> classified as WALL-OUTER (open arcs like loops, R181);'
+      ' layer-2 loop over the sparse arc -> OVERHANG-PERIM (R286)',
+      [f for (_, _, f) in g.ranges] == ['WALL-OUTER', 'OVERHANG-PERIM']
       and g.cls_len == g.tot_len, (g.cls_len, g.tot_len, g.ranges))
 
 # ------------------------------------------------- 6) Z-hop never a layer ----
@@ -293,6 +298,71 @@ g.finish()
 # rate = 1 mm/s * 0.2 * 2.405 = 0.481 mm3/s
 check('MAXRATE math (1 mm/s x 0.2 mm/mm x 2.405 mm2 = 0.48)',
       abs(g.max_rate - (1.0 * 0.2 * 2.405)) < 0.01, g.max_rate)
+
+# ------------------------------------------------- 11) R286 recognition ------
+print('--- R286: overhang >45deg + support interface recognition')
+# a wall whose outer edge leans out beyond the 45-degree cone of the
+# layer below -> OVERHANG-PERIM; a fully supported wall stays WALL-OUTER;
+# the uppermost support roof under model ink -> SUPPORT-INTERFACE;
+# bare support (no model above) stays SUPPORT.
+g = pp._GeomScan(1.75)
+lines = ['M82', 'G0 X5 Y5 Z0.2 F9000']
+e = hatch(lines, 0.0, 50, 50, 40, 40, 1.0, 1800)
+lines.append('G0 X5 Y5 Z0.4 F9000')
+e = loop(lines, e, 30, 30, 60, 2400)     # rim 10mm out all around
+feed(g, lines)
+g.finish()
+check('overhanging rim -> OVERHANG-PERIM (R286)',
+      'OVERHANG-PERIM' in [f for (_, _, f) in g.ranges], g.ranges[:3])
+
+g = pp._GeomScan(1.75)
+lines = ['M82', 'G0 X5 Y5 Z0.2 F9000']
+e = hatch(lines, 0.0, 50, 50, 40, 40, 1.0, 1800)
+lines.append('G0 X5 Y5 Z0.4 F9000')
+e = loop(lines, e, 50, 50, 40, 2400)     # same footprint as the block
+feed(g, lines)
+g.finish()
+check('supported wall -> WALL-OUTER, no overhang tag (R286)',
+      'OVERHANG-PERIM' not in [f for (_, _, f) in g.ranges]
+      and 'WALL-OUTER' in [f for (_, _, f) in g.ranges], g.ranges[:3])
+
+# support tower (detached, prints first) under a model roof -> the roof
+# layer resolves the tower to SUPPORT-INTERFACE
+g = pp._GeomScan(1.75)
+lines = ['M82']
+e = 0.0
+for z in (0.2, 0.4, 0.6):
+    lines.append('G0 X5 Y5 Z%.1f F9000' % z)
+    e = hatch(lines, e, 50, 50, 40, 40, 1.0, 1800)
+lines.append('G0 X5 Y5 Z0.8 F9000')
+e = hatch(lines, e, 100, 100, 12, 12, 1.0, 1800)   # support tower first
+e = hatch(lines, e, 50, 50, 40, 40, 1.0, 1800)    # model body
+lines.append('G0 X5 Y5 Z1.0 F9000')
+e = hatch(lines, e, 100, 100, 12, 12, 1.0, 1800)   # model roof
+e = hatch(lines, e, 50, 50, 40, 40, 1.0, 1800)
+feed(g, lines)
+g.finish()
+check('support roof under model -> SUPPORT-INTERFACE (R286)',
+      'SUPPORT-INTERFACE' in [f for (_, _, f) in g.ranges],
+      sorted(set(f for (_, _, f) in g.ranges)))
+
+g = pp._GeomScan(1.75)
+lines = ['M82']
+e = 0.0
+for z in (0.2, 0.4, 0.6):
+    lines.append('G0 X5 Y5 Z%.1f F9000' % z)
+    e = hatch(lines, e, 50, 50, 40, 40, 1.0, 1800)
+lines.append('G0 X5 Y5 Z0.8 F9000')
+e = hatch(lines, e, 100, 100, 12, 12, 1.0, 1800)
+e = hatch(lines, e, 50, 50, 40, 40, 1.0, 1800)
+lines.append('G0 X5 Y5 Z1.0 F9000')
+e = hatch(lines, e, 50, 50, 40, 40, 1.0, 1800)     # no roof over tower
+feed(g, lines)
+g.finish()
+check('bare support -> SUPPORT, no interface tag (R286)',
+      'SUPPORT-INTERFACE' not in [f for (_, _, f) in g.ranges]
+      and 'SUPPORT' in [f for (_, _, f) in g.ranges],
+      sorted(set(f for (_, _, f) in g.ranges)))
 
 print()
 if fails:
