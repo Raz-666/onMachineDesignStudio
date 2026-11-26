@@ -1939,6 +1939,158 @@ def _build_patterns(k, n, seed, img, map_mode='TILE', map_pos='CENTER',
                      * math.cos(two_pi * t * n)
                      * (0.6 + 0.4 * math.sin(two_pi * s * k * 2.0)))
 
+    # ---- R286 NEW: organic barks, fabrics, cells, stone, asphalt,
+    # rivets, zipper, suture (user: mehr organische Texturen, Stoffe
+    # längs/quer, Zellmuster, Stein, Asphalt, Nieten, Reißverschluss,
+    # Operationsnaht). All seamless (integer k/n periods). Each pattern is
+    # scaled so its max stays < 1.0 WITHOUT clamping - a clamp would break
+    # the seamless wrap at the period boundary (the boundary value would
+    # clip on one side and not on the other).
+    _cell_p = max(2, int(round(k * 2)))
+    _cell_q = max(2, int(round(n * 2)))
+    def noise2(s, t):
+        return noise(s, t, _cell_p, _cell_q)
+
+    # --- Baumrinden (3) - radial-grained bark ---
+    # BIRKE - Birkenrinde: feine, gerade, helle Rillen (max ~1.3 -> 0.75)
+    pats['BIRKE'] = (
+        lambda s, t: 0.75 * ((math.sin(two_pi * s * k * 6.0)
+                              + 0.3 * math.sin(two_pi * t * n * 3.0))
+                             * (0.7 + 0.3 * math.sin(two_pi * t * n))))
+    # EICHEN - Eiche: tiefe, breite, Grobrillen (max ~1.4 -> 0.7)
+    pats['EICHEN'] = (
+        lambda s, t: 0.7 * ((math.sin(two_pi * s * k * 2.5)
+                             + 0.4 * math.sin(two_pi * s * k * 7.0
+                                              + two_pi * t * n))
+                            * (0.8 + 0.2 * math.sin(two_pi * t * n * 2.0))))
+    # TILIA - Lindenrinde: glatte, zerfallene, weiche Falten (max 1.0)
+    pats['TILIA'] = (
+        lambda s, t: math.sin(two_pi * s * k * 3.0 + two_pi * t * n * 2.0)
+                     * (0.5 + 0.5 * math.sin(two_pi * t * n * 2.0)))
+
+    # --- Stoffe längs/quer (2) - woven fabric weave ---
+    # FABRIC_L - Fasern längs (parallel zur Wand, long stitches) (max ~1.25 -> 0.75)
+    pats['FABRIC_L'] = (
+        lambda s, t: 0.75 * ((math.sin(two_pi * t * n * 8.0)
+                              + 0.25 * math.sin(two_pi * s * k * 12.0))
+                             * (0.85 + 0.15 * math.sin(two_pi * s * k * 2.0))))
+    # FABRIC_Q - Fasern quer (senkrecht, cross stitches)
+    pats['FABRIC_Q'] = (
+        lambda s, t: 0.75 * ((math.sin(two_pi * s * k * 8.0)
+                              + 0.25 * math.sin(two_pi * t * n * 12.0))
+                             * (0.85 + 0.15 * math.sin(two_pi * t * n * 2.0))))
+
+    # --- Zellmuster (1) - organic cell structure (max ~0.8) ---
+    pats['CELL'] = (
+        lambda s, t: ((math.sin(two_pi * s * k * 5.0)
+                       * math.sin(two_pi * t * n * 5.0)
+                       + math.sin(two_pi * (s + t) * k * 7.0))
+                      * 0.4 * (0.6 + 0.4 * math.cos(two_pi * s * k * 3.0))))
+
+    # --- Stein (1) - natural stone, smooth porous (max 1.0) ---
+    pats['STONE'] = (
+        lambda s, t: (0.5 * math.sin(two_pi * s * k * 2.0)
+                      + 0.3 * math.sin(two_pi * t * n * 2.0)
+                      + 0.2 * noise2(s, t)))
+
+    # --- Asphalt (1) - dark granular (max 1.0) ---
+    pats['ASPHALT'] = (
+        lambda s, t: (0.4 * noise2(s, t)
+                      + 0.3 * math.sin(two_pi * s * k * 4.0)
+                      + 0.3 * math.sin(two_pi * t * n * 4.0)))
+
+    # --- Nieten (2) - endless rivet matrices (smoothstep -> -1..1) ---
+    def _niet_round(s, t):
+        # round dome rivets on a regular grid (dense, like a riveted plate)
+        xu = (s * k) % 1.0 - 0.5
+        yu = (t * n) % 1.0 - 0.5
+        d = math.hypot(xu, yu)
+        return _smoothstep(0.30, 0.46, d) * 2 - 1
+    pats['NIET_RUND'] = _niet_round
+
+    def _niet_spitz(s, t):
+        # pointed / star rivets (6-point star field)
+        xu = (s * k) % 1.0 - 0.5
+        yu = (t * n) % 1.0 - 0.5
+        d = math.hypot(xu, yu)
+        ang = math.atan2(yu, xu)
+        star = abs(math.cos(3.0 * ang)) * 0.40 + 0.22
+        return _smoothstep(star * 0.5, star, d) * 2 - 1
+    pats['NIET_SPITZ'] = _niet_spitz
+
+    # --- Reißverschluss (1) - zigzag row + slider band (max 1.0) ---
+    def _zipper(s, t):
+        zz = math.sin(two_pi * s * k * 2.0)          # zigzag teeth
+        band = 0.5 + 0.5 * math.cos(two_pi * t * n * 2.0)  # slider band
+        band = max(0.0, min(1.0, band * 3.0 - 0.8))
+        return zz * band
+    pats['ZIPPER'] = _zipper
+
+    # --- Operationsnaht (2) - medical suture / cross-stitch seam ---
+    def _suture(s, t):
+        # cross-stitch suture: two diagonal thread families crossing,
+        # the seam line runs in t (perpendicular to the seam direction)
+        # max (2*1 - 0.5) = 1.5 -> scale 0.66 to stay in [-1, 1]
+        d1 = math.sin(two_pi * (s * k + t * n))
+        d2 = math.sin(two_pi * (s * k - t * n))
+        cross = abs(d1) + abs(d2)
+        seam = 0.5 + 0.5 * math.sin(two_pi * t * n * 2.0)
+        return 0.66 * (cross * seam - 0.5)
+    pats['SUTURE'] = _suture
+
+    # ZIGZAG - plain zigzag stitch (simple, straight) (max 1.0)
+    pats['ZIGZAG'] = (
+        lambda s, t: math.sin(two_pi * s * k * 4.0)
+                     * (0.7 + 0.3 * math.sin(two_pi * t * n)))
+
+    # ---- R286: Z-NAHT-TEXTUREN (z-Seam) - kaschieren die Z-Naht ----
+    # The Z-seam is the layer-change line (t = 0 mod 1/n). A narrow band
+    # around t=0 overlays the seam with a fitting pattern that either
+    # fades into the background (organic bark fold) or directly covers
+    # the seam (rivets, suture, zipper). At the band edge the value
+    # drops cleanly to 0 -> a clean transition to the normal geometry.
+    # GEOMETRY IMPACT: only inside the seam band; outside, no change.
+    def _seam_band(t):
+        # narrow band centered on the layer-change line (t = 0 mod 1/n)
+        seam = 0.5 + 0.5 * math.cos(two_pi * t * n)
+        return max(0.0, min(1.0, seam * 3.0 - 0.8))
+
+    # SEAM_BARK - bark fold over the seam (organic, recedes)
+    def _seam_bark(s, t):
+        b = _seam_band(t)
+        return b * math.sin(two_pi * s * k * 4.0 + two_pi * t * n)
+    pats['SEAM_BARK'] = _seam_bark
+
+    # SEAM_RIDGE - ridge pattern over the seam
+    def _seam_ridge(s, t):
+        b = _seam_band(t)
+        return b * math.sin(two_pi * s * k * 6.0)
+    pats['SEAM_RIDGE'] = _seam_ridge
+
+    # SEAM_NIET - rivets on the seam (covers it directly)
+    def _seam_nieten(s, t):
+        b = _seam_band(t)
+        xu = (s * k) % 1.0 - 0.5
+        yu = (t * n * 4.0) % 1.0 - 0.5   # rivets only in the seam height
+        d = math.hypot(xu, yu * 4.0)     # stretched in t (band is narrow)
+        return b * (_smoothstep(0.30, 0.46, d) * 2 - 1)
+    pats['SEAM_NIET'] = _seam_nieten
+
+    # SEAM_SUTURE - medical suture (the seam reads as sewn)
+    def _seam_suture(s, t):
+        b = _seam_band(t)
+        d1 = math.sin(two_pi * (s * k + t * n * 2.0))
+        d2 = math.sin(two_pi * (s * k - t * n * 2.0))
+        cross = abs(d1) + abs(d2)
+        return b * 0.66 * (cross - 0.5)
+    pats['SEAM_SUTURE'] = _seam_suture
+
+    # SEAM_ZIP - zipper (the seam reads as zipped shut)
+    def _seam_zip(s, t):
+        b = _seam_band(t)
+        return b * math.sin(two_pi * s * k * 2.0)
+    pats['SEAM_ZIP'] = _seam_zip
+
     return pats
 
 
@@ -1970,7 +2122,16 @@ PATTERN_NAMES = ('RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX',
                  'GEMSTONE', 'SHELL', 'CORAL', 'MOSAIC', 'PEARL',
                  'VELVET', 'STRATA', 'BASALT', 'MARBL', 'GRANIET',
                  'TERRA', 'WALNUT', 'MAPLE', 'ZEBRA', 'LEOPARD',
-                 'PYTHON', 'LAVA', 'ICE', 'MOSS', 'FEATHER')
+                 'PYTHON', 'LAVA', 'ICE', 'MOSS', 'FEATHER',
+                 # R286 III (user: mehr organische Texturen, Stoffe längs/
+                 # quer, Zellmuster, Stein, Asphalt, Nieten, Reißverschluss,
+                 # Operationsnaht)
+                 'BIRKE', 'EICHEN', 'TILIA', 'FABRIC_L', 'FABRIC_Q',
+                 'CELL', 'STONE', 'ASPHALT', 'NIET_RUND', 'NIET_SPITZ',
+                 'ZIPPER', 'SUTURE', 'ZIGZAG',
+                 # R286 Z-Naht-Texturen
+                 'SEAM_BARK', 'SEAM_RIDGE', 'SEAM_NIET',
+                 'SEAM_SUTURE', 'SEAM_ZIP')
 
 # R238: opt-in helical tilt angles by pattern. Disabled by default; when
 # enabled, the helical shift uses an integer number of turns so the seam
@@ -1996,6 +2157,15 @@ PATTERN_TILT = {
     'CHECKER_V2': 2.0, 'HEX_V2': 2.0, 'BARK_V2': 0.0,
     'LEATHER_V2': 0.0, 'TILES_V2': 0.0, 'PARQUET_V2': 0.0,
     'FABRIC_V2': 2.0,
+    # R286 III (new organic / material / functional)
+    'BIRKE': 2.0, 'EICHEN': 2.0, 'TILIA': 2.0,
+    'FABRIC_L': 2.0, 'FABRIC_Q': 2.0,
+    'CELL': 2.0, 'STONE': 2.0, 'ASPHALT': 2.0,
+    'NIET_RUND': 0.0, 'NIET_SPITZ': 0.0,
+    'ZIPPER': 0.0, 'SUTURE': 2.0, 'ZIGZAG': 2.0,
+    # R286 Z-Naht-Texturen: tilt=0 - liegen auf der Schichtwechsel-Linie
+    'SEAM_BARK': 0.0, 'SEAM_RIDGE': 0.0, 'SEAM_NIET': 0.0,
+    'SEAM_SUTURE': 0.0, 'SEAM_ZIP': 0.0,
 }
 
 
@@ -2324,6 +2494,87 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
     else:
         cx, cy = sx / cnt, sy / cnt
         src_center = 'wall centroid'
+    # ---- R286 WALL-THICKNESS MEASUREMENT (Haftung / adhesion guarantee) ----
+    # Hard-contrast BUMPS patterns (rivets, zippers, sutures, deep relief)
+    # displace every outer-wall vertex in XY. Z is never touched, so the
+    # layer-to-layer Z contact holds - but a displacement LARGER than the
+    # wall thickness can push a vertex OVER the wall edge (vase mode: a
+    # continuous thin wall, no inner loop). The embossing must never exceed
+    # the wall's own thickness. This streaming pass measures the mean
+    # radial gap between the outer and inner wall (outer_radius - inner_
+    # radius). Files without an inner wall (vase mode, single-wall prints)
+    # get a conservative DEFAULT estimate instead.
+    def _measure_wall_thickness():
+        r_o_sum = r_o_cnt = 0.0
+        r_i_sum = r_i_cnt = 0.0
+        cur_outer = False
+        cur_inner = False
+        cur_z = None
+        px = py = None
+        with open(src, errors='replace') as f:
+            for line in f:
+                ls = line.rstrip('\n')
+                m = _TYPE.match(ls)
+                if m:
+                    t = m.group(1).strip().lower()
+                    cur_outer = _is_outer_wall(t)
+                    cur_inner = _is_inner_wall(t)
+                    continue
+                _ma = _APPLY152.match(ls)
+                if _ma:
+                    t = _ma.group(1).strip().lower()
+                    cur_outer = _is_outer_wall(t)
+                    cur_inner = _is_inner_wall(t)
+                    continue
+                g = _parse_move(ls)
+                if g is None:
+                    continue
+                # Z tracking (same as the main pass - slicers put layer Z
+                # on a separate move; M83/M82 handled by _parse_move)
+                if g[0] in ('G1', 'G0') and g[3] is not None:
+                    cur_z = g[3]
+                x, y = g[1], g[2]
+                if x is None or y is None:
+                    px, py = x, y
+                    continue
+                extruding = (g[0] == 'G1' and g[4] is not None
+                             and g[4] > _MIN_E)
+                if not extruding:
+                    px, py = x, y
+                    continue
+                if cur_outer:
+                    r_o_sum += math.hypot(x - cx, y - cy)
+                    r_o_cnt += 1
+                elif cur_inner:
+                    r_i_sum += math.hypot(x - cx, y - cy)
+                    r_i_cnt += 1
+                px, py = x, y
+        if r_i_cnt > 0 and r_o_cnt > 0:
+            return r_o_sum / r_o_cnt - r_i_sum / r_i_cnt, r_o_cnt, r_i_cnt
+        return 0.0, r_o_cnt, 0
+
+    wall_thick, w_o_cnt, w_i_cnt = _measure_wall_thickness()
+    _vase_thin = (w_i_cnt == 0)      # no inner wall = thin/single-wall (vase)
+    if w_i_cnt == 0:
+        # vase mode / single-wall: no inner loop to measure against - the
+        # safe default is the classic 0.8mm line-width assumption. The
+        # direction is forced INWARD (into the material) so a displacement
+        # can never push the wall edge into open air.
+        wall_thick = 0.8
+        if direction == 'OUT' and mode == 'BUMPS':
+            direction = 'IN'
+            print('[r2_texture] R286: vase/single-wall - BUMPS direction '
+                  'forced IN (Haftung: displacement never over the wall edge)')
+    # Depth limit: the embossing never exceeds 80% of the wall thickness.
+    # The 0.15 floor keeps shallow textures usable on thick walls too.
+    _safe_amp = max(0.15, min(float(bump_amp), wall_thick * 0.8))
+    if _safe_amp < float(bump_amp):
+        print('[r2_texture] R286: bump_amp %.2fmm limited to %.2fmm '
+              '(wall thickness %.2fmm - Haftung guarantee)'
+              % (float(bump_amp), _safe_amp, wall_thick))
+        bump_amp = _safe_amp
+        sig = float(bump_amp)
+        sign = 1.0 if direction == 'OUT' else -1.0
     # ---- R231: loop-length pre-pass ---------------------------------------
     # The arc-anchored mapping needs every wall loop's own length BEFORE the
     # emission shifts its vertices. This walk mirrors the emission's gating
