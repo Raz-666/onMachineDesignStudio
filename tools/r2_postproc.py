@@ -32634,12 +32634,6 @@ def watch(directory, interval=5.0, once=False):
                     or 'CENTER',
                     tilt=str(rv.get('texture_tilt', 'OFF') or 'OFF').upper()
                          in ('1', 'ON', 'TRUE', 'YES'),
-                                       or 100.0),
-                    scale_xy_pos=float(rv.get('texture_scale_xy_pos', 50.0)
-                                       or 50.0),
-                    scale_xy_curve=str(rv.get('texture_scale_xy_curve', 'bezier')
-                                       or 'bezier').strip().strip('\'"').lower()
-                         or 'bezier',
                     blur=float(rv.get('texture_blur', 0.0) or 0.0),
                     bed=_bed91,
                     version=max(1, min(int(float(
