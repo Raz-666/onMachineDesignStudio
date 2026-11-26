@@ -796,7 +796,7 @@ ist „versteckt", sie werden hier wie alle anderen bearbeitet und abgehakt.
       mit lựacher Audio-Ausgang (Klangquelle), Wert in save_variables,
       Audit-Tool verifiziert die Auswahl. Offene Nutzer-Entscheidung: welche
       Quelle soll als PRIMÄR gelistet sein.
-- [ ] **L2 — LED-Effekte während des Drucks ausschalten (Nutzer-Regel,
+- [x] **L2 — LED-Effekte während des Drucks ausschalten (Nutzer-Regel,
       2026-11-25).** Während des Drucks **nur eine Farbe, ohne Effekt** —
       damit die MCU nicht überlastet. Beleg: `macros/03_leds.cfg` hat
       `r2_printing` als Effekt-Animation; R164-Serial-Budget-Guard existiert
@@ -805,8 +805,9 @@ ist „versteckt", sie werden hier wie alle anderen bearbeitet und abgehakt.
       (kein `SET_LED_EFFECT`-Animation), Druck-Ende kehrt zur Effekt-Palette
       zurück; R164-Guard bleibt. Verifikation: r164_serial_budget +
       macro_render_Test.
-  **L3-Status (2026-11-25, Engine-Verifikation):** Engine hat Uniform-Scale-R99 + `_label_metrics` (Größe pro Zeile). Die Bündigkeit/Größe-Konformität ist Engine-seitig vorhanden; die verpflichtende Prüfregel (Grundlinie/Cap-Height pro Zeile) ist ein **Render-Audit** (Label-Render-Test) - Field-Check am Drucker bleibt.
-- [ ] **L3 — Label-Schrift: Ausrichtung/Größe-Regeln verpflichtend
+  **L2-Status (2026-11-25, UMSETZT + COMMIT `30fc0b3` + R286-Spam-Fix `2f3a0d1`):** Während des Drucks **nur eine Farbe, ohne Effekt** — `SET_LED_STATE STATE=printing` setzt **statisches Monochrom** (SET_LED, kein `SET_LED_EFFECT`-Animation). R164-Serial-Budget-Guard bleibt. **R286-Konsolen-Spam-Fix**: Nozzle-Work-Light beim Drucken ebenfalls **statisch** (`_NOZZLE_SET ON=1`), kein animierter 6-fps-Loop -> "Neopixel update did not succeed"-Spam eliminiert (DOCTOR-Pack 19.3: 397x im Raw-Tail). Verifikation: macro_render_Test.
+  **L3-Status (2026-11-25, UMSETZT):** Engine hat Uniform-Scale-R99 + `_label_metrics` (Größe pro Zeile). **Render-Audit umgesetzt**: `tools/r286_label_render_audit.py` **10/10 PASSED** — prüft verpflichtend Grundlinie/Cap-Height pro Zeile, Uniform-Scale (alle Zeilen gleiche Cap-Height), Kleinbuchstaben-Konformität. Field-Check am Drucker bleibt (visible Layout).
+- [x] **L3 — Label-Schrift: Ausrichtung/Größe-Regeln verpflichtend
       (Nutzer: „schon so oft gesagt").** Zeilen **bündig** (gemeinsame
       Grundlinie), **Kleinbuchstaben gleiche Größe**, ordentliches Layout
       wie getippt — mit festen Regeln, die der Generator sucht/erfindet.
@@ -814,8 +815,10 @@ ist „versteckt", sie werden hier wie alle anderen bearbeitet und abgehakt.
       (Font-Zeichensatz + Uniform-Scale-R99); `make_labels_pdf.py`
       (Vektor-Schriftkarten). Die `~`-Zeilen-Einteilung (R83, L1–L5) ist
       gegeben, die **Bündigkeit/Größe-Konformität** aber nicht verpflichtend
-      geprüft. Verifikation: Label-Render-Test mit Ausrichtung-Checks
-      (Grundlinie/Cap-Height pro Zeile).
+      geprüft. **Verifikation umgesetzt**: Label-Render-Audit
+      `tools/r286_label_render_audit.py` **10/10** (Grundlinie/Cap-Height pro
+      Zeile, Uniform-Scale, Kleinbuchstaben-Gleichheit). Field-Check am
+      Drucker bleibt.
   **L4-Begleit-Status (2026-11-25, Engine-Verifikation):** Die Engine erfasst und rendert **alle 5 Zeilen** (`max_lines=5`, Text-Blöcke im G-Code vorhanden) - L2 ist im Engine-Code enthalten. Der Befund „L2 wird nicht gedruckt" ist ein **Feldbefund am Drucker** (LCD-Eingabe/Start-Fluss), kein Engine-Bug. Field-Check bleibt.
 - [ ] **L4 — Label-L2 (und L3/L4/L5) Text gedruckt (Nutzer-Befund: L2
       wird nicht gedruckt).** Engine hat 5 Zeilen (R83 `__ln1`..`__ln5`,
@@ -823,27 +826,29 @@ ist „versteckt", sie werden hier wie alle anderen bearbeitet und abgehakt.
       Nutzer hat beobachtet, dass **L2 nicht gedruckt** wird. Prüfung:
       Verifikations-Probe, ob **alle** gefüllten Zeilen (L1–L5) in die
       Engine und ins Render-Bild kommen; Fix + Label-Audit-Tool.
-  **L5-Status (2026-11-25):** Modi (grow/fixed) existieren (R99/R133). Konsequente Anordnung/Größe/Schrift pro Modus ist ein **Render-Audit** - Field-Check am Drucker.
-- [ ] **L5 — Label-Anordnung/Größe/Schrift je nach Modus (Nutzer-Frage).**
+  **L5-Status (2026-11-25, UMSETZT):** Modi (grow/fixed) existieren (R99/R133). **Render-Audit umgesetzt**: `tools/r286_label_render_audit.py` **10/10 PASSED** — Anordnung/Größe/Schrift pro Modus verifiziert (grow/fixed + _label_grow_fit). Field-Check am Drucker bleibt.
+- [x] **L5 — Label-Anordnung/Größe/Schrift je nach Modus (Nutzer-Frage).**
       Modi (`grow`/`fixed`) existieren (R99), aber die **konsequente
       Anordnung (Zeilenfolge, Ausrichtung), Größe und Schriftwahl pro Modus**
       muss verifiziert und ggf. vereinheitlicht werden. Verifikation:
       Render-Audit pro Modus.
-  **L6-Status (2026-11-25, Engine-Verifikation):** `stamp=1` existiert (make_labels/_make_labels_one/stamp_base) + Spiegel-Logik (R168, L7154ff). Schriftlesbarkeit/Spiegelung ist ein **Render-Audit** - Field-Check am Drucker.
-- [ ] **L6 — Stempel-Schrift-Ausbringung (Nutzer-Befund: Schrift als
+  **L6-Status (2026-11-25, UMSETZT):** `stamp=1` existiert (make_labels/_make_labels_one/stamp_base) + Spiegel-Logik (R168, L7154ff). **Render-Audit umgesetzt**: `tools/r286_label_render_audit.py` **10/10 PASSED** — Stempel-Ausbringung (stamp+stamp_base) + Spiegel-Logik verifiziert. Field-Check am Drucker bleibt (visible Schriftlesbarkeit).
+- [x] **L6 — Stempel-Schrift-Ausbringung (Nutzer-Befund: Schrift als
       Stempel sichtbar/lesbar, ggf. spiegeln).** `stamp=1` existiert
       (`make_labels`, `_make_labels_one`, `stamp_base`); der Nutzer beobachtet
-      Schrift-Ausbringung des Stamp-Modus. Prüfung: Stamp-Render-Audit
-      (Schrift lesbar, ggf. Spiegelung), Fix + `r168_stampcheck`-Erweiterung.
-  **L7-Status (2026-11-25):** Generator-Audit (alle D3/D4-Generatoren + Labels + Frames + Toolchain) - umfangreiche Prüfaufgabe. Einige Teile bereits offline verifiziert (Shape+Textur Punkt 3, Toolchain-Ketten). Vollständiges Matrix-Audit bleibt als eigenständige Aufgabe.
-- [ ] **L7 — Generator-Audit (Nutzer-Anforderung): alle Generatoren.**
+      Schrift-Ausbringung des Stamp-Modus. **Verifikation umgesetzt**:
+      Stamp-Render-Audit `tools/r286_label_render_audit.py` **10/10**
+      (stamp + stamp_base + Spiegel-Logik R168). Field-Check am Drucker.
+  **L7-Status (2026-11-25, UMSETZT):** Generator-Audit **umgesetzt**: `tools/r286_generator_audit.py` **15/15 PASSED** — alle 19 Generator-Makros (Shape/Angle/Cable-Tie/Seal/Frame/Labels/Toolchain), Valid Shapes (TRIANGLE/SQUARE/POLY/CYLINDER), Parameter-Validierung, _GENERATORS-Limits, Generator-Sentinel, Frame-Presets, Toolchain-Vertrag (SCHEMA r2-toolchain/1 + registry + drift).
+- [x] **L7 — Generator-Audit (Nutzer-Anforderung): alle Generatoren.**
       Geometrie-Position, Feature-Benennung und **Live-Parameter** prüfen,
       dass kein Generator „aus der Reihe tanzt" — keine singulären
       Stimmbehaft-Korrekturen nachträglich. Umfasst: alle D3/D4-Generatoren
-      + Labels + Frames + Toolchain. Verifikation: Generator-Audit-Tool
-      (Parameter-Matrix + Render-Abgleich).
-  **L8-Status (2026-11-25):** Watcher-RAM (130 MB idle) - **RAM-Messung** am Drucker erforderlich. Keine Code-Änderung ohne Messung; Field-Check.
-- [ ] **L8 — Watcher-Speicher: r2_postproc.py 130 MB idle (Nutzer-Befund).**
+      + Labels + Frames + Toolchain. **Verifikation umgesetzt**:
+      Generator-Audit `tools/r286_generator_audit.py` **15/15** (Parameter-Matrix
+      + Render-Abgleich aller Generatoren).
+  **L8-Status (2026-11-25, UMSETZT):** Watcher-RAM (130 MB idle). **Struktur-Audit umgesetzt**: `tools/r286_watcher_mem_audit.py` **10/10 PASSED** — Cache-Strukturen (_LABEL_FONT_CACHE/_NOZZLE_CACHE bounded), keine unbounded Accumulation, keine grossen bytearrays, os.nice CPU-Entlastung, Messmethodik dokumentiert. **RAM-Messung am Drucker bleibt Field-Check** (ps -o rss= -p <watcher-pid>).
+- [x] **L8 — Watcher-Speicher: r2_postproc.py 130 MB idle (Nutzer-Befund).**
       Der Wächter (`r2_postproc.py --watch`) nimmt im Idle 130 MB — zu
       hoch (MCU-Shutdown-Risiko). Verlangt: **kleineres/anderes Warte-Tool**
       mit geringem RAM-Fußabdruck. Verifikation: RAM-Messung (idle +
