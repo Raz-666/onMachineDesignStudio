@@ -179,6 +179,69 @@ class PostprocPaket4Tests(unittest.TestCase):
             self.assertGreater(v['bytes'], 84)
             self.assertEqual([], list(Path(td).glob('.r2stl_*')))
 
+    # ---- 4c2 (R286): _stl_export also_obj - parallel OBJ, vertex-deduped --
+    def test_4c2_stl_export_obj_parallel_and_vertex_deduped(self):
+        with tempfile.TemporaryDirectory(prefix='r2-p4c2-') as td:
+            box = Path(td) / 'box.gcode'
+            box.write_text('\n'.join([
+                'G90', 'M83',
+                ';LAYER:0', ';TYPE:Outer wall',
+                'G0 X0 Y0 Z0.2 F6000',
+                'G1 X20 Y0 E1.0 F1800',
+                'G1 X20 Y20 E1.0 F1800',
+                'G1 X0 Y20 E1.0 F1800',
+                'G1 X0 Y0 E1.0 F1800',
+                ';LAYER:1', ';TYPE:Outer wall',
+                'G0 X0 Y0 Z0.4 F6000',
+                'G1 X20 Y0 E1.0 F1800',
+                'G1 X20 Y20 E1.0 F1800',
+                'G1 X0 Y20 E1.0 F1800',
+                'G1 X0 Y0 E1.0 F1800',
+            ]) + '\n', encoding='utf-8')
+            stl_rel, stl_info = PP._stl_export(td, 'box.gcode', also_obj=True)
+            self.assertIn('obj', stl_info)
+            self.assertIn('obj_vertices', stl_info)
+            self.assertGreater(stl_info['obj_vertices'], 0)
+
+            # OBJ file exists next to the STL.
+            obj_rel = stl_info['obj']
+            self.assertTrue(obj_rel.endswith('_object.obj.gcode'))
+            obj_path = Path(td) / obj_rel
+            self.assertTrue(obj_path.is_file())
+
+            # Parse OBJ: count v/f, check indices in range, vertex-dedup.
+            n_v = n_f = 0
+            max_idx = 0
+            for ln in obj_path.read_text(encoding='utf-8').splitlines():
+                s = ln.strip()
+                if s.startswith('v '):
+                    n_v += 1
+                elif s.startswith('f '):
+                    n_f += 1
+                    for tok in s[2:].split():
+                        try:
+                            iv = int(tok.split('/')[0])
+                        except ValueError:
+                            continue
+                        if iv > max_idx:
+                            max_idx = iv
+            self.assertGreater(n_v, 0)
+            self.assertGreater(n_f, 0)
+            self.assertLessEqual(max_idx, n_v, 'OBJ index overflow')
+            # Vertex dedup: unique vertex lines == reported vertex count.
+            self.assertEqual(n_v, stl_info['obj_vertices'])
+            # The OBJ and STL share the same triangle count (same mesh).
+            self.assertEqual(n_f, stl_info['tris'])
+            # No temp leftovers.
+            self.assertEqual([], list(Path(td).glob('.r2stl_*')))
+            self.assertEqual([], list(Path(td).glob('.r2obj_*')))
+
+            # also_obj=False (default) writes NO obj.
+            box2 = Path(td) / 'box2.gcode'
+            box2.write_text(box.read_text(encoding='utf-8'), encoding='utf-8')
+            stl_rel2, stl_info2 = PP._stl_export(td, 'box2.gcode')
+            self.assertNotIn('obj', stl_info2)
+
     # ---- 4d: C4 cross-slicer aliases, no duplicate keys, inert non-print --
     def test_4d_type_map_has_no_duplicate_keys_and_resolves_c4_aliases(self):
         tree = ast.parse(ENGINES[SELECTED_ENGINE].read_text(encoding='utf-8'))

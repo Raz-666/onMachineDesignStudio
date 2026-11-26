@@ -9857,6 +9857,8 @@ NONCE_KEYS = ('preview_nonce', 'range_nonce', 'label_gen_nonce', 'reso_nonce',
               # R214 (.136m): object-only STL export channel - primed like
               # the rest so a restart never re-fires an old export
               'stl_nonce',
+              # R286: object-only OBJ export channel (parallel to STL)
+              'obj_nonce',
               # R259: toolchain preset chain (TOOLCHAIN_APPLY -> one job,
               # every step feeds the next) - primed like the rest
               'toolchain_nonce',
@@ -22030,9 +22032,14 @@ _STL_TARGET_BOXES216 = 45000   # R216: viewer budget (~27 MB / 540k tris) -
                                # texture strokes) are dropped and named
 
 
-def _stl_export(directory, rel, out_dir=None):
+def _stl_export(directory, rel, out_dir=None, also_obj=False):
     """R214: rebuild the object-only STL from a finished G-code. Returns
-    (rel_stl, info_dict). Reads the source, never writes it."""
+    (rel_stl, info_dict). Reads the source, never writes it.
+
+    R286: with also_obj=True a parallel Wavefront OBJ (text mesh, same
+    triangles, vertex-deduped) is written next to the STL so the field can
+    pick the format a viewer/slicer prefers. The OBJ carries the same
+    outer-skin rule (supports/skirt/brim/tower/ironing/infill skipped)."""
     rel = str(rel).strip().strip('/').replace('\\', '/')
     for bad in (';', '"', "'", '#'):
         rel = rel.replace(bad, '')
@@ -22365,12 +22372,38 @@ def _stl_export(directory, rel, out_dir=None):
             base = base[:-len(ext)]
             break
     out = os.path.join(outdir, base + '_object.stl.gcode')
+    out_obj = os.path.join(outdir, base + '_object.obj.gcode')
     n_tri = 0
     n_box = 0
     import tempfile as _tempfile_stl
     _stl_fd, _stl_tmp = _tempfile_stl.mkstemp(prefix='.r2stl_', suffix='.tmp',
                                               dir=outdir)
+    _obj_fd = _obj_tmp = None
+    _obj_fo = None
+    _obj_v = {}          # R286 OBJ: rounded-vertex -> 1-based index (dedup)
+    _obj_n = 0           # R286 OBJ: vertex counter
     try:
+        if also_obj:
+            _obj_fd, _obj_tmp = _tempfile_stl.mkstemp(prefix='.r2obj_',
+                                                      suffix='.tmp', dir=outdir)
+            _obj_fo = os.fdopen(_obj_fd, 'w', encoding='utf-8')
+            _obj_fo.write('# R2 object-only OBJ (R286): supports/skirt/brim/'
+                          'prime tower/custom/ironing skipped - same triangles '
+                          'as the STL, vertex-deduped\n')
+
+            def _obj_tri(ax, ay, az, bx, by, bz, cx, cy, cz):
+                nonlocal _obj_n
+                idx = []
+                for (px, py, pz) in ((ax, ay, az), (bx, by, bz), (cx, cy, cz)):
+                    key = (round(px, 4), round(py, 4), round(pz, 4))
+                    vi = _obj_v.get(key)
+                    if vi is None:
+                        _obj_n += 1
+                        vi = _obj_n
+                        _obj_v[key] = vi
+                        _obj_fo.write('v %.4f %.4f %.4f\n' % (px, py, pz))
+                    idx.append(vi)
+                _obj_fo.write('f %d %d %d\n' % tuple(idx))
         with os.fdopen(_stl_fd, 'wb') as fo:
             fo.write(struct.pack('<80sI', b'R2 object-only STL (R214): '
                                  b'supports/skirt/brim/prime tower/custom/ironing '
@@ -22393,6 +22426,8 @@ def _stl_export(directory, rel, out_dir=None):
                 fo.write(struct.pack('<12fH', nxn / ln, nyn / ln, nzn / ln,
                                      ax, ay, az, bx, by, bz, cx, cy, cz, 0))
                 n_tri += 1
+                if also_obj:
+                    _obj_tri(ax, ay, az, bx, by, bz, cx, cy, cz)
 
             for r in runs:
                 pts, zv, e_sum, len_sum = r[0], r[1], r[2], r[3]
@@ -22445,12 +22480,28 @@ def _stl_export(directory, rel, out_dir=None):
             fo.write(struct.pack('<I', n_tri))
             fo.flush()
             os.fsync(fo.fileno())
+        if also_obj:
+            _obj_fo.flush()
+            os.fsync(_obj_fo.fileno())
+            _obj_fo.close()
+            _obj_fd = None
+            os.replace(_obj_tmp, out_obj)
         os.replace(_stl_tmp, out)
     except Exception:
         try:
             os.unlink(_stl_tmp)
         except OSError:
             pass
+        if _obj_tmp:
+            try:
+                os.unlink(_obj_tmp)
+            except OSError:
+                pass
+        if _obj_fo is not None and not _obj_fo.closed:
+            try:
+                _obj_fo.close()
+            except Exception:
+                pass
         raise
     # ---- R253: prove the file really IS a binary STL -------------------
     # The field .142h export was silently corrupted AFTER writing (the
@@ -22468,12 +22519,46 @@ def _stl_export(directory, rel, out_dir=None):
                 '%r' % _head253[:32])
     except OSError:
         pass
+    # ---- R286: prove the OBJ is a real Wavefront mesh (when written) ----
+    # Same silent-corruption guard as the STL: the OBJ must carry vertices
+    # AND faces, and the face indices must stay within the vertex count.
+    if also_obj:
+        try:
+            with open(out_obj, 'r', encoding='utf-8', errors='replace') as _chk:
+                _vlines286 = _flines286 = 0
+                _maxidx286 = 0
+                for _ln286 in _chk:
+                    _s286 = _ln286.strip()
+                    if _s286.startswith('v '):
+                        _vlines286 += 1
+                    elif _s286.startswith('f '):
+                        _flines286 += 1
+                        for _tok in _s286[2:].split():
+                            try:
+                                _iv = int(_tok.split('/')[0])
+                            except ValueError:
+                                continue
+                            if _iv > _maxidx286:
+                                _maxidx286 = _iv
+            if _vlines286 <= 0 or _flines286 <= 0:
+                raise RuntimeError(
+                    'the written OBJ has no vertices or faces (corrupt): '
+                    'v=%d f=%d' % (_vlines286, _flines286))
+            if _maxidx286 > _vlines286:
+                raise RuntimeError(
+                    'the written OBJ references vertex %d but only %d '
+                    'vertices exist (index overflow)' % (_maxidx286, _vlines286))
+        except OSError:
+            pass
     info = {'file': out, 'boxes': n_box, 'tris': n_tri,
             'layers': len(z_h), 'runs': len(runs), 'incl_mm': incl_mm,
             'excl': excl_mm, 'capped': n_box >= _STL_MAX_BOXES214,
             'untyped': not seen_type, 'relaxed': _relax214,
             'decimated': bool(_dec216 > 1), 'decim_step': _dec216,
             'segments': _nseg216}
+    if also_obj:
+        info['obj'] = out_obj
+        info['obj_vertices'] = _obj_n
     return os.path.relpath(out, directory), info
 
 def _optimize_copy(directory, rel, snap):
@@ -29959,6 +30044,9 @@ def watch(directory, interval=5.0, once=False):
                 # R214: the STL export reads the whole source and writes a
                 # mesh - that is disk I/O, it waits for idle like the rest
                 'stl_nonce',
+                # R286: the OBJ export reads the whole source and writes a
+                # mesh - same disk-I/O rule, waits for idle
+                'obj_nonce',
                 # R216: the shape generator + the twist tool write
                 # files - same rule
                 'shape_nonce', 'twist_nonce', 'mirror_nonce',
@@ -30156,6 +30244,7 @@ def watch(directory, interval=5.0, once=False):
                 last_opt_nonce = _np.get('opt_nonce')              # R169
                 last_opt_load_nonce = _np.get('opt_load_nonce')    # R169
                 last_stl_nonce = _np.get('stl_nonce')                  # R214
+                last_obj_nonce = _np.get('obj_nonce')                  # R286
                 last_opt_list_pushed = None                         # R169 (no nonce)
                 last_opt_list_try = 0.0
                 # R170: live label fit + queue bed-fit + shutdown watchdog
@@ -30396,6 +30485,50 @@ def watch(directory, interval=5.0, once=False):
                     _spawn_job('STL export', 'stl_export214', _job214)
             except Exception as _e214o:                          # noqa: BLE001
                 print('[stl] dispatch error: %r' % _e214o, flush=True)
+
+            # ---- R286: object-only OBJ export (Pre-Print > File > OBJ) ----
+            try:
+                _on286 = rv.get('obj_nonce', '')
+                if _on286 and _on286 != last_obj_nonce:
+                    last_obj_nonce = _on286
+                    _of286 = str(rv.get('obj_file', '')).strip().strip('\'"')
+
+                    def _job286(_rel286=_of286):
+                        try:
+                            _relout286, _inf286 = _stl_export(
+                                directory, _rel286, also_obj=True)
+                            _msg286 = ('[obj] shell OBJ saved: %s '
+                                       '(%d ribbons, %d layers, %d tris, '
+                                       '%d vertices)'
+                                       % (_relout286, _inf286['boxes'],
+                                          _inf286['layers'], _inf286['tris'],
+                                          _inf286.get('obj_vertices', 0)))
+                            _msg286 += (' - outer skin: internal infill '
+                                        'skipped - Mainsail: STL folder, '
+                                        'download + remove the .gcode '
+                                        'ending, every 3D program opens it')
+                            print(_msg286, flush=True)
+                            try:
+                                _moonraker_gcode(
+                                    'RESPOND MSG="%s"\nM117 OBJ saved\n'
+                                    '_SOUND_LIB NAME=r2_done'
+                                    % _msg286.replace('"', ''))
+                            except Exception:                   # noqa: BLE001
+                                pass
+                        except Exception as _e286:             # noqa: BLE001
+                            print('[obj] export FAILED: %r' % _e286, flush=True)
+                            try:
+                                _moonraker_gcode(
+                                    'RESPOND MSG="[obj] export FAILED: %s"'
+                                    '\nM117 OBJ failed\n'
+                                    '_SOUND_LIB NAME=r2_error'
+                                    % str(_e286).replace('"', '')
+                                     .replace(';', '')[:120])
+                            except Exception:                   # noqa: BLE001
+                                pass
+                    _spawn_job('OBJ export', 'obj_export286', _job286)
+            except Exception as _e286o:                          # noqa: BLE001
+                print('[obj] dispatch error: %r' % _e286o, flush=True)
 
             # ---- R169 (E2): load an optimized file's values into Pre-Print -------
             try:
@@ -34790,12 +34923,18 @@ def main():
         out, nl = make_range(args[1], int(args[2]), int(args[3]), floor=fl, top=tp, brim=br)
         print(f'[ok] {out}: {nl} layers (floor {fl}/top {tp}/brim {br}) - start via the dialog')
         return
-    if args[0] == '--stl':
-        # R214: SSH one-liner - object-only STL from a finished G-code.
-        #   r2_postproc.py --stl mypart.gcode
-        # Output: <folder>/STL/mypart_object.stl.gcode (Mainsail: download, strip .gcode).
+    if args[0] in ('--stl', '--obj'):
+        # R214/R286: SSH one-liner - object-only STL (+ optional OBJ) from a
+        # finished G-code.
+        #   r2_postproc.py --stl mypart.gcode            -> STL only
+        #   r2_postproc.py --stl mypart.gcode OBJ=1      -> STL + OBJ
+        #   r2_postproc.py --obj mypart.gcode            -> OBJ + STL
+        # Output: <folder>/STL/mypart_object.stl.gcode / .obj.gcode
+        # (Mainsail: download, strip the .gcode ending).
+        want_obj = (args[0] == '--obj')
         if len(args) < 2:
-            print('usage: r2_postproc.py --stl FILE.gcode [OUTDIR=]')
+            print('usage: r2_postproc.py --stl FILE.gcode [OUTDIR=] [OBJ=1]')
+            print('       r2_postproc.py --obj FILE.gcode [OUTDIR=]')
             print('  object-only export: supports, skirt, brim, prime tower,')
             print('  custom helpers and ironing are skipped')
             sys.exit(1)
@@ -34804,15 +34943,20 @@ def main():
             if '=' in a214:
                 k214, v214 = a214.split('=', 1)
                 kw214[k214.upper()] = v214
+        if kw214.get('OBJ', '').lower() in ('1', 'true', 'yes', 'on'):
+            want_obj = True
         rel214, info214 = _stl_export(
             os.path.dirname(os.path.abspath(args[1])) or '.',
             os.path.basename(args[1]),
-            out_dir=kw214.get('OUTDIR'))
+            out_dir=kw214.get('OUTDIR'), also_obj=want_obj)
         print('[stl] %s: %d ribbons / %d layers / %.1f m object extrusion '
               '-> %d triangles%s'
               % (rel214, info214['runs'], info214['layers'],
                  info214['incl_mm'] / 1000.0, info214['tris'],
                  ' (CAPPED - file too complex, mesh truncated)' if info214['capped'] else ''))
+        if info214.get('obj'):
+            print('[obj] %s: %d vertices (vertex-deduped, same triangles)'
+                  % (os.path.basename(info214['obj']), info214['obj_vertices']))
         if info214['excl']:
             print('[stl] skipped: ' + ', '.join(
                 '%s %.1fm' % (k214.lower(), v214 / 1000.0)
