@@ -344,6 +344,34 @@ Maschinenmodell-Audit (§12), J2 Gießformen (Zuweisung ausstehend),
 J6 KI-Vision, J3 UI (navi.json verifiziert), J4 Audio. OFFENE-FRAGEN 15–18.
 Der Loft ist keine allgemeine Spiralrekonstruktion; aktiver Export unverändert.
 
+## Aktueller Branch-Status (arena/6ce4402e, R286-Runde, 2026-11-25)
+
+Diese Branch führt die **R286-Feld-Korrekturen** auf V7 (`R2-2026-11-19.3`):
+
+- **Range-Tool (L11):** `make_range` akzeptiert beliebig hohe Schichten;
+  der R283-Pre-Scan-Clamp war **tott** (offene `sp`-Referenz → NameError
+  stillschweigend gefangen). Fix: `sp` → `src_path` in **beiden** Engines,
+  Duplizierung des Clamp-Blocks in `r2_postproc_next.py` entfernt. Start-Clamp
+  `max(1, …)` (Commit `531f101`). LCD `__from` min=1 / `__to` min=2,
+  Toolchain-Schema synchron.
+- **Velocity Live-Tuning:** `SET_LIVE_VELOCITY` nutzt jetzt `SPEED_SCALE`
+  (Prozent, 100=normal) — die Änderung wirkt **sichtbar** am Druck, nicht nur
+  als Kap. LCD-Menü auf Prozent-Semantik (Bereich 50–300).
+- **PP_ENGINE_INFO entfernt** (reines Read-only-Info-Makro, „nix auswählbar").
+  Der PP-Engine-Toggle bleibt.
+- **Top/Bridge-Logik (User-Korrektur):** belegt via
+  `tools/test_r286_topbridge_logic.py` (3/3) — die Engine enthält die
+  Korrektur bereits: Top auf Sparse-Infill wird **nie** als Bridge
+  klassifiziert; solid+Top+Ironing ist support-getragen.
+- **L2 LED:** Druck-Zustand setzt jetzt **statisches Monochrom** (SET_LED),
+  kein `r2_printing`-Animation (User-Regel: einfarbig, ohne Effekt).
+- **L10:** `crash_archive`-Ordner aus dem Wurzel-Scan/Link-Sync ausgeschlossen.
+- **L9 (Engine-Teil):** Scale+Range-Chain offline verifiziert (success,
+  Output non-leer, valid) — kein Absturz vom Engine-Code.
+
+Feld-Checks am Drucker (RAM-Messung L8, Display-Angaben L9, Audio-Auswahl L1,
+Label-Ausbringung L3–L6) sind in `docs-notes/MASTER-TODO.md` §L verzeichnet.
+
 ## Historie
 
 `docs-notes/UEBERGABE.md` enthält bewusst datierte Zwischenstände
