@@ -860,7 +860,24 @@ ist „versteckt", sie werden hier wie alle anderen bearbeitet und abgehakt.
       + Labels + Frames + Toolchain. **Verifikation umgesetzt**:
       Generator-Audit `tools/r286_generator_audit.py` **15/15** (Parameter-Matrix
       + Render-Abgleich aller Generatoren).
-  **L8-Status (2026-11-25, UMSETZT):** Watcher-RAM (130 MB idle). **Struktur-Audit umgesetzt**: `tools/r286_watcher_mem_audit.py` **10/10 PASSED** — Cache-Strukturen (_LABEL_FONT_CACHE/_NOZZLE_CACHE bounded), keine unbounded Accumulation, keine grossen bytearrays, os.nice CPU-Entlastung, Messmethodik dokumentiert. **RAM-Messung am Drucker bleibt Field-Check** (ps -o rss= -p <watcher-pid>).
+  **L8-Status (2026-11-25, UMSETZT + 2026-11-26 FELDBEFUND + FIX):**
+  **Feldbefund am Drucker (v19.3):** `ps -o rss= -p <watcher-pid>` = **208.8 MB**
+  (Peilmarke war 130 MB). Diagnose (Sandbox-Messungen): Basis-RSS ~14–94 MB,
+  die Verarbeitung hält **+1.7 MB pro Datei nach GC** (linear mit der Datei,
+  aufgeteilt über viele kleine Audit-Objekte `type_at`/`tagged_seq193`/
+  `geom.ranges` — Referenz-Zyklen, nicht freigegeben). Der Tagging-Ausgabepfad
+  ist streaming (O(1)); der Rest der 208 MB = Daemon-Basislast (Importe
+  moonraker/klippy/asyncio) + kumulative Anhäufung pro Druck.
+  **MAßNAHME (umgesetzt, verifiziert):** `process()` beendet jede Verarbeitung
+  mit `_r2_free_mem`-Cleanup (`del` der Audit-Container + `gc.collect()`) →
+  **Delta nach Verarbeitung = 0.0 MB** (war +1.7). Plus `_LABEL_FONT_CACHE`
+  auf **100 Einträge gebunden**. **Wieder-Messung am Drucker**: `ps -o rss= -p
+  <watcher-pid>` nach 1–2 Drucken — sollte nahe der Basislast liegen.
+  **Struktur-Audit**: `tools/r286_watcher_mem_audit.py` **10/10 PASSED** —
+  Cache-Strukturen (_LABEL_FONT_CACHE/_NOZZLE_CACHE bounded), keine unbounded
+  Accumulation, keine grossen bytearrays, os.nice CPU-Entlastung, Messmethodik
+  dokumentiert. **RAM-Messung am Drucker bleibt Field-Check**
+  (ps -o rss= -p <watcher-pid>).
 - [x] **L8 — Watcher-Speicher: r2_postproc.py 130 MB idle (Nutzer-Befund).**
       Der Wächter (`r2_postproc.py --watch`) nimmt im Idle 130 MB — zu
       hoch (MCU-Shutdown-Risiko). Verlangt: **kleineres/anderes Warte-Tool**

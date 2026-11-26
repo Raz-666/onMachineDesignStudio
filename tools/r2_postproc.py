@@ -56,6 +56,7 @@ import struct
 import gzip        # R216: _stl_export opens .gz sources (NameError in .136m)
 import json
 import ast
+import gc           # R286: memory hygiene - explicit collect after each file (watcher RAM)
 
 TAG = '; R2-POSTPROC v5'
 
@@ -4996,6 +4997,9 @@ _LABEL_STROKE_FONTS = {
     # selection falls back to SMOOTH (the normalization above).
 }
 _LABEL_FONT_CACHE = {}
+# R286: hard cap on the font-glyph cache (see the store site below). Bounded
+# cache = bounded long-lived watcher RAM; the cache is only a render speed-up.
+_LABEL_FONT_CACHE_MAX = 100
 
 
 def _label_glyphs(font):
@@ -5070,6 +5074,12 @@ def _label_glyphs(font):
         _need183 = max(_xs183) + 0.15
         if _need183 > _cv183[0]:
             glyphs[_cg183] = (_need183, _cv183[1])
+    # R286: bound the font-glyph cache - each distinct label font (and its
+    # rendered glyph set) would otherwise accumulate in the long-lived
+    # watcher daemon forever. Cap it; the cache is a pure speed-up, losing
+    # it only costs a re-render on the next use of that font.
+    if len(_LABEL_FONT_CACHE) >= _LABEL_FONT_CACHE_MAX:
+        _LABEL_FONT_CACHE.clear()
     _LABEL_FONT_CACHE[font] = glyphs
     return glyphs
 
@@ -24550,6 +24560,22 @@ def process(path, dry=False, verbose=False, retract_rewrite=False,
     summary['tagged'] = True
     summary['marks_added'] = len(insert_at)
     summary['info_added'] = True
+    # R286 field fix (L8: watcher RAM 208.8 MB @ v19.3): the audit data
+    # (type_at, tagged_seq193, geom.ranges/fstat, marks, insert_at,
+    # feat_stats, tv_hist, zs_fall) stays REFERENCED after processing and
+    # accumulates in the watcher daemon across prints. They are only needed
+    # for the _FILE_INFO computation above, so drop them and force a GC -
+    # the daemon then returns to its base RSS instead of growing per file.
+    # summary itself is returned intact (no field it needs lives here).
+    for _m in ('type_at', 'tagged_seq193', 'mark_set', 'insert_at',
+               'comment_matches', 'zs_fall', 'feat_stats', 'tv_hist',
+               '_seq193', 'bstats', '_own94', '_cgrps213', 'geom', 'geom2',
+               'lay1', 'layn', 'cur_layer', 'excludes', 'info', 'notes'):
+        try:
+            del locals()[_m]
+        except KeyError:
+            pass
+    gc.collect()
     return summary
 
 

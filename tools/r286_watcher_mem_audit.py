@@ -99,11 +99,21 @@ check('9 Keine grossen globalen bytearrays', len(big_buffers) == 0,
 check('10 Messmethodik dokumentierbar', True,
       '(RAM-Check: RSS des Watcher-Prozesses vor/nach Jobs)')
 
+# ---- 11. R286 RAM-Hygiene: Cleanup nach jeder Verarbeitung ----
+# Feldbefund 208.8 MB @ v19.3: Audit-Daten (type_at/tagged_seq193/geom.ranges
+# ...) blieben referenziert und akkumulierten pro Druck im Daemon. Fix:
+# process() beendet mit del + gc.collect(), Font-Cache auf 100 gebunden.
+cleanup_ok = ('gc.collect()' in pp_src
+              and 'del locals()' in pp_src
+              and '_LABEL_FONT_CACHE_MAX' in pp_src)
+check('11 R286 RAM-Hygiene (del + gc.collect + Cache-Bound)', cleanup_ok,
+      '(cleanup-Block in process() + _LABEL_FONT_CACHE_MAX)')
+
 # ---- summary ----
 print('\n'.join(results))
 print('\n==== %d passed, %d failed ====' % (PASS, FAIL))
-print('\nHINWEIS: 130 MB idle ist ein FIELD-BEFIND. Dieses Audit analysiert die')
-print('Code-Struktur (Caches, Accumulatoren, Buffer). Die verpflichtende')
-print('RAM-Messung bleibt Field-Check am Drucker:')
+print('\nHINWEIS: 208.8 MB @ v19.3 war ein FIELD-BEFIND (Peilmarke 130 MB).')
+print('Dieses Audit analysiert die Code-Struktur (Caches, Accumulatoren, Buffer,')
+print('RAM-Hygiene). Die verpflichtende RAM-Messung bleibt Field-Check am Drucker:')
 print('  ps -o rss=,vsz= -p $(pgrep -f "r2_postproc.py --watch")')
 sys.exit(0 if FAIL == 0 else 1)
