@@ -293,7 +293,7 @@ body[data-led=alarm]{--r2lc:rgba(255,70,70,.6);animation:r2ledpulse 1s ease-in-o
     <div class="brandbox"><div class="lcd">R2D2</div>
       <div class="brandname">Klipper_e3-r2d2</div></div>
     <span id="srcbadge" class="badge"></span><span id="hid" class="badge"></span>
-    <div class="verbox"><span id="ver">R2-2026-11-19.3</span></div>
+    <div class="verbox"><span id="ver">R2-2026-11-26.1</span></div>
     <button id="fsminus" class="hbtn" title="Shrink the font of the whole page">A-</button>
     <button id="fsplus" class="hbtn" title="Grow the font of the whole page">A+</button>
     <button id="refresh" title="Re-run the export on the host and reload it">Reload export</button>
@@ -1138,6 +1138,7 @@ async function loadDoc(){
     ' inputs - sha <b>'+(DOC.sha256||'?')+'</b>'+
     (LIVE?'':' - <span style="color:#ffb454">offline</span>');
   show(DOC.tree);
+  if(LIVE)wsConnect();     // R286: WebSocket-Subscription als Live-Prioritaet
   pollAll();
 }
 
@@ -1432,8 +1433,59 @@ let QUIETUNTIL=0;   // R215: nach einem Start-Befehl 25 s ruhe halten -
                     // das Homing plant Moves just-in-time, ein Voll-Poll
                     // in dieser Phase war ein 'Timer too close' Mitlaeufer
 function startQuiet(){QUIETUNTIL=Date.now()+25000;}
+/* R286: WebSocket-Subscription - Moonraker pusht nur bei Anderungen
+   (statt alle 3 s HTTP-Polling). Entlastet ClientConnection.process_received
+   und die Host-CPU massiv. Polling bleibt nur als Keepalive/Fallback. */
+let WS=null, WS_SUB=false, WS_OK=false;
+const WS_OBJS=(EMBEDDED_MENU_JSON.live_objects||[]).map(o=>o.replace(/ .*$/,''));
+function wsConnect(){
+  if(WS&&(WS.readyState===0||WS.readyState===1))return;
+  try{
+    const proto=(location.protocol==='https:')?'wss':'ws';
+    WS=new WebSocket(proto+'://'+location.host+'/websocket');
+  }catch(e){return;}
+  WS.onopen=()=>{
+    WS_OK=true;
+    /* subscribe to all live objects - Moonraker pushes a status update
+       only when a value changes. gcode_macro objects are subscribed by
+       their base name; Moonraker resolves them. */
+    try{
+      const objs={};
+      for(const o of WS_OBJS)objs[o]=null;
+      WS.send(JSON.stringify({method:'printer.objects.subscribe',
+        params:{objects:objs}}));
+      WS_SUB=true;
+      if(LIVE)$('srcbadge').textContent='live (WebSocket) - values live';
+    }catch(e){}
+  };
+  WS.onmessage=ev=>{
+    let j; try{j=JSON.parse(ev.data);}catch(e){return;}
+    if(j.method==='printer.objects.status'&&j.params&&j.params.status){
+      const st=j.params.status;
+      if(st.gcode_move||st.extruder||st.toolhead||st.print_stats||
+        st.heater_bed||st.display_status||st.save_variables){
+        P=mkPrinter(st,null);
+        applyLive();
+        if(LIVE)$('srcbadge').textContent='live (WebSocket) - values live';
+        const m=(P&&P.display_status&&P.display_status.message!=null)?
+          String(P.display_status.message):'';
+        const _was216=LASTMSG;
+        notifIngest(m);
+        if(m&&m!==_was216)ledPulse('p_notif');
+      }
+    }else if(j.method==='notify_status_update'){
+      /* Moonraker notify - triggers a light re-poll only if needed */
+    }
+  };
+  WS.onclose=()=>{WS_OK=false;WS_SUB=false;WS=null;
+    setTimeout(wsConnect,4000);};     // reconnect
+  WS.onerror=()=>{};
+}
 async function pollAll(){
-  if(Date.now()>=QUIETUNTIL){try{    // R215: Start-Ruhefenster - live ja, spaeter
+  /* R286: WebSocket ist Prioritaet; Polling nur als Keepalive (15 s) und
+     Fallback, wenn WS nicht verbunden ist. */
+  if(!WS_OK){
+    if(Date.now()>=QUIETUNTIL){try{    // R215: Start-Ruhefenster - live ja, spaeter
     const r=await fetch('/server/r2_menu/live',{cache:'no-store'});
     let j=jparse(await r.text());           // R213: floats stay floats
     if(j&&j.result!==undefined)j=j.result;  // R209: unwrap envelope
@@ -1475,6 +1527,7 @@ async function pollAll(){
     }
   }catch(e){P=null;}
   }   // R215: Ende Start-Ruhefenster (live pausiert, Konsole laeuft weiter)
+  }
   try{
     const r2=await fetch('/server/gcode_store?count=300',{cache:'no-store'});
     let j2=await r2.json();
@@ -1483,7 +1536,7 @@ async function pollAll(){
       renderConsole(LASTSTORE);}
   }catch(e){}
   applyLive();
-  setTimeout(pollAll,3000);
+  setTimeout(pollAll, WS_OK ? 15000 : 3000);  // R286: WS->15s Keepalive
 }
 
 $('send').onclick=async()=>{
