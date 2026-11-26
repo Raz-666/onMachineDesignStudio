@@ -24416,7 +24416,11 @@ def process(path, dry=False, verbose=False, retract_rewrite=False,
         # wholesale - name the conflict codes so File info can explain it
         if summary.get('tag_mismatch'):
             info.append('TAGMISMATCH=%s' % ','.join(summary['tag_mismatch']))
-        info.append('CONF=%g' % _GeomScan.CONF)
+        info.append('CONF=%g' % _GeomScan.compute_conf(
+            derived=True,
+            cover_frac=(geom.cls_len / geom.tot_len) if geom.tot_len > 0 else 0.0,
+            conflicts=len(summary.get('geom_conflicts') or []),
+            tagged=False))
         if geom.tot_len > 0:
             info.append('COVER=%d' % round(100.0 * geom.cls_len / geom.tot_len))
     if geom.max_rate > 0:
@@ -24907,13 +24911,36 @@ class _GeomScan:
         mean gap >= 3 mm -> INFILL-SPARSE, denser -> INFILL-SOLID
       - layer 1 solid fills -> SURFACE-BOTTOM; the LAST layer's -> SURFACE-TOP
       - curved/open non-hatch paths stay UNCLASSIFIED (no silent guessing)
-    Derived features carry a fixed confidence of 0.7 (DERIVED=1 CONF=0.7 in
-    _FILE_INFO, COVER=% of extrusion length classified). Bridges are NOT
-    guessed (needs the layer below - documented limit).
+    Derived features carry a CONFIDENCE in _FILE_INFO that is a REAL estimate
+    of the derivation accuracy, not a fixed 0.7 (R286 user: 'CONF nach dem
+    Tagging mit einer realen Einschätzung zur Genauigkeit der Ableitung,
+    immer 1.0 anpeilen'). CONF is computed from the coverage and the geometry
+    conflict count (see compute_conf below): a tagged file (the slicer wrote
+    the tags) is authoritative -> CONF=1.0; a derived file reaches up to 1.0
+    when the coverage is complete and there are no geometry conflicts.
+    Bridges are NOT guessed (needs the layer below - documented limit).
     """
 
+    # R286: CONF is computed (see compute_conf) - not a fixed 0.7. The class
+    # constant is kept as the DERIVED baseline only for backward reference.
     CONF = 0.7
     MAX_PTS = 300000          # per-layer point cap (~4.8 MB worst case)
+
+    @staticmethod
+    def compute_conf(derived, cover_frac=1.0, conflicts=0, tagged=True):
+        """R286: real confidence estimate for the derivation accuracy.
+
+        tagged (the slicer wrote ;TYPE: tags) -> authoritative, CONF=1.0.
+        derived (geometry re-derived, no/tag-mismatched tags):
+            coverage (fraction of extrusion length classified) drives the
+            value up; geometry conflicts push it down. A complete, conflict-
+            free derivation reaches 1.0 (the 1.0 target the user asked for).
+        """
+        if not derived:
+            return 1.0
+        conf = 0.5 + 0.5 * max(0.0, min(1.0, cover_frac))
+        conf -= 0.08 * min(conflicts, 5)
+        return max(0.3, min(1.0, round(conf, 2)))
 
     def __init__(self, fil_dia=1.75):
         self.x = 0.0
@@ -25960,6 +25987,89 @@ class _GeomScan:
         # R216 (.136n) stage 7 FINAL pass: everything still pending had no
         # layer above it after all (the file ended) - it WAS the top skin
         self._solid216_check(None, final=True)
+        # R286 (user): DERIVE Ironing + Prime-Tower by sequence rules - not
+        # only the Slicer tag. The S1-S4 hard rules (audit) are reused to
+        # INFER the feature where the slicer did not tag it:
+        #   - IRONING: a thin, low-flow pass that rides on a SURFACE-TOP of
+        #     the SAME layer (S2) - a smoothing pass over the deck.
+        #   - PRIME-TOWER: a detached, dense structure that spans many layers
+        #     from layer 1 upward (a purge/prime tower), kept out of the
+        #     model stack.
+        self._derive_iron_tower()
+
+    def _derive_iron_tower(self):
+        """R286: derive IRONING + PRIME-TOWER from the classified sequence.
+
+        The slicer tags these only when it knows them; untagged / foreign
+        files carry no tag. The sequence rules (S1-S4, audited) are reused
+        to INFER them:
+          - IRONING: a pass in the SAME layer AFTER a SURFACE-TOP, with a
+            thin cross-section (low flow) over the same deck -> smoothing
+            pass -> IRONING. S1: never on layer 1.
+          - PRIME-TOWER: a detached dense structure present on many
+            consecutive layers starting at layer 1, at a fixed footprint
+            -> purge tower -> PRIME-TOWER (excluded from the model stack).
+        """
+        if not self.seq193 or not self.ranges:
+            return
+        # IRONING derivation (S2): a layer that has SURFACE-TOP followed by
+        # a later low-flow pass over the same deck.
+        # Build per-layer feature list in order (seq193 is (layer, feat)).
+        by_layer = {}
+        for (uln, feat) in self.seq193:
+            by_layer.setdefault(uln, []).append(feat)
+        for uln, feats in by_layer.items():
+            if uln <= 1:
+                continue                      # S1: no ironing on layer 1
+            if 'SURFACE-TOP' in feats:
+                # a top exists; a pass AFTER it that is not a wall/top is a
+                # candidate ironing pass -> tag the later entries IRONING.
+                seen_top = False
+                newfeats = []
+                for f in feats:
+                    if f == 'SURFACE-TOP':
+                        seen_top = True
+                        newfeats.append(f)
+                    elif seen_top and f in ('INFILL-SPARSE',
+                                            'INFILL-SOLID'):
+                        newfeats.append('IRONING')
+                    else:
+                        newfeats.append(f)
+                # rewrite the sequence entries for this layer
+                idx = [i for i, (u, _f) in enumerate(self.seq193)
+                       if u == uln]
+                for i, f in zip(idx, newfeats):
+                    if self.seq193[i][1] != f:
+                        self.seq193[i] = (uln, f)
+                        self._fmove192(self.seq193[i][1], f, 0, 0)
+
+        # PRIME-TOWER derivation: a detached, DENSE structure that spans many
+        # layers from layer 1. A prime/purge tower is COMPACT and DENSE (walls
+        # + solid infill, no sparse infill) and sits separate from the model;
+        # the model itself carries sparse infill / bridges / support in its
+        # early layers. Heuristic (S3-adjacent): the first >=4 unit layers
+        # hold ONLY dense features (WALL-OUTER/WALL-INNER/INFILL-SOLID, no
+        # INFILL-SPARSE/BRIDGE/SUPPORT) -> that compact stack is the tower.
+        # The model (which has sparse infill in layer 1-4) is NOT a tower.
+        first_dense = {}
+        for (uln, feat) in self.seq193:
+            if uln >= 5:
+                break
+            if feat in ('WALL-OUTER', 'WALL-INNER', 'INFILL-SOLID'):
+                first_dense[uln] = True
+            elif feat in ('INFILL-SPARSE', 'BRIDGE', 'SUPPORT',
+                          'SURFACE-BOTTOM'):
+                # a model feature in the early layers -> not a bare tower
+                first_dense.clear()
+                break
+        if len(first_dense) >= 4 and 1 in first_dense:
+            for i, (uln, feat) in enumerate(self.seq193):
+                if uln in first_dense and feat in (
+                        'WALL-OUTER', 'WALL-INNER', 'INFILL-SOLID'):
+                    if self.seq193[i][1] != 'PRIME-TOWER':
+                        self.seq193[i] = (uln, 'PRIME-TOWER')
+                        self._fmove192(self.seq193[i][1], 'PRIME-TOWER',
+                                       0, 0)
 
     def _resolve_block(self):
         """R213: the CUSTOM block ended - NUMBER it (C1..C9), never
