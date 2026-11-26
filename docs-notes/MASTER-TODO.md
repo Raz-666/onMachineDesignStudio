@@ -762,6 +762,7 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
 nur teilweise) in der Aufgabenliste — jetzt alle nachgetragen. Kein Punkt
 ist „versteckt", sie werden hier wie alle anderen bearbeitet und abgehakt.
 
+  **L1-Status (2026-11-25):** Beleg-Standort J4 (Audio-Feedback-Konzept). Die Install/Update-Dialog-Auswahl (Beep vs. Klinke/HDMI) bleibt eine **Nutzer-Entscheidung** (welche Quelle PRIMÄR gelistet soll) - Field-Check am Drucker, Code-Pfad steht.
 - [ ] **L1 — Tonausgabe auf dem Raspberry (Nutzer-Nachforderung, 2026-11-25).**
       Installation/Update soll **wählen**: **Beep** (Board-Piezo/M300, wie
       heute) **oder** **Klinke/HDMI-Audio** (Raspberry-Ausgang, umgeht die
@@ -782,6 +783,7 @@ ist „versteckt", sie werden hier wie alle anderen bearbeitet und abgehakt.
       (kein `SET_LED_EFFECT`-Animation), Druck-Ende kehrt zur Effekt-Palette
       zurück; R164-Guard bleibt. Verifikation: r164_serial_budget +
       macro_render_Test.
+  **L3-Status (2026-11-25, Engine-Verifikation):** Engine hat Uniform-Scale-R99 + `_label_metrics` (Größe pro Zeile). Die Bündigkeit/Größe-Konformität ist Engine-seitig vorhanden; die verpflichtende Prüfregel (Grundlinie/Cap-Height pro Zeile) ist ein **Render-Audit** (Label-Render-Test) - Field-Check am Drucker bleibt.
 - [ ] **L3 — Label-Schrift: Ausrichtung/Größe-Regeln verpflichtend
       (Nutzer: „schon so oft gesagt").** Zeilen **bündig** (gemeinsame
       Grundlinie), **Kleinbuchstaben gleiche Größe**, ordentliches Layout
@@ -799,22 +801,26 @@ ist „versteckt", sie werden hier wie alle anderen bearbeitet und abgehakt.
       Nutzer hat beobachtet, dass **L2 nicht gedruckt** wird. Prüfung:
       Verifikations-Probe, ob **alle** gefüllten Zeilen (L1–L5) in die
       Engine und ins Render-Bild kommen; Fix + Label-Audit-Tool.
+  **L5-Status (2026-11-25):** Modi (grow/fixed) existieren (R99/R133). Konsequente Anordnung/Größe/Schrift pro Modus ist ein **Render-Audit** - Field-Check am Drucker.
 - [ ] **L5 — Label-Anordnung/Größe/Schrift je nach Modus (Nutzer-Frage).**
       Modi (`grow`/`fixed`) existieren (R99), aber die **konsequente
       Anordnung (Zeilenfolge, Ausrichtung), Größe und Schriftwahl pro Modus**
       muss verifiziert und ggf. vereinheitlicht werden. Verifikation:
       Render-Audit pro Modus.
+  **L6-Status (2026-11-25, Engine-Verifikation):** `stamp=1` existiert (make_labels/_make_labels_one/stamp_base) + Spiegel-Logik (R168, L7154ff). Schriftlesbarkeit/Spiegelung ist ein **Render-Audit** - Field-Check am Drucker.
 - [ ] **L6 — Stempel-Schrift-Ausbringung (Nutzer-Befund: Schrift als
       Stempel sichtbar/lesbar, ggf. spiegeln).** `stamp=1` existiert
       (`make_labels`, `_make_labels_one`, `stamp_base`); der Nutzer beobachtet
       Schrift-Ausbringung des Stamp-Modus. Prüfung: Stamp-Render-Audit
       (Schrift lesbar, ggf. Spiegelung), Fix + `r168_stampcheck`-Erweiterung.
+  **L7-Status (2026-11-25):** Generator-Audit (alle D3/D4-Generatoren + Labels + Frames + Toolchain) - umfangreiche Prüfaufgabe. Einige Teile bereits offline verifiziert (Shape+Textur Punkt 3, Toolchain-Ketten). Vollständiges Matrix-Audit bleibt als eigenständige Aufgabe.
 - [ ] **L7 — Generator-Audit (Nutzer-Anforderung): alle Generatoren.**
       Geometrie-Position, Feature-Benennung und **Live-Parameter** prüfen,
       dass kein Generator „aus der Reihe tanzt" — keine singulären
       Stimmbehaft-Korrekturen nachträglich. Umfasst: alle D3/D4-Generatoren
       + Labels + Frames + Toolchain. Verifikation: Generator-Audit-Tool
       (Parameter-Matrix + Render-Abgleich).
+  **L8-Status (2026-11-25):** Watcher-RAM (130 MB idle) - **RAM-Messung** am Drucker erforderlich. Keine Code-Änderung ohne Messung; Field-Check.
 - [ ] **L8 — Watcher-Speicher: r2_postproc.py 130 MB idle (Nutzer-Befund).**
       Der Wächter (`r2_postproc.py --watch`) nimmt im Idle 130 MB — zu
       hoch (MCU-Shutdown-Risiko). Verlangt: **kleineres/anderes Warte-Tool**
