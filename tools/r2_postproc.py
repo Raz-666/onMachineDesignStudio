@@ -53,7 +53,6 @@ import sys
 import time
 import zlib
 import struct
-import gzip        # R216: _stl_export opens .gz sources (NameError in .136m)
 import json
 import ast
 import gc           # R286: memory hygiene - explicit collect after each file (watcher RAM)
@@ -731,6 +730,7 @@ def audit_tag_geometry(path, cell_mm=1.5, fil_dia=1.75, max_conflicts=50):
     """
     cell_mm = max(0.5, float(cell_mm))
     fil_area = math.pi * (max(0.5, float(fil_dia)) * 0.5) ** 2
+    import gzip  # R286: lazy (Generator-only .gz)
     opener = gzip.open if str(path).lower().endswith('.gz') else open
 
     x = y = 0.0
@@ -15834,6 +15834,7 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
     arcs_seen = [0]
     types_seen = [False]   # R253 lesson: a file with NO ;TYPE: lines at all
                            # is not 'all CUSTOM' - nothing gets excluded then
+    import gzip  # R286: lazy (Generator-only .gz)
     opener = gzip.open if str(src).lower().endswith('.gz') else open
 
     def _see270(x, y):
@@ -21997,6 +21998,7 @@ def _stl_export(directory, rel, out_dir=None):
     src = os.path.join(directory, rel)
     if not os.path.isfile(src):
         raise FileNotFoundError('file not found: %s' % rel)
+    import gzip  # R286: lazy (Generator-only .gz)
     opener = gzip.open if src.lower().endswith('.gz') else open
     with opener(src, 'rt', errors='replace') as f:
         raw = f.read()
