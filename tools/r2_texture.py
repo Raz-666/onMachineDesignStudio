@@ -1665,6 +1665,75 @@ def _build_patterns(k, n, seed, img, map_mode='TILE', map_pos='CENTER',
             return (lum / 255.0) * 2.0 - 1.0
         pats['MAP'] = _map
 
+
+    # ---- R286: Zweitvarianten (2 Variationen pro Kern-Textur) --------------
+    # RIDGES_V2: scharfe Kamm-Rillen (statt sanftem Sinus) - Tri-Zellen.
+    pats['RIDGES_V2'] = (
+        lambda s, t: _tri(s * k) * (0.7 + 0.3 * math.sin(two_pi * t * n)))
+    # WAVES_V2: Wellen mit zweiter Harmonie -> tiefer, stabiler Wellengang.
+    pats['WAVES_V2'] = (
+        lambda s, t: (math.sin(two_pi * s * k) * 0.6
+                      + math.sin(two_pi * (s * k * 2 + t * n)) * 0.4)
+        * (0.7 + 0.3 * math.sin(two_pi * t * n)))
+    # GRID_V2: diagonales Gitter (45deg) statt rechtwinklig.
+    pats['GRID_V2'] = (
+        lambda s, t: math.sin(two_pi * ((s + t) * k)) *
+        math.sin(two_pi * ((s - t) * n)))
+    # CHECKER_V2: gerundete Ecken (weicher, keine harten Kanten).
+    def _checker_v2(s, t):
+        e_s = 1.0 - _smoothstep(0.45, 0.95, abs(((s * k * 2) % 1.0) - 0.5) * 2)
+        e_t = 1.0 - _smoothstep(0.45, 0.95, abs(((t * n * 2) % 1.0) - 0.5) * 2)
+        par = (int(s * k * 2) + int(t * n * 2)) % 2
+        return (e_s * e_t) * (1.0 if par else -1.0)
+    pats['CHECKER_V2'] = _checker_v2
+    # HEX_V2: kleinere Hexen-Zellen (feineres Netz).
+    def _hex_v2(s, t):
+        cols = max(2, int(round(k * 1.5)))
+        rows = max(2, int(round(2.0 * max(1, n) / math.sqrt(3.0))))
+        dy = math.sqrt(3.0) / 2.0
+        x, y = s * cols, t * rows * dy
+        r0 = int(round(y / dy))
+        best = 1e9
+        for rr in (r0 - 1, r0, r0 + 1):
+            oy = y - rr * dy
+            offset = 0.5 * (rr & 1)
+            cc = int(round(x - offset))
+            for c in (cc - 1, cc, cc + 1):
+                ox = x - (c + offset)
+                norm = max(abs(ox), abs(0.5 * ox + 0.8660254 * oy),
+                           abs(0.5 * ox - 0.8660254 * oy))
+                best = min(best, norm)
+        return math.cos(two_pi * best / 0.9)
+    pats['HEX_V2'] = _hex_v2
+    # BARK_V2: gröbere Rinde (mehr Tiefe, längere Streiche).
+    pats['BARK_V2'] = (
+        lambda s, t: (math.sin(two_pi * s * k * 0.6) * 0.7
+                      + math.sin(two_pi * s * k * 2.4) * 0.3)
+        * (0.5 + 0.5 * math.sin(two_pi * t * n * 0.5)))
+    # LEATHER_V2: tiefes, rautiges Gewebe (Kreuz-Kombination).
+    pats['LEATHER_V2'] = (
+        lambda s, t: (math.sin(two_pi * s * k) * math.sin(two_pi * t * n)
+                      + math.sin(two_pi * (s + t) * k)) * 0.5)
+    # TILES_V2: Mosaik mit Fugen-Versatz (versetzte Reihen).
+    def _tiles_v2(s, t):
+        gs, gt = int(s * k * 2), int(t * n * 2)
+        offset = (gt & 1) * 0.5
+        x, y = (s * k * 2) - gs, (t * n * 2) - gt
+        x = abs(x - offset) - 0.5
+        y = abs(y - 0.5)
+        d = max(abs(x), abs(y))
+        return math.cos(two_pi * (d / 0.5))
+    pats['TILES_V2'] = _tiles_v2
+    # PARQUET_V2: Fischgrat-Muster (Herringbone).
+    pats['PARQUET_V2'] = (
+        lambda s, t: math.cos(two_pi * ((abs(s * k * 2 - 0.5)
+                                         + abs(t * n * 2 - 0.5)) * 1.0))
+                     * (0.6 + 0.4 * math.sin(two_pi * (s * k * 2))))
+    # FABRIC_V2: Web-Kreuz (gewobenes Geflecht).
+    pats['FABRIC_V2'] = (
+        lambda s, t: math.cos(two_pi * s * k) * math.cos(two_pi * t * n)
+        + math.sin(two_pi * s * k) * math.sin(two_pi * t * n))
+
     return pats
 
 
@@ -1684,7 +1753,12 @@ PATTERN_NAMES = ('RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX',
                  # R266.3 (J8 bite 4): decor & haptics - hearts, sports
                  # balls, woodchip wallpaper, roof tiles, crochet
                  'HEARTS', 'GOLF', 'BASKETBALL', 'RAUFASER', 'ROOFTILES',
-                 'CROCHET')
+                 'CROCHET',
+                 # R286 (user: mehr Presets, 2 Variationen pro Textur) - 
+                 # Zweitvarianten der Kernfamilien (geometrisch abgewandelt):
+                 'RIDGES_V2', 'WAVES_V2', 'GRID_V2', 'CHECKER_V2',
+                 'HEX_V2', 'BARK_V2', 'LEATHER_V2', 'TILES_V2',
+                 'PARQUET_V2', 'FABRIC_V2')
 
 # R238: opt-in helical tilt angles by pattern. Disabled by default; when
 # enabled, the helical shift uses an integer number of turns so the seam
@@ -1705,6 +1779,11 @@ PATTERN_TILT = {
     'LEATHER': 0.0, 'ORANGE': 0.0, 'CRACKS': 0.0, 'WRINKLE': 2.0,
     'HEARTS': 0.0, 'GOLF': 0.0, 'BASKETBALL': 0.0, 'RAUFASER': 0.0,
     'ROOFTILES': 0.0, 'CROCHET': 0.0,
+    # R286-Varianten
+    'RIDGES_V2': 2.0, 'WAVES_V2': 2.0, 'GRID_V2': 2.0,
+    'CHECKER_V2': 2.0, 'HEX_V2': 2.0, 'BARK_V2': 0.0,
+    'LEATHER_V2': 0.0, 'TILES_V2': 0.0, 'PARQUET_V2': 0.0,
+    'FABRIC_V2': 2.0,
 }
 
 

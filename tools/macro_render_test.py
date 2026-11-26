@@ -16417,9 +16417,9 @@ _ta175 = open('macros/17_generator.cfg').read()
 _lcd175 = open('menus/lcd_menues.cfg').read()
 _pp175 = open('tools/r2_postproc.py').read()
 
-tests.append(('R175 library: 55 seamless patterns + FUZZY + MAP image wrap '
-    '(R238/R265/R266.2/R266.3: 6+6+7+9+6 more)',
-    len(_tx175.PATTERN_NAMES) == 55
+tests.append(('R175 library: 65 seamless patterns + FUZZY + MAP image wrap '
+    '(R238/R265/R266.2/R266.3: 6+6+7+9+6 more, R286: 10 V2-Varianten)',
+    len(_tx175.PATTERN_NAMES) == 65
     and 'HONEYCOMB' in _tx175.PATTERN_NAMES and 'GLITCH' in _tx175.PATTERN_NAMES
     and 'MAP' in _tx175.PATTERN_NAMES and 'MANDELBROT' not in _tx175.PATTERN_NAMES
     and 'STONEWALL' in _tx175.PATTERN_NAMES and 'MAZE' in _tx175.PATTERN_NAMES
@@ -16427,7 +16427,17 @@ tests.append(('R175 library: 55 seamless patterns + FUZZY + MAP image wrap '
     and 'NETGRID' in _tx175.PATTERN_NAMES
     and 'RINGS' in _tx175.PATTERN_NAMES
     and 'OLDBARK' in _tx175.PATTERN_NAMES
-    and 'WRINKLE' in _tx175.PATTERN_NAMES,
+    and 'WRINKLE' in _tx175.PATTERN_NAMES
+    and 'RIDGES_V2' in _tx175.PATTERN_NAMES
+    and 'WAVES_V2' in _tx175.PATTERN_NAMES
+    and 'GRID_V2' in _tx175.PATTERN_NAMES
+    and 'CHECKER_V2' in _tx175.PATTERN_NAMES
+    and 'HEX_V2' in _tx175.PATTERN_NAMES
+    and 'BARK_V2' in _tx175.PATTERN_NAMES
+    and 'LEATHER_V2' in _tx175.PATTERN_NAMES
+    and 'TILES_V2' in _tx175.PATTERN_NAMES
+    and 'PARQUET_V2' in _tx175.PATTERN_NAMES
+    and 'FABRIC_V2' in _tx175.PATTERN_NAMES,
     str(len(_tx175.PATTERN_NAMES))))
 # Seam-Beweis: der Sprung am Umfangs-Wrap ist nie groesser als im Feldinneren
 import math as _m175
