@@ -27560,7 +27560,8 @@ def _mem_available_mb():
 
 
 def apply_scale(src, sx=1.0, sy=1.0, out_dir=None, bed=None,
-                sxt=None, syt=None):
+                sxt=None, syt=None,
+                scale_xy_mid=100.0, scale_xy_pos=50.0, scale_xy_curve='bezier'):
     """R176 (.130 wish list): scale a file in X/Y with honest extrusion.
 
     A print road is L x w x h; the layer height h stays, so every move's
@@ -27578,6 +27579,12 @@ def apply_scale(src, sx=1.0, sy=1.0, out_dir=None, bed=None,
     E math still per-move exact (the factor is evaluated at every move's
     own Z). Without taper the output is byte-identical to the classic
     uniform scale.
+
+    R286 ScaleXY middle scaling (scale_xy_mid/scale_xy_pos/scale_xy_curve):
+    modulates the XY scale along Z - 100% at bottom and top,
+    scale_xy_mid% at the middle Z position. Active only when
+    5% < pos < 95% and mid != 100%. Curve: 'linear' or 'bezier'
+    (smoothstep transition).
     """
     import math as _m176
     from r2_texture import _arc_points as _ap176, _parse_move as _pm176, \
@@ -27598,6 +27605,23 @@ def apply_scale(src, sx=1.0, sy=1.0, out_dir=None, bed=None,
     if abs(sx - 1.0) < 1e-9 and abs(sy - 1.0) < 1e-9 and _tt216:
         raise ValueError('100%%/100%% changes nothing - pick at least one '
                          'axis (or a top factor for a taper)')
+    # R286 ScaleXY middle scaling: percent params, validated
+    try:
+        _sxy_mid = float(scale_xy_mid)
+        _sxy_pos = float(scale_xy_pos)
+    except (TypeError, ValueError):
+        raise ValueError('scale_xy_mid/scale_xy_pos must be numbers')
+    if not (0.0 <= _sxy_mid <= 300.0):
+        raise ValueError('scale_xy_mid %.1f%% out of range (0..300)'
+                         % _sxy_mid)
+    if not (0.0 <= _sxy_pos <= 100.0):
+        raise ValueError('scale_xy_pos %.1f%% out of range (0..100)'
+                         % _sxy_pos)
+    _sxy_curve = str(scale_xy_curve).lower()
+    if _sxy_curve not in ('linear', 'bezier'):
+        raise ValueError("scale_xy_curve %r must be 'linear' or 'bezier'"
+                         % (scale_xy_curve,))
+    _sxy_active = (5.0 < _sxy_pos < 95.0) and abs(_sxy_mid - 100.0) > 1e-6
     if not os.path.isfile(src):
         raise ValueError('source file not found: %s' % src)
     base = os.path.basename(src)
@@ -27674,11 +27698,36 @@ def apply_scale(src, sx=1.0, sy=1.0, out_dir=None, bed=None,
     zspan = (zmax - zmin) if zmax > zmin else 0.0
 
     def _fac176(z):
-        """(fx, fy) at height z - constant without taper."""
+        """(fx, fy) at height z - constant without taper.
+        R286 ScaleXY: the middle scaling modulates sx/sy along Z -
+        100% at bottom and top, scale_xy_mid% at the middle position,
+        with a linear or bezier transition. Active only when
+        5% < pos < 95% and mid != 100%."""
         if not taper or zspan <= 0.0 or z is None:
-            return sx, sy
-        t = max(0.0, min(1.0, (z - zmin) / zspan))
-        return (sx + (sxt - sx) * t, sy + (syt - sy) * t)
+            fx, fy = sx, sy
+        else:
+            t = max(0.0, min(1.0, (z - zmin) / zspan))
+            fx = sx + (sxt - sx) * t
+            fy = sy + (syt - sy) * t
+        if _sxy_active and zspan > 0.0 and z is not None:
+            _u = max(0.0, min(1.0, (z - zmin) / zspan))
+            _f = _sxy_pos / 100.0
+            if _sxy_curve == 'bezier':
+                if _u <= _f:
+                    _e = _u / _f
+                    _w = _e * _e * (3.0 - 2.0 * _e)
+                else:
+                    _e = (_u - _f) / (1.0 - _f)
+                    _w = 1.0 - _e * _e * (3.0 - 2.0 * _e)
+            else:  # linear
+                if _u <= _f:
+                    _w = _u / _f
+                else:
+                    _w = 1.0 - (_u - _f) / (1.0 - _f)
+            _amp = 1.0 + (_sxy_mid / 100.0 - 1.0) * _w
+            fx = fx * _amp
+            fy = fy * _amp
+        return fx, fy
     w0, h0 = maxx - minx, maxy - miny
     _fxm = max(sx, sxt) if taper else sx
     _fym = max(sy, syt) if taper else sy
@@ -32585,7 +32634,6 @@ def watch(directory, interval=5.0, once=False):
                     or 'CENTER',
                     tilt=str(rv.get('texture_tilt', 'OFF') or 'OFF').upper()
                          in ('1', 'ON', 'TRUE', 'YES'),
-                    scale_xy_mid=float(rv.get('texture_scale_xy_mid', 100.0)
                                        or 100.0),
                     scale_xy_pos=float(rv.get('texture_scale_xy_pos', 50.0)
                                        or 50.0),

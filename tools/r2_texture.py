@@ -2174,7 +2174,6 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                   bump_amp=0.35, direction='OUT', bed=None, version=1,  # version: retired (R158, folder-global auto)
                   seed=91, zsize=None, map_file=None,
                   map_mode='TILE', map_pos='CENTER', tilt=False, progress=None,
-                  scale_xy_mid=100.0, scale_xy_pos=50.0, scale_xy_curve='bezier',
                   blur=0.0):
     """Returns (new_path, info). Raises ValueError on bad parameters.
 
@@ -2191,6 +2190,10 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                       (active only when 5% < pos < 95%)
       blur       = softening radius in mm (0.0 = sharp, up to ~2.0)
                     Gaussian-blurred pattern amplitude -> soft relief
+
+    NOTE: scale_xy_mid/scale_xy_pos/scale_xy_curve were REMOVED from this
+    function (R286 cleanup) - they belong to the SCALE XY tool
+    (apply_scale in r2_postproc.py), not to texturing.
     """
     mode = str(mode).upper()
     direction = str(direction).upper()
@@ -2215,28 +2218,10 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
         zsize = bump_scale
     if not (0.5 <= float(zsize) <= 200.0):
         raise ValueError('Z size %.1fmm out of range (0.5..200)' % float(zsize))
-    # R286 ScaleXY middle scaling: percent params, validated
-    try:
-        _sxy_mid = float(scale_xy_mid)
-        _sxy_pos = float(scale_xy_pos)
-    except (TypeError, ValueError):
-        raise ValueError('scale_xy_mid/scale_xy_pos must be numbers')
-    if not (0.0 <= _sxy_mid <= 300.0):
-        raise ValueError('scale_xy_mid %.1f%% out of range (0..300)'
-                         % _sxy_mid)
-    if not (0.0 <= _sxy_pos <= 100.0):
-        raise ValueError('scale_xy_pos %.1f%% out of range (0..100)'
-                         % _sxy_pos)
-    _sxy_curve = str(scale_xy_curve).lower()
-    if _sxy_curve not in ('linear', 'bezier'):
-        raise ValueError("scale_xy_curve %r must be 'linear' or 'bezier'"
-                         % (scale_xy_curve,))
     # R286 Blur: softening radius in mm (0 = sharp)
     _blur = float(blur)
     if not (0.0 <= _blur <= 2.0):
         raise ValueError('blur %.2fmm out of range (0..2.0)' % _blur)
-    # active only when 5% < pos < 95%
-    _sxy_active = (5.0 < _sxy_pos < 95.0) and abs(_sxy_mid - 100.0) > 1e-6
     if not (0.05 <= float(bump_amp) <= 4.0):
         raise ValueError('pattern depth %.2fmm out of range (0.05..4.0)'
                          % float(bump_amp))
@@ -2762,25 +2747,6 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                         _wacc += _w
                 if _wacc > 0:
                     v = _acc / _wacc
-        if _sxy_active and height > 0:
-            _f = _sxy_pos / 100.0
-            _u = (z - minz) / height          # 0=bottom, 1=top
-            if _sxy_curve == 'bezier':
-                # smooth Bézier (smoothstep) bottom->middle->top.
-                # w: 0 at bottom, 1 at middle, 0 at top.
-                if _u <= _f:
-                    _e = _u / _f
-                    _w = _e * _e * (3.0 - 2.0 * _e)
-                else:
-                    _e = (_u - _f) / (1.0 - _f)
-                    _w = 1.0 - _e * _e * (3.0 - 2.0 * _e)
-            else:  # linear
-                if _u <= _f:
-                    _w = _u / _f
-                else:
-                    _w = 1.0 - (_u - _f) / (1.0 - _f)
-            _amp_factor = 1.0 + (_sxy_mid / 100.0 - 1.0) * _w
-            v = v * _amp_factor
         return v
 
     stats = {'moves': 0, 'shifted': 0, 'clamped': 0, 'layers': 0, 'arcs': 0,

@@ -113,6 +113,12 @@ def system_step_runner(tool, params, bed=None):
             out, _info = pp.apply_scale(
                 in_path, sx=sx, sy=sy,
                 sxt=sxt if sxt else None, syt=syt if syt else None,
+                scale_xy_mid=float(_pick(params, 'scale_xy_mid',
+                                         'middle_scale', default=100)),
+                scale_xy_pos=float(_pick(params, 'scale_xy_pos',
+                                         'middle_pos', default=50)),
+                scale_xy_curve=str(_pick(params, 'scale_xy_curve',
+                                         'middle_curve', default='bezier')),
                 out_dir=workspace, bed=limits)
             _relocate(out, out_path)
 
