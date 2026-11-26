@@ -6182,6 +6182,13 @@ def label_preview(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4,
     all_lines = []
     for t in texts:
         ls = [x.strip() for x in t.split('~') if x.strip()]
+        # R286 (Befund: kyrillische / nicht-unterstuetzte Zeichen im Label):
+        # Zeichen ausserhalb LABEL_CHARSET werden SICHER zu '?' ersetzt, damit
+        # sie nicht ungestuerd in die Render-Geometrie gelangen (ein kyrill-
+        #isches 'T' U+0422 sah wie ein lateinisches 'T' aus und landete im
+        # G-Code). Konsistent mit der Datei-Lese-Sanitisierung (L9286).
+        _lc_allowed = set(LABEL_CHARSET)
+        ls = [''.join(ch if ch in _lc_allowed else '?' for ch in x) for x in ls]
         if not ls:
             raise ValueError('label "%s" has no text' % t[:16])
         if len(ls) > 5:
@@ -6819,6 +6826,13 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
     all_lines = []
     for t in texts:
         ls = [x.strip() for x in t.split('~') if x.strip()]
+        # R286 (Befund: kyrillische / nicht-unterstuetzte Zeichen im Label):
+        # Zeichen ausserhalb LABEL_CHARSET werden SICHER zu '?' ersetzt, damit
+        # sie nicht ungestuerd in die Render-Geometrie gelangen (ein kyrill-
+        #isches 'T' U+0422 sah wie ein lateinisches 'T' aus und landete im
+        # G-Code). Konsistent mit der Datei-Lese-Sanitisierung.
+        _lc_allowed = set(LABEL_CHARSET)
+        ls = [''.join(ch if ch in _lc_allowed else '?' for ch in x) for x in ls]
         if not ls:
             raise ValueError('label "%s" has no text' % t[:16])
         if len(ls) > 5:
