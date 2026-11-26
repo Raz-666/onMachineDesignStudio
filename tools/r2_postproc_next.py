@@ -76,8 +76,8 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-19.3'
-POSTPROC_BUILD = 'R285'
+POSTPROC_RELEASE = 'R2-2026-11-26.1'
+POSTPROC_BUILD = 'R286'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
 # and no speed/accel/nozzle parameters. Files carrying an OLD tag are UPGRADED
@@ -2161,7 +2161,7 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                     if c.startswith('APPLY_TYPE'):
                         _ma94 = re.match(r'APPLY_TYPE\s+TYPE=(\S+)', c)
                         if _ma94:
-                            cut_key = _ma94.group(1)
+                            cut_key = _canon_type(_ma94.group(1))
                     if c == 'M83':
                         e_rel = True
                     elif c == 'M82':
@@ -2312,7 +2312,7 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                         body_applies += 1
                         _ma94 = re.match(r'APPLY_TYPE\s+TYPE=(\S+)', _ls)
                         if _ma94:
-                            _frun = _ma94.group(1)
+                            _frun = _canon_type(_ma94.group(1))
                     elif _ls.startswith('M204'):
                         _mp94 = re.search(r'[PS](\d+(?:\.\d+)?)', _ls)
                         if _mp94:
@@ -2907,7 +2907,7 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                             continue
                     elif c.startswith('APPLY_TYPE'):
                         _oa180 = re.match(r'APPLY_TYPE\s+TYPE=(\S+)', c)
-                        if _oa180 and _oa180.group(1) not in bstats:
+                        if _oa180 and _canon_type(_oa180.group(1)) not in bstats:
                             idx += 1
                             continue
                     drop = False

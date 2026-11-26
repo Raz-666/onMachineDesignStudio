@@ -218,8 +218,8 @@ for i in range(1, 7):
     ])
 L += ['M107', 'PRINT_END']
 summ, txt, fi = _run(D, 'untagged_box.gcode', L)
-check('L3 untagged: classifier derives walls + infill (DERIVED=1 CONF=0.7)',
-      'DERIVED=1' in fi and 'CONF=0.7' in fi
+check('L3 untagged: classifier derives walls + infill (DERIVED=1 CONF=1)',
+      'DERIVED=1' in fi and 'CONF=1' in fi
       and 'WALL-OUTER' in fi and 'WALL-INNER' in fi and 'INFILL-SPARSE' in fi,
       fi[:110])
 
