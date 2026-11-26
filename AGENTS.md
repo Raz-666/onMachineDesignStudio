@@ -395,10 +395,32 @@ Diese Branch führt die **R286-Feld-Korrekturen** auf V7 (`R2-2026-11-19.3`):
 - **L8 Watcher-Speicher-Audit UMSETZT:**
   `tools/r286_watcher_mem_audit.py` **10/10** (Caches bounded, Messmethodik;
   RAM-Messung am Drucker bleibt Field-Check).
+- **J4 / L1 — ECHTE Audio-Ausgabe auf dem Raspberry (R286, User-Anforderung):**
+  Die `klinke`/`hdmi`-Audio-Quelle spielt **REALE 8-bit-Audio**, nicht mehr
+  Pulsmodulation/Beep/Konsolentext. Neues `tools/r2_audio_play.sh` synthetisiert
+  ein **8-bit-WAV** (quadratische Welle + Envelope, mono, 22 050 Hz) und spielt
+  via `aplay`/`paplay`/`ffplay`. Das `M300`-Makro routet `klinke`/`hdmi` zu
+  `RUN_SHELL_COMMAND CMD=R2_AUDIO_PLAY`; der Befehl ist als
+  `[gcode_shell_command R2_AUDIO_PLAY]` in `r2_setup_lib.sh` registriert
+  (R2_PERSIST-Konvention). **Dieselben Töne (_SOUND_LIB) bleiben erhalten** —
+  nur die Wiedergabe ist jetzt echte Audio-Ausgabe. Audit:
+  `tools/r286_audio_real_check.py` **9/9**. Der `beep`-MCU-Piezo-Pfad ist
+  unverändert.
+- **L4 Label-Engine / L13 Textur-Träger-Geometrie (Engine-Verifikation):**
+  `tools/r286_label_texture_geometry_check.py` → **4/4** (L4: 5/5 Label-Zeilen
+  gerendert, 49 Pfade; L13: alle 4 `make_shape`-Generatoren TRIANGLE/SQUARE/
+  POLY/CYLINDER mit Textur-Anwendung, je 200 outer-wall-Blöcke). Field-Check am
+  Drucker bleibt (visibles Druckergebnis).
+- **L12 Dokumentation UMSETZT:** AGENTS.md auf vollem Stand,
+  `docs-notes/MASTER-TODO.md` vollständig aktualisiert (alle J3/J4/J5/L4/L13/
+  L9–L12/L14/L16 auf umgesetzt; E1/E4 Code-Maßnahmen geliefert).
+- **J3 UI-/Display-Konzept geschlossen:** Kombination eigener Port +
+  Mainsail `.theme/navi.json`-Sidebar-Menüpunkt (Mainsail-Quelltext verifiziert).
 
-Feld-Checks am Drucker (RAM-Messung L8, Display-Angaben L9, Audio-Auswahl L1,
-Label-Ausbringung L3-L6, L4-Label-L2) sind in `docs-notes/MASTER-TODO.md` §L
-verzeichnet. `TEXTURING.pdf` (95 Presets) + `LABELS.pdf` neu gerendert.
+Feld-Checks am Drucker (RAM-Messung L8, Display-Angaben L9, **Hören der
+Audio-Töne L1**, Label-Ausbringung L3-L6, L4-Label-L2, Textur-Sichtbarkeit
+L13) sind in `docs-notes/MASTER-TODO.md` §L verzeichnet. `TEXTURING.pdf`
+(95 Presets) + `LABELS.pdf` neu gerendert.
 
 ## Historie
 

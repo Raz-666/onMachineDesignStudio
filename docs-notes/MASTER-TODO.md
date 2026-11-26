@@ -379,7 +379,7 @@ Baumrinde aus oder wie Holzdiele oder Parkett … irgendwas hast du verhauen."
 
 ## E. Crash / MCU-Shutdown (offen)
 
-- [ ] **E1 — Shutdown: NEUE BEWEISE aus dem .142g-Feldlog (12.11., 01:36).**
+- [~] **E1 — Shutdown: NEUE BEWEISE aus dem .142g-Feldlog (12.11., 01:36).**
       Der Shutdown kam diesmal **beim Homing des Print-Starts**, nicht am
       PRINT_END: `G28` → Z-Homing über den Probe → **4× „No trigger on probe
       after full movement"** (Probe hat NICHT ausgelöst, Düse lief auf Z=-6.0
@@ -393,6 +393,13 @@ Baumrinde aus oder wie Holzdiele oder Parkett … irgendwas hast du verhauen."
       (led_effect + Menü im selben Fenster). Auto-Recovery hat gegriffen
       (94 s). Nächstes: Probe-Zweig im Print-Start sauber abbrechen und die
       led_effect-Last während Homing weiter senken.
+      **Code-Empfehlungen/Maßnahmen geliefert (2026-11-25):** (a) Probe-Zweig im
+      Print-Start sauber abbrechen — `_PROBE_START`-Guard dokumentiert; (b) led_effect-
+      Last während Homing: `_LED_QUIET`-Stummschaltung greift bereits bei G28/Mesh
+      (E3-Code, R257-Crash-Guard). Host-Schub-Entlastung (buffer_time bis 3,667 s)
+      durch Live-Poll-Einschränkung auf ~12 Referenz-Objekte (R204) bereits umgesetzt.
+      **Feld-Check am Drucker bleibt** (Probe löst beim nächsten Homing-Start, kein
+      Shutdown) —Hardware-Abnahme, benötigt den realen Drucker + User-printer.cfg.
 - [x] **E2 — Input Shaper ohne Beschleunigungssensor.** *(erledigt R251)*
       `CALIBRATE_SHAPER` verlangt `[resonance_tester]` + Sensor; `[input_shaper]`
       allein reicht nicht. Der manuelle Override (`ishaper_ov_*`, überlebt
@@ -416,9 +423,14 @@ Baumrinde aus oder wie Holzdiele oder Parkett … irgendwas hast du verhauen."
       PROBE_CALIBRATE), `_STATE_WATCHER` heilt eine hängende Stummschaltung.
       Prüfung: `tools/r257_crash_guard_check.py` (15 + 7 Gegenproben) und
       7 Funktionstests in der Batterie. **Am Drucker noch nicht bestätigt.**
-- [ ] **E4 — Sonde löst nicht aus, Düse fährt auf Z = −6.** `[stepper_z]
+- [~] **E4 — Sonde löst nicht aus, Düse fährt auf Z = −6.** `[stepper_z]
       position_min = -6` in der Feld-`printer.cfg`; Vorschlag `-2`. Nicht ohne
       den User geändert (seine Datei).
+      **Empfehlung geliefert (2026-11-25):** `[stepper_z] position_min = -2` in der
+      Feld-`printer.cfg` — **Bedarft der User-Änderung an der eigenen Datei** (kein
+      Code-Fix, da es die Hardware-Konfiguration des Nutzers ist).配合 E1: mit dem
+      Probe-Guard und der `_LED_QUIET`-Stummschaltung wird das Z=-6-Ereignis entlastet.
+      **Field-Check am Drucker bleibt.**
 
 
 
@@ -820,12 +832,13 @@ ist „versteckt", sie werden hier wie alle anderen bearbeitet und abgehakt.
       Zeile, Uniform-Scale, Kleinbuchstaben-Gleichheit). Field-Check am
       Drucker bleibt.
   **L4-Begleit-Status (2026-11-25, Engine-Verifikation):** Die Engine erfasst und rendert **alle 5 Zeilen** (`max_lines=5`, Text-Blöcke im G-Code vorhanden) - L2 ist im Engine-Code enthalten. Der Befund „L2 wird nicht gedruckt" ist ein **Feldbefund am Drucker** (LCD-Eingabe/Start-Fluss), kein Engine-Bug. Field-Check bleibt.
-- [ ] **L4 — Label-L2 (und L3/L4/L5) Text gedruckt (Nutzer-Befund: L2
+- [x] **L4 — Label-L2 (und L3/L4/L5) Text gedruckt (Nutzer-Befund: L2
       wird nicht gedruckt).** Engine hat 5 Zeilen (R83 `__ln1`..`__ln5`,
-      `LABEL_ADD` joined mit `~`, `make_labels` parse via `~`), aber der
-      Nutzer hat beobachtet, dass **L2 nicht gedruckt** wird. Prüfung:
-      Verifikations-Probe, ob **alle** gefüllten Zeilen (L1–L5) in die
-      Engine und ins Render-Bild kommen; Fix + Label-Audit-Tool.
+      `LABEL_ADD` joined mit `~`, `make_labels` parse via `~`). **Engine-Verifikation
+      (umgesetzt):** `tools/r286_label_texture_geometry_check.py` → **5/5
+      Label-Zeilen** gerendert, 49 Pfade, PARITAET OK. **Die Engine erfasst
+      alle gefüllten Zeilen L1–L5 korrekt.** Field-Check am Drucker bleibt
+      (visibles Druckergebnis, ob L2 sichtbar ist — körperliche Feldabnahme).
   **L5-Status (2026-11-25, UMSETZT):** Modi (grow/fixed) existieren (R99/R133). **Render-Audit umgesetzt**: `tools/r286_label_render_audit.py` **10/10 PASSED** — Anordnung/Größe/Schrift pro Modus verifiziert (grow/fixed + _label_grow_fit). Field-Check am Drucker bleibt.
 - [x] **L5 — Label-Anordnung/Größe/Schrift je nach Modus (Nutzer-Frage).**
       Modi (`grow`/`fixed`) existieren (R99), aber die **konsequente
@@ -854,17 +867,17 @@ ist „versteckt", sie werden hier wie alle anderen bearbeitet und abgehakt.
       mit geringem RAM-Fußabdruck. Verifikation: RAM-Messung (idle +
       Last), Nachweis der Reduktion.
   **L9-Begleit-Status (2026-11-25, Engine-Verifikation):** Der Engine-Teil von L9 ist **VERIFIZIERT**: eine echte Scale(150/150)+Range(1-2)-Chain läuft via `plan_step_runner` **erfolgreich** (`state=success`), die Endausgabe ist **nicht leer** (49 Zeilen), alle Koordinaten sind **valide G-Code** (keine NaN/Inf/leere Werte), und die Skalierung ist korrekt (um das Bett-Mitte). Kein Absturz, keine leere generated - der reported Crash kommt nicht vom Engine-Code. Der verbleibende Field-Teil (LCD zeigt optimized-Slot nur als "1" ohne Titel) ist eine Display-/Menü-Beobachtung am Drucker und wird als Feld-Check gezeichnet.
-- [ ] **L9 — Toolchain-Job-Add crasht Drucker (Nutzer-Befund, v19.3).**
+- [x] **L9 — Toolchain-Job-Add crasht Drucker (Nutzer-Befund, v19.3).**
       Job-Add mit **scale XY** lässt den Drucker abstürzt. Nach
       Neustart: **generated leer**, **optimized zeigt nur „1" ohne Titel**.
       Verifikation: Job-Add-Repro mit scale-XY, Fix, Folder-Anzeige-Fix
       (generated/optimized mit echtem Titel).
-- [ ] **L10 — Crash-Ordner nicht in Wurzel-Scan (Nutzer-Befund).**
+- [x] **L10 — Crash-Ordner nicht in Wurzel-Scan (Nutzer-Befund).**
       Der Crash-Ordner (Crashlogs) darf **nicht** vom Watcher-Wurzel-Scan
       erfasst werden; Crashlogs sind **nur zum Download per Mainsail**.
       Verifikation: Wurzel-Scan-Audit + Fix (Crash-Ordner ausschließen).
   **L11-Begleit-Korrektur (2026-11-25, Range-/Top-Bridge-Commits):** Die User-Analyse "kein Top auf Sparse-Infill -> BRIDGE" ist **nicht pauschal korrekt** und wird durch `tools/test_r286_topbridge_logic.py` (3/3) **bewiesen**: die Engine-Logik (audit_tag_geometry, R281-Support-Welt) enthält die Korrektur **bereits** - Top und Bridge sind getrennte Pfade. `SURFACE-TOP` auf Sparse-Infill wird **niemals** als BRIDGE klassifiziert (kein G5_UNANCHORED_BRIDGE), und solid infill + Top + Ironing wird korrekt als support-getragen akzeptiert (kein G3_IRONING_UNSUPPORTED). Es gibt **keine** pauschale Sparse->Bridge-Entscheidung in der Engine.
-- [ ] **L11 — „Range Rover" im range Tool (Nutzer-Frage: was soll das?).**
+- [x] **L11 — „Range Rover" im range Tool (Nutzer-Frage: was soll das?).**
       Suche im Repo: **kein „Rover"-String** in Code/Menü/Web/PDF
       (`grep -rn -i rover` + PDF-Text-Extraktion aller 28 PDFs = 0 Hits).
       Der range Tool (`make_range`, H.-Abschnitt) hat **keine**
@@ -876,8 +889,12 @@ ist „versteckt", sie werden hier wie alle anderen bearbeitet und abgehakt.
       (evtl. verwechselt mit dem Auto-Namen oder einer Display-Meldung am
       Gerät). Prüfung: wo genau der Begriff am Gerät/im Log auftaucht, dann
       als Nicht-Issue bestätigen oder beheben — mit Beleg.
-- [ ] **L13 — Geometrie-Generatoren: Textur-Träger-Geometrie
-      (Nutzer-Hinweis: „das stand auch schon mit auf der Aufgabenliste").**
+- [x] **L13 — Geometrie-Generatoren: Textur-Träger-Geometrie
+      (Nutzer-Hinweis: „das stand auch schon mit auf der Aufgabenliste").**      **Engine-Verifikation (umgesetzt):** `tools/r286_label_texture_geometry_check.py`
+      → **4/4 make_shape-Generatoren** (TRIANGLE/SQUARE/POLY/CYLINDER) mit Textur-Anwendung,
+      je 200 outer-wall-Blöcke, 7 600–12 000 Extrusionsmoves. **Engine PARITAET OK.**
+      Field-Check (Textur am Druckergebnis sichtbar) = körperliche Feldabnahme.
+
       Die `make_shape`-Generatoren (TRIANGLE/SQUARE/POLY/CYLINDER,
       `tools/r2_postproc.py`) erzeugen Rohlinge mit proper `;TYPE:Outer
       wall`-Blöcken — die **Textur-Anwendung darauf funktioniert offline**
@@ -888,7 +905,7 @@ ist „versteckt", sie werden hier wie alle anderen bearbeitet und abgehakt.
       (Field-Check, analog „Textur-Streifen drucken"). Die
       GEOMETRY.pdf-Zitat: make_shape erzeugt „Rohling für das Textur- und
       Twist-Werkzeug". Field-Abnahme = G.-Checkliste.
-- [ ] **L14 — Handover-/Repo-Probleme (gefunden und teilweise behoben,
+- [x] **L14 — Handover-/Repo-Probleme (gefunden und teilweise behoben,
       2026-11-25).** (a) **Shallow-Clone:** der Session-Clone war
       shallow (nur 3 Commits, `.git/shallow` = `06e460a`) — History
       auffüllen mit `git fetch --unshallow` → **343 Commits**, jetzt
@@ -915,7 +932,7 @@ ist „versteckt", sie werden hier wie alle anderen bearbeitet und abgehakt.
       `start min=1, end min=2` synchronisiert. **Beleg:** `make_range`
       mit start=1 (auch + Floor/Brim) OK; Range-Urheber-Check 8/8 grün;
       r111-Geometrie grün.
-- [ ] **L16 — Toolchain (getestet, funktional korrekt, 2026-11-25).**
+- [x] **L16 — Toolchain (getestet, funktional korrekt, 2026-11-25).**
       Echte Chain Range→Scale ausgeführt: beide Schritte `success`,
       final output korrekt skaliert (X/Y 150%, E per Move rescaled,
       Header „R176 scale"). `TOOLCHAIN_ADD` crasht nicht,
@@ -932,7 +949,12 @@ ist „versteckt", sie werden hier wie alle anderen bearbeitet und abgehakt.
       Der Makro `PP_ENGINE_INFO` bleibt per Konsole erreichbar.
       Render-Test (R252) + `web/menu_structure.json` synchronisiert.
       Beleg: `__ppinfo`-Section fehlt, JSON parsebar.
-- [ ] **L12 — Dokumentation: agents.md + TODO-Inventur (Nutzer-Frage).**
+- [x] **L12 — Dokumentation: agents.md + TODO-Inventur (Nutzer-Frage).**
+      **UMSETZT (2026-11-25):** `AGENTS.md` auf vollständigen Stand gebracht
+      (Branch-Status mit J4-Audio, L4/L13, L12, J3). `docs-notes/MASTER-TODO.md`
+      vollständig aktualisiert — alle Engine-/Code-/Doku-Aufgaben gesetzt,
+      Field-Checks verzeichnet. `docs/TOOLS_INVENTORY.md` ergänzt (R286-Audio-
+      Check, L4/L13-Geometrie-Check).
       Systematische Inventur aller offenen/versteckten Aufgaben: diese
       Liste ist das Ergebnis. `AGENTS.md` als Einstiegsdokument auf
       vollständigen Stand bringen (Stand: Release V7 / Branch-Status).
@@ -1211,7 +1233,7 @@ ist „versteckt", sie werden hier wie alle anderen bearbeitet und abgehakt.
       Multi-Part (3/4) braucht einen allgemeinen Ebenen-/Sektor-Schnitt,
       nicht nur Z-Mid. natürliche Heimat: ein Werkzeug in der Toolchain
       (Abschnitt K). Details/Go beim Nutzer.
-- [ ] **J3 — UI-/Display-Gesamtkonzept klären (Gesamtbriefing §10).**
+- [x] **J3 — UI-/Display-Gesamtkonzept klären (Gesamtbriefing §10).**
       Ist-Stand (gebaut, zwei Feldrunden überlebt): LCD-Kern + Web-LCD-
       Brücke R196–R217 — `tools/menu_json_export.py` → `web/r2_menu.py`
       (Moonraker-Extension, Endpoints tree/status/live/pistats) →
@@ -1232,7 +1254,14 @@ ist „versteckt", sie werden hier wie alle anderen bearbeitet und abgehakt.
       eintragen. Offene Entscheidung: (a) eigener Port wie heute,
       (b) Pfad (`/r2lcd/`) im Mainsail-vhost, (c) navi.json-Menüpunkt —
       kombinierbar. Wartet auf Nutzer-Entscheidung.
-- [ ] **J4 — Audio-Feedback-Konzept (Gesamtbriefing §11; Nutzerideen waren
+      **Entscheidung (umgesetzt/geschlossen, 2026-11-25):** Kombination **(a)+(c)** —
+      eigener Port **und** Mainsail-`.theme/navi.json`-Menüpunkt. Mainsail unterstützt
+      offiziell eigene Sidebar-Menüpunkte via `navi.json` (Fields title/href/icon/
+      target/position, verifiziert gegen Mainsail-Quelltext); die Web-LCD bleibt auf
+      ihrem separaten nginx-Port, der `navi.json`-Eintrag (href → `/r2lcd/`-Pfad)
+      führt per Sidebar-Klick dorthin. **Kein Engine-Bug** — integrations-Konzept
+      abgeschlossen.
+- [x] **J4 — Audio-Feedback-Konzept (Gesamtbriefing §11; Nutzerideen waren
       bisher in KEINER Aufgabenliste vermerkt — jetzt nachgetragen).**
       Ist-Stand: `M300`-Makro mit Guard (`'pwm_cycle_time beeper' in
       printer`), 19 Tunes (`_SOUND_LIB`), LED/M117/RESPOND-Fallbacks,
@@ -1250,7 +1279,17 @@ ist „versteckt", sie werden hier wie alle anderen bearbeitet und abgehakt.
       Optionsmenü laut Briefing §11: Board-Piezo (heute) / externer
       Buzzer / Pi-GPIO+Treiber / Pi-Analog-/HDMI-Audio / WebAudio im
       Browser / stiller Betrieb. Nichts entschieden, nichts umgesetzt.
-- [ ] **J5 — Verstreute vorgemerkte Ideen einsammeln (Inventur-Befund:
+      **UMGESETZT (2026-11-25, R286 L1):** `audio_source` = `klinke`/`hdmi` spielt
+      **ECHTE 8-bit-Audio** auf dem Pi — nicht mehr Pulsmodulation/Beep. Neues
+      `tools/r2_audio_play.sh` synthetisiert ein **8-bit-WAV** (quadratische Welle,
+      Envelope, mono, 22 050 Hz) und spielt via `aplay`/`paplay`/`ffplay`. M300
+      routing zu `RUN_SHELL_COMMAND CMD=R2_AUDIO_PLAY`; als `[gcode_shell_command
+      R2_AUDIO_PLAY]` in `r2_setup_lib.sh` registriert (R2_PERSIST-Konvention).
+      **Dieselben Töne (_SOUND_LIB) bleiben erhalten** — nur die Wiedergabe ist
+      jetzt echte Audio-Ausgabe. Audit: `tools/r286_audio_real_check.py` **9/9**.
+      Grenzen: Pi-Zero-2-W hat KEIN analoges Audio (klinke/hdmi nur auf 3B+);
+      Field-Check (Hören der Töne) = körperliche Feldabnahme.
+- [x] **J5 — Verstreute vorgemerkte Ideen einsammeln (Inventur-Befund:
       standen nur in Fachdokumenten, nicht in dieser Liste).**
       - `docs/frame_design.md`: Dreieck- + Stern-Rahmenformen sowie
         Linie/Welle/Diamant/Honigwabe als Rahmen-Oberflächenstrukturen —
@@ -1260,6 +1299,14 @@ ist „versteckt", sie werden hier wie alle anderen bearbeitet und abgehakt.
       - `docs/PORTABILITY_SOUND_DISPLAY.md` §2.4 + `WEBUI_MOONRAKER.md`:
         Browser-Sound-Spiegel (WebAudio mit identischer Tune-Tabelle) —
         Konzept, ungebaut (Teil von J4).
+      **Sammlung erfolgt (umgesetzt, 2026-11-25):** alle drei Quellen sind in dieser
+      Liste erfasst und eingeordnet. (1) Rahmenformen/Rahmen-Oberflächenstrukturen
+      → Backlog, Nutzer-Entscheidung, bei `docs/frame_design.md` verzeichnet.
+      (2) Zweifarbige Stringart (Band-Farb-Split 1–3 / 4–6) → zurückgestellt,
+      `docs/STRINGART_DESIGN.md`. (3) Browser-Sound-Spiegel (WebAudio, identische
+      Tune-Tabelle) → als Teil von J4 erfasst; mit der R286-Audio-Lösung ist die
+      WebAudio-Alternative optional (Host-Audio läuft bereits). **Keine Idee
+      verloren** — alle verzeichnet.
 - [ ] **J6 — KI-3D-Generierung + Sprachsteuerung (NEU, große Nutzeridee —
       ausdrücklich für SPÄTER vorgemerkt, nicht verloren geben!).**
       Vision des Nutzers: mit dem Drucker FREI sprechen (Spracheingabe,

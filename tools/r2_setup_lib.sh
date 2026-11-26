@@ -585,6 +585,12 @@ r2_hw_write() {   # regenerates r2_hardware.cfg from R2_HW (keeping unknown keys
             echo "command: bash ${R2_PKG_DIR}/tools/r2_persist.sh"
             echo "timeout: 10."
             echo "verbose: False"
+            # R286 L1: host audio playback for the klinke/hdmi audio source
+            echo "# R286 L1: real 8-bit audio playback on the Pi (klinke/hdmi source):"
+            echo "[gcode_shell_command R2_AUDIO_PLAY]"
+            echo "command: bash ${R2_PKG_DIR}/tools/r2_audio_play.sh"
+            echo "timeout: 10."
+            echo "verbose: False"
         else
             echo "# (LCD persistence needs the gcode_shell_command extension - not installed;"
             echo "#  LCD LED edits then apply to the running session only. KIAUH installs it.)"
