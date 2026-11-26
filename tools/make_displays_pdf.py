@@ -216,6 +216,30 @@ flow.extend(B(
  'Verwaltung, Viewer und Heizungs-Kacheln bleiben Mainsails Job. Genau das war der Plan: '
  'Brücke, kein Duopol.',
 ))
+flow += H2('2.3  R286: WebSocket-Subscription + Mainsail-Integration')
+A(P('Die field-Analyse des Reactor-Stalls zeigte, dass das <b>3-Sekunden-Polling</b> der '
+    'Seite einer der Haupttreiber der Host-Last war (jeder Poll = eine HTTP-Antwort, die '
+    'im Moonraker-Reaktor als <font face="DVS">ClientConnection.process_received'
+    '</font> landete). R286 setzt daher eine <b>WebSocket-Subscription</b> ein: Moonraker '
+    'pusht die Live-Werte <b>nur bei Veränderung</b>, das Polling bleibt nur als '
+    '15-Sekunden-Keepalive und Fallback für den WS-Abbruch.'))
+A(TBL(['Baustein', 'Was sich ändert'], [
+ ['Datenweg', '<b>WebSocket-Subscription</b> (ws://host/websocket, printer.objects.subscribe über alle live_objects). Moonraker sendet ein printer.objects.status-Update nur, wenn ein Wert sich ändert — kein kontinuierliches Polling.'],
+ ['Last-Verteilung', 'Entlastet <font face="DVS">ClientConnection.process_received</font> massiv (jeder HTTP-Polling-Antwort entfällt); der Host wird im Stillstand praktisch in Ruhe gelassen, das Drucker-Display bleibt 1:1.'],
+ ['Fallback', 'Bei WS-Verbindungsbruch: automatischer Reconnect (4 s) + Polling-Fallback. R215-Ruhefenster nach Start-Befehl bleibt erhalten.'],
+ ['G-Code-Dispatch', 'Befehle gehen als <b>Batch-Script</b> an /printer/gcode/script (alle Menü-Befehle eines Klicks in einem POST) — weniger Pipe-Signale.'],
+ ['MCU-Schonung', 'WebSocket nutzt die Moonraker-Reaktor-Loop wie HTTP, aber nur bei Änderung — kein permanenter Last-Peak. Die MCU selbst wird nicht angesprochen (alles host-seitig).'],
+], [30*mm, 140*mm]))
+A(P('<b>Integration in Mainsail (iframe / Custom-Button):</b> die Web-UI läuft auf einer '
+    '<b>eigenen nginx-Site</b> (/r2lcd/, eigene Port) — Mainsails nginx-Konfig wird '
+    'niemals berührt. Integration über einen <b>Mainsail-Custom-Button</b> (Link-Typ, '
+    'zur /r2lcd/-URL), der das Display in einem eigenen Panel/Tab öffnet: das ist die '
+    'robuste, Cross-Origin-sichere Variante und setzt das LCD 1:1 im Browser/App um. '
+    'Echte <b>iframe-Einbettung</b> ist möglich (die eigene Site setzt keine '
+    'X-Frame-Options), der CSRF-Guard der Site muss aber das Mainsail-Origin als '
+    'erlaubt ansehen — pragmatischer ist der Custom-Button-Link. Das Display ist '
+    'damit unabhängig vom verwendeten Hardware-Display: im Browser, in der App oder am '
+    'echten LCD, 1:1 gleich.'))
 A(P('Und der Nebeneffekt lohnt allein: der JSON-Export ist jetzt ein <b>strukturtest</b>. '
     'Der Sweep prüft Baumvollständigkeit und Waisen — und genau dabei fiel der Menü-Bug '
     'dieser Runde auf (Kap. 8).'))

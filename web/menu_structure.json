@@ -1,14 +1,14 @@
 {
  "generator": "menu_json_export.py (.136j R211)",
  "source": "lcd_menues.cfg",
- "sections": 2413,
+ "sections": 2412,
  "counts": {
   "list": 329,
-  "command": 1472,
+  "command": 1471,
   "vsdlist": 1,
   "input": 611
  },
- "sha256": "839529ee00e6a96a",
+ "sha256": "01749fee7a98db4e",
  "live_objects": [
   "bed_mesh",
   "configfile",
@@ -20429,18 +20429,6 @@
           "children": []
          },
          {
-          "id": "__main __gen __labels __set __flp",
-          "type": "command",
-          "name": "Flip: {'ON' if printer['save_variables'].variables.label_flip|default(False) else 'off'}",
-          "enable": "{not printer['save_variables'].variables.label_stamp|default(False)}",
-          "gcode": [
-           "SAVE_VARIABLE VARIABLE=label_flip VALUE={not printer['save_variables'].variables.label_flip|default(False)}",
-           "RESPOND MSG=\"Label Flip: {'ON - printed text-face-down: buildplate finish on the letter surface, text reads CORRECT off the bed' if not printer['save_variables'].variables.label_flip|default(False) else 'off - text-face-up like always'}\"",
-           "RESPOND MSG=\"Flip + 2 colors: load the TEXT color first - one M600 to the plate color after the text face. Ironing is off in flip (the face is on the bed)\""
-          ],
-          "children": []
-         },
-         {
           "id": "__main __gen __labels __set __stb",
           "type": "input",
           "name": "StampH: {'%4.1fmm' % menu.input}",
@@ -25660,15 +25648,6 @@
       "name": "PP engine: {('EXPERIMENTAL' if printer['save_variables'].variables.pp_engine|default('stable')|string|lower in ('next','experimental','new') else 'stable')}{(' (runs: ' ~ printer['save_variables'].variables.postproc_engine|default('?')|string ~ ')') if printer['save_variables'].variables.postproc_engine|default('')|string not in ('', '?') else ''}",
       "gcode": [
        "TOGGLE_PP_ENGINE"
-      ],
-      "children": []
-     },
-     {
-      "id": "__main __system __ppinfo",
-      "type": "command",
-      "name": "PP engine (explain)",
-      "gcode": [
-       "PP_ENGINE_INFO"
       ],
       "children": []
      },

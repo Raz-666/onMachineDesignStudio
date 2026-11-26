@@ -1665,6 +1665,432 @@ def _build_patterns(k, n, seed, img, map_mode='TILE', map_pos='CENTER',
             return (lum / 255.0) * 2.0 - 1.0
         pats['MAP'] = _map
 
+
+    # ---- R286: Zweitvarianten (2 Variationen pro Kern-Textur) --------------
+    # RIDGES_V2: scharfe Kamm-Rillen (statt sanftem Sinus) - Tri-Zellen.
+    pats['RIDGES_V2'] = (
+        lambda s, t: _tri(s * k) * (0.7 + 0.3 * math.sin(two_pi * t * n)))
+    # WAVES_V2: Wellen mit zweiter Harmonie -> tiefer, stabiler Wellengang.
+    pats['WAVES_V2'] = (
+        lambda s, t: (math.sin(two_pi * s * k) * 0.6
+                      + math.sin(two_pi * (s * k * 2 + t * n)) * 0.4)
+        * (0.7 + 0.3 * math.sin(two_pi * t * n)))
+    # GRID_V2: diagonales Gitter (45deg) statt rechtwinklig.
+    pats['GRID_V2'] = (
+        lambda s, t: math.sin(two_pi * ((s + t) * k)) *
+        math.sin(two_pi * ((s - t) * n)))
+    # CHECKER_V2: gerundete Ecken (weicher, keine harten Kanten).
+    def _checker_v2(s, t):
+        e_s = 1.0 - _smoothstep(0.45, 0.95, abs(((s * k * 2) % 1.0) - 0.5) * 2)
+        e_t = 1.0 - _smoothstep(0.45, 0.95, abs(((t * n * 2) % 1.0) - 0.5) * 2)
+        par = (int(s * k * 2) + int(t * n * 2)) % 2
+        return (e_s * e_t) * (1.0 if par else -1.0)
+    pats['CHECKER_V2'] = _checker_v2
+    # HEX_V2: kleinere Hexen-Zellen (feineres Netz).
+    def _hex_v2(s, t):
+        cols = max(2, int(round(k * 1.5)))
+        rows = max(2, int(round(2.0 * max(1, n) / math.sqrt(3.0))))
+        dy = math.sqrt(3.0) / 2.0
+        x, y = s * cols, t * rows * dy
+        r0 = int(round(y / dy))
+        best = 1e9
+        for rr in (r0 - 1, r0, r0 + 1):
+            oy = y - rr * dy
+            offset = 0.5 * (rr & 1)
+            cc = int(round(x - offset))
+            for c in (cc - 1, cc, cc + 1):
+                ox = x - (c + offset)
+                norm = max(abs(ox), abs(0.5 * ox + 0.8660254 * oy),
+                           abs(0.5 * ox - 0.8660254 * oy))
+                best = min(best, norm)
+        return math.cos(two_pi * best / 0.9)
+    pats['HEX_V2'] = _hex_v2
+    # BARK_V2: gröbere Rinde (mehr Tiefe, längere Streiche).
+    pats['BARK_V2'] = (
+        lambda s, t: (math.sin(two_pi * s * k * 0.6) * 0.7
+                      + math.sin(two_pi * s * k * 2.4) * 0.3)
+        * (0.5 + 0.5 * math.sin(two_pi * t * n * 0.5)))
+    # LEATHER_V2: tiefes, rautiges Gewebe (Kreuz-Kombination).
+    pats['LEATHER_V2'] = (
+        lambda s, t: (math.sin(two_pi * s * k) * math.sin(two_pi * t * n)
+                      + math.sin(two_pi * (s + t) * k)) * 0.5)
+    # TILES_V2: Mosaik mit Fugen-Versatz (versetzte Reihen).
+    def _tiles_v2(s, t):
+        gs, gt = int(s * k * 2), int(t * n * 2)
+        offset = (gt & 1) * 0.5
+        x, y = (s * k * 2) - gs, (t * n * 2) - gt
+        x = abs(x - offset) - 0.5
+        y = abs(y - 0.5)
+        d = max(abs(x), abs(y))
+        return math.cos(two_pi * (d / 0.5))
+    pats['TILES_V2'] = _tiles_v2
+    # PARQUET_V2: Fischgrat-Muster (Herringbone).
+    pats['PARQUET_V2'] = (
+        lambda s, t: math.cos(two_pi * ((abs(s * k * 2 - 0.5)
+                                         + abs(t * n * 2 - 0.5)) * 1.0))
+                     * (0.6 + 0.4 * math.sin(two_pi * (s * k * 2))))
+    # FABRIC_V2: Web-Kreuz (gewobenes Geflecht).
+    pats['FABRIC_V2'] = (
+        lambda s, t: math.cos(two_pi * s * k) * math.cos(two_pi * t * n)
+        + math.sin(two_pi * s * k) * math.sin(two_pi * t * n))
+
+
+    # ---- R286 II: decorative plastische 3D-Druck-Texturen (seamless) -------
+    # Alle Muster sind periodisch in s und t (ganze k/n) -> endlos nahtlos.
+    # Keine flachen Linien, sondern plastische Relief-Strukturen.
+
+    # PETAL - flower petals radial (plastische Blumenblaette)
+    pats['PETAL'] = (
+        lambda s, t: math.cos(two_pi * (s * k * 6.0)) ** 2
+        * math.cos(two_pi * (t * n)) ** 2
+        * (0.6 + 0.4 * math.sin(two_pi * s * k)))
+    # PETAL_V2 - tiefere, scharfe Blatt-Kanten
+    pats['PETAL_V2'] = (
+        lambda s, t: _tri(s * k * 6.0) * math.cos(two_pi * t * n)
+        * (0.7 + 0.3 * math.sin(two_pi * s * k * 2)))
+
+    # LOTUS - lotus-blatt geschichtete Blatt-Rippen
+    def _lotus(s, t):
+        r = math.cos(two_pi * s * k * 4.0) ** 2
+        rib = math.cos(two_pi * t * n * 2.0)
+        return r * rib * (0.5 + 0.5 * math.sin(two_pi * s * k))
+    pats['LOTUS'] = _lotus
+
+    # PEBBLE - glatte Kieselsteine (Weich-Abstandsfeld)
+    def _pebble(s, t):
+        cols, rows = max(2, k * 2), max(2, n * 2)
+        ox = (s * k * 2) - int(s * k * 2) - 0.5
+        oy = (t * n * 2) - int(t * n * 2) - 0.5
+        d = math.sqrt(ox * ox + oy * oy)
+        return math.cos(two_pi * min(d, 0.7) / 0.7)
+    pats['PEBBLE'] = _pebble
+    # PEBBLE_V2 - Kiesel mit Schatten-Nun (tiefer)
+    def _pebble_v2(s, t):
+        cols, rows = max(2, int(k * 2.4)), max(2, int(n * 2.4))
+        ox = (s * cols) - int(s * cols) - 0.5
+        oy = (t * rows) - int(t * rows) - 0.5
+        d = math.sqrt(ox * ox + oy * oy)
+        return math.cos(two_pi * d / 0.6) * (0.5 + 0.5 * math.sin(two_pi * s * k))
+    pats['PEBBLE_V2'] = _pebble_v2
+
+    # GALAXY - wirbelnde Galaxie (spirale)
+    def _galaxy(s, t):
+        ang = s * k * two_pi * 2.0
+        rad = math.cos(two_pi * t * n) * 0.5 + 0.5
+        return math.sin(ang + rad * two_pi * 3.0) * (0.6 + 0.4 * rad)
+    pats['GALAXY'] = _galaxy
+
+    # CRUST - brotkruemliche Kruste
+    pats['CRUST'] = (
+        lambda s, t: (math.sin(two_pi * s * k) * 0.5
+                      + math.sin(two_pi * t * n) * 0.5
+                      + math.sin(two_pi * (s * k + t * n)) * 0.3)
+                     * (0.5 + 0.5 * math.sin(two_pi * s * k * 4.0)))
+
+    # BRAID - geflochtene Zopfe
+    def _braid(s, t):
+        a = math.sin(two_pi * s * k) * 0.7
+        b = math.sin(two_pi * (s * k + t * n * 2.0)) * 0.7
+        return (a + b) * (0.6 + 0.4 * math.cos(two_pi * t * n))
+    pats['BRAID'] = _braid
+    # BRAID_V2 - drei-Zopfen-Geflecht
+    def _braid_v2(s, t):
+        a = math.sin(two_pi * s * k * 3.0)
+        b = math.sin(two_pi * (s * k * 3.0 + t * n * 2.0))
+        c = math.sin(two_pi * (s * k * 3.0 - t * n * 2.0))
+        return (a + b + c) / 3.0 * (0.6 + 0.4 * math.cos(two_pi * t * n))
+    pats['BRAID_V2'] = _braid_v2
+
+    # QUILT - quilted Diamond-Muster
+    pats['QUILT'] = (
+        lambda s, t: math.cos(two_pi * (abs(s * k - 0.5) * 2.0
+                                         + abs(t * n - 0.5) * 2.0))
+                     * (0.6 + 0.4 * math.sin(two_pi * s * k)))
+
+    # GEMSTONE - edelstein-Facetten
+    def _gemstone(s, t):
+        u = abs(((s * k * 4.0) % 1.0) - 0.5) * 2.0
+        v = abs(((t * n * 4.0) % 1.0) - 0.5) * 2.0
+        return math.cos(two_pi * (u + v) / 1.0) * (0.6 + 0.4 * math.sin(two_pi * s * k * 2.0))
+    pats['GEMSTONE'] = _gemstone
+
+    # SHELLFISH - muschel-Rippen
+    pats['SHELL'] = (
+        lambda s, t: math.cos(two_pi * s * k * 5.0)
+                     * math.cos(two_pi * t * n)
+                     * (0.6 + 0.4 * math.sin(two_pi * s * k)))
+
+    # CORAL - korallen-Nodulen
+    def _coral(s, t):
+        u = (s * k * 2.0) - int(s * k * 2.0) - 0.5
+        v = (t * n * 2.0) - int(t * n * 2.0) - 0.5
+        d = math.sqrt(u * u + v * v)
+        return math.cos(two_pi * d / 0.8) * (0.5 + 0.5 * math.sin(two_pi * s * k))
+    pats['CORAL'] = _coral
+
+    # MOSAIC - mosaik-Fugen
+    def _mosaic(s, t):
+        gs, gt = int(s * k * 4.0), int(t * n * 4.0)
+        offset = (gt & 1) * 0.5
+        x = (s * k * 4.0) - gs - offset
+        y = (t * n * 4.0) - gt
+        d = max(abs(x), abs(y))
+        return math.cos(two_pi * (d / 0.4))
+    pats['MOSAIC'] = _mosaic
+
+    # PEARL - perlen-Punkte
+    def _pearl(s, t):
+        u = (s * k * 3.0) - int(s * k * 3.0) - 0.5
+        v = (t * n * 3.0) - int(t * n * 3.0) - 0.5
+        d = math.sqrt(u * u + v * v)
+        return math.cos(two_pi * d / 0.5)
+    pats['PEARL'] = _pearl
+
+    # VELVET - velvet-Nap (weiches Flor)
+    pats['VELVET'] = (
+        lambda s, t: ((math.sin(two_pi * s * k * 6.0)
+                      * math.sin(two_pi * t * n * 6.0)
+                      + math.sin(two_pi * (s + t) * k * 3.0))
+                     * 0.4 * (0.5 + 0.5 * math.cos(two_pi * s * k))))
+
+    # STRATA - sedimentary Schichten
+    pats['STRATA'] = (
+        lambda s, t: _tri(t * n * 2.0) * (0.6 + 0.4 * math.sin(two_pi * s * k)))
+
+    # BASALT - basalt-Spalten
+    pats['BASALT'] = (
+        lambda s, t: (math.sin(two_pi * s * k * 4.0) * 0.5
+                      + math.sin(two_pi * (s * k * 4.0 + t * n)) * 0.5)
+                     * (0.5 + 0.5 * math.cos(two_pi * t * n)))
+
+    # MARBL - marmor-Adern
+    def _marbl(s, t):
+        v = math.sin(two_pi * (s * k * 2.0 + math.sin(two_pi * t * n) * 0.5))
+        return v * (0.5 + 0.5 * math.sin(two_pi * s * k))
+    pats['MARBL'] = _marbl
+
+    # GRANIET - granite-Speck
+    def _granite(s, t):
+        n1 = math.sin(two_pi * s * k * 12.0) * math.sin(two_pi * t * n * 12.0)
+        n2 = math.sin(two_pi * s * k * 20.0) * math.sin(two_pi * t * n * 20.0)
+        return (n1 + n2) * 0.25 * (0.5 + 0.5 * math.cos(two_pi * s * k))
+    pats['GRANIET'] = _granite
+
+    # TERRA - terracotta-Risse
+    pats['TERRA'] = (
+        lambda s, t: math.cos(two_pi * (s * k + t * n))
+                     * math.cos(two_pi * (s * k * 2.0 - t * n))
+                     * (0.6 + 0.4 * math.sin(two_pi * s * k)))
+
+    # WALNUT - walnuss-Maserung
+    pats['WALNUT'] = (
+        lambda s, t: (math.sin(two_pi * s * k * 3.0) * 0.6
+                      + math.sin(two_pi * s * k * 7.0) * 0.4)
+                     * (0.5 + 0.5 * math.sin(two_pi * t * n)))
+
+    # MAPLE - maple-Holz
+    pats['MAPLE'] = (
+        lambda s, t: (math.sin(two_pi * s * k * 2.0)
+                      + math.sin(two_pi * s * k * 5.0) * 0.5)
+                     * math.cos(two_pi * t * n) * 0.5)
+
+    # ZEBRA - zebra-Streifen (tiefes Relief)
+    pats['ZEBRA'] = (
+        lambda s, t: _tri(s * k * 2.0) * (0.7 + 0.3 * math.sin(two_pi * t * n)))
+
+    # LEOPARD - leopard-Punkte
+    def _leopard(s, t):
+        u = (s * k * 3.0) - int(s * k * 3.0) - 0.5
+        v = (t * n * 3.0) - int(t * n * 3.0) - 0.5
+        d = math.sqrt(u * u + v * v)
+        return math.cos(two_pi * d / 0.4) * (0.5 + 0.5 * math.sin(two_pi * s * k))
+    pats['LEOPARD'] = _leopard
+
+    # PYTHON - python-Schuppen
+    def _python(s, t):
+        u = (s * k * 2.0) - int(s * k * 2.0) - 0.5
+        v = (t * n * 2.0) - int(t * n * 2.0) - 0.5
+        d = math.sqrt(u * u + v * v)
+        return math.cos(two_pi * d / 0.7) * math.cos(two_pi * s * k)
+    pats['PYTHON'] = _python
+
+    # LAVA - lava-Gestein (Kratzer + Lava-Ströme)
+    pats['LAVA'] = (
+        lambda s, t: (math.sin(two_pi * s * k) * 0.5
+                      + math.sin(two_pi * t * n) * 0.5
+                      + math.sin(two_pi * (s * k * 3.0 + t * n * 2.0)) * 0.3)
+                     * (0.5 + 0.5 * math.sin(two_pi * s * k * 5.0)))
+
+    # ICE - Eis-Kristall-Spalten
+    pats['ICE'] = (
+        lambda s, t: (math.sin(two_pi * s * k * 4.0) * 0.6
+                      + math.sin(two_pi * t * n * 4.0) * 0.4)
+                     * math.cos(two_pi * s * k))
+
+    # MOSS - moos-Polster
+    pats['MOSS'] = (
+        lambda s, t: ((math.sin(two_pi * s * k * 8.0) * math.sin(two_pi * t * n * 8.0)
+                      + math.sin(two_pi * (s + t) * k * 5.0))
+                     * 0.3 * (0.6 + 0.4 * math.cos(two_pi * s * k))))
+
+    # FEATHER - feder-Relief
+    pats['FEATHER'] = (
+        lambda s, t: math.cos(two_pi * s * k * 8.0)
+                     * math.cos(two_pi * t * n)
+                     * (0.6 + 0.4 * math.sin(two_pi * s * k * 2.0)))
+
+    # ---- R286 NEW: organic barks, fabrics, cells, stone, asphalt,
+    # rivets, zipper, suture (user: mehr organische Texturen, Stoffe
+    # längs/quer, Zellmuster, Stein, Asphalt, Nieten, Reißverschluss,
+    # Operationsnaht). All seamless (integer k/n periods). Each pattern is
+    # scaled so its max stays < 1.0 WITHOUT clamping - a clamp would break
+    # the seamless wrap at the period boundary (the boundary value would
+    # clip on one side and not on the other).
+    _cell_p = max(2, int(round(k * 2)))
+    _cell_q = max(2, int(round(n * 2)))
+    def noise2(s, t):
+        return noise(s, t, _cell_p, _cell_q)
+
+    # --- Baumrinden (3) - radial-grained bark ---
+    # BIRKE - Birkenrinde: feine, gerade, helle Rillen (max ~1.3 -> 0.75)
+    pats['BIRKE'] = (
+        lambda s, t: 0.75 * ((math.sin(two_pi * s * k * 6.0)
+                              + 0.3 * math.sin(two_pi * t * n * 3.0))
+                             * (0.7 + 0.3 * math.sin(two_pi * t * n))))
+    # EICHEN - Eiche: tiefe, breite, Grobrillen (max ~1.4 -> 0.7)
+    pats['EICHEN'] = (
+        lambda s, t: 0.7 * ((math.sin(two_pi * s * k * 2.5)
+                             + 0.4 * math.sin(two_pi * s * k * 7.0
+                                              + two_pi * t * n))
+                            * (0.8 + 0.2 * math.sin(two_pi * t * n * 2.0))))
+    # TILIA - Lindenrinde: glatte, zerfallene, weiche Falten (max 1.0)
+    pats['TILIA'] = (
+        lambda s, t: math.sin(two_pi * s * k * 3.0 + two_pi * t * n * 2.0)
+                     * (0.5 + 0.5 * math.sin(two_pi * t * n * 2.0)))
+
+    # --- Stoffe längs/quer (2) - woven fabric weave ---
+    # FABRIC_L - Fasern längs (parallel zur Wand, long stitches) (max ~1.25 -> 0.75)
+    pats['FABRIC_L'] = (
+        lambda s, t: 0.75 * ((math.sin(two_pi * t * n * 8.0)
+                              + 0.25 * math.sin(two_pi * s * k * 12.0))
+                             * (0.85 + 0.15 * math.sin(two_pi * s * k * 2.0))))
+    # FABRIC_Q - Fasern quer (senkrecht, cross stitches)
+    pats['FABRIC_Q'] = (
+        lambda s, t: 0.75 * ((math.sin(two_pi * s * k * 8.0)
+                              + 0.25 * math.sin(two_pi * t * n * 12.0))
+                             * (0.85 + 0.15 * math.sin(two_pi * t * n * 2.0))))
+
+    # --- Zellmuster (1) - organic cell structure (max ~0.8) ---
+    pats['CELL'] = (
+        lambda s, t: ((math.sin(two_pi * s * k * 5.0)
+                       * math.sin(two_pi * t * n * 5.0)
+                       + math.sin(two_pi * (s + t) * k * 7.0))
+                      * 0.4 * (0.6 + 0.4 * math.cos(two_pi * s * k * 3.0))))
+
+    # --- Stein (1) - natural stone, smooth porous (max 1.0) ---
+    pats['STONE'] = (
+        lambda s, t: (0.5 * math.sin(two_pi * s * k * 2.0)
+                      + 0.3 * math.sin(two_pi * t * n * 2.0)
+                      + 0.2 * noise2(s, t)))
+
+    # --- Asphalt (1) - dark granular (max 1.0) ---
+    pats['ASPHALT'] = (
+        lambda s, t: (0.4 * noise2(s, t)
+                      + 0.3 * math.sin(two_pi * s * k * 4.0)
+                      + 0.3 * math.sin(two_pi * t * n * 4.0)))
+
+    # --- Nieten (2) - endless rivet matrices (smoothstep -> -1..1) ---
+    def _niet_round(s, t):
+        # round dome rivets on a regular grid (dense, like a riveted plate)
+        xu = (s * k) % 1.0 - 0.5
+        yu = (t * n) % 1.0 - 0.5
+        d = math.hypot(xu, yu)
+        return _smoothstep(0.30, 0.46, d) * 2 - 1
+    pats['NIET_RUND'] = _niet_round
+
+    def _niet_spitz(s, t):
+        # pointed / star rivets (6-point star field)
+        xu = (s * k) % 1.0 - 0.5
+        yu = (t * n) % 1.0 - 0.5
+        d = math.hypot(xu, yu)
+        ang = math.atan2(yu, xu)
+        star = abs(math.cos(3.0 * ang)) * 0.40 + 0.22
+        return _smoothstep(star * 0.5, star, d) * 2 - 1
+    pats['NIET_SPITZ'] = _niet_spitz
+
+    # --- Reißverschluss (1) - zigzag row + slider band (max 1.0) ---
+    def _zipper(s, t):
+        zz = math.sin(two_pi * s * k * 2.0)          # zigzag teeth
+        band = 0.5 + 0.5 * math.cos(two_pi * t * n * 2.0)  # slider band
+        band = max(0.0, min(1.0, band * 3.0 - 0.8))
+        return zz * band
+    pats['ZIPPER'] = _zipper
+
+    # --- Operationsnaht (2) - medical suture / cross-stitch seam ---
+    def _suture(s, t):
+        # cross-stitch suture: two diagonal thread families crossing,
+        # the seam line runs in t (perpendicular to the seam direction)
+        # max (2*1 - 0.5) = 1.5 -> scale 0.66 to stay in [-1, 1]
+        d1 = math.sin(two_pi * (s * k + t * n))
+        d2 = math.sin(two_pi * (s * k - t * n))
+        cross = abs(d1) + abs(d2)
+        seam = 0.5 + 0.5 * math.sin(two_pi * t * n * 2.0)
+        return 0.66 * (cross * seam - 0.5)
+    pats['SUTURE'] = _suture
+
+    # ZIGZAG - plain zigzag stitch (simple, straight) (max 1.0)
+    pats['ZIGZAG'] = (
+        lambda s, t: math.sin(two_pi * s * k * 4.0)
+                     * (0.7 + 0.3 * math.sin(two_pi * t * n)))
+
+    # ---- R286: Z-NAHT-TEXTUREN (z-Seam) - kaschieren die Z-Naht ----
+    # The Z-seam is the layer-change line (t = 0 mod 1/n). A narrow band
+    # around t=0 overlays the seam with a fitting pattern that either
+    # fades into the background (organic bark fold) or directly covers
+    # the seam (rivets, suture, zipper). At the band edge the value
+    # drops cleanly to 0 -> a clean transition to the normal geometry.
+    # GEOMETRY IMPACT: only inside the seam band; outside, no change.
+    def _seam_band(t):
+        # narrow band centered on the layer-change line (t = 0 mod 1/n)
+        seam = 0.5 + 0.5 * math.cos(two_pi * t * n)
+        return max(0.0, min(1.0, seam * 3.0 - 0.8))
+
+    # SEAM_BARK - bark fold over the seam (organic, recedes)
+    def _seam_bark(s, t):
+        b = _seam_band(t)
+        return b * math.sin(two_pi * s * k * 4.0 + two_pi * t * n)
+    pats['SEAM_BARK'] = _seam_bark
+
+    # SEAM_RIDGE - ridge pattern over the seam
+    def _seam_ridge(s, t):
+        b = _seam_band(t)
+        return b * math.sin(two_pi * s * k * 6.0)
+    pats['SEAM_RIDGE'] = _seam_ridge
+
+    # SEAM_NIET - rivets on the seam (covers it directly)
+    def _seam_nieten(s, t):
+        b = _seam_band(t)
+        xu = (s * k) % 1.0 - 0.5
+        yu = (t * n * 4.0) % 1.0 - 0.5   # rivets only in the seam height
+        d = math.hypot(xu, yu * 4.0)     # stretched in t (band is narrow)
+        return b * (_smoothstep(0.30, 0.46, d) * 2 - 1)
+    pats['SEAM_NIET'] = _seam_nieten
+
+    # SEAM_SUTURE - medical suture (the seam reads as sewn)
+    def _seam_suture(s, t):
+        b = _seam_band(t)
+        d1 = math.sin(two_pi * (s * k + t * n * 2.0))
+        d2 = math.sin(two_pi * (s * k - t * n * 2.0))
+        cross = abs(d1) + abs(d2)
+        return b * 0.66 * (cross - 0.5)
+    pats['SEAM_SUTURE'] = _seam_suture
+
+    # SEAM_ZIP - zipper (the seam reads as zipped shut)
+    def _seam_zip(s, t):
+        b = _seam_band(t)
+        return b * math.sin(two_pi * s * k * 2.0)
+    pats['SEAM_ZIP'] = _seam_zip
+
     return pats
 
 
@@ -1684,7 +2110,28 @@ PATTERN_NAMES = ('RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX',
                  # R266.3 (J8 bite 4): decor & haptics - hearts, sports
                  # balls, woodchip wallpaper, roof tiles, crochet
                  'HEARTS', 'GOLF', 'BASKETBALL', 'RAUFASER', 'ROOFTILES',
-                 'CROCHET')
+                 'CROCHET',
+                 # R286 (user: mehr Presets, 2 Variationen pro Textur) - 
+                 # Zweitvarianten der Kernfamilien (geometrisch abgewandelt):
+                 'RIDGES_V2', 'WAVES_V2', 'GRID_V2', 'CHECKER_V2',
+                 'HEX_V2', 'BARK_V2', 'LEATHER_V2', 'TILES_V2',
+                 'PARQUET_V2', 'FABRIC_V2',
+                 # R286 II: decorative plastische 3D-Druck-Texturen (seamless)
+                 'PETAL', 'PETAL_V2', 'LOTUS', 'PEBBLE', 'PEBBLE_V2',
+                 'GALAXY', 'CRUST', 'BRAID', 'BRAID_V2', 'QUILT',
+                 'GEMSTONE', 'SHELL', 'CORAL', 'MOSAIC', 'PEARL',
+                 'VELVET', 'STRATA', 'BASALT', 'MARBL', 'GRANIET',
+                 'TERRA', 'WALNUT', 'MAPLE', 'ZEBRA', 'LEOPARD',
+                 'PYTHON', 'LAVA', 'ICE', 'MOSS', 'FEATHER',
+                 # R286 III (user: mehr organische Texturen, Stoffe längs/
+                 # quer, Zellmuster, Stein, Asphalt, Nieten, Reißverschluss,
+                 # Operationsnaht)
+                 'BIRKE', 'EICHEN', 'TILIA', 'FABRIC_L', 'FABRIC_Q',
+                 'CELL', 'STONE', 'ASPHALT', 'NIET_RUND', 'NIET_SPITZ',
+                 'ZIPPER', 'SUTURE', 'ZIGZAG',
+                 # R286 Z-Naht-Texturen
+                 'SEAM_BARK', 'SEAM_RIDGE', 'SEAM_NIET',
+                 'SEAM_SUTURE', 'SEAM_ZIP')
 
 # R238: opt-in helical tilt angles by pattern. Disabled by default; when
 # enabled, the helical shift uses an integer number of turns so the seam
@@ -1705,6 +2152,20 @@ PATTERN_TILT = {
     'LEATHER': 0.0, 'ORANGE': 0.0, 'CRACKS': 0.0, 'WRINKLE': 2.0,
     'HEARTS': 0.0, 'GOLF': 0.0, 'BASKETBALL': 0.0, 'RAUFASER': 0.0,
     'ROOFTILES': 0.0, 'CROCHET': 0.0,
+    # R286-Varianten
+    'RIDGES_V2': 2.0, 'WAVES_V2': 2.0, 'GRID_V2': 2.0,
+    'CHECKER_V2': 2.0, 'HEX_V2': 2.0, 'BARK_V2': 0.0,
+    'LEATHER_V2': 0.0, 'TILES_V2': 0.0, 'PARQUET_V2': 0.0,
+    'FABRIC_V2': 2.0,
+    # R286 III (new organic / material / functional)
+    'BIRKE': 2.0, 'EICHEN': 2.0, 'TILIA': 2.0,
+    'FABRIC_L': 2.0, 'FABRIC_Q': 2.0,
+    'CELL': 2.0, 'STONE': 2.0, 'ASPHALT': 2.0,
+    'NIET_RUND': 0.0, 'NIET_SPITZ': 0.0,
+    'ZIPPER': 0.0, 'SUTURE': 2.0, 'ZIGZAG': 2.0,
+    # R286 Z-Naht-Texturen: tilt=0 - liegen auf der Schichtwechsel-Linie
+    'SEAM_BARK': 0.0, 'SEAM_RIDGE': 0.0, 'SEAM_NIET': 0.0,
+    'SEAM_SUTURE': 0.0, 'SEAM_ZIP': 0.0,
 }
 
 
@@ -1712,7 +2173,8 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                   fuzzy_density=100.0, bump_pattern='RIDGES', bump_scale=10.0,
                   bump_amp=0.35, direction='OUT', bed=None, version=1,  # version: retired (R158, folder-global auto)
                   seed=91, zsize=None, map_file=None,
-                  map_mode='TILE', map_pos='CENTER', tilt=False, progress=None):
+                  map_mode='TILE', map_pos='CENTER', tilt=False, progress=None,
+                  blur=0.0):
     """Returns (new_path, info). Raises ValueError on bad parameters.
 
     R175 parameter semantics (the LCD speaks these names):
@@ -1722,6 +2184,16 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                    see the R266 note below)
       seed       = deterministic randomness (noise patterns, fuzzy)
       map_file   = image for PATTERN=MAP (grayscale wrap)
+      scale_xy_mid  = middle scale in percent (1% steps; 100 = no change)
+      scale_xy_pos  = Z position of the middle in percent (0=bottom, 100=top)
+      scale_xy_curve = 'linear' or 'bezier' transition bottom->middle->top
+                      (active only when 5% < pos < 95%)
+      blur       = softening radius in mm (0.0 = sharp, up to ~2.0)
+                    Gaussian-blurred pattern amplitude -> soft relief
+
+    NOTE: scale_xy_mid/scale_xy_pos/scale_xy_curve were REMOVED from this
+    function (R286 cleanup) - they belong to the SCALE XY tool
+    (apply_scale in r2_postproc.py), not to texturing.
     """
     mode = str(mode).upper()
     direction = str(direction).upper()
@@ -1746,6 +2218,10 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
         zsize = bump_scale
     if not (0.5 <= float(zsize) <= 200.0):
         raise ValueError('Z size %.1fmm out of range (0.5..200)' % float(zsize))
+    # R286 Blur: softening radius in mm (0 = sharp)
+    _blur = float(blur)
+    if not (0.0 <= _blur <= 2.0):
+        raise ValueError('blur %.2fmm out of range (0..2.0)' % _blur)
     if not (0.05 <= float(bump_amp) <= 4.0):
         raise ValueError('pattern depth %.2fmm out of range (0.05..4.0)'
                          % float(bump_amp))
@@ -2010,6 +2486,87 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
     else:
         cx, cy = sx / cnt, sy / cnt
         src_center = 'wall centroid'
+    # ---- R286 WALL-THICKNESS MEASUREMENT (Haftung / adhesion guarantee) ----
+    # Hard-contrast BUMPS patterns (rivets, zippers, sutures, deep relief)
+    # displace every outer-wall vertex in XY. Z is never touched, so the
+    # layer-to-layer Z contact holds - but a displacement LARGER than the
+    # wall thickness can push a vertex OVER the wall edge (vase mode: a
+    # continuous thin wall, no inner loop). The embossing must never exceed
+    # the wall's own thickness. This streaming pass measures the mean
+    # radial gap between the outer and inner wall (outer_radius - inner_
+    # radius). Files without an inner wall (vase mode, single-wall prints)
+    # get a conservative DEFAULT estimate instead.
+    def _measure_wall_thickness():
+        r_o_sum = r_o_cnt = 0.0
+        r_i_sum = r_i_cnt = 0.0
+        cur_outer = False
+        cur_inner = False
+        cur_z = None
+        px = py = None
+        with open(src, errors='replace') as f:
+            for line in f:
+                ls = line.rstrip('\n')
+                m = _TYPE.match(ls)
+                if m:
+                    t = m.group(1).strip().lower()
+                    cur_outer = _is_outer_wall(t)
+                    cur_inner = _is_inner_wall(t)
+                    continue
+                _ma = _APPLY152.match(ls)
+                if _ma:
+                    t = _ma.group(1).strip().lower()
+                    cur_outer = _is_outer_wall(t)
+                    cur_inner = _is_inner_wall(t)
+                    continue
+                g = _parse_move(ls)
+                if g is None:
+                    continue
+                # Z tracking (same as the main pass - slicers put layer Z
+                # on a separate move; M83/M82 handled by _parse_move)
+                if g[0] in ('G1', 'G0') and g[3] is not None:
+                    cur_z = g[3]
+                x, y = g[1], g[2]
+                if x is None or y is None:
+                    px, py = x, y
+                    continue
+                extruding = (g[0] == 'G1' and g[4] is not None
+                             and g[4] > _MIN_E)
+                if not extruding:
+                    px, py = x, y
+                    continue
+                if cur_outer:
+                    r_o_sum += math.hypot(x - cx, y - cy)
+                    r_o_cnt += 1
+                elif cur_inner:
+                    r_i_sum += math.hypot(x - cx, y - cy)
+                    r_i_cnt += 1
+                px, py = x, y
+        if r_i_cnt > 0 and r_o_cnt > 0:
+            return r_o_sum / r_o_cnt - r_i_sum / r_i_cnt, r_o_cnt, r_i_cnt
+        return 0.0, r_o_cnt, 0
+
+    wall_thick, w_o_cnt, w_i_cnt = _measure_wall_thickness()
+    _vase_thin = (w_i_cnt == 0)      # no inner wall = thin/single-wall (vase)
+    if w_i_cnt == 0:
+        # vase mode / single-wall: no inner loop to measure against - the
+        # safe default is the classic 0.8mm line-width assumption. The
+        # direction is forced INWARD (into the material) so a displacement
+        # can never push the wall edge into open air.
+        wall_thick = 0.8
+        if direction == 'OUT' and mode == 'BUMPS':
+            direction = 'IN'
+            print('[r2_texture] R286: vase/single-wall - BUMPS direction '
+                  'forced IN (Haftung: displacement never over the wall edge)')
+    # Depth limit: the embossing never exceeds 80% of the wall thickness.
+    # The 0.15 floor keeps shallow textures usable on thick walls too.
+    _safe_amp = max(0.15, min(float(bump_amp), wall_thick * 0.8))
+    if _safe_amp < float(bump_amp):
+        print('[r2_texture] R286: bump_amp %.2fmm limited to %.2fmm '
+              '(wall thickness %.2fmm - Haftung guarantee)'
+              % (float(bump_amp), _safe_amp, wall_thick))
+        bump_amp = _safe_amp
+        sig = float(bump_amp)
+        sign = 1.0 if direction == 'OUT' else -1.0
     # ---- R231: loop-length pre-pass ---------------------------------------
     # The arc-anchored mapping needs every wall loop's own length BEFORE the
     # emission shifts its vertices. This walk mirrors the emission's gating
@@ -2162,10 +2719,39 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
         if m238:
             s = (s + m238 * (((z - minz) / height) if height > 0 else 0.0)
                  / k) % 1.0
-        return pattern_fn(s, t)
+        # R286 ScaleXY middle scaling: scale the RELIEF (amplitude) along Z.
+        # The period (k, n) stays integer -> the seam is untouched. The
+        # factor is 1.0 at the bottom, _sxy_mid/100 at _sxy_pos, 1.0 at top.
+        # Active only when 5% < pos < 95% (else the middle is irrelevant).
+        v = pattern_fn(s, t)
+        # R286 Blur: Gaussian softening of the pattern amplitude.
+        # The blur radius (mm) is converted to pattern-space offsets via
+        # the effective cell sizes (eff_size mm per s-unit, eff_zsize per
+        # t-unit). The kernel wraps periodically -> the seam is untouched.
+        if _blur > 0.0 and eff_size > 0.0:
+            _b_s = _blur / eff_size
+            _b_t = (_blur / eff_zsize) if eff_zsize > 0 else _b_s
+            if _b_s > 1e-9 or _b_t > 1e-9:
+                _sig = max(_b_s, _b_t)
+                _kr = max(1, int(math.ceil(_sig * 3.0)))
+                _acc = 0.0
+                _wacc = 0.0
+                for _i in range(-_kr, _kr + 1):
+                    _ds = (s + _i / max(1.0, float(_kr))) % 1.0
+                    for _j in range(-_kr, _kr + 1):
+                        _dt = (t + _j / max(1.0, float(_kr))) % 1.0
+                        _w = math.exp(-((_i * _i) * _b_s * _b_s
+                                        + (_j * _j) * _b_t * _b_t)
+                                      / (2.0 * _sig * _sig + 1e-12))
+                        _acc += pattern_fn(_ds, _dt) * _w
+                        _wacc += _w
+                if _wacc > 0:
+                    v = _acc / _wacc
+        return v
 
     stats = {'moves': 0, 'shifted': 0, 'clamped': 0, 'layers': 0, 'arcs': 0,
-             'inner_shifted': 0, 'm204_scrub': 0, 'e_riden': 0}
+             'inner_shifted': 0, 'm204_scrub': 0, 'e_riden': 0,
+             'merged_segments': 0}
     cur_type = ''
     cur_outer = False       # R152: alias-normalized outer-wall check
     cur_inner = False       # R224 task 15: BUMPS lets inner walls follow
@@ -2318,7 +2904,63 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
             _sh_out[0], _sh_out[1] = x, y
         return txt
 
-    with open(src, errors='replace') as fi, open(out, 'w') as fo:
+    # R286 MCU-OPTIMIZATION: a buffered writer that merges consecutive
+    # collinear G1 moves into one move. On long straight walls the slicer
+    # emits many short chords; merging them cuts the MCU command count
+    # without changing the geometry (same endpoint, same total E).
+    _G1_RE = re.compile(r'^G1\s+X([\d.\-]+)\s+Y([\d.\-]+)(?:\s+Z([\d.\-]+))?(?:\s+E([\d.\-]+))?(?:\s+F([\d.]+))?\s*(;.*)?$')
+    _G1_RE_local = _G1_RE
+    class _MergeWriter(object):
+        def __init__(self, fh):
+            self._fh = fh
+            self._G1_RE = _G1_RE_local
+            self._last = None   # (x1, y1, z1, e1, feed, dx, dy) of last G1
+        def write(self, text):
+            line = text.rstrip('\n')
+            m = self._G1_RE.match(line)
+            # R286: buffer G1 moves and merge consecutive collinear ones
+            # (same direction, same Z, same feed) into a single move.
+            # Non-G1 lines flush the buffer.
+            if m:
+                x1 = float(m.group(1)); y1 = float(m.group(2))
+                z1 = float(m.group(3)) if m.group(3) else (self._last[2] if self._last else 0.0)
+                e1 = float(m.group(4)) if m.group(4) else (self._last[3] if self._last else 0.0)
+                feed = float(m.group(5)) if m.group(5) else (self._last[4] if self._last else 0.0)
+                dx = x1 - (self._last[0] if self._last else x1)
+                dy = y1 - (self._last[1] if self._last else y1)
+                if self._last is not None:
+                    lx, ly, lz, le, lf, ldx, ldy = self._last[0], self._last[1], self._last[2], self._last[3], self._last[4], self._last[5], self._last[6]
+                    # collinear + same direction + same Z + same feed
+                    cross = abs(dx * ldy - dy * ldx)
+                    len1 = math.hypot(dx, dy); len0 = math.hypot(ldx, ldy)
+                    if (len0 > 1e-6 and len1 > 1e-6 and cross / (len0 * len1) < 1e-4
+                            and abs(z1 - lz) < 1e-6
+                            and abs(feed - lf) < 1e-6
+                            and (dx * ldx + dy * ldy) > 0):
+                        # merge: extend the last line's endpoint
+                        new_line = 'G1 X%.3f Y%.3f' % (x1, y1)
+                        if z1 is not None:
+                            new_line += ' Z%.3f' % z1
+                        if m.group(4):
+                            new_line += ' E%.5f' % e1
+                        if m.group(5):
+                            new_line += ' F%g' % feed
+                        if m.group(6):
+                            new_line += ' ' + m.group(6)
+                        self._fh.write(new_line + '\n')
+                        stats['merged_segments'] = stats.get('merged_segments', 0) + 1
+                        self._last = (x1, y1, z1, e1, feed, dx, dy)
+                        return
+                self._fh.write(line + '\n')
+                self._last = (x1, y1, z1, e1, feed, dx, dy)
+            else:
+                self._fh.write(line + '\n')
+                self._last = None
+        def flush(self):
+            self._fh.flush()
+
+    with open(src, errors='replace') as fi, open(out, 'w') as _fo_raw:
+        fo = _MergeWriter(_fo_raw)
         fo.write('; %s applied to %s: mode %s%s\n' % (
             TAG, base, mode,
             ' thick %.2f density %.0f%%' % (float(fuzzy_thick),
@@ -2612,6 +3254,8 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
             'steep_segments': stats.get('steep', 0),
             'm204_scrub': stats['m204_scrub'],
             'tilt': round(tilt_eff, 1), 'tilt_turns': m238,
+            'blur': round(float(blur), 2),
+            'merged_segments': stats.get('merged_segments', 0),
             'map_mode': (str(map_mode).upper()
                          if mode == 'BUMPS' and bump_pattern == 'MAP' else ''),
             'map_pos': (str(map_pos).upper()

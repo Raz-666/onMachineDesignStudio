@@ -488,7 +488,8 @@ class MenuRegistryTests(unittest.TestCase):
         self.assertEqual((tex['min'], tex['max']), (1, 999))
         rng = toolchain.TOOL_REGISTRY['range']['params']
         self.assertEqual(rng['floor']['max'], 10)
-        self.assertEqual(rng['start']['min'], 2)
+        self.assertEqual(rng['start']['min'], 1)
+        self.assertEqual(rng['end']['min'], 2)
         ok, _ = toolchain.validate_preset(preset_range_texture())
         self.assertTrue(ok)
 

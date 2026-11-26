@@ -156,7 +156,6 @@ def _parse_labels_menu():
             '__hd': 'Hole Ø: [2.5..16]mm',
             '__rng': 'External ring: ON / OFF (Außenöse)',
             '__c2': '2-Color (M600): ON / OFF',
-            '__flp': 'Flip (Bettseiten-Inlay): ON / OFF',
             '__stm': 'Stamp mode (Stempel R168): ON / OFF',
             '__hdl': 'Stamp handle: 0=Aus / 1=Mitdruck / 2=Separat / 3=Nur Griff',
             '__go': 'Create plate (2× Klick = Start)',

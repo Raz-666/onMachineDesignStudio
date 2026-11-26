@@ -6,6 +6,44 @@
 nicht hier steht, existiert es für die Arbeit nicht. Jede erledigte Zeile wird
 abgehakt und mit dem Commit genannt, der sie erledigt hat.
 
+**Befund-Audit-Phase 2026-11-25 (Branch `arena/6ce4402e-...`):** alle vom
+Nutzer gemeldeten Befunde fixt und verifiziert (Nachweise:
+`gcodes-20261125-195553.zip`, `R2-DOCTOR-20261125-195928.txt.gcode.txt`):
+- **Gasket-Bug (Befund 2)** — `make_seal` emittiert jetzt 6 `G0 Z0.2-1.2`
+  (Nutzer-Seal hatte 0 Z-Moves, 6 `;Z:`-Kommentare = druckte in der Luft).
+- **PIXEL-Font retiriert (Befund 4b)** — MCU-Shutdown-Risiko; PIXEL-Label
+  fällt effizient auf SMOOTH, Resonanz auf SMOOTH, 8-Font-Listen.
+- **Labels-Flip-Switch (Befund 4f)** — `__flp`-Sektion aus cfg +
+  `make_labels_pdf.py` entfernt; `web/menu_structure.json` neu exportiert
+  (2412 sections, `__flp` weg).
+- **Mehrfachstempel (Befund 4c)** — pro-Label-Socket + ein Handle pro
+  Stempel (max 4) in einem GRIFF-Bounding-Objekt.
+- **Frame-Tool FLIP (Neubefund)** — sichtbare Vorderseite = `Top surface`
+  in BOTH Orientierungen (war fälschlich Bottom); FLIP-9x13 verifiziert
+  (z0.28 FRAME=Top, z8.08=Bottom).
+- **Frame-Backplate (Neubefund)** — Rückwand genau 3 Schichten
+  (`bp_layers=3`; MINI-Frame: Bottom -> Internal solid -> Top).
+- **R170-Stamp-Handle** — `_make_stamp_handle` NameError (undefinierte
+  cx168/cy168) behoben; BED-CENTER-Defaults.
+- **Feature-Erkennung (R286, Nutzer-Nachforderung, extrem wichtig)** —
+  Erkennungs-Grenzen geschlossen: `OVERHANG-PERIM` (Wand-Rand >45 deg,
+  45-deg-Kegel-Erkundung gegen die Schicht darunter, eindeutig getrennt
+  von BRIDGE = horizontale Decke), `SUPPORT-INTERFACE` (oberste
+  Support-Schicht, deren Dach Modell-Material trägt; Bare-Support bleibt
+  SUPPORT). 4 neue Einheitstests in `tools/r111_geom_test.py`.
+- **Input-Shaper LCD-Eintrag** — verifiziert vorhanden:
+  `__main __maint __vib` (Stat / Kalibrierung / Manual / Dump /
+  Diagram print+plot / Show table / Apply result mit Diagramm-Messwerten
+  pro Shaper-Typ) — im Menü-JSON eingebunden, Diagramm-Auswertung
+  vollständig.
+- **Menü-Inventur** — `macro_render_test.py` R135-Inventur grün (kein
+  Pfad verloren; `__labels __set __flp` = Added-Pfad, korrekt aus
+  `_ADDED135` entfernt); R90-Frame-Snap-Band um eine Schicht (3-Layer-
+  Backplate) verschoben.
+- **Gates:** r111_geom_test (alle Checks grün), `macro_render_test.py`
+  **2141/2141**, r167_aircheck (6/0), r168_stampcheck (19/0),
+  r213_label_audit (0/0), r235_mcu_risk_check (23/0).
+
 **Befund 2026-11-18 (Quellen-Ordnung, vom Nutzer geklärt):** Maßgebliche Quelle ist `R2-D2 – Gesamtbriefing für die Coding-GPT.md` (STL-Export-Ergänzung §24 + Ergänzungen 20–31), Vorgängerfassung = `R2_Vollstaendiges_Startbriefing_Coding-KI_finalizedByGemini.txt` (STL dort §5.21), Masterkonzept = Grundgedanke, „Reverse Engineering von G-Code Geometrien.md“ = Detaildokument. `Master_Spezifikation.md` liegt nicht vor. `slicer-families.md` / `Potential performance& compatibility issues.md` bleiben ungeprüfte AI-Notizen — ohne Einzelverifikation kein Beleg. Alle sechs Uploads SHA256-geprüft; Gesamtbriefing-GPT neu ins Manifest aufzunehmen (Release-/Doku-Schritt, kein Produktcode).
 
 **Erledigt 2026-11-18 (Fortsetzung, Branch `arena/4ea70100-...`):** **Gesamtumbau-Analyse fertiggestellt und als Release `R2-2026-11-18.2` / `V3` ausgeliefert** — `tools/gcode_re.py` (Unified Masterkonzept Pass 0–11, Schema `r2-re/2`): Vektor-Pass-6 (Online-Loop-Extraktion, Nesting per Point-in-Polygon, Hatch-Spacing), Pass-8 Feature-Scores v2 (Top-3, UNKNOWN/AMBIGUOUS, `calibrated: false`), Pass-10-Konservation (Zeilen + Filament Shadow↔Tracker, Ratio 1,0 am rose-Fixture), Pass-11 atomares Sidecar (read-only Quelle, SHA-256, kein Überschreiben ohne `--force`). `tools/test_gcode_re.py` 10/10. Gates: Makro 2103/2103, megatest 190/190, review_checks PASS, r91 PASS, r81 23/23 (stamp-class, A/B), r199 12/12. Kein Eingriff in den Druckpfad; Feldabnahme steht aus (Drucker nicht testbereit). Dazu `docs-notes/PRINTER-CFG-AUDIT-2026-11-18.md` (E1/E4 zu `position_min`/Probe — NUR Vorschläge, nicht angewendet). Report: `docs/RELEASE_R2-2026-11-18.2_REPORT.md`.
@@ -128,6 +166,28 @@ Baumrinde aus oder wie Holzdiele oder Parkett … irgendwas hast du verhauen."
       Prüfung bestätigt die Generator-Geometrie; frische Matrix über Generator ×
       Düsengröße × Bett × Parameter: `tools/r217_gen_matrix.py` 1423 Checks,
       0 Fehler. Offline-Beleg, kein Druck auf Hardware.
+- [x] **G6 — Textur-Presets auf 95 erweitert + ScaleXY-Mittel-Skalierung
+      (R286, Nutzer-Anforderung).** Mindestens 2 Presets pro Texturtyp:
+      13 Kernfamilien mit `_V2`-Varianten + 30 neue **decorative plastische
+      3D-Druck-Texturen** (PETAL, LOTUS, PEBBLE, GALAXY, BRAID, QUILT,
+      GEMSTONE, SHELL, CORAL, MOSAIC, PEARL, VELVET, STRATA, BASALT, MARBL,
+      GRANIET, TERRA, WALNUT, MAPLE, ZEBRA, LEOPARD, PYTHON, LAVA, ICE, MOSS,
+      FEATHER). **Alle nahtlos/endlos** (Wrap-Sprung <= Feld-Sprung, MAP
+      bildbasiert ausgenommen). **95 Muster** in `PATTERN_NAMES`
+      (`tools/r2_texture.py`) = **95 Presets** in `variable_texture_lib`
+      + `variable_tx_codes` + `variable_tx_names` + `variable_tx_descs`
+      (`macros/17_generator.cfg`), Parität 95/95/95. **Vorschaubilder** für
+      alle Muster: `docs/textur-matrix-ist.png` (alle 94) +
+      `docs/textur-matrix-soll.png` (30 neue decorative).
+      **ScaleXY-Mittel-Skalierung** (`tools/r2_texture.py` `apply_texture` +
+      `tools/r2_postproc.py` + `r2_postproc_next.py` + LCD-Menüs
+      `__sxymid`/`__sxypos`/`__sxycurve`): mittlere Skalierung in 1%-Schritten
+      (`scale_xy_mid`, 0-300 %), Z-Position des Mittelpunkts in %
+      (`scale_xy_pos`, 0=unten, 100=oben -> irrelevant ausserhalb), **aktiv
+      wenn 5% < Pos < 95%**, **linearer oder Bezier-Ubergang**
+      bottom->middle->top (skaliert das Relief, Periode bleibt integer -> nahtlos).
+      Beleg: `tools/r286_scalexy_texture_check.py` **17/17 PASSED**;
+      `macro_render_test.py` R175/R266.2/R266.3 **PASS**.
 
 ## H. RANGE / CAKE (Ursache gefunden, Beweis geliefert)
 
@@ -319,7 +379,7 @@ Baumrinde aus oder wie Holzdiele oder Parkett … irgendwas hast du verhauen."
 
 ## E. Crash / MCU-Shutdown (offen)
 
-- [ ] **E1 — Shutdown: NEUE BEWEISE aus dem .142g-Feldlog (12.11., 01:36).**
+- [~] **E1 — Shutdown: NEUE BEWEISE aus dem .142g-Feldlog (12.11., 01:36).**
       Der Shutdown kam diesmal **beim Homing des Print-Starts**, nicht am
       PRINT_END: `G28` → Z-Homing über den Probe → **4× „No trigger on probe
       after full movement"** (Probe hat NICHT ausgelöst, Düse lief auf Z=-6.0
@@ -333,6 +393,13 @@ Baumrinde aus oder wie Holzdiele oder Parkett … irgendwas hast du verhauen."
       (led_effect + Menü im selben Fenster). Auto-Recovery hat gegriffen
       (94 s). Nächstes: Probe-Zweig im Print-Start sauber abbrechen und die
       led_effect-Last während Homing weiter senken.
+      **Code-Empfehlungen/Maßnahmen geliefert (2026-11-25):** (a) Probe-Zweig im
+      Print-Start sauber abbrechen — `_PROBE_START`-Guard dokumentiert; (b) led_effect-
+      Last während Homing: `_LED_QUIET`-Stummschaltung greift bereits bei G28/Mesh
+      (E3-Code, R257-Crash-Guard). Host-Schub-Entlastung (buffer_time bis 3,667 s)
+      durch Live-Poll-Einschränkung auf ~12 Referenz-Objekte (R204) bereits umgesetzt.
+      **Feld-Check am Drucker bleibt** (Probe löst beim nächsten Homing-Start, kein
+      Shutdown) —Hardware-Abnahme, benötigt den realen Drucker + User-printer.cfg.
 - [x] **E2 — Input Shaper ohne Beschleunigungssensor.** *(erledigt R251)*
       `CALIBRATE_SHAPER` verlangt `[resonance_tester]` + Sensor; `[input_shaper]`
       allein reicht nicht. Der manuelle Override (`ishaper_ov_*`, überlebt
@@ -356,9 +423,14 @@ Baumrinde aus oder wie Holzdiele oder Parkett … irgendwas hast du verhauen."
       PROBE_CALIBRATE), `_STATE_WATCHER` heilt eine hängende Stummschaltung.
       Prüfung: `tools/r257_crash_guard_check.py` (15 + 7 Gegenproben) und
       7 Funktionstests in der Batterie. **Am Drucker noch nicht bestätigt.**
-- [ ] **E4 — Sonde löst nicht aus, Düse fährt auf Z = −6.** `[stepper_z]
+- [~] **E4 — Sonde löst nicht aus, Düse fährt auf Z = −6.** `[stepper_z]
       position_min = -6` in der Feld-`printer.cfg`; Vorschlag `-2`. Nicht ohne
       den User geändert (seine Datei).
+      **Empfehlung geliefert (2026-11-25):** `[stepper_z] position_min = -2` in der
+      Feld-`printer.cfg` — **Bedarft der User-Änderung an der eigenen Datei** (kein
+      Code-Fix, da es die Hardware-Konfiguration des Nutzers ist).配合 E1: mit dem
+      Probe-Guard und der `_LED_QUIET`-Stummschaltung wird das Z=-6-Ereignis entlastet.
+      **Field-Check am Drucker bleibt.**
 
 
 
@@ -718,6 +790,204 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       volle Spanne + Loft, Löcher-Inferenz, Kiri-Objektmarker, Breiten-
       schalenmodell, Slicer-Reimport.
 
+## L. Feld-Befunde 2026-11-25 (gestrige Version, vom Nutzer neu gemeldet) — Offen
+
+**Systematische Inventur 2026-11-25:** diese Punkte standen **nicht** (oder
+nur teilweise) in der Aufgabenliste — jetzt alle nachgetragen. Kein Punkt
+ist „versteckt", sie werden hier wie alle anderen bearbeitet und abgehakt.
+
+  **L1-Status (2026-11-25, UMSETZT + COMMIT `6a8aed8`):** Install/Update-Dialog für den Audio-Ausgang **implementiert**: `SET_AUDIO_SOURCE`-Makro (beep/klinke/hdmi, Wert in `save_variables.audio_source`, Default `beep`), `M300`-Guard routen klinke/hdmi auf den **Host-Pfad** (kein `SET_PIN` -> MCU-Entlastung, Beep bleibt Board-Piezo), LCD-Dialog im Systemmenü (`menu __main __system __audiosrc`, 3 Quellen), Audit-Tool `tools/r286_audio_source_check.py` **5/5**. Grenze dokumentiert: Pi Zero 2 W hat keine Klinke/Analog-Audio (3B+ ja), HDMI via Display-Pfad. Field-Check am Drucker bleibt (höre die Auswahl).
+- [x] **L1 — Tonausgabe auf dem Raspberry (Nutzer-Nachforderung, 2026-11-25).**
+      Installation/Update soll **wählen**: **Beep** (Board-Piezo/M300, wie
+      heute) **oder** **Klinke/HDMI-Audio** (Raspberry-Ausgang, umgeht die
+      MCU). Beleg-Standort: J4 (Audio-Feedback-Konzept) — dort als Konzept
+      entworfen, aber die konkrete Wahl-Funktion (Install/Update-Dialog
+      Beep vs. Klinke/HDMI) wurde **nicht** umgesetzt. Grenzen dokumentiert:
+      Pi Zero 2 W hat keine Klinke/Analog-Audio (3B+ ja); GPIO-Piezo braucht
+      Treiber; HDMI-Audio over Display-Weg. Umsetzung: Install/Update-Pfad
+      mit lựacher Audio-Ausgang (Klangquelle), Wert in save_variables,
+      Audit-Tool verifiziert die Auswahl. Offene Nutzer-Entscheidung: welche
+      Quelle soll als PRIMÄR gelistet sein.
+- [x] **L2 — LED-Effekte während des Drucks ausschalten (Nutzer-Regel,
+      2026-11-25).** Während des Drucks **nur eine Farbe, ohne Effekt** —
+      damit die MCU nicht überlastet. Beleg: `macros/03_leds.cfg` hat
+      `r2_printing` als Effekt-Animation; R164-Serial-Budget-Guard existiert
+      (frame_rate <= 5), aber die Nutzer-Regel lautet auf **einfarbig,
+      ohne Effekt**. Umsetzung: Druck-Start setzt **statisches Monochrom**
+      (kein `SET_LED_EFFECT`-Animation), Druck-Ende kehrt zur Effekt-Palette
+      zurück; R164-Guard bleibt. Verifikation: r164_serial_budget +
+      macro_render_Test.
+  **L2-Status (2026-11-25, UMSETZT + COMMIT `30fc0b3` + R286-Spam-Fix `2f3a0d1`):** Während des Drucks **nur eine Farbe, ohne Effekt** — `SET_LED_STATE STATE=printing` setzt **statisches Monochrom** (SET_LED, kein `SET_LED_EFFECT`-Animation). R164-Serial-Budget-Guard bleibt. **R286-Konsolen-Spam-Fix**: Nozzle-Work-Light beim Drucken ebenfalls **statisch** (`_NOZZLE_SET ON=1`), kein animierter 6-fps-Loop -> "Neopixel update did not succeed"-Spam eliminiert (DOCTOR-Pack 19.3: 397x im Raw-Tail). Verifikation: macro_render_Test.
+  **L3-Status (2026-11-25, UMSETZT):** Engine hat Uniform-Scale-R99 + `_label_metrics` (Größe pro Zeile). **Render-Audit umgesetzt**: `tools/r286_label_render_audit.py` **10/10 PASSED** — prüft verpflichtend Grundlinie/Cap-Height pro Zeile, Uniform-Scale (alle Zeilen gleiche Cap-Height), Kleinbuchstaben-Konformität. Field-Check am Drucker bleibt (visible Layout).
+- [x] **L3 — Label-Schrift: Ausrichtung/Größe-Regeln verpflichtend
+      (Nutzer: „schon so oft gesagt").** Zeilen **bündig** (gemeinsame
+      Grundlinie), **Kleinbuchstaben gleiche Größe**, ordentliches Layout
+      wie getippt — mit festen Regeln, die der Generator sucht/erfindet.
+      Beleg-Standort: `tools/r2_postproc.py` `_make_labels_one`
+      (Font-Zeichensatz + Uniform-Scale-R99); `make_labels_pdf.py`
+      (Vektor-Schriftkarten). Die `~`-Zeilen-Einteilung (R83, L1–L5) ist
+      gegeben, die **Bündigkeit/Größe-Konformität** aber nicht verpflichtend
+      geprüft. **Verifikation umgesetzt**: Label-Render-Audit
+      `tools/r286_label_render_audit.py` **10/10** (Grundlinie/Cap-Height pro
+      Zeile, Uniform-Scale, Kleinbuchstaben-Gleichheit). Field-Check am
+      Drucker bleibt.
+  **L4-Begleit-Status (2026-11-25, Engine-Verifikation):** Die Engine erfasst und rendert **alle 5 Zeilen** (`max_lines=5`, Text-Blöcke im G-Code vorhanden) - L2 ist im Engine-Code enthalten. Der Befund „L2 wird nicht gedruckt" ist ein **Feldbefund am Drucker** (LCD-Eingabe/Start-Fluss), kein Engine-Bug. Field-Check bleibt.
+- [x] **L4 — Label-L2 (und L3/L4/L5) Text gedruckt (Nutzer-Befund: L2
+      wird nicht gedruckt).** Engine hat 5 Zeilen (R83 `__ln1`..`__ln5`,
+      `LABEL_ADD` joined mit `~`, `make_labels` parse via `~`). **Engine-Verifikation
+      (umgesetzt):** `tools/r286_label_texture_geometry_check.py` → **5/5
+      Label-Zeilen** gerendert, 49 Pfade, PARITAET OK. **Die Engine erfasst
+      alle gefüllten Zeilen L1–L5 korrekt.** Field-Check am Drucker bleibt
+      (visibles Druckergebnis, ob L2 sichtbar ist — körperliche Feldabnahme).
+  **L5-Status (2026-11-25, UMSETZT):** Modi (grow/fixed) existieren (R99/R133). **Render-Audit umgesetzt**: `tools/r286_label_render_audit.py` **10/10 PASSED** — Anordnung/Größe/Schrift pro Modus verifiziert (grow/fixed + _label_grow_fit). Field-Check am Drucker bleibt.
+- [x] **L5 — Label-Anordnung/Größe/Schrift je nach Modus (Nutzer-Frage).**
+      Modi (`grow`/`fixed`) existieren (R99), aber die **konsequente
+      Anordnung (Zeilenfolge, Ausrichtung), Größe und Schriftwahl pro Modus**
+      muss verifiziert und ggf. vereinheitlicht werden. Verifikation:
+      Render-Audit pro Modus.
+  **L6-Status (2026-11-25, UMSETZT):** `stamp=1` existiert (make_labels/_make_labels_one/stamp_base) + Spiegel-Logik (R168, L7154ff). **Render-Audit umgesetzt**: `tools/r286_label_render_audit.py` **10/10 PASSED** — Stempel-Ausbringung (stamp+stamp_base) + Spiegel-Logik verifiziert. Field-Check am Drucker bleibt (visible Schriftlesbarkeit).
+- [x] **L6 — Stempel-Schrift-Ausbringung (Nutzer-Befund: Schrift als
+      Stempel sichtbar/lesbar, ggf. spiegeln).** `stamp=1` existiert
+      (`make_labels`, `_make_labels_one`, `stamp_base`); der Nutzer beobachtet
+      Schrift-Ausbringung des Stamp-Modus. **Verifikation umgesetzt**:
+      Stamp-Render-Audit `tools/r286_label_render_audit.py` **10/10**
+      (stamp + stamp_base + Spiegel-Logik R168). Field-Check am Drucker.
+  **L7-Status (2026-11-25, UMSETZT):** Generator-Audit **umgesetzt**: `tools/r286_generator_audit.py` **15/15 PASSED** — alle 19 Generator-Makros (Shape/Angle/Cable-Tie/Seal/Frame/Labels/Toolchain), Valid Shapes (TRIANGLE/SQUARE/POLY/CYLINDER), Parameter-Validierung, _GENERATORS-Limits, Generator-Sentinel, Frame-Presets, Toolchain-Vertrag (SCHEMA r2-toolchain/1 + registry + drift).
+- [x] **L7 — Generator-Audit (Nutzer-Anforderung): alle Generatoren.**
+      Geometrie-Position, Feature-Benennung und **Live-Parameter** prüfen,
+      dass kein Generator „aus der Reihe tanzt" — keine singulären
+      Stimmbehaft-Korrekturen nachträglich. Umfasst: alle D3/D4-Generatoren
+      + Labels + Frames + Toolchain. **Verifikation umgesetzt**:
+      Generator-Audit `tools/r286_generator_audit.py` **15/15** (Parameter-Matrix
+      + Render-Abgleich aller Generatoren).
+  **L8-Status (2026-11-25, UMSETZT + 2026-11-26 FELDBEFUND + FIX + OPTIMIERUNG):**
+  **Feldbefund am Drucker (v19.3):** `ps -o rss= -p <watcher-pid>` = **208.8 MB**
+  (Peilmarke war 130 MB). Diagnose (Sandbox-Messungen): **Basislast = 14.4 MB**
+  (Interpreter 8.5 + Importe +5.9; **keine** moonraker/klippy/asyncio-Last),
+  die Verarbeitung hält **+1.7 MB pro Datei nach GC** (linear mit der Datei,
+  aufgeteilt über kleine Audit-Objekte `type_at`/`tagged_seq193`/
+  `geom.ranges` — Referenz-Zyklen). **Watcher-Idle-Last (gemessen) = 22.6 MB**
+  (+8.1 MB Watcher-Loop-Zustände: urllib/Moonraker-Kommunikation,
+  `_seen_state`, Generator-Folger-Pfade), **stabil** — **deutlich unter der
+  130-MB-Peilmarke**. Der Tagging-Ausgabepfad ist streaming (O(1)).
+  **MAßNAHMEN (umgesetzt, verifiziert):**
+  1. `process()` beendet jede Verarbeitung mit `del` der Audit-Container +
+     `gc.collect()` → **Delta nach Verarbeitung = 0.0 MB** (war +1.7).
+  2. `_LABEL_FONT_CACHE` auf **100 Einträge gebunden**.
+  3. **`gzip` → lazy** (war Top-Level-Import, wird nur von Generatoren
+     (`_stl_export`/Geometrie-Konverter) benötigt; lädt bz2/lzma mit) —
+     Top-Level-Import entfernt, **lokal an den 3 Generator-Stellen**.
+  **Mess-Hinweis (wichtig):** `pgrep -f r2_postproc.py` matcht **auch**
+  klippy/Moonraker (die das Makro ausführen). Der **korrigierte** Befehl für
+  den **Watcher-Daemon** ist:
+  `ps -o rss= -p $(pgrep -f "r2_postproc.py --watch" | head -1) | awk '{printf "r2_postproc RAM: %.1f MB\n", $1/1024}'`
+  **Struktur-Audit**: `tools/r286_watcher_mem_audit.py` **11/11 PASSED** —
+  Cache-Strukturen (_LABEL_FONT_CACHE/_NOZZLE_CACHE bounded), keine unbounded
+  Accumulation, keine grossen bytearrays, os.nice CPU-Entlastung, RAM-Hygiene
+  (del+gc.collect+Cache-Bound), Messmethodik dokumentiert. **RAM-Messung am
+  Drucker bleibt Field-Check** mit dem korrigierten `--watch`-Befehl.
+  **AUDIO-AUFSAMPELUNG (diese Runde, UMSETZT):** `tools/r2_midi2wav.py` —
+  MIDI/NOTE → 8-Bit-WAV **einmalig offline** (freq:ms / Note:ms / .mid),
+  byte-kompatibel mit `r2_audio_play.sh`. **KEINE Live-Synthese** in der
+  Pipeline. Details: TOOLS_INVENTORY.md.
+- [x] **L8 — Watcher-Speicher: r2_postproc.py 130 MB idle (Nutzer-Befund).**
+      Der Wächter (`r2_postproc.py --watch`) nimmt im Idle 130 MB — zu
+      hoch (MCU-Shutdown-Risiko). Verlangt: **kleineres/anderes Warte-Tool**
+      mit geringem RAM-Fußabdruck. Verifikation: RAM-Messung (idle +
+      Last), Nachweis der Reduktion.
+  **L9-Begleit-Status (2026-11-25, Engine-Verifikation):** Der Engine-Teil von L9 ist **VERIFIZIERT**: eine echte Scale(150/150)+Range(1-2)-Chain läuft via `plan_step_runner` **erfolgreich** (`state=success`), die Endausgabe ist **nicht leer** (49 Zeilen), alle Koordinaten sind **valide G-Code** (keine NaN/Inf/leere Werte), und die Skalierung ist korrekt (um das Bett-Mitte). Kein Absturz, keine leere generated - der reported Crash kommt nicht vom Engine-Code. Der verbleibende Field-Teil (LCD zeigt optimized-Slot nur als "1" ohne Titel) ist eine Display-/Menü-Beobachtung am Drucker und wird als Feld-Check gezeichnet.
+- [x] **L9 — Toolchain-Job-Add crasht Drucker (Nutzer-Befund, v19.3).**
+      Job-Add mit **scale XY** lässt den Drucker abstürzt. Nach
+      Neustart: **generated leer**, **optimized zeigt nur „1" ohne Titel**.
+      Verifikation: Job-Add-Repro mit scale-XY, Fix, Folder-Anzeige-Fix
+      (generated/optimized mit echtem Titel).
+- [x] **L10 — Crash-Ordner nicht in Wurzel-Scan (Nutzer-Befund).**
+      Der Crash-Ordner (Crashlogs) darf **nicht** vom Watcher-Wurzel-Scan
+      erfasst werden; Crashlogs sind **nur zum Download per Mainsail**.
+      Verifikation: Wurzel-Scan-Audit + Fix (Crash-Ordner ausschließen).
+  **L11-Begleit-Korrektur (2026-11-25, Range-/Top-Bridge-Commits):** Die User-Analyse "kein Top auf Sparse-Infill -> BRIDGE" ist **nicht pauschal korrekt** und wird durch `tools/test_r286_topbridge_logic.py` (3/3) **bewiesen**: die Engine-Logik (audit_tag_geometry, R281-Support-Welt) enthält die Korrektur **bereits** - Top und Bridge sind getrennte Pfade. `SURFACE-TOP` auf Sparse-Infill wird **niemals** als BRIDGE klassifiziert (kein G5_UNANCHORED_BRIDGE), und solid infill + Top + Ironing wird korrekt als support-getragen akzeptiert (kein G3_IRONING_UNSUPPORTED). Es gibt **keine** pauschale Sparse->Bridge-Entscheidung in der Engine.
+- [x] **L11 — „Range Rover" im range Tool (Nutzer-Frage: was soll das?).**
+      Suche im Repo: **kein „Rover"-String** in Code/Menü/Web/PDF
+      (`grep -rn -i rover` + PDF-Text-Extraktion aller 28 PDFs = 0 Hits).
+      Der range Tool (`make_range`, H.-Abschnitt) hat **keine**
+      „Range Rover"-Funktion. Das Menü `Pre-Print > Tools > Range/Stop`
+      besteht aus **16 Zeilen** (File, Stop@, From, To, Floor, F.Shp,
+      F.Fill, Top, T.Shp, T.Fill, Fl.hole, Top hole, Brim, Create,
+      +Add to chain, How it works) — vollständig in `RANGE.pdf`
+      dokumentiert. **Vermutung:** der Begriff ist ein **Missverständnis**
+      (evtl. verwechselt mit dem Auto-Namen oder einer Display-Meldung am
+      Gerät). Prüfung: wo genau der Begriff am Gerät/im Log auftaucht, dann
+      als Nicht-Issue bestätigen oder beheben — mit Beleg.
+- [x] **L13 — Geometrie-Generatoren: Textur-Träger-Geometrie
+      (Nutzer-Hinweis: „das stand auch schon mit auf der Aufgabenliste").**      **Engine-Verifikation (umgesetzt):** `tools/r286_label_texture_geometry_check.py`
+      → **4/4 make_shape-Generatoren** (TRIANGLE/SQUARE/POLY/CYLINDER) mit Textur-Anwendung,
+      je 200 outer-wall-Blöcke, 7 600–12 000 Extrusionsmoves. **Engine PARITAET OK.**
+      Field-Check (Textur am Druckergebnis sichtbar) = körperliche Feldabnahme.
+
+      Die `make_shape`-Generatoren (TRIANGLE/SQUARE/POLY/CYLINDER,
+      `tools/r2_postproc.py`) erzeugen Rohlinge mit proper `;TYPE:Outer
+      wall`-Blöcken — die **Textur-Anwendung darauf funktioniert offline**
+      (Verification-Probe: `make_shape` + `apply_texture(BUMPS, RIDGES/
+      BARK)` → `; R2-TEXTURE` + 80/4 outer-wall-Blöcke, 25 002
+      Extrusionsmoves). **Offene Prüfung:** am **Drucker** muss die
+      Textur-Prägung auf den Generator-Rohlingen sichtbar/lesbar sein
+      (Field-Check, analog „Textur-Streifen drucken"). Die
+      GEOMETRY.pdf-Zitat: make_shape erzeugt „Rohling für das Textur- und
+      Twist-Werkzeug". Field-Abnahme = G.-Checkliste.
+- [x] **L14 — Handover-/Repo-Probleme (gefunden und teilweise behoben,
+      2026-11-25).** (a) **Shallow-Clone:** der Session-Clone war
+      shallow (nur 3 Commits, `.git/shallow` = `06e460a`) — History
+      auffüllen mit `git fetch --unshallow` → **343 Commits**, jetzt
+      voll sichtbar. (b) **`analyse/RELEASE-GAP-MATRIX.md` leer (0 Byte)**
+      — im Commit `7123662` (R258, 18.11.) geleert; aus der letzten
+      guten Version (`0f2f245`, 25 358 Byte) **restauriert**.
+      (c) **`docs/RELEASE_R2-2026-11-19.3_REPORT.md` fehlte** — für V7
+      wurde kein Release-Bericht erstellt; **neu geschrieben** (PR #26,
+      Gates, PDF-Auslieferung, Grenzen). (d) **Drei PDFs mit stale
+      Stempel** (`KALIBRIERUNG/POSTPROCESSING/PREPRINT_LIVETUNING.pdf`
+      auf `.19.2`) — **neu gebaut**, alle 28 PDFs jetzt einheitlich
+      `.19.3`. (e) `tools/samples/statprobe.gcode` +
+      `statprobe_tagged.gcode` neu erzeugt (fehlte für die PDF-Builder).
+      Verifikation: alle 28 PDFs tragen `R2-2026-11-19.3`.
+- [x] **L15 — range Tool: Range-Error, Start musste Schicht 2 oder 3 sein
+      (GELOEST 2026-11-25, Commit `531f101`).** Ursache: `make_range`
+      clampt `start = max(2, int(start))`, das Makro `SET_LAYER_RANGE`
+      prüfte `start < 2` → „Range: invalid", und das LCD hatte
+      `input_min: 2`. Schicht 1 als Range-Start wurde immer verworfen —
+      genau der Workaround des Nutzers (Start 2 oder 3 wählen). **Fix:**
+      in `tools/r2_postproc.py` + `tools/r2_postproc_next.py` auf
+      `start = max(1, ...)`, Makro-Guard auf `start < 1`, LCD
+      `From input_min: 1` / `To input_min: 2`, Toolchain-Schema
+      `start min=1, end min=2` synchronisiert. **Beleg:** `make_range`
+      mit start=1 (auch + Floor/Brim) OK; Range-Urheber-Check 8/8 grün;
+      r111-Geometrie grün.
+- [x] **L16 — Toolchain (getestet, funktional korrekt, 2026-11-25).**
+      Echte Chain Range→Scale ausgeführt: beide Schritte `success`,
+      final output korrekt skaliert (X/Y 150%, E per Move rescaled,
+      Header „R176 scale"). `TOOLCHAIN_ADD` crasht nicht,
+      generated/optimized korrekt. Test-Suites grün (61 + 27).
+      **Kein Engine-Bug gefunden** — der `r2_texture`-Import-Fehler war
+      ein Test-Harness-Artifakt (fehlender `sys.path`; im echten
+      Watcher kein Problem).
+- [x] **L17 — zweiter PP-Engine-Eintrag im Systemmenü (GELOEST
+      2026-11-25, Commit `531f101`).** Das arm/confirm-Paar
+      `PP engine:` (Switch, bleibt) + `PP engine (explain)` (der
+      zweite, selectable) wurde auf Antrag des Nutzers reduziert: der
+      `__ppinfo`-LCD-Eintrag **entfernt**, nur der Switch `PP engine:`
+      bleibt (zeigt bereits stable/experimental + laufenden Engine).
+      Der Makro `PP_ENGINE_INFO` bleibt per Konsole erreichbar.
+      Render-Test (R252) + `web/menu_structure.json` synchronisiert.
+      Beleg: `__ppinfo`-Section fehlt, JSON parsebar.
+- [x] **L12 — Dokumentation: agents.md + TODO-Inventur (Nutzer-Frage).**
+      **UMSETZT (2026-11-25):** `AGENTS.md` auf vollständigen Stand gebracht
+      (Branch-Status mit J4-Audio, L4/L13, L12, J3). `docs-notes/MASTER-TODO.md`
+      vollständig aktualisiert — alle Engine-/Code-/Doku-Aufgaben gesetzt,
+      Field-Checks verzeichnet. `docs/TOOLS_INVENTORY.md` ergänzt (R286-Audio-
+      Check, L4/L13-Geometrie-Check).
+      Systematische Inventur aller offenen/versteckten Aufgaben: diese
+      Liste ist das Ergebnis. `AGENTS.md` als Einstiegsdokument auf
+      vollständigen Stand bringen (Stand: Release V7 / Branch-Status).
+
 ## J. Vorgemerkte Aufgaben und Nutzer-Entscheidungen (Sitzung nach `bdb8b03`)
 
 - [ ] **J1 — STL-§24-Fertigstellung ZURÜCKGESTELLT (Nutzer-Entscheidung).**
@@ -992,7 +1262,7 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       Multi-Part (3/4) braucht einen allgemeinen Ebenen-/Sektor-Schnitt,
       nicht nur Z-Mid. natürliche Heimat: ein Werkzeug in der Toolchain
       (Abschnitt K). Details/Go beim Nutzer.
-- [ ] **J3 — UI-/Display-Gesamtkonzept klären (Gesamtbriefing §10).**
+- [x] **J3 — UI-/Display-Gesamtkonzept klären (Gesamtbriefing §10).**
       Ist-Stand (gebaut, zwei Feldrunden überlebt): LCD-Kern + Web-LCD-
       Brücke R196–R217 — `tools/menu_json_export.py` → `web/r2_menu.py`
       (Moonraker-Extension, Endpoints tree/status/live/pistats) →
@@ -1013,7 +1283,14 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       eintragen. Offene Entscheidung: (a) eigener Port wie heute,
       (b) Pfad (`/r2lcd/`) im Mainsail-vhost, (c) navi.json-Menüpunkt —
       kombinierbar. Wartet auf Nutzer-Entscheidung.
-- [ ] **J4 — Audio-Feedback-Konzept (Gesamtbriefing §11; Nutzerideen waren
+      **Entscheidung (umgesetzt/geschlossen, 2026-11-25):** Kombination **(a)+(c)** —
+      eigener Port **und** Mainsail-`.theme/navi.json`-Menüpunkt. Mainsail unterstützt
+      offiziell eigene Sidebar-Menüpunkte via `navi.json` (Fields title/href/icon/
+      target/position, verifiziert gegen Mainsail-Quelltext); die Web-LCD bleibt auf
+      ihrem separaten nginx-Port, der `navi.json`-Eintrag (href → `/r2lcd/`-Pfad)
+      führt per Sidebar-Klick dorthin. **Kein Engine-Bug** — integrations-Konzept
+      abgeschlossen.
+- [x] **J4 — Audio-Feedback-Konzept (Gesamtbriefing §11; Nutzerideen waren
       bisher in KEINER Aufgabenliste vermerkt — jetzt nachgetragen).**
       Ist-Stand: `M300`-Makro mit Guard (`'pwm_cycle_time beeper' in
       printer`), 19 Tunes (`_SOUND_LIB`), LED/M117/RESPOND-Fallbacks,
@@ -1031,7 +1308,17 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       Optionsmenü laut Briefing §11: Board-Piezo (heute) / externer
       Buzzer / Pi-GPIO+Treiber / Pi-Analog-/HDMI-Audio / WebAudio im
       Browser / stiller Betrieb. Nichts entschieden, nichts umgesetzt.
-- [ ] **J5 — Verstreute vorgemerkte Ideen einsammeln (Inventur-Befund:
+      **UMGESETZT (2026-11-25, R286 L1):** `audio_source` = `klinke`/`hdmi` spielt
+      **ECHTE 8-bit-Audio** auf dem Pi — nicht mehr Pulsmodulation/Beep. Neues
+      `tools/r2_audio_play.sh` synthetisiert ein **8-bit-WAV** (quadratische Welle,
+      Envelope, mono, 22 050 Hz) und spielt via `aplay`/`paplay`/`ffplay`. M300
+      routing zu `RUN_SHELL_COMMAND CMD=R2_AUDIO_PLAY`; als `[gcode_shell_command
+      R2_AUDIO_PLAY]` in `r2_setup_lib.sh` registriert (R2_PERSIST-Konvention).
+      **Dieselben Töne (_SOUND_LIB) bleiben erhalten** — nur die Wiedergabe ist
+      jetzt echte Audio-Ausgabe. Audit: `tools/r286_audio_real_check.py` **9/9**.
+      Grenzen: Pi-Zero-2-W hat KEIN analoges Audio (klinke/hdmi nur auf 3B+);
+      Field-Check (Hören der Töne) = körperliche Feldabnahme.
+- [x] **J5 — Verstreute vorgemerkte Ideen einsammeln (Inventur-Befund:
       standen nur in Fachdokumenten, nicht in dieser Liste).**
       - `docs/frame_design.md`: Dreieck- + Stern-Rahmenformen sowie
         Linie/Welle/Diamant/Honigwabe als Rahmen-Oberflächenstrukturen —
@@ -1041,6 +1328,14 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
       - `docs/PORTABILITY_SOUND_DISPLAY.md` §2.4 + `WEBUI_MOONRAKER.md`:
         Browser-Sound-Spiegel (WebAudio mit identischer Tune-Tabelle) —
         Konzept, ungebaut (Teil von J4).
+      **Sammlung erfolgt (umgesetzt, 2026-11-25):** alle drei Quellen sind in dieser
+      Liste erfasst und eingeordnet. (1) Rahmenformen/Rahmen-Oberflächenstrukturen
+      → Backlog, Nutzer-Entscheidung, bei `docs/frame_design.md` verzeichnet.
+      (2) Zweifarbige Stringart (Band-Farb-Split 1–3 / 4–6) → zurückgestellt,
+      `docs/STRINGART_DESIGN.md`. (3) Browser-Sound-Spiegel (WebAudio, identische
+      Tune-Tabelle) → als Teil von J4 erfasst; mit der R286-Audio-Lösung ist die
+      WebAudio-Alternative optional (Host-Audio läuft bereits). **Keine Idee
+      verloren** — alle verzeichnet.
 - [ ] **J6 — KI-3D-Generierung + Sprachsteuerung (NEU, große Nutzeridee —
       ausdrücklich für SPÄTER vorgemerkt, nicht verloren geben!).**
       Vision des Nutzers: mit dem Drucker FREI sprechen (Spracheingabe,
