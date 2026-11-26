@@ -762,8 +762,8 @@ Wörterbuch: Exit 0, 0 Verdachtsfälle. Keine neue Hardware-Abnahme.
 nur teilweise) in der Aufgabenliste — jetzt alle nachgetragen. Kein Punkt
 ist „versteckt", sie werden hier wie alle anderen bearbeitet und abgehakt.
 
-  **L1-Status (2026-11-25):** Beleg-Standort J4 (Audio-Feedback-Konzept). Die Install/Update-Dialog-Auswahl (Beep vs. Klinke/HDMI) bleibt eine **Nutzer-Entscheidung** (welche Quelle PRIMÄR gelistet soll) - Field-Check am Drucker, Code-Pfad steht.
-- [ ] **L1 — Tonausgabe auf dem Raspberry (Nutzer-Nachforderung, 2026-11-25).**
+  **L1-Status (2026-11-25, UMSETZT + COMMIT `6a8aed8`):** Install/Update-Dialog für den Audio-Ausgang **implementiert**: `SET_AUDIO_SOURCE`-Makro (beep/klinke/hdmi, Wert in `save_variables.audio_source`, Default `beep`), `M300`-Guard routen klinke/hdmi auf den **Host-Pfad** (kein `SET_PIN` -> MCU-Entlastung, Beep bleibt Board-Piezo), LCD-Dialog im Systemmenü (`menu __main __system __audiosrc`, 3 Quellen), Audit-Tool `tools/r286_audio_source_check.py` **5/5**. Grenze dokumentiert: Pi Zero 2 W hat keine Klinke/Analog-Audio (3B+ ja), HDMI via Display-Pfad. Field-Check am Drucker bleibt (höre die Auswahl).
+- [x] **L1 — Tonausgabe auf dem Raspberry (Nutzer-Nachforderung, 2026-11-25).**
       Installation/Update soll **wählen**: **Beep** (Board-Piezo/M300, wie
       heute) **oder** **Klinke/HDMI-Audio** (Raspberry-Ausgang, umgeht die
       MCU). Beleg-Standort: J4 (Audio-Feedback-Konzept) — dort als Konzept
