@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """TEXTURING.pdf — the documentation of the R2-D2 texture tool (user
 request, .136m round): how the wall displacement works, the EXACT mapping
-of every setting, all 40 patterns with previews sampled from the REAL
+of every setting, the patterns with previews sampled from the REAL
 pattern functions (tools/r2_texture.py _build_patterns - not redrawn,
-the images ARE the code output), and the 55 library presets listed per
-pattern.
+the images ARE the code output), and the 95 library presets listed per
+pattern (R286: 95 Muster, alle nahtlos).
 
 Content basis: tools/r2_texture.py (_build_patterns, apply_texture,
 pattern() cylinder mapping, fuzzy disc), macros/17_generator.cfg
@@ -113,7 +113,7 @@ class Doc(BaseDocTemplate):
 import r2_texture
 from r2_version import VERSION as _R2VER
 
-# the 27 library presets, read from the ONE truth (macros/17_generator.cfg)
+# the library presets (R286: 95), read from the ONE truth (macros/17_generator.cfg)
 _here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _cfg = open(os.path.join(_here, 'macros', '17_generator.cfg'),
             encoding='utf-8').read()

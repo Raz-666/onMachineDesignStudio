@@ -194,9 +194,11 @@ TOOL_REGISTRY = {
         'title': 'Range — Schichtfenster (make_range:1937)',
         'outputs': 1,
         'params': {
-            'start': {'type': 'int', 'min': 2, 'max': 9999, 'required': True,
+            # R286: Range-Start ab Schicht 1 erlaubt (war min=2, machte
+            # start=1 zu einem Schema-Verstoß - die Engine clampft nicht).
+            'start': {'type': 'int', 'min': 1, 'max': 9999, 'required': True,
                       'note': 'Menü-Maximum dynamisch (total_layers)'},
-            'end': {'type': 'int', 'min': 3, 'max': 9999, 'required': True,
+            'end': {'type': 'int', 'min': 2, 'max': 9999, 'required': True,
                     'note': 'Menü-Maximum dynamisch (total_layers)'},
             'floor': {'type': 'int', 'min': 0, 'max': 10,
                       'required': False, 'default': 0},

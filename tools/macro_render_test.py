@@ -3473,12 +3473,12 @@ _o82a, _i82a = _pp61.make_labels(['X'], w=30, h=10, font='PIXEL')
 _t82a = open(_o82a).read()    # read NOW - the SMOOTH call below writes the SAME filename
 _o82b, _i82b = _pp61.make_labels(['X'], w=30, h=10, font='SMOOTH')
 _t82b = open(_o82b).read()
-tests.append(('R116 PIXEL is a REAL font again (Press Start 2P strokes, not the R80 bitmap)',
-    _t82a != _t82b and 'font PIXEL' in _t82a, _t82a[:60]))
+tests.append(('R286 PIXEL retired: a PIXEL label falls back to SMOOTH (R80 + MCU risk)',
+    _t82a == _t82b and 'font SMOOTH' in _t82a, _t82a[:60]))
 _sr82 = open('tools/r2_postproc.py').read()
-tests.append(('R116 plot-text validators accept all 9 fonts',
-    _sr82.count("('SMOOTH', 'MONO', 'COND', 'NARROW', 'CAPS', 'SCRIPT', 'HAND', 'PLATE', 'PIXEL')") >= 3,
-    _sr82.count("('SMOOTH', 'MONO', 'COND', 'NARROW', 'CAPS', 'SCRIPT', 'HAND', 'PLATE', 'PIXEL')")))
+tests.append(('R116 plot-text validators accept all 8 fonts (PIXEL retired, R286)',
+    _sr82.count("('SMOOTH', 'MONO', 'COND', 'NARROW', 'CAPS', 'SCRIPT', 'HAND', 'PLATE')") >= 3,
+    _sr82.count("('SMOOTH', 'MONO', 'COND', 'NARROW', 'CAPS', 'SCRIPT', 'HAND', 'PLATE')")))
 
 # ============================== R116 tests: label job snapshots + new fonts ================
 # .88 field log: (a) the label queue stored ONLY the text - font/size were read
@@ -7447,8 +7447,9 @@ for _l90 in _g90a.split(chr(10)):
 _nubz90 = sorted(_z90x for _z90x, _c90x in _seen90.items() if _c90x >= 2)
 tests.append(('R90 frame closure: snap band = 2 ramp + 2 click layers at the '
     'plate top (R127 + R167 45-deg ramp - the nubs used to print as '
-    'free-standing walls in the groove air)',
-    _nubz90 == [5.48, 5.68, 5.88, 6.08], str(_nubz90)))
+    'free-standing walls in the groove air; R286: the 3-layer backplate '
+    'shifts the band one layer down)',
+    _nubz90 == [5.28, 5.48, 5.68, 5.88], str(_nubz90)))
 
 # --- R90.1a: multi-plate mechanics (Part B, trailer, no auto-start) -----------
 _g90b = open(_os90.path.join(_d90, _i90a['plates'][1]), encoding='utf-8').read()
@@ -9459,15 +9460,16 @@ import re as _re101
 _t101a = _re101.sub(
     r'EXCLUDE_OBJECT_START NAME=(BACKPLATE|STAND)[^\n]*\n.*?EXCLUDE_OBJECT_END[^\n]*\n',
     '', _t101a, flags=_re101.S)
-tests.append(('R101/R106 frame: 2 solid bottom skin layers, sparse body, '
-              'front band = the top skin',
-    _t101a.count(';TYPE:Bottom surface') == 2
+tests.append(('R101/R106/R286 frame: bottom = bed layer ALONE, top = top '
+              'layer ALONE, sparse body, front band = the top skin',
+    _t101a.count(';TYPE:Bottom surface') == 1
     and _t101a.count(';TYPE:Sparse infill') >= 20
     and 'INFILL-SPARSE' in _t101a.split('TYPES=')[1].split()[0]
     # R106 (field log .82, user TYPE map): the solid front band is the
     # frame's TOP skin - SURFACE-TOP belongs in TYPES and the file tags it
     and 'SURFACE-TOP' in _t101a.split('TYPES=')[1].split()[0]
-    and _t101a.count(';TYPE:Top surface') == 5,
+    # R286 (Befund 1): no stacked surfaces - one Bottom (bed), one Top
+    and _t101a.count(';TYPE:Top surface') == 1,
     'bottom %d sparse %d top %d' % (_t101a.count(';TYPE:Bottom surface'),
                                     _t101a.count(';TYPE:Sparse infill'),
                                     _t101a.count(';TYPE:Top surface'))))
@@ -9973,7 +9975,7 @@ _d106e = tempfile.mkdtemp()
 _seal106 = _pp.make_seal(bed=_BED106e, out_dir=_d106e)[0]
 _sealt = open(_seal106, encoding='utf-8').read()
 tests.append(('R106 tag audit SEAL: layer 1 = Bottom, last = Top, TYPES honest',
-    re.search(r';LAYER_CHANGE\n;Z:[\d.]+\nLAYER_MARK\n;TYPE:Bottom surface', _sealt)
+    re.search(r';LAYER_CHANGE\n;Z:[\d.]+\nLAYER_MARK\n(?:G0 Z[\d.]+ F\d+\n)?;TYPE:Bottom surface', _sealt)
     and ';TYPE:Top surface' in _sealt
     and 'SURFACE-BOTTOM' in _sealt.split('TYPES=')[1].split()[0], ''))
 _lbl106 = _pp.make_labels(['AUDIT'], bed=_BED106e, out_dir=_d106e)[0]
@@ -10847,12 +10849,17 @@ except ValueError:
 tests.append(('R170 handle without stamp -> clear refusal',
     _refused170, ''))
 try:
-    _pp61.make_labels(['A', 'B'], stamp=True, out_dir=_d170)
-    _refused170b = False
+    _o170b, _i170b = _pp61.make_labels(['A', 'B'], stamp=True, handle=1,
+                                      out_dir=_d170)
+    _o170bt = open(_o170b, encoding='utf-8').read()
+    _multi170 = (_i170b.get('handle_plate') is True
+                 and _o170bt.count('EXCLUDE_OBJECT_START NAME=GRIFF') >= 2
+                 and _o170bt.count('R168 socket ring') >= 2)
 except ValueError as _e170r:
-    _refused170b = 'exactly ONE label' in str(_e170r)
-tests.append(('R170 stamp with 2 labels -> refusal names the reason',
-    _refused170b, ''))
+    _multi170 = False
+tests.append(('R170/R286 stamp with 2 labels -> BOTH sockets + BOTH handles '
+              'on the plate (no more one-label refusal)',
+    _multi170, ''))
 
 # --- 6) watcher-side helpers -------------------------------------------
 tests.append(('R170 watcher: cfg parser + kwargs builder + moonraker json '
@@ -14140,7 +14147,6 @@ _ADDED135 = [
     '__main __gen __gfiles __s22',
     '__main __gen __gfiles __s23',
     '__main __gen __labels __job __stguard',
-    '__main __gen __labels __set __flp',
     '__main __gen __labels __set __gr',
     '__main __gen __labels __set __now',
     '__main __gen __labels __set __st',
@@ -14956,7 +14962,8 @@ _ADDED135 = [
     '__main __system __diag __doc',
     '__main __system __diag __where',
     '__main __system __pp',
-    '__main __system __ppinfo',
+    # R286: the second PP-engine row "PP engine (explain)" was REMOVED by
+    # user rule - only the switch "PP engine:" stays on the LCD.
     # R259: the toolchain preset chain (Pre-Print > Mods > Toolchain) -
     # preset picked as a FILE (SD browser .json click), 5 sections
     '__main __preprint __mods __toolchain',
@@ -16410,17 +16417,40 @@ _ta175 = open('macros/17_generator.cfg').read()
 _lcd175 = open('menus/lcd_menues.cfg').read()
 _pp175 = open('tools/r2_postproc.py').read()
 
-tests.append(('R175 library: 55 seamless patterns + FUZZY + MAP image wrap '
-    '(R238/R265/R266.2/R266.3: 6+6+7+9+6 more)',
-    len(_tx175.PATTERN_NAMES) == 55
-    and 'HONEYCOMB' in _tx175.PATTERN_NAMES and 'GLITCH' in _tx175.PATTERN_NAMES
-    and 'MAP' in _tx175.PATTERN_NAMES and 'MANDELBROT' not in _tx175.PATTERN_NAMES
-    and 'STONEWALL' in _tx175.PATTERN_NAMES and 'MAZE' in _tx175.PATTERN_NAMES
-    and 'PERFORATION' in _tx175.PATTERN_NAMES
-    and 'NETGRID' in _tx175.PATTERN_NAMES
-    and 'RINGS' in _tx175.PATTERN_NAMES
-    and 'OLDBARK' in _tx175.PATTERN_NAMES
-    and 'WRINKLE' in _tx175.PATTERN_NAMES,
+tests.append(('R175 library: 95 seamless patterns + FUZZY + MAP image wrap '\
+    '(R238/R265/R266.2/R266.3/R286: core + V2-Varianten + 30 decorative plastische 3D-Druck-Texturen)',\
+    len(_tx175.PATTERN_NAMES) == 95\
+    and 'HONEYCOMB' in _tx175.PATTERN_NAMES and 'GLITCH' in _tx175.PATTERN_NAMES\
+    and 'MAP' in _tx175.PATTERN_NAMES and 'MANDELBROT' not in _tx175.PATTERN_NAMES\
+    and 'STONEWALL' in _tx175.PATTERN_NAMES and 'MAZE' in _tx175.PATTERN_NAMES\
+    and 'PERFORATION' in _tx175.PATTERN_NAMES\
+    and 'NETGRID' in _tx175.PATTERN_NAMES\
+    and 'RINGS' in _tx175.PATTERN_NAMES\
+    and 'OLDBARK' in _tx175.PATTERN_NAMES\
+    and 'WRINKLE' in _tx175.PATTERN_NAMES\
+    and 'RIDGES_V2' in _tx175.PATTERN_NAMES\
+    and 'WAVES_V2' in _tx175.PATTERN_NAMES\
+    and 'GRID_V2' in _tx175.PATTERN_NAMES\
+    and 'CHECKER_V2' in _tx175.PATTERN_NAMES\
+    and 'HEX_V2' in _tx175.PATTERN_NAMES\
+    and 'BARK_V2' in _tx175.PATTERN_NAMES\
+    and 'LEATHER_V2' in _tx175.PATTERN_NAMES\
+    and 'TILES_V2' in _tx175.PATTERN_NAMES\
+    and 'PARQUET_V2' in _tx175.PATTERN_NAMES\
+    and 'FABRIC_V2' in _tx175.PATTERN_NAMES\
+    and 'PETAL' in _tx175.PATTERN_NAMES\
+    and 'PETAL_V2' in _tx175.PATTERN_NAMES\
+    and 'LOTUS' in _tx175.PATTERN_NAMES\
+    and 'PEBBLE' in _tx175.PATTERN_NAMES\
+    and 'GALAXY' in _tx175.PATTERN_NAMES\
+    and 'BRAID' in _tx175.PATTERN_NAMES\
+    and 'QUILT' in _tx175.PATTERN_NAMES\
+    and 'GEMSTONE' in _tx175.PATTERN_NAMES\
+    and 'MOSAIC' in _tx175.PATTERN_NAMES\
+    and 'PEARL' in _tx175.PATTERN_NAMES\
+    and 'LAVA' in _tx175.PATTERN_NAMES\
+    and 'ZEBRA' in _tx175.PATTERN_NAMES\
+    and 'FEATHER' in _tx175.PATTERN_NAMES,\
     str(len(_tx175.PATTERN_NAMES))))
 # Seam-Beweis: der Sprung am Umfangs-Wrap ist nie groesser als im Feldinneren
 import math as _m175
@@ -19346,9 +19376,9 @@ _m252 = {k: v for k, v in _re73.findall(
     _lcd252)}
 tests.append(('R252: the post-processor switch is on the LCD (System menu) - '
               'stable / EXPERIMENTAL plus the running engine, all through '
-              'TOGGLE_PP_ENGINE, with an explain row next to it',
+              'TOGGLE_PP_ENGINE, with NO second explain row (R286 removed it)',
     'TOGGLE_PP_ENGINE' in _m252.get('__main __system __pp', '')
-    and 'PP engine (explain)' in _m252.get('__main __system __ppinfo', '')
+    and '__main __system __ppinfo' not in _m252
     and 'pp_engine' in _m252.get('__main __system __pp', '')
     and 'print_stats' not in _m252.get('__main __system __pp', ''), ''))
 tests.append(('R252: the evidence pack has an LCD home (System > Diagnostics) '
@@ -20030,11 +20060,11 @@ _txp266 = {}
 for _key266 in ('tx_names', 'tx_codes', 'tx_descs'):
     _m266b = _re175.search(r'variable_%s: (\[.*?\])\n' % _key266, _ta266b)
     _txp266[_key266] = _ast266b.literal_eval(_m266b.group(1)) if _m266b else []
-tests.append(('R266.2 registration: _TX_PATTERN carries 55 names/codes/descs '
+tests.append(('R266.2 registration: _TX_PATTERN carries 95 names/codes/descs '
     'in engine order (LCD picker + RESPOND infos stay congruent)',
-    len(_txp266['tx_names']) == 55
-    and len(_txp266['tx_codes']) == 55
-    and len(_txp266['tx_descs']) == 55
+    len(_txp266['tx_names']) == 95
+    and len(_txp266['tx_codes']) == 95
+    and len(_txp266['tx_descs']) == 95
     and _txp266['tx_codes'] == list(_tx175.PATTERN_NAMES)
     and all(len(d) > 40 for d in _txp266['tx_descs']),
     'names %d codes %d descs %d' % (
@@ -20044,12 +20074,12 @@ tests.append(('R266.2 registration: _TX_PATTERN carries 55 names/codes/descs '
 _lcd266b = _lcd175
 tests.append(('R266.2 LCD page cap: DYNAMIC from tx_codes|length - the old '
     'hard cap (4 pages / 27 patterns) had hidden everything beyond slot '
-    '32 since R265; 55 patterns need 7 pages and every one is reachable',
+    '32 since R265; 95 patterns need 12 pages and every one is reachable',
     _lcd266b.count('tx_codes|length') >= 2
     and '27 patterns total' not in _lcd266b
     and 'of 4 -' not in _lcd266b
-    and (55 - 1) // 8 == 6,
-    'pages needed %d' % ((55 - 1) // 8 + 1)))
+    and (95 - 1) // 8 == 11,
+    'pages needed %d' % ((95 - 1) // 8 + 1)))
 
 _tc266b = open('tools/toolchain.py', encoding='utf-8').read()
 tests.append(('R266.2 toolchain: TEXTURE_PATTERNS congruent with the engine '
@@ -20079,9 +20109,9 @@ tests.append(('R266.2 presets: 9 organic looks in the library - Alter Stamm '
 # seamless stays the law: the R175 seam sampler already covers every
 # PATTERN_NAMES entry - this run PROVES it ran over 49 (a forgotten
 # registration would silently skip the new ones)
-tests.append(('R266.2 seam law: the R175 seam sampler covers all 55 '
-    '(the 9 organics close at the wrap and the top too)',
-    len(_tx175.PATTERN_NAMES) == 55
+tests.append(('R266.2 seam law: the R175 seam sampler covers all 95 '
+    '(the 9 organics close at the wrap and the top too, plus R286 decorative plastische 3D-Druck-Texturen)',
+    len(_tx175.PATTERN_NAMES) == 95
     and all(_p266s in _tx175.PATTERN_NAMES for _p266s in (
         'RINGS', 'OAK', 'BEECH', 'KNOT', 'OLDBARK', 'LEATHER',
         'ORANGE', 'CRACKS', 'WRINKLE')),

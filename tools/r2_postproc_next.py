@@ -53,7 +53,6 @@ import sys
 import time
 import zlib
 import struct
-import gzip        # R216: _stl_export opens .gz sources (NameError in .136m)
 import json
 import ast
 
@@ -730,6 +729,7 @@ def audit_tag_geometry(path, cell_mm=1.5, fil_dia=1.75, max_conflicts=50):
     """
     cell_mm = max(0.5, float(cell_mm))
     fil_area = math.pi * (max(0.5, float(fil_dia)) * 0.5) ** 2
+    import gzip  # R286: lazy (Generator-only .gz)
     opener = gzip.open if str(path).lower().endswith('.gz') else open
 
     x = y = 0.0
@@ -1654,6 +1654,11 @@ class _GenE:
         self.ret_mm = 0.6         # R87.2: retract over open holes (direct drive)
         self.ret_feed = 2400
         self.g11_pending = False  # R231: write G11 before the first ink line
+        # R286 MCU-OPTIMIZATION: segment-merge state
+        self._last_dir = None     # (dx, dy) of the last emitted G1 move
+        self._last_feed = 0.0
+        self._last_e_per_mm = 0.0
+        self._merged_seg = 0
         if not e_rel:
             out.append('G92 E0   ; R2-RANGE: generated geometry E starts at 0')
 
@@ -1702,12 +1707,43 @@ class _GenE:
             # ends right here - the first generated ink line prints wet
             self.out.append('G11   ; R231: unretract after the transition')
             self.g11_pending = False
+        # R286 MCU-OPTIMIZATION: merge this move with the previous one if
+        # they are collinear (same direction, same feed, same E-per-mm).
+        if (self.px is not None and self.py is not None
+                and self._last_dir is not None
+                and abs(feed - self._last_feed) < 1e-6
+                and abs(e_per_mm - self._last_e_per_mm) < 1e-9):
+            ldx, ldy = self._last_dir
+            dx = x1 - self.px; dy = y1 - self.py
+            ld = math.hypot(ldx, ldy); cd = math.hypot(dx, dy)
+            if (ld > 1e-6 and cd > 1e-6
+                    and abs(dx * ldy - dy * ldx) / (ld * cd) < 1e-4
+                    and (dx * ldx + dy * ldy) > 0):
+                _li = len(self.out) - 1
+                if _li >= 0 and self.out[_li].startswith('G1 '):
+                    if self.e_rel:
+                        _new_e = float(self.out[_li].split('E')[-1].split()[0]) + e
+                        self.out[_li] = 'G1 X%.3f Y%.3f E%.5f F%d' % (x1, y1, _new_e, feed)
+                    else:
+                        self.acc += e
+                        _prev_e = float(self.out[_li].split('E')[-1].split()[0])
+                        self.out[_li] = 'G1 X%.3f Y%.3f E%.5f F%d' % (x1, y1, _prev_e + e, feed)
+                    self._merged_seg = getattr(self, '_merged_seg', 0) + 1
+                    self.px, self.py = x1, y1
+                    self._last_dir = (dx, dy)
+                    self._last_feed = feed
+                    self._last_e_per_mm = e_per_mm
+                    return
         if self.e_rel:
             self.out.append('G1 X%.3f Y%.3f E%.5f F%d' % (x1, y1, e, feed))
         else:
             self.acc += e
             self.out.append('G1 X%.3f Y%.3f E%.5f F%d' % (x1, y1, self.acc, feed))
         self.px, self.py = x1, y1
+        dx = x1 - x0; dy = y1 - y0
+        self._last_dir = (dx, dy)
+        self._last_feed = feed
+        self._last_e_per_mm = e_per_mm
 
     def loop(self, pts, e_per_mm, feed):
         self.move(pts[0][0], pts[0][1], 4800)
@@ -2011,7 +2047,12 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
     body through the Z/E shift straight into the output file. Output is
     byte-identical to the previous builder (R81 golden test).
     """
-    start = max(2, int(start))
+    # R286 field fix: the start layer was clamped to >= 2 (legacy), so a
+    # range that legitimately begins on layer 1 was refused with "Range:
+    # invalid" - the user had to pick layer 2 or 3 as the start every time.
+    # Layer 1 is a valid range start (it is the first printed layer): clamp
+    # to >= 1 and let the end > start check below guard the window.
+    start = max(1, int(start))
     end_raw = int(end)
 
     # ---- pass A: stream once - marks, modal state, anchors, trackers ------
@@ -6179,6 +6220,13 @@ def label_preview(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4,
     all_lines = []
     for t in texts:
         ls = [x.strip() for x in t.split('~') if x.strip()]
+        # R286 (Befund: kyrillische / nicht-unterstuetzte Zeichen im Label):
+        # Zeichen ausserhalb LABEL_CHARSET werden SICHER zu '?' ersetzt, damit
+        # sie nicht ungestuerd in die Render-Geometrie gelangen (ein kyrill-
+        #isches 'T' U+0422 sah wie ein lateinisches 'T' aus und landete im
+        # G-Code). Konsistent mit der Datei-Lese-Sanitisierung.
+        _lc_allowed = set(LABEL_CHARSET)
+        ls = [''.join(ch if ch in _lc_allowed else '?' for ch in x) for x in ls]
         if not ls:
             raise ValueError('label "%s" has no text' % t[:16])
         if len(ls) > 5:
@@ -6816,6 +6864,13 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
     all_lines = []
     for t in texts:
         ls = [x.strip() for x in t.split('~') if x.strip()]
+        # R286 (Befund: kyrillische / nicht-unterstuetzte Zeichen im Label):
+        # Zeichen ausserhalb LABEL_CHARSET werden SICHER zu '?' ersetzt, damit
+        # sie nicht ungestuerd in die Render-Geometrie gelangen (ein kyrill-
+        #isches 'T' U+0422 sah wie ein lateinisches 'T' aus und landete im
+        # G-Code). Konsistent mit der Datei-Lese-Sanitisierung.
+        _lc_allowed = set(LABEL_CHARSET)
+        ls = [''.join(ch if ch in _lc_allowed else '?' for ch in x) for x in ls]
         if not ls:
             raise ValueError('label "%s" has no text' % t[:16])
         if len(ls) > 5:
@@ -9863,7 +9918,10 @@ def _sync_root_links(directory, quiet=True):
     cand = {}
     base_depth = root.rstrip(os.sep).count(os.sep)
     for dp, dns, fns in os.walk(root):
-        dns[:] = [d for d in dns if not d.startswith('.')]
+        # R286 (L10): the crash_archive folder holds crash snapshots for
+        # Mainsail download only - never expose them as printable SD links.
+        dns[:] = [d for d in dns if not d.startswith('.')
+                  and d.lower() != 'crash_archive']
         if dp.rstrip(os.sep).count(os.sep) - base_depth >= LINK_MAX_DEPTH:
             dns[:] = []
         if os.path.realpath(dp) == rroot:
@@ -15764,6 +15822,7 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
     arcs_seen = [0]
     types_seen = [False]   # R253 lesson: a file with NO ;TYPE: lines at all
                            # is not 'all CUSTOM' - nothing gets excluded then
+    import gzip  # R286: lazy (Generator-only .gz)
     opener = gzip.open if str(src).lower().endswith('.gz') else open
 
     def _see270(x, y):
@@ -22649,6 +22708,7 @@ def _stl_export(directory, rel, out_dir=None):
     src = os.path.join(directory, rel)
     if not os.path.isfile(src):
         raise FileNotFoundError('file not found: %s' % rel)
+    import gzip  # R286: lazy (Generator-only .gz)
     opener = gzip.open if src.lower().endswith('.gz') else open
     with opener(src, 'rt', errors='replace') as f:
         raw = f.read()
@@ -31100,36 +31160,7 @@ def watch(directory, interval=5.0, once=False):
                             # only ever reached the poll log, never the LCD.
                             try:
                                 _nl62 = 0
-                                with open(sp, errors='replace') as _fh62:
-                                    for _ln62 in _fh62:
-                                        if _ln62.startswith(';LAYER_CHANGE'):
-                                            _nl62 += 1
-                                if _nl62 > 0:
-                                    if _re62 > _nl62:
-                                        _moonraker_gcode(
-                                            'RESPOND MSG="[range] end %d clamped to %d (file has %d layers)"'
-                                            % (_re62, _nl62, _nl62)
-                                            + '\\nM117 Range: end %d -> %d'
-                                            % (_re62, _nl62))
-                                        _re62 = _nl62
-                                    if _rs62 > _re62:
-                                        _moonraker_gcode(
-                                            'RESPOND MSG="[range] start %d beyond end %d - nothing to cut"'
-                                            % (_rs62, _re62)
-                                            + '\\nM117 Range: bad window'
-                                            + '\\n_SOUND_LIB NAME=r2_error')
-                                        continue
-                            except Exception as _e62g:              # noqa: BLE001
-                                print(f'[range] layer pre-scan failed: '
-                                      f'{_e62g!r}', flush=True)
-                            # R283 range-guard: read the file's real layer
-                            # count FIRST and clamp the window before the
-                            # job starts - make_range's late ValueError
-                            # ('range 6..750 invalid, file has 100 layers')
-                            # only ever reached the poll log, never the LCD.
-                            try:
-                                _nl62 = 0
-                                with open(sp, errors='replace') as _fh62:
+                                with open(src_path, errors='replace') as _fh62:
                                     for _ln62 in _fh62:
                                         if _ln62.startswith(';LAYER_CHANGE'):
                                             _nl62 += 1
@@ -33058,6 +33089,7 @@ def watch(directory, interval=5.0, once=False):
                                      or 'GRID'),
                     bump_scale=float(rv.get('texture_scale', 10.0) or 10.0),
                     bump_amp=float(rv.get('texture_amp', 0.35) or 0.35),
+                    blur=float(rv.get('texture_blur', 0.0) or 0.0),
                     direction=str(rv.get('texture_dir', 'OUT') or 'OUT'),
                     seed=int(float(rv.get('texture_seed', 91) or 91)),
                     zsize=float(rv.get('texture_zsize', 0) or 0) or None,
@@ -33070,6 +33102,13 @@ def watch(directory, interval=5.0, once=False):
                     or 'CENTER',
                     tilt=str(rv.get('texture_tilt', 'OFF') or 'OFF').upper()
                          in ('1', 'ON', 'TRUE', 'YES'),
+                    scale_xy_mid=float(rv.get('texture_scale_xy_mid', 100.0)
+                                       or 100.0),
+                    scale_xy_pos=float(rv.get('texture_scale_xy_pos', 50.0)
+                                       or 50.0),
+                    scale_xy_curve=str(rv.get('texture_scale_xy_curve', 'bezier')
+                                       or 'bezier').strip().strip('\'"').lower()
+                         or 'bezier',
                     bed=_bed91,
                     version=max(1, min(int(float(
                         rv.get('gen_version', 1) or 1)), 99)))
