@@ -349,28 +349,56 @@ Der Loft ist keine allgemeine Spiralrekonstruktion; aktiver Export unverändert.
 Diese Branch führt die **R286-Feld-Korrekturen** auf V7 (`R2-2026-11-19.3`):
 
 - **Range-Tool (L11):** `make_range` akzeptiert beliebig hohe Schichten;
-  der R283-Pre-Scan-Clamp war **tott** (offene `sp`-Referenz → NameError
-  stillschweigend gefangen). Fix: `sp` → `src_path` in **beiden** Engines,
+  der R283-Pre-Scan-Clamp war **tott** (offene `sp`-Referenz -> NameError
+  stillschweigend gefangen). Fix: `sp` -> `src_path` in **beiden** Engines,
   Duplizierung des Clamp-Blocks in `r2_postproc_next.py` entfernt. Start-Clamp
-  `max(1, …)` (Commit `531f101`). LCD `__from` min=1 / `__to` min=2,
+  `max(1, ...)` (Commit `531f101`). LCD `__from` min=1 / `__to` min=2,
   Toolchain-Schema synchron.
 - **Velocity Live-Tuning:** `SET_LIVE_VELOCITY` nutzt jetzt `SPEED_SCALE`
-  (Prozent, 100=normal) — die Änderung wirkt **sichtbar** am Druck, nicht nur
-  als Kap. LCD-Menü auf Prozent-Semantik (Bereich 50–300).
-- **PP_ENGINE_INFO entfernt** (reines Read-only-Info-Makro, „nix auswählbar").
+  (Prozent, 100=normal) - die Anderung wirkt **sichtbar** am Druck, nicht nur
+  als Kap. LCD-Menü auf Prozent-Semantik (Bereich 50-300).
+- **PP_ENGINE_INFO entfernt** (reines Read-only-Info-Makro, "nix auswählbar").
   Der PP-Engine-Toggle bleibt.
 - **Top/Bridge-Logik (User-Korrektur):** belegt via
-  `tools/test_r286_topbridge_logic.py` (3/3) — die Engine enthält die
+  `tools/test_r286_topbridge_logic.py` (3/3) - die Engine enthält die
   Korrektur bereits: Top auf Sparse-Infill wird **nie** als Bridge
   klassifiziert; solid+Top+Ironing ist support-getragen.
 - **L2 LED:** Druck-Zustand setzt jetzt **statisches Monochrom** (SET_LED),
   kein `r2_printing`-Animation (User-Regel: einfarbig, ohne Effekt).
 - **L10:** `crash_archive`-Ordner aus dem Wurzel-Scan/Link-Sync ausgeschlossen.
 - **L9 (Engine-Teil):** Scale+Range-Chain offline verifiziert (success,
-  Output non-leer, valid) — kein Absturz vom Engine-Code.
+  Output non-leer, valid) - kein Absturz vom Engine-Code.
+- **Textur-Presets auf 95 erweitert (R286, User-Anforderung):**
+  `PATTERN_NAMES` (`tools/r2_texture.py`) = **95 Muster** = **95 Presets** in
+  `variable_texture_lib` + `tx_codes` + `tx_names` + `tx_descs`
+  (`macros/17_generator.cfg`), Parität 95/95/95. **30 neue decorative
+  plastische 3D-Druck-Texturen** (PETAL, LOTUS, PEBBLE, GALAXY, BRAID, QUILT,
+  GEMSTONE, SHELL, CORAL, MOSAIC, PEARL, VELVET, STRATA, BASALT, MARBL,
+  GRANIET, TERRA, WALNUT, MAPLE, ZEBRA, LEOPARD, PYTHON, LAVA, ICE, MOSS,
+  FEATHER ...) + 13 Kernfamilien mit `_V2`-Varianten (>=2 Presets pro Typ).
+  **Alle nahtlos/endlos** (MAP bildbasiert ausgenommen). Vorschau:
+  `docs/textur-matrix-ist.png` (alle 94) + `docs/textur-matrix-soll.png`.
+- **ScaleXY-Mittel-Skalierung (R286):** `apply_texture` + Caller
+  (`r2_postproc(_next).py`) + LCD-Menüs `__sxymid`/`__sxypos`/`__sxycurve`.
+  Mittlere Skalierung in 1%-Schritten, Z-Position in %, aktiv 5%<pos<95%,
+  linear/Bezier-Ubergang bottom->middle->top. Skaliert das Relief, Periode
+  bleibt integer -> nahtlos. Beleg: `tools/r286_scalexy_texture_check.py`
+  **17/17**.
+- **Konsolen-Spam reduziert (DOCTOR-Pack 19.3):** Nozzle-Work-Light beim
+  Drucken **statisch** (`_NOZZLE_SET ON=1`), kein animierter 6-fps-Loop ->
+  "Neopixel update did not succeed"-Spam (397x im Raw-Tail) eliminiert.
+- **L7 Generator-Audit UMSETZT:** `tools/r286_generator_audit.py` **15/15**
+  (alle 19 Generator-Makros, Valid Shapes, Parameter, Toolchain-Vertrag).
+- **L3/L5/L6 Label-Render-Audit UMSETZT:**
+  `tools/r286_label_render_audit.py` **10/10** (Grundlinie/Cap-Height,
+  Uniform-Scale, Kleinbuchstaben-Konformität, grow/fixed, stamp+Spiegelung).
+- **L8 Watcher-Speicher-Audit UMSETZT:**
+  `tools/r286_watcher_mem_audit.py` **10/10** (Caches bounded, Messmethodik;
+  RAM-Messung am Drucker bleibt Field-Check).
 
 Feld-Checks am Drucker (RAM-Messung L8, Display-Angaben L9, Audio-Auswahl L1,
-Label-Ausbringung L3–L6) sind in `docs-notes/MASTER-TODO.md` §L verzeichnet.
+Label-Ausbringung L3-L6, L4-Label-L2) sind in `docs-notes/MASTER-TODO.md` §L
+verzeichnet. `TEXTURING.pdf` (95 Presets) + `LABELS.pdf` neu gerendert.
 
 ## Historie
 
