@@ -1734,6 +1734,211 @@ def _build_patterns(k, n, seed, img, map_mode='TILE', map_pos='CENTER',
         lambda s, t: math.cos(two_pi * s * k) * math.cos(two_pi * t * n)
         + math.sin(two_pi * s * k) * math.sin(two_pi * t * n))
 
+
+    # ---- R286 II: decorative plastische 3D-Druck-Texturen (seamless) -------
+    # Alle Muster sind periodisch in s und t (ganze k/n) -> endlos nahtlos.
+    # Keine flachen Linien, sondern plastische Relief-Strukturen.
+
+    # PETAL - flower petals radial (plastische Blumenblaette)
+    pats['PETAL'] = (
+        lambda s, t: math.cos(two_pi * (s * k * 6.0)) ** 2
+        * math.cos(two_pi * (t * n)) ** 2
+        * (0.6 + 0.4 * math.sin(two_pi * s * k)))
+    # PETAL_V2 - tiefere, scharfe Blatt-Kanten
+    pats['PETAL_V2'] = (
+        lambda s, t: _tri(s * k * 6.0) * math.cos(two_pi * t * n)
+        * (0.7 + 0.3 * math.sin(two_pi * s * k * 2)))
+
+    # LOTUS - lotus-blatt geschichtete Blatt-Rippen
+    def _lotus(s, t):
+        r = math.cos(two_pi * s * k * 4.0) ** 2
+        rib = math.cos(two_pi * t * n * 2.0)
+        return r * rib * (0.5 + 0.5 * math.sin(two_pi * s * k))
+    pats['LOTUS'] = _lotus
+
+    # PEBBLE - glatte Kieselsteine (Weich-Abstandsfeld)
+    def _pebble(s, t):
+        cols, rows = max(2, k * 2), max(2, n * 2)
+        ox = (s * k * 2) - int(s * k * 2) - 0.5
+        oy = (t * n * 2) - int(t * n * 2) - 0.5
+        d = math.sqrt(ox * ox + oy * oy)
+        return math.cos(two_pi * min(d, 0.7) / 0.7)
+    pats['PEBBLE'] = _pebble
+    # PEBBLE_V2 - Kiesel mit Schatten-Nun (tiefer)
+    def _pebble_v2(s, t):
+        cols, rows = max(2, int(k * 2.4)), max(2, int(n * 2.4))
+        ox = (s * cols) - int(s * cols) - 0.5
+        oy = (t * rows) - int(t * rows) - 0.5
+        d = math.sqrt(ox * ox + oy * oy)
+        return math.cos(two_pi * d / 0.6) * (0.5 + 0.5 * math.sin(two_pi * s * k))
+    pats['PEBBLE_V2'] = _pebble_v2
+
+    # GALAXY - wirbelnde Galaxie (spirale)
+    def _galaxy(s, t):
+        ang = s * k * two_pi * 2.0
+        rad = math.cos(two_pi * t * n) * 0.5 + 0.5
+        return math.sin(ang + rad * two_pi * 3.0) * (0.6 + 0.4 * rad)
+    pats['GALAXY'] = _galaxy
+
+    # CRUST - brotkruemliche Kruste
+    pats['CRUST'] = (
+        lambda s, t: (math.sin(two_pi * s * k) * 0.5
+                      + math.sin(two_pi * t * n) * 0.5
+                      + math.sin(two_pi * (s * k + t * n)) * 0.3)
+                     * (0.5 + 0.5 * math.sin(two_pi * s * k * 4.0)))
+
+    # BRAID - geflochtene Zopfe
+    def _braid(s, t):
+        a = math.sin(two_pi * s * k) * 0.7
+        b = math.sin(two_pi * (s * k + t * n * 2.0)) * 0.7
+        return (a + b) * (0.6 + 0.4 * math.cos(two_pi * t * n))
+    pats['BRAID'] = _braid
+    # BRAID_V2 - drei-Zopfen-Geflecht
+    def _braid_v2(s, t):
+        a = math.sin(two_pi * s * k * 3.0)
+        b = math.sin(two_pi * (s * k * 3.0 + t * n * 2.0))
+        c = math.sin(two_pi * (s * k * 3.0 - t * n * 2.0))
+        return (a + b + c) / 3.0 * (0.6 + 0.4 * math.cos(two_pi * t * n))
+    pats['BRAID_V2'] = _braid_v2
+
+    # QUILT - quilted Diamond-Muster
+    pats['QUILT'] = (
+        lambda s, t: math.cos(two_pi * (abs(s * k - 0.5) * 2.0
+                                         + abs(t * n - 0.5) * 2.0))
+                     * (0.6 + 0.4 * math.sin(two_pi * s * k)))
+
+    # GEMSTONE - edelstein-Facetten
+    def _gemstone(s, t):
+        u = abs(((s * k * 4.0) % 1.0) - 0.5) * 2.0
+        v = abs(((t * n * 4.0) % 1.0) - 0.5) * 2.0
+        return math.cos(two_pi * (u + v) / 1.0) * (0.6 + 0.4 * math.sin(two_pi * s * k * 2.0))
+    pats['GEMSTONE'] = _gemstone
+
+    # SHELLFISH - muschel-Rippen
+    pats['SHELL'] = (
+        lambda s, t: math.cos(two_pi * s * k * 5.0)
+                     * math.cos(two_pi * t * n)
+                     * (0.6 + 0.4 * math.sin(two_pi * s * k)))
+
+    # CORAL - korallen-Nodulen
+    def _coral(s, t):
+        u = (s * k * 2.0) - int(s * k * 2.0) - 0.5
+        v = (t * n * 2.0) - int(t * n * 2.0) - 0.5
+        d = math.sqrt(u * u + v * v)
+        return math.cos(two_pi * d / 0.8) * (0.5 + 0.5 * math.sin(two_pi * s * k))
+    pats['CORAL'] = _coral
+
+    # MOSAIC - mosaik-Fugen
+    def _mosaic(s, t):
+        gs, gt = int(s * k * 4.0), int(t * n * 4.0)
+        offset = (gt & 1) * 0.5
+        x = (s * k * 4.0) - gs - offset
+        y = (t * n * 4.0) - gt
+        d = max(abs(x), abs(y))
+        return math.cos(two_pi * (d / 0.4))
+    pats['MOSAIC'] = _mosaic
+
+    # PEARL - perlen-Punkte
+    def _pearl(s, t):
+        u = (s * k * 3.0) - int(s * k * 3.0) - 0.5
+        v = (t * n * 3.0) - int(t * n * 3.0) - 0.5
+        d = math.sqrt(u * u + v * v)
+        return math.cos(two_pi * d / 0.5)
+    pats['PEARL'] = _pearl
+
+    # VELVET - velvet-Nap (weiches Flor)
+    pats['VELVET'] = (
+        lambda s, t: ((math.sin(two_pi * s * k * 6.0)
+                      * math.sin(two_pi * t * n * 6.0)
+                      + math.sin(two_pi * (s + t) * k * 3.0))
+                     * 0.4 * (0.5 + 0.5 * math.cos(two_pi * s * k))))
+
+    # STRATA - sedimentary Schichten
+    pats['STRATA'] = (
+        lambda s, t: _tri(t * n * 2.0) * (0.6 + 0.4 * math.sin(two_pi * s * k)))
+
+    # BASALT - basalt-Spalten
+    pats['BASALT'] = (
+        lambda s, t: (math.sin(two_pi * s * k * 4.0) * 0.5
+                      + math.sin(two_pi * (s * k * 4.0 + t * n)) * 0.5)
+                     * (0.5 + 0.5 * math.cos(two_pi * t * n)))
+
+    # MARBL - marmor-Adern
+    def _marbl(s, t):
+        v = math.sin(two_pi * (s * k * 2.0 + math.sin(two_pi * t * n) * 0.5))
+        return v * (0.5 + 0.5 * math.sin(two_pi * s * k))
+    pats['MARBL'] = _marbl
+
+    # GRANIET - granite-Speck
+    def _granite(s, t):
+        n1 = math.sin(two_pi * s * k * 12.0) * math.sin(two_pi * t * n * 12.0)
+        n2 = math.sin(two_pi * s * k * 20.0) * math.sin(two_pi * t * n * 20.0)
+        return (n1 + n2) * 0.25 * (0.5 + 0.5 * math.cos(two_pi * s * k))
+    pats['GRANIET'] = _granite
+
+    # TERRA - terracotta-Risse
+    pats['TERRA'] = (
+        lambda s, t: math.cos(two_pi * (s * k + t * n))
+                     * math.cos(two_pi * (s * k * 2.0 - t * n))
+                     * (0.6 + 0.4 * math.sin(two_pi * s * k)))
+
+    # WALNUT - walnuss-Maserung
+    pats['WALNUT'] = (
+        lambda s, t: (math.sin(two_pi * s * k * 3.0) * 0.6
+                      + math.sin(two_pi * s * k * 7.0) * 0.4)
+                     * (0.5 + 0.5 * math.sin(two_pi * t * n)))
+
+    # MAPLE - maple-Holz
+    pats['MAPLE'] = (
+        lambda s, t: (math.sin(two_pi * s * k * 2.0)
+                      + math.sin(two_pi * s * k * 5.0) * 0.5)
+                     * math.cos(two_pi * t * n) * 0.5)
+
+    # ZEBRA - zebra-Streifen (tiefes Relief)
+    pats['ZEBRA'] = (
+        lambda s, t: _tri(s * k * 2.0) * (0.7 + 0.3 * math.sin(two_pi * t * n)))
+
+    # LEOPARD - leopard-Punkte
+    def _leopard(s, t):
+        u = (s * k * 3.0) - int(s * k * 3.0) - 0.5
+        v = (t * n * 3.0) - int(t * n * 3.0) - 0.5
+        d = math.sqrt(u * u + v * v)
+        return math.cos(two_pi * d / 0.4) * (0.5 + 0.5 * math.sin(two_pi * s * k))
+    pats['LEOPARD'] = _leopard
+
+    # PYTHON - python-Schuppen
+    def _python(s, t):
+        u = (s * k * 2.0) - int(s * k * 2.0) - 0.5
+        v = (t * n * 2.0) - int(t * n * 2.0) - 0.5
+        d = math.sqrt(u * u + v * v)
+        return math.cos(two_pi * d / 0.7) * math.cos(two_pi * s * k)
+    pats['PYTHON'] = _python
+
+    # LAVA - lava-Gestein (Kratzer + Lava-Ströme)
+    pats['LAVA'] = (
+        lambda s, t: (math.sin(two_pi * s * k) * 0.5
+                      + math.sin(two_pi * t * n) * 0.5
+                      + math.sin(two_pi * (s * k * 3.0 + t * n * 2.0)) * 0.3)
+                     * (0.5 + 0.5 * math.sin(two_pi * s * k * 5.0)))
+
+    # ICE - Eis-Kristall-Spalten
+    pats['ICE'] = (
+        lambda s, t: (math.sin(two_pi * s * k * 4.0) * 0.6
+                      + math.sin(two_pi * t * n * 4.0) * 0.4)
+                     * math.cos(two_pi * s * k))
+
+    # MOSS - moos-Polster
+    pats['MOSS'] = (
+        lambda s, t: ((math.sin(two_pi * s * k * 8.0) * math.sin(two_pi * t * n * 8.0)
+                      + math.sin(two_pi * (s + t) * k * 5.0))
+                     * 0.3 * (0.6 + 0.4 * math.cos(two_pi * s * k))))
+
+    # FEATHER - feder-Relief
+    pats['FEATHER'] = (
+        lambda s, t: math.cos(two_pi * s * k * 8.0)
+                     * math.cos(two_pi * t * n)
+                     * (0.6 + 0.4 * math.sin(two_pi * s * k * 2.0)))
+
     return pats
 
 
@@ -1758,7 +1963,14 @@ PATTERN_NAMES = ('RIDGES', 'WAVES', 'GRID', 'HATCH', 'CHECKER', 'HEX',
                  # Zweitvarianten der Kernfamilien (geometrisch abgewandelt):
                  'RIDGES_V2', 'WAVES_V2', 'GRID_V2', 'CHECKER_V2',
                  'HEX_V2', 'BARK_V2', 'LEATHER_V2', 'TILES_V2',
-                 'PARQUET_V2', 'FABRIC_V2')
+                 'PARQUET_V2', 'FABRIC_V2',
+                 # R286 II: decorative plastische 3D-Druck-Texturen (seamless)
+                 'PETAL', 'PETAL_V2', 'LOTUS', 'PEBBLE', 'PEBBLE_V2',
+                 'GALAXY', 'CRUST', 'BRAID', 'BRAID_V2', 'QUILT',
+                 'GEMSTONE', 'SHELL', 'CORAL', 'MOSAIC', 'PEARL',
+                 'VELVET', 'STRATA', 'BASALT', 'MARBL', 'GRANIET',
+                 'TERRA', 'WALNUT', 'MAPLE', 'ZEBRA', 'LEOPARD',
+                 'PYTHON', 'LAVA', 'ICE', 'MOSS', 'FEATHER')
 
 # R238: opt-in helical tilt angles by pattern. Disabled by default; when
 # enabled, the helical shift uses an integer number of turns so the seam
@@ -1791,7 +2003,8 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                   fuzzy_density=100.0, bump_pattern='RIDGES', bump_scale=10.0,
                   bump_amp=0.35, direction='OUT', bed=None, version=1,  # version: retired (R158, folder-global auto)
                   seed=91, zsize=None, map_file=None,
-                  map_mode='TILE', map_pos='CENTER', tilt=False, progress=None):
+                  map_mode='TILE', map_pos='CENTER', tilt=False, progress=None,
+                  scale_xy_mid=100.0, scale_xy_pos=50.0, scale_xy_curve='bezier'):
     """Returns (new_path, info). Raises ValueError on bad parameters.
 
     R175 parameter semantics (the LCD speaks these names):
@@ -1801,6 +2014,10 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                    see the R266 note below)
       seed       = deterministic randomness (noise patterns, fuzzy)
       map_file   = image for PATTERN=MAP (grayscale wrap)
+      scale_xy_mid  = middle scale in percent (1% steps; 100 = no change)
+      scale_xy_pos  = Z position of the middle in percent (0=bottom, 100=top)
+      scale_xy_curve = 'linear' or 'bezier' transition bottom->middle->top
+                      (active only when 5% < pos < 95%)
     """
     mode = str(mode).upper()
     direction = str(direction).upper()
@@ -1825,6 +2042,24 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
         zsize = bump_scale
     if not (0.5 <= float(zsize) <= 200.0):
         raise ValueError('Z size %.1fmm out of range (0.5..200)' % float(zsize))
+    # R286 ScaleXY middle scaling: percent params, validated
+    try:
+        _sxy_mid = float(scale_xy_mid)
+        _sxy_pos = float(scale_xy_pos)
+    except (TypeError, ValueError):
+        raise ValueError('scale_xy_mid/scale_xy_pos must be numbers')
+    if not (0.0 <= _sxy_mid <= 300.0):
+        raise ValueError('scale_xy_mid %.1f%% out of range (0..300)'
+                         % _sxy_mid)
+    if not (0.0 <= _sxy_pos <= 100.0):
+        raise ValueError('scale_xy_pos %.1f%% out of range (0..100)'
+                         % _sxy_pos)
+    _sxy_curve = str(scale_xy_curve).lower()
+    if _sxy_curve not in ('linear', 'bezier'):
+        raise ValueError("scale_xy_curve %r must be 'linear' or 'bezier'"
+                         % (scale_xy_curve,))
+    # active only when 5% < pos < 95%
+    _sxy_active = (5.0 < _sxy_pos < 95.0) and abs(_sxy_mid - 100.0) > 1e-6
     if not (0.05 <= float(bump_amp) <= 4.0):
         raise ValueError('pattern depth %.2fmm out of range (0.05..4.0)'
                          % float(bump_amp))
@@ -2241,7 +2476,31 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
         if m238:
             s = (s + m238 * (((z - minz) / height) if height > 0 else 0.0)
                  / k) % 1.0
-        return pattern_fn(s, t)
+        # R286 ScaleXY middle scaling: scale the RELIEF (amplitude) along Z.
+        # The period (k, n) stays integer -> the seam is untouched. The
+        # factor is 1.0 at the bottom, _sxy_mid/100 at _sxy_pos, 1.0 at top.
+        # Active only when 5% < pos < 95% (else the middle is irrelevant).
+        v = pattern_fn(s, t)
+        if _sxy_active and height > 0:
+            _f = _sxy_pos / 100.0
+            _u = (z - minz) / height          # 0=bottom, 1=top
+            if _sxy_curve == 'bezier':
+                # smooth Bézier (smoothstep) bottom->middle->top.
+                # w: 0 at bottom, 1 at middle, 0 at top.
+                if _u <= _f:
+                    _e = _u / _f
+                    _w = _e * _e * (3.0 - 2.0 * _e)
+                else:
+                    _e = (_u - _f) / (1.0 - _f)
+                    _w = 1.0 - _e * _e * (3.0 - 2.0 * _e)
+            else:  # linear
+                if _u <= _f:
+                    _w = _u / _f
+                else:
+                    _w = 1.0 - (_u - _f) / (1.0 - _f)
+            _amp_factor = 1.0 + (_sxy_mid / 100.0 - 1.0) * _w
+            v = v * _amp_factor
+        return v
 
     stats = {'moves': 0, 'shifted': 0, 'clamped': 0, 'layers': 0, 'arcs': 0,
              'inner_shifted': 0, 'm204_scrub': 0, 'e_riden': 0}

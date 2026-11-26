@@ -16417,27 +16417,40 @@ _ta175 = open('macros/17_generator.cfg').read()
 _lcd175 = open('menus/lcd_menues.cfg').read()
 _pp175 = open('tools/r2_postproc.py').read()
 
-tests.append(('R175 library: 65 seamless patterns + FUZZY + MAP image wrap '
-    '(R238/R265/R266.2/R266.3: 6+6+7+9+6 more, R286: 10 V2-Varianten)',
-    len(_tx175.PATTERN_NAMES) == 65
-    and 'HONEYCOMB' in _tx175.PATTERN_NAMES and 'GLITCH' in _tx175.PATTERN_NAMES
-    and 'MAP' in _tx175.PATTERN_NAMES and 'MANDELBROT' not in _tx175.PATTERN_NAMES
-    and 'STONEWALL' in _tx175.PATTERN_NAMES and 'MAZE' in _tx175.PATTERN_NAMES
-    and 'PERFORATION' in _tx175.PATTERN_NAMES
-    and 'NETGRID' in _tx175.PATTERN_NAMES
-    and 'RINGS' in _tx175.PATTERN_NAMES
-    and 'OLDBARK' in _tx175.PATTERN_NAMES
-    and 'WRINKLE' in _tx175.PATTERN_NAMES
-    and 'RIDGES_V2' in _tx175.PATTERN_NAMES
-    and 'WAVES_V2' in _tx175.PATTERN_NAMES
-    and 'GRID_V2' in _tx175.PATTERN_NAMES
-    and 'CHECKER_V2' in _tx175.PATTERN_NAMES
-    and 'HEX_V2' in _tx175.PATTERN_NAMES
-    and 'BARK_V2' in _tx175.PATTERN_NAMES
-    and 'LEATHER_V2' in _tx175.PATTERN_NAMES
-    and 'TILES_V2' in _tx175.PATTERN_NAMES
-    and 'PARQUET_V2' in _tx175.PATTERN_NAMES
-    and 'FABRIC_V2' in _tx175.PATTERN_NAMES,
+tests.append(('R175 library: 95 seamless patterns + FUZZY + MAP image wrap '\
+    '(R238/R265/R266.2/R266.3/R286: core + V2-Varianten + 30 decorative plastische 3D-Druck-Texturen)',\
+    len(_tx175.PATTERN_NAMES) == 95\
+    and 'HONEYCOMB' in _tx175.PATTERN_NAMES and 'GLITCH' in _tx175.PATTERN_NAMES\
+    and 'MAP' in _tx175.PATTERN_NAMES and 'MANDELBROT' not in _tx175.PATTERN_NAMES\
+    and 'STONEWALL' in _tx175.PATTERN_NAMES and 'MAZE' in _tx175.PATTERN_NAMES\
+    and 'PERFORATION' in _tx175.PATTERN_NAMES\
+    and 'NETGRID' in _tx175.PATTERN_NAMES\
+    and 'RINGS' in _tx175.PATTERN_NAMES\
+    and 'OLDBARK' in _tx175.PATTERN_NAMES\
+    and 'WRINKLE' in _tx175.PATTERN_NAMES\
+    and 'RIDGES_V2' in _tx175.PATTERN_NAMES\
+    and 'WAVES_V2' in _tx175.PATTERN_NAMES\
+    and 'GRID_V2' in _tx175.PATTERN_NAMES\
+    and 'CHECKER_V2' in _tx175.PATTERN_NAMES\
+    and 'HEX_V2' in _tx175.PATTERN_NAMES\
+    and 'BARK_V2' in _tx175.PATTERN_NAMES\
+    and 'LEATHER_V2' in _tx175.PATTERN_NAMES\
+    and 'TILES_V2' in _tx175.PATTERN_NAMES\
+    and 'PARQUET_V2' in _tx175.PATTERN_NAMES\
+    and 'FABRIC_V2' in _tx175.PATTERN_NAMES\
+    and 'PETAL' in _tx175.PATTERN_NAMES\
+    and 'PETAL_V2' in _tx175.PATTERN_NAMES\
+    and 'LOTUS' in _tx175.PATTERN_NAMES\
+    and 'PEBBLE' in _tx175.PATTERN_NAMES\
+    and 'GALAXY' in _tx175.PATTERN_NAMES\
+    and 'BRAID' in _tx175.PATTERN_NAMES\
+    and 'QUILT' in _tx175.PATTERN_NAMES\
+    and 'GEMSTONE' in _tx175.PATTERN_NAMES\
+    and 'MOSAIC' in _tx175.PATTERN_NAMES\
+    and 'PEARL' in _tx175.PATTERN_NAMES\
+    and 'LAVA' in _tx175.PATTERN_NAMES\
+    and 'ZEBRA' in _tx175.PATTERN_NAMES\
+    and 'FEATHER' in _tx175.PATTERN_NAMES,\
     str(len(_tx175.PATTERN_NAMES))))
 # Seam-Beweis: der Sprung am Umfangs-Wrap ist nie groesser als im Feldinneren
 import math as _m175
@@ -20047,11 +20060,11 @@ _txp266 = {}
 for _key266 in ('tx_names', 'tx_codes', 'tx_descs'):
     _m266b = _re175.search(r'variable_%s: (\[.*?\])\n' % _key266, _ta266b)
     _txp266[_key266] = _ast266b.literal_eval(_m266b.group(1)) if _m266b else []
-tests.append(('R266.2 registration: _TX_PATTERN carries 55 names/codes/descs '
+tests.append(('R266.2 registration: _TX_PATTERN carries 95 names/codes/descs '
     'in engine order (LCD picker + RESPOND infos stay congruent)',
-    len(_txp266['tx_names']) == 55
-    and len(_txp266['tx_codes']) == 55
-    and len(_txp266['tx_descs']) == 55
+    len(_txp266['tx_names']) == 95
+    and len(_txp266['tx_codes']) == 95
+    and len(_txp266['tx_descs']) == 95
     and _txp266['tx_codes'] == list(_tx175.PATTERN_NAMES)
     and all(len(d) > 40 for d in _txp266['tx_descs']),
     'names %d codes %d descs %d' % (
@@ -20061,12 +20074,12 @@ tests.append(('R266.2 registration: _TX_PATTERN carries 55 names/codes/descs '
 _lcd266b = _lcd175
 tests.append(('R266.2 LCD page cap: DYNAMIC from tx_codes|length - the old '
     'hard cap (4 pages / 27 patterns) had hidden everything beyond slot '
-    '32 since R265; 55 patterns need 7 pages and every one is reachable',
+    '32 since R265; 95 patterns need 12 pages and every one is reachable',
     _lcd266b.count('tx_codes|length') >= 2
     and '27 patterns total' not in _lcd266b
     and 'of 4 -' not in _lcd266b
-    and (55 - 1) // 8 == 6,
-    'pages needed %d' % ((55 - 1) // 8 + 1)))
+    and (95 - 1) // 8 == 11,
+    'pages needed %d' % ((95 - 1) // 8 + 1)))
 
 _tc266b = open('tools/toolchain.py', encoding='utf-8').read()
 tests.append(('R266.2 toolchain: TEXTURE_PATTERNS congruent with the engine '
@@ -20096,9 +20109,9 @@ tests.append(('R266.2 presets: 9 organic looks in the library - Alter Stamm '
 # seamless stays the law: the R175 seam sampler already covers every
 # PATTERN_NAMES entry - this run PROVES it ran over 49 (a forgotten
 # registration would silently skip the new ones)
-tests.append(('R266.2 seam law: the R175 seam sampler covers all 55 '
-    '(the 9 organics close at the wrap and the top too)',
-    len(_tx175.PATTERN_NAMES) == 55
+tests.append(('R266.2 seam law: the R175 seam sampler covers all 95 '
+    '(the 9 organics close at the wrap and the top too, plus R286 decorative plastische 3D-Druck-Texturen)',
+    len(_tx175.PATTERN_NAMES) == 95
     and all(_p266s in _tx175.PATTERN_NAMES for _p266s in (
         'RINGS', 'OAK', 'BEECH', 'KNOT', 'OLDBARK', 'LEATHER',
         'ORANGE', 'CRACKS', 'WRINKLE')),

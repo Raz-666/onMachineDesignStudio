@@ -33063,6 +33063,13 @@ def watch(directory, interval=5.0, once=False):
                     or 'CENTER',
                     tilt=str(rv.get('texture_tilt', 'OFF') or 'OFF').upper()
                          in ('1', 'ON', 'TRUE', 'YES'),
+                    scale_xy_mid=float(rv.get('texture_scale_xy_mid', 100.0)
+                                       or 100.0),
+                    scale_xy_pos=float(rv.get('texture_scale_xy_pos', 50.0)
+                                       or 50.0),
+                    scale_xy_curve=str(rv.get('texture_scale_xy_curve', 'bezier')
+                                       or 'bezier').strip().strip('\'"').lower()
+                         or 'bezier',
                     bed=_bed91,
                     version=max(1, min(int(float(
                         rv.get('gen_version', 1) or 1)), 99)))

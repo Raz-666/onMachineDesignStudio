@@ -166,6 +166,28 @@ Baumrinde aus oder wie Holzdiele oder Parkett … irgendwas hast du verhauen."
       Prüfung bestätigt die Generator-Geometrie; frische Matrix über Generator ×
       Düsengröße × Bett × Parameter: `tools/r217_gen_matrix.py` 1423 Checks,
       0 Fehler. Offline-Beleg, kein Druck auf Hardware.
+- [x] **G6 — Textur-Presets auf 95 erweitert + ScaleXY-Mittel-Skalierung
+      (R286, Nutzer-Anforderung).** Mindestens 2 Presets pro Texturtyp:
+      13 Kernfamilien mit `_V2`-Varianten + 30 neue **decorative plastische
+      3D-Druck-Texturen** (PETAL, LOTUS, PEBBLE, GALAXY, BRAID, QUILT,
+      GEMSTONE, SHELL, CORAL, MOSAIC, PEARL, VELVET, STRATA, BASALT, MARBL,
+      GRANIET, TERRA, WALNUT, MAPLE, ZEBRA, LEOPARD, PYTHON, LAVA, ICE, MOSS,
+      FEATHER). **Alle nahtlos/endlos** (Wrap-Sprung <= Feld-Sprung, MAP
+      bildbasiert ausgenommen). **95 Muster** in `PATTERN_NAMES`
+      (`tools/r2_texture.py`) = **95 Presets** in `variable_texture_lib`
+      + `variable_tx_codes` + `variable_tx_names` + `variable_tx_descs`
+      (`macros/17_generator.cfg`), Parität 95/95/95. **Vorschaubilder** für
+      alle Muster: `docs/textur-matrix-ist.png` (alle 94) +
+      `docs/textur-matrix-soll.png` (30 neue decorative).
+      **ScaleXY-Mittel-Skalierung** (`tools/r2_texture.py` `apply_texture` +
+      `tools/r2_postproc.py` + `r2_postproc_next.py` + LCD-Menüs
+      `__sxymid`/`__sxypos`/`__sxycurve`): mittlere Skalierung in 1%-Schritten
+      (`scale_xy_mid`, 0-300 %), Z-Position des Mittelpunkts in %
+      (`scale_xy_pos`, 0=unten, 100=oben -> irrelevant ausserhalb), **aktiv
+      wenn 5% < Pos < 95%**, **linearer oder Bezier-Ubergang**
+      bottom->middle->top (skaliert das Relief, Periode bleibt integer -> nahtlos).
+      Beleg: `tools/r286_scalexy_texture_check.py` **17/17 PASSED**;
+      `macro_render_test.py` R175/R266.2/R266.3 **PASS**.
 
 ## H. RANGE / CAKE (Ursache gefunden, Beweis geliefert)
 
