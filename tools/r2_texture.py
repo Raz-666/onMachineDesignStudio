@@ -2174,7 +2174,8 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                   bump_amp=0.35, direction='OUT', bed=None, version=1,  # version: retired (R158, folder-global auto)
                   seed=91, zsize=None, map_file=None,
                   map_mode='TILE', map_pos='CENTER', tilt=False, progress=None,
-                  scale_xy_mid=100.0, scale_xy_pos=50.0, scale_xy_curve='bezier'):
+                  scale_xy_mid=100.0, scale_xy_pos=50.0, scale_xy_curve='bezier',
+                  blur=0.0):
     """Returns (new_path, info). Raises ValueError on bad parameters.
 
     R175 parameter semantics (the LCD speaks these names):
@@ -2188,6 +2189,8 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
       scale_xy_pos  = Z position of the middle in percent (0=bottom, 100=top)
       scale_xy_curve = 'linear' or 'bezier' transition bottom->middle->top
                       (active only when 5% < pos < 95%)
+      blur       = softening radius in mm (0.0 = sharp, up to ~2.0)
+                    Gaussian-blurred pattern amplitude -> soft relief
     """
     mode = str(mode).upper()
     direction = str(direction).upper()
@@ -2228,6 +2231,10 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
     if _sxy_curve not in ('linear', 'bezier'):
         raise ValueError("scale_xy_curve %r must be 'linear' or 'bezier'"
                          % (scale_xy_curve,))
+    # R286 Blur: softening radius in mm (0 = sharp)
+    _blur = float(blur)
+    if not (0.0 <= _blur <= 2.0):
+        raise ValueError('blur %.2fmm out of range (0..2.0)' % _blur)
     # active only when 5% < pos < 95%
     _sxy_active = (5.0 < _sxy_pos < 95.0) and abs(_sxy_mid - 100.0) > 1e-6
     if not (0.05 <= float(bump_amp) <= 4.0):
@@ -2732,6 +2739,29 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
         # factor is 1.0 at the bottom, _sxy_mid/100 at _sxy_pos, 1.0 at top.
         # Active only when 5% < pos < 95% (else the middle is irrelevant).
         v = pattern_fn(s, t)
+        # R286 Blur: Gaussian softening of the pattern amplitude.
+        # The blur radius (mm) is converted to pattern-space offsets via
+        # the effective cell sizes (eff_size mm per s-unit, eff_zsize per
+        # t-unit). The kernel wraps periodically -> the seam is untouched.
+        if _blur > 0.0 and eff_size > 0.0:
+            _b_s = _blur / eff_size
+            _b_t = (_blur / eff_zsize) if eff_zsize > 0 else _b_s
+            if _b_s > 1e-9 or _b_t > 1e-9:
+                _sig = max(_b_s, _b_t)
+                _kr = max(1, int(math.ceil(_sig * 3.0)))
+                _acc = 0.0
+                _wacc = 0.0
+                for _i in range(-_kr, _kr + 1):
+                    _ds = (s + _i / max(1.0, float(_kr))) % 1.0
+                    for _j in range(-_kr, _kr + 1):
+                        _dt = (t + _j / max(1.0, float(_kr))) % 1.0
+                        _w = math.exp(-((_i * _i) * _b_s * _b_s
+                                        + (_j * _j) * _b_t * _b_t)
+                                      / (2.0 * _sig * _sig + 1e-12))
+                        _acc += pattern_fn(_ds, _dt) * _w
+                        _wacc += _w
+                if _wacc > 0:
+                    v = _acc / _wacc
         if _sxy_active and height > 0:
             _f = _sxy_pos / 100.0
             _u = (z - minz) / height          # 0=bottom, 1=top
@@ -2754,7 +2784,8 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
         return v
 
     stats = {'moves': 0, 'shifted': 0, 'clamped': 0, 'layers': 0, 'arcs': 0,
-             'inner_shifted': 0, 'm204_scrub': 0, 'e_riden': 0}
+             'inner_shifted': 0, 'm204_scrub': 0, 'e_riden': 0,
+             'merged_segments': 0}
     cur_type = ''
     cur_outer = False       # R152: alias-normalized outer-wall check
     cur_inner = False       # R224 task 15: BUMPS lets inner walls follow
@@ -2907,7 +2938,63 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
             _sh_out[0], _sh_out[1] = x, y
         return txt
 
-    with open(src, errors='replace') as fi, open(out, 'w') as fo:
+    # R286 MCU-OPTIMIZATION: a buffered writer that merges consecutive
+    # collinear G1 moves into one move. On long straight walls the slicer
+    # emits many short chords; merging them cuts the MCU command count
+    # without changing the geometry (same endpoint, same total E).
+    _G1_RE = re.compile(r'^G1\s+X([\d.\-]+)\s+Y([\d.\-]+)(?:\s+Z([\d.\-]+))?(?:\s+E([\d.\-]+))?(?:\s+F([\d.]+))?\s*(;.*)?$')
+    _G1_RE_local = _G1_RE
+    class _MergeWriter(object):
+        def __init__(self, fh):
+            self._fh = fh
+            self._G1_RE = _G1_RE_local
+            self._last = None   # (x1, y1, z1, e1, feed, dx, dy) of last G1
+        def write(self, text):
+            line = text.rstrip('\n')
+            m = self._G1_RE.match(line)
+            # R286: buffer G1 moves and merge consecutive collinear ones
+            # (same direction, same Z, same feed) into a single move.
+            # Non-G1 lines flush the buffer.
+            if m:
+                x1 = float(m.group(1)); y1 = float(m.group(2))
+                z1 = float(m.group(3)) if m.group(3) else (self._last[2] if self._last else 0.0)
+                e1 = float(m.group(4)) if m.group(4) else (self._last[3] if self._last else 0.0)
+                feed = float(m.group(5)) if m.group(5) else (self._last[4] if self._last else 0.0)
+                dx = x1 - (self._last[0] if self._last else x1)
+                dy = y1 - (self._last[1] if self._last else y1)
+                if self._last is not None:
+                    lx, ly, lz, le, lf, ldx, ldy = self._last[0], self._last[1], self._last[2], self._last[3], self._last[4], self._last[5], self._last[6]
+                    # collinear + same direction + same Z + same feed
+                    cross = abs(dx * ldy - dy * ldx)
+                    len1 = math.hypot(dx, dy); len0 = math.hypot(ldx, ldy)
+                    if (len0 > 1e-6 and len1 > 1e-6 and cross / (len0 * len1) < 1e-4
+                            and abs(z1 - lz) < 1e-6
+                            and abs(feed - lf) < 1e-6
+                            and (dx * ldx + dy * ldy) > 0):
+                        # merge: extend the last line's endpoint
+                        new_line = 'G1 X%.3f Y%.3f' % (x1, y1)
+                        if z1 is not None:
+                            new_line += ' Z%.3f' % z1
+                        if m.group(4):
+                            new_line += ' E%.5f' % e1
+                        if m.group(5):
+                            new_line += ' F%g' % feed
+                        if m.group(6):
+                            new_line += ' ' + m.group(6)
+                        self._fh.write(new_line + '\n')
+                        stats['merged_segments'] = stats.get('merged_segments', 0) + 1
+                        self._last = (x1, y1, z1, e1, feed, dx, dy)
+                        return
+                self._fh.write(line + '\n')
+                self._last = (x1, y1, z1, e1, feed, dx, dy)
+            else:
+                self._fh.write(line + '\n')
+                self._last = None
+        def flush(self):
+            self._fh.flush()
+
+    with open(src, errors='replace') as fi, open(out, 'w') as _fo_raw:
+        fo = _MergeWriter(_fo_raw)
         fo.write('; %s applied to %s: mode %s%s\n' % (
             TAG, base, mode,
             ' thick %.2f density %.0f%%' % (float(fuzzy_thick),
@@ -3201,6 +3288,8 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
             'steep_segments': stats.get('steep', 0),
             'm204_scrub': stats['m204_scrub'],
             'tilt': round(tilt_eff, 1), 'tilt_turns': m238,
+            'blur': round(float(blur), 2),
+            'merged_segments': stats.get('merged_segments', 0),
             'map_mode': (str(map_mode).upper()
                          if mode == 'BUMPS' and bump_pattern == 'MAP' else ''),
             'map_pos': (str(map_pos).upper()

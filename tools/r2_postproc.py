@@ -1651,6 +1651,11 @@ class _GenE:
         self.ret_mm = 0.6         # R87.2: retract over open holes (direct drive)
         self.ret_feed = 2400
         self.g11_pending = False  # R231: write G11 before the first ink line
+        # R286 MCU-OPTIMIZATION: segment-merge state
+        self._last_dir = None     # (dx, dy) of the last emitted G1 move
+        self._last_feed = 0.0
+        self._last_e_per_mm = 0.0
+        self._merged_seg = 0
         if not e_rel:
             out.append('G92 E0   ; R2-RANGE: generated geometry E starts at 0')
 
@@ -1699,12 +1704,48 @@ class _GenE:
             # ends right here - the first generated ink line prints wet
             self.out.append('G11   ; R231: unretract after the transition')
             self.g11_pending = False
+        # R286 MCU-OPTIMIZATION: merge this move with the previous one if
+        # they are collinear (same direction, same feed, same E-per-mm).
+        # The previous move's endpoint becomes this move's endpoint, the
+        # E totals accumulate - geometry is identical, MCU commands drop.
+        if (self.px is not None and self.py is not None
+                and self._last_dir is not None
+                and abs(feed - self._last_feed) < 1e-6
+                and abs(e_per_mm - self._last_e_per_mm) < 1e-9):
+            ldx, ldy = self._last_dir
+            dx = x1 - self.px; dy = y1 - self.py
+            ld = math.hypot(ldx, ldy); cd = math.hypot(dx, dy)
+            if (ld > 1e-6 and cd > 1e-6
+                    and abs(dx * ldy - dy * ldx) / (ld * cd) < 1e-4
+                    and (dx * ldx + dy * ldy) > 0):
+                # merge: replace the last line's endpoint + E
+                _li = len(self.out) - 1
+                if _li >= 0 and self.out[_li].startswith('G1 '):
+                    if self.e_rel:
+                        _new_e = self.out[_li].split('E')[-1].split()[0]
+                        _new_e = float(_new_e) + e
+                        self.out[_li] = 'G1 X%.3f Y%.3f E%.5f F%d' % (x1, y1, _new_e, feed)
+                    else:
+                        self.acc += e
+                        _prev_e = self.out[_li].split('E')[-1].split()[0]
+                        _prev_e = float(_prev_e)
+                        self.out[_li] = 'G1 X%.3f Y%.3f E%.5f F%d' % (x1, y1, _prev_e + e, feed)
+                    self._merged_seg = getattr(self, '_merged_seg', 0) + 1
+                    self.px, self.py = x1, y1
+                    self._last_dir = (dx, dy)
+                    self._last_feed = feed
+                    self._last_e_per_mm = e_per_mm
+                    return
         if self.e_rel:
             self.out.append('G1 X%.3f Y%.3f E%.5f F%d' % (x1, y1, e, feed))
         else:
             self.acc += e
             self.out.append('G1 X%.3f Y%.3f E%.5f F%d' % (x1, y1, self.acc, feed))
         self.px, self.py = x1, y1
+        dx = x1 - x0; dy = y1 - y0
+        self._last_dir = (dx, dy)
+        self._last_feed = feed
+        self._last_e_per_mm = e_per_mm
 
     def loop(self, pts, e_per_mm, feed):
         self.move(pts[0][0], pts[0][1], 4800)
@@ -32551,6 +32592,7 @@ def watch(directory, interval=5.0, once=False):
                     scale_xy_curve=str(rv.get('texture_scale_xy_curve', 'bezier')
                                        or 'bezier').strip().strip('\'"').lower()
                          or 'bezier',
+                    blur=float(rv.get('texture_blur', 0.0) or 0.0),
                     bed=_bed91,
                     version=max(1, min(int(float(
                         rv.get('gen_version', 1) or 1)), 99)))
