@@ -337,6 +337,39 @@ def build(toc_seiten=None):
         'Die Zuordnung ist nicht nur eine Liste, sondern hat zwei '
         'Eigenschaften, die im Feld wichtig wurden:')
     kb.story += B(
+        '<b>CONF: dynamische Genauigkeit nach Tagging</b> - jedes getaggte '
+        'Feature trägt einen <font face=\"DVSM\">CONF</font>-Wert. Ein vom '
+        'Slicer <b>explizit getaggtes</b> Feature hat <b>CONF=1.0</b> (der '
+        'Slicer-Tag ist autoritativ). Für ein <b>abgeleitetes</b> Feature - '
+        'also eines, das der Post-Processor aus der Geometrie erschließt, '
+        'weil der Slicer es nicht getaggt hat - wird CONF nach der '
+        'Abdeckung und den Konflikten berechnet:'
+        '<font face=\"DVSM\">0.5 + 0.5·Abdeckung − 0.08·Konflikte</font>, '
+        'Mindestwert 0.3, Höchstwert 1.0. Ein Feature, das vollständig '
+        'abgeleitet ist (100 % Abdeckung, 0 Konflikte), peilt das <b>Ziel '
+        '1.0</b> an. Der alte feste Wert <font face=\"DVSM\">CONF=0.7</font> '
+        'bleibt nur als Basis-Referenz für den Fall, dass keine '\
+        'Abdeckungsinformationen vorliegen. Das CONF steht im '
+        '<font face=\"DVSM\">_FILE_INFO</font> als <font face=\"DVSM\">CONF=…</font>.')
+    kb.story += B(
+        '<b>Ableitung statt bloßer Slicer-Tag</b> - Ironing und '
+        'PRIME-TOWER werden nicht nur aus dem Slicer-Tag gelesen, sondern '
+        '<b>abgeleitet</b>. Zwei Sequenzregeln bilden die Basis:'
+        '(<b>S2</b>) <b>IRONING</b>: Eine <font face=\"DVSM\">SURFACE-TOP'
+        '</font>-Schicht, die im <b>selben Layer</b> (unit layer) von '
+        'INFILL-SPARSE oder INFILL-SOLID gefolgt wird, kennzeichnet die '
+        'Nachgänger als Ironing.'
+        '(<b>S5</b>) <b>PRIME-TOWER</b>: Eine kompakte, <b>dichte</b> '
+        'Struktur, die ab Layer 1 auf <b>≥ 4 Layern</b> nur aus '
+        'WALL-OUTER / WALL-INNER / INFILL-SOLID besteht (kein INFILL-SPARSE, '
+        'BRIDGE oder SUPPORT in den ersten Layern) ist der Prime-Tower. '
+        'Das Hauptmodell, das in den ersten Layern Sparse-Infill trägt, '
+        'wird <b>nicht</b> als Tower abgeleitet.'
+        'Die <b>Reihenfolge der Features innerhalb einer Schicht</b> ist '
+        'einstellungsabhängig und wird bewusst als <b>weiches Signal</b> '
+        'verwendet - nie als harte Regel. Die Ableitung hat das Niveau einer '
+        '<b>INFERENCE</b> (Schlussfolgerung), nicht eines exakten Tags.')
+    kb.story += B(
         '<b>Trennzeichen-Toleranz</b> - „Wall outer“, „wall-outer“ und '
         '„WALL_OUTER“ werden normalisiert verglichen. Vorher stand nur eine '
         'Schreibweise im Wörterbuch, und ganze Dateien liefen als CUSTOM.',
