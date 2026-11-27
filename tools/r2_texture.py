@@ -2702,35 +2702,253 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                            ar=(eff_zsize / eff_size) if eff_size > 0 else 1.0)
     pattern_fn = pats[bump_pattern]
 
+    # ---- R290: per-object object-tag regexes ------------------------------
+    _EOD_DEF = re.compile(
+        r'^EXCLUDE_OBJECT_DEFINE\s+NAME=(\S+)\s+CENTER=(-?[\d.]+)[, ]+(-?[\d.]+)')
+    _EOD_START = re.compile(r'^EXCLUDE_OBJECT_START\s+NAME=(\S+)')
+    _EOD_END = re.compile(r'^EXCLUDE_OBJECT_END\s+NAME=(\S+)')
+
+    def _scan_objects():
+        """R290 (field ask): TEXTURE PROJECTION PER OBJECT. Multi-object
+        files (EXCLUDE_OBJECT_START/END blocks) must texture each object
+        with ITS OWN center / circumference / height - not one global
+        geometry that mixes every object together. This pre-pass walks the
+        file once, tracks the active object block, and collects each
+        object's own wall geometry (center from EXCLUDE_OBJECT_DEFINE
+        CENTER, circumference from the loop median, height from the z span)
+        plus its own loop lengths.
+
+        Returns [(name, ctx), ...] in file order, or [] when the file has
+        no EXCLUDE_OBJECT tags - the single-object path then stays
+        byte-identical (cur == the globals, no context switch)."""
+        obj_defs = {}      # name -> (cx, cy) from DEFINE CENTER
+        order = []         # [name] in first-appearance order
+        ostats = {}        # name -> wall-stat dict
+
+        def _new():
+            return {'sx': 0.0, 'sy': 0.0, 'cnt': 0, 'chord': 0.0,
+                    'minz': 1e9, 'maxz': -1e9, 'layers': 0, 'last_z': None,
+                    'loops': [], 'cur_len': 0.0,
+                    'px': None, 'py': None,
+                    'cur_type': '', 'cur_outer': False, 'cur_inner': False,
+                    'any_outer': False,
+                    'ax': 0.0, 'ay': 0.0, 'acnt': 0, 'achord': 0.0,
+                    'aminz': 1e9, 'amaxz': -1e9, 'alayers': 0, 'alast_z': None}
+
+        cur_obj = None
+        with open(src, errors='replace') as f:
+            for line in f:
+                ls = line.rstrip('\n')
+                md = _EOD_DEF.match(ls)
+                if md:
+                    name = md.group(1)
+                    cx_v = float(md.group(2)); cy_v = float(md.group(3))
+                    obj_defs[name] = (cx_v, cy_v)
+                    if name not in ostats:
+                        ostats[name] = _new(); order.append(name)
+                    continue
+                ms = _EOD_START.match(ls)
+                if ms:
+                    cur_obj = ms.group(1)
+                    if cur_obj not in ostats:
+                        ostats[cur_obj] = _new(); order.append(cur_obj)
+                    continue
+                me = _EOD_END.match(ls)
+                if me:
+                    cur_obj = None
+                    continue
+                if cur_obj is None:
+                    continue   # outside any object block: no wall geometry
+                st = ostats[cur_obj]
+                m = _TYPE.match(ls)
+                if m:
+                    t = m.group(1).strip().lower()
+                    st['cur_type'] = t
+                    st['cur_outer'] = _is_outer_wall(t)
+                    st['cur_inner'] = _is_inner_wall(t)
+                    if st['cur_outer']:
+                        st['any_outer'] = True
+                    if st['cur_len'] > 0.0:
+                        st['loops'].append(st['cur_len']); st['cur_len'] = 0.0
+                    continue
+                ma = _APPLY152.match(ls)
+                if ma:
+                    t = ma.group(1).strip().lower()
+                    st['cur_type'] = t
+                    st['cur_outer'] = _is_outer_wall(t)
+                    st['cur_inner'] = _is_inner_wall(t)
+                    if st['cur_outer']:
+                        st['any_outer'] = True
+                    if st['cur_len'] > 0.0:
+                        st['loops'].append(st['cur_len']); st['cur_len'] = 0.0
+                    continue
+                if ls.startswith(';LAYER_CHANGE'):
+                    if st['cur_len'] > 0.0:
+                        st['loops'].append(st['cur_len']); st['cur_len'] = 0.0
+                    continue
+                g = _parse_move(ls)
+                mpts = []; extruding = False; cz = None
+                if g is not None:
+                    if g[3] is not None:
+                        cz = g[3]
+                    if g[0] in ('G0', 'G1') and g[1] is not None:
+                        mpts = [(g[1], g[2] if g[2] is not None else st['py'])]
+                        extruding = (g[4] is not None and g[4] > _MIN_E)
+                else:
+                    ga = _parse_arc(ls)
+                    if ga is not None:
+                        if ga[3] is not None:
+                            cz = ga[3]
+                        if ga[1] is not None:
+                            ay = ga[2] if ga[2] is not None else st['py']
+                            if ay is not None:
+                                if st['px'] is not None:
+                                    apts = _arc_points(st['px'], st['py'],
+                                                        ga[1], ay, i=ga[4],
+                                                        j=ga[5], rr=ga[6],
+                                                        cw=(ga[0] == 'G2'))
+                                    mpts = apts or [(ga[1], ay)]
+                                else:
+                                    mpts = [(ga[1], ay)]
+                                extruding = (ga[7] is not None
+                                             and ga[7] > _MIN_E)
+                for x, y in mpts:
+                    if y is None:
+                        continue
+                    if extruding:
+                        st['ax'] += x; st['ay'] += y; st['acnt'] += 1
+                        if cz is not None:
+                            if st['alast_z'] is None or \
+                                    abs(cz - st['alast_z']) > 1e-6:
+                                st['alayers'] += 1; st['alast_z'] = cz
+                            st['aminz'] = min(st['aminz'], cz)
+                            st['amaxz'] = max(st['amaxz'], cz)
+                        if st['px'] is not None:
+                            st['achord'] += math.hypot(x - st['px'], y - st['py'])
+                    if st['cur_outer'] and extruding:
+                        st['sx'] += x; st['sy'] += y; st['cnt'] += 1
+                        if cz is not None:
+                            if st['last_z'] is None or \
+                                    abs(cz - st['last_z']) > 1e-6:
+                                st['layers'] += 1; st['last_z'] = cz
+                            st['minz'] = min(st['minz'], cz)
+                            st['maxz'] = max(st['maxz'], cz)
+                        if st['px'] is not None:
+                            st['chord'] += math.hypot(x - st['px'], y - st['py'])
+                            st['cur_len'] += math.hypot(x - st['px'], y - st['py'])
+                    st['px'], st['py'] = x, y
+                if not mpts and st['px'] is not None:
+                    # pure positioning move (G0 travel, arc w/o extrusion):
+                    # closes the current loop like the emission pass does
+                    if st['cur_len'] > 0.0 and not (st['cur_outer'] and True):
+                        pass   # loop close happens on type/layer switch
+        out = []
+        for name in order:
+            st = ostats[name]
+            if st['cnt'] < 8 and not st['any_outer'] and st['acnt'] >= 8:
+                # no wall marker in this object: lithophane-style - the
+                # whole extrusion body is the texture surface (mirrors the
+                # global all_is_wall rule)
+                st['sx'], st['sy'], st['cnt'] = st['ax'], st['ay'], st['acnt']
+                st['chord'] = st['achord']
+                st['layers'] = st['alayers']
+                st['minz'], st['maxz'] = st['aminz'], st['amaxz']
+                st['any_outer'] = True
+            if st['cnt'] < 8:
+                continue   # object has no wall geometry: skip (no texture)
+            if st['loops'] and len(st['loops']) > 1:
+                _ll = sorted(l for l in st['loops'] if l > 1.0)
+                circum = _ll[len(_ll) // 2] if len(_ll) >= 2 \
+                    else st['chord'] / max(1, st['layers'])
+            else:
+                circum = st['chord'] / max(1, st['layers'])
+            if circum < 1.0:
+                circum = 2.0 * math.pi * 8.0
+            h = max(0.2, st['maxz'] - st['minz']) if st['maxz'] > st['minz'] \
+                else 0.2
+            cx_v, cy_v = obj_defs.get(name, (None, None))
+            if cx_v is None:
+                cx_v, cy_v = st['sx'] / st['cnt'], st['sy'] / st['cnt']
+            _kk = max(1, min(240, int(round(circum / float(bump_scale)))))
+            _nn = max(1, min(400, int(round(h / float(zsize)))))
+            _eff_s = circum / _kk
+            _eff_z = h / _nn
+            _pats = _build_patterns(_kk, _nn, int(seed), img,
+                                   map_mode=str(map_mode).upper(),
+                                   map_pos=str(map_pos).upper(),
+                                   map_frac=map_frac,
+                                   ar=(_eff_z / _eff_s) if _eff_s > 0 else 1.0)
+            _pf = _pats[bump_pattern]
+            _m238 = 0
+            _tilt = PATTERN_TILT.get(bump_pattern, 2.0)
+            if _tilt > 0.0 and circum > 0 and h > 0:
+                _m238 = max(1, int(round(
+                    h * _kk / (circum * math.tan(math.radians(_tilt))))))
+            out.append((name, {
+                'cx': cx_v, 'cy': cy_v, 'minz': st['minz'], 'height': h,
+                'n': _nn, 'k': _kk, 'm238': _m238,
+                'eff_size': _eff_s, 'eff_zsize': _eff_z,
+                'loops': st['loops'], 'wall_thick': wall_thick,
+                'pattern_fn': _pf}))
+        return out
+
+    obj_ctx = _scan_objects()
+    obj_ctx_map = {name: ctx for name, ctx in obj_ctx}
+    _obj_order = [name for name, _ in obj_ctx]
+
+    # R290 (field ask): TEXTURE PROJECTION PER OBJECT. Multi-object files
+    # (EXCLUDE_OBJECT_START/END blocks) must texture each object with ITS
+    # OWN center / circumference / height - not one global geometry that
+    # mixes every object together. `cur` is the active projection context:
+    # in the single-object case it holds exactly the global values below, so
+    # the emitted file is byte-identical to before. In the multi-object case
+    # the emission swaps `cur` on every object block (see the EXCLUDE_OBJECT
+    # handling in pass 2). pattern() / _abin231 / _s231 read from `cur`.
+    cur = {'cx': cx, 'cy': cy, 'minz': minz, 'height': height,
+           'n': n, 'k': k, 'm238': m238, 'eff_size': eff_size,
+           'eff_zsize': eff_zsize, 'loops': loops231,
+           'multi': bool(obj_ctx), 'wall_thick': wall_thick,
+           'pattern_fn': pattern_fn}
+
     def pattern(x, y, z, s_arc=None):
         """R175: cylinder coordinates around the OBJECT -> seamless.
         R231: s_arc (if given) is the ARC-ANCHORED loop coordinate (see the
         module header) - it replaces the raw angle fraction wherever the
         wall runs inward, so pattern cells keep their physical size on
-        concave sections (vase notches) instead of stretching."""
+        concave sections (vase notches) instead of stretching.
+        R290: reads the ACTIVE object context `cur`, so each object is
+        projected with its own center/height/circumference."""
+        _cx = cur['cx']; _cy = cur['cy']; _minz = cur['minz']
+        _height = cur['height']; _n = cur['n']; _k = cur['k']
+        _m238 = cur['m238']
         if s_arc is not None:
             s = s_arc % 1.0
         else:
-            th = math.atan2(y - cy, x - cx)
+            th = math.atan2(y - _cy, x - _cx)
             s = (th / (2.0 * math.pi)) % 1.0
-        t = (((z - minz) * n / height) % 1.0) if height > 0 else 0.0
+        t = (((z - _minz) * _n / _height) % 1.0) if _height > 0 else 0.0
         # R238: the helical tilt - s drifts by m238/k wraps over the full
         # height (seam-safe: integer cells; top-flush: integer shift)
-        if m238:
-            s = (s + m238 * (((z - minz) / height) if height > 0 else 0.0)
-                 / k) % 1.0
+        if _m238:
+            s = (s + _m238 * (((z - _minz) / _height) if _height > 0 else 0.0)
+                 / _k) % 1.0
         # R286 ScaleXY middle scaling: scale the RELIEF (amplitude) along Z.
         # The period (k, n) stays integer -> the seam is untouched. The
         # factor is 1.0 at the bottom, _sxy_mid/100 at _sxy_pos, 1.0 at top.
         # Active only when 5% < pos < 95% (else the middle is irrelevant).
-        v = pattern_fn(s, t)
+        # R290: the pattern function is per-object (each object builds its
+        # own k/n pattern); read it from the active context.
+        _pf = cur['pattern_fn']
+        v = _pf(s, t)
         # R286 Blur: Gaussian softening of the pattern amplitude.
         # The blur radius (mm) is converted to pattern-space offsets via
         # the effective cell sizes (eff_size mm per s-unit, eff_zsize per
         # t-unit). The kernel wraps periodically -> the seam is untouched.
-        if _blur > 0.0 and eff_size > 0.0:
-            _b_s = _blur / eff_size
-            _b_t = (_blur / eff_zsize) if eff_zsize > 0 else _b_s
+        # R290: cell sizes come from the ACTIVE object context.
+        _eff_s = cur['eff_size']; _eff_z = cur['eff_zsize']
+        if _blur > 0.0 and _eff_s > 0.0:
+            _b_s = _blur / _eff_s
+            _b_t = (_blur / _eff_z) if _eff_z > 0 else _b_s
             if _b_s > 1e-9 or _b_t > 1e-9:
                 _sig = max(_b_s, _b_t)
                 _kr = max(1, int(math.ceil(_sig * 3.0)))
@@ -2743,7 +2961,7 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                         _w = math.exp(-((_i * _i) * _b_s * _b_s
                                         + (_j * _j) * _b_t * _b_t)
                                       / (2.0 * _sig * _sig + 1e-12))
-                        _acc += pattern_fn(_ds, _dt) * _w
+                        _acc += cur['pattern_fn'](_ds, _dt) * _w
                         _wacc += _w
                 if _wacc > 0:
                     v = _acc / _wacc
@@ -2786,9 +3004,14 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
     # mirrored on reversed windings and would shear the wall pair apart)
     _sout231 = {}
 
+    # R290: the R231 helpers read the ACTIVE object context (center, loop
+    # list, loop index). On a multi-object file the emission resets _st231 /
+    # _sout231 and swaps cur's center/loops per object block, so each object
+    # gets its own arc-anchored mapping. Single-object: cur == the globals,
+    # so behavior is unchanged.
     def _abin231(x, y):
-        return int((math.atan2(y - cy, x - cx) / (2.0 * math.pi)) % 1.0
-                   * 360.0)
+        return int((math.atan2(y - cur['cy'], x - cur['cx'])
+                    / (2.0 * math.pi)) % 1.0 * 360.0)
 
     def _sout_put231(zz, x, y, sv):
         if sv is not None and zz is not None:
@@ -2816,19 +3039,22 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
         """R231: arc-anchored s for the END vertex of a gated move of
         length ln. None -> the caller falls back to the classic angle
         fraction (desync or a degenerate loop - never crashes, never
-        stretches the file's own bookkeeping)."""
+        stretches the file's own bookkeeping).
+        R290: reads the ACTIVE object's center and loop list."""
         if zz is not None:
             if _st231['z'] is not None and abs(zz - _st231['z']) > 0.05:
                 # layer jump inside a gapless stream (no travel, no
                 # ;LAYER_CHANGE): close the loop so its cells stay real
                 _loop_close231()
             _st231['z'] = zz
+        _loops = cur['loops']
         if _st231['arc'] <= 0.0:
-            _st231['anchor'] = math.atan2(y - cy, x - cx) / (2.0 * math.pi)
+            _st231['anchor'] = math.atan2(y - cur['cy'], x - cur['cx']) \
+                / (2.0 * math.pi)
             _st231['len'] = (
-                loops231[_st231['i']]
-                if _st231['i'] < len(loops231)
-                and loops231[_st231['i']] > 1.0 else None)
+                _loops[_st231['i']]
+                if _st231['i'] < len(_loops)
+                and _loops[_st231['i']] > 1.0 else None)
         _L231 = _st231['len']
         if _L231 is None or _st231['anchor'] is None:
             _st231['fb'] += 1
@@ -3019,6 +3245,29 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                 # stream the file anyway - the mirror tool emitted them and
                 # every start of such a file died as 'Malformed command'
                 line = line.replace('], [', '],[')
+            # R290: per-object projection context. On EXCLUDE_OBJECT_START
+            # swap cur to that object's own geometry (center, circumference,
+            # height, loops, pattern); reset the per-object R231 loop state
+            # so each object's arc-anchored mapping starts fresh. On
+            # EXCLUDE_OBJECT_END the active context stays (travel moves
+            # between objects carry no wall geometry anyway).
+            if cur.get('multi'):
+                _ms290 = _EOD_START.match(line)
+                if _ms290:
+                    _oc = obj_ctx_map.get(_ms290.group(1))
+                    if _oc is not None:
+                        cur.update(_oc)
+                        _st231['i'] = 0
+                        _st231['arc'] = 0.0
+                        _st231['anchor'] = None
+                        _st231['len'] = None
+                        _st231['z'] = None
+                        _sout231.clear()
+                        # R290: the first move of a new object starts from a
+                        # travel jump, NOT from the previous object's last
+                        # position. Reset the approach direction so the
+                        # displacement never bridges across objects.
+                        px = py = None
             _r240 = _M204SET_SCRUB.sub(
                 r'\1M204 S\2', _M204_SCRUB.sub(r'\1M204\2', line))
             if _r240 != line:
