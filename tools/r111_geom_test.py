@@ -251,18 +251,19 @@ types = set(re.findall(r'APPLY_TYPE TYPE=(\S+)', open(p1).read()))
 # R186: WALL-INNER is pinned by the filled-ring unit above - this E2E
 # fixture hatches INSIDE the inner loop, so its 5mm ring stays void
 # and both walls are WALL-OUTER by the void-side rule.
-check('E2E TYPES: walls + sparse + bottom derived (R286: the deck over\n'
-      ' the sparse infill is a BRIDGE, never a Top surface)',
+check('E2E TYPES: walls + sparse + bottom + top derived (R286 .137:\n'
+      ' the last-layer deck over sparse infill is the TOP surface, not a Bridge)',
       {'WALL-OUTER', 'INFILL-SPARSE', 'SURFACE-BOTTOM',
-       'BRIDGE'} <= types, sorted(types))
-check('E2E honesty keys: DERIVED=1 CONF=0.7 COVER>0',
-      'DERIVED=1' in fi and 'CONF=0.7' in fi
+       'SURFACE-TOP'} <= types, sorted(types))
+check('E2E honesty keys: DERIVED=1 CONF>=0.9 COVER>0 (R286: CONF targets 1.0)',
+      'DERIVED=1' in fi
+      and float(re.search(r'CONF=([0-9.]+)', fi).group(1)) >= 0.9
       and int(re.search(r'COVER=(\d+)', fi).group(1)) >= 80, fi[:150])
 check('E2E seam: the outer loop starts at 50,50 (3 layers)',
       'SEAM=50,50' in fi and 'SEAMN=3' in fi,
       re.search(r'SEAM=\S+ SEAMN=\d+', fi).group(0) if 'SEAM=' in fi else 'none')
-check('E2E the deck over sparse infill IS the bridge (R286)',
-      'BRIDGE' in types, sorted(types))
+check('E2E the deck over sparse infill IS the top surface, not a bridge (R286 .137)',
+      'SURFACE-TOP' in types and 'BRIDGE' not in types, sorted(types))
 summ2 = pp.process(p1)
 check('E2E idempotent (second run skips)',
       summ2.get('skipped') is True, summ2)
@@ -419,9 +420,30 @@ e = hatch(lines, e, 50, 50, 40, 40, 1.0, 1800)   # deck over sparse
 feed(g, lines)
 g.finish()
 _feats_sp = [f for (_, _, f) in g.ranges]
-check('no Top directly on sparse infill - the deck is a BRIDGE (R286)',
-      'BRIDGE' in _feats_sp and 'SURFACE-TOP' not in _feats_sp,
+# R286 .137: sparse infill is MATERIAL (the airscan 3% floor counts it), so a
+# dense deck over it is supported, never a void bridge. On the LAST layer the
+# deck IS the top surface (SURFACE-TOP, the print ends there - never bridge
+# speed); on a MID layer it is internal solid (INFILL-SOLID). Neither is BRIDGE.
+check('last-layer deck over sparse infill -> SURFACE-TOP, not BRIDGE (R286 .137)',
+      'SURFACE-TOP' in _feats_sp and 'BRIDGE' not in _feats_sp,
       sorted(set(_feats_sp)))
+
+# a mid-layer deck over sparse infill is internal solid (supported), not a bridge
+g = pp._GeomScan(1.75)
+lines = ['M82', 'G0 X5 Y5 Z0.2 F9000']
+e = hatch(lines, 0.0, 50, 50, 40, 40, 1.0, 1800)
+lines.append('G0 X5 Y5 Z0.4 F9000')
+e = hatch(lines, e, 50, 50, 40, 40, 8.0, 1800)   # sparse infill
+lines.append('G0 X5 Y5 Z0.6 F9000')
+e = hatch(lines, e, 50, 50, 40, 40, 1.0, 1800)   # deck (mid layer)
+lines.append('G0 X5 Y5 Z0.8 F9000')
+e = hatch(lines, e, 50, 50, 40, 40, 1.0, 1800)   # top (last layer)
+feed(g, lines)
+g.finish()
+_feats_mid = [f for (_, _, f) in g.ranges]
+check('mid-layer deck over sparse infill -> INFILL-SOLID, not BRIDGE (R286 .137)',
+      'INFILL-SOLID' in _feats_mid and 'BRIDGE' not in _feats_mid,
+      sorted(set(_feats_mid)))
 
 print()
 if fails:
