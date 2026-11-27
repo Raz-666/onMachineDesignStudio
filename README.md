@@ -63,7 +63,11 @@ klipper-e3-r2d2/
 │   ├── 12_maintenance.cfg      PID/mesh/screws/offsets/extruder/self test
 │   ├── 13_system.cfg           restarts/shutdown/info
 │   ├── 14_kamp.cfg             KAMP compatibility (mesh/purge/smart park dispatch)
-│   └── 15_objects.cfg          skip single objects (SKIP_OBJECT, 2-press confirm)
+│   ├── 15_objects.cfg          skip single objects (SKIP_OBJECT, 2-press confirm)
+│   ├── 16_labels.cfg           label generator (multi-plate, GRIFF, stamps)
+│   ├── 17_generator.cfg       all 19 generators + texture LIBRARY (95 presets)
+│   ├── 18_colorpic.cfg         color-picture generator (M600 swaps, purge tower)
+│   └── 19_bricks.cfg           bricks / kits / figures generator
 ├── menus/lcd_menues.cfg        the complete English LCD menu tree (12864)
 ├── slicer/
 │   ├── ORCA.md / CURA.md       step-by-step slicer setup
@@ -198,7 +202,11 @@ klipper-e3-r2d2/
 │   ├── 12_maintenance.cfg      PID/mesh/screws/offsets/extruder/self test
 │   ├── 13_system.cfg           restarts/shutdown/info
 │   ├── 14_kamp.cfg             KAMP compatibility (mesh/purge/smart park dispatch)
-│   └── 15_objects.cfg          skip single objects (SKIP_OBJECT, 2-press confirm)
+│   ├── 15_objects.cfg          skip single objects (SKIP_OBJECT, 2-press confirm)
+│   ├── 16_labels.cfg           label generator (multi-plate, GRIFF, stamps)
+│   ├── 17_generator.cfg       all 19 generators + texture LIBRARY (95 presets)
+│   ├── 18_colorpic.cfg         color-picture generator (M600 swaps, purge tower)
+│   └── 19_bricks.cfg           bricks / kits / figures generator
 ├── menus/lcd_menues.cfg        the complete English LCD menu tree (12864)
 ├── slicer/
 │   ├── ORCA.md / CURA.md       step-by-step slicer setup
