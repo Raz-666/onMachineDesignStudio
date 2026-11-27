@@ -76,7 +76,7 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-26.1'
+POSTPROC_RELEASE = 'R2-2026-11-26.6'
 POSTPROC_BUILD = 'R286'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
@@ -2059,6 +2059,69 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
     # Replaces 'lines = f.read().split(chr(10))' (the R81 RAM killer).
     marks = []
     n_stream = 0
+    # R287: PRE-PASS - spiral-vase layer synthesis. A vase (1 wall) carries
+    # only the base LAYER_MARKs while _FILE_INFO claims the true count: the
+    # body Z rises with EVERY move, so there is no LAYER_MARK per layer and
+    # make_range counted only the base marks (3) and refused every range
+    # beyond layer 3 ("file has 3 layers"). Detect the spiral (few real
+    # marks vs a high TOTAL_LAYERS claim) and synthesize one mark per
+    # layer_height Z-crossing BEFORE the main pass, so a_idx/lay1/layn and
+    # the body scan all work like a normal file.
+    _spiral287 = False
+    _lh287 = None
+    _fi287 = None
+    _zmin287 = None
+    _zmax287 = None
+    _realmarks287 = 0
+    _claim287 = 0
+    _li287 = 0
+    _markset287 = set()      # R287: line indices that are (synthetic) marks
+    with open(src, 'r', errors='replace') as _pf:
+        for _raw287 in _pf:
+            _ls287 = _raw287.strip()
+            if _fi287 is None and _ls287.startswith('_FILE_INFO'):
+                _fi287 = _ls287
+                _mcl287 = re.search(r'TOTAL_LAYERS=(\d+)', _ls287)
+                if _mcl287:
+                    _claim287 = int(_mcl287.group(1))
+                _mlh287 = re.search(r'LAYER_HEIGHT=([\d.]+)', _ls287)
+                if _mlh287:
+                    _lh287 = float(_mlh287.group(1))
+            if _ls287 == 'LAYER_MARK':
+                _realmarks287 += 1
+            _mz287 = re.search(r'^;Z:([\d.]+)', _ls287)
+            if _mz287:
+                _z287 = float(_mz287.group(1))
+                if _zmin287 is None:
+                    _zmin287 = _z287
+                _zmax287 = _z287
+            _mzm287 = re.search(r'\bZ([\d.]+)', _ls287)
+            if _mzm287 and _ls287.startswith(('G0', 'G1', 'G2', 'G3')):
+                _z287 = float(_mzm287.group(1))
+                if _zmin287 is None:
+                    _zmin287 = _z287
+                _zmax287 = _z287
+    # spiral when the claim is far above the real mark count
+    if _claim287 and _realmarks287 < _claim287 * 0.1 and _zmax287 and _zmin287:
+        _spiral287 = True
+        if _lh287 is None:
+            _lh287 = (_zmax287 - _zmin287) / float(_claim287)
+        if _lh287 and _lh287 > 0:
+            # re-scan: append a synthetic mark at each Z layer boundary
+            with open(src, 'r', errors='replace') as _pf2:
+                _li287 = 0
+                _prevz287 = None
+                _nextbound287 = _zmin287 + _lh287
+                for _raw287 in _pf2:
+                    _ls287 = _raw287.strip()
+                    _mzm287 = re.search(r'\bZ([\d.]+)', _ls287)
+                    if _mzm287 and _ls287.startswith(('G0', 'G1', 'G2', 'G3')):
+                        _z287 = float(_mzm287.group(1))
+                        if _prevz287 is None:
+                            _prevz287 = _z287
+                        if _z287 >= _nextbound287 - 1e-6:
+                            _markset287.add(_li287)
+                            _nextbound287 += _lh287
     trailing_empty = False
     a_idx = None
     pre_a = None       # R187: a Z-only move directly BEFORE the start mark -
@@ -2110,7 +2173,7 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
             i = n_stream
             n_stream += 1
             ls = line.strip()
-            is_mark = (ls == 'LAYER_MARK')
+            is_mark = (ls == 'LAYER_MARK') or (i in _markset287)
             # R187: running 'last Z move + height before the start mark'
             if a_idx is None and not is_mark:
                 _c187 = _stripped(line)

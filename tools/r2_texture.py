@@ -3315,42 +3315,59 @@ def diagnose_banding(k, n, layer_height=0.2, eff_zsize=None,
     layer_height = float(layer_height) if layer_height else 0.2
 
     # --- Klasse 1: Frequenz-Aliasing ---------------------------------------------------
-    if n > 0 and layer_height > 0:
-        # Sample pro Periode = layer_height / (eff_period). eff_period ~ 1/n.
-        samples_per_period = n * layer_height
+    # Eine vertikale Frequenz n bedeutet: n Perioden ueber die eff_zsize.
+    # Die Periodenlaenge in mm ist also eff_zsize / n. Samples pro Periode
+    # = (eff_zsize / n) / layer_height. Nyquist: mind. 2 Samples pro Periode.
+    # Ohne eff_zsize kann die Periode nicht in mm ausgedrueckt werden -> nur
+    # mit eff_zsize prüfbar. (Die alte Formel n*layer_height war falsch
+    # umgekehrt und meldete n=1 als Aliasing, obwohl n=1 ueber 150mm eine
+    # 150mm-Periode = 750 Samples ist - komplett sauber.)
+    if n > 0 and layer_height > 0 and eff_zsize and eff_zsize > 0:
+        period_mm = eff_zsize / n
+        samples_per_period = period_mm / layer_height
         if samples_per_period < 0.5:
             notes.append({
                 'level': 'error', 'cause': 'FREQ_ALIASING',
                 'detail': (
-                    'Vertikale Frequenz n=%g ist zu hoch gegenueber der '
-                    'Layer-Hohe %.2fmm: nur %.2f Sample(s) pro Muster-Periode '
-                    '(Nyquist mind. 2) -> periodische Horizontalstreifen. '
-                    'n um >=2 senken oder layer_height erhohen.'
-                    % (n, layer_height, samples_per_period))})
+                    'Vertikale Frequenz n=%g ergibt eine Periode von %.1fmm '
+                    'ueber eff_zsize=%.1fmm: nur %.2f Sample(s) pro Periode '
+                    'bei layer_height %.2fmm (Nyquist mind. 2) -> periodische '
+                    'Horizontalstreifen. n erhohen (mehr Perioden) oder '
+                    'layer_height erhohen.'
+                    % (n, period_mm, eff_zsize, samples_per_period, layer_height))})
         elif samples_per_period < 1.0:
             notes.append({
                 'level': 'warn', 'cause': 'FREQ_MARGINAL',
                 'detail': (
-                    'Vertikale Frequenz n=%g an der Nyquist-Grenze (%.2f '
-                    'Samples pro Periode): Banding-Anfallig. n leicht senken '
-                    'fuer margenfreie Streifen.'
-                    % (n, samples_per_period))})
+                    'Vertikale Frequenz n=%g liegt an der Nyquist-Grenze '
+                    '(%.2f Samples pro %.1fmm-Periode): Banding-anfällig. '
+                    'n erhohen fuer margenfreie Streifen.'
+                    % (n, samples_per_period, period_mm))})
 
     # --- Klasse 2: Layer-Sampling-Drift -------------------------------------------------
+    # Die Phase in t = z/eff_zsize ändert sich pro Layer um
+    # delta_t = layer_height/eff_zsize. In Muster-Perioden: delta_t * n
+    # = n*layer_height/eff_zsize = 1/(samples_per_period) (Klasse 1).
+    # Ein RATIONALES Verhältnis (Phase schließt nach ganzzahligen Perioden)
+    # gibt periodische, saubere Streifen; ein irrationales/schlechtes
+    # Sampleverhältnis gibt wandernde Streifen. Als grobe Warnung nur, wenn
+    # die Periode so klein ist, dass sie unter 2 Samples fällt (bereits
+    # in Klasse 1 erfasst) - sonst ist eff_zsize/n/layer_height eine normale
+    # große Zahl (z.B. 750 bei n=1/150mm) und NICHT ein Fehler.
     if eff_zsize and eff_zsize > 0 and n > 0 and layer_height > 0:
-        # t rechnet mit eff_zsize; der naive Sollwert ist eff_zsize * t.
-        # Pro Layer legt sich t um layer_height/eff_zsize weiter - die Phase
-        # wandert, wenn eff_zsize/(n*layer_height) nicht ~1 ist.
-        ratio = eff_zsize / (n * layer_height)
-        if ratio < 0.5 or ratio > 2.0:
+        samples_per_period = (eff_zsize / n) / layer_height
+        # nur warn, wenn die Periode kleiner als ~3 Layer ist (sehr fein,
+        # anfällig) - das meiste ist durch Klasse 1 abgedeckt, hier nur
+        # die Grenze zwischen "sehr fein" und "normal".
+        if 0 < samples_per_period < 3.0 and samples_per_period >= 0.5:
             notes.append({
-                'level': 'warn', 'cause': 'SAMPLE_DRIFT',
+                'level': 'warn', 'cause': 'SAMPLE_FINE',
                 'detail': (
-                    'eff_zsize=%.1fmm passt nicht zu n=%g und layer_height='
-                    '%.2fmm (Ratio %.2f, ideal ~1): die Phase wandert pro '
-                    'Schicht -> wandernde Horizontalstreifen. eff_zsize an '
-                    'n*layer_height anpassen oder n an eff_zsize.'
-                    % (eff_zsize, n, layer_height, ratio))})
+                    'Die vertikal Periode ist nur %.2f Layer (%.1fmm) - '
+                    'ein sehr feines Muster. Phasenverschiebung pro Schicht '
+                    'ist hier am stärksten, Banding-anfällig bei unpassendem '
+                    'n. n so wählen, dass n*layer_height/eff_zsize rational '
+                    'ist.' % (samples_per_period, eff_zsize / n))})
 
     # --- Klasse 3: Auslenkung / Clamp --------------------------------------------------
     if fuzzy_thick and fuzzy_thick > 0:

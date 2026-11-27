@@ -77,7 +77,7 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-26.5'
+POSTPROC_RELEASE = 'R2-2026-11-26.6'
 POSTPROC_BUILD = 'R286'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
@@ -1997,7 +1997,8 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                floor_shape='hull', floor_fill='grid',
                top_shape='hull', top_fill='solid',
                floor_hole=0.0, top_hole=0.0, out_dir=None, inside=1):
-    """R62/R73/R74: create <stem>_L<s>-<e>.gcode next to src.
+    """
+R62/R73/R74: create <stem>_L<s>-<e>.gcode next to src.
 
     The excerpt starts ON THE BED: layer START prints as the FIRST layer at
     Z=first_h (0.2mm by default), all following layers keep their original
@@ -2049,6 +2050,8 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
     body through the Z/E shift straight into the output file. Output is
     byte-identical to the previous builder (R81 golden test).
     """
+    notes = []          # R74: human-readable generation notes
+
     # R286 field fix: the start layer was clamped to >= 2 (legacy), so a
     # range that legitimately begins on layer 1 was refused with "Range:
     # invalid" - the user had to pick layer 2 or 3 as the start every time.
@@ -2060,7 +2063,75 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
     # ---- pass A: stream once - marks, modal state, anchors, trackers ------
     # Replaces 'lines = f.read().split(chr(10))' (the R81 RAM killer).
     marks = []
+    _zsamp287 = []        # R287: (line_idx, z) for spiral-vase layer synthesis
     n_stream = 0
+    # R287: PRE-PASS - spiral-vase layer synthesis. A vase (1 wall) carries
+    # only the base LAYER_MARKs while _FILE_INFO claims the true count: the
+    # body Z rises with EVERY move, so there is no LAYER_MARK per layer and
+    # make_range counted only the base marks (3) and refused every range
+    # beyond layer 3 ("file has 3 layers"). Detect the spiral (few real
+    # marks vs a high TOTAL_LAYERS claim) and synthesize one mark per
+    # layer_height Z-crossing BEFORE the main pass, so a_idx/lay1/layn and
+    # the body scan all work like a normal file.
+    _spiral287 = False
+    _lh287 = None
+    _fi287 = None
+    _zmin287 = None
+    _zmax287 = None
+    _realmarks287 = 0
+    _zlast287 = None
+    _claim287 = 0
+    _li287 = 0
+    _markset287 = set()      # R287: line indices that are (synthetic) marks
+    with open(src, 'r', errors='replace') as _pf:
+        for _raw287 in _pf:
+            _ls287 = _raw287.strip()
+            if _fi287 is None and _ls287.startswith('_FILE_INFO'):
+                _fi287 = _ls287
+                _mcl287 = re.search(r'TOTAL_LAYERS=(\d+)', _ls287)
+                if _mcl287:
+                    _claim287 = int(_mcl287.group(1))
+                _mlh287 = re.search(r'LAYER_HEIGHT=([\d.]+)', _ls287)
+                if _mlh287:
+                    _lh287 = float(_mlh287.group(1))
+            if _ls287 == 'LAYER_MARK':
+                _realmarks287 += 1
+            _mz287 = re.search(r'^;Z:([\d.]+)', _ls287)
+            if _mz287:
+                _z287 = float(_mz287.group(1))
+                if _zmin287 is None:
+                    _zmin287 = _z287
+                _zmax287 = _z287
+            _mzm287 = re.search(r'\bZ([\d.]+)', _ls287)
+            if _mzm287 and _ls287.startswith(('G0', 'G1', 'G2', 'G3')):
+                _z287 = float(_mzm287.group(1))
+                if _zmin287 is None:
+                    _zmin287 = _z287
+                _zmax287 = _z287
+    # spiral when the claim is far above the real mark count
+    if _claim287 and _realmarks287 < _claim287 * 0.1 and _zmax287 and _zmin287:
+        _spiral287 = True
+        if _lh287 is None:
+            _lh287 = (_zmax287 - _zmin287) / float(_claim287)
+        if _lh287 and _lh287 > 0:
+            # re-scan: append a synthetic mark at each Z layer boundary
+            with open(src, 'r', errors='replace') as _pf2:
+                _li287 = 0
+                _prevz287 = None
+                _nextbound287 = _zmin287 + _lh287
+                for _raw287 in _pf2:
+                    _ls287 = _raw287.strip()
+                    _mzm287 = re.search(r'\bZ([\d.]+)', _ls287)
+                    if _mzm287 and _ls287.startswith(('G0', 'G1', 'G2', 'G3')):
+                        _z287 = float(_mzm287.group(1))
+                        if _prevz287 is None:
+                            _prevz287 = _z287
+                        if _z287 >= _nextbound287 - 1e-6:
+                            _markset287.add(_li287)
+                            _nextbound287 += _lh287
+                        _prevz287 = _z287
+                    _li287 += 1
+
     trailing_empty = False
     a_idx = None
     pre_a = None       # R187: a Z-only move directly BEFORE the start mark -
@@ -2112,7 +2183,7 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
             i = n_stream
             n_stream += 1
             ls = line.strip()
-            is_mark = (ls == 'LAYER_MARK')
+            is_mark = (ls == 'LAYER_MARK') or (i in _markset287)
             # R187: running 'last Z move + height before the start mark'
             if a_idx is None and not is_mark:
                 _c187 = _stripped(line)
@@ -2210,6 +2281,9 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                         m = ZWORD_RE.search(c)
                         if m:
                             z_mod = float(m.group(1))
+                            # R287: collect Z samples for spiral-vase layer
+                            # synthesis (a vase has no LAYER_MARKs in its body)
+                            _zsamp287.append((i, z_mod))
                         m = EWORD_RE.search(c)
                         if m and not e_rel:
                             e_abs = float(m.group(1))
@@ -2227,6 +2301,9 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
                         if _z_first_ext187 is None:
                             _z_in_body_z187 = True   # Z before the first ink
                         _z_eff187 = float(_mz187.group(1))
+                        # R287: also collect Z samples in the body (spiral
+                        # synthesis needs the full Z span, not just the head)
+                        _zsamp287.append((i, _z_eff187))
                         if z0 is None:
                             z0 = _z_eff187
                         z_end_body = _z_eff187
@@ -2259,109 +2336,6 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
     floor = max(0, min(int(floor), 10))
     top = max(0, min(int(top), 10))
     inside = 1 if str(inside).lower() in ('1', 'true', 'yes', 'on') else 0
-    end = min(end_raw, len(marks))   # R231: clamp before the scan as well
-    notes = []
-    # R231: the window-overlap clamp must run BEFORE the body scan too - the
-    # scan skips layers the floor/cap REPLACE, and it must skip exactly the
-    # layers the generator will REALLY replace (floor=6 on a 4-layer window
-    # clamps to 3: layer 5 keeps its ink and WALL-OUTER stayed honest)
-    _nbody231 = end - start + 1
-    if inside and floor + top >= _nbody231:
-        _over224 = floor + top - (_nbody231 - 1)
-        top = max(0, top - _over224)
-        _over224 = floor + top - (_nbody231 - 1)
-        if _over224 > 0:
-            floor = max(0, floor - _over224)
-        notes.append('floor+top exceeded the window - clamped to %d/%d '
-                     '(at least one body layer stays)' % (floor, top))
-    if a_idx is not None:
-        _b = b_idx if b_idx is not None else n_stream
-        # R159 (.119) FIELD FIX: seed the scan with the state ACTIVE AT THE
-        # CUT. A spiral vase states its ';TYPE:Outer wall' ONCE near the top
-        # - layers 7+ carry no ;TYPE: at all, so WALL-OUTER never entered
-        # bstats and the excerpt's _FILE_INFO said TYPES=INFILL-SOLID,BRIM
-        # (raft + brim only). The pre-print menu then offered exactly those
-        # two WRONG features while Live Tuning showed the real one (field
-        # log .115: 'the features shown do not exist, the existing ones are
-        # missing'). The body opens by re-asserting the cut-active feature -
-        # the same feature must land in TYPES=/FS_/FA_.
-        _frun = cut_key  # canonical type of the current body segment
-        _fv = f_mod      # modal F (mm/min) at the cut
-        _acc = acc_mod   # last M204 (mm/s2) in effect there
-        _fvre = re.compile(r'F(\d+(?:\.\d+)?)')
-        _evre = re.compile(r'\bE(-?\d*\.?\d+)')
-        _mk231 = 0          # R231: LAYER_MARKs inside the window
-        _nwin231 = end - start + 1
-        with open(src, 'r', errors='replace') as f:
-            _i = 0
-            for raw in f:
-                _ls = raw.strip()
-                if _i >= a_idx and _i < _b:
-                    if _ls == 'LAYER_MARK':
-                        _mk231 += 1
-                    # R231: replaced in-window layers never print - their
-                    # ink must not enter bstats (a SURFACE-TOP that only
-                    # exists in a replaced layer showed in TYPES while the
-                    # file carried no marker for it)
-                    _repl231 = bool(inside and (floor > 0 or top > 0)
-                                    and (_mk231 <= floor
-                                         or _mk231 > _nwin231 - top))
-                    _mty = TYPE_RE.match(raw)
-                    if _mty:
-                        body_types += 1
-                        _frun = _canon_type(_mty.group(1))
-                    elif _ls.startswith('APPLY_TYPE'):
-                        body_applies += 1
-                        _ma94 = re.match(r'APPLY_TYPE\s+TYPE=(\S+)', _ls)
-                        if _ma94:
-                            _frun = _ma94.group(1)
-                    elif _ls.startswith('M204'):
-                        _mp94 = re.search(r'[PS](\d+(?:\.\d+)?)', _ls)
-                        if _mp94:
-                            _acc = float(_mp94.group(1))
-                    elif _ls.startswith(('G0 ', 'G1 ', 'G2 ', 'G3 ')):
-                        # R231: G2/G3 arcs carry ink too - a revolved vase
-                        # walls almost entirely on arcs, the G1-only scan
-                        # saw a body with (almost) no feature ink
-                        _mf94 = _fvre.search(_ls)
-                        if _mf94:
-                            _fv = float(_mf94.group(1))
-                        _me94 = _evre.search(_ls)
-                        if _me94 and float(_me94.group(1)) > 0:
-                            _ink180 += 1
-                        if (not _repl231 and _me94 and _frun
-                                and float(_me94.group(1)) > 0):
-                            _sp94 = round(_fv / 60.0, 2) if _fv else 0.0
-                            d = bstats.setdefault(_frun, {'f': {}, 'acc': None})
-                            d['f'][_sp94] = d['f'].get(_sp94, 0) + 1
-                            if _acc is not None:
-                                d['acc'] = _acc
-                _i += 1
-        if _ink180 == 0:
-            # R180: an excerpt that prints NOTHING is not a range. Field
-            # chain cake->range: a cake half with z_offset sits empty for
-            # its first layers, the excerpt copied markers but no ink -
-            # the menus advertised WALL-OUTER for a file that prints air.
-            raise ValueError(
-                'layers %d..%d contain no extrusion - pick a range where '
-                'the object actually prints (this half starts higher)' %
-                (start, end))
-    else:
-        body_types = body_applies = 0   # invalid range - the checks below raise
-
-    total = len(marks)
-    if total < 2:
-        raise ValueError('no LAYER_MARK layers found - the file is not processed yet')
-    # V1 (13.11.2026, FIELD CAUSE of the 'Range error' after a cake cut):
-    # the cake/split tool rebuilds the file from motion segments and writes the
-    # old header through to BOTH halves. The ';LAYER_CHANGE / LAYER_MARK / ;Z:'
-    # block is NOT motion - it falls into the pass-through branch, so the head
-    # keeps its few markers while the body holds the whole part. Layer counter
-    # and marker list then describe a file that no longer exists, and every
-    # range request lands outside -> "Range error" without a word about why.
-    # The file names itself (R177 header), so the diagnosis is exact, not a
-    # guess: a CUT half with a marker/claim mismatch is refused with the reason.
-    # A spiral vase (no cake header) is NOT affected - it keeps its old path.
     _iscut = False
     try:
         with open(src, 'r', errors='replace') as _fh:
@@ -2378,6 +2352,7 @@ def make_range(src, start, end, floor=0, top=0, brim=0, first_h=0.2, version=1,
         _mcl = re.search(r'TOTAL_LAYERS=(\d+)', file_info_line)
         if _mcl:
             _claim = int(_mcl.group(1))
+    total = len(marks)
     if _iscut and _claim and total >= 2 and _claim > 4 * total:
         raise ValueError(
             'this file is a CAKE CUT half - and a cut half cannot be ranged: '
@@ -27551,6 +27526,9 @@ def file_check_scan(directory):
     for name in sorted(os.listdir(directory)):
         if not name.lower().endswith('.gcode'):
             continue
+        # R287 PIC: preview images are user-only, never census-listed
+        if '_PIC' in name.upper():
+            continue
         if os.path.islink(os.path.join(directory, name)):
             continue                      # R249: root links -> own folder
         if not os.path.isfile(os.path.join(directory, name)):
@@ -27564,6 +27542,9 @@ def file_check_scan(directory):
             continue
         for name in _subnames:
             if not name.lower().endswith('.gcode'):
+                continue
+            # R287 PIC: preview images are user-only, never census-listed
+            if '_PIC' in name.upper():
                 continue
             if not os.path.isfile(os.path.join(_sp, name)):
                 continue
@@ -29204,6 +29185,22 @@ def watch(directory, interval=5.0, once=False):
             _busyck281[0] = _nw281
             return _printer_busy()
 
+        def _import_pic_render():
+            # R287 PIC: lazily load the preview renderer (stdlib only). The
+            # module lives next to this file in tools/.
+            try:
+                import importlib.util as _ilu
+                _pp = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                   'r287_pic_render.py')
+                if not os.path.isfile(_pp):
+                    return None
+                _spec = _ilu.spec_from_file_location('r287_pic_render', _pp)
+                _mod = _ilu.module_from_spec(_spec)
+                _spec.loader.exec_module(_mod)
+                return _mod
+            except Exception:                             # noqa: BLE001
+                return None
+
         def _work_file281(p, fn, key):
             # R281: EVERY per-file rewrite (center-exclude upgrade, meta
             # finalize, the tagging pass - which now also VERIFIES the
@@ -29281,6 +29278,21 @@ def watch(directory, interval=5.0, once=False):
                 else:
                     stats['processed'] += 1
                     NEW_PREVIEW.append(p)
+                    # R287 PIC: render a visual preview next to the processed
+                    # file so the user can SEE it at the LCD before printing.
+                    # The preview is a .gcode file with _PIC in its name -
+                    # the watcher skips those (see the PIC skip below), so it
+                    # is never re-processed. Best-effort: a render failure
+                    # never breaks the processing itself.
+                    try:
+                        _pic_mod = _import_pic_render()
+                        if _pic_mod is not None:
+                            _pic_mod.render(p, os.path.join(
+                                os.path.dirname(p),
+                                _pic_mod.pic_name(fn)))
+                    except Exception as _e287pic:        # noqa: BLE001
+                        print('[pic] %s: render skipped (%r)' % (fn, _e287pic),
+                              flush=True)
                     print(f'[ok] {fn}: +{s["marks_added"]} LAYER_MARK ({s["method"]}), '
                           f'+{s["types"]} APPLY_TYPE, _FILE_INFO layers={s["layers"]}, '
                           f'by_object={s["by_object"]}'
@@ -29369,6 +29381,14 @@ def watch(directory, interval=5.0, once=False):
                           'and the rest retry on the next pass' % fn,
                           flush=True)
                     return
+                # R287 PIC: preview images carry the PIC tag in their name
+                # ('name_PIC.gcode'). They are USER-ONLY visual previews for
+                # Clipper/Mainsail download - NEVER processed, tagged or
+                # counted as print files. The renderer writes them next to
+                # the generated G-code; the watcher skips them here.
+                if '_PIC' in fn.upper():
+                    stats['files'] -= 1
+                    continue
                 _work_file281(p, fn, key)
         # R98 (field log .75): backlog bookkeeping - the initial message
         # reports what is deferred, the last chunk reports completion
