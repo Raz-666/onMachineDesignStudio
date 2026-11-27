@@ -485,28 +485,28 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # (their frozen md5 was simply stale - they re-derive via Z-scan the same
 # way). pr01/pr02/pr04-pr10 stay byte-identical (process() untouched).
 # Re-frozen from the current module; r81 now 23/23 green.
-# RE-FREEZE HISTORY (R2-2026-11-26.10): the references drifted again after the
-# 26.10 stamp bump (POSTPROC_RELEASE changed -> the `; R2-GEN core ...` header
+# RE-FREEZE HISTORY (R2-2026-11-26.11): the references drifted again after the
+# 26.11 stamp bump (POSTPROC_RELEASE changed -> the `; R2-GEN core ...` header
 # line length changes by +2 bytes per mr file), so the mr md5s went stale by
-# exactly 2 bytes each (e.g. mr01 4633 -> 4635 B). This is metadata drift only,
-# NO motion/logic change: the only difference is the version stamp inside the
-# generated header. Re-frozen from the CURRENT module (26.10); r81 now 23/23
-# byte-identical (md5 AND summaries). A stamp bump must ALWAYS be followed by
-# a re-freeze here - the goldens are version-stamp-sensitive by design.
+# exactly 2 bytes each. This is metadata drift only, NO motion/logic change:
+# the only difference is the version stamp inside the generated header.
+# Re-frozen from the CURRENT module (26.11); r81 now 23/23 byte-identical
+# (md5 AND summaries). A stamp bump must ALWAYS be followed by a re-freeze
+# here - the goldens are version-stamp-sensitive by design.
 REF_MD5 = {
-    'mr01': '829af54d608a220d9bd5382b6ad4cf6b',
-    'mr02': '6dda1f5d4c05365c6d30c79001a23136',
-    'mr03': 'cb104464f1c57107f2d56157011ff366',
-    'mr04': '95be13d1db09f011da62e04ded1b3d3f',
-    'mr05': '2905fb1a8b26ea357a53ec4a70153e22',
-    'mr06': '013e187440cf0af5268eca8c68a17d66',
-    'mr07': 'cdde242ad6c546a8ba061738d5dcb7ca',
-    'mr08': 'b09dc648c1e2ee1685e0deb8842e6207',
-    'mr09': 'f75fb317b934bdc1658af6f441710af5',
-    'mr10': 'ff413290d05ea8c97b70addda629f901',
-    'mr11': 'ad78e88f91e30e4c099929038dc389f7',
-    'mr12': '28047b3ca58060e1460ec8f96408d620',
-    'mr13': '1d8f4822956ce00c7714a415a3409f2f',
+    'mr01': '84531bdd9e023bb5b994feb703f20434',
+    'mr02': 'f5fa118c32b4247482fec3b405d2c4b6',
+    'mr03': '98309bad354fa26e105052f3e420e0d7',
+    'mr04': 'd9bddfb018f3a7192ef9c27030695cab',
+    'mr05': '964d9dc2de9d868d8e4b1ef59a5ceeb7',
+    'mr06': 'aec640551e5a58cae1f462dd325bccc9',
+    'mr07': '3b4d730e40c771237c31b060abac82d3',
+    'mr08': 'e68ffb0dcbd13ebee8db896968e87a6e',
+    'mr09': 'f01c05bfdd74e317d16a7e48063e3b63',
+    'mr10': '6de3c067c2860b9e86675a3bb82a2169',
+    'mr11': '106b591eb811e3bbd94dcb969d1509f9',
+    'mr12': 'a28a3e0ac9639ed169ecaadf5339bfdc',
+    'mr13': 'f10b7d89ffa71299cf64aec6938af81c',
     'pr01': 'aa5a6f27d5a7e6576f57eeea93af63a5',
     'pr02': '61457e9bcbd98996b6e7dc26efda23d8',
     'pr03': '09e3fd7c58a6491fd66b3c5585ec1d1f',
