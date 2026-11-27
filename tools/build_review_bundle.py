@@ -42,6 +42,13 @@ def source_paths(root):
     for path in sorted(candidates):
         if path.startswith('releases/') or path.startswith('.git/'):
             continue
+        # Release-ZIPs are build artifacts, not review source: a large ZIP at
+        # the repo root would blow the archive size limit. Exclude the same
+        # pattern build_release_zip.py produces.
+        if (PurePosixPath(path).parent.as_posix() == '.'
+                and PurePosixPath(path).name.startswith('klipper-e3-r2d2-UPDATE-')
+                and PurePosixPath(path).name.endswith('.zip')):
+            continue
         p = PurePosixPath(path)
         if p.is_absolute() or '..' in p.parts or '\\' in path:
             raise ValueError('invalid source path')
