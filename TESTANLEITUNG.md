@@ -103,7 +103,7 @@ bewusst angeschweißt). Je ein Probedruck:
       ein Druck LÄDT alle Settings und die Antwort nennt sie
       (pattern, scale, zsize, amp, dir); Löschen verweigert
       (schreibgeschützt); eigener Save unter Vorlagen-Namen nummeriert
-      sich selbst; TEXTURING.pdf im Repo zeigt alle 21 Muster mit
+      sich selbst; TEXTURING.pdf im Repo zeigt alle 55 Muster mit
       echten Vorschauen
 - [ ] **STL-Export (.136m)**: Datei wählen → Pre-Print > File info >
       `STL: object only` → `gcodes/stl/<name>_object.stl` entsteht
