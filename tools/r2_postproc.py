@@ -2336,6 +2336,7 @@ R62/R73/R74: create <stem>_L<s>-<e>.gcode next to src.
     floor = max(0, min(int(floor), 10))
     top = max(0, min(int(top), 10))
     inside = 1 if str(inside).lower() in ('1', 'true', 'yes', 'on') else 0
+    end = min(end_raw, len(marks))   # R231: clamp before the scan as well
     _iscut = False
     try:
         with open(src, 'r', errors='replace') as _fh:
