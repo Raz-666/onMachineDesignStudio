@@ -77,7 +77,7 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-26.4'
+POSTPROC_RELEASE = 'R2-2026-11-26.5'
 POSTPROC_BUILD = 'R286'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
@@ -33187,6 +33187,17 @@ def watch(directory, interval=5.0, once=False):
             except Exception:                           # noqa: BLE001
                 pass
             print('[toolchain] op guard: %s' % _ve285o, flush=True)
+        except Exception as _ve285oa:                  # noqa: BLE001
+            # R287: OP dispatch caught ONLY ValueError - a TypeError/AttributeError
+            # escaped the guard and crashed the watcher thread (MCU shutdown).
+            try:
+                _moonraker_gcode(
+                    'RESPOND MSG="Chain op failed (recovered): %s"\n'
+                    'M117 Chain op error\n_SOUND_LIB NAME=r2_error'
+                    % str(_ve285oa).replace('"', "'")[:200])
+            except Exception:                           # noqa: BLE001
+                pass
+            print('[toolchain] op guard (all): %r' % _ve285oa, flush=True)
 
         # -- SAVE: die Liste als eigenes Preset (.json im Toolchain-Ordner) --
         try:
@@ -33272,6 +33283,17 @@ def watch(directory, interval=5.0, once=False):
             except Exception:                           # noqa: BLE001
                 pass
             print('[toolchain] load guard: %s' % _ve285l, flush=True)
+        except Exception as _ve285la:                  # noqa: BLE001
+            # R287: LOAD dispatch caught ONLY ValueError - a malformed JSON or
+            # a TypeError escaped and crashed the watcher thread.
+            try:
+                _moonraker_gcode(
+                    'RESPOND MSG="Chain load failed (recovered): %s"\n'
+                    'M117 Chain load error\n_SOUND_LIB NAME=r2_error'
+                    % str(_ve285la).replace('"', "'")[:200])
+            except Exception:                           # noqa: BLE001
+                pass
+            print('[toolchain] load guard (all): %r' % _ve285la, flush=True)
 
         # R259: the TOOLCHAIN - a preset FILE chains the real tools: every
         # step feeds the next (Scale -> Twist -> ...), ONE queue entry, only
@@ -33450,6 +33472,18 @@ def watch(directory, interval=5.0, once=False):
             except Exception:                           # noqa: BLE001
                 pass
             print(f'[toolchain] guard: {ve259}', flush=True)
+        except Exception as ve259a:                  # noqa: BLE001
+            # R287: the R259 toolchain dispatch caught ONLY ValueError. A
+            # TypeError/AttributeError (bad preset data) escaped the guard and
+            # crashed the watcher thread => MCU shutdown on a bad chain.
+            try:
+                _moonraker_gcode(
+                    'RESPOND MSG=\"Toolchain failed (recovered): %s\"\n'
+                    'M117 Chain error\n_SOUND_LIB NAME=r2_error'
+                    % str(ve259a)[:200])
+            except Exception:                           # noqa: BLE001
+                pass
+            print(f'[toolchain] guard (all): {ve259a!r}', flush=True)
 
         # R177 (.130 wish list): the CAKE CUT - split a print with a
         # plane. Angles in all three axes (0.5 deg grid), the plane runs

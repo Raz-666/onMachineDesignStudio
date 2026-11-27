@@ -3260,5 +3260,132 @@ def apply_texture(src, out_dir=None, mode='FUZZY', fuzzy_thick=0.3,
                          if mode == 'BUMPS' and bump_pattern == 'MAP' else ''),
             'map_pos': (str(map_pos).upper()
                         if mode == 'BUMPS' and bump_pattern == 'MAP' else ''),
+            # R287: Horizontalstreifen-Diagnose (FREQ_ALIASING / SAMPLE_DRIFT /
+            # EXCESS_DISPLACEMENT / CLEAN) - die Ursachen werden mitgeliefert,
+            # der User sieht sofort, ob die Parameter zu Banding neigen.
+            'banding': diagnose_banding(k, n, 0.2,
+                                        eff_zsize=eff_zsize,
+                                        fuzzy_thick=fuzzy_thick, mode=mode,
+                                        sample_step_mm=1.5),
             'secs': round(time.time() - t0, 2)}
     return out, info
+
+
+# ==============================================================================================
+#  R287: HORIZONTALSTREIFEN-DIAGNOSE (banding diagnostics)
+#  Texturen können horizontale Streifen (Banding) erzeugen, die nicht aus
+#  der Geometrie kommen, sondern aus der Muster-Frequenz relativ zur
+#  Layer-Höhe oder aus ungleichmäßigem Layer-Sampling. Diese Funktion
+#  analysiert die Parameter und meldet Indizie mit konkreter Ursache.
+#
+#  Ursachenklasse 1 - FREQUENCY ALIASING (Moiré/Banding):
+#    Die vertikale Muster-Frequenz `n` (t-Richtung) ist so hoch, dass sie
+#    auf die Layer-Höhe aufischt: pro Schicht wird das Muster nur noch
+#    unter-sampled -> periodische Streifen. Kritisch, wenn
+#    n * layer_height >= ~0.5 (Nyquist: min. 2 Samples pro Periode).
+#  Ursachenklasse 2 - LAYER-SAMPLING DRIFT:
+#    Der Soundtrack-Sampler geht in t-Richtung mit der eff_zsize vor; wenn
+#    eff_zsize / (n * layer_height) nicht nahe 1 ist, wandert die Phase
+#    pro Schicht -> Streifen scheinen sich zu verschieben.
+#  Ursachenklasse 3 - CLAMP/VOLUMETRIC:
+#    Zu hohe Auslenkung (-> Clamp) oder E-Compensation kann Streifen
+#    durch verdichtete Schichten erzeugen.
+#
+#  Liefert eine Liste von (level, cause, detail) mit level in
+#  ['ok', 'warn', 'error'].
+# ==============================================================================================
+def diagnose_banding(k, n, layer_height=0.2, eff_zsize=None,
+                     fuzzy_thick=0.3, mode='FUZZY', sample_step_mm=1.5):
+    """Diagnose fuer Horizontalstreifen bei Texturen.
+
+    Args:
+        k: horizontale Muster-Frequenz (s-Richtung).
+        n: vertikale Muster-Frequenz (t-Richtung).
+        layer_height: Schichthohe in mm.
+        eff_zsize: effektive Ausdehnung in Z (mm) - fuer Sample-Drift.
+        fuzzy_thick: Auslenkung (mm) - zu hoch kann Clamp-Banding erzeugen.
+        mode: 'FUZZY' (Verschiebung) oder 'BUMPS' (Buckel).
+        sample_step_mm: Sample-Abstand der Schale.
+    Returns:
+        list of dicts: [{'level', 'cause', 'detail'}, ...]
+    """
+    notes = []
+    k = float(k)
+    n = float(n)
+    layer_height = float(layer_height) if layer_height else 0.2
+
+    # --- Klasse 1: Frequenz-Aliasing ---------------------------------------------------
+    if n > 0 and layer_height > 0:
+        # Sample pro Periode = layer_height / (eff_period). eff_period ~ 1/n.
+        samples_per_period = n * layer_height
+        if samples_per_period < 0.5:
+            notes.append({
+                'level': 'error', 'cause': 'FREQ_ALIASING',
+                'detail': (
+                    'Vertikale Frequenz n=%g ist zu hoch gegenueber der '
+                    'Layer-Hohe %.2fmm: nur %.2f Sample(s) pro Muster-Periode '
+                    '(Nyquist mind. 2) -> periodische Horizontalstreifen. '
+                    'n um >=2 senken oder layer_height erhohen.'
+                    % (n, layer_height, samples_per_period))})
+        elif samples_per_period < 1.0:
+            notes.append({
+                'level': 'warn', 'cause': 'FREQ_MARGINAL',
+                'detail': (
+                    'Vertikale Frequenz n=%g an der Nyquist-Grenze (%.2f '
+                    'Samples pro Periode): Banding-Anfallig. n leicht senken '
+                    'fuer margenfreie Streifen.'
+                    % (n, samples_per_period))})
+
+    # --- Klasse 2: Layer-Sampling-Drift -------------------------------------------------
+    if eff_zsize and eff_zsize > 0 and n > 0 and layer_height > 0:
+        # t rechnet mit eff_zsize; der naive Sollwert ist eff_zsize * t.
+        # Pro Layer legt sich t um layer_height/eff_zsize weiter - die Phase
+        # wandert, wenn eff_zsize/(n*layer_height) nicht ~1 ist.
+        ratio = eff_zsize / (n * layer_height)
+        if ratio < 0.5 or ratio > 2.0:
+            notes.append({
+                'level': 'warn', 'cause': 'SAMPLE_DRIFT',
+                'detail': (
+                    'eff_zsize=%.1fmm passt nicht zu n=%g und layer_height='
+                    '%.2fmm (Ratio %.2f, ideal ~1): die Phase wandert pro '
+                    'Schicht -> wandernde Horizontalstreifen. eff_zsize an '
+                    'n*layer_height anpassen oder n an eff_zsize.'
+                    % (eff_zsize, n, layer_height, ratio))})
+
+    # --- Klasse 3: Auslenkung / Clamp --------------------------------------------------
+    if fuzzy_thick and fuzzy_thick > 0:
+        if fuzzy_thick > 0.6:
+            notes.append({
+                'level': 'warn', 'cause': 'EXCESS_DISPLACEMENT',
+                'detail': (
+                    'Auslenkung %.2fmm ist hoch: Clamp schneidet die Spitze '
+                    'ab -> verdickte Schichten an den Streifen-Spitzen. Fue '
+                    'zu 0.2-0.4 senken.' % fuzzy_thick)})
+        if fuzzy_thick > 1.0:
+            notes.append({
+                'level': 'error', 'cause': 'DISPLACEMENT_CLAMP',
+                'detail': (
+                    'Auslenkung %.2fmm ist extrem: starkes Clamp, sichtbare '
+                    'Banding-Rippen. Definitiv zu senken.'
+                    % fuzzy_thick)})
+
+    # --- Sample-Abstand ---------------------------------------------------------------
+    # Nur prüfbar, wenn eff_zsize bekannt ist: t läuft 0..1 über eff_zsize,
+    # also n Perioden -> Periode_mm = eff_zsize / n.
+    if (sample_step_mm and sample_step_mm > 0 and n > 0
+            and eff_zsize and eff_zsize > 0):
+        eff_period = eff_zsize / n
+        if eff_period and eff_period > 0 and sample_step_mm > eff_period * 2:
+            notes.append({
+                'level': 'warn', 'cause': 'SAMPLE_TOO_COARSE',
+                'detail': (
+                    'Sample-Step %.1fmm ist grob gegenueber der Periode '
+                    '%.2fmm: Muster-Striche unter-sampled -> Knorpel-Banding. '
+                    'sample_step_mm senken (tiefe Textur nutzt 0.4mm).'
+                    % (sample_step_mm, eff_period))})
+
+    if not notes:
+        notes.append({'level': 'ok', 'cause': 'CLEAN',
+                      'detail': 'Keine Indizie fuer Horizontalstreifen - '
+                                'Parameter im sauberen Bereich.'})
+    return notes
