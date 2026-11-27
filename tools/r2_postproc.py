@@ -6668,7 +6668,8 @@ def _make_stamp_handle(fit, out_dir='.', material='PLA', nozzle=0.6,
                 for off in (_brim_gap(wid) + wid, _brim_gap(wid)):
                     _emit_loop(pen, _circle(cx, cy, _r_out(z_top) + off),
                                e_wall, 900)
-            _tyb = ('SURFACE-TOP' if li == total else None)
+            _tyb = ('SURFACE-BOTTOM' if li == 1 else
+                    'SURFACE-TOP' if li == total else None)
             a(';TYPE:Outer wall')
             a('APPLY_TYPE TYPE=%s   ; R168 spigot/knob wall'
               % (_tyb or 'WALL-OUTER'))
@@ -7642,10 +7643,10 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
     if tower:
         # R194 (.135): the purge tower is tagged PRIME-TOWER now
         types.append('PRIME-TOWER')
-    # R287 (user rule): the GENERATOR bottom is INFILL-SOLID (layer count
-    # based) - bottom->bottom is forbidden for own geometry. Correct order:
-    # infill solid -> top layer -> max ironing-layer. SURFACE-BOTTOM stays
-    # for FOREIGN G-code only.
+    # R287: Layer 1 is the BOTTOM surface (standard slicer first layer).
+    # The rule is the SEQUENCE: after this one bottom layer come solid
+    # infill layers - never a SECOND bottom. Top surface closes the print.
+    types.append('SURFACE-BOTTOM')
     if brim:
         types.insert(0, 'BRIM')
     if ironing:
