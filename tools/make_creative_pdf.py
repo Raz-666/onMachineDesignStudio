@@ -24,6 +24,7 @@ from reportlab.platypus import (BaseDocTemplate, PageTemplate, Frame,
 from reportlab.graphics.shapes import Drawing, Rect, String, Line, Circle
 
 from r2_version import VERSION as _R2VER
+from make_texture_pdf import PAT_ORDER as _PAT_ORDER, LIB as _LIB
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
@@ -391,7 +392,7 @@ def build(path):
         'was Sie reizt; jedes Rezept steht für sich.'))
     A(Spacer(1, 4*mm))
     A(TBL(['Werkzeugfamilie', 'Was sie liefert', 'Werkzeug'],
-          [['Oberfläche', 'Haptik, Lichtbrechung, Relief', 'Texture (21 Muster, 27 Vorlagen)'],
+          [['Oberfläche', 'Haptik, Lichtbrechung, Relief', 'Texture (%d Muster, %d Vorlagen)' % (len(_PAT_ORDER), len(_LIB))],
            ['Licht', 'Bild durch Wandstärke', 'Lithophane'],
            ['Farbe', 'Flächen und Schrift', 'ColorPicture · Labels'],
            ['Struktur', 'baubare, lösbare Körper', 'Bricks · Frames · Angles+Flat'],

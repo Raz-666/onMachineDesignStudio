@@ -26,6 +26,7 @@ from r2_pdf_kit import (  # noqa: E402
     Doc, H1, H2, P, B, FORMULA, TBL, BOX, IMG, CAP, SP, PageBreak, font,
 )
 from r2_version import VERSION as R2VER  # noqa: E402
+from make_texture_pdf import PAT_ORDER as _PAT_ORDER  # ONE truth for the pattern count
 
 
 # ------------------------------------------------------- Echter G-Code-Parser (3D!)
@@ -481,8 +482,8 @@ def build_pdf(out_pdf):
             'erscheinen ausschließlich dann, wenn tatsächlich Füllbahnen im Körper existieren.',
             '<b>Idealer Urkörper für Pre-Print-Tools &amp; Toolchain:</b> Ein <b>CYLINDER</b> '
             'oder <b>6-gon</b> aus <b>Tools &gt; Geometry</b> lässt sich direkt anschließend '
-            'mit <b>Texture</b> (27 Muster), <b>Twist</b>, <b>Scale</b> oder <b>Casting molds</b> '
-            'kombinieren — 100 % On-Machine-Design ohne Slicer!'
+            'mit <b>Texture</b> (%d Muster), <b>Twist</b>, <b>Scale</b> oder <b>Casting molds</b> '
+            'kombinieren — 100 %% On-Machine-Design ohne Slicer!' % len(_PAT_ORDER)
         )
         st += [IMG(fig1, width_mm=162)]
         st += CAP(

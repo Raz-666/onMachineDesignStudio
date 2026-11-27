@@ -16,6 +16,7 @@ from reportlab.platypus import (BaseDocTemplate, PageTemplate, Frame, Paragraph,
 from reportlab.platypus.flowables import Flowable
 from reportlab.graphics.shapes import Drawing, Rect, String, Line, Circle, Polygon, PolyLine
 from r2_version import VERSION as _R2VER
+from make_texture_pdf import PAT_ORDER as _PAT_ORDER   # ONE truth for the pattern count
 
 FD = '/usr/share/fonts/truetype/dejavu/'
 pdfmetrics.registerFont(TTFont('DVS', FD + 'DejaVuSans.ttf'))
@@ -1903,7 +1904,7 @@ chapter('5.9','Texture: fuzzy skin & shaped bumps (any g-code file)',
    ['Mode','OFF / FUZZY / BUMPS','OFF = Apply refuses with a hint'],
    ['Fuz thick','0.05-1.5 mm','scatter radius (fuzzy; Orca-sized window 0.15-0.5)'],
    ['Fuz dens','10-100 %','share of scattered vertices'],
-   ['Pattern','library: 21 + MAP','3 pages; MAP = own image, wrapped seamlessly'],
+   ['Pattern','library: %d + MAP' % (len(_PAT_ORDER) - 1), '3 pages; MAP = own image, wrapped seamlessly'],
    ['Around','3-60 mm','groove size around the perimeter (snapped to whole grooves)'],
    ['Height','0.4-20 mm','repeat in Z (snapped to whole repeats, ends flush)'],
    ['Depth','0.05-1.5 mm','groove/bump depth'],

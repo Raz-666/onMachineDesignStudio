@@ -4,7 +4,7 @@ request, .136m round): how the wall displacement works, the EXACT mapping
 of every setting, the patterns with previews sampled from the REAL
 pattern functions (tools/r2_texture.py _build_patterns - not redrawn,
 the images ARE the code output), and the 95 library presets listed per
-pattern (R286: 95 Muster, alle nahtlos).
+pattern (R286: 55 Patterns, 95 library presets, alle nahtlos).
 
 Content basis: tools/r2_texture.py (_build_patterns, apply_texture,
 pattern() cylinder mapping, fuzzy disc), macros/17_generator.cfg
@@ -408,23 +408,25 @@ def main():
     A(Spacer(1, 6*mm))
     A(P('Dieses Handbuch dokumentiert das Texture-Werkzeug (Pre-Print &gt; '
         'Mods &gt; Texture): wie die Wandverschiebung arbeitet, das EXAKTE '
-        'Mapping jedes Parameters, alle 40 Muster mit Vorschaubildern - '
+        'Mapping jedes Parameters, alle %d Muster mit Vorschaubildern - '
         'die Bilder sind direkt aus den echten Musterfunktionen gesampelt, '
-        'nicht neu gezeichnet - und 40 materialgebundene Vorlagen (je Muster '
+        'nicht neu gezeichnet - und %d materialgebundene Vorlagen (je Muster '
         'eine). Die Vorschaubilder sind Algorithmus-Simulationen, keine '
-        'Fotos und keine Zusage eines bestimmten Druckergebnisses.'))
+        'Fotos und keine Zusage eines bestimmten Druckergebnisses.'
+        % (len(PAT_ORDER), len(LIB))))
     A(Spacer(1, 3*mm))
     A(TBL(['Ebene', 'Was'], [
         ['Modus FUZZY', 'Zufällige Wandverformung (Fuzzy-Skin): jeder '
          'Außenwand-Vertex wandert mit Wahrscheinlichkeit Dichte um bis zu '
          'Dicke in eine Zufallsrichtung. Kein Muster, reines Rauschen.'],
         ['Modus BUMPS', 'Deterministische Musterfunktion verschiebt die '
-         'Außenwand radial - 40 Muster, gesteuert durch SIZE/ZSIZE/DEPTH/DIR/SEED.'],
-        ['40 Muster', 'Gerichtete Reliefs und Materialfelder: Bretter, '
+         'Außenwand radial - %d Muster, gesteuert durch SIZE/ZSIZE/DEPTH/DIR/SEED.'
+         % len(PAT_ORDER)],
+        ['%d Muster' % len(PAT_ORDER), 'Gerichtete Reliefs und Materialfelder: Bretter, '
          'Rindenfissuren, Ziegel, Wellen, Hex-Zellen, Korb, Seil, Plüsch, '
          'Schuppen, Kanneluren sowie weitere textile, geometrische, '
          'Rausch- und Bildmuster.'],
-        ['40 Vorlagen', 'Fertige Looks unter Vorlagen im Texture-Menü - '
+        ['%d Vorlagen' % len(LIB), 'Fertige Looks unter Vorlagen im Texture-Menü - '
          'genau ein Look je Muster, mit passender Größe, Z-Teilung, Tiefe '
          'und Seed; die separate FUZZY-Presetreihe bleibt bestehen.'],
     ], [30*mm, 126*mm]))
@@ -484,7 +486,7 @@ def main():
         ['Modus', 'FUZZY / BUMPS', 'Zufallstextur oder Musterfunktion (Kap. 3/4)'],
         ['Dicke (FUZZY)', '0.1-1.0 mm', 'Maximaler Zufallsversatz pro Vertex'],
         ['Dichte (FUZZY)', '10-100 %', 'Anteil der verschobenen Vertices'],
-        ['Muster (BUMPS)', '40 Muster', 'Die Musterfunktion (Kapitel 3)'],
+        ['Muster (BUMPS)', '%d Muster' % len(PAT_ORDER), 'Die Musterfunktion (Kapitel 3)'],
         ['Tilt', 'OFF / ON', 'Standard OFF (0°); ON aktiviert den expliziten Winkel des gewählten Musters, nahtsicher und bündig am Z-Ende'],
         ['Abtastung (BUMPS)', 'max. 1.5 mm', 'Lange lineare Wandzüge werden vor dem Versatz unterteilt; E-Gesamtextrusion bleibt erhalten'],
 
