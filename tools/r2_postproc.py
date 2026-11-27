@@ -77,7 +77,7 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-26.1'
+POSTPROC_RELEASE = 'R2-2026-11-26.2'
 POSTPROC_BUILD = 'R286'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
@@ -6595,7 +6595,7 @@ def _make_stamp_handle(fit, out_dir='.', material='PLA', nozzle=0.6,
     z_knob = fit.z_cone + (fit.GRIP_R - fit.R_P)   # knob cylinder start
     bore_end = fit.z_ramp_up + 0.6                 # bore ceiling height
     stem = _gen_stem(src_stem, 'IMG')
-    fname = 'V%02d_Griff_%s.gcode' % (_next_gen_version(out_dir), stem)
+    fname = 'V%02d_Griff%s.gcode' % (_next_gen_version(out_dir), stem)
     fname = _dedupe_gen_fname(out_dir, fname)
     out = os.path.join(out_dir, fname)
     fil = FIL_AREA
@@ -6668,8 +6668,7 @@ def _make_stamp_handle(fit, out_dir='.', material='PLA', nozzle=0.6,
                 for off in (_brim_gap(wid) + wid, _brim_gap(wid)):
                     _emit_loop(pen, _circle(cx, cy, _r_out(z_top) + off),
                                e_wall, 900)
-            _tyb = ('SURFACE-BOTTOM' if li == 1 else
-                    'SURFACE-TOP' if li == total else None)
+            _tyb = ('SURFACE-TOP' if li == total else None)
             a(';TYPE:Outer wall')
             a('APPLY_TYPE TYPE=%s   ; R168 spigot/knob wall'
               % (_tyb or 'WALL-OUTER'))
@@ -7643,7 +7642,10 @@ def _make_labels_one(texts, w=60.0, h=30.0, font='SMOOTH', base_layers=4, text_l
     if tower:
         # R194 (.135): the purge tower is tagged PRIME-TOWER now
         types.append('PRIME-TOWER')
-    types.append('SURFACE-BOTTOM')
+    # R287 (user rule): the GENERATOR bottom is INFILL-SOLID (layer count
+    # based) - bottom->bottom is forbidden for own geometry. Correct order:
+    # infill solid -> top layer -> max ironing-layer. SURFACE-BOTTOM stays
+    # for FOREIGN G-code only.
     if brim:
         types.insert(0, 'BRIM')
     if ironing:
@@ -8955,7 +8957,7 @@ def make_resonance(axes=('x', 'y'), mode='print', out_dir='.', bed=None, version
             for pl in polys:
                 lays.append([(bx + (px / RESO_PLATE_W) * pw * sx,
                               oy + (py / RESO_PLATE_H) * ph * sy) for px, py in pl])
-        fname = 'V%02d_Resonance_%s_plot.gcode' % (
+        fname = 'V%02d_Resonance%splot.gcode' % (
             _next_gen_version(out_dir), suffix)
         fname = _dedupe_gen_fname(out_dir, fname)
         out = os.path.join(out_dir, fname)
@@ -9093,7 +9095,7 @@ def make_resonance(axes=('x', 'y'), mode='print', out_dir='.', bed=None, version
     a('M107')
     a('PRINT_END')
 
-    fname = 'V%02d_Resonance_%s.gcode' % (
+    fname = 'V%02d_Resonance%s.gcode' % (
         _next_gen_version(out_dir), suffix)
     fname = _dedupe_gen_fname(out_dir, fname)
     out = os.path.join(out_dir, fname)
@@ -10933,7 +10935,7 @@ def make_bridge(length=160.0, short_pct=30, h_long=35.0, h_short=18.0, version=1
     a('RESPOND MSG="[bridge] done - inspect sag + stringing; better bridges: higher speed, more fan, less flow"')
     a('PRINT_END')
 
-    fname = 'V%02d_Bridge_%dmm_%dpct.gcode' % (
+    fname = 'V%02d_Bridge%dmm%dpct.gcode' % (
         _next_gen_version(out_dir), round(length), short_pct)
     fname = _dedupe_gen_fname(out_dir, fname)
     out = os.path.join(out_dir, fname)
@@ -11604,7 +11606,7 @@ def make_string_art(src=None, pattern='PHOTO', diameter=180.0, anchors=300,
                             'M107   ; R2-STRINGART: first layer = fan off']
             + _gen_markers(L[i0:]))
     outl.append('PRINT_END')
-    base = 'V%02d_StringArt_%s' % (_next_gen_version(out_dir), stem or pattern)
+    base = 'V%02d_StringArt%s' % (_next_gen_version(out_dir), stem or pattern)
     if shape == 'RECT':
         base += '_%dx%d' % (round(size_w), round(size_h))
     fname = base + '.gcode'
@@ -11945,7 +11947,7 @@ def make_cable_ties(count=6, length=120.0, width=8.0, layers=3, variant='CLASSIC
                             'M107   ; R2-TIES: first layer = fan off']
             + _gen_markers(L[i0:]))
 
-    fname = 'V%02d_Ties_%.0fx%.0f_%s.gcode' % (
+    fname = 'V%02d_Ties%.0fx%.0f%s.gcode' % (
         _next_gen_version(out_dir), length, width, variant[:3])
     fname = _dedupe_gen_fname(out_dir, fname)
     out = os.path.join(out_dir, fname)
@@ -14090,10 +14092,10 @@ def make_angles(count=2, angle_deg=90, leg_a=60.0, leg_b=60.0, width=25.0,
             + _gen_markers(L[i0:]))
 
     if flat:
-        fname = 'V%02d_Flat_%.0fx%.0f.gcode' % (
+        fname = 'V%02d_Flat%.0fx%.0f.gcode' % (
             _next_gen_version(out_dir), la + lb, width)
     else:
-        fname = 'V%02d_Angle_%ddeg_%.0fx%.0f.gcode' % (
+        fname = 'V%02d_Angle%ddeg%.0fx%.0f.gcode' % (
             _next_gen_version(out_dir), round(theta), la, lb)
     fname = _dedupe_gen_fname(out_dir, fname)   # R160b: never overwrite
     out = os.path.join(out_dir, fname)
@@ -14256,7 +14258,7 @@ def make_shape(shape='CYLINDER', size_x=40.0, size_y=40.0, corners=0,
     oxs = [(cx + px, cy + py) for (px, py) in pts]
 
     fname_kind = kind.replace(' ', '')
-    fname = 'V%02d_Shape_%s_%.0fx%.0fx%.0f%s.gcode' % (
+    fname = 'V%02d_Shape%s%.0fx%.0fx%.0f%s.gcode' % (
         _next_gen_version(out_dir), fname_kind, w, h, height,
         '_vase' if vase else '')
     fname = _dedupe_gen_fname(out_dir, fname)
@@ -14855,7 +14857,7 @@ def _make_litho_flat(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                          'purge at the park position after every swap')
 
     stem = _gen_stem(src, 'IMG')
-    fname = 'V%02d_%s_%s.gcode' % (
+    fname = 'V%02d_%s%s.gcode' % (
         _next_gen_version(out_dir), 'Stempel' if stamp else 'LithoF', stem)
     fname = _dedupe_gen_fname(out_dir, fname)
     out = os.path.join(out_dir, fname)
@@ -15565,7 +15567,7 @@ def make_stencil(src, steps=3, size_mm=100.0, layer_h=0.2, thick=0.8,
             notes.append('%s: bridge fallback - an island stayed separate'
                          ' after 80 bridges' % label)
         masks.append((label, mask))
-        fname = 'V%02d_%s_%s.gcode' % (
+        fname = 'V%02d_%s%s.gcode' % (
             _next_gen_version(out_dir), label, stem)
         fname = _dedupe_gen_fname(out_dir, fname)
         out = os.path.join(out_dir, fname)
@@ -17100,7 +17102,7 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
                         yield m
 
                 lab290 = 'FormLinks' if side == 'L' else 'FormRechts'
-                fn290 = 'V%02d_%s_%s.gcode' % (_next_gen_version(out_dir),
+                fn290 = 'V%02d_%s%s.gcode' % (_next_gen_version(out_dir),
                                                lab290, stem)
                 fn290 = _dedupe_gen_fname(out_dir, fn290)
                 pending270.append(
@@ -17247,7 +17249,7 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
         if K_m * layer_h > 235.0:
             raise ValueError('the master would be %.0fmm tall - over the '
                              'Z range' % (K_m * layer_h))
-        fname = 'V%02d_Master_%s.gcode' % (_next_gen_version(out_dir), stem)
+        fname = 'V%02d_Master%s.gcode' % (_next_gen_version(out_dir), stem)
         fname = _dedupe_gen_fname(out_dir, fname)
         pending270.append((_write270(os.path.join(out_dir, fname), 'Master',
                                     _m_master(), K_m,
@@ -17487,7 +17489,7 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
                     prev = cavc
                     yield m
 
-            fname = 'V%02d_%s%s_%s.gcode' % (_next_gen_version(out_dir),
+            fname = 'V%02d_%s%s%s.gcode' % (_next_gen_version(out_dir),
                                              lab, tag, stem)
             fname = _dedupe_gen_fname(out_dir, fname)
             if _secaxis270 == 'X':
@@ -17576,7 +17578,7 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
                     grooves_bot[0] = _grooves270(m, cav)
                 yield m
 
-        fname = 'V%02d_FormUnten_%s.gcode' % (_next_gen_version(out_dir), stem)
+        fname = 'V%02d_FormUnten%s.gcode' % (_next_gen_version(out_dir), stem)
         fname = _dedupe_gen_fname(out_dir, fname)
         pending270.append((_write270(os.path.join(out_dir, fname),
                                     'FormUnten', _m_bot(), n_bot,
@@ -17665,7 +17667,7 @@ def make_mold(src, wall=5.0, layer_h=0.2, gap=0.15, pour_d=8.0,
                     _grooves270(m, cav)
                 yield m
 
-        fname = 'V%02d_FormOben_%s.gcode' % (_next_gen_version(out_dir), stem)
+        fname = 'V%02d_FormOben%s.gcode' % (_next_gen_version(out_dir), stem)
         fname = _dedupe_gen_fname(out_dir, fname)
         pending270.append((_write270(os.path.join(out_dir, fname),
                                     'FormOben', _m_top(), n_top,
@@ -18177,7 +18179,7 @@ def make_lithophane(src, height_mm=100.0, layer_h=0.12, levels=0, frame=True,
                      % (_st214_base, _st214_overlap))
 
     stem = _gen_stem(src, 'IMG')
-    fname = 'V%02d_Litho_%s.gcode' % (
+    fname = 'V%02d_Litho%s.gcode' % (
         _next_gen_version(out_dir), stem)
     fname = _dedupe_gen_fname(out_dir, fname)
     out = os.path.join(out_dir, fname)
@@ -18859,7 +18861,7 @@ def make_bricks(jobs, layer_h=0.2, material='PLA', bed=None, bed_margin=6.0,
         n_by = dict((k, sum(1 for c in plist if c['kind'] == k))
                     for k in sorted(set(c['kind'] for c in plist)))
         if label:
-            fname = 'V%02d_Bricks_%s.gcode' % (v, label)
+            fname = 'V%02d_Bricks%s.gcode' % (v, label)
             fname = _dedupe_gen_fname(out_dir, fname)
         else:
             fname = 'V%02d_Bricks.gcode' % (v,)
@@ -19907,7 +19909,7 @@ def make_brick_kit(src, detail='AUTO', mode='BY_LAYER', colors=3,
     for (label, plate_ci, plist) in plates:
         v += 1
         # R160d: plate letter behind the version (V05_A_BrickKit_box)
-        fname = 'V%02d_%s_BrickKit_%s.gcode' % (v, label, stem)
+        fname = 'V%02d_%sBrickKit%s.gcode' % (v, label, stem)
         fname = _dedupe_gen_fname(out_dir, fname)
         outp = os.path.join(out_dir, fname)
         out_files.append(fname)
@@ -20325,7 +20327,7 @@ def make_figures(count=1, scale=100.0, layer_h=0.2, material='PLA',
                      + nl_stud)
         for c in cells:
             c['nl'] = single_nl
-        fname = 'V%%02d_Figure_s%03d_SINGLE.gcode' % (
+        fname = 'V%%02d_Figures%03dSINGLE.gcode' % (
             max(25, min(int(round(scale)), 300)),)
     else:
         cells = []
@@ -20349,7 +20351,7 @@ def make_figures(count=1, scale=100.0, layer_h=0.2, material='PLA',
                 c['nl'] = nl_arm
             else:
                 c['nl'] = nl_sock + nl_hed + nl_stud
-        fname = 'V%%02d_Figures_s%03d_PARTS.gcode' % (
+        fname = 'V%%02d_Figuress%03dPARTS.gcode' % (
             max(25, min(int(round(scale)), 300)),)
 
     # ---- plates ------------------------------------------------------------
@@ -21268,7 +21270,7 @@ def make_colorpic(src, width_mm=120.0, layer_h=0.2, bands=4, colors='',
                          'purge at the park position after every swap')
 
     stem = _gen_stem(src, 'IMG')
-    fname = 'V%02d_ColorPic_%s.gcode' % (
+    fname = 'V%02d_ColorPic%s.gcode' % (
         _next_gen_version(out_dir), stem)
     fname = _dedupe_gen_fname(out_dir, fname)
     out = os.path.join(out_dir, fname)
@@ -21662,7 +21664,7 @@ def make_seal(od=40.0, id_=20.0, height=1.2, profile='FLAT', ironing=False,
     a('M107')
     a('PRINT_END')
 
-    fname = 'V%02d_Seal_%.0fx%.0fx%.2g.gcode' % (
+    fname = 'V%02d_Seal%.0fx%.0fx%.2g.gcode' % (
         _next_gen_version(out_dir), od, id_, height_real)
     fname = _dedupe_gen_fname(out_dir, fname)
     out = os.path.join(out_dir, fname)
@@ -33102,6 +33104,19 @@ def watch(directory, interval=5.0, once=False):
             except Exception:                           # noqa: BLE001
                 pass
             print('[toolchain] add guard: %s' % _ve285a, flush=True)
+        except Exception as _ve285b:                   # noqa: BLE001
+            # R287: the add dispatch used to catch ONLY ValueError - any other
+            # exception (TypeError, AttributeError, ...) escaped the guard and
+            # crashed the watcher thread => MCU shutdown when adding a tool.
+            # Catch EVERYTHING so a bad job never takes the printer down.
+            try:
+                _moonraker_gcode(
+                    'RESPOND MSG="Chain add failed (recovered): %s"\n'
+                    'M117 Chain add error\n_SOUND_LIB NAME=r2_error'
+                    % str(_ve285b).replace('"', "'")[:200])
+            except Exception:                           # noqa: BLE001
+                pass
+            print('[toolchain] add guard (all): %r' % _ve285b, flush=True)
 
         # -- OP: DEL / UP / DOWN / CLEAR / GOTO ------------------------------
         try:
