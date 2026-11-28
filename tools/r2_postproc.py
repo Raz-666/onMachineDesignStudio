@@ -2645,6 +2645,49 @@ R62/R73/R74: create <stem>_L<s>-<e>.gcode next to src.
                                                          th['cy'], th['r_out'])]
             _serp_g(gt, segs, eph, _RANGE_FLOOR_F, spacing)
 
+    # R94: body feature scan - the source's OWN ;TYPE:/APPLY_TYPE features
+    # inside the window [a_idx, b). bstats (and the excerpt's _FILE_INFO)
+    # must describe what the excerpt REALLY prints. Without this scan a
+    # body feature stated in a window layer (e.g. ;TYPE:gap fill in layer 5)
+    # was dropped at write time: its ;TYPE: line was removed by the bstats
+    # membership check below and the moves printed under the cut feature's
+    # type (field log .73 - the R94 GAPS crash). Ink-aware: a feature counts
+    # only when it has an extruding move in the window. cur_feat starts at
+    # the modal feature active at the cut; ;TYPE:/APPLY_TYPE switch it.
+    # cut_key is seeded separately (below) with the cut speed, so it is
+    # skipped here to keep that seeding authoritative.
+    if a_idx is not None:
+        _cur94 = cut_key
+        _bs_src = open(src, 'r', errors='replace')
+        try:
+            _bs_i = 0
+            for _raw94 in _bs_src:
+                _ls94 = _raw94[:-1] if _raw94.endswith('\n') else _raw94
+                if a_idx <= _bs_i < b:
+                    _c94 = _stripped(_ls94)
+                    _mt94 = TYPE_RE.match(_ls94)
+                    if _mt94:
+                        _ck94 = _canon_type(_mt94.group(1))
+                        if _ck94:
+                            _cur94 = _ck94
+                            body_types += 1
+                    elif _c94.startswith('APPLY_TYPE'):
+                        _ma94 = re.match(r'APPLY_TYPE\s+TYPE=(\S+)', _c94)
+                        if _ma94:
+                            _ck94 = _canon_type(_ma94.group(1))
+                            if _ck94:
+                                _cur94 = _ck94
+                                body_applies += 1
+                    elif _cur94 and RMOVE_RE.match(_c94):
+                        _me94 = EWORD_RE.search(_c94)
+                        if _me94 and float(_me94.group(1)) > 0.0 \
+                                and _cur94 != cut_key \
+                                and _cur94 not in bstats:
+                            bstats[_cur94] = {'f': {}, 'acc': None}
+                _bs_i += 1
+        finally:
+            _bs_src.close()
+
     # R87.2: feature diagnostics for the excerpt header (out_lines is built
     # right below - the notes must be complete before that)
     if body_types > 0 and body_applies == 0:
