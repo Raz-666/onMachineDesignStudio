@@ -34,33 +34,36 @@ call macros or `SAVE_VARIABLE`.
 `[pwm_cycle_time beeper]` is an optional hardware section. Without it:
 
 * `_SOUND_LIB` still parses the tune and calls `M300 S.. P..`
-* `M300` (the macro in 02_sounds.cfg) runs `SET_PIN PIN=beeper ...`
-* **`SET_PIN` on a non-existent pin raises an error** - the tune dies on the
-  first tone. Not fatal to the print (Klipper keeps printing), but every
-  macro that plays a confirmation beep would print a console error, and the
-  `G4 P..` pauses would still execute.
+* `M300` (the macro in 02_sounds.cfg) checks for the pin **before** touching
+  it - so a printer without a beeper plays **nothing and stays silent**
+  (a `RESPOND` notice is printed to the console, no `SET_PIN` error).
+* The tune does **not** die, and no console error is raised - the macro is
+  already hardware-agnostic. The print is not affected at all.
 
-So "just delete the beeper section" is **not** clean. Two clean options:
+The guard is **implemented** (not planned): see section 2.2.
 
-### 2.2 Option A (recommended): keep the macro, guard the pin
+### 2.2 The guard (already implemented)
 
-Make the repo's `M300` macro hardware-agnostic - one Jinja check, no config
-edits needed for silent printers:
+`M300` in `macros/02_sounds.cfg` branches on the audio source (R286 L1) and
+only calls `SET_PIN` when the beeper section is loaded:
 
 ```ini
 [gcode_macro M300]
 description: Play tone: M300 S<Hz> P<ms>
 gcode:
-    {% set S = params.S|default(1000)|int %}
-    {% set P = params.P|default(100)|int %}
-    {% if 'pwm_cycle_time beeper' in printer.configfile.settings %}
+    {% set src = printer['save_variables'].variables.audio_source|default('beep')|string|lower %}
+    {% if src in ('klinke', 'hdmi') %}
+        # ... host audio (R286) - see 02_sounds.cfg
+    {% elif 'pwm_cycle_time beeper' in printer %}
         SET_PIN PIN=beeper VALUE=0.5 CYCLE_TIME={ 1.0/S if S > 0 else 1 }
         G4 P{P}
         SET_PIN PIN=beeper VALUE=0
+    {% else %}
+        RESPOND MSG="[audio] no beeper pin - tone skipped (silent)"
     {% endif %}
 ```
 
-`printer.configfile.settings` reflects the *loaded* config, so the same
+`'pwm_cycle_time beeper' in printer` reflects the *loaded* config, so the same
 `macros/` tree works on printers with and without a buzzer - zero branching
 in the 100+ call sites (`_SOUND_LIB NAME=...` stays as is).
 
@@ -91,9 +94,9 @@ feedback beeps stay silent *during* prints on every printer - oozing guard):
 
 ### 2.5 Verdict
 
-Sound is a **one-section, one-macro swap**. With the Option-A guard (a 3-line
-change, planned for the next round) the system runs 100 % clean on silent
-printers: no errors, no config surgery, `TOGGLE_SOUNDS` still works, and the
+Sound is a **one-section, one-macro swap**. With the M300 guard (already
+implemented, see 2.2) the system runs 100 % clean on silent printers: no
+errors, no config surgery, `TOGGLE_SOUNDS` still works, and the
 `sound_on` state is simply ignored by a muted `M300`.
 
 ## 3. No LCD at all

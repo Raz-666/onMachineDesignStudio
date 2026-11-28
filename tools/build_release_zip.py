@@ -29,11 +29,17 @@ PREFIX = 'klipper-e3-r2d2/'
 # Package-Ordner, die komplett mitgenommen werden
 INCLUDE_DIRS = ['macros', 'menus', 'tools', 'web', 'docs']
 
-# Top-level Konfig / Skripte
+# Top-level Konfig / Skripte + nutzerfacing-Dokumentation
 INCLUDE_TOP = ['AGENTS.md', 'README.md', 'update.sh', 'printer.cfg',
-               'klipper-e3-r2d2.cfg']
+               'klipper-e3-r2d2.cfg', 'printer.cfg.example',
+               'MANUAL.md', 'INSTALL.md', 'COMPATIBILITY.md',
+               'DEVELOPMENT.md']
 
 # Ordner, die NICHT ins Release-Package gehören (Tests, Backups, Logs)
+# testfixtures = Dev-only G-code test data (~14 MB) - stays OUT of the
+# user update ZIP (developer checkout from git has them; see PACKAGING note
+# in README). The 4 markdown docs + printer.cfg.example above ARE user-facing
+# and ship WITH the ZIP.
 SKIP_DIRS = {'.git', '__pycache__', 'testfixtures', 'backups'}
 SKIP_SUFFIX = {'.pyc', '.pyo'}
 SKIP_LOGS = ('R2-DOCTOR-', '.gcode.txt')
@@ -119,7 +125,9 @@ def build_zip(new_ver):
 def required_entries():
     """The load-bearing entries every release ZIP MUST contain."""
     req = ['macros/01_state.cfg', 'update.sh', 'tools/r2_postproc.py',
-           'r2_setup_lib.sh', 'AGENTS.md', 'README.md']
+           'r2_setup_lib.sh', 'AGENTS.md', 'README.md',
+           'printer.cfg.example', 'MANUAL.md', 'INSTALL.md',
+           'COMPATIBILITY.md', 'DEVELOPMENT.md']
     # at least the 28 docs PDFs
     pdfs = [f for f in os.listdir(REPO) if f.endswith('.pdf')]
     req += pdfs
