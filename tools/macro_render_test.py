@@ -172,7 +172,7 @@ _ln65 = _ln65[:_ln65.find('#')] if '#' in _ln65 else _ln65
 LABEL_CHARSET_LCD = _ast65.literal_eval(_ln65.split(':', 1)[1].strip())
 BKSL = chr(92)   # a literal backslash (R69 escaped-quote VALUE forms)
 
-def build_printer(kamp=False, objs=None, excl=None, old_klipper=False, bare_idle=False, drop14=False, poweroff=False, ps_state='printing', etemp=None, gz=None, scp=False, etgt=None):
+def build_printer(kamp=False, objs=None, excl=None, old_klipper=False, bare_idle=False, drop14=False, poweroff=False, ps_state='printing', etemp=None, gz=None, scp=False, etgt=None, state_mode=None):
     d = {
     'gcode_move': M({'gcode_position': M({'x':100.0,'y':100.0,'z':(gz if gz is not None else 12.5),'e':5.0}),
                      'speed_factor':1.0,'extrude_factor':1.0,'homing_origin': M({'z':0.0})}),
@@ -261,6 +261,11 @@ def build_printer(kamp=False, objs=None, excl=None, old_klipper=False, bare_idle
         d['gcode_macro LINE_PURGE'] = M({})
         d['gcode_macro VORON_PURGE'] = M({})
         d['gcode_macro SMART_PARK'] = M({})
+    # R256 generator-gate: state_mode overrides _STATE.mode so a test can
+    # render a macro with a fully idle printer (state_vars defaults mode to
+    # 'printing'; the generator gate needs mode AND print_stats non-printing).
+    if state_mode is not None:
+        d['gcode_macro _STATE']['mode'] = state_mode
     return M(d)
 
 _FC182B = ['wallouter','wallinner','infillsparse','infillsolid','surfacetop','surfacebottom','bridge','gaps','support','ironing','skirt','brim','overhangperim','internalbridge','primetower','custom','travel']
@@ -296,11 +301,11 @@ def _mirror182():
         'fova_shp_feat': save_vars.get('ovf_shaper_off_feat', 'wallouter'),
     })
 
-def render(tpl, par=None, extra=None, kamp=False, objs=None, excl=None, old_klipper=False, bare_idle=False, drop14=False, poweroff=False, ps_state='printing', etemp=None, gz=None, scp=False, etgt=None):
+def render(tpl, par=None, extra=None, kamp=False, objs=None, excl=None, old_klipper=False, bare_idle=False, drop14=False, poweroff=False, ps_state='printing', etemp=None, gz=None, scp=False, etgt=None, state_mode=None):
     if 'fov_' in tpl or 'fova_' in tpl:
         _mirror182()
     t = env.from_string(tpl)
-    g = {'printer': build_printer(kamp=kamp, objs=objs, excl=excl, old_klipper=old_klipper, bare_idle=bare_idle, drop14=drop14, poweroff=poweroff, ps_state=ps_state, etemp=etemp, gz=gz, scp=scp, etgt=etgt), 'params': par or {}}
+    g = {'printer': build_printer(kamp=kamp, objs=objs, excl=excl, old_klipper=old_klipper, bare_idle=bare_idle, drop14=drop14, poweroff=poweroff, ps_state=ps_state, etemp=etemp, gz=gz, scp=scp, etgt=etgt, state_mode=state_mode), 'params': par or {}}
     if extra: g.update(extra)
     return t.render(**g)
 
@@ -6716,7 +6721,8 @@ tests.append(('R86/R89 CABLE_TIE_GENERATE: length 400 blocked (50..300)',
     and 'VARIABLE=cable_tie_nonce' not in out, out[:140]))
 save_vars['tie_length'] = 120
 out = render(get_body(_gen86, 'GEN_CABLE_TIES'),
-             {'COUNT': '4', 'VARIANT': 'LOOP', 'WIDTH': '6'})
+             {'COUNT': '4', 'VARIANT': 'LOOP', 'WIDTH': '6'}, ps_state='idle',
+             state_mode='idle')
 _sv86 = [l.strip() for l in out.split(chr(10))
          if l.strip().startswith('SAVE_VARIABLE') or l.strip() == '_PACE']
 _adj86 = sum(1 for i in range(len(_sv86) - 1)
@@ -6748,7 +6754,8 @@ tests.append(('R86 ANGLE_GENERATE: angle 25 blocked (30..170)',
 save_vars['angle_deg'] = 90
 out = render(get_body(_gen86, 'GEN_ANGLES'),
              {'ANGLE': '45', 'LEG_A': '80', 'LEG_B': '50', 'WIDTH': '30',
-              'HOLES': '3', 'HOLE_D': '5', 'CS': '0', 'STIFFENER': '2', 'FLAT': '1'})
+              'HOLES': '3', 'HOLE_D': '5', 'CS': '0', 'STIFFENER': '2',
+              'FLAT': '1'}, ps_state='idle', state_mode='idle')
 _sv86b = [l.strip() for l in out.split(chr(10))
           if l.strip().startswith('SAVE_VARIABLE') or l.strip() == '_PACE']
 _adj86b = sum(1 for i in range(len(_sv86b) - 1)
@@ -7027,7 +7034,8 @@ tests.append(('R86.2 SET_LAYER_RANGE: hole defaults 0 (no holes, unchanged path)
 
 # --- (2) GEN_ANGLES with WALLS/INFILL/IRONING ---
 out = render(get_body(_gen86, 'GEN_ANGLES'),
-             {'WALLS': '4', 'INFILL': '50', 'IRONING': '1', 'ANGLE': '90'})
+             {'WALLS': '4', 'INFILL': '50', 'IRONING': '1', 'ANGLE': '90'},
+             ps_state='idle', state_mode='idle')
 tests.append(('R86.2 GEN_ANGLES: WALLS/INFILL/IRONING saved + paced',
     'VARIABLE=angle_walls VALUE=4' in out and 'VARIABLE=angle_infill VALUE=50.0' in out
     and 'VARIABLE=angle_ironing VALUE=True' in out and out.count('_PACE') >= 13, out[:150]))
@@ -7740,24 +7748,27 @@ tests.append(('R90 FRAME_GENERATE: custom 300mm blocked with LCD notice',
 save_vars.update({'frame_w': 102.0})
 out = render(get_body('macros/17_generator.cfg', 'GEN_FRAME'),
              {'PRESET': 'A6', 'DEPTH': '16', 'SHAPE': 'RECT', 'CLOSURE': 'SIDE',
-              'HANG': 'OFF', 'STAND': '1'})
+              'HANG': 'OFF', 'STAND': '1'}, ps_state='idle', state_mode='idle')
 tests.append(('R90 GEN_FRAME: params land in the save_variables + generates',
     'VARIABLE=frame_preset VALUE=' in out and 'A6' in out
     and 'frame_depth VALUE=16.0' in out and 'frame_stand VALUE=True' in out
     and 'frame_shape VALUE=' in out and 'RECT' in out
     and 'FRAME_GENERATE' in out, out[:200]))
-out = render(get_body('macros/17_generator.cfg', 'GEN_FRAME'), {'SHAPE': 'HEX'})
+out = render(get_body('macros/17_generator.cfg', 'GEN_FRAME'), {'SHAPE': 'HEX'},
+             ps_state='idle', state_mode='idle')
 tests.append(('R90 GEN_FRAME: HEX shape rejected', 'must be RECT or OVAL' in out, out[:120]))
 out = render(get_body('macros/17_generator.cfg', 'GEN_FRAME'),
              {'PRESET': '10x15', 'FRONT': 'HEX', 'DISC': 'GLASS', 'DISC_T': '2',
-              'DISC_SIDE': 'BACK', 'CABLE': '1', 'S_SIZE': '9', 'S_DIR': 'IN'})
+              'DISC_SIDE': 'BACK', 'CABLE': '1', 'S_SIZE': '9', 'S_DIR': 'IN'},
+             ps_state='idle', state_mode='idle')
 tests.append(('R90.1b GEN_FRAME: surface/disc/cable params land in the variables',
     'frame_front VALUE=' in out and 'HEX' in out
     and 'frame_disc VALUE=' in out and 'GLASS' in out
     and 'frame_disc_t VALUE=2.0' in out and 'frame_cable VALUE=True' in out
     and 'frame_s_size VALUE=9.0' in out and 'frame_s_dir VALUE=' in out
     and 'FRAME_GENERATE' in out, out[:200]))
-out = render(get_body('macros/17_generator.cfg', 'GEN_FRAME'), {'FRONT': 'GLAS'})
+out = render(get_body('macros/17_generator.cfg', 'GEN_FRAME'), {'FRONT': 'GLAS'},
+             ps_state='idle', state_mode='idle')
 tests.append(('R90.1b GEN_FRAME: bad FRONT rejected',
     'FRONT must be IRON, FLIP' in out, out[:120]))
 

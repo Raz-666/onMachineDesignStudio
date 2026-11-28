@@ -45,6 +45,134 @@ SKIP_SUFFIX = {'.pyc', '.pyo'}
 SKIP_LOGS = ('R2-DOCTOR-', '.gcode.txt')
 
 
+def _run(cmd):
+    import subprocess
+    return subprocess.run(cmd, cwd=REPO, capture_output=True, text=True)
+
+
+def _gate_config_validator():
+    """Gate 1 - Klipper-Konfiguration: config_validator.py, fail on REAL errors.
+
+    The validator classifies German comments/descriptions as "non-ASCII
+    errors"; those are accepted warnings here (WebUI/UTF-8 handles them, and
+    the only LCD-critical non-ASCII - menu name: labels - are already
+    ASCII-safe). Only a NON non-ASCII error blocks the release.
+    """
+    r = _run(['python3', 'tools/config_validator.py'])
+    out = (r.stdout or '') + (r.stderr or '')
+    real = [l for l in out.splitlines()
+            if l.strip().startswith('- ') and 'non-ASCII' not in l]
+    nonascii = [l for l in out.splitlines() if 'non-ASCII' in l]
+    if real:
+        raise SystemExit('GATE config_validator: real errors:\n  '
+                         + '\n  '.join(real))
+    print('[gate] config_validator: OK (%d non-ASCII warnings accepted)'
+          % len(nonascii))
+
+
+def _gate_jinja():
+    """Gate 2 - Jinja-Templates: syntax-parse every macro body.
+
+    Mirrors the macro_render_test.py parser: section boundary is the next
+    '[' config header (NOT an inline '# ---' comment - those appear inside
+    macro bodies), the gcode: header is dropped, and Klipper's '#' comment
+    strip is applied first (a '#'-comment line may carry example '{% set %}'
+    text that Jinja must not parse).
+    """
+    try:
+        from jinja2 import Environment
+    except ImportError:
+        print('[gate] jinja2 not installed - Jinja gate SKIPPED (warn)')
+        return
+    env = Environment()
+
+    def klipper_strip(txt):
+        return '\n'.join(l[:l.find('#')] if '#' in l else l
+                         for l in txt.split('\n'))
+
+    def get_body(txt, name):
+        m = re.search(r'\[gcode_macro ' + re.escape(name) + r'\]\n(.*?)(?=\n\[|\Z)',
+                      txt, re.S)
+        body = m.group(1)
+        lines = []
+        started = False
+        for z in body.split('\n'):
+            if z.startswith('gcode:'):
+                started = True
+                continue
+            if started:
+                if z.startswith(('variable_', 'description:', 'rename_existing:')):
+                    break
+                lines.append(z[4:] if z.startswith('    ') else z)
+        return klipper_strip('\n'.join(lines))
+
+    checked = 0
+    for fn in sorted(os.listdir(os.path.join(REPO, 'macros'))):
+        if not fn.endswith('.cfg'):
+            continue
+        s = open(os.path.join(REPO, 'macros', fn), errors='replace').read()
+        for m in re.finditer(r'(?m)^\[gcode_macro\s+([^\]]+)\]', s):
+            name = m.group(1).strip()
+            try:
+                env.parse(get_body(s, name))
+            except Exception as e:
+                raise SystemExit('GATE jinja: syntax error in macro %s (%s): %s'
+                                 % (name, fn, e))
+            checked += 1
+    print('[gate] jinja syntax: OK (%d macro bodies parsed)' % checked)
+
+
+def _gate_menu():
+    """Gate 3 - Menüexport: committed menu_structure.json must match a fresh export."""
+    if not os.path.isfile(os.path.join(REPO, 'tools', 'menu_json_export.py')):
+        print('[gate] menu_json_export.py missing - menu gate SKIPPED (warn)')
+        return
+    tmp = '/tmp/_r2_menu_gate.json'
+    r = _run(['python3', 'tools/menu_json_export.py',
+              '--cfg', 'menus/lcd_menues.cfg', '--out', tmp])
+    if r.returncode != 0:
+        raise SystemExit('GATE menu: menu_json_export failed:\n'
+                         + (r.stdout + r.stderr)[-2000:])
+    exported = open(tmp, errors='replace').read()
+    committed_path = os.path.join(REPO, 'web', 'menu_structure.json')
+    committed = (open(committed_path, errors='replace').read()
+                 if os.path.isfile(committed_path) else '')
+    if exported != committed:
+        raise SystemExit('GATE menu: menu_structure.json is STALE - re-run '
+                         'tools/menu_json_export.py (and --embed web/index.html) '
+                         'before building the release')
+    print('[gate] menu export: OK (menu_structure.json current, no drift)')
+
+
+def _gate_postproc():
+    """Gate 4 - Post-Processing: r2_postproc compiles + release stamp present."""
+    pp = os.path.join(REPO, 'tools', 'r2_postproc.py')
+    if not os.path.isfile(pp):
+        print('[gate] r2_postproc.py missing - postproc gate SKIPPED (warn)')
+        return
+    src = open(pp, errors='replace').read()
+    import ast
+    try:
+        ast.parse(src)
+    except SyntaxError as e:
+        raise SystemExit('GATE postproc: r2_postproc.py syntax error: %s' % e)
+    if not re.search(r"POSTPROC_RELEASE\s*=\s*'R2-[^']+'", src):
+        raise SystemExit('GATE postproc: POSTPROC_RELEASE stamp missing')
+    print('[gate] postproc: OK (r2_postproc.py parses, POSTPROC_RELEASE set)')
+
+
+def pre_build_gates():
+    """All cheap release gates run BEFORE the ZIP is built (ChatGPT audit
+    26.14: complete the release-check - Klipper-config, Jinja-templates,
+    menu export, post-processing as common release gates)."""
+    print('[gates] running pre-build release gates...')
+    _gate_config_validator()
+    _gate_jinja()
+    _gate_menu()
+    _gate_postproc()
+    print('[gates] all pre-build gates PASSED')
+
+
 def bump_version(new_ver):
     """Set all version stamps to the new version (no drift).
 
@@ -183,8 +311,16 @@ def verify_complete(zippath, new_ver):
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        raise SystemExit('usage: build_release_zip.py <version, z.B. 26.3>')
-    ver = sys.argv[1]
+        raise SystemExit('usage: build_release_zip.py <version, z.B. 26.3>'
+                         ' [--skip-gates]')
+    args = sys.argv[1:]
+    skip_gates = '--skip-gates' in args
+    args = [a for a in args if a != '--skip-gates']
+    ver = args[0]
+    if not skip_gates:
+        pre_build_gates()
+    else:
+        print('[gates] --skip-gates set - release gates bypassed (expert mode)')
     bump_version(ver)
     zp = build_zip(ver)
     verify_complete(zp, ver)
