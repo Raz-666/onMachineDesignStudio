@@ -102,18 +102,17 @@ fallback = 'gcode_shell_command R2_AUDIO_PLAY' in sounds_cfg
 check('8 Fallback ohne shell-command-extension', fallback,
       '(Responsive Fallback-Announce)')
 
-# ---- 9. Regression: alle generierten gcode_shell_command 'command:' Werte
-#      sind VALIDES PYTHON (Klipper-native kompiliert den command als Python
-#      bei Connect - ein shell-string wie 'bash /path' wirft genau den
-#      'Internal error during connect: invalid syntax' Fehler) ----
+# ---- 9. Regression: gcode_shell_command (KIAUH) executes 'command:' as a
+#      SHELL STRING (subprocess.Popen, shell=True), NOT as Python. So the
+#      command MUST be a shell string like 'bash <path>' - a Python expression
+#      like __import__('subprocess')... is passed to the shell and fails with
+#      'command not found'. Confirm no Python-expression form slipped in. ----
 bad_cmds = []
 for m in re.finditer(r'echo\s+"command:\s*(.*)"', setup_lib):
-    val = re.sub(r'\$\{[^}]+\}', 'PATH', m.group(1).strip())
-    try:
-        compile(val, '<gcode_shell_command>', 'exec')
-    except SyntaxError as e:
-        bad_cmds.append('%s -> %s' % (val[:60], e))
-check('9 alle generierten command:-Werte sind valides Python',
+    val = m.group(1).strip()
+    if val.startswith("__import__") or "subprocess" in val and "check_call" in val:
+        bad_cmds.append(val[:60])
+check('9 alle generierten command:-Werte sind Shell-Strings (kein Python-Expr)',
       not bad_cmds,
       '(%d command-Wert(e) geprueft)' % len(re.findall(r'echo\s+"command:', setup_lib)))
 
