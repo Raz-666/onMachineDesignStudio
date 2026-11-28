@@ -40,7 +40,7 @@ INCLUDE_TOP = ['AGENTS.md', 'README.md', 'update.sh', 'printer.cfg',
 # user update ZIP (developer checkout from git has them; see PACKAGING note
 # in README). The 4 markdown docs + printer.cfg.example above ARE user-facing
 # and ship WITH the ZIP.
-SKIP_DIRS = {'.git', '__pycache__', 'testfixtures', 'backups'}
+SKIP_DIRS = {'.git', '__pycache__', 'testfixtures', 'backups', '.audio_cache'}
 SKIP_SUFFIX = {'.pyc', '.pyo'}
 SKIP_LOGS = ('R2-DOCTOR-', '.gcode.txt')
 
