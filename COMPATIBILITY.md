@@ -1,5 +1,12 @@
 # Running the R2 macro system on OTHER printers
 
+> **Current release:** `R2-2026-11-26.15`. The portability model below was
+> written at R103/R104 (release .81) and the machine-model audit that follows
+> at R274; the model itself is still the active one — the historical
+> release labels in the text mark when each portability claim was first
+> written/verified, not the current build. Re-check against the shipped
+> `tools/r274_compat_check.py` before porting to a new machine.
+
 Compatibility report & portability model (R103/R104, status of release .81;
 R274 machine-model audit: every claim below that is testable offline is now
 PROVEN by `tools/r274_compat_check.py` - synthetic foreign printers against

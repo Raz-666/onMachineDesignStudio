@@ -1,6 +1,6 @@
 # R2-D2 / onMachineDesignStudio — Systemüberblick
 
-**Stand der Beschreibung:** Repository-Stand `main` vom 18. November 2026 (Build-Angabe im Quellcode: R2-2026-11-18.2). Diese Übersicht beschreibt dokumentierte Fähigkeiten und Architektur. Sie ist keine unabhängige Sicherheitszertifizierung und keine Garantie, dass jede Funktion auf jeder Hardware aktiv ist.
+**Stand der Beschreibung:** Repository-Stand `main` vom 26. November 2026 (Build-Angabe im Quellcode: R2-2026-11-26.15). Diese Übersicht beschreibt dokumentierte Fähigkeiten und Architektur. Sie ist keine unabhängige Sicherheitszertifizierung und keine Garantie, dass jede Funktion auf jeder Hardware aktiv ist.
 
 ## Kurzbeschreibung
 

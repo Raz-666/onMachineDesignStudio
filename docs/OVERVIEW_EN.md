@@ -1,6 +1,6 @@
 # R2-D2 / onMachineDesignStudio — System Overview
 
-**Description baseline:** repository `main` as of 18 November 2026 (source build label: R2-2026-11-18.2). This document summarizes documented capabilities and architecture. It is not an independent safety certification or a guarantee that every feature works on every printer.
+**Description baseline:** repository `main` as of 26 November 2026 (source build label: R2-2026-11-26.15). This document summarizes documented capabilities and architecture. It is not an independent safety certification or a guarantee that every feature works on every printer.
 
 ## In brief
 

@@ -4,7 +4,8 @@
 wieder denselben Stellen, jeder wurde einzeln repariert — und weil die Fixes
 nirgends zusammenstanden, sah jeder neue Vorfall wie ein Rückfall aus. Hier
 steht **eine** Tabelle: Stelle → Ursache → Fix → der Test, der den Fix hält.
-Der Stand ist `R2-2026-11-19.2` (V6).
+Der Stand ist `R2-2026-11-26.15` (V6, aktualisierter Stamp — die
+einzelnen Fix-Versionen in der Tabelle bleiben historisch unverändert).
 
 **Die gemeinsame Ursache aller „Timer too close"-Abstürze:** Der MCU ist nie
 überlastet (im Feld-Log: `mcu_awake=0.014`, `mcu_task_avg=0.000047` — also
