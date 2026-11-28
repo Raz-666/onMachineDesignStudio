@@ -127,34 +127,35 @@ try:
     check('B2: the worker hooks the fix at the 400 threshold (auto)',
           'if _mr and _mr > 400.0:' in _pp and ': AUTO ' in _pp
           and 'segment fix - %d micro move(s) ' in _pp, '')
-    check('B3: _is_gen_name refuses STL exports (data, not g-code)',
+    check('B3: _is_gen_name refuses STL/OBJ exports (data, not g-code)',
           r2_postproc._is_gen_name('V1_part_object.stl.gcode') is False
+          and r2_postproc._is_gen_name('V1_part_object.obj.gcode') is False
           and r2_postproc._is_gen_name('V1_part.gcode') is True, '')
     stlf = os.path.join(d, 'V1_part_object.stl.gcode')
     open(stlf, 'wb').write(b'\x00\x01binarynotgcode')
     check('B4: _meta_finalize hands off STL exports',
           r2_postproc._meta_finalize(stlf) == 'foreign', '')
-    check('B5: the stamping loop skips non-gcode + .stl.gcode outputs',
-          "endswith('.stl.gcode')" in _pp, '')
+    check('B5: the stamping loop skips non-gcode + .stl.gcode/.obj.gcode outputs',
+          "endswith(('.stl.gcode', '.obj.gcode'))" in _pp, '')
 
-    print('--- C) STL export lands in STL/ as .stl.gcode ------------------')
+    print('--- C) OBJ export lands in STL/ as .obj.gcode (STL removed) ----')
     src = mini_vase(os.path.join(d, 'V3_obj.gcode'))
-    rel, info = r2_postproc._stl_export(d, 'V3_obj.gcode')
-    check('C1: output path is STL/<name>_object.stl.gcode',
-          rel.replace('\\', '/') == 'STL/V3_obj_object.stl.gcode'
+    rel, info = r2_postproc._obj_export(d, 'V3_obj.gcode')
+    check('C1: output path is STL/<name>_object.obj.gcode',
+          rel.replace('\\', '/') == 'STL/V3_obj_object.obj.gcode'
           and os.path.isfile(os.path.join(d, rel.replace('/', os.sep))),
           'rel=%r' % rel)
-    check('C2: the mesh is a real binary STL (80-byte header + triangles)',
-          open(os.path.join(d, rel.replace('/', os.sep)), 'rb').read(4)
-          != b'G21\n' and info.get('boxes', 0) > 0, '')
+    check('C2: the mesh is a real Wavefront OBJ (text v/f, not G-code)',
+          open(os.path.join(d, rel.replace('/', os.sep)), 'r', encoding='utf-8', errors='replace').read(4)
+          != 'G21\n' and info.get('boxes', 0) > 0 and info.get('obj_vertices', 0) > 0, '')
     _m13 = open(M13, encoding='utf-8').read()
     _m08 = open(M08, encoding='utf-8').read()
-    check('C3: the SD browser refuses .stl.gcode with the download hint',
-          "low.endswith('.stl.gcode')" in _m13
+    check('C3: the SD browser refuses .stl.gcode/.obj.gcode with the download hint',
+          "low.endswith(('.stl.gcode', '.obj.gcode'))" in _m13
           and 'download it in Mainsail' in _m13, '')
-    check('C4: STL_EXPORT macro tells the STL folder + ending trick',
+    check('C4: OBJ_EXPORT macro tells the STL folder + ending trick',
       'STL folder' in _m08 and 'remove the .gcode ending' in _m08
-      and 'stl.gcode' in _m08, '')
+      and 'obj.gcode' in _m08 and 'STL_EXPORT' not in _m08, '')
 
     print('--- D) texture: tilt, new patterns, MAP ------------------------')
     names = r2_texture.PATTERN_NAMES

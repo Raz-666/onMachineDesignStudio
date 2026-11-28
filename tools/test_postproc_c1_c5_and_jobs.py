@@ -136,8 +136,8 @@ class PostprocPaket4Tests(unittest.TestCase):
         gs2.finish()
         self.assertAlmostEqual(gs2.tot_len, 20.0, places=3)
 
-    # ---- 4c: _stl_export extrusion gate, G91/G92, atomic STL --------------
-    def test_4c_stl_export_rejects_tag_only_and_handles_g91_g92(self):
+    # ---- 4c: _obj_export extrusion gate, G91/G92, atomic OBJ -------------
+    def test_4c_obj_export_rejects_tag_only_and_handles_g91_g92(self):
         with tempfile.TemporaryDirectory(prefix='r2-p4c-') as td:
             # Tag-only file with zero positive extrusion must fail cleanly.
             tag_only = Path(td) / 'tag_only.gcode'
@@ -146,11 +146,11 @@ class PostprocPaket4Tests(unittest.TestCase):
                 'G0 X10 Y10 Z0.2 F6000\nG0 X30 Y10 F6000\nG0 X30 Y30 F6000\n',
                 encoding='utf-8')
             with self.assertRaises(RuntimeError):
-                PP._stl_export(td, 'tag_only.gcode')
-            self.assertEqual([], list(Path(td).glob('*.stl*')))
-            self.assertEqual([], list(Path(td).glob('.r2stl_*')))
+                PP._obj_export(td, 'tag_only.gcode')
+            self.assertEqual([], list(Path(td).glob('*.obj*')))
+            self.assertEqual([], list(Path(td).glob('.r2obj_*')))
 
-            # Print using G91 (under M82) + G92 E0 exports valid binary STL.
+            # Print using G91 (under M82) + G92 E0 exports a valid OBJ.
             rel_gc = Path(td) / 'rel_box.gcode'
             rel_gc.write_text('\n'.join([
                 'G90', 'M82',
@@ -171,16 +171,16 @@ class PostprocPaket4Tests(unittest.TestCase):
                 'G1 X20 Y35 E0.75 F1800',
                 'G1 X20 Y20 E0.75 F1800',
             ]) + '\n', encoding='utf-8')
-            stl_path, stl_info = PP._stl_export(td, 'rel_box.gcode')
-            self.assertIsInstance(stl_info, dict)
-            v = js.validate_job_output(stl_path, root_dir=td)
+            obj_path, obj_info = PP._obj_export(td, 'rel_box.gcode')
+            self.assertIsInstance(obj_info, dict)
+            v = js.validate_job_output(obj_path, root_dir=td)
             self.assertTrue(v['ok'], v)
-            self.assertEqual(v['kind'], 'stl')
-            self.assertGreater(v['bytes'], 84)
-            self.assertEqual([], list(Path(td).glob('.r2stl_*')))
+            self.assertGreater(v['bytes'], 0)
+            self.assertGreater(obj_info.get('obj_vertices', 0), 0)
+            self.assertEqual([], list(Path(td).glob('.r2obj_*')))
 
-    # ---- 4c2 (R286): _stl_export also_obj - parallel OBJ, vertex-deduped --
-    def test_4c2_stl_export_obj_parallel_and_vertex_deduped(self):
+    # ---- 4c2 (R2.14): _obj_export - the OBJ is the only object export ----
+    def test_4c2_obj_export_vertex_deduped(self):
         with tempfile.TemporaryDirectory(prefix='r2-p4c2-') as td:
             box = Path(td) / 'box.gcode'
             box.write_text('\n'.join([
@@ -198,16 +198,15 @@ class PostprocPaket4Tests(unittest.TestCase):
                 'G1 X0 Y20 E1.0 F1800',
                 'G1 X0 Y0 E1.0 F1800',
             ]) + '\n', encoding='utf-8')
-            stl_rel, stl_info = PP._stl_export(td, 'box.gcode', also_obj=True)
-            self.assertIn('obj', stl_info)
-            self.assertIn('obj_vertices', stl_info)
-            self.assertGreater(stl_info['obj_vertices'], 0)
+            obj_rel, obj_info = PP._obj_export(td, 'box.gcode')
+            self.assertIn('obj_vertices', obj_info)
+            self.assertGreater(obj_info['obj_vertices'], 0)
 
-            # OBJ file exists next to the STL.
-            obj_rel = stl_info['obj']
+            # OBJ file exists (the only object export - no STL).
             self.assertTrue(obj_rel.endswith('_object.obj.gcode'))
             obj_path = Path(td) / obj_rel
             self.assertTrue(obj_path.is_file())
+            self.assertEqual([], list(Path(td).glob('*_object.stl.gcode')))
 
             # Parse OBJ: count v/f, check indices in range, vertex-dedup.
             n_v = n_f = 0
@@ -229,18 +228,11 @@ class PostprocPaket4Tests(unittest.TestCase):
             self.assertGreater(n_f, 0)
             self.assertLessEqual(max_idx, n_v, 'OBJ index overflow')
             # Vertex dedup: unique vertex lines == reported vertex count.
-            self.assertEqual(n_v, stl_info['obj_vertices'])
-            # The OBJ and STL share the same triangle count (same mesh).
-            self.assertEqual(n_f, stl_info['tris'])
+            self.assertEqual(n_v, obj_info['obj_vertices'])
+            # The triangle count matches the reported mesh.
+            self.assertEqual(n_f, obj_info['tris'])
             # No temp leftovers.
-            self.assertEqual([], list(Path(td).glob('.r2stl_*')))
             self.assertEqual([], list(Path(td).glob('.r2obj_*')))
-
-            # also_obj=False (default) writes NO obj.
-            box2 = Path(td) / 'box2.gcode'
-            box2.write_text(box.read_text(encoding='utf-8'), encoding='utf-8')
-            stl_rel2, stl_info2 = PP._stl_export(td, 'box2.gcode')
-            self.assertNotIn('obj', stl_info2)
 
     # ---- 4d: C4 cross-slicer aliases, no duplicate keys, inert non-print --
     def test_4d_type_map_has_no_duplicate_keys_and_resolves_c4_aliases(self):

@@ -5546,7 +5546,6 @@ tests.append(('R75 watcher: _prime_nonces adopts the current counters (no re-fir
         'scale_nonce': None,
         'cake_nonce': None,
         'stringart_nonce': None,
-        'stl_nonce': None,
         'shape_nonce': None,
         'twist_nonce': None,
         'mirror_nonce': None,      # R224: mirror tool
@@ -6797,7 +6796,8 @@ tests.append(('R86-R224 watcher: NONCE_KEYS has 49 channels incl. litho/seal/fra
     '+ the mirror channel (.136v) + the toolchain channel (R259) '
     '+ the stencil channel (R267) + the doctor channel (R252 gap) '
     '+ the mold channel (R270) + the blank mold channel (R273)',
-    len(_pp.NONCE_KEYS) == 54 and 'stl_nonce' in _pp.NONCE_KEYS
+    len(_pp.NONCE_KEYS) == 54 and 'obj_nonce' in _pp.NONCE_KEYS
+    and 'stl_nonce' not in _pp.NONCE_KEYS
     and 'mold_nonce' in _pp.NONCE_KEYS
     and 'mold_blank_nonce' in _pp.NONCE_KEYS
     and 'toolchain_nonce' in _pp.NONCE_KEYS
@@ -18348,22 +18348,26 @@ tests.append(('R286 texture library parity: one look per engine pattern '
     and 'texture_lib|default({})|length' in _lcd214
     and 'Vorlagen (27)' not in _lcd214, ''))
 
-# ---- STL export -------------------------------------------------------------
-_stl_mac214 = get_body('macros/08_print_start_stop.cfg', 'STL_EXPORT')
-tests.append(('R214 STL export: macro (idle gate + nonce channel) and the '
-    'Pre-Print > File menu entry',
-    'stl_nonce' in _stl_mac214
-    and "mode in ['printing','paused','filament']" in _stl_mac214
-    and '[menu __main __preprint __file __stl]' in _lcd214,
+# ---- object export (OBJ only - STL removed, R2.14) --------------------------
+# R2.14 (arena): the STL export is REMOVED - OBJ is the only object export.
+_obj_mac214 = get_body('macros/08_print_start_stop.cfg', 'OBJ_EXPORT')
+tests.append(('R286/R2.14 OBJ export: macro (idle gate + nonce channel) and '
+    'the Pre-Print > File menu entry (STL removed)',
+    'obj_nonce' in _obj_mac214
+    and "mode in ['printing','paused','filament']" in _obj_mac214
+    and '[menu __main __preprint __file __obj]' in _lcd214
+    and '[menu __main __preprint __file __stl]' not in _lcd214,
     ''))
-tests.append(('R214 STL export: watcher dispatch + nonce priming + idle '
-    'freeze (the .125 disk-I/O lesson) + SSH one-liner',
+tests.append(('R2.14 OBJ export: watcher dispatch + nonce priming + idle '
+    'freeze (the .125 disk-I/O lesson) + SSH one-liner (--stl gone)',
     # R246c: NONCE_KEYS grew (R216+ channels) - the old 900-char window
-    # lost 'stl_nonce' although it never left the list. Position check now.
-    _pp214.index("'stl_nonce')") > _pp214.index('NONCE_KEYS')
-    and "'stl_nonce')" in _pp214
-    and '_spawn_job(\'STL export\', \'stl_export214\'' in _pp214
-    and "'--stl'" in _pp214,
+    # lost 'obj_nonce' although it never left the list. Position check now.
+    _pp214.index("'obj_nonce')") > _pp214.index('NONCE_KEYS')
+    and "'obj_nonce')" in _pp214
+    and "'stl_nonce'" not in _pp214
+    and '_spawn_job(\'OBJ export\', \'obj_export286\'' in _pp214
+    and "'--obj'" in _pp214
+    and "'--stl'" not in _pp214,
     ''))
 
 _spec214 = _ilu214.spec_from_file_location('r2pp214', 'tools/r2_postproc.py')
@@ -18381,16 +18385,16 @@ for _z214 in (0.28, 0.48):
     _g214 += [';TYPE:Custom', 'G0 X70 Y70', 'G1 X75 Y70 E0.5']
 _g214.append('G1 E-0.8')
 open(_os214.path.join(_d214, 't214.gcode'), 'w').write('\n'.join(_g214) + '\n')
-_rel214, _inf214 = _mod214._stl_export(_d214, 't214.gcode')
-tests.append(('R214 STL export: the mesh keeps the OBJECT and drops the '
+_rel214, _inf214 = _mod214._obj_export(_d214, 't214.gcode')
+tests.append(('R2.14 OBJ export: the mesh keeps the OBJECT and drops the '
     'helpers (skirt/support/custom/purge - measured, not promised)',
     _inf214['tris'] > 0 and _inf214['layers'] == 2
     and 'SKIRT' in _inf214['excl'] and 'SUPPORT' in _inf214['excl']
     and 'CUSTOM' in _inf214['excl']
-    # R238: STL exports land in STL/ with the .gcode tail (Mainsail
-    # shows them, one click) - the old 'stl/' + bare .stl path is history
+    # R238/R2.14: object exports land in STL/ with the .gcode tail (Mainsail
+    # shows them, one click) - now the OBJ, the STL is gone
     and _os214.path.isfile(_os214.path.join(_d214, 'STL',
-                                            't214_object.stl.gcode')),
+                                            't214_object.obj.gcode')),
     str(_inf214)))
 
 # ---- litho stands -----------------------------------------------------------
@@ -19034,13 +19038,13 @@ tests.append(('G2 TEXTURE_APPLY TILT=OFF stores the explicit off setting',
 # Idle printer, real branch, real message.
 _idle238stl = build_printer()
 _idle238stl['gcode_macro _STATE'] = M(dict(state_vars, mode='idle'))
-out = render(get_body('macros/08_print_start_stop.cfg', 'STL_EXPORT'),
+out = render(get_body('macros/08_print_start_stop.cfg', 'OBJ_EXPORT'),
              {'FILE': 'V5_box.gcode'}, ps_state='idle',
              extra={'printer': _idle238stl})
-tests.append(('R238 STL_EXPORT: the message names the STL folder + the '
-    'ending trick (Mainsail shows the file)',
-    'stl.gcode' in out and 'remove the .gcode ending' in out
-    and 'VARIABLE=stl_nonce VALUE=' in out, out[:150]))
+tests.append(('R238 OBJ_EXPORT: the message names the STL folder + the '
+    'ending trick (Mainsail shows the file; STL removed R2.14)',
+    'obj.gcode' in out and 'remove the .gcode ending' in out
+    and 'VARIABLE=obj_nonce VALUE=' in out, out[:150]))
 _lcd238 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
 tests.append(('R238 LCD: the queue row is __queue, directly above the SD '
     'card, with Skip + Stop + Clear',
@@ -19069,16 +19073,16 @@ tests.append(('R238 LCD: MAP mode + position rows (ONCE-gated), fuzzy/bumps '
     and 'texture_map_mode|default(\'TILE\')|string == \'ONCE\'' in _lcd238
     and 'texture_mode|default(\'\')|string == \'FUZZY\'' in _lcd238
     and 'texture_mode|default(\'\')|string == \'BUMPS\'' in _lcd238, ''))
-tests.append(('R238 LCD: the SD browser refuses .stl.gcode data files',
-    "low.endswith('.stl.gcode')" in _lcd238
-    or "low.endswith('.stl.gcode')" in open(
+tests.append(('R238 LCD: the SD browser refuses .stl.gcode/.obj.gcode data files',
+    "low.endswith(('.stl.gcode', '.obj.gcode'))" in _lcd238
+    or "low.endswith(('.stl.gcode', '.obj.gcode'))" in open(
         'macros/13_system.cfg', encoding='utf-8').read(), ''))
 _pp238 = open('tools/r2_postproc.py', encoding='utf-8').read()
-tests.append(('R238 watcher: kill channel + auto segment fix + STL guards',
+tests.append(('R238 watcher: kill channel + auto segment fix + OBJ guards',
     "'genq_kill_nonce'" in _pp238 and 'raise _JobCancelled' in _pp238
     and 'if _mr and _mr > 400.0:' in _pp238
-    and 'endswith(\'.stl.gcode\')' in _pp238
-    and '_object.stl.gcode' in _pp238, ''))
+    and "endswith(('.stl.gcode', '.obj.gcode'))" in _pp238
+    and '_object.obj.gcode' in _pp238, ''))
 _tx238b = open('tools/r2_texture.py', encoding='utf-8').read()
 tests.append(('R238 texture: PATTERN_TILT + 27 names + map prepare',
     'PATTERN_TILT' in _tx238b and 'def _map_prepare' in _tx238b

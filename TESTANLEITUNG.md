@@ -105,11 +105,13 @@ bewusst angeschweißt). Je ein Probedruck:
       (schreibgeschützt); eigener Save unter Vorlagen-Namen nummeriert
       sich selbst; TEXTURING.pdf im Repo zeigt alle 55 Muster mit
       echten Vorschauen
-- [ ] **STL-Export (.136m)**: Datei wählen → Pre-Print > File info >
-      `STL: object only` → `gcodes/stl/<name>_object.stl` entsteht
+- [ ] **OBJ-Export (.136m / R2.14)**: Datei wählen → Pre-Print > File >
+      `OBJ: shell` → `gcodes/STL/<name>_object.obj.gcode` entsteht
       (nur Objekt, ohne Supports/Skirt/Brim/Tower/Custom/Ironing;
-      Zusammenfassung nennt Rippen/Layer/Dreiecke und was draußen
-      blieb); nur im Leerlauf (während des Drucks abgewiesen)
+      Zusammenfassung nennt Rippen/Layer/Dreiecke/Vertex und was draußen
+      blieb); nur im Leerlauf (während des Drucks abgewiesen).
+      Der STL-Export wurde R2.14 vollständig entfernt - OBJ ist der einzige
+      Objekt-Export (gleiche Dreiecke, vertex-deduped)
 - [ ] **Litho-Aufrechtdruck-Stützen (.136m)**: Litho > Settings >
       Side stands ON → Datei hat **LITHO_STAND_L/R**-Objekte;
       dreieckige Flossen links+rechts, ~5-mm-Perforation,
@@ -638,8 +640,8 @@ Der Abbruch trifft den Job an einem sicheren Punkt im Generator (nie
 mitten in einem Schreibvorgang). Auch Mainsail/Konsole:
 `_GEN_QUEUE_SKIP` bzw. `_GEN_QUEUE_STOP CONFIRM=1`.
 
-**3) STL-Export ist in Mainsail sichtbar.** Ergebnisse liegen jetzt im
-Ordner **STL** als `name_object.stl.gcode` — Mainsail zeigt sie, ein
+**3) OBJ-Export ist in Mainsail sichtbar.** Ergebnisse liegen jetzt im
+Ordner **STL** als `name_object.obj.gcode` — Mainsail zeigt sie, ein
 Klick lädt sie herunter, Endung `.gcode` entfernen, fertig (der Watcher
 behandelt sie als Daten, nicht als G-Code; im LCD-Browser erklärt der
 Klick den Weg statt zu drucken).
@@ -711,7 +713,7 @@ Druck normal.
 - [ ] 2+ Jobs in die Queue → Hauptmenü über der SD-Karte:
       „Gen queue: 2 waiting" → „Skip job -> next" beendet den laufenden,
       der nächste beginnt; „Stop" räumt alles weg
-- [ ] Pre-Print > File > STL → Ergebnis im Ordner STL als .stl.gcode →
+- [ ] Pre-Print > File > OBJ → Ergebnis im Ordner STL als .obj.gcode →
       in Mainsail sichtbar + downloadbar, LCD-Klick erklärt
 - [ ] Textur Korb/Strick/Seil auf eine Testvase → Muster läuft SCHÄG
       bzw. gedreht (nicht mehr schichtparallel), Fertigmeldung nennt

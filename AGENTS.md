@@ -36,8 +36,11 @@ du-Anrede, technisch präzise, ohne Fülltext.
   `docs-notes/MASTER-TODO.md`, Abschnitt „G. Feld-Abnahme-Checkliste".
 - Erledigt: D5 (Creative-Freedom-PDF, Titel + Kapitel + Schlusssatz,
   Commit-Serie dieser Branch). Release-Berichte unter `docs/RELEASE_*.md`.
-- Offen (Hauptbaustelle): **STL-Export** (Briefing §24) — Bestandsaufnahme in
-  `analyse/STL-EXPORT-AUDIT.md`; Vorgehen: Tests zuerst, dann Reparatur.
+- **STL-Export ENTFERNT (R2.14, Nutzer-Entscheidung):** Der OBJ-Export ist
+  zuverlässig (R286, gleiche Triangle-Pipeline, vertex-deduped) → der STL-Export
+  wurde vollständig entfernt. `_stl_export` → `_obj_export` (OBJ-only), `STL_EXPORT`
+  -Makro + `__stl`-Menü entfernt, `--stl` → `--obj`, Skip-Logik erweitert auf
+  `.obj.gcode`. Bestandsaufnahme bleibt in `analyse/STL-EXPORT-AUDIT.md`.
 - **D1 ist freigegeben:** MANUAL.md aktuell halten; Kap. 14 ergänzt.
 - **D3/D4 sind ERLEDIGT** (28/28 Root-PDFs, R275–R279 — siehe V6-Stand oben).
 - **Gesamtprüfung ist beauftragt:** Punkte B/C aus dem Gespräch gegen Code,

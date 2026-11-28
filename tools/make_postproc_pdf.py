@@ -149,7 +149,7 @@ def build(toc_seiten=None):
     kb.story += TBL(['Betriebsart', 'Aufruf', 'Rolle'],
                     [['Daemon (Wächter)', 'r2_postproc.py --watch DIR', 'läuft dauerhaft, verarbeitet jede neue oder geänderte Datei, bedient die Auftrags-Kanäle'],
                      ['Diagnose (einmalig)', 'r2_postproc.py --watch DIR --once', 'verarbeitet alles, was jetzt da ist, gibt eine Zusammenfassung aus und endet'],
-                     ['Werkzeug-Aufrufe', '--label / --reso / --bridge / --range / --stl / --file-check', 'einzelne Generatoren und Prüfungen ohne Wächter']],
+                     ['Werkzeug-Aufrufe', '--label / --reso / --bridge / --range / --obj / --file-check', 'einzelne Generatoren und Prüfungen ohne Wächter']],
                     [34 * mm, 60 * mm, 68 * mm], mono_cols=(1,))
     kb.story += SP(2)
     kb.story.append(IMG(ladder_fig([
@@ -648,7 +648,7 @@ def build(toc_seiten=None):
                      ['--plottext', 'Plotter-Text aus einer Zeichnung', 'Stift statt Düse'],
                      ['--statusplot', 'Statusblatt plotten', 'Report auf Papier'],
                      ['--range', 'Bereich einer Datei (Schichtfenster)', 'Testdruck ab Schicht n'],
-                     ['--stl', 'Objekt-STL exportieren', 'Bauteil aus der Datei']],
+                     ['--obj', 'Objekt-OBJ exportieren', 'Bauteil aus der Datei']],
                     [40 * mm, 66 * mm, 56 * mm], mono_cols=(0,))
     kb.story += P(
         'Die Kennung jeder erzeugten Datei trägt Release und Build: '

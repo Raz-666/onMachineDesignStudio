@@ -418,7 +418,7 @@ if [ -f "${DIR}/tools/r2_setup_lib.sh" ]; then
     if [ -f "$(r2_hwfile)" ]; then
         echo "[i] hardware profile: $(r2_hwfile)"
         r2_hw_read
-        for _k in bed_min_x bed_max_x bed_min_y bed_max_y led_type led_section led_status_n led_bed_n led_nozzle_split; do
+        for _k in bed_min_x bed_max_x bed_min_y bed_max_y led_enabled led_type led_section led_status_n led_bed_n led_nozzle_split; do
             [ -n "${R2_HW[${_k}]:-}" ] && printf '      %-16s %s\n' "${_k}:" "${R2_HW[${_k}]}"
         done
         r2_ask "Keep the current LED + hardware settings?" y
@@ -436,13 +436,16 @@ if [ -f "${DIR}/tools/r2_setup_lib.sh" ]; then
             r2_apply_led_layout
             echo "[ok] LED layout re-applied to the freshly unpacked 03_leds.cfg"
         else
+            # R2.14 (arena): survey + hardware wizard, then the LED wizard
+            # SEPARATELY (so LEDs can also be deactivated quickly).
+            r2_hw_survey
             r2_hw_wizard
             r2_led_wizard
         fi
     else
         echo "[i] no r2_hardware.cfg yet (pre-R108 install or Ender-3 defaults)"
         r2_ask "Run the hardware + LED wizard now?" n
-        [ "${R2_YN}" = "y" ] && { r2_hw_wizard; r2_led_wizard; }
+        [ "${R2_YN}" = "y" ] && { r2_hw_survey; r2_hw_wizard; r2_led_wizard; }
     fi
     r2_object_processing
 fi

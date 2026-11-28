@@ -16,3 +16,4 @@ tools/pp_engine_fail.json
 # release artifacts (built locally, checksums published in the release report)
 releases/
 uploads_ref/
+.venv/

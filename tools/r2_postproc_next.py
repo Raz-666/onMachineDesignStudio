@@ -76,7 +76,7 @@ def _core_stamp():
 # disk are newer than itself - a daemon that silently survived an update
 # restart keeps generating with OLD code (field log .123: lithophane V2
 # 'still an empty plate' while the fix had shipped releases earlier).
-POSTPROC_RELEASE = 'R2-2026-11-26.14'
+POSTPROC_RELEASE = 'R2-2026-11-26.15'
 POSTPROC_BUILD = 'R286'
 VAR_PATH = None    # set by watch(): save_variables file (plotter + range requests)
 # v1 (up to .41) injected LAYER_MARK + a SHORT _FILE_INFO - but no APPLY_TYPE
@@ -9862,9 +9862,10 @@ NONCE_KEYS = ('preview_nonce', 'range_nonce', 'label_gen_nonce', 'reso_nonce',
               # R174 (.129 field log): SD browser image click - the copy of an
               # image from a subfolder to the g-codes root (litho/plot sources)
               'img_pick_nonce',
-              # R214 (.136m): object-only STL export channel - primed like
-              # the rest so a restart never re-fires an old export
-              'stl_nonce',
+              # R2.14 (arena): the STL export channel is REMOVED - OBJ is
+              # the only object export. The OBJ nonce is primed like the
+              # rest so a restart never re-fires an old export
+              'obj_nonce',
               # R259: toolchain preset chain (TOOLCHAIN_APPLY -> one job,
               # every step feeds the next) - primed like the rest
               'toolchain_nonce',
@@ -9990,7 +9991,7 @@ def _sync_root_links(directory, quiet=True):
         if os.path.realpath(dp) == rroot:
             continue                      # the root itself is not a source
         for fn in fns:
-            if not fn.endswith('.gcode') or fn.lower().endswith('.stl.gcode'):
+            if not fn.endswith('.gcode') or fn.lower().endswith(('.stl.gcode', '.obj.gcode')):
                 continue
             if fn.startswith('.') or "'" in fn or '"' in fn:
                 continue
@@ -10094,7 +10095,7 @@ def _is_data_file(path):
     grew 27 MB -> 44 MB, the triangle count sat at a garbage offset and no
     viewer could open it). Every text path must ask this first."""
     q = str(path).replace('\\', '/').lower()
-    return q.endswith('.stl.gcode') or '/stl/' in q
+    return q.endswith(('.stl.gcode', '.obj.gcode')) or '/stl/' in q
 
 
 def _is_gen_name(name):
@@ -10102,7 +10103,7 @@ def _is_gen_name(name):
     R238: STL exports (.stl.gcode) are DATA, not g-code - never processed,
     retagged or counted, even though their name matches."""
     return (bool(_GEN_NAME_RE.match(name)) and str(name).endswith('.gcode')
-            and not str(name).lower().endswith('.stl.gcode'))
+            and not str(name).lower().endswith(('.stl.gcode', '.obj.gcode')))
 
 
 # R160 (.120): the feature types the _FILE_INFO macro can display (FS_/FA_
@@ -22762,9 +22763,14 @@ _STL_TARGET_BOXES216 = 45000   # R216: viewer budget (~27 MB / 540k tris) -
                                # texture strokes) are dropped and named
 
 
-def _stl_export(directory, rel, out_dir=None):
-    """R214: rebuild the object-only STL from a finished G-code. Returns
-    (rel_stl, info_dict). Reads the source, never writes it."""
+def _obj_export(directory, rel, out_dir=None):
+    """R2.14 (arena): rebuild the object-only Wavefront OBJ from a finished
+    G-code. Returns (rel_obj, info_dict). Reads the source, never writes it.
+
+    The STL binary export was REMOVED (R2.14) - the OBJ is now the ONLY
+    object export. Same outer-skin rule (supports/skirt/brim/prime tower/
+    custom helpers/ironing/infill skipped), same triangles, vertex-deduped
+    text mesh. Every viewer/slicer that opened the former STL opens the OBJ."""
     rel = str(rel).strip().strip('/').replace('\\', '/')
     for bad in (';', '"', "'", '#'):
         rel = rel.replace(bad, '')
@@ -23088,7 +23094,9 @@ def _stl_export(directory, rel, out_dir=None):
         _dec216 = int(math.ceil(float(_nseg216) / _STL_TARGET_BOXES216))
     _zidx216 = {z: i for i, z in enumerate(zs)}
 
-    # ---- pass 3: stream the ribbon boxes into a binary STL ---------------
+    # ---- pass 3: stream the ribbon boxes into a Wavefront OBJ ------------------
+    # R2.14 (arena): the STL binary export is REMOVED - the OBJ is the ONLY
+    # object export. Same outer-skin rule, same triangles, vertex-deduped.
     outdir = out_dir or os.path.join(directory, 'STL')
     os.makedirs(outdir, exist_ok=True)
     base = os.path.basename(rel)
@@ -23096,108 +23104,128 @@ def _stl_export(directory, rel, out_dir=None):
         if base.lower().endswith(ext):
             base = base[:-len(ext)]
             break
-    out = os.path.join(outdir, base + '_object.stl.gcode')
+    out = os.path.join(outdir, base + '_object.obj.gcode')
     n_tri = 0
     n_box = 0
     import tempfile as _tempfile_stl
-    _stl_fd, _stl_tmp = _tempfile_stl.mkstemp(prefix='.r2stl_', suffix='.tmp',
-                                              dir=outdir)
+    _obj_fd, _obj_tmp = _tempfile_stl.mkstemp(prefix='.r2obj_',
+                                              suffix='.tmp', dir=outdir)
+    _obj_fo = os.fdopen(_obj_fd, 'w', encoding='utf-8')
+    _obj_v = {}          # OBJ: rounded-vertex -> 1-based index (dedup)
+    _obj_n = 0           # OBJ: vertex counter
     try:
-        with os.fdopen(_stl_fd, 'wb') as fo:
-            fo.write(struct.pack('<80sI', b'R2 object-only STL (R214): '
-                                 b'supports/skirt/brim/prime tower/custom/ironing '
-                                 b'skipped - ribbons from extrusion moves', 0))
-            cnt_pos = fo.tell() - 4
+        _obj_fo.write('# R2 object-only OBJ: supports/skirt/brim/prime tower/'
+                      'custom/ironing skipped - same triangles as the former '
+                      'STL, vertex-deduped\n')
 
-            def _tri(ax, ay, az, bx, by, bz, cx, cy, cz):
-                nonlocal n_tri
-                if not all(math.isfinite(c)
-                           for c in (ax, ay, az, bx, by, bz, cx, cy, cz)):
-                    return
-                ux, uy, uz = bx - ax, by - ay, bz - az
-                vx, vy, vz = cx - ax, cy - ay, cz - az
-                nxn = uy * vz - uz * vy
-                nyn = uz * vx - ux * vz
-                nzn = ux * vy - uy * vx
-                ln = (nxn * nxn + nyn * nyn + nzn * nzn) ** 0.5
-                if ln < 1e-12:
-                    return          # degenerate zero-area facet - skip
-                fo.write(struct.pack('<12fH', nxn / ln, nyn / ln, nzn / ln,
-                                     ax, ay, az, bx, by, bz, cx, cy, cz, 0))
-                n_tri += 1
+        def _obj_tri(ax, ay, az, bx, by, bz, cx, cy, cz):
+            nonlocal _obj_n, n_tri
+            idx = []
+            for (px, py, pz) in ((ax, ay, az), (bx, by, bz), (cx, cy, cz)):
+                key = (round(px, 4), round(py, 4), round(pz, 4))
+                vi = _obj_v.get(key)
+                if vi is None:
+                    _obj_n += 1
+                    vi = _obj_n
+                    _obj_v[key] = vi
+                    _obj_fo.write('v %.4f %.4f %.4f\n' % (px, py, pz))
+                idx.append(vi)
+            _obj_fo.write('f %d %d %d\n' % tuple(idx))
+            n_tri += 1
 
-            for r in runs:
-                pts, zv, e_sum, len_sum = r[0], r[1], r[2], r[3]
+        for r in runs:
+            pts, zv, e_sum, len_sum = r[0], r[1], r[2], r[3]
+            if n_box >= _STL_MAX_BOXES214:
+                break
+            zb, zt = z_h[round(zv, 4)]
+            if _dec216 > 1:
+                zt = zb + (zt - zb) * _dec216    # R253: covers k layers
+            h = zt - zb
+            if h <= 1e-6 or len_sum <= 1e-6:
+                continue
+            w = e_sum * _STL_FIL_AREA214 / (len_sum * h)
+            if not math.isfinite(w):
+                continue
+            w = min(1.5, max(0.30, w)) * 0.5
+            if _dec216 > 1 and (_zidx216.get(round(zv, 4), 0) % _dec216):
+                continue                # R253: this layer band is folded into
+                                            # the previous kept one
+            q = pts[0]
+            for _i in range(1, len(pts)):
+                (x0, y0), (x1, y1) = q, pts[_i]
+                q = pts[_i]
+                dx, dy = x1 - x0, y1 - y0
+                L = (dx * dx + dy * dy) ** 0.5
+                if L < 1e-6 or not math.isfinite(L):
+                    continue
+                nxh, nyh = -dy / L * w, dx / L * w
+                ax, ay = x0 + nxh, y0 + nyh        # left @ start
+                bx, by = x0 - nxh, y0 - nyh        # right @ start
+                cx, cy = x1 - nxh, y1 - nyh        # right @ end
+                dx2, dy2 = x1 + nxh, y1 + nyh      # left @ end
+                _obj_tri(ax, ay, zt, bx, by, zt, cx, cy, zt)      # top 1
+                _obj_tri(ax, ay, zt, cx, cy, zt, dx2, dy2, zt)    # top 2
+                _obj_tri(ax, ay, zb, dx2, dy2, zb, cx, cy, zb)    # bottom 1
+                _obj_tri(ax, ay, zb, cx, cy, zb, bx, by, zb)      # bottom 2
+                _obj_tri(ax, ay, zb, ax, ay, zt, dx2, dy2, zt)    # left 1
+                _obj_tri(ax, ay, zb, dx2, dy2, zt, dx2, dy2, zb)  # left 2
+                _obj_tri(bx, by, zb, cx, cy, zb, cx, cy, zt)      # right 1
+                _obj_tri(bx, by, zb, cx, cy, zt, bx, by, zt)      # right 2
+                _obj_tri(ax, ay, zb, bx, by, zb, bx, by, zt)      # start cap 1
+                _obj_tri(ax, ay, zb, bx, by, zt, ax, ay, zt)      # start cap 2
+                _obj_tri(cx, cy, zb, dx2, dy2, zb, dx2, dy2, zt)  # end cap 1
+                _obj_tri(cx, cy, zb, dx2, dy2, zt, cx, cy, zt)    # end cap 2
+                n_box += 1
                 if n_box >= _STL_MAX_BOXES214:
                     break
-                zb, zt = z_h[round(zv, 4)]
-                if _dec216 > 1:
-                    zt = zb + (zt - zb) * _dec216    # R253: covers k layers
-                h = zt - zb
-                if h <= 1e-6 or len_sum <= 1e-6:
-                    continue
-                w = e_sum * _STL_FIL_AREA214 / (len_sum * h)
-                if not math.isfinite(w):
-                    continue
-                w = min(1.5, max(0.30, w)) * 0.5
-                if _dec216 > 1 and (_zidx216.get(round(zv, 4), 0) % _dec216):
-                    continue                # R253: this layer band is folded into
-                                            # the previous kept one
-                q = pts[0]
-                for _i in range(1, len(pts)):
-                    (x0, y0), (x1, y1) = q, pts[_i]
-                    q = pts[_i]
-                    dx, dy = x1 - x0, y1 - y0
-                    L = (dx * dx + dy * dy) ** 0.5
-                    if L < 1e-6 or not math.isfinite(L):
-                        continue
-                    nxh, nyh = -dy / L * w, dx / L * w
-                    ax, ay = x0 + nxh, y0 + nyh        # left @ start
-                    bx, by = x0 - nxh, y0 - nyh        # right @ start
-                    cx, cy = x1 - nxh, y1 - nyh        # right @ end
-                    dx2, dy2 = x1 + nxh, y1 + nyh      # left @ end
-                    _tri(ax, ay, zt, bx, by, zt, cx, cy, zt)      # top 1
-                    _tri(ax, ay, zt, cx, cy, zt, dx2, dy2, zt)    # top 2
-                    _tri(ax, ay, zb, dx2, dy2, zb, cx, cy, zb)    # bottom 1
-                    _tri(ax, ay, zb, cx, cy, zb, bx, by, zb)      # bottom 2
-                    _tri(ax, ay, zb, ax, ay, zt, dx2, dy2, zt)    # left 1
-                    _tri(ax, ay, zb, dx2, dy2, zt, dx2, dy2, zb)  # left 2
-                    _tri(bx, by, zb, cx, cy, zb, cx, cy, zt)      # right 1
-                    _tri(bx, by, zb, cx, cy, zt, bx, by, zt)      # right 2
-                    _tri(ax, ay, zb, bx, by, zb, bx, by, zt)      # start cap 1
-                    _tri(ax, ay, zb, bx, by, zt, ax, ay, zt)      # start cap 2
-                    _tri(cx, cy, zb, dx2, dy2, zb, dx2, dy2, zt)  # end cap 1
-                    _tri(cx, cy, zb, dx2, dy2, zt, cx, cy, zt)    # end cap 2
-                    n_box += 1
-                    if n_box >= _STL_MAX_BOXES214:
-                        break
-            if n_tri <= 0:
-                raise RuntimeError('no non-degenerate mesh facets generated')
-            fo.seek(cnt_pos)
-            fo.write(struct.pack('<I', n_tri))
-            fo.flush()
-            os.fsync(fo.fileno())
-        os.replace(_stl_tmp, out)
+        if n_tri <= 0:
+            raise RuntimeError('no non-degenerate mesh facets generated')
+        _obj_fo.flush()
+        os.fsync(_obj_fo.fileno())
+        _obj_fo.close()
+        os.replace(_obj_tmp, out)
     except Exception:
         try:
-            os.unlink(_stl_tmp)
+            os.unlink(_obj_tmp)
         except OSError:
             pass
+        if _obj_fo is not None and not _obj_fo.closed:
+            try:
+                _obj_fo.close()
+            except Exception:
+                pass
         raise
-    # ---- R253: prove the file really IS a binary STL -------------------
-    # The field .142h export was silently corrupted AFTER writing (the
-    # watcher tagged it as a print file and put text in front of the binary
-    # header) - a 44 MB file no viewer could load. The scan guard above
-    # stops that; this check makes any future corruption loud instead of
-    # silent.
+    # ---- prove the OBJ is a real Wavefront mesh -------------------------------
+    # Same silent-corruption guard as the former STL: the OBJ must carry
+    # vertices AND faces, and the face indices must stay within the vertex
+    # count. The field .142h export was silently corrupted AFTER writing (the
+    # watcher tagged it as a print file and put text in front of it) - this
+    # check makes any future corruption loud instead of silent.
     try:
-        with open(out, 'rb') as _chk:
-            _head253 = _chk.read(84)
-        if len(_head253) < 84 or not _head253.startswith(b'R2 object-only STL'):
-            raise RuntimeError(
-                'the written file does not start with the binary STL header '
-                '(something prepended text to it - data must not be tagged): '
-                '%r' % _head253[:32])
+        with open(out, 'r', encoding='utf-8', errors='replace') as _chk:
+            _vlines = _flines = 0
+            _maxidx = 0
+            for _ln in _chk:
+                _s = _ln.strip()
+                if _s.startswith('v '):
+                    _vlines += 1
+                elif _s.startswith('f '):
+                    _flines += 1
+                    for _tok in _s[2:].split():
+                        try:
+                            _iv = int(_tok.split('/')[0])
+                        except ValueError:
+                            continue
+                        if _iv > _maxidx:
+                            _maxidx = _iv
+            if _vlines <= 0 or _flines <= 0:
+                raise RuntimeError(
+                    'the written OBJ has no vertices or faces (corrupt): '
+                    'v=%d f=%d' % (_vlines, _flines))
+            if _maxidx > _vlines:
+                raise RuntimeError(
+                    'the written OBJ references vertex %d but only %d '
+                    'vertices exist (index overflow)' % (_maxidx, _vlines))
     except OSError:
         pass
     info = {'file': out, 'boxes': n_box, 'tris': n_tri,
@@ -23205,7 +23233,7 @@ def _stl_export(directory, rel, out_dir=None):
             'excl': excl_mm, 'capped': n_box >= _STL_MAX_BOXES214,
             'untyped': not seen_type, 'relaxed': _relax214,
             'decimated': bool(_dec216 > 1), 'decim_step': _dec216,
-            'segments': _nseg216}
+            'segments': _nseg216, 'obj_vertices': _obj_n}
     return os.path.relpath(out, directory), info
 
 def _optimize_copy(directory, rel, snap):
@@ -27507,7 +27535,7 @@ def _meta_finalize(p, src=None, force=False):
             return 'foreign'           # not one of ours - hands off
         # R238: STL exports are binary data despite the .gcode tail -
         # the Mainsail download trick. Never parse them as g-code.
-        if p.replace('\\', '/').lower().endswith('.stl.gcode') \
+        if p.replace('\\', '/').lower().endswith(('.stl.gcode', '.obj.gcode')) \
                 or '/stl/' in p.replace('\\', '/').lower():
             return 'foreign'
         st = gcode_meta.finalize(p, src=src)
@@ -29786,7 +29814,7 @@ def watch(directory, interval=5.0, once=False):
                 # FRONT of the binary header, so the triangle count sat at
                 # the wrong offset and NO viewer could open it ('one showed
                 # only a sphere'). Data is data: never tag, never list.
-                if fn.lower().endswith('.stl.gcode') \
+                if fn.lower().endswith(('.stl.gcode', '.obj.gcode')) \
                         or '/stl/' in p.replace('\\', '/').lower():
                     continue
                 # R249: a root LINK is a pointer to an output that is scanned
@@ -30255,7 +30283,7 @@ def watch(directory, interval=5.0, once=False):
                     try:
                         if _o and os.path.isfile(_o) \
                                 and str(_o).endswith('.gcode') \
-                                and not str(_o).lower().endswith('.stl.gcode'):
+                                and not str(_o).lower().endswith(('.stl.gcode', '.obj.gcode')):
                             # R253: MOVERATE is the SUSTAINED demand now (the
                             # number the serial budget is about); the worst
                             # single segment rides along as MOVERATEMAX.
@@ -30509,9 +30537,10 @@ def watch(directory, interval=5.0, once=False):
                 # same lesson as .125 above.
                 'del_nonce', 'img_pick_nonce', 'scale_nonce',
                 'cake_nonce', 'stringart_nonce',
-                # R214: the STL export reads the whole source and writes a
-                # mesh - that is disk I/O, it waits for idle like the rest
-                'stl_nonce',
+                # R2.14 (arena): the OBJ export reads the whole source and
+                # writes a mesh - that is disk I/O, it waits for idle like
+                # the rest (the STL export was removed)
+                'obj_nonce',
                 # R216: the shape generator + the twist tool write
                 # files - same rule
                 'shape_nonce', 'twist_nonce', 'mirror_nonce',
@@ -30708,7 +30737,7 @@ def watch(directory, interval=5.0, once=False):
                 last_litho_del_nonce = _np.get('litho_del_nonce')
                 last_opt_nonce = _np.get('opt_nonce')              # R169
                 last_opt_load_nonce = _np.get('opt_load_nonce')    # R169
-                last_stl_nonce = _np.get('stl_nonce')                  # R214
+                last_obj_nonce = _np.get('obj_nonce')                # R2.14
                 last_opt_list_pushed = None                         # R169 (no nonce)
                 last_opt_list_try = 0.0
                 # R170: live label fit + queue bed-fit + shutdown watchdog
@@ -30902,59 +30931,62 @@ def watch(directory, interval=5.0, once=False):
             except Exception as _e169o:                          # noqa: BLE001
                 print('[opt] dispatch error: %r' % _e169o, flush=True)
 
-            # ---- R214: object-only STL export (Pre-Print > File > STL) ------
+            # ---- R2.14 (arena): object-only OBJ export (Pre-Print > File > OBJ)
+            # The STL export is REMOVED - OBJ is the only object export.
             try:
-                _sn214 = rv.get('stl_nonce', '')
-                if _sn214 and _sn214 != last_stl_nonce:
-                    last_stl_nonce = _sn214
-                    _sf214 = str(rv.get('stl_file', '')).strip().strip('\'"')
+                _on286 = rv.get('obj_nonce', '')
+                if _on286 and _on286 != last_obj_nonce:
+                    last_obj_nonce = _on286
+                    _of286 = str(rv.get('obj_file', '')).strip().strip('\'"')
 
-                    def _job214(_rel214=_sf214):
+                    def _job286(_rel286=_of286):
                         try:
-                            _relout214, _inf214 = _stl_export(
-                                directory, _rel214)
-                            _msg214 = ('[stl] shell STL saved: %s '
-                                       '(%d ribbons, %d layers, %d tris)'
-                                       % (_relout214, _inf214['boxes'],
-                                          _inf214['layers'], _inf214['tris']))
-                            if _inf214.get('decimated'):
-                                _msg214 += (
+                            _relout286, _inf286 = _obj_export(
+                                directory, _rel286)
+                            _msg286 = ('[obj] shell OBJ saved: %s '
+                                       '(%d ribbons, %d layers, %d tris, '
+                                       '%d vertices)'
+                                       % (_relout286, _inf286['boxes'],
+                                          _inf286['layers'], _inf286['tris'],
+                                          _inf286.get('obj_vertices', 0)))
+                            if _inf286.get('decimated'):
+                                _msg286 += (
                                     ' - decimated to the viewer budget '
                                     '(every %d. layer band kept, full XY)'
-                                    % _inf214.get('decim_step', 1))
-                            if _inf214['capped']:
-                                _msg214 += (' - CAPPED at %d ribbons, mesh '
-                                            'truncated' % _inf214['boxes'])
-                            if _inf214.get('relaxed'):
-                                _msg214 += (' - NOTE: this file names no '
+                                    % _inf286.get('decim_step', 1))
+                            if _inf286['capped']:
+                                _msg286 += (' - CAPPED at %d ribbons, mesh '
+                                            'truncated' % _inf286['boxes'])
+                            if _inf286.get('relaxed'):
+                                _msg286 += (' - NOTE: this file names no '
                                             'outer wall, the inner wall is '
                                             'the surface (R253)')
-                            _msg214 += (' - outer skin: internal infill '
+                            _msg286 += (' - outer skin: internal infill '
                                         'skipped - Mainsail: STL folder, '
                                         'download + remove the .gcode '
                                         'ending, every 3D program opens it')
-                            print(_msg214, flush=True)
+                            print(_msg286, flush=True)
                             try:
                                 _moonraker_gcode(
-                                    'RESPOND MSG="%s"\nM117 STL saved\n'
+                                    'RESPOND MSG="%s"\nM117 OBJ saved\n'
                                     '_SOUND_LIB NAME=r2_done'
-                                    % _msg214.replace('"', ''))
+                                    % _msg286.replace('"', ''))
                             except Exception:                   # noqa: BLE001
                                 pass
-                        except Exception as _e214:             # noqa: BLE001
-                            print('[stl] export FAILED: %r' % _e214, flush=True)
+                        except Exception as _e286:             # noqa: BLE001
+                            print('[obj] export FAILED: %r' % _e286, flush=True)
                             try:
                                 _moonraker_gcode(
-                                    'RESPOND MSG="[stl] export FAILED: %s"'
-                                    '\nM117 STL failed\n'
+                                    'RESPOND MSG="[obj] export FAILED: %s"'
+                                    '\nM117 OBJ failed\n'
                                     '_SOUND_LIB NAME=r2_error'
-                                    % str(_e214).replace('"', '')
+                                    % str(_e286).replace('"', '')
                                                  .replace(';', '')[:120])
                             except Exception:                   # noqa: BLE001
                                 pass
-                    _spawn_job('STL export', 'stl_export214', _job214)
-            except Exception as _e214o:                          # noqa: BLE001
-                print('[stl] dispatch error: %r' % _e214o, flush=True)
+                    _spawn_job('OBJ export', 'obj_export286', _job286)
+            except Exception as _e286o:                          # noqa: BLE001
+                print('[obj] dispatch error: %r' % _e286o, flush=True)
 
             # ---- R169 (E2): load an optimized file's values into Pre-Print -------
             try:
@@ -35371,7 +35403,7 @@ def _pp_engine_gate(argv):
     """Hand over to the experimental copy when the switch says so.
 
     Returns the engine this process is running as. Called from main() for
-    --watch only: the diagnostics (--file-check, --stl, generators) always
+    --watch only: the diagnostics (--file-check, --obj, generators) always
     run on the STABLE code, so a broken experiment can never take the
     troubleshooting tools down with it.
     """
@@ -35584,13 +35616,14 @@ def main():
         out, nl = make_range(args[1], int(args[2]), int(args[3]), floor=fl, top=tp, brim=br)
         print(f'[ok] {out}: {nl} layers (floor {fl}/top {tp}/brim {br}) - start via the dialog')
         return
-    if args[0] == '--stl':
-        # R214: SSH one-liner - object-only STL from a finished G-code.
-        #   r2_postproc.py --stl mypart.gcode
-        # Output: <folder>/STL/mypart_object.stl.gcode (Mainsail: download, strip .gcode).
+    if args[0] == '--obj':
+        # R2.14 (arena): SSH one-liner - object-only OBJ from a finished
+        # G-code. The STL export is REMOVED - OBJ is the only object export.
+        #   r2_postproc.py --obj mypart.gcode
+        # Output: <folder>/STL/mypart_object.obj.gcode (Mainsail: download, strip .gcode).
         if len(args) < 2:
-            print('usage: r2_postproc.py --stl FILE.gcode [OUTDIR=]')
-            print('  object-only export: supports, skirt, brim, prime tower,')
+            print('usage: r2_postproc.py --obj FILE.gcode [OUTDIR=]')
+            print('  object-only OBJ export: supports, skirt, brim, prime tower,')
             print('  custom helpers and ironing are skipped')
             sys.exit(1)
         kw214 = {}
@@ -35598,25 +35631,26 @@ def main():
             if '=' in a214:
                 k214, v214 = a214.split('=', 1)
                 kw214[k214.upper()] = v214
-        rel214, info214 = _stl_export(
+        rel214, info214 = _obj_export(
             os.path.dirname(os.path.abspath(args[1])) or '.',
             os.path.basename(args[1]),
             out_dir=kw214.get('OUTDIR'))
-        print('[stl] %s: %d ribbons / %d layers / %.1f m object extrusion '
-              '-> %d triangles%s'
+        print('[obj] %s: %d ribbons / %d layers / %.1f m object extrusion '
+              '-> %d triangles (%d vertices, vertex-deduped)%s'
               % (rel214, info214['runs'], info214['layers'],
                  info214['incl_mm'] / 1000.0, info214['tris'],
+                 info214.get('obj_vertices', 0),
                  ' (CAPPED - file too complex, mesh truncated)' if info214['capped'] else ''))
         if info214['excl']:
-            print('[stl] skipped: ' + ', '.join(
+            print('[obj] skipped: ' + ', '.join(
                 '%s %.1fm' % (k214.lower(), v214 / 1000.0)
                 for k214, v214 in sorted(info214['excl'].items())))
         if info214.get('relaxed'):
-            print('[stl] NOTE: this file names no outer wall (no WALL-OUTER/'
+            print('[obj] NOTE: this file names no outer wall (no WALL-OUTER/'
                   'TOP/BOTTOM) - the inner wall + gap fill are exported so '
                   'the object is not empty. The surface is the inner line.')
         if info214['untyped']:
-            print('[stl] NOTE: the file has no ;TYPE comments at all - '
+            print('[obj] NOTE: the file has no ;TYPE comments at all - '
                   'only typed blocks export (run RETAG if this surprises you)')
         return
     if args[0] == '--file-check':

@@ -126,7 +126,7 @@ Die Maschine ist durch Klipper-Hostreaktor, MCU-Kommunikation, Speicher, SD-Kart
 
 - **Umfangreiche Klipper-Menüs und Jinja:** `menus/lcd_menues.cfg` ist groß und enthält viele dynamische Menüeinträge. Das Inventardokument hebt hervor, dass Klipper die dynamischen Menütexte im Reaktor rendert. Menü-/Statusaufrufe können daher zur Last beitragen.
 - **Featuregrenzen und Befehlsfrequenz:** `APPLY_TYPE`, Layer-Marker, Statusmeldungen, Lüfter-/PA-/Beschleunigungswechsel und LED-Aktualisierungen erzeugen Arbeit bzw. Kommunikation. Häufige Wechsel oder sehr kleinteilige G-Code-Segmente können das verstärken.
-- **Datei- und Geometrieanalyse:** G-Code-Streaming ist auf Speicherverbrauch hin getestet, aber Geometrie-Rasterung, Bildverarbeitung, STL-Export, große Dateien und umfangreiche Audits kosten CPU, RAM und I/O.
+- **Datei- und Geometrieanalyse:** G-Code-Streaming ist auf Speicherverbrauch hin getestet, aber Geometrie-Rasterung, Bildverarbeitung, OBJ-Export, große Dateien und umfangreiche Audits kosten CPU, RAM und I/O.
 - **Generatorjobs:** Lithophanes, ColorPic, String Art und kitbasierte Rasterung können auf einem Pi Zero 2 deutlich länger dauern als kleine Label- oder Verbinderjobs. Job-Queue, Hintergrundverarbeitung, RAM-Gates und `nice` mindern Risiken, beseitigen sie nicht.
 - **Datei-Watcher und viele Dateien:** Große G-Code-Verzeichnisse, Metadaten-/Symlinkverwaltung, Re-Scans und Archivwachstum können I/O und Laufzeit erhöhen.
 - **Live-Webabfragen:** Das Web-LCD fragt Statusdaten ab. Caches, Objektfilterung und „quiet windows“ reduzieren laut Implementierung die Abfragen, aber mehrere Clients, Logs oder ungünstiges Timing können weiter Hostlast erzeugen.

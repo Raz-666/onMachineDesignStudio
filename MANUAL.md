@@ -877,7 +877,7 @@ PAUSE_AT_LAYER LAYER=17
 CANCEL_PRINT                                    # twice within 60 s
 ```
 
-## 5. The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes (+ Spray stencils), ColorPic, Gaskets, Frames, Bricks, Kits & Figures, String Art, Geometry, Scale/Taper, Twist, Mirror, STL export, Toolchain (preset chains)
+## 5. The generators: Range, Labels, Plotter, Cable ties, Angles, Lithophanes (+ Spray stencils), ColorPic, Gaskets, Frames, Bricks, Kits & Figures, String Art, Geometry, Scale/Taper, Twist, Mirror, OBJ export, Toolchain (preset chains)
 
 Thirteen generators turn the printer into a manufacturing tool of its own:
 partial prints from any G-code, label plates from typed text, pen plots from
@@ -941,7 +941,7 @@ the gcodes directory — `Labels/`, `CableTies/`, `Angles/`, `Gaskets/`,
 `Frames/`, `Litho/`, `ColorPic/`, `Bricks/`, `Kit/`, `Figures/`, `Plot/`,
 `Range/`, `Texture/`, `Towers/` (calibration/test prints) — and since
 .136n: `Shapes/`, `Scale/`, `Twist/`, `STL/` (geometry generator, the
-scale/taper tool, the twist tool, the STL export). The root stays
+scale/taper tool, the twist tool, the OBJ export). The root stays
 clean for your sliced files and sources. The LCD file browser and Mainsail
 navigate the folders natively; the Gen files list shows the file name and
 selects/deletes via the relative path. **Sort order:** the ROOT lists
@@ -2189,16 +2189,17 @@ steadily rising Z — no top, no infill, the classic vase. Output:
 `Shapes/` folder. Console: `GEN_SHAPE SHAPE=CYLINDER X=40 Y=40 Z=20
 WALLS=1 INFILL=0 BASE=3`.
 
-### 5.19 STL export — a g-code file back into the slicer (.136n)
+### 5.19 OBJ export — a g-code file back into the slicer (.136n / R2.14)
 
-Pre-Print > Tools > STL: the SELECTED R2-generated file (labels,
+Pre-Print > File > OBJ: the SELECTED R2-generated file (labels,
 gaskets, angles, figures, shapes — every generator output) becomes a
-**watertight STL mesh** again — one solid per EXCLUDE_OBJECT, real
-extrusion widths as wall thicknesses, floors and top surfaces closed.
+**watertight Wavefront OBJ mesh** again — one solid per EXCLUDE_OBJECT,
+real extrusion widths as wall thicknesses, floors and top surfaces closed.
 The mesh opens in every common 3D program (Blender, PrusaSlicer,
-Cura, Fusion); export as OBJ works the same way. Start sound +
+Cura, Fusion). R2.14: the STL export was REMOVED completely — OBJ is the
+only object export (same triangles, vertex-deduped). Start sound +
 LCD notify when the file is done; output lands next to the source in
-the `STL/` folder — named `name_object.stl.gcode`: Mainsail
+the `STL/` folder — named `name_object.obj.gcode`: Mainsail
 shows it in the file list, one click downloads it, strip the `.gcode`
 ending and every 3D program opens it.
 
@@ -2965,7 +2966,7 @@ wrong moment at print start) - but the flat stock `vsdlist` is not a
 limitation any more: the post-processor mirrors **every printable file of a
 subfolder as a link in the gcodes root** (up to 200, three levels deep,
 `<subfolder>_<name>.gcode` on a name clash; a real root file always wins, dead
-links are swept, `.stl.gcode` exports never appear). Klipper opens the link
+links are swept, `.stl.gcode`/`.obj.gcode` exports never appear). Klipper opens the link
 directly, so the stock list holds the whole library and M23 (our takeover of
 the file tap) routes the pick into the normal start dialog. Nothing is copied
 and nothing is moved - the file keeps its folder. Additionally, the two
@@ -3010,7 +3011,7 @@ What follows from that:
   `Frames_V05….gcode` in the root, the link is not created; the root copy is
   what prints.
 - **Limits on purpose:** max 200 links, three folder levels deep, name clash
-  → `<subfolder>_<name>.gcode`, `.stl.gcode` exports never appear (they are
+  → `<subfolder>_<name>.gcode`, `.stl.gcode`/`.obj.gcode` exports never appear (they are
   not print jobs). The watcher never processes a link (it would re-tag the
   original through the link on every pass) — the original is processed in its
   own folder, once.
@@ -3033,12 +3034,12 @@ confirms by double press (Create, Apply, Fix…) plays the start tune on the
 second press and returns you to where you decide — no zombie rows after the
 kick-off, no third press by accident.
 
-**Menu order** — Pre-Print: File info (incl. `STL: object only`, .136m) ·
+**Menu order** — Pre-Print: File info (incl. `OBJ: shell`, .136m/R2.14) ·
 Fixes (incl. the File check list — the same six entries as System > File
 check, .136m — **plus `Fix: Quality` and `Fix: Speed`**, .136n) · Tools
 (Offset, Texture, Range, **Scale X/Y with the Taper option**,
 **Twist**, **Mirror**, **Toolchain (preset chains, R259)**, Cake cut,
-Plotter, STL export) ·
+Plotter, OBJ export) ·
 **Material** (shows the current material — Load preset now / Save
 current / Reset for PLA, PETG, TPU, ABS/ASA) · Temps ·
 Motion · Features ·
@@ -3117,7 +3118,7 @@ For the console equivalents (`SET_FAN_LIVE`, `SET_FAN_HOLD`, …) see ch. 6.1.
 | Range/Stop | Stop@ layer + From/To (capped to the selected file's layer count!) + Floor/Top (each FOOTPRINT or OUTLINE, each GRID or SOLID fill) + Brim + Create excerpt (ch. C.1) |
 | Filament | Load / Load length / Unload / Unload length / Change (M600) — available BEFORE the print too |
 | File fixes (in File menu) | **Ret:** verdict line (FIX!/can/fixed/fw) · RetFix ON/OFF — auto-treats every NEW upload's clean retract pairs into G10/G11 (old Bowden-era files) · RetFix file (offered only for fix/can) + Vol->mm fix + Fix flow cap (Cap value) + Fix travel accel (TAcc value) — repair the SELECTED file directly on disk (start beep + done beep, markers survive) |
-| STL: object only (.136m) | **G-code → STL** of the selected file: every extrusion move becomes a ribbon of measured width + layer height — a mesh of the PURE OBJECT. Supports, skirt, brim, prime tower, custom helper blocks and the ironing pass are skipped (the summary names what went out). Result: `gcodes/stl/<name>_object.stl` — view it, re-slice it, share it. Idle only (the watcher reads the whole source). Console: `STL_EXPORT FILE=…` |
+| OBJ: shell (.136m / R2.14) | **G-code → OBJ** of the selected file: every extrusion move becomes a ribbon of measured width + layer height — a mesh of the PURE OBJECT. Supports, skirt, brim, prime tower, custom helper blocks and the ironing pass are skipped (the summary names what went out). Result: `gcodes/STL/<name>_object.obj.gcode` — view it, re-slice it, share it. Idle only (the watcher reads the whole source). Console: `OBJ_EXPORT FILE=…` |
 | Plotter | only when a plot file is selected: PEN FILE · pen speed % · Pen Z · Shift X/Y · Reset overrides — at the very END of Pre-Print |
 | Texture | acts on the SELECTED file: File (shows the target) · Mode OFF/Fuzzy/Bumps · Fuz thick · Fuz dens · Pattern (**library of 54 + MAP**, 3 pages, seamless snap) · Around · Height · Depth · Seed · Img (MAP source) · **Fixed presets** (Orca/Hide/Subtle/Grip) · **Vorlagen** (.136m: the LIBRARY, 95 looks since R253 — appearance names like Rattan/Sandstein/Seil; one press loads ALL settings and the answer names them: pattern, size, depth, direction; delete refuses, your own save under such a name numbers itself; own page counter) + **My presets** · > Apply (2×) · How it works — writes a NEW `_TX` file (ch. 5.9), never auto-starts |
 
@@ -3525,7 +3526,7 @@ switch took effect. **No restart, no `sudo`.** The way back is the same press:
 - `--engine=stable` on the command line beats the switch, for the case that
   the display is unreachable:
   `python3 tools/r2_postproc.py --watch ~/printer_data/gcodes --engine=stable`
-- The diagnostics (`--file-check`, generators, `--stl`) always run on the
+- The diagnostics (`--file-check`, generators, `--obj`) always run on the
   **stable** code, so the troubleshooting tools work even while an experiment
   is broken.
 
@@ -4098,7 +4099,7 @@ stay with Mainsail.
 | **SDCARD_PRINT_FILE** | FILENAME='' | Print button: load the file, hold it at position 0, ask first |
 | **SET_LAYER_RANGE** | START, END, FLOOR, FLOOR_SHAPE (0/1), FLOOR_FILL (0/1), TOP, TOP_SHAPE, TOP_FILL, FLOOR_HOLE, TOP_HOLE, BRIM | layer-range excerpt with raft/cap, centered floor+top holes (E14/E27 presets: ch. 5.1); refuses while a print runs |
 | **START_PRINT** |  | old macro name: marked = no-op · legacy = real legacy start (dialog or auto-prep) |
-| **STL_EXPORT** | FILE=printer.print_stats.filename | default('' |
+| **OBJ_EXPORT** | FILE=printer.print_stats.filename | default('' |
 | _APPLY_OVERRIDES_CORE |  | Apply PA/retract/accel/flow overwrites |
 | _DIALOG_PEEK |  | Start dialog opened - force a fresh file-info peek |
 | _FILE_INFO | MATERIAL, SLICER, FW, VOLUMETRIC, OPT=0, RETRACT, RETRACT_STATUS='', RETRACT_MAX=0, LAYER_HEIGHT=0, TOTAL_LAYERS=0, LINE_WIDTH=0, LINE_WIDTH_FIRST=0, LINE_WIDTH_WALL=0, FLOW_RATIO=0, PA=0, BY_OBJECT=0, TYPES, CUSTOMGROUPS, NOZZLE=0, WALL_LOOPS=0, IRONING_FLOW=0, DERIVED=0, CONF=0, COVER=0, MAXRATE=0, TRAVEL=0, SEAM, SEAMN=0 | File parameters - injected by the R2 post-processor |

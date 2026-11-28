@@ -126,7 +126,7 @@ The system is constrained by Klipper’s host reactor, MCU communication, memory
 
 - **Large Klipper menus and Jinja:** `menus/lcd_menues.cfg` is large and contains many dynamic entries. The tools inventory notes that Klipper renders dynamic menu text in its reactor; menu/status interaction can therefore contribute to workload.
 - **Feature boundaries and command frequency:** `APPLY_TYPE`, layer markers, status messages, fan/PA/acceleration changes, and LED updates consume processing and/or communication. Frequent transitions or highly segmented G-code can magnify the cost.
-- **File and geometry analysis:** G-code streaming is covered by tests, but geometric rasterization, image processing, STL export, large files, and broad audits consume CPU, RAM, and I/O.
+- **File and geometry analysis:** G-code streaming is covered by tests, but geometric rasterization, image processing, OBJ export, large files, and broad audits consume CPU, RAM, and I/O.
 - **Generator jobs:** lithophanes, ColorPic, String Art, and rasterized kits may take considerably longer on a Pi Zero 2 than small label or connector jobs. Queues, background work, RAM gates, and `nice` reduce risk but do not remove it.
 - **Watcher and large file collections:** Large G-code directories, metadata/symlink management, rescans, and growing archives can increase I/O and processing time.
 - **Live web requests:** The Web LCD polls printer status. Caches, object filtering, and quiet windows in the implementation reduce requests, but multiple clients, log retrieval, or poor timing can still add host workload.

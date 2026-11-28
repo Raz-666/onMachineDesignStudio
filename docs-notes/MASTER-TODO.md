@@ -434,9 +434,16 @@ Baumrinde aus oder wie Holzdiele oder Parkett … irgendwas hast du verhauen."
 
 
 
-## I. STL-Export (Nutzer-Go 2026-11-18 — zuerst Bestandsaufnahme, dann Tests, dann Fix)
+## I. STL-Export → OBJ-Export (Nutzer-Go 2026-11-18 — zuerst Bestandsaufnahme, dann Tests, dann Fix)
 
-- [ ] **I1 — STL-Export funktionsfähig machen (Briefing §24).**
+- **ENTSORGT (R2.14, Nutzer-Entscheidung 2026-11-25):** Der OBJ-Export ist
+  zuverlässig (R286, gleiche Triangle-Pipeline, vertex-deduped) → der
+  STL-Export wurde **komplett entfernt**. `_stl_export` → `_obj_export`
+  (OBJ-only), `STL_EXPORT`-Makro + `__stl`-Menü entfernt, `--stl` → `--obj`,
+  Skip-Logik auf `.obj.gcode` erweitert. Die Bestandsaufnahme unten bleibt
+  als Historie/Audit-Beleg.
+- [x] **I1 — STL-Export funktionsfähig machen (Briefing §24) → in R2.14
+      umgeleitet: OBJ-Export ist der einzige Objekt-Export.**
       Reihenfolge verbindlich: (1) Bestandsaufnahme erledigt —
       `analyse/STL-EXPORT-AUDIT.md` (Ablauf, Risiken, Testlücken,
       Orakel-Testplan Phase 2–4); (2) Phase 2: Orakel-Kit

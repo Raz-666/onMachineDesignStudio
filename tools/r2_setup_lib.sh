@@ -557,7 +557,7 @@ r2_hw_write() {   # regenerates r2_hardware.cfg from R2_HW (keeping unknown keys
         echo "description: R2 hardware profile (bed limits + positions + LED layout) - macros AND watcher read this"
         for k in bed_min_x bed_max_x bed_min_y bed_max_y bed_max_z \
                  probe_x probe_y present_x present_y wipe_x wipe_y \
-                 led_type led_section led_pin led_clk_pin led_chain led_color_order \
+                 led_enabled led_type led_section led_pin led_clk_pin led_chain led_color_order \
                  led_status_n led_bed_n led_bed_on led_bed_bright \
                  led_nozzle_split led_nozzle_section led_nozzle_pin led_nozzle_chain \
                  led_nozzle_color_order; do
@@ -568,7 +568,7 @@ r2_hw_write() {   # regenerates r2_hardware.cfg from R2_HW (keeping unknown keys
         for kk in "${!R2_HW[@]}"; do
             case "${kk}" in
                 bed_min_x|bed_max_x|bed_min_y|bed_max_y|bed_max_z|probe_x|probe_y|\
-                present_x|present_y|wipe_x|wipe_y|led_type|led_section|led_pin|\
+                present_x|present_y|wipe_x|wipe_y|led_enabled|led_type|led_section|led_pin|\
                 led_clk_pin|led_chain|led_color_order|led_status_n|led_bed_n|\
                 led_bed_on|led_bed_bright|led_nozzle_split|led_nozzle_section|\
                 led_nozzle_pin|led_nozzle_chain|led_nozzle_color_order) ;;
@@ -710,16 +710,31 @@ r2_led_wizard() {
         return 0
     fi
     r2_hw_read
-    local det=""
-    det="$(r2_led_detect)" || true
-    if [ -n "${det}" ]; then
-        echo "[ok] LED chain detected in your config: ${det}"
-        r2_ask "Configure LEDs on this printer?" n
-    else
-        echo "[i] no [neopixel] / [dotstar] found in printer.cfg"
-        r2_ask "Use LEDs on this printer (configure them now)?" n
+    # R2.14 (arena): the LED question is now an explicit CHOICE with a fast
+    # "deactivate completely" path - one answer, two different outcomes:
+    #   1 = configure LEDs (full chain + areas wizard)
+    #   2 = DEACTIVATE completely - led_enabled=0 is stored in the hardware
+    #       profile: every LED macro is a no-op from now on, the chain is
+    #       never written. A later setup/update can re-enable (option 1).
+    #   3 = no LEDs (skip for now, keep a later setup possible)
+    r2_choice "LEDs on this printer?" "1" \
+        "configure LEDs (run the full LED wizard)" \
+        "LEDs COMPLETELY DEACTIVATED (fast - no LEDs ever used)" \
+        "no LEDs (skip for now)"
+    local want="${R2_VALUE}"
+    if [ "${want}" = "2" ]; then
+        echo
+        echo "[i] LEDs will be COMPLETELY DEACTIVATED on this printer."
+        echo "    - led_enabled=0 is stored in the hardware profile (survives restarts)."
+        echo "    - every LED macro (SET_LED_STATE / _LED_QUIET / nozzle + bed light)"
+        echo "      sees the flag and does nothing - the chain is never written."
+        echo "    - a later setup.sh / update.sh run can re-enable them (option 1)."
+        R2_HW[led_enabled]="0"
+        r2_hw_write || true
+        echo "[ok] LEDs deactivated - SET_LED_STATE is now a no-op on this printer."
+        return 0
     fi
-    [ "${R2_YN}" = "n" ] && { echo "[i] LEDs skipped - everything keeps working without them"; return 0; }
+    [ "${want}" = "3" ] && { echo "[i] LEDs skipped - everything keeps working without them"; return 0; }
 
     # --- type + section
     r2_choice "LED type?" "1" "neopixel (WS2812 - one data pin, the common case)" "dotstar (APA102 - data + clock pin)"
@@ -807,6 +822,7 @@ r2_led_wizard() {
     r2_ask "     write this LED setup?" y
     [ "${R2_YN}" = "n" ] && { echo "[i] LED setup discarded"; return 0; }
 
+    R2_HW[led_enabled]="1"
     R2_HW[led_type]="${ltype}"
     R2_HW[led_section]="${lsec}"
     R2_HW[led_status_n]="${sn}"
@@ -871,6 +887,101 @@ r2_led_wizard() {
     r2_apply_led_layout
     echo "[i] FIRMWARE_RESTART now activates the LED config (LCD goes dark briefly)."
     echo "    Afterwards: System > LED Setup on the LCD shows + tunes the areas."
+}
+
+# ---- general hardware survey -----------------------------------------------------------
+# R2.14 (arena): one place that answers "what hardware does THIS printer actually
+# have?" - every component the system's known limits depend on. Read-only summary
+# (no writes); from it the user can jump into the wizard for any component.
+r2_hw_survey() {
+    echo
+    echo "--- general hardware survey (what this printer has) --------------------------------"
+    if [ "${R2_CHECK}" = "1" ]; then
+        echo "[i] (check mode) would print the hardware survey"
+        return 0
+    fi
+    local pc hw
+    pc="$(r2_printercfg)"
+    hw="$(r2_hwfile)"
+    r2_hw_read 2>/dev/null || true
+    local row
+
+    echo "  component            status on this printer"
+    printf '  %-22s %s\n' "----------------------" "----------------------"
+
+    # --- probe: a real probe section in printer.cfg?
+    if grep -qE '^\[(probe|bltouch|micro_probe|eulid|klicky)[[:space:]]' "${pc}" 2>/dev/null; then
+        row="$(grep -E '^\[(probe|bltouch|micro_probe|eulid|klicky)[[:space:]]' "${pc}" 2>/dev/null | head -1)"
+        printf '  %-22s %s\n' "probe" "present - ${row#\[}"
+    elif [ "${R2_HW[probe_type]:-}" != "4" ] && [ -n "${R2_HW[probe_type]:-}" ]; then
+        printf '  %-22s %s\n' "probe" "profile: ${R2_HW[probe_type]} (add the [probe] section in printer.cfg by hand)"
+    else
+        printf '  %-22s %s\n' "probe" "none - manual paper leveling"
+    fi
+
+    # --- LEDs: the persistent flag is the truth, not the config section
+    if [ "${R2_HW[led_enabled]:-1}" = "0" ]; then
+        printf '  %-22s %s\n' "LEDs" "DEACTIVATED (led_enabled=0 - macros are a no-op)"
+    elif [ -n "$(r2_led_detect 2>/dev/null)" ]; then
+        printf '  %-22s %s\n' "LEDs" "configured - $(r2_led_detect)"
+    elif [ -n "${R2_HW[led_type]:-}" ]; then
+        printf '  %-22s %s\n' "LEDs" "profile set but no [neopixel]/[dotstar] section found"
+    else
+        printf '  %-22s %s\n' "LEDs" "none"
+    fi
+
+    # --- sound: M300 macro present?
+    if grep -qE '^\[gcode_macro (M300|_R2_SOUND|R2_SOUND)[[:space:]]' "${pc}" 2>/dev/null \
+       || grep -qE '^\[gcode_macro (M300|_R2_SOUND|R2_SOUND)[[:space:]]' "${R2_CFG_DIR}/../macros/02_sounds.cfg" 2>/dev/null; then
+        printf '  %-22s %s\n' "sound" "macro present (beep/8-bit WAV)"
+    else
+        printf '  %-22s %s\n' "sound" "no M300 macro found"
+    fi
+
+    # --- filament runout
+    if grep -qE '^\[filament_switch|^[ ]*use_filament_sensor[[:space:]]*:[[:space:]]*1' "${pc}" 2>/dev/null; then
+        printf '  %-22s %s\n' "filament runout" "sensor enabled"
+    else
+        printf '  %-22s %s\n' "filament runout" "not enabled"
+    fi
+
+    # --- live retraction
+    if grep -qE '^\[[[:space:]]*retract_[a-z_]*[[:space:]]' "${pc}" 2>/dev/null; then
+        printf '  %-22s %s\n' "live retraction" "[retract_*] present"
+    else
+        printf '  %-22s %s\n' "live retraction" "not configured"
+    fi
+
+    # --- gantry / dual-motor axis
+    local gx gy
+    gx="$(grep -cE '^stepper_x[0-9]' "${pc}" 2>/dev/null || true)"
+    gy="$(grep -cE '^stepper_y[0-9]' "${pc}" 2>/dev/null || true)"
+    if [ "${gx}" -ge 2 ] || [ "${gy}" -ge 2 ]; then
+        printf '  %-22s %s\n' "gantry" "dual-motor axis (X:${gx} Y:${gy})"
+    else
+        printf '  %-22s %s\n' "gantry" "single motor per axis"
+    fi
+
+    # --- shaper (input shaping)
+    if grep -qE '^\[stepper_[xyzab][0-9]*\].*\binput_shaping_[a-z]+_freq' "${pc}" 2>/dev/null \
+       || grep -qE '^\[resonance_tester|^[ ]*shaper_[a-z]+_freq' "${pc}" 2>/dev/null; then
+        printf '  %-22s %s\n' "shaper" "input shaping configured"
+    else
+        printf '  %-22s %s\n' "shaper" "not configured (PID/shaper recalibration is hardware-dependent)"
+    fi
+
+    # --- LCD
+    if grep -qE '^\[lcd_display|^[ ]*lcd_[a-z]+:' "${pc}" 2>/dev/null; then
+        printf '  %-22s %s\n' "LCD" "display configured"
+    else
+        printf '  %-22s %s\n' "LCD" "no LCD section found"
+    fi
+
+    echo
+    echo "    [i] These are the hardware-dependent parts the system's known limits"
+    echo "        refer to (probe / LED / sound / runout / live-retraction / gantry /"
+    echo "        shaper / LCD). The hardware wizard below edits build volume / probe"
+    echo "        / positions; the LED wizard edits the LED layout - both run next."
 }
 
 # ---- hardware wizard --------------------------------------------------------------------

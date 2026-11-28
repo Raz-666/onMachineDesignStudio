@@ -269,6 +269,9 @@ R2PY_RAW
             r2_ask "Run the hardware + LED wizard now?" n
         fi
         if [ "${R2_YN}" = "y" ]; then
+            # R2.14 (arena): general hardware survey first, then the hardware
+            # wizard and the LED wizard as SEPARATE steps.
+            r2_hw_survey
             r2_hw_wizard
             r2_led_wizard
         fi
