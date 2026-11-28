@@ -48,7 +48,7 @@ The six-tier runner is `python3 tools/r198_tier_report.py --tier all`.
   honest fallbacks (native `ADAPTIVE=1`, own probe-safe prime line).
 - **Host health tooling** — HOST_CHECK (throttle, load vs. cores, swap
   *activity* — quietly parked pages are OK, real swap traffic is not), the
-  environment wizard `setup.sh` (watcher service templating, KAMP/led_effect
+  environment wizard `setup.sh` (watcher service templating, KAMP
   install, optional-service asks, swap tuning).
 - **Hardening history worth reading** — the megatest round found a plot-scaling
   bug (small images exploded off the bed); a field log exposed a false

@@ -43,7 +43,7 @@
 #  R108: the update ALSO asks whether to KEEP or CHANGE the LED settings and
 #  the hardware profile (r2_hardware.cfg), shows the moonraker object-
 #  processing state with an offer to change it, and re-applies the LED
-#  layout to the freshly unpacked 03_leds.cfg. Backup FIRST + verified
+#  the freshly unpacked macros. Backup FIRST + verified
 #  (cmp) before anything is touched - a failed verify aborts.
 # =====================================================================================
 set -u
@@ -357,7 +357,7 @@ else
     # 19_bricks (R121) were never added here, so a missing include for
     # them went undetected although INSTALL.md and _CHECK_INSTALL
     # (the boot selftest) demand them
-    for f in 01_state 02_sounds 03_leds 04_notify 05_materials 06_temp_controls \
+    for f in 01_state 02_sounds 04_notify 05_materials 06_temp_controls \
              07_start_confirm 08_print_start_stop 09_pause_filament 10_live_tuning \
              11_gantry_sync 12_maintenance 13_system 14_kamp 15_objects 16_labels \
              17_generator 18_colorpic 19_bricks; do
@@ -406,9 +406,9 @@ if grep -q 'variable_charset:.*#' "${DIR}/macros/16_labels.cfg" 2>/dev/null; the
 fi
 echo "[ok] no '#' in variable_charset (the .47/.48 boot-blocker is fixed here)"
 
-# --- 4b) R108: LED settings + hardware profile - keep or change? -----------------------
-#     The unpack just replaced macros/03_leds.cfg (effect index ranges back
-#     to the 1-4 default) - the profile values are re-applied right after.
+# --- 4b) R108: hardware profile - keep or change? -------------------------------------
+#     The unpack replaces the macros; the hardware profile values are
+#     re-applied right after.
 if [ -f "${DIR}/tools/r2_setup_lib.sh" ]; then
     [ "${R2_LIB_LOADED}" = "0" ] && {
         . "${DIR}/tools/r2_setup_lib.sh"
@@ -418,7 +418,7 @@ if [ -f "${DIR}/tools/r2_setup_lib.sh" ]; then
     if [ -f "$(r2_hwfile)" ]; then
         echo "[i] hardware profile: $(r2_hwfile)"
         r2_hw_read
-        for _k in bed_min_x bed_max_x bed_min_y bed_max_y led_enabled led_type led_section led_status_n led_bed_n led_nozzle_split; do
+        for _k in bed_min_x bed_max_x bed_min_y bed_max_y; do
             [ -n "${R2_HW[${_k}]:-}" ] && printf '      %-16s %s\n' "${_k}:" "${R2_HW[${_k}]}"
         done
         r2_ask "Keep the current LED + hardware settings?" y
@@ -431,7 +431,7 @@ if [ -f "${DIR}/tools/r2_setup_lib.sh" ]; then
             #    the boot ('Internal error during connect: invalid syntax'). The
             #    keep path used to skip r2_hw_write, so the broken string stayed.
             #  - R282 (field boot halt): pre-fix wizard profiles carry BARE string
-            #    values ('variable_led_type: neopixel') - Klipper's ast.literal_eval
+            #    values (bare strings, e.g. unquoted) - Klipper's ast.literal_eval
             #    refuses to boot. Re-rendering writes quoted strings.
             # r2_hw_write writes from R2_HW (the parsed values), so the user's
             # settings are PRESERVED - only the rendering (quoted strings + fixed
@@ -441,19 +441,14 @@ if [ -f "${DIR}/tools/r2_setup_lib.sh" ]; then
             fi
             r2_hw_write
             echo "[fix] hardware profile re-rendered (gcode_shell_command command strings -> valid Python)"
-            r2_apply_led_layout
-            echo "[ok] LED layout re-applied to the freshly unpacked 03_leds.cfg"
         else
-            # R2.14 (arena): survey + hardware wizard, then the LED wizard
-            # SEPARATELY (so LEDs can also be deactivated quickly).
             r2_hw_survey
             r2_hw_wizard
-            r2_led_wizard
         fi
     else
         echo "[i] no r2_hardware.cfg yet (pre-R108 install or Ender-3 defaults)"
-        r2_ask "Run the hardware + LED wizard now?" n
-        [ "${R2_YN}" = "y" ] && { r2_hw_survey; r2_hw_wizard; r2_led_wizard; }
+        r2_ask "Run the hardware wizard now?" n
+        [ "${R2_YN}" = "y" ] && { r2_hw_survey; r2_hw_wizard; }
     fi
     r2_object_processing
 fi

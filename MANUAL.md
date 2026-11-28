@@ -41,16 +41,15 @@ reference tables at the end. Installation and wiring live in the appendices.
 14. [LCD menu reference](#14-lcd-menu-reference)
 15. [Overrides reference](#15-overrides-reference)
 16. [Sound reference](#16-sound-reference)
-17. [LED reference](#17-led-reference)
-18. [Console messages](#18-console-messages)
-19. [System: Klipper & Pi](#19-system-klipper--pi)
-20. [Variables & editing the .cfg files](#20-variables--editing-the-cfg-files)
-21. [What happens when a macro executes](#21-what-happens-when-a-macro-executes)
-22. [Troubleshooting](#22-troubleshooting)
-23. [Limits & known behavior](#23-limits--known-behavior)
-24. [Cheat sheet: LCD paths & Mainsail commands](#24-cheat-sheet-lcd-paths--mainsail-commands)
-25. [Complete macro index](#25-complete-macro-index)
-26. [Electronics & expansion — U2C + EBB42 + Relay V1.2](#26-electronics--expansion--u2c--ebb42--relay-v12)
+17. [Console messages](#17-console-messages)
+18. [System: Klipper & Pi](#18-system-klipper--pi)
+19. [Variables & editing the .cfg files](#19-variables--editing-the-cfg-files)
+20. [What happens when a macro executes](#20-what-happens-when-a-macro-executes)
+21. [Troubleshooting](#21-troubleshooting)
+22. [Limits & known behavior](#22-limits--known-behavior)
+23. [Cheat sheet: LCD paths & Mainsail commands](#23-cheat-sheet-lcd-paths--mainsail-commands)
+24. [Complete macro index](#24-complete-macro-index)
+25. [Electronics & expansion — U2C + EBB42 + Relay V1.2](#25-electronics--expansion--u2c--ebb42--relay-v12)
 
 Appendices: [A Installation](#appendix-a-installation-detailed) ·
 [B Power & electrics](#appendix-b-power--electrics) ·
@@ -75,8 +74,8 @@ adds software guardrails — software is never a substitute for hardware safety.
 
 - Heaters off at print end (`heaters_off_at_end`) + hotend fan cool-down (`cooldown_fan_time`, default 30 s).
 - Pauses KEEP temperatures on purpose (you want to continue) — CANCEL_PRINT turns heaters off.
-- SYS_SHUTDOWN: heaters/fans/LEDs off BEFORE the Pi goes down (two presses).
-- After a Klipper error: alarm sound + red/white LED strobe, system goes idle.
+- SYS_SHUTDOWN: heaters/fans off BEFORE the Pi goes down (two presses).
+- After a Klipper error: alarm sound, system goes idle.
 - Runout pauses at the next layer boundary — detected BEFORE the print starves.
 - EMERGENCY_STOP (System menu or console) halts everything immediately.
 
@@ -442,8 +441,7 @@ version:
 
 PRINT_END (or a planned end, or the end of a legacy file) runs the full
 choreography: lift, park away from the part, stats on the console, fanfare,
-cooldown with the part fan, heaters off. The LED celebration runs for
-`led_finish_time` seconds and returns to idle by itself. `_PRINT_CLEANUP`
+cooldown with the part fan, heaters off. `_PRINT_CLEANUP`
 resets all per-print state — the next print starts clean, with your pre-print
 settings, the selected material and the loaded mesh deliberately KEPT.
 
@@ -859,7 +857,7 @@ clearances in the middle of a long part without printing the whole thing.
 
 **Filament change mid-print (M600)**
 Live Tuning > Pause & Control > Change (M600) → parks hot, unloads, waits with
-LED + sound → load until the sensor clicks → RESUME purges (PURGE_MORE for
+sound → load until the sensor clicks → RESUME purges (PURGE_MORE for
 15 mm more) → continues.
 
 **Typical console session (Mainsail)**
@@ -2037,7 +2035,7 @@ Layer, Ironing, Brim, **Swap**, **Contrast**, Vers → CREATE →
 | Bands | 2–8 luminance levels — band 0 = the lightest color and covers the whole area (the base) |
 | Band height | each band's thickness in mm (total height = bands × band height) |
 | Colors | comma palette codes light→dark (WHT GRY BLK RED ORG YEL GRN BLU PUR BRN PNK CYA GLD SIL); fewer codes than bands = auto-filled |
-| Swap | ON (default): M600 at every band boundary — the nozzle LED **blinks from the old to the new color** while you swap, the **purge tower** (12×12 mm, 15 mm probe clearance) takes prime + wipe after every change. OFF: every band prints without a filament change (one color) |
+| Swap | ON (default): M600 at every band boundary — the nozzle light dims while you swap, the **purge tower** (12×12 mm, 15 mm probe clearance) takes prime + wipe after every change. OFF: every band prints without a filament change (one color) |
 | Contrast | extra boost after the stretch — band edges stand out (sketches, logos, text) |
 | Ironing | smoothing pass over every band cap |
 
@@ -2448,7 +2446,7 @@ console notes it when something was cleared).
 | Cancel 1st press | CANCEL_PRINT once | arms; 2nd press within 60 s cancels; RESUME disarms; the arm expires after 60 s — printing OR paused |
 
 **While paused:** heaters KEEP targets · idle timeout "infinite" · filament
-sensor disabled · LED paused · LCD shows the reason. Self-healing: if our mode
+sensor disabled · LCD shows the reason. Self-healing: if our mode
 disagrees with Klipper, the watcher re-syncs after ~5 s.
 
 ### 6.3 Resume & cancel
@@ -2931,7 +2929,7 @@ when [z_tilt] is missing from printer.cfg.
 
 **KAMP** — mesh/purge/smart-park settings (ch. 6).
 
-**Tests** — LED demo, sound demo, self test, status: verify actuators after
+**Tests** — sound demo, self test, status: verify actuators after
 wiring changes without heating anything.
 
 **Regular checks (recommended rhythm)**
@@ -3200,7 +3198,7 @@ while plotting (ch. C.3).
 |---|---|
 | Images | the shared image list (newest first, 10 slots) — slot press = Create |
 | Settings | Width 25–230 mm · Bands 2–8 · Band height 0.4–3 mm · Band colors (per-band palette picker, light→dark, auto ramp) · Layer 0.08–0.3 · Ironing ON/OFF · Brim 0–8 · Swap ON/OFF · Contrast ON/OFF · Vers |
-| How it works | the band principle, M600 + LED blink, purge tower, Mainsail one-liner |
+| How it works | the band principle, M600 + color swap, purge tower, Mainsail one-liner |
 
 Dependency rules the menu enforces itself: Flat mode hides the Angle input
 and the Rib submenu (a straight splice has neither), and the leg entries
@@ -3218,10 +3216,10 @@ manual shaper override without accelerometer) →
 **Retract Tower** (generated) → **Bridging** (generated) → **Ironing Cal.**
 (cards) → **Clean Nozzle** → **Filament** (load/unload/cold pull) →
 **Z Gantry Sync / Z Tilt** (whichever this printer has) → **KAMP** →
-**Tests** (LED/sound/self test/status).
+**Tests** (sound/self test/status).
 
 **Macros (Quick Macros):** load/unload, gantry sync / z tilt, status, sounds on/off,
-LEDs on/off, Nozzle LED — mode AUTO/ON/OFF + live brightness + live color
+(LED control removed - the nozzle light is no longer configurable via LCD)
 R/G/B + presets.
 
 **System:** File check (+ Retag old 2×), **Gen jobs** (queue state + clear,
@@ -3230,8 +3228,7 @@ R/G/B + presets.
 post-processor, one press, plus an explain row), **Diagnostics > Log pack**
 (collects the evidence file for a support round — nothing to type), **MCU
 Recovery** (auto-recovery
-ON/OFF — see ch. 19), status, **LED Setup** (areas, bed light,
-nozzle chain/mode — ch. 17, only shown when LED hardware exists).
+ON/OFF — see ch. 19), status.
 
 ## 15. Overrides reference
 
@@ -3273,7 +3270,7 @@ TOGGLE_SOUNDS · TEST_SOUNDS plays them all (Maintenance > Tests).
 (every create/fix press), **r2_gen** = a queued job starts building,
 **r2_done** = success, **r2_confirm** = quick UI confirmations. Generator
 and fix tunes play whenever no print is ACTIVE — the same events stay
-silent during a print and the LEDs carry them.
+silent during a print.
 
 **Beep discipline during a print** **: every beep blocks the firmware
 for its whole duration — on an active print the standing filament oozes a
@@ -3288,92 +3285,8 @@ print everything is back to normal.
 Volume lives inside the tune triples (0.05-0.5 duty). Edit/add tunes in
 02_sounds.cfg — 0 Hz = a pure pause.
 
-## 17. LED reference
 
-| State | Pattern | When |
-|---|---|---|
-| idle | calm blue breathing | ready, heaters cold |
-| boot | blue/white scanner | system start |
-| waiting | blue/white blink | start dialog waits |
-| heating | red/orange chase | heaters ramping |
-| homing | fast cyan scanner | G28 running |
-| leveling | magenta scanner eye | mesh/screws/offset |
-| pid | blue/white blink | PID tuning |
-| printing | slow blue breathing + nozzle light | file running (gently alive: a 4 s breathing at 5 fps ≈ 1% of the serial budget) |
-| paused | yellow breathing | any pause |
-| filament | cyan/white chase | load/change/runout |
-| alarm | red/white strobe | errors, cold pull |
-| finished | green/white twinkle | print done |
-
-Effects come from the klipper-led_effect extension (12 states above); the frame
-chain is [neopixel printer_leds] 1-4, the nozzle light is LED 5. TOGGLE_LEDS
-switches the FRAME off/on (sounds keep playing). After a finished print the
-green/white celebration runs for `led_finish_time` seconds (default 10) and then
-returns to idle breathing BY ITSELF — it used to twinkle forever.
-
-All effects run at 12 fps, with two .136m exceptions: printing
-breathes slowly at 5 fps and the LONG-RUNNING + start-phase effects (idle,
-waiting, heating, homing, leveling, PID, nozzle work light) run at 6 fps —
-the LEDs are decoration, the serial bus is not — every
-animated frame is a neopixel transmission on the same wire the moves travel,
-and a failed LED readback is resent (the .136l field log counted 79 failed
-updates while the reactor was stalled; 6 fps halves that background load
-exactly in the phases where klippy schedules moves just-in-time). 5 fps = 5 messages/s ≈ 1% of the serial
-budget, so the printing state moves gently without touching the headroom.
-
-### Nozzle LED — its own switch | work light while printing / filament change (r2_nozzle_on) |
-| ON | always on with YOUR color + brightness — tool light, stays available even with the frame LEDs OFF |
-| OFF | never |
-
-- LCD: **Quick Macros > Nozzle LED** — `> AUTO (print)` / `> ON` / `> OFF` (the
-  active mode gets the `>` marker), live inputs `Bright: …%` (5-100),
-  `Red/Green/Blue: …%` (0-100), presets White + Warm. Every change applies
-  IMMEDIATELY — also mid-print.
-- Console/Mainsail: `NOZZLE_LED` (status) · `NOZZLE_LED MODE=on|off|auto` ·
-  `NOZZLE_LED BRIGHT=0.4` · `NOZZLE_LED R=1 G=0.85 B=0.6`. SHOW_STATUS lists the
-  current values.
-- POWER RULE: your color × brightness is hard-capped at 0.5 per channel — the
-  board's neopixel port stays safe no matter what you dial in.
-
-### LED areas — status / bed light / nozzle
-
-One chain, three jobs — and the split is YOUR choice (the example from the
-field: 3 status + 4 bed lighting + 1 nozzle). It lives in the **hardware
-profile** `r2_hardware.cfg` (see ch. 19b) — the second variables file that
-survives deleting `variables.cfg`:
-
-| Area | LEDs | What it does |
-|---|---|---|
-| Status | 1 … `led_status_n` | the animated effects above (frame lighting) |
-| Bed light | next `led_bed_n` | steady WHITE work light, own ON/OFF + brightness (0–0.5) |
-| Nozzle | last of the chain — or its own chain (`led_nozzle_split=1`, e.g. EBB42 over CAN) | work light at the toolhead (see above) |
-
-- **LCD: System > LED Setup** — info (LED_INFO: pin, chain, areas), master
-  on/off, `Status LEDs` / `Bed LEDs` count inputs (hard-clamped to the real
-  `chain_count`), bed light on/off + brightness %, nozzle main-chain/own-chain
-  switch, nozzle mode cycle, hardware info.
-- Console/Mainsail: `LED_INFO` · `SET_LED_LAYOUT STATUS=3 BED=4` ·
-  `SET_BED_LIGHT STATE=1|0 TOGGLE=1 BRIGHT=0..0.5`.
-- LCD edits apply **immediately** and persist into `r2_hardware.cfg` (via
-  `[gcode_shell_command R2_PERSIST]` — setup.sh adds it when the shell-command
-  extension is installed; without it the edit holds for the session).
-- The animated `[led_effect]` ranges are static Klipper config — changing the
-  status count regenerates them (`tools/r2_persist.sh`), one FIRMWARE_RESTART
-  applies. Bed light + nozzle index are live right away.
-- Other SET_LED-compatible chains work too: the wizard writes `[neopixel]` or
-  `[dotstar]` (data + clock pin) sections — `led_type` + `led_section` tell the
-  macros which one is yours.
-- **Color order:** the wizard asks the BYTE ORDER of every chain
-  (GRB = WS2812/WS2815/SK6812 'Neopixel', RGB = WS2811 12 V strips,
-  BGR = APA102/SK9822 'dotstar', RGBW = SK6812 with a real white chip, rare
-  clones, or a per-LED comma list) — with the plain-English explanation that a
-  wrong order SWAPS colors (red glows green) and breaks nothing. Unsure? Take
-  the default, run the LED test (System > LED Setup) and re-run setup.sh if
-  red and green are swapped. The chosen order is written into every generated
-  `[neopixel]`/`[dotstar]` section and kept in the hardware profile; an
-  existing user section is never edited (the wizard tells you what it says).
-
-## 18. Console messages
+## 17. Console messages
 
 `[OK]` success · `[i]` info · `[!]` warning · `!!` error. M117 mirrors the
 essence onto the LCD. Typical lines you will meet:
@@ -3391,13 +3304,13 @@ Print running (legacy file) - live tuning and overwrites ACTIVE
 === PRINT RUNNING === / Print finished: NAME (duration)
 ```
 
-## 19. System: Klipper & Pi
+## 18. System: Klipper & Pi
 
 | Command | Effect |
 |---|---|
 | SYS_FIRMWARE_RESTART CONFIRM=1 | Klipper restart (macros reload) — 2× |
 | SYS_HOST_RESTART CONFIRM=1 | host service restart — 2× |
-| SYS_SHUTDOWN CONFIRM=1 | heaters/fans/LEDs off → Pi shutdown via moonraker |
+| SYS_SHUTDOWN CONFIRM=1 | heaters/fans off → Pi shutdown via moonraker |
 | SYS_SAVE_CONFIG | guarded SAVE_CONFIG: refuses during a print, skips when nothing is pending, warns that the LCD goes DARK for up to 2 min before restarting (2×) |
 | HOST_CHECK | **Pi health report**: throttle/undervoltage flags (now + since boot), CPU temp, load **vs. core count**, **RAM + swap**, disk, **iowait**, **TOP CPU/RAM processes (top 5)** and **who sits IN the swap** (VmSwap per process — names the RAM eater even when the top-RAM list looks innocent) + **service states** (klipper/moonraker/avahi/crowsnest/sonar/OctoEverywhere/pigpiod, with warnings: double webcam stack, avahi still on, cloud relay) — honest verdict: THROTTLED / SWAPPING / OVERLOADED / OK. The swap verdict measures **activity** (vmstat swap-in/out): quietly parked pages after boot are **OK** (normal on a small Pi), only real swap traffic counts as SWAPPING. LCD: System > Host check. Since .136 it also flags DUPLICATE r2-postproc watcher processes (they double every state push) with the fix command. Since .136m it counts **klippy's own load symptoms** from klippy.log — "Reactor: N stall(s) up to X s + N failed LED updates": many stalls mean the host repeatedly blocked klippy's reactor and the next homing can hit 'Timer too close' even with load/throttle looking fine |
 | EMERGENCY_STOP | immediate halt |
@@ -3535,21 +3448,17 @@ switch took effect. **No restart, no `sudo`.** The way back is the same press:
 **The hardware profile — a second variables file.** `r2_hardware.cfg` (next to
 printer.cfg, included by one line) carries everything that makes THIS printer
 tick: build volume (bed min/max X/Y, Z height), probe offsets, nozzle-clean
-(wipe) + part-presentation positions, and the LED layout (ch. 17). It is
+(wipe) + part-presentation positions. It is
 deliberately separate from `variables.cfg`: resetting your print settings
 (deleting the normal variables file) can never lose machine compatibility —
-and the LCD-editable hardware values (LED areas) persist into it. `HW_INFO`
-(console / System > LED Setup > Hardware info) shows it at any time.
+and the LCD-editable hardware values persist into it. `HW_INFO`
+(console / System > Hardware info) shows it at any time.
 
 **The wizards.** `bash klipper-e3-r2d2/setup.sh` asks every hardware value in
 English — each entry validated AND confirmed a second time (mistakes can be
 corrected before anything is taken over), a summary + final confirmation
-before the profile is written. The LED wizard asks: LEDs at all? neopixel or
-dotstar, section name, pin (SKR mini E3: PA8 · EBB42 CAN: EBB:PD3), chain
-length, color order, status/bed-light/nozzle areas, EBB split chain, bed
-brightness. `update.sh` asks FIRST whether to **keep** the current LED +
-hardware settings (default) or re-run the wizards — and re-applies the LED
-layout to the freshly unpacked `03_leds.cfg` either way. Since .135 it also
+before the profile is written. `update.sh` asks FIRST whether to **keep**
+the current hardware settings (default) or re-run the wizards. Since .135 it also
 REFUSES an update zip without the `klipper-e3-r2d2/` top-level folder before
 unpacking anything (the .134 zip was accidentally built flat: it scattered
 `macros/`, `tools/` … next to printer.cfg while the package stayed .133 —
@@ -3559,7 +3468,7 @@ folder.
 
 **Backup before anything.** Both scripts start by copying every file the run
 might change (printer.cfg, moonraker.conf, KAMP_Settings.cfg,
-r2_hardware.cfg, macros/03_leds.cfg, the service unit) into
+r2_hardware.cfg, the service unit) into
 `r2_backups/<timestamp>-setup|-update/` — and VERIFY each copy byte-identical
 (`cmp`) before a single modification happens. A failed verify aborts the run.
 
@@ -3581,7 +3490,7 @@ on a Pi Zero 2 W / Pi 3 (the analysis costs RAM on every upload — with it off,
 KAMP meshes full-bed on such files and the purge falls back to our own line).
 Keep / turn on / turn off — the change goes through the four modes above.
 
-## 20. Variables & editing the .cfg files
+## 19. Variables & editing the .cfg files
 
 Persistent settings live in ~/printer_data/variables.cfg — change via LCD/console;
 never edit the file while Klipper runs. Runtime state lives in _STATE (not persisted).
@@ -3595,9 +3504,8 @@ never edit the file while Klipper runs. Runtime state lives in _STATE (not persi
 | PA calibration | pa_cal_* (temp, bed, start, step, lines, len, slow, fast, accel, layer, spacing) · smooth_test_start/step |
 | Flow / tower / ironing | flow_cal_* · tt_start/end/step/band/active · iron_cal_temp |
 | Cold pull / misc | cold_pull_hot, cold_pull_pull, cooldown_fan_time, heaters_off_at_end, motors_off_at_end |
-| System | sound_on, leds_on, start_confirm, gantry_sync_*, kamp_*, ishaper_* |
-| Nozzle LED | nozzle_mode (auto) · nozzle_bright (1.0) · nozzle_r/g/b (0.9/0.9/0.85) · led_finish_time (10 s finished celebration) |
-| Hardware profile (r2_hardware.cfg — survives a variables.cfg reset!) | bed limits + Z height · probe_x/y · present_x/y · wipe_x/y · led_type/section/status_n/bed_n/bed_on/bed_bright/nozzle_split/nozzle_section |
+| System | sound_on, start_confirm, gantry_sync_*, kamp_*, ishaper_* |
+| Hardware profile (r2_hardware.cfg — survives a variables.cfg reset!) | bed limits + Z height · probe_x/y · present_x/y · wipe_x/y |
 | Generators / texture | *_nonce job counters · texture_mode/thick/density/pattern/scale/amp/dir · file_check_retag |
 
 **The LCD mirror lives in RAM (R246/.142):** rebuildable list data — the SD
@@ -3625,7 +3533,6 @@ Nice edit spots per file:
 | 09_pause_filament.cfg | _PARK_HEAD (corner logic · lift 5 mm · anti-ooze −3 mm) |
 | 12_maintenance.cfg | CALIBRATE_PA defaults · IRONING_CAL zones · TEMP_TOWER defaults |
 | 02_sounds.cfg | tunes — triples freq:ms:volume |
-| 03_leds.cfg | colors · patterns |
 | 01_state.cfg | variable_version · INIT defaults |
 
 ```
@@ -3650,7 +3557,7 @@ inline comments in gcode · SAVE_VARIABLE names lowercase · True/False capitali
 | 12 screws | screw positions live in [screws_tilt_adjust] in printer.cfg → ADJUST TO YOUR PRINTER |
 | 15 objects | console users can always use Klipper's native EXCLUDE_OBJECT as well |
 
-## 21. What happens when a macro executes
+## 20. What happens when a macro executes
 
 ### 21.1 The idea in one worked example — from upload to finished print
 
@@ -3704,7 +3611,7 @@ is a switch you can turn off.
    SET_PRESSURE_ADVANCE/SET_RETRACTION are OUR macros; the real commands live on
    as M99104 … M99220 and receive the redirected values.
 3. **delayed_gcode** = "run once in N seconds". _STATE_WATCHER re-schedules every
-   second; LED animation frames come from the led_effect extension.
+   second.
 4. **State lives twice:** fast runtime state in _STATE variables · persistent
    settings in save_variables.
 5. **{action_…} calls** become host actions — the Pi shutdown is moonraker's method.
@@ -3712,7 +3619,7 @@ is a switch you can turn off.
    error in phase 1 cannot kill phase 2; it just never runs. Look ABOVE in the
    console for the first real error.
 
-## 22. Troubleshooting
+## 21. Troubleshooting
 
 | Symptom | Cause → fix |
 |---|---|
@@ -3754,7 +3661,7 @@ is a switch you can turn off.
 
 Diagnostics: SHOW_STATUS · SELF_TEST · KAMP_STATUS · HOST_CHECK (Pi health) · _CHECK_INSTALL at boot.
 
-## 23. Limits & known behavior
+## 22. Limits & known behavior
 
 - **nozzle diameter = printer.cfg truth**: every generator (labels, ties,
   angles, frames, litho, seals, bridge) reads `[extruder] nozzle_diameter`
@@ -3803,7 +3710,7 @@ Diagnostics: SHOW_STATUS · SELF_TEST · KAMP_STATUS · HOST_CHECK (Pi health) �
   (like KAMP's `_KAMP_Settings`) is the only valid carrier; `setup.sh`
   migrates an old section automatically (backup included).
 
-## 24. Cheat sheet: LCD paths & Mainsail commands
+## 23. Cheat sheet: LCD paths & Mainsail commands
 
 **LCD quick paths**
 
@@ -3858,7 +3765,7 @@ PAUSE_AT_LAYER LAYER=n · SKIP_OBJECT OBJECT=name · GEN_LABELS TEXT="A|B" ·
 GEN_CABLE_TIES COUNT=6 LENGTH=120 · GEN_ANGLES ANGLE=90 WIDTH=25 WALLS=4 INFILL=60 ·
 GEN_FRAME PRESET=10x15 DEPTH=8 CLOSURE=BACK HANG=TOP STAND=1 ·
 TEXTURE_APPLY FILE=myfile.gcode MODE=BUMPS PATTERN=WAVES SCALE=10 AMP=0.35 ·
-SET_LAYER_RANGE FLOOR=3 FLOOR_HOLE=15 TOP_HOLE=28 · SET_NOZZLE_SPLIT STATE=1 ·
+SET_LAYER_RANGE FLOOR=3 FLOOR_HOLE=15 TOP_HOLE=28 ·
 FILE_CHECK · FILE_CHECK RETAG=1 CONFIRM=1 ·
 CALIBRATE_PA · FLOW_CAL MEASURE=0.46 · TEMP_TOWER_START START=200 END=230 STEP=5 BAND=10
 ```
@@ -3953,7 +3860,7 @@ stay with Mainsail.
 | **Zoff** | Z offset (babystepping total) | **RetLen / RetSpd / Unret** | retract length / speed / unretract speed |
 | **MCR** | minimum cruise ratio | **SCV** | square corner velocity |
 
-## 25. Complete macro index
+## 24. Complete macro index
 416 entries: every public macro with parameters (defaults in parentheses; blank = no parameters) plus the internal hooks worth knowing. Internal helpers (leading `_`) are not user-facing — **272 public + 114 internal macros exist in total** (386 `gcode_macro` + 30 `delayed_gcode`, counted from the .cfg files, not copied from an older list). Grouped by module file — the same file you would edit.
 
 
@@ -3987,28 +3894,11 @@ stay with Mainsail.
 | _UI_SOUND | NAME='r2_click' | UI confirmation sound - SILENT while a print runs: queue management and generator presses beep when idle, never into a running print. Errors and alarms (NOTIFY SOUND=...) keep their sound - always. |
 | _V02_SOUNDS |  | Version sentinel of 02_sounds.cfg |
 
-### LEDs — 03_leds.cfg (14)
-| Macro | Parameters | Purpose |
-|---|---|---|
-| **LED_INFO** |  | report chain + pin + areas + switches (console) |
-| **NOZZLE_LED** | MODE, BRIGHT, R, G, B | nozzle light: on/off/auto + live dimming + live color (ch. 17) |
-| **SET_BED_LIGHT** | STATE, TOGGLE, BRIGHT | bed work light on/off + brightness 0–0.5 (ch. 17) |
-| **SET_LED_LAYOUT** | STATUS, BED | LED area split — hard-clamped to the chain, persisted in r2_hardware.cfg (ch. 17) |
-| **SET_LED_STATE** | STATE='idle' | switch the LED pattern (12 states, ch. 17) — applies the nozzle mode + bed light too |
-| **SET_NOZZLE_SPLIT** | STATE=0/1 | nozzle LEDs on their own EBB42 chain (1) or last LED of the main chain (0) — persisted (ch. 26) |
-| **TEST_LEDS** |  | LED test animation |
-| **TOGGLE_LEDS** |  | frame LEDs off/on (persisted: leds_on) |
-| _BEDLIGHT_SET | ON, BRIGHT | internal: writes the nozzle / bed-light LEDs (capped 0.5) |
-| _LED_JOB_DONE |  | A watcher job ended - restore the state LEDs |
-| _LED_JOB_PROGRESS | PCT=0 | Job progress bar on the status LEDs |
-| _LED_QUIET | ON=1 | Mute the LED animation while the probe moves (Timer-too-close guard) |
-| _NOZZLE_SET | ON, BRIGHT | internal: writes the nozzle / bed-light LEDs (capped 0.5) |
-| _V03_LEDS |  | Version sentinel of 03_leds.cfg |
 
 ### Notifications — 04_notify.cfg (3)
 | Macro | Parameters | Purpose |
 |---|---|---|
-| **NOTIFY** | TEXT, LEVEL='info', LED, SOUND | notification helper: text + sound + LED in one call |
+| **NOTIFY** | TEXT, LEVEL='info', SOUND | notification helper: text + sound in one call |
 | **SHOW_STATUS** |  | full status: mode, material, overrides, live values |
 | _V04_NOTIFY |  | Version sentinel of 04_notify.cfg |
 
@@ -4093,7 +3983,7 @@ stay with Mainsail.
 | **G28** |  | Home - tells the host that the machine is moving |
 | **M23** | `filename` (rawparams) | the stock SD list's file tap (real: M9923): selects the file via SDCARD_PRINT_FILE **and** opens the start dialog — a folder link picked there prints exactly like a browser pick; the stripped `_fn` also takes the plain `/name.gcode` Klipper passes |
 | **M24** |  | Start/resume SD print - fresh starts ask first |
-| **PRINT_END** |  | end choreography: heaters/fans per settings, stats, sound, LED celebration → idle after led_finish_time s, full _PRINT_CLEANUP |
+| **PRINT_END** |  | end choreography: heaters/fans per settings, stats, sound, full _PRINT_CLEANUP |
 | **PRINT_START** | BED, HOTEND_FIRST, HOTEND_AFTER, BED_AFTER, MATERIAL='PLA', LAYER_HEIGHT=0.2, TOTAL_LAYERS=0, OUTER_WALL_SPEED=0, SUPPORT_SPEED=0, IRONING_SPEED=0 | start choreography — called by the sliced file |
 | **RETRACT_FIX** | STATE=1 | Old-file rescue - rewrite the retracts of the NEXT upload to G10/G11 (your retraction applies) |
 | **SDCARD_PRINT_FILE** | FILENAME='' | Print button: load the file, hold it at position 0, ask first |
@@ -4135,7 +4025,7 @@ stay with Mainsail.
 | **PURGE_MORE** |  | purge 15 mm more (after change/resume) |
 | **QUICK_PAUSE** |  | alias for PAUSE |
 | **RESUME** |  | the full resume sequence (ch. 6) |
-| _FILAMENT_INSERTED |  | (Insert) Filament detected - acknowledge (+LED) |
+| _FILAMENT_INSERTED |  | (Insert) Filament detected - acknowledge |
 | _FILAMENT_RUNOUT |  | (Runout) Filament empty - alarm + pause at the next layer boundary |
 | _PARK_HEAD |  | park the head at a safe point before a pause (retract stored for the resume) |
 | _PRINT_CLEANUP |  | internal: resets ALL per-print state (called by PRINT_END/CANCEL/watcher — settings + mesh stay) |
@@ -4287,7 +4177,7 @@ stay with Mainsail.
 | **FILE_CHECK** | RETAG=0, CONFIRM=0 | g-code inventory: tag version census (current/old/untouched/plotter) on console + LCD; `RETAG=1 CONFIRM=1` upgrades old files (.r2bak backup, never while printing) |
 | **FORCE_END_PRINT** | CONFIRM=0 | emergency: ALWAYS ends the print cleanly, even from a wedged state |
 | **HOST_RESTART_INFO** |  | explains what a host restart does |
-| **HW_INFO** |  | Report the hardware profile (build volume, probe, positions, LEDs) |
+| **HW_INFO** |  | Report the hardware profile (build volume, probe, positions) |
 | **SDNAV_GO** | INDEX=0 | SD Card browser: open folder / start file at INDEX |
 | **SDNAV_HOME** |  | SD Card browser: back to the G-Codes root |
 | **SDNAV_PAGE** | DELTA=1 | SD Card browser: page +/ |
@@ -4296,7 +4186,7 @@ stay with Mainsail.
 | **SYS_HOST_RESTART** | CONFIRM=0 | host services restart (2x) |
 | **SYS_PI_REBOOT** | CONFIRM=0 | Reboot the Pi (press twice / CONFIRM=1) - like Mainsail's button |
 | **SYS_SAVE_CONFIG** | CONFIRM=0 | guarded SAVE_CONFIG: print guard + pending guard + dark-LCD warning (2x) |
-| **SYS_SHUTDOWN** | CONFIRM=0 | heaters/fans/LEDs off, then Pi shutdown (2x) |
+| **SYS_SHUTDOWN** | CONFIRM=0 | heaters/fans off, then Pi shutdown (2x) |
 | _V13_SYSTEM |  | Version sentinel of 13_system.cfg |
 
 ### KAMP — 14_kamp.cfg (8)
@@ -4398,9 +4288,8 @@ stay with Mainsail.
 | **COLORPIC_SET_COLOR** | BAND=1, COLOR='' | ColorPic: store the color of one band (BAND=2 COLOR=RED) |
 | **GEN_COLORPIC** | SRC='photo.png', WIDTH=25–230, BANDS=2–8, BANDH=0.4–3, COLORS='WHT,GRY,BLK', LAYER_H, IRONING=0/1, BRIM=0–8, SWAP=0/1, CONTRAST=0/1 | console/Mainsail color picture: sets everything + creates (SWAP=0 prints every band without a filament change) |
 | _COLORPIC_DONE | R=1, G=1, B=1 | ColorPic: filament changed - steady new color |
-| _COLORPIC_LED_APPLY | R=0, G=0, B=0 | ColorPic: set the nozzle LED to an explicit color |
 | _COLORPIC_STATE |  | ColorPic blink state |
-| _COLORPIC_SWAP | IDX=0, TOTAL=0, NAME='?', PREV_R=1, PREV_G=1, PREV_B=1, R=1, G=1, B=1 | ColorPic: announce the next color + start the nozzle LED transition |
+| _COLORPIC_SWAP | IDX=0, TOTAL=0, NAME='?', PREV_R=1, PREV_G=1, PREV_B=1, R=1, G=1, B=1 | ColorPic: announce the next color |
 | _V18_COLORPIC |  | Version sentinel of 18_colorpic.cfg |
 
 ### Bricks — 19_bricks.cfg (12)
@@ -4430,7 +4319,6 @@ stay with Mainsail.
 | _INIT_AFTER_BOOT | — | delayed_gcode hook (01_state.cfg) |
 | _WATCHDOG | — | delayed_gcode hook (01_state.cfg) |
 | _STATE_WATCHER | — | delayed_gcode hook (01_state.cfg) |
-| _LED_TO_IDLE | — | delayed_gcode hook (03_leds.cfg) |
 | _START_CONFIRM_WAITER | — | delayed_gcode hook (07_start_confirm.cfg) |
 | _HOMING_GUARD_OFF | — | delayed_gcode hook (08_print_start_stop.cfg) |
 | _LEGACY_HOME2 | — | delayed_gcode hook (08_print_start_stop.cfg) |
@@ -4457,10 +4345,10 @@ stay with Mainsail.
 | _SAVE_AFTER_CAL | — | delayed_gcode hook (12_maintenance.cfg) |
 | _GEN_ARM_CLEAR | — | delayed_gcode hook (17_generator.cfg) |
 | _COLORPIC_BLINK | — | delayed_gcode hook (18_colorpic.cfg) |
-## 26. Electronics & expansion — U2C + EBB42 + Relay V1.2
+## 25. Electronics & expansion — U2C + EBB42 + Relay V1.2
 
 One four-wire harness to the toolhead instead of a thick bundle, the printer
-switchable off while the Pi stays on, nozzle LEDs at the print head. All of
+switchable off while the Pi stays on. All of
 this is OPTIONAL — the system runs unchanged on a bare SKR Mini E3 V3. Pin
 data from BigTreeTech's GitHub (EBB repo + Relay V1.2 manual) and Klipper's
 `sample-bigtreetech-ebb-canbus-v1.2.cfg`.
@@ -4471,7 +4359,7 @@ data from BigTreeTech's GitHub (EBB repo + Relay V1.2 manual) and Klipper's
 230V mains --L--[RELAY V1.2]--L--> PSU 24V          (relay switches the PHASE)
 230V mains --N----------------> PSU 24V             (direct, never switched)
 PE ----------------------------------> PSU + frame  (ALWAYS direct!)
-PSU 24V out ---> SKR Mini E3 V3  (board, bed, motors, LCD, frame LEDs)
+PSU 24V out ---> SKR Mini E3 V3  (board, bed, motors, LCD)
 PSU 24V out ---> EBB42 VIN       (hotend, toolhead fans) - via the SAME relay
 Pi Zero 2  <== OWN 5V USB PSU ==  (never powered from the SKR again!)
 Pi Zero 2 USB ---> U2C V2.1 ---> CAN (H/L, twisted) ---> EBB42 at the toolhead
@@ -4484,7 +4372,7 @@ SKR free pin  ---> Relay 5V_IN   (HIGH while Klipper runs = printer ON)
 - **U2C V2.1** hangs on the Pi's USB port (powered by the Pi — stays alive).
   It converts USB to CAN. 120 Ω jumper ON (it is one end of the bus).
 - **EBB42 CAN V1.2.1** sits at the toolhead (mounted at the extruder stepper)
-  — one 4-wire harness replaces heater + 2 fans + probe + stepper + LED
+  — one 4-wire harness replaces heater + 2 fans + probe + stepper
   cables. 120 Ω jumper ON (the other end). EXACTLY TWO terminators total.
 - **Relay V1.2 in the 230V phase**: rated 10 A / 250 VAC — the whole printer
   draws ~1.5 A at 230 V. The module's control input (5V_IN, logic 3.3–5 V)
@@ -4512,12 +4400,10 @@ bay); these are proven starting points for an Ender-3 class frame:
 | 6 | Hotend fan | → EBB | existing, shortened | ~15 cm | FAN (PA1) — max 1 A |
 | 7 | Part fan | → EBB | existing, shortened | ~20 cm | FAN (PA0) — max 1 A |
 | 8 | MicroProbe | → EBB | existing BLTouch-style, shortened | 20–25 cm | probe port: signal PB8, control/power PB9 (MicroProbe: 3rd wire = POWER) |
-| 9 | Nozzle LEDs | strip → EBB | 3-pin (5 V / GND / DATA) | 15–20 cm | RGB port (PD3) — max ~15 LEDs full white (5 V/1 A) |
 | 10 | Filament sensor (optional) | → EBB | 2-pin | ~20 cm | PB4 (switch) or PB3 (motion) |
 
 Stays where it is: **X endstop** (stationary at the gantry — stays on the
-SKR), **frame LEDs 1–4** (SKR neopixel port, chain_count 4 after the split),
-bed + Z + Y (SKR). Reuse your existing cables by SHORTENING them at the
+SKR), bed + Z + Y (SKR). Reuse your existing cables by SHORTENING them at the
 toolhead end — the long run to the bay is now only the 4-wire harness.
 
 ### 26.3 Firmware: flashing the EBB42 (once)
@@ -4539,12 +4425,10 @@ toolhead end — the long run to the bay is now only the 4-wire harness.
 
 Move to the EBB: extruder stepper (PD0/!PD1/!PD2, TMC2209 UART PA15), hotend
 heater (PB13) + thermistor (PA3), part fan (PA0), hotend fan (PA1),
-MicroProbe (PB8/PB9), optional filament sensor (PB4), nozzle LEDs (PD3).
-Delete the old copies on the SKR pins. Then: `[neopixel printer_leds]`
-chain_count 5→4 (frame only) + `[neopixel nozzle_led]` on EBB:PD3 +
-uncomment `[led_effect r2_nozzle_on_split]` in 03_leds.cfg + `SET_NOZZLE_SPLIT
-STATE=1` (once — persisted). Frame and nozzle effects then work exactly as
-before, just on two chains.
+MicroProbe (PB8/PB9), optional filament sensor (PB4).
+Delete the old copies on the SKR pins (LED sections are no longer part of the
+system — the LED macros and the `[neopixel]`/`[led_effect]` sections were
+removed in 26.20).
 
 ### 26.5 Relay V1.2 — printer OFF, Pi stays on
 
@@ -4577,11 +4461,8 @@ pin. Power-on flow: press the button → boards boot → **FIRMWARE_RESTART**
 
 ### 26.6 NeoPixel limits at the EBB
 
-The EBB42's RGB port shares the board's 5 V rail — budget 1 A total:
-**~15 WS2812 at full white is the hard ceiling**. The system caps every
-channel at 0.5 anyway (board protection), so 15 LEDs run at ~50 % brightness
-without ever stressing the rail. More LEDs? Feed the strip's 5 V from its
-own supply (common GND!), keep only DATA from the EBB — and keep the cap.
+(The EBB42's RGB port is no longer used by the system — LED control was
+removed in 26.20.)
 
 ---
 
@@ -4603,7 +4484,6 @@ own supply (common GND!), keep only DATA from the EBB — and keep the cap.
 | [firmware_retraction] | live retraction + retraction overrides + test |
 | [filament_switch_sensor filament_sensor] | runout handling — NAME matters, pause_on_runout: False |
 | [pwm_cycle_time beeper] pin PB5 | sounds — pwm_cycle_time NOT output_pin (runtime frequency!) |
-| [neopixel printer_leds] PA8, 5 LEDs | LED engine (1-4 frame, 5 nozzle) — no extension needed |
 | [display] (st7920) | LCD menus (12864, 16 characters per line) |
 | [force_move] enable_force_move: True | SYNC_GANTRY needs SET_KINEMATIC_POSITION |
 | [screws_tilt_adjust] / [bed_mesh] + adaptive_margin: 5 | leveling / meshing |
@@ -4635,7 +4515,7 @@ Without it everything falls back to the Ender-3 default 220×220 and the
 console notes that on every watcher start. Optional positions:
 `variable_present_x`/`variable_present_y` (PRINT_END part presentation,
 default 10/228) and `variable_wipe_x`/`variable_wipe_y` (nozzle-wipe pad
-anchor, −1 = axis-minimum corner) — all clamped to the axes, see chapter 23.
+anchor, −1 = axis-minimum corner) — all clamped to the axes, see chapter 22.
 A raw `[r2_postproc]` section (pre-.82) HALTS Klipper — `setup.sh` migrates it.
 
 ### A.3 Z-probe variants
@@ -4659,15 +4539,6 @@ insert_gcode: _FILAMENT_INSERTED
 Motion sensors (BTT Smart) may add `runout_distance: 3.0`. Without a sensor
 everything else runs fine — runout simply never triggers.
 
-### A.5 LEDs
-
-5 LEDs on PA8 (GRBGR): 1-4 = frame effects, 5 = nozzle light. Effects come from
-the klipper-led_effect extension (julianschill) — 12 frame states, r2_idle
-autostarts. The nozzle light has its OWN switch (ch. 17): AUTO (work light while
-printing) / ON (always on, your color — a tool light that even stays available
-with the frame LEDs OFF) / OFF, plus live dimming and color (LCD 'Quick Macros >
-Nozzle LED' or NOZZLE_LED). More pixels: edit [neopixel printer_leds] + the
-effects in 03_leds.cfg — POWER RULE: every channel stays ≤0.5 (ch. B: power).
 
 ## Appendix B: Power & electrics
 
@@ -4758,15 +4629,13 @@ system). Better a quiet fan at full speed than a fast one slowed down.
 3. NO continuity between separate +5 V rails.
 4. SW_USB jumper removed; Neo-PWR1 set to your 5 V source.
 5. All joints soldered + heat-shrunk; no stray strands.
-6. Boot order: 24 V PSU → SKR → buck rails stable → Pi → LEDs.
+6. Boot order: 24 V PSU → SKR → buck rails stable → Pi.
 
 ### B.9 Where do I connect what? (quick reference)
 
 | Signal / Load | Comes from | Goes to | Watch out |
 |---|---|---|---|
 | Pi Zero 2 W, 5 V | DCDC/buck 5 V (≥2.5 A) | micro-USB PWR (best) or GPIO 2+6 | GPIO path bypasses the Pi polyfuse |
-| Neopixels, 5 V | same buck (LED rail) | pixel 1 +5 V | 1000 µF + common ground with the SKR |
-| Neopixel data | SKR pin PA8 (3.3 V) | 330-470 Ω → DIN of pixel 1 | 74AHCT125 for long wires |
 | UART serial | Pi GPIO 14/15 | TFT port RX/TX (crossover) | GND mandatory · verify BTT pinout |
 | Filament sensor | 5 V + GND (SKR) | signal → !PC15 | pause_on_runout: False |
 | Silent fans 12 V | buck 24V→12V | fan+ from buck, fan− to FAN port | low-side switching — polarity! |
@@ -4774,8 +4643,8 @@ system). Better a quiet fan at full speed than a fast one slowed down.
 ## Appendix C: First start & updates
 
 - upload the folder → includes at the end of printer.cfg → RESTART
-- console: `Macro system OK: all 19 modules loaded and current (build R2-2026-11-19.3)`
-- ~10 s later: boot sound + LED animation
+- console: `Macro system OK: all 18 modules loaded and current (build R2-2026-11-20.0)`
+- ~10 s later: boot sound
 - SHOW_STATUS → mode, material, overrides · Maintenance > Tests > demos + self test
 
 **Updating (simple):** 1) upload the ZIP in Mainsail into the **config

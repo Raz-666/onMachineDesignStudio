@@ -16,7 +16,7 @@
 #    2b. hardware        r2_hardware.cfg - the SECOND variables file (build
 #        profile +      volume, probe offsets, clean/present positions, LED
 #        LED wizard    layout). Every value asked + confirmed; survives a
-#                       variables.cfg reset. LED chains: neopixel/dotstar,
+#                       variables.cfg reset. Hardware values persist.
 #                       mainboard pin or EBB CAN split chain
 #    3. Klipper stack   klipper / moonraker / mainsail services + API check
 #    4. Python          the watcher is stdlib-only -> compile + smoke check
@@ -24,7 +24,7 @@
 #                       (the unit file is templated to YOUR user + paths)
 #    6. KAMP            optional adaptive meshing & purging - detected,
 #                       offered for installation (clone + config patches)
-#    7. LED effects     klipper-led_effect (needed by 03_leds.cfg [led_effect])
+
 #    8. RAM + services  top RAM consumers, known-optional services (camera,
 #                       octoprint, ModemManager, ...) -> ask before disabling
 #    9. swap            usage + vm.swappiness tuning offer
@@ -51,7 +51,6 @@ CFG_DIR_DEFAULT="${HOME_DIR}/printer_data/config"
 CFG="${R2_PRINTER_CFG:-${CFG_DIR_DEFAULT}/printer.cfg}"
 MOONRAKER="http://127.0.0.1:7125"
 KAMP_REPO_URL="https://github.com/kyleisah/Klipper-Adaptive-Meshing-Purging.git"
-LED_REPO_URL="https://github.com/julianschill/klipper-led_effect.git"
 TS="$(date +%Y%m%d-%H%M%S)"
 CHECK_ONLY=0
 [ "${1:-}" = "--check" ] && CHECK_ONLY=1
@@ -198,7 +197,7 @@ if [ -n "${CFG_DIR}" ]; then
     # 19_bricks (R121) were never added here, so a missing include for
     # them went undetected although INSTALL.md and _CHECK_INSTALL
     # (the boot selftest) demand them
-    for f in 01_state 02_sounds 03_leds 04_notify 05_materials 06_temp_controls \
+    for f in 01_state 02_sounds 04_notify 05_materials 06_temp_controls \
              07_start_confirm 08_print_start_stop 09_pause_filament 10_live_tuning \
              11_gantry_sync 12_maintenance 13_system 14_kamp 15_objects 16_labels \
              17_generator 18_colorpic 19_bricks; do
@@ -273,7 +272,6 @@ R2PY_RAW
             # wizard and the LED wizard as SEPARATE steps.
             r2_hw_survey
             r2_hw_wizard
-            r2_led_wizard
         fi
     else
         info "wizard library not loaded - hardware profile not offered (see step 0)"
@@ -538,76 +536,6 @@ if [ "${KAMP_OK}" -eq 0 ]; then
     else
         warn "KAMP still incomplete after this run's step"
         R284_RECHECK="${R284_RECHECK} KAMP"
-    fi
-fi
-
-# =====================================================================================
-#  7) LED effects (klipper-led_effect - needed by 03_leds.cfg)
-# =====================================================================================
-echo
-echo "--- 7) LED effects (klipper-led_effect) -------------------------------------------"
-KLIPPER_DIR="${R2_KLIPPER_DIR:-${HOME_DIR}/klipper}"
-LED_OK=0
-if [ -e "${KLIPPER_DIR}/klippy/extras/led_effect.py" ]; then
-    ok "led_effect module linked into klipper"
-    LED_OK=1
-elif [ -d "${HOME_DIR}/klipper-led_effect" ]; then
-    warn "klipper-led_effect repo present but module not linked (run its installer)"
-else
-    warn "klipper-led_effect NOT installed - the [led_effect] sections in 03_leds.cfg"
-    info "     would make Klipper refuse to boot. Install it OR comment the sections out."
-fi
-if [ "${LED_OK}" -eq 0 ]; then
-    if [ "${NET}" -eq 1 ] && command -v git >/dev/null 2>&1; then
-        ask_yn "Install klipper-led_effect now? (its installer RESTARTS klipper)" n
-        if [ "${ASK_ANSWER}" = "y" ]; then
-            (
-                cd "${HOME_DIR}" \
-                && git clone --quiet "${LED_REPO_URL}" \
-                && cd klipper-led_effect \
-                && ./install-led_effect.sh
-            ) && fix "klipper-led_effect installed (klipper restarted by its installer)" \
-              || warn "led_effect installation failed - manual: INSTALL.md / KIAUH"
-            if [ -f "${MOONRAKER_CONF}" ] && ! grep -q 'update_manager led_effect' "${MOONRAKER_CONF}"; then
-                ask_yn "Add the moonraker update-manager entry for led_effect?" n
-                if [ "${ASK_ANSWER}" = "y" ]; then
-                    if [ "${R2_LIB_LOADED}" = "1" ]; then
-                        r2_change_block "${MOONRAKER_CONF}" "led_effect update-manager entry" \
-"[update_manager led_effect]
-type: git_repo
-path: ${HOME_DIR}/klipper-led_effect
-origin: ${LED_REPO_URL}
-is_system_service: False"
-                    else
-                        backup_file "${MOONRAKER_CONF}" >/dev/null
-                        printf '\n[update_manager led_effect]\ntype: git_repo\npath: %s/klipper-led_effect\norigin: %s\nis_system_service: False\n' \
-                            "${HOME_DIR}" "${LED_REPO_URL}" >> "${MOONRAKER_CONF}"
-                        fix "moonraker.conf: led_effect update-manager entry added"
-                    fi
-                fi
-            fi
-        fi
-    else
-        info "offline or no git - manual install: cd ~ && git clone ${LED_REPO_URL}"
-        info "     cd klipper-led_effect && ./install-led_effect.sh"
-    fi
-fi
-# R284: re-verify after the install attempt (or the decline) - the section
-# must not close on the stale 'NOT installed' warn when the install actually
-# linked the module, nor on a 'fix' line when the clone died.
-if [ "${LED_OK}" -eq 0 ]; then
-    if [ -e "${KLIPPER_DIR}/klippy/extras/led_effect.py" ]; then
-        fix "led_effect re-check: module now linked into klipper"
-    else
-        warn "led_effect still missing after this run's step"
-        R284_RECHECK="${R284_RECHECK} led_effect"
-    fi
-fi
-if [ -n "${CFG_DIR}" ]; then
-    if grep -q '^\[neopixel' "${CFG}"; then
-        ok "[neopixel] section(s) in printer.cfg (LED hardware present)"
-    else
-        info "no [neopixel] in printer.cfg - if LEDs live in another included file, ignore this"
     fi
 fi
 

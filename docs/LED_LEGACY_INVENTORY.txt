@@ -1,0 +1,401 @@
+  macros/01_state.cfg:8:#     mesh/PID bookkeeping, sound/LED switches ...
+  macros/01_state.cfg:38:variable_legacy_file: ''         # filename of the last legacy print we auto-leveled
+  macros/01_state.cfg:191:# ----- layers / file info (filled by PRINT_START from slicer parameters) ----------------
+  macros/01_state.cfg:221:variable_sensor_was_on: True     # was the filament sensor enabled before pause?
+  macros/01_state.cfg:263:variable_last_led: ''            # last LED state (debug/display)
+  macros/01_state.cfg:264:# R257 (.142m): LED animation MUTED while the probe is moving (homing / meshing).
+  macros/01_state.cfg:265:# Field evidence (12.11, 8 shutdowns, 6x at the safe_z_home XY 115/115): the LED
+  macros/01_state.cfg:266:# chain (STOP_LED_EFFECTS + SET_LED_EFFECT + nozzle + bedlight = 4 neopixel
+  macros/01_state.cfg:269:# descent (1ms step interval) - 'Timer too close'. _LED_QUIET stops the effect
+  macros/01_state.cfg:271:variable_led_quiet: False
+  macros/01_state.cfg:382:# whole-file writes stalled the reactor until an MCU timer fired "too close"
+  macros/01_state.cfg:429:    {% if sv.leds_on|default(None) is none      %}SAVE_VARIABLE VARIABLE=leds_on VALUE=True{% endif %}
+  macros/01_state.cfg:548:    {% if sv.led_finish_time|default(None) is none %}SAVE_VARIABLE VARIABLE=led_finish_time VALUE=10{% endif %}  # s finished celebration
+  macros/01_state.cfg:573:        ('03_leds.cfg',            ['_V03_LEDS']),
+  macros/01_state.cfg:674:#    - error state                                         -> alarm LEDs + sound
+  macros/01_state.cfg:693:            SET_LED_STATE STATE=printing
+  macros/01_state.cfg:738:            SET_LED_STATE STATE=printing
+  macros/01_state.cfg:968:        SET_LED_STATE STATE=idle
+  macros/01_state.cfg:973:        SET_LED_STATE STATE=finished
+  macros/01_state.cfg:974:        # celebration for led_finish_time seconds, then back to idle breathing (R46)
+  macros/01_state.cfg:975:        UPDATE_DELAYED_GCODE ID=_LED_TO_IDLE DURATION={sv.led_finish_time|default(10)|float}
+  macros/01_state.cfg:1011:        SET_LED_STATE STATE=alarm
+  macros/01_state.cfg:1017:        # silently requeued (the texture tool 'did nothing'), the LEDs kept
+  macros/01_state.cfg:1029:            SET_LED_STATE STATE=idle
+  macros/01_state.cfg:1031:            RESPOND MSG="[i] The last start never reached the print (check the console - e.g. a homing error). Back to idle: generators, sounds and LEDs work again"
+  macros/01_state.cfg:1043:            SET_LED_STATE STATE=idle
+  macros/01_state.cfg:1044:            RESPOND MSG="[i] State healed: no print is running (mode was stuck in '{s.mode}') - back to idle"
+  macros/01_state.cfg:1055:    # R257: self-heal for the probe-quiet LED guard. _LED_QUIET ON=0 runs right
+  macros/01_state.cfg:1059:    {% if s.led_quiet|default(False) and s.mode not in ('homing','leveling','starting') %}
+  macros/01_state.cfg:1060:        _LED_QUIET ON=0
+  macros/02_sounds.cfg:38:        # 3,5mm / HDMI). MCU pins stay untouched. The helper is called via the
+  macros/02_sounds.cfg:98:    'r2_leveled':    '1318:50,1568:50,2093:40,1760:110',               # meshing done
+  macros/02_sounds.cfg:126:    # during a print the LED effects carry it (user rule: no feedback
+  macros/02_sounds.cfg:150:    {% set allowed = ['r2_start','r2_confirm','r2_click','r2_question','r2_happy','r2_heating','r2_hot','r2_leveling','r2_leveled','r2_pid','r2_printing','r2_pause','r2_resume','r2_filament','r2_alarm','r2_error','r2_sad','r2_done','r2_notice','r2_gen'] %}
+  macros/02_sounds.cfg:186:    {% for n in ['r2_start','r2_question','r2_happy','r2_heating','r2_hot','r2_leveling','r2_leveled','r2_printing','r2_pause','r2_resume','r2_filament','r2_alarm','r2_error','r2_sad','r2_done'] %}
+  macros/04_notify.cfg:2:#  04_notify.cfg - Central feedback system (LCD + Mainsail + LEDs + sound)
+  macros/04_notify.cfg:7:#    - optional LED state (LED=...) and sound (SOUND=...)
+  macros/04_notify.cfg:10:#    NOTIFY TEXT="Heating bed to 60C" LEVEL=info LED=heating SOUND=r2_heating
+  macros/04_notify.cfg:13:description: Central notification: LCD + Mainsail + optional LED & sound
+  macros/04_notify.cfg:17:    {% set led   = params.LED|default('') %}
+  macros/04_notify.cfg:29:    # ---- 3) LED state (optional) ---------------------------------------------------------
+  macros/04_notify.cfg:30:    {% if led != '' %}SET_LED_STATE STATE={led}{% endif %}
+  macros/04_notify.cfg:61:    RESPOND MSG="Nozzle LED: {sv.nozzle_mode|default('auto')|string|upper} | bright {(sv.nozzle_bright|default(1.0)|float*100)|round|int}% | color ({sv.nozzle_r|default(0.9)|float|round(2)},{sv.nozzle_g|default(0.9)|float|round(2)},{sv.nozzle_b|default(0.85)|float|round(2)}) - set: NOZZLE_LED MODE=on/off/auto BRIGHT=0-1 R= G= B= (LCD: Quick Macros > Nozzle LED)"
+  macros/06_temp_controls.cfg:9:#  You also get feedback for every heating phase (sound/LED/LCD/Mainsail).
+  macros/06_temp_controls.cfg:179:        NOTIFY TEXT="Heating hotend to {neu|round|int}C..." LEVEL=info LED=heating SOUND=r2_heating
+  macros/06_temp_controls.cfg:349:            NOTIFY TEXT="Heating bed to {neu|round|int}C..." LEVEL=info LED=heating SOUND=r2_heating
+  macros/06_temp_controls.cfg:424:                {% set scaled = (s.f_fan_hold|float * 255 / 100)|round|int %}
+  macros/06_temp_controls.cfg:425:                {% if scaled > 255 %}{% set scaled = 255 %}{% endif %}
+  macros/06_temp_controls.cfg:426:                {% if scaled != spd %}
+  macros/06_temp_controls.cfg:427:                    RESPOND MSG="M106: S{spd} -> hold {s.f_fan_hold|float|round|int}% -> S{scaled} (file value ignored, 0 = file rules again)"
+  macros/06_temp_controls.cfg:433:            {% set scaled = (spd * s.f_fan_scale)|round|int %}
+  macros/06_temp_controls.cfg:434:            {% if scaled > 255 %}{% set scaled = 255 %}{% endif %}
+  macros/06_temp_controls.cfg:435:            {% if scaled != spd %}
+  macros/06_temp_controls.cfg:436:                RESPOND MSG="M106: S{spd} -> scale {s.f_fan_scale*100|round|int}% -> S{scaled}"
+  macros/06_temp_controls.cfg:439:            M99106 S{scaled}
+  macros/06_temp_controls.cfg:456:# 'Malformed command' - a FATAL error (gcode:command_error) that killed every
+  macros/06_temp_controls.cfg:523:description: Layer-change marker (called from slicer layer-change gcode)
+  macros/06_temp_controls.cfg:632:#  choreography (stats, fanfare, LED, cooldown) as if the file had ended there.
+  macros/07_start_confirm.cfg:13:#   3) LCD shows the decision menu, R2 beeps questioning, LEDs blink.
+  macros/07_start_confirm.cfg:94:        # rescheduled in the 'still waiting' branch - ANY error inside a
+  macros/07_start_confirm.cfg:95:        # decision branch killed the poller and wedged the dialog (mode
+  macros/07_start_confirm.cfg:121:                SET_LED_STATE STATE=printing
+  macros/07_start_confirm.cfg:150:                SET_LED_STATE STATE=printing
+  macros/07_start_confirm.cfg:185:                SET_LED_STATE STATE=printing
+  macros/07_start_confirm.cfg:215:            SET_LED_STATE STATE=idle
+  macros/07_start_confirm.cfg:223:                NOTIFY TEXT="Print canceled - nothing started" LEVEL=warn SOUND=r2_sad
+  macros/08_print_start_stop.cfg:4:#  PRINT_START is called as the FIRST line of the slicer start gcode (see slicer/):
+  macros/08_print_start_stop.cfg:47:    # no LED animation traffic may land in it (field log 12.11: 6 of 8 shutdowns
+  macros/08_print_start_stop.cfg:49:    _LED_QUIET ON=1
+  macros/08_print_start_stop.cfg:51:    _LED_QUIET ON=0
+  macros/08_print_start_stop.cfg:64:        _LED_QUIET ON=0
+  macros/08_print_start_stop.cfg:77:    # no print actually running) is HEALED instead of refusing forever - that
+  macros/08_print_start_stop.cfg:144:            SET_LED_STATE STATE=waiting
+  macros/08_print_start_stop.cfg:178:    # keep the override bypass consistent even if called directly:
+  macros/08_print_start_stop.cfg:182:    # this print (field log .62: enabled features that can never apply confuse
+  macros/08_print_start_stop.cfg:187:    # file ('enabled but no effect'); (b) the list must go out WITHOUT spaces -
+  macros/08_print_start_stop.cfg:189:    # command' and killed EVERY print start right after the decision.
+  macros/08_print_start_stop.cfg:248:    # R236 (.136af field log: 'Timer too close' right before prints - LED
+  macros/08_print_start_stop.cfg:255:    # with sync enabled: sync FIRST (it homes Z itself, ends Z-homed, needs no full
+  macros/08_print_start_stop.cfg:278:    NOTIFY TEXT="Heating bed to {bed|round|int}C..." LEVEL=info LED=heating SOUND=r2_heating
+  macros/08_print_start_stop.cfg:327:    NOTIFY TEXT="Heating hotend to {h1|round|int}C..." LEVEL=info LED=heating SOUND=r2_heating
+  macros/08_print_start_stop.cfg:480:    # R75: called by the r2-postproc watcher the moment a file is selected
+  macros/08_print_start_stop.cfg:494:    # warning scrolled away minutes before the user answered the dialog and
+  macros/08_print_start_stop.cfg:792:            SET_LED_STATE STATE=idle
+  macros/08_print_start_stop.cfg:863:            # segment flood - <0.1mm hops merge, old .93/scaled files too
+  macros/08_print_start_stop.cfg:1190:    SET_LED_STATE STATE=waiting
+  macros/08_print_start_stop.cfg:1194:    # selection-time warning scrolled away before the decision was made
+  macros/08_print_start_stop.cfg:1199:    NOTIFY TEXT="LEGACY file! AS SLICED or AS LEGACY?" LEVEL=info LED=waiting SOUND=r2_question
+  macros/08_print_start_stop.cfg:1203:#  _LEGACY_PREP - for OLD gcode files without PRINT_START (called by _STATE_WATCHER):
+  macros/08_print_start_stop.cfg:1226:        NOTIFY TEXT="Cold-extrude guard: waiting for the hotend ({gtmp|round|int}C = min_extrude_temp {mint|round|int} + 5) before the takeover pause" LEVEL=info LED=heating SOUND=r2_heating
+  macros/08_print_start_stop.cfg:1236:    NOTIFY TEXT="Old file: pausing for leveling + purge" LEVEL=info LED=leveling SOUND=r2_leveling
+  macros/08_print_start_stop.cfg:1299:        NOTIFY TEXT="Heating hotend to {ht|round|int}C for purge (layer-1 temp)..." LEVEL=info LED=heating SOUND=r2_heating
+  macros/08_print_start_stop.cfg:1337:# (called by _STATE_WATCHER via _OBJECT_PREP after the safety pause)
+  macros/08_print_start_stop.cfg:1394:        # R115: no TURN_OFF_HEATERS here anymore - it killed the preheat of the
+  macros/08_print_start_stop.cfg:1598:    # called ONLY when the dialog is wanted - the wrappers already hold the file
+  macros/08_print_start_stop.cfg:1603:    SET_LED_STATE STATE=waiting
+  macros/08_print_start_stop.cfg:1607:    # selection-time warning scrolled away minutes before the decision (the
+  macros/08_print_start_stop.cfg:1614:    NOTIFY TEXT="Start? AS SLICED or LEGACY?" LEVEL=info LED=waiting SOUND=r2_question
+  macros/08_print_start_stop.cfg:1727:    {% set fresh = printer.print_stats.state in ['standby','complete','cancelled']
+  macros/08_print_start_stop.cfg:1823:    NOTIFY TEXT="Movement file: home + heat + purge infrastructure" LEVEL=info LED=leveling SOUND=r2_leveling
+  macros/08_print_start_stop.cfg:1839:    NOTIFY TEXT="Heating bed to {bt|round|int}C..." LEVEL=info LED=heating
+  macros/08_print_start_stop.cfg:1844:    NOTIFY TEXT="Heating hotend to {ht|round|int}C for purge..." LEVEL=info LED=heating SOUND=r2_heating
+  macros/08_print_start_stop.cfg:1900:        NOTIFY TEXT="AS SLICED: waiting for bed {bt|round|int}C (file value)" LEVEL=info LED=heating
+  macros/08_print_start_stop.cfg:1904:        NOTIFY TEXT="AS SLICED: waiting for hotend {ht|round|int}C (file value)" LEVEL=info LED=heating SOUND=r2_heating
+  macros/08_print_start_stop.cfg:2096:    #    spoiled the first layer. Retract DEEPER, then push back SLOWLY to a
+  macros/08_print_start_stop.cfg:2111:#  PRINT_END - called by the slicer end gcode (just: "PRINT_END")
+  macros/08_print_start_stop.cfg:2118:    {% if fn == '' or printer.print_stats.state == 'cancelled' %}
+  macros/08_print_start_stop.cfg:2169:    #      start) must never leave the mode stuck ('finished' forever = LEDs
+  macros/08_print_start_stop.cfg:2186:    # The old order ran stats -> LED -> melody -> fan -> heaters -> cleanup and
+  macros/08_print_start_stop.cfg:2190:    # class: up to 1.9s reactor standstill per write) plus the LED effect
+  macros/08_print_start_stop.cfg:2196:    # the queue runs empty - and EVERYTHING heavy (SD writes, LED switch,
+  macros/08_print_start_stop.cfg:2220:        RESPOND MSG="[i] Presentation move skipped - axes not homed (a start failed earlier?)"
+  macros/08_print_start_stop.cfg:2233:    # ---- celebration (LED + melody): only for a PRESENTED part -----------------------------
+  macros/08_print_start_stop.cfg:2234:    SET_LED_STATE STATE=finished
+  macros/08_print_start_stop.cfg:2235:    # celebration for led_finish_time seconds (default 10), then back to idle
+  macros/08_print_start_stop.cfg:2237:    UPDATE_DELAYED_GCODE ID=_LED_TO_IDLE DURATION={sv.led_finish_time|default(10)|float}
+  macros/08_print_start_stop.cfg:2290:    SET_LED_STATE STATE=boot
+  macros/08_print_start_stop.cfg:2304:        SET_LED_STATE STATE=idle
+  macros/08_print_start_stop.cfg:2332:#  R236 (.136af field log) - AV STAGGER: LED state changes + sounds never fire
+  macros/08_print_start_stop.cfg:2340:    # R246d (.142c, reactor relief rec. 4): the fixed 1.5 s put the LED
+  macros/08_print_start_stop.cfg:2348:        # print started or was cancelled meanwhile - the print
+  macros/08_print_start_stop.cfg:2356:            # R246d: moves ran in the last 2 s - the LED rewrite + beep
+  macros/08_print_start_stop.cfg:2365:            SET_LED_STATE STATE=homing
+  macros/08_print_start_stop.cfg:2374:    # is DEEP inside the first-layer move stream - the beep + LED rewrite
+  macros/08_print_start_stop.cfg:2382:        # print ended/cancelled meanwhile - nothing plays
+  macros/08_print_start_stop.cfg:2397:            SET_LED_STATE STATE=printing
+  macros/09_pause_filament.cfg:9:#   - filament sensor is DISABLED during pause (no false alarm while changing)
+  macros/09_pause_filament.cfg:10:#     and re-enabled automatically on resume
+  macros/09_pause_filament.cfg:95:        # flood was still draining - beep + LED + display all in ONE
+  macros/09_pause_filament.cfg:103:            # R236: the LED switch + beep follow 1s later (mode-guarded,
+  macros/09_pause_filament.cfg:204:    # would abort the whole calling macro chain (that killed legacy prep once).
+  macros/09_pause_filament.cfg:207:    # killed the whole legacy-start chain ('Extrude below minimum temp' x5).
+  macros/09_pause_filament.cfg:254:    #      even worse: strip + manual purge had already settled the pressure).
+  macros/09_pause_filament.cfg:272:        RESPOND MSG="Resume: {unret|round(1)}mm park retract refilled on the way, 0.5mm de-ooze held back"
+  macros/09_pause_filament.cfg:274:        RESPOND MSG="Resume: no extrusion at the print position (filament change settled / cold park)"
+  macros/09_pause_filament.cfg:281:        # SFS V2.0 encoder part (R52): back on - nothing re-enabled it before,
+  macros/09_pause_filament.cfg:292:    # R236: LED + beep 1s later - the move queue is winding up RIGHT NOW
+  macros/09_pause_filament.cfg:327:# Called by PRINT_END, CANCEL_PRINT and the _STATE_WATCHER (legacy file ended
+  macros/09_pause_filament.cfg:400:        SET_LED_STATE STATE=idle
+  macros/09_pause_filament.cfg:401:        NOTIFY TEXT="Canceled before start" LEVEL=warn SOUND=r2_sad
+  macros/09_pause_filament.cfg:413:                # SFS V2.0 encoder part (R52): back on - nothing re-enabled it
+  macros/09_pause_filament.cfg:422:            SET_LED_STATE STATE=alarm
+  macros/09_pause_filament.cfg:424:            SET_LED_STATE STATE=idle
+  macros/09_pause_filament.cfg:425:            NOTIFY TEXT="PRINT CANCELED (layer {s.layer})" LEVEL=error SOUND=r2_sad
+  macros/09_pause_filament.cfg:461:            # R120: a colorpic blink owns the nozzle LED - restarting the
+  macros/09_pause_filament.cfg:463:            {% if 'led_effect r2_idle' in printer %}STOP_LED_EFFECTS{% endif %}
+  macros/09_pause_filament.cfg:465:            SET_LED_STATE STATE=filament
+  macros/09_pause_filament.cfg:617:            RESPOND MSG="Filament change: pressure settled by the strip - NO purge at the object"
+  macros/09_pause_filament.cfg:622:            SET_LED_STATE STATE=idle
+  macros/09_pause_filament.cfg:639:#  The print is NOT canceled - it waits parked for new filament (M600).
+  macros/09_pause_filament.cfg:648:        SET_LED_STATE STATE=alarm
+  macros/09_pause_filament.cfg:657:        # builds and right after a resume the settled path reports 'nothing
+  macros/09_pause_filament.cfg:674:description: (Insert) Filament detected - acknowledge (+LED)
+  macros/09_pause_filament.cfg:680:            {% if 'led_effect r2_idle' in printer %}STOP_LED_EFFECTS{% endif %}
+  macros/09_pause_filament.cfg:682:            SET_LED_STATE STATE=filament
+  macros/09_pause_filament.cfg:691:        SET_LED_STATE STATE=idle
+  macros/09_pause_filament.cfg:727:#  feedback (LED + beep) follows the event by 1s instead of piling onto the
+  macros/09_pause_filament.cfg:734:        SET_LED_STATE STATE=paused
+  macros/09_pause_filament.cfg:742:            # R120: a colorpic blink owns the nozzle LED - restarting the
+  macros/09_pause_filament.cfg:744:            {% if 'led_effect r2_idle' in printer %}STOP_LED_EFFECTS{% endif %}
+  macros/09_pause_filament.cfg:746:            SET_LED_STATE STATE=filament
+  macros/09_pause_filament.cfg:754:        SET_LED_STATE STATE=printing
+  macros/10_live_tuning.cfg:19:# _LIVE_RESET - all live values to neutral (called by PRINT_START)
+  macros/10_live_tuning.cfg:27:    # wipe crawled, every idle motion ran in slow motion, and no live value
+  macros/10_live_tuning.cfg:29:    # printer's own config (fallback 3000); called at start (clean baseline),
+  macros/10_live_tuning.cfg:96:# APPLY_TYPE - called at every feature boundary (by the PP script / LAYER marker)
+  macros/10_live_tuning.cfg:448:    # R87.2 FIELD FIX (.71 log: setting the global accel silently killed the
+  macros/10_live_tuning.cfg:505:    # hard cap so the scaled travels are not clipped.
+  macros/11_gantry_sync.cfg:49:        # (commented out = hold follows run = effectively disabled). Reading the
+  macros/11_gantry_sync.cfg:59:            NOTIFY TEXT="Gantry sync: bumping top stop (current {sync_current}A)" LEVEL=info LED=homing SOUND=r2_leveling
+  macros/11_gantry_sync.cfg:86:            NOTIFY TEXT="Gantry synced & re-homed" LEVEL=ok SOUND=r2_leveled
+  macros/11_gantry_sync.cfg:120:            NOTIFY TEXT="Z tilt: probing the [z_tilt] points (retries {retries}, tolerance {tol}mm)" LEVEL=info LED=leveling SOUND=r2_leveling
+  macros/11_gantry_sync.cfg:127:        _LED_QUIET ON=1
+  macros/11_gantry_sync.cfg:129:        _LED_QUIET ON=0
+  macros/11_gantry_sync.cfg:131:            NOTIFY TEXT="Z tilt done - gantry level" LEVEL=ok SOUND=r2_leveled
+  macros/12_maintenance.cfg:15:#   SELF_TEST                        : LED + sound + sensor + probe test
+  macros/12_maintenance.cfg:19:# _RUN_PID_TUNE - PID calibration of ONE heater with announcements, LED and sound
+  macros/12_maintenance.cfg:31:    SET_LED_STATE STATE=pid
+  macros/12_maintenance.cfg:215:        NOTIFY TEXT="Screw leveling: probing all screws, round 1..." LEVEL=info LED=leveling SOUND=r2_leveling
+  macros/12_maintenance.cfg:218:        _LED_QUIET ON=1
+  macros/12_maintenance.cfg:220:        _LED_QUIET ON=0
+  macros/12_maintenance.cfg:233:        _LED_QUIET ON=1
+  macros/12_maintenance.cfg:235:        _LED_QUIET ON=0
+  macros/12_maintenance.cfg:330:            NOTIFY TEXT="All screws nominal - bed level taken over. Mesh: Leveling > Bed mesh now" LEVEL=ok SOUND=r2_leveled
+  macros/12_maintenance.cfg:343:    M117 Screws: cancelled
+  macros/12_maintenance.cfg:344:    NOTIFY TEXT="Screw calibration cancelled" LEVEL=info SOUND=r2_notice
+  macros/12_maintenance.cfg:361:        _LED_QUIET ON=1
+  macros/12_maintenance.cfg:363:        _LED_QUIET ON=0
+  macros/12_maintenance.cfg:382:            NOTIFY TEXT="Extruder calibration: heating to {target|round|int}C" LEVEL=info LED=heating
+  macros/12_maintenance.cfg:452:        # commanded `dist`, actually travelled `measured`: scale the current
+  macros/12_maintenance.cfg:506:        NOTIFY TEXT="Heating for loading to {tgt|round|int}C..." LEVEL=info LED=heating SOUND=r2_heating
+  macros/12_maintenance.cfg:529:        NOTIFY TEXT="Heating for unloading to {tgt|round|int}C..." LEVEL=info LED=heating SOUND=r2_heating
+  macros/12_maintenance.cfg:644:            SET_LED_STATE STATE=heating
+  macros/12_maintenance.cfg:668:            SET_LED_STATE STATE=leveling
+  macros/12_maintenance.cfg:927:        # R58: user range 0.02..0.2 in 0.01 steps (19 lines) - PA prefilled with
+  macros/12_maintenance.cfg:963:            SET_LED_STATE STATE=heating
+  macros/12_maintenance.cfg:975:            SET_LED_STATE STATE=leveling
+  macros/12_maintenance.cfg:1014:            SET_LED_STATE STATE=idle
+  macros/12_maintenance.cfg:1054:        # ---- phase: filament pulled - verify the flow ----------------------------------
+  macros/12_maintenance.cfg:1065:        SET_LED_STATE STATE=idle
+  macros/12_maintenance.cfg:1100:                SET_LED_STATE STATE=heating
+  macros/12_maintenance.cfg:1124:                SET_LED_STATE STATE=alarm
+  macros/12_maintenance.cfg:1140:            SET_LED_STATE STATE=idle
+  macros/12_maintenance.cfg:1143:            RESPOND MSG="  verify: Maintenance > Filament > Cold pull > 'Pulled -> verify' (or COLD_PULL STEP=finish)"
+  macros/12_maintenance.cfg:1320:            SET_LED_STATE STATE=leveling
+  macros/12_maintenance.cfg:1351:    SET_LED_STATE STATE=finished
+  macros/12_maintenance.cfg:1397:            NOTIFY TEXT="Mesh '{name}' (={bt|round(0)|int}C) saved - saving config (Klipper restarts once)" LEVEL=ok SOUND=r2_leveled
+  macros/12_maintenance.cfg:1400:            NOTIFY TEXT="Mesh '{name}' (={bt|round(0)|int}C) saved (session). Permanent: 'Save after print' ON or System > Save config" LEVEL=ok SOUND=r2_leveled
+  macros/12_maintenance.cfg:1442:# motors off, finish LED/sound (used by CALIBRATE_PA).
+  macros/12_maintenance.cfg:1454:    SET_LED_STATE STATE=finished
+  macros/12_maintenance.cfg:1474:# SELF_TEST - LED, sound, filament sensor, endstops & probe quick test
+  macros/12_maintenance.cfg:1477:description: Self test: LEDs, sounds, sensor, probe
+  macros/12_maintenance.cfg:1479:    NOTIFY TEXT="R2-D2 self test..." LEVEL=info LED=alarm SOUND=r2_alarm
+  macros/12_maintenance.cfg:1481:    SET_LED_STATE STATE=finished
+  macros/12_maintenance.cfg:1483:    RESPOND MSG="Filament sensor: {('DETECTED' if printer['filament_switch_sensor filament_sensor'].filament_detected else 'EMPTY') if 'filament_switch_sensor filament_sensor' in printer else 'not installed'} | enabled={printer['filament_switch_sensor filament_sensor'].enabled if 'filament_switch_sensor filament_sensor' in printer else '-'}"
+  macros/12_maintenance.cfg:1491:    SET_LED_STATE STATE=idle
+  macros/12_maintenance.cfg:1597:            SET_LED_STATE STATE=heating
+  macros/12_maintenance.cfg:1723:            SET_LED_STATE STATE=heating
+  macros/12_maintenance.cfg:1877:            SET_LED_STATE STATE=heating
+  macros/12_maintenance.cfg:2104:#  _NOZZLE_WIPE = internal (no guards - called from every purge chain),
+  macros/12_maintenance.cfg:2129:        NOTIFY TEXT="Nozzle wipe: heating to {temp|round|int}C first..." LEVEL=info LED=heating SOUND=r2_heating
+  macros/12_maintenance.cfg:2160:        # called cold (idle maintenance): do not leave a hot nozzle behind
+  macros/12_maintenance.cfg:2248:#  Mode/LEDs/sound are NOT touched here - the watcher's complete feedback
+  macros/12_maintenance.cfg:2469:#  paper, one page, auto-scaled. PLOT_TEXT FILE=name.txt (file in the gcodes
+  macros/13_system.cfg:19:        STOP_LED_EFFECTS
+  macros/13_system.cfg:31:        STOP_LED_EFFECTS
+  macros/13_system.cfg:45:        STOP_LED_EFFECTS
+  macros/13_system.cfg:47:        # Path 1: gcode-shell-command extension (if installed)
+  macros/13_system.cfg:71:        STOP_LED_EFFECTS
+  macros/13_system.cfg:73:        # Path 1: gcode-shell-command extension (if installed)
+  macros/13_system.cfg:80:            # sibling of SYS_SHUTDOWN's shutdown_machine, called from klippy
+  macros/13_system.cfg:128:            STOP_LED_EFFECTS
+  macros/13_system.cfg:135:            STOP_LED_EFFECTS
+  macros/13_system.cfg:160:# offset, clean/present positions, LED layout + whether the LCD persister is
+  macros/13_system.cfg:165:description: Report the hardware profile (build volume, probe, positions, LEDs)
+  macros/13_system.cfg:175:        {% set lsec = rc.led_section|default('printer_leds')|string %}
+  macros/13_system.cfg:176:        {% set ltype = rc.led_type|default('neopixel')|string %}
+  macros/13_system.cfg:180:            RESPOND MSG="  LEDs: [{ltype} {lsec}] {chain} LEDs | status 1-{rc.led_status_n|default(4)|int} | bed {rc.led_status_n|default(4)|int + 1}-{rc.led_status_n|default(4)|int + rc.led_bed_n|default(0)|int}"
+  macros/13_system.cfg:182:            RESPOND MSG="  LEDs: no [{ltype} {lsec}] section configured"
+  macros/13_system.cfg:184:        {% if 'gcode_shell_command R2_PERSIST' in printer.configfile.settings %}
+  macros/13_system.cfg:185:            RESPOND MSG="  LCD persistence: R2_PERSIST available (LED Setup edits survive restarts)"
+  macros/13_system.cfg:187:            RESPOND MSG="  LCD persistence: no [gcode_shell_command R2_PERSIST] - LED Setup edits apply to the session only"
+  macros/13_system.cfg:243:        SET_LED_STATE STATE=idle
+  macros/13_system.cfg:275:            RESPOND MSG="File check + RE-FIX: files tagged before .129 get their feature types healed from the slicer feature comments (Wall outer = CUSTOM becomes WALL-OUTER) - backup .r2bak first, never while printing"
+  macros/13_system.cfg:278:            NOTIFY TEXT="Re-fix: press again (or CONFIRM=1) - wrong feature markers are healed, backup .r2bak first" LEVEL=warn SOUND=r2_notice
+  macros/14_kamp.cfg:13:#    - Mesh: if KAMP is installed & enabled we let KAMP do the adaptive mesh
+  macros/14_kamp.cfg:24:#    'gcode_macro _KAMP_Settings' in printer      -> KAMP installed
+  macros/14_kamp.cfg:41:    {% set kamp_installed = 'gcode_macro _KAMP_Settings' in printer %}
+  macros/14_kamp.cfg:42:    {% set kamp_override  = kamp_installed and 'gcode_macro BED_MESH_CALIBRATE' in printer %}
+  macros/14_kamp.cfg:44:    {% set use_kamp = kamp_installed and sv.kamp_mesh|default(True) %}
+  macros/14_kamp.cfg:67:    NOTIFY TEXT="Bed mesh {profile} ({kind})..." LEVEL=info LED=leveling SOUND=r2_leveling
+  macros/14_kamp.cfg:82:    # R257 (.142m): mesh probing is the same 1ms-step phase as homing Z - the LED
+  macros/14_kamp.cfg:84:    _LED_QUIET ON=1
+  macros/14_kamp.cfg:105:            # KAMP override present but disabled -> bypass it via its renamed command:
+  macros/14_kamp.cfg:118:    _LED_QUIET ON=0
+  macros/14_kamp.cfg:135:            NOTIFY TEXT="Mesh {profile} saved ({kind}) - saving config (Klipper restarts once)" LEVEL=ok SOUND=r2_leveled
+  macros/14_kamp.cfg:138:            NOTIFY TEXT="Mesh {profile} saved ({kind}) - session only (no restart). Permanent: 'Save after print' ON or System > Save config" LEVEL=ok SOUND=r2_leveled
+  macros/14_kamp.cfg:143:        NOTIFY TEXT="Mesh {profile} saved ({kind}, session) - persisted after the print" LEVEL=ok SOUND=r2_leveled
+  macros/14_kamp.cfg:155:    {% set kamp_installed = 'gcode_macro _KAMP_Settings' in printer %}
+  macros/14_kamp.cfg:173:    {% if kamp_installed and objects and sv.kamp_purge|default(True) %}
+  macros/14_kamp.cfg:205:#  Switches (LCD 'Maintenance > KAMP' & Mainsail). Without KAMP installed they
+  macros/14_kamp.cfg:216:        NOTIFY TEXT="KAMP is not installed (see INSTALL.md)" LEVEL=warn SOUND=r2_notice
+  macros/14_kamp.cfg:227:        NOTIFY TEXT="KAMP is not installed (see INSTALL.md)" LEVEL=warn SOUND=r2_notice
+  macros/14_kamp.cfg:249:        NOTIFY TEXT="KAMP is not installed (see INSTALL.md)" LEVEL=warn SOUND=r2_notice
+  macros/14_kamp.cfg:253:# KAMP_STATUS - what is installed, what active, which values?
+  macros/14_kamp.cfg:259:    {% set kamp_installed = 'gcode_macro _KAMP_Settings' in printer %}
+  macros/14_kamp.cfg:261:    {% if kamp_installed %}
+  macros/14_kamp.cfg:263:        RESPOND MSG="KAMP: installed & loaded"
+  macros/14_kamp.cfg:269:        RESPOND MSG="KAMP: NOT installed -> system uses Klipper native ADAPTIVE + own prime line"
+  macros/14_kamp.cfg:270:        M117 KAMP not installed
+  macros/15_objects.cfg:7:#    - slicer: objects labeled (Orca: "Label objects" / Cura: our post-processing
+  macros/15_objects.cfg:56:            SET_LED_STATE STATE=alarm
+  macros/15_objects.cfg:58:            SET_LED_STATE STATE={('paused' if s.mode == 'paused' else 'printing')}
+  macros/16_labels.cfg:25:# so a ';' could never be saved (the save failed with 'Malformed command').
+  macros/16_labels.cfg:135:    # (only filled lines count; a hole eats ~8mm of width).
+  macros/16_labels.cfg:201:        # font~w~h~size~spacing~stroke~mode~hole~holed~lines~base~textl~lh~fh~iron~brim~gap~col2
+  macros/17_generator.cfg:79:# build. A waiting start dialog is cancelled SILENTLY (the generation takes
+  macros/17_generator.cfg:1622:variable_tx_descs: ['Pattern Ridges: vertical flutes around the object - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Waves: diagonal waves around and up - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Grid: crosshatch egg-crate - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Hatch: hard diagonal hatching - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Checker: soft checkerboard - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Hex: organic 3-fold honeycomb-ish - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Honeycomb: true hex cells - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Basket: woven over/under - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Rope: twisted strands - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Planks: boards with staggered joints - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Bricks: running-bond courses - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Sandstone: fine grain noise - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Concrete: coarse noise + pores - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Clay: soft thumb dents - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Crepe: crumpled paper - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Fabric: pleats, sharp valleys - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Plush: dense velvet grain - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Hilbert: a REAL order-3 Hilbert curve - raised walls along the space-filling path, the labyrinth look (R265)', 'Pattern Scratch: scratches around the wall - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Glitch: seeded per-band melt steps - seamless around + in Z (Size around / Z size below are GUIDELINES, the object geometry snaps them to whole repeats)', 'Pattern Knit: nested V-loops in staggered columns (knitted sleeve) - optional 3 deg tilt breaks the layer lines', 'Pattern Fluted: vertical half-round flutes - runs UP the object, kills Z-banding on cylinders', 'Pattern Bark: vertical ridged cracks - turns tubes and cylinders into tree trunks', 'Pattern Scales: staggered domed shingles - reptile look, grippy', 'Pattern Facets: diamond low-poly relief crosses - modern, futuristically clean', 'Pattern Macrame: two twisted cord families crossing into a net - the knots read as knotted cords', 'Pattern Map: a picture wrapped around - background detected (Otsu) = NO displacement there, Tile = endless mirrored wrap, Once = one aspect-true wrap (position below)', 'Pattern Stonewall: coursed ashlar - seeded block widths per row, deep mortar beds (R265)', 'Pattern Rubble: uncoursed fieldstones - irregular stones in a deep mortar bed (R265)', 'Pattern Tiles: glazed square tiles - flat tops, chamfered bevel, recessed grout (R265)', 'Pattern Parquet: chevron fishbone - diagonal planks with mitred V-joints (R265)', 'Pattern Laminate: long narrow planks - V-bevel plus dominant grain streaks (R265)', 'Pattern Maze: a true labyrinth - seeded spanning-tree maze, one connected corridor system (R265)', 'Pattern Perforation: round dimples in a staggered grid - the perforated-sheet look, no through-holes (R265)', 'Pattern Vent: square recesses in a staggered grid - enclosure ventilation panel (R265)', 'Pattern Carbon: 2/2 twill weave - diagonal glossy carbon-fibre bands (R265)', 'Pattern Pindots: hemisphere knobs in a square matrix - grip and decor dots (R265)', 'Pattern Octagons: octagon cells with corner squares - tray look, seeded size jitter (R265)', 'Pattern Chainlink: woven fence - two 45-degree wire families, over/under at the crossings (R265)', 'Pattern Netgrid: netting - round threads with knots and deep open meshes (R265)', 'Pattern Rings: wood cross-cut - growth rings around the object, wandering widths (R266.2)', 'Pattern Oak: coarse oak grain - wandering pore streaks over flame waves (R266.2)', 'Pattern Beech: the quiet wood - fine dense vertical fibre, almost poreless (R266.2)', 'Pattern Knot: burl grain - the fibre deflects around seeded knot eyes (R266.2)', 'Pattern Oldbark: ancient bark - long plates in DEEP furrows, pair with depth 2-3.5mm (R266.2)', 'Pattern Leather: padded leather - diamond-quilted cushions with stitch seams (R266.2)', 'Pattern Orange: orange peel - fine irregular micro dimples, pairs with a SMALL depth (R266.2)', 'Pattern Cracks: dried mud - narrow deep wandering cracks, crowned plates (R266.2)', 'Pattern Wrinkle: heavy wrinkle - big folds with sharp crests (R266.2)', 'Pattern Hearts: raised hearts in a staggered grid - seamless around + in Z (Size around / Z size snap to whole hearts), Depth sets the relief, Seed rerolls. BUMPS mode only.', 'Pattern Golf ball: dense round dimples, staggered - seamless around + in Z (Size around / Z size snap to whole dimples), Depth sets the relief, Seed rerolls. BUMPS mode only.', 'Pattern Basketball: smooth channels over pebble grain - seamless around + in Z (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.', 'Pattern Woodchip: Raufaser - flat face, sparse fibre chunks - seamless around + in Z (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.', 'Pattern Roof tiles: overlapping courses with side folds - seamless around + in Z (Size around / Z size snap to whole tiles), Depth sets the relief, Seed rerolls. BUMPS mode only.', 'Pattern Crochet: knotty stitches with deep eyelets - seamless around + in Z (Size around / Z size snap to whole stitches), Depth sets the relief, Seed rerolls. BUMPS mode only.', "Pattern Blumenblaetter: decorative plastische 3D-Druck-Textur 'PETAL' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Blumenblaetter scharf: decorative plastische 3D-Druck-Textur 'PETAL_V2' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Lotosblatt: decorative plastische 3D-Druck-Textur 'LOTUS' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Kieselsteine: decorative plastische 3D-Druck-Textur 'PEBBLE' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Kiesel tief: decorative plastische 3D-Druck-Textur 'PEBBLE_V2' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Galaxie Wirbel: decorative plastische 3D-Druck-Textur 'GALAXY' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Brotekrume: decorative plastische 3D-Druck-Textur 'CRUST' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Zopfgeflecht: decorative plastische 3D-Druck-Textur 'BRAID' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Drei-Zopf: decorative plastische 3D-Druck-Textur 'BRAID_V2' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Quilt-Muster: decorative plastische 3D-Druck-Textur 'QUILT' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Edelstein-Facetten: decorative plastische 3D-Druck-Textur 'GEMSTONE' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Muschel-Rippen: decorative plastische 3D-Druck-Textur 'SHELL' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Korallen-Nodulen: decorative plastische 3D-Druck-Textur 'CORAL' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Mosaik-Fugen: decorative plastische 3D-Druck-Textur 'MOSAIC' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Perlen-Punkte: decorative plastische 3D-Druck-Textur 'PEARL' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Velvet-Nap: decorative plastische 3D-Druck-Textur 'VELVET' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Schicht-Gestein: decorative plastische 3D-Druck-Textur 'STRATA' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Basalt-Spalten: decorative plastische 3D-Druck-Textur 'BASALT' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Marmor-Adern: decorative plastische 3D-Druck-Textur 'MARBL' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Granit-Speck: decorative plastische 3D-Druck-Textur 'GRANIET' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Terracotta-Risse: decorative plastische 3D-Druck-Textur 'TERRA' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Walnuss-Maserung: decorative plastische 3D-Druck-Textur 'WALNUT' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Ahorn-Holz: decorative plastische 3D-Druck-Textur 'MAPLE' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Zebra-Streifen: decorative plastische 3D-Druck-Textur 'ZEBRA' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Leopard-Punkte: decorative plastische 3D-Druck-Textur 'LEOPARD' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Python-Schuppen: decorative plastische 3D-Druck-Textur 'PYTHON' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Lava-Gestein: decorative plastische 3D-Druck-Textur 'LAVA' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Eis-Kristall: decorative plastische 3D-Druck-Textur 'ICE' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Moos-Polster: decorative plastische 3D-Druck-Textur 'MOSS' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Federrelief: decorative plastische 3D-Druck-Textur 'FEATHER' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Terracotta-Risse: decorative plastische 3D-Druck-Textur 'TERRA' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Walnuss-Maserung: decorative plastische 3D-Druck-Textur 'WALNUT' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Ahorn-Holz: decorative plastische 3D-Druck-Textur 'MAPLE' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Zebra-Streifen: decorative plastische 3D-Druck-Textur 'ZEBRA' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Leopard-Punkte: decorative plastische 3D-Druck-Textur 'LEOPARD' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Python-Schuppen: decorative plastische 3D-Druck-Textur 'PYTHON' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Lava-Gestein: decorative plastische 3D-Druck-Textur 'LAVA' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Eis-Kristall: decorative plastische 3D-Druck-Textur 'ICE' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Moos-Polster: decorative plastische 3D-Druck-Textur 'MOSS' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.", "Pattern Federrelief: decorative plastische 3D-Druck-Textur 'FEATHER' - nahtlos in allen Richtungen (Size around / Z size snap to whole repeats), Depth sets the relief, Seed rerolls. BUMPS mode only.",
+  macros/17_generator.cfg:1771:            {% set ns5 = namespace(healed={}, n=0) %}
+  macros/17_generator.cfg:1776:                    {% set _ = ns5.healed.update({k: v}) %}
+  macros/17_generator.cfg:1780:                {% set usr = ns5.healed %}
+  macros/17_generator.cfg:1782:                RESPOND MSG="[OK] {gen} presets healed: {ns5.n} library copies left your shelf (an old delete copied them in)"
+  macros/17_generator.cfg:1986:        # press lands HERE, the second executes. The .136ai row called the
+  macros/18_colorpic.cfg:9:#  the NOZZLE LED ANIMATION: while you swap the filament the nozzle LED
+  macros/18_colorpic.cfg:13:#  LED ownership: during the wait the printer sits in 'filament' mode; normally
+  macros/18_colorpic.cfg:14:#  SET_LED_STATE STATE=filament would restart the static r2_nozzle_on work
+  macros/18_colorpic.cfg:17:#  keeps its paused/filament effect, the nozzle LED belongs to the animation.
+  macros/18_colorpic.cfg:39:# _COLORPIC_LED_APPLY - write the nozzle LED directly (mirrors _NOZZLE_SET's
+  macros/18_colorpic.cfg:42:# LED only while it runs). No SET_LED when the LEDs are off (leds_on).
+  macros/18_colorpic.cfg:44:[gcode_macro _COLORPIC_LED_APPLY]
+  macros/18_colorpic.cfg:45:description: ColorPic: set the nozzle LED to an explicit color (internal)
+  macros/18_colorpic.cfg:48:    {% if sv.leds_on|default(True) %}
+  macros/18_colorpic.cfg:50:        {% set lsec = rc.led_section|default('printer_leds')|string %}
+  macros/18_colorpic.cfg:51:        {% set ltype = rc.led_type|default('neopixel')|string %}
+  macros/18_colorpic.cfg:52:        {% set sn = rc.led_status_n|default(4)|int %}
+  macros/18_colorpic.cfg:53:        {% set bn = rc.led_bed_n|default(0)|int %}
+  macros/18_colorpic.cfg:54:        {% set split = (rc.led_nozzle_split|default(sv.nozzle_split|default(0))|int == 1)
+  macros/18_colorpic.cfg:55:                       and ((ltype ~ ' ' ~ (rc.led_nozzle_section|default('nozzle_led')|string)) in printer) %}
+  macros/18_colorpic.cfg:61:            SET_LED LED={rc.led_nozzle_section|default('nozzle_led')} RED={r|round(3)} GREEN={g|round(3)} BLUE={b|round(3)}
+  macros/18_colorpic.cfg:63:            SET_LED LED={lsec} INDEX={sn + bn + 1} RED={r|round(3)} GREEN={g|round(3)} BLUE={b|round(3)}
+  macros/18_colorpic.cfg:69:# LCD + console announcement + the nozzle LED starts blinking old <-> new.
+  macros/18_colorpic.cfg:72:description: ColorPic: announce the next color + start the nozzle LED transition (internal)
+  macros/18_colorpic.cfg:90:    RESPOND MSG="  the nozzle LED blinks old->new until you resume - the purge strip cleans the nozzle automatically"
+  macros/18_colorpic.cfg:92:    _COLORPIC_LED_APPLY R={params.R|default(1)|float} G={params.G|default(1)|float} B={params.B|default(1)|float}
+  macros/18_colorpic.cfg:96:# _COLORPIC_BLINK - the animation: alternate the nozzle LED between the previous
+  macros/18_colorpic.cfg:100:# blinking LED behind; the next SET_LED_STATE re-owns the chain anyway).
+  macros/18_colorpic.cfg:108:            _COLORPIC_LED_APPLY R={cs.pr|float} G={cs.pg|float} B={cs.pb|float}
+  macros/18_colorpic.cfg:111:            _COLORPIC_LED_APPLY R={cs.nr|float} G={cs.ng|float} B={cs.nb|float}
+  macros/18_colorpic.cfg:117:        # print running again (or DONE, or LEDs taken over) - stop the blink
+  macros/18_colorpic.cfg:123:# blink off, the new color stays on the nozzle LED until the print takes over.
+  macros/18_colorpic.cfg:129:    _COLORPIC_LED_APPLY R={params.R|default(1)|float} G={params.G|default(1)|float} B={params.B|default(1)|float}
+  macros/18_colorpic.cfg:199:        RESPOND MSG="  colors light->dark: {sv.colorpic_colors|default('auto by band count')} - M600 at every boundary, the nozzle LED blinks to the next color while you swap"
+  macros/18_colorpic.cfg:210:#   PNK CYA GLD SIL); fewer codes than bands = auto-filled.
+  macros/19_bricks.cfg:8:#  EXCLUDE_OBJECT (a failed part can be skipped and reprinted later).
+  macros/19_bricks.cfg:38:    # replace mangled the new axle codes ('AX4' became 'Ax4', no catalog hit)
+  macros/19_bricks.cfg:83:    # R232: healed read (see BRICK_ADD) - one press visibly shrinks
+  macros/19_bricks.cfg:142:    RESPOND MSG="Info: Bricks: exact system geometry - pitch 8.0mm, brick 9.6, plate 3.2, stud O4.8x1.8 hollow, body n*8-0.2 (clamps!), wall 1.5, tube O6.31 |   layer {sv.bricks_layer_h|default(0.2)|float|round(2)}mm - layer 1 prints solid, brim {sv.brick_brim|default(2)|int} loop(s), the underside tubes open from layer 2 |   colors {sv.brick_colors|default(1)|int} x {sv.brick_mode|default('BY_LAYER')|string}: BY_LAYER = one plate per color / BY_OBJECT = one plate + M600 - the layout is always centered |   every part its own object (exclude + reprint a failed part) - max {bm.max_parts} parts per plate |   catalog: {bm.catalog|length} codes in 8 families - {bm.catalog|join(' ')}"
+  menus/lcd_menues.cfg:152:#  enabled so the names refresh LIVE while the menu is open (Klipper
+  menus/lcd_menues.cfg:586:# ---------------- R123: Z-Hop / PA / Retraction pulled ONE LEVEL UP ----------------
+  menus/lcd_menues.cfg:3100:# (field report: 'why is everything doubled? they change together - that
+  menus/lcd_menues.cfg:3418:    RESPOND MSG="Texture tilt { 'OFF' if on else 'ON' }: pattern's explicit tilt is {'disabled' if on else 'enabled'}"
+  menus/lcd_menues.cfg:3797:# then 151-650 4/5 = one continuous column, no doubled layers, no gaps)
+  menus/lcd_menues.cfg:4011:    RESPOND MSG="Scale rescales E per move: length x width of every road, layer height untouched - the flow %% stays 100 and stays right. The scaled file is centered on the bed, a 100%% baseline starts fresh"
+  menus/lcd_menues.cfg:8743:#  (same field report) - always enabled = live names. Press loads
+  menus/lcd_menues.cfg:9024:# ---------------- Nozzle LED (R46): own switch + live dimming + live color -----------
+  menus/lcd_menues.cfg:9237:#  are killed (same-name overrides) - they dead-clicked after a print.
+  menus/lcd_menues.cfg:9444:# visible fallback while the tree has not arrived yet (push failed during
+  menus/lcd_menues.cfg:10851:    RESPOND MSG="Litho Contour {menu.input|round|int}: { 'off - walls + fill (default)' if menu.input|round|int == 0 else 'LAST layer: no fill, only the top step contours (outer + holes)' if menu.input|round|int == 1 else 'RELIEF: step 0 = solid plane, darker steps = contour walls on it (topographic, holes contoured)' if menu.input|round|int == 2 else 'true contours as step walls (holes walled too), fill unchanged' } (FLAT only)"
+  menus/lcd_menues.cfg:10903:#  lightest color first; M600 at every band boundary - the nozzle LED BLINKS
+  menus/lcd_menues.cfg:11038:    RESPOND MSG="ColorPicture {menu.input|round|int} color band(s): lightest first, every band is a brightness step - M600 at every boundary (the nozzle LED blinks old->new while you swap)"
+  menus/lcd_menues.cfg:11210:    RESPOND MSG="How it works: ColorPicture: upload a .png/.jpg into the gcodes folder (drag+drop in Mainsail) - same image list as the lithophane, plotter uploads included | Slot press = Create. The picture prints FLAT as stacked color bands: lightest color first, every darker band prints only its region on top - no backlight needed | At every color change: M600 parks the head, M117 shows the color, the NOZZLE LED BLINKS from the old to the new color - load the filament, the purge strip cleans, resume | Settings: Colors = band count, BandH = band thickness, Band colors = per-band palette code (light -> dark) | Mainsail: GEN_COLORPIC SRC=photo.png WIDTH=120 BANDS=4 COLORS=WHT,GRY,BLK BANDH=0.8 - or COLORPIC_CREATE INDEX=0"
+  menus/lcd_menues.cfg:11949:    RESPOND MSG="How it works: Bricks: pick parts in Catalog (Count x code per pick, same codes merge, max 120 parts) - 76 codes in 8 families: bricks, plates, tiles, slopes, inverted slopes, arches, technic, round | Exact geometry: body n*8-0.2mm (they clamp to each other AND to originals), hollow studs, underside tubes at every inner crossing - layer 1 solid, tubes open from layer 2 | Brim 0-8 loops per part (Settings), colors 1-8: BY_LAYER = one plate per color, BY_OBJECT = one plate + M600 at the boundaries - the layout is always CENTERED on the bed | Every part is its own object - a failed brick can be excluded mid-print and reprinted later | Mainsail: GEN_BRICKS CODES=\"B2x4:3|P2x2:2\" MODE=BY_LAYER COLORS=3 BRIM=2 (sets everything + creates)"
+  menus/lcd_menues.cfg:12051:# ---- Figures (R126): stylized system figures, original size or % scaled.
+  menus/lcd_menues.cfg:12805:    RESPOND MSG="9x13 - ONE file up to border 10, then 2 plates (W/H filled in: 90x130, editable)"
+  menus/lcd_menues.cfg:12814:    RESPOND MSG="10x15 - usually 2 plates (A frame, B backplate) (W/H filled in: 102x152, editable)"
+  menus/lcd_menues.cfg:12823:    RESPOND MSG="13x18 - 2 plates - border 16+ = glue-kit strips (W/H filled in: 130x180, editable)"
+  menus/lcd_menues.cfg:12832:    RESPOND MSG="A6 - usually 2 plates (A frame, B backplate) (W/H filled in: 105x148, editable)"
+  menus/lcd_menues.cfg:16010:    RESPOND MSG=">>> X travelled. Measure the real distance (calipers) and pick step 3."
+  menus/lcd_menues.cfg:16039:    RESPOND MSG=">>> Y travelled. Measure the real distance (calipers) and pick step 3."
+  menus/lcd_menues.cfg:16068:    RESPOND MSG=">>> Z travelled. Measure the real distance (calipers) and pick step 3."
+  menus/lcd_menues.cfg:17373:name: Pulled -> verify
+  menus/lcd_menues.cfg:17490:[menu __main __maint __tests __led]
+  menus/lcd_menues.cfg:17492:name: LED demo
+  menus/lcd_menues.cfg:17493:gcode: TEST_LEDS
+  menus/lcd_menues.cfg:17660:[menu __main __system __leds]
+  menus/lcd_menues.cfg:17662:name: LEDs: {('ON' if printer['save_variables'].variables.leds_on|default(True) else 'OFF')}
+  menus/lcd_menues.cfg:17663:gcode: TOGGLE_LEDS
+  menus/lcd_menues.cfg:17688:    RESPOND MSG="What is inside: build stamps (macros + post-processor + klipper), host (free/df/load/ps/throttled/dmesg), the three services with their journals, the watcher's own state files, variables.cfg, the printer.cfg, a compact incident digest cut out of klippy.log (every shutdown and probe failure with the 25 s around it, the worst reactor stalls WITH their stacks, the MCU statistics), the last 3 MB of the raw log and the newest MCU snapshot from crash_archive."
+  menus/lcd_menues.cfg:17697:# R108: LED setup submenu - chain areas (status / bed light / nozzle), the
+  menus/lcd_menues.cfg:17699:[menu __main __system __ledcfg]
+  menus/lcd_menues.cfg:17701:name: LED Setup
+  menus/lcd_menues.cfg:17702:enable: {'neopixel ' in (printer.configfile.settings|list|join(' ')) or 'dotstar ' in (printer.configfile.settings|list|join(' '))}
+  menus/lcd_menues.cfg:17704:[menu __main __system __ledcfg __stat]
+  menus/lcd_menues.cfg:17706:name: LED info (console)
+  menus/lcd_menues.cfg:17707:gcode: LED_INFO
+  menus/lcd_menues.cfg:17709:[menu __main __system __ledcfg __on]
+  menus/lcd_menues.cfg:17711:name: All LEDs: {('ON' if printer['save_variables'].variables.leds_on|default(True) else 'OFF')}
+  menus/lcd_menues.cfg:17712:gcode: TOGGLE_LEDS
+  menus/lcd_menues.cfg:17714:[menu __main __system __ledcfg __stn]
+  menus/lcd_menues.cfg:17716:name: Status LEDs: {'%2d' % menu.input}
+  menus/lcd_menues.cfg:17717:input: {printer['gcode_macro _R2_CONFIG'].led_status_n|default(4)|int if 'gcode_macro _R2_CONFIG' in printer else 4}
+  menus/lcd_menues.cfg:17722:    SET_LED_LAYOUT STATUS={menu.input}
+  menus/lcd_menues.cfg:17724:[menu __main __system __ledcfg __bdn]
+  menus/lcd_menues.cfg:17726:name: Bed LEDs: {'%2d' % menu.input}
+  menus/lcd_menues.cfg:17727:input: {printer['gcode_macro _R2_CONFIG'].led_bed_n|default(0)|int if 'gcode_macro _R2_CONFIG' in printer else 0}
+  menus/lcd_menues.cfg:17732:    SET_LED_LAYOUT BED={menu.input}
+  menus/lcd_menues.cfg:17734:[menu __main __system __ledcfg __bedon]
+  menus/lcd_menues.cfg:17736:name: Bed light: {('ON' if printer['gcode_macro _R2_CONFIG'].led_bed_on|default(1)|int == 1 else 'OFF') if 'gcode_macro _R2_CONFIG' in printer else '-'}
+  menus/lcd_menues.cfg:17737:enable: {'gcode_macro _R2_CONFIG' in printer and printer['gcode_macro _R2_CONFIG'].led_bed_n|default(0)|int > 0}
+  menus/lcd_menues.cfg:17740:[menu __main __system __ledcfg __bedbr]
+  menus/lcd_menues.cfg:17743:input: {((printer['gcode_macro _R2_CONFIG'].led_bed_bright|default(0.4)|float) * 100)|round|int if 'gcode_macro _R2_CONFIG' in printer else 40}
+  menus/lcd_menues.cfg:17747:enable: {'gcode_macro _R2_CONFIG' in printer and printer['gcode_macro _R2_CONFIG'].led_bed_n|default(0)|int > 0}
+  menus/lcd_menues.cfg:17751:[menu __main __system __ledcfg __split]
+  menus/lcd_menues.cfg:17753:name: Nozzle: {'OWN CHAIN' if ((printer['gcode_macro _R2_CONFIG'].led_nozzle_split|default(printer['save_variables'].variables.nozzle_split|default(0))) if 'gcode_macro _R2_CONFIG' in printer else printer['save_variables'].variables.nozzle_split|default(0))|int == 1 else 'MAIN CHAIN'}
+  menus/lcd_menues.cfg:17754:enable: {'neopixel nozzle_led' in printer or 'dotstar nozzle_led' in printer}
+  menus/lcd_menues.cfg:17756:    {% set cur = (printer['gcode_macro _R2_CONFIG'].led_nozzle_split|default(printer['save_variables'].variables.nozzle_split|default(0)))|int if 'gcode_macro _R2_CONFIG' in printer else printer['save_variables'].variables.nozzle_split|default(0)|int %}
+  menus/lcd_menues.cfg:17759:# R224 (.136s field log): the nozzle LED lives HERE now (System >
+  menus/lcd_menues.cfg:17760:# LED Setup) - mode, live brightness and live color together with the
+  menus/lcd_menues.cfg:17761:# rest of the LED settings. AUTO = work light while printing | ON = always on, your color (tool light,
+  menus/lcd_menues.cfg:17762:# works even with the frame LEDs OFF) | OFF = never. Brightness/color apply LIVE.
+  menus/lcd_menues.cfg:17763:[menu __main __system __ledcfg __noz]
+  menus/lcd_menues.cfg:17765:name: Nozzle LED
+  menus/lcd_menues.cfg:17767:[menu __main __system __ledcfg __noz __auto]
+  menus/lcd_menues.cfg:17770:gcode: NOZZLE_LED MODE=auto
+  menus/lcd_menues.cfg:17772:[menu __main __system __ledcfg __noz __on]
+  menus/lcd_menues.cfg:17775:gcode: NOZZLE_LED MODE=on
+  menus/lcd_menues.cfg:17777:[menu __main __system __ledcfg __noz __off]
+  menus/lcd_menues.cfg:17780:gcode: NOZZLE_LED MODE=off
+  menus/lcd_menues.cfg:17782:[menu __main __system __ledcfg __noz __brt]
+  menus/lcd_menues.cfg:17790:    NOZZLE_LED BRIGHT={menu.input|round(2)}
+  menus/lcd_menues.cfg:17792:[menu __main __system __ledcfg __noz __r]
+  menus/lcd_menues.cfg:17800:    NOZZLE_LED R={menu.input|round(2)}
+  menus/lcd_menues.cfg:17802:[menu __main __system __ledcfg __noz __g]
+  menus/lcd_menues.cfg:17810:    NOZZLE_LED G={menu.input|round(2)}
+  menus/lcd_menues.cfg:17812:[menu __main __system __ledcfg __noz __b]
+  menus/lcd_menues.cfg:17820:    NOZZLE_LED B={menu.input|round(2)}
+  menus/lcd_menues.cfg:17822:[menu __main __system __ledcfg __noz __white]
+  menus/lcd_menues.cfg:17825:gcode: NOZZLE_LED R=1 G=1 B=1
+  menus/lcd_menues.cfg:17827:[menu __main __system __ledcfg __noz __warm]
+  menus/lcd_menues.cfg:17830:gcode: NOZZLE_LED R=1 G=0.85 B=0.6
+  menus/lcd_menues.cfg:17832:[menu __main __system __ledcfg __pinf]

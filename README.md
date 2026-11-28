@@ -1,9 +1,9 @@
 # Ender-3 "R2-D2" - complete Klipper macro system (ENGLISH)
 
 For your modded Ender-3 (linear rails, dual Z in parallel, SKR Mini E3 V3.0,
-5 neopixel LEDs, direct drive with BMG, BTT filament sensor, MicroProbe,
+direct drive with BMG, BTT filament sensor, MicroProbe,
 Creality 12864 LCD, Mainsail) - **with feedback about EVERYTHING**: R2-D2 beeper
-sounds + LED effects (klipper-led_effect) + LCD + Mainsail console at once.
+sounds + LCD + Mainsail console at once.
 
 > This is the ENGLISH rewrite: all macros, menus, messages and comments use
 > standard community naming. It replaces the earlier German version completely.
@@ -39,7 +39,7 @@ sounds + LED effects (klipper-led_effect) + LCD + Mainsail console at once.
 | **Manual PID tuning**: hotend (WITH part fan) + bed at any temperature, anytime - no material binding, no automatic tuning | LCD Maintenance > PID Tuning / `TUNE_PID` |
 | **Generators on the LCD**: Range, Labels, Plotter, Cable ties, Angles+Flat, Lithophanes, ColorPic, Gaskets, Frames, Bricks/Kits/Figures — and **String Art** (R178): a photo becomes strands woven over an anchor ring, SPIRAL needs no image | LCD "Tools" |
 | **Boot self-check**: console confirms `Macro system OK: all modules loaded`; a missing include OR an outdated file copy is reported loudly with the exact filename | `_CHECK_INSTALL` |
-| **R2-D2**: 19 sounds + 12 LED effects woven into every flow; LEDs capped at 50% brightness | automatic |
+| **R2-D2**: 19 sounds woven into every flow | automatic |
 
 ---
 
@@ -51,8 +51,7 @@ klipper-e3-r2d2/
 ├── macros/
 │   ├── 01_state.cfg            persistent + volatile state, defaults, STATE WATCHER
 │   ├── 02_sounds.cfg           M300 (official Klipper sample) + R2-D2 sound library
-│   ├── 03_leds.cfg             LED effects (led_effect) + SET_LED_STATE
-│   ├── 04_notify.cfg           NOTIFY = LCD+Mainsail+LED+sound / SHOW_STATUS
+│   ├── 04_notify.cfg           NOTIFY = LCD+Mainsail+sound / SHOW_STATUS
 │   ├── 05_materials.cfg        material presets + SET_MATERIAL
 │   ├── 06_temp_controls.cfg    M104/M109/M140/M190/M106/M204 interception + LAYER_MARK
 │   ├── 07_start_confirm.cfg    start dialog poller + override setters/toggles
@@ -78,7 +77,7 @@ klipper-e3-r2d2/
     ├── macro_render_test.py    30+ logic tests with a mocked printer
     ├── r164_serial_budget.py   MCU serial-budget audit: worst move rate of every
                                 file class vs the 450/s 'Timer too close' budget
-                                at 100/125/150% live speed + the LED diet guard
+                                at 100/125/150% live speed
     ├── r166_template_check.py  boot-blocker firewall: replays Klipper's EXACT
     │                           config pipeline (#-strip, configparser, single-
     │                           brace jinja compile) over every macro template
@@ -117,8 +116,6 @@ German version!).
 7. **KAMP**: support detects automatically what is installed (setup: INSTALL.md
    section 3b). Mesh results are additionally saved as material profiles - the
    material logic survives KAMP.
-8. **LEDs at max 50%**: all colors are capped at <= 0.5. Please keep new effects
-   that way, too (protects the board, as requested).
 9. **Comments & braces in macros** (important for your own edits!): Klipper cuts
    every line at the first `#` - comments always on their OWN line, never
    `{# ... #}` inline. Expressions use single braces `{...}` - `{{...}}` is
@@ -140,9 +137,9 @@ German version!).
 # Ender-3 "R2-D2" - complete Klipper macro system (ENGLISH)
 
 For your modded Ender-3 (linear rails, dual Z in parallel, SKR Mini E3 V3.0,
-5 neopixel LEDs, direct drive with BMG, BTT filament sensor, MicroProbe,
+direct drive with BMG, BTT filament sensor, MicroProbe,
 Creality 12864 LCD, Mainsail) - **with feedback about EVERYTHING**: R2-D2 beeper
-sounds + LED effects (klipper-led_effect) + LCD + Mainsail console at once.
+sounds + LCD + Mainsail console at once.
 
 > This is the ENGLISH rewrite: all macros, menus, messages and comments use
 > standard community naming. It replaces the earlier German version completely.
@@ -178,7 +175,7 @@ sounds + LED effects (klipper-led_effect) + LCD + Mainsail console at once.
 | **Manual PID tuning**: hotend (WITH part fan) + bed at any temperature, anytime - no material binding, no automatic tuning | LCD Maintenance > PID Tuning / `TUNE_PID` |
 | **Generators on the LCD**: Range, Labels, Plotter, Cable ties, Angles+Flat, Lithophanes, ColorPic, Gaskets, Frames, Bricks/Kits/Figures — and **String Art** (R178): a photo becomes strands woven over an anchor ring, SPIRAL needs no image | LCD "Tools" |
 | **Boot self-check**: console confirms `Macro system OK: all modules loaded`; a missing include OR an outdated file copy is reported loudly with the exact filename | `_CHECK_INSTALL` |
-| **R2-D2**: 19 sounds + 12 LED effects woven into every flow; LEDs capped at 50% brightness | automatic |
+| **R2-D2**: 19 sounds woven into every flow | automatic |
 
 ---
 
@@ -190,8 +187,7 @@ klipper-e3-r2d2/
 ├── macros/
 │   ├── 01_state.cfg            persistent + volatile state, defaults, STATE WATCHER
 │   ├── 02_sounds.cfg           M300 (official Klipper sample) + R2-D2 sound library
-│   ├── 03_leds.cfg             LED effects (led_effect) + SET_LED_STATE
-│   ├── 04_notify.cfg           NOTIFY = LCD+Mainsail+LED+sound / SHOW_STATUS
+│   ├── 04_notify.cfg           NOTIFY = LCD+Mainsail+sound / SHOW_STATUS
 │   ├── 05_materials.cfg        material presets + SET_MATERIAL
 │   ├── 06_temp_controls.cfg    M104/M109/M140/M190/M106/M204 interception + LAYER_MARK
 │   ├── 07_start_confirm.cfg    start dialog poller + override setters/toggles
@@ -217,7 +213,7 @@ klipper-e3-r2d2/
     ├── macro_render_test.py    30+ logic tests with a mocked printer
     ├── r164_serial_budget.py   MCU serial-budget audit: worst move rate of every
                                 file class vs the 450/s 'Timer too close' budget
-                                at 100/125/150% live speed + the LED diet guard
+                                at 100/125/150% live speed
     ├── r166_template_check.py  boot-blocker firewall: replays Klipper's EXACT
     │                           config pipeline (#-strip, configparser, single-
     │                           brace jinja compile) over every macro template
@@ -256,8 +252,6 @@ German version!).
 7. **KAMP**: support detects automatically what is installed (setup: INSTALL.md
    section 3b). Mesh results are additionally saved as material profiles - the
    material logic survives KAMP.
-8. **LEDs at max 50%**: all colors are capped at <= 0.5. Please keep new effects
-   that way, too (protects the board, as requested).
 9. **Comments & braces in macros** (important for your own edits!): Klipper cuts
    every line at the first `#` - comments always on their OWN line, never
    `{# ... #}` inline. Expressions use single braces `{...}` - `{{...}}` is

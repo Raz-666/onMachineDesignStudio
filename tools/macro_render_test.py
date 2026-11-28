@@ -61,7 +61,7 @@ class M(dict):
 
 # ---------- mocked printer ----------
 save_vars = {
-    'sound_on': True, 'leds_on': True, 'material': 'PETG', 'start_confirm': True,
+    'sound_on': True, 'material': 'PETG', 'start_confirm': True,
     'ov_bed_on': True, 'ov_bed': 70, 'ov_bed_after_on': False, 'ov_bed_after': 70,
     'ov_hotend_first_on': True, 'ov_hotend_first': 235, 'ov_hotend_after_on': True, 'ov_hotend_after': 240,
     'ov_retract_on': False, 'ov_retract_len': 1.0, 'ov_retract_speed': 35,
@@ -205,10 +205,6 @@ def build_printer(kamp=False, objs=None, excl=None, old_klipper=False, bare_idle
                                     'firmware_retraction': M({'retract_length':0.75,'retract_speed':35}),
                                     'tmc2209 stepper_z': M({'run_current':0.7}), 'probe': M({'x_offset':0.0,'y_offset':0.0})})}),
     'fan': M({'speed': 0.5}),
-    'led_effect r2_idle': M({}),           # R46: led_effect library installed
-    'neopixel printer_leds': M({}),        # R46: 5-pixel chain (index 5 = nozzle)
-    'neopixel nozzle_led': M({}),          # R86.2: split chain (EBB42) - gated by nozzle_split
-    'led_effect r2_nozzle_on_split': M({}),  # R86.2: split work-light effect
     'input_shaper': M({'shaper_type_x':'zv','shaper_freq_x':52.3,'shaper_type_y':'mzv','shaper_freq_y':41.7}),
     'filament_switch_sensor filament_sensor': M({'enabled':True,'filament_detected':True}),
     'gcode_macro _STATE': M(state_vars),
@@ -230,7 +226,7 @@ def build_printer(kamp=False, objs=None, excl=None, old_klipper=False, bare_idle
     # force_move has NO get_status -> NOT addressable via printer['force_move']!
     # Detection works via configfile.settings (it reads 'enable_force_move' there):
     d['configfile']['settings']['force_move'] = M({'enable_force_move': True})
-    for _m in ['M300','PLAY_SOUND','SET_LED_STATE','NOTIFY','SHOW_STATUS','SET_MATERIAL','LAYER_MARK','M104',
+    for _m in ['M300','PLAY_SOUND','NOTIFY','SHOW_STATUS','SET_MATERIAL','LAYER_MARK','M104',
                'SET_OVERRIDE_VALUE','PRINT_AS_SLICED','PRINT_START','PRINT_END','QUICK_PAUSE','CHANGE_FILAMENT',
                'APPLY_TYPE','SET_FLOW_RATE','SYNC_GANTRY','TUNE_PID','SELF_TEST','SYS_FIRMWARE_RESTART',
                'SKIP_OBJECT','SHOW_OBJECTS','_LEGACY_HOME','_LEGACY_DIALOG','_APPLY_OVERRIDES_CORE'] + ([] if drop14 else ['_CALIBRATE_MESH_PROFILE','_PURGE_SMART','KAMP_STATUS']):
@@ -814,7 +810,7 @@ state_vars['idle_timeout_saved'] = 3600.0
 
 body = get_body('macros/01_state.cfg', '_CHECK_INSTALL')
 out = render(body, {})
-tests.append(('CHECK_INSTALL all loaded', 'all 19 modules loaded and current' in out and 'MISSING' not in out, out[:160]))
+tests.append(('CHECK_INSTALL all loaded', 'all 18 modules loaded and current' in out and 'MISSING' not in out, out[:160]))
 out = render(body, {}, drop14=True)
 tests.append(('CHECK_INSTALL detects missing/outdated 14', '14_kamp.cfg' in out and 'MODULES MISSING OR OUTDATED' in out and 'sentinel' in out, out[:220]))
 
@@ -1116,7 +1112,7 @@ tests.append(('CANCEL full cleanup (R46)', '_PRINT_CLEANUP' in out and 'CANCEL_P
 state_vars['cancel_armed']=False
 body = get_body('macros/08_print_start_stop.cfg', 'PRINT_END')
 out = render(body, {})
-tests.append(('PRINT_END full cleanup (R46)', '_PRINT_CLEANUP' in out and '_LED_TO_IDLE' in out, out[:200]))
+tests.append(('PRINT_END full cleanup (R46)', '_PRINT_CLEANUP' in out, out[:200]))
 
 # ------- Runde 13: Runout-Flow (User-Sensor) ------------------------------------------------
 body = get_body('macros/09_pause_filament.cfg', '_FILAMENT_RUNOUT')
@@ -1997,70 +1993,6 @@ tests.append(('L1 brake OFF when APPLY=0', 'First layer speed' not in out, [l fo
 out = render(body, {'APPLY': '1'})
 tests.append(('L1 brake ON when APPLY=1', 'First layer speed' in out, [l for l in out.split('\n') if 'First layer' in l][:2]))
 
-# ======= R46: Nozzle LED + LED idle return + state cleanup ==================================
-
-# ------- _NOZZLE_SET: manual color math (power cap 0.5, brightness) -------------------------
-body = get_body('macros/03_leds.cfg', '_NOZZLE_SET')
-out = render(body, {'ON': '1'})
-tests.append(('NOZZLE_SET default warm white', 'RED=0.45' in out and 'GREEN=0.45' in out and 'BLUE=0.425' in out and 'INDEX=5' in out, out.strip()[:140]))
-save_vars['nozzle_bright']=0.4; save_vars['nozzle_r']=1.0; save_vars['nozzle_g']=1.0; save_vars['nozzle_b']=1.0
-out = render(body, {'ON': '1'})
-tests.append(('NOZZLE_SET dim 40% scales', 'RED=0.2 GREEN=0.2 BLUE=0.2' in out, out.strip()[:140]))
-save_vars['nozzle_bright']=1.0
-out = render(body, {'ON': '1'})
-tests.append(('NOZZLE_SET power cap 0.5', 'RED=0.5 GREEN=0.5 BLUE=0.5' in out, out.strip()[:140]))
-out = render(body, {'ON': '0'})
-tests.append(('NOZZLE_SET dark', 'RED=0 GREEN=0 BLUE=0' in out, out.strip()[:140]))
-save_vars['nozzle_r']=0.9; save_vars['nozzle_g']=0.9; save_vars['nozzle_b']=0.85
-
-# ------- SET_LED_STATE: nozzle modes --------------------------------------------------------
-body = get_body('macros/03_leds.cfg', 'SET_LED_STATE')
-out = render(body, {'STATE': 'idle'})
-tests.append(('LED_STATE idle+auto: nozzle dark', '_NOZZLE_SET ON=0' in out and 'r2_nozzle_on' not in out and 'EFFECT=r2_idle' in out, out[:200]))
-out = render(body, {'STATE': 'printing', 'FORCE': '1'})
-tests.append(('LED_STATE printing+auto: nozzle effect', 'EFFECT=r2_nozzle_on' in out and 'EFFECT=r2_printing' in out, out[:200]))
-save_vars['nozzle_mode']='on'
-out = render(body, {'STATE': 'idle'})
-tests.append(('LED_STATE idle+ON: manual color', '_NOZZLE_SET ON=1' in out and 'r2_nozzle_on' not in out, out[:200]))
-save_vars['nozzle_mode']='off'
-out = render(body, {'STATE': 'printing', 'FORCE': '1'})
-tests.append(('LED_STATE printing+OFF: never', '_NOZZLE_SET ON=0' in out and 'EFFECT=r2_nozzle_on' not in out, out[:200]))
-save_vars['leds_on']=False; save_vars['nozzle_mode']='on'
-out = render(body, {'STATE': 'idle'})
-tests.append(('LED_STATE master OFF + nozzle ON (tool light)', '_NOZZLE_SET ON=1' in out and 'STOP_LED_EFFECTS' not in out, out[:200]))
-save_vars['nozzle_mode']='auto'
-out = render(body, {'STATE': 'idle'})
-tests.append(('LED_STATE master OFF + auto: all dark', '_NOZZLE_SET ON=0' in out and 'STOP_LED_EFFECTS' not in out, out[:200]))
-save_vars['leds_on']=True; save_vars['nozzle_mode']='auto'
-
-# ------- NOZZLE_LED: the public switch ------------------------------------------------------
-body = get_body('macros/03_leds.cfg', 'NOZZLE_LED')
-out = render(body, {'MODE': 'on'})
-tests.append(('NOZZLE_LED MODE=on saves+applies', "VARIABLE=nozzle_mode VALUE='\"on\"'" in out and 'SET_LED_STATE STATE=printing' in out and '[OK] Nozzle LED: ON' in out, out[:220]))
-out = render(body, {'BRIGHT': '0.4'})
-tests.append(('NOZZLE_LED BRIGHT live', 'VARIABLE=nozzle_bright VALUE=0.4' in out and 'SET_LED_STATE STATE=printing' in out, out[:200]))
-out = render(body, {'R': '1', 'G': '0.5', 'B': '0.2'})
-tests.append(('NOZZLE_LED RGB live', 'VARIABLE=nozzle_r VALUE=1.0' in out and 'VARIABLE=nozzle_g VALUE=0.5' in out and 'VARIABLE=nozzle_b VALUE=0.2' in out, out[:200]))
-out = render(body, {'MODE': 'pink'})
-tests.append(('NOZZLE_LED bad MODE -> hint', '[!]' in out and 'SAVE_VARIABLE' not in out, out[:160]))
-out = render(body, {})
-tests.append(('NOZZLE_LED status report', 'Nozzle LED: AUTO' in out and 'bright 100%' in out, out[:220]))
-
-# ------- _LED_TO_IDLE: finished -> idle return (used to twinkle FOREVER) --------------------
-import re as _reL
-_txt3 = open('macros/03_leds.cfg').read()
-_mL = _reL.search(r'\[delayed_gcode _LED_TO_IDLE\]\ngcode:\n(.*?)(?=\n\[|\Z)', _txt3, _reL.S)
-ledidle = '\n'.join(l[4:] if l.startswith('    ') else l for l in _mL.group(1).split('\n'))
-state_vars['mode']='idle'; state_vars['last_led']='finished'
-out = render(ledidle, {})
-tests.append(('LED_TO_IDLE fires after finished', 'SET_LED_STATE STATE=idle' in out, out[:160]))
-state_vars['last_led']='printing'
-out = render(ledidle, {})
-tests.append(('LED_TO_IDLE skips other LED states', 'SET_LED_STATE' not in out, out[:160]))
-state_vars['mode']='printing'
-out = render(ledidle, {})
-tests.append(('LED_TO_IDLE skips while printing', 'SET_LED_STATE' not in out, out[:160]))
-
 # ------- _PRINT_CLEANUP: the one reset list -------------------------------------------------
 body = get_body('macros/09_pause_filament.cfg', '_PRINT_CLEANUP')
 out = render(body, {})
@@ -2069,7 +2001,7 @@ tests.append(('PRINT_CLEANUP keeps settings+mesh', 'ov_bed' not in out and 'mesh
 
 # ------- _END_FAN_OFF: guard against the NEXT print -----------------------------------------
 _txt8 = open('macros/08_print_start_stop.cfg').read()
-_mE = _reL.search(r'\[delayed_gcode _END_FAN_OFF\]\ngcode:\n(.*?)(?=\n\[|\Z)', _txt8, _reL.S)
+_mE = _re.search(r'\[delayed_gcode _END_FAN_OFF\]\ngcode:\n(.*?)(?=\n\[|\Z)', _txt8, _re.S)
 fanoff = '\n'.join(l[4:] if l.startswith('    ') else l for l in _mE.group(1).split('\n'))
 state_vars['mode']='idle'
 out = render(fanoff, {})
@@ -2080,7 +2012,7 @@ tests.append(('END_FAN_OFF guarded during new print', 'M99106' not in out, out[:
 
 # ------- watcher: cancel expiry ALSO while paused + legacy end cleanup ----------------------
 _txt1 = open('macros/01_state.cfg').read()
-_mW2 = _reL.search(r'\[delayed_gcode _STATE_WATCHER\]\ninitial_duration: 8\ngcode:\n(.*?)(?=\n\[|\Z)', _txt1, _reL.S)
+_mW2 = _re.search(r'\[delayed_gcode _STATE_WATCHER\]\ninitial_duration: 8\ngcode:\n(.*?)(?=\n\[|\Z)', _txt1, _re.S)
 watcher2 = '\n'.join(l[4:] if l.startswith('    ') else l for l in _mW2.group(1).split('\n'))
 state_vars['mode']='paused'; state_vars['cancel_armed']=True; state_vars['cancel_time']=0
 out = render(watcher2, {}, ps_state='paused')
@@ -2088,33 +2020,15 @@ tests.append(('WATCHER cancel expiry while paused (R46)', 'cancel_armed VALUE=Fa
 state_vars['cancel_armed']=False; state_vars['cancel_time']=0
 state_vars['mode']='printing'
 out = render(watcher2, {}, ps_state='complete')
-tests.append(('WATCHER legacy end: LED timer + cleanup', '_LED_TO_IDLE DURATION=10' in out and '_PRINT_CLEANUP' in out, [l for l in out.split('\n') if 'LED_TO_IDLE' in l or 'CLEANUP' in l][:2]))
+tests.append(('WATCHER legacy end: cleanup runs (LED timer removed with LEDs)', '_PRINT_CLEANUP' in out, [l for l in out.split('\n') if 'CLEANUP' in l][:2]))
 
 # ------- defaults hydration + status line ---------------------------------------------------
 body = get_body('macros/01_state.cfg', '_INIT_DEFAULTS')
 render(body, {})
-tests.append(('INIT hydrates nozzle defaults', 'VARIABLE=nozzle_mode' in body and 'VARIABLE=nozzle_bright' in body and 'VARIABLE=nozzle_r' in body and 'VARIABLE=led_finish_time' in body, [l for l in body.split('\n') if 'nozzle' in l.lower() or 'led_finish' in l.lower()][:4]))
+tests.append(('INIT hydrates nozzle defaults', 'VARIABLE=nozzle_mode' in body and 'VARIABLE=nozzle_bright' in body and 'VARIABLE=nozzle_r' in body, [l for l in body.split('\n') if 'nozzle' in l.lower()][:4]))
 body = get_body('macros/04_notify.cfg', 'SHOW_STATUS')
 out = render(body, {})
-tests.append(('SHOW_STATUS nozzle LED line', 'Nozzle LED: AUTO' in out and 'bright 100%' in out, [l for l in out.split('\n') if 'Nozzle LED' in l][:1]))
-
-# ------- R46 extras: boot re-light + master-toggle hint --------------------------------------
-import re as _reB
-_mB = _reB.search(r'\[delayed_gcode _INIT_AFTER_BOOT\]\ninitial_duration: 5\ngcode:\n(.*?)(?=\n\[|\Z)', open('macros/01_state.cfg').read(), _reB.S)
-bootinit = '\n'.join(l[4:] if l.startswith('    ') else l for l in _mB.group(1).split('\n'))
-save_vars['nozzle_mode']='on'
-out = render(bootinit, {})
-tests.append(('BOOT re-lights nozzle when ON', '_NOZZLE_SET ON=1' in out, out[:160]))
-save_vars['nozzle_mode']='auto'
-out = render(bootinit, {})
-tests.append(('BOOT leaves nozzle off in AUTO', '_NOZZLE_SET' not in out, out[:160]))
-body = get_body('macros/03_leds.cfg', 'TOGGLE_LEDS')
-save_vars['nozzle_mode']='on'
-out = render(body, {})
-tests.append(('TOGGLE_LEDS off hints at nozzle light', 'STOP_LED_EFFECTS' in out and 'nozzle work light stays' in out, out[:200]))
-save_vars['nozzle_mode']='auto'
-out = render(body, {})
-tests.append(('TOGGLE_LEDS off: no hint in AUTO', 'nozzle work light' not in out, out[:160]))
+tests.append(('SHOW_STATUS renders (nozzle LED line removed with LEDs)', out.count('RESPOND') > 0, out[:120]))
 
 # ======= R47: legacy start-dialog chain (the .30 field regression) ==========================
 
@@ -2194,7 +2108,7 @@ state_vars['file_type']='marked'; state_vars['mode']='printing'
 
 # ------- watchdog re-arms the state watcher -------------------------------------------------
 _txtWd = open('macros/01_state.cfg').read()
-_mWd = _reL.search(r'\[delayed_gcode _WATCHDOG\]\ninitial_duration: 30\ngcode:\n(.*?)(?=\n\[|\Z)', _txtWd, _reL.S)
+_mWd = _re.search(r'\[delayed_gcode _WATCHDOG\]\ninitial_duration: 30\ngcode:\n(.*?)(?=\n\[|\Z)', _txtWd, _re.S)
 assert _mWd, 'watchdog not found'
 wdg = '\n'.join(l[4:] if l.startswith('    ') else l for l in _mWd.group(1).split('\n'))
 out = render(wdg, {})
@@ -2314,7 +2228,7 @@ save_vars['start_decision']=''
 
 # the net probe (movement-file detection)
 _txtC = open('macros/08_print_start_stop.cfg').read()
-_mN = _reL.search(r'\[delayed_gcode _START_NET_PROBE\]\ngcode:\n(.*?)(?=\n\[|\n# ==|\Z)', _txtC, _reL.S)
+_mN = _re.search(r'\[delayed_gcode _START_NET_PROBE\]\ngcode:\n(.*?)(?=\n\[|\n# ==|\Z)', _txtC, _re.S)
 assert _mN, 'net probe not found'
 body = '\n'.join(l[4:] if l.startswith('    ') else l for l in _mN.group(1).split('\n'))
 state_vars['mode']='printing'; state_vars['file_type']='unknown'
@@ -3768,12 +3682,11 @@ state_vars['mode'] = 'idle'
 out = render(_sc, {}, ps_state='idle')
 tests.append(('R63 SYS_SAVE_CONFIG: first press reports the pending state',
     'Nothing pending' in out and 'save instantly' in out
-    and 'G4 P1500' not in out and 'STOP_LED_EFFECTS' not in out, out[:140]))
+    and 'G4 P1500' not in out, out[:140]))
 out = render(_sc, {'CONFIRM': 1}, ps_state='idle', scp=False)
 tests.append(('R63/R83 SYS_SAVE_CONFIG: nothing pending + CONFIRM -> restart anyway',
     'Restarting Klipper now' in out and 'FIRMWARE_RESTART' in out
-    and 'SAVE_CONFIG\n' not in out and 'G4 P800' in out
-    and 'STOP_LED_EFFECTS' in out, out[:160]))
+    and 'SAVE_CONFIG\n' not in out and 'G4 P800' in out, out[:160]))
 out = render(_sc, {'CONFIRM': 1}, ps_state='idle', scp=True)
 tests.append(('R63 SYS_SAVE_CONFIG: pending + CONFIRM -> SAVE_CONFIG with warning first',
     'DO NOT power off' in out and out.index('DO NOT power off') < out.index('SAVE_CONFIG')
@@ -7184,39 +7097,12 @@ _o862h, _i862h = _pp.make_angles(count=1, width=8, layers=4, holes=0, walls=6,
 tests.append(('R86.2 angles: walls auto-reduce on a narrow leg (+note)',
     any('walls do not fit' in str(x) for x in _i862h['notes']), str(_i862h['notes'])[:120]))
 
-# --- (6) nozzle LED split (03_leds.cfg) ---
-_led862 = open('macros/03_leds.cfg', encoding='utf-8').read()
-tests.append(('R86.2 leds: split effect shipped (commented) + header doc',
-    '#[led_effect r2_nozzle_on_split]' in _led862 and 'SET_NOZZLE_SPLIT' in _led862
-    and 'max ~15' in _led862 or 'Max LEDs' in _led862 or 'EBB42' in _led862, ''))
-save_vars['nozzle_split'] = 1
-out = render(get_body('macros/03_leds.cfg', '_NOZZLE_SET'), {'ON': '1'})
-tests.append(('R86.2 _NOZZLE_SET split=1 -> writes the EBB chain (no INDEX=5)',
-    'SET_LED LED=nozzle_led RED=' in out and 'INDEX=5' not in out, out[:120]))
-save_vars['nozzle_split'] = 0
-out = render(get_body('macros/03_leds.cfg', '_NOZZLE_SET'), {'ON': '1'})
-tests.append(('R86.2 _NOZZLE_SET split=0 -> unchanged LED 5 path',
-    'SET_LED LED=printer_leds INDEX=5' in out, out[:120]))
-save_vars['nozzle_split'] = 1
-out = render(get_body('macros/03_leds.cfg', 'SET_LED_STATE'),
-             {'STATE': 'printing', 'FORCE': '1'})
-tests.append(('R86.2 SET_LED_STATE split: work light via _split effect',
-    'EFFECT=r2_nozzle_on_split' in out, out[:160]))
-out = render(get_body('macros/03_leds.cfg', 'SET_NOZZLE_SPLIT'), {'STATE': '1'})
-tests.append(('R86.2 SET_NOZZLE_SPLIT STATE=1 persisted',
-    'SAVE_VARIABLE VARIABLE=nozzle_split VALUE=1' in out and 'own chain' in out, out[:140]))
-out = render(get_body('macros/03_leds.cfg', 'SET_NOZZLE_SPLIT'), {'STATE': '7'})
-tests.append(('R86.2 SET_NOZZLE_SPLIT bad value -> usage hint',
-    'SET_NOZZLE_SPLIT STATE=1' in out and 'SAVE_VARIABLE' not in out, out[:140]))
-save_vars['nozzle_split'] = 0
-
 # --- (7) printer.cfg.example electronics template ---
 _pc862 = open('printer.cfg.example', encoding='utf-8').read()
 tests.append(('R86.2 example cfg: EBB/U2C/relay/nozzle-LED templates present',
     all(k in _pc862 for k in ['#[mcu EBB]', 'canbus_uuid:', 'EBB:PD0', 'EBB:PB13',
         'EBB:PA0', 'EBB:PA1', 'EBB:PB8', 'EBB:PD3', '#[output_pin power_hold]',
-        'PRINTER_POWER_OFF', 'shutdown_value: 0', 'bitrate 1000000',
-        'SET_NOZZLE_SPLIT STATE=1']), 'ids'))
+        'PRINTER_POWER_OFF', 'shutdown_value: 0', 'bitrate 1000000']), 'ids'))
 
 
 # ---------- R87: Generators container menu (LCD declutter, user field request .70) ----------
@@ -10131,9 +10017,7 @@ def _min_printer106():
     _p = build_printer(ps_state='idle')
     _d = dict(_p)
     for _k in ('input_shaper', 'bed_mesh', 'exclude_object',
-               'filament_switch_sensor filament_sensor',
-               'led_effect r2_idle', 'neopixel printer_leds',
-               'neopixel nozzle_led', 'led_effect r2_nozzle_on_split'):
+               'filament_switch_sensor filament_sensor'):
         _d.pop(_k, None)
     _cfg = dict(_d['configfile'])
     _st = dict(_cfg['settings'])
@@ -10245,27 +10129,7 @@ state_vars['mode'] = 'printing'
 import re as _re106c, glob as _glob106c
 _expr106 = _re106c.compile(r'\{([^{}%]+)\}')
 _menu_ctx106 = {'menu': _MM106({'input': 100.0, 'exit': _menu_noop188, 'back': _menu_noop188})}
-def _ledp108(split=0, persist=True, **over):
-    # R108: printer with a hardware profile (r2_hardware.cfg included) -
-    # LED areas 3 status + 4 bed light + nozzle, optional EBB split chain
-    _p = dict(build_printer(ps_state='idle'))
-    _cfg = dict(_p['configfile'])
-    _st = dict(_cfg['settings'])
-    _st['neopixel printer_leds'] = M({'pin': 'PA8', 'chain_count': '8'})
-    if persist:
-        _st['gcode_shell_command R2_PERSIST'] = M({'command': 'bash r2_persist.sh'})
-    _cfg['settings'] = M(_st)
-    _p['configfile'] = M(_cfg)
-    _led = {'led_type': 'neopixel', 'led_section': 'printer_leds',
-            'led_status_n': 3, 'led_bed_n': 4, 'led_bed_on': 1,
-            'led_bed_bright': 0.4, 'led_nozzle_split': split,
-            'led_nozzle_section': 'nozzle_led'}
-    _led.update(over)
-    _p['gcode_macro _R2_CONFIG'] = M(_led)
-    return M(_p)
-
-_prns106 = [('reference', build_printer()), ('minimal', _min_printer106()),
-            ('ledprofile', _ledp108())]
+_prns106 = [('reference', build_printer()), ('minimal', _min_printer106())]
 _fails106 = []
 _n106e = 0
 _lcd106x = open('menus/lcd_menues.cfg', encoding='utf-8').read()
@@ -10321,90 +10185,6 @@ tests.append(('R106 COMPAT SWEEP: %d menu exprs + %d macro bodies render on refe
               % (_n106e, _n106m),
     not _fails106, _fails106[:4]))
 
-# ============== R108: LED areas (hardware profile) ==============
-_nz108 = get_body('macros/03_leds.cfg', '_NOZZLE_SET')
-_bl108 = get_body('macros/03_leds.cfg', '_BEDLIGHT_SET')
-tests.append(('R108 LED: _NOZZLE_SET index follows the layout (3+4 -> INDEX=8)',
-    'INDEX=8' in render(_nz108, {'ON': 1}, {'printer': MP(_ledp108())}), ''))
-tests.append(('R108 LED: _NOZZLE_SET stays INDEX=5 without a profile (compat)',
-    'INDEX=5' in render(_nz108, {'ON': 1},
-                        {'printer': MP(build_printer(ps_state='idle'))}), ''))
-tests.append(('R108 LED: _BEDLIGHT_SET lights LED 4-7 white at 0.4 (power cap)',
-    'INDEX=4' in render(_bl108, {'ON': 1}, {'printer': MP(_ledp108())})
-    and 'INDEX=7' in render(_bl108, {'ON': 1}, {'printer': MP(_ledp108())})
-    and 'RED=0.4' in render(_bl108, {'ON': 1}, {'printer': MP(_ledp108())}), ''))
-tests.append(('R108 LED: _BEDLIGHT_SET BRIGHT clamps at the 0.5 power cap',
-    'RED=0.5' in render(_bl108, {'ON': 1, 'BRIGHT': '0.9'},
-                        {'printer': MP(_ledp108())}), ''))
-tests.append(('R108 LED: _BEDLIGHT_SET OFF darkens every bed LED',
-    render(_bl108, {'ON': 0}, {'printer': MP(_ledp108())}).count('RED=0 GREEN=0 BLUE=0') == 4
-    and 'RED=0.4' not in render(_bl108, {'ON': 0}, {'printer': MP(_ledp108())}), ''))
-_sls108 = get_body('macros/03_leds.cfg', 'SET_LED_STATE')
-tests.append(('R108 LED: SET_LED_STATE re-applies the bed light after effects',
-    'EFFECT=r2_idle' in render(_sls108, {}, {'printer': MP(_ledp108())})
-    and '_BEDLIGHT_SET ON=1' in render(_sls108, {}, {'printer': MP(_ledp108())}), ''))
-tests.append(('R108 LED: SET_LED_STATE keeps bn=0 installs unchanged (compat)',
-    '_BEDLIGHT_SET' not in render(_sls108, {},
-                                  {'printer': MP(build_printer(ps_state='idle'))}), ''))
-_sbl108 = get_body('macros/03_leds.cfg', 'SET_BED_LIGHT')
-_out108 = render(_sbl108, {'TOGGLE': '1'}, {'printer': MP(_ledp108())})
-tests.append(('R108 LED: SET_BED_LIGHT TOGGLE flips + persists into the profile',
-    'VARIABLE=led_bed_on VALUE=0' in _out108
-    and 'PARAMS="led_bed_on 0"' in _out108 and '_BEDLIGHT_SET ON=0' in _out108, _out108[:150]))
-_out108 = render(_sbl108, {'BRIGHT': '0.25'}, {'printer': MP(_ledp108())})
-tests.append(('R108 LED: SET_BED_LIGHT BRIGHT persists (0-0.5)',
-    'VARIABLE=led_bed_bright VALUE=0.25' in _out108
-    and 'PARAMS="led_bed_bright 0.25"' in _out108, _out108[:150]))
-_sll108 = get_body('macros/03_leds.cfg', 'SET_LED_LAYOUT')
-_out108 = render(_sll108, {'STATUS': '3', 'BED': '4'}, {'printer': MP(_ledp108())})
-tests.append(('R108 LED: SET_LED_LAYOUT 3+4 on an 8-LED chain (no clamp)',
-    'VARIABLE=led_status_n VALUE=3' in _out108 and 'VARIABLE=led_bed_n VALUE=4' in _out108
-    and 'PARAMS="led_status_n 3"' in _out108 and 'PARAMS="led_bed_n 4"' in _out108
-    and 'clamped' not in _out108, _out108[:150]))
-_out108 = render(_sll108, {'STATUS': '10'}, {'printer': MP(_ledp108())})
-tests.append(('R108 LED: SET_LED_LAYOUT hard-clamps to the chain (rule nn)',
-    'VARIABLE=led_status_n VALUE=7' in _out108 and 'clamped' in _out108, _out108[:150]))
-tests.append(('R108 LED: SET_LED_LAYOUT without a profile -> clear refusal',
-    'hardware profile' in render(_sll108, {},
-                                 {'printer': MP(build_printer(ps_state='idle'))}), ''))
-_li108 = get_body('macros/03_leds.cfg', 'LED_INFO')
-_out108 = render(_li108, {}, {'printer': MP(_ledp108())})
-tests.append(('R108 LED: LED_INFO lists pin, chain, areas, switches',
-    'pin PA8' in _out108 and '8 LEDs' in _out108 and '1-3 status' in _out108
-    and '4-7 bed light (on, bright 0.4)' in _out108 and 'nozzle LED 8' in _out108
-    and 'master on' in _out108, _out108[:200]))
-tests.append(('R108 LED: LED_INFO without any LED section -> friendly',
-    'no [neopixel printer_leds] section' in render(_li108, {},
-        {'printer': MP(build_printer(ps_state='idle'))}), ''))
-_sns108 = get_body('macros/03_leds.cfg', 'SET_NOZZLE_SPLIT')
-_out108 = render(_sns108, {'STATE': '1'}, {'printer': MP(_ledp108())})
-tests.append(('R108 LED: SET_NOZZLE_SPLIT persists into profile AND variables',
-    'VARIABLE=nozzle_split VALUE=1' in _out108
-    and 'VARIABLE=led_nozzle_split VALUE=1' in _out108
-    and 'PARAMS="led_nozzle_split 1"' in _out108, _out108[:150]))
-_hw108 = get_body('macros/13_system.cfg', 'HW_INFO')
-_out108 = render(_hw108, {}, {'printer': MP(_ledp108())})
-tests.append(('R108 hw: HW_INFO reports profile + persister',
-    'bed X 0.0 .. 220.0' in _out108 and 'probe offset' in _out108
-    and 'R2_PERSIST available' in _out108 and 'LEDs: [neopixel printer_leds]' in _out108, _out108[:200]))
-_out108 = render(_hw108, {}, {'printer': MP(build_printer(ps_state='idle'))})
-tests.append(('R108 hw: HW_INFO without a profile -> wizard hint',
-    'no [gcode_macro _R2_CONFIG]' in _out108, ''))
-_lcd108 = open('menus/lcd_menues.cfg', encoding='utf-8').read()
-tests.append(('R108 LCD: System > LED Setup submenu complete + guarded',
-    'menu __main __system __ledcfg]' in _lcd108
-    and 'LED Setup' in _lcd108 and 'SET_LED_LAYOUT STATUS={menu.input}' in _lcd108
-    and 'SET_LED_LAYOUT BED={menu.input}' in _lcd108
-    and 'SET_BED_LIGHT TOGGLE=1' in _lcd108 and 'LED_INFO' in _lcd108
-    and "'neopixel ' in (printer.configfile.settings|list|join(' '))" in _lcd108
-    and "'gcode_macro _R2_CONFIG' in printer and printer['gcode_macro _R2_CONFIG'].led_bed_n" in _lcd108, ''))
-tests.append(('R108 files: wizard library + persister + backup shipped',
-    all(__import__('os').path.exists(f) for f in
-        ('tools/r2_setup_lib.sh', 'tools/r2_persist.sh'))
-    and 'r2_backup_candidates' in open('tools/r2_setup_lib.sh', encoding='utf-8').read()
-    and 'cmp -s' in open('tools/r2_setup_lib.sh', encoding='utf-8').read()
-    and 'r2_backup_candidates' in open('update.sh', encoding='utf-8').read()
-    and 'r2_backup_candidates' in open('setup.sh', encoding='utf-8').read(), ''))
 tests.append(('R108 watcher: _bed_limits reads r2_hardware.cfg too',
     'r2_hardware.cfg' in open('tools/r2_postproc.py', encoding='utf-8').read(), ''))
 
@@ -11548,18 +11328,6 @@ tests.append(('R112 LCD: the Ret: status line names all four verdicts + fallback
     all(k in _lcd112 for k in ("'FIX!'", "'can '", "'fixed'", "'fw'", "'--'")),
     ''))
 
-# --- 6) LED_INFO: empty bed-light span reads as none, not 5-4 ---
-body = get_body('macros/03_leds.cfg', 'LED_INFO')
-_gd112 = dict(build_printer())
-_gd112['gcode_macro _R2_CONFIG'] = M({'led_section': 'printer_leds', 'led_type': 'neopixel',
-                                       'led_status_n': 4, 'led_bed_n': 0, 'led_bed_on': 1,
-                                       'led_bed_bright': 0.4, 'led_nozzle_split': 0})
-_gd112['configfile'] = M({'settings': M({'neopixel printer_leds': M({'pin': 'PA8', 'chain_count': 5})})})
-out = env.from_string(body).render(printer=MP(_gd112), params={})
-tests.append(('R112 LED_INFO: bn=0 -> no bed light LEDs (main chain), not 5-4',
-    'no bed light LEDs on the main chain' in out and '5-4' not in out,
-    [l for l in out.split('\n') if 'areas' in l][:1]))
-
 # --- 7) FILE_CHECK console summary names STALE ---
 import re as _re112b
 _ppsrc112 = open('tools/r2_postproc.py').read()
@@ -12065,10 +11833,6 @@ tests.append(('R120 modules: 18_colorpic.cfg sentinel + _CHECK_INSTALL + include
     and 'macros/18_colorpic.cfg' in open('printer.cfg.example').read()
     and '{% while %}' not in _cp120txt, ''))
 
-tests.append(('R120 pause compat: 3x guarded SET_LED_STATE STATE=filament (blink owns the nozzle)',
-    open('macros/09_pause_filament.cfg', encoding='utf-8').read().count(
-        "printer['gcode_macro _COLORPIC_STATE'].blink|default(0)|int == 1") == 3, ''))
-
 # --- generator: synthetic gradient image ---
 _d120 = _tf61.mkdtemp(prefix='r120_')
 def _png120(path, w=64, h=96):
@@ -12136,18 +11900,12 @@ def _body120(name):
             lines.append(z[4:] if z.startswith('    ') else z)
     return klipper_strip('\n'.join(lines))
 
-out = render(_body120('_COLORPIC_LED_APPLY'), {'R': '0.2', 'G': '0.9', 'B': '1.0'})
-tests.append(('R120 _COLORPIC_LED_APPLY: SET_LED with brightness cap (leds_on)',
-    'SET_LED' in out and 'RED=0.1' in out and 'BLUE=0.5' in out, out[:120]))
-
 out = render(_body120('_COLORPIC_SWAP'),
              {'IDX': '2', 'TOTAL': '4', 'NAME': 'Cyan', 'R': '0.1', 'G': '0.85',
               'B': '0.9', 'PREV_R': '1', 'PREV_G': '1', 'PREV_B': '1'})
-tests.append(('R120 _COLORPIC_SWAP: 10 state vars + M117 + notify + LED + blink armed',
-    out.count('SET_GCODE_VARIABLE MACRO=_COLORPIC_STATE') == 11
-    and 'M117 Color 2/4: Cyan' in out and 'NOTIFY' in out
-    and '_COLORPIC_LED_APPLY R=0.1 G=0.85 B=0.9' in out
-    and 'UPDATE_DELAYED_GCODE ID=_COLORPIC_BLINK DURATION=0.9' in out, out[:150]))
+tests.append(('R120 _COLORPIC_SWAP: state vars + M117 + notify',
+    out.count('SET_GCODE_VARIABLE MACRO=_COLORPIC_STATE') >= 9
+    and 'M117 Color 2/4: Cyan' in out and 'NOTIFY' in out, out[:150]))
 
 def _dbody120(name):
     m = _re120.search(r'\[delayed_gcode ' + _re120.escape(name) + r'\]\n(.*?)(?=\n\[|\Z)',
@@ -12155,31 +11913,8 @@ def _dbody120(name):
     return klipper_strip('\n'.join(l[4:] if l.startswith('    ') else l
                                     for l in m.group(1).split('\n')[1:]))
 
-# blink phase 0 -> prev color, phase flips
-state_vars['mode'] = 'filament'
-cpic_state_vars.update(blink=1, phase=0, pr=1.0, pg=1.0, pb=1.0,
-                       nr=0.1, ng=0.85, nb=0.9, cidx=2, ctotal=4, cname='Cyan')
-out = render(_dbody120('_COLORPIC_BLINK'))
-tests.append(('R120 _COLORPIC_BLINK: phase 0 shows PREV color + re-arms',
-    '_COLORPIC_LED_APPLY R=1.0 G=1.0 B=1.0' in out
-    and 'VARIABLE=phase VALUE=1' in out and 'DURATION=0.9' in out, out[:130]))
-# blink phase 1 -> next color + LCD re-assert
-state_vars['mode'] = 'filament'
-cpic_state_vars.update(blink=1, phase=1)
-out = render(_dbody120('_COLORPIC_BLINK'))
-tests.append(('R120 _COLORPIC_BLINK: phase 1 shows NEW color + M117 name + re-arms',
-    '_COLORPIC_LED_APPLY R=0.1 G=0.85 B=0.9' in out
-    and 'M117 Color 2/4: Cyan' in out and 'VARIABLE=phase VALUE=0' in out, out[:130]))
-# blink off (printing again) -> stop, no LED fight
-state_vars['mode'] = 'printing'
-cpic_state_vars.update(blink=1, phase=0)
-out = render(_dbody120('_COLORPIC_BLINK'))
-tests.append(('R120 _COLORPIC_BLINK: print resumed -> blink stops by itself',
-    'VARIABLE=blink VALUE=0' in out and 'UPDATE_DELAYED_GCODE' not in out, out[:110]))
-
 out = render(_body120('_COLORPIC_DONE'), {'R': '0.1', 'G': '0.85', 'B': '0.9'})
-tests.append(('R120 _COLORPIC_DONE: blink off + steady new color',
-    'VARIABLE=blink VALUE=0' in out and '_COLORPIC_LED_APPLY R=0.1 G=0.85 B=0.9' in out, ''))
+tests.append(('R120 _COLORPIC_DONE: renders as a harmless no-op (blink removed)', out.strip() == '' or 'VARIABLE=blink' in out, out[:80]))
 
 # COLORPIC_SET_COLOR: band 3 of empty list -> GRY,GRY,col | bad color | bad band
 save_vars['colorpic_colors'] = ''
@@ -15761,7 +15496,6 @@ _w160b = open('macros/01_state.cfg', encoding='utf-8').read()
 _watcher_body160b = _w160b.split('[delayed_gcode _STATE_WATCHER]')[1]
 _s160b = open('macros/02_sounds.cfg', encoding='utf-8').read()
 _e160b = open('macros/08_print_start_stop.cfg', encoding='utf-8').read()
-_l160b = open('macros/03_leds.cfg', encoding='utf-8').read()
 
 # (1) stuck 'starting' heals (a failed homing used to block EVERYTHING)
 _p160b = build_printer()
@@ -15774,7 +15508,7 @@ out = render(_watcher_body160b, {}, extra={'printer': _p160b})
 tests.append(('R160b watcher heals a stuck start: PRINT_START died (homing '
     'error) -> mode starting + standby for 3+ min = back to idle, LED idle, '
     'a notice sound - generators and sounds unblocked',
-    "VARIABLE=mode VALUE='\"idle\"'" in out and 'SET_LED_STATE STATE=idle' in out
+    "VARIABLE=mode VALUE='\"idle\"'" in out
     and 'PLAY_SOUND NAME=r2_notice' in out
     and 'never reached the print' in out, out[:130]))
 
@@ -15820,12 +15554,6 @@ tests.append(('R160b job start chirp: _PLAY_JOB_START plays r2_gen (queued '
     '[gcode_macro _PLAY_JOB_START]' in _s160b
     and 'NAME=r2_gen' in _s160b.split('[gcode_macro _PLAY_JOB_START]')[1]
     .split('\n[gcode_macro')[0], ''))
-
-# (6) _LED_TO_IDLE accepts finished (the endless twinkle)
-_ledblk160b = _l160b.split('[delayed_gcode _LED_TO_IDLE]')[1]
-tests.append(('R160b _LED_TO_IDLE: also returns from a stuck finished mode '
-    '(PRINT_END aborted mid-flow -> the celebration used to run FOREVER)',
-    "in ('idle', 'finished')" in _ledblk160b, ''))
 
 # (7) PRINT_END: cleanup BEFORE the moves + homing guard
 _end160b = get_body('macros/08_print_start_stop.cfg', 'PRINT_END')
@@ -15924,19 +15652,6 @@ tests.append(('R164 serial-budget audit tool exists: worst move rate per '
     '-> R166 breathing, rate-guarded)',
     'BUDGET = 450.0' in _r164src and 'pr_fr <= 5' in _r164src
     and 'worst_window_rate' in _r164src, ''))
-
-tests.append(('R163/R166 LED serial diet: the printing state BREATHES '
-    'slowly at <= 5 fps (~5 msg/s = ~1% of the 450/s serial budget - the '
-    '.122 field log shutdown was the old 24 fps flood, 75/100 queued '
-    'messages LED frames; static was the .123 emergency fix, R166 brings '
-    'motion back INSIDE the budget) + every other effect at 12 fps',
-    (lambda _l: ('[led_effect r2_printing]' in _l
-                 and 'breathing ' in _l.split('[led_effect r2_printing]')[1]
-                 and int(__import__('re').search(
-                     r'frame_rate:\s*(\d+)',
-                     _l.split('[led_effect r2_printing]')[1]).group(1)) <= 5
-                 and 'frame_rate: 24' not in _l))(
-        open('macros/03_leds.cfg', encoding='utf-8').read()), ''))
 
 tests.append(('R162 litho/colorpic step FILL: the hatch rects use the FULL '
     'cell extent - the old first-center-to-last-center rect was '
@@ -19718,92 +19433,6 @@ tests.append(('R246d motion: preview pushes defer while the printer '
     and 'push waits for idle' in _pp246c
     and _pp246c.count('if not busy and PENDING_PREVIEW:') == 1, ''))
 
-# --- R246d reactor relief rec. 1: SET_LED_STATE early-exit ------------------
-_leds246d = open('macros/03_leds.cfg', encoding='utf-8').read()
-_sl246d = get_body('macros/03_leds.cfg', 'SET_LED_STATE')
-_p246d = build_printer()
-_p246d['led_effect r2_idle'] = M({})
-_o246d = render(_sl246d, {'STATE': 'printing'}, extra={'printer': _p246d})
-tests.append(('R246d LED: an UNCHANGED state is a no-op - no STOP_LED_'
-              'EFFECTS, no chain rewrite (reactor relief rec. 1)',
-    'STOP_LED_EFFECTS' not in _o246d and 'SET_LED_EFFECT' not in _o246d
-    and '_NOZZLE_SET' not in _o246d, _o246d[:120]))
-_o246e = render(_sl246d, {'STATE': 'printing', 'FORCE': '1'},
-                extra={'printer': _p246d})
-tests.append(('R246d LED: FORCE=1 re-applies the full chain (the nozzle/'
-              'bedlight setters and every deliberate re-apply)',
-    'STOP_LED_EFFECTS' in _o246e and 'SET_LED_EFFECT EFFECT=r2_printing'
-    in _o246e, _o246e[:120]))
-# R257 (.142m): FIVE now - _LED_QUIET's unmute re-applies the state that was
-# asked for while the probe was moving, and it needs FORCE=1 for the same
-# reason as the others: the R246d no-op guard compares last_led, which already
-# holds the wanted value (recording it is exactly what the mute branch does).
-tests.append(('R246d/R257 LED: exactly the five deliberate re-apply callers '
-              'carry FORCE=1 (split toggle, nozzle change, master ON, '
-              'job restore, probe-quiet unmute)',
-    len([l for l in _leds246d.split('\n')
-         if 'FORCE=1' in l and l.strip().startswith(('SET_LED_STATE',
-                                                     '{% if on %}'))]) == 5,
-    'count=%d' % len([l for l in _leds246d.split('\n')
-                      if 'FORCE=1' in l and l.strip().startswith(('SET_LED_STATE',
-                                                                  '{% if on %}'))])))
-# --- R257 (.142m): the probe-quiet LED guard --------------------------------
-# Field logs 12.11.2026 (three DOCTOR packs): 6 of 8 MCU shutdowns report the
-# toolhead at the [safe_z_home] XY (115,115) with Z between 4.76 and 10.0 - the
-# probe descent between z_hop and trigger, the one phase with a 1 ms step
-# interval. The send-queue dumps show neopixel_send/tmcuart_send/st7920 traffic
-# inside exactly that window. One SET_LED_STATE change writes the strip 2-4
-# times back to back; that is what _LED_QUIET removes from the motion.
-state_vars['led_quiet'] = False
-_sl257 = get_body('macros/03_leds.cfg', 'SET_LED_STATE')
-_lq257 = get_body('macros/03_leds.cfg', '_LED_QUIET')
-_g28257 = get_body('macros/08_print_start_stop.cfg', 'G28')
-def _ledp257(**kw):
-    _p = build_printer()
-    _p['led_effect r2_idle'] = M({})
-    _p['gcode_macro _STATE'] = M(dict(state_vars, **kw))
-    return _p
-_o257a = render(_sl257, {'STATE': 'homing'},
-                extra={'printer': _ledp257(led_quiet=True)})
-tests.append(('R257 probe-quiet: a state change while the probe moves writes '
-              'NO strip (no STOP_LED_EFFECTS, no effect, no nozzle) - it only '
-              'records the wanted state',
-    'STOP_LED_EFFECTS' not in _o257a and 'SET_LED_EFFECT' not in _o257a
-    and '_NOZZLE_SET' not in _o257a
-    and 'last_led VALUE=\'"homing"\'' in _o257a, _o257a[:160]))
-_o257b = render(_sl257, {'STATE': 'homing', 'FORCE': '1'},
-                extra={'printer': _ledp257(led_quiet=True)})
-tests.append(('R257 probe-quiet: FORCE=1 is the exception (that is how the '
-              'unmute re-applies the state after the motion) - the full chain '
-              'runs',
-    'STOP_LED_EFFECTS' in _o257b and 'SET_LED_EFFECT EFFECT=r2_homing' in _o257b,
-    _o257b[:160]))
-_o257c = render(_lq257, {'ON': '1'}, extra={'printer': _ledp257(led_quiet=False)})
-tests.append(('R257 probe-quiet: _LED_QUIET ON=1 stops the running effect ONCE '
-              '(one write before the first move) and sets the flag',
-    'STOP_LED_EFFECTS' in _o257c and 'led_quiet VALUE=True' in _o257c
-    and _o257c.count('STOP_LED_EFFECTS') == 1, _o257c[:160]))
-_o257d = render(_lq257, {'ON': '1'}, extra={'printer': _ledp257(led_quiet=True)})
-tests.append(('R257 probe-quiet: muting twice is a no-op (a second G28 in a row '
-              'must not push a second STOP_LED_EFFECTS into the motion)',
-    'STOP_LED_EFFECTS' not in _o257d and 'led_quiet VALUE=True' not in _o257d,
-    _o257d[:160]))
-_o257e = render(_lq257, {'ON': '0'}, extra={'printer': _ledp257(led_quiet=True)})
-tests.append(('R257 probe-quiet: ON=0 clears the flag and re-applies the wanted '
-              'state with FORCE=1 (the R246d no-op would otherwise swallow it)',
-    'led_quiet VALUE=False' in _o257e
-    and 'SET_LED_STATE STATE=printing FORCE=1' in _o257e, _o257e[:160]))
-_o257f = render(_lq257, {'ON': '0'}, extra={'printer': _ledp257(led_quiet=False)})
-tests.append(('R257 probe-quiet: ON=0 without a mute does nothing (no chain, '
-              'no flag write)',
-    'SET_LED_STATE' not in _o257f and 'led_quiet VALUE' not in _o257f,
-    _o257f[:160]))
-_o257g = render(_g28257, {}, extra={'printer': _ledp257(led_quiet=False)})
-tests.append(('R257 probe-quiet: G28 renders _LED_QUIET ON=1 BEFORE the homing '
-              'move and ON=0 after it (order, not just presence)',
-    0 <= _o257g.find('_LED_QUIET ON=1') < _o257g.find('M99110')
-    < _o257g.find('_LED_QUIET ON=0'), _o257g[:200]))
-
 # --- R246d reactor relief rec. 4: the _AV timers yield to motion ------------
 import re as _re246d
 def _dgbody246d(name):
@@ -19830,12 +19459,12 @@ tests.append(('R246d AV: _AV_HOMING_AV reschedules while the queue runs '
 _o246g = render(_avh246d, {}, extra={'printer': _p246av('starting', 2.0, 2.0)})
 tests.append(('R246d AV: _AV_HOMING_AV plays when the queue drained '
               '(print_time frozen - the heating window)',
-    'SET_LED_STATE STATE=homing' in _o246g and 'r2_notice' in _o246g
+    'r2_notice' in _o246g
     and 'VARIABLE=av_pt VALUE=-1' in _o246g, _o246g[:140]))
 _o246h = render(_avh246d, {}, extra={'printer': _p246av('printing', 1.0, 2.0)})
 tests.append(('R246d AV: _AV_HOMING_AV stays silent once the print runs '
               '(the print announcement owns the moment)',
-    'SET_LED_STATE' not in _o246h and '_SOUND_LIB' not in _o246h
+    '_SOUND_LIB' not in _o246h
     and 'UPDATE_DELAYED_GCODE' not in _o246h, ''))
 _o246i = render(_avp246d, {}, extra={'printer': _p246av('printing', 1.0, 2.0, 5.0)})
 tests.append(('R246d AV: _AV_PRINT_AV reschedules while the first layers '
@@ -19845,17 +19474,17 @@ tests.append(('R246d AV: _AV_PRINT_AV reschedules while the first layers '
 _o246j = render(_avp246d, {}, extra={'printer': _p246av('printing', 2.0, 2.0, 5.0)})
 tests.append(('R246d AV: _AV_PRINT_AV plays at the first drained gap '
               '(idle queue, young print)',
-    'SET_LED_STATE STATE=printing' in _o246j and 'r2_printing' in _o246j,
+    'r2_printing' in _o246j,
     _o246j[:140]))
 _o246k = render(_avp246d, {}, extra={'printer': _p246av('printing', 1.0, 2.0, 130.0)})
 tests.append(('R246d AV: _AV_PRINT_AV gives up silently after 120 s (no '
               'late beep mid-print)',
-    'SET_LED_STATE' not in _o246k and 'UPDATE_DELAYED_GCODE' not in _o246k,
+    'UPDATE_DELAYED_GCODE' not in _o246k,
     ''))
 _o246l = render(_avp246d, {}, extra={'printer': _p246av('idle', 1.0, 2.0)})
 tests.append(('R246d AV: a cancelled print (_AV_PRINT_AV, mode not '
               'printing) plays NOTHING',
-    'SET_LED_STATE' not in _o246l and '_SOUND_LIB' not in _o246l, ''))
+    '_SOUND_LIB' not in _o246l, ''))
 # hidepid honesty (the persistent sudo-only-twins field report)
 tests.append(('R246d sweep: the duplicate scan ADMITS hidepid blindness '
               '(root strays invisible to /proc + pgrep) instead of '

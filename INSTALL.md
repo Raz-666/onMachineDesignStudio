@@ -60,20 +60,15 @@ stable - for a fresh install and as a health check after updates:
 - **r2-postproc service**: installed? running? pointing at THIS package? The
   unit file gets templated to your user + paths automatically (no `pi` needed)
 - **KAMP**: detected; offered for installation (clone + config patches)
-- **klipper-led_effect** (the LED effect library `03_leds.cfg` uses)
 - **RAM + services**: top consumers, known-optional services (camera stack,
   OctoPrint, ModemManager, ...) - nothing is disabled without your OK
 - **swap**: honest usage display + `vm.swappiness` tuning offer
 - **hardware wizard (R108)**: every printer-specific value asked in English,
   each one validated + confirmed twice - build volume (bed min/max X/Y, Z
-  height), probe offsets, nozzle-clean + part-presentation positions, LED
-  layout (neopixel/dotstar, pin, chain, status/bed-light/nozzle areas, EBB
-  CAN split chain). Result: **`r2_hardware.cfg`** - the SECOND variables file
+  height), probe offsets, nozzle-clean + part-presentation positions.
+  Result: **`r2_hardware.cfg`** - the SECOND variables file
   that survives deleting `variables.cfg` (your normal settings). Included
   from printer.cfg by one line the wizard adds for you.
-- **LED wizard (R108)**: writes the `[neopixel]`/`[dotstar]` section (into
-  r2_hardware.cfg - printer.cfg stays yours) and the effect index ranges;
-  LCD: System > LED Setup tunes everything live afterwards
 - **object processing** (moonraker): current state shown + explained, offered
   in BOTH directions - off is the deliberate recommendation on a Pi Zero 2 W
 - **BACKUP FIRST + verified**: every file this run might change is copied and
@@ -88,14 +83,10 @@ bash ~/printer_data/config/klipper-e3-r2d2/setup.sh            # interactive
 bash ~/printer_data/config/klipper-e3-r2d2/setup.sh --check    # report only
 ```
 
-`update.sh` (R108) additionally asks whether to KEEP or CHANGE the current LED
-+ hardware settings before it restarts anything (default: keep - the LED
-layout is re-applied to the freshly unpacked 03_leds.cfg either way), shows
+`update.sh` (R108) additionally asks whether to KEEP or CHANGE the current
+hardware settings before it restarts anything (default: keep), shows
 the object-processing state with an offer to change it, and runs the same
-verified-backup-first routine. LCD persistence for the LED Setup menu needs
-the `gcode_shell_command` extension (KIAUH installs it; setup.sh adds the
-`[gcode_shell_command R2_PERSIST]` section into r2_hardware.cfg when it is
-present - without it, LCD LED edits simply hold for the running session).
+verified-backup-first routine.
 
 Every edited config file gets a `.r2bak.<timestamp>` backup first; questions
 without input (non-interactive SSH) always take the safe default. Porting to
@@ -108,8 +99,6 @@ another printer: read `COMPATIBILITY.md` (what is dynamic, what to set once).
 ## 0) Requirements (you already have these)
 
 - Klipper + Moonraker + Mainsail on the Pi Zero 2 (path `~/printer_data/`)
-- klipper-led_effect installed (KIAUH) - otherwise the [led_effect] sections fail
-  (the system detects this and keeps running without LED effects)
 - Creality 12864 LCD on EXP1/EXP2, beeper on PB5
 
 ## 1) IMPORTANT: migrate from the old German version
@@ -142,13 +131,9 @@ Open `printer.cfg.example` as a **checklist** and compare with your printer.cfg:
    - `[screws_tilt_adjust]` (ADJUST positions to your bed screw centers)
    - `[bed_mesh]` + `adaptive_margin: 5`
    - `[idle_timeout]` timeout: 3600
-   - `[neopixel printer_leds]` (pin PA8, chain_count 5) - exact name! (the
-     option is `chain_count` - the old `chain_cnt` spelling HALTS current
-     Klipper; the setup LED wizard writes the section correctly for you,
-     including dotstar chains and EBB CAN nozzle splits)
    - `[force_move]` with `enable_force_move: True` - REQUIRED for SYNC_GANTRY (registers `SET_KINEMATIC_POSITION`)
 2. **Do not rename** these (macros use them): `filament_sensor` (sensor),
-   `printer_leds` (neopixel), `beeper`, `_STATE`, `_MATERIALS`, `_SOUND_LIB`, `_UI_SOUND`.
+   `beeper`, `_STATE`, `_MATERIALS`, `_SOUND_LIB`, `_UI_SOUND`.
 3. **MicroProbe**: `[probe]` with `pin: ^PC14`; adjust x/y/z_offset
    (PROBE_CALIBRATE via the Maintenance menu).
 
@@ -157,7 +142,6 @@ Open `printer.cfg.example` as a **checklist** and compare with your printer.cfg:
 ```ini
 [include klipper-e3-r2d2/macros/01_state.cfg]
 [include klipper-e3-r2d2/macros/02_sounds.cfg]
-[include klipper-e3-r2d2/macros/03_leds.cfg]
 [include klipper-e3-r2d2/macros/04_notify.cfg]
 [include klipper-e3-r2d2/macros/05_materials.cfg]
 [include klipper-e3-r2d2/macros/06_temp_controls.cfg]
@@ -355,7 +339,7 @@ initial scan shows how many files were processed / upgraded / already tagged.
 ## 4) First start
 
 1. `RESTART` -> check the console for errors -> `FIRMWARE_RESTART`
-2. After ~10s: R2-D2 start sound + blue LED animation = everything alive.
+2. After ~10s: R2-D2 start sound = everything alive.
 3. Console: `SHOW_STATUS` -> should print all values.
 4. LCD: the "Ender-3 R2D2" menu is there; try `Maintenance > Tests > Sound demo`.
 
@@ -377,11 +361,11 @@ update your slicer start gcode accordingly (copy from ORCA.md/CURA.md).
 
 ## 6) First test print (recommended: small part, PLA)
 
-1. Start the print -> it pauses and asks (LCD "Start Print?", R2 beeps, LEDs blink)
+1. Start the print -> it pauses and asks (LCD "Start Print?", R2 beeps)
 2. LCD: "Pre-Print > Material > PLA (load preset)" -> back to "Start Print?" ->
    "> PRINT W/ CHANGES"
-3. Watch: homing -> bed heats (announced!) -> mesh (scanner LEDs!) -> hotend heats
-   -> prime line beside the object -> happy sound -> printing (blue band + nozzle light)
+3. Watch: homing -> bed heats (announced!) -> mesh -> hotend heats
+   -> prime line beside the object -> happy sound -> printing
 4. During the print: LCD "Live Tuning" -> outer wall to 70% -> takes effect
    immediately (console shows every change)
 5. Test: "Pause next layer" -> parks away from the object -> RESUME -> returns
@@ -413,7 +397,6 @@ update your slicer start gcode accordingly (copy from ORCA.md/CURA.md).
 | Problem | Solution |
 |---|---|
 | `SAVE_VARIABLE` error on first start | wait 10s after boot (init runs 5s after start) - or run `_INIT_DEFAULTS` in the console once, then RESTART |
-| LED effects missing | klipper-led_effect installed? (KIAUH) - everything else keeps working |
 | Menu shows nothing new | correct `[display]` section? After RESTART re-open the menu (encoder click) |
 | Live Tuning menu invisible during a print | should not happen anymore (state watcher) - run `SHOW_STATUS` and check "Mode:"; it must say `printing` |
 | Adaptive mesh probes everything | slicer "label objects" on / Cura script active? Since .59 the watcher also REPLAYS the file's object definitions at selection - the mesh before a held file is adaptive even then. Plot/label/bridge files bring their own object polygon |
@@ -448,6 +431,5 @@ update your slicer start gcode accordingly (copy from ORCA.md/CURA.md).
   Values like retract lengths, park corners, prime line positions are grouped and
   easy to change.
 - After editing .cfg files: `RESTART`; after pin changes: `FIRMWARE_RESTART`.
-- Own LED effects: add `[led_effect ...]` sections in 03_leds.cfg (colors <= 0.5!)
 - Own sounds: add a tune string in 02_sounds.cfg ("freq:ms,...", 0:ms = pause)
 - Validate your edits before uploading: `python3 tools/config_validator.py`

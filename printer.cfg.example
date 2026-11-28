@@ -233,9 +233,9 @@ horizontal_move_z: 6
 # Filament runout sensor - the name "filament_sensor" is used by the macros!
 #   runout_gcode = filament empty -> R2 alarm + gentle pause at the NEXT LAYER
 #                  boundary (direct drive: enough filament left to finish the layer)
-#   insert_gcode = filament inserted -> R2 confirmation + LED
+#   insert_gcode = filament inserted -> R2 confirmation + sound
 # pause_on_runout MUST stay False - the macros do EVERYTHING themselves
-# (alarm, planned pause, filament mode with purge on resume, LEDs, sounds).
+# (alarm, planned pause, filament mode with purge on resume, sounds).
 # -------------------------------------------------------------------------------------
 [filament_switch_sensor filament_sensor]
 switch_pin: !PC15
@@ -253,20 +253,6 @@ retract_length: 0.8
 retract_speed: 35
 unretract_extra_length: 0
 unretract_speed: 35
-
-# -------------------------------------------------------------------------------------
-# NEOPIXEL - 5 LEDs: index 1-4 = frame, index 5 = nozzle LED (print lighting)
-# All effects are capped at 50% brightness to protect the board - keep it that way!
-# The setup LED wizard (bash klipper-e3-r2d2/setup.sh) writes this section for
-# you - including the areas (status / bed light / nozzle) in r2_hardware.cfg.
-# NOTE: the option is chain_count (chain_cnt was the pre-2021 name and HALTS
-# current Klipper), and color_order takes ONE order per LED - a plain GRB
-# applies to the whole chain.
-# -------------------------------------------------------------------------------------
-[neopixel printer_leds]
-pin: PA8
-chain_count: 5
-color_order: GRB            # ADJUST: GRB or RGB per your strip
 
 # -------------------------------------------------------------------------------------
 # PIEZO/BEEPER on the Creality 12864 LCD (EXP1) - for the R2-D2 sounds (M300)
@@ -319,7 +305,6 @@ filename: ~/printer_data/variables.cfg
 # =====================================================================================
 #[include klipper-e3-r2d2/macros/01_state.cfg]
 #[include klipper-e3-r2d2/macros/02_sounds.cfg]
-#[include klipper-e3-r2d2/macros/03_leds.cfg]
 #[include klipper-e3-r2d2/macros/04_notify.cfg]
 #[include klipper-e3-r2d2/macros/05_materials.cfg]
 #[include klipper-e3-r2d2/macros/06_temp_controls.cfg]
@@ -375,13 +360,13 @@ enable_force_move: True
 #[include klipper-e3-r2d2/macros/15_objects.cfg]
 #[include klipper-e3-r2d2/macros/16_labels.cfg]   # R63 label generator (LCD 'Labels' menu)
 #[include klipper-e3-r2d2/macros/17_generator.cfg]  # R86 part generators (Kabelbinder + Winkel)
-#[include klipper-e3-r2d2/macros/18_colorpic.cfg]  # R120 color picture generator (ColorPic, M600 + LED blink)
+#[include klipper-e3-r2d2/macros/18_colorpic.cfg]  # R120 color picture generator (ColorPic, M600 color swaps)
 #[include klipper-e3-r2d2/macros/19_bricks.cfg]  # R121 building bricks generator (Tools > Bricks)
 
 # =====================================================================================
 # R86.2 ELECTRONICS EXPANSION (OPTIONAL, everything commented) - see MANUAL ch. 26
 # BTT U2C V2.1 (USB->CAN on the Pi) + BTT EBB42 CAN V1.2.1 (toolhead, mounted at
-# the extruder stepper) + BTT Relay V1.2 (230V side) + nozzle LEDs on the EBB.
+# the extruder stepper) + BTT Relay V1.2 (230V side).
 #
 # POWER ARCHITECTURE (see MANUAL ch. 26 for the full wiring plan + safety):
 #   mains L --[Relay V1.2]--> PSU L          (relay switches the PHASE only)
@@ -434,22 +419,6 @@ enable_force_move: True
 #[filament_switch_sensor switch_sensor]
 #switch_pin: EBB:PB4
 
-# ---- nozzle LEDs on the EBB (own chain) + frame LEDs stay on the SKR --------------
-#[neopixel printer_leds]        # ADJUST: now only the FRAME LEDs
-#pin: PA8
-#chain_count: 4                 # was 5
-#color_order: GRB               # the BYTE ORDER of your LED chip (WS2812=GRB,
-##                               WS2811 12V=RGB, APA102 dotstar=BGR, SK6812-RGBW=RGBW)
-##                               wrong order = colors swap (red glows green). The
-##                               setup LED wizard asks + explains this (R110)
-#[neopixel nozzle_led]
-#pin: EBB:PD3                   # RGB port of the EBB42
-#chain_count: 2                 # max ~15 at full white (5V/1A) - we cap at 0.5
-#color_order: GRB
-## then: uncomment [led_effect r2_nozzle_on_split] in 03_leds.cfg and run
-##       SET_NOZZLE_SPLIT STATE=1   (once - persisted in r2_hardware.cfg)
-## (the setup LED wizard does all three steps for you)
-
 # ---- BTT Relay V1.2 (230V side!) - printer off while the Pi stays on ----------------
 # Relay control input (5V_IN + GND on the relay) from a free SKR pin. While
 # klipper runs the pin is HIGH = printer on. Klipper shutdown/crash -> pin
@@ -488,7 +457,7 @@ enable_force_move: True
 # a raw custom section like the old [r2_postproc] of R92..R81 makes Klipper
 # REFUSE to boot: 'Section ... is not a valid config section'!). Values (mm):
 #[gcode_macro _R2_CONFIG]
-#description: R2 hardware profile (bed limits + positions + LED layout) - macros AND watcher read this
+#description: R2 hardware profile (bed limits + positions) - macros AND watcher read this
 #variable_bed_min_x: 0.0         # printable bed, ONE truth for generators + parks
 #variable_bed_max_x: 220.0
 #variable_bed_min_y: -3.0
@@ -501,14 +470,6 @@ enable_force_move: True
 #variable_present_y: 228.0
 #variable_wipe_x: -1.0           # nozzle-wipe pad anchor; -1 = axis-minimum corner
 #variable_wipe_y: -1.0
-## LED areas (the LED wizard fills these - see 03_leds.cfg header):
-#variable_led_type: 'neopixel'   # or 'dotstar'
-#variable_led_section: 'printer_leds'
-#variable_led_status_n: 4        # LEDs 1..n = animated status effects
-#variable_led_bed_n: 0           # LEDs after them = bed work light
-#variable_led_bed_bright: 0.4    # 0-0.5 (the power cap)
-#variable_led_nozzle_split: 0    # 1 = nozzle LEDs on their own chain (EBB42)
-#variable_led_nozzle_section: 'nozzle_led'
 #gcode:
 #    # config carrier only - never runs
 

@@ -15,7 +15,7 @@ Scope: **cartesian and CoreXY FDM printers** with Klipper + Moonraker/Mainsail. 
 delta robots (round bed - the generators place rectangular plates), belt printers, resin.
 
 The system was developed on a heavily modified Ender-3 (BTT SKR Mini E3 V3, BLTouch-class
-probe, TMC2209 UART, 5 neopixels, direct drive). This document states honestly what ports
+probe, TMC2209 UART, direct drive). This document states honestly what ports
 over unchanged, what needs ONE config section, and what is still hardcoded (with a fix plan).
 
 ---
@@ -26,7 +26,7 @@ over unchanged, what needs ONE config section, and what is still hardcoded (with
 |---|---|---|
 | **A. Dynamic** - read from YOUR printer.cfg at runtime | `[gcode_macro _R2_CONFIG]` variables, `[extruder] nozzle_diameter`, `[probe] x/y_offset`, `printer.toolhead.axis_*`, `printer.configfile.settings` | yes - nothing to do |
 | **B. Defaults** - variables with Ender-3 fallback values | plot bed/offsets/scale (save_variables, LCD *Tools > Plotter*), wipe area | works, but SET the values once |
-| **C. Hardware** - sections that must exist in YOUR printer.cfg | `[neopixel]`, buzzer pin (`M300`), filament sensor, `[tmc2209 ...]` for gantry sync | optional per feature; system degrades gracefully |
+| **C. Hardware** - sections that must exist in YOUR printer.cfg | buzzer pin (`M300`), filament sensor, `[tmc2209 ...]` for gantry sync | optional per feature; system degrades gracefully |
 
 The single most important line for any non-Ender-3 machine (layer A):
 
@@ -99,11 +99,8 @@ showed 109 MB of cold swap on a perfectly healthy Pi flagged as „SWAPPING").
 
 | Feature | Needs | Without it |
 |---|---|---|
-| LED effects (03_leds.cfg) | `klipper-led_effect` + `[neopixel printer_leds]` (+ optional `[neopixel nozzle_led]`) | Klipper refuses `[led_effect]` sections - comment them out or install the module (`setup.sh` can) |
-| LED areas (R108) | hardware profile `r2_hardware.cfg` (setup wizard generates + includes it) - `[neopixel]` OR `[dotstar]`, any section name, mainboard pin or EBB CAN split chain | defaults: 4 status + 0 bed + nozzle as last LED of `printer_leds` (the R2 reference layout - pre-R108 behaviour) |
-| LED persistence from the LCD | `gcode_shell_command` extension (KIAUH) + `[gcode_shell_command R2_PERSIST]` (setup.sh writes it into r2_hardware.cfg when the module exists) | System > LED Setup edits apply to the running session only |
 | Per-file profiles (R109) | `save_variables` (`file_profiles` dict, `gen_out`, `file_profiles_on`, `file_profiles_autosave`) - LCD *Pre-Print > Profiles* | plain variables.cfg keys, auto-migrated at boot; profile key = path under the gcodes root (any slicer) |
-| Hardware profile (R108) | `r2_hardware.cfg` next to printer.cfg: build volume, probe offsets, clean/present positions, LED layout - the SECOND variables file (survives deleting variables.cfg) | Ender-3 reference defaults; `[gcode_macro _R2_CONFIG]` in printer.cfg keeps working (the wizard migrates it - old block only commented out) |
+| Hardware profile (R108) | `r2_hardware.cfg` next to printer.cfg: build volume, probe offsets, clean/present positions - the SECOND variables file (survives deleting variables.cfg) | Ender-3 reference defaults; `[gcode_macro _R2_CONFIG]` in printer.cfg keeps working (the wizard migrates it - old block only commented out) |
 | Sounds (02_sounds.cfg) | buzzer on a pin (`M300`) | silent, everything else works |
 | Filament sensor (09_) | `[filament_switch_sensor]` | runout protection inactive |
 | LCD menus | a display in Klipper + `menus/lcd_menues.cfg` include | Mainsail console commands work regardless (all GEN_* macros are console-callable with parameters) |
@@ -129,7 +126,7 @@ Remaining (P3, cosmetic): calibrator prime-line X75 clamp on ultra-small beds.
 
 1. Unzip the package into the config folder, run `update.sh` (file level: includes check).
 2. Run `bash klipper-e3-r2d2/setup.sh` - environment wizard: Python, watcher service
-   (templated unit), KAMP, LED effects, RAM hogs, swap tuning. `--check` = report only.
+   (templated unit), KAMP, RAM hogs, swap tuning. `--check` = report only.
 3. Set `[gcode_macro _R2_CONFIG]` bed variables to your REAL printable area.
 4. Check `[probe] x_offset/y_offset` are correct (the prime line safety depends on them).
 5. *Tools > Plotter*: set plot bed + pen offsets, run the `PLT_FRAME` corners test.

@@ -366,8 +366,6 @@ Diese Branch führt die **R286-Feld-Korrekturen** auf V7 (`R2-2026-11-19.3`):
   `tools/test_r286_topbridge_logic.py` (3/3) - die Engine enthält die
   Korrektur bereits: Top auf Sparse-Infill wird **nie** als Bridge
   klassifiziert; solid+Top+Ironing ist support-getragen.
-- **L2 LED:** Druck-Zustand setzt jetzt **statisches Monochrom** (SET_LED),
-  kein `r2_printing`-Animation (User-Regel: einfarbig, ohne Effekt).
 - **L10:** `crash_archive`-Ordner aus dem Wurzel-Scan/Link-Sync ausgeschlossen.
 - **L9 (Engine-Teil):** Scale+Range-Chain offline verifiziert (success,
   Output non-leer, valid) - kein Absturz vom Engine-Code.
@@ -387,9 +385,8 @@ Diese Branch führt die **R286-Feld-Korrekturen** auf V7 (`R2-2026-11-19.3`):
   linear/Bezier-Ubergang bottom->middle->top. Skaliert das Relief, Periode
   bleibt integer -> nahtlos. Beleg: `tools/r286_scalexy_texture_check.py`
   **17/17**.
-- **Konsolen-Spam reduziert (DOCTOR-Pack 19.3):** Nozzle-Work-Light beim
-  Drucken **statisch** (`_NOZZLE_SET ON=1`), kein animierter 6-fps-Loop ->
-  "Neopixel update did not succeed"-Spam (397x im Raw-Tail) eliminiert.
+- **Konsolen-Spam reduziert (DOCTOR-Pack 19.3):** LED-Animationen wurden
+  (LEDs sind in 26.20 komplett entfernt) mit dem LED-System ausgebaut.
 - **L7 Generator-Audit UMSETZT:** `tools/r286_generator_audit.py` **15/15**
   (alle 19 Generator-Makros, Valid Shapes, Parameter, Toolchain-Vertrag).
 - **L3/L5/L6 Label-Render-Audit UMSETZT:**

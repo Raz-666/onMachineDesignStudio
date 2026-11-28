@@ -1,14 +1,14 @@
 {
  "generator": "menu_json_export.py (.136j R211)",
  "source": "lcd_menues.cfg",
- "sections": 2445,
+ "sections": 2424,
  "counts": {
-  "list": 339,
-  "command": 1483,
+  "list": 337,
+  "command": 1471,
   "vsdlist": 1,
-  "input": 622
+  "input": 615
  },
- "sha256": "fcab134f855e40d6",
+ "sha256": "15783e0bbe1c3e9c",
  "live_objects": [
   "bed_mesh",
   "configfile",
@@ -20,7 +20,6 @@
   "gcode_macro _GEN_PRESET",
   "gcode_macro _MATERIALS",
   "gcode_macro _PREVIEW",
-  "gcode_macro _R2_CONFIG",
   "gcode_macro _SDM",
   "gcode_macro _STATE",
   "gcode_macro _TX_PATTERN",
@@ -14657,7 +14656,7 @@
           "input_step": "1",
           "gcode": [
            "SAVE_VARIABLE VARIABLE=colorpic_bands VALUE={menu.input|round|int}",
-           "RESPOND MSG=\"ColorPicture {menu.input|round|int} color band(s): lightest first, every band is a brightness step - M600 at every boundary (the nozzle LED blinks old->new while you swap)\""
+           "RESPOND MSG=\"ColorPicture {menu.input|round|int} color band(s): lightest first, every band is a brightness step - M600 at every boundary (announcement per color while you swap)\""
           ],
           "children": []
          },
@@ -14904,7 +14903,7 @@
         "type": "command",
         "name": "How it works",
         "gcode": [
-         "RESPOND MSG=\"How it works: ColorPicture: upload a .png/.jpg into the gcodes folder (drag+drop in Mainsail) - same image list as the lithophane, plotter uploads included | Slot press = Create. The picture prints FLAT as stacked color bands: lightest color first, every darker band prints only its region on top - no backlight needed | At every color change: M600 parks the head, M117 shows the color, the NOZZLE LED BLINKS from the old to the new color - load the filament, the purge strip cleans, resume | Settings: Colors = band count, BandH = band thickness, Band colors = per-band palette code (light -> dark) | Mainsail: GEN_COLORPIC SRC=photo.png WIDTH=120 BANDS=4 COLORS=WHT,GRY,BLK BANDH=0.8 - or COLORPIC_CREATE INDEX=0\""
+         "RESPOND MSG=\"How it works: ColorPicture: upload a .png/.jpg into the gcodes folder (drag+drop in Mainsail) - same image list as the lithophane, plotter uploads included | Slot press = Create. The picture prints FLAT as stacked color bands: lightest color first, every darker band prints only its region on top - no backlight needed | At every color change: M600 parks the head, M117 shows the color, a color announcement per band - load the filament, the purge strip cleans, resume | Settings: Colors = band count, BandH = band thickness, Band colors = per-band palette code (light -> dark) | Mainsail: GEN_COLORPIC SRC=photo.png WIDTH=120 BANDS=4 COLORS=WHT,GRY,BLK BANDH=0.8 - or COLORPIC_CREATE INDEX=0\""
         ],
         "children": []
        },
@@ -25683,15 +25682,6 @@
       "name": "Tests",
       "children": [
        {
-        "id": "__main __maint __tests __led",
-        "type": "command",
-        "name": "LED demo",
-        "gcode": [
-         "TEST_LEDS"
-        ],
-        "children": []
-       },
-       {
         "id": "__main __maint __tests __snd",
         "type": "command",
         "name": "Sound demo",
@@ -25954,15 +25944,6 @@
       ]
      },
      {
-      "id": "__main __system __leds",
-      "type": "command",
-      "name": "LEDs: {('ON' if printer['save_variables'].variables.leds_on|default(True) else 'OFF')}",
-      "gcode": [
-       "TOGGLE_LEDS"
-      ],
-      "children": []
-     },
-     {
       "id": "__main __system __rec",
       "type": "command",
       "name": "MCU Recovery: {('ON' if printer['save_variables'].variables.recovery_mode|default('on')|string|lower != 'off' else 'OFF')}",
@@ -26002,206 +25983,6 @@
         "name": "Delete old packs",
         "gcode": [
          "RESPOND MSG=\"Old packs: every press of 'Log pack' writes a new R2-DOCTOR file. Delete them in Mainsail (Dateien > crash_archive, the trash symbol) - the display cannot delete files. The newest one is the one you want to send.\""
-        ],
-        "children": []
-       }
-      ]
-     },
-     {
-      "id": "__main __system __ledcfg",
-      "type": "list",
-      "name": "LED Setup",
-      "enable": "{'neopixel ' in (printer.configfile.settings|list|join(' ')) or 'dotstar ' in (printer.configfile.settings|list|join(' '))}",
-      "children": [
-       {
-        "id": "__main __system __ledcfg __stat",
-        "type": "command",
-        "name": "LED info (console)",
-        "gcode": [
-         "LED_INFO"
-        ],
-        "children": []
-       },
-       {
-        "id": "__main __system __ledcfg __on",
-        "type": "command",
-        "name": "All LEDs: {('ON' if printer['save_variables'].variables.leds_on|default(True) else 'OFF')}",
-        "gcode": [
-         "TOGGLE_LEDS"
-        ],
-        "children": []
-       },
-       {
-        "id": "__main __system __ledcfg __stn",
-        "type": "input",
-        "name": "Status LEDs: {'%2d' % menu.input}",
-        "input": "{printer['gcode_macro _R2_CONFIG'].led_status_n|default(4)|int if 'gcode_macro _R2_CONFIG' in printer else 4}",
-        "input_min": "0",
-        "input_max": "16",
-        "input_step": "1",
-        "gcode": [
-         "SET_LED_LAYOUT STATUS={menu.input}"
-        ],
-        "children": []
-       },
-       {
-        "id": "__main __system __ledcfg __bdn",
-        "type": "input",
-        "name": "Bed LEDs: {'%2d' % menu.input}",
-        "input": "{printer['gcode_macro _R2_CONFIG'].led_bed_n|default(0)|int if 'gcode_macro _R2_CONFIG' in printer else 0}",
-        "input_min": "0",
-        "input_max": "16",
-        "input_step": "1",
-        "gcode": [
-         "SET_LED_LAYOUT BED={menu.input}"
-        ],
-        "children": []
-       },
-       {
-        "id": "__main __system __ledcfg __bedon",
-        "type": "command",
-        "name": "Bed light: {('ON' if printer['gcode_macro _R2_CONFIG'].led_bed_on|default(1)|int == 1 else 'OFF') if 'gcode_macro _R2_CONFIG' in printer else '-'}",
-        "enable": "{'gcode_macro _R2_CONFIG' in printer and printer['gcode_macro _R2_CONFIG'].led_bed_n|default(0)|int > 0}",
-        "gcode": [
-         "SET_BED_LIGHT TOGGLE=1"
-        ],
-        "children": []
-       },
-       {
-        "id": "__main __system __ledcfg __bedbr",
-        "type": "input",
-        "name": "Bed bright: {'%3d' % menu.input}%",
-        "enable": "{'gcode_macro _R2_CONFIG' in printer and printer['gcode_macro _R2_CONFIG'].led_bed_n|default(0)|int > 0}",
-        "input": "{((printer['gcode_macro _R2_CONFIG'].led_bed_bright|default(0.4)|float) * 100)|round|int if 'gcode_macro _R2_CONFIG' in printer else 40}",
-        "input_min": "0",
-        "input_max": "50",
-        "input_step": "5",
-        "gcode": [
-         "SET_BED_LIGHT BRIGHT={(menu.input|float / 100)|round(2)}"
-        ],
-        "children": []
-       },
-       {
-        "id": "__main __system __ledcfg __split",
-        "type": "command",
-        "name": "Nozzle: {'OWN CHAIN' if ((printer['gcode_macro _R2_CONFIG'].led_nozzle_split|default(printer['save_variables'].variables.nozzle_split|default(0))) if 'gcode_macro _R2_CONFIG' in printer else printer['save_variables'].variables.nozzle_split|default(0))|int == 1 else 'MAIN CHAIN'}",
-        "enable": "{'neopixel nozzle_led' in printer or 'dotstar nozzle_led' in printer}",
-        "gcode": [
-         "{% set cur = (printer['gcode_macro _R2_CONFIG'].led_nozzle_split|default(printer['save_variables'].variables.nozzle_split|default(0)))|int if 'gcode_macro _R2_CONFIG' in printer else printer['save_variables'].variables.nozzle_split|default(0)|int %}",
-         "SET_NOZZLE_SPLIT STATE={0 if cur == 1 else 1}"
-        ],
-        "children": []
-       },
-       {
-        "id": "__main __system __ledcfg __noz",
-        "type": "list",
-        "name": "Nozzle LED",
-        "children": [
-         {
-          "id": "__main __system __ledcfg __noz __auto",
-          "type": "command",
-          "name": "{('> AUTO (print)' if printer['save_variables'].variables.nozzle_mode|default('auto')|lower == 'auto' else '  AUTO (print)')}",
-          "gcode": [
-           "NOZZLE_LED MODE=auto"
-          ],
-          "children": []
-         },
-         {
-          "id": "__main __system __ledcfg __noz __on",
-          "type": "command",
-          "name": "{('> ON' if printer['save_variables'].variables.nozzle_mode|default('auto')|lower == 'on' else '  ON')}",
-          "gcode": [
-           "NOZZLE_LED MODE=on"
-          ],
-          "children": []
-         },
-         {
-          "id": "__main __system __ledcfg __noz __off",
-          "type": "command",
-          "name": "{('> OFF' if printer['save_variables'].variables.nozzle_mode|default('auto')|lower == 'off' else '  OFF')}",
-          "gcode": [
-           "NOZZLE_LED MODE=off"
-          ],
-          "children": []
-         },
-         {
-          "id": "__main __system __ledcfg __noz __brt",
-          "type": "input",
-          "name": "Bright: {((menu.input*100)|round|int)}%",
-          "input": "{printer['save_variables'].variables.nozzle_bright|default(1.0)|round(2)}",
-          "input_min": "0.05",
-          "input_max": "1",
-          "input_step": "0.05",
-          "gcode": [
-           "NOZZLE_LED BRIGHT={menu.input|round(2)}"
-          ],
-          "children": []
-         },
-         {
-          "id": "__main __system __ledcfg __noz __r",
-          "type": "input",
-          "name": "Red: {((menu.input*100)|round|int)}%",
-          "input": "{printer['save_variables'].variables.nozzle_r|default(0.9)|round(2)}",
-          "input_min": "0",
-          "input_max": "1",
-          "input_step": "0.05",
-          "gcode": [
-           "NOZZLE_LED R={menu.input|round(2)}"
-          ],
-          "children": []
-         },
-         {
-          "id": "__main __system __ledcfg __noz __g",
-          "type": "input",
-          "name": "Green: {((menu.input*100)|round|int)}%",
-          "input": "{printer['save_variables'].variables.nozzle_g|default(0.9)|round(2)}",
-          "input_min": "0",
-          "input_max": "1",
-          "input_step": "0.05",
-          "gcode": [
-           "NOZZLE_LED G={menu.input|round(2)}"
-          ],
-          "children": []
-         },
-         {
-          "id": "__main __system __ledcfg __noz __b",
-          "type": "input",
-          "name": "Blue: {((menu.input*100)|round|int)}%",
-          "input": "{printer['save_variables'].variables.nozzle_b|default(0.85)|round(2)}",
-          "input_min": "0",
-          "input_max": "1",
-          "input_step": "0.05",
-          "gcode": [
-           "NOZZLE_LED B={menu.input|round(2)}"
-          ],
-          "children": []
-         },
-         {
-          "id": "__main __system __ledcfg __noz __white",
-          "type": "command",
-          "name": "Color: White",
-          "gcode": [
-           "NOZZLE_LED R=1 G=1 B=1"
-          ],
-          "children": []
-         },
-         {
-          "id": "__main __system __ledcfg __noz __warm",
-          "type": "command",
-          "name": "Color: Warm",
-          "gcode": [
-           "NOZZLE_LED R=1 G=0.85 B=0.6"
-          ],
-          "children": []
-         }
-        ]
-       },
-       {
-        "id": "__main __system __ledcfg __pinf",
-        "type": "command",
-        "name": "Hardware info",
-        "gcode": [
-         "HW_INFO"
         ],
         "children": []
        }
