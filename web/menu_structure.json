@@ -8,7 +8,7 @@
   "vsdlist": 1,
   "input": 622
  },
- "sha256": "93ab23ad15db303a",
+ "sha256": "fcab134f855e40d6",
  "live_objects": [
   "bed_mesh",
   "configfile",
@@ -4584,7 +4584,7 @@
            {
             "id": "__main __preprint __mods __tex __preset __zip",
             "type": "command",
-            "name": "{('> AGAIN = start' if printer['gcode_macro _STATE'].gen_arm|default('') == 'texture' else '> Reißverschluss')}",
+            "name": "{('> AGAIN = start' if printer['gcode_macro _STATE'].gen_arm|default('') == 'texture' else '> REISSVERSCHLUSS')}",
             "gcode": [
              "{% if printer['gcode_macro _STATE'].gen_arm|default('') == 'texture' %}{menu.exit()}{% endif %}",
              "TEXTURE_APPLY PRESET=ZIPPER CONFIRM=1"
@@ -4604,7 +4604,7 @@
            {
             "id": "__main __preprint __mods __tex __preset __snzip",
             "type": "command",
-            "name": "{('> AGAIN = start' if printer['gcode_macro _STATE'].gen_arm|default('') == 'texture' else '> Z-Naht Reißverschluss')}",
+            "name": "{('> AGAIN = start' if printer['gcode_macro _STATE'].gen_arm|default('') == 'texture' else '> Z-Naht REISSVERSCHLUSS')}",
             "gcode": [
              "{% if printer['gcode_macro _STATE'].gen_arm|default('') == 'texture' %}{menu.exit()}{% endif %}",
              "TEXTURE_APPLY PRESET=SEAM_ZIP CONFIRM=1"
