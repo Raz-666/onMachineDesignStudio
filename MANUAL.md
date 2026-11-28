@@ -4220,6 +4220,7 @@ stay with Mainsail.
 | **BED_SCREWS_ROUND** |  | Bed screws - new round (re-measure all screws) |
 | **BED_SCREWS_START** |  | Bed screw calibration on the LCD (Mainsail flow) - start |
 | **BRIDGE_TEST** | OUT | build the bridging test file (long + short bridge) |
+| **CALIBRATE_BELT** | MODE=TEST (default); MODE=COMPUTE X= Y= REF=; MODE=STATUS; MODE=RESET | belt-drive geometry: safe in-bed motion test (uses _R2_CONFIG limits, never hardcoded coords) + linear stretch scale stored in _STATE (audit P1-02 rebuild) |
 | **CALIBRATE_EXTRUDER** | TEMP=210, MEASURED=0, STEP='' | extruder steps: mark 120 mm, extrude 100, enter the rest |
 | **CALIBRATE_MESH** |  | full bed mesh now (at bed temperature) |
 | **CALIBRATE_PA** | TEMP, BED, START, STEP, LINES, LEN, SLOW, FAST, ACCEL, LAYER, SPACING, WIDTH — all from menu/preset | PA pattern print |

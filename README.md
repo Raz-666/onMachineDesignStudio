@@ -60,7 +60,7 @@ klipper-e3-r2d2/
 │   ├── 09_pause_filament.cfg   PAUSE/PARK/RESUME/CANCEL/M600/runout
 │   ├── 10_live_tuning.cfg      APPLY_TYPE + all live SET_* controllers
 │   ├── 11_gantry_sync.cfg      dual-Z synchronization
-│   ├── 12_maintenance.cfg      PID/mesh/screws/offsets/extruder/self test
+│   ├── 12_maintenance.cfg      PID/mesh/screws/offsets/extruder/belt/self test
 │   ├── 13_system.cfg           restarts/shutdown/info
 │   ├── 14_kamp.cfg             KAMP compatibility (mesh/purge/smart park dispatch)
 │   ├── 15_objects.cfg          skip single objects (SKIP_OBJECT, 2-press confirm)
@@ -199,7 +199,7 @@ klipper-e3-r2d2/
 │   ├── 09_pause_filament.cfg   PAUSE/PARK/RESUME/CANCEL/M600/runout
 │   ├── 10_live_tuning.cfg      APPLY_TYPE + all live SET_* controllers
 │   ├── 11_gantry_sync.cfg      dual-Z synchronization
-│   ├── 12_maintenance.cfg      PID/mesh/screws/offsets/extruder/self test
+│   ├── 12_maintenance.cfg      PID/mesh/screws/offsets/extruder/belt/self test
 │   ├── 13_system.cfg           restarts/shutdown/info
 │   ├── 14_kamp.cfg             KAMP compatibility (mesh/purge/smart park dispatch)
 │   ├── 15_objects.cfg          skip single objects (SKIP_OBJECT, 2-press confirm)

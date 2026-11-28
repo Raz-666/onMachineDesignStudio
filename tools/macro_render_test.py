@@ -9680,8 +9680,8 @@ _src122a = open('macros/12_maintenance.cfg', encoding='utf-8').read()
 _allmac2a = _src082a + _src092a + _src122a
 tests.append(('R104.2 sources: no macro reads the old settings.get(r2_postproc) anymore',
     "settings.get('r2_postproc'" not in _allmac2a, ''))
-tests.append(('R104.2 sources: 5 spots read [gcode_macro _R2_CONFIG] (prime, present, parks x2, wipe)',
-    _allmac2a.count("'gcode_macro _R2_CONFIG' in printer") == 5,
+tests.append(('R104.2 sources: 6 spots read [gcode_macro _R2_CONFIG] (prime, present, parks x2, wipe, belt)',
+    _allmac2a.count("'gcode_macro _R2_CONFIG' in printer") == 6,
     str(_allmac2a.count("'gcode_macro _R2_CONFIG' in printer"))))
 _ship2a = _src082a + _src092a + _src122a \
     + open('menus/lcd_menues.cfg', encoding='utf-8').read() \
