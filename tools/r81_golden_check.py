@@ -494,19 +494,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # (md5 AND summaries). A stamp bump must ALWAYS be followed by a re-freeze
 # here - the goldens are version-stamp-sensitive by design.
 REF_MD5 = {
-    'mr01': '84531bdd9e023bb5b994feb703f20434',
-    'mr02': 'f5fa118c32b4247482fec3b405d2c4b6',
-    'mr03': '98309bad354fa26e105052f3e420e0d7',
-    'mr04': 'd9bddfb018f3a7192ef9c27030695cab',
-    'mr05': '964d9dc2de9d868d8e4b1ef59a5ceeb7',
-    'mr06': 'aec640551e5a58cae1f462dd325bccc9',
-    'mr07': '3b4d730e40c771237c31b060abac82d3',
-    'mr08': 'e68ffb0dcbd13ebee8db896968e87a6e',
-    'mr09': 'f01c05bfdd74e317d16a7e48063e3b63',
-    'mr10': '6de3c067c2860b9e86675a3bb82a2169',
-    'mr11': '106b591eb811e3bbd94dcb969d1509f9',
-    'mr12': 'a28a3e0ac9639ed169ecaadf5339bfdc',
-    'mr13': 'f10b7d89ffa71299cf64aec6938af81c',
+    'mr01': '0d277565c49f0ccd17a811208fd25376',
+    'mr02': 'a55adfcf44dac69cb2eeb054f7afa557',
+    'mr03': 'f28ef4fc5a9111f5c2a2cda799a85f0e',
+    'mr04': '17d79a1435100adc84fc298667ecdcb4',
+    'mr05': '02e0808c7ef0becaddb6ff243fb3a7dc',
+    'mr06': '79bbfbc999e3d4488c9a4e1d0402b103',
+    'mr07': '8adea871dc4ab3b9248d52b0c64f0c0f',
+    'mr08': '2dc2d824f9ed60a01e76f1ee7b4c7c41',
+    'mr09': '6683594809c7ff6f70ad5ca9692d04b5',
+    'mr10': 'e590e0ed8fa415e7d52ebe106eaaa050',
+    'mr11': '305be7a1a519687da2a183dc549572fc',
+    'mr12': 'd48e007c8c83a2a9f779d71fdd429c6f',
+    'mr13': '1f430f920d40996f668b237c80615166',
     'pr01': 'aa5a6f27d5a7e6576f57eeea93af63a5',
     'pr02': '61457e9bcbd98996b6e7dc26efda23d8',
     'pr03': '09e3fd7c58a6491fd66b3c5585ec1d1f',
@@ -518,59 +518,58 @@ REF_MD5 = {
     'pr09': '5e90a1d42296412a0ea53e9d6ada0157',
     'pr10': '159ea58bb74bbf9adb377f1e733d152b',
 }
-
 REF_SUMMARY = {
     'mr01': {
         'nl': 8,
-        'size': 4635,
+        'size': 5409,
     },
     'mr02': {
         'nl': 8,
-        'size': 13906,
+        'size': 14492,
     },
     'mr03': {
         'nl': 8,
-        'size': 12810,
+        'size': 13396,
     },
     'mr04': {
         'nl': 8,
-        'size': 12628,
+        'size': 13308,
     },
     'mr05': {
         'nl': 8,
-        'size': 21452,
+        'size': 22132,
     },
     'mr06': {
         'nl': 8,
-        'size': 16771,
+        'size': 17357,
     },
     'mr07': {
         'nl': 8,
-        'size': 3479,
+        'size': 5038,
     },
     'mr08': {
         'nl': 6,
-        'size': 4100,
+        'size': 4686,
     },
     'mr09': {
         'nl': 7,
-        'size': 9196,
+        'size': 9782,
     },
     'mr10': {
         'nl': 7,
-        'size': 12778,
+        'size': 13364,
     },
     'mr11': {
         'nl': 7,
-        'size': 8573,
+        'size': 9159,
     },
     'mr12': {
         'nl': 2,
-        'size': 3003,
+        'size': 3213,
     },
     'mr13': {
         'nl': 29,
-        'size': 18205,
+        'size': 20859,
     },
     'pr01': {
         'by_object': False,
