@@ -423,16 +423,24 @@ if [ -f "${DIR}/tools/r2_setup_lib.sh" ]; then
         done
         r2_ask "Keep the current LED + hardware settings?" y
         if [ "${R2_YN}" = "y" ]; then
-            # R282 (field boot halt): profiles written by the pre-fix wizard
-            # carry BARE string values ('variable_led_type: neopixel') -
-            # Klipper runs ast.literal_eval on every variable_* value and
-            # refuses to boot ('not a valid literal: <ast.Name object>').
-            # Re-render the profile from its parsed values - but ONLY when
-            # such a bare value exists: healthy profiles stay byte-identical.
+            # ALWAYS re-render r2_hardware.cfg from its parsed values (r2_hw_read
+            # loaded them just above). Two fixes ride on this re-render:
+            #  - the gcode_shell_command command strings are written as PYTHON
+            #    (Klipper-native gcode_shell_command.py compiles them at connect).
+            #    The legacy 'command: bash <path>' form is invalid Python and broke
+            #    the boot ('Internal error during connect: invalid syntax'). The
+            #    keep path used to skip r2_hw_write, so the broken string stayed.
+            #  - R282 (field boot halt): pre-fix wizard profiles carry BARE string
+            #    values ('variable_led_type: neopixel') - Klipper's ast.literal_eval
+            #    refuses to boot. Re-rendering writes quoted strings.
+            # r2_hw_write writes from R2_HW (the parsed values), so the user's
+            # settings are PRESERVED - only the rendering (quoted strings + fixed
+            # command) is updated.
             if r2_hw_needs_literal_fix; then
-                r2_hw_write
-                echo "[fix] hardware profile re-written with quoted string values (Klipper literal rule, R282)"
+                echo "[fix] hardware profile: bare string values present (R282) - re-rendering with quoted strings"
             fi
+            r2_hw_write
+            echo "[fix] hardware profile re-rendered (gcode_shell_command command strings -> valid Python)"
             r2_apply_led_layout
             echo "[ok] LED layout re-applied to the freshly unpacked 03_leds.cfg"
         else
