@@ -21,3 +21,4 @@ uploads_ref/
 # NOTE: release build artifacts (klipper-e3-r2d2-UPDATE-*.zip) are TRACKED in
 # this repo - the rule is that every release ZIP stays in the repo (never
 # deleted) and is downloadable via a GitHub link. They are NOT gitignored.
+tools/.audio_cache/
