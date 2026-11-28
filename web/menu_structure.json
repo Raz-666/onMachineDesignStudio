@@ -1,14 +1,14 @@
 {
  "generator": "menu_json_export.py (.136j R211)",
  "source": "lcd_menues.cfg",
- "sections": 2412,
+ "sections": 2445,
  "counts": {
-  "list": 329,
-  "command": 1471,
+  "list": 339,
+  "command": 1483,
   "vsdlist": 1,
-  "input": 611
+  "input": 622
  },
- "sha256": "01749fee7a98db4e",
+ "sha256": "93ab23ad15db303a",
  "live_objects": [
   "bed_mesh",
   "configfile",
@@ -1398,66 +1398,18 @@
         "type": "input",
         "name": "Scale: {'%d' % menu.input}% file",
         "input": "{printer['gcode_macro _STATE'].f_fan_scale|default(1)*100|round|int}",
-        "input_min": "25",
-        "input_max": "150",
-        "input_step": "5",
+        "input_min": "0",
+        "input_max": "100",
+        "input_step": "1",
         "gcode": [
          "SET_FAN_SCALE PERCENT={menu.input|round|int}"
         ],
         "children": []
        },
        {
-        "id": "__main __live __temp __fclamp",
-        "type": "command",
-        "name": "Clamp: {('ON ' ~ printer['save_variables'].variables.ov_fan_min|default(0)|round(0)|int ~ '-' ~ printer['save_variables'].variables.ov_fan_max|default(100)|round(0)|int ~ '%') if printer['save_variables'].variables.ov_fan_clamp_on|default(False) else 'off'}",
-        "gcode": [
-         "SET_FAN_CLAMP ON={1 if not printer['save_variables'].variables.ov_fan_clamp_on|default(False) else 0}"
-        ],
-        "children": []
-       },
-       {
-        "id": "__main __live __temp __fmin",
-        "type": "input",
-        "name": "FMin: {'%3d' % menu.input}%",
-        "input": "{printer['save_variables'].variables.ov_fan_min|default(10)}",
-        "input_min": "0",
-        "input_max": "100",
-        "input_step": "1",
-        "gcode": [
-         "SET_FAN_CLAMP MIN={menu.input|round|int}"
-        ],
-        "children": []
-       },
-       {
-        "id": "__main __live __temp __fmax",
-        "type": "input",
-        "name": "FMax: {'%3d' % menu.input}%",
-        "input": "{printer['save_variables'].variables.ov_fan_max|default(90)}",
-        "input_min": "0",
-        "input_max": "100",
-        "input_step": "1",
-        "gcode": [
-         "SET_FAN_CLAMP MAX={menu.input|round|int}"
-        ],
-        "children": []
-       },
-       {
-        "id": "__main __live __temp __fbr",
-        "type": "input",
-        "name": "FBr: {'%3d' % menu.input}% 0=off",
-        "input": "{printer['save_variables'].variables.ov_fan_bridge|default(0)}",
-        "input_min": "0",
-        "input_max": "100",
-        "input_step": "1",
-        "gcode": [
-         "SET_FAN_CLAMP BRIDGE={menu.input|round|int}"
-        ],
-        "children": []
-       },
-       {
         "id": "__main __live __temp __fhold",
         "type": "input",
-        "name": "Hold: {'%3d' % menu.input}%",
+        "name": "Hard: {'%3d' % menu.input}%",
         "input": "{printer['gcode_macro _STATE'].f_fan_hold|default(0)}",
         "input_min": "0",
         "input_max": "100",
@@ -1633,7 +1585,7 @@
         "id": "__main __live __spfe __ow",
         "type": "input",
         "name": "OW: {'%3d' % menu.input}%",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'WALL-OUTER' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_wallouter_spd|default(100)}",
         "input_min": "20",
         "input_max": "400",
@@ -1654,7 +1606,7 @@
         "id": "__main __live __spfe __iw",
         "type": "input",
         "name": "IW: {'%3d' % menu.input}%",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'WALL-INNER' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_wallinner_spd|default(100)}",
         "input_min": "20",
         "input_max": "400",
@@ -1675,7 +1627,7 @@
         "id": "__main __live __spfe __sp",
         "type": "input",
         "name": "SP: {'%3d' % menu.input}%",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'INFILL-SPARSE' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_infillsparse_spd|default(100)}",
         "input_min": "20",
         "input_max": "400",
@@ -1696,7 +1648,7 @@
         "id": "__main __live __spfe __so",
         "type": "input",
         "name": "SO: {'%3d' % menu.input}%",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'INFILL-SOLID' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_infillsolid_spd|default(100)}",
         "input_min": "20",
         "input_max": "400",
@@ -1717,7 +1669,7 @@
         "id": "__main __live __spfe __tp",
         "type": "input",
         "name": "TP: {'%3d' % menu.input}%",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SURFACE-TOP' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_surfacetop_spd|default(100)}",
         "input_min": "20",
         "input_max": "400",
@@ -1738,7 +1690,7 @@
         "id": "__main __live __spfe __bt",
         "type": "input",
         "name": "BT: {'%3d' % menu.input}%",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SURFACE-BOTTOM' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_surfacebottom_spd|default(100)}",
         "input_min": "20",
         "input_max": "400",
@@ -1759,7 +1711,7 @@
         "id": "__main __live __spfe __br",
         "type": "input",
         "name": "BR: {'%3d' % menu.input}%",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'BRIDGE' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_bridge_spd|default(100)}",
         "input_min": "20",
         "input_max": "400",
@@ -1780,7 +1732,7 @@
         "id": "__main __live __spfe __gp",
         "type": "input",
         "name": "GP: {'%3d' % menu.input}%",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'GAPS' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_gaps_spd|default(100)}",
         "input_min": "20",
         "input_max": "400",
@@ -1801,7 +1753,7 @@
         "id": "__main __live __spfe __su",
         "type": "input",
         "name": "SU: {'%3d' % menu.input}%",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SUPPORT' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_support_spd|default(100)}",
         "input_min": "20",
         "input_max": "400",
@@ -1822,7 +1774,7 @@
         "id": "__main __live __spfe __ir",
         "type": "input",
         "name": "IR fl: {'%3d' % menu.input}%",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'IRONING' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ov_ironing_flow|default(15)}",
         "input_min": "5",
         "input_max": "100",
@@ -1840,7 +1792,7 @@
         "id": "__main __live __spfe __sk",
         "type": "input",
         "name": "SK: {'%3d' % menu.input}%",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SKIRT' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_skirt_spd|default(100)}",
         "input_min": "20",
         "input_max": "400",
@@ -1861,7 +1813,7 @@
         "id": "__main __live __spfe __bm",
         "type": "input",
         "name": "BM: {'%3d' % menu.input}%",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'BRIM' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_brim_spd|default(100)}",
         "input_min": "20",
         "input_max": "400",
@@ -1882,7 +1834,7 @@
         "id": "__main __live __spfe __oh",
         "type": "input",
         "name": "OH: {'%3d' % menu.input}%",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'OVERHANG-PERIM' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_overhangperim_spd|default(100)}",
         "input_min": "20",
         "input_max": "400",
@@ -1903,7 +1855,7 @@
         "id": "__main __live __spfe __ib",
         "type": "input",
         "name": "IB: {'%3d' % menu.input}%",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'INTERNAL-BRIDGE' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_internalbridge_spd|default(100)}",
         "input_min": "20",
         "input_max": "400",
@@ -1924,7 +1876,7 @@
         "id": "__main __live __spfe __pt",
         "type": "input",
         "name": "PT: {'%3d' % menu.input}%",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'PRIME-TOWER' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_primetower_spd|default(100)}",
         "input_min": "20",
         "input_max": "400",
@@ -1945,7 +1897,7 @@
         "id": "__main __live __spfe __cu",
         "type": "input",
         "name": "CU: {'%3d' % menu.input}%",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'CUSTOM' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_custom_spd|default(100)}",
         "input_min": "20",
         "input_max": "400",
@@ -2062,7 +2014,7 @@
         "id": "__main __live __acfe __ow",
         "type": "input",
         "name": "OW: {'%5d' % menu.input}",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'WALL-OUTER' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_wallouter_acc|default(0)}",
         "input_min": "0",
         "input_max": "20000",
@@ -2083,7 +2035,7 @@
         "id": "__main __live __acfe __iw",
         "type": "input",
         "name": "IW: {'%5d' % menu.input}",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'WALL-INNER' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_wallinner_acc|default(0)}",
         "input_min": "0",
         "input_max": "20000",
@@ -2104,7 +2056,7 @@
         "id": "__main __live __acfe __sp",
         "type": "input",
         "name": "SP: {'%5d' % menu.input}",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'INFILL-SPARSE' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_infillsparse_acc|default(0)}",
         "input_min": "0",
         "input_max": "20000",
@@ -2125,7 +2077,7 @@
         "id": "__main __live __acfe __so",
         "type": "input",
         "name": "SO: {'%5d' % menu.input}",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'INFILL-SOLID' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_infillsolid_acc|default(0)}",
         "input_min": "0",
         "input_max": "20000",
@@ -2146,7 +2098,7 @@
         "id": "__main __live __acfe __tp",
         "type": "input",
         "name": "TP: {'%5d' % menu.input}",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SURFACE-TOP' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_surfacetop_acc|default(0)}",
         "input_min": "0",
         "input_max": "20000",
@@ -2167,7 +2119,7 @@
         "id": "__main __live __acfe __bt",
         "type": "input",
         "name": "BT: {'%5d' % menu.input}",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SURFACE-BOTTOM' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_surfacebottom_acc|default(0)}",
         "input_min": "0",
         "input_max": "20000",
@@ -2188,7 +2140,7 @@
         "id": "__main __live __acfe __br",
         "type": "input",
         "name": "BR: {'%5d' % menu.input}",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'BRIDGE' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_bridge_acc|default(0)}",
         "input_min": "0",
         "input_max": "20000",
@@ -2209,7 +2161,7 @@
         "id": "__main __live __acfe __gp",
         "type": "input",
         "name": "GP: {'%5d' % menu.input}",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'GAPS' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_gaps_acc|default(0)}",
         "input_min": "0",
         "input_max": "20000",
@@ -2230,7 +2182,7 @@
         "id": "__main __live __acfe __su",
         "type": "input",
         "name": "SU: {'%5d' % menu.input}",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SUPPORT' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_support_acc|default(0)}",
         "input_min": "0",
         "input_max": "20000",
@@ -2251,7 +2203,7 @@
         "id": "__main __live __acfe __ir",
         "type": "input",
         "name": "IR: {'%5d' % menu.input}",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'IRONING' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_ironing_acc|default(0)}",
         "input_min": "0",
         "input_max": "20000",
@@ -2272,7 +2224,7 @@
         "id": "__main __live __acfe __sk",
         "type": "input",
         "name": "SK: {'%5d' % menu.input}",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SKIRT' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_skirt_acc|default(0)}",
         "input_min": "0",
         "input_max": "20000",
@@ -2293,7 +2245,7 @@
         "id": "__main __live __acfe __bm",
         "type": "input",
         "name": "BM: {'%5d' % menu.input}",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'BRIM' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_brim_acc|default(0)}",
         "input_min": "0",
         "input_max": "20000",
@@ -2314,7 +2266,7 @@
         "id": "__main __live __acfe __oh",
         "type": "input",
         "name": "OH: {'%5d' % menu.input}",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'OVERHANG-PERIM' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_overhangperim_acc|default(0)}",
         "input_min": "0",
         "input_max": "20000",
@@ -2335,7 +2287,7 @@
         "id": "__main __live __acfe __ib",
         "type": "input",
         "name": "IB: {'%5d' % menu.input}",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'INTERNAL-BRIDGE' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_internalbridge_acc|default(0)}",
         "input_min": "0",
         "input_max": "20000",
@@ -2356,7 +2308,7 @@
         "id": "__main __live __acfe __pt",
         "type": "input",
         "name": "PT: {'%5d' % menu.input}",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'PRIME-TOWER' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_primetower_acc|default(0)}",
         "input_min": "0",
         "input_max": "20000",
@@ -2377,7 +2329,7 @@
         "id": "__main __live __acfe __cu",
         "type": "input",
         "name": "CU: {'%5d' % menu.input}",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'CUSTOM' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_custom_acc|default(0)}",
         "input_min": "0",
         "input_max": "20000",
@@ -2457,7 +2409,7 @@
         "id": "__main __live __pafe __ow",
         "type": "input",
         "name": "OW: {'%.3f'|format(menu.input)}",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'WALL-OUTER' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_wallouter_pa|default(0)}",
         "input_min": "0",
         "input_max": "0.3",
@@ -2478,7 +2430,7 @@
         "id": "__main __live __pafe __iw",
         "type": "input",
         "name": "IW: {'%.3f'|format(menu.input)}",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'WALL-INNER' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_wallinner_pa|default(0)}",
         "input_min": "0",
         "input_max": "0.3",
@@ -2499,7 +2451,7 @@
         "id": "__main __live __pafe __sp",
         "type": "input",
         "name": "SP: {'%.3f'|format(menu.input)}",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'INFILL-SPARSE' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_infillsparse_pa|default(0)}",
         "input_min": "0",
         "input_max": "0.3",
@@ -2520,7 +2472,7 @@
         "id": "__main __live __pafe __so",
         "type": "input",
         "name": "SO: {'%.3f'|format(menu.input)}",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'INFILL-SOLID' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_infillsolid_pa|default(0)}",
         "input_min": "0",
         "input_max": "0.3",
@@ -2541,7 +2493,7 @@
         "id": "__main __live __pafe __tp",
         "type": "input",
         "name": "TP: {'%.3f'|format(menu.input)}",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SURFACE-TOP' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_surfacetop_pa|default(0)}",
         "input_min": "0",
         "input_max": "0.3",
@@ -2562,7 +2514,7 @@
         "id": "__main __live __pafe __bt",
         "type": "input",
         "name": "BT: {'%.3f'|format(menu.input)}",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SURFACE-BOTTOM' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_surfacebottom_pa|default(0)}",
         "input_min": "0",
         "input_max": "0.3",
@@ -2583,7 +2535,7 @@
         "id": "__main __live __pafe __br",
         "type": "input",
         "name": "BR: {'%.3f'|format(menu.input)}",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'BRIDGE' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_bridge_pa|default(0)}",
         "input_min": "0",
         "input_max": "0.3",
@@ -2604,7 +2556,7 @@
         "id": "__main __live __pafe __gp",
         "type": "input",
         "name": "GP: {'%.3f'|format(menu.input)}",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'GAPS' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_gaps_pa|default(0)}",
         "input_min": "0",
         "input_max": "0.3",
@@ -2625,7 +2577,7 @@
         "id": "__main __live __pafe __su",
         "type": "input",
         "name": "SU: {'%.3f'|format(menu.input)}",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SUPPORT' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_support_pa|default(0)}",
         "input_min": "0",
         "input_max": "0.3",
@@ -2646,7 +2598,7 @@
         "id": "__main __live __pafe __ir",
         "type": "input",
         "name": "IR: {'%.3f'|format(menu.input)}",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'IRONING' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_ironing_pa|default(0)}",
         "input_min": "0",
         "input_max": "0.3",
@@ -2667,7 +2619,7 @@
         "id": "__main __live __pafe __sk",
         "type": "input",
         "name": "SK: {'%.3f'|format(menu.input)}",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SKIRT' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_skirt_pa|default(0)}",
         "input_min": "0",
         "input_max": "0.3",
@@ -2688,7 +2640,7 @@
         "id": "__main __live __pafe __bm",
         "type": "input",
         "name": "BM: {'%.3f'|format(menu.input)}",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'BRIM' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_brim_pa|default(0)}",
         "input_min": "0",
         "input_max": "0.3",
@@ -2709,7 +2661,7 @@
         "id": "__main __live __pafe __oh",
         "type": "input",
         "name": "OH: {'%.3f'|format(menu.input)}",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'OVERHANG-PERIM' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_overhangperim_pa|default(0)}",
         "input_min": "0",
         "input_max": "0.3",
@@ -2730,7 +2682,7 @@
         "id": "__main __live __pafe __ib",
         "type": "input",
         "name": "IB: {'%.3f'|format(menu.input)}",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'INTERNAL-BRIDGE' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_internalbridge_pa|default(0)}",
         "input_min": "0",
         "input_max": "0.3",
@@ -2751,7 +2703,7 @@
         "id": "__main __live __pafe __pt",
         "type": "input",
         "name": "PT: {'%.3f'|format(menu.input)}",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'PRIME-TOWER' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_primetower_pa|default(0)}",
         "input_min": "0",
         "input_max": "0.3",
@@ -2772,7 +2724,7 @@
         "id": "__main __live __pafe __cu",
         "type": "input",
         "name": "CU: {'%.3f'|format(menu.input)}",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'CUSTOM' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_custom_pa|default(0)}",
         "input_min": "0",
         "input_max": "0.3",
@@ -2832,7 +2784,7 @@
         "id": "__main __live __flfe __ow",
         "type": "input",
         "name": "OW: {'%3d' % menu.input}%",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'WALL-OUTER' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_wallouter_flw|default(100)}",
         "input_min": "20",
         "input_max": "400",
@@ -2853,7 +2805,7 @@
         "id": "__main __live __flfe __iw",
         "type": "input",
         "name": "IW: {'%3d' % menu.input}%",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'WALL-INNER' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_wallinner_flw|default(100)}",
         "input_min": "20",
         "input_max": "400",
@@ -2874,7 +2826,7 @@
         "id": "__main __live __flfe __sp",
         "type": "input",
         "name": "SP: {'%3d' % menu.input}%",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'INFILL-SPARSE' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_infillsparse_flw|default(100)}",
         "input_min": "20",
         "input_max": "400",
@@ -2895,7 +2847,7 @@
         "id": "__main __live __flfe __so",
         "type": "input",
         "name": "SO: {'%3d' % menu.input}%",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'INFILL-SOLID' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_infillsolid_flw|default(100)}",
         "input_min": "20",
         "input_max": "400",
@@ -2916,7 +2868,7 @@
         "id": "__main __live __flfe __tp",
         "type": "input",
         "name": "TP: {'%3d' % menu.input}%",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SURFACE-TOP' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_surfacetop_flw|default(100)}",
         "input_min": "20",
         "input_max": "400",
@@ -2937,7 +2889,7 @@
         "id": "__main __live __flfe __bt",
         "type": "input",
         "name": "BT: {'%3d' % menu.input}%",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SURFACE-BOTTOM' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_surfacebottom_flw|default(100)}",
         "input_min": "20",
         "input_max": "400",
@@ -2958,7 +2910,7 @@
         "id": "__main __live __flfe __br",
         "type": "input",
         "name": "BR: {'%3d' % menu.input}%",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'BRIDGE' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_bridge_flw|default(100)}",
         "input_min": "20",
         "input_max": "400",
@@ -2979,7 +2931,7 @@
         "id": "__main __live __flfe __gp",
         "type": "input",
         "name": "GP: {'%3d' % menu.input}%",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'GAPS' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_gaps_flw|default(100)}",
         "input_min": "20",
         "input_max": "400",
@@ -3000,7 +2952,7 @@
         "id": "__main __live __flfe __su",
         "type": "input",
         "name": "SU: {'%3d' % menu.input}%",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SUPPORT' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_support_flw|default(100)}",
         "input_min": "20",
         "input_max": "400",
@@ -3021,7 +2973,7 @@
         "id": "__main __live __flfe __ir",
         "type": "input",
         "name": "IR flow: {'%3d' % menu.input}%",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'IRONING' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ov_ironing_flow|default(15)}",
         "input_min": "5",
         "input_max": "100",
@@ -3039,7 +2991,7 @@
         "id": "__main __live __flfe __sk",
         "type": "input",
         "name": "SK: {'%3d' % menu.input}%",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SKIRT' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_skirt_flw|default(100)}",
         "input_min": "20",
         "input_max": "400",
@@ -3060,7 +3012,7 @@
         "id": "__main __live __flfe __bm",
         "type": "input",
         "name": "BM: {'%3d' % menu.input}%",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'BRIM' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_brim_flw|default(100)}",
         "input_min": "20",
         "input_max": "400",
@@ -3081,7 +3033,7 @@
         "id": "__main __live __flfe __oh",
         "type": "input",
         "name": "OH: {'%3d' % menu.input}%",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'OVERHANG-PERIM' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_overhangperim_flw|default(100)}",
         "input_min": "20",
         "input_max": "400",
@@ -3102,7 +3054,7 @@
         "id": "__main __live __flfe __ib",
         "type": "input",
         "name": "IB: {'%3d' % menu.input}%",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'INTERNAL-BRIDGE' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_internalbridge_flw|default(100)}",
         "input_min": "20",
         "input_max": "400",
@@ -3123,7 +3075,7 @@
         "id": "__main __live __flfe __pt",
         "type": "input",
         "name": "PT: {'%3d' % menu.input}%",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'PRIME-TOWER' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_primetower_flw|default(100)}",
         "input_min": "20",
         "input_max": "400",
@@ -3144,7 +3096,7 @@
         "id": "__main __live __flfe __cu",
         "type": "input",
         "name": "CU: {'%3d' % menu.input}%",
-        "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'CUSTOM' in printer['gcode_macro _STATE'].file_types}",
+        "enable": "True",
         "input": "{printer['save_variables'].variables.ovf_custom_flw|default(100)}",
         "input_min": "20",
         "input_max": "400",
@@ -3176,10 +3128,10 @@
          {
           "id": "__main __live __lmo __vel __mv",
           "type": "input",
-          "name": "Velcap: {'%4d' % menu.input}",
-          "input": "{printer.toolhead.max_velocity|default(300)}",
+          "name": "Vel: {'%4d' % menu.input}%",
+          "input": "{printer.toolhead.velocity_scale|default(1.0) * 100 | round | int}",
           "input_min": "50",
-          "input_max": "500",
+          "input_max": "300",
           "input_step": "10",
           "gcode": [
            "SET_LIVE_VELOCITY VELOCITY={menu.input|round|int}"
@@ -3278,16 +3230,7 @@
           "name": "Flow sources",
           "gcode": [
            "{% set s = printer['gcode_macro _STATE'] %}",
-           "{% set sv = printer['save_variables'].variables %}",
-           "{% set gflw = s.live_flow|default(0)|float if s.live_flow|default(0)|float > 0 else (sv.ov_flow|default(100)|float if sv.ov_flow_on|default(False) else 100.0) %}",
-           "{% set c = s.current_type|default('')|replace('-','')|lower %}",
-           "{% set fflw = sv['ovf_' ~ c ~ '_flw']|default(100)|float if c != '' else 100.0 %}",
-           "RESPOND MSG=\"Flow sources - GLOBAL {gflw|round|int}% (the one regulator){% if s.live_flow|default(0)|float > 0 %} (your LIVE value){% endif %}\"",
-           "{% if c != '' and sv['ovf_' ~ c ~ '_on']|default(False) and (fflw != 100 or gflw != 100) %}",
-           "RESPOND MSG=\"  current feature {s.current_type}: {fflw|round|int}% x global {gflw|round|int}% = {(gflw * fflw / 100)|round|int}% effective\"",
-           "{% else %}",
-           "RESPOND MSG=\"  current feature: 1:1 with the global (no feature flow override)\"",
-           "{% endif %}"
+           "{% set sv = printer['save_variables'].variables %}"
           ],
           "children": []
          },
@@ -3956,11 +3899,11 @@
         "children": []
        },
        {
-        "id": "__main __preprint __file __stl",
+        "id": "__main __preprint __file __obj",
         "type": "command",
-        "name": "STL: shell",
+        "name": "OBJ: shell",
         "gcode": [
-         "STL_EXPORT"
+         "OBJ_EXPORT"
         ],
         "children": []
        },
@@ -4617,6 +4560,56 @@
              "TEXTURE_APPLY PRESET=CHESS CONFIRM=1"
             ],
             "children": []
+           },
+           {
+            "id": "__main __preprint __mods __tex __preset __nietr",
+            "type": "command",
+            "name": "{('> AGAIN = start' if printer['gcode_macro _STATE'].gen_arm|default('') == 'texture' else '> Nieten rund')}",
+            "gcode": [
+             "{% if printer['gcode_macro _STATE'].gen_arm|default('') == 'texture' %}{menu.exit()}{% endif %}",
+             "TEXTURE_APPLY PRESET=NIET_RUND CONFIRM=1"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __tex __preset __nietsp",
+            "type": "command",
+            "name": "{('> AGAIN = start' if printer['gcode_macro _STATE'].gen_arm|default('') == 'texture' else '> Nieten spitz')}",
+            "gcode": [
+             "{% if printer['gcode_macro _STATE'].gen_arm|default('') == 'texture' %}{menu.exit()}{% endif %}",
+             "TEXTURE_APPLY PRESET=NIET_SPITZ CONFIRM=1"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __tex __preset __zip",
+            "type": "command",
+            "name": "{('> AGAIN = start' if printer['gcode_macro _STATE'].gen_arm|default('') == 'texture' else '> Reißverschluss')}",
+            "gcode": [
+             "{% if printer['gcode_macro _STATE'].gen_arm|default('') == 'texture' %}{menu.exit()}{% endif %}",
+             "TEXTURE_APPLY PRESET=ZIPPER CONFIRM=1"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __tex __preset __snniet",
+            "type": "command",
+            "name": "{('> AGAIN = start' if printer['gcode_macro _STATE'].gen_arm|default('') == 'texture' else '> Z-Naht Nieten')}",
+            "gcode": [
+             "{% if printer['gcode_macro _STATE'].gen_arm|default('') == 'texture' %}{menu.exit()}{% endif %}",
+             "TEXTURE_APPLY PRESET=SEAM_NIET CONFIRM=1"
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __preprint __mods __tex __preset __snzip",
+            "type": "command",
+            "name": "{('> AGAIN = start' if printer['gcode_macro _STATE'].gen_arm|default('') == 'texture' else '> Z-Naht Reißverschluss')}",
+            "gcode": [
+             "{% if printer['gcode_macro _STATE'].gen_arm|default('') == 'texture' %}{menu.exit()}{% endif %}",
+             "TEXTURE_APPLY PRESET=SEAM_ZIP CONFIRM=1"
+            ],
+            "children": []
            }
           ]
          },
@@ -4786,6 +4779,21 @@
            "{% set on = printer['save_variables'].variables.texture_tilt|default('OFF')|string|upper == 'ON' %}",
            "SAVE_VARIABLE VARIABLE=texture_tilt VALUE=\"\\\\\"{ 'OFF' if on else 'ON' }\\\\\"\"",
            "RESPOND MSG=\"Texture tilt { 'OFF' if on else 'ON' }: pattern's explicit tilt is {'disabled' if on else 'enabled'}\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __preprint __mods __tex __blur",
+          "type": "input",
+          "name": "Blur: {'%.2f' % menu.input}mm",
+          "enable": "{printer['save_variables'].variables.texture_mode|default('')|string == 'BUMPS'}",
+          "input": "{printer['save_variables'].variables.texture_blur|default(0.0)}",
+          "input_min": "0.0",
+          "input_max": "2.0",
+          "input_step": "0.1",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=texture_blur VALUE={menu.input|float|round(2)}",
+           "RESPOND MSG=\"Texture blur {menu.input|round(2)}mm: Gaussian softening of the pattern relief (0 = sharp)\""
           ],
           "children": []
          },
@@ -5259,7 +5267,7 @@
           "gcode": [
            "{% set tl = printer['gcode_macro _STATE'].total_layers|default(0)|int %}",
            "{% if tl > 0 %}",
-           "RESPOND MSG=\"Range source: {printer.print_stats.filename|default('?')} - {tl} layers (From 2..{tl - 1}, To 3..{tl})\"",
+           "RESPOND MSG=\"Range source: {printer.print_stats.filename|default('?')} - {tl} layers (From 1..{tl - 1}, To 2..{tl})\"",
            "RESPOND MSG=\"R224: Floor/Top count INSIDE the window - the excerpt stays (To-From+1) layers tall, windows stack seamlessly\"",
            "{% else %}",
            "RESPOND MSG=\"Range: select a file first - then its layer count caps From/To here\"",
@@ -5284,8 +5292,8 @@
           "id": "__main __preprint __mods __rng __from",
           "type": "input",
           "name": "From: {'%3d' % menu.input}",
-          "input": "{printer['save_variables'].variables.range_start|default(2)}",
-          "input_min": "2",
+          "input": "{[printer['save_variables'].variables.range_start|default(2)|int, printer['gcode_macro _STATE'].total_layers|default(0)|int - 1] | min} if printer['gcode_macro _STATE'].total_layers|default(0)|int > 3 else printer['save_variables'].variables.range_start|default(2)}",
+          "input_min": "1",
           "input_max": "{printer['gcode_macro _STATE'].total_layers|default(0)|int - 1 if printer['gcode_macro _STATE'].total_layers|default(0)|int > 3 else 999}",
           "input_step": "1",
           "gcode": [
@@ -5297,8 +5305,8 @@
           "id": "__main __preprint __mods __rng __to",
           "type": "input",
           "name": "To: {'%3d' % menu.input}",
-          "input": "{printer['save_variables'].variables.range_end|default(10)}",
-          "input_min": "3",
+          "input": "{[printer['save_variables'].variables.range_end|default(10)|int, printer['gcode_macro _STATE'].total_layers|default(0)|int] | min} if printer['gcode_macro _STATE'].total_layers|default(0)|int > 3 else printer['save_variables'].variables.range_end|default(10)}",
+          "input_min": "2",
           "input_max": "{printer['gcode_macro _STATE'].total_layers|default(0)|int if printer['gcode_macro _STATE'].total_layers|default(0)|int > 3 else 999}",
           "input_step": "1",
           "gcode": [
@@ -5515,6 +5523,45 @@
           "gcode": [
            "SAVE_VARIABLE VARIABLE=scale_top_y VALUE={menu.input|round|int}",
            "RESPOND MSG=\"Scale top Y {menu.input|round|int}%% - taper to this at the TOP (0 = off, 25..300%%)\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __preprint __mods __scale __sxymid",
+          "type": "input",
+          "name": "{'Mid scale: ' ~ menu.input ~ '%'}",
+          "input": "{printer['save_variables'].variables.scale_xy_mid|default(100)}",
+          "input_min": "0",
+          "input_max": "300",
+          "input_step": "1",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=scale_xy_mid VALUE={menu.input|float|round(0)}",
+           "RESPOND MSG=\"Middle scale {menu.input}%: the XY scale is modulated at the middle Z position (100% = no change). Active only between 5% and 95% Z position\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __preprint __mods __scale __sxypos",
+          "type": "input",
+          "name": "{'Mid pos: ' ~ menu.input ~ '%'}",
+          "input": "{printer['save_variables'].variables.scale_xy_pos|default(50)}",
+          "input_min": "0",
+          "input_max": "100",
+          "input_step": "1",
+          "gcode": [
+           "SAVE_VARIABLE VARIABLE=scale_xy_pos VALUE={menu.input|float|round(0)}",
+           "RESPOND MSG=\"Middle Z position {menu.input}%: where the middle scale applies (0% = bottom, 100% = top). Outside 5%-95% the middle value has no effect\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __preprint __mods __scale __sxycurve",
+          "type": "command",
+          "name": "{'Mid curve: ' ~ printer['save_variables'].variables.scale_xy_curve|default('bezier')|string|upper}",
+          "gcode": [
+           "{% set cur = printer['save_variables'].variables.scale_xy_curve|default('bezier')|string|lower %}",
+           "SAVE_VARIABLE VARIABLE=scale_xy_curve VALUE=\\\"\\\\\\\"{ 'linear' if cur == 'bezier' else 'bezier' }\\\\\\\"\\\"",
+           "RESPOND MSG=\"Middle scale transition { 'linear' if cur == 'bezier' else 'bezier' }: how the XY scale blends from bottom to middle to top\""
           ],
           "children": []
          },
@@ -7407,6 +7454,48 @@
       ]
      },
      {
+      "id": "__main __preprint __fan",
+      "type": "list",
+      "name": "Fan",
+      "children": [
+       {
+        "id": "__main __preprint __fan __scale",
+        "type": "input",
+        "name": "Scale: {'%3d' % menu.input}%",
+        "input": "{printer['gcode_macro _STATE'].f_fan_scale|default(1)*100|round|int}",
+        "input_min": "0",
+        "input_max": "100",
+        "input_step": "1",
+        "gcode": [
+         "SET_FAN_SCALE PERCENT={menu.input|round|int}"
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __preprint __fan __hard",
+        "type": "input",
+        "name": "Hard: {'%3d' % menu.input}%",
+        "input": "{printer['gcode_macro _STATE'].f_fan_hold|default(0)|float}",
+        "input_min": "0",
+        "input_max": "100",
+        "input_step": "1",
+        "gcode": [
+         "SET_FAN_HOLD PERCENT={menu.input|round|int}"
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __preprint __fan __how",
+        "type": "command",
+        "name": "How it works",
+        "gcode": [
+         "RESPOND MSG=\"Fan - TWO modes only. SCALE = proportional (slicer curves stay, all values multiplied). HARD = hard override (this % replaces every file M106). Layer 1 stays fan OFF for adhesion, the mode applies from layer 2.\""
+        ],
+        "children": []
+       }
+      ]
+     },
+     {
       "id": "__main __preprint __fil",
       "type": "list",
       "name": "Filament",
@@ -7587,7 +7676,7 @@
             "id": "__main __preprint __motion __vel __spfe __ow",
             "type": "input",
             "name": "OW: {'%3d' % menu.input}%",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'WALL-OUTER' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_wallouter_spd|default(100)}",
             "input_min": "20",
             "input_max": "400",
@@ -7608,7 +7697,7 @@
             "id": "__main __preprint __motion __vel __spfe __iw",
             "type": "input",
             "name": "IW: {'%3d' % menu.input}%",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'WALL-INNER' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_wallinner_spd|default(100)}",
             "input_min": "20",
             "input_max": "400",
@@ -7629,7 +7718,7 @@
             "id": "__main __preprint __motion __vel __spfe __sp",
             "type": "input",
             "name": "SP: {'%3d' % menu.input}%",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'INFILL-SPARSE' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_infillsparse_spd|default(100)}",
             "input_min": "20",
             "input_max": "400",
@@ -7650,7 +7739,7 @@
             "id": "__main __preprint __motion __vel __spfe __so",
             "type": "input",
             "name": "SO: {'%3d' % menu.input}%",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'INFILL-SOLID' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_infillsolid_spd|default(100)}",
             "input_min": "20",
             "input_max": "400",
@@ -7671,7 +7760,7 @@
             "id": "__main __preprint __motion __vel __spfe __tp",
             "type": "input",
             "name": "TP: {'%3d' % menu.input}%",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SURFACE-TOP' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_surfacetop_spd|default(100)}",
             "input_min": "20",
             "input_max": "400",
@@ -7692,7 +7781,7 @@
             "id": "__main __preprint __motion __vel __spfe __bt",
             "type": "input",
             "name": "BT: {'%3d' % menu.input}%",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SURFACE-BOTTOM' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_surfacebottom_spd|default(100)}",
             "input_min": "20",
             "input_max": "400",
@@ -7713,7 +7802,7 @@
             "id": "__main __preprint __motion __vel __spfe __br",
             "type": "input",
             "name": "BR: {'%3d' % menu.input}%",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'BRIDGE' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_bridge_spd|default(100)}",
             "input_min": "20",
             "input_max": "400",
@@ -7734,7 +7823,7 @@
             "id": "__main __preprint __motion __vel __spfe __gp",
             "type": "input",
             "name": "GP: {'%3d' % menu.input}%",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'GAPS' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_gaps_spd|default(100)}",
             "input_min": "20",
             "input_max": "400",
@@ -7755,7 +7844,7 @@
             "id": "__main __preprint __motion __vel __spfe __su",
             "type": "input",
             "name": "SU: {'%3d' % menu.input}%",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SUPPORT' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_support_spd|default(100)}",
             "input_min": "20",
             "input_max": "400",
@@ -7776,7 +7865,7 @@
             "id": "__main __preprint __motion __vel __spfe __ir",
             "type": "input",
             "name": "IR: {'%3d' % menu.input}%",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'IRONING' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_ironing_spd|default(100)}",
             "input_min": "20",
             "input_max": "400",
@@ -7797,7 +7886,7 @@
             "id": "__main __preprint __motion __vel __spfe __sk",
             "type": "input",
             "name": "SK: {'%3d' % menu.input}%",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SKIRT' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_skirt_spd|default(100)}",
             "input_min": "20",
             "input_max": "400",
@@ -7818,7 +7907,7 @@
             "id": "__main __preprint __motion __vel __spfe __bm",
             "type": "input",
             "name": "BM: {'%3d' % menu.input}%",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'BRIM' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_brim_spd|default(100)}",
             "input_min": "20",
             "input_max": "400",
@@ -7839,7 +7928,7 @@
             "id": "__main __preprint __motion __vel __spfe __oh",
             "type": "input",
             "name": "OH: {'%3d' % menu.input}%",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'OVERHANG-PERIM' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_overhangperim_spd|default(100)}",
             "input_min": "20",
             "input_max": "400",
@@ -7860,7 +7949,7 @@
             "id": "__main __preprint __motion __vel __spfe __ib",
             "type": "input",
             "name": "IB: {'%3d' % menu.input}%",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'INTERNAL-BRIDGE' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_internalbridge_spd|default(100)}",
             "input_min": "20",
             "input_max": "400",
@@ -7881,7 +7970,7 @@
             "id": "__main __preprint __motion __vel __spfe __pt",
             "type": "input",
             "name": "PT: {'%3d' % menu.input}%",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'PRIME-TOWER' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_primetower_spd|default(100)}",
             "input_min": "20",
             "input_max": "400",
@@ -7902,7 +7991,7 @@
             "id": "__main __preprint __motion __vel __spfe __cu",
             "type": "input",
             "name": "CU: {'%3d' % menu.input}%",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'CUSTOM' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_custom_spd|default(100)}",
             "input_min": "20",
             "input_max": "400",
@@ -7986,7 +8075,7 @@
             "id": "__main __preprint __motion __vel __acfe __ow",
             "type": "input",
             "name": "OW: {'%5d' % menu.input}",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'WALL-OUTER' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_wallouter_acc|default(0)}",
             "input_min": "0",
             "input_max": "20000",
@@ -8007,7 +8096,7 @@
             "id": "__main __preprint __motion __vel __acfe __iw",
             "type": "input",
             "name": "IW: {'%5d' % menu.input}",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'WALL-INNER' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_wallinner_acc|default(0)}",
             "input_min": "0",
             "input_max": "20000",
@@ -8028,7 +8117,7 @@
             "id": "__main __preprint __motion __vel __acfe __sp",
             "type": "input",
             "name": "SP: {'%5d' % menu.input}",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'INFILL-SPARSE' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_infillsparse_acc|default(0)}",
             "input_min": "0",
             "input_max": "20000",
@@ -8049,7 +8138,7 @@
             "id": "__main __preprint __motion __vel __acfe __so",
             "type": "input",
             "name": "SO: {'%5d' % menu.input}",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'INFILL-SOLID' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_infillsolid_acc|default(0)}",
             "input_min": "0",
             "input_max": "20000",
@@ -8070,7 +8159,7 @@
             "id": "__main __preprint __motion __vel __acfe __tp",
             "type": "input",
             "name": "TP: {'%5d' % menu.input}",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SURFACE-TOP' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_surfacetop_acc|default(0)}",
             "input_min": "0",
             "input_max": "20000",
@@ -8091,7 +8180,7 @@
             "id": "__main __preprint __motion __vel __acfe __bt",
             "type": "input",
             "name": "BT: {'%5d' % menu.input}",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SURFACE-BOTTOM' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_surfacebottom_acc|default(0)}",
             "input_min": "0",
             "input_max": "20000",
@@ -8112,7 +8201,7 @@
             "id": "__main __preprint __motion __vel __acfe __br",
             "type": "input",
             "name": "BR: {'%5d' % menu.input}",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'BRIDGE' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_bridge_acc|default(0)}",
             "input_min": "0",
             "input_max": "20000",
@@ -8133,7 +8222,7 @@
             "id": "__main __preprint __motion __vel __acfe __gp",
             "type": "input",
             "name": "GP: {'%5d' % menu.input}",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'GAPS' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_gaps_acc|default(0)}",
             "input_min": "0",
             "input_max": "20000",
@@ -8154,7 +8243,7 @@
             "id": "__main __preprint __motion __vel __acfe __su",
             "type": "input",
             "name": "SU: {'%5d' % menu.input}",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SUPPORT' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_support_acc|default(0)}",
             "input_min": "0",
             "input_max": "20000",
@@ -8175,7 +8264,7 @@
             "id": "__main __preprint __motion __vel __acfe __ir",
             "type": "input",
             "name": "IR: {'%5d' % menu.input}",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'IRONING' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_ironing_acc|default(0)}",
             "input_min": "0",
             "input_max": "20000",
@@ -8196,7 +8285,7 @@
             "id": "__main __preprint __motion __vel __acfe __sk",
             "type": "input",
             "name": "SK: {'%5d' % menu.input}",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SKIRT' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_skirt_acc|default(0)}",
             "input_min": "0",
             "input_max": "20000",
@@ -8217,7 +8306,7 @@
             "id": "__main __preprint __motion __vel __acfe __bm",
             "type": "input",
             "name": "BM: {'%5d' % menu.input}",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'BRIM' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_brim_acc|default(0)}",
             "input_min": "0",
             "input_max": "20000",
@@ -8238,7 +8327,7 @@
             "id": "__main __preprint __motion __vel __acfe __oh",
             "type": "input",
             "name": "OH: {'%5d' % menu.input}",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'OVERHANG-PERIM' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_overhangperim_acc|default(0)}",
             "input_min": "0",
             "input_max": "20000",
@@ -8259,7 +8348,7 @@
             "id": "__main __preprint __motion __vel __acfe __ib",
             "type": "input",
             "name": "IB: {'%5d' % menu.input}",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'INTERNAL-BRIDGE' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_internalbridge_acc|default(0)}",
             "input_min": "0",
             "input_max": "20000",
@@ -8280,7 +8369,7 @@
             "id": "__main __preprint __motion __vel __acfe __pt",
             "type": "input",
             "name": "PT: {'%5d' % menu.input}",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'PRIME-TOWER' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_primetower_acc|default(0)}",
             "input_min": "0",
             "input_max": "20000",
@@ -8301,7 +8390,7 @@
             "id": "__main __preprint __motion __vel __acfe __cu",
             "type": "input",
             "name": "CU: {'%5d' % menu.input}",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'CUSTOM' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_custom_acc|default(0)}",
             "input_min": "0",
             "input_max": "20000",
@@ -8427,7 +8516,7 @@
             "id": "__main __preprint __motion __ext __pafe __ow",
             "type": "input",
             "name": "OW: {'%.3f'|format(menu.input)}",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'WALL-OUTER' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_wallouter_pa|default(0)}",
             "input_min": "0",
             "input_max": "0.3",
@@ -8448,7 +8537,7 @@
             "id": "__main __preprint __motion __ext __pafe __iw",
             "type": "input",
             "name": "IW: {'%.3f'|format(menu.input)}",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'WALL-INNER' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_wallinner_pa|default(0)}",
             "input_min": "0",
             "input_max": "0.3",
@@ -8469,7 +8558,7 @@
             "id": "__main __preprint __motion __ext __pafe __sp",
             "type": "input",
             "name": "SP: {'%.3f'|format(menu.input)}",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'INFILL-SPARSE' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_infillsparse_pa|default(0)}",
             "input_min": "0",
             "input_max": "0.3",
@@ -8490,7 +8579,7 @@
             "id": "__main __preprint __motion __ext __pafe __so",
             "type": "input",
             "name": "SO: {'%.3f'|format(menu.input)}",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'INFILL-SOLID' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_infillsolid_pa|default(0)}",
             "input_min": "0",
             "input_max": "0.3",
@@ -8511,7 +8600,7 @@
             "id": "__main __preprint __motion __ext __pafe __tp",
             "type": "input",
             "name": "TP: {'%.3f'|format(menu.input)}",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SURFACE-TOP' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_surfacetop_pa|default(0)}",
             "input_min": "0",
             "input_max": "0.3",
@@ -8532,7 +8621,7 @@
             "id": "__main __preprint __motion __ext __pafe __bt",
             "type": "input",
             "name": "BT: {'%.3f'|format(menu.input)}",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SURFACE-BOTTOM' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_surfacebottom_pa|default(0)}",
             "input_min": "0",
             "input_max": "0.3",
@@ -8553,7 +8642,7 @@
             "id": "__main __preprint __motion __ext __pafe __br",
             "type": "input",
             "name": "BR: {'%.3f'|format(menu.input)}",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'BRIDGE' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_bridge_pa|default(0)}",
             "input_min": "0",
             "input_max": "0.3",
@@ -8574,7 +8663,7 @@
             "id": "__main __preprint __motion __ext __pafe __gp",
             "type": "input",
             "name": "GP: {'%.3f'|format(menu.input)}",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'GAPS' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_gaps_pa|default(0)}",
             "input_min": "0",
             "input_max": "0.3",
@@ -8595,7 +8684,7 @@
             "id": "__main __preprint __motion __ext __pafe __su",
             "type": "input",
             "name": "SU: {'%.3f'|format(menu.input)}",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SUPPORT' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_support_pa|default(0)}",
             "input_min": "0",
             "input_max": "0.3",
@@ -8616,7 +8705,7 @@
             "id": "__main __preprint __motion __ext __pafe __ir",
             "type": "input",
             "name": "IR: {'%.3f'|format(menu.input)}",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'IRONING' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_ironing_pa|default(0)}",
             "input_min": "0",
             "input_max": "0.3",
@@ -8637,7 +8726,7 @@
             "id": "__main __preprint __motion __ext __pafe __sk",
             "type": "input",
             "name": "SK: {'%.3f'|format(menu.input)}",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SKIRT' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_skirt_pa|default(0)}",
             "input_min": "0",
             "input_max": "0.3",
@@ -8658,7 +8747,7 @@
             "id": "__main __preprint __motion __ext __pafe __bm",
             "type": "input",
             "name": "BM: {'%.3f'|format(menu.input)}",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'BRIM' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_brim_pa|default(0)}",
             "input_min": "0",
             "input_max": "0.3",
@@ -8679,7 +8768,7 @@
             "id": "__main __preprint __motion __ext __pafe __oh",
             "type": "input",
             "name": "OH: {'%.3f'|format(menu.input)}",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'OVERHANG-PERIM' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_overhangperim_pa|default(0)}",
             "input_min": "0",
             "input_max": "0.3",
@@ -8700,7 +8789,7 @@
             "id": "__main __preprint __motion __ext __pafe __ib",
             "type": "input",
             "name": "IB: {'%.3f'|format(menu.input)}",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'INTERNAL-BRIDGE' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_internalbridge_pa|default(0)}",
             "input_min": "0",
             "input_max": "0.3",
@@ -8721,7 +8810,7 @@
             "id": "__main __preprint __motion __ext __pafe __pt",
             "type": "input",
             "name": "PT: {'%.3f'|format(menu.input)}",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'PRIME-TOWER' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_primetower_pa|default(0)}",
             "input_min": "0",
             "input_max": "0.3",
@@ -8742,7 +8831,7 @@
             "id": "__main __preprint __motion __ext __pafe __cu",
             "type": "input",
             "name": "CU: {'%.3f'|format(menu.input)}",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'CUSTOM' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_custom_pa|default(0)}",
             "input_min": "0",
             "input_max": "0.3",
@@ -8811,7 +8900,7 @@
             "id": "__main __preprint __motion __ext __flfe __ow",
             "type": "input",
             "name": "OW: {'%3d' % menu.input}%",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'WALL-OUTER' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_wallouter_flw|default(100)}",
             "input_min": "20",
             "input_max": "400",
@@ -8832,7 +8921,7 @@
             "id": "__main __preprint __motion __ext __flfe __iw",
             "type": "input",
             "name": "IW: {'%3d' % menu.input}%",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'WALL-INNER' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_wallinner_flw|default(100)}",
             "input_min": "20",
             "input_max": "400",
@@ -8853,7 +8942,7 @@
             "id": "__main __preprint __motion __ext __flfe __sp",
             "type": "input",
             "name": "SP: {'%3d' % menu.input}%",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'INFILL-SPARSE' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_infillsparse_flw|default(100)}",
             "input_min": "20",
             "input_max": "400",
@@ -8874,7 +8963,7 @@
             "id": "__main __preprint __motion __ext __flfe __so",
             "type": "input",
             "name": "SO: {'%3d' % menu.input}%",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'INFILL-SOLID' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_infillsolid_flw|default(100)}",
             "input_min": "20",
             "input_max": "400",
@@ -8895,7 +8984,7 @@
             "id": "__main __preprint __motion __ext __flfe __tp",
             "type": "input",
             "name": "TP: {'%3d' % menu.input}%",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SURFACE-TOP' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_surfacetop_flw|default(100)}",
             "input_min": "20",
             "input_max": "400",
@@ -8916,7 +9005,7 @@
             "id": "__main __preprint __motion __ext __flfe __bt",
             "type": "input",
             "name": "BT: {'%3d' % menu.input}%",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SURFACE-BOTTOM' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_surfacebottom_flw|default(100)}",
             "input_min": "20",
             "input_max": "400",
@@ -8937,7 +9026,7 @@
             "id": "__main __preprint __motion __ext __flfe __br",
             "type": "input",
             "name": "BR: {'%3d' % menu.input}%",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'BRIDGE' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_bridge_flw|default(100)}",
             "input_min": "20",
             "input_max": "400",
@@ -8958,7 +9047,7 @@
             "id": "__main __preprint __motion __ext __flfe __gp",
             "type": "input",
             "name": "GP: {'%3d' % menu.input}%",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'GAPS' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_gaps_flw|default(100)}",
             "input_min": "20",
             "input_max": "400",
@@ -8979,7 +9068,7 @@
             "id": "__main __preprint __motion __ext __flfe __su",
             "type": "input",
             "name": "SU: {'%3d' % menu.input}%",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SUPPORT' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_support_flw|default(100)}",
             "input_min": "20",
             "input_max": "400",
@@ -9000,7 +9089,7 @@
             "id": "__main __preprint __motion __ext __flfe __ir",
             "type": "input",
             "name": "IR flow: {'%3d' % menu.input}%",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'IRONING' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ov_ironing_flow|default(15)}",
             "input_min": "5",
             "input_max": "100",
@@ -9018,7 +9107,7 @@
             "id": "__main __preprint __motion __ext __flfe __sk",
             "type": "input",
             "name": "SK: {'%3d' % menu.input}%",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SKIRT' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_skirt_flw|default(100)}",
             "input_min": "20",
             "input_max": "400",
@@ -9039,7 +9128,7 @@
             "id": "__main __preprint __motion __ext __flfe __bm",
             "type": "input",
             "name": "BM: {'%3d' % menu.input}%",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'BRIM' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_brim_flw|default(100)}",
             "input_min": "20",
             "input_max": "400",
@@ -9060,7 +9149,7 @@
             "id": "__main __preprint __motion __ext __flfe __oh",
             "type": "input",
             "name": "OH: {'%3d' % menu.input}%",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'OVERHANG-PERIM' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_overhangperim_flw|default(100)}",
             "input_min": "20",
             "input_max": "400",
@@ -9081,7 +9170,7 @@
             "id": "__main __preprint __motion __ext __flfe __ib",
             "type": "input",
             "name": "IB: {'%3d' % menu.input}%",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'INTERNAL-BRIDGE' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_internalbridge_flw|default(100)}",
             "input_min": "20",
             "input_max": "400",
@@ -9102,7 +9191,7 @@
             "id": "__main __preprint __motion __ext __flfe __pt",
             "type": "input",
             "name": "PT: {'%3d' % menu.input}%",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'PRIME-TOWER' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_primetower_flw|default(100)}",
             "input_min": "20",
             "input_max": "400",
@@ -9123,7 +9212,7 @@
             "id": "__main __preprint __motion __ext __flfe __cu",
             "type": "input",
             "name": "CU: {'%3d' % menu.input}%",
-            "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'CUSTOM' in printer['gcode_macro _STATE'].file_types}",
+            "enable": "True",
             "input": "{printer['save_variables'].variables.ovf_custom_flw|default(100)}",
             "input_min": "20",
             "input_max": "400",
@@ -9273,7 +9362,7 @@
           "id": "__main __preprint __feat __ow __on",
           "type": "command",
           "name": "{'OW [' ~ ('on' if printer['save_variables'].variables.ovf_wallouter_on|default(False) else 'off') ~ '] ' ~ ((printer['gcode_macro _STATE'].file_feat_spd_wallouter|default(0)|round|int|string ~ 'mm/s') if printer['gcode_macro _STATE'].file_feat_spd_wallouter|default(0) > 0 else ('n/a' if printer['gcode_macro _STATE'].file_types|default('') != '' and 'WALL-OUTER' not in printer['gcode_macro _STATE'].file_types else '--')) ~ (' S' if printer['save_variables'].variables.ovf_wallouter_spd|default(100)|float != 100 else '') ~ (' A' if printer['save_variables'].variables.ovf_wallouter_acc|default(0)|float > 0 else '') ~ (' F' if printer['save_variables'].variables.ovf_wallouter_flw|default(100)|float != 100 else '') ~ (' P' if printer['save_variables'].variables.ovf_wallouter_pa|default(0)|float > 0 else '')}",
-          "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'WALL-OUTER' in printer['gcode_macro _STATE'].file_types}",
+          "enable": "True",
           "gcode": [
            "{% set s = printer['gcode_macro _STATE'] %}",
            "SET_OVERRIDE_VALUE NAME=feat_on_wallouter VALUE={1 if not printer['save_variables'].variables.ovf_wallouter_on|default(False) else 0}",
@@ -9288,7 +9377,7 @@
           "id": "__main __preprint __feat __ow __fs",
           "type": "command",
           "name": "File: {(printer['gcode_macro _STATE'].file_feat_spd_wallouter|default(0)|round|int|string ~ 'mm/s') if printer['gcode_macro _STATE'].file_feat_spd_wallouter|default(0) > 0 else ('n/a' if printer['gcode_macro _STATE'].file_types|default('') != '' and 'WALL-OUTER' not in printer['gcode_macro _STATE'].file_types else '--')}",
-          "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'WALL-OUTER' in printer['gcode_macro _STATE'].file_types}",
+          "enable": "True",
           "gcode": [
            "{% set s = printer['gcode_macro _STATE'] %}",
            "RESPOND MSG=\"[File] WALL-OUTER ORIGINAL: speed {s.file_feat_spd_wallouter|default(0)|round|int} mm/s | accel {s.file_feat_acc_wallouter|default(0)|round|int} mm/s2 | YOUR override: {printer['save_variables'].variables.ovf_wallouter_spd|default(100)|round|int}% x global {s.g_speed_clean|default(100)|round|int}% (speed), {printer['save_variables'].variables.ovf_wallouter_acc|default(0)|round|int} mm/s2 (accel) - OFF = back to the original\""
@@ -9368,7 +9457,7 @@
           "id": "__main __preprint __feat __iw __on",
           "type": "command",
           "name": "{'IW [' ~ ('on' if printer['save_variables'].variables.ovf_wallinner_on|default(False) else 'off') ~ '] ' ~ ((printer['gcode_macro _STATE'].file_feat_spd_wallinner|default(0)|round|int|string ~ 'mm/s') if printer['gcode_macro _STATE'].file_feat_spd_wallinner|default(0) > 0 else ('n/a' if printer['gcode_macro _STATE'].file_types|default('') != '' and 'WALL-INNER' not in printer['gcode_macro _STATE'].file_types else '--')) ~ (' S' if printer['save_variables'].variables.ovf_wallinner_spd|default(100)|float != 100 else '') ~ (' A' if printer['save_variables'].variables.ovf_wallinner_acc|default(0)|float > 0 else '') ~ (' F' if printer['save_variables'].variables.ovf_wallinner_flw|default(100)|float != 100 else '') ~ (' P' if printer['save_variables'].variables.ovf_wallinner_pa|default(0)|float > 0 else '')}",
-          "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'WALL-INNER' in printer['gcode_macro _STATE'].file_types}",
+          "enable": "True",
           "gcode": [
            "{% set s = printer['gcode_macro _STATE'] %}",
            "SET_OVERRIDE_VALUE NAME=feat_on_wallinner VALUE={1 if not printer['save_variables'].variables.ovf_wallinner_on|default(False) else 0}",
@@ -9383,7 +9472,7 @@
           "id": "__main __preprint __feat __iw __fs",
           "type": "command",
           "name": "File: {(printer['gcode_macro _STATE'].file_feat_spd_wallinner|default(0)|round|int|string ~ 'mm/s') if printer['gcode_macro _STATE'].file_feat_spd_wallinner|default(0) > 0 else ('n/a' if printer['gcode_macro _STATE'].file_types|default('') != '' and 'WALL-INNER' not in printer['gcode_macro _STATE'].file_types else '--')}",
-          "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'WALL-INNER' in printer['gcode_macro _STATE'].file_types}",
+          "enable": "True",
           "gcode": [
            "{% set s = printer['gcode_macro _STATE'] %}",
            "RESPOND MSG=\"[File] WALL-INNER ORIGINAL: speed {s.file_feat_spd_wallinner|default(0)|round|int} mm/s | accel {s.file_feat_acc_wallinner|default(0)|round|int} mm/s2 | YOUR override: {printer['save_variables'].variables.ovf_wallinner_spd|default(100)|round|int}% x global {s.g_speed_clean|default(100)|round|int}% (speed), {printer['save_variables'].variables.ovf_wallinner_acc|default(0)|round|int} mm/s2 (accel) - OFF = back to the original\""
@@ -9463,7 +9552,7 @@
           "id": "__main __preprint __feat __sp __on",
           "type": "command",
           "name": "{'SP [' ~ ('on' if printer['save_variables'].variables.ovf_infillsparse_on|default(False) else 'off') ~ '] ' ~ ((printer['gcode_macro _STATE'].file_feat_spd_infillsparse|default(0)|round|int|string ~ 'mm/s') if printer['gcode_macro _STATE'].file_feat_spd_infillsparse|default(0) > 0 else ('n/a' if printer['gcode_macro _STATE'].file_types|default('') != '' and 'INFILL-SPARSE' not in printer['gcode_macro _STATE'].file_types else '--')) ~ (' S' if printer['save_variables'].variables.ovf_infillsparse_spd|default(100)|float != 100 else '') ~ (' A' if printer['save_variables'].variables.ovf_infillsparse_acc|default(0)|float > 0 else '') ~ (' F' if printer['save_variables'].variables.ovf_infillsparse_flw|default(100)|float != 100 else '') ~ (' P' if printer['save_variables'].variables.ovf_infillsparse_pa|default(0)|float > 0 else '')}",
-          "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'INFILL-SPARSE' in printer['gcode_macro _STATE'].file_types}",
+          "enable": "True",
           "gcode": [
            "{% set s = printer['gcode_macro _STATE'] %}",
            "SET_OVERRIDE_VALUE NAME=feat_on_infillsparse VALUE={1 if not printer['save_variables'].variables.ovf_infillsparse_on|default(False) else 0}",
@@ -9478,7 +9567,7 @@
           "id": "__main __preprint __feat __sp __fs",
           "type": "command",
           "name": "File: {(printer['gcode_macro _STATE'].file_feat_spd_infillsparse|default(0)|round|int|string ~ 'mm/s') if printer['gcode_macro _STATE'].file_feat_spd_infillsparse|default(0) > 0 else ('n/a' if printer['gcode_macro _STATE'].file_types|default('') != '' and 'INFILL-SPARSE' not in printer['gcode_macro _STATE'].file_types else '--')}",
-          "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'INFILL-SPARSE' in printer['gcode_macro _STATE'].file_types}",
+          "enable": "True",
           "gcode": [
            "{% set s = printer['gcode_macro _STATE'] %}",
            "RESPOND MSG=\"[File] INFILL-SPARSE ORIGINAL: speed {s.file_feat_spd_infillsparse|default(0)|round|int} mm/s | accel {s.file_feat_acc_infillsparse|default(0)|round|int} mm/s2 | YOUR override: {printer['save_variables'].variables.ovf_infillsparse_spd|default(100)|round|int}% x global {s.g_speed_clean|default(100)|round|int}% (speed), {printer['save_variables'].variables.ovf_infillsparse_acc|default(0)|round|int} mm/s2 (accel) - OFF = back to the original\""
@@ -9558,7 +9647,7 @@
           "id": "__main __preprint __feat __so __on",
           "type": "command",
           "name": "{'SO [' ~ ('on' if printer['save_variables'].variables.ovf_infillsolid_on|default(False) else 'off') ~ '] ' ~ ((printer['gcode_macro _STATE'].file_feat_spd_infillsolid|default(0)|round|int|string ~ 'mm/s') if printer['gcode_macro _STATE'].file_feat_spd_infillsolid|default(0) > 0 else ('n/a' if printer['gcode_macro _STATE'].file_types|default('') != '' and 'INFILL-SOLID' not in printer['gcode_macro _STATE'].file_types else '--')) ~ (' S' if printer['save_variables'].variables.ovf_infillsolid_spd|default(100)|float != 100 else '') ~ (' A' if printer['save_variables'].variables.ovf_infillsolid_acc|default(0)|float > 0 else '') ~ (' F' if printer['save_variables'].variables.ovf_infillsolid_flw|default(100)|float != 100 else '') ~ (' P' if printer['save_variables'].variables.ovf_infillsolid_pa|default(0)|float > 0 else '')}",
-          "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'INFILL-SOLID' in printer['gcode_macro _STATE'].file_types}",
+          "enable": "True",
           "gcode": [
            "{% set s = printer['gcode_macro _STATE'] %}",
            "SET_OVERRIDE_VALUE NAME=feat_on_infillsolid VALUE={1 if not printer['save_variables'].variables.ovf_infillsolid_on|default(False) else 0}",
@@ -9573,7 +9662,7 @@
           "id": "__main __preprint __feat __so __fs",
           "type": "command",
           "name": "File: {(printer['gcode_macro _STATE'].file_feat_spd_infillsolid|default(0)|round|int|string ~ 'mm/s') if printer['gcode_macro _STATE'].file_feat_spd_infillsolid|default(0) > 0 else ('n/a' if printer['gcode_macro _STATE'].file_types|default('') != '' and 'INFILL-SOLID' not in printer['gcode_macro _STATE'].file_types else '--')}",
-          "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'INFILL-SOLID' in printer['gcode_macro _STATE'].file_types}",
+          "enable": "True",
           "gcode": [
            "{% set s = printer['gcode_macro _STATE'] %}",
            "RESPOND MSG=\"[File] INFILL-SOLID ORIGINAL: speed {s.file_feat_spd_infillsolid|default(0)|round|int} mm/s | accel {s.file_feat_acc_infillsolid|default(0)|round|int} mm/s2 | YOUR override: {printer['save_variables'].variables.ovf_infillsolid_spd|default(100)|round|int}% x global {s.g_speed_clean|default(100)|round|int}% (speed), {printer['save_variables'].variables.ovf_infillsolid_acc|default(0)|round|int} mm/s2 (accel) - OFF = back to the original\""
@@ -9653,7 +9742,7 @@
           "id": "__main __preprint __feat __tp __on",
           "type": "command",
           "name": "{'TP [' ~ ('on' if printer['save_variables'].variables.ovf_surfacetop_on|default(False) else 'off') ~ '] ' ~ ((printer['gcode_macro _STATE'].file_feat_spd_surfacetop|default(0)|round|int|string ~ 'mm/s') if printer['gcode_macro _STATE'].file_feat_spd_surfacetop|default(0) > 0 else ('n/a' if printer['gcode_macro _STATE'].file_types|default('') != '' and 'SURFACE-TOP' not in printer['gcode_macro _STATE'].file_types else '--')) ~ (' S' if printer['save_variables'].variables.ovf_surfacetop_spd|default(100)|float != 100 else '') ~ (' A' if printer['save_variables'].variables.ovf_surfacetop_acc|default(0)|float > 0 else '') ~ (' F' if printer['save_variables'].variables.ovf_surfacetop_flw|default(100)|float != 100 else '') ~ (' P' if printer['save_variables'].variables.ovf_surfacetop_pa|default(0)|float > 0 else '')}",
-          "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SURFACE-TOP' in printer['gcode_macro _STATE'].file_types}",
+          "enable": "True",
           "gcode": [
            "{% set s = printer['gcode_macro _STATE'] %}",
            "SET_OVERRIDE_VALUE NAME=feat_on_surfacetop VALUE={1 if not printer['save_variables'].variables.ovf_surfacetop_on|default(False) else 0}",
@@ -9668,7 +9757,7 @@
           "id": "__main __preprint __feat __tp __fs",
           "type": "command",
           "name": "File: {(printer['gcode_macro _STATE'].file_feat_spd_surfacetop|default(0)|round|int|string ~ 'mm/s') if printer['gcode_macro _STATE'].file_feat_spd_surfacetop|default(0) > 0 else ('n/a' if printer['gcode_macro _STATE'].file_types|default('') != '' and 'SURFACE-TOP' not in printer['gcode_macro _STATE'].file_types else '--')}",
-          "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SURFACE-TOP' in printer['gcode_macro _STATE'].file_types}",
+          "enable": "True",
           "gcode": [
            "{% set s = printer['gcode_macro _STATE'] %}",
            "RESPOND MSG=\"[File] SURFACE-TOP ORIGINAL: speed {s.file_feat_spd_surfacetop|default(0)|round|int} mm/s | accel {s.file_feat_acc_surfacetop|default(0)|round|int} mm/s2 | YOUR override: {printer['save_variables'].variables.ovf_surfacetop_spd|default(100)|round|int}% x global {s.g_speed_clean|default(100)|round|int}% (speed), {printer['save_variables'].variables.ovf_surfacetop_acc|default(0)|round|int} mm/s2 (accel) - OFF = back to the original\""
@@ -9748,7 +9837,7 @@
           "id": "__main __preprint __feat __bt __on",
           "type": "command",
           "name": "{'BT [' ~ ('on' if printer['save_variables'].variables.ovf_surfacebottom_on|default(False) else 'off') ~ '] ' ~ ((printer['gcode_macro _STATE'].file_feat_spd_surfacebottom|default(0)|round|int|string ~ 'mm/s') if printer['gcode_macro _STATE'].file_feat_spd_surfacebottom|default(0) > 0 else ('n/a' if printer['gcode_macro _STATE'].file_types|default('') != '' and 'SURFACE-BOTTOM' not in printer['gcode_macro _STATE'].file_types else '--')) ~ (' S' if printer['save_variables'].variables.ovf_surfacebottom_spd|default(100)|float != 100 else '') ~ (' A' if printer['save_variables'].variables.ovf_surfacebottom_acc|default(0)|float > 0 else '') ~ (' F' if printer['save_variables'].variables.ovf_surfacebottom_flw|default(100)|float != 100 else '') ~ (' P' if printer['save_variables'].variables.ovf_surfacebottom_pa|default(0)|float > 0 else '')}",
-          "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SURFACE-BOTTOM' in printer['gcode_macro _STATE'].file_types}",
+          "enable": "True",
           "gcode": [
            "{% set s = printer['gcode_macro _STATE'] %}",
            "SET_OVERRIDE_VALUE NAME=feat_on_surfacebottom VALUE={1 if not printer['save_variables'].variables.ovf_surfacebottom_on|default(False) else 0}",
@@ -9763,7 +9852,7 @@
           "id": "__main __preprint __feat __bt __fs",
           "type": "command",
           "name": "File: {(printer['gcode_macro _STATE'].file_feat_spd_surfacebottom|default(0)|round|int|string ~ 'mm/s') if printer['gcode_macro _STATE'].file_feat_spd_surfacebottom|default(0) > 0 else ('n/a' if printer['gcode_macro _STATE'].file_types|default('') != '' and 'SURFACE-BOTTOM' not in printer['gcode_macro _STATE'].file_types else '--')}",
-          "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SURFACE-BOTTOM' in printer['gcode_macro _STATE'].file_types}",
+          "enable": "True",
           "gcode": [
            "{% set s = printer['gcode_macro _STATE'] %}",
            "RESPOND MSG=\"[File] SURFACE-BOTTOM ORIGINAL: speed {s.file_feat_spd_surfacebottom|default(0)|round|int} mm/s | accel {s.file_feat_acc_surfacebottom|default(0)|round|int} mm/s2 | YOUR override: {printer['save_variables'].variables.ovf_surfacebottom_spd|default(100)|round|int}% x global {s.g_speed_clean|default(100)|round|int}% (speed), {printer['save_variables'].variables.ovf_surfacebottom_acc|default(0)|round|int} mm/s2 (accel) - OFF = back to the original\""
@@ -9843,7 +9932,7 @@
           "id": "__main __preprint __feat __br __on",
           "type": "command",
           "name": "{'BR [' ~ ('on' if printer['save_variables'].variables.ovf_bridge_on|default(False) else 'off') ~ '] ' ~ ((printer['gcode_macro _STATE'].file_feat_spd_bridge|default(0)|round|int|string ~ 'mm/s') if printer['gcode_macro _STATE'].file_feat_spd_bridge|default(0) > 0 else ('n/a' if printer['gcode_macro _STATE'].file_types|default('') != '' and 'BRIDGE' not in printer['gcode_macro _STATE'].file_types else '--')) ~ (' S' if printer['save_variables'].variables.ovf_bridge_spd|default(100)|float != 100 else '') ~ (' A' if printer['save_variables'].variables.ovf_bridge_acc|default(0)|float > 0 else '') ~ (' F' if printer['save_variables'].variables.ovf_bridge_flw|default(100)|float != 100 else '') ~ (' P' if printer['save_variables'].variables.ovf_bridge_pa|default(0)|float > 0 else '')}",
-          "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'BRIDGE' in printer['gcode_macro _STATE'].file_types}",
+          "enable": "True",
           "gcode": [
            "{% set s = printer['gcode_macro _STATE'] %}",
            "SET_OVERRIDE_VALUE NAME=feat_on_bridge VALUE={1 if not printer['save_variables'].variables.ovf_bridge_on|default(False) else 0}",
@@ -9858,7 +9947,7 @@
           "id": "__main __preprint __feat __br __fs",
           "type": "command",
           "name": "File: {(printer['gcode_macro _STATE'].file_feat_spd_bridge|default(0)|round|int|string ~ 'mm/s') if printer['gcode_macro _STATE'].file_feat_spd_bridge|default(0) > 0 else ('n/a' if printer['gcode_macro _STATE'].file_types|default('') != '' and 'BRIDGE' not in printer['gcode_macro _STATE'].file_types else '--')}",
-          "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'BRIDGE' in printer['gcode_macro _STATE'].file_types}",
+          "enable": "True",
           "gcode": [
            "{% set s = printer['gcode_macro _STATE'] %}",
            "RESPOND MSG=\"[File] BRIDGE ORIGINAL: speed {s.file_feat_spd_bridge|default(0)|round|int} mm/s | accel {s.file_feat_acc_bridge|default(0)|round|int} mm/s2 | YOUR override: {printer['save_variables'].variables.ovf_bridge_spd|default(100)|round|int}% x global {s.g_speed_clean|default(100)|round|int}% (speed), {printer['save_variables'].variables.ovf_bridge_acc|default(0)|round|int} mm/s2 (accel) - OFF = back to the original\""
@@ -9938,7 +10027,7 @@
           "id": "__main __preprint __feat __gp __on",
           "type": "command",
           "name": "{'GP [' ~ ('on' if printer['save_variables'].variables.ovf_gaps_on|default(False) else 'off') ~ '] ' ~ ((printer['gcode_macro _STATE'].file_feat_spd_gaps|default(0)|round|int|string ~ 'mm/s') if printer['gcode_macro _STATE'].file_feat_spd_gaps|default(0) > 0 else ('n/a' if printer['gcode_macro _STATE'].file_types|default('') != '' and 'GAPS' not in printer['gcode_macro _STATE'].file_types else '--')) ~ (' S' if printer['save_variables'].variables.ovf_gaps_spd|default(100)|float != 100 else '') ~ (' A' if printer['save_variables'].variables.ovf_gaps_acc|default(0)|float > 0 else '') ~ (' F' if printer['save_variables'].variables.ovf_gaps_flw|default(100)|float != 100 else '') ~ (' P' if printer['save_variables'].variables.ovf_gaps_pa|default(0)|float > 0 else '')}",
-          "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'GAPS' in printer['gcode_macro _STATE'].file_types}",
+          "enable": "True",
           "gcode": [
            "{% set s = printer['gcode_macro _STATE'] %}",
            "SET_OVERRIDE_VALUE NAME=feat_on_gaps VALUE={1 if not printer['save_variables'].variables.ovf_gaps_on|default(False) else 0}",
@@ -9953,7 +10042,7 @@
           "id": "__main __preprint __feat __gp __fs",
           "type": "command",
           "name": "File: {(printer['gcode_macro _STATE'].file_feat_spd_gaps|default(0)|round|int|string ~ 'mm/s') if printer['gcode_macro _STATE'].file_feat_spd_gaps|default(0) > 0 else ('n/a' if printer['gcode_macro _STATE'].file_types|default('') != '' and 'GAPS' not in printer['gcode_macro _STATE'].file_types else '--')}",
-          "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'GAPS' in printer['gcode_macro _STATE'].file_types}",
+          "enable": "True",
           "gcode": [
            "{% set s = printer['gcode_macro _STATE'] %}",
            "RESPOND MSG=\"[File] GAPS ORIGINAL: speed {s.file_feat_spd_gaps|default(0)|round|int} mm/s | accel {s.file_feat_acc_gaps|default(0)|round|int} mm/s2 | YOUR override: {printer['save_variables'].variables.ovf_gaps_spd|default(100)|round|int}% x global {s.g_speed_clean|default(100)|round|int}% (speed), {printer['save_variables'].variables.ovf_gaps_acc|default(0)|round|int} mm/s2 (accel) - OFF = back to the original\""
@@ -10033,7 +10122,7 @@
           "id": "__main __preprint __feat __su __on",
           "type": "command",
           "name": "{'SU [' ~ ('on' if printer['save_variables'].variables.ovf_support_on|default(False) else 'off') ~ '] ' ~ ((printer['gcode_macro _STATE'].file_feat_spd_support|default(0)|round|int|string ~ 'mm/s') if printer['gcode_macro _STATE'].file_feat_spd_support|default(0) > 0 else ('n/a' if printer['gcode_macro _STATE'].file_types|default('') != '' and 'SUPPORT' not in printer['gcode_macro _STATE'].file_types else '--')) ~ (' S' if printer['save_variables'].variables.ovf_support_spd|default(100)|float != 100 else '') ~ (' A' if printer['save_variables'].variables.ovf_support_acc|default(0)|float > 0 else '') ~ (' F' if printer['save_variables'].variables.ovf_support_flw|default(100)|float != 100 else '') ~ (' P' if printer['save_variables'].variables.ovf_support_pa|default(0)|float > 0 else '')}",
-          "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SUPPORT' in printer['gcode_macro _STATE'].file_types}",
+          "enable": "True",
           "gcode": [
            "{% set s = printer['gcode_macro _STATE'] %}",
            "SET_OVERRIDE_VALUE NAME=feat_on_support VALUE={1 if not printer['save_variables'].variables.ovf_support_on|default(False) else 0}",
@@ -10048,7 +10137,7 @@
           "id": "__main __preprint __feat __su __fs",
           "type": "command",
           "name": "File: {(printer['gcode_macro _STATE'].file_feat_spd_support|default(0)|round|int|string ~ 'mm/s') if printer['gcode_macro _STATE'].file_feat_spd_support|default(0) > 0 else ('n/a' if printer['gcode_macro _STATE'].file_types|default('') != '' and 'SUPPORT' not in printer['gcode_macro _STATE'].file_types else '--')}",
-          "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SUPPORT' in printer['gcode_macro _STATE'].file_types}",
+          "enable": "True",
           "gcode": [
            "{% set s = printer['gcode_macro _STATE'] %}",
            "RESPOND MSG=\"[File] SUPPORT ORIGINAL: speed {s.file_feat_spd_support|default(0)|round|int} mm/s | accel {s.file_feat_acc_support|default(0)|round|int} mm/s2 | YOUR override: {printer['save_variables'].variables.ovf_support_spd|default(100)|round|int}% x global {s.g_speed_clean|default(100)|round|int}% (speed), {printer['save_variables'].variables.ovf_support_acc|default(0)|round|int} mm/s2 (accel) - OFF = back to the original\""
@@ -10128,7 +10217,7 @@
           "id": "__main __preprint __feat __ir __on",
           "type": "command",
           "name": "{'IR [' ~ ('on' if printer['save_variables'].variables.ovf_ironing_on|default(False) else 'off') ~ '] ' ~ ((printer['gcode_macro _STATE'].file_feat_spd_ironing|default(0)|round|int|string ~ 'mm/s') if printer['gcode_macro _STATE'].file_feat_spd_ironing|default(0) > 0 else ('n/a' if printer['gcode_macro _STATE'].file_types|default('') != '' and 'IRONING' not in printer['gcode_macro _STATE'].file_types else '--')) ~ (' S' if printer['save_variables'].variables.ovf_ironing_spd|default(100)|float != 100 else '') ~ (' A' if printer['save_variables'].variables.ovf_ironing_acc|default(0)|float > 0 else '') ~ (' F' if printer['save_variables'].variables.ov_ironing_flow_on|default(False) else '') ~ (' P' if printer['save_variables'].variables.ovf_ironing_pa|default(0)|float > 0 else '')}",
-          "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'IRONING' in printer['gcode_macro _STATE'].file_types}",
+          "enable": "True",
           "gcode": [
            "{% set s = printer['gcode_macro _STATE'] %}",
            "SET_OVERRIDE_VALUE NAME=feat_on_ironing VALUE={1 if not printer['save_variables'].variables.ovf_ironing_on|default(False) else 0}",
@@ -10143,7 +10232,7 @@
           "id": "__main __preprint __feat __ir __fs",
           "type": "command",
           "name": "File: {(printer['gcode_macro _STATE'].file_feat_spd_ironing|default(0)|round|int|string ~ 'mm/s') if printer['gcode_macro _STATE'].file_feat_spd_ironing|default(0) > 0 else ('n/a' if printer['gcode_macro _STATE'].file_types|default('') != '' and 'IRONING' not in printer['gcode_macro _STATE'].file_types else '--')}",
-          "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'IRONING' in printer['gcode_macro _STATE'].file_types}",
+          "enable": "True",
           "gcode": [
            "{% set s = printer['gcode_macro _STATE'] %}",
            "RESPOND MSG=\"[File] IRONING ORIGINAL: speed {s.file_feat_spd_ironing|default(0)|round|int} mm/s | accel {s.file_feat_acc_ironing|default(0)|round|int} mm/s2 | YOUR override: {printer['save_variables'].variables.ovf_ironing_spd|default(100)|round|int}% x global {s.g_speed_clean|default(100)|round|int}% (speed), {printer['save_variables'].variables.ovf_ironing_acc|default(0)|round|int} mm/s2 (accel) - OFF = back to the original\""
@@ -10226,7 +10315,7 @@
           "id": "__main __preprint __feat __sk __on",
           "type": "command",
           "name": "{'SK [' ~ ('on' if printer['save_variables'].variables.ovf_skirt_on|default(False) else 'off') ~ '] ' ~ ((printer['gcode_macro _STATE'].file_feat_spd_skirt|default(0)|round|int|string ~ 'mm/s') if printer['gcode_macro _STATE'].file_feat_spd_skirt|default(0) > 0 else ('n/a' if printer['gcode_macro _STATE'].file_types|default('') != '' and 'SKIRT' not in printer['gcode_macro _STATE'].file_types else '--')) ~ (' S' if printer['save_variables'].variables.ovf_skirt_spd|default(100)|float != 100 else '') ~ (' A' if printer['save_variables'].variables.ovf_skirt_acc|default(0)|float > 0 else '') ~ (' F' if printer['save_variables'].variables.ovf_skirt_flw|default(100)|float != 100 else '') ~ (' P' if printer['save_variables'].variables.ovf_skirt_pa|default(0)|float > 0 else '')}",
-          "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SKIRT' in printer['gcode_macro _STATE'].file_types}",
+          "enable": "True",
           "gcode": [
            "{% set s = printer['gcode_macro _STATE'] %}",
            "SET_OVERRIDE_VALUE NAME=feat_on_skirt VALUE={1 if not printer['save_variables'].variables.ovf_skirt_on|default(False) else 0}",
@@ -10241,7 +10330,7 @@
           "id": "__main __preprint __feat __sk __fs",
           "type": "command",
           "name": "File: {(printer['gcode_macro _STATE'].file_feat_spd_skirt|default(0)|round|int|string ~ 'mm/s') if printer['gcode_macro _STATE'].file_feat_spd_skirt|default(0) > 0 else ('n/a' if printer['gcode_macro _STATE'].file_types|default('') != '' and 'SKIRT' not in printer['gcode_macro _STATE'].file_types else '--')}",
-          "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'SKIRT' in printer['gcode_macro _STATE'].file_types}",
+          "enable": "True",
           "gcode": [
            "{% set s = printer['gcode_macro _STATE'] %}",
            "RESPOND MSG=\"[File] SKIRT ORIGINAL: speed {s.file_feat_spd_skirt|default(0)|round|int} mm/s | accel {s.file_feat_acc_skirt|default(0)|round|int} mm/s2 | YOUR override: {printer['save_variables'].variables.ovf_skirt_spd|default(100)|round|int}% x global {s.g_speed_clean|default(100)|round|int}% (speed), {printer['save_variables'].variables.ovf_skirt_acc|default(0)|round|int} mm/s2 (accel) - OFF = back to the original\""
@@ -10321,7 +10410,7 @@
           "id": "__main __preprint __feat __bm __on",
           "type": "command",
           "name": "{'BM [' ~ ('on' if printer['save_variables'].variables.ovf_brim_on|default(False) else 'off') ~ '] ' ~ ((printer['gcode_macro _STATE'].file_feat_spd_brim|default(0)|round|int|string ~ 'mm/s') if printer['gcode_macro _STATE'].file_feat_spd_brim|default(0) > 0 else ('n/a' if printer['gcode_macro _STATE'].file_types|default('') != '' and 'BRIM' not in printer['gcode_macro _STATE'].file_types else '--')) ~ (' S' if printer['save_variables'].variables.ovf_brim_spd|default(100)|float != 100 else '') ~ (' A' if printer['save_variables'].variables.ovf_brim_acc|default(0)|float > 0 else '') ~ (' F' if printer['save_variables'].variables.ovf_brim_flw|default(100)|float != 100 else '') ~ (' P' if printer['save_variables'].variables.ovf_brim_pa|default(0)|float > 0 else '')}",
-          "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'BRIM' in printer['gcode_macro _STATE'].file_types}",
+          "enable": "True",
           "gcode": [
            "{% set s = printer['gcode_macro _STATE'] %}",
            "SET_OVERRIDE_VALUE NAME=feat_on_brim VALUE={1 if not printer['save_variables'].variables.ovf_brim_on|default(False) else 0}",
@@ -10336,7 +10425,7 @@
           "id": "__main __preprint __feat __bm __fs",
           "type": "command",
           "name": "File: {(printer['gcode_macro _STATE'].file_feat_spd_brim|default(0)|round|int|string ~ 'mm/s') if printer['gcode_macro _STATE'].file_feat_spd_brim|default(0) > 0 else ('n/a' if printer['gcode_macro _STATE'].file_types|default('') != '' and 'BRIM' not in printer['gcode_macro _STATE'].file_types else '--')}",
-          "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'BRIM' in printer['gcode_macro _STATE'].file_types}",
+          "enable": "True",
           "gcode": [
            "{% set s = printer['gcode_macro _STATE'] %}",
            "RESPOND MSG=\"[File] BRIM ORIGINAL: speed {s.file_feat_spd_brim|default(0)|round|int} mm/s | accel {s.file_feat_acc_brim|default(0)|round|int} mm/s2 | YOUR override: {printer['save_variables'].variables.ovf_brim_spd|default(100)|round|int}% x global {s.g_speed_clean|default(100)|round|int}% (speed), {printer['save_variables'].variables.ovf_brim_acc|default(0)|round|int} mm/s2 (accel) - OFF = back to the original\""
@@ -10416,7 +10505,7 @@
           "id": "__main __preprint __feat __oh __on",
           "type": "command",
           "name": "{'OH [' ~ ('on' if printer['save_variables'].variables.ovf_overhangperim_on|default(False) else 'off') ~ '] ' ~ ((printer['gcode_macro _STATE'].file_feat_spd_overhangperim|default(0)|round|int|string ~ 'mm/s') if printer['gcode_macro _STATE'].file_feat_spd_overhangperim|default(0) > 0 else ('n/a' if printer['gcode_macro _STATE'].file_types|default('') != '' and 'OVERHANG-PERIM' not in printer['gcode_macro _STATE'].file_types else '--')) ~ (' S' if printer['save_variables'].variables.ovf_overhangperim_spd|default(100)|float != 100 else '') ~ (' A' if printer['save_variables'].variables.ovf_overhangperim_acc|default(0)|float > 0 else '') ~ (' F' if printer['save_variables'].variables.ovf_overhangperim_flw|default(100)|float != 100 else '') ~ (' P' if printer['save_variables'].variables.ovf_overhangperim_pa|default(0)|float > 0 else '')}",
-          "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'OVERHANG-PERIM' in printer['gcode_macro _STATE'].file_types}",
+          "enable": "True",
           "gcode": [
            "{% set s = printer['gcode_macro _STATE'] %}",
            "SET_OVERRIDE_VALUE NAME=feat_on_overhangperim VALUE={1 if not printer['save_variables'].variables.ovf_overhangperim_on|default(False) else 0}",
@@ -10452,7 +10541,7 @@
           "id": "__main __preprint __feat __ib __on",
           "type": "command",
           "name": "{'IB [' ~ ('on' if printer['save_variables'].variables.ovf_internalbridge_on|default(False) else 'off') ~ '] ' ~ ((printer['gcode_macro _STATE'].file_feat_spd_internalbridge|default(0)|round|int|string ~ 'mm/s') if printer['gcode_macro _STATE'].file_feat_spd_internalbridge|default(0) > 0 else ('n/a' if printer['gcode_macro _STATE'].file_types|default('') != '' and 'INTERNAL-BRIDGE' not in printer['gcode_macro _STATE'].file_types else '--')) ~ (' S' if printer['save_variables'].variables.ovf_internalbridge_spd|default(100)|float != 100 else '') ~ (' A' if printer['save_variables'].variables.ovf_internalbridge_acc|default(0)|float > 0 else '') ~ (' F' if printer['save_variables'].variables.ovf_internalbridge_flw|default(100)|float != 100 else '') ~ (' P' if printer['save_variables'].variables.ovf_internalbridge_pa|default(0)|float > 0 else '')}",
-          "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'INTERNAL-BRIDGE' in printer['gcode_macro _STATE'].file_types}",
+          "enable": "True",
           "gcode": [
            "{% set s = printer['gcode_macro _STATE'] %}",
            "SET_OVERRIDE_VALUE NAME=feat_on_internalbridge VALUE={1 if not printer['save_variables'].variables.ovf_internalbridge_on|default(False) else 0}",
@@ -10488,7 +10577,7 @@
           "id": "__main __preprint __feat __pt __on",
           "type": "command",
           "name": "{'PT [' ~ ('on' if printer['save_variables'].variables.ovf_primetower_on|default(False) else 'off') ~ '] ' ~ ((printer['gcode_macro _STATE'].file_feat_spd_primetower|default(0)|round|int|string ~ 'mm/s') if printer['gcode_macro _STATE'].file_feat_spd_primetower|default(0) > 0 else ('n/a' if printer['gcode_macro _STATE'].file_types|default('') != '' and 'PRIME-TOWER' not in printer['gcode_macro _STATE'].file_types else '--')) ~ (' S' if printer['save_variables'].variables.ovf_primetower_spd|default(100)|float != 100 else '') ~ (' A' if printer['save_variables'].variables.ovf_primetower_acc|default(0)|float > 0 else '') ~ (' F' if printer['save_variables'].variables.ovf_primetower_flw|default(100)|float != 100 else '') ~ (' P' if printer['save_variables'].variables.ovf_primetower_pa|default(0)|float > 0 else '')}",
-          "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'PRIME-TOWER' in printer['gcode_macro _STATE'].file_types}",
+          "enable": "True",
           "gcode": [
            "{% set s = printer['gcode_macro _STATE'] %}",
            "SET_OVERRIDE_VALUE NAME=feat_on_primetower VALUE={1 if not printer['save_variables'].variables.ovf_primetower_on|default(False) else 0}",
@@ -10524,7 +10613,7 @@
           "id": "__main __preprint __feat __cu __on",
           "type": "command",
           "name": "{'CU [' ~ ('on' if printer['save_variables'].variables.ovf_custom_on|default(False) else 'off') ~ '] ' ~ ((printer['gcode_macro _STATE'].file_feat_spd_custom|default(0)|round|int|string ~ 'mm/s') if printer['gcode_macro _STATE'].file_feat_spd_custom|default(0) > 0 else ('n/a' if printer['gcode_macro _STATE'].file_types|default('') != '' and 'CUSTOM' not in printer['gcode_macro _STATE'].file_types else '--')) ~ (' S' if printer['save_variables'].variables.ovf_custom_spd|default(100)|float != 100 else '') ~ (' A' if printer['save_variables'].variables.ovf_custom_acc|default(0)|float > 0 else '') ~ (' F' if printer['save_variables'].variables.ovf_custom_flw|default(100)|float != 100 else '') ~ (' P' if printer['save_variables'].variables.ovf_custom_pa|default(0)|float > 0 else '')}",
-          "enable": "{printer['gcode_macro _STATE'].file_types|default('') == '' or 'CUSTOM' in printer['gcode_macro _STATE'].file_types}",
+          "enable": "True",
           "gcode": [
            "{% set s = printer['gcode_macro _STATE'] %}",
            "SET_OVERRIDE_VALUE NAME=feat_on_custom VALUE={1 if not printer['save_variables'].variables.ovf_custom_on|default(False) else 0}",
@@ -23513,6 +23602,227 @@
       ]
      },
      {
+      "id": "__main __maint __steps",
+      "type": "list",
+      "name": "Steps Cal.",
+      "children": [
+       {
+        "id": "__main __maint __steps __axis",
+        "type": "list",
+        "name": "Axis",
+        "children": [
+         {
+          "id": "__main __maint __steps __axis __x",
+          "type": "list",
+          "name": "X",
+          "children": [
+           {
+            "id": "__main __maint __steps __axis __x __d",
+            "type": "input",
+            "name": "Commanded: {'%4.1f' % menu.input}mm",
+            "input": "200",
+            "input_min": "10",
+            "input_max": "400",
+            "input_step": "10",
+            "gcode": [
+             "SET_GCODE_VARIABLE MACRO=_STATE VARIABLE=steps_x_dist VALUE={menu.input|round(1)}",
+             "SAVE_GCODE_STATE NAME=STEPS_X_TRAVEL",
+             "G1 X{menu.input|round(1)} F1500",
+             "RESTORE_GCODE_STATE NAME=STEPS_X_TRAVEL",
+             "RESPOND MSG=\">>> X travelled. Measure the real distance (calipers) and pick step 3.\""
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __maint __steps __axis __x __m",
+            "type": "input",
+            "name": "Measured: {'%4.2f' % menu.input}mm",
+            "input": "200",
+            "input_min": "1",
+            "input_max": "600",
+            "input_step": "0.1",
+            "gcode": [
+             "CALIBRATE_STEPS AXIS=X DIST={s.steps_x_dist|default(200)|float} MEASURED={menu.input}",
+             "UPDATE_DELAYED_GCODE ID=_SAVE_AFTER_CAL DURATION=6"
+            ],
+            "children": []
+           }
+          ]
+         },
+         {
+          "id": "__main __maint __steps __axis __y",
+          "type": "list",
+          "name": "Y",
+          "children": [
+           {
+            "id": "__main __maint __steps __axis __y __d",
+            "type": "input",
+            "name": "Commanded: {'%4.1f' % menu.input}mm",
+            "input": "200",
+            "input_min": "10",
+            "input_max": "400",
+            "input_step": "10",
+            "gcode": [
+             "SET_GCODE_VARIABLE MACRO=_STATE VARIABLE=steps_y_dist VALUE={menu.input|round(1)}",
+             "SAVE_GCODE_STATE NAME=STEPS_Y_TRAVEL",
+             "G1 Y{menu.input|round(1)} F1500",
+             "RESTORE_GCODE_STATE NAME=STEPS_Y_TRAVEL",
+             "RESPOND MSG=\">>> Y travelled. Measure the real distance (calipers) and pick step 3.\""
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __maint __steps __axis __y __m",
+            "type": "input",
+            "name": "Measured: {'%4.2f' % menu.input}mm",
+            "input": "200",
+            "input_min": "1",
+            "input_max": "600",
+            "input_step": "0.1",
+            "gcode": [
+             "CALIBRATE_STEPS AXIS=Y DIST={s.steps_y_dist|default(200)|float} MEASURED={menu.input}",
+             "UPDATE_DELAYED_GCODE ID=_SAVE_AFTER_CAL DURATION=6"
+            ],
+            "children": []
+           }
+          ]
+         },
+         {
+          "id": "__main __maint __steps __axis __z",
+          "type": "list",
+          "name": "Z",
+          "children": [
+           {
+            "id": "__main __maint __steps __axis __z __d",
+            "type": "input",
+            "name": "Commanded: {'%4.1f' % menu.input}mm",
+            "input": "100",
+            "input_min": "10",
+            "input_max": "300",
+            "input_step": "10",
+            "gcode": [
+             "SET_GCODE_VARIABLE MACRO=_STATE VARIABLE=steps_z_dist VALUE={menu.input|round(1)}",
+             "SAVE_GCODE_STATE NAME=STEPS_Z_TRAVEL",
+             "G1 Z{menu.input|round(1)} F1000",
+             "RESTORE_GCODE_STATE NAME=STEPS_Z_TRAVEL",
+             "RESPOND MSG=\">>> Z travelled. Measure the real distance (calipers) and pick step 3.\""
+            ],
+            "children": []
+           },
+           {
+            "id": "__main __maint __steps __axis __z __m",
+            "type": "input",
+            "name": "Measured: {'%4.2f' % menu.input}mm",
+            "input": "100",
+            "input_min": "1",
+            "input_max": "400",
+            "input_step": "0.1",
+            "gcode": [
+             "CALIBRATE_STEPS AXIS=Z DIST={s.steps_z_dist|default(100)|float} MEASURED={menu.input}",
+             "UPDATE_DELAYED_GCODE ID=_SAVE_AFTER_CAL DURATION=6"
+            ],
+            "children": []
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "id": "__main __maint __belt",
+      "type": "list",
+      "name": "Belt Cal.",
+      "children": [
+       {
+        "id": "__main __maint __belt __run",
+        "type": "command",
+        "name": "1) Test cross",
+        "gcode": [
+         "CALIBRATE_BELT MODE=TEST"
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __maint __belt __apply",
+        "type": "list",
+        "name": "2) Apply comp (scale)",
+        "children": [
+         {
+          "id": "__main __maint __belt __apply __dx",
+          "type": "input",
+          "name": "X dev (mm): {'%4.3f' % menu.input}",
+          "input": "0",
+          "input_min": "-20",
+          "input_max": "20",
+          "input_step": "0.1",
+          "gcode": [
+           "SET_GCODE_VARIABLE MACRO=_STATE VARIABLE=belt_dev_x VALUE={menu.input}",
+           "RESPOND MSG=\">>> X deviation recorded ({menu.input}mm). Enter Y deviation, then the reference.\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __maint __belt __apply __dy",
+          "type": "input",
+          "name": "Y dev (mm): {'%4.3f' % menu.input}",
+          "input": "0",
+          "input_min": "-20",
+          "input_max": "20",
+          "input_step": "0.1",
+          "gcode": [
+           "SET_GCODE_VARIABLE MACRO=_STATE VARIABLE=belt_dev_y VALUE={menu.input}",
+           "RESPOND MSG=\">>> Y deviation recorded ({menu.input}mm). Enter the reference distance, then compute.\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __maint __belt __apply __ref",
+          "type": "input",
+          "name": "Ref (mm): {'%4.1f' % menu.input}",
+          "input": "100",
+          "input_min": "1",
+          "input_max": "500",
+          "input_step": "1",
+          "gcode": [
+           "SET_GCODE_VARIABLE MACRO=_STATE VARIABLE=belt_ref VALUE={menu.input}",
+           "RESPOND MSG=\">>> Reference {menu.input}mm recorded. Compute the scale.\""
+          ],
+          "children": []
+         },
+         {
+          "id": "__main __maint __belt __apply __comp",
+          "type": "command",
+          "name": "3) Compute scale",
+          "gcode": [
+           "{% set s = printer['gcode_macro _STATE'] %}",
+           "CALIBRATE_BELT MODE=COMPUTE X={s.belt_dev_x|default(0)|float} Y={s.belt_dev_y|default(0)|float} REF={s.belt_ref|default(100)|float}"
+          ],
+          "children": []
+         }
+        ]
+       },
+       {
+        "id": "__main __maint __belt __status",
+        "type": "command",
+        "name": "4) Status",
+        "gcode": [
+         "CALIBRATE_BELT MODE=STATUS"
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __maint __belt __reset",
+        "type": "command",
+        "name": "5) Reset",
+        "gcode": [
+         "CALIBRATE_BELT MODE=RESET"
+        ],
+        "children": []
+       }
+      ]
+     },
+     {
       "id": "__main __maint __vib",
       "type": "list",
       "name": "Vibration Cal.",
@@ -24989,12 +25299,31 @@
      },
      {
       "id": "__main __maint __cleannoz",
-      "type": "command",
-      "name": "> Clean Nozzle",
-      "gcode": [
-       "CLEAN_NOZZLE PASSES=2"
-      ],
-      "children": []
+      "type": "list",
+      "name": "Nozzle Clean",
+      "children": [
+       {
+        "id": "__main __maint __cleannoz __on",
+        "type": "command",
+        "name": "Start: {'ON' if printer['save_variables'].variables.nozzle_clean_on|default(True) else 'OFF'}",
+        "gcode": [
+         "{% set on = not printer['save_variables'].variables.nozzle_clean_on|default(True) %}",
+         "SAVE_VARIABLE VARIABLE=nozzle_clean_on VALUE={on}",
+         "M117 Nozzle clean at start: {'ON' if on else 'OFF'}",
+         "RESPOND MSG=\"Nozzle clean at print start: {'ON (runs after the purge)' if on else 'OFF (skipped for every print)'}\""
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __maint __cleannoz __run",
+        "type": "command",
+        "name": "Clean now",
+        "gcode": [
+         "CLEAN_NOZZLE PASSES=2"
+        ],
+        "children": []
+       }
+      ]
      },
      {
       "id": "__main __maint __fil",
@@ -25643,15 +25972,6 @@
       "children": []
      },
      {
-      "id": "__main __system __pp",
-      "type": "command",
-      "name": "PP engine: {('EXPERIMENTAL' if printer['save_variables'].variables.pp_engine|default('stable')|string|lower in ('next','experimental','new') else 'stable')}{(' (runs: ' ~ printer['save_variables'].variables.postproc_engine|default('?')|string ~ ')') if printer['save_variables'].variables.postproc_engine|default('')|string not in ('', '?') else ''}",
-      "gcode": [
-       "TOGGLE_PP_ENGINE"
-      ],
-      "children": []
-     },
-     {
       "id": "__main __system __diag",
       "type": "list",
       "name": "Diagnostics",
@@ -25895,6 +26215,40 @@
        "TOGGLE_SOUNDS"
       ],
       "children": []
+     },
+     {
+      "id": "__main __system __audiosrc",
+      "type": "list",
+      "name": "Audio source: {printer['save_variables'].variables.audio_source|default('beep')|string|lower}",
+      "children": [
+       {
+        "id": "__main __system __audiosrc __beep",
+        "type": "command",
+        "name": "Beep (MCU-Piezo)",
+        "gcode": [
+         "SET_AUDIO_SOURCE SOURCE=beep"
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __system __audiosrc __klinke",
+        "type": "command",
+        "name": "Klinke (Pi 3,5mm)",
+        "gcode": [
+         "SET_AUDIO_SOURCE SOURCE=klinke"
+        ],
+        "children": []
+       },
+       {
+        "id": "__main __system __audiosrc __hdmi",
+        "type": "command",
+        "name": "HDMI (Pi-Display)",
+        "gcode": [
+         "SET_AUDIO_SOURCE SOURCE=hdmi"
+        ],
+        "children": []
+       }
+      ]
      }
     ]
    },

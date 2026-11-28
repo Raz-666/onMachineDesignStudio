@@ -46,28 +46,47 @@ SKIP_LOGS = ('R2-DOCTOR-', '.gcode.txt')
 
 
 def bump_version(new_ver):
-    """Set all three version stamps to the new version (no drift)."""
+    """Set all version stamps to the new version (no drift).
+
+    Every stamp is a list of (regex, replacement) pairs, so a single file can
+    carry MORE than one version string. web/index.html carries TWO: the
+    visible <span id="ver"> and the JS window.R2WEB.ver - both must move
+    together or the page shows a stale build while the backend reports the
+    new one (ChatGPT audit 26.14: LCD/WebUI not in sync). The JS ver uses
+    R2-<date> so it shares the SAME format as the macro version stamp.
+    """
+    v = 'R2-%s' % new_ver
     stamps = {
-        'macros/01_state.cfg': ('variable_version', "variable_version: 'R2-%s'" % new_ver),
-        'web/index.html': ('id="ver"', '<span id="ver">R2-%s</span>' % new_ver),
-        'tools/r2_postproc.py': ("POSTPROC_RELEASE = ",
-                                 "POSTPROC_RELEASE = 'R2-%s'" % new_ver),
+        'macros/01_state.cfg': [
+            (r"variable_version:\s*'R2-[^']*'",
+             "variable_version: '%s'" % v),
+        ],
+        'web/index.html': [
+            (r'<span id="ver">R2-[^<]*</span>',
+             '<span id="ver">%s</span>' % v),
+            (r"ver:'R2[^']*'",
+             "ver:'%s'" % v),
+        ],
+        'tools/r2_postproc.py': [
+            (r"POSTPROC_RELEASE = 'R2-[^']*'",
+             "POSTPROC_RELEASE = '%s'" % v),
+        ],
     }
-    for rel, (_old_marker, new_line) in stamps.items():
+    for rel, pairs in stamps.items():
         p = os.path.join(REPO, rel)
         s = open(p, errors='replace').read()
-        if rel == 'tools/r2_postproc.py':
-            s2 = re.sub(r"POSTPROC_RELEASE = 'R2-[^']*'",
-                        "POSTPROC_RELEASE = 'R2-%s'" % new_ver, s, count=1)
-        else:
-            # replace the current value wherever it appears
-            s2 = re.sub(r"variable_version:\s*'R2-[^']*'",
-                        "variable_version: 'R2-%s'" % new_ver, s, count=1) if rel == 'macros/01_state.cfg' \
-                else re.sub(r'<span id="ver">R2-[^<]*</span>',
-                            '<span id="ver">R2-%s</span>' % new_ver, s, count=1)
-        assert s2 != s, 'version stamp unchanged in %s' % rel
+        s2 = s
+        changed = False
+        for rx, repl in pairs:
+            s2n = re.sub(rx, repl, s2, count=1)
+            if s2n != s2:
+                changed = True
+                s2 = s2n
+        if not changed:
+            raise SystemExit('version stamp unchanged in %s (no R2-... match)'
+                             % rel)
         open(p, 'w').write(s2)
-        print('[bump] %s -> R2-%s' % (rel, new_ver))
+        print('[bump] %s -> %s' % (rel, v))
 
 
 def build_zip(new_ver):

@@ -223,6 +223,43 @@ else
 fi
 echo "[ok] page installed -> ${WEB_ROOT}/index.html (served by nginx)"
 
+# 1c) R256 (.136z ChatGPT audit): keep the WEB MENU in sync with lcd_menues.cfg.
+# The web-LCD is a VIEW of menus/lcd_menues.cfg (single source of truth). The
+# export that builds web/menu_structure.json + the embedded EMBEDDED_MENU_JSON
+# is deterministic, read-only, stdlib-python-only and needs NO printer - so we
+# re-run it on every install/update. Without this, a locally edited lcd_menues.cfg
+# leaves menu_structure.json + the offline embedded menu STALE (the exact drift
+# the audit flagged: web menu behind LCD menu, offline fallback on an old stand).
+# A stale export is a silent wrong-menu bug: it never errors, it just shows the
+# OLD structure. Refreshing here heals it. The exporter is never fatal - if it
+# fails we warn and keep the shipped (still-valid) artifacts.
+if [ -f "${PKG_DIR}/tools/menu_json_export.py" ] \
+   && [ -f "${PKG_DIR}/menus/lcd_menues.cfg" ]; then
+    if command -v python3 >/dev/null 2>&1; then
+        echo "[..] refreshing web menu from lcd_menues.cfg (menu_json_export.py)..."
+        if python3 "${PKG_DIR}/tools/menu_json_export.py" \
+            --cfg "${PKG_DIR}/menus/lcd_menues.cfg" \
+            --out "${PKG_DIR}/web/menu_structure.json" \
+            --embed "${PKG_DIR}/web/index.html"; then
+            # the exporter re-embedded the JSON into the PACKAGE index.html -
+            # push that refreshed page to WEB_ROOT too (nginx serves this one).
+            if [ -w "$(dirname "${WEB_ROOT}" 2>/dev/null || echo /nonexistent)" ]; then
+                cp -f "${PKG_DIR}/web/index.html" "${WEB_ROOT}/index.html" \
+                    && chmod 644 "${WEB_ROOT}/index.html"
+            else
+                sudo cp -f "${PKG_DIR}/web/index.html" "${WEB_ROOT}/index.html" \
+                    && sudo chmod 644 "${WEB_ROOT}/index.html"
+            fi
+            echo "[ok] web menu refreshed + pushed to ${WEB_ROOT}/index.html"
+        else
+            echo "[!] menu export failed - web menu may be STALE (run:"
+            echo "      python3 ${PKG_DIR}/tools/menu_json_export.py --embed ${PKG_DIR}/web/index.html)"
+        fi
+    else
+        echo "[!] python3 not found - web menu NOT refreshed (shipped artifacts kept)"
+    fi
+fi
+
 # 2) moonraker.conf section (marked block, backup, idempotent)
 if grep -q '^\[r2_menu\]' "${MR_CONF}"; then
     echo "[ok] [r2_menu] section already present in ${MR_CONF}"
