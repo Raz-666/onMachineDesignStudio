@@ -17,3 +17,6 @@ tools/pp_engine_fail.json
 releases/
 uploads_ref/
 .venv/
+
+# release build artifacts
+klipper-e3-r2d2-UPDATE-*.zip
