@@ -582,13 +582,13 @@ r2_hw_write() {   # regenerates r2_hardware.cfg from R2_HW (keeping unknown keys
         if [ -f "${R2_KLIPPER_DIR:-${HOME}/klipper}/klippy/extras/gcode_shell_command.py" ]; then
             echo "# LCD edits (System > LED Setup) persist through this helper:"
             echo "[gcode_shell_command R2_PERSIST]"
-            echo "command: bash ${R2_PKG_DIR}/tools/r2_persist.sh"
+            echo "command: __import__('subprocess').check_call(['bash', '${R2_PKG_DIR}/tools/r2_persist.sh'])"
             echo "timeout: 10."
             echo "verbose: False"
             # R286 L1: host audio playback for the klinke/hdmi audio source
             echo "# R286 L1: real 8-bit audio playback on the Pi (klinke/hdmi source):"
             echo "[gcode_shell_command R2_AUDIO_PLAY]"
-            echo "command: bash ${R2_PKG_DIR}/tools/r2_audio_play.sh"
+            echo "command: __import__('subprocess').check_call(['bash', '${R2_PKG_DIR}/tools/r2_audio_play.sh'])"
             echo "timeout: 10."
             echo "verbose: False"
         else

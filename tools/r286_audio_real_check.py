@@ -102,6 +102,21 @@ fallback = 'gcode_shell_command R2_AUDIO_PLAY' in sounds_cfg
 check('8 Fallback ohne shell-command-extension', fallback,
       '(Responsive Fallback-Announce)')
 
+# ---- 9. Regression: alle generierten gcode_shell_command 'command:' Werte
+#      sind VALIDES PYTHON (Klipper-native kompiliert den command als Python
+#      bei Connect - ein shell-string wie 'bash /path' wirft genau den
+#      'Internal error during connect: invalid syntax' Fehler) ----
+bad_cmds = []
+for m in re.finditer(r'echo\s+"command:\s*(.*)"', setup_lib):
+    val = re.sub(r'\$\{[^}]+\}', 'PATH', m.group(1).strip())
+    try:
+        compile(val, '<gcode_shell_command>', 'exec')
+    except SyntaxError as e:
+        bad_cmds.append('%s -> %s' % (val[:60], e))
+check('9 alle generierten command:-Werte sind valides Python',
+      not bad_cmds,
+      '(%d command-Wert(e) geprueft)' % len(re.findall(r'echo\s+"command:', setup_lib)))
+
 # ---- summary ----
 print('\n'.join(results))
 print('\n==== %d passed, %d failed ====' % (PASS, FAIL))
